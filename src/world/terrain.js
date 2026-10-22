@@ -236,23 +236,28 @@ export function heightAt(x, z) {
   return shoreHeight(x, z, h, true);
 }
 
-// Path heights come from the carved land under each node, smoothed a little.
-campH = Math.max(2.4, baseHeight(CAMP.x, CAMP.z) - 0.4);
-{
-  const raw = PATH.map(([x, z]) => shoreHeight(x, z, baseHeight(x, z), false));
-  pathH = raw.map((h, i) => {
-    const a = raw[Math.max(0, i - 1)], b = raw[Math.min(raw.length - 1, i + 1)];
-    return Math.max(0.35, (a + h * 2 + b) / 4);
-  });
-}
-
 // The landing: a short pier out from the beach, due east of camp.
+campH = Math.max(2.4, baseHeight(CAMP.x, CAMP.z) - 0.4);
+const carvedHeight = (x, z) => shoreHeight(x, z, baseHeight(x, z), false);
 export const LANDING = (() => {
   const z = -5.5;
   let x = -70;
-  while (x > -100 && heightAt(x, z) < 0.05) x -= 0.25;
+  while (x > -100 && carvedHeight(x, z) < 0.05) x -= 0.25;
   return { x, z, deck: 0.95, len: 10 };
 })();
+
+// Path heights come from the carved land under each node, smoothed a little. The path
+// starts on the pier's land end, level with its deck, so you walk straight off it.
+PATH[0] = [LANDING.x - 2.2, LANDING.z];
+{
+  const raw = PATH.map(([x, z]) => carvedHeight(x, z));
+  raw[0] = LANDING.deck;
+  pathH = raw.map((h, i) => {
+    if (i === 0 || i === raw.length - 1) return Math.max(0.35, h);
+    const a = raw[i - 1], b = raw[i + 1];
+    return Math.max(0.35, (a + h * 2 + b) / 4);
+  });
+}
 
 // Walkable decks the boat bumps into: [x0, x1, z0, z1, deck height].
 export const PIERS = [

@@ -1,19 +1,21 @@
 import * as THREE from 'three';
-import { heightAt } from './world/terrain.js';
+import { heightAt, walkHeight } from './world/terrain.js';
 import { waveHeight } from './world/water.js';
 import { clamp, damp, dampAngle, smoothstep, rand, lerp } from './util.js';
 
-// Three ways to look at the bay:
+// Ways to look at the world:
 //  boat  – the familiar view from above and behind the boat
+//  foot  – over your shoulder while you walk the shore
 //  under – an underwater view orbiting a point beneath the boat
 //  bait  – an underwater view that follows your bait (or the fish on the line)
 // Each view remembers its own angle and zoom. Switching glides there; it never cuts.
 const LIMITS = {
   boat: { pitch: [0.12, 1.2], dist: [6, 40] },
+  foot: { pitch: [0.02, 1.25], dist: [2.8, 26] },
   under: { pitch: [-0.8, 0.85], dist: [3, 22] },
   bait: { pitch: [-0.8, 0.85], dist: [1.8, 10] },
 };
-export const VIEW_NAMES = { boat: 'Boat view', under: 'Underwater', bait: 'Watching your bait' };
+export const VIEW_NAMES = { boat: 'Boat view', foot: 'On foot', under: 'Underwater', bait: 'Watching your bait' };
 
 const _f = new THREE.Vector3();
 
@@ -23,6 +25,7 @@ export class CameraRig {
     this.mode = 'boat';
     this.views = {
       boat: { yaw: 0, pitch: 0.46, dist: 15 },
+      foot: { yaw: 0, pitch: 0.3, dist: 7.5 },
       under: { yaw: 0, pitch: 0.08, dist: 9 },
       bait: { yaw: 0, pitch: 0.15, dist: 4.5 },
     };
@@ -33,10 +36,12 @@ export class CameraRig {
     this.settleUntil = 0;
     this.changedAt = -99;
     this.shake = 0;
+    this.onFoot = false;
   }
 
   get yaw() { return this.views[this.mode].yaw; }
-  get underwaterView() { return this.mode !== 'boat'; }
+  get underwaterView() { return this.mode === 'under' || this.mode === 'bait'; }
+  get home() { return this.onFoot ? 'foot' : 'boat'; }
 
   init(boat) {
     this.views.boat.yaw = boat.heading + 0.7;
@@ -53,17 +58,27 @@ export class CameraRig {
     return true;
   }
 
+  // On foot there is no boat to look under, so the view goes straight to your bait.
   cycle(baitAvailable, t) {
-    const order = baitAvailable ? ['boat', 'under', 'bait'] : ['boat', 'under'];
+    const order = this.onFoot ? (baitAvailable ? ['foot', 'bait'] : ['foot']) : baitAvailable ? ['boat', 'under', 'bait'] : ['boat', 'under'];
     const i = order.indexOf(this.mode);
     this.setMode(order[(i + 1) % order.length], t);
   }
 
-  reset(boat, t) {
-    this.setMode('boat', t);
-    Object.assign(this.views.boat, { yaw: boat.heading, pitch: 0.46, dist: 15 });
+  reset(anchor, t) {
+    const home = this.home;
+    this.setMode(home, t);
+    Object.assign(this.views[home], home === 'boat' ? { yaw: anchor.heading, pitch: 0.46, dist: 15 } : { yaw: anchor.heading, pitch: 0.3, dist: 7.5 });
     this.lastManual = -99;
     this.changedAt = t;
+  }
+
+  // Stepping ashore or back into the boat: glide to the matching view, facing the same way.
+  setHome(onFoot, t) {
+    this.onFoot = onFoot;
+    const home = this.home;
+    if (this.mode !== home) this.setMode(home, t);
+    this.settleUntil = t + 1.2;
   }
 
   input(drag, wheel, t) {
@@ -76,10 +91,12 @@ export class CameraRig {
     if (wheel) v.dist = clamp(v.dist * Math.exp(wheel * 0.0012), lim.dist[0], lim.dist[1]);
   }
 
-  update(dt, t, { boat, started, fishing, baitFocus }) {
-    if (this.mode === 'bait' && !baitFocus) this.setMode('under', t); // the bait left the water; glide back beneath the boat
+  update(dt, t, { boat, walker, started, fishing, baitFocus }) {
+    // The bait left the water: glide back beneath the boat, or back over your shoulder.
+    if (this.mode === 'bait' && !baitFocus) this.setMode(this.onFoot ? 'foot' : 'under', t);
+    if (this.onFoot && this.mode === 'under') this.setMode('foot', t);
     const v = this.views[this.mode];
-    const under = this.mode !== 'boat';
+    const under = this.underwaterView;
 
     if (!started) v.yaw += dt * 0.045;
     else if (this.mode === 'boat') {
@@ -87,6 +104,13 @@ export class CameraRig {
       if (t < this.settleUntil) follow = 1.4;
       else if (t - this.lastManual > 3 && !fishing.busy) follow = 1.1 * smoothstep(0.6, 3.5, boat.forwardSpeed);
       if (follow > 0) v.yaw = dampAngle(v.yaw, boat.heading, follow, dt);
+    } else if (this.mode === 'foot') {
+      // Drift round behind you while you walk forwards (not while you strafe or turn back).
+      let follow = 0;
+      const ahead = Math.abs(((walker.heading - v.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 1.1;
+      if (t < this.settleUntil) follow = 1.2;
+      else if (t - this.lastManual > 2.5 && !fishing.busy && ahead) follow = 0.9 * smoothstep(0.8, 3.5, walker.speed);
+      if (follow > 0) v.yaw = dampAngle(v.yaw, walker.heading, follow, dt);
     }
 
     // Where the camera looks
@@ -95,6 +119,13 @@ export class CameraRig {
       if (fishing.lineOut) {
         _f.x = lerp(_f.x, fishing.bob.x, 0.35);
         _f.z = lerp(_f.z, fishing.bob.z, 0.35);
+      }
+    } else if (this.mode === 'foot') {
+      _f.set(walker.pos.x, walker.pos.y + 1.45, walker.pos.z);
+      if (fishing.lineOut) {
+        _f.x = lerp(_f.x, fishing.bob.x, 0.3);
+        _f.z = lerp(_f.z, fishing.bob.z, 0.3);
+        _f.y = Math.max(_f.y - 0.4, walkHeight(_f.x, _f.z) + 0.8);
       }
     } else if (this.mode === 'under') {
       const depth = Math.max(0, -heightAt(boat.pos.x, boat.pos.z));
@@ -109,7 +140,7 @@ export class CameraRig {
 
     // Where the camera sits: on a sphere around the focus
     const pitch = started ? v.pitch : 0.26;
-    const dist = started ? v.dist + (this.mode === 'boat' && fishing.lineOut ? 3 : 0) : 26;
+    const dist = started ? v.dist + (this.mode === 'boat' && fishing.lineOut ? 3 : this.mode === 'foot' && fishing.lineOut ? 2 : 0) : 26;
     const hd = dist * Math.cos(pitch);
     let cx = this.focus.x - Math.sin(v.yaw) * hd;
     let cy = this.focus.y + dist * Math.sin(pitch);
@@ -153,7 +184,7 @@ export class CameraRig {
     this.look.copy(this.focus);
     // Above water, aim a little above the boat so the horizon stays in frame
     // (less on portrait and short screens, so the boat stays clear of the controls).
-    if (!under) this.look.y += (1.6 + v.dist * 0.06) * clamp(cam.aspect, 0.3, 1) * clamp(innerHeight / 640, 0.55, 1);
+    if (!under) this.look.y += (this.mode === 'foot' ? 0.4 + v.dist * 0.05 : 1.6 + v.dist * 0.06) * clamp(cam.aspect, 0.3, 1) * clamp(innerHeight / 640, 0.55, 1);
     cam.lookAt(this.look);
   }
 }

@@ -31,6 +31,12 @@ export class HUD {
       baitStatus: $('bait-status'),
       baitMark: $('bait-mark'),
       chip: $('view-chip'),
+      gear: $('gear'),
+      gearRod: $('gear-rod'),
+      gearItem: $('gear-item'),
+      food: $('clock-food'),
+      sleep: $('sleep-veil'),
+      sleepText: $('sleep-text'),
     };
     this.chipTimer = 0;
     this.cache = {};
@@ -132,6 +138,41 @@ export class HUD {
     this.setHTML('act', this.el.actLabel, label);
     this.el.act.classList.toggle('urgent', urgent);
     this.el.act.classList.toggle('quiet', !label);
+  }
+
+  // The rod in hand and what's tied on.
+  gear(rod, item) {
+    this.setHTML('gearRod', this.el.gearRod, rod.short);
+    this.setHTML('gearItem', this.el.gearItem, item ? item.short : 'nothing tied on');
+    const b = this.el.gear;
+    b.classList.remove('flash');
+    void b.offsetWidth;
+    b.classList.add('flash');
+  }
+
+  food(text, cls) {
+    if (this.cache.food === text + cls) return;
+    this.cache.food = text + cls;
+    this.el.food.textContent = text;
+    this.el.food.hidden = !text;
+    this.el.food.className = `soft ${cls || ''}`;
+  }
+
+  // A label that follows a point in the world, or sits on the screen edge pointing at it.
+  marker(el, sx, sy, onScreen, angle, dist, near) {
+    if (!el._label) el._label = el.querySelector('b');
+    el.hidden = false;
+    el.style.transform = `translate(${sx.toFixed(0)}px, ${sy.toFixed(0)}px) translate(-50%, -50%)`;
+    el.classList.toggle('near', near);
+    const arrow = el.firstElementChild;
+    arrow.style.transform = onScreen ? 'rotate(180deg)' : `rotate(${angle.toFixed(2)}rad)`;
+    const d = String(Math.round(dist));
+    if (el._label.textContent !== d) el._label.textContent = d;
+  }
+
+  sleep(on, text) {
+    if (text) this.el.sleepText.textContent = text;
+    this.el.sleep.classList.toggle('show', on);
   }
 
   rest(on) {

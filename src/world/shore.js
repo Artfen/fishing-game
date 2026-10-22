@@ -744,7 +744,6 @@ export function buildShore(scene, rnd) {
   // Reeds: thick along the lake margins (with cattails), thinner by the stream.
   const reeds = [], cattails = [], ferns = [], grass = [], pads = [], flowers = [];
   const P = SHORE_PATCH;
-  const sInfo = {};
   for (let i = 0; i < 80000 && (reeds.length < 420 || grass.length < 2400 || ferns.length < 260); i++) {
     const x = P.x0 + rnd() * (P.x1 - P.x0), z = P.z0 + rnd() * (P.z1 - P.z0);
     const h = heightAt(x, z);

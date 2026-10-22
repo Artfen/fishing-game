@@ -621,11 +621,12 @@ class ObstacleGrid {
 
   key(i, j) { return i * 73856093 ^ j * 19349663; }
 
-  add(x, z, r) {
+  // top: how high it stands; you can walk over it on a deck above it.
+  add(x, z, r, top = Infinity) {
     const c = this.cell, m = r + 0.6; // margin for the walker's own radius
     const i0 = Math.floor((x - m) / c), i1 = Math.floor((x + m) / c);
     const j0 = Math.floor((z - m) / c), j1 = Math.floor((z + m) / c);
-    const o = { x, z, r };
+    const o = { x, z, r, top };
     for (let i = i0; i <= i1; i++) {
       for (let j = j0; j <= j1; j++) {
         const k = this.key(i, j);
@@ -636,12 +637,13 @@ class ObstacleGrid {
     }
   }
 
-  // Push a circle of radius r at (p.x, p.z) out of anything it overlaps.
-  resolve(p, r) {
+  // Push a circle of radius r at (p.x, p.z), with feet at height y, out of anything it overlaps.
+  resolve(p, r, y = -Infinity) {
     const list = this.cells.get(this.key(Math.floor(p.x / this.cell), Math.floor(p.z / this.cell)));
     if (!list) return false;
     let hit = false;
     for (const o of list) {
+      if (y > o.top) continue;
       const dx = p.x - o.x, dz = p.z - o.z, min = o.r + r;
       const d2 = dx * dx + dz * dz;
       if (d2 >= min * min) continue;
@@ -690,7 +692,7 @@ export function buildWorld(scene, renderer, habitat) {
 
   const rockGeo = mergeParts([{ geo: jitterGeo(new THREE.DodecahedronGeometry(1, 0), 0.4, rnd), color: '#a39888', jitter: 0.07 }], rnd);
   const rocks = scatterRocks(rnd);
-  for (const r of rocks) if (r.s > 0.9 && r.y > -0.6) obstacles.add(r.x, r.z, r.s * 0.75);
+  for (const r of rocks) if (r.s > 0.9 && r.y > -0.6) obstacles.add(r.x, r.z, r.s * 0.75, r.y + r.s * 0.4);
   scene.add(instanced(rockGeo, rocks, withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true })), rnd, { tint: 0.08, tilt: 1.2, squash: 0.5 }));
 
   scene.add(buildStacks(rnd));

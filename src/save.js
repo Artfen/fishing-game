@@ -8,6 +8,14 @@ export const DEFAULT_STATE = {
   items: {},  // lantern: true
   tips: {},   // which gentle hints have already been shown
   boat: null, // { x, z, heading }
+  mode: 'boat',  // 'boat' or 'foot'
+  walker: null,  // { x, z, heading } while on foot
+  gear: null,    // rods and tackle in the backpack, and what's tied on (see tackle.js)
+  keep: [],      // fish in the creel: { id, size }
+  food: null,    // { full, wellFedUntil }
+  camp: null,    // { fireUntil, cooking, ready }
+  caughtOn: {},  // species id -> { tackle id: count }
+  finder: null,  // { x, y } as fractions of the screen, and { size }
   music: true,
   quality: 'auto', // 'auto' | 'high' | 'medium' | 'low'
   sonar: false,    // fish finder shown
