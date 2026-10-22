@@ -123,7 +123,8 @@ function baseHeight(x, z) {
 
 // Signed distance to the lake shore (negative on the water), with a slightly wobbly edge.
 export function lakeSDF(x, z) {
-  const d = sdEllipse(x, z, LAKE.x, LAKE.z, LAKE.rx, LAKE.rz);
+  // Scaled-circle distance: close enough near the shore, and well behaved at the middle.
+  const d = (Math.hypot((x - LAKE.x) / LAKE.rx, (z - LAKE.z) / LAKE.rz) - 1) * LAKE.rz;
   if (d > 30) return d;
   return d + fbm(x * 0.07 + 21, z * 0.07 - 8, 2) * 2.6;
 }
@@ -277,7 +278,7 @@ export function lakeShore(angle, inset = 0) {
 // Little wooden platforms on the lake shore: one by the lily pads near camp,
 // one on the shallow south-west shelf where the carp feed.
 export const PEGS = [
-  { name: 'Lily Peg', ...lakeShore(-0.35, 1.0) },
+  { name: 'Lily Peg', ...lakeShore(1.3, 1.0) },
   { name: 'Willow Swim', ...lakeShore(Math.PI * 0.72, 1.2) },
 ];
 const STREAM_AT = (i, k) => {

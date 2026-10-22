@@ -45,7 +45,7 @@ export class Ecosystem {
     // fished (float, lure, ledger, fly) and `item` what is on the hook (tackle.js).
     this.bait = {
       active: false, kind: 'float', item: 'worm', size: 1, fly: null, thick: 0.35,
-      x: 0, y: 0, z: 0, speed: 0, motion: 'still', twitch: 0, pause: false, drag: false, fouled: false,
+      x: 0, y: 0, z: 0, vx: 0, vz: 0, speed: 0, motion: 'still', twitch: 0, pause: false, drag: false, fouled: false,
       fresh: 0, nearBottom: false, anglerX: 0, anglerZ: 0, owner: null, held: false,
     };
     this.listener = {};
@@ -516,7 +516,7 @@ export class Ecosystem {
     }
     let want = Math.atan2(dx, dz);
     // Stream fish hold station facing into the current.
-    if (a.L.stream && dh < 1.2 && !a.faceBait && a.state !== 'flee') {
+    if (a.L.stream && dh < 1.2 && !a.faceBait && a.state !== 'flee' && !BAIT_STATES.has(a.state)) {
       this.habitat.flow(a.x, a.z, _f);
       if (Math.abs(_f.x) + Math.abs(_f.z) > 0.08) want = Math.atan2(-_f.x, -_f.z);
     }
@@ -526,8 +526,9 @@ export class Ecosystem {
     a.turnRate = turn / h;
     a.pitch = damp(a.pitch, clamp(Math.atan2(dy, Math.max(dh, 0.6)), -0.5, 0.5), 3, h);
     let speed = a.wantSpeed;
-    // Settle gently onto resting and investigating spots instead of overshooting.
-    if (a.state !== 'cruise' && a.state !== 'flee' && a.state !== 'school' && dh < 1.5) speed *= Math.max(dh / 1.5, 0.3);
+    // Settle gently onto resting and investigating spots instead of overshooting
+    // (but keep pace with a bait that is moving, like a fly drifting downstream).
+    if (a.state !== 'cruise' && a.state !== 'flee' && a.state !== 'school' && dh < 1.5) speed *= Math.max(dh / 1.5, BAIT_STATES.has(a.state) ? 0.75 : 0.3);
     a.speed = damp(a.speed, speed, 1.6, h);
   }
 
@@ -561,7 +562,9 @@ export class Ecosystem {
     let f = sp.food?.[b.item] ?? 0;
     if (f <= 0 || b.fouled) return 0;
     if (L.bottom && !b.nearBottom) return 0;
-    if (b.size > (sp.mouth ?? 2)) f *= 0.1;
+    // A big lure is too much for a small fish; the bigger ones of a kind can manage more.
+    const k = (a.size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]);
+    if (b.size > (sp.mouth ?? 2) * (0.7 + 0.5 * k)) f *= 0.05;
     if (b.fly === 'dry') {
       f *= 0.25 + (this.ctx.hatch ?? 0.5);
       if (b.drag) f *= 0.07;
@@ -655,7 +658,7 @@ export class Ecosystem {
     a.tx = b.x - (dx / l) * 1.4 - (dz / l) * a.slotSide * 0.7;
     a.ty = b.y - 0.2;
     a.tz = b.z - (dz / l) * 1.4 + (dx / l) * a.slotSide * 0.7;
-    a.wantSpeed = clamp(b.speed * 1.1 + 0.3, 0.2, a.L.speed * 2);
+    a.wantSpeed = clamp(Math.hypot(b.vx, b.vz) * 1.1 + 0.3, 0.2, a.L.speed * 2);
     if (Math.hypot(b.x - b.anglerX, b.z - b.anglerZ) < 3.5) this.startState(a, 'cruise');
   }
 
@@ -665,13 +668,16 @@ export class Ecosystem {
     const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
     const d = Math.hypot(dx, dy, dz);
     const hl = Math.hypot(dx, dz) || 1;
+    // How fast the bait is travelling over the ground: a fish has to keep up with it.
+    const bv = Math.hypot(b.vx, b.vz);
     switch (a.state) {
       case 'approach':
         a.faceBait = false;
-        a.tx = b.x + (dx / hl) * 0.7;
+        // Head for where it's going to be, not where it is.
+        a.tx = b.x + (dx / hl) * 0.7 + b.vx * 0.8;
         a.ty = b.y;
-        a.tz = b.z + (dz / hl) * 0.7;
-        a.wantSpeed = clamp(d * 0.5, 0.25, L.speed * 1.1);
+        a.tz = b.z + (dz / hl) * 0.7 + b.vz * 0.8;
+        a.wantSpeed = clamp(d * 0.5 + bv, 0.25, L.speed * 1.1 + bv);
         if (d < 1.0) {
           a.state = 'investigate';
           a.dur = rand(1.6, 3.4) * L.caution * (a.style === 'take' ? 0.4 : 1);
@@ -685,7 +691,7 @@ export class Ecosystem {
         a.tx = b.x + (dx / hl) * 0.6 - (dz / hl) * side;
         a.ty = b.y + Math.sin(this.time * 0.9 + a.id) * 0.08;
         a.tz = b.z + (dz / hl) * 0.6 + (dx / hl) * side;
-        a.wantSpeed = 0.12 + b.speed * 0.9;
+        a.wantSpeed = 0.12 + bv;
         a.nibbleT -= h;
         if (b.speed > 1.0 && L.likes.slow < 1) this.disengage(a, 'startled', 6);
         else if (this.appeal(a, b) <= 0) this.disengage(a, 'lost', 6);
@@ -706,7 +712,7 @@ export class Ecosystem {
         a.tx = b.x;
         a.ty = b.y;
         a.tz = b.z;
-        a.wantSpeed = 0.5 + b.speed;
+        a.wantSpeed = 0.5 + bv;
         if (!a.nibbled && (d < 0.4 || a.t > 0.3)) {
           a.nibbled = true;
           a.nibbles++;
@@ -725,7 +731,7 @@ export class Ecosystem {
         a.tx = b.x - (tx / tl) * 0.7;
         a.ty = b.y;
         a.tz = b.z - (tz / tl) * 0.7;
-        a.wantSpeed = clamp(b.speed * 1.1 + d * 0.8, 0.2, L.speed * 2.3);
+        a.wantSpeed = clamp(bv * 1.1 + d * 0.8, 0.2, L.speed * 2.3);
         if (tl < 3.2) return this.disengage(a, 'turned', 10);
         if (a.followT > 11 || d > L.perception * 1.4) return this.disengage(a, 'lost', 6);
         if (this.appeal(a, b) <= 0) return this.disengage(a, 'lost', 6);
@@ -758,10 +764,10 @@ export class Ecosystem {
         // Drifts up under the fly, looking.
         a.faceBait = true;
         a.invT += h;
-        a.tx = b.x;
+        a.tx = b.x + b.vx * 0.3;
         a.ty = Math.min(b.y - 0.35, -0.3);
-        a.tz = b.z;
-        a.wantSpeed = clamp(b.speed + d * 0.9, 0.15, L.speed * 1.6);
+        a.tz = b.z + b.vz * 0.3;
+        a.wantSpeed = clamp(bv + d * 0.9, 0.15, L.speed * 1.6 + bv);
         if (d > L.perception * 1.5) return this.disengage(a, 'lost', 6);
         if (a.invT > a.dur) {
           const yes = clamp(L.bite * this.appeal(a, b), 0, 0.95);
@@ -776,7 +782,7 @@ export class Ecosystem {
         a.tx = b.x;
         a.ty = b.y;
         a.tz = b.z;
-        a.wantSpeed = L.speed;
+        a.wantSpeed = L.speed + bv;
         if (d < 0.35 || a.t > 0.8) {
           this.clue('rise', a);
           this.startBite(a, 'sip');

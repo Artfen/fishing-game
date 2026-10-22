@@ -67,6 +67,8 @@ export class Fishing {
     this.bob = new THREE.Vector3();
     this.hook = new THREE.Vector3();
     this.prevHook = new THREE.Vector3();
+    this.lastSync = new THREE.Vector3();
+    this.frameDt = 1 / 60;
     this.from = new THREE.Vector3();
     this.to = new THREE.Vector3();
     this.fishPos = new THREE.Vector3();
@@ -267,7 +269,8 @@ export class Fishing {
     const [mn, mx] = castRange(this.rod, this.item);
     const dx = Math.sin(this.aimYaw), dz = Math.cos(this.aimYaw);
     const bx = a.pos.x + dx * 0.8, bz = a.pos.z + dz * 0.8;
-    const minDepth = this.kind === 'fly' ? 0.25 : 0.35;
+    // Land it in water a fish could actually reach: very shallow margins don't count.
+    const minDepth = this.kind === 'fly' ? 0.3 : 0.6;
     for (let d = mn + power * (mx - mn); d > 2.5; d -= 0.4) {
       const x = bx + dx * d, z = bz + dz * d;
       if (solidHeight(x, z) < -minDepth) {
@@ -312,6 +315,7 @@ export class Fishing {
     this.bob.set(this.to.x, waveHeight(this.to.x, this.to.z, t), this.to.z);
     this.hook.copy(this.bob);
     this.prevHook.copy(this.hook);
+    this.lastSync.copy(this.hook);
     this.baitDepth = 0;
     this.reelSpeed = 0;
     this.relSpeed = 0;
@@ -398,6 +402,10 @@ export class Fishing {
 
   syncBait() {
     const b = this.eco.bait;
+    // Its velocity over the ground (a drifting fly moves even when it's "still" in the water).
+    b.vx = clamp((this.hook.x - this.lastSync.x) / this.frameDt, -4, 4);
+    b.vz = clamp((this.hook.z - this.lastSync.z) / this.frameDt, -4, 4);
+    this.lastSync.copy(this.hook);
     b.x = this.hook.x;
     b.y = this.hook.y;
     b.z = this.hook.z;
@@ -614,6 +622,7 @@ export class Fishing {
 
   update(dt, t, camYaw, held) {
     this.t += dt;
+    this.frameDt = Math.max(dt, 1e-3);
     this.statusT += dt;
     this.held = held;
     const A = this.angler, pose = A.pose;

@@ -214,7 +214,7 @@ function showCatch(sp, size, agent, rigUsed) {
   $('cc-name').textContent = sp.name;
   $('cc-size').textContent = `${size} cm${record ? ' · your biggest yet' : ''}`;
   $('cc-note').textContent = isNew ? sp.note : agent.caught > 0 ? 'This one has met your hook before.' : pick(REPEAT_LINES);
-  $('cc-rig').textContent = rigUsed?.item ? `On a ${rigUsed.item.name.toLowerCase()}, ${rigUsed.rod.short.toLowerCase()}` : '';
+  $('cc-rig').textContent = rigUsed?.item ? `Caught on ${rigUsed.item.on}, with the ${rigUsed.rod.short.toLowerCase()}` : '';
   const keepBtn = $('cc-keep');
   keepBtn.hidden = !sp.meal;
   keepBtn.disabled = state.keep.length >= PACK.fish;
@@ -908,8 +908,12 @@ function placeMarker(el, x, y, z, show) {
     sx = clamp(sx, m, W - m);
     sy = clamp(sy, m + 50, H - m - 40);
   }
+  // Two markers pinned to the same spot on the edge: nudge the second one along.
+  if (placed.length && placed.some((p) => Math.abs(p[0] - sx) < 110 && Math.abs(p[1] - sy) < 26)) sy += sy > H / 2 ? -30 : 30;
+  placed.push([sx, sy]);
   hud.marker(el, sx, sy, onScreen, angle, dist, dist < 12);
 }
+const placed = [];
 
 function updateHud() {
   const h = state.hour;
@@ -951,6 +955,7 @@ function updateHud() {
 
   // Where the boat is while you're ashore; where camp is until you've found it.
   const cp = world.camp.firePos;
+  placed.length = 0;
   placeMarker($('boat-marker'), boat.pos.x, boat.heave + 1.6, boat.pos.z, started && onFoot && !modal && !nearBoat());
   const campD = Math.hypot(player().pos.x - cp.x, player().pos.z - cp.z);
   placeMarker($('camp-marker'), cp.x, cp.y + 2.4, cp.z, started && !modal && campD > 14 && (onFoot ? campD < 400 : !state.places.camp && !!state.tips.caught));
@@ -979,7 +984,7 @@ function begin() {
   if (!returning) state.places.bay = { day: state.day, hour: state.hour };
   const zone = zoneAt(player().pos.x, player().pos.z);
   const names = { lake: 'Reedmere', stream: 'Fernbeck', cove: 'Driftwood Cove' };
-  setTimeout(() => hud.place(onFoot ? (names[zone] || 'The west shore') : 'Willow Bay', returning ? 'welcome back' : 'home waters'), 900);
+  setTimeout(() => hud.place(onFoot ? (names[zone] || 'The west shore') : 'Willow Bay', returning ? 'welcome back' : onFoot ? 'by the camp' : 'home waters'), 900);
   rig.settleUntil = t + 2.5;
   if (state.sonar) toggleFinder(true);
   save();

@@ -123,9 +123,10 @@ export class CameraRig {
     } else if (this.mode === 'foot') {
       _f.set(walker.pos.x, walker.pos.y + 1.45, walker.pos.z);
       if (fishing.lineOut) {
-        _f.x = lerp(_f.x, fishing.bob.x, 0.3);
-        _f.z = lerp(_f.z, fishing.bob.z, 0.3);
-        _f.y = Math.max(_f.y - 0.4, walkHeight(_f.x, _f.z) + 0.8);
+        // Keep yourself in view and the line running out ahead.
+        _f.x = lerp(_f.x, fishing.bob.x, 0.18);
+        _f.z = lerp(_f.z, fishing.bob.z, 0.18);
+        _f.y = Math.max(_f.y - 0.3, walkHeight(_f.x, _f.z) + 0.9);
       }
     } else if (this.mode === 'under') {
       const depth = Math.max(0, -heightAt(boat.pos.x, boat.pos.z));
@@ -139,8 +140,9 @@ export class CameraRig {
     this.focus.z += (_f.z - this.focus.z) * fr;
 
     // Where the camera sits: on a sphere around the focus
-    const pitch = started ? v.pitch : 0.26;
-    const dist = started ? v.dist + (this.mode === 'boat' && fishing.lineOut ? 3 : this.mode === 'foot' && fishing.lineOut ? 2 : 0) : 26;
+    const fishingFoot = this.mode === 'foot' && fishing.lineOut;
+    const pitch = started ? (fishingFoot ? Math.max(v.pitch, 0.42) : v.pitch) : 0.26;
+    const dist = started ? v.dist + (this.mode === 'boat' && fishing.lineOut ? 3 : fishingFoot ? 3.5 : 0) : 26;
     const hd = dist * Math.cos(pitch);
     let cx = this.focus.x - Math.sin(v.yaw) * hd;
     let cy = this.focus.y + dist * Math.sin(pitch);

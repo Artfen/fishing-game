@@ -41,55 +41,55 @@ export const RODS = {
 
 export const TACKLE = {
   worm: {
-    id: 'worm', type: 'bait', name: 'Garden worms', short: 'Worm', size: 1, weight: 3,
+    id: 'worm', on: 'a worm', type: 'bait', name: 'Garden worms', short: 'Worm', size: 1, weight: 3,
     desc: 'Almost anything with fins will try a worm.',
   },
   prawn: {
-    id: 'prawn', type: 'bait', name: 'Bay prawns', short: 'Prawn', size: 2, weight: 4,
+    id: 'prawn', on: 'a prawn', type: 'bait', name: 'Bay prawns', short: 'Prawn', size: 2, weight: 4,
     desc: 'Salty and strong-smelling. The bigger sea fish love them.',
   },
   corn: {
-    id: 'corn', type: 'bait', name: 'Sweetcorn', short: 'Sweetcorn', size: 1, weight: 2,
+    id: 'corn', on: 'sweetcorn', type: 'bait', name: 'Sweetcorn', short: 'Sweetcorn', size: 1, weight: 2,
     desc: 'Small, bright and sweet. Carp and rudd find it hard to resist.',
   },
   bread: {
-    id: 'bread', type: 'bait', name: 'Bread flake', short: 'Bread', size: 1, weight: 1,
+    id: 'bread', on: 'bread flake', type: 'bait', name: 'Bread flake', short: 'Bread', size: 1, weight: 1,
     desc: 'Soft and light. Rudd and little silver fish take it near the top.',
   },
   boilie: {
-    id: 'boilie', type: 'bait', name: 'Boilies', short: 'Boilie', size: 2, weight: 4,
+    id: 'boilie', on: 'a boilie', type: 'bait', name: 'Boilies', short: 'Boilie', size: 2, weight: 4,
     desc: 'Hard, round carp baits. Small fish can’t manage them, so they wait for something big.',
   },
   spinner: {
-    id: 'spinner', type: 'lure', name: 'Silver spinner', short: 'Spinner', size: 1, weight: 6,
+    id: 'spinner', on: 'a silver spinner', type: 'lure', name: 'Silver spinner', short: 'Spinner', size: 1, weight: 6,
     action: 'flash', sink: 0.45, lift: 0.9,
     desc: 'A spinning blade that flashes. It sinks while you wait and rises as you reel. Perch, trout and sunperch chase it.',
   },
   crankS: {
-    id: 'crankS', type: 'lure', name: 'Shallow crankbait', short: 'Shallow crank', size: 2, weight: 9,
+    id: 'crankS', on: 'a shallow crankbait', type: 'lure', name: 'Shallow crankbait', short: 'Shallow crank', size: 2, weight: 9,
     action: 'wobble', dive: 1.2, floats: true,
     desc: 'Floats at rest and wobbles down to about a metre when reeled. Run it over weed beds.',
   },
   crankD: {
-    id: 'crankD', type: 'lure', name: 'Deep crankbait', short: 'Deep crank', size: 2, weight: 16,
+    id: 'crankD', on: 'a deep crankbait', type: 'lure', name: 'Deep crankbait', short: 'Deep crank', size: 2, weight: 16,
     action: 'wobble', dive: 3.2, floats: true,
     desc: 'Its long lip digs down to about three metres. Reaches fish holding deep, and bumps the bottom in the shallows.',
   },
   jerk: {
-    id: 'jerk', type: 'lure', name: 'Jerkbait', short: 'Jerkbait', size: 3, weight: 14,
+    id: 'jerk', on: 'a jerkbait', type: 'lure', name: 'Jerkbait', short: 'Jerkbait', size: 3, weight: 14,
     action: 'dart', suspend: 1.0,
     desc: 'A slim lure that hangs still between twitches. Twitch, pause, twitch: pike hit it on the pause.',
   },
   dry: {
-    id: 'dry', type: 'fly', name: 'Dry fly (mayfly)', short: 'Dry fly', size: 1, fly: 'dry',
+    id: 'dry', on: 'a dry fly', type: 'fly', name: 'Dry fly (mayfly)', short: 'Dry fly', size: 1, fly: 'dry',
     desc: 'Floats on the surface like a hatching insect. Deadly when flies are hatching.',
   },
   nymph: {
-    id: 'nymph', type: 'fly', name: 'Nymph (pheasant tail)', short: 'Nymph', size: 1, fly: 'nymph', sink: 0.55,
+    id: 'nymph', on: 'a nymph', type: 'fly', name: 'Nymph (pheasant tail)', short: 'Nymph', size: 1, fly: 'nymph', sink: 0.55,
     desc: 'Drifts just under the surface beneath a little orange indicator. Trout and grayling take it all day.',
   },
   streamer: {
-    id: 'streamer', type: 'fly', name: 'Streamer (woolly bugger)', short: 'Streamer', size: 2, fly: 'streamer', sink: 0.9,
+    id: 'streamer', on: 'a streamer', type: 'fly', name: 'Streamer (woolly bugger)', short: 'Streamer', size: 2, fly: 'streamer', sink: 0.9,
     desc: 'A wiggly black fly you strip back in pulls, like a little fish. Big trout and perch chase it.',
   },
 };

@@ -107,6 +107,7 @@ export class FishFinder {
 
   // After a resize (or on first showing), put a moved panel back where it was, still on screen.
   fit() {
+    this.applySize();
     const f = this.state.finder;
     if (f.x == null || !this.visible) return;
     this.float(f.x * innerWidth, f.y * innerHeight);
@@ -115,11 +116,13 @@ export class FishFinder {
   cycleSize() {
     this.state.finder.size = (this.state.finder.size + 1) % SIZES.length;
     this.applySize();
-    requestAnimationFrame(() => this.fit());
+    this.fit();
   }
 
+  // Your chosen size, but never so big it swamps a small screen.
   applySize() {
-    const s = this.state.finder.size;
+    const roomy = innerWidth >= 1100 && innerHeight >= 600 ? 2 : innerWidth >= 700 && innerHeight >= 460 ? 1 : 0;
+    const s = Math.min(this.state.finder.size, roomy);
     this.el.classList.remove('size-0', 'size-1', 'size-2');
     this.el.classList.add(`size-${s}`);
   }
