@@ -1,0 +1,16 @@
+{
+  "name": "Slow Tide",
+  "short_name": "Slow Tide",
+  "description": "A peaceful little fishing game. Row a wooden boat around a quiet bay, find a hidden cove, and fill a handwritten journal.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#0f1b2b",
+  "theme_color": "#0f1b2b",
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

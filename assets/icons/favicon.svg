@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4f5498"/>
+      <stop offset="0.6" stop-color="#f29572"/>
+      <stop offset="1" stop-color="#f6c48e"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a9fae"/>
+      <stop offset="1" stop-color="#1b4f78"/>
+    </linearGradient>
+    <clipPath id="tile"><rect width="64" height="64" rx="14"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect width="64" height="41" fill="url(#sky)"/>
+    <circle cx="45" cy="35" r="9" fill="#ffe1a6"/>
+    <rect y="40" width="64" height="24" fill="url(#sea)"/>
+    <path d="M36 44h18M40 48h12M43 52h7" stroke="#ffe1a6" stroke-opacity="0.55" stroke-width="1.6" stroke-linecap="round"/>
+    <path d="M24 37 L9 49" stroke="#c9a16b" stroke-width="1.8" stroke-linecap="round"/>
+    <rect x="26.6" y="30" width="6.8" height="9" rx="3" fill="#e8b440"/>
+    <circle cx="30" cy="27.6" r="2.9" fill="#f1c7a1"/>
+    <path d="M25.4 26.2h9.2l-1.3-2.2h-6.6z" fill="#35676b"/>
+    <path d="M13 38h37l-4.6 7.4c-8.6 2.6-19 2.6-27.6 0z" fill="#3f7f86"/>
+    <path d="M13 38h37l-1.1 1.8H14.1z" fill="#f1e6cc"/>
+  </g>
+</svg>

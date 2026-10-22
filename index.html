@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Slow Tide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A peaceful little fishing game. Row a wooden boat around a quiet bay, find a hidden cove, and fill a handwritten journal as the day turns to evening.">
+<meta name="theme-color" content="#0f1b2b">
+<meta name="color-scheme" content="dark">
+
+<link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Slow Tide">
+
+<!-- Link previews. These need full addresses; update them if the game moves to another site. -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://artfen.github.io/fishing-game/">
+<meta property="og:title" content="Slow Tide">
+<meta property="og:description" content="Row a little wooden boat around a quiet bay, find a hidden cove, and fish as the sun goes down.">
+<meta property="og:image" content="https://artfen.github.io/fishing-game/assets/social-preview.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A small wooden rowing boat on a calm bay at golden hour">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preload" href="assets/fonts/caveat-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="modulepreload" href="vendor/three/three.module.min.js">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="scene" tabindex="0" aria-label="Slow Tide: a little boat on a quiet bay"></canvas>
+<div id="vignette" aria-hidden="true"></div>
+<div id="rest-veil" aria-hidden="true"><span>time drifts by…</span></div>
+
+<div id="hud">
+  <div id="clock" class="pill">
+    <span id="clock-dot" aria-hidden="true"></span>
+    <span id="clock-time">2:30 pm</span>
+    <span id="clock-phase" class="soft">Afternoon</span>
+    <span id="clock-weather" class="soft" hidden></span>
+  </div>
+  <div id="place" aria-live="polite">
+    <div id="place-name"></div>
+    <div class="rule" aria-hidden="true"></div>
+    <div id="place-sub"></div>
+  </div>
+  <div id="toast" aria-live="polite"></div>
+  <div id="bite-mark" aria-hidden="true">!</div>
+  <div id="meter" hidden>
+    <svg viewBox="0 0 120 120" aria-hidden="true">
+      <circle class="m-track" cx="60" cy="60" r="50"></circle>
+      <circle id="m-outer" class="m-outer" cx="60" cy="60" r="50"></circle>
+      <circle class="m-track thin" cx="60" cy="60" r="40"></circle>
+      <circle id="m-inner" class="m-inner" cx="60" cy="60" r="40"></circle>
+    </svg>
+    <div id="meter-label"></div>
+  </div>
+  <button id="prompt" class="pill" type="button" hidden></button>
+  <div id="hint" class="pill" aria-live="polite"></div>
+  <button id="journal-btn" class="pill" type="button" aria-label="Open journal">
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v15H5.5C4.7 19 4 18.3 4 17.5zM13 4h5.5c.8 0 1.5.7 1.5 1.5v12c0 .8-.7 1.5-1.5 1.5H13z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+    <span>Journal</span><kbd class="desk-only">J</kbd>
+  </button>
+
+  <div id="touch">
+    <div id="stick-zone" aria-label="Drag to row">
+      <div id="stick-base"><div id="stick-knob"></div></div>
+    </div>
+    <button id="act-btn" type="button" aria-label="Fishing: cast, hook, reel"><span id="act-label">Cast</span></button>
+    <button id="rest-btn" class="pill" type="button" aria-label="Hold to let time drift">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M7 3h10M7 21h10M8 3c0 5 8 5 8 9s-8 4-8 9M16 3c0 5-8 5-8 9s8 4 8 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</div>
+
+<div id="catch-card" class="card" role="dialog" aria-label="Catch" hidden>
+  <div id="cc-new" class="stamp">New in your journal</div>
+  <canvas id="cc-canvas" width="440" height="210"></canvas>
+  <h2 id="cc-name"></h2>
+  <div id="cc-size"></div>
+  <p id="cc-note"></p>
+  <div class="card-act"><span class="desk-only"><kbd>Space</kbd> let it go</span><span class="touch-only">Tap to let it go</span></div>
+</div>
+
+<div id="note-card" class="card" role="dialog" aria-label="Discovery" hidden>
+  <canvas id="nc-canvas" width="180" height="170"></canvas>
+  <h2 id="nc-title"></h2>
+  <p id="nc-text"></p>
+  <div class="card-act"><span class="desk-only"><kbd>Space</kbd> continue</span><span class="touch-only">Tap to continue</span></div>
+</div>
+
+<div id="journal" hidden>
+  <div class="book" role="dialog" aria-label="Journal">
+    <section class="page left">
+      <h2>Fish</h2>
+      <div id="j-fish"></div>
+    </section>
+    <section class="page right">
+      <h2>Places</h2>
+      <canvas id="j-map" width="660" height="500" aria-label="Hand-drawn map of the bay"></canvas>
+      <ul id="j-places"></ul>
+      <h3>Keepsakes</h3>
+      <div id="j-items"></div>
+      <h3>Settings</h3>
+      <div class="j-settings">
+        <button id="set-quality" type="button">Graphics: Auto</button>
+        <button id="set-music" type="button">Music: on</button>
+      </div>
+    </section>
+    <button id="j-close" type="button" aria-label="Close journal">×</button>
+  </div>
+</div>
+
+<div id="title">
+  <div class="t-inner">
+    <h1>Slow Tide</h1>
+    <p class="t-sub">A little boat, a quiet bay, and nowhere you need to be.</p>
+    <button id="start-btn" type="button">Begin</button>
+    <dl class="t-keys desk-only">
+      <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>row</dd>
+      <dt>drag · scroll</dt><dd>look around · zoom</dd>
+      <dt><kbd>Space</kbd></dt><dd>hold to cast, then fish</dd>
+      <dt><kbd>J</kbd></dt><dd>journal</dd>
+      <dt><kbd>E</kbd></dt><dd>look closer</dd>
+      <dt><kbd>T</kbd></dt><dd>hold to let time drift</dd>
+      <dt><kbd>M</kbd> · <kbd>H</kbd></dt><dd>music · hide interface</dd>
+    </dl>
+    <dl class="t-keys touch-only">
+      <dt>left side</dt><dd>drag to row</dd>
+      <dt>right side</dt><dd>drag to look · pinch to zoom</dd>
+      <dt>round button</dt><dd>hold to cast, then fish</dd>
+      <dt>hourglass</dt><dd>hold to let time drift</dd>
+    </dl>
+    <p class="t-note">Best with sound on. <button id="title-quality" class="t-quality" type="button">Graphics: Auto</button></p>
+  </div>
+</div>
+
+<div id="loading">Filling the bay…</div>
+<div id="notice" role="alert" hidden>
+  <p id="notice-text"></p>
+  <button id="notice-btn" type="button" hidden>Reload</button>
+</div>
+<noscript><p class="nojs">Slow Tide is a small game that needs JavaScript to run.</p></noscript>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.min.js"
+  }
+}
+</script>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
