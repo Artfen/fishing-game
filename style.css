@@ -463,7 +463,8 @@ body.touch #bait, body.touch #sonar { position: absolute; }
 }
 #sonar header { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; margin-bottom: 6px; font-size: 12px; cursor: grab; touch-action: none; }
 #sonar .s-depth { order: 5; flex-basis: 100%; margin-left: 18px; }
-#sonar .s-title { margin-right: auto; }
+#sonar .s-title { margin-right: auto; flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#sonar header button { flex: none; }
 #sonar.dragging header { cursor: grabbing; }
 #sonar.floating { position: fixed !important; bottom: auto !important; right: auto !important; z-index: 3; }
 #sonar.size-0 { width: 230px; }
@@ -1038,7 +1039,7 @@ body.touch #view-chip { top: calc(236px + env(safe-area-inset-top, 0px)); bottom
   pointer-events: auto;
 }
 body.touch #hint {
-  top: calc(66px + env(safe-area-inset-top, 0px));
+  top: calc(100px + env(safe-area-inset-top, 0px));
   bottom: auto;
   transform: translateY(-8px);
   white-space: normal;
@@ -1046,7 +1047,7 @@ body.touch #hint {
 body.touch #hint.show { transform: none; }
 body.touch #toast {
   top: auto;
-  bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(200px + env(safe-area-inset-bottom, 0px));
   left: 0;
   right: 0;
   width: fit-content;
@@ -1087,8 +1088,10 @@ body.touch #rest-veil { padding-bottom: calc(170px + env(safe-area-inset-bottom,
 
 /* Phones held sideways: little height, so the finder tucks under the clock and the view tip sits between the thumbs. */
 @media (max-height: 480px) {
+  body.touch #hint { top: calc(58px + env(safe-area-inset-top, 0px)); max-width: calc(100% - 360px); }
+  body.touch #toast { bottom: calc(196px + env(safe-area-inset-bottom, 0px)); max-width: calc(100% - 360px); }
   body.touch #sonar {
-    top: calc(60px + env(safe-area-inset-top, 0px));
+    top: calc(98px + env(safe-area-inset-top, 0px));
     bottom: auto;
     left: calc(16px + env(safe-area-inset-left, 0px));
     right: auto;

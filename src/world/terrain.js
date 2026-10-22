@@ -365,7 +365,7 @@ export const PLACES = [
     test: (x, z) => Math.hypot(x - LANDING.x, z - LANDING.z) < 16,
   },
   {
-    id: 'camp', name: 'Camp', sub: 'a tent, a fire ring, and the kettle',
+    id: 'camp', name: 'Camp', sub: 'a tent, a fire ring, and the kettle', labelLeft: true,
     note: 'Your tent on the rise between the bay and the lake. Tackle box, fire and a dry bed.',
     x: CAMP.x, z: CAMP.z,
     test: (x, z) => Math.hypot(x - CAMP.x, z - CAMP.z) < 12,

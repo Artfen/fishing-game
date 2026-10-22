@@ -50,6 +50,20 @@ export class Effects {
       this.flashes.push({ m, life: 0, x: 0, z: 0, s: 1, str: 1 });
     }
     this.fi = 0;
+    this.lapT = 0;
+  }
+
+  // Small wavelets lapping against the hull while the boat sits still (or drifts slowly).
+  updateHull(dt, boat) {
+    this.lapT -= dt;
+    if (this.lapT > 0 || boat.speed > 0.8) return;
+    this.lapT = rand(0.35, 0.9);
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const along = rand(-1.4, 1.4);
+    const w = 0.62 * Math.cos((along / 1.9) * 1.2);
+    const x = boat.pos.x + boat.right.x * side * w + boat.fwd.x * along;
+    const z = boat.pos.z + boat.right.z * side * w + boat.fwd.z * along;
+    this.ripple(x, z, rand(0.25, 0.45), rand(0.8, 1.2), 0.22);
   }
 
   flash(x, z, size = 1, depth = 0.5) {
@@ -182,5 +196,6 @@ export class Effects {
     }
 
     this.updateWake(dt, t, boat);
+    this.updateHull(dt, boat);
   }
 }

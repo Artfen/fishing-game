@@ -183,7 +183,7 @@ export class Journal {
       ctx.moveTo(x + 6, y - 6);
       ctx.lineTo(x - 6, y + 6);
       ctx.stroke();
-      const right = x < W - 170;
+      const right = !p.labelLeft && x < W - 170;
       ctx.textAlign = right ? 'left' : 'right';
       ctx.fillText(p.name, x + (right ? 12 : -12), y - 2);
     }

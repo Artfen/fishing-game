@@ -780,7 +780,8 @@ function toggleFinder(force) {
   state.sonar = on;
   if (on && !state.tips.sonar) {
     state.tips.sonar = true;
-    finder.toggleLegend(true);
+    // Show what the colours mean the first time, unless the screen is small (the ? button has it).
+    if (innerWidth > 700 && innerHeight > 600) finder.toggleLegend(true);
   }
   save();
 }
