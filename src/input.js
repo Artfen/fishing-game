@@ -6,7 +6,7 @@ export class Input {
   constructor(canvas) {
     this.codes = new Set();
     this.keys = new Set();
-    this.handlers = { press: [], release: [], pointer: [] };
+    this.handlers = { press: [], release: [], pointer: [], cancel: [] };
     this.drag = { dx: 0, dy: 0 };
     this.wheel = 0;
     this.pointers = new Map();
@@ -35,8 +35,14 @@ export class Input {
       this.keys.clear();
     });
 
-    // One pointer drags the view; two pointers pinch to zoom.
+    // One pointer drags the view; two pointers pinch to zoom. The right mouse button
+    // never drags: it cancels (a cast being aimed, or the line in the water).
     canvas.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button === 2) {
+        this.emit('cancel', '', '');
+        return;
+      }
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
       try { canvas.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
       this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       this.pinch = this.pinchDistance();

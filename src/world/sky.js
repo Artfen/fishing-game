@@ -56,6 +56,8 @@ uniform vec3 uMoonDir;
 uniform float uNight;
 uniform float uRain;
 uniform float uTime;
+uniform float uUnder;
+uniform vec3 uUnderColor;
 varying vec3 vDir;
 float hash13(vec3 p3) {
   p3 = fract(p3 * 0.1031);
@@ -85,6 +87,7 @@ void main() {
   float tw = 0.6 + 0.4 * sin(uTime * (1.0 + r * 3.0) + r * 50.0);
   col += vec3(1.0, 0.96, 0.9) * star * tw * moonVis * smoothstep(0.02, 0.3, h) * 1.2;
 
+  col = mix(col, uUnderColor, uUnder);
   gl_FragColor = vec4(col, 1.0);
   #include <colorspace_fragment>
 }
@@ -138,6 +141,8 @@ export class Environment {
       uNight: { value: 0 },
       uRain: { value: 0 },
       uTime: { value: 0 },
+      uUnder: { value: 0 },
+      uUnderColor: { value: new THREE.Color() },
     };
     this.sky = new THREE.Mesh(
       new THREE.SphereGeometry(1000, 32, 16),
@@ -181,6 +186,12 @@ export class Environment {
       this.clouds.add(mesh);
     }
     this.scene.add(this.clouds);
+  }
+
+  // While the camera is underwater, the sky behind the surface becomes the water colour.
+  setUnder(amount, color) {
+    this.skyUniforms.uUnder.value = amount;
+    this.skyUniforms.uUnderColor.value.copy(color);
   }
 
   setShadows(on, size) {

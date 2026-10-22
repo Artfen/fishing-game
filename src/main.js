@@ -6,24 +6,33 @@ import { AudioScape } from './audio.js';
 import { Environment, phaseName, formatClock } from './world/sky.js';
 import { createWater, sea } from './world/water.js';
 import { buildWorld } from './world/world.js';
-import { bakeHeightTexture, heightAt, solidHeight, landSDF, zoneAt, PLACES, START, WATER_RECT, STACKS } from './world/terrain.js';
+import { createHabitat } from './world/habitat.js';
+import { Ecosystem } from './world/ecosystem.js';
+import { FishRenderer } from './world/fishRender.js';
+import { Underwater } from './world/underwater.js';
+import { causticUniforms } from './world/caustics.js';
+import { bakeHeightTexture, heightAt, solidHeight, landSDF, zoneAt, PLACES, START, WATER_RECT, STACKS, COVE } from './world/terrain.js';
 import { Boat } from './boat.js';
 import { Effects } from './effects.js';
 import { Fishing } from './fishing.js';
-import { FISH, pickFish, buildFishMesh, drawFishSketch, drawLanternSketch } from './fish.js';
+import { drawFishSketch, drawLanternSketch } from './fish.js';
 import { Journal } from './journal.js';
+import { CameraRig } from './camera.js';
+import { FishFinder } from './sonar.js';
 import { setupTouch } from './touch.js';
 import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel } from './quality.js';
-import { clamp, lerp, damp, dampAngle, smoothstep, rand, pick } from './util.js';
+import { clamp, damp, smoothstep, rand, pick } from './util.js';
 
 const HOUR_SECONDS = 40; // one in-game hour lasts 40 real seconds
 const REST_SPEED = 30;   // holding T lets time drift by
 const $ = (id) => document.getElementById(id);
 
 const state = loadState();
+state.tips = state.tips || {};
 const hud = new HUD();
 const audio = new AudioScape();
 audio.musicOn = state.music !== false;
+audio.setVolumes(state.volumes);
 
 /* ---------------- scene ---------------- */
 
@@ -53,15 +62,22 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0xd5ebf1, 0.0021);
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 2500);
 
+// One shared underwater world: habitat → plants, rocks and fish homes → the fish themselves.
+const habitat = createHabitat();
 const env = new Environment(scene);
 const water = createWater(bakeHeightTexture(512, WATER_RECT), WATER_RECT);
 scene.add(water.mesh);
-const world = buildWorld(scene, renderer);
+const world = buildWorld(scene, renderer, habitat);
+const underwater = new Underwater(scene, habitat, $('underwater-tint'));
+const eco = new Ecosystem(habitat);
+const fishRenderer = new FishRenderer(scene, eco);
 const fx = new Effects(scene);
 const boat = new Boat(scene);
 const journal = new Journal(state);
 const input = new Input(canvas);
 const touch = setupTouch(input);
+const rig = new CameraRig(camera);
+const finder = new FishFinder(eco, habitat);
 
 if (state.boat && solidHeight(state.boat.x, state.boat.z) < -1) boat.place(state.boat.x, state.boat.z, state.boat.heading);
 else boat.place(START.x, START.z, START.heading);
@@ -69,6 +85,7 @@ if (state.items.lantern) {
   boat.setLantern(true);
   world.takeLantern();
 }
+rig.init(boat);
 
 const weather = { rain: 0, target: 0, timer: state.tips.rained ? rand(120, 220) : 240 };
 let t = 0;
@@ -79,20 +96,9 @@ let rowTime = 0;
 
 /* ---------------- fishing ---------------- */
 
-function fishContext(x, z) {
-  return { zone: zoneAt(x, z), hour: state.hour, rain: weather.rain, lantern: boat.hasLantern, depth: -solidHeight(x, z) };
-}
-
-const cam = {
-  yaw: START.heading + 0.7, pitch: 0.28, pitchT: 0.46, dist: 28, distT: 15,
-  target: new THREE.Vector3(boat.pos.x, 1.2, boat.pos.z), lastManual: -99, settleUntil: 0, shake: 0,
-};
-
-const fishing = new Fishing(scene, boat, fx, audio, {
-  context: fishContext,
-  hasCaught: () => Object.keys(state.fish).length > 0,
-  flash: (text) => hud.flash(text, t),
-  shake: (s) => { cam.shake = Math.max(cam.shake, s); },
+const fishing = new Fishing(scene, boat, fx, audio, eco, {
+  flash: (text, secs) => hud.flash(text, t, secs),
+  shake: (s) => { rig.shake = Math.max(rig.shake, s); },
   onCast: () => {
     if (!state.tips.cast) {
       state.tips.cast = true;
@@ -102,6 +108,9 @@ const fishing = new Fishing(scene, boat, fx, audio, {
   onHook: () => {},
   onCatch: showCatch,
   onRelease: hideCatch,
+  quiet: () => hud.flash(touch.active
+    ? 'Nothing’s biting here yet. Fish gather by weeds and rocks; the fish finder shows what’s below.'
+    : `Nothing’s biting here yet. Fish gather by weeds and rocks; the fish finder (${kbd('F')}) shows what’s below.`, t, 6),
 });
 
 const REPEAT_LINES = [
@@ -112,12 +121,12 @@ const REPEAT_LINES = [
   'It eyes you, unimpressed.',
 ];
 
-function showCatch(sp, size) {
+function showCatch(sp, size, agent) {
   const isNew = !state.fish[sp.id];
   if (isNew) {
     state.fish[sp.id] = {
       count: 0, best: 0, firstDay: state.day, firstHour: state.hour,
-      firstZone: zoneAt(fishing.fishPos.x, fishing.fishPos.z), firstRain: weather.rain > 0.4,
+      firstZone: zoneAt(agent.x, agent.z), firstRain: weather.rain > 0.4,
     };
   }
   const rec = state.fish[sp.id];
@@ -134,7 +143,7 @@ function showCatch(sp, size) {
   $('cc-new').hidden = !isNew;
   $('cc-name').textContent = sp.name;
   $('cc-size').textContent = `${size} cm${record ? ' · your biggest yet' : ''}`;
-  $('cc-note').textContent = isNew ? sp.note : pick(REPEAT_LINES);
+  $('cc-note').textContent = isNew ? sp.note : agent.caught > 0 ? 'This one has met your hook before.' : pick(REPEAT_LINES);
   $('catch-card').hidden = false;
   modal = 'catch';
   if (isNew) {
@@ -207,30 +216,61 @@ function moments() {
   }
 }
 
-/* ---------------- ambient fish ---------------- */
+/* ---------------- surface clues ---------------- */
 
-const jumpers = Object.fromEntries(FISH.map((f) => {
-  const m = buildFishMesh(f);
-  scene.add(m);
-  return [f.id, m];
-}));
-let jumpTimer = 5;
-function ambientJumps(dt) {
-  jumpTimer -= dt;
-  if (jumpTimer > 0) return;
-  jumpTimer = rand(5, 12);
-  for (let tries = 0; tries < 6; tries++) {
-    const a = rand(0, Math.PI * 2), r = rand(10, 40);
-    const x = boat.pos.x + Math.cos(a) * r, z = boat.pos.z + Math.sin(a) * r;
-    if (solidHeight(x, z) > -1.5) continue;
-    const { fish, total } = pickFish(fishContext(x, z));
-    if (total < 0.08) continue;
-    const m = jumpers[fish.id];
-    if (m.visible) continue;
-    fx.jump(m, x, z, rand(0, Math.PI * 2));
-    break;
+// Rings, flashes and jumps all come from real fish in the ecosystem.
+function handleClues() {
+  const cp = camera.position;
+  const fx_ = Math.sin(rig.yaw), fz_ = Math.cos(rig.yaw);
+  for (const c of eco.takeClues()) {
+    const dx = c.x - cp.x, dz = c.z - cp.z;
+    const d = Math.hypot(dx, dz);
+    if (d > 90) continue;
+    const vol = clamp(1 - d / 60, 0, 1);
+    const pan = clamp(((-fz_ * dx + fx_ * dz) / (d || 1)) * -0.8, -0.8, 0.8);
+    switch (c.type) {
+      case 'rise':
+        fx.ripple(c.x, c.z, 1.1 + c.size * 2, 1.9, 0.5);
+        fx.splash(c.x, 0.05, c.z, 4, 1.0, 0.3);
+        if (vol > 0) audio.splashSmall(0.25 * vol, pan);
+        tipClues(d);
+        break;
+      case 'nervous':
+        fx.ripple(c.x, c.z, 0.45 + Math.random() * 0.4, 1.0, 0.28);
+        break;
+      case 'flash':
+        fx.flash(c.x, c.z, c.size, -c.y);
+        tipClues(d);
+        break;
+      case 'jump':
+        fx.splash(c.x, 0.05, c.z, 8, 1.6, 0.5);
+        fx.ripple(c.x, c.z, 1.3, 1.4, 0.45);
+        if (vol > 0) audio.splashSmall(0.5 * vol, pan);
+        tipClues(d);
+        break;
+      case 'splash':
+        fx.splash(c.x, 0.05, c.z, 6, 1.4, 0.5);
+        fx.ripple(c.x, c.z, 1.6, 1.5, 0.5);
+        if (vol > 0) audio.splashSmall(0.4 * vol, pan);
+        break;
+      case 'bubbles':
+        underwater.bubbles(c.x, c.y + 0.1, c.z, 4 + Math.floor(Math.random() * 4));
+        break;
+      default:
+    }
   }
 }
+
+function tipClues(d) {
+  if (state.tips.clues || !started || d > 35) return;
+  state.tips.clues = true;
+  hud.toast('Rings, flashes and splashes on the water mean fish are feeding just below.', 7);
+}
+
+underwater.onPop = (x, z) => {
+  if (Math.random() < 0.35) fx.ripple(x, z, 0.25, 0.6, 0.2);
+  if (underwater.submerge > 0.5 && Math.hypot(x - camera.position.x, z - camera.position.z) < 10) audio.bubble(0.012);
+};
 
 /* ---------------- audio hooks ---------------- */
 
@@ -240,11 +280,6 @@ boat.onStroke = (p, side) => {
   audio.oar(side > 0 ? -0.3 : 0.3, 0.8);
 };
 boat.onBump = (v) => audio.knock(clamp(v / 3, 0.4, 1));
-fx.onJumpSplash = (x, z, vol) => {
-  const d = Math.hypot(x - boat.pos.x, z - boat.pos.z);
-  const side = (x - camera.position.x) * Math.cos(cam.yaw) - (z - camera.position.z) * Math.sin(cam.yaw);
-  audio.splashSmall(vol * clamp(1 - d / 50, 0, 1), clamp(-side / 20, -0.8, 0.8));
-};
 
 /* ---------------- rain ---------------- */
 
@@ -261,52 +296,11 @@ const rainLines = new THREE.LineSegments(rainGeo, rainMat);
 rainLines.frustumCulled = false;
 scene.add(rainLines);
 
-/* ---------------- graphics quality ---------------- */
-
-const quality = {
-  choice: CHOICES.includes(state.quality) ? state.quality : 'auto',
-  autoLevel: startingLevel(touch.active),
-};
-const frameWatch = new FrameWatch();
-const qualityLevel = () => (quality.choice === 'auto' ? quality.autoLevel : quality.choice);
-
-function applyQuality() {
-  const q = PRESETS[qualityLevel()];
-  const pr = Math.min(window.devicePixelRatio, q.pixelRatio);
-  renderer.setPixelRatio(pr);
-  renderer.setSize(innerWidth, innerHeight, false);
-  env.setShadows(q.shadows, q.shadowSize);
-  water.setSegments(q.waterSegments);
-  rainGeo.setDrawRange(0, q.rain * 2);
-  world.setPixelRatio(pr);
-  const text = quality.choice === 'auto' ? `Graphics: Auto (${q.label})` : `Graphics: ${q.label}`;
-  $('set-quality').textContent = text;
-  $('title-quality').textContent = text;
-}
-
-function cycleQuality() {
-  quality.choice = CHOICES[(CHOICES.indexOf(quality.choice) + 1) % CHOICES.length];
-  state.quality = quality.choice;
-  frameWatch.reset();
-  applyQuality();
-  save();
-}
-
-function watchFrameRate(rawDt) {
-  if (quality.choice !== 'auto' || !started || modal) return;
-  if (!frameWatch.tooSlow(rawDt)) return;
-  const next = lowerLevel(quality.autoLevel);
-  if (!next) return;
-  quality.autoLevel = next;
-  applyQuality();
-  frameWatch.reset(3);
-}
-
 function updateRain(dt) {
-  rainLines.visible = weather.rain > 0.02;
+  rainLines.visible = weather.rain > 0.02 && underwater.submerge < 0.5;
   if (!rainLines.visible) return;
   rainMat.opacity = 0.42 * weather.rain;
-  rainLines.position.set(cam.target.x, 0, cam.target.z);
+  rainLines.position.set(rig.focus.x, 0, rig.focus.z);
   for (let i = 0; i < RAIN_N; i++) {
     const o = i * 6;
     let y = rainPos[o + 1] - 21 * dt;
@@ -332,57 +326,50 @@ function updateWeather(dt, speed) {
   sea.amp = 1 + weather.rain * 0.45;
 }
 
-/* ---------------- camera ---------------- */
+/* ---------------- graphics quality ---------------- */
 
-const _look = new THREE.Vector3();
-function updateCamera(dt) {
-  const drag = input.takeDrag();
-  const wheel = input.takeWheel();
-  if (!started) {
-    cam.yaw += dt * 0.045;
-  } else {
-    if (drag.x || drag.y) {
-      cam.yaw -= drag.x * 0.0055;
-      cam.pitchT = clamp(cam.pitchT + drag.y * 0.004, 0.12, 1.2);
-      cam.lastManual = t;
-    }
-    if (wheel) cam.distT = clamp(cam.distT * Math.exp(wheel * 0.0012), 6, 40);
-    let follow = 0;
-    if (t < cam.settleUntil) follow = 1.4;
-    else if (t - cam.lastManual > 3 && !fishing.busy) follow = 1.1 * smoothstep(0.6, 3.5, boat.forwardSpeed);
-    if (follow > 0) cam.yaw = dampAngle(cam.yaw, boat.heading, follow, dt);
-  }
-  cam.pitch = damp(cam.pitch, started ? cam.pitchT : 0.26, started ? 4 : 1, dt);
-  cam.dist = damp(cam.dist, started ? cam.distT + (fishing.lineOut ? 3 : 0) : 26, started ? 3 : 1, dt);
+const quality = {
+  choice: CHOICES.includes(state.quality) ? state.quality : 'auto',
+  autoLevel: startingLevel(touch.active),
+};
+const frameWatch = new FrameWatch();
+const qualityLevel = () => (quality.choice === 'auto' ? quality.autoLevel : quality.choice);
 
-  let fx_ = boat.pos.x, fz_ = boat.pos.z;
-  if (fishing.lineOut) {
-    fx_ = lerp(fx_, fishing.bob.x, 0.35);
-    fz_ = lerp(fz_, fishing.bob.z, 0.35);
-  }
-  cam.target.x = damp(cam.target.x, fx_, 4, dt);
-  cam.target.z = damp(cam.target.z, fz_, 4, dt);
-  cam.target.y = damp(cam.target.y, boat.heave + 1.2, 4, dt);
+function applyQuality() {
+  const q = PRESETS[qualityLevel()];
+  const pr = Math.min(window.devicePixelRatio, q.pixelRatio);
+  renderer.setPixelRatio(pr);
+  renderer.setSize(innerWidth, innerHeight, false);
+  env.setShadows(q.shadows, q.shadowSize);
+  water.setSegments(q.waterSegments);
+  rainGeo.setDrawRange(0, q.rain * 2);
+  world.setPixelRatio(pr);
+  eco.setDensity(q.fishDensity);
+  eco.simRadius = q.simRadius;
+  underwater.setQuality(q);
+  underwater.setPixelRatio(pr);
+  quality.caustics = q.caustics;
+  const text = quality.choice === 'auto' ? `Graphics: Auto (${q.label})` : `Graphics: ${q.label}`;
+  $('set-quality').textContent = text;
+  $('title-quality').textContent = text;
+}
 
-  const hd = cam.dist * Math.cos(cam.pitch);
-  camera.position.set(
-    cam.target.x - Math.sin(cam.yaw) * hd,
-    cam.target.y + cam.dist * Math.sin(cam.pitch),
-    cam.target.z - Math.cos(cam.yaw) * hd,
-  );
-  const ground = Math.max(heightAt(camera.position.x, camera.position.z), 0) + 1.2;
-  if (camera.position.y < ground) camera.position.y = ground;
-  if (cam.shake > 0) {
-    cam.shake = Math.max(0, cam.shake - dt);
-    const s = cam.shake * 0.12;
-    camera.position.x += rand(-s, s);
-    camera.position.y += rand(-s, s);
-  }
-  // Aim a little above the boat so the horizon and the scenery stay in frame.
-  // Portrait and short landscape screens aim lower, so the boat isn't pushed under the controls.
-  _look.copy(cam.target);
-  _look.y += (1.6 + cam.dist * 0.06) * clamp(camera.aspect, 0.3, 1) * clamp(innerHeight / 640, 0.55, 1);
-  camera.lookAt(_look);
+function cycleQuality() {
+  quality.choice = CHOICES[(CHOICES.indexOf(quality.choice) + 1) % CHOICES.length];
+  state.quality = quality.choice;
+  frameWatch.reset();
+  applyQuality();
+  save();
+}
+
+function watchFrameRate(rawDt) {
+  if (quality.choice !== 'auto' || !started || modal) return;
+  if (!frameWatch.tooSlow(rawDt)) return;
+  const next = lowerLevel(quality.autoLevel);
+  if (!next) return;
+  quality.autoLevel = next;
+  applyQuality();
+  frameWatch.reset(3);
 }
 
 // Keep a reasonable side-to-side view on portrait phones by widening the vertical field of view.
@@ -394,19 +381,72 @@ function fitCamera() {
 }
 fitCamera();
 
+/* ---------------- views & fish finder ---------------- */
+
+function viewChip() {
+  const T = touch.active;
+  if (rig.mode === 'under') {
+    hud.chip(T
+      ? '<b>Underwater</b> · drag to look around · pinch to zoom · the view button switches back'
+      : `<b>Underwater</b> · drag to look around · scroll to zoom · ${kbd('C')} next view · ${kbd('R')} back to the boat`, 6);
+  } else if (rig.mode === 'bait') {
+    hud.chip(T
+      ? '<b>Watching your bait</b> · drag to look around · the view button switches back'
+      : `<b>Watching your bait</b> · drag to look around · ${kbd('C')} next view · ${kbd('R')} back to the boat`, 6);
+  } else hud.chip('<b>Boat view</b>', 2);
+}
+
+function cycleView() {
+  rig.cycle(fishing.baitInWater, t);
+  viewChip();
+  if (rig.mode !== 'boat' && !state.tips.under) {
+    state.tips.under = true;
+    save();
+  }
+}
+
+function resetView() {
+  rig.reset(boat, t);
+  viewChip();
+}
+
+function toggleFinder(force) {
+  const on = force ?? !finder.visible;
+  finder.setVisible(on);
+  $('finder-btn').classList.toggle('on', on);
+  state.sonar = on;
+  if (on && !state.tips.sonar) {
+    state.tips.sonar = true;
+    finder.toggleLegend(true);
+  }
+  save();
+}
+
 /* ---------------- HUD ---------------- */
+
+const STATUS_TEXT = {
+  quiet: 'Quiet for now',
+  curious: 'Something is curious…',
+  nibble: 'Nibbling… wait for the float to go under',
+  bite: 'Bite!',
+  hooked: 'Hooked!',
+};
 
 function currentHint() {
   if (!started || modal) return '';
   const L = (c) => kbd(input.label(c));
-  // On touch screens "the button" is the round action button on the right.
   const T = touch.active;
   const space = kbd('Space');
   switch (fishing.state) {
-    case 'charging': return T ? 'Let go to cast · drag the view to aim' : `Release ${space} to cast · drag to aim`;
-    case 'waiting':
-      if (state.tips.caught) return T ? 'Waiting for a bite · tap to twitch the line · hold to reel in' : `Waiting for a bite · tap ${space} to twitch the line · hold to reel in`;
-      return T ? 'Watch the bobber. Tap the button when it dips under' : `Watch the bobber. Press ${space} when it dips under`;
+    case 'aiming':
+      return T
+        ? 'Let go to cast · stick left/right aims, up/down sets bait depth · ✕ cancels'
+        : `Release ${space} to cast · ${L('KeyA')}${L('KeyD')} aim · ${L('KeyW')}${L('KeyS')} bait depth · ${kbd('Esc')} cancel`;
+    case 'drifting':
+      if (fishing.status === 'curious') return 'Something is curious about your bait. Keep still…';
+      if (fishing.status === 'nibble') return 'Nibbling… wait for the float to go under';
+      if (T) return `Stick up/down: bait depth · hold the button to reel in · tap to twitch${state.tips.under ? '' : ' · the view button looks underwater'}`;
+      return `${L('KeyW')}${L('KeyS')} bait depth · hold ${space} to reel in · tap to twitch${state.tips.under ? '' : ` · ${kbd('C')} look underwater`}`;
     case 'bite': return T ? 'Bite! Tap the button' : `Bite! Press ${space}`;
     case 'reeling':
       if (fishing.pulling) return T ? "It's pulling. Let go until it tires" : `It's pulling. Let go of ${space} until it tires`;
@@ -415,13 +455,15 @@ function currentHint() {
     default:
   }
   if (!state.tips.rowed) return T ? 'Drag on the left to row · drag on the right to look around' : `${L('KeyW')}${L('KeyA')}${L('KeyS')}${L('KeyD')} to row · drag to look around`;
-  if (!state.tips.cast) return T ? 'Hold the button to cast your line' : `Hold ${space} to cast your line`;
+  if (!state.tips.cast) return T ? 'Hold the button to aim and cast your line' : `Hold ${space} to aim and cast your line`;
   if (state.tips.caught && !state.tips.journal) return T ? 'Tap Journal to see what you’ve found' : `${kbd('J')} to open your journal`;
+  if (state.tips.caught && !state.tips.under) return T ? 'The view button lets you look under the water' : `${kbd('C')} to look under the water`;
+  if (state.tips.caught && !state.tips.sonar) return T ? 'The sonar button shows a fish finder' : `${kbd('F')} for the fish finder`;
   return '';
 }
 
 const ACTION_LABELS = {
-  idle: 'Cast', charging: 'Let go', casting: '', waiting: 'Twitch', bite: 'Hook!', reeling: 'Reel',
+  idle: 'Cast', aiming: 'Let go', casting: '', drifting: 'Twitch', bite: 'Hook!', reeling: 'Reel',
   landing: '', caught: 'Let go', releasing: '', retrieving: '',
 };
 
@@ -441,11 +483,18 @@ function updateHud() {
   const near = started && !modal && !fishing.busy && lanternReach();
   hud.prompt(near ? (touch.active ? 'Tap to look closer at the driftwood' : `${kbd('E')} Look closer at the driftwood`) : '');
   if (touch.active) hud.action(actionLabel(), fishing.state === 'bite');
+  $('cancel-btn').hidden = !(touch.active && fishing.aiming);
 
   const F = fishing.fight;
-  if (fishing.state === 'charging') hud.meter(true, fishing.power, -1, 0, 'cast');
+  if (fishing.aiming) hud.meter(true, fishing.power, -1, 0, fishing.aimValid ? `${Math.round(fishing.castDist)} m` : '—');
   else if (fishing.state === 'reeling' && F) hud.meter(true, F.progress, F.tension, F.tension, F.pulling ? 'easy' : 'reel');
   else hud.meter(false);
+
+  if (started && !modal && fishing.baitInWater) {
+    const info = fishing.info;
+    info.text = (STATUS_TEXT[info.status] || '') + (info.reeling ? ' · reeling in' : '');
+    hud.bait(info);
+  } else hud.bait(null);
 
   let showBite = false;
   if (fishing.state === 'bite' && !modal) {
@@ -477,7 +526,8 @@ function begin() {
   const returning = !!state.places.bay;
   if (!returning) state.places.bay = { day: state.day, hour: state.hour };
   setTimeout(() => hud.place('Willow Bay', returning ? 'welcome back' : 'home waters'), 900);
-  cam.settleUntil = t + 2.5;
+  rig.settleUntil = t + 2.5;
+  if (state.sonar) toggleFinder(true);
   save();
 }
 
@@ -485,6 +535,7 @@ function openJournal() {
   journal.open(boat);
   modal = 'journal';
   audio.page();
+  if (fishing.aiming) fishing.cancel();
   if (!state.tips.journal) {
     state.tips.journal = true;
     save();
@@ -512,6 +563,7 @@ input.on('press', (code, key) => {
     else if (!modal) openJournal();
     return;
   }
+  // While a menu is open, gameplay keys do nothing.
   if (modal === 'journal') {
     if (code === 'Escape') closeJournal();
     return;
@@ -522,6 +574,9 @@ input.on('press', (code, key) => {
   }
   if (modal) return;
   if (key === 'e' && lanternReach()) takeLantern();
+  else if (key === 'c') cycleView();
+  else if (key === 'r') resetView();
+  else if (key === 'f') toggleFinder();
   else if (key === 'm') {
     state.music = audio.toggleMusic();
     hud.toast(state.music ? 'Music on' : 'Music off', 1.6);
@@ -529,7 +584,9 @@ input.on('press', (code, key) => {
   } else if (key === 'h') {
     hudOff = !hudOff;
     hud.hidden(hudOff);
-  } else if (code === 'Escape') fishing.cancel();
+  } else if (code === 'Escape') {
+    if (!fishing.cancel() && rig.mode !== 'boat') resetView();
+  }
 });
 input.on('release', (code) => {
   if (code === 'Space') fishing.onUp();
@@ -538,12 +595,18 @@ input.on('pointer', () => {
   if (!started) begin();
   else audio.start();
 });
+input.on('cancel', () => {
+  if (started && !modal) fishing.cancel();
+});
 
 $('start-btn').addEventListener('click', begin);
 $('journal-btn').addEventListener('click', () => {
   if (modal === 'journal') closeJournal();
   else if (!modal) openJournal();
 });
+$('view-btn').addEventListener('click', () => { if (started && !modal) cycleView(); });
+$('finder-btn').addEventListener('click', () => { if (started && !modal) toggleFinder(); });
+$('cancel-btn').addEventListener('click', () => fishing.cancel());
 $('j-close').addEventListener('click', closeJournal);
 $('journal').addEventListener('click', (e) => { if (e.target === $('journal')) closeJournal(); });
 $('catch-card').addEventListener('click', () => { if (modal === 'catch') fishing.onDown(); });
@@ -554,13 +617,15 @@ $('title-quality').addEventListener('click', (e) => {
   e.stopPropagation();
   cycleQuality();
 });
-const musicLabel = () => { $('set-music').textContent = `Music: ${state.music !== false ? 'on' : 'off'}`; };
-$('set-music').addEventListener('click', () => {
-  state.music = audio.toggleMusic();
-  musicLabel();
-  save();
-});
-musicLabel();
+for (const key of ['master', 'nature', 'music']) {
+  const el = $(`vol-${key}`);
+  el.value = String(Math.round((state.volumes[key] ?? 1) * 100));
+  el.addEventListener('input', () => {
+    state.volumes = { ...state.volumes, [key]: Number(el.value) / 100 };
+    audio.setVolumes(state.volumes);
+  });
+  el.addEventListener('change', save);
+}
 if (Object.keys(state.fish).length || state.places.jetty || state.places.cove) $('start-btn').textContent = 'Continue';
 
 addEventListener('resize', () => {
@@ -595,16 +660,17 @@ applyQuality();
 
 const zoneW = { open: 0, cove: 0 };
 const _lp = new THREE.Vector3();
+const ecoCtx = { env: {}, focus: { x: 0, z: 0 }, boat: { x: 0, z: 0, speed: 0 }, lantern: null };
 let saveTimer = 10;
 let last = performance.now();
 
-function frame(now) {
-  const rawDt = (now - last) / 1000;
+function tick(now, manual = false) {
+  const rawDt = Math.max(0, (now - last) / 1000);
   const dt = Math.min(rawDt, 0.05);
   last = now;
   t += dt;
   sea.time = t;
-  watchFrameRate(rawDt);
+  if (!manual) watchFrameRate(rawDt);
 
   const resting = started && !modal && input.resting;
   const speed = resting ? REST_SPEED : 1;
@@ -619,14 +685,21 @@ function frame(now) {
   }
   updateWeather(dt, speed);
 
+  // The movement keys row the boat; while aiming they swing the cast and set the bait
+  // depth, and while the bait is out up/down sets its depth.
   let throttle = 0, steer = 0;
   if (started && !modal) {
-    throttle = input.throttle;
-    steer = input.steer;
-  }
-  if (throttle !== 0 && fishing.busy) {
-    fishing.cancel();
-    throttle = 0;
+    const ti = input.throttle, si = input.steer;
+    if (fishing.aiming) {
+      fishing.aimBy(si, dt);
+      fishing.depthBy(ti, dt);
+    } else if (fishing.lineOut) {
+      fishing.depthBy(ti, dt);
+      steer = si;
+    } else {
+      throttle = ti;
+      steer = si;
+    }
   }
   if (throttle !== 0) {
     rowTime += dt;
@@ -637,12 +710,37 @@ function frame(now) {
   }
 
   boat.update(dt, t, throttle, steer, env.lantern);
-  fishing.update(dt, t, cam.yaw, started && modal !== 'journal' && input.action);
+  fishing.update(dt, t, rig.yaw, started && !modal && input.action);
+
+  ecoCtx.env.hour = state.hour;
+  ecoCtx.env.rain = weather.rain;
+  ecoCtx.env.daylight = env.daylight;
+  ecoCtx.env.night = env.night;
+  const lanternLit = boat.hasLantern && boat.lanternLevel > 0.3;
+  ecoCtx.env.lanternNear = lanternLit && Math.hypot(boat.pos.x - COVE.x, boat.pos.z - COVE.z) < COVE.r + 30;
+  ecoCtx.focus.x = rig.focus.x;
+  ecoCtx.focus.z = rig.focus.z;
+  ecoCtx.boat.x = boat.pos.x;
+  ecoCtx.boat.z = boat.pos.z;
+  ecoCtx.boat.speed = boat.speed;
+  ecoCtx.lantern = lanternLit ? ecoCtx.boat : null;
+  eco.update(dt, ecoCtx);
+  handleClues();
   fx.update(dt, t, boat);
-  updateCamera(dt);
+
+  const drag = input.takeDrag();
+  const wheel = input.takeWheel();
+  if (started && !modal) rig.input(drag, wheel, t);
+  rig.update(dt, t, { boat, started, fishing, baitFocus: fishing.watchPoint });
   env.update(dt, t, state.hour, weather.rain, boat.pos, camera, renderer);
+  const sub = underwater.updateMedium(t, camera, env, scene, water, weather.rain);
+  audio.setUnderwater(sub);
+  underwater.update(dt, t, camera, env, weather.rain);
+  fishRenderer.update(dt, camera, env.night, sub > 0.5);
   world.update(dt, t, env);
   updateRain(dt);
+  causticUniforms.uCausticTime.value = t;
+  causticUniforms.uCaustic.value = (quality.caustics ?? 1) * env.daylight * (1 - weather.rain * 0.6);
 
   const wu = water.uniforms;
   wu.uTime.value = t;
@@ -658,6 +756,8 @@ function frame(now) {
   wu.uLights.value[0].set(_lp.x, _lp.y, _lp.z, boat.hasLantern ? boat.lanternLevel : 0);
   wu.uLights.value[1].set(world.lampPos.x, world.lampPos.y, world.lampPos.z, env.lantern);
   water.follow(camera.position);
+
+  finder.update(dt, boat, eco.bait);
 
   const zone = zoneAt(boat.pos.x, boat.pos.z);
   zoneW.open = damp(zoneW.open, zone === 'open' ? 1 : 0, 0.5, dt);
@@ -676,7 +776,6 @@ function frame(now) {
   if (started) {
     checkPlaces(dt);
     moments();
-    ambientJumps(dt);
     saveTimer -= dt;
     if (saveTimer <= 0) {
       saveTimer = 10;
@@ -686,6 +785,10 @@ function frame(now) {
   updateHud();
 
   renderer.render(scene, camera);
+}
+
+function frame(now) {
+  tick(now);
   requestAnimationFrame(frame);
 }
 
@@ -697,10 +800,15 @@ requestAnimationFrame((now) => {
 
 // A small handle for tinkering from the browser console, e.g. slowTide.setHour(19).
 window.slowTide = {
-  state, boat, fishing, env, weather, renderer, scene, camera, quality,
+  state, boat, fishing, env, weather, renderer, scene, camera, quality, eco, habitat, rig, finder, underwater,
   setHour: (h) => { state.hour = ((h % 24) + 24) % 24; },
   setRain: (r) => { weather.target = r; weather.rain = r; },
   teleport: (x, z, heading = boat.heading) => boat.place(x, z, heading),
+  // Step the game by hand (handy for testing while the tab is in the background).
+  advance: (seconds, fps = 30) => {
+    let now = last;
+    for (let i = 0; i < seconds * fps; i++) tick((now += 1000 / fps), true);
+  },
   reset: () => {
     resetting = true; // stop the save-on-leave handlers from writing the old progress back
     clearState();

@@ -25,7 +25,14 @@ export class HUD {
       veil: $('rest-veil'),
       act: $('act-btn'),
       actLabel: $('act-label'),
+      bait: $('bait'),
+      baitDepth: $('bait-depth'),
+      baitBottom: $('bait-bottom'),
+      baitStatus: $('bait-status'),
+      baitMark: $('bait-mark'),
+      chip: $('view-chip'),
     };
+    this.chipTimer = 0;
     this.cache = {};
     this.flashText = '';
     this.flashUntil = 0;
@@ -96,6 +103,28 @@ export class HUD {
   bite(x, y, show) {
     this.el.bite.classList.toggle('show', show);
     if (show) this.el.bite.style.transform = `translate(${x}px, ${y}px)`;
+  }
+
+  // The bait panel only appears while the bait is in the water: how deep it hangs,
+  // how deep the water is, and what (if anything) is paying attention to it.
+  bait(info) {
+    const el = this.el;
+    el.bait.hidden = !info;
+    if (!info) return;
+    this.setHTML('baitDepth', el.baitDepth, `${info.depth.toFixed(1)} m`);
+    this.setHTML('baitBottom', el.baitBottom, `${info.bottom.toFixed(1)} m`);
+    this.setHTML('baitStatus', el.baitStatus, info.text);
+    el.bait.dataset.status = info.status;
+    const k = Math.min(info.depth / Math.max(info.bottom, 0.5), 1);
+    el.baitMark.style.top = `${(k * 100).toFixed(1)}%`;
+  }
+
+  // A short-lived note about the current view and its controls.
+  chip(html, secs = 4.5) {
+    this.el.chip.innerHTML = html;
+    this.el.chip.classList.add('show');
+    clearTimeout(this.chipTimer);
+    this.chipTimer = setTimeout(() => this.el.chip.classList.remove('show'), secs * 1000);
   }
 
   // The round touch button changes its word with the moment: Cast, Hook!, Reel, Let go…

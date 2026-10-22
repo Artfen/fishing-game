@@ -73,6 +73,7 @@ uniform vec3 uShallow;
 uniform vec3 uMid;
 uniform vec3 uDeep;
 uniform vec3 uFoam;
+uniform vec3 uUnderColor;
 uniform sampler2D uHeight;
 uniform vec4 uRect;
 uniform vec4 uLights[2];
@@ -115,6 +116,22 @@ vec2 rainRings(vec2 p, float t) {
 }
 
 void main() {
+  // Seen from below: bright where you look straight up through the surface,
+  // the darker underwater colour where the light reflects back at a slant.
+  if (!gl_FrontFacing) {
+    vec3 Vu = normalize(cameraPosition - vWorld);
+    vec2 gu = ngrad(vWorld.xz * 0.45 + vec2(uTime * 0.16, uTime * 0.07));
+    float view = clamp(-Vu.y, 0.0, 1.0) + (gu.x + gu.y) * 0.04;
+    float win = smoothstep(0.62, 0.9, view);
+    vec3 skyU = mix(uHorizon, uZenith, 0.5) * 1.15 + uSunColor * 0.3;
+    vec3 colU = mix(uUnderColor * 0.85, mix(skyU, uUnderColor * 1.7, 0.35), win);
+    colU += uSunColor * pow(max(0.0, 1.0 - length(gu) * 0.6), 6.0) * 0.06 * win;
+    gl_FragColor = vec4(colU, 0.95);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+    #include <fog_fragment>
+    return;
+  }
   vec2 uv = (vWorld.xz - uRect.xy) / uRect.zw;
   float ground = texture2D(uHeight, uv).r;
   float depth = max(-ground, 0.0);
@@ -167,7 +184,7 @@ void main() {
 
   col = mix(col, vec3(dot(col, vec3(0.3, 0.59, 0.11))), uNight * 0.35);
 
-  float alpha = mix(0.5, 0.97, smoothstep(0.0, 3.5, depth));
+  float alpha = mix(0.42, 0.95, smoothstep(0.0, 5.0, depth));
   alpha = max(alpha, foam);
   gl_FragColor = vec4(col, alpha);
   #include <tonemapping_fragment>
@@ -193,6 +210,7 @@ export function createWater(heightTex, rect) {
       uMid: { value: new THREE.Color('#38a0ad') },
       uDeep: { value: new THREE.Color('#1b5c85') },
       uFoam: { value: new THREE.Color('#f7f5ec') },
+      uUnderColor: { value: new THREE.Color('#2a8b95') },
       uRect: { value: new THREE.Vector4(rect.x, rect.z, rect.w, rect.h) },
       uLights: { value: [new THREE.Vector4(), new THREE.Vector4()] },
     },
@@ -206,6 +224,7 @@ export function createWater(heightTex, rect) {
     fragmentShader,
     transparent: true,
     fog: true,
+    side: THREE.DoubleSide,
   });
 
   // A finely tessellated sheet that follows the camera, snapped to its grid

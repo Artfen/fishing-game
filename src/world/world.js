@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { heightAt, JETTY, COVE, ISLAND, STACKS, CHANNEL, findShore } from './terrain.js';
 import { mergeParts, mat, seeded, fbm, clamp, smoothstep, hash2, jitterGeo, pick, glowTexture } from '../util.js';
 import { buildLanternModel } from '../props.js';
+import { withCaustics } from './caustics.js';
 
 const shared = { uTime: { value: 0 }, uWind: { value: 1 } };
 const UP = new THREE.Vector3(0, 1, 0);
@@ -52,11 +53,16 @@ const TC = {
   grassDark: new THREE.Color('#5f9250'),
   rock: new THREE.Color('#a39786'),
   rockLight: new THREE.Color('#beb3a1'),
+  deepBed: new THREE.Color('#6d7c6a'),
+  weedBed: new THREE.Color('#7f8a4c'),
 };
 
-function terrainColor(c, h, ny, x, z, r) {
+function terrainColor(c, h, ny, x, z, r, weed) {
   const n = fbm(x * 0.05, z * 0.05, 2);
-  if (h < -0.25) c.copy(TC.wetSand).lerp(TC.seabed, smoothstep(0, 6, -h));
+  if (h < -0.25) {
+    c.copy(TC.wetSand).lerp(TC.seabed, smoothstep(0, 6, -h)).lerp(TC.deepBed, smoothstep(6, 18, -h));
+    c.lerp(TC.weedBed, weed * 0.55);
+  }
   else if (h < 1.15 + n * 0.4) c.copy(TC.sand).lerp(TC.wetSand, smoothstep(0.5, -0.2, h));
   else {
     c.copy(TC.grassLight).lerp(TC.grass, clamp(0.5 + n * 1.2, 0, 1));
@@ -68,7 +74,7 @@ function terrainColor(c, h, ny, x, z, r) {
   c.multiplyScalar(0.96 + r * 0.08);
 }
 
-function buildTerrain(rnd) {
+function buildTerrain(rnd, habitat) {
   const cx = 0, cz = -40, size = 760, N = 300, step = size / N, V = N + 1;
   const X = new Float32Array(V * V), Y = new Float32Array(V * V), Z = new Float32Array(V * V);
   for (let j = 0; j < V; j++) {
@@ -84,16 +90,16 @@ function buildTerrain(rnd) {
   }
   const pos = [], col = [];
   const c = new THREE.Color();
+  const hs = {};
   const tri = (a, b, d) => {
     const ya = Y[a], yb = Y[b], yd = Y[d];
-    // Deep sea floor is hidden under opaque water; skip it.
-    if (ya < -9 && yb < -9 && yd < -9) return;
     pos.push(X[a], ya, Z[a], X[b], yb, Z[b], X[d], yd, Z[d]);
     const ux = X[b] - X[a], uy = yb - ya, uz = Z[b] - Z[a];
     const vx = X[d] - X[a], vy = yd - ya, vz = Z[d] - Z[a];
     const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
     const nyn = Math.abs(ny) / (Math.hypot(nx, ny, nz) || 1);
-    terrainColor(c, (ya + yb + yd) / 3, nyn, (X[a] + X[b] + X[d]) / 3, (Z[a] + Z[b] + Z[d]) / 3, rnd());
+    const cx = (X[a] + X[b] + X[d]) / 3, cz = (Z[a] + Z[b] + Z[d]) / 3, cy = (ya + yb + yd) / 3;
+    terrainColor(c, cy, nyn, cx, cz, rnd(), cy < -0.3 ? habitat.sample(cx, cz, hs).weed : 0);
     col.push(c.r, c.g, c.b, c.r, c.g, c.b, c.r, c.g, c.b);
   };
   for (let j = 0; j < N; j++) {
@@ -106,7 +112,8 @@ function buildTerrain(rnd) {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   geo.computeVertexNormals();
-  const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }));
+  // The whole seabed is kept now, so the underwater view has a floor everywhere.
+  const mesh = new THREE.Mesh(geo, withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true })));
   mesh.receiveShadow = true;
   mesh.castShadow = true;
   return mesh;
@@ -524,10 +531,10 @@ function buildFireflies(rnd, spots, count) {
 
 /* ---------------- assemble ---------------- */
 
-export function buildWorld(scene, renderer) {
+export function buildWorld(scene, renderer, habitat) {
   const rnd = seeded(20251022);
 
-  scene.add(buildTerrain(rnd));
+  scene.add(buildTerrain(rnd, habitat));
 
   const jetty = buildJetty(rnd);
   scene.add(jetty.mesh, jetty.lamp.group, jetty.light);
@@ -546,7 +553,7 @@ export function buildWorld(scene, renderer) {
   for (const k of Object.keys(geos)) scene.add(instanced(geos[k], lists[k], sway, rnd));
 
   const rockGeo = mergeParts([{ geo: jitterGeo(new THREE.DodecahedronGeometry(1, 0), 0.4, rnd), color: '#a39888', jitter: 0.07 }], rnd);
-  scene.add(instanced(rockGeo, scatterRocks(rnd), new THREE.MeshLambertMaterial({ vertexColors: true }), rnd, { tint: 0.08, tilt: 1.2, squash: 0.5 }));
+  scene.add(instanced(rockGeo, scatterRocks(rnd), withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true })), rnd, { tint: 0.08, tilt: 1.2, squash: 0.5 }));
 
   scene.add(buildStacks(rnd));
   scene.add(buildMountains(rnd));

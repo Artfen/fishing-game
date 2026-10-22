@@ -13,7 +13,7 @@ export class Effects {
     const rg = new THREE.RingGeometry(0.86, 1, 40);
     rg.rotateX(-Math.PI / 2);
     this.ripples = [];
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 64; i++) {
       const m = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }));
       m.visible = false;
       m.renderOrder = 3;
@@ -37,8 +37,26 @@ export class Effects {
     this.pi = 0;
 
     this.buildWake();
-    this.jumps = [];
-    this.onJumpSplash = null;
+    // Flashes: a fish turning just under the surface catches the light for a moment.
+    const flashTex = glowTexture('rgba(255,252,240,1)');
+    this.flashes = [];
+    for (let i = 0; i < 16; i++) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({
+        map: flashTex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending,
+      }));
+      m.visible = false;
+      m.renderOrder = 3;
+      scene.add(m);
+      this.flashes.push({ m, life: 0, x: 0, z: 0, s: 1, str: 1 });
+    }
+    this.fi = 0;
+  }
+
+  flash(x, z, size = 1, depth = 0.5) {
+    const f = this.flashes[this.fi++ % this.flashes.length];
+    Object.assign(f, { x, z, life: 0.45, s: 0.6 + size * 1.8, str: 0.55 * (1 - Math.min(depth / 2.6, 0.85)) });
+    f.m.rotation.y = Math.random() * Math.PI;
+    f.m.visible = true;
   }
 
   ripple(x, z, size = 1.5, life = 1.6, str = 0.5) {
@@ -59,16 +77,6 @@ export class Effects {
       this.pv[i * 3 + 2] = Math.sin(a) * s;
       this.pl[i] = 1.6;
     }
-  }
-
-  jump(mesh, x, z, dirAngle) {
-    const dx = Math.sin(dirAngle), dz = Math.cos(dirAngle);
-    mesh.visible = true;
-    mesh.scale.setScalar(0.5 + Math.random() * 0.3);
-    this.jumps.push({ mesh, x, z, dx, dz, u: 0, dur: rand(0.6, 0.85), h: rand(0.5, 0.9), dist: rand(1.2, 2.2) });
-    this.splash(x, 0.05, z, 10, 1.8);
-    this.ripple(x, z, 1.4, 1.4, 0.45);
-    if (this.onJumpSplash) this.onJumpSplash(x, z, 0.6);
   }
 
   buildWake() {
@@ -163,21 +171,14 @@ export class Effects {
     }
     this.points.geometry.attributes.position.needsUpdate = true;
 
-    for (let i = this.jumps.length - 1; i >= 0; i--) {
-      const j = this.jumps[i];
-      j.u += dt / j.dur;
-      const u = Math.min(j.u, 1);
-      const x = j.x + j.dx * j.dist * u, z = j.z + j.dz * j.dist * u;
-      j.mesh.position.set(x, -0.25 + 4 * j.h * u * (1 - u), z);
-      j.mesh.rotation.set(-(1 - 2 * u) * 1.1, Math.atan2(j.dx, j.dz), 0, 'YXZ');
-      if (j.mesh.userData.tail) j.mesh.userData.tail.rotation.y = Math.sin(t * 30) * 0.5;
-      if (j.u >= 1) {
-        j.mesh.visible = false;
-        this.splash(x, 0.05, z, 8, 1.5);
-        this.ripple(x, z, 1.6, 1.5, 0.5);
-        if (this.onJumpSplash) this.onJumpSplash(x, z, 0.4);
-        this.jumps.splice(i, 1);
-      }
+    for (const f of this.flashes) {
+      if (f.life <= 0) continue;
+      f.life -= dt;
+      const u = 1 - Math.max(f.life, 0) / 0.45;
+      f.m.position.set(f.x, waveHeight(f.x, f.z, t) + 0.025, f.z);
+      f.m.scale.set(f.s * (0.7 + u * 0.5), 1, f.s * (0.45 + u * 0.3));
+      f.m.material.opacity = f.str * Math.sin(u * Math.PI);
+      if (f.life <= 0) f.m.visible = false;
     }
 
     this.updateWake(dt, t, boat);

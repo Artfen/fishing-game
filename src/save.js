@@ -10,6 +10,8 @@ export const DEFAULT_STATE = {
   boat: null, // { x, z, heading }
   music: true,
   quality: 'auto', // 'auto' | 'high' | 'medium' | 'low'
+  sonar: false,    // fish finder shown
+  volumes: { master: 1, nature: 1, music: 0.8 },
 };
 
 export function loadState() {

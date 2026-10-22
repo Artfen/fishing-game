@@ -1,9 +1,20 @@
 // Graphics presets. "auto" starts from a sensible guess for the device and
 // steps down a level if the frame rate keeps struggling.
+// The underwater world scales too: how many fish swim (fishDensity), how dense the weed
+// beds are (plants), drifting particles, light shafts, caustics and the active fish radius.
 export const PRESETS = {
-  high: { label: 'High', pixelRatio: 1.75, shadows: true, shadowSize: 2048, waterSegments: 300, rain: 1400 },
-  medium: { label: 'Medium', pixelRatio: 1.25, shadows: true, shadowSize: 1024, waterSegments: 200, rain: 900 },
-  low: { label: 'Low', pixelRatio: 1, shadows: false, shadowSize: 1024, waterSegments: 120, rain: 500 },
+  high: {
+    label: 'High', pixelRatio: 1.75, shadows: true, shadowSize: 2048, waterSegments: 300, rain: 1400,
+    fishDensity: 1, plants: 1, particles: 700, rays: 6, caustics: 1, simRadius: 110,
+  },
+  medium: {
+    label: 'Medium', pixelRatio: 1.25, shadows: true, shadowSize: 1024, waterSegments: 200, rain: 900,
+    fishDensity: 0.75, plants: 0.65, particles: 400, rays: 3, caustics: 0.8, simRadius: 90,
+  },
+  low: {
+    label: 'Low', pixelRatio: 1, shadows: false, shadowSize: 1024, waterSegments: 120, rain: 500,
+    fishDensity: 0.5, plants: 0.35, particles: 150, rays: 0, caustics: 0, simRadius: 70,
+  },
 };
 
 export const CHOICES = ['auto', 'high', 'medium', 'low'];

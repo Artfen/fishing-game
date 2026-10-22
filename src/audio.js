@@ -12,6 +12,8 @@ export class AudioScape {
     this.ctx = null;
     this.musicOn = true;
     this.t = 0;
+    this.under = 0;
+    this.volumes = { master: 1, nature: 1, music: 1 };
   }
 
   start() {
@@ -30,8 +32,21 @@ export class AudioScape {
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -16;
     comp.ratio.value = 3;
-    this.out.connect(comp);
+    // out (fade-in) → master volume → underwater muffle → compressor → speakers
+    this.master = ctx.createGain();
+    this.muffle = ctx.createBiquadFilter();
+    this.muffle.type = 'lowpass';
+    this.muffle.frequency.value = 20000;
+    this.muffle.Q.value = 0.4;
+    this.out.connect(this.master);
+    this.master.connect(this.muffle);
+    this.muffle.connect(comp);
     comp.connect(ctx.destination);
+    // Separate volume buses for nature (water, wind, birds, effects) and music.
+    this.nature = ctx.createGain();
+    this.nature.connect(this.out);
+    this.musicVol = ctx.createGain();
+    this.musicVol.connect(this.out);
 
     this.reverb = ctx.createConvolver();
     this.reverb.buffer = this.impulse(3.4, 2.4);
@@ -41,7 +56,7 @@ export class AudioScape {
     rv.connect(this.out);
 
     this.sfx = ctx.createGain();
-    this.sfx.connect(this.out);
+    this.sfx.connect(this.nature);
     const sfxSend = ctx.createGain();
     sfxSend.gain.value = 0.15;
     this.sfx.connect(sfxSend);
@@ -49,7 +64,7 @@ export class AudioScape {
 
     this.music = ctx.createGain();
     this.music.gain.value = 0;
-    this.music.connect(this.out);
+    this.music.connect(this.musicVol);
     const musicSend = ctx.createGain();
     musicSend.gain.value = 0.8;
     this.music.connect(musicSend);
@@ -64,6 +79,8 @@ export class AudioScape {
     this.windBed = this.bed(this.pink, [['bandpass', 700, 0.8]]);
     this.rainBed = this.bed(this.white, [['highpass', 1100, 0.5], ['lowpass', 7500, 0.5]]);
     this.rainLow = this.bed(this.brown, [['lowpass', 900, 0.5]]);
+    this.underBed = this.bed(this.brown, [['lowpass', 260, 0.7]]);
+    this.setVolumes(this.volumes);
 
     this.next = { lap: 1, bird: 3, gull: 8, cricket: 2, owl: 25, note: 5, chord: 1, drop: 0 };
     this.lastNote = 5;
@@ -71,6 +88,23 @@ export class AudioScape {
   }
 
   get ready() { return !!this.ctx; }
+
+  setVolumes(v) {
+    Object.assign(this.volumes, v);
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    this.master.gain.setTargetAtTime(this.volumes.master, now, 0.05);
+    this.nature.gain.setTargetAtTime(this.volumes.nature, now, 0.05);
+    this.musicVol.gain.setTargetAtTime(this.volumes.music, now, 0.05);
+  }
+
+  // 0 above water, 1 fully under: everything goes soft and low, with a quiet hum.
+  setUnderwater(amount) {
+    this.under = amount;
+    if (!this.ctx) return;
+    const f = 20000 * Math.pow(650 / 20000, amount);
+    this.muffle.frequency.setTargetAtTime(f, this.ctx.currentTime, 0.12);
+  }
 
   // Go quiet while the tab is hidden, and pick up again when it returns.
   suspend() {
@@ -130,7 +164,7 @@ export class AudioScape {
     const g = ctx.createGain();
     g.gain.value = 0;
     node.connect(g);
-    g.connect(this.out);
+    g.connect(this.nature);
     src.start(0, Math.random() * buffer.duration);
     return { g, f };
   }
@@ -275,9 +309,14 @@ export class AudioScape {
     this.tone({ freq: 520, freqEnd: 380, dur: 0.07, gain: 0.05 * vol, attack: 0.003 });
   }
 
+  // A soft "plop" as the float goes under; never a startling sound.
   bite() {
-    this.tone({ freq: 340, freqEnd: 110, dur: 0.28, gain: 0.22, attack: 0.004 });
-    this.burst({ type: 'bandpass', freq: 1400, q: 0.8, dur: 0.35, gain: 0.1, attack: 0.005 });
+    this.tone({ freq: 300, freqEnd: 130, dur: 0.26, gain: 0.12, attack: 0.01 });
+    this.burst({ type: 'bandpass', freq: 1200, q: 0.8, dur: 0.3, gain: 0.05, attack: 0.01 });
+  }
+
+  bubble(vol = 0.02, pan = 0) {
+    this.tone({ freq: rand(380, 620), freqEnd: rand(800, 1300), dur: 0.08, gain: vol, attack: 0.004, pan });
   }
 
   hookSet() {
@@ -368,8 +407,10 @@ export class AudioScape {
     const { speed, rain, day, night, land, open, cove, gulls } = s;
 
     this.set(this.waterBed.g.gain, 0.1 + 0.05 * Math.min(speed / 5, 1) + 0.04 * open, 1);
-    this.set(this.surfBed.g.gain, 0.012 + land * 0.035 * (1 - cove * 0.5), 1.5);
-    this.set(this.windBed.g.gain, 0.012 + 0.03 * open + 0.035 * rain, 2);
+    const above = 1 - this.under * 0.75;
+    this.set(this.surfBed.g.gain, (0.012 + land * 0.035 * (1 - cove * 0.5)) * above, 1.5);
+    this.set(this.windBed.g.gain, (0.012 + 0.03 * open + 0.035 * rain) * above, 2);
+    this.set(this.underBed.g.gain, 0.16 * this.under, 0.4);
     this.windBed.f[0].frequency.setTargetAtTime(600 + Math.sin(this.t * 0.11) * 220 + Math.sin(this.t * 0.37) * 80, now, 0.8);
     this.set(this.rainBed.g.gain, 0.085 * rain, 1.5);
     this.set(this.rainLow.g.gain, 0.08 * rain, 1.5);
