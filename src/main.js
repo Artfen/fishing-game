@@ -11,7 +11,7 @@ import { Ecosystem } from './world/ecosystem.js';
 import { FishRenderer } from './world/fishRender.js';
 import { Underwater } from './world/underwater.js';
 import { causticUniforms } from './world/caustics.js';
-import { bakeHeightTexture, heightAt, solidHeight, landSDF, zoneAt, PLACES, START, WATER_RECT, STACKS, COVE } from './world/terrain.js';
+import { bakeHeightTexture, heightAt, solidHeight, landSDF, zoneAt, PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE } from './world/terrain.js';
 import { Boat } from './boat.js';
 import { Effects } from './effects.js';
 import { Fishing } from './fishing.js';
@@ -65,7 +65,7 @@ const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 25
 // One shared underwater world: habitat → plants, rocks and fish homes → the fish themselves.
 const habitat = createHabitat();
 const env = new Environment(scene);
-const water = createWater(bakeHeightTexture(512, WATER_RECT), WATER_RECT);
+const water = createWater(bakeHeightTexture(512, WATER_RECT), WATER_RECT, bakeHeightTexture(256, SHORE_RECT), SHORE_RECT);
 scene.add(water.mesh);
 const world = buildWorld(scene, renderer, habitat);
 const underwater = new Underwater(scene, habitat, $('underwater-tint'));
@@ -788,7 +788,8 @@ function tick(now, manual = false) {
 }
 
 function frame(now) {
-  tick(now);
+  if (!window.slowTide?.paused) tick(now);
+  else last = now;
   requestAnimationFrame(frame);
 }
 
@@ -804,6 +805,13 @@ window.slowTide = {
   setHour: (h) => { state.hour = ((h % 24) + 24) % 24; },
   setRain: (r) => { weather.target = r; weather.rain = r; },
   teleport: (x, z, heading = boat.heading) => boat.place(x, z, heading),
+  // Freeze the game and look from one point at another (for screenshots and tinkering).
+  look: (x, y, z, tx, ty, tz) => {
+    window.slowTide.paused = true;
+    camera.position.set(x, y, z);
+    camera.lookAt(tx, ty, tz);
+    renderer.render(scene, camera);
+  },
   // Step the game by hand (handy for testing while the tab is in the background).
   advance: (seconds, fps = 30) => {
     let now = last;
