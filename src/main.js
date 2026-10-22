@@ -101,7 +101,7 @@ rig.init(boat);
 const weather = { rain: 0, target: 0, timer: state.tips.rained ? rand(120, 220) : 240 };
 let t = 0;
 let started = false;
-let modal = null; // 'journal' | 'catch' | 'note' | 'pack' | 'camp' | 'sleep'
+let modal = null; // 'journal' | 'catch' | 'note' | 'pack' | 'camp' | 'sleep' | 'travel'
 let hudOff = false;
 let rowTime = 0;
 let walkTime = 0;
@@ -280,6 +280,8 @@ function pickRod(slot) {
 const packUI = new PackUI(state, {
   onChange: (msg) => applyGear(msg),
   onClose: () => closePack(),
+  travel: (dest) => travel(dest),
+  travelInfo: () => travelInfo(),
 });
 
 function openPack(atCamp = nearCamp()) {
@@ -449,6 +451,108 @@ function board() {
   hud.chip('<b>Boat view</b>', 2);
 }
 
+/* ---------------- heading back: camp or boat ---------------- */
+
+// A safe place to stand by the fire: on dry, level ground, clear of the tent and gear.
+function campSpot() {
+  const c = world.camp.firePos;
+  const p = { x: 0, z: 0 };
+  for (let r = 2.2; r <= 7; r += 0.6) {
+    for (let i = 0; i < 16; i++) {
+      // Start on the side facing the bay and the path, then work round.
+      const a = Math.PI / 2 + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * (Math.PI / 8);
+      const x = c.x + Math.sin(a) * r, z = c.z + Math.cos(a) * r;
+      const h = walkHeight(x, z);
+      if (h < 0.3) continue;
+      if (Math.abs(walkHeight(x + 0.6, z) - walkHeight(x - 0.6, z)) + Math.abs(walkHeight(x, z + 0.6) - walkHeight(x, z - 0.6)) > 0.5) continue;
+      p.x = x;
+      p.z = z;
+      if (world.obstacles.resolve(p, 0.45)) continue;
+      return { x, z, heading: Math.atan2(c.x - x, c.z - z) };
+    }
+  }
+  return { x: c.x + 3, z: c.z, heading: -Math.PI / 2 };
+}
+
+const nearCampSpot = () => Math.hypot(player().pos.x - world.camp.firePos.x, player().pos.z - world.camp.firePos.z) < 8;
+
+function travelInfo() {
+  const busy = fishing.state === 'reeling' || fishing.state === 'landing' || fishing.state === 'caught' || fishing.state === 'keeping';
+  if (busy) return { camp: false, boat: false, note: 'Land or let go of the fish first.' };
+  if (sleeping || traveling) return { camp: false, boat: false, note: '' };
+  const camp = !(onFoot && nearCampSpot());
+  const boat = onFoot;
+  const note = !onFoot ? 'You’re in the boat. It stays where you leave it.' : !camp ? 'You’re at camp.' : stuckT > 2.5 ? 'Stuck? Either one gets you out.' : '';
+  return { camp, boat, note };
+}
+
+// The walk (or row) back happens off-screen: a short fade, a little time passes, and
+// you arrive somewhere safe. Catches, gear and the creel all come with you.
+let traveling = null;
+function travel(dest) {
+  const info = travelInfo();
+  if (!info[dest]) return;
+  if (fishing.lineOut) fishing.cancel();
+  if (modal === 'pack') closePack();
+  else if (modal === 'camp') closeCamp();
+  if (modal) return;
+  modal = 'travel';
+  hud.sleep(true, dest === 'camp' ? 'You head back to camp…' : 'You make your way back to the boat…');
+  traveling = { dest, t: 0, done: false };
+}
+
+function passTime(hours) {
+  state.hour += hours;
+  if (state.hour >= 24) {
+    state.hour -= 24;
+    state.day++;
+  }
+  camp.update(0, hours);
+}
+
+function updateTravel(dt) {
+  if (!traveling) return;
+  traveling.t += dt;
+  if (!traveling.done && traveling.t > 0.9) {
+    traveling.done = true;
+    const from = player().pos.clone();
+    if (traveling.dest === 'camp') {
+      const spot = campSpot();
+      walker.place(spot.x, spot.z, spot.heading);
+      if (!onFoot) setFoot(true, true);
+      rig.reset(walker, t);
+    } else {
+      board();
+      rig.reset(boat, t);
+    }
+    // About as long as the walk would take, but never more than half an hour.
+    passTime(clamp(from.distanceTo(player().pos) / 400, 0.05, 0.5));
+    stuckT = 0;
+    save();
+  }
+  if (traveling.t > 1.9) {
+    hud.sleep(false);
+    modal = null;
+    hud.toast(traveling.dest === 'camp' ? 'Back at camp. The boat is where you left it.' : 'Back in the boat.', 3.5);
+    traveling = null;
+  }
+}
+
+// Pushing against something without getting anywhere: offer the way out.
+let stuckT = 0;
+const stuckFrom = new THREE.Vector3();
+function watchStuck(dt, pushing) {
+  if (!onFoot || !pushing || fishing.busy || modal) {
+    stuckT = 0;
+    stuckFrom.copy(walker.pos);
+    return;
+  }
+  if (walker.pos.distanceTo(stuckFrom) > 0.6) {
+    stuckT = 0;
+    stuckFrom.copy(walker.pos);
+  } else stuckT += dt;
+}
+
 const lanternReach = () => !state.items.lantern && (onFoot
   ? walker.pos.distanceTo(world.lanternSpot) < 3.5
   : Math.hypot(boat.pos.x - world.lanternSpot.x, boat.pos.z - world.lanternSpot.z) < 10);
@@ -460,6 +564,7 @@ function interaction() {
   if (onFoot) {
     if (nearBoat()) return { text: 'Get in the boat', run: board };
     if (nearCamp()) return { text: 'Camp: fire, food, sleep and tackle box', run: () => openCamp() };
+    if (stuckT > 2.5) return { text: 'Stuck? Head back to camp or the boat', run: () => openPack() };
     return null;
   }
   const spot = cachedShoreSpot();
@@ -1014,7 +1119,7 @@ input.on('press', (code, key) => {
     return;
   }
   audio.start();
-  if (modal === 'sleep') return;
+  if (modal === 'sleep' || modal === 'travel') return;
   if (modal === 'note') {
     if (code === 'Space' || code === 'Enter' || code === 'Escape' || key === 'e') closeNote();
     return;
@@ -1218,6 +1323,7 @@ function tick(now, manual = false) {
   }
   updateWeather(dt, speed);
   updateSleep(dt);
+  updateTravel(dt);
   camp.update(dt, hours);
   walker.speedMul = camp.hunger === 'hungry' ? 0.82 : 1;
   fishing.steady = camp.wellFed ? 0.8 : 1;
@@ -1253,6 +1359,7 @@ function tick(now, manual = false) {
       save();
     }
   }
+  watchStuck(dt, !!(move.x || move.z));
   if (onFoot && (move.x || move.z)) {
     walkTime += dt;
     if (walkTime > 3 && !state.tips.walked) {

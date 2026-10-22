@@ -200,7 +200,8 @@ function shoreHeight(x, z, h, withPath) {
     if (dl < 0) {
       // Steep drop-off along the north shore, a long shallow shelf in the south-west.
       const ramp = lerp(4.5, 15, smoothstep(-9, 9, (z - LAKE.z) - (x - LAKE.x) * 0.45));
-      const bed = -(0.25 + (LAKE.depth - 0.25) * smoothstep(0, ramp, -dl)) + fbm(x * 0.2, z * 0.2, 2) * 0.25;
+      // The bed starts level with the bank (no lip at the waterline) and falls away from there.
+      const bed = 0.05 - (LAKE.depth + 0.05) * smoothstep(0, ramp, -dl) + fbm(x * 0.2, z * 0.2, 2) * 0.25 * smoothstep(0, 2.5, -dl);
       h = Math.min(h, bed);
     } else {
       const north = smoothstep(2, -10, z - LAKE.z);
@@ -213,7 +214,7 @@ function shoreHeight(x, z, h, withPath) {
     let c;
     if (e < 0) {
       const u = s.d / s.hw;
-      c = -0.08 - s.dep * (1 - u * u) + fbm(x * 0.6, z * 0.6, 2) * 0.08;
+      c = 0.1 - (s.dep + 0.1) * (1 - u * u) + fbm(x * 0.6, z * 0.6, 2) * 0.08 * (1 - u * u);
     } else {
       // A low, walkable strip beside the water, then the valley sides.
       c = 0.12 + e * 0.2 + Math.max(0, e - 3.5) * 0.36 + Math.max(0, e - 11) ** 2 * 0.018;

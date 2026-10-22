@@ -178,13 +178,15 @@ export class Walker {
     return this.body.localToWorld(out.set(0.0, 1.25, 0.55));
   }
 
-  // Can you stand at (x, z)? Not in deep water, and not up a cliff from where you are.
+  // Can you stand at (x, z)? Not in deep water, and not up (or down) a bank too steep to
+  // climb: you never step down anything you couldn't climb back up. Wading out of water
+  // you get a little extra help up the bank.
   canStand(x, z, fromH) {
     const h = walkHeight(x, z);
     if (h < DEEP) return false;
-    const rise = h - fromH;
+    const step = Math.abs(h - fromH);
     const run = Math.hypot(x - this.pos.x, z - this.pos.z) || 0.01;
-    return rise / run < STEEP || rise < 0.3;
+    return step / run < STEEP || step < (this.wading > 0.2 ? 0.45 : 0.3);
   }
 
   // move: a world-space direction (length 0..1) from the camera-relative keys or stick.
