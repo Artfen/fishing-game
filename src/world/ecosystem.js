@@ -11,7 +11,10 @@ const FAR_EVERY = 6; // fish beyond the active radius update at 5 Hz
 const FAR_RADIUS = 240;
 const BITE_WINDOW = 2.6; // seconds you have to set the hook once a fish takes the bait
 const ENGAGEABLE = new Set(['cruise', 'rest', 'feed', 'school']);
-const BAIT_STATES = new Set(['approach', 'investigate', 'nibble', 'bite']);
+const BAIT_STATES = new Set(['approach', 'investigate', 'nibble', 'bite', 'follow', 'lunge', 'inspect', 'sip']);
+// How long you have to strike, by how the fish took it.
+const WINDOWS = { strike: 1.15, sip: 1.0, take: 1.35, run: 4.2 };
+const _f = { x: 0, z: 0 };
 const _s = {};
 const _g = { x: 0, z: 0 };
 
@@ -28,14 +31,23 @@ export class Ecosystem {
     this.time = 0;
     this.density = 1;
     this.simRadius = 110;
-    this.ctx = { hour: 12, rain: 0, daylight: 1, night: 0, lanternNear: false };
+    this.ctx = { hour: 12, rain: 0, daylight: 1, night: 0, lanternNear: false, hatch: 0.5 };
     this.focus = { x: 0, z: 0 };
     this.boat = { x: 0, z: 0, speed: 0 };
+    this.walker = null;
+    this.walkT = 0;
+    // Handfuls of loose bait thrown in for the carp: { x, z, amount }.
+    this.feedSpots = [];
     this.lantern = null;
     this.activity = {};
     this.startleT = 0;
-    // The one bait in the water, written by the fishing system each frame.
-    this.bait = { active: false, x: 0, y: 0, z: 0, speed: 0, twitch: 0, fresh: 0, nearBottom: false, owner: null, held: false };
+    // The one rig in the water, written by the fishing system each frame. `kind` is how it is
+    // fished (float, lure, ledger, fly) and `item` what is on the hook (tackle.js).
+    this.bait = {
+      active: false, kind: 'float', item: 'worm', size: 1, fly: null, thick: 0.35,
+      x: 0, y: 0, z: 0, vx: 0, vz: 0, speed: 0, motion: 'still', twitch: 0, pause: false, drag: false, fouled: false,
+      fresh: 0, nearBottom: false, anglerX: 0, anglerZ: 0, owner: null, held: false,
+    };
     this.listener = {};
     this.populate();
   }
@@ -130,6 +142,29 @@ export class Ecosystem {
     this.schools.push(s);
   }
 
+  // A handful of loose bait thrown in: carp nearby will come and graze for a while.
+  addFeed(x, z, amount = 1) {
+    const near = this.feedSpots.find((f) => Math.hypot(f.x - x, f.z - z) < 4);
+    if (near) near.amount = Math.min(near.amount + amount, 2.5);
+    else this.feedSpots.push({ x, z, amount });
+    if (this.feedSpots.length > 4) this.feedSpots.shift();
+  }
+
+  // After a long sleep: everyone picks up where the new hour finds them.
+  settle() {
+    for (const a of this.agents) {
+      if (a.state === 'caught' || a.state === 'hooked' || a.state === 'gone') continue;
+      a.wary = 0;
+      a.faceBait = false;
+      if (a.school) a.state = 'school';
+      else this.decide(a);
+      const band = a.L.depth(this.ctx);
+      const depth = Math.max(this.habitat.depth(a.x, a.z), 0.8);
+      a.y = a.py = -clamp(lerp(band[0], band[1], Math.random()), 0.3, depth - 0.3);
+    }
+    for (const s of this.schools) s.t = 99;
+  }
+
   setDensity(d) {
     this.density = d;
     for (const a of this.agents) a.active = a.rank < d || a.state === 'hooked' || BAIT_STATES.has(a.state);
@@ -141,7 +176,10 @@ export class Ecosystem {
     Object.assign(this.ctx, ctx.env);
     this.focus = ctx.focus;
     this.boat = ctx.boat;
+    this.walker = ctx.walker;
     this.lantern = ctx.lantern;
+    for (const f of this.feedSpots) f.amount -= dt * 0.002;
+    if (this.feedSpots.length && this.feedSpots[0].amount <= 0) this.feedSpots = this.feedSpots.filter((f) => f.amount > 0);
     for (const sp of FISH) this.activity[sp.id] = sp.life.activity(this.ctx);
     const b = this.bait;
     if (b.fresh > 0) b.fresh -= dt;
@@ -173,12 +211,17 @@ export class Ecosystem {
       a.py = a.y;
       a.pz = a.z;
       a.pyaw = a.yaw;
+      if (a.state === 'gone') {
+        if (this.time > a.backAt) this.restock(a);
+        continue;
+      }
       if (!a.active || a.state === 'caught' || a.state === 'hooked') continue;
       const d2 = (a.x - fx) ** 2 + (a.z - fz) ** 2;
       if (d2 < near2) this.stepAgent(a, h, false);
       else if (d2 < far2 && (this.tick + a.id) % FAR_EVERY === 0) this.stepAgent(a, h * FAR_EVERY, true);
     }
     this.boatStartle(h);
+    this.walkerStartle(h);
   }
 
   /* ---------- individual fish ---------- */
@@ -206,6 +249,7 @@ export class Ecosystem {
       case 'flee':
         if (a.t > a.dur) this.afterFlee(a);
         break;
+      case 'escort': this.escort(a); break;
       default:
         if (BAIT_STATES.has(a.state)) this.baitBehaviour(a, h);
     }
@@ -245,6 +289,21 @@ export class Ecosystem {
     }
     if (act > 0.3 && Math.random() < L.rises(this.ctx) * 0.12) return this.startRise(a);
     if (act < 0.25) return this.startState(a, 'rest', rand(10, 22));
+    // Carp find loose bait thrown in nearby and graze there.
+    if (L.grazer) {
+      const spot = this.feedSpots.find((f) => f.amount > 0.05 && Math.hypot(f.x - a.x, f.z - a.z) < 45);
+      if (spot && Math.random() < 0.8) {
+        this.startState(a, 'feed', rand(14, 26));
+        a.feedSpot = spot;
+        a.tx = spot.x + rand(-2, 2);
+        a.tz = spot.z + rand(-2, 2);
+        a.ty = -this.habitat.depth(a.tx, a.tz) + 0.4;
+        a.wantSpeed = L.speed;
+        return;
+      }
+    }
+    // Pike lie still in the weed most of the time.
+    if (L.lurk) return Math.random() < 0.75 ? this.startState(a, 'rest', rand(10, 30)) : this.startState(a, 'cruise', rand(10, 18));
     const r = Math.random();
     if (r < 0.45) return this.startState(a, 'cruise');
     if (r < 0.75) return this.startState(a, 'feed', rand(4, 9));
@@ -253,6 +312,7 @@ export class Ecosystem {
 
   startState(a, state, dur) {
     a.state = state;
+    a.feedSpot = null;
     a.t = 0;
     a.dur = dur ?? 25;
     this.pickPoint(a, state);
@@ -293,10 +353,12 @@ export class Ecosystem {
   feed(a, h) {
     if (a.t > a.dur) return this.decide(a);
     a.retarget -= h;
+    if (a.feedSpot) a.feedSpot.amount -= h * 0.004;
     if (a.retarget <= 0 || this.near(a, 0.4)) {
-      // short darts close to the bottom, picking at weeds and sand
+      // short darts close to the bottom, picking at weeds and sand (or at the loose bait)
       a.retarget = rand(1, 2.5);
-      const x = a.x + rand(-1.6, 1.6), z = a.z + rand(-1.6, 1.6);
+      const cx = a.feedSpot ? a.feedSpot.x : a.x, cz = a.feedSpot ? a.feedSpot.z : a.z;
+      const x = cx + rand(-1.8, 1.8), z = cz + rand(-1.8, 1.8);
       const d = this.habitat.depth(x, z);
       if (d > 0.6) {
         a.tx = x;
@@ -452,15 +514,21 @@ export class Ecosystem {
       dx = _g.x;
       dz = _g.z;
     }
-    const want = Math.atan2(dx, dz);
+    let want = Math.atan2(dx, dz);
+    // Stream fish hold station facing into the current.
+    if (a.L.stream && dh < 1.2 && !a.faceBait && a.state !== 'flee' && !BAIT_STATES.has(a.state)) {
+      this.habitat.flow(a.x, a.z, _f);
+      if (Math.abs(_f.x) + Math.abs(_f.z) > 0.08) want = Math.atan2(-_f.x, -_f.z);
+    }
     const maxTurn = a.L.turn * h;
     const turn = clamp(wrapAngle(want - a.yaw), -maxTurn, maxTurn);
     a.yaw += turn;
     a.turnRate = turn / h;
     a.pitch = damp(a.pitch, clamp(Math.atan2(dy, Math.max(dh, 0.6)), -0.5, 0.5), 3, h);
     let speed = a.wantSpeed;
-    // Settle gently onto resting and investigating spots instead of overshooting.
-    if (a.state !== 'cruise' && a.state !== 'flee' && a.state !== 'school' && dh < 1.5) speed *= Math.max(dh / 1.5, 0.3);
+    // Settle gently onto resting and investigating spots instead of overshooting
+    // (but keep pace with a bait that is moving, like a fly drifting downstream).
+    if (a.state !== 'cruise' && a.state !== 'flee' && a.state !== 'school' && dh < 1.5) speed *= Math.max(dh / 1.5, BAIT_STATES.has(a.state) ? 0.75 : 0.3);
     a.speed = damp(a.speed, speed, 1.6, h);
   }
 
@@ -486,34 +554,112 @@ export class Ecosystem {
 
   /* ---------- the bait ---------- */
 
+  // How tempting the rig in the water is to this fish, or 0 if it ignores it completely.
+  // Everything a fish cares about lives here: what's on the hook, how it moves, its size,
+  // whether a dry fly matches the hatch or drags, and how thick the line looks.
+  appeal(a, b) {
+    const sp = a.sp, L = a.L;
+    let f = sp.food?.[b.item] ?? 0;
+    if (f <= 0 || b.fouled) return 0;
+    if (L.bottom && !b.nearBottom) return 0;
+    // A big lure is too much for a small fish; the bigger ones of a kind can manage more.
+    const k = (a.size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]);
+    if (b.size > (sp.mouth ?? 2) * (0.7 + 0.5 * k)) f *= 0.05;
+    if (b.fly === 'dry') {
+      f *= 0.25 + (this.ctx.hatch ?? 0.5);
+      if (b.drag) f *= 0.07;
+    } else if (b.drag) f *= 0.55;
+    if (L.lineShy && b.thick > L.lineShy) f *= 0.3;
+    f *= L.likes[b.motion] ?? 0.5;
+    return f;
+  }
+
   considerBait(a) {
     const b = this.bait;
     if (!b.active || b.owner || b.held || a.wary > 0) return;
     const L = a.L;
     const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
     const d = Math.hypot(dx, dy, dz);
-    const per = L.perception * (this.ctx.night > 0.6 && !L.lantern ? 0.75 : 1);
+    const per = L.perception * (this.ctx.night > 0.6 && !L.lantern ? 0.75 : 1) * (L.lurk ? 0.75 : 1);
     if (d > per) return;
     const dv = Math.abs(dy);
     if (dv > L.depthTol * 2.2) return;
-    if (L.bottom && !b.nearBottom) return;
-    const motion = b.twitch > 0 ? 'twitch' : b.speed > 0.15 ? 'slow' : 'still';
-    let p = this.activity[a.sp.id] * L.likes[motion]
+    const ap = this.appeal(a, b);
+    if (ap <= 0) return;
+    let p = this.activity[a.sp.id] * ap
       * (1 - smoothstep(L.depthTol * 0.6, L.depthTol * 2.2, dv))
       * Math.pow(1 - d / per, 0.6) * 0.35;
     if (b.fresh > 0) p *= 1.6;
     if (a.caught > 0) p *= 0.6;
+    if (L.grazer && this.feedSpots.some((f) => f.amount > 0.05 && Math.hypot(f.x - b.x, f.z - b.z) < 6)) p *= 2;
     if (Math.random() < p) this.engage(a);
   }
 
+  // The way a fish goes about taking this particular rig.
+  styleFor(a, b) {
+    const s = a.L.strike || {};
+    if (b.kind === 'lure') return s.lure || 'chase';
+    if (b.kind === 'fly') {
+      if (b.fly === 'dry') return s.dry || 'rise';
+      if (b.fly === 'streamer') return s.streamer || 'chase';
+      return s.nymph || 'take';
+    }
+    if (b.kind === 'ledger') return s.ledger || 'nibble';
+    return s.float || 'nibble';
+  }
+
   engage(a) {
-    this.bait.owner = a;
-    a.state = 'approach';
+    const b = this.bait;
+    b.owner = a;
+    a.style = this.styleFor(a, b);
     a.t = 0;
     a.invT = 0;
     a.nibbles = 0;
-    a.maxNibbles = 1 + Math.floor(Math.random() * 3);
+    a.followT = 0;
+    a.strikeCD = 0.6;
+    a.maxNibbles = a.style === 'take' ? 1 : 1 + Math.floor(Math.random() * 3);
+    if (a.style === 'ambush') {
+      // No warning: it simply goes.
+      a.state = 'lunge';
+      return;
+    }
+    if (a.style === 'chase') {
+      a.state = 'follow';
+      this.listener.onFollow?.(a);
+      if (a.L.pack) this.callPack(a);
+      return;
+    }
+    if (a.style === 'rise') {
+      a.state = 'inspect';
+      a.dur = rand(1.4, 3) * a.L.caution;
+      this.listener.onCurious?.(a);
+      return;
+    }
+    a.state = 'approach';
     this.listener.onCurious?.(a);
+  }
+
+  // Perch hunt in packs: when one follows a lure, its friends tag along for a look.
+  callPack(a) {
+    for (const o of this.bySpecies[a.sp.id]) {
+      if (o === a || !o.active || !ENGAGEABLE.has(o.state) || o.wary > 0) continue;
+      if (Math.abs(o.x - a.x) > 7 || Math.abs(o.z - a.z) > 7) continue;
+      o.state = 'escort';
+      o.t = 0;
+      o.dur = rand(2.5, 6);
+      o.slotSide = Math.random() < 0.5 ? -1 : 1;
+    }
+  }
+
+  escort(a) {
+    const b = this.bait;
+    if (!b.active || a.t > a.dur || b.kind !== 'lure') return this.startState(a, 'cruise');
+    const dx = b.anglerX - b.x, dz = b.anglerZ - b.z, l = Math.hypot(dx, dz) || 1;
+    a.tx = b.x - (dx / l) * 1.4 - (dz / l) * a.slotSide * 0.7;
+    a.ty = b.y - 0.2;
+    a.tz = b.z - (dz / l) * 1.4 + (dx / l) * a.slotSide * 0.7;
+    a.wantSpeed = clamp(Math.hypot(b.vx, b.vz) * 1.1 + 0.3, 0.2, a.L.speed * 2);
+    if (Math.hypot(b.x - b.anglerX, b.z - b.anglerZ) < 3.5) this.startState(a, 'cruise');
   }
 
   baitBehaviour(a, h) {
@@ -522,17 +668,20 @@ export class Ecosystem {
     const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
     const d = Math.hypot(dx, dy, dz);
     const hl = Math.hypot(dx, dz) || 1;
+    // How fast the bait is travelling over the ground: a fish has to keep up with it.
+    const bv = Math.hypot(b.vx, b.vz);
     switch (a.state) {
       case 'approach':
         a.faceBait = false;
-        a.tx = b.x + (dx / hl) * 0.7;
+        // Head for where it's going to be, not where it is.
+        a.tx = b.x + (dx / hl) * 0.7 + b.vx * 0.8;
         a.ty = b.y;
-        a.tz = b.z + (dz / hl) * 0.7;
-        a.wantSpeed = clamp(d * 0.5, 0.25, L.speed * 1.1);
+        a.tz = b.z + (dz / hl) * 0.7 + b.vz * 0.8;
+        a.wantSpeed = clamp(d * 0.5 + bv, 0.25, L.speed * 1.1 + bv);
         if (d < 1.0) {
           a.state = 'investigate';
-          a.dur = rand(1.6, 3.4) * L.caution;
-          a.nibbleT = rand(0.6, 1.3);
+          a.dur = rand(1.6, 3.4) * L.caution * (a.style === 'take' ? 0.4 : 1);
+          a.nibbleT = rand(0.6, 1.3) * (a.style === 'take' ? 0.5 : 1);
         } else if (a.t > 18 || d > L.perception * 1.6) this.disengage(a, 'lost', 5);
         break;
       case 'investigate': {
@@ -542,16 +691,17 @@ export class Ecosystem {
         a.tx = b.x + (dx / hl) * 0.6 - (dz / hl) * side;
         a.ty = b.y + Math.sin(this.time * 0.9 + a.id) * 0.08;
         a.tz = b.z + (dz / hl) * 0.6 + (dx / hl) * side;
-        a.wantSpeed = 0.12;
+        a.wantSpeed = 0.12 + bv;
         a.nibbleT -= h;
         if (b.speed > 1.0 && L.likes.slow < 1) this.disengage(a, 'startled', 6);
+        else if (this.appeal(a, b) <= 0) this.disengage(a, 'lost', 6);
         else if (a.nibbleT <= 0 && a.nibbles < a.maxNibbles) {
           a.state = 'nibble';
           a.t = 0;
           a.nibbled = false;
         } else if (a.invT > a.dur && a.nibbles >= 1) {
           const eager = L.bite * (b.twitch > 0 ? 1.15 : 1) * (0.7 + this.activity[a.sp.id] * 0.4);
-          if (Math.random() < eager) this.startBite(a);
+          if (Math.random() < eager) this.startBite(a, a.style === 'run' ? 'run' : a.style === 'take' ? 'take' : 'float');
           else this.disengage(a, 'lost', 6);
         }
         break;
@@ -562,7 +712,7 @@ export class Ecosystem {
         a.tx = b.x;
         a.ty = b.y;
         a.tz = b.z;
-        a.wantSpeed = 0.5;
+        a.wantSpeed = 0.5 + bv;
         if (!a.nibbled && (d < 0.4 || a.t > 0.3)) {
           a.nibbled = true;
           a.nibbles++;
@@ -573,31 +723,98 @@ export class Ecosystem {
           a.nibbleT = rand(0.7, 1.5);
         }
         break;
+      case 'follow': {
+        // Right behind the lure as it comes in. A twitch or a pause is often what makes it hit.
+        const tx = b.anglerX - b.x, tz = b.anglerZ - b.z, tl = Math.hypot(tx, tz) || 1;
+        a.faceBait = true;
+        a.followT += h;
+        a.tx = b.x - (tx / tl) * 0.7;
+        a.ty = b.y;
+        a.tz = b.z - (tz / tl) * 0.7;
+        a.wantSpeed = clamp(bv * 1.1 + d * 0.8, 0.2, L.speed * 2.3);
+        if (tl < 3.2) return this.disengage(a, 'turned', 10);
+        if (a.followT > 11 || d > L.perception * 1.4) return this.disengage(a, 'lost', 6);
+        if (this.appeal(a, b) <= 0) return this.disengage(a, 'lost', 6);
+        a.strikeCD -= h;
+        if (a.strikeCD <= 0 && d < 1.8) {
+          a.strikeCD = 0.3;
+          let p = 0.06 * (L.likes[b.motion] ?? 0.5) * L.bite;
+          if (b.twitch > 0) p *= 4;
+          if (b.pause) p *= 3.5;
+          if (b.motion === 'still' && !b.pause) p *= 0.3;
+          if (Math.random() < p) {
+            a.state = 'lunge';
+            a.t = 0;
+          }
+        }
+        break;
+      }
+      case 'lunge':
+        // A burst straight at it. Pike come out of nowhere.
+        a.faceBait = true;
+        a.tx = b.x;
+        a.ty = b.y;
+        a.tz = b.z;
+        a.wantSpeed = L.speed * (L.burst || 2.6);
+        a.speed = Math.max(a.speed, a.wantSpeed * 0.75);
+        if (d < 0.4) this.startBite(a, 'strike');
+        else if (a.t > 1.5) this.disengage(a, 'missed', 12);
+        break;
+      case 'inspect':
+        // Drifts up under the fly, looking.
+        a.faceBait = true;
+        a.invT += h;
+        a.tx = b.x + b.vx * 0.3;
+        a.ty = Math.min(b.y - 0.35, -0.3);
+        a.tz = b.z + b.vz * 0.3;
+        a.wantSpeed = clamp(bv + d * 0.9, 0.15, L.speed * 1.6 + bv);
+        if (d > L.perception * 1.5) return this.disengage(a, 'lost', 6);
+        if (a.invT > a.dur) {
+          const yes = clamp(L.bite * this.appeal(a, b), 0, 0.95);
+          if (Math.random() < yes) {
+            a.state = 'sip';
+            a.t = 0;
+          } else this.disengage(a, 'refused', 15);
+        }
+        break;
+      case 'sip':
+        a.faceBait = true;
+        a.tx = b.x;
+        a.ty = b.y;
+        a.tz = b.z;
+        a.wantSpeed = L.speed + bv;
+        if (d < 0.35 || a.t > 0.8) {
+          this.clue('rise', a);
+          this.startBite(a, 'sip');
+        }
+        break;
       case 'bite':
         a.faceBait = false;
         a.biteT -= h;
         a.tx = a.biteX;
         a.ty = a.biteY;
         a.tz = a.biteZ;
-        a.wantSpeed = L.speed * 0.6;
+        a.wantSpeed = L.speed * (a.biteKind === 'run' ? 2.4 : 0.6);
         if (a.biteT <= 0) this.disengage(a, 'spat', 12);
         break;
       default:
     }
   }
 
-  startBite(a) {
+  startBite(a, kind = 'float') {
     const b = this.bait;
     a.state = 'bite';
     a.t = 0;
-    a.biteT = BITE_WINDOW + (a.L.caution > 1.5 ? 0.6 : 0);
-    // It swims off slowly with the bait, away from the boat.
-    const dx = b.x - this.boat.x, dz = b.z - this.boat.z, l = Math.hypot(dx, dz) || 1;
-    a.biteX = b.x + (dx / l) * 1.6;
-    a.biteZ = b.z + (dz / l) * 1.6;
-    a.biteY = Math.max(b.y - 0.3, -this.habitat.depth(b.x, b.z) + 0.4);
+    a.biteKind = kind;
+    a.biteT = WINDOWS[kind] ?? BITE_WINDOW + (a.L.caution > 1.5 ? 0.6 : 0);
+    // It swims off with the bait, away from you (a long way, if it's a carp on a run).
+    const dx = b.x - b.anglerX, dz = b.z - b.anglerZ, l = Math.hypot(dx, dz) || 1;
+    const go = kind === 'run' ? 9 : kind === 'strike' || kind === 'sip' ? 0.8 : 1.6;
+    a.biteX = b.x + (dx / l) * go;
+    a.biteZ = b.z + (dz / l) * go;
+    a.biteY = Math.max(b.y - 0.3, -this.habitat.depth(a.biteX, a.biteZ) + 0.4);
     b.held = true;
-    this.listener.onBite?.(a);
+    this.listener.onBite?.(a, kind);
   }
 
   disengage(a, reason, wary) {
@@ -641,6 +858,25 @@ export class Ecosystem {
     }
   }
 
+  // Kept for the pot: gone for a while, then another fish of its kind turns up at its home.
+  keep(a) {
+    a.state = 'gone';
+    a.backAt = this.time + rand(240, 420);
+  }
+
+  restock(a) {
+    const sp = a.sp;
+    a.size = Math.round(lerp(sp.size[0], sp.size[1], Math.pow(Math.random(), 1.7)));
+    a.scale = (a.size / 100) * sp.visual;
+    a.caught = 0;
+    a.wary = 0;
+    a.x = a.px = a.home.x;
+    a.z = a.pz = a.home.z;
+    a.y = a.py = -Math.min(1.5, Math.max(this.habitat.depth(a.x, a.z) - 0.4, 0.3));
+    if (a.school) a.state = 'school';
+    else this.startState(a, 'rest', 5);
+  }
+
   // Back into the water: the same fish, a little wiser for a while.
   release(a, x, z) {
     a.x = a.px = x;
@@ -682,7 +918,7 @@ export class Ecosystem {
     const r2 = radius * radius;
     const schools = new Set();
     for (const a of this.agents) {
-      if (!a.active || a.state === 'caught' || a.state === 'hooked' || a.state === 'jump') continue;
+      if (!a.active || a.state === 'caught' || a.state === 'hooked' || a.state === 'jump' || a.state === 'gone') continue;
       const dx = a.x - x, dy = (a.y - y) * 0.7, dz = a.z - z;
       if (dx * dx + dy * dy + dz * dz > r2) continue;
       if (a.school) {
@@ -712,6 +948,28 @@ export class Ecosystem {
     this.startle(bt.x, -0.6, bt.z, 4 + bt.speed * 0.8, 1);
   }
 
+  // Heavy footsteps on the bank send shy fish (trout, carp in the shallows) darting off.
+  // Standing still or creeping up slowly is fine.
+  walkerStartle(h) {
+    this.walkT -= h;
+    const w = this.walker;
+    if (!w || this.walkT > 0) return;
+    this.walkT = 0.35;
+    if (w.speed < 1.6) return;
+    const jog = w.speed > 4;
+    for (const a of this.agents) {
+      if (!a.active || !a.L.spooky || a.state === 'flee' || a.state === 'caught' || a.state === 'hooked' || a.state === 'gone') continue;
+      const dx = a.x - w.x, dz = a.z - w.z;
+      // Trout feel a jogger from well back; walking, you have to come right up to the bank.
+      const r = a.L.spooky > 2 ? a.L.spooky * (jog ? 0.9 : 0.4) : jog ? 4.5 : 2.5;
+      if (dx * dx + dz * dz > r * r) continue;
+      if (a.L.spooky <= 2 && this.habitat.depth(a.x, a.z) > a.L.spooky) continue;
+      this.flee(a, w.x, a.y, w.z, rand(2, 3.5), 2.6);
+      a.wary = Math.max(a.wary, 25);
+      this.listener.onSpooked?.(a);
+    }
+  }
+
   /* ---------- clues & queries ---------- */
 
   clue(type, a) {
@@ -725,7 +983,11 @@ export class Ecosystem {
       this.clue('flash', a);
       a.flashCD = rand(8, 18);
     }
-    if (a.L.bubbles && a.clueCD <= 0) {
+    if (a.L.grazer && a.state === 'feed' && a.clueCD <= 0) {
+      // Feeding carp send up patches of fizzing bubbles: the surest sign of them.
+      a.clueCD = rand(1.5, 4);
+      this.clue('fizz', a);
+    } else if (a.L.bubbles && a.clueCD <= 0) {
       a.clueCD = rand(6, 14);
       if (Math.random() < 0.5) this.clue('bubbles', a);
     }
@@ -741,7 +1003,7 @@ export class Ecosystem {
   // through the edge of the cone read a little deeper: the classic fish-finder arch.
   queryCone(x, z, tanA, out) {
     for (const a of this.agents) {
-      if (!a.active || a.state === 'caught' || a.y > -0.15) continue;
+      if (!a.active || a.state === 'caught' || a.state === 'gone' || a.y > -0.15) continue;
       const depth = -a.y;
       const r = Math.hypot(a.x - x, a.z - z);
       const cone = tanA * depth + 0.6;

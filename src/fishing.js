@@ -1,26 +1,33 @@
 import * as THREE from 'three';
 import { FISH, buildFishMesh } from './fish.js';
 import { waveHeight } from './world/water.js';
-import { solidHeight } from './world/terrain.js';
+import { solidHeight, streamFlow } from './world/terrain.js';
+import { RODS, TACKLE, castRange, splashOf } from './tackle.js';
+import { buildTackleModel, buildFloat, buildIndicator, buildLead } from './tackleModels.js';
 import { clamp, lerp, damp, rand, smoothstep, wrapAngle, glowTexture } from './util.js';
 
 const LINE_N = 28;
 const ARC_N = 24;
 const AIM_TIME = 1.5; // seconds of holding for a full-length cast
-const MIN_CAST = 4;
-const MAX_CAST = 24;
 const TAP = 0.22; // a press shorter than this is a twitch; longer is reeling
+const LINE_COLORS = { float: '#f5efe2', lure: '#c3dc98', ledger: '#e9f0e6', fly: '#f0dc7a' };
 const _v = new THREE.Vector3();
 const _w = new THREE.Vector3();
 
 // The fishing loop:
-// idle → aiming (hold, aim, choose distance) → casting → drifting (bait in the water)
-//      → bite → reeling → landing → caught → releasing → idle
-// Fish come to the bait on their own (see world/ecosystem.js); this file reports
-// what they do through the float and the line, and plays the fight.
+// idle → aiming (hold, aim, choose distance) → casting → drifting (rig in the water)
+//      → bite → reeling → landing → caught → releasing or keeping → idle
+// The rod decides how the rig behaves once it lands (this.kind):
+//   float  – a bait hanging under a float at the depth you choose (the original Slow Tide way)
+//   lure   – a lure you reel back; it dives, wobbles, flashes or hangs depending on the lure
+//   ledger – a bait on the bottom with a bite alarm; carp pick it up and run
+//   fly    – a fly that drifts with the stream (and drags when the line pulls it), or is stripped back
+// Fish come to the rig on their own (see world/ecosystem.js); this file reports what they do
+// through the float, the line, the rod and the alarm, and plays the fight.
 export class Fishing {
-  constructor(scene, boat, fx, audio, eco, hooks) {
-    this.boat = boat;
+  constructor(scene, angler, fx, audio, eco, hooks) {
+    this.scene = scene;
+    this.angler = angler;
     this.fx = fx;
     this.audio = audio;
     this.eco = eco;
@@ -38,43 +45,55 @@ export class Fishing {
     this.hold = false;
     this.holdT = 0;
     this.reelSpeed = 0;
-    this.depth = 1.2; // chosen bait depth, remembered between casts
+    this.relSpeed = 0;
+    this.retrieve = 1.0; // lure retrieve speed, remembered between casts
+    this.depth = 1.2; // chosen float depth, remembered between casts
     this.baitDepth = 0;
     this.bottom = 5;
     this.dip = 0;
     this.twitchT = 0;
+    this.rodBounce = 0;
     this.status = 'quiet';
     this.statusT = 0;
     this.quietT = 0;
     this.hintedQuiet = false;
     this.agent = null;
     this.fight = null;
+    this.biteKind = 'float';
+    this.steady = 1; // under 1 when you're well fed: the line tightens more slowly
+    this.r = {};
+    this.flow = { x: 0, z: 0 };
     this.tip = new THREE.Vector3();
     this.bob = new THREE.Vector3();
     this.hook = new THREE.Vector3();
+    this.prevHook = new THREE.Vector3();
+    this.lastSync = new THREE.Vector3();
+    this.frameDt = 1 / 60;
     this.from = new THREE.Vector3();
     this.to = new THREE.Vector3();
     this.fishPos = new THREE.Vector3();
 
-    const bobber = new THREE.Group();
-    const top = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#e5533d' }));
-    const bottom = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#f6f1e6' }));
-    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.14, 4), new THREE.MeshLambertMaterial({ color: '#2f2a26' }));
-    stem.position.y = 0.11;
-    bobber.add(top, bottom, stem);
-    bobber.visible = false;
-    scene.add(bobber);
-    this.bobber = bobber;
+    this.bobber = buildFloat();
+    this.bobber.visible = false;
+    scene.add(this.bobber);
+    this.indicator = buildIndicator();
+    this.indicator.visible = false;
+    scene.add(this.indicator);
+    this.lead = buildLead();
+    this.lead.visible = false;
+    scene.add(this.lead);
+    this.models = {};
+    this.model = null;
 
     const lg = new THREE.BufferGeometry();
     this.linePos = new Float32Array(LINE_N * 3);
     lg.setAttribute('position', new THREE.BufferAttribute(this.linePos, 3));
-    this.line = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: '#f5efe2', transparent: true, opacity: 0.75 }));
+    this.line = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: LINE_COLORS.float, transparent: true, opacity: 0.75 }));
     this.line.frustumCulled = false;
     this.line.visible = false;
     scene.add(this.line);
 
-    // The short length of line from the float down to the bait, visible underwater.
+    // The short length of line from the float (or where the line enters the water) to the hook.
     const ldg = new THREE.BufferGeometry();
     this.leaderPos = new Float32Array(6);
     ldg.setAttribute('position', new THREE.BufferAttribute(this.leaderPos, 3));
@@ -82,18 +101,6 @@ export class Fishing {
     this.leader.frustumCulled = false;
     this.leader.visible = false;
     scene.add(this.leader);
-
-    // A little worm on a hook, with a split shot above it.
-    this.baitModel = new THREE.Group();
-    const worm = new THREE.Mesh(new THREE.CapsuleGeometry(0.02, 0.08, 3, 6), new THREE.MeshLambertMaterial({ color: '#e98a8a', emissive: '#3a1414' }));
-    worm.rotation.z = 0.7;
-    const hookMesh = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.005, 4, 10, Math.PI * 1.3), new THREE.MeshLambertMaterial({ color: '#9aa3ad' }));
-    hookMesh.position.y = 0.02;
-    const shot = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), new THREE.MeshLambertMaterial({ color: '#4a4f57' }));
-    shot.position.y = 0.26;
-    this.baitModel.add(worm, hookMesh, shot);
-    this.baitModel.visible = false;
-    scene.add(this.baitModel);
 
     this.aimRing = new THREE.Mesh(
       new THREE.RingGeometry(0.42, 0.52, 36).rotateX(-Math.PI / 2),
@@ -120,10 +127,13 @@ export class Fishing {
 
     eco.listener = {
       onCurious: (a) => this.onCurious(a),
+      onFollow: (a) => this.onFollow(a),
       onNibble: (a) => this.onNibble(a),
-      onBite: (a) => this.onBite(a),
+      onBite: (a, kind) => this.onBite(a, kind),
       onLeave: (a, reason) => this.onLeave(a, reason),
+      onSpooked: (a) => this.hooks.spooked?.(a),
     };
+    this.setRig(RODS.float, TACKLE.worm);
   }
 
   get busy() { return this.state !== 'idle'; }
@@ -131,6 +141,8 @@ export class Fishing {
   get lineOut() { return this.state !== 'idle' && this.state !== 'aiming'; }
   get baitInWater() { return this.state === 'drifting' || this.state === 'bite' || this.state === 'reeling'; }
   get pulling() { return !!(this.fight && this.fight.pulling); }
+  get holdingFish() { return this.state === 'caught'; }
+  get retrieveName() { return this.retrieve < 0.7 ? 'slow' : this.retrieve < 1.4 ? 'steady' : 'fast'; }
   // What the bait-follow camera watches.
   get watchPoint() {
     if (this.state === 'reeling' && this.fight) return this.fishPos;
@@ -138,12 +150,42 @@ export class Fishing {
     return null;
   }
 
+  setAngler(a) {
+    this.angler = a;
+  }
+
+  // Change rod or tackle. Only between casts.
+  setRig(rod, item) {
+    if (this.busy) return false;
+    this.rod = rod;
+    this.item = item;
+    this.kind = rod.kind;
+    this.line.material.color.set(LINE_COLORS[this.kind]);
+    if (this.model) this.model.visible = false;
+    this.model = item ? this.modelFor(item) : null;
+    return true;
+  }
+
+  modelFor(item) {
+    if (!this.models[item.id]) {
+      const m = buildTackleModel(item);
+      m.visible = false;
+      this.scene.add(m);
+      this.models[item.id] = m;
+    }
+    return this.models[item.id];
+  }
+
   /* ---------- input ---------- */
 
   onDown() {
     switch (this.state) {
       case 'idle':
-        if (this.boat.speed > 1.8) {
+        if (!this.item) {
+          this.hooks.flash(`Nothing for the ${this.rod.short.toLowerCase()} in your backpack. Swap tackle with ${this.hooks.key('B')}.`);
+          return;
+        }
+        if (this.angler.onBoat && this.angler.speed > 1.8) {
           this.hooks.flash('Let the boat drift to a stop first');
           return;
         }
@@ -200,28 +242,38 @@ export class Fishing {
     if (this.state === 'aiming') this.aimOffset = clamp(this.aimOffset + dir * 1.3 * dt, -Math.PI, Math.PI);
   }
 
-  // Up/down sets how deep the bait hangs below the float.
+  // Up/down: how deep the bait hangs under the float, or how fast you reel a lure.
   depthBy(dir, dt) {
     if (this.state !== 'aiming' && this.state !== 'drifting') return;
-    const max = this.state === 'drifting' ? Math.max(0.4, this.bottom - 0.15) : 14;
-    this.depth = clamp(this.depth - dir * 1.4 * dt, 0.4, max);
+    if (this.kind === 'float') {
+      const max = this.state === 'drifting' ? Math.max(0.4, this.bottom - 0.15) : 14;
+      this.depth = clamp(this.depth - dir * 1.4 * dt, 0.4, max);
+    } else if (this.kind === 'lure') {
+      this.retrieve = clamp(this.retrieve + dir * 0.9 * dt, 0.35, 2.1);
+    }
   }
 
   get info() {
     return {
-      depth: this.baitDepth, target: this.depth, bottom: this.bottom, status: this.status,
+      kind: this.kind, depth: this.baitDepth, target: this.depth, bottom: this.bottom, status: this.status,
       reeling: this.reelSpeed > 0.05, power: this.power, dist: this.castDist, valid: this.aimValid,
+      retrieve: this.retrieveName, drag: !!this.r.drag, fouled: !!this.r.fouled, settled: !!this.r.settled,
+      item: this.item, rod: this.rod,
     };
   }
 
   /* ---------- casting ---------- */
 
   landingPoint(power, out) {
+    const a = this.angler;
+    const [mn, mx] = castRange(this.rod, this.item);
     const dx = Math.sin(this.aimYaw), dz = Math.cos(this.aimYaw);
-    const bx = this.boat.pos.x + dx * 0.8, bz = this.boat.pos.z + dz * 0.8;
-    for (let d = MIN_CAST + power * (MAX_CAST - MIN_CAST); d > 2.5; d -= 0.4) {
+    const bx = a.pos.x + dx * 0.8, bz = a.pos.z + dz * 0.8;
+    // Land it in water a fish could actually reach: very shallow margins don't count.
+    const minDepth = this.kind === 'fly' ? 0.3 : 0.6;
+    for (let d = mn + power * (mx - mn); d > 2.5; d -= 0.4) {
       const x = bx + dx * d, z = bz + dz * d;
-      if (solidHeight(x, z) < -0.6) {
+      if (solidHeight(x, z) < -minDepth) {
         out.set(x, 0, z);
         this.castDist = d;
         return true;
@@ -230,25 +282,31 @@ export class Fishing {
     return false;
   }
 
-  // The same arc is drawn while aiming and flown by the float, so what you see is what you get.
+  // The same arc is drawn while aiming and flown by the rig, so what you see is what you get.
   arcPoint(u, out) {
     out.lerpVectors(this.from, this.to, u);
     out.y += 4 * this.apex * u * (1 - u);
     return out;
   }
 
+  apexFor(d) {
+    if (this.kind === 'fly') return 0.5 + d * 0.06;
+    if (this.kind === 'ledger') return 1.2 + d * 0.2;
+    return 0.8 + d * 0.16;
+  }
+
   cast() {
     if (!this.aimValid) {
       this.state = 'idle';
-      this.hooks.flash('Too close to the shore to cast that way');
+      this.hooks.flash(this.angler.onBoat ? 'Too close to the shore to cast that way' : 'Aim out over open water to cast');
       return;
     }
     this.state = 'casting';
     this.t = 0;
     this.from.copy(this.tip);
-    this.flight = 0.5 + this.castDist * 0.03;
-    this.audio.cast();
-    this.hooks.onCast();
+    this.flight = this.kind === 'fly' ? 0.75 + this.castDist * 0.04 : 0.5 + this.castDist * 0.03;
+    this.audio.cast(this.kind === 'fly' ? 0.5 : 1);
+    this.hooks.onCast(this.kind);
   }
 
   land(t) {
@@ -256,39 +314,79 @@ export class Fishing {
     this.t = 0;
     this.bob.set(this.to.x, waveHeight(this.to.x, this.to.z, t), this.to.z);
     this.hook.copy(this.bob);
+    this.prevHook.copy(this.hook);
+    this.lastSync.copy(this.hook);
     this.baitDepth = 0;
     this.reelSpeed = 0;
-    this.bottom = Math.max(0.3, -solidHeight(this.to.x, this.to.z));
-    this.depth = Math.min(this.depth, Math.max(0.4, this.bottom - 0.15));
-    this.fx.ripple(this.bob.x, this.bob.z, 1.2, 1.4, 0.55);
-    this.fx.splash(this.bob.x, 0.05, this.bob.z, 8, 1.4, 0.6);
-    this.audio.plop();
+    this.relSpeed = 0;
+    this.twitchT = 0;
+    this.bottom = Math.max(0.25, -solidHeight(this.to.x, this.to.z));
+    const splash = splashOf(this.rod, this.item);
+    this.fx.ripple(this.bob.x, this.bob.z, 0.5 + splash * 0.35, 1.4, 0.3 + splash * 0.08);
+    this.fx.splash(this.bob.x, 0.05, this.bob.z, Math.round(2 + splash * 3), 0.8 + splash * 0.3, 0.4 + splash * 0.08);
+    this.audio.plop(this.kind === 'fly' ? 0.45 : this.kind === 'ledger' ? 1.4 : 1);
     // A splash right on top of fish sends them off; a little further away it draws attention.
-    this.eco.startle(this.bob.x, -0.4, this.bob.z, 1.8, 0.8);
-    Object.assign(this.eco.bait, { active: true, fresh: 4, owner: null, held: false, twitch: 0, speed: 0 });
+    this.eco.startle(this.bob.x, -0.4, this.bob.z, splash, 0.8);
+    this.r = {};
+    if (this.kind === 'float') this.depth = Math.min(this.depth, Math.max(0.4, this.bottom - 0.15));
+    else if (this.kind === 'lure') Object.assign(this.r, { moved: 0, pauseT: 9, wasMoving: false, fouled: false, bumpT: 0 });
+    else if (this.kind === 'ledger') this.r.settled = false;
+    else if (this.kind === 'fly') Object.assign(this.r, { lineLen: this.castDist + 1.6, drag: false });
+    const it = this.item;
+    Object.assign(this.eco.bait, {
+      active: true, kind: this.kind, item: it.id, size: it.size, fly: it.fly || null, thick: this.rod.line.thick,
+      fresh: 4, owner: null, held: false, twitch: 0, speed: 0, motion: 'still', pause: false, drag: false, fouled: false,
+    });
     this.syncBait();
     this.agent = null;
-    this.setStatus('quiet');
+    this.setStatus(this.kind === 'ledger' ? 'sinking' : 'quiet');
     this.quietT = 0;
     this.hintedQuiet = false;
   }
 
   twitch() {
-    this.twitchT = 0.5;
-    this.dip = 0.1;
-    this.eco.bait.twitch = 1.4;
-    const dx = this.tip.x - this.bob.x, dz = this.tip.z - this.bob.z, l = Math.hypot(dx, dz) || 1;
-    this.bob.x += (dx / l) * 0.3;
-    this.bob.z += (dz / l) * 0.3;
-    this.fx.ripple(this.bob.x, this.bob.z, 0.8, 0.9, 0.4);
-    this.audio.nibble(0.6);
+    const b = this.eco.bait;
+    const dx = this.tip.x - this.hook.x, dz = this.tip.z - this.hook.z, l = Math.hypot(dx, dz) || 1;
+    switch (this.kind) {
+      case 'float':
+        this.twitchT = 0.5;
+        this.dip = 0.1;
+        b.twitch = 1.4;
+        this.bob.x += (dx / l) * 0.3;
+        this.bob.z += (dz / l) * 0.3;
+        this.fx.ripple(this.bob.x, this.bob.z, 0.8, 0.9, 0.4);
+        this.audio.nibble(0.6);
+        break;
+      case 'lure':
+        this.twitchT = 0.45;
+        b.twitch = 1.2;
+        if (this.r.fouled && Math.random() < 0.45) {
+          this.r.fouled = false;
+          this.hooks.flash('You flick the weed off the lure', 2);
+        }
+        if (this.baitDepth < 0.4) this.fx.ripple(this.hook.x, this.hook.z, 0.5, 0.7, 0.3);
+        this.audio.tick(0.8);
+        break;
+      case 'fly':
+        this.twitchT = 0.35;
+        b.twitch = 1;
+        this.hook.x += (dx / l) * 0.25;
+        this.hook.z += (dz / l) * 0.25;
+        if (this.item.fly === 'dry') this.fx.ripple(this.hook.x, this.hook.z, 0.35, 0.6, 0.3);
+        break;
+      default:
+        // A carp rig just sits there; a tap does nothing but tighten the line.
+        this.rodBounce = 0.15;
+    }
   }
 
   reelIn() {
     this.state = 'retrieving';
     this.t = 0;
-    this.from.copy(this.bob);
+    this.from.copy(this.kind === 'float' ? this.bob : this.hook);
+    this.from.y = Math.max(this.from.y, waveHeight(this.from.x, this.from.z));
     this.audio.reelIn();
+    this.audio.alarmRun?.(false);
     this.endBait();
   }
 
@@ -304,17 +402,28 @@ export class Fishing {
 
   syncBait() {
     const b = this.eco.bait;
+    // Its velocity over the ground (a drifting fly moves even when it's "still" in the water).
+    b.vx = clamp((this.hook.x - this.lastSync.x) / this.frameDt, -4, 4);
+    b.vz = clamp((this.hook.z - this.lastSync.z) / this.frameDt, -4, 4);
+    this.lastSync.copy(this.hook);
     b.x = this.hook.x;
     b.y = this.hook.y;
     b.z = this.hook.z;
-    b.speed = this.reelSpeed + (this.twitchT > 0 ? 0.5 : 0);
+    b.anglerX = this.tip.x;
+    b.anglerZ = this.tip.z;
+    const sp = this.relSpeed;
+    b.speed = sp + (this.twitchT > 0 ? 0.5 : 0);
+    b.motion = this.twitchT > 0 ? 'twitch' : sp > 1.15 ? 'fast' : sp > 0.15 ? 'slow' : 'still';
+    b.pause = !!this.r.pausing;
+    b.drag = !!this.r.drag;
+    b.fouled = !!this.r.fouled;
     b.nearBottom = this.baitDepth >= this.bottom - 0.7;
   }
 
   setStatus(s) {
     this.status = s;
     this.statusT = 0;
-    if (s !== 'quiet') this.quietT = 0;
+    if (s !== 'quiet' && s !== 'set') this.quietT = 0;
   }
 
   /* ---------- what the fish do ---------- */
@@ -322,49 +431,108 @@ export class Fishing {
   onCurious(a) {
     if (this.state !== 'drifting') return;
     this.agent = a;
-    this.setStatus('curious');
+    this.setStatus(this.kind === 'fly' && this.item.fly === 'dry' ? 'rising' : 'curious');
+  }
+
+  onFollow(a) {
+    if (this.state !== 'drifting') return;
+    this.agent = a;
+    this.setStatus('follow');
+    this.hooks.teach('follow', 'A fish is following your lure. A twitch or a short pause often makes it strike.');
   }
 
   onNibble(a) {
     if (this.state !== 'drifting' || a !== this.agent) return;
+    if (this.kind === 'ledger') {
+      // A single bleep from the alarm: something is moving the line.
+      this.audio.alarm?.(1);
+      this.rodBounce = 0.25;
+      this.setStatus('bleep');
+      return;
+    }
     this.dip = rand(0.05, 0.09);
     this.fx.ripple(this.bob.x, this.bob.z, 0.6, 0.8, 0.35);
     this.audio.nibble();
     this.setStatus('nibble');
   }
 
-  onBite(a) {
+  onBite(a, kind) {
     if (this.state !== 'drifting') return;
     this.state = 'bite';
     this.t = 0;
     this.agent = a;
-    this.fx.splash(this.bob.x, 0.05, this.bob.z, 8, 1.4, 0.5);
-    this.fx.ripple(this.bob.x, this.bob.z, 1.5, 1.3, 0.55);
-    this.audio.bite();
-    this.setStatus('bite');
+    this.biteKind = kind;
+    const shallow = this.hook.y > -1.3;
+    switch (kind) {
+      case 'strike':
+        // Thump! A predator hits the lure. If you're reeling, it often hooks itself.
+        if (shallow) this.fx.splash(this.hook.x, 0.05, this.hook.z, 10, 1.6, 0.6);
+        this.fx.ripple(this.hook.x, this.hook.z, 1.4, 1.2, 0.5);
+        this.audio.strike?.();
+        this.rodBounce = 0.6;
+        this.setStatus('strike');
+        if (this.hold && this.reelSpeed > 0.15 && Math.random() < 0.75) {
+          this.setHook();
+          this.hooks.flash('It hit the lure and hooked itself! Keep reeling.', 2.4);
+        }
+        return;
+      case 'run':
+        this.audio.alarmRun?.(true);
+        this.setStatus('run');
+        return;
+      case 'sip':
+        this.fx.ripple(this.hook.x, this.hook.z, 0.9, 1.1, 0.5);
+        this.audio.sip?.();
+        this.setStatus('sip');
+        return;
+      case 'take':
+        this.fx.ripple(this.bob.x, this.bob.z, 0.6, 0.8, 0.4);
+        this.audio.nibble(1.2);
+        this.setStatus('take');
+        return;
+      default:
+        this.fx.splash(this.bob.x, 0.05, this.bob.z, 8, 1.4, 0.5);
+        this.fx.ripple(this.bob.x, this.bob.z, 1.5, 1.3, 0.55);
+        this.audio.bite();
+        this.setStatus('bite');
+    }
   }
 
   onLeave(a, reason) {
     if (a !== this.agent) return;
     const wasBite = this.state === 'bite';
-    if (wasBite) this.state = 'drifting';
+    if (wasBite) {
+      this.state = 'drifting';
+      this.audio.alarmRun?.(false);
+    }
     if (this.state !== 'drifting') return;
     this.agent = null;
     this.setStatus('quiet');
-    if (wasBite) this.hooks.flash('It let go of the bait. Another may come.');
-    else if (reason === 'startled' || reason === 'spooked') this.hooks.flash('Something darted away.', 2);
+    if (wasBite) {
+      const k = this.biteKind;
+      this.hooks.flash(k === 'run' ? 'The run stops. It dropped the bait.' : k === 'strike' ? 'It let go of the lure. Too slow!' : k === 'sip' ? 'Too slow: it spat the fly.' : 'It let go of the bait. Another may come.');
+    } else if (reason === 'turned') {
+      this.hooks.flash('It followed all the way in, then turned away. Try a twitch, or a pause.', 3.6);
+    } else if (reason === 'missed') {
+      this.hooks.flash('A swirl behind the lure! Something missed it.', 3);
+    } else if (reason === 'refused') {
+      this.hooks.flash(this.r.drag ? 'A fish rose, looked, and refused it: the fly was dragging.' : 'A fish rose, looked, and refused the fly.', 3.2);
+    } else if (reason === 'startled' || reason === 'spooked') this.hooks.flash('Something darted away.', 2);
   }
 
   setHook() {
     const a = this.agent;
     if (!a) return;
     this.eco.hook(a);
+    this.audio.alarmRun?.(false);
     const sp = a.sp;
     const sizeK = (a.size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]);
+    const pull = (sp.pull ?? 1) * (0.35 + 0.65 * sizeK);
     this.fight = {
       sp, size: a.size, agent: a, strength: sp.strength * (0.85 + sizeK * 0.35),
       progress: 0, tension: 0.2, pulling: false, phaseT: rand(0.9, 1.6), warned: false,
       lat: 0, dir: 1, splashT: 0, tickT: 0, start: this.hook.clone(),
+      load: pull / this.rod.line.kg, end: this.fightEnd(),
     };
     this.state = 'reeling';
     this.t = 0;
@@ -372,7 +540,31 @@ export class Fishing {
     this.fx.splash(this.bob.x, 0.05, this.bob.z, 14, 2.2, 0.7);
     this.fx.ripple(this.bob.x, this.bob.z, 1.8, 1.2, 0.6);
     this.setStatus('hooked');
-    this.hooks.onHook();
+    this.hooks.onHook(this.fight);
+  }
+
+  // Fishing from the bank, the fish is brought to the nearest water deep enough to land it.
+  fightEnd() {
+    const a = this.angler;
+    if (a.onBoat) return null;
+    const dx = this.hook.x - a.pos.x, dz = this.hook.z - a.pos.z, l = Math.hypot(dx, dz) || 1;
+    for (let d = 0.5; d < l; d += 0.4) {
+      const x = a.pos.x + (dx / l) * d, z = a.pos.z + (dz / l) * d;
+      if (solidHeight(x, z) < -0.45) return new THREE.Vector3(x + (dx / l) * 0.6, 0, z + (dz / l) * 0.6);
+    }
+    return this.hook.clone();
+  }
+
+  // The line gives way: too much strain on light line, or a pike's teeth.
+  snap(why) {
+    const F = this.fight;
+    this.eco.lostHooked(F.agent);
+    this.fight = null;
+    this.agent = null;
+    this.audio.strain();
+    this.hooks.shake(0.35);
+    this.hooks.onSnap(why, F.sp, this.rod);
+    this.reelIn();
   }
 
   landFish() {
@@ -391,17 +583,30 @@ export class Fishing {
   }
 
   letGo() {
-    const b = this.boat;
     const mesh = this.fishMeshes[this.fight.sp.id];
     this.state = 'releasing';
     this.t = 0;
     this.from.copy(mesh.position);
-    this.to.set(b.pos.x + b.right.x * 2.2 + b.fwd.x, 0, b.pos.z + b.right.z * 2.2 + b.fwd.z);
+    if (this.angler.onBoat) this.angler.releasePoint(this.to);
+    else this.to.copy(this.fight.end || this.hook).setY(0);
     this.hooks.onRelease();
   }
 
-  holdPoint(out) {
-    return this.boat.body.localToWorld(out.set(-0.15, 1.45, 1.05));
+  // Keep it for the pot. Returns false (with a note) if it can't be kept.
+  keep() {
+    if (this.state !== 'caught' || this.t < 0.4) return false;
+    const F = this.fight;
+    if (!F.sp.meal) {
+      this.hooks.flash(F.sp.keep || 'Better to let this one go.', 3);
+      return false;
+    }
+    if (!this.hooks.canKeep()) return false;
+    this.state = 'keeping';
+    this.t = 0;
+    this.from.copy(this.fishMeshes[F.sp.id].position);
+    this.eco.keep(F.agent);
+    this.hooks.onKeep(F.sp, F.size);
+    return true;
   }
 
   mouthOf(a, out) {
@@ -417,26 +622,28 @@ export class Fishing {
 
   update(dt, t, camYaw, held) {
     this.t += dt;
+    this.frameDt = Math.max(dt, 1e-3);
     this.statusT += dt;
     this.held = held;
-    const boat = this.boat, pose = boat.pose;
-    boat.rodTip.getWorldPosition(this.tip);
+    const A = this.angler, pose = A.pose;
+    A.rodTip.getWorldPosition(this.tip);
+    this.rodBounce = damp(this.rodBounce, 0, 5, dt);
 
-    let rodPitch = 0.85, bend = 0.05;
-    let rodYaw = this.state === 'idle' ? 0 : clamp(wrapAngle(Math.atan2(this.bob.x - boat.pos.x, this.bob.z - boat.pos.z) - boat.heading), -2, 2);
+    let rodPitch = this.kind === 'ledger' ? 1.15 : 0.85, bend = 0.05;
+    let rodYaw = this.state === 'idle' ? 0 : clamp(wrapAngle(Math.atan2(this.bob.x - A.pos.x, this.bob.z - A.pos.z) - A.heading), -2, 2);
     const fishMesh = this.fight ? this.fishMeshes[this.fight.sp.id] : null;
 
     switch (this.state) {
       case 'aiming': {
         this.aimYaw = camYaw + this.aimOffset;
         this.power = Math.min(1, this.power + dt / AIM_TIME);
-        rodYaw = clamp(wrapAngle(this.aimYaw - boat.heading), -2, 2);
+        rodYaw = clamp(wrapAngle(this.aimYaw - A.heading), -2, 2);
         rodPitch = lerp(0.5, -0.45, smoothstep(0, 1, this.power));
         this.aimValid = this.landingPoint(this.power, this.to);
         if (this.aimValid) {
           this.to.y = waveHeight(this.to.x, this.to.z, t);
           this.from.copy(this.tip);
-          this.apex = 0.8 + this.castDist * 0.16;
+          this.apex = this.apexFor(this.castDist);
           for (let i = 0; i < ARC_N; i++) {
             this.arcPoint((i + 1) / ARC_N, _v);
             this.arcPos[i * 3] = _v.x;
@@ -454,29 +661,53 @@ export class Fishing {
       case 'casting': {
         const u = clamp(this.t / this.flight, 0, 1);
         rodPitch = this.t < 0.12 ? lerp(-0.45, 1.25, this.t / 0.12) : lerp(1.25, 0.85, smoothstep(0.12, 0.6, this.t));
-        rodYaw = clamp(wrapAngle(this.aimYaw - boat.heading), -2, 2);
+        rodYaw = clamp(wrapAngle(this.aimYaw - A.heading), -2, 2);
         this.arcPoint(u, this.bob);
         if (u >= 1) this.land(t);
         break;
       }
       case 'drifting':
-        rodPitch = 0.8;
-        bend = 0.08 + this.reelSpeed * 0.1;
-        this.updateDrift(dt, t);
+        if (this.kind === 'float') {
+          rodPitch = 0.8;
+          bend = 0.08 + this.reelSpeed * 0.1;
+          this.updateFloat(dt, t);
+        } else if (this.kind === 'lure') {
+          rodPitch = 0.55 + Math.sin(t * 1.3) * 0.02;
+          bend = 0.1 + this.reelSpeed * 0.12 + (this.twitchT > 0 ? 0.3 : 0) + (this.r.bumpT > 0 ? Math.sin(t * 40) * 0.04 : 0);
+          this.updateLure(dt, t);
+        } else if (this.kind === 'ledger') {
+          rodPitch = 1.15;
+          bend = 0.12 + this.rodBounce;
+          this.updateLedger(dt, t);
+        } else {
+          rodPitch = 0.75;
+          bend = 0.06 + this.reelSpeed * 0.06;
+          this.updateFly(dt, t);
+        }
+        if (this.state === 'drifting') this.idleStatus(dt);
         break;
       case 'bite': {
-        rodPitch = 0.8;
-        bend = 0.35 + Math.sin(t * 30) * 0.05;
         const a = this.agent;
         if (!a || a.state !== 'bite') {
           this.state = 'drifting';
+          this.audio.alarmRun?.(false);
           break;
         }
         this.mouthOf(a, _v);
+        const k = this.biteKind;
         this.hook.lerp(_v, 1 - Math.exp(-10 * dt));
-        this.bob.x = damp(this.bob.x, _v.x, 3, dt);
-        this.bob.z = damp(this.bob.z, _v.z, 3, dt);
-        this.bob.y = waveHeight(this.bob.x, this.bob.z, t) - 0.24 + Math.sin(t * 24) * 0.03;
+        if (k === 'float') {
+          rodPitch = 0.8;
+          bend = 0.35 + Math.sin(t * 30) * 0.05;
+          this.bob.x = damp(this.bob.x, _v.x, 3, dt);
+          this.bob.z = damp(this.bob.z, _v.z, 3, dt);
+          this.bob.y = waveHeight(this.bob.x, this.bob.z, t) - 0.24 + Math.sin(t * 24) * 0.03;
+        } else {
+          rodPitch = k === 'run' ? 1.1 : 0.7;
+          bend = (k === 'run' ? 0.5 + Math.min(this.t * 0.25, 0.4) : 0.3) + this.rodBounce + Math.sin(t * 28) * 0.04;
+          if (k === 'take') this.bob.set(this.hook.x, waveHeight(this.hook.x, this.hook.z, t) - 0.1, this.hook.z);
+          else this.surfacePoint(this.bob, t);
+        }
         this.syncBait();
         break;
       }
@@ -489,11 +720,11 @@ export class Fishing {
         break;
       }
       case 'landing': {
-        const hp = this.holdPoint(_w);
+        const hp = A.holdPoint(_w);
         const u = clamp(this.t / 0.8, 0, 1);
         fishMesh.position.lerpVectors(this.from, hp, smoothstep(0, 1, u));
         fishMesh.position.y += Math.sin(u * Math.PI) * 1.0;
-        fishMesh.rotation.set(-1.25 + Math.sin(t * 14) * 0.15, boat.heading + Math.PI / 2, 0, 'YXZ');
+        fishMesh.rotation.set(-1.25 + Math.sin(t * 14) * 0.15, A.heading + Math.PI / 2, 0, 'YXZ');
         fishMesh.userData.swim.set(t * 18, 1);
         rodPitch = 1.1;
         bend = 0.7;
@@ -501,16 +732,16 @@ export class Fishing {
         if (u >= 1) {
           this.state = 'caught';
           this.t = 0;
-          this.hooks.onCatch(this.fight.sp, this.fight.size, this.fight.agent);
+          this.hooks.onCatch(this.fight.sp, this.fight.size, this.fight.agent, { rod: this.rod, item: this.item });
         }
         break;
       }
       case 'caught': {
-        const hp = this.holdPoint(_w);
+        const hp = A.holdPoint(_w);
         fishMesh.position.copy(hp);
         fishMesh.position.y += Math.sin(t * 2) * 0.03;
         const wig = Math.sin(t * 9) * Math.max(0, Math.sin(t * 1.3)) * 0.25;
-        fishMesh.rotation.set(-1.2 + wig * 0.3, boat.heading + Math.PI / 2 + wig, 0, 'YXZ');
+        fishMesh.rotation.set(-1.2 + wig * 0.3, A.heading + Math.PI / 2 + wig, 0, 'YXZ');
         fishMesh.userData.swim.set(t * 10, 0.4 * Math.max(0.2, Math.sin(t * 1.3)));
         rodPitch = 1.15;
         bend = 0.6;
@@ -521,7 +752,7 @@ export class Fishing {
         const u = clamp(this.t / 0.65, 0, 1);
         fishMesh.position.lerpVectors(this.from, this.to, u);
         fishMesh.position.y = lerp(this.from.y, -0.3, u) + Math.sin(u * Math.PI) * 0.6;
-        fishMesh.rotation.set(lerp(-1.2, 1.3, u), boat.heading + Math.PI / 2, 0, 'YXZ');
+        fishMesh.rotation.set(lerp(-1.2, 1.3, u), A.heading + Math.PI / 2, 0, 'YXZ');
         rodPitch = 0.9;
         if (u >= 1) {
           fishMesh.visible = false;
@@ -535,10 +766,29 @@ export class Fishing {
         }
         break;
       }
+      case 'keeping': {
+        // Into the creel on your back (or the bucket in the boat).
+        const u = clamp(this.t / 0.5, 0, 1);
+        A.holdPoint(_w);
+        _w.x -= Math.sin(A.heading) * 0.6;
+        _w.z -= Math.cos(A.heading) * 0.6;
+        fishMesh.position.lerpVectors(this.from, _w, smoothstep(0, 1, u));
+        fishMesh.scale.setScalar(this.fight.agent.scale * (1 - u * 0.9));
+        rodPitch = 0.9;
+        if (u >= 1) {
+          fishMesh.visible = false;
+          this.audio.chime?.();
+          this.fight = null;
+          this.agent = null;
+          this.state = 'idle';
+        }
+        break;
+      }
       case 'retrieving': {
         const u = clamp(this.t / 0.45, 0, 1);
         this.bob.lerpVectors(this.from, this.tip, u * u);
         this.bob.y += Math.sin(u * Math.PI) * 0.6;
+        this.hook.copy(this.bob);
         if (u >= 1) this.state = 'idle';
         break;
       }
@@ -553,14 +803,39 @@ export class Fishing {
     this.updateVisuals(t, dt, fishMesh);
   }
 
-  updateDrift(dt, t) {
+  // Where the line meets the water on its way from the rod tip down to the hook.
+  surfacePoint(out, t) {
+    const th = Math.max(0.5, this.tip.y - waveHeight(this.tip.x, this.tip.z, t));
+    const k = this.baitDepth / (this.baitDepth + th);
+    out.lerpVectors(this.hook, this.tip, k);
+    out.y = waveHeight(out.x, out.z, t);
+    return out;
+  }
+
+  idleStatus(dt) {
+    if (this.status === 'nibble' && this.statusT > 1.5) this.setStatus(this.agent ? 'curious' : 'quiet');
+    if (this.status === 'bleep' && this.statusT > 2.5) this.setStatus(this.agent ? 'curious' : 'set');
+    if ((this.status === 'curious' || this.status === 'follow' || this.status === 'rising') && !this.agent) this.setStatus('quiet');
+    if (this.status === 'quiet' || this.status === 'set') {
+      this.quietT += dt;
+      // Carp take patience: give a bottom rig longer before suggesting anything.
+      if (this.quietT > (this.kind === 'ledger' ? 75 : 25) && !this.hintedQuiet) {
+        this.hintedQuiet = true;
+        this.hooks.quiet(this.kind, this.item);
+      }
+    }
+  }
+
+  // The original: a bait hanging under a float.
+  updateFloat(dt, t) {
     if (this.hold) this.holdT += dt;
     // Holding reels in: gently at first, then steadily.
     const reeling = this.hold && this.holdT > TAP;
     this.reelSpeed = damp(this.reelSpeed, reeling ? lerp(0.45, 1.9, smoothstep(TAP, 1.8, this.holdT)) : 0, 6, dt);
+    this.relSpeed = this.reelSpeed;
     if (this.reelSpeed > 0.01) {
       const dx = this.tip.x - this.bob.x, dz = this.tip.z - this.bob.z, l = Math.hypot(dx, dz);
-      if (l < 2.6) {
+      if (l < 2.6 || (!this.angler.onBoat && this.bottom < 0.3 && l < 8)) {
         this.reelIn();
         return;
       }
@@ -568,7 +843,10 @@ export class Fishing {
       this.bob.z += (dz / l) * this.reelSpeed * dt;
       if (Math.random() < dt * 14 * this.reelSpeed) this.audio.tick(0.5);
     } else {
-      this.bob.x += 0.03 * dt;
+      // A float drifts slowly with the breeze, or with the current in the stream.
+      streamFlow(this.bob.x, this.bob.z, this.flow);
+      this.bob.x += (0.03 + this.flow.x * 0.8) * dt;
+      this.bob.z += this.flow.z * 0.8 * dt;
     }
     this.dip = damp(this.dip, 0, 8, dt);
     this.bob.y = waveHeight(this.bob.x, this.bob.z, t) - this.dip;
@@ -587,15 +865,147 @@ export class Fishing {
       this.hook.y += Math.sin((this.twitchT / 0.5) * Math.PI) * 0.25;
     }
     this.syncBait();
+  }
 
-    if (this.status === 'nibble' && this.statusT > 1.5) this.setStatus(this.agent ? 'curious' : 'quiet');
-    if (this.status === 'quiet') {
-      this.quietT += dt;
-      if (this.quietT > 25 && !this.hintedQuiet) {
-        this.hintedQuiet = true;
-        this.hooks.quiet();
+  // A lure: hold to reel at your chosen speed (W/S), tap to twitch, let go to pause.
+  // Crankbaits float up when you stop and dive as you reel; spinners sink while you
+  // wait; a jerkbait hangs where it is.
+  updateLure(dt, t) {
+    const r = this.r, it = this.item;
+    if (this.hold) this.holdT += dt;
+    const reeling = this.hold && this.holdT > TAP;
+    this.reelSpeed = damp(this.reelSpeed, reeling ? this.retrieve : 0, 5, dt);
+    const dx = this.tip.x - this.hook.x, dz = this.tip.z - this.hook.z, l = Math.hypot(dx, dz) || 1;
+    let move = this.reelSpeed;
+    if (this.twitchT > 0) {
+      this.twitchT -= dt;
+      move += 1.5 * (this.twitchT / 0.45);
+    }
+    if (move > 0.01) {
+      if (l < 2.4 || (!this.angler.onBoat && this.bottom < 0.25 && l < 8)) {
+        this.reelIn();
+        return;
+      }
+      this.hook.x += (dx / l) * move * dt;
+      this.hook.z += (dz / l) * move * dt;
+      r.moved += move * dt;
+      if (Math.random() < dt * 14 * this.reelSpeed) this.audio.tick(0.45);
+    }
+    this.relSpeed = move;
+    const moving = this.reelSpeed > 0.12;
+    if (moving) {
+      r.pauseT = 0;
+      r.wasMoving = true;
+    } else r.pauseT += dt;
+    r.pausing = r.wasMoving && !moving && r.pauseT < 1.4;
+    if (!moving && r.pauseT > 1.4) r.wasMoving = false;
+
+    this.bottom = Math.max(0.15, -solidHeight(this.hook.x, this.hook.z));
+    let want, rate;
+    if (it.action === 'flash') {
+      if (moving) { want = clamp(1.8 - this.reelSpeed * 0.8, 0.25, 1.6); rate = 0.6; } else { want = this.bottom; rate = it.sink; }
+    } else if (it.action === 'wobble') {
+      if (moving) { want = it.dive * smoothstep(0, 5, r.moved) * clamp(0.55 + this.reelSpeed * 0.4, 0.6, 1.15); rate = 0.9; } else { want = 0; rate = 0.22; }
+    } else {
+      if (this.twitchT > 0) { want = it.suspend + 0.25; rate = 1.2; } else if (moving) { want = it.suspend * 0.9; rate = 0.6; } else { want = it.suspend; rate = 0.15; }
+    }
+    const cap = this.bottom - 0.08;
+    want = Math.min(want, cap);
+    this.baitDepth += clamp(want - this.baitDepth, -rate * dt, rate * dt);
+    this.baitDepth = clamp(this.baitDepth, 0, Math.max(0, cap));
+    // Bumping along the bottom: a crankbait knocking stones is irresistible; weed fouls it.
+    r.bumpT = Math.max(0, r.bumpT - dt);
+    if (moving && this.baitDepth >= cap - 0.03 && cap > 0.2) {
+      if (r.bumpT <= 0 && Math.random() < dt * 4) {
+        r.bumpT = 0.25;
+        this.audio.tick(0.3);
+        const s = this.eco.habitat.sample(this.hook.x, this.hook.z);
+        if (s.weed > 0.55 && Math.random() < 0.18 && !r.fouled) {
+          r.fouled = true;
+          this.hooks.flash('Weed on the lure. Reel it in (or twitch it) to clear it.', 3.2);
+        } else if (s.rock > 0.4) this.eco.bait.twitch = 0.4;
       }
     }
+    this.hook.y = waveHeight(this.hook.x, this.hook.z, t) - this.baitDepth;
+    this.surfacePoint(this.bob, t);
+    this.syncBait();
+  }
+
+  // A carp rig: it sinks to the bottom and stays put. Hold to wind it back in.
+  updateLedger(dt, t) {
+    const r = this.r;
+    if (this.hold) this.holdT += dt;
+    const reeling = this.hold && this.holdT > TAP;
+    this.reelSpeed = damp(this.reelSpeed, reeling ? 1.3 : 0, 5, dt);
+    this.relSpeed = this.reelSpeed;
+    if (this.reelSpeed > 0.05) {
+      const dx = this.tip.x - this.hook.x, dz = this.tip.z - this.hook.z, l = Math.hypot(dx, dz) || 1;
+      if (l < 3 || (!this.angler.onBoat && this.bottom < 0.3 && l < 8)) {
+        this.reelIn();
+        return;
+      }
+      this.hook.x += (dx / l) * this.reelSpeed * dt;
+      this.hook.z += (dz / l) * this.reelSpeed * dt;
+      if (Math.random() < dt * 12 * this.reelSpeed) this.audio.tick(0.5);
+    }
+    this.bottom = Math.max(0.25, -solidHeight(this.hook.x, this.hook.z));
+    if (!r.settled) {
+      this.baitDepth = Math.min(this.baitDepth + 2.4 * dt, this.bottom - 0.03);
+      if (this.baitDepth >= this.bottom - 0.04) {
+        r.settled = true;
+        this.audio.alarm?.(0.4);
+        this.setStatus('set');
+      }
+    } else this.baitDepth = this.bottom - 0.03;
+    this.hook.y = waveHeight(this.hook.x, this.hook.z, t) - this.baitDepth;
+    this.surfacePoint(this.bob, t);
+    this.syncBait();
+  }
+
+  // A fly. Dry flies and nymphs drift with the current; when the line runs out of slack the
+  // fly is dragged across the water, which trout distrust. Hold to strip line back in.
+  updateFly(dt, t) {
+    const r = this.r, it = this.item;
+    if (this.hold) this.holdT += dt;
+    const strip = this.hold && this.holdT > TAP;
+    this.reelSpeed = strip ? 1 : 0;
+    streamFlow(this.hook.x, this.hook.z, this.flow);
+    let fx = this.flow.x, fz = this.flow.z;
+    if (Math.abs(fx) + Math.abs(fz) < 0.01) fx = 0.02; // a breath of wind on still water
+    if (it.fly === 'nymph') { fx *= 0.85; fz *= 0.85; }
+    this.prevHook.copy(this.hook);
+    if (strip) r.lineLen = Math.max(1, r.lineLen - (it.fly === 'streamer' ? 0.5 + Math.max(0, Math.sin(t * 7)) * 1.4 : 0.8) * dt);
+    this.hook.x += fx * dt;
+    this.hook.z += fz * dt;
+    if (this.twitchT > 0) this.twitchT -= dt;
+    const dx = this.hook.x - this.tip.x, dz = this.hook.z - this.tip.z, l = Math.hypot(dx, dz) || 1;
+    const flowing = Math.hypot(this.flow.x, this.flow.z) > 0.08;
+    r.drag = false;
+    if (l > r.lineLen) {
+      this.hook.x = this.tip.x + (dx / l) * r.lineLen;
+      this.hook.z = this.tip.z + (dz / l) * r.lineLen;
+      r.drag = it.fly !== 'streamer' && (flowing || strip);
+    }
+    if (r.lineLen < 2.4 || l < 2) {
+      this.reelIn();
+      return;
+    }
+    // How fast it moves through the water (a fly drifting with the current is "still").
+    this.relSpeed = Math.hypot((this.hook.x - this.prevHook.x) / dt - this.flow.x, (this.hook.z - this.prevHook.z) / dt - this.flow.z);
+    this.bottom = Math.max(0.2, -solidHeight(this.hook.x, this.hook.z));
+    if (it.fly === 'dry') this.baitDepth = 0;
+    else {
+      const want = Math.min(strip ? it.sink * 0.6 : it.sink, this.bottom - 0.08);
+      this.baitDepth += clamp(want - this.baitDepth, -0.4 * dt, (it.fly === 'nymph' ? 0.25 : 0.4) * dt);
+    }
+    const wy = waveHeight(this.hook.x, this.hook.z, t);
+    this.hook.y = it.fly === 'dry' ? wy + 0.005 : wy - this.baitDepth;
+    if (it.fly === 'nymph') this.bob.set(this.hook.x - dx / l * 0.4, wy, this.hook.z - dz / l * 0.4);
+    else if (it.fly === 'dry') this.bob.copy(this.hook);
+    else this.surfacePoint(this.bob, t);
+    if (r.drag && it.fly === 'dry' && Math.random() < dt * 5) this.fx.ripple(this.hook.x, this.hook.z, 0.3, 0.5, 0.25);
+    if (r.drag && !strip && flowing) this.hooks.teach('drag', 'The fly is dragging across the current, and trout distrust that. Cast upstream of them and let it drift down.');
+    this.syncBait();
   }
 
   updateFight(dt, t, held) {
@@ -610,6 +1020,11 @@ export class Fishing {
         F.pulling = true;
         F.phaseT = rand(0.7, 1.4) + F.strength * 0.5;
         F.dir = Math.random() < 0.5 ? -1 : 1;
+        // A pike's teeth make short work of anything but wire.
+        if (F.sp.life.teeth && !this.rod.line.trace && Math.random() < 0.2) {
+          this.snap('teeth');
+          return;
+        }
       }
     }
     // A flick on the surface just before each run, so it can be read in time.
@@ -619,20 +1034,26 @@ export class Fishing {
       this.fx.ripple(this.fishPos.x, this.fishPos.z, 1.0, 0.9, 0.5);
       this.audio.flick();
     }
-    const reel = F.sp.reel;
+    const reel = F.sp.reel * this.rod.power;
+    // Heavier fish on lighter line tighten it faster.
+    const strain = clamp(0.55 + F.load * 0.55, 0.6, 1.9) * this.steady;
     let dT, dp;
     if (F.pulling) {
-      if (held) { dT = 0.8 * F.strength + 0.1; dp = reel * 0.2; } else { dT = -0.7; dp = -0.03 * F.strength; }
+      if (held) { dT = (0.8 * F.strength + 0.1) * strain; dp = reel * 0.2; } else { dT = -0.7; dp = -0.03 * F.strength; }
     } else if (held) { dT = 0.05; dp = reel; } else { dT = -0.9; dp = 0; }
     F.tension = clamp(F.tension + dT * dt, 0, 1);
     F.progress = clamp(F.progress + dp * dt, 0, 1);
     if (F.tension >= 1) {
+      if (F.load > 1 && Math.random() < clamp((F.load - 0.95) * 0.7, 0, 0.75)) {
+        this.snap('line');
+        return;
+      }
       F.progress = Math.max(0, F.progress - 0.1);
       F.tension = 0.55;
       F.pulling = true;
       F.phaseT = 0.9;
       this.audio.strain();
-      this.hooks.flash('The line sings! Ease off while it pulls.');
+      this.hooks.flash(F.load > 1 ? 'The line creaks! It’s strong for this line: ease off while it pulls.' : 'The line sings! Ease off while it pulls.');
       this.hooks.shake(0.25);
     }
     if (held) {
@@ -643,24 +1064,31 @@ export class Fishing {
       }
     }
 
-    // The fish swims where the fight takes it, closer to the boat and the surface as you win.
-    const b = this.boat.pos;
+    // The fish swims where the fight takes it, closer to you and the surface as you win.
+    const b = this.angler.pos;
     let dx = F.start.x - b.x, dz = F.start.z - b.z;
     const dl = Math.hypot(dx, dz) || 1;
     dx /= dl;
     dz /= dl;
     const e = 1 - Math.pow(1 - F.progress, 1.5);
-    const cx = lerp(F.start.x, b.x + dx * 2.6, e), cz = lerp(F.start.z, b.z + dz * 2.6, e);
+    const ex = F.end ? F.end.x : b.x + dx * 2.6, ez = F.end ? F.end.z : b.z + dz * 2.6;
+    const cx = lerp(F.start.x, ex, e), cz = lerp(F.start.z, ez, e);
     F.lat = damp(F.lat, F.pulling ? F.dir * 2.2 * (1 - F.progress * 0.6) : 0, 1.4, dt);
     const wig = Math.sin(t * 6.5) * 0.15;
-    const x = cx - dz * (F.lat + wig), z = cz + dx * (F.lat + wig);
+    let x = cx - dz * (F.lat + wig), z = cz + dx * (F.lat + wig);
+    // Don't let it swim up onto the bank.
+    if (solidHeight(x, z) > -0.35) {
+      x = cx;
+      z = cz;
+    }
     const floor = solidHeight(x, z) + 0.3;
-    const y = Math.min(Math.max(lerp(F.start.y, -0.35, e) - (F.pulling ? 0.45 : 0), floor), -0.25);
+    const y = Math.min(Math.max(lerp(F.start.y, -0.35, e) - (F.pulling ? 0.45 : 0), floor), -0.2);
     this.fishPos.set(x, y, z);
     const away = Math.atan2(x - b.x, z - b.z);
     this.eco.placeHooked(F.agent, x, y, z, away + (F.pulling ? F.lat * 0.15 : F.dir * 1.6), F.pulling ? 1 : 0.5);
     this.mouthOf(F.agent, this.hook);
-    this.bob.set(x, waveHeight(x, z, t) - (F.pulling ? 0.16 : 0.06), z);
+    if (this.kind === 'float' || (this.kind === 'fly' && this.item.fly === 'nymph')) this.bob.set(x, waveHeight(x, z, t) - (F.pulling ? 0.16 : 0.06), z);
+    else this.bob.set(x, waveHeight(x, z, t), z);
     if (F.pulling) {
       F.splashT -= dt;
       if (F.splashT <= 0) {
@@ -674,13 +1102,21 @@ export class Fishing {
   }
 
   updateVisuals(t, dt, fishMesh) {
-    const s = this.state;
-    const holdingFish = s === 'landing' || s === 'caught';
-    const lineVisible = s !== 'idle' && s !== 'releasing';
-    this.bobber.visible = lineVisible && !holdingFish;
+    const s = this.state, kind = this.kind, it = this.item;
+    const holdingFish = s === 'landing' || s === 'caught' || s === 'keeping';
+    const lineVisible = s !== 'idle' && s !== 'releasing' && s !== 'keeping';
+    const inWater = this.baitInWater;
+    const flying = s === 'aiming' || s === 'casting' || s === 'retrieving';
+
+    // The float (float rods), the indicator (nymphs), the lead (carp rigs).
+    this.bobber.visible = lineVisible && !holdingFish && kind === 'float';
     this.bobber.position.copy(this.bob);
     this.bobber.rotation.z = Math.sin(t * 1.7) * 0.12;
     this.bobber.rotation.x = Math.sin(t * 1.3 + 1) * 0.1;
+    this.indicator.visible = lineVisible && !holdingFish && kind === 'fly' && it?.fly === 'nymph' && !flying;
+    this.indicator.position.copy(this.bob);
+    this.lead.visible = inWater && kind === 'ledger' && s !== 'reeling';
+    if (this.lead.visible) this.lead.position.set(this.hook.x + 0.18, this.hook.y + 0.02, this.hook.z + 0.1);
 
     this.line.visible = lineVisible;
     if (lineVisible) {
@@ -691,20 +1127,36 @@ export class Fishing {
       } else if (s === 'aiming') sag = 0;
       else if (s === 'casting' || s === 'retrieving') sag = 0.12;
       else if (s === 'reeling') sag = (1 - this.fight.tension) * 0.3;
+      else if (kind === 'lure' || kind === 'ledger') sag = 0.06 + (this.reelSpeed > 0.1 ? 0 : 0.12);
+      else if (kind === 'fly') sag = 0.25 + this.tip.distanceTo(this.bob) * 0.02;
       else sag = 0.35 + this.tip.distanceTo(this.bob) * 0.015;
+      if (s === 'bite' && this.biteKind !== 'float') sag = 0.02;
       this.setLine(this.tip, end, sag);
     }
 
-    const underwater = this.baitInWater;
-    this.leader.visible = underwater;
-    if (underwater) {
-      this.leaderPos.set([this.bob.x, this.bob.y, this.bob.z, this.hook.x, this.hook.y + 0.26, this.hook.z]);
+    // Underwater line from the float/indicator, or from where the line enters, to the hook.
+    const leader = inWater && s !== 'reeling' && !(kind === 'fly' && it?.fly === 'dry');
+    this.leader.visible = leader;
+    if (leader) {
+      const top = kind === 'float' ? 0.26 : 0.02;
+      this.leaderPos.set([this.bob.x, this.bob.y, this.bob.z, this.hook.x, this.hook.y + top, this.hook.z]);
       this.leader.geometry.attributes.position.needsUpdate = true;
     }
-    this.baitModel.visible = (lineVisible && !holdingFish && s !== 'reeling') || false;
-    if (underwater) this.baitModel.position.copy(this.hook);
-    else this.baitModel.position.copy(this.bob).add(_w.set(0, -0.3, 0));
-    this.baitModel.rotation.y = t * 0.6;
+
+    const m = this.model;
+    if (m) {
+      m.visible = lineVisible && !holdingFish && s !== 'reeling';
+      if (inWater) m.position.copy(this.hook);
+      else if (kind === 'float') m.position.copy(this.bob).add(_w.set(0, -0.3, 0));
+      else m.position.copy(this.bob);
+      if (it.type === 'lure' || it.type === 'fly') {
+        // Lures and flies face where they're going: towards you as they come in.
+        m.rotation.set(0, Math.atan2(this.tip.x - m.position.x, this.tip.z - m.position.z), 0);
+        if (it.action === 'wobble') m.rotation.z = Math.sin(t * 22) * 0.35 * Math.min(1, this.relSpeed);
+        if (it.action === 'dart' && this.twitchT > 0) m.rotation.y += Math.sin(this.twitchT * 20) * 0.6;
+        if (m.userData.spin) m.userData.spin.rotation.z += dt * (6 + this.relSpeed * 30);
+      } else m.rotation.set(0, t * 0.6, 0);
+    }
 
     const aimOn = s === 'aiming' && this.aimValid;
     const k = 1 - Math.exp(-10 * dt);

@@ -80,9 +80,15 @@ export class AudioScape {
     this.rainBed = this.bed(this.white, [['highpass', 1100, 0.5], ['lowpass', 7500, 0.5]]);
     this.rainLow = this.bed(this.brown, [['lowpass', 900, 0.5]]);
     this.underBed = this.bed(this.brown, [['lowpass', 260, 0.7]]);
+    // Running water, a crackling fire and a sizzling grill, faded in by how close you are.
+    this.streamBed = this.bed(this.white, [['bandpass', 1800, 0.6], ['lowpass', 5200, 0.4]]);
+    this.streamLow = this.bed(this.pink, [['bandpass', 420, 0.8]]);
+    this.fireBed = this.bed(this.brown, [['lowpass', 500, 0.6]]);
+    this.sizzleBed = this.bed(this.white, [['highpass', 3200, 0.5]]);
+    this.alarmOsc = null;
     this.setVolumes(this.volumes);
 
-    this.next = { lap: 1, bird: 3, gull: 8, cricket: 2, owl: 25, note: 5, chord: 1, drop: 0 };
+    this.next = { lap: 1, bird: 3, gull: 8, cricket: 2, owl: 25, note: 5, chord: 1, drop: 0, crackle: 0.5, frog: 8, bloop: 1 };
     this.lastNote = 5;
     this.chordIdx = 0;
   }
@@ -295,9 +301,91 @@ export class AudioScape {
     this.burst({ buf: this.brown, type: 'lowpass', freq: 400, dur: 0.14, gain: 0.15 * vol, attack: 0.003 });
   }
 
-  cast() {
-    this.burst({ type: 'bandpass', freq: 2400, freqEnd: 500, q: 1.2, dur: 0.42, gain: 0.07, attack: 0.06 });
-    this.tickRun(10, 0.03, 0.025);
+  cast(vol = 1) {
+    this.burst({ type: 'bandpass', freq: 2400, freqEnd: 500, q: 1.2, dur: 0.42, gain: 0.07 * vol, attack: 0.06 });
+    this.tickRun(10, 0.03, 0.025 * vol);
+  }
+
+  // The bite alarm on the carp rod: a single bleep when the line twitches…
+  alarm(vol = 1) {
+    this.tone({ type: 'square', freq: 2350, dur: 0.07, gain: 0.018 * vol, attack: 0.002, filter: ['lowpass', 4000, 0.7] });
+  }
+
+  // …and a steady stream of them when a fish runs off with the bait.
+  alarmRun(on) {
+    if (!this.ctx) return;
+    if (on && !this.alarmOsc) {
+      const ctx = this.ctx, t0 = ctx.currentTime;
+      const o = ctx.createOscillator();
+      o.type = 'square';
+      o.frequency.value = 2350;
+      const gate = ctx.createGain();
+      gate.gain.value = 0;
+      // Chop the tone into rapid bleeps.
+      const lfo = ctx.createOscillator();
+      lfo.type = 'square';
+      lfo.frequency.value = 9;
+      const depth = ctx.createGain();
+      depth.gain.value = 0.009;
+      lfo.connect(depth);
+      depth.connect(gate.gain);
+      const base = ctx.createConstantSource();
+      base.offset.value = 0.009;
+      base.connect(gate.gain);
+      const f = ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = 4000;
+      o.connect(f);
+      f.connect(gate);
+      gate.connect(this.sfx);
+      o.start(t0);
+      lfo.start(t0);
+      base.start(t0);
+      this.alarmOsc = [o, lfo, base];
+    } else if (!on && this.alarmOsc) {
+      const t1 = this.ctx.currentTime + 0.05;
+      for (const n of this.alarmOsc) n.stop(t1);
+      this.alarmOsc = null;
+    }
+  }
+
+  // A predator hitting a lure: a solid thump through the rod.
+  strike() {
+    this.tone({ freq: 140, freqEnd: 70, dur: 0.18, gain: 0.2, attack: 0.002 });
+    this.burst({ type: 'bandpass', freq: 1400, freqEnd: 500, q: 0.7, dur: 0.3, gain: 0.08, attack: 0.004 });
+  }
+
+  // A trout sipping a fly from the surface.
+  sip() {
+    this.tone({ freq: 900, freqEnd: 300, dur: 0.09, gain: 0.07, attack: 0.002 });
+    this.burst({ buf: this.brown, type: 'lowpass', freq: 700, dur: 0.15, gain: 0.06, attack: 0.004 });
+  }
+
+  step(jog = false, pan = 0) {
+    this.burst({ buf: this.pink, type: 'bandpass', freq: rand(500, 800), q: 0.9, dur: 0.09, gain: (jog ? 0.035 : 0.022), attack: 0.004, pan });
+    this.burst({ buf: this.white, type: 'highpass', freq: 3000, q: 0.6, dur: 0.05, gain: 0.006, attack: 0.002, pan });
+  }
+
+  wade(vol = 1) {
+    this.burst({ type: 'bandpass', freq: rand(900, 1400), freqEnd: 500, q: 0.7, dur: 0.25, gain: 0.05 * vol, attack: 0.01 });
+    this.burst({ buf: this.brown, type: 'lowpass', freq: 500, dur: 0.3, gain: 0.06 * vol, attack: 0.01 });
+  }
+
+  crackle(vol) {
+    for (let i = 0; i < 1 + Math.floor(rand(0, 3)); i++) {
+      this.burst({ type: 'highpass', freq: rand(2000, 5000), q: 0.8, dur: rand(0.01, 0.03), gain: vol * rand(0.4, 1), attack: 0.001, when: rand(0, 0.15), pan: rand(-0.3, 0.3) });
+    }
+  }
+
+  frog(vol, pan) {
+    const f = rand(160, 230);
+    for (let k = 0; k < 2 + Math.floor(rand(0, 2)); k++) {
+      this.tone({ type: 'sawtooth', freq: f, freqEnd: f * 0.85, dur: 0.11, gain: vol, attack: 0.01, pan, when: k * 0.17, filter: ['bandpass', 600, 2] });
+    }
+  }
+
+  rustle() {
+    this.burst({ buf: this.pink, type: 'bandpass', freq: 1800, freqEnd: 900, q: 0.5, dur: 0.6, gain: 0.06, attack: 0.1 });
   }
 
   plop(scale = 1) {
@@ -404,9 +492,9 @@ export class AudioScape {
     if (!this.ctx) return;
     this.t += dt;
     const now = this.ctx.currentTime;
-    const { speed, rain, day, night, land, open, cove, gulls } = s;
+    const { speed, rain, day, night, land, open, cove, gulls, stream = 0, fire = 0, sizzle = 0, lake = 0, water = 1 } = s;
 
-    this.set(this.waterBed.g.gain, 0.1 + 0.05 * Math.min(speed / 5, 1) + 0.04 * open, 1);
+    this.set(this.waterBed.g.gain, (0.1 + 0.05 * Math.min(speed / 5, 1) + 0.04 * open) * (0.25 + 0.75 * water), 1);
     const above = 1 - this.under * 0.75;
     this.set(this.surfBed.g.gain, (0.012 + land * 0.035 * (1 - cove * 0.5)) * above, 1.5);
     this.set(this.windBed.g.gain, (0.012 + 0.03 * open + 0.035 * rain) * above, 2);
@@ -415,12 +503,16 @@ export class AudioScape {
     this.set(this.rainBed.g.gain, 0.085 * rain, 1.5);
     this.set(this.rainLow.g.gain, 0.08 * rain, 1.5);
     this.set(this.music.gain, this.musicOn ? 0.9 * (1 - rain * 0.3) : 0, 1.5);
+    this.set(this.streamBed.g.gain, 0.05 * stream * above, 0.8);
+    this.set(this.streamLow.g.gain, 0.06 * stream * above, 0.8);
+    this.set(this.fireBed.g.gain, 0.05 * fire, 0.8);
+    this.set(this.sizzleBed.g.gain, 0.02 * sizzle, 0.5);
 
     const n = this.next;
     for (const k in n) n[k] -= dt;
 
     if (n.lap <= 0) {
-      this.lap(0.12 + 0.06 * open + Math.min(speed, 5) * 0.02, rand(-0.5, 0.5));
+      if (water > 0.08) this.lap((0.12 + 0.06 * open + Math.min(speed, 5) * 0.02) * water, rand(-0.5, 0.5));
       n.lap = rand(0.8, 2.4) / (1 + speed * 0.2);
     }
     if (n.drop <= 0) {
@@ -439,6 +531,14 @@ export class AudioScape {
     if (n.cricket <= 0) {
       if (night > 0.4 && land > 0.2 && rain < 0.4) this.cricket(0.007 * land * night, rand(-0.8, 0.8));
       n.cricket = rand(0.4, 1.2);
+    }
+    if (n.crackle <= 0) {
+      if (fire > 0.05) this.crackle(0.05 * fire);
+      n.crackle = rand(0.08, 0.5);
+    }
+    if (n.frog <= 0) {
+      if (lake > 0.2 && (night > 0.3 || rain > 0.4)) this.frog(0.02 * lake, rand(-0.7, 0.7));
+      n.frog = rand(3, 9);
     }
     if (n.owl <= 0) {
       if (night > 0.6 && land > 0.3) this.owl(0.03 * land, rand(-0.8, 0.8));

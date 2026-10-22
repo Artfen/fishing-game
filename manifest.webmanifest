@@ -1,7 +1,7 @@
 {
   "name": "Slow Tide",
   "short_name": "Slow Tide",
-  "description": "A peaceful little fishing game. Row a wooden boat around a quiet bay, find a hidden cove, and fill a handwritten journal.",
+  "description": "A peaceful little fishing adventure. Row a wooden boat around a quiet bay, walk to a lake and a trout stream, cook at camp, and fill a handwritten journal.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

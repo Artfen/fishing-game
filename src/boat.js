@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { clamp, lerp, damp, smoothstep, mergeParts, mat } from './util.js';
 import { waveHeight } from './world/water.js';
-import { solidHeight, JETTY } from './world/terrain.js';
-import { buildLanternModel } from './props.js';
+import { solidHeight, PIERS } from './world/terrain.js';
+import { buildLanternModel, buildRod, bendRod } from './props.js';
+import { RODS } from './tackle.js';
 
 // Hull proportions (metres). The bow points along local +z.
 const L = 3.8, B = 0.8, D = 0.6;
@@ -74,6 +75,9 @@ export class Boat {
     this.fwd = new THREE.Vector3(0, 0, 1);
     this.right = new THREE.Vector3(-1, 0, 0);
     this.forwardSpeed = 0;
+    this.onBoat = true;
+    this.occupied = true;
+    this.rowerParts = [];
     this.hasLantern = false;
     this.lanternLevel = 0;
     this.onStroke = null;
@@ -168,6 +172,7 @@ export class Boat {
     this.torso = new THREE.Group();
     this.torso.position.set(0, 0.47, 0.02);
     this.body.add(this.torso);
+    this.rowerParts.push(this.torso);
     const chest = cast(new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.22, 4, 10), coat));
     chest.position.y = 0.27;
     chest.scale.set(1, 1, 0.85);
@@ -210,6 +215,7 @@ export class Boat {
       const b = cast(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.22), boot));
       b.position.set(s * 0.11, 0.12, 0.55);
       this.body.add(thigh, shin, b);
+      this.rowerParts.push(thigh, shin, b);
     };
     leg(1);
     leg(-1);
@@ -218,6 +224,7 @@ export class Boat {
       const arm = cast(new THREE.Mesh(limbGeo, coat));
       const hand = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), skin);
       this.body.add(arm, hand);
+      this.rowerParts.push(arm, hand);
       return { s, arm, hand, shoulder: new THREE.Vector3(s * 0.21, 0.43, 0), target: new THREE.Vector3() };
     });
   }
@@ -244,46 +251,48 @@ export class Boat {
   }
 
   buildRods() {
-    const wood = new THREE.MeshLambertMaterial({ color: '#8a5a34' });
-    const cork = new THREE.MeshLambertMaterial({ color: '#d7b98a' });
-    const metal = new THREE.MeshLambertMaterial({ color: '#59606a' });
-
-    // Rod held while fishing: a chain of segments that can bend.
-    this.rod = new THREE.Group();
-    this.rod.rotation.order = 'YXZ';
-    this.rod.position.set(0.05, 0.8, 0.34);
-    this.body.add(this.rod);
-    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.026, 0.36, 7), cork);
-    grip.position.y = 0.12;
-    const reel = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.05, 10), metal);
-    reel.rotation.z = Math.PI / 2;
-    reel.position.set(-0.05, 0.22, 0);
-    this.rod.add(grip, reel);
-    this.rodSegs = [];
-    const lens = [0.55, 0.52, 0.48, 0.42, 0.38];
-    let parent = this.rod, y = 0.3, r = 0.02;
-    for (const len of lens) {
-      const seg = new THREE.Group();
-      seg.position.y = y;
-      parent.add(seg);
-      const m = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.78, r, len, 5), wood);
-      m.position.y = len / 2;
-      m.castShadow = true;
-      seg.add(m);
-      this.rodSegs.push(seg);
-      parent = seg;
-      y = len;
-      r *= 0.78;
+    // One of each rod; only the one in use shows. Held at the rower's hands while fishing.
+    this.rods = {};
+    for (const [id, def] of Object.entries(RODS)) {
+      const rod = buildRod(def.look);
+      rod.group.position.set(0.05, 0.8, 0.34);
+      rod.group.visible = false;
+      this.body.add(rod.group);
+      this.rods[id] = rod;
     }
-    this.rodTip = new THREE.Object3D();
-    this.rodTip.position.y = lens[lens.length - 1];
-    parent.add(this.rodTip);
+    this.setRod('float');
 
     // Stowed rod lying along the starboard side.
-    this.rodStowed = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.024, 2.4, 5), wood);
+    this.rodStowed = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.024, 2.4, 5), new THREE.MeshLambertMaterial({ color: '#8a5a34' }));
     this.rodStowed.rotation.set(Math.PI / 2 - 0.06, 0, 0);
     this.rodStowed.position.set(-0.42, 0.52, -0.25);
     this.body.add(this.rodStowed);
+  }
+
+  setRod(id) {
+    const next = this.rods[id] || this.rods.float;
+    if (this.active === next) return;
+    if (this.active) this.active.group.visible = false;
+    this.active = next;
+    this.rod = next.group;
+    this.rodTip = next.tip;
+  }
+
+  // Someone stepped ashore (or back in): the rower and their rod come and go.
+  setRower(on) {
+    this.occupied = on;
+    for (const p of this.rowerParts) p.visible = on;
+    if (!on) this.rod.visible = false;
+  }
+
+  // Where a landed fish is held up for a look.
+  holdPoint(out) {
+    return this.body.localToWorld(out.set(-0.15, 1.45, 1.05));
+  }
+
+  // Where a released fish goes back in: just off the side.
+  releasePoint(out) {
+    return out.set(this.pos.x + this.right.x * 2.2 + this.fwd.x, 0, this.pos.z + this.right.z * 2.2 + this.fwd.z);
   }
 
   buildLantern() {
@@ -393,18 +402,18 @@ export class Boat {
           impact = Math.max(impact, -vn);
         }
       }
-      // The jetty
-      const bx0 = JETTY.x - JETTY.halfW - 0.1, bx1 = JETTY.x + JETTY.halfW + 0.1;
-      const qx = clamp(px, bx0, bx1), qz = clamp(pz, JETTY.z0, JETTY.z1 + 0.2);
-      const dx = px - qx, dz = pz - qz;
-      const dist = Math.hypot(dx, dz);
-      if (dist < rad) {
+      // The jetty and the landing pier
+      for (const P of PIERS) {
+        const bx0 = P.x0 - 0.1, bx1 = P.x1 + 0.1, bz0 = P.z0 - 0.1, bz1 = P.z1 + 0.1;
+        const qx = clamp(px, bx0, bx1), qz = clamp(pz, bz0, bz1);
+        const dx = px - qx, dz = pz - qz;
+        const dist = Math.hypot(dx, dz);
+        if (dist >= rad) continue;
         let nx, nz, pen;
         if (dist < 1e-4) {
-          // Centre is inside the jetty: push out through the nearest long side.
-          nx = px < JETTY.x ? -1 : 1;
-          nz = 0;
-          pen = (nx < 0 ? px - bx0 : bx1 - px) + rad;
+          // Centre is inside the pier: push out through the nearest side.
+          const ex = Math.min(px - bx0, bx1 - px), ez = Math.min(pz - bz0, bz1 - pz);
+          if (ex < ez) { nx = px - bx0 < bx1 - px ? -1 : 1; nz = 0; pen = ex + rad; } else { nx = 0; nz = pz - bz0 < bz1 - pz ? -1 : 1; pen = ez + rad; }
         } else {
           nx = dx / dist;
           nz = dz / dist;
@@ -466,13 +475,11 @@ export class Boat {
     this.head.rotation.x = fishing ? 0.15 : 0;
 
     // Rod
-    this.rod.visible = fishing > 0.02;
+    this.rod.visible = this.occupied && fishing > 0.02;
     this.rodStowed.visible = !this.rod.visible;
     this.rod.rotation.y = this.pose.rodYaw;
     this.rod.rotation.x = this.pose.rodPitch;
-    const bend = this.pose.bend;
-    const k = [0.04, 0.09, 0.16, 0.24, 0.32];
-    this.rodSegs.forEach((s, i) => { s.rotation.x = bend * k[i]; });
+    bendRod(this.active, this.pose.bend);
 
     // Hands go to the oar handles, or to the rod grip.
     this.torso.updateMatrix();

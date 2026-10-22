@@ -1,10 +1,11 @@
 import { FISH, drawFishSketch, drawLanternSketch } from './fish.js';
-import { PLACES, MAP_RECT, solidHeight } from './world/terrain.js';
+import { TACKLE } from './tackle.js';
+import { PLACES, MAP_RECT, PATH, solidHeight } from './world/terrain.js';
 import { formatClock } from './world/sky.js';
 
 const $ = (id) => document.getElementById(id);
-const ZONE_WORDS = { bay: 'in Willow Bay', cove: 'in Driftwood Cove', open: 'out on open water' };
-const SOMEDAY = ['a softer cushion', 'a better rod', 'a potted fern', 'a little cabin'];
+const ZONE_WORDS = { bay: 'in Willow Bay', cove: 'in Driftwood Cove', open: 'out on open water', lake: 'in Reedmere', stream: 'in Fernbeck' };
+const SOMEDAY = ['a softer cushion', 'a potted fern', 'a little cabin by the lake'];
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -26,8 +27,9 @@ export class Journal {
 
   get isOpen() { return !this.el.hidden; }
 
-  open(boat) {
-    this.render(boat);
+  // where = { boat, walker (when ashore), camp }
+  open(where) {
+    this.render(where);
     this.el.hidden = false;
   }
 
@@ -35,9 +37,13 @@ export class Journal {
     this.el.hidden = true;
   }
 
-  render(boat) {
+  render(where) {
     const st = this.state;
-    this.fishEl.replaceChildren(...FISH.map((f) => this.fishEntry(f, st.fish[f.id])));
+    const salt = FISH.filter((f) => f.water !== 'fresh'), fresh = FISH.filter((f) => f.water === 'fresh');
+    this.fishEl.replaceChildren(
+      el('h3', 'j-water', 'Salt water'), ...salt.map((f) => this.fishEntry(f, st.fish[f.id])),
+      el('h3', 'j-water', 'Fresh water'), ...fresh.map((f) => this.fishEntry(f, st.fish[f.id])),
+    );
 
     this.placesEl.replaceChildren(...PLACES.map((p) => {
       const li = el('li', st.places[p.id] ? '' : 'faint');
@@ -66,7 +72,7 @@ export class Journal {
     items.push(el('p', 'j-someday', `Someday: ${SOMEDAY.join(' · ')}`));
     this.itemsEl.replaceChildren(...items);
 
-    this.drawMap(boat);
+    this.drawMap(where);
   }
 
   fishEntry(f, rec) {
@@ -80,6 +86,12 @@ export class Journal {
     if (rec) {
       text.append(el('p', 'j-meta', `${rec.count} caught · best ${rec.best} cm · ${f.where}`));
       text.append(el('p', 'j-meta', `First caught ${ZONE_WORDS[rec.firstZone] || ''} at ${formatClock(rec.firstHour)}${rec.firstRain ? ', in the rain' : ''}`));
+      // What has worked: written down as you learn it.
+      const on = this.state.caughtOn?.[f.id];
+      if (on) {
+        const list = Object.entries(on).sort((a, b) => b[1] - a[1]).map(([id, n]) => `${TACKLE[id]?.short.toLowerCase() || id}${n > 1 ? ` (${n})` : ''}`);
+        text.append(el('p', 'j-meta j-tackle', `Taken on: ${list.join(', ')}`));
+      }
     } else {
       text.append(el('p', 'j-meta', 'Not caught yet'));
     }
@@ -120,7 +132,7 @@ export class Journal {
     this.mapBase = c;
   }
 
-  drawMap(boat) {
+  drawMap(where) {
     if (!this.mapBase) this.buildMapBase();
     const cv = this.map, ctx = cv.getContext('2d');
     const W = cv.width, H = cv.height;
@@ -159,7 +171,7 @@ export class Journal {
         // Large bodies of water get their name written across them instead of a mark.
         ctx.globalAlpha = 0.55;
         ctx.textAlign = 'center';
-        ctx.font = '700 40px Caveat, cursive';
+        ctx.font = `700 ${p.size || 40}px Caveat, cursive`;
         ctx.fillText(p.name, x, y);
         continue;
       }
@@ -171,11 +183,54 @@ export class Journal {
       ctx.moveTo(x + 6, y - 6);
       ctx.lineTo(x - 6, y + 6);
       ctx.stroke();
-      const right = x < W - 170;
+      const right = !p.labelLeft && x < W - 170;
       ctx.textAlign = right ? 'left' : 'right';
       ctx.fillText(p.name, x + (right ? 12 : -12), y - 2);
     }
 
+    // The path to camp and up the stream, once you've walked it.
+    if (this.state.places.camp) {
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      ctx.setLineDash([3, 5]);
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      PATH.forEach(([x, z], i) => {
+        const [px, py] = toPx(x, z);
+        if (i) ctx.lineTo(px, py);
+        else ctx.moveTo(px, py);
+      });
+      ctx.stroke();
+      ctx.restore();
+    }
+    if (where?.camp && this.state.places.camp) {
+      // A little tent
+      const [cx, cy] = toPx(where.camp.x, where.camp.z);
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = '#7f9a6a';
+      ctx.beginPath();
+      ctx.moveTo(cx - 9, cy + 6);
+      ctx.lineTo(cx, cy - 8);
+      ctx.lineTo(cx + 9, cy + 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+    if (where?.walker) {
+      const [wx, wy] = toPx(where.walker.pos.x, where.walker.pos.z);
+      ctx.save();
+      ctx.fillStyle = '#e8b440';
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(wx, wy, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+    const boat = where?.boat;
     if (boat) {
       const [bx, by] = toPx(boat.pos.x, boat.pos.z);
       const fx = Math.sin(boat.heading), fz = Math.cos(boat.heading);

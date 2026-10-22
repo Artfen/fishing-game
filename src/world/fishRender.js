@@ -39,7 +39,7 @@ export class FishRenderer {
       set.mat.userData.glow.value = set.sp.sketch.glow ? 0.25 + night * 1.3 : 0;
       let k = 0;
       for (const f of set.list) {
-        if (!f.active || f.state === 'caught') continue;
+        if (!f.active || f.state === 'caught' || f.state === 'gone') continue;
         const x = f.px + (f.x - f.px) * alpha, y = f.py + (f.y - f.py) * alpha, z = f.pz + (f.z - f.pz) * alpha;
         if ((x - cx) ** 2 + (y - cy) ** 2 + (z - cz) ** 2 > maxD2) continue;
         f.phase += dt * (3 + f.beat * 11);

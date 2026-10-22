@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Slow Tide</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="A peaceful little fishing game. Row a wooden boat around a quiet bay, find a hidden cove, and fill a handwritten journal as the day turns to evening.">
+<meta name="description" content="A peaceful little fishing adventure. Row a wooden boat around a quiet bay, walk the shore to a lake and a trout stream, fish with float, lure, carp rod or fly, cook at camp, and fill a handwritten journal.">
 <meta name="theme-color" content="#0f1b2b">
 <meta name="color-scheme" content="dark">
 
@@ -18,10 +18,10 @@
 
 <!-- Link previews. These need full addresses; update them if the game moves to another site. -->
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://artfen.github.io/fishing-game/">
+<meta property="og:url" content="https://fishing-game-weld.vercel.app/">
 <meta property="og:title" content="Slow Tide">
-<meta property="og:description" content="Row a little wooden boat around a quiet bay, find a hidden cove, and fish as the sun goes down.">
-<meta property="og:image" content="https://artfen.github.io/fishing-game/assets/social-preview.jpg">
+<meta property="og:description" content="Row a little boat around a quiet bay, walk to a lake and a trout stream, fish your own way and sleep under canvas.">
+<meta property="og:image" content="https://fishing-game-weld.vercel.app/assets/social-preview.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="A small wooden rowing boat on a calm bay at golden hour">
@@ -37,6 +37,7 @@
 <div id="underwater-tint" aria-hidden="true"></div>
 <div id="vignette" aria-hidden="true"></div>
 <div id="rest-veil" aria-hidden="true"><span>time drifts by…</span></div>
+<div id="sleep-veil" aria-hidden="true"><span id="sleep-text">You sleep…</span></div>
 
 <div id="hud">
   <div id="clock" class="pill">
@@ -44,7 +45,13 @@
     <span id="clock-time">2:30 pm</span>
     <span id="clock-phase" class="soft">Afternoon</span>
     <span id="clock-weather" class="soft" hidden></span>
+    <span id="clock-food" class="soft" hidden></span>
   </div>
+  <button id="gear" class="pill" type="button" aria-label="Your rod and tackle: open the backpack">
+    <span id="gear-rod"></span><span id="gear-item" class="soft"></span>
+  </button>
+  <div id="boat-marker" class="marker" hidden aria-hidden="true"><span class="m-arrow"></span><span class="m-label">Boat · <b id="boat-dist">0</b> m</span></div>
+  <div id="camp-marker" class="marker camp" hidden aria-hidden="true"><span class="m-arrow"></span><span class="m-label">Camp · <b id="camp-dist">0</b> m</span></div>
   <div id="place" aria-live="polite">
     <div id="place-name"></div>
     <div class="rule" aria-hidden="true"></div>
@@ -54,20 +61,22 @@
   <div id="view-chip" class="pill" aria-live="polite"></div>
   <div id="left-stack">
   <section id="sonar" class="panel" hidden aria-label="Fish finder">
-    <header>
-      <span class="s-title">Fish finder</span>
-      <span class="s-depth"><span id="sonar-depth">–</span> below you</span>
+    <header id="sonar-head" title="Drag to move · double-click to put it back">
+      <span class="s-grip" aria-hidden="true"></span>
+      <span class="s-title" id="sonar-title">Fish finder</span>
+      <span class="s-depth"><span id="sonar-depth">–</span> <span id="sonar-where">below you</span></span>
+      <button id="sonar-size" type="button" aria-label="Change the fish finder size">⤢</button>
       <button id="sonar-help" type="button" aria-label="What the fish finder shows">?</button>
     </header>
     <canvas id="sonar-canvas" width="600" height="330"></canvas>
     <div id="sonar-legend" hidden>
       <ul>
-        <li><i class="lg-fish"></i>fish</li>
+        <li><i class="lg-fish"></i>fish echoes (weak → strong)</li>
         <li><i class="lg-weed"></i>weeds</li>
         <li><i class="lg-bottom"></i>bottom</li>
-        <li><i class="lg-bait"></i>your bait</li>
+        <li><i class="lg-bait"></i>your bait or lure</li>
       </ul>
-      <p>The right edge is the water right under your boat now. Older readings slide to the left. Big fish show as bigger marks.</p>
+      <p>The right edge is the water under you now; older readings slide to the left. Fish show as arches: bigger echoes usually mean bigger fish, but the screen can't tell you what kind. A cloud of tiny dots is a school of small fish. A thick, bright bottom line is hard rock; a soft one is silt or sand. From the shore it reads the water around your rig once it's cast. Drag the title bar to move it.</p>
     </div>
   </section>
   <div id="bait" class="panel" hidden aria-live="polite">
@@ -95,6 +104,10 @@
     <button id="finder-btn" class="pill" type="button" aria-label="Fish finder">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 6h16v12H4z M4 14c3-1 5 1 8 0s5-1 8 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="9" cy="10" r="1.2" fill="currentColor"/><circle cx="14" cy="9" r="1" fill="currentColor"/></svg>
       <span class="label">Finder</span><kbd class="desk-only">F</kbd>
+    </button>
+    <button id="pack-btn" class="pill" type="button" aria-label="Backpack">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7M6 9a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v9.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 18.5zM6 12h12M10 12v2h4v-2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      <span class="label">Pack</span><kbd class="desk-only">B</kbd>
     </button>
     <button id="view-btn" class="pill" type="button" aria-label="Switch view">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 15.5c2 1 4.5 1.5 7 1.5s5-.5 7-1.5" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".6"/><circle cx="12" cy="12" r="2.6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
@@ -124,7 +137,49 @@
   <h2 id="cc-name"></h2>
   <div id="cc-size"></div>
   <p id="cc-note"></p>
-  <div class="card-act"><span class="desk-only"><kbd>Space</kbd> let it go</span><span class="touch-only">Tap to let it go</span></div>
+  <p id="cc-rig"></p>
+  <div class="card-act">
+    <button id="cc-release" type="button"><span class="desk-only"><kbd>Space</kbd> </span>Let it go</button>
+    <button id="cc-keep" type="button"><span class="desk-only"><kbd>K</kbd> </span>Keep for the pot</button>
+  </div>
+</div>
+
+<div id="pack" class="sheet" role="dialog" aria-label="Backpack" hidden>
+  <div class="sheet-inner">
+    <header>
+      <h2 id="pack-title">Backpack</h2>
+      <p id="pack-where"></p>
+      <button id="pack-close" class="sheet-close" type="button" aria-label="Close the backpack">×</button>
+    </header>
+    <h3>Rods <span class="count" id="pack-rod-count"></span></h3>
+    <div id="pack-rods" class="pk-grid"></div>
+    <h3>Tackle <span class="count" id="pack-item-count"></span></h3>
+    <div id="pack-items" class="pk-grid"></div>
+    <h3>Creel <span class="count" id="pack-fish-count"></span></h3>
+    <div id="pack-fish" class="pk-creel"></div>
+    <section id="pack-box-section" hidden>
+      <h3>In the tackle box</h3>
+      <div id="pack-box" class="pk-grid"></div>
+    </section>
+    <p class="pk-help desk-only"><kbd>Q</kbd> next tackle for this rod · <kbd>1</kbd> <kbd>2</kbd> switch rods · <kbd>B</kbd> or <kbd>Esc</kbd> close</p>
+  </div>
+</div>
+
+<div id="camp" class="sheet" role="dialog" aria-label="Camp" hidden>
+  <div class="sheet-inner">
+    <header>
+      <h2>Camp</h2>
+      <p id="camp-sub"></p>
+      <button id="camp-close" class="sheet-close" type="button" aria-label="Close">×</button>
+    </header>
+    <nav class="cp-tabs">
+      <button type="button" data-tab="cook">Fire &amp; food</button>
+      <button type="button" data-tab="sleep">Sleep</button>
+      <button type="button" data-tab="tackle">Tackle box</button>
+    </nav>
+    <section id="camp-cook" data-pane="cook"></section>
+    <section id="camp-sleep" data-pane="sleep" hidden></section>
+  </div>
 </div>
 
 <div id="note-card" class="card" role="dialog" aria-label="Discovery" hidden>
@@ -161,24 +216,27 @@
 <div id="title">
   <div class="t-inner">
     <h1>Slow Tide</h1>
-    <p class="t-sub">A little boat, a quiet bay, and nowhere you need to be.</p>
+    <p class="t-sub">A little boat, a quiet bay, a camp on the shore, and nowhere you need to be.</p>
     <button id="start-btn" type="button">Begin</button>
     <dl class="t-keys desk-only">
-      <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>row</dd>
+      <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>row the boat · walk on shore (<kbd>Shift</kbd> to jog)</dd>
       <dt>drag · scroll</dt><dd>look around · zoom</dd>
       <dt><kbd>Space</kbd></dt><dd>hold to aim and cast, then fish</dd>
-      <dt><kbd>A</kbd><kbd>D</kbd> · <kbd>W</kbd><kbd>S</kbd></dt><dd>aim the cast · bait depth</dd>
+      <dt><kbd>A</kbd><kbd>D</kbd> · <kbd>W</kbd><kbd>S</kbd></dt><dd>aim the cast · bait depth or lure speed</dd>
+      <dt><kbd>E</kbd></dt><dd>step ashore · board the boat · camp · look closer</dd>
+      <dt><kbd>B</kbd> · <kbd>Q</kbd> · <kbd>1</kbd><kbd>2</kbd></dt><dd>backpack · next tackle · switch rods</dd>
+      <dt><kbd>K</kbd> · <kbd>G</kbd></dt><dd>keep a fish · throw loose bait</dd>
       <dt><kbd>Esc</kbd> · right-click</dt><dd>cancel a cast, reel in</dd>
-      <dt><kbd>C</kbd> · <kbd>R</kbd></dt><dd>look underwater · back to the boat</dd>
+      <dt><kbd>C</kbd> · <kbd>R</kbd></dt><dd>look underwater · reset the view</dd>
       <dt><kbd>F</kbd> · <kbd>J</kbd></dt><dd>fish finder · journal</dd>
-      <dt><kbd>E</kbd> · <kbd>T</kbd></dt><dd>look closer · let time drift</dd>
-      <dt><kbd>M</kbd> · <kbd>H</kbd></dt><dd>music · hide interface</dd>
+      <dt><kbd>T</kbd> · <kbd>M</kbd> · <kbd>H</kbd></dt><dd>let time drift · music · hide interface</dd>
     </dl>
     <dl class="t-keys touch-only">
-      <dt>left side</dt><dd>drag to row</dd>
+      <dt>left side</dt><dd>drag to row or walk</dd>
       <dt>right side</dt><dd>drag to look · pinch to zoom</dd>
       <dt>round button</dt><dd>hold to aim and cast, then fish</dd>
-      <dt>eye · sonar</dt><dd>look underwater · fish finder</dd>
+      <dt>pack · eye · sonar</dt><dd>backpack · look underwater · fish finder</dd>
+      <dt>tap a prompt</dt><dd>step ashore, board, camp</dd>
       <dt>hourglass</dt><dd>hold to let time drift</dd>
     </dl>
     <p class="t-note">Best with sound on. <button id="title-quality" class="t-quality" type="button">Graphics: Auto</button></p>

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BAY } from './terrain.js';
+import { BAY, freshness } from './terrain.js';
 import { smoothstep } from '../util.js';
 
 // Gentle swells. The same numbers drive the shader and the boat's bobbing,
@@ -21,10 +21,11 @@ export const sea = { amp: 1, time: 0 };
 
 const calmness = (x, z) => 0.5 + 0.8 * smoothstep(55, 150, Math.hypot(x - BAY.x, z - BAY.z));
 
+// The lake and the stream are sheltered: only the faintest swell reaches them.
 export function waveHeight(x, z, t = sea.time) {
   let h = 0;
   for (const w of WAVES) h += w.amp * Math.sin(w.k * (w.dx * x + w.dz * z - w.c * t));
-  return h * sea.amp * calmness(x, z);
+  return h * sea.amp * calmness(x, z) * (1 - 0.92 * freshness(x, z));
 }
 
 const f = (n) => n.toFixed(5);
@@ -42,15 +43,30 @@ vec3 waves(vec2 p, float t) {
 }
 `;
 
+// The world map, with a sharper copy over the west shore where the stream is narrow.
+const MAP_GLSL = /* glsl */ `
+uniform sampler2D uHeight;
+uniform vec4 uRect;
+uniform sampler2D uHeight2;
+uniform vec4 uRect2;
+vec4 worldMap(vec2 xz) {
+  vec2 uv2 = (xz - uRect2.xy) / uRect2.zw;
+  if (uv2.x > 0.002 && uv2.y > 0.002 && uv2.x < 0.998 && uv2.y < 0.998) return texture2D(uHeight2, uv2);
+  return texture2D(uHeight, (xz - uRect.xy) / uRect.zw);
+}
+`;
+
 const vertexShader = /* glsl */ `
 ${WAVE_GLSL}
+${MAP_GLSL}
 uniform float uTime;
 varying vec3 vWorld;
 varying vec3 vN;
 #include <fog_pars_vertex>
 void main() {
   vec4 wp = modelMatrix * vec4(position, 1.0);
-  vec3 w = waves(wp.xz, uTime);
+  float freshV = worldMap(wp.xz).g;
+  vec3 w = waves(wp.xz, uTime) * (1.0 - 0.92 * freshV);
   wp.y += w.x;
   vN = vec3(-w.y, 1.0, -w.z);
   vWorld = wp.xyz;
@@ -74,8 +90,10 @@ uniform vec3 uMid;
 uniform vec3 uDeep;
 uniform vec3 uFoam;
 uniform vec3 uUnderColor;
-uniform sampler2D uHeight;
-uniform vec4 uRect;
+uniform vec3 uFreshShallow;
+uniform vec3 uFreshMid;
+uniform vec3 uFreshDeep;
+${MAP_GLSL}
 uniform vec4 uLights[2];
 varying vec3 vWorld;
 varying vec3 vN;
@@ -132,15 +150,32 @@ void main() {
     #include <fog_fragment>
     return;
   }
-  vec2 uv = (vWorld.xz - uRect.xy) / uRect.zw;
-  float ground = texture2D(uHeight, uv).r;
+  vec4 hs = worldMap(vWorld.xz);
+  float ground = hs.r;
+  float fresh = hs.g;
+  vec2 flow = hs.ba;
+  float flowSpeed = length(flow);
   float depth = max(-ground, 0.0);
   float dist = length(cameraPosition - vWorld);
   float detail = 1.0 - smoothstep(40.0, 220.0, dist);
 
   vec2 p = vWorld.xz;
-  vec2 g = ngrad(p * 0.45 + vec2(uTime * 0.16, uTime * 0.07)) * 0.10
+  // Still water (the lake) gets only a faint ruffle; the sea keeps its chop.
+  float chop = 1.0 - fresh * 0.65;
+  vec2 g = ngrad(p * 0.45 + vec2(uTime * 0.16, uTime * 0.07)) * 0.10 * chop
          + ngrad(p * 1.1 + vec2(-uTime * 0.11, uTime * 0.19)) * 0.05;
+  // Running water: ripples carried downstream (two phases cross-faded so they never stretch).
+  float streak = 0.0;
+  if (flowSpeed > 0.02) {
+    float ph0 = fract(uTime * 0.45), ph1 = fract(uTime * 0.45 + 0.5);
+    float wgt = abs(ph0 * 2.0 - 1.0);
+    vec2 q0 = p * 1.6 - flow * ph0 * 2.2, q1 = p * 1.6 - flow * ph1 * 2.2 + 0.37;
+    g += mix(ngrad(q0), ngrad(q1), wgt) * 0.09 * min(flowSpeed * 1.6, 1.0);
+    vec2 sd = normalize(flow);
+    vec2 sq = vec2(dot(p, vec2(-sd.y, sd.x)) * 3.0, dot(p, sd) * 0.5);
+    float n0 = vnoise(sq - vec2(0.0, uTime * flowSpeed * 1.1));
+    streak = smoothstep(0.7, 0.95, n0) * smoothstep(0.45, 1.0, flowSpeed) * (1.0 - smoothstep(0.25, 0.7, depth));
+  }
   g += rainRings(p, uTime) * uRain * 0.45;
   g *= detail;
   vec3 N = normalize(vec3(vN.x - g.x, vN.y, vN.z - g.y));
@@ -149,6 +184,8 @@ void main() {
   float s1 = smoothstep(0.0, 3.0, depth);
   float s2 = smoothstep(2.5, 13.0, depth);
   vec3 base = mix(mix(uShallow, uMid, s1), uDeep, s2);
+  vec3 freshBase = mix(mix(uFreshShallow, uFreshMid, smoothstep(0.0, 2.2, depth)), uFreshDeep, smoothstep(2.0, 6.0, depth));
+  base = mix(base, freshBase, fresh);
 
   float diff = clamp(dot(N, uLightDir), 0.0, 1.0);
   vec3 col = base * (uAmbient + uSunColor * (0.25 + 0.55 * diff));
@@ -165,8 +202,8 @@ void main() {
   // Shoreline foam: a soft edge plus slow bands rolling in.
   float n1 = vnoise(p * 0.7 + uTime * 0.25);
   float edge = 1.0 - smoothstep(0.0, 0.4 + n1 * 0.35, depth);
-  float bands = smoothstep(0.85, 1.0, sin(depth * 5.0 - uTime * 1.3 + n1 * 3.0)) * (1.0 - smoothstep(0.2, 1.6, depth));
-  float foam = clamp(edge * 0.9 + bands * 0.55, 0.0, 1.0);
+  float bands = smoothstep(0.85, 1.0, sin(depth * 5.0 - uTime * 1.3 + n1 * 3.0)) * (1.0 - smoothstep(0.2, 1.6, depth)) * (1.0 - fresh);
+  float foam = clamp(edge * (0.9 - fresh * 0.75) + bands * 0.55 + streak * 0.45, 0.0, 1.0);
   vec3 foamLit = uFoam * (uAmbient + uSunColor * 0.6);
   col = mix(col, foamLit, foam * 0.85);
 
@@ -185,6 +222,8 @@ void main() {
   col = mix(col, vec3(dot(col, vec3(0.3, 0.59, 0.11))), uNight * 0.35);
 
   float alpha = mix(0.42, 0.95, smoothstep(0.0, 5.0, depth));
+  // Clear fresh water: you can see the gravel in the stream and fish in the shallows.
+  alpha = mix(alpha, mix(0.5, 0.92, smoothstep(0.0, 3.0, depth)), fresh);
   alpha = max(alpha, foam);
   gl_FragColor = vec4(col, alpha);
   #include <tonemapping_fragment>
@@ -193,7 +232,7 @@ void main() {
 }
 `;
 
-export function createWater(heightTex, rect) {
+export function createWater(heightTex, rect, detailTex, detailRect) {
   const uniforms = THREE.UniformsUtils.merge([
     THREE.UniformsLib.fog,
     {
@@ -211,12 +250,17 @@ export function createWater(heightTex, rect) {
       uDeep: { value: new THREE.Color('#1b5c85') },
       uFoam: { value: new THREE.Color('#f7f5ec') },
       uUnderColor: { value: new THREE.Color('#2a8b95') },
+      uFreshShallow: { value: new THREE.Color('#6f9480') },
+      uFreshMid: { value: new THREE.Color('#46705a') },
+      uFreshDeep: { value: new THREE.Color('#25463f') },
       uRect: { value: new THREE.Vector4(rect.x, rect.z, rect.w, rect.h) },
       uLights: { value: [new THREE.Vector4(), new THREE.Vector4()] },
     },
   ]);
-  // Assigned after merge so the texture isn't cloned.
+  // Assigned after merge so the textures aren't cloned.
   uniforms.uHeight = { value: heightTex };
+  uniforms.uHeight2 = { value: detailTex };
+  uniforms.uRect2 = { value: new THREE.Vector4(detailRect.x, detailRect.z, detailRect.w, detailRect.h) };
 
   const material = new THREE.ShaderMaterial({
     uniforms,

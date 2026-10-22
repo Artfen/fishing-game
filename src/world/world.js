@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import { heightAt, JETTY, COVE, ISLAND, STACKS, CHANNEL, findShore } from './terrain.js';
-import { mergeParts, mat, seeded, fbm, clamp, smoothstep, hash2, jitterGeo, pick, glowTexture } from '../util.js';
+import { heightAt, JETTY, COVE, ISLAND, STACKS, CHANNEL, CAMP, LANDING, findShore, lakeSDF, streamSDF, pathInfo } from './terrain.js';
+import { mergeParts, mat, seeded, fbm, clamp, lerp, smoothstep, hash2, jitterGeo, pick, glowTexture } from '../util.js';
 import { buildLanternModel } from '../props.js';
 import { withCaustics } from './caustics.js';
+import { buildShore, SHORE_PATCH } from './shore.js';
 
 const shared = { uTime: { value: 0 }, uWind: { value: 1 } };
 const UP = new THREE.Vector3(0, 1, 0);
@@ -55,10 +56,43 @@ const TC = {
   rockLight: new THREE.Color('#beb3a1'),
   deepBed: new THREE.Color('#6d7c6a'),
   weedBed: new THREE.Color('#7f8a4c'),
+  silt: new THREE.Color('#77704f'),
+  siltDeep: new THREE.Color('#4f513d'),
+  gravel: new THREE.Color('#857b62'),
+  mud: new THREE.Color('#7f7052'),
+  path: new THREE.Color('#a48f6c'),
+  pathEdge: new THREE.Color('#93a463'),
+  trodden: new THREE.Color('#a6a06a'),
 };
 
-function terrainColor(c, h, ny, x, z, r, weed) {
+// Lake and stream banks are mud and grass rather than beach sand; the path is bare earth.
+function shoreColor(c, h, x, z, r, weed) {
+  const dl = lakeSDF(x, z), ds = streamSDF(x, z);
+  const bank = Math.min(dl, ds);
+  const p = pathInfo(x, z).d;
+  const dc = Math.hypot(x - CAMP.x, z - CAMP.z);
+  const n = fbm(x * 0.09, z * 0.09, 2);
+  if (bank < 14 || p < 2.2 || dc < 9) {
+    if (h < -0.15 && bank < 3) {
+      if (ds < dl) c.copy(TC.gravel).lerp(TC.siltDeep, smoothstep(0.3, 1.3, -h) * 0.6 + n * 0.15).lerp(TC.weedBed, clamp(n, 0, 1) * 0.35);
+      else c.copy(TC.silt).lerp(TC.siltDeep, smoothstep(1, 5, -h)).lerp(TC.weedBed, weed * 0.6);
+    } else if (h < 1.6 && bank < 6) {
+      c.copy(TC.mud).lerp(TC.grassDark, smoothstep(-0.1, 1.3, h) * (0.6 + n * 0.4));
+      if (ds < dl && h < 0.5) c.lerp(TC.gravel, 0.5);
+    } else if (bank < 14 && h < 3) {
+      c.copy(TC.grassDark).lerp(TC.grass, clamp(0.4 + n, 0, 1));
+    }
+    if (dc < 9) c.lerp(TC.trodden, smoothstep(9, 3, dc) * 0.7);
+    if (p < 1.5) c.lerp(p < 0.7 ? TC.path : TC.pathEdge, smoothstep(1.5, 0.5, p) * (0.75 + n * 0.15));
+    c.multiplyScalar(0.96 + r * 0.08);
+    return true;
+  }
+  return false;
+}
+
+function terrainColor(c, h, ny, x, z, r, weed, shore) {
   const n = fbm(x * 0.05, z * 0.05, 2);
+  if (shore && h < 5 && shoreColor(c, h, x, z, r, weed)) return;
   if (h < -0.25) {
     c.copy(TC.wetSand).lerp(TC.seabed, smoothstep(0, 6, -h)).lerp(TC.deepBed, smoothstep(6, 18, -h));
     c.lerp(TC.weedBed, weed * 0.55);
@@ -74,13 +108,21 @@ function terrainColor(c, h, ny, x, z, r, weed) {
   c.multiplyScalar(0.96 + r * 0.08);
 }
 
+// One big grid for the whole archipelago, plus a finer patch over the west shore so the
+// stream, lake banks and path keep their shape. The patch lines up with the big grid and
+// its border follows the big grid's edges exactly, so there are no cracks between them.
 function buildTerrain(rnd, habitat) {
   const cx = 0, cz = -40, size = 760, N = 300, step = size / N, V = N + 1;
+  const x0 = cx - size / 2, z0 = cz - size / 2;
+  const P = SHORE_PATCH;
+  const pi0 = Math.floor((P.x0 - x0) / step), pi1 = Math.ceil((P.x1 - x0) / step);
+  const pj0 = Math.floor((P.z0 - z0) / step), pj1 = Math.ceil((P.z1 - z0) / step);
+  const inPatch = (i, j) => i >= pi0 && i <= pi1 && j >= pj0 && j <= pj1;
   const X = new Float32Array(V * V), Y = new Float32Array(V * V), Z = new Float32Array(V * V);
   for (let j = 0; j < V; j++) {
     for (let i = 0; i < V; i++) {
-      let x = cx - size / 2 + i * step, z = cz - size / 2 + j * step;
-      if (i > 0 && i < N && j > 0 && j < N) {
+      let x = x0 + i * step, z = z0 + j * step;
+      if (i > 0 && i < N && j > 0 && j < N && !inPatch(i, j)) {
         x += (hash2(i, j) - 0.5) * step * 0.6;
         z += (hash2(j + 991, i + 37) - 0.5) * step * 0.6;
       }
@@ -91,23 +133,61 @@ function buildTerrain(rnd, habitat) {
   const pos = [], col = [];
   const c = new THREE.Color();
   const hs = {};
-  const tri = (a, b, d) => {
-    const ya = Y[a], yb = Y[b], yd = Y[d];
-    pos.push(X[a], ya, Z[a], X[b], yb, Z[b], X[d], yd, Z[d]);
-    const ux = X[b] - X[a], uy = yb - ya, uz = Z[b] - Z[a];
-    const vx = X[d] - X[a], vy = yd - ya, vz = Z[d] - Z[a];
+  const tri = (ax, ay, az, bx, by, bz, dx, dy, dz, shore) => {
+    pos.push(ax, ay, az, bx, by, bz, dx, dy, dz);
+    const ux = bx - ax, uy = by - ay, uz = bz - az;
+    const vx = dx - ax, vy = dy - ay, vz = dz - az;
     const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
     const nyn = Math.abs(ny) / (Math.hypot(nx, ny, nz) || 1);
-    const cx = (X[a] + X[b] + X[d]) / 3, cz = (Z[a] + Z[b] + Z[d]) / 3, cy = (ya + yb + yd) / 3;
-    terrainColor(c, cy, nyn, cx, cz, rnd(), cy < -0.3 ? habitat.sample(cx, cz, hs).weed : 0);
+    const mx = (ax + bx + dx) / 3, mz = (az + bz + dz) / 3, my = (ay + by + dy) / 3;
+    terrainColor(c, my, nyn, mx, mz, rnd(), my < -0.3 ? habitat.sample(mx, mz, hs).weed : 0, shore);
     col.push(c.r, c.g, c.b, c.r, c.g, c.b, c.r, c.g, c.b);
   };
+  const vtx = (k) => [X[k], Y[k], Z[k]];
   for (let j = 0; j < N; j++) {
     for (let i = 0; i < N; i++) {
+      if (i >= pi0 && i < pi1 && j >= pj0 && j < pj1) continue;
       const a = j * V + i, b = a + 1, d = a + V, e = d + 1;
-      if ((i + j) % 2 === 0) { tri(a, d, b); tri(b, d, e); } else { tri(a, d, e); tri(a, e, b); }
+      if ((i + j) % 2 === 0) { tri(...vtx(a), ...vtx(d), ...vtx(b)); tri(...vtx(b), ...vtx(d), ...vtx(e)); } else { tri(...vtx(a), ...vtx(d), ...vtx(e)); tri(...vtx(a), ...vtx(e), ...vtx(b)); }
     }
   }
+
+  // The fine patch: 3 × 3 cells for every big cell.
+  const S = 3, pn = (pi1 - pi0) * S, pm = (pj1 - pj0) * S, ps = step / S, PV = pn + 1;
+  const PX = new Float32Array(PV * (pm + 1)), PY = new Float32Array(PV * (pm + 1)), PZ = new Float32Array(PV * (pm + 1));
+  const big = (i, j) => Y[j * V + i];
+  for (let j = 0; j <= pm; j++) {
+    for (let i = 0; i <= pn; i++) {
+      let x = x0 + pi0 * step + i * ps, z = z0 + pj0 * step + j * ps;
+      const k = j * PV + i;
+      const edgeI = i === 0 || i === pn, edgeJ = j === 0 || j === pm;
+      let y;
+      if (edgeI || edgeJ) {
+        // On the border, sit exactly on the big grid's edge line.
+        const gi = pi0 + Math.floor(i / S), gj = pj0 + Math.floor(j / S);
+        if (edgeI) {
+          const ii = pi0 + (i === 0 ? 0 : pn / S), f = (j % S) / S;
+          y = j === pm ? big(ii, pj1) : lerp(big(ii, gj), big(ii, gj + 1), f);
+        } else {
+          const jj = pj0 + (j === 0 ? 0 : pm / S), f = (i % S) / S;
+          y = i === pn ? big(pi1, jj) : lerp(big(gi, jj), big(gi + 1, jj), f);
+        }
+      } else {
+        x += (hash2(i + 5003, j) - 0.5) * ps * 0.5;
+        z += (hash2(j + 7919, i + 11) - 0.5) * ps * 0.5;
+        y = heightAt(x, z);
+      }
+      PX[k] = x; PY[k] = y; PZ[k] = z;
+    }
+  }
+  const pv = (k) => [PX[k], PY[k], PZ[k]];
+  for (let j = 0; j < pm; j++) {
+    for (let i = 0; i < pn; i++) {
+      const a = j * PV + i, b = a + 1, d = a + PV, e = d + 1;
+      if ((i + j) % 2 === 0) { tri(...pv(a), ...pv(d), ...pv(b), true); tri(...pv(b), ...pv(d), ...pv(e), true); } else { tri(...pv(a), ...pv(d), ...pv(e), true); tri(...pv(a), ...pv(e), ...pv(b), true); }
+    }
+  }
+
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
@@ -144,7 +224,7 @@ function treeGeometries() {
   };
 }
 
-function scatterTrees(rnd, avoid) {
+function scatterTrees(rnd, avoid, skip) {
   const lists = { pine: [], round: [], blossom: [], bush: [] };
   for (let z = -300; z < 200; z += 4.2) {
     for (let x = -300; x < 300; x += 4.2) {
@@ -152,6 +232,7 @@ function scatterTrees(rnd, avoid) {
       const h = heightAt(px, pz);
       if (h < 1.6 || h > 50) continue;
       if (avoid.some((a) => Math.hypot(px - a.x, pz - a.z) < a.r)) continue;
+      if (skip(px, pz)) continue;
       const hx = heightAt(px + 1, pz) - heightAt(px - 1, pz);
       const hz = heightAt(px, pz + 1) - heightAt(px, pz - 1);
       if (Math.hypot(hx, hz) / 2 > 0.7) continue;
@@ -529,6 +610,52 @@ function buildFireflies(rnd, spots, count) {
   return points;
 }
 
+/* ---------------- obstacles ---------------- */
+
+// A coarse grid of circles, so someone walking only checks the few things near them.
+class ObstacleGrid {
+  constructor(cell = 4) {
+    this.cell = cell;
+    this.cells = new Map();
+  }
+
+  key(i, j) { return i * 73856093 ^ j * 19349663; }
+
+  // top: how high it stands; you can walk over it on a deck above it.
+  add(x, z, r, top = Infinity) {
+    const c = this.cell, m = r + 0.6; // margin for the walker's own radius
+    const i0 = Math.floor((x - m) / c), i1 = Math.floor((x + m) / c);
+    const j0 = Math.floor((z - m) / c), j1 = Math.floor((z + m) / c);
+    const o = { x, z, r, top };
+    for (let i = i0; i <= i1; i++) {
+      for (let j = j0; j <= j1; j++) {
+        const k = this.key(i, j);
+        let list = this.cells.get(k);
+        if (!list) this.cells.set(k, (list = []));
+        list.push(o);
+      }
+    }
+  }
+
+  // Push a circle of radius r at (p.x, p.z), with feet at height y, out of anything it overlaps.
+  resolve(p, r, y = -Infinity) {
+    const list = this.cells.get(this.key(Math.floor(p.x / this.cell), Math.floor(p.z / this.cell)));
+    if (!list) return false;
+    let hit = false;
+    for (const o of list) {
+      if (y > o.top) continue;
+      const dx = p.x - o.x, dz = p.z - o.z, min = o.r + r;
+      const d2 = dx * dx + dz * dz;
+      if (d2 >= min * min) continue;
+      const d = Math.sqrt(d2) || 0.001;
+      p.x = o.x + (dx / d) * min;
+      p.z = o.z + (dz / d) * min;
+      hit = true;
+    }
+    return hit;
+  }
+}
+
 /* ---------------- assemble ---------------- */
 
 export function buildWorld(scene, renderer, habitat) {
@@ -542,18 +669,31 @@ export function buildWorld(scene, renderer, habitat) {
   const cove = buildCove(rnd);
   scene.add(cove.group);
 
+  const shore = buildShore(scene, rnd);
+
   const avoid = [
     { x: JETTY.x, z: JETTY.z0 - 1, r: 5 },
     { x: jetty.bench.x, z: jetty.bench.z, r: 2.5 },
     { x: cove.spot.x, z: cove.spot.z, r: 5 },
+    { x: CAMP.x, z: CAMP.z, r: CAMP.r + 4 },
+    { x: LANDING.x, z: LANDING.z, r: 6 },
   ];
   const geos = treeGeometries();
-  const lists = scatterTrees(rnd, avoid);
+  // Keep the path clear, and leave a few open casting spots along the stream.
+  const lists = scatterTrees(rnd, avoid, (x, z) => pathInfo(x, z).d < 2.6 || streamSDF(x, z) < 1.5);
   const sway = swayMaterial();
   for (const k of Object.keys(geos)) scene.add(instanced(geos[k], lists[k], sway, rnd));
 
+  // Things you bump into on foot: tree trunks, bushes, camp gear, big rocks.
+  const obstacles = new ObstacleGrid();
+  for (const k of ['pine', 'round', 'blossom']) for (const t of lists[k]) obstacles.add(t.x, t.z, 0.28 * t.s);
+  for (const t of lists.bush) obstacles.add(t.x, t.z, 0.45 * t.s);
+  for (const o of shore.obstacles) obstacles.add(o.x, o.z, o.r);
+
   const rockGeo = mergeParts([{ geo: jitterGeo(new THREE.DodecahedronGeometry(1, 0), 0.4, rnd), color: '#a39888', jitter: 0.07 }], rnd);
-  scene.add(instanced(rockGeo, scatterRocks(rnd), withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true })), rnd, { tint: 0.08, tilt: 1.2, squash: 0.5 }));
+  const rocks = scatterRocks(rnd);
+  for (const r of rocks) if (r.s > 0.9 && r.y > -0.6) obstacles.add(r.x, r.z, r.s * 0.75, r.y + r.s * 0.4);
+  scene.add(instanced(rockGeo, rocks, withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true })), rnd, { tint: 0.08, tilt: 1.2, squash: 0.5 }));
 
   scene.add(buildStacks(rnd));
   scene.add(buildMountains(rnd));
@@ -591,6 +731,9 @@ export function buildWorld(scene, renderer, habitat) {
   return {
     lanternSpot: lanternPos,
     lampPos: jetty.lampPos,
+    shore,
+    camp: shore.camp,
+    obstacles,
     takeLantern() {
       lanternTaken = true;
       cove.lantern.group.visible = false;
@@ -598,10 +741,15 @@ export function buildWorld(scene, renderer, habitat) {
     },
     setPixelRatio(pr) {
       fireflies.material.uniforms.uScale.value = 90 * pr;
+      shore.setPixelRatio(pr);
     },
-    update(dt, t, env) {
+    setQuality(q) {
+      shore.setQuality(q);
+    },
+    update(dt, t, env, extra = {}) {
       shared.uTime.value = t;
       shared.uWind.value = 1 + env.rain * 1.4;
+      shore.update(dt, t, env, { ...extra, wind: shared.uWind.value });
       fireflies.material.uniforms.uOpacity.value = env.night * (1 - env.rain * 0.8);
 
       const lamp = env.lantern;

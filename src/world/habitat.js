@@ -1,4 +1,4 @@
-import { heightAt, zoneAt, ISLAND, COVE, STACKS, CHANNEL, JETTY } from './terrain.js';
+import { heightAt, zoneAt, streamFlow, lakeSDF, ISLAND, COVE, STACKS, CHANNEL, JETTY, LAKE, STREAM, SNAG, LILIES } from './terrain.js';
 import { fbm, seeded, smoothstep, clamp } from '../util.js';
 
 // The underwater map every system shares: water depth, weed beds, rocks, and the
@@ -76,12 +76,13 @@ export function createHabitat() {
       depthG[k] = depth;
       if (depth <= 0.2) continue;
       const zone = zoneAt(x, z);
-      const shelter = zone === 'cove' ? 0.28 : zone === 'bay' ? 0.1 : -0.22;
+      const shelter = zone === 'cove' ? 0.28 : zone === 'bay' ? 0.1 : zone === 'lake' ? 0.2 : zone === 'stream' ? -0.7 : -0.22;
       // Fish love the shade of the old jetty: always a weed bed around its posts.
       const jetty = smoothstep(16, 4, Math.hypot(x - JETTY.x, z - (JETTY.z0 + JETTY.z1) / 2));
       const band = smoothstep(0.6, 1.4, depth) * (1 - smoothstep(5.5, 8.5, depth));
       const n = fbm(x * 0.035 + 40, z * 0.035 - 12, 3);
-      weedG[k] = clamp(band * smoothstep(0.0, 0.3, n + shelter) + jetty * band * 0.8, 0, 1);
+      const lilies = smoothstep(LILIES.r + 3, LILIES.r * 0.4, Math.hypot(x - LILIES.x, z - LILIES.z));
+      weedG[k] = clamp(band * smoothstep(0.0, 0.3, n + shelter) + jetty * band * 0.8 + lilies * 0.8 * smoothstep(0.3, 0.8, depth), 0, 1);
       let rock = 0;
       for (const c of clusters) {
         const dx = x - c.x, dz = z - c.z;
@@ -130,6 +131,10 @@ export function createHabitat() {
       const k = j * NX + i;
       return (depthG[k] * (1 - u) + depthG[k + 1] * u) * (1 - v) + (depthG[k + NX] * (1 - u) + depthG[k + NX + 1] * u) * v;
     },
+    // The stream's current at a point (zero everywhere else).
+    flow(x, z, out = { x: 0, z: 0 }) {
+      return streamFlow(x, z, out);
+    },
     // Unit direction towards deeper water, for fish steering away from the shore.
     deeper(x, z, out = { x: 0, z: 0 }) {
       const e = 1.5;
@@ -163,6 +168,35 @@ export function createHabitat() {
   for (const c of clusters) {
     spots.push({ type: c.deep ? 'deep' : 'rock', x: c.x, z: c.z, depth: c.depth, zone: zoneAt(c.x, c.z), r: c.deep ? 10 : 8, tag: c.tag });
   }
+  // Reedmere: lily pads by camp, the fallen alder, the silty south-west shelf.
+  const lakeSpot = (type, x, z, r, tag) => spots.push({ type, x, z, depth: habitat.depth(x, z), zone: 'lake', r, tag });
+  lakeSpot('pads', LILIES.x, LILIES.z, 7, 'lilies');
+  lakeSpot('pads', LILIES.x - 6, LILIES.z + 4, 6, 'lilies');
+  const sdx = Math.sin(SNAG.yaw), sdz = Math.cos(SNAG.yaw);
+  lakeSpot('snag', SNAG.x + sdx * 2.5, SNAG.z + sdz * 2.5, 6, 'snag');
+  lakeSpot('snag', SNAG.x + sdx * 5, SNAG.z + sdz * 5, 6, 'snag');
+  for (let z = LAKE.z - LAKE.rz; z < LAKE.z + LAKE.rz; z += 3) {
+    for (let x = LAKE.x - LAKE.rx; x < LAKE.x + 4; x += 3) {
+      if (z < LAKE.z - 3 || lakeSDF(x, z) > -2) continue;
+      const d = habitat.depth(x, z);
+      if (d < 0.8 || d > 2.4) continue;
+      if (spots.some((p) => p.type === 'margin' && Math.hypot(p.x - x, p.z - z) < 8)) continue;
+      lakeSpot('margin', x, z, 7);
+    }
+  }
+  // Fernbeck: every deep run along the stream is a pool a fish can hold in.
+  for (let i = 0; i < STREAM.length - 1; i++) {
+    const a = STREAM[i], b = STREAM[i + 1];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    for (let d = 0; d < len; d += 1.5) {
+      const x = a[0] + ((b[0] - a[0]) * d) / len, z = a[1] + ((b[1] - a[1]) * d) / len;
+      if (lakeSDF(x, z) < 2) continue;
+      if (habitat.depth(x, z) < 0.72) continue;
+      if (spots.some((p) => p.type === 'pool' && Math.hypot(p.x - x, p.z - z) < 4.5)) continue;
+      spots.push({ type: 'pool', x, z, depth: habitat.depth(x, z), zone: 'stream', r: 3 });
+    }
+  }
+
   // A named spot right by the jetty, so there is always life near the start.
   const jz = JETTY.z1 - 3;
   spots.push({ type: 'weed', x: JETTY.x + 2.5, z: jz, depth: habitat.depth(JETTY.x + 2.5, jz), zone: 'bay', r: 8, tag: 'jetty' });
