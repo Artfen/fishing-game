@@ -1,11 +1,14 @@
-import { FISH, drawFishSketch, drawLanternSketch } from './fish.js';
-import { TACKLE } from './tackle.js';
-import { PLACES, MAP_RECT, PATH, solidHeight } from './world/terrain.js';
+import { FISH, fishById, drawFishSketch, drawLanternSketch } from './fish.js';
+import { TACKLE, RODS, KIND_NAMES } from './tackle.js';
+import { PLACES, MAP_RECT, PATH, ZONE_NAMES, solidHeight } from './world/terrain.js';
 import { formatClock } from './world/sky.js';
 
 const $ = (id) => document.getElementById(id);
 const ZONE_WORDS = { bay: 'in Willow Bay', cove: 'in Driftwood Cove', open: 'out on open water', lake: 'in Reedmere', stream: 'in Fernbeck' };
 const SOMEDAY = ['a softer cushion', 'a potted fern', 'a little cabin by the lake'];
+const OUTCOME_WORDS = { released: 'Released', kept: 'Kept', cooked: 'Cooked', eaten: 'Eaten' };
+const RAIN_WORDS = ['', 'light rain', 'rain'];
+const PAGE = 25;
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -23,6 +26,32 @@ export class Journal {
     this.itemsEl = $('j-items');
     this.map = $('j-map');
     this.mapBase = null;
+    this.view = 'fish';
+    this.shown = PAGE;
+    this.el.querySelectorAll('.j-tabs button').forEach((b) => b.addEventListener('click', () => this.show(b.dataset.view)));
+    for (const id of ['f-species', 'f-water', 'f-method', 'f-outcome']) {
+      $(id).addEventListener('change', () => {
+        this.shown = PAGE;
+        this.renderList();
+      });
+    }
+    $('log-more').addEventListener('click', () => {
+      this.shown += PAGE;
+      this.renderList();
+    });
+  }
+
+  // Switch between the fish & places pages and the catch log.
+  show(view) {
+    this.view = view;
+    this.el.querySelectorAll('.j-tabs button').forEach((b) => {
+      b.classList.toggle('on', b.dataset.view === view);
+      b.setAttribute('aria-pressed', b.dataset.view === view);
+    });
+    this.el.querySelectorAll('.j-fish-view').forEach((e) => { e.hidden = view !== 'fish'; });
+    this.el.querySelectorAll('.j-log-view').forEach((e) => { e.hidden = view !== 'log'; });
+    if (view === 'log') this.renderLog();
+    this.el.querySelectorAll('.page').forEach((p) => { p.scrollTop = 0; });
   }
 
   get isOpen() { return !this.el.hidden; }
@@ -30,6 +59,8 @@ export class Journal {
   // where = { boat, walker (when ashore), camp }
   open(where) {
     this.render(where);
+    this.shown = PAGE;
+    this.show(this.view);
     this.el.hidden = false;
   }
 
@@ -97,6 +128,148 @@ export class Journal {
     }
     art.append(cv, text);
     return art;
+  }
+
+  /* ---------------- the catch log ---------------- */
+
+  // Where a logged fish came from, in words: "Reedmere, the fallen alder".
+  static whereText(e) {
+    const zone = ZONE_NAMES[e.zone] || '';
+    const name = e.place && e.place !== zone ? e.place : '';
+    return [name, zone].filter(Boolean).join(', ') || 'somewhere on the water';
+  }
+
+  // How it was caught: "Spinning rod, small silver spoon · from the shore".
+  static howText(e) {
+    const rod = RODS[e.rod]?.short || KIND_NAMES[e.kind] || e.kind;
+    const item = e.item ? TACKLE[e.item]?.name : null;
+    return `${rod}${item ? `, ${item.toLowerCase()}` : ''} · from the ${e.from}`;
+  }
+
+  // What the water was like: depth, rain, a hatch. Only what the game knew at the time.
+  static conditionsText(e) {
+    const bits = [];
+    if (e.item && TACKLE[e.item]?.fly === 'dry') bits.push('on the surface');
+    else if (e.depth < 0.15 && e.kind !== 'ledger') bits.push('just under the surface');
+    else if (e.kind === 'ledger') bits.push(`on the bottom${e.bottom ? ` in ${e.bottom} m` : ''}`);
+    else bits.push(`at ${e.depth} m${e.bottom ? ` in ${e.bottom} m of water` : ''}`);
+    if (e.rain) bits.push(RAIN_WORDS[e.rain]);
+    if (e.water === 'fresh' && e.hatch >= 0.5) bits.push('flies hatching');
+    return bits.join(' · ');
+  }
+
+  static whenText(e) {
+    return `Day ${e.day} · ${formatClock(e.hour)}`;
+  }
+
+  // The entries the filters let through, newest first.
+  filtered() {
+    const sp = $('f-species').value, water = $('f-water').value, kind = $('f-method').value, out = $('f-outcome').value;
+    const list = [];
+    for (let i = this.state.log.length - 1; i >= 0; i--) {
+      const e = this.state.log[i];
+      if (sp && e.sp !== sp) continue;
+      if (water && e.water !== water) continue;
+      if (kind && e.kind !== kind) continue;
+      if (out && !(out === 'cooked' ? e.outcome === 'cooked' || e.outcome === 'eaten' : e.outcome === out)) continue;
+      list.push(e);
+    }
+    return list;
+  }
+
+  renderLog() {
+    const st = this.state, log = st.log;
+    const logged = {};
+    for (const e of log) {
+      const r = (logged[e.sp] = logged[e.sp] || { n: 0, best: null });
+      r.n++;
+      if (!r.best || e.size > r.best.size) r.best = e;
+    }
+    const total = Object.values(st.fish).reduce((a, f) => a + f.count, 0);
+    const species = Object.keys(st.fish).length;
+    const kept = log.filter((e) => e.outcome !== 'released').length;
+    const summary = [];
+    if (!total) summary.push('No catches yet. Every fish you land is written down here: where, when, and what it took.');
+    else {
+      summary.push(`${total} fish caught, ${species} of ${FISH.length} kinds.`);
+      if (log.length) summary.push(`${log.length - kept} released, ${kept} kept for the pot.`);
+      const before = total - log.length;
+      if (before > 0) summary.push(`${before} earlier catch${before > 1 ? 'es' : ''} from before this log began ${before > 1 ? 'are' : 'is'} counted in the totals, without details.`);
+    }
+    $('log-summary').textContent = summary.join(' ');
+
+    // The biggest fish in the log (by length: the game measures fish, it doesn't weigh them).
+    const best = log.reduce((b, e) => (!b || e.size > b.size ? e : b), null);
+    const bestEl = $('log-best');
+    bestEl.replaceChildren();
+    bestEl.className = best ? 'j-best' : '';
+    if (best) {
+      const f = fishById[best.sp];
+      const cv = el('canvas');
+      cv.width = 260;
+      cv.height = 140;
+      drawFishSketch(cv.getContext('2d'), f, 130, 72, 210);
+      const txt = el('div');
+      txt.append(
+        el('span', 'j-label', 'Biggest catch'),
+        el('strong', '', `${f.name}, ${best.size} cm`),
+        el('span', '', `${Journal.whenText(best)} · ${Journal.whereText(best)}`),
+        el('span', '', Journal.howText(best)),
+      );
+      bestEl.append(cv, txt);
+    }
+
+    // Totals and personal bests for each kind of fish caught so far.
+    const caught = FISH.filter((f) => st.fish[f.id]);
+    const rows = caught.map((f) => {
+      const rec = st.fish[f.id], lg = logged[f.id];
+      const row = el('div', 'j-sp');
+      row.append(el('strong', '', f.name), el('span', 'j-n', `${rec.count} caught · best ${rec.best} cm`));
+      if (lg?.best) {
+        const b = lg.best;
+        const older = rec && rec.best > b.size ? ` (your ${rec.best} cm best was before the log began)` : '';
+        row.append(el('span', 'j-detail', `Biggest logged: ${b.size} cm · ${Journal.whenText(b)} · ${Journal.whereText(b)} · ${Journal.howText(b)}${older}`));
+      } else row.append(el('span', 'j-detail', 'Caught before the log began: no details recorded.'));
+      return row;
+    });
+    const left = FISH.length - caught.length;
+    if (left) rows.push(el('p', 'j-sp-left', `${left} kind${left > 1 ? 's' : ''} of fish still to find.`));
+    $('log-species').replaceChildren(...rows);
+
+    // Species filter: the fish that are actually in the log.
+    const sel = $('f-species'), was = sel.value;
+    const opts = [el('option', '', 'All')];
+    opts[0].value = '';
+    for (const f of FISH) {
+      if (!logged[f.id]) continue;
+      const o = el('option', '', f.name);
+      o.value = f.id;
+      opts.push(o);
+    }
+    sel.replaceChildren(...opts);
+    sel.value = logged[was] ? was : '';
+    this.renderList();
+  }
+
+  renderList() {
+    const list = this.filtered();
+    const items = list.slice(0, this.shown).map((e) => {
+      const f = fishById[e.sp];
+      const li = el('li');
+      const top = el('div', 'l-top');
+      const name = el('strong', '', `${f?.name || e.sp} · ${e.size} cm`);
+      name.append(el('span', `l-tag ${e.outcome}`, OUTCOME_WORDS[e.outcome]));
+      top.append(name, el('span', 'l-when', Journal.whenText(e)));
+      li.append(top, el('div', 'l-info', `${Journal.whereText(e)} · ${Journal.howText(e)}`), el('div', 'l-info l-cond', Journal.conditionsText(e)));
+      return li;
+    });
+    if (!items.length) {
+      items.push(el('li', 'l-empty', this.state.log.length ? 'No catches match these filters.' : 'Your catches will be listed here, newest first.'));
+    }
+    $('log-list').replaceChildren(...items);
+    const more = $('log-more');
+    more.hidden = list.length <= this.shown;
+    more.textContent = `Show more (${list.length - this.shown} older)`;
   }
 
   buildMapBase() {

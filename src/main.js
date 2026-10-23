@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Input } from './input.js';
-import { loadState, saveState, clearState } from './save.js';
+import { loadGame, saveGame, newGame, saveStatus, parseSave, importSave, exportText, stopSaving, SAVE_KEY } from './save.js';
 import { HUD, kbd } from './ui.js';
 import { AudioScape } from './audio.js';
 import { Environment, phaseName, formatClock } from './world/sky.js';
@@ -14,6 +14,7 @@ import { causticUniforms } from './world/caustics.js';
 import {
   bakeHeightTexture, walkHeight, solidHeight, landSDF, lakeSDF, streamSDF, zoneAt,
   PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING,
+  PEGS, POOLS, STREAM, SNAG, LILIES, JETTY, ISLAND,
 } from './world/terrain.js';
 import { Boat } from './boat.js';
 import { Walker } from './walker.js';
@@ -34,7 +35,8 @@ const HOUR_SECONDS = 40; // one in-game hour lasts 40 real seconds
 const REST_SPEED = 30;   // holding T lets time drift by
 const $ = (id) => document.getElementById(id);
 
-const state = loadState();
+const loaded = loadGame();
+const state = loaded.state;
 state.tips = state.tips || {};
 state.gear = cleanGear(state.gear);
 state.keep = Array.isArray(state.keep) ? state.keep.filter((f) => fishById[f.id]) : [];
@@ -137,7 +139,8 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
     return false;
   },
   onKeep: (sp, size) => {
-    state.keep.push({ id: sp.id, size });
+    state.keep.push({ id: sp.id, size, logId: lastCatchId });
+    setOutcome(lastCatchId, 'kept');
     $('catch-card').hidden = true;
     modal = null;
     hud.flash(`Into the creel: ${sp.name.toLowerCase()}, ${size} cm. Cook it at camp.`, t, 3);
@@ -179,6 +182,58 @@ function advice(kind, item) {
   return `Nothing’s biting here yet. Fish gather by weeds and rocks; ${F} shows what’s below.`;
 }
 
+// The nearest named spot to a catch, for the log: a pool, a peg, the jetty…
+function placeName(x, z) {
+  const near = (px, pz, r) => Math.hypot(x - px, z - pz) < r;
+  for (const p of POOLS) {
+    const n = STREAM[p.node];
+    if (near(n[0], n[1], 7)) return p.name;
+  }
+  for (const p of PEGS) if (near(p.x, p.z, 9)) return p.name;
+  if (near(SNAG.x + Math.sin(SNAG.yaw) * 2.5, SNAG.z + Math.cos(SNAG.yaw) * 2.5, 9)) return 'the fallen alder';
+  if (near(LILIES.x, LILIES.z, LILIES.r + 3)) return 'the lily pads';
+  if (near(LANDING.x + 4, LANDING.z, 14)) return 'The Landing';
+  if (near(JETTY.x, (JETTY.z0 + JETTY.z1) / 2, 20) || near(ISLAND.x, ISLAND.z, ISLAND.r + 10)) return 'The Old Jetty';
+  if (near(STACKS[0].x, STACKS[0].z, 34)) return 'Gull Rock';
+  return '';
+}
+
+const logById = (id) => (id ? state.log.find((e) => e.id === id) : null);
+// What happened to a logged fish: kept, cooked, eaten (it starts as released).
+function setOutcome(id, outcome) {
+  const e = logById(id);
+  if (e) e.outcome = outcome;
+}
+
+let lastCatchId = null;
+function logCatch(sp, size, agent, rigUsed) {
+  const F = fishing.fight;
+  const at = F ? F.start : fishing.hook;
+  const entry = {
+    id: `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+    at: Date.now(),
+    sp: sp.id,
+    size,
+    day: state.day,
+    hour: Math.round(state.hour * 100) / 100,
+    zone: zoneAt(agent.x, agent.z),
+    place: placeName(agent.x, agent.z),
+    water: sp.water === 'fresh' ? 'fresh' : 'salt',
+    kind: rigUsed?.rod?.kind || 'float',
+    rod: rigUsed?.rod?.id || 'float',
+    item: rigUsed?.item?.id || null,
+    from: onFoot ? 'shore' : 'boat',
+    rain: weather.rain > 0.6 ? 2 : weather.rain > 0.15 ? 1 : 0,
+    hatch: Math.round(hatchLevel() * 10) / 10,
+    depth: Math.round(Math.max(0, -at.y) * 10) / 10,
+    bottom: Math.round(Math.max(0, -solidHeight(at.x, at.z)) * 10) / 10,
+    outcome: 'released',
+  };
+  state.log.push(entry);
+  if (state.log.length > 1000) state.log.splice(0, state.log.length - 1000);
+  lastCatchId = entry.id;
+}
+
 const REPEAT_LINES = [
   'Another lovely one.',
   'It flicks its tail, ready to go home.',
@@ -203,6 +258,7 @@ function showCatch(sp, size, agent, rigUsed) {
     const on = (state.caughtOn[sp.id] = state.caughtOn[sp.id] || {});
     on[rigUsed.item.id] = (on[rigUsed.item.id] || 0) + 1;
   }
+  logCatch(sp, size, agent, rigUsed);
   state.tips.caught = true;
   save();
 
@@ -231,6 +287,7 @@ function hideCatch() {
   $('catch-card').hidden = true;
   modal = null;
   hud.flash('Back into the water it goes', t, 2.4);
+  save();
 }
 
 /* ---------------- gear ---------------- */
@@ -240,6 +297,7 @@ function applyGear(msg) {
   if (msg) hud.flash(fishing.busy ? `${msg} (once you reel in)` : msg, t, 2.2);
   if (fishing.busy) {
     gearDirty = true;
+    save(); // the choice is kept now, even though the rig changes once you reel in
     return;
   }
   gearDirty = false;
@@ -310,6 +368,7 @@ const camp = new Camp(state, scene, world.camp, {
     openPack(true);
   },
   changed: () => save(),
+  outcome: (logId, what) => setOutcome(logId, what),
   sleep: (h) => sleepUntil(h),
 });
 
@@ -1069,13 +1128,117 @@ function updateHud() {
 
 /* ---------------- input ---------------- */
 
-let resetting = false;
+let saveWarned = false;
 function save() {
-  if (resetting) return;
   state.boat = { x: boat.pos.x, z: boat.pos.z, heading: boat.heading };
   state.mode = onFoot ? 'foot' : 'boat';
   state.walker = onFoot ? { x: walker.pos.x, z: walker.pos.z, heading: walker.heading } : null;
-  saveState(state);
+  const ok = saveGame(state);
+  if (!ok && saveStatus.canSave && !saveWarned && started) {
+    saveWarned = true;
+    hud.toast('Your progress couldn’t be saved just now (the browser’s storage may be full). The game will keep trying.', 7);
+  }
+  if (modal === 'journal') renderSaveStatus();
+}
+
+/* ---------------- your progress: saving, copies, starting over ---------------- */
+
+// After loading: a gentle word if something about the save needed attention.
+const LOAD_NOTES = {
+  nostorage: 'This browser isn’t letting the game save (a private window, perhaps). You can play, but progress won’t be kept.',
+  backup: 'Your latest save couldn’t be read, so you’re back where the previous session began. The unreadable save has been kept aside, not deleted.',
+  unreadable: 'Your saved game couldn’t be read, so a new one has begun. The old data has been kept aside, not deleted.',
+  newer: 'This save was made by a newer version of Slow Tide. Reload the page to get the latest version; until then nothing will be saved, so your progress is safe.',
+};
+
+// Two tabs saving over each other would lose progress: the tab that didn't save last steps aside.
+window.addEventListener('storage', (e) => {
+  if (e.key !== SAVE_KEY || !saveStatus.canSave || e.newValue == null) return;
+  stopSaving();
+  hud.toast('Slow Tide was saved from another tab or window. This one has stopped saving so it can’t overwrite that progress. Reload to carry on here.', 10);
+  if (modal === 'journal') renderSaveStatus();
+});
+
+function renderSaveStatus() {
+  const el = $('save-status');
+  if (!saveStatus.canSave) {
+    el.textContent = saveStatus.otherTab ? 'Not saving here: the game was saved from another tab. Reload to carry on in this one.'
+      : loaded.outcome === 'newer' ? 'Not saving: your save is from a newer version. Reload to update.'
+        : 'This browser can’t keep your progress (storage is turned off or unavailable).';
+    return;
+  }
+  const ago = saveStatus.lastSaved ? Math.round((Date.now() - saveStatus.lastSaved) / 1000) : null;
+  const when = ago == null ? 'not yet' : ago < 10 ? 'just now' : ago < 90 ? `${ago} seconds ago` : `${Math.round(ago / 60)} minutes ago`;
+  el.textContent = `Saved automatically in this browser (last saved ${when}): no account needed. ${state.log.length} catches in your log.`;
+}
+
+// A small "are you sure?" with any buttons we need.
+function ask(title, text, buttons) {
+  $('confirm-title').textContent = title;
+  $('confirm-text').textContent = text;
+  const acts = $('confirm-acts');
+  acts.replaceChildren(...buttons.map((b) => {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = `pk-btn ${b.cls || ''}`;
+    el.textContent = b.text;
+    el.addEventListener('click', () => {
+      if (!b.keepOpen) $('confirm').hidden = true;
+      b.run?.();
+    });
+    return el;
+  }));
+  $('confirm').hidden = false;
+  acts.lastChild?.focus();
+}
+
+function downloadSave() {
+  save();
+  const blob = new Blob([exportText(state)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `slow-tide-day-${state.day}-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+function startNewGame() {
+  ask('Start a new game?', 'Your journal, catches, places, gear and camp will be cleared, and you’ll begin again in Willow Bay. Your sound and graphics settings stay. If you might want this game back, download a copy first.', [
+    { text: 'Download a copy first', cls: 'quiet', keepOpen: true, run: downloadSave },
+    { text: 'Keep playing', cls: 'quiet' },
+    {
+      text: 'Start a new game', cls: 'danger', run: () => {
+        newGame({ quality: state.quality, volumes: state.volumes, music: state.music });
+        location.reload();
+      },
+    },
+  ]);
+}
+
+function loadSaveFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    let parsed;
+    try {
+      parsed = parseSave(String(reader.result));
+    } catch {
+      ask('That file isn’t a Slow Tide save', 'Nothing has been changed. Choose a file downloaded with “Download a copy”.', [{ text: 'OK' }]);
+      return;
+    }
+    if (parsed.newer) {
+      ask('That save is from a newer version', 'Reload the page to get the latest version of Slow Tide, then load it again. Nothing has been changed.', [{ text: 'OK' }]);
+      return;
+    }
+    const st = parsed.state;
+    const n = Object.values(st.fish).reduce((a, f) => a + f.count, 0);
+    ask('Load this saved copy?', `It’s on day ${st.day}, with ${n} fish caught and ${Object.keys(st.places).length} places found. It replaces your current game (which is kept as a backup).`, [
+      { text: 'Cancel', cls: 'quiet' },
+      { text: 'Load it', run: () => { importSave(st); location.reload(); } },
+    ]);
+  };
+  reader.readAsText(file);
 }
 
 function begin() {
@@ -1093,11 +1256,13 @@ function begin() {
   setTimeout(() => hud.place(onFoot ? (names[zone] || 'The west shore') : 'Willow Bay', returning ? 'welcome back' : onFoot ? 'by the camp' : 'home waters'), 900);
   rig.settleUntil = t + 2.5;
   if (state.sonar) toggleFinder(true);
+  if (LOAD_NOTES[loaded.outcome]) setTimeout(() => hud.toast(LOAD_NOTES[loaded.outcome], 9), 2600);
   save();
 }
 
 function openJournal() {
   journal.open({ boat, walker: onFoot ? walker : null, camp: world.camp.firePos });
+  renderSaveStatus();
   modal = 'journal';
   audio.page();
   if (fishing.aiming) fishing.cancel();
@@ -1120,6 +1285,10 @@ input.on('press', (code, key) => {
   }
   audio.start();
   if (modal === 'sleep' || modal === 'travel') return;
+  if (!$('confirm').hidden) {
+    if (code === 'Escape') $('confirm').hidden = true;
+    return;
+  }
   if (modal === 'note') {
     if (code === 'Space' || code === 'Enter' || code === 'Escape' || key === 'e') closeNote();
     return;
@@ -1216,6 +1385,14 @@ $('prompt').addEventListener('click', () => {
   if (act) act.run();
 });
 $('set-quality').addEventListener('click', cycleQuality);
+$('save-download').addEventListener('click', downloadSave);
+$('save-load').addEventListener('click', () => $('save-file').click());
+$('save-file').addEventListener('change', (e) => {
+  const f = e.target.files?.[0];
+  if (f) loadSaveFile(f);
+  e.target.value = '';
+});
+$('save-new').addEventListener('click', startNewGame);
 $('title-quality').addEventListener('click', (e) => {
   e.stopPropagation();
   cycleQuality();
@@ -1469,6 +1646,9 @@ window.slowTide = {
     if (!onFoot) setFoot(true);
   },
   board: () => board(),
+  // How loading went and whether the game is saving, e.g. { outcome: 'loaded', canSave: true, … }.
+  saveInfo: () => ({ outcome: loaded.outcome, ...saveStatus }),
+  get modal() { return modal; },
   // Hand yourself a rod and tackle, e.g. slowTide.gear('fly', 'nymph').
   gear: (rod, item) => {
     const g = state.gear;
@@ -1494,8 +1674,7 @@ window.slowTide = {
     renderer.render(scene, camera);
   },
   reset: () => {
-    resetting = true; // stop the save-on-leave handlers from writing the old progress back
-    clearState();
+    newGame(); // also stops the save-on-leave handlers from writing the old progress back
     location.reload();
   },
 };

@@ -854,6 +854,56 @@ p.cp-soft { margin: 6px 0; }
 }
 #j-close:hover { background: rgba(53, 41, 31, 0.08); }
 .j-settings { display: flex; flex-wrap: wrap; gap: 8px; }
+.j-save-status { flex: 1 1 100%; margin: 0; font: 600 12px/1.4 var(--font-ui); color: var(--ink-soft); }
+.j-settings button.danger { border-color: rgba(181, 83, 47, 0.55); color: var(--stamp); }
+.j-cloud p { flex: 1 1 100%; margin: 0; font: 14px/1.4 var(--font-hand); }
+.j-cloud input { flex: 1 1 200px; padding: 6px 10px; border: 1.5px solid var(--ink-faint); border-radius: 999px; background: rgba(255, 255, 255, 0.5); font: 600 13px var(--font-ui); color: var(--ink); }
+
+/* Journal tabs: a pair of bookmarks along the top edge. */
+.j-tabs { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 2; display: flex; gap: 6px; }
+.j-tabs button {
+  padding: 5px 14px;
+  border: 1.5px solid var(--ink-faint);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--ink);
+  font: 700 13px var(--font-ui);
+  cursor: pointer;
+}
+.j-tabs button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.book .page { padding-top: 46px; }
+
+/* The catch log */
+.j-sum { font: 16px/1.4 var(--font-hand); margin: 0 0 8px; }
+.j-best { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 12px; align-items: center; padding: 8px 10px; margin: 6px 0 4px; border: 1.5px solid rgba(181, 83, 47, 0.4); border-radius: 8px; background: rgba(255, 236, 205, 0.45); }
+.j-best canvas { width: 130px; height: auto; }
+.j-best strong { display: block; font: 700 26px/1 var(--font-display); }
+.j-best span { display: block; font: 14px/1.35 var(--font-hand); }
+.j-sp-left { margin: 8px 0 0; font: 15px var(--font-hand); color: var(--ink-soft); }
+.j-sp { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; padding: 7px 0; border-bottom: 1px dashed var(--ink-faint); }
+.j-sp strong { font: 700 22px/1.1 var(--font-display); }
+.j-sp .j-n { font: 700 13px var(--font-ui); text-align: right; }
+.j-sp .j-detail { grid-column: 1 / -1; font: 600 12px/1.4 var(--font-ui); color: var(--ink-soft); }
+.j-filters { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 2px 0 8px; }
+.j-filters label { display: flex; align-items: center; gap: 5px; font: 700 12px var(--font-ui); color: var(--ink-soft); }
+.j-filters select { padding: 3px 6px; border: 1.5px solid var(--ink-faint); border-radius: 8px; background: rgba(255, 255, 255, 0.5); color: var(--ink); font: 600 13px var(--font-ui); }
+#log-list { list-style: none; margin: 0; padding: 0; }
+#log-list li { padding: 7px 0; border-bottom: 1px dashed var(--ink-faint); }
+#log-list .l-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+#log-list strong { font: 700 21px/1.1 var(--font-display); }
+#log-list .l-when { font: 700 11px var(--font-ui); color: var(--ink-soft); white-space: nowrap; }
+#log-list .l-info { font: 14px/1.35 var(--font-hand); }
+#log-list .l-tag { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font: 700 10px/1.7 var(--font-ui); letter-spacing: 0.04em; text-transform: uppercase; background: rgba(53, 41, 31, 0.08); }
+#log-list .l-tag.kept, #log-list .l-tag.cooked, #log-list .l-tag.eaten { background: rgba(181, 83, 47, 0.14); color: var(--stamp); }
+#log-list .l-empty { font: 15px var(--font-hand); color: var(--ink-soft); border: none; }
+#log-more { margin-top: 10px; padding: 6px 14px; border: 1.5px solid var(--ink-faint); border-radius: 999px; background: rgba(255, 255, 255, 0.35); color: var(--ink); font: 700 13px var(--font-ui); cursor: pointer; }
+
+/* A gentle "are you sure?" */
+#confirm { z-index: 12; }
+.confirm-inner { width: min(460px, 100%) !important; }
+.confirm-inner p { font: 16px/1.45 var(--font-hand); margin: 10px 0 0; }
+.confirm-acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.pk-btn.danger { background: var(--stamp); border-color: var(--stamp); }
 .j-settings label { display: flex; flex: 1 1 100%; align-items: center; gap: 10px; font: 700 13px var(--font-ui); color: var(--ink); }
 .j-settings input[type="range"] { flex: 1; max-width: 220px; margin-left: auto; accent-color: var(--stamp); }
 .j-settings button {
@@ -1132,3 +1182,5 @@ body.touch #rest-veil { padding-bottom: calc(170px + env(safe-area-inset-bottom,
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+.j-best .j-label { display: block; font: 700 11px var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--stamp); margin-bottom: 2px; }
+#log-list .l-cond { color: var(--ink-soft); font-size: 13px; }

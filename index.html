@@ -197,11 +197,33 @@
 
 <div id="journal" hidden>
   <div class="book" role="dialog" aria-label="Journal">
-    <section class="page left">
+    <nav class="j-tabs" aria-label="Journal sections">
+      <button type="button" data-view="fish" class="on">Fish &amp; places</button>
+      <button type="button" data-view="log">Catch log</button>
+    </nav>
+    <section class="page left j-fish-view">
       <h2>Fish</h2>
       <div id="j-fish"></div>
     </section>
-    <section class="page right">
+    <section class="page left j-log-view" hidden>
+      <h2>Catch log</h2>
+      <p id="log-summary" class="j-sum"></p>
+      <div id="log-best"></div>
+      <h3>By species</h3>
+      <div id="log-species"></div>
+    </section>
+    <section class="page right j-log-view" hidden>
+      <h2>Recent catches</h2>
+      <div class="j-filters" role="group" aria-label="Filter the log">
+        <label>Fish <select id="f-species"></select></label>
+        <label>Water <select id="f-water"><option value="">All</option><option value="salt">Salt</option><option value="fresh">Fresh</option></select></label>
+        <label>Method <select id="f-method"><option value="">All</option><option value="float">Float</option><option value="lure">Lure</option><option value="ledger">Bottom</option><option value="fly">Fly</option></select></label>
+        <label>Kept? <select id="f-outcome"><option value="">All</option><option value="released">Released</option><option value="kept">Kept</option><option value="cooked">Cooked or eaten</option></select></label>
+      </div>
+      <ol id="log-list"></ol>
+      <button id="log-more" type="button" hidden>Show more</button>
+    </section>
+    <section class="page right j-fish-view">
       <h2>Places</h2>
       <canvas id="j-map" width="660" height="500" aria-label="Hand-drawn map of the bay"></canvas>
       <ul id="j-places"></ul>
@@ -214,8 +236,25 @@
         <label for="vol-nature">Nature &amp; effects <input id="vol-nature" type="range" min="0" max="100" value="100"></label>
         <label for="vol-music">Music <input id="vol-music" type="range" min="0" max="100" value="80"></label>
       </div>
+      <h3>Your progress</h3>
+      <div class="j-settings j-save">
+        <p id="save-status" class="j-save-status">Saved in this browser.</p>
+        <button id="save-download" type="button">Download a copy</button>
+        <button id="save-load" type="button">Load a saved copy…</button>
+        <input id="save-file" type="file" accept=".json,application/json" hidden>
+        <button id="save-new" type="button" class="danger">New game…</button>
+      </div>
+      <div id="cloud" class="j-settings j-cloud" hidden></div>
     </section>
     <button id="j-close" type="button" aria-label="Close journal">×</button>
+  </div>
+</div>
+
+<div id="confirm" class="sheet" role="alertdialog" aria-labelledby="confirm-title" aria-describedby="confirm-text" hidden>
+  <div class="sheet-inner confirm-inner">
+    <h2 id="confirm-title"></h2>
+    <p id="confirm-text"></p>
+    <div class="confirm-acts" id="confirm-acts"></div>
   </div>
 </div>
 
