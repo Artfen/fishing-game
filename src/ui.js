@@ -44,6 +44,21 @@ export class HUD {
     this.flashUntil = 0;
     this.placeTimer = 0;
     this.toastTimer = 0;
+    // The clock grows with the weather, hunger and the offline note; when it would run into
+    // the corner buttons, they drop their labels, then their keys, then close up.
+    const clock = $('clock');
+    const fit = () => this.fitCorner(clock);
+    new ResizeObserver(fit).observe(clock);
+    addEventListener('resize', fit);
+  }
+
+  fitCorner(clock) {
+    const corner = $('corner');
+    const room = corner.getBoundingClientRect().right - clock.getBoundingClientRect().right - 8;
+    for (const fit of ['', 'keys', 'icons', 'tight']) {
+      corner.dataset.fit = fit;
+      if (corner.offsetWidth <= room) return;
+    }
   }
 
   setHTML(key, el, html) {

@@ -247,6 +247,7 @@ kbd {
   opacity: 0;
   transform: translateY(-6px);
   transition: opacity 0.8s ease, transform 0.8s ease;
+  z-index: 4; /* above the fish finder, even a dragged one */
 }
 #toast.show { opacity: 1; transform: none; }
 
@@ -408,8 +409,9 @@ kbd {
   align-items: flex-start;
   gap: 10px;
 }
+/* Narrower windows: the centred hint and action prompt reach this far, so sit above both. */
 @media (max-width: 1199px) {
-  body:not(.touch) #left-stack { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
+  body:not(.touch) #left-stack { bottom: calc(126px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (min-width: 1200px) {
   body:not(.touch) #hud:has(#left-stack > .panel:not([hidden])) #hint { max-width: calc(100% - 700px); }
@@ -479,7 +481,6 @@ body.touch #bait, body.touch #sonar { position: absolute; }
 #sonar.floating { position: fixed !important; bottom: auto !important; right: auto !important; z-index: 3; }
 #sonar.size-0 { width: 230px; }
 #sonar.size-2 { width: 420px; }
-body.touch #sonar.size-2 { width: min(380px, 92vw); }
 .s-grip { width: 10px; height: 14px; opacity: 0.55; background: radial-gradient(circle, currentColor 1.2px, transparent 1.6px) 0 0 / 5px 5px; }
 #sonar-size {
   width: 22px;
@@ -1107,11 +1108,13 @@ body.touch #bait {
   margin-inline: auto;
   width: min(260px, calc(100% - 32px));
 }
+body.touch { --finder-w: min(250px, 54vw); }
+body.touch:has(#sonar.size-2) { --finder-w: min(380px, 92vw); }
 body.touch #sonar {
   left: auto;
   right: calc(16px + env(safe-area-inset-right, 0px));
   bottom: calc(150px + env(safe-area-inset-bottom, 0px));
-  width: min(250px, 54vw);
+  width: var(--finder-w);
 }
 body.touch #view-chip { top: calc(236px + env(safe-area-inset-top, 0px)); bottom: auto; }
 #cancel-btn {
@@ -1147,6 +1150,14 @@ body.touch #toast {
 }
 body.touch #toast.show { transform: none; }
 body.touch #prompt { bottom: calc(140px + env(safe-area-inset-bottom, 0px)); padding: 12px 20px; }
+/* With the fish finder open in its corner, the prompt keeps to the space beside it.
+   (Phones held sideways put the finder under the clock instead.) */
+@media (min-height: 481px) {
+  body.touch:has(#sonar:not([hidden], .floating)) #prompt {
+    right: calc(var(--finder-w) + 16px + env(safe-area-inset-right, 0px));
+    max-width: calc(100% - var(--finder-w) - 48px - env(safe-area-inset-right, 0px));
+  }
+}
 body.touch #place { top: 20%; }
 body.touch #meter {
   left: auto;
@@ -1174,6 +1185,9 @@ body.touch #rest-veil { padding-bottom: calc(170px + env(safe-area-inset-bottom,
 @media (max-width: 560px) {
   #corner .label { display: none; }
 }
+#corner[data-fit='keys'] .label, #corner:is([data-fit='icons'], [data-fit='tight']) :is(.label, kbd) { display: none; }
+#corner[data-fit='tight'] { gap: 4px; }
+#corner[data-fit='tight'] > button.pill { padding-inline: 9px; }
 
 /* Phones held sideways: little height, so the finder tucks under the clock and the view tip sits between the thumbs. */
 @media (max-height: 480px) {
