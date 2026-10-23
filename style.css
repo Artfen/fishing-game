@@ -857,6 +857,10 @@ p.cp-soft { margin: 6px 0; }
 .j-save-status { flex: 1 1 100%; margin: 0; font: 600 12px/1.4 var(--font-ui); color: var(--ink-soft); }
 .j-settings button.danger { border-color: rgba(181, 83, 47, 0.55); color: var(--stamp); }
 .j-cloud p { flex: 1 1 100%; margin: 0; font: 14px/1.4 var(--font-hand); }
+.j-cloud { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--ink-faint); }
+.j-cloud h4 { flex: 1 1 100%; margin: 0; font: 700 20px var(--font-display); }
+.j-cloud-form { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 8px; }
+.j-cloud .j-cloud-msg { font: 600 12px/1.4 var(--font-ui); color: var(--stamp); }
 .j-cloud input { flex: 1 1 200px; padding: 6px 10px; border: 1.5px solid var(--ink-faint); border-radius: 999px; background: rgba(255, 255, 255, 0.5); font: 600 13px var(--font-ui); color: var(--ink); }
 
 /* Journal tabs: a pair of bookmarks along the top edge. */

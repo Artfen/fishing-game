@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Input } from './input.js';
-import { loadGame, saveGame, newGame, saveStatus, parseSave, importSave, exportText, stopSaving, SAVE_KEY } from './save.js';
+import { loadGame, saveGame, newGame, saveStatus, parseSave, importSave, exportText, stopSaving, SAVE_KEY, adoptJournal } from './save.js';
+import { Cloud } from './cloud.js';
 import { HUD, kbd } from './ui.js';
 import { AudioScape } from './audio.js';
 import { Environment, phaseName, formatClock } from './world/sky.js';
@@ -36,7 +37,23 @@ const REST_SPEED = 30;   // holding T lets time drift by
 const $ = (id) => document.getElementById(id);
 
 const loaded = loadGame();
-const state = loaded.state;
+// Optional cloud saves: only when a backend is configured and you've signed in. Startup waits
+// a moment for the cloud (just when signed in, or arriving from a sign-in link), so the game
+// begins from the combined save rather than jumping later. Offline, it simply carries on.
+const cloud = new Cloud();
+const cloudReady = cloud.init();
+let cloudStart = null;
+if (Cloud.expected() && saveStatus.canSave) {
+  const sync = cloudReady.then(() => cloud.syncAtStart(loaded.state, saveStatus.lastSaved)).catch(() => null);
+  cloudStart = await Promise.race([sync, new Promise((r) => setTimeout(() => r('late'), 6000))]);
+  if (cloudStart === 'late') {
+    // Too slow: play the local save, and take in the cloud's catches when it answers.
+    sync.then((r) => { if (r) adoptJournal(state, r.state); });
+    cloudStart = null;
+  }
+}
+const state = cloudStart?.state || loaded.state;
+if (cloudStart) saveGame(state);
 state.tips = state.tips || {};
 state.gear = cleanGear(state.gear);
 state.keep = Array.isArray(state.keep) ? state.keep.filter((f) => fishById[f.id]) : [];
@@ -1134,6 +1151,7 @@ function save() {
   state.mode = onFoot ? 'foot' : 'boat';
   state.walker = onFoot ? { x: walker.pos.x, z: walker.pos.z, heading: walker.heading } : null;
   const ok = saveGame(state);
+  if (ok) cloud.queue(state, saveStatus.lastSaved);
   if (!ok && saveStatus.canSave && !saveWarned && started) {
     saveWarned = true;
     hud.toast('Your progress couldn’t be saved just now (the browser’s storage may be full). The game will keep trying.', 7);
@@ -1172,6 +1190,80 @@ function renderSaveStatus() {
   el.textContent = `Saved automatically in this browser (last saved ${when}): no account needed. ${state.log.length} catches in your log.`;
 }
 
+// The optional account box under "Your progress". Only shown when a backend is configured.
+function renderCloud() {
+  const box = $('cloud');
+  box.hidden = !cloud.enabled;
+  if (!cloud.enabled) return;
+  const make = (tag, text, cls) => {
+    const e = document.createElement(tag);
+    if (text != null) e.textContent = text;
+    if (cls) e.className = cls;
+    return e;
+  };
+  const btn = (text, run, cls) => {
+    const b = make('button', text, cls);
+    b.type = 'button';
+    b.addEventListener('click', run);
+    return b;
+  };
+  const kids = [make('h4', 'Cloud save (optional)')];
+  if (cloud.signedIn) {
+    const when = cloud.lastSync ? Math.round((Date.now() - cloud.lastSync) / 60000) : null;
+    const sync = cloud.paused ? 'paused' : cloud.syncing ? 'syncing…' : cloud.pending ? 'changes waiting to sync' : when == null ? 'not synced yet this visit' : when < 1 ? 'synced just now' : `synced ${when} min ago`;
+    kids.push(make('p', `Signed in as ${cloud.email || 'you'}: ${sync}. Your progress is also kept in this browser.`));
+    kids.push(btn('Sync now', async () => {
+      save();
+      renderCloud();
+      await cloud.flush(state, saveStatus.lastSaved);
+      renderCloud();
+    }));
+    kids.push(btn('Sign out', async () => {
+      if (cloud.pending) await cloud.flush(state, saveStatus.lastSaved);
+      await cloud.signOut();
+      renderCloud();
+    }, 'quiet'));
+  } else {
+    kids.push(make('p', 'Sign in with your email to keep your progress safe and carry it to other devices. There’s no password: you get a sign-in link. Your progress here comes with you, and you can always keep playing as a guest.'));
+    const form = make('form', null, 'j-cloud-form');
+    const email = make('input');
+    Object.assign(email, { type: 'email', id: 'cloud-email', placeholder: 'you@example.com', autocomplete: 'email', required: true });
+    email.setAttribute('aria-label', 'Email address');
+    const send = make('button', cloud.state === 'sent' ? 'Send another link' : 'Email me a sign-in link');
+    send.type = 'submit';
+    send.disabled = cloud.state === 'sending';
+    form.append(email, send);
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await cloud.sendLink(email.value);
+    });
+    kids.push(form);
+  }
+  if (cloud.message) kids.push(make('p', cloud.message, 'j-cloud-msg'));
+  box.replaceChildren(...kids);
+}
+cloud.onChange = () => {
+  if (modal === 'journal') {
+    renderSaveStatus();
+    // Don't wipe what someone is typing.
+    if (document.activeElement?.id === 'cloud-email' && !cloud.signedIn) {
+      const msg = $('cloud').querySelector('.j-cloud-msg') || $('cloud').appendChild(document.createElement('p'));
+      msg.className = 'j-cloud-msg';
+      msg.textContent = cloud.message;
+    } else renderCloud();
+  }
+};
+// A sign-in link opened in this same tab only changes the address's #fragment: start afresh
+// so it is picked up (progress is saved first by the page-hide handlers).
+addEventListener('hashchange', () => {
+  if (Cloud.fromLink()) location.reload();
+});
+cloudReady.then(() => {
+  if (modal === 'journal') renderCloud();
+  // Signed in, but startup didn't wait for the cloud (it was slow): sync once it's ready.
+  if (cloud.signedIn && !cloudStart && saveStatus.canSave) cloud.queue(state, saveStatus.lastSaved);
+});
+
 // A small "are you sure?" with any buttons we need.
 function ask(title, text, buttons) {
   $('confirm-title').textContent = title;
@@ -1205,11 +1297,13 @@ function downloadSave() {
 }
 
 function startNewGame() {
-  ask('Start a new game?', 'Your journal, catches, places, gear and camp will be cleared, and you’ll begin again in Willow Bay. Your sound and graphics settings stay. If you might want this game back, download a copy first.', [
+  const acct = cloud.signedIn ? ' This also starts over the game saved to your account.' : '';
+  ask('Start a new game?', `Your journal, catches, places, gear and camp will be cleared, and you’ll begin again in Willow Bay. Your sound and graphics settings stay.${acct} If you might want this game back, download a copy first.`, [
     { text: 'Download a copy first', cls: 'quiet', keepOpen: true, run: downloadSave },
     { text: 'Keep playing', cls: 'quiet' },
     {
       text: 'Start a new game', cls: 'danger', run: () => {
+        cloud.replaceNextSync();
         newGame({ quality: state.quality, volumes: state.volumes, music: state.music });
         location.reload();
       },
@@ -1233,9 +1327,10 @@ function loadSaveFile(file) {
     }
     const st = parsed.state;
     const n = Object.values(st.fish).reduce((a, f) => a + f.count, 0);
-    ask('Load this saved copy?', `It’s on day ${st.day}, with ${n} fish caught and ${Object.keys(st.places).length} places found. It replaces your current game (which is kept as a backup).`, [
+    const acct = cloud.signedIn ? ' It will replace the game saved to your account too.' : '';
+    ask('Load this saved copy?', `It’s on day ${st.day}, with ${n} fish caught and ${Object.keys(st.places).length} places found. It replaces your current game (which is kept as a backup).${acct}`, [
       { text: 'Cancel', cls: 'quiet' },
-      { text: 'Load it', run: () => { importSave(st); location.reload(); } },
+      { text: 'Load it', run: () => { cloud.replaceNextSync(); importSave(st); location.reload(); } },
     ]);
   };
   reader.readAsText(file);
@@ -1256,13 +1351,15 @@ function begin() {
   setTimeout(() => hud.place(onFoot ? (names[zone] || 'The west shore') : 'Willow Bay', returning ? 'welcome back' : onFoot ? 'by the camp' : 'home waters'), 900);
   rig.settleUntil = t + 2.5;
   if (state.sonar) toggleFinder(true);
-  if (LOAD_NOTES[loaded.outcome]) setTimeout(() => hud.toast(LOAD_NOTES[loaded.outcome], 9), 2600);
+  if (cloudStart?.note) setTimeout(() => hud.toast(cloudStart.note, 8), 2600);
+  else if (LOAD_NOTES[loaded.outcome]) setTimeout(() => hud.toast(LOAD_NOTES[loaded.outcome], 9), 2600);
   save();
 }
 
 function openJournal() {
   journal.open({ boat, walker: onFoot ? walker : null, camp: world.camp.firePos });
   renderSaveStatus();
+  renderCloud();
   modal = 'journal';
   audio.page();
   if (fishing.aiming) fishing.cancel();
@@ -1419,9 +1516,13 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     audio.suspend();
     if (started) save();
+    if (cloud.pending) cloud.flush(state, saveStatus.lastSaved);
   } else audio.resume();
 });
-addEventListener('pagehide', () => { if (started) save(); });
+addEventListener('pagehide', () => {
+  if (started) save();
+  if (cloud.pending) cloud.flush(state, saveStatus.lastSaved, true);
+});
 canvas.addEventListener('webglcontextlost', (e) => {
   e.preventDefault();
   if (started) save();

@@ -325,3 +325,74 @@ export function importSave(state) {
 export function exportText(state) {
   return JSON.stringify(envelope(state), null, 1);
 }
+
+/* ---------------- combining two saves (for cloud sync) ---------------- */
+
+// True once a save holds anything worth keeping.
+export function hasProgress(s) {
+  return !!(s && (Object.keys(s.fish).length || Object.keys(s.places).length || s.log.length || s.items.lantern || s.day > 1 || s.meals));
+}
+
+const JOURNAL_KEYS = ['fish', 'places', 'items', 'tips', 'caughtOn', 'log', 'meals'];
+const SETTINGS_KEYS = ['quality', 'volumes', 'music', 'sonar', 'finder'];
+
+// Combine two saves so nothing discovered in either is lost: every logged catch (matched by
+// id), each fish's count and best, places, keepsakes and hints. Where you are, the time,
+// your gear, creel and camp come from `world` ('a' or 'b'), normally whichever was saved
+// last. Settings like volume and graphics always stay with `a` (this device).
+export function mergeStates(a, b, world = 'a') {
+  const w = world === 'b' ? b : a;
+  const out = sanitize(JSON.parse(JSON.stringify(w)));
+  for (const k of SETTINGS_KEYS) out[k] = JSON.parse(JSON.stringify(a[k]));
+
+  const ids = new Set();
+  const log = [];
+  for (const e of [...a.log, ...b.log]) {
+    if (ids.has(e.id)) continue;
+    ids.add(e.id);
+    log.push({ ...e });
+  }
+  log.sort((x, y) => x.at - y.at);
+  out.log = log.slice(-LOG_MAX);
+  const loggedCount = {};
+  for (const e of log) loggedCount[e.sp] = (loggedCount[e.sp] || 0) + 1;
+
+  const earlier = (x, y) => (x.firstDay < y.firstDay || (x.firstDay === y.firstDay && x.firstHour <= y.firstHour) ? x : y);
+  out.fish = {};
+  for (const id of new Set([...Object.keys(a.fish), ...Object.keys(b.fish)])) {
+    const x = a.fish[id], y = b.fish[id];
+    if (!x || !y) {
+      out.fish[id] = { ...(x || y), count: Math.max((x || y).count, loggedCount[id] || 0) };
+      continue;
+    }
+    const first = earlier(x, y);
+    out.fish[id] = {
+      count: Math.max(x.count, y.count, loggedCount[id] || 0),
+      best: Math.max(x.best, y.best),
+      firstDay: first.firstDay, firstHour: first.firstHour, firstZone: first.firstZone, firstRain: first.firstRain,
+    };
+  }
+  out.places = {};
+  for (const id of new Set([...Object.keys(a.places), ...Object.keys(b.places)])) {
+    const x = a.places[id], y = b.places[id];
+    out.places[id] = !x ? { ...y } : !y ? { ...x } : (x.day < y.day || (x.day === y.day && x.hour <= y.hour) ? { ...x } : { ...y });
+  }
+  out.items = { lantern: !!(a.items.lantern || b.items.lantern) };
+  out.tips = { ...b.tips, ...a.tips };
+  for (const k of Object.keys(out.tips)) out.tips[k] = !!(a.tips[k] || b.tips[k]);
+  out.caughtOn = {};
+  for (const id of new Set([...Object.keys(a.caughtOn), ...Object.keys(b.caughtOn)])) {
+    const on = (out.caughtOn[id] = {});
+    for (const src of [a.caughtOn[id], b.caughtOn[id]]) {
+      if (src) for (const [t, n] of Object.entries(src)) on[t] = Math.max(on[t] || 0, n);
+    }
+  }
+  out.meals = Math.max(a.meals, b.meals);
+  return out;
+}
+
+// Copy only the journal (catches, places, keepsakes) from `merged` into a live game state,
+// leaving where you are, the time and your gear alone.
+export function adoptJournal(live, merged) {
+  for (const k of JOURNAL_KEYS) live[k] = merged[k];
+}
