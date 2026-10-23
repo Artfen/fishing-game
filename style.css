@@ -312,11 +312,17 @@ kbd {
   stroke-dashoffset: 251.33;
   transition: stroke 0.25s ease;
 }
+/* Where the reel's drag starts to give line, on the tension ring. */
+.m-drag { fill: var(--hud-ink); stroke: rgba(15, 27, 43, 0.75); stroke-width: 1.5; }
+.m-drag.locked { fill: var(--coral); }
 #meter-label {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
   font-family: var(--font-display);
   font-size: 22px;
   font-weight: 700;
@@ -620,6 +626,10 @@ button:focus-visible, #scene:focus-visible { outline: 2px solid var(--lantern); 
   cursor: pointer;
 }
 .sheet-close:hover { background: rgba(53, 41, 31, 0.08); }
+.pk-setups { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin-bottom: 6px; }
+.pk-setup { display: flex; flex-direction: column; gap: 3px; }
+.pk-setup .pk-btn { align-self: flex-start; }
+.pk-setup .pk-btn.on { background: var(--ink, #35291f); color: var(--paper, #f6efe2); }
 .pk-travel {
   display: flex;
   flex-wrap: wrap;
@@ -983,6 +993,16 @@ p.cp-soft { margin: 6px 0; }
 }
 .t-keys dt { text-align: right; font-weight: 600; opacity: 0.9; }
 .t-keys dd { margin: 0; opacity: 0.85; }
+#meter-label .ml-sub { margin-top: 3px; font: 800 11px/1 var(--font-ui); opacity: 0.9; }
+/* Shorter screens: a more compact title so the settings line and offline status fit. */
+@media (max-height: 780px) {
+  #title h1 { font-size: clamp(60px, 12vh, 120px); }
+  .t-keys { margin-top: 16px; padding: 10px 16px; gap: 4px 12px; font-size: 12.5px; }
+  .t-note { margin-top: 10px; }
+}
+.t-offline { margin: 8px 0 0; font: 600 12px/1.4 var(--font-ui); color: rgba(255, 249, 239, 0.7); animation: rise 1.6s 0.9s ease both; }
+.t-offline.ok::before { content: '✓ '; color: #9fd8a8; }
+#clock-net { color: #ffd59a; opacity: 1; }
 .t-note { margin-top: 14px; font-size: 13px; animation: rise 1.6s 0.7s ease both; color: rgba(255, 249, 239, 0.75); }
 .t-quality {
   margin-left: 6px;

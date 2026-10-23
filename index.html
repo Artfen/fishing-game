@@ -46,6 +46,7 @@
     <span id="clock-phase" class="soft">Afternoon</span>
     <span id="clock-weather" class="soft" hidden></span>
     <span id="clock-food" class="soft" hidden></span>
+    <span id="clock-net" class="soft" hidden title="No connection. The game keeps working and saving on this device.">Offline</span>
   </div>
   <button id="gear" class="pill" type="button" aria-label="Your rod and tackle: open the backpack">
     <span id="gear-rod"></span><span id="gear-item" class="soft"></span>
@@ -95,6 +96,7 @@
       <circle id="m-outer" class="m-outer" cx="60" cy="60" r="50"></circle>
       <circle class="m-track thin" cx="60" cy="60" r="40"></circle>
       <circle id="m-inner" class="m-inner" cx="60" cy="60" r="40"></circle>
+      <circle id="m-drag" class="m-drag" cx="100" cy="60" r="4"></circle>
     </svg>
     <div id="meter-label"></div>
   </div>
@@ -163,6 +165,10 @@
     <div id="pack-items" class="pk-grid"></div>
     <h3>Creel <span class="count" id="pack-fish-count"></span></h3>
     <div id="pack-fish" class="pk-creel"></div>
+    <section id="pack-setups-section" hidden>
+      <h3>Ready-made setups</h3>
+      <div id="pack-setups" class="pk-setups"></div>
+    </section>
     <section id="pack-box-section" hidden>
       <h3>In the tackle box</h3>
       <div id="pack-box" class="pk-grid"></div>
@@ -232,6 +238,8 @@
       <h3>Settings</h3>
       <div class="j-settings">
         <button id="set-quality" type="button">Graphics: Auto</button>
+        <button id="set-difficulty" type="button">Difficulty: Standard</button>
+        <p id="difficulty-desc" class="j-save-status"></p>
         <label for="vol-master">Volume <input id="vol-master" type="range" min="0" max="100" value="100"></label>
         <label for="vol-nature">Nature &amp; effects <input id="vol-nature" type="range" min="0" max="100" value="100"></label>
         <label for="vol-music">Music <input id="vol-music" type="range" min="0" max="100" value="80"></label>
@@ -239,6 +247,8 @@
       <h3>Your progress</h3>
       <div class="j-settings j-save">
         <p id="save-status" class="j-save-status">Saved in this browser.</p>
+        <p id="offline-status" class="j-save-status"></p>
+        <button id="update-now" type="button" hidden>Update to the new version</button>
         <button id="save-download" type="button">Download a copy</button>
         <button id="save-load" type="button">Load a saved copy…</button>
         <input id="save-file" type="file" accept=".json,application/json" hidden>
@@ -284,7 +294,8 @@
       <dt>tap a prompt</dt><dd>step ashore, board, camp</dd>
       <dt>hourglass</dt><dd>hold to let time drift</dd>
     </dl>
-    <p class="t-note">Best with sound on. <button id="title-quality" class="t-quality" type="button">Graphics: Auto</button></p>
+    <p class="t-note">Best with sound on. <button id="title-quality" class="t-quality" type="button">Graphics: Auto</button> · <button id="title-difficulty" class="t-quality" type="button">Difficulty: Standard</button></p>
+    <p id="title-offline" class="t-offline" hidden></p>
   </div>
 </div>
 

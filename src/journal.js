@@ -56,7 +56,7 @@ export class Journal {
 
   get isOpen() { return !this.el.hidden; }
 
-  // where = { boat, walker (when ashore), camp }
+  // where = { boat, skiff, walker (when ashore), camp }
   open(where) {
     this.render(where);
     this.shown = PAGE;
@@ -403,14 +403,15 @@ export class Journal {
       ctx.stroke();
       ctx.restore();
     }
-    const boat = where?.boat;
-    if (boat) {
-      const [bx, by] = toPx(boat.pos.x, boat.pos.z);
-      const fx = Math.sin(boat.heading), fz = Math.cos(boat.heading);
+    // The rowing boat in red, the motor skiff in navy: little arrows pointing where they face.
+    for (const [b, color] of [[where?.boat, '#b5532f'], [where?.skiff, '#2f4f7a']]) {
+      if (!b) continue;
+      const [bx, by] = toPx(b.pos.x, b.pos.z);
+      const fx = Math.sin(b.heading), fz = Math.cos(b.heading);
       ctx.save();
       ctx.translate(bx, by);
       ctx.rotate(Math.atan2(fz, fx));
-      ctx.fillStyle = '#b5532f';
+      ctx.fillStyle = color;
       ctx.globalAlpha = 0.95;
       ctx.beginPath();
       ctx.moveTo(13, 0);

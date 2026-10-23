@@ -12,7 +12,7 @@ import { RODS, TACKLE, PACK, cleanGear } from './tackle.js';
 // To change the save format later: bump SAVE_VERSION and add a step to MIGRATIONS that turns
 // the previous version's data into the new shape.
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 const KEY = 'slow-tide-save';
 const BACKUP = 'slow-tide-save-backup';          // the save as it was when this session began
 const LEGACY = 'slow-tide-save-v1';              // the format before versioning
@@ -27,7 +27,9 @@ export const DEFAULT_STATE = {
   places: {},    // id -> { day, hour }
   items: {},     // lantern: true
   tips: {},      // which gentle hints have already been shown
-  boat: null,    // { x, z, heading }
+  boat: null,    // the rowing boat: { x, z, heading, anchored }
+  skiff: null,   // the motor skiff: { x, z, heading, anchored }
+  vessel: 'row', // which boat you're in, or last used: 'row' or 'skiff'
   mode: 'boat',  // 'boat' or 'foot'
   walker: null,  // { x, z, heading } while on foot
   gear: null,    // rods and tackle in the backpack, and what's tied on (see tackle.js)
@@ -40,6 +42,7 @@ export const DEFAULT_STATE = {
   finder: null,  // { x, y } as fractions of the screen, and { size }
   music: true,
   quality: 'auto', // 'auto' | 'high' | 'medium' | 'low'
+  difficulty: 'standard', // 'relaxed' | 'standard' | 'realistic'
   sonar: false,    // fish finder shown
   volumes: { master: 1, nature: 1, music: 0.8 },
 };
@@ -61,7 +64,7 @@ function pos(v) {
   if (!isObj(v)) return null;
   const x = num(v.x, NaN), z = num(v.z, NaN);
   if (!Number.isFinite(x) || !Number.isFinite(z) || Math.abs(x) > 2000 || Math.abs(z) > 2000) return null;
-  return { x, z, heading: num(v.heading, 0) };
+  return { x, z, heading: num(v.heading, 0), anchored: !!v.anchored };
 }
 
 export function sanitizeLogEntry(e) {
@@ -113,6 +116,8 @@ export function sanitize(raw) {
   s.items = { lantern: !!raw.items?.lantern };
   if (isObj(raw.tips)) for (const [k, v] of Object.entries(raw.tips)) if (k.length < 30) s.tips[k] = !!v;
   s.boat = pos(raw.boat);
+  s.skiff = pos(raw.skiff);
+  s.vessel = oneOf(raw.vessel, ['row', 'skiff'], 'row');
   s.mode = oneOf(raw.mode, ['boat', 'foot'], 'boat');
   s.walker = pos(raw.walker);
   if (s.mode === 'foot' && !s.walker) s.mode = 'boat';
@@ -148,6 +153,7 @@ export function sanitize(raw) {
   }
   s.music = raw.music !== false;
   s.quality = oneOf(raw.quality, ['auto', 'high', 'medium', 'low'], 'auto');
+  s.difficulty = oneOf(raw.difficulty, ['relaxed', 'standard', 'realistic'], 'standard');
   s.sonar = !!raw.sonar;
   if (isObj(raw.volumes)) {
     for (const k of ['master', 'nature', 'music']) s.volumes[k] = num(raw.volumes[k], s.volumes[k], 0, 1);
@@ -161,6 +167,8 @@ export function sanitize(raw) {
 const MIGRATIONS = {
   // Version 1 had no envelope and no catch log; its fields carry straight over.
   1: (d) => ({ ...d, log: [] }),
+  // Version 2 had one boat; the motor skiff arrives at its mooring and you're in the rowing boat.
+  2: (d) => ({ ...d, vessel: 'row', skiff: null }),
 };
 
 function migrate(data, from) {
@@ -334,7 +342,7 @@ export function hasProgress(s) {
 }
 
 const JOURNAL_KEYS = ['fish', 'places', 'items', 'tips', 'caughtOn', 'log', 'meals'];
-const SETTINGS_KEYS = ['quality', 'volumes', 'music', 'sonar', 'finder'];
+const SETTINGS_KEYS = ['quality', 'volumes', 'music', 'sonar', 'finder', 'difficulty'];
 
 // Combine two saves so nothing discovered in either is lost: every logged catch (matched by
 // id), each fish's count and best, places, keepsakes and hints. Where you are, the time,

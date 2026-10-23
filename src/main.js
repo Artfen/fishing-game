@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { Input } from './input.js';
 import { loadGame, saveGame, newGame, saveStatus, parseSave, importSave, exportText, stopSaving, SAVE_KEY, adoptJournal } from './save.js';
 import { Cloud } from './cloud.js';
+import { setupOffline, offline, applyUpdate } from './offline.js';
+import { DIFFICULTY, DIFFICULTY_IDS, DRAG_LEVELS, DRAG_NAMES, breakReason } from './fight.js';
 import { HUD, kbd } from './ui.js';
 import { AudioScape } from './audio.js';
 import { Environment, phaseName, formatClock } from './world/sky.js';
@@ -114,7 +116,12 @@ camera.layers.enable(NO_REFLECT);
 hideFromReflection(water.mesh);
 for (const o of [underwater.grass, underwater.kelp, underwater.rocks, underwater.particles, underwater.bubblesPts, ...underwater.rays]) hideFromReflection(o);
 for (const set of fishRenderer.sets) hideFromReflection(set.mesh);
-const boat = new Boat(scene);
+// Two boats: the rowing boat you start with, and the motor skiff tied up at the landing.
+// `boat` is whichever you're in (or last used); the other floats where you left it.
+const rowboat = new Boat(scene);
+const skiff = new Boat(scene, { motor: true });
+let boat = rowboat;
+const otherBoat = () => (boat === skiff ? rowboat : skiff);
 const walker = new Walker(scene);
 const journal = new Journal(state);
 const input = new Input(canvas);
@@ -122,15 +129,61 @@ const touch = setupTouch(input);
 const rig = new CameraRig(camera);
 const finder = new FishFinder(eco, habitat, state);
 
-if (state.boat && solidHeight(state.boat.x, state.boat.z) < -1) boat.place(state.boat.x, state.boat.z, state.boat.heading);
-else boat.place(START.x, START.z, START.heading);
+// The skiff's mooring: alongside the end of the landing pier, in water deep enough for the motor.
+function skiffMooring() {
+  const L = LANDING;
+  for (const dz of [2.4, -2.4, 3.2, -3.2]) {
+    for (let x = L.x + L.len - 1.2; x > L.x; x -= 0.6) {
+      if (solidHeight(x, L.z + dz) < -1.1 && solidHeight(x + 2, L.z + dz) < -1.1 && solidHeight(x - 2, L.z + dz) < -0.9) return { x, z: L.z + dz, heading: Math.PI / 2 };
+    }
+  }
+  return { x: L.x + L.len + 4, z: L.z, heading: Math.PI / 2 };
+}
+if (state.boat && solidHeight(state.boat.x, state.boat.z) < -1) rowboat.place(state.boat.x, state.boat.z, state.boat.heading);
+else rowboat.place(START.x, START.z, START.heading);
+const mooring = skiffMooring();
+if (state.skiff && solidHeight(state.skiff.x, state.skiff.z) < -0.8) skiff.place(state.skiff.x, state.skiff.z, state.skiff.heading);
+else skiff.place(mooring.x, mooring.z, mooring.heading);
+if (state.boat?.anchored) rowboat.setAnchor(true);
+if (state.skiff?.anchored) skiff.setAnchor(true);
+if (state.vessel === 'skiff') boat = skiff;
+otherBoat().setRower(false);
 if (state.items.lantern) {
-  boat.setLantern(true);
+  rowboat.setLantern(true);
+  skiff.setLantern(true);
   world.takeLantern();
 }
 rig.init(boat);
 
 const weather = { rain: 0, target: 0, timer: state.tips.rained ? rand(120, 220) : 240 };
+// The breeze: dir is the way it blows towards. It wanders slowly and freshens in the rain.
+const wind = { dir: rand(0, Math.PI * 2), strength: 0.25, target: 0.25, timer: 60 };
+const WIND_WORDS = ['still air', 'a light breeze', 'a breeze', 'a fresh wind'];
+function updateWind(dt) {
+  wind.timer -= dt;
+  if (wind.timer <= 0) {
+    wind.timer = rand(60, 150);
+    wind.target = clamp(rand(0.05, 0.55) + weather.rain * 0.35, 0, 1);
+    wind.turn = rand(-0.8, 0.8);
+  }
+  wind.strength = damp(wind.strength, wind.target, 0.08, dt);
+  wind.dir += (wind.turn || 0) * dt * 0.004;
+  fishing.wind.x = Math.sin(wind.dir) * wind.strength;
+  fishing.wind.z = Math.cos(wind.dir) * wind.strength;
+  fishing.wind.strength = wind.strength;
+}
+// An arrow showing which way the wind blows, as seen from the camera.
+function windArrow() {
+  let rel = wind.dir - rig.yaw;
+  rel = ((rel % (Math.PI * 2)) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+  const i = ((Math.round(rel / (Math.PI / 4)) % 8) + 8) % 8;
+  return ['↑', '↖', '←', '↙', '↓', '↘', '→', '↗'][i];
+}
+function windHint() {
+  if (wind.strength < 0.15) return '';
+  const w = WIND_WORDS[wind.strength < 0.3 ? 1 : wind.strength < 0.55 ? 2 : 3];
+  return ` · ${w} blowing ${windArrow()}`;
+}
 let t = 0;
 let started = false;
 let modal = null; // 'journal' | 'catch' | 'note' | 'pack' | 'camp' | 'sleep' | 'travel'
@@ -155,10 +208,15 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   teach,
   shake: (s) => { rig.shake = Math.max(rig.shake, s); },
   onCast: () => {
+    if (!onFoot && boat.motor && boat.lever) boat.lever = 0;
     if (!state.tips.cast) {
       state.tips.cast = true;
       save();
     }
+  },
+  castResult: (text, good) => {
+    hud.flash(text, t, good ? 2.2 : 3.6);
+    if (good) audio.chime?.();
   },
   onHook: () => {},
   onCatch: showCatch,
@@ -177,14 +235,14 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
     teach('kept', 'Fish you keep ride in the creel on your backpack. Grill them at camp, then eat.', 6);
     save();
   },
+  // Every break has a reason you can see and do something about (see fight.js).
   onSnap: (why, sp, rod) => {
-    if (why === 'teeth') {
-      hud.flash('Snip! Sharp teeth cut straight through the line.', t, 4);
-      teach('teeth', 'Pike have teeth that cut fine line. The spinning rod has a wire trace for exactly that.', 7);
-    } else {
-      hud.flash(`Snap! That was too strong for the ${rod.line.name}.`, t, 4);
-      teach('snap', 'Light line breaks if you keep reeling while a big fish pulls. Let go while it runs, or bring a stronger rod for big fish.', 7);
-    }
+    hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : 'Snap! The line broke.', t, 3);
+    hud.toast(breakReason(why, sp, rod), 9);
+  },
+  onDrag: (level, rod) => {
+    hud.flash(`Drag: ${DRAG_NAMES[level]}${level === DRAG_LEVELS.length - 1 ? ' (it can’t slip: the line breaks first)' : ''}`, t, 2);
+    save();
   },
   spooked: (a) => {
     if (a.L.stream) teach('spooked', 'Splash, and it was gone! Trout feel heavy footsteps. Walk (don’t jog) near the stream, and cast from a few metres back.', 7);
@@ -508,7 +566,63 @@ function cachedShoreSpot() {
   return shoreCache.spot;
 }
 
-const nearBoat = () => onFoot && Math.hypot(walker.pos.x - boat.pos.x, walker.pos.z - boat.pos.z) < 5.5;
+// The nearest boat you could climb into from where you stand.
+function boatNear(reach = 5.5) {
+  let best = null;
+  for (const b of [rowboat, skiff]) {
+    const d = Math.hypot(walker.pos.x - b.pos.x, walker.pos.z - b.pos.z);
+    if (d < reach) {
+      reach = d;
+      best = b;
+    }
+  }
+  return best;
+}
+const nearBoat = () => onFoot && !!boatNear();
+
+// Change which boat is yours right now (climbing in, or stepping across from the other).
+function switchBoat(b) {
+  if (b === boat) return;
+  boat.setRower(false);
+  boat.pose.fishing = 0;
+  boat.lever = 0;
+  boat = b;
+  if (!onFoot) {
+    boat.setRower(true);
+    fishing.setAngler(boat);
+  }
+  finder.reset();
+}
+
+function stepAcross() {
+  switchBoat(otherBoat());
+  audio.knock(0.5);
+  hud.chip(`<b>${boat === skiff ? 'Motor skiff' : 'Rowing boat'}</b>`, 2);
+  if (boat === skiff) teachSkiff();
+  save();
+}
+
+function teachSkiff() {
+  if (state.tips.skiff) return;
+  state.tips.skiff = true;
+  hud.toast(touch.active
+    ? 'The motor skiff: push the stick forward for throttle, left and right to steer. Let go to slow down. Tap the prompt when stopped to drop anchor, or near a shore to step off.'
+    : 'The motor skiff: W and S move the throttle lever (it stays where you leave it), A and D steer, X stops the motor, Z drops or raises the anchor. Near a shore, slow down and press E to step off.', 10);
+}
+
+// Z (or the prompt when stopped): drop or raise the anchor.
+function toggleAnchor() {
+  if (onFoot || fishing.busy) return;
+  if (!boat.anchored && boat.speed > 1.2) {
+    hud.flash('Slow down before dropping the anchor', t, 2.2);
+    return;
+  }
+  boat.setAnchor(!boat.anchored);
+  audio.knock(0.35);
+  audio.plop(boat.anchored ? 1.2 : 0.7);
+  hud.flash(boat.anchored ? 'Anchor down: the boat will hold here while you fish' : 'Anchor up', t, 2.4);
+  save();
+}
 
 function setFoot(foot, silent = false) {
   onFoot = foot;
@@ -534,8 +648,10 @@ function stepAshore(spot) {
   }
 }
 
-function board() {
+function board(target = boatNear() || boat) {
+  switchBoat(target);
   setFoot(false);
+  if (boat === skiff) teachSkiff();
   audio.knock(0.5);
   hud.chip('<b>Boat view</b>', 2);
 }
@@ -651,13 +767,19 @@ function interaction() {
   if (!started || modal || fishing.busy) return null;
   if (lanternReach()) return { text: 'Look closer at the driftwood', run: takeLantern };
   if (onFoot) {
-    if (nearBoat()) return { text: 'Get in the boat', run: board };
+    const near = boatNear();
+    if (near) return { text: `Get in the ${near.name}`, run: () => board(near) };
     if (nearCamp()) return { text: 'Camp: fire, food, sleep and tackle box', run: () => openCamp() };
     if (stuckT > 2.5) return { text: 'Stuck? Head back to camp or the boat', run: () => openPack() };
     return null;
   }
   const spot = cachedShoreSpot();
   if (spot) return { text: spot.pier ? 'Step ashore at the landing' : 'Step ashore', run: () => stepAshore(spot) };
+  const other = otherBoat();
+  if (boat.speed < 1 && other.speed < 1 && Math.hypot(other.pos.x - boat.pos.x, other.pos.z - boat.pos.z) < 4.5) {
+    return { text: `Step across into the ${other.name}`, run: stepAcross };
+  }
+  if (boat.speed < 0.6 && !fishing.lineOut) return { text: boat.anchored ? 'Raise the anchor' : 'Drop the anchor', run: toggleAnchor };
   return null;
 }
 
@@ -811,12 +933,13 @@ underwater.onPop = (x, z) => {
 
 /* ---------------- audio hooks ---------------- */
 
-boat.onStroke = (p, side) => {
+rowboat.onStroke = (p, side) => {
   fx.ripple(p.x, p.z, 0.9, 1.1, 0.4);
   fx.splash(p.x, 0.05, p.z, 4, 1.2, 0.4);
   audio.oar(side > 0 ? -0.3 : 0.3, 0.8);
 };
-boat.onBump = (v) => audio.knock(clamp(v / 3, 0.4, 1));
+rowboat.onBump = skiff.onBump = (v) => audio.knock(clamp(v / 3, 0.4, 1));
+skiff.onShallow = () => hud.flash('Shallow water: the motor tips up, so you can only creep along. Steer for deeper water.', t, 3.4);
 walker.onStep = (p, jog) => audio.step(jog);
 walker.onSplash = (p, deep) => {
   audio.wade(0.5 + deep * 0.5);
@@ -912,6 +1035,27 @@ function applyQuality() {
   const text = quality.choice === 'auto' ? `Graphics: Auto (${q.label})` : `Graphics: ${q.label}`;
   $('set-quality').textContent = text;
   $('title-quality').textContent = text;
+}
+
+function applyDifficulty() {
+  const d = DIFFICULTY[state.difficulty] || DIFFICULTY.standard;
+  fishing.diff = d;
+  eco.biteScale = d.bite;
+  $('set-difficulty').textContent = `Difficulty: ${d.label}`;
+  $('title-difficulty').textContent = `Difficulty: ${d.label}`;
+  $('difficulty-desc').textContent = d.desc;
+}
+
+// Relaxed → Standard → Realistic. Only changes how fish behave from now on; nothing is lost.
+function cycleDifficulty() {
+  if (fishing.fight) {
+    hud.flash('Land this fish first, then change the difficulty', t, 2.4);
+    return;
+  }
+  state.difficulty = DIFFICULTY_IDS[(DIFFICULTY_IDS.indexOf(state.difficulty) + 1) % DIFFICULTY_IDS.length];
+  applyDifficulty();
+  save();
+  hud.flash(`Difficulty: ${DIFFICULTY[state.difficulty].label}`, t, 2.4);
 }
 
 function cycleQuality() {
@@ -1012,15 +1156,14 @@ function currentHint() {
   const space = kbd('Space');
   const info = fishing.info;
   switch (fishing.state) {
-    case 'aiming':
-      if (fishing.kind === 'lure') {
-        return T
-          ? 'Let go to cast · stick left/right aims, up/down sets reeling speed · ✕ cancels'
-          : `Release ${space} to cast · ${L('KeyA')}${L('KeyD')} aim · ${L('KeyW')}${L('KeyS')} reeling speed · ${kbd('Esc')} cancel`;
-      }
-      return T
-        ? `Let go to cast · stick left/right aims${fishing.kind === 'float' ? ', up/down sets bait depth' : ''} · ✕ cancels`
-        : `Release ${space} to cast · ${L('KeyA')}${L('KeyD')} aim${fishing.kind === 'float' ? ` · ${L('KeyW')}${L('KeyS')} bait depth` : ''} · ${kbd('Esc')} cancel`;
+    case 'aiming': {
+      // The power meter swings out and back; the ring shows where a clean release would land.
+      const how = T ? 'Let go when the ring is where you want it' : `Release ${space} when the ring is where you want it`;
+      const clean = fishing.release > 0.75 ? 'clean release now' : 'truest as the meter slows';
+      const extra = fishing.kind === 'lure' ? (T ? 'up/down: reeling speed' : `${L('KeyW')}${L('KeyS')} reeling speed`)
+        : fishing.kind === 'float' ? (T ? 'up/down: bait depth' : `${L('KeyW')}${L('KeyS')} bait depth`) : '';
+      return `${how} (${clean}) · ${T ? 'stick left/right aims' : `${L('KeyA')}${L('KeyD')} aim`}${extra ? ` · ${extra}` : ''}${windHint()} · ${T ? '✕ cancels' : `${kbd('Esc')} cancel`}`;
+    }
     case 'drifting':
       if (fishing.status === 'curious') return 'Something is curious about your bait. Keep still…';
       if (fishing.status === 'nibble') return 'Nibbling… wait for the float to go under';
@@ -1048,9 +1191,14 @@ function currentHint() {
       const what = k === 'strike' ? 'It hit the lure!' : k === 'run' ? 'A run!' : k === 'sip' ? 'It took the fly!' : k === 'take' ? 'The indicator dipped!' : 'Bite!';
       return T ? `${what} Tap the button` : `${what} Press ${space}`;
     }
-    case 'reeling':
-      if (fishing.pulling) return T ? "It's pulling. Let go until it tires" : `It's pulling. Let go of ${space} until it tires`;
-      return T ? 'Hold the button to reel in' : `Hold ${space} to reel in`;
+    case 'reeling': {
+      const F = fishing.fight;
+      const drag = `${T ? 'stick up/down' : `${L('KeyW')}${L('KeyS')}`} drag: ${DRAG_NAMES[F?.drag ?? 2]}`;
+      if (F?.surgeT > 0) return T ? 'It’s surging! Let go of the button' : `It’s surging! Let go of ${space}`;
+      if (F && !F.pulling && F.warned) return 'A flick on the surface: it’s about to run. Ease off';
+      if (F?.pulling) return `${F.slipping ? 'It’s taking line against the drag.' : 'It’s pulling.'} ${T ? 'Hold' : `Hold ${space}`} to keep pressure on and tire it · ${drag}`;
+      return `${T ? 'Hold the button' : `Hold ${space}`} to reel it in · ease off when it surges · ${drag}`;
+    }
     case 'casting': case 'landing': case 'caught': case 'releasing': case 'keeping': case 'retrieving': return '';
     default:
   }
@@ -1058,6 +1206,11 @@ function currentHint() {
     if (!state.tips.walked) return T ? 'Drag on the left to walk · drag on the right to look around' : `${L('KeyW')}${L('KeyA')}${L('KeyS')}${L('KeyD')} to walk · ${kbd('Shift')} jog · drag to look around`;
     if (!state.places.camp && Math.hypot(walker.pos.x - world.camp.firePos.x, walker.pos.z - world.camp.firePos.z) < 60) return 'Follow the path up to camp';
     return '';
+  }
+  if (boat.motor) {
+    const lv = boat.lever;
+    const word = boat.anchored ? 'at anchor' : Math.abs(lv) < 0.03 ? 'neutral' : lv < 0 ? 'astern' : lv < 0.35 ? 'slow ahead' : lv < 0.75 ? 'half ahead' : 'full ahead';
+    return T ? `Throttle: ${word} · the stick drives and steers` : `Throttle: ${word} · ${L('KeyW')}${L('KeyS')} lever · ${L('KeyA')}${L('KeyD')} steer · ${kbd('X')} stop · ${kbd('Z')} anchor`;
   }
   if (!state.tips.rowed) return T ? 'Drag on the left to row · drag on the right to look around' : `${L('KeyW')}${L('KeyA')}${L('KeyS')}${L('KeyD')} to row · drag to look around`;
   if (!state.tips.cast) return T ? 'Hold the button to aim and cast your line' : `Hold ${space} to aim and cast your line`;
@@ -1075,7 +1228,8 @@ const ACTION_LABELS = {
 
 function actionLabel() {
   if (modal === 'note') return 'OK';
-  if (fishing.state === 'reeling' && fishing.pulling) return 'Easy';
+  if (fishing.state === 'reeling' && (fishing.fight?.surgeT > 0 || (fishing.fight?.warned && !fishing.pulling))) return 'Easy';
+  if (fishing.state === 'reeling' && fishing.pulling) return 'Hold';
   if (fishing.state === 'drifting' && fishing.kind === 'ledger') return 'Wind in';
   if (fishing.state === 'drifting' && fishing.kind === 'fly') return 'Strip';
   if (fishing.state === 'drifting' && fishing.kind === 'lure') return 'Reel';
@@ -1130,8 +1284,8 @@ function updateHud() {
   $('cancel-btn').hidden = !(touch.active && fishing.aiming);
 
   const F = fishing.fight;
-  if (fishing.aiming) hud.meter(true, fishing.power, -1, 0, fishing.aimValid ? `${Math.round(fishing.castDist)} m` : '—');
-  else if (fishing.state === 'reeling' && F) hud.meter(true, F.progress, F.tension, F.tension, F.pulling ? 'easy' : 'reel');
+  if (fishing.aiming) hud.meter(true, fishing.power, fishing.release, 1 - fishing.release, fishing.aimValid ? `<span>${Math.round(fishing.castDist)} m</span>${wind.strength > 0.15 ? `<span class="ml-sub">wind ${windArrow()}</span>` : ''}` : '—');
+  else if (fishing.state === 'reeling' && F) hud.meter(true, F.progress, F.tension, F.tension, F.surgeT > 0 ? 'easy!' : F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel', DRAG_LEVELS[F.drag]);
   else hud.meter(false);
 
   if (started && !modal && fishing.baitInWater) {
@@ -1166,7 +1320,9 @@ function updateHud() {
 
 let saveWarned = false;
 function save() {
-  state.boat = { x: boat.pos.x, z: boat.pos.z, heading: boat.heading };
+  state.boat = { x: rowboat.pos.x, z: rowboat.pos.z, heading: rowboat.heading, anchored: rowboat.anchored };
+  state.skiff = { x: skiff.pos.x, z: skiff.pos.z, heading: skiff.heading, anchored: skiff.anchored };
+  state.vessel = boat === skiff ? 'skiff' : 'row';
   state.mode = onFoot ? 'foot' : 'boat';
   state.walker = onFoot ? { x: walker.pos.x, z: walker.pos.z, heading: walker.heading } : null;
   const ok = saveGame(state);
@@ -1229,7 +1385,8 @@ function renderCloud() {
   const kids = [make('h4', 'Cloud save (optional)')];
   if (cloud.signedIn) {
     const when = cloud.lastSync ? Math.round((Date.now() - cloud.lastSync) / 60000) : null;
-    const sync = cloud.paused ? 'paused' : cloud.syncing ? 'syncing…' : cloud.pending ? 'changes waiting to sync' : when == null ? 'not synced yet this visit' : when < 1 ? 'synced just now' : `synced ${when} min ago`;
+    const sync = !offline.online ? 'offline, so syncing is paused until the connection is back'
+      : cloud.paused ? 'paused' : cloud.syncing ? 'syncing…' : cloud.pending ? 'changes waiting to sync' : when == null ? 'not synced yet this visit' : when < 1 ? 'synced just now' : `synced ${when} min ago`;
     kids.push(make('p', `Signed in as ${cloud.email || 'you'}: ${sync}. Your progress is also kept in this browser.`));
     kids.push(btn('Sync now', async () => {
       save();
@@ -1283,6 +1440,50 @@ cloudReady.then(() => {
   if (cloud.signedIn && !cloudStart && saveStatus.canSave) cloud.queue(state, saveStatus.lastSaved);
 });
 
+/* ---------------- offline play ---------------- */
+
+function renderOffline() {
+  const el = $('offline-status');
+  const net = offline.online ? 'Online.' : 'Offline: everything keeps working and saving on this device.';
+  const sync = cloud.signedIn && !offline.online ? ' Cloud sync is paused and will catch up when you’re back online.' : '';
+  let store;
+  if (!offline.supported) store = 'This browser can’t store the game for offline play.';
+  else if (!offline.enabled) store = 'Offline play is switched off on this test server (add ?sw to the address to try it).';
+  else if (offline.ready) store = 'Ready to play offline: the whole game is stored on this device.';
+  else if (offline.error) store = offline.error;
+  else store = offline.total ? `Getting ready to play offline (${offline.cached} of ${offline.total} files)…` : 'Getting ready to play offline…';
+  el.textContent = `${net}${sync} ${store}`;
+  $('update-now').hidden = !offline.updateReady;
+  $('clock-net').hidden = offline.online;
+  const t = $('title-offline');
+  t.hidden = !offline.enabled || (!offline.ready && !offline.error);
+  t.classList.toggle('ok', offline.ready);
+  t.textContent = offline.ready ? 'Ready to play offline' : offline.error;
+}
+
+function updateNow() {
+  save();
+  if (!applyUpdate()) location.reload();
+}
+
+setupOffline((event) => {
+  renderOffline();
+  if (event === 'ready') hud.toast('Ready to play offline: the whole game is stored on this device, so it starts and plays even without a connection.', 7);
+  if (event === 'update') {
+    // On the title screen, take the new version straight away; mid-game, ask first.
+    if (!started) updateNow();
+    else hud.toast('A new version of Slow Tide is ready. Open the journal (J) and choose Update; your progress is kept.', 8);
+  }
+  if (event === 'offline') hud.toast(`You’re offline. Everything keeps working and saving on this device.${cloud.signedIn ? ' Cloud sync is paused until you’re back online.' : ''}`, 6);
+  if (event === 'online') {
+    if (cloud.signedIn && cloud.pending) hud.toast('Back online. Syncing your progress…', 4);
+    cloud.reconnected(state, saveStatus.lastSaved);
+  }
+  if (modal === 'journal') renderCloud();
+});
+renderOffline();
+$('update-now').addEventListener('click', updateNow);
+
 // A small "are you sure?" with any buttons we need.
 function ask(title, text, buttons) {
   $('confirm-title').textContent = title;
@@ -1323,7 +1524,7 @@ function startNewGame() {
     {
       text: 'Start a new game', cls: 'danger', run: () => {
         cloud.replaceNextSync();
-        newGame({ quality: state.quality, volumes: state.volumes, music: state.music });
+        newGame({ quality: state.quality, volumes: state.volumes, music: state.music, difficulty: state.difficulty });
         location.reload();
       },
     },
@@ -1376,9 +1577,10 @@ function begin() {
 }
 
 function openJournal() {
-  journal.open({ boat, walker: onFoot ? walker : null, camp: world.camp.firePos });
+  journal.open({ boat: rowboat, skiff, walker: onFoot ? walker : null, camp: world.camp.firePos });
   renderSaveStatus();
   renderCloud();
+  renderOffline();
   modal = 'journal';
   audio.page();
   if (fishing.aiming) fishing.cancel();
@@ -1446,6 +1648,11 @@ input.on('press', (code, key) => {
   else if (code === 'Digit1') pickRod(0);
   else if (code === 'Digit2') pickRod(1);
   else if (key === 'g') looseFeed();
+  else if (key === 'z') toggleAnchor();
+  else if (key === 'x' && !onFoot && boat.motor) {
+    boat.lever = 0;
+    hud.flash('Motor to neutral', t, 1.4);
+  }
   else if (key === 'c') cycleView();
   else if (key === 'r') resetView();
   else if (key === 'f') toggleFinder();
@@ -1501,6 +1708,10 @@ $('prompt').addEventListener('click', () => {
   if (act) act.run();
 });
 $('set-quality').addEventListener('click', cycleQuality);
+$('set-difficulty').addEventListener('click', cycleDifficulty);
+$('title-difficulty').addEventListener('click', cycleDifficulty);
+applyDifficulty();
+fishing.drags = state.gear.drag;
 $('save-download').addEventListener('click', downloadSave);
 $('save-load').addEventListener('click', () => $('save-file').click());
 $('save-file').addEventListener('change', (e) => {
@@ -1644,11 +1855,30 @@ function tick(now, manual = false) {
       const yaw = rig.yaw, fx_ = Math.sin(yaw), fz_ = Math.cos(yaw);
       move.x = fx_ * ti + fz_ * si;
       move.z = fz_ * ti - fx_ * si;
+    } else if (boat.motor) {
+      // The throttle lever stays where you leave it (on a touch screen the stick drives it
+      // directly). Coming back through neutral it pauses there before going astern.
+      if (touch.active && input.virtual.throttle !== 0) boat.lever = clamp(input.virtual.throttle, -0.4, 1);
+      else if (touch.active) boat.lever = damp(boat.lever, 0, 2, dt);
+      else if (ti) {
+        const was = boat.lever;
+        leverHold -= dt;
+        if (leverHold <= 0) boat.lever = clamp(boat.lever + ti * 0.7 * dt, -0.4, 1);
+        if (was > 0 && boat.lever <= 0 && ti < 0) { boat.lever = 0; leverHold = 0.45; }
+        if (was < 0 && boat.lever >= 0 && ti > 0) { boat.lever = 0; leverHold = 0.45; }
+      } else leverHold = 0;
+      if (boat.anchored && boat.lever > 0.05) {
+        boat.lever = 0;
+        hud.flash('The anchor is down: raise it first (Z)', t, 2);
+      }
+      throttle = boat.lever;
+      steer = si;
     } else {
       throttle = ti;
       steer = si;
     }
   }
+  if (boat.motor && (onFoot || modal)) throttle = 0;
   if (throttle !== 0) {
     rowTime += dt;
     if (rowTime > 3 && !state.tips.rowed) {
@@ -1666,6 +1896,17 @@ function tick(now, manual = false) {
   }
 
   boat.update(dt, t, throttle, steer, env.lantern);
+  otherBoat().update(dt, t, 0, 0, env.lantern);
+  keepBoatsApart();
+  // The motor: a putter at idle when you're aboard, rising with the throttle. Fish nearby
+  // hear it, so slow down (or anchor) before you fish.
+  const motorOn = !onFoot && boat === skiff;
+  audio.engine?.(motorOn ? Math.max(0.12, Math.abs(skiff.lever) * (skiff.tilted ? 0.5 : 1)) : 0);
+  motorNoiseT -= dt;
+  if (motorOn && Math.abs(skiff.lever) > 0.25 && motorNoiseT <= 0) {
+    motorNoiseT = 0.5;
+    eco.startle(skiff.pos.x, -0.6, skiff.pos.z, 5 + skiff.speed * 1.4, 0.7);
+  }
   if (onFoot) walker.update(dt, t, move, { jog: input.hasCode('ShiftLeft', 'ShiftRight'), locked: fishing.busy, obstacles: world.obstacles });
   fishing.update(dt, t, rig.yaw, started && !modal && input.action);
 
@@ -1683,7 +1924,8 @@ function tick(now, manual = false) {
   audio.setUnderwater(sub);
   underwater.update(dt, t, camera, env, weather.rain);
   fishRenderer.update(dt, camera, env.night, sub > 0.5);
-  world.update(dt, t, env, { fireLevel: camp.fireLevel, hatchLevel: hatchLevel(), hour: state.hour });
+  updateWind(dt * Math.min(speed, 10));
+  world.update(dt, t, env, { fireLevel: camp.fireLevel, hatchLevel: hatchLevel(), hour: state.hour, wind: 0.5 + wind.strength * 1.3 });
   updateRain(dt);
   mist.update(t, state.hour, env, camera);
   surfaceUniforms.uWetTop.value = 0.22 + 0.05 * Math.sin(t * 0.35) + weather.rain * 0.12;
@@ -1754,6 +1996,22 @@ function tick(now, manual = false) {
 }
 
 let wadeT = 0;
+let leverHold = 0;
+let motorNoiseT = 0;
+
+// The two boats bump gently instead of sailing through each other.
+function keepBoatsApart() {
+  const a = rowboat.pos, b = skiff.pos;
+  const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz);
+  if (d >= 2.2 || d < 1e-4) return;
+  const nx = dx / d, nz = dz / d, push = (2.2 - d) / 2;
+  a.x -= nx * push; a.z -= nz * push;
+  b.x += nx * push; b.z += nz * push;
+  for (const [v, s] of [[rowboat.vel, -1], [skiff.vel, 1]]) {
+    const vn = (v.x * nx + v.z * nz) * s;
+    if (vn < 0) { v.x -= nx * vn * s; v.z -= nz * vn * s; }
+  }
+}
 const _rf = new THREE.Vector3();
 // Everything that has to happen to put a frame on screen: the ripple field (centred
 // between you and your line, or a little ahead of you), the reflection, then the view.
@@ -1792,7 +2050,8 @@ requestAnimationFrame((now) => {
 
 // A small handle for tinkering from the browser console, e.g. slowTide.setHour(19).
 window.slowTide = {
-  state, boat, walker, fishing, env, weather, renderer, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world,
+  state, walker, fishing, env, weather, renderer, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world,
+  get boat() { return boat; }, // the boat you're in (or last used)
   reflection, ripples, mist, fx,
   setHour: (h) => { state.hour = ((h % 24) + 24) % 24; },
   setRain: (r) => { weather.target = r; weather.rain = r; },
@@ -1803,6 +2062,19 @@ window.slowTide = {
     if (!onFoot) setFoot(true);
   },
   board: () => board(),
+  rowboat, skiff, wind,
+  // Set the breeze: strength 0–1, blowing towards dir (radians, like a heading).
+  setWind: (strength, dir = wind.dir) => {
+    Object.assign(wind, { strength, target: strength, dir, turn: 0, timer: 1e9 });
+  },
+  // Put the boat you're not in at (x, z), e.g. alongside for testing.
+  placeOther: (x, z, heading = 0) => otherBoat().place(x, z, heading),
+  // Climb into the skiff at (x, z).
+  useSkiffAt: (x, z, heading = 0) => {
+    skiff.place(x, z, heading);
+    skiff.setAnchor(false);
+    board(skiff);
+  },
   // How loading went and whether the game is saving, e.g. { outcome: 'loaded', canSave: true, … }.
   saveInfo: () => ({ outcome: loaded.outcome, ...saveStatus }),
   get modal() { return modal; },
@@ -1827,9 +2099,10 @@ window.slowTide = {
     draw();
   },
   // Step the game by hand (handy for testing while the tab is in the background).
-  advance: (seconds, fps = 30) => {
+  advance: (seconds, fps = 30, render = true) => {
     let now = last;
     for (let i = 0; i < seconds * fps; i++) tick((now += 1000 / fps), true);
+    if (!render) return;
     reflection.active = false;
     draw();
   },

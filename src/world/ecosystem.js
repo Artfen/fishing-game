@@ -21,6 +21,7 @@ const _g = { x: 0, z: 0 };
 export class Ecosystem {
   constructor(habitat) {
     this.habitat = habitat;
+    this.biteScale = 1; // how long a fish holds the bait (the difficulty setting changes it)
     this.agents = [];
     this.schools = [];
     this.bySpecies = Object.fromEntries(FISH.map((f) => [f.id, []]));
@@ -806,7 +807,7 @@ export class Ecosystem {
     a.state = 'bite';
     a.t = 0;
     a.biteKind = kind;
-    a.biteT = WINDOWS[kind] ?? BITE_WINDOW + (a.L.caution > 1.5 ? 0.6 : 0);
+    a.biteT = (WINDOWS[kind] ?? BITE_WINDOW + (a.L.caution > 1.5 ? 0.6 : 0)) * this.biteScale;
     // It swims off with the bait, away from you (a long way, if it's a carp on a run).
     const dx = b.x - b.anglerX, dz = b.z - b.anglerZ, l = Math.hypot(dx, dz) || 1;
     const go = kind === 'run' ? 9 : kind === 'strike' || kind === 'sip' ? 0.8 : 1.6;

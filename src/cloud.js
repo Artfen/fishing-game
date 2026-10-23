@@ -55,6 +55,7 @@ export class Cloud {
     this.syncing = false;
     this.paused = false;   // the cloud save is from a newer game version: leave it alone
     this.timer = null;
+    this.waiting = false;  // changes made while offline (or while the cloud couldn't be reached)
     this.onChange = () => {};
   }
 
@@ -306,11 +307,12 @@ export class Cloud {
             : 'Signed in. Your progress from this browser is now saved to your account.';
         }
       }
-      await this.pushNow(state, Date.now());
+      if (await this.pushNow(state, Date.now())) this.waiting = false;
       this.message = note;
       return { state, note };
     } catch (err) {
-      this.changed(`Couldn’t sync just now (${err.message}). Your progress is saved in this browser and will sync later.`);
+      this.waiting = true;
+      this.changed(navigator.onLine === false ? '' : `Couldn’t sync just now (${err.message}). Your progress is saved in this browser and will sync later.`);
       return null;
     } finally {
       this.syncing = false;
@@ -347,17 +349,33 @@ export class Cloud {
   queue(state, savedAt) {
     if (!this.signedIn || this.paused) return;
     clearTimeout(this.timer);
+    this.timer = null;
+    // Offline: the save in this browser is the queue; it goes up when the connection is back.
+    if (navigator.onLine === false) {
+      this.waiting = true;
+      return;
+    }
     this.timer = setTimeout(() => this.flush(state, savedAt), PUSH_DELAY);
+  }
+
+  // The connection is back: send whatever was saved meanwhile (combining with anything newer).
+  reconnected(state, savedAt) {
+    if (this.signedIn && !this.paused && this.waiting) this.flush(state, savedAt);
   }
 
   async flush(state, savedAt, keepalive = false) {
     clearTimeout(this.timer);
     this.timer = null;
     if (!this.signedIn || this.paused || (this.syncing && !keepalive)) return;
+    if (navigator.onLine === false) {
+      this.waiting = true;
+      return;
+    }
     this.syncing = true;
     try {
-      await this.pushNow(state, savedAt, keepalive);
+      if (await this.pushNow(state, savedAt, keepalive)) this.waiting = false;
     } catch (err) {
+      if (err.status === 0) this.waiting = true;
       if (err.status === 401 || err.status === 403) {
         this.session = null;
         this.writeSession();
@@ -369,7 +387,7 @@ export class Cloud {
     }
   }
 
-  get pending() { return !!this.timer; }
+  get pending() { return !!this.timer || this.waiting; }
 
   // Starting a new game or loading a copy: the next sync replaces the cloud save with it.
   replaceNextSync() {
