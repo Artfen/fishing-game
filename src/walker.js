@@ -11,6 +11,8 @@ const RADIUS = 0.3;
 const DEEP = -0.6;     // can wade up to about knee deep, no further
 const STEEP = 1.15;    // rise per metre that is too steep to climb
 const UP = new THREE.Vector3(0, 1, 0);
+const HOLD = new THREE.Vector3(0.08, 1.02, 0.28); // where the figure holds the rod
+const EYE = 1.6;      // eye height in first person
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3();
 const _p = { x: 0, z: 0 };
 
@@ -46,6 +48,11 @@ export class Walker {
     this.onStep = null;
     this.onSplash = null;
     this.pose = { fishing: 0, rodYaw: 0, rodPitch: 0.85, bend: 0.05 };
+    // In first person (set by the game): where a landed fish is held up in view, and which way
+    // you face for it.
+    this.viewHold = null;
+    this.faceYaw = null;
+    this.selfHidden = false;
     this.build();
   }
 
@@ -59,6 +66,10 @@ export class Walker {
     const boot = new THREE.MeshLambertMaterial({ color: '#5a3d2b' });
     const dark = new THREE.MeshLambertMaterial({ color: '#2b2522' });
     const pack = new THREE.MeshLambertMaterial({ color: '#6b5034' });
+    const flapMat = new THREE.MeshLambertMaterial({ color: '#5a4029' });
+    const matMat = new THREE.MeshLambertMaterial({ color: '#4f7a6a' });
+    const tubeMat = new THREE.MeshLambertMaterial({ color: '#3d4a3a' });
+    this.selfMats = [coat, skin, hat, pants, boot, dark, pack, flapMat, matMat, tubeMat];
     const cast = (m) => { m.castShadow = true; return m; };
 
     this.body = new THREE.Group();
@@ -78,14 +89,14 @@ export class Walker {
     // The backpack with a rolled mat on top
     const bag = cast(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.38, 0.18), pack));
     bag.position.set(0, 0.3, -0.22);
-    const flap = new THREE.Mesh(new THREE.BoxGeometry(0.31, 0.12, 0.19), new THREE.MeshLambertMaterial({ color: '#5a4029' }));
+    const flap = new THREE.Mesh(new THREE.BoxGeometry(0.31, 0.12, 0.19), flapMat);
     flap.position.set(0, 0.44, -0.22);
-    const mat = cast(new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.36, 8), new THREE.MeshLambertMaterial({ color: '#4f7a6a' })));
+    const mat = cast(new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.36, 8), matMat));
     mat.rotation.z = Math.PI / 2;
     mat.position.set(0, 0.55, -0.24);
     this.torso.add(bag, flap, mat);
     // A spare rod tube slung on the pack
-    this.tube = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.1, 6), new THREE.MeshLambertMaterial({ color: '#3d4a3a' }));
+    this.tube = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.1, 6), tubeMat);
     this.tube.position.set(0.13, 0.42, -0.3);
     this.tube.rotation.z = -0.35;
     this.torso.add(this.tube);
@@ -143,7 +154,7 @@ export class Walker {
     this.rods = {};
     for (const [id, def] of Object.entries(RODS)) {
       const rod = buildRod(def.look);
-      rod.group.position.set(0.08, 1.02, 0.28);
+      rod.group.position.copy(HOLD);
       rod.group.visible = false;
       this.body.add(rod.group);
       this.rods[id] = rod;
@@ -175,7 +186,24 @@ export class Walker {
   }
 
   holdPoint(out) {
+    if (this.viewHold) return out.copy(this.viewHold);
     return this.body.localToWorld(out.set(0.0, 1.25, 0.55));
+  }
+
+  // Your eyes, for the first-person view: steady, with just a hint of your step.
+  eyePoint(out) {
+    return this.group.localToWorld(out.set(0, EYE + this.body.position.y * 0.6, 0.1));
+  }
+
+  // In first person you don't see yourself, but you still cast a shadow on the bank: the
+  // figure draws nothing on screen while its shadow is still made.
+  setSelfHidden(on) {
+    if (on === this.selfHidden) return;
+    this.selfHidden = on;
+    for (const m of this.selfMats) {
+      m.colorWrite = !on;
+      m.depthWrite = !on;
+    }
   }
 
   // Can you stand at (x, z)? Not in deep water, and not up (or down) a bank too steep to
@@ -254,6 +282,7 @@ export class Walker {
     // Rod
     this.rod.visible = fishing > 0.02;
     this.tube.visible = !this.rod.visible;
+    this.rod.position.copy(HOLD);
     this.rod.rotation.y = this.pose.rodYaw;
     this.rod.rotation.x = this.pose.rodPitch;
     bendRod(this.active, this.pose.bend);

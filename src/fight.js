@@ -22,23 +22,24 @@ export const DEFAULT_DRAG = 2;
 export const DIFFICULTY = {
   relaxed: {
     id: 'relaxed', label: 'Relaxed',
-    bite: 1.6, force: 0.8, shock: 0.5, tire: 1.5, snag: 2.2, light: 3.2, warn: 0.75, teeth: 0.5, cast: 0.6,
+    bite: 1.6, force: 0.8, shock: 0.5, tire: 1.5, snag: 2.2, light: 3.2, warn: 0.75, teeth: 0.5, cast: 0.6, onset: 0.45,
     desc: 'Fish give you longer to strike, pull less hard and tire sooner. The line forgives a lot, fish rarely reach the weed, and casts fly truer.',
   },
   standard: {
     id: 'standard', label: 'Standard',
-    bite: 1, force: 1, shock: 1, tire: 1, snag: 1, light: 2.2, warn: 0.45, teeth: 1, cast: 1,
+    bite: 1, force: 1, shock: 1, tire: 1, snag: 1, light: 2.2, warn: 0.45, teeth: 1, cast: 1, onset: 0.35,
     desc: 'The way Slow Tide is meant to be played. Suitable tackle and a little care land anything.',
   },
   realistic: {
     id: 'realistic', label: 'Realistic',
-    bite: 0.75, force: 1.15, shock: 1.3, tire: 0.85, snag: 0.75, light: 1.7, warn: 0.3, teeth: 1.3, cast: 1.25,
+    bite: 0.75, force: 1.15, shock: 1.3, tire: 0.85, snag: 0.75, light: 1.7, warn: 0.3, teeth: 1.3, cast: 1.25, onset: 0.2,
     desc: 'Shorter bites, stronger fish, less warning before a run and less forgiving casts. Light line and a heavy hand lose fish; the right rod and patience still win.',
   },
 };
 export const DIFFICULTY_IDS = Object.keys(DIFFICULTY);
 
-const SURGE = 0.5; // seconds
+const SURGE = 0.5;  // seconds
+const BREAK = 0.03; // the line parts once it's held at its limit this long (not on a one-frame spike)
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const approach = (v, target, up, down, dt) => (v < target ? Math.min(target, v + up * dt) : Math.max(target, v - down * dt));
 
@@ -67,6 +68,7 @@ export function newFight(sp, size, rod, diff, cover = false, rnd = Math.random) 
     teeth: !!sp.life?.teeth && !rod.line.trace,
     time: 0,
     peak: 0,
+    over: 0,
   };
 }
 
@@ -100,10 +102,13 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
   if (F.pulling) {
     // The first moment of a run is a surge: winding through it jolts the line before the drag
     // can start to slip. Ease off for that moment, then keep the rod up and let the drag work.
+    // The jolt builds as the fish gets going (over diff.onset seconds), so letting go just
+    // after the run starts is not quite too late; the flick before it gives you time.
     let jolt = 0;
     if (F.surgeT > 0) {
       F.surgeT -= dt;
-      if (held) jolt = (0.12 + 0.22 * Math.min(f, 2.2)) * diff.shock * Math.max(0, F.surgeT / SURGE + 0.3);
+      const k = clamp((SURGE - F.surgeT) / diff.onset, 0, 1);
+      if (held) jolt = (0.12 + 0.22 * Math.min(f, 2.2)) * diff.shock * 1.4 * k * k * (3 - 2 * k);
     }
     const hold = held ? 1 : 0.6; // easing off lowers the rod and lets the drag work sooner
     const target = Math.min(f, d) * hold + jolt;
@@ -136,7 +141,8 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
   else F.snagT = Math.max(0, F.snagT - dt * 0.5);
   if (F.snagT > 3.5 * diff.snag) return 'snap:snag';
 
-  if (F.tension >= 1) return d >= 0.9 ? 'snap:drag' : 'snap:tension';
+  F.over = F.tension >= 1 ? F.over + dt : 0;
+  if (F.over > BREAK) return d >= 0.9 ? 'snap:drag' : 'snap:tension';
   return event;
 }
 

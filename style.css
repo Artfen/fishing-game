@@ -312,6 +312,10 @@ kbd {
   stroke-dashoffset: 251.33;
   transition: stroke 0.25s ease;
 }
+/* Ease off: the flick before a run and the surge. */
+#meter.alert .m-track { stroke: rgba(255, 196, 110, 0.55); animation: meterPulse 0.45s ease-in-out infinite alternate; }
+#meter.alert #meter-label { color: #ffd59a; }
+@keyframes meterPulse { from { stroke-width: 6; opacity: 0.6; } to { stroke-width: 10; opacity: 1; } }
 /* Where the reel's drag starts to give line, on the tension ring. */
 .m-drag { fill: var(--hud-ink); stroke: rgba(15, 27, 43, 0.75); stroke-width: 1.5; }
 .m-drag.locked { fill: var(--coral); }

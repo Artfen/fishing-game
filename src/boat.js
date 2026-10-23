@@ -49,6 +49,39 @@ function hullSurface(inset, colorFor) {
   return { geo, rows };
 }
 
+// Keep the sea out of the boat: the floor sits a little below the waterline, so the water
+// surface would show through it. An invisible lid across the hull just above the waterline
+// goes into the depth buffer only, after the hull and before the (transparent) water, so the
+// water is never drawn inside the boat.
+function waterLid(rows) {
+  const y = DRAFT + 0.1;
+  const mid = (rows[0].length - 1) / 2;
+  // Where the inner hull rises through the lid's height on one side of the keel.
+  const cross = (row, dir) => {
+    for (let j = mid; j >= 0 && j < row.length; j += dir) {
+      const a = row[j], b = row[j + dir];
+      if (!b) return null;
+      if (b[1] >= y) {
+        const k = (y - a[1]) / (b[1] - a[1] || 1);
+        return [a[0] + (b[0] - a[0]) * k, y, a[2] + (b[2] - a[2]) * k];
+      }
+    }
+    return null;
+  };
+  const pos = [];
+  let prev = null;
+  for (const row of rows) {
+    const cur = row[mid][1] < y ? [cross(row, -1), cross(row, 1)] : null;
+    if (cur && cur[0] && cur[1] && prev) pos.push(...prev[0], ...prev[1], ...cur[1], ...prev[0], ...cur[1], ...cur[0]);
+    prev = cur && cur[0] && cur[1] ? cur : null;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  const lid = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.DoubleSide }));
+  lid.renderOrder = 0.5;
+  return lid;
+}
+
 function setLimb(mesh, a, b, r) {
   _d.subVectors(b, a);
   const len = _d.length() || 0.001;
@@ -97,6 +130,11 @@ export class Boat {
     this.bumpCooldown = 0;
     // Set by the fishing system each frame.
     this.pose = { fishing: 0, rodYaw: 0, rodPitch: 0.85, bend: 0.05 };
+    // In first person (set by the game): where a landed fish is held up in view, and which way
+    // you face for it.
+    this.viewHold = null;
+    this.faceYaw = null;
+    this.selfHidden = false;
 
     this.buildHull();
     this.buildCharacter();
@@ -174,6 +212,7 @@ export class Boat {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     this.body.add(mesh);
+    this.body.add(waterLid(inner.rows));
   }
 
   buildCharacter() {
@@ -183,6 +222,7 @@ export class Boat {
     const pants = new THREE.MeshLambertMaterial({ color: '#3b4a68' });
     const boot = new THREE.MeshLambertMaterial({ color: '#5a3d2b' });
     const dark = new THREE.MeshLambertMaterial({ color: '#2b2522' });
+    this.selfMats = [coat, skin, hat, pants, boot, dark];
     const cast = (m) => { m.castShadow = true; return m; };
 
     this.torso = new THREE.Group();
@@ -324,6 +364,7 @@ export class Boat {
     for (const [id, def] of Object.entries(RODS)) {
       const rod = buildRod(def.look);
       rod.group.position.set(0.05, 0.8, 0.34 + this.seatZ);
+      rod.hold = rod.group.position.clone();
       rod.group.visible = false;
       this.body.add(rod.group);
       this.rods[id] = rod;
@@ -355,7 +396,23 @@ export class Boat {
 
   // Where a landed fish is held up for a look.
   holdPoint(out) {
+    if (this.viewHold) return out.copy(this.viewHold);
     return this.body.localToWorld(out.set(-0.15, 1.45, 1.05 + this.seatZ));
+  }
+
+  // Your eyes in first person: where you sit, rising and rolling with the boat.
+  eyePoint(out) {
+    return this.body.localToWorld(out.set(0, 1.28, this.seatZ + 0.1));
+  }
+
+  // In first person the figure draws nothing on screen, but still casts its shadow.
+  setSelfHidden(on) {
+    if (on === this.selfHidden) return;
+    this.selfHidden = on;
+    for (const m of this.selfMats) {
+      m.colorWrite = !on;
+      m.depthWrite = !on;
+    }
   }
 
   // Where a released fish goes back in: just off the side.
@@ -580,6 +637,7 @@ export class Boat {
     // Rod
     this.rod.visible = this.occupied && fishing > 0.02;
     this.rodStowed.visible = !this.rod.visible;
+    this.rod.position.copy(this.active.hold);
     this.rod.rotation.y = this.pose.rodYaw;
     this.rod.rotation.x = this.pose.rodPitch;
     bendRod(this.active, this.pose.bend);

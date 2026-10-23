@@ -16,6 +16,14 @@ python3 serve.py
 
 Then open <http://localhost:8642>. `serve.py` is a tiny static server with caching turned off, so a browser refresh always picks up your edits. It also answers the game's cloud-save question with "not set up", so locally you always play as a guest. On `localhost` the game skips its offline cache so your edits always show; add `?sw` to the address (<http://localhost:8642/?sw>) to try offline play locally. Any static server works too.
 
+### Tests
+
+```bash
+node --import ./tests/setup.mjs --test 'tests/*.test.mjs'
+```
+
+Node 22 or newer, nothing to install. The tests check saves (version upgrades, the backup and unreadable copies, a newer save never written over, full storage, junk cleaned up, combining two saves), the fight (careful play lands big carp at every difficulty, a player watching for the flick lands nearly all of them on Standard, winding through surges breaks the line, locked drags, pike teeth, weed), and that `sw.js` lists every file for offline play. `tests/setup.mjs` loads three.js from `vendor/` so the game's own modules run as they are.
+
 ## Put it online
 
 **Vercel** (what the live game uses): the project is imported from GitHub with the framework preset *Other*. `vercel.json` tells Vercel to run `node tools/build-sw.mjs` on every deploy (it writes the list of game files, and a version made from their contents, into `sw.js` for offline play) and to serve the repository root. Every push to `main` redeploys the site, and every other branch gets its own preview address, so you can try a branch before merging it. No environment variables are needed, unless you want [cloud saves](#cloud-saves-optional). The `api/` folder holds the one optional function for those; Vercel picks it up by itself.
@@ -50,7 +58,7 @@ With a keyboard and mouse:
 | Shift (hold) | Jog on shore. Trout feel heavy footsteps, so walk near the stream |
 | Drag / scroll | Look around / zoom (in every view) |
 | Space (hold) | Start aiming. The power meter swings out and back; the ring on the water shows where a clean release would land |
-| A / D while aiming | Swing the cast left or right |
+| A / D while aiming | Swing the cast left or right (in first person, turn your head and the cast with it) |
 | Release Space | Cast. Let go when the ring is where you want it. Releasing as the meter slows at the top or bottom of its swing is the most accurate |
 | Esc or right-click while aiming | Put the cast down without casting |
 | W / S with the line out | Float rod: bait shallower / deeper. Spinning rod: reel slower / faster |
@@ -67,15 +75,16 @@ With a keyboard and mouse:
 | G | Throw a pouch of loose bait around a carp rig |
 | Z | Drop or raise the anchor (in either boat, when slow) |
 | X | Motor skiff: throttle to neutral |
-| C | Next view: boat (or on foot) → underwater → watching your bait |
-| R | Back to the boat view (or over your shoulder) |
+| V | First person on or off: through your own eyes, the rod in your hands |
+| C | Next view: boat (or on foot) → first person → underwater → watching your bait |
+| R | Back to the boat view (or over your shoulder), first person off |
 | F | Fish finder on or off |
-| J or Tab | Journal (with settings: graphics, difficulty and volumes) |
+| J or Tab | Journal (with settings: graphics, difficulty, fishing view and volumes) |
 | T (hold) | Let time drift by quickly |
 | M / H | Music on or off / hide the interface |
 | Esc | Reel in the line, leave the underwater view, close a panel |
 
-On a phone or tablet the controls appear on screen. Drag on the **left** half to row, drive or walk (a stick appears under your thumb; in the motor skiff, push it forward for throttle), drag on the **right** half to look around, and pinch to zoom. While a fish is on, stick up/down sets the drag. The round button on the right does all the fishing: hold to aim and let go to cast, tap to strike, hold to reel. Its label tells you what it will do next. Prompts such as *Step ashore* or *Camp* are buttons: tap them. The pack button opens your backpack, the eye button switches views, the sonar button shows the fish finder, and the hourglass lets time drift while you hold it.
+On a phone or tablet the controls appear on screen. Drag on the **left** half to row, drive or walk (a stick appears under your thumb; in the motor skiff, push it forward for throttle), drag on the **right** half to look around, and pinch to zoom. While a fish is on, stick up/down sets the drag. The round button on the right does all the fishing: hold to aim and let go to cast, tap to strike, hold to reel. Its label tells you what it will do next. Prompts such as *Step ashore* or *Camp* are buttons: tap them. The pack button opens your backpack, the eye button switches views (first person among them), the sonar button shows the fish finder, and the hourglass lets time drift while you hold it.
 
 Nothing can go wrong. A missed bite just means another will come; a snapped line only loses that fish (and the game tells you why it broke); and you can never starve.
 
@@ -101,6 +110,8 @@ The rod decides how you fish; what you tie on decides which fish come. (Strike t
 
 A hooked fish rests and runs in turns. When it rests, hold Space to wind it in. Just before each run it flicks on the surface: **ease off** for the first moment of the run (the *surge*), then hold again to keep the rod up and the pressure on, which tires it. The outer ring by the rod shows how close it is; the inner ring is the line's tension, and the small dot on it is where your reel's **drag** starts to give line.
 
+The flick is hard to miss: a splash and a sound where the fish is, the rod tip nods, the ring pulses amber and reads *flick!* (on a phone the button says *Easy*, and phones that can will buzz). The jolt of a surge builds over its first moment, so letting go as soon as you notice the run is usually still in time; holding on through it is not.
+
 The drag is a clutch: when a fish pulls harder than the drag setting, the reel lets line go instead of the line breaking. W/S (or the stick) tightens or loosens it during a fight. A light drag is safe but slow; a firm drag tires fish faster but leaves less margin. Each rod starts with a sensible setting (light for fine lines), and the game remembers yours.
 
 When a line does break, a note says exactly why:
@@ -120,7 +131,7 @@ Journal → Settings (or the title screen) → **Difficulty**. Change it wheneve
 | --- | --- | --- | --- |
 | Time to strike after a bite | Longer (×1.6) | Normal | Shorter (×0.75) |
 | How hard fish pull | Softer | Normal | Harder |
-| Surges and line tension | Forgiving | Normal | Unforgiving |
+| Surges and line tension | Forgiving | Normal: the jolt builds over about a third of a second | Unforgiving: it builds fast |
 | Warning flick before a run | Early | Normal | Late |
 | Fish reaching weed on light line | Rarely | Sometimes | Often |
 | Cast scatter | Less | Normal | More |
@@ -130,6 +141,10 @@ The right rod, a sensible drag and easing off at the surge land fish at every le
 ### Casting
 
 Hold Space and watch the meter swing out and back. The ring on the water moves with it; let go when it's where you want your rig. Let go as the meter slows at the top (a long cast) or the bottom (a short one) and the cast flies true. Let go in a hurry mid-swing and it strays. Rods differ: the fly rod and trout rod are precise; the carp rod casts furthest but less precisely. **Wind** pushes light tackle (flies, small lures) downwind, so aim a little into it: the arrow next to the distance shows which way it blows. A heavy carp lead hardly drifts. After each cast a note says how it went: *Right on the mark!*, *2 m short*, *1 m wide right: the wind carried it*.
+
+### First person
+
+Raise the rod to cast and the view glides into your own eyes: the rod in your hands, the line running out to the float, the water in front of you. Look around by dragging; while you aim, A and D turn your head and the cast with it. The rod moves with what you're doing: back over your shoulder as the meter swings up, a flick and a whip of the tip as the cast goes out, low for a lure, high and bending against a running fish, which your head follows if it runs off to the side. Land a fish and you hold it up in front of you for a good look before the card. Walk or row off and the view returns over your shoulder. **V** switches in or out at any time (you can walk, row or drive the skiff in first person too); in a boat the view turns with the boat and rolls a little with it. If you'd rather always see yourself, set **Fishing view: Over the shoulder** in the journal's settings.
 
 ### Rods and tackle
 
@@ -285,7 +300,8 @@ Not on Vercel? Put the URL and anon key in `src/cloud-config.js` instead. The an
 | `src/world/mist.js` | Drifting morning and evening mist over the water |
 | `src/world/surface.js` | Fine surface detail: grain and the wet band on the shore, sand ripples, wood grain, cork |
 | `src/world/sky.js` | Day cycle colours, sun and moon, sky dome, clouds |
-| `src/camera.js` | The views (boat, on foot, underwater, bait), their limits and smooth transitions |
+| `src/camera.js` | The views (boat, on foot, first person, underwater, bait), their limits and smooth transitions |
+| `src/firstperson.js` | First person: where the rod is held in front of your eyes for each moment of fishing, and its springy whip |
 | `src/boat.js` | The rowing boat and the motor skiff: hull, rower or helmsman, oars or outboard, rods, lantern and anchor; rowing and motor physics and collisions |
 | `src/walker.js` | You on foot: the character, walking and jogging, wading, slopes and obstacles |
 | `src/tackle.js` | Rods (line, range, kind of fishing), baits, lures and flies, and the backpack loadout |
@@ -333,6 +349,7 @@ slowTide.teleport(140, -16)   // move the boat straight to the cove
 slowTide.walkTo(-99, -2)      // stand at camp (on foot)
 slowTide.board()              // back into the boat
 slowTide.useSkiffAt(20, 30)   // climb into the motor skiff out in the bay
+slowTide.firstPerson()        // into first person (firstPerson(false) to come back out)
 slowTide.setWind(0.6)         // a fresh breeze (0 to 1)
 slowTide.gear('fly', 'nymph') // hand yourself a rod and tackle
 slowTide.reset()              // start a new game (the old save is kept aside)

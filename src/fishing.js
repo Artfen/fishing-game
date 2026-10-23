@@ -81,6 +81,13 @@ export class Fishing {
     this.from = new THREE.Vector3();
     this.to = new THREE.Vector3();
     this.fishPos = new THREE.Vector3();
+    // First person (set by the game): the camera position, so the float can be drawn a little
+    // larger far away and stay readable from eye height, and how long you hold a landed fish
+    // up in front of you before the card.
+    this.viewer = null;
+    this.admire = 0;
+    this.lineEnd = new THREE.Vector3();
+    this.lineSag = 0;
 
     this.bobber = buildFloat();
     this.bobber.visible = false;
@@ -731,6 +738,7 @@ export class Fishing {
     let rodPitch = this.kind === 'ledger' ? 1.15 : 0.85, bend = 0.05;
     let rodYaw = this.state === 'idle' ? 0 : clamp(wrapAngle(Math.atan2(this.bob.x - A.pos.x, this.bob.z - A.pos.z) - A.heading), -2, 2);
     const fishMesh = this.fight ? this.fishMeshes[this.fight.sp.id] : null;
+    const face = A.faceYaw ?? A.heading; // the way you face to look at a fish in your hands
 
     switch (this.state) {
       case 'aiming': {
@@ -819,20 +827,23 @@ export class Fishing {
         const F = this.fight;
         if (!F) break;
         rodPitch = 0.95 - F.tension * 0.25;
-        bend = 0.25 + F.tension * 0.95 + (F.pulling ? Math.sin(t * 22) * 0.06 : 0);
+        bend = 0.25 + F.tension * 0.95 + (F.pulling ? Math.sin(t * 22) * 0.06 : 0) + this.rodBounce;
         break;
       }
       case 'landing': {
         const hp = A.holdPoint(_w);
         const u = clamp(this.t / 0.8, 0, 1);
-        fishMesh.position.lerpVectors(this.from, hp, smoothstep(0, 1, u));
-        fishMesh.position.y += Math.sin(u * Math.PI) * 1.0;
-        fishMesh.rotation.set(-1.25 + Math.sin(t * 14) * 0.15, A.heading + Math.PI / 2, 0, 'YXZ');
-        fishMesh.userData.swim.set(t * 18, 1);
+        if (u < 1) {
+          fishMesh.position.lerpVectors(this.from, hp, smoothstep(0, 1, u));
+          fishMesh.position.y += Math.sin(u * Math.PI) * 1.0;
+          fishMesh.rotation.set(-1.25 + Math.sin(t * 14) * 0.15, face + Math.PI / 2, 0, 'YXZ');
+          fishMesh.userData.swim.set(t * 18, 1);
+        } else this.holdUp(fishMesh, t, face);
         rodPitch = 1.1;
         bend = 0.7;
         rodYaw = 0.2;
-        if (u >= 1) {
+        // In first person you hold it up for a good look before the card comes.
+        if (this.t >= 0.8 + this.admire) {
           this.state = 'caught';
           this.t = 0;
           this.hooks.onCatch(this.fight.sp, this.fight.size, this.fight.agent, { rod: this.rod, item: this.item });
@@ -840,12 +851,7 @@ export class Fishing {
         break;
       }
       case 'caught': {
-        const hp = A.holdPoint(_w);
-        fishMesh.position.copy(hp);
-        fishMesh.position.y += Math.sin(t * 2) * 0.03;
-        const wig = Math.sin(t * 9) * Math.max(0, Math.sin(t * 1.3)) * 0.25;
-        fishMesh.rotation.set(-1.2 + wig * 0.3, A.heading + Math.PI / 2 + wig, 0, 'YXZ');
-        fishMesh.userData.swim.set(t * 10, 0.4 * Math.max(0.2, Math.sin(t * 1.3)));
+        this.holdUp(fishMesh, t, face);
         rodPitch = 1.15;
         bend = 0.6;
         rodYaw = 0.2;
@@ -855,7 +861,7 @@ export class Fishing {
         const u = clamp(this.t / 0.65, 0, 1);
         fishMesh.position.lerpVectors(this.from, this.to, u);
         fishMesh.position.y = lerp(this.from.y, -0.3, u) + Math.sin(u * Math.PI) * 0.6;
-        fishMesh.rotation.set(lerp(-1.2, 1.3, u), A.heading + Math.PI / 2, 0, 'YXZ');
+        fishMesh.rotation.set(lerp(-1.2, 1.3, u), face + Math.PI / 2, 0, 'YXZ');
         rodPitch = 0.9;
         if (u >= 1) {
           fishMesh.visible = false;
@@ -873,8 +879,8 @@ export class Fishing {
         // Into the creel on your back (or the bucket in the boat).
         const u = clamp(this.t / 0.5, 0, 1);
         A.holdPoint(_w);
-        _w.x -= Math.sin(A.heading) * 0.6;
-        _w.z -= Math.cos(A.heading) * 0.6;
+        _w.x -= Math.sin(face) * 0.6;
+        _w.z -= Math.cos(face) * 0.6;
         fishMesh.position.lerpVectors(this.from, _w, smoothstep(0, 1, u));
         fishMesh.scale.setScalar(this.fight.agent.scale * (1 - u * 0.9));
         rodPitch = 0.9;
@@ -904,6 +910,30 @@ export class Fishing {
     pose.bend = damp(pose.bend, bend, 10, dt);
 
     this.updateVisuals(t, dt, fishMesh);
+  }
+
+  // A landed fish held up in your hands, wriggling now and then.
+  holdUp(fishMesh, t, face) {
+    this.angler.holdPoint(fishMesh.position);
+    fishMesh.position.y += Math.sin(t * 2) * 0.03;
+    const wig = Math.sin(t * 9) * Math.max(0, Math.sin(t * 1.3)) * 0.25;
+    fishMesh.rotation.set(-1.2 + wig * 0.3, face + Math.PI / 2 + wig, 0, 'YXZ');
+    fishMesh.userData.swim.set(t * 10, 0.4 * Math.max(0.2, Math.sin(t * 1.3)));
+  }
+
+  // In first person the rod moves with the camera, which settles after this update: catch the
+  // line (and a fish held up in front of you) up with it, so nothing trails a frame behind.
+  afterView(t) {
+    const A = this.angler, s = this.state;
+    A.rodTip.getWorldPosition(this.tip);
+    const mesh = this.fight ? this.fishMeshes[this.fight.sp.id] : null;
+    if (mesh && (s === 'caught' || (s === 'landing' && this.t >= 0.8))) {
+      this.holdUp(mesh, t, A.faceYaw ?? A.heading);
+      mesh.updateMatrixWorld();
+    }
+    if (!this.line.visible) return;
+    if (this.holdingLine && mesh) mesh.localToWorld(this.lineEnd.set(0, 0, 0.5));
+    this.setLine(this.tip, this.lineEnd, this.lineSag);
   }
 
   // Where the line meets the water on its way from the rod tip down to the hook.
@@ -1137,12 +1167,16 @@ export class Fishing {
       F.dir = Math.random() < 0.5 ? -1 : 1;
       F.creaked = false;
     }
-    // A flick on the surface just before each run, so it can be read in time.
+    // A flick on the surface just before each run, so it can be read in time; the rod tip
+    // nods with it.
     if (ev === 'warn') {
       this.fx.splash(this.fishPos.x, 0.05, this.fishPos.z, 6, 1.6, 0.5);
       this.fx.ripple(this.fishPos.x, this.fishPos.z, 1.0, 0.9, 0.5);
       this.audio.flick();
+      this.rodBounce = 0.3;
+      this.hooks.cue?.('warn');
     }
+    if (ev === 'run') this.hooks.cue?.('run');
     // The line creaks when it's close to its limit.
     if (F.tension > 0.86 && !F.creaked) {
       F.creaked = true;
@@ -1213,6 +1247,10 @@ export class Fishing {
     // The float (float rods), the indicator (nymphs), the lead (carp rigs).
     this.bobber.visible = lineVisible && !holdingFish && kind === 'float';
     this.bobber.position.copy(this.bob);
+    // From eye height a float at casting range is a speck: let it grow a little with distance.
+    const far = this.viewer ? clamp(this.viewer.distanceTo(this.bob) / 9, 1, 2.4) : 1;
+    this.bobber.scale.setScalar(far);
+    this.indicator.scale.setScalar(far);
     this.bobber.rotation.z = Math.sin(t * 1.7) * 0.12;
     this.bobber.rotation.x = Math.sin(t * 1.3 + 1) * 0.1;
     this.indicator.visible = lineVisible && !holdingFish && kind === 'fly' && it?.fly === 'nymph' && !flying;
@@ -1233,6 +1271,9 @@ export class Fishing {
       else if (kind === 'fly') sag = 0.25 + this.tip.distanceTo(this.bob) * 0.02;
       else sag = 0.35 + this.tip.distanceTo(this.bob) * 0.015;
       if (s === 'bite' && this.biteKind !== 'float') sag = 0.02;
+      this.holdingLine = holdingFish;
+      this.lineEnd.copy(end);
+      this.lineSag = sag;
       this.setLine(this.tip, end, sag);
     }
 

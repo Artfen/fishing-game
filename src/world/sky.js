@@ -196,6 +196,17 @@ export class Environment {
     this.skyUniforms.uUnderColor.value.copy(color);
   }
 
+  // How far the shadows reach around their centre (metres each way): closer in, they're sharper.
+  setShadowSpan(half) {
+    const sc = this.light.shadow.camera;
+    if (sc.right === half) return;
+    sc.left = -half;
+    sc.right = half;
+    sc.top = half;
+    sc.bottom = -half;
+    sc.updateProjectionMatrix();
+  }
+
   setShadows(on, size) {
     const l = this.light;
     l.castShadow = on;

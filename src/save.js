@@ -43,6 +43,7 @@ export const DEFAULT_STATE = {
   music: true,
   quality: 'auto', // 'auto' | 'high' | 'medium' | 'low'
   difficulty: 'standard', // 'relaxed' | 'standard' | 'realistic'
+  fishView: 'first',       // 'first' (first person when you cast) | 'shoulder'
   sonar: false,    // fish finder shown
   volumes: { master: 1, nature: 1, music: 0.8 },
 };
@@ -154,6 +155,7 @@ export function sanitize(raw) {
   s.music = raw.music !== false;
   s.quality = oneOf(raw.quality, ['auto', 'high', 'medium', 'low'], 'auto');
   s.difficulty = oneOf(raw.difficulty, ['relaxed', 'standard', 'realistic'], 'standard');
+  s.fishView = oneOf(raw.fishView, ['first', 'shoulder'], 'first');
   s.sonar = !!raw.sonar;
   if (isObj(raw.volumes)) {
     for (const k of ['master', 'nature', 'music']) s.volumes[k] = num(raw.volumes[k], s.volumes[k], 0, 1);
@@ -342,7 +344,7 @@ export function hasProgress(s) {
 }
 
 const JOURNAL_KEYS = ['fish', 'places', 'items', 'tips', 'caughtOn', 'log', 'meals'];
-const SETTINGS_KEYS = ['quality', 'volumes', 'music', 'sonar', 'finder', 'difficulty'];
+const SETTINGS_KEYS = ['quality', 'volumes', 'music', 'sonar', 'finder', 'difficulty', 'fishView'];
 
 // Combine two saves so nothing discovered in either is lost: every logged catch (matched by
 // id), each fish's count and best, places, keepsakes and hints. Where you are, the time,

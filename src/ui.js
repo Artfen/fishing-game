@@ -94,9 +94,11 @@ export class HUD {
   }
 
   // drag: where the reel's drag gives line, as a fraction of the line's breaking strain (-1: none).
-  meter(visible, outer = 0, inner = -1, warm = 0, label = '', drag = -1) {
+  // alert: the ring pulses (ease off now).
+  meter(visible, outer = 0, inner = -1, warm = 0, label = '', drag = -1, alert = false) {
     this.el.meter.hidden = !visible;
     if (!visible) return;
+    this.el.meter.classList.toggle('alert', alert);
     const dm = document.getElementById('m-drag');
     dm.style.display = drag < 0 ? 'none' : '';
     if (drag >= 0) {

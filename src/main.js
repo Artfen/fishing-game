@@ -32,10 +32,12 @@ import { PackUI } from './pack.js';
 import { Camp, WAKE_TIMES } from './camp.js';
 import { Journal } from './journal.js';
 import { CameraRig } from './camera.js';
+import { RodView } from './firstperson.js';
+import { bendRod } from './props.js';
 import { FishFinder } from './sonar.js';
 import { setupTouch } from './touch.js';
 import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel } from './quality.js';
-import { clamp, damp, smoothstep, rand, pick } from './util.js';
+import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick } from './util.js';
 
 const HOUR_SECONDS = 40; // one in-game hour lasts 40 real seconds
 const REST_SPEED = 30;   // holding T lets time drift by
@@ -127,6 +129,7 @@ const journal = new Journal(state);
 const input = new Input(canvas);
 const touch = setupTouch(input);
 const rig = new CameraRig(camera);
+const rodView = new RodView();
 const finder = new FishFinder(eco, habitat, state);
 
 // The skiff's mooring: alongside the end of the landing pier, in water deep enough for the motor.
@@ -207,6 +210,12 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   key: (k) => kbd(k),
   teach,
   shake: (s) => { rig.shake = Math.max(rig.shake, s); },
+  // The flick before a run, and the run itself: felt as well as seen (a buzz on phones that
+  // can, a jolt through your hands in first person).
+  cue: (kind) => {
+    if (touch.active) navigator.vibrate?.(kind === 'warn' ? 35 : 70);
+    if (kind === 'run' && rig.mode === 'eye') rig.shake = Math.max(rig.shake, 0.25);
+  },
   onCast: () => {
     if (!onFoot && boat.motor && boat.lever) boat.lever = 0;
     if (!state.tips.cast) {
@@ -1046,6 +1055,21 @@ function applyDifficulty() {
   $('difficulty-desc').textContent = d.desc;
 }
 
+// How fishing looks: through your own eyes when you cast (first person), or over your shoulder.
+function applyFishView() {
+  const first = state.fishView === 'first';
+  $('set-view').textContent = `Fishing view: ${first ? 'First person' : 'Over the shoulder'}`;
+  $('view-desc').textContent = first
+    ? 'Casting raises the rod to your eyes; walking or rowing off shows you again. V switches any time.'
+    : 'You stay in view while you fish. V still switches to first person any time.';
+}
+
+function cycleFishView() {
+  state.fishView = state.fishView === 'first' ? 'shoulder' : 'first';
+  applyFishView();
+  save();
+}
+
 // Relaxed → Standard → Realistic. Only changes how fish behave from now on; nothing is lost.
 function cycleDifficulty() {
   if (fishing.fight) {
@@ -1098,12 +1122,17 @@ function viewChip() {
     hud.chip(T
       ? '<b>Watching your bait</b> · drag to look around · the view button switches back'
       : `<b>Watching your bait</b> · drag to look around · ${kbd('C')} next view · ${kbd('R')} ${back}`, 6);
+  } else if (rig.mode === 'eye') {
+    hud.chip(T
+      ? '<b>First person</b> · drag to look around · the view button switches'
+      : `<b>First person</b> · drag to look around · ${kbd('V')} ${back}`, 4);
   } else if (rig.mode === 'foot') {
     hud.chip(fishing.baitInWater || T ? '<b>On foot</b>' : `<b>On foot</b> · cast first, then ${kbd('C')} watches your bait underwater`, 3);
   } else hud.chip('<b>Boat view</b>', 2);
 }
 
 function cycleView() {
+  fpAuto = false;
   rig.cycle(fishing.baitInWater, t);
   viewChip();
   if (rig.mode !== 'boat' && rig.mode !== 'foot' && !state.tips.under) {
@@ -1113,8 +1142,76 @@ function cycleView() {
 }
 
 function resetView() {
+  fpAuto = false;
   rig.reset(player(), t);
   viewChip();
+}
+
+/* ---------------- first person ---------------- */
+
+// Through your own eyes: V switches in and out. With the "first person" fishing view chosen,
+// raising the rod to cast takes you there by itself, and walking or rowing off takes you back.
+let fpAuto = false;
+let lastFishState = 'idle';
+const _eye = new THREE.Vector3();
+const _hold = new THREE.Vector3();
+const _shadowAt = new THREE.Vector3();
+
+function toggleFirstPerson() {
+  fpAuto = false;
+  rig.setFirstPerson(rig.mode !== 'eye', t);
+  viewChip();
+}
+
+function autoFirstPerson() {
+  const s = fishing.state;
+  if (lastFishState === 'idle' && s === 'aiming' && state.fishView === 'first' && rig.mode === rig.third) {
+    rig.setFirstPerson(true, t);
+    fpAuto = true;
+    if (!state.tips.eye) {
+      state.tips.eye = true;
+      hud.toast(touch.active
+        ? 'You raise the rod and watch the water through your own eyes. Walk off, or use the view button, to see yourself again. (The journal’s settings can keep the view over your shoulder.)'
+        : 'You raise the rod and watch the water through your own eyes. Walk off, or press V, to see yourself again. (The journal’s settings can keep the view over your shoulder.)', 8);
+    }
+  }
+  lastFishState = s;
+}
+
+// Each frame after the camera: hold the rod in front of your eyes, hide your own figure (its
+// shadow stays), and hold a landed fish up in view.
+function updateFirstPerson(dt) {
+  const A = player();
+  const w = rig.eyeBlend;
+  const fp = w > 0.5;
+  for (const X of [walker, rowboat, skiff]) {
+    X.viewHold = null;
+    X.faceYaw = null;
+    if (X !== A) X.setSelfHidden(false);
+  }
+  A.setSelfHidden(fp);
+  fishing.viewer = fp ? camera.position : null;
+  fishing.admire = fp ? 1.1 : 0;
+  const near = fp ? 0.06 : 0.1;
+  if (camera.near !== near) {
+    camera.near = near;
+    camera.updateProjectionMatrix();
+  }
+  if (w <= 0.001) return;
+  camera.updateMatrixWorld();
+  if (fp) {
+    A.viewHold = _hold.set(0.02, -0.2, -0.95).applyMatrix4(camera.matrixWorld);
+    A.faceYaw = rig.yaw;
+  }
+  rodView.update(dt, t, fishing, camera, { yaw: rig.yaw, walking: onFoot && walker.moving, phase: walker.phase, onBoat: !onFoot });
+  // On foot you carry the rod in view; in a boat it lies in the bottom while you row.
+  if (onFoot || A.pose.fishing > 0.02) {
+    A.rod.visible = onFoot || boat.occupied;
+    if (onFoot) walker.tube.visible = false;
+    rodView.place(A.rod, camera, w);
+    bendRod(A.active, lerp(A.pose.bend, rodView.bend, w));
+  }
+  fishing.afterView(t);
 }
 
 function toggleFinder(force) {
@@ -1280,12 +1377,14 @@ function updateHud() {
   hud.hint(currentHint(), t);
   const act = interaction();
   hud.prompt(act ? (touch.active ? `Tap: ${act.text}` : `${kbd('E')} ${act.text}`) : '');
-  if (touch.active) hud.action(actionLabel(), fishing.state === 'bite');
+  const F = fishing.fight;
+  // Ease off: the flick before a run, and the surge as it starts.
+  const easy = fishing.state === 'reeling' && !!F && (F.surgeT > 0 || (F.warned && !F.pulling));
+  if (touch.active) hud.action(actionLabel(), fishing.state === 'bite' || easy);
   $('cancel-btn').hidden = !(touch.active && fishing.aiming);
 
-  const F = fishing.fight;
   if (fishing.aiming) hud.meter(true, fishing.power, fishing.release, 1 - fishing.release, fishing.aimValid ? `<span>${Math.round(fishing.castDist)} m</span>${wind.strength > 0.15 ? `<span class="ml-sub">wind ${windArrow()}</span>` : ''}` : '—');
-  else if (fishing.state === 'reeling' && F) hud.meter(true, F.progress, F.tension, F.tension, F.surgeT > 0 ? 'easy!' : F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel', DRAG_LEVELS[F.drag]);
+  else if (fishing.state === 'reeling' && F) hud.meter(true, F.progress, F.tension, F.tension, F.surgeT > 0 ? 'easy!' : easy ? 'flick!' : F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel', DRAG_LEVELS[F.drag], easy);
   else hud.meter(false);
 
   if (started && !modal && fishing.baitInWater) {
@@ -1654,6 +1753,7 @@ input.on('press', (code, key) => {
     hud.flash('Motor to neutral', t, 1.4);
   }
   else if (key === 'c') cycleView();
+  else if (key === 'v') toggleFirstPerson();
   else if (key === 'r') resetView();
   else if (key === 'f') toggleFinder();
   else if (key === 'm') {
@@ -1664,7 +1764,7 @@ input.on('press', (code, key) => {
     hudOff = !hudOff;
     hud.hidden(hudOff);
   } else if (code === 'Escape') {
-    if (!fishing.cancel() && rig.mode !== rig.home) resetView();
+    if (!fishing.cancel() && rig.mode !== rig.third) resetView();
   }
 });
 input.on('release', (code) => {
@@ -1709,6 +1809,8 @@ $('prompt').addEventListener('click', () => {
 });
 $('set-quality').addEventListener('click', cycleQuality);
 $('set-difficulty').addEventListener('click', cycleDifficulty);
+$('set-view').addEventListener('click', cycleFishView);
+applyFishView();
 $('title-difficulty').addEventListener('click', cycleDifficulty);
 applyDifficulty();
 fishing.drags = state.gear.drag;
@@ -1845,7 +1947,9 @@ function tick(now, manual = false) {
   if (started && !modal) {
     const ti = input.throttle, si = input.steer;
     if (fishing.aiming) {
-      fishing.aimBy(si, dt);
+      // In first person the keys turn your head (and the cast with it); otherwise they swing the cast.
+      if (rig.mode === 'eye') rig.turn(si, dt, t);
+      else fishing.aimBy(si, dt);
       fishing.depthBy(ti, dt);
     } else if (fishing.lineOut) {
       fishing.depthBy(ti, dt);
@@ -1907,8 +2011,16 @@ function tick(now, manual = false) {
     motorNoiseT = 0.5;
     eco.startle(skiff.pos.x, -0.6, skiff.pos.z, 5 + skiff.speed * 1.4, 0.7);
   }
+  // First person: you face where you look; walking or rowing off after fishing shows you again.
+  if (rig.mode === 'eye') {
+    if (fpAuto && !fishing.busy && (move.x || move.z || throttle || steer)) {
+      rig.setFirstPerson(false, t);
+      fpAuto = false;
+    } else if (onFoot && !(move.x || move.z)) walker.heading = dampAngle(walker.heading, rig.yaw, 10, dt);
+  }
   if (onFoot) walker.update(dt, t, move, { jog: input.hasCode('ShiftLeft', 'ShiftRight'), locked: fishing.busy, obstacles: world.obstacles });
   fishing.update(dt, t, rig.yaw, started && !modal && input.action);
+  if (started) autoFirstPerson();
 
   ecoTick(dt);
   handleClues();
@@ -1917,9 +2029,18 @@ function tick(now, manual = false) {
   const drag = input.takeDrag();
   const wheel = input.takeWheel();
   if (started && !modal) rig.input(drag, wheel, t);
-  rig.update(dt, t, { boat, walker, started, fishing, baitFocus: fishing.watchPoint });
+  player().eyePoint(_eye);
+  rig.update(dt, t, { boat, walker, started, fishing, baitFocus: fishing.watchPoint, eye: _eye, roll: onFoot ? 0 : boat.roll * 0.45 });
+  updateFirstPerson(dt);
   const P = player().pos;
-  env.update(dt, t, state.hour, weather.rain, P, camera, renderer);
+  // In first person the shadows gather in front of you, finer, where you're looking.
+  const fpShadow = rig.eyeBlend > 0.5;
+  env.setShadowSpan(fpShadow ? 30 : 55);
+  if (fpShadow) {
+    camera.getWorldDirection(_shadowAt).setY(0).normalize();
+    _shadowAt.multiplyScalar(12).add(P);
+  }
+  env.update(dt, t, state.hour, weather.rain, fpShadow ? _shadowAt : P, camera, renderer);
   const sub = underwater.updateMedium(t, camera, env, scene, water, weather.rain);
   audio.setUnderwater(sub);
   underwater.update(dt, t, camera, env, weather.rain);
@@ -2052,7 +2173,8 @@ requestAnimationFrame((now) => {
 window.slowTide = {
   state, walker, fishing, env, weather, renderer, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world,
   get boat() { return boat; }, // the boat you're in (or last used)
-  reflection, ripples, mist, fx,
+  reflection, ripples, mist, fx, rodView,
+  firstPerson: (on = true) => { fpAuto = false; rig.setFirstPerson(on, t); },
   setHour: (h) => { state.hour = ((h % 24) + 24) % 24; },
   setRain: (r) => { weather.target = r; weather.rain = r; },
   teleport: (x, z, heading = boat.heading) => boat.place(x, z, heading),
