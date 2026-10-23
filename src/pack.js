@@ -1,4 +1,4 @@
-import { RODS, TACKLE, ROD_IDS, ITEM_IDS, PACK, TYPE_NAMES, KIND_NAMES, castRange, currentRig, fits } from './tackle.js';
+import { RODS, TACKLE, ROD_IDS, ITEM_IDS, PACK, TYPE_NAMES, KIND_NAMES, SETUPS, castRange, currentRig, fits } from './tackle.js';
 import { fishById } from './fish.js';
 
 const $ = (id) => document.getElementById(id);
@@ -97,6 +97,32 @@ export class PackUI {
     this.changed(toPack ? `Packed: ${TACKLE[id].name}` : `Left at camp: ${TACKLE[id].name}`);
   }
 
+  // Swap everything in the backpack for a ready-made setup (only at camp, by the tackle box).
+  packSetup(s) {
+    const g = this.gear;
+    g.pack.rods = [...s.rods];
+    g.pack.items = [...s.items];
+    g.rod = s.rod;
+    for (const r of s.rods) {
+      const first = s.items.find((i) => fits(RODS[r], TACKLE[i]));
+      if (first && !s.items.includes(g.rig[r])) g.rig[r] = first;
+    }
+    this.changed(`Packed for ${s.name.toLowerCase()}: ${s.rods.map((r) => RODS[r].short.toLowerCase()).join(' and ')}`);
+  }
+
+  setupButtons() {
+    const g = this.gear;
+    return SETUPS.map((s) => {
+      const on = s.rods.every((r) => g.pack.rods.includes(r)) && s.items.every((i) => g.pack.items.includes(i));
+      const b = button(s.name, () => this.packSetup(s), on ? 'quiet on' : '');
+      b.title = s.note;
+      b.setAttribute('aria-pressed', on);
+      const wrap = el('div', 'pk-setup');
+      wrap.append(b, el('span', 'pk-note', s.note));
+      return wrap;
+    });
+  }
+
   rodCard(rod, inPack) {
     const g = this.gear;
     const active = inPack && g.rod === rod.id;
@@ -157,8 +183,8 @@ export class PackUI {
     const g = this.gear;
     $('pack-title').textContent = this.atCamp ? 'Backpack & tackle box' : 'Backpack';
     $('pack-where').textContent = this.atCamp
-      ? 'At camp: swap what you carry with the tackle box.'
-      : 'What you carry. Back at camp you can swap things with the tackle box.';
+      ? 'At camp: pick a ready-made setup, or swap single rods and tackle with the tackle box.'
+      : 'What you carry. Back at camp you can pack a ready-made setup or swap things with the tackle box.';
     $('pack-rod-count').textContent = `${g.pack.rods.length} of ${PACK.rods}`;
     $('pack-item-count').textContent = `${g.pack.items.length} of ${PACK.items}`;
     $('pack-rods').replaceChildren(...g.pack.rods.map((r) => this.rodCard(RODS[r], true)));
@@ -170,6 +196,8 @@ export class PackUI {
       : [el('span', 'pk-note', 'Empty. Keep a fish from the catch card to cook it at camp.')];
     $('pack-fish').replaceChildren(...creel);
     $('pack-fish-count').textContent = `${keep.length} of ${PACK.fish}`;
+    $('pack-setups-section').hidden = !this.atCamp;
+    if (this.atCamp) $('pack-setups').replaceChildren(...this.setupButtons());
     const boxSection = $('pack-box-section');
     boxSection.hidden = !this.atCamp;
     if (this.atCamp) {

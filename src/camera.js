@@ -1,23 +1,33 @@
 import * as THREE from 'three';
 import { heightAt, walkHeight } from './world/terrain.js';
 import { waveHeight } from './world/water.js';
-import { clamp, damp, dampAngle, smoothstep, rand, lerp } from './util.js';
+import { clamp, damp, dampAngle, smoothstep, rand, lerp, wrapAngle } from './util.js';
 
 // Ways to look at the world:
 //  boat  – the familiar view from above and behind the boat
 //  foot  – over your shoulder while you walk the shore
 //  under – an underwater view orbiting a point beneath the boat
 //  bait  – an underwater view that follows your bait (or the fish on the line)
+//  eye   – first person: through your own eyes, the rod in your hands (pitch here is how far
+//          you look down)
 // Each view remembers its own angle and zoom. Switching glides there; it never cuts.
 const LIMITS = {
   boat: { pitch: [0.12, 1.2], dist: [6, 40] },
   foot: { pitch: [0.02, 1.25], dist: [2.8, 26] },
   under: { pitch: [-0.8, 0.85], dist: [3, 22] },
   bait: { pitch: [-0.8, 0.85], dist: [1.8, 10] },
+  eye: { pitch: [-0.6, 1.0], dist: [0, 0] },
 };
-export const VIEW_NAMES = { boat: 'Boat view', foot: 'On foot', under: 'Underwater', bait: 'Watching your bait' };
+export const VIEW_NAMES = { boat: 'Boat view', foot: 'On foot', under: 'Underwater', bait: 'Watching your bait', eye: 'First person' };
+const EYE_PITCH = 0.2; // looking a little down at the water when you first raise your eyes
 
 const _f = new THREE.Vector3();
+const _look = new THREE.Vector3();
+const _m = new THREE.Matrix4();
+const _q = new THREE.Quaternion();
+const _qr = new THREE.Quaternion();
+const UP = new THREE.Vector3(0, 1, 0);
+const FWD = new THREE.Vector3(0, 0, 1);
 
 export class CameraRig {
   constructor(camera) {
@@ -28,6 +38,7 @@ export class CameraRig {
       foot: { yaw: 0, pitch: 0.3, dist: 7.5 },
       under: { yaw: 0, pitch: 0.08, dist: 9 },
       bait: { yaw: 0, pitch: 0.15, dist: 4.5 },
+      eye: { yaw: 0, pitch: EYE_PITCH, dist: 0 },
     };
     this.focus = new THREE.Vector3();
     this.pos = new THREE.Vector3();
@@ -37,11 +48,17 @@ export class CameraRig {
     this.changedAt = -99;
     this.shake = 0;
     this.onFoot = false;
+    // First person is chosen as the view to come back to (from underwater, say) while it's on.
+    this.firstPerson = false;
+    this.eyeChangedAt = -99;
+    this.eyeBlend = 0;      // 1 with the camera at your eyes, 0 well away from them
+    this.lastHeading = null;
   }
 
   get yaw() { return this.views[this.mode].yaw; }
   get underwaterView() { return this.mode === 'under' || this.mode === 'bait'; }
-  get home() { return this.onFoot ? 'foot' : 'boat'; }
+  get third() { return this.onFoot ? 'foot' : 'boat'; }
+  get home() { return this.firstPerson ? 'eye' : this.third; }
 
   init(boat) {
     this.views.boat.yaw = boat.heading + 0.7;
@@ -53,19 +70,33 @@ export class CameraRig {
     if (mode === this.mode) return false;
     const from = this.views[this.mode], to = this.views[mode];
     to.yaw = from.yaw; // keep facing the same way, so the change feels like ducking under, not teleporting
+    if (mode === 'eye') to.pitch = EYE_PITCH;
+    if (mode === 'eye' || this.mode === 'eye') this.eyeChangedAt = t;
     this.mode = mode;
     this.changedAt = t;
     return true;
   }
 
-  // On foot there is no boat to look under, so the view goes straight to your bait.
-  cycle(baitAvailable, t) {
-    const order = this.onFoot ? (baitAvailable ? ['foot', 'bait'] : ['foot']) : baitAvailable ? ['boat', 'under', 'bait'] : ['boat', 'under'];
-    const i = order.indexOf(this.mode);
-    this.setMode(order[(i + 1) % order.length], t);
+  // Into your own eyes, or back out over your shoulder (or above the boat).
+  setFirstPerson(on, t) {
+    this.firstPerson = on;
+    return this.setMode(on ? 'eye' : this.third, t);
   }
 
+  // On foot there is no boat to look under, so the view goes straight to your bait.
+  cycle(baitAvailable, t) {
+    const order = this.onFoot ? ['foot', 'eye'] : ['boat', 'eye', 'under'];
+    if (baitAvailable) order.push('bait');
+    const i = order.indexOf(this.mode);
+    const next = order[(i + 1) % order.length];
+    if (next === 'eye') this.firstPerson = true;
+    else if (next === this.third) this.firstPerson = false;
+    this.setMode(next, t);
+  }
+
+  // Back to the usual view behind you (first person off).
   reset(anchor, t) {
+    this.firstPerson = false;
     const home = this.home;
     this.setMode(home, t);
     Object.assign(this.views[home], home === 'boat' ? { yaw: anchor.heading, pitch: 0.46, dist: 15 } : { yaw: anchor.heading, pitch: 0.3, dist: 7.5 });
@@ -78,25 +109,45 @@ export class CameraRig {
     this.onFoot = onFoot;
     const home = this.home;
     if (this.mode !== home) this.setMode(home, t);
+    else if (home === 'eye') this.eyeChangedAt = t; // your eyes move from the boat to the shore: glide
     this.settleUntil = t + 1.2;
   }
 
   input(drag, wheel, t) {
     const v = this.views[this.mode], lim = LIMITS[this.mode];
+    const eye = this.mode === 'eye';
     if (drag.x || drag.y) {
-      v.yaw -= drag.x * 0.0055;
-      v.pitch = clamp(v.pitch + drag.y * 0.004, lim.pitch[0], lim.pitch[1]);
+      v.yaw -= drag.x * (eye ? 0.0045 : 0.0055);
+      v.pitch = clamp(v.pitch + drag.y * (eye ? 0.0035 : 0.004), lim.pitch[0], lim.pitch[1]);
       this.lastManual = t;
     }
-    if (wheel) v.dist = clamp(v.dist * Math.exp(wheel * 0.0012), lim.dist[0], lim.dist[1]);
+    if (wheel && !eye) v.dist = clamp(v.dist * Math.exp(wheel * 0.0012), lim.dist[0], lim.dist[1]);
   }
 
-  update(dt, t, { boat, walker, started, fishing, baitFocus }) {
-    // The bait left the water: glide back beneath the boat, or back over your shoulder.
-    if (this.mode === 'bait' && !baitFocus) this.setMode(this.onFoot ? 'foot' : 'under', t);
-    if (this.onFoot && this.mode === 'under') this.setMode('foot', t);
+  // Turn your head (first person): the keys swing the view while you aim a cast.
+  turn(dir, dt, t) {
+    if (this.mode !== 'eye' || !dir) return;
+    this.views.eye.yaw += dir * 1.3 * dt;
+    this.lastManual = t;
+  }
+
+  // eye: where your eyes are (first person); roll: how much of the boat's roll you feel.
+  update(dt, t, { boat, walker, started, fishing, baitFocus, eye = null, roll = 0 }) {
+    // The bait left the water: glide back beneath the boat, or back over your shoulder (or to your eyes).
+    if (this.mode === 'bait' && !baitFocus) this.setMode(this.firstPerson ? 'eye' : this.onFoot ? 'foot' : 'under', t);
+    if (this.onFoot && this.mode === 'under') this.setMode(this.firstPerson ? 'eye' : 'foot', t);
+    if (this.mode === 'eye' && (!started || !eye)) this.setMode(this.third, t);
     const v = this.views[this.mode];
     const under = this.underwaterView;
+    // In a boat your view turns with the boat (not when you step across into the other one).
+    if (!this.onFoot && this.lastHeading !== null && this.lastBoat === boat && this.mode === 'eye') v.yaw += wrapAngle(boat.heading - this.lastHeading);
+    this.lastHeading = this.onFoot ? null : boat.heading;
+    this.lastBoat = boat;
+
+    if (this.mode === 'eye') {
+      this.updateEye(dt, t, v, eye, roll, fishing);
+      return;
+    }
 
     if (!started) v.yaw += dt * 0.045;
     else if (this.mode === 'boat') {
@@ -187,6 +238,49 @@ export class CameraRig {
     // Above water, aim a little above the boat so the horizon stays in frame
     // (less on portrait and short screens, so the boat stays clear of the controls).
     if (!under) this.look.y += (this.mode === 'foot' ? 0.4 + v.dist * 0.05 : 1.6 + v.dist * 0.06) * clamp(cam.aspect, 0.3, 1) * clamp(innerHeight / 640, 0.55, 1);
-    cam.lookAt(this.look);
+    this.orient(dt, t, this.look, 0);
+    // Gliding back out of your eyes, the rod and you come back as the camera leaves your head.
+    this.eyeBlend = eye && t - this.eyeChangedAt < 2 ? 1 - smoothstep(0.3, 1.8, this.pos.distanceTo(eye)) : 0;
+  }
+
+  // First person: the camera sits at your eyes and looks where you turn your head. Coming in
+  // from behind it glides there; once there it stays put (a lagging head feels seasick).
+  updateEye(dt, t, v, eye, roll, fishing) {
+    // A fish running off to one side: your head turns to keep it in sight (unless you're
+    // looking around yourself).
+    if (fishing.state === 'reeling' && fishing.fight && t - this.lastManual > 1.5) {
+      const p = fishing.fishPos, cam = this.camera.position;
+      const to = Math.atan2(p.x - cam.x, p.z - cam.z);
+      const off = wrapAngle(to - v.yaw);
+      const over = Math.abs(off) - 0.4;
+      if (over > 0) v.yaw += Math.sign(off) * over * (1 - Math.exp(-2.2 * dt));
+    }
+    const gliding = t - this.eyeChangedAt < 1.4;
+    const k = 1 - Math.exp(-(gliding ? 6 : 40) * dt);
+    this.pos.lerp(eye, k);
+    this.focus.copy(this.pos);
+    const cam = this.camera;
+    cam.position.copy(this.pos);
+    if (this.shake > 0) {
+      this.shake = Math.max(0, this.shake - dt);
+      const s = this.shake * 0.04;
+      cam.position.x += rand(-s, s);
+      cam.position.y += rand(-s, s);
+    }
+    const cp = Math.cos(v.pitch);
+    _look.set(Math.sin(v.yaw) * cp, -Math.sin(v.pitch), Math.cos(v.yaw) * cp).add(cam.position);
+    this.orient(dt, t, _look, roll);
+    this.eyeBlend = 1 - smoothstep(0.3, 1.8, this.pos.distanceTo(eye));
+  }
+
+  // Look at a point (rolled a little, in a boat). Just after going into or out of first person
+  // the turn is eased, so the view swings round rather than snapping.
+  orient(dt, t, target, roll) {
+    const cam = this.camera;
+    _m.lookAt(cam.position, target, UP);
+    _q.setFromRotationMatrix(_m);
+    if (roll) _q.multiply(_qr.setFromAxisAngle(FWD, roll));
+    if (t - this.eyeChangedAt < 1.4) cam.quaternion.slerp(_q, 1 - Math.exp(-7 * dt));
+    else cam.quaternion.copy(_q);
   }
 }

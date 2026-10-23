@@ -93,9 +93,20 @@ export class HUD {
     this.el.clockDot.classList.toggle('moon', night);
   }
 
-  meter(visible, outer = 0, inner = -1, warm = 0, label = '') {
+  // drag: where the reel's drag gives line, as a fraction of the line's breaking strain (-1: none).
+  // alert: the ring pulses (ease off now).
+  meter(visible, outer = 0, inner = -1, warm = 0, label = '', drag = -1, alert = false) {
     this.el.meter.hidden = !visible;
     if (!visible) return;
+    this.el.meter.classList.toggle('alert', alert);
+    const dm = document.getElementById('m-drag');
+    dm.style.display = drag < 0 ? 'none' : '';
+    if (drag >= 0) {
+      const a = Math.min(drag, 1) * Math.PI * 2;
+      dm.setAttribute('cx', (60 + 40 * Math.cos(a)).toFixed(1));
+      dm.setAttribute('cy', (60 + 40 * Math.sin(a)).toFixed(1));
+      dm.classList.toggle('locked', drag >= 1);
+    }
     const C1 = 314.16, C2 = 251.33;
     this.el.meterOuter.style.strokeDashoffset = String(C1 * (1 - outer));
     this.el.meterInner.style.display = inner < 0 ? 'none' : '';

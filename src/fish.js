@@ -61,7 +61,7 @@ export const FISH = [
     hint: 'Small and golden, flashing around weed beds and rocks where the sun warms the bay. Try the jetty.',
     note: 'Bright as a new coin. Loves weed beds and warm, shallow water. It will chase a little spinner too.',
     meal: { name: 'Sunperch fried golden in the pan', fill: 35 },
-    food: { worm: 1, prawn: 0.8, corn: 0.5, bread: 0.4, spinner: 1.0, crankS: 0.45, streamer: 0.6 },
+    food: { worm: 1, prawn: 0.8, corn: 0.5, bread: 0.4, spinner: 1.0, crankS: 0.45, streamer: 0.6, tspin: 0.9, spoon: 0.6, minnow: 0.5 },
     life: {
       group: [3, 6], groups: 14,
       speed: 0.6, turn: 2.2, perception: 7, depthTol: 1.4, cover: 'any',
@@ -173,7 +173,7 @@ export const FISH = [
     hint: 'Striped hunters move in packs around the weed and the fallen tree in the lake. They chase small lures that flash.',
     note: 'Dark bars, a spiky fin and bright orange-red fins below. Where one follows a lure, the rest of the pack comes too.',
     meal: { name: 'Perch fillets crisped in butter', fill: 40 },
-    food: { worm: 1.2, spinner: 1.3, crankS: 1.0, crankD: 0.7, jerk: 0.35, streamer: 1.0, nymph: 0.35, prawn: 0.6, corn: 0.15, bread: 0.1 },
+    food: { worm: 1.2, spinner: 1.3, crankS: 1.0, crankD: 0.7, jerk: 0.35, streamer: 1.0, nymph: 0.35, prawn: 0.6, corn: 0.15, bread: 0.1, tspin: 1.2, spoon: 1.0, minnow: 0.9 },
     life: {
       group: [4, 7], groups: 7, spacing: 9,
       speed: 0.75, turn: 2.6, perception: 8, depthTol: 1.6, cover: 'any', pack: true,
@@ -201,7 +201,7 @@ export const FISH = [
     hint: 'Something long lies still as a log in the weed. It ignores worms, but a lure that darts and pauses might wake it.',
     note: 'Long, green and patient, with a mouth full of needles. It waits motionless, then strikes in a flash. Its teeth cut fine line.',
     meal: { name: 'Pike baked with lemon and dill (mind the bones)', fill: 85 },
-    food: { jerk: 1.6, crankS: 1.25, crankD: 1.1, spinner: 0.75, streamer: 0.9, worm: 0.12, prawn: 0.3 },
+    food: { jerk: 1.6, crankS: 1.25, crankD: 1.1, spinner: 0.75, streamer: 0.9, worm: 0.12, prawn: 0.3, spoon: 0.6, minnow: 0.55, tspin: 0.3 },
     life: {
       group: [1, 1], groups: 6, spacing: 11,
       speed: 0.5, burst: 4.2, turn: 1.7, perception: 10, depthTol: 2.0, cover: 'weed', lurk: true, teeth: true,
@@ -257,7 +257,7 @@ export const FISH = [
     hint: 'Golden flashes and dimples among the lily pads near camp. Something there takes little baits near the top.',
     note: 'Gold with blood-red fins. It feeds near the surface, sipping insects and bread, and loves the shade of lily pads.',
     meal: { name: 'A crispy little rudd on a stick', fill: 20 },
-    food: { bread: 1.3, corn: 1.1, worm: 0.9, dry: 1.0, nymph: 0.7, spinner: 0.15 },
+    food: { bread: 1.3, corn: 1.1, worm: 0.9, dry: 1.0, nymph: 0.7, spinner: 0.15, tspin: 0.25 },
     life: {
       school: true, schools: 4, members: [8, 14], spacing: 12,
       speed: 0.8, turn: 3, perception: 6, depthTol: 1.0, cover: 'weed',
@@ -286,7 +286,7 @@ export const FISH = [
     hint: 'In the clear stream pools, shadows hold still against the current. They bolt if you stamp up to the bank.',
     note: 'Buttery gold with black and red spots. Holds in the pools facing upstream and rises to hatching flies. Shy of thick line and heavy footsteps.',
     meal: { name: 'Trout cooked in foil with wild thyme', fill: 60 },
-    food: { dry: 1.3, nymph: 1.25, streamer: 1.0, worm: 0.8, spinner: 0.6, crankS: 0.2 },
+    food: { dry: 1.3, nymph: 1.25, streamer: 1.0, worm: 0.8, spinner: 0.6, crankS: 0.2, tspin: 1.3, spoon: 1.15, minnow: 1.0 },
     life: {
       group: [1, 1], groups: 6, spacing: 5,
       speed: 0.8, turn: 2.6, perception: 7, depthTol: 1.3, cover: 'rock', stream: true, spooky: 9, lineShy: 0.5,
@@ -314,7 +314,7 @@ export const FISH = [
     hint: 'Silver-grey fish with a flag-like fin keep together near the bottom of the stream pools. A drifting nymph suits them.',
     note: 'The lady of the stream: silver-grey, with a great sail of a dorsal fin speckled purple. Smells faintly of thyme.',
     meal: { name: 'Grayling grilled whole on the embers', fill: 40 },
-    food: { nymph: 1.4, dry: 0.9, worm: 0.7, corn: 0.3 },
+    food: { nymph: 1.4, dry: 0.9, worm: 0.7, corn: 0.3, tspin: 0.45 },
     life: {
       group: [2, 3], groups: 3, spacing: 7,
       speed: 0.7, turn: 2.4, perception: 6, depthTol: 1.2, cover: 'open', stream: true, spooky: 7, lineShy: 0.6,

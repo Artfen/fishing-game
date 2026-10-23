@@ -42,16 +42,17 @@ export function buildRod(look) {
   const metal = new THREE.MeshStandardMaterial({ color: '#7d8590', metalness: 0.6, roughness: 0.4 });
   let reel;
   if (look.reel === 'spin' || look.reel === 'big') {
-    // A fixed-spool reel hanging under the rod, with its little handle.
+    // A fixed-spool reel hanging under the rod (on the side the rod bends towards), with its
+    // little handle.
     const s = look.reel === 'big' ? 1.35 : 1;
     reel = new THREE.Group();
     const spool = new THREE.Mesh(new THREE.CylinderGeometry(0.035 * s, 0.04 * s, 0.07 * s, 10), metal);
     const foot = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.07 * s, 0.02), metal);
-    foot.position.set(0, 0, -0.045 * s);
+    foot.position.set(0, 0, 0.045 * s);
     spool.rotation.x = Math.PI / 2;
-    spool.position.set(0, 0.03 * s, -0.09 * s);
+    spool.position.set(0, 0.03 * s, 0.09 * s);
     const handle = new THREE.Mesh(new THREE.BoxGeometry(0.06 * s, 0.01, 0.01), new THREE.MeshLambertMaterial({ color: '#2b2b2b' }));
-    handle.position.set(0.045 * s, 0.03 * s, -0.09 * s);
+    handle.position.set(0.045 * s, 0.03 * s, 0.09 * s);
     reel.add(spool, foot, handle);
     reel.position.set(0, 0.24, 0);
   } else {

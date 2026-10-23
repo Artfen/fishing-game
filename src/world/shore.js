@@ -404,6 +404,7 @@ function buildCamp(rnd, parts, obstacles, scene) {
     spin: { len: 2.2, color: '#2f3640', handle: '#8a6a4a' },
     carp: { len: 3.4, color: '#2e4a3a', handle: '#3a3a3a' },
     fly: { len: 2.7, color: '#8a6a3a', handle: '#d7b98a' },
+    trout: { len: 1.8, color: '#5f7350', handle: '#d7b98a' },
   };
   Object.entries(ROD_LOOK).forEach(([id, look], i) => {
     const g = new THREE.Group();
@@ -414,10 +415,10 @@ function buildCamp(rnd, parts, obstacles, scene) {
     ], rnd), new THREE.MeshLambertMaterial({ vertexColors: true }));
     rod.castShadow = true;
     g.add(rod);
-    const lx = -0.6 + i * 0.4;
+    const lx = -0.76 + i * 0.38;
     const c = Math.cos(rack.yaw), s = Math.sin(rack.yaw);
     g.position.set(rack.x + lx * c + 0.35 * s, cy, rack.z - lx * s + 0.35 * c);
-    g.rotation.set(-0.28, rack.yaw, (i - 1.5) * 0.03, 'YXZ');
+    g.rotation.set(-0.28, rack.yaw, (i - 2) * 0.03, 'YXZ');
     scene.add(g);
     rackRods[id] = g;
   });

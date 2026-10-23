@@ -349,6 +349,53 @@ export class AudioScape {
     }
   }
 
+  // The skiff's outboard: a low putter at idle that rises in pitch and loudness with the
+  // throttle. level 0 is off.
+  engine(level) {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    if (!this.eng && level > 0) {
+      const t0 = ctx.currentTime;
+      const o1 = ctx.createOscillator();
+      o1.type = 'sawtooth';
+      const o2 = ctx.createOscillator();
+      o2.type = 'square';
+      const f = ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.Q.value = 2;
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      const putter = ctx.createGain();
+      putter.gain.value = 0.5;
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine';
+      const lfoDepth = ctx.createGain();
+      lfoDepth.gain.value = 0.45;
+      lfo.connect(lfoDepth);
+      lfoDepth.connect(putter.gain);
+      const mix2 = ctx.createGain();
+      mix2.gain.value = 0.25;
+      o1.connect(f);
+      o2.connect(mix2);
+      mix2.connect(f);
+      f.connect(putter);
+      putter.connect(g);
+      g.connect(this.sfx);
+      o1.start(t0);
+      o2.start(t0);
+      lfo.start(t0);
+      this.eng = { o1, o2, f, g, lfo };
+    }
+    if (!this.eng) return;
+    const e = this.eng, on = level > 0.001;
+    const rpm = 34 + level * 58;
+    this.set(e.o1.frequency, rpm, 0.25);
+    this.set(e.o2.frequency, rpm * 2.02, 0.25);
+    this.set(e.lfo.frequency, rpm / 2.2, 0.25);
+    this.set(e.f.frequency, 260 + level * 900, 0.3);
+    this.set(e.g.gain, on ? 0.035 + level * 0.07 : 0, on ? 0.3 : 0.6);
+  }
+
   // A predator hitting a lure: a solid thump through the rod.
   strike() {
     this.tone({ freq: 140, freqEnd: 70, dur: 0.18, gain: 0.2, attack: 0.002 });

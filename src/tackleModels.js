@@ -59,6 +59,30 @@ function lure(id) {
       { geo: new THREE.SphereGeometry(0.008, 6, 4), matrix: mat(0.028, 0.012, 0.045), color: '#1a1512', jitter: 0 },
       { geo: new THREE.SphereGeometry(0.008, 6, 4), matrix: mat(-0.028, 0.012, 0.045), color: '#1a1512', jitter: 0 },
     ])));
+  } else if (id === 'tspin') {
+    // A smaller spinner with a gold blade.
+    const body = shiny(mergeParts([
+      { geo: new THREE.CylinderGeometry(0.003, 0.003, 0.08, 4), matrix: mat(0, 0, 0, Math.PI / 2, 0, 0), color: '#c9ced4', jitter: 0 },
+      { geo: new THREE.SphereGeometry(0.009, 6, 4), matrix: mat(0, 0, -0.008, 0, 0, 0, 1, 1, 1.8), color: '#3a3a3a', jitter: 0 },
+    ]));
+    const blade = shiny(mergeParts([{ geo: new THREE.SphereGeometry(0.02, 8, 4), matrix: mat(0.012, 0, 0.022, 0, 0, 0, 0.25, 0.9, 1.4), color: '#e8c25a', jitter: 0 }]));
+    const spin = new THREE.Group();
+    spin.add(blade);
+    g.add(body, spin);
+    g.userData.spin = spin;
+  } else if (id === 'spoon') {
+    g.add(shiny(mergeParts([
+      { geo: new THREE.SphereGeometry(0.03, 10, 6, 0, Math.PI * 2, 0, Math.PI / 3), matrix: mat(0, 0, 0, Math.PI / 2, 0, 0, 0.7, 1.6, 1), color: '#dfe6ec', jitter: 0 },
+      { geo: new THREE.SphereGeometry(0.012, 6, 4), matrix: mat(0, 0.004, 0.01, 0, 0, 0, 0.6, 0.3, 1.2), color: '#d24a3a', jitter: 0 },
+    ])));
+  } else if (id === 'minnow') {
+    g.add(lambert(mergeParts([
+      { geo: new THREE.SphereGeometry(0.02, 8, 6), matrix: mat(0, 0, 0, 0, 0, 0, 0.6, 0.75, 2.6), color: '#c8d0c4', jitter: 0.02 },
+      { geo: new THREE.SphereGeometry(0.015, 8, 6), matrix: mat(0, 0.009, -0.004, 0, 0, 0, 0.55, 0.45, 2.7), color: '#3f6a4a', jitter: 0.02 },
+      { geo: new THREE.BoxGeometry(0.02, 0.002, 0.018), matrix: mat(0, -0.008, 0.055, 0.7, 0, 0), color: '#e8eef2', jitter: 0 },
+      { geo: new THREE.SphereGeometry(0.005, 6, 4), matrix: mat(0.012, 0.006, 0.03), color: '#1a1512', jitter: 0 },
+      { geo: new THREE.SphereGeometry(0.005, 6, 4), matrix: mat(-0.012, 0.006, 0.03), color: '#1a1512', jitter: 0 },
+    ])));
   } else if (id === 'jerk') {
     g.add(shiny(mergeParts([
       { geo: new THREE.SphereGeometry(0.03, 10, 8), matrix: mat(0, 0, 0, 0, 0, 0, 0.6, 0.8, 3), color: '#cfd8de', jitter: 0.02 },
