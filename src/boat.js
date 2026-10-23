@@ -3,6 +3,7 @@ import { clamp, lerp, damp, smoothstep, mergeParts, mat } from './util.js';
 import { waveHeight } from './world/water.js';
 import { solidHeight, PIERS } from './world/terrain.js';
 import { buildLanternModel, buildRod, bendRod } from './props.js';
+import { withSurface } from './world/surface.js';
 import { RODS } from './tackle.js';
 
 // Hull proportions (metres). The bow points along local +z.
@@ -154,7 +155,7 @@ export class Boat {
       colors.set(src, o);
       o += src.length;
     }
-    const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+    const mesh = new THREE.Mesh(geo, withSurface(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 'wood', { axis: 'z', seam: 14 }));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     this.body.add(mesh);

@@ -94,7 +94,9 @@ void main() {
 `;
 
 const _v = new THREE.Vector3();
+const _f = new THREE.Vector3();
 const _grey = new THREE.Color();
+const _haze = new THREE.Color();
 
 function towardsGrey(c, amt, dark) {
   const l = (c.r * 0.3 + c.g * 0.59 + c.b * 0.11) * dark;
@@ -260,7 +262,15 @@ export class Environment {
 
     const fog = this.scene.fog;
     fog.color.copy(this.horizon).lerp(this.zenith, 0.08);
-    fog.density = 0.0021 + rain * 0.0045;
+    // Looking towards a low sun, the haze glows warm; looking away, it stays cool.
+    camera.getWorldDirection(_f);
+    const fl = Math.hypot(_f.x, _f.z) || 1, sl = Math.hypot(this.sunDir.x, this.sunDir.z) || 1;
+    const facing = Math.max(0, (_f.x * this.sunDir.x + _f.z * this.sunDir.z) / (fl * sl));
+    const low = (1 - smoothstep(0.04, 0.45, this.sunDir.y)) * this.daylight * (1 - rain * 0.7);
+    fog.color.lerp(_haze.copy(this.sunColor).lerp(this.horizon, 0.4), facing * facing * facing * low * 0.45);
+    // Early mornings are hazier, before the day warms up.
+    const morning = smoothstep(4.5, 5.8, hour) * (1 - smoothstep(7.5, 10, hour));
+    fog.density = 0.0021 + rain * 0.0045 + morning * 0.0014;
 
     const su = this.skyUniforms;
     su.uSunColor.value.copy(this.sunColor);

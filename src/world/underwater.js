@@ -13,6 +13,9 @@ const UNDER_DAY = new THREE.Color('#2a8b95');
 const UNDER_DUSK = new THREE.Color('#3b5f7c');
 const UNDER_NIGHT = new THREE.Color('#0b1f33');
 const UNDER_RAIN = new THREE.Color('#4a6f74');
+const UNDER_DEEP = new THREE.Color('#0d3f5a');
+const _look = new THREE.Vector3();
+const _fogC = new THREE.Color();
 const _c = new THREE.Color();
 
 function plantMaterial() {
@@ -293,11 +296,15 @@ export class Underwater {
     if (rain > 0) c.lerp(UNDER_RAIN, rain * 0.35 * env.daylight);
     c.multiplyScalar(1 - clamp(-cp.y / 40, 0, 0.45));
     if (sub > 0) {
-      scene.fog.color.lerp(c, sub);
+      // Water scatters light from above: looking up the haze is bright, looking down it deepens to blue.
+      camera.getWorldDirection(_look);
+      _fogC.copy(c).lerp(UNDER_DEEP, clamp(0.35 - _look.y * 0.6, 0, 0.6) * env.daylight).multiplyScalar(1 + clamp(_look.y, 0, 1) * 0.35);
+      scene.fog.color.lerp(_fogC, sub);
       scene.fog.density = lerp(scene.fog.density, 0.034 + rain * 0.01 + env.night * 0.008, sub);
     }
     env.setUnder(sub, c);
     water.uniforms.uUnderColor.value.copy(c);
+    water.uniforms.uUnder.value = sub;
     this.tint.style.opacity = sub.toFixed(3);
     this.submerge = sub;
     return sub;

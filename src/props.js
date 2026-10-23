@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeParts, mat } from './util.js';
+import { withSurface } from './world/surface.js';
 
 // A little brass lantern. The glass material is returned so its glow can follow the evening.
 export function buildLanternModel() {
@@ -33,8 +34,9 @@ const SEG = [0.55, 0.52, 0.48, 0.42, 0.38];
 export function buildRod(look) {
   const group = new THREE.Group();
   group.rotation.order = 'YXZ';
-  const blank = new THREE.MeshLambertMaterial({ color: look.color });
-  const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.026, 0.38, 7), new THREE.MeshLambertMaterial({ color: look.handle }));
+  // A varnished blank that catches the light, and a cork grip.
+  const blank = new THREE.MeshStandardMaterial({ color: look.color, roughness: 0.32, metalness: 0.05 });
+  const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.026, 0.38, 7), withSurface(new THREE.MeshLambertMaterial({ color: look.handle }), 'cork'));
   grip.position.y = 0.12;
   group.add(grip);
   const metal = new THREE.MeshStandardMaterial({ color: '#7d8590', metalness: 0.6, roughness: 0.4 });

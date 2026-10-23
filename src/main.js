@@ -11,6 +11,9 @@ import { createHabitat } from './world/habitat.js';
 import { Ecosystem } from './world/ecosystem.js';
 import { FishRenderer } from './world/fishRender.js';
 import { Underwater } from './world/underwater.js';
+import { Reflection, RippleField, NO_REFLECT, hideFromReflection } from './world/waterfx.js';
+import { createMist } from './world/mist.js';
+import { surfaceUniforms } from './world/surface.js';
 import { causticUniforms } from './world/caustics.js';
 import {
   bakeHeightTexture, walkHeight, solidHeight, landSDF, lakeSDF, streamSDF, zoneAt,
@@ -96,11 +99,21 @@ const habitat = createHabitat();
 const env = new Environment(scene);
 const water = createWater(bakeHeightTexture(512, WATER_RECT), WATER_RECT, bakeHeightTexture(256, SHORE_RECT), SHORE_RECT);
 scene.add(water.mesh);
+const mist = createMist(water.uniforms.uHeight.value, WATER_RECT, water.uniforms.uHeight2.value, SHORE_RECT);
+scene.add(mist.group);
 const world = buildWorld(scene, renderer, habitat);
 const underwater = new Underwater(scene, habitat, $('underwater-tint'));
 const eco = new Ecosystem(habitat);
 const fishRenderer = new FishRenderer(scene, eco);
 const fx = new Effects(scene);
+// The water mirrors the world and shows every ripple (both scale with the graphics setting).
+const reflection = new Reflection();
+const ripples = new RippleField();
+fx.setField(ripples);
+camera.layers.enable(NO_REFLECT);
+hideFromReflection(water.mesh);
+for (const o of [underwater.grass, underwater.kelp, underwater.rocks, underwater.particles, underwater.bubblesPts, ...underwater.rays]) hideFromReflection(o);
+for (const set of fishRenderer.sets) hideFromReflection(set.mesh);
 const boat = new Boat(scene);
 const walker = new Walker(scene);
 const journal = new Journal(state);
@@ -882,6 +895,12 @@ function applyQuality() {
   renderer.setSize(innerWidth, innerHeight, false);
   env.setShadows(q.shadows, q.shadowSize);
   water.setSegments(q.waterSegments);
+  water.setDetail(q.waterDetail);
+  reflection.setQuality(q.reflection, q.reflectEvery);
+  mist.setLayers(q.mist);
+  surfaceUniforms.uDetail.value = q.surfaceDetail;
+  ripples.setQuality(q.ripples, q.rippleSpan, renderer);
+  water.uniforms.uRippleTexel.value = 1 / Math.max(1, ripples.size);
   rainGeo.setDrawRange(0, q.rain * 2);
   world.setPixelRatio(pr);
   world.setQuality(q);
@@ -1666,6 +1685,8 @@ function tick(now, manual = false) {
   fishRenderer.update(dt, camera, env.night, sub > 0.5);
   world.update(dt, t, env, { fireLevel: camp.fireLevel, hatchLevel: hatchLevel(), hour: state.hour });
   updateRain(dt);
+  mist.update(t, state.hour, env, camera);
+  surfaceUniforms.uWetTop.value = 0.22 + 0.05 * Math.sin(t * 0.35) + weather.rain * 0.12;
   causticUniforms.uCausticTime.value = t;
   causticUniforms.uCaustic.value = (quality.caustics ?? 1) * env.daylight * (1 - weather.rain * 0.6);
 
@@ -1720,7 +1741,41 @@ function tick(now, manual = false) {
   }
   updateHud();
 
-  if (!manual) renderer.render(scene, camera);
+  // Wading through the shallows sends rings out around your boots.
+  if (onFoot && walker.wading > 0.05 && (move.x || move.z) && !fishing.busy) {
+    wadeT -= dt;
+    if (wadeT <= 0) {
+      wadeT = walker.jogging ? 0.18 : 0.3;
+      fx.ripple(walker.pos.x + rand(-0.15, 0.15), walker.pos.z + rand(-0.15, 0.15), 0.6 + walker.wading * 0.6, 1.4, 0.3 + walker.wading * 0.25);
+    }
+  }
+
+  if (!manual) draw();
+}
+
+let wadeT = 0;
+const _rf = new THREE.Vector3();
+// Everything that has to happen to put a frame on screen: the ripple field (centred
+// between you and your line, or a little ahead of you), the reflection, then the view.
+function draw() {
+  const P = player().pos;
+  if (fishing.baitInWater) {
+    _rf.set((P.x + fishing.hook.x) / 2, 0, (P.z + fishing.hook.z) / 2);
+  } else {
+    camera.getWorldDirection(_rf);
+    _rf.set(P.x + _rf.x * 14, 0, P.z + _rf.z * 14);
+  }
+  ripples.render(renderer, _rf.x, _rf.z);
+  reflection.render(renderer, scene, camera);
+  const wu = water.uniforms;
+  wu.uReflOn.value = reflection.active ? 1 : 0;
+  wu.uRefl.value = reflection.target.texture;
+  wu.uReflMatrix.value.copy(reflection.matrix);
+  wu.uReflTexel.value.set(1 / reflection.target.width, 1 / reflection.target.height);
+  wu.uRippleOn.value = ripples.on ? 1 : 0;
+  wu.uRipple.value = ripples.target?.texture || null;
+  wu.uRippleRect.value.copy(ripples.rect);
+  renderer.render(scene, camera);
 }
 
 function frame(now) {
@@ -1738,6 +1793,7 @@ requestAnimationFrame((now) => {
 // A small handle for tinkering from the browser console, e.g. slowTide.setHour(19).
 window.slowTide = {
   state, boat, walker, fishing, env, weather, renderer, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world,
+  reflection, ripples, mist, fx,
   setHour: (h) => { state.hour = ((h % 24) + 24) % 24; },
   setRain: (r) => { weather.target = r; weather.rain = r; },
   teleport: (x, z, heading = boat.heading) => boat.place(x, z, heading),
@@ -1766,13 +1822,16 @@ window.slowTide = {
     window.slowTide.paused = true;
     camera.position.set(x, y, z);
     camera.lookAt(tx, ty, tz);
-    renderer.render(scene, camera);
+    underwater.updateMedium(t, camera, env, scene, water, weather.rain);
+    reflection.active = false; // a fresh reflection for the new view
+    draw();
   },
   // Step the game by hand (handy for testing while the tab is in the background).
   advance: (seconds, fps = 30) => {
     let now = last;
     for (let i = 0; i < seconds * fps; i++) tick((now += 1000 / fps), true);
-    renderer.render(scene, camera);
+    reflection.active = false;
+    draw();
   },
   reset: () => {
     newGame(); // also stops the save-on-leave handlers from writing the old progress back

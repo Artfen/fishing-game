@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { waveHeight } from './world/water.js';
 import { clamp, rand, smoothstep, glowTexture } from './util.js';
+import { hideFromReflection } from './world/waterfx.js';
 
 const WAKE_POINTS = 70;
 const WAKE_LIFE = 3.6;
@@ -51,6 +52,17 @@ export class Effects {
     }
     this.fi = 0;
     this.lapT = 0;
+    this.bowT = 0;
+    this.field = null; // the ripple height field (higher graphics settings), see waterfx.js
+    for (const r of this.ripples) hideFromReflection(r.m);
+    for (const f of this.flashes) hideFromReflection(f.m);
+    hideFromReflection(this.points);
+    hideFromReflection(this.wake);
+  }
+
+  // With the ripple field on, ripples shape the water itself; the drawn rings just add a faint crest.
+  setField(field) {
+    this.field = field;
   }
 
   // Small wavelets lapping against the hull while the boat sits still (or drifts slowly).
@@ -74,6 +86,7 @@ export class Effects {
   }
 
   ripple(x, z, size = 1.5, life = 1.6, str = 0.5) {
+    if (this.field?.on) this.field.add(x, z, size * 1.15, life * 1.3, str);
     const r = this.ripples[this.ri++ % this.ripples.length];
     Object.assign(r, { x, z, size, max: life, life, str });
     r.m.visible = true;
@@ -167,7 +180,7 @@ export class Effects {
       const s = 0.2 + r.size * Math.sqrt(u);
       r.m.scale.set(s, 1, s);
       r.m.position.set(r.x, waveHeight(r.x, r.z, t) + 0.03, r.z);
-      r.m.material.opacity = r.str * (1 - u) * (1 - u);
+      r.m.material.opacity = r.str * (1 - u) * (1 - u) * (this.field?.on ? 0.3 : 1);
       if (r.life <= 0) r.m.visible = false;
     }
 
@@ -197,5 +210,22 @@ export class Effects {
 
     this.updateWake(dt, t, boat);
     this.updateHull(dt, boat);
+    this.updateBow(dt, boat);
+    this.field?.update(dt);
+  }
+
+  // Under way, the bow pushes out little waves on both sides; together they spread into a V.
+  updateBow(dt, boat) {
+    if (!this.field?.on || boat.speed < 0.5) return;
+    this.bowT -= dt;
+    if (this.bowT > 0) return;
+    this.bowT = 0.11;
+    const s = clamp(boat.speed / 4.5, 0, 1);
+    for (const side of [-1, 1]) {
+      const x = boat.pos.x + boat.fwd.x * 1.3 + boat.right.x * side * 0.45;
+      const z = boat.pos.z + boat.fwd.z * 1.3 + boat.right.z * side * 0.45;
+      this.field.add(x, z, 1.2 + s * 1.6, 2.4, 0.28 + s * 0.3);
+    }
+    this.field.add(boat.pos.x - boat.fwd.x * 1.7, boat.pos.z - boat.fwd.z * 1.7, 0.9 + s, 1.6, 0.25 * s);
   }
 }

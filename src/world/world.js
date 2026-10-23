@@ -3,6 +3,7 @@ import { heightAt, JETTY, COVE, ISLAND, STACKS, CHANNEL, CAMP, LANDING, findShor
 import { mergeParts, mat, seeded, fbm, clamp, lerp, smoothstep, hash2, jitterGeo, pick, glowTexture } from '../util.js';
 import { buildLanternModel } from '../props.js';
 import { withCaustics } from './caustics.js';
+import { withSurface } from './surface.js';
 import { buildShore, SHORE_PATCH } from './shore.js';
 
 const shared = { uTime: { value: 0 }, uWind: { value: 1 } };
@@ -193,7 +194,7 @@ function buildTerrain(rnd, habitat) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   geo.computeVertexNormals();
   // The whole seabed is kept now, so the underwater view has a floor everywhere.
-  const mesh = new THREE.Mesh(geo, withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true })));
+  const mesh = new THREE.Mesh(geo, withSurface(withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true })), 'ground'));
   mesh.receiveShadow = true;
   mesh.castShadow = true;
   return mesh;
@@ -355,7 +356,7 @@ function buildJetty(rnd) {
   parts.push({ geo: new THREE.BoxGeometry(1.4, 0.3, 0.05), matrix: mat(bx, by + 0.72, bz - 0.2, -0.15, 0, 0), color: '#9f7a52' });
   for (const sx of [-0.6, 0.6]) parts.push({ geo: new THREE.BoxGeometry(0.06, 0.5, 0.36), matrix: mat(bx + sx, by + 0.2, bz), color: '#6e5238' });
 
-  const mesh = new THREE.Mesh(mergeParts(parts, rnd), new THREE.MeshLambertMaterial({ vertexColors: true }));
+  const mesh = new THREE.Mesh(mergeParts(parts, rnd), withSurface(new THREE.MeshLambertMaterial({ vertexColors: true }), 'wood', { axis: 'x' }));
   mesh.castShadow = true;
   mesh.receiveShadow = true;
 
