@@ -15,7 +15,10 @@ export class Input {
     this.virtual = { throttle: 0, steer: 0, rest: false };
     this.labels = { KeyW: 'W', KeyA: 'A', KeyS: 'S', KeyD: 'D' };
 
+    // Typing in a text box or choosing from a list isn't steering the boat.
+    const typing = (e) => e.target instanceof Element && e.target.closest('input, textarea, select') && e.code !== 'Escape';
     addEventListener('keydown', (e) => {
+      if (typing(e)) return;
       if (BLOCK.has(e.code)) e.preventDefault();
       if (e.repeat) return;
       const key = (e.key || '').toLowerCase();

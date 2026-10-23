@@ -24,13 +24,17 @@ function button(text, onClick, cls = '') {
 // creel for fish you keep. At camp it opens next to the tackle box so you can swap things.
 // Picking tackle is one click; anything that won't work with a rod says so.
 export class PackUI {
-  constructor(state, { onChange, onClose }) {
+  // travel(dest) heads back to 'camp' or 'boat'; travelInfo() says which are possible right now.
+  constructor(state, { onChange, onClose, travel, travelInfo }) {
     this.state = state;
     this.onChange = onChange;
     this.onCloseCb = onClose;
+    this.travelInfo = travelInfo;
     this.el = $('pack');
     this.atCamp = false;
     $('pack-close').addEventListener('click', () => this.onCloseCb());
+    $('travel-camp').addEventListener('click', () => travel('camp'));
+    $('travel-boat').addEventListener('click', () => travel('boat'));
     this.el.addEventListener('click', (e) => { if (e.target === this.el) this.onCloseCb(); });
   }
 
@@ -141,7 +145,15 @@ export class PackUI {
     return card;
   }
 
+  renderTravel() {
+    const info = this.travelInfo();
+    $('travel-camp').disabled = !info.camp;
+    $('travel-boat').disabled = !info.boat;
+    $('travel-note').textContent = info.note || '';
+  }
+
   render() {
+    this.renderTravel();
     const g = this.gear;
     $('pack-title').textContent = this.atCamp ? 'Backpack & tackle box' : 'Backpack';
     $('pack-where').textContent = this.atCamp

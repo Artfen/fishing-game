@@ -6,11 +6,12 @@ import {
 import { mergeParts, mat, fbm, clamp, lerp, smoothstep, jitterGeo, pick, glowTexture } from '../util.js';
 import { buildLanternModel } from '../props.js';
 import { withCaustics } from './caustics.js';
+import { withSurface } from './surface.js';
 
 // The west shore, built on the map in terrain.js: the landing pier, camp (tent, fire,
 // tackle chest and rod rack), the lake's reeds, lily pads and fallen alder, the stream's
 // boulders, bridge and stepping stones, and the small living touches (grass, ferns,
-// morning mist and hatching flies).
+// hatching flies; the morning mist is in mist.js).
 
 export const SHORE_PATCH = { x0: -195, x1: -84, z0: -110, z1: 14 };
 
@@ -628,44 +629,7 @@ function grassGeometry(rnd) {
   return mergeParts(parts, rnd);
 }
 
-/* ---------------- mist and insects ---------------- */
-
-function mistTexture() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 128;
-  const ctx = c.getContext('2d');
-  for (let i = 0; i < 14; i++) {
-    const x = 20 + Math.random() * 88, y = 20 + Math.random() * 88, r = 18 + Math.random() * 30;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, 'rgba(255,255,255,0.35)');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, 128, 128);
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
-function buildMist(rnd) {
-  const tex = mistTexture();
-  const planes = [];
-  const spots = [
-    { x: LAKE.x - 8, z: LAKE.z, s: 26 }, { x: LAKE.x + 9, z: LAKE.z + 2, s: 22 }, { x: LAKE.x, z: LAKE.z - 5, s: 20 },
-    { x: STREAM[3][0], z: STREAM[3][1], s: 14 }, { x: STREAM[1][0], z: STREAM[1][1], s: 12 },
-  ];
-  for (const sp of spots) {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(sp.s, sp.s * 0.7).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({
-      map: tex, transparent: true, opacity: 0, depthWrite: false, color: '#eef3f2',
-    }));
-    m.position.set(sp.x, 0.6 + rnd() * 0.4, sp.z);
-    m.rotation.y = rnd() * Math.PI;
-    m.renderOrder = 6;
-    m.userData = { x: sp.x, z: sp.z, ph: rnd() * 10 };
-    planes.push(m);
-  }
-  return planes;
-}
+/* ---------------- insects ---------------- */
 
 function buildHatch(rnd) {
   const N = 90;
@@ -736,7 +700,7 @@ export function buildShore(scene, rnd) {
   buildSnag(rnd, parts, obstacles);
   buildPegs(rnd, parts);
   scene.add(buildStream(rnd, parts, obstacles));
-  const wood = new THREE.Mesh(mergeParts(parts, rnd), new THREE.MeshLambertMaterial({ vertexColors: true }));
+  const wood = new THREE.Mesh(mergeParts(parts, rnd), withSurface(new THREE.MeshLambertMaterial({ vertexColors: true }), 'wood', { axis: 'z' }));
   wood.castShadow = true;
   wood.receiveShadow = true;
   scene.add(wood);
@@ -808,8 +772,6 @@ export function buildShore(scene, rnd) {
   flowerMesh.renderOrder = 2;
   scene.add(padMesh, flowerMesh);
 
-  const mist = buildMist(rnd);
-  for (const m of mist) scene.add(m);
   const hatch = buildHatch(rnd);
   scene.add(hatch);
 
@@ -831,16 +793,6 @@ export function buildShore(scene, rnd) {
       shared.uWind.value = wind;
       camp.fire.update(dt, t, fireLevel, wind, env.night);
       camp.lanternGlass.emissiveIntensity = env.lantern * 2.6;
-      // Morning mist lies on the still water from before dawn until mid-morning, and a little at dusk.
-      const mistK = (smoothstep(4, 5.5, hour) * (1 - smoothstep(7.5, 9.5, hour)) + smoothstep(19.5, 21, hour) * (1 - smoothstep(22.5, 23.5, hour)) * 0.5) * (1 - env.rain * 0.5);
-      for (const m of mist) {
-        const u = m.userData;
-        m.visible = mistK > 0.01;
-        m.material.opacity = mistK * (0.45 + 0.15 * Math.sin(t * 0.13 + u.ph));
-        m.position.x = u.x + Math.sin(t * 0.03 + u.ph) * 3;
-        m.position.z = u.z + Math.cos(t * 0.025 + u.ph) * 2;
-        m.rotation.y += dt * 0.004;
-      }
       hatch.material.uniforms.uOpacity.value = hatchLevel * (0.4 + env.daylight * 0.6);
       hatch.visible = hatchLevel > 0.02;
     },

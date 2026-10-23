@@ -864,6 +864,12 @@ export class Fishing {
       this.twitchT -= dt;
       this.hook.y += Math.sin((this.twitchT / 0.5) * Math.PI) * 0.25;
     }
+    // The float rocks gently on the surface and sends out the faintest rings.
+    this.idleRingT = (this.idleRingT ?? 1) - dt;
+    if (this.idleRingT <= 0) {
+      this.idleRingT = 1.3 + Math.random() * 1.8;
+      this.fx.ripple(this.bob.x, this.bob.z, 0.3, 1.5, this.reelSpeed > 0.1 ? 0.22 : 0.12);
+    }
     this.syncBait();
   }
 
@@ -927,6 +933,14 @@ export class Fishing {
       }
     }
     this.hook.y = waveHeight(this.hook.x, this.hook.z, t) - this.baitDepth;
+    // A lure working just under the surface leaves a small wake.
+    if (moving && this.baitDepth < 0.45) {
+      this.wakeT = (this.wakeT ?? 0) - dt;
+      if (this.wakeT <= 0) {
+        this.wakeT = 0.16;
+        this.fx.ripple(this.hook.x, this.hook.z, 0.45, 1.0, 0.2 * (1 - this.baitDepth / 0.45));
+      }
+    }
     this.surfacePoint(this.bob, t);
     this.syncBait();
   }

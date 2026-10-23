@@ -110,8 +110,9 @@ export function buildTackleModel(item) {
 // The float, a strike indicator for nymphs, and the lead that holds a carp rig on the bottom.
 export function buildFloat() {
   const bobber = new THREE.Group();
-  const top = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#e5533d' }));
-  const bottom = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#f6f1e6' }));
+  // Glossy painted balsa.
+  const top = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#e5533d', roughness: 0.3 }));
+  const bottom = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#f6f1e6', roughness: 0.3 }));
   const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.14, 4), new THREE.MeshLambertMaterial({ color: '#2f2a26' }));
   stem.position.y = 0.11;
   bobber.add(top, bottom, stem);

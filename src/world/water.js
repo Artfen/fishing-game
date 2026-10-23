@@ -44,7 +44,7 @@ vec3 waves(vec2 p, float t) {
 `;
 
 // The world map, with a sharper copy over the west shore where the stream is narrow.
-const MAP_GLSL = /* glsl */ `
+export const MAP_GLSL = /* glsl */ `
 uniform sampler2D uHeight;
 uniform vec4 uRect;
 uniform sampler2D uHeight2;
@@ -60,11 +60,14 @@ const vertexShader = /* glsl */ `
 ${WAVE_GLSL}
 ${MAP_GLSL}
 uniform float uTime;
+uniform mat4 uReflMatrix;
 varying vec3 vWorld;
 varying vec3 vN;
+varying vec4 vRefl;
 #include <fog_pars_vertex>
 void main() {
   vec4 wp = modelMatrix * vec4(position, 1.0);
+  vRefl = uReflMatrix * vec4(wp.x, 0.0, wp.z, 1.0);
   float freshV = worldMap(wp.xz).g;
   vec3 w = waves(wp.xz, uTime) * (1.0 - 0.92 * freshV);
   wp.y += w.x;
@@ -90,13 +93,22 @@ uniform vec3 uMid;
 uniform vec3 uDeep;
 uniform vec3 uFoam;
 uniform vec3 uUnderColor;
+uniform float uUnder;
 uniform vec3 uFreshShallow;
 uniform vec3 uFreshMid;
 uniform vec3 uFreshDeep;
 ${MAP_GLSL}
 uniform vec4 uLights[2];
+uniform sampler2D uRefl;
+uniform float uReflOn;
+uniform vec2 uReflTexel;
+uniform sampler2D uRipple;
+uniform vec4 uRippleRect;
+uniform float uRippleOn;
+uniform float uRippleTexel;
 varying vec3 vWorld;
 varying vec3 vN;
+varying vec4 vRefl;
 #include <fog_pars_fragment>
 
 float hash12(vec2 p) {
@@ -133,17 +145,40 @@ vec2 rainRings(vec2 p, float t) {
   return g;
 }
 
+// Slope of the ripple field (casts, the bobber, rising fish, the boat, wading).
+vec2 rippleSlope(vec2 p) {
+  if (uRippleOn < 0.5) return vec2(0.0);
+  vec2 uv = (p - uRippleRect.xy) / uRippleRect.zw;
+  float edge = min(min(uv.x, uv.y), min(1.0 - uv.x, 1.0 - uv.y));
+  if (edge <= 0.0) return vec2(0.0);
+  float e = uRippleTexel;
+  float hx = texture2D(uRipple, uv + vec2(e, 0.0)).r - texture2D(uRipple, uv - vec2(e, 0.0)).r;
+  float hz = texture2D(uRipple, uv + vec2(0.0, e)).r - texture2D(uRipple, uv - vec2(0.0, e)).r;
+  return vec2(hx, hz) * smoothstep(0.0, 0.06, edge) / (2.0 * e * uRippleRect.z);
+}
+
 void main() {
+  vec2 rip = rippleSlope(vWorld.xz);
   // Seen from below: bright where you look straight up through the surface,
   // the darker underwater colour where the light reflects back at a slant.
-  if (!gl_FrontFacing) {
+  // From under the water every part of the surface is its underside, even far-off wave slopes
+  // that happen to tilt their top towards you.
+  if (!gl_FrontFacing || uUnder > 0.5) {
     vec3 Vu = normalize(cameraPosition - vWorld);
-    vec2 gu = ngrad(vWorld.xz * 0.45 + vec2(uTime * 0.16, uTime * 0.07));
-    float view = clamp(-Vu.y, 0.0, 1.0) + (gu.x + gu.y) * 0.04;
-    float win = smoothstep(0.62, 0.9, view);
-    vec3 skyU = mix(uHorizon, uZenith, 0.5) * 1.15 + uSunColor * 0.3;
-    vec3 colU = mix(uUnderColor * 0.85, mix(skyU, uUnderColor * 1.7, 0.35), win);
-    colU += uSunColor * pow(max(0.0, 1.0 - length(gu) * 0.6), 6.0) * 0.06 * win;
+    vec2 gu = ngrad(vWorld.xz * 0.45 + vec2(uTime * 0.16, uTime * 0.07)) + ngrad(vWorld.xz * 1.3 - uTime * 0.2) * 0.5 + rip * 2.0;
+    // Snell's window: looking up you see the sky squeezed into a bright circle; outside it the
+    // surface mirrors the water below. Its edge shimmers with the waves.
+    float view = clamp(-Vu.y, 0.0, 1.0) + (gu.x + gu.y) * 0.05;
+    float win = smoothstep(0.58, 0.8, view);
+    vec3 Nu = normalize(vec3(gu.x * 0.15, -1.0, gu.y * 0.15));
+    vec3 Tu = refract(-Vu, Nu, 1.33);
+    vec3 skyU = mix(uHorizon, uZenith, clamp(Tu.y, 0.0, 1.0)) * 0.85;
+    float sunU = pow(max(dot(Tu, uLightDir), 0.0), 40.0) * smoothstep(-0.02, 0.1, uLightDir.y);
+    skyU += uSunColor * (0.12 + sunU * 2.2);
+    vec3 colU = mix(uUnderColor * 0.8, mix(skyU, uUnderColor * 1.5, 0.4), win);
+    // A brighter rim where the window meets the mirrored part.
+    colU += skyU * 0.25 * win * (1.0 - smoothstep(0.78, 0.86, view));
+    colU += uSunColor * pow(max(0.0, 1.0 - length(gu) * 0.5), 6.0) * 0.06 * win;
     gl_FragColor = vec4(colU, 0.95);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -160,10 +195,22 @@ void main() {
   float detail = 1.0 - smoothstep(40.0, 220.0, dist);
 
   vec2 p = vWorld.xz;
+  // Gusts: slow patches where the breeze ruffles the water, with calmer, glassier lanes between.
+  float gust = smoothstep(0.2, 0.8, vnoise(p * 0.016 + vec2(uTime * 0.011, uTime * 0.005)) * 0.7 + vnoise(p * 0.05 - uTime * 0.02) * 0.3);
+  float wind = mix(0.4, 1.2, gust) * mix(1.0, 0.6, fresh);
   // Still water (the lake) gets only a faint ruffle; the sea keeps its chop.
   float chop = 1.0 - fresh * 0.65;
   vec2 g = ngrad(p * 0.45 + vec2(uTime * 0.16, uTime * 0.07)) * 0.10 * chop
          + ngrad(p * 1.1 + vec2(-uTime * 0.11, uTime * 0.19)) * 0.05;
+#if DETAIL > 0
+  // Finer wavelets in other directions, fading out with distance so they never shimmer.
+  float near = 1.0 - smoothstep(12.0, 70.0, dist);
+  g += ngrad(p * 2.6 + vec2(uTime * 0.23, -uTime * 0.15)) * 0.035 * near;
+#endif
+#if DETAIL > 1
+  g += ngrad(p * 5.3 + vec2(-uTime * 0.34, -uTime * 0.27)) * 0.02 * near * near;
+#endif
+  g *= wind;
   // Running water: ripples carried downstream (two phases cross-faded so they never stretch).
   float streak = 0.0;
   if (flowSpeed > 0.02) {
@@ -178,6 +225,7 @@ void main() {
   }
   g += rainRings(p, uTime) * uRain * 0.45;
   g *= detail;
+  g += rip;
   vec3 N = normalize(vec3(vN.x - g.x, vN.y, vN.z - g.y));
   vec3 V = normalize(cameraPosition - vWorld);
 
@@ -192,12 +240,43 @@ void main() {
 
   vec3 R = reflect(-V, N);
   float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 4.0);
+  // Far away the water looks rougher: reflections soften and the sun's path spreads.
+  float rough = smoothstep(25.0, 260.0, dist);
   vec3 sky = mix(uHorizon, uZenith, clamp(R.y * 1.5, 0.0, 1.0));
-  col = mix(col, sky, clamp(0.06 + fres * 0.6, 0.0, 1.0));
+  // The mirrored scene (sky, shore, boat, lights), nudged by the small waves and ripples.
+  // Calm fresh water mirrors crisply; the sea breaks it up.
+  if (uReflOn > 0.5) {
+    vec2 ruv = vRefl.xy / vRefl.w + (g * 0.9 + vec2(-vN.x, -vN.z) * 0.25) * mix(0.14, 0.05, fresh);
+    vec2 inside = smoothstep(vec2(0.0), vec2(0.04), ruv) * smoothstep(vec2(1.0), vec2(0.96), ruv);
+    ruv = clamp(ruv, 0.002, 0.998);
+    // Choppy sea water blurs what it mirrors; the calm lake keeps it sharp.
+    vec2 bl = uReflTexel * mix(4.0, 1.0, fresh) * (1.0 + rough * 2.0);
+    vec3 mirrored = texture2D(uRefl, ruv).rgb * 0.4
+      + (texture2D(uRefl, ruv + vec2(bl.x, bl.y)).rgb + texture2D(uRefl, ruv - vec2(bl.x, bl.y)).rgb
+      + texture2D(uRefl, ruv + vec2(bl.x, -bl.y)).rgb + texture2D(uRefl, ruv + vec2(-bl.x, bl.y)).rgb) * 0.15;
+    sky = mix(sky, mirrored, inside.x * inside.y * (1.0 - uRain * 0.4));
+  }
+  // Looking straight down you mostly see into the water; at a glancing angle, mostly reflection.
+  float reflAmt = mix(0.035 + fres * 0.66, 0.08 + fres * 0.82, fresh);
+  col = mix(col, sky, clamp(reflAmt, 0.0, 1.0));
 
   float sd = max(dot(R, uLightDir), 0.0);
   float up = smoothstep(-0.02, 0.08, uLightDir.y);
-  col += uSunColor * (pow(sd, 220.0) * 2.4 + pow(sd, 18.0) * 0.12) * up * (1.0 - uRain * 0.85);
+  float sunSpec = pow(sd, mix(220.0, 45.0, rough)) * mix(2.4, 0.7, rough) + pow(sd, 18.0) * 0.12;
+#if DETAIL > 0
+  // Glints: single wavelets flashing the sun back for a moment, along the sun's path.
+  vec2 gc = p * 4.0 + g * 3.0;
+  vec2 gcell = floor(gc);
+  float gh = hash12(gcell);
+  float blink = fract(uTime * (0.7 + gh) + gh * 7.0);
+  vec2 goff = vec2(hash12(gcell + 3.1), hash12(gcell + 7.7)) * 0.7 + 0.15;
+  float spot = 1.0 - smoothstep(0.02, 0.1, length(fract(gc) - goff));
+  float glint = spot * step(0.8, gh) * smoothstep(0.0, 0.1, blink) * (1.0 - smoothstep(0.1, 0.3, blink));
+  sunSpec += glint * pow(sd, 24.0) * near * wind * 3.5;
+#endif
+  col += uSunColor * sunSpec * up * (1.0 - uRain * 0.85);
+  // Ripple crests catch a little extra light.
+  col += (uAmbient + uSunColor * 0.4) * clamp(length(rip) * 0.6, 0.0, 0.25);
 
   // Shoreline foam: a soft edge plus slow bands rolling in.
   float n1 = vnoise(p * 0.7 + uTime * 0.25);
@@ -255,17 +334,27 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       uFreshDeep: { value: new THREE.Color('#25463f') },
       uRect: { value: new THREE.Vector4(rect.x, rect.z, rect.w, rect.h) },
       uLights: { value: [new THREE.Vector4(), new THREE.Vector4()] },
+      uReflOn: { value: 0 },
+      uUnder: { value: 0 },
+      uReflMatrix: { value: new THREE.Matrix4() },
+      uRippleOn: { value: 0 },
+      uRippleTexel: { value: 1 / 512 },
+      uReflTexel: { value: new THREE.Vector2(1 / 512, 1 / 512) },
     },
   ]);
-  // Assigned after merge so the textures aren't cloned.
+  // Assigned after merge so the textures (and shared vectors) aren't cloned.
   uniforms.uHeight = { value: heightTex };
   uniforms.uHeight2 = { value: detailTex };
   uniforms.uRect2 = { value: new THREE.Vector4(detailRect.x, detailRect.z, detailRect.w, detailRect.h) };
+  uniforms.uRefl = { value: null };
+  uniforms.uRipple = { value: null };
+  uniforms.uRippleRect = { value: new THREE.Vector4(0, 0, 1, 1) };
 
   const material = new THREE.ShaderMaterial({
     uniforms,
     vertexShader,
     fragmentShader,
+    defines: { DETAIL: 2 },
     transparent: true,
     fog: true,
     side: THREE.DoubleSide,
@@ -286,6 +375,12 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
     follow(pos) {
       mesh.position.x = Math.round(pos.x / cell) * cell;
       mesh.position.z = Math.round(pos.z / cell) * cell;
+    },
+    // 0: two wave layers (low), 1: plus fine wavelets and glints, 2: plus the finest layer.
+    setDetail(level) {
+      if (material.defines.DETAIL === level) return;
+      material.defines.DETAIL = level;
+      material.needsUpdate = true;
     },
     setSegments(seg) {
       if (cell === SIZE / seg) return;

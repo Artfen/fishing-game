@@ -6,7 +6,7 @@ A small, peaceful fishing adventure that runs in the browser. You row a little w
 
 The water is a living place: weed beds, rocks, lily pads, a fallen tree, sandy shallows, deep water and running pools, home to around 370 fish that school, cruise, feed, rest by cover, hunt and scatter when startled. Rings, flashes, jumps and fizzing bubbles on the surface come from real fish below. You can look underwater, follow your bait or lure, and use a fish finder. The fish that takes your bait is one you could have watched swimming there.
 
-It's a static website: plain JavaScript modules, no build step, and no server code. Everything it needs ships in this folder, including [three.js](https://threejs.org) and the fonts, so it makes no requests to other sites and also works offline.
+It's a static website: plain JavaScript modules and no build step. Everything it needs ships in this folder, including [three.js](https://threejs.org) and the fonts, so it makes no requests to other sites and also works offline. The only server code is one small optional function for cloud saves, which stay switched off until you set them up (see [Cloud saves](#cloud-saves-optional)).
 
 ## Run it
 
@@ -14,11 +14,11 @@ It's a static website: plain JavaScript modules, no build step, and no server co
 python3 serve.py
 ```
 
-Then open <http://localhost:8642>. `serve.py` is a tiny static server with caching turned off, so a browser refresh always picks up your edits. Any static server works too.
+Then open <http://localhost:8642>. `serve.py` is a tiny static server with caching turned off, so a browser refresh always picks up your edits. It also answers the game's cloud-save question with "not set up", so locally you always play as a guest. Any static server works too.
 
 ## Put it online
 
-**Vercel** (what the live game uses): the project is imported from GitHub with the framework preset *Other*, no build command, and the repository root as the output directory. Every push to `main` redeploys the site, and every other branch gets its own preview address, so you can try a branch before merging it. No settings or environment variables are needed.
+**Vercel** (what the live game uses): the project is imported from GitHub with the framework preset *Other*, no build command, and the repository root as the output directory. Every push to `main` redeploys the site, and every other branch gets its own preview address, so you can try a branch before merging it. No settings or environment variables are needed, unless you want [cloud saves](#cloud-saves-optional). The `api/` folder holds the one optional function for those; Vercel picks it up by itself.
 
 Any other static host works too. Upload these files and folders, keeping the layout as it is:
 
@@ -26,7 +26,7 @@ Any other static host works too. Upload these files and folders, keeping the lay
 index.html  style.css  manifest.webmanifest  src/  vendor/  assets/
 ```
 
-`serve.py`, `README.md` and `.claude/` are for working locally and don't need to go up. Some other easy hosts:
+`serve.py`, `README.md`, `supabase/` and `.claude/` are for working locally and don't need to go up. `api/` only works on Vercel; elsewhere the game simply stays guest-only. Some other easy hosts:
 
 - **Netlify Drop** (app.netlify.com/drop) or **Cloudflare Pages**: drag the folder in and you get a web address within a minute.
 - **GitHub Pages**: set Pages to deploy from the `main` branch, root folder.
@@ -38,7 +38,7 @@ zip -r slow-tide.zip index.html style.css manifest.webmanifest src vendor assets
 
 **Link previews:** the `og:url` and `og:image` lines in `index.html` point at the Vercel address. If you move the game to another site, change them to the new full address; most social sites ignore relative image paths.
 
-**Privacy:** the game loads nothing from other sites, uses no cookies and no analytics. Progress is kept in the player's own browser (local storage) and never leaves their device.
+**Privacy:** the game loads nothing from other sites, uses no cookies and no analytics. Progress is kept in the player's own browser (local storage) and never leaves their device. If you switch on cloud saves and a player chooses to sign in, their save (and email address) is also stored in your own Supabase project, where only they can read it.
 
 ## How to play
 
@@ -112,6 +112,8 @@ Gear matters: a lure too big for a fish's mouth is ignored by small fish (so big
 
 You carry **two rods and six baits, lures or flies**, plus a **creel** for up to four fish you keep. Everything else waits in the **tackle box at camp**; open camp (or your backpack while at camp) to swap. Press **Q** to change tackle anywhere, and **1**/**2** to switch rods.
 
+The top of the backpack has **Head back to: Camp (the tent) · The boat**. Use it any time to return to a safe spot beside the tent or to climb back into the boat, keeping everything you carry and have caught. If you ever get stuck on foot, a *Stuck?* prompt appears that opens it for you. (It waits while a fish is on the line.)
+
 At camp you can light the fire, **grill** a fish from your creel (it takes half an hour of game time, and the fire must be lit), **eat** it, or have an oatcake from the tin. Hunger is gentle: you only get a little slower on your feet if you go a whole day without eating, and a cooked fish makes you **well fed**, which steadies your hands in a fight (the line tightens more slowly) for six hours. Glassminnows are too small to keep, and the old mossback is far too grand to eat.
 
 ### Reading the water
@@ -149,11 +151,68 @@ Fresh water (Reedmere and Fernbeck):
 
 Places: **The Landing**, **Camp**, **Reedmere** (Lily Peg by camp, the fallen alder on the steep north shore, the Willow Swim on the shallow south-west shelf), **Fernbeck** (Spring Pool, Alder Pool and Tail Pool, a footbridge and stepping stones), **Driftwood Cove** (behind the eastern headland; something glints on the beach), **Gull Rock** and **The Old Jetty**.
 
-Progress (journal, places, keepsakes, gear, creel, food, camp, time of day, where you and the boat are, the fish finder's position) saves to your browser's local storage.
+### Saving your progress
+
+No account is needed. The game saves by itself in your browser: after every catch, release or kept fish, when you change rods or tackle, cook, eat, sleep, travel back to camp or the boat, every ten seconds while you play, and when you close or hide the page. Refresh or come back next week and you carry on where you were: the time of day, where you and the boat are, your gear, backpack and creel, the camp fire and grill, your journal and catch log, and your settings.
+
+The journal's **Your progress** section shows when the game last saved and has three buttons:
+
+- **Download a copy**: saves your whole game as a small `.json` file.
+- **Load a saved copy…**: loads one of those files (it asks first, and keeps your current game as a backup).
+- **New game…**: starts over after asking you to confirm, with an offer to download a copy first. Your sound and graphics settings stay. The old save is kept aside in the browser rather than deleted.
+
+Saves are careful. Each one carries a version number, so a future update can convert old saves instead of breaking them. Every value is checked when loading, so a damaged save can't crash the game. If the save can't be read at all, it is kept aside (never written over) and the game loads the copy from the start of your previous session instead, and says so. A save made by a newer version is never written over. If you open the game in two tabs, the older tab stops saving so the two can't overwrite each other. In a private window, where the browser may refuse to store anything, the game tells you that progress won't be kept.
+
+### The journal and catch log
+
+Press **J**. The **Fish & places** pages hold a sketch and notes for every fish you've met, the hand-drawn map, keepsakes, settings and your progress. The **Catch log** pages record every fish you land:
+
+- the fish and its length (the game measures fish; it doesn't weigh them),
+- the day and time, the water (salt or fresh) and the nearest named spot (Willow Bay, Alder Pool, the fallen alder and so on),
+- how you caught it: the rod, the bait, lure or fly, and whether from the boat or the shore,
+- how deep it took and how deep the water was, rain, and whether flies were hatching,
+- what happened to it: released, kept, cooked or eaten.
+
+It shows your biggest catch, totals and personal bests for each kind of fish, and your recent catches with filters for fish, water, method and what happened to them (25 at a time, with *Show more*). Catches from before the log existed still count in the totals; the log says they have no details rather than inventing them.
 
 ### Graphics
 
-The journal's **Settings** (and the title screen) has a Graphics button: **Auto**, **High**, **Medium** or **Low**. Auto starts at High on computers and Medium on phones and tablets, then steps down by itself if the game runs below about 42 frames a second. Lower settings render at a lower resolution, use a simpler water surface and fewer raindrops, and thin out the fish, weeds and grass. Settings also has separate **volume**, **nature & effects** and **music** sliders.
+The journal's **Settings** (and the title screen) has a Graphics button: **Auto**, **High**, **Medium** or **Low**. Auto starts at High on computers and Medium on phones and tablets, then steps down by itself if the game runs below about 42 frames a second. Settings also has separate **volume**, **nature & effects** and **music** sliders.
+
+| | High | Medium | Low |
+| --- | --- | --- | --- |
+| Water reflections of sky, shore, boat and lights | Half resolution, every frame | A third, every other frame | Sky colours only |
+| Ripples (casts, float, fish, boat, wading) bend the light | Fine, 96 m around you | Coarser, 72 m | Drawn rings |
+| Fine wavelets and sun glints | Both | Glints | None |
+| Morning mist layers | 3 | 2 | 1 |
+| Grain on sand, wood, cork | On | On | Off |
+| Shadows, resolution, fish, weeds, raindrops | Most | Fewer | Fewest, no shadows |
+
+A note on what this is: Slow Tide is a stylised, low-poly game drawn with three.js and WebGL in the browser. The water uses real planar reflections, a ripple simulation and procedural detail. The lighting, haze and mist are painted rather than physically simulated, and nothing here is photorealistic. On a typical computer, High costs roughly a third more per frame than the previous version and Medium about a quarter more (measured in software rendering, so real graphics cards will differ). Auto drops a level if the frame rate suffers.
+
+### Cloud saves (optional)
+
+Cloud saves let a player sign in with their email and carry their game between devices. They are **off** until you connect a backend; until then nothing about accounts appears in the game. They use [Supabase](https://supabase.com) (it has a free tier), talking to it directly from the browser with the public "anon" key. Row level security in the database makes sure each player can only ever read or change their own save.
+
+To switch them on:
+
+1. Create a project at [supabase.com](https://supabase.com) (*New project*; any name, region and database password).
+2. In the project, open **SQL Editor → New query**, paste in the contents of [`supabase/schema.sql`](supabase/schema.sql) and press **Run**. This creates the `slow_tide_saves` table and its security rules.
+3. Open **Authentication → URL Configuration**. Set **Site URL** to `https://fishing-game-weld.vercel.app`. Under **Redirect URLs** add `https://fishing-game-weld.vercel.app/**` and, for branch previews, `https://fishing-game-*.vercel.app/**`.
+4. Email sign-in is on by default (**Authentication → Sign In / Providers → Email**). Supabase's built-in email sender only allows a few emails an hour and is meant for testing. For real players, add your own email provider under **Authentication → Emails → SMTP Settings**.
+5. Open **Project Settings → API Keys** (or **Data API**) and copy the **Project URL** and the **anon / publishable** key. Never use the `service_role` / secret key: the game and the config function both refuse one.
+6. In **Vercel → your project → Settings → Environment Variables**, add `SUPABASE_URL` (the Project URL) and `SUPABASE_ANON_KEY` (the anon key) for *Production* and *Preview*. Then redeploy (**Deployments → ⋯ → Redeploy**).
+7. Open the game, press **J**, and look under **Your progress**: a **Cloud save (optional)** box with *Email me a sign-in link* should appear. If it doesn't, open `/api/cloud-config` on your site: it shows `{"enabled": false}` until both variables are set.
+
+How it behaves:
+
+- **Guests keep playing.** Signing in is never required.
+- **Signing in keeps what you've done.** The first time, your progress in that browser is uploaded. On another device it is **combined** with your cloud save rather than replaced: every logged catch is kept (matched by its id), each fish keeps the higher count and the bigger best, and places and keepsakes from both are kept. Where you are, the time of day, your gear, creel and camp come from whichever was saved most recently.
+- **Two devices at once** don't overwrite each other: each save carries a revision number, and if another device saved in between, the game takes in its catches and tries again.
+- **New game** or **Load a saved copy** while signed in also replaces the cloud save, and the confirmation says so.
+- **Signing out** leaves your progress in the browser. Deleting a user in Supabase (**Authentication → Users**) deletes their save too.
+
+Not on Vercel? Put the URL and anon key in `src/cloud-config.js` instead. The anon key is designed to be public; never put any other key there.
 
 ## Where things live
 
@@ -161,14 +220,17 @@ The journal's **Settings** (and the title screen) has a Graphics button: **Auto*
 | --- | --- |
 | `src/main.js` | Game loop, time of day, weather, stepping ashore and boarding, interactions, sleep, discoveries, surface clues, HUD, glue between systems |
 | `src/world/terrain.js` | The map. One height function shapes the bay, island, cove, channel, and (on the west shore) the lake, stream valley, camp clearing and path. Places, zones, piers and walkable decks live here |
-| `src/world/shore.js` | Everything built on the west shore: landing pier and signpost, tent, campfire with smoke and light, tackle chest and rod rack, reeds, lily pads, the fallen alder, fishing pegs, stream boulders, footbridge, stepping stones, ferns, grass, morning mist and hatching flies |
+| `src/world/shore.js` | Everything built on the west shore: landing pier and signpost, tent, campfire with smoke and light, tackle chest and rod rack, reeds, lily pads, the fallen alder, fishing pegs, stream boulders, footbridge, stepping stones, ferns, grass and hatching flies |
 | `src/world/habitat.js` | The underwater map shared by everything below the surface: depth, weed beds, rock piles, the stream's current, and the homes fish live around |
 | `src/world/ecosystem.js` | Every fish in the world: schooling, cruising, feeding, resting, fleeing, rising and jumping, and how each one judges and takes a rig (nibbling, following, ambushing, rising, grazing, running). Fixed 30 Hz simulation, slower far away |
 | `src/world/fishRender.js` | Draws the ecosystem's fish (one instanced draw per species) with a swimming tail wave |
 | `src/world/underwater.js` | Weed beds, submerged rocks, particles, light shafts, bubbles, and the colour, haze and sound blend as the camera crosses the waterline |
 | `src/world/caustics.js` | Dancing light on the seabed and rocks |
 | `src/world/world.js` | Terrain mesh (with a finer patch over the west shore), trees, rocks, jetty, cove props, Gull Rock, gulls, fireflies, and the obstacles you bump into on foot |
-| `src/world/water.js` | Water shader (depth colour, foam, rain rings, lantern glow, fresh-water tint and flowing current) and the wave function everything floats on |
+| `src/world/water.js` | Water shader (depth colour, gusts and calm lanes, wavelets, reflections, ripples, sun glints, foam, rain rings, lantern glow, fresh-water tint, flowing current, the view from below) and the wave function everything floats on |
+| `src/world/waterfx.js` | The mirrored view for reflections, and the ripple field every ripple is drawn into |
+| `src/world/mist.js` | Drifting morning and evening mist over the water |
+| `src/world/surface.js` | Fine surface detail: grain and the wet band on the shore, sand ripples, wood grain, cork |
 | `src/world/sky.js` | Day cycle colours, sun and moon, sky dome, clouds |
 | `src/camera.js` | The views (boat, on foot, underwater, bait), their limits and smooth transitions |
 | `src/boat.js` | The boat, the rower, oars, rods and lantern; rowing physics and collisions |
@@ -180,7 +242,12 @@ The journal's **Settings** (and the title screen) has a Graphics button: **Auto*
 | `src/pack.js` | The backpack and tackle box panel |
 | `src/camp.js` | The fire, grill, food and hunger, and the sleep panel |
 | `src/sonar.js` | The fish finder (boat and castable), its echoes, and dragging and sizing the panel |
-| `src/journal.js` | The journal pages and hand-drawn map |
+| `src/journal.js` | The journal pages, catch log (totals, bests, filters) and hand-drawn map |
+| `src/save.js` | Saving and loading in the browser: the versioned save format, checks, migrations, backups, and combining two saves |
+| `src/cloud.js` | Optional cloud saves: email sign-in and syncing with Supabase |
+| `src/cloud-config.js` | Where to put the Supabase address and anon key if you don't host on Vercel |
+| `api/cloud-config.js` | Vercel function that hands the game `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the public key only) |
+| `supabase/schema.sql` | The cloud save table and its row level security rules |
 | `src/audio.js` | All sound, synthesised live: water, wind, rain, the stream, the campfire, birds, frogs, crickets, footsteps, the bite alarm, and the generative music |
 | `src/effects.js` | Ripples, splashes, flashes, the wake and water lapping on the hull |
 | `src/touch.js` | On-screen controls for phones and tablets |
@@ -196,6 +263,7 @@ The journal's **Settings** (and the title screen) has a Graphics button: **Auto*
 - **Change the length of a day**: `HOUR_SECONDS` in `src/main.js` (40 real seconds per in-game hour by default).
 - **Retune the light**: the `KEYS` table at the top of `src/world/sky.js` sets sky, sun and ambient colours for each part of the day.
 - **Reshape the land**: `landSDF` in `src/world/terrain.js`; the lake (`LAKE`), stream (`STREAM`), camp (`CAMP`) and path (`PATH`) are constants near the top.
+- **Change what's saved**: add the field to `DEFAULT_STATE` and `sanitize` in `src/save.js`. If an old save needs converting, raise `SAVE_VERSION` and add a step to `MIGRATIONS`.
 - **Add a discovery**: copy the lantern pattern in `src/main.js` (`lanternReach` and `takeLantern`) and its prop in `buildCove` in `src/world/world.js`.
 
 The browser console has a small helper for tinkering:
@@ -207,7 +275,8 @@ slowTide.teleport(140, -16)   // move the boat straight to the cove
 slowTide.walkTo(-99, -2)      // stand at camp (on foot)
 slowTide.board()              // back into the boat
 slowTide.gear('fly', 'nymph') // hand yourself a rod and tackle
-slowTide.reset()              // forget all progress and start over
+slowTide.reset()              // start a new game (the old save is kept aside)
+slowTide.saveInfo()           // how loading went and when the game last saved
 slowTide.advance(10)          // run the game forward 10 seconds (works even in a background tab)
 slowTide.eco.agents           // every fish in the world, with its species, size, position and state
 ```

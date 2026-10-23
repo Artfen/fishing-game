@@ -97,7 +97,7 @@ export class Camp {
     const f = this.state.keep.splice(i, 1)[0];
     if (!f) return;
     if (this.fireLevel < 0.4) this.lightFire(2.5);
-    c.cooking = { id: f.id, size: f.size, start: this.abs(), dur: COOK_HOURS };
+    c.cooking = { id: f.id, size: f.size, logId: f.logId || null, start: this.abs(), dur: COOK_HOURS };
     this.hooks.toast(`The ${fishById[f.id].name.toLowerCase()} goes on the grill. It will take about half an hour.`);
     this.hooks.changed();
     this.render();
@@ -106,6 +106,7 @@ export class Camp {
   eat(i) {
     const m = this.state.camp.ready.splice(i, 1)[0];
     if (!m) return;
+    this.hooks.outcome?.(m.logId, 'eaten');
     const sp = fishById[m.id];
     const k = (m.size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]);
     this.food.full = Math.min(100, this.food.full + sp.meal.fill * (0.6 + 0.6 * k));
@@ -136,7 +137,8 @@ export class Camp {
     this.lastHunger = h;
     const c = this.state.camp;
     if (c.cooking && this.abs() >= c.cooking.start + c.cooking.dur) {
-      c.ready.push({ id: c.cooking.id, size: c.cooking.size });
+      c.ready.push({ id: c.cooking.id, size: c.cooking.size, logId: c.cooking.logId || null });
+      this.hooks.outcome?.(c.cooking.logId, 'cooked');
       c.cooking = null;
       if (!asleep) this.hooks.toast('Something smells wonderful: your fish is cooked. Eat it at camp.', 5);
       this.hooks.changed();
