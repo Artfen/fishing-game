@@ -89,7 +89,7 @@
     <p id="bait-status"></p>
   </div>
   </div>
-  <div id="bite-mark" aria-hidden="true">!</div>
+  <div id="bite-mark" aria-hidden="true"><b>!</b><span id="bite-text"></span></div>
   <div id="meter" hidden>
     <svg viewBox="0 0 120 120" aria-hidden="true">
       <circle class="m-track" cx="60" cy="60" r="50"></circle>
@@ -105,19 +105,27 @@
   <div id="corner">
     <button id="finder-btn" class="pill" type="button" aria-label="Fish finder">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 6h16v12H4z M4 14c3-1 5 1 8 0s5-1 8 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="9" cy="10" r="1.2" fill="currentColor"/><circle cx="14" cy="9" r="1" fill="currentColor"/></svg>
-      <span class="label">Finder</span><kbd class="desk-only">F</kbd>
+      <span class="label">Finder</span><kbd class="desk-only" data-key="finder">F</kbd>
     </button>
     <button id="pack-btn" class="pill" type="button" aria-label="Backpack">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7M6 9a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v9.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 18.5zM6 12h12M10 12v2h4v-2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
-      <span class="label">Pack</span><kbd class="desk-only">B</kbd>
+      <span class="label">Pack</span><kbd class="desk-only" data-key="pack">B</kbd>
     </button>
     <button id="view-btn" class="pill" type="button" aria-label="Switch view">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 15.5c2 1 4.5 1.5 7 1.5s5-.5 7-1.5" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".6"/><circle cx="12" cy="12" r="2.6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
-      <span class="label">View</span><kbd class="desk-only">C</kbd>
+      <span class="label">View</span><kbd class="desk-only" data-key="view">C</kbd>
     </button>
     <button id="journal-btn" class="pill" type="button" aria-label="Open journal">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v15H5.5C4.7 19 4 18.3 4 17.5zM13 4h5.5c.8 0 1.5.7 1.5 1.5v12c0 .8-.7 1.5-1.5 1.5H13z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
-      <span class="label">Journal</span><kbd class="desk-only">J</kbd>
+      <span class="label">Journal</span><kbd class="desk-only" data-key="journal">J</kbd>
+    </button>
+    <button id="map-btn" class="pill" type="button" aria-label="Map">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3.5 6.5 9 4.5l6 2 5.5-2v13l-5.5 2-6-2-5.5 2z M9 4.5v13 M15 6.5v13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      <span class="label">Map</span><kbd class="desk-only" data-key="map">M</kbd>
+    </button>
+    <button id="settings-btn" class="pill" type="button" aria-label="Settings">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z M10.6 3.5h2.8l.5 2.3 1.6.7 2-1.3 2 2-1.3 2 .7 1.6 2.3.5v2.8l-2.3.5-.7 1.6 1.3 2-2 2-2-1.3-1.6.7-.5 2.3h-2.8l-.5-2.3-1.6-.7-2 1.3-2-2 1.3-2-.7-1.6-2.3-.5v-2.8l2.3-.5.7-1.6-1.3-2 2-2 2 1.3 1.6-.7z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <span class="label">Settings</span><kbd class="desk-only" data-key="settings">O</kbd>
     </button>
   </div>
 
@@ -157,6 +165,7 @@
       <span class="pk-travel-label">Head back to</span>
       <button id="travel-camp" class="pk-btn" type="button">Camp (the tent)</button>
       <button id="travel-boat" class="pk-btn" type="button">The boat</button>
+      <button id="travel-map" class="pk-btn" type="button">Another camp (map)</button>
       <span id="travel-note" class="pk-note"></span>
     </div>
     <h3>Rods <span class="count" id="pack-rod-count"></span></h3>
@@ -168,9 +177,11 @@
     <section id="pack-setups-section" hidden>
       <h3>Ready-made setups</h3>
       <div id="pack-setups" class="pk-setups"></div>
+      <h3>Your setups</h3>
+      <div id="pack-saved" class="pk-setups"></div>
     </section>
     <section id="pack-box-section" hidden>
-      <h3>In the tackle box</h3>
+      <h3 id="pack-box-title">In the tackle box</h3>
       <div id="pack-box" class="pk-grid"></div>
     </section>
     <p class="pk-help desk-only"><kbd>Q</kbd> next tackle for this rod · <kbd>1</kbd> <kbd>2</kbd> switch rods · <kbd>B</kbd> or <kbd>Esc</kbd> close</p>
@@ -201,6 +212,46 @@
   <div class="card-act"><span class="desk-only"><kbd>Space</kbd> continue</span><span class="touch-only">Tap to continue</span></div>
 </div>
 
+<div id="settings" class="sheet" role="dialog" aria-label="Settings" hidden>
+  <div class="sheet-inner">
+    <header>
+      <h2>Settings</h2>
+      <p>Kept with your game, and changed whenever you like.</p>
+      <button id="settings-close" class="sheet-close" type="button" aria-label="Close settings">×</button>
+    </header>
+    <nav id="settings-tabs" class="cp-tabs" aria-label="Settings sections"></nav>
+    <div id="settings-body"></div>
+  </div>
+</div>
+
+<div id="map" class="sheet" role="dialog" aria-label="Map" hidden>
+  <div class="sheet-inner map-inner">
+    <header>
+      <h2>Map</h2>
+      <p id="map-sub"></p>
+      <button id="map-close" class="sheet-close" type="button" aria-label="Close the map">×</button>
+    </header>
+    <div class="map-body">
+      <div class="map-frame">
+        <canvas id="map-canvas" aria-label="A map of the coast as far as you've explored it"></canvas>
+        <div class="map-zoom">
+          <button id="map-in" type="button" aria-label="Zoom in">+</button>
+          <button id="map-out" type="button" aria-label="Zoom out">−</button>
+          <button id="map-me" type="button" aria-label="Centre on you">◎</button>
+        </div>
+      </div>
+      <aside class="map-side">
+        <h3>Camps &amp; boats</h3>
+        <ul id="map-camps" class="map-list"></ul>
+        <p id="map-note" class="map-note"></p>
+        <h3>Places</h3>
+        <ul id="map-places" class="map-list"></ul>
+        <p class="map-key"><span class="mk-tent"></span> camp <span class="mk-dock"></span> landing <span class="mk-x">×</span> landmark <span class="mk-fish"></span> your best fish <span class="mk-you"></span> you</p>
+      </aside>
+    </div>
+  </div>
+</div>
+
 <div id="journal" hidden>
   <div class="book" role="dialog" aria-label="Journal">
     <nav class="j-tabs" aria-label="Journal sections">
@@ -222,8 +273,8 @@
       <h2>Recent catches</h2>
       <div class="j-filters" role="group" aria-label="Filter the log">
         <label>Fish <select id="f-species"></select></label>
-        <label>Water <select id="f-water"><option value="">All</option><option value="salt">Salt</option><option value="fresh">Fresh</option></select></label>
-        <label>Method <select id="f-method"><option value="">All</option><option value="float">Float</option><option value="lure">Lure</option><option value="ledger">Bottom</option><option value="fly">Fly</option></select></label>
+        <label>Water <select id="f-water"><option value="">All</option><option value="salt">Salt</option><option value="brackish">Brackish</option><option value="fresh">Fresh</option></select></label>
+        <label>Method <select id="f-method"><option value="">All</option><option value="float">Float</option><option value="lure">Lure</option><option value="ledger">Carp rig</option><option value="bottom">Sea bottom rig</option><option value="fly">Fly</option><option value="jig">Squid jig</option></select></label>
         <label>Kept? <select id="f-outcome"><option value="">All</option><option value="released">Released</option><option value="kept">Kept</option><option value="cooked">Cooked or eaten</option></select></label>
       </div>
       <ol id="log-list"></ol>
@@ -237,14 +288,7 @@
       <div id="j-items"></div>
       <h3>Settings</h3>
       <div class="j-settings">
-        <button id="set-quality" type="button">Graphics: Auto</button>
-        <button id="set-difficulty" type="button">Difficulty: Standard</button>
-        <p id="difficulty-desc" class="j-save-status"></p>
-        <button id="set-view" type="button">Fishing view: First person</button>
-        <p id="view-desc" class="j-save-status"></p>
-        <label for="vol-master">Volume <input id="vol-master" type="range" min="0" max="100" value="100"></label>
-        <label for="vol-nature">Nature &amp; effects <input id="vol-nature" type="range" min="0" max="100" value="100"></label>
-        <label for="vol-music">Music <input id="vol-music" type="range" min="0" max="100" value="80"></label>
+        <button id="j-settings-open" type="button">Sound, graphics, weather and controls…</button>
       </div>
       <h3>Your progress</h3>
       <div class="j-settings j-save">
@@ -284,9 +328,9 @@
       <dt><kbd>B</kbd> · <kbd>Q</kbd> · <kbd>1</kbd><kbd>2</kbd></dt><dd>backpack · next tackle · switch rods</dd>
       <dt><kbd>K</kbd> · <kbd>G</kbd></dt><dd>keep a fish · throw loose bait</dd>
       <dt><kbd>Esc</kbd> · right-click</dt><dd>cancel a cast, reel in</dd>
-      <dt><kbd>V</kbd> · <kbd>C</kbd> · <kbd>R</kbd></dt><dd>first person · next view · reset the view</dd>
-      <dt><kbd>F</kbd> · <kbd>J</kbd></dt><dd>fish finder · journal</dd>
-      <dt><kbd>T</kbd> · <kbd>M</kbd> · <kbd>H</kbd></dt><dd>let time drift · music · hide interface</dd>
+      <dt><kbd>V</kbd> · <kbd>C</kbd> · <kbd>R</kbd></dt><dd>first person · next view · reset the camera</dd>
+      <dt><kbd>F</kbd> · <kbd>M</kbd> · <kbd>J</kbd></dt><dd>fish finder · map · journal</dd>
+      <dt><kbd>O</kbd> · <kbd>T</kbd> · <kbd>H</kbd></dt><dd>settings (keys can be changed there) · let time drift · hide interface</dd>
     </dl>
     <dl class="t-keys touch-only">
       <dt>left side</dt><dd>drag to row or walk</dd>
@@ -296,7 +340,7 @@
       <dt>tap a prompt</dt><dd>step ashore, board, camp</dd>
       <dt>hourglass</dt><dd>hold to let time drift</dd>
     </dl>
-    <p class="t-note">Best with sound on. <button id="title-quality" class="t-quality" type="button">Graphics: Auto</button> · <button id="title-difficulty" class="t-quality" type="button">Difficulty: Standard</button></p>
+    <p class="t-note">Best with sound on. <button id="title-settings" class="t-quality" type="button">Settings</button> · <button id="title-quality" class="t-quality" type="button">Graphics: Auto</button> · <button id="title-difficulty" class="t-quality" type="button">Difficulty: Standard</button></p>
     <p id="title-offline" class="t-offline" hidden></p>
   </div>
 </div>

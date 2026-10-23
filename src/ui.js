@@ -132,8 +132,14 @@ export class HUD {
     this.setHTML('meterLabel', this.el.meterLabel, label);
   }
 
-  bite(x, y, show) {
+  // The mark over the float (or the line) when there is something to do, with what to do.
+  bite(x, y, show, text = '', fishOn = false) {
     this.el.bite.classList.toggle('show', show);
+    this.el.bite.classList.toggle('fishon', fishOn);
+    if (this.cache.biteText !== text) {
+      this.cache.biteText = text;
+      $('bite-text').textContent = text;
+    }
     if (show) this.el.bite.style.transform = `translate(${x}px, ${y}px)`;
   }
 

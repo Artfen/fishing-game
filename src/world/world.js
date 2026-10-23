@@ -1,10 +1,14 @@
 import * as THREE from 'three';
-import { heightAt, JETTY, COVE, ISLAND, STACKS, CHANNEL, CAMP, LANDING, findShore, lakeSDF, streamSDF, pathInfo } from './terrain.js';
+import {
+  heightAt, JETTY, COVE, ISLAND, STACKS, CHANNEL, CAMP, LANDING, findShore, lakeSDF, streamSDF, pathInfo,
+  WORLD, riverSDF, mereSDF, trailInfo, MERE, GANNET,
+} from './terrain.js';
 import { mergeParts, mat, seeded, fbm, clamp, lerp, smoothstep, hash2, jitterGeo, pick, glowTexture } from '../util.js';
 import { buildLanternModel } from '../props.js';
 import { withCaustics } from './caustics.js';
 import { withSurface } from './surface.js';
 import { buildShore, SHORE_PATCH } from './shore.js';
+import { buildRegions } from './regions.js';
 
 const shared = { uTime: { value: 0 }, uWind: { value: 1 } };
 const UP = new THREE.Vector3(0, 1, 0);
@@ -64,6 +68,7 @@ const TC = {
   path: new THREE.Color('#a48f6c'),
   pathEdge: new THREE.Color('#93a463'),
   trodden: new THREE.Color('#a6a06a'),
+  marsh: new THREE.Color('#9aa25e'),
 };
 
 // Lake and stream banks are mud and grass rather than beach sand; the path is bare earth.
@@ -91,9 +96,38 @@ function shoreColor(c, h, x, z, r, weed) {
   return false;
 }
 
+// The estuary is mud and saltmarsh rather than beach; Longmere's banks are like Reedmere's; trails are earth.
+function regionColor(c, h, x, z, r, weed) {
+  const n = fbm(x * 0.09, z * 0.09, 2);
+  const tr = trailInfo(x, z).d;
+  if (tr < 1.6 && h > 0.2) {
+    c.copy(TC.path).lerp(TC.pathEdge, smoothstep(0.6, 1.6, tr));
+    c.multiplyScalar(0.96 + r * 0.08);
+    return true;
+  }
+  const dr = riverSDF(x, z);
+  if (dr < 26 && h < 3) {
+    if (h < -0.15) c.copy(TC.silt).lerp(TC.wetSand, smoothstep(-1.2, -0.1, h) * 0.5).lerp(TC.siltDeep, smoothstep(1, 4, -h) * 0.6).lerp(TC.weedBed, weed * 0.5);
+    else if (h < 0.45) c.copy(TC.mud).lerp(TC.wetSand, clamp(n + 0.4, 0, 1) * 0.6);
+    else c.copy(TC.grassDark).lerp(TC.marsh, clamp(0.5 + n, 0, 1));
+    c.multiplyScalar(0.96 + r * 0.08);
+    return true;
+  }
+  const dm = mereSDF(x, z);
+  if (dm < 14 && h < 4) {
+    if (h < -0.15) c.copy(TC.silt).lerp(TC.siltDeep, smoothstep(1, 6, -h)).lerp(TC.weedBed, weed * 0.6);
+    else if (h < 1.4) c.copy(TC.mud).lerp(TC.grassDark, smoothstep(-0.1, 1.2, h) * (0.6 + n * 0.4));
+    else c.copy(TC.grassDark).lerp(TC.grass, clamp(0.4 + n, 0, 1));
+    c.multiplyScalar(0.96 + r * 0.08);
+    return true;
+  }
+  return false;
+}
+
 function terrainColor(c, h, ny, x, z, r, weed, shore) {
   const n = fbm(x * 0.05, z * 0.05, 2);
   if (shore && h < 5 && shoreColor(c, h, x, z, r, weed)) return;
+  if (x > 100 && h < 5 && regionColor(c, h, x, z, r, weed)) return;
   if (h < -0.25) {
     c.copy(TC.wetSand).lerp(TC.seabed, smoothstep(0, 6, -h)).lerp(TC.deepBed, smoothstep(6, 18, -h));
     c.lerp(TC.weedBed, weed * 0.55);
@@ -109,95 +143,160 @@ function terrainColor(c, h, ny, x, z, r, weed, shore) {
   c.multiplyScalar(0.96 + r * 0.08);
 }
 
-// One big grid for the whole archipelago, plus a finer patch over the west shore so the
-// stream, lake banks and path keep their shape. The patch lines up with the big grid and
-// its border follows the big grid's edges exactly, so there are no cracks between them.
+// The land and seabed are drawn as a few meshes: the home waters (with a finer patch over the
+// west shore, where the stream is narrow), detailed patches over the estuary, Longmere and
+// Gannet Isle, and one coarse sheet for everything else, out to the horizon. Each patch lines up
+// with the coarse grid and its border follows the coarse grid's edges exactly, so nothing cracks.
+const FAR = 20; // metres per cell of the coarse sheet
+export const TERRAIN_PATCHES = [
+  { id: 'home', x0: -380, x1: 380, z0: -420, z1: 340, cell: 2.5, jitter: 0.6, shadows: true, inner: SHORE_PATCH, innerSub: 3 },
+  { id: 'estuary', x0: 380, x1: 780, z0: -420, z1: 300, cell: 4, jitter: 0.5, shadows: true },
+  { id: 'mere', x0: 100, x1: 600, z0: -680, z1: -420, cell: 4, jitter: 0.5, shadows: true },
+  { id: 'gannet', x0: -380, x1: -140, z0: 420, z1: 680, cell: 2.5, jitter: 0.5, shadows: true },
+];
+const FAR_RECT = { x0: -1300, x1: 1500, z0: -1900, z1: 1800 };
+
+function terrainMesh(pos, col, shadows) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.computeVertexNormals();
+  geo.computeBoundingSphere();
+  // The whole seabed is kept, so the underwater view has a floor everywhere.
+  const mesh = new THREE.Mesh(geo, withSurface(withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true })), 'ground'));
+  mesh.receiveShadow = true;
+  mesh.castShadow = shadows;
+  return mesh;
+}
+
 function buildTerrain(rnd, habitat) {
-  const cx = 0, cz = -40, size = 760, N = 300, step = size / N, V = N + 1;
-  const x0 = cx - size / 2, z0 = cz - size / 2;
-  const P = SHORE_PATCH;
-  const pi0 = Math.floor((P.x0 - x0) / step), pi1 = Math.ceil((P.x1 - x0) / step);
-  const pj0 = Math.floor((P.z0 - z0) / step), pj1 = Math.ceil((P.z1 - z0) / step);
-  const inPatch = (i, j) => i >= pi0 && i <= pi1 && j >= pj0 && j <= pj1;
-  const X = new Float32Array(V * V), Y = new Float32Array(V * V), Z = new Float32Array(V * V);
-  for (let j = 0; j < V; j++) {
-    for (let i = 0; i < V; i++) {
-      let x = x0 + i * step, z = z0 + j * step;
-      if (i > 0 && i < N && j > 0 && j < N && !inPatch(i, j)) {
-        x += (hash2(i, j) - 0.5) * step * 0.6;
-        z += (hash2(j + 991, i + 37) - 0.5) * step * 0.6;
-      }
-      const k = j * V + i;
-      X[k] = x; Z[k] = z; Y[k] = heightAt(x, z);
-    }
-  }
-  const pos = [], col = [];
   const c = new THREE.Color();
   const hs = {};
-  const tri = (ax, ay, az, bx, by, bz, dx, dy, dz, shore) => {
+  const meshes = [];
+  const makeTri = (pos, col, detailed) => (ax, ay, az, bx, by, bz, dx, dy, dz, shore) => {
     pos.push(ax, ay, az, bx, by, bz, dx, dy, dz);
     const ux = bx - ax, uy = by - ay, uz = bz - az;
     const vx = dx - ax, vy = dy - ay, vz = dz - az;
     const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
     const nyn = Math.abs(ny) / (Math.hypot(nx, ny, nz) || 1);
     const mx = (ax + bx + dx) / 3, mz = (az + bz + dz) / 3, my = (ay + by + dy) / 3;
-    terrainColor(c, my, nyn, mx, mz, rnd(), my < -0.3 ? habitat.sample(mx, mz, hs).weed : 0, shore);
+    terrainColor(c, my, nyn, mx, mz, rnd(), detailed && my < -0.3 ? habitat.sample(mx, mz, hs).weed : 0, shore);
     col.push(c.r, c.g, c.b, c.r, c.g, c.b, c.r, c.g, c.b);
   };
-  const vtx = (k) => [X[k], Y[k], Z[k]];
-  for (let j = 0; j < N; j++) {
-    for (let i = 0; i < N; i++) {
-      if (i >= pi0 && i < pi1 && j >= pj0 && j < pj1) continue;
-      const a = j * V + i, b = a + 1, d = a + V, e = d + 1;
-      if ((i + j) % 2 === 0) { tri(...vtx(a), ...vtx(d), ...vtx(b)); tri(...vtx(b), ...vtx(d), ...vtx(e)); } else { tri(...vtx(a), ...vtx(d), ...vtx(e)); tri(...vtx(a), ...vtx(e), ...vtx(b)); }
-    }
-  }
+  const quad = (tri, i, j, A, B, D, E, shore) => {
+    if ((i + j) % 2 === 0) { tri(...A, ...D, ...B, shore); tri(...B, ...D, ...E, shore); } else { tri(...A, ...D, ...E, shore); tri(...A, ...E, ...B, shore); }
+  };
 
-  // The fine patch: 3 × 3 cells for every big cell.
-  const S = 3, pn = (pi1 - pi0) * S, pm = (pj1 - pj0) * S, ps = step / S, PV = pn + 1;
-  const PX = new Float32Array(PV * (pm + 1)), PY = new Float32Array(PV * (pm + 1)), PZ = new Float32Array(PV * (pm + 1));
-  const big = (i, j) => Y[j * V + i];
-  for (let j = 0; j <= pm; j++) {
-    for (let i = 0; i <= pn; i++) {
-      let x = x0 + pi0 * step + i * ps, z = z0 + pj0 * step + j * ps;
-      const k = j * PV + i;
-      const edgeI = i === 0 || i === pn, edgeJ = j === 0 || j === pm;
-      let y;
-      if (edgeI || edgeJ) {
-        // On the border, sit exactly on the big grid's edge line.
-        const gi = pi0 + Math.floor(i / S), gj = pj0 + Math.floor(j / S);
-        if (edgeI) {
-          const ii = pi0 + (i === 0 ? 0 : pn / S), f = (j % S) / S;
-          y = j === pm ? big(ii, pj1) : lerp(big(ii, gj), big(ii, gj + 1), f);
-        } else {
-          const jj = pj0 + (j === 0 ? 0 : pm / S), f = (i % S) / S;
-          y = i === pn ? big(pi1, jj) : lerp(big(gi, jj), big(gi + 1, jj), f);
-        }
-      } else {
-        x += (hash2(i + 5003, j) - 0.5) * ps * 0.5;
-        z += (hash2(j + 7919, i + 11) - 0.5) * ps * 0.5;
-        y = heightAt(x, z);
+  // The coarse sheet, with a hole wherever a patch is.
+  const farH = (x, z) => heightAt(x, z);
+  {
+    const pos = [], col = [];
+    const tri = makeTri(pos, col, false);
+    const nx = (FAR_RECT.x1 - FAR_RECT.x0) / FAR, nz = (FAR_RECT.z1 - FAR_RECT.z0) / FAR;
+    const H = new Float32Array((nx + 1) * (nz + 1));
+    for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) H[j * (nx + 1) + i] = farH(FAR_RECT.x0 + i * FAR, FAR_RECT.z0 + j * FAR);
+    const v = (i, j) => [FAR_RECT.x0 + i * FAR, H[j * (nx + 1) + i], FAR_RECT.z0 + j * FAR];
+    for (let j = 0; j < nz; j++) {
+      for (let i = 0; i < nx; i++) {
+        const cx = FAR_RECT.x0 + (i + 0.5) * FAR, cz = FAR_RECT.z0 + (j + 0.5) * FAR;
+        if (TERRAIN_PATCHES.some((p) => cx > p.x0 && cx < p.x1 && cz > p.z0 && cz < p.z1)) continue;
+        quad(tri, i, j, v(i, j), v(i + 1, j), v(i, j + 1), v(i + 1, j + 1), false);
       }
-      PX[k] = x; PY[k] = y; PZ[k] = z;
     }
-  }
-  const pv = (k) => [PX[k], PY[k], PZ[k]];
-  for (let j = 0; j < pm; j++) {
-    for (let i = 0; i < pn; i++) {
-      const a = j * PV + i, b = a + 1, d = a + PV, e = d + 1;
-      if ((i + j) % 2 === 0) { tri(...pv(a), ...pv(d), ...pv(b), true); tri(...pv(b), ...pv(d), ...pv(e), true); } else { tri(...pv(a), ...pv(d), ...pv(e), true); tri(...pv(a), ...pv(e), ...pv(b), true); }
-    }
+    const far = terrainMesh(pos, col, false);
+    far.userData.far = true;
+    meshes.push(far);
   }
 
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-  geo.computeVertexNormals();
-  // The whole seabed is kept now, so the underwater view has a floor everywhere.
-  const mesh = new THREE.Mesh(geo, withSurface(withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true })), 'ground'));
-  mesh.receiveShadow = true;
-  mesh.castShadow = true;
-  return mesh;
+  // Each patch: its border vertices sit on the coarse sheet's edges; inside, the land in detail.
+  for (const P of TERRAIN_PATCHES) {
+    const step = P.cell, N = Math.round((P.x1 - P.x0) / step), M = Math.round((P.z1 - P.z0) / step), V = N + 1;
+    const X = new Float32Array(V * (M + 1)), Y = new Float32Array(V * (M + 1)), Z = new Float32Array(V * (M + 1));
+    const per = FAR / step; // patch cells per coarse cell
+    for (let j = 0; j <= M; j++) {
+      for (let i = 0; i <= N; i++) {
+        let x = P.x0 + i * step, z = P.z0 + j * step, y;
+        const k = j * V + i;
+        const edgeI = i === 0 || i === N, edgeJ = j === 0 || j === M;
+        if (edgeI || edgeJ) {
+          // On the border: straight between the coarse sheet's vertices.
+          if (edgeI) {
+            const g = Math.floor(j / per), f = (j % per) / per;
+            y = lerp(farH(x, P.z0 + g * FAR), farH(x, P.z0 + Math.min(g + 1, M / per) * FAR), f);
+          } else {
+            const g = Math.floor(i / per), f = (i % per) / per;
+            y = lerp(farH(P.x0 + g * FAR, z), farH(P.x0 + Math.min(g + 1, N / per) * FAR, z), f);
+          }
+        } else {
+          x += (hash2(i + P.x0, j) - 0.5) * step * P.jitter;
+          z += (hash2(j + 991 + P.z0, i + 37) - 0.5) * step * P.jitter;
+          y = heightAt(x, z);
+        }
+        X[k] = x; Y[k] = y; Z[k] = z;
+      }
+    }
+    const pos = [], col = [];
+    const tri = makeTri(pos, col, true);
+    const vtx = (k) => [X[k], Y[k], Z[k]];
+    const I = P.inner;
+    const pi0 = I ? Math.floor((I.x0 - P.x0) / step) : -1, pi1 = I ? Math.ceil((I.x1 - P.x0) / step) : -1;
+    const pj0 = I ? Math.floor((I.z0 - P.z0) / step) : -1, pj1 = I ? Math.ceil((I.z1 - P.z0) / step) : -1;
+    for (let j = 0; j < M; j++) {
+      for (let i = 0; i < N; i++) {
+        if (I && i >= pi0 && i < pi1 && j >= pj0 && j < pj1) continue;
+        const a = j * V + i;
+        quad(tri, i, j, vtx(a), vtx(a + 1), vtx(a + V), vtx(a + V + 1), false);
+      }
+    }
+    // A finer patch inside (the west shore), its border on this patch's grid.
+    if (I) {
+      const S = P.innerSub, pn = (pi1 - pi0) * S, pm = (pj1 - pj0) * S, ps = step / S, PV = pn + 1;
+      const PX = new Float32Array(PV * (pm + 1)), PY = new Float32Array(PV * (pm + 1)), PZ = new Float32Array(PV * (pm + 1));
+      const big = (i, j) => Y[j * V + i];
+      for (let j = 0; j <= pm; j++) {
+        for (let i = 0; i <= pn; i++) {
+          let x = P.x0 + pi0 * step + i * ps, z = P.z0 + pj0 * step + j * ps;
+          const k = j * PV + i;
+          const edgeI = i === 0 || i === pn, edgeJ = j === 0 || j === pm;
+          let y;
+          if (edgeI || edgeJ) {
+            // On the border: on the straight edge between two of the outer grid's vertices.
+            let k0, k1, f;
+            if (edgeI) {
+              const ii = pi0 + (i === 0 ? 0 : pn / S), gj = pj0 + Math.floor(j / S);
+              f = (j % S) / S;
+              k0 = gj * V + ii;
+              k1 = Math.min(gj + 1, pj1) * V + ii;
+            } else {
+              const jj = pj0 + (j === 0 ? 0 : pm / S), gi = pi0 + Math.floor(i / S);
+              f = (i % S) / S;
+              k0 = jj * V + gi;
+              k1 = jj * V + Math.min(gi + 1, pi1);
+            }
+            x = lerp(X[k0], X[k1], f);
+            y = lerp(big(k0 % V, Math.floor(k0 / V)), big(k1 % V, Math.floor(k1 / V)), f);
+            z = lerp(Z[k0], Z[k1], f);
+          } else {
+            x += (hash2(i + 5003, j) - 0.5) * ps * 0.5;
+            z += (hash2(j + 7919, i + 11) - 0.5) * ps * 0.5;
+            y = heightAt(x, z);
+          }
+          PX[k] = x; PY[k] = y; PZ[k] = z;
+        }
+      }
+      const pv = (k) => [PX[k], PY[k], PZ[k]];
+      for (let j = 0; j < pm; j++) {
+        for (let i = 0; i < pn; i++) {
+          const a = j * PV + i;
+          quad(tri, i, j, pv(a), pv(a + 1), pv(a + PV), pv(a + PV + 1), true);
+        }
+      }
+    }
+    const mesh = terrainMesh(pos, col, P.shadows);
+    mesh.userData.patch = P.id;
+    meshes.push(mesh);
+  }
+  return meshes;
 }
 
 /* ---------------- vegetation & rocks ---------------- */
@@ -225,11 +324,11 @@ function treeGeometries() {
   };
 }
 
-function scatterTrees(rnd, avoid, skip) {
+function scatterTrees(rnd, avoid, skip, rect = { x0: -300, x1: 300, z0: -300, z1: 200 }, step = 4.2, thin = 1) {
   const lists = { pine: [], round: [], blossom: [], bush: [] };
-  for (let z = -300; z < 200; z += 4.2) {
-    for (let x = -300; x < 300; x += 4.2) {
-      const px = x + (rnd() - 0.5) * 4, pz = z + (rnd() - 0.5) * 4;
+  for (let z = rect.z0; z < rect.z1; z += step) {
+    for (let x = rect.x0; x < rect.x1; x += step) {
+      const px = x + (rnd() - 0.5) * step, pz = z + (rnd() - 0.5) * step;
       const h = heightAt(px, pz);
       if (h < 1.6 || h > 50) continue;
       if (avoid.some((a) => Math.hypot(px - a.x, pz - a.z) < a.r)) continue;
@@ -239,7 +338,7 @@ function scatterTrees(rnd, avoid, skip) {
       if (Math.hypot(hx, hz) / 2 > 0.7) continue;
       const dens = fbm(px * 0.018 + 11, pz * 0.018 - 4, 3);
       const onIsland = Math.hypot(px - ISLAND.x, pz - ISLAND.z) < ISLAND.r + 2;
-      if (rnd() > (onIsland ? 0.3 : 0.22 + dens * 0.9)) continue;
+      if (rnd() > (onIsland ? 0.3 : (0.22 + dens * 0.9) * thin)) continue;
       const t = { x: px, y: h - 0.2, z: pz, s: 0.75 + rnd() * 0.6, r: rnd() * Math.PI * 2 };
       let type;
       if (h < 2.6 && rnd() < 0.5) type = 'bush';
@@ -513,23 +612,25 @@ function buildStacks(rnd) {
 
 /* ---------------- distant mountains ---------------- */
 
+// Blue hills far inland, always on the northern horizon wherever you are on the map. They move
+// with you (like the sky), and fade into the haze rather than the fog, so they stay in view.
 function buildMountains(rnd) {
   const parts = [];
-  const spots = [
-    [-2.75, 560, 150, 240], [-2.35, 520, 200, 280], [-1.95, 600, 250, 320], [-1.6, 540, 190, 260],
-    [-1.25, 610, 230, 300], [-0.9, 540, 170, 250], [-0.5, 590, 140, 230], [-0.15, 650, 110, 220],
-    [0.55, 720, 60, 190], [2.45, 740, 70, 200],
-  ];
-  for (const [a, r, h, w] of spots) {
+  for (let i = 0; i < 26; i++) {
+    const a = -Math.PI * 0.08 - (i / 25) * Math.PI * 0.84 + (rnd() - 0.5) * 0.08;
+    const r = 1500 + rnd() * 450, h = 140 + rnd() * 260, w = 220 + rnd() * 260;
     const geo = jitterGeo(new THREE.ConeGeometry(w, h, 9, 4), w * 0.12, rnd);
     parts.push({
       geo,
-      matrix: mat(Math.cos(a) * r * 1.15, h * 0.36 - 14, Math.sin(a) * r * 1.15, 0, rnd() * 6, 0, 1, 0.72, 1),
+      matrix: mat(Math.cos(a) * r, h * 0.36 - 30, Math.sin(a) * r, 0, rnd() * 6, 0, 1, 0.72, 1),
       color: pick(['#71909a', '#7b98a0', '#6a8790'], rnd),
       jitter: 0.08,
     });
   }
-  return new THREE.Mesh(mergeParts(parts, rnd), new THREE.MeshLambertMaterial({ vertexColors: true }));
+  const mesh = new THREE.Mesh(mergeParts(parts, rnd), new THREE.MeshLambertMaterial({ vertexColors: true, fog: false, transparent: true, opacity: 0.85 }));
+  mesh.renderOrder = -5;
+  mesh.frustumCulled = false;
+  return mesh;
 }
 
 /* ---------------- gulls ---------------- */
@@ -622,12 +723,13 @@ class ObstacleGrid {
 
   key(i, j) { return i * 73856093 ^ j * 19349663; }
 
-  // top: how high it stands; you can walk over it on a deck above it.
-  add(x, z, r, top = Infinity) {
+  // top: how high it stands; you can walk over it on a deck above it. base: where it starts
+  // (a tree crown starts above the trunk).
+  add(x, z, r, top = Infinity, base = -Infinity) {
     const c = this.cell, m = r + 0.6; // margin for the walker's own radius
     const i0 = Math.floor((x - m) / c), i1 = Math.floor((x + m) / c);
     const j0 = Math.floor((z - m) / c), j1 = Math.floor((z + m) / c);
-    const o = { x, z, r, top };
+    const o = { x, z, r, top, base };
     for (let i = i0; i <= i1; i++) {
       for (let j = j0; j <= j1; j++) {
         const k = this.key(i, j);
@@ -636,6 +738,18 @@ class ObstacleGrid {
         list.push(o);
       }
     }
+  }
+
+  // Anything at (x, z) whose circle covers the point, with y between its bottom and top
+  // (bottom is stored as o.base; 0 if not given).
+  hit(x, y, z) {
+    const list = this.cells.get(this.key(Math.floor(x / this.cell), Math.floor(z / this.cell)));
+    if (!list) return null;
+    for (const o of list) {
+      if (y > o.top || y < o.base) continue;
+      if ((x - o.x) ** 2 + (z - o.z) ** 2 < o.r * o.r) return o;
+    }
+    return null;
   }
 
   // Push a circle of radius r at (p.x, p.z), with feet at height y, out of anything it overlaps.
@@ -662,7 +776,18 @@ class ObstacleGrid {
 export function buildWorld(scene, renderer, habitat) {
   const rnd = seeded(20251022);
 
-  scene.add(buildTerrain(rnd, habitat));
+  const terrain = buildTerrain(rnd, habitat);
+  for (const m of terrain) scene.add(m);
+  // Detail far from you (beyond the haze) isn't drawn: the terrain patches, the woods and the
+  // reeds of places you're nowhere near. The coarse sheet and the home bay always are.
+  const distant = [];
+  const watchDistance = (o) => {
+    if (!o.geometry) return;
+    if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+    if (o.isInstancedMesh) o.computeBoundingSphere();
+    distant.push(o);
+  };
+  for (const m of terrain) if (m.userData.patch && m.userData.patch !== 'home') watchDistance(m);
 
   const jetty = buildJetty(rnd);
   scene.add(jetty.mesh, jetty.lamp.group, jetty.light);
@@ -671,6 +796,8 @@ export function buildWorld(scene, renderer, habitat) {
   scene.add(cove.group);
 
   const shore = buildShore(scene, rnd);
+  const regions = buildRegions(scene, rnd);
+  regions.group.traverse((o) => { if (o.isInstancedMesh) watchDistance(o); });
 
   const avoid = [
     { x: JETTY.x, z: JETTY.z0 - 1, r: 5 },
@@ -684,12 +811,56 @@ export function buildWorld(scene, renderer, habitat) {
   const lists = scatterTrees(rnd, avoid, (x, z) => pathInfo(x, z).d < 2.6 || streamSDF(x, z) < 1.5);
   const sway = swayMaterial();
   for (const k of Object.keys(geos)) scene.add(instanced(geos[k], lists[k], sway, rnd));
+  // Beyond the bay: woods in the Wend valley and round Longmere (clear of the trail and the
+  // banks), trees on Gannet Isle, and thinner woods along the rest of the coast. Each area is its
+  // own set of meshes, so the ones out of view aren't drawn.
+  const regionSkip = (x, z) => trailInfo(x, z).d < 3 || riverSDF(x, z) < 8 || mereSDF(x, z) < 4 || (x < 380 && x > -380 && z > -420 && z < 340);
+  const areas = [
+    { x0: 380, x1: 780, z0: -420, z1: 300, step: 5, thin: 0.9 },
+    { x0: 100, x1: 600, z0: -680, z1: -420, step: 5, thin: 0.9 },
+    { x0: -380, x1: -140, z0: 420, z1: 680, step: 5.5, thin: 0.6 },
+    { x0: -900, x1: -380, z0: -700, z1: 300, step: 9, thin: 0.6 },
+    { x0: 780, x1: 1100, z0: -700, z1: 200, step: 9, thin: 0.6 },
+    { x0: -380, x1: 380, z0: -800, z1: -420, step: 9, thin: 0.6 },
+  ];
+  const regionTrees = [];
+  const TILE = 250;
+  const tiles = [];
+  for (const A of areas) {
+    for (let x = A.x0; x < A.x1; x += TILE) {
+      for (let z = A.z0; z < A.z1; z += TILE) tiles.push({ x0: x, x1: Math.min(A.x1, x + TILE), z0: z, z1: Math.min(A.z1, z + TILE), step: A.step, thin: A.thin });
+    }
+  }
+  for (const A of tiles) {
+    const L = scatterTrees(rnd, avoid, regionSkip, A, A.step, A.thin);
+    regionTrees.push(L);
+    for (const k of Object.keys(geos)) {
+      if (!L[k].length) continue;
+      const m = instanced(geos[k], L[k], sway, rnd);
+      scene.add(m);
+      watchDistance(m);
+    }
+  }
 
   // Things you bump into on foot: tree trunks, bushes, camp gear, big rocks.
   const obstacles = new ObstacleGrid();
-  for (const k of ['pine', 'round', 'blossom']) for (const t of lists[k]) obstacles.add(t.x, t.z, 0.28 * t.s);
-  for (const t of lists.bush) obstacles.add(t.x, t.z, 0.45 * t.s);
+  for (const L of [lists, ...regionTrees]) {
+    for (const k of ['pine', 'round', 'blossom']) for (const t of L[k]) obstacles.add(t.x, t.z, 0.28 * t.s);
+    for (const t of L.bush) obstacles.add(t.x, t.z, 0.45 * t.s);
+  }
   for (const o of shore.obstacles) obstacles.add(o.x, o.z, o.r);
+  for (const o of regions.obstacles) obstacles.add(o.x, o.z, o.r, o.top ?? Infinity);
+  // Tree crowns, for casts that clip a branch: radius, and the height band of the leaves.
+  const canopy = new ObstacleGrid(6);
+  const crown = { pine: [1.25, 1.1, 4.8], round: [1.5, 1.3, 3.8], blossom: [1.5, 1.3, 3.8] };
+  for (const L of [lists, ...regionTrees]) {
+    for (const k of ['pine', 'round', 'blossom']) {
+      for (const t of L[k]) {
+        const [r, lo, hi] = crown[k];
+        canopy.add(t.x, t.z, r * t.s, t.y + hi * t.s, t.y + lo * t.s);
+      }
+    }
+  }
 
   const rockGeo = mergeParts([{ geo: jitterGeo(new THREE.DodecahedronGeometry(1, 0), 0.4, rnd), color: '#a39888', jitter: 0.07 }], rnd);
   const rocks = scatterRocks(rnd);
@@ -697,7 +868,8 @@ export function buildWorld(scene, renderer, habitat) {
   scene.add(instanced(rockGeo, rocks, withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true })), rnd, { tint: 0.08, tilt: 1.2, squash: 0.5 }));
 
   scene.add(buildStacks(rnd));
-  scene.add(buildMountains(rnd));
+  const mountains = buildMountains(rnd);
+  scene.add(mountains);
 
   // Gulls circle Gull Rock, a couple more wander over the bay
   const gulls = [];
@@ -718,6 +890,18 @@ export function buildWorld(scene, renderer, habitat) {
     gulls.push(b);
   }
 
+  // Seabirds that come down on shoals feeding at the surface: a pool of gulls that circle and
+  // dive over a spot for a while, then drift off. Set by the fish (see ecosystem clues).
+  const flockBirds = [];
+  for (let i = 0; i < 12; i++) {
+    const b = buildGull();
+    b.g.visible = false;
+    b.g.scale.setScalar(1.1);
+    scene.add(b.g);
+    flockBirds.push({ ...b, a: rnd() * 6.28, ph: rnd() * 10, flock: null });
+  }
+  const flocks = [];
+
   const fireflies = buildFireflies(rnd, [
     { x: COVE.x, z: COVE.z, r: COVE.r + 8 },
     { x: COVE.x - 6, z: COVE.z - 14, r: 12 },
@@ -735,6 +919,31 @@ export function buildWorld(scene, renderer, habitat) {
     shore,
     camp: shore.camp,
     obstacles,
+    boxes: regions.boxes,
+    // Birds over feeding fish: a flock gathers over (x, z) for a while (or freshens if one is there).
+    birdsAt(x, z) {
+      const near = flocks.find((f) => Math.hypot(f.x - x, f.z - z) < 40);
+      if (near) {
+        near.x = x;
+        near.z = z;
+        near.t = Math.min(near.t, 2);
+        return;
+      }
+      const free = flockBirds.filter((b) => !b.flock).slice(0, 6);
+      if (free.length < 3) return;
+      const f = { x, z, t: 0, life: 24 };
+      flocks.push(f);
+      for (const b of free) {
+        b.flock = f;
+        b.r = 8 + Math.random() * 10;
+        b.y0 = 10 + Math.random() * 8;
+        b.sp = (Math.random() < 0.5 ? -1 : 1) * (5 + Math.random() * 2);
+        b.g.visible = true;
+      }
+    },
+    get flocks() { return flocks; },
+    // A tree crown at this point in the air? (Casts that fly through one stop there.)
+    canopyAt: (x, y, z) => canopy.hit(x, y, z),
     takeLantern() {
       lanternTaken = true;
       cove.lantern.group.visible = false;
@@ -749,8 +958,19 @@ export function buildWorld(scene, renderer, habitat) {
     },
     update(dt, t, env, extra = {}) {
       shared.uTime.value = t;
+      if (extra.camera) {
+        const cp = extra.camera.position;
+        for (const o of distant) {
+          const b = o.isInstancedMesh ? o.boundingSphere : o.geometry.boundingSphere;
+          if (!b) continue;
+          o.visible = Math.hypot(b.center.x - cp.x, b.center.z - cp.z) - b.radius < 650;
+        }
+        mountains.position.set(extra.camera.position.x, 0, extra.camera.position.z);
+        if (extra.fog) mountains.material.emissive.copy(extra.fog).multiplyScalar(0.55);
+      }
       shared.uWind.value = 1 + env.rain * 1.4;
       shore.update(dt, t, env, { ...extra, wind: shared.uWind.value });
+      regions.update(dt, t, env);
       fireflies.material.uniforms.uOpacity.value = env.night * (1 - env.rain * 0.8);
 
       const lamp = env.lantern;
@@ -763,6 +983,32 @@ export function buildWorld(scene, renderer, habitat) {
         cove.sparkle.scale.setScalar(0.9 + tw * 0.7);
       }
 
+      // The flocks over feeding fish: circling, and every so often one folds and dives.
+      for (let i = flocks.length - 1; i >= 0; i--) {
+        const f = flocks[i];
+        f.t += dt;
+        if (f.t > f.life) {
+          for (const b of flockBirds) if (b.flock === f) { b.flock = null; b.g.visible = false; }
+          flocks.splice(i, 1);
+        }
+      }
+      for (const b of flockBirds) {
+        if (!b.flock) continue;
+        const f = b.flock;
+        const fade = Math.min(1, f.t / 3, (f.life - f.t) / 3);
+        b.a += (b.sp / b.r) * dt;
+        const cycle = (t * 0.35 + b.ph) % 4;
+        const dive = cycle < 0.6 ? Math.sin((cycle / 0.6) * Math.PI) : 0;
+        const y = (b.y0 + 30 * (1 - fade)) * (1 - dive * 0.9) + 0.5;
+        b.g.position.set(f.x + Math.cos(b.a) * b.r, y, f.z + Math.sin(b.a) * b.r);
+        const dir = Math.sign(b.sp);
+        b.g.rotation.y = Math.atan2(-Math.sin(b.a) * dir, Math.cos(b.a) * dir);
+        b.g.rotation.x = dive * 1.2;
+        b.g.rotation.z = -0.3 * dir;
+        const flap = dive ? 0.9 : Math.sin(t * 8 + b.ph) * 0.5;
+        b.wl.rotation.z = flap;
+        b.wr.rotation.z = -flap;
+      }
       for (const b of gulls) {
         const r = b.route;
         b.a += (r.sp / r.r) * dt;

@@ -1,32 +1,76 @@
 import * as THREE from 'three';
 import { clamp, lerp, damp, smoothstep, mergeParts, mat } from './util.js';
 import { waveHeight } from './world/water.js';
-import { solidHeight, PIERS } from './world/terrain.js';
+import { solidHeight, PIERS, WORLD } from './world/terrain.js';
 import { buildLanternModel, buildRod, bendRod } from './props.js';
 import { withSurface } from './world/surface.js';
 import { RODS } from './tackle.js';
 
-// Hull proportions (metres). The bow points along local +z.
-const L = 3.8, B = 0.8, D = 0.6;
-const DRAFT = 0.2;
-const hw = (t) => B * Math.pow(Math.sin(Math.PI * (0.17 + 0.83 * t)), 0.75);
-const sheer = (t) => D + 0.26 * Math.pow(t, 2.4) + 0.05 * Math.pow(1 - t, 3);
-const keelY = (t) => 0.2 * Math.pow(t, 3);
-const zAt = (t) => -L / 2 + L * t;
+// The four boats. Each has its own hull (metres; the bow points along local +z), its own
+// way of moving and its own place to sit:
+//  · row: the rowing boat you start with. Steady, roomy, quick enough under oars.
+//  · skiff: the same hull with an outboard: the boat for the open coast and the far islands.
+//  · kayak: narrow, low and slow, but silent, and it floats in a hand's depth of water: the
+//    boat for creeping up on fish in the shallows, the saltings and the reeds.
+//  · bass: a broad, flat lake boat with a big outboard for getting about, a quiet electric
+//    motor for fishing (the lever's first notches), and a steady casting deck with a locker.
+const HULLS = {
+  row: {
+    name: 'rowing boat', L: 3.8, B: 0.8, D: 0.6, draft: 0.2, shallow: 0.35, seatZ: 0, seatY: 0.47, floorY: 0.08,
+    hw: (t) => Math.pow(Math.sin(Math.PI * (0.17 + 0.83 * t)), 0.75),
+    sheer: (t) => 0.26 * Math.pow(t, 2.4) + 0.05 * Math.pow(1 - t, 3),
+    keel: (t) => 0.2 * Math.pow(t, 3),
+    paint: '#3f7f86', stripe: '#f1e6cc', bottom: '#a2513d', inside: 'wood',
+    oars: true, thwarts: true, lantern: [0.42, -1.58], stow: [-0.42, 0.52, -0.25],
+    pull: 6.4, back: 3.2, drag: [0.32, 0.075], side: 2.6, turn: 0.85, rate: 0.8, noise: 1, steady: 1,
+  },
+  skiff: {
+    name: 'motor skiff', L: 3.8, B: 0.8, D: 0.6, draft: 0.2, shallow: 0.35, seatZ: -1.25, seatY: 0.47, floorY: 0.08,
+    paint: '#ece6d8', stripe: '#2f4f7a', bottom: '#7c3a2e', inside: 'wood',
+    motor: { thrust: 5.4, astern: 2.4, tilt: 0.75, scale: 1, cowl: '#e9e5dc', band: '#2f4f7a' },
+    thwarts: true, oarlocks: true, lantern: [0.3, 1.25], stow: [-0.42, 0.52, -0.25], noise: 1, steady: 1,
+  },
+  kayak: {
+    name: 'kayak', L: 3.7, B: 0.34, D: 0.3, draft: 0.09, shallow: 0.15, seatZ: -0.15, seatY: 0.1, floorY: 0.06,
+    hw: (t) => Math.pow(Math.sin(Math.PI * (0.03 + 0.94 * t)), 0.62),
+    sheer: (t) => 0.1 * Math.pow(t, 3) + 0.08 * Math.pow(1 - t, 3),
+    keel: (t) => 0.06 * (Math.pow(t, 4) + Math.pow(1 - t, 4)),
+    paint: '#e8742a', stripe: '#f3d36b', bottom: '#c45a1c', inside: 'plastic',
+    decks: [[0, 0.3, 0], [0.6, 1, 0]], paddle: true, lantern: [0, -1.25], stow: [-0.2, 0.33, -1.05],
+    pull: 3.0, back: 1.6, drag: [0.36, 0.09], side: 3.4, turn: 1.25, rate: 0.95, noise: 0.4, steady: 0.8,
+  },
+  bass: {
+    name: 'bass boat', L: 4.7, B: 1.05, D: 0.55, draft: 0.22, shallow: 0.4, seatZ: -1.55, seatY: 0.78, floorY: 0.27,
+    hw: (t) => Math.pow(Math.sin(Math.PI * (0.32 + 0.68 * t)), 0.42),
+    sheer: (t) => 0.14 * Math.pow(t, 2),
+    keel: (t) => 0.16 * Math.pow(t, 3),
+    paint: '#7a2430', stripe: '#d9d4c7', bottom: '#2c2f33', inside: 'carpet',
+    decks: [[0.6, 1, 0.07], [0, 0.17, 0.07]], floor: true, pedestals: true, locker: true,
+    motor: { thrust: 7.6, astern: 3, tilt: 0.85, scale: 1.3, cowl: '#2b2e33', band: '#b8312f', troll: 0.3 },
+    lantern: [0.8, -1.95], stow: [-0.72, 0.62, 0.4], noise: 1, steady: 0.45,
+  },
+};
+for (const id of ['skiff']) Object.assign(HULLS[id], { hw: HULLS.row.hw, sheer: HULLS.row.sheer, keel: HULLS.row.keel });
+export const BOAT_KINDS = Object.keys(HULLS);
 const OAR_T = 0.56;
 
 const UP = new THREE.Vector3(0, 1, 0);
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3();
 
-function hullSurface(inset, colorFor) {
+// The hull's shape at t (0 stern … 1 bow): half-beam, height of the gunwale, height of the keel.
+const hw = (H, t) => H.B * H.hw(t);
+const sheer = (H, t) => H.D + H.sheer(t);
+const zAt = (H, t) => -H.L / 2 + H.L * t;
+
+function hullSurface(H, inset, colorFor) {
   const NZ = 18, NP = 10, rows = [];
   for (let i = 0; i <= NZ; i++) {
-    const t = i / NZ, w = Math.max(hw(t) - inset, 0), s = sheer(t), k = keelY(t) + inset;
+    const t = i / NZ, w = Math.max(hw(H, t) - inset, 0), s = sheer(H, t), k = H.keel(t) + inset;
     const row = [];
     for (let j = 0; j <= NP; j++) {
       const a = -Math.PI / 2 + Math.PI * (j / NP);
       const sn = Math.sin(a), cs = Math.max(Math.cos(a), 0);
-      row.push([w * Math.sign(sn) * Math.pow(Math.abs(sn), 0.65), k + (s - k) * (1 - Math.pow(cs, 0.55)), zAt(t)]);
+      row.push([w * Math.sign(sn) * Math.pow(Math.abs(sn), 0.65), k + (s - k) * (1 - Math.pow(cs, 0.55)), zAt(H, t)]);
     }
     rows.push(row);
   }
@@ -49,12 +93,32 @@ function hullSurface(inset, colorFor) {
   return { geo, rows };
 }
 
+// A deck across the hull between t0 and t1 (a kayak's covered ends, a bass boat's casting
+// decks): from gunwale to gunwale, a little below them (drop) and crowned along the middle.
+function deckSurface(H, t0, t1, drop) {
+  const N = 8, pos = [];
+  let prev = null;
+  for (let i = 0; i <= N; i++) {
+    const t = t0 + (t1 - t0) * (i / N), w = hw(H, t) * 0.98, y = sheer(H, t) - drop, z = zAt(H, t);
+    const crown = drop ? 0 : 0.035 * Math.min(1, w / 0.2);
+    const cur = [[-w, y, z], [0, y + crown, z], [w, y, z]];
+    if (prev) {
+      for (const k of [0, 1]) pos.push(...prev[k], ...cur[k], ...cur[k + 1], ...prev[k], ...cur[k + 1], ...prev[k + 1]);
+    }
+    prev = cur;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.computeVertexNormals();
+  return geo;
+}
+
 // Keep the sea out of the boat: the floor sits a little below the waterline, so the water
 // surface would show through it. An invisible lid across the hull just above the waterline
 // goes into the depth buffer only, after the hull and before the (transparent) water, so the
 // water is never drawn inside the boat.
-function waterLid(rows) {
-  const y = DRAFT + 0.1;
+function waterLid(rows, draft) {
+  const y = draft + 0.1;
   const mid = (rows[0].length - 1) / 2;
   // Where the inner hull rises through the lid's height on one side of the keel.
   const cross = (row, dir) => {
@@ -90,13 +154,16 @@ function setLimb(mesh, a, b, r) {
   mesh.scale.set(r, len, r);
 }
 
-// The rowing boat, or (motor: true) the little motor skiff: the same hull with an outboard
-// engine and tiller instead of oars, a white-and-navy paint job, and the helm at the stern.
+// One of the boats in HULLS: the rowing boat, the motor skiff, the kayak or the bass boat.
 export class Boat {
-  constructor(scene, { motor = false } = {}) {
-    this.motor = motor;
-    this.name = motor ? 'motor skiff' : 'rowing boat';
-    this.seatZ = motor ? -1.25 : 0; // where you sit: amidships to row, at the stern to steer
+  constructor(scene, { kind = 'row' } = {}) {
+    const H = (this.hull = HULLS[kind] || HULLS.row);
+    this.kind = HULLS[kind] ? kind : 'row';
+    this.motor = !!H.motor;
+    this.name = H.name;
+    this.seatZ = H.seatZ; // where you sit: amidships to row, at the stern to steer
+    this.seatY = H.seatY;
+    this.noise = H.noise; // how much the fish hear it moving (the kayak hardly at all)
     this.lever = 0;        // motor throttle, -0.4 (astern) … 1 (full ahead); it stays where you leave it
     this.anchored = false;
     this.anchorPt = new THREE.Vector3();
@@ -138,8 +205,9 @@ export class Boat {
 
     this.buildHull();
     this.buildCharacter();
-    this.oars = motor ? [] : [this.buildOar(1), this.buildOar(-1)];
-    if (motor) this.buildMotor();
+    this.oars = H.oars ? [this.buildOar(1), this.buildOar(-1)] : [];
+    if (H.paddle) this.buildPaddle();
+    if (H.motor) this.buildMotor();
     this.buildAnchorLine();
     this.buildRods();
     this.buildLantern();
@@ -147,6 +215,12 @@ export class Boat {
 
   get speed() {
     return Math.hypot(this.vel.x, this.vel.z);
+  }
+
+  // The bass boat's first notches of throttle run the quiet electric motor, not the outboard.
+  get trolling() {
+    const m = this.hull.motor;
+    return !!m?.troll && this.lever > 0.02 && this.lever <= m.troll;
   }
 
   place(x, z, heading) {
@@ -159,18 +233,24 @@ export class Boat {
   /* ---------- construction ---------- */
 
   buildHull() {
-    const PAINT = new THREE.Color(this.motor ? '#ece6d8' : '#3f7f86');
-    const STRIPE = new THREE.Color(this.motor ? '#2f4f7a' : '#f1e6cc');
-    const BOTTOM = new THREE.Color(this.motor ? '#7c3a2e' : '#a2513d');
-    const outer = hullSurface(0, (c, i, j, NP, y) => {
+    const H = this.hull;
+    const PAINT = new THREE.Color(H.paint);
+    const STRIPE = new THREE.Color(H.stripe);
+    const BOTTOM = new THREE.Color(H.bottom);
+    const outer = hullSurface(H, 0, (c, i, j, NP, y) => {
       if (j === 0 || j === NP - 1) c.copy(STRIPE);
-      else if (y < DRAFT + 0.05) c.copy(BOTTOM);
+      else if (y < H.draft + 0.05) c.copy(BOTTOM);
       else c.copy(PAINT);
       c.multiplyScalar(0.94 + ((i * 7 + j * 3) % 5) * 0.025);
     });
-    const WOOD = [new THREE.Color('#c99a63'), new THREE.Color('#b8874f')];
-    const inner = hullSurface(0.045, (c, i, j, NP) => {
-      c.copy(j === 0 || j === NP - 1 ? new THREE.Color('#a87a48') : WOOD[j % 2]);
+    // Inside: planks in the wooden boats, moulded plastic in the kayak, grey carpet in the bass boat.
+    const INSIDE = {
+      wood: [new THREE.Color('#c99a63'), new THREE.Color('#b8874f'), new THREE.Color('#a87a48')],
+      plastic: [new THREE.Color(H.paint).multiplyScalar(0.8), new THREE.Color(H.paint).multiplyScalar(0.75), new THREE.Color(H.stripe)],
+      carpet: [new THREE.Color('#5d6066'), new THREE.Color('#585b61'), new THREE.Color(H.stripe)],
+    }[H.inside];
+    const inner = hullSurface(H, Math.min(0.045, H.B * 0.1), (c, i, j, NP) => {
+      c.copy(j === 0 || j === NP - 1 ? INSIDE[2] : INSIDE[j % 2]);
       c.multiplyScalar(0.95 + ((i * 5 + j) % 4) * 0.03);
     });
 
@@ -178,26 +258,62 @@ export class Boat {
     const stern = outer.rows[0];
     const tPos = [];
     const cy = (stern[0][1] + stern[5][1]) / 2;
-    for (let j = 0; j < stern.length - 1; j++) tPos.push(0, cy, zAt(0), ...stern[j], ...stern[j + 1]);
+    for (let j = 0; j < stern.length - 1; j++) tPos.push(0, cy, zAt(H, 0), ...stern[j], ...stern[j + 1]);
     const transom = new THREE.BufferGeometry();
     transom.setAttribute('position', new THREE.Float32BufferAttribute(tPos, 3));
 
     const railPts = (j) => outer.rows.map((r) => new THREE.Vector3(r[j][0], r[j][1] + 0.02, r[j][2]));
     const NP = outer.rows[0].length - 1;
+    const rail = H.inside === 'wood' ? '#7b5434' : H.stripe;
     const parts = [
       { geo: outer.geo, color: '#ffffff', jitter: 0 },
       { geo: inner.geo, color: '#ffffff', jitter: 0 },
-      { geo: transom, color: '#3f7f86', jitter: 0.03 },
-      { geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(railPts(0)), 36, 0.045, 5), color: '#7b5434', jitter: 0.03 },
-      { geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(railPts(NP)), 36, 0.045, 5), color: '#7b5434', jitter: 0.03 },
-      { geo: new THREE.BoxGeometry(hw(0) * 2 + 0.08, 0.07, 0.09), matrix: mat(0, sheer(0) + 0.02, zAt(0)), color: '#7b5434' },
-      { geo: new THREE.BoxGeometry(0.5, 0.03, L * 0.62), matrix: mat(0, 0.08, 0.05), color: '#a77746' },
+      { geo: transom, color: H.paint, jitter: 0.03 },
+      { geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(railPts(0)), 36, H.paddle ? 0.02 : 0.045, 5), color: rail, jitter: 0.03 },
+      { geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(railPts(NP)), 36, H.paddle ? 0.02 : 0.045, 5), color: rail, jitter: 0.03 },
     ];
-    for (const t of [0.1, 0.5, 0.79]) {
-      parts.push({ geo: new THREE.BoxGeometry(hw(t) * 1.84, 0.05, 0.28), matrix: mat(0, 0.46, zAt(t)), color: '#a8743f' });
+    if (H.inside === 'wood') {
+      parts.push(
+        { geo: new THREE.BoxGeometry(hw(H, 0) * 2 + 0.08, 0.07, 0.09), matrix: mat(0, sheer(H, 0) + 0.02, zAt(H, 0)), color: '#7b5434' },
+        { geo: new THREE.BoxGeometry(0.5, 0.03, H.L * 0.62), matrix: mat(0, 0.08, 0.05), color: '#a77746' },
+      );
     }
-    for (const s of [1, -1]) {
-      parts.push({ geo: new THREE.CylinderGeometry(0.025, 0.025, 0.1, 5), matrix: mat(s * (hw(OAR_T) + 0.02), sheer(OAR_T) + 0.06, zAt(OAR_T)), color: '#3b342e' });
+    if (H.thwarts) {
+      for (const t of [0.1, 0.5, 0.79]) {
+        parts.push({ geo: new THREE.BoxGeometry(hw(H, t) * 1.84, 0.05, 0.28), matrix: mat(0, 0.46, zAt(H, t)), color: '#a8743f' });
+      }
+      for (const sd of [1, -1]) {
+        parts.push({ geo: new THREE.CylinderGeometry(0.025, 0.025, 0.1, 5), matrix: mat(sd * (hw(H, OAR_T) + 0.02), sheer(H, OAR_T) + 0.06, zAt(H, OAR_T)), color: '#3b342e' });
+      }
+    }
+    for (const [t0, t1, drop] of H.decks || []) parts.push({ geo: deckSurface(H, t0, t1, drop), color: drop ? '#5d6066' : H.paint, jitter: 0 });
+    if (H.paddle) {
+      // A moulded seat with a backrest, and a hatch on the stern deck.
+      parts.push(
+        { geo: new THREE.BoxGeometry(0.42, 0.05, 0.46), matrix: mat(0, H.seatY - 0.02, H.seatZ), color: '#2d3a40' },
+        { geo: new THREE.BoxGeometry(0.4, 0.3, 0.05), matrix: mat(0, H.seatY + 0.14, H.seatZ - 0.27, -0.25, 0, 0), color: '#2d3a40' },
+        { geo: new THREE.CylinderGeometry(0.15, 0.15, 0.03, 14), matrix: mat(0, sheer(H, 0.18) + 0.03, zAt(H, 0.18)), color: '#26292c' },
+      );
+    }
+    if (H.floor) {
+      // A flat floor between the decks, carpeted like them.
+      parts.push({ geo: new THREE.BoxGeometry(hw(H, 0.4) * 1.75, 0.04, H.L * 0.46), matrix: mat(0, H.floorY - 0.02, zAt(H, 0.4)), color: '#5d6066' });
+    }
+    if (H.pedestals) {
+      // Pedestal seats: one at the helm by the tiller, one up on the casting deck.
+      for (const [z, base] of [[H.seatZ, H.floorY], [zAt(H, 0.78), sheer(H, 0.78) - 0.07]]) {
+        parts.push(
+          { geo: new THREE.CylinderGeometry(0.04, 0.05, H.seatY - base - 0.05, 8), matrix: mat(0, (H.seatY + base) / 2 - 0.03, z), color: '#9aa0a6' },
+          { geo: new THREE.BoxGeometry(0.42, 0.08, 0.4), matrix: mat(0, H.seatY - 0.02, z), color: '#e7e1d4' },
+          { geo: new THREE.BoxGeometry(0.42, 0.32, 0.07), matrix: mat(0, H.seatY + 0.16, z - 0.2, -0.12, 0, 0), color: '#e7e1d4' },
+        );
+      }
+    }
+    if (H.locker) {
+      // The rod and tackle locker: a lid set into the casting deck.
+      const t = 0.68, y = sheer(H, t) - 0.06;
+      parts.push({ geo: new THREE.BoxGeometry(hw(H, t) * 1.2, 0.025, 0.7), matrix: mat(0, y, zAt(H, t)), color: '#484b51' });
+      parts.push({ geo: new THREE.BoxGeometry(0.16, 0.03, 0.05), matrix: mat(0, y + 0.02, zAt(H, t) - 0.3), color: '#b9bec4' });
     }
     const geo = mergeParts(parts);
     // The two hull surfaces come first in the merge; copy their painted colours back in.
@@ -208,11 +324,13 @@ export class Boat {
       colors.set(src, o);
       o += src.length;
     }
-    const mesh = new THREE.Mesh(geo, withSurface(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 'wood', { axis: 'z', seam: 14 }));
+    const surf = H.inside === 'wood' ? withSurface(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 'wood', { axis: 'z', seam: 14 })
+      : new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: H.inside === 'plastic' ? 0.55 : 0.4, metalness: H.inside === 'carpet' ? 0.15 : 0 });
+    const mesh = new THREE.Mesh(geo, surf);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     this.body.add(mesh);
-    this.body.add(waterLid(inner.rows));
+    this.body.add(waterLid(inner.rows, H.draft));
   }
 
   buildCharacter() {
@@ -226,7 +344,7 @@ export class Boat {
     const cast = (m) => { m.castShadow = true; return m; };
 
     this.torso = new THREE.Group();
-    this.torso.position.set(0, 0.47, 0.02 + this.seatZ);
+    this.torso.position.set(0, this.seatY, 0.02 + this.seatZ);
     this.body.add(this.torso);
     this.rowerParts.push(this.torso);
     const chest = cast(new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.22, 4, 10), coat));
@@ -263,14 +381,16 @@ export class Boat {
     const leg = (s) => {
       const thigh = cast(new THREE.Mesh(limbGeo, pants));
       const shin = cast(new THREE.Mesh(limbGeo, pants));
-      const z = this.seatZ;
-      const hip = new THREE.Vector3(s * 0.09, 0.52, 0.06 + z);
-      const knee = new THREE.Vector3(s * 0.11, 0.56, 0.42 + z);
-      const foot = new THREE.Vector3(s * 0.11, 0.14, 0.5 + z);
+      const z = this.seatZ, y = this.seatY, H = this.hull;
+      // Knees up on a seat; in the kayak, legs stretched out along the hull.
+      const hip = new THREE.Vector3(s * 0.09, y + 0.05, 0.06 + z);
+      const knee = H.paddle ? new THREE.Vector3(s * 0.13, y + 0.2, 0.48 + z) : new THREE.Vector3(s * 0.11, y + 0.09, 0.42 + z);
+      const foot = H.paddle ? new THREE.Vector3(s * 0.11, y + 0.04, 0.88 + z) : new THREE.Vector3(s * 0.11, H.floorY + 0.06, 0.5 + z);
       setLimb(thigh, hip, knee, 0.07);
       setLimb(shin, knee, foot, 0.06);
       const b = cast(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.22), boot));
-      b.position.set(s * 0.11, 0.12, 0.55 + z);
+      b.position.set(s * 0.11, foot.y - 0.02, foot.z + 0.05);
+      if (H.paddle) b.rotation.x = -0.9;
       this.body.add(thigh, shin, b);
       this.rowerParts.push(thigh, shin, b);
     };
@@ -288,12 +408,14 @@ export class Boat {
 
   // An outboard on the transom: cowling, leg, propeller and a tiller to steer by.
   buildMotor() {
+    const H = this.hull, M = H.motor;
     const g = (this.motorGroup = new THREE.Group());
-    g.position.set(0, sheer(0) - 0.02, zAt(0) - 0.04);
+    g.position.set(0, sheer(H, 0) - 0.02, zAt(H, 0) - 0.04);
+    g.scale.setScalar(M.scale);
     const parts = [
       { geo: new THREE.BoxGeometry(0.16, 0.14, 0.12), matrix: mat(0, 0, 0.02), color: '#3a3d42' },
-      { geo: new THREE.BoxGeometry(0.3, 0.3, 0.42), matrix: mat(0, 0.24, -0.12), color: '#e9e5dc' },
-      { geo: new THREE.BoxGeometry(0.31, 0.06, 0.43), matrix: mat(0, 0.11, -0.12), color: '#2f4f7a' },
+      { geo: new THREE.BoxGeometry(0.3, 0.3, 0.42), matrix: mat(0, 0.24, -0.12), color: M.cowl },
+      { geo: new THREE.BoxGeometry(0.31, 0.06, 0.43), matrix: mat(0, 0.11, -0.12), color: M.band },
       { geo: new THREE.BoxGeometry(0.09, 0.95, 0.11), matrix: mat(0, -0.42, -0.14), color: '#3a3d42' },
       { geo: new THREE.CylinderGeometry(0.06, 0.05, 0.3, 8), matrix: mat(0, -0.86, -0.16, Math.PI / 2, 0, 0), color: '#3a3d42' },
       { geo: new THREE.BoxGeometry(0.02, 0.14, 0.12), matrix: mat(0, -0.95, -0.1), color: '#3a3d42' },
@@ -318,13 +440,53 @@ export class Boat {
     g.add(this.prop);
     this.tillerGrip = new THREE.Vector3(0.04, 0.2, 0.55); // in the motor's own space
     this.body.add(g);
+    if (M.troll) {
+      // The electric trolling motor, clamped to the bow: a shaft down into the water and a
+      // little torpedo with a propeller.
+      const t = new THREE.Group();
+      t.position.set(0.32, sheer(H, 0.97) - 0.02, zAt(H, 0.97) + 0.05);
+      const tParts = [
+        { geo: new THREE.BoxGeometry(0.14, 0.08, 0.2), matrix: mat(0, 0.04, -0.05), color: '#2b2e33' },
+        { geo: new THREE.CylinderGeometry(0.018, 0.018, 1.05, 6), matrix: mat(0, -0.4, 0), color: '#2b2e33' },
+        { geo: new THREE.CylinderGeometry(0.045, 0.04, 0.3, 8), matrix: mat(0, -0.9, 0, Math.PI / 2, 0, 0), color: '#2b2e33' },
+        { geo: new THREE.BoxGeometry(0.1, 0.12, 0.02), matrix: mat(0, 0.16, -0.12), color: '#b8312f' },
+      ];
+      const tm = new THREE.Mesh(mergeParts(tParts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45 }));
+      t.add(tm);
+      this.trollProp = new THREE.Group();
+      this.trollProp.position.set(0, -0.9, -0.17);
+      for (let i = 0; i < 2; i++) {
+        const b = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.13, 0.01), new THREE.MeshStandardMaterial({ color: '#9aa1a8', metalness: 0.5 }));
+        b.rotation.z = i * Math.PI / 2;
+        this.trollProp.add(b);
+      }
+      t.add(this.trollProp);
+      this.body.add(t);
+    }
+  }
+
+  // The kayak's double-bladed paddle, held across the body and dipped left and right.
+  buildPaddle() {
+    const g = (this.paddleGroup = new THREE.Group());
+    g.rotation.order = 'YZX';
+    g.position.set(0, this.seatY + 0.36, this.seatZ + 0.38);
+    const parts = [{ geo: new THREE.CylinderGeometry(0.016, 0.016, 2.2, 6), matrix: mat(0, 0, 0, 0, 0, Math.PI / 2), color: '#2b2b2b' }];
+    for (const sd of [1, -1]) {
+      parts.push({ geo: new THREE.BoxGeometry(0.42, 0.16, 0.012), matrix: mat(sd * 1.1, 0, 0, 0, sd * 0.25, 0), color: '#f3d36b' });
+      parts.push({ geo: new THREE.CylinderGeometry(0.022, 0.022, 0.1, 6), matrix: mat(sd * 0.3, 0, 0, 0, 0, Math.PI / 2), color: '#3a3d42' });
+    }
+    const mesh = new THREE.Mesh(mergeParts(parts), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    mesh.castShadow = true;
+    g.add(mesh);
+    this.body.add(g);
+    this.paddle = { g, blend: 0, wasIn: 0, grips: [new THREE.Vector3(0.3, 0, 0), new THREE.Vector3(-0.3, 0, 0)], blades: [new THREE.Vector3(1.2, 0, 0), new THREE.Vector3(-1.2, 0, 0)] };
   }
 
   // A rope from the bow down into the water while the anchor is down.
   buildAnchorLine() {
     this.anchorLine = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1, 5), new THREE.MeshLambertMaterial({ color: '#d8c49a' }));
     this.anchorLine.visible = false;
-    this.anchorLine.position.set(0, sheer(1) - 0.35, L / 2 + 0.15);
+    this.anchorLine.position.set(0, sheer(this.hull, 1) - 0.35, this.hull.L / 2 + 0.15);
     this.anchorLine.rotation.x = 0.7;
     this.anchorLine.scale.y = 1.4;
     this.body.add(this.anchorLine);
@@ -340,7 +502,7 @@ export class Boat {
   buildOar(side) {
     const g = new THREE.Group();
     g.rotation.order = 'YZX';
-    g.position.set(side * (hw(OAR_T) + 0.02), sheer(OAR_T) + 0.06, zAt(OAR_T));
+    g.position.set(side * (hw(this.hull, OAR_T) + 0.02), sheer(this.hull, OAR_T) + 0.06, zAt(this.hull, OAR_T));
     const parts = [
       { geo: new THREE.CylinderGeometry(0.028, 0.028, 2.0, 6), matrix: mat(side * 0.4, 0, 0, 0, 0, Math.PI / 2), color: '#c9a16b' },
       { geo: new THREE.CylinderGeometry(0.036, 0.036, 0.26, 6), matrix: mat(side * -0.5, 0, 0, 0, 0, Math.PI / 2), color: '#7b5434' },
@@ -363,7 +525,7 @@ export class Boat {
     this.rods = {};
     for (const [id, def] of Object.entries(RODS)) {
       const rod = buildRod(def.look);
-      rod.group.position.set(0.05, 0.8, 0.34 + this.seatZ);
+      rod.group.position.set(0.05, this.seatY + 0.33, 0.34 + this.seatZ);
       rod.hold = rod.group.position.clone();
       rod.group.visible = false;
       this.body.add(rod.group);
@@ -374,7 +536,7 @@ export class Boat {
     // Stowed rod lying along the starboard side.
     this.rodStowed = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.024, 2.4, 5), new THREE.MeshLambertMaterial({ color: '#8a5a34' }));
     this.rodStowed.rotation.set(Math.PI / 2 - 0.06, 0, 0);
-    this.rodStowed.position.set(-0.42, 0.52, -0.25);
+    this.rodStowed.position.set(...this.hull.stow);
     this.body.add(this.rodStowed);
   }
 
@@ -397,12 +559,12 @@ export class Boat {
   // Where a landed fish is held up for a look.
   holdPoint(out) {
     if (this.viewHold) return out.copy(this.viewHold);
-    return this.body.localToWorld(out.set(-0.15, 1.45, 1.05 + this.seatZ));
+    return this.body.localToWorld(out.set(-0.15, this.seatY + 0.98, 1.05 + this.seatZ));
   }
 
   // Your eyes in first person: where you sit, rising and rolling with the boat.
   eyePoint(out) {
-    return this.body.localToWorld(out.set(0, 1.28, this.seatZ + 0.1));
+    return this.body.localToWorld(out.set(0, this.seatY + 0.81, this.seatZ + 0.1));
   }
 
   // In first person the figure draws nothing on screen, but still casts its shadow.
@@ -423,8 +585,8 @@ export class Boat {
   buildLantern() {
     this.lanternRig = new THREE.Group();
     // At the stern of the rowing boat; on the skiff the motor is there, so it goes in the bow.
-    if (this.motor) this.lanternRig.position.set(0.3, 0, 1.25);
-    else this.lanternRig.position.set(0.42, 0, -1.58);
+    const [lx, lz] = this.hull.lantern;
+    this.lanternRig.position.set(lx, Math.max(0, sheer(this.hull, 0.5) - 0.65), lz);
     this.lanternRig.visible = false;
     const wood = new THREE.MeshLambertMaterial({ color: '#6b4a30' });
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.032, 1.3, 6), wood);
@@ -463,34 +625,44 @@ export class Boat {
     let vf = this.vel.dot(this.fwd);
     let vr = this.vel.dot(this.right);
     let thrust;
-    if (this.motor) {
+    const H = this.hull, M = H.motor;
+    if (M) {
       // The throttle lever (throttle here) sets the thrust; the motor tips up in shallow water.
+      // (On the bass boat, the first notches run the electric motor at the bow instead: slow,
+      // silent, and happy in shallow water.)
       const p = this.pos;
-      const depth = -solidHeight(p.x - this.fwd.x * 1.7, p.z - this.fwd.z * 1.7);
-      const tilted = depth < 0.75;
+      const lever = this.anchored ? 0 : throttle;
+      const troll = M.troll && lever > 0 && lever <= M.troll;
+      const depth = -solidHeight(p.x - this.fwd.x * H.L * 0.45, p.z - this.fwd.z * H.L * 0.45);
+      const tilted = depth < M.tilt && !troll;
       if (tilted && !this.tilted && throttle > 0.2 && this.onShallow) this.onShallow();
       this.tilted = tilted;
-      const lever = this.anchored ? 0 : throttle;
-      thrust = (lever > 0 ? 5.4 * lever : 2.4 * lever) * (tilted ? 0.22 : 1);
-      this.propSpin += dt * (6 + Math.abs(lever) * 60) * Math.sign(lever || 1) * (Math.abs(lever) > 0.02 ? 1 : 0.1);
+      if (troll) thrust = 0.45 * (lever / M.troll);
+      else thrust = (lever > 0 ? M.thrust * lever : M.astern * lever) * (tilted ? 0.22 : 1);
+      const spin = troll ? 0 : lever;
+      this.propSpin += dt * (6 + Math.abs(spin) * 60) * Math.sign(spin || 1) * (Math.abs(spin) > 0.02 ? 1 : 0.1);
+      if (this.trollProp) this.trollProp.rotation.z += dt * (troll ? 40 : 0);
       vf += thrust * dt;
       vf -= vf * (0.26 + 0.055 * Math.abs(vf)) * dt;
       vr -= vr * 3.2 * dt;
-      // The tiller turns the boat even when slow, more so with the propeller pushing.
-      const turnRate = 0.45 + 0.75 * clamp(Math.abs(vf) / 4, 0, 1) + 0.35 * Math.abs(lever);
+      // The tiller turns the boat even when slow, more so with the propeller pushing (and
+      // the trolling motor steers the bow round on the spot).
+      const turnRate = troll ? 0.9 : 0.45 + 0.75 * clamp(Math.abs(vf) / 4, 0, 1) + 0.35 * Math.abs(lever);
       this.omega = damp(this.omega, steer * turnRate * (vf < -0.3 ? -1 : 1), 2.6, dt);
     } else {
-      // Rowing rhythm
+      // Rowing (or paddling) rhythm
       const rowing = (throttle !== 0 || steer !== 0) && !this.anchored;
-      if (rowing) this.phase += dt * Math.PI * 2 * 0.8;
-      const pulse = 0.5 + 0.5 * Math.max(0, Math.sin(this.phase));
+      if (rowing) this.phase += dt * Math.PI * 2 * H.rate;
+      // A paddle pulls on every half-stroke, left then right; oars once a stroke.
+      const sw = H.paddle ? Math.abs(Math.sin(this.phase)) : Math.max(0, Math.sin(this.phase));
+      const pulse = 0.5 + 0.5 * sw;
       // Throttle can be partial (touch stick), so it scales the stroke.
       const pull = this.anchored ? 0 : throttle;
-      thrust = pull > 0 ? 6.4 * pulse * pull : pull < 0 ? 3.2 * pulse * pull : 0;
+      thrust = pull > 0 ? H.pull * pulse * pull : pull < 0 ? H.back * pulse * pull : 0;
       vf += thrust * dt;
-      vf -= vf * (0.32 + 0.075 * Math.abs(vf)) * dt;
-      vr -= vr * 2.6 * dt;
-      const turnRate = 0.85 + 0.25 * clamp(Math.abs(vf) / 5, 0, 1);
+      vf -= vf * (H.drag[0] + H.drag[1] * Math.abs(vf)) * dt;
+      vr -= vr * H.side * dt;
+      const turnRate = H.turn + 0.25 * clamp(Math.abs(vf) / 5, 0, 1);
       this.omega = damp(this.omega, steer * turnRate * (fishing ? 0.5 : 1) * (this.anchored ? 0.3 : 1), 2.8, dt);
     }
     if (fishing) vf -= vf * 0.9 * dt;
@@ -517,13 +689,14 @@ export class Boat {
     const hp = waveHeight(p.x - r.x * 0.8, p.z - r.z * 0.8, t);
     const hst = waveHeight(p.x + r.x * 0.8, p.z + r.z * 0.8, t);
     const hc = (hb + hs + hp + hst) / 4;
-    const targetPitch = -Math.atan2(hb - hs, 3.0) - thrust * 0.004;
-    const targetRoll = Math.atan2(hp - hst, 1.6) + this.omega * vf * 0.035 + Math.sin(t * 0.9) * 0.012;
+    // (A broad bass boat sits steadier on the swell than the narrow wooden boats.)
+    const targetPitch = (-Math.atan2(hb - hs, 3.0) - thrust * 0.004) * (0.5 + 0.5 * H.steady);
+    const targetRoll = (Math.atan2(hp - hst, 1.6) + this.omega * vf * 0.035 + Math.sin(t * 0.9) * 0.012) * H.steady;
     this.pitch = damp(this.pitch, targetPitch, 4, dt);
     this.roll = damp(this.roll, targetRoll, 4, dt);
     this.heave = damp(this.heave, hc, 5, dt);
 
-    this.group.position.set(p.x, this.heave - DRAFT, p.z);
+    this.group.position.set(p.x, this.heave - H.draft, p.z);
     this.group.rotation.y = this.heading;
     this.body.rotation.x = this.pitch;
     this.body.rotation.z = this.roll;
@@ -533,10 +706,12 @@ export class Boat {
   }
 
   collide(dt) {
-    const f = this.fwd, p = this.pos, v = this.vel;
+    const f = this.fwd, p = this.pos, v = this.vel, H = this.hull;
     let impact = 0;
-    const LIM = -0.35;
-    for (const [off, rad] of [[1.45, 0.5], [0.2, 0.85], [-1.3, 0.75]]) {
+    // How shallow it can go: a kayak floats in a hand's depth of water.
+    const LIM = -H.shallow;
+    const k = H.L / 3.8, w = Math.max(0.45, H.B / 0.8);
+    for (const [off, rad] of [[1.45 * k, 0.5 * Math.min(w, 1.2)], [0.2 * k, 0.85 * w], [-1.3 * k, 0.75 * w]]) {
       const px = p.x + f.x * off, pz = p.z + f.z * off;
       // Shore and rocks: push back towards deeper water.
       const h = solidHeight(px, pz);
@@ -583,12 +758,12 @@ export class Boat {
         }
       }
     }
-    // The open sea goes on forever; drift gently back towards the islands.
-    const rd = Math.hypot(p.x, p.z - 20);
-    if (rd > 290) {
-      v.x -= (p.x / rd) * (rd - 290) * 0.5 * dt;
-      v.z -= ((p.z - 20) / rd) * (rd - 290) * 0.5 * dt;
-    }
+    // The open sea goes on forever: near the edge of the map, a gentle current eases you back.
+    const W = WORLD, m = 80;
+    const ox = p.x < W.x0 + m ? W.x0 + m - p.x : p.x > W.x1 - m ? W.x1 - m - p.x : 0;
+    const oz = p.z < W.z0 + m ? W.z0 + m - p.z : p.z > W.z1 - m ? W.z1 - m - p.z : 0;
+    v.x += ox * 0.5 * dt;
+    v.z += oz * 0.5 * dt;
     this.bumpCooldown -= dt;
     if (impact > 1.2 && this.bumpCooldown <= 0 && this.onBump) {
       this.onBump(impact);
@@ -620,6 +795,24 @@ export class Boat {
       oar.wasIn = isIn;
     }
 
+    // The kayak paddle: a dip on one side, then the other, sweeping back along the hull.
+    const P = this.paddle;
+    if (P) {
+      const e = clamp(Math.abs(throttle) + Math.abs(steer), 0, 1) * rowW;
+      P.blend = damp(P.blend, e > 0.15 ? 1 : 0, 4, dt);
+      const sn = Math.sin(this.phase), dir = throttle < 0 ? -1 : 1;
+      // Rest across the knees; at work, the shaft tips down to the stroking side and sweeps.
+      P.g.rotation.z = lerp(0, -0.55 * sn, P.blend);
+      P.g.rotation.y = lerp(0, 0.45 * Math.cos(this.phase) * dir * Math.sign(sn || 1), P.blend);
+      P.g.position.y = this.seatY + lerp(0.22, 0.36, P.blend);
+      const isIn = Math.abs(sn) > 0.55 && P.blend > 0.5 ? Math.sign(sn) : 0;
+      if (isIn && isIn !== P.wasIn && this.onStroke) {
+        P.g.updateMatrixWorld(true);
+        this.onStroke(P.g.localToWorld(_a.copy(P.blades[sn > 0 ? 0 : 1])), sn > 0 ? 1 : -1);
+      }
+      P.wasIn = isIn;
+    }
+
     // The outboard: propeller spinning, the leg turning with the tiller.
     if (this.motor) {
       this.prop.rotation.z = this.propSpin;
@@ -627,7 +820,7 @@ export class Boat {
       this.motorGroup.rotation.x = damp(this.motorGroup.rotation.x, this.tilted ? -0.5 : 0, 3, dt);
     }
     // Upper body sways with the stroke, and turns towards the line while fishing.
-    const blendRow = this.motor ? 0 : (this.oars[0].blend + this.oars[1].blend) / 2;
+    const blendRow = P ? P.blend : this.oars.length ? (this.oars[0].blend + this.oars[1].blend) / 2 : 0;
     this.torso.rotation.x = 0.12 * Math.cos(this.phase) * blendRow + fishing * 0.08;
     this.torso.rotation.y = damp(this.torso.rotation.y, this.pose.rodYaw * 0.35 * fishing, 4, dt);
     const look = fishing ? this.pose.rodYaw * 0.45 : Math.sin(t * 0.21) * 0.35 * (1 - blendRow);
@@ -648,10 +841,13 @@ export class Boat {
     for (const a of this.arms) {
       const shoulder = _a.copy(a.shoulder).applyMatrix4(this.torso.matrix);
       let onOar;
-      if (this.motor) {
+      if (P) {
+        P.g.updateMatrix();
+        onOar = _b.copy(P.grips[a.s > 0 ? 0 : 1]).applyMatrix4(P.g.matrix);
+      } else if (this.motor) {
         // One hand on the tiller, the other resting on a knee.
         this.motorGroup.updateMatrix();
-        onOar = a.s > 0 ? _b.copy(this.tillerGrip).applyMatrix4(this.motorGroup.matrix) : _b.set(-0.12, 0.62, 0.3 + this.seatZ);
+        onOar = a.s > 0 ? _b.copy(this.tillerGrip).applyMatrix4(this.motorGroup.matrix) : _b.set(-0.12, this.seatY + 0.15, 0.3 + this.seatZ);
       } else {
         const oar = a.s > 0 ? this.oars[0] : this.oars[1];
         oar.g.updateMatrix();

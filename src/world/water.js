@@ -18,6 +18,7 @@ export const WAVES = RAW.map(([dx, dz, len, amp, c]) => {
 
 // sea.amp rises a little in the rain; sea.time is the shared wave clock.
 export const sea = { amp: 1, time: 0 };
+const NEAR_R = 444; // the fine water sheet is round, this far around the camera
 
 const calmness = (x, z) => 0.5 + 0.8 * smoothstep(55, 150, Math.hypot(x - BAY.x, z - BAY.z));
 
@@ -69,7 +70,12 @@ void main() {
   vec4 wp = modelMatrix * vec4(position, 1.0);
   vRefl = uReflMatrix * vec4(wp.x, 0.0, wp.z, 1.0);
   float freshV = worldMap(wp.xz).g;
+  #ifdef RING
+  // The far ocean, out to the horizon: too far off to see the waves move.
+  vec3 w = vec3(0.0);
+  #else
   vec3 w = waves(wp.xz, uTime) * (1.0 - 0.92 * freshV);
+  #endif
   wp.y += w.x;
   vN = vec3(-w.y, 1.0, -w.z);
   vWorld = wp.xyz;
@@ -81,7 +87,8 @@ void main() {
 
 const fragmentShader = /* glsl */ `
 uniform float uTime;
-uniform float uRain;
+uniform float uRain;  // how dull the sky is (cloud and rain)
+uniform float uRings; // rain rings on the water (rain, scaled by the rain-effects setting)
 uniform float uNight;
 uniform vec3 uLightDir;
 uniform vec3 uSunColor;
@@ -158,6 +165,10 @@ vec2 rippleSlope(vec2 p) {
 }
 
 void main() {
+  // The near sheet is round, and the far ring starts where it ends.
+  #ifndef RING
+  if (length(vWorld.xz - cameraPosition.xz) > ${NEAR_R.toFixed(1)}) discard;
+  #endif
   vec2 rip = rippleSlope(vWorld.xz);
   // Seen from below: bright where you look straight up through the surface,
   // the darker underwater colour where the light reflects back at a slant.
@@ -223,7 +234,7 @@ void main() {
     float n0 = vnoise(sq - vec2(0.0, uTime * flowSpeed * 1.1));
     streak = smoothstep(0.7, 0.95, n0) * smoothstep(0.45, 1.0, flowSpeed) * (1.0 - smoothstep(0.25, 0.7, depth));
   }
-  g += rainRings(p, uTime) * uRain * 0.45;
+  g += rainRings(p, uTime) * uRings * 0.45;
   g *= detail;
   g += rip;
   vec3 N = normalize(vec3(vN.x - g.x, vN.y, vN.z - g.y));
@@ -318,6 +329,7 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       uTime: { value: 0 },
       uAmp: { value: 1 },
       uRain: { value: 0 },
+      uRings: { value: 0 },
       uNight: { value: 0 },
       uLightDir: { value: new THREE.Vector3(0, 1, 0) },
       uSunColor: { value: new THREE.Color() },
@@ -369,12 +381,25 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
   mesh.frustumCulled = false;
   mesh.renderOrder = 1;
 
+  // Beyond it, a plain ring of sea out to the horizon (the same water, without moving waves),
+  // so a long way out from the bay there is still ocean all round.
+  const ringMat = new THREE.ShaderMaterial({
+    uniforms, vertexShader, fragmentShader, defines: { DETAIL: 0, RING: 1 }, transparent: true, fog: true, side: THREE.DoubleSide,
+  });
+  const ringGeo = new THREE.RingGeometry(NEAR_R - 2, 6000, 96, 6).rotateX(-Math.PI / 2);
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.frustumCulled = false;
+  ring.renderOrder = 1;
+  mesh.add(ring);
+
   return {
     mesh,
+    ring,
     uniforms,
     follow(pos) {
       mesh.position.x = Math.round(pos.x / cell) * cell;
       mesh.position.z = Math.round(pos.z / cell) * cell;
+      ring.position.set(pos.x - mesh.position.x, 0, pos.z - mesh.position.z);
     },
     // 0: two wave layers (low), 1: plus fine wavelets and glints, 2: plus the finest layer.
     setDetail(level) {

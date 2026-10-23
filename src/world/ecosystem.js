@@ -40,6 +40,7 @@ export class Ecosystem {
     // Handfuls of loose bait thrown in for the carp: { x, z, amount }.
     this.feedSpots = [];
     this.lantern = null;
+    this.lights = []; // warm lights after dark that squid and duskfin gather round
     this.activity = {};
     this.startleT = 0;
     // The one rig in the water, written by the fishing system each frame. `kind` is how it is
@@ -57,8 +58,8 @@ export class Ecosystem {
 
   populate() {
     let rnd = seeded(77);
-    const pickHomes = (L, n, gap, nearJetty) => {
-      const cands = this.habitat.spots.filter((s) => L.homes.includes(s.type) && L.zones.includes(s.zone));
+    const pickHomes = (L, n, gap, nearJetty, zones = L.zones) => {
+      const cands = this.habitat.spots.filter((s) => L.homes.includes(s.type) && zones.includes(s.zone));
       for (let i = cands.length - 1; i > 0; i--) {
         const j = Math.floor(rnd() * (i + 1));
         [cands[i], cands[j]] = [cands[j], cands[i]];
@@ -76,10 +77,14 @@ export class Ecosystem {
       // Each species gets its own seed, so tuning one never reshuffles the others.
       rnd = seeded(77 + i * 1013);
       const L = sp.life;
+      // Some species live in more than one water, in different numbers (groupsIn).
+      const homes = L.groupsIn
+        ? Object.entries(L.groupsIn).flatMap(([zone, n]) => pickHomes(L, n, L.spacing ?? 18, false, [zone]))
+        : pickHomes(L, L.school ? L.schools : L.groups, L.spacing ?? (L.school ? 22 : 18), L.school || sp.id === 'sunperch');
       if (L.school) {
-        for (const home of pickHomes(L, L.schools, L.spacing ?? 22, true)) this.addSchool(sp, home, rnd);
+        for (const home of homes) this.addSchool(sp, home, rnd);
       } else {
-        for (const home of pickHomes(L, L.groups, L.spacing ?? 18, sp.id === 'sunperch')) {
+        for (const home of homes) {
           const n = L.group[0] + Math.floor(rnd() * (L.group[1] - L.group[0] + 1));
           for (let k = 0; k < n; k++) this.addAgent(sp, home, rnd);
         }
@@ -166,10 +171,8 @@ export class Ecosystem {
     for (const s of this.schools) s.t = 99;
   }
 
-  setDensity(d) {
-    this.density = d;
-    for (const a of this.agents) a.active = a.rank < d || a.state === 'hooked' || BAIT_STATES.has(a.state);
-  }
+  // Which fish are interested in the bait right now (always drawn, whatever the settings).
+  get engagedSet() { return BAIT_STATES; }
 
   /* ---------- main loop ---------- */
 
@@ -179,6 +182,7 @@ export class Ecosystem {
     this.boat = ctx.boat;
     this.walker = ctx.walker;
     this.lantern = ctx.lantern;
+    this.lights = ctx.lights || (this.lantern ? [this.lantern] : []);
     for (const f of this.feedSpots) f.amount -= dt * 0.002;
     if (this.feedSpots.length && this.feedSpots[0].amount <= 0) this.feedSpots = this.feedSpots.filter((f) => f.amount > 0);
     for (const sp of FISH) this.activity[sp.id] = sp.life.activity(this.ctx);
@@ -245,6 +249,8 @@ export class Ecosystem {
         break;
       case 'cruise':
         if (a.t > a.dur || this.near(a, 1.2)) this.decide(a);
+        // A squid now and then jets off in a short burst.
+        else if (a.L.squid && Math.random() < h * 0.12) a.speed = a.L.speed * (a.L.burst || 2.5);
         break;
       case 'rise': this.rise(a); break;
       case 'flee':
@@ -277,13 +283,17 @@ export class Ecosystem {
     }
     const L = a.L;
     const act = this.activity[a.sp.id];
-    // Duskfin drift up towards the warm lantern light after dark.
-    if (L.lantern && act > 0.5 && this.lantern && Math.hypot(a.x - this.lantern.x, a.z - this.lantern.z) < 40 && Math.random() < 0.85) {
+    // Duskfin and squid drift up towards warm light after dark: a lantern, the old jetty's lamp.
+    const light = L.lantern && act > 0.5 ? this.nearestLight(a) : null;
+    if (light && Math.random() < 0.85) {
       a.state = 'cruise';
       a.t = 0;
       a.dur = 12;
-      a.tx = this.lantern.x + rand(-3, 3);
-      a.tz = this.lantern.z + rand(-3, 3);
+      // Squid hang at the edge of the light, where it fades into the dark.
+      const ring = L.squid ? rand(3, 7) : rand(0, 3);
+      const ang = Math.random() * Math.PI * 2;
+      a.tx = light.x + Math.cos(ang) * ring;
+      a.tz = light.z + Math.sin(ang) * ring;
       a.ty = -rand(0.8, 2.2);
       a.wantSpeed = L.speed * 0.7;
       return;
@@ -311,6 +321,16 @@ export class Ecosystem {
     return this.startState(a, 'rest', rand(3, 8));
   }
 
+  // The nearest light within reach after dark (the boat's lantern, or a lamp in this.lights).
+  nearestLight(a) {
+    let best = null, bd = 40;
+    for (const l of this.lights) {
+      const d = Math.hypot(a.x - l.x, a.z - l.z);
+      if (d < bd) { bd = d; best = l; }
+    }
+    return best;
+  }
+
   startState(a, state, dur) {
     a.state = state;
     a.feedSpot = null;
@@ -330,6 +350,8 @@ export class Ecosystem {
       const x = home.x + Math.cos(ang) * r, z = home.z + Math.sin(ang) * r;
       const s = this.habitat.sample(x, z, _s);
       if (s.depth < Math.max(0.6, band[0] + 0.3)) continue;
+      // Bottom fish keep to their depth: they don't wander off into deep water.
+      if (L.bottom && s.depth > band[1] + 1.5) continue;
       if (!L.zones.includes(zoneAt(x, z))) continue;
       const cover = L.cover === 'weed' ? s.weed : L.cover === 'rock' ? s.rock : L.cover === 'open' ? 0 : Math.max(s.weed, s.rock);
       let score = Math.random() * 0.4 + (mode === 'cruise' ? 0 : cover * 1.2);
@@ -342,7 +364,8 @@ export class Ecosystem {
       }
     }
     let y;
-    if (L.bottom || mode === 'rest' || mode === 'feed') y = -bd + rand(0.35, mode === 'feed' ? 0.8 : 1.3);
+    if (L.flat) y = -bd + 0.06; // flatfish lie on the bottom itself
+    else if (L.bottom || mode === 'rest' || mode === 'feed') y = -bd + rand(0.35, mode === 'feed' ? 0.8 : 1.3);
     else y = -rand(band[0], Math.max(band[0], Math.min(band[1], bd - 0.4)));
     y = clamp(y, -band[1], -band[0]);
     y = Math.min(Math.max(y, -bd + 0.3), -0.3);
@@ -441,8 +464,12 @@ export class Ecosystem {
     s.t += h;
     s.clueCD -= h;
     s.flashCD -= h;
+    s.birdCD = (s.birdCD ?? rand(2, 8)) - h;
     if (s.scatterT > 0) s.scatterT -= h;
     const act = this.activity[s.sp.id];
+    // Tuna hunt the sprat shoals: they drive one up to the surface, the sea boils, and birds
+    // come down on it.
+    if (s.L.hunter && act > 0.4 && this.hunt(s, h, coarse)) return;
     if (s.t > s.dur || this.near(s, 1.5)) {
       const mode = act < 0.3 ? 'rest' : Math.random() < 0.65 ? 'cruise' : 'feed';
       this.pickPoint(s, mode);
@@ -453,6 +480,12 @@ export class Ecosystem {
     }
     this.steer(s, h);
     this.integrate(s, h);
+    // Shoals feeding near the top in daylight draw the gulls (mackerel, and the tuna's prey).
+    if (!coarse && s.L.birds && s.y > -2.5 && this.ctx.daylight > 0.3 && act > 0.5 && s.birdCD <= 0) {
+      s.birdCD = rand(8, 16);
+      const m = s.members[0];
+      if (m) this.clue('birds', m);
+    }
     // Nervous water: a school near the surface keeps dimpling it.
     if (!coarse && s.y > -1.1 && this.ctx.daylight > 0.25 && s.clueCD <= 0) {
       s.clueCD = rand(0.6, 1.4);
@@ -465,6 +498,69 @@ export class Ecosystem {
       const m = s.members[Math.floor(Math.random() * s.members.length)];
       if (m && m.active && m.state === 'school') this.clue('flash', m);
     }
+  }
+
+  // A hunting school (tuna) closes on the nearest bait shoal it knows of and drives it up.
+  hunt(s, h, coarse) {
+    s.huntT = (s.huntT ?? 0) - h;
+    s.frenzy = Math.max(0, (s.frenzy ?? 0) - h);
+    s.rest = Math.max(0, (s.rest ?? 0) - h);
+    if (s.rest > 0) return false; // after a frenzy they go deep and wander for a while
+    if (s.huntT <= 0 || !s.prey) {
+      s.huntT = 4;
+      let best = null, bd = 380;
+      for (const o of this.schools) {
+        if (o.sp.id !== s.L.hunter) continue;
+        const d = Math.hypot(o.x - s.x, o.z - s.z);
+        if (d < bd) { bd = d; best = o; }
+      }
+      s.prey = best;
+    }
+    const p = s.prey;
+    if (!p) return false;
+    const d = Math.hypot(p.x - s.x, p.z - s.z);
+    // On the bait ball: a feeding frenzy that lasts a minute or so, circling and slashing
+    // through it, then they sound and rest before hunting again.
+    if (d < 22 && !s.frenzy) s.frenzy = rand(50, 80);
+    if (s.frenzy > 0 && s.frenzy < h * 2) {
+      s.rest = rand(60, 120);
+      s.prey = null;
+      return false;
+    }
+    if (s.frenzy > 0) {
+      const ang = s.t * 0.35 + s.id;
+      s.tx = p.x + Math.cos(ang) * 9;
+      s.tz = p.z + Math.sin(ang) * 9;
+      p.wantSpeed = 0.15; // the bait ball holds its ground, balled up
+      p.tx = p.x;
+      p.tz = p.z;
+    } else {
+      s.tx = p.x;
+      s.tz = p.z;
+    }
+    s.ty = Math.min(-0.6, p.y);
+    s.wantSpeed = s.L.speed * (s.frenzy > 0 ? 0.7 : d < 30 ? 1.3 : 0.9);
+    s.spread = 2.4;
+    this.steer(s, h);
+    this.integrate(s, h);
+    if (d < 22) {
+      // The bait ball squeezed to the top; the tuna crashing through it.
+      p.ty = -0.6;
+      p.scatterT = Math.max(p.scatterT, 0.6);
+      p.sx = s.x;
+      p.sy = s.y;
+      p.sz = s.z;
+      if (!coarse && s.clueCD <= 0) {
+        s.clueCD = rand(0.4, 1.1);
+        const m = s.members[Math.floor(Math.random() * s.members.length)];
+        if (m) this.clue('boil', m);
+      }
+      if (!coarse && s.birdCD <= 0) {
+        s.birdCD = rand(6, 12);
+        this.clue('birds', p.members[0] || s.members[0]);
+      }
+    }
+    return true;
   }
 
   followSchool(a) {
@@ -510,7 +606,10 @@ export class Ecosystem {
     // Look ahead: if the water ahead is too shallow for this fish, turn towards deeper water.
     const fx = Math.sin(a.yaw), fz = Math.cos(a.yaw);
     const ahead = this.habitat.depth(a.x + fx * 2.5, a.z + fz * 2.5);
-    if (ahead < Math.max(0.5, -a.y + 0.25)) {
+    // (A flatfish lies on the bottom itself: only water clearly shallower than it is "too shallow",
+    // and a fish after a bait follows it up into the shallows as long as there's water to swim in.)
+    const shallow = BAIT_STATES.has(a.state) ? 0.45 : Math.max(0.5, -a.y + (a.L?.flat ? -0.3 : 0.25));
+    if (ahead < shallow) {
       this.habitat.deeper(a.x, a.z, _g);
       dx = _g.x;
       dz = _g.z;
@@ -546,8 +645,13 @@ export class Ecosystem {
       a.x += _g.x * h * 1.5;
       a.z += _g.z * h * 1.5;
     }
-    const floor = -depth + 0.18 + a.scale * 0.15;
+    const floor = -depth + (a.L?.flat ? 0.04 : 0.18 + a.scale * 0.15);
     if (a.y < floor) a.y = floor;
+    if (a.L?.flat && a.state !== 'flee' && !BAIT_STATES.has(a.state) && a.state !== 'jump') {
+      // Flat on the bottom: they glide close over it, never pitched up.
+      a.y = Math.min(a.y, floor + 0.15);
+      a.pitch = 0;
+    }
     if (a.y > -0.2) a.y = -0.2;
     a.bank = damp(a.bank, clamp(-a.turnRate * 0.25, -0.5, 0.5), 4, h);
     if (a.L) a.beat = damp(a.beat, clamp(a.speed / (a.L.speed * 1.6) + Math.abs(a.turnRate) * 0.15, 0.1, 1), 3, h);
@@ -564,8 +668,9 @@ export class Ecosystem {
     if (f <= 0 || b.fouled) return 0;
     if (L.bottom && !b.nearBottom) return 0;
     // A big lure is too much for a small fish; the bigger ones of a kind can manage more.
+    // (A natural bait is softer and easier to manage than a hard lure of the same size.)
     const k = (a.size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]);
-    if (b.size > (sp.mouth ?? 2) * (0.7 + 0.5 * k)) f *= 0.05;
+    if (b.size > (sp.mouth ?? 2) * (b.natural ? 1.05 + 0.4 * k : 0.7 + 0.5 * k)) f *= 0.05;
     if (b.fly === 'dry') {
       f *= 0.25 + (this.ctx.hatch ?? 0.5);
       if (b.drag) f *= 0.07;
@@ -581,7 +686,11 @@ export class Ecosystem {
     const L = a.L;
     const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
     const d = Math.hypot(dx, dy, dz);
-    const per = L.perception * (this.ctx.night > 0.6 && !L.lantern ? 0.75 : 1) * (L.lurk ? 0.75 : 1);
+    let per = L.perception * (this.ctx.night > 0.6 && !L.lantern ? 0.75 : 1) * (L.lurk ? 0.75 : 1);
+    // A squid notices a jig that has just darted from much further off.
+    if (L.squid) per *= b.kind === 'jig' && b.darted > 0 ? 1.6 : 0.6;
+    // Bottom feeders follow the scent of a natural bait lying on the bottom.
+    if (L.bottom && b.natural && b.nearBottom) per *= 1.8;
     if (d > per) return;
     const dv = Math.abs(dy);
     if (dv > L.depthTol * 2.2) return;
@@ -599,6 +708,8 @@ export class Ecosystem {
   // The way a fish goes about taking this particular rig.
   styleFor(a, b) {
     const s = a.L.strike || {};
+    if (b.kind === 'jig') return s.jig || 'chase';
+    if (b.kind === 'bottom') return s.bottom || s.ledger || 'nibble';
     if (b.kind === 'lure') return s.lure || 'chase';
     if (b.kind === 'fly') {
       if (b.fly === 'dry') return s.dry || 'rise';
@@ -620,8 +731,11 @@ export class Ecosystem {
     a.strikeCD = 0.6;
     a.maxNibbles = a.style === 'take' ? 1 : 1 + Math.floor(Math.random() * 3);
     if (a.style === 'ambush') {
-      // No warning: it simply goes.
-      a.state = 'lunge';
+      // No warning: it simply goes, if the lure comes close enough. Further off, it shadows it
+      // from cover until it does.
+      const d = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+      a.state = d < 3 ? 'lunge' : 'follow';
+      if (a.state === 'follow') this.listener.onFollow?.(a);
       return;
     }
     if (a.style === 'chase') {
@@ -654,7 +768,7 @@ export class Ecosystem {
 
   escort(a) {
     const b = this.bait;
-    if (!b.active || a.t > a.dur || b.kind !== 'lure') return this.startState(a, 'cruise');
+    if (!b.active || a.t > a.dur || (b.kind !== 'lure' && b.kind !== 'jig')) return this.startState(a, 'cruise');
     const dx = b.anglerX - b.x, dz = b.anglerZ - b.z, l = Math.hypot(dx, dz) || 1;
     a.tx = b.x - (dx / l) * 1.4 - (dz / l) * a.slotSide * 0.7;
     a.ty = b.y - 0.2;
@@ -732,17 +846,26 @@ export class Ecosystem {
         a.tx = b.x - (tx / tl) * 0.7;
         a.ty = b.y;
         a.tz = b.z - (tz / tl) * 0.7;
-        a.wantSpeed = clamp(bv * 1.1 + d * 0.8, 0.2, L.speed * 2.3);
+        // It keeps pace with the lure, closing in on it: a slow cruiser speeds up to follow.
+        // (An ambusher shadowing from cover closes the gap in short pushes, then goes from further off.)
+        const ambush = a.style === 'ambush';
+        a.wantSpeed = clamp(bv * 1.1 + d * 0.8, 0.2, Math.max(L.speed * (ambush ? L.burst * 0.75 : 2.3), bv * 1.35 + 0.4));
         if (tl < 3.2) return this.disengage(a, 'turned', 10);
         if (a.followT > 11 || d > L.perception * 1.4) return this.disengage(a, 'lost', 6);
         if (this.appeal(a, b) <= 0) return this.disengage(a, 'lost', 6);
         a.strikeCD -= h;
-        if (a.strikeCD <= 0 && d < 1.8) {
+        if (a.strikeCD <= 0 && d < (ambush ? 3 : 1.8)) {
           a.strikeCD = 0.3;
           let p = 0.06 * (L.likes[b.motion] ?? 0.5) * L.bite;
-          if (b.twitch > 0) p *= 4;
-          if (b.pause) p *= 3.5;
-          if (b.motion === 'still' && !b.pause) p *= 0.3;
+          if (L.squid) {
+            // A squid stalks the jig, and grabs it as it glides down after a dart; a dart
+            // right under its nose makes it back off a little.
+            p = 0.1 * L.bite * (b.sinking ? 3.2 : 0.6) * (b.twitch > 0 ? 0.35 : 1) * (b.motion === 'fast' ? 0.2 : 1);
+          } else {
+            if (b.twitch > 0) p *= 4;
+            if (b.pause) p *= 3.5;
+            if (b.motion === 'still' && !b.pause) p *= 0.3;
+          }
           if (Math.random() < p) {
             a.state = 'lunge';
             a.t = 0;
@@ -759,7 +882,7 @@ export class Ecosystem {
         a.wantSpeed = L.speed * (L.burst || 2.6);
         a.speed = Math.max(a.speed, a.wantSpeed * 0.75);
         if (d < 0.4) this.startBite(a, 'strike');
-        else if (a.t > 1.5) this.disengage(a, 'missed', 12);
+        else if (a.t > 2.2) this.disengage(a, 'missed', 12);
         break;
       case 'inspect':
         // Drifts up under the fly, looking.

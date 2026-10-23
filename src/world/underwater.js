@@ -118,27 +118,38 @@ export class Underwater {
     this.underColor = new THREE.Color().copy(UNDER_DAY);
     const rnd = seeded(9090);
 
-    // Weed beds: short seagrass everywhere there is weed, taller ribbon weed in deeper beds.
-    const rect = habitat.rect;
-    const grass = [], kelp = [];
+    // Weed beds: short seagrass everywhere there is weed, taller ribbon weed (kelp on the
+    // coast) in deeper beds. One set per region, so the ones far out of view aren't drawn.
     const s = {};
-    for (let i = 0; i < 260000 && (grass.length < 5200 || kelp.length < 1200); i++) {
-      const x = rect.x + rnd() * rect.w, z = rect.z + rnd() * rect.h;
-      habitat.sample(x, z, s);
-      if (s.weed < 0.15 || rnd() > Math.pow(s.weed, 0.8)) continue;
-      const y = heightAt(x, z) - 0.05;
-      if (s.depth > 2.6 && rnd() < 0.28 && kelp.length < 1200) {
-        kelp.push({ x, y, z, s: rand(1.2, Math.min(3.2, s.depth * 0.55)), r: rnd() * 6.28 });
-      } else if (grass.length < 5200) {
-        grass.push({ x, y, z, s: rand(0.45, Math.min(1.3, 0.4 + s.depth * 0.25)), r: rnd() * 6.28 });
-      }
-    }
     const plants = plantMaterial();
-    this.grass = instances(bladeClump(rnd, 9, 0.075, 0.35, '#355f37', '#86ad5c'), plants, grass, rnd, (c, r) => c.setRGB(0.85 + r() * 0.3, 0.9 + r() * 0.2, 0.85 + r() * 0.2));
-    this.kelp = instances(bladeClump(rnd, 3, 0.16, 0.25, '#4e5a2a', '#a39a4c'), plants, kelp, rnd, (c, r) => c.setRGB(0.85 + r() * 0.3, 0.85 + r() * 0.25, 0.8 + r() * 0.2));
-    this.grassTotal = grass.length;
-    this.kelpTotal = kelp.length;
-    scene.add(this.grass, this.kelp);
+    const grassGeo = bladeClump(rnd, 9, 0.075, 0.35, '#355f37', '#86ad5c');
+    const kelpGeo = bladeClump(rnd, 3, 0.16, 0.25, '#4e5a2a', '#a39a4c');
+    this.beds = [];
+    for (const R of habitat.regions) {
+      if (!R.grass && !R.kelp) continue;
+      const grass = [], kelp = [];
+      for (let i = 0; i < (R.grass + R.kelp) * 50 && (grass.length < R.grass || kelp.length < R.kelp); i++) {
+        const x = R.x + rnd() * R.w, z = R.z + rnd() * R.h;
+        habitat.sample(x, z, s);
+        if (s.weed < 0.15 || rnd() > Math.pow(s.weed, 0.8)) continue;
+        const y = heightAt(x, z) - 0.05;
+        if (s.depth > 2.6 && rnd() < 0.28 && kelp.length < R.kelp) {
+          kelp.push({ x, y, z, s: rand(1.2, Math.min(R.id === 'gannet' ? 5 : 3.2, s.depth * 0.55)), r: rnd() * 6.28 });
+        } else if (grass.length < R.grass) {
+          grass.push({ x, y, z, s: rand(0.45, Math.min(1.3, 0.4 + s.depth * 0.25)), r: rnd() * 6.28 });
+        }
+      }
+      const g = instances(grassGeo, plants, grass, rnd, (c, r) => c.setRGB(0.85 + r() * 0.3, 0.9 + r() * 0.2, 0.85 + r() * 0.2));
+      const k = instances(kelpGeo, plants, kelp, rnd, (c, r) => c.setRGB(0.85 + r() * 0.3, 0.85 + r() * 0.25, 0.8 + r() * 0.2));
+      g.frustumCulled = k.frustumCulled = true;
+      g.computeBoundingSphere();
+      k.computeBoundingSphere();
+      this.beds.push({ grass: g, kelp: k, grassTotal: grass.length, kelpTotal: kelp.length });
+      scene.add(g, k);
+    }
+    // The home bay's beds (kept as before, for anything that looks for them).
+    this.grass = this.beds[0].grass;
+    this.kelp = this.beds[0].kelp;
 
     // Submerged rocks: the cover fish shelter beside.
     const rocks = [];
@@ -261,8 +272,10 @@ export class Underwater {
   }
 
   setQuality(q) {
-    this.grass.count = Math.floor(this.grassTotal * q.plants);
-    this.kelp.count = Math.floor(this.kelpTotal * q.plants);
+    for (const b of this.beds) {
+      b.grass.count = Math.floor(b.grassTotal * q.plants);
+      b.kelp.count = Math.floor(b.kelpTotal * q.plants);
+    }
     this.particles.geometry.setDrawRange(0, q.particles);
     this.rayCount = q.rays;
   }
@@ -311,6 +324,13 @@ export class Underwater {
   }
 
   update(dt, t, camera, env, rain) {
+    // Weed beds in far-off places (out of sight in the haze) aren't drawn.
+    for (const b of this.beds) {
+      for (const o of [b.grass, b.kelp]) {
+        const bs = o.boundingSphere;
+        if (bs) o.visible = Math.hypot(bs.center.x - camera.position.x, bs.center.z - camera.position.z) - bs.radius < 420;
+      }
+    }
     shared.uTime.value = t;
     const sub = this.submerge;
     const cp = camera.position;

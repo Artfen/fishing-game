@@ -107,6 +107,8 @@ function towardsGrey(c, amt, dark) {
 export class Environment {
   constructor(scene) {
     this.scene = scene;
+    this.fogBase = 0.0021; // haze on a clear day; rain, cloud and early mornings thicken it
+    this.cloud = 0;
     this.zenith = new THREE.Color();
     this.horizon = new THREE.Color();
     this.sunColor = new THREE.Color();
@@ -234,17 +236,21 @@ export class Environment {
     this.hemiI = lerp(a.hemiI, b.hemiI, t);
   }
 
-  update(dt, t, hour, rain, focus, camera, renderer) {
+  // cloud: how much of the sky is covered (0–1); rain: how hard it rains (0–1). An overcast sky
+  // greys the light even when it's dry.
+  update(dt, t, hour, rain, focus, camera, renderer, cloud = rain) {
     this.rain = rain;
+    this.cloud = cloud;
+    const gloom = Math.max(rain, cloud * 0.72);
     this.sample(hour);
 
-    if (rain > 0.001) {
-      towardsGrey(this.zenith, rain * 0.7, 0.85);
-      towardsGrey(this.horizon, rain * 0.65, 0.9);
-      towardsGrey(this.skyCol, rain * 0.5, 0.9);
-      towardsGrey(this.sunColor, rain * 0.4, 1);
-      this.sunI *= 1 - 0.65 * rain;
-      this.hemiI *= 1 - 0.08 * rain;
+    if (gloom > 0.001) {
+      towardsGrey(this.zenith, gloom * 0.7, 0.85);
+      towardsGrey(this.horizon, gloom * 0.65, 0.9);
+      towardsGrey(this.skyCol, gloom * 0.5, 0.9);
+      towardsGrey(this.sunColor, gloom * 0.4, 1);
+      this.sunI *= 1 - 0.65 * gloom;
+      this.hemiI *= 1 - 0.08 * gloom;
     }
 
     // The sun rises in the east (+x), crosses the southern sky and sets in the west.
@@ -256,7 +262,7 @@ export class Environment {
     const up = this.sunDir.y;
     this.daylight = smoothstep(-0.08, 0.12, up);
     this.night = 1 - smoothstep(-0.2, 0.04, up);
-    this.lantern = clamp(1 - smoothstep(0.04, 0.28, up) + rain * 0.35, 0, 1);
+    this.lantern = clamp(1 - smoothstep(0.04, 0.28, up) + gloom * 0.35, 0, 1);
 
     _v.copy(this.sunDir);
     if (_v.y < 0.12) { _v.y = 0.12; _v.normalize(); }
@@ -277,23 +283,27 @@ export class Environment {
     camera.getWorldDirection(_f);
     const fl = Math.hypot(_f.x, _f.z) || 1, sl = Math.hypot(this.sunDir.x, this.sunDir.z) || 1;
     const facing = Math.max(0, (_f.x * this.sunDir.x + _f.z * this.sunDir.z) / (fl * sl));
-    const low = (1 - smoothstep(0.04, 0.45, this.sunDir.y)) * this.daylight * (1 - rain * 0.7);
+    const low = (1 - smoothstep(0.04, 0.45, this.sunDir.y)) * this.daylight * (1 - gloom * 0.7);
     fog.color.lerp(_haze.copy(this.sunColor).lerp(this.horizon, 0.4), facing * facing * facing * low * 0.45);
     // Early mornings are hazier, before the day warms up.
     const morning = smoothstep(4.5, 5.8, hour) * (1 - smoothstep(7.5, 10, hour));
-    fog.density = 0.0021 + rain * 0.0045 + morning * 0.0014;
+    fog.density = this.fogBase * (1 + rain * 2.1 + cloud * 0.25 + morning * 0.65);
 
     const su = this.skyUniforms;
     su.uSunColor.value.copy(this.sunColor);
     su.uNight.value = this.night;
-    su.uRain.value = rain;
+    su.uRain.value = gloom;
     su.uTime.value = t;
     this.sky.position.copy(camera.position);
 
+    // The clouds drift with you across the sky; how many there are follows the cover.
+    this.clouds.position.set(camera.position.x, 0, camera.position.z);
     this.clouds.rotation.y += dt * 0.0035;
+    const shown = Math.round(2 + cloud * (this.clouds.children.length - 2));
+    this.clouds.children.forEach((c, i) => { c.visible = i < shown; });
     this.cloudMat.color.setRGB(1, 1, 1).lerp(this.horizon, 0.2);
-    if (rain > 0) towardsGrey(this.cloudMat.color, rain * 0.6, 0.75);
-    this.cloudMat.emissive.copy(this.horizon).multiplyScalar(0.42 * (1 - rain * 0.5));
+    if (gloom > 0) towardsGrey(this.cloudMat.color, gloom * 0.6, 0.75);
+    this.cloudMat.emissive.copy(this.horizon).multiplyScalar(0.42 * (1 - gloom * 0.5));
 
     renderer.toneMappingExposure = 1.0 + this.night * 0.3;
   }

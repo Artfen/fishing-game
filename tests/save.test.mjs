@@ -62,8 +62,8 @@ test('a version 2 save upgrades to one boat in use and the skiff at its mooring'
   const { state, outcome } = S.loadGame();
   assert.equal(outcome, 'loaded');
   assert.equal(state.vessel, 'row');
-  assert.equal(state.skiff, null);
-  assert.equal(state.boat.x, 5);
+  assert.equal(state.boats.skiff, undefined);
+  assert.equal(state.boats.row.x, 5);
   assert.equal(state.log[0].id, 'c9');
 });
 
@@ -124,7 +124,8 @@ test('junk in a save is cleaned up rather than trusted', async () => {
     hour: 99, day: -3, difficulty: 'impossible', fishView: 'sideways', quality: 'ultra',
     fish: { carp: { count: 2, best: 60 }, dragon: { count: 9 } },
     log: [catchEntry('ok'), { sp: 'dragon', size: 900 }, 'nonsense'],
-    boat: { x: 1e9, z: 0 },
+    boats: { row: { x: 1e9, z: 0 }, kayak: { x: 3, z: 4 }, yacht: { x: 1, z: 1 } },
+    vessel: 'yacht',
   });
   assert.ok(s.hour < 24);
   assert.ok(s.day >= 1);
@@ -133,7 +134,10 @@ test('junk in a save is cleaned up rather than trusted', async () => {
   assert.equal(s.quality, 'auto');
   assert.ok(s.fish.carp && !s.fish.dragon);
   assert.equal(s.log.length, 1);
-  assert.equal(s.boat, null);
+  assert.equal(s.boats.row, undefined);
+  assert.equal(s.boats.kayak.x, 3);
+  assert.equal(s.boats.yacht, undefined);
+  assert.equal(s.vessel, 'row');
 });
 
 test('combining two saves keeps every catch once and this device’s settings', async () => {
@@ -153,4 +157,27 @@ test('a downloaded copy reads back in', async () => {
   const parsed = S.parseSave(S.exportText(st));
   assert.equal(parsed.state.day, 9);
   assert.equal(parsed.state.log[0].id, 'c5');
+});
+
+test('a version 3 save moves its two boats into the boat list, and the new boats start moored', async () => {
+  put(KEY, env(3, { day: 4, boat: { x: 5, z: 6, heading: 1, anchored: true }, skiff: { x: -80, z: -3 }, vessel: 'skiff' }));
+  const S = await freshSave();
+  const { state } = S.loadGame();
+  assert.deepEqual(state.boats.row, { x: 5, z: 6, heading: 1, anchored: true });
+  assert.equal(state.boats.skiff.x, -80);
+  assert.equal(state.boats.kayak, undefined);
+  assert.equal(state.vessel, 'skiff');
+  assert.equal(state.seen, '');
+});
+
+test('the explored map and where each catch was made are kept, and junk in them is not', async () => {
+  const S = await freshSave();
+  const ok = S.sanitize({ seen: 'AAEC/w==', log: [{ ...catchEntry('a'), x: 12.4, z: -30 }, catchEntry('b')] });
+  assert.equal(ok.seen, 'AAEC/w==');
+  assert.equal(ok.log[0].x, 12.4);
+  assert.equal(ok.log[1].x, null);
+  const bad = S.sanitize({ seen: '<script>', log: [{ ...catchEntry('c'), x: 'far', z: 1e9 }] });
+  assert.equal(bad.seen, '');
+  assert.equal(bad.log[0].x, null);
+  assert.equal(bad.log[0].z, 3000);
 });

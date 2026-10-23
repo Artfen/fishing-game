@@ -25,6 +25,36 @@ export const PRESETS = {
 // surfaceDetail: grain on sand, wood and rods.
 
 export const CHOICES = ['auto', 'high', 'medium', 'low'];
+export const LEVELS = ['low', 'medium', 'high'];
+
+// The parts of a preset that Settings lets you choose on their own. Each one can follow the
+// preset ('auto') or be set to low, medium or high; shadows are simply on or off.
+export const GROUPS = {
+  water: { label: 'Water and reflections', keys: ['waterSegments', 'reflection', 'reflectEvery', 'ripples', 'rippleSpan', 'waterDetail'],
+    desc: 'How finely the water moves, and how clearly it mirrors the sky and shore. The biggest cost on most devices.' },
+  plants: { label: 'Vegetation', keys: ['plants'],
+    desc: 'How dense the grass, reeds and underwater weed beds are drawn. Fish still find the same weed beds.' },
+  particles: { label: 'Particles and rain drops', keys: ['rain', 'particles', 'mist'],
+    desc: 'Raindrops, drifting specks underwater and layers of morning mist.' },
+  underwater: { label: 'Underwater effects', keys: ['rays', 'caustics'],
+    desc: 'Light shafts and dancing light on the seabed.' },
+  life: { label: 'Visible fish', keys: ['fishDensity', 'simRadius'],
+    desc: 'How many distant fish are drawn, and how far away fish move every frame. Fish near you, bites, catches and the fish finder are the same at every level.' },
+};
+
+// The final graphics settings: a preset level, with any parts chosen separately.
+// g = settings.graphics: { group: 'auto'|'low'|'medium'|'high', shadows: 'auto'|'on'|'off', scale }
+export function resolveQuality(level, g = {}) {
+  const q = { ...PRESETS[level] };
+  for (const [id, grp] of Object.entries(GROUPS)) {
+    const pick = g[id];
+    if (LEVELS.includes(pick)) for (const k of grp.keys) q[k] = PRESETS[pick][k];
+  }
+  if (g.shadows === 'on') Object.assign(q, { shadows: true, shadowSize: Math.max(1024, q.shadowSize) });
+  if (g.shadows === 'off') q.shadows = false;
+  q.scale = typeof g.scale === 'number' ? Math.min(1, Math.max(0.5, g.scale)) : 1;
+  return q;
+}
 
 const DOWN = { high: 'medium', medium: 'low' };
 export const lowerLevel = (level) => DOWN[level] || null;
@@ -43,8 +73,8 @@ export class FrameWatch {
     this.time = 0;
   }
 
-  // True when the last four seconds averaged under 42 fps.
-  tooSlow(rawDt) {
+  // True when the last four seconds averaged under `limit` fps.
+  tooSlow(rawDt, limit = 42) {
     if (rawDt > 0.25) return false; // the tab was hidden or the page hitched; not a fair sample
     if (this.wait > 0) {
       this.wait -= rawDt;
@@ -56,6 +86,6 @@ export class FrameWatch {
     const fps = this.frames / this.time;
     this.frames = 0;
     this.time = 0;
-    return fps < 42;
+    return fps < limit;
   }
 }

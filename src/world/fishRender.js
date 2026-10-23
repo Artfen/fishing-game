@@ -13,6 +13,10 @@ const _s = new THREE.Vector3();
 export class FishRenderer {
   constructor(scene, eco) {
     this.eco = eco;
+    // Lower graphics settings draw fewer of the distant fish (by each fish's fixed rank, so the
+    // same ones stay hidden). Every fish is still simulated, can still bite and shows on the
+    // fish finder; the ones near you and the ones interested in your bait are always drawn.
+    this.density = 1;
     this.sets = FISH.map((sp) => {
       const list = eco.bySpecies[sp.id];
       const n = Math.max(1, list.length);
@@ -35,13 +39,16 @@ export class FishRenderer {
     const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
     // Underwater the haze hides fish sooner; from above only fairly close fish can show through.
     const maxD2 = submerged ? 60 * 60 : 80 * 80;
+    const busy = this.busy || (this.busy = new Set([...this.eco.engagedSet, 'escort', 'hooked']));
     for (const set of this.sets) {
       set.mat.userData.glow.value = set.sp.sketch.glow ? 0.25 + night * 1.3 : 0;
       let k = 0;
       for (const f of set.list) {
         if (!f.active || f.state === 'caught' || f.state === 'gone') continue;
         const x = f.px + (f.x - f.px) * alpha, y = f.py + (f.y - f.py) * alpha, z = f.pz + (f.z - f.pz) * alpha;
-        if ((x - cx) ** 2 + (y - cy) ** 2 + (z - cz) ** 2 > maxD2) continue;
+        const d2 = (x - cx) ** 2 + (y - cy) ** 2 + (z - cz) ** 2;
+        if (d2 > maxD2) continue;
+        if (f.rank >= this.density && d2 > 324 && !busy.has(f.state)) continue;
         f.phase += dt * (3 + f.beat * 11);
         _e.set(-f.pitch, f.pyaw + wrapAngle(f.yaw - f.pyaw) * alpha, f.bank);
         _q.setFromEuler(_e);

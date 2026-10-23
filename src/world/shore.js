@@ -18,7 +18,7 @@ export const SHORE_PATCH = { x0: -195, x1: -84, z0: -110, z1: 14 };
 const shared = { uTime: { value: 0 }, uWind: { value: 1 } };
 
 // Lambert with wind sway above a height (reeds, grass, ferns).
-function swayMaterial(from = 0.15, amount = 0.08, side = THREE.FrontSide) {
+export function swayMaterial(from = 0.15, amount = 0.08, side = THREE.FrontSide) {
   const m = new THREE.MeshLambertMaterial({ vertexColors: true, side });
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = shared.uTime;
@@ -308,7 +308,7 @@ function buildFire(cx, cy, cz, rnd) {
   };
 }
 
-function tentGeometry(rnd) {
+export function tentGeometry(rnd) {
   // An A-frame ridge tent, 2.5 m long, door facing local +z.
   const L = 2.5, W = 1.9, H = 1.35;
   const parts = [];
@@ -447,7 +447,7 @@ function buildCamp(rnd, parts, obstacles, scene) {
 
 /* ---------------- the lake ---------------- */
 
-function reedClump(rnd, cattails) {
+export function reedClump(rnd, cattails) {
   const parts = [];
   const n = 7 + Math.floor(rnd() * 4);
   for (let i = 0; i < n; i++) {
@@ -466,7 +466,7 @@ function reedClump(rnd, cattails) {
   return mergeParts(parts, rnd);
 }
 
-function lilyGeometry(rnd) {
+export function lilyGeometry(rnd) {
   // A flat pad with a notch, plus a few that carry a flower (built as a second geometry).
   const pad = new THREE.CircleGeometry(0.32, 12, 0.25, Math.PI * 2 - 0.5).rotateX(-Math.PI / 2);
   const flower = mergeParts([

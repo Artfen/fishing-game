@@ -53,6 +53,13 @@ export class CameraRig {
     this.eyeChangedAt = -99;
     this.eyeBlend = 0;      // 1 with the camera at your eyes, 0 well away from them
     this.lastHeading = null;
+    // The view the player chose before watching their bait, to go back to afterwards.
+    this.beforeBait = null;
+    // Comfort settings (set by the game): drag sensitivity, inverted axes, reduced motion.
+    this.sensitivity = 1;
+    this.invertX = false;
+    this.invertY = false;
+    this.reduced = false;
   }
 
   get yaw() { return this.views[this.mode].yaw; }
@@ -68,6 +75,7 @@ export class CameraRig {
 
   setMode(mode, t) {
     if (mode === this.mode) return false;
+    if (mode === 'bait') this.beforeBait = this.mode;
     const from = this.views[this.mode], to = this.views[mode];
     to.yaw = from.yaw; // keep facing the same way, so the change feels like ducking under, not teleporting
     if (mode === 'eye') to.pitch = EYE_PITCH;
@@ -117,8 +125,9 @@ export class CameraRig {
     const v = this.views[this.mode], lim = LIMITS[this.mode];
     const eye = this.mode === 'eye';
     if (drag.x || drag.y) {
-      v.yaw -= drag.x * (eye ? 0.0045 : 0.0055);
-      v.pitch = clamp(v.pitch + drag.y * (eye ? 0.0035 : 0.004), lim.pitch[0], lim.pitch[1]);
+      const k = this.sensitivity;
+      v.yaw -= drag.x * (eye ? 0.0045 : 0.0055) * k * (this.invertX ? -1 : 1);
+      v.pitch = clamp(v.pitch + drag.y * (eye ? 0.0035 : 0.004) * k * (this.invertY ? -1 : 1), lim.pitch[0], lim.pitch[1]);
       this.lastManual = t;
     }
     if (wheel && !eye) v.dist = clamp(v.dist * Math.exp(wheel * 0.0012), lim.dist[0], lim.dist[1]);
@@ -133,8 +142,13 @@ export class CameraRig {
 
   // eye: where your eyes are (first person); roll: how much of the boat's roll you feel.
   update(dt, t, { boat, walker, started, fishing, baitFocus, eye = null, roll = 0 }) {
-    // The bait left the water: glide back beneath the boat, or back over your shoulder (or to your eyes).
-    if (this.mode === 'bait' && !baitFocus) this.setMode(this.firstPerson ? 'eye' : this.onFoot ? 'foot' : 'under', t);
+    // The bait left the water: nothing to watch, so glide back to the view you were in before.
+    if (this.mode === 'bait' && !baitFocus) {
+      let back = this.beforeBait && this.beforeBait !== 'bait' ? this.beforeBait : this.home;
+      if (back === 'under' && this.onFoot) back = this.home;
+      if (back === 'eye') this.firstPerson = true;
+      this.setMode(back, t);
+    }
     if (this.onFoot && this.mode === 'under') this.setMode(this.firstPerson ? 'eye' : 'foot', t);
     if (this.mode === 'eye' && (!started || !eye)) this.setMode(this.third, t);
     const v = this.views[this.mode];
@@ -246,14 +260,14 @@ export class CameraRig {
   // First person: the camera sits at your eyes and looks where you turn your head. Coming in
   // from behind it glides there; once there it stays put (a lagging head feels seasick).
   updateEye(dt, t, v, eye, roll, fishing) {
-    // A fish running off to one side: your head turns to keep it in sight (unless you're
-    // looking around yourself).
-    if (fishing.state === 'reeling' && fishing.fight && t - this.lastManual > 1.5) {
+    // A fish running right out of sight: your head turns just enough to keep it at the edge of
+    // view (unless you're looking around yourself, or have asked for reduced camera motion).
+    if (!this.reduced && fishing.state === 'reeling' && fishing.fight && t - this.lastManual > 1.5) {
       const p = fishing.fishPos, cam = this.camera.position;
       const to = Math.atan2(p.x - cam.x, p.z - cam.z);
       const off = wrapAngle(to - v.yaw);
-      const over = Math.abs(off) - 0.4;
-      if (over > 0) v.yaw += Math.sign(off) * over * (1 - Math.exp(-2.2 * dt));
+      const over = Math.abs(off) - 0.6;
+      if (over > 0) v.yaw += Math.sign(off) * over * (1 - Math.exp(-1.6 * dt));
     }
     const gliding = t - this.eyeChangedAt < 1.4;
     const k = 1 - Math.exp(-(gliding ? 6 : 40) * dt);

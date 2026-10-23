@@ -1,5 +1,6 @@
 import { fishById } from './fish.js';
 import { RODS, TACKLE, PACK, cleanGear } from './tackle.js';
+import { cleanSettings } from './settings.js';
 
 // Saving your progress in this browser, with nobody to sign in to.
 //
@@ -12,7 +13,7 @@ import { RODS, TACKLE, PACK, cleanGear } from './tackle.js';
 // To change the save format later: bump SAVE_VERSION and add a step to MIGRATIONS that turns
 // the previous version's data into the new shape.
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 const KEY = 'slow-tide-save';
 const BACKUP = 'slow-tide-save-backup';          // the save as it was when this session began
 const LEGACY = 'slow-tide-save-v1';              // the format before versioning
@@ -27,9 +28,8 @@ export const DEFAULT_STATE = {
   places: {},    // id -> { day, hour }
   items: {},     // lantern: true
   tips: {},      // which gentle hints have already been shown
-  boat: null,    // the rowing boat: { x, z, heading, anchored }
-  skiff: null,   // the motor skiff: { x, z, heading, anchored }
-  vessel: 'row', // which boat you're in, or last used: 'row' or 'skiff'
+  boats: {},     // where each boat was left: kind ('row', 'skiff', 'kayak', 'bass') -> { x, z, heading, anchored }
+  vessel: 'row', // which boat you're in, or last used
   mode: 'boat',  // 'boat' or 'foot'
   walker: null,  // { x, z, heading } while on foot
   gear: null,    // rods and tackle in the backpack, and what's tied on (see tackle.js)
@@ -46,6 +46,9 @@ export const DEFAULT_STATE = {
   fishView: 'first',       // 'first' (first person when you cast) | 'shoulder'
   sonar: false,    // fish finder shown
   volumes: { master: 1, nature: 1, music: 0.8 },
+  settings: null,  // sound, graphics, weather, controls and comfort (see settings.js)
+  sky: null,       // the weather right now: { cloud, rain, state, timer }
+  seen: '',        // the parts of the map you've explored (see map.js), as base64
 };
 
 const fresh = () => JSON.parse(JSON.stringify(DEFAULT_STATE));
@@ -57,9 +60,12 @@ const num = (v, d, lo = -Infinity, hi = Infinity) => (typeof v === 'number' && N
 const int = (v, d, lo, hi) => Math.round(num(v, d, lo, hi));
 const str = (v, d, max = 60) => (typeof v === 'string' ? v.slice(0, max) : d);
 const oneOf = (v, list, d) => (list.includes(v) ? v : d);
-const ZONES = ['bay', 'cove', 'open', 'lake', 'stream'];
-const KINDS = ['float', 'lure', 'ledger', 'fly'];
+const ZONES = ['bay', 'cove', 'open', 'lake', 'stream', 'estuary', 'mere', 'coast', 'deep'];
+const SKY_STATES = ['clear', 'partly', 'overcast', 'light', 'heavy'];
+const KINDS = ['float', 'lure', 'ledger', 'bottom', 'fly', 'jig'];
 export const OUTCOMES = ['released', 'kept', 'cooked', 'eaten'];
+
+const VESSELS = ['row', 'skiff', 'kayak', 'bass'];
 
 function pos(v) {
   if (!isObj(v)) return null;
@@ -80,7 +86,7 @@ export function sanitizeLogEntry(e) {
     hour: num(e.hour, 12, 0, 24),
     zone: oneOf(e.zone, ZONES, 'bay'),
     place: str(e.place, ''),
-    water: oneOf(e.water, ['salt', 'fresh'], sp.water === 'fresh' ? 'fresh' : 'salt'),
+    water: oneOf(e.water, ['salt', 'fresh', 'brackish'], sp.water === 'fresh' ? 'fresh' : 'salt'),
     kind: oneOf(e.kind, KINDS, 'float'),
     rod: RODS[e.rod] ? e.rod : 'float',
     item: TACKLE[e.item] ? e.item : null,
@@ -90,6 +96,14 @@ export function sanitizeLogEntry(e) {
     depth: num(e.depth, 0, 0, 60),
     bottom: num(e.bottom, 0, 0, 60),
     outcome: oneOf(e.outcome, OUTCOMES, 'released'),
+    // From save version 4: what it weighed (estimated from its length), the sky, the line and rig.
+    weight: num(e.weight, 0, 0, 1000),
+    sky: oneOf(e.sky, ['', ...SKY_STATES], ''),
+    line: str(e.line, '', 60),
+    term: str(e.term, '', 20),
+    // Where it was caught, for the map (null in older entries).
+    x: e.x == null ? null : num(e.x, null, -3000, 3000),
+    z: e.z == null ? null : num(e.z, null, -3000, 3000),
   };
 }
 
@@ -116,9 +130,13 @@ export function sanitize(raw) {
   }
   s.items = { lantern: !!raw.items?.lantern };
   if (isObj(raw.tips)) for (const [k, v] of Object.entries(raw.tips)) if (k.length < 30) s.tips[k] = !!v;
-  s.boat = pos(raw.boat);
-  s.skiff = pos(raw.skiff);
-  s.vessel = oneOf(raw.vessel, ['row', 'skiff'], 'row');
+  // (Before version 4 the rowing boat and the skiff had fields of their own.)
+  const boats = isObj(raw.boats) ? raw.boats : { row: raw.boat, skiff: raw.skiff };
+  for (const k of VESSELS) {
+    const b = pos(boats[k]);
+    if (b) s.boats[k] = b;
+  }
+  s.vessel = oneOf(raw.vessel, VESSELS, 'row');
   s.mode = oneOf(raw.mode, ['boat', 'foot'], 'boat');
   s.walker = pos(raw.walker);
   if (s.mode === 'foot' && !s.walker) s.mode = 'boat';
@@ -160,6 +178,11 @@ export function sanitize(raw) {
   if (isObj(raw.volumes)) {
     for (const k of ['master', 'nature', 'music']) s.volumes[k] = num(raw.volumes[k], s.volumes[k], 0, 1);
   }
+  s.settings = cleanSettings(raw.settings, raw);
+  s.seen = typeof raw.seen === 'string' && raw.seen.length <= 4000 && /^[A-Za-z0-9+/=]*$/.test(raw.seen) ? raw.seen : '';
+  if (isObj(raw.sky)) {
+    s.sky = { cloud: num(raw.sky.cloud, 0.3, 0, 1), rain: num(raw.sky.rain, 0, 0, 1), state: oneOf(raw.sky.state, SKY_STATES, 'partly'), timer: num(raw.sky.timer, 120, 0, 3600) };
+  }
   return s;
 }
 
@@ -171,6 +194,10 @@ const MIGRATIONS = {
   1: (d) => ({ ...d, log: [] }),
   // Version 2 had one boat; the motor skiff arrives at its mooring and you're in the rowing boat.
   2: (d) => ({ ...d, vessel: 'row', skiff: null }),
+  // Version 3 kept sound and graphics as loose fields; version 4 gathers them (and new weather,
+  // control and comfort choices) into settings, built from the old values by sanitize(). The
+  // boats move into one map, and the kayak and bass boat start at their moorings.
+  3: (d) => ({ ...d, boats: { row: d.boat, skiff: d.skiff } }),
 };
 
 function migrate(data, from) {

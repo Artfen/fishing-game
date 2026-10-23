@@ -1,14 +1,34 @@
-import { FISH, fishById, drawFishSketch, drawLanternSketch } from './fish.js';
+import { FISH, fishById, drawFishSketch, drawLanternSketch, weightOf } from './fish.js';
 import { TACKLE, RODS, KIND_NAMES } from './tackle.js';
 import { PLACES, MAP_RECT, PATH, ZONE_NAMES, solidHeight } from './world/terrain.js';
 import { formatClock } from './world/sky.js';
 
 const $ = (id) => document.getElementById(id);
-const ZONE_WORDS = { bay: 'in Willow Bay', cove: 'in Driftwood Cove', open: 'out on open water', lake: 'in Reedmere', stream: 'in Fernbeck' };
+const ZONE_WORDS = {
+  bay: 'in Willow Bay', cove: 'in Driftwood Cove', open: 'out on open water', lake: 'in Reedmere', stream: 'in Fernbeck',
+  estuary: 'in the Wend estuary', mere: 'on Longmere', coast: 'off the outer coast', deep: 'out on the Blue Water',
+};
+const SKY_WORDS = { clear: 'clear sky', partly: 'some cloud', overcast: 'overcast', light: 'light rain', heavy: 'heavy rain' };
+// The journal's pages of fish, by where they live (squid get a page of their own: not fish).
+const GROUPS = [
+  { name: 'Willow Bay and the coves', test: (f) => !f.creature && f.water !== 'fresh' && !f.life.zones.some((z) => ['estuary', 'coast', 'deep'].includes(z)) },
+  { name: 'The Wend estuary (brackish water)', test: (f) => !f.creature && f.water !== 'fresh' && f.life.zones.includes('estuary') },
+  { name: 'The outer coast and the open sea', test: (f) => !f.creature && f.water !== 'fresh' && !f.life.zones.includes('estuary') && f.life.zones.some((z) => z === 'coast' || z === 'deep') },
+  { name: 'Fresh water: the meres and the stream', test: (f) => !f.creature && f.water === 'fresh' },
+  { name: 'Not fish', test: (f) => !!f.creature },
+];
+// Which water each named area is, for what you've caught there.
+const AREA_ZONES = { bay: ['bay', 'open'], cove: ['cove'], lake: ['lake'], stream: ['stream'], wend: ['estuary'], mere: ['mere'], gannet: ['coast'], deep: ['deep'] };
+
+// 850 g, 3.4 kg
+export function weightText(kg) {
+  return kg < 1 ? `${Math.max(5, Math.round((kg * 1000) / 5) * 5)} g` : `${kg < 10 ? kg.toFixed(1) : Math.round(kg)} kg`;
+}
 const SOMEDAY = ['a softer cushion', 'a potted fern', 'a little cabin by the lake'];
 const OUTCOME_WORDS = { released: 'Released', kept: 'Kept', cooked: 'Cooked', eaten: 'Eaten' };
 const RAIN_WORDS = ['', 'light rain', 'rain'];
 const PAGE = 25;
+const BOAT_COLORS = { row: '#b5532f', skiff: '#2f4f7a', kayak: '#e8742a', bass: '#7a2430' };
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -56,7 +76,7 @@ export class Journal {
 
   get isOpen() { return !this.el.hidden; }
 
-  // where = { boat, skiff, walker (when ashore), camp }
+  // where = { boats, walker (when ashore), camp }
   open(where) {
     this.render(where);
     this.shown = PAGE;
@@ -70,16 +90,23 @@ export class Journal {
 
   render(where) {
     const st = this.state;
-    const salt = FISH.filter((f) => f.water !== 'fresh'), fresh = FISH.filter((f) => f.water === 'fresh');
-    this.fishEl.replaceChildren(
-      el('h3', 'j-water', 'Salt water'), ...salt.map((f) => this.fishEntry(f, st.fish[f.id])),
-      el('h3', 'j-water', 'Fresh water'), ...fresh.map((f) => this.fishEntry(f, st.fish[f.id])),
-    );
+    this.fishEl.replaceChildren(...GROUPS.flatMap((g) => {
+      const list = FISH.filter(g.test);
+      const n = list.filter((f) => st.fish[f.id]).length;
+      const head = el('h3', 'j-water', g.name);
+      head.append(el('span', 'count', `${n} of ${list.length}`));
+      return [head, ...list.map((f) => this.fishEntry(f, st.fish[f.id]))];
+    }));
 
+    // What lives where: the kinds you've caught in each water you've found.
+    const seenIn = {};
+    for (const e of st.log) (seenIn[e.zone] = seenIn[e.zone] || new Set()).add(e.sp);
     this.placesEl.replaceChildren(...PLACES.map((p) => {
       const li = el('li', st.places[p.id] ? '' : 'faint');
       if (st.places[p.id]) {
         li.append(el('strong', '', p.name), el('span', '', p.note));
+        const kinds = new Set((AREA_ZONES[p.id] || []).flatMap((z) => [...(seenIn[z] || [])]));
+        if (kinds.size) li.append(el('span', 'j-seen', `Caught here: ${[...kinds].map((id) => fishById[id]?.name.toLowerCase()).join(', ')}`));
       } else {
         li.append(el('strong', '', '· · ·'), el('span', '', 'Somewhere not yet found.'));
       }
@@ -115,7 +142,7 @@ export class Journal {
     const text = el('div', 'j-text');
     text.append(el('h3', '', rec ? f.name : 'Unknown fish'), el('p', 'j-note', rec ? f.note : f.hint));
     if (rec) {
-      text.append(el('p', 'j-meta', `${rec.count} caught · best ${rec.best} cm · ${f.where}`));
+      text.append(el('p', 'j-meta', `${rec.count} caught · best ${rec.best} cm (${weightText(weightOf(f, rec.best))}) · ${f.where}`));
       text.append(el('p', 'j-meta', `First caught ${ZONE_WORDS[rec.firstZone] || ''} at ${formatClock(rec.firstHour)}${rec.firstRain ? ', in the rain' : ''}`));
       // What has worked: written down as you learn it.
       const on = this.state.caughtOn?.[f.id];
@@ -143,17 +170,19 @@ export class Journal {
   static howText(e) {
     const rod = RODS[e.rod]?.short || KIND_NAMES[e.kind] || e.kind;
     const item = e.item ? TACKLE[e.item]?.name : null;
-    return `${rod}${item ? `, ${item.toLowerCase()}` : ''} · from the ${e.from}`;
+    return `${rod}${item ? `, ${item.toLowerCase()}` : ''}${e.line ? ` · ${e.line}` : ''} · from the ${e.from}`;
   }
 
   // What the water was like: depth, rain, a hatch. Only what the game knew at the time.
   static conditionsText(e) {
     const bits = [];
+    const bottom = e.kind === 'ledger' || e.kind === 'bottom';
     if (e.item && TACKLE[e.item]?.fly === 'dry') bits.push('on the surface');
-    else if (e.depth < 0.15 && e.kind !== 'ledger') bits.push('just under the surface');
-    else if (e.kind === 'ledger') bits.push(`on the bottom${e.bottom ? ` in ${e.bottom} m` : ''}`);
+    else if (e.depth < 0.15 && !bottom) bits.push('just under the surface');
+    else if (bottom) bits.push(`on the bottom${e.bottom ? ` in ${e.bottom} m` : ''}`);
     else bits.push(`at ${e.depth} m${e.bottom ? ` in ${e.bottom} m of water` : ''}`);
-    if (e.rain) bits.push(RAIN_WORDS[e.rain]);
+    if (e.sky) bits.push(SKY_WORDS[e.sky]);
+    else if (e.rain) bits.push(RAIN_WORDS[e.rain]);
     if (e.water === 'fresh' && e.hatch >= 0.5) bits.push('flies hatching');
     return bits.join(' · ');
   }
@@ -191,15 +220,16 @@ export class Journal {
     const summary = [];
     if (!total) summary.push('No catches yet. Every fish you land is written down here: where, when, and what it took.');
     else {
-      summary.push(`${total} fish caught, ${species} of ${FISH.length} kinds.`);
+      summary.push(`${total} caught, ${species} of ${FISH.length} kinds.`);
       if (log.length) summary.push(`${log.length - kept} released, ${kept} kept for the pot.`);
       const before = total - log.length;
       if (before > 0) summary.push(`${before} earlier catch${before > 1 ? 'es' : ''} from before this log began ${before > 1 ? 'are' : 'is'} counted in the totals, without details.`);
     }
     $('log-summary').textContent = summary.join(' ');
 
-    // The biggest fish in the log (by length: the game measures fish, it doesn't weigh them).
-    const best = log.reduce((b, e) => (!b || e.size > b.size ? e : b), null);
+    // The heaviest catch in the log (its weight worked out from its length).
+    const kg = (e) => weightOf(fishById[e.sp], e.size);
+    const best = log.reduce((b, e) => (!b || kg(e) > kg(b) ? e : b), null);
     const bestEl = $('log-best');
     bestEl.replaceChildren();
     bestEl.className = best ? 'j-best' : '';
@@ -211,8 +241,8 @@ export class Journal {
       drawFishSketch(cv.getContext('2d'), f, 130, 72, 210);
       const txt = el('div');
       txt.append(
-        el('span', 'j-label', 'Biggest catch'),
-        el('strong', '', `${f.name}, ${best.size} cm`),
+        el('span', 'j-label', 'Heaviest catch'),
+        el('strong', '', `${f.name}, ${best.size} cm, ${weightText(kg(best))}`),
         el('span', '', `${Journal.whenText(best)} · ${Journal.whereText(best)}`),
         el('span', '', Journal.howText(best)),
       );
@@ -224,7 +254,7 @@ export class Journal {
     const rows = caught.map((f) => {
       const rec = st.fish[f.id], lg = logged[f.id];
       const row = el('div', 'j-sp');
-      row.append(el('strong', '', f.name), el('span', 'j-n', `${rec.count} caught · best ${rec.best} cm`));
+      row.append(el('strong', '', f.name), el('span', 'j-n', `${rec.count} caught · best ${rec.best} cm, ${weightText(weightOf(f, rec.best))}`));
       if (lg?.best) {
         const b = lg.best;
         const older = rec && rec.best > b.size ? ` (your ${rec.best} cm best was before the log began)` : '';
@@ -257,7 +287,7 @@ export class Journal {
       const f = fishById[e.sp];
       const li = el('li');
       const top = el('div', 'l-top');
-      const name = el('strong', '', `${f?.name || e.sp} · ${e.size} cm`);
+      const name = el('strong', '', `${f?.name || e.sp} · ${e.size} cm${f ? ` · ${weightText(weightOf(f, e.size))}` : ''}`);
       name.append(el('span', `l-tag ${e.outcome}`, OUTCOME_WORDS[e.outcome]));
       top.append(name, el('span', 'l-when', Journal.whenText(e)));
       li.append(top, el('div', 'l-info', `${Journal.whereText(e)} · ${Journal.howText(e)}`), el('div', 'l-info l-cond', Journal.conditionsText(e)));
@@ -403,9 +433,9 @@ export class Journal {
       ctx.stroke();
       ctx.restore();
     }
-    // The rowing boat in red, the motor skiff in navy: little arrows pointing where they face.
-    for (const [b, color] of [[where?.boat, '#b5532f'], [where?.skiff, '#2f4f7a']]) {
-      if (!b) continue;
+    // The boats as little arrows pointing where they face, each in its own paint.
+    for (const b of where?.boats || []) {
+      const color = BOAT_COLORS[b.kind] || '#b5532f';
       const [bx, by] = toPx(b.pos.x, b.pos.z);
       const fx = Math.sin(b.heading), fz = Math.cos(b.heading);
       ctx.save();

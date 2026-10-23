@@ -7,13 +7,18 @@ const CHORDS = [[50, 57, 62], [47, 54, 62], [43, 50, 59], [45, 52, 61]];
 
 // Everything you hear is synthesised: filtered noise for water, wind and rain,
 // tiny oscillator gestures for birds, and a slow generative pentatonic tune.
+//
+// Every sound reaches the speakers through one master gain, so muting silences all of it,
+// including sounds that start after you mute. Under the master there are separate volumes
+// for the surroundings (water, wind, birds), rain, fishing effects, bite alerts and music.
+export const VOLUME_KEYS = ['master', 'music', 'ambient', 'rain', 'effects', 'alerts'];
 export class AudioScape {
   constructor() {
     this.ctx = null;
     this.musicOn = true;
     this.t = 0;
     this.under = 0;
-    this.volumes = { master: 1, nature: 1, music: 1 };
+    this.volumes = { master: 1, mute: false, music: 0.8, ambient: 1, rain: 1, effects: 1, alerts: 0.8 };
   }
 
   start() {
@@ -42,11 +47,17 @@ export class AudioScape {
     this.master.connect(this.muffle);
     this.muffle.connect(comp);
     comp.connect(ctx.destination);
-    // Separate volume buses for nature (water, wind, birds, effects) and music.
-    this.nature = ctx.createGain();
-    this.nature.connect(this.out);
-    this.musicVol = ctx.createGain();
-    this.musicVol.connect(this.out);
+    // Separate volume buses: surroundings, rain, fishing effects, bite alerts and music.
+    const bus = () => {
+      const g = ctx.createGain();
+      g.connect(this.out);
+      return g;
+    };
+    this.nature = bus();
+    this.rainBus = bus();
+    this.alerts = bus();
+    this.musicVol = bus();
+    this.effects = bus();
 
     this.reverb = ctx.createConvolver();
     this.reverb.buffer = this.impulse(3.4, 2.4);
@@ -56,10 +67,11 @@ export class AudioScape {
     rv.connect(this.out);
 
     this.sfx = ctx.createGain();
-    this.sfx.connect(this.nature);
+    this.sfx.connect(this.effects);
     const sfxSend = ctx.createGain();
     sfxSend.gain.value = 0.15;
-    this.sfx.connect(sfxSend);
+    // The reverb sends are taken after each bus's volume, so turning a bus down quietens its echo too.
+    this.effects.connect(sfxSend);
     sfxSend.connect(this.reverb);
 
     this.music = ctx.createGain();
@@ -67,7 +79,7 @@ export class AudioScape {
     this.music.connect(this.musicVol);
     const musicSend = ctx.createGain();
     musicSend.gain.value = 0.8;
-    this.music.connect(musicSend);
+    this.musicVol.connect(musicSend);
     musicSend.connect(this.reverb);
 
     this.white = this.noise(3, 'white');
@@ -77,8 +89,8 @@ export class AudioScape {
     this.waterBed = this.bed(this.brown, [['lowpass', 380, 0.6]]);
     this.surfBed = this.bed(this.pink, [['bandpass', 520, 0.5]]);
     this.windBed = this.bed(this.pink, [['bandpass', 700, 0.8]]);
-    this.rainBed = this.bed(this.white, [['highpass', 1100, 0.5], ['lowpass', 7500, 0.5]]);
-    this.rainLow = this.bed(this.brown, [['lowpass', 900, 0.5]]);
+    this.rainBed = this.bed(this.white, [['highpass', 1100, 0.5], ['lowpass', 7500, 0.5]], this.rainBus);
+    this.rainLow = this.bed(this.brown, [['lowpass', 900, 0.5]], this.rainBus);
     this.underBed = this.bed(this.brown, [['lowpass', 260, 0.7]]);
     // Running water, a crackling fire and a sizzling grill, faded in by how close you are.
     this.streamBed = this.bed(this.white, [['bandpass', 1800, 0.6], ['lowpass', 5200, 0.4]]);
@@ -98,11 +110,18 @@ export class AudioScape {
   setVolumes(v) {
     Object.assign(this.volumes, v);
     if (!this.ctx) return;
-    const now = this.ctx.currentTime;
-    this.master.gain.setTargetAtTime(this.volumes.master, now, 0.05);
-    this.nature.gain.setTargetAtTime(this.volumes.nature, now, 0.05);
-    this.musicVol.gain.setTargetAtTime(this.volumes.music, now, 0.05);
+    const now = this.ctx.currentTime, V = this.volumes;
+    // Muted means silent: straight to zero, not a slow fade.
+    if (V.mute) this.master.gain.setValueAtTime(0, now);
+    else this.master.gain.setTargetAtTime(V.master, now, 0.05);
+    this.nature.gain.setTargetAtTime(V.ambient, now, 0.05);
+    this.rainBus.gain.setTargetAtTime(V.rain, now, 0.05);
+    this.effects.gain.setTargetAtTime(V.effects, now, 0.05);
+    this.alerts.gain.setTargetAtTime(V.alerts, now, 0.05);
+    this.musicVol.gain.setTargetAtTime(V.music, now, 0.05);
   }
+
+  get muted() { return !!this.volumes.mute; }
 
   // 0 above water, 1 fully under: everything goes soft and low, with a quiet hum.
   setUnderwater(amount) {
@@ -151,7 +170,7 @@ export class AudioScape {
     return buf;
   }
 
-  bed(buffer, filters) {
+  bed(buffer, filters, dest = this.nature) {
     const ctx = this.ctx;
     const src = ctx.createBufferSource();
     src.buffer = buffer;
@@ -170,7 +189,7 @@ export class AudioScape {
     const g = ctx.createGain();
     g.gain.value = 0;
     node.connect(g);
-    g.connect(this.nature);
+    g.connect(dest);
     src.start(0, Math.random() * buffer.duration);
     return { g, f };
   }
@@ -247,8 +266,8 @@ export class AudioScape {
   /* ---------- nature ---------- */
 
   lap(vol, pan) {
-    this.burst({ buf: this.brown, type: 'lowpass', freq: rand(350, 600), q: 0.8, dur: rand(0.5, 0.9), gain: vol, attack: rand(0.1, 0.2), pan });
-    this.burst({ buf: this.pink, type: 'bandpass', freq: rand(600, 900), q: 1.2, dur: 0.4, gain: vol * 0.25, attack: 0.08, pan, when: 0.1 });
+    this.burst({ buf: this.brown, type: 'lowpass', freq: rand(350, 600), q: 0.8, dur: rand(0.5, 0.9), gain: vol, attack: rand(0.1, 0.2), pan, dest: this.nature });
+    this.burst({ buf: this.pink, type: 'bandpass', freq: rand(600, 900), q: 1.2, dur: 0.4, gain: vol * 0.25, attack: 0.08, pan, when: 0.1, dest: this.nature });
   }
 
   bird(vol, pan) {
@@ -258,7 +277,7 @@ export class AudioScape {
     let t = 0;
     for (let i = 0; i < n; i++) {
       const f = base * rand(0.85, 1.2);
-      this.tone({ freq: f, freqEnd: f * (up ? rand(1.2, 1.5) : rand(0.6, 0.8)), dur: rand(0.06, 0.14), gain: vol * rand(0.6, 1), attack: 0.01, pan, when: t });
+      this.tone({ freq: f, freqEnd: f * (up ? rand(1.2, 1.5) : rand(0.6, 0.8)), dur: rand(0.06, 0.14), gain: vol * rand(0.6, 1), attack: 0.01, pan, when: t, dest: this.nature });
       t += rand(0.08, 0.2);
     }
   }
@@ -267,23 +286,23 @@ export class AudioScape {
     let t = 0;
     const n = 2 + Math.floor(rand(0, 3));
     for (let i = 0; i < n; i++) {
-      this.tone({ type: 'sawtooth', freq: rand(1050, 1250), freqEnd: rand(700, 820), dur: rand(0.28, 0.42), gain: vol, attack: 0.03, pan, when: t, filter: ['bandpass', 1500, 2.5] });
+      this.tone({ type: 'sawtooth', freq: rand(1050, 1250), freqEnd: rand(700, 820), dur: rand(0.28, 0.42), gain: vol, attack: 0.03, pan, when: t, filter: ['bandpass', 1500, 2.5], dest: this.nature });
       t += rand(0.35, 0.5);
     }
   }
 
   cricket(vol, pan) {
     const f = rand(4200, 4800);
-    for (let k = 0; k < 3; k++) this.tone({ freq: f, dur: 0.03, gain: vol, attack: 0.004, pan, when: k * 0.055 });
+    for (let k = 0; k < 3; k++) this.tone({ freq: f, dur: 0.03, gain: vol, attack: 0.004, pan, when: k * 0.055, dest: this.nature });
   }
 
   owl(vol, pan) {
-    this.tone({ freq: 400, freqEnd: 370, dur: 0.5, gain: vol, attack: 0.09, pan });
-    this.tone({ freq: 390, freqEnd: 355, dur: 0.7, gain: vol * 0.9, attack: 0.1, pan, when: 0.7 });
+    this.tone({ freq: 400, freqEnd: 370, dur: 0.5, gain: vol, attack: 0.09, pan, dest: this.nature });
+    this.tone({ freq: 390, freqEnd: 355, dur: 0.7, gain: vol * 0.9, attack: 0.1, pan, when: 0.7, dest: this.nature });
   }
 
   drop(vol) {
-    this.tone({ freq: rand(1800, 3800), freqEnd: rand(900, 1500), dur: 0.035, gain: vol, attack: 0.001, pan: rand(-0.6, 0.6) });
+    this.tone({ freq: rand(1800, 3800), freqEnd: rand(900, 1500), dur: 0.035, gain: vol, attack: 0.001, pan: rand(-0.6, 0.6), dest: this.rainBus });
   }
 
   /* ---------- boat & fishing ---------- */
@@ -306,48 +325,33 @@ export class AudioScape {
     this.tickRun(10, 0.03, 0.025 * vol);
   }
 
-  // The bite alarm on the carp rod: a single bleep when the line twitches…
+  // The bite alarm on a bottom rig: a single soft bleep when something moves the line. It is
+  // not a bite yet, so it stays small.
   alarm(vol = 1) {
-    this.tone({ type: 'square', freq: 2350, dur: 0.07, gain: 0.018 * vol, attack: 0.002, filter: ['lowpass', 4000, 0.7] });
+    this.tone({ type: 'triangle', freq: 1760, dur: 0.09, gain: 0.03 * vol, attack: 0.004, filter: ['lowpass', 3500, 0.7], dest: this.alerts });
   }
 
-  // …and a steady stream of them when a fish runs off with the bait.
-  alarmRun(on) {
+  // A short, pleasant ring when there is something to do. 'strike': a fish has taken a bait
+  // that needs striking (float fishing); 'fishon': a self-hooking rig has hooked a fish that is
+  // running with it. Never a continuous alarm.
+  biteAlert(kind = 'strike') {
     if (!this.ctx) return;
-    if (on && !this.alarmOsc) {
-      const ctx = this.ctx, t0 = ctx.currentTime;
-      const o = ctx.createOscillator();
-      o.type = 'square';
-      o.frequency.value = 2350;
-      const gate = ctx.createGain();
-      gate.gain.value = 0;
-      // Chop the tone into rapid bleeps.
-      const lfo = ctx.createOscillator();
-      lfo.type = 'square';
-      lfo.frequency.value = 9;
-      const depth = ctx.createGain();
-      depth.gain.value = 0.009;
-      lfo.connect(depth);
-      depth.connect(gate.gain);
-      const base = ctx.createConstantSource();
-      base.offset.value = 0.009;
-      base.connect(gate.gain);
-      const f = ctx.createBiquadFilter();
-      f.type = 'lowpass';
-      f.frequency.value = 4000;
-      o.connect(f);
-      f.connect(gate);
-      gate.connect(this.sfx);
-      o.start(t0);
-      lfo.start(t0);
-      base.start(t0);
-      this.alarmOsc = [o, lfo, base];
-    } else if (!on && this.alarmOsc) {
-      const t1 = this.ctx.currentTime + 0.05;
-      for (const n of this.alarmOsc) n.stop(t1);
-      this.alarmOsc = null;
+    const bell = (m, when, vol) => {
+      const f = midi(m);
+      this.tone({ freq: f, dur: 1.4, gain: vol, attack: 0.004, when, dest: this.alerts });
+      this.tone({ freq: f * 2.76, dur: 0.5, gain: vol * 0.18, attack: 0.002, when, dest: this.alerts });
+      this.tone({ freq: f * 5.4, dur: 0.18, gain: vol * 0.05, attack: 0.001, when, dest: this.alerts });
+    };
+    if (kind === 'fishon') {
+      [81, 85, 88].forEach((m, i) => bell(m, i * 0.12, 0.085));
+    } else {
+      bell(86, 0, 0.08);
+      bell(81, 0.16, 0.06);
     }
   }
+
+  // Kept for older callers: the run is announced once by biteAlert('fishon').
+  alarmRun() {}
 
   // The skiff's outboard: a low putter at idle that rises in pitch and loudness with the
   // throttle. level 0 is off.
@@ -420,14 +424,14 @@ export class AudioScape {
 
   crackle(vol) {
     for (let i = 0; i < 1 + Math.floor(rand(0, 3)); i++) {
-      this.burst({ type: 'highpass', freq: rand(2000, 5000), q: 0.8, dur: rand(0.01, 0.03), gain: vol * rand(0.4, 1), attack: 0.001, when: rand(0, 0.15), pan: rand(-0.3, 0.3) });
+      this.burst({ type: 'highpass', freq: rand(2000, 5000), q: 0.8, dur: rand(0.01, 0.03), gain: vol * rand(0.4, 1), attack: 0.001, when: rand(0, 0.15), pan: rand(-0.3, 0.3), dest: this.nature });
     }
   }
 
   frog(vol, pan) {
     const f = rand(160, 230);
     for (let k = 0; k < 2 + Math.floor(rand(0, 2)); k++) {
-      this.tone({ type: 'sawtooth', freq: f, freqEnd: f * 0.85, dur: 0.11, gain: vol, attack: 0.01, pan, when: k * 0.17, filter: ['bandpass', 600, 2] });
+      this.tone({ type: 'sawtooth', freq: f, freqEnd: f * 0.85, dur: 0.11, gain: vol, attack: 0.01, pan, when: k * 0.17, filter: ['bandpass', 600, 2], dest: this.nature });
     }
   }
 

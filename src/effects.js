@@ -51,6 +51,18 @@ export class Effects {
       this.flashes.push({ m, life: 0, x: 0, z: 0, s: 1, str: 1 });
     }
     this.fi = 0;
+    // Ink: a squid's dark cloud spreading on the water as it comes out.
+    const inkTex = glowTexture('rgba(30,20,40,1)');
+    this.inks = [];
+    for (let i = 0; i < 3; i++) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: inkTex, transparent: true, opacity: 0, depthWrite: false }));
+      m.visible = false;
+      m.renderOrder = 3;
+      scene.add(m);
+      hideFromReflection(m);
+      this.inks.push({ m, life: 0, x: 0, z: 0 });
+    }
+    this.ii = 0;
     this.lapT = 0;
     this.bowT = 0;
     this.field = null; // the ripple height field (higher graphics settings), see waterfx.js
@@ -90,6 +102,12 @@ export class Effects {
     const r = this.ripples[this.ri++ % this.ripples.length];
     Object.assign(r, { x, z, size, max: life, life, str });
     r.m.visible = true;
+  }
+
+  ink(x, z) {
+    const k = this.inks[this.ii++ % this.inks.length];
+    Object.assign(k, { life: 5, x, z });
+    k.m.visible = true;
   }
 
   splash(x, y, z, n = 12, power = 2.2, spread = 1) {
@@ -173,6 +191,16 @@ export class Effects {
   }
 
   update(dt, t, boat) {
+    for (const k of this.inks) {
+      if (k.life <= 0) continue;
+      k.life -= dt;
+      const u = 1 - k.life / 5;
+      const s = 0.6 + 2.6 * Math.sqrt(u);
+      k.m.scale.set(s, 1, s);
+      k.m.position.set(k.x, waveHeight(k.x, k.z, t) + 0.035, k.z);
+      k.m.material.opacity = 0.8 * (1 - u);
+      if (k.life <= 0) k.m.visible = false;
+    }
     for (const r of this.ripples) {
       if (r.life <= 0) continue;
       r.life -= dt;

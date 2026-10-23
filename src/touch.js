@@ -9,7 +9,7 @@ const shape = (v, dead) => (Math.abs(v) < dead ? 0 : (Math.sign(v) * (Math.abs(v
 
 // On-screen controls for phones and tablets: a floating stick on the left to row,
 // a big action button on the right for fishing, and a hold button to let time drift.
-// They write into input.virtual and press a virtual Space, so the game logic is shared with the keyboard.
+// They write into input.virtual and press the cast action, so the game logic is shared with the keyboard.
 export function setupTouch(input) {
   const body = document.body;
   const zone = $('stick-zone'), base = $('stick-base'), knob = $('stick-knob');
@@ -69,11 +69,11 @@ export function setupTouch(input) {
     e.preventDefault();
     capture(act, e.pointerId);
     act.classList.add('down');
-    input.pressVirtual('Space');
+    input.pressVirtual('cast');
   });
   const actUp = () => {
     act.classList.remove('down');
-    input.releaseVirtual('Space');
+    input.releaseVirtual('cast');
   };
   act.addEventListener('pointerup', actUp);
   act.addEventListener('pointercancel', actUp);
