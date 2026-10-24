@@ -106,6 +106,8 @@ export function paintBoard(ctx, w, h, { photo = null, seen = {} } = {}) {
     { x: 182, y: 70, r: 0.03, title: 'What’s about', c: '#fbf5e3' },
     { x: 30, y: 196, r: 0.05, title: seen.kittiwake ? 'The Kittiwake ✓' : 'The Kittiwake', c: '#e9dcc0', photo: 'old' },
     { x: 182, y: 198, r: -0.03, title: 'Gulls diving?', c: '#f4ecd6' },
+    // (Tam Leask's card, in faded ink: the watcher on the Calf.)
+    { x: 346, y: 76, r: 0.06, title: seen.watch ? 'The Calf ✓' : 'The Calf', c: '#e6dfcb' },
   ];
   for (const n of notes) {
     ctx.save();

@@ -146,6 +146,7 @@ The coast is big: the far places are one to three minutes away by motor skiff, a
 - **The Wend**: an estuary east of the bay, past the cove. Sandbanks and mudflats, reeds, a deep channel and the quiet channels of **The Saltings**. **Wend Quay** has a camp with a tackle box. The water is brackish: sea fish that like it (mullet, flounder, sea bass) and none of the lake fish.
 - **Longmere**: a big lake inland, reached by the trail from Wend Quay. Weedy bays, a steep north shore where oaks have toppled into the water, an alder island (**Heron Holm**), and the **Mere Boathouse** with its jetty, the bass boat and a tackle box. Pike, perch, roach, and largemouth bass.
 - **Gannet Isle**: a green island far out to the south-west, with the **Gannet Light** turning all night, kelp and reef all round it, and **Puffin Cove**, a sheltered landing with a camp and a tackle box. **The Skerries** lie halfway out. Wrasse, plaice, mackerel and, after dark, squid.
+- **The Calf**: a small island just off **Heron Point**, about 600 m west of Willowhaven by boat (plan it at the workbench: the car takes you to the harbour, and you have a boat brought round to the quay). Tie up at the stone landing in its lee, climb the steps to a ruined **watch tower** that looks out over the whole coast, and camp on the top if the weather's kind (or sleep aboard the cabin boat in the lee). Grey seals haul out on the skerry. Between the Calf and the Point runs **Calf Sound**, the strongest tide race on the coast: white ridges, a current that carries a drifting boat east, and mackerel, garfish and bluefish hunting sandeels in it. Pollack and wrasse live over the kelp under the cliffs, and bass hunt the white water off **the Nose**, the low rocks at its south-east corner. A metal or a soft sandeel on the coastal rod, cast across the race.
 - **Long Shoal**, marked by a yellow buoy, and **Little Skellig**, a rock covered in birds, on the way out to **The Blue Water**: open sea past the shelf, where tuna hunt the sprat shoals.
 
 ### Life on the coast
@@ -201,6 +202,7 @@ Small stories round the cove, each with a clue, somewhere to go, and a modest re
 - **Ada's notebook**: three damp pages from a local angler's notebook, in the punt, at the daymark's foot and in the strand's shelter, in any order. Each one tells you something true about that water.
 - **Where the gulls dive**: get close to gulls working the water and catch one of what they're after. Afterwards, the gulls you've seen diving are marked on your map for a while.
 - **A gap on the chandlery wall**: photograph a live cuttlefish and pin it up on the board. Your photograph hangs there from then on, and the chandlery gives you the striped deckchair.
+- **The watcher on the Calf**: a card in faded ink about Tam Leask, who counted the seals on the Calf's skerry every morning for forty years. Land on the Calf, watch the seals, and find Tam's slate in the watch tower. It goes on the shelf at home.
 
 Rewards are keepsakes (in the journal's Memories pages), map marks and that deckchair: nothing that changes how fish bite.
 
@@ -352,7 +354,7 @@ At camp you can light the fire, **grill** a fish from your creel (it takes half 
 - **Fizzing bubbles** on the lake: carp grazing the bottom.
 - **The sea boiling white**, out in the deep: tuna driving a sprat shoal to the surface.
 - **Seabirds wheeling and diving**: a shoal of mackerel, sprat, sardines or anchovies just below, and often something hunting them (bonito, bluefish, bullet tuna, little tunny). Head for the birds.
-- **Ripples and streaks running one way**: a current. The Wend runs out to sea down its estuary, and the tide races off Gannet Isle's points, through the Skerries and over Long Shoal; the bays and coves are slack.
+- **Ripples and streaks running one way**: a current. The Wend runs out to sea down its estuary, and the tide races off Gannet Isle's points, through the Skerries and over Long Shoal, and fastest of all through Calf Sound, where the water stands up in white ridges; the bays and coves are slack.
 - **Whitecaps** in the open: a fresh wind with room to raise a chop. Shelter in the bays and coves.
 
 Each of these comes from a real fish at that spot. Press **C** to look underwater and you'll find it there.

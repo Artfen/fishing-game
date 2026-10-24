@@ -1,7 +1,7 @@
 import { RODS, TACKLE, PACK, SETUPS, KIND_NAMES, fits, checkSetup, lineOf, termOf } from './tackle.js';
 import { fishById } from './fish.js';
 import { setupsFor } from './guide.js';
-import { CAR_PARKS } from './world/terrain.js';
+import { CAR_PARKS, CALF } from './world/terrain.js';
 
 // Going out: home, the garage and the car. Where every piece of your outing gear is, kept in one
 // place (state.equip) so nothing can be in two places at once or quietly vanish:
@@ -38,6 +38,7 @@ const listWords = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join
 // Each destination: where the car parks (terrain.js), the water you fish (for what lives there),
 // how you get there, and what's there. drive: the lanes reach it (you can drive yourself);
 // otherwise it's by road, a short travel transition. mins: how long the drive takes in game time.
+// boat: no road goes there at all: you drive to its launch (a harbour) and go on by boat.
 export const DESTS = {
   haven: {
     id: 'haven', place: 'haven', name: 'Willowhaven', kind: 'A harbour', drive: true, mins: 6, water: 'salt',
@@ -84,14 +85,29 @@ export const DESTS = {
     camp: 'The boathouse has a bunk and a tackle box; grass along the shore for a tent.',
     explore: 'Heron Holm, the drowned oaks under the north shore, and the weedy bays.',
   },
+  calf: {
+    id: 'calf', place: 'calf', name: 'The Calf', kind: 'A small island', boat: true, launch: 'haven', mins: 6, water: 'salt',
+    at: { x: CALF.x, z: CALF.z - 8, r: 70 },
+    terrain: 'A green hump of an island off Heron Point: cliffs to the west, a ruined watch tower on the top, sea pinks in the short turf, and low rocks at its south-east corner (the Nose) looking straight into the race. Steps go up from a stone landing in its lee.',
+    access: 'By boat only, from Willowhaven quay: out of the bay and west along the coast to the island just off Heron Point. Tie up at the landing on the Calf’s east side, out of the tide.',
+    boats: 'Any of your sea boats will do. The race in Calf Sound sets a boat east as it drifts through: the rowing boat and the kayak feel it most. Make fast at the landing, or anchor in the lee, where the cabin boat makes a floating camp.',
+    camp: 'Room for a tent on the top beside the tower, the most exposed pitch on the coast (the tent has to be in your backpack: the car stays at Willowhaven), or sleep aboard the cabin boat in the lee.',
+    explore: 'The watch tower, grey seals hauled out on the skerry, and the race itself: Calf Sound, where the tide stands up in white ridges.',
+  },
 };
 export const DEST_IDS = Object.keys(DESTS);
-export const parkOf = (id) => CAR_PARKS[id] || null;
+// The places a car goes (the rest are by boat from one of them).
+export const DRIVE_IDS = DEST_IDS.filter((id) => !DESTS[id].boat);
+// Where the car takes you for a place: its own car park, or the harbour you go on from by boat.
+export const launchOf = (id) => DESTS[id]?.launch || id;
+export const parkOf = (id) => CAR_PARKS[launchOf(id)] || null;
 export const HOME_NAME = 'Home';
 
 // How long the drive takes (game minutes), from home or between destinations: lanes are quick,
 // the road round to the far ones longer.
 export function driveMinutes(from, to) {
+  from = launchOf(from);
+  to = launchOf(to);
   if (from === to) return 0;
   const m = (id) => (id === 'home' || !DESTS[id] ? 0 : DESTS[id].mins);
   if (from === 'home' || !DESTS[from]) return m(to);
@@ -389,7 +405,7 @@ export function cleanCar(raw) {
   if (!isObj(raw)) return { x: home.x, z: home.z, yaw: home.yaw, at: 'home' };
   const x = num(raw.x, NaN, -3000, 3000), z = num(raw.z, NaN, -3000, 3000);
   if (!Number.isFinite(x) || !Number.isFinite(z)) return { x: home.x, z: home.z, yaw: home.yaw, at: 'home' };
-  const at = raw.at === 'home' || DESTS[raw.at] ? raw.at : null;
+  const at = raw.at === 'home' || DRIVE_IDS.includes(raw.at) ? raw.at : null;
   return { x, z, yaw: num(raw.yaw, 0, -100, 100), at };
 }
 
@@ -484,6 +500,12 @@ export function departureCheck(s, plan, ctx = {}) {
   } else {
     const away = KIT_IDS.filter((k) => s.equip.kit[k] === 'pack' || s.equip.kit[k] === 'car');
     if (away.length) info(`Not camping, but the ${listWords(away.map((k) => KIT[k].short))} ${away.length === 1 ? 'is' : 'are'} coming along anyway.`);
+  }
+  // By boat: the car waits at the harbour, so only what you carry goes across.
+  if (dest?.boat) {
+    const launch = DESTS[dest.launch];
+    if (plan.camp && s.equip.kit.tent === 'car') warn(`The tent is in the car, and the car stays at ${launch.name}: put it in your backpack to camp on ${dest.name} (or sleep aboard the cabin boat).`);
+    if (s.equip.car.rods.length || s.equip.car.items.length) info(`${dest.name} is by boat from ${launch.name}: what’s in the boot stays with the car there, and only your backpack goes across.`);
   }
   if (plan.explore) ok('Your camera is always in your pocket.');
   if (ctx.carHome === false) warn('The car isn’t at home: the boot can’t be loaded until it is.');

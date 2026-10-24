@@ -9,7 +9,7 @@ const ctx2d = new Proxy({}, { get: (o, k) => (k === 'createRadialGradient' || k 
 globalThis.document ??= { createElement: () => ({ width: 0, height: 0, getContext: () => ctx2d }), fonts: null };
 
 const G = await import('../src/firstTrip.js');
-const { DESTS, DEST_IDS } = await import('../src/outing.js');
+const { DESTS, DEST_IDS, DRIVE_IDS, parkOf } = await import('../src/outing.js');
 const { CAR_PARKS, PIERS, HOME_START, heightAt, walkHeight } = await import('../src/world/terrain.js');
 
 let loads = 0;
@@ -50,10 +50,8 @@ test('each step done counts the ones before it, and the last one finishes the gu
 });
 
 test('you are at a place when you reach its car park or the water there, and never at home', () => {
-  for (const id of DEST_IDS) {
-    assert.equal(G.placeAt(CAR_PARKS[id].x, CAR_PARKS[id].z), id);
-    assert.equal(G.placeAt(G.FISH_SPOTS[id].x, G.FISH_SPOTS[id].z), id);
-  }
+  for (const id of DRIVE_IDS) assert.equal(G.placeAt(CAR_PARKS[id].x, CAR_PARKS[id].z), id);
+  for (const id of DEST_IDS) assert.equal(G.placeAt(G.FISH_SPOTS[id].x, G.FISH_SPOTS[id].z), id);
   // Home: the drive (a field away from Cove Head's car park), the front door, the workbench.
   for (const [x, z] of [[CAR_PARKS.home.x, CAR_PARKS.home.z], [HOME_START.x, HOME_START.z], [130.9, -79.1], [142.2, -47.4]]) assert.equal(G.placeAt(x, z), null);
 });
@@ -96,7 +94,10 @@ test('every place it sends you to fish is somewhere to stand, with deep water a 
       for (let r = 5; r <= 16; r += 1) if (heightAt(s.x + Math.sin(a) * r, s.z + Math.cos(a) * r) < -1.2) deep = true;
     }
     assert.ok(deep, `${id}: water over 1.2 m deep within 16 m of ${s.name}`);
-    assert.ok(Math.hypot(s.x - CAR_PARKS[id].x, s.z - CAR_PARKS[id].z) < 60, `${id}: the spot is a short walk from the car park`);
+    // (A place by boat: a short walk from where you step ashore, not from the car.)
+    const from = DESTS[id].boat ? G.LANDINGS[id] : CAR_PARKS[id];
+    assert.ok(Math.hypot(s.x - from.x, s.z - from.z) < 60, `${id}: the spot is a short walk from the car park or the landing`);
+    if (DESTS[id].boat) assert.equal(parkOf(id), CAR_PARKS[DESTS[id].launch]);
     assert.ok(s.tip, `${id}: a word on where to cast`);
   }
   // And a new game starts on firm ground at home.

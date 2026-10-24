@@ -2,10 +2,10 @@ import { RODS, TACKLE, KIND_NAMES, PACK, fits } from './tackle.js';
 import { FISH, fishById } from './fish.js';
 import { setupsFor } from './guide.js';
 import { HOME_WORDS } from './trip.js';
-import { heightAt, CAR_PARKS, LANES, PLACES } from './world/terrain.js';
+import { heightAt, CAR_PARKS, LANES, PLACES, CALF_LANDING } from './world/terrain.js';
 import { formatClock } from './world/sky.js';
 import {
-  KIT, KIT_IDS, CAR_HOLD, DESTS, DEST_IDS, LOADOUT_MAX, statusOf, moveKit, moveToCar, unloadCar, packSetup, loadSetup,
+  KIT, KIT_IDS, CAR_HOLD, DESTS, DEST_IDS, DRIVE_IDS, LOADOUT_MAX, statusOf, moveKit, moveToCar, unloadCar, packSetup, loadSetup,
   snapshot, applyLoadout, suggestions, departureCheck, essentials, speciesAt, habitatsAt, driveMinutes, campOfKit,
 } from './outing.js';
 import { fuelCheck, carNeeds, tankWords, canWords, litres, moveCan, CAN_PLACES } from './fuel.js';
@@ -39,6 +39,10 @@ function btn(text, run, cls = 'pk-btn') {
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const listWords = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 const minsWords = (m) => (m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60 ? `${m % 60} min` : ''}`.trim());
+// How you get to a place, in a few words: 'drive yourself, 6 min', 'by boat from Willowhaven'.
+const wayWords = (D, mins) => (D.boat ? `by boat from ${DESTS[D.launch].name} (a ${minsWords(mins)} drive, then the crossing)` : `${D.drive ? 'drive yourself' : 'by road'}, ${minsWords(mins)}`);
+// The landing for each place you reach by boat (where you tie up and step ashore).
+const LANDINGS = { calf: { x: (CALF_LANDING.x0 + CALF_LANDING.x1) / 2, z: (CALF_LANDING.z0 + CALF_LANDING.z1) / 2 } };
 
 export const STEPS = [
   { id: 'what', name: 'What for' },
@@ -50,9 +54,11 @@ export const STEPS = [
 ];
 
 // A little map of a destination: the land and water from the height map, the lanes, the car park
-// and the place itself. Not yet explored: faded, with the car park (the way in) still marked.
+// and the place itself. Not yet explored: faded, with the car park (the way in) still marked. A
+// place you reach by boat has no car park: its landing is the way in, with the way from the
+// harbour pointed out.
 export function drawDestMap(ctx, w, h, id, { explored = true, camp = null } = {}) {
-  const D = DESTS[id], P = CAR_PARKS[id];
+  const D = DESTS[id], P = CAR_PARKS[id] || LANDINGS[id];
   const place = PLACES.find((q) => q.id === D.place);
   const cx = (P.x + place.x) / 2, cz = (P.z + place.z) / 2;
   const span = Math.max(150, Math.hypot(P.x - place.x, P.z - place.z) * 2.6), k = w / span;
@@ -76,13 +82,32 @@ export function drawDestMap(ctx, w, h, id, { explored = true, camp = null } = {}
     ctx.fillStyle = 'rgba(239,228,201,0.6)';
     ctx.fillRect(0, 0, w, h);
   }
-  // The car park (the way in, known either way), the place, and your camp.
+  // The car park or the landing (the way in, known either way), the place, and your camp.
   ctx.fillStyle = '#3a2a1c';
   ctx.fillRect(X(P.x) - 4, Z(P.z) - 4, 8, 8);
   ctx.fillStyle = '#efe4c9';
   ctx.font = '700 8px Nunito, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('P', X(P.x), Z(P.z) + 3);
+  ctx.fillText(D.boat ? 'L' : 'P', X(P.x), Z(P.z) + 3);
+  if (D.boat) {
+    // The way across from the harbour: in from the edge of the map, towards the landing.
+    const L = CAR_PARKS[D.launch], dx = L.x - P.x, dz = L.z - P.z, l = Math.hypot(dx, dz);
+    const ex = P.x + (dx / l) * 1e3, ez = P.z + (dz / l) * 1e3;
+    const k2 = Math.min((w / 2 - 6) / Math.abs(X(ex) - w / 2 || 1), (h / 2 - 6) / Math.abs(Z(ez) - h / 2 || 1));
+    const sx = w / 2 + (X(ex) - w / 2) * k2, sz = h / 2 + (Z(ez) - h / 2) * k2;
+    ctx.strokeStyle = '#3a2a1c';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(sx, sz);
+    ctx.lineTo(X(P.x) + (dx / l) * 8, Z(P.z) + (dz / l) * 8);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#3a2a1c';
+    ctx.textAlign = dx > 0 ? 'right' : 'left';
+    // (Beside the line's end, kept inside the frame.)
+    ctx.fillText(`from ${DESTS[D.launch].name}`, sx + (dx > 0 ? -4 : 4), sz < 16 ? sz + 14 : sz - 5);
+  }
   if (explored) {
     ctx.beginPath();
     ctx.arc(X(place.x), Z(place.z), 4, 0, Math.PI * 2);
@@ -184,7 +209,7 @@ export class Workbench {
       el('p', '', acts.length ? cap(listWords(acts)) : 'Nothing chosen yet.'),
     ];
     if (p.fish) rows.push(el('p', 'wb-faint', target ? `For: ${target}` : 'For: whatever’s about'));
-    rows.push(el('p', '', D ? `To ${D.name} (${D.drive ? 'drive yourself, or let the drive go by' : 'by road'}: ${minsWords(D.mins)})` : 'Where: not chosen'));
+    rows.push(el('p', '', D ? `To ${D.name} (${D.boat ? `by boat from ${DESTS[D.launch].name}` : `${D.drive ? 'drive yourself, or let the drive go by' : 'by road'}: ${minsWords(D.mins)}`})` : 'Where: not chosen'));
     const g = s.gear, car = s.equip.car;
     rows.push(el('h4', '', 'Backpack'), el('p', 'wb-faint', `${g.pack.rods.map((r) => RODS[r].short.toLowerCase()).join(', ')} · ${g.pack.items.length} of ${PACK.items} tackle${KIT_IDS.filter((k) => s.equip.kit[k] === 'pack').map((k) => ` · ${KIT[k].short}`).join('')}`));
     rows.push(el('h4', '', 'Car'), el('p', 'wb-faint', car.rods.length || car.items.length || KIT_IDS.some((k) => s.equip.kit[k] === 'car')
@@ -260,7 +285,7 @@ export class Workbench {
   /* ---------------- 2. where ---------------- */
   render_where() {
     const s = this.state, p = this.plan, out = [];
-    out.push(el('p', 'wb-lead', 'Where the car can take you. The lanes reach the first three (you can drive yourself); the others are by road.'));
+    out.push(el('p', 'wb-lead', 'Where the car can take you, and on from there by boat. The lanes reach the first three (you can drive yourself); the others are by road, and the Calf is a crossing from Willowhaven quay.'));
     const grid = el('div', 'wb-dests');
     for (const id of DEST_IDS) {
       const D = DESTS[id], explored = !!s.places[D.place];
@@ -268,7 +293,7 @@ export class Workbench {
       const card = btn('', () => { p.dest = id; this.changed(); this.go('about'); }, `wb-dest${p.dest === id ? ' on' : ''}`);
       card.append(mapCanvas(id, 220, 130, { explored, camp }));
       const t = el('div', 'wb-dest-t');
-      t.append(el('b', '', D.name), el('span', '', `${D.kind} · ${D.drive ? 'drive yourself' : 'by road'}, ${minsWords(driveMinutes('home', id))}`));
+      t.append(el('b', '', D.name), el('span', '', `${D.kind} · ${wayWords(D, driveMinutes('home', id))}`));
       const tags = el('div', 'wb-tags');
       tags.append(el('span', explored ? 'wb-tag' : 'wb-tag new', explored ? 'Explored' : 'Not yet explored'));
       if (camp) tags.append(el('span', 'wb-tag camp', `${camp.name} is here`));
@@ -278,7 +303,7 @@ export class Workbench {
       grid.append(card);
     }
     out.push(grid);
-    out.push(el('p', 'wb-faint', 'Gannet Isle, Puffin Cove and the open sea are only reached by boat. Your boats stay where you left them (see “About it”).'));
+    out.push(el('p', 'wb-faint', 'Gannet Isle, Puffin Cove and the open sea are reached by boat too, from wherever your boat is. Your boats stay where you left them (see “About it”).'));
     return out;
   }
 
@@ -296,9 +321,11 @@ export class Workbench {
     const intro = el('div', '');
     intro.append(el('h3', '', D.name), el('p', 'wb-faint', `${D.kind}${explored ? '' : ' · not yet explored'}`), el('p', '', D.terrain), el('p', '', D.access));
     const mins = driveMinutes(s.car.at || 'home', p.dest);
-    intro.append(el('p', 'wb-faint', D.drive
-      ? `Drive yourself (the clock runs as you drive), or let the drive go by: about ${minsWords(mins)} pass.`
-      : `By road: about ${minsWords(mins)} pass on the way.`));
+    intro.append(el('p', 'wb-faint', D.boat
+      ? `Drive to ${DESTS[D.launch].name} (about ${minsWords(mins)}), have a boat brought round to the head of the quay, and cross: about 600 m, a few minutes under a motor, longer at the oars.`
+      : D.drive
+        ? `Drive yourself (the clock runs as you drive), or let the drive go by: about ${minsWords(mins)} pass.`
+        : `By road: about ${minsWords(mins)} pass on the way.`));
     top.append(intro);
     out.push(top);
 
@@ -481,13 +508,16 @@ export class Workbench {
       return out;
     }
     const acts = el('div', 'wb-go');
-    if (D.drive) {
+    // (A place by boat: the car takes you to its harbour, and the boat on from there.)
+    const L = D.boat ? DESTS[D.launch] : D;
+    if (D.boat) out.push(el('p', '', `${D.name} is by boat: the car takes you to ${L.name}. At the head of the quay, have a boat brought round, then cross.`));
+    if (L.drive) {
       const a = btn('', () => this.h.depart(p.dest, 'drive'), 'wb-go-btn');
-      a.append(el('b', '', 'Drive there yourself'), el('span', '', 'The car is on the drive: get in at the driver’s door. The drive goes down to the coast lane: west for Willowhaven, south for Shell Strand, east for Cove Head. The clock runs as you drive.'));
+      a.append(el('b', '', D.boat ? `Drive to ${L.name} yourself` : 'Drive there yourself'), el('span', '', 'The car is on the drive: get in at the driver’s door. The drive goes down to the coast lane: west for Willowhaven, south for Shell Strand, east for Cove Head. The clock runs as you drive.'));
       acts.append(a);
     }
     const b = btn('', () => this.h.depart(p.dest, 'skip'), 'wb-go-btn');
-    b.append(el('b', '', D.drive ? 'Let the drive go by' : 'Drive there'), el('span', '', `A short fade, and you’re at the car park with the car (about ${minsWords(driveMinutes('home', p.dest))} pass). Your boats and camp stay where they are.`));
+    b.append(el('b', '', D.boat ? `Let the drive to ${L.name} go by` : L.drive ? 'Let the drive go by' : 'Drive there'), el('span', '', `A short fade, and you’re at ${D.boat ? `${L.name}’s` : 'the'} car park with the car (about ${minsWords(driveMinutes('home', p.dest))} pass). Your boats and camp stay where they are.`));
     acts.append(b);
     out.push(acts);
     return out;
@@ -728,7 +758,7 @@ export class OutingSheet {
     if (from !== 'home') {
       row('Home', `about ${minsWords(driveMinutes(from || 'strand', 'home'))} · ${fuelFor('home')}`, [btn('Let the drive go by', () => this.h.driveHome(), 'pk-btn small')]);
     }
-    for (const id of DEST_IDS) {
+    for (const id of DRIVE_IDS) {
       if (id === from) continue;
       const D = DESTS[id];
       const acts = [];
@@ -736,7 +766,7 @@ export class OutingSheet {
       acts.push(btn(D.drive ? 'Let it go by' : 'Drive there', () => this.h.drive(id, 'skip'), 'pk-btn small'));
       row(D.name, `${D.kind.toLowerCase()} · ${s.places[D.place] ? '' : 'not yet explored · '}about ${minsWords(driveMinutes(from || 'home', id))} · ${fuelFor(id)}`, acts);
     }
-    out.push(el('p', 'wb-faint', 'Driving yourself, the clock runs as you go; letting a drive go by moves it on by the time the drive takes. Your boats and your camp stay where they are. Run dry on the way and you walk for a can: it costs an hour, never the trip.'));
+    out.push(el('p', 'wb-faint', 'Driving yourself, the clock runs as you go; letting a drive go by moves it on by the time the drive takes. Your boats and your camp stay where they are. Run dry on the way and you walk for a can: it costs an hour, never the trip. (The Calf is by boat, from Willowhaven quay.)'));
     return out;
   }
 }

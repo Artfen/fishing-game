@@ -1,4 +1,4 @@
-import { WRECK, PUNT, DAYMARK, SHELTER } from './world/terrain.js';
+import { WRECK, PUNT, DAYMARK, SHELTER, CALF, CALF_SKERRY } from './world/terrain.js';
 import { fishById } from './fish.js';
 
 // Small adventures on the cove shore: a clue to start each (a notice at Willowhaven, a page
@@ -12,6 +12,7 @@ export const KEEPSAKES = {
   notebook: { name: 'Ada’s notebook', text: 'Three pages in a blue cloth cover, damp-stained and complete again: the cove channel, Cove Head and Shell Strand, as Ada Marr fished them.' },
   feather: { name: 'A gull’s feather', text: 'Grey and white, picked out of the water where the birds were diving. A reminder to watch the sky.' },
   deckchair: { name: 'A striped deckchair', text: 'From the chandlery, for the photograph on its wall. It folds up small; put it out at your camp.' },
+  slate: { name: 'Tam’s slate', text: 'A roofing slate from the watch tower on the Calf, scratched with forty years of tally marks: the seals on the skerry, counted every morning. In one corner, “bass off the Nose at the top of the tide; mackerel in the race when the terns are working”.' },
 };
 
 // steps: each has an id, what to do, and (for the ones the world settles by itself) a check
@@ -77,6 +78,27 @@ export const ADVENTURES = [
     ],
     end: 'Your photograph hangs on the chandlery wall, where everyone coming up from the quay can see it. They’ve given you a striped deckchair for your camp.',
     reward: { keepsake: 'deckchair', unlock: 'deckchair' },
+  },
+  {
+    id: 'watch',
+    title: 'The watcher on the Calf',
+    clue: 'A card in faded ink, pinned low on the board: “Tam Leask kept the watch on the Calf for forty years, and counted the seals on the skerry every morning. His tallies are on a slate in the tower still, they say. By boat from the quay, west along the coast: the Calf lies just off Heron Point. Mind the race in the Sound.”',
+    where: 'The notice board at Willowhaven',
+    steps: [
+      {
+        id: 'landed', text: 'Land on the Calf',
+        check: (c) => c.onFoot && Math.hypot((c.player.x - CALF.x) / (CALF.rx + 2), (c.player.z - CALF.z) / (CALF.rz + 2)) < 1,
+        done: 'Ashore on the Calf: short turf, sea pinks, and the roar of the race below the cliffs.',
+      },
+      {
+        id: 'seals', text: 'Watch the seals on the skerry',
+        check: (c) => Math.hypot(c.player.x - CALF_SKERRY.x, c.player.z - CALF_SKERRY.z) < 36,
+        done: 'Grey seals hauled out on the skerry, heads up, watching you back. One slides off into the water without a splash.',
+      },
+      { id: 'slate', text: 'Find Tam’s slate in the watch tower' },
+    ],
+    end: 'Tam’s tallies go back further than anyone remembers: the seals on the skerry, morning after morning, in pencil-thin strokes. In one corner, the only words: “bass off the Nose at the top of the tide; mackerel in the race when the terns are working”. Calf Sound is on your map now.',
+    reward: { keepsake: 'slate', places: ['sound'] },
   },
 ];
 export const ADVENTURE_BY_ID = Object.fromEntries(ADVENTURES.map((a) => [a.id, a]));
@@ -156,8 +178,12 @@ export class Adventures {
     r.done = when(this.state);
     if (A.reward.keepsake) this.state.keepsakes[A.reward.keepsake] = when(this.state);
     if (A.reward.unlock) this.state.unlocks[A.reward.unlock] = true;
+    // (Places it shows you: on your map, as if you'd been there.)
+    for (const p of A.reward.places || []) if (this.state.places && !this.state.places[p]) this.state.places[p] = when(this.state);
     const kept = A.reward.keepsake ? KEEPSAKES[A.reward.keepsake] : null;
-    this.h.note(fromClue ? `${A.title}: already done` : A.title, `${fromClue ? 'You’ve done this already, before you knew to. ' : ''}${A.end}${kept ? ` Kept in your journal: ${kept.name.charAt(0).toLowerCase()}${kept.name.slice(1)}.` : ''}`, id);
+    // ("a gull’s feather", but "Ada’s notebook": only an article goes small mid-sentence.)
+    const name = kept && /^(A|An|The) /.test(kept.name) ? kept.name.charAt(0).toLowerCase() + kept.name.slice(1) : kept?.name;
+    this.h.note(fromClue ? `${A.title}: already done` : A.title, `${fromClue ? 'You’ve done this already, before you knew to. ' : ''}${A.end}${kept ? ` Kept in your journal: ${name}.` : ''}`, id);
   }
 
   // The world's own checks, a couple of times a second (cheap: a handful of distances).

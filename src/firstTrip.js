@@ -1,5 +1,5 @@
 import { DESTS } from './outing.js';
-import { CAR_PARKS, QUAY, BOATHOUSE_PIER, HOME } from './world/terrain.js';
+import { CAR_PARKS, QUAY, BOATHOUSE_PIER, HOME, CALF_LANDING } from './world/terrain.js';
 import { HOME_SPOTS } from './world/home.js';
 
 // The first outing, a step at a time: an optional guide for a new player (and for anyone who
@@ -33,7 +33,11 @@ export const FISH_SPOTS = {
   head: { x: 180, z: -0.5, name: 'the ledges below the daymark', tip: 'Cast into the wash below the ledges: short or middling.' },
   quay: { x: QUAY.end.x - 1.5, z: QUAY.end.z, name: 'the end of the quay', tip: 'Fish move along the channel: a middling cast out from the end of the quay.' },
   boathouse: { x: BOATHOUSE_PIER.end.x + 1.5, z: BOATHOUSE_PIER.end.z, name: 'the end of the jetty', tip: 'Fish hang about the jetty: a short cast is plenty.' },
+  // (By boat: you're there anywhere on the island, reach.)
+  calf: { x: -471, z: 160.5, reach: 32, name: 'the Nose, the Calf’s low south-east rocks', tip: 'The race runs past the Nose: a long cast across it with a metal or a sandeel, and let the tide swing it round.' },
 };
+// Where you tie up at a place you reach by boat.
+export const LANDINGS = { calf: { x: CALF_LANDING.end.x, z: CALF_LANDING.end.z, name: 'the Calf’s landing' } };
 // Which way the lane goes from home (the workbench says the same).
 const LANE_WORDS = {
   haven: 'down the drive and west along the coast lane',
@@ -88,8 +92,8 @@ export function start(g, now = Date.now()) {
 // park or to where you'd fish. Never at home, though Cove Head's car park is only a field away.
 export function placeAt(x, z) {
   if (Math.hypot(x - HOME.x, z - HOME.z) < 40) return null;
-  return Object.keys(FISH_SPOTS).find((id) => Math.hypot(x - CAR_PARKS[id].x, z - CAR_PARKS[id].z) < 15
-    || Math.hypot(x - FISH_SPOTS[id].x, z - FISH_SPOTS[id].z) < 25) || null;
+  return Object.keys(FISH_SPOTS).find((id) => (CAR_PARKS[id] && Math.hypot(x - CAR_PARKS[id].x, z - CAR_PARKS[id].z) < 15)
+    || Math.hypot(x - FISH_SPOTS[id].x, z - FISH_SPOTS[id].z) < (FISH_SPOTS[id].reach ?? 25)) || null;
 }
 
 // A brand-new game: nothing found, nothing caught (a game that's been played is never "new").
@@ -100,14 +104,14 @@ export const isNewGame = (s) => !Object.keys(s.places || {}).length && !(s.log |
 //   at, carAt: where you and the car are ('home', a destination id or null); driving; nearCar;
 //   plan: the workbench's plan; rig: 'a worm on the float rod'; kind: the rig's kind
 //   caught: fish in the journal since the guide began; car: { x, z }; tent: where the tent is;
-//   here: the place you're at (placeAt), if any
+//   here: the place you're at (placeAt), if any; afloat: in a boat
 export function words(g, ctx) {
   const id = stepOf(g);
   if (!id) return null;
   const n = STEP_IDS.indexOf(id) + 1;
   const { key, touch } = ctx;
   const use = (what) => (touch ? `tap the prompt (${what})` : `press ${key('interact')} (${what})`);
-  const dest = DESTS[g.dest] || DESTS[ctx.plan?.dest] || null;
+  let dest = DESTS[g.dest] || DESTS[ctx.plan?.dest] || null;
   const out = { id, n, of: STEPS.length, title: STEPS[n - 1].title, text: '', target: null };
   switch (id) {
     case 'plan':
@@ -117,16 +121,19 @@ export function words(g, ctx) {
       out.target = { x: BENCH.x, z: BENCH.z, label: 'Workbench' };
       break;
     case 'drive': {
-      const to = dest ? dest.name : 'the coast';
+      // (A place by boat: the drive is to its harbour.)
+      const by = dest?.boat ? dest : null;
+      if (by) dest = DESTS[by.launch];
+      const to = dest ? `${dest.name}${by ? ` (${by.name} is by boat from there)` : ''}` : 'the coast';
       if (ctx.driving) {
         out.text = dest && LANE_WORDS[dest.id]
           ? `Drive ${LANE_WORDS[dest.id]} to ${to}. Park in the car park at the end, stop, then ${use('“Get out, or go somewhere”')}.`
           : `Drive down to the coast lane: west for Willowhaven, south for Shell Strand, east for Cove Head. Stop in a car park, then ${use('“Get out, or go somewhere”')}.`;
-        out.title = `Drive to ${to}`;
+        out.title = `Drive to ${dest ? dest.name : 'the coast'}`;
         if (dest?.drive) out.target = { x: CAR_PARKS[dest.id].x, z: CAR_PARKS[dest.id].z, label: `${dest.name} car park` };
       } else {
         out.text = `${ctx.nearCar ? 'The car is right here' : 'Walk to the car'}: ${use('“Get in and drive”')} at the driver’s door, then drive to ${to}${dest && !dest.drive ? ' (it’s a long way round by road: in the car, choose “Where to?” and let the drive go by)' : ''}. The boot at the back shows what you’ve packed.`;
-        out.title = `Drive to ${to}`;
+        out.title = `Drive to ${dest ? dest.name : 'the coast'}`;
         if (ctx.car) out.target = { x: ctx.car.x, z: ctx.car.z, label: 'Car' };
       }
       break;
@@ -134,6 +141,16 @@ export function words(g, ctx) {
     case 'spot': {
       const D = dest || DESTS[ctx.carAt];
       const spot = D && FISH_SPOTS[D.id];
+      // By boat, and not there yet: the crossing first.
+      if (D?.boat && (ctx.afloat || ctx.here !== D.id)) {
+        const L = DESTS[D.launch], land = LANDINGS[D.id];
+        out.title = `Cross to ${D.name}`;
+        out.text = ctx.afloat
+          ? `Out of the bay and west along the coast to ${D.name}, the island just off Heron Point (follow the marker). Tie up at the landing on its east side, out of the tide, then step ashore and walk round to ${spot.name}.`
+          : `${D.name} is by boat from ${L.name}. At the head of the quay, ${use('“Have a boat brought round”')}, step down into it, and go out of the bay and west along the coast to the island just off Heron Point: about 600 m. Tie up at the landing in the Calf’s lee.`;
+        out.target = { x: land.x, z: land.z, label: 'The Calf’s landing' };
+        break;
+      }
       out.text = `${spot ? `Walk down to ${spot.name}, and look out over the water. ` : 'Walk down to the water’s edge, and look out over the water. '}On your line: ${ctx.rig || 'nothing yet (open the backpack to tie something on)'}. ${key('tackle')} changes the bait or lure, ${key('pack')} opens the backpack.`;
       if (touch) out.text = out.text.replace(`${key('tackle')} changes the bait or lure, ${key('pack')} opens the backpack.`, 'The pack button changes it.');
       if (spot) out.target = { x: spot.x, z: spot.z, label: 'Fish here' };

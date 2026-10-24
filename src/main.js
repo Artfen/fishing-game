@@ -25,10 +25,11 @@ import {
   PEGS, POOLS, STREAM, SNAG, LILIES, JETTY, ISLAND, GANNET_CAMP, SKERRIES, SKELLIG, DEEP_Z,
   HAVEN, HAVEN_QUAY, HAVEN_BENCH, DAYMARK, STRAND, WRECK, WRECK_BUOY, CHANNEL,
   HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, FUEL_PUMPS, CABIN_BERTH, laneInfo,
+  CALF, CALF_TOWER, CALF_SKERRY, CALF_SOUND, CALF_LANDING,
 } from './world/terrain.js';
 import { Car } from './car.js';
 import { Workbench, OutingSheet } from './workbench.js';
-import { KIT, KIT_IDS, DESTS, parkNear, driveMinutes, moveKit, reconcile, campOfKit, campHas, statusOf, snapshot } from './outing.js';
+import { KIT, KIT_IDS, DESTS, launchOf, parkNear, driveMinutes, moveKit, reconcile, campOfKit, campHas, statusOf, snapshot } from './outing.js';
 import { insideHome, HOME_SPOTS } from './world/home.js';
 import { Boat, BOAT_KINDS } from './boat.js';
 import { Walker } from './walker.js';
@@ -1188,7 +1189,7 @@ function shoreSpot() {
     const x = long ? clamp(b.x, P.x0 + 0.6, P.x1 - 0.6) : (P.x0 + P.x1) / 2;
     const z = long ? (P.z0 + P.z1) / 2 : clamp(b.z, P.z0 + 0.6, P.z1 - 0.6);
     const land = P.land || { x: P.x0, z: (P.z0 + P.z1) / 2 };
-    return { x, z, heading: Math.atan2(land.x - x, land.z - z), pier: true, landing: P === PIERS[1], quay: P === HAVEN_QUAY };
+    return { x, z, heading: Math.atan2(land.x - x, land.z - z), pier: true, landing: P === PIERS[1] || P === CALF_LANDING, quay: P === HAVEN_QUAY };
   }
   for (let r = 1.4; r <= 6.2; r += 0.6) {
     let best = null;
@@ -1431,14 +1432,14 @@ function updateTravel(dt) {
   if (traveling.drive) {
     if (!traveling.done && traveling.t > 1.1) {
       traveling.done = true;
-      arrive(traveling.to);
+      arrive(traveling.to, traveling.aim);
     }
     if (traveling.t > 2.4) {
       hud.sleep(false);
       modal = null;
-      const to = traveling.to, fuel = traveling.fuel;
+      const to = traveling.to, fuel = traveling.fuel, aim = traveling.aim;
       traveling = null;
-      arrivalWords(to, fuel?.short ? ` You ran dry on the way and walked for a can: an hour gone, and ${litres(tanks().car)} in the tank.` : '');
+      arrivalWords(to, fuel?.short ? ` You ran dry on the way and walked for a can: an hour gone, and ${litres(tanks().car)} in the tank.` : '', aim);
     }
     return;
   }
@@ -1723,8 +1724,9 @@ function carBumped(b) {
   hud.flash(b.kind === 'water' ? 'The car won’t go any nearer the water.' : b.kind === 'steep' ? 'Too steep for the car.' : `The car stops: ${b.name || 'something'} in the way.`, t, 2.2);
 }
 
-// Drive somewhere with the time passing (a short fade): to a destination, or home.
-function driveTo(to, how = 'skip') {
+// Drive somewhere with the time passing (a short fade): to a destination, or home. aim: where the
+// outing is for, if that's somewhere you go on to by boat from here (the Calf, from Willowhaven).
+function driveTo(to, how = 'skip', aim = to) {
   if (!started || traveling || sleeping) return;
   if (fishing.state === 'reeling' || fishing.state === 'landing' || fishing.state === 'caught' || fishing.state === 'keeping') {
     hud.flash('Land or let go of the fish first.', t, 3);
@@ -1741,8 +1743,8 @@ function driveTo(to, how = 'skip') {
   const from = state.car.at;
   if (to !== 'home') {
     state.outing.last = snapshot(state, 'Last time');
-    state.outing.lastDest = to;
-    state.outing.plan.dest = to;
+    state.outing.lastDest = aim;
+    state.outing.plan.dest = aim;
   }
   if (how === 'drive' && DESTS[to]?.drive) {
     // Drive yourself: into the driver's seat, with the way pointed out.
@@ -1765,12 +1767,12 @@ function driveTo(to, how = 'skip') {
   modal = 'travel';
   hud.sleep(true, to === 'home' ? 'You drive home…' : `You drive to ${DESTS[to].name}…`);
   audio.carDoor?.();
-  traveling = { drive: true, to, t: 0, done: false, fuel };
+  traveling = { drive: true, to, aim, t: 0, done: false, fuel };
 }
 
 // Arriving: the car parked at the car park, you beside it; the drive's time gone by. Finished
 // even if the game closed partway (see the load, below), so nothing is ever left half-way.
-function arrive(to) {
+function arrive(to, aim = to) {
   const P = CAR_PARKS[to];
   const from = state.car.at;
   if (driving) {
@@ -1789,20 +1791,22 @@ function arrive(to) {
   state.car = { x: P.x, z: P.z, yaw: P.yaw, at: to };
   state.outing.travel = null;
   stuckT = 0;
-  if (to !== 'home') guideEvent('drive', to);
+  if (to !== 'home') guideEvent('drive', aim);
   save();
 }
 
-function arrivalWords(to, note = '') {
+function arrivalWords(to, note = '', aim = to) {
   const inBoot = [...KIT_IDS.filter((k) => state.equip.kit[k] === 'car').map((k) => KIT[k].short), ...(state.equip.car.rods.length || state.equip.car.items.length ? ['spare tackle'] : [])];
   if (to === 'home') {
     hud.place('Home', 'on the drive');
     hud.toast(`Home.${note} ${inBoot.length ? `In the boot: ${inBoot.join(', ')}. Unload it at the boot, or leave it for next time.` : 'The boot is empty.'} The garage door is open.`, 7);
     return;
   }
-  const D = DESTS[to];
+  const D = DESTS[to], A = DESTS[aim];
   hud.place(D.name, 'the car park');
-  hud.toast(`${D.name}.${note} ${D.access}${inBoot.length ? ` In the boot: ${inBoot.join(', ')} (open it at the back of the car).` : ''}`, 9);
+  // (On to somewhere by boat from here: the crossing, in a word.)
+  const on = A?.boat && A.launch === to ? ` For ${A.name}: walk down to the head of the quay and have a boat brought round, then out of the bay and west along the coast to the island just off Heron Point.` : ` ${D.access}`;
+  hud.toast(`${D.name}.${note}${on}${inBoot.length ? ` In the boot: ${inBoot.join(', ')} (open it at the back of the car).` : ''}`, 9);
 }
 
 /* ---- the workbench and the outing sheet ---- */
@@ -1839,7 +1843,7 @@ const bench = new Workbench(state, {
   openMap: (id) => {
     closeBench();
     backTo = 'bench';
-    const P = CAR_PARKS[id];
+    const P = CAR_PARKS[id] || DESTS[id].at;
     openMapAt(P.x, P.z);
   },
   changed: () => {
@@ -1850,7 +1854,8 @@ const bench = new Workbench(state, {
   depart: (id, how) => {
     closeBench();
     guideEvent('plan', id);
-    driveTo(id, how);
+    // (A place by boat: the car goes to its harbour, and the plan stays the place.)
+    driveTo(launchOf(id), how, id);
   },
   close: () => closeBench(),
   eco, habitat,
@@ -1917,7 +1922,8 @@ function endGuide() {
 function guideEvent(id, dest = null) {
   const g = state.guide;
   if (!g.on) return;
-  if (dest && DESTS[dest]) g.dest = dest;
+  // (Reaching the harbour on the way to a place by boat keeps that place as the aim.)
+  if (dest && DESTS[dest] && DESTS[g.dest]?.launch !== dest) g.dest = dest;
   if (completeStep(g, id)) guideMoved();
 }
 
@@ -1979,7 +1985,7 @@ function updateGuide(dt) {
     nearCar: onFoot && Math.hypot(car.pos.x - P.x, car.pos.z - P.z) < 12,
     plan: state.outing.plan, rig: item && rod ? `${item.on} on the ${rod.short.toLowerCase()}` : '', kind: fishing.kind,
     caught: state.log.filter((e) => e.at >= g.since).length, car: { x: car.pos.x, z: car.pos.z }, tent: state.equip.kit.tent,
-    here: placeAt(P.x, P.z),
+    here: placeAt(P.x, P.z), afloat: !onFoot && !driving,
   });
   guideTarget = w?.target || null;
   if (guideTarget && $('guide-label').textContent !== guideTarget.label) $('guide-label').textContent = guideTarget.label;
@@ -2174,6 +2180,7 @@ function interaction() {
     const page = pageNear();
     if (page) return { text: PAGES[page].where.startsWith('tucked') ? 'Look at the paper tucked under the seat' : PAGES[page].where.startsWith('folded') ? 'Look at the paper in the crack' : 'Look at the paper in the driftwood', run: () => readPage(page) };
     if (coastSpot('board')) return { text: 'Read the notice board', run: () => openBoard() };
+    if (coastSpot('tower')) return { text: 'The watch tower', run: () => climbTower() };
     if (chandleryNear()) return { text: 'The chandlery: tackle, bait and charts', run: () => openPack('chandlery') };
     if (coastSpot('bench')) return { text: 'Sit on the bench a while', run: () => sitOnBench() };
     if (quayHeadNear()) return { text: 'Have a boat brought round to the quay', run: () => boatsRound() };
@@ -2305,6 +2312,15 @@ function drawNoteSketch(ctx, w, h, kind) {
     ctx.beginPath(); ctx.moveTo(cx + 30, cy + 34); ctx.lineTo(cx + 20, cy + 46); ctx.lineTo(cx + 40, cy + 46); ctx.closePath(); ctx.stroke();
     ctx.beginPath(); ctx.arc(cx + 30, cy + 2, 1.8, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.moveTo(10, cy + 58); for (let x = 10; x < w - 10; x += 12) ctx.quadraticCurveTo(x + 3, cy + 54, x + 6, cy + 58); ctx.stroke();
+  } else if (kind === 'watch' || kind === 'tower') {
+    // The watch tower on its hump of an island, broken at the top; seals on the skerry below.
+    ctx.beginPath(); ctx.moveTo(14, cy + 30); ctx.quadraticCurveTo(cx - 40, cy - 6, cx + 6, cy - 4); ctx.quadraticCurveTo(cx + 46, cy, cx + 70, cy + 30); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - 22, cy - 2); ctx.lineTo(cx - 22, cy - 62); ctx.lineTo(cx - 14, cy - 56); ctx.lineTo(cx - 8, cy - 66); ctx.lineTo(cx, cy - 52); ctx.lineTo(cx + 8, cy - 48); ctx.lineTo(cx + 8, cy - 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + 8, cy - 2); ctx.lineTo(cx + 8, cy - 18); ctx.quadraticCurveTo(cx + 2, cy - 26, cx - 4, cy - 18); ctx.lineTo(cx - 4, cy - 2); ctx.stroke();
+    ctx.fillRect(cx - 15, cy - 40, 3, 8);
+    ctx.beginPath(); ctx.ellipse(w - 46, cy + 34, 24, 6, 0, Math.PI, 0); ctx.stroke();
+    for (const [x, s] of [[w - 58, 1], [w - 38, 0.8]]) { ctx.beginPath(); ctx.ellipse(x, cy + 26, 8 * s, 3.5 * s, -0.2, 0, Math.PI * 2); ctx.fill(); }
+    ctx.beginPath(); ctx.moveTo(10, cy + 40); for (let x = 10; x < w - 10; x += 12) ctx.quadraticCurveTo(x + 3, cy + 36, x + 6, cy + 40); ctx.stroke();
   } else if (kind === 'wall') {
     ctx.strokeRect(cx - 52, cy - 40, 104, 80);
     ctx.beginPath(); ctx.ellipse(cx, cy, 30, 14, 0, 0, Math.PI * 2); ctx.stroke();
@@ -2320,6 +2336,8 @@ const adventures = new Adventures(state, {
   toast: (text, secs) => hud.toast(text, secs),
   save: () => save(),
 });
+// Tam's slate lies in the watch tower on the Calf until you take it.
+world.calf.showSlate(!state.adventures.watch?.steps?.slate);
 
 // Ada's pages, where they lie (until you've read them).
 const PAGE_SPOTS = { punt: 'punt', head: 'daymark', strand: 'shelter' };
@@ -2408,6 +2426,8 @@ function renderBoard() {
       const first = adventures.clue(n.id);
       closeBoard();
       if (!first || adventures.status(n.id) !== 'done') showNote(n.title, n.text, n.id);
+      // (Done already, before you read it: its ending was waiting behind the board.)
+      else if (noteQueue.length && !modal) showNote(...noteQueue.shift());
     });
     d.append(b);
     // The cuttlefish photograph: pin it up here.
@@ -2451,7 +2471,7 @@ async function paintHavenBoard() {
       await img.decode().catch(() => { img = null; });
     }
   }
-  world.coast.paintBoard((ctx, w, h) => paintBoard(ctx, w, h, { photo: img, seen: { kittiwake: adventures.status('kittiwake') === 'done' } }));
+  world.coast.paintBoard((ctx, w, h) => paintBoard(ctx, w, h, { photo: img, seen: { kittiwake: adventures.status('kittiwake') === 'done', watch: adventures.status('watch') === 'done' } }));
 }
 
 function pinWall(id) {
@@ -2459,6 +2479,24 @@ function pinWall(id) {
   adventures.step('wall', 'pinned');
   paintHavenBoard();
   save();
+}
+
+/* ---- the Calf: the watch tower ---- */
+
+// Up the tower's broken stair: the view (the map fills in for miles round), and Tam's slate on the
+// ledge inside the door, until you take it.
+function climbTower() {
+  const taken = !!state.adventures.watch?.steps?.slate;
+  explored.reveal(CALF_TOWER.x, CALF_TOWER.z, 420);
+  audio.rustle?.();
+  if (taken) {
+    showNote('The watch tower', 'Up the broken stair again: Heron Point, the white water in the Sound, the seals on the skerry, and far off to the east, the light on Willowhaven quay.', 'tower');
+    return;
+  }
+  showNote('The watch tower', 'Up the broken stair to where the floor once was: the whole coast laid out, Heron Point and the white water in the Sound, the seals on the skerry, Willowhaven far off to the east. Coming down, on a ledge inside the door, a roofing slate scratched all over with tally marks. You take it with you.', 'tower');
+  world.calf.showSlate(false);
+  adventures.step('watch', 'slate');
+  if (adventures.status('watch') === 'done') paintHavenBoard();
 }
 
 /* ---- the bench, and boats brought round ---- */
@@ -2741,6 +2779,8 @@ function checkPlaces(dt) {
     if (pl.id === 'strand') teach('strandTip', 'Shell Strand: bass come into the surf at dusk, and flatfish up the sand after dark. The shelf above the beach is a dry, level place for a tent.', 9);
     if (pl.id === 'head') teach('headTip', 'Cove Head takes the swell: bass and white bream in the wash below the ledges. You can see the Kittiwake’s buoy from the daymark.', 8);
     if (pl.id === 'reach') teach('reachTip', 'The cove channel is sheltered from every wind: a calm place for a float at dusk, and for watching cuttlefish under the water.', 8);
+    if (pl.id === 'calf') teach('calfTip', `The Calf: tie up at the landing in its lee and step ashore. Pollack and wrasse live over the kelp under the cliffs, bass hunt the white water off the Nose, and the watch tower looks out over the whole coast (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} at its door).`, 10);
+    if (pl.id === 'sound') teach('soundTip', 'Calf Sound: the tide pours through here, the fastest water on the coast. Mackerel, garfish and bluefish hunt sandeels in it: cast a metal or a soft sandeel across the current and let it swing round, or drift through with it. It sets a boat east as it goes.', 10);
     if (pl.id === 'wreck') teach('wreckTip', `The Kittiwake lies below you. Look under the water (${scheme() === 'touch' ? 'the view button' : input.keyLabel('view')}) to see her, or fish over her: a bottom rig for the conger, a shad for the pollack.`, 9);
     save();
   }
@@ -4613,7 +4653,9 @@ function tick(now, manual = false) {
     stove: 1 - smoothstep(1.5, 9, ownCookD),
     harbour: 1 - smoothstep(15, 70, Math.hypot(P.x - HAVEN.x, P.z - HAVEN.z)),
     inlet: 1 - smoothstep(10, 60, Math.min(...CHANNEL.map((c) => Math.hypot(P.x - (c[0] + c[2]) / 2, P.z - (c[1] + c[3]) / 2)), Math.hypot(P.x - COVE.x, P.z - COVE.z))),
-    head: 1 - smoothstep(15, 90, Math.hypot(P.x - DAYMARK.x, P.z - (DAYMARK.z + 20))),
+    head: Math.max(1 - smoothstep(15, 90, Math.hypot(P.x - DAYMARK.x, P.z - (DAYMARK.z + 20))), 1 - smoothstep(15, 80, Math.hypot(P.x - (CALF.x - CALF.rx), P.z - CALF.z))),
+    race: 1 - smoothstep(10, 110, Math.hypot(P.x - (CALF_SOUND.x0 + CALF_SOUND.x1) / 2, P.z - (CALF_SOUND.z0 + CALF_SOUND.z1) / 2)),
+    seals: 1 - smoothstep(15, 70, Math.hypot(P.x - CALF_SKERRY.x, P.z - CALF_SKERRY.z)),
     tent: state.camps.reduce((m, c) => Math.max(m, 1 - smoothstep(3, 18, Math.hypot(P.x - c.x, P.z - c.z))), 0),
   });
 

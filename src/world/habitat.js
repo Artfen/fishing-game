@@ -1,7 +1,7 @@
 import {
   heightAt, zoneAt, streamFlow, lakeSDF, ISLAND, COVE, STACKS, CHANNEL, JETTY, LAKE, STREAM, SNAG, LILIES,
   RIVER, riverInfo, riverSDF, MARSH, SANDBANKS, QUAY, MERE, MERE_BAYS, HOLM, TIMBER, mereSDF,
-  GANNET, PUFFIN_COVE, SKERRIES, SKELLIG, SHOAL, DEEP_Z, WRECK, STRAND, DAYMARK,
+  GANNET, PUFFIN_COVE, SKERRIES, SKELLIG, SHOAL, DEEP_Z, WRECK, STRAND, DAYMARK, CALF, CALF_SKERRY, CALF_SOUND,
 } from './terrain.js';
 import { fbm, seeded, smoothstep, clamp } from '../util.js';
 
@@ -22,6 +22,7 @@ export const REGIONS = [
   { id: 'gannet', x: -440, z: 280, w: 420, h: 420, cell: 4, grass: 700, kelp: 900 },
   { id: 'shoal', x: 120, z: 420, w: 380, h: 220, cell: 5, grass: 200, kelp: 0 },
   { id: 'deep', x: -300, z: 860, w: 900, h: 440, cell: 10, grass: 0, kelp: 0 },
+  { id: 'calf', x: -560, z: 90, w: 160, h: 150, cell: 3, grass: 120, kelp: 420 },
 ];
 
 // Hand-placed rock piles; each becomes cover for fish. [x, z, radius]
@@ -196,7 +197,8 @@ export function createHabitat() {
     }
   }
   for (const c of clusters) {
-    spots.push({ type: c.deep ? 'deep' : 'rock', x: c.x, z: c.z, depth: c.depth, zone: zoneAt(c.x, c.z), r: c.deep ? 10 : 8, tag: c.tag });
+    // (The Calf's rocks keep only the fish it hosts, so nothing elsewhere moves: see regionSpots.)
+    spots.push({ type: c.deep ? 'deep' : 'rock', x: c.x, z: c.z, depth: c.depth, zone: zoneAt(c.x, c.z), r: c.deep ? 10 : 8, tag: c.tag, ...(c.tag === 'calf' ? { hosts: [] } : {}) });
   }
   // Reedmere: lily pads by camp, the fallen alder, the silty south-west shelf.
   const lakeSpot = (type, x, z, r, tag) => spots.push({ type, x, z, depth: habitat.depth(x, z), zone: 'lake', r, tag });
@@ -268,6 +270,13 @@ function buildRegions(clusters, rnd) {
   // Drowned oaks and the steep north shore of Longmere; stones along the quay.
   for (const t of TIMBER) add(t.x + Math.sin(t.yaw) * 6, t.z + Math.cos(t.yaw) * 6, 7, 'snag', 0.6);
   for (let k = 0; k < 5; k++) add(QUAY.end.x + 4 + k * 3, QUAY.end.z + (k % 2 ? 6 : -6), 3, 'quay', 0.6);
+  // The Calf: broken rock all round its foot, the skerry, and the ledges along the Sound.
+  for (let k = 0; k < 10; k++) {
+    const a = (k / 10) * Math.PI * 2 + 0.3;
+    add(CALF.x + Math.cos(a) * (CALF.rx + 7), CALF.z + Math.sin(a) * (CALF.rz + 7), 6 + (k % 3), 'calf');
+  }
+  add(CALF_SKERRY.x, CALF_SKERRY.z + CALF_SKERRY.r + 4, 6, 'calf');
+  add(CALF_SKERRY.x - CALF_SKERRY.r - 4, CALF_SKERRY.z, 5, 'calf');
 
   return REGIONS.map((R) => {
     const NXr = Math.round(R.w / R.cell) + 1, NZr = Math.round(R.h / R.cell) + 1;
@@ -292,8 +301,8 @@ function buildRegions(clusters, rnd) {
           const band = smoothstep(0.5, 1.2, depth) * (1 - smoothstep(4, 6, depth));
           const bay = MERE_BAYS.some((b) => Math.hypot((x - b.x) / b.rx, (z - b.z) / b.rz) < 1.1) ? 0.35 : 0;
           weed = clamp(band * smoothstep(-0.05, 0.3, n + bay), 0, 1);
-        } else if (R.id === 'gannet') {
-          // Kelp forests on the reefs and round the island's points.
+        } else if (R.id === 'gannet' || R.id === 'calf') {
+          // Kelp forests on the reefs and round the islands' points.
           weed = smoothstep(1.5, 3, depth) * (1 - smoothstep(10, 14, depth)) * smoothstep(0.05, 0.35, n + 0.1);
         } else if (R.id === 'shoal') {
           weed = smoothstep(2.5, 4, depth) * (1 - smoothstep(6, 9, depth)) * smoothstep(0.2, 0.45, n) * 0.5;
@@ -304,7 +313,7 @@ function buildRegions(clusters, rnd) {
           if (Math.abs(dx) > c.r || Math.abs(dz) > c.r) continue;
           rock = Math.max(rock, smoothstep(c.r, c.r * 0.35, Math.hypot(dx, dz)));
         }
-        if (R.id === 'gannet' && rock > 0.2) weed = Math.max(weed, rock * 0.8 * smoothstep(2, 4, depth));
+        if ((R.id === 'gannet' || R.id === 'calf') && rock > 0.2) weed = Math.max(weed, rock * 0.8 * smoothstep(2, 4, depth));
         weedG[k] = weed;
         rockG[k] = rock;
       }
@@ -416,4 +425,19 @@ function regionSpots(habitat, rnd) {
   put('tide', 360, 260, 30);
   // The deep water: wide-roaming bait shoals and the tuna that follow them.
   for (let i = 0; i < 5; i++) put('blue', -120 + i * 140, DEEP_Z + 120 + (i % 2) * 110, 60, 'blue');
+  // The Calf and its Sound. These homes have fish of their own (hosts, see ecosystem.js), added
+  // on top of everything else, so no fish anywhere else moves to fill them: mackerel, garfish
+  // and bluefish hunting sandeels in the race; pollack over the kelp off the Calf's west foot
+  // and wrasse along its ledges; bass in the white water off the Nose, where the race breaks.
+  const host = (type, x, z, r, tag, hosts) => {
+    const d = habitat.depth(x, z);
+    if (d > 1.2) spots.push({ type, x, z, depth: d, zone: zoneAt(x, z), r, tag, hosts });
+  };
+  const S = CALF_SOUND;
+  host('tide', (S.x0 + S.x1) / 2 - 8, (S.z0 + S.z1) / 2, 14, 'race', ['mackerel', 'garfish', 'bluefish']);
+  host('tide', S.x1 - 6, S.z1 + 2, 12, 'race', ['mackerel']);
+  host('reef', CALF.x - CALF.rx - 9, CALF.z + 2, 10, 'calf', ['pollack', 'wrasse']);
+  host('reef', CALF.x - 4, CALF.z + CALF.rz + 8, 9, 'calf', ['pollack', 'wrasse']);
+  host('reef', CALF_SKERRY.x, CALF_SKERRY.z + CALF_SKERRY.r + 5, 8, 'calf', ['wrasse']);
+  host('surf', CALF.x + 6, CALF.z - CALF.rz - 4, 9, 'nose', ['seabass']);
 }

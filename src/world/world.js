@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {
   heightAt, JETTY, COVE, ISLAND, STACKS, CHANNEL, CAMP, LANDING, findShore, lakeSDF, streamSDF, pathInfo,
   WORLD, riverSDF, mereSDF, trailInfo, MERE, GANNET, coastPathInfo, HAVEN_APRON, HAVEN_HOUSES, DAYMARK, SHELTER, PUNT, STRAND,
-  HOME_PAD, CAR_PARKS, laneInfo,
+  HOME_PAD, CAR_PARKS, laneInfo, CALF,
 } from './terrain.js';
 import { mergeParts, mat, seeded, fbm, clamp, lerp, smoothstep, hash2, jitterGeo, pick, glowTexture } from '../util.js';
 import { buildLanternModel } from '../props.js';
@@ -12,6 +12,7 @@ import { buildShore, SHORE_PATCH } from './shore.js';
 import { buildRegions } from './regions.js';
 import { buildCoast } from './coast.js';
 import { buildHome, buildGravel } from './home.js';
+import { buildCalf } from './calf.js';
 
 const shared = { uTime: { value: 0 }, uWind: { value: 1 } };
 const UP = new THREE.Vector3(0, 1, 0);
@@ -185,6 +186,8 @@ export const TERRAIN_PATCHES = [
   { id: 'estuary', x0: 380, x1: 780, z0: -420, z1: 300, cell: 4, jitter: 0.5, shadows: true },
   { id: 'mere', x0: 100, x1: 600, z0: -680, z1: -420, cell: 4, jitter: 0.5, shadows: true },
   { id: 'gannet', x0: -380, x1: -140, z0: 420, z1: 680, cell: 2.5, jitter: 0.5, shadows: true },
+  // The Calf and Heron Point: small, steep and close up, so a fine grid.
+  { id: 'calf', x0: -560, x1: -420, z0: 80, z1: 220, cell: 2, jitter: 0.45, shadows: true },
 ];
 const FAR_RECT = { x0: -1300, x1: 1500, z0: -1900, z1: 1800 };
 
@@ -869,7 +872,9 @@ export function buildWorld(scene, renderer, habitat) {
   // Beyond the bay: woods in the Wend valley and round Longmere (clear of the trail and the
   // banks), trees on Gannet Isle, and thinner woods along the rest of the coast. Each area is its
   // own set of meshes, so the ones out of view aren't drawn.
-  const regionSkip = (x, z) => trailInfo(x, z).d < 3 || riverSDF(x, z) < 8 || mereSDF(x, z) < 4 || (x < 380 && x > -380 && z > -420 && z < 340);
+  // (The Calf is too windswept for trees.)
+  const regionSkip = (x, z) => trailInfo(x, z).d < 3 || riverSDF(x, z) < 8 || mereSDF(x, z) < 4 || (x < 380 && x > -380 && z > -420 && z < 340)
+    || Math.hypot((x - CALF.x) / (CALF.rx + 8), (z - CALF.z) / (CALF.rz + 8)) < 1;
   const areas = [
     { x0: 380, x1: 780, z0: -420, z1: 300, step: 5, thin: 0.9 },
     { x0: 100, x1: 600, z0: -680, z1: -420, step: 5, thin: 0.9 },
@@ -912,6 +917,10 @@ export function buildWorld(scene, renderer, habitat) {
   const home = buildHome(scene, seeded(20261101));
   for (const o of home.obstacles) obstacles.add(o.x, o.z, o.r, o.top ?? Infinity, -Infinity, o.kind || 'thing', o.name || '');
   scene.add(buildGravel(seeded(20261102)));
+  // The Calf, off Heron Point: its tower, landing, seals and race (its own seed as well).
+  const calf = buildCalf(scene, seeded(20261024 + 77));
+  for (const o of calf.obstacles) obstacles.add(o.x, o.z, o.r, o.top ?? Infinity, -Infinity, o.kind || 'thing', o.name || '');
+  coast.spots.push(...calf.spots);
   // Tree crowns, for casts that clip a branch: radius, and the height band of the leaves.
   const canopy = new ObstacleGrid(6);
   const crown = { pine: [1.25, 1.1, 4.8], round: [1.5, 1.3, 3.8], blossom: [1.5, 1.3, 3.8] };
@@ -984,6 +993,7 @@ export function buildWorld(scene, renderer, habitat) {
     boxes: regions.boxes,
     coast,
     home,
+    calf,
     // Birds over feeding fish: a flock gathers over (x, z) for a while (or freshens if one is there).
     birdsAt(x, z) {
       const near = flocks.find((f) => Math.hypot(f.x - x, f.z - z) < 40);
@@ -1036,6 +1046,7 @@ export function buildWorld(scene, renderer, habitat) {
       shore.update(dt, t, env, { ...extra, wind: shared.uWind.value });
       regions.update(dt, t, env);
       coast.update(dt, t, env);
+      if (extra.camera) calf.update(dt, t, { from: extra.camera.position });
       fireflies.material.uniforms.uOpacity.value = env.night * (1 - env.rain * 0.8);
 
       const lamp = env.lantern;

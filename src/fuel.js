@@ -36,6 +36,9 @@ export const BATTERY_PER_HOUR = 0.5;
 export const RESCUE = { car: 6, boat: 4, hours: 1 };
 // The low-fuel words come at these fractions of a tank.
 export const LOW = 0.2;
+// Enough in a motor boat's tank for a crossing to a place reached by boat, and back (the Calf is
+// about 600 m from Willowhaven quay: a litre or two each way at the speeds you'd go).
+export const BOAT_TRIP = 6;
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const num = (v, d, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
@@ -153,8 +156,10 @@ export const low = (f, what) => level(f, what) < TANKS[what] * LOW;
 // For the workbench's packing list and the car's "Where to?": will the tank get you there and
 // back? (A level per line, like the rest of the check: ok, info or warn.)
 export function fuelCheck(f, from, to) {
-  const D = DESTS[to];
-  if (!D) return [];
+  const T = DESTS[to];
+  if (!T) return [];
+  // (A place by boat: the car goes as far as its harbour.)
+  const D = DESTS[T.launch] || T;
   const there = carNeeds(from, to), back = carNeeds(to, 'home');
   const have = f.car;
   const out = [];
@@ -163,5 +168,12 @@ export function fuelCheck(f, from, to) {
   else if (have + (canWith ? f.can.litres : 0) >= there + back) out.push({ level: 'info', text: `Fuel: ${tankWords(f, 'car')} gets you to ${D.name} (about ${litres(there)}); the jerry can with you gets you home again.` });
   else if (have >= there) out.push({ level: 'info', text: `Fuel: ${tankWords(f, 'car')} gets you to ${D.name} (about ${litres(there)}), but not home again: fill up at the pump by the garage, or take the jerry can.` });
   else out.push({ level: 'warn', text: `Fuel: ${tankWords(f, 'car')} isn’t enough for ${D.name} (about ${litres(there)}): fill up at the pump by the garage first.` });
+  // The motor boats brought round to the quay (the bass boat stays on Longmere).
+  if (T.boat) {
+    const thin = ['skiff', 'cabin'].filter((k) => f.boats[k] < BOAT_TRIP);
+    const names = { skiff: 'motor skiff', cabin: 'cabin boat' };
+    if (thin.length) out.push({ level: 'info', text: `Boat fuel: the ${thin.map((k) => `${names[k]} has ${litres(f.boats[k])}`).join(' and the ')}. Fill up at the harbour pump on ${D.name} quay before you cross to ${T.name} (the oars and the paddle need none).` });
+    else out.push({ level: 'ok', text: `Boat fuel: plenty in the motor skiff and the cabin boat for ${T.name} and back.` });
+  }
   return out;
 }

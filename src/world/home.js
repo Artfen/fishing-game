@@ -352,6 +352,13 @@ export function buildHome(scene, rnd) {
   keep.chart = keepMesh([{ geo: box(0.22, 0.17, 0.02), matrix: mat(120.1, Y + 1.24, -80.78, -0.15, 0, 0), color: '#3d2f22' }, { geo: box(0.18, 0.13, 0.025), matrix: mat(120.1, Y + 1.24, -80.775, -0.15, 0, 0), color: '#8a7a5e' }]);
   keep.notebook = keepMesh([{ geo: box(0.16, 0.03, 0.22), matrix: mat(121.0, Y + 1.16, -80.72), color: '#34558a' }, { geo: box(0.15, 0.025, 0.21), matrix: mat(121.0, Y + 1.19, -80.72, 0, 0.12, 0), color: '#e8dfc8' }]);
   keep.feather = keepMesh([{ geo: box(0.02, 0.008, 0.2), matrix: mat(121.6, Y + 1.16, -80.7, 0, 0.6, 0), color: '#f2f2ef' }, { geo: box(0.05, 0.006, 0.12), matrix: mat(121.62, Y + 1.165, -80.69, 0, 0.6, 0), color: '#a7adb2' }]);
+  // Tam's slate, propped against the wall: tally marks scratched pale on the dark stone.
+  keep.slate = keepMesh([
+    { geo: box(0.26, 0.19, 0.015), matrix: mat(120.55, Y + 1.245, -80.79, -0.18, 0, 0), color: '#3f454c' },
+    ...[0, 1, 2, 3].map((i) => ({ geo: box(0.004, 0.05, 0.004), matrix: mat(120.48 + i * 0.02, Y + 1.27, -80.78, -0.18, 0, 0.1), color: '#c9ccc8' })),
+    { geo: box(0.09, 0.004, 0.004), matrix: mat(120.51, Y + 1.27, -80.778, -0.18, 0, 0.45), color: '#c9ccc8' },
+    ...[0, 1, 2].map((i) => ({ geo: box(0.004, 0.05, 0.004), matrix: mat(120.6 + i * 0.02, Y + 1.27, -80.78, -0.18, 0, -0.08), color: '#c9ccc8' })),
+  ]);
 
   // ---- inside the garage ----
   const G_PARTS = [];

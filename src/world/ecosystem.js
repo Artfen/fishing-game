@@ -60,7 +60,7 @@ export class Ecosystem {
   populate() {
     let rnd = seeded(77);
     const pickHomes = (L, n, gap, nearJetty, zones = L.zones) => {
-      const cands = this.habitat.spots.filter((s) => L.homes.includes(s.type) && zones.includes(s.zone));
+      const cands = this.habitat.spots.filter((s) => !s.hosts && L.homes.includes(s.type) && zones.includes(s.zone));
       for (let i = cands.length - 1; i > 0; i--) {
         const j = Math.floor(rnd() * (i + 1));
         [cands[i], cands[j]] = [cands[j], cands[i]];
@@ -90,6 +90,21 @@ export class Ecosystem {
         for (const home of homes) this.addSchool(sp, home, rnd);
       } else {
         for (const home of homes) {
+          const n = L.group[0] + Math.floor(rnd() * (L.group[1] - L.group[0] + 1));
+          for (let k = 0; k < n; k++) this.addAgent(sp, home, rnd);
+        }
+      }
+    });
+    // A few homes keep fish of their own (the Calf's race and reefs, see habitat.js): a school or
+    // a group of each species they host, on top of the rest, each with its own seed.
+    this.habitat.spots.forEach((home, h) => {
+      for (const id of home.hosts || []) {
+        const i = FISH.findIndex((f) => f.id === id), sp = FISH[i];
+        if (!sp || sp.retired || !sp.life.homes.includes(home.type) || !sp.life.zones.includes(home.zone)) continue;
+        rnd = seeded(5150 + i * 1013 + h * 7);
+        const L = sp.life;
+        if (L.school) this.addSchool(sp, home, rnd);
+        else {
           const n = L.group[0] + Math.floor(rnd() * (L.group[1] - L.group[0] + 1));
           for (let k = 0; k < n; k++) this.addAgent(sp, home, rnd);
         }

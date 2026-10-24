@@ -85,6 +85,15 @@ export const SKERRIES = [
   { x: -96, z: 334, r: 5 }, { x: -74, z: 348, r: 3.5 }, { x: -118, z: 352, r: 4 }, { x: -62, z: 322, r: 2.6 }, { x: -104, z: 366, r: 2.4 },
 ];
 export const SKELLIG = { x: 430, z: 770, r: 16 };
+// The Calf: a small green island off Heron Point, the western headland, with Calf Sound between
+// them: a narrow, deep gut the tide races through. A ruined watch tower on its top, a stone
+// landing in its lee (the east side, out of the Atlantic swell), and a low skerry off its
+// north-west corner where the seals haul out.
+export const CALF = { x: -484, z: 167, rx: 21, rz: 15 };
+export const CALF_TOWER = { x: -489, z: 169 };
+export const CALF_SKERRY = { x: -516, z: 158, r: 5.5 };
+// Calf Sound: the line the race runs along (west to east on the ebb), and how far it reaches.
+export const CALF_SOUND = { x0: -528, z0: 141, x1: -440, z1: 138, r: 15 };
 export const SHOAL = { x: 300, z: 520, rx: 115, rz: 34, yaw: 0.25, top: -3.6 };
 export const DEEP_Z = 860; // past here the seabed falls away to the deep water
 
@@ -203,6 +212,8 @@ function sdEllipse(x, z, cx, cz, rx, rz) {
   const px = x - cx, pz = z - cz;
   const k0 = Math.hypot(px / rx, pz / rz);
   const k1 = Math.hypot(px / (rx * rx), pz / (rz * rz));
+  // (Exactly at the centre the estimate is 0/0: there, it's as deep inside as it gets.)
+  if (k1 < 1e-9) return -Math.min(rx, rz);
   return (k0 * (k0 - 1)) / Math.max(k1, 1e-6);
 }
 
@@ -239,6 +250,14 @@ export function landSDF(x, z) {
     d = smax(d, -sdCapsule(x, z, PUFFIN_COVE.x, PUFFIN_COVE.z, PUFFIN_COVE.x + 8, PUFFIN_COVE.z - 60, 9 + n2 * 2), 6);
   }
   for (const s of SKERRIES) d = smin(d, sdCircle(x, z, s.x, s.z, s.r) + n2 * 1.8, 2);
+  // The Calf and its skerry, and Calf Sound kept open between it and the Point (whatever the
+  // coast's own noise does there, a clear, deep gut).
+  if (Math.abs(x - CALF.x) < 90 && Math.abs(z - CALF.z) < 90) {
+    const nc = fbm(x * 0.09 + 31, z * 0.09 - 17, 2);
+    d = smin(d, sdEllipse(x, z, CALF.x, CALF.z, CALF.rx, CALF.rz) + nc * 4, 3);
+    d = smin(d, sdCircle(x, z, CALF_SKERRY.x, CALF_SKERRY.z, CALF_SKERRY.r) + n2 * 1.2, 1.5);
+    d = smax(d, -sdCapsule(x, z, CALF_SOUND.x0, CALF_SOUND.z0, CALF_SOUND.x1, CALF_SOUND.z1, 8), 4);
+  }
   d = smin(d, sdCircle(x, z, SKELLIG.x, SKELLIG.z, SKELLIG.r) + n2 * 4, 3);
   // The bay itself, open to the south
   d = smax(d, -(sdCircle(x, z, BAY.x, BAY.z, BAY.r) + n1 * 7 + n2 * 1.5), 10);
@@ -279,6 +298,19 @@ function baseHeight(x, z) {
   // a soft hump in the middle of the jetty island
   const di = Math.hypot(x - ISLAND.x, z - ISLAND.z);
   h += 2.2 * smoothstep(ISLAND.r + 2, 0, di);
+  // The Calf: sheer to the west and south where the swell hits, a long grassy slope down to the
+  // landing on its east side, and a level top round the tower. (Not the skerry: that stays low.)
+  if (Math.abs(x - CALF.x) < 40 && Math.abs(z - CALF.z) < 40) {
+    const lee = smoothstep(-0.2, 0.9, (x - CALF.x) / CALF.rx);
+    const skerry = smoothstep(CALF_SKERRY.r + 2, CALF_SKERRY.r + 6, Math.hypot(x - CALF_SKERRY.x, z - CALF_SKERRY.z));
+    h += (7.5 - 3.5 * lee) * smoothstep(1.5, lerp(6.5, 13, lee), inland) * skerry;
+    // The skerry: a low, flat-topped rock, just clear of the water.
+    h += 0.7 * smoothstep(CALF_SKERRY.r + 1, CALF_SKERRY.r * 0.4, Math.hypot(x - CALF_SKERRY.x, z - CALF_SKERRY.z));
+    // The way up from the landing (see CALF_LANDING): a cut in the slope, easier on the legs.
+    const px = Math.min(CALF.x + 19, Math.max(CALF.x + 11, x)), pd = Math.hypot(x - px, z - CALF.z - 1);
+    const ramp = lerp(1.15, 7, (CALF.x + 19 - px) / 8);
+    h = lerp(h, Math.min(h, ramp), smoothstep(2.6, 1.2, pd));
+  }
   return h;
 }
 
@@ -764,6 +796,9 @@ export const BOATHOUSE_PIER = pierAlong(BOATHOUSE.x + 4, BOATHOUSE.z, -1, 0, { w
 export const COVE_PIER = pierAlong(GANNET_CAMP.x, GANNET_CAMP.z - 2, 0, -1, { width: 2, deck: 0.8 });
 // Willowhaven's quay: stone, out from the apron into the bay where it's deep enough for the skiff.
 export const HAVEN_QUAY = pierAlong(10, -97, 0, 1, { width: 3.2, deck: 1.5, deep: 4.2 });
+// The Calf's landing: a short stone jetty out from its east side, in the lee, deep enough at its
+// end for any of the boats to come alongside.
+export const CALF_LANDING = pierAlong(CALF.x + 8, CALF.z + 1, 1, 0, { width: 2.6, deck: 1.0, deep: 1.8 });
 // Where the cabin boat lies: alongside Willowhaven quay, bow to the sea, near the harbour pump,
 // with water under its whole length.
 export const CABIN_BERTH = (() => {
@@ -786,6 +821,7 @@ export const PIERS = [
   QUAY, BOATHOUSE_PIER, COVE_PIER,
   // (After the others, so PIERS[1] stays the landing.)
   HAVEN_QUAY,
+  CALF_LANDING,
 ];
 
 // Where the lake meets the land, walking out from its centre at an angle.
@@ -1037,6 +1073,18 @@ export const PLACES = [
     note: 'A rocky point on the west coast, with surf on its ledges. Sea bass hunt in the white water.',
     x: -480, z: 110, region: 'coast',
     test: (x, z) => Math.hypot(x + 480, z - 110) < 70,
+  },
+  {
+    id: 'calf', name: 'The Calf', sub: 'a small island off Heron Point', dock: true,
+    note: 'A green hump of an island, sheer to the west, with a ruined watch tower on its top and a stone landing in its lee. Seals haul out on the skerry off its north-west corner. Room on the top for a tent, if the weather’s kind.',
+    x: CALF.x, z: CALF.z, region: 'coast',
+    test: (x, z) => Math.hypot((x - CALF.x) / (CALF.rx + 12), (z - CALF.z) / (CALF.rz + 12)) < 1,
+  },
+  {
+    id: 'sound', name: 'Calf Sound', sub: 'a tide race between the Point and the Calf',
+    note: 'The tide pours through the gut between Heron Point and the Calf, and the water stands up in ridges where it runs. Bass and pollack wait on its edges for what it carries; mackerel and garfish come through on it. Spin a metal or a sandeel across it, from the Calf’s rocks or drifting through.',
+    x: (CALF_SOUND.x0 + CALF_SOUND.x1) / 2, z: (CALF_SOUND.z0 + CALF_SOUND.z1) / 2, region: 'coast',
+    test: (x, z) => sdCapsule(x, z, CALF_SOUND.x0, CALF_SOUND.z0, CALF_SOUND.x1, CALF_SOUND.z1, 10) < 0,
   },
   {
     id: 'gull', name: 'Gull Rock', sub: 'where the water turns deep',

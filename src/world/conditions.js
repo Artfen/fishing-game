@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { clamp, smoothstep, damp, lerp } from '../util.js';
 import {
   WATER_RECT, BAY, COVE, CHANNEL, GANNET, SHOAL, SKERRIES, RIVER, DEEP_Z,
-  zoneAt, solidHeight, streamFlow, riverInfo, freshness,
+  zoneAt, solidHeight, streamFlow, riverInfo, freshness, CALF_SOUND,
 } from './terrain.js';
 
 // Wind, waves and currents: one shared state for the whole game, so the water you see, the
@@ -263,6 +263,9 @@ const _ri = {};
 const ZONES = [
   // Through the channel into Driftwood Cove: a gentle set northwards.
   ...CHANNEL.map(([x0, z0, x1, z1, r]) => ({ kind: 'line', x0, z0, x1, z1, r: r + 6, speed: 0.22, tidal: true })),
+  // Calf Sound: the tide pours through the gut between Heron Point and the Calf, the strongest
+  // race on the coast (slack in the Calf's lee, a few metres either side).
+  { kind: 'line', x0: CALF_SOUND.x0, z0: CALF_SOUND.z0, x1: CALF_SOUND.x1, z1: CALF_SOUND.z1, r: 18, speed: 0.8, tidal: true },
   // Round Gannet Isle's points: the tide splits and runs along its shores, fastest off them.
   { kind: 'ring', x: GANNET.x, z: GANNET.z, r0: GANNET.r * 0.95, r1: GANNET.r * 1.6, speed: 0.38, spin: 1, tidal: true },
   // Over Long Shoal: the tide quickens across the shallows.

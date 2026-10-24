@@ -103,10 +103,12 @@ export class AudioScape {
     this.sizzleBed = this.bed(this.white, [['highpass', 3200, 0.5]]);
     // A camping stove's soft roar while something cooks.
     this.stoveBed = this.bed(this.white, [['bandpass', 2400, 0.6], ['lowpass', 5000, 0.5]]);
+    // The race in Calf Sound: a deep, restless roar of water going somewhere in a hurry.
+    this.raceBed = this.bed(this.pink, [['bandpass', 360, 0.45], ['lowpass', 1500, 0.5]], this.wavesBus);
     this.alarmOsc = null;
     this.setVolumes(this.volumes);
 
-    this.next = { lap: 1, bird: 3, gull: 8, cricket: 2, owl: 25, note: 5, chord: 1, drop: 0, crackle: 0.5, frog: 8, bloop: 1, clink: 2, curlew: 12, boom: 4, flap: 2 };
+    this.next = { lap: 1, bird: 3, gull: 8, cricket: 2, owl: 25, note: 5, chord: 1, drop: 0, crackle: 0.5, frog: 8, bloop: 1, clink: 2, curlew: 12, boom: 4, flap: 2, seal: 6 };
     this.lastNote = 5;
     this.chordIdx = 0;
   }
@@ -519,6 +521,13 @@ export class AudioScape {
     this.burst({ buf: this.pink, type: 'bandpass', freq: 700, q: 0.6, dur: 1.2, gain: vol * 0.35, attack: 0.3, pan, when: 0.15, dest: this.wavesBus });
   }
 
+  // A grey seal hauled out on the skerry: a long, wavering moan, half song.
+  seal(vol, pan) {
+    const f = rand(190, 260);
+    this.tone({ freq: f, freqEnd: f * rand(0.7, 0.82), dur: rand(1.4, 2.2), gain: vol, attack: 0.35, pan, vib: 4, dest: this.nature });
+    this.tone({ type: 'triangle', freq: f * 2, freqEnd: f * 1.5, dur: 1.2, gain: vol * 0.18, attack: 0.4, pan, when: 0.1, dest: this.nature });
+  }
+
   // The tent's fly flapping in a gust.
   flap(vol) {
     this.burst({ buf: this.pink, type: 'bandpass', freq: rand(700, 1100), q: 0.7, dur: rand(0.12, 0.25), gain: vol, attack: 0.01, pan: rand(-0.4, 0.4), dest: this.windBus });
@@ -650,7 +659,7 @@ export class AudioScape {
     if (!this.ctx) return;
     this.t += dt;
     const now = this.ctx.currentTime;
-    const { speed, rain, day, night, land, open, cove, gulls, stream = 0, fire = 0, sizzle = 0, lake = 0, water = 1, wind = 0.3, gust = 1, sea = 0.2, stove = 0, harbour = 0, inlet = 0, head = 0, tent = 0 } = s;
+    const { speed, rain, day, night, land, open, cove, gulls, stream = 0, fire = 0, sizzle = 0, lake = 0, water = 1, wind = 0.3, gust = 1, sea = 0.2, stove = 0, harbour = 0, inlet = 0, head = 0, tent = 0, race = 0, seals = 0 } = s;
 
     // The sea's wash grows with the waves where you are; the surf with the swell on the shore.
     this.set(this.waterBed.g.gain, (0.08 + 0.05 * Math.min(speed / 5, 1) + 0.12 * Math.min(sea, 1)) * (0.25 + 0.75 * water), 1);
@@ -669,6 +678,8 @@ export class AudioScape {
     this.set(this.fireBed.g.gain, 0.05 * fire, 0.8);
     this.set(this.sizzleBed.g.gain, 0.02 * sizzle, 0.5);
     this.set(this.stoveBed.g.gain, 0.012 * stove, 0.5);
+    this.set(this.raceBed.g.gain, 0.07 * race * above, 1.5);
+    this.raceBed.f[0].frequency.setTargetAtTime(320 + Math.sin(this.t * 0.37) * 60 + Math.sin(this.t * 1.3) * 25, now, 0.6);
 
     const n = this.next;
     for (const k in n) n[k] -= dt;
@@ -716,6 +727,10 @@ export class AudioScape {
     if (n.boom <= 0) {
       if (head > 0.15 && sea > 0.25) this.boom(0.09 * head * Math.min(1.5, sea), rand(-0.5, 0.5));
       n.boom = rand(5, 11);
+    }
+    if (n.seal <= 0) {
+      if (seals > 0.15 && rain < 0.7) this.seal(0.02 * seals, rand(-0.6, 0.6));
+      n.seal = rand(9, 28);
     }
     if (n.flap <= 0) {
       if (tent > 0.1 && wind > 0.25) this.flap(0.02 * tent * wind * Math.max(1, gust));
