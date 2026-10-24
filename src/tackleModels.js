@@ -124,6 +124,14 @@ function lure(id) {
       { geo: new THREE.SphereGeometry(0.006, 6, 4), matrix: mat(0.016, 0.006, big ? 0.06 : 0.025), color: '#1a1512', jitter: 0 },
       { geo: new THREE.SphereGeometry(0.006, 6, 4), matrix: mat(-0.016, 0.006, big ? 0.06 : 0.025), color: '#1a1512', jitter: 0 },
     ])));
+  } else if (id === 'sabiki') {
+    // In the water: a little string of flashing feathers above a lead.
+    const parts = [];
+    for (let i = 0; i < 5; i++) {
+      parts.push({ geo: new THREE.ConeGeometry(0.006, 0.03, 5), matrix: mat(0, 0.09 - i * 0.045, 0, Math.PI, 0, 0), color: ['#f0a2b6', '#e6f0ee', '#9ed8c2'][i % 3], jitter: 0 });
+    }
+    parts.push({ geo: new THREE.SphereGeometry(0.012, 6, 5), matrix: mat(0, -0.15, 0, 0, 0, 0, 1, 1.4, 1), color: '#6c7077', jitter: 0 });
+    g.add(shiny(mergeParts(parts)));
   } else if (id === 'metal' || id === 'mjig') {
     const big = id === 'mjig';
     g.add(shiny(mergeParts([

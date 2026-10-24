@@ -8,7 +8,8 @@ import { DIFFICULTY, DIFFICULTY_IDS, DRAG_LEVELS, DRAG_NAMES, breakReason } from
 import { HUD, kbd } from './ui.js';
 import { AudioScape } from './audio.js';
 import { Environment, phaseName, formatClock } from './world/sky.js';
-import { createWater, sea } from './world/water.js';
+import { createWater } from './world/water.js';
+import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeightHere, compass, bearingOf, windWords, seaWords } from './world/conditions.js';
 import { buildWorld } from './world/world.js';
 import { createHabitat } from './world/habitat.js';
 import { Ecosystem } from './world/ecosystem.js';
@@ -34,6 +35,8 @@ import { Camp, WAKE_TIMES } from './camp.js';
 import { Journal } from './journal.js';
 import { MapSheet, Explored } from './map.js';
 import { FieldGuide } from './guide.js';
+import { startTrip, endTrip, summaryText } from './trip.js';
+import { diagnose } from './advice.js';
 import { studio } from './gearView.js';
 import { CameraRig } from './camera.js';
 import { RodView } from './firstperson.js';
@@ -237,33 +240,40 @@ const weather = {
 };
 const skyMode = () => settings.weather.mode;
 if (skyMode() !== 'auto') weather.state = skyMode();
-// The breeze: dir is the way it blows towards. It wanders slowly and freshens in the rain.
-const wind = { dir: rand(0, Math.PI * 2), strength: 0.25, target: 0.25, timer: 60 };
-const WIND_WORDS = ['still air', 'a light breeze', 'a breeze', 'a fresh wind'];
+// The wind, the sea and the currents live in conditions.js, shared by the water, the boats, the
+// rig, the trees and the sound. `wind` is a small view of it for the HUD and the console.
+const FRESH = 12; // m/s: a fresh breeze, strength 1 for the casting maths
+const wind = {
+  // The way it blows towards (as atan2(x, z) of its vector) and how strong (0 … 1), where you are.
+  get dir() { const w = windAt(player().pos.x, player().pos.z); return Math.atan2(w.x, w.z); },
+  get strength() { return Math.min(1, windAt(player().pos.x, player().pos.z).speed / FRESH); },
+};
 function updateWind(dt) {
-  wind.timer -= dt;
-  if (wind.timer <= 0) {
-    wind.timer = rand(60, 150);
-    wind.target = clamp(rand(0.05, 0.55) + weather.rain * 0.35, 0, 1);
-    wind.turn = rand(-0.8, 0.8);
-  }
-  wind.strength = damp(wind.strength, wind.target, 0.08, dt);
-  wind.dir += (wind.turn || 0) * dt * 0.004;
-  fishing.wind.x = Math.sin(wind.dir) * wind.strength;
-  fishing.wind.z = Math.cos(wind.dir) * wind.strength;
-  fishing.wind.strength = wind.strength;
+  conditions.preset = settings.weather.sea || 'auto';
+  conditions.manual = settings.weather.windMode === 'manual' ? { speed: settings.weather.windSpeed, from: settings.weather.windFrom * Math.PI / 180 } : null;
+  conditions.currents = settings.weather.currents || 'natural';
+  updateConditions(dt, weather);
+  // The wind on the cast: where you stand, gusts and all (the landing preview allows for it).
+  const a = player().pos, w = windAt(a.x, a.z);
+  fishing.wind.x = w.x / FRESH;
+  fishing.wind.z = w.z / FRESH;
+  fishing.wind.strength = Math.min(1, w.speed / FRESH);
 }
-// An arrow showing which way the wind blows, as seen from the camera.
-function windArrow() {
-  let rel = wind.dir - rig.yaw;
+// An arrow for a direction (a world vector), as seen from the camera.
+function arrowFor(x, z) {
+  let rel = Math.atan2(x, z) - rig.yaw;
   rel = ((rel % (Math.PI * 2)) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
   const i = ((Math.round(rel / (Math.PI / 4)) % 8) + 8) % 8;
   return ['↑', '↖', '←', '↙', '↓', '↘', '→', '↗'][i];
 }
+function windArrow() {
+  const w = windAt(player().pos.x, player().pos.z);
+  return arrowFor(w.x, w.z);
+}
 function windHint() {
-  if (wind.strength < 0.15) return '';
-  const w = WIND_WORDS[wind.strength < 0.3 ? 1 : wind.strength < 0.55 ? 2 : 3];
-  return ` · ${w} blowing ${windArrow()}`;
+  const w = windAt(player().pos.x, player().pos.z);
+  if (w.speed < 1.5) return '';
+  return ` · wind ${Math.round(w.speed * 3.6)} km/h ${arrowFor(w.x, w.z)}`;
 }
 let t = 0;
 let started = false;
@@ -335,46 +345,37 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   spooked: (a) => {
     if (a.L.stream) teach('spooked', 'Splash, and it was gone! Trout feel heavy footsteps. Walk (don’t jog) near the stream, and cast from a few metres back.', 7);
   },
-  quiet: (kind, item) => hud.flash(advice(kind, item), t, 7),
+  // Nothing for a while: a word from the field guide, if hints are on (Settings).
+  quiet: () => {
+    const hints = settings.controls.hints;
+    if (hints === 'off') return;
+    giveAdvice(false);
+    // "More": another word if it stays quiet.
+    if (hints === 'more') {
+      fishing.hintedQuiet = false;
+      fishing.quietT = -15;
+    }
+  },
 });
 
-// A gentle nudge when nothing has come for a while, based on where you are and what's tied on.
-function advice(kind, item) {
-  const zone = zoneAt(fishing.hook.x, fishing.hook.z);
-  const F = touch.active ? 'the fish finder' : `the fish finder (${K('finder')})`;
-  if (zone === 'stream') {
-    if (kind !== 'fly') return 'Stream trout are shy of heavy line and splashy lures. The fly rod is the one for them.';
-    if (item.fly === 'dry' && hatchLevel() < 0.5) return 'Few flies are hatching just now. A nymph drifted through a pool works at any hour.';
-    return 'Trout hold in the pools facing upstream. Cast above them and let the fly drift down without dragging.';
+// Why aren't they biting? What the simulation makes of the rig (advice.js): the most telling
+// reason, then the next one each time you ask again during the same cast.
+let adviceCast = null, adviceIdx = 0;
+function giveAdvice(asked) {
+  if (fishing.state !== 'drifting') {
+    if (asked) hud.flash('Cast out first: then the field guide can tell what the fish make of your rig.', t, 3.5);
+    return;
   }
-  if (zone === 'lake') {
-    if (kind === 'lure') return 'Lake predators wait by the weed, the lily pads and the fallen alder. Try twitches and pauses, or a lure that runs at their depth.';
-    if (kind === 'ledger') return `Carp take patience. Throw in some loose bait (${K('feed')}), and wait: evenings are best.`;
-    if (kind === 'fly') return 'Rudd sip flies by the lily pads; perch chase a stripped streamer. Trout live up the stream.';
-    return 'Rudd feed near the top by the lily pads; carp graze the bottom on the shallow south-west shelf. Set your depth to suit.';
+  const target = state.trip ? fishById[state.trip.sp] : null;
+  const { sp, reasons } = diagnose(fishing, eco, mapSheet, target);
+  if (adviceCast !== fishing.interest) {
+    adviceCast = fishing.interest;
+    adviceIdx = 0;
   }
-  if (zone === 'mere') {
-    if (kind === 'lure') return 'Longmere’s bass and pike wait by cover: the weed beds, lily pads and the drowned oaks on the north shore. A creature bait crawled slowly, or a popper at dawn and dusk.';
-    return 'Roach shoal over the weed; perch hunt the drop-off. The bass and pike want a lure.';
-  }
-  if (zone === 'estuary') {
-    if (kind === 'bottom' || kind === 'ledger') return 'Flounder lie on the sandy flats: a lugworm or ragworm on the bottom, moved a little now and then.';
-    if (kind === 'float') return 'Mullet cruise the flats and the quay. They’re fussy: bread flake, a light line, and patience.';
-    return 'Sea bass push up the channel on the current. A soft sandeel worked near the bottom, or a popper at dawn and dusk.';
-  }
-  if (zone === 'coast') {
-    if (kind === 'jig') return 'Squid come out after dark, near light: the old jetty’s lamp, Puffin Cove, your own lantern. Let the jig sink, dart it up, and let it glide.';
-    if (kind === 'bottom') return 'Wrasse live in the kelp on the reefs; plaice on the clean sand between. Crab for wrasse, worm for plaice.';
-    return 'Watch for diving gulls: mackerel shoals feed under them. A metal cast into the commotion, wound fast.';
-  }
-  if (zone === 'deep') {
-    if (fishing.rod.id !== 'offshore') return 'Out here the tuna would snap anything lighter than the offshore rod. Find birds diving, and cast a stickbait into the boil.';
-    return 'Tuna chase the sprat shoals: look for gulls diving and the sea boiling, motor up gently, and cast a stickbait into it.';
-  }
-  if (kind === 'jig') return 'Squid hunt at night near lights. Try the old jetty’s lamp after dark.';
-  if (kind === 'fly') return 'Sea fish aren’t interested in flies. Try the float rod or a lure out here.';
-  if (kind === 'ledger') return 'Out at sea, a bottom bait suits the deep rocks where the big old mossback lives.';
-  return `Nothing’s biting here yet. Fish gather by weeds and rocks; ${F} shows what’s below.`;
+  const r = reasons[Math.min(adviceIdx, reasons.length - 1)];
+  adviceIdx++;
+  const who = sp && !target ? ` (for the ${sp.name.toLowerCase()}, the likeliest fish here)` : '';
+  hud.toast(`${r.text}${adviceIdx === 1 ? who : ''}${asked && reasons.length > adviceIdx ? ` · ${input.keyLabel('advice')} again for more` : ''}`, 8);
 }
 
 // The nearest named spot to a catch, for the log: a pool, a peg, the jetty…
@@ -482,7 +483,7 @@ function showCatch(sp, size, agent, rigUsed) {
   const wtText = kg < 1 ? `${Math.round(kg * 1000 / 10) * 10} g` : `${kg.toFixed(kg < 10 ? 1 : 0)} kg`;
   $('cc-size').textContent = `${size} cm${sp.creature ? ' mantle' : ''} · about ${wtText}${record ? ' · your biggest yet' : ''}`;
   $('cc-note').textContent = isNew ? sp.note : agent.caught > 0 ? 'This one has met your hook before.' : sp.creature ? pick(['It flushes pale and dark, and squirts a last jet of ink.', 'Its great eyes look you over.', 'It wraps an arm round your finger, then lets go.']) : pick(REPEAT_LINES);
-  $('cc-rig').textContent = rigUsed?.item ? `Caught on ${rigUsed.item.on}, with the ${rigUsed.rod.short.toLowerCase()}` : '';
+  $('cc-rig').textContent = (rigUsed?.item ? `Caught on ${rigUsed.item.on}, with the ${rigUsed.rod.short.toLowerCase()}` : '') + (state.trip?.sp === sp.id ? ' · the fish your trip is for' : '');
   const keepBtn = $('cc-keep');
   keepBtn.hidden = !sp.meal;
   keepBtn.disabled = state.keep.length >= PACK.fish;
@@ -640,7 +641,6 @@ function passTheNight() {
   weather.rain = SKIES[weather.state].rain * 0.9;
   weather.cloud = SKIES[weather.state].cloud;
   const rain = weather.rain > 0.2;
-  sea.amp = 1 + weather.rain * 0.45;
   eco.feedSpots = [];
   ecoTick(0.016);
   eco.settle();
@@ -1238,7 +1238,6 @@ function updateWeather(dt, speed) {
   const rate = (mode === 'auto' ? 0.08 : 0.3) * Math.min(speed, 6);
   weather.rain = damp(weather.rain, weather.override ?? sky.rain, rate, dt);
   weather.cloud = damp(weather.cloud, Math.max(sky.cloud, weather.override ?? 0), rate, dt);
-  sea.amp = 1 + weather.rain * 0.45 + weather.cloud * 0.08;
 }
 // How dull the light is: overcast skies and rain both grey the day.
 const gloom = () => Math.max(weather.rain, weather.cloud * 0.72);
@@ -1444,6 +1443,7 @@ function resetView() {
 // Through your own eyes: V switches in and out, and C cycles through it. It is always your
 // choice: casting, a bite or a hooked fish never change the view.
 const _eye = new THREE.Vector3();
+let eyeY = 0; // (the steady camera's eye height)
 const _hold = new THREE.Vector3();
 const _shadowAt = new THREE.Vector3();
 
@@ -1650,11 +1650,13 @@ function placeMarker(el, x, y, z, show) {
   }
   // (Kept clear of the prompt along the bottom while one is showing.)
   const bottom = H - m - 40 - (hud.el.prompt.hidden ? 0 : 52);
-  const onScreen = !behind && sx > m && sx < W - m && sy > m + 50 && sy < bottom;
+  // (A longer label keeps clear of the screen's edges by its own half-width.)
+  const mx = Math.max(m, (el.offsetWidth || 0) / 2 + 10);
+  const onScreen = !behind && sx > mx && sx < W - mx && sy > m + 50 && sy < bottom;
   let angle = 0;
   if (!onScreen) {
     angle = Math.atan2(sx - W / 2, -(sy - H / 2));
-    sx = clamp(sx, m, W - m);
+    sx = clamp(sx, mx, W - mx);
     sy = clamp(sy, m + 50, bottom);
   }
   // Two markers pinned to the same spot on the edge: nudge the second one along.
@@ -1663,6 +1665,26 @@ function placeMarker(el, x, y, z, show) {
   hud.marker(el, sx, sy, onScreen, angle, dist, dist < 12);
 }
 const placed = [];
+
+// The conditions panel: the wind and sea where you are, and the current at your rig if it's in
+// the water (or under you). Directions are arrows as you see them, with the compass in words.
+let condT = 0;
+function updateConditionsPanel(dt) {
+  const el = $('conditions');
+  const show = started && !hudOff && !modal && settings.weather.panel;
+  el.hidden = !show;
+  if (!show || (condT -= dt) > 0) return;
+  condT = 0.3;
+  const P = player().pos, w = windAt(P.x, P.z);
+  const kmh = (v) => Math.round(v * 3.6);
+  const sustained = conditions.wind.speed;
+  $('cd-wind').textContent = w.speed < 0.6 ? 'calm' : `${arrowFor(w.x, w.z)} ${kmh(w.speed)} km/h from ${compass(conditions.wind.from)}${w.gust > 1.15 ? ' · gusting' : ''}${sustained > 0.6 && w.speed < sustained * 0.6 ? ' · sheltered' : ''}`;
+  const at = fishing.state === 'drifting' ? fishing.hook : P;
+  const c = currentAt(at.x, at.z, 0), cs = Math.hypot(c.x, c.z) * currentScale();
+  $('cd-cur').textContent = cs < 0.03 ? `slack${fishing.state === 'drifting' ? ' at your rig' : ''}` : `${arrowFor(c.x, c.z)} ${cs.toFixed(cs < 0.1 ? 2 : 1)} m/s to ${compass(bearingOf(c.x, c.z))}${fishing.state === 'drifting' ? ' at your rig' : ''}`;
+  const hgt = waveHeightHere(P.x, P.z);
+  $('cd-sea').textContent = `${seaWords(hgt)}, ${hgt < 0.1 ? 'under 0.1' : `about ${hgt.toFixed(1)}`} m`;
+}
 
 function updateHud() {
   const h = state.hour;
@@ -1686,7 +1708,7 @@ function updateHud() {
     const fly = fishing.kind === 'fly';
     const load = fly ? (fishing.flyForward ? 1 : 0.35) : fishing.power;
     const warm = fly ? (fishing.flyForward ? 0.6 : 0.2) : fishing.overload > 0 ? 1 : fishing.sweet ? 0.6 : 0.2;
-    const sub_ = fishing.overload > 0 ? 'overload' : fishing.sweet ? 'sweet spot' : wind.strength > 0.15 ? `wind ${windArrow()}` : '';
+    const sub_ = fishing.overload > 0 ? 'overload' : fishing.sweet ? 'sweet spot' : wind.strength > 0.15 ? `wind ${Math.round(wind.strength * FRESH * 3.6)} km/h ${windArrow()}` : '';
     hud.meter(true, fishing.power, load, warm, fishing.aimValid ? `<span>${Math.round(fishing.castDist)} m</span>${sub_ ? `<span class="ml-sub">${sub_}</span>` : ''}` : '—', -1, fishing.sweet || (fly && fishing.flyForward));
   }
   else if (fishing.state === 'reeling' && F) hud.meter(true, F.progress, F.tension, F.tension, F.surgeT > 0 ? 'easy!' : easy ? 'flick!' : F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel', DRAG_LEVELS[F.drag], easy);
@@ -1721,6 +1743,18 @@ function updateHud() {
   placeMarker($('boat-marker'), boat.pos.x, boat.heave + 1.6, boat.pos.z, started && onFoot && !modal && !nearBoat());
   const campD = Math.hypot(player().pos.x - cp.x, player().pos.z - cp.z);
   placeMarker($('camp-marker'), cp.x, cp.y + 2.4, cp.z, started && !modal && campD > 14 && (onFoot ? campD < 400 : !state.places.camp && !!state.tips.caught));
+  // A trip's destination: a marker until you're on the water it rings.
+  const trip = state.trip;
+  if (trip) {
+    const d = Math.hypot(trip.x - player().pos.x, trip.z - player().pos.z);
+    if (!trip.arrived && d < trip.r) {
+      trip.arrived = true;
+      hud.flash(`You’re on the trip’s water: ${trip.name}. Good luck with the ${fishById[trip.sp].name.toLowerCase()}.`, t, 4);
+      save();
+    }
+    $('trip-name').textContent = fishById[trip.sp].name;
+  }
+  placeMarker($('trip-marker'), trip?.x ?? 0, 1.2, trip?.z ?? 0, !!trip && started && !modal && Math.hypot((trip?.x ?? 0) - player().pos.x, (trip?.z ?? 0) - player().pos.z) > (trip?.r ?? 0));
 }
 
 /* ---------------- input ---------------- */
@@ -2023,18 +2057,63 @@ journal.guide = new FieldGuide(state, {
     openPack();
     packUI.goto({ rod: 'rods', item: { bait: 'baits', lure: 'lures', fly: 'flies', jig: 'flies' }[TACKLE[ref.id]?.type] }[ref.type] || 'rods', ref);
   },
-  rig: (s) => {
-    const g = state.gear;
-    g.rod = s.rod;
-    g.line[s.rod] = s.line;
-    g.term[s.rod] = s.term;
-    g.rig[s.rod] = s.item;
-    const msg = `${RODS[s.rod].name} rigged with ${TACKLE[s.item].on}`;
-    applyGear(msg);
-    return msg;
+  rig: (s) => rigSetup(s),
+  packAndRig: (s) => packAndRig(s),
+  miniMap: (cv, id, places) => mapSheet.miniMap(cv, id, places, player().pos),
+  map: () => mapSheet,
+  where: () => player().pos,
+  startTrip: (place, s, sp) => {
+    startTrip(state, { sp, place, setup: s });
+    save();
+    return `Trip set for the ${fishById[sp].name.toLowerCase()}: ${place.name}, ${Math.round(place.dist)} m ${place.dir}. Follow the marker.`;
   },
-  miniMap: (cv, id) => mapSheet.miniMap(cv, id),
+  endTrip: () => {
+    const sp = state.trip?.sp;
+    const sum = endTrip(state);
+    save();
+    return sum ? `Trip ended. ${summaryText(sp, sum)}` : '';
+  },
 });
+
+// Rig a rod from the field guide (the parts must be carried).
+function rigSetup(s) {
+  const g = state.gear;
+  g.rod = s.rod;
+  g.line[s.rod] = s.line;
+  g.term[s.rod] = s.term;
+  g.rig[s.rod] = s.item;
+  const msg = `${RODS[s.rod].name} rigged with ${TACKLE[s.item].on}`;
+  applyGear(msg);
+  return msg;
+}
+
+// At a tackle box: pack what a setup needs and rig it. If the backpack is full, the rod you
+// aren't holding, or tackle none of your rods can use (or that isn't tied on), goes back in the
+// box, and the message says what.
+function packAndRig(s) {
+  if (!tackleBox()) return 'You can only swap tackle at a tackle box: at a camp, or in a motorboat’s locker.';
+  const g = state.gear, left = [];
+  if (!g.pack.rods.includes(s.rod)) {
+    if (g.pack.rods.length >= PACK.rods) {
+      const out = g.pack.rods.find((r) => r !== g.rod) ?? g.pack.rods[0];
+      g.pack.rods.splice(g.pack.rods.indexOf(out), 1);
+      left.push(`the ${RODS[out].short.toLowerCase()}`);
+    }
+    g.pack.rods.push(s.rod);
+  }
+  if (!g.pack.items.includes(s.item)) {
+    if (g.pack.items.length >= PACK.items) {
+      const usable = (i) => g.pack.rods.some((r) => fits(RODS[r], TACKLE[i]));
+      const tied = new Set(g.pack.rods.map((r) => g.rig[r]));
+      const out = g.pack.items.find((i) => !usable(i)) ?? g.pack.items.find((i) => !tied.has(i)) ?? g.pack.items[0];
+      g.pack.items.splice(g.pack.items.indexOf(out), 1);
+      left.push(TACKLE[out].short.toLowerCase());
+    }
+    g.pack.items.push(s.item);
+  }
+  const msg = rigSetup(s);
+  return left.length ? `Packed and rigged: ${msg.charAt(0).toLowerCase()}${msg.slice(1)}. Left in the tackle box: ${left.join(' and ')}.` : `Packed and rigged: ${msg.charAt(0).toLowerCase()}${msg.slice(1)}.`;
+}
 
 function openGuide(id) {
   if (modal) return;
@@ -2127,6 +2206,12 @@ input.on('press', (code, acts) => {
   else if (is('rod1')) pickRod(0);
   else if (is('rod2')) pickRod(1);
   else if (is('feed')) looseFeed();
+  else if (is('advice')) giveAdvice(true);
+  else if (is('conditions')) {
+    settings.weather.panel = !settings.weather.panel;
+    hud.flash(settings.weather.panel ? 'Conditions panel shown' : 'Conditions panel hidden', t, 1.4);
+    save();
+  }
   else if (is('anchor')) toggleAnchor();
   else if (is('neutral') && !onFoot && boat.motor) {
     boat.lever = 0;
@@ -2304,7 +2389,7 @@ function tick(now, manual = false) {
   const dt = Math.min(rawDt, 0.05);
   last = now;
   t += dt;
-  sea.time = t;
+  conditions.time = t;
   if (!manual) watchFrameRate(rawDt);
 
   const resting = started && (!modal || modal === 'camp') && input.resting;
@@ -2414,8 +2499,14 @@ function tick(now, manual = false) {
   const drag = input.takeDrag();
   const wheel = input.takeWheel();
   if (started && !modal) rig.input(drag, wheel, t);
-  player().eyePoint(_eye);
-  rig.update(dt, t, { boat, walker, started, fishing, baitFocus: fishing.watchPoint, eye: _eye, roll: onFoot || settings.controls.reducedMotion ? 0 : boat.roll * 0.45 });
+  // (A steady horizon: your eyes don't pitch and roll with the boat, and only drift gently up and
+  // down with the swell; the quick bob of the chop is smoothed away.)
+  const steadyCam = settings.controls.boatCam === 'steady' || settings.controls.reducedMotion;
+  if (onFoot) walker.eyePoint(_eye);
+  else boat.eyePoint(_eye, steadyCam);
+  if (!onFoot && steadyCam) _eye.y = eyeY = Math.abs(eyeY - _eye.y) > 1 ? _eye.y : damp(eyeY, _eye.y, 0.3, dt);
+  else eyeY = _eye.y;
+  rig.update(dt, t, { boat, walker, started, fishing, baitFocus: fishing.watchPoint, eye: _eye, roll: onFoot || steadyCam ? 0 : boat.roll * 0.45 });
   updateFirstPerson(dt);
   const P = player().pos;
   // In first person the shadows gather in front of you, finer, where you're looking.
@@ -2431,7 +2522,7 @@ function tick(now, manual = false) {
   underwater.update(dt, t, camera, env, weather.rain);
   fishRenderer.update(dt, camera, env.night, sub > 0.5);
   updateWind(dt * Math.min(speed, 10));
-  world.update(dt, t, env, { fireLevel: camp.fireLevel, hatchLevel: hatchLevel(), hour: state.hour, wind: 0.5 + wind.strength * 1.3, camera, fog: scene.fog.color });
+  world.update(dt, t, env, { fireLevel: camp.fireLevel, hatchLevel: hatchLevel(), hour: state.hour, wind: 0.5 + Math.min(1, windAt(camera.position.x, camera.position.z).speed / FRESH) * 1.3, camera, fog: scene.fog.color });
   updateRain(dt);
   mist.update(t, state.hour, env, camera);
   surfaceUniforms.uWetTop.value = 0.22 + 0.05 * Math.sin(t * 0.35) + weather.rain * 0.12;
@@ -2443,7 +2534,10 @@ function tick(now, manual = false) {
   wu.uRain.value = gloom();
   wu.uRings.value = weather.rain * settings.weather.rainFx;
   wu.uNight.value = env.night;
-  wu.uAmp.value = sea.amp;
+  {
+    const w = windAt(camera.position.x, camera.position.z);
+    water.sync(w.x / FRESH, w.z / FRESH);
+  }
   wu.uLightDir.value.copy(env.lightDir);
   wu.uSunColor.value.copy(env.sunColor).multiplyScalar(env.sunI * 0.32);
   wu.uAmbient.value.copy(env.skyCol).multiplyScalar(env.hemiI * 0.33);
@@ -2463,7 +2557,11 @@ function tick(now, manual = false) {
   zoneW.cove = damp(zoneW.cove, zone === 'cove' ? 1 : 0, 0.5, dt);
   const seaD = landSDF(P.x, P.z);
   const fireD = P.distanceTo(world.camp.firePos);
+  const windHere = windAt(P.x, P.z);
   audio.update(dt, {
+    wind: Math.min(1, windHere.speed / FRESH),
+    gust: windHere.gust,
+    sea: waveHeightHere(P.x, P.z) / 0.6,
     speed: onFoot ? 0 : boat.speed,
     rain: weather.rain,
     day: env.daylight,
@@ -2495,6 +2593,7 @@ function tick(now, manual = false) {
     }
   }
   updateHud();
+  updateConditionsPanel(dt);
 
   // Wading through the shallows sends rings out around your boots.
   if (onFoot && walker.wading > 0.05 && (move.x || move.z) && !fishing.busy) {
@@ -2586,9 +2685,19 @@ window.slowTide = {
   board: () => board(),
   rowboat, skiff, boats: BOATS, wind,
   // Set the breeze: strength 0–1, blowing towards dir (radians, like a heading).
+  // A steady wind for testing: strength 0 … 1 (1 = a fresh breeze, 12 m/s), blowing towards dir
+  // (as atan2(x, z) of its vector). setWind(null) gives it back to the weather and Settings.
   setWind: (strength, dir = wind.dir) => {
-    Object.assign(wind, { strength, target: strength, dir, turn: 0, timer: 1e9 });
+    if (strength == null) {
+      settings.weather.windMode = 'auto';
+      return;
+    }
+    const to = (Math.atan2(Math.sin(dir), -Math.cos(dir)) + Math.PI * 2) % (Math.PI * 2);
+    Object.assign(settings.weather, { windMode: 'manual', windSpeed: strength * FRESH, windFrom: ((to + Math.PI) % (Math.PI * 2)) * 180 / Math.PI });
+    conditions.wind.speed = conditions.wind.target = strength * FRESH;
+    conditions.wind.from = (to + Math.PI) % (Math.PI * 2);
   },
+  conditions, windAt, currentAt,
   // Put the boat you're not in at (x, z), e.g. alongside for testing.
   placeOther: (x, z, heading = 0, kind = boat === skiff ? 'row' : 'skiff') => BOATS[kind].place(x, z, heading),
   // Climb into the skiff (or another boat: 'row', 'kayak', 'bass') at (x, z).

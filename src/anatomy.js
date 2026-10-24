@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ATLANTIC_ANATOMY } from './anatomyAtlantic.js';
 
 // Anatomical models of aquatic animals, one recipe per species, built in code (no external
 // assets). Three body plans share the machinery where the animals really are alike:
@@ -110,7 +111,11 @@ function eyeTexture(iris, pupil = 'round') {
       const a = u * Math.PI * 2;
       let r, g, b;
       let inPupil;
-      if (pupil === 'W') {
+      if (pupil === 'bar') {
+        // An octopus's pupil: a horizontal slot.
+        const px = Math.cos(a) * v, py = Math.sin(a) * v;
+        inPupil = Math.abs(py) < 0.045 && Math.abs(px) < 0.24;
+      } else if (pupil === 'W') {
         // A W lying across the eye: dark where the wave says so.
         const px = Math.cos(a) * v, py = Math.sin(a) * v;
         const w = 0.06 + 0.05 * Math.cos(px * 26);
@@ -261,6 +266,10 @@ function paintSkin(A) {
     x.fillStyle = A.pectoralSpot;
     x.fillRect(W - 8, 0, 8, 8);
   }
+  if (A.pectoralRing) {
+    x.fillStyle = A.pectoralRing;
+    x.fillRect(W - 8, 8, 8, 8);
+  }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
@@ -270,16 +279,18 @@ function paintSkin(A) {
 /* ---------------- geometry assembly ---------------- */
 
 class Builder {
-  constructor() {
-    this.parts = [[], [], []]; // body, fins, eyes: { pos, nor, uv, idx }
+  // finColor: the colour fins take unless one is given its own (vertex colours on the fins).
+  constructor(finColor = '#ffffff') {
+    this.parts = [[], [], []]; // body, fins, eyes: { pos, nor, uv, idx, col }
+    this.finColor = new THREE.Color(finColor);
   }
 
-  add(group, pos, uv, idx, nor = null) {
-    this.parts[group].push({ pos, uv, idx, nor });
+  add(group, pos, uv, idx, nor = null, col = null) {
+    this.parts[group].push({ pos, uv, idx, nor, col });
   }
 
   build() {
-    const pos = [], uv = [], nor = [], idx = [], groups = [];
+    const pos = [], uv = [], nor = [], idx = [], groups = [], col = [];
     let base = 0;
     const normalsFor = [];
     for (let g = 0; g < 3; g++) {
@@ -287,6 +298,9 @@ class Builder {
       for (const p of this.parts[g]) {
         for (const v of p.pos) pos.push(v);
         for (const v of p.uv) uv.push(v);
+        const n = p.pos.length / 3, c = g === 1 ? this.finColor : WHITE;
+        if (p.col) for (const v of p.col) col.push(v);
+        else for (let i = 0; i < n; i++) col.push(c.r, c.g, c.b);
         for (const i of p.idx) idx.push(i + base);
         normalsFor.push({ base, count: p.pos.length / 3, nor: p.nor });
         base += p.pos.length / 3;
@@ -296,6 +310,7 @@ class Builder {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     geo.setIndex(idx);
     for (const [s, c, m] of groups) if (c) geo.addGroup(s, c, m);
     geo.computeVertexNormals();
@@ -307,22 +322,34 @@ class Builder {
   }
 }
 
+const WHITE = new THREE.Color('#ffffff');
+const _ca = new THREE.Color(), _cb = new THREE.Color();
+
 // A flat fin from an outline in its own plane: pts are [along, across] pairs (metres in model
 // units), mapped into the world by place(along, across) → [x, y, z]. uvOf gives each point's
-// fin texture coordinates (u counts rays).
-function finMesh(B, outline, place, uvOf) {
+// fin texture coordinates (u counts rays). tint, if given, colours this fin: { base, edge,
+// edgeOf(along, across) → 0 at the fin's base … 1 at its edge }.
+function finMesh(B, outline, place, uvOf, tint = null) {
   const shape = new THREE.Shape(outline.map(([a, c]) => new THREE.Vector2(a, c)));
   const sg = new THREE.ShapeGeometry(shape, 6);
   const p = sg.attributes.position;
-  const pos = [], uv = [];
+  const pos = [], uv = [], col = tint ? [] : null;
+  if (tint) {
+    _ca.set(tint.base);
+    _cb.set(tint.edge || tint.base);
+  }
   for (let i = 0; i < p.count; i++) {
     const a = p.getX(i), c = p.getY(i);
     pos.push(...place(a, c));
     uv.push(...uvOf(a, c));
+    if (tint) {
+      const k = tint.edge ? clamp((tint.edgeOf(a, c) - (tint.from ?? 0.55)) / (1 - (tint.from ?? 0.55)), 0, 1) : 0;
+      col.push(_ca.r + (_cb.r - _ca.r) * k, _ca.g + (_cb.g - _ca.g) * k, _ca.b + (_cb.b - _ca.b) * k);
+    }
   }
   const idx = Array.from(sg.index.array);
   sg.dispose();
-  B.add(1, pos, uv, idx);
+  B.add(1, pos, uv, idx, null, col);
 }
 
 // An eye: a glossy dome facing out along `dir`, its pole (uv v = 0) at the centre of the pupil.
@@ -339,11 +366,15 @@ function eyeMesh(B, center, dir, r, flat = 0.45, seg = 14) {
 /* ---------------- body plan: fish ---------------- */
 
 function buildFish(A, detail) {
-  const B = new Builder();
+  const B = new Builder(A.colors.fin);
   const L = A.bodyLen, z0 = 0.5;
   const top = spline(A.top), bot = spline(A.bottom), wid = spline(A.width);
   const n = A.round ?? 2.3;
-  const NS = detail ? 46 : 14, NR = detail ? 32 : 12;
+  // (Small fish seen in shoals get fewer rings and sides close up: lod < 1.)
+  const lod = A.lod ?? 1, long = A.long ?? 1;
+  const NS = detail ? Math.round(46 * lod * long) : Math.round(14 * long), NR = detail ? Math.max(14, Math.round(32 * lod)) : 12;
+  // A fin's own colours, if it has any: { color, edge }.
+  const tintOf = (f, edgeOf, from) => (f.color || f.edge ? { base: f.color || A.colors.fin, edge: f.edge, edgeOf, from } : null);
   const zOf = (t) => z0 - t * L;
   // Where a point on the skin is, from t (along) and a (round: 0 belly, 0.25 right side, 0.5
   // back, 0.75 left side).
@@ -368,6 +399,12 @@ function buildFish(A, detail) {
         const k = (1 - t / mouth.len) * Math.exp(-d * d / (mouth.gape * mouth.gape));
         x *= 1 - 0.35 * k;
         y = y + (y > ym ? 1 : -1) * k * mouth.gape * 0.3;
+        // Thick, fleshy lips (grunts, mullet): the skin swells either side of the gape.
+        if (mouth.lips) {
+          const kl = (1 - t / mouth.len) * Math.exp(-d * d / (4 * mouth.gape * mouth.gape)) * (1 - k);
+          x *= 1 + mouth.lips * kl;
+          y += (y > ym ? 1 : -1) * mouth.lips * kl * mouth.gape * 0.6;
+        }
       }
       // The edge of the gill cover: a slight step in the skin.
       if (detail && gill && Math.abs(t - (gill.t + gill.curve * (s * s))) < 0.012) { x *= 1.025; }
@@ -422,7 +459,7 @@ function buildFish(A, detail) {
     }
     const rays = f.rays || (f.shape === 'spiny' ? f.spines : 14);
     finMesh(B, out, (d, h) => [0, base(clamp(d, 0, span)) + sideSign * (h - 0.002), zOf(f.t0 + d)],
-      (d, h) => [(d / span) * rays, clamp(h / f.h, 0, 1)]);
+      (d, h) => [(d / span) * rays, clamp(h / f.h, 0, 1)], tintOf(f, (d, h) => clamp(h / (f.h * (f.profile ? spline(f.profile)(d / span) : 1) || 1), 0, 1)));
   };
   const paired = (f, side) => {
     // Pectoral or pelvic fin: an outline from the base along the fin's own length, set at
@@ -435,9 +472,10 @@ function buildFish(A, detail) {
     out.push([len * 0.7, -wd * 0.5], [0, -wd * 0.5]);
     const splay = f.splay ?? 0.55, droop = f.droop ?? 0.35;
     const dir = new THREE.Vector3(side * Math.sin(splay), -Math.sin(droop), -Math.cos(splay) * Math.cos(droop)).normalize();
-    const across = new THREE.Vector3(side * Math.cos(splay) * 0.3, 1, 0).normalize();
-    finMesh(B, out, (l, c) => [bx * side * 0.98 + dir.x * l + across.x * c, by + dir.y * l + across.y * c, zOf(f.t) + dir.z * l],
-      (l, c) => [((c + wd * 0.5) / wd) * (f.rays || 10), 1 - l / len]);
+    // Most paired fins stand edge-up from the body; a gurnard's spread out flat, like wings.
+    const across = f.spread ? new THREE.Vector3(-dir.z * side, 0.15, dir.x * side).normalize() : new THREE.Vector3(side * Math.cos(splay) * 0.3, 1, 0).normalize();
+    finMesh(B, out, (l, c) => [bx * side * 0.98 + dir.x * l + across.x * c, by + dir.y * l + across.y * c, zOf(f.t) + dir.z * l + across.z * c],
+      (l, c) => [((c + wd * 0.5) / wd) * (f.rays || 10), 1 - l / len], tintOf(f, (l) => l / len, f.edgeFrom));
   };
   for (const f of A.fins) {
     if (f.kind === 'dorsal') median(f, 1);
@@ -453,7 +491,7 @@ function buildFish(A, detail) {
         for (const s of [1, -1]) {
           const base = (d) => (s > 0 ? top(t0 + d) : bot(t0 + d));
           finMesh(B, [[0, 0], [f.step * 0.15, f.h], [f.step * 0.85, f.h * 0.7], [f.step * 0.9, 0]],
-            (d, h) => [0, base(d) + s * h, zOf(t0 + d)], (d, h) => [d / f.step * 2, h / f.h]);
+            (d, h) => [0, base(d) + s * h, zOf(t0 + d)], (d, h) => [d / f.step * 2, h / f.h], tintOf(f, (d, h) => h / f.h));
         }
       }
     } else if (f.kind === 'keel' && detail) {
@@ -467,10 +505,26 @@ function buildFish(A, detail) {
       const len = 0.5 + zb, H = f.h; // reaches the very end (z = -0.5)
       const fork = f.fork ?? 0;
       let out;
-      if (f.shape === 'rounded') out = [[0, -hb], [len * 0.4, -H * 0.85], [len * 0.85, -H * 0.6], [len, 0], [len * 0.85, H * 0.6], [len * 0.4, H * 0.85], [0, hb]];
+      // An eel's tail: the dorsal and anal fins meeting round a pointed tip.
+      if (f.shape === 'eel') out = [[0, -hb - H * 0.7], [len * 0.55, -H * 0.55], [len, 0], [len * 0.55, H * 0.55], [0, hb + H * 0.7]];
+      // A tuna's: a narrow, stiff crescent on a slim stalk.
+      else if (f.shape === 'lunate') out = [[0, -hb], [len * 0.35, -H * 0.3], [len * 0.85, -H * 0.85], [len, -H], [len * 0.62, -H * 0.42], [len * 0.5, 0], [len * 0.62, H * 0.42], [len, H], [len * 0.85, H * 0.85], [len * 0.35, H * 0.3], [0, hb]];
+      else if (f.shape === 'rounded') out = [[0, -hb], [len * 0.4, -H * 0.85], [len * 0.85, -H * 0.6], [len, 0], [len * 0.85, H * 0.6], [len * 0.4, H * 0.85], [0, hb]];
       else if (f.shape === 'truncate') out = [[0, -hb], [len * 0.55, -H * 0.85], [len * 0.97, -H], [len, -H * 0.3], [len * 1.0, H * 0.3], [len * 0.97, H], [len * 0.55, H * 0.85], [0, hb]];
       else out = [[0, -hb], [len * 0.5, -H * 0.55], [len, -H], [len * (1 - fork) + len * 0.08, -H * 0.2], [len * (1 - fork), 0], [len * (1 - fork) + len * 0.08, H * 0.2], [len, H], [len * 0.5, H * 0.55], [0, hb]];
-      finMesh(B, out, (d, h) => [0, yb + h, zb - d], (d, h) => [(h / H + 1) * 0.5 * (f.rays || 18), 1 - d / len]);
+      // (Dark-tipped lobes: the edge colour by distance from the stalk and from the middle.)
+      finMesh(B, out, (d, h) => [0, yb + h, zb - d], (d, h) => [(h / H + 1) * 0.5 * (f.rays || 18), 1 - d / len],
+        tintOf(f, (d, h) => (f.tips ? Math.max(d / len, Math.abs(h) / H) * (Math.abs(h) / H) : d / len), f.edgeFrom));
+    } else if (f.kind === 'rays' && detail) {
+      // Free fin rays, like fingers, below the pectoral fin (a gurnard walks on them).
+      const [bx, by] = at(f.t, f.a ?? 0.08);
+      for (const side of [1, -1]) {
+        for (let k = 0; k < (f.count ?? 3); k++) {
+          const z = zOf(f.t + k * 0.012), w = 0.0035;
+          finMesh(B, [[0, -w], [f.len * 0.6, -w * 0.8], [f.len, 0], [f.len * 0.6, w * 0.8], [0, w]],
+            (l, c) => [side * (bx + l * 0.35), by - l * 0.9, z + c - l * 0.15], (l) => [0.5, 1 - l / f.len], f.color ? { base: f.color, edgeOf: () => 0 } : null);
+        }
+      }
     }
   }
   // Eyes.
@@ -489,7 +543,7 @@ function buildFish(A, detail) {
 /* ---------------- body plan: flatfish ---------------- */
 
 function buildFlat(A, detail) {
-  const B = new Builder();
+  const B = new Builder(A.colors.fin);
   const L = A.bodyLen, z0 = 0.5;
   const wid = spline(A.width), thick = spline(A.thick);
   const NS = detail ? 40 : 12, NA = detail ? 20 : 8;
@@ -548,16 +602,22 @@ function buildFlat(A, detail) {
     finMesh(B, [[0, -0.008], [p.len * 0.45, -0.019], [p.len * 0.85, -0.014], [p.len, 0], [p.len * 0.85, 0.014], [p.len * 0.45, 0.019], [0, 0.008]],
       (l, c) => [p.x + c, thick(p.t) * 0.8 + 0.004, zOf(p.t) - l], (l, c) => [((c + 0.019) / 0.038) * 6, 1 - l / p.len]);
     if (A.pectoralSpot) {
-      // Its black tip: an oval over the outer part of the fin, on the skin's dark corner
-      // (painted there for it).
-      const d = new THREE.CircleGeometry(0.012, 14);
-      d.rotateX(-Math.PI / 2);
-      d.scale(1, 1, 1.6);
-      d.translate(p.x, thick(p.t) * 0.8 + 0.0055, zOf(p.t) - p.len * 0.74);
-      const uv = [];
-      for (let i = 0; i < d.attributes.position.count; i++) uv.push(0.995, 0.995);
-      B.add(0, Array.from(d.attributes.position.array), uv, Array.from(d.index.array));
-      d.dispose();
+      // Its black mark: an oval over the outer part of the fin (larger on some soles, ringed
+      // with yellow and white on the sand sole), coloured from the skin's corners (painted there
+      // for it).
+      const k = A.pectoralSpotSize ?? 1;
+      const disc = (r, lift, u, v, at) => {
+        const d = new THREE.CircleGeometry(r * k, 14);
+        d.rotateX(-Math.PI / 2);
+        d.scale(1, 1, 1.6);
+        d.translate(p.x, thick(p.t) * 0.8 + lift, zOf(p.t) - p.len * at);
+        const uv = [];
+        for (let i = 0; i < d.attributes.position.count; i++) uv.push(u, v);
+        B.add(0, Array.from(d.attributes.position.array), uv, Array.from(d.index.array));
+        d.dispose();
+      };
+      if (A.pectoralRing) disc(0.016, 0.005, 0.995, 0.953, 0.6);
+      disc(0.012, 0.0055, 0.995, 0.995, A.pectoralRing ? 0.6 : 0.74);
     }
   }
   // Both eyes on the top, close together.
@@ -571,7 +631,7 @@ function buildFlat(A, detail) {
 /* ---------------- body plan: cuttlefish ---------------- */
 
 function buildCuttle(A, detail) {
-  const B = new Builder();
+  const B = new Builder(A.colors.fin);
   const NS = detail ? 36 : 12, NR = detail ? 28 : 10;
   // Head and mantle as one loft: arms forward at +z, the rounded end of the mantle at -z.
   const L = 0.78, z0 = 0.28;
@@ -645,6 +705,157 @@ function buildCuttle(A, detail) {
   {
     const t = A.eye.t, w = wid(t);
     for (const side of [1, -1]) eyeMesh(B, [side * (w - 0.006), A.eye.y, zOf(t)], new THREE.Vector3(side, 0.35, 0.1), A.eye.r, 0.55, detail ? 16 : 8);
+  }
+  return B.build();
+}
+
+/* ---------------- body plan: squid ---------------- */
+
+// A long-finned squid (Loligo): a slender mantle tapering to a point, a pair of rhombic fins
+// along its rear half that meet at the tip, a head with big eyes, eight short arms and two long
+// tentacles ending in clubs, all pointing forward (+z).
+function buildSquid(A, detail) {
+  const B = new Builder(A.colors.fin);
+  const NS = detail ? 34 : 12, NR = detail ? 20 : 8;
+  const L = A.bodyLen, z0 = 0.5 - A.armLen; // the head end of the body (arms run forward of it)
+  const zOf = (t) => z0 - t * L;
+  const wid = spline(A.width), ht = spline(A.height ?? A.width);
+  const pos = [], uv = [], idx = [];
+  for (let i = 0; i <= NS; i++) {
+    const t = i / NS;
+    for (let j = 0; j <= NR; j++) {
+      const th = Math.PI * 2 * (j / NR) - Math.PI / 2, c = Math.cos(th), s = Math.sin(th);
+      pos.push(Math.max(0.0015, wid(t)) * c, Math.max(0.0015, ht(t)) * s, zOf(t));
+      uv.push(t, (s + 1) / 2);
+    }
+  }
+  for (let i = 0; i < NS; i++) for (let j = 0; j < NR; j++) {
+    const a = i * (NR + 1) + j, b = a + NR + 1;
+    idx.push(a, b, a + 1, b, b + 1, a + 1);
+  }
+  B.add(0, pos, uv, idx);
+  // The fins: one each side, widest a little behind their middle, joined at the tip.
+  const F = A.fin, prof = spline(F.profile);
+  for (const side of [1, -1]) {
+    const fp = [], fu = [], fi = [], N = detail ? 24 : 8;
+    for (let i = 0; i <= N; i++) {
+      const u = i / N, t = F.t0 + u * (1 - F.t0), w = wid(t), fw = F.w * prof(u);
+      fp.push(side * (w * 0.9), 0, zOf(t), side * (w + fw), -0.002, zOf(t) + fw * 0.12);
+      fu.push(i * 0.7, 1, i * 0.7, 0);
+    }
+    for (let i = 0; i < N; i++) {
+      const a = i * 2;
+      if (side > 0) fi.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      else fi.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+    }
+    B.add(1, fp, fu, fi);
+  }
+  // Arms and tentacles.
+  const limb = (ox, oy, len, r, club, droop, uvAt) => {
+    const pts = [];
+    for (let i = 0; i <= 6; i++) {
+      const u = i / 6;
+      pts.push(new THREE.Vector3(ox * (1 - u * 0.4), oy * (1 - u * 0.3) - u * u * droop, z0 + 0.004 + u * len));
+    }
+    const curve = new THREE.CatmullRomCurve3(pts), SEG = detail ? 12 : 4, RAD = detail ? 6 : 4;
+    const tg = new THREE.TubeGeometry(curve, SEG, r, RAD, false), p = tg.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const seg = Math.floor(i / (RAD + 1)) / SEG, c = curve.getPointAt(Math.min(1, seg));
+      // Tapering to a point, or swelling into a club at the end of a tentacle.
+      const k = club ? (seg > 0.78 ? 1.5 - Math.abs(seg - 0.9) * 4 : 0.55) : 1 - seg * 0.85;
+      const v = new THREE.Vector3(p.getX(i), p.getY(i), p.getZ(i)).sub(c).multiplyScalar(k);
+      p.setXYZ(i, c.x + v.x, c.y + v.y, c.z + v.z);
+    }
+    const u = [];
+    for (let i = 0; i < p.count; i++) u.push(...uvAt);
+    B.add(0, Array.from(p.array), u, Array.from(tg.index.array));
+    tg.dispose();
+  };
+  const w0 = wid(0) * 0.8, h0 = ht(0) * 0.8;
+  for (let k = 0; k < 8; k++) {
+    const ang = (k / 8) * Math.PI * 2 + Math.PI / 8;
+    limb(Math.cos(ang) * w0, Math.sin(ang) * h0, A.armLen * (k === 2 || k === 5 ? 0.75 : 1), 0.006, false, 0.012, [0.02, 0.5]);
+  }
+  if (detail) for (const s of [1, -1]) limb(s * w0 * 0.4, -h0 * 0.6, A.armLen * A.tentacle, 0.0035, true, 0.02, [0.02, 0.4]);
+  // Big eyes on the sides of the head.
+  const e = A.eye, t = e.t;
+  for (const side of [1, -1]) eyeMesh(B, [side * (wid(t) - 0.002), e.y, zOf(t)], new THREE.Vector3(side, 0.1, 0.15), e.r, 0.55, detail ? 16 : 8);
+  return B.build();
+}
+
+/* ---------------- body plan: octopus ---------------- */
+
+// An octopus crawling over the seabed: a soft mantle bag behind and above the head, eyes on
+// raised turrets, and eight arms spreading from beneath the head in a loose star, curling at the
+// tips (the side arms longest).
+function buildOctopus(A, detail) {
+  const B = new Builder(A.colors.fin);
+  const NU = detail ? 24 : 10, NV = detail ? 18 : 8;
+  // The mantle: a stretched, slightly drooping sphere leaning back from the head.
+  const M = A.mantle;
+  {
+    const pos = [], uv = [], idx = [];
+    for (let i = 0; i <= NV; i++) {
+      const v = i / NV, ph = v * Math.PI;
+      for (let j = 0; j <= NU; j++) {
+        const u = j / NU, th = u * Math.PI * 2;
+        const sx = Math.sin(ph) * Math.cos(th), sy = Math.cos(ph), sz = Math.sin(ph) * Math.sin(th);
+        // ph from the top; th round: the bag is longer towards the back (-z) and sags a little.
+        const back = sz < 0 ? 1 + 0.35 * -sz : 1;
+        let x = sx * M.w, y = sy * M.h, z = sz * M.l * back;
+        y -= (1 - sy) * 0.006 * back;
+        pos.push(x, M.y + y + (-z) * M.lean, M.z + z);
+        uv.push(0.2 + (0.5 - z / (M.l * 2.7)) * 0.6, (sy + 1) / 2);
+      }
+    }
+    for (let i = 0; i < NV; i++) for (let j = 0; j < NU; j++) {
+      const a = i * (NU + 1) + j, b = a + NU + 1;
+      idx.push(a, a + 1, b, b, a + 1, b + 1);
+    }
+    B.add(0, pos, uv, idx);
+  }
+  // Eight arms from under the head, spreading and curling.
+  const SEG = detail ? 18 : 6, RAD = detail ? 7 : 4;
+  for (let k = 0; k < 8; k++) {
+    const ang = (k / 8) * Math.PI * 2 + Math.PI / 8; // round the head, from the front
+    const len = A.arm * [0.82, 0.95, 1.05, 1, 1, 1.05, 0.95, 0.82][k] * (A.armVar ? 1 + 0.08 * Math.sin(k * 2.3) : 1);
+    const curl = (k % 2 ? 1 : -1) * (0.9 + 0.3 * Math.sin(k * 1.7));
+    const pts = [];
+    for (let i = 0; i <= 10; i++) {
+      const u = i / 10, r = 0.03 + u * len, a2 = ang + curl * u * u * 0.9;
+      const lift = Math.sin(u * Math.PI) * 0.025 + (u > 0.8 ? (u - 0.8) * 0.12 : 0);
+      pts.push(new THREE.Vector3(Math.sin(a2) * r, A.base + lift - u * 0.01, A.headZ + Math.cos(a2) * r * 0.9));
+    }
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const tg = new THREE.TubeGeometry(curve, SEG, A.armR, RAD, false), p = tg.attributes.position;
+    // Skin from the arm's base to its tip: brown above, the pale suckers beneath.
+    const u = [];
+    for (let i = 0; i < p.count; i++) {
+      const seg = Math.floor(i / (RAD + 1)) / SEG, c = curve.getPointAt(Math.min(1, seg));
+      const v = new THREE.Vector3(p.getX(i), p.getY(i), p.getZ(i)).sub(c);
+      const under = v.y < -A.armR * 0.35;
+      // Thick at the base, tapering to a fine tip, flattened a little against the seabed.
+      v.multiplyScalar(1 - Math.pow(seg, 0.8) * 0.88);
+      v.y *= 0.8;
+      p.setXYZ(i, c.x + v.x, c.y + v.y, c.z + v.z);
+      u.push(0.62 + seg * 0.36, under ? 0.08 : 0.62);
+    }
+    B.add(0, Array.from(p.array), u, Array.from(tg.index.array));
+    tg.dispose();
+  }
+  // The web between the arms' bases, and the head: a low dome where the arms meet.
+  {
+    const s = new THREE.SphereGeometry(A.head, detail ? 18 : 8, detail ? 10 : 5, 0, Math.PI * 2, 0, Math.PI * 0.62);
+    s.scale(1, 0.6, 1);
+    s.translate(0, A.base + 0.006, A.headZ);
+    const u = [];
+    for (let i = 0; i < s.attributes.position.count; i++) u.push(0.55, 0.6);
+    B.add(0, Array.from(s.attributes.position.array), u, Array.from(s.index.array));
+    s.dispose();
+  }
+  // Eyes on raised bumps either side of the head.
+  for (const side of [1, -1]) {
+    eyeMesh(B, [side * A.eye.x, A.eye.y, A.eye.z], new THREE.Vector3(side, 0.55, 0.25), A.eye.r, 0.6, detail ? 14 : 8);
   }
   return B.build();
 }
@@ -870,8 +1081,28 @@ export const ANATOMY = {
 // How each body plan swims (in model space, z along the body):
 //  0 fish: a travelling wave down the body, growing towards the tail
 //  1 flatfish: an up-and-down ripple, with the fin fringe fluttering
+//  2 eel: a long wave along the whole body, head included
 //  3 cuttlefish: the fin frill rippling along its length, the arms swaying a little
+//  4 tuna: a stiff body, the beat all in the tail stalk and crescent tail
+//  5 squid: the fins rippling and flapping at the rear, the arms trailing
+//  6 octopus: the arms rippling and curling as it crawls, the mantle breathing
 const SWIM = {
+  2: `float bend = 0.35 + 0.65 * smoothstep(0.45, -0.5, position.z);
+      transformed.x += sin(sw.x - position.z * 13.0) * bend * (0.02 + sw.y * 0.045);`,
+  4: `float bend = smoothstep(-0.02, -0.55, position.z);
+      transformed.x += sin(sw.x - position.z * 4.0) * bend * bend * (0.03 + sw.y * 0.12);`,
+  5: `float fin = smoothstep(0.03, 0.06, abs(position.x)) * step(position.z, 0.05);
+      transformed.y += sin(sw.x * 1.4 + position.z * 18.0) * fin * (0.01 + sw.y * 0.03);
+      float arm = smoothstep(0.26, 0.4, position.z);
+      transformed.x += sin(sw.x * 0.9 + position.z * 10.0) * arm * 0.012;
+      transformed.y += cos(sw.x * 0.8 + position.z * 8.0) * arm * 0.008;`,
+  6: `float r = length(position.xz);
+      float arm = smoothstep(0.07, 0.28, r) * (1.0 - smoothstep(0.02, 0.06, position.y));
+      float ang = atan(position.x, position.z);
+      transformed.y += sin(sw.x * 0.9 - r * 16.0 + ang * 2.0) * arm * (0.008 + sw.y * 0.02);
+      transformed.xz += normalize(position.xz + vec2(1e-4)) * sin(sw.x * 0.7 + ang * 3.0) * arm * 0.012;
+      float bag = smoothstep(0.03, 0.07, position.y);
+      transformed *= 1.0 + bag * sin(sw.x * 0.45) * 0.03;`,
   0: `float bend = smoothstep(0.32, -0.6, position.z);
       transformed.x += sin(sw.x - position.z * 5.5) * bend * (0.025 + sw.y * 0.09);`,
   1: `float bend = smoothstep(0.35, -0.5, position.z);
@@ -916,12 +1147,13 @@ export function anatomyMaterials(id, instanced) {
   bump.needsUpdate = true;
   bump.repeat.set(A.scaleRows ? A.scaleRows[0] / 4 : 1, A.scaleRows ? A.scaleRows[1] / 4 : 1);
   const body = new THREE.MeshStandardMaterial({
-    map, roughness: A.plan === 'cuttle' ? 0.6 : 0.36, metalness: A.metal ?? 0.2,
+    map, roughness: A.plan === 'fish' || A.plan === 'flat' ? 0.36 : 0.6, metalness: A.metal ?? 0.2,
     bumpMap: A.scaleRows ? bump : null, bumpScale: A.scaleRows ? 0.35 : 0, side: THREE.FrontSide,
   });
-  if (A.plan === 'flat' || A.plan === 'cuttle') body.side = THREE.DoubleSide;
+  if (A.plan !== 'fish') body.side = THREE.DoubleSide;
+  // (The fins' colours are in the geometry: each fin can have its own, and its edge another.)
   const fins = new THREE.MeshStandardMaterial({
-    color: A.colors.fin, map: finTexture(), transparent: true, opacity: A.finOpacity ?? 0.88, side: THREE.DoubleSide,
+    color: '#ffffff', vertexColors: true, map: finTexture(), transparent: true, opacity: A.finOpacity ?? 0.88, side: THREE.DoubleSide,
     depthWrite: false, roughness: 0.55, metalness: 0,
   });
   const eyes = new THREE.MeshStandardMaterial({ map: eyeTexture(A.eye?.iris || '#c9b37a', A.eye?.pupil), roughness: 0.08, metalness: 0.15 });
@@ -936,9 +1168,12 @@ export function anatomyGeometry(id, detail = true) {
   const key = `${id}|${detail ? 'h' : 'l'}`;
   if (GEOS.has(key)) return GEOS.get(key);
   const A = ANATOMY[id];
-  const geo = A.plan === 'flat' ? buildFlat(A, detail) : A.plan === 'cuttle' ? buildCuttle(A, detail) : buildFish(A, detail);
+  const geo = { flat: buildFlat, cuttle: buildCuttle, squid: buildSquid, octopus: buildOctopus }[A.plan]?.(A, detail) ?? buildFish(A, detail);
   GEOS.set(key, geo);
   return geo;
 }
 
 export const hasAnatomy = (id) => !!ANATOMY[id];
+
+// The Atlantic roster's recipes live in their own module.
+Object.assign(ANATOMY, ATLANTIC_ANATOMY);

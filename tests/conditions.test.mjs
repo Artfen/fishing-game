@@ -1,0 +1,132 @@
+// Wind, waves and currents (src/world/conditions.js), and the boats that ride them: sheltered
+// water is calmer, the sea changes smoothly, nothing jumps at an invisible line, the water you
+// see and the water boats float on are one function, and a drifting boat goes the same way at
+// any frame rate. Run with `node --import ./tests/setup.mjs --test tests/`.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+const THREE = await import('three');
+const C = await import('../src/world/conditions.js');
+const water = await import('../src/world/water.js');
+const { Boat } = await import('../src/boat.js');
+
+// Settle the sea for a given setting (sea preset, steady wind).
+function settle(preset, speed = null, from = 225) {
+  C.conditions.preset = preset;
+  C.conditions.manual = speed == null ? null : { speed, from: (from * Math.PI) / 180 };
+  if (speed != null) C.conditions.wind.speed = C.conditions.wind.target = speed;
+  for (let i = 0; i < 6000; i++) C.updateConditions(0.1, { rain: 0, cloud: 0.3 });
+}
+
+test('sheltered water is calmer than the open coast, and the lake barely stirs', () => {
+  settle('lively', 10);
+  const h = (x, z) => C.waveHeightHere(x, z);
+  const bay = h(0, -10), cove = h(140, -16), open = h(0, 200), coast = h(-300, 400), lake = h(-133, -21);
+  assert.ok(bay < open * 0.7, `bay ${bay} vs open ${open}`);
+  assert.ok(cove < open * 0.6, `cove ${cove} vs open ${open}`);
+  assert.ok(coast >= open * 0.9, `coast ${coast} vs open ${open}`);
+  assert.ok(lake < 0.05, `lake ${lake}`);
+  // And the wind itself is gentler in a cove than out at sea.
+  assert.ok(C.windAt(140, -16).speed < C.windAt(0, 300).speed * 0.7);
+});
+
+test('the sea changes smoothly: a new wind builds the chop over tens of seconds, the swell over minutes', () => {
+  settle('calm', 2);
+  const chop0 = C.conditions.sea.chop, swell0 = C.conditions.sea.swell;
+  C.conditions.manual = { speed: 11, from: 4 };
+  let last = chop0, maxStep = 0;
+  for (let i = 0; i < 100; i++) {
+    C.updateConditions(0.1, { rain: 0, cloud: 0.3 }); // ten seconds
+    maxStep = Math.max(maxStep, Math.abs(C.conditions.sea.chop - last));
+    last = C.conditions.sea.chop;
+  }
+  assert.ok(maxStep < 0.01, `chop jumped ${maxStep} m in a tenth of a second`);
+  assert.ok(C.conditions.sea.chop > chop0 && C.conditions.sea.chop < 0.2, 'part-built after ten seconds');
+  assert.ok(Math.abs(C.conditions.sea.swell - swell0) < 0.02, 'the swell barely moved in ten seconds');
+});
+
+test('nothing jumps at an invisible line: waves and currents vary smoothly across the water', () => {
+  settle('lively', 9);
+  C.conditions.time = 37;
+  // From inside Willow Bay out through its mouth to the open coast, and across the estuary.
+  for (const [x0, z0, x1, z1] of [[0, -10, 0, 320], [480, 60, 680, 60], [-400, 560, -120, 560], [140, -30, 150, 70]]) {
+    let lastH = null, lastC = null;
+    const n = Math.round(Math.hypot(x1 - x0, z1 - z0));
+    for (let i = 0; i <= n; i++) {
+      const x = x0 + ((x1 - x0) * i) / n, z = z0 + ((z1 - z0) * i) / n;
+      const h = C.waveHeight(x, z), c = C.currentAt(x, z, 0);
+      if (lastH != null) assert.ok(Math.abs(h - lastH) < 0.12, `wave jump ${Math.abs(h - lastH).toFixed(3)} m at ${x.toFixed(0)},${z.toFixed(0)}`);
+      if (lastC) assert.ok(Math.hypot(c.x - lastC.x, c.z - lastC.z) < 0.06, `current jump at ${x.toFixed(0)},${z.toFixed(0)}`);
+      lastH = h;
+      lastC = { ...c };
+    }
+  }
+});
+
+test('currents run where they should: the river out to sea, faster in the narrows, slack in a cove, slower near the bottom', () => {
+  const at = (x, z, d = 0) => ({ ...C.currentAt(x, z, d) }); // (currentAt reuses its result object)
+  const river = at(600, -250), estuary = at(570, 70), cove = at(140, -16);
+  assert.ok(river.z > 0.3, `the Wend runs south to the sea (${river.z})`);
+  assert.ok(Math.hypot(river.x, river.z) > Math.hypot(estuary.x, estuary.z), 'faster in the narrow river than over the estuary');
+  assert.ok(Math.hypot(cove.x, cove.z) < 0.05, 'slack in Driftwood Cove');
+  const top = at(-170, 560), deep = at(-170, 560, 30);
+  assert.ok(Math.hypot(deep.x, deep.z) < Math.hypot(top.x, top.z), 'slower near the seabed');
+  // The tide-ready zones turn with the tide.
+  C.TIDE.flow = -1;
+  const flood = at(-170, 560);
+  C.TIDE.flow = 1;
+  assert.ok(flood.x * top.x + flood.z * top.z < 0, 'a flood tide runs the other way round Gannet Isle');
+});
+
+test('the water you see and the water boats float on are one function', () => {
+  assert.equal(water.waveHeight, C.waveHeight);
+});
+
+// A boat left to drift in a steady wind and current, simulated at a frame rate.
+function drift(kind, fps, seconds, { anchored = false } = {}) {
+  settle('moderate', 9, 270);
+  const b = new Boat(new THREE.Scene(), { kind });
+  b.place(-120, 420, 0);
+  if (anchored) b.setAnchor?.(true);
+  let maxRoll = 0, maxPitch = 0;
+  const dt = 1 / fps;
+  for (let i = 0; i < seconds * fps; i++) {
+    C.conditions.time = i * dt;
+    b.update(dt, i * dt, 0, 0, 0);
+    maxRoll = Math.max(maxRoll, Math.abs(b.roll));
+    maxPitch = Math.max(maxPitch, Math.abs(b.pitch));
+  }
+  return { x: b.pos.x, z: b.pos.z, maxRoll, maxPitch, b };
+}
+
+test('a drifting boat goes the same way at 15, 30 and 120 frames a second', () => {
+  const a = drift('row', 15, 60), b = drift('row', 30, 60), c = drift('row', 120, 60);
+  const moved = Math.hypot(c.x + 120, c.z - 420);
+  assert.ok(moved > 2, `the wind and current moved it (${moved.toFixed(1)} m in a minute)`);
+  // Within a few per cent of the distance drifted (a small boat, a minute of wind and current).
+  assert.ok(Math.hypot(a.x - c.x, a.z - c.z) < moved * 0.06, `15 vs 120 fps: ${Math.hypot(a.x - c.x, a.z - c.z).toFixed(2)} m apart in ${moved.toFixed(1)} m`);
+  assert.ok(Math.hypot(b.x - c.x, b.z - c.z) < moved * 0.03, `30 vs 120 fps: ${Math.hypot(b.x - c.x, b.z - c.z).toFixed(2)} m apart in ${moved.toFixed(1)} m`);
+});
+
+test('boats ride the waves gently and differently: a kayak follows the chop, the bass boat sits steadier', () => {
+  const kayak = drift('kayak', 30, 40), bass = drift('bass', 30, 40), row = drift('row', 30, 40);
+  for (const [k, r] of [['kayak', kayak], ['bass', bass], ['row', row]]) {
+    assert.ok(r.maxRoll < 0.23 && r.maxPitch < 0.21, `${k} rolled ${r.maxRoll.toFixed(2)}, pitched ${r.maxPitch.toFixed(2)}: no wave tips a boat`);
+  }
+  assert.ok(bass.maxRoll < kayak.maxRoll, `bass boat ${bass.maxRoll.toFixed(3)} vs kayak ${kayak.maxRoll.toFixed(3)}`);
+});
+
+test('an anchored boat stays by its anchor, and lies to its rope', () => {
+  const r = drift('row', 30, 90, { anchored: true });
+  const d = Math.hypot(r.x + 120, r.z - 420);
+  assert.ok(d < 4, `it stayed within ${d.toFixed(1)} m of the anchor`);
+});
+
+test('the Currents setting steadies your boat (the fish still know the water)', () => {
+  C.conditions.currents = 'still';
+  assert.equal(C.currentScale(), 0);
+  C.conditions.currents = 'gentle';
+  assert.equal(C.currentScale(), 0.5);
+  C.conditions.currents = 'natural';
+  assert.ok(Math.hypot(C.currentFast(600, -250).x, C.currentFast(600, -250).z) > 0.2, 'fish still feel the river');
+});

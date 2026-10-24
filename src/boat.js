@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { clamp, lerp, damp, smoothstep, mergeParts, mat } from './util.js';
+import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat } from './util.js';
 import { waveHeight } from './world/water.js';
+import { windAt, currentAt, currentScale } from './world/conditions.js';
 import { solidHeight, PIERS, WORLD } from './world/terrain.js';
 import { buildLanternModel, buildRod, bendRod } from './props.js';
 import { withSurface } from './world/surface.js';
@@ -23,12 +24,14 @@ const HULLS = {
     paint: '#3f7f86', stripe: '#f1e6cc', bottom: '#a2513d', inside: 'wood',
     oars: true, thwarts: true, lantern: [0.42, -1.58], stow: [-0.42, 0.52, -0.25],
     pull: 6.4, back: 3.2, drag: [0.32, 0.075], side: 2.6, turn: 0.85, rate: 0.8, noise: 1, steady: 1,
+    windage: 0.0026, ride: 4,
   },
   skiff: {
     name: 'motor skiff', L: 3.8, B: 0.8, D: 0.6, draft: 0.2, shallow: 0.35, seatZ: -1.25, seatY: 0.47, floorY: 0.08,
     paint: '#ece6d8', stripe: '#2f4f7a', bottom: '#7c3a2e', inside: 'wood',
     motor: { thrust: 5.4, astern: 2.4, tilt: 0.75, scale: 1, cowl: '#e9e5dc', band: '#2f4f7a' },
     thwarts: true, oarlocks: true, lantern: [0.3, 1.25], stow: [-0.42, 0.52, -0.25], noise: 1, steady: 1,
+    windage: 0.003, ride: 4,
   },
   kayak: {
     name: 'kayak', L: 3.7, B: 0.34, D: 0.3, draft: 0.09, shallow: 0.15, seatZ: -0.15, seatY: 0.1, floorY: 0.06,
@@ -38,6 +41,7 @@ const HULLS = {
     paint: '#e8742a', stripe: '#f3d36b', bottom: '#c45a1c', inside: 'plastic',
     decks: [[0, 0.3, 0], [0.6, 1, 0]], paddle: true, lantern: [0, -1.25], stow: [-0.2, 0.33, -1.05],
     pull: 3.0, back: 1.6, drag: [0.36, 0.09], side: 3.4, turn: 1.25, rate: 0.95, noise: 0.4, steady: 0.8,
+    windage: 0.0018, ride: 6, // low and light: it rides every little wave, but offers the wind little
   },
   bass: {
     name: 'bass boat', L: 4.7, B: 1.05, D: 0.55, draft: 0.22, shallow: 0.4, seatZ: -1.55, seatY: 0.78, floorY: 0.27,
@@ -48,6 +52,7 @@ const HULLS = {
     decks: [[0.6, 1, 0.07], [0, 0.17, 0.07]], floor: true, pedestals: true, locker: true,
     motor: { thrust: 7.6, astern: 3, tilt: 0.85, scale: 1.3, cowl: '#2b2e33', band: '#b8312f', troll: 0.3 },
     lantern: [0.8, -1.95], stow: [-0.72, 0.62, 0.4], noise: 1, steady: 0.45,
+    windage: 0.0036, ride: 3, // high-sided: the wind pushes it more; broad and heavy: it rides the swell slowly
   },
 };
 for (const id of ['skiff']) Object.assign(HULLS[id], { hw: HULLS.row.hw, sheer: HULLS.row.sheer, keel: HULLS.row.keel });
@@ -167,6 +172,7 @@ export class Boat {
     this.lever = 0;        // motor throttle, -0.4 (astern) … 1 (full ahead); it stays where you leave it
     this.anchored = false;
     this.anchorPt = new THREE.Vector3();
+    this.drift = new THREE.Vector3(); // the current carrying it (m/s)
     this.tilted = false;   // the motor tips up in shallow water so the propeller can't catch the bottom
     this.onShallow = null;
     this.propSpin = 0;
@@ -562,9 +568,10 @@ export class Boat {
     return this.body.localToWorld(out.set(-0.15, this.seatY + 0.98, 1.05 + this.seatZ));
   }
 
-  // Your eyes in first person: where you sit, rising and rolling with the boat.
-  eyePoint(out) {
-    return this.body.localToWorld(out.set(0, this.seatY + 0.81, this.seatZ + 0.1));
+  // Your eyes in first person: where you sit, rising and rolling with the boat (level: only
+  // rising and falling with it, for a steady horizon).
+  eyePoint(out, level = false) {
+    return (level ? this.group : this.body).localToWorld(out.set(0, this.seatY + 0.81, this.seatZ + 0.1));
   }
 
   // In first person the figure draws nothing on screen, but still casts its shadow.
@@ -622,8 +629,22 @@ export class Boat {
     this.fwd.set(Math.sin(this.heading), 0, Math.cos(this.heading));
     this.right.set(-Math.cos(this.heading), 0, Math.sin(this.heading));
 
-    let vf = this.vel.dot(this.fwd);
-    let vr = this.vel.dot(this.right);
+    // The boat moves through the water, and the water itself moves (the current): oars, motor
+    // and hull drag all work on the boat's speed through the water; the current carries the lot.
+    // The wind pushes on the hull by how fast the air goes past it. (Each counted once.)
+    const H0 = this.hull, cs = currentScale();
+    const cur = currentAt(this.pos.x, this.pos.z, 0);
+    this.drift.set(cur.x * cs, 0, cur.z * cs);
+    const air = windAt(this.pos.x, this.pos.z);
+    const ax = air.x - this.vel.x, az = air.z - this.vel.z, aw = Math.hypot(ax, az) * (H0.windage ?? 0.003);
+    let vf = (this.vel.x - this.drift.x) * this.fwd.x + (this.vel.z - this.drift.z) * this.fwd.z;
+    let vr = (this.vel.x - this.drift.x) * this.right.x + (this.vel.z - this.drift.z) * this.right.z;
+    const wf = (ax * this.fwd.x + az * this.fwd.z) * aw, wr = (ax * this.right.x + az * this.right.z) * aw;
+    // Push and drag, stepped exactly (so a boat drifts and coasts the same at any frame rate).
+    const step = (v, push, k) => {
+      const e = Math.exp(-k * dt);
+      return v * e + (push * (1 - e)) / k;
+    };
     let thrust;
     const H = this.hull, M = H.motor;
     if (M) {
@@ -642,9 +663,8 @@ export class Boat {
       const spin = troll ? 0 : lever;
       this.propSpin += dt * (6 + Math.abs(spin) * 60) * Math.sign(spin || 1) * (Math.abs(spin) > 0.02 ? 1 : 0.1);
       if (this.trollProp) this.trollProp.rotation.z += dt * (troll ? 40 : 0);
-      vf += thrust * dt;
-      vf -= vf * (0.26 + 0.055 * Math.abs(vf)) * dt;
-      vr -= vr * 3.2 * dt;
+      vf = step(vf, thrust + wf, 0.26 + 0.055 * Math.abs(vf));
+      vr = step(vr, wr, 3.2);
       // The tiller turns the boat even when slow, more so with the propeller pushing (and
       // the trolling motor steers the bow round on the spot).
       const turnRate = troll ? 0.9 : 0.45 + 0.75 * clamp(Math.abs(vf) / 4, 0, 1) + 0.35 * Math.abs(lever);
@@ -659,15 +679,15 @@ export class Boat {
       // Throttle can be partial (touch stick), so it scales the stroke.
       const pull = this.anchored ? 0 : throttle;
       thrust = pull > 0 ? H.pull * pulse * pull : pull < 0 ? H.back * pulse * pull : 0;
-      vf += thrust * dt;
-      vf -= vf * (H.drag[0] + H.drag[1] * Math.abs(vf)) * dt;
-      vr -= vr * H.side * dt;
+      vf = step(vf, thrust + wf, H.drag[0] + H.drag[1] * Math.abs(vf));
+      vr = step(vr, wr, H.side);
       const turnRate = H.turn + 0.25 * clamp(Math.abs(vf) / 5, 0, 1);
       this.omega = damp(this.omega, steer * turnRate * (fishing ? 0.5 : 1) * (this.anchored ? 0.3 : 1), 2.8, dt);
     }
-    if (fishing) vf -= vf * 0.9 * dt;
-    this.vel.copy(this.fwd).multiplyScalar(vf).addScaledVector(this.right, vr);
-    // At anchor: the rope holds it near the spot, and it settles.
+    if (fishing) vf *= Math.exp(-0.9 * dt);
+    this.vel.copy(this.fwd).multiplyScalar(vf).addScaledVector(this.right, vr).add(this.drift);
+    // At anchor: the rope holds it near the spot (it lies a little down-wind and down-current of
+    // it), it settles, and it swings round to lie bow to the rope.
     if (this.anchored) {
       const dx = this.pos.x - this.anchorPt.x, dz = this.pos.z - this.anchorPt.z, d = Math.hypot(dx, dz);
       if (d > 1.5) {
@@ -675,6 +695,7 @@ export class Boat {
         this.vel.z -= (dz / d) * (d - 1.5) * 1.6 * dt;
       }
       this.vel.multiplyScalar(Math.exp(-1.2 * dt));
+      if (d > 1.1 && Math.abs(steer) < 0.05) this.heading = dampAngle(this.heading, Math.atan2(-dx, -dz), 0.12, dt);
     }
     this.forwardSpeed = vf;
     this.heading += this.omega * dt;
@@ -682,19 +703,25 @@ export class Boat {
     this.pos.addScaledVector(this.vel, dt);
     this.collide(dt);
 
-    // Float on the swell
+    // Ride the waves: the water under the bow and stern, both sides and the middle, sampled at the
+    // hull's own length and beam, so a long boat bridges short chop and only the swell lifts it,
+    // while a kayak follows every wavelet. Gentle limits: a boat heaves, pitches and rolls but is
+    // never tipped over by a wave.
     const f = this.fwd, r = this.right, p = this.pos;
-    const hb = waveHeight(p.x + f.x * 1.5, p.z + f.z * 1.5, t);
-    const hs = waveHeight(p.x - f.x * 1.5, p.z - f.z * 1.5, t);
-    const hp = waveHeight(p.x - r.x * 0.8, p.z - r.z * 0.8, t);
-    const hst = waveHeight(p.x + r.x * 0.8, p.z + r.z * 0.8, t);
-    const hc = (hb + hs + hp + hst) / 4;
+    const L2 = H.L * 0.42, B2 = Math.max(0.35, H.B * 0.95);
+    const hb = waveHeight(p.x + f.x * L2, p.z + f.z * L2, t);
+    const hs = waveHeight(p.x - f.x * L2, p.z - f.z * L2, t);
+    const hp = waveHeight(p.x - r.x * B2, p.z - r.z * B2, t);
+    const hst = waveHeight(p.x + r.x * B2, p.z + r.z * B2, t);
+    const hm = waveHeight(p.x, p.z, t);
+    const hc = (hb + hs + hp + hst + 2 * hm) / 6;
     // (A broad bass boat sits steadier on the swell than the narrow wooden boats.)
-    const targetPitch = (-Math.atan2(hb - hs, 3.0) - thrust * 0.004) * (0.5 + 0.5 * H.steady);
-    const targetRoll = (Math.atan2(hp - hst, 1.6) + this.omega * vf * 0.035 + Math.sin(t * 0.9) * 0.012) * H.steady;
-    this.pitch = damp(this.pitch, targetPitch, 4, dt);
-    this.roll = damp(this.roll, targetRoll, 4, dt);
-    this.heave = damp(this.heave, hc, 5, dt);
+    const targetPitch = clamp(-Math.atan2(hb - hs, 2 * L2) - thrust * 0.004, -0.2, 0.2) * (0.5 + 0.5 * H.steady);
+    const targetRoll = clamp(Math.atan2(hp - hst, 2 * B2) + this.omega * vf * 0.035, -0.22, 0.22) * H.steady + Math.sin(t * 0.9) * 0.008 * H.steady;
+    const ride = H.ride ?? 4;
+    this.pitch = damp(this.pitch, targetPitch, ride, dt);
+    this.roll = damp(this.roll, targetRoll, ride, dt);
+    this.heave = damp(this.heave, hc, ride + 1, dt);
 
     this.group.position.set(p.x, this.heave - H.draft, p.z);
     this.group.rotation.y = this.heading;

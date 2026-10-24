@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { FISH, buildFishMesh } from './fish.js';
 import { waveHeight } from './world/water.js';
-import { solidHeight, streamFlow } from './world/terrain.js';
+import { currentAt, windAt, currentScale } from './world/conditions.js';
+import { solidHeight } from './world/terrain.js';
 import { RODS, TACKLE, TERMS, LINE_COLORS, castRange, windSensitivity, splashOf, checkSetup, castWeight } from './tackle.js';
 import { buildTackleModel, buildFloat, buildIndicator, buildLead } from './tackleModels.js';
 import { clamp, lerp, damp, rand, smoothstep, wrapAngle, glowTexture } from './util.js';
@@ -352,7 +353,9 @@ export class Fishing {
     const bonus = manual && !fly && this.sweet ? 0.06 : 0;
     const collapse = manual ? (fly ? this.flyCollapse ?? 0 : this.overload) : 0;
     d *= (1 + bonus) * (1 - 0.4 * collapse);
-    const w = this.wind, push = w.strength * windSensitivity(this.rod, this.item, this.term) * (this.diff.cast ?? 1) * d * 0.05;
+    // The wind on the rig in flight: more on light tackle, a longer cast and a stronger wind (the
+    // wind where you stand, gusts and all: the preview moves with it, so what you see is what you get).
+    const w = this.wind, push = w.strength * windSensitivity(this.rod, this.item, this.term) * (this.diff.cast ?? 1) * d * 0.085;
     const wAlong = (w.x * dx + w.z * dz) * push, wAcross = (w.x * rx + w.z * rz) * push;
     const veer = collapse * d * 0.12 * (this.diff.cast ?? 1);
     const along = d + (manual ? wAlong : 0), across = (manual ? wAcross : 0) + veer;
@@ -537,6 +540,8 @@ export class Fishing {
     this.setStatus(this.kind === 'ledger' || this.kind === 'bottom' || this.kind === 'jig' ? 'sinking' : 'quiet');
     this.quietT = 0;
     this.hintedQuiet = false;
+    // What the fish make of this cast, for advice when nothing bites (see advice.js).
+    this.interest = { looks: 0, follows: 0, nibbles: 0, turned: 0, refused: 0, spooked: 0, left: 0, kinds: {}, at: { x: this.bob.x, z: this.bob.z }, t: 0 };
   }
 
   twitch() {
@@ -640,14 +645,24 @@ export class Fishing {
 
   /* ---------- what the fish do ---------- */
 
+  // (Counted for advice: who came, and how it went.)
+  noteInterest(a, what) {
+    const I = this.interest;
+    if (!I) return;
+    I[what]++;
+    I.kinds[a.sp.id] = (I.kinds[a.sp.id] || 0) + 1;
+  }
+
   onCurious(a) {
     if (this.state !== 'drifting') return;
+    this.noteInterest(a, 'looks');
     this.agent = a;
     this.setStatus(this.kind === 'fly' && this.item.fly === 'dry' ? 'rising' : 'curious');
   }
 
   onFollow(a) {
     if (this.state !== 'drifting') return;
+    this.noteInterest(a, 'follows');
     this.agent = a;
     this.setStatus('follow');
     this.hooks.teach('follow', 'A fish is following your lure. A twitch or a short pause often makes it strike.');
@@ -655,6 +670,7 @@ export class Fishing {
 
   onNibble(a) {
     if (this.state !== 'drifting' || a !== this.agent) return;
+    this.noteInterest(a, 'nibbles');
     if (this.kind === 'bottom') {
       // Little rattles on the rod tip: a flatfish worrying at the bait. Not yet.
       this.rodBounce = 0.22;
@@ -745,6 +761,12 @@ export class Fishing {
 
   onLeave(a, reason) {
     if (a !== this.agent) return;
+    if (this.interest && this.state === 'drifting') {
+      this.interest.left++;
+      if (reason === 'turned') this.interest.turned++;
+      else if (reason === 'refused') this.interest.refused++;
+      else if (reason === 'startled' || reason === 'spooked') this.interest.spooked++;
+    }
     const wasBite = this.state === 'bite';
     if (wasBite) {
       this.state = 'drifting';
@@ -1123,6 +1145,30 @@ export class Fishing {
     this.setLine(this.tip, this.lineEnd, this.lineSag);
   }
 
+  // The water moving a rig: the current at its depth (by the Currents setting), plus a share of
+  // the wind for what stands above the surface. k: how freely it goes with the water.
+  carry(p, depth, dt, k, windShare) {
+    const c = currentAt(p.x, p.z, depth), cs = currentScale() * k;
+    let dx = c.x * cs, dz = c.z * cs;
+    if (windShare) {
+      const w = windAt(p.x, p.z);
+      dx += w.x * windShare;
+      dz += w.z * windShare;
+    }
+    p.x += dx * dt;
+    p.z += dz * dt;
+  }
+
+  // A drifting float can only go as far as the line lets it: past that the line comes tight.
+  keepOnLine(p) {
+    const max = (this.castDist || 10) * 1.15 + 4;
+    const dx = p.x - this.tip.x, dz = p.z - this.tip.z, d = Math.hypot(dx, dz);
+    if (d > max) {
+      p.x = this.tip.x + (dx / d) * max;
+      p.z = this.tip.z + (dz / d) * max;
+    }
+  }
+
   // Where the line meets the water on its way from the rod tip down to the hook.
   surfacePoint(out, t) {
     const th = Math.max(0.5, this.tip.y - waveHeight(this.tip.x, this.tip.z, t));
@@ -1163,10 +1209,9 @@ export class Fishing {
       this.bob.z += (dz / l) * this.reelSpeed * dt;
       if (Math.random() < dt * 14 * this.reelSpeed) this.audio.tick(0.5);
     } else {
-      // A float drifts slowly with the breeze, or with the current in the stream.
-      streamFlow(this.bob.x, this.bob.z, this.flow);
-      this.bob.x += (0.03 + this.flow.x * 0.8) * dt;
-      this.bob.z += this.flow.z * 0.8 * dt;
+      // A float goes with the water it sits in (the current), and its tip catches a little wind.
+      this.carry(this.bob, 0, dt, 1, 0.012);
+      this.keepOnLine(this.bob);
     }
     this.dip = damp(this.dip, 0, 8, dt);
     this.bob.y = waveHeight(this.bob.x, this.bob.z, t) - this.dip;
@@ -1217,7 +1262,9 @@ export class Fishing {
       r.moved += move * dt;
       if (Math.random() < dt * 14 * this.reelSpeed) this.audio.tick(0.45);
     }
-    this.relSpeed = move;
+    this.relSpeed = move; // (through the water: the current carries it too)
+    // (A floating plug at rest also catches a little wind.)
+    this.carry(this.hook, this.baitDepth, dt, 0.9, it.floats && this.reelSpeed < 0.12 ? 0.006 : 0);
     const moving = this.reelSpeed > 0.12;
     if (moving) {
       r.pauseT = 0;
@@ -1304,6 +1351,21 @@ export class Fishing {
       this.hook.z += (dz / l) * this.reelSpeed * dt;
       if (Math.random() < dt * 12 * this.reelSpeed) this.audio.tick(0.5);
     }
+    // Sinking, it's carried by the water it falls through; on the bottom, the lead holds unless
+    // the current there is stronger than its weight can stand, and then it creeps downstream.
+    if (!r.settled) this.carry(this.hook, this.baitDepth, dt, 0.8, 0);
+    else if (this.reelSpeed <= 0.05) {
+      const hold = 0.12 + (this.term?.weight ?? 85) / 350; // m/s of current a lead stays put in
+      const c = currentAt(this.hook.x, this.hook.z, this.bottom), cs = currentScale();
+      const v = Math.hypot(c.x, c.z) * cs;
+      r.rolling = v > hold;
+      if (r.rolling) {
+        const k = ((v - hold) * 0.6) / v;
+        this.hook.x += c.x * cs * k * dt;
+        this.hook.z += c.z * cs * k * dt;
+        if (Math.random() < dt * 0.6) this.rodBounce = Math.max(this.rodBounce || 0, 0.05);
+      }
+    }
     this.bottom = Math.max(0.25, -solidHeight(this.hook.x, this.hook.z));
     if (!r.settled) {
       this.baitDepth = Math.min(this.baitDepth + 2.4 * dt, this.bottom - 0.03);
@@ -1341,6 +1403,7 @@ export class Fishing {
     }
     if (this.twitchT > 0) this.twitchT -= dt;
     r.darted = Math.max(0, r.darted - dt);
+    if (!r.onBottom) this.carry(this.hook, this.baitDepth, dt, 0.9, 0);
     this.bottom = Math.max(0.2, -solidHeight(this.hook.x, this.hook.z));
     const floor = Math.max(0.2, this.bottom - 0.3);
     if (r.lift > 0) {
@@ -1378,9 +1441,16 @@ export class Fishing {
     if (this.hold) this.holdT += dt;
     const strip = this.hold && this.holdT > TAP;
     this.reelSpeed = strip ? 1 : 0;
-    streamFlow(this.hook.x, this.hook.z, this.flow);
+    const c = currentAt(this.hook.x, this.hook.z, 0), cs = currentScale();
+    this.flow.x = c.x * cs;
+    this.flow.z = c.z * cs;
     let fx = this.flow.x, fz = this.flow.z;
-    if (Math.abs(fx) + Math.abs(fz) < 0.01) fx = 0.02; // a breath of wind on still water
+    // On still water, a breath of the wind moves a floating fly along.
+    if (Math.abs(fx) + Math.abs(fz) < 0.01) {
+      const w = windAt(this.hook.x, this.hook.z);
+      fx = w.x * 0.004;
+      fz = w.z * 0.004;
+    }
     if (it.fly === 'nymph') { fx *= 0.85; fz *= 0.85; }
     this.prevHook.copy(this.hook);
     if (strip) r.lineLen = Math.max(1, r.lineLen - (it.fly === 'streamer' ? 0.5 + Math.max(0, Math.sin(t * 7)) * 1.4 : 0.8) * dt);

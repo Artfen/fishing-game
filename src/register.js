@@ -29,41 +29,40 @@ export const STATUS_WORDS = {
   observation: 'In the game · to be seen, not caught',
   planned: 'Planned · not in the game yet',
   verify: 'Needs verification · not in the game',
+  retired: 'Retired · fictional, no longer in the water',
 };
 
 // Game species → register entries. Most share an id; the squid of the coves is the European
 // squid, Loligo vulgaris.
 const GAME_TO_REGISTER = { squid: 'squid' };
 
-// What the game has done with each register entry, and how far its model has come.
+// The playable roster: what the game has done with each register entry. Every species here
+// lives in its habitats, has an anatomical model, takes the setup the field guide recommends
+// in the headless ecosystem (tests/guide.test.mjs), can be landed with it (tests/fight.test.mjs)
+// and is logged in the journal. The European eel is in the water to be seen only: it is
+// critically endangered and protected.
+const CATCHABLE = [
+  // the first species and the reference models
+  'seabass', 'meagre', 'gilthead', 'sole', 'mackerel', 'cuttlefish', 'mullet', 'wrasse', 'flounder', 'plaice', 'sprat', 'tuna', 'squid',
+  // The Living Atlantic
+  'baila', 'blackbream', 'whitebream', 'twobanded', 'striped', 'urta', 'redporgy', 'pandora', 'dentex', 'borriquete', 'roncador',
+  'pollack', 'conger', 'bluefish', 'senegalsole', 'sandsole', 'acedia', 'turbot', 'gurnard', 'sardine', 'anchovy', 'horsemackerel',
+  'sandsmelt', 'bogue', 'salema', 'garfish', 'bonito', 'littletunny', 'bullet', 'pompano', 'octopus',
+];
 const GAME = {
-  seabass: { status: 'catchable', model: 'anatomical' },
-  meagre: { status: 'catchable', model: 'anatomical' },
-  gilthead: { status: 'catchable', model: 'anatomical' },
-  sole: { status: 'catchable', model: 'anatomical' },
-  mackerel: { status: 'catchable', model: 'anatomical' },
-  cuttlefish: { status: 'catchable', model: 'anatomical' },
-  mullet: { status: 'catchable', model: 'basic' },
-  wrasse: { status: 'catchable', model: 'basic' },
-  flounder: { status: 'catchable', model: 'basic' },
-  plaice: { status: 'catchable', model: 'basic' },
-  sprat: { status: 'catchable', model: 'basic' },
-  tuna: { status: 'catchable', model: 'basic' },
-  squid: { status: 'catchable', model: 'basic' },
+  ...Object.fromEntries(CATCHABLE.map((id) => [id, { status: 'catchable', model: 'anatomical' }])),
+  eel: { status: 'observation', model: 'anatomical' },
 };
 
-// The order further species should come in (see the expansion plan in the README).
+// The research catalogue beyond the roster, in the order it could come into the game (see the
+// expansion plan in the README). Deep-water fish and occasional visitors may stay here.
 const BATCH = {
-  // 2: the Willow Bay replacements and the commonest coastal species.
-  sandsmelt: 2, twobanded: 2, pollack: 2, horsemackerel: 2, conger: 2, whitebream: 2, blackbream: 2, octopus: 2,
-  // 3: flatfish and the Gulf of Cádiz.
-  senegalsole: 3, sandsole: 3, acedia: 3, turbot: 3, gurnard: 3, urta: 3, baila: 3, roncador: 3, borriquete: 3,
-  // 4: schooling and offshore fish.
-  sardine: 4, anchovy: 4, chubmackerel: 4, bonito: 4, littletunny: 4, bullet: 4, garfish: 4, bluefish: 4, pompano: 4, salema: 4, bogue: 4,
-  // 5: reef, deeper water, sharks and rays (several observation-only).
-  striped: 5, redporgy: 5, pandora: 5, dentex: 5, hake: 5, johndory: 5, redmullet: 5, thornback: 5, stingray: 5, catshark: 5, blueshark: 5, weever: 5, shanny: 5, grouper: 5,
-  // 6: migratory and protected estuary species (observation-only where protected).
-  allisshad: 6, twaiteshad: 6, eel: 6, lamprey: 6, sturgeon: 6, thinlip: 6, goldengrey: 6,
+  // next: common coastal fish still missing, and catch-and-release on the bottom.
+  chubmackerel: 2, redmullet: 2, weever: 2, shanny: 2, thinlip: 2, goldengrey: 2, catshark: 2, thornback: 2,
+  // deeper water and rarer visitors.
+  hake: 3, johndory: 3, stingray: 3, blueshark: 3, grouper: 3,
+  // migratory and protected estuary species, with seasons (observation-only where protected).
+  allisshad: 4, twaiteshad: 4, lamprey: 4, sturgeon: 4,
 };
 
 // How a planned species should come into the game where catching it isn't the whole story:
@@ -72,7 +71,6 @@ const BATCH = {
 export const PLAN_AS = {
   sturgeon: { as: 'observation', why: 'Fully protected (fishing banned in France since 1982; critically endangered).' },
   allisshad: { as: 'observation', why: 'All fishing for it in the Gironde basin has been under a moratorium since 2008.' },
-  eel: { as: 'observation', why: 'Critically endangered; banned to leisure fishing in the Gironde estuary.' },
   lamprey: { as: 'observation', why: 'All fishing for it in the Gironde estuary has been banned since 2023.' },
   grouper: { as: 'release', why: 'Vulnerable, slow-growing and protected in parts of its range.' },
   stingray: { as: 'release', why: 'Vulnerable, and its tail spine is venomous.' },
@@ -80,9 +78,15 @@ export const PLAN_AS = {
   thornback: { as: 'release', why: 'Near threatened.' },
 };
 
-// Records to settle before the species can be planned in detail.
-export const VERIFY = {
-  whitebream: 'Which name applies on this coast is unsettled. WoRMS and the Catalog of Fishes give the Atlantic fish as Diplodus cadenati (D. sargus being Mediterranean), while FishBase, the French checklist and most regional surveys and rules still call it D. sargus.',
+// Records to settle before the species can be planned in detail (none open at the moment).
+export const VERIFY = {};
+
+// Species whose scientific name is unsettled, though the fish itself is not in doubt.
+export const NAME_NOTES = {
+  whitebream: 'Its scientific name on this coast is unsettled. WoRMS and the Catalog of Fishes give the Atlantic fish as Diplodus cadenati (D. sargus being Mediterranean); FishBase, the French checklist and most regional surveys and rules still call it D. sargus.',
+  bullet: 'Identified as Auxis rochei, the commoner of the two bullet tunas here; the very similar frigate tuna (A. thazard) also turns up in Iberian catches, and the Spanish “melva” and Portuguese “judeu” cover both.',
+  squid: 'The usual inshore night-jigging squid of this coast is Loligo vulgaris; the veined squid (L. forbesii) lives deeper and further north and may also be caught in Galicia.',
+  pompano: 'Several other fish share its Spanish names (palometa, pámpano): the leerfish, the blue butterfish and Ray’s bream.',
 };
 
 // Common names for display, where the register's English name is one few anglers would know.
@@ -99,6 +103,7 @@ export const REGISTER = REGISTER_DATA.map((r) => {
     game: g ? r.id : null,
     status: g?.status || (VERIFY[r.id] ? 'verify' : 'planned'),
     verify: VERIFY[r.id] || null,
+    nameNote: NAME_NOTES[r.id] || null,
     model: g?.model || 'none',
     batch: g ? 1 : BATCH[r.id] || null,
     planAs: g ? null : PLAN_AS[r.id] || null,
@@ -109,15 +114,15 @@ export const registerById = Object.fromEntries(REGISTER.map((r) => [r.id, r]));
 export const titleName = (s) => s.replace(/(^|[\s-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
 export const registerFor = (gameId) => registerById[GAME_TO_REGISTER[gameId] || gameId] || null;
 
-// The five fish of Slow Tide's first version were invented. Each has a real species of this
-// coast proposed to take its place, chosen for the same role in the game. Catches of them stay
-// in the journal under their own names: they are never renamed into a different species.
+// The five fish of Slow Tide's first version were invented. Each was replaced by a real species
+// of this coast in the same role, and no longer lives in the water. Catches of them stay in the
+// journal under their own names: they are never renamed into a different species.
 export const LEGACY = {
   glassminnow: { replacement: 'sandsmelt', replacementName: 'sand smelt, Atherina presbyter', why: 'Small, translucent, with a silver stripe, schooling over shallow sand and weed: the same role.' },
   sunperch: { replacement: 'twobanded', replacementName: 'two-banded seabream, Diplodus vulgaris', why: 'A small, bold, day-active fish of weed and rocks in sheltered bays that takes worms, prawns and little lures.' },
   drizzlefin: { replacement: 'pollack', replacementName: 'pollack, Pollachius pollachius', why: 'A lure-hitting predator of open water off rocks, deeper by day and higher in dull weather.' },
   duskfin: { replacement: 'horsemackerel', replacementName: 'Atlantic horse mackerel, Trachurus trachurus', why: 'Comes up at night and gathers under lights in coves and harbours.' },
-  mossback: { replacement: 'conger', replacementName: 'European conger, Conger conger', why: 'A large, slow fish of the deepest rocks that takes a bait lying on the bottom (needs an eel body plan).' },
+  mossback: { replacement: 'conger', replacementName: 'European conger, Conger conger', why: 'A large, slow fish of the deepest rocks that takes a bait lying on the bottom.' },
 };
 
 // Freshwater species stay outside the Atlantic catalogue. (Their names are standard; their

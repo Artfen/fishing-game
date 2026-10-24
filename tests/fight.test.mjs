@@ -133,6 +133,20 @@ test('every new fish can be landed with careful play on the rod its setup brings
   }
 });
 
+test('every catchable sea species can be landed with careful play on the setup the guide recommends', async () => {
+  const { setupsFor } = await import('../src/guide.js');
+  const { FISH } = await import('../src/fish.js');
+  const failed = [];
+  for (const sp of FISH) {
+    if (sp.retired || sp.life.observe || sp.water === 'fresh') continue;
+    const s = setupsFor(sp)[0], R = RODS[s.rod];
+    const rod = { line: { ...R.lines.find((l) => l.id === s.line), trace: !!TERMS[s.term].trace }, power: R.power, drag: R.drag };
+    const r = play(sp, rod, 'standard', 'careful', { n: 60 });
+    if (r.rate < 0.95 || r.time >= 60) failed.push(`${sp.id} on ${s.rod} (${s.line}): ${JSON.stringify(r)}`);
+  }
+  assert.deepEqual(failed, []);
+});
+
 test('fish of different kinds fight differently: squid jet in short pulses, tuna run long and deep', () => {
   const runs = (id) => {
     const F = newFight(fishById[id], fishById[id].size[1], rodOf(id === 'squid' ? 'squid' : 'offshore'), DIFFICULTY.standard, false, dice(3));

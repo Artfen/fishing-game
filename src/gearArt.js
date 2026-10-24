@@ -953,6 +953,31 @@ function lure(id) {
       for (const x of [0.03, -0.06]) hangTreble(g, x, -0.013, 0.02);
       return g;
     }
+    case 'sabiki': {
+      // A string of six tiny hooks on short droppers, each dressed in a wisp of shiny fish skin
+      // and flash, with a small lead at the bottom of the string.
+      const len = 0.15, skins = ['#f0a2b6', '#e6f0ee', '#9ed8c2'];
+      g.add(lineBetween([len / 2, 0, 0], [-len / 2, 0, 0], '#e8f0f2', 0.0004, 0.7));
+      g.add(mesh(new THREE.TorusGeometry(0.0022, 0.0005, 6, 12), STEEL(), len / 2 + 0.002, 0, 0, 0, Math.PI / 2, 0));
+      for (let i = 0; i < 6; i++) {
+        const x = len / 2 - 0.012 - i * 0.022;
+        g.add(lineBetween([x, 0, 0], [x - 0.006, -0.009, 0], '#e8f0f2', 0.0003, 0.7));
+        const h = hook(0.007);
+        h.position.set(x - 0.006, -0.009, 0);
+        h.rotation.z = -0.5;
+        g.add(h);
+        const skin = new THREE.Mesh(new THREE.ConeGeometry(0.0018, 0.011, 6), glossy(skins[i % 3]));
+        skin.position.set(x - 0.0085, -0.0135, 0);
+        skin.rotation.z = Math.PI * 0.82;
+        g.add(skin);
+        g.add(mesh(new THREE.SphereGeometry(0.0011, 8, 6), std('#e8d070', 0.2, 0.6), x - 0.0055, -0.008, 0));
+      }
+      const lead = leadWeight(0.7);
+      lead.rotation.z = Math.PI / 2;
+      lead.position.x = -len / 2 - 0.012;
+      g.add(lead);
+      return g;
+    }
     case 'metal': case 'mjig': {
       const big = id === 'mjig';
       const len = big ? 0.12 : 0.065;

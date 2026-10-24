@@ -1,4 +1,5 @@
 import { FISH } from '../fish.js';
+import { currentFast } from './conditions.js';
 import { zoneAt } from './terrain.js';
 import { clamp, lerp, damp, rand, smoothstep, wrapAngle, seeded } from '../util.js';
 
@@ -74,13 +75,15 @@ export class Ecosystem {
       return out;
     };
     FISH.forEach((sp, i) => {
+      // (Retired species, the fictional originals, no longer live anywhere.)
+      if (sp.retired) return;
       // Each species gets its own seed, so tuning one never reshuffles the others.
       rnd = seeded(77 + i * 1013);
       const L = sp.life;
       // Some species live in more than one water, in different numbers (groupsIn).
       const homes = L.groupsIn
         ? Object.entries(L.groupsIn).flatMap(([zone, n]) => pickHomes(L, n, L.spacing ?? 18, false, [zone]))
-        : pickHomes(L, L.school ? L.schools : L.groups, L.spacing ?? (L.school ? 22 : 18), L.school || sp.id === 'sunperch');
+        : pickHomes(L, L.school ? L.schools : L.groups, L.spacing ?? (L.school ? 22 : 18), L.school || L.nearJetty);
       if (L.school) {
         for (const home of homes) this.addSchool(sp, home, rnd);
       } else {
@@ -370,6 +373,7 @@ export class Ecosystem {
     }
     let y;
     if (L.flat) y = -bd + 0.06; // flatfish lie on the bottom itself
+    else if (L.benthic) y = -bd + 0.12; // gurnards walk the seabed; an octopus crawls over it
     else if (L.bottom || mode === 'rest' || mode === 'feed') y = -bd + rand(0.35, mode === 'feed' ? 0.8 : 1.3);
     else y = -rand(band[0], Math.max(band[0], Math.min(band[1], bd - 0.4)));
     y = clamp(y, -band[1], -band[0]);
@@ -478,6 +482,14 @@ export class Ecosystem {
     if (s.t > s.dur || this.near(s, 1.5)) {
       const mode = act < 0.3 ? 'rest' : Math.random() < 0.65 ? 'cruise' : 'feed';
       this.pickPoint(s, mode);
+      // A shoal that gathers under lights after dark (horse mackerel) heads for the nearest one.
+      const light = s.L.lantern && act > 0.5 ? this.nearestLight(s) : null;
+      if (light && Math.random() < 0.8) {
+        const ang = Math.random() * Math.PI * 2, ring = rand(1.5, 5);
+        s.tx = light.x + Math.cos(ang) * ring;
+        s.tz = light.z + Math.sin(ang) * ring;
+        s.ty = -rand(1, 2.5);
+      }
       s.t = 0;
       s.dur = mode === 'cruise' ? 25 : rand(8, 16);
       s.wantSpeed = mode === 'cruise' ? s.L.speed * 0.8 : 0.18;
@@ -514,8 +526,9 @@ export class Ecosystem {
     if (s.huntT <= 0 || !s.prey) {
       s.huntT = 4;
       let best = null, bd = 380;
+      const prey = [].concat(s.L.hunter);
       for (const o of this.schools) {
-        if (o.sp.id !== s.L.hunter) continue;
+        if (!prey.includes(o.sp.id)) continue;
         const d = Math.hypot(o.x - s.x, o.z - s.z);
         if (d < bd) { bd = d; best = o; }
       }
@@ -571,9 +584,11 @@ export class Ecosystem {
   followSchool(a) {
     const s = a.school, o = a.slot;
     if (s.scatterT > 0) {
-      a.tx = a.x + (a.x - s.sx) * 2;
+      // Attacked: the ball bulges away from the hunter and dives a little, but holds together.
+      const dx = a.x - s.sx, dz = a.z - s.sz, l = Math.hypot(dx, dz) || 1, r = 3 + s.spread * 2;
+      a.tx = s.x + (dx / l) * r + o.x;
       a.ty = a.y - 0.4;
-      a.tz = a.z + (a.z - s.sz) * 2;
+      a.tz = s.z + (dz / l) * r + o.z;
       a.wantSpeed = a.L.speed * 3;
       return;
     }
@@ -620,10 +635,12 @@ export class Ecosystem {
       dz = _g.z;
     }
     let want = Math.atan2(dx, dz);
-    // Stream fish hold station facing into the current.
-    if (a.L.stream && dh < 1.2 && !a.faceBait && a.state !== 'flee' && !BAIT_STATES.has(a.state)) {
-      this.habitat.flow(a.x, a.z, _f);
-      if (Math.abs(_f.x) + Math.abs(_f.z) > 0.08) want = Math.atan2(-_f.x, -_f.z);
+    // Fish holding station face into the current: trout in the stream, bass and bream in the
+    // estuary channel, pollack off the points. (They hold their place: it costs them a gentle swim.)
+    if (dh < 1.2 && !a.faceBait && a.state !== 'flee' && a.state !== 'school' && !BAIT_STATES.has(a.state) && !a.L?.flat) {
+      if (a.L.stream) this.habitat.flow(a.x, a.z, _f);
+      else currentFast(a.x, a.z, _f);
+      if (Math.abs(_f.x) + Math.abs(_f.z) > (a.L.stream ? 0.08 : 0.12)) want = Math.atan2(-_f.x, -_f.z);
     }
     const maxTurn = a.L.turn * h;
     const turn = clamp(wrapAngle(want - a.yaw), -maxTurn, maxTurn);
@@ -656,6 +673,10 @@ export class Ecosystem {
       // Flat on the bottom: they glide close over it, never pitched up.
       a.y = Math.min(a.y, floor + 0.15);
       a.pitch = 0;
+    } else if (a.L?.benthic && a.state !== 'flee' && a.state !== 'jump') {
+      // Over the seabed, following its slope.
+      a.y = Math.min(a.y, floor + 0.3);
+      a.pitch *= 0.5;
     }
     if (a.y > -0.2) a.y = -0.2;
     a.bank = damp(a.bank, clamp(-a.turnRate * 0.25, -0.5, 0.5), 4, h);
@@ -689,6 +710,7 @@ export class Ecosystem {
     const b = this.bait;
     if (!b.active || b.owner || b.held || a.wary > 0) return;
     const L = a.L;
+    if (L.observe) return; // protected: to watch, not to catch
     const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
     const d = Math.hypot(dx, dy, dz);
     let per = L.perception * (this.ctx.night > 0.6 && !L.lantern ? 0.75 : 1) * (L.lurk ? 0.75 : 1);

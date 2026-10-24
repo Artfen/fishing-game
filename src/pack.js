@@ -816,7 +816,7 @@ export class PackUI {
       if (it.type === 'lure') add('In the water', it.dive ? `dives to about ${it.dive} m as you reel` : it.suspend ? `hangs at about ${it.suspend} m` : ACTION_WORDS[it.action] || '');
       if (it.type === 'jig') add('Sinks', `about ${it.sink.toFixed(2)} m a second`);
       if (it.type === 'fly') add('In the water', it.fly === 'dry' ? 'floats on the surface' : it.fly === 'nymph' ? 'drifts just under the surface' : 'sinks; strip it back in pulls');
-      add('Size', ['', 'small', 'medium', 'large', 'huge'][it.size] || '');
+      add('Size', it.size < 1 ? 'tiny' : ['', 'small', 'medium', 'large', 'huge'][it.size] || '');
       add('Water', WATER_WORDS[it.water]);
       // Does the rod fish it, and does it fit the rod's casting weight?
       const hand = this.rodInHand;

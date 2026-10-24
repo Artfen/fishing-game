@@ -1,46 +1,32 @@
 import * as THREE from 'three';
-import { BAY, freshness } from './terrain.js';
-import { smoothstep } from '../util.js';
+import { conditions, WAVE_PARTS, bakeShelter, SHELTER_RECT, waveHeight as conditionsWaveHeight } from './conditions.js';
 
-// Gentle swells. The same numbers drive the shader and the boat's bobbing,
-// so the hull always sits on the water you see.
-const RAW = [
-  // dirX, dirZ, wavelength, amplitude, speed
-  [0.8, 0.6, 30, 0.17, 1.7],
-  [-0.45, 0.89, 16, 0.085, 1.25],
-  [0.96, -0.28, 9.5, 0.04, 1.0],
-  [0.25, -0.97, 6, 0.018, 0.85],
-];
-export const WAVES = RAW.map(([dx, dz, len, amp, c]) => {
-  const l = Math.hypot(dx, dz);
-  return { dx: dx / l, dz: dz / l, k: (Math.PI * 2) / len, amp, c };
-});
-
-// sea.amp rises a little in the rain; sea.time is the shared wave clock.
-export const sea = { amp: 1, time: 0 };
+// The water surface: swell and wind chop from the shared conditions (conditions.js). The same
+// function moves these vertices and lifts the boats and floats (waveHeight below), so a hull
+// always sits on the water you see.
+export const waveHeight = conditionsWaveHeight;
 const NEAR_R = 444; // the fine water sheet is round, this far around the camera
 
-const calmness = (x, z) => 0.5 + 0.8 * smoothstep(55, 150, Math.hypot(x - BAY.x, z - BAY.z));
-
-// The lake and the stream are sheltered: only the faintest swell reaches them.
-export function waveHeight(x, z, t = sea.time) {
-  let h = 0;
-  for (const w of WAVES) h += w.amp * Math.sin(w.k * (w.dx * x + w.dz * z - w.c * t));
-  return h * sea.amp * calmness(x, z) * (1 - 0.92 * freshness(x, z));
-}
-
 const f = (n) => n.toFixed(5);
+const { SWELL, CHOP } = WAVE_PARTS;
+// The waves at a point: height and its slope (for the normal), each wave scaled by how exposed
+// the water is to swell (shelter.r) and to wind (shelter.g), faded in the last shallows and on
+// fresh water. Mirrors conditions.js waveHeight term for term.
 const WAVE_GLSL = /* glsl */ `
-uniform float uAmp;
-vec3 waves(vec2 p, float t) {
+uniform float uSwellA[${SWELL.length}];
+uniform float uChopA[${CHOP.length}];
+uniform sampler2D uShelter;
+uniform vec4 uShelterRect;
+vec3 waves(vec2 p, float t, float ground, float fresh) {
+  vec4 sh = texture2D(uShelter, (p - uShelterRect.xy) / uShelterRect.zw);
+  float ks = sh.r, kc = 0.15 + 0.85 * sh.g;
   vec3 r = vec3(0.0);
   float a;
-  ${WAVES.map((w) => `a = ${f(w.k)} * (${f(w.dx)} * p.x + ${f(w.dz)} * p.y - ${f(w.c)} * t);
-  r.x += ${f(w.amp)} * sin(a);
-  r.y += ${f(w.amp * w.k * w.dx)} * cos(a);
-  r.z += ${f(w.amp * w.k * w.dz)} * cos(a);`).join('\n  ')}
-  float calm = 0.5 + 0.8 * smoothstep(55.0, 150.0, length(p - vec2(${f(BAY.x)}, ${f(BAY.z)})));
-  return r * uAmp * calm;
+  ${SWELL.map((w, i) => `a = ${f(w.k)} * (${f(w.dx)} * p.x + ${f(w.dz)} * p.y - ${f(w.c)} * t);
+  r += uSwellA[${i}] * ks * vec3(sin(a), ${f(w.k * w.dx)} * cos(a), ${f(w.k * w.dz)} * cos(a));`).join('\n  ')}
+  ${CHOP.map((w, i) => `a = ${f(w.k)} * (${f(w.dx)} * p.x + ${f(w.dz)} * p.y - ${f(w.c)} * t);
+  r += uChopA[${i}] * kc * vec3(sin(a), ${f(w.k * w.dx)} * cos(a), ${f(w.k * w.dz)} * cos(a));`).join('\n  ')}
+  return r * smoothstep(0.05, 0.9, -ground) * (1.0 - 0.85 * fresh);
 }
 `;
 
@@ -69,12 +55,12 @@ varying vec4 vRefl;
 void main() {
   vec4 wp = modelMatrix * vec4(position, 1.0);
   vRefl = uReflMatrix * vec4(wp.x, 0.0, wp.z, 1.0);
-  float freshV = worldMap(wp.xz).g;
+  vec4 mapV = worldMap(wp.xz);
   #ifdef RING
   // The far ocean, out to the horizon: too far off to see the waves move.
   vec3 w = vec3(0.0);
   #else
-  vec3 w = waves(wp.xz, uTime) * (1.0 - 0.92 * freshV);
+  vec3 w = waves(wp.xz, uTime, mapV.r, mapV.g);
   #endif
   wp.y += w.x;
   vN = vec3(-w.y, 1.0, -w.z);
@@ -113,6 +99,11 @@ uniform sampler2D uRipple;
 uniform vec4 uRippleRect;
 uniform float uRippleOn;
 uniform float uRippleTexel;
+uniform sampler2D uShelter;
+uniform vec4 uShelterRect;
+uniform vec2 uWindV;     // where the wind blows, times its strength (0 … 1 at a fresh breeze)
+uniform float uSwellH;   // the swell's crest amplitude (m)
+uniform float uChopH;    // the chop's crest amplitude (m)
 varying vec3 vWorld;
 varying vec3 vN;
 varying vec4 vRefl;
@@ -199,16 +190,21 @@ void main() {
   vec4 hs = worldMap(vWorld.xz);
   float ground = hs.r;
   float fresh = hs.g;
-  vec2 flow = hs.ba;
+  vec4 shel = texture2D(uShelter, (vWorld.xz - uShelterRect.xy) / uShelterRect.zw);
+  // The stream's current (fine) and the sea's: the river, channels, headlands and the shoal.
+  vec2 flow = hs.ba + shel.ba * 1.6;
   float flowSpeed = length(flow);
   float depth = max(-ground, 0.0);
   float dist = length(cameraPosition - vWorld);
   float detail = 1.0 - smoothstep(40.0, 220.0, dist);
 
   vec2 p = vWorld.xz;
-  // Gusts: slow patches where the breeze ruffles the water, with calmer, glassier lanes between.
-  float gust = smoothstep(0.2, 0.8, vnoise(p * 0.016 + vec2(uTime * 0.011, uTime * 0.005)) * 0.7 + vnoise(p * 0.05 - uTime * 0.02) * 0.3);
-  float wind = mix(0.4, 1.2, gust) * mix(1.0, 0.6, fresh);
+  // Gusts: patches where the breeze ruffles the water, carried downwind, with calmer, glassier
+  // lanes between. Stronger wind, rougher water; sheltered water stays smoother.
+  float windS = length(uWindV);
+  vec2 drift = uWindV * uTime * 2.2;
+  float gust = smoothstep(0.2, 0.8, vnoise((p - drift) * 0.016) * 0.7 + vnoise((p - drift * 1.6) * 0.05) * 0.3);
+  float wind = mix(0.4, 1.2, gust) * mix(1.0, 0.6, fresh) * (0.35 + 1.1 * windS * (0.3 + 0.7 * shel.g));
   // Still water (the lake) gets only a faint ruffle; the sea keeps its chop.
   float chop = 1.0 - fresh * 0.65;
   vec2 g = ngrad(p * 0.45 + vec2(uTime * 0.16, uTime * 0.07)) * 0.10 * chop
@@ -289,11 +285,14 @@ void main() {
   // Ripple crests catch a little extra light.
   col += (uAmbient + uSunColor * 0.4) * clamp(length(rip) * 0.6, 0.0, 0.25);
 
-  // Shoreline foam: a soft edge plus slow bands rolling in.
+  // Shoreline foam: a soft edge plus bands rolling in, bigger where the swell reaches the shore.
   float n1 = vnoise(p * 0.7 + uTime * 0.25);
-  float edge = 1.0 - smoothstep(0.0, 0.4 + n1 * 0.35, depth);
-  float bands = smoothstep(0.85, 1.0, sin(depth * 5.0 - uTime * 1.3 + n1 * 3.0)) * (1.0 - smoothstep(0.2, 1.6, depth)) * (1.0 - fresh);
-  float foam = clamp(edge * (0.9 - fresh * 0.75) + bands * 0.55 + streak * 0.45, 0.0, 1.0);
+  float surf = clamp(0.35 + shel.r * uSwellH * 6.0, 0.35, 1.6);
+  float edge = 1.0 - smoothstep(0.0, (0.4 + n1 * 0.35) * surf, depth);
+  float bands = smoothstep(0.85, 1.0, sin(depth * 5.0 / surf - uTime * 1.3 + n1 * 3.0)) * (1.0 - smoothstep(0.2, 1.6 * surf, depth)) * (1.0 - fresh);
+  // Whitecaps: a few short-lived streaks of white where a fresh wind has room to raise a chop.
+  float caps = smoothstep(0.86, 0.97, vnoise((p - drift * 1.4) * vec2(0.28, 0.22) + n1 * 0.4)) * smoothstep(0.12, 0.3, uChopH) * shel.g * detail * (1.0 - fresh);
+  float foam = clamp(edge * (0.9 - fresh * 0.75) + bands * 0.55 * min(surf, 1.0) + streak * 0.45 + caps * 0.7, 0.0, 1.0);
   vec3 foamLit = uFoam * (uAmbient + uSunColor * 0.6);
   col = mix(col, foamLit, foam * 0.85);
 
@@ -327,7 +326,12 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
     THREE.UniformsLib.fog,
     {
       uTime: { value: 0 },
-      uAmp: { value: 1 },
+      uSwellA: { value: Array.from(conditions.swellAmps) },
+      uChopA: { value: Array.from(conditions.chopAmps) },
+      uShelterRect: { value: new THREE.Vector4(SHELTER_RECT.x, SHELTER_RECT.z, SHELTER_RECT.w, SHELTER_RECT.h) },
+      uWindV: { value: new THREE.Vector2() },
+      uSwellH: { value: 0 },
+      uChopH: { value: 0 },
       uRain: { value: 0 },
       uRings: { value: 0 },
       uNight: { value: 0 },
@@ -359,6 +363,7 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
   uniforms.uHeight2 = { value: detailTex };
   uniforms.uRect2 = { value: new THREE.Vector4(detailRect.x, detailRect.z, detailRect.w, detailRect.h) };
   uniforms.uRefl = { value: null };
+  uniforms.uShelter = { value: bakeShelter() };
   uniforms.uRipple = { value: null };
   uniforms.uRippleRect = { value: new THREE.Vector4(0, 0, 1, 1) };
 
@@ -396,6 +401,14 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
     mesh,
     ring,
     uniforms,
+    // The shared conditions, each frame: the waves' amplitudes and the wind's ruffle.
+    sync(windX, windZ) {
+      uniforms.uSwellA.value.splice(0, SWELL.length, ...conditions.swellAmps);
+      uniforms.uChopA.value.splice(0, CHOP.length, ...conditions.chopAmps);
+      uniforms.uWindV.value.set(windX, windZ);
+      uniforms.uSwellH.value = conditions.sea.swell;
+      uniforms.uChopH.value = conditions.sea.chop;
+    },
     follow(pos) {
       mesh.position.x = Math.round(pos.x / cell) * cell;
       mesh.position.z = Math.round(pos.z / cell) * cell;

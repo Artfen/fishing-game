@@ -1,4 +1,6 @@
 import { FISH, fishById, drawFishSketch, drawLanternSketch, weightOf } from './fish.js';
+import { hasAnatomy } from './anatomy.js';
+import { studio } from './gearView.js';
 import { TACKLE, RODS, KIND_NAMES } from './tackle.js';
 import { PLACES, MAP_RECT, PATH, ZONE_NAMES, solidHeight } from './world/terrain.js';
 import { formatClock } from './world/sky.js';
@@ -17,6 +19,50 @@ const GROUPS = [
   { name: 'Fresh water: the meres and the stream', test: (f) => !f.creature && f.water === 'fresh' },
   { name: 'Not fish', test: (f) => !!f.creature },
 ];
+// A species' picture on a journal page: the same model it has in the water (its silhouette until
+// you've caught one), or the older sketch for species without one. Models are photographed a few
+// per frame so opening the journal never stalls.
+const pending = [];
+let pumping = false;
+function drawSpecies(cv, f, { unknown = false, len = 0.78 } = {}) {
+  if (!hasAnatomy(f.id)) {
+    drawFishSketch(cv.getContext('2d'), f, cv.width / 2, cv.height / 2 + 1, cv.width * len, { unknown });
+    return;
+  }
+  pending.push({ cv, f, unknown });
+  if (pumping) return;
+  pumping = true;
+  const step = () => {
+    const t0 = performance.now();
+    while (pending.length && performance.now() - t0 < 12) {
+      const { cv: c, f: sp, unknown: u } = pending.shift();
+      if (!c.isConnected) continue;
+      const img = new Image();
+      img.onload = () => {
+        const x = c.getContext('2d');
+        x.clearRect(0, 0, c.width, c.height);
+        x.drawImage(img, 0, 0, c.width, c.height);
+        if (u) {
+          // Not caught yet: only its shape, in pencil, and a question mark.
+          x.globalCompositeOperation = 'source-in';
+          x.fillStyle = 'rgba(58, 46, 38, 0.16)';
+          x.fillRect(0, 0, c.width, c.height);
+          x.globalCompositeOperation = 'source-over';
+          x.fillStyle = 'rgba(58, 46, 38, 0.55)';
+          x.font = `700 ${Math.round(c.height * 0.32)}px Caveat, cursive`;
+          x.textAlign = 'center';
+          x.textBaseline = 'middle';
+          x.fillText('?', c.width / 2, c.height / 2);
+        }
+      };
+      img.src = studio().thumb({ type: 'fish', id: sp.id }, c.width, c.height);
+    }
+    if (pending.length) requestAnimationFrame(step);
+    else pumping = false;
+  };
+  requestAnimationFrame(step);
+}
+
 // Which water each named area is, for what you've caught there.
 const AREA_ZONES = { bay: ['bay', 'open'], cove: ['cove'], lake: ['lake'], stream: ['stream'], wend: ['estuary'], mere: ['mere'], gannet: ['coast'], deep: ['deep'] };
 
@@ -103,7 +149,8 @@ export class Journal {
   render(where) {
     const st = this.state;
     this.fishEl.replaceChildren(...GROUPS.flatMap((g) => {
-      const list = FISH.filter(g.test);
+      // (Retired fictional fish only if you caught one; protected ones once you've seen one.)
+      const list = FISH.filter((f) => g.test(f) && (!f.retired || st.fish[f.id]) && (!f.life.observe || st.observed?.[f.id]));
       const n = list.filter((f) => st.fish[f.id]).length;
       const head = el('h3', 'j-water', g.name);
       head.append(el('span', 'count', `${n} of ${list.length}`));
@@ -146,13 +193,19 @@ export class Journal {
   }
 
   fishEntry(f, rec) {
-    const art = el('article', rec ? 'j-entry' : 'j-entry unknown');
+    const seen = f.life.observe ? this.state.observed?.[f.id] : null;
+    const art = el('article', rec || seen ? 'j-entry' : 'j-entry unknown');
     const cv = el('canvas');
     cv.width = 320;
     cv.height = 170;
-    drawFishSketch(cv.getContext('2d'), f, 160, 86, 250, { unknown: !rec });
+    drawSpecies(cv, f, { unknown: !rec && !seen });
     const text = el('div', 'j-text');
-    text.append(el('h3', '', rec ? f.name : 'Unknown fish'), el('p', 'j-note', rec ? f.note : f.hint));
+    text.append(el('h3', '', rec || seen ? f.name : 'Unknown fish'), el('p', 'j-note', rec || seen ? f.note : f.hint));
+    if (seen) {
+      text.append(el('p', 'j-meta', `Seen ${seen.count} time${seen.count > 1 ? 's' : ''} · protected: to watch, not to catch · ${f.where}`));
+      art.append(cv, text);
+      return art;
+    }
     if (rec) {
       text.append(el('p', 'j-meta', `${rec.count} caught · best ${rec.best} cm (${weightText(weightOf(f, rec.best))}) · ${f.where}`));
       text.append(el('p', 'j-meta', `First caught ${ZONE_WORDS[rec.firstZone] || ''} at ${formatClock(rec.firstHour)}${rec.firstRain ? ', in the rain' : ''}`));
@@ -232,7 +285,7 @@ export class Journal {
     const summary = [];
     if (!total) summary.push('No catches yet. Every fish you land is written down here: where, when, and what it took.');
     else {
-      summary.push(`${total} caught, ${species} of ${FISH.length} kinds.`);
+      summary.push(`${total} caught, ${species} of ${FISH.filter((f) => !f.retired && !f.life.observe).length} kinds.`);
       if (log.length) summary.push(`${log.length - kept} released, ${kept} kept for the pot.`);
       const before = total - log.length;
       if (before > 0) summary.push(`${before} earlier catch${before > 1 ? 'es' : ''} from before this log began ${before > 1 ? 'are' : 'is'} counted in the totals, without details.`);
@@ -250,7 +303,7 @@ export class Journal {
       const cv = el('canvas');
       cv.width = 260;
       cv.height = 140;
-      drawFishSketch(cv.getContext('2d'), f, 130, 72, 210);
+      drawSpecies(cv, f, { len: 0.8 });
       const txt = el('div');
       txt.append(
         el('span', 'j-label', 'Heaviest catch'),

@@ -1,8 +1,9 @@
 import { FISH, fishById, weightOf } from './fish.js';
-import { RODS, TACKLE, TERMS, ROD_IDS, ITEM_IDS, SETUPS, TYPE_NAMES, KIND_NAMES, fits, checkSetup, castRange, lineOf, termOf } from './tackle.js';
+import { RODS, TACKLE, TERMS, ROD_IDS, ITEM_IDS, SETUPS, TYPE_NAMES, KIND_NAMES, PACK, fits, checkSetup, castRange, lineOf, termOf } from './tackle.js';
 import { REGISTER, REGIONS, registerFor, titleName, LEGACY, FRESHWATER, STATUS_WORDS } from './register.js';
 import { ZONE_NAMES } from './world/terrain.js';
 import { studio } from './gearView.js';
+import { HOME_WORDS, tripPlaces, tripSummary, summaryText } from './trip.js';
 import { formatClock } from './world/sky.js';
 
 // The Atlantic field guide, inside the journal: every species in the game, with the same model
@@ -48,12 +49,6 @@ function linked(text) {
   return out;
 }
 
-const HOME_WORDS = {
-  sand: 'open sand', weed: 'weed beds', rock: 'rocks', deep: 'deep water', open: 'open water', cove: 'sheltered coves',
-  reef: 'reefs and kelp', surf: 'surf off rocky points', tide: 'tide races', channel: 'estuary channels', flats: 'sand and mud flats',
-  quay: 'the quay wall', reeds: 'reed edges', blue: 'the open ocean', pool: 'stream pools', margin: 'lake margins', pads: 'lily pads',
-  snag: 'snags and fallen trees', dropoff: 'drop-offs', holm: 'island shores', shallows: 'shallows',
-};
 const kg = (v) => (v < 1 ? `${Math.round(v * 1000 / 10) * 10} g` : `${v < 10 ? v.toFixed(1) : Math.round(v)} kg`);
 const HOURS = [0, 3, 6, 9, 12, 15, 18, 21];
 
@@ -87,8 +82,9 @@ export function setupsFor(sp) {
   const L = sp.life, out = [];
   const sea = sp.water !== 'fresh';
   const wrongWater = (rodId) => (sea ? FRESH_RODS.has(rodId) : SEA_RODS.has(rodId));
-  // Fish of open water (sprat shoals over deep water) swim far above a bait on the bottom.
-  const midwater = !L.bottom && !L.flat && L.homes.every((h) => ['blue', 'tide', 'open', 'deep'].includes(h));
+  // Shoals of midwater (sardines, sand smelt, salema) and fish of open water swim well above a
+  // bait on the bottom.
+  const midwater = L.midwater || (!L.bottom && !L.flat && L.homes.every((h) => ['blue', 'tide', 'open', 'deep'].includes(h)));
   for (const rodId of ROD_IDS) {
     const rod = RODS[rodId];
     for (const itemId of ITEM_IDS) {
@@ -98,13 +94,18 @@ export function setupsFor(sp) {
       if (L.bottom && it.type === 'bait' && !['bottom', 'ledger'].includes(rod.kind)) continue;
       // Lures only reach a predator if it chases lures.
       if (it.type === 'lure' && !L.strike?.lure) continue;
+      // A mouthful it can manage, judged as the fish judge it (a soft bait goes down easier than
+      // a hard lure, and the bigger ones of a kind manage more): the share of sizes that can.
+      const natural = it.type === 'bait', mouth = sp.mouth ?? 2;
+      const takes = 1 - Math.min(1, Math.max(0, ((it.size ?? 0) / mouth - (natural ? 1.05 : 0.7)) / (natural ? 0.4 : 0.5)));
+      if (takes <= 0) continue;
       let best = null;
       for (const termId of rod.terms) {
         const term = TERMS[termId];
         if (L.teeth && rod.terms.includes('wire') && termId !== 'wire') continue;
         const problems = checkSetup(rod, it, term);
         if (problems.some((p) => p.level === 'block')) continue;
-        let score = like * (problems.length ? 0.8 : 1);
+        let score = like * (problems.length ? 0.8 : 1) * (0.7 + 0.3 * takes);
         if (L.lineShy && term.hides != null) score *= 1.15;
         // A wire trace is for teeth; without them it only puts wary fish off.
         if (term.trace && !L.teeth) score *= 0.9;
@@ -137,12 +138,18 @@ export class FieldGuide {
   // The guide's entries: species in the game first (by group), then, if asked, planned ones.
   entries() {
     const out = [];
+    const st = this.state;
     for (const f of FISH) {
       const reg = registerFor(f.id);
       const legacy = LEGACY[f.id];
       const fresh = FRESHWATER[f.id];
-      const group = legacy ? 'legacy' : fresh ? 'fresh' : f.creature ? 'cephalopods' : f.life.zones.includes('estuary') ? 'estuary' : 'sea';
-      out.push({ id: f.id, sp: f, reg, legacy, fresh, group, status: 'catchable' });
+      // The fictional originals are retired: they only appear if they're in your journal.
+      if (legacy && !st.fish[f.id] && !st.observed?.[f.id]) continue;
+      const L = f.life;
+      const group = legacy ? 'legacy' : fresh ? 'fresh' : f.creature ? 'cephalopods' : L.observe ? 'observe'
+        : L.zones[0] === 'estuary' ? 'estuary' : L.flat || L.benthic ? 'sand' : L.school ? 'shoal'
+          : L.homes.some((h) => ['reef', 'rock', 'weed', 'quay', 'cove'].includes(h)) ? 'rocks' : 'sand';
+      out.push({ id: f.id, sp: f, reg, legacy, fresh, group, status: legacy ? 'retired' : L.observe ? 'observation' : 'catchable' });
     }
     if (this.ui.planned) {
       for (const r of REGISTER) {
@@ -167,17 +174,17 @@ export class FieldGuide {
     const shown = all.filter((e) => {
       if (q && !`${this.name(e)} ${e.reg?.scientific || ''} ${Object.values(e.reg?.names || {}).join(' ')}`.toLowerCase().includes(q)) return false;
       if (f === 'caught') return !!st.fish[e.id];
-      if (f === 'notyet') return e.sp && !st.fish[e.id];
-      if (f === 'sea') return e.group === 'sea' || e.group === 'estuary';
+      if (f === 'notyet') return e.sp && e.status === 'catchable' && !st.fish[e.id];
+      if (f === 'sea') return ['estuary', 'rocks', 'sand', 'shoal'].includes(e.group);
       if (f === 'fresh') return e.group === 'fresh';
       if (f === 'cephalopods') return e.group === 'cephalopods';
       return true;
     });
-    const inGame = all.filter((e) => e.sp);
+    const inGame = all.filter((e) => e.sp && e.status === 'catchable');
     const head = el('div', 'g-head');
     head.append(el('h2', '', 'Field guide'));
     const caught = inGame.filter((e) => st.fish[e.id]).length;
-    head.append(el('p', 'g-sum', `${inGame.length} species in the game · ${caught} caught · ${REGISTER.length} in the Atlantic register so far`));
+    head.append(el('p', 'g-sum', `${inGame.length} species to catch · ${caught} caught · ${REGISTER.length} in the Atlantic register so far`));
     const tools = el('div', 'g-tools');
     const search = el('input', 'g-search');
     Object.assign(search, { type: 'search', placeholder: 'Search names, Latin, French, Spanish, Portuguese', value: this.ui.q });
@@ -201,8 +208,9 @@ export class FieldGuide {
     chips.append(pl);
     tools.append(chips);
     const GROUPS = [
-      ['sea', 'Sea fish of the Atlantic coast'], ['estuary', 'Estuary and coast'], ['cephalopods', 'Not fish: cephalopods'],
-      ['fresh', 'Fresh water (outside the Atlantic catalogue)'], ['legacy', 'Willow Bay originals (fictional, to be replaced)'],
+      ['estuary', 'The estuary'], ['rocks', 'Rocks, reefs and weed'], ['sand', 'Sand, mud and the seabed'], ['shoal', 'Shoals and open water'],
+      ['cephalopods', 'Not fish: cephalopods'], ['observe', 'To watch, not to catch'],
+      ['fresh', 'Fresh water (outside the Atlantic catalogue)'], ['legacy', 'Willow Bay originals (fictional, retired)'],
       ['planned', 'Planned: researched, not in the game yet'], ['verify', 'Records needing verification'],
     ];
     const list = el('div', 'g-list');
@@ -234,8 +242,10 @@ export class FieldGuide {
     const rec = st.fish[e.id], seen = st.observed?.[e.id];
     const status = el('span', `g-status ${e.status}`);
     const plan = e.reg?.planAs?.as;
-    status.textContent = e.sp ? (rec ? `✓ Caught ${rec.count}` : seen ? '◉ Seen' : '○ Catchable now')
-      : e.status === 'verify' ? '? Needs checking' : `◌ Planned${plan === 'observation' ? ' · to watch only' : plan === 'release' ? ' · catch and release' : ''}`;
+    status.textContent = e.status === 'retired' ? (rec ? `Retired · caught ${rec.count}` : 'Retired')
+      : e.status === 'observation' ? (seen ? `◉ Seen ${seen.count}` : '◎ To watch')
+        : e.sp ? (rec ? `✓ Caught ${rec.count}` : seen ? '◉ Seen' : '○ Catchable now')
+          : e.status === 'verify' ? '? Needs checking' : `◌ Planned${plan === 'observation' ? ' · to watch only' : plan === 'release' ? ' · catch and release' : ''}`;
     txt.append(status);
     b.append(pic, txt);
     b.addEventListener('click', () => this.select(e.id));
@@ -278,6 +288,7 @@ export class FieldGuide {
 
   select(id) {
     this.ui.sel = id;
+    this.ui.trip = false;
     this.ui.yaw = this.ui.pitch = 0;
     this.ui.zoom = 1;
     for (const c of document.querySelectorAll('#journal .g-card')) {
@@ -295,6 +306,7 @@ export class FieldGuide {
     const id = this.ui.sel;
     const e = this.entries().find((x) => x.id === id) || this.entries()[0];
     if (!e) return;
+    if (this.ui.trip && e.sp && e.status === 'catchable') return this.renderTrip(box, e);
     const kids = [];
     const back = btn('← All species', () => { $('journal').querySelector('.book').dataset.gpane = 'index'; }, 'g-back');
     kids.push(back);
@@ -306,13 +318,19 @@ export class FieldGuide {
       if (e.reg.authority) sci.append(' ', el('span', 'g-auth', e.reg.authority));
       title.append(sci);
     }
-    const badge = el('p', `g-badge ${e.status}`, e.sp ? STATUS_WORDS.catchable : STATUS_WORDS[e.status] || e.status);
+    const badge = el('p', `g-badge ${e.status}`, STATUS_WORDS[e.status] || e.status);
     title.append(badge);
     kids.push(title);
+    if (e.reg?.nameNote) kids.push(el('p', 'g-note', e.reg.nameNote));
     if (e.reg?.verify) kids.push(el('p', 'g-warn', `To check before it comes into the game: ${e.reg.verify}`));
     const plan = e.reg?.planAs;
     if (plan) kids.push(el('p', 'g-warn', `${plan.as === 'observation' ? 'To come in as one to watch, not to catch' : 'To come in as catch-and-release'}: ${plan.why}`));
-    if (e.legacy) kids.push(el('p', 'g-warn', `A fictional fish from Slow Tide’s first version. It will be replaced by a real species of this coast (${e.legacy.replacementName}); your catches of it stay in your journal as they are.`));
+    if (e.legacy) {
+      const w = el('div', 'g-warn');
+      w.append(el('p', '', `A fictional fish from Slow Tide’s first version, now retired: the ${e.legacy.replacementName} has taken its place in the water. Your catches of it stay in your journal as they are.`));
+      w.append(btn(`See the ${e.legacy.replacementName.split(',')[0]}`, () => this.select(e.legacy.replacement)));
+      kids.push(w);
+    }
     // Names in the coast's languages.
     const names = e.reg?.names;
     if (names) {
@@ -326,7 +344,8 @@ export class FieldGuide {
     if (e.sp) kids.push(this.stageBox(e));
     kids.push(...this.identify(e));
     kids.push(...this.where(e));
-    if (e.sp) kids.push(...this.howTo(e));
+    if (e.sp && e.status === 'catchable') kids.push(...this.howTo(e));
+    if (e.status === 'observation') kids.push(el('h3', '', 'Not to be caught'), el('p', 'g-text', 'Protected, and to be watched rather than fished: it ignores every bait in the game. Look for it underwater after dark (the view key), and it goes in your records as seen.'));
     if (e.sp) kids.push(...this.records(e));
     kids.push(...this.sources(e));
     box.replaceChildren(...kids);
@@ -495,6 +514,11 @@ export class FieldGuide {
     const sp = e.sp, L = sp.life, g = this.state.gear;
     const out = [el('h3', '', 'How to catch it')];
     const setups = setupsFor(sp);
+    const trip = this.state.trip;
+    const plan = el('div', 'g-acts g-planbar');
+    plan.append(btn(trip?.sp === sp.id ? 'Your trip for it: review' : 'Plan a fishing trip for it', () => this.openTrip(e.id), 'g-btn go'));
+    if (trip && trip.sp !== sp.id) plan.append(el('span', 'g-note', `(You’re on a trip for ${fishById[trip.sp]?.name.toLowerCase()}.)`));
+    out.push(plan);
     if (!setups.length) {
       out.push(el('p', 'g-text', 'Nothing in the game catches it yet.'));
       return out;
@@ -615,7 +639,158 @@ export class FieldGuide {
       for (const [k, { n }] of top(how)) ul.append(el('li', '', `${k} — ${n} fish`));
       out.push(ul);
     } else out.push(dl);
+    const trips = (st.trips || []).filter((t) => t.sp === e.id).slice(-4).reverse();
+    if (trips.length) {
+      out.push(el('h4', '', 'Your trips for it'));
+      const ul = el('ul', 'g-feat');
+      for (const t of trips) ul.append(el('li', '', `Day ${t.day}, ${t.name}: ${t.hours} h, ${t.target ? `${t.target} caught${t.best ? ` (best ${t.best} cm)` : ''}` : 'none caught'}${t.total > t.target ? `, ${t.total - t.target} other fish` : ''}, on the ${RODS[t.setup.rod]?.short.toLowerCase()} with ${TACKLE[t.setup.item]?.on}`));
+      out.push(ul);
+    }
     return out;
+  }
+
+  /* ---------------- planning a trip ---------------- */
+
+  openTrip(id) {
+    this.ui.sel = id;
+    this.ui.trip = true;
+    this.ui.tripPlace = 0;
+    this.ui.tripSetup = 0;
+    this.renderPage($('g-page'));
+    $('g-page').scrollTop = 0;
+  }
+
+  // The trip planner for one species: where to go, what to take, what you carry, rigging up,
+  // marking the water, and how the trip went. Everything comes from the same data the game
+  // plays by: suitability from the map, setups from the tackle rules, catches from the log.
+  renderTrip(box, e) {
+    const sp = e.sp, st = this.state, g = st.gear, H = habitsOf(sp);
+    const kids = [];
+    kids.push(btn(`← Back to the ${sp.name.toLowerCase()}`, () => { this.ui.trip = false; this.renderPage(box); }, 'g-btn g-tripback'));
+    const title = el('div', 'g-title');
+    title.append(el('h2', '', 'Plan a fishing trip'));
+    title.append(el('p', 'g-sci', `For the ${sp.name.toLowerCase()} · most active ${H.allDay ? 'all day' : `at ${H.active}`}${H.rainy ? ', bolder in rain and cloud' : ''}`));
+    kids.push(title);
+    const step = (n, text) => el('h3', 'g-step', `${n}. ${text}`);
+
+    // A trip already under way: how it's going, and ending it.
+    const trip = st.trip;
+    if (trip) {
+      const sum = tripSummary(st, trip);
+      const card = el('div', 'g-rec g-tripnow');
+      card.append(el('h4', '', trip.sp === sp.id ? 'Your trip, so far' : `You’re on a trip for ${fishById[trip.sp]?.name.toLowerCase()}`));
+      const d = Math.round(Math.hypot(trip.x - this.hooks.where().x, trip.z - this.hooks.where().z));
+      card.append(el('p', 'g-text', `${summaryText(trip.sp, sum)} Destination: ${trip.name}${d > trip.r ? `, ${d} m away` : ' (you’re there)'}.`));
+      const acts = el('div', 'g-acts');
+      acts.append(btn('End the trip', () => { const msg = this.hooks.endTrip(); this.renderPage(box); this.flash(msg); }, 'g-btn'));
+      acts.append(btn('Show on the map', () => this.hooks.showOnMap(trip.sp)));
+      card.append(acts);
+      kids.push(card);
+      if (trip.sp !== sp.id) kids.push(el('p', 'g-note', 'Ending it lets you plan a new one for this fish.'));
+    }
+
+    // 1–2: where it lives, as stretches of suitable water.
+    kids.push(step(1, 'Where to go'));
+    const places = tripPlaces(sp, this.hooks.map(), this.hooks.where(), st);
+    if (!places.length) kids.push(el('p', 'g-text', 'No water in the game suits it.'));
+    this.ui.tripPlace = Math.min(this.ui.tripPlace, Math.max(0, places.length - 1));
+    const map = el('div', 'g-map');
+    const cv = el('canvas', 'g-mini');
+    cv.width = 280;
+    cv.height = 400;
+    cv.setAttribute('role', 'img');
+    cv.setAttribute('aria-label', `Map of the water that suits the ${sp.name.toLowerCase()}, with the place you've chosen ringed`);
+    map.append(cv);
+    const list = el('div', 'g-mapside g-places');
+    list.setAttribute('role', 'radiogroup');
+    list.setAttribute('aria-label', 'Where to go');
+    places.forEach((p, i) => {
+      const b = btn('', () => { this.ui.tripPlace = i; this.renderTrip(box, e); }, `g-place${i === this.ui.tripPlace ? ' on' : ''}`);
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', i === this.ui.tripPlace);
+      b.append(el('b', '', p.name), el('span', '', `${Math.round(p.dist)} m ${p.dir}`));
+      list.append(b);
+    });
+    list.append(el('p', 'g-note', `It keeps to ${H.depth[0]}–${Math.round(H.depth[1])} m down, around ${[...new Set(sp.life.homes.map((h) => HOME_WORDS[h] || h))].join(', ')}. The shading shows water that suits it, not where the fish are: they move, feed and rest as they please.`));
+    map.append(list);
+    kids.push(map);
+    requestAnimationFrame(() => this.hooks.miniMap(cv, sp.id, places.map((p, i) => ({ ...p, on: i === this.ui.tripPlace }))));
+
+    // 3: the setup, from the tackle rules.
+    kids.push(step(2, 'What to take'));
+    const all = setupsFor(sp), setups = all.filter((x, i) => all.findIndex((y) => y.rod === x.rod && y.item === x.item) === i).slice(0, 3);
+    this.ui.tripSetup = Math.min(this.ui.tripSetup, Math.max(0, setups.length - 1));
+    const choose = el('div', 'g-chips');
+    choose.setAttribute('role', 'radiogroup');
+    choose.setAttribute('aria-label', 'Setup');
+    setups.forEach((x, i) => {
+      const c = btn(`${RODS[x.rod].short} · ${TACKLE[x.item].short}${i === 0 ? ' (best)' : ''}`, () => { this.ui.tripSetup = i; this.renderTrip(box, e); }, `g-chip${i === this.ui.tripSetup ? ' on' : ''}`);
+      c.setAttribute('role', 'radio');
+      c.setAttribute('aria-checked', i === this.ui.tripSetup);
+      choose.append(c);
+    });
+    kids.push(choose);
+    const s = setups[this.ui.tripSetup];
+    if (!s) {
+      kids.push(el('p', 'g-text', 'Nothing in the game catches it yet.'));
+      box.replaceChildren(...kids);
+      return;
+    }
+    const rod = RODS[s.rod], it = TACKLE[s.item], term = TERMS[s.term], line = rod.lines.find((l) => l.id === s.line);
+    const rec = el('div', 'g-rec');
+    const chain = el('ol', 'g-chain');
+    // 4: what you carry and what's in the tackle box.
+    const hasRod = g.pack.rods.includes(rod.id), hasItem = g.pack.items.includes(it.id);
+    const parts = [
+      ['Rod', rod.name, { type: 'rod', id: rod.id }, hasRod ? '✓ carried' : 'in the tackle box'],
+      ['Line', line.name, null, 'comes with the rod'],
+      [rod.kind === 'lure' || rod.kind === 'fly' || rod.kind === 'jig' ? 'Leader' : 'Rig', term.name, null, 'comes with the rod'],
+      [TYPE_NAMES[it.type].replace(/s$/, ''), it.name, { type: 'item', id: it.id }, hasItem ? '✓ carried' : 'in the tackle box'],
+    ];
+    for (const [k, v, ref, have] of parts) {
+      const li = el('li');
+      if (ref) li.append(this.tackleImg(ref));
+      li.append(el('small', '', k), el('b', '', v), el('span', `g-have${have.startsWith('✓') ? ' ok' : ''}`, have));
+      chain.append(li);
+    }
+    rec.append(chain);
+    const [mn, mx] = castRange(rod, it, term);
+    rec.append(el('p', 'g-note', `Casts ${mn}–${mx} m. ${this.presentation(sp, rod, it)}`));
+    kids.push(rec);
+
+    // 5: rigging up, where the rules allow.
+    kids.push(step(3, 'Rig up'));
+    const acts = el('div', 'g-acts');
+    const rigged = g.rod === rod.id && g.rig[rod.id] === it.id && lineOf(g, rod).id === line.id && termOf(g, rod).id === term.id;
+    if (rigged) acts.append(el('span', 'g-ok', '✓ This is what you’re fishing with'));
+    else if (hasRod && hasItem) acts.append(btn('Rig it now', () => { const msg = this.hooks.rig(s); this.renderTrip(box, e); this.flash(msg); }, 'g-btn go'));
+    else if (this.hooks.atBox()) {
+      const room = (hasRod || g.pack.rods.length < PACK.rods) && (hasItem || g.pack.items.length < PACK.items);
+      acts.append(btn(room ? 'Pack it and rig it' : 'Pack it and rig it (making room)', () => { const msg = this.hooks.packAndRig(s); this.renderTrip(box, e); this.flash(msg); }, 'g-btn go'));
+      if (!room) acts.append(el('p', 'g-note', `Your backpack is full (${PACK.rods} rods, ${PACK.items} baits and lures): the ${!hasRod ? 'rod you aren’t holding' : 'tackle none of your rods uses'} goes back in the tackle box, and you’ll be told what.`));
+    } else {
+      const missing = [!hasRod && rod.name, !hasItem && it.name].filter(Boolean).join(' and ');
+      acts.append(el('p', 'g-miss', `Not carried: ${missing}. You can only swap tackle at a tackle box: at a camp, or in a motorboat’s locker.`));
+      const preset = SETUPS.find((x) => x.rods.includes(rod.id) && x.items.includes(it.id));
+      if (preset) acts.append(el('p', 'g-note', `The ready-made “${preset.name}” setup has both.`));
+    }
+    acts.append(btn('Open in the backpack', () => this.hooks.openPack({ type: 'item', id: it.id })));
+    kids.push(acts);
+
+    // 6: marking the water, and setting off.
+    kids.push(step(4, 'Set off'));
+    const place = places[this.ui.tripPlace];
+    const go = el('div', 'g-acts');
+    if (place && (!trip || trip.sp !== sp.id)) {
+      go.append(btn(trip ? 'Start this trip instead' : 'Mark the water and start the trip', () => {
+        const msg = this.hooks.startTrip(place, s, sp.id);
+        this.renderTrip(box, e);
+        this.flash(msg);
+      }, 'g-btn go'));
+      go.append(el('p', 'g-note', `${place.name}: ${Math.round(place.dist)} m ${place.dir}. A marker shows the way, and the map rings the water. Your catches are counted for the trip until you end it here.`));
+    } else if (place) go.append(el('p', 'g-note', 'Under way. Follow the marker; end the trip here when you’re done to keep a record of it.'));
+    kids.push(go);
+    box.replaceChildren(...kids);
   }
 
   sources(e) {

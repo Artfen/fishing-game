@@ -51,8 +51,14 @@
   <button id="gear" class="pill" type="button" aria-label="Your rod and tackle: open the backpack">
     <span id="gear-rod"></span><span id="gear-item" class="soft"></span>
   </button>
+  <div id="conditions" class="pill" hidden aria-label="Conditions where you are">
+    <span class="cd-row"><span class="cd-k">Wind</span><span id="cd-wind"></span></span>
+    <span class="cd-row"><span class="cd-k">Current</span><span id="cd-cur"></span></span>
+    <span class="cd-row"><span class="cd-k">Sea</span><span id="cd-sea"></span></span>
+  </div>
   <div id="boat-marker" class="marker" hidden aria-hidden="true"><span class="m-arrow"></span><span class="m-label">Boat · <b id="boat-dist">0</b> m</span></div>
   <div id="camp-marker" class="marker camp" hidden aria-hidden="true"><span class="m-arrow"></span><span class="m-label">Camp · <b id="camp-dist">0</b> m</span></div>
+  <div id="trip-marker" class="marker trip" hidden aria-hidden="true"><span class="m-arrow"></span><span class="m-label">Trip · <span id="trip-name"></span> · <b id="trip-dist">0</b> m</span></div>
   <div id="place" aria-live="polite">
     <div id="place-name"></div>
     <div class="rule" aria-hidden="true"></div>
@@ -347,6 +353,7 @@
       <dt><kbd>Esc</kbd> · right-click</dt><dd>cancel a cast, reel in</dd>
       <dt><kbd>V</kbd> · <kbd>C</kbd> · <kbd>R</kbd></dt><dd>first person · next view · reset the camera</dd>
       <dt><kbd>F</kbd> · <kbd>M</kbd> · <kbd>J</kbd></dt><dd>fish finder · map · journal</dd>
+      <dt><kbd>N</kbd> · <kbd>Y</kbd></dt><dd>wind, current and sea · why nothing’s biting</dd>
       <dt><kbd>O</kbd> · <kbd>T</kbd> · <kbd>H</kbd></dt><dd>settings (keys can be changed there) · let time drift · hide interface</dd>
     </dl>
     <dl class="t-keys touch-only">

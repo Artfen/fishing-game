@@ -550,6 +550,21 @@ button:focus-visible, #scene:focus-visible { outline: 2px solid var(--lantern); 
   cursor: pointer;
 }
 #gear:hover { background: rgba(22, 30, 42, 0.5); }
+/* The conditions panel: wind, current and sea where you are, under the rod. */
+#conditions {
+  position: absolute;
+  top: calc(96px + env(safe-area-inset-top, 0px));
+  left: calc(16px + env(safe-area-inset-left, 0px));
+  display: grid;
+  gap: 2px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font: 600 12px var(--font-ui);
+  pointer-events: none;
+}
+#conditions .cd-row { display: grid; grid-template-columns: 56px auto; gap: 6px; white-space: nowrap; }
+#conditions .cd-k { opacity: 0.7; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; font-size: 10.5px; line-height: 16px; }
+#conditions .cd-arrow { display: inline-block; width: 1.1em; text-align: center; font-weight: 800; }
 #gear .soft { font-weight: 500; opacity: 0.85; }
 #gear .soft::before { content: '·'; margin-right: 8px; opacity: 0.6; }
 #gear.flash { animation: glow 1.2s ease-in-out 2; }
@@ -583,6 +598,8 @@ button:focus-visible, #scene:focus-visible { outline: 2px solid var(--lantern); 
   transition: transform 0.1s linear;
 }
 .marker.camp .m-arrow { border-bottom-color: var(--seaglass); }
+.marker.trip { border-color: rgba(240, 180, 140, 0.6); }
+.marker.trip .m-arrow { border-bottom-color: #f0b48c; }
 .marker.near { opacity: 0.75; }
 
 #sleep-veil {
@@ -1851,6 +1868,8 @@ body.touch #rest-veil { padding-bottom: calc(170px + env(safe-area-inset-bottom,
 .g-sci .g-auth { font-weight: 500; font-size: 13px; }
 .g-badge { display: inline-block; margin: 6px 0 4px; padding: 2px 10px; border-radius: 999px; font: 800 11.5px var(--font-ui); background: rgba(63, 111, 47, 0.14); color: #2f5a22; }
 .g-badge.planned, .g-badge.verify { background: rgba(138, 90, 18, 0.14); color: #6a4410; }
+.g-badge.observation { background: rgba(47, 90, 106, 0.14); color: #2f5a6a; }
+.g-badge.retired { background: rgba(58, 46, 38, 0.1); color: #5a4a3e; }
 .g-warn { margin: 6px 0; padding: 6px 10px; border-radius: 8px; background: rgba(232, 168, 60, 0.18); font: 600 13px/1.4 var(--font-ui); color: #6a4a14; }
 .g-names { display: grid; grid-template-columns: max-content 1fr; gap: 1px 12px; margin: 6px 0; font: 13px var(--font-ui); }
 .g-names dt { font-weight: 800; color: var(--ink-soft); }
@@ -1889,6 +1908,24 @@ body.touch #rest-veil { padding-bottom: calc(170px + env(safe-area-inset-bottom,
 .g-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .g-ok { font: 800 13px var(--font-ui); color: #3f6f2f; }
 .g-miss { flex: 1 1 100%; margin: 0; font: 600 13px/1.4 var(--font-ui); color: #6a4410; }
+/* Planning a trip */
+.g-planbar { margin: 2px 0 8px; }
+.g-tripback { margin-bottom: 6px; }
+.g-step { margin: 14px 0 6px; }
+.g-tripnow { background: rgba(240, 180, 140, 0.18); box-shadow: inset 0 0 0 1px rgba(181, 83, 47, 0.3); }
+.g-places { gap: 5px; }
+.g-place {
+  display: grid; gap: 1px; width: 100%; padding: 6px 9px; text-align: left; cursor: pointer;
+  border: 1.5px solid var(--ink-faint); border-radius: 9px; background: rgba(255, 255, 255, 0.45); color: var(--ink);
+  font: 13px var(--font-ui);
+}
+.g-place b { font-weight: 800; }
+.g-place span { color: var(--ink-soft); font-size: 12px; }
+.g-place.on { border-color: #b5532f; background: rgba(240, 180, 140, 0.25); }
+.g-place:focus-visible { outline: 3px solid #d9963a; outline-offset: 2px; }
+.g-chain li .g-have { grid-column: 3; font: 700 11.5px var(--font-ui); color: #8a5a12; }
+.g-chain li .g-have.ok { color: #3f6f2f; }
+.g-chain li:has(.g-have) { grid-template-rows: auto auto; }
 .g-sources { margin: 12px 0 0; font: 13px/1.45 var(--font-ui); }
 .g-sources summary { cursor: pointer; font-weight: 800; }
 .g-sources ul { margin: 6px 0; padding-left: 18px; }
@@ -1899,5 +1936,12 @@ body.touch #rest-veil { padding-bottom: calc(170px + env(safe-area-inset-bottom,
   .book[data-view="guide"]:not([data-gpane="page"]) .j-guide-view.right { display: none; }
   .book[data-view="guide"][data-gpane="page"] .j-guide-view.left { display: none; }
   .book[data-view="guide"][data-gpane="page"] .g-back { display: inline-block; margin-bottom: 6px; }
+}
+/* (The little map keeps its places beside it until a phone's width.) */
+@media (max-width: 480px) {
   .g-map { grid-template-columns: 1fr; }
 }
+
+.st-sub { margin: 18px 0 4px; font: 800 13px var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.75; }
+.st-compass { flex-wrap: wrap; }
+.st-compass button { min-width: 44px; }

@@ -19,12 +19,13 @@ const { ANATOMY, anatomyGeometry } = await import('../src/anatomy.js');
 const { REGISTER, registerFor, LEGACY, FRESHWATER, REGIONS, PLAN_AS } = await import('../src/register.js');
 const { execFileSync } = await import('node:child_process');
 const { fileURLToPath } = await import('node:url');
-const { fish, SCENARIOS } = await import('../tools/ecosim.mjs?nomain');
+const { fish, fishWithGuide, SCENARIOS } = await import('../tools/ecosim.mjs?nomain');
 
 const REFERENCE = ['seabass', 'meagre', 'gilthead', 'sole', 'mackerel', 'cuttlefish'];
 
 test('every species in the game has a recommended setup the tackle rules accept', () => {
   for (const sp of FISH) {
+    if (sp.retired || sp.life.observe) continue; // (retired fish are gone; protected ones are only watched)
     const list = setupsFor(sp);
     assert.ok(list.length, `${sp.id}: no setup`);
     for (const s of list) {
@@ -50,23 +51,20 @@ test('the reference species bite on the setups the guide recommends (headless ec
   }
 });
 
-test('the other real species bite on the guide’s first choice, rigged as it says (headless ecosystem)', async () => {
+test('every other catchable species bites on the guide’s first choice, rigged as it says (headless ecosystem)', async () => {
   const { createHabitat } = await import('../src/world/habitat.js');
   const { Ecosystem } = await import('../src/world/ecosystem.js');
   const eco = new Ecosystem(createHabitat());
-  for (const id of ['mullet', 'wrasse', 'flounder', 'plaice', 'sprat']) {
-    const sp = fishById[id], s = setupsFor(sp)[0], rod = RODS[s.rod], d = habitsOf(sp).depth;
-    // At the hour it's keenest, at the depth the guide says for a float.
-    const env = (h) => ({ hour: h, rain: 0, cloud: 0.3, daylight: h >= 7 && h < 19 ? 1 : 0.1, night: h >= 21 || h < 5 ? 1 : 0, lanternNear: false, hatch: 0.5 });
-    const hour = [7, 12, 20, 23].reduce((a, h) => (sp.life.activity(env(h)) > sp.life.activity(env(a)) ? h : a), 12);
-    const depth = rod.kind === 'float' ? Math.max(1, Math.round(d[0])) + 1 : 0;
-    const results = [];
-    for (const idx of [0, 5]) {
-      const a = eco.bySpecies[id][idx];
-      results.push(...fish({ kind: rod.kind === 'ledger' ? 'ledger' : rod.kind, item: s.item, depth, x: a.home.x, z: a.home.z, ax: a.home.x + 12, az: a.home.z + 10, hour, thick: 0.3, eco }, { tries: 2, limit: 200 }));
-    }
-    assert.ok(results.some((r) => r.startsWith(`${id} `)), `${id} on ${s.rod}/${s.item}: ${results.join(', ')}`);
+  const special = new Set([...REFERENCE, 'squid', 'tuna']);
+  const failed = [];
+  for (const sp of FISH) {
+    if (sp.retired || sp.life.observe || sp.water === 'fresh' || special.has(sp.id)) continue;
+    let r = fishWithGuide(eco, sp.id);
+    // (A wary fish can lose the bait to quicker neighbours: give it a second chance elsewhere.)
+    if (!r.hits) r = fishWithGuide(eco, sp.id, { homes: [1, 3, 7], tries: 3 });
+    if (!r.hits) failed.push(`${sp.id} on ${r.setup.rod}/${r.setup.item}: ${r.results.join(', ')}`);
   }
+  assert.deepEqual(failed, []);
   // The squid at night under a light, and the tuna in a boil, have their own scenarios.
   for (const [id, sc] of [['squid', 'squidNight'], ['tuna', 'tuna']]) {
     const scenario = SCENARIOS[sc]();
@@ -136,7 +134,10 @@ test('the register is sourced, and honest about what is in the game', () => {
     if (!fishById[r.id]) assert.notEqual(r.status, 'catchable', `${r.id} is not in the game`);
   }
   // Protected species are planned only as ones to watch.
-  for (const id of ['sturgeon', 'eel', 'allisshad', 'lamprey']) assert.equal(PLAN_AS[id]?.as, 'observation', id);
+  for (const id of ['sturgeon', 'allisshad', 'lamprey']) assert.equal(PLAN_AS[id]?.as, 'observation', id);
+  // The eel is in the water to be watched only: it ignores every bait.
+  assert.equal(registerFor('eel').status, 'observation');
+  assert.ok(fishById.eel.life.observe && !Object.keys(fishById.eel.food).length);
   // And src/registerData.js is what the research compiles to.
   assert.doesNotThrow(() => execFileSync(process.execPath, [fileURLToPath(new URL('../tools/build-register.mjs', import.meta.url)), '--check'], { stdio: 'pipe' }));
 });
@@ -145,4 +146,35 @@ test('the guide’s habits come from the simulation', () => {
   // The sole is a night feeder; the gilthead feeds by day.
   assert.match(habitsOf(fishById.sole).active, /night/);
   assert.match(habitsOf(fishById.gilthead).active, /day|morning/);
+});
+
+// The "why nothing's biting" advice only gives reasons the simulation plays by, and never says
+// where a fish is.
+test('the advice explains a quiet line with reasons from the simulation', async () => {
+  const { diagnose } = await import('../src/advice.js');
+  // A spot of open coast that suits bonito, mid-morning.
+  const map = { suitableAt: () => true };
+  const eco = { activity: { bonito: 1, sole: 1 }, ctx: { hour: 10, night: 0 }, bait: { motion: 'fast', nearBottom: false, thick: 0.2 } };
+  const at = (rod, item, extra = {}) => ({
+    hook: { x: 0, z: 300 }, item: TACKLE[item], rod: RODS[rod], baitDepth: 2, bottom: 12, status: 'quiet',
+    interest: { at: { x: 0, z: 300 }, looks: 0, follows: 0, left: 0 }, ...extra,
+  });
+  const keys = (r) => r.reasons.map((x) => x.key);
+  const bonito = fishById.bonito, sole = fishById.sole;
+  // All as it likes it: nothing to fix, and no hint at where the fish are.
+  const fine = diagnose(at('sea', 'metal'), eco, map, bonito);
+  assert.deepEqual(keys(fine), ['fine']);
+  assert.doesNotMatch(fine.reasons[0].text, /\d+ ?m (north|south|east|west)|\b\d{2,} m away/);
+  // The wrong thing on the hook.
+  assert.ok(keys(diagnose(at('sea', 'sabiki'), eco, map, bonito)).includes('food'));
+  // A slowly wound metal for a fish that wants it fast: it follows, and the advice says why it turns away.
+  const slow = { ...eco, bait: { ...eco.bait, motion: 'slow' } };
+  const follow = at('sea', 'metal', { status: 'follow', interest: { at: { x: 0, z: 300 }, looks: 0, follows: 1, left: 0 } });
+  const r = diagnose(follow, slow, map, bonito);
+  assert.ok(keys(r).includes('motion') && keys(r).includes('interest'), JSON.stringify(r.reasons));
+  assert.match(r.reasons.find((x) => x.key === 'motion').text, /fast/);
+  // A bottom feeder and a bait hanging above the bottom.
+  assert.ok(keys(diagnose(at('boat', 'rag'), { ...eco, bait: { ...eco.bait, nearBottom: false } }, map, sole)).includes('depth'));
+  // Water that doesn't suit it.
+  assert.ok(keys(diagnose(at('sea', 'metal'), eco, { suitableAt: () => false }, bonito)).includes('habitat'));
 });

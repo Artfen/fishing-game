@@ -53,6 +53,7 @@ test('a lure too light for the rod casts shorter than one in its range', () => {
 
 test('every kind of fish (and the squid) can be caught with one of the setups', () => {
   for (const f of FISH) {
+    if (f.retired || f.life.observe) continue; // (the fictional originals are gone; protected species are only watched)
     const ok = SETUPS.some((s) => s.rods.some((r) => s.items.some((i) => fits(RODS[r], TACKLE[i]) && (f.food?.[i] ?? 0) >= 0.5)));
     assert.ok(ok, `no setup catches the ${f.name}`);
   }

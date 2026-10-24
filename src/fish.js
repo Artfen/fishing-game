@@ -2,11 +2,8 @@ import * as THREE from 'three';
 import { lerp, smoothstep, seeded } from './util.js';
 import { hasAnatomy, anatomyGeometry, anatomyMaterials } from './anatomy.js';
 import { registerFor, titleName } from './register.js';
-
-const isDay = (h) => h >= 6.2 && h < 19;
-const isEvening = (h) => h >= 18.5 || h < 5;
-const isTwilight = (h) => (h >= 5 && h < 7.5) || (h >= 17.5 && h < 20.5);
-const clamp01 = (v) => Math.max(0, Math.min(1, v));
+import { isDay, isEvening, isTwilight, clamp01 } from './habits.js';
+import { ATLANTIC } from './atlantic.js';
 
 // Every species lives in the shared underwater world (see world/ecosystem.js).
 // `life` describes where it lives and how it behaves; there is no separate catch roll:
@@ -22,6 +19,7 @@ const clamp01 = (v) => Math.max(0, Math.min(1, v));
 export const FISH = [
   {
     id: 'glassminnow',
+    retired: true, // fictional: replaced by a real species, kept for old catches
     wt: 0.006, // weight ≈ wt × length³ (grams, length in cm)
     name: 'Glassminnow',
     water: 'salt',
@@ -50,6 +48,7 @@ export const FISH = [
   },
   {
     id: 'sunperch',
+    retired: true, // fictional: replaced by a real species, kept for old catches
     fight: 'dash',
     wt: 0.016,
     name: 'Sunperch',
@@ -80,6 +79,7 @@ export const FISH = [
   },
   {
     id: 'drizzlefin',
+    retired: true, // fictional: replaced by a real species, kept for old catches
     wt: 0.009,
     name: 'Drizzlefin',
     water: 'salt',
@@ -109,6 +109,7 @@ export const FISH = [
   },
   {
     id: 'duskfin',
+    retired: true, // fictional: replaced by a real species, kept for old catches
     wt: 0.012,
     name: 'Duskfin',
     water: 'salt',
@@ -137,6 +138,7 @@ export const FISH = [
   },
   {
     id: 'mossback',
+    retired: true, // fictional: replaced by a real species, kept for old catches
     fight: 'dogged',
     wt: 0.014,
     name: 'Mossback',
@@ -630,18 +632,20 @@ export const FISH = [
     colors: { back: '#3a6a7a', body: '#cfdcdf', belly: '#f6faf8', fin: '#9ab4ba', mark: '#e6f0f4' },
     sketch: { h: 0.24, tail: 0.75, pattern: 'stripe' },
     where: 'Out to sea: dense shoals in the open water',
-    hint: 'Far out, the sea sometimes fizzes with tiny silver fish crammed into a ball. Bigger hunters are never far behind.',
+    hint: 'Far out, the sea sometimes fizzes with tiny silver fish crammed into a ball. Bigger hunters are never far behind. Sabiki feathers on the coastal rod, let down into the shoal and lifted gently, take them.',
     note: 'A little silver fish that lives in vast shoals. Mackerel, birds and tuna all feed on them; where the sprats are, the hunters come.',
     keep: 'Far too small to keep. You drop it back to its shoal.',
-    food: { maggot: 0.6, rag: 0.5, worm: 0.4 },
+    food: { sabiki: 1.5, bread: 0.6, rag: 0.5 },
     life: {
-      school: true, schools: 8, members: [26, 40], spacing: 70, range: 2.2, bait: true,
+      school: true, schools: 8, members: [26, 40], spacing: 70, range: 2.2, bait: true, midwater: true,
       speed: 0.9, turn: 3.6, perception: 5, depthTol: 1.4, cover: 'open',
       homes: ['blue', 'tide'], zones: ['deep', 'coast'],
       depth: ({ hour }) => (isDay(hour) ? [1, 6] : [4, 14]),
       activity: () => 0.8,
-      likes: { still: 1, slow: 0.6, fast: 0.1, twitch: 0.3 },
+      likes: { still: 1, slow: 0.8, fast: 0.1, twitch: 0.9 },
       bite: 0.7, caution: 0.6, rises: () => 0, jumps: 0,
+      // (They pick at sabiki feathers as at a bait: a string of tiny lures is no chase.)
+      strike: { lure: 'nibble', float: 'nibble' },
     },
   },
   {
@@ -828,6 +832,9 @@ export const FISH = [
     },
   },
 ];
+// The Atlantic roster (atlantic.js) joins the original species.
+FISH.push(...ATLANTIC);
+
 // Real species take their names from the Atlantic register (register.js), so the water, the
 // catch card, the journal and the field guide all call a fish the same thing.
 for (const f of FISH) {

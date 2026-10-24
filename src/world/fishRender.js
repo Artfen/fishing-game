@@ -38,7 +38,7 @@ export class FishRenderer {
       scene.add(mesh);
       return { mesh, swim, mat };
     };
-    this.sets = FISH.map((sp) => {
+    this.sets = FISH.filter((sp) => !sp.retired).map((sp) => {
       const list = this.eco.bySpecies[sp.id];
       const near = instanced(sp, list, true);
       const far = hasAnatomy(sp.id) ? instanced(sp, list, false) : null;
@@ -77,6 +77,7 @@ export class FishRenderer {
       }
       for (const [s, n] of set.far ? [[set, k], [set.far, kf]] : [[set, k]]) {
         s.mesh.count = n;
+        s.mesh.visible = n > 0; // (no draw at all for a species with none in view)
         s.mesh.instanceMatrix.needsUpdate = true;
         s.swim.needsUpdate = true;
       }

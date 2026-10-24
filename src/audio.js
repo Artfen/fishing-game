@@ -11,14 +11,14 @@ const CHORDS = [[50, 57, 62], [47, 54, 62], [43, 50, 59], [45, 52, 61]];
 // Every sound reaches the speakers through one master gain, so muting silences all of it,
 // including sounds that start after you mute. Under the master there are separate volumes
 // for the surroundings (water, wind, birds), rain, fishing effects, bite alerts and music.
-export const VOLUME_KEYS = ['master', 'music', 'ambient', 'rain', 'effects', 'alerts'];
+export const VOLUME_KEYS = ['master', 'music', 'ambient', 'wind', 'waves', 'rain', 'effects', 'alerts'];
 export class AudioScape {
   constructor() {
     this.ctx = null;
     this.musicOn = true;
     this.t = 0;
     this.under = 0;
-    this.volumes = { master: 1, mute: false, music: 0.8, ambient: 1, rain: 1, effects: 1, alerts: 0.8 };
+    this.volumes = { master: 1, mute: false, music: 0.8, ambient: 1, wind: 0.8, waves: 0.9, rain: 1, effects: 1, alerts: 0.8 };
   }
 
   start() {
@@ -54,6 +54,8 @@ export class AudioScape {
       return g;
     };
     this.nature = bus();
+    this.windBus = bus();
+    this.wavesBus = bus();
     this.rainBus = bus();
     this.alerts = bus();
     this.musicVol = bus();
@@ -86,9 +88,11 @@ export class AudioScape {
     this.brown = this.noise(5, 'brown');
     this.pink = this.noise(4, 'pink');
 
-    this.waterBed = this.bed(this.brown, [['lowpass', 380, 0.6]]);
-    this.surfBed = this.bed(this.pink, [['bandpass', 520, 0.5]]);
-    this.windBed = this.bed(this.pink, [['bandpass', 700, 0.8]]);
+    this.waterBed = this.bed(this.brown, [['lowpass', 380, 0.6]], this.wavesBus);
+    this.surfBed = this.bed(this.pink, [['bandpass', 520, 0.5]], this.wavesBus);
+    this.windBed = this.bed(this.pink, [['bandpass', 700, 0.8]], this.windBus);
+    // A higher whistle that only rises in the gusts.
+    this.gustBed = this.bed(this.white, [['bandpass', 1500, 2.2]], this.windBus);
     this.rainBed = this.bed(this.white, [['highpass', 1100, 0.5], ['lowpass', 7500, 0.5]], this.rainBus);
     this.rainLow = this.bed(this.brown, [['lowpass', 900, 0.5]], this.rainBus);
     this.underBed = this.bed(this.brown, [['lowpass', 260, 0.7]]);
@@ -115,6 +119,8 @@ export class AudioScape {
     if (V.mute) this.master.gain.setValueAtTime(0, now);
     else this.master.gain.setTargetAtTime(V.master, now, 0.05);
     this.nature.gain.setTargetAtTime(V.ambient, now, 0.05);
+    this.windBus.gain.setTargetAtTime(V.wind ?? 0.8, now, 0.05);
+    this.wavesBus.gain.setTargetAtTime(V.waves ?? 0.9, now, 0.05);
     this.rainBus.gain.setTargetAtTime(V.rain, now, 0.05);
     this.effects.gain.setTargetAtTime(V.effects, now, 0.05);
     this.alerts.gain.setTargetAtTime(V.alerts, now, 0.05);
@@ -266,8 +272,8 @@ export class AudioScape {
   /* ---------- nature ---------- */
 
   lap(vol, pan) {
-    this.burst({ buf: this.brown, type: 'lowpass', freq: rand(350, 600), q: 0.8, dur: rand(0.5, 0.9), gain: vol, attack: rand(0.1, 0.2), pan, dest: this.nature });
-    this.burst({ buf: this.pink, type: 'bandpass', freq: rand(600, 900), q: 1.2, dur: 0.4, gain: vol * 0.25, attack: 0.08, pan, when: 0.1, dest: this.nature });
+    this.burst({ buf: this.brown, type: 'lowpass', freq: rand(350, 600), q: 0.8, dur: rand(0.5, 0.9), gain: vol, attack: rand(0.1, 0.2), pan, dest: this.wavesBus });
+    this.burst({ buf: this.pink, type: 'bandpass', freq: rand(600, 900), q: 1.2, dur: 0.4, gain: vol * 0.25, attack: 0.08, pan, when: 0.1, dest: this.wavesBus });
   }
 
   bird(vol, pan) {
@@ -543,14 +549,17 @@ export class AudioScape {
     if (!this.ctx) return;
     this.t += dt;
     const now = this.ctx.currentTime;
-    const { speed, rain, day, night, land, open, cove, gulls, stream = 0, fire = 0, sizzle = 0, lake = 0, water = 1 } = s;
+    const { speed, rain, day, night, land, open, cove, gulls, stream = 0, fire = 0, sizzle = 0, lake = 0, water = 1, wind = 0.3, gust = 1, sea = 0.2 } = s;
 
-    this.set(this.waterBed.g.gain, (0.1 + 0.05 * Math.min(speed / 5, 1) + 0.04 * open) * (0.25 + 0.75 * water), 1);
+    // The sea's wash grows with the waves where you are; the surf with the swell on the shore.
+    this.set(this.waterBed.g.gain, (0.08 + 0.05 * Math.min(speed / 5, 1) + 0.12 * Math.min(sea, 1)) * (0.25 + 0.75 * water), 1);
     const above = 1 - this.under * 0.75;
-    this.set(this.surfBed.g.gain, (0.012 + land * 0.035 * (1 - cove * 0.5)) * above, 1.5);
-    this.set(this.windBed.g.gain, (0.012 + 0.03 * open + 0.035 * rain) * above, 2);
+    this.set(this.surfBed.g.gain, (0.008 + land * (0.02 + 0.05 * Math.min(sea, 1)) * (1 - cove * 0.5)) * above, 1.5);
+    // The wind: its strength where you are (0 … 1 at a fresh breeze), louder and brighter in gusts.
+    this.set(this.windBed.g.gain, (0.006 + 0.07 * wind * wind + 0.02 * rain) * above, 1.2);
+    this.set(this.gustBed.g.gain, 0.012 * Math.max(0, gust - 1.1) * wind * above, 0.6);
     this.set(this.underBed.g.gain, 0.16 * this.under, 0.4);
-    this.windBed.f[0].frequency.setTargetAtTime(600 + Math.sin(this.t * 0.11) * 220 + Math.sin(this.t * 0.37) * 80, now, 0.8);
+    this.windBed.f[0].frequency.setTargetAtTime(500 + wind * 400 + (gust - 1) * 500 + Math.sin(this.t * 0.11) * 120, now, 0.8);
     this.set(this.rainBed.g.gain, 0.085 * rain, 1.5);
     this.set(this.rainLow.g.gain, 0.08 * rain, 1.5);
     this.set(this.music.gain, this.musicOn ? 0.9 * (1 - rain * 0.3) : 0, 1.5);
@@ -563,8 +572,8 @@ export class AudioScape {
     for (const k in n) n[k] -= dt;
 
     if (n.lap <= 0) {
-      if (water > 0.08) this.lap((0.12 + 0.06 * open + Math.min(speed, 5) * 0.02) * water, rand(-0.5, 0.5));
-      n.lap = rand(0.8, 2.4) / (1 + speed * 0.2);
+      if (water > 0.08) this.lap((0.1 + 0.08 * Math.min(sea, 1) + Math.min(speed, 5) * 0.02) * water, rand(-0.5, 0.5));
+      n.lap = rand(0.8, 2.4) / (1 + speed * 0.2 + sea);
     }
     if (n.drop <= 0) {
       if (rain > 0.05) this.drop(rand(0.01, 0.035) * rain);

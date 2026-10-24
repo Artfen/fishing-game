@@ -5,7 +5,9 @@
 import { createHabitat } from '../src/world/habitat.js';
 import { Ecosystem } from '../src/world/ecosystem.js';
 import { heightAt, zoneAt } from '../src/world/terrain.js';
-import { TACKLE } from '../src/tackle.js';
+import { TACKLE, RODS } from '../src/tackle.js';
+import { fishById } from '../src/fish.js';
+import { setupsFor, habitsOf } from '../src/guide.js';
 
 const habitat = createHabitat();
 const STEP = 1 / 30;
@@ -46,8 +48,19 @@ export function fish(sc, { tries = 6, limit = 240 } = {}) {
         speed = reeling ? sc.retrieve ?? 1 : 0;
         b.pause = !reeling && phase < 5.6;
         if (Math.abs(phase - 2.2) < STEP / 2) b.twitch = 1.2;
-        const want = it.action === 'pop' || it.action === 'walk' ? 0 : it.dive ? it.dive : it.suspend ?? Math.min(bottom - 0.2, 1.2);
-        depth += Math.sign(want - depth) * Math.min(Math.abs(want - depth), 0.6 * STEP);
+        // The lure's depth as fishing.js moves it: sinking lures go down while you pause and
+        // climb as you reel; floating plugs dive as you reel; surface lures stay on top.
+        const moving = speed > 0.12, act = it.action;
+        let want, rate = 0.6;
+        if (act === 'pop' || act === 'walk') want = 0;
+        else if (act === 'wobble') [want, rate] = moving ? [it.dive, 0.9] : [0, 0.22];
+        else if (act === 'flash') [want, rate] = moving ? [Math.min(1.6, Math.max(0.25, 1.8 - speed * 0.8)), 0.6] : [bottom, it.sink];
+        else if (act === 'swim') [want, rate] = moving ? [Math.min(bottom, Math.max(0.3, depth - (speed - 0.6) * 0.6)), 0.3] : [bottom, it.sink];
+        else if (act === 'flutter') [want, rate] = moving ? [Math.min(3, Math.max(0.4, 2.6 - speed * 1.2)), 0.8] : [bottom, it.sink];
+        else if (act === 'crawl') [want, rate] = [bottom, it.sink];
+        else want = it.suspend ?? Math.min(bottom - 0.2, 1.2);
+        want = Math.min(want, bottom - 0.08);
+        depth += Math.sign(want - depth) * Math.min(Math.abs(want - depth), rate * STEP);
         const dx = sc.ax - x, dz = sc.az - z, l = Math.hypot(dx, dz);
         if (l < 4) { x = sc.x; z = sc.z; } else { x += (dx / l) * speed * STEP; z += (dz / l) * speed * STEP; }
       } else if (sc.kind === 'jig') {
@@ -77,6 +90,23 @@ export function fish(sc, { tries = 6, limit = 240 } = {}) {
     b.active = true;
   }
   return results;
+}
+
+// Fish one species with the field guide's first choice, rigged as the guide says, where it lives
+// and at the hour it is keenest. Shoaling fish are found where their shoal is now.
+export function fishWithGuide(eco, id, { tries = 2, homes = [0, 5] } = {}) {
+  const sp = fishById[id], s = setupsFor(sp)[0], rod = RODS[s.rod], d = habitsOf(sp).depth, L = sp.life;
+  const env = (h) => ({ hour: h, rain: 0, cloud: 0.3, daylight: h >= 7 && h < 19 ? 1 : 0.1, night: h >= 21 || h < 5 ? 1 : 0, lanternNear: false, hatch: 0.5 });
+  const hour = [7, 12, 20, 23].reduce((a, h) => (L.activity(env(h)) > L.activity(env(a)) ? h : a), 12);
+  const depth = rod.kind === 'float' ? Math.max(1, Math.round(d[0])) + 1 : 0;
+  const fast = (L.likes.fast ?? 0) > (L.likes.slow ?? 0);
+  const results = [];
+  for (const idx of homes) {
+    const list = eco.bySpecies[id], a = list[idx % list.length];
+    const at = a.school ? { x: a.school.x, z: a.school.z } : a.home;
+    results.push(...fish({ kind: rod.kind, item: s.item, depth, x: at.x, z: at.z, ax: at.x + 14, az: at.z + 10, hour, thick: 0.3, retrieve: fast ? 1.8 : 0.8, light: L.lantern, eco }, { tries, limit: 200 }));
+  }
+  return { setup: s, hour, results, hits: results.filter((r) => r.startsWith(`${id} `)).length };
 }
 
 const near = (sp, idx = 0) => {
@@ -125,7 +155,15 @@ const SCENARIOS = {
 export { SCENARIOS };
 const MAIN = !import.meta.url.includes('nomain');
 const only = process.argv[2];
-for (const [name, make] of MAIN ? Object.entries(SCENARIOS) : []) {
+// `ecosim.mjs guide:<species>` fishes a species with the field guide's first choice.
+if (MAIN && only?.startsWith('guide:')) {
+  const eco = new Ecosystem(habitat);
+  for (const id of only.slice(6).split(',')) {
+    const r = fishWithGuide(eco, id, { homes: [0, 3, 5, 7], tries: 3 });
+    console.log(`${id.padEnd(14)} ${r.setup.rod}/${r.setup.item} at ${r.hour}h: ${r.hits}/${r.results.length} — ${r.results.join(', ')}`);
+  }
+}
+for (const [name, make] of MAIN && !only?.startsWith('guide:') ? Object.entries(SCENARIOS) : []) {
   if (only && name !== only) continue;
   const sc = make();
   console.log(`${name.padEnd(16)} (${sc.item}, ${zoneAt(sc.x, sc.z)} ${sc.x.toFixed(0)},${sc.z.toFixed(0)}): ${fish(sc).join(', ')}`);

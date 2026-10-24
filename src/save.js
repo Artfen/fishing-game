@@ -1,5 +1,5 @@
 import { fishById } from './fish.js';
-import { RODS, TACKLE, PACK, cleanGear } from './tackle.js';
+import { RODS, TACKLE, TERMS, PACK, cleanGear } from './tackle.js';
 import { cleanSettings } from './settings.js';
 
 // Saving your progress in this browser, with nobody to sign in to.
@@ -50,6 +50,8 @@ export const DEFAULT_STATE = {
   sky: null,       // the weather right now: { cloud, rain, state, timer }
   seen: '',        // the parts of the map you've explored (see map.js), as base64
   observed: {},    // species you've seen for yourself: id -> { count, day, hour, zone }
+  trip: null,      // a fishing trip under way (see trip.js)
+  trips: [],       // trips you've finished, with what they brought (the last twenty)
 };
 
 const fresh = () => JSON.parse(JSON.stringify(DEFAULT_STATE));
@@ -184,6 +186,21 @@ export function sanitize(raw) {
     for (const [id, r] of Object.entries(raw.observed)) {
       if (!fishById[id] || !isObj(r)) continue;
       s.observed[id] = { count: int(r.count, 1, 1, 1e6), day: int(r.day, 1, 1, 1e6), hour: num(r.hour, 12, 0, 24), zone: oneOf(r.zone, ZONES, 'bay') };
+    }
+  }
+  // A trip under way, and the record of finished ones.
+  const setupOf = (x) => (isObj(x) && RODS[x.rod] && TACKLE[x.item] ? { rod: x.rod, item: x.item, term: TERMS[x.term] ? x.term : RODS[x.rod].terms[0], line: RODS[x.rod].lines.some((l) => l.id === x.line) ? x.line : RODS[x.rod].lines[0].id } : null);
+  const t = raw.trip;
+  if (isObj(t) && fishById[t.sp] && setupOf(t.setup)) {
+    s.trip = {
+      id: String(t.id || 't').slice(0, 24), sp: t.sp, start: num(t.start, Date.now(), 0, 1e15), day: int(t.day, 1, 1, 1e6), hour: num(t.hour, 12, 0, 24),
+      x: num(t.x, 0, -5000, 5000), z: num(t.z, 0, -5000, 5000), r: num(t.r, 30, 5, 200), name: String(t.name || '').slice(0, 80), setup: setupOf(t.setup), arrived: !!t.arrived,
+    };
+  }
+  if (Array.isArray(raw.trips)) {
+    for (const r of raw.trips.slice(-20)) {
+      if (!isObj(r) || !fishById[r.sp] || !setupOf(r.setup)) continue;
+      s.trips.push({ sp: r.sp, name: String(r.name || '').slice(0, 80), day: int(r.day, 1, 1, 1e6), hours: num(r.hours, 0, 0, 1e5), target: int(r.target, 0, 0, 1e5), best: r.best == null ? null : num(r.best, null, 0, 1000), total: int(r.total, 0, 0, 1e5), setup: setupOf(r.setup) });
     }
   }
   s.seen = typeof raw.seen === 'string' && raw.seen.length <= 4000 && /^[A-Za-z0-9+/=]*$/.test(raw.seen) ? raw.seen : '';

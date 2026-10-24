@@ -125,6 +125,57 @@ export class MapSheet {
     return mask;
   }
 
+  // Whether the water at a point suits a species (its cell of the map, or one beside it: the
+  // shading is coarse).
+  suitableAt(id, x, z) {
+    const mask = this.suitability(id);
+    const i0 = Math.floor((x - SHEET.x) / CELL), j0 = Math.floor((z - SHEET.z) / CELL);
+    for (let dj = -1; dj <= 1; dj++) {
+      for (let di = -1; di <= 1; di++) {
+        const i = i0 + di, j = j0 + dj;
+        if (i >= 0 && j >= 0 && i < COLS && j < ROWS && mask[j * COLS + i]) return true;
+      }
+    }
+    return false;
+  }
+
+  // The separate stretches of water that suit a species (connected cells of its suitability),
+  // largest first: where it could be worth going, for planning a trip. Areas of water, not fish.
+  areasFor(id) {
+    this.areas = this.areas || new Map();
+    if (this.areas.has(id)) return this.areas.get(id);
+    const mask = this.suitability(id), seen = new Uint8Array(mask.length), out = [];
+    for (let k = 0; k < mask.length; k++) {
+      if (!mask[k] || seen[k]) continue;
+      const stack = [k], cells = [];
+      seen[k] = 1;
+      while (stack.length) {
+        const c = stack.pop(), i = c % COLS, j = (c - i) / COLS;
+        cells.push(c);
+        for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const ni = i + di, nj = j + dj, n = nj * COLS + ni;
+          if (ni < 0 || nj < 0 || ni >= COLS || nj >= ROWS || seen[n] || !mask[n]) continue;
+          seen[n] = 1;
+          stack.push(n);
+        }
+      }
+      if (cells.length < 2) continue;
+      // Its middle (the cell nearest the centroid, so it's always in the water that suits).
+      let sx = 0, sz = 0;
+      const pts = cells.map((c) => [SHEET.x + ((c % COLS) + 0.5) * CELL, SHEET.z + (Math.floor(c / COLS) + 0.5) * CELL]);
+      for (const [x, z] of pts) { sx += x; sz += z; }
+      sx /= pts.length;
+      sz /= pts.length;
+      const mid = pts.reduce((b, p) => (Math.hypot(p[0] - sx, p[1] - sz) < Math.hypot(b[0] - sx, b[1] - sz) ? p : b));
+      const zones = {};
+      for (const [x, z] of pts) { const zn = zoneAt(x, z); zones[zn] = (zones[zn] || 0) + 1; }
+      out.push({ x: mid[0], z: mid[1], r: Math.max(25, Math.sqrt(cells.length / Math.PI) * CELL), cells: cells.length, pts, zone: Object.entries(zones).sort((a, b) => b[1] - a[1])[0][0] });
+    }
+    out.sort((a, b) => b.cells - a.cells);
+    this.areas.set(id, out);
+    return out;
+  }
+
   // The suitable water as a soft overlay, in a canvas the size of the base map.
   overlay(id) {
     const mask = this.suitability(id);
@@ -145,8 +196,8 @@ export class MapSheet {
   }
 
   // A small map for the field guide: the coast as far as you've explored it, with the water that
-  // suits a species shaded over it.
-  miniMap(cv, id) {
+  // suits a species shaded over it (and, planning a trip, the places to choose from ringed).
+  miniMap(cv, id, places = null, me = null) {
     if (!this.base) this.bake();
     if (this.fogVersion !== this.explored.version || !this.fog) this.buildFog();
     const ctx = cv.getContext('2d');
@@ -155,6 +206,24 @@ export class MapSheet {
     ctx.globalAlpha = 0.6;
     ctx.drawImage(this.overlay(id), 0, 0, cv.width, cv.height);
     ctx.globalAlpha = 1;
+    const kx = cv.width / SHEET.w, kz = cv.height / SHEET.h;
+    for (const p of places || []) {
+      ctx.save();
+      ctx.strokeStyle = p.on ? '#b5532f' : 'rgba(58, 46, 38, 0.55)';
+      ctx.lineWidth = p.on ? 2.5 : 1.5;
+      if (!p.on) ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.arc((p.x - SHEET.x) * kx, (p.z - SHEET.z) * kz, Math.max(6, p.r * kx), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    // You are here.
+    if (me) {
+      ctx.fillStyle = '#b5532f';
+      ctx.beginPath();
+      ctx.arc((me.x - SHEET.x) * kx, (me.z - SHEET.z) * kz, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.strokeStyle = 'rgba(58, 46, 38, 0.5)';
     ctx.strokeRect(0.5, 0.5, cv.width - 1, cv.height - 1);
   }
@@ -171,7 +240,7 @@ export class MapSheet {
     // Start a little zoomed in, around you; showing a species' water, take in the nearest of it
     // too.
     this.view.zoom = this.fitZoom * 2.2;
-    const near = highlight && this.nearestSuitable(highlight, where.player);
+    const near = highlight && (this.state.trip?.sp === highlight ? this.state.trip : this.nearestSuitable(highlight, where.player));
     if (near) {
       const p = where.player, m = 1.5 * CELL;
       const w = Math.abs(near.x - p.x) + 2 * m, h = Math.abs(near.z - p.z) + 2 * m;
@@ -436,6 +505,21 @@ export class MapSheet {
       ctx.globalAlpha = 0.55;
       ctx.drawImage(this.highlightImg, x0, y0, w, h);
       ctx.globalAlpha = 1;
+    }
+
+    // A planned trip's destination: a dashed ring round the water, with what you're after.
+    const trip = this.state.trip;
+    if (trip) {
+      const [tx, ty] = this.toPx(trip.x, trip.z);
+      ctx.save();
+      ctx.strokeStyle = '#2f6f74';
+      ctx.lineWidth = 2.5 * s;
+      ctx.setLineDash([6 * s, 5 * s]);
+      ctx.beginPath();
+      ctx.arc(tx, ty, Math.max(10 * s, trip.r * this.view.zoom), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      this.label(ctx, `Trip: ${fishById[trip.sp]?.name || trip.sp}`, tx, ty - Math.max(12 * s, trip.r * this.view.zoom) - 8 * s, 17, '#2f6f74', 1);
     }
 
     // Edge of the sheet.

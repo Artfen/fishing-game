@@ -90,9 +90,9 @@ export const RODS = {
       { id: 'b20', name: '20 lb braid', kg: 9, thick: 0.6 },
       { id: 'b30', name: '30 lb braid', kg: 13.6, thick: 0.7 },
     ],
-    terms: ['fluoro', 'none'],
-    strengths: 'Long casts from rocks, beaches and boats: metals for mackerel, soft sandeels and surface plugs for sea bass, wrasse lures over the reef.',
-    limits: 'Too strong for small lures and freshwater finesse. Not built for tuna.',
+    terms: ['fluoro', 'wire', 'none'],
+    strengths: 'Long casts from rocks, beaches and boats: metals for mackerel and bonito, soft sandeels and surface plugs for sea bass, sabiki feathers for the small shoaling fish, and a wire trace for toothy bluefish.',
+    limits: 'Too strong for small lures and freshwater finesse. Not built for big tuna.',
     look: { len: 2.8, color: '#3b4f63', handle: '#2b2b2b', reel: 'spin' },
   },
   boat: {
@@ -162,7 +162,7 @@ export const TERMS = {
     desc: 'Thick enough to survive a tuna’s first run and its sandpaper mouth.' },
 };
 
-// type: bait | lure | fly | jig. size: 1 small … 4 huge (what a fish's mouth can manage).
+// type: bait | lure | fly | jig. size: 0.5 tiny, 1 small … 4 huge (what a fish's mouth can manage).
 // weight: grams (for a bait, without the rig).
 export const TACKLE = {
   // --- natural baits ---
@@ -229,6 +229,9 @@ export const TACKLE = {
   mjig: { id: 'mjig', on: 'a metal jig', type: 'lure', name: 'Metal jig (80 g)', short: 'Metal jig', size: 3, weight: 80,
     action: 'flutter', sink: 2.6, water: 'salt',
     desc: 'Drops fast to deep fish; lift and let it flutter back. Tuna below the birds.' },
+  sabiki: { id: 'sabiki', on: 'sabiki feathers', type: 'lure', name: 'Sabiki feathers (6 tiny hooks, 20 g)', short: 'Sabiki', size: 0.5, weight: 20,
+    action: 'flutter', sink: 0.9, water: 'salt',
+    desc: 'A string of tiny hooks dressed in shiny fish skin, above a small lead. Let it down, then lift and drop it: sardines, anchovies, horse mackerel, bogue and sprats.' },
   // --- flies ---
   dry: { id: 'dry', on: 'a dry fly', type: 'fly', name: 'Dry fly (mayfly)', short: 'Dry fly', size: 1, fly: 'dry', water: 'fresh',
     desc: 'Floats on the surface like a hatching insect. Deadly when flies are hatching.' },
@@ -273,9 +276,12 @@ export const SETUPS = [
   { id: 'predator', name: 'Lake Predator', note: 'Spinning rod (20 lb braid, wire trace) for pike and bass, light rod for perch',
     rods: ['spin', 'trout'], items: ['jerk', 'shad', 'creature', 'crankD', 'popper', 'spinner', 'tspin'], rod: 'spin',
     line: { spin: 'b20', trout: 'f4' }, term: { spin: 'wire' }, rig: { spin: 'jerk', trout: 'tspin' } },
-  { id: 'coastal', name: 'Coastal Spinning', note: 'Coastal rod (fluoro leader) with metals, sandeels and a popper; float rod for mullet',
-    rods: ['sea', 'float'], items: ['metal', 'sandeel', 'popper', 'crankS', 'bread', 'prawn', 'rag'], rod: 'sea',
+  { id: 'coastal', name: 'Coastal Spinning', note: 'Coastal rod (fluoro leader) with metals, sandeels, a popper and sabiki feathers; float rod for mullet, salema and bogue',
+    rods: ['sea', 'float'], items: ['metal', 'sandeel', 'popper', 'sabiki', 'bread', 'prawn', 'rag'], rod: 'sea',
     line: { sea: 'b20', float: 'm6' }, term: { sea: 'fluoro', float: 'waggler' }, rig: { sea: 'metal', float: 'bread' } },
+  { id: 'reef', name: 'Rock & Reef', note: 'Bottom rod (running ledger) with crab, prawn, ragworm and fish strip for bream, grunts, conger and octopus; coastal rod with shads for pollack and dentex',
+    rods: ['boat', 'sea'], items: ['crab', 'prawn', 'rag', 'strip', 'shad', 'sandeel', 'metal'], rod: 'boat',
+    term: { boat: 'running', sea: 'fluoro' }, rig: { boat: 'crab', sea: 'shad' } },
   { id: 'flatfish', name: 'Flatfish', note: 'Bottom rod (flapper rig) with lugworm, ragworm and crab; coastal rod as a spare',
     rods: ['boat', 'sea'], items: ['lug', 'rag', 'crab', 'strip', 'metal', 'sandeel'], rod: 'boat',
     term: { boat: 'flapper', sea: 'fluoro' }, rig: { boat: 'lug', sea: 'metal' } },

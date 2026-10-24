@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { buildGear, disposeGear } from './gearArt.js';
 import { fishById, buildFishGeometry, fishMaterial, drawFishSketch } from './fish.js';
-import { hasAnatomy } from './anatomy.js';
+import { hasAnatomy, ANATOMY } from './anatomy.js';
 import { RODS, TACKLE, TERMS, LINE_COLORS } from './tackle.js';
 
 // The backpack's little photo studio: one small WebGL renderer, made the first time the
@@ -12,14 +12,15 @@ import { RODS, TACKLE, TERMS, LINE_COLORS } from './tackle.js';
 export const refKey = (r) => `${r.type}:${r.id}${r.rod ? `@${r.rod}` : ''}`;
 
 // The same model a species has in the water, posed for a portrait: side on, facing left, or
-// seen from above for a flatfish and a cuttlefish.
+// seen from above for a flatfish and a cephalopod (or as its recipe asks: a gurnard a little
+// from above, to show its wings).
 function fishModel(ref) {
   const sp = fishById[ref.id];
   const mesh = new THREE.Mesh(buildFishGeometry(sp, true), fishMaterial(sp, false));
   // (Shared anatomical geometry stays cached; the older species' geometry is made per picture.)
   mesh.userData.sharedGeometry = hasAnatomy(sp.id);
   const flat = sp.life?.flat, ceph = !!sp.creature;
-  const view = flat ? { yaw: -Math.PI / 2 + 0.25, pitch: 0.95 } : ceph ? { yaw: -Math.PI / 2 + 0.5, pitch: 0.6 } : { yaw: -Math.PI / 2 + 0.12, pitch: 0.08 };
+  const view = ANATOMY[sp.id]?.view || (flat ? { yaw: -Math.PI / 2 + 0.25, pitch: 0.95 } : ceph ? { yaw: -Math.PI / 2 + 0.5, pitch: 0.6 } : { yaw: -Math.PI / 2 + 0.12, pitch: 0.08 });
   return { object: mesh, view };
 }
 const build = (ref, opts) => (ref.type === 'fish' ? fishModel(ref) : buildGear(ref, opts));

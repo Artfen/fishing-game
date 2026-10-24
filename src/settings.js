@@ -1,6 +1,7 @@
 import { ACTIONS, ACTION_BY_ID, cleanBindings, defaultBindings } from './input.js';
 import { GROUPS, LEVELS, CHOICES, PRESETS } from './quality.js';
 import { DIFFICULTY, DIFFICULTY_IDS } from './fight.js';
+import { SEA_PRESETS, SEA_IDS, compass } from './world/conditions.js';
 
 // Preferences: sound, graphics, weather, controls and comfort. They live with the save
 // (state.settings), survive "New game", and every value is checked when loading.
@@ -20,10 +21,12 @@ export const CAST_MODES = {
 };
 
 export const DEFAULT_SETTINGS = {
-  audio: { master: 1, mute: false, music: 0.8, ambient: 1, rain: 0.8, effects: 1, alerts: 0.8 },
+  audio: { master: 1, mute: false, music: 0.8, ambient: 1, wind: 0.8, waves: 0.9, rain: 0.8, effects: 1, alerts: 0.8 },
   graphics: { preset: 'auto', scale: 1, shadows: 'auto', water: 'auto', plants: 'auto', particles: 'auto', underwater: 'auto', life: 'auto', fps: 0 },
-  weather: { mode: 'auto', rainFx: 1 },
-  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, cast: 'assisted', keys: null },
+  // sea: 'auto' (with the weather) or a SEA_PRESETS id; wind 'auto' or 'manual' (windSpeed m/s,
+  // windFrom compass degrees); currents: natural, gentle or still (on your rig and boat).
+  weather: { mode: 'auto', rainFx: 1, sea: 'auto', windMode: 'auto', windSpeed: 4, windFrom: 225, currents: 'natural', panel: true },
+  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null },
 };
 
 const num = (v, d, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
@@ -41,6 +44,8 @@ export function cleanSettings(raw, legacy = {}) {
     mute: !!a.mute,
     music: num(a.music, num(lv.music, d.audio.music, 0, 1), 0, 1),
     ambient: num(a.ambient, num(lv.nature, d.audio.ambient, 0, 1), 0, 1),
+    wind: num(a.wind, d.audio.wind, 0, 1),
+    waves: num(a.waves, d.audio.waves, 0, 1),
     rain: num(a.rain, d.audio.rain, 0, 1),
     effects: num(a.effects, num(lv.nature, d.audio.effects, 0, 1), 0, 1),
     alerts: num(a.alerts, d.audio.alerts, 0, 1),
@@ -54,14 +59,21 @@ export function cleanSettings(raw, legacy = {}) {
   };
   for (const k of Object.keys(GROUPS)) graphics[k] = oneOf(g[k], ['auto', ...LEVELS], 'auto');
   const w = isObj(r.weather) ? r.weather : {};
-  const weather = { mode: oneOf(w.mode, WEATHER_IDS, 'auto'), rainFx: num(w.rainFx, 1, 0, 1) };
+  const weather = {
+    mode: oneOf(w.mode, WEATHER_IDS, 'auto'), rainFx: num(w.rainFx, 1, 0, 1),
+    sea: oneOf(w.sea, ['auto', ...SEA_IDS], 'auto'), windMode: oneOf(w.windMode, ['auto', 'manual'], 'auto'),
+    windSpeed: num(w.windSpeed, 4, 0, 13), windFrom: num(w.windFrom, 225, 0, 360) % 360,
+    currents: oneOf(w.currents, ['natural', 'gentle', 'still'], 'natural'), panel: w.panel !== false,
+  };
   const c = isObj(r.controls) ? r.controls : {};
   const controls = {
     sensitivity: num(c.sensitivity, 1, 0.3, 2.5),
     invertX: !!c.invertX,
     invertY: !!c.invertY,
     reducedMotion: !!c.reducedMotion,
+    boatCam: oneOf(c.boatCam, ['swell', 'steady'], 'swell'),
     cast: oneOf(c.cast, Object.keys(CAST_MODES), 'assisted'),
+    hints: oneOf(c.hints, ['gentle', 'more', 'off'], 'gentle'),
     keys: c.keys ? cleanBindings(c.keys) : null,
   };
   return { audio, graphics, weather, controls };
@@ -76,7 +88,7 @@ const el = (tag, cls, text) => {
   if (text != null) e.textContent = text;
   return e;
 };
-const TABS = [['audio', 'Sound'], ['graphics', 'Graphics'], ['weather', 'Weather'], ['controls', 'Controls & comfort']];
+const TABS = [['audio', 'Sound'], ['graphics', 'Graphics'], ['weather', 'Weather & sea'], ['controls', 'Controls & comfort']];
 const LEVEL_NAMES = { auto: 'With the preset', low: 'Low', medium: 'Medium', high: 'High' };
 
 // hooks: { changed(section, key, value), close(), playAlert(), qualityText(), difficulty(), setDifficulty(id), keyLabel(code) }
@@ -218,7 +230,9 @@ export class SettingsUI {
     const vol = (key, label, desc) => out.push(this.row(label, desc, this.slider('audio', key)));
     vol('master', 'Master volume', 'Everything together.');
     vol('music', 'Music', 'The slow tune that comes and goes.');
-    vol('ambient', 'Surroundings', 'Water, wind, birds, the stream, frogs and the campfire.');
+    vol('ambient', 'Surroundings', 'Birds, the stream, frogs, the campfire and the water lapping.');
+    vol('wind', 'Wind', 'The wind in your ears: louder in gusts and out in the open.');
+    vol('waves', 'Waves', 'The wash of the sea and surf on the shore, with the sea state.');
     vol('rain', 'Rain', 'The patter and hiss of rain.');
     vol('effects', 'Fishing and boat sounds', 'Oars, the motor, casts, splashes, the reel and the line.');
     const test = el('button', 'pk-btn quiet', 'Play the ring');
@@ -267,6 +281,40 @@ export class SettingsUI {
     out.push(grid);
     out.push(this.row('Rain effects', 'How much rain you see on screen and on the water. Turn it down if the drops get in the way; rain still counts for the fish. (Rain volume is under Sound.)',
       this.slider('weather', 'rainFx')));
+    // The sea, the wind and the currents: gameplay, not graphics (every graphics setting plays
+    // the same water).
+    out.push(el('h3', 'st-sub', 'Sea, wind and currents'));
+    out.push(this.row('Sea', W.sea === 'auto' ? 'Follows the weather: calmer in fine spells, livelier in rain and cloud.' : SEA_PRESETS[W.sea].note,
+      this.choice([['auto', 'With the weather'], ...SEA_IDS.map((id) => [id, SEA_PRESETS[id].name])], W.sea, (v) => this.set('weather', 'sea', v))));
+    out.push(this.row('Wind', W.windMode === 'auto' ? 'Shifts and freshens by itself, with the sea setting above.' : `Steady from the ${compass(W.windFrom * Math.PI / 180, true)}, ${Math.round(W.windSpeed * 3.6)} km/h, with its gusts.`,
+      this.choice([['auto', 'Automatic'], ['manual', 'Set it yourself']], W.windMode, (v) => this.set('weather', 'windMode', v))));
+    if (W.windMode === 'manual') {
+      const dirs = el('div', 'st-choice st-compass');
+      dirs.setAttribute('role', 'radiogroup');
+      dirs.setAttribute('aria-label', 'Wind from');
+      for (let d = 0; d < 360; d += 45) {
+        const b = el('button', Math.round(W.windFrom) === d ? 'on' : '', compass(d * Math.PI / 180));
+        b.type = 'button';
+        b.setAttribute('role', 'radio');
+        b.setAttribute('aria-checked', String(Math.round(W.windFrom) === d));
+        b.setAttribute('aria-label', `from the ${compass(d * Math.PI / 180, true)}`);
+        b.addEventListener('click', () => { this.set('weather', 'windFrom', d); this.render(); });
+        dirs.append(b);
+      }
+      out.push(this.row('Wind from', 'Where it blows from, as in a forecast.', dirs));
+      const sp = el('div', 'st-slider');
+      const i = el('input');
+      Object.assign(i, { type: 'range', min: 0, max: 13, step: 0.5, value: W.windSpeed });
+      const o = el('output', null, `${Math.round(W.windSpeed * 3.6)} km/h`);
+      i.addEventListener('input', () => { o.textContent = `${Math.round(Number(i.value) * 3.6)} km/h`; this.S.weather.windSpeed = Number(i.value); });
+      i.addEventListener('change', () => this.set('weather', 'windSpeed', Number(i.value)));
+      sp.append(i, o);
+      out.push(this.row('Wind strength', 'From still air to a fresh breeze.', sp));
+    }
+    out.push(this.row('Currents', { natural: 'Currents carry your boat, float and rig as they run: strongest in the river, the estuary channel, off Gannet Isle and over Long Shoal.', gentle: 'Currents carry your boat and rig at half strength.', still: 'Your boat and rig stay where you put them (the fish still know where the water runs).' }[W.currents],
+      this.choice([['natural', 'Natural'], ['gentle', 'Gentle'], ['still', 'Still']], W.currents, (v) => this.set('weather', 'currents', v))));
+    out.push(this.row('Conditions panel', 'A small panel with the wind, the current and the sea where you are. (Its key is under Controls.)', this.toggle('weather', 'panel', 'Shown', 'Hidden')));
+    out.push(el('p', 'st-note', 'Calm days are a full way to play: every fish can be found in calm water. Wind and waves change how you fish, not what you can catch.'));
     return out;
   }
 
@@ -282,6 +330,10 @@ export class SettingsUI {
     out.push(this.row('Invert left and right', 'Dragging moves the view the other way across.', this.toggle('controls', 'invertX')));
     out.push(this.row('Invert up and down', 'Dragging up looks down, like a flight stick.', this.toggle('controls', 'invertY')));
     out.push(this.row('Reduced camera motion', 'No camera shake, no boat roll in first person, and the view never turns by itself to follow a running fish.', this.toggle('controls', 'reducedMotion')));
+    out.push(this.row('Boat camera', C.boatCam === 'steady' ? 'The view keeps a level horizon and only drifts gently up and down while the boat rides the waves beneath you.' : 'The view rises and rolls a little with the boat on the swell.',
+      this.choice([['swell', 'Moves with the boat'], ['steady', 'Steady horizon']], C.boatCam, (v) => this.set('controls', 'boatCam', v))));
+    out.push(this.row('Fishing hints', { gentle: 'When nothing has come for a while, one word from the field guide on what the fish make of your rig.', more: 'A word whenever a cast stays quiet, and again if it stays quiet.', off: 'No hints by themselves. You can still ask (the key for “Why aren’t they biting?”).' }[C.hints],
+      this.choice([['gentle', 'Gentle'], ['more', 'More'], ['off', 'Off']], C.hints, (v) => this.set('controls', 'hints', v))));
     // Key bindings
     const keys = this.S.controls.keys || defaultBindings();
     const list = el('div', 'st-keys');

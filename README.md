@@ -4,7 +4,7 @@
 
 A small, peaceful fishing adventure that runs in the browser. You start in a little wooden boat on Willow Bay, step ashore at a landing, walk up to your camp, and fish a freshwater lake and a clear trout stream. Beyond the bay lies a whole coast: the Wend estuary with its sandbanks and saltings, Longmere (a big inland lake with a boathouse), Gannet Isle with its lighthouse and kelp reefs, a long offshore shoal, and the deep Blue Water where tuna chase the sprat shoals. Four boats get you about: the rowing boat, a motor skiff, a quiet kayak and a bass boat. You choose your rods and tackle, cook what you catch over the fire, sleep in the tent until the hour you like, and keep a handwritten journal and a map of it all.
 
-The water is a living place: weed beds, rocks, lily pads, drowned trees, reefs, sandy flats, channels, deep water and running pools, home to over a thousand fish, squid and cuttlefish of 27 kinds that school, cruise, feed, rest by cover, hunt and scatter when startled. Fresh water, brackish water and the sea each have their own. Rings, flashes, jumps, fizzing bubbles, boiling water and diving seabirds on the surface come from real fish below. You can look underwater, follow your bait or lure, and use a fish finder. The fish that takes your bait is one you could have watched swimming there.
+The water is a living place: weed beds, rocks, lily pads, drowned trees, reefs, sandy flats, channels, deep water and running pools, home to some two thousand fish, cephalopods and eels of 54 kinds: 44 real species of the Atlantic coast from Royan to Cádiz to catch, nine freshwater fish, and the European eel, protected, to watch. They school, cruise, feed, rest by cover, hunt, hold station in the current and scatter when startled. Fresh water, brackish water and the sea each have their own. Wind, swell and currents shape the water you fish, gently in the bays and more out on the open coast. Rings, flashes, jumps, fizzing bubbles, boiling water and diving seabirds on the surface come from real fish below. You can look underwater, follow your bait or lure, and use a fish finder. The fish that takes your bait is one you could have watched swimming there.
 
 It's a static website: plain JavaScript modules, with no framework or bundler. Everything it needs ships in this folder, including [three.js](https://threejs.org) and the fonts, so it makes no requests to other sites. It installs as an app and plays offline (see [Offline play](#offline-play)). The only server code is one small optional function for cloud saves, which stay switched off until you set them up (see [Cloud saves](#cloud-saves-optional)).
 
@@ -22,9 +22,9 @@ Then open <http://localhost:8642>. `serve.py` is a tiny static server with cachi
 node --import ./tests/setup.mjs --test 'tests/*.test.mjs'
 ```
 
-Node 22 or newer, nothing to install (on Node 20, leave out the quotes around the pattern). The tests check saves (version upgrades including the move to four boats, the backup and unreadable copies, a newer save never written over, full storage, junk cleaned up, combining two saves, the explored map and catch positions), the fight (careful play lands big carp at every difficulty, the creak is a real warning on Standard, winding through surges breaks the line, locked drags, pike teeth, weed), tackle (every ready-made setup is castable and complete, impossible rigs are refused with a reason, every kind of fish can be caught with some setup), the world (every species lives somewhere, fresh water fish stay in fresh water and sea fish in the sea), the backpack's pictures (every rod, reel, line, rig, leader, bait, lure, fly and jig has its own model, drawn from its data), the map's memory of where you've been, the field guide and species register (every species has a recommended setup the tackle rules accept; all 13 real species bite on theirs in the headless ecosystem; their models carry the anatomy that tells them apart; every species in the game is accounted for; every register entry is sourced and says what each regional status rests on; and `src/registerData.js` is what the research compiles to), and that `sw.js` lists every file for offline play. `tests/setup.mjs` loads three.js from `vendor/` so the game's own modules run as they are.
+Node 22 or newer, nothing to install (on Node 20, leave out the quotes around the pattern). The tests check saves (version upgrades including the move to four boats, the backup and unreadable copies, a newer save never written over, full storage, junk cleaned up, combining two saves, the explored map and catch positions), the fight (careful play lands big carp at every difficulty, the creak is a real warning on Standard, winding through surges breaks the line, locked drags, pike teeth, weed), tackle (every ready-made setup is castable and complete, impossible rigs are refused with a reason, every kind of fish can be caught with some setup), the world (every species lives somewhere, fresh water fish stay in fresh water and sea fish in the sea), the backpack's pictures (every rod, reel, line, rig, leader, bait, lure, fly and jig has its own model, drawn from its data), the map's memory of where you've been, the field guide and species register (every species has a recommended setup the tackle rules accept; all 44 catchable sea species bite on theirs in the headless ecosystem and can be landed with it; the reference models carry the anatomy that tells them apart; every species in the game is accounted for; the protected eel ignores every bait; every register entry is sourced and says what each regional status rests on; and `src/registerData.js` is what the research compiles to), the "why nothing's biting" advice (only reasons the simulation plays by: the wrong bait, water or depth, a lure worked too slowly for a fish that wants it fast), planning a trip (it leads to water that suits the fish, never to a fish, and counts what the trip brought), wind, waves and currents (sheltered water is calmer, the sea changes smoothly, nothing jumps at an invisible line, currents run where they should and turn with a tide, the water you see is the water boats float on, a drifting boat goes the same way at 15, 30 and 120 frames a second, no wave tips a boat, an anchored boat stays put), and that `sw.js` lists every file for offline play. `tests/setup.mjs` loads three.js from `vendor/` so the game's own modules run as they are.
 
-Two tuning tools play the real game code headless: `node --import ./tests/setup.mjs tools/fightsim.mjs` plays thousands of fights per species, rod, difficulty and player style; `node --import ./tests/setup.mjs tools/ecosim.mjs` fishes the living ecosystem with a chosen rig in a chosen spot and reports which species come and how soon they bite.
+Two tuning tools play the real game code headless: `node --import ./tests/setup.mjs tools/fightsim.mjs` plays thousands of fights per species, rod, difficulty and player style; `node --import ./tests/setup.mjs tools/ecosim.mjs` fishes the living ecosystem with a chosen rig in a chosen spot and reports which species come and how soon they bite (`tools/ecosim.mjs guide:seabass,octopus` fishes species with the field guide's own recommendation).
 
 ## Put it online
 
@@ -84,6 +84,8 @@ With a keyboard and mouse (every key below can be changed in **Settings → Cont
 | M | Map |
 | J or Tab | Journal |
 | O | Settings |
+| Y | Why aren't they biting? A word from the field guide on what the fish make of your rig (again for the next reason) |
+| N | Show or hide the conditions panel: wind, current and sea where you are |
 | T (hold) | Let time drift by quickly |
 | H | Hide the interface |
 | Esc | Reel in the line, leave the underwater view, close a panel |
@@ -169,9 +171,9 @@ Hold Space to load the rod: the ring on the water and the dotted arc of the cast
 Two ways to cast (Settings → Controls & comfort → **Casting**):
 
 - **Assisted** (the default): the ring is exactly where it lands, wind included. Hold as long as you like.
-- **Manual**: the ring shows where you're aiming; the wind pushes light tackle off it (a fainter ring shows where it will really land). When the rod is fully loaded the ring turns green for a moment: let go then for a few extra metres. Hold on past that and the rod overloads: the ring goes amber and the cast collapses short and to the right.
+- **Manual**: the ring shows where you're aiming; the wind pushes light tackle off it (a fainter ring shows where it will really land, and moves with the gusts as you aim). The wind's speed and direction show while you aim; cast a little into it. When the rod is fully loaded the ring turns green for a moment: let go then for a few extra metres. Hold on past that and the rod overloads: the ring goes amber and the cast collapses short and to the right.
 
-Rods and tackle matter: each rod has a casting weight range (shown in the backpack). Heavy rigs fly far and hardly drift; light lures and flies blow about in the wind; a lure too light for the rod won't load it and falls short; one far too heavy isn't allowed at all (the backpack says why). Banks, high ground and overhanging branches stop a cast where they meet it, and a cast that would land on dry land or in water too shallow to fish drops into the last good water along its way. A note after each cast says how it went: *Right on the mark*, *4 m short: the rod overloaded*, *2 m wide right: the wind carried it*, *a branch caught it*. Bottom rigs and leads sink and settle; floats cock at the depth you set; jigs sink at their own rate. The fly rod has its own rhythm: false casts that shoot out a little more line each stroke, delivered on the forward stroke.
+Rods and tackle matter: each rod has a casting weight range (shown in the backpack). Heavy rigs fly far and hardly drift; light lures, floats and flies blow about in the wind, more on a long cast and in a stronger wind (never at random: the same wind and release land the same place); a lure too light for the rod won't load it and falls short; one far too heavy isn't allowed at all (the backpack says why). Banks, high ground and overhanging branches stop a cast where they meet it, and a cast that would land on dry land or in water too shallow to fish drops into the last good water along its way. A note after each cast says how it went: *Right on the mark*, *4 m short: the rod overloaded*, *2 m wide right: the wind carried it*, *a branch caught it*. Bottom rigs and leads sink and settle; floats cock at the depth you set; jigs sink at their own rate. The fly rod has its own rhythm: false casts that shoot out a little more line each stroke, delivered on the forward stroke.
 
 ### Views and first person
 
@@ -220,13 +222,15 @@ Gear matters: a lure too big for a fish's mouth is ignored by small fish (so big
 
 Walk up to a boat and press **E** to get in; step across between two boats side by side; step ashore at any bank, pier or jetty. In a motorboat W and S move the throttle lever, which stays where you leave it (on a touch screen the stick drives it directly); A/D steer, X goes to neutral, Z (or the prompt, when you're stopped) drops or raises the anchor. Fish hear an outboard, so throttle back (or anchor) before you fish; casting puts it in neutral by itself. In shallow water an outboard tips up and you can only creep. Every boat stays where you leave it, anchored or not, and boats reloaded from a save are checked: one that wouldn't float where it was goes back to its mooring. There's no fuel or damage to worry about.
 
+Boats ride the water you see: they heave, pitch and roll on the swell and chop, gently, and no wave tips one over. A kayak bobs on every wavelet; the long rowing boat and skiff bridge short chop; the broad bass boat sits steadiest. Unanchored, a boat drifts with the current and is blown along by the wind (the high-sided bass boat most, the low kayak least), so on a breezy day in the estuary you'll drift down the channel while you fish. At anchor it lies a few metres down-wind and down-current of the anchor, bow to its rope.
+
 ### Backpack, creel and camp
 
 You carry **two rods and eight baits, lures, flies or jigs**, plus a **creel** for up to four fish you keep. Everything else waits in a **tackle box**: at camp, at Wend Quay, at the Mere Boathouse and at Puffin Cove, and in the lockers of the motor skiff and the bass boat. Open the backpack within reach of one to swap. Press **Q** to change tackle anywhere, and **1**/**2** to switch rods.
 
 The top of the backpack has **Head back to: Camp (the tent) · The boat · Another camp (map)**. Use it any time to return to a safe spot beside a tent or to climb back into your boat, keeping everything you carry and have caught. If you ever get stuck on foot, a *Stuck?* prompt appears that opens it for you. (It waits while a fish is on the line.)
 
-At camp you can light the fire, **grill** a fish from your creel (it takes half an hour of game time, and the fire must be lit), **eat** it, or have an oatcake from the tin. Hunger is gentle: you only get a little slower on your feet if you go a whole day without eating, and a cooked fish makes you **well fed**, which steadies your hands in a fight (the line tightens more slowly) for six hours. Glassminnows are too small to keep, and the old mossback is far too grand to eat.
+At camp you can light the fire, **grill** a fish from your creel (it takes half an hour of game time, and the fire must be lit), **eat** it, or have an oatcake from the tin. Hunger is gentle: you only get a little slower on your feet if you go a whole day without eating, and a cooked fish makes you **well fed**, which steadies your hands in a fight (the line tightens more slowly) for six hours. Sand smelt and anchovies are too small to keep one by one, a conger is far too big to bring aboard, and the protected eel is only ever watched.
 
 ### Reading the water
 
@@ -236,7 +240,9 @@ At camp you can light the fire, **grill** a fish from your creel (it takes half 
 - **A splash**: something jumped.
 - **Fizzing bubbles** on the lake: carp grazing the bottom.
 - **The sea boiling white**, out in the deep: tuna driving a sprat shoal to the surface.
-- **Seabirds wheeling and diving**: a shoal of mackerel or sprat just below, and often something hunting them. Head for the birds.
+- **Seabirds wheeling and diving**: a shoal of mackerel, sprat, sardines or anchovies just below, and often something hunting them (bonito, bluefish, bullet tuna, little tunny). Head for the birds.
+- **Ripples and streaks running one way**: a current. The Wend runs out to sea down its estuary, and the tide races off Gannet Isle's points, through the Skerries and over Long Shoal; the bays and coves are slack.
+- **Whitecaps** in the open: a fresh wind with room to raise a chop. Shelter in the bays and coves.
 
 Each of these comes from a real fish at that spot. Press **C** to look underwater and you'll find it there.
 
@@ -246,49 +252,22 @@ Press **F** for a small sonar screen. Drag its title bar to put it anywhere (it 
 
 ### What's out there
 
-The sea fish are real species of the Atlantic coast between Royan and Cádiz, called by the names in the [species register](#the-atlantic-species-register). The [field guide](#the-field-guide) has a page for each, with its model, where to find it and how to catch it.
+The sea holds 44 real species of the coast from Royan and the Gironde estuary to Cádiz, each where it really lives (estuary channels and flats, rocks and reefs, sand and mud, shoals and open water), with the habits, baits and fights of its kind. The [field guide](#the-field-guide) has a page for each, with its model, where to find it and how to catch it; here they are in brief.
 
-The Wend estuary (brackish water):
+| Where | Species |
+| --- | --- |
+| The Wend estuary (brackish) | European seabass, spotted seabass, meagre, thicklip grey mullet, gilthead seabream, European flounder, common sole, Senegalese sole, wedge sole |
+| Rocks, reefs and weed | ballan wrasse, black, white, two-banded and redbanded seabream, red porgy, common pandora, common dentex, rubberlip grunt, bastard grunt, pollack, European conger |
+| Sand, mud and the seabed | European plaice, sand sole, turbot, tub gurnard, striped seabream |
+| Shoals and open water | Atlantic mackerel, Atlantic horse mackerel, European sprat, European sardine, European anchovy, sand smelt, bogue, salema, garfish, bluefish, pompano, Atlantic bonito, little tunny, bullet tuna, Atlantic bluefin tuna |
+| Not fish | European squid, common cuttlefish, common octopus |
+| To watch, not to catch | European eel (critically endangered: it ignores every bait) |
 
-- **European Seabass**: hunts the channel and the estuary mouth, best at dawn and dusk; soft sandeels, shads and metals, or a crab on the bottom. Not the same fish as the largemouth bass in Longmere.
-- **Meagre**: big and powerful, in the deep channel, by rocks and along the quay wall at dusk and after dark. A soft shad or sandeel worked slowly near the bottom, or a fish strip; a long, dogged fight.
-- **Thicklip Grey Mullet**: shoals cruising the shallows, very shy of line and noise. Bread flake under a float on fine line, and patience.
-- **European Flounder**: lies on the sand and mud of the flats and channels. Lugworm or ragworm on a bottom rig.
-- **Common Sole**: on sand, mud and in the channels of the estuary, the bay and the coast, feeding at night. Ragworm or lugworm on the bottom after dark.
-- **Gilthead Seabream**: small groups over the flats, rocks and quay in the estuary, Willow Bay and along the coast, by day. Crab or prawn on a bottom rig; wary of heavy line.
+A few to start with: two-banded seabream round the weed and rocks of Willow Bay by day (a worm under a float); sand smelt schooling over the shallow sand (bread, kept shallow); sea bass in the estuary channel at dawn and dusk (a soft sandeel); sardines and horse mackerel shoaling under a light after dark (sabiki feathers); soles on the flats at night (ragworm on the bottom); an octopus in the rocks at dusk (a crab on the bottom, and a steady lift: it clings).
 
-The outer coast and the open sea:
+Fresh water (Reedmere, Fernbeck and Longmere) keeps its own fish, outside the Atlantic catalogue: perch, pike, largemouth bass, mirror carp, tench, roach, rudd, brown trout and grayling, fished as before.
 
-- **Ballan Wrasse**: in the kelp by the reefs of Gannet Isle and the Skerries. Crab or ragworm by the rocks.
-- **Atlantic Mackerel**: fast shoals in the tide, often under diving birds. A metal reeled fast, or a mackerel strip.
-- **European Plaice**: on the sand round Gannet Isle and Long Shoal. Lugworm or ragworm on the bottom.
-- **European Sprat**: the small silver shoals everything else hunts. Tiny baits.
-- **Atlantic Bluefin Tuna**: roams the Blue Water after the sprat shoals; look for the boil and the birds and cast a stickbait into it on the offshore rod.
-
-Not fish (cephalopods):
-
-- **European Squid**: around lights after dark, in the coves and by the reefs along the coast; jigs on the squid rod.
-- **Common Cuttlefish**: over weed, sand and rock in the bay, the coves and along the coast, best at dawn and dusk. The smallest squid jig, let down to the bottom and darted; it squirts ink when landed.
-
-Willow Bay and the coves also hold the five fish of Slow Tide's first version, which were invented. The field guide marks them as fictional, and each has a real species of this coast proposed to replace it (see [the register](#the-atlantic-species-register)); until then they stay as they are, and catches of them keep their names:
-
-- **Glassminnow**: schools over shallow sand and weed edges, by day. A small bait, kept shallow and still.
-- **Sunperch**: weed beds and rocks in Willow Bay, by day. Takes a worm or chases a spinner.
-- **Drizzlefin**: open water past the bay mouth; deep on dry days, near the surface in the rain.
-- **Duskfin**: Driftwood Cove after sundown, drawn to warm light.
-- **Mossback**: large and slow by the deepest rocks; only takes a bait resting on the bottom.
-
-Fresh water (Reedmere, Fernbeck and Longmere):
-
-- **Perch**: packs around weed, drop-offs and the drowned oaks. Chases spinners, crankbaits and streamers.
-- **Pike**: lies still in the weed and lily pads; ambushes jerkbaits, shads and crankbaits, best at dawn and dusk or in the rain. Its teeth cut fine line.
-- **Largemouth Bass**: Longmere's lily pads, reeds and drowned oaks. A weedless creature bait crawled slowly, a popper at dawn.
-- **Mirror Carp**: grazes Reedmere's shallow shelf and margins. Boilies or sweetcorn on the bottom, loose bait, patience, and evenings.
-- **Tench**: Reedmere's margins, weed and pads, at dawn. Worm, maggots or sweetcorn under a float.
-- **Roach**: shoals in both lakes. Maggots or bread under a float.
-- **Rudd**: near the surface by the lily pads; bread, sweetcorn, or a dry fly.
-- **Brown Trout**: holds in the stream pools facing the current. Shy of heavy line and footsteps.
-- **Grayling**: small groups in the stream pools; loves a drifting nymph.
+The five fish of Slow Tide's first version (glassminnow, sunperch, drizzlefin, duskfin and mossback) were invented. Real species have taken their places in the water (sand smelt, two-banded seabream, pollack, horse mackerel and conger), and the originals are retired: catches of them stay in your journal under their own names, and the field guide keeps their pages if you have them in your records.
 
 Fish keep to their own waters: lake fish never turn up in the sea, nor sea fish in the lakes.
 
@@ -332,11 +311,22 @@ Each page shows, before you've caught anything:
 
 - **Identification**: its names, the same 3D model it has in the water (drag or use the arrow keys to turn it, scroll or + and − to zoom, ↺ to reset), its size in the game and in reality against a ruler, the features that tell it apart and what it's easily confused with.
 - **Where to find it**: the waters, habitats and depths the simulation gives it, when it's most active and whether rain stirs it (read from the simulation's own functions, so the guide can't disagree with the game), a small map with the water that suits it shaded, **Show on the big map**, and a table of where it lives along the real coast from Royan to Cádiz, with how sure that is and what each region's word rests on. The game has no seasons yet, and the page says so rather than inventing any.
-- **How to catch it**: the methods that work, the setup the guide recommends (rod, reel, line, rig or leader, bait or lure, each with its picture and every part accepted by the tackle rules), how to present it, other setups that work, and the common mistakes for that species. **Rig it now** sets your rod up if you carry the parts; otherwise it says what's missing and where to get it, and **Open in the backpack** goes to the piece.
+- **How to catch it**: the methods that work, the setup the guide recommends (rod, reel, line, rig or leader, bait or lure, each with its picture and every part accepted by the tackle rules, and a mouthful the fish can manage: a small-mouthed white seabream gets a ragworm, not a whole crab), how to present it, other setups that work, and the common mistakes for that species. **Rig it now** sets your rod up if you carry the parts; otherwise it says what's missing and where to get it, and **Open in the backpack** goes to the piece.
 - **Your records**: how often you've seen it underwater (a fish in front of you within about nine metres counts), how many you've caught, your best, where, in what weather, and the setups that caught it.
 - **Sources**: every page the register entry came from, and what is still uncertain.
 
-In the backpack, each bait, lure, fly and jig lists the species it's **Good for** (✓ for ones you've caught); each opens that species' page. The catch card shows the same model as the guide.
+In the backpack, each bait, lure, fly and jig lists the species it's **Good for** (✓ for ones you've caught); each opens that species' page. The catch card and the journal's pages show the same model as the guide (a pencil silhouette until you've caught one).
+
+**Plan a fishing trip** (on any catchable species' page) puts it together:
+
+1. **Where to go**: the stretches of water that suit it, nearest first, from the same habitat data the fish live by (waters, habitats, depths): areas of water, never where a fish is. Pick one; the map beside it rings it.
+2. **What to take**: the guide's best setup and two alternatives, all accepted by the tackle rules.
+3. **What you carry**: each part ticked if it's in your backpack, or *in the tackle box*; the line and rig come with the rod.
+4. **Rig up**: *Rig it now* if you carry it; *Pack it and rig it* at a tackle box (camp or a motorboat's locker: if your backpack is full, the rod you aren't holding or tackle none of your rods uses goes back in the box, and you're told what); away from a box, what's missing and where to get it.
+5. **Set off**: the water is marked on the map and with an on-screen marker until you get there.
+6. **Afterwards**: the trip page shows how it's going (time out, the target caught, everything else), and *End the trip* keeps a record of it on the species' page. Nothing is guaranteed: fish move, feed and rest as they please.
+
+**Why aren't they biting?** If a cast stays quiet for a while, the field guide offers one word on it (Settings → Controls & comfort → **Fishing hints**: gentle, more or off), and **Y** asks any time. The answer comes from the simulation itself, for your trip's fish (or the likeliest fish here): whether it eats what's on the hook and can manage the size, whether this is its kind of water and depth at this hour, whether your lure moves the way it likes, whether it's shy of your line, whether the current has carried your rig off, and how the fish that came to look behaved. It never says where a fish is.
 
 ### The map
 
@@ -346,12 +336,24 @@ Press **M** (or the map button). The map is drawn from the real ground and water
 
 Press **O** (or the gear button, or *Settings* on the title screen). Everything is kept with your game and changes take effect straight away. Opening a menu never casts, reels or steers.
 
-- **Sound**: master volume and mute, music, nature and ambience, rain, effects, and the bite-alert bell (with a button to hear it).
+- **Sound**: master volume and mute, music, surroundings, **wind**, **waves**, rain, effects, and the bite-alert bell (with a button to hear it). Mute silences everything, wind and waves included.
 - **Graphics**: a preset (**Auto**, **High**, **Medium**, **Low**) and, under it, resolution, shadows, reflections and water detail, plants and particles, underwater effects, how many distant fish are drawn, and a frame-rate cap. Auto starts at High on computers and Medium on phones and tablets, then steps down by itself if the game runs slowly. Lower settings draw less but change nothing about the fishing: every fish is still simulated, can still bite and still shows on the fish finder.
-- **Weather**: Clear, Partly cloudy, Overcast, Light rain, Heavy rain, or Automatic (it changes by itself through the day). The sky, light, fog, water, rain, sound and the fish all follow it, changing smoothly. Separate sliders for how much rain is drawn and how loud it is.
-- **Controls & comfort**: camera sensitivity, invert look, reduced motion, assisted or manual casting, difficulty, and every key, with a button to change each one (press the new key; one already in use swaps over).
+- **Weather & sea**: Clear, Partly cloudy, Overcast, Light rain, Heavy rain, or Automatic (it changes by itself through the day). The sky, light, fog, water, rain, sound and the fish all follow it, changing smoothly. Separate sliders for how much rain is drawn and how loud it is. Then the **sea** (with the weather, Calm, Moderate or Lively), the **wind** (automatic, or set it yourself: direction and strength), the **currents** (Natural; Gentle, at half strength; or Still, where your boat and rig stay put and only the fish know the water runs), and whether the conditions panel shows.
+- **Controls & comfort**: camera sensitivity, invert look, reduced motion, a **boat camera** that moves with the boat or keeps a steady horizon (no pitch or roll, and the quick bob of the chop smoothed away; you still drift gently up and down with the swell, so the view never looks detached from the water), assisted or manual casting, **fishing hints**, difficulty, and every key, with a button to change each one (press the new key; one already in use swaps over).
+
+Graphics settings never change the simulation: the waves the boats ride, the wind on a cast, the currents and every fish are the same on Low as on High.
 
 A note on what this is: Slow Tide is a stylised, low-poly game drawn with three.js and WebGL in the browser. The water uses real planar reflections, a ripple simulation and procedural detail. The lighting, haze and mist are painted rather than physically simulated, and nothing here is photorealistic. Far-off places are drawn only when you're near them, and fish far from you are simulated more coarsely, but never stop.
+
+### Wind, waves and currents
+
+One shared set of conditions (`src/world/conditions.js`) moves the water you see, the boats on it, your float and rig, the cast, the trees and the sound. It's a light approximation, not a fluid simulation:
+
+- **Wind** has a direction, a sustained strength that changes slowly with the weather (or as you set it), and **gusts**: patches of stronger air drifting downwind, visible as darker ruffles on the water. Land breaks it: bays, coves and the lee of a shore get less. It pushes a cast in flight (light tackle and long casts most), drifts an unanchored boat (the high-sided bass boat most) and a float's tip a little, bends the trees and grass, and you hear it rise in the gusts.
+- **Waves** are long **swell** from the open Atlantic (west-south-west), which builds and fades over minutes and hardly reaches into the bays, the coves or the estuary, plus a shorter **chop** raised by the local wind, which builds in under a minute and is smaller where the wind has little room. Changing the wind turns and builds the chop gradually; nothing jumps. Waves die away in the last half metre of depth, so boats sit still on a beach; surf and foam grow on the shore where the swell reaches it, and a fresh wind raises a few whitecaps in the open.
+- **Currents**: a gentle drift along the open coast; the Wend running out to sea, fastest in the narrow river, easing over the estuary; and faster water in the channel into Driftwood Cove, round Gannet Isle's points, through the Skerries and over Long Shoal. Sheltered water is slack, and every zone fades smoothly into the next. Water at the seabed runs at about 60% of the surface's. A float goes with the water it sits in; a lure is carried while you work it (its speed through the water is what the fish judge); a jig drifts as it sinks; a bottom rig is carried as it falls, then its lead holds unless the current at the bottom is stronger than its weight can stand (a 5 oz flapper rig holds where a light feeder would roll); fish holding station face into it. The current zones are built for a future tide: today they all run on the ebb.
+
+The **conditions panel** (top left, **N**) shows the wind (speed in km/h, where it blows from, arrows as you see them, *gusting* or *sheltered*), the current at your rig or under you (m/s) and the sea state in words (glassy, rippled, smooth, slight, moderate) with the wave height. Calm conditions are a complete way to play: every fish can be found in calm water.
 
 ### Cloud saves (optional)
 
@@ -381,7 +383,7 @@ Not on Vercel? Put the URL and anon key in `src/cloud-config.js` instead. The an
 
 Slow Tide's sea is meant to grow into the coast from Royan and the Gironde estuary, along the French Bay of Biscay, the Cantabrian coast, Galicia and Portugal, to the Algarve and the Gulf of Cádiz. The register (`src/register.js`, with the researched entries in `src/registerData.js`) is the checklist of fish and cephalopods for it, and the one source of truth for names and real-world facts across the field guide, the journal, the catch card and the water.
 
-It is an initial, sourced checklist, **not a complete inventory**: 62 species so far (55 fish, 3 cephalopods, 2 sharks and 2 rays). Each entry has:
+It is a researched catalogue, **not a complete inventory** of everything recorded on this coast: 62 species so far (55 fish, 3 cephalopods, 2 sharks and 2 rays), the ones an angler, snorkeller or fish market of this coast would meet, not the deep-water fish or rare visitors. Each entry has:
 
 - a stable id, the scientific name with its author, synonyms and family;
 - English, French, Spanish and Portuguese names where a source gives them (the shanny has no Spanish name yet, and none is made up);
@@ -392,38 +394,54 @@ It is an initial, sourced checklist, **not a complete inventory**: 62 species so
 
 The research came from FishBase, SeaLifeBase, DORIS, WoRMS and the Catalog of Fishes, regional checklists and papers (the Portuguese marine checklist, the Galician and Cantabrian lists and IEO guides, the Andalusian catalogue, Ifremer and AZTI surveys, ICES and ICCAT documents) and French, Spanish and Portuguese official rules. It lives in `research/register/*.json`; `node tools/build-register.mjs` compiles it into `src/registerData.js` (a test checks the two match). Stock assessments and landings were used only as evidence of presence, never as counts of species. Of the 372 regional statements, 153 are high confidence, 156 medium and 63 low.
 
-**Status in the game**, shown on every card and page:
+Four things are kept apart: the **research catalogue** (all 62), the **playable roster** (the 44 you can catch), **observation-only wildlife** (in the water to be watched, never caught) and **planned or uncertain records**. Each card and page says which:
 
-- **In the game · catchable now**: 13 species (European seabass, meagre, gilthead seabream, common sole, Atlantic mackerel, common cuttlefish, thicklip grey mullet, ballan wrasse, European flounder, European plaice, European sprat, Atlantic bluefin tuna, European squid), each spawning in its habitats, with a recommended setup the tackle rules accept, and each tested biting on that setup in the headless ecosystem.
-- **Planned · not in the game yet**: 48 researched species, previewable in the guide. Protected species are planned **to watch, not to catch** (European sturgeon, allis shad, European eel, sea lamprey), and vulnerable ones as **catch and release** (dusky grouper, common stingray, blue shark, thornback ray).
-- **Needs verification**: the white seabream, whose name on this coast is unsettled (WoRMS and the Catalog of Fishes give the Atlantic fish as *Diplodus cadenati*; FishBase and most regional sources still call it *D. sargus*).
+- **In the game · catchable now**: 44 species. Every one has an anatomical model, lives in its habitats, has a setup the field guide recommends that the tackle rules accept, is tested biting on it in the headless ecosystem and landed with it (careful play, Standard difficulty), and is logged in the journal.
+  - Bass and the estuary: European seabass, spotted seabass, meagre, thicklip grey mullet.
+  - Seabreams and grunts: gilthead, black, white, two-banded, striped and redbanded seabream, red porgy, common pandora, common dentex, rubberlip grunt, bastard grunt.
+  - Rock and open-water predators: pollack, European conger, bluefish, ballan wrasse.
+  - Flatfish and the seabed: common, Senegalese, sand and wedge sole, turbot, European flounder, European plaice, tub gurnard.
+  - Shoals: Atlantic mackerel, Atlantic horse mackerel, European sprat, European sardine, European anchovy, sand smelt, bogue, salema, garfish, pompano.
+  - Tunas: Atlantic bonito, little tunny, bullet tuna, Atlantic bluefin tuna.
+  - Cephalopods: European squid, common cuttlefish, common octopus.
+- **In the game · to be seen, not caught**: the European eel (critically endangered, and banned to leisure fishing in the Gironde): it lives in the estuary's reeds and quay and the bay's rocks, comes out after dark, ignores every bait, and goes in your records when you see it underwater.
+- **Planned · not in the game yet**: 17 researched species, previewable in the guide (Atlantic chub mackerel, striped red mullet, lesser weever, shanny, thin-lipped and golden grey mullet, small-spotted catshark, thornback ray, European hake, John Dory, common stingray, blue shark, dusky grouper, allis and twaite shad, sea lamprey, European sturgeon). Protected ones are planned **to watch, not to catch** (sturgeon, allis shad, sea lamprey), and vulnerable ones as **catch and release** (dusky grouper, common stingray, blue shark, thornback ray).
+- **Uncertain names** are flagged on the page rather than hidden: the white seabream (WoRMS and the Catalog of Fishes give the Atlantic fish as *Diplodus cadenati*; FishBase and most regional sources still call it *D. sargus*), the bullet tuna (*Auxis rochei*; the frigate tuna also turns up in Iberian catches), the squid and the pompano.
+
+The game's world is one stylised stretch of coast inspired by the whole region, not a map of it, so a southern fish (the urta, the baila, the roncador) can share the water with a northern one; the guide's table of real regions says where each really lives, and how sure that is.
 
 **Known gaps.** Many Cantabrian, Galician and Cádiz statuses rest only on range statements. The plaice's and sprat's presence south of the Bay of Biscay is poorly documented (low confidence), and the flounder's southern limit is disputed and retreating north. No rod-and-line method was found for plaice, sprat or octopus. Some regulations (minimum sizes, closures) change often and are recorded with their dates; check them before relying on them. INPN/TAXREF and several French government pages could not be read by the research and are not cited.
 
 **Identity decisions.** The squid of the coves is the European squid, *Loligo vulgaris* (the usual inshore night-jigging squid; the veined squid *L. forbesii* is deeper and more northern). The bullet tuna is *Auxis rochei* (frigate tuna also turns up in Iberian catches). The garfish is *Belone belone*; the pompano is *Trachinotus ovatus* (several other fish share its Spanish names).
 
-**The fictional originals.** Willow Bay's five invented fish each have a real replacement proposed for the same role: glassminnow → sand smelt (*Atherina presbyter*), sunperch → two-banded seabream (*Diplodus vulgaris*), drizzlefin → pollack (*Pollachius pollachius*), duskfin → Atlantic horse mackerel (*Trachurus trachurus*), mossback → European conger (*Conger conger*, which needs an eel body plan). The originals stay in the water until their replacements are in and working, and catches of them are never renamed.
+**The fictional originals.** Willow Bay's five invented fish have been replaced in the water by real species in the same roles: glassminnow → sand smelt (*Atherina presbyter*), sunperch → two-banded seabream (*Diplodus vulgaris*), drizzlefin → pollack (*Pollachius pollachius*), duskfin → Atlantic horse mackerel (*Trachurus trachurus*, which now gathers under lights after dark), mossback → European conger (*Conger conger*). The originals no longer live anywhere; catches of them keep their names in the journal and catch log, and the guide shows them as retired, with a link to their replacement, only if you have them in your records.
 
 ### Models
 
-The six reference species (European seabass, meagre, gilthead seabream, common sole, Atlantic mackerel and common cuttlefish) have anatomical models built by `src/anatomy.js`: a body lofted from profiles of width and depth along its length, with a mouth cleft, gill cover, scales, eyes, and fins placed and shaped per species (the bass's two separate dorsal fins, the mackerel's five finlets and forked tail, the meagre's square tail, the gilthead's deep body and gold forehead band, the sole's fins running round its body into its tail, the cuttlefish's mantle fin, arms and W-shaped pupils). The sole is a flatfish (both eyes on top, lying flat) and the cuttlefish a cephalopod, each with its own body plan and swimming motion. Skins are painted from each species' markings at load time; fins are translucent with rays; the sides have a soft sheen. The same model is used in the water, in the guide and on the catch card. In the water each of these species has a detailed model near the camera (about 3,600 triangles) and a simpler one further off (about 600), each species in one instanced draw per level. The other species keep their earlier simpler models for now.
+Every Atlantic species has an anatomical model built by `src/anatomy.js` from a recipe in `src/anatomy.js` (the first six) or `src/anatomyAtlantic.js` (the rest), following the identification features in the register. Six body plans share the machinery where the animals really are alike:
 
-**Asset provenance.** Every model, skin and texture is generated by the code in `src/` (`anatomy.js`, `fish.js`, `gearArt.js`, `tackleModels.js`); no external models, textures or photographs are used or shipped. Reference descriptions and photographs on DORIS and FishBase were used only as research for shapes, fins and markings.
+- **fish**: a body lofted from profiles of depth and width along its length, a mouth cleft (with fleshy lips for the grunts, wrasse and mullet), gill cover, scales and eyes, and fins placed, sized and coloured per species: spiny and soft dorsals, anal, pectorals and pelvics, finlets and keels, and tails forked, truncate, rounded or lunate. The bass's two separate dorsals, the pollack's three, the mackerel's and tunas' finlets, the garfish's long beak, the horse mackerel's row of scutes, the gurnard's blue-edged wings and walking rays, the redbanded seabream's threadlike spines, the pompano's black-tipped lobes;
+- **flatfish** (soles, plaice, flounder, turbot): both eyes on top (the turbot's on the left), a fringe of fin running round into the tail, and each species' spot on the pectoral fin;
+- **eel** (conger, eel): one long body and one continuous fin, starting just behind the head on the conger and far back on the eel;
+- **cuttlefish**, **squid** (rhombic fins, eight arms and two clubbed tentacles) and **octopus** (a mantle bag, eyes with a slot pupil, eight arms that spread and curl).
 
-**Measured cost** (a 2240 × 1260 view on a laptop, render time per frame): in a normal view the fish are about 49,000 of 1.16 million triangles and about 0.3 ms of a 7.7 ms render; from inside a mackerel school on High, about 85,000 triangles and 0.9 ms. Opening and closing the guide repeatedly, turning every reference model, leaves the studio's GPU memory where it was. The register adds about 93 KB (compressed) to the download and takes about 6 ms to load.
+Each body plan swims its own way, in the vertex shader: a wave down the body for most fish (stiff-bodied, all in the tail, for the tunas), a ripple for flatfish, the whole body for eels, the fin frill for cuttlefish, flapping rear fins for squid, rippling arms for the octopus. In the simulation, shoals keep formation without moving as one, attacked bait balls bulge away from the hunter and re-form, hunting packs (bonito, bluefish, bullet tuna, little tunny, bluefin) drive them to the surface, flatfish lie and glide on the seabed, gurnards and the octopus keep close over it, conger, eel and octopus rest in the rocks by day, and fish holding station face into the current.
+
+Skins are painted from each species' markings at load time; fins are translucent with rays; the sides have a soft sheen. The same model is used in the water, in the guide, on the catch card and in the journal. The five retired fictional fish and the freshwater fish keep their earlier models.
+
+**Asset provenance.** Every model, skin and texture is generated by the code in `src/` (`anatomy.js`, `anatomyAtlantic.js`, `fish.js`, `gearArt.js`, `tackleModels.js`); no external models, textures or photographs are used or shipped. Reference descriptions and photographs on DORIS and FishBase were used only as research for shapes, fins and markings.
+
+**Measured cost** (a 2240 × 1260 view on a laptop; render time per frame, GPU-synchronised, with the browser pane in the background, so read them as relative): about 2,160 animals live in the water and their simulation costs about 0.2 ms per 30 Hz step. In Willow Bay on High, 133 fish in view make 124,000 triangles in 14 instanced draws (a detailed model near the camera, about 1,300–3,700 triangles by species, and a 600-triangle one further off, with no draw at all for a species with none in view), which made no measurable difference to a 16.5 ms render; from inside a sardine shoal underwater, 72,000 fish triangles cost under 0.1 ms on High and 0.75 ms of a 3 ms render on Low. Opening and closing the guide repeatedly, turning every reference model, leaves the studio's GPU memory where it was. The register adds about 93 KB (compressed) to the download and takes about 6 ms to load; the shelter map for the waves is baked in about 0.15 s at start.
 
 ### Expansion plan
 
-Further species come in batches, in this order (the batch is on each planned entry):
+Done: the six reference species (the first milestone), then the playable roster of 44 with the eel to watch (*The Living Atlantic*). What could come next, in order (the batch is on each planned entry):
 
-1. **Done**: the six reference species with anatomical models, plus names, sources and regional data for the seven other real species in the game.
-2. **The Willow Bay replacements and the commonest coast fish**: sand smelt, two-banded seabream, pollack, Atlantic horse mackerel and European conger (replacing the five fictional originals, which are then retired), white seabream (once its name is settled), black seabream and common octopus.
-3. **Flatfish and the Gulf of Cádiz**: Senegalese sole, sand sole, wedge sole, turbot, tub gurnard, redbanded seabream (urta), spotted seabass (baila), bastard grunt (roncador), rubberlip grunt (borriquete). Needs regions south of the current map.
-4. **Schooling and offshore fish**: European sardine, European anchovy, Atlantic chub mackerel, Atlantic bonito, little tunny, bullet tuna, garfish, bluefish, pompano, salema, bogue.
-5. **Reef, deeper water, sharks and rays**: striped seabream, red porgy, common pandora, common dentex, European hake, John Dory, striped red mullet, thornback ray, common stingray, small-spotted catshark, blue shark, lesser weever, shanny, dusky grouper. Needs ray and shark body plans and catch-and-release.
-6. **Migratory and protected estuary species**: allis and twaite shad, European eel, sea lamprey, European sturgeon, thin-lipped and golden grey mullet. Needs an observation-only mode and seasons.
+2. **Common coastal fish still missing, and catch and release on the bottom**: Atlantic chub mackerel, striped red mullet, lesser weever (a venomous sand fish to handle with care), shanny, thin-lipped and golden grey mullet, small-spotted catshark and thornback ray (shark and ray body plans, and releasing).
+3. **Deeper water and rarer visitors**: European hake, John Dory, common stingray, blue shark, dusky grouper.
+4. **Migratory and protected estuary species, with seasons**: allis and twaite shad, sea lamprey, European sturgeon (to watch).
 
-Alongside: anatomical models for the remaining species already in the game, seasons (spawning runs, the tuna's summer in Biscay, the meagre's spring in the Gironde), and regions further south.
+Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spring in the Gironde, the pompano's summer in the north), a tide to turn the currents, and anatomical models for the freshwater fish.
 
 ## Where things live
 
@@ -438,18 +456,18 @@ Alongside: anatomical models for the remaining species already in the game, seas
 | `src/world/shore.js` | Everything built on the west shore: landing pier and signpost, tent, campfire with smoke and light, tackle chest and rod rack, reeds, lily pads, the fallen alder, fishing pegs, stream boulders, footbridge, stepping stones, ferns, grass and hatching flies |
 | `src/world/habitat.js` | The underwater map shared by everything below the surface: depth, weed beds, rock piles, kelp and reefs, the stream's current, and the homes fish live around, for the home waters and each region |
 | `src/world/ecosystem.js` | Every fish in the world: schooling, cruising, feeding, resting, fleeing, rising and jumping, and how each one judges and takes a rig (nibbling, following, ambushing, rising, grazing, running). Fixed 30 Hz simulation, slower far away |
-| `src/world/fishRender.js` | Draws the ecosystem's fish (one instanced draw per species, and a near and a far one for species with anatomical models) with their swimming motion |
+| `src/world/fishRender.js` | Draws the ecosystem's fish (a near and a far instanced draw per species, skipped when none are in view) with their swimming motion |
 | `src/world/underwater.js` | Weed beds, submerged rocks, particles, light shafts, bubbles, and the colour, haze and sound blend as the camera crosses the waterline |
 | `src/world/caustics.js` | Dancing light on the seabed and rocks |
 | `src/world/world.js` | Terrain mesh (with a finer patch over the west shore), trees, rocks, jetty, cove props, Gull Rock, gulls, fireflies, and the obstacles you bump into on foot |
-| `src/world/water.js` | Water shader (depth colour, gusts and calm lanes, wavelets, reflections, ripples, sun glints, foam, rain rings, lantern glow, fresh-water tint, flowing current, the view from below) and the wave function everything floats on |
+| `src/world/water.js` | Water shader (swell and chop from the shared conditions, depth colour, gusts carried downwind, wavelets, reflections, ripples, sun glints, surf, whitecaps, rain rings, lantern glow, fresh-water tint, flowing currents, the view from below) |
 | `src/world/waterfx.js` | The mirrored view for reflections, and the ripple field every ripple is drawn into |
 | `src/world/mist.js` | Drifting morning and evening mist over the water |
 | `src/world/surface.js` | Fine surface detail: grain and the wet band on the shore, sand ripples, wood grain, cork |
 | `src/world/sky.js` | Day cycle colours, sun and moon, sky dome, clouds |
 | `src/camera.js` | The views (boat, on foot, first person, underwater, bait), their limits and smooth transitions |
 | `src/firstperson.js` | First person: where the rod is held in front of your eyes for each moment of fishing, and its springy whip |
-| `src/boat.js` | The four boats (rowing boat, motor skiff, kayak, bass boat): hulls, the figure aboard, oars, paddle, outboards and trolling motor, rods, lantern and anchor; their physics, draft and collisions |
+| `src/boat.js` | The four boats (rowing boat, motor skiff, kayak, bass boat): hulls, the figure aboard, oars, paddle, outboards and trolling motor, rods, lantern and anchor; their physics (drift in wind and current, riding the waves), draft and collisions |
 | `src/walker.js` | You on foot: the character, walking and jogging, wading, slopes and obstacles |
 | `src/tackle.js` | Rods (lines, rigs, casting weight, range), baits, lures, flies and jigs, ready-made setups, and the checks that refuse impossible combinations |
 | `src/tackleModels.js` | The little models on the end of the line: float, indicator, lead, baits, lures and flies |
@@ -459,11 +477,17 @@ Alongside: anatomical models for the remaining species already in the game, seas
 | `sw.js` | The service worker: stores every game file for offline play, one cache per version |
 | `tools/build-sw.mjs` | Writes the file list and version into `sw.js` (`--check` reports if it's out of date) |
 | `vercel.json` | Runs `tools/build-sw.mjs` on every Vercel deploy |
-| `src/fish.js` | The 27 species, squid and cuttlefish included (where they live, how they behave, what they eat and how they take it, weight), 3D models, journal sketches |
+| `src/fish.js` | The species list (the first species here, the Atlantic roster appended from `atlantic.js`), weights, models and journal sketches |
 | `src/anatomy.js` | Anatomical models of the reference species: body plans for fish, flatfish and cuttlefish, fins, eyes, painted skins, and the swimming motion |
 | `src/register.js` | The Atlantic species register: regions, statuses, what the game has done with each species, the expansion batches, the fictional originals and their proposed replacements |
 | `src/registerData.js` | The register's researched entries (generated by `tools/build-register.mjs` from `research/register/`) |
-| `src/guide.js` | The field guide: the index, the species pages, recommended setups worked out from the tackle rules, and habits read from the simulation |
+| `src/guide.js` | The field guide: the index, the species pages, recommended setups worked out from the tackle rules, habits read from the simulation, and the trip planner |
+| `src/trip.js` | Fishing trips: suitable waters for a species (from the map's habitat data), starting, summarising and ending a trip |
+| `src/advice.js` | Why nothing is biting: what the simulation makes of the rig in the water, most telling reason first |
+| `src/atlantic.js` | The Atlantic roster added in *The Living Atlantic*: where each species lives, how it behaves, what it eats and how it takes it |
+| `src/anatomyAtlantic.js` | The anatomical recipes for those species (and the upgraded first ones) |
+| `src/habits.js` | The hours fish keep (day, dusk, night), shared by the species definitions |
+| `src/world/conditions.js` | Wind (with gusts and shelter), swell and wind chop, currents (with zones ready for a tide), the shelter map, and the words and units for them |
 | `research/register/` | The species research, as JSON, with every source |
 | `tools/build-register.mjs` | Compiles the research into `src/registerData.js` (`--check` reports if it's out of date) |
 | `src/pack.js` | The backpack: the equipment browser, the selected piece with its compatibility checks, and your setup as rigged |

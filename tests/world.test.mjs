@@ -22,7 +22,11 @@ function wrongWater(eco) {
 
 test('every kind of fish (and the squid) lives somewhere in the world', () => {
   const eco = new Ecosystem(habitat);
-  for (const f of FISH) assert.ok(eco.bySpecies[f.id]?.length, `no ${f.name} anywhere`);
+  for (const f of FISH) {
+    // The fictional originals are retired: they live nowhere now.
+    if (f.retired) assert.equal(eco.bySpecies[f.id].length, 0, `${f.name} is retired`);
+    else assert.ok(eco.bySpecies[f.id]?.length, `no ${f.name} anywhere`);
+  }
 });
 
 test('fresh water fish stay in fresh water and sea fish in the sea, wherever you are', () => {

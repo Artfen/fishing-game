@@ -59,6 +59,12 @@ export const FIGHT_STYLES = {
   jet: { run: 0.45, rest: 0.55, surge: 0.9, tire: 1.2, sway: 0.7, dive: 0.6, splash: false, words: 'It’s jetting backwards in pulses.' },
   // Tuna: long, deep runs, circling below the boat, but they tire.
   deep: { run: 1.5, rest: 0.9, surge: 1, tire: 1.25, sway: 3.6, dive: 2.5, splash: false, words: 'It’s sounding deep, circling below.' },
+  // Octopus: it grips the seabed with its arms and lets go only to steady, patient pressure.
+  cling: { run: 1.4, rest: 1.3, surge: 0.75, tire: 0.85, sway: 0.8, dive: 2.6, splash: false, words: 'It’s clinging to the bottom: keep a steady lift.' },
+  // Conger: twisting and backing down towards its hole in the rocks.
+  twist: { run: 1.15, rest: 0.8, surge: 1.1, tire: 0.9, sway: 1.4, dive: 2.4, splash: false, words: 'It’s twisting and backing down towards the rocks.' },
+  // Garfish: skittering, leaping and tail-walking across the top.
+  leap: { run: 0.6, rest: 0.7, surge: 0.9, tire: 1.5, sway: 3.2, dive: 0.1, splash: true, words: 'It’s skittering and leaping across the surface.' },
 };
 
 const SURGE = 0.5;  // seconds
