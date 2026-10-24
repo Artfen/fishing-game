@@ -65,7 +65,12 @@ export const DEFAULT_STATE = {
   wallPhoto: null, // the photograph pinned up at the chandlery
 };
 
-const fresh = () => JSON.parse(JSON.stringify(DEFAULT_STATE));
+// A new game: every setting at its default (a loaded save gets its own from sanitize).
+const fresh = () => {
+  const s = JSON.parse(JSON.stringify(DEFAULT_STATE));
+  s.settings = cleanSettings(null);
+  return s;
+};
 
 /* ---------------- checking what we read ---------------- */
 

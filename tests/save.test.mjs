@@ -29,6 +29,21 @@ test('a new player starts from the defaults, first-person fishing view included'
   assert.deepEqual(state.log, []);
 });
 
+test('every fresh start comes with a full set of settings (the game reads them as it starts)', async () => {
+  const outcomes = {};
+  for (const stored of [null, 'not json at all', JSON.stringify(env(99, { day: 50 }))]) {
+    globalThis.localStorage = new MemoryStorage();
+    if (stored) put(KEY, stored);
+    const S = await freshSave();
+    const { state, outcome } = S.loadGame();
+    outcomes[outcome] = true;
+    assert.ok(state.settings, `${outcome}: settings are there`);
+    assert.equal(typeof state.settings.audio.master, 'number');
+    assert.equal(typeof state.settings.controls, 'object');
+  }
+  assert.deepEqual(Object.keys(outcomes).sort(), ['new', 'newer', 'unreadable']);
+});
+
 test('a save comes back exactly as it was written', async () => {
   let S = await freshSave();
   const { state } = S.loadGame();
