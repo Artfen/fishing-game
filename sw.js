@@ -10,7 +10,7 @@
 // - It never touches saved games: those live in the browser's local storage, not here.
 
 // <precache> Written by tools/build-sw.mjs: do not edit by hand.
-const VERSION = 'e7afc682263e';
+const VERSION = '2a83078a0a18';
 const FILES = [
   './index.html',
   './style.css',
@@ -26,6 +26,7 @@ const FILES = [
   './src/camp.js',
   './src/campView.js',
   './src/campsite.js',
+  './src/car.js',
   './src/cloud-config.js',
   './src/cloud.js',
   './src/effects.js',
@@ -44,6 +45,7 @@ const FILES = [
   './src/map.js',
   './src/memories.js',
   './src/offline.js',
+  './src/outing.js',
   './src/pack.js',
   './src/photos.js',
   './src/placement.js',
@@ -62,12 +64,14 @@ const FILES = [
   './src/ui.js',
   './src/util.js',
   './src/walker.js',
+  './src/workbench.js',
   './src/world/caustics.js',
   './src/world/coast.js',
   './src/world/conditions.js',
   './src/world/ecosystem.js',
   './src/world/fishRender.js',
   './src/world/habitat.js',
+  './src/world/home.js',
   './src/world/mist.js',
   './src/world/regions.js',
   './src/world/shore.js',

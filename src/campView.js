@@ -84,11 +84,13 @@ function tentParts(look) {
   return { fly, parts };
 }
 
-function furnitureParts(look, deco) {
+// has: which of the separate pieces are here (the stove and the cool box can stay at home).
+function furnitureParts(look, deco, has = { stove: true, coolbox: true }) {
   const P = [];
   const at = (k) => LAYOUT[k];
   // The stove: a little gas stove on a flat stone, with a pan on it.
   const S = at('stove');
+  if (has.stove) {
   P.push({ geo: new THREE.CylinderGeometry(0.24, 0.27, 0.08, 7), matrix: mat(S.x, 0.04, S.z), color: '#8f8a80' });
   P.push({ geo: new THREE.CylinderGeometry(0.09, 0.09, 0.2, 10), matrix: mat(S.x, 0.18, S.z), color: '#c64a2e' });
   P.push({ geo: new THREE.CylinderGeometry(0.11, 0.06, 0.05, 8), matrix: mat(S.x, 0.3, S.z), color: '#3b3d40' });
@@ -98,10 +100,13 @@ function furnitureParts(look, deco) {
   }
   P.push({ geo: new THREE.CylinderGeometry(0.17, 0.15, 0.05, 12), matrix: mat(S.x, 0.375, S.z), color: '#5f6366' });
   P.push({ geo: new THREE.BoxGeometry(0.22, 0.02, 0.03), matrix: mat(S.x + 0.27, 0.39, S.z), color: '#2f3134' });
+  }
   // The cool box.
   const C = at('cooler');
-  P.push({ geo: new THREE.BoxGeometry(0.62, 0.36, 0.42), matrix: mat(C.x, 0.18, C.z), color: '#3f7fa8' });
-  P.push({ geo: new THREE.BoxGeometry(0.64, 0.07, 0.44), matrix: mat(C.x, 0.39, C.z), color: '#eef0ec' });
+  if (has.coolbox) {
+    P.push({ geo: new THREE.BoxGeometry(0.62, 0.36, 0.42), matrix: mat(C.x, 0.18, C.z), color: '#3f7fa8' });
+    P.push({ geo: new THREE.BoxGeometry(0.64, 0.07, 0.44), matrix: mat(C.x, 0.39, C.z), color: '#eef0ec' });
+  }
   // The tackle box (green, with a handle) and a rod leaning on it.
   const T = at('tackle');
   P.push({ geo: new THREE.BoxGeometry(0.55, 0.3, 0.32), matrix: mat(T.x, 0.15, T.z), color: '#3c6b4c' });
@@ -160,13 +165,16 @@ export function campObstacles(camp) {
     out.push({ x: p.x, z: p.z, r, top: heightAt(p.x, p.z) + top, kind: 'camp', name: 'your camp', camp: camp.id });
   };
   add('tent', 1.3, 1.4);
-  add('stove', 0.3, 0.5);
-  add('cooler', 0.4, 0.45);
+  if (camp.has?.stove !== false) add('stove', 0.3, 0.5);
+  if (camp.has?.coolbox !== false) add('cooler', 0.4, 0.45);
   add('tackle', 0.38, 0.4);
   add('chair', 0.32, 0.8);
   add('lantern', 0.15, 1.9);
   return out;
 }
+
+const campHasAll = (camp) => ({ stove: camp.has?.stove !== false, coolbox: camp.has?.coolbox !== false });
+const modelKey = (camp) => `${camp.tent}|${JSON.stringify(camp.deco)}|${JSON.stringify(campHasAll(camp))}`;
 
 // One camp in the world.
 class CampModel {
@@ -198,13 +206,13 @@ class CampModel {
     const t = tentParts(look);
     this.flyMesh = new THREE.Mesh(t.fly, flyMaterial(look.fly));
     this.tentMesh = new THREE.Mesh(mergeParts(t.parts), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
-    this.furnMesh = new THREE.Mesh(mergeParts(furnitureParts(look, camp.deco)), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    this.furnMesh = new THREE.Mesh(mergeParts(furnitureParts(look, camp.deco, campHasAll(camp))), new THREE.MeshLambertMaterial({ vertexColors: true }));
     for (const m of [this.flyMesh, this.tentMesh, this.furnMesh]) {
       m.castShadow = true;
       m.receiveShadow = true;
     }
     this.group.add(this.flyMesh, this.tentMesh, this.furnMesh);
-    this.key = `${camp.tent}|${JSON.stringify(camp.deco)}`;
+    this.key = modelKey(camp);
     this.place(camp);
   }
 
@@ -374,7 +382,7 @@ export class CampView {
     for (const c of camps) {
       const m = this.models.get(c.id);
       if (!m) this.models.set(c.id, new CampModel(this.scene, c));
-      else if (m.key !== `${c.tent}|${JSON.stringify(c.deco)}`) m.rebuild(c);
+      else if (m.key !== modelKey(c)) m.rebuild(c);
       else if (m.x !== c.x || m.z !== c.z || m.yaw !== c.yaw) m.place(c);
     }
   }

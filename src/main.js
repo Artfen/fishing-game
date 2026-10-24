@@ -24,7 +24,12 @@ import {
   PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD,
   PEGS, POOLS, STREAM, SNAG, LILIES, JETTY, ISLAND, GANNET_CAMP, SKERRIES, SKELLIG, DEEP_Z,
   HAVEN, HAVEN_QUAY, HAVEN_BENCH, DAYMARK, STRAND, WRECK, WRECK_BUOY, CHANNEL,
+  HOME, HOUSE, GARAGE, CAR_PARKS, laneInfo,
 } from './world/terrain.js';
+import { Car } from './car.js';
+import { Workbench, OutingSheet } from './workbench.js';
+import { KIT, KIT_IDS, DESTS, parkNear, driveMinutes, moveKit, reconcile, campOfKit, campHas, statusOf, snapshot } from './outing.js';
+import { insideHome, HOME_SPOTS } from './world/home.js';
 import { Boat, BOAT_KINDS } from './boat.js';
 import { Walker } from './walker.js';
 import { Effects } from './effects.js';
@@ -129,18 +134,26 @@ scene.add(mist.group);
 const world = buildWorld(scene, renderer, habitat);
 // Your own camps (see campsite.js): drawn by CampView, and solid underfoot like everything else.
 state.camps = Array.isArray(state.camps) ? state.camps : [];
+// Where your outing gear is (see outing.js): one record, made to agree with your camps and pack.
+reconcile(state);
 const campView = new CampView(scene);
 const campSolids = [];
 function refreshCamps() {
   campSolids.length = 0;
-  for (const c of state.camps) campSolids.push(...campObstacles(c));
+  for (const c of state.camps) {
+    // (Which pieces are set up there: the stove and the cool box can be elsewhere.)
+    c.has = { stove: campHas(state, c, 'stove'), coolbox: campHas(state, c, 'coolbox') };
+    campSolids.push(...campObstacles(c));
+  }
   campView.sync(state.camps);
 }
-// The world's obstacles and your camps' gear together, as one thing to bump into.
+// The car's body, as something to bump into on foot (see the car, below).
+const carSolids = [];
+// The world's obstacles, your camps' gear and the car together, as one thing to bump into.
 const solids = {
   resolve(p, r, y = -Infinity) {
     let hit = world.obstacles.resolve(p, r, y);
-    for (const o of campSolids) {
+    for (const o of carSolids.length ? campSolids.concat(carSolids) : campSolids) {
       if (y > o.top) continue;
       const dx = p.x - o.x, dz = p.z - o.z, min = o.r + r, d2 = dx * dx + dz * dz;
       if (d2 >= min * min) continue;
@@ -151,6 +164,15 @@ const solids = {
     }
     return hit;
   },
+  near(x, z, pad, out = []) {
+    world.obstacles.near(x, z, pad, out);
+    for (const o of campSolids) if ((x - o.x) ** 2 + (z - o.z) ** 2 < (o.r + pad) ** 2) out.push(o);
+    for (const o of carSolids) if ((x - o.x) ** 2 + (z - o.z) ** 2 < (o.r + pad) ** 2) out.push(o);
+    return out;
+  },
+};
+// What the car itself can run into: the world and your camps (not itself).
+const carWorld = {
   near(x, z, pad, out = []) {
     world.obstacles.near(x, z, pad, out);
     for (const o of campSolids) if ((x - o.x) ** 2 + (z - o.z) ** 2 < (o.r + pad) ** 2) out.push(o);
@@ -204,6 +226,25 @@ for (const m of fishRenderer.meshes) hideFromReflection(m);
 // landing, and the bass boat at the Longmere boathouse. `boat` is whichever you're in (or
 // last used); the others float where you left them.
 const BOATS = Object.fromEntries(BOAT_KINDS.map((k) => [k, new Boat(scene, { kind: k })]));
+// The car (see car.js): on the drive at home, or wherever you left it. If the ground where it
+// stood has changed (an update), it waits at its car park instead.
+const car = new Car(scene);
+{
+  const c = state.car;
+  car.place(c.x, c.z, c.yaw);
+  if (car.blocked(c.x, c.z, c.yaw, carWorld)) {
+    const p = CAR_PARKS[c.at] || CAR_PARKS.home;
+    car.place(p.x, p.z, p.yaw);
+    state.car = { x: p.x, z: p.z, yaw: p.yaw, at: CAR_PARKS[c.at] ? c.at : 'home' };
+  }
+}
+function refreshCarSolids() {
+  carSolids.length = 0;
+  const s = Math.sin(car.heading), c = Math.cos(car.heading);
+  for (const u of [-1.5, -0.5, 0.5, 1.5]) carSolids.push({ x: car.pos.x + u * s, z: car.pos.z + u * c, r: 0.9, top: car.pos.y + 1.6, kind: 'car', name: 'the car' });
+}
+refreshCarSolids();
+let driving = false;
 const boats = Object.values(BOATS);
 const rowboat = BOATS.row, skiff = BOATS.skiff;
 let boat = rowboat;
@@ -638,7 +679,8 @@ const packUI = new PackUI(state, {
 // The tackle boxes at the camps beyond the bay (Wend Quay, the boathouse, Puffin Cove).
 const regionBox = (reach = 4) => (onFoot ? world.boxes.find((b) => Math.hypot(walker.pos.x - b.x, walker.pos.z - b.z) < reach) : null);
 // A tackle box within reach: one at a camp, or the locker in a motorboat.
-const tackleBox = () => (nearCamp() || regionBox() || ownCampNear(4.5) ? 'tackle box' : chandleryNear() ? 'chandlery' : !onFoot && boat.motor ? 'boat locker' : false);
+const tackleBox = () => (nearCamp() || regionBox() || ownCampNear(4.5) ? 'tackle box' : chandleryNear() ? 'chandlery' : inGarage() ? 'tackle wall' : !onFoot && boat.motor ? 'boat locker' : false);
+const inGarage = () => onFoot && !driving && insideHome(walker.pos.x, walker.pos.z) === 'garage';
 
 function openPack(box = tackleBox()) {
   if (modal) return;
@@ -653,9 +695,12 @@ function closePack() {
   packUI.close();
   if (modal === 'pack') modal = null;
   audio.page();
+  refreshHomeGear();
+  returnToBench();
 }
 
-// The camping kit, in the backpack: pitch it, or where your camp is and what to do about it.
+// The camping gear, in the backpack: where each piece is, pitching a camp, your camp's whereabouts,
+// and the camera.
 function renderKit(el) {
   const out = [];
   const btn = (text, run, dis = false, cls = '') => {
@@ -673,15 +718,16 @@ function renderKit(el) {
     e.textContent = text;
     return e;
   };
-  if (kitsFree(state)) {
-    out.push(p('A tent and bedroll, a lantern, a camp chair, a little stove and a cool box, rolled up on your pack. Pitch them wherever the ground allows.', 'gx-kit-text'));
-    out.push(btn('Pitch a camp…', () => startPitching('new'), !onFoot));
+  const where = KIT_IDS.map((k) => `${KIT[k].name}: ${statusOf(state, 'kit', k).words.toLowerCase()}`);
+  out.push(p(where.join(' · '), 'gx-kit-text'));
+  if (kitsFree(state) || state.equip.kit.tent === 'car') {
+    out.push(btn('Pitch a camp…', () => startPitching('new'), !onFoot || driving));
     if (!onFoot) out.push(p('Step ashore first: a tent needs dry ground.'));
-  }
+  } else if (state.equip.kit.tent === 'home') out.push(p('The tent is in the garage at home: plan an outing at the workbench to take it.'));
   for (const c of state.camps) {
     const P = player().pos, d = Math.round(Math.hypot(c.x - P.x, c.z - P.z));
     const dir = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'][Math.round((Math.atan2(c.x - P.x, -(c.z - P.z)) / (Math.PI * 2)) * 8 + 8) % 8];
-    out.push(p(d < 12 ? `${c.name}: you’re here. Pack it up or move it from the camp itself (Your camp tab).` : `${c.name}: ${d} m ${dir}, pitched on day ${c.pitched.day}. ${c.store.fish.length ? `${c.store.fish.length} fish in the cool box.` : 'The cool box is empty.'}`, 'gx-kit-text'));
+    out.push(p(d < 12 ? `${c.name}: you’re here. Pack it up or move it from the camp itself (Your camp tab).` : `${c.name}: ${d} m ${dir}, pitched on day ${c.pitched.day}. ${c.has?.coolbox === false ? 'No cool box there.' : c.store.fish.length ? `${c.store.fish.length} fish in the cool box.` : 'The cool box is empty.'}`, 'gx-kit-text'));
     const row = document.createElement('div');
     row.className = 'gx-kit-acts';
     if (d >= 12) row.append(btn('Head there', () => travel('own'), !travelInfo().own), btn('Move it here…', () => startPitching('move', c), !onFoot, 'quiet'));
@@ -726,6 +772,21 @@ const camp = new Camp(state, scene, world.camp, {
     startPitching('move', c);
   },
   packUp: (c, release) => packCamp(c, release),
+  passTime: (h) => passTime(h),
+  // The camping gear at a camp: what's set up there, where the rest is, moving it on and off.
+  kit: {
+    has: (c, k) => campHas(state, c, k),
+    at: (k) => state.equip.kit[k],
+    where: (k) => statusOf(state, 'kit', k).words,
+    move: (k, to) => {
+      const r = typeof to === 'object' ? moveKit(state, k, 'camp', { campId: to.id }) : moveKit(state, k, to);
+      if (r.ok) {
+        refreshCamps();
+        audio.knock?.(0.3);
+      }
+      return r;
+    },
+  },
 });
 
 function nearCamp() {
@@ -786,8 +847,19 @@ function startPitching(mode = 'new', c = null) {
     hud.flash('You reel in and put the rod down.', t, 2);
   }
   if (mode === 'new' && !kitsFree(state)) {
-    hud.flash('Your camping kit is pitched already: move that camp, or pack it up first.', t, 3.5);
-    return;
+    const at = state.equip.kit.tent;
+    // The tent in the car, and the car close by: you fetch it (and the stove and cool box).
+    if (at === 'car' && Math.hypot(car.pos.x - walker.pos.x, car.pos.z - walker.pos.z) < 70) {
+      const got = KIT_IDS.filter((k) => state.equip.kit[k] === 'car');
+      for (const k of got) state.equip.kit[k] = 'pack';
+      hud.toast(`You fetch the ${got.map((k) => KIT[k].short).join(', ').replace(/, ([^,]*)$/, ' and $1')} from the car.`, 4);
+      save();
+    } else {
+      hud.flash(at.startsWith('camp:') ? 'Your tent is pitched already: move that camp, or pack it up first.'
+        : at === 'car' ? 'Your tent is in the car: fetch it from the boot first.'
+          : 'Your tent is in the garage at home: take it on your next outing.', t, 3.5);
+      return;
+    }
   }
   if (modal === 'pack') closePack();
   else if (modal === 'camp') closeCamp();
@@ -825,6 +897,8 @@ function pitchHere(spot, mode, c) {
   const name = defaultName(spot.x, spot.z, PLACES, state.places);
   const c2 = newCamp({ x: spot.x, z: spot.z, yaw: spot.yaw, name, day: state.day, hour: state.hour });
   state.camps.push(c2);
+  // The tent goes up, and the stove and cool box come out of your backpack if they're in it.
+  for (const k of KIT_IDS) if (k === 'tent' || state.equip.kit[k] === 'pack') state.equip.kit[k] = `camp:${c2.id}`;
   refreshCamps();
   solids.resolve(walker.pos, 0.4);
   audio.knock(0.45);
@@ -854,12 +928,14 @@ function packCamp(c, release = []) {
     hud.toast(r.why, 5);
     return;
   }
+  // Everything that was set up there goes into your backpack.
+  for (const k of KIT_IDS) if (state.equip.kit[k] === `camp:${c.id}`) state.equip.kit[k] = 'pack';
   for (const f of r.released) setOutcome(f.logId, 'released');
   closeCamp();
   refreshCamps();
   audio.rustle?.();
   save();
-  hud.toast(`${c.name} is packed up: the tent and stove are rolled up on your backpack${r.carried ? `, and ${r.carried} fish are in your creel` : ''}${r.released.length ? `; ${r.released.length} went back into the water` : ''}.`, 6);
+  hud.toast(`${c.name} is packed up: the camping gear is rolled up on your backpack${r.carried ? `, and ${r.carried} fish are in your creel` : ''}${r.released.length ? `; ${r.released.length} went back into the water` : ''}.`, 6);
 }
 
 // Back at your camp after time away: a word that it's just as you left it.
@@ -924,7 +1000,7 @@ function passTheNight() {
   for (let i = 0; i < 90; i++) eco.update(1 / 30, ecoCtx);
   sleeping.rain = rain;
   // You wake at the tent's door, on firm ground (whatever the night did, you're never left in the water).
-  const door = sleeping.site ? toWorld(sleeping.site.x, sleeping.site.z, sleeping.site.yaw, 0.6, 1.6) : null;
+  const door = sleeping.site === 'house' ? { x: 113.6, z: -78.6 } : sleeping.site ? toWorld(sleeping.site.x, sleeping.site.z, sleeping.site.yaw, 0.6, 1.6) : null;
   const spot = door ? standNear(door.x, door.z, 0.3) : onFoot && walkHeight(walker.pos.x, walker.pos.z) < 0.1 ? campSpot() : null;
   if (spot && onFoot) {
     walker.place(spot.x, spot.z, spot.heading);
@@ -934,6 +1010,15 @@ function passTheNight() {
 }
 
 function wakeLine(h, rain, site = null) {
+  // At home: your own bed, the house waking up around you.
+  if (site === 'house') {
+    if (rain) return 'You wake to rain on the roof and the gutters chattering. The kettle, then the garage.';
+    if (h < 7) return 'You wake early in your own bed. Grey light at the window, and the sea quiet below the garden.';
+    if (h < 11) return 'Morning at home: sun across the floorboards, and the bay bright beyond the garden wall.';
+    if (h < 16) return 'You wake to a warm afternoon. The garage door is open and the car is on the drive.';
+    if (h < 20) return 'You wake as the light turns gold over Shell Strand. Still time for an evening out.';
+    return 'You wake in the dark. The house is quiet, and the lighthouse turns far out to sea.';
+  }
   // By the sea (your own camp on the coast): the sea's sounds, not the lake's.
   const P = player().pos;
   if (site && !['lake', 'stream', 'mere'].includes(zoneAt(P.x, P.z + 20))) {
@@ -1175,10 +1260,14 @@ function travelInfo() {
   const P = player().pos;
   const ownHere = state.camps.find((c) => onFoot && Math.hypot(P.x - c.x, P.z - c.z) < 12);
   const atHaven = onFoot && Math.hypot(P.x - HAVEN.x, P.z - HAVEN.z) < 22;
-  const note = !onFoot ? 'You’re in the boat. It stays where you leave it.' : ownHere ? `You’re at ${ownHere.name}.` : atCamp ? 'You’re at the old camp.' : atHaven ? 'You’re in Willowhaven.' : stuckT > 2.5 ? 'Stuck? Any of these gets you out.' : '';
+  const atHome = onFoot && Math.hypot(P.x - HOME.x, P.z - HOME.z) < 30;
+  const carD = Math.hypot(car.pos.x - P.x, car.pos.z - P.z);
+  const carAway = Math.hypot(car.pos.x - CAR_PARKS.home.x, car.pos.z - CAR_PARKS.home.z) > 8;
+  const note = driving ? 'You’re in the car.' : !onFoot ? 'You’re in the boat. It stays where you leave it.' : atHome ? 'You’re at home.' : ownHere ? `You’re at ${ownHere.name}.` : atCamp ? 'You’re at the old camp.' : atHaven ? 'You’re in Willowhaven.' : stuckT > 2.5 ? 'Stuck? Any of these gets you out.' : '';
   return {
-    camp, boat, camps: true, here: atCamp ? 'camp' : ownHere ? 'own' : atHaven ? 'haven' : box ? box.place : null, note,
+    camp, boat, camps: true, here: atHome ? 'home' : atCamp ? 'camp' : ownHere ? 'own' : atHaven ? 'haven' : box ? box.place : null, note,
     own: !!state.camps.length && !ownHere, haven: !!state.places.haven && !atHaven,
+    home: !atHome, car: carAway && carD > 25 && onFoot, carAway, carWords: state.car.at && DESTS[state.car.at] ? `parked at ${DESTS[state.car.at].name}` : 'parked by the lane',
   };
 }
 
@@ -1186,8 +1275,9 @@ function travelInfo() {
 // you arrive somewhere safe. Catches, gear and the creel all come with you.
 let traveling = null;
 function travel(dest) {
+  if (dest === 'home' && carCloseBy() && !atHomeNow() && !carHome()) return driveTo('home');
   const info = travelInfo();
-  const far = !['camp', 'boat', 'own', 'haven'].includes(dest);
+  const far = !['camp', 'boat', 'own', 'haven', 'home', 'car'].includes(dest);
   if (far ? !info.camps || !campAt(dest) || info.here === dest : !info[dest]) return;
   if (placement.isOn) placement.stop();
   if (fishing.lineOut) fishing.cancel();
@@ -1196,8 +1286,9 @@ function travel(dest) {
   else if (modal === 'map') closeMap();
   if (modal) return;
   modal = 'travel';
-  const name = far ? PLACES.find((p) => p.id === dest)?.name : dest === 'own' ? state.camps[0].name : dest === 'haven' ? 'Willowhaven' : '';
-  hud.sleep(true, far || dest === 'haven' ? `You make your way to ${name}…` : dest === 'own' ? `You head back to ${name}…` : dest === 'camp' ? 'You head back to the old camp…' : 'You make your way back to the boat…');
+  if (driving) exitCar(true);
+  const name = far ? PLACES.find((p) => p.id === dest)?.name : dest === 'own' ? state.camps[0].name : dest === 'haven' ? 'Willowhaven' : dest === 'home' ? 'Home' : dest === 'car' ? 'Your car' : '';
+  hud.sleep(true, far || dest === 'haven' ? `You make your way to ${name}…` : dest === 'own' ? `You head back to ${name}…` : dest === 'camp' ? 'You head back to the old camp…' : dest === 'home' ? 'You make your way home…' : dest === 'car' ? 'You walk back to the car…' : 'You make your way back to the boat…');
   traveling = { dest, name, t: 0, done: false };
 }
 
@@ -1213,12 +1304,27 @@ function passTime(hours) {
 function updateTravel(dt) {
   if (!traveling) return;
   traveling.t += dt;
+  if (traveling.drive) {
+    if (!traveling.done && traveling.t > 1.1) {
+      traveling.done = true;
+      arrive(traveling.to);
+    }
+    if (traveling.t > 2.4) {
+      hud.sleep(false);
+      modal = null;
+      const to = traveling.to;
+      traveling = null;
+      arrivalWords(to);
+    }
+    return;
+  }
   if (!traveling.done && traveling.t > 0.9) {
     traveling.done = true;
     const from = player().pos.clone();
     const box = campAt(traveling.dest);
     const own = traveling.dest === 'own' ? state.camps[0] : null;
-    const spot = traveling.dest === 'camp' ? campSpot() : own ? ownCampSpot(own) : traveling.dest === 'haven' ? standNear(HAVEN_SPOT.x, HAVEN_SPOT.z, 0.2) : box ? standNear(box.x, box.z) : null;
+    const spot = traveling.dest === 'camp' ? campSpot() : own ? ownCampSpot(own) : traveling.dest === 'haven' ? standNear(HAVEN_SPOT.x, HAVEN_SPOT.z, 0.2)
+      : traveling.dest === 'home' ? standNear(HOME_GATE.x, HOME_GATE.z, 0.2) : traveling.dest === 'car' ? carExitSpot() : box ? standNear(box.x, box.z) : null;
     if (spot) {
       walker.place(spot.x, spot.z, spot.heading);
       if (!onFoot) setFoot(true, true);
@@ -1229,16 +1335,399 @@ function updateTravel(dt) {
     }
     // About as long as the walk (or the sail) would take: half an hour at most back to camp or
     // the boat, longer to the far camps.
-    passTime(clamp(from.distanceTo(player().pos) / 400, 0.05, box || own || traveling.dest === 'haven' ? 2.5 : 0.5));
+    passTime(clamp(from.distanceTo(player().pos) / 400, 0.05, box || own || ['haven', 'home', 'car'].includes(traveling.dest) ? 2.5 : 0.5));
     stuckT = 0;
     save();
   }
   if (traveling.t > 1.9) {
     hud.sleep(false);
     modal = null;
-    hud.toast(traveling.name ? `${traveling.name}. Your boat is where you left it.` : traveling.dest === 'camp' ? 'Back at the old camp. The boat is where you left it.' : 'Back in the boat.', 3.5);
+    hud.toast(traveling.dest === 'home' ? `Home. ${carAwayWords()}` : traveling.dest === 'car' ? 'Back at the car.' : traveling.name ? `${traveling.name}. Your boat is where you left it.` : traveling.dest === 'camp' ? 'Back at the old camp. The boat is where you left it.' : 'Back in the boat.', 4);
     traveling = null;
   }
+}
+
+/* ---------------- home, the garage and the car ---------------- */
+
+// The garden gate, where you arrive home on foot.
+const HOME_GATE = { x: HOUSE.door, z: -59.5 };
+const homeSpotNear = () => {
+  if (!onFoot || driving || !insideHome(walker.pos.x, walker.pos.z)) return null;
+  let best = null, bd = Infinity;
+  for (const sp of HOME_SPOTS) {
+    const d = Math.hypot(walker.pos.x - sp.x, walker.pos.z - sp.z);
+    if (d < sp.r && d < bd) { bd = d; best = sp; }
+  }
+  return best;
+};
+const HOME_ACTS = {
+  bed: { text: 'Your bed: sleep until…', run: () => openCamp('sleep', 'house') },
+  desk: { text: 'The desk: your journal and records', run: () => openJournal() },
+  display: { text: 'The wall: photographs, a keepsake, a catch', run: () => openOutSheet('wall') },
+  kitchen: { text: 'The kitchen: cook and eat', run: () => openCamp('cook', 'house') },
+  bench: { text: 'The workbench: plan an outing', run: () => openBench() },
+  tackle: { text: 'The tackle wall: rods, lines and tackle', run: () => openPack('tackle wall') },
+  rack: { text: 'The rod rack', run: () => openPack('tackle wall') },
+  shelf: { text: 'The camping shelf', run: () => openOutSheet('shelf') },
+};
+const atHomeNow = () => Math.hypot(player().pos.x - HOME.x, player().pos.z - HOME.z) < 40;
+const carHome = () => Math.hypot(car.pos.x - CAR_PARKS.home.x, car.pos.z - CAR_PARKS.home.z) < 8;
+const carCloseBy = () => onFoot && Math.hypot(car.pos.x - player().pos.x, car.pos.z - player().pos.z) < 60;
+const carWhere = () => (carHome() ? 'on the drive at home' : state.car.at && DESTS[state.car.at] ? `at ${DESTS[state.car.at].name}` : 'parked by the lane');
+const carAwayWords = () => (carHome() ? 'The car is on the drive.' : `The car is still ${carWhere()}.`);
+
+// Where you stand when you get out: the driver's door, or the other side, or the back.
+function carExitSpot() {
+  refreshCarSolids();
+  for (const [lx, lz] of [[1.6, 0.2], [-1.6, 0.2], [0, -3.3], [0, 3.3]]) {
+    const p = car.local(lx, lz), sp = standNear(p.x, p.z, 0);
+    if (sp && Math.hypot(sp.x - p.x, sp.z - p.z) < 2.5) return { ...sp, heading: car.heading };
+  }
+  return standNear(car.pos.x, car.pos.z, 2.6);
+}
+
+function enterCar() {
+  if (driving || !onFoot || modal) return;
+  if (fishing.state === 'reeling' || fishing.state === 'landing' || fishing.state === 'caught' || fishing.state === 'keeping') {
+    hud.flash('Land or let go of the fish first.', t, 3);
+    return;
+  }
+  if (fishing.lineOut || fishing.aiming) {
+    fishing.cancel();
+    hud.flash('You reel in and lay the rod in the back.', t, 2);
+  }
+  if (placement.isOn) placement.stop();
+  driving = true;
+  walker.group.visible = false;
+  car.wantGate = false;
+  rig.car = car;
+  rig.views.car.yaw = car.heading;
+  rig.setMode(rig.firstPerson ? 'eye' : 'car', t);
+  rig.settleUntil = t + 1.2;
+  audio.carDoor?.();
+  teach('driving', touch.active
+    ? 'Driving: the stick drives and steers, the button brakes. Stop, then tap the prompt to get out or go somewhere.'
+    : `Driving: ${K('forward')}${K('back')} to go and reverse, ${K('left')}${K('right')} to steer, ${K('cast')} to brake. ${K('view')} changes the view. Stop, then ${K('interact')} to get out or go somewhere (or ${K('tackle')}: where to?).`, 11);
+  save();
+}
+
+// Out of the car (it must be stopped, unless you're travelling on without it).
+function exitCar(force = false) {
+  if (!driving) return;
+  if (Math.abs(car.speed) > 0.6 && !force) {
+    hud.flash(`Stop first (${touch.active ? 'the button brakes' : `${K('cast')} brakes`}).`, t, 2);
+    return;
+  }
+  car.speed = 0;
+  driving = false;
+  rig.car = null;
+  walker.group.visible = true;
+  const sp = carExitSpot();
+  if (sp) walker.place(sp.x, sp.z, sp.heading);
+  rig.setHome(true, t);
+  rig.reset(walker, t);
+  parkedAt();
+  audio.carDoor?.();
+  save();
+}
+
+// Where the car is now (a car park, or by the lane), kept in the save.
+function parkedAt() {
+  const id = parkNear(car.pos.x, car.pos.z, 9);
+  state.car = { x: Math.round(car.pos.x * 100) / 100, z: Math.round(car.pos.z * 100) / 100, yaw: Math.round(car.heading * 1000) / 1000, at: id };
+  return id;
+}
+
+// Stopped at the wheel: get out, or go somewhere.
+function carChoices() {
+  ask('In the car', `${state.car.at ? `Parked ${carWhere()}.` : 'Stopped by the lane.'} Get out here, or go somewhere?`, [
+    { text: 'Stay in', cls: 'quiet', run: () => {} },
+    { text: 'Where to?', cls: 'quiet', run: () => openOutSheet('drive') },
+    { text: 'Get out', run: () => exitCar() },
+  ]);
+}
+
+function resetCar() {
+  if (car.resetToLane(carWorld)) {
+    hud.flash('Back on the lane.', t, 2);
+    rig.views.car.yaw = car.heading;
+    refreshCarSolids();
+  } else hud.flash('There’s no room on the lane just here: try a little further on.', t, 3);
+}
+
+let parkT = 0;
+function watchParking(dt) {
+  if (!driving) return;
+  if (Math.abs(car.speed) > 0.3) {
+    parkT = 0;
+    return;
+  }
+  parkT += dt;
+  if (parkT < 1.2 || parkT > 1.3) return;
+  const was = state.car.at, id = parkedAt();
+  if (id && id !== was) {
+    hud.place(id === 'home' ? 'Home' : DESTS[id].name, id === 'home' ? 'on the drive' : 'parked');
+    if (id !== 'home') state.outing.lastDest = id;
+    save();
+  }
+}
+
+let bumpWordT = 0;
+function carBumped(b) {
+  audio.knock?.(clamp(b.speed / 8, 0.15, 0.6));
+  if (t < bumpWordT) return;
+  bumpWordT = t + 3;
+  hud.flash(b.kind === 'water' ? 'The car won’t go any nearer the water.' : b.kind === 'steep' ? 'Too steep for the car.' : `The car stops: ${b.name || 'something'} in the way.`, t, 2.2);
+}
+
+// Drive somewhere with the time passing (a short fade): to a destination, or home.
+function driveTo(to, how = 'skip') {
+  if (!started || traveling || sleeping) return;
+  if (fishing.state === 'reeling' || fishing.state === 'landing' || fishing.state === 'caught' || fishing.state === 'keeping') {
+    hud.flash('Land or let go of the fish first.', t, 3);
+    return;
+  }
+  if (!driving && !carCloseBy()) {
+    hud.toast(`The car is ${carWhere()}: you’ll need to be with it to drive.`, 4);
+    return;
+  }
+  if (fishing.lineOut || fishing.aiming) fishing.cancel();
+  if (placement.isOn) placement.stop();
+  for (const close of [closePack, closeMap, closeOut, closeBench, closeCamp]) if (modal) close();
+  if (modal) return;
+  const from = state.car.at;
+  if (to !== 'home') {
+    state.outing.last = snapshot(state, 'Last time');
+    state.outing.lastDest = to;
+    state.outing.plan.dest = to;
+  }
+  if (how === 'drive' && DESTS[to]?.drive) {
+    // Drive yourself: into the driver's seat, with the way pointed out.
+    if (!driving) {
+      if (Math.hypot(car.pos.x - walker.pos.x, car.pos.z - walker.pos.z) > 6) {
+        hud.toast(`The car is ${carWhere()}: get in at the driver’s door, and follow the lane to ${DESTS[to].name}.`, 7);
+        save();
+        return;
+      }
+      enterCar();
+    }
+    hud.toast(`Follow the lane to ${DESTS[to].name}: the car park is at its end. Stop, then ${touch.active ? 'tap the prompt' : K('interact')} to get out.`, 7);
+    save();
+    return;
+  }
+  state.outing.travel = { to, from };
+  save();
+  modal = 'travel';
+  hud.sleep(true, to === 'home' ? 'You drive home…' : `You drive to ${DESTS[to].name}…`);
+  audio.carDoor?.();
+  traveling = { drive: true, to, t: 0, done: false };
+}
+
+// Arriving: the car parked at the car park, you beside it; the drive's time gone by. Finished
+// even if the game closed partway (see the load, below), so nothing is ever left half-way.
+function arrive(to) {
+  const P = CAR_PARKS[to];
+  const from = state.car.at;
+  if (driving) {
+    driving = false;
+    rig.car = null;
+    walker.group.visible = true;
+  }
+  if (!onFoot) setFoot(true, true);
+  car.place(P.x, P.z, P.yaw);
+  refreshCarSolids();
+  const sp = carExitSpot();
+  if (sp) walker.place(sp.x, sp.z, sp.heading);
+  rig.setHome(true, t);
+  rig.reset(walker, t);
+  passTime(driveMinutes(from || 'home', to) / 60);
+  state.car = { x: P.x, z: P.z, yaw: P.yaw, at: to };
+  state.outing.travel = null;
+  stuckT = 0;
+  save();
+}
+
+function arrivalWords(to) {
+  const inBoot = [...KIT_IDS.filter((k) => state.equip.kit[k] === 'car').map((k) => KIT[k].short), ...(state.equip.car.rods.length || state.equip.car.items.length ? ['spare tackle'] : [])];
+  if (to === 'home') {
+    hud.place('Home', 'on the drive');
+    hud.toast(`Home. ${inBoot.length ? `In the boot: ${inBoot.join(', ')}. Unload it at the boot, or leave it for next time.` : 'The boot is empty.'} The garage door is open.`, 7);
+    return;
+  }
+  const D = DESTS[to];
+  hud.place(D.name, 'the car park');
+  hud.toast(`${D.name}. ${D.access}${inBoot.length ? ` In the boot: ${inBoot.join(', ')} (open it at the back of the car).` : ''}`, 9);
+}
+
+/* ---- the workbench and the outing sheet ---- */
+
+const bench = new Workbench(state, {
+  carHome, carWhere: () => carWhere(),
+  campDest: (c) => parkNear(c.x, c.z, 160),
+  boatsNear: (id) => {
+    const D = DESTS[id];
+    return boats.map((b) => {
+      const d = Math.round(Math.hypot(b.pos.x - D.at.x, b.pos.z - D.at.z));
+      return d < 220 ? `Your ${b.name} is about ${Math.round(d / 10) * 10} m from here.` : null;
+    }).filter(Boolean);
+  },
+  weather: (id) => {
+    const D = DESTS[id], w = windAt(D.at.x, D.at.z), sea = waveHeightHere(D.at.x, D.at.z);
+    const sky = weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : weather.cloud > 0.3 ? 'Some cloud' : 'Clear';
+    return [
+      `${formatClock(state.hour)}, ${phaseName(state.hour).toLowerCase()}. ${sky}.`,
+      w.speed < 0.6 ? 'Wind: flat calm.' : `Wind: ${windWords(w.speed).toLowerCase()} from the ${compass(conditions.wind.from, true)}, about ${Math.round(w.speed * 3.6)} km/h there.`,
+      D.water === 'fresh' ? 'A lake: the water is calm whatever the sea does.' : `Sea: ${seaWords(sea).toLowerCase()} (about ${sea < 0.1 ? 'nothing' : `${sea.toFixed(1)} m`}).`,
+    ];
+  },
+  openGuide: (id) => {
+    closeBench();
+    backTo = 'bench';
+    openGuide(id);
+  },
+  openPack: () => {
+    closeBench();
+    backTo = 'bench';
+    openPack('tackle wall');
+  },
+  openMap: (id) => {
+    closeBench();
+    backTo = 'bench';
+    const P = CAR_PARKS[id];
+    openMapAt(P.x, P.z);
+  },
+  changed: () => {
+    gearDirty = true;
+    save();
+    refreshHomeGear(true);
+  },
+  depart: (id, how) => {
+    closeBench();
+    driveTo(id, how);
+  },
+  close: () => closeBench(),
+  eco, habitat,
+});
+// After a look at the field guide, the tackle wall or the map from the workbench, back to it.
+let backTo = null;
+function returnToBench() {
+  if (backTo !== 'bench' || modal) return;
+  backTo = null;
+  // (Back on the step you were on.)
+  setTimeout(() => { if (!modal) openBench(bench.step); }, 0);
+}
+
+function openBench(step = null) {
+  if (modal) return;
+  bench.open(step);
+  modal = 'bench';
+  audio.page();
+  teach('bench', 'The workbench: choose what you’re going for and where, see what’s there, and pack. Or skip all that: “Same again”, or just get in the car and go.', 9);
+}
+function closeBench() {
+  if (!bench.isOpen) return;
+  bench.close();
+  if (modal === 'bench') modal = null;
+  audio.page();
+}
+
+const outSheet = new OutingSheet(state, {
+  close: () => closeOut(),
+  changed: () => {
+    gearDirty = true;
+    save();
+    refreshHomeGear(true);
+    refreshCarCargo();
+  },
+  carHome, atHome: () => atHomeNow(),
+  openPack: (box) => {
+    closeOut();
+    openPack(box);
+  },
+  drive: (id, how) => {
+    closeOut();
+    driveTo(id, how);
+  },
+  driveHome: () => {
+    closeOut();
+    driveTo('home');
+  },
+  photos: null,
+  keepsakes: () => Object.keys(state.keepsakes || {}).filter((k) => KEEPSAKES[k]).map((k) => [k, KEEPSAKES[k].name]),
+  records: () => bestCatches(),
+  photoList: () => state.photos,
+});
+function openOutSheet(mode) {
+  if (modal) return;
+  if (!outSheet.h.photos) outSheet.h.photos = photos;
+  outSheet.open(mode);
+  modal = 'outsheet';
+  if (mode === 'boot') {
+    car.wantGate = true;
+    audio.boot?.();
+  } else audio.page();
+}
+function closeOut() {
+  if (!outSheet.isOpen) return;
+  outSheet.close();
+  if (modal === 'outsheet') modal = null;
+  car.wantGate = false;
+  refreshHomeWall();
+}
+
+// Your best catches (heaviest of each kind, the biggest first), for the wall at home.
+function bestCatches() {
+  const best = {};
+  for (const e of state.log) {
+    const sp = fishById[e.sp];
+    if (!sp) continue;
+    if (!best[e.sp] || e.size > best[e.sp].size) best[e.sp] = e;
+  }
+  return Object.values(best).map((e) => ({ id: e.id, e, kg: weightOf(fishById[e.sp], e.size) }))
+    .sort((a, b) => b.kg - a.kg)
+    .map(({ id, e, kg }) => ({ id, title: `${fishById[e.sp].name}, ${e.size} cm`, sub: `${kg >= 1 ? `${kg.toFixed(1)} kg` : `${Math.round(kg * 1000)} g`} · day ${e.day}${e.place ? `, ${e.place}` : ''}`, e, kg }));
+}
+
+/* ---- what the garage, the car and the wall show ---- */
+
+let gearKey = '';
+function refreshHomeGear(force = false) {
+  const g = state.gear, car_ = state.equip.car;
+  const key = JSON.stringify([g.pack.rods, car_.rods, state.equip.kit]);
+  if (key === gearKey && !force) return;
+  gearKey = key;
+  const home = new Set(ROD_IDS.filter((r) => !g.pack.rods.includes(r) && !car_.rods.includes(r)));
+  world.home.showGear(home, Object.fromEntries(KIT_IDS.map((k) => [k, state.equip.kit[k] === 'home'])));
+  refreshCarCargo();
+}
+function refreshCarCargo() {
+  const e = state.equip;
+  car.showCargo({ bag: e.car.items.length > 0, rods: e.car.rods.length > 0, tent: e.kit.tent === 'car', stove: e.kit.stove === 'car', coolbox: e.kit.coolbox === 'car' });
+}
+// The wall at home: what you chose, or the house's pick from what you've done (never anything
+// you haven't): your latest photographs, your best catch, your newest keepsake.
+let wallKey = '';
+async function refreshHomeWall() {
+  const H = state.home;
+  const ids = H.auto ? state.photos.slice(-3).reverse().map((p) => p.id) : H.photos;
+  const keeps = Object.entries(state.keepsakes || {}).filter(([k]) => KEEPSAKES[k]).sort((a, b) => (b[1].day - a[1].day) || (b[1].hour - a[1].hour));
+  const keepsake = H.auto ? keeps[0]?.[0] : H.keepsake;
+  const best = bestCatches();
+  const rec = H.auto ? best[0] : best.find((b) => b.id === H.catchId);
+  const key = JSON.stringify([ids, keepsake, rec?.id]);
+  if (key === wallKey) return;
+  wallKey = key;
+  world.home.showKeepsakes(keepsake ? { [keepsake]: true } : {});
+  world.home.showRecord(rec ? [H.auto ? 'Best catch' : 'A catch to remember', rec.title, rec.sub.split(' · ')[0], rec.sub.split(' · ')[1] || ''] : null);
+  const imgs = await Promise.all(ids.map(async (id) => {
+    const u = await photos.url(id, 'thumb');
+    if (!u) return null;
+    const img = new Image();
+    img.src = u;
+    try { await img.decode(); } catch { return null; }
+    return img;
+  }));
+  world.home.showPictures(imgs);
 }
 
 // Pushing against something without getting anywhere: offer the way out.
@@ -1263,8 +1752,21 @@ const lanternReach = () => !state.items.lantern && (onFoot
 // What E (or tapping the prompt) does right now, if anything.
 function interaction() {
   if (!started || modal || fishing.busy || placement.isOn) return null;
+  // At the wheel: get out when you've stopped (or back on the lane if you're stuck).
+  if (driving) {
+    if (car.stuckT > 1.5) return { text: 'Back on the lane', run: () => resetCar() };
+    if (Math.abs(car.speed) < 0.6) return { text: 'Get out, or go somewhere', run: () => carChoices() };
+    return null;
+  }
   if (lanternReach()) return { text: 'Look closer at the driftwood', run: takeLantern };
   if (onFoot) {
+    // The car: the boot at the back, the driver's door at the side.
+    const P = walker.pos, boot = car.bootSpot(), door = car.doorSpot();
+    if (Math.hypot(P.x - boot.x, P.z - boot.z) < 1.8) return { text: 'Open the boot', run: () => openOutSheet('boot') };
+    if (Math.hypot(P.x - door.x, P.z - door.z) < 1.6 || Math.hypot(P.x - car.pos.x, P.z - car.pos.z) < 2.4) return { text: 'Get in and drive', run: () => enterCar() };
+    // Home and the garage.
+    const hs = homeSpotNear();
+    if (hs) return HOME_ACTS[hs.id];
     const near = boatNear();
     if (near) return { text: `Get in the ${near.name}`, run: () => board(near) };
     const own = ownCampNear();
@@ -2197,7 +2699,7 @@ function cycleView() {
 }
 
 function resetView() {
-  rig.reset(player(), t);
+  rig.reset(driving ? car : player(), t);
   viewChip();
 }
 
@@ -2291,6 +2793,11 @@ const STATUS_TEXT = {
 
 function currentHint() {
   if (!started || modal) return '';
+  if (driving) {
+    if (car.stuckT > 1.5) return touch.active ? 'Stuck? Tap Back on the lane' : `Stuck? ${K('interact')} puts the car back on the lane`;
+    return touch.active ? 'The stick drives and steers · the button brakes · stop to get out'
+      : `${K('forward')}${K('back')} drive and reverse · ${K('left')}${K('right')} steer · hold ${K('cast')} to brake · ${K('view')} view · stop, then ${K('interact')} to get out`;
+  }
   const L = (c) => K({ KeyW: 'forward', KeyS: 'back', KeyA: 'left', KeyD: 'right' }[c]);
   const T = touch.active;
   const space = K('cast');
@@ -2383,6 +2890,7 @@ const ACTION_LABELS = {
 
 function actionLabel() {
   if (modal === 'note') return 'OK';
+  if (driving) return 'Brake';
   if (fishing.state === 'reeling' && (fishing.fight?.surgeT > 0 || (fishing.fight?.warned && !fishing.pulling))) return 'Easy';
   if (fishing.state === 'reeling' && fishing.pulling) return 'Hold';
   if (fishing.state === 'drifting' && (fishing.kind === 'ledger' || fishing.kind === 'bottom')) return 'Wind in';
@@ -2504,7 +3012,9 @@ function updateHud() {
   // Where the boat is while you're ashore; where camp is until you've found it.
   const cp = world.camp.firePos;
   placed.length = 0;
-  placeMarker($('boat-marker'), boat.pos.x, boat.heave + 1.6, boat.pos.z, started && onFoot && !modal && !nearBoat());
+  placeMarker($('boat-marker'), boat.pos.x, boat.heave + 1.6, boat.pos.z, started && onFoot && !driving && !modal && !nearBoat() && !(insideHome(walker.pos.x, walker.pos.z)));
+  const carD = Math.hypot(car.pos.x - player().pos.x, car.pos.z - player().pos.z);
+  placeMarker($('car-marker'), car.pos.x, car.pos.y + 2.2, car.pos.z, started && onFoot && !driving && !modal && carD > 18 && carD < 600 && !carHome());
   const campD = Math.hypot(player().pos.x - cp.x, player().pos.z - cp.z);
   placeMarker($('camp-marker'), cp.x, cp.y + 2.4, cp.z, started && !modal && campD > 14 && (onFoot ? campD < 400 : !state.places.camp && !!state.tips.caught));
   // A trip's destination: a marker until you're on the water it rings.
@@ -2529,6 +3039,13 @@ function save() {
   state.vessel = boat.kind;
   state.mode = onFoot ? 'foot' : 'boat';
   state.walker = onFoot ? { x: walker.pos.x, z: walker.pos.z, heading: walker.heading } : null;
+  // The car where it is; at the wheel, you're saved standing by its door (you get out on loading).
+  const at = state.car.at;
+  state.car = { x: Math.round(car.pos.x * 100) / 100, z: Math.round(car.pos.z * 100) / 100, yaw: Math.round(car.heading * 1000) / 1000, at: driving ? parkNear(car.pos.x, car.pos.z, 9) : at };
+  if (driving) {
+    const sp = carExitSpot();
+    if (sp) state.walker = { x: sp.x, z: sp.z, heading: car.heading };
+  }
   const r3 = (v) => Math.round(v * 1000) / 1000;
   state.sky = { cloud: r3(weather.cloud), rain: r3(weather.rain), state: weather.state, timer: r3(weather.timer) };
   state.seen = explored.toString();
@@ -2790,6 +3307,29 @@ function begin() {
   else if (LOAD_NOTES[loaded.outcome]) setTimeout(() => hud.toast(LOAD_NOTES[loaded.outcome], 9), 2600);
   // A camp whose ground changed with an update: what happened to it (nothing in it is lost).
   campNotes.forEach((n, i) => setTimeout(() => hud.toast(n, 10), 12000 + i * 11000));
+  // A drive that was under way when the game closed: finished now (you're there, with the car).
+  if (state.outing.travel) {
+    const to = state.outing.travel.to;
+    arrive(to);
+    setTimeout(() => hud.toast(`${to === 'home' ? 'Home' : DESTS[to].name}: the drive finished while the game was closed. Everything you packed is with you.`, 8), 2400);
+  }
+  refreshHomeGear(true);
+  refreshHomeWall();
+  // Home and the garage: offered (never forced) to anyone who was already playing, and to new
+  // players once they've found their feet.
+  if (!state.outing.intro) {
+    const offer = () => {
+      if (state.outing.intro || modal || !started) return;
+      state.outing.intro = true;
+      save();
+      ask('Home & the garage', `You have a home now: a cottage and its garage on the east arm, up the lane above Shell Strand. The garage keeps your rods, tackle and camping gear, with a workbench for planning an outing, and the car is on the drive. Nothing changes where you are: go whenever you like (the map, or your backpack’s “Head back to”).`, [
+        { text: 'Later', cls: 'quiet', run: () => hud.toast('Home is on the map whenever you want it.', 4) },
+        { text: 'Go home now', run: () => travel('home') },
+      ]);
+    };
+    if (returning && (state.log.length || state.camps.length)) setTimeout(offer, 7000 + campNotes.length * 11000);
+    else homeIntroAt = 150;
+  }
   // Coming back to a game from before your own camps and Willowhaven: a word about them.
   if (returning && state.log.length && !state.tips.coastIntro) {
     setTimeout(() => {
@@ -2905,6 +3445,7 @@ function closeMap() {
   mapSheet.close();
   if (modal === 'map') modal = null;
   audio.page();
+  returnToBench();
 }
 
 // The field guide lives in the journal; it can rig a recommended setup (when you carry it), and
@@ -3003,6 +3544,7 @@ function closeJournal() {
   journal.close();
   modal = null;
   audio.page();
+  returnToBench();
 }
 
 input.on('press', (code, acts) => {
@@ -3059,6 +3601,14 @@ input.on('press', (code, acts) => {
     if (code === 'Escape' || is('interact')) closeBoard();
     return;
   }
+  if (modal === 'bench') {
+    if (code === 'Escape') closeBench();
+    return;
+  }
+  if (modal === 'outsheet') {
+    if (code === 'Escape' || (is('interact') && outSheet.mode !== 'drive')) closeOut();
+    return;
+  }
   if (modal === 'map') {
     if (code === 'Escape' || is('map')) closeMap();
     return;
@@ -3081,6 +3631,24 @@ input.on('press', (code, acts) => {
     else if (is('tackle')) nextTackle();
     else if (is('rod1')) pickRod(0);
     else if (is('rod2')) pickRod(1);
+    return;
+  }
+  // At the wheel: the car's own keys (the movement keys drive; Space brakes, held).
+  if (driving && !modal) {
+    const act = interaction();
+    if (is('interact') && act) act.run();
+    else if (is('tackle')) { if (Math.abs(car.speed) < 0.6) openOutSheet('drive'); else hud.flash('Stop first.', t, 1.5); }
+    else if (is('view')) cycleView();
+    else if (is('eye')) toggleFirstPerson();
+    else if (is('reset')) resetView();
+    else if (is('map')) openMap();
+    else if (is('pack')) openPack();
+    else if (is('settings')) openSettings();
+    else if (is('photo') && Math.abs(car.speed) < 0.6) openPhoto();
+    else if (is('hide')) {
+      hudOff = !hudOff;
+      hud.hidden(hudOff);
+    }
     return;
   }
   if (is('cast')) {
@@ -3319,6 +3887,8 @@ function tick(now, manual = false) {
   let throttle = 0, steer = 0;
   move.x = 0;
   move.z = 0;
+  carIn.throttle = 0;
+  carIn.steer = 0;
   if (started && !modal) {
     const ti = input.throttle, si = input.steer;
     if (fishing.aiming) {
@@ -3329,6 +3899,9 @@ function tick(now, manual = false) {
     } else if (fishing.lineOut) {
       fishing.depthBy(ti, dt);
       if (!onFoot) steer = si;
+    } else if (driving) {
+      carIn.throttle = ti;
+      carIn.steer = si;
     } else if (onFoot) {
       // Camera-relative: W walks away from the camera, A/D to the sides.
       const yaw = rig.yaw, fx_ = Math.sin(yaw), fz_ = Math.cos(yaw);
@@ -3365,7 +3938,7 @@ function tick(now, manual = false) {
       save();
     }
   }
-  watchStuck(dt, !!(move.x || move.z));
+  watchStuck(dt, !driving && !!(move.x || move.z));
   if (onFoot && (move.x || move.z)) {
     walkTime += dt;
     if (walkTime > 3 && !state.tips.walked) {
@@ -3390,8 +3963,21 @@ function tick(now, manual = false) {
   }
   // First person: you face where you look.
   if (rig.mode === 'eye' && onFoot && !(move.x || move.z)) walker.heading = dampAngle(walker.heading, rig.yaw, 10, dt);
-  if (onFoot) walker.update(dt, t, move, { jog: input.jogging, locked: fishing.busy, obstacles: solids });
-  fishing.update(dt, t, rig.yaw, started && !modal && !placement.isOn && input.action);
+  if (onFoot && !driving) walker.update(dt, t, move, { jog: input.jogging, locked: fishing.busy, obstacles: solids });
+  // The car: driven while you're at the wheel (a menu open puts the brake on); otherwise parked.
+  {
+    const live = driving && started;
+    const bump = car.update(dt, t, { throttle: modal ? 0 : carIn.throttle, steer: modal ? 0 : carIn.steer, brake: live && (modal || input.holding('cast')) ? 1 : 0 }, carWorld, { live, night: env.night, still: settings.controls.reducedMotion });
+    if (bump) carBumped(bump);
+    if (driving) {
+      walker.pos.set(car.pos.x, car.pos.y, car.pos.z);
+      walker.ground = car.pos.y;
+      refreshCarSolids();
+      watchParking(dt);
+      audio.car?.(Math.min(1, Math.abs(car.speed) / 12), started && !modal ? Math.abs(carIn.throttle) : 0, true);
+    } else audio.car?.(0, 0, false);
+  }
+  fishing.update(dt, t, rig.yaw, started && !modal && !placement.isOn && !driving && input.action);
 
   ecoTick(dt);
   handleClues();
@@ -3413,10 +3999,13 @@ function tick(now, manual = false) {
   // (A steady horizon: your eyes don't pitch and roll with the boat, and only drift gently up and
   // down with the swell; the quick bob of the chop is smoothed away.)
   const steadyCam = settings.controls.boatCam === 'steady' || settings.controls.reducedMotion;
-  if (onFoot) walker.eyePoint(_eye);
+  if (driving) car.eyePoint(_eye);
+  else if (onFoot) walker.eyePoint(_eye);
   else boat.eyePoint(_eye, steadyCam);
   if (!onFoot && steadyCam) _eye.y = eyeY = Math.abs(eyeY - _eye.y) > 1 ? _eye.y : damp(eyeY, _eye.y, 0.3, dt);
   else eyeY = _eye.y;
+  // Indoors (with the roof lifted), the camera comes in closer and looks down a little more.
+  rig.indoor = onFoot && !driving && !!insideHome(walker.pos.x, walker.pos.z);
   rig.update(dt, t, { boat, walker, started, fishing, baitFocus: fishing.watchPoint, eye: _eye, roll: onFoot || steadyCam ? 0 : boat.roll * 0.45 });
   updateFirstPerson(dt);
   const P = player().pos;
@@ -3441,6 +4030,15 @@ function tick(now, manual = false) {
       still: settings.controls.reducedMotion,
       cooking: (c) => (c.cooking ? { fish: c.cooking, done: clamp((abs - c.cooking.start) / c.cooking.dur, 0, 1) } : c.store.meals[0] ? { fish: c.store.meals[0], done: 1 } : null),
     });
+  }
+  world.home.update(dt, t, { from: player().pos, cam: camera.position, night: env.night, cutaway: rig.mode !== 'eye', onDoor: (open) => audio.door?.(open) });
+  homeT -= dt;
+  if (homeT <= 0) {
+    homeT = 0.5;
+    if (Math.hypot(player().pos.x - HOME.x, player().pos.z - HOME.z) < 120) {
+      refreshHomeGear();
+      refreshHomeWall();
+    }
   }
   updateRain(dt);
   mist.update(t, state.hour, env, camera);
@@ -3510,6 +4108,15 @@ function tick(now, manual = false) {
     tent: state.camps.reduce((m, c) => Math.max(m, 1 - smoothstep(3, 18, Math.hypot(P.x - c.x, P.z - c.z))), 0),
   });
 
+  if (started && homeIntroAt > 0 && !modal && !state.outing.intro) {
+    homeIntroAt -= dt;
+    if (homeIntroAt <= 0) {
+      homeIntroAt = 0;
+      state.outing.intro = true;
+      hud.toast('There’s a home for you up the lane above Shell Strand: a cottage and a garage with the camping gear, a workbench and a car. It’s on the map.', 10);
+      save();
+    }
+  }
   if (started) {
     checkPlaces(dt);
     watchCamps();
@@ -3540,6 +4147,9 @@ function tick(now, manual = false) {
   if (!manual) draw();
 }
 
+let homeT = 0;
+let homeIntroAt = 0; // seconds of play before a new player hears about home (0: not waiting)
+const carIn = { throttle: 0, steer: 0 };
 let wadeT = 0;
 let leverHold = 0;
 let motorNoiseT = 0;
@@ -3600,6 +4210,8 @@ requestAnimationFrame((now) => {
 
 // A small handle for tinkering from the browser console, e.g. slowTide.setHour(19).
 window.slowTide = {
+  car, travel: (d) => travel(d), driveTo: (d, how) => driveTo(d, how), enterCar: () => enterCar(), exitCar: () => exitCar(),
+  openBench: (st) => openBench(st), get driving() { return driving; }, get modalName() { return modal; },
   state, walker, fishing, env, weather, renderer, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world,
   get boat() { return boat; }, // the boat you're in (or last used)
   reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI,

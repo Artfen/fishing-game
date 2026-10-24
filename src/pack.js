@@ -5,6 +5,7 @@ import {
 import { FISH, fishById } from './fish.js';
 import { studio, refKey } from './gearView.js';
 import { reelOf } from './gearArt.js';
+import { CAR_HOLD, moveToCar, packSetup as packInto } from './outing.js';
 
 // The backpack: what you carry, laid out like opening your tackle. Three areas work together:
 // an equipment browser (categories, filters and a grid of pictures), the selected piece shown
@@ -93,6 +94,7 @@ export class PackUI {
     this.kit = kit;
     $('travel-camp').addEventListener('click', () => travel('camp'));
     $('travel-own').addEventListener('click', () => travel('own'));
+    $('travel-home').addEventListener('click', () => travel('home'));
     $('travel-haven').addEventListener('click', () => travel('haven'));
     $('travel-boat').addEventListener('click', () => travel('boat'));
     $('travel-map').addEventListener('click', () => openMap?.());
@@ -108,10 +110,12 @@ export class PackUI {
   get gear() { return this.state.gear; }
   get rodInHand() { return RODS[this.gear.rod]; }
 
-  // box: false, or the name of the tackle box within reach ('tackle box', 'boat locker').
+  // box: false, or the name of the tackle box within reach ('tackle box', 'boat locker', 'tackle
+  // wall', or 'car boot': the car's boot holds only what's loaded in it).
   open(box) {
     this.atBox = !!box;
     this.boxName = typeof box === 'string' ? box : 'tackle box';
+    this.atCar = box === 'car boot';
     this.el.hidden = false;
     $('pack-status').textContent = '';
     this.render();
@@ -171,9 +175,30 @@ export class PackUI {
     this.changed(`Tied on: ${it.name}, on the ${rod.short.toLowerCase()}`, 'item');
   }
 
+  // What the box in reach holds for you: the car's boot only its own; any other box everything
+  // that isn't carried or in the car.
+  inBox(type, id) {
+    const car = this.state.equip?.car;
+    const inCar = !!car && (type === 'rod' ? car.rods : car.items).includes(id);
+    return this.atCar ? inCar : !inCar;
+  }
+
   // Swap between the backpack and the tackle box.
   moveRod(id, toPack) {
     const rods = this.gear.pack.rods;
+    if (this.atCar) {
+      // The boot: what comes out goes into your backpack, what goes back goes into the rod tube.
+      if (toPack) {
+        if (rods.length >= PACK.rods) return;
+        this.state.equip.car.rods.splice(this.state.equip.car.rods.indexOf(id), 1);
+        rods.push(id);
+        this.changed(`Took the ${RODS[id].short.toLowerCase()} out of the boot`);
+      } else {
+        const r = moveToCar(this.state, 'rod', id, true);
+        this.changed(r.ok ? `Put the ${RODS[id].short.toLowerCase()} in the boot` : r.why);
+      }
+      return;
+    }
     if (toPack) {
       if (rods.length >= PACK.rods) return;
       rods.push(id);
@@ -187,6 +212,18 @@ export class PackUI {
 
   moveItem(id, toPack) {
     const items = this.gear.pack.items;
+    if (this.atCar) {
+      if (toPack) {
+        if (items.length >= PACK.items) return;
+        this.state.equip.car.items.splice(this.state.equip.car.items.indexOf(id), 1);
+        items.push(id);
+        this.changed(`Took out of the boot: ${TACKLE[id].name}`);
+      } else {
+        const r = moveToCar(this.state, 'item', id, true);
+        this.changed(r.ok ? `In the boot: ${TACKLE[id].name}` : r.why);
+      }
+      return;
+    }
     if (toPack) {
       if (items.length >= PACK.items) return;
       items.push(id);
@@ -194,21 +231,15 @@ export class PackUI {
     this.changed(toPack ? `Packed: ${TACKLE[id].name}` : `Left in the ${this.boxName}: ${TACKLE[id].name}`);
   }
 
-  // Swap everything in the backpack for a setup (ready-made or one you saved).
+  // Swap everything in the backpack for a setup (ready-made or one you saved). Anything of it in
+  // the car comes out of the car (one rod is only ever in one place).
   packSetup(s) {
-    const g = this.gear;
-    g.pack.rods = [...s.rods];
-    g.pack.items = [...s.items];
-    g.rod = s.rod;
-    for (const r of s.rods) {
-      if (s.line?.[r]) g.line[r] = s.line[r];
-      if (s.term?.[r]) g.term[r] = s.term[r];
-      const want = s.rig?.[r];
-      if (want && s.items.includes(want)) g.rig[r] = want;
-      else if (!s.items.includes(g.rig[r])) {
-        const first = s.items.find((i) => fits(RODS[r], TACKLE[i]));
-        if (first) g.rig[r] = first;
-      }
+    if (this.state.equip) packInto(this.state, s);
+    else {
+      const g = this.gear;
+      g.pack.rods = [...s.rods];
+      g.pack.items = [...s.items];
+      g.rod = s.rod;
     }
     this.changed(`Packed ${s.name}: ${s.rods.map((r) => RODS[r].short.toLowerCase()).join(' and ')}`);
   }
@@ -278,7 +309,8 @@ export class PackUI {
     if (ref.type === 'rod') {
       if (g.rod === ref.id) return { cls: 'on', mark: '✋', text: 'In hand' };
       if (g.pack.rods.includes(ref.id)) return { cls: 'carried', mark: '✓', text: 'Carried' };
-      return { cls: 'box', mark: '▣', text: this.atBox ? `In the ${this.boxName}` : 'At camp or a locker' };
+      if (this.state.equip?.car.rods.includes(ref.id)) return { cls: 'box', mark: '▣', text: 'In the car' };
+      return { cls: 'box', mark: '▣', text: this.atBox && !this.atCar ? `In the ${this.boxName}` : 'At home or a tackle box' };
     }
     if (ref.type === 'line' || ref.type === 'term') {
       const rod = RODS[ref.rod];
@@ -289,7 +321,10 @@ export class PackUI {
     if (ref.type === 'item') {
       const it = TACKLE[ref.id];
       const carried = g.pack.items.includes(ref.id);
-      if (!carried) return { cls: 'box', mark: '▣', text: this.atBox ? `In the ${this.boxName}` : 'At camp or a locker' };
+      if (!carried) {
+        if (this.state.equip?.car.items.includes(ref.id)) return { cls: 'box', mark: '▣', text: 'In the car' };
+        return { cls: 'box', mark: '▣', text: this.atBox && !this.atCar ? `In the ${this.boxName}` : 'At home or a tackle box' };
+      }
       if (this.itemOn(hand)?.id === ref.id) return { cls: 'on', mark: '●', text: 'On your line' };
       const other = this.carriedRods().find((r) => r.id !== hand.id && this.itemOn(r)?.id === ref.id);
       if (other) return { cls: 'other', mark: '◐', text: `On the ${other.short.toLowerCase()}` };
@@ -355,11 +390,12 @@ export class PackUI {
     const g = this.gear, cat = this.ui.cat, F = this.ui.filters, hand = this.rodInHand;
     const q = F.q.trim().toLowerCase();
     const match = (ref) => !q || this.nameOf(ref).toLowerCase().includes(q) || (ref.type === 'item' && TACKLE[ref.id].desc.toLowerCase().includes(q));
-    const boxTitle = this.atBox ? `In the ${this.boxName}` : 'In your tackle box · swap at camp or a boat locker';
+    const boxTitle = this.atCar ? `In the boot · ${this.state.equip.car.rods.length} of ${CAR_HOLD.rods} rods, ${this.state.equip.car.items.length} of ${CAR_HOLD.items} tackle`
+      : this.atBox ? `In the ${this.boxName}` : 'In your tackle box · swap at home, at camp or a boat locker';
     const out = [];
     if (cat === 'rods') {
       const carried = this.carriedRods().map((r) => ({ type: 'rod', id: r.id }));
-      const box = ROD_IDS.filter((r) => !g.pack.rods.includes(r)).map((id) => ({ type: 'rod', id }));
+      const box = ROD_IDS.filter((r) => !g.pack.rods.includes(r) && (!this.atBox || this.inBox('rod', r))).map((id) => ({ type: 'rod', id }));
       if (F.where !== 'box') out.push({ title: `Carried · ${g.pack.rods.length} of ${PACK.rods}`, refs: carried.filter(match) });
       if (F.where !== 'carried') out.push({ title: boxTitle, refs: box.filter(match), box: true });
     } else if (cat === 'lines' || cat === 'rigs') {
@@ -387,7 +423,7 @@ export class PackUI {
         return match({ type: 'item', id });
       };
       const carried = ITEM_IDS.filter((i) => g.pack.items.includes(i) && ok(i)).map((id) => ({ type: 'item', id }));
-      const box = ITEM_IDS.filter((i) => !g.pack.items.includes(i) && ok(i)).map((id) => ({ type: 'item', id }));
+      const box = ITEM_IDS.filter((i) => !g.pack.items.includes(i) && (!this.atBox || this.inBox('item', i)) && ok(i)).map((id) => ({ type: 'item', id }));
       if (F.where !== 'box') out.push({ title: `In your backpack · ${g.pack.items.length} of ${PACK.items} carried`, refs: carried });
       if (F.where !== 'carried') out.push({ title: boxTitle, refs: box, box: true });
     }
@@ -937,7 +973,10 @@ export class PackUI {
       if (carried) {
         if (g.rod === ref.id) done('In hand');
         else primary('Take in hand', () => this.useRod(ref.id));
-        if (this.atBox && g.pack.rods.length > 1) second(`Leave in the ${this.boxName}`, () => this.moveRod(ref.id, false));
+        if (this.atBox && g.pack.rods.length > 1) second(this.atCar ? 'Put it in the boot' : `Leave in the ${this.boxName}`, () => this.moveRod(ref.id, false));
+      } else if (this.atBox && !this.inBox('rod', ref.id)) {
+        done('Pack this rod');
+        why(this.atCar ? 'It isn’t in the car: it’s at home (or a tackle box).' : 'It’s in the car: take it out at the boot.');
       } else if (this.atBox) {
         if (g.pack.rods.length < PACK.rods) primary('Pack this rod', () => this.moveRod(ref.id, true));
         else {
@@ -971,7 +1010,10 @@ export class PackUI {
             why(block.text);
           } else primary(rod.id === g.rod ? `Tie on the ${rod.short.toLowerCase()}` : `Tie on the ${rod.short.toLowerCase()} and take it`, () => this.tieOn(ref.id));
         }
-        if (this.atBox) second(`Leave in the ${this.boxName}`, () => this.moveItem(ref.id, false));
+        if (this.atBox) second(this.atCar ? 'Put it in the boot' : `Leave in the ${this.boxName}`, () => this.moveItem(ref.id, false));
+      } else if (this.atBox && !this.inBox('item', ref.id)) {
+        done('Pack it');
+        why(this.atCar ? 'It isn’t in the car: it’s at home (or a tackle box).' : 'It’s in the car: take it out at the boot.');
       } else if (this.atBox) {
         if (g.pack.items.length < PACK.items) primary('Pack it', () => this.moveItem(ref.id, true));
         else {
@@ -984,9 +1026,9 @@ export class PackUI {
       }
     } else if (ref.type === 'setup') {
       const s = this.setupOf(ref);
-      if (!this.atBox) {
+      if (!this.atBox || this.atCar) {
         done('Pack this setup');
-        why('Whole setups are packed at a tackle box: at a camp, or in a motorboat’s locker.');
+        why(this.atCar ? 'Whole setups are packed at home or a tackle box: at the boot, swap the pieces one by one.' : 'Whole setups are packed at a tackle box: at home, at a camp, or in a motorboat’s locker.');
       } else if (this.packed(s)) done('Packed');
       else primary('Pack this setup', () => this.packSetup(s));
       if (ref.id[0] === 's') second('Forget it', () => this.forgetSetup(Number(ref.id.slice(1))));
@@ -1128,6 +1170,7 @@ export class PackUI {
     $('travel-own').hidden = !this.state.camps?.length;
     $('travel-own').disabled = !info.own;
     $('travel-own').textContent = this.state.camps?.[0]?.name || 'Your camp';
+    $('travel-home').disabled = !info.home;
     $('travel-haven').hidden = !this.state.places.haven;
     $('travel-haven').disabled = !info.haven;
     $('travel-note').textContent = info.note || '';

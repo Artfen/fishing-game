@@ -249,7 +249,8 @@ export function cleanCamps(raw) {
 }
 
 // Kits in your backpack: the ones not pitched somewhere.
-export const kitsFree = (state) => Math.max(0, CAMP_KITS - (state.camps?.length || 0));
+// (With the outing gear's record, that's whether the tent is in your backpack: see outing.js.)
+export const kitsFree = (state) => (state.equip ? (state.equip.kit.tent === 'pack' ? 1 : 0) : Math.max(0, CAMP_KITS - (state.camps?.length || 0)));
 
 /* ---------------- what's in it ---------------- */
 

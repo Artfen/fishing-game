@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PLACES, PATH, WEND_TRAIL, COAST_PATHS, zoneAt, ZONE_NAMES } from './world/terrain.js';
+import { PLACES, PATH, WEND_TRAIL, COAST_PATHS, LANES, HOME, CAR_PARKS, zoneAt, ZONE_NAMES } from './world/terrain.js';
 import { fishById } from './fish.js';
 import { habitsOf } from './guide.js';
 import { TENTS } from './campsite.js';
@@ -551,6 +551,8 @@ export class MapSheet {
     if (st.places.camp) trail(PATH);
     if (st.places.quay || st.places.boathouse) trail(WEND_TRAIL);
     if (st.places.haven || st.places.landing) for (const P of COAST_PATHS) trail(P);
+    // The lanes from home (under the fog where you haven't been).
+    for (const P of LANES) trail(P);
 
     ctx.drawImage(this.fog, x0, y0, w, h);
     if (this.highlightImg) {
@@ -647,6 +649,42 @@ export class MapSheet {
       this.label(ctx, p.name, x + 12 * s, y - 2 * s, p.camp ? 19 : 17, INK, p.camp || p.dock ? 0.95 : 0.85);
     }
 
+    // Home: a little house; and the car, wherever it's parked.
+    {
+      const [x, y] = this.toPx(HOME.x, HOME.z);
+      ctx.save();
+      ctx.fillStyle = '#efe9df';
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 2 * s;
+      ctx.beginPath();
+      ctx.moveTo(x - 8 * s, y + 7 * s);
+      ctx.lineTo(x - 8 * s, y - 2 * s);
+      ctx.lineTo(x, y - 10 * s);
+      ctx.lineTo(x + 8 * s, y - 2 * s);
+      ctx.lineTo(x + 8 * s, y + 7 * s);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#3e6b6f';
+      ctx.fillRect(x - 2 * s, y + 1 * s, 4 * s, 6 * s);
+      ctx.restore();
+      this.label(ctx, 'Home', x + 12 * s, y + 2 * s, 19, INK, 1);
+      const car = st.car;
+      if (car && Math.hypot(car.x - CAR_PARKS.home.x, car.z - CAR_PARKS.home.z) > 8) {
+        const [cx, cy] = this.toPx(car.x, car.z);
+        ctx.save();
+        ctx.fillStyle = '#7d9483';
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 1.6 * s;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(cx - 8 * s, cy - 4 * s, 16 * s, 8 * s, 2 * s);
+        else ctx.rect(cx - 8 * s, cy - 4 * s, 16 * s, 8 * s);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        this.label(ctx, 'Your car', cx + 11 * s, cy + 4 * s, 16, INK, 0.9);
+      }
+    }
     // Your camp: a tent in its own colour, with its name.
     for (const c of st.camps || []) {
       if (!c.marked) continue;
@@ -949,6 +987,8 @@ export class MapSheet {
       return li;
     };
     const extra = [];
+    extra.push(row('Home', 'your house and garage', info.here === 'home' ? 'You’re here' : 'Go there', info.home, 'home', HOME));
+    if (st.car && info.carAway) extra.push(row('Your car', info.carWords || 'parked', 'Go there', info.car, 'car', st.car));
     for (const c of st.camps || []) extra.push(row(c.name, 'your camp', info.here === 'own' ? 'You’re here' : 'Go there', info.own, 'own', c));
     const haven = PLACES.find((p) => p.id === 'haven');
     if (st.places.haven) extra.push(row(haven.name, 'the harbour', info.here === 'haven' ? 'You’re here' : 'Go there', info.haven, 'haven', haven));

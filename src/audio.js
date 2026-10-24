@@ -408,6 +408,56 @@ export class AudioScape {
     this.set(e.g.gain, on ? 0.035 + level * 0.07 : 0, on ? 0.3 : 0.6);
   }
 
+  // The car: a soft four-cylinder hum that rises with the revs, and gravel under the tyres with
+  // the speed. level 0…1 (speed), throttle 0…1 (how hard you're pressing); running: the engine
+  // is on (it idles while you sit at the wheel).
+  car(level, throttle = 0, running = false) {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    if (!this.carEng && running) {
+      const t0 = ctx.currentTime;
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      const f = ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.Q.value = 1.2;
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      o.connect(f);
+      f.connect(g);
+      g.connect(this.sfx);
+      o.start(t0);
+      const tyres = this.bed(this.white, [['bandpass', 900, 0.5], ['lowpass', 2600, 0.4]], this.sfx);
+      this.carEng = { o, f, g, tyres, on: false };
+    }
+    if (!this.carEng) return;
+    const e = this.carEng, on = running;
+    const rev = Math.min(1, level * 0.8 + throttle * 0.35);
+    this.set(e.o.frequency, 38 + rev * 70, 0.2);
+    this.set(e.f.frequency, 180 + rev * 520, 0.25);
+    this.set(e.g.gain, on ? 0.02 + rev * 0.045 : 0, on ? 0.25 : 0.5);
+    this.set(e.tyres.g.gain, level * 0.03, 0.2);
+  }
+
+  // A car door: the latch and a solid thunk.
+  carDoor() {
+    this.tone({ freq: 120, freqEnd: 70, dur: 0.16, gain: 0.16, attack: 0.002 });
+    this.burst({ buf: this.brown, type: 'lowpass', freq: 600, dur: 0.12, gain: 0.12, attack: 0.002 });
+    this.tone({ type: 'square', freq: 1800, dur: 0.02, gain: 0.015, attack: 0.001, when: 0.05 });
+  }
+
+  // The boot lifting: a gas strut's sigh and the lid settling.
+  boot() {
+    this.burst({ type: 'bandpass', freq: 1200, freqEnd: 700, q: 0.8, dur: 0.5, gain: 0.04, attack: 0.08 });
+    this.tone({ freq: 140, freqEnd: 110, dur: 0.12, gain: 0.08, attack: 0.004, when: 0.45 });
+  }
+
+  // A house door: a short creak, and the latch as it closes.
+  door(open) {
+    if (open) this.burst({ type: 'bandpass', freq: 520, freqEnd: 760, q: 6, dur: 0.35, gain: 0.025, attack: 0.05 });
+    else this.tone({ freq: 220, freqEnd: 150, dur: 0.1, gain: 0.07, attack: 0.002, when: 0.3 });
+  }
+
   // A predator hitting a lure: a solid thump through the rod.
   strike() {
     this.tone({ freq: 140, freqEnd: 70, dur: 0.18, gain: 0.2, attack: 0.002 });

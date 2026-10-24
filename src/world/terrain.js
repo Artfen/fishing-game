@@ -157,6 +157,32 @@ export const COAST_PATHS = [
   [[100, -50], [98, -32], [99, -14], [100, 3]],
 ];
 
+// Home: a cottage and its garage on a level shoulder of the east arm, looking south over Shell
+// Strand to the sea, with the hill behind (see home.js). The pad is cut and filled level; the
+// house and garage share a wall, with a door between them; the garage door faces the drive.
+export const HOME = { x: 123, z: -74 };
+export const HOME_PAD = { x0: 106, x1: 141, z0: -86, z1: -57, h: 6 };
+export const HOUSE = { x0: 111, x1: 126, z0: -81, z1: -71.5, door: 116.5 };
+export const GARAGE = { x0: 126, x1: 135.5, z0: -81, z1: -70, door: [128, 133.6], inner: -76.6 };
+// Where the car stands: on the drive at home (nose out, boot to the garage door) and at the car
+// parks the lanes lead to; Wend Quay and the Mere Boathouse are reached by road (a short travel
+// transition), the rest you can drive yourself. yaw: the way the car faces (0 = +z).
+export const CAR_PARKS = {
+  home: { x: 130.8, z: -63.6, yaw: 0, r: 5 },
+  haven: { x: 36, z: -91.5, yaw: -2.2, r: 7 },
+  strand: { x: 100, z: -7, yaw: 0, r: 7 },
+  head: { x: 157, z: -41.5, yaw: 0.9, r: 7 },
+  quay: { x: 530, z: -157, yaw: 2.6, r: 5 },
+  boathouse: { x: 425, z: -391, yaw: -2.4, r: 5 },
+};
+// The lanes a car can drive: the drive down from home, and the coast path widened into a gravel
+// lane from Willowhaven along the east arm to Cove Head, with its branch down to Shell Strand.
+export const LANES = [
+  [[132, -58.5], [137.5, -57], [141.2, -54.2], [142.4, -50.6], [142.2, -47.4]],
+  [[36, -91.5], [42, -91], [55, -84], [70, -70], [84, -57], [100, -50], [118, -49], [136, -49], [150, -45.5], [157, -41.5]],
+  [[100, -50], [98, -32], [99, -14], [100, -7]],
+];
+
 const sdCircle = (x, z, cx, cz, r) => Math.hypot(x - cx, z - cz) - r;
 
 function sdCapsule(x, z, ax, az, bx, bz, r) {
@@ -376,6 +402,7 @@ export function heightAt(x, z) {
     }
   }
   if (x > COAST_BOX.x0 && x < COAST_BOX.x1 && z > COAST_BOX.z0 && z < COAST_BOX.z1) h = coastHeight(x, z, h, true);
+  if (parkH) h = parkHeight(x, z, h);
   return h;
 }
 
@@ -463,9 +490,66 @@ function coastHeight(x, z, h, withPaths) {
   if (x > HAVEN_BOX.x0 && x < HAVEN_BOX.x1 && z > HAVEN_BOX.z0 && z < HAVEN_BOX.z1) h = havenHeight(x, z, h);
   h = headHeight(x, z, h);
   h = strandHeight(x, z, h);
+  h = homeHeight(x, z, h);
   if (withPaths && coastH && h > -0.4) {
     const p = coastPathInfo(x, z);
     if (p.d < 4) h = lerp(p.h, h, smoothstep(1.2, 4, p.d));
+  }
+  if (withPaths && laneH && h > -0.4) {
+    const p = laneInfo(x, z);
+    if (p.d < 6.5) h = lerp(p.h, h, smoothstep(2.6, 6.5, p.d));
+  }
+  return h;
+}
+
+// Home's pad: level inside, easing back into the land over nine metres, and into the hill behind
+// over a longer, grassy slope (cut at the back, a little fill at the front).
+function homeHeight(x, z, h) {
+  const P = HOME_PAD;
+  const dx = Math.max(P.x0 - x, 0, x - P.x1), back = Math.max(P.z0 - z, 0), dz = Math.max(back * (9 / 26), z - P.z1);
+  const d = Math.hypot(dx * (back > 0 ? 0.6 : 1), dz);
+  if (d > 9) return h;
+  return lerp(P.h, h, smoothstep(0, 9, d));
+}
+
+// The lanes: within a couple of metres of one, the ground is level across and follows the lane's
+// own easy grade along it.
+let laneH = null;
+const _li = { d: 0, h: 0, i: 0, l: 0, tx: 0, tz: 1, px: 0, pz: 0 };
+// reach: how far to look (the ground's shaping only needs the lanes close by).
+export function laneInfo(x, z, out = _li, reach = 8) {
+  out.d = Infinity;
+  out.h = 0;
+  for (let p = 0; p < LANES.length; p++) {
+    const P = LANES[p];
+    for (let i = 0; i < P.length - 1; i++) {
+      const a = P[i], b = P[i + 1];
+      if (Math.min(a[0], b[0]) - reach > x || Math.max(a[0], b[0]) + reach < x || Math.min(a[1], b[1]) - reach > z || Math.max(a[1], b[1]) + reach < z) continue;
+      const bax = b[0] - a[0], baz = b[1] - a[1], len = Math.hypot(bax, baz);
+      const hh = clamp(((x - a[0]) * bax + (z - a[1]) * baz) / (len * len), 0, 1);
+      const d = Math.hypot(x - a[0] - bax * hh, z - a[1] - baz * hh);
+      if (d < out.d) {
+        out.d = d;
+        out.l = p;
+        out.i = i + hh;
+        out.tx = bax / len;
+        out.tz = baz / len;
+        out.px = a[0] + bax * hh;
+        out.pz = a[1] + baz * hh;
+        if (laneH) out.h = lerp(laneH[p][i], laneH[p][i + 1], hh);
+      }
+    }
+  }
+  return out;
+}
+
+// The car parks: a level circle of gravel, easing out over a few metres.
+let parkH = null;
+function parkHeight(x, z, h) {
+  for (const id in CAR_PARKS) {
+    if (id === 'home') continue; // (on home's own level pad)
+    const c = CAR_PARKS[id], d = Math.hypot(x - c.x, z - c.z);
+    if (d < c.r + 5 && h > -0.4) h = lerp(parkH[id], h, smoothstep(c.r, c.r + 5, d));
   }
   return h;
 }
@@ -632,6 +716,22 @@ PATH[0] = [LANDING.x - 2.2, LANDING.z];
     if (p === 0) raw[0] = Math.max(raw[0], LANDING.deck);
     return raw.map((h, i) => (i === 0 || i === raw.length - 1 ? Math.max(0.45, h) : Math.max(0.45, (raw[i - 1] + h * 2 + raw[i + 1]) / 4)));
   });
+}
+// The lanes the same way (over the paths and home's pad), then the car parks on top of them.
+{
+  laneH = LANES.map((P, p) => {
+    const raw = P.map(([x, z]) => heightAt(x, z));
+    if (p === 0) {
+      // The drive: one even grade from the pad down to the coast path (cut and filled).
+      const len = [0];
+      for (let i = 1; i < P.length; i++) len.push(len[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+      return len.map((l) => lerp(raw[0], raw[raw.length - 1], l / len[len.length - 1]));
+    }
+    return raw.map((h, i) => (i === 0 || i === raw.length - 1 ? Math.max(0.8, h) : Math.max(0.8, (raw[i - 1] + h * 2 + raw[i + 1]) / 4)));
+  });
+  const ph = {};
+  for (const id in CAR_PARKS) ph[id] = Math.max(0.9, heightAt(CAR_PARKS[id].x, CAR_PARKS[id].z));
+  parkH = ph;
 }
 
 // A pier from the shore out along an axis (dx, dz) to water deep enough to tie up a boat.

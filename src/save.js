@@ -2,6 +2,7 @@ import { fishById } from './fish.js';
 import { RODS, TACKLE, TERMS, PACK, cleanGear } from './tackle.js';
 import { cleanSettings } from './settings.js';
 import { cleanCamps } from './campsite.js';
+import { cleanEquip, cleanCar, cleanOuting, defaultEquip } from './outing.js';
 
 // Saving your progress in this browser, with nobody to sign in to.
 //
@@ -14,7 +15,7 @@ import { cleanCamps } from './campsite.js';
 // To change the save format later: bump SAVE_VERSION and add a step to MIGRATIONS that turns
 // the previous version's data into the new shape.
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 const KEY = 'slow-tide-save';
 const BACKUP = 'slow-tide-save-backup';          // the save as it was when this session began
 const LEGACY = 'slow-tide-save-v1';              // the format before versioning
@@ -63,12 +64,35 @@ export const DEFAULT_STATE = {
   keepsakes: {},   // id -> { day, hour }
   unlocks: {},     // birdMarks, deckchair… -> true
   wallPhoto: null, // the photograph pinned up at the chandlery
+  // From save version 6: where your outing gear is (see outing.js), the car, your plans and
+  // loadouts, and what's on the wall at home.
+  equip: null,     // { kit: { tent, stove, coolbox: 'home' | 'car' | 'pack' | 'camp:<id>' }, car: { rods, items } }
+  car: null,       // { x, z, yaw, at: 'home' | destination id | null }
+  outing: null,    // { plan, last, lastDest, loadouts, travel, intro }
+  home: null,      // { photos: [ids], keepsake, catchId, auto }
 };
 
 // A new game: every setting at its default (a loaded save gets its own from sanitize).
+// What's on the wall at home: photographs, a keepsake and a catch you choose, or (auto) the game's
+// pick from what you've actually done. Never anything you haven't.
+export function cleanHome(raw, s) {
+  const r = isObj(raw) ? raw : {};
+  const photos = (Array.isArray(r.photos) ? r.photos : []).filter((id) => s.photos?.some((p) => p.id === id)).slice(0, 3);
+  return {
+    auto: r.auto !== false,
+    photos: [...new Set(photos)],
+    keepsake: typeof r.keepsake === 'string' && s.keepsakes?.[r.keepsake] ? r.keepsake : null,
+    catchId: typeof r.catchId === 'string' && s.log?.some((e) => e.id === r.catchId) ? r.catchId : null,
+  };
+}
+
 const fresh = () => {
   const s = JSON.parse(JSON.stringify(DEFAULT_STATE));
   s.settings = cleanSettings(null);
+  s.equip = defaultEquip('home');
+  s.car = cleanCar(null);
+  s.outing = cleanOuting(null);
+  s.home = cleanHome(null, s);
   return s;
 };
 
@@ -256,6 +280,11 @@ export function sanitize(raw) {
   if (isObj(raw.keepsakes)) for (const [k, v] of Object.entries(raw.keepsakes)) if (/^[a-z]{2,20}$/.test(k) && when(v)) s.keepsakes[k] = when(v);
   if (isObj(raw.unlocks)) for (const [k, v] of Object.entries(raw.unlocks)) if (/^[a-zA-Z]{2,20}$/.test(k) && v) s.unlocks[k] = true;
   s.wallPhoto = typeof raw.wallPhoto === 'string' && s.photos.some((p) => p.id === raw.wallPhoto) ? raw.wallPhoto : null;
+  // Your outing gear, the car, plans and loadouts, and home (version 6).
+  s.equip = cleanEquip(raw.equip, s);
+  s.car = cleanCar(raw.car);
+  s.outing = cleanOuting(raw.outing);
+  s.home = cleanHome(raw.home, s);
   if (isObj(raw.sky)) {
     s.sky = { cloud: num(raw.sky.cloud, 0.3, 0, 1), rain: num(raw.sky.rain, 0, 0, 1), state: oneOf(raw.sky.state, SKY_STATES, 'partly'), timer: num(raw.sky.timer, 120, 0, 3600) };
   }
@@ -277,6 +306,13 @@ const MIGRATIONS = {
   // Version 4 had no camps of your own, map marks, photographs or adventures: you start with
   // your camping kit in your backpack and an empty album.
   4: (d) => ({ ...d, camps: [], pins: [], photos: [], adventures: {}, keepsakes: {}, unlocks: {} }),
+  // Version 5 had no home, garage or car. Your camping kit stays exactly where it was (at your
+  // camp, or rolled up in your backpack); the car waits on the drive at home; and you carry on
+  // wherever you were (home is offered, never forced).
+  5: (d) => {
+    const camp = Array.isArray(d.camps) && d.camps[0] && typeof d.camps[0].id === 'string' ? `camp:${d.camps[0].id}` : 'pack';
+    return { ...d, equip: { kit: { tent: camp, stove: camp, coolbox: camp }, car: { rods: [], items: [] } }, car: null, outing: null, home: null };
+  },
 };
 
 function migrate(data, from) {
@@ -376,7 +412,10 @@ export function loadGame() {
   }
   const legacy = tryKey(LEGACY);
   if (legacy && legacy.state) return { state: legacy.state, outcome: 'migrated' };
-  return { state: fresh(), outcome: 'new' };
+  // A new game starts after "Life on the coast": no need for the note about what it added.
+  const s = fresh();
+  s.tips.coastIntro = true;
+  return { state: s, outcome: 'new' };
 }
 
 // Write the save. The first save of each session (and one every ten minutes) also keeps

@@ -58,6 +58,7 @@
   </div>
   <div id="boat-marker" class="marker" hidden aria-hidden="true"><span class="m-arrow"></span><span class="m-label">Boat · <b id="boat-dist">0</b> m</span></div>
   <div id="camp-marker" class="marker camp" hidden aria-hidden="true"><span class="m-arrow"></span><span class="m-label">Camp · <b id="camp-dist">0</b> m</span></div>
+  <div id="car-marker" class="marker" hidden aria-hidden="true"><span class="m-arrow"></span><span class="m-label">Car · <b>0</b> m</span></div>
   <div id="trip-marker" class="marker trip" hidden aria-hidden="true"><span class="m-arrow"></span><span class="m-label">Trip · <span id="trip-name"></span> · <b id="trip-dist">0</b> m</span></div>
   <div id="place" aria-live="polite">
     <div id="place-name"></div>
@@ -197,6 +198,7 @@
         <details class="gx-more" id="pack-travel-box">
           <summary>Head back</summary>
           <div class="gx-travel" role="group" aria-label="Head back">
+            <button id="travel-home" class="pk-btn" type="button">Home</button>
             <button id="travel-own" class="pk-btn" type="button">Your camp</button>
             <button id="travel-camp" class="pk-btn" type="button">The old camp</button>
             <button id="travel-haven" class="pk-btn" type="button">Willowhaven</button>
@@ -264,6 +266,32 @@
     <h3>Notices</h3>
     <div id="board-notices" class="board-notices"></div>
     <div class="cp-row cp-acts"><button id="board-plan" class="pk-btn" type="button">Plan a trip (field guide)</button><button id="board-map" class="pk-btn quiet" type="button">Open the map</button></div>
+  </div>
+</div>
+
+<div id="bench" class="sheet" role="dialog" aria-label="The workbench: planning an outing" hidden>
+  <div class="sheet-inner bench-inner">
+    <header>
+      <h2>The workbench</h2>
+      <p id="bench-sub"></p>
+      <button id="bench-close" class="sheet-close" type="button" aria-label="Close">×</button>
+    </header>
+    <nav id="bench-steps" class="wb-steps" aria-label="Planning, step by step"></nav>
+    <div class="wb-body">
+      <section id="bench-main" class="wb-main"></section>
+      <aside id="bench-side" class="wb-side" aria-label="The plan so far"></aside>
+    </div>
+  </div>
+</div>
+
+<div id="outsheet" class="sheet" role="dialog" aria-labelledby="out-title" hidden>
+  <div class="sheet-inner out-inner">
+    <header>
+      <h2 id="out-title"></h2>
+      <p id="out-sub"></p>
+      <button id="out-close" class="sheet-close" type="button" aria-label="Close">×</button>
+    </header>
+    <div id="out-body"></div>
   </div>
 </div>
 
@@ -447,7 +475,8 @@
       <dt>drag · scroll</dt><dd>look around · zoom</dd>
       <dt><kbd>Space</kbd></dt><dd>hold to aim and cast, then fish</dd>
       <dt><kbd>A</kbd><kbd>D</kbd> · <kbd>W</kbd><kbd>S</kbd></dt><dd>aim the cast · bait depth or lure speed</dd>
-      <dt><kbd>E</kbd></dt><dd>step ashore · board the boat · camp · look closer</dd>
+      <dt><kbd>E</kbd></dt><dd>step ashore · board the boat · camp · look closer · get in the car</dd>
+      <dt>in the car</dt><dd><kbd>W</kbd><kbd>S</kbd> drive · <kbd>A</kbd><kbd>D</kbd> steer · <kbd>Space</kbd> brake · stop, then <kbd>E</kbd> to get out</dd>
       <dt><kbd>B</kbd> · <kbd>Q</kbd> · <kbd>1</kbd><kbd>2</kbd></dt><dd>backpack · next tackle · switch rods</dd>
       <dt><kbd>K</kbd> · <kbd>G</kbd></dt><dd>keep a fish · throw loose bait</dd>
       <dt><kbd>Esc</kbd> · right-click</dt><dd>cancel a cast, reel in</dd>
@@ -461,7 +490,8 @@
       <dt>right side</dt><dd>drag to look · pinch to zoom</dd>
       <dt>round button</dt><dd>hold to aim and cast, then fish</dd>
       <dt>pack · eye · sonar</dt><dd>backpack · next view (first person, underwater) · fish finder</dd>
-      <dt>tap a prompt</dt><dd>step ashore, board, camp</dd>
+      <dt>tap a prompt</dt><dd>step ashore, board, camp, the car</dd>
+      <dt>in the car</dt><dd>left stick drives and steers · the round button brakes</dd>
       <dt>hourglass</dt><dd>hold to let time drift</dd>
     </dl>
     <p class="t-note">Best with sound on. <button id="title-settings" class="t-quality" type="button">Settings</button> · <button id="title-quality" class="t-quality" type="button">Graphics: Auto</button> · <button id="title-difficulty" class="t-quality" type="button">Difficulty: Standard</button></p>

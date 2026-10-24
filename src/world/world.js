@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {
   heightAt, JETTY, COVE, ISLAND, STACKS, CHANNEL, CAMP, LANDING, findShore, lakeSDF, streamSDF, pathInfo,
   WORLD, riverSDF, mereSDF, trailInfo, MERE, GANNET, coastPathInfo, HAVEN_APRON, HAVEN_HOUSES, DAYMARK, SHELTER, PUNT, STRAND,
+  HOME_PAD, CAR_PARKS, laneInfo,
 } from './terrain.js';
 import { mergeParts, mat, seeded, fbm, clamp, lerp, smoothstep, hash2, jitterGeo, pick, glowTexture } from '../util.js';
 import { buildLanternModel } from '../props.js';
@@ -10,6 +11,7 @@ import { withSurface } from './surface.js';
 import { buildShore, SHORE_PATCH } from './shore.js';
 import { buildRegions } from './regions.js';
 import { buildCoast } from './coast.js';
+import { buildHome, buildGravel } from './home.js';
 
 const shared = { uTime: { value: 0 }, uWind: { value: 1 } };
 const UP = new THREE.Vector3(0, 1, 0);
@@ -124,6 +126,10 @@ function regionColor(c, h, x, z, r, weed) {
   }
   return false;
 }
+
+// Home's pad, the lanes and the car parks stay clear of trees and rocks.
+const homeClear = (x, z) => (x > HOME_PAD.x0 - 4 && x < HOME_PAD.x1 + 4 && z > HOME_PAD.z0 - 3 && z < HOME_PAD.z1 + 3)
+  || laneInfo(x, z).d < 4.5 || Object.values(CAR_PARKS).some((c) => Math.hypot(x - c.x, z - c.z) < c.r + 3);
 
 // Shell Strand's shelf: 1 on the sand, fading to 0 at its grassy back and ends.
 const onStrand = (x, z) => smoothstep(30, 18, Math.abs(x - STRAND.x + 2)) * smoothstep(-12, -4, z - STRAND.z) * (z < STRAND.z + 18 ? 1 : 0);
@@ -856,7 +862,7 @@ export function buildWorld(scene, renderer, habitat) {
   const coastClear = (x, z) => coastPathInfo(x, z).d < 2.6
     || (x > HAVEN_APRON.x0 - 22 && x < HAVEN_APRON.x1 + 22 && z > -124 && z < -88)
     || Math.hypot(x - DAYMARK.x, z - DAYMARK.z) < DAYMARK.r || Math.hypot(x - SHELTER.x, z - SHELTER.z) < 8 || Math.hypot(x - PUNT.x, z - PUNT.z) < 5
-    || onStrand(x, z) > 0.2;
+    || onStrand(x, z) > 0.2 || homeClear(x, z);
   const lists = scatterTrees(rnd, avoid, (x, z) => pathInfo(x, z).d < 2.6 || streamSDF(x, z) < 1.5 || coastClear(x, z));
   const sway = swayMaterial();
   for (const k of Object.keys(geos)) scene.add(instanced(geos[k], lists[k], sway, rnd));
@@ -902,6 +908,10 @@ export function buildWorld(scene, renderer, habitat) {
   // The cove shore: its own seed, so building it never reshuffles anything else.
   const coast = buildCoast(scene, seeded(20261024));
   for (const o of coast.obstacles) obstacles.add(o.x, o.z, o.r, o.top ?? Infinity, -Infinity, o.kind || 'thing', o.name || '');
+  // Home and its garage, and the gravel lanes the car drives (their own seed too).
+  const home = buildHome(scene, seeded(20261101));
+  for (const o of home.obstacles) obstacles.add(o.x, o.z, o.r, o.top ?? Infinity, -Infinity, o.kind || 'thing', o.name || '');
+  scene.add(buildGravel(seeded(20261102)));
   // Tree crowns, for casts that clip a branch: radius, and the height band of the leaves.
   const canopy = new ObstacleGrid(6);
   const crown = { pine: [1.25, 1.1, 4.8], round: [1.5, 1.3, 3.8], blossom: [1.5, 1.3, 3.8] };
@@ -915,7 +925,7 @@ export function buildWorld(scene, renderer, habitat) {
   }
 
   const rockGeo = mergeParts([{ geo: jitterGeo(new THREE.DodecahedronGeometry(1, 0), 0.4, rnd), color: '#a39888', jitter: 0.07 }], rnd);
-  const rocks = scatterRocks(rnd);
+  const rocks = scatterRocks(rnd).filter((r) => !homeClear(r.x, r.z));
   for (const r of rocks) if (r.s > 0.9 && r.y > -0.6) obstacles.add(r.x, r.z, r.s * 0.75, r.y + r.s * 0.4, -Infinity, 'rock', 'rocks');
   scene.add(instanced(rockGeo, rocks, withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true })), rnd, { tint: 0.08, tilt: 1.2, squash: 0.5 }));
 
@@ -973,6 +983,7 @@ export function buildWorld(scene, renderer, habitat) {
     obstacles,
     boxes: regions.boxes,
     coast,
+    home,
     // Birds over feeding fish: a flock gathers over (x, z) for a while (or freshens if one is there).
     birdsAt(x, z) {
       const near = flocks.find((f) => Math.hypot(f.x - x, f.z - z) < 40);
