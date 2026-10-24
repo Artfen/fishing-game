@@ -152,7 +152,8 @@ export function buildHome(scene, rnd) {
   const walls = {};
   const addWall = (key, parts, room, normal) => {
     const m = mesh(mergeParts(parts, rnd), plain());
-    m.userData = { room, normal };
+    // (extra: what's on the wall, and goes when it steps aside: its glass, its door…)
+    m.userData = { room, normal, extra: [] };
     group.add(m);
     walls[key] = m;
   };
@@ -180,10 +181,11 @@ export function buildHome(scene, rnd) {
   group.add(mesh(mergeParts(plinth, rnd), plain()));
   // Glass in the windows (a little sheen; glowing warm after dark).
   const glassMat = new THREE.MeshLambertMaterial({ color: '#9fb6c2', emissive: '#ffb860', emissiveIntensity: 0, transparent: true, opacity: 0.45 });
-  const glassGeos = [...hwinS.map((o) => glassGeo('x', H.z1, o)), ...hwinN.map((o) => glassGeo('x', H.z0, o)), ...hwinW.map((o) => glassGeo('z', H.x0, o)), ...gwinE.map((o) => glassGeo('z', G.x1, o))];
-  const glass = new THREE.Mesh(mergeParts(glassGeos.map((geo) => ({ geo, color: '#ffffff' })), rnd), glassMat);
-  glass.material = glassMat;
-  group.add(glass);
+  for (const [key, geos] of [['hS', hwinS.map((o) => glassGeo('x', H.z1, o))], ['hN', hwinN.map((o) => glassGeo('x', H.z0, o))], ['hW', hwinW.map((o) => glassGeo('z', H.x0, o))], ['gE', gwinE.map((o) => glassGeo('z', G.x1, o))]]) {
+    const glass = new THREE.Mesh(mergeParts(geos.map((geo) => ({ geo, color: '#ffffff' })), rnd), glassMat);
+    group.add(glass);
+    walls[key].userData.extra.push(glass);
+  }
 
   // Floors: boards in the cottage, concrete in the garage.
   const floorH = mesh(mergeParts([{ geo: box(H.x1 - H.x0, 0.06, H.z1 - H.z0), matrix: mat((H.x0 + H.x1) / 2, Y + 0.03, (H.z0 + H.z1) / 2), color: '#a8825c' }], rnd), wood(), false);
@@ -232,9 +234,10 @@ export function buildHome(scene, rnd) {
     pivot.add(leaf);
     group.add(pivot);
     doors.push({ pivot, x: hx + (axis === 'x' ? len / 2 : 0), z: hz + (axis === 'x' ? 0 : len / 2), open: 0, swing, was: false });
+    return pivot;
   };
-  makeDoor(hdoor.a, H.z1, DOOR_W, 'x', '#3e6b6f', -1.45);
-  makeDoor(G.x0, idoor.a, DOOR_W, 'z', '#8a6a48', 1.45);
+  walls.hS.userData.extra.push(makeDoor(hdoor.a, H.z1, DOOR_W, 'x', '#3e6b6f', -1.45));
+  walls.mid.userData.extra.push(makeDoor(G.x0, idoor.a, DOOR_W, 'z', '#8a6a48', 1.45));
 
   // The garage door, rolled up into the roof space (an up-and-over door, left open; it lifts away
   // with the roof while you're inside).
@@ -465,10 +468,57 @@ export function buildHome(scene, rnd) {
     oput(new THREE.IcosahedronGeometry(0.3, 0), H.door + dx, Y + 0.55, H.z1 + 0.45, pick(['#d64979', '#e8b23a', '#a35ad0'], rnd));
   }
   for (let i = 0; i < 14; i++) oput(cyl(0.11, 0.11, 0.9, 7), 110.5 - (i % 2) * 0.05, Y + 0.12 + Math.floor(i / 7) * 0.22, -79.5 + (i % 7) * 0.24, '#8a6a48', 0, 0, Math.PI / 2);
+  // The front door: a little slate canopy on two brackets, a worn doormat, and the porch lantern
+  // beside it (its glass lights up in the evening: see update()).
+  const FRONT = [];
+  const fput = (geo, x, y, z, color, rx = 0) => FRONT.push({ geo, matrix: mat(x, y, z, rx, 0, 0), color });
+  fput(box(DOOR_W + 0.7, 0.07, 0.75), H.door, Y + DOOR_H + 0.3, H.z1 + 0.36, '#4f555c', 0.14);
+  for (const dx of [-(DOOR_W / 2 + 0.2), DOOR_W / 2 + 0.2]) fput(box(0.05, 0.3, 0.5), H.door + dx, Y + DOOR_H + 0.12, H.z1 + 0.32, '#3a3f44');
+  fput(box(0.05, 0.05, 0.22), H.door + 1.02, Y + 2.02, H.z1 + 0.21, '#2d2f31');
+  fput(box(0.17, 0.05, 0.17), H.door + 1.02, Y + 2.02, H.z1 + 0.32, '#2d2f31');
+  fput(box(0.15, 0.04, 0.15), H.door + 1.02, Y + 1.76, H.z1 + 0.32, '#2d2f31');
+  fput(box(0.7, 0.54, 0.04), H.door - 1.55, Y + 1.45, H.z1 + T / 2 + 0.02, '#6b4e34'); // (the chalkboard's frame)
+  const front = mesh(mergeParts(FRONT, rnd), plain());
+  group.add(front);
+  walls.hS.userData.extra.push(front);
+  oput(box(1.05, 0.03, 0.6), H.door, Y + 0.02, H.z1 + 0.45, '#7a5c3c');
+  oput(box(0.86, 0.035, 0.44), H.door, Y + 0.025, H.z1 + 0.45, '#5b432b');
   // The letterbox by the drive, with the house's name.
   oput(cyl(0.05, 0.05, 1.1, 6), 129.6, heightAt(129.6, -57.2) + 0.55, -57.2, '#5a5f66');
   oput(box(0.42, 0.28, 0.22), 129.6, heightAt(129.6, -57.2) + 1.2, -57.2, '#a5482f');
   group.add(mesh(mergeParts(O, rnd), plain()));
+  const porchGlass = new THREE.Mesh(box(0.12, 0.2, 0.12), new THREE.MeshLambertMaterial({ color: '#d9cfae', emissive: '#ffbf6a', emissiveIntensity: 0 }));
+  porchGlass.position.set(H.door + 1.02, Y + 1.89, H.z1 + 0.32);
+  group.add(porchGlass);
+  const porchGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture('rgba(255,205,140,1)'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
+  porchGlow.scale.setScalar(1.3);
+  porchGlow.position.copy(porchGlass.position);
+  group.add(porchGlow);
+  walls.hS.userData.extra.push(porchGlass, porchGlow);
+  // A chalkboard by the front door: the tally of what you've actually caught (see showTally).
+  const tally = canvasTex(256, 192, (ctx, w, h, lines) => {
+    ctx.fillStyle = '#2b3530';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(240,240,232,0.12)';
+    ctx.lineWidth = 18;
+    ctx.strokeRect(20, 30, w - 40, h - 60); // (old chalk, rubbed out)
+    ctx.fillStyle = 'rgba(244,242,232,0.92)';
+    ctx.textAlign = 'center';
+    ctx.font = '700 30px Kalam, Caveat, cursive';
+    ctx.fillText(lines ? 'The tally' : 'Gone fishing', w / 2, 44);
+    ctx.font = '23px Kalam, Caveat, cursive';
+    (lines || ['(back soon)']).forEach((t, i) => ctx.fillText(t, w / 2, 86 + i * 34));
+  });
+  tally.paint(null);
+  const tallyMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.46), new THREE.MeshLambertMaterial({ map: tally.tex }));
+  tallyMesh.position.set(H.door - 1.55, Y + 1.45, H.z1 + T / 2 + 0.045);
+  group.add(tallyMesh);
+  walls.hS.userData.extra.push(tallyMesh);
+  // Indoors, a soft ring on the floor where you stand to use something (the bed, the bench…).
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.4, 0.52, 32), new THREE.MeshBasicMaterial({ color: '#ffd68c', transparent: true, opacity: 0, depthWrite: false }));
+  ring.rotation.x = -Math.PI / 2;
+  ring.visible = false;
+  group.add(ring);
   obstacles.push({ x: 120, z: -66.5, r: 0.8, kind: 'building', name: 'the garden bench' });
   obstacles.push({ x: 110.6, z: -78.7, r: 0.6, kind: 'building', name: 'the woodpile' });
   obstacles.push({ x: 129.6, z: -57.2, r: 0.25, kind: 'building', name: 'the letterbox' });
@@ -513,26 +563,40 @@ export function buildHome(scene, rnd) {
       card.key = key;
       card.paint(lines);
     },
+    // The chalkboard by the door (null: nothing caught yet).
+    showTally(lines) {
+      const key = JSON.stringify(lines);
+      if (tally.key === key) return;
+      tally.key = key;
+      tally.paint(lines);
+    },
     // Each frame: who's where, and what's open. from: where you are; cam: the camera position;
     // cutaway: lift the roof and the wall facing the camera (not in first person).
     update(dt, t, { from, cam, night, cutaway, onDoor }) {
       const room = insideHome(from.x, from.z);
-      const lift = !!room && cutaway;
+      // Outside with your back to a wall, the camera behind you can end up in a room: that room
+      // opens up the same way, its roof lifted and the wall between it and you stepping aside.
+      const camRoom = !room && cutaway && cam.y < Y + WALL_H + 1.8 ? insideHome(cam.x, cam.z) : null;
+      const open = room || camRoom;
+      const lift = !!open && cutaway;
       roofs.visible = !lift;
       for (const w of all) {
         const { room: r, normal } = w.userData;
         let show = true;
-        if (lift && (r === room || r === 'both')) {
-          // The wall's outward side (for the room you're in): hide it if the camera is beyond it.
-          const sgn = r === 'both' && room === 'garage' ? -1 : 1;
+        if (lift && (r === open || r === 'both')) {
+          // The wall's outward side (for the open room): hide it if whoever's outside the room
+          // (the camera, or you) is beyond it.
+          const out = room ? cam : from;
+          const sgn = r === 'both' && open === 'garage' ? -1 : 1;
           const nx = normal[0] * sgn, nz = normal[1] * sgn;
-          const cx = r === 'both' ? GARAGE.x0 : (room === 'house' ? (HOUSE.x0 + HOUSE.x1) / 2 : (GARAGE.x0 + GARAGE.x1) / 2);
-          const cz = room === 'house' ? (HOUSE.z0 + HOUSE.z1) / 2 : (GARAGE.z0 + GARAGE.z1) / 2;
-          const dx = cam.x - cx, dz = cam.z - cz;
-          const reach = r === 'both' ? 0 : Math.abs(normal[0]) ? (room === 'house' ? (HOUSE.x1 - HOUSE.x0) / 2 : (GARAGE.x1 - GARAGE.x0) / 2) : (room === 'house' ? (HOUSE.z1 - HOUSE.z0) / 2 : (GARAGE.z1 - GARAGE.z0) / 2);
+          const cx = r === 'both' ? GARAGE.x0 : (open === 'house' ? (HOUSE.x0 + HOUSE.x1) / 2 : (GARAGE.x0 + GARAGE.x1) / 2);
+          const cz = open === 'house' ? (HOUSE.z0 + HOUSE.z1) / 2 : (GARAGE.z0 + GARAGE.z1) / 2;
+          const dx = out.x - cx, dz = out.z - cz;
+          const reach = r === 'both' ? 0 : Math.abs(normal[0]) ? (open === 'house' ? (HOUSE.x1 - HOUSE.x0) / 2 : (GARAGE.x1 - GARAGE.x0) / 2) : (open === 'house' ? (HOUSE.z1 - HOUSE.z0) / 2 : (GARAGE.z1 - GARAGE.z0) / 2);
           if (dx * nx + dz * nz > reach - 0.5) show = false;
         }
         w.visible = show;
+        for (const e of w.userData.extra) e.visible = show;
       }
       // Doors swing open as you come to them, and closed behind you.
       for (const d of doors) {
@@ -555,6 +619,22 @@ export function buildHome(scene, rnd) {
       light.intensity = near ? (room ? 4.5 + night * 3 : night * 5) : 0;
       bulbGlow.material.opacity = near ? 0.3 + night * 0.6 : 0;
       glassMat.emissiveIntensity = night * 0.55;
+      // The porch lantern comes on as the evening draws in (you can see it from down the coast).
+      const dusk = smoothstep(0.05, 0.5, night);
+      porchGlass.material.emissiveIntensity = dusk * 1.4;
+      porchGlow.material.opacity = dusk * 0.85;
+      // The ring: under the nearest thing you could use, brighter once you're there.
+      let spot = null, sd = Infinity;
+      if (room) {
+        for (const s of HOME_SPOTS) {
+          const d = Math.hypot(from.x - s.x, from.z - s.z) - s.r;
+          if (d < sd) { sd = d; spot = s; }
+        }
+      }
+      const want = spot && sd < 1.4 ? (sd < 0 ? 0.5 : 0.22) : 0;
+      ring.material.opacity += (want - ring.material.opacity) * Math.min(1, dt * 6);
+      ring.visible = ring.material.opacity > 0.01;
+      if (spot && want) ring.position.set(spot.x, Y + 0.075, spot.z);
     },
   };
 }
@@ -648,6 +728,11 @@ export function buildGravel(rnd) {
   // The drive and apron in front of the garage (on the level pad).
   for (let z = -69.9; z < HOME_PAD.z1 - 0.2; z += 1.2) {
     for (let x = 126.6; x < 135.2; x += 1.2) quad(at(x, z), at(x + 1.2, z), at(x, z + 1.2), at(x + 1.2, z + 1.2));
+  }
+  // Stepping stones worn across the grass from the drive to the front door.
+  for (let i = 0; i < 6; i++) {
+    const k = (i + 0.5) / 6, x = 125.8 + (HOUSE.door + 1.2 - 125.8) * k, z = -66.9 + (HOUSE.z1 + 1.6 + 66.9) * k + (rnd() - 0.5) * 0.2;
+    quad(at(x - 0.38, z + 0.3), at(x + 0.36, z + 0.32), at(x - 0.34, z - 0.3), at(x + 0.38, z - 0.28));
   }
   // Flagstones from the gate to the front door.
   for (let z = HOME_PAD.z1 - 1.2; z > HOUSE.z1 + 0.3; z -= 0.9) {

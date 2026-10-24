@@ -2,6 +2,7 @@ import { ACTIONS, ACTION_BY_ID, cleanBindings, defaultBindings } from './input.j
 import { GROUPS, LEVELS, CHOICES, PRESETS } from './quality.js';
 import { DIFFICULTY, DIFFICULTY_IDS } from './fight.js';
 import { SEA_PRESETS, SEA_IDS, compass } from './world/conditions.js';
+import { buttonFor } from './gamepad.js';
 
 // Preferences: sound, graphics, weather, controls and comfort. They live with the save
 // (state.settings), survive "New game", and every value is checked when loading.
@@ -26,8 +27,27 @@ export const DEFAULT_SETTINGS = {
   // sea: 'auto' (with the weather) or a SEA_PRESETS id; wind 'auto' or 'manual' (windSpeed m/s,
   // windFrom compass degrees); currents: natural, gentle or still (on your rig and boat).
   weather: { mode: 'auto', rainFx: 1, sea: 'auto', windMode: 'auto', windSpeed: 4, windFrom: 225, currents: 'natural', panel: true },
-  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null },
+  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, rumble: true },
 };
+
+// The controller's buttons, as Settings lists them: [where, action, what it does]. The buttons
+// themselves come from gamepad.js, so this list can't drift from what they really do.
+export const PAD_HELP = [
+  ['Walking, rowing and fishing', [
+    ['play', 'forward', 'walk, row, steer'], ['play', 'look', 'look around'], ['play', 'jog', 'jog (press; stop to walk again)'],
+    ['play', 'cast', 'hold to aim, let go to cast · hold to reel'], ['play', 'interact', 'whatever the prompt says'],
+    ['play', 'cancel', 'cancel a cast · reel in · back'], ['play', 'pack', 'backpack'], ['play', 'rod1', 'the other rod'],
+    ['play', 'tackle', 'next bait, lure or fly'], ['play', 'anchor', 'anchor down or up'], ['play', 'rest', 'let time drift (hold)'],
+  ]],
+  ['Views and panels', [
+    ['play', 'view', 'next view'], ['play', 'reset', 'reset the camera'], ['play', 'photo', 'photo mode'],
+    ['play', 'journal', 'journal'], ['play', 'finder', 'fish finder'], ['play', 'map', 'map'], ['play', 'settings', 'settings'],
+  ]],
+  ['A line in the water', [['fish', 'advice', 'why aren’t they biting?'], ['fish', 'feed', 'throw loose bait']]],
+  ['A fish on', [['fight', 'cast', 'reel (let go when it surges)'], ['fight', 'ease', 'ease the drag off'], ['fight', 'forward', 'tighten or ease the drag']]],
+  ['The catch card', [['catch', 'cast', 'let it go'], ['catch', 'keep', 'keep it'], ['catch', 'photo', 'photograph it']]],
+  ['Driving', [['drive', 'throttle', 'go'], ['drive', 'brake', 'brake, then reverse'], ['drive', 'left', 'steer'], ['drive', 'interact', 'get out'], ['drive', 'tackle', 'where to?']]],
+];
 
 const num = (v, d, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
 const oneOf = (v, list, d) => (list.includes(v) ? v : d);
@@ -75,6 +95,7 @@ export function cleanSettings(raw, legacy = {}) {
     cast: oneOf(c.cast, Object.keys(CAST_MODES), 'assisted'),
     hints: oneOf(c.hints, ['gentle', 'more', 'off'], 'gentle'),
     keys: c.keys ? cleanBindings(c.keys) : null,
+    rumble: c.rumble !== false,
   };
   return { audio, graphics, weather, controls };
 }
@@ -373,6 +394,22 @@ export class SettingsUI {
     out.push(head);
     out.push(el('p', 'st-note', 'Choose Change, then press the key you want. If another action had that key, it takes this action’s old key. Esc stops waiting. Touch screens use the on-screen controls.'));
     out.push(list);
+    // A controller: what its buttons do (they can't be changed), and whether it buzzes.
+    out.push(el('h3', null, 'Controller'));
+    out.push(el('p', 'st-note', 'An Xbox controller (or any the browser recognises) works as soon as you press a button on it; the hints follow whichever you used last. In menus: the D-pad or left stick moves, A chooses, B goes back, LB and RB change tabs, the right stick scrolls.'));
+    out.push(this.row('Controller vibration', 'A short buzz when something bites or runs, if your controller and browser can.', this.toggle('controls', 'rumble')));
+    const pads = el('div', 'st-keys');
+    for (const [group, rows] of PAD_HELP) {
+      pads.append(el('h4', null, group));
+      for (const [ctx, action, words] of rows) {
+        const r = el('div', 'st-key st-pad');
+        const k = el('span', 'st-keycaps');
+        k.append(el('kbd', null, buttonFor(ctx, action)));
+        r.append(el('span', null, words), k);
+        pads.append(r);
+      }
+    }
+    out.push(pads);
     return out;
   }
 }

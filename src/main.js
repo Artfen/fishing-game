@@ -24,7 +24,7 @@ import {
   PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD,
   PEGS, POOLS, STREAM, SNAG, LILIES, JETTY, ISLAND, GANNET_CAMP, SKERRIES, SKELLIG, DEEP_Z,
   HAVEN, HAVEN_QUAY, HAVEN_BENCH, DAYMARK, STRAND, WRECK, WRECK_BUOY, CHANNEL,
-  HOME, HOUSE, GARAGE, CAR_PARKS, laneInfo,
+  HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, laneInfo,
 } from './world/terrain.js';
 import { Car } from './car.js';
 import { Workbench, OutingSheet } from './workbench.js';
@@ -58,6 +58,8 @@ import { RodView } from './firstperson.js';
 import { bendRod } from './props.js';
 import { FishFinder } from './sonar.js';
 import { setupTouch } from './touch.js';
+import { Gamepads, buttonFor, topDialog, focusables } from './gamepad.js';
+import { STEPS as TRIP_STEPS, stepOf, stepNumber, complete as completeStep, start as startGuide, words as guideWords, isNewGame, placeAt, FISH_SPOTS } from './firstTrip.js';
 import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality } from './quality.js';
 import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick } from './util.js';
 
@@ -271,6 +273,86 @@ input.setBindings(settings.controls.keys || defaultBindings());
 // The key for an action, as printed on this keyboard, ready for a hint: K('interact') → E.
 const K = (action) => kbd(input.keyLabel(action));
 const touch = setupTouch(input);
+// A game controller, if one is plugged in (see gamepad.js): its buttons press the same actions,
+// and while it's the last thing you used the hints name its buttons.
+const pads = new Gamepads(input, {
+  context: padContext,
+  resolve: () => (state.gear.pack.rods[0] === state.gear.rod ? 'rod2' : 'rod1'),
+  connected: (id, standard) => {
+    if (!standard) hud.toast('A controller is connected, but the browser doesn’t know its layout: some buttons may not be where the hints say.', 7);
+    else if (started) hud.toast('Controller connected: the hints show its buttons now.', 4);
+  },
+  disconnected: () => {
+    if (input.method === 'pad') input.use(touch.active ? 'touch' : 'keys');
+    if (started) hud.toast(`Controller disconnected: ${touch.active ? 'the touch controls are back' : 'the keyboard and mouse carry on'}.`, 4);
+  },
+  focusRoot: () => $('title'),
+});
+input.padLabel = (a) => pads.label(a);
+// Which controls the hints describe: 'keys' (keyboard and mouse), 'pad' or 'touch'.
+const scheme = () => input.method;
+// Moving and looking, in the hints: the movement keys and the mouse, or the controller's sticks.
+const MOVE = () => (scheme() === 'pad' ? kbd('L-stick') : `${K('forward')}${K('left')}${K('back')}${K('right')}`);
+const LOOK = () => (scheme() === 'pad' ? `${kbd('R-stick')} look around` : 'drag to look around');
+input.onMethod((m) => {
+  document.body.classList.toggle('pad', m === 'pad');
+  hud.cache = {};
+  labelKeys();
+  showControls();
+});
+
+// Tab moves round the open panel and stays in it (from outside, it goes in), so the keyboard
+// never wanders off behind a menu.
+addEventListener('keydown', (e) => {
+  if (e.code !== 'Tab' || e.altKey || e.ctrlKey || e.metaKey) return;
+  const root = topDialog();
+  if (!root) return;
+  const all = focusables(root);
+  if (!all.length) return;
+  const i = all.indexOf(document.activeElement);
+  if (i >= 0 && !(e.shiftKey ? i === 0 : i === all.length - 1)) return;
+  e.preventDefault();
+  (e.shiftKey ? all[all.length - 1] : all[0]).focus();
+});
+
+// The key (or button) printed beside the corner buttons, the catch card's photo button…
+function labelKeys() {
+  for (const k of document.querySelectorAll('kbd[data-key]')) {
+    k.textContent = scheme() === 'pad' ? buttonFor(k.dataset.ctx || 'play', k.dataset.key) : input.keyName(k.dataset.key);
+  }
+}
+
+// The title's few essential controls, for whichever you're using (the full list is in Settings).
+function showControls() {
+  const k = (a) => kbd(input.keyName(a)), b = (a) => kbd(buttonFor('play', a));
+  const rows = {
+    touch: [
+      ['left side', 'drag to walk, row or drive'],
+      ['right side', 'drag to look · pinch to zoom'],
+      ['round button', 'hold to aim, let go to cast · hold to reel'],
+      ['tap a prompt', 'whatever it says: a door, the car, the boat'],
+      ['top buttons', 'backpack · map · journal · settings'],
+    ],
+    pad: [
+      [`${b('forward')} ${b('look')}`, 'walk, row and steer · look around'],
+      [b('cast'), 'hold to aim, let go to cast · hold to reel'],
+      [`${b('interact')} · ${b('cancel')}`, 'whatever the prompt says · cancel or back'],
+      [`${b('pack')} ${b('map')} ${b('journal')}`, 'backpack · map · journal'],
+      [b('settings'), 'settings (every button is listed there)'],
+    ],
+    keys: [
+      [`${k('forward')}${k('left')}${k('back')}${k('right')}`, 'walk, row and drive'],
+      ['drag · scroll', 'look around · zoom'],
+      [k('cast'), 'hold to aim, let go to cast · hold to reel'],
+      [`${k('interact')} · ${kbd('Esc')}`, 'whatever the prompt says · cancel or back'],
+      [`${k('pack')} ${k('map')} ${k('journal')}`, 'backpack · map · journal'],
+      [k('settings'), 'settings (every key is listed there, and can be changed)'],
+    ],
+  }[scheme()];
+  $('t-keys').innerHTML = rows.map(([dt, dd]) => `<dt>${dt}</dt><dd>${dd}</dd>`).join('');
+  $('t-pad').textContent = scheme() === 'pad' ? 'Playing with a controller (the keyboard, mouse or a touch switches back).'
+    : 'getGamepads' in navigator && scheme() === 'keys' ? 'Got a controller? Press any button on it.' : '';
+}
 const rig = new CameraRig(camera);
 const rodView = new RodView();
 const finder = new FishFinder(eco, habitat, state);
@@ -414,6 +496,7 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   // can, a jolt through your hands in first person).
   cue: (kind) => {
     if (touch.active) navigator.vibrate?.(kind === 'warn' ? 35 : 70);
+    if (settings.controls.rumble) pads.rumble(kind === 'warn' ? 0.2 : 0.55, kind === 'warn' ? 70 : 200);
     if (kind === 'run' && rig.mode === 'eye') shake(0.25);
   },
   onCast: () => {
@@ -734,7 +817,7 @@ function renderKit(el) {
     out.push(row);
   }
   // The camera rides in the same pocket (the only way into photo mode on a touch screen).
-  out.push(p(`Your camera: a picture of wherever you are, and under the water, of the fish themselves.${touch.active ? '' : ` (${input.keyLabel('photo')} anywhere.)`}`, 'gx-kit-text'));
+  out.push(p(`Your camera: a picture of wherever you are, and under the water, of the fish themselves.${scheme() === 'touch' ? '' : ` (${input.keyLabel('photo')} anywhere.)`}`, 'gx-kit-text'));
   out.push(btn('Take a photograph', () => {
     closePack();
     openPhoto();
@@ -819,7 +902,7 @@ const placement = new Placement({
   preview: campView.preview,
   others: () => state.camps,
   keyLabel: (a) => input.keyLabel(a),
-  touch: () => touch.active,
+  controls: () => scheme(),
   nope: (why) => hud.flash(why, t, 2.6),
   cancel: () => {
     siteWorld.ignore = null;
@@ -868,12 +951,15 @@ function startPitching(mode = 'new', c = null) {
   siteWorld.ignore = mode === 'move' ? c.id : null;
   placement.start(mode, c);
   audio.rustle?.();
-  teach('pitching', touch.active
+  teach('pitching', scheme() === 'touch'
     ? 'Walk to where you’d like your camp: the outline turns green where it fits. The buttons turn it; tap Pitch it here when you’re happy.'
-    : `Walk to where you’d like your camp: the outline turns green where it fits, and says why where it doesn’t. ${input.keyLabel('tackle')} and ${input.keyLabel('interact')} turn it, the mouse wheel brings it nearer or further, ${input.keyLabel('cast')} pitches it, Esc puts the kit away again.`, 10);
+    : scheme() === 'pad'
+      ? `Walk to where you’d like your camp: the outline turns green where it fits, and says why where it doesn’t. ${K('tackle')} and ${K('interact')} turn it, ${K('cast')} pitches it, ${K('cancel')} puts the kit away again.`
+      : `Walk to where you’d like your camp: the outline turns green where it fits, and says why where it doesn’t. ${input.keyLabel('tackle')} and ${input.keyLabel('interact')} turn it, the mouse wheel brings it nearer or further, ${input.keyLabel('cast')} pitches it, Esc puts the kit away again.`, 10);
 }
 
 function pitchHere(spot, mode, c) {
+  if (stepOf(state.guide) === 'back') guideEvent('back');
   if (mode === 'move') {
     const d = Math.hypot(spot.x - c.x, spot.z - c.z);
     const hours = Math.min(2.5, 0.25 + (d / 400) * 2);
@@ -918,7 +1004,7 @@ function pitchHere(spot, mode, c) {
 }
 
 function campPitchedTip(c) {
-  hud.toast(`${c.name} is on your map. ${touch.active ? 'Tap the prompt by the door' : `Press ${input.keyLabel('interact')} by the door`} to rest, cook, use the cool box or change your tackle.`, 7);
+  hud.toast(`${c.name} is on your map. ${scheme() === 'touch' ? 'Tap the prompt by the door' : `Press ${input.keyLabel('interact')} by the door`} to rest, cook, use the cool box or change your tackle.`, 7);
 }
 
 // Pack it up (fish in the cool box go into your creel; `release` are the ones you chose to let go).
@@ -976,6 +1062,7 @@ function sleepUntil(h) {
   hud.sleep(true, `You sleep until ${w ? w.name.toLowerCase() : formatClock(h)}…`);
   audio.rustle?.();
   sleeping = { h, phase: 0, t: 0, site };
+  if (stepOf(state.guide) === 'back') guideEvent('back');
 }
 
 // Halfway through the fade: move the world on.
@@ -1134,12 +1221,13 @@ function teachBoat() {
   const k = boat.kind, tip = k === 'skiff' ? 'skiff' : `boat-${k}`;
   if (k === 'row' || state.tips[tip]) return;
   state.tips[tip] = true;
-  const T = touch.active, key = (a) => input.keyLabel(a);
-  const lever = T ? 'push the stick forward for throttle, left and right to steer. Let go to slow down.'
+  const T = scheme() === 'touch', S = T || scheme() === 'pad', key = (a) => input.keyLabel(a);
+  const stick = T ? 'the stick' : 'the left stick';
+  const lever = S ? `push ${stick} forward for throttle, left and right to steer. Let go to slow down.`
     : `${key('forward')} and ${key('back')} move the throttle lever (it stays where you leave it), ${key('left')} and ${key('right')} steer, ${key('neutral')} stops the motor, ${key('anchor')} drops or raises the anchor.`;
   const text = {
     skiff: `The motor skiff, for the open coast and the islands: ${lever} Near a shore, slow down and ${T ? 'tap the prompt' : `press ${key('interact')}`} to step off.`,
-    kayak: `The kayak: slow, but silent and stable enough to fish from, and it floats in a hand's depth of water. Paddle into the shallows, the saltings and the reeds where the boats can't go: fish hardly notice it. ${T ? 'The stick paddles and steers.' : `${key('forward')}${key('left')}${key('back')}${key('right')} paddle and steer.`}`,
+    kayak: `The kayak: slow, but silent and stable enough to fish from, and it floats in a hand's depth of water. Paddle into the shallows, the saltings and the reeds where the boats can't go: fish hardly notice it. ${S ? `${T ? 'The stick' : 'The left stick'} paddles and steers.` : `${key('forward')}${key('left')}${key('back')}${key('right')} paddle and steer.`}`,
     bass: `The bass boat: ${lever} The first notches of throttle run the quiet electric motor at the bow, for creeping along the weed beds and the reeds without spooking anything; push on for the outboard to cross the lake fast. Its locker holds your tackle box, and it sits steady when you cast.`,
   }[k];
   hud.toast(text, 12);
@@ -1174,9 +1262,9 @@ function stepAshore(spot) {
   setFoot(true);
   audio.step(false);
   audio.knock(0.4);
-  hud.chip(touch.active
+  hud.chip(scheme() === 'touch'
     ? '<b>On foot</b> · the stick walks · tap the prompt by the boat to get back in'
-    : `<b>On foot</b> · ${K('forward')}${K('left')}${K('back')}${K('right')} walk · ${K('jog')} jog · ${K('interact')} by the boat to get back in`, 6);
+    : `<b>On foot</b> · ${MOVE()} walk · ${K('jog')} jog · ${K('interact')} by the boat to get back in`, 6);
   if (!state.tips.ashore) {
     state.tips.ashore = true;
     hud.toast(spot.landing ? 'You step onto the landing. Camp is just up the path, with the lake beyond it and the stream further on.' : 'You step ashore. The boat waits where you left it: follow the marker to find it again.', 7);
@@ -1377,6 +1465,12 @@ const carWhere = () => (carHome() ? 'on the drive at home' : state.car.at && DES
 const carAwayWords = () => (carHome() ? 'The car is on the drive.' : `The car is still ${carWhere()}.`);
 
 // Where you stand when you get out: the driver's door, or the other side, or the back.
+// Out of the car at home you face the house, and at the water the water (the camera behind you).
+function exitHeading(sp, at) {
+  const look = at === 'home' ? HOME : FISH_SPOTS[at];
+  return look ? Math.atan2(look.x - sp.x, look.z - sp.z) : sp.heading;
+}
+
 function carExitSpot() {
   refreshCarSolids();
   for (const [lx, lz] of [[1.6, 0.2], [-1.6, 0.2], [0, -3.3], [0, 3.3]]) {
@@ -1405,9 +1499,11 @@ function enterCar() {
   rig.setMode(rig.firstPerson ? 'eye' : 'car', t);
   rig.settleUntil = t + 1.2;
   audio.carDoor?.();
-  teach('driving', touch.active
+  teach('driving', scheme() === 'touch'
     ? 'Driving: the stick drives and steers, the button brakes. Stop, then tap the prompt to get out or go somewhere.'
-    : `Driving: ${K('forward')}${K('back')} to go and reverse, ${K('left')}${K('right')} to steer, ${K('cast')} to brake. ${K('view')} changes the view. Stop, then ${K('interact')} to get out or go somewhere (or ${K('tackle')}: where to?).`, 11);
+    : scheme() === 'pad'
+      ? `Driving: ${kbd('RT')} to go, ${kbd('LT')} to brake (hold it to reverse), ${kbd('L-stick')} to steer. Stop, then ${K('interact')} to get out or go somewhere (or ${K('tackle')}: where to?).`
+      : `Driving: ${K('forward')}${K('back')} to go and reverse, ${K('left')}${K('right')} to steer, ${K('cast')} to brake. ${K('view')} changes the view. Stop, then ${K('interact')} to get out or go somewhere (or ${K('tackle')}: where to?).`, 11);
   save();
 }
 
@@ -1415,7 +1511,7 @@ function enterCar() {
 function exitCar(force = false) {
   if (!driving) return;
   if (Math.abs(car.speed) > 0.6 && !force) {
-    hud.flash(`Stop first (${touch.active ? 'the button brakes' : `${K('cast')} brakes`}).`, t, 2);
+    hud.flash(`Stop first (${{ touch: 'the button brakes', pad: `${kbd('LT')} brakes` }[scheme()] || `${K('cast')} brakes`}).`, t, 2);
     return;
   }
   car.speed = 0;
@@ -1423,7 +1519,7 @@ function exitCar(force = false) {
   rig.car = null;
   walker.group.visible = true;
   const sp = carExitSpot();
-  if (sp) walker.place(sp.x, sp.z, sp.heading);
+  if (sp) walker.place(sp.x, sp.z, exitHeading(sp, parkNear(car.pos.x, car.pos.z, 9)));
   rig.setHome(true, t);
   rig.reset(walker, t);
   parkedAt();
@@ -1511,7 +1607,7 @@ function driveTo(to, how = 'skip') {
       }
       enterCar();
     }
-    hud.toast(`Follow the lane to ${DESTS[to].name}: the car park is at its end. Stop, then ${touch.active ? 'tap the prompt' : K('interact')} to get out.`, 7);
+    hud.toast(`Follow the lane to ${DESTS[to].name}: the car park is at its end. Stop, then ${scheme() === 'touch' ? 'tap the prompt' : K('interact')} to get out.`, 7);
     save();
     return;
   }
@@ -1537,13 +1633,14 @@ function arrive(to) {
   car.place(P.x, P.z, P.yaw);
   refreshCarSolids();
   const sp = carExitSpot();
-  if (sp) walker.place(sp.x, sp.z, sp.heading);
+  if (sp) walker.place(sp.x, sp.z, exitHeading(sp, to));
   rig.setHome(true, t);
   rig.reset(walker, t);
   passTime(driveMinutes(from || 'home', to) / 60);
   state.car = { x: P.x, z: P.z, yaw: P.yaw, at: to };
   state.outing.travel = null;
   stuckT = 0;
+  if (to !== 'home') guideEvent('drive', to);
   save();
 }
 
@@ -1603,6 +1700,7 @@ const bench = new Workbench(state, {
   },
   depart: (id, how) => {
     closeBench();
+    guideEvent('plan', id);
     driveTo(id, how);
   },
   close: () => closeBench(),
@@ -1629,6 +1727,148 @@ function closeBench() {
   bench.close();
   if (modal === 'bench') modal = null;
   audio.page();
+  if (state.outing.plan.dest) guideEvent('plan', state.outing.plan.dest);
+}
+
+/* ---- the first trip: an optional guide (see firstTrip.js) ---- */
+
+// Offered once, to a new player standing at home.
+function offerGuide(wait = 3.2) {
+  setTimeout(() => {
+    if (state.guide.offered || !started) return;
+    if (modal || !$('confirm').hidden || traveling) {
+      offerGuide(2);
+      return;
+    }
+    state.guide.offered = true;
+    save();
+    ask('Your first fishing trip', 'This is your home: the cottage, the garage with your rods and tackle, and the car on the drive. Would you like a short guide to your first outing? Plan it at the workbench, drive to the water, cast, and land a fish. You can end it whenever you like, and find it again in the journal.', [
+      { text: 'No thanks', cls: 'quiet', run: () => hud.toast('Explore as you like. The guide is in your journal, under Memories, if you want it later.', 6) },
+      { text: 'Guide me', run: () => beginGuide() },
+    ]);
+  }, wait * 1000);
+}
+
+function beginGuide() {
+  startGuide(state.guide);
+  if (modal === 'journal') closeJournal();
+  guideText = '';
+  save();
+}
+
+function endGuide() {
+  state.guide.on = false;
+  guideTarget = null;
+  save();
+  hud.toast('Guide ended. It’s in your journal, under Memories, whenever you want it again.', 5);
+  if (modal === 'journal') renderGuideRow();
+}
+
+// Something the game did that finishes a step (and any before it).
+function guideEvent(id, dest = null) {
+  const g = state.guide;
+  if (!g.on) return;
+  if (dest && DESTS[dest]) g.dest = dest;
+  if (completeStep(g, id)) guideMoved();
+}
+
+function guideMoved() {
+  const g = state.guide;
+  save();
+  guideText = '';
+  const card = $('guide');
+  card.classList.remove('fresh');
+  void card.offsetWidth;
+  card.classList.add('fresh');
+  if (g.finished) {
+    guideTarget = null;
+    guideEnd = true; // (the card comes once nothing else is open: see updateGuide)
+  }
+}
+
+// Each moment: is a step done (by what's actually happening), and what does the card say?
+let guideT = 0, guideText = '', guideTarget = null, guideH = 0, guideEnd = false;
+function updateGuide(dt) {
+  const g = state.guide, card = $('guide');
+  const show = started && g.on && !hudOff && (!modal || modal === 'catch') && !placement.isOn && !sleeping && !traveling;
+  if (card.hidden === show) {
+    card.hidden = !show;
+    // (Toasts make room for it: see style.css.)
+    document.body.classList.toggle('guiding', show);
+    if (show) measureGuide();
+  }
+  // The end of the first trip: a card to say so, once you're back and nothing else is open.
+  if (guideEnd && started && !modal && !traveling && !sleeping && $('confirm').hidden) {
+    guideEnd = false;
+    const n = state.log.filter((e) => e.at >= g.since).length;
+    showNote('Your first trip', `${n ? `${n === 1 ? 'One fish' : `${n} fish`} in your journal from it.` : 'Done.'} Anywhere the car or the boats can take you is yours to go now: the workbench plans any outing, and the map shows where. (The guide is in the journal, under Memories, if you’d like it again.)`, 'trip');
+    audio.chime();
+  }
+  if (!g.on || !started || traveling || sleeping) return;
+  if ((guideT -= dt) > 0) return;
+  guideT = 0.25;
+  const step = stepOf(g), P = player().pos, F = fishing.state;
+  // At the water: one of the places the car goes, however you got there.
+  if (onFoot && !driving && (step === 'plan' || step === 'drive')) {
+    const here = placeAt(P.x, P.z);
+    if (here) guideEvent('drive', here);
+  }
+  // Fishing: each stage counts the ones before it.
+  if (modal === 'catch' || F === 'caught' || F === 'keeping' || F === 'releasing') guideEvent('land');
+  else if (F === 'bite' || F === 'reeling' || F === 'landing' || fishing.baitInWater) guideEvent('cast');
+  else if (onFoot && (fishing.aiming && fishing.aimValid)) guideEvent('spot');
+  else if (onFoot && g.dest && Math.hypot(P.x - FISH_SPOTS[g.dest].x, P.z - FISH_SPOTS[g.dest].z) < 9) guideEvent('spot');
+  // The catch card closed: kept or let go, it's in the journal.
+  if (g.done.land && !g.done.record && modal !== 'catch' && F !== 'caught' && F !== 'keeping' && F !== 'releasing') guideEvent('record');
+  // Home again.
+  if (stepOf(g) === 'back' && onFoot && !driving && atHomeNow()) guideEvent('back');
+  if (!g.on) return;
+  const { rod, item } = currentRig(state.gear);
+  const w = guideWords(g, {
+    key: (a) => K(a), touch: scheme() === 'touch', pad: scheme() === 'pad',
+    at: atHomeNow() ? 'home' : null, carAt: state.car.at, driving,
+    nearCar: onFoot && Math.hypot(car.pos.x - P.x, car.pos.z - P.z) < 12,
+    plan: state.outing.plan, rig: item && rod ? `${item.on} on the ${rod.short.toLowerCase()}` : '', kind: fishing.kind,
+    caught: state.log.filter((e) => e.at >= g.since).length, car: { x: car.pos.x, z: car.pos.z }, tent: state.equip.kit.tent,
+  });
+  guideTarget = w?.target || null;
+  if (guideTarget && $('guide-label').textContent !== guideTarget.label) $('guide-label').textContent = guideTarget.label;
+  if (!w) return;
+  const text = `${w.n}|${w.title}|${w.text}|${g.min}`;
+  if (text === guideText) return;
+  guideText = text;
+  $('gd-step').textContent = g.min ? `First trip · ${w.n}/${w.of} · ${w.title}` : `First trip · step ${w.n} of ${w.of}`;
+  $('gd-title').textContent = w.title;
+  $('gd-text').innerHTML = w.text;
+  $('gd-body').hidden = g.min;
+  $('gd-fold').textContent = g.min ? '+' : '–';
+  $('gd-fold').setAttribute('aria-label', g.min ? 'Open the guide' : 'Fold the guide away');
+  $('gd-fold').setAttribute('aria-expanded', String(!g.min));
+  $('gd-dots').replaceChildren(...TRIP_STEPS.map((s, i) => {
+    const li = document.createElement('li');
+    li.className = g.done[s.id] ? 'done' : i === w.n - 1 ? 'now' : '';
+    li.title = s.title;
+    return li;
+  }));
+  measureGuide();
+}
+
+// How tall the card is, for what makes room for it (the toasts; on a phone, the hint too).
+function measureGuide() {
+  const card = $('guide');
+  if (card.hidden || card.offsetHeight === guideH) return;
+  guideH = card.offsetHeight;
+  document.body.style.setProperty('--guide-h', `${guideH}px`);
+}
+
+// The journal's line about it (Memories): where it's got to, and a button to start or end it.
+function renderGuideRow() {
+  const g = state.guide;
+  const n = stepNumber(g);
+  $('mem-guide').textContent = g.on ? `Under way: step ${n} of ${TRIP_STEPS.length}, ${TRIP_STEPS[n - 1].title.toLowerCase()}.`
+    : g.finished ? 'Done. You can follow it again any time: it starts from wherever you are.'
+      : 'A short guide to an outing: plan it at the workbench, drive to the water, cast, land a fish, and home again.';
+  $('mem-guide-btn').textContent = g.on ? 'End the guide' : g.finished ? 'Follow the guide again' : 'Start the guide';
 }
 
 const outSheet = new OutingSheet(state, {
@@ -1713,6 +1953,9 @@ async function refreshHomeWall() {
   const keeps = Object.entries(state.keepsakes || {}).filter(([k]) => KEEPSAKES[k]).sort((a, b) => (b[1].day - a[1].day) || (b[1].hour - a[1].hour));
   const keepsake = H.auto ? keeps[0]?.[0] : H.keepsake;
   const best = bestCatches();
+  // The chalkboard by the front door: what you've caught, all told.
+  const total = Object.values(state.fish).reduce((a, f) => a + f.count, 0), kinds = Object.keys(state.fish).length;
+  world.home.showTally(total ? [`${total} fish, ${kinds} kind${kinds === 1 ? '' : 's'}`, best[0] ? `Best: ${best[0].title}` : '', `Day ${state.day}`] : null);
   const rec = H.auto ? best[0] : best.find((b) => b.id === H.catchId);
   const key = JSON.stringify([ids, keepsake, rec?.id]);
   if (key === wallKey) return;
@@ -1887,6 +2130,16 @@ function drawNoteSketch(ctx, w, h, kind) {
       ctx.beginPath(); ctx.moveTo(x - 18 * s, y); ctx.quadraticCurveTo(x - 8 * s, y - 12 * s, x, y); ctx.quadraticCurveTo(x + 8 * s, y - 12 * s, x + 18 * s, y); ctx.stroke();
     }
     ctx.beginPath(); ctx.moveTo(10, cy + 40); for (let x = 10; x < w - 10; x += 12) ctx.quadraticCurveTo(x + 3, cy + 36, x + 6, cy + 40); ctx.stroke();
+  } else if (kind === 'trip') {
+    // A rod bending over a fish on the line, and a line of water.
+    ctx.beginPath(); ctx.moveTo(cx - 70, cy + 50); ctx.quadraticCurveTo(cx - 30, cy - 70, cx + 30, cy - 52); ctx.stroke();
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(cx + 30, cy - 52); ctx.lineTo(cx + 30, cy - 8); ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(cx + 30, cy + 14, 11, 22, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + 30, cy + 34); ctx.lineTo(cx + 20, cy + 46); ctx.lineTo(cx + 40, cy + 46); ctx.closePath(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx + 30, cy + 2, 1.8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(10, cy + 58); for (let x = 10; x < w - 10; x += 12) ctx.quadraticCurveTo(x + 3, cy + 54, x + 6, cy + 58); ctx.stroke();
   } else if (kind === 'wall') {
     ctx.strokeRect(cx - 52, cy - 40, 104, 80);
     ctx.beginPath(); ctx.ellipse(cx, cy, 30, 14, 0, 0, Math.PI * 2); ctx.stroke();
@@ -2163,8 +2416,9 @@ function openPhoto() {
   photoFov = camera.fov;
   hud.hidden(true);
   $('photo-frame').hidden = false;
-  $('pf-hint').textContent = touch.active ? 'Drag to look, pinch to zoom' : `Drag to look · mouse wheel to zoom · ${input.keyLabel('cast')} or ${input.keyLabel('photo')} takes it · Esc puts the camera away`;
-  teach('photoMode', `Photo mode: frame your picture and take it. Under the water (${touch.active ? 'the eye button, from a boat' : input.keyLabel('view')}) you can photograph the fish themselves. Your album is in the journal, under Memories.`, 8);
+  $('pf-hint').textContent = { touch: 'Drag to look, pinch to zoom', pad: 'R-stick to look · D-pad ↑ ↓ to zoom · A takes it · B puts the camera away' }[scheme()]
+    || `Drag to look · mouse wheel to zoom · ${input.keyLabel('cast')} or ${input.keyLabel('photo')} takes it · Esc puts the camera away`;
+  teach('photoMode', `Photo mode: frame your picture and take it. Under the water (${scheme() === 'touch' ? 'the eye button, from a boat' : input.keyLabel('view')}) you can photograph the fish themselves. Your album is in the journal, under Memories.`, 8);
 }
 function closePhoto() {
   $('photo-frame').hidden = true;
@@ -2310,7 +2564,7 @@ function checkPlaces(dt) {
     audio.chime();
     hud.toast(`${pl.name} is in your journal now`);
     hud.pulseJournal();
-    if (pl.id === 'landing' && !onFoot) teach('landingTip', `Tie up here: ${touch.active ? 'tap the prompt' : `press ${input.keyLabel('interact')}`} to step ashore. Camp is just up the path.`, 6);
+    if (pl.id === 'landing' && !onFoot) teach('landingTip', `Tie up here: ${scheme() === 'touch' ? 'tap the prompt' : `press ${input.keyLabel('interact')}`} to step ashore. Camp is just up the path.`, 6);
     if (pl.id === 'camp') teach('campTip', 'Camp: grill and eat what you catch, swap rods and tackle from the tackle box, and sleep until morning.', 7);
     if (pl.id === 'stream') teach('streamTip', 'Fernbeck’s trout hold in the pools. They’re shy: walk softly, and bring the fly rod from camp.', 7);
     if (pl.id === 'lake') teach('lakeTip', 'Reedmere: perch and pike take lures, carp graze the bottom, rudd sip near the lily pads.', 7);
@@ -2318,11 +2572,11 @@ function checkPlaces(dt) {
     if (pl.id === 'boathouse') teach('boathouseTip', 'The Mere Boathouse: a bass boat at the jetty and a tackle box. Largemouth bass lurk by the pads and the drowned oaks; pike lie in the weed.', 8);
     if (pl.id === 'puffin') teach('puffinTip', 'Puffin Cove: a sheltered camp with a tackle box. After dark, squid gather under the lamp light; wrasse live in the kelp by the rocks.', 8);
     if (pl.id === 'deep') teach('deepTip', 'The Blue Water. Watch for seabirds diving and the sea boiling white: tuna chase the sprat shoals out here.', 8);
-    if (pl.id === 'haven') teach('havenTip', `Willowhaven: read the notice board for what’s about today, find all your tackle in the chandlery, sit on the bench a while, or have a boat brought round to the quay (${touch.active ? 'tap the prompts' : input.keyLabel('interact')}).`, 10);
+    if (pl.id === 'haven') teach('havenTip', `Willowhaven: read the notice board for what’s about today, find all your tackle in the chandlery, sit on the bench a while, or have a boat brought round to the quay (${scheme() === 'touch' ? 'tap the prompts' : input.keyLabel('interact')}).`, 10);
     if (pl.id === 'strand') teach('strandTip', 'Shell Strand: bass come into the surf at dusk, and flatfish up the sand after dark. The shelf above the beach is a dry, level place for a tent.', 9);
     if (pl.id === 'head') teach('headTip', 'Cove Head takes the swell: bass and white bream in the wash below the ledges. You can see the Kittiwake’s buoy from the daymark.', 8);
     if (pl.id === 'reach') teach('reachTip', 'The cove channel is sheltered from every wind: a calm place for a float at dusk, and for watching cuttlefish under the water.', 8);
-    if (pl.id === 'wreck') teach('wreckTip', `The Kittiwake lies below you. Look under the water (${touch.active ? 'the view button' : input.keyLabel('view')}) to see her, or fish over her: a bottom rig for the conger, a shad for the pollack.`, 9);
+    if (pl.id === 'wreck') teach('wreckTip', `The Kittiwake lies below you. Look under the water (${scheme() === 'touch' ? 'the view button' : input.keyLabel('view')}) to see her, or fish over her: a bottom rig for the conger, a shad for the pollack.`, 9);
     save();
   }
 }
@@ -2590,7 +2844,8 @@ function applyControls() {
   document.documentElement.classList.toggle('reduce-motion', !!C.reducedMotion);
   fishing.assist = C.cast === 'assisted';
   input.setBindings(C.keys || defaultBindings());
-  for (const k of document.querySelectorAll('kbd[data-key]')) k.textContent = input.keyLabel(k.dataset.key);
+  labelKeys();
+  showControls();
   hud.cache = {};
 }
 
@@ -2670,20 +2925,20 @@ fitCamera();
 /* ---------------- views & fish finder ---------------- */
 
 function viewChip() {
-  const T = touch.active;
+  const T = scheme() === 'touch', P = scheme() === 'pad';
   const back = onFoot ? 'back over your shoulder' : 'back to the boat';
   if (rig.mode === 'under') {
     hud.chip(T
       ? '<b>Underwater</b> · drag to look around · pinch to zoom · the view button switches back'
-      : `<b>Underwater</b> · drag to look around · scroll to zoom · ${K('view')} next view · ${K('reset')} ${back}`, 6);
+      : `<b>Underwater</b> · ${LOOK()}${P ? '' : ' · scroll to zoom'} · ${K('view')} next view · ${K('reset')} ${back}`, 6);
   } else if (rig.mode === 'bait') {
     hud.chip(T
       ? '<b>Watching your bait</b> · drag to look around · the view button switches back'
-      : `<b>Watching your bait</b> · drag to look around · ${K('view')} next view · ${K('reset')} ${back}`, 6);
+      : `<b>Watching your bait</b> · ${LOOK()} · ${K('view')} next view · ${K('reset')} ${back}`, 6);
   } else if (rig.mode === 'eye') {
     hud.chip(T
       ? '<b>First person</b> · drag to look around · the view button switches'
-      : `<b>First person</b> · drag to look around · ${K('eye')} ${back}`, 4);
+      : `<b>First person</b> · ${LOOK()} · ${P ? `${K('view')} next view` : `${K('eye')} ${back}`}`, 4);
   } else if (rig.mode === 'foot') {
     hud.chip(fishing.baitInWater || T ? '<b>On foot</b>' : `<b>On foot</b> · cast first, then ${K('view')} watches your bait underwater`, 3);
   } else hud.chip('<b>Boat view</b>', 2);
@@ -2791,29 +3046,48 @@ const STATUS_TEXT = {
   fishon: 'Fish on! It hooked itself',
 };
 
+// What the controller's buttons do just now (see gamepad.js).
+function padContext() {
+  if (!started) return settingsUI.isOpen ? 'menu' : 'title';
+  if (modal === 'sleep' || modal === 'travel') return 'off';
+  if (!$('confirm').hidden || !$('photo-card').hidden) return 'menu';
+  if (modal === 'catch') return 'catch';
+  if (modal === 'photo') return 'photo';
+  if (modal) return 'menu';
+  if (placement.isOn) return 'place';
+  if (driving) return 'drive';
+  if (fishing.state === 'reeling') return 'fight';
+  if (fishing.busy) return 'fish';
+  return 'play';
+}
+
 function currentHint() {
   if (!started || modal) return '';
+  const T = scheme() === 'touch', P = scheme() === 'pad';
+  // The movement keys, or the controller's left stick (up and down, or across).
+  const UD = P ? `${kbd('L-stick')} ↕` : `${K('forward')}${K('back')}`;
+  const LR = P ? `${kbd('L-stick')} ↔` : `${K('left')}${K('right')}`;
   if (driving) {
-    if (car.stuckT > 1.5) return touch.active ? 'Stuck? Tap Back on the lane' : `Stuck? ${K('interact')} puts the car back on the lane`;
-    return touch.active ? 'The stick drives and steers · the button brakes · stop to get out'
-      : `${K('forward')}${K('back')} drive and reverse · ${K('left')}${K('right')} steer · hold ${K('cast')} to brake · ${K('view')} view · stop, then ${K('interact')} to get out`;
+    if (car.stuckT > 1.5) return T ? 'Stuck? Tap Back on the lane' : `Stuck? ${K('interact')} puts the car back on the lane`;
+    if (T) return 'The stick drives and steers · the button brakes · stop to get out';
+    if (P) return `${kbd('RT')} drive · ${kbd('LT')} brake, hold to reverse · ${LR} steer · stop, then ${K('interact')} to get out`;
+    return `${K('forward')}${K('back')} drive and reverse · ${K('left')}${K('right')} steer · hold ${K('cast')} to brake · ${K('view')} view · stop, then ${K('interact')} to get out`;
   }
-  const L = (c) => K({ KeyW: 'forward', KeyS: 'back', KeyA: 'left', KeyD: 'right' }[c]);
-  const T = touch.active;
   const space = K('cast');
+  const cancel = T ? '✕ cancels' : `${K('cancel')} cancel`;
   const info = fishing.info;
   switch (fishing.state) {
     case 'aiming': {
       // Holding loads the rod and the ring moves out; let go when it's where you want it.
       if (fishing.kind === 'fly') {
         const when = fishing.flyForward ? 'let go now, as the rod comes forward' : fishing.deliver ? 'it goes out on the next forward stroke' : 'false casting: each stroke shoots more line';
-        return `${T ? 'Hold to false cast' : `Hold ${space} to false cast`} · ${when} · ${T ? 'stick left/right aims' : `${L('KeyA')}${L('KeyD')} aim`}${windHint()} · ${T ? '✕ cancels' : `${kbd('Esc')} cancel`}`;
+        return `${T ? 'Hold to false cast' : `Hold ${space} to false cast`} · ${when} · ${T ? 'stick left/right aims' : `${LR} aim`}${windHint()} · ${cancel}`;
       }
       const how = T ? 'Let go when the ring is where you want it' : `Let go of ${space} when the ring is where you want it`;
       const clean = fishing.assist ? 'the wind is allowed for' : fishing.overload > 0 ? 'overloading: let go now' : fishing.sweet ? 'fully loaded: let go for a perfect cast' : 'let go before it overloads';
-      const extra = fishing.kind === 'lure' ? (T ? 'up/down: reeling speed' : `${L('KeyW')}${L('KeyS')} reeling speed`)
-        : fishing.kind === 'float' ? (T ? 'up/down: bait depth' : `${L('KeyW')}${L('KeyS')} bait depth`) : '';
-      return `${how} (${clean}) · ${T ? 'stick left/right aims' : `${L('KeyA')}${L('KeyD')} aim`}${extra ? ` · ${extra}` : ''}${windHint()} · ${T ? '✕ cancels' : `${kbd('Esc')} cancel`}`;
+      const extra = fishing.kind === 'lure' ? (T ? 'up/down: reeling speed' : `${UD} reeling speed`)
+        : fishing.kind === 'float' ? (T ? 'up/down: bait depth' : `${UD} bait depth`) : '';
+      return `${how} (${clean}) · ${T ? 'stick left/right aims' : `${LR} aim`}${extra ? ` · ${extra}` : ''}${windHint()} · ${cancel}`;
     }
     case 'drifting':
       if (fishing.status === 'curious') return 'Something is curious about your bait. Keep still…';
@@ -2824,7 +3098,7 @@ function currentHint() {
         if (info.fouled) return T ? 'Weed on the lure: hold to reel in, or tap to flick it' : `Weed on the lure: hold ${space} to reel in, or tap to flick it`;
         return T
           ? `Hold to reel (${info.retrieve}; stick up/down changes speed) · tap to twitch · let go to pause`
-          : `Hold ${space} to reel · ${L('KeyW')}${L('KeyS')} speed: ${info.retrieve} · tap to twitch · let go to pause`;
+          : `Hold ${space} to reel · ${UD} speed: ${info.retrieve} · tap to twitch · let go to pause`;
       }
       if (fishing.kind === 'bottom') {
         if (!info.settled) return 'The rig is sinking to the seabed…';
@@ -2844,7 +3118,7 @@ function currentHint() {
         return T ? 'Let the fly drift with the current · hold to strip line in' : `Let the fly drift with the current · tap to twitch · hold ${space} to strip in`;
       }
       if (T) return `Stick up/down: bait depth · hold the button to reel in · tap to twitch${state.tips.under ? '' : ' · the view button looks underwater'}`;
-      return `${L('KeyW')}${L('KeyS')} bait depth · hold ${space} to reel in · tap to twitch${state.tips.under ? '' : ` · ${K('view')} look underwater`}`;
+      return `${UD} bait depth · hold ${space} to reel in · tap to twitch${state.tips.under ? '' : ` · ${K('view')} look underwater`}`;
     case 'bite': {
       const k = fishing.biteKind;
       const what = k === 'strike' ? 'It hit the lure!' : k === 'run' ? 'A run!' : k === 'sip' ? 'It took the fly!' : k === 'take' ? 'The indicator dipped!' : 'Bite! The float went under.';
@@ -2852,7 +3126,7 @@ function currentHint() {
     }
     case 'reeling': {
       const F = fishing.fight;
-      const drag = `${T ? 'stick up/down' : `${L('KeyW')}${L('KeyS')}`} drag: ${DRAG_NAMES[F?.drag ?? 2]}`;
+      const drag = `${T ? 'stick up/down' : UD} drag: ${DRAG_NAMES[F?.drag ?? 2]}${P ? ` (${kbd('LT')} eases it)` : ''}`;
       if (F?.selfHooked && !F.pickedUp) return T ? 'Fish on! It hooked itself on the rig. Hold the button to pick up the rod and play it' : `Fish on! It hooked itself on the rig. Hold ${space} to pick up the rod and play it`;
       if (F && F.tension > 0.97) return T ? 'The line is straining! Let go of the button' : `The line is straining! Let go of ${space}`;
       if (F?.surgeT > 0) return T ? 'It’s surging! Let go of the button' : `It’s surging! Let go of ${space}`;
@@ -2865,16 +3139,18 @@ function currentHint() {
   }
   if (placement.isOn) return '';
   if (onFoot) {
-    if (!state.tips.walked) return T ? 'Drag on the left to walk · drag on the right to look around' : `${L('KeyW')}${L('KeyA')}${L('KeyS')}${L('KeyD')} to walk · ${K('jog')} jog · drag to look around`;
+    if (!state.tips.walked) return T ? 'Drag on the left to walk · drag on the right to look around' : `${MOVE()} to walk · ${K('jog')} jog · ${LOOK()}`;
     if (!state.places.camp && Math.hypot(walker.pos.x - world.camp.firePos.x, walker.pos.z - world.camp.firePos.z) < 60) return 'Follow the path up to camp';
     return '';
   }
   if (boat.motor) {
     const lv = boat.lever;
     const word = boat.anchored ? 'at anchor' : Math.abs(lv) < 0.03 ? 'neutral' : lv < 0 ? 'astern' : boat.trolling ? 'electric motor (quiet)' : lv < 0.35 ? 'slow ahead' : lv < 0.75 ? 'half ahead' : 'full ahead';
-    return T ? `Throttle: ${word} · the stick drives and steers` : `Throttle: ${word} · ${L('KeyW')}${L('KeyS')} lever · ${L('KeyA')}${L('KeyD')} steer · ${K('neutral')} stop · ${K('anchor')} anchor`;
+    if (T) return `Throttle: ${word} · the stick drives and steers`;
+    if (P) return `Throttle: ${word} · ${kbd('L-stick')} drives and steers · ${K('anchor')} anchor`;
+    return `Throttle: ${word} · ${UD} lever · ${LR} steer · ${K('neutral')} stop · ${K('anchor')} anchor`;
   }
-  if (!state.tips.rowed) return T ? 'Drag on the left to row · drag on the right to look around' : `${L('KeyW')}${L('KeyA')}${L('KeyS')}${L('KeyD')} to row · drag to look around`;
+  if (!state.tips.rowed) return T ? 'Drag on the left to row · drag on the right to look around' : `${MOVE()} to row · ${LOOK()}`;
   if (!state.tips.cast) return T ? 'Hold the button to aim and cast your line' : `Hold ${space} to aim and cast your line`;
   if (state.tips.caught && !state.tips.journal) return T ? 'Tap Journal to see what you’ve found' : `${K('journal')} to open your journal`;
   if (state.tips.caught && !state.places.camp) return 'Your camp is on the west shore of the bay: row to the landing (follow the Camp marker)';
@@ -2967,7 +3243,7 @@ function updateHud() {
   hud.food(camp.wellFed ? 'Well fed' : hunger === 'hungry' ? 'Hungry' : hunger === 'peckish' ? 'Peckish' : '', camp.wellFed ? 'fed' : hunger === 'hungry' ? 'hungry' : '');
   hud.hint(currentHint(), t);
   const act = interaction();
-  hud.prompt(act ? (touch.active ? `Tap: ${act.text}` : `${K('interact')} ${act.text}`) : '');
+  hud.prompt(act ? (scheme() === 'touch' ? `Tap: ${act.text}` : `${K('interact')} ${act.text}`) : '');
   const F = fishing.fight;
   // Ease off: the flick before a run, and the surge as it starts.
   const easy = fishing.state === 'reeling' && !!F && (F.surgeT > 0 || (F.warned && !F.pulling));
@@ -3012,11 +3288,17 @@ function updateHud() {
   // Where the boat is while you're ashore; where camp is until you've found it.
   const cp = world.camp.firePos;
   placed.length = 0;
-  placeMarker($('boat-marker'), boat.pos.x, boat.heave + 1.6, boat.pos.z, started && onFoot && !driving && !modal && !nearBoat() && !(insideHome(walker.pos.x, walker.pos.z)));
+  // (On the first trip only the guide's marker and the car's: one thing to look for at a time.)
+  const guiding = state.guide.on;
+  placeMarker($('boat-marker'), boat.pos.x, boat.heave + 1.6, boat.pos.z, started && onFoot && !driving && !modal && !nearBoat() && !(insideHome(walker.pos.x, walker.pos.z)) && !guiding);
   const carD = Math.hypot(car.pos.x - player().pos.x, car.pos.z - player().pos.z);
-  placeMarker($('car-marker'), car.pos.x, car.pos.y + 2.2, car.pos.z, started && onFoot && !driving && !modal && carD > 18 && carD < 600 && !carHome());
+  // (Not twice over: when the guide is pointing at the car, its marker is the one.)
+  const guideOnCar = guiding && guideTarget?.label === 'Car';
+  placeMarker($('car-marker'), car.pos.x, car.pos.y + 2.2, car.pos.z, started && onFoot && !driving && !modal && carD > 18 && carD < 600 && !carHome() && !guideOnCar);
   const campD = Math.hypot(player().pos.x - cp.x, player().pos.z - cp.z);
-  placeMarker($('camp-marker'), cp.x, cp.y + 2.4, cp.z, started && !modal && campD > 14 && (onFoot ? campD < 400 : !state.places.camp && !!state.tips.caught));
+  placeMarker($('camp-marker'), cp.x, cp.y + 2.4, cp.z, started && !modal && campD > 14 && !guiding && !(onFoot && insideHome(walker.pos.x, walker.pos.z)) && (onFoot ? campD < 400 : !state.places.camp && !!state.tips.caught));
+  const gt = guideTarget, gd = gt ? Math.hypot(gt.x - player().pos.x, gt.z - player().pos.z) : 0;
+  placeMarker($('guide-marker'), gt?.x ?? 0, (gt?.y ?? heightAt(gt?.x ?? 0, gt?.z ?? 0)) + 1.8, gt?.z ?? 0, !!gt && guiding && started && !modal && gd > 3.5);
   // A trip's destination: a marker until you're on the water it rings.
   const trip = state.trip;
   if (trip) {
@@ -3300,7 +3582,9 @@ function begin() {
   if (!returning) state.places.bay = { day: state.day, hour: state.hour };
   const zone = zoneAt(player().pos.x, player().pos.z);
   const names = { lake: 'Reedmere', stream: 'Fernbeck', cove: 'Driftwood Cove' };
-  setTimeout(() => hud.place(onFoot ? (names[zone] || 'The west shore') : 'Willow Bay', returning ? 'welcome back' : onFoot ? 'by the camp' : 'home waters'), 900);
+  const home = onFoot && atHomeNow();
+  setTimeout(() => hud.place(home ? 'Home' : onFoot ? (names[zone] || 'The west shore') : 'Willow Bay', returning ? 'welcome back' : home ? 'the cottage and the garage' : onFoot ? 'by the camp' : 'home waters'), 900);
+  if (newPlayer) offerGuide();
   rig.settleUntil = t + 2.5;
   if (state.sonar) toggleFinder(true);
   if (cloudStart?.note) setTimeout(() => hud.toast(cloudStart.note, 8), 2600);
@@ -3371,7 +3655,7 @@ function openMapAt(x, z) {
 journal.memories = new Memories(state, {
   photos,
   adventures,
-  photoHint: () => (touch.active
+  photoHint: () => (scheme() === 'touch'
     ? 'Take a photograph from here or from your backpack (and from a catch card, a picture of your fish).'
     : `Press ${input.keyLabel('photo')} anywhere to take a photograph (and on a catch card to photograph your fish).`),
   takePhoto: () => {
@@ -3531,6 +3815,7 @@ function openJournal() {
   renderSaveStatus();
   renderCloud();
   renderOffline();
+  renderGuideRow();
   modal = 'journal';
   audio.page();
   if (fishing.aiming) fishing.cancel();
@@ -3575,7 +3860,7 @@ input.on('press', (code, acts) => {
     else if (is('tackle')) placement.turn(-Math.PI / 12);
     else if (is('interact')) placement.turn(Math.PI / 12);
     else if (is('settings')) openSettings();
-    else if (is('pack') || is('map') || is('journal')) hud.flash('Pitch the camp or cancel (Esc) first.', t, 2);
+    else if (is('pack') || is('map') || is('journal')) hud.flash(`Pitch the camp or cancel (${input.keyLabel('cancel')}) first.`, t, 2);
     return;
   }
   // Menus first: while one is open, gameplay keys do nothing (except each menu's own keys).
@@ -3740,6 +4025,20 @@ $('prompt').addEventListener('click', () => {
   if (act) act.run();
 });
 $('j-settings-open').addEventListener('click', () => openSettings());
+$('gd-fold').addEventListener('click', () => {
+  state.guide.min = !state.guide.min;
+  guideText = '';
+  guideT = 0;
+  save();
+});
+$('gd-end').addEventListener('click', endGuide);
+$('mem-guide-btn').addEventListener('click', () => {
+  if (state.guide.on) endGuide();
+  else {
+    beginGuide();
+    hud.toast('The guide is on: the card at the top of the screen shows the way.', 5);
+  }
+});
 $('map-btn').addEventListener('click', () => { if (started && !modal) openMap(); });
 $('settings-btn').addEventListener('click', () => { if (!modal || modal === 'settings') openSettings(); });
 $('title-difficulty').addEventListener('click', (e) => {
@@ -3768,6 +4067,7 @@ $('title-quality').addEventListener('click', (e) => {
 if (Object.keys(state.fish).length || state.places.jetty || state.places.cove || state.places.camp) $('start-btn').textContent = 'Continue';
 
 addEventListener('resize', () => {
+  measureGuide();
   renderer.setSize(innerWidth, innerHeight, false);
   fitCamera();
   finder.fit();
@@ -3810,6 +4110,15 @@ const walkerCtx = { x: 0, z: 0, speed: 0 };
 const move = { x: 0, z: 0 };
 let saveTimer = 10;
 let last = performance.now();
+
+// A brand-new game begins at home: in front of the cottage, with the car on the drive. (Nobody
+// needs telling about a home they're standing in.)
+const newPlayer = isNewGame(state) && !state.guide.offered;
+if (newPlayer) {
+  state.mode = 'foot';
+  state.walker = { ...HOME_START };
+  state.outing.intro = true;
+}
 
 // Back where you left off: on foot if that's where you were (and somewhere you can stand:
 // otherwise you're back in your boat).
@@ -3859,6 +4168,7 @@ function tick(now, manual = false) {
   t += dt;
   conditions.time = t;
   if (!manual) watchFrameRate(rawDt);
+  pads.poll(dt);
 
   const resting = started && (!modal || modal === 'camp') && input.resting;
   const speed = resting ? REST_SPEED : 1;
@@ -3897,10 +4207,12 @@ function tick(now, manual = false) {
       else fishing.aimBy(si, dt);
       fishing.depthBy(ti, dt);
     } else if (fishing.lineOut) {
-      fishing.depthBy(ti, dt);
+      // (On a controller, LT eases the drag off while a fish is on.)
+      fishing.depthBy(pads.active && fishing.state === 'reeling' && pads.lt > 0.4 ? -1 : ti, dt);
       if (!onFoot) steer = si;
     } else if (driving) {
-      carIn.throttle = ti;
+      // On a controller the triggers drive: RT to go, LT to brake and then reverse.
+      carIn.throttle = pads.active ? pads.rt - pads.lt : ti;
       carIn.steer = si;
     } else if (onFoot) {
       // Camera-relative: W walks away from the camera, A/D to the sides.
@@ -3910,8 +4222,9 @@ function tick(now, manual = false) {
     } else if (boat.motor) {
       // The throttle lever stays where you leave it (on a touch screen the stick drives it
       // directly). Coming back through neutral it pauses there before going astern.
-      if (touch.active && input.virtual.throttle !== 0) boat.lever = clamp(input.virtual.throttle, -0.4, 1);
-      else if (touch.active) boat.lever = damp(boat.lever, 0, 2, dt);
+      const stick = touch.active || pads.active;
+      if (stick && input.virtual.throttle !== 0) boat.lever = clamp(input.virtual.throttle, -0.4, 1);
+      else if (stick) boat.lever = damp(boat.lever, 0, 2, dt);
       else if (ti) {
         const was = boat.lever;
         leverHold -= dt;
@@ -3963,7 +4276,7 @@ function tick(now, manual = false) {
   }
   // First person: you face where you look.
   if (rig.mode === 'eye' && onFoot && !(move.x || move.z)) walker.heading = dampAngle(walker.heading, rig.yaw, 10, dt);
-  if (onFoot && !driving) walker.update(dt, t, move, { jog: input.jogging, locked: fishing.busy, obstacles: solids });
+  if (onFoot && !driving) walker.update(dt, t, move, { jog: input.jogging || (pads.active && pads.jog), locked: fishing.busy, obstacles: solids });
   // The car: driven while you're at the wheel (a menu open puts the brake on); otherwise parked.
   {
     const live = driving && started;
@@ -4119,6 +4432,7 @@ function tick(now, manual = false) {
   }
   if (started) {
     checkPlaces(dt);
+    updateGuide(dt);
     watchCamps();
     watchBirds(dt);
     // An open board keeps up with the hour: it's read off the water as it is now.
@@ -4214,7 +4528,9 @@ window.slowTide = {
   openBench: (st) => openBench(st), get driving() { return driving; }, get modalName() { return modal; },
   state, walker, fishing, env, weather, renderer, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world,
   get boat() { return boat; }, // the boat you're in (or last used)
-  reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI,
+  reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI, pads,
+  // The first-trip guide as it stands: the step, its words and where it points.
+  guideNow: () => ({ step: stepOf(state.guide), title: $('gd-title').textContent, text: $('gd-text').textContent, target: guideTarget, shown: !$('guide').hidden }),
   firstPerson: (on = true) => rig.setFirstPerson(on, t),
   setHour: (h) => { state.hour = ((h % 24) + 24) % 24; },
   setRain: (r) => { weather.override = r; weather.rain = r; },

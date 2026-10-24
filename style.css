@@ -534,6 +534,12 @@ body.touch #bait, body.touch #sonar { position: absolute; }
 #sonar-legend p { margin: 0; font-size: 12px; line-height: 1.4; opacity: 0.85; }
 
 button:focus-visible, #scene:focus-visible { outline: 2px solid var(--lantern); outline-offset: 3px; }
+/* Playing with a controller: wherever the focus is, you can see it (there's no mouse pointer to
+   follow), and the on-screen touch controls step aside. */
+body.pad :focus { outline: 3px solid var(--lantern); outline-offset: 3px; }
+body.pad #touch, body.pad #cancel-btn { display: none !important; }
+body:not(.pad) .pad-only { display: none !important; }
+body.pad .keys-only { display: none !important; }
 
 /* Rod and tackle in hand, under the clock. Click to open the backpack. */
 #gear {
@@ -601,6 +607,58 @@ button:focus-visible, #scene:focus-visible { outline: 2px solid var(--lantern); 
 .marker.trip { border-color: rgba(240, 180, 140, 0.6); }
 .marker.trip .m-arrow { border-bottom-color: #f0b48c; }
 .marker.near { opacity: 0.75; }
+.marker.guide { border-color: rgba(255, 214, 140, 0.85); background: rgba(40, 32, 20, 0.6); }
+.marker.guide .m-arrow { border-bottom-color: #ffd68c; }
+
+/* The first-trip guide: a small card under the corner buttons, one step at a time. */
+#guide {
+  position: absolute;
+  top: calc(64px + env(safe-area-inset-top, 0px));
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  width: min(320px, calc(100% - 32px));
+  padding: 10px 12px 12px 14px;
+  pointer-events: auto;
+  font: 14px/1.45 var(--font-ui);
+}
+#guide.fresh { animation: guide-step 1.2s ease; }
+@keyframes guide-step { 0% { box-shadow: 0 0 0 0 rgba(255, 214, 140, 0.7); } 100% { box-shadow: 0 0 0 14px rgba(255, 214, 140, 0); } }
+.gd-head { display: flex; align-items: center; gap: 6px; }
+.gd-step { flex: 1; font: 700 11.5px var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.8; }
+.gd-icon {
+  width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--hud-line);
+  background: transparent; color: var(--hud-ink); font: 700 15px/1 var(--font-ui); cursor: pointer;
+}
+.gd-icon:hover { background: rgba(255, 255, 255, 0.12); }
+#gd-title { margin: 6px 0 4px; font: 700 16px var(--font-ui); }
+#gd-text { margin: 0; }
+#gd-text kbd { font-size: 12px; }
+.gd-dots { display: flex; gap: 5px; margin: 10px 0 0; padding: 0; list-style: none; }
+.gd-dots li { width: 18px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.22); }
+.gd-dots li.done { background: var(--seaglass); }
+.gd-dots li.now { background: #ffd68c; }
+#hud.off #guide { display: none; }
+/* While the guide card is up, the toasts that share its corner come in below it. */
+body.guiding:not(.touch) #toast { top: calc(74px + var(--guide-h, 180px) + env(safe-area-inset-top, 0px)); }
+body.touch #guide { top: calc(64px + env(safe-area-inset-top, 0px)); width: min(270px, 46vw); padding: 8px 10px 10px 12px; font-size: 13px; }
+body.touch #gd-title { font-size: 14.5px; }
+/* Phones upright: the card spans the top under the buttons, and the tips that live up there
+   (the hint, the bait panel, the view tip) move down below it. */
+@media (max-width: 600px) {
+  body.touch #guide { top: calc(100px + env(safe-area-inset-top, 0px)); left: 12px; right: 12px; width: auto; }
+  body.touch.guiding #hint { top: calc(108px + var(--guide-h, 160px) + env(safe-area-inset-top, 0px)); }
+  body.touch.guiding #bait { top: calc(144px + var(--guide-h, 160px) + env(safe-area-inset-top, 0px)); }
+  body.touch.guiding #view-chip { top: calc(244px + var(--guide-h, 160px) + env(safe-area-inset-top, 0px)); }
+}
+/* Phones sideways: a narrower card on the right, the hint keeping clear of it, and the card
+   scrolling rather than reaching down to the thumbs. */
+@media (max-height: 480px) {
+  body.touch #guide { top: calc(58px + env(safe-area-inset-top, 0px)); width: 210px; font-size: 12px; max-height: calc(100vh - 220px); overflow-y: auto; }
+  body.touch.guiding #hint { max-width: calc(100% - 480px); }
+}
+@media (max-width: 760px) {
+  body:not(.touch) #guide { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+  body.guiding:not(.touch) #toast { top: calc(112px + env(safe-area-inset-top, 0px)); }
+}
 
 #sleep-veil {
   position: fixed;
@@ -1046,6 +1104,8 @@ p.cp-soft { margin: 6px 0; }
 }
 .t-keys dt { text-align: right; font-weight: 600; opacity: 0.9; }
 .t-keys dd { margin: 0; opacity: 0.85; }
+.t-pad { margin: 10px 0 0; font-size: 13px; opacity: 0.75; animation: rise 1.6s 0.65s ease both; }
+.t-pad:empty { display: none; }
 #meter-label .ml-sub { margin-top: 3px; font: 800 11px/1 var(--font-ui); opacity: 0.9; }
 /* Shorter screens: a more compact title so the settings line and offline status fit. */
 @media (max-height: 780px) {
@@ -1328,6 +1388,7 @@ body.touch #rest-veil { padding-bottom: calc(170px + env(safe-area-inset-bottom,
 .st-key { display: grid; grid-template-columns: minmax(0, 1fr) auto 104px; align-items: center; gap: 10px; padding: 4px 2px; font: 13.5px var(--font-ui); }
 .st-keycaps { display: flex; gap: 4px; }
 .st-key .pk-btn { padding: 4px 8px; font-size: 12px; }
+.st-key.st-pad { grid-template-columns: minmax(0, 1fr) auto; }
 .st-key .pk-btn.waiting { background: var(--lantern); border-color: var(--lantern); color: #3a2a14; }
 .st-fixed { justify-self: center; font: 600 12px var(--font-ui); color: var(--ink-soft); }
 @media (max-width: 620px) {

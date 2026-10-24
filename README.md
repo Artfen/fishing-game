@@ -97,7 +97,38 @@ While you're choosing where to pitch a camp, only its own keys work: walk and lo
 
 On a phone or tablet the controls appear on screen. Drag on the **left** half to row, paddle, drive or walk (a stick appears under your thumb; in a motorboat, push it forward for throttle), drag on the **right** half to look around, and pinch to zoom. While a fish is on, stick up/down sets the drag. The round button on the right does all the fishing: hold to aim and let go to cast, tap to strike, hold to reel. Its label tells you what it will do next. Prompts such as *Step ashore* or *Camp* are buttons: tap them. The buttons along the top open the fish finder, backpack, views, journal, map and settings, and the hourglass lets time drift while you hold it.
 
+With a controller (an Xbox controller, or any the browser recognises; plug it in or pair it, then press any button). It never replaces the other controls: whichever you used last is what the hints, prompts and the title screen describe.
+
+| | |
+|---|---|
+| Left stick | walk, row, paddle, steer (in a motorboat, push it forward for throttle) · **L3** jogs until you stop |
+| Right stick | look around |
+| **RT** | hold to aim, let go to cast; strike; hold to reel |
+| **A** / **B** | whatever the prompt says / cancel a cast, reel in, back out of a menu |
+| **Y** · **View** · **D-pad ↑** · **Menu** | backpack · map · journal · settings |
+| **LB** / **RB** | the other rod / the next bait or lure (with a line out: *why aren't they biting?* / loose bait) |
+| **X** · **LT** | anchor · let time drift (hold) |
+| **D-pad ← / → / ↓**, **R3** | next view / photo mode / fish finder, reset the camera |
+| A fish on | **RT** reels, **LT** eases the drag, left stick up/down sets it |
+| Catch card | **A** let it go, **X** keep it, **Y** photograph it |
+| Driving | **RT** go, **LT** brake (hold to reverse), left stick steers, **A** get out, **X** where to? |
+| Menus | **D-pad** or left stick moves, **A** chooses, **B** goes back, **LB**/**RB** change tabs, right stick scrolls |
+
+Settings → Controls & comfort lists them all, and turns the controller's vibration on bites and runs on or off. If the browser doesn't recognise a controller's layout, the game says so: its buttons may not match the hints.
+
 Nothing can go wrong. A missed bite just means another will come; a snapped line only loses that fish (and the game tells you why it broke); and you can never starve.
+
+### Your first trip
+
+A new game begins at home, in front of the cottage with the car on the drive, and offers a short guide to a first outing (you can say no, end it whenever you like, and start it again from the journal, under **Memories**). A small card in the corner shows one step at a time, in the words of whatever controls you're using, and a marker points the way:
+
+1. **Plan at the workbench** in the garage: what you're going for, where, and the rod and tackle to pack.
+2. **Drive to the water**: get in at the driver's door and follow the lane, or let the drive go by.
+3. **Find a spot**: each place has one marked (the end of Willowhaven's quay, the surf at Shell Strand, the ledges at Cove Head…), with a word on where the fish are.
+4. **Cast**, 5. **land a fish**, 6. **keep it or let it go** (it's in your journal either way),
+7. and **home again**, or pitch a camp.
+
+Each step is done when it actually happens, never on a timer, and doing a later one first is fine: skip the workbench and just drive off, and the guide catches up.
 
 ### A day in Slow Tide
 
@@ -146,7 +177,7 @@ The camping gear is three pieces, each in one place at a time: the **tent & bedr
 
 ### Home, the garage and the car
 
-Home is a cottage and its garage on the east arm, up the lane above Shell Strand. Players who were already playing are offered it once (**Go home now** or **Later**); new players hear about it after a little while. Either way you carry on wherever you were. The map and the backpack's **Head back to** list take you there whenever you like.
+Home is a cottage and its garage on the east arm, up the lane above Shell Strand. Players who were already playing are offered it once (**Go home now** or **Later**) and otherwise carry on wherever they were; new games begin there. The map and the backpack's **Head back to** list take you there whenever you like.
 
 - **The cottage**: your bed (sleep until the hour you choose), the desk with your journal and records, a kitchen (cook a fish from your creel and sit down to it), and a wall for three photographs, a keepsake and the record of a catch. The house fills it from what you've actually done (your latest photographs, your best catch, your newest keepsake), or you choose. Nothing is ever made up: empty frames stay empty.
 - **The garage**: the tackle wall (a tackle box for your whole collection), the rod rack and the camping shelf (they show what's really there: a rod you carry or have loaded in the car leaves a gap), boots and bags, and the **workbench**.

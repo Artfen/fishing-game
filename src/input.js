@@ -1,6 +1,8 @@
 // Every key the game listens to is an action bound to physical key positions (e.code), so
 // the controls sit in the same place on any keyboard layout (WASD is ZQSD on AZERTY), and
 // players can rebind them in Settings. Labels show the letter printed on the player's keyboard.
+// A game controller (see gamepad.js) and the touch controls press the same actions; whichever
+// you used last is `method` ('keys', 'pad' or 'touch'), and the hints follow it.
 const BLOCK = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab']);
 const UI_KEYS = new Set(['Space', 'Enter', 'NumpadEnter', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End']);
 
@@ -88,6 +90,11 @@ export class Input {
     this.virtual = { throttle: 0, steer: 0, rest: false };
     this.layout = null; // the letters printed on this keyboard, once known
     this.setBindings(defaultBindings());
+    // Which controls you're using now, and what to call an action's button on a controller
+    // (set by gamepad.js).
+    this.method = matchMedia('(pointer: coarse)').matches ? 'touch' : 'keys';
+    this.methodFns = [];
+    this.padLabel = null;
     // While something else wants the keys (rebinding in Settings), the game ignores them.
     this.paused = false;
 
@@ -98,6 +105,9 @@ export class Input {
     const inPanel = (e) => UI_KEYS.has(e.code) && ((e.target instanceof Element && e.target.closest('[role="dialog"]'))
       || (e.code === 'Tab' && document.querySelector('[role="dialog"]:not([hidden])')));
     addEventListener('keydown', (e) => {
+      // (The arrow keys a controller sends round a menu are for the menu, not the game.)
+      if (e.fromPad) return;
+      if (e.isTrusted) this.use('keys');
       if (this.paused || typing(e) || inPanel(e)) return;
       if (BLOCK.has(e.code)) e.preventDefault();
       if (e.repeat) return;
@@ -113,7 +123,10 @@ export class Input {
 
     // One pointer drags the view; two pointers pinch to zoom. The right mouse button
     // never drags: it cancels (a cast being aimed, or the line in the water).
+    // (Any touch anywhere means touch; the mouse, on the scene, means keyboard and mouse.)
+    addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') this.use('touch'); }, { capture: true, passive: true });
     canvas.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse') this.use('keys');
       if (e.pointerType === 'mouse' && e.button === 2) {
         this.emit('cancel', '', []);
         return;
@@ -149,13 +162,17 @@ export class Input {
     canvas.addEventListener('pointercancel', end);
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
+      this.use('keys');
       this.wheel += e.deltaY;
     }, { passive: false });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
     // Show the letters printed on this keyboard (e.g. Z Q S D on AZERTY).
     try {
-      navigator.keyboard?.getLayoutMap?.().then((map) => { this.layout = map; }).catch(() => {});
+      navigator.keyboard?.getLayoutMap?.().then((map) => {
+        this.layout = map;
+        for (const fn of this.methodFns) fn(this.method);
+      }).catch(() => {});
     } catch {
       // Not available in some embedded frames; keep the QWERTY names.
     }
@@ -177,11 +194,11 @@ export class Input {
   // Is any key for this action held down?
   holding(action) {
     for (const c of this.bindings[action] || []) if (this.codes.has(c)) return true;
-    return this.codes.has(`Touch:${action}`);
+    return this.codes.has(`Touch:${action}`) || this.codes.has(`Pad:${action}`);
   }
 
   releaseAll() {
-    for (const c of this.codes) this.emit('release', c, c.startsWith('Touch:') ? [c.slice(6)] : this.actionsOf(c));
+    for (const c of this.codes) this.emit('release', c, /^(Touch|Pad):/.test(c) ? [c.slice(c.indexOf(':') + 1)] : this.actionsOf(c));
     this.codes.clear();
   }
 
@@ -242,9 +259,29 @@ export class Input {
     return codeName(code);
   }
 
-  // The (first) key for an action, for hints: "E", "Space"…
-  keyLabel(action) {
+  // The (first) key for an action, as printed on this keyboard.
+  keyName(action) {
     const c = this.bindings[action]?.[0];
     return c ? this.label(c) : '—';
   }
+
+  // The key for an action, for hints: "E", "Space"… (or its controller button, while you're
+  // using a controller).
+  keyLabel(action) {
+    if (this.method === 'pad' && this.padLabel) {
+      const b = this.padLabel(action);
+      if (b) return b;
+    }
+    return this.keyName(action);
+  }
+
+  // The controls you're using now changed: tell whoever's listening (the hints, the title; they
+  // hear too once the keyboard's own letters are known).
+  use(method) {
+    if (this.method === method) return;
+    this.method = method;
+    for (const fn of this.methodFns) fn(method);
+  }
+
+  onMethod(fn) { this.methodFns.push(fn); }
 }

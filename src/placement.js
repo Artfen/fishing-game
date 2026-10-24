@@ -10,7 +10,8 @@ const $ = (id) => document.getElementById(id);
 // does, it says why. Cancelling leaves everything as it was: nothing is used up or moved.
 export class Placement {
   // hooks: { walker, yaw() (where the camera looks), world (see siteWorld.js), preview, others()
-  //          (camps already pitched), keyLabel(action), touch(), confirm(spot), cancel() }
+  //          (camps already pitched), keyLabel(action), controls() ('keys', 'pad' or 'touch'),
+  //          confirm(spot), cancel() }
   constructor(hooks) {
     this.h = hooks;
     this.active = null;
@@ -111,8 +112,9 @@ export class Placement {
     $('pl-warn').textContent = c.ok ? c.warn : '';
     $('pl-ok').disabled = !c.ok;
     const K = this.h.keyLabel;
-    $('pl-keys').textContent = this.h.touch()
-      ? 'Walk to choose the spot · the buttons turn it and bring it nearer or further'
-      : `Walk and look to choose the spot · ${K('tackle')} ${K('interact')} turn it · mouse wheel nearer or further · ${K('cast')} pitch · Esc cancel`;
+    $('pl-keys').textContent = {
+      touch: 'Walk to choose the spot · the buttons turn it and bring it nearer or further',
+      pad: `Walk and look to choose the spot · ${K('tackle')} ${K('interact')} turn it · ${K('cast')} pitch · ${K('cancel')} cancel`,
+    }[this.h.controls()] || `Walk and look to choose the spot · ${K('tackle')} ${K('interact')} turn it · mouse wheel nearer or further · ${K('cast')} pitch · Esc cancel`;
   }
 }

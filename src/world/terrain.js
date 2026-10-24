@@ -161,6 +161,8 @@ export const COAST_PATHS = [
 // Strand to the sea, with the hill behind (see home.js). The pad is cut and filled level; the
 // house and garage share a wall, with a door between them; the garage door faces the drive.
 export const HOME = { x: 123, z: -74 };
+// Where a new game begins: in front of the cottage, the garage on your right, the car on the drive.
+export const HOME_START = { x: 123.5, z: -66, heading: Math.PI };
 export const HOME_PAD = { x0: 106, x1: 141, z0: -86, z1: -57, h: 6 };
 export const HOUSE = { x0: 111, x1: 126, z0: -81, z1: -71.5, door: 116.5 };
 export const GARAGE = { x0: 126, x1: 135.5, z0: -81, z1: -70, door: [128, 133.6], inner: -76.6 };
@@ -750,7 +752,8 @@ function pierAlong(x, z, dx, dz, { width = 2.2, deep = 1.4, deck = 0.95, max = 4
     deck, land: a, end: b, dir: { x: dx, z: dz },
   };
 }
-export const QUAY = pierAlong(WEND_CAMP.x + 4, WEND_CAMP.z, 1, 0, { width: 3, deck: 1.0 });
+// (Its deck sits low enough to step up onto from the bank at its root.)
+export const QUAY = pierAlong(WEND_CAMP.x + 4, WEND_CAMP.z, 1, 0, { width: 3, deck: 0.7 });
 export const BOATHOUSE_PIER = pierAlong(BOATHOUSE.x + 4, BOATHOUSE.z, -1, 0, { width: 2, deck: 0.7 });
 export const COVE_PIER = pierAlong(GANNET_CAMP.x, GANNET_CAMP.z - 2, 0, -1, { width: 2, deck: 0.8 });
 // Willowhaven's quay: stone, out from the apron into the bay where it's deep enough for the skiff.

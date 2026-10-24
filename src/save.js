@@ -3,6 +3,7 @@ import { RODS, TACKLE, TERMS, PACK, cleanGear } from './tackle.js';
 import { cleanSettings } from './settings.js';
 import { cleanCamps } from './campsite.js';
 import { cleanEquip, cleanCar, cleanOuting, defaultEquip } from './outing.js';
+import { cleanGuide } from './firstTrip.js';
 
 // Saving your progress in this browser, with nobody to sign in to.
 //
@@ -70,6 +71,7 @@ export const DEFAULT_STATE = {
   car: null,       // { x, z, yaw, at: 'home' | destination id | null }
   outing: null,    // { plan, last, lastDest, loadouts, travel, intro }
   home: null,      // { photos: [ids], keepsake, catchId, auto }
+  guide: null,     // the first-trip guide: { on, done, dest, offered, finished, min, since } (see firstTrip.js)
 };
 
 // A new game: every setting at its default (a loaded save gets its own from sanitize).
@@ -93,6 +95,7 @@ const fresh = () => {
   s.car = cleanCar(null);
   s.outing = cleanOuting(null);
   s.home = cleanHome(null, s);
+  s.guide = cleanGuide(null);
   return s;
 };
 
@@ -285,6 +288,7 @@ export function sanitize(raw) {
   s.car = cleanCar(raw.car);
   s.outing = cleanOuting(raw.outing);
   s.home = cleanHome(raw.home, s);
+  s.guide = cleanGuide(raw.guide);
   if (isObj(raw.sky)) {
     s.sky = { cloud: num(raw.sky.cloud, 0.3, 0, 1), rain: num(raw.sky.rain, 0, 0, 1), state: oneOf(raw.sky.state, SKY_STATES, 'partly'), timer: num(raw.sky.timer, 120, 0, 3600) };
   }
