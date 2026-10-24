@@ -154,37 +154,47 @@
   </div>
 </div>
 
-<div id="pack" class="sheet" role="dialog" aria-label="Backpack" hidden>
-  <div class="sheet-inner">
-    <header>
-      <h2 id="pack-title">Backpack</h2>
-      <p id="pack-where"></p>
-      <button id="pack-close" class="sheet-close" type="button" aria-label="Close the backpack">×</button>
+<div id="pack" class="sheet gx" role="dialog" aria-modal="true" aria-labelledby="pack-title" hidden>
+  <div class="sheet-inner gx-inner">
+    <header class="gx-head">
+      <div class="gx-label">
+        <h2 id="pack-title">Backpack</h2>
+        <p id="pack-where"></p>
+      </div>
+      <ul class="gx-caps" id="pack-caps" aria-label="What you carry"></ul>
+      <button id="pack-close" class="gx-close" type="button" aria-label="Close the backpack (Esc)">×</button>
     </header>
-    <div class="pk-travel" role="group" aria-label="Head back">
-      <span class="pk-travel-label">Head back to</span>
-      <button id="travel-camp" class="pk-btn" type="button">Camp (the tent)</button>
-      <button id="travel-boat" class="pk-btn" type="button">The boat</button>
-      <button id="travel-map" class="pk-btn" type="button">Another camp (map)</button>
-      <span id="travel-note" class="pk-note"></span>
+    <nav class="gx-cats" id="pack-cats" role="tablist" aria-label="Equipment"></nav>
+    <nav class="gx-panes" id="pack-panes" aria-label="Backpack panels">
+      <button type="button" data-pane="browse">Equipment</button>
+      <button type="button" data-pane="inspect">Selected</button>
+      <button type="button" data-pane="setup">Your setup</button>
+    </nav>
+    <div class="gx-body" id="pack-body">
+      <section class="gx-browser" aria-label="Equipment">
+        <div class="gx-filters" id="pack-filters"></div>
+        <div class="gx-grid" id="pack-grid"></div>
+      </section>
+      <section class="gx-inspect" id="pack-inspect" aria-label="Selected equipment" aria-live="polite"></section>
+      <aside class="gx-setup" aria-label="Your setup">
+        <div id="pack-setup"></div>
+        <details class="gx-more" id="pack-creel-box">
+          <summary>Creel <span id="pack-fish-count"></span></summary>
+          <div id="pack-fish" class="gx-creel"></div>
+        </details>
+        <details class="gx-more" id="pack-travel-box">
+          <summary>Head back</summary>
+          <div class="gx-travel" role="group" aria-label="Head back">
+            <button id="travel-camp" class="pk-btn" type="button">Camp (the tent)</button>
+            <button id="travel-boat" class="pk-btn" type="button">The boat</button>
+            <button id="travel-map" class="pk-btn" type="button">Another camp (map)</button>
+            <p id="travel-note" class="gx-note"></p>
+          </div>
+        </details>
+        <p class="gx-keys desk-only"><kbd data-key="tackle">Q</kbd> next tackle · <kbd data-key="rod1">1</kbd> <kbd data-key="rod2">2</kbd> switch rods · <kbd>Esc</kbd> close</p>
+      </aside>
     </div>
-    <h3>Rods <span class="count" id="pack-rod-count"></span></h3>
-    <div id="pack-rods" class="pk-grid"></div>
-    <h3>Tackle <span class="count" id="pack-item-count"></span></h3>
-    <div id="pack-items" class="pk-grid"></div>
-    <h3>Creel <span class="count" id="pack-fish-count"></span></h3>
-    <div id="pack-fish" class="pk-creel"></div>
-    <section id="pack-setups-section" hidden>
-      <h3>Ready-made setups</h3>
-      <div id="pack-setups" class="pk-setups"></div>
-      <h3>Your setups</h3>
-      <div id="pack-saved" class="pk-setups"></div>
-    </section>
-    <section id="pack-box-section" hidden>
-      <h3 id="pack-box-title">In the tackle box</h3>
-      <div id="pack-box" class="pk-grid"></div>
-    </section>
-    <p class="pk-help desk-only"><kbd>Q</kbd> next tackle for this rod · <kbd>1</kbd> <kbd>2</kbd> switch rods · <kbd>B</kbd> or <kbd>Esc</kbd> close</p>
+    <p class="gx-status" id="pack-status" role="status" aria-live="polite"></p>
   </div>
 </div>
 

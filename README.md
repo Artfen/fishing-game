@@ -22,7 +22,7 @@ Then open <http://localhost:8642>. `serve.py` is a tiny static server with cachi
 node --import ./tests/setup.mjs --test 'tests/*.test.mjs'
 ```
 
-Node 22 or newer, nothing to install (on Node 20, leave out the quotes around the pattern). The tests check saves (version upgrades including the move to four boats, the backup and unreadable copies, a newer save never written over, full storage, junk cleaned up, combining two saves, the explored map and catch positions), the fight (careful play lands big carp at every difficulty, the creak is a real warning on Standard, winding through surges breaks the line, locked drags, pike teeth, weed), tackle (every ready-made setup is castable and complete, impossible rigs are refused with a reason, every kind of fish can be caught with some setup), the world (every species lives somewhere, fresh water fish stay in fresh water and sea fish in the sea), the map's memory of where you've been, and that `sw.js` lists every file for offline play. `tests/setup.mjs` loads three.js from `vendor/` so the game's own modules run as they are.
+Node 22 or newer, nothing to install (on Node 20, leave out the quotes around the pattern). The tests check saves (version upgrades including the move to four boats, the backup and unreadable copies, a newer save never written over, full storage, junk cleaned up, combining two saves, the explored map and catch positions), the fight (careful play lands big carp at every difficulty, the creak is a real warning on Standard, winding through surges breaks the line, locked drags, pike teeth, weed), tackle (every ready-made setup is castable and complete, impossible rigs are refused with a reason, every kind of fish can be caught with some setup), the world (every species lives somewhere, fresh water fish stay in fresh water and sea fish in the sea), the backpack's pictures (every rod, reel, line, rig, leader, bait, lure, fly and jig has its own model, drawn from its data), the map's memory of where you've been, and that `sw.js` lists every file for offline play. `tests/setup.mjs` loads three.js from `vendor/` so the game's own modules run as they are.
 
 Two tuning tools play the real game code headless: `node --import ./tests/setup.mjs tools/fightsim.mjs` plays thousands of fights per species, rod, difficulty and player style; `node --import ./tests/setup.mjs tools/ecosim.mjs` fishes the living ecosystem with a chosen rig in a chosen spot and reports which species come and how soon they bite.
 
@@ -193,7 +193,17 @@ The camera stays in the view you chose: casting, a bite and a hooked fish never 
 
 Baits: garden worms, maggots, sweetcorn, bread flake, boilies, prawns, ragworm, lugworm, peeler crab, mackerel strip. Lures: trout spinner, silver spinner, trout spoon, mini minnow, shallow and deep crankbaits, jerkbait, paddle-tail shad, weedless creature bait, surface popper, soft sandeel, 25 g casting metal, 60 g offshore stickbait, 80 g metal jig. Flies: dry fly, nymph, streamer. Squid jigs: 1.8, 2.5 and 3.0.
 
-The backpack shows each rod's line, rig, casting weight and range, and what it can take. You pick the line and rig for each rod there too. Impossible combinations aren't allowed and the panel says why (a fly on a spinning rod, a 60 g stickbait on the light rod); combinations that work but badly get a gentle warning (a lure a little over the rod's weight, or too light to load it).
+### The backpack
+
+Press **B** (or the pack button). The backpack opens like your tackle, in three parts:
+
+- **Equipment** (left): tabs for *Rods & reels*, *Lines & leaders*, *Floats & rigs*, *Lures*, *Baits*, *Flies & jigs* and *Setups*, each a tray of pictures. What you carry comes first; what's left in the tackle box is below it, marked *In the tackle box*. Filter by *Fits the rod in hand*, fresh or salt water, and carried or boxed, or search. Each tile says where the piece is: ✋ in hand, ● on your line, ◐ on your other rod, ✓ carried, ▣ in the box, ✕ no rod for it.
+- **Selected** (middle): the piece large and well lit. Drag it (or focus it and use the arrow keys) to turn it; rods show the whole rod or a close-up of the handle and reel. Below: what it's for, its real numbers, whether it suits your rod (✓ fine, ! a caution, ✕ won't work, each with the reason: *"This 16 g lure fits your rod's 7–30 g casting range"*), the fish that take it (only the ones you've met are named), a comparison with what you have on now, and the action: **Tie on**, **Spool it on**, **Rig it**, **Take in hand**, **Pack it** or **Leave in the tackle box**. When an action can't happen here, it says why.
+- **Your setup** (right): the rod in hand as it's rigged, rod → reel → line → leader or rig → bait or lure, with the other rod below. Click a part to change it. While you look at a replacement, the part it would change is outlined and the setup shows what the change does (weight, casting distance, line strength) before you commit. The creel and *Head back* are tucked underneath.
+
+Line, rig and what's tied on can be changed anywhere; rods and tackle are swapped (and whole setups packed or saved) only within reach of a tackle box: at a camp, or a motorboat's locker. **Q** and **1**/**2** still work with the backpack open, **Esc** closes it, and Tab, the arrow keys, Enter and Space move around and press things without casting or moving you. On a narrow screen the three parts become tabs. Impossible combinations aren't allowed and the panel says why (a fly on a spinning rod, a 60 g stickbait on the light rod); combinations that work but badly get a gentle warning.
+
+All the pictures are drawn by the game itself from the tackle data (`src/gearArt.js`), photographed once by a small studio renderer (`src/gearView.js`) and kept for the session.
 
 **Ready-made setups** pack everything in one go wherever there's a tackle box or a boat locker: *Starter Carp*, *Float Fishing*, *Light Trout*, *Fly Fishing*, *Lake Predator*, *Coastal Spinning*, *Flatfish*, *Squid*, *Offshore* and *The Bay*. Each one lands the fish it's named for. You can also **save your own setups** (up to six) and switch back to them later.
 
@@ -379,7 +389,9 @@ Not on Vercel? Put the URL and anon key in `src/cloud-config.js` instead. The an
 | `tools/build-sw.mjs` | Writes the file list and version into `sw.js` (`--check` reports if it's out of date) |
 | `vercel.json` | Runs `tools/build-sw.mjs` on every Vercel deploy |
 | `src/fish.js` | The 23 species, squid included (where they live, how they behave, what they eat and how they take it, weight), 3D models, journal sketches |
-| `src/pack.js` | The backpack and tackle box panel |
+| `src/pack.js` | The backpack: the equipment browser, the selected piece with its compatibility checks, and your setup as rigged |
+| `src/gearArt.js` | Models of every rod (with its reel), line spool, float, rig, leader, bait, lure, fly and squid jig, built from the tackle data by id |
+| `src/gearView.js` | The backpack's studio: one small renderer that makes cached thumbnails and the turnable preview |
 | `src/camp.js` | The fire, grill, food and hunger, and the sleep panel |
 | `src/sonar.js` | The fish finder (boat and castable), its echoes, and dragging and sizing the panel |
 | `src/journal.js` | The journal pages, catch log (totals, bests, weights, filters) and hand-drawn map |

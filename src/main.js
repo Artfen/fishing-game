@@ -1279,6 +1279,7 @@ function applyControls() {
   rig.invertX = C.invertX;
   rig.invertY = C.invertY;
   rig.reduced = C.reducedMotion;
+  document.documentElement.classList.toggle('reduce-motion', !!C.reducedMotion);
   fishing.assist = C.cast === 'assisted';
   input.setBindings(C.keys || defaultBindings());
   for (const k of document.querySelectorAll('kbd[data-key]')) k.textContent = input.keyLabel(k.dataset.key);
@@ -2491,7 +2492,7 @@ requestAnimationFrame((now) => {
 window.slowTide = {
   state, walker, fishing, env, weather, renderer, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world,
   get boat() { return boat; }, // the boat you're in (or last used)
-  reflection, ripples, mist, fx, rodView, audio, settingsUI, input,
+  reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI,
   firstPerson: (on = true) => rig.setFirstPerson(on, t),
   setHour: (h) => { state.hour = ((h % 24) + 24) % 24; },
   setRain: (r) => { weather.override = r; weather.rain = r; },

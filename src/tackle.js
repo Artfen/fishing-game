@@ -28,7 +28,7 @@ export const RODS = {
     terms: ['stick', 'waggler', 'margin'],
     strengths: 'Hangs a bait at any depth under a float, and shows every nibble. Roach, rudd, tench and perch; carp in the margins on 8 lb.',
     limits: 'On 4 lb line a big carp or pike can run it into the weed. Keep the drag light and be patient.',
-    look: { len: 3.4, color: '#8a5a34', handle: '#d7b98a', reel: 'pin' },
+    look: { len: 3.4, color: '#8a5a34', handle: '#d7b98a', reel: 'spin' },
   },
   trout: {
     id: 'trout', name: 'Light spinning rod', short: 'Light rod', kind: 'lure', accepts: ['lure'],
@@ -244,6 +244,9 @@ export const TACKLE = {
   egi30: { id: 'egi30', on: 'a 3.0 squid jig', type: 'jig', name: 'Squid jig 3.0 (15 g, fast)', short: 'Jig 3.0', size: 3, weight: 15, sink: 0.4, water: 'salt',
     desc: 'Heavier: casts further and gets down to squid in deeper water or a current.' },
 };
+
+// The colour of each kind of rod's line, in the water and on its spool in the backpack.
+export const LINE_COLORS = { float: '#f5efe2', lure: '#c3dc98', ledger: '#e9f0e6', bottom: '#e9f0e6', fly: '#f0dc7a', jig: '#e7d6f2' };
 
 export const ROD_IDS = Object.keys(RODS);
 export const ITEM_IDS = Object.keys(TACKLE);

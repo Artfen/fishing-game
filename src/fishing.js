@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { FISH, buildFishMesh } from './fish.js';
 import { waveHeight } from './world/water.js';
 import { solidHeight, streamFlow } from './world/terrain.js';
-import { RODS, TACKLE, TERMS, castRange, windSensitivity, splashOf, checkSetup, castWeight } from './tackle.js';
+import { RODS, TACKLE, TERMS, LINE_COLORS, castRange, windSensitivity, splashOf, checkSetup, castWeight } from './tackle.js';
 import { buildTackleModel, buildFloat, buildIndicator, buildLead } from './tackleModels.js';
 import { clamp, lerp, damp, rand, smoothstep, wrapAngle, glowTexture } from './util.js';
 import { newFight, stepFight, DIFFICULTY, DRAG_LEVELS, DEFAULT_DRAG } from './fight.js';
@@ -13,7 +13,6 @@ const TAP = 0.22; // a press shorter than this is a twitch; longer is reeling
 const SWEET_HOLD = 0.4; // manual casting: how long the rod stays fully loaded before it overloads
 const OVERLOAD = 0.9;   // …and how long more until the cast collapses completely
 const FLY_CYCLE = 1.15; // one back-and-forward false cast with the fly rod
-const LINE_COLORS = { float: '#f5efe2', lure: '#c3dc98', ledger: '#e9f0e6', bottom: '#e9f0e6', fly: '#f0dc7a', jig: '#e7d6f2' };
 const _v = new THREE.Vector3();
 const _w = new THREE.Vector3();
 

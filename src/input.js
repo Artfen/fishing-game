@@ -2,6 +2,7 @@
 // the controls sit in the same place on any keyboard layout (WASD is ZQSD on AZERTY), and
 // players can rebind them in Settings. Labels show the letter printed on the player's keyboard.
 const BLOCK = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab']);
+const UI_KEYS = new Set(['Space', 'Enter', 'NumpadEnter', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End']);
 
 // The actions, their default keys and how Settings describes them. The first key is the one
 // shown in hints and changed by rebinding; any others are extra ways in (the arrow keys).
@@ -89,8 +90,12 @@ export class Input {
 
     // Typing in a text box or choosing from a list isn't steering the boat.
     const typing = (e) => e.target instanceof Element && e.target.closest('input, textarea, select') && e.code !== 'Escape';
+    // In an open panel, the keys that move focus and press buttons belong to the panel (so Space
+    // presses a button there instead of casting, and Tab and the arrows move between things).
+    const inPanel = (e) => UI_KEYS.has(e.code) && ((e.target instanceof Element && e.target.closest('[role="dialog"]'))
+      || (e.code === 'Tab' && document.querySelector('[role="dialog"]:not([hidden])')));
     addEventListener('keydown', (e) => {
-      if (this.paused || typing(e)) return;
+      if (this.paused || typing(e) || inPanel(e)) return;
       if (BLOCK.has(e.code)) e.preventDefault();
       if (e.repeat) return;
       this.codes.add(e.code);
