@@ -9,8 +9,8 @@ const UI_KEYS = new Set(['Space', 'Enter', 'NumpadEnter', 'Tab', 'ArrowUp', 'Arr
 // The actions, their default keys and how Settings describes them. The first key is the one
 // shown in hints and changed by rebinding; any others are extra ways in (the arrow keys).
 export const ACTIONS = [
-  { id: 'forward', label: 'Row / walk forward · bait shallower or reel faster', keys: ['KeyW', 'ArrowUp'], group: 'Moving' },
-  { id: 'back', label: 'Row back / walk back · bait deeper or reel slower', keys: ['KeyS', 'ArrowDown'], group: 'Moving' },
+  { id: 'forward', label: 'Row / walk forward · throttle up a notch · bait shallower or reel faster', keys: ['KeyW', 'ArrowUp'], group: 'Moving' },
+  { id: 'back', label: 'Row back / walk back · throttle down a notch · bait deeper or reel slower', keys: ['KeyS', 'ArrowDown'], group: 'Moving' },
   { id: 'left', label: 'Turn or step left · aim the cast left', keys: ['KeyA', 'ArrowLeft'], group: 'Moving' },
   { id: 'right', label: 'Turn or step right · aim the cast right', keys: ['KeyD', 'ArrowRight'], group: 'Moving' },
   { id: 'jog', label: 'Jog (hold, on foot)', keys: ['ShiftLeft', 'ShiftRight'], group: 'Moving' },
@@ -23,9 +23,12 @@ export const ACTIONS = [
   { id: 'keep', label: 'Keep a fish (on the catch card)', keys: ['KeyK'], group: 'Fishing' },
   { id: 'advice', label: 'Why aren’t they biting? (what the field guide makes of your rig)', keys: ['KeyY'], group: 'Fishing' },
   { id: 'interact', label: 'Step ashore · board · camp · look closer', keys: ['KeyE'], group: 'Around' },
-  { id: 'anchor', label: 'Drop or raise the anchor', keys: ['KeyZ'], group: 'Around' },
-  { id: 'neutral', label: 'Motor to neutral', keys: ['KeyX'], group: 'Around' },
   { id: 'rest', label: 'Let time drift (hold)', keys: ['KeyT'], group: 'Around' },
+  { id: 'anchor', label: 'Drop or raise the anchor', keys: ['KeyZ'], group: 'Boats' },
+  { id: 'neutral', label: 'Motor to neutral (stop)', keys: ['KeyX'], group: 'Boats' },
+  { id: 'throttleUp', label: 'Throttle up a notch (also with a line out)', keys: ['Equal', 'NumpadAdd'], group: 'Boats' },
+  { id: 'throttleDown', label: 'Throttle down a notch (also with a line out)', keys: ['Minus', 'NumpadSubtract'], group: 'Boats' },
+  { id: 'motor', label: 'Kayak: lower or raise the electric motor', keys: ['KeyU'], group: 'Boats' },
   { id: 'view', label: 'Next view (first person, underwater, your bait)', keys: ['KeyC'], group: 'Views' },
   { id: 'eye', label: 'First person on or off', keys: ['KeyV'], group: 'Views' },
   { id: 'reset', label: 'Reset the camera', keys: ['KeyR'], group: 'Views' },
@@ -45,7 +48,8 @@ const NAMES = {
   Space: 'Space', Escape: 'Esc', Tab: 'Tab', Enter: 'Enter', ShiftLeft: 'Shift', ShiftRight: 'Shift',
   ControlLeft: 'Ctrl', ControlRight: 'Ctrl', AltLeft: 'Alt', AltRight: 'Alt', Backspace: '⌫',
   ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Comma: ',', Period: '.', Slash: '/',
-  Semicolon: ';', Quote: '\'', BracketLeft: '[', BracketRight: ']', Backslash: '\\', Minus: '-', Equal: '=', Backquote: '`',
+  Semicolon: ';', Quote: '\'', BracketLeft: '[', BracketRight: ']', Backslash: '\\', Minus: '−', Equal: '+', Backquote: '`',
+  NumpadAdd: 'Num +', NumpadSubtract: 'Num −',
 };
 // A readable name for a key position, before the keyboard's own layout is known.
 export function codeName(code) {

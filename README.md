@@ -56,9 +56,9 @@ With a keyboard and mouse (every key below can be changed in **Settings → Cont
 
 | Key | Does |
 | --- | --- |
-| W A S D or arrows | Row or paddle (W forward, S back, A/D turn), drive a motorboat (W/S move the throttle lever, which stays where you leave it; A/D steer), or walk on shore (relative to the camera) |
+| W A S D or arrows | Row or paddle (W forward, S back, A/D turn), drive a motorboat (W/S move the throttle lever a notch at a time, and it stays where you leave it; A/D steer), or walk on shore (relative to the camera) |
 | Shift (hold) | Jog on shore. Trout feel heavy footsteps, so walk near the stream |
-| Drag / scroll | Look around / zoom (in every view) |
+| Drag / scroll | Look around / zoom (in every view). The view turns right round you or your boat; drag upwards and it sinks below the waterline to look beneath the surface, down again and it comes back up |
 | Space (hold) | Aim and load the cast: the landing ring and the arc of the cast move out the longer you hold |
 | A / D while aiming | Swing the cast left or right (in first person, turn your head and the cast with it) |
 | Release Space | Cast to the ring |
@@ -76,9 +76,11 @@ With a keyboard and mouse (every key below can be changed in **Settings → Cont
 | 1 / 2 | Switch between the two rods you carry |
 | G | Throw a pouch of loose bait around a carp rig |
 | Z | Drop or raise the anchor (when slow) |
-| X | Motorboats: throttle to neutral |
+| X | Throttle to neutral (stop): the motor idles and the boat coasts on |
+| + / − | Throttle up or down a notch (works with a line out too, when W/S work the lure) |
+| U | Kayak: lower or raise its electric motor |
 | V | First person on or off |
-| C | Next view: boat (or on foot) → first person → underwater → watching your bait |
+| C | Next view: boat (or on foot) → first person → a fixed underwater view → watching your bait |
 | R | Reset the camera: back behind you, first person off |
 | F | Fish finder on or off |
 | M | Map |
@@ -95,14 +97,15 @@ In the car, the same keys drive: **W**/**S** go and reverse (pushing against the
 
 While you're choosing where to pitch a camp, only its own keys work: walk and look to move the outline, **Q**/**E** turn it, the mouse wheel brings it nearer or further, **Space** pitches and **Esc** cancels (nothing casts, steers a boat or opens other panels until you do).
 
-On a phone or tablet the controls appear on screen. Drag on the **left** half to row, paddle, drive or walk (a stick appears under your thumb; in a motorboat, push it forward for throttle), drag on the **right** half to look around, and pinch to zoom. While a fish is on, stick up/down sets the drag. The round button on the right does all the fishing: hold to aim and let go to cast, tap to strike, hold to reel. Its label tells you what it will do next. Prompts such as *Step ashore* or *Camp* are buttons: tap them. The buttons along the top open the fish finder, backpack, views, journal, map and settings, and the hourglass lets time drift while you hold it.
+On a phone or tablet the controls appear on screen. Drag on the **left** half to row, paddle, drive or walk (a stick appears under your thumb; in a motorboat, push it up or down and let go to move the throttle a notch, across to steer), drag on the **right** half to look around (drag up to sink the view under the water), and pinch to zoom. At the helm the throttle lever sits above the round button: tap a notch or drag the handle, and **Stop** knocks it into neutral. While a fish is on, stick up/down sets the drag. The round button on the right does all the fishing: hold to aim and let go to cast, tap to strike, hold to reel. Its label tells you what it will do next. Prompts such as *Step ashore* or *Camp* are buttons: tap them. The buttons along the top open the fish finder, backpack, views, journal, map and settings, and the hourglass lets time drift while you hold it.
 
 With a controller (an Xbox controller, or any the browser recognises; plug it in or pair it, then press any button). It never replaces the other controls: whichever you used last is what the hints, prompts and the title screen describe.
 
 | | |
 |---|---|
-| Left stick | walk, row, paddle, steer (in a motorboat, push it forward for throttle) · **L3** jogs until you stop |
-| Right stick | look around |
+| Left stick | walk, row, paddle, steer (at a motorboat's helm, push it up or down and let go to move the throttle a notch; across steers) · **L3** jogs until you stop |
+| Right stick | look around (push up to sink the view under the water) |
+| At the helm | **B** stops (throttle to neutral), **L3** lowers or raises the kayak's motor; with a line out the **D-pad ↑/↓** moves the throttle a notch |
 | **RT** | hold to aim, let go to cast; strike; hold to reel |
 | **A** / **B** | whatever the prompt says / cancel a cast, reel in, back out of a menu |
 | **Y** · **View** · **D-pad ↑** · **Menu** | backpack · map · journal · settings |
@@ -279,7 +282,7 @@ Rods and tackle matter: each rod has a casting weight range (shown in the backpa
 
 ### Views and first person
 
-The camera stays in the view you chose: casting, a bite and a hooked fish never switch it. **V** goes in or out of first person at any time (the rod in your hands, the line running out, the water in front of you; you can walk, row or drive in first person too). **C** steps through the views, including underwater and following your bait. **R** resets the camera behind you. Settings has camera sensitivity, inverted look and a **reduced motion** option that keeps the camera from swaying or turning by itself.
+The camera stays in the view you chose: casting, a bite and a hooked fish never switch it. It turns all the way round you or your boat (front, sides, behind), and tilts from high above right down past the waterline: below the surface the view becomes the underwater view by itself (the colour, the haze, the light coming down, the bubbles), looking up at the hull or your legs, and tilting back up brings it out again. Where the water's too shallow to dip into it skims along just above the ground or the surface instead, and it never passes through a hillside. **V** goes in or out of first person at any time (the rod in your hands, the line running out, the water in front of you; you can walk, row or drive in first person too). **C** steps through the views, including a fixed underwater view beneath the boat and one following your bait. **R** resets the camera behind you. Settings has camera sensitivity, inverted look and a **reduced motion** option that keeps the camera from swaying or turning by itself.
 
 ### Rods and tackle
 
@@ -321,13 +324,21 @@ Gear matters: a lure too big for a fish's mouth is ignored by small fish (so big
 | Motor skiff | End of The Landing | The open coast and the far islands: about twice as fast as rowing |
 | Kayak | Beside The Landing | Silent and floats in a hand's depth of water: creep into the shallows, the saltings and the reeds without spooking fish. Slower than the rowing boat |
 | Bass boat | Longmere, at the boathouse jetty | A broad, steady casting platform with a locker for your tackle box. The first notches of throttle run a near-silent electric motor at the bow for creeping along weed beds and reeds; push on for the big outboard to cross the lake fast |
-| Cabin boat | Alongside Willowhaven quay | Slow and steady, with a little cabin forward: a bunk and a galley stove. Anchor (or tie up alongside) and press **E** for the cabin: cook what you've kept and sleep aboard. A camp that floats |
+| Cabin boat | Alongside Willowhaven quay | Slow and steady, with a little cabin forward you can go into: a bunk and a galley stove. A camp that floats |
 
-Walk up to a boat and press **E** to get in; step across between two boats side by side; step ashore at any bank, pier or jetty. In a motorboat W and S move the throttle lever, which stays where you leave it (on a touch screen the stick drives it directly); A/D steer, X goes to neutral, Z (or the prompt, when you're stopped) drops or raises the anchor. Fish hear an outboard, so throttle back (or anchor) before you fish; casting puts it in neutral by itself. In shallow water an outboard tips up and you can only creep. Every boat stays where you leave it, anchored or not, and boats reloaded from a save are checked: one that wouldn't float where it was goes back to its mooring. There's no damage to worry about, and fuel is light (below).
+Walk up to a boat and press **E** to get in; step across between two boats side by side; step ashore at any bank, pier or jetty. In shallow water an outboard tips up and you can only creep. Fish hear an outboard (not the electric motors), so slow down near them.
+
+**The throttle.** The motor skiff, the bass boat and the cabin boat each have a throttle lever with notches: **R** astern, **N** neutral, then **1** dead slow (about 1 m/s, for creeping round piers and moorings), **2** slow ahead (about 2 m/s, trolling speed), **3** half and **F** full ahead (on the bass boat the first two notches, **E1** and **E2**, are its quiet electric motor). The lever is on screen at the bottom right while you're at the helm (above the round button on a touch screen): click or tap a notch, or drag the handle; the fill beside it shows what the motor is actually giving. **W**/**S** (or the left stick pushed and let go, or **+**/**−**) move it a notch at a time, and it stays where you leave it; held down, it steps on, pausing at neutral before going astern. **X**, **B** on a controller or the big **Stop** under the lever knock it into neutral: the motor idles and the boat coasts on, slowing gradually. The motor takes a moment to build up and to ease off (an electric one less), and changing between ahead and astern it goes through neutral and pauses while the gear changes. Steering (A/D, the stick across) is separate and works at any speed, best with a little way on.
+
+**Fishing under way.** You can cast from a moving boat at up to about trolling speed. Going faster, starting a cast eases the throttle back to slow ahead for you (a word says so), and you aim while she slows. The rig leaves the rod with the boat's way on it and lands carried along in the direction you're going (the aiming ring shows it, and the note after the cast says how far). With a line out the motor keeps running: the boat tows your lure behind it on the line that's out (trolling), and it swims as if you were reeling it, so fish chase it. With a line out the throttle goes no higher than slow ahead (+ and −, the D-pad, or the lever change it; W/S are for the lure), and when a fish takes, you knock the motor into neutral: the boat coasts while you play it, and dead slow is the most you can give it until it's landed. Passing back over your line leaves it slack; it comes tight again astern. The rowing boat and the kayak drift on the wind and tide with a line out, and the line tows the rig along the same way.
+
+**The kayak's electric motor.** The kayak carries a little electric motor on its stern. **U** (**L3** on a controller, or **Lower motor** by the lever) lowers it into the water; then the throttle lever drives it (R, N, 1, 2, 3), up to about 1.6 m/s: slower than paddling (about 3.5 m/s), but silent and hands-free, for creeping up on fish or trolling a lure. Raise it again and you paddle. In very shallow water it kicks up out of harm's way. It runs on a battery of its own (shown in the hint), about a quarter of an hour flat out and far longer at dead slow; it charges while the kayak is tied up at a jetty or quay, and overnight. If it runs flat the motor comes up and you paddle on: the kayak is never stuck. Whether the motor is down, and the battery, keep with the save.
+
+**The cabin.** With the cabin boat still and made fast (anchored, or tied up alongside a quay), **E** at the helm takes you **into the cabin**, and from the quay the prompt offers the helm or straight into the cabin. (Tied up alongside, you make her fast with the anchor as you go in.) Inside, the roof lifts away and the view looks down into the cabin; **V** looks round it through your own eyes, roof on. **W**/**S** (or the stick) walk between the doorway, the galley and the bunk; **E** at the galley cooks and eats, at the bunk sleeps (you wake in the bunk), at the doorway takes you back out on deck; **Esc** (or **B**) goes straight back out. After dark the cabin lamp is lit. You can't go in while she's under way, and a save made inside puts you back at the helm. Every boat stays where you leave it, anchored or not, and boats reloaded from a save are checked: one that wouldn't float where it was goes back to its mooring. There's no damage to worry about, and fuel is light (below).
 
 ### Fuel
 
-Only what has an engine needs it: the car, the motor skiff, the bass boat's outboard and the cabin boat run on petrol, and the bass boat's electric motor on a battery. The rowing boat and the kayak never need anything. The hints show what's in the tank while you drive or motor (*fuel 31 of 45 L*), with a word when it's down to a fifth.
+Only what has an engine needs it: the car, the motor skiff, the bass boat's outboard and the cabin boat run on petrol, and the bass boat's and the kayak's electric motors each on a battery. The rowing boat (and the kayak's paddle) never need anything. The hints show what's in the tank while you drive or motor (*fuel 31 of 45 L*), with a word when it's down to a fifth.
 
 - **Pumps**: one beside the garage at home (the car and the jerry can), and one at the root of Willowhaven quay (the boats alongside, and the car in the harbour car park). Press **E** at a pump; filling up takes a few minutes and costs nothing.
 - **The jerry can** (10 L) goes wherever you put it: the garage shelf, the car's boot or your backpack. Fill it at a pump and pour it into the car or a boat from your backpack's *Camping kit* section. Longmere has no pump, so the bass boat's outboard runs on what the can brings.

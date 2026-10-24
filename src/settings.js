@@ -34,7 +34,7 @@ export const DEFAULT_SETTINGS = {
 // themselves come from gamepad.js, so this list can't drift from what they really do.
 export const PAD_HELP = [
   ['Walking, rowing and fishing', [
-    ['play', 'forward', 'walk, row, steer'], ['play', 'look', 'look around'], ['play', 'jog', 'jog (press; stop to walk again)'],
+    ['play', 'forward', 'walk, row, steer'], ['play', 'look', 'look around (push up to sink the view under the water)'], ['play', 'jog', 'jog (press; stop to walk again)'],
     ['play', 'cast', 'hold to aim, let go to cast · hold to reel'], ['play', 'interact', 'whatever the prompt says'],
     ['play', 'cancel', 'cancel a cast · reel in · back'], ['play', 'pack', 'backpack'], ['play', 'rod1', 'the other rod'],
     ['play', 'tackle', 'next bait, lure or fly'], ['play', 'anchor', 'anchor down or up'], ['play', 'rest', 'let time drift (hold)'],
@@ -42,6 +42,11 @@ export const PAD_HELP = [
   ['Views and panels', [
     ['play', 'view', 'next view'], ['play', 'reset', 'reset the camera'], ['play', 'photo', 'photo mode'],
     ['play', 'journal', 'journal'], ['play', 'finder', 'fish finder'], ['play', 'map', 'map'], ['play', 'settings', 'settings'],
+  ]],
+  ['At the helm', [
+    ['helm', 'forward', 'throttle a notch up or down (push and let go), and steer'], ['helm', 'neutral', 'stop: the motor to neutral'],
+    ['helm', 'motor', 'kayak: lower or raise the electric motor'],
+    ['troll', 'throttleUp', 'with a line out: throttle up a notch'], ['troll', 'throttleDown', 'with a line out: throttle down a notch'],
   ]],
   ['A line in the water', [['fish', 'advice', 'why aren’t they biting?'], ['fish', 'feed', 'throw loose bait']]],
   ['A fish on', [['fight', 'cast', 'reel (let go when it surges)'], ['fight', 'ease', 'ease the drag off'], ['fight', 'forward', 'tighten or ease the drag']]],
@@ -393,6 +398,15 @@ export class SettingsUI {
     head.append(reset);
     out.push(head);
     out.push(el('p', 'st-note', 'Choose Change, then press the key you want. If another action had that key, it takes this action’s old key. Esc stops waiting. Touch screens use the on-screen controls.'));
+    // How the boats, the cabin and the camera work, whatever the controls.
+    out.push(el('h3', null, 'Boats, the cabin and the camera'));
+    for (const line of [
+      'The throttle: the motor skiff, the bass boat and the cabin boat have a lever with notches (astern, neutral, dead slow, slow, half, full). Forward and back move it a notch at a time and it stays where you leave it; you can also click or drag the lever on screen (bottom right), or tap a notch. Neutral (or the big Stop under the lever) stops the motor, and the boat coasts on. The motor takes a moment to build up and ease off, and pauses in neutral between ahead and astern.',
+      'Fishing under way: you can cast at up to trolling speed, and the boat carries the cast along as it flies. A moving boat tows your line behind it (trolling). With a line out the throttle goes no higher than slow ahead (+ and − move it, or the D-pad on a controller); when a fish takes, the motor goes to neutral.',
+      'The kayak’s electric motor: lower it (or raise it again) with its key, L3, or the Motor button by the lever. Lowered, the lever drives it, quietly and slowly, hands free for the rod; raised, you paddle. Its battery charges at a jetty and overnight, and when it runs flat you simply paddle.',
+      'The cabin boat: anchored or tied up, the prompt takes you into the cabin (from the helm, or straight from the quay). Inside, forward and back move between the doorway, the galley and the bunk; the prompt cooks or sleeps; cancel (Esc or B) takes you back on deck.',
+      'The camera turns all the way round you or your boat. Drag upwards (or push the right stick up) and the view sinks past the waterline to look beneath it, at the hull or the fish below; drag down again and you’re back in the air. The view key still steps through first person, a fixed underwater view and your bait.',
+    ]) out.push(el('p', 'st-note', line));
     out.push(list);
     // A controller: what its buttons do (they can't be changed), and whether it buzzes.
     out.push(el('h3', null, 'Controller'));

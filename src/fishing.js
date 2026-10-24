@@ -7,6 +7,7 @@ import { RODS, TACKLE, TERMS, LINE_COLORS, castRange, windSensitivity, splashOf,
 import { buildTackleModel, buildFloat, buildIndicator, buildLead } from './tackleModels.js';
 import { clamp, lerp, damp, rand, smoothstep, wrapAngle, glowTexture } from './util.js';
 import { newFight, stepFight, DIFFICULTY, DRAG_LEVELS, DEFAULT_DRAG } from './fight.js';
+import { CAST_SPEED } from './throttle.js';
 
 const LINE_N = 28;
 const ARC_N = 24;
@@ -56,6 +57,8 @@ export class Fishing {
     this.aimValid = false;
     this.apex = 1;
     this.flight = 1;
+    this.lineLen = 0;    // line out from the rod tip to the rig (a moving boat tows the rig on it)
+    this.towSpeed = 0;   // how fast the boat is towing the rig through the water
     this.held = false;
     this.hold = false;
     this.holdT = 0;
@@ -222,8 +225,11 @@ export class Fishing {
           this.hooks.flash(`${block.text} ${this.hooks.key('pack')} opens your backpack.`, 4);
           return;
         }
-        if (this.angler.onBoat && this.angler.speed > 1.8) {
-          this.hooks.flash('Let the boat drift to a stop first');
+        // From a moving boat: fine up to about trolling speed. Faster, the game may ease the
+        // throttle back for you (and you aim while she slows); otherwise, slow down first.
+        const eased = this.angler.onBoat && this.hooks.easeForCast?.();
+        if (this.angler.onBoat && this.angler.speed > CAST_SPEED && !eased) {
+          this.hooks.flash('Too fast to cast from here: slow down (or let her drift down) first');
           return;
         }
         this.state = 'aiming';
@@ -361,6 +367,16 @@ export class Fishing {
     const along = d + (manual ? wAlong : 0), across = (manual ? wAcross : 0) + veer;
     const bx = a.pos.x + dx * 0.8, bz = a.pos.z + dz * 0.8;
     let x = bx + dx * along + rx * across, z = bz + dz * along + rz * across;
+    // From a moving boat the rig leaves the rod with the boat's way on it, and keeps most of it
+    // through the air: it lands carried along in the direction the boat is going (the preview
+    // shows it).
+    let carry = 0;
+    if (a.onBoat && a.vel) {
+      const flight = fly ? 0.75 + d * 0.04 : 0.5 + d * 0.03;
+      x += a.vel.x * flight * 0.85;
+      z += a.vel.z * flight * 0.85;
+      carry = Math.hypot(a.vel.x, a.vel.z) * flight * 0.85;
+    }
     const minDepth = fly ? 0.3 : 0.6;
     const wet = (px, pz) => solidHeight(px, pz) < -minDepth;
     let obstruct = null;
@@ -418,6 +434,7 @@ export class Fishing {
     out.bank = bank;
     out.obstruct = obstruct;
     out.max = mx;
+    out.carry = carry;
     return out;
   }
 
@@ -453,6 +470,13 @@ export class Fishing {
   }
 
   cast() {
+    // (Still tearing along as you let go: the cast is put down, and you try again in a moment.)
+    if (this.angler.onBoat && this.angler.speed > CAST_SPEED + 2.4) {
+      this.state = 'idle';
+      this.deliver = false;
+      this.hooks.flash('Too fast to cast: she’s still slowing down. Try again in a moment.', 2.6);
+      return;
+    }
     this.planCast(this.power, this.plan);
     if (!this.plan.ok) {
       this.state = 'idle';
@@ -490,6 +514,7 @@ export class Fishing {
       text = 'A perfect cast: let go just as the rod was fully loaded.';
       good = true;
     }
+    if (!m.obstruct && !m.bank && m.carry > 1.5) text += `${text ? ' ' : ''}The boat’s way carried it ${Math.round(m.carry)} m on as it flew.`;
     if (!m.obstruct && !m.bank && m.wind > 0.8) {
       const side = Math.abs(m.windAlong) > m.wind * 0.7 ? (m.windAlong > 0 ? 'further' : 'shorter') : `${r(m.wind)} m ${m.windSide}`;
       text += `${text ? ' ' : ''}The wind carried it ${side}: aim a little into it.`;
@@ -513,6 +538,9 @@ export class Fishing {
     this.relSpeed = 0;
     this.twitchT = 0;
     this.bottom = Math.max(0.25, -solidHeight(this.to.x, this.to.z));
+    // The line out: what reached the rig (a float gets a little more, to drift on).
+    this.lineLen = Math.hypot(this.to.x - this.tip.x, this.to.z - this.tip.z) * (this.kind === 'float' ? 1.15 : 1) + (this.kind === 'float' ? 4 : 0.5);
+    this.towSpeed = 0;
     const splash = splashOf(this.rod, this.item, this.term) * (this.castMiss?.tailed ? 2.2 : 1);
     this.fx.ripple(this.bob.x, this.bob.z, 0.5 + splash * 0.35, 1.4, 0.3 + splash * 0.08);
     this.fx.splash(this.bob.x, 0.05, this.bob.z, Math.round(2 + splash * 3), 0.8 + splash * 0.3, 0.4 + splash * 0.08);
@@ -1004,6 +1032,11 @@ export class Fishing {
           bend = 0.06 + this.reelSpeed * 0.06;
           this.updateFly(dt, t);
         }
+        // A moving boat tows the rig along behind on the line that's out (trolling).
+        if (this.state === 'drifting' && this.kind !== 'fly') {
+          this.tow(this.kind === 'float' ? this.bob : this.hook, dt);
+          if (this.kind !== 'lure') this.relSpeed += this.towSpeed;
+        }
         if (this.state === 'drifting') this.idleStatus(dt);
         break;
       case 'bite': {
@@ -1159,6 +1192,21 @@ export class Fishing {
     p.z += dz * dt;
   }
 
+  // The rig can only be as far from the rod tip as the line that's out: a boat moving away from
+  // it (under power, or drifting on the wind and tide) tows it along behind. Reeling in takes line
+  // in; passing over it leaves the line slack in the water, until it comes tight again astern.
+  tow(p, dt) {
+    const dx = p.x - this.tip.x, dz = p.z - this.tip.z, d = Math.hypot(dx, dz);
+    if (!this.lineLen) this.lineLen = d;
+    if (this.reelSpeed > 0.05) this.lineLen = Math.min(this.lineLen, d + 0.5);
+    if (d > this.lineLen && d > 0.01) {
+      const k = this.lineLen / d, nx = this.tip.x + dx * k, nz = this.tip.z + dz * k;
+      this.towSpeed = damp(this.towSpeed, Math.hypot(nx - p.x, nz - p.z) / Math.max(dt, 1e-3), 8, dt);
+      p.x = nx;
+      p.z = nz;
+    } else this.towSpeed = damp(this.towSpeed, 0, 6, dt);
+  }
+
   // A drifting float can only go as far as the line lets it: past that the line comes tight.
   keepOnLine(p) {
     const max = (this.castDist || 10) * 1.15 + 4;
@@ -1262,10 +1310,13 @@ export class Fishing {
       r.moved += move * dt;
       if (Math.random() < dt * 14 * this.reelSpeed) this.audio.tick(0.45);
     }
-    this.relSpeed = move; // (through the water: the current carries it too)
+    // (Through the water: the current carries it too; a moving boat tows it.)
+    this.relSpeed = move + this.towSpeed;
     // (A floating plug at rest also catches a little wind.)
     this.carry(this.hook, this.baitDepth, dt, 0.9, it.floats && this.reelSpeed < 0.12 ? 0.006 : 0);
-    const moving = this.reelSpeed > 0.12;
+    // Swimming: reeled in, or trolled behind a moving boat (it works the same either way).
+    const swim = Math.max(this.reelSpeed, this.towSpeed);
+    const moving = swim > 0.12;
     if (moving) {
       r.pauseT = 0;
       r.wasMoving = true;
@@ -1278,12 +1329,12 @@ export class Fishing {
     const act = it.action;
     r.hop = Math.max(0, (r.hop || 0) - dt);
     if (act === 'flash') {
-      if (moving) { want = clamp(1.8 - this.reelSpeed * 0.8, 0.25, 1.6); rate = 0.6; } else { want = this.bottom; rate = it.sink; }
+      if (moving) { want = clamp(1.8 - swim * 0.8, 0.25, 1.6); rate = 0.6; } else { want = this.bottom; rate = it.sink; }
     } else if (act === 'wobble') {
-      if (moving) { want = it.dive * smoothstep(0, 5, r.moved) * clamp(0.55 + this.reelSpeed * 0.4, 0.6, 1.15); rate = 0.9; } else { want = 0; rate = 0.22; }
+      if (moving) { want = it.dive * smoothstep(0, 5, r.moved) * clamp(0.55 + swim * 0.4, 0.6, 1.15); rate = 0.9; } else { want = 0; rate = 0.22; }
     } else if (act === 'swim') {
       // A soft swimbait: counts down while you wait, holds its depth on a slow retrieve, rises when fast.
-      if (moving) { want = clamp(this.baitDepth - (this.reelSpeed - 0.6) * 0.6, 0.3, this.bottom); rate = 0.3; } else { want = this.bottom; rate = it.sink; }
+      if (moving) { want = clamp(this.baitDepth - (swim - 0.6) * 0.6, 0.3, this.bottom); rate = 0.3; } else { want = this.bottom; rate = it.sink; }
     } else if (act === 'crawl') {
       // On the bottom; a twitch hops it up, and it falls back.
       want = r.hop > 0 ? this.bottom - 0.4 : this.bottom;
@@ -1293,7 +1344,7 @@ export class Fishing {
       rate = 1;
     } else if (act === 'flutter') {
       // A heavy metal: drops fast, climbs as you reel, flutters down on a twitch.
-      if (this.twitchT > 0) { want = Math.max(0.3, this.baitDepth - 1); rate = 2.4; } else if (moving) { want = clamp(2.6 - this.reelSpeed * 1.2, 0.4, 3); rate = 0.8; } else { want = this.bottom; rate = it.sink; }
+      if (this.twitchT > 0) { want = Math.max(0.3, this.baitDepth - 1); rate = 2.4; } else if (moving) { want = clamp(2.6 - swim * 1.2, 0.4, 3); rate = 0.8; } else { want = this.bottom; rate = it.sink; }
     } else {
       if (this.twitchT > 0) { want = it.suspend + 0.25; rate = 1.2; } else if (moving) { want = it.suspend * 0.9; rate = 0.6; } else { want = it.suspend; rate = 0.15; }
     }

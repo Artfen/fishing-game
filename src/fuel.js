@@ -14,8 +14,11 @@ import { DESTS, driveMinutes } from './outing.js';
 //    way it costs an hour or so, and you're on your way again.
 //  · The battery runs down while the electric motor runs, and charges while the boat is tied up
 //    at a jetty or quay, and overnight whenever you sleep.
+//  · The kayak's little electric motor has a battery of its own, charged the same way. Flat, it
+//    simply stops: the paddle is always there.
 //
-// state.fuel: { car, boats: { skiff, bass, cabin } (litres), battery (0…1), can: { at, litres } }
+// state.fuel: { car, boats: { skiff, bass, cabin } (litres), battery (0…1), kayak (0…1),
+//   can: { at, litres } }
 
 export const TANKS = { car: 45, skiff: 20, bass: 30, cabin: 40 };
 export const PETROL = ['skiff', 'bass', 'cabin'];
@@ -32,6 +35,8 @@ export const BOAT_PER_S = { skiff: 0.02, bass: 0.03, cabin: 0.03 };
 // what an hour tied up at a jetty or a quay gives back.
 export const BATTERY_PER_S = 0.0017;
 export const BATTERY_PER_HOUR = 0.5;
+// The kayak's battery: a quarter of an hour flat out (far longer at dead slow).
+export const KAYAK_PER_S = 0.0011;
 // Help when you run dry: what a borrowed can holds, and how long it takes.
 export const RESCUE = { car: 6, boat: 4, hours: 1 };
 // The low-fuel words come at these fractions of a tank.
@@ -45,7 +50,7 @@ const num = (v, d, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Mat
 const r1 = (v) => Math.round(v * 10) / 10;
 
 export function defaultFuel() {
-  return { car: TANKS.car, boats: { skiff: TANKS.skiff, bass: TANKS.bass, cabin: TANKS.cabin }, battery: 1, can: { at: 'home', litres: CAN } };
+  return { car: TANKS.car, boats: { skiff: TANKS.skiff, bass: TANKS.bass, cabin: TANKS.cabin }, battery: 1, kayak: 1, can: { at: 'home', litres: CAN } };
 }
 
 // A saved record made safe (and a save from before fuel: everything full).
@@ -55,6 +60,8 @@ export function cleanFuel(raw) {
   d.car = num(raw.car, TANKS.car, 0, TANKS.car);
   if (isObj(raw.boats)) for (const k of PETROL) d.boats[k] = num(raw.boats[k], TANKS[k], 0, TANKS[k]);
   d.battery = num(raw.battery, 1, 0, 1);
+  // (A save from before the kayak had a motor: its battery starts full.)
+  d.kayak = num(raw.kayak, 1, 0, 1);
   if (isObj(raw.can)) {
     d.can.at = CAN_PLACES.includes(raw.can.at) ? raw.can.at : 'home';
     d.can.litres = num(raw.can.litres, CAN, 0, CAN);
@@ -108,8 +115,16 @@ export function burnBoat(f, kind, lever, dt, troll = 0) {
   return f.boats[kind] === 0 ? 'dry' : null;
 }
 
-export function chargeBattery(f, hours) {
-  f.battery = Math.min(1, f.battery + hours * BATTERY_PER_HOUR);
+export function chargeBattery(f, hours, which = 'battery') {
+  f[which] = Math.min(1, f[which] + hours * BATTERY_PER_HOUR);
+}
+
+// The kayak's motor running for dt seconds at lever (-1 … 1). Returns 'flat' the moment the
+// battery runs out.
+export function burnKayak(f, lever, dt) {
+  if (!lever || f.kayak <= 0) return null;
+  f.kayak = Math.max(0, f.kayak - KAYAK_PER_S * Math.pow(Math.abs(lever), 1.3) * dt);
+  return f.kayak === 0 ? 'flat' : null;
 }
 
 // Fill a tank (or the can) at a pump. Returns the litres it took.
@@ -149,7 +164,7 @@ export function rescue(f, what) {
 const amount = (v) => (v < 10 ? r1(v) : Math.round(v));
 export const litres = (v) => `${amount(v)} L`;
 export const tankWords = (f, what) => `${amount(level(f, what))} of ${TANKS[what]} L`;
-export const batteryWords = (f) => `battery ${Math.round(f.battery * 100)}%`;
+export const batteryWords = (f, which = 'battery') => `battery ${Math.round(f[which] * 100)}%`;
 export const canWords = (f) => `${amount(f.can.litres)} of ${CAN} L`;
 export const low = (f, what) => level(f, what) < TANKS[what] * LOW;
 

@@ -16,7 +16,9 @@ import { RODS } from './tackle.js';
 //  · bass: a broad, flat lake boat with a big outboard for getting about, a quiet electric
 //    motor for fishing (the lever's first notches), and a steady casting deck with a locker.
 //  · cabin: a little wooden cabin boat, slow and steady, with a cuddy forward holding a bunk and
-//    a galley stove: a camp that floats (anchor it, or tie up, and use the cabin).
+//    a galley stove: a camp that floats (anchor it, or tie up, and go inside).
+// The kayak also carries a little electric motor on its stern: lowered, it pushes the kayak along
+// slowly and silently (hands free for the rod); raised, you paddle as ever.
 // The motorboats run on petrol (and the bass boat's electric motor on its battery: see fuel.js);
 // with the tank dry (or the battery flat) the motor is dead, and an oar moves you along, slowly.
 const HULLS = {
@@ -45,6 +47,9 @@ const HULLS = {
     paint: '#e8742a', stripe: '#f3d36b', bottom: '#c45a1c', inside: 'plastic',
     decks: [[0, 0.3, 0], [0.6, 1, 0]], paddle: true, lantern: [0, -1.25], stow: [-0.2, 0.33, -1.05],
     pull: 3.0, back: 1.6, drag: [0.36, 0.09], side: 3.4, turn: 1.25, rate: 0.95, noise: 0.4, steady: 0.8,
+    // The electric motor: a gentle push (about 1.6 m/s flat out), and a short leg that kicks up
+    // in water shallower than tilt.
+    emotor: { thrust: 0.82, astern: 0.75, tilt: 0.35 },
     windage: 0.0018, ride: 6, // low and light: it rides every little wave, but offers the wind little
   },
   bass: {
@@ -180,7 +185,12 @@ export class Boat {
     this.seatZ = H.seatZ; // where you sit: amidships to row, at the stern to steer
     this.seatY = H.seatY;
     this.noise = H.noise; // how much the fish hear it moving (the kayak hardly at all)
-    this.lever = 0;        // motor throttle, -0.4 (astern) … 1 (full ahead); it stays where you leave it
+    this.lever = 0;        // motor throttle, -1 (astern) … 1 (full ahead), set a notch at a time (see throttle.js)
+    this.power = 0;        // what the motor is actually giving: it follows the lever, a moment behind
+    this.lastGear = 0;     // ahead (1) or astern (-1), the last way the propeller turned
+    this.shiftT = 0;       // changing gear: a pause in neutral
+    this.emotorDown = false; // the kayak's electric motor lowered into the water (else you paddle)
+    this.kflat = false;    // the kayak's battery flat
     this.dry = false;      // out of petrol (set by the game: see fuel.js)
     this.flat = false;     // the electric motor's battery flat
     this.anchored = false;
@@ -228,6 +238,7 @@ export class Boat {
     if (H.paddle) this.buildPaddle();
     if (H.motor) this.buildMotor();
     if (H.cabin) this.buildCabin();
+    if (H.emotor) this.buildEMotor();
     this.buildAnchorLine();
     this.buildRods();
     this.buildLantern();
@@ -243,11 +254,43 @@ export class Boat {
     return !!m?.troll && this.lever > 0.02 && this.lever <= m.troll;
   }
 
+  // Under power with a lever (an outboard, or the kayak's motor lowered).
+  get levered() { return this.motor || (!!this.hull.emotor && this.emotorDown); }
+
+  // The kayak's motor, down or up (stopped first: it goes in neutral).
+  setEMotor(down) {
+    if (!this.hull.emotor) return;
+    this.emotorDown = !!down;
+    this.lever = 0;
+  }
+
   place(x, z, heading) {
     this.pos.set(x, 0, z);
     this.vel.set(0, 0, 0);
     this.heading = heading;
     this.omega = 0;
+    this.power = 0;
+  }
+
+  // The motor answers the lever: it takes a moment to build up and to ease off (an electric motor
+  // quicker than an outboard), and between ahead and astern it comes back through neutral and
+  // pauses there while the gear changes.
+  spool(dt, lever, electric) {
+    const way = Math.sign(lever);
+    let want = lever;
+    if (this.power && way && Math.sign(this.power) !== way) want = 0;
+    if (!this.power && way && this.lastGear && way !== this.lastGear && this.shiftT <= 0) {
+      this.shiftT = electric ? 0.12 : 0.4;
+      this.lastGear = way;
+    }
+    if (this.shiftT > 0) {
+      this.shiftT -= dt;
+      want = 0;
+    }
+    const rate = (electric ? 2.5 : 1) * (Math.abs(want) > Math.abs(this.power) ? 0.6 : 1);
+    this.power += clamp(want - this.power, -rate * dt, rate * dt);
+    if (Math.abs(this.power) < 1e-5) this.power = 0;
+    if (this.power) this.lastGear = Math.sign(this.power);
   }
 
   /* ---------- construction ---------- */
@@ -486,56 +529,166 @@ export class Boat {
   }
 
   // The cabin boat's cuddy: a cabin over the forward half that follows the hull in, with windows
-  // down each side, a door at the back, a roof and a stove pipe; and a bench across the stern
-  // to sit and steer from.
+  // down each side, a doorway at the back, a roof and a stove pipe; and a bench across the stern
+  // to sit and steer from. Inside (you can go in: see the game), a V-berth bunk in the bow with a
+  // mattress and a blanket, a little galley by the door with a two-burner stove and a kettle, a
+  // shelf, a rug and a lamp under the roof. The walls are a shell open at the doorway, and the
+  // roof lifts away on its own, so from inside the camera can look down into it (as at home).
   buildCabin() {
     const H = this.hull, [t0, t1] = H.cabin, N = 10;
     const side = (t) => hw(H, t) * 0.86;
-    const base = sheer(H, t0) - 0.12, height = 1.05;
+    const base = sheer(H, t0) - 0.12, height = 1.05, wall = 0.05, dt1 = wall / H.L;
+    const zb = zAt(H, t0), zf = zAt(H, t1);
+    const ts = (a, b, n = N) => Array.from({ length: n + 1 }, (_, i) => a + (b - a) * (i / n));
     const outline = (grow) => {
       const s = new THREE.Shape();
-      for (let i = 0; i <= N; i++) {
-        const t = t0 + (t1 - t0) * (i / N);
-        (i ? s.lineTo : s.moveTo).call(s, side(t) + grow, -zAt(H, t));
-      }
-      for (let i = N; i >= 0; i--) {
-        const t = t0 + (t1 - t0) * (i / N);
-        s.lineTo(-side(t) - grow, -zAt(H, t));
-      }
+      ts(t0, t1).forEach((t, i) => (i ? s.lineTo : s.moveTo).call(s, side(t) + grow, -zAt(H, t)));
+      for (const t of ts(t1, t0)) s.lineTo(-side(t) - grow, -zAt(H, t));
       return s;
     };
-    const slab = (grow, depth, y) => {
-      const g = new THREE.ExtrudeGeometry(outline(grow), { depth, bevelEnabled: false });
+    const slab = (shape, depth, y) => {
+      const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
       g.rotateX(-Math.PI / 2);
       g.translate(0, y, 0);
       return g;
     };
-    const parts = [
-      { geo: slab(0, height, base), color: '#e9e3d6', jitter: 0.02 },
-      { geo: slab(0.07, 0.07, base + height), color: '#2f5d50', jitter: 0.02 },
+    // The walls: up the starboard side, across the front and back down the port side, and in
+    // again a wall's thickness: a U, open at the back where the doorway is.
+    const u = new THREE.Shape();
+    ts(t0, t1).forEach((t, i) => (i ? u.lineTo : u.moveTo).call(u, side(t), -zAt(H, t)));
+    for (const t of ts(t1, t0)) u.lineTo(-side(t), -zAt(H, t));
+    for (const t of ts(t0, t1 - dt1)) u.lineTo(-side(t) + wall, -zAt(H, t));
+    for (const t of ts(t1 - dt1, t0)) u.lineTo(side(t) - wall, -zAt(H, t));
+    const door = 0.3, doorH = 0.92, back = side(t0);
+    const walls = [
+      { geo: slab(u, height, base), color: '#e9e3d6', jitter: 0.02 },
+      // The back wall either side of the doorway, and over it.
+      { geo: new THREE.BoxGeometry(back - door, height, wall), matrix: mat((back + door) / 2, base + height / 2, zb + wall / 2), color: '#e9e3d6' },
+      { geo: new THREE.BoxGeometry(back - door, height, wall), matrix: mat(-(back + door) / 2, base + height / 2, zb + wall / 2), color: '#e9e3d6' },
+      { geo: new THREE.BoxGeometry(door * 2, height - doorH, wall), matrix: mat(0, base + doorH + (height - doorH) / 2, zb + wall / 2), color: '#e9e3d6' },
+      // A sill to step over, and a frame round the doorway.
+      { geo: new THREE.BoxGeometry(door * 2 + 0.08, 0.06, wall + 0.03), matrix: mat(0, base + 0.03, zb + wall / 2), color: '#7b5434' },
+      { geo: new THREE.BoxGeometry(0.05, doorH, wall + 0.02), matrix: mat(door + 0.02, base + doorH / 2, zb + wall / 2), color: '#7b5434' },
+      { geo: new THREE.BoxGeometry(0.05, doorH, wall + 0.02), matrix: mat(-door - 0.02, base + doorH / 2, zb + wall / 2), color: '#7b5434' },
     ];
-    // Windows down each side, set into the slope of the walls; a window at the front.
+    // Windows down each side, set into the slope of the walls (dark glass outside, daylight
+    // inside); a window at the front.
+    const glow = [];
     for (const t of [0.52, 0.66, 0.79]) {
       const a = Math.atan2(side(t + 0.02) - side(t - 0.02), zAt(H, t + 0.02) - zAt(H, t - 0.02));
-      for (const s of [1, -1]) parts.push({ geo: new THREE.BoxGeometry(0.03, 0.3, 0.44), matrix: mat(s * (side(t) + 0.005), base + height * 0.66, zAt(H, t), 0, s * a, 0), color: '#30434d', jitter: 0 });
+      for (const sd of [1, -1]) {
+        walls.push({ geo: new THREE.BoxGeometry(0.03, 0.3, 0.44), matrix: mat(sd * (side(t) + 0.005), base + height * 0.66, zAt(H, t), 0, sd * a, 0), color: '#30434d', jitter: 0 });
+        glow.push({ geo: new THREE.BoxGeometry(0.008, 0.28, 0.42), matrix: mat(sd * (side(t) - wall - 0.006), base + height * 0.66, zAt(H, t), 0, sd * a, 0), color: '#bcd8e2' });
+      }
     }
-    parts.push({ geo: new THREE.BoxGeometry(side(t1) * 1.2, 0.3, 0.03), matrix: mat(0, base + height * 0.66, zAt(H, t1) + 0.01), color: '#30434d', jitter: 0 });
-    // The door at the back, with a brass handle; the stove pipe through the roof.
-    const zb = zAt(H, t0) - 0.012;
-    parts.push(
-      { geo: new THREE.BoxGeometry(0.56, 0.86, 0.03), matrix: mat(0, base + 0.45, zb), color: '#7b5434' },
-      { geo: new THREE.CylinderGeometry(0.025, 0.025, 0.05, 6), matrix: mat(0.2, base + 0.48, zb - 0.03, Math.PI / 2, 0, 0), color: '#c9a34a' },
-      { geo: new THREE.CylinderGeometry(0.045, 0.045, 0.42, 8), matrix: mat(side(0.74) * 0.5, base + height + 0.24, zAt(H, 0.74)), color: '#2b2b2b' },
-      { geo: new THREE.CylinderGeometry(0.075, 0.075, 0.05, 8), matrix: mat(side(0.74) * 0.5, base + height + 0.47, zAt(H, 0.74)), color: '#2b2b2b' },
-      // The bench across the stern, and its back against the motor well.
+    walls.push({ geo: new THREE.BoxGeometry(side(t1) * 1.2, 0.3, 0.03), matrix: mat(0, base + height * 0.66, zf + 0.01), color: '#30434d', jitter: 0 });
+    glow.push({ geo: new THREE.BoxGeometry(side(t1) * 1.1, 0.28, 0.008), matrix: mat(0, base + height * 0.66, zf - wall - 0.008), color: '#bcd8e2' });
+    // The bench across the stern, and its back against the motor well.
+    walls.push(
       { geo: new THREE.BoxGeometry(hw(H, 0.1) * 1.7, 0.06, 0.42), matrix: mat(0, this.seatY - 0.03, this.seatZ), color: '#a8743f' },
       { geo: new THREE.BoxGeometry(0.06, this.seatY - H.floorY - 0.06, 0.38), matrix: mat(hw(H, 0.1) * 0.8, (this.seatY + H.floorY) / 2 - 0.03, this.seatZ), color: '#7b5434' },
       { geo: new THREE.BoxGeometry(0.06, this.seatY - H.floorY - 0.06, 0.38), matrix: mat(-hw(H, 0.1) * 0.8, (this.seatY + H.floorY) / 2 - 0.03, this.seatZ), color: '#7b5434' },
     );
-    const mesh = new THREE.Mesh(mergeParts(parts), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    // Inside. The bunk: a platform across the bow (narrowing with the hull), a mattress, a
+    // blanket and a pillow at the forward end.
+    const tb0 = 0.67, tb1 = t1 - dt1 - 0.01, by = 0.58;
+    const berth = (ta, tb, inset, y, h, color) => {
+      const w = Math.min(side(ta), side(tb)) - wall - inset;
+      return { geo: new THREE.BoxGeometry(w * 2, h, zAt(H, tb) - zAt(H, ta)), matrix: mat(0, y, (zAt(H, ta) + zAt(H, tb)) / 2), color };
+    };
+    const inside = [
+      berth(tb0, 0.77, 0.02, by - 0.04, 0.08, '#8a6040'),
+      berth(0.77, tb1, 0.02, by - 0.04, 0.08, '#8a6040'),
+      { geo: new THREE.BoxGeometry(0.06, by - H.floorY - 0.08, 0.06), matrix: mat(0, (by + H.floorY) / 2 - 0.08, zAt(H, tb0) + 0.05), color: '#6b4a30' },
+      berth(tb0, 0.77, 0.06, by + 0.06, 0.12, '#5b7290'),
+      berth(0.77, tb1, 0.06, by + 0.06, 0.12, '#5b7290'),
+      berth(tb0 - 0.005, 0.74, 0.04, by + 0.14, 0.05, '#b5523b'),
+      { geo: new THREE.BoxGeometry(0.4, 0.09, 0.24), matrix: mat(0, by + 0.17, zAt(H, tb1) - 0.2), color: '#f1ece2' },
+      // The galley, to starboard by the door: a counter, a stove with two burners, a kettle.
+      { geo: new THREE.BoxGeometry(0.34, 0.72, 0.62), matrix: mat(-(side(0.5) - wall - 0.19), H.floorY + 0.36 + 0.12, zAt(H, 0.54)), color: '#a8743f' },
+      { geo: new THREE.BoxGeometry(0.36, 0.03, 0.64), matrix: mat(-(side(0.5) - wall - 0.19), H.floorY + 0.85, zAt(H, 0.54)), color: '#7b5434' },
+      { geo: new THREE.BoxGeometry(0.26, 0.05, 0.4), matrix: mat(-(side(0.5) - wall - 0.19), H.floorY + 0.89, zAt(H, 0.54)), color: '#3a3d42' },
+      { geo: new THREE.TorusGeometry(0.06, 0.012, 4, 12), matrix: mat(-(side(0.5) - wall - 0.19), H.floorY + 0.92, zAt(H, 0.54) - 0.1, Math.PI / 2, 0, 0), color: '#1d1d1d' },
+      { geo: new THREE.TorusGeometry(0.06, 0.012, 4, 12), matrix: mat(-(side(0.5) - wall - 0.19), H.floorY + 0.92, zAt(H, 0.54) + 0.1, Math.PI / 2, 0, 0), color: '#1d1d1d' },
+      { geo: new THREE.CylinderGeometry(0.06, 0.07, 0.13, 10), matrix: mat(-(side(0.5) - wall - 0.19), H.floorY + 0.99, zAt(H, 0.54) + 0.1), color: '#b8312f' },
+      { geo: new THREE.CylinderGeometry(0.012, 0.012, 0.1, 5), matrix: mat(-(side(0.5) - wall - 0.19) + 0.07, H.floorY + 1.0, zAt(H, 0.54) + 0.1, 0, 0, -1.0), color: '#b8312f' },
+      // A shelf to port with jars and books; a rug on the boards.
+      { geo: new THREE.BoxGeometry(0.16, 0.025, 0.7), matrix: mat(side(0.56) - wall - 0.09, base + 0.45, zAt(H, 0.56)), color: '#7b5434' },
+      ...[0, 1, 2].map((k) => ({ geo: new THREE.CylinderGeometry(0.035, 0.035, 0.11, 8), matrix: mat(side(0.56) - wall - 0.09, base + 0.52, zAt(H, 0.53) + k * 0.1), color: ['#c9a34a', '#8fb36a', '#d97a4a'][k] })),
+      ...[0, 1, 2, 3].map((k) => ({ geo: new THREE.BoxGeometry(0.1, 0.16, 0.035), matrix: mat(side(0.56) - wall - 0.1, base + 0.54, zAt(H, 0.6) + k * 0.04), color: ['#35676b', '#7a2430', '#2f4f7a', '#a8743f'][k] })),
+      { geo: new THREE.BoxGeometry(0.46, 0.012, 0.8), matrix: mat(0, H.floorY + 0.01, zAt(H, 0.58)), color: '#9b3b30' },
+      { geo: new THREE.BoxGeometry(0.4, 0.013, 0.72), matrix: mat(0, H.floorY + 0.011, zAt(H, 0.58)), color: '#c98a45' },
+      // The lamp's short chain from the roof, to port, up out of your eyeline.
+      { geo: new THREE.CylinderGeometry(0.006, 0.006, 0.09, 4), matrix: mat(side(0.63) * 0.5, base + height - 0.045, zAt(H, 0.63)), color: '#3a3d42' },
+    ];
+    const lampY = base + height - 0.13, lampX = side(0.63) * 0.5;
+    const mesh = new THREE.Mesh(mergeParts([...walls, ...inside]), new THREE.MeshLambertMaterial({ vertexColors: true }));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     this.body.add(mesh);
+    // The window panes from inside: daylight by day, dusk-blue at night (see setCabinLight).
+    this.cabinPanes = new THREE.Mesh(mergeParts(glow), new THREE.MeshBasicMaterial({ vertexColors: true }));
+    this.body.add(this.cabinPanes);
+    // The lamp: a warm glow under the roof, and a little light of its own that fills the cabin
+    // after dark (and while you're inside), so it reads warm and lived-in from in and out.
+    this.cabinLamp = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffd28a' }));
+    this.cabinLamp.position.set(lampX, lampY, zAt(H, 0.63));
+    this.body.add(this.cabinLamp);
+    this.cabinLight = new THREE.PointLight('#ffc77d', 0, 4.2, 1.5);
+    this.cabinLight.position.set(lampX, lampY - 0.08, zAt(H, 0.63));
+    this.body.add(this.cabinLight);
+    // The roof (and the stove pipe through it): lifted away while you're inside and looking
+    // down into the cabin, back on otherwise.
+    const roof = (this.cabinRoof = new THREE.Mesh(mergeParts([
+      { geo: slab(outline(0.07), 0.07, base + height), color: '#2f5d50', jitter: 0.02 },
+      { geo: new THREE.CylinderGeometry(0.045, 0.045, 0.42, 8), matrix: mat(side(0.74) * 0.5, base + height + 0.24, zAt(H, 0.74)), color: '#2b2b2b' },
+      { geo: new THREE.CylinderGeometry(0.075, 0.075, 0.05, 8), matrix: mat(side(0.74) * 0.5, base + height + 0.47, zAt(H, 0.74)), color: '#2b2b2b' },
+    ]), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+    roof.castShadow = true;
+    this.body.add(roof);
+    // The door, hinged on the port side of the doorway: shut, or swung out into the cockpit.
+    const hinge = (this.cabinDoor = new THREE.Group());
+    hinge.position.set(door, base + 0.02, zb - 0.015);
+    const leaf = new THREE.Mesh(mergeParts([
+      { geo: new THREE.BoxGeometry(door * 2 - 0.02, doorH - 0.04, 0.03), matrix: mat(-door + 0.01, (doorH - 0.04) / 2, 0), color: '#7b5434' },
+      { geo: new THREE.CylinderGeometry(0.022, 0.022, 0.05, 6), matrix: mat(-door * 2 + 0.12, doorH * 0.5, -0.03, Math.PI / 2, 0, 0), color: '#c9a34a' },
+    ]), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    leaf.castShadow = true;
+    hinge.add(leaf);
+    this.body.add(hinge);
+    this.cabinOpen = 0;
+    // Where you stand inside (on the boards, in the boat's own space), and which way you face:
+    // the doorway, the galley, the bunk.
+    this.cabinStations = [
+      { id: 'door', x: 0, z: zb + 0.38, yaw: 0 },
+      { id: 'galley', x: -0.08, z: zAt(H, 0.54), yaw: -Math.PI / 2 },
+      { id: 'bunk', x: 0, z: zAt(H, tb0) - 0.32, yaw: 0 },
+    ];
+    this.cabinFloor = H.floorY + 0.02;
+    this.cabinRoofY = base + height;
+    this.cabinMid = new THREE.Vector3(0, base, (zb + zf) / 2);
+  }
+
+  // The cabin as you see it: open is how far the door stands open (0 shut … 1 open), roof whether
+  // the roof is on.
+  setCabin({ open = 0, roof = true } = {}) {
+    if (!this.cabinRoof) return;
+    this.cabinTarget = open;
+    this.cabinRoof.visible = roof;
+  }
+
+  // The cabin's light for the hour: night (0 … 1), and whether you're inside.
+  setCabinLight(night, inside) {
+    if (!this.cabinLight) return;
+    const on = Math.max(night, inside ? 0.35 : 0);
+    this.cabinLight.intensity = on * (inside ? 2.4 : 1.4);
+    this.cabinLamp.material.color.set('#ffd28a').multiplyScalar(0.55 + 0.45 * on);
+    this.cabinPanes.material.color.setScalar(0.25 + 0.75 * (1 - night));
+  }
+
+  // A point in the cabin (in the boat's own space) out into the world.
+  cabinWorld(x, y, z, out) {
+    return this.body.localToWorld(out.set(x, y, z));
   }
 
   // The kayak's double-bladed paddle, held across the body and dipped left and right.
@@ -553,6 +706,48 @@ export class Boat {
     g.add(mesh);
     this.body.add(g);
     this.paddle = { g, blend: 0, wasIn: 0, grips: [new THREE.Vector3(0.3, 0, 0), new THREE.Vector3(-0.3, 0, 0)], blades: [new THREE.Vector3(1.2, 0, 0), new THREE.Vector3(-1.2, 0, 0)] };
+  }
+
+  // The kayak's little electric motor, clamped to the stern: a head with its switch, a shaft
+  // and a pod with a two-bladed propeller, and its battery in a box on the stern deck behind the
+  // seat. Lowered, the shaft hangs straight down into the water; raised, it swings up and back
+  // to lie clear of the water, out of the way of the paddle (and of piers and the shore).
+  buildEMotor() {
+    const H = this.hull;
+    const battery = new THREE.Mesh(mergeParts([
+      { geo: new THREE.BoxGeometry(0.2, 0.11, 0.15), matrix: mat(0, sheer(H, 0.25) + 0.05, zAt(H, 0.25)), color: '#26292c' },
+      { geo: new THREE.BoxGeometry(0.205, 0.02, 0.155), matrix: mat(0, sheer(H, 0.25) + 0.085, zAt(H, 0.25)), color: '#c0392b' },
+      // The lead, along the deck to the motor.
+      { geo: new THREE.BoxGeometry(0.015, 0.012, zAt(H, 0.25) - zAt(H, 0.03)), matrix: mat(0.06, sheer(H, 0.1) + 0.012, (zAt(H, 0.25) + zAt(H, 0.03)) / 2), color: '#1d1d1d' },
+    ]), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    battery.castShadow = true;
+    this.body.add(battery);
+    const g = (this.emotorGroup = new THREE.Group());
+    g.position.set(0, sheer(H, 0.02) + 0.03, zAt(H, 0.02));
+    const leg = 0.5;
+    const parts = [
+      { geo: new THREE.BoxGeometry(0.1, 0.05, 0.1), matrix: mat(0, -0.02, 0.03), color: '#3a3d42' },
+      { geo: new THREE.BoxGeometry(0.11, 0.1, 0.14), matrix: mat(0, 0.07, -0.02), color: '#2b2e33' },
+      { geo: new THREE.BoxGeometry(0.112, 0.02, 0.142), matrix: mat(0, 0.05, -0.02), color: '#f3d36b' },
+      { geo: new THREE.CylinderGeometry(0.012, 0.012, leg, 6), matrix: mat(0, -leg / 2, -0.02), color: '#2b2e33' },
+      { geo: new THREE.CylinderGeometry(0.032, 0.026, 0.17, 8), matrix: mat(0, -leg, -0.04, Math.PI / 2, 0, 0), color: '#2b2e33' },
+      { geo: new THREE.BoxGeometry(0.012, 0.07, 0.08), matrix: mat(0, -leg - 0.05, -0.02), color: '#2b2e33' },
+    ];
+    const mesh = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5 }));
+    mesh.castShadow = true;
+    g.add(mesh);
+    this.kayakProp = new THREE.Group();
+    this.kayakProp.position.set(0, -leg, -0.14);
+    for (let i = 0; i < 2; i++) {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.11, 0.008), new THREE.MeshStandardMaterial({ color: '#9aa1a8', metalness: 0.5, roughness: 0.4 }));
+      b.rotation.z = i * Math.PI;
+      b.position.y = 0.04 * (i ? -1 : 1);
+      this.kayakProp.add(b);
+    }
+    g.add(this.kayakProp);
+    // (Raised to begin with: it swings up and back over the stern.)
+    g.rotation.x = 1.35;
+    this.body.add(g);
   }
 
   // A rope from the bow down into the water while the anchor is down.
@@ -714,33 +909,41 @@ export class Boat {
     };
     let thrust;
     const H = this.hull, M = H.motor;
-    if (M) {
-      // The throttle lever (throttle here) sets the thrust; the motor tips up in shallow water.
-      // (On the bass boat, the first notches run the electric motor at the bow instead: slow,
-      // silent, and happy in shallow water.)
+    const E = H.emotor && this.emotorDown ? H.emotor : null;
+    if (M || E) {
+      // The throttle lever (throttle here) sets what the motor gives, a moment behind (see spool);
+      // the leg tips up in shallow water. (On the bass boat, the first notches run the electric
+      // motor at the bow instead: slow, silent, and happy in shallow water. The kayak's motor is
+      // electric too, on its stern.)
       const p = this.pos;
       const lever = this.anchored ? 0 : throttle;
-      const troll = M.troll && lever > 0 && lever <= M.troll;
-      // A dead motor (no petrol, or a flat battery for the electric one): an oar, slowly.
-      const dead = troll ? this.flat : this.dry;
+      const troll = !!M?.troll && lever > 0 && lever <= M.troll;
+      this.spool(dt, lever, troll || !!E);
+      const pw = this.power;
+      // A dead motor (no petrol, or a flat battery for an electric one): an oar, slowly (the
+      // kayak's paddle is always there instead: see the game).
+      const dead = E ? this.kflat : troll ? this.flat : this.dry;
       const depth = -solidHeight(p.x - this.fwd.x * H.L * 0.45, p.z - this.fwd.z * H.L * 0.45);
-      const tilted = depth < M.tilt && !troll;
-      if (tilted && !this.tilted && throttle > 0.2 && this.onShallow && !dead) this.onShallow();
+      const tilted = depth < (E || M).tilt && !troll;
+      if (tilted && !this.tilted && lever > 0.05 && this.onShallow && !dead) this.onShallow();
       this.tilted = tilted;
-      if (dead) thrust = lever * (lever > 0 ? 0.6 : 0.8);
-      else if (troll) thrust = 0.45 * (lever / M.troll);
-      else thrust = (lever > 0 ? M.thrust * lever : M.astern * lever) * (tilted ? 0.22 : 1);
-      const spin = troll || dead ? 0 : lever;
+      if (dead) thrust = E ? 0 : pw * (pw > 0 ? 0.6 : 0.8);
+      else if (troll) thrust = 0.45 * (pw / M.troll);
+      else thrust = (pw > 0 ? (E || M).thrust * pw : (E || M).astern * pw) * (tilted ? 0.22 : 1);
+      const spin = troll || dead || E ? 0 : pw;
       this.propSpin += dt * (6 + Math.abs(spin) * 60) * Math.sign(spin || 1) * (Math.abs(spin) > 0.02 ? 1 : 0.1);
-      if (this.trollProp) this.trollProp.rotation.z += dt * (troll ? 40 : 0);
-      vf = step(vf, thrust + wf, 0.26 + 0.055 * Math.abs(vf));
-      vr = step(vr, wr, 3.2);
-      // The tiller turns the boat even when slow, more so with the propeller pushing (and
-      // the trolling motor steers the bow round on the spot).
-      const turnRate = troll ? 0.9 : 0.45 + 0.75 * clamp(Math.abs(vf) / 4, 0, 1) + 0.35 * Math.abs(lever);
+      if (this.trollProp) this.trollProp.rotation.z += dt * (troll && !dead ? 40 * Math.min(1, pw / 0.05) : 0);
+      if (this.kayakProp) this.kayakProp.rotation.z += dt * (E && !dead ? 34 * pw : 0);
+      const drag = H.drag || [0.26, 0.055];
+      vf = step(vf, thrust + wf, drag[0] + drag[1] * Math.abs(vf));
+      vr = step(vr, wr, H.side || 3.2);
+      // The tiller turns the boat even when slow, more so with the propeller pushing (the
+      // trolling motor steers the bow round on the spot; the kayak's rudder needs way on).
+      const turnRate = troll ? 0.9 : E ? 0.5 + 0.6 * clamp(Math.abs(vf) / 1.2, 0, 1) : 0.45 + 0.75 * clamp(Math.abs(vf) / 4, 0, 1) + 0.35 * Math.abs(pw);
       this.omega = damp(this.omega, steer * turnRate * (vf < -0.3 ? -1 : 1), 2.6, dt);
     } else {
       // Rowing (or paddling) rhythm
+      this.power = 0;
       const rowing = (throttle !== 0 || steer !== 0) && !this.anchored;
       if (rowing) this.phase += dt * Math.PI * 2 * H.rate;
       // A paddle pulls on every half-stroke, left then right; oars once a stroke.
@@ -754,7 +957,8 @@ export class Boat {
       const turnRate = H.turn + 0.25 * clamp(Math.abs(vf) / 5, 0, 1);
       this.omega = damp(this.omega, steer * turnRate * (fishing ? 0.5 : 1) * (this.anchored ? 0.3 : 1), 2.8, dt);
     }
-    if (fishing) vf *= Math.exp(-0.9 * dt);
+    // (Fishing without a motor running, the boat settles; under power it goes on, trolling.)
+    if (fishing && !this.power) vf *= Math.exp(-0.9 * dt);
     this.vel.copy(this.fwd).multiplyScalar(vf).addScaledVector(this.right, vr).add(this.drift);
     // At anchor: the rope holds it near the spot (it lies a little down-wind and down-current of
     // it), it settles, and it swings round to lie bow to the rope.
@@ -895,7 +1099,8 @@ export class Boat {
     // The kayak paddle: a dip on one side, then the other, sweeping back along the hull.
     const P = this.paddle;
     if (P) {
-      const e = clamp(Math.abs(throttle) + Math.abs(steer), 0, 1) * rowW;
+      // (With the motor down, the paddle rests across your knees.)
+      const e = this.emotorDown ? 0 : clamp(Math.abs(throttle) + Math.abs(steer), 0, 1) * rowW;
       P.blend = damp(P.blend, e > 0.15 ? 1 : 0, 4, dt);
       const sn = Math.sin(this.phase), dir = throttle < 0 ? -1 : 1;
       // Rest across the knees; at work, the shaft tips down to the stroking side and sweeps.
@@ -910,6 +1115,18 @@ export class Boat {
       P.wasIn = isIn;
     }
 
+    // The cabin door swings open and shut.
+    if (this.cabinDoor) {
+      this.cabinOpen = damp(this.cabinOpen, this.cabinTarget || 0, 4, dt);
+      this.cabinDoor.rotation.y = -1.75 * this.cabinOpen;
+    }
+    // The kayak's motor: up out of the water, down, or kicked up in the shallows; it turns a little
+    // with the rudder.
+    if (this.emotorGroup) {
+      const want = !this.emotorDown ? 1.35 : this.tilted ? 0.55 : 0;
+      this.emotorGroup.rotation.x = damp(this.emotorGroup.rotation.x, want, 3.5, dt);
+      this.emotorGroup.rotation.y = damp(this.emotorGroup.rotation.y, this.emotorDown ? -this.omega * 0.4 : 0, 5, dt);
+    }
     // The outboard: propeller spinning, the leg turning with the tiller.
     if (this.motor) {
       this.prop.rotation.z = this.propSpin;

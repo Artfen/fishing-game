@@ -2243,3 +2243,131 @@ body.placing #sonar, body.placing #act-btn, body.placing #cancel-btn { visibilit
   .wb-step { padding: 4px 9px; font-size: 12px; }
   .wb-fishrow b { min-width: 0; }
 }
+
+/* The throttle lever: bottom right at the helm of a motorboat (or the kayak's motor), above the
+   cast button on a touch screen. Notches from full ahead (top) to astern (bottom), the handle on
+   the chosen one, a fill for what the motor is giving, a big Stop under it. */
+#lever {
+  position: absolute;
+  right: calc(18px + env(safe-area-inset-right, 0px));
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  width: 168px;
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  z-index: 3;
+  font: 600 13px var(--font-ui);
+  animation: rise 0.3s ease;
+}
+#lever[hidden] { display: none; }
+#hud.off #lever { display: none; }
+.lv-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.lv-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.72; }
+.lv-now { font-size: 13px; color: var(--lantern); text-align: right; }
+.lv-body { display: flex; align-items: stretch; gap: 8px; }
+.lv-body[hidden] { display: none; }
+.lv-notches { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; flex: 1; gap: 2px; }
+.lv-notches li { display: flex; align-items: center; gap: 6px; min-height: 26px; border-radius: 8px; padding-right: 4px; transition: background 0.15s ease, opacity 0.2s ease; }
+.lv-notch {
+  width: 34px;
+  height: 24px;
+  border-radius: 7px;
+  border: 1px solid var(--hud-line);
+  background: rgba(255, 249, 239, 0.08);
+  color: var(--hud-ink);
+  font: 800 12px var(--font-ui);
+  cursor: pointer;
+  touch-action: none;
+}
+.lv-name { font-size: 11.5px; opacity: 0.82; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv-notches li.lv-n .lv-notch { border-color: rgba(255, 249, 239, 0.45); }
+.lv-notches li.lv-r .lv-notch { color: var(--coral); }
+.lv-notches li.lv-q .lv-notch { color: var(--seaglass); }
+.lv-notches li.on { background: rgba(255, 201, 119, 0.16); }
+.lv-notches li.on .lv-notch { background: var(--lantern); border-color: var(--lantern); color: #3a2a14; }
+.lv-notches li.locked { opacity: 0.38; }
+.lv-track {
+  position: relative;
+  width: 22px;
+  margin: 12px 0;
+  border-radius: 11px;
+  background: rgba(255, 249, 239, 0.12);
+  border: 1px solid var(--hud-line);
+  cursor: ns-resize;
+  touch-action: none;
+}
+.lv-fill { position: absolute; left: 3px; right: 3px; border-radius: 6px; background: rgba(147, 220, 205, 0.55); transition: top 0.1s linear, height 0.1s linear; }
+.lv-fill.astern { background: rgba(255, 154, 130, 0.6); }
+.lv-handle {
+  position: absolute;
+  left: 50%;
+  width: 34px;
+  height: 18px;
+  margin: -9px 0 0 -17px;
+  border-radius: 9px;
+  background: var(--hud-ink);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: top 0.12s ease;
+}
+#lever.lv-dragging .lv-handle { transition: none; background: var(--lantern); }
+.lv-stop, .lv-motor {
+  width: 100%;
+  min-height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--hud-line);
+  background: rgba(255, 249, 239, 0.1);
+  color: var(--hud-ink);
+  font: 800 14px var(--font-ui);
+  cursor: pointer;
+  touch-action: none;
+}
+.lv-stop { background: rgba(255, 154, 130, 0.22); border-color: rgba(255, 154, 130, 0.55); }
+.lv-stop:hover, .lv-motor:hover { filter: brightness(1.15); }
+.lv-motor { font-size: 12.5px; }
+.lv-motor[hidden], .lv-stop[hidden] { display: none; }
+.lv-keys { font-size: 11px; line-height: 1.5; opacity: 0.8; text-align: center; }
+.lv-keys:empty { display: none; }
+.lv-keys kbd { font-size: 10.5px; }
+#lever.lv-raised { width: 150px; }
+/* With the lever out, the bottom-right of the screen is its: the hint and prompt keep clear. */
+@media (max-width: 1199px) {
+  body.helm:not(.touch) #hint, body.helm:not(.touch) #prompt { max-width: calc(100% - 420px); }
+}
+/* Touch: above the cast button on the right, a little more compact, and the fish finder steps
+   aside for it. */
+body.touch #lever {
+  bottom: calc(138px + env(safe-area-inset-bottom, 0px));
+  right: calc(14px + env(safe-area-inset-right, 0px));
+  width: 150px;
+  padding: 6px 8px 8px;
+}
+body.touch .lv-notches li { min-height: 30px; }
+body.touch .lv-notch { width: 40px; height: 28px; font-size: 13px; }
+body.touch .lv-name { font-size: 11px; }
+body.touch.helm #sonar { right: calc(176px + env(safe-area-inset-right, 0px)); }
+/* A phone on its side: beside the cast button, the full height of the screen, names hidden. */
+@media (max-height: 520px) {
+  body.touch #lever {
+    top: calc(56px + env(safe-area-inset-top, 0px));
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    right: calc(132px + env(safe-area-inset-right, 0px));
+    width: 92px;
+    gap: 4px;
+  }
+  body.touch .lv-name { display: none; }
+  body.touch .lv-notches li { min-height: 26px; }
+  body.touch .lv-notch { width: 44px; height: 24px; }
+  body.touch .lv-body { flex: 1; min-height: 0; }
+  body.touch .lv-stop { min-height: 30px; }
+  #lever .lv-head .lv-title { display: none; }
+  body.touch.helm #cancel-btn { right: calc(236px + env(safe-area-inset-right, 0px)); }
+}
+@media (max-height: 640px) and (min-width: 700px) {
+  body:not(.touch) .lv-notches li { min-height: 22px; }
+  body:not(.touch) .lv-notch { height: 20px; }
+}

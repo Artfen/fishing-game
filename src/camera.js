@@ -11,16 +11,23 @@ import { clamp, damp, dampAngle, smoothstep, rand, lerp, wrapAngle } from './uti
 //  eye   – first person: through your own eyes, the rod in your hands (pitch here is how far
 //          you look down)
 //  car   – behind the car while you drive (first person is the driver's seat)
+//  cabin – inside the cabin boat's cabin: looking down into it, the roof lifted away
 // Each view remembers its own angle and zoom. Switching glides there; it never cuts.
+// The boat and on-foot views turn all the way round you, and tilt from high above down past
+// the waterline: below it you're looking under the water (the game's underwater look follows
+// the camera there by itself), with the boat or you still at the middle of the view.
 const LIMITS = {
-  boat: { pitch: [0.12, 1.2], dist: [6, 40] },
-  foot: { pitch: [0.02, 1.25], dist: [2.8, 26] },
+  boat: { pitch: [-0.7, 1.2], dist: [6, 40] },
+  foot: { pitch: [-0.55, 1.25], dist: [2.8, 26] },
   under: { pitch: [-0.8, 0.85], dist: [3, 22] },
   bait: { pitch: [-0.8, 0.85], dist: [1.8, 10] },
   eye: { pitch: [-0.6, 1.0], dist: [0, 0] },
   car: { pitch: [0.08, 0.95], dist: [5.5, 18] },
+  cabin: { pitch: [0.88, 1.42], dist: [2.4, 5.5] },
 };
-export const VIEW_NAMES = { boat: 'Boat view', foot: 'On foot', under: 'Underwater', bait: 'Watching your bait', eye: 'First person', car: 'Driving' };
+export const VIEW_NAMES = { boat: 'Boat view', foot: 'On foot', under: 'Underwater', bait: 'Watching your bait', eye: 'First person', car: 'Driving', cabin: 'The cabin' };
+// The camera stays this far clear of the surface on either side of it (never half in, half out).
+const ABOVE = 0.6, BELOW = 0.4;
 const EYE_PITCH = 0.2; // looking a little down at the water when you first raise your eyes
 
 const _f = new THREE.Vector3();
@@ -42,7 +49,13 @@ export class CameraRig {
       bait: { yaw: 0, pitch: 0.15, dist: 4.5 },
       eye: { yaw: 0, pitch: EYE_PITCH, dist: 0 },
       car: { yaw: 0, pitch: 0.3, dist: 9.5 },
+      cabin: { yaw: 0, pitch: 1.08, dist: 3.8 },
     };
+    // Inside the cabin boat's cabin: where to look (set by the game), and whether you're in.
+    this.inCabin = false;
+    this.cabinFocus = new THREE.Vector3();
+    // Below the water's surface right now (free look, or the underwater views).
+    this.below = false;
     // The car you're driving (null when you're not), and whether you're indoors.
     this.car = null;
     this.indoor = false;
@@ -70,7 +83,7 @@ export class CameraRig {
 
   get yaw() { return this.views[this.mode].yaw; }
   get underwaterView() { return this.mode === 'under' || this.mode === 'bait'; }
-  get third() { return this.car ? 'car' : this.onFoot ? 'foot' : 'boat'; }
+  get third() { return this.inCabin ? 'cabin' : this.car ? 'car' : this.onFoot ? 'foot' : 'boat'; }
   get home() { return this.firstPerson ? 'eye' : this.third; }
 
   init(boat) {
@@ -97,9 +110,19 @@ export class CameraRig {
     return this.setMode(on ? 'eye' : this.third, t);
   }
 
+  // Into the cabin, or back out on deck: the view from above with the roof lifted, facing the
+  // way the boat does (or your eyes, if you were in first person).
+  setCabin(on, t) {
+    this.inCabin = on;
+    if (on) this.views.cabin.yaw = this.views.boat.yaw;
+    else this.views.boat.yaw = this.views.cabin.yaw;
+    this.setMode(this.home, t);
+    this.settleUntil = t + 1.2;
+  }
+
   // On foot there is no boat to look under, so the view goes straight to your bait.
   cycle(baitAvailable, t) {
-    const order = this.car ? ['car', 'eye'] : this.onFoot ? ['foot', 'eye'] : ['boat', 'eye', 'under'];
+    const order = this.inCabin ? ['cabin', 'eye'] : this.car ? ['car', 'eye'] : this.onFoot ? ['foot', 'eye'] : ['boat', 'eye', 'under'];
     if (baitAvailable) order.push('bait');
     const i = order.indexOf(this.mode);
     const next = order[(i + 1) % order.length];
@@ -113,7 +136,7 @@ export class CameraRig {
     this.firstPerson = false;
     const home = this.home;
     this.setMode(home, t);
-    Object.assign(this.views[home], home === 'boat' ? { yaw: anchor.heading, pitch: 0.46, dist: 15 } : home === 'car' ? { yaw: anchor.heading, pitch: 0.3, dist: 9.5 } : { yaw: anchor.heading, pitch: 0.3, dist: 7.5 });
+    Object.assign(this.views[home], home === 'boat' ? { yaw: anchor.heading, pitch: 0.46, dist: 15 } : home === 'car' ? { yaw: anchor.heading, pitch: 0.3, dist: 9.5 } : home === 'cabin' ? { yaw: anchor.heading, pitch: 1.08, dist: 3.8 } : { yaw: anchor.heading, pitch: 0.3, dist: 7.5 });
     this.lastManual = -99;
     this.changedAt = t;
   }
@@ -158,11 +181,12 @@ export class CameraRig {
     if (this.onFoot && this.mode === 'under') this.setMode(this.firstPerson ? 'eye' : 'foot', t);
     if (this.mode === 'eye' && (!started || !eye)) this.setMode(this.third, t);
     if (this.mode === 'car' && !this.car) this.setMode(this.third, t);
+    if (this.mode === 'cabin' && !this.inCabin) this.setMode(this.third, t);
     const v = this.views[this.mode];
     const under = this.underwaterView;
     // In a boat (or the car) your view turns with it (not when you step across into the other one).
     const ride = this.car || (!this.onFoot ? boat : null);
-    if (ride && this.lastHeading !== null && this.lastBoat === ride && this.mode === 'eye') v.yaw += wrapAngle(ride.heading - this.lastHeading);
+    if (ride && this.lastHeading !== null && this.lastBoat === ride && (this.mode === 'eye' || this.mode === 'cabin')) v.yaw += wrapAngle(ride.heading - this.lastHeading);
     this.lastHeading = ride ? ride.heading : null;
     this.lastBoat = ride;
 
@@ -193,7 +217,9 @@ export class CameraRig {
     }
 
     // Where the camera looks
-    if (this.mode === 'car' && this.car) {
+    if (this.mode === 'cabin') {
+      _f.copy(this.cabinFocus);
+    } else if (this.mode === 'car' && this.car) {
       _f.set(this.car.pos.x, this.car.pos.y + 1.3, this.car.pos.z);
     } else if (this.mode === 'boat') {
       _f.set(boat.pos.x, boat.heave + 1.2, boat.pos.z);
@@ -215,7 +241,7 @@ export class CameraRig {
     } else {
       _f.set(baitFocus.x, Math.min(baitFocus.y, -0.6), baitFocus.z);
     }
-    const fr = 1 - Math.exp(-(this.mode === 'bait' ? 5 : 4) * dt);
+    const fr = 1 - Math.exp(-(this.mode === 'bait' ? 5 : this.mode === 'cabin' ? 9 : 4) * dt);
     this.focus.x += (_f.x - this.focus.x) * fr;
     this.focus.y += (_f.y - this.focus.y) * fr;
     this.focus.z += (_f.z - this.focus.z) * fr;
@@ -224,15 +250,27 @@ export class CameraRig {
     const fishingFoot = this.mode === 'foot' && fishing.lineOut;
     // Indoors (the roof lifted away), closer in and looking down over the walls.
     const inside = this.mode === 'foot' && this.indoor;
-    const pitch = started ? (inside ? Math.max(v.pitch, 0.78) : fishingFoot ? Math.max(v.pitch, 0.42) : v.pitch) : 0.26;
+    // (Fishing from the bank the view stays up where you can see the line, unless you tilt it
+    // right down to look beneath the water.)
+    const pitch = started ? (inside ? Math.max(v.pitch, 0.78) : fishingFoot && v.pitch >= 0 ? Math.max(v.pitch, 0.42) : v.pitch) : 0.26;
     const dist = started ? (inside ? Math.min(v.dist, 6.2) : v.dist + (this.mode === 'boat' && fishing.lineOut ? 3 : fishingFoot ? 3.5 : 0)) : 26;
     const hd = dist * Math.cos(pitch);
     let cx = this.focus.x - Math.sin(v.yaw) * hd;
     let cy = this.focus.y + dist * Math.sin(pitch);
     let cz = this.focus.z - Math.cos(v.yaw) * hd;
-    // Stay on the right side of the waterline, so the view is never half in, half out.
-    if (under) cy = Math.min(cy, waveHeight(cx, cz, t) - 0.45);
-    else cy = Math.max(cy, waveHeight(cx, cz, t) + 0.8);
+    // Stay on one side of the waterline or the other, so the view is never half in, half out:
+    // tilted down past it, the camera dips under (quickly, as it glides) and you look up at the
+    // hull, or at your own legs wading; tilted back up, it comes out again.
+    // Where the water's too shallow to dip into (or it's dry land), the camera skims along just
+    // above the ground or the surface instead, looking up at you: never into the ground, never
+    // half under.
+    const surface = waveHeight(cx, cz, t), ground = heightAt(cx, cz);
+    if (under) cy = Math.min(cy, surface - 0.45);
+    else if (this.mode !== 'cabin') {
+      if (cy >= surface + 0.1) cy = Math.max(cy, surface + ABOVE);
+      else if (ground < surface - BELOW - 0.5) cy = Math.min(cy, surface - BELOW);
+      else cy = Math.max(surface + ABOVE, ground + 0.5);
+    }
     // Pull in if a hill or the seabed sits between the focus and the camera.
     const steps = 14;
     let px = this.focus.x, py = this.focus.y, pz = this.focus.z;
@@ -248,6 +286,11 @@ export class CameraRig {
       px = x;
       py = y;
       pz = z;
+    }
+    // (Pulled in over the shallows, it can end up at the surface: out of the band again.)
+    if (!under && this.mode !== 'cabin') {
+      const s2 = waveHeight(cx, cz, t), g2 = heightAt(cx, cz);
+      if (cy > s2 - BELOW && cy < s2 + ABOVE) cy = cy < s2 && g2 < s2 - BELOW - 0.5 ? s2 - BELOW : Math.max(s2 + ABOVE, g2 + 0.5);
     }
 
     // Glide: slower right after switching views, steady while following.
@@ -267,9 +310,11 @@ export class CameraRig {
       cam.position.y += rand(-s, s);
     }
     this.look.copy(this.focus);
+    this.below = cam.position.y < waveHeight(cam.position.x, cam.position.z, t);
     // Above water, aim a little above the boat so the horizon stays in frame
-    // (less on portrait and short screens, so the boat stays clear of the controls).
-    if (!under) this.look.y += (this.mode === 'foot' ? 0.4 + v.dist * 0.05 : this.mode === 'car' ? 0.8 + v.dist * 0.04 : 1.6 + v.dist * 0.06) * clamp(cam.aspect, 0.3, 1) * clamp(innerHeight / 640, 0.55, 1);
+    // (less on portrait and short screens, so the boat stays clear of the controls). Below it,
+    // and inside the cabin, straight at it.
+    if (!under && !this.below && this.mode !== 'cabin') this.look.y += (this.mode === 'foot' ? 0.4 + v.dist * 0.05 : this.mode === 'car' ? 0.8 + v.dist * 0.04 : 1.6 + v.dist * 0.06) * clamp(cam.aspect, 0.3, 1) * clamp(innerHeight / 640, 0.55, 1);
     this.orient(dt, t, this.look, 0);
     // Gliding back out of your eyes, the rod and you come back as the camera leaves your head.
     this.eyeBlend = eye && t - this.eyeChangedAt < 2 ? 1 - smoothstep(0.3, 1.8, this.pos.distanceTo(eye)) : 0;

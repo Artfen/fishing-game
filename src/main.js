@@ -60,7 +60,9 @@ import { bendRod } from './props.js';
 import { FishFinder } from './sonar.js';
 import { setupTouch } from './touch.js';
 import { Gamepads, buttonFor, topDialog, focusables } from './gamepad.js';
-import { isPetrol, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, chargeBattery, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
+import { levers, nearest, step, setIndex, within, capIndex, leverWords } from './throttle.js';
+import { LeverUI } from './lever.js';
+import { isPetrol, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, burnKayak, chargeBattery, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
 import { STEPS as TRIP_STEPS, stepOf, stepNumber, complete as completeStep, start as startGuide, words as guideWords, isNewGame, placeAt, FISH_SPOTS } from './firstTrip.js';
 import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality } from './quality.js';
 import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick } from './util.js';
@@ -295,7 +297,7 @@ input.padLabel = (a) => pads.label(a);
 const scheme = () => input.method;
 // Moving and looking, in the hints: the movement keys and the mouse, or the controller's sticks.
 const MOVE = () => (scheme() === 'pad' ? kbd('L-stick') : `${K('forward')}${K('left')}${K('back')}${K('right')}`);
-const LOOK = () => (scheme() === 'pad' ? `${kbd('R-stick')} look around` : 'drag to look around');
+const LOOK = () => (scheme() === 'pad' ? `${kbd('R-stick')} look around (push up to sink under the water)` : 'drag to look around (drag up to sink under the water)');
 input.onMethod((m) => {
   document.body.classList.toggle('pad', m === 'pad');
   hud.cache = {};
@@ -402,6 +404,8 @@ for (const [kind, b] of Object.entries(BOATS)) {
   const at = floats(b, saved) ? saved : mooring(kind);
   b.place(at.x, at.z, at.heading);
   if (saved?.anchored && at === saved) b.setAnchor(true);
+  // (The kayak's motor as you left it: lowered, or up.)
+  if (saved?.motor && b.hull.emotor) b.setEMotor(true);
 }
 boat = BOATS[state.vessel] || rowboat;
 for (const b of boats) if (b !== boat) b.setRower(false);
@@ -502,8 +506,9 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
     if (settings.controls.rumble) pads.rumble(kind === 'warn' ? 0.2 : 0.55, kind === 'warn' ? 70 : 200);
     if (kind === 'run' && rig.mode === 'eye') shake(0.25);
   },
+  // Casting from a boat under power: the throttle eases back to trolling speed (see easeForCast).
+  easeForCast: () => easeForCast(),
   onCast: () => {
-    if (!onFoot && boat.motor && boat.lever) boat.lever = 0;
     if (!state.tips.cast) {
       state.tips.cast = true;
       save();
@@ -1114,6 +1119,7 @@ function passTheNight() {
   // You wake at the tent's door, on firm ground (whatever the night did, you're never left in the water).
   // (Overnight, the bass boat's battery charges wherever you sleep.)
   tanks().battery = 1;
+  tanks().kayak = 1;
   const door = sleeping.site === 'house' ? { x: 113.6, z: -78.6 } : sleeping.site && sleeping.site !== 'cabin' ? toWorld(sleeping.site.x, sleeping.site.z, sleeping.site.yaw, 0.6, 1.6) : null;
   const spot = door ? standNear(door.x, door.z, 0.3) : onFoot && walkHeight(walker.pos.x, walker.pos.z) < 0.1 ? campSpot() : null;
   if (spot && onFoot) {
@@ -1230,6 +1236,7 @@ const nearBoat = () => onFoot && !!boatNear();
 // Change which boat is yours right now (climbing in, or stepping across from the other).
 function switchBoat(b) {
   if (b === boat) return;
+  if (cabinIn) leaveCabin(true);
   boat.setRower(false);
   boat.pose.fishing = 0;
   boat.lever = 0;
@@ -1258,11 +1265,12 @@ function teachBoat() {
   state.tips[tip] = true;
   const T = scheme() === 'touch', S = T || scheme() === 'pad', key = (a) => input.keyLabel(a);
   const stick = T ? 'the stick' : 'the left stick';
-  const lever = S ? `push ${stick} forward for throttle, left and right to steer. Let go to slow down.`
-    : `${key('forward')} and ${key('back')} move the throttle lever (it stays where you leave it), ${key('left')} and ${key('right')} steer, ${key('neutral')} stops the motor, ${key('anchor')} drops or raises the anchor.`;
+  const lever = T ? 'push the stick up or down to move the throttle lever a notch (it stays where you leave it), or tap and drag the lever itself (bottom right); across steers, and Stop knocks it into neutral.'
+    : S ? `push ${stick} up or down to move the throttle lever a notch (it stays where you leave it), across to steer; ${key('neutral')} stops the motor, ${key('anchor')} drops or raises the anchor.`
+      : `${key('forward')} and ${key('back')} move the throttle lever a notch (it stays where you leave it; you can click and drag the lever on screen too), ${key('left')} and ${key('right')} steer, ${key('neutral')} stops the motor, ${key('anchor')} drops or raises the anchor. The motor takes a moment to build up and ease off.`;
   const text = {
     skiff: `The motor skiff, for the open coast and the islands: ${lever} Near a shore, slow down and ${T ? 'tap the prompt' : `press ${key('interact')}`} to step off. It runs on petrol: the harbour pump is at the root of Willowhaven quay.`,
-    kayak: `The kayak: slow, but silent and stable enough to fish from, and it floats in a hand's depth of water. Paddle into the shallows, the saltings and the reeds where the boats can't go: fish hardly notice it. ${S ? `${T ? 'The stick' : 'The left stick'} paddles and steers.` : `${key('forward')}${key('left')}${key('back')}${key('right')} paddle and steer.`}`,
+    kayak: `The kayak: slow, but silent and stable enough to fish from, and it floats in a hand's depth of water. Paddle into the shallows, the saltings and the reeds where the boats can't go: fish hardly notice it. ${S ? `${T ? 'The stick' : 'The left stick'} paddles and steers.` : `${key('forward')}${key('left')}${key('back')}${key('right')} paddle and steer.`} It has a little electric motor on its stern too (${T ? 'the Lower motor button' : S ? key('motor') : key('motor')}): slower than paddling, but quiet and hands-free, for creeping up on fish or trolling a lure. Its battery charges at a jetty and overnight.`,
     bass: `The bass boat: ${lever} The first notches of throttle run the quiet electric motor at the bow, for creeping along the weed beds and the reeds without spooking anything; push on for the outboard to cross the lake fast. Its locker holds your tackle box, and it sits steady when you cast. The outboard takes petrol (Longmere has no pump: bring the jerry can), and the electric motor a battery that charges at the jetty and overnight.`,
     cabin: `The cabin boat: slow and steady, with a little cabin forward: a bunk and a galley stove. ${lever} Anchor (or tie up alongside a quay), then ${T ? 'tap the prompt' : `press ${key('interact')}`} for the cabin: cook what you've kept, and sleep aboard. A camp that floats. It runs on petrol: the harbour pump is right by her berth.`,
   }[k];
@@ -1284,6 +1292,8 @@ function toggleAnchor() {
 }
 
 function setFoot(foot, silent = false) {
+  // (Anything that puts you ashore, or in another boat, takes you out of the cabin first.)
+  if (cabinIn) leaveCabin(true);
   onFoot = foot;
   walker.setVisible(foot);
   boat.setRower(!foot);
@@ -1313,6 +1323,247 @@ function board(target = boatNear() || boat) {
   teachBoat();
   audio.knock(0.5);
   hud.chip('<b>Boat view</b>', 2);
+}
+
+/* ---------------- the throttle lever, and the kayak's motor ---------------- */
+
+// The lever the boat you're in has (see throttle.js): a motorboat's own, the kayak's with its
+// motor down, or none (rowing, paddling, on foot).
+const leverKind = () => (onFoot || driving || cabinIn ? null : boat.motor ? boat.kind : boat.hull.emotor && boat.emotorDown ? 'kayak' : null);
+// What the lever may do just now: a line out (or a cast being aimed) caps it at trolling speed,
+// a fish on at dead slow.
+const leverSituation = () => (fishing.state === 'reeling' || fishing.state === 'landing' ? 'fight' : fishing.busy ? 'line' : 'free');
+const CAP_WORDS = {
+  line: 'With a line out she goes no faster than trolling speed: reel in for more.',
+  fight: 'A fish on: dead slow at most, so it’s yours to play.',
+};
+
+// Set the lever to a notch (the lever on screen), or move it a notch (keys, stick, D-pad).
+// fresh: a new press (held down, the lever pauses in neutral before going on into astern).
+function setLever(i) {
+  const kind = leverKind();
+  if (!kind) return;
+  if (boat.anchored && levers(kind)[i]?.v > 0) {
+    hud.flash(`The anchor is down: raise it first (${K('anchor')})`, t, 2);
+    return;
+  }
+  const r = setIndex(kind, i, leverSituation());
+  if (r.capped) hud.flash(CAP_WORDS[leverSituation()], t, 2.6);
+  changeLever(r.v);
+}
+function stepLever(dir, fresh = true) {
+  const kind = leverKind();
+  if (!kind) return;
+  const L = levers(kind), i = nearest(kind, boat.lever);
+  if (!fresh && L[i].id === 'N') return;
+  if (boat.anchored && dir > 0 && L[i].v >= 0) {
+    hud.flash(`The anchor is down: raise it first (${K('anchor')})`, t, 2);
+    return;
+  }
+  const r = step(kind, boat.lever, dir, leverSituation());
+  if (r.capped && fresh) hud.flash(CAP_WORDS[leverSituation()], t, 2.6);
+  changeLever(r.v);
+}
+function changeLever(v) {
+  if (v === boat.lever) return;
+  boat.lever = v;
+  audio.tick?.(0.35);
+}
+function leverNeutral(say = false) {
+  if (!leverKind()) return;
+  if (boat.lever && say) hud.flash('Neutral: the motor idles, and she coasts on', t, 1.6);
+  changeLever(0);
+}
+
+// Held forward or back (the keys, or the stick pushed well over): one notch now, and more
+// while held, pausing at neutral.
+let leverHeld = 0, leverRepeat = 0;
+function helmInput(raw, dt) {
+  const dir = Math.abs(raw) > 0.55 ? Math.sign(raw) : 0;
+  if (!dir) {
+    leverHeld = 0;
+    return;
+  }
+  if (dir !== leverHeld) {
+    leverHeld = dir;
+    leverRepeat = 0.45;
+    stepLever(dir, true);
+    return;
+  }
+  leverRepeat -= dt;
+  if (leverRepeat <= 0) {
+    leverRepeat = 0.3;
+    stepLever(dir, false);
+  }
+}
+
+// Casting from a boat under power: if she's going faster than trolling speed, the throttle comes
+// back to slow ahead and you aim while she slows (a word says so; the lever goes up again once
+// your line's in). Says whether a cast may start.
+function easeForCast() {
+  const kind = leverKind();
+  if (!kind) return false;
+  const v = within(kind, boat.lever, 'line');
+  if (v !== boat.lever) {
+    changeLever(v);
+    hud.flash(`Throttle eased back to ${leverWords(kind, v)} for the cast. ${scheme() === 'touch' ? 'The lever' : K('throttleUp')} opens it up again (to trolling speed while your line’s out).`, t, 4);
+  }
+  return true;
+}
+
+// A fish takes while you're under way: you knock the motor out of gear.
+let fishWas = 'idle';
+function watchHookup() {
+  const s = fishing.state;
+  if (s === 'reeling' && fishWas !== 'reeling' && leverKind() && boat.lever > 0) {
+    changeLever(0);
+    hud.flash('Fish on! You knock the motor into neutral: she coasts while you play it', t, 3.2);
+  }
+  fishWas = s;
+}
+
+// The kayak's electric motor, down or up.
+function toggleKayakMotor() {
+  if (onFoot || driving || cabinIn || !boat.hull.emotor) return;
+  if (fishing.state === 'reeling' || fishing.state === 'landing') {
+    hud.flash('Land or let go of the fish first', t, 2);
+    return;
+  }
+  if (boat.emotorDown) {
+    boat.setEMotor(false);
+    audio.knock(0.25);
+    hud.flash(`Motor up: paddle on (${scheme() === 'touch' ? 'the stick' : scheme() === 'pad' ? kbd('L-stick') : MOVE()})`, t, 2.6);
+  } else {
+    if (tanks().kayak <= 0) {
+      hud.flash('The kayak’s battery is flat: it charges at a jetty, and overnight. Paddle for now.', t, 3.5);
+      return;
+    }
+    boat.setEMotor(true);
+    state.tips.kayakMotor = true;
+    audio.knock(0.25);
+    const how = scheme() === 'touch' ? 'the stick up or down (or the lever) moves it a notch' : scheme() === 'pad' ? `${kbd('L-stick')} up or down moves it a notch, ${K('neutral')} stops` : `${K('forward')}${K('back')} move the lever a notch, ${K('neutral')} stops`;
+    hud.flash(`Motor down: quiet and slow, hands free for the rod. ${how}.`, t, 4);
+  }
+  save();
+}
+
+const leverUI = new LeverUI($('lever'), {
+  set: (i) => { if (started && !modal) setLever(i); },
+  stop: () => { if (started && !modal) leverNeutral(true); },
+  motor: () => { if (started && !modal) toggleKayakMotor(); },
+});
+
+function updateLever() {
+  const kind = leverKind();
+  const kayak = !onFoot && !driving && !cabinIn && !!boat.hull.emotor;
+  const show = started && !modal && !hudOff && !placement.isOn && (!!kind || kayak);
+  if (!show) {
+    leverUI.update({ show: false });
+    return;
+  }
+  const T = scheme() === 'touch', P = scheme() === 'pad', sit = leverSituation();
+  const line = sit !== 'free';
+  let keys = '';
+  // (With a line out on a controller the D-pad steps it, down through neutral.)
+  if (kind && !T) keys = P ? (line ? `${K('throttleUp')} ${K('throttleDown')} a notch` : `${kbd('L-stick')} ↕ a notch · ${K('neutral')} stop`) : `${line ? `${K('throttleUp')}${K('throttleDown')}` : `${K('forward')}${K('back')}`} a notch · ${K('neutral')} stop`;
+  if (kayak && !T) keys += `${keys ? ' · ' : ''}${K('motor')} motor`;
+  const dead = kind && (kind === 'kayak' ? boat.kflat : boat.trolling ? boat.flat : boat.dry);
+  leverUI.update({
+    show: true, kind, index: kind ? nearest(kind, boat.lever) : 0, power: boat.power, cap: kind ? capIndex(kind, sit) : 0,
+    words: !kind ? 'paddling' : boat.anchored ? 'at anchor' : dead ? (kind === 'kayak' ? 'battery flat' : 'motor dead') : cap(leverWords(kind, boat.lever)),
+    title: kind === 'kayak' ? 'Kayak motor' : kayak ? 'Kayak' : 'Throttle',
+    motor: kayak ? (boat.emotorDown ? 'down' : 'up') : null, keys,
+  });
+}
+
+/* ---------------- the cabin boat: inside ---------------- */
+
+// Inside the cabin: where you stand (the doorway, the galley, the bunk), walking between them.
+let cabinIn = null;
+const _cab = new THREE.Vector3(), _cab2 = new THREE.Vector3();
+const canEnterCabin = (b) => !!b.hull.cabin && (b.anchored || moored(b)) && b.speed < 0.6;
+
+function enterCabin() {
+  const b = BOATS.cabin;
+  if (!canEnterCabin(b)) {
+    hud.flash(`She has to be still: drop the anchor (${K('anchor')}), or tie up alongside a quay, then go in`, t, 3);
+    return;
+  }
+  if (fishing.lineOut || fishing.aiming) fishing.cancel();
+  // From the quay: aboard first (into the cockpit), and straight on in.
+  if (onFoot || boat !== b) board(b);
+  changeLever(0);
+  // (Tied up alongside but not anchored: you make her fast, so she can't wander off while you're in.)
+  if (!b.anchored) b.setAnchor(true);
+  cabinIn = { at: 0, from: 0, k: 1 };
+  boat.setRower(false);
+  walker.setVisible(true);
+  walker.vel.set(0, 0, 0);
+  boat.setCabin({ open: 1, roof: rig.mode === 'eye' });
+  rig.setCabin(true, t);
+  audio.knock(0.3);
+  placeInCabin(0);
+  hud.chip('<b>The cabin</b>', 2);
+  hud.flash(scheme() === 'touch' ? 'In the cabin: the stick walks to the galley and the bunk · tap the prompt to use them (at the doorway, back out on deck)'
+    : `In the cabin: ${scheme() === 'pad' ? `${kbd('L-stick')} ↕` : `${K('forward')}${K('back')}`} the galley and the bunk · ${K('interact')} use · ${K('cancel')} back out on deck`, t, 5);
+}
+
+function leaveCabin(quiet = false) {
+  if (!cabinIn) return;
+  cabinIn = null;
+  walker.setVisible(false);
+  boat.setRower(true);
+  boat.setCabin({ open: 0, roof: true });
+  rig.setCabin(false, t);
+  if (quiet) return;
+  audio.knock(0.3);
+  hud.flash(moored(boat) ? `Back on deck. ${scheme() === 'touch' ? 'Tap the prompt' : K('interact')} to step ashore` : 'Back out on deck, at the helm', t, 2.4);
+  save();
+}
+
+// The figure in the cabin, standing at (or walking between) the stations, riding the boat.
+function placeInCabin(dt) {
+  const S = boat.cabinStations, c = cabinIn;
+  if (c.k < 1) c.k = Math.min(1, c.k + dt / 0.7);
+  const a = S[c.from], b = S[c.at], k = smoothstep(0, 1, c.k);
+  boat.cabinWorld(lerp(a.x, b.x, k), boat.cabinFloor, lerp(a.z, b.z, k), _cab);
+  walker.pos.copy(_cab);
+  walker.ground = _cab.y;
+  const yaw = boat.heading + (c.k < 1 ? Math.atan2(b.x - a.x, b.z - a.z) : b.yaw);
+  walker.heading = dampAngle(walker.heading, yaw, 8, dt || 1);
+  // (Walking pace, for the stride, while moving between stations.)
+  walker.vel.set(c.k < 1 ? Math.sin(walker.heading) * 1.2 : 0, 0, c.k < 1 ? Math.cos(walker.heading) * 1.2 : 0);
+  walker.group.position.copy(walker.pos);
+  walker.group.rotation.y = walker.heading;
+  walker.animate(dt, t);
+  walker.group.updateMatrixWorld(true);
+  // The view looks into the cabin from above (the roof lifted), or through your eyes.
+  boat.cabinWorld(boat.cabinMid.x, boat.cabinFloor + 0.9, boat.cabinMid.z, rig.cabinFocus);
+  boat.setCabin({ open: 1, roof: rig.mode === 'eye' });
+}
+
+// Forward and back walk between the doorway, the galley and the bunk.
+let cabinHeld = 0;
+function cabinInput(raw) {
+  const dir = Math.abs(raw) > 0.55 ? Math.sign(raw) : 0;
+  if (dir && dir !== cabinHeld && cabinIn.k >= 1) {
+    const next = Math.max(0, Math.min(boat.cabinStations.length - 1, cabinIn.at + dir));
+    if (next !== cabinIn.at) {
+      cabinIn.from = cabinIn.at;
+      cabinIn.at = next;
+      cabinIn.k = 0;
+      audio.step?.(false);
+    }
+  }
+  cabinHeld = dir;
+}
+
+function cabinAction() {
+  const st = boat.cabinStations[cabinIn.at];
+  if (cabinIn.k < 1) return null;
+  if (st.id === 'galley') return { text: 'The galley: cook and eat', run: () => openCamp('cook', 'cabin') };
+  if (st.id === 'bunk') return { text: 'The bunk: sleep', run: () => openCamp('sleep', 'cabin') };
+  return { text: moored(boat) ? 'Back out on deck (and ashore)' : 'Back out on deck', run: () => leaveCabin() };
 }
 
 /* ---------------- heading back: camp or boat ---------------- */
@@ -1418,6 +1669,7 @@ function travel(dest) {
 
 function passTime(hours) {
   if (moored(BOATS.bass)) chargeBattery(tanks(), hours);
+  if (moored(BOATS.kayak)) chargeBattery(tanks(), hours, 'kayak');
   state.hour += hours;
   if (state.hour >= 24) {
     state.hour -= 24;
@@ -2151,6 +2403,8 @@ const lanternReach = () => !state.items.lantern && (onFoot
 // What E (or tapping the prompt) does right now, if anything.
 function interaction() {
   if (!started || modal || fishing.busy || placement.isOn) return null;
+  // Inside the cabin: what's where you stand.
+  if (cabinIn) return cabinAction();
   // At the wheel: get out when you've stopped (or back on the lane if you're stuck).
   if (driving) {
     if (car.stuckT > 1.5) return { text: 'Back on the lane', run: () => resetCar() };
@@ -2170,6 +2424,13 @@ function interaction() {
     const hs = homeSpotNear();
     if (hs) return HOME_ACTS[hs.id];
     const near = boatNear();
+    // The cabin boat made fast: aboard to the helm, or straight into the cabin.
+    if (near && near.hull.cabin && canEnterCabin(near)) {
+      return { text: 'The cabin boat: the helm or the cabin', run: () => ask('The cabin boat', 'She’s made fast here. Take the helm, or go straight into the cabin (the galley and the bunk)?', [
+        { text: 'The helm', cls: 'quiet', run: () => board(near) },
+        { text: 'Into the cabin', run: () => enterCabin() },
+      ]) };
+    }
     if (near) return { text: `Get in the ${near.name}`, run: () => board(near) };
     const own = ownCampNear();
     if (own) return { text: `${own.name}: rest, cook, cool box and tackle`, run: () => openCamp('cook', own) };
@@ -2190,10 +2451,10 @@ function interaction() {
   const spot = cachedShoreSpot();
   const ashore = spot && (spot.landing ? 'Step ashore at the landing' : spot.quay ? 'Step up onto the quay' : spot.pier ? 'Step onto the jetty' : 'Step ashore');
   // The cabin boat, anchored or tied up by the shore: the cabin, or ashore.
-  if (spot && boat.hull.cabin && (boat.anchored || moored(boat)) && boat.speed < 0.6 && !fishing.lineOut) {
-    return { text: 'The cabin, or ashore', run: () => ask('The cabin boat', 'Tied up here. Into the cabin (the galley and the bunk), or ashore?', [
+  if (spot && boat.hull.cabin && canEnterCabin(boat) && !fishing.lineOut) {
+    return { text: 'Into the cabin, or ashore', run: () => ask('The cabin boat', 'Tied up here. Into the cabin (the galley and the bunk), or ashore?', [
       { text: ashore, cls: 'quiet', run: () => stepAshore(spot) },
-      { text: 'The cabin', run: () => openCamp('cook', 'cabin') },
+      { text: 'Into the cabin', run: () => enterCabin() },
     ]) };
   }
   if (spot) return { text: ashore, run: () => stepAshore(spot) };
@@ -2202,7 +2463,8 @@ function interaction() {
   // A dry tank: the jerry can, a tow, or an oar.
   if (isPetrol(boat.kind) && fuelLevel(tanks(), boat.kind) <= 0 && boat.speed < 1) return { text: 'Out of fuel: what now?', run: () => boatChoices() };
   // The cabin boat, stopped: its galley and bunk.
-  if (boat.hull.cabin && boat.speed < 0.6 && !fishing.lineOut) return { text: 'The cabin: galley and bunk', run: () => openCamp('cook', 'cabin') };
+  if (boat.hull.cabin && !fishing.lineOut && canEnterCabin(boat)) return { text: 'Into the cabin: galley and bunk', run: () => enterCabin() };
+  if (boat.hull.cabin && boat.speed < 0.6 && !fishing.lineOut && !boat.anchored) return { text: 'Drop the anchor (then the cabin)', run: toggleAnchor };
   if (boat.speed < 0.6 && !fishing.lineOut) return { text: boat.anchored ? 'Raise the anchor' : 'Drop the anchor', run: toggleAnchor };
   return null;
 }
@@ -2716,7 +2978,7 @@ function watchAdventures(dt) {
   advCtx.onFoot = onFoot;
   advCtx.player = player().pos;
   advCtx.boat = boat.pos;
-  advCtx.underwater = rig.underwaterView && camera.position.y < -0.05;
+  advCtx.underwater = (rig.underwaterView || underwater.submerge > 0.5) && camera.position.y < -0.05;
   advCtx.cam = camera.position;
   advCtx.flocks = world.flocks;
   adventures.check(advCtx);
@@ -2739,7 +3001,7 @@ let observeT = 0;
 const _fwd = new THREE.Vector3();
 function watchObservations(dt) {
   observeT -= dt;
-  if (observeT > 0 || !rig.underwaterView) return;
+  if (observeT > 0 || !(rig.underwaterView || underwater.submerge > 0.5)) return;
   observeT = 0.5;
   camera.getWorldDirection(_fwd);
   const c = camera.position;
@@ -3140,13 +3402,16 @@ function viewChip() {
     hud.chip(T
       ? '<b>Watching your bait</b> · drag to look around · the view button switches back'
       : `<b>Watching your bait</b> · ${LOOK()} · ${K('view')} next view · ${K('reset')} ${back}`, 6);
+  } else if (rig.mode === 'eye' && cabinIn) {
+    hud.chip(`<b>First person</b> · ${T ? 'drag' : LOOK().replace(/ \(.*\)/, '')} to look round the cabin`, 3);
   } else if (rig.mode === 'eye') {
     hud.chip(T
       ? '<b>First person</b> · drag to look around · the view button switches'
       : `<b>First person</b> · ${LOOK()} · ${P ? `${K('view')} next view` : `${K('eye')} ${back}`}`, 4);
   } else if (rig.mode === 'foot') {
     hud.chip(fishing.baitInWater || T ? '<b>On foot</b>' : `<b>On foot</b> · cast first, then ${K('view')} watches your bait underwater`, 3);
-  } else hud.chip('<b>Boat view</b>', 2);
+  } else if (rig.mode === 'cabin') hud.chip('<b>The cabin</b> · the roof lifted away', 2);
+  else hud.chip('<b>Boat view</b>', 2);
 }
 
 function cycleView() {
@@ -3262,7 +3527,9 @@ function padContext() {
   if (placement.isOn) return 'place';
   if (driving) return 'drive';
   if (fishing.state === 'reeling') return 'fight';
-  if (fishing.busy) return 'fish';
+  // (A line out from a boat under power: the D-pad works the throttle.)
+  if (fishing.busy) return leverKind() ? 'troll' : 'fish';
+  if (!onFoot && !cabinIn && (boat.motor || boat.hull.emotor)) return 'helm';
   return 'play';
 }
 
@@ -3278,6 +3545,10 @@ function currentHint() {
     if (T) return `The stick drives and steers · the button brakes · stop to get out · ${fuelHint('car')}`;
     if (P) return `${kbd('RT')} drive · ${kbd('LT')} brake, hold to reverse · ${LR} steer · stop, then ${K('interact')} to get out · ${fuelHint('car')}`;
     return `${K('forward')}${K('back')} drive and reverse · ${K('left')}${K('right')} steer · hold ${K('cast')} to brake · ${K('view')} view · stop, then ${K('interact')} to get out · ${fuelHint('car')}`;
+  }
+  if (cabinIn) {
+    return T ? 'In the cabin · the stick walks between the galley and the bunk · tap the prompt to use them'
+      : `In the cabin · ${UD} the galley and the bunk · ${K('interact')} use · ${K('cancel')} back out on deck · ${K('eye')} through your eyes`;
   }
   const space = K('cast');
   const cancel = T ? '✕ cancels' : `${K('cancel')} cancel`;
@@ -3296,6 +3567,12 @@ function currentHint() {
       return `${how} (${clean}) · ${T ? 'stick left/right aims' : `${LR} aim`}${extra ? ` · ${extra}` : ''}${windHint()} · ${cancel}`;
     }
     case 'drifting':
+      // Trolling: the boat under power, the lure swimming along behind it.
+      if (leverKind() && boat.power > 0.01 && fishing.kind === 'lure' && fishing.status !== 'follow') {
+        const words = leverWords(leverKind(), boat.lever);
+        return T ? `Trolling at ${words}: the lure swims along behind the boat · the lever changes speed · hold the button to reel in`
+          : `Trolling at ${words}: the lure swims along behind the boat · ${K('throttleUp')}${K('throttleDown')} speed · ${LR} steer · hold ${space} to reel in`;
+      }
       if (fishing.status === 'curious') return 'Something is curious about your bait. Keep still…';
       if (fishing.status === 'nibble') return 'Nibbling… wait for the float to go under';
       if (fishing.status === 'follow') return T ? 'It’s following! Tap to twitch, or let go to pause' : `It’s following! Tap ${space} to twitch, or let go to pause`;
@@ -3323,8 +3600,8 @@ function currentHint() {
         if (fishing.item.fly === 'streamer') return T ? 'Hold to strip the streamer back in pulls · tap to twitch' : `Hold ${space} to strip it back in pulls · tap to twitch`;
         return T ? 'Let the fly drift with the current · hold to strip line in' : `Let the fly drift with the current · tap to twitch · hold ${space} to strip in`;
       }
-      if (T) return `Stick up/down: bait depth · hold the button to reel in · tap to twitch${state.tips.under ? '' : ' · the view button looks underwater'}`;
-      return `${UD} bait depth · hold ${space} to reel in · tap to twitch${state.tips.under ? '' : ` · ${K('view')} look underwater`}`;
+      if (T) return `Stick up/down: bait depth · hold the button to reel in · tap to twitch${state.tips.under ? '' : ' · drag the view up to sink it under the water'}`;
+      return `${UD} bait depth · hold ${space} to reel in · tap to twitch${state.tips.under ? '' : ` · ${P ? `${kbd('R-stick')} up` : 'drag up'} to sink the view under the water`}`;
     case 'bite': {
       const k = fishing.biteKind;
       const what = k === 'strike' ? 'It hit the lure!' : k === 'run' ? 'A run!' : k === 'sip' ? 'It took the fly!' : k === 'take' ? 'The indicator dipped!' : 'Bite! The float went under.';
@@ -3349,20 +3626,25 @@ function currentHint() {
     if (!state.places.camp && Math.hypot(walker.pos.x - world.camp.firePos.x, walker.pos.z - world.camp.firePos.z) < 60) return 'Follow the path up to camp';
     return '';
   }
-  if (boat.motor) {
-    const lv = boat.lever;
-    const dead = boat.trolling ? boat.flat : boat.dry && Math.abs(lv) >= 0.03;
-    const word = boat.anchored ? 'at anchor' : dead ? 'the motor’s dead: an oar, slowly' : Math.abs(lv) < 0.03 ? 'neutral' : lv < 0 ? 'astern' : boat.trolling ? 'electric motor (quiet)' : lv < 0.35 ? 'slow ahead' : lv < 0.75 ? 'half ahead' : 'full ahead';
-    const fuel = fuelHint(boat.kind);
-    if (T) return `Throttle: ${word} · the stick drives and steers · ${fuel}`;
-    if (P) return `Throttle: ${word} · ${kbd('L-stick')} drives and steers · ${K('anchor')} anchor · ${fuel}`;
-    return `Throttle: ${word} · ${UD} lever · ${LR} steer · ${K('neutral')} stop · ${K('anchor')} anchor · ${fuel}`;
+  if (leverKind()) {
+    const kind = leverKind(), lv = boat.lever;
+    const dead = kind === 'kayak' ? boat.kflat : boat.trolling ? boat.flat : boat.dry && Math.abs(lv) >= 0.03;
+    const word = boat.anchored ? 'at anchor' : dead ? (kind === 'kayak' ? 'battery flat' : 'the motor’s dead: an oar, slowly') : leverWords(kind, lv);
+    const fuel = kind === 'kayak' ? batteryWords(tanks(), 'kayak') : fuelHint(boat.kind);
+    const motor = kind === 'kayak' ? ` · ${T ? 'Raise motor to paddle' : `${K('motor')} raise it and paddle`}` : '';
+    if (T) return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · the stick: up or down a notch, across to steer · Stop on the lever · ${fuel}`;
+    if (P) return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · ${kbd('L-stick')} ↕ a notch, ↔ steer · ${K('neutral')} stop · ${K('anchor')} anchor${motor} · ${fuel}`;
+    return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · ${UD} a notch · ${LR} steer · ${K('neutral')} stop · ${K('anchor')} anchor${motor} · ${fuel}`;
+  }
+  // The kayak, paddling: a word on its motor, until you've tried it.
+  if (boat.hull.emotor && !state.tips.kayakMotor) {
+    return T ? 'Paddle with the stick · the Lower motor button gives you a quiet electric motor' : `${MOVE()} paddle · ${K('motor')} lowers the quiet electric motor`;
   }
   if (!state.tips.rowed) return T ? 'Drag on the left to row · drag on the right to look around' : `${MOVE()} to row · ${LOOK()}`;
   if (!state.tips.cast) return T ? 'Hold the button to aim and cast your line' : `Hold ${space} to aim and cast your line`;
   if (state.tips.caught && !state.tips.journal) return T ? 'Tap Journal to see what you’ve found' : `${K('journal')} to open your journal`;
   if (state.tips.caught && !state.places.camp) return 'Your camp is on the west shore of the bay: row to the landing (follow the Camp marker)';
-  if (state.tips.caught && !state.tips.under) return T ? 'The view button lets you look under the water' : `${K('view')} to look under the water`;
+  if (state.tips.caught && !state.tips.under) return T ? 'Drag the view up and it sinks beneath the water' : `${P ? `${kbd('R-stick')} up` : 'Drag the view up'} and it sinks beneath the water (${K('view')} for a fixed underwater view)`;
   if (state.tips.caught && !state.tips.sonar) return T ? 'The sonar button shows a fish finder' : `${K('finder')} for the fish finder`;
   return '';
 }
@@ -3450,6 +3732,7 @@ function updateHud() {
   const hunger = camp.hunger;
   hud.food(camp.wellFed ? 'Well fed' : hunger === 'hungry' ? 'Hungry' : hunger === 'peckish' ? 'Peckish' : '', camp.wellFed ? 'fed' : hunger === 'hungry' ? 'hungry' : '');
   hud.hint(currentHint(), t);
+  updateLever();
   const act = interaction();
   hud.prompt(act ? (scheme() === 'touch' ? `Tap: ${act.text}` : `${K('interact')} ${act.text}`) : '');
   const F = fishing.fight;
@@ -3525,7 +3808,7 @@ function updateHud() {
 
 let saveWarned = false;
 function save() {
-  for (const [k, b] of Object.entries(BOATS)) state.boats[k] = { x: b.pos.x, z: b.pos.z, heading: b.heading, anchored: b.anchored };
+  for (const [k, b] of Object.entries(BOATS)) state.boats[k] = { x: b.pos.x, z: b.pos.z, heading: b.heading, anchored: b.anchored, ...(b.emotorDown ? { motor: true } : {}) };
   state.vessel = boat.kind;
   state.mode = onFoot ? 'foot' : 'boat';
   state.walker = onFoot ? { x: walker.pos.x, z: walker.pos.z, heading: walker.heading } : null;
@@ -4144,6 +4427,24 @@ input.on('press', (code, acts) => {
     }
     return;
   }
+  // Inside the cabin: its own few keys (the prompt, back out, the views and the panels).
+  if (cabinIn && !modal) {
+    const act = interaction();
+    if (is('interact') && act) act.run();
+    else if (code === 'Escape' || is('cancel')) leaveCabin();
+    else if (is('eye') || is('view')) toggleFirstPerson();
+    else if (is('reset')) resetView();
+    else if (is('pack')) openPack();
+    else if (is('map')) openMap();
+    else if (is('settings')) openSettings();
+    else if (is('photo')) openPhoto();
+    else if (is('finder')) toggleFinder();
+    else if (is('hide')) {
+      hudOff = !hudOff;
+      hud.hidden(hudOff);
+    }
+    return;
+  }
   if (is('cast')) {
     fishing.onDown();
     return;
@@ -4168,10 +4469,10 @@ input.on('press', (code, acts) => {
     save();
   }
   else if (is('anchor')) toggleAnchor();
-  else if (is('neutral') && !onFoot && boat.motor) {
-    boat.lever = 0;
-    hud.flash('Motor to neutral', t, 1.4);
-  }
+  else if (is('neutral') && leverKind()) leverNeutral(true);
+  else if (is('throttleUp') && leverKind()) stepLever(1);
+  else if (is('throttleDown') && leverKind()) stepLever(-1);
+  else if (is('motor')) toggleKayakMotor();
   else if (is('photo')) openPhoto();
   else if (is('view')) cycleView();
   else if (is('eye')) toggleFirstPerson();
@@ -4415,10 +4716,13 @@ function tick(now, manual = false) {
       if (rig.mode === 'eye') rig.turn(si, dt, t);
       else fishing.aimBy(si, dt);
       fishing.depthBy(ti, dt);
+      if (leverKind()) throttle = boat.lever;
     } else if (fishing.lineOut) {
       // (On a controller, LT eases the drag off while a fish is on.)
       fishing.depthBy(pads.active && fishing.state === 'reeling' && pads.lt > 0.4 ? -1 : ti, dt);
       if (!onFoot) steer = si;
+      // (Under power the motor runs on at its notch while you fish: trolling.)
+      if (leverKind()) throttle = boat.lever;
     } else if (driving) {
       // On a controller the triggers drive: RT to go, LT to brake and then reverse.
       carIn.throttle = pads.active ? pads.rt - pads.lt : ti;
@@ -4428,23 +4732,13 @@ function tick(now, manual = false) {
       const yaw = rig.yaw, fx_ = Math.sin(yaw), fz_ = Math.cos(yaw);
       move.x = fx_ * ti + fz_ * si;
       move.z = fz_ * ti - fx_ * si;
-    } else if (boat.motor) {
-      // The throttle lever stays where you leave it (on a touch screen the stick drives it
-      // directly). Coming back through neutral it pauses there before going astern.
-      const stick = touch.active || pads.active;
-      if (stick && input.virtual.throttle !== 0) boat.lever = clamp(input.virtual.throttle, -0.4, 1);
-      else if (stick) boat.lever = damp(boat.lever, 0, 2, dt);
-      else if (ti) {
-        const was = boat.lever;
-        leverHold -= dt;
-        if (leverHold <= 0) boat.lever = clamp(boat.lever + ti * 0.7 * dt, -0.4, 1);
-        if (was > 0 && boat.lever <= 0 && ti < 0) { boat.lever = 0; leverHold = 0.45; }
-        if (was < 0 && boat.lever >= 0 && ti > 0) { boat.lever = 0; leverHold = 0.45; }
-      } else leverHold = 0;
-      if (boat.anchored && boat.lever > 0.05) {
-        boat.lever = 0;
-        hud.flash('The anchor is down: raise it first (Z)', t, 2);
-      }
+    } else if (cabinIn) {
+      // Inside the cabin: forward and back walk between the doorway, the galley and the bunk.
+      cabinInput(ti);
+    } else if (leverKind()) {
+      // At the helm: the throttle lever moves a notch at a time (the keys, or the stick pushed
+      // and let go) and stays where you leave it; steering is the stick or keys across.
+      helmInput(ti, dt);
       throttle = boat.lever;
       steer = si;
     } else {
@@ -4452,7 +4746,14 @@ function tick(now, manual = false) {
       steer = si;
     }
   }
-  if (boat.motor && (onFoot || modal)) throttle = 0;
+  if (boat.motor && (onFoot || modal || cabinIn)) throttle = 0;
+  // What's allowed with a line out or a fish on (a lever left higher comes back).
+  if (leverKind()) {
+    watchHookup();
+    const v = within(leverKind(), boat.lever, leverSituation());
+    if (v !== boat.lever) changeLever(v);
+    if (throttle) throttle = boat.lever;
+  } else fishWas = fishing.state;
   if (throttle !== 0) {
     rowTime += dt;
     if (rowTime > 3 && !state.tips.rowed) {
@@ -4477,6 +4778,12 @@ function tick(now, manual = false) {
       b.dry = isPetrol(b.kind) && fuelLevel(f, b.kind) <= 0;
       b.flat = b.kind === 'bass' && f.battery <= 0;
     }
+    BOATS.kayak.kflat = f.kayak <= 0;
+    // The kayak's motor on its battery; flat, it comes up and you paddle (never stranded).
+    if (boat.kind === 'kayak' && boat.emotorDown && throttle && !onFoot && burnKayak(f, boat.power || throttle, dt) === 'flat') {
+      boat.setEMotor(false);
+      hud.flash('The kayak’s battery is flat: the motor’s up, paddle on. It charges at a jetty, and overnight.', t, 5);
+    }
     if (boat.motor && throttle && !onFoot) {
       const ran = burnBoat(f, boat.kind, throttle, dt, boat.hull.motor.troll || 0);
       const what = scheme() === 'touch' ? 'tap the prompt' : K('interact');
@@ -4484,6 +4791,7 @@ function tick(now, manual = false) {
       if (ran === 'flat') hud.flash('The electric motor whines down: the battery is flat. It charges at a jetty, and overnight; the outboard still runs.', t, 5);
     }
     if (hours && moored(BOATS.bass)) chargeBattery(f, hours);
+    if (hours && moored(BOATS.kayak)) chargeBattery(f, hours, 'kayak');
     fuelCheckT -= dt;
     if (fuelCheckT <= 0) {
       fuelCheckT = 1;
@@ -4494,14 +4802,18 @@ function tick(now, manual = false) {
   boat.update(dt, t, throttle, steer, env.lantern);
   for (const b of boats) if (b !== boat) b.update(dt, t, 0, 0, env.lantern);
   keepBoatsApart();
+  if (cabinIn) placeInCabin(dt);
+  BOATS.cabin.setCabinLight(env.night, !!cabinIn);
   // The motor: a putter at idle when you're aboard, rising with the throttle. Fish nearby
   // hear it, so slow down (or anchor) before you fish. (The bass boat's electric motor is
   // almost silent, and doesn't bother them.)
-  const motorOn = !onFoot && boat.motor && !(boat.trolling ? boat.flat : boat.dry);
-  const outboard = motorOn && !boat.trolling;
-  audio.engine?.(motorOn ? (outboard ? Math.max(0.12, Math.abs(boat.lever) * (boat.tilted ? 0.5 : 1)) : 0.04) : 0);
+  // (The kayak's motor is electric too: a faint hum.)
+  const kayakOn = !onFoot && boat.kind === 'kayak' && boat.emotorDown && !boat.kflat;
+  const motorOn = !onFoot && ((boat.motor && !(boat.trolling ? boat.flat : boat.dry)) || kayakOn);
+  const outboard = motorOn && boat.motor && !boat.trolling;
+  audio.engine?.(motorOn ? (outboard ? Math.max(0.12, Math.abs(boat.power) * (boat.tilted ? 0.5 : 1)) : 0.03 + Math.abs(boat.power) * 0.02) : 0);
   motorNoiseT -= dt;
-  if (outboard && Math.abs(boat.lever) > 0.25 && motorNoiseT <= 0) {
+  if (outboard && Math.abs(boat.power) > 0.25 && motorNoiseT <= 0) {
     motorNoiseT = 0.5;
     eco.startle(boat.pos.x, -0.6, boat.pos.z, 5 + boat.speed * 1.4, 0.7);
   }
@@ -4526,7 +4838,7 @@ function tick(now, manual = false) {
       audio.car?.(Math.min(1, Math.abs(car.speed) / 12), started && !modal && !dry ? Math.abs(carIn.throttle) : 0, !dry);
     } else audio.car?.(0, 0, false);
   }
-  fishing.update(dt, t, rig.yaw, started && !modal && !placement.isOn && !driving && input.action);
+  fishing.update(dt, t, rig.yaw, started && !modal && !placement.isOn && !driving && !cabinIn && input.action);
 
   ecoTick(dt);
   handleClues();
@@ -4549,13 +4861,19 @@ function tick(now, manual = false) {
   // down with the swell; the quick bob of the chop is smoothed away.)
   const steadyCam = settings.controls.boatCam === 'steady' || settings.controls.reducedMotion;
   if (driving) car.eyePoint(_eye);
-  else if (onFoot) walker.eyePoint(_eye);
+  else if (onFoot || cabinIn) walker.eyePoint(_eye);
   else boat.eyePoint(_eye, steadyCam);
   if (!onFoot && steadyCam) _eye.y = eyeY = Math.abs(eyeY - _eye.y) > 1 ? _eye.y : damp(eyeY, _eye.y, 0.3, dt);
   else eyeY = _eye.y;
   // Indoors (with the roof lifted), the camera comes in closer and looks down a little more.
   rig.indoor = onFoot && !driving && !!insideHome(walker.pos.x, walker.pos.z);
-  rig.update(dt, t, { boat, walker, started, fishing, baitFocus: fishing.watchPoint, eye: _eye, roll: onFoot || steadyCam ? 0 : boat.roll * 0.45 });
+  rig.update(dt, t, { boat, walker, started, fishing, baitFocus: fishing.watchPoint, eye: _eye, roll: onFoot || steadyCam || cabinIn ? 0 : boat.roll * 0.45 });
+  // The first time the view dips under the water by itself: a word on how it works.
+  if (rig.below && started && !state.tips.under) {
+    state.tips.under = true;
+    hud.chip(`<b>Under the water</b> · ${scheme() === 'pad' ? `${kbd('R-stick')} down` : 'drag down'} to come back up`, 3.5);
+    save();
+  }
   updateFirstPerson(dt);
   const P = player().pos;
   // In first person the shadows gather in front of you, finer, where you're looking.
@@ -4703,7 +5021,6 @@ let homeT = 0;
 let homeIntroAt = 0; // seconds of play before a new player hears about home (0: not waiting)
 const carIn = { throttle: 0, steer: 0 };
 let wadeT = 0;
-let leverHold = 0;
 let motorNoiseT = 0;
 
 // The boats bump gently instead of sailing through each other.

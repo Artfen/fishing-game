@@ -32,7 +32,7 @@ export const DEFAULT_STATE = {
   places: {},    // id -> { day, hour }
   items: {},     // lantern: true
   tips: {},      // which gentle hints have already been shown
-  boats: {},     // where each boat was left: kind ('row', 'skiff', 'kayak', 'bass', 'cabin') -> { x, z, heading, anchored }
+  boats: {},     // where each boat was left: kind ('row', 'skiff', 'kayak', 'bass', 'cabin') -> { x, z, heading, anchored, motor }
   vessel: 'row', // which boat you're in, or last used
   mode: 'boat',  // 'boat' or 'foot'
   walker: null,  // { x, z, heading } while on foot
@@ -124,7 +124,8 @@ function pos(v) {
   if (!isObj(v)) return null;
   const x = num(v.x, NaN), z = num(v.z, NaN);
   if (!Number.isFinite(x) || !Number.isFinite(z) || Math.abs(x) > 2000 || Math.abs(z) > 2000) return null;
-  return { x, z, heading: num(v.heading, 0), anchored: !!v.anchored };
+  // (motor: the kayak's electric motor left lowered; older saves have it raised.)
+  return { x, z, heading: num(v.heading, 0), anchored: !!v.anchored, ...(v.motor === true ? { motor: true } : {}) };
 }
 
 export function sanitizeLogEntry(e) {
