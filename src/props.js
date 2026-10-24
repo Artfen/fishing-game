@@ -2,6 +2,26 @@ import * as THREE from 'three';
 import { mergeParts, mat } from './util.js';
 import { withSurface } from './world/surface.js';
 
+// A fuel pump (at home, and on Willowhaven quay): a red cabinet on a plinth with a dial window,
+// a hose looped to the nozzle in its holster, and a sign on top. Parts for mergeParts, placed at
+// (x, y, z) facing yaw.
+export function fuelPumpParts(x, y, z, yaw) {
+  const s = Math.sin(yaw), c = Math.cos(yaw);
+  const at = (u, h, w, rx = 0, ry = 0, rz = 0) => mat(x + u * c + w * s, y + h, z - u * s + w * c, rx, yaw + ry, rz);
+  return [
+    { geo: new THREE.BoxGeometry(0.7, 0.12, 0.55), matrix: at(0, 0.06, 0), color: '#a9a69e' },
+    { geo: new THREE.BoxGeometry(0.52, 1.25, 0.4), matrix: at(0, 0.74, 0), color: '#b8312f' },
+    { geo: new THREE.BoxGeometry(0.36, 0.22, 0.02), matrix: at(0, 1.05, 0.21), color: '#e8e4da' },
+    { geo: new THREE.BoxGeometry(0.4, 0.06, 0.03), matrix: at(0, 0.82, 0.21), color: '#2b2e33' },
+    { geo: new THREE.BoxGeometry(0.58, 0.26, 0.12), matrix: at(0, 1.5, 0), color: '#f1ece2' },
+    { geo: new THREE.BoxGeometry(0.6, 0.06, 0.14), matrix: at(0, 1.39, 0), color: '#b8312f' },
+    // The holster and nozzle on the side, the hose looping down from the top.
+    { geo: new THREE.BoxGeometry(0.06, 0.14, 0.12), matrix: at(0.29, 0.86, 0.05), color: '#2b2e33' },
+    { geo: new THREE.CylinderGeometry(0.02, 0.02, 0.22, 6), matrix: at(0.33, 0.92, 0.12, 0.6, 0, 0), color: '#3a3d42' },
+    { geo: new THREE.TorusGeometry(0.22, 0.022, 5, 12, Math.PI), matrix: at(0.3, 0.98, -0.02, 0, Math.PI / 2, 0), color: '#1f2124' },
+  ];
+}
+
 // A little brass lantern. The glass material is returned so its glow can follow the evening.
 export function buildLanternModel() {
   const group = new THREE.Group();

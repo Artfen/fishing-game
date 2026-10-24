@@ -7,7 +7,7 @@ import { buildLanternModel, buildRod, bendRod } from './props.js';
 import { withSurface } from './world/surface.js';
 import { RODS } from './tackle.js';
 
-// The four boats. Each has its own hull (metres; the bow points along local +z), its own
+// The five boats. Each has its own hull (metres; the bow points along local +z), its own
 // way of moving and its own place to sit:
 //  · row: the rowing boat you start with. Steady, roomy, quick enough under oars.
 //  · skiff: the same hull with an outboard: the boat for the open coast and the far islands.
@@ -15,6 +15,10 @@ import { RODS } from './tackle.js';
 //    boat for creeping up on fish in the shallows, the saltings and the reeds.
 //  · bass: a broad, flat lake boat with a big outboard for getting about, a quiet electric
 //    motor for fishing (the lever's first notches), and a steady casting deck with a locker.
+//  · cabin: a little wooden cabin boat, slow and steady, with a cuddy forward holding a bunk and
+//    a galley stove: a camp that floats (anchor it, or tie up, and use the cabin).
+// The motorboats run on petrol (and the bass boat's electric motor on its battery: see fuel.js);
+// with the tank dry (or the battery flat) the motor is dead, and an oar moves you along, slowly.
 const HULLS = {
   row: {
     name: 'rowing boat', L: 3.8, B: 0.8, D: 0.6, draft: 0.2, shallow: 0.35, seatZ: 0, seatY: 0.47, floorY: 0.08,
@@ -54,8 +58,15 @@ const HULLS = {
     lantern: [0.8, -1.95], stow: [-0.72, 0.62, 0.4], noise: 1, steady: 0.45,
     windage: 0.0036, ride: 3, // high-sided: the wind pushes it more; broad and heavy: it rides the swell slowly
   },
+  cabin: {
+    name: 'cabin boat', L: 6.2, B: 1.0, D: 0.9, draft: 0.38, shallow: 0.75, seatZ: -2.3, seatY: 0.55, floorY: 0.12,
+    paint: '#f0ece2', stripe: '#1f4e5f', bottom: '#7c3a2e', inside: 'wood',
+    motor: { thrust: 3.8, astern: 2.0, tilt: 1.0, scale: 1.25, cowl: '#2b2e33', band: '#1f4e5f' },
+    cabin: [0.44, 0.88], lantern: [0.55, -1.7], stow: [-0.7, 0.62, -1.3], noise: 1, steady: 0.55,
+    windage: 0.0042, ride: 2.6, // long and heavy: it bridges the chop, and the cabin catches the wind
+  },
 };
-for (const id of ['skiff']) Object.assign(HULLS[id], { hw: HULLS.row.hw, sheer: HULLS.row.sheer, keel: HULLS.row.keel });
+for (const id of ['skiff', 'cabin']) Object.assign(HULLS[id], { hw: HULLS.row.hw, sheer: HULLS.row.sheer, keel: HULLS.row.keel });
 export const BOAT_KINDS = Object.keys(HULLS);
 const OAR_T = 0.56;
 
@@ -170,6 +181,8 @@ export class Boat {
     this.seatY = H.seatY;
     this.noise = H.noise; // how much the fish hear it moving (the kayak hardly at all)
     this.lever = 0;        // motor throttle, -0.4 (astern) … 1 (full ahead); it stays where you leave it
+    this.dry = false;      // out of petrol (set by the game: see fuel.js)
+    this.flat = false;     // the electric motor's battery flat
     this.anchored = false;
     this.anchorPt = new THREE.Vector3();
     this.drift = new THREE.Vector3(); // the current carrying it (m/s)
@@ -214,6 +227,7 @@ export class Boat {
     this.oars = H.oars ? [this.buildOar(1), this.buildOar(-1)] : [];
     if (H.paddle) this.buildPaddle();
     if (H.motor) this.buildMotor();
+    if (H.cabin) this.buildCabin();
     this.buildAnchorLine();
     this.buildRods();
     this.buildLantern();
@@ -471,6 +485,59 @@ export class Boat {
     }
   }
 
+  // The cabin boat's cuddy: a cabin over the forward half that follows the hull in, with windows
+  // down each side, a door at the back, a roof and a stove pipe; and a bench across the stern
+  // to sit and steer from.
+  buildCabin() {
+    const H = this.hull, [t0, t1] = H.cabin, N = 10;
+    const side = (t) => hw(H, t) * 0.86;
+    const base = sheer(H, t0) - 0.12, height = 1.05;
+    const outline = (grow) => {
+      const s = new THREE.Shape();
+      for (let i = 0; i <= N; i++) {
+        const t = t0 + (t1 - t0) * (i / N);
+        (i ? s.lineTo : s.moveTo).call(s, side(t) + grow, -zAt(H, t));
+      }
+      for (let i = N; i >= 0; i--) {
+        const t = t0 + (t1 - t0) * (i / N);
+        s.lineTo(-side(t) - grow, -zAt(H, t));
+      }
+      return s;
+    };
+    const slab = (grow, depth, y) => {
+      const g = new THREE.ExtrudeGeometry(outline(grow), { depth, bevelEnabled: false });
+      g.rotateX(-Math.PI / 2);
+      g.translate(0, y, 0);
+      return g;
+    };
+    const parts = [
+      { geo: slab(0, height, base), color: '#e9e3d6', jitter: 0.02 },
+      { geo: slab(0.07, 0.07, base + height), color: '#2f5d50', jitter: 0.02 },
+    ];
+    // Windows down each side, set into the slope of the walls; a window at the front.
+    for (const t of [0.52, 0.66, 0.79]) {
+      const a = Math.atan2(side(t + 0.02) - side(t - 0.02), zAt(H, t + 0.02) - zAt(H, t - 0.02));
+      for (const s of [1, -1]) parts.push({ geo: new THREE.BoxGeometry(0.03, 0.3, 0.44), matrix: mat(s * (side(t) + 0.005), base + height * 0.66, zAt(H, t), 0, s * a, 0), color: '#30434d', jitter: 0 });
+    }
+    parts.push({ geo: new THREE.BoxGeometry(side(t1) * 1.2, 0.3, 0.03), matrix: mat(0, base + height * 0.66, zAt(H, t1) + 0.01), color: '#30434d', jitter: 0 });
+    // The door at the back, with a brass handle; the stove pipe through the roof.
+    const zb = zAt(H, t0) - 0.012;
+    parts.push(
+      { geo: new THREE.BoxGeometry(0.56, 0.86, 0.03), matrix: mat(0, base + 0.45, zb), color: '#7b5434' },
+      { geo: new THREE.CylinderGeometry(0.025, 0.025, 0.05, 6), matrix: mat(0.2, base + 0.48, zb - 0.03, Math.PI / 2, 0, 0), color: '#c9a34a' },
+      { geo: new THREE.CylinderGeometry(0.045, 0.045, 0.42, 8), matrix: mat(side(0.74) * 0.5, base + height + 0.24, zAt(H, 0.74)), color: '#2b2b2b' },
+      { geo: new THREE.CylinderGeometry(0.075, 0.075, 0.05, 8), matrix: mat(side(0.74) * 0.5, base + height + 0.47, zAt(H, 0.74)), color: '#2b2b2b' },
+      // The bench across the stern, and its back against the motor well.
+      { geo: new THREE.BoxGeometry(hw(H, 0.1) * 1.7, 0.06, 0.42), matrix: mat(0, this.seatY - 0.03, this.seatZ), color: '#a8743f' },
+      { geo: new THREE.BoxGeometry(0.06, this.seatY - H.floorY - 0.06, 0.38), matrix: mat(hw(H, 0.1) * 0.8, (this.seatY + H.floorY) / 2 - 0.03, this.seatZ), color: '#7b5434' },
+      { geo: new THREE.BoxGeometry(0.06, this.seatY - H.floorY - 0.06, 0.38), matrix: mat(-hw(H, 0.1) * 0.8, (this.seatY + H.floorY) / 2 - 0.03, this.seatZ), color: '#7b5434' },
+    );
+    const mesh = new THREE.Mesh(mergeParts(parts), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    this.body.add(mesh);
+  }
+
   // The kayak's double-bladed paddle, held across the body and dipped left and right.
   buildPaddle() {
     const g = (this.paddleGroup = new THREE.Group());
@@ -654,13 +721,16 @@ export class Boat {
       const p = this.pos;
       const lever = this.anchored ? 0 : throttle;
       const troll = M.troll && lever > 0 && lever <= M.troll;
+      // A dead motor (no petrol, or a flat battery for the electric one): an oar, slowly.
+      const dead = troll ? this.flat : this.dry;
       const depth = -solidHeight(p.x - this.fwd.x * H.L * 0.45, p.z - this.fwd.z * H.L * 0.45);
       const tilted = depth < M.tilt && !troll;
-      if (tilted && !this.tilted && throttle > 0.2 && this.onShallow) this.onShallow();
+      if (tilted && !this.tilted && throttle > 0.2 && this.onShallow && !dead) this.onShallow();
       this.tilted = tilted;
-      if (troll) thrust = 0.45 * (lever / M.troll);
+      if (dead) thrust = lever * (lever > 0 ? 0.6 : 0.8);
+      else if (troll) thrust = 0.45 * (lever / M.troll);
       else thrust = (lever > 0 ? M.thrust * lever : M.astern * lever) * (tilted ? 0.22 : 1);
-      const spin = troll ? 0 : lever;
+      const spin = troll || dead ? 0 : lever;
       this.propSpin += dt * (6 + Math.abs(spin) * 60) * Math.sign(spin || 1) * (Math.abs(spin) > 0.02 ? 1 : 0.1);
       if (this.trollProp) this.trollProp.rotation.z += dt * (troll ? 40 : 0);
       vf = step(vf, thrust + wf, 0.26 + 0.055 * Math.abs(vf));

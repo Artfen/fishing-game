@@ -99,7 +99,8 @@ export const isNewGame = (s) => !Object.keys(s.places || {}).length && !(s.log |
 //   key(action) → the key or button, ready to show; touch: on a touch screen; pad: a controller
 //   at, carAt: where you and the car are ('home', a destination id or null); driving; nearCar;
 //   plan: the workbench's plan; rig: 'a worm on the float rod'; kind: the rig's kind
-//   caught: fish in the journal since the guide began; car: { x, z }; tent: where the tent is
+//   caught: fish in the journal since the guide began; car: { x, z }; tent: where the tent is;
+//   here: the place you're at (placeAt), if any
 export function words(g, ctx) {
   const id = stepOf(g);
   if (!id) return null;
@@ -139,7 +140,8 @@ export function words(g, ctx) {
       break;
     }
     case 'cast': {
-      const tip = FISH_SPOTS[g.dest]?.tip;
+      // (The tip for where you are, if that's one of the places: else where you meant to go.)
+      const tip = FISH_SPOTS[ctx.here || g.dest]?.tip;
       out.text = touch
         ? `Face the water (drag on the right to look). Hold the round button: the ring shows where it will land, further the longer you hold. Let go to cast.${tip ? ` ${tip}` : ''}`
         : `Face the water (${ctx.pad ? key('look') : 'drag the mouse'} to look). Hold ${key('cast')}: the ring shows where it will land, further the longer you hold. Let go to cast.${tip ? ` ${tip}` : ''} ${key('cancel')} puts it down again.`;

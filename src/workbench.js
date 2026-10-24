@@ -8,6 +8,7 @@ import {
   KIT, KIT_IDS, CAR_HOLD, DESTS, DEST_IDS, LOADOUT_MAX, statusOf, moveKit, moveToCar, unloadCar, packSetup, loadSetup,
   snapshot, applyLoadout, suggestions, departureCheck, essentials, speciesAt, habitatsAt, driveMinutes, campOfKit,
 } from './outing.js';
+import { fuelCheck, carNeeds, tankWords, canWords, litres, moveCan, CAN_PLACES } from './fuel.js';
 
 // The workbench in the garage: planning an outing, step by step but never in a fixed order.
 // What for (fishing, camping, exploring and photographs), where (the places the car can reach),
@@ -189,7 +190,7 @@ export class Workbench {
     rows.push(el('h4', '', 'Car'), el('p', 'wb-faint', car.rods.length || car.items.length || KIT_IDS.some((k) => s.equip.kit[k] === 'car')
       ? [car.rods.length && `${car.rods.length} rod${car.rods.length === 1 ? '' : 's'}`, car.items.length && `${car.items.length} tackle`, ...KIT_IDS.filter((k) => s.equip.kit[k] === 'car').map((k) => KIT[k].short)].filter(Boolean).join(' · ')
       : 'Empty'));
-    const check = departureCheck(s, p, { campDest: this.h.campDest, carHome: this.h.carHome() });
+    const check = checkAll(s, p, { campDest: this.h.campDest, carHome: this.h.carHome() });
     const warns = check.filter((l) => l.level === 'warn').length;
     rows.push(el('p', warns ? 'wb-warnline' : 'wb-okline', warns ? `${warns} thing${warns === 1 ? '' : 's'} to look at on the packing list` : 'Nothing missing that I can see'));
     side.replaceChildren(...rows);
@@ -406,7 +407,7 @@ export class Workbench {
     cols.append(col('Staying behind', [...kitIn('home').map((n) => `${n} (garage)`), ...pitched, 'The rest of your tackle (on the wall)']));
     out.push(cols);
     out.push(el('h3', '', 'Before you go'));
-    const check = departureCheck(s, p, { campDest: this.h.campDest, carHome });
+    const check = checkAll(s, p, { campDest: this.h.campDest, carHome });
     const ul = el('ul', 'wb-check');
     for (const l of check) {
       const li = el('li', `wb-${l.level}`);
@@ -465,7 +466,7 @@ export class Workbench {
     }
     const carHome = this.h.carHome();
     out.push(el('p', 'wb-lead', `To ${D.name}${p.fish || p.camp || p.explore ? `, ${listWords([p.fish && 'to fish', p.camp && 'to camp the night', p.explore && 'to explore'].filter(Boolean))}` : ''}.`));
-    const warns = departureCheck(s, p, { campDest: this.h.campDest, carHome }).filter((l) => l.level === 'warn');
+    const warns = checkAll(s, p, { campDest: this.h.campDest, carHome }).filter((l) => l.level === 'warn');
     if (warns.length) {
       const ul = el('ul', 'wb-check');
       for (const l of warns) {
@@ -491,6 +492,36 @@ export class Workbench {
     out.push(acts);
     return out;
   }
+}
+
+// The short check before you leave, with a word on the fuel for the trip (from where the car is).
+function checkAll(s, p, ctx) {
+  const out = departureCheck(s, p, ctx);
+  if (p.dest && s.fuel) out.push(...fuelCheck(s.fuel, ctx.carHome ? 'home' : s.car.at || 'home', p.dest));
+  return out;
+}
+
+// The jerry can: how full, and where it is (the garage, the car, your backpack).
+function canRow(s, { carHome, here, changed }) {
+  const f = s.fuel, row = el('div', 'wb-kitrow');
+  const t = el('div', '');
+  const words = { home: 'In the garage', car: 'In the car', pack: 'In your backpack' }[f.can.at];
+  t.append(el('b', '', `Jerry can (${canWords(f)})`), el('span', `wb-tag ${f.can.at === 'pack' ? 'carried' : f.can.at === 'car' ? 'loaded' : 'stored'}`, words));
+  row.append(t);
+  const chips = el('div', 'cp-choice');
+  const opts = here === 'home' ? [['home', 'Garage'], ...(carHome ? [['car', 'Car']] : []), ['pack', 'Backpack']] : [['car', 'Boot'], ['pack', 'Backpack']];
+  for (const [to, text] of opts.filter(([to]) => CAN_PLACES.includes(to))) {
+    const on = f.can.at === to;
+    const b = btn(text, () => {
+      if (on) return;
+      moveCan(f, to);
+      changed(`Jerry can: ${to === 'home' ? 'in the garage' : to === 'car' ? 'in the car' : 'in your backpack'}.`);
+    }, `chip${on ? ' on' : ''}`);
+    b.setAttribute('aria-pressed', on);
+    chips.append(b);
+  }
+  row.append(chips);
+  return row;
 }
 
 // The car's tackle back on the wall.
@@ -577,6 +608,9 @@ export class OutingSheet {
     $('out-sub').textContent = home ? 'on the drive at home' : 'wherever you’ve parked';
     out.push(el('h3', '', 'Camping gear'));
     out.push(kitRows(s, { carHome: home, here: home && this.h.atHome() ? 'home' : 'car', changed: (m) => this.changed(m) }));
+    // (The can only moves between the boot and you away from home; at home, the garage too.)
+    if (s.fuel.can.at !== 'home' || (home && this.h.atHome())) out.push(canRow(s, { carHome: home, here: home && this.h.atHome() ? 'home' : 'car', changed: (m) => this.changed(m) }));
+    out.push(el('p', 'wb-faint', `Fuel: ${tankWords(s.fuel, 'car')}. ${home ? 'The pump is beside the garage.' : 'The pumps are at home and on Willowhaven quay.'}`));
     const car = s.equip.car;
     out.push(el('h3', '', `Spare tackle (${car.rods.length}/${CAR_HOLD.rods} rods, ${car.items.length}/${CAR_HOLD.items} tackle)`));
     if (!car.rods.length && !car.items.length) out.push(el('p', 'wb-faint', 'The rod tube and the tackle bag are empty.'));
@@ -602,6 +636,7 @@ export class OutingSheet {
     $('out-title').textContent = 'The camping shelf';
     $('out-sub').textContent = 'in the garage';
     out.push(kitRows(s, { carHome: this.h.carHome(), here: 'home', changed: (m) => this.changed(m) }));
+    out.push(canRow(s, { carHome: this.h.carHome(), here: 'home', changed: (m) => this.changed(m) }));
     out.push(el('p', 'wb-faint', 'The tent needs to be in your backpack (or the car, close by) to pitch a camp. Without the stove you can’t cook at camp; without the cool box, kept fish stay in your creel.'));
     return out;
   }
@@ -674,8 +709,13 @@ export class OutingSheet {
   render_drive() {
     const s = this.state, out = [];
     $('out-title').textContent = 'Where to?';
-    $('out-sub').textContent = 'from the driver’s seat';
+    $('out-sub').textContent = `from the driver’s seat · fuel ${tankWords(s.fuel, 'car')}`;
     const from = s.car.at || null;
+    // (Each drive says roughly what it takes; a drive the tank can't make still goes, at a cost.)
+    const fuelFor = (to) => {
+      const need = carNeeds(from || 'home', to);
+      return `uses about ${litres(need)}${need > s.fuel.car ? ': more than you have' : ''}`;
+    };
     const row = (title, sub, acts) => {
       const r = el('div', 'wb-setup');
       const t = el('div', '');
@@ -686,7 +726,7 @@ export class OutingSheet {
       out.push(r);
     };
     if (from !== 'home') {
-      row('Home', `about ${minsWords(driveMinutes(from || 'strand', 'home'))}`, [btn('Let the drive go by', () => this.h.driveHome(), 'pk-btn small')]);
+      row('Home', `about ${minsWords(driveMinutes(from || 'strand', 'home'))} · ${fuelFor('home')}`, [btn('Let the drive go by', () => this.h.driveHome(), 'pk-btn small')]);
     }
     for (const id of DEST_IDS) {
       if (id === from) continue;
@@ -694,9 +734,9 @@ export class OutingSheet {
       const acts = [];
       if (D.drive) acts.push(btn('I’ll drive', () => this.h.drive(id, 'drive'), 'pk-btn quiet small'));
       acts.push(btn(D.drive ? 'Let it go by' : 'Drive there', () => this.h.drive(id, 'skip'), 'pk-btn small'));
-      row(D.name, `${D.kind.toLowerCase()} · ${s.places[D.place] ? '' : 'not yet explored · '}about ${minsWords(driveMinutes(from || 'home', id))}`, acts);
+      row(D.name, `${D.kind.toLowerCase()} · ${s.places[D.place] ? '' : 'not yet explored · '}about ${minsWords(driveMinutes(from || 'home', id))} · ${fuelFor(id)}`, acts);
     }
-    out.push(el('p', 'wb-faint', 'Driving yourself, the clock runs as you go; letting a drive go by moves it on by the time the drive takes. Your boats and your camp stay where they are.'));
+    out.push(el('p', 'wb-faint', 'Driving yourself, the clock runs as you go; letting a drive go by moves it on by the time the drive takes. Your boats and your camp stay where they are. Run dry on the way and you walk for a can: it costs an hour, never the trip.'));
     return out;
   }
 }

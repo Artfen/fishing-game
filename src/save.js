@@ -4,6 +4,7 @@ import { cleanSettings } from './settings.js';
 import { cleanCamps } from './campsite.js';
 import { cleanEquip, cleanCar, cleanOuting, defaultEquip } from './outing.js';
 import { cleanGuide } from './firstTrip.js';
+import { cleanFuel } from './fuel.js';
 
 // Saving your progress in this browser, with nobody to sign in to.
 //
@@ -31,7 +32,7 @@ export const DEFAULT_STATE = {
   places: {},    // id -> { day, hour }
   items: {},     // lantern: true
   tips: {},      // which gentle hints have already been shown
-  boats: {},     // where each boat was left: kind ('row', 'skiff', 'kayak', 'bass') -> { x, z, heading, anchored }
+  boats: {},     // where each boat was left: kind ('row', 'skiff', 'kayak', 'bass', 'cabin') -> { x, z, heading, anchored }
   vessel: 'row', // which boat you're in, or last used
   mode: 'boat',  // 'boat' or 'foot'
   walker: null,  // { x, z, heading } while on foot
@@ -72,6 +73,7 @@ export const DEFAULT_STATE = {
   outing: null,    // { plan, last, lastDest, loadouts, travel, intro }
   home: null,      // { photos: [ids], keepsake, catchId, auto }
   guide: null,     // the first-trip guide: { on, done, dest, offered, finished, min, since } (see firstTrip.js)
+  fuel: null,      // petrol in the car and the motorboats, the electric motor's battery, the jerry can (see fuel.js)
 };
 
 // A new game: every setting at its default (a loaded save gets its own from sanitize).
@@ -96,6 +98,7 @@ const fresh = () => {
   s.outing = cleanOuting(null);
   s.home = cleanHome(null, s);
   s.guide = cleanGuide(null);
+  s.fuel = cleanFuel(null);
   return s;
 };
 
@@ -115,7 +118,7 @@ export const PHOTO_MAX = 48;
 const ID = /^[a-z0-9-]{3,40}$/;
 const when = (v) => (isObj(v) ? { day: int(v.day, 1, 1, 1e6), hour: num(v.hour, 12, 0, 24) } : null);
 
-const VESSELS = ['row', 'skiff', 'kayak', 'bass'];
+const VESSELS = ['row', 'skiff', 'kayak', 'bass', 'cabin'];
 
 function pos(v) {
   if (!isObj(v)) return null;
@@ -289,6 +292,7 @@ export function sanitize(raw) {
   s.outing = cleanOuting(raw.outing);
   s.home = cleanHome(raw.home, s);
   s.guide = cleanGuide(raw.guide);
+  s.fuel = cleanFuel(raw.fuel);
   if (isObj(raw.sky)) {
     s.sky = { cloud: num(raw.sky.cloud, 0.3, 0, 1), rain: num(raw.sky.rain, 0, 0, 1), state: oneOf(raw.sky.state, SKY_STATES, 'partly'), timer: num(raw.sky.timer, 120, 0, 3600) };
   }

@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import {
-  heightAt, HAVEN, HAVEN_APRON, HAVEN_HOUSES, HAVEN_QUAY, SLIPWAY, HAVEN_BOARD, HAVEN_BENCH, HAVEN_LAMP,
+  heightAt, HAVEN, HAVEN_APRON, HAVEN_HOUSES, HAVEN_QUAY, SLIPWAY, HAVEN_BOARD, HAVEN_BENCH, HAVEN_LAMP, FUEL_PUMPS,
   DAYMARK, STRAND, PUNT, SHELTER, WRECK, WRECK_BUOY, CHANNEL, COVE,
 } from './terrain.js';
 import { waveHeight } from './conditions.js';
 import { mergeParts, mat, pick, jitterGeo, glowTexture, clamp, smoothstep } from '../util.js';
 import { reedClump } from './shore.js';
 import { withSurface } from './surface.js';
+import { fuelPumpParts } from '../props.js';
 import { withCaustics } from './caustics.js';
 
 // The cove shore, built from the map in terrain.js: Willowhaven (a stone quay and sea wall, a
@@ -225,6 +226,13 @@ function buildHaven(rnd, group, obstacles, spots) {
     group.add(board);
   }
   spots.push({ kind: 'board', name: 'the notice board', x: local(B.x, B.z, B.yaw, 0, 1.4).x, z: local(B.x, B.z, B.yaw, 0, 1.4).z, r: 2.6 });
+
+  // The harbour's fuel pump at the root of the quay, for the boats alongside (and a can for the car).
+  {
+    const F = FUEL_PUMPS.haven, fy = heightAt(F.x, F.z);
+    dark.push(...fuelPumpParts(F.x, fy, F.z, F.yaw));
+    obstacles.push({ x: F.x, z: F.z, r: 0.42, kind: 'harbour', name: 'the fuel pump' });
+  }
 
   // The bench under the lamp, looking out over the bay.
   const N = HAVEN_BENCH, ny = heightAt(N.x, N.z);

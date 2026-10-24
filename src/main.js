@@ -24,7 +24,7 @@ import {
   PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD,
   PEGS, POOLS, STREAM, SNAG, LILIES, JETTY, ISLAND, GANNET_CAMP, SKERRIES, SKELLIG, DEEP_Z,
   HAVEN, HAVEN_QUAY, HAVEN_BENCH, DAYMARK, STRAND, WRECK, WRECK_BUOY, CHANNEL,
-  HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, laneInfo,
+  HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, FUEL_PUMPS, CABIN_BERTH, laneInfo,
 } from './world/terrain.js';
 import { Car } from './car.js';
 import { Workbench, OutingSheet } from './workbench.js';
@@ -59,6 +59,7 @@ import { bendRod } from './props.js';
 import { FishFinder } from './sonar.js';
 import { setupTouch } from './touch.js';
 import { Gamepads, buttonFor, topDialog, focusables } from './gamepad.js';
+import { isPetrol, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, chargeBattery, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
 import { STEPS as TRIP_STEPS, stepOf, stepNumber, complete as completeStep, start as startGuide, words as guideWords, isNewGame, placeAt, FISH_SPOTS } from './firstTrip.js';
 import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality } from './quality.js';
 import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick } from './util.js';
@@ -374,6 +375,7 @@ function mooring(kind) {
     }
     return { x: L.x + L.len + 4, z: L.z + (skiff ? 0 : 3), heading: Math.PI / 2 };
   }
+  if (kind === 'cabin') return { ...CABIN_BERTH };
   if (kind === 'bass') {
     const P = BOATHOUSE_PIER, d = P.dir, side = { x: -d.z, z: d.x };
     for (const off of [2.1, -2.1, 2.8, -2.8]) {
@@ -816,6 +818,23 @@ function renderKit(el) {
     if (d >= 12) row.append(btn('Head there', () => travel('own'), !travelInfo().own), btn('Move it here…', () => startPitching('move', c), !onFoot, 'quiet'));
     out.push(row);
   }
+  // The jerry can: where it is, how full, and pouring it into whatever's here.
+  {
+    const f = tanks(), P = player().pos;
+    out.push(p(`Jerry can: ${canWords(f)}, ${f.can.at === 'pack' ? 'in your backpack' : f.can.at === 'car' ? 'in the car' : 'in the garage at home'}.`, 'gx-kit-text'));
+    const row = document.createElement('div');
+    row.className = 'gx-kit-acts';
+    const nearCar = driving || (onFoot && Math.hypot(car.pos.x - P.x, car.pos.z - P.z) < 8);
+    const boatHere = !onFoot ? (isPetrol(boat.kind) ? boat : null) : boats.find((b) => isPetrol(b.kind) && Math.hypot(b.pos.x - P.x, b.pos.z - P.z) < 5);
+    const redo = () => packUI.render();
+    if (canHere()) {
+      if (nearCar) row.append(btn('Pour it into the car', () => { pourCan('car'); redo(); }, f.can.litres < 0.5 || fuelRoom(f, 'car') < 0.05, 'quiet'));
+      if (boatHere) row.append(btn(`Pour it into the ${boatHere.name}`, () => { pourCan(boatHere.kind); redo(); }, f.can.litres < 0.5 || fuelRoom(f, boatHere.kind) < 0.05, 'quiet'));
+    }
+    if (nearCar && f.can.at === 'pack') row.append(btn('Leave it in the car', () => { moveCan(f, 'car'); save(); redo(); }, false, 'quiet'));
+    if (nearCar && f.can.at === 'car') row.append(btn('Take it from the car', () => { moveCan(f, 'pack'); save(); redo(); }, false, 'quiet'));
+    if (row.children.length) out.push(row);
+  }
   // The camera rides in the same pocket (the only way into photo mode on a touch screen).
   out.push(p(`Your camera: a picture of wherever you are, and under the water, of the fish themselves.${scheme() === 'touch' ? '' : ` (${input.keyLabel('photo')} anywhere.)`}`, 'gx-kit-text'));
   out.push(btn('Take a photograph', () => {
@@ -1053,6 +1072,11 @@ function sleepUntil(h) {
     hud.toast('Land or let go of the fish first.', 3);
     return;
   }
+  // Aboard the cabin boat: not adrift.
+  if (camp.site === 'cabin' && !boat.anchored && !moored(boat)) {
+    hud.toast(`Drop the anchor first (${input.keyLabel('anchor')}), or tie up alongside a quay: nobody sleeps adrift.`, 4);
+    return;
+  }
   // (A line left out overnight would be a tangle by morning: you reel in before turning in.)
   if (fishing.lineOut || fishing.aiming) fishing.cancel();
   const site = camp.site;
@@ -1087,7 +1111,9 @@ function passTheNight() {
   for (let i = 0; i < 90; i++) eco.update(1 / 30, ecoCtx);
   sleeping.rain = rain;
   // You wake at the tent's door, on firm ground (whatever the night did, you're never left in the water).
-  const door = sleeping.site === 'house' ? { x: 113.6, z: -78.6 } : sleeping.site ? toWorld(sleeping.site.x, sleeping.site.z, sleeping.site.yaw, 0.6, 1.6) : null;
+  // (Overnight, the bass boat's battery charges wherever you sleep.)
+  tanks().battery = 1;
+  const door = sleeping.site === 'house' ? { x: 113.6, z: -78.6 } : sleeping.site && sleeping.site !== 'cabin' ? toWorld(sleeping.site.x, sleeping.site.z, sleeping.site.yaw, 0.6, 1.6) : null;
   const spot = door ? standNear(door.x, door.z, 0.3) : onFoot && walkHeight(walker.pos.x, walker.pos.z) < 0.1 ? campSpot() : null;
   if (spot && onFoot) {
     walker.place(spot.x, spot.z, spot.heading);
@@ -1097,6 +1123,14 @@ function passTheNight() {
 }
 
 function wakeLine(h, rain, site = null) {
+  // Aboard the cabin boat: the water round the hull.
+  if (site === 'cabin') {
+    if (rain) return 'You wake to rain drumming on the cabin roof and the boat nodding on her rope. Kettle on the stove.';
+    if (h < 7) return 'You wake to water lapping at the hull and a grey light in the cabin windows. The gulls are up already.';
+    if (h < 16) return 'You wake in the bunk with the boat turning gently on her rope. A good day on the water.';
+    if (h < 20) return 'You wake to evening light on the water through the cabin windows. Time for a cast at dusk.';
+    return 'You wake in the dark cabin: stars over the water, and the tide talking under the hull.';
+  }
   // At home: your own bed, the house waking up around you.
   if (site === 'house') {
     if (rain) return 'You wake to rain on the roof and the gutters chattering. The kettle, then the garage.';
@@ -1226,9 +1260,10 @@ function teachBoat() {
   const lever = S ? `push ${stick} forward for throttle, left and right to steer. Let go to slow down.`
     : `${key('forward')} and ${key('back')} move the throttle lever (it stays where you leave it), ${key('left')} and ${key('right')} steer, ${key('neutral')} stops the motor, ${key('anchor')} drops or raises the anchor.`;
   const text = {
-    skiff: `The motor skiff, for the open coast and the islands: ${lever} Near a shore, slow down and ${T ? 'tap the prompt' : `press ${key('interact')}`} to step off.`,
+    skiff: `The motor skiff, for the open coast and the islands: ${lever} Near a shore, slow down and ${T ? 'tap the prompt' : `press ${key('interact')}`} to step off. It runs on petrol: the harbour pump is at the root of Willowhaven quay.`,
     kayak: `The kayak: slow, but silent and stable enough to fish from, and it floats in a hand's depth of water. Paddle into the shallows, the saltings and the reeds where the boats can't go: fish hardly notice it. ${S ? `${T ? 'The stick' : 'The left stick'} paddles and steers.` : `${key('forward')}${key('left')}${key('back')}${key('right')} paddle and steer.`}`,
-    bass: `The bass boat: ${lever} The first notches of throttle run the quiet electric motor at the bow, for creeping along the weed beds and the reeds without spooking anything; push on for the outboard to cross the lake fast. Its locker holds your tackle box, and it sits steady when you cast.`,
+    bass: `The bass boat: ${lever} The first notches of throttle run the quiet electric motor at the bow, for creeping along the weed beds and the reeds without spooking anything; push on for the outboard to cross the lake fast. Its locker holds your tackle box, and it sits steady when you cast. The outboard takes petrol (Longmere has no pump: bring the jerry can), and the electric motor a battery that charges at the jetty and overnight.`,
+    cabin: `The cabin boat: slow and steady, with a little cabin forward: a bunk and a galley stove. ${lever} Anchor (or tie up alongside a quay), then ${T ? 'tap the prompt' : `press ${key('interact')}`} for the cabin: cook what you've kept, and sleep aboard. A camp that floats. It runs on petrol: the harbour pump is right by her berth.`,
   }[k];
   hud.toast(text, 12);
 }
@@ -1381,6 +1416,7 @@ function travel(dest) {
 }
 
 function passTime(hours) {
+  if (moored(BOATS.bass)) chargeBattery(tanks(), hours);
   state.hour += hours;
   if (state.hour >= 24) {
     state.hour -= 24;
@@ -1400,9 +1436,9 @@ function updateTravel(dt) {
     if (traveling.t > 2.4) {
       hud.sleep(false);
       modal = null;
-      const to = traveling.to;
+      const to = traveling.to, fuel = traveling.fuel;
       traveling = null;
-      arrivalWords(to);
+      arrivalWords(to, fuel?.short ? ` You ran dry on the way and walked for a can: an hour gone, and ${litres(tanks().car)} in the tank.` : '');
     }
     return;
   }
@@ -1536,11 +1572,122 @@ function parkedAt() {
 
 // Stopped at the wheel: get out, or go somewhere.
 function carChoices() {
-  ask('In the car', `${state.car.at ? `Parked ${carWhere()}.` : 'Stopped by the lane.'} Get out here, or go somewhere?`, [
-    { text: 'Stay in', cls: 'quiet', run: () => {} },
-    { text: 'Where to?', cls: 'quiet', run: () => openOutSheet('drive') },
-    { text: 'Get out', run: () => exitCar() },
+  const dry = tanks().car <= 0, f = tanks();
+  const acts = [{ text: 'Stay in', cls: 'quiet', run: () => {} }];
+  if (dry && canHere(12) && f.can.litres >= 0.5) acts.push({ text: `Pour in the jerry can (${litres(f.can.litres)})`, cls: 'quiet', run: () => pourCan('car') });
+  if (dry) acts.push({ text: 'Walk for a can (about an hour)', cls: 'quiet', run: () => rescueCar() });
+  acts.push({ text: 'Where to?', cls: 'quiet', run: () => openOutSheet('drive') }, { text: 'Get out', run: () => exitCar() });
+  // (Where the car is now, not where it last parked.)
+  const at = parkNear(car.pos.x, car.pos.z, 9);
+  ask('In the car', `${at === 'home' ? 'Parked on the drive at home.' : at ? `Parked at ${DESTS[at].name}.` : 'Stopped by the lane.'}${dry ? ` The tank is dry${canHere(12) && f.can.litres >= 0.5 ? ', but the jerry can is with you' : ''}.` : ` ${cap(fuelHint('car'))}.`} Get out here, or go somewhere?`, acts);
+}
+
+/* ---- fuel: the car, the motorboats, the battery and the jerry can (see fuel.js) ---- */
+
+// (state.fuel, for short.)
+const tanks = () => state.fuel;
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const fuelName = (what) => (what === 'car' ? 'the car' : `the ${BOATS[what].name}`);
+// Within reach of a jetty or quay (where a boat ties up, and the battery charges).
+const pierNear = (b, reach = 4) => PIERS.some((P) => Math.hypot(b.pos.x - clamp(b.pos.x, P.x0, P.x1), b.pos.z - clamp(b.pos.z, P.z0, P.z1)) < reach);
+const moored = (b) => b.speed < 0.4 && pierNear(b);
+const pumpNear = () => (onFoot && !driving ? Object.keys(FUEL_PUMPS).find((id) => Math.hypot(walker.pos.x - FUEL_PUMPS[id].x, walker.pos.z - FUEL_PUMPS[id].z) < 1.9) || null : null);
+// The jerry can within reach: carried, or in the boot of a car close by.
+const canHere = (reach = 8) => tanks().can.at === 'pack' || (tanks().can.at === 'car' && Math.hypot(car.pos.x - player().pos.x, car.pos.z - player().pos.z) < reach);
+
+// What a tank says, for the hints: "fuel 31 of 45 L" (and the bass boat's battery).
+function fuelHint(what) {
+  const f = tanks();
+  const fuel = fuelLevel(f, what) <= 0 ? 'out of fuel' : `fuel ${tankWords(f, what)}`;
+  return what === 'bass' ? `${fuel} · ${f.battery <= 0 ? 'battery flat' : batteryWords(f)}` : fuel;
+}
+
+// A word as a tank passes a fifth (once, until it's filled again).
+const fuelWarned = {};
+function watchTank(what) {
+  const lowNow = fuelLow(tanks(), what) && fuelLevel(tanks(), what) > 0;
+  if (lowNow && !fuelWarned[what]) {
+    hud.toast(`${cap(fuelName(what))} is low on fuel: ${tankWords(tanks(), what)}. ${what === 'car' ? 'The pump by the garage fills it (or the jerry can).' : what === 'bass' ? 'Longmere has no pump: the jerry can fills it.' : 'The harbour pump on Willowhaven quay fills it.'}`, 6);
+  }
+  fuelWarned[what] = lowNow || fuelLevel(tanks(), what) <= 0;
+}
+
+// Fill up at a pump: whatever of yours is in reach (the car, the boats alongside, the jerry can).
+function openPump(id) {
+  const P = FUEL_PUMPS[id], f = tanks(), here = [];
+  if (Math.hypot(car.pos.x - P.x, car.pos.z - P.z) < (id === 'home' ? 12 : 32)) here.push('car');
+  if (id === 'haven') for (const b of boats) if (isPetrol(b.kind) && Math.hypot(b.pos.x - P.x, b.pos.z - P.z) < 22) here.push(b.kind);
+  const can = f.can.at === 'pack' || (f.can.at === 'car' && here.includes('car')) || (id === 'home' && f.can.at === 'home');
+  const lines = here.map((w) => `${cap(fuelName(w))}: ${tankWords(f, w)}.`);
+  if (can) lines.push(`The jerry can: ${canWords(f)}.`);
+  if (!here.length && !can) lines.push(id === 'home' ? 'The car isn’t here, and nor is the jerry can.' : 'None of your boats is alongside, and the car and the jerry can aren’t here.');
+  const needs = [...here.filter((w) => fuelRoom(f, w) > 0.05), ...(can && f.can.litres < 9.95 ? ['can'] : [])];
+  const name = id === 'home' ? 'The fuel pump' : 'The harbour fuel pump';
+  if (!needs.length) {
+    ask(name, `${lines.join(' ')}${here.length || can ? ' Everything here is full.' : ''}`, [{ text: 'OK' }]);
+    return;
+  }
+  ask(name, lines.join(' '), [
+    { text: 'Not now', cls: 'quiet' },
+    ...needs.map((w) => ({ text: w === 'can' ? 'Fill the jerry can' : `Fill ${fuelName(w)}`, cls: needs.length > 1 ? 'quiet' : '', run: () => fillUp([w]) })),
+    ...(needs.length > 1 ? [{ text: 'Fill everything', run: () => fillUp(needs) }] : []),
   ]);
+}
+
+function fillUp(list) {
+  const f = tanks();
+  let total = 0;
+  for (const w of list) total += fill(f, w);
+  // (A few minutes at the pump, a quarter of an hour for a big fill.)
+  passTime(clamp(total / 120, 0.05, 0.25));
+  audio.knock?.(0.3);
+  for (const w of list) if (w !== 'can') fuelWarned[w] = false;
+  hud.toast(`${litres(total)} of petrol: ${list.map((w) => (w === 'can' ? 'the jerry can' : fuelName(w))).join(', ').replace(/, ([^,]*)$/, ' and $1')} ${list.length > 1 ? 'are' : 'is'} full.`, 4);
+  save();
+}
+
+// The jerry can into a tank: as much as fits.
+function pourCan(into) {
+  const f = tanks(), got = pour(f, into);
+  if (!got) {
+    hud.flash(f.can.litres < 0.5 ? 'The jerry can is empty: fill it at a pump.' : `${cap(fuelName(into))} is full already.`, t, 2.5);
+    return;
+  }
+  audio.knock?.(0.25);
+  fuelWarned[into] = fuelLow(f, into);
+  hud.toast(`You pour ${litres(got)} into ${fuelName(into)}: ${tankWords(f, into)} now, ${litres(f.can.litres)} left in the can.`, 5);
+  save();
+}
+
+// Run dry in the car: someone up the lane lends you a can (it takes an hour).
+function rescueCar() {
+  passTime(rescue(tanks(), 'car'));
+  fuelWarned.car = true;
+  hud.toast(`You walk up the lane to the nearest farm. An hour later you’re back with a borrowed can: ${litres(tanks().car)} in the tank. The pumps are at home and on Willowhaven quay.`, 7);
+  save();
+}
+
+// Run dry in a boat: the jerry can, a tow in, or the oar.
+function boatChoices() {
+  const f = tanks(), kind = boat.kind;
+  const acts = [{ text: 'Paddle on with the oar', cls: 'quiet', run: () => {} }];
+  if (f.can.at === 'pack' && f.can.litres >= 0.5) acts.push({ text: `Pour in the jerry can (${litres(f.can.litres)})`, cls: 'quiet', run: () => pourCan(kind) });
+  acts.push({ text: kind === 'bass' ? 'A tow to the boathouse (about an hour)' : 'A tow to Willowhaven quay (about an hour)', run: () => towBoat() });
+  ask(`The ${boat.name}: out of fuel`, `The tank is dry. An oar moves her along, slowly${kind === 'bass' && f.battery > 0 ? ', and the electric motor still runs on its battery' : ''}.${f.can.at === 'pack' ? '' : ' (The jerry can isn’t with you.)'}`, acts);
+}
+
+function towBoat() {
+  if (fishing.lineOut || fishing.aiming) fishing.cancel();
+  const p = boat.kind === 'bass' ? mooring('bass') : quayMooring(boat) || mooring(boat.kind);
+  boat.place(p.x, p.z, p.heading);
+  boat.setAnchor(true);
+  passTime(rescue(tanks(), boat.kind));
+  rig.reset(boat, t);
+  audio.knock?.(0.4);
+  hud.toast(boat.kind === 'bass'
+    ? `The boathouse keeper tows you back to the jetty, an hour gone, and leaves you ${litres(fuelLevel(tanks(), 'bass'))} to potter with. The jerry can fills at home or at Willowhaven.`
+    : `A boat from the harbour tows you in to Willowhaven quay, an hour gone, and they leave you ${litres(fuelLevel(tanks(), boat.kind))}. The pump is at the root of the quay.`, 8);
+  save();
 }
 
 function resetCar() {
@@ -1612,11 +1759,13 @@ function driveTo(to, how = 'skip') {
     return;
   }
   state.outing.travel = { to, from };
+  const fuel = driveBy(tanks(), from, to);
+  if (fuel.short) fuelWarned.car = true;
   save();
   modal = 'travel';
   hud.sleep(true, to === 'home' ? 'You drive home…' : `You drive to ${DESTS[to].name}…`);
   audio.carDoor?.();
-  traveling = { drive: true, to, t: 0, done: false };
+  traveling = { drive: true, to, t: 0, done: false, fuel };
 }
 
 // Arriving: the car parked at the car park, you beside it; the drive's time gone by. Finished
@@ -1636,7 +1785,7 @@ function arrive(to) {
   if (sp) walker.place(sp.x, sp.z, exitHeading(sp, to));
   rig.setHome(true, t);
   rig.reset(walker, t);
-  passTime(driveMinutes(from || 'home', to) / 60);
+  passTime(driveMinutes(from || 'home', to) / 60 + (traveling?.fuel?.short ? traveling.fuel.hours : 0));
   state.car = { x: P.x, z: P.z, yaw: P.yaw, at: to };
   state.outing.travel = null;
   stuckT = 0;
@@ -1644,16 +1793,16 @@ function arrive(to) {
   save();
 }
 
-function arrivalWords(to) {
+function arrivalWords(to, note = '') {
   const inBoot = [...KIT_IDS.filter((k) => state.equip.kit[k] === 'car').map((k) => KIT[k].short), ...(state.equip.car.rods.length || state.equip.car.items.length ? ['spare tackle'] : [])];
   if (to === 'home') {
     hud.place('Home', 'on the drive');
-    hud.toast(`Home. ${inBoot.length ? `In the boot: ${inBoot.join(', ')}. Unload it at the boot, or leave it for next time.` : 'The boot is empty.'} The garage door is open.`, 7);
+    hud.toast(`Home.${note} ${inBoot.length ? `In the boot: ${inBoot.join(', ')}. Unload it at the boot, or leave it for next time.` : 'The boot is empty.'} The garage door is open.`, 7);
     return;
   }
   const D = DESTS[to];
   hud.place(D.name, 'the car park');
-  hud.toast(`${D.name}. ${D.access}${inBoot.length ? ` In the boot: ${inBoot.join(', ')} (open it at the back of the car).` : ''}`, 9);
+  hud.toast(`${D.name}.${note} ${D.access}${inBoot.length ? ` In the boot: ${inBoot.join(', ')} (open it at the back of the car).` : ''}`, 9);
 }
 
 /* ---- the workbench and the outing sheet ---- */
@@ -1830,6 +1979,7 @@ function updateGuide(dt) {
     nearCar: onFoot && Math.hypot(car.pos.x - P.x, car.pos.z - P.z) < 12,
     plan: state.outing.plan, rig: item && rod ? `${item.on} on the ${rod.short.toLowerCase()}` : '', kind: fishing.kind,
     caught: state.log.filter((e) => e.at >= g.since).length, car: { x: car.pos.x, z: car.pos.z }, tent: state.equip.kit.tent,
+    here: placeAt(P.x, P.z),
   });
   guideTarget = w?.target || null;
   if (guideTarget && $('guide-label').textContent !== guideTarget.label) $('guide-label').textContent = guideTarget.label;
@@ -1998,11 +2148,14 @@ function interaction() {
   // At the wheel: get out when you've stopped (or back on the lane if you're stuck).
   if (driving) {
     if (car.stuckT > 1.5) return { text: 'Back on the lane', run: () => resetCar() };
-    if (Math.abs(car.speed) < 0.6) return { text: 'Get out, or go somewhere', run: () => carChoices() };
+    if (Math.abs(car.speed) < 0.6) return { text: tanks().car <= 0 ? 'Out of fuel: what now?' : 'Get out, or go somewhere', run: () => carChoices() };
     return null;
   }
   if (lanternReach()) return { text: 'Look closer at the driftwood', run: takeLantern };
   if (onFoot) {
+    // The fuel pumps (at home, and on Willowhaven quay).
+    const pump = pumpNear();
+    if (pump) return { text: 'The fuel pump: fill up', run: () => openPump(pump) };
     // The car: the boot at the back, the driver's door at the side.
     const P = walker.pos, boot = car.bootSpot(), door = car.doorSpot();
     if (Math.hypot(P.x - boot.x, P.z - boot.z) < 1.8) return { text: 'Open the boot', run: () => openOutSheet('boot') };
@@ -2028,9 +2181,21 @@ function interaction() {
     return null;
   }
   const spot = cachedShoreSpot();
-  if (spot) return { text: spot.landing ? 'Step ashore at the landing' : spot.quay ? 'Step up onto the quay' : spot.pier ? 'Step onto the jetty' : 'Step ashore', run: () => stepAshore(spot) };
+  const ashore = spot && (spot.landing ? 'Step ashore at the landing' : spot.quay ? 'Step up onto the quay' : spot.pier ? 'Step onto the jetty' : 'Step ashore');
+  // The cabin boat, anchored or tied up by the shore: the cabin, or ashore.
+  if (spot && boat.hull.cabin && (boat.anchored || moored(boat)) && boat.speed < 0.6 && !fishing.lineOut) {
+    return { text: 'The cabin, or ashore', run: () => ask('The cabin boat', 'Tied up here. Into the cabin (the galley and the bunk), or ashore?', [
+      { text: ashore, cls: 'quiet', run: () => stepAshore(spot) },
+      { text: 'The cabin', run: () => openCamp('cook', 'cabin') },
+    ]) };
+  }
+  if (spot) return { text: ashore, run: () => stepAshore(spot) };
   const other = boat.speed < 1 ? otherBoat() : null;
   if (other) return { text: `Step across into the ${other.name}`, run: () => stepAcross(other) };
+  // A dry tank: the jerry can, a tow, or an oar.
+  if (isPetrol(boat.kind) && fuelLevel(tanks(), boat.kind) <= 0 && boat.speed < 1) return { text: 'Out of fuel: what now?', run: () => boatChoices() };
+  // The cabin boat, stopped: its galley and bunk.
+  if (boat.hull.cabin && boat.speed < 0.6 && !fishing.lineOut) return { text: 'The cabin: galley and bunk', run: () => openCamp('cook', 'cabin') };
   if (boat.speed < 0.6 && !fishing.lineOut) return { text: boat.anchored ? 'Raise the anchor' : 'Drop the anchor', run: toggleAnchor };
   return null;
 }
@@ -3069,9 +3234,10 @@ function currentHint() {
   const LR = P ? `${kbd('L-stick')} ↔` : `${K('left')}${K('right')}`;
   if (driving) {
     if (car.stuckT > 1.5) return T ? 'Stuck? Tap Back on the lane' : `Stuck? ${K('interact')} puts the car back on the lane`;
-    if (T) return 'The stick drives and steers · the button brakes · stop to get out';
-    if (P) return `${kbd('RT')} drive · ${kbd('LT')} brake, hold to reverse · ${LR} steer · stop, then ${K('interact')} to get out`;
-    return `${K('forward')}${K('back')} drive and reverse · ${K('left')}${K('right')} steer · hold ${K('cast')} to brake · ${K('view')} view · stop, then ${K('interact')} to get out`;
+    if (tanks().car <= 0) return `Out of fuel · ${T ? 'tap the prompt' : K('interact')} for what next (the jerry can, or a can from the farm up the lane)`;
+    if (T) return `The stick drives and steers · the button brakes · stop to get out · ${fuelHint('car')}`;
+    if (P) return `${kbd('RT')} drive · ${kbd('LT')} brake, hold to reverse · ${LR} steer · stop, then ${K('interact')} to get out · ${fuelHint('car')}`;
+    return `${K('forward')}${K('back')} drive and reverse · ${K('left')}${K('right')} steer · hold ${K('cast')} to brake · ${K('view')} view · stop, then ${K('interact')} to get out · ${fuelHint('car')}`;
   }
   const space = K('cast');
   const cancel = T ? '✕ cancels' : `${K('cancel')} cancel`;
@@ -3145,10 +3311,12 @@ function currentHint() {
   }
   if (boat.motor) {
     const lv = boat.lever;
-    const word = boat.anchored ? 'at anchor' : Math.abs(lv) < 0.03 ? 'neutral' : lv < 0 ? 'astern' : boat.trolling ? 'electric motor (quiet)' : lv < 0.35 ? 'slow ahead' : lv < 0.75 ? 'half ahead' : 'full ahead';
-    if (T) return `Throttle: ${word} · the stick drives and steers`;
-    if (P) return `Throttle: ${word} · ${kbd('L-stick')} drives and steers · ${K('anchor')} anchor`;
-    return `Throttle: ${word} · ${UD} lever · ${LR} steer · ${K('neutral')} stop · ${K('anchor')} anchor`;
+    const dead = boat.trolling ? boat.flat : boat.dry && Math.abs(lv) >= 0.03;
+    const word = boat.anchored ? 'at anchor' : dead ? 'the motor’s dead: an oar, slowly' : Math.abs(lv) < 0.03 ? 'neutral' : lv < 0 ? 'astern' : boat.trolling ? 'electric motor (quiet)' : lv < 0.35 ? 'slow ahead' : lv < 0.75 ? 'half ahead' : 'full ahead';
+    const fuel = fuelHint(boat.kind);
+    if (T) return `Throttle: ${word} · the stick drives and steers · ${fuel}`;
+    if (P) return `Throttle: ${word} · ${kbd('L-stick')} drives and steers · ${K('anchor')} anchor · ${fuel}`;
+    return `Throttle: ${word} · ${UD} lever · ${LR} steer · ${K('neutral')} stop · ${K('anchor')} anchor · ${fuel}`;
   }
   if (!state.tips.rowed) return T ? 'Drag on the left to row · drag on the right to look around' : `${MOVE()} to row · ${LOOK()}`;
   if (!state.tips.cast) return T ? 'Hold the button to aim and cast your line' : `Hold ${space} to aim and cast your line`;
@@ -4109,6 +4277,7 @@ const ecoLights = [];
 const walkerCtx = { x: 0, z: 0, speed: 0 };
 const move = { x: 0, z: 0 };
 let saveTimer = 10;
+let fuelCheckT = 0;
 let last = performance.now();
 
 // A brand-new game begins at home: in front of the cottage, with the car on the drive. (Nobody
@@ -4260,13 +4429,35 @@ function tick(now, manual = false) {
     }
   }
 
+  // Petrol for the motor you're running (or the bass boat's battery); a dry tank or a flat
+  // battery leaves the motor dead and an oar to row with. The battery charges at a jetty.
+  {
+    const f = tanks();
+    for (const b of boats) {
+      b.dry = isPetrol(b.kind) && fuelLevel(f, b.kind) <= 0;
+      b.flat = b.kind === 'bass' && f.battery <= 0;
+    }
+    if (boat.motor && throttle && !onFoot) {
+      const ran = burnBoat(f, boat.kind, throttle, dt, boat.hull.motor.troll || 0);
+      const what = scheme() === 'touch' ? 'tap the prompt' : K('interact');
+      if (ran === 'dry') hud.flash(`The outboard splutters and stops: the tank is dry. An oar moves her along, slowly; stop, then ${what} for the jerry can or a tow.`, t, 6);
+      if (ran === 'flat') hud.flash('The electric motor whines down: the battery is flat. It charges at a jetty, and overnight; the outboard still runs.', t, 5);
+    }
+    if (hours && moored(BOATS.bass)) chargeBattery(f, hours);
+    fuelCheckT -= dt;
+    if (fuelCheckT <= 0) {
+      fuelCheckT = 1;
+      if (!onFoot && isPetrol(boat.kind)) watchTank(boat.kind);
+      if (driving) watchTank('car');
+    }
+  }
   boat.update(dt, t, throttle, steer, env.lantern);
   for (const b of boats) if (b !== boat) b.update(dt, t, 0, 0, env.lantern);
   keepBoatsApart();
   // The motor: a putter at idle when you're aboard, rising with the throttle. Fish nearby
   // hear it, so slow down (or anchor) before you fish. (The bass boat's electric motor is
   // almost silent, and doesn't bother them.)
-  const motorOn = !onFoot && boat.motor;
+  const motorOn = !onFoot && boat.motor && !(boat.trolling ? boat.flat : boat.dry);
   const outboard = motorOn && !boat.trolling;
   audio.engine?.(motorOn ? (outboard ? Math.max(0.12, Math.abs(boat.lever) * (boat.tilted ? 0.5 : 1)) : 0.04) : 0);
   motorNoiseT -= dt;
@@ -4280,14 +4471,19 @@ function tick(now, manual = false) {
   // The car: driven while you're at the wheel (a menu open puts the brake on); otherwise parked.
   {
     const live = driving && started;
-    const bump = car.update(dt, t, { throttle: modal ? 0 : carIn.throttle, steer: modal ? 0 : carIn.steer, brake: live && (modal || input.holding('cast')) ? 1 : 0 }, carWorld, { live, night: env.night, still: settings.controls.reducedMotion });
+    // (A dry tank: the engine's dead, though the brakes and the steering still work.)
+    const dry = tanks().car <= 0;
+    const bump = car.update(dt, t, { throttle: modal || dry ? 0 : carIn.throttle, steer: modal ? 0 : carIn.steer, brake: live && (modal || input.holding('cast')) ? 1 : 0 }, carWorld, { live, night: env.night, still: settings.controls.reducedMotion });
     if (bump) carBumped(bump);
+    if (live && !dry && carIn.throttle && burnCar(tanks(), Math.abs(car.speed) * dt)) {
+      hud.flash(`The engine coughs and dies: the tank is dry. Roll to a stop, then ${scheme() === 'touch' ? 'tap the prompt' : K('interact')}.`, t, 5);
+    }
     if (driving) {
       walker.pos.set(car.pos.x, car.pos.y, car.pos.z);
       walker.ground = car.pos.y;
       refreshCarSolids();
       watchParking(dt);
-      audio.car?.(Math.min(1, Math.abs(car.speed) / 12), started && !modal ? Math.abs(carIn.throttle) : 0, true);
+      audio.car?.(Math.min(1, Math.abs(car.speed) / 12), started && !modal && !dry ? Math.abs(carIn.throttle) : 0, !dry);
     } else audio.car?.(0, 0, false);
   }
   fishing.update(dt, t, rig.yaw, started && !modal && !placement.isOn && !driving && input.action);

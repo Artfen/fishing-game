@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import { HOME_PAD, HOUSE, GARAGE, CAR_PARKS, LANES, PLACES, heightAt } from './terrain.js';
+import { HOME_PAD, HOUSE, GARAGE, CAR_PARKS, LANES, PLACES, FUEL_PUMPS, heightAt } from './terrain.js';
 import { RODS, ROD_IDS } from '../tackle.js';
 import { mergeParts, mat, pick, clamp, smoothstep, glowTexture } from '../util.js';
 import { withSurface } from './surface.js';
+import { fuelPumpParts } from '../props.js';
 
 // Home: a small whitewashed cottage and its garage on a level shoulder of the east arm, looking
 // south over Shell Strand to the sea. You can walk in: the cottage is one room (a bed, a desk with
@@ -486,7 +487,11 @@ export function buildHome(scene, rnd) {
   // The letterbox by the drive, with the house's name.
   oput(cyl(0.05, 0.05, 1.1, 6), 129.6, heightAt(129.6, -57.2) + 0.55, -57.2, '#5a5f66');
   oput(box(0.42, 0.28, 0.22), 129.6, heightAt(129.6, -57.2) + 1.2, -57.2, '#a5482f');
+  // The fuel pump by the garage, for the car and the jerry can.
+  const FP = FUEL_PUMPS.home;
+  O.push(...fuelPumpParts(FP.x, Y, FP.z, FP.yaw));
   group.add(mesh(mergeParts(O, rnd), plain()));
+  obstacles.push({ x: FP.x, z: FP.z, r: 0.42, kind: 'building', name: 'the fuel pump' });
   const porchGlass = new THREE.Mesh(box(0.12, 0.2, 0.12), new THREE.MeshLambertMaterial({ color: '#d9cfae', emissive: '#ffbf6a', emissiveIntensity: 0 }));
   porchGlass.position.set(H.door + 1.02, Y + 1.89, H.z1 + 0.32);
   group.add(porchGlass);

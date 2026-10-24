@@ -68,7 +68,7 @@ export class Explored {
   }
 }
 
-const BOAT_COLORS = { row: '#b5532f', skiff: '#2f4f7a', kayak: '#e8742a', bass: '#7a2430' };
+const BOAT_COLORS = { row: '#b5532f', skiff: '#2f4f7a', kayak: '#e8742a', bass: '#7a2430', cabin: '#1f4e5f' };
 const canvas2 = (w, h) => {
   const c = document.createElement('canvas');
   c.width = w;

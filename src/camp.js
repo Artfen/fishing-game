@@ -65,7 +65,7 @@ export class Camp {
     this.hooks = hooks;
     this.el = $('camp');
     this.tab = 'cook';
-    this.site = null; // null: the old camp; 'house': home; otherwise your camp's record
+    this.site = null; // null: the old camp; 'house': home; 'cabin': the cabin boat; otherwise your camp's record
     this.grillFish = {};
     this.shownFish = null;
     this.lastHunger = this.hunger;
@@ -86,8 +86,11 @@ export class Camp {
   }
 
   get isOpen() { return !this.el.hidden; }
-  get own() { return !!this.site && this.site !== 'house'; }
-  get house() { return this.site === 'house'; }
+  get own() { return !!this.site && this.site !== 'house' && this.site !== 'cabin'; }
+  // Home and the cabin boat work the same way: a kitchen (a galley) to cook what's in your creel,
+  // and a bed (a bunk).
+  get house() { return this.site === 'house' || this.site === 'cabin'; }
+  get cabin() { return this.site === 'cabin'; }
   abs() { return this.state.day * 24 + this.state.hour; }
   get food() { return this.state.food; }
   get wellFed() { return this.abs() < this.food.wellFedUntil; }
@@ -228,16 +231,16 @@ export class Camp {
     browned(m, done);
   }
 
-  // site: null for the old camp, 'house' for home, or your camp's record.
+  // site: null for the old camp, 'house' for home, 'cabin' for the cabin boat, or your camp's record.
   open(tab = 'cook', site = null) {
     this.site = site;
     this.packing = null;
     this.el.hidden = false;
-    $('camp-title').textContent = this.house ? 'Home' : site ? site.name : 'Camp';
+    $('camp-title').textContent = this.cabin ? 'The cabin' : this.house ? 'Home' : site ? site.name : 'Camp';
     const tabs = this.el.querySelectorAll('[data-tab]');
     for (const b of tabs) {
-      if (b.dataset.tab === 'cook') b.textContent = this.house ? 'Kitchen' : site ? 'Stove & food' : 'Fire & food';
-      if (b.dataset.tab === 'sleep') b.textContent = this.house ? 'Bed' : 'Sleep';
+      if (b.dataset.tab === 'cook') b.textContent = this.cabin ? 'Galley' : this.house ? 'Kitchen' : site ? 'Stove & food' : 'Fire & food';
+      if (b.dataset.tab === 'sleep') b.textContent = this.cabin ? 'Bunk' : this.house ? 'Bed' : 'Sleep';
       if (b.dataset.tab === 'own') b.hidden = !this.own;
       if (b.dataset.tab === 'tackle') b.hidden = this.house;
     }
@@ -263,7 +266,7 @@ export class Camp {
       this.hooks.close();
       return;
     }
-    $('camp-sub').textContent = `${formatClock(this.state.hour)} · day ${this.state.day}${this.house ? ' · home' : this.site ? ' · your camp' : ''}`;
+    $('camp-sub').textContent = `${formatClock(this.state.hour)} · day ${this.state.day}${this.cabin ? ' · aboard' : this.house ? ' · home' : this.site ? ' · your camp' : ''}`;
     if (this.tab === 'cook') {
       if (this.house) this.renderKitchen();
       else if (this.site) this.renderStove();
@@ -577,7 +580,7 @@ export class Camp {
 
   renderSleep() {
     const out = [];
-    out.push(el('p', 'cp-lead', this.house ? 'Go to bed and sleep until…' : 'Crawl into the tent and sleep until…'));
+    out.push(el('p', 'cp-lead', this.cabin ? 'Turn in to the bunk and sleep until…' : this.house ? 'Go to bed and sleep until…' : 'Crawl into the tent and sleep until…'));
     const grid = el('div', 'cp-wake');
     const now = this.state.hour;
     for (const w of WAKE_TIMES) {
@@ -588,7 +591,9 @@ export class Camp {
       grid.append(b);
     }
     out.push(grid);
-    out.push(el('p', 'cp-soft', `While you sleep the world goes on: the light changes, the weather may turn${this.house ? '' : ', the fire burns down'} and the fish move to where the new hour suits them. Your boats${this.house ? ', the car and your camp' : ''} stay where you left them.`));
+    out.push(el('p', 'cp-soft', this.cabin
+      ? 'While you sleep the world goes on: the light changes, the weather may turn and the fish move to where the new hour suits them. The boat rides at her anchor (or alongside) through the night, and the battery charges.'
+      : `While you sleep the world goes on: the light changes, the weather may turn${this.house ? '' : ', the fire burns down'} and the fish move to where the new hour suits them. Your boats${this.house ? ', the car and your camp' : ''} stay where you left them.`));
     $('camp-sleep').replaceChildren(...out);
   }
 }

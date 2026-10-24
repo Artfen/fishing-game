@@ -319,8 +319,19 @@ Gear matters: a lure too big for a fish's mouth is ignored by small fish (so big
 | Motor skiff | End of The Landing | The open coast and the far islands: about twice as fast as rowing |
 | Kayak | Beside The Landing | Silent and floats in a hand's depth of water: creep into the shallows, the saltings and the reeds without spooking fish. Slower than the rowing boat |
 | Bass boat | Longmere, at the boathouse jetty | A broad, steady casting platform with a locker for your tackle box. The first notches of throttle run a near-silent electric motor at the bow for creeping along weed beds and reeds; push on for the big outboard to cross the lake fast |
+| Cabin boat | Alongside Willowhaven quay | Slow and steady, with a little cabin forward: a bunk and a galley stove. Anchor (or tie up alongside) and press **E** for the cabin: cook what you've kept and sleep aboard. A camp that floats |
 
-Walk up to a boat and press **E** to get in; step across between two boats side by side; step ashore at any bank, pier or jetty. In a motorboat W and S move the throttle lever, which stays where you leave it (on a touch screen the stick drives it directly); A/D steer, X goes to neutral, Z (or the prompt, when you're stopped) drops or raises the anchor. Fish hear an outboard, so throttle back (or anchor) before you fish; casting puts it in neutral by itself. In shallow water an outboard tips up and you can only creep. Every boat stays where you leave it, anchored or not, and boats reloaded from a save are checked: one that wouldn't float where it was goes back to its mooring. There's no fuel or damage to worry about.
+Walk up to a boat and press **E** to get in; step across between two boats side by side; step ashore at any bank, pier or jetty. In a motorboat W and S move the throttle lever, which stays where you leave it (on a touch screen the stick drives it directly); A/D steer, X goes to neutral, Z (or the prompt, when you're stopped) drops or raises the anchor. Fish hear an outboard, so throttle back (or anchor) before you fish; casting puts it in neutral by itself. In shallow water an outboard tips up and you can only creep. Every boat stays where you leave it, anchored or not, and boats reloaded from a save are checked: one that wouldn't float where it was goes back to its mooring. There's no damage to worry about, and fuel is light (below).
+
+### Fuel
+
+Only what has an engine needs it: the car, the motor skiff, the bass boat's outboard and the cabin boat run on petrol, and the bass boat's electric motor on a battery. The rowing boat and the kayak never need anything. The hints show what's in the tank while you drive or motor (*fuel 31 of 45 L*), with a word when it's down to a fifth.
+
+- **Pumps**: one beside the garage at home (the car and the jerry can), and one at the root of Willowhaven quay (the boats alongside, and the car in the harbour car park). Press **E** at a pump; filling up takes a few minutes and costs nothing.
+- **The jerry can** (10 L) goes wherever you put it: the garage shelf, the car's boot or your backpack. Fill it at a pump and pour it into the car or a boat from your backpack's *Camping kit* section. Longmere has no pump, so the bass boat's outboard runs on what the can brings.
+- **The battery** runs down while the electric motor runs (about ten minutes of it at full), and charges while the bass boat is tied up at a jetty or quay, and overnight whenever you sleep.
+- **A full tank of the car** does any trip there and back; the workbench's packing list and the car's *Where to?* say what each drive takes, and warn if the tank won't do.
+- **Running dry never strands you.** The car rolls to a stop: pour in the jerry can, or walk to a farm for a can (an hour). A drive you let go by with too little in the tank still happens, an hour later. A boat with a dry tank (or a flat battery) moves slowly under an oar, and from the prompt you can pour in the jerry can or have a tow to Willowhaven quay (or the boathouse, for the bass boat): an hour, and a few litres to go on with.
 
 Boats ride the water you see: they heave, pitch and roll on the swell and chop, gently, and no wave tips one over. A kayak bobs on every wavelet; the long rowing boat and skiff bridge short chop; the broad bass boat sits steadiest. Unanchored, a boat drifts with the current and is blown along by the wind (the high-sided bass boat most, the low kayak least), so on a breezy day in the estuary you'll drift down the channel while you fish. At anchor it lies a few metres down-wind and down-current of the anchor, bow to its rope.
 
@@ -549,7 +560,7 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 
 | File | What it holds |
 | --- | --- |
-| `src/main.js` | Game loop, time of day, weather, the four boats, stepping ashore and boarding, travel, interactions, sleep, discoveries, surface clues, HUD, glue between systems |
+| `src/main.js` | Game loop, time of day, weather, the boats, stepping ashore and boarding, travel, interactions, sleep, discoveries, surface clues, HUD, glue between systems |
 | `src/settings.js` | The settings: what's in them, checking saved ones, and the Settings panel (tabs, sliders, key rebinding) |
 | `src/map.js` | The map: which parts of the coast you've explored, and the map sheet with its markers, zoom and camp list |
 | `src/input.js` | Every key as a remappable action, keyboard-layout-aware key names, and the mouse and touch input |
@@ -569,7 +580,10 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 | `src/world/sky.js` | Day cycle colours, sun and moon, sky dome, clouds |
 | `src/camera.js` | The views (boat, on foot, first person, underwater, bait), their limits and smooth transitions |
 | `src/firstperson.js` | First person: where the rod is held in front of your eyes for each moment of fishing, and its springy whip |
-| `src/boat.js` | The four boats (rowing boat, motor skiff, kayak, bass boat): hulls, the figure aboard, oars, paddle, outboards and trolling motor, rods, lantern and anchor; their physics (drift in wind and current, riding the waves), draft and collisions |
+| `src/boat.js` | The five boats (rowing boat, motor skiff, kayak, bass boat, cabin boat): hulls, the cabin, the figure aboard, oars, paddle, outboards and trolling motor, rods, lantern and anchor; their physics (drift in wind and current, riding the waves, an oar when the motor's dead), draft and collisions |
+| `src/fuel.js` | Fuel: tanks for the car and the motorboats, the electric motor's battery, the jerry can, the pumps' fills, what a drive takes, and the help you get when you run dry |
+| `src/firstTrip.js` | The first-trip guide: its steps, what counts as each one done, where it points, and its words for keyboard, controller and touch |
+| `src/gamepad.js` | Game controllers: the Gamepad API, the dead zone, which button presses which action where, and moving round the menus |
 | `src/walker.js` | You on foot: the character, walking and jogging, wading, slopes and obstacles |
 | `src/tackle.js` | Rods (lines, rigs, casting weight, range), baits, lures, flies and jigs, ready-made setups, and the checks that refuse impossible combinations |
 | `src/tackleModels.js` | The little models on the end of the line: float, indicator, lead, baits, lures and flies |
@@ -668,4 +682,4 @@ slowTide.eco.agents           // every fish in the world, with its species, size
 
 ## Ideas for next steps
 
-The journal hints at a softer cushion, a potted fern on the bow, and a little cabin by the lake. Other natural next steps: carrying the brass lantern when you walk at night, tides that cover and uncover the estuary flats (and Shell Strand), a second camping kit, diving on the Kittiwake, a boat trailer for the car, a road you can drive to Wend Quay, cooking and resting at the far camps as at home, fuel and simple upgrades for the motorboats, and seasons that change which fish are about. For the sea, see the [expansion plan](#expansion-plan).
+The journal hints at a softer cushion, a potted fern on the bow, and a little cabin by the lake. Other natural next steps: carrying the brass lantern when you walk at night, tides that cover and uncover the estuary flats (and Shell Strand), a second camping kit, diving on the Kittiwake, a boat trailer for the car, a road you can drive to Wend Quay, cooking and resting at the far camps as at home, simple upgrades for the motorboats, and seasons that change which fish are about. For the sea, see the [expansion plan](#expansion-plan).

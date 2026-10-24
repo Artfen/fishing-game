@@ -161,6 +161,12 @@ export const COAST_PATHS = [
 // Strand to the sea, with the hill behind (see home.js). The pad is cut and filled level; the
 // house and garage share a wall, with a door between them; the garage door faces the drive.
 export const HOME = { x: 123, z: -74 };
+// The fuel pumps (see fuel.js): by the garage at home, facing the drive, and at the root of
+// Willowhaven quay, where the boats come alongside. yaw: the way the pump faces.
+export const FUEL_PUMPS = {
+  home: { x: 136.6, z: -68.8, yaw: -Math.PI / 2, name: 'the fuel pump by the garage' },
+  haven: { x: 13.6, z: -96.2, yaw: -Math.PI / 2, name: 'the harbour fuel pump' },
+};
 // Where a new game begins: in front of the cottage, the garage on your right, the car on the drive.
 export const HOME_START = { x: 123.5, z: -66, heading: Math.PI };
 export const HOME_PAD = { x0: 106, x1: 141, z0: -86, z1: -57, h: 6 };
@@ -758,6 +764,18 @@ export const BOATHOUSE_PIER = pierAlong(BOATHOUSE.x + 4, BOATHOUSE.z, -1, 0, { w
 export const COVE_PIER = pierAlong(GANNET_CAMP.x, GANNET_CAMP.z - 2, 0, -1, { width: 2, deck: 0.8 });
 // Willowhaven's quay: stone, out from the apron into the bay where it's deep enough for the skiff.
 export const HAVEN_QUAY = pierAlong(10, -97, 0, 1, { width: 3.2, deck: 1.5, deep: 4.2 });
+// Where the cabin boat lies: alongside Willowhaven quay, bow to the sea, near the harbour pump,
+// with water under its whole length.
+export const CABIN_BERTH = (() => {
+  const Q = HAVEN_QUAY;
+  for (const dx of [2.6, 3.0, 3.4]) {
+    for (let z = Q.z1 - 1.5; z > Q.z0 + 4; z -= 0.5) {
+      const x = Q.x1 + dx;
+      if ([-3.2, 0, 3.2].every((k) => heightAt(x, z + k) < -1.1)) return { x, z, heading: 0 };
+    }
+  }
+  return { x: Q.x1 + 3, z: Q.z1 - 3, heading: 0 };
+})();
 
 // Walkable decks the boat bumps into: [x0, x1, z0, z1, deck height].
 export const PIERS = [
