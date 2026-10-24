@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { PLACES, PATH, WEND_TRAIL } from './world/terrain.js';
+import { PLACES, PATH, WEND_TRAIL, zoneAt, ZONE_NAMES } from './world/terrain.js';
 import { fishById } from './fish.js';
+import { habitsOf } from './guide.js';
 
 // The map (M): the whole coast as you've seen it. Water you've crossed and shores you've
 // walked are drawn in; the rest stays blank paper until you go there. Places you've found are
@@ -67,6 +68,12 @@ export class Explored {
 }
 
 const BOAT_COLORS = { row: '#b5532f', skiff: '#2f4f7a', kayak: '#e8742a', bass: '#7a2430' };
+const canvas2 = (w, h) => {
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  return c;
+};
 const INK = '#3a2e26';
 const half = THREE.DataUtils.fromHalfFloat;
 
@@ -96,16 +103,99 @@ export class MapSheet {
 
   get isOpen() { return !this.el.hidden; }
 
+  // Where a species can live, as cells of the map: its waters, at depths that suit it. (From
+  // the simulation's own habitat data, so it never shows a fish where the game has none.)
+  suitability(id) {
+    this.masks = this.masks || new Map();
+    if (this.masks.has(id)) return this.masks.get(id);
+    const sp = fishById[id], L = sp.life, H = habitsOf(sp);
+    const mask = new Uint8Array(COLS * ROWS);
+    for (let j = 0; j < ROWS; j++) {
+      for (let i = 0; i < COLS; i++) {
+        const x = SHEET.x + (i + 0.5) * CELL, z = SHEET.z + (j + 0.5) * CELL;
+        const depth = -this.sample(x, z)[0];
+        if (depth < 0.3) continue;
+        if (!L.zones.includes(zoneAt(x, z))) continue;
+        if (depth < Math.max(0.3, H.depth[0] * 0.6)) continue;
+        if ((L.bottom || L.flat) && depth > H.depth[1] + 3) continue;
+        mask[j * COLS + i] = 1;
+      }
+    }
+    this.masks.set(id, mask);
+    return mask;
+  }
+
+  // The suitable water as a soft overlay, in a canvas the size of the base map.
+  overlay(id) {
+    const mask = this.suitability(id);
+    const m = canvas2(COLS, ROWS), mctx = m.getContext('2d'), img = mctx.createImageData(COLS, ROWS);
+    for (let k = 0; k < mask.length; k++) if (mask[k]) {
+      img.data[k * 4] = 32;
+      img.data[k * 4 + 1] = 128;
+      img.data[k * 4 + 2] = 120;
+      img.data[k * 4 + 3] = 255;
+    }
+    mctx.putImageData(img, 0, 0);
+    const o = canvas2(350, 500), ctx = o.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.filter = 'blur(2px)';
+    ctx.drawImage(m, 0, 0, o.width, o.height);
+    ctx.filter = 'none';
+    return o;
+  }
+
+  // A small map for the field guide: the coast as far as you've explored it, with the water that
+  // suits a species shaded over it.
+  miniMap(cv, id) {
+    if (!this.base) this.bake();
+    if (this.fogVersion !== this.explored.version || !this.fog) this.buildFog();
+    const ctx = cv.getContext('2d');
+    ctx.drawImage(this.base, 0, 0, cv.width, cv.height);
+    ctx.drawImage(this.fog, 0, 0, cv.width, cv.height);
+    ctx.globalAlpha = 0.6;
+    ctx.drawImage(this.overlay(id), 0, 0, cv.width, cv.height);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = 'rgba(58, 46, 38, 0.5)';
+    ctx.strokeRect(0.5, 0.5, cv.width - 1, cv.height - 1);
+  }
+
   // where = { player: { x, z, heading }, onFoot, boats, boat (the one you're in or last used) }
-  open(where) {
+  // highlight: a species id, to shade the water that suits it.
+  open(where, highlight = null) {
     this.where = where;
+    this.highlight = highlight;
+    this.highlightImg = highlight ? this.overlay(highlight) : null;
     this.el.hidden = false;
     if (!this.base) this.bake();
     this.fit();
-    // Start a little zoomed in, around you.
+    // Start a little zoomed in, around you; showing a species' water, take in the nearest of it
+    // too.
     this.view.zoom = this.fitZoom * 2.2;
-    this.centre(where.player);
+    const near = highlight && this.nearestSuitable(highlight, where.player);
+    if (near) {
+      const p = where.player, m = 1.5 * CELL;
+      const w = Math.abs(near.x - p.x) + 2 * m, h = Math.abs(near.z - p.z) + 2 * m;
+      this.view.zoom = Math.max(this.fitZoom, Math.min(this.view.zoom, (this.canvas.width * 0.8) / w, (this.canvas.height * 0.8) / h));
+      this.centre({ x: (p.x + near.x) / 2, z: (p.z + near.z) / 2 });
+    } else this.centre(where.player);
     this.renderSide();
+  }
+
+  // The middle of the suitable cell nearest a point.
+  nearestSuitable(id, p) {
+    const mask = this.suitability(id);
+    let best = null, bd = Infinity;
+    for (let j = 0; j < ROWS; j++) {
+      for (let i = 0; i < COLS; i++) {
+        if (!mask[j * COLS + i]) continue;
+        const x = SHEET.x + (i + 0.5) * CELL, z = SHEET.z + (j + 0.5) * CELL, d = (x - p.x) ** 2 + (z - p.z) ** 2;
+        if (d < bd) {
+          bd = d;
+          best = { x, z };
+        }
+      }
+    }
+    return best;
   }
 
   close() {
@@ -342,6 +432,11 @@ export class MapSheet {
     if (st.places.quay || st.places.boathouse) trail(WEND_TRAIL);
 
     ctx.drawImage(this.fog, x0, y0, w, h);
+    if (this.highlightImg) {
+      ctx.globalAlpha = 0.55;
+      ctx.drawImage(this.highlightImg, x0, y0, w, h);
+      ctx.globalAlpha = 1;
+    }
 
     // Edge of the sheet.
     ctx.strokeStyle = 'rgba(58, 46, 38, 0.5)';
@@ -517,7 +612,9 @@ export class MapSheet {
   renderSide() {
     const st = this.state, info = this.hooks.travelInfo();
     const found = PLACES.filter((p) => st.places[p.id]);
-    $('map-sub').textContent = `${found.length} of ${PLACES.length} places found · ${Math.round(this.explored.fraction * 100)}% of the coast explored`;
+    $('map-sub').textContent = this.highlight
+      ? `Shaded: water that suits ${fishById[this.highlight].name.toLowerCase()} (${[...new Set(fishById[this.highlight].life.zones.map((z) => ZONE_NAMES[z] || z))].join(', ')}). It shows where to look, not where each fish is.`
+      : `${found.length} of ${PLACES.length} places found · ${Math.round(this.explored.fraction * 100)}% of the coast explored`;
 
     // Camps you can head to (the walk or sail there happens in a short fade; time passes).
     const camps = found.filter((p) => p.camp);

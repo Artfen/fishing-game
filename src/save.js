@@ -49,6 +49,7 @@ export const DEFAULT_STATE = {
   settings: null,  // sound, graphics, weather, controls and comfort (see settings.js)
   sky: null,       // the weather right now: { cloud, rain, state, timer }
   seen: '',        // the parts of the map you've explored (see map.js), as base64
+  observed: {},    // species you've seen for yourself: id -> { count, day, hour, zone }
 };
 
 const fresh = () => JSON.parse(JSON.stringify(DEFAULT_STATE));
@@ -179,6 +180,12 @@ export function sanitize(raw) {
     for (const k of ['master', 'nature', 'music']) s.volumes[k] = num(raw.volumes[k], s.volumes[k], 0, 1);
   }
   s.settings = cleanSettings(raw.settings, raw);
+  if (isObj(raw.observed)) {
+    for (const [id, r] of Object.entries(raw.observed)) {
+      if (!fishById[id] || !isObj(r)) continue;
+      s.observed[id] = { count: int(r.count, 1, 1, 1e6), day: int(r.day, 1, 1, 1e6), hour: num(r.hour, 12, 0, 24), zone: oneOf(r.zone, ZONES, 'bay') };
+    }
+  }
   s.seen = typeof raw.seen === 'string' && raw.seen.length <= 4000 && /^[A-Za-z0-9+/=]*$/.test(raw.seen) ? raw.seen : '';
   if (isObj(raw.sky)) {
     s.sky = { cloud: num(raw.sky.cloud, 0.3, 0, 1), rain: num(raw.sky.rain, 0, 0, 1), state: oneOf(raw.sky.state, SKY_STATES, 'partly'), timer: num(raw.sky.timer, 120, 0, 3600) };

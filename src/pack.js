@@ -3,7 +3,7 @@ import {
   castRange, castWeight, checkSetup, currentRig, fits, lineOf, termOf, lineInUse,
 } from './tackle.js';
 import { FISH, fishById } from './fish.js';
-import { GearStage, refKey } from './gearView.js';
+import { studio, refKey } from './gearView.js';
 import { reelOf } from './gearArt.js';
 
 // The backpack: what you carry, laid out like opening your tackle. Three areas work together:
@@ -73,7 +73,8 @@ function weightFit(rod, w) {
 
 export class PackUI {
   // travel(dest) heads back to 'camp', 'boat' or a camp; travelInfo() says which are possible.
-  constructor(state, { onChange, onClose, travel, travelInfo, openMap }) {
+  constructor(state, { onChange, onClose, travel, travelInfo, openMap, openGuide }) {
+    this.openGuide = openGuide;
     this.state = state;
     this.onChange = onChange;
     this.onCloseCb = onClose;
@@ -81,13 +82,14 @@ export class PackUI {
     this.el = $('pack');
     this.atBox = false;
     this.boxName = 'tackle box';
-    this.stage = new GearStage();
+    this.stage = studio();
     // What you were looking at: kept while the game runs, so reopening picks up where you were.
     this.ui = { cat: 'rods', sel: {}, scroll: {}, filters: { fits: false, water: 'all', where: 'all', q: '' }, pane: 'browse', rodView: 'full', yaw: 0, pitch: 0 };
     this.queue = [];
     this.queued = new Set();
     this.pumping = false;
     $('pack-close').addEventListener('click', () => this.onCloseCb());
+    $('pack-guide').addEventListener('click', () => this.openGuide?.());
     $('travel-camp').addEventListener('click', () => travel('camp'));
     $('travel-boat').addEventListener('click', () => travel('boat'));
     $('travel-map').addEventListener('click', () => openMap?.());
@@ -837,10 +839,18 @@ export class PackUI {
         const what = it.type === 'jig' ? 'a squid jig' : it.type === 'bait' ? 'bait' : `a ${it.type}`;
         check('no', `The ${hand.short.toLowerCase()} can’t fish ${what}: ${carried ? `your ${carried.short.toLowerCase()} can` : `it needs the ${need.slice(0, 2).map((r) => r.short.toLowerCase()).join(' or ')}${this.atBox ? ` (in the ${this.boxName})` : ', at camp or a boat locker'}`}.`);
       }
-      // Who takes it: only fish you've met are named.
+      // Who takes it, with a link to each one's page in the field guide.
       const takers = FISH.filter((f) => (f.food?.[it.id] ?? 0) >= 0.8).sort((a, b) => b.food[it.id] - a.food[it.id]);
-      const met = takers.filter((f) => this.state.fish[f.id]);
-      if (takers.length) check('info', met.length ? `Taken by ${met.slice(0, 4).map((f) => f.name.toLowerCase()).join(', ')}${takers.length > met.length ? `, and ${takers.length - met.length} you haven’t met yet` : ''}.` : `${takers.length} kind${takers.length > 1 ? 's' : ''} of fish you haven’t met yet like it.`);
+      if (takers.length) {
+        const row = el('div', 'gx-targets');
+        row.append(el('span', '', 'Good for'));
+        for (const f of takers.slice(0, 8)) {
+          const b = btn(`${this.state.fish[f.id] ? '✓ ' : ''}${f.name}`, () => this.openGuide?.(f.id), 'gx-chip gx-target');
+          b.setAttribute('aria-label', `${f.name}: open its page in the field guide`);
+          row.append(b);
+        }
+        extra.push(row);
+      }
       const on = this.itemOn(rod);
       if (on && on.id !== it.id && fits(rod, it) && rod.kind !== 'fly') {
         const term = termOf(g, rod);

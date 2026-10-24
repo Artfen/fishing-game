@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { fishById, buildFishGeometry } from './fish.js';
+import { fishById, buildFishGeometry, fishMaterial } from './fish.js';
 import { formatClock } from './world/sky.js';
 import { clamp, smoothstep } from './util.js';
 
@@ -164,7 +164,7 @@ export class Camp {
     let m = this.grillFish[id];
     if (!m) {
       const sp = fishById[id];
-      m = new THREE.Mesh(buildFishGeometry(sp), new THREE.MeshLambertMaterial({ vertexColors: true }));
+      m = new THREE.Mesh(buildFishGeometry(sp), fishMaterial(sp, false));
       m.rotation.set(0, Math.PI / 2, Math.PI / 2);
       m.castShadow = true;
       this.scene.add(m);

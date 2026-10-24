@@ -1,0 +1,918 @@
+[
+  {
+    "id": "allisshad",
+    "scientific": "Alosa alosa (Linnaeus, 1758)",
+    "family": "Alosidae",
+    "synonyms": ["Clupea alosa Linnaeus, 1758", "Alosa vulgaris (Valenciennes, 1847)", "Alosa communis Yarrell, 1836"],
+    "names": { "en": "Allis shad", "fr": "Grande alose", "es": "Sábalo común", "pt": "Sável" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/101",
+      "https://doris.ffessm.fr/Especes/Alosa-alosa-fallax-Alose-vraie-Alose-feinte-4490",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Anadromous schooling shad: adults live in open coastal waters and run up large rivers to spawn at night on shallow gravel beds; juveniles stay near estuaries for over a year. In the Gironde basin spawning grounds now lie within about 160 km of the ocean on the Dordogne and 300 km on the Garonne (MIGADO 2019).",
+    "depth": { "usual": null, "range": [10, 400], "source": "https://www.fishbase.se/summary/Alosa-alosa.html" },
+    "size": { "common": 40, "max": 83, "maxNote": "FishBase: max 83 cm TL for females (69 cm TL males/unsexed), not flagged as a record; common length 40 cm TL males/unsexed, 70 cm TL females. DORIS gives average 54 cm, max 80 cm.", "source": "https://www.fishbase.se/summary/Alosa-alosa.html" },
+    "diet": "Adults mainly planktonic crustaceans, larger fish also small schooling fishes; juveniles in fresh water eat insect larvae (FishBase). Adults stop feeding once in fresh water (DORIS).",
+    "behaviour": "Anadromous, schooling, strongly migratory; semelparous (most adults die after spawning, only about 4-6% spawn again). Spawns at night in noisy surface-splashing displays called 'bulls'.",
+    "seasonal": "Gironde-Garonne-Dordogne: in 2019 MIGADO recorded the first spawning bulls on 25 April (water just above 12 C), with spawning spread over May-June. FishBase: adults approach the coast from February and ascend rivers in April-May; DORIS: migration March-June, spawning May-July. 0+ juveniles occur in the Gironde estuary (Lobry et al. 2006).",
+    "regions": {
+      "gironde": { "status": "seasonal", "confidence": "high", "basis": "MIGADO 2019 report: about 14,200 spawners in the Garonne-Dordogne basin (9,631 on the Dordogne) versus about 370,000 in 1996; fishing moratorium since 2008. https://www.documentation.eauetbiodiversite.fr/fr/notice/file/113689 ; juveniles in estuary: https://archimer.ifremer.fr/doc/00000/1989/1611.pdf" },
+      "biscay": { "status": "seasonal", "confidence": "high", "basis": "DORIS lists French spawning rivers including the Charente, Garonne, Adour and Nivelle (Bay of Biscay rivers). https://doris.ffessm.fr/Especes/Alosa-alosa-fallax-Alose-vraie-Alose-feinte-4490" },
+      "cantabria": { "status": "seasonal", "confidence": "medium", "basis": "Range statement only (Norway to Morocco, including Spain). No Cantabrian river source found. https://www.fishbase.se/summary/Alosa-alosa.html" },
+      "galicia": { "status": "seasonal", "confidence": "high", "basis": "Portuguese Red Book 2023: occurs in the Minho (border river with Galicia) and Lima basins. https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" },
+      "portugal": { "status": "seasonal", "confidence": "high", "basis": "Portuguese Red Book 2023: Minho, Lima, Cavado, Douro, Vouga, Mondego, Tejo and Guadiana basins; EN. https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" },
+      "cadiz": { "status": "seasonal", "confidence": "medium", "basis": "Portuguese Red Book 2023 lists the Guadiana basin (river mouth on the Gulf of Cadiz at the PT-ES border). No Andalusian source found. https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" }
+    },
+    "identification": [
+      "Scales irregular, not aligned along the flank (DORIS, OFB)",
+      "Usually one large dark spot behind the gill cover, sometimes absent (DORIS, OFB)",
+      "Many long fine gill rakers: 85-130 (DORIS), 85-160 (OFB), more than in twaite shad",
+      "Upper jaw with a marked median notch; no lateral line; deeply forked tail (OFB)",
+      "Blue-green back, silvery flanks, golden marks on the gill covers (DORIS)"
+    ],
+    "similar": [
+      "Twaite shad (Alosa fallax): row of 4-8 small dark spots behind the gill cover, regular aligned scales, 30-80 gill rakers, smaller; hybrids between the two occur (DORIS, FishBase)",
+      "Herrings, sardines and sprats: similar silvery clupeoids (DORIS)"
+    ],
+    "anglingMethods": [
+      "Protected: no fishing. Moratorium banning all fishing (professional and recreational) since 2008 in Gironde, Dordogne, Lot-et-Garonne and Charente-Maritime (https://www.documentation.eauetbiodiversite.fr/fr/notice/file/113689); listed as banned for leisure fishing in the Gironde estuary (https://www.gironde.gouv.fr/contenu/telechargement/68063/507448/file/Fiche%2017%20-%20Diff%C3%A9rents%20types%20de%20p%C3%AAche.pdf) and banned year-round with immediate release in Gironde fresh waters (https://www.gironde.gouv.fr/contenu/telechargement/66509/495284/file/Reglementation-p%C3%AAche-eau-douce_Gironde.pdf)",
+      "Portugal inland waters: recreational and sport fishing prohibited, professional permitted (Portaria 108/2018 as summarised in the 2023 Red Book) https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf",
+      "UK: protected; caught incidentally while spinning for bass or feathering for mackerel and must be released https://britishseafishing.co.uk/shad/"
+    ],
+    "conservation": "IUCN global: Critically Endangered (A2acde), assessment dated 16 March 2022 as displayed by FishBase (Red List v2025-2); older sources show LC (see uncertain). France: protected (arrete of 8 Dec 1988, eggs and spawning habitats), French red list CR (OFB); Habitats Directive Annexes II and V; Bern Annex III. Gironde-Garonne-Dordogne fishing moratorium since 2008 (COGEPOMI recommendation of Dec 2007). Portugal: EN (2023 Red Book). Spain: VU (Doadrio et al. 2011 as cited in the Portuguese Red Book); no Alosa entry found in the fetched text of the Spanish threatened-species catalogue (RD 139/2011). Recommend observation-only.",
+    "sources": [
+      { "title": "FishBase summary: Alosa alosa", "url": "https://www.fishbase.se/summary/Alosa-alosa.html" },
+      { "title": "FishBase common names: Alosa alosa", "url": "https://www.fishbase.se/ComNames/101" },
+      { "title": "FishBase synonyms: Alosa alosa", "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=101&SynCode=22770&GenusName=Alosa&SpeciesName=alosa" },
+      { "title": "DORIS: Alosa alosa / Alosa fallax", "url": "https://doris.ffessm.fr/Especes/Alosa-alosa-fallax-Alose-vraie-Alose-feinte-4490" },
+      { "title": "OFB species fiche: Alose vraie, Grande alose", "url": "https://ofb.gouv.fr/especes/alose-vraie-grande-alose-alosa-alosa" },
+      { "title": "MIGADO: Suivi de la reproduction naturelle de la grande alose sur la Dordogne, annee 2019", "url": "https://www.documentation.eauetbiodiversite.fr/fr/notice/file/113689" },
+      { "title": "Assemblee nationale, question ecrite 24522 (2008): COGEPOMI moratorium recommendation", "url": "https://www.assemblee-nationale.fr/dyn/13/questions/QANR5L13QE24522" },
+      { "title": "Lobry, Lepage & Rochard 2006, small fish and shrimp fauna of the Gironde estuary (Archimer)", "url": "https://archimer.ifremer.fr/doc/00000/1989/1611.pdf" },
+      { "title": "Prefecture de la Gironde, Guide plaisance fiche 17 (May 2023)", "url": "https://www.gironde.gouv.fr/contenu/telechargement/68063/507448/file/Fiche%2017%20-%20Diff%C3%A9rents%20types%20de%20p%C3%AAche.pdf" },
+      { "title": "Prefecture de la Gironde, freshwater fishing rules annex", "url": "https://www.gironde.gouv.fr/contenu/telechargement/66509/495284/file/Reglementation-p%C3%AAche-eau-douce_Gironde.pdf" },
+      { "title": "Livro Vermelho dos Peixes Dulciaquicolas e Diadromos de Portugal Continental (2023)", "url": "https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "British Sea Fishing: Shad", "url": "https://britishseafishing.co.uk/shad/" }
+    ],
+    "uncertain": "IUCN global category conflict: FishBase shows CR (assessed 16 Mar 2022), but the OFB fiche and the Portuguese Red Book 2023 (citing IUCN 2023) give global LC; the CR assessment was probably published after 2023, but the IUCN site itself was not fetched. Gironde counts after 2019 and whether the moratorium is still in force in 2026 were not verified (the 2019 report says it had been extended until then). The OFB fiche gives upstream migration January-March, which differs from FishBase and DORIS timings. Habitats Directive annexes: OFB and the PT Red Book give II and V; the DORIS summary read as II and IV. No Cantabrian river source found."
+  },
+  {
+    "id": "twaiteshad",
+    "scientific": "Alosa fallax (Lacepède, 1803)",
+    "family": "Alosidae",
+    "synonyms": ["Clupea fallax Lacepède, 1803", "Alosa finta (Cuvier, 1829)", "Clupea finta Cuvier, 1829", "Alosa ficta Duhamel du Monceau, 1772"],
+    "names": { "en": "Twaite shad", "fr": "Alose feinte", "es": "Saboga", "pt": "Savelha" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/5355",
+      "https://doris.ffessm.fr/Especes/Alosa-alosa-fallax-Alose-vraie-Alose-feinte-4490",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Anadromous shad of coastal waters (DORIS: usually shallower than 20 m) that spawns in rivers only a few km above the brackish zone, and even in estuaries; juveniles stay in estuaries and near shore for over a year (FishBase, DORIS).",
+    "depth": { "usual": null, "range": [10, 400], "source": "https://www.fishbase.se/summary/Alosa-fallax.html" },
+    "size": { "common": 40, "max": 60, "maxNote": "60 cm SL males/unsexed (FishBase, not flagged as a record); common 40 cm SL. DORIS: average 42 cm, max 55 cm.", "source": "https://www.fishbase.se/summary/Alosa-fallax.html" },
+    "diet": "Small fishes and crustaceans; young fish eat fry of herrings, sprats and gobies (FishBase). DORIS: mostly piscivorous at sea, notably anchovies in the Bay of Biscay; adults stop feeding in fresh water.",
+    "behaviour": "Anadromous, schooling; iteroparous (may spawn over 3-4 seasons per FishBase, up to five times per DORIS); spawns at night, closer to the sea than allis shad.",
+    "seasonal": "Enters rivers in spring and early summer, spawning at 12-22 C (FishBase). In the Gironde estuary leisure fishing is open 1 Jan-15 May (Gironde prefecture guide) and 0+ juveniles are sampled in the estuary (Lobry et al. 2006).",
+    "regions": {
+      "gironde": { "status": "seasonal", "confidence": "high", "basis": "One of the main species of the Gironde estuarine professional fishery and has a leisure season in the estuary. https://webissimo.developpement-durable.gouv.fr/IMG/pdf/2_2_la_peche_estuarienne_cle584663.pdf ; https://www.gironde.gouv.fr/index.php/contenu/telechargement/72119/538784/file/Fiche%2019%20-%20R%C3%A8gles%20de%20p%C3%AAche%20de%20loisirs%20sur%20la%20c%C3%B4te%20oc%C3%A9ane.pdf ; https://archimer.ifremer.fr/doc/00000/1989/1611.pdf" },
+      "biscay": { "status": "seasonal", "confidence": "high", "basis": "DORIS lists French rivers including the Charente, Adour and Nivelle and notes feeding on anchovies in the Bay of Biscay. https://doris.ffessm.fr/Especes/Alosa-alosa-fallax-Alose-vraie-Alose-feinte-4490" },
+      "cantabria": { "status": "seasonal", "confidence": "medium", "basis": "Range statement only (Iceland to northern Morocco). https://www.fishbase.se/summary/Alosa-fallax.html" },
+      "galicia": { "status": "seasonal", "confidence": "high", "basis": "Portuguese Red Book 2023: Minho basin (border river with Galicia). https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" },
+      "portugal": { "status": "seasonal", "confidence": "high", "basis": "Portuguese Red Book 2023: from the Minho to the Mira basins; VU. https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" },
+      "cadiz": { "status": "seasonal", "confidence": "medium", "basis": "Portuguese Red Book 2023: Guadiana basin (mouth on the Gulf of Cadiz). https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" }
+    },
+    "identification": [
+      "Regular scales aligned along the flank (DORIS)",
+      "Row of 4-8 small dark spots behind the gill cover, not always visible (DORIS)",
+      "Fewer gill rakers than allis shad: 30-80 (DORIS)",
+      "Blue-green back, silvery flanks, no lateral line, deeply forked tail (DORIS)"
+    ],
+    "similar": [
+      "Allis shad (Alosa alosa): single large spot or none, irregular scales, 85-130 gill rakers, larger; hybrids occur (DORIS, FishBase)",
+      "Herrings, sardines and sprats (DORIS)"
+    ],
+    "anglingMethods": [
+      "Gironde estuary: leisure fishing allowed 1 Jan-15 May only; may be banned for consumption depending on size for health reasons (https://www.gironde.gouv.fr/index.php/contenu/telechargement/72119/538784/file/Fiche%2019%20-%20R%C3%A8gles%20de%20p%C3%AAche%20de%20loisirs%20sur%20la%20c%C3%B4te%20oc%C3%A9ane.pdf); an older version of the guide also set a 40 cm maximum catch size in the estuary (https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf)",
+      "Gironde fresh waters: 30 cm minimum size https://www.gironde.gouv.fr/contenu/telechargement/66509/495284/file/Reglementation-p%C3%AAche-eau-douce_Gironde.pdf",
+      "UK: protected; incidental on spinners for bass and mackerel feathers, must be released https://britishseafishing.co.uk/shad/",
+      "Portugal inland waters: recreational and sport fishing prohibited (Portaria 108/2018 as summarised in the 2023 Red Book) https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf"
+    ],
+    "conservation": "IUCN global: LC (assessed 26 June 2022; FishBase). Habitats Directive Annexes II and V, Bern Annex III (Portuguese Red Book table). France: arrete of 8 Dec 1988 protects eggs and spawning habitats (DORIS). Portugal: VU (2023 Red Book). Spain: VU (Doadrio et al. 2011 as cited in the Portuguese Red Book). Regulated rather than banned in the Gironde estuary.",
+    "sources": [
+      { "title": "FishBase summary: Alosa fallax", "url": "https://www.fishbase.se/summary/Alosa-fallax.html" },
+      { "title": "FishBase common names: Alosa fallax", "url": "https://www.fishbase.se/ComNames/5355" },
+      { "title": "FishBase synonyms: Alosa fallax", "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=5355&SynCode=25577&GenusName=Alosa&SpeciesName=fallax" },
+      { "title": "DORIS: Alosa alosa / Alosa fallax", "url": "https://doris.ffessm.fr/Especes/Alosa-alosa-fallax-Alose-vraie-Alose-feinte-4490" },
+      { "title": "La peche estuarienne (fiche 2.2, Gironde-Charente-Adour)", "url": "https://webissimo.developpement-durable.gouv.fr/IMG/pdf/2_2_la_peche_estuarienne_cle584663.pdf" },
+      { "title": "Prefecture de la Gironde, Guide plaisance fiche 19", "url": "https://www.gironde.gouv.fr/index.php/contenu/telechargement/72119/538784/file/Fiche%2019%20-%20R%C3%A8gles%20de%20p%C3%AAche%20de%20loisirs%20sur%20la%20c%C3%B4te%20oc%C3%A9ane.pdf" },
+      { "title": "Prefecture de la Gironde, Guide plaisance fiche 18 (April 2022)", "url": "https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf" },
+      { "title": "Prefecture de la Gironde, freshwater fishing rules annex", "url": "https://www.gironde.gouv.fr/contenu/telechargement/66509/495284/file/Reglementation-p%C3%AAche-eau-douce_Gironde.pdf" },
+      { "title": "Lobry, Lepage & Rochard 2006 (Archimer)", "url": "https://archimer.ifremer.fr/doc/00000/1989/1611.pdf" },
+      { "title": "Livro Vermelho dos Peixes Dulciaquicolas e Diadromos de Portugal Continental (2023)", "url": "https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "British Sea Fishing: Shad", "url": "https://britishseafishing.co.uk/shad/" }
+    ],
+    "uncertain": "Versions of the Gironde leisure guide differ: the 40 cm maximum size in the estuary appears only in the older (April 2022) version; the current rule should be checked. Cantabrian presence is by range only. FishBase notes 5 subspecies; which applies regionally was not checked."
+  },
+  {
+    "id": "eel",
+    "scientific": "Anguilla anguilla (Linnaeus, 1758)",
+    "family": "Anguillidae",
+    "synonyms": ["Muraena anguilla Linnaeus, 1758", "Anguilla vulgaris Shaw, 1803", "Anguilla fluviatilis Anslijn, 1828"],
+    "names": { "en": "European eel", "fr": "Anguille européenne", "es": "Anguila europea", "pt": "Enguia-europeia" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/35",
+      "https://doris.ffessm.fr/Especes/Anguilla-anguilla-Anguille-856",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Catadromous: grows in rivers, lakes, estuaries and coastal lagoons such as the Bassin d'Arcachon, on soft sand-mud or mixed rock-sediment bottoms; spawns far offshore in the Sargasso Sea (FishBase, DORIS).",
+    "depth": { "usual": null, "range": [0, 700], "source": "https://www.fishbase.se/summary/Anguilla-anguilla.html" },
+    "size": { "common": 35, "max": 133, "maxNote": "133 cm TL females (122 cm TL males/unsexed), FishBase, not flagged as a record; common 35 cm TL males, 50 cm TL females. DORIS: commonly up to 1 m, max about 1.5 m.", "source": "https://www.fishbase.se/summary/Anguilla-anguilla.html" },
+    "diet": "Wide range of aquatic invertebrates and fishes plus worms; hunts at dusk and night (FishBase, DORIS). Does not feed as a glass eel or during the final spawning migration.",
+    "behaviour": "Catadromous and mainly nocturnal. Life stages: leptocephalus larva, glass eel (civelle/pibale), yellow eel, silver eel. Silver eels migrate about 5,000-6,000 km to the Sargasso Sea and die after spawning.",
+    "seasonal": "Glass eels enter the Gironde estuary, where they support a professional fishery using the 'tamis a civelle' and are sampled in estuary surveys (fiche 2.2; Lobry et al. 2006). Silver eels leave for the sea in autumn, often on moonlit nights (DORIS). Exact glass-eel season dates in the Gironde were not verified.",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "high", "basis": "Glass eels and 0+ eels sampled in the estuary; eel and glass eel are main targets of the estuarine fishery. https://archimer.ifremer.fr/doc/00000/1989/1611.pdf ; https://webissimo.developpement-durable.gouv.fr/IMG/pdf/2_2_la_peche_estuarienne_cle584663.pdf" },
+      "biscay": { "status": "resident", "confidence": "high", "basis": "Quero & Cendrero 1996: very common in the Bassin d'Arcachon. https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range statement only (Atlantic coast from Scandinavia to Morocco). https://www.fishbase.se/summary/Anguilla-anguilla.html" },
+      "galicia": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Anguilla-anguilla.html" },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "Portuguese Red Book 2023: widely distributed across mainland Portugal; EN. https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" },
+      "cadiz": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Anguilla-anguilla.html" }
+    },
+    "identification": [
+      "Snake-like body; dorsal, caudal and anal fins joined in one continuous fin starting well behind the pectorals (DORIS)",
+      "Lower jaw slightly longer than the upper (DORIS)",
+      "No pelvic fins; tubular nostrils (DORIS)",
+      "Yellow eel: brown-green back and yellowish belly; silver eel: dark back and silvery belly (DORIS)"
+    ],
+    "similar": [
+      "Conger eel (Conger conger): dorsal fin starts at the level of the pectorals, lower jaw slightly shorter than the upper, marine only, grows to 3 m (DORIS)",
+      "Sea and river lampreys: round sucking mouth without jaws, seven gill openings (DORIS lamprey fiche)"
+    ],
+    "anglingMethods": [
+      "Protected: no fishing in the Gironde estuary. Glass eel (pibale/civelle), yellow eel and silver eel are all listed as banned for leisure fishing (https://www.gironde.gouv.fr/contenu/telechargement/68063/507448/file/Fiche%2017%20-%20Diff%C3%A9rents%20types%20de%20p%C3%AAche.pdf)",
+      "Gironde fresh waters: eels under 12 cm and silver (downstream-migrating) eels must be released year-round https://www.gironde.gouv.fr/contenu/telechargement/66509/495284/file/Reglementation-p%C3%AAche-eau-douce_Gironde.pdf",
+      "Portugal inland waters: recreational and sport fishing prohibited (Portaria 108/2018 as summarised in the 2023 Red Book) https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf"
+    ],
+    "conservation": "IUCN global: CR (A2bd+4bd, assessed 7 Nov 2018; FishBase). CITES Appendix II, CMS Appendix II. EU Regulation (EC) 1100/2007 requires eel management plans. Portugal: EN (2023 Red Book). Spain: EN (Doadrio et al. 2011 as cited in the Portuguese Red Book). Gironde estuary: all stages banned to leisure fishing. Recommend observation-only.",
+    "sources": [
+      { "title": "FishBase summary: Anguilla anguilla", "url": "https://www.fishbase.se/summary/Anguilla-anguilla.html" },
+      { "title": "FishBase common names: Anguilla anguilla", "url": "https://www.fishbase.se/ComNames/35" },
+      { "title": "FishBase synonyms: Anguilla anguilla", "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=35&SynCode=22711&GenusName=Anguilla&SpeciesName=anguilla" },
+      { "title": "DORIS: Anguilla anguilla", "url": "https://doris.ffessm.fr/Especes/Anguilla-anguilla-Anguille-856" },
+      { "title": "Lobry, Lepage & Rochard 2006 (Archimer)", "url": "https://archimer.ifremer.fr/doc/00000/1989/1611.pdf" },
+      { "title": "La peche estuarienne (fiche 2.2)", "url": "https://webissimo.developpement-durable.gouv.fr/IMG/pdf/2_2_la_peche_estuarienne_cle584663.pdf" },
+      { "title": "Quero & Cendrero 1996, Cybium 20(4): Arcachon and southern Gascogne shelf", "url": "https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      { "title": "Prefecture de la Gironde, Guide plaisance fiche 17 (May 2023)", "url": "https://www.gironde.gouv.fr/contenu/telechargement/68063/507448/file/Fiche%2017%20-%20Diff%C3%A9rents%20types%20de%20p%C3%AAche.pdf" },
+      { "title": "Prefecture de la Gironde, freshwater fishing rules annex", "url": "https://www.gironde.gouv.fr/contenu/telechargement/66509/495284/file/Reglementation-p%C3%AAche-eau-douce_Gironde.pdf" },
+      { "title": "Livro Vermelho dos Peixes Dulciaquicolas e Diadromos de Portugal Continental (2023)", "url": "https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" }
+    ],
+    "uncertain": "Glass-eel season dates and current Gironde professional quota not verified. The April 2022 version of the Gironde guide (fiche 18) still allowed leisure fishing of yellow eel of 12 cm or more (generally 1 May-30 Sept); later versions (fiche 17 May 2023, fiche 19) list yellow eel as banned. No regional source fetched for Cantabria, Galicia or Cadiz (range only)."
+  },
+  {
+    "id": "lamprey",
+    "scientific": "Petromyzon marinus Linnaeus, 1758",
+    "family": "Petromyzontidae",
+    "synonyms": ["Lampetra marina (Linnaeus, 1758)", "Petromyzon americanus Lesueur, 1818", "Petromyzon lampetra Pallas, 1814"],
+    "names": { "en": "Sea lamprey", "fr": "Lamproie marine", "es": "Lamprea marina", "pt": "Lampreia-do-mar" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/2530",
+      "https://doris.ffessm.fr/Especes/Petromyzon-marinus-Lamproie-marine-1635",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Anadromous jawless fish: adults live at sea as parasites of fishes, then run up rivers to spawn on pebble-gravel nests; larvae (ammocoetes) live 5-7 years buried in river sediment before migrating to sea (DORIS, FishBase).",
+    "depth": { "usual": null, "range": [1, 4099], "source": "https://www.fishbase.se/summary/Petromyzon-marinus.html" },
+    "size": { "common": 60, "max": 120, "maxNote": "120 cm TL (FishBase, not flagged as a record); DORIS: 60-120 cm, average 80 cm, 0.7-2.6 kg.", "source": "https://www.fishbase.se/summary/Petromyzon-marinus.html" },
+    "diet": "Adults are external parasites, rasping flesh and feeding on blood and body fluids of fishes (hosts include mullets, shads, herring, salmon, cod) and marine mammals; ammocoetes filter diatoms and detritus.",
+    "behaviour": "Anadromous and semelparous (adults die after spawning); spends roughly 2 years at sea (DORIS; 20-36 months per FishBase); upstream migrants fast; both sexes build the nest.",
+    "seasonal": "France: spawning run mainly April-June (a minority in winter), spawning late April-late May at 15-18 C (DORIS). Galicia (River Ulla): upstream migration from about January (possibly December) to June, spawning May-June (Silva et al. 2015); Ulla weir fishery seasons run 12 Jan-23 May depending on stretch (Xunta, 2026 season).",
+    "regions": {
+      "gironde": { "status": "seasonal", "confidence": "high", "basis": "DORIS gives Gironde-Garonne-Dordogne catch history; 0+ larvae recorded in estuary surveys; fishing banned since 2023. https://doris.ffessm.fr/Especes/Petromyzon-marinus-Lamproie-marine-1635 ; https://archimer.ifremer.fr/doc/00000/1989/1611.pdf" },
+      "biscay": { "status": "seasonal", "confidence": "high", "basis": "DORIS lists French rivers including the Adour and Gironde. https://doris.ffessm.fr/Especes/Petromyzon-marinus-Lamproie-marine-1635" },
+      "cantabria": { "status": "seasonal", "confidence": "medium", "basis": "Range statement only (NE Atlantic). https://www.fishbase.se/summary/Petromyzon-marinus.html" },
+      "galicia": { "status": "seasonal", "confidence": "high", "basis": "Licensed traditional fishery on the River Ulla; spawning migration studied there. https://www.xunta.gal/notas-de-prensa/-/nova/018917/xunta-abre-mana-prazo-solicitudes-para-pescar-lamprea-rio-ulla-durante-vindeira ; https://www.frontiersin.org/10.3389/conf.fmars.2015.03.00093/event_abstract" },
+      "portugal": { "status": "seasonal", "confidence": "high", "basis": "Portuguese Red Book 2023: Minho, Lima, Cavado, Douro, Vouga, Mondego, Tejo, Sado and Guadiana basins; VU. https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" },
+      "cadiz": { "status": "seasonal", "confidence": "medium", "basis": "Portuguese Red Book lists the Guadiana basin; Spain lists the Guadiana and Guadalquivir populations as 'En peligro de extincion'. https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf ; https://www.boe.es/buscar/act.php?id=BOE-A-2011-3582" }
+    },
+    "identification": [
+      "Eel-shaped, scaleless, slimy body, yellowish with brown marbling, white belly (DORIS)",
+      "Round sucking disc entirely covered with horny teeth; no jaws (DORIS)",
+      "Seven round gill openings on each side; a single nostril (DORIS)",
+      "Two dorsal fins of similar height separated by a small gap; no paired fins (DORIS)"
+    ],
+    "similar": [
+      "River lamprey (Lampetra fluviatilis): max about 50 cm, not marbled, few disc teeth, taller triangular second dorsal (DORIS)",
+      "Brook lamprey (Lampetra planeri): max 18 cm, touching dorsal fins, non-parasitic freshwater resident (DORIS)",
+      "Hagfish: four barbels around the mouth, single horny tooth, scavenger (DORIS)"
+    ],
+    "anglingMethods": [
+      "Protected: no fishing in the Gironde estuary. Since 2023 professional and recreational fishing of sea and river lamprey is banned (https://webissimo.developpement-durable.gouv.fr/IMG/pdf/2_2_la_peche_estuarienne_cle584663.pdf); listed as banned for leisure fishing in the estuary (https://www.gironde.gouv.fr/index.php/contenu/telechargement/72119/538784/file/Fiche%2019%20-%20R%C3%A8gles%20de%20p%C3%AAche%20de%20loisirs%20sur%20la%20c%C3%B4te%20oc%C3%A9ane.pdf); line fishing totally banned in the Garonne basin plan modification (https://www.nouvelle-aquitaine.developpement-durable.gouv.fr/IMG/pdf/arrete_modif_plagepomi_garonne_2022-2027_vconsult.pdf)",
+      "Galicia: taken only with traditional weirs (pesqueiras) and nets under licence on the Ulla, not rod and line https://www.xunta.gal/notas-de-prensa/-/nova/018917/xunta-abre-mana-prazo-solicitudes-para-pescar-lamprea-rio-ulla-durante-vindeira",
+      "Portugal inland waters: recreational and sport fishing prohibited (2023 Red Book summary of Portaria 108/2018) https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf"
+    ],
+    "conservation": "IUCN global: LC (assessed 29 May 2022; FishBase). Habitats Directive Annex II; Bern Annex III; OSPAR Annex V (DORIS). France: arrete of 8 Dec 1988 (habitat protection); all fishing banned in the Gironde estuary since 2023. Spain: Guadiana, Guadalquivir, Ebro and southern-basin populations 'En peligro de extincion' in the national catalogue (RD 139/2011); VU on the Spanish red list (Doadrio et al. 2011 as cited in the Portuguese Red Book). Portugal: VU (2023 Red Book). Recommend observation-only.",
+    "sources": [
+      { "title": "FishBase summary: Petromyzon marinus", "url": "https://www.fishbase.se/summary/Petromyzon-marinus.html" },
+      { "title": "FishBase common names: Petromyzon marinus", "url": "https://www.fishbase.se/ComNames/2530" },
+      { "title": "FishBase synonyms: Petromyzon marinus", "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=2530&SynCode=30477&GenusName=Petromyzon&SpeciesName=marinus" },
+      { "title": "DORIS: Petromyzon marinus", "url": "https://doris.ffessm.fr/Especes/Petromyzon-marinus-Lamproie-marine-1635" },
+      { "title": "La peche estuarienne (fiche 2.2)", "url": "https://webissimo.developpement-durable.gouv.fr/IMG/pdf/2_2_la_peche_estuarienne_cle584663.pdf" },
+      { "title": "PLAGEPOMI Garonne 2022-2027 modification, presentation note (Nov 2022)", "url": "https://www.nouvelle-aquitaine.developpement-durable.gouv.fr/IMG/pdf/note_de_presentation_garonne_2022.pdf" },
+      { "title": "PLAGEPOMI Garonne modification decree (consultation version)", "url": "https://www.nouvelle-aquitaine.developpement-durable.gouv.fr/IMG/pdf/arrete_modif_plagepomi_garonne_2022-2027_vconsult.pdf" },
+      { "title": "Prefecture de la Gironde, Guide plaisance fiche 19", "url": "https://www.gironde.gouv.fr/index.php/contenu/telechargement/72119/538784/file/Fiche%2019%20-%20R%C3%A8gles%20de%20p%C3%AAche%20de%20loisirs%20sur%20la%20c%C3%B4te%20oc%C3%A9ane.pdf" },
+      { "title": "Lobry, Lepage & Rochard 2006 (Archimer)", "url": "https://archimer.ifremer.fr/doc/00000/1989/1611.pdf" },
+      { "title": "Xunta de Galicia: lamprey fishing on the River Ulla, 2026 season", "url": "https://www.xunta.gal/notas-de-prensa/-/nova/018917/xunta-abre-mana-prazo-solicitudes-para-pescar-lamprea-rio-ulla-durante-vindeira" },
+      { "title": "Silva et al. 2015, sea lamprey in the River Ulla (abstract)", "url": "https://www.frontiersin.org/10.3389/conf.fmars.2015.03.00093/event_abstract" },
+      { "title": "Real Decreto 139/2011 (BOE consolidated text)", "url": "https://www.boe.es/buscar/act.php?id=BOE-A-2011-3582" },
+      { "title": "Livro Vermelho dos Peixes Dulciaquicolas e Diadromos de Portugal Continental (2023)", "url": "https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" }
+    ],
+    "uncertain": "Only the consultation draft of the 2022 PLAGEPOMI modification was read; the 2023 estuary ban itself is confirmed by fiche 2.2. Cantabrian rivers not verified. The FishBase depth maximum (4,099 m) is an extreme record and no 'usual' depth was found. DORIS calls it 'vulnerable' at European level while IUCN global is LC."
+  },
+  {
+    "id": "sturgeon",
+    "scientific": "Acipenser sturio Linnaeus, 1758",
+    "family": "Acipenseridae",
+    "synonyms": ["Sturio vulgaris Rafinesque, 1810", "Acipenser latirostris Parnell, 1831-37", "Acipenser hospitus Krøyer, 1852"],
+    "names": { "en": "European sturgeon", "fr": "Esturgeon européen", "es": "Esturión", "pt": "Esturjão" },
+    "nameSources": [
+      "https://doris.ffessm.fr/Especes/Acipenser-sturio-Esturgeon-europeen-1321",
+      "https://www.fishbase.se/ComNames/2066",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Anadromous bottom-dweller of mud and sand. Juveniles spend 3-7 years in the brackish Gironde estuary (zones deeper than 5 m, mean depth 4-8 m), feeding mainly on polychaete worms, then range widely at sea along the Bay of Biscay, Channel, North Sea and Irish Sea coasts, mostly shallower than 40 m (PNA 2011-2015).",
+    "depth": { "usual": [5, 60], "range": [4, 93], "source": "https://www.fishbase.se/summary/Acipenser-sturio.html" },
+    "size": { "common": 125, "max": 600, "maxNote": "600 cm TL and 400 kg historical maximum (FishBase); common 125 cm TL. DORIS: typically 1-2 m.", "source": "https://www.fishbase.se/summary/Acipenser-sturio.html" },
+    "diet": "Benthic invertebrates: polychaetes (main prey in the Gironde estuary), crustaceans such as gammarids, brown shrimp and green crab, molluscs, and small fishes; adults do not feed during the spawning migration.",
+    "behaviour": "Anadromous, usually solitary and very long-lived (up to about 100 years). Males mature at 10-12 years, females at 13-16 years. Spawns over gravel and boulders in fast, deep water of the Garonne and Dordogne.",
+    "seasonal": "Adults enter rivers January-October, peaking early April to late May; spawning in the Garonne-Dordogne mainly in May and early June. Estuarine juveniles move to the coast near the estuary plume in autumn-winter and back into the estuary in spring-summer, a movement called the 'Mouvee de la Saint-Jean' (PNA 2011-2015).",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "high", "basis": "PNA: the Gironde-Garonne-Dordogne is probably the last European basin with a population; CNPN 2023 opinion on releases into the Gironde estuary. https://www.nouvelle-aquitaine.developpement-durable.gouv.fr/IMG/pdf/11032_PNA-Esturgeon.pdf ; https://www.avis-biodiversite.developpement-durable.gouv.fr/IMG/pdf/2023-03-34x-00320_migado_l_411_2_ai_l_411_4_lacher_mi_nat_esturgeon_avis_du_05_2023.pdf" },
+      "biscay": { "status": "occasional", "confidence": "medium", "basis": "PNA: sub-adults roam the Bay of Biscay coasts; reported sea catches about 3-4 per year in the late 2000s. https://www.nouvelle-aquitaine.developpement-durable.gouv.fr/IMG/pdf/11032_PNA-Esturgeon.pdf" },
+      "cantabria": { "status": "occasional", "confidence": "low", "basis": "PNA photo caption: specimen caught accidentally by a professional fisher off Asturias. https://www.nouvelle-aquitaine.developpement-durable.gouv.fr/IMG/pdf/11032_PNA-Esturgeon.pdf" },
+      "galicia": { "status": "occasional", "confidence": "low", "basis": "No record found; the PNA's described marine range does not name Iberia. Treated as at most a vagrant. https://www.nouvelle-aquitaine.developpement-durable.gouv.fr/IMG/pdf/11032_PNA-Esturgeon.pdf" },
+      "portugal": { "status": "absent", "confidence": "high", "basis": "Carneiro et al. 2014: last records early 1980s in the lower Guadiana, species considered extinct in Portugal; Red Book 2023: Regionally Extinct. https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318 ; https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" },
+      "cadiz": { "status": "absent", "confidence": "medium", "basis": "Formerly fished in the Guadalquivir (studies cited in the PNA bibliography); Spanish red list category RE (Doadrio et al. 2011, as cited in the Portuguese Red Book). https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" }
+    },
+    "identification": [
+      "Long pointed snout with four smooth, unfringed barbels in front of a ventral protrusible mouth (DORIS)",
+      "Five rows of bony plates (scutes) along the body (DORIS)",
+      "Upper lobe of the tail larger than the lower (DORIS)",
+      "Ash-grey to grey-brown back, paler yellowish underside (DORIS)"
+    ],
+    "similar": [
+      "Siberian sturgeon (Acipenser baerii): farmed escapee in rivers; separation needs scute counts by specialists (DORIS)",
+      "Sterlet (Acipenser ruthenus) and its farm hybrids: narrow upturned snout with fringed barbels (DORIS)"
+    ],
+    "anglingMethods": [
+      "Protected: no fishing. Fishing banned in France since the interministerial arrete of 25 Jan 1982 (PNA) and the species is fully protected; banned year-round with immediate release in Gironde fresh waters and banned to leisure fishing in the estuary (https://www.nouvelle-aquitaine.developpement-durable.gouv.fr/IMG/pdf/11032_PNA-Esturgeon.pdf ; https://www.gironde.gouv.fr/contenu/telechargement/66509/495284/file/Reglementation-p%C3%AAche-eau-douce_Gironde.pdf ; https://www.gironde.gouv.fr/contenu/telechargement/68063/507448/file/Fiche%2017%20-%20Diff%C3%A9rents%20types%20de%20p%C3%AAche.pdf). The PNA relies on fishers declaring accidental captures."
+    ],
+    "conservation": "IUCN: CR (A2cde; D, assessed 15 Sept 2020; FishBase). CITES Appendix I; CMS Appendices I and II; Habitats Directive Annexes II and IV; Bern Annex II; OSPAR Annex V (DORIS). France: protected since 1982 and by the arrete of 20 Dec 2004; national action plan (PNA 2011-2015). Last natural reproduction observed in 1994; assisted reproduction since 1995 and 2007-2009, with 7,000 (2007), 85,000 (2008) and 40,000 (2009) juveniles of 2.5-3 months released (PNA); in 2023 the CNPN gave a conditional favourable opinion on further MIGADO releases into the Gironde estuary. Spain: 'En peligro de extincion' (RD 139/2011). Portugal: Regionally Extinct (2023 Red Book). Observation-only.",
+    "sources": [
+      { "title": "FishBase summary: Acipenser sturio", "url": "https://www.fishbase.se/summary/Acipenser-sturio.html" },
+      { "title": "FishBase common names: Acipenser sturio", "url": "https://www.fishbase.se/ComNames/2066" },
+      { "title": "FishBase synonyms: Acipenser sturio", "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=2066&SynCode=29593&GenusName=Acipenser&SpeciesName=sturio" },
+      { "title": "DORIS: Acipenser sturio", "url": "https://doris.ffessm.fr/Especes/Acipenser-sturio-Esturgeon-europeen-1321" },
+      { "title": "Plan national d'actions en faveur de l'esturgeon europeen 2011-2015 (DREAL)", "url": "https://www.nouvelle-aquitaine.developpement-durable.gouv.fr/IMG/pdf/11032_PNA-Esturgeon.pdf" },
+      { "title": "CNPN opinion of 15 May 2023 on MIGADO sturgeon releases", "url": "https://www.avis-biodiversite.developpement-durable.gouv.fr/IMG/pdf/2023-03-34x-00320_migado_l_411_2_ai_l_411_4_lacher_mi_nat_esturgeon_avis_du_05_2023.pdf" },
+      { "title": "Prefecture de la Gironde, freshwater fishing rules annex", "url": "https://www.gironde.gouv.fr/contenu/telechargement/66509/495284/file/Reglementation-p%C3%AAche-eau-douce_Gironde.pdf" },
+      { "title": "Prefecture de la Gironde, Guide plaisance fiche 17 (May 2023)", "url": "https://www.gironde.gouv.fr/contenu/telechargement/68063/507448/file/Fiche%2017%20-%20Diff%C3%A9rents%20types%20de%20p%C3%AAche.pdf" },
+      { "title": "Real Decreto 139/2011 (BOE consolidated text)", "url": "https://www.boe.es/buscar/act.php?id=BOE-A-2011-3582" },
+      { "title": "Livro Vermelho dos Peixes Dulciaquicolas e Diadromos de Portugal Continental (2023)", "url": "https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "Quero & Cendrero 1996 (Arcachon; 1982 fishing ban)", "url": "https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" }
+    ],
+    "uncertain": "Release numbers verified only for 2007-2009 (PNA 2011-2015); later release totals and the current PNA period were not verified. An official 'what to do if caught' leaflet could not be read (the sturio.eu domain did not resolve and the CNPMEM PDFs redirected to the homepage), so no reporting contact is given. Cantabria rests on one photo caption (Asturias); Galicia presence unverified. FishBase gives the English name only as 'Sturgeon'; 'European sturgeon' is from DORIS."
+  },
+  {
+    "id": "thinlip",
+    "scientific": "Chelon ramada (Risso, 1827)",
+    "family": "Mugilidae",
+    "synonyms": ["Liza ramada (Risso, 1827)", "Mugil ramada Risso, 1827", "Mugil capito Cuvier, 1829", "Liza capito (Cuvier, 1829)"],
+    "names": { "en": "Thin-lipped grey mullet", "fr": "Mulet porc", "es": "Morragute", "pt": "Tainha-fataça" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/4583",
+      "https://doris.ffessm.fr/Especes/Chelon-ramada-Mulet-porc-1985",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Schools near shore and in estuaries, lagoons, harbours and lower rivers, including fresh and polluted waters at 8-24 C; juveniles colonise the littoral and estuaries (FishBase, DORIS).",
+    "depth": { "usual": [0, 10], "range": [0, 120], "source": "https://doris.ffessm.fr/Especes/Chelon-ramada-Mulet-porc-1985" },
+    "size": { "common": 35, "max": 70, "maxNote": "70 cm TL males/unsexed (FishBase); common 35 cm TL. DORIS: largest recorded individual 4.5 kg.", "source": "https://www.fishbase.se/summary/Chelon-ramada.html" },
+    "diet": "Grazes sediment and surfaces: epiphytic and benthic microalgae, detritus, small invertebrates, pelagic eggs and larvae; juveniles eat zooplankton until about 3 cm.",
+    "behaviour": "Gregarious, diurnal and catadromous (spawns at sea, grows in estuaries and rivers); strong swimmer that uses tidal currents.",
+    "seasonal": "Spawns at sea near the coast from September to February (FishBase, DORIS). Both 0+ and 1+ juveniles occur in the Gironde estuary (Lobry et al. 2006).",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "high", "basis": "0+ and 1+ thin-lipped grey mullet sampled in the Gironde estuary. https://archimer.ifremer.fr/doc/00000/1989/1611.pdf" },
+      "biscay": { "status": "resident", "confidence": "high", "basis": "Quero & Cendrero 1996: 'mulet porc' very common at Arcachon, recorded 1970-1990. https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range statement only (southern Norway to Cape Verde). https://www.fishbase.se/summary/Chelon-ramada.html" },
+      "galicia": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Chelon-ramada.html" },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "Listed for mainland Portugal (Carneiro et al. 2014) and assessed LC in the 2023 Red Book. https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318 ; https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" },
+      "cadiz": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Chelon-ramada.html" }
+    },
+    "identification": [
+      "Thin upper lip, shallower than the pupil diameter (DORIS)",
+      "Usually a dark spot at the base of the short, rounded pectoral fin (DORIS, British Sea Fishing)",
+      "Large head scales reaching forward to the front of the eyes (DORIS)",
+      "6-9 grey longitudinal lines on silvery flanks, white belly (DORIS)",
+      "Poorly developed adipose eyelid not covering the pupil (DORIS)"
+    ],
+    "similar": [
+      "Thick-lipped grey mullet (Chelon labrosus): thick fleshy upper lip with rows of papillae (DORIS)",
+      "Golden grey mullet (Chelon auratus): clear golden gill-cover spot, no dark pectoral spot, long pointed pectorals (DORIS)",
+      "Flathead grey mullet (Mugil cephalus): robust, broad flat head (DORIS)",
+      "Leaping grey mullet (Chelon saliens): very thin lip, slimmer body, no dark pectoral spot (DORIS)"
+    ],
+    "anglingMethods": [
+      "Light float, ledger or freeline tackle with small hooks (size 6-10) and fluorocarbon hooklength, baited with bread or small pieces of ragworm, fish or mussel; groundbait of bread and fish offal; fish quietly in calm water https://britishseafishing.co.uk/mullet-species/",
+      "Minimum sizes: 30 cm for 'mulet' in Gironde sea/estuary leisure fishing (2022 guide) and 20 cm in Gironde fresh waters; DORIS cites a 30 cm recreational minimum size (https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf ; https://www.gironde.gouv.fr/contenu/telechargement/66509/495284/file/Reglementation-p%C3%AAche-eau-douce_Gironde.pdf)"
+    ],
+    "conservation": "IUCN global: NT (A2cd+4cd, assessed 7 June 2022; FishBase); DORIS still cites LC. Portugal: LC (2023 Red Book). No commercial TAC or minimum size in the NE Atlantic (DORIS). Fishable with minimum sizes.",
+    "sources": [
+      { "title": "FishBase summary: Chelon ramada", "url": "https://www.fishbase.se/summary/Chelon-ramada.html" },
+      { "title": "FishBase common names: Chelon ramada", "url": "https://www.fishbase.se/ComNames/4583" },
+      { "title": "FishBase synonyms: Chelon ramada", "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=4583&SynCode=172575&GenusName=Chelon&SpeciesName=ramada" },
+      { "title": "DORIS: Chelon ramada", "url": "https://doris.ffessm.fr/Especes/Chelon-ramada-Mulet-porc-1985" },
+      { "title": "Lobry, Lepage & Rochard 2006 (Archimer)", "url": "https://archimer.ifremer.fr/doc/00000/1989/1611.pdf" },
+      { "title": "Quero & Cendrero 1996, Cybium 20(4)", "url": "https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "Livro Vermelho dos Peixes Dulciaquicolas e Diadromos de Portugal Continental (2023)", "url": "https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" },
+      { "title": "British Sea Fishing: Mullet species", "url": "https://britishseafishing.co.uk/mullet-species/" },
+      { "title": "Prefecture de la Gironde, Guide plaisance fiche 18 (April 2022)", "url": "https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf" },
+      { "title": "Prefecture de la Gironde, freshwater fishing rules annex", "url": "https://www.gironde.gouv.fr/contenu/telechargement/66509/495284/file/Reglementation-p%C3%AAche-eau-douce_Gironde.pdf" }
+    ],
+    "uncertain": "FishBase gives a depth range of only 10-20 m, inconsistent with its inshore and freshwater habitat; the DORIS depth (mostly 0-10 m, to 120 m) is used. Presence in Cantabria, Galicia and Cadiz is by range only. The Gironde 'mulet' minimum sizes are not species-specific."
+  },
+  {
+    "id": "goldengrey",
+    "scientific": "Chelon auratus (Risso, 1810)",
+    "family": "Mugilidae",
+    "synonyms": ["Liza aurata (Risso, 1810)", "Mugil auratus Risso, 1810", "Liza auratus (Risso, 1810)"],
+    "names": { "en": "Golden grey mullet", "fr": "Mulet doré", "es": "Galupe", "pt": "Tainha-garrento" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/1735",
+      "https://doris.ffessm.fr/Especes/Chelon-auratus-Mulet-dore-2594",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Neritic schooling mullet of rocky coasts, sandy and muddy bottoms, harbours and lower estuaries; enters lagoons but rarely fresh water; spends the cold season offshore beyond the shelf (FishBase, DORIS).",
+    "depth": { "usual": null, "range": [10, 20], "source": "https://www.fishbase.se/summary/Chelon-auratus.html" },
+    "size": { "common": 30, "max": 61, "maxNote": "61 cm FL max (FishBase); common 30 cm SL. DORIS: up to 50 cm, commonly 30-40 cm.", "source": "https://www.fishbase.se/summary/Chelon-auratus.html" },
+    "diet": "Benthic diatoms, algae, detritus and small benthic organisms; occasionally insects, plankton and small fish such as sand smelts; juveniles eat zooplankton only.",
+    "behaviour": "Gregarious, forming schools of up to several hundred during seasonal migrations; often near the surface; wary and hard to approach.",
+    "seasonal": "Offshore in the cold months, back in coastal waters from spring to autumn; spawns offshore September-November (DORIS; FishBase gives July-November). Juveniles enter lagoons and estuaries especially in spring (FishBase).",
+    "regions": {
+      "gironde": { "status": "seasonal", "confidence": "medium", "basis": "Range statement plus general estuarine habitat; no Gironde-estuary-specific record found. https://www.fishbase.se/summary/Chelon-auratus.html" },
+      "biscay": { "status": "seasonal", "confidence": "high", "basis": "Quero & Cendrero 1996: 'mulet dore' historically very common at Arcachon, recorded 1970-1990. https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      "cantabria": { "status": "seasonal", "confidence": "medium", "basis": "Range statement (British Isles, Bay of Biscay, western Africa). https://www.fishbase.se/summary/Chelon-auratus.html" },
+      "galicia": { "status": "seasonal", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Chelon-auratus.html" },
+      "portugal": { "status": "seasonal", "confidence": "high", "basis": "Listed for mainland Portugal. https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      "cadiz": { "status": "seasonal", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Chelon-auratus.html" }
+    },
+    "identification": [
+      "Golden-yellow spot on the upper rear gill cover, plus a fainter patch behind the eye (DORIS)",
+      "No dark spot at the base of the pectoral fin; long pectorals that reach the eye when folded forward (DORIS, British Sea Fishing)",
+      "Thin upper lip; head scales stop at the nostrils (DORIS)",
+      "8-9 dark grey longitudinal lines, bluish sheen on the back (DORIS)"
+    ],
+    "similar": [
+      "Thin-lipped grey mullet (Chelon ramada): dark spot at pectoral base, short rounded pectorals (DORIS)",
+      "Thick-lipped mullet (Chelon labrosus): thick upper lip with papillae (DORIS)",
+      "Leaping mullet (Chelon saliens): very thin lip, slimmer body (DORIS)",
+      "Flathead mullet (Mugil cephalus): large rounded head, thick eyelids (DORIS)",
+      "European sea bass: different body shape and mouth; its pectoral fin sits below the gill-cover tip, a mullet's above (DORIS)"
+    ],
+    "anglingMethods": [
+      "Light mullet tactics in calm harbours and bays: bread, small ragworm pieces, small hooks on float, ledger or freeline https://britishseafishing.co.uk/mullet-species/",
+      "Minimum size 20 cm, varying by region (DORIS); 30 cm for 'mulet' in Gironde sea/estuary leisure fishing (https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf)"
+    ],
+    "conservation": "IUCN global: NT (A2cd+4cd, assessed 7 June 2022; FishBase). Regulated by minimum size (DORIS; FishBase 20 cm). Fishable.",
+    "sources": [
+      { "title": "FishBase summary: Chelon auratus", "url": "https://www.fishbase.se/summary/Chelon-auratus.html" },
+      { "title": "FishBase common names: Chelon auratus", "url": "https://www.fishbase.se/ComNames/1735" },
+      { "title": "FishBase synonyms: Chelon auratus", "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=1735&SynCode=172862&GenusName=Chelon&SpeciesName=auratus" },
+      { "title": "DORIS: Chelon auratus", "url": "https://doris.ffessm.fr/Especes/Chelon-auratus-Mulet-dore-2594" },
+      { "title": "Quero & Cendrero 1996, Cybium 20(4)", "url": "https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "British Sea Fishing: Mullet species", "url": "https://britishseafishing.co.uk/mullet-species/" },
+      { "title": "Prefecture de la Gironde, Guide plaisance fiche 18 (April 2022)", "url": "https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf" }
+    ],
+    "uncertain": "FishBase depth (10-20 m) is the only depth figure found and seems too narrow; DORIS sightings are from the surface to about 3 m. DORIS says 'rare au-dela du golfe de Gascogne' without saying in which direction. FishBase gives spawning July-November vs DORIS September-November. No Gironde-estuary record found."
+  },
+  {
+    "id": "sandsmelt",
+    "scientific": "Atherina presbyter Cuvier, 1829",
+    "family": "Atherinidae",
+    "synonyms": ["Hepsetia presbyter (Cuvier, 1829)"],
+    "names": { "en": "Sand smelt", "fr": "Prêtre", "es": "Abichón", "pt": "Peixe-rei" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/45",
+      "https://doris.ffessm.fr/Especes/Atherina-presbyter-Pretre-423",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Small schooling pelagic fish of shallow coastal waters, estuaries, coastal lagoons and marshes, swimming near the surface over a few metres of water by day and closer to the bottom at night (DORIS, FishBase).",
+    "depth": { "usual": null, "range": [1, 10], "source": "https://www.fishbase.se/summary/Atherina-presbyter.html" },
+    "size": { "common": null, "max": 20, "maxNote": "20 cm TL (FishBase, not flagged as a record); DORIS: max about 20 cm at around 4 years, about 7 cm after one year.", "source": "https://www.fishbase.se/summary/Atherina-presbyter.html" },
+    "diet": "Small crustaceans and fish larvae (FishBase); small invertebrates, feeding reduced in winter and stopped during spawning (DORIS).",
+    "behaviour": "Gregarious, in schools of several thousand; seasonal migrations in the Atlantic; attracted to lights at night.",
+    "seasonal": "Spawns April-May (DORIS), spring-summer (FishBase); eggs carry filaments that stick to algae and substrate. Seasonal migrations in the Atlantic (FishBase); no region-specific timing found.",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "medium", "basis": "Range statement only (British Isles to Canary Islands, Mauritania, Cape Verde); not found in the Gironde estuary survey list consulted. https://www.fishbase.se/summary/Atherina-presbyter.html" },
+      "biscay": { "status": "resident", "confidence": "high", "basis": "Recorded in Arcachon fisheries (Quero & Cendrero 1996); DORIS gives the local Arcachon name 'trogue'. https://archimer.ifremer.fr/doc/00000/3793/3324.pdf ; https://doris.ffessm.fr/Especes/Atherina-presbyter-Pretre-423" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range statement; DORIS gives a Basque name 'kanchua (Euskadi)'. https://doris.ffessm.fr/Especes/Atherina-presbyter-Pretre-423" },
+      "galicia": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Atherina-presbyter.html" },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "Listed for mainland Portugal. https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      "cadiz": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Atherina-presbyter.html" }
+    },
+    "identification": [
+      "Slender translucent body with a bright silvery band along the flank (DORIS)",
+      "Two clearly separated dorsal fins (DORIS)",
+      "Large protrusible, obliquely set mouth (DORIS)",
+      "Pelvic fins abdominal; pectoral fins inserted high on the flank (DORIS)"
+    ],
+    "similar": [
+      "Big-scale sand smelt (Atherina boyeri, 'joel'): smaller (usually 7-10 cm, rarely 13-16 cm), darker more contrasted silver band topped by a green-golden line, large eye wider than the snout length, fewer than 50 scales from gill cover to tail base. Mainly Mediterranean and in lagoons, estuaries and ports at 0-3 m; in the Atlantic from Spain and Portugal to Mauritania and Madeira, with isolated populations reported at Arcachon and 'Biscaye' (DORIS) and in England and the Netherlands (FishBase); listed for mainland Portugal (Carneiro et al. 2014; LC in the 2023 Red Book)",
+      "Atherina hepsetus: Mediterranean, darker bluish lateral line (DORIS)"
+    ],
+    "anglingMethods": [
+      "Recreational capture with a small lift net ('balance') from pontoons and jetties, using a flour-and-sand groundbait (DORIS) https://doris.ffessm.fr/Especes/Atherina-presbyter-Pretre-423",
+      "FishBase lists it as a gamefish, but no fetched source documents a rod-and-line method https://www.fishbase.se/summary/Atherina-presbyter.html"
+    ],
+    "conservation": "IUCN global: LC (assessed 20 May 2014; FishBase). No regulation found. For A. boyeri: IUCN global LC (1 June 2022; FishBase), Portugal LC (2023 Red Book), Spain VU (Doadrio et al. 2011 as cited in the Portuguese Red Book).",
+    "sources": [
+      { "title": "FishBase summary: Atherina presbyter", "url": "https://www.fishbase.se/summary/Atherina-presbyter.html" },
+      { "title": "FishBase common names: Atherina presbyter", "url": "https://www.fishbase.se/ComNames/45" },
+      { "title": "FishBase synonyms: Atherina presbyter", "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=45&SynCode=29300&GenusName=Atherina&SpeciesName=presbyter" },
+      { "title": "FishBase summary: Atherina boyeri", "url": "https://www.fishbase.se/summary/Atherina-boyeri.html" },
+      { "title": "DORIS: Atherina presbyter", "url": "https://doris.ffessm.fr/Especes/Atherina-presbyter-Pretre-423" },
+      { "title": "DORIS: Atherina boyeri", "url": "https://doris.ffessm.fr/Especes/Atherina-boyeri-Joel-945" },
+      { "title": "Quero & Cendrero 1996, Cybium 20(4)", "url": "https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "Livro Vermelho dos Peixes Dulciaquicolas e Diadromos de Portugal Continental (2023)", "url": "https://rdpc.uevora.pt/bitstream/10174/36740/1/LVPeixes-2023-HIGH.pdf" }
+    ],
+    "uncertain": "Occurrence of A. presbyter inside the Gironde estuary was not confirmed by any fetched source. Whether A. boyeri occurs in the Gironde is unknown; only reports from Arcachon and 'Biscaye' (DORIS) and an 1816 Arcachon mention (Quero & Cendrero 1996) were found. In Portugal 'peixe-rei' is used for both species. No rod-and-line method source found."
+  },
+  {
+    "id": "thornback",
+    "scientific": "Raja clavata Linnaeus, 1758",
+    "family": "Rajidae",
+    "synonyms": ["Raja rubus Bloch, 1784", "Raja aspera Risso, 1810", "Malacoraja clavata (Linnaeus, 1758)"],
+    "names": { "en": "Thornback ray", "fr": "Raie bouclée", "es": "Raya de clavos", "pt": "Raia-lenga" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/2059",
+      "https://doris.ffessm.fr/Especes/Raja-clavata-Raie-bouclee-2658",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Shelf and upper-slope ray of mud, sand and gravel, often coastal and partly buried by day; tolerates low salinities; young stay in inshore nursery grounds (FishBase, DORIS).",
+    "depth": { "usual": [10, 60], "range": [5, 1020], "source": "https://www.fishbase.se/summary/Raja-clavata.html" },
+    "size": { "common": 85, "max": 139, "maxNote": "139 cm TL females (105 cm TL males/unsexed), FishBase, not flagged as a record; DORIS: females about 120 cm, males about 70 cm, width up to about 60 cm.", "source": "https://www.fishbase.se/summary/Raja-clavata.html" },
+    "diet": "Bottom animals, preferably crustaceans, also fishes and molluscs; juveniles mainly worms and crustaceans.",
+    "behaviour": "Nocturnal ambush predator, solitary or in pairs; annual migration cycle of 54-117 km per month; oviparous with paired egg cases.",
+    "seasonal": "Moves into shallower water (under 10 m) in spring (FishBase); males move inshore first in spring and females follow (DORIS); mating February-September, peak in June. In UK waters it comes within shore-casting range in summer (British Sea Fishing).",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "medium", "basis": "Range statement and tolerance of low salinity; no Gironde-estuary-specific record found. https://www.fishbase.se/summary/Raja-clavata.html" },
+      "biscay": { "status": "resident", "confidence": "high", "basis": "ICES stock rjc.27.8abd (Bay of Biscay); Quero & Cendrero 1996 report it had become rare in Arcachon landings. https://sid.ices.dk/services/odata4/StockListDWs4?$filter=ActiveYear%20eq%202024&$select=StockKeyLabel,StockKeyDescription,SpeciesScientificName ; https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      "cantabria": { "status": "resident", "confidence": "high", "basis": "ICES stock rjc.27.8c (Cantabrian Sea). https://sid.ices.dk/services/odata4/StockListDWs4?$filter=ActiveYear%20eq%202024&$select=StockKeyLabel,StockKeyDescription,SpeciesScientificName" },
+      "galicia": { "status": "resident", "confidence": "high", "basis": "ICES stock rjc.27.9a (Atlantic Iberian waters). https://sid.ices.dk/services/odata4/StockListDWs4?$filter=ActiveYear%20eq%202024&$select=StockKeyLabel,StockKeyDescription,SpeciesScientificName" },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "ICES stock rjc.27.9a; listed for mainland Portugal (Carneiro et al. 2014). https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      "cadiz": { "status": "resident", "confidence": "medium", "basis": "ICES stock rjc.27.9a covers Atlantic Iberian waters; Gulf of Cadiz inclusion not stated in the fetched description. https://sid.ices.dk/services/odata4/StockListDWs4?$filter=ActiveYear%20eq%202024&$select=StockKeyLabel,StockKeyDescription,SpeciesScientificName" }
+    },
+    "identification": [
+      "Kite-shaped disc with a short pointed snout (DORIS, British Sea Fishing)",
+      "Large curved thorns ('boucles') scattered irregularly on the back of adults (DORIS)",
+      "Grey to light brown back with dark spots and pale or yellowish blotches (DORIS)",
+      "Tail ringed with light and dark bands of unequal width (DORIS)",
+      "White underside with a grey margin (DORIS)"
+    ],
+    "similar": [
+      "Spotted ray (Raja montagui), blonde ray (Raja brachyura) and Raja polystigma: no large dorsal thorns and no ringed tail (DORIS)",
+      "Undulate ray (Raja undulata): distinctive two-tone wavy pattern on the back (DORIS)",
+      "Common stingray (Dasyatis pastinaca): smooth back, whip tail with a serrated spine (DORIS)"
+    ],
+    "anglingMethods": [
+      "Shore and boat bottom fishing on sand, shingle or mixed ground, mainly after dark: long-and-low rig with long snood, 1/0-3/0 strong hooks, plain leads; baits mackerel, bluey, sandeel or herring, peeler crab in spring, rag, lug and squid later https://britishseafishing.co.uk/thornback-ray/"
+    ],
+    "conservation": "IUCN global: NT (A2bd, assessed 15 April 2023; FishBase). France: VU on the 2013 national red list of sharks, rays and chimaeras; OSPAR Annex V; EU skate and ray catches under a global quota since 2009 (DORIS). Fishable, catch-and-release advisable.",
+    "sources": [
+      { "title": "FishBase summary: Raja clavata", "url": "https://www.fishbase.se/summary/Raja-clavata.html" },
+      { "title": "FishBase common names: Raja clavata", "url": "https://www.fishbase.se/ComNames/2059" },
+      { "title": "FishBase synonyms: Raja clavata", "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=2059&SynCode=30563&GenusName=Raja&SpeciesName=clavata" },
+      { "title": "DORIS: Raja clavata", "url": "https://doris.ffessm.fr/Especes/Raja-clavata-Raie-bouclee-2658" },
+      { "title": "ICES Stock Information Database (stock list query)", "url": "https://sid.ices.dk/services/odata4/StockListDWs4?$filter=ActiveYear%20eq%202024&$select=StockKeyLabel,StockKeyDescription,SpeciesScientificName" },
+      { "title": "Quero & Cendrero 1996, Cybium 20(4)", "url": "https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "British Sea Fishing: Thornback ray", "url": "https://britishseafishing.co.uk/thornback-ray/" }
+    ],
+    "uncertain": "No minimum landing size verified for France, Spain or Portugal (British Sea Fishing gives a UK club minimum of 41 cm wingtip). Gironde occurrence is by range only. DORIS gives hatching after about 5 months in the text and 6-7 months in a caption."
+  },
+  {
+    "id": "stingray",
+    "scientific": "Dasyatis pastinaca (Linnaeus, 1758)",
+    "family": "Dasyatidae",
+    "synonyms": ["Raja pastinaca Linnaeus, 1758", "Trygon pastinaca (Linnaeus, 1758)", "Trygon vulgaris Risso, 1827"],
+    "names": { "en": "Common stingray", "fr": "Pastenague commune", "es": "Raya látigo común", "pt": "Uge" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/2060",
+      "https://doris.ffessm.fr/Especes/Dasyatis-pastinaca-Pastenague-commune-745",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Coastal ray of sandy and muddy bottoms, sometimes near rocky reefs; enters coastal lagoons, shallow bays and estuaries and prefers calm sheltered water; buries itself in sand (FishBase, DORIS).",
+    "depth": { "usual": [20, 35], "range": [5, 200], "source": "https://www.fishbase.se/summary/Dasyatis-pastinaca.html" },
+    "size": { "common": null, "max": 75, "maxNote": "75 cm disc width (WD), FishBase summary; FishBase biology text cites a reported width of about 150 cm. DORIS gives total length including tail: generally over 1 m, max 2.5 m.", "source": "https://www.fishbase.se/summary/Dasyatis-pastinaca.html" },
+    "diet": "Bottom fishes (e.g. small flatfish), crustaceans such as crabs and shrimps, and molluscs; ambushes prey while buried; juveniles eat only crustaceans.",
+    "behaviour": "Buries itself in sand with only eyes and spiracles showing; swims by flapping the pectoral fins; not aggressive unless provoked; ovoviviparous with 4-7 pups after about 4 months.",
+    "seasonal": "Females give birth along the coast in summer (DORIS). In UK waters caught mainly in late spring and summer (British Sea Fishing). No Biscay-specific timing found.",
+    "regions": {
+      "gironde": { "status": "occasional", "confidence": "low", "basis": "Range statement only; Quero & Cendrero 1996 report a strong decline in the southern Bay of Biscay; no Gironde record found. https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      "biscay": { "status": "occasional", "confidence": "medium", "basis": "Quero & Cendrero 1996: once very common in the Bassin d'Arcachon (1957 inventory), now among large elasmobranchs that have become rare, 'vulnerable, perhaps endangered'. https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range statement (North Sea to Angola). https://www.fishbase.se/summary/Dasyatis-pastinaca.html" },
+      "galicia": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Dasyatis-pastinaca.html" },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "Listed for mainland Portugal ('Uge'). https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      "cadiz": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Dasyatis-pastinaca.html" }
+    },
+    "identification": [
+      "Smooth diamond-shaped disc without thorns (DORIS); old fish may show a row of blunt thorns (British Sea Fishing)",
+      "Long whip-like tail (about 60% of total length) with a serrated venomous spine; no dorsal or caudal fin (DORIS)",
+      "Grey-blue or reddish-brown upper side, sometimes with white spots; pale underside (DORIS)",
+      "Eyes on top of the head with spiracles behind them (DORIS)"
+    ],
+    "similar": [
+      "Roughtail stingray (Bathytoshia centroura): tubercles on the back, often larger and greyer (DORIS)",
+      "Tortonese's stingray (Dasyatis tortonesei): very similar, usually smaller with a shorter tail (DORIS)",
+      "Thornback ray (Raja clavata): thorns along back and tail, no tail spine (DORIS)"
+    ],
+    "anglingMethods": [
+      "Bottom fishing from the shore in late spring and summer on a clipped-down single-hook rig with 1/0-3/0 hooks, baited with ragworm or peeler crab (also mackerel, squid, cuttlefish); handle with thick gloves because of the venomous spine; almost always released https://britishseafishing.co.uk/common-stingray/"
+    ],
+    "conservation": "IUCN global: VU (A2bd, assessed 4 Aug 2020; FishBase); DORIS still cites DD (2010). Spain: the Mediterranean population is in the national list of wild species under special protection (RD 139/2011), not the Atlantic one. Venomous: painful sting with haemolytic and neurotoxic venom (DORIS). Recommend catch-and-release only.",
+    "sources": [
+      { "title": "FishBase summary: Dasyatis pastinaca", "url": "https://www.fishbase.se/summary/Dasyatis-pastinaca.html" },
+      { "title": "FishBase common names: Dasyatis pastinaca", "url": "https://www.fishbase.se/ComNames/2060" },
+      { "title": "FishBase synonyms: Dasyatis pastinaca", "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=2060&SynCode=23995&GenusName=Dasyatis&SpeciesName=pastinaca" },
+      { "title": "DORIS: Dasyatis pastinaca", "url": "https://doris.ffessm.fr/Especes/Dasyatis-pastinaca-Pastenague-commune-745" },
+      { "title": "Quero & Cendrero 1996, Cybium 20(4)", "url": "https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "Real Decreto 139/2011 (BOE consolidated text)", "url": "https://www.boe.es/buscar/act.php?id=BOE-A-2011-3582" },
+      { "title": "British Sea Fishing: Common stingray", "url": "https://britishseafishing.co.uk/common-stingray/" }
+    ],
+    "uncertain": "Size figures differ widely between FishBase (disc width) and DORIS (total length with tail). No recent regional record for the Gironde or the French Biscay coast was found; status there is inferred from the 1996 decline report. Cantabria, Galicia and Cadiz rest on range only."
+  },
+  {
+    "id": "catshark",
+    "scientific": "Scyliorhinus canicula (Linnaeus, 1758)",
+    "family": "Scyliorhinidae",
+    "synonyms": ["Squalus canicula Linnaeus, 1758", "Scyllium canicula (Linnaeus, 1758)", "Squalus catulus Linnaeus, 1758"],
+    "names": { "en": "Small-spotted catshark", "fr": "Petite roussette", "es": "Pintarroja", "pt": "Pata-roxa" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/845",
+      "https://doris.ffessm.fr/Especes/Scyliorhinus-canicula-Petite-roussette-531",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Small bottom-living shark of the continental shelf and upper slope over sand, gravel, mud, algae or coralline bottoms, mainly at 10-100 m in the NE Atlantic; egg cases are anchored to seaweed or sessile invertebrates in shallow water (FishBase, DORIS).",
+    "depth": { "usual": [10, 100], "range": [10, 780], "source": "https://www.fishbase.se/summary/Scyliorhinus-canicula.html" },
+    "size": { "common": 60, "max": 100, "maxNote": "100 cm TL males/unsexed (FishBase, not flagged as a record); common 60 cm TL. DORIS: common about 80 cm, up to 5 kg.", "source": "https://www.fishbase.se/summary/Scyliorhinus-canicula.html" },
+    "diet": "Benthic invertebrates (molluscs including whelks, crustaceans, small cephalopods, polychaetes) and small bony fishes.",
+    "behaviour": "Nocturnal; rests on the bottom by day (females in shallow caves and crevices); sometimes forms large groups on the Atlantic coast; oviparous.",
+    "seasonal": "Present year-round. Pairs of egg cases laid roughly twice a month from November to July (DORIS), mostly in June-July (FishBase); hatching after 5-11 months depending on temperature.",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "medium", "basis": "Range statement only (Norway to Senegal). https://doris.ffessm.fr/Especes/Scyliorhinus-canicula-Petite-roussette-531" },
+      "biscay": { "status": "resident", "confidence": "high", "basis": "ICES stock syc.27.8abd (Bay of Biscay); Quero & Cendrero 1996: still well represented in southern Biscay. https://sid.ices.dk/services/odata4/StockListDWs4?$filter=ActiveYear%20eq%202024&$select=StockKeyLabel,StockKeyDescription,SpeciesScientificName ; https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      "cantabria": { "status": "resident", "confidence": "high", "basis": "ICES stock syc.27.8c9a (Cantabrian Sea, Atlantic Iberian waters). https://sid.ices.dk/services/odata4/StockListDWs4?$filter=ActiveYear%20eq%202024&$select=StockKeyLabel,StockKeyDescription,SpeciesScientificName" },
+      "galicia": { "status": "resident", "confidence": "high", "basis": "ICES stock syc.27.8c9a. https://sid.ices.dk/services/odata4/StockListDWs4?$filter=ActiveYear%20eq%202024&$select=StockKeyLabel,StockKeyDescription,SpeciesScientificName" },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "ICES stock syc.27.8c9a; listed for mainland Portugal. https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      "cadiz": { "status": "resident", "confidence": "medium", "basis": "ICES stock syc.27.8c9a covers Atlantic Iberian waters; Gulf of Cadiz inclusion not stated in the fetched description. https://sid.ices.dk/services/odata4/StockListDWs4?$filter=ActiveYear%20eq%202024&$select=StockKeyLabel,StockKeyDescription,SpeciesScientificName" }
+    },
+    "identification": [
+      "Small slender shark with a short rounded snout (DORIS)",
+      "Many small brown to blackish spots on a pale beige to reddish background, pale belly (DORIS)",
+      "Nasal flaps touching each other and grooves running to the mouth (DORIS, British Sea Fishing)",
+      "Two widely spaced dorsal fins set far back; very rough skin (DORIS, British Sea Fishing)"
+    ],
+    "similar": [
+      "Nursehound / bull huss (Scyliorhinus stellaris): larger (about 150 cm), fewer and larger spots, separate nasal flaps whose grooves do not reach the mouth, rocky ground (DORIS, British Sea Fishing)"
+    ],
+    "anglingMethods": [
+      "Bottom fishing from shore or boat on sandy or mixed ground with one- or two-hook flapper rigs, 1/0-2/0 hooks and small baits of mackerel strip, squid or sandeel; feeds by day and night; hold the tail alongside the head to unhook https://britishseafishing.co.uk/dogfish/"
+    ],
+    "conservation": "IUCN global: LC (assessed 31 Aug 2020; FishBase). No specific protection found. Fishable.",
+    "sources": [
+      { "title": "FishBase summary: Scyliorhinus canicula", "url": "https://www.fishbase.se/summary/Scyliorhinus-canicula.html" },
+      { "title": "FishBase common names: Scyliorhinus canicula", "url": "https://www.fishbase.se/ComNames/845" },
+      { "title": "FishBase synonyms: Scyliorhinus canicula", "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=845&SynCode=23251&GenusName=Scyliorhinus&SpeciesName=canicula" },
+      { "title": "DORIS: Scyliorhinus canicula", "url": "https://doris.ffessm.fr/Especes/Scyliorhinus-canicula-Petite-roussette-531" },
+      { "title": "ICES Stock Information Database (stock list query)", "url": "https://sid.ices.dk/services/odata4/StockListDWs4?$filter=ActiveYear%20eq%202024&$select=StockKeyLabel,StockKeyDescription,SpeciesScientificName" },
+      { "title": "Quero & Cendrero 1996, Cybium 20(4)", "url": "https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "British Sea Fishing: Lesser spotted dogfish", "url": "https://britishseafishing.co.uk/dogfish/" }
+    ],
+    "uncertain": "FishBase's summary 'usual depth' (80-100 m) differs from its biology text (mainly 10-100 m in the NE Atlantic), which is used here; DORIS gives 20-400 m. No regional minimum size verified (British Sea Fishing gives a UK club minimum of 38 cm). Gironde occurrence by range only."
+  },
+  {
+    "id": "blueshark",
+    "scientific": "Prionace glauca (Linnaeus, 1758)",
+    "family": "Carcharhinidae",
+    "synonyms": ["Squalus glaucus Linnaeus, 1758", "Carcharias glaucus (Linnaeus, 1758)", "Squalus adscensionis Osbeck, 1765"],
+    "names": { "en": "Blue shark", "fr": "Peau bleue", "es": "Tintorera", "pt": "Tintureira" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/898",
+      "https://doris.ffessm.fr/Especes/Prionace-glauca-Requin-peau-bleue-1660",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Oceanic epipelagic shark of surface waters that comes close inshore where the shelf is narrow and has been reported from estuaries (FishBase); prefers about 5-19 C and dives deeper in warm water (DORIS).",
+    "depth": { "usual": [1, 220], "range": [0, 1082], "source": "https://www.fishbase.se/summary/Prionace-glauca.html" },
+    "size": { "common": 335, "max": 400, "maxNote": "400 cm TL (FishBase, not flagged as a record); FishBase common length 335 cm TL. DORIS: average 2.5-3 m, largest confirmed 3.83 m, reports over 5 m unconfirmed; all individuals sampled in the Bay of Biscay were immature.", "source": "https://www.fishbase.se/summary/Prionace-glauca.html" },
+    "diet": "Mainly fishes (herring, hake, mackerel, small epipelagic fish) and squid; also small sharks, octopus, crustaceans, seabirds and cetacean carrion.",
+    "behaviour": "Highly migratory, crossing the Atlantic with the Gulf Stream; forms schools segregated by size and sex during seasonal travel; viviparous (placental), 4-135 pups.",
+    "seasonal": "Found in UK waters in the warmer summer months (British Sea Fishing). In the Bay of Biscay all sampled fish were immature, and in the Channel mostly females (DORIS). No Iberian seasonal data found.",
+    "regions": {
+      "gironde": { "status": "occasional", "confidence": "low", "basis": "Oceanic species; FishBase notes estuary records, but no Gironde record found. https://www.fishbase.se/summary/Prionace-glauca.html" },
+      "biscay": { "status": "seasonal", "confidence": "low", "basis": "DORIS: immature fish sampled in the Bay of Biscay; seasonality inferred from warm-season presence further north (British Sea Fishing), not from a Biscay source. https://doris.ffessm.fr/Especes/Prionace-glauca-Requin-peau-bleue-1660" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range statement (Norway to South Africa); offshore waters. https://www.fishbase.se/summary/Prionace-glauca.html" },
+      "galicia": { "status": "resident", "confidence": "medium", "basis": "Range statement only; offshore waters. https://www.fishbase.se/summary/Prionace-glauca.html" },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "Listed for mainland Portugal ('Tintureira'). https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      "cadiz": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Prionace-glauca.html" }
+    },
+    "identification": [
+      "Slender streamlined body with a long narrow pointed snout and large round eyes (DORIS, British Sea Fishing)",
+      "Very long, sickle-shaped pectoral fins (DORIS)",
+      "Cobalt to electric-blue back, white flanks and belly (DORIS)",
+      "Relatively small first dorsal fin (British Sea Fishing)"
+    ],
+    "similar": [
+      "DORIS states that no morphologically comparable species exists; the long sickle-shaped pectorals and vivid blue colour are diagnostic"
+    ],
+    "anglingMethods": [
+      "Offshore boat angling in the warm months; strict catch-and-release is the norm on UK charter boats https://britishseafishing.co.uk/blue-shark/",
+      "No protection in metropolitan France (protected only in New Caledonia, Mayotte and French Polynesia per DORIS); specific rigs and chum methods were not documented in the fetched sources"
+    ],
+    "conservation": "IUCN global: NT (A2bd, assessed 6 Nov 2018; FishBase). CITES Appendix II; CMS Appendix II. Bern and Barcelona Annex III (DORIS). Main threat: pelagic longline bycatch for fins. Potentially dangerous to humans (FishBase). Recommend catch-and-release only.",
+    "sources": [
+      { "title": "FishBase summary: Prionace glauca", "url": "https://www.fishbase.se/summary/Prionace-glauca.html" },
+      { "title": "FishBase common names: Prionace glauca", "url": "https://www.fishbase.se/ComNames/898" },
+      { "title": "FishBase synonyms: Prionace glauca", "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=898&SynCode=23222&GenusName=Prionace&SpeciesName=glauca" },
+      { "title": "DORIS: Prionace glauca", "url": "https://doris.ffessm.fr/Especes/Prionace-glauca-Requin-peau-bleue-1660" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "British Sea Fishing: Blue shark", "url": "https://britishseafishing.co.uk/blue-shark/" }
+    ],
+    "uncertain": "FishBase's common length of 335 cm looks high compared with DORIS (2.5-3 m average). Seasonal timing off Biscay and Iberia not verified; coastal occurrence near Royan unverified. Recent EU or ICCAT catch limits that might affect recreational landing were not checked."
+  },
+  {
+    "id": "weever",
+    "scientific": "Echiichthys vipera (Cuvier, 1829)",
+    "family": "Trachinidae",
+    "synonyms": ["Trachinus vipera Cuvier, 1829", "Trachinus horridus Gronow, 1854"],
+    "names": { "en": "Lesser weever", "fr": "Petite vive", "es": "Salvariego", "pt": "Peixe-aranha-menor" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/1364",
+      "https://doris.ffessm.fr/Especes/Echiichthys-vipera-Petite-vive-822",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Littoral bottom fish of sand, mud or fine gravel, including areas exposed at low tide and estuaries; rests buried with only the eyes and the tip of the black first dorsal fin showing; often very near beaches (FishBase, DORIS).",
+    "depth": { "usual": [3, 50], "range": null, "source": "https://www.fishbase.se/summary/Echiichthys-vipera.html" },
+    "size": { "common": 10, "max": 27.7, "maxNote": "27.7 cm TL (FishBase); DORIS gives max 15 cm; British Sea Fishing: commonly 8-12 cm, up to about 20 cm.", "source": "https://www.fishbase.se/summary/Echiichthys-vipera.html" },
+    "diet": "Small coastal fishes and crustaceans ambushed from the sand (DORIS).",
+    "behaviour": "Ambush predator buried in sand; raises the black venomous first dorsal fin in jerks when disturbed or stranded; spawns in summer, pelagic eggs.",
+    "seasonal": "Moves into very shallow water in summer (British Sea Fishing) and down to about 150 m in winter (FishBase); stings mainly in the warm summer months when bathers step on buried fish (British Sea Fishing).",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "medium", "basis": "Range statement (North Sea to Mediterranean, Morocco, Madeira); no Gironde-specific record fetched. https://www.fishbase.se/summary/Echiichthys-vipera.html" },
+      "biscay": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Echiichthys-vipera.html" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Echiichthys-vipera.html" },
+      "galicia": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Echiichthys-vipera.html" },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "Listed for mainland Portugal. https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      "cadiz": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Echiichthys-vipera.html" }
+    },
+    "identification": [
+      "Entirely black first dorsal fin with venomous spines (FishBase, DORIS)",
+      "Venomous spine on each gill cover (FishBase, British Sea Fishing)",
+      "Upturned mouth and close-set eyes on top of the head; no spines above the eye (DORIS)",
+      "Brown-yellow back with small dark spots and no lines on the flanks; often a black-tipped tail (DORIS, British Sea Fishing)"
+    ],
+    "similar": [
+      "Greater weever (Trachinus draco): larger (over 20 cm), blue and yellow lines on the flanks (DORIS)",
+      "Spotted weever (Trachinus araneus): large black spots along the flanks (DORIS)",
+      "Streaked weever (Trachinus radiatus): Mediterranean only, dark rings on the flanks (DORIS)"
+    ],
+    "anglingMethods": [
+      "Usually an incidental catch on small baits (ragworm, prawn, mackerel strip) or mackerel feathers and daylights; do not grab or swing small unknown fish in by hand https://britishseafishing.co.uk/weever-fish/",
+      "If stung: immerse in water as hot as can be tolerated without scalding (venom destroyed by heat, about 50 C) and seek medical advice (British Sea Fishing, DORIS)"
+    ],
+    "conservation": "IUCN global: Not Evaluated (FishBase, Red List v2025-2). No regulation found. Venomous: FishBase calls it the most dangerous of the European weevers. Fishable but should be handled only with care.",
+    "sources": [
+      { "title": "FishBase summary: Echiichthys vipera", "url": "https://www.fishbase.se/summary/Echiichthys-vipera.html" },
+      { "title": "FishBase common names: Echiichthys vipera", "url": "https://www.fishbase.se/ComNames/1364" },
+      { "title": "FishBase synonyms: Echiichthys vipera", "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=1364&SynCode=3209&GenusName=Echiichthys&SpeciesName=vipera" },
+      { "title": "DORIS: Echiichthys vipera", "url": "https://doris.ffessm.fr/Especes/Echiichthys-vipera-Petite-vive-822" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "British Sea Fishing: Weever fish", "url": "https://britishseafishing.co.uk/weever-fish/" }
+    ],
+    "uncertain": "Maximum size differs (27.7 cm FishBase vs 15 cm DORIS). No source specific to Aquitaine or Iberian beaches was fetched; regional statuses rest on range except Portugal. FishBase's full range is given only in text ('a few meters to about 150 m in winter'), so 'range' is left null; DORIS says from the intertidal to over 150 m."
+  },
+  {
+    "id": "johndory",
+    "scientific": "Zeus faber Linnaeus, 1758",
+    "family": "Zeidae",
+    "synonyms": ["Zeus pungio Cuvier, 1829", "Zeus japonicus Valenciennes, 1835", "Zeus australis Richardson, 1845"],
+    "names": { "en": "John Dory", "fr": "Saint-Pierre", "es": "Pez de San Pedro", "pt": "Peixe-galo" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/1370",
+      "https://doris.ffessm.fr/Especes/Zeus-faber-Saint-pierre-322",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Benthopelagic, generally solitary fish living close to the sea bed, usually at 50-150 m and occasionally on shallow rocky bottoms around 10 m (FishBase, DORIS).",
+    "depth": { "usual": [50, 150], "range": [5, 400], "source": "https://www.fishbase.se/summary/Zeus-faber.html" },
+    "size": { "common": 40, "max": 90, "maxNote": "90 cm TL (FishBase, not flagged as a record); max weight 8 kg.", "source": "https://www.fishbase.se/summary/Zeus-faber.html" },
+    "diet": "Mainly schooling bony fishes, occasionally cephalopods (cuttlefish) and crustaceans (shrimps).",
+    "behaviour": "Solitary stalking predator that approaches prey slowly and engulfs it with a protrusible mouth; juveniles sometimes in small groups.",
+    "seasonal": "Spawning in the NE Atlantic is given as end of winter to start of spring by FishBase but summer by DORIS. In UK waters mainly found in warmer months (British Sea Fishing). Quero & Cendrero (1996) report steady but small catches at Arcachon.",
+    "regions": {
+      "gironde": { "status": "occasional", "confidence": "low", "basis": "Mostly a deeper offshore fish; no Gironde record found. https://www.fishbase.se/summary/Zeus-faber.html" },
+      "biscay": { "status": "resident", "confidence": "high", "basis": "Regularly caught at Arcachon since the 18th century, small catches 1985-1991 (Quero & Cendrero 1996). https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range statement (Norway to South Africa). https://www.fishbase.se/summary/Zeus-faber.html" },
+      "galicia": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Zeus-faber.html" },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "Listed for mainland Portugal. https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      "cadiz": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Zeus-faber.html" }
+    },
+    "identification": [
+      "Very deep, strongly compressed body (DORIS)",
+      "Large black spot ringed with grey on each flank (DORIS)",
+      "Very long filaments on the dorsal fin spines, longest in juveniles (DORIS)",
+      "Wide protrusible mouth and spines and bony ridges along the head and fin bases (DORIS)"
+    ],
+    "similar": [
+      "Silvery John dory (Zenopsis conchifer): tropical Atlantic, snout set noticeably higher (DORIS)"
+    ],
+    "anglingMethods": [
+      "Mostly caught by boat anglers well offshore on lures or fish strip that flutters in the tide; shore catches are rare https://britishseafishing.co.uk/john-dory/"
+    ],
+    "conservation": "IUCN global: DD (assessed 20 May 2013; FishBase). No specific protection found. Fishable.",
+    "sources": [
+      { "title": "FishBase summary: Zeus faber", "url": "https://www.fishbase.se/summary/Zeus-faber.html" },
+      { "title": "FishBase common names: Zeus faber", "url": "https://www.fishbase.se/ComNames/1370" },
+      { "title": "FishBase synonyms: Zeus faber", "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=1370&SynCode=30758&GenusName=Zeus&SpeciesName=faber" },
+      { "title": "DORIS: Zeus faber", "url": "https://doris.ffessm.fr/Especes/Zeus-faber-Saint-pierre-322" },
+      { "title": "Quero & Cendrero 1996, Cybium 20(4)", "url": "https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "British Sea Fishing: John Dory", "url": "https://britishseafishing.co.uk/john-dory/" }
+    ],
+    "uncertain": "Spawning season conflict (FishBase end of winter-spring vs DORIS summer for the NE Atlantic). Cantabria, Galicia and Cadiz presence by range only. Portuguese mainland names in Carneiro et al. are 'Galo-negro' and 'Peixe-galo'."
+  },
+  {
+    "id": "redmullet",
+    "scientific": "Mullus surmuletus Linnaeus, 1758",
+    "family": "Mullidae",
+    "synonyms": ["Mullus barbatus surmuletus Linnaeus, 1758", "Mullus fuscatus Rafinesque, 1810"],
+    "names": { "en": "Striped red mullet", "fr": "Rouget-barbet de roche", "es": "Salmonete de roca", "pt": "Salmonete-legítimo" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/1327",
+      "https://doris.ffessm.fr/Especes/Mullus-surmuletus-Rouget-barbet-de-roche-500",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Demersal on broken rough ground and on sand, gravel and seagrass meadows, usually shallower than 100 m; large adults around 80-100 m (FishBase, DORIS).",
+    "depth": { "usual": [5, 60], "range": [5, 409], "source": "https://www.fishbase.se/summary/Mullus-surmuletus.html" },
+    "size": { "common": 25, "max": 40, "maxNote": "40 cm SL males/unsexed (FishBase, not flagged as a record); about 1 kg. DORIS: max about 40 cm, divers usually see 15-25 cm.", "source": "https://www.fishbase.se/summary/Mullus-surmuletus.html" },
+    "diet": "Benthic invertebrates dug from the sediment: shrimps, amphipods, polychaetes, molluscs and small benthic fishes; juveniles eat copepods and amphipods.",
+    "behaviour": "Gregarious, forages by stirring sediment with its barbels, leaving shallow pits; often followed by wrasses and sea breams; redder and mottled at night.",
+    "seasonal": "At Arcachon historically 'common in the Bassin in summer and at sea in winter' (Lafont, quoted in Quero & Cendrero 1996). Spawning April-June in the Bay of Biscay; juveniles reach the Atlantic coast in August (DORIS).",
+    "regions": {
+      "gironde": { "status": "seasonal", "confidence": "medium", "basis": "Range statement plus the nearby Arcachon seasonal pattern; no Gironde record found. https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      "biscay": { "status": "seasonal", "confidence": "high", "basis": "Quero & Cendrero 1996 (Arcachon); DORIS (spawning in the Bay of Biscay). https://archimer.ifremer.fr/doc/00000/3793/3324.pdf ; https://doris.ffessm.fr/Especes/Mullus-surmuletus-Rouget-barbet-de-roche-500" },
+      "cantabria": { "status": "resident", "confidence": "high", "basis": "ICES stock mur.27.67a-ce-k89a includes Subarea 8 (Bay of Biscay). https://sid.ices.dk/services/odata4/StockListDWs4?$filter=ActiveYear%20eq%202024&$select=StockKeyLabel,StockKeyDescription,SpeciesScientificName" },
+      "galicia": { "status": "resident", "confidence": "high", "basis": "ICES stock mur.27.67a-ce-k89a includes Division 9.a (Atlantic Iberian waters). https://sid.ices.dk/services/odata4/StockListDWs4?$filter=ActiveYear%20eq%202024&$select=StockKeyLabel,StockKeyDescription,SpeciesScientificName" },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "Listed for mainland Portugal; ICES 9.a. https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      "cadiz": { "status": "resident", "confidence": "medium", "basis": "ICES 9.a covers Atlantic Iberian waters; Gulf of Cadiz inclusion not stated in the fetched description. https://sid.ices.dk/services/odata4/StockListDWs4?$filter=ActiveYear%20eq%202024&$select=StockKeyLabel,StockKeyDescription,SpeciesScientificName" }
+    },
+    "identification": [
+      "Two long chin barbels that fold into a groove (DORIS)",
+      "First dorsal fin (8 spines) banded brown and yellow (DORIS)",
+      "Fairly long snout with a gently curved forehead; two small scales under the eye (DORIS)",
+      "Pinkish-beige to red body with darker or yellow longitudinal lines; concave yellow tail (DORIS, British Sea Fishing)"
+    ],
+    "similar": [
+      "Red mullet (Mullus barbatus): straighter steep profile, three scales under the eye, plain uncoloured first dorsal, sandy-muddy bottoms (DORIS)",
+      "Pseudupeneus prayensis: uniform first dorsal, small black spot behind the eye (DORIS; West African)"
+    ],
+    "anglingMethods": [
+      "Fish, crab or worm baits fished on sandy or mixed seabeds; rarely targeted, mostly caught while fishing for other species https://britishseafishing.co.uk/red-mullet/",
+      "Minimum size 15 cm for 'rouget' in Gironde leisure fishing (2022 guide; https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf); DORIS cites an EU text of 21/12/2006 banning catches under 11 cm"
+    ],
+    "conservation": "IUCN global: LC (assessed 14 July 2014; FishBase). Minimum catch sizes apply (see angling). Fishable.",
+    "sources": [
+      { "title": "FishBase summary: Mullus surmuletus", "url": "https://www.fishbase.se/summary/Mullus-surmuletus.html" },
+      { "title": "FishBase common names: Mullus surmuletus", "url": "https://www.fishbase.se/ComNames/1327" },
+      { "title": "FishBase synonyms: Mullus surmuletus", "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=1327&SynCode=30320&GenusName=Mullus&SpeciesName=surmuletus" },
+      { "title": "DORIS: Mullus surmuletus", "url": "https://doris.ffessm.fr/Especes/Mullus-surmuletus-Rouget-barbet-de-roche-500" },
+      { "title": "Quero & Cendrero 1996, Cybium 20(4)", "url": "https://archimer.ifremer.fr/doc/00000/3793/3324.pdf" },
+      { "title": "ICES Stock Information Database (stock list query)", "url": "https://sid.ices.dk/services/odata4/StockListDWs4?$filter=ActiveYear%20eq%202024&$select=StockKeyLabel,StockKeyDescription,SpeciesScientificName" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "British Sea Fishing: Red mullet", "url": "https://britishseafishing.co.uk/red-mullet/" },
+      { "title": "Prefecture de la Gironde, Guide plaisance fiche 18 (April 2022)", "url": "https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf" }
+    ],
+    "uncertain": "French leisure minimum size: the Gironde guide gives 15 cm for 'rouget' while DORIS cites an EU 2006 rule of 11 cm; the current value should be checked. The Arcachon seasonal pattern is a 19th-century observation. British Sea Fishing's page is titled 'red mullet' but describes this species."
+  },
+  {
+    "id": "shanny",
+    "scientific": "Lipophrys pholis (Linnaeus, 1758)",
+    "family": "Blenniidae",
+    "synonyms": ["Blennius pholis Linnaeus, 1758", "Pholis laevis Fleming, 1828", "Blennius bufo (Lowe, 1843)"],
+    "names": { "en": "Shanny", "fr": "Mordocet", "es": null, "pt": "Marachomba-frade" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/9200",
+      "https://doris.ffessm.fr/Especes/Lipophrys-pholis-Mordocet-2695",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Resident intertidal blenny of rocky and pebbly shores: rock pools, under stones and seaweed and in damp crevices, 0-8 m; can stay out of water at low tide (FishBase, DORIS).",
+    "depth": { "usual": null, "range": [0, 8], "source": "https://www.fishbase.se/summary/Lipophrys-pholis.html" },
+    "size": { "common": null, "max": 17, "maxNote": "17 cm TL (FishBase); DORIS: typically about 16 cm, max about 18 cm.", "source": "https://www.fishbase.se/summary/Lipophrys-pholis.html" },
+    "diet": "Small benthic invertebrates: barnacles, small mussels, crabs, gastropods, amphipods, polychaetes; also some algae.",
+    "behaviour": "Facultative air-breather with homing behaviour; mostly active by day at high tide; can bite if handled; males guard the eggs of several females under stones.",
+    "seasonal": "Resident year-round; spawns April-August (FishBase), early summer (DORIS).",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "medium", "basis": "Range statement (southern Norway to Morocco); rocky-shore habitat near the estuary mouth not verified. https://www.fishbase.se/summary/Lipophrys-pholis.html" },
+      "biscay": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Lipophrys-pholis.html" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Lipophrys-pholis.html" },
+      "galicia": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/Lipophrys-pholis.html" },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "Listed for mainland Portugal. https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      "cadiz": { "status": "resident", "confidence": "medium", "basis": "Range statement (to Morocco); DORIS also cites Mediterranean coasts near Gibraltar. https://doris.ffessm.fr/Especes/Lipophrys-pholis-Mordocet-2695" }
+    },
+    "identification": [
+      "Smooth, scaleless, slimy body with a rounded head profile (DORIS, British Sea Fishing)",
+      "No appendage on top of the head, only small tufts at the front nostrils (DORIS)",
+      "Long dorsal fin notched in the middle, with a dark spot between the first and second spines (DORIS, British Sea Fishing)",
+      "Mottled beige, grey-brown or greenish with faint dark bands; pale upper jaw (DORIS)"
+    ],
+    "similar": [
+      "Lipophrys trigloides: stockier head, prominent eyes, greyish body barred with brown (DORIS)",
+      "Montagu's blenny (Coryphoblennius galerita): triangular lobed crest on the forehead (DORIS)"
+    ],
+    "anglingMethods": [
+      "Light rock fishing (LRF) with very light tackle on rocky shores https://britishseafishing.co.uk/shanny/"
+    ],
+    "conservation": "IUCN global: LC (assessed 24 March 2011; FishBase). No regulation found. Of no fisheries interest (FishBase). Fishable (catch-and-release suits it).",
+    "sources": [
+      { "title": "FishBase summary: Lipophrys pholis", "url": "https://www.fishbase.se/summary/Lipophrys-pholis.html" },
+      { "title": "FishBase common names: Lipophrys pholis", "url": "https://www.fishbase.se/ComNames/9200" },
+      { "title": "FishBase synonyms: Lipophrys pholis", "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=9200&SynCode=27330&GenusName=Lipophrys&SpeciesName=pholis" },
+      { "title": "DORIS: Lipophrys pholis", "url": "https://doris.ffessm.fr/Especes/Lipophrys-pholis-Mordocet-2695" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "British Sea Fishing: Shanny", "url": "https://britishseafishing.co.uk/shanny/" }
+    ],
+    "uncertain": "No Spanish common name found in fetched sources (FishBase gives only the Catalan 'Bavosa soma'; DORIS lists none). Presence along the Spanish and French Biscay coasts rests on range only; suitable rocky habitat around Royan not verified."
+  },
+  {
+    "id": "grouper",
+    "scientific": "Epinephelus marginatus (Lowe, 1834)",
+    "family": "Epinephelidae",
+    "synonyms": ["Serranus marginatus Lowe, 1834", "Mycteroperca marginatus (Lowe, 1834)", "Serranus fimbriatus Lowe, 1838"],
+    "names": { "en": "Dusky grouper", "fr": "Mérou brun", "es": "Mero", "pt": "Mero" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/6470",
+      "https://doris.ffessm.fr/Especes/Epinephelus-marginatus-Merou-brun-474",
+      "https://juntadeandalucia.es/export/drupaljda/31_meros.pdf",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Solitary, territorial reef fish of rocky bottoms, drop-offs and rugged reefs; juveniles in shallow rocky rubble and tide pools, sometimes entering brackish water (FishBase, DORIS).",
+    "depth": { "usual": null, "range": [8, 300], "source": "https://www.fishbase.se/summary/Epinephelus-marginatus.html" },
+    "size": { "common": null, "max": 150, "maxNote": "150 cm TL, 60 kg (FishBase, not flagged as a record). DORIS: max about 140 cm, commonly 40-80 cm in French waters. IPMA: up to 60 kg and 50 years.", "source": "https://www.fishbase.se/summary/Epinephelus-marginatus.html" },
+    "diet": "Mainly crabs and octopus; larger fish take more reef fishes; ambush predator.",
+    "behaviour": "Solitary, territorial and very sedentary; protogynous hermaphrodite (female first, becoming male later, around 70-90 cm); forms summer spawning aggregations; long-lived (about 50-60 years).",
+    "seasonal": "Spawns in summer, roughly July-September (DORIS). No seasonal movements documented for the Atlantic Iberian coast.",
+    "regions": {
+      "gironde": { "status": "occasional", "confidence": "low", "basis": "FishBase places the northern limit in the southern Bay of Biscay and DORIS says it is very rare north of the Bay of Biscay; no Gironde record found. https://www.fishbase.se/summary/Epinephelus-marginatus.html" },
+      "biscay": { "status": "occasional", "confidence": "low", "basis": "Edge of range: 'southern Bay of Biscay' (FishBase); DORIS range starts at southern Brittany but very rare north of Biscay; no French Basque record found. https://doris.ffessm.fr/Especes/Epinephelus-marginatus-Merou-brun-474" },
+      "cantabria": { "status": "occasional", "confidence": "medium", "basis": "Southern Bay of Biscay is the stated northern limit (FishBase); Spain's official name list includes an Asturian commercial name 'Meru' (Junta de Andalucia fiche). https://www.fishbase.se/summary/Epinephelus-marginatus.html ; https://juntadeandalucia.es/export/drupaljda/31_meros.pdf" },
+      "galicia": { "status": "resident", "confidence": "medium", "basis": "Range statement; Galician commercial name 'Mero oscuro' in Spain's official name list (Junta de Andalucia fiche). https://juntadeandalucia.es/export/drupaljda/31_meros.pdf" },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "IPMA: occurs along the whole Portuguese coast (more common in the Azores); listed for mainland Portugal. https://www.ipma.pt/opencms/pt/pescas/eppo/mero ; https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      "cadiz": { "status": "resident", "confidence": "medium", "basis": "Junta de Andalucia: known as 'mero' along the whole Andalusian coast (market naming, not a survey). https://juntadeandalucia.es/export/drupaljda/31_meros.pdf" }
+    },
+    "identification": [
+      "Massive oval body with a large head, prominent eyes and a big mouth (DORIS)",
+      "Dark brown with irregular pale blotches; pale radiating marks around the eye (DORIS)",
+      "Rounded tail fin with a white margin; single dorsal fin with 11 spines (DORIS)",
+      "Large old males almost uniformly brown (DORIS)"
+    ],
+    "similar": [
+      "Wreckfish (Polyprion americanus): concave upper head profile, strong bony ridge above the gill cover (DORIS)",
+      "Dogtooth grouper (Epinephelus caninus): larger canines, truncated tail, uniform dark colour (DORIS)",
+      "Mycteroperca rubra: smaller, truncated tail, wavy dark lines (DORIS)",
+      "Goldblotch grouper (Epinephelus costae): more elongate, dark longitudinal lines (DORIS)"
+    ],
+    "anglingMethods": [
+      "FishBase: readily caught by anglers and listed as a gamefish https://www.fishbase.se/summary/Epinephelus-marginatus.html",
+      "France: spearfishing banned (Corsica since 1980, mainland since 1993) and hook fishing banned in the French Mediterranean under renewable moratoria https://doris.ffessm.fr/Especes/Epinephelus-marginatus-Merou-brun-474",
+      "Spain Atlantic: no minimum size regulated (45 cm in the Mediterranean) https://juntadeandalucia.es/export/drupaljda/31_meros.pdf"
+    ],
+    "conservation": "IUCN global: VU (A2bd+4bd, assessed 20 Nov 2016); Mediterranean regional assessment EN (A2d, 30 April 2004) (Bariche & Fricke 2020 treatment). DORIS cites EN. Barcelona and Bern Convention Annex II (DORIS). France: Mediterranean spearfishing and hook-fishing moratoria. Spain Atlantic: no minimum size. IPMA: on the IUCN Red List as threatened owing to low resilience. Recommend observation-only or catch-and-release.",
+    "sources": [
+      { "title": "FishBase summary: Epinephelus marginatus", "url": "https://www.fishbase.se/summary/Epinephelus-marginatus.html" },
+      { "title": "FishBase common names: Epinephelus marginatus", "url": "https://www.fishbase.se/ComNames/6470" },
+      { "title": "FishBase synonyms: Epinephelus marginatus", "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=6470&SynCode=26140&GenusName=Epinephelus&SpeciesName=marginatus" },
+      { "title": "DORIS: Epinephelus marginatus", "url": "https://doris.ffessm.fr/Especes/Epinephelus-marginatus-Merou-brun-474" },
+      { "title": "Bariche & Fricke 2020 taxonomic treatment (Plazi/Zenodo), IUCN categories", "url": "https://zenodo.org/doi/10.5281/zenodo.4346749" },
+      { "title": "IPMA: Mero, Epinephelus marginatus", "url": "https://www.ipma.pt/opencms/pt/pescas/eppo/mero" },
+      { "title": "Junta de Andalucia fiche FTPE31: Meros (Epinephelus spp.)", "url": "https://juntadeandalucia.es/export/drupaljda/31_meros.pdf" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" }
+    ],
+    "uncertain": "Not confirmed whether the French moratorium covers the Atlantic coast; no Portuguese mainland, Galician or Cantabrian recreational rule was found. Frequency on the Basque, Cantabrian and Galician coasts is not documented. FishBase lists 'Epinephelus guaza' as a misapplied name, while DORIS lists it as a synonym. FishBase did not display the IUCN category; it comes from the Zenodo treatment."
+  }
+]

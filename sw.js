@@ -10,11 +10,12 @@
 // - It never touches saved games: those live in the browser's local storage, not here.
 
 // <precache> Written by tools/build-sw.mjs: do not edit by hand.
-const VERSION = '8369a6c80b6f';
+const VERSION = 'c94c73806ffc';
 const FILES = [
   './index.html',
   './style.css',
   './manifest.webmanifest',
+  './src/anatomy.js',
   './src/audio.js',
   './src/boat.js',
   './src/camera.js',
@@ -28,6 +29,7 @@ const FILES = [
   './src/fishing.js',
   './src/gearArt.js',
   './src/gearView.js',
+  './src/guide.js',
   './src/input.js',
   './src/journal.js',
   './src/main.js',
@@ -36,6 +38,8 @@ const FILES = [
   './src/pack.js',
   './src/props.js',
   './src/quality.js',
+  './src/register.js',
+  './src/registerData.js',
   './src/save.js',
   './src/settings.js',
   './src/sonar.js',

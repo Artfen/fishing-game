@@ -110,12 +110,22 @@ const SCENARIOS = {
   // (This pike lies off the Holm: cast to the island from a boat out in the deep water.)
   pikeMere: () => { const h = near('pike', 4); return { kind: 'lure', item: 'jerk', x: h.x, z: h.z, ax: h.x - 18, az: h.z, hour: 7 }; },
   carp: () => { const h = near('carp'); return { kind: 'ledger', item: 'boilie', x: h.x, z: h.z, ax: h.x + 15, az: h.z, hour: 18 }; },
+  // The field guide's reference species, with the setups it recommends.
+  meagreShad: () => { const h = near('meagre'); return { kind: 'lure', item: 'shad', retrieve: 0.7, x: h.x, z: h.z, ax: h.x + 25, az: h.z, hour: 20, thick: 0.6 }; },
+  meagreStrip: () => { const h = near('meagre', 3); return { kind: 'bottom', item: 'strip', x: h.x, z: h.z, ax: h.x + 15, az: h.z, hour: 21 }; },
+  gilthead: () => { const h = near('gilthead'); return { kind: 'bottom', item: 'crab', x: h.x, z: h.z, ax: h.x + 14, az: h.z + 6, hour: 11, thick: 0.45 }; },
+  giltheadBay: () => { const h = near('gilthead', 20); return { kind: 'bottom', item: 'crab', x: h.x, z: h.z, ax: h.x + 14, az: h.z + 6, hour: 11, thick: 0.45 }; },
+  soleNight: () => { const h = near('sole', 4); return { kind: 'bottom', item: 'rag', x: h.x, z: h.z, ax: h.x + 12, az: h.z + 12, hour: 23 }; },
+  soleDay: () => { const h = near('sole', 4); return { kind: 'bottom', item: 'rag', x: h.x, z: h.z, ax: h.x + 12, az: h.z + 12, hour: 12 }; },
+  cuttlefish: () => { const h = near('cuttlefish', 2); return { kind: 'jig', item: 'egi25', x: h.x, z: h.z, ax: h.x + 15, az: h.z, hour: 10 }; },
   // Wrong tackle in the right place should not catch the target.
   wrongBottomLure: () => { const h = near('flounder', 2); return { kind: 'lure', item: 'popper', x: h.x, z: h.z, ax: h.x + 20, az: h.z }; },
 };
 
+export { SCENARIOS };
+const MAIN = !import.meta.url.includes('nomain');
 const only = process.argv[2];
-for (const [name, make] of Object.entries(SCENARIOS)) {
+for (const [name, make] of MAIN ? Object.entries(SCENARIOS) : []) {
   if (only && name !== only) continue;
   const sc = make();
   console.log(`${name.padEnd(16)} (${sc.item}, ${zoneAt(sc.x, sc.z)} ${sc.x.toFixed(0)},${sc.z.toFixed(0)}): ${fish(sc).join(', ')}`);

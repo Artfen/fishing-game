@@ -826,8 +826,8 @@ export class Fishing {
     this.fx.splash(this.fishPos.x, 0.05, this.fishPos.z, 18, 2.6);
     this.fx.ripple(this.fishPos.x, this.fishPos.z, 2.2, 1.6, 0.6);
     this.audio.splashBig();
-    // A squid comes out squirting ink.
-    if (F.sp.creature === 'squid') {
+    // A squid or cuttlefish comes out squirting ink.
+    if (F.sp.creature) {
       this.fx.ink(this.fishPos.x, this.fishPos.z);
       this.audio.splashSmall(0.6);
     }

@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { lerp, smoothstep, seeded } from './util.js';
+import { hasAnatomy, anatomyGeometry, anatomyMaterials } from './anatomy.js';
+import { registerFor, titleName } from './register.js';
 
 const isDay = (h) => h >= 6.2 && h < 19;
 const isEvening = (h) => h >= 18.5 || h < 5;
@@ -703,7 +705,137 @@ export const FISH = [
       strike: { lure: 'chase', jig: 'chase', float: 'nibble' },
     },
   },
+  /* ---------------- the Atlantic field guide's reference species (see register.js) ---------------- */
+  {
+    id: 'meagre',
+    fight: 'dogged',
+    name: 'Meagre',
+    water: 'salt',
+    wt: 0.0098,
+    size: [45, 140],
+    visual: 1.2,
+    strength: 1.7,
+    reel: 0.085,
+    pull: 13,
+    mouth: 4,
+    colors: { back: '#5b5a4c', body: '#b9b7aa', belly: '#ece8de', fin: '#8a5a44', mark: '#3e3a30' },
+    sketch: { h: 0.3, tail: 0.55, pattern: 'plain', spiky: true },
+    where: 'The Wend estuary: the deep channel, the rocks and the quay, mostly at dusk and after dark',
+    hint: 'Something big drums in the estuary channel at dusk. A soft shad or a sandeel worked slowly near the bottom, or a mackerel strip on the bottom rod.',
+    note: 'A big, silver-bronze croaker of estuaries, with a large mouth golden inside and a lateral line that runs right out onto its tail. Males drum loudly in spring, when meagre gather in estuaries like the Gironde to spawn.',
+    meal: { name: 'Meagre steaks grilled with olive oil and garlic', fill: 80 },
+    food: { shad: 1.6, sandeel: 1.4, strip: 1.3, crab: 0.9, prawn: 0.9, lug: 0.7, rag: 0.6, metal: 0.5, popper: 0.3 },
+    life: {
+      group: [1, 3], groups: 7, spacing: 28,
+      speed: 0.7, burst: 3.0, turn: 1.6, perception: 12, depthTol: 2.6, cover: 'any',
+      homes: ['channel', 'rock', 'quay'], zones: ['estuary'],
+      depth: ({ hour }) => (isTwilight(hour) || isEvening(hour) ? [1.2, 4] : [2.5, 8]),
+      activity: ({ hour, rain = 0 }) => clamp01((isTwilight(hour) ? 1 : isEvening(hour) ? 0.85 : 0.3) + rain * 0.1),
+      likes: { still: 0.9, slow: 1.25, fast: 0.6, twitch: 1.0 },
+      bite: 0.65, caution: 1.2, rises: () => 0, jumps: 0,
+      strike: { lure: 'chase', bottom: 'nibble', float: 'nibble' },
+    },
+  },
+  {
+    id: 'gilthead',
+    fight: 'dash',
+    name: 'Gilthead Seabream',
+    water: 'salt',
+    wt: 0.0145,
+    size: [20, 60],
+    visual: 1.35,
+    strength: 1.3,
+    reel: 0.12,
+    pull: 4.2,
+    mouth: 2,
+    colors: { back: '#55606a', body: '#c3c8cb', belly: '#f0f0ec', fin: '#7d8a94', mark: '#e0b43a' },
+    sketch: { h: 0.44, tail: 0.6, pattern: 'lines' },
+    where: 'Shallow sand, rock and weed in the bay, the estuary flats and the coast',
+    hint: 'A deep silver fish with a gold band between its eyes grubs among the rocks and on the flats for crabs and shellfish. A peeler crab or a prawn on the bottom, and patience: it mouths a bait before it takes.',
+    note: 'Deep-bodied, silver and strong, with a band of gold across its forehead and a dark blotch on its gill cover. Its jaws carry crushing teeth for crabs, mussels and shellfish. Wary, and a hard fighter for its size.',
+    meal: { name: 'Gilthead baked in a salt crust', fill: 55 },
+    food: { crab: 1.6, prawn: 1.25, rag: 1.0, lug: 0.8, worm: 0.7, strip: 0.5, bread: 0.15, corn: 0.15 },
+    life: {
+      group: [2, 5], groups: 11, spacing: 16, groupsIn: { estuary: 4, bay: 4, coast: 3 },
+      speed: 0.6, burst: 2.4, turn: 2.2, perception: 9, depthTol: 1.6, cover: 'any', lineShy: 0.5,
+      homes: ['flats', 'rock', 'quay', 'sand', 'weed'], zones: ['estuary', 'bay', 'coast'],
+      depth: () => [0.8, 5],
+      activity: ({ hour, rain = 0 }) => clamp01((isDay(hour) ? 0.9 : isTwilight(hour) ? 0.7 : 0.25) - rain * 0.1),
+      likes: { still: 1.2, slow: 0.8, fast: 0.1, twitch: 0.4 },
+      bite: 0.6, caution: 1.4, rises: () => 0, jumps: 0,
+      strike: { bottom: 'nibble', ledger: 'nibble', float: 'nibble' },
+    },
+  },
+  {
+    id: 'sole',
+    fight: 'flat',
+    name: 'Common Sole',
+    water: 'salt',
+    wt: 0.0085,
+    size: [20, 50],
+    visual: 1.5,
+    strength: 0.8,
+    reel: 0.17,
+    pull: 1.6,
+    mouth: 1,
+    colors: { back: '#6b5843', body: '#7b6650', belly: '#efe9dc', fin: '#6e5a45', mark: '#4e3d2c' },
+    sketch: { h: 0.5, tail: 0.35, pattern: 'mottle', flat: true },
+    where: 'Sand and mud in the estuary, the bay and the coast; it feeds after dark',
+    hint: 'By day it lies buried in the sand with only its eyes showing. After dark it creeps over the bottom feeling for worms: a ragworm on a bottom rig, left still.',
+    note: 'An oval flatfish with both eyes on its right side, brown and blotched above and white beneath, with a black tip to the pectoral fin on its eyed side. It hunts worms by touch and smell at night.',
+    meal: { name: 'Sole meunière, in brown butter', fill: 40 },
+    food: { rag: 1.6, lug: 1.4, worm: 1.0, prawn: 0.4, crab: 0.3, maggot: 0.3 },
+    life: {
+      group: [1, 1], groups: 18, spacing: 12, flat: true,
+      speed: 0.28, turn: 1.3, perception: 8, depthTol: 1.0, cover: 'open', bottom: true,
+      homes: ['sand', 'flats', 'channel'], zones: ['estuary', 'bay', 'coast'],
+      depth: () => [1, 8],
+      activity: ({ hour, night }) => clamp01(0.2 + (night ?? (isEvening(hour) ? 1 : 0)) * 0.85 + (isTwilight(hour) ? 0.25 : 0)),
+      likes: { still: 1.3, slow: 0.6, fast: 0.05, twitch: 0.3 },
+      bite: 0.6, caution: 1.0, rises: () => 0, jumps: 0,
+      strike: { bottom: 'nibble', ledger: 'nibble', float: 'nibble' },
+    },
+  },
+  {
+    id: 'cuttlefish',
+    fight: 'jet',
+    name: 'Common Cuttlefish',
+    creature: 'cuttlefish',
+    water: 'salt',
+    wt: 0.25, wtPow: 2.6,
+    size: [10, 35],
+    visual: 2.0,
+    strength: 0.9,
+    reel: 0.18,
+    pull: 1.6,
+    mouth: 3,
+    colors: { back: '#5a4636', body: '#9a7a5c', belly: '#ebe0d0', fin: '#d8c8b0', mark: '#2a1e16' },
+    sketch: { h: 0.34, tail: 0.5, pattern: 'squid' },
+    where: 'Shallow sand and weed in the bay, the coves and the coast, close to the bottom',
+    hint: 'A brown shape hovers just above the sand, its fins rippling, and flickers stripes across its back. A squid jig let down to the bottom and lifted gently, by day or at dusk.',
+    note: 'Not a fish: a cephalopod with a broad, flat body fringed by a rippling fin, eight arms, two long tentacles it shoots out to seize prey, and W-shaped pupils. It changes colour and pattern in a moment, and squirts ink when caught.',
+    meal: { name: 'Cuttlefish stewed in its own ink, with rice', fill: 45 },
+    food: { egi18: 1.4, egi25: 1.4, egi30: 1.1, prawn: 0.9, strip: 0.5 },
+    life: {
+      group: [1, 2], groups: 10, spacing: 20, groupsIn: { bay: 3, cove: 3, coast: 3, estuary: 1 },
+      speed: 0.32, burst: 2.2, turn: 2.2, perception: 8, depthTol: 1.8, cover: 'any', squid: true,
+      homes: ['weed', 'sand', 'rock', 'flats'], zones: ['bay', 'cove', 'coast', 'estuary'],
+      depth: () => [1, 7],
+      activity: ({ hour }) => clamp01(isTwilight(hour) ? 1 : isDay(hour) ? 0.75 : 0.5),
+      likes: { still: 1.1, slow: 0.8, fast: 0.1, twitch: 0.9 },
+      bite: 0.7, caution: 1.0, rises: () => 0, jumps: 0,
+      strike: { lure: 'chase', jig: 'chase', float: 'nibble' },
+    },
+  },
 ];
+// Real species take their names from the Atlantic register (register.js), so the water, the
+// catch card, the journal and the field guide all call a fish the same thing.
+for (const f of FISH) {
+  const r = registerFor(f.id);
+  if (!r) continue;
+  if (r.names?.en) f.name = titleName(r.names.en);
+  f.scientific = r.scientific;
+}
 export const fishById = Object.fromEntries(FISH.map((f) => [f.id, f]));
 
 // Bigger fish are rarer.
@@ -719,7 +851,9 @@ const _c = new THREE.Color();
 
 // One merged, vertex-coloured fish (nose along +z, about 1 unit long) that works both
 // as a single mesh and as an InstancedMesh. aGlow marks the fins that glow at night.
-export function buildFishGeometry(f) {
+// Species with an anatomical recipe (anatomy.js) use it instead, near (detail) and far.
+export function buildFishGeometry(f, detail = true) {
+  if (hasAnatomy(f.id)) return anatomyGeometry(f.id, detail);
   if (f.creature === 'squid') return buildSquidGeometry(f);
   if (f.sketch.flat) return buildFlatGeometry(f);
   const c = f.colors;
@@ -812,6 +946,7 @@ export function buildFishGeometry(f) {
 // The tail sways with a travelling wave. Instanced fish read their swim phase and
 // effort from an attribute; a single fish reads it from material.userData.swim.
 export function fishMaterial(f, instanced) {
+  if (hasAnatomy(f.id)) return anatomyMaterials(f.id, instanced);
   const m = new THREE.MeshStandardMaterial({
     vertexColors: true, roughness: f.creature ? 0.55 : 0.38, metalness: f.creature ? 0.02 : 0.18, flatShading: true, side: THREE.DoubleSide,
   });
@@ -952,7 +1087,7 @@ export function buildFishMesh(f) {
   const mesh = new THREE.Mesh(buildFishGeometry(f), fishMaterial(f, false));
   mesh.castShadow = true;
   mesh.visible = false;
-  mesh.userData.swim = mesh.material.userData.swim.value;
+  mesh.userData.swim = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material).userData.swim.value;
   return mesh;
 }
 

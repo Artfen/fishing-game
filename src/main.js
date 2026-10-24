@@ -33,6 +33,8 @@ import { PackUI } from './pack.js';
 import { Camp, WAKE_TIMES } from './camp.js';
 import { Journal } from './journal.js';
 import { MapSheet, Explored } from './map.js';
+import { FieldGuide } from './guide.js';
+import { studio } from './gearView.js';
 import { CameraRig } from './camera.js';
 import { RodView } from './firstperson.js';
 import { bendRod } from './props.js';
@@ -124,7 +126,7 @@ camera.layers.enable(NO_REFLECT);
 hideFromReflection(water.mesh);
 hideFromReflection(water.ring);
 for (const o of [...underwater.beds.flatMap((b) => [b.grass, b.kelp]), underwater.rocks, underwater.particles, underwater.bubblesPts, ...underwater.rays]) hideFromReflection(o);
-for (const set of fishRenderer.sets) hideFromReflection(set.mesh);
+for (const m of fishRenderer.meshes) hideFromReflection(m);
 // The boats: the rowing boat you start with, the motor skiff and the kayak tied up at the
 // landing, and the bass boat at the Longmere boathouse. `boat` is whichever you're in (or
 // last used); the others float where you left them.
@@ -463,16 +465,23 @@ function showCatch(sp, size, agent, rigUsed) {
   state.tips.caught = true;
   save();
 
+  // The species' own model, as it swims in the water and appears in the field guide.
   const cv = $('cc-canvas');
   const ctx = cv.getContext('2d');
   ctx.clearRect(0, 0, cv.width, cv.height);
-  drawFishSketch(ctx, sp, cv.width / 2, cv.height / 2 + 6, cv.width * 0.72);
+  const photo = new Image();
+  photo.onload = () => {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(photo, 0, 0, cv.width, cv.height);
+  };
+  photo.src = studio().thumb({ type: 'fish', id: sp.id }, cv.width, cv.height);
+  markObserved(sp.id, agent);
   $('cc-new').hidden = !isNew;
   $('cc-name').textContent = sp.name;
   const kg = weightOf(sp, size);
   const wtText = kg < 1 ? `${Math.round(kg * 1000 / 10) * 10} g` : `${kg.toFixed(kg < 10 ? 1 : 0)} kg`;
-  $('cc-size').textContent = `${size} cm${sp.creature === 'squid' ? ' mantle' : ''} · about ${wtText}${record ? ' · your biggest yet' : ''}`;
-  $('cc-note').textContent = isNew ? sp.note : agent.caught > 0 ? 'This one has met your hook before.' : sp.creature === 'squid' ? pick(['It flushes from pink to white and back, and squirts a last jet of ink.', 'Its great dark eyes look you over.', 'It wraps an arm round your finger, then lets go.']) : pick(REPEAT_LINES);
+  $('cc-size').textContent = `${size} cm${sp.creature ? ' mantle' : ''} · about ${wtText}${record ? ' · your biggest yet' : ''}`;
+  $('cc-note').textContent = isNew ? sp.note : agent.caught > 0 ? 'This one has met your hook before.' : sp.creature ? pick(['It flushes pale and dark, and squirts a last jet of ink.', 'Its great eyes look you over.', 'It wraps an arm round your finger, then lets go.']) : pick(REPEAT_LINES);
   $('cc-rig').textContent = rigUsed?.item ? `Caught on ${rigUsed.item.on}, with the ${rigUsed.rod.short.toLowerCase()}` : '';
   const keepBtn = $('cc-keep');
   keepBtn.hidden = !sp.meal;
@@ -546,6 +555,10 @@ const packUI = new PackUI(state, {
   openMap: () => {
     closePack();
     openMap();
+  },
+  openGuide: (id) => {
+    closePack();
+    openGuide(id);
   },
 });
 
@@ -1002,6 +1015,36 @@ function closeNote() {
   modal = null;
 }
 
+// Animals you've seen for yourself: in the underwater view or following your bait, close and in
+// front of you (and every one you catch). The field guide keeps the record.
+const seenAgents = new Set();
+function markObserved(id, agent) {
+  const obs = (state.observed = state.observed || {});
+  const key = agent ? agent.id : `catch-${id}`;
+  if (agent && seenAgents.has(key)) return;
+  seenAgents.add(key);
+  const at = agent || player().pos;
+  const rec = obs[id];
+  if (rec) rec.count++;
+  else obs[id] = { count: 1, day: state.day, hour: Math.round(state.hour * 100) / 100, zone: zoneAt(at.x, at.z) };
+}
+let observeT = 0;
+const _fwd = new THREE.Vector3();
+function watchObservations(dt) {
+  observeT -= dt;
+  if (observeT > 0 || !rig.underwaterView) return;
+  observeT = 0.5;
+  camera.getWorldDirection(_fwd);
+  const c = camera.position;
+  for (const a of eco.agents) {
+    if (!a.active || a.state === 'gone' || a.state === 'caught') continue;
+    const dx = a.x - c.x, dy = a.y - c.y, dz = a.z - c.z, d = Math.hypot(dx, dy, dz);
+    if (d > 9 || d < 0.2) continue;
+    if ((dx * _fwd.x + dy * _fwd.y + dz * _fwd.z) / d < 0.55) continue;
+    markObserved(a.sp.id, a);
+  }
+}
+
 let placeTimer = 0;
 function checkPlaces(dt) {
   placeTimer -= dt;
@@ -1247,6 +1290,7 @@ function applyQuality() {
   // Fewer distant fish are drawn on lower settings, but every one of them is still there:
   // simulated, able to bite, and on the fish finder.
   fishRenderer.density = q.fishDensity;
+  fishRenderer.near = 8 + 14 * q.fishDensity;
   eco.simRadius = q.simRadius;
   underwater.setQuality(q);
   underwater.setPixelRatio(pr);
@@ -1951,11 +1995,11 @@ const mapSheet = new MapSheet(state, explored, { data: heightTex.image.data, wid
   close: () => closeMap(),
 });
 
-function openMap() {
+function openMap(highlight = null) {
   if (modal) return;
   if (fishing.aiming) fishing.cancel();
   const p = player();
-  mapSheet.open({ player: { x: p.pos.x, z: p.pos.z, heading: p.heading }, onFoot, boats, boat });
+  mapSheet.open({ player: { x: p.pos.x, z: p.pos.z, heading: p.heading }, onFoot, boats, boat }, typeof highlight === 'string' ? highlight : null);
   modal = 'map';
   audio.page();
   teach('map', 'The map fills in as you explore. Camps you’ve found are listed beside it: you can head straight to any of them.', 6);
@@ -1963,6 +2007,39 @@ function openMap() {
 function closeMap() {
   mapSheet.close();
   if (modal === 'map') modal = null;
+  audio.page();
+}
+
+// The field guide lives in the journal; it can rig a recommended setup (when you carry it), and
+// send you to the map or the backpack.
+journal.guide = new FieldGuide(state, {
+  atBox: () => !!tackleBox(),
+  showOnMap: (id) => {
+    closeJournal();
+    openMap(id);
+  },
+  openPack: (ref) => {
+    closeJournal();
+    openPack();
+    packUI.goto({ rod: 'rods', item: { bait: 'baits', lure: 'lures', fly: 'flies', jig: 'flies' }[TACKLE[ref.id]?.type] }[ref.type] || 'rods', ref);
+  },
+  rig: (s) => {
+    const g = state.gear;
+    g.rod = s.rod;
+    g.line[s.rod] = s.line;
+    g.term[s.rod] = s.term;
+    g.rig[s.rod] = s.item;
+    const msg = `${RODS[s.rod].name} rigged with ${TACKLE[s.item].on}`;
+    applyGear(msg);
+    return msg;
+  },
+  miniMap: (cv, id) => mapSheet.miniMap(cv, id),
+});
+
+function openGuide(id) {
+  if (modal) return;
+  journal.openGuide({ boats, walker: onFoot ? walker : null, camp: world.camp.firePos }, id);
+  modal = 'journal';
   audio.page();
 }
 
@@ -2409,6 +2486,7 @@ function tick(now, manual = false) {
 
   if (started) {
     checkPlaces(dt);
+    watchObservations(dt);
     moments();
     saveTimer -= dt;
     if (saveTimer <= 0) {
@@ -2539,7 +2617,8 @@ window.slowTide = {
     window.slowTide.paused = true;
     camera.position.set(x, y, z);
     camera.lookAt(tx, ty, tz);
-    underwater.updateMedium(t, camera, env, scene, water, weather.rain);
+    const sub = underwater.updateMedium(t, camera, env, scene, water, weather.rain);
+    fishRenderer.update(0, camera, env.night, sub > 0.5); // the fish near this view, in full detail
     reflection.active = false; // a fresh reflection for the new view
     draw();
   },

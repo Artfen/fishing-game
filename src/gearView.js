@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { buildGear, disposeGear } from './gearArt.js';
+import { fishById, buildFishGeometry, fishMaterial, drawFishSketch } from './fish.js';
+import { hasAnatomy } from './anatomy.js';
 import { RODS, TACKLE, TERMS, LINE_COLORS } from './tackle.js';
 
 // The backpack's little photo studio: one small WebGL renderer, made the first time the
@@ -8,6 +10,23 @@ import { RODS, TACKLE, TERMS, LINE_COLORS } from './tackle.js';
 // pick something else (no animation loop). If WebGL isn't available, simple drawings stand in.
 
 export const refKey = (r) => `${r.type}:${r.id}${r.rod ? `@${r.rod}` : ''}`;
+
+// The same model a species has in the water, posed for a portrait: side on, facing left, or
+// seen from above for a flatfish and a cuttlefish.
+function fishModel(ref) {
+  const sp = fishById[ref.id];
+  const mesh = new THREE.Mesh(buildFishGeometry(sp, true), fishMaterial(sp, false));
+  // (Shared anatomical geometry stays cached; the older species' geometry is made per picture.)
+  mesh.userData.sharedGeometry = hasAnatomy(sp.id);
+  const flat = sp.life?.flat, ceph = !!sp.creature;
+  const view = flat ? { yaw: -Math.PI / 2 + 0.25, pitch: 0.95 } : ceph ? { yaw: -Math.PI / 2 + 0.5, pitch: 0.6 } : { yaw: -Math.PI / 2 + 0.12, pitch: 0.08 };
+  return { object: mesh, view };
+}
+const build = (ref, opts) => (ref.type === 'fish' ? fishModel(ref) : buildGear(ref, opts));
+const release = (object) => {
+  if (object.userData.sharedGeometry) return;
+  disposeGear(object);
+};
 
 const _box = new THREE.Box3(), _size = new THREE.Vector3(), _center = new THREE.Vector3();
 
@@ -145,12 +164,12 @@ export class GearStage {
     let url;
     if (this.init()) {
       const thick = ref.type === 'rod' && !opts.closeUp ? opts.thick ?? 3 : 1;
-      const { object, view } = buildGear(ref, { closeUp: opts.closeUp, thick });
+      const { object, view } = build(ref, { closeUp: opts.closeUp, thick });
       if (ref.type === 'rod' && !opts.closeUp) view.pitch = 0.05;
       const cam = this.frame(object, view, w, h, opts);
       url = this.shoot(w, h, cam).toDataURL('image/png');
       this.holder.clear();
-      disposeGear(object);
+      release(object);
     } else url = fallbackThumb(ref, w, h);
     this.thumbs.set(key, url);
     return url;
@@ -171,7 +190,7 @@ export class GearStage {
     if (this.current?.key !== key) {
       this.release();
       const thick = ref.type === 'rod' && !closeUp ? 2.2 : 1;
-      const built = buildGear(ref, { closeUp, thick });
+      const built = build(ref, { closeUp, thick });
       this.current = { key, ...built, closeUp };
     }
     const c = this.current;
@@ -184,7 +203,7 @@ export class GearStage {
   release() {
     if (!this.current) return;
     this.holder?.clear();
-    disposeGear(this.current.object);
+    release(this.current.object);
     this.current = null;
   }
 
@@ -194,6 +213,10 @@ export class GearStage {
   }
 }
 
+// One studio for the whole game (the backpack, the field guide and the catch card share it).
+let shared = null;
+export const studio = () => shared || (shared = new GearStage());
+
 /* ---------------- drawings for when WebGL isn't available ---------------- */
 
 function fallbackThumb(ref, w, h) {
@@ -201,6 +224,11 @@ function fallbackThumb(ref, w, h) {
   c.width = w;
   c.height = h;
   const x = c.getContext('2d');
+  if (ref.type === 'fish') {
+    // A species: its journal sketch.
+    drawFishSketch(x, fishById[ref.id], w / 2, h / 2, w * 0.8);
+    return c.toDataURL('image/png');
+  }
   x.lineCap = 'round';
   x.lineJoin = 'round';
   const cx = w / 2, cy = h / 2, u = Math.min(w, h) / 10;

@@ -1,0 +1,706 @@
+[
+  {
+    "id": "seabass",
+    "scientific": "Dicentrarchus labrax (Linnaeus, 1758)",
+    "family": "Moronidae",
+    "synonyms": ["Perca labrax", "Roccus labrax", "Sciaena labrax", "Morone labrax", "Labrax lupus", "Dicentrarchus lupus", "Dicentrarchus elongatus"],
+    "names": { "en": "European seabass", "fr": "bar commun", "es": "lubina", "pt": "robalo" },
+    "nameSources": [
+      "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/126975",
+      "https://doris.ffessm.fr/Especes/Dicentrarchus-labrax-Bar-commun-loup-407",
+      "https://www.fishbase.se/summary/Dicentrarchus-labrax.html"
+    ],
+    "habitat": "Demersal coastal fish of shallow waters over sand and rock along the shore, entering estuaries, lagoons, harbours and occasionally rivers; young fish school, adults are less social.",
+    "depth": { "usual": [0, 30], "range": [10, 100], "source": "https://doris.ffessm.fr/Especes/Dicentrarchus-labrax-Bar-commun-loup-407 (usual: to about 30 m, exceptionally 100 m) ; https://www.fishbase.se/summary/Dicentrarchus-labrax.html (range 10-100 m, more common in shallow water)" },
+    "size": { "common": 50, "max": 103, "maxNote": "FishBase: max 103 cm TL, common 50 cm TL, max weight 12 kg, max age 30 years; DORIS gives a maximum of about 110 cm and usual 70-80 cm", "source": "https://www.fishbase.se/summary/Dicentrarchus-labrax.html" },
+    "diet": "Juveniles eat crustaceans and other invertebrates; adults are mainly piscivorous (sardine, anchovy, pouting) and also take shrimps, cephalopods and molluscs.",
+    "behaviour": "Juveniles school, often with fish of the same size; adults more solitary but may mix with mullets or black seabream. Moves into coastal waters and river mouths in summer and offshore in colder months.",
+    "seasonal": "FishBase: moves into coastal waters and river mouths in summer and offshore in the colder months; spawns once a year, in spring near the British Isles and earlier further south. Dicentrarchus spp. larvae were recorded in the Gironde estuary in summer (DILEME dataset).",
+    "regions": {
+      "gironde":   { "status": "resident", "confidence": "high", "basis": "Bar recorded in Gironde intertidal surveys with juveniles relatively more numerous there, suggesting nursery role (Rimond 2013 abstract, seen via search excerpt: https://agris.fao.org/search/ru/records/647471ea79cbb2c2c1b20c49); Dicentrarchus spp. larvae in Gironde (https://research.science.eus/documentos/668fc48cb9e7c03b01be0bab); Gironde prefecture rules limit recreational catch to 2 bass/day (https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf)" },
+      "biscay":    { "status": "resident", "confidence": "high", "basis": "DORIS: present along the French Atlantic coast (https://doris.ffessm.fr/Especes/Dicentrarchus-labrax-Bar-commun-loup-407); FishBase range Morocco to Norway (https://www.fishbase.se/summary/Dicentrarchus-labrax.html)" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range statement 'Morocco to Norway' (https://www.fishbase.se/summary/Dicentrarchus-labrax.html); no regional source fetched" },
+      "galicia":   { "status": "resident", "confidence": "medium", "basis": "Range statement 'Morocco to Norway' (https://www.fishbase.se/summary/Dicentrarchus-labrax.html); Galician name 'robaliza' in WoRMS (https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/126975)" },
+      "portugal":  { "status": "resident", "confidence": "medium", "basis": "Range statement 'Morocco to Norway' (https://www.fishbase.se/summary/Dicentrarchus-labrax.html); no regional source fetched" },
+      "cadiz":     { "status": "resident", "confidence": "medium", "basis": "Range statement 'Morocco to Norway' plus Mediterranean (https://www.fishbase.se/summary/Dicentrarchus-labrax.html); no regional source fetched" }
+    },
+    "identification": [
+      "Elongate, slightly compressed silvery body",
+      "Two well-separated dorsal fins of nearly equal length and height",
+      "Upper profile of the head fairly straight",
+      "Dark spot on the gill cover, more or less visible"
+    ],
+    "similar": [
+      "Spotted seabass (Dicentrarchus punctatus): sharp opercular spot and small black spots on the upper body",
+      "Grey mullets (Chelon spp.): different body and mouth shape; in bass the pectoral fin base sits below the tip of the gill cover, in mullets above it",
+      "Meagre (Argyrosomus regius): in meagre the second dorsal fin is much longer than the first and than the anal fin; in bass the two dorsals are about equal"
+    ],
+    "anglingMethods": [
+      "Lure fishing from the shore on beaches, rocky coasts, estuaries and surf zones (peche.com, seen via search excerpt: https://www.peche.com/article/46416/tout-savoir-sur-la-peche-du-bar-au-leurre-depuis-le-bord-pour-reussir)",
+      "Highly prized by sport anglers (https://www.fishbase.se/summary/Dicentrarchus-labrax.html)"
+    ],
+    "conservation": "IUCN global: Near Threatened (NT), assessed 3 March 2022 (FishBase). Gironde prefecture guide (April 2022): recreational minimum size 42 cm, max 2 bass per angler per day south of 48°N (EU Reg. 2020/123, rule stated for 2020), mandatory tail-clip marking, fixed nets not to be used for bass (EU 2022/109). Rules change yearly; verify current EU/national texts.",
+    "sources": [
+      { "title": "FishBase species summary: Dicentrarchus labrax", "url": "https://www.fishbase.se/summary/Dicentrarchus-labrax.html" },
+      { "title": "DORIS fiche: Dicentrarchus labrax, Bar commun", "url": "https://doris.ffessm.fr/Especes/Dicentrarchus-labrax-Bar-commun-loup-407" },
+      { "title": "WoRMS vernacular names (AphiaID 126975)", "url": "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/126975" },
+      { "title": "WoRMS records by names (authority, family)", "url": "https://www.marinespecies.org/rest/AphiaRecordsByNames?scientificnames[]=Dicentrarchus%20labrax&scientificnames[]=Labrus%20bergylta&scientificnames[]=Scomber%20scombrus&scientificnames[]=Platichthys%20flesus&scientificnames[]=Pleuronectes%20platessa&scientificnames[]=Sprattus%20sprattus&scientificnames[]=Thunnus%20thynnus&scientificnames[]=Loligo%20vulgaris&scientificnames[]=Argyrosomus%20regius&scientificnames[]=Sparus%20aurata&scientificnames[]=Solea%20solea&scientificnames[]=Sepia%20officinalis&scientificnames[]=Octopus%20vulgaris&scientificnames[]=Loligo%20forbesii&marine_only=false" },
+      { "title": "Prefecture de la Gironde, Guide Plaisance fiche 18: tailles légales (April 2022)", "url": "https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf" },
+      { "title": "DILEME project: fish larvae densities, Gironde estuary (INRAE, 2023)", "url": "https://research.science.eus/documentos/668fc48cb9e7c03b01be0bab" },
+      { "title": "Rimond 2013, fish assemblages of Gironde intertidal habitats (AGRIS record; abstract seen only via search excerpt)", "url": "https://agris.fao.org/search/ru/records/647471ea79cbb2c2c1b20c49" }
+    ],
+    "uncertain": "No Spanish or Portuguese regional source fetched; Iberian region statuses rest on the FishBase range statement. FishBase depth range starts at 10 m although DORIS and FishBase both describe very shallow inshore occurrence. DORIS regulation text on bass was garbled/outdated and was not used. The Rimond 2013 abstract (Gironde) could only be read through a search-result excerpt; the AGRIS page returned 404 when fetched directly. Angling method page seen only via search excerpt."
+  },
+  {
+    "id": "mullet",
+    "scientific": "Chelon labrosus (Risso, 1827)",
+    "family": "Mugilidae",
+    "synonyms": ["Mugil labrosus Risso, 1827", "Crenimugil labrosus", "Mugil chelo Cuvier, 1829", "Chelon chelo", "Liza chelo", "Mugil corrugatus Lowe, 1838", "Mugil curtus Yarrell, 1836", "Mugil septentrionalis Günther, 1861"],
+    "names": { "en": "thicklip grey mullet", "fr": "mulet lippu", "es": "lisa", "pt": "tainha" },
+    "nameSources": [
+      "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/126977",
+      "https://doris.ffessm.fr/Especes/Chelon-labrosus-Mulet-lippu-1435",
+      "https://www.fishbase.se/summary/Chelon-labrosus.html"
+    ],
+    "habitat": "Inshore schooling mullet of harbours, lagoons, estuaries, coves and beaches over muddy and sandy-muddy bottoms in warm months, tolerating turbid and fresh water; moves offshore beyond the shelf in cold months.",
+    "depth": { "usual": [0, 15], "range": [2, 15], "source": "https://www.fishbase.se/summary/Chelon-labrosus.html (2-15 m) ; https://doris.ffessm.fr/Especes/Chelon-labrosus-Mulet-lippu-1435 (surface to about 15 m in warm months)" },
+    "size": { "common": 32, "max": 75, "maxNote": "FishBase: max 75 cm SL, common 32 cm SL, max weight 4.5 kg, max age 25 years; DORIS: exceptionally 80 cm and 5 kg, typically about 50 cm", "source": "https://www.fishbase.se/summary/Chelon-labrosus.html" },
+    "diet": "Adults graze benthic diatoms, epiphytic algae, detritus and small invertebrates; juveniles eat zooplankton.",
+    "behaviour": "Gregarious, in schools of dozens to hundreds; wary; can leap out of the water. Feeds day and night. Moves north in spring/summer and returns south in autumn.",
+    "seasonal": "FishBase: spawns at sea in winter; juveniles of about 2 cm SL enter coastal lagoons and estuaries from April to June and return to sea in summer. DORIS: offshore beyond the continental shelf in cold months, coastal in warm months; shoals move north in spring and south in autumn.",
+    "regions": {
+      "gironde":   { "status": "seasonal", "confidence": "medium", "basis": "Juvenile mullets relatively numerous in Gironde intertidal habitats (Rimond 2013 abstract via search excerpt: https://agris.fao.org/search/ru/records/647471ea79cbb2c2c1b20c49); Gironde prefecture sets a 30 cm minimum size for 'mulet' (https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf). Sources do not say which mullet species." },
+      "biscay":    { "status": "resident", "confidence": "medium", "basis": "Range Iceland to Cape Verde (https://www.fishbase.se/summary/Chelon-labrosus.html); DORIS gives a Vendée name 'meuil' (https://doris.ffessm.fr/Especes/Chelon-labrosus-Mulet-lippu-1435)" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range statement Iceland/Norway to Cape Verde (https://www.fishbase.se/summary/Chelon-labrosus.html); Basque name in WoRMS (https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/126977)" },
+      "galicia":   { "status": "resident", "confidence": "medium", "basis": "Range statement (https://www.fishbase.se/summary/Chelon-labrosus.html)" },
+      "portugal":  { "status": "resident", "confidence": "medium", "basis": "Range statement (https://www.fishbase.se/summary/Chelon-labrosus.html)" },
+      "cadiz":     { "status": "resident", "confidence": "medium", "basis": "Range statement includes Atlantic to Cape Verde and the Mediterranean (https://www.fishbase.se/summary/Chelon-labrosus.html)" }
+    },
+    "identification": [
+      "Thick upper lip with 2 to 5 rows of papillae",
+      "Elongate, rather stocky body",
+      "Diffuse golden spot on the gill cover",
+      "Dark spot at the pectoral fin axil",
+      "7 to 9 more or less marked longitudinal lines on the flanks"
+    ],
+    "similar": [
+      "Golden grey mullet (Chelon auratus): thin upper lip and a very clear golden spot on the gill cover",
+      "Thinlip grey mullet (Chelon ramada): small scales and a black spot at the base of the pectoral fins",
+      "Flathead grey mullet (Mugil cephalus): large head with rounded snout and thick fleshy (adipose) eyelids",
+      "Chelon saliens: very thin upper lip, slimmer body; Oedalechilus labeo: thick smooth raised upper lip",
+      "Sea bass: pectoral fin sits below the tip of the gill cover in bass, above it in mullets"
+    ],
+    "anglingMethods": [
+      "Light float fishing with bread (crust or compressed crumb) and discreet groundbait in harbours, near beaches and jetties (peche.com, seen via search excerpt: https://www.peche.com/article/42190/pecher-le-mulet-en-mer-au-pain-une-technique-efficace-a-connaitre)"
+    ],
+    "conservation": "IUCN global: Near Threatened (NT), assessed 7 June 2022 (FishBase). Gironde prefecture guide (April 2022): minimum size 30 cm for 'mulet'. DORIS mentions a 20 cm minimum in French Mediterranean waters.",
+    "sources": [
+      { "title": "FishBase species summary: Chelon labrosus", "url": "https://www.fishbase.se/summary/Chelon-labrosus.html" },
+      { "title": "DORIS fiche: Chelon labrosus, Mulet lippu", "url": "https://doris.ffessm.fr/Especes/Chelon-labrosus-Mulet-lippu-1435" },
+      { "title": "WoRMS vernacular names (AphiaID 126977)", "url": "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/126977" },
+      { "title": "WoRMS record: Chelon labrosus", "url": "https://www.marinespecies.org/rest/AphiaRecordsByName/Chelon%20labrosus?like=false&marine_only=true" },
+      { "title": "Prefecture de la Gironde, Guide Plaisance fiche 18 (April 2022)", "url": "https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf" },
+      { "title": "Rimond 2013 (AGRIS record; abstract seen only via search excerpt)", "url": "https://agris.fao.org/search/ru/records/647471ea79cbb2c2c1b20c49" }
+    ],
+    "uncertain": "DORIS gives Spanish 'Lissa vera', but WoRMS lists 'llissa vera' as Catalan and 'lisa' as Castilian; 'lisa' and 'tainha' are generic names applied to several mullets. Gironde sources mention 'mulets' without species; C. labrosus specifically was not confirmed in the Gironde. No Iberian regional source fetched. FishBase sizes are SL; DORIS sizes are probably total length."
+  },
+  {
+    "id": "wrasse",
+    "scientific": "Labrus bergylta Ascanius, 1767",
+    "family": "Labridae",
+    "synonyms": ["Crenilabrus multidentatus", "Labrus variabilis", "Labrus reticulus", "Labrus maculatus", "Labrus afer", "Labrus donovani", "Labrus nubilus", "Labrus comber"],
+    "names": { "en": "ballan wrasse", "fr": "grande vieille", "es": "maragota", "pt": "margota" },
+    "nameSources": [
+      "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/126965",
+      "https://doris.ffessm.fr/Especes/Labrus-bergylta-Grande-vieille-872"
+    ],
+    "habitat": "Rocky coasts, vertical walls, large crevices, caves and kelp beds, including wave-exposed offshore reefs; also enters estuaries where salinity is fairly stable. Young often intertidal.",
+    "depth": { "usual": [2, 30], "range": [1, 50], "source": "https://www.fishbase.se/summary/Labrus-bergylta.html" },
+    "size": { "common": 50, "max": 65.9, "maxNote": "FishBase: max 65.9 cm TL, common 50 cm SL, max weight 4.4 kg, max age 34 years; DORIS: up to 60 cm, average 35-40 cm, max 4.5 kg", "source": "https://www.fishbase.se/summary/Labrus-bergylta.html" },
+    "diet": "Crustaceans and molluscs: shrimps, crabs, young lobsters, goose barnacles, mussels and gastropods.",
+    "behaviour": "Territorial reef fish, curious but wary of spearfishers. All individuals start as females; some change sex at 4-14 years. Male builds an algal nest in a crevice and guards eggs for 1-2 weeks.",
+    "seasonal": null,
+    "regions": {
+      "gironde":   { "status": "occasional", "confidence": "low", "basis": "Needs rocky reef/kelp and fairly stable salinity (https://doris.ffessm.fr/Especes/Labrus-bergylta-Grande-vieille-872); no record from the turbid Gironde estuary was found; presence on rocky shores at the estuary mouth is plausible but unverified" },
+      "biscay":    { "status": "resident", "confidence": "high", "basis": "DORIS: particularly abundant on the French coasts of the Bay of Biscay (https://doris.ffessm.fr/Especes/Labrus-bergylta-Grande-vieille-872)" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range 'Norway to Morocco' (https://www.fishbase.se/summary/Labrus-bergylta.html); Spanish names vaquete/maragota in DORIS" },
+      "galicia":   { "status": "resident", "confidence": "medium", "basis": "Range 'Norway to Morocco' (https://www.fishbase.se/summary/Labrus-bergylta.html)" },
+      "portugal":  { "status": "resident", "confidence": "medium", "basis": "Range 'Norway to Morocco' (https://www.fishbase.se/summary/Labrus-bergylta.html); Portuguese names margota/budiao in DORIS" },
+      "cadiz":     { "status": "occasional", "confidence": "low", "basis": "Within the stated range (https://www.fishbase.se/summary/Labrus-bergylta.html) but no Gulf of Cádiz record found; DORIS notes that beyond the Portuguese coasts it can be confused with Labrus merula and L. viridis (https://doris.ffessm.fr/Especes/Labrus-bergylta-Grande-vieille-872)" }
+    },
+    "identification": [
+      "Massive, fusiform body with large scales",
+      "Single long dorsal fin with 18-21 spines followed by 9-10 soft rays",
+      "Thick lips, emerald-green to bluish",
+      "Strong conical teeth",
+      "Very variable colour: marbled brown/beige, orange-red with white spots, or emerald green (especially juveniles); no obvious sexual dimorphism"
+    ],
+    "similar": [
+      "Green wrasse (Labrus viridis) and brown wrasse (Labrus merula): possible confusion south of Portugal and in the Mediterranean (DORIS)",
+      "Mediterranean records of L. bergylta are doubtful and often confused with Labrus merula (FishBase)"
+    ],
+    "anglingMethods": [
+      "Soft plastic lures on a weighted jig head worked slowly over rocky bottom; fish must be pulled away from cover quickly (peche.com, seen via search excerpt: https://www.peche.com/article/32146/vieille-poisson-de-roche-par-excellence)",
+      "A favoured target of boat anglers and spearfishers (https://doris.ffessm.fr/Especes/Labrus-bergylta-Grande-vieille-872)"
+    ],
+    "conservation": "IUCN global: Least Concern (LC), assessed 10 August 2008 (FishBase). No minimum size found in fetched sources; DORIS notes it has become scarcer where heavily fished but 'does not seem really threatened'.",
+    "sources": [
+      { "title": "FishBase species summary: Labrus bergylta", "url": "https://www.fishbase.se/summary/Labrus-bergylta.html" },
+      { "title": "DORIS fiche: Labrus bergylta, Grande vieille", "url": "https://doris.ffessm.fr/Especes/Labrus-bergylta-Grande-vieille-872" },
+      { "title": "WoRMS vernacular names (AphiaID 126965)", "url": "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/126965" }
+    ],
+    "uncertain": "FishBase 'common length 50 cm SL' looks high compared with DORIS average 35-40 cm. No Iberian or Gulf of Cádiz regional source found; Gironde and Cádiz statuses are inferences. No seasonal information found."
+  },
+  {
+    "id": "mackerel",
+    "scientific": "Scomber scombrus Linnaeus, 1758",
+    "family": "Scombridae",
+    "synonyms": ["Scomber glauciscus Pallas, 1814", "Scomber vernalis Mitchill, 1815", "Scomber vulgaris Fleming, 1828", "Scomber punctatus Couch, 1849", "Scomber scriptus Couch, 1863"],
+    "names": { "en": "Atlantic mackerel", "fr": "maquereau commun", "es": "caballa", "pt": "cavala" },
+    "nameSources": [
+      "https://doris.ffessm.fr/Especes/Scomber-scombrus-Maquereau-commun-4278",
+      "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/127023"
+    ],
+    "habitat": "Pelagic schooling fish of cold and temperate shelf waters, forming large surface schools; offshore and near the bottom in winter, close to the coast from spring to autumn.",
+    "depth": { "usual": [0, 200], "range": [0, 1000], "source": "https://www.fishbase.se/summary/Scomber-scombrus.html" },
+    "size": { "common": 30, "max": 60, "maxNote": "FishBase: max 60 cm FL, common 30 cm FL, max weight 3.4 kg, max age 17 years; DORIS: adults commonly 30-40 cm", "source": "https://www.fishbase.se/summary/Scomber-scombrus.html" },
+    "diet": "Zooplankton (copepods, pelagic crustaceans) and small pelagic fish such as sardine, sprat, anchovy, herring and sandeels; feeds mainly by day and fasts in midwinter.",
+    "behaviour": "Fast-swimming schooling fish without a swim bladder, must swim continuously; annual cycle of offshore wintering, spawning concentrations and coastal summer dispersal.",
+    "seasonal": "DORIS: spawning in March in the Bay of Biscay at 12-13 °C and 80-120 m; coastal from spring to October, offshore and near the bottom from October to February. FishBase: moves inshore in spring when water reaches about 11-14 °C.",
+    "regions": {
+      "gironde":   { "status": "seasonal", "confidence": "low", "basis": "Coastal on French Atlantic coasts from spring to October (https://doris.ffessm.fr/Especes/Scomber-scombrus-Maquereau-commun-4278); Gironde prefecture lists a 20 cm minimum size and marking (https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf); no estuary-specific record" },
+      "biscay":    { "status": "seasonal", "confidence": "high", "basis": "DORIS: spawning in the Bay of Biscay in March, coastal spring to October (https://doris.ffessm.fr/Especes/Scomber-scombrus-Maquereau-commun-4278)" },
+      "cantabria": { "status": "seasonal", "confidence": "medium", "basis": "Range Iceland/Norway to Morocco (https://doris.ffessm.fr/Especes/Scomber-scombrus-Maquereau-commun-4278); FishBase inshore in spring (https://www.fishbase.se/summary/Scomber-scombrus.html)" },
+      "galicia":   { "status": "seasonal", "confidence": "medium", "basis": "Range statement (DORIS); Galician names cabala/xarda in WoRMS (https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/127023)" },
+      "portugal":  { "status": "seasonal", "confidence": "medium", "basis": "Range statement to Morocco (https://doris.ffessm.fr/Especes/Scomber-scombrus-Maquereau-commun-4278)" },
+      "cadiz":     { "status": "seasonal", "confidence": "low", "basis": "Within the range to Morocco and Mediterranean (https://doris.ffessm.fr/Especes/Scomber-scombrus-Maquereau-commun-4278); no regional source; Scomber colias also occurs and may dominate in the south (unverified)" }
+    },
+    "identification": [
+      "Fusiform body; blue-green back with 23-33 dark wavy bars, silvery flanks and belly",
+      "Two widely separated dorsal fins, the first with 10-13 spines",
+      "Five finlets above and below in front of the tail",
+      "No swim bladder"
+    ],
+    "similar": [
+      "Atlantic chub mackerel (Scomber colias): grey-spotted belly, larger eyes, back pattern fades between the eyes, has a swim bladder",
+      "Horse mackerels (Trachurus trachurus, T. mediterraneus): no finlets"
+    ],
+    "anglingMethods": [
+      "Feather/lure trains ('mitraillette') jigged vertically from a boat or retrieved from the shore through schools (peche.com and figaronautisme, seen via search excerpts: https://www.peche.com/article/51434/differentes-techniques-pour-pecher-le-severeau-une-espece-ludique ; https://figaronautisme.meteoconsult.fr/actus-nautisme-loisirs/2026-08-21/91255-peche-au-maquereau-pourquoi-cest-le-poisson-ideal-pour-sinitier-en-famille)"
+    ],
+    "conservation": "IUCN global: Least Concern (LC), assessed 1 June 2022 (FishBase). France (DORIS, arrêté TRAM1240353A): minimum size 20 cm in the Channel/Atlantic (30 cm in a small North Sea zone, 18 cm in the Mediterranean); recreational catches must be marked by removing the lower caudal lobe. Gironde prefecture (2022): 20 cm, marking mandatory.",
+    "sources": [
+      { "title": "FishBase species summary: Scomber scombrus", "url": "https://www.fishbase.se/summary/Scomber-scombrus.html" },
+      { "title": "DORIS fiche: Scomber scombrus, Maquereau commun", "url": "https://doris.ffessm.fr/Especes/Scomber-scombrus-Maquereau-commun-4278" },
+      { "title": "WoRMS vernacular names (AphiaID 127023)", "url": "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/127023" },
+      { "title": "Prefecture de la Gironde, Guide Plaisance fiche 18 (April 2022)", "url": "https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf" }
+    ],
+    "uncertain": "No Spanish/Portuguese regional source fetched; the relative abundance of S. scombrus vs S. colias along southern Portugal and the Gulf of Cádiz was not verified. Angling method sources were read only via search excerpts."
+  },
+  {
+    "id": "flounder",
+    "scientific": "Platichthys flesus (Linnaeus, 1758)",
+    "family": "Pleuronectidae",
+    "synonyms": ["Pleuronectes passer Linnaeus, 1758", "Pleuronectes flesus Linnaeus, 1758"],
+    "names": { "en": "European flounder", "fr": "flet", "es": "platija", "pt": "patruça" },
+    "nameSources": [
+      "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/127141",
+      "https://doris.ffessm.fr/Especes/Platichthys-flesus-Flet-801",
+      "https://www.fishbase.se/summary/Platichthys-flesus.html"
+    ],
+    "habitat": "Catadromous flatfish of mud and sand bottoms in shallow coastal waters, estuaries and lagoons, often entering fresh water far upstream; spends most of the year in estuaries.",
+    "depth": { "usual": null, "range": [1, 100], "source": "https://www.fishbase.se/summary/Platichthys-flesus.html" },
+    "size": { "common": 50, "max": 60, "maxNote": "FishBase: max 60 cm TL, common 50 cm TL; DORIS: usually about 50 cm, max observed 60 cm and 1.5 kg, up to 15 years", "source": "https://www.fishbase.se/summary/Platichthys-flesus.html" },
+    "diet": "Young fish eat plankton and insect larvae; older juveniles and adults eat benthic invertebrates (worms, bivalves, small crustaceans) and small fish.",
+    "behaviour": "Nocturnal and burrowing; migratory (amphihaline): adults move downstream and offshore in winter to spawn at sea, larvae and juveniles return to estuaries and move upstream on tidal currents.",
+    "seasonal": "FishBase: adults move to deeper, warmer water in winter and spawn in spring; estuaries are juvenile nurseries and adult summer feeding grounds. Martinho et al. 2014: spawning from mid-January to early July along Europe, about two months earlier in the southern (Portuguese) populations.",
+    "regions": {
+      "gironde":   { "status": "resident", "confidence": "high", "basis": "Diet study of P. flesus in the Gironde estuary (Coiraton & Selleslagh 2018, Cybium: https://zenodo.org/records/13604802); flet listed in Gironde intertidal surveys (Rimond 2013 abstract via search excerpt: https://agris.fao.org/search/ru/records/647471ea79cbb2c2c1b20c49); Gironde minimum size 20 cm (https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf)" },
+      "biscay":    { "status": "resident", "confidence": "high", "basis": "DORIS (French estuaries, recreational fishing in estuaries: https://doris.ffessm.fr/Especes/Platichthys-flesus-Flet-801); Bay of Biscay populations compared with Portuguese ones in a thesis abstract (search excerpt: https://openpolar.no/Record/ftinsu:oai:HAL:tel-01431379v1)" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range covers western Europe to the Mediterranean (https://www.fishbase.se/summary/Platichthys-flesus.html); Basque name 'platutxa latz' in WoRMS; no regional source fetched" },
+      "galicia":   { "status": "resident", "confidence": "medium", "basis": "High juvenile densities reported in the Minho estuary on the Galicia-Portugal border (search excerpt from a Coimbra thesis: https://estudogeral.sib.uc.pt/bitstream/10316/26869/1/Population%20ecology%20and%20habitat%20preferences%20of%20juvenile%20flounder.pdf)" },
+      "portugal":  { "status": "resident", "confidence": "medium", "basis": "Martinho et al. 2014 call the Mondego estuary 'the southernmost population' in their latitudinal study (https://www.frontiersin.org/10.3389/conf.FMARS.2014.02.00013/event_abstract); a thesis abstract says the southern limit has been shifting north along the Portuguese coast for decades (search excerpt: https://openpolar.no/Record/ftinsu:oai:HAL:tel-01431379v1). Northern and central Portugal only." },
+      "cadiz":     { "status": "absent", "confidence": "low", "basis": "Inference: Portuguese studies place the southern edge of the Atlantic population around central Portugal (Mondego) and shifting north (https://www.frontiersin.org/10.3389/conf.FMARS.2014.02.00013/event_abstract). FishBase and DORIS range statements (Mediterranean; 'southern limit Morocco') conflict, so strays cannot be ruled out." }
+    },
+    "identification": [
+      "Diamond-shaped body with a triangular head",
+      "Rough bony tubercles along the lateral line and at the bases of the dorsal and anal fins (felt by touch)",
+      "Upper side olive to reddish-brown or grey, marbled dark green, with a few dull orange spots; blind side white",
+      "Usually right-eyed, but about a third of individuals are reversed (left-eyed)"
+    ],
+    "similar": [
+      "Plaice (Pleuronectes platessa): many bright orange spots, no spiny tubercles, bony ridge/knobs between and behind the eyes, finer snout",
+      "Dab (Limanda limanda): lateral line strongly arched over the pectoral fin, rough skin, no green marbling or orange spots"
+    ],
+    "anglingMethods": [
+      "Line fishing with worms and molluscs as bait (FishBase: https://www.fishbase.se/summary/Platichthys-flesus.html)",
+      "Recreational fishing in estuaries (DORIS mentions 'pêche de plaisance au carrelet', a lift net, not rod and line: https://doris.ffessm.fr/Especes/Platichthys-flesus-Flet-801)"
+    ],
+    "conservation": "IUCN global: Least Concern (LC), assessed 25 August 2022 (FishBase). Gironde prefecture (2022): recreational minimum size 20 cm. DORIS gives a 25 cm minimum marketable size.",
+    "sources": [
+      { "title": "FishBase species summary: Platichthys flesus", "url": "https://www.fishbase.se/summary/Platichthys-flesus.html" },
+      { "title": "DORIS fiche: Platichthys flesus, Flet", "url": "https://doris.ffessm.fr/Especes/Platichthys-flesus-Flet-801" },
+      { "title": "WoRMS vernacular names (AphiaID 127141)", "url": "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/127141" },
+      { "title": "Martinho et al. 2014, spawning and pelagic stage duration in European flounder: a latitudinal approach", "url": "https://www.frontiersin.org/10.3389/conf.FMARS.2014.02.00013/event_abstract" },
+      { "title": "Coiraton & Selleslagh 2018, macrozoobenthic resource use by teleosts in the Gironde estuary (Cybium)", "url": "https://zenodo.org/records/13604802" },
+      { "title": "Prefecture de la Gironde, Guide Plaisance fiche 18 (April 2022)", "url": "https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf" },
+      { "title": "Thesis on flounder at its southern range edge (HAL tel-01431379; abstract seen only via search excerpt)", "url": "https://openpolar.no/Record/ftinsu:oai:HAL:tel-01431379v1" }
+    ],
+    "uncertain": "Southern limit is contradictory: DORIS says 'limite sud au Maroc', FishBase gives 30°N and the Mediterranean, while Portuguese studies (Martinho et al. 2014; Pédron thesis abstract via search; Morais et al. 2011 'at the southern limit of its distribution range', title only) treat central/northern Portugal as the current Atlantic edge, shifting north. Exact limit (e.g. Mondego vs Tagus) not verified. DORIS lists Portuguese 'solha' for flounder, but WoRMS uses 'solha' for plaice. Minho-estuary and thesis statements were seen only via search excerpts (the PDFs failed to load)."
+  },
+  {
+    "id": "plaice",
+    "scientific": "Pleuronectes platessa Linnaeus, 1758",
+    "family": "Pleuronectidae",
+    "synonyms": ["Pleuronectes platessus Linnaeus, 1758"],
+    "names": { "en": "European plaice", "fr": "plie", "es": "solla", "pt": "solha" },
+    "nameSources": [
+      "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/127143",
+      "https://doris.ffessm.fr/Especes/Pleuronectes-platessa-Plie-134"
+    ],
+    "habitat": "Demersal flatfish of sand, mud and mixed bottoms from the shore to the shelf; juveniles on shallow beaches, older fish deeper; enters estuaries but rarely fresh water.",
+    "depth": { "usual": [10, 50], "range": [0, 200], "source": "https://www.fishbase.se/summary/Pleuronectes-platessa.html" },
+    "size": { "common": 40, "max": 100, "maxNote": "FishBase: max 100 cm SL, common 40 cm TL; DORIS gives a maximum of about 60 cm", "source": "https://www.fishbase.se/summary/Pleuronectes-platessa.html" },
+    "diet": "Mainly thin-shelled molluscs (bivalve siphons) and polychaetes; larger fish add crustaceans, brittle stars and small fish such as sandeels.",
+    "behaviour": "Active at night in very shallow water, buries in sand by day; stationary for long periods but some spawning migrations are long; homing reported.",
+    "seasonal": null,
+    "regions": {
+      "gironde":   { "status": "unknown", "confidence": "low", "basis": "No Gironde record found; DORIS says it enters estuaries up to the brackish limit (https://doris.ffessm.fr/Especes/Pleuronectes-platessa-Plie-134); the Gironde prefecture table lists a 27 cm size for 'plie' but that is a generic regulation, not a presence record" },
+      "biscay":    { "status": "occasional", "confidence": "low", "basis": "ICES has a separate data-limited stock 'ple.27.89a' (Bay of Biscay and Atlantic Iberian waters) with landings falling from 194 t (2015) to 50 t (2024), with unknown reference points (https://sg.ices.dk/ViewCharts.aspx?key=19633; https://asd.ices.dk/viewAdvice/3450). Small landings suggest low abundance, but landings do not show where fish live." },
+      "cantabria": { "status": "occasional", "confidence": "low", "basis": "Covered only by the small ICES 8/9a stock (https://sg.ices.dk/ViewCharts.aspx?key=19633); no regional record found" },
+      "galicia":   { "status": "occasional", "confidence": "low", "basis": "Galician name 'solla' in WoRMS (https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/127143); covered by the small ICES 8/9a stock; no regional record found" },
+      "portugal":  { "status": "occasional", "confidence": "low", "basis": "Several sources give Portugal as the southern end of the range (mrgoodfish: https://www.mrgoodfish.com/?p=5142; FishSource: https://www.fishsource.org/stock_page/1750); edge-of-range, no abundance data" },
+      "cadiz":     { "status": "unknown", "confidence": "low", "basis": "FishBase southern bound 36°N (https://www.fishbase.se/summary/Pleuronectes-platessa.html); DORIS says to Morocco; Mediterranean reports considered misidentified flounder; no Gulf of Cádiz record found" }
+    },
+    "identification": [
+      "Right-eyed flatfish with a rather quadrangular body",
+      "Large bright orange spots on the eyed side (juveniles only small dots)",
+      "Row of 4-7 bony knobs behind the eyes",
+      "Lateral line almost straight, only slightly curved over the pectoral fin"
+    ],
+    "similar": [
+      "Flounder (Platichthys flesus): spiny tubercles at the dorsal and anal fin bases and along the lateral line, more elongate, dull rather than bright orange spots",
+      "Dab (Limanda limanda): no bony knobs behind the head, lateral line strongly arched"
+    ],
+    "anglingMethods": [],
+    "conservation": "IUCN global: Least Concern (LC), assessed 2 June 2022 (FishBase). ICES advice for ple.27.89a (2023): landings of no more than 124 t in each of 2024 and 2025 (precautionary). Gironde prefecture (2022): recreational minimum size 27 cm. mrgoodfish gives a 40 cm size (context not verified).",
+    "sources": [
+      { "title": "FishBase species summary: Pleuronectes platessa", "url": "https://www.fishbase.se/summary/Pleuronectes-platessa.html" },
+      { "title": "DORIS fiche: Pleuronectes platessa, Plie", "url": "https://doris.ffessm.fr/Especes/Pleuronectes-platessa-Plie-134" },
+      { "title": "WoRMS vernacular names (AphiaID 127143)", "url": "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/127143" },
+      { "title": "ICES stock assessment graphs 2025: plaice in Subarea 8 and Division 9.a", "url": "https://sg.ices.dk/ViewCharts.aspx?key=19633" },
+      { "title": "ICES advice 2023: ple.27.89a", "url": "https://asd.ices.dk/viewAdvice/3450" },
+      { "title": "FishSource: plaice (range statement Portugal to Barents Sea)", "url": "https://www.fishsource.org/stock_page/1750" },
+      { "title": "mrgoodfish species page (plaice range Barents Sea to Portugal)", "url": "https://www.mrgoodfish.com/?p=5142" },
+      { "title": "Prefecture de la Gironde, Guide Plaisance fiche 18 (April 2022)", "url": "https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf" }
+    ],
+    "uncertain": "Whether plaice is genuinely present (and how commonly) along Biscay/Iberia: only indirect evidence was found (a small ICES 8/9a stock, range statements ending at Portugal or Morocco). No survey record by region, and which ICES divisions or countries the 8/9a landings come from was not shown. DORIS calls the species 'abundant' overall, but that refers to its whole range. Southern limit is inconsistent between sources (Portugal, 36°N, Morocco). No angling-method source found for this region. FishBase max 100 cm SL looks high compared with DORIS 60 cm. Spawning season not found."
+  },
+  {
+    "id": "sprat",
+    "scientific": "Sprattus sprattus (Linnaeus, 1758)",
+    "family": "Clupeidae",
+    "synonyms": ["Clupea sprattus Linnaeus, 1758", "Clupanodon phalerica Risso, 1827", "Clupea latulus Cuvier, 1829", "Clupea papalina Bonaparte, 1846", "Clupea schoneveldii Krøyer, 1846", "Meletta vulgaris Valenciennes, 1847", "Spratella pumila Valenciennes, 1847"],
+    "names": { "en": "European sprat", "fr": "sprat", "es": "espadín", "pt": "espadilha" },
+    "nameSources": [
+      "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/126425",
+      "https://www.ices.dk/about-ICES/projects/EU-RFP/EU%20Repository/ICES%20FIshMap/ICES%20FishMap%20species%20factsheet-sprat.pdf"
+    ],
+    "habitat": "Small coastal pelagic schooling fish, often in shallow water close to shore and in estuaries, tolerating salinities down to about 4; stays largely within the 50 m depth contour.",
+    "depth": { "usual": [0, 50], "range": [10, 150], "source": "https://www.fishbase.se/summary/Sprattus-sprattus.html (10-150 m) ; https://www.ices.dk/about-ICES/projects/EU-RFP/EU%20Repository/ICES%20FIshMap/ICES%20FishMap%20species%20factsheet-sprat.pdf (largely within the 50 m contour)" },
+    "size": { "common": 12, "max": 25.1, "maxNote": "FishBase: max 25.1 cm SL, common 12 cm SL, max age 6 years; FNAM and ICES give max about 16 cm, usually 8-12 cm", "source": "https://www.fishbase.se/summary/Sprattus-sprattus.html" },
+    "diet": "Planktonic crustaceans, especially copepods (Calanus, Pseudocalanus, Temora); juveniles eat diatoms and copepod eggs and larvae.",
+    "behaviour": "Schools; strong migrations between winter feeding grounds and spring-summer spawning grounds; rises to the surface at dusk/night.",
+    "seasonal": "Atlantic spawning mainly April to August (as early as January in the English Channel), near the coast or up to 100 km offshore (FNAM). Sprat eggs and larvae occur in the Bay of Biscay (Arbault & Lacroix 1977). No Iberian seasonal data found.",
+    "regions": {
+      "gironde":   { "status": "resident", "confidence": "low", "basis": "Sprat recorded in Gironde intertidal fish surveys 2011-2012 (Rimond 2013 abstract via search excerpt: https://agris.fao.org/search/ru/records/647471ea79cbb2c2c1b20c49); seasonality in the estuary not established" },
+      "biscay":    { "status": "resident", "confidence": "medium", "basis": "Spawning grounds of sprat mapped in the Bay of Biscay 1969-1973 (Arbault & Lacroix 1977: https://archimer.ifremer.fr/doc/00000/1971)" },
+      "cantabria": { "status": "occasional", "confidence": "low", "basis": "Range statements 'Morocco to Norway' (https://www.ices.dk/about-ICES/projects/EU-RFP/EU%20Repository/ICES%20FIshMap/ICES%20FishMap%20species%20factsheet-sprat.pdf; https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=108997) include Iberia, but no Cantabrian record found" },
+      "galicia":   { "status": "occasional", "confidence": "low", "basis": "Range statement only; searches for Galician records (rías, purse-seine data) found nothing" },
+      "portugal":  { "status": "occasional", "confidence": "low", "basis": "Range statement only; Portuguese names exist (ICES factsheet), but no Portuguese estuary or survey record found" },
+      "cadiz":     { "status": "unknown", "confidence": "low", "basis": "Range nominally reaches northern Morocco (https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=108997) but no Gulf of Cádiz record found" }
+    },
+    "identification": [
+      "Small, silvery, fairly elongate and slightly compressed body; blue-green back",
+      "Sharp keel of scutes along the belly",
+      "Pelvic fins originate below or in front of the dorsal fin origin (unlike juvenile herring)",
+      "Projecting lower jaw; gill-cover margin smoothly rounded",
+      "Last two anal fin rays not enlarged"
+    ],
+    "similar": [
+      "Juvenile herring (Clupea harengus): ICES lists the relative positions of the dorsal and pelvic fins, back colour (grey vs blue) and the sharply toothed belly keel of sprat as clear distinguishing features"
+    ],
+    "anglingMethods": [],
+    "conservation": "IUCN global: Least Concern (LC), assessed 18 July 2018 (FishBase). ICES factsheet: no minimum landing size (North Sea context).",
+    "sources": [
+      { "title": "FishBase species summary: Sprattus sprattus", "url": "https://www.fishbase.se/summary/Sprattus-sprattus.html" },
+      { "title": "ICES FishMap species factsheet: sprat", "url": "https://www.ices.dk/about-ICES/projects/EU-RFP/EU%20Repository/ICES%20FIshMap/ICES%20FishMap%20species%20factsheet-sprat.pdf" },
+      { "title": "Fishes of the NE Atlantic and Mediterranean (FNAM): Sprattus sprattus", "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=108997" },
+      { "title": "Arbault & Lacroix 1977, eggs and larvae of Clupeidae and Engraulidae in the Bay of Biscay", "url": "https://archimer.ifremer.fr/doc/00000/1971" },
+      { "title": "WoRMS vernacular names (AphiaID 126425)", "url": "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/126425" },
+      { "title": "WoRMS synonyms (AphiaID 126425)", "url": "https://www.marinespecies.org/rest/AphiaSynonymsByAphiaID/126425" },
+      { "title": "Rimond 2013 (AGRIS record; abstract seen only via search excerpt)", "url": "https://agris.fao.org/search/ru/records/647471ea79cbb2c2c1b20c49" }
+    ],
+    "uncertain": "Presence along Iberia (Cantabria, Galicia, Portugal, Gulf of Cádiz) is NOT verified by any regional source; only broad range statements ('Morocco to Norway') cover it, so statuses are set to occasional/unknown with low confidence. FishBase max 25.1 cm SL conflicts with 16 cm in ICES/FNAM. French name 'sprat' from WoRMS/ICES; DORIS fiche not checked. No angling-method source found."
+  },
+  {
+    "id": "tuna",
+    "scientific": "Thunnus thynnus (Linnaeus, 1758)",
+    "family": "Scombridae",
+    "synonyms": ["Scomber thynnus Linnaeus, 1758", "Thynnus secundodorsalis Storer, 1853", "Thynnus thynnus (Linnaeus, 1758)", "Orcynus thynnus (Linnaeus, 1758)", "Thynnus vulgaris Cuvier, 1832", "Thynnus mediterraneus Risso, 1827"],
+    "names": { "en": "Atlantic bluefin tuna", "fr": "thon rouge", "es": "atún rojo", "pt": "atum-rabilho" },
+    "nameSources": [
+      "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/127029",
+      "https://www.fishbase.se/summary/Thunnus-thynnus.html"
+    ],
+    "habitat": "Oceanic, highly migratory pelagic tuna that seasonally comes close to shore; the Bay of Biscay is a summer feeding ground for juveniles and the Strait of Gibraltar a passage to Mediterranean spawning grounds.",
+    "depth": { "usual": [0, 100], "range": [0, 985], "source": "https://www.fishbase.se/summary/Thunnus-thynnus.html" },
+    "size": { "common": 200, "max": 458, "maxNote": "FishBase: max 458 cm TL, common 200 cm FL, max published weight 684 kg; Bay of Biscay survey fish 57-175 cm (mostly juveniles aged 1-4)", "source": "https://www.fishbase.se/summary/Thunnus-thynnus.html" },
+    "diet": "Visual predator of small schooling fish, squid and pelagic crabs.",
+    "behaviour": "Schools by size, sometimes with other tunas; long migrations with fidelity of mature fish to natal spawning areas (Mediterranean for the eastern stock).",
+    "seasonal": "Bay of Biscay: well-known summer feeding ground for juveniles, which return in consecutive summers; baitboat fishery traditionally June-October in the south-eastern Bay of Biscay (ICCAT/AZTI). Strait of Gibraltar/Gulf of Cádiz: pre-spawning adults caught by traps (almadraba) off Barbate from late April to early June on their way into the Mediterranean, where spawning occurs June-August (Medina 2003; FishBase).",
+    "regions": {
+      "gironde":   { "status": "occasional", "confidence": "low", "basis": "Oceanic species; not an estuarine fish. Offshore Bay of Biscay is a summer feeding ground (https://iccat.int/Documents/CVSP/CV076_2019/n_2/CV076020455.pdf); the Gironde prefecture guide mentions recreational bluefin authorisation via DIRM SA Bordeaux (https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf), but no record off the Gironde mouth was found" },
+      "biscay":    { "status": "seasonal", "confidence": "high", "basis": "ICCAT SCRS/2019/185 (Goñi et al.): Bay of Biscay is the usual summer feeding area; acoustic surveys in July 2015-2019 found the largest fish in the northern part (https://iccat.int/Documents/CVSP/CV076_2019/n_2/CV076020455.pdf)" },
+      "cantabria": { "status": "seasonal", "confidence": "high", "basis": "Baitboat fishery since the late 1940s in the south-eastern Bay of Biscay from June to October, mostly juveniles aged 1-4 (https://iccat.int/Documents/CVSP/CV076_2019/n_2/CV076020455.pdf)" },
+      "galicia":   { "status": "seasonal", "confidence": "low", "basis": "Range 'Lofoten to Canary Islands' (https://www.fishbase.se/summary/Thunnus-thynnus.html); Galician name in WoRMS; no regional source fetched" },
+      "portugal":  { "status": "seasonal", "confidence": "medium", "basis": "Range 'Lofoten to Canary Islands' (https://www.fishbase.se/summary/Thunnus-thynnus.html); eastern-stock fish migrate from the Atlantic to the Mediterranean every spring (https://ressources.ciheam.org/ressources/om/pdf/c60/03600107.pdf); no Portuguese source fetched" },
+      "cadiz":     { "status": "seasonal", "confidence": "high", "basis": "Medina 2003: adult pre-spawning bluefin caught by trap off Barbate (Cádiz) from late April to early June 1999-2001 (https://ressources.ciheam.org/ressources/om/pdf/c60/03600107.pdf); a 2022 study describes year-round resident fish in the Strait taken by hook and line and spring migrants taken by traps (search excerpt: https://rodin.uca.es/handle/10498/36257)" }
+    },
+    "identification": [
+      "Very large, stocky torpedo-shaped body, deepest near the middle of the first dorsal fin base; dark blue-black back, silvery-white belly",
+      "Very short pectoral fins, less than 80% of head length",
+      "Two close dorsal fins: first yellow or bluish, second taller and reddish-brown",
+      "8-10 dorsal and 7-9 anal finlets, dusky yellow to brownish-yellow with dark edges",
+      "Median caudal keel black in adults"
+    ],
+    "similar": [
+      "Yellowfin tuna (Thunnus albacares): adult second dorsal and anal fins bright yellow and sickle-shaped, yellow finlets with thin black line",
+      "Albacore (Thunnus alalunga): smaller, very long pectoral fins reaching past the second dorsal, black back and finlets",
+      "Bigeye tuna (Thunnus obesus): long pectoral fins, bright yellow finlets edged black",
+      "Atlantic bonito (Sarda sarda) and frigate tuna (Auxis thazard): smaller, with dark oblique lines on the upper back; skipjack (Katsuwonus pelamis): dark horizontal stripes on the belly"
+    ],
+    "anglingMethods": [
+      "France: recreational bluefin fishing requires prior per-vessel authorisation; 2025: catch-and-release 1 June-15 November, retention only 11 July-10 October with a tail tag, minimum 30 kg or 115 cm FL (https://www.peche.com/article/49386/peche-du-thon-rouge-debut-de-saison-imminent)",
+      "Commercial live-bait pole-and-line (baitboat) fishery in the south-eastern Bay of Biscay, June-October (https://iccat.int/Documents/CVSP/CV076_2019/n_2/CV076020455.pdf)",
+      "Hook and line for resident fish in the Strait of Gibraltar (search excerpt: https://rodin.uca.es/handle/10498/36257)"
+    ],
+    "conservation": "IUCN global: Least Concern (LC), assessed 15 January 2021 (FishBase); DORIS still shows an older 'Endangered' listing. Managed by ICCAT quotas; minimum 30 kg or 115 cm (DORIS, with 5% tolerance). France 2025 recreational rules: authorisation, tagging, 30 kg / 115 cm FL minimum, retention window 11 July-10 October (peche.com; arrêté du 26 March 2025 seen only in search results).",
+    "sources": [
+      { "title": "FishBase species summary: Thunnus thynnus", "url": "https://www.fishbase.se/summary/Thunnus-thynnus.html" },
+      { "title": "DORIS fiche: Thunnus thynnus, Thon rouge", "url": "https://doris.ffessm.fr/Especes/Thunnus-thynnus-Thon-rouge-821" },
+      { "title": "Goñi et al. 2020, acoustic abundance index of juvenile bluefin in the Bay of Biscay (ICCAT Col. Vol. Sci. Pap. 76(2))", "url": "https://iccat.int/Documents/CVSP/CV076_2019/n_2/CV076020455.pdf" },
+      { "title": "Medina 2003, reproductive status of bluefin tuna migrating through the Strait of Gibraltar (CIHEAM Options Méditerranéennes 60)", "url": "https://ressources.ciheam.org/ressources/om/pdf/c60/03600107.pdf" },
+      { "title": "peche.com: bluefin recreational rules 2025", "url": "https://www.peche.com/article/49386/peche-du-thon-rouge-debut-de-saison-imminent" },
+      { "title": "WoRMS vernacular names (AphiaID 127029)", "url": "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/127029" },
+      { "title": "WoRMS synonyms (AphiaID 127029)", "url": "https://www.marinespecies.org/rest/AphiaSynonymsByAphiaID/127029" },
+      { "title": "Medina Guerrero et al. 2022 (residents vs migrants in the Strait; seen only via search excerpt)", "url": "https://rodin.uca.es/handle/10498/36257" }
+    ],
+    "uncertain": "Portuguese name: WoRMS gives 'atum-rabilho'; DORIS gives 'atum' and 'mochama'. DORIS's TAC figures looked garbled and were not used. Search results also mentioned that, with stock recovery, large fish now appear in the Bay of Biscay in winter and juveniles are less common in summer, but the source (an AZTI page) could not be fetched. Return (post-spawning) migration timing through the Gulf of Cádiz in July was not verified. Rules for 2026 not verified. Galicia/Portugal status rests on range statements."
+  },
+  {
+    "id": "squid",
+    "scientific": "Loligo vulgaris Lamarck, 1798",
+    "family": "Loliginidae",
+    "synonyms": ["Sepia loligo Linnaeus, 1758", "Loligo pulchra", "Loligo mediterranea", "Loligo neglecta"],
+    "names": { "en": "European squid", "fr": "encornet", "es": "calamar", "pt": "lula-comum" },
+    "nameSources": [
+      "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/140271",
+      "https://doris.ffessm.fr/Especes/Loligo-vulgaris-Encornet-europeen-5486",
+      "https://www.fao.org/fishery/docs/CDrom/ARTFIMED/ArtFiWeb/descript/Species/LOLLOVUL.HTML"
+    ],
+    "habitat": "Neritic, semi-pelagic/demersal squid from the surface to the upper slope, over sand, mud and seagrass; in Portugal mainly inshore of the 100 m isobath on sandy (especially coarse sand) bottoms.",
+    "depth": { "usual": [20, 250], "range": [0, 500], "source": "https://www.sealifebase.se/summary/Loligo-vulgaris.html" },
+    "size": { "common": null, "max": 64, "maxNote": "SeaLifeBase: max 64 cm ML (males), 32 cm ML (females), max weight 1.5 kg. FAO ArtFiMed: common 15-25 cm ML, max 30-40 cm ML. DORIS: mantle 15-25 cm, males to 30-40 cm or more", "source": "https://www.sealifebase.se/summary/Loligo-vulgaris.html" },
+    "diet": "Juveniles eat planktonic crustaceans (copepods, mysids, euphausiids); adults mostly fish (blue whiting, hake, sardine, horse mackerel), also cephalopods, crustaceans and polychaetes; occasional cannibalism.",
+    "behaviour": "Gregarious, schools of similar-sized animals; hunts actively at night; juveniles near the bottom by day and rising at night; seasonal migrations; short life (about 1-3 years), dies after spawning.",
+    "seasonal": "Portugal (IPIMAR surveys 1990-94): spawns throughout the year along the whole coast; Loligo egg masses found on 31-80 m grounds from February to July; abundance in the north rises from summer to autumn. DORIS: spawning all year with two seasonal peaks varying by region; egg strings attached at 15-80 m. French angling source: squid come close inshore from autumn, best at night through winter.",
+    "regions": {
+      "gironde":   { "status": "seasonal", "confidence": "low", "basis": "Autumn-winter inshore presence on French Atlantic coasts (https://www.peche.com/article/32275/en-novembre-les-calamars-arrivent); no Gironde-specific record; unlikely inside the low-salinity estuary" },
+      "biscay":    { "status": "seasonal", "confidence": "medium", "basis": "DORIS: present along French coasts (https://doris.ffessm.fr/Especes/Loligo-vulgaris-Encornet-europeen-5486); autumn-winter night fishing from quays on the Atlantic coast (https://www.peche.com/article/32275/en-novembre-les-calamars-arrivent)" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range 'North Sea and British Isles to southwest Africa' (https://www.sealifebase.se/summary/Loligo-vulgaris.html); Basque name in WoRMS; no regional source fetched" },
+      "galicia":   { "status": "resident", "confidence": "medium", "basis": "Published life-history and age-growth studies of L. vulgaris and L. forbesi as sympatric species 'in Galician waters' (Guerra & Rocha 1994; Rocha & Guerra 1999; bibliographic records only: https://portalcientifico.uvigo.gal/documentos/5faf827329995246a6dd4235?lang=en)" },
+      "portugal":  { "status": "resident", "confidence": "high", "basis": "Cunha, Moreno & Pereira 1995 (ICES CM 1995/K:33): caught along the whole Portuguese coast, mostly inshore of 100 m, most abundant at 20-100 m and in the south (https://www.vliz.be/imisdocs/publications/ocrd/275395.pdf)" },
+      "cadiz":     { "status": "resident", "confidence": "medium", "basis": "Range statement (https://www.sealifebase.se/summary/Loligo-vulgaris.html); greater abundance in southern Portugal (Algarve) shown by Cunha et al. 1995 (https://www.vliz.be/imisdocs/publications/ocrd/275395.pdf); no Spanish Gulf of Cádiz source fetched" }
+    },
+    "identification": [
+      "Rhomboid fins covering about two-thirds of the mantle, with slightly concave rear edges",
+      "Tentacular clubs with 4 rows of suckers, the two middle rows with 6-8 enlarged suckers",
+      "Arm-sucker rings with about 20 teeth",
+      "Purple flame-like stripes only in adult males; mantle purplish",
+      "Left ventral arm of males hectocotylised over its distal quarter to third"
+    ],
+    "similar": [
+      "Veined squid (Loligo forbesii): fins cover about three-quarters of the mantle; club suckers all similar in size; more numerous orange-red flames in both sexes; arm-sucker rings with 7-8 teeth; more offshore and northern",
+      "Alloteuthis spp. (A. subulata, A. media): much smaller (to about 12-20 cm ML), slender with a long pointed 'tail' in adults, no suckers on the buccal membrane; juvenile Loligo often confused with them",
+      "Broadtail shortfin squid (Illex coindetii): longer, narrower mantle, heart-shaped flaring fins, 8 rows of suckers on the clubs"
+    ],
+    "anglingMethods": [
+      "Night jigging with light squid jigs ('turlutte', egging) from harbour quays, often under lights, from autumn into winter (https://www.peche.com/article/32275/en-novembre-les-calamars-arrivent)",
+      "Hand lines with jigs (turluttes) listed among L. vulgaris gears by FAO (https://www.fao.org/fishery/docs/CDrom/ARTFIMED/ArtFiWeb/descript/Species/LOLLOVUL.HTML)"
+    ],
+    "conservation": "IUCN global: Data Deficient (DD), assessed 2 July 2015 (SeaLifeBase). No minimum size found in fetched sources.",
+    "sources": [
+      { "title": "SeaLifeBase species summary: Loligo vulgaris", "url": "https://www.sealifebase.se/summary/Loligo-vulgaris.html" },
+      { "title": "DORIS fiche: Loligo vulgaris, Encornet européen", "url": "https://doris.ffessm.fr/Especes/Loligo-vulgaris-Encornet-europeen-5486" },
+      { "title": "DORIS fiche: Loligo forbesii, Calmar veiné", "url": "https://doris.ffessm.fr/Especes/Loligo-forbesii-Calmar-veine-5487" },
+      { "title": "DORIS fiche: Alloteuthis subulata, Casseron commun", "url": "https://doris.ffessm.fr/Especes/Alloteuthis-subulata-Casseron-commun-5720" },
+      { "title": "SeaLifeBase: Loligo forbesii", "url": "https://www.sealifebase.se/summary/Loligo-forbesii.html" },
+      { "title": "SeaLifeBase: Alloteuthis subulata", "url": "https://www.sealifebase.se/summary/Alloteuthis-subulata.html" },
+      { "title": "Cunha, Moreno & Pereira 1995, spatial and temporal occurrences of Loligo spp. in Portuguese waters (ICES CM 1995/K:33)", "url": "https://www.vliz.be/imisdocs/publications/ocrd/275395.pdf" },
+      { "title": "FAO ArtFiMed species sheet: Loligo vulgaris", "url": "https://www.fao.org/fishery/docs/CDrom/ARTFIMED/ArtFiWeb/descript/Species/LOLLOVUL.HTML" },
+      { "title": "peche.com: autumn squid fishing with turlutte", "url": "https://www.peche.com/article/32275/en-novembre-les-calamars-arrivent" },
+      { "title": "Guerra & Rocha 1994, life history of L. vulgaris and L. forbesi in Galician waters (record)", "url": "https://portalcientifico.uvigo.gal/documentos/5faf827329995246a6dd4235?lang=en" },
+      { "title": "WoRMS vernacular names (AphiaID 140271)", "url": "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/140271" },
+      { "title": "WoRMS vernacular names, Loligo forbesii (AphiaID 140270)", "url": "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/140270" }
+    ],
+    "uncertain": "Which squid is the nearshore night-jigging target: the sources point to Loligo vulgaris, but no study of angler catches along this Atlantic coast was found. Evidence: (1) the French angling article names Loligo vulgaris (with Illex coindetii) for autumn-winter night 'turlutte' fishing from quays; (2) in Portugal L. vulgaris is mostly inshore of 100 m and most abundant at 20-100 m, while L. forbesii is mostly offshore of 100 m (main concentration 100-200 m), more northern, only accidental on the south coast, and declined steeply in 1991-94 (Cunha et al. 1995); (3) DORIS calls L. forbesii 'relativement rare' in the Bay of Biscay, with NE Atlantic populations wintering off France and migrating north in May-July; SeaLifeBase gives L. forbesii a usual depth of 68-431 m, but also says it comes inshore over rocky ground early in the season, so it may appear in catches, especially in Galicia where both are sympatric (Guerra & Rocha; titles only, abstract not readable). (4) Alloteuthis subulata is a small squid (max 21.5 cm ML) common in shallow shelf waters and taken only as minor bycatch (DORIS, SeaLifeBase); juvenile Loligo are often confused with it, and it is not documented as a jigging target. SeaLifeBase max 64 cm ML for male L. vulgaris is much larger than the FAO and DORIS figures. SeaLifeBase's L. forbesii distribution text looked garbled (Indian Ocean/Red Sea) and was not used. The French 'encornet'/'calmar' names are applied loosely to several loliginids."
+  },
+  {
+    "id": "meagre",
+    "scientific": "Argyrosomus regius (Asso, 1801)",
+    "family": "Sciaenidae",
+    "synonyms": ["Perca regia Asso, 1801", "Cheilodipterus aquila", "Perca vanloo", "Sciaena aquila", "Argyrosomus procerus"],
+    "names": { "en": "meagre", "fr": "maigre commun", "es": "corvina", "pt": "corvina" },
+    "nameSources": [
+      "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/127007",
+      "https://doris.ffessm.fr/Especes/Argyrosomus-regius-Maigre-commun-1230"
+    ],
+    "habitat": "Large coastal benthopelagic predator of inshore and shelf waters over sandy-muddy bottoms, often in estuaries, also near rocks and wrecks; juveniles live in estuaries and lagoons for their first one to two years.",
+    "depth": { "usual": [15, 100], "range": [15, 300], "source": "https://www.fishbase.se/summary/Argyrosomus-regius.html (15-300 m) ; https://doris.ffessm.fr/Especes/Argyrosomus-regius-Maigre-commun-1230 (mostly 15-100 m)" },
+    "size": { "common": 150, "max": 230, "maxNote": "FishBase: max 230 cm TL, common 150 cm TL, max weight 103 kg; DORIS: typically 1-1.4 m and often up to 50 kg, largest recorded 2.30 m", "source": "https://www.fishbase.se/summary/Argyrosomus-regius.html" },
+    "diet": "Fish (mullets, sardines, sprats, other schooling fish), cephalopods (squid, cuttlefish) and swimming crustaceans; estuarine juveniles eat mysids and Crangon shrimps, switching to the adult diet at 30-40 cm.",
+    "behaviour": "Nocturnal, voracious predator, solitary or in small groups; males drum loudly with the swim bladder during spawning (used by Gironde fishers to locate fish); temperature-driven migrations between coast, estuaries and offshore.",
+    "seasonal": "Gironde: spawning in the estuary between mid-May and late July (Quéro & Vayne 1985); fish present on the coast and in the estuary from spring to autumn and in deeper water in the cold season; after spawning adults disperse along the coast and return to the Bay of Biscay in autumn; juveniles feed in the estuary until autumn, go to sea in winter and return in spring. Gulf of Cádiz: spawning in estuaries from March to August; large mature adults landed near estuaries in that period; early stages in estuaries, then 2-3 years in coastal waters (González-Quirós et al. 2011). Tagus: tagged fish made regular trips to coastal waters during the spawning season, suggesting some spawning outside estuaries (Abecasis et al. 2024).",
+    "regions": {
+      "gironde":   { "status": "seasonal", "confidence": "high", "basis": "Spawning in the Gironde estuary mid-May to late July (Quéro & Vayne 1985: https://www.documentation.eauetbiodiversite.fr/fr/notice/le-maigre-argyrosomus-regius-asso-1801-pisces-perciformes-sciaenidae-du-golfe-de-gascogne-et-des-eaux-plus-septentrionales-37066); Gironde named as one of three known spawning areas (https://doris.ffessm.fr/Especes/Argyrosomus-regius-Maigre-commun-1230); juvenile estuarine feeding (https://www.aquarium-larochelle.com/?p=5437)" },
+      "biscay":    { "status": "seasonal", "confidence": "high", "basis": "Along the coast and in the Gironde from spring to autumn, never abundant north of the Pertuis charentais (Quéro & Vayne 1985); post-spawning dispersal along the coast as far as Finistère (https://www.aquarium-larochelle.com/?p=5437)" },
+      "cantabria": { "status": "occasional", "confidence": "low", "basis": "Within the range 'Norway to Gibraltar and Congo' (https://www.fishbase.se/summary/Argyrosomus-regius.html); no regional record found; known Atlantic spawning areas lie elsewhere" },
+      "galicia":   { "status": "occasional", "confidence": "low", "basis": "Within the range (https://www.fishbase.se/summary/Argyrosomus-regius.html); no regional record found" },
+      "portugal":  { "status": "seasonal", "confidence": "high", "basis": "Tagged fish tracked in the Tejo during the spawning season (Abecasis et al. 2024: https://sapientia.ualg.pt/entities/publication/5bde818a-d16c-4a78-b937-b6e8b3d2c7d5/full); IPMA notes spawning approach to estuaries (https://www.ipma.pt/pt/pescas/eppo/corvina/?print=true)" },
+      "cadiz":     { "status": "resident", "confidence": "high", "basis": "González-Quirós et al. 2011: important fishery resource in the Gulf of Cádiz, estuarine spawning March-August, juveniles in estuaries then 2-3 years in coastal waters (https://agris.fao.org/search/en/records/65df3d750f3e94b9e5d66864)" }
+    },
+    "identification": [
+      "Large elongate silvery fish with a bronze sheen and darker back",
+      "Second dorsal fin much longer than the first",
+      "Silvery dotted lateral line clearly visible from the gill cover to the tail",
+      "Large terminal mouth without barbels; golden-yellow inside of the mouth"
+    ],
+    "similar": [
+      "Sea bass (Dicentrarchus labrax), for meagre under 1 m: in meagre the second dorsal is longer than the first dorsal and the anal fin; in bass they are about equal",
+      "Umbrina spp.: also locally called 'maigre' between Noirmoutier and La Rochelle, causing confusion (distinguishing features not given in the fetched DORIS text)",
+      "Pseudotolithus senegalensis / P. typus: pointed diamond-shaped tail, West Africa only"
+    ],
+    "anglingMethods": [
+      "Valued by recreational anglers from the Gironde estuary to the Vendée (https://www.aquarium-larochelle.com/?p=5437); prized in commercial and recreational fishing (https://doris.ffessm.fr/Especes/Argyrosomus-regius-Maigre-commun-1230). No specific rod technique documented in fetched sources."
+    ],
+    "conservation": "IUCN global: Least Concern (LC), assessed 19 February 2020 (FishBase). Gironde prefecture (2022): recreational minimum size 45 cm, mandatory marking. González-Quirós et al. 2011 warn of likely growth overfishing in the Gulf of Cádiz under the lack of regulations at the time.",
+    "sources": [
+      { "title": "FishBase species summary: Argyrosomus regius", "url": "https://www.fishbase.se/summary/Argyrosomus-regius.html" },
+      { "title": "DORIS fiche: Argyrosomus regius, Maigre commun", "url": "https://doris.ffessm.fr/Especes/Argyrosomus-regius-Maigre-commun-1230" },
+      { "title": "Quéro & Vayne 1985, Le maigre du golfe de Gascogne (Rev. Trav. Inst. Pêches Marit. 49)", "url": "https://www.documentation.eauetbiodiversite.fr/fr/notice/le-maigre-argyrosomus-regius-asso-1801-pisces-perciformes-sciaenidae-du-golfe-de-gascogne-et-des-eaux-plus-septentrionales-37066" },
+      { "title": "Aquarium La Rochelle species page: maigre", "url": "https://www.aquarium-larochelle.com/?p=5437" },
+      { "title": "FAO cultured aquatic species fact sheet: meagre", "url": "https://www.fao.org/fishery/docs/CDrom/aquaculture/I1129m/file/en/en_meagre.htm" },
+      { "title": "González-Quirós et al. 2011, life-history of the meagre in the Gulf of Cádiz (Fisheries Research 109)", "url": "https://agris.fao.org/search/en/records/65df3d750f3e94b9e5d66864" },
+      { "title": "Abecasis et al. 2024, tracking meagre during the spawning season (J. Fish Biol.)", "url": "https://sapientia.ualg.pt/entities/publication/5bde818a-d16c-4a78-b937-b6e8b3d2c7d5/full" },
+      { "title": "IPMA EPPO: corvina", "url": "https://www.ipma.pt/pt/pescas/eppo/corvina/?print=true" },
+      { "title": "WoRMS vernacular names (AphiaID 127007)", "url": "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/127007" },
+      { "title": "Prefecture de la Gironde, Guide Plaisance fiche 18 (April 2022)", "url": "https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf" }
+    ],
+    "uncertain": "A 2022 genetic paper (MDPI, not fetchable, seen via search) lists Atlantic spawning aggregations in the Gironde, Tagus, Guadiana, Guadalquivir and Banc d'Arguin (Lévrier Bay); the Guadalquivir is not named in the fetched González-Quirós abstract. A search excerpt of an old Arcachon study said meagre were most frequent there in November-December, contradicting the Gironde summer pattern; not verified. The FAO fact sheet's 'estuaries as nursery for age 0-2' is generic, not region-specific. Exact juvenile nursery zones within the Gironde not verified. Spanish 'corvina' and Portuguese 'corvina' are used for other sciaenids too. FishBase authority shown as 'Asso y del Rio, 1801'; WoRMS uses '(Asso, 1801)'."
+  },
+  {
+    "id": "gilthead",
+    "scientific": "Sparus aurata Linnaeus, 1758",
+    "family": "Sparidae",
+    "synonyms": ["Aurata aurata (Linnaeus, 1758)", "Chrysophrys aurata (Linnaeus, 1758)", "Chrysophrys crassirostris Valenciennes, 1830", "Sparus auratus Linnaeus, 1758"],
+    "names": { "en": "gilthead seabream", "fr": "dorade royale", "es": "dorada", "pt": "dourada" },
+    "nameSources": [
+      "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/151523",
+      "https://doris.ffessm.fr/Especes/Sparus-aurata-Dorade-daurade-royale-465"
+    ],
+    "habitat": "Shallow coastal sparid of seagrass beds, sandy bottoms and the surf zone, also estuaries and lagoons; juveniles to about 30 m, adults to 150 m.",
+    "depth": { "usual": [1, 30], "range": [1, 150], "source": "https://www.fishbase.se/summary/Sparus-aurata.html" },
+    "size": { "common": 35, "max": 70, "maxNote": "FishBase: max 70 cm TL, common 35 cm SL, max weight 17.2 kg; DORIS: commonly 20-50 cm", "source": "https://www.fishbase.se/summary/Sparus-aurata.html" },
+    "diet": "Mainly shellfish crushed with strong teeth (mussels, oysters and other bivalves), crustaceans and sea urchins; partly herbivorous; fish only occasionally.",
+    "behaviour": "Sedentary, solitary or in small groups; enters brackish lagoons and estuaries in spring; protandric hermaphrodite (male first, female at about 3 years); juveniles nocturnal.",
+    "seasonal": "FishBase: sometimes enters brackish lagoons and estuaries in spring; spawning mainly October to December (general, not region-specific). An angling source (search excerpt) says the active season on the French Atlantic coast (Arcachon basin, Vendée) starts from June.",
+    "regions": {
+      "gironde":   { "status": "seasonal", "confidence": "medium", "basis": "Dorade royale recorded in Gironde intertidal surveys (Rimond 2013 abstract via search excerpt: https://agris.fao.org/search/ru/records/647471ea79cbb2c2c1b20c49); estuary entry in spring (https://www.fishbase.se/summary/Sparus-aurata.html)" },
+      "biscay":    { "status": "seasonal", "confidence": "medium", "basis": "Range 'British Isles to Cape Verde' (https://www.fishbase.se/summary/Sparus-aurata.html); marking and 23 cm minimum size in Gironde regulations (https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf)" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range statement (https://www.fishbase.se/summary/Sparus-aurata.html); Basque name 'urraburu' in WoRMS" },
+      "galicia":   { "status": "resident", "confidence": "medium", "basis": "Range statement (https://www.fishbase.se/summary/Sparus-aurata.html); Galician name 'dourada' in WoRMS" },
+      "portugal":  { "status": "resident", "confidence": "medium", "basis": "Range statement (https://www.fishbase.se/summary/Sparus-aurata.html)" },
+      "cadiz":     { "status": "resident", "confidence": "medium", "basis": "Range includes the Strait of Gibraltar and Mediterranean (https://www.fishbase.se/summary/Sparus-aurata.html)" }
+    },
+    "identification": [
+      "Golden band between the eyes, edged with black",
+      "Large dark elongated spot at the top of the gill cover",
+      "Silvery-grey body with a steep, rounded forehead",
+      "Tip of the caudal fin edged with black"
+    ],
+    "similar": [
+      "White seabream (Diplodus sargus) and other Diplodus: more oval body and a black spot on the caudal peduncle; lacks the golden forehead band and opercular blotch",
+      "Pagrus spp. ('pagres') and other seabreams of similar shape (DORIS): gilthead is identified by its golden forehead band and dark opercular blotch"
+    ],
+    "anglingMethods": [
+      "Light to medium surfcasting from beaches and jetties with crab baits (green or white crab), especially on the rising tide, or whole razor clams (peche.com, seen via search excerpts: https://www.peche.com/article/51858/le-crabe-appat-roi-quelles-especes-de-poissons-debusquer-en-mer ; https://www.peche.com/article/41041/le-couteau-un-appat-universel-et-efficace-pour-la-peche-en-mer)"
+    ],
+    "conservation": "IUCN global: Least Concern (LC), assessed 19 August 2009 (FishBase). France recreational minimum size 23 cm (arrêté 29/01/2013, per DORIS; also Gironde prefecture 2022), mandatory marking; EU minimum 20 cm (DORIS, 2006 text).",
+    "sources": [
+      { "title": "FishBase species summary: Sparus aurata", "url": "https://www.fishbase.se/summary/Sparus-aurata.html" },
+      { "title": "DORIS fiche: Sparus aurata, Dorade royale", "url": "https://doris.ffessm.fr/Especes/Sparus-aurata-Dorade-daurade-royale-465" },
+      { "title": "WoRMS vernacular names (AphiaID 151523)", "url": "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/151523" },
+      { "title": "WoRMS synonyms (AphiaID 151523)", "url": "https://www.marinespecies.org/rest/AphiaSynonymsByAphiaID/151523" },
+      { "title": "Prefecture de la Gironde, Guide Plaisance fiche 18 (April 2022)", "url": "https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf" },
+      { "title": "Rimond 2013 (AGRIS record; abstract seen only via search excerpt)", "url": "https://agris.fao.org/search/ru/records/647471ea79cbb2c2c1b20c49" }
+    ],
+    "uncertain": "No Iberian regional source fetched; Iberian statuses rest on the range statement. Seasonality on the French Biscay coast (spring/summer presence, winter departure) is inferred from general behaviour and an angling excerpt, not a scientific regional source. Spawning season 'October to December' is FishBase's general statement. Wild fish may be mixed with aquaculture escapees (not assessed)."
+  },
+  {
+    "id": "sole",
+    "scientific": "Solea solea (Linnaeus, 1758)",
+    "family": "Soleidae",
+    "synonyms": ["Solea vulgaris vulgaris"],
+    "names": { "en": "common sole", "fr": "sole commune", "es": "lenguado", "pt": "linguado" },
+    "nameSources": [
+      "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/127160",
+      "https://doris.ffessm.fr/Especes/Solea-solea-Sole-135"
+    ],
+    "habitat": "Demersal flatfish burrowing in sandy and muddy bottoms from the shore to the shelf, also in harbours and estuaries (down to about 10 salinity); juveniles spend 2-3 years in coastal and estuarine nurseries.",
+    "depth": { "usual": [10, 60], "range": [0, 150], "source": "https://www.fishbase.se/summary/Solea-solea.html" },
+    "size": { "common": 35, "max": 70, "maxNote": "FishBase: max 70 cm SL, common 35 cm SL, max weight 3 kg, max age 26 years; DORIS: generally 30-40 cm, some to 70 cm and 3 kg", "source": "https://www.fishbase.se/summary/Solea-solea.html" },
+    "diet": "Feeds at night on worms, molluscs and small crustaceans, located by smell and touch.",
+    "behaviour": "Mainly nocturnal, partly buried by day; usually solitary; moves to deeper water in winter and back inshore in spring-summer; long spawning migrations (over 180 km) shown by tagging.",
+    "seasonal": "FishBase: spawns in shallow coastal water at 6-12 °C, mainly February to May; deeper in winter. DORIS: spawning mainly March to May depending on region; leaves the coast in winter, returns in spring and summer.",
+    "regions": {
+      "gironde":   { "status": "resident", "confidence": "high", "basis": "Diet study of S. solea in the Gironde estuary (https://zenodo.org/records/13604802); juvenile soles relatively numerous on Gironde intertidal habitats (Rimond 2013 abstract via search excerpt: https://agris.fao.org/search/ru/records/647471ea79cbb2c2c1b20c49); Gironde minimum size 24 cm (https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf)" },
+      "biscay":    { "status": "resident", "confidence": "high", "basis": "DORIS: the sole most frequently met by divers on French coasts (https://doris.ffessm.fr/Especes/Solea-solea-Sole-135)" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range 'Trondheim Fjord to Senegal' (https://www.fishbase.se/summary/Solea-solea.html)" },
+      "galicia":   { "status": "resident", "confidence": "medium", "basis": "Range statement (https://www.fishbase.se/summary/Solea-solea.html); Galician name 'linguado común' in WoRMS" },
+      "portugal":  { "status": "resident", "confidence": "medium", "basis": "Range statement (https://www.fishbase.se/summary/Solea-solea.html); Mondego juvenile flatfish study mentions S. solea (search excerpt only)" },
+      "cadiz":     { "status": "resident", "confidence": "medium", "basis": "Range statement (https://www.fishbase.se/summary/Solea-solea.html); co-occurs with Solea senegalensis in the south (DORIS range of S. senegalensis)" }
+    },
+    "identification": [
+      "Oval, flat body, eyes on the right side, small and widely spaced",
+      "Rounded snout with a small curved mouth before the tip of the head",
+      "Dark spot (sometimes golden or brown) on the upper rear part of the pectoral fin, covering about half of the fin tip",
+      "Rounded caudal fin, often with a dark fringe; dorsal and anal fins usually edged white",
+      "Dorsal 69-97 and anal 53-80 soft rays; no spines"
+    ],
+    "similar": [
+      "Senegalese sole (Solea senegalensis): very similar; pectoral fin has white rays with black inter-ray membranes rather than a solid black spot on half the fin tip; more numerous large white spots along the lateral line and fin bases; 9 precaudal vertebrae vs 10 in S. solea; anterior nostril tubular in both, so not diagnostic. S. senegalensis is rare north of the Bay of Biscay",
+      "Sand soles (Pegusa spp.): anterior nostril rosette-shaped, more uniform colour without large white spots",
+      "Other small soles: Buglossidium luteum, Microchirus spp., Solea aegyptiaca (not detailed in fetched sources)"
+    ],
+    "anglingMethods": [
+      "Surfcasting with long casts, small hooks (no. 8-4) and ragworm or 'demi-dure' baits on a two-snood rig (peche.com, seen via search excerpt: https://www.peche.com/article/41064/montage-surfcasting-a-2-longues-empiles-visez-la-sole-a-la-nereide)"
+    ],
+    "conservation": "IUCN global: Data Deficient (DD), assessed 15 July 2014 (FishBase). EU minimum 20 cm (DORIS, 2006 text). Gironde prefecture (2022): recreational minimum 24 cm, mandatory marking.",
+    "sources": [
+      { "title": "FishBase species summary: Solea solea", "url": "https://www.fishbase.se/summary/Solea-solea.html" },
+      { "title": "DORIS fiche: Solea solea, Sole commune", "url": "https://doris.ffessm.fr/Especes/Solea-solea-Sole-135" },
+      { "title": "DORIS fiche: Solea senegalensis, Sole du Sénégal", "url": "https://doris.ffessm.fr/Especes/Solea-senegalensis-Sole-du-Senegal-3804" },
+      { "title": "WoRMS vernacular names (AphiaID 127160)", "url": "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/127160" },
+      { "title": "Coiraton & Selleslagh 2018, teleost diets in the Gironde estuary (Cybium)", "url": "https://zenodo.org/records/13604802" },
+      { "title": "Prefecture de la Gironde, Guide Plaisance fiche 18 (April 2022)", "url": "https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf" },
+      { "title": "Rimond 2013 (AGRIS record; abstract seen only via search excerpt)", "url": "https://agris.fao.org/search/ru/records/647471ea79cbb2c2c1b20c49" }
+    ],
+    "uncertain": "Relative abundance of S. solea vs S. senegalensis along Portugal and the Gulf of Cádiz was not quantified by any fetched source (DORIS only says S. senegalensis ranges from Britain to Angola and is rare above the Bay of Biscay). The identification difference rests mainly on the pectoral-fin pattern and is not always reliable; vertebral counts need dissection. DORIS synonym 'Solea vulgaris vulgaris' only; WoRMS synonyms not fetched. Iberian statuses rest on range statements."
+  },
+  {
+    "id": "cuttlefish",
+    "scientific": "Sepia officinalis Linnaeus, 1758",
+    "family": "Sepiidae",
+    "synonyms": ["Sepia zebrina", "Sepia filliouxi", "Sepia fischeri", "Sepia mediterranea"],
+    "names": { "en": "common cuttlefish", "fr": "seiche commune", "es": "sepia común", "pt": "choco" },
+    "nameSources": [
+      "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/141444",
+      "https://doris.ffessm.fr/Especes/Sepia-officinalis-Seiche-230"
+    ],
+    "habitat": "Neritic, demersal cephalopod of sand, gravel, mud, seagrass and algae from the shore to about 200 m, often partly buried; tolerates fairly low salinities (lives and spawns throughout the Ría de Vigo, including the inner part at 20-35.5 salinity).",
+    "depth": { "usual": [0, 50], "range": [0, 242], "source": "https://www.sealifebase.se/summary/Sepia-officinalis.html" },
+    "size": { "common": null, "max": 49, "maxNote": "SeaLifeBase: max 49 cm ML (males/unsexed), max weight 4 kg in temperate waters; common 15-25 cm ML in West Saharan fisheries; DORIS: most 15-30 cm excluding tentacles, max 45 cm; Guerra & Castro 1988: max about 30 cm ML", "source": "https://www.sealifebase.se/summary/Sepia-officinalis.html" },
+    "diet": "Small molluscs, crabs, shrimps, other cephalopods and juvenile demersal fish; ambush predator using its long tentacles; cannibalism common.",
+    "behaviour": "Mostly solitary, gathering for courtship; buries in sand by day and ambushes prey; rapid colour and texture change; seasonal migrations between inshore waters (spring-summer) and mid-shelf grounds around 100 m (autumn-winter); dies after spawning, life cycle 12-24 months.",
+    "seasonal": "Northern Bay of Biscay: breeding season about mid-March to late June (Gauvrit et al. 1997, via search excerpt). DORIS: adults move to shallow coastal waters in spring to mate and lay black grape-like egg clusters on seaweed, eelgrass and structures; adults fished in spring, juveniles ('casserons') in late summer and autumn. Ría de Vigo: main spawning spring and summer (French summary: February to end of summer), with spawning all year and peak occurrence in autumn (Guerra & Castro 1988).",
+    "regions": {
+      "gironde":   { "status": "seasonal", "confidence": "low", "basis": "General spring inshore spawning pattern on the French Atlantic coast (https://doris.ffessm.fr/Especes/Sepia-officinalis-Seiche-230); no Gironde-specific record found" },
+      "biscay":    { "status": "seasonal", "confidence": "high", "basis": "Breeding season mid-March to late June in the northern Bay of Biscay (Gauvrit, Le Goff & Daguzan 1997, abstract via search excerpt: https://acnpsearch.tweb-dev.unibo.it/singlejournalindex/4059235); DORIS spring inshore migration and fishery; local name 'casseron' (Arcachon) in DORIS" },
+      "cantabria": { "status": "seasonal", "confidence": "medium", "basis": "Range and inshore spring-summer migration pattern (https://www.sealifebase.se/summary/Sepia-officinalis.html); no regional source fetched" },
+      "galicia":   { "status": "resident", "confidence": "high", "basis": "Guerra & Castro 1988: lives and spawns throughout the Ría de Vigo, mature and immature animals all year (https://www.vliz.be/imisdocs/publications/ocrd/286703.pdf)" },
+      "portugal":  { "status": "seasonal", "confidence": "medium", "basis": "Range statement (https://www.sealifebase.se/summary/Sepia-officinalis.html); a Sado estuary study (search excerpt only) reported higher densities in summer-autumn and higher biomass in spring" },
+      "cadiz":     { "status": "resident", "confidence": "medium", "basis": "Range to NW Africa and Mediterranean (https://www.sealifebase.se/summary/Sepia-officinalis.html); Spanish names choco/jibia in WoRMS; no Gulf of Cádiz source fetched" }
+    },
+    "identification": [
+      "Broad, flattened oval body with an internal calcareous cuttlebone",
+      "Undulating fin along the whole mantle edge",
+      "Back mottled brown and white, belly pale; males with zebra stripes on the mantle and arms",
+      "Eight short arms and two long retractile tentacles; W-shaped pupil"
+    ],
+    "similar": [
+      "Pink cuttlefish (Sepia orbignyana): about 10 cm, pinkish-orange back, pointed rear end",
+      "Elegant cuttlefish (Sepia elegans): up to about 8 cm, very slender, pink dorsal spot"
+    ],
+    "anglingMethods": [
+      "Jigging with coloured plastic lures ('turlutte') near the coast during the spring spawning season (https://doris.ffessm.fr/Especes/Sepia-officinalis-Seiche-230)"
+    ],
+    "conservation": "IUCN global: Least Concern (LC), assessed 15 March 2009 (SeaLifeBase). No minimum size found in fetched sources; DORIS voices concern about intense inshore fishing during spawning.",
+    "sources": [
+      { "title": "SeaLifeBase species summary: Sepia officinalis", "url": "https://www.sealifebase.se/summary/Sepia-officinalis.html" },
+      { "title": "DORIS fiche: Sepia officinalis, Seiche", "url": "https://doris.ffessm.fr/Especes/Sepia-officinalis-Seiche-230" },
+      { "title": "Guerra & Castro 1988, life cycle of Sepia officinalis in the Ría de Vigo (Cah. Biol. Mar. 29)", "url": "https://www.vliz.be/imisdocs/publications/ocrd/286703.pdf" },
+      { "title": "marineinfo record of Guerra & Castro 1988", "url": "https://marineinfo.org/doc/publication/64500" },
+      { "title": "Gauvrit, Le Goff & Daguzan 1997, reproductive cycle of the cuttlefish in the northern Bay of Biscay (J. Moll. Stud.; seen only via search excerpt)", "url": "https://acnpsearch.tweb-dev.unibo.it/singlejournalindex/4059235" },
+      { "title": "WoRMS vernacular names (AphiaID 141444)", "url": "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/141444" }
+    ],
+    "uncertain": "Inshore spawning months are documented for the northern Bay of Biscay (mid-March to late June, search excerpt only) and the Ría de Vigo (spring-summer, also winter); no fetched source gives months for the southern French Biscay coast, the Gironde, Cantabria, Portugal or the Gulf of Cádiz. The Sado result was only a search excerpt. SeaLifeBase labels the species 'tropical' with preferred 21 °C, which seems odd for this region. Common size left null because sources give ranges, not a single value."
+  },
+  {
+    "id": "octopus",
+    "scientific": "Octopus vulgaris Cuvier, 1797",
+    "family": "Octopodidae",
+    "synonyms": ["Sepia octopus Gmelin, 1791", "Octopus rugosus (Bosc, 1792)", "Octopus cassiopea J. E. Gray, 1849", "Octopus tuberculatus Blainville, 1826"],
+    "names": { "en": "common octopus", "fr": "poulpe commun", "es": "pulpo común", "pt": "polvo-vulgar" },
+    "nameSources": [
+      "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/140605",
+      "https://doris.ffessm.fr/Especes/Octopus-vulgaris-Poulpe-commun-847"
+    ],
+    "habitat": "Benthic octopus of rocky substrates, boulder heaps and coralligenous habitat, also sand, mud and seagrass, from the intertidal to the shelf edge (about 150 m in DORIS); each animal holds a den.",
+    "depth": { "usual": [0, 100], "range": [0, 347], "source": "https://www.sealifebase.se/summary/Octopus-vulgaris.html" },
+    "size": { "common": 60, "max": 180, "maxNote": "SeaLifeBase: max 180 cm TL (males/unsexed), 120 cm TL females, max weight 10 kg. DORIS: typical total length about 60 cm, up to 1.2 m (females) and 1.3 m (males), average weight about 3 kg, rarely 10 kg", "source": "https://www.sealifebase.se/summary/Octopus-vulgaris.html ; https://doris.ffessm.fr/Especes/Octopus-vulgaris-Poulpe-commun-847" },
+    "diet": "Mainly crustaceans, bivalves and other cephalopods, rarely fish; paralyses prey with venom and drills shells; raids pots and traps.",
+    "behaviour": "Solitary and territorial outside breeding, with one den per animal, entrance hidden by shell middens; camouflage, ink and jet escape; some seasonal breeding migration; female broods eggs for 24-125 days without feeding and dies after hatching.",
+    "seasonal": "DORIS: breeding season March to November. Galicia: closed season for octopus in May and June (2024), also applying to recreational sea fishing (Xunta de Galicia).",
+    "regions": {
+      "gironde":   { "status": "occasional", "confidence": "low", "basis": "Rocky-substrate species; DORIS lists it on the French Atlantic coast (https://doris.ffessm.fr/Especes/Octopus-vulgaris-Poulpe-commun-847); no record from the turbid Gironde estuary; the Gironde prefecture table gives a 750 g minimum weight (https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf), which is a regulation, not a presence record" },
+      "biscay":    { "status": "resident", "confidence": "medium", "basis": "DORIS: present along the whole French Atlantic coast, northern limit now north Brittany/Normandy (https://doris.ffessm.fr/Especes/Octopus-vulgaris-Poulpe-commun-847)" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "O. vulgaris sensu stricto range Mediterranean and NE Atlantic (https://www.frontiersin.org/articles/10.3389/fphys.2023.1162807/full); no regional source fetched" },
+      "galicia":   { "status": "resident", "confidence": "high", "basis": "Xunta de Galicia manages an octopus fishery with a 1 kg minimum weight and a May-June closure that also applies to recreational fishing (https://www.xunta.gal/es/notas-de-prensa/-/nova/000524/veda-del-pulpo-galicia-tendra-lugar-mayo-junio-este-ano-analizan-medidas-complementarias)" },
+      "portugal":  { "status": "resident", "confidence": "medium", "basis": "Sensu stricto range NE Atlantic (https://www.frontiersin.org/articles/10.3389/fphys.2023.1162807/full); no Portuguese source fetched" },
+      "cadiz":     { "status": "resident", "confidence": "medium", "basis": "Sensu stricto range NE Atlantic and Mediterranean (https://www.frontiersin.org/articles/10.3389/fphys.2023.1162807/full); no regional source fetched" }
+    },
+    "identification": [
+      "Eight arms, each with two rows of suckers",
+      "Lateral arms longer than the dorsal and ventral arms",
+      "Muscular sac-like mantle; horizontal rectangular pupils",
+      "Third right arm hectocotylised in males"
+    ],
+    "similar": [
+      "Eledone spp. (curled/musky octopus): a single row of suckers on each arm, weaker camouflage, usually deeper",
+      "Callistoctopus macropus (night octopus): thinner, longer arms with rows of white spots"
+    ],
+    "anglingMethods": [],
+    "conservation": "IUCN global: Least Concern (LC), assessed 8 April 2016 (SeaLifeBase). Gironde prefecture (2022): minimum weight 750 g. Galicia: minimum 1 kg and May-June closure incl. recreational fishing (Xunta, 2024).",
+    "sources": [
+      { "title": "SeaLifeBase species summary: Octopus vulgaris", "url": "https://www.sealifebase.se/summary/Octopus-vulgaris.html" },
+      { "title": "DORIS fiche: Octopus vulgaris, Poulpe commun", "url": "https://doris.ffessm.fr/Especes/Octopus-vulgaris-Poulpe-commun-847" },
+      { "title": "Maloney et al. 2023, Frontiers in Physiology (Octopus vulgaris species complex summary)", "url": "https://www.frontiersin.org/articles/10.3389/fphys.2023.1162807/full" },
+      { "title": "Xunta de Galicia press release, octopus closure May-June 2024", "url": "https://www.xunta.gal/es/notas-de-prensa/-/nova/000524/veda-del-pulpo-galicia-tendra-lugar-mayo-junio-este-ano-analizan-medidas-complementarias" },
+      { "title": "WoRMS vernacular names (AphiaID 140605)", "url": "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/140605" },
+      { "title": "WoRMS synonyms (AphiaID 140605)", "url": "https://www.marinespecies.org/rest/AphiaSynonymsByAphiaID/140605" },
+      { "title": "Prefecture de la Gironde, Guide Plaisance fiche 18 (April 2022)", "url": "https://www.gironde.gouv.fr/contenu/telechargement/65474/487264/file/Fiche%2018%20-%20Taille%20l%C3%A9gales%20des%20captures.pdf" }
+    ],
+    "uncertain": "Taxonomic revision: O. vulgaris was long treated as cosmopolitan (SeaLifeBase still says 'circumglobal'), but it is now a species complex; O. vulgaris sensu stricto is restricted to the Mediterranean and NE Atlantic, so the populations of this coast keep the name. Western Atlantic 'Type I' and Brazilian 'Type II' are proposed as O. americanus, South African/Indian Ocean 'Type III' is separate, and East Asian populations are O. sinensis (Maloney et al. 2023, citing earlier work). Whether West African populations are sensu stricto was not stated. No rod-and-line angling method found in fetched sources. Iberian regions other than Galicia rest on range statements."
+  }
+]

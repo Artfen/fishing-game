@@ -162,6 +162,7 @@
         <p id="pack-where"></p>
       </div>
       <ul class="gx-caps" id="pack-caps" aria-label="What you carry"></ul>
+      <button id="pack-guide" class="gx-chip gx-guidebtn" type="button">Field guide</button>
       <button id="pack-close" class="gx-close" type="button" aria-label="Close the backpack (Esc)">×</button>
     </header>
     <nav class="gx-cats" id="pack-cats" role="tablist" aria-label="Equipment"></nav>
@@ -267,7 +268,13 @@
     <nav class="j-tabs" aria-label="Journal sections">
       <button type="button" data-view="fish" class="on">Fish &amp; places</button>
       <button type="button" data-view="log">Catch log</button>
+      <button type="button" data-view="guide">Field guide</button>
     </nav>
+    <section class="page left j-guide-view" id="g-index" aria-label="Field guide: species" hidden></section>
+    <section class="page right j-guide-view" aria-label="Field guide: the selected species" hidden>
+      <div id="g-page"></div>
+      <p class="g-flash" role="status" aria-live="polite"></p>
+    </section>
     <section class="page left j-fish-view">
       <h2>Fish</h2>
       <div id="j-fish"></div>

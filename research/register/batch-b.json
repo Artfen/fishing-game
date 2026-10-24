@@ -1,0 +1,866 @@
+[
+  {
+    "id": "pollack",
+    "scientific": "Pollachius pollachius (Linnaeus, 1758)",
+    "family": "Gadidae",
+    "synonyms": [],
+    "names": { "en": "Pollack", "fr": "Lieu jaune", "es": "Abadejo", "pt": "Juliana" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Pollachius&SpeciesName=pollachius",
+      "https://doris.ffessm.fr/Especes/Pollachius-pollachius-Lieu-jaune-1441",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Hard bottoms, kelp beds, rocky reefs and wrecks, from inshore waters down to about 200 m; DORIS gives a preferred zone of 10-25 m for divers' sightings. Juveniles stay near the coast for 2-3 years (rocky areas, kelp, sandy shores, estuaries); larger fish move offshore, often around rocks at 40-100 m.",
+    "depth": { "usual": [40, 100], "range": [40, 200], "source": "https://www.fishbase.se/summary/Pollachius-pollachius.html" },
+    "size": { "common": 75, "max": 130, "maxNote": "FishBase: max 130 cm TL, common 75 cm TL (male/unsexed). DORIS gives max about 140 cm and an average of 60-80 cm.", "source": "https://www.fishbase.se/summary/Pollachius-pollachius.html" },
+    "diet": "Voracious predator of small fish (sand eels, poor cod, capelin, sprat, anchovy, sardine), plus shrimps, crabs and cephalopods; juveniles eat small crustaceans.",
+    "behaviour": "Single or in small shoals, forming dense shoals on spawning grounds; ambush hunter that waits facing the current near rocks and wrecks. Spawns February-March at about 100-150 m; large spawners return to deep water afterwards. Not shy, often follows divers around wrecks.",
+    "seasonal": "DORIS: spawning aggregations Feb-March at 100-150 m (water ~9-10 C); larvae drift 2-3 months then settle inshore; fish move offshore at about 5 years. peche.com (French Atlantic angling): spawning in March offshore on wrecks, large breeders can go to 100-150 m. No Iberia-specific seasonal data found.",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "medium", "basis": "DORIS range 'from northern Norway to the Bay of Biscay' and French production/TAC (https://doris.ffessm.fr/Especes/Pollachius-pollachius-Lieu-jaune-1441); ICES manages a stock for Subarea 8 + 9a (https://asd.ices.dk/viewAdvice/3922). No Gironde-specific record fetched." },
+      "biscay": { "status": "resident", "confidence": "high", "basis": "FishBase: 'Iceland, the Faeroes and Norway to the Bay of Biscay' (https://www.fishbase.se/summary/Pollachius-pollachius.html); ICES stock pol.27.89a 'Bay of Biscay and Atlantic Iberian waters' (https://asd.ices.dk/viewAdvice/3922)." },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range to the Bay of Biscay (FishBase) and the ICES Subarea 8 stock covers the Cantabrian Sea (https://asd.ices.dk/viewAdvice/3922); no Cantabria-specific source fetched." },
+      "galicia": { "status": "resident", "confidence": "high", "basis": "FishBase Spain record: 'Found in Galicia' citing Bañón et al. 2010 Galician checklist (https://www.fishbase.se/country/CountrySummary.php?id=44&ctry=Spain&genusname=Pollachius&speciesname=pollachius&vc_code=724&speccode=34)." },
+      "portugal": { "status": "resident", "confidence": "low", "basis": "Listed for mainland Portugal as 'Juliana' in Carneiro et al. 2014 checklist (https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318); FishBase: found in Tagus estuary (https://www.fishbase.se/country/CountrySummary.php?id=44&ctry=Portugal&genusname=Pollachius&speciesname=pollachius&vc_code=620&speccode=34). Abundance not given; FishBase range text stops at the Bay of Biscay, so Portugal is near the southern edge." },
+      "cadiz": { "status": "unknown", "confidence": "low", "basis": "No record found. Not among the species in the Junta de Andalucía catalogue of fishery species (https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf); range statements end at Biscay/Portugal. Probably absent, but this is unconfirmed." }
+    },
+    "identification": [
+      "Dark lateral line, clearly curved over the pectoral fin (DORIS)",
+      "Lower jaw projecting beyond the upper; large eye",
+      "Three dorsal and two anal fins; no chin barbel",
+      "Adults olive-brown with yellowish-white sheen; juveniles reddish-brown with orange marbling"
+    ],
+    "similar": [
+      "Saithe (Pollachius virens): darker, almost straight lateral line, usually deeper (100-200 m) (DORIS)",
+      "Whiting (Merlangius merlangus): smaller, silvery, black spot at the pectoral base and a tiny chin barbel (DORIS)"
+    ],
+    "anglingMethods": [
+      "Soft lures or sand eels fished near the bottom then reeled slowly up to mid-water, on rocky ground and wrecks (https://www.peche.com/article/32023/lieu-jaune-poisson-combatif-de-la-facade-atlantique)",
+      "Large baits (oily fish over 20 cm, cuttlefish) for big fish over wrecks (same source)",
+      "Hook and line is one of the commercial methods listed by DORIS (https://doris.ffessm.fr/Especes/Pollachius-pollachius-Lieu-jaune-1441)"
+    ],
+    "conservation": "IUCN Least Concern (assessed 2013, per FishBase). Under EU TAC management. France, recreational fishing in the North Sea, Channel and Atlantic: minimum size 30 cm (arrêté of 26 Oct 2012, version in force 18 Mar 2022; DORIS also gives 30 cm). ICES advice for pol.27.89a: commercial catches of at most 703 t in each of 2026 and 2027; recreational catches cannot be quantified.",
+    "sources": [
+      { "title": "FishBase: Pollachius pollachius", "url": "https://www.fishbase.se/summary/Pollachius-pollachius.html" },
+      { "title": "FishBase common names", "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Pollachius&SpeciesName=pollachius" },
+      { "title": "DORIS: Lieu jaune", "url": "https://doris.ffessm.fr/Especes/Pollachius-pollachius-Lieu-jaune-1441" },
+      { "title": "ICES advice pol.27.89a (2026-2027)", "url": "https://asd.ices.dk/viewAdvice/3922" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes of Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "FishBase country record Spain (Galicia)", "url": "https://www.fishbase.se/country/CountrySummary.php?id=44&ctry=Spain&genusname=Pollachius&speciesname=pollachius&vc_code=724&speccode=34" },
+      { "title": "FishBase country record Portugal (Tagus)", "url": "https://www.fishbase.se/country/CountrySummary.php?id=44&ctry=Portugal&genusname=Pollachius&speciesname=pollachius&vc_code=620&speccode=34" },
+      { "title": "Arrêté du 26 octobre 2012 (minimum sizes, recreational fishing), version of 18 Mar 2022", "url": "https://www.calvados.gouv.fr/contenu/telechargement/18136/140068/file/am-26-octobre-2012-18032022.pdf" },
+      { "title": "peche.com: lieu jaune", "url": "https://www.peche.com/article/32023/lieu-jaune-poisson-combatif-de-la-facade-atlantique" }
+    ],
+    "uncertain": "Southern limit is contradictory: FishBase's range text ends at the Bay of Biscay, but FishBase country data (Tagus estuary) and the Portuguese checklist (Carneiro 2014) list it for mainland Portugal. No abundance data for Portugal, and no record at all for the Gulf of Cádiz. Depth: FishBase 40-200 m (usually 40-100) refers to adults offshore; juveniles live inshore and DORIS gives 10-25 m as the preferred zone. Diet text is from DORIS (FishBase gives only a trophic level). INPN could not be fetched (HTTP 403). The French recreational size table was amended on 6 Jan 2026 according to a search result, which could not be checked (Légifrance returned 403), so the 30 cm figure is from the 2022 consolidated version."
+  },
+  {
+    "id": "conger",
+    "scientific": "Conger conger (Linnaeus, 1758)",
+    "family": "Congridae",
+    "synonyms": [],
+    "names": { "en": "European conger", "fr": "Congre", "es": "Congrio", "pt": "Congro" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Conger&SpeciesName=conger",
+      "https://doris.ffessm.fr/Especes/Conger-conger-Congre-610",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Rocky and sandy bottoms: crevices, rocks and wrecks, and also open soft bottoms at depth. Young fish stay near the coast and move deeper as they mature.",
+    "depth": { "usual": [0, 500], "range": [0, 1171], "source": "https://www.fishbase.se/summary/Conger-conger.html" },
+    "size": { "common": 100, "max": 300, "maxNote": "FishBase: max 300 cm TL and 110 kg; common length 100 cm TL (male/unsexed) and 150 cm TL (female).", "source": "https://www.fishbase.se/summary/Conger-conger.html" },
+    "diet": "Nocturnal predator of fish, crustaceans and cephalopods (cuttlefish, octopus).",
+    "behaviour": "Nocturnal; leaves its hole at night to hunt. Mostly solitary but shares shelters, especially in wrecks. Semelparous: makes a single long migration to deep offshore spawning grounds and dies after spawning. Leptocephalus larvae drift for 1-2 years.",
+    "seasonal": "FishBase: off Portugal it spawns in summer, releasing eggs in the open sea at 2000-3000 m. Junta de Andalucía catalogue: no marked seasonality in Andalusian landings, with more catches in Feb-March and May-June.",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "high", "basis": "FishBase France record: 'Known from the Gironde estuary' citing Rochard & Elie 1994 (https://www.fishbase.se/country/CountrySummary.php?id=315&ctry=France&genusname=Conger&speciesname=conger&vc_code=250&speccode=301)." },
+      "biscay": { "status": "resident", "confidence": "high", "basis": "Range 'Norway and Iceland to Senegal' (https://www.fishbase.se/summary/Conger-conger.html); DORIS 'relativement commune, voire abondante' (https://doris.ffessm.fr/Especes/Conger-conger-Congre-610)." },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Covered by the range statement (FishBase); FishBase lists many Basque vernacular names used in Spain (https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Conger&SpeciesName=conger). No Cantabria-specific survey fetched." },
+      "galicia": { "status": "resident", "confidence": "high", "basis": "FishBase Spain record: 'Found in Galicia' citing Bañón et al. 2010 (https://www.fishbase.se/country/CountrySummary.php?id=315&ctry=Spain&genusname=Conger&speciesname=conger&vc_code=724&speccode=301)." },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "FishBase: found in Tagus estuary; spawning off Portugal (https://www.fishbase.se/country/CountrySummary.php?id=315&ctry=Portugal&genusname=Conger&speciesname=conger&vc_code=620&speccode=301); Carneiro 2014 lists mainland Portugal (https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318)." },
+      "cadiz": { "status": "resident", "confidence": "high", "basis": "Junta de Andalucía catalogue: present in almost all Andalusian fish markets, Conil de la Frontera among the main ports (https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf); within the FishBase range." }
+    },
+    "identification": [
+      "Eel-shaped, scaleless body covered in mucus; grey to blackish, belly paler",
+      "Dorsal, anal and caudal fins form one continuous fin edged in black; no pelvic fins",
+      "Dorsal fin starts close behind the pectorals (an eel's starts much further back)",
+      "Thick lips and large eyes (proportionally larger in juveniles)"
+    ],
+    "similar": [
+      "European eel (Anguilla anguilla): dorsal fin starts far behind the pectorals, smaller (1-1.5 m), lives shallower (DORIS)",
+      "Balearic conger (Ariosoma balearicum): much smaller (40-50 cm), buries in sand by day (DORIS)",
+      "Deep-water congers: live beyond 50 m (DORIS)"
+    ],
+    "anglingMethods": [
+      "Bottom fishing from harbour-entrance breakwaters (shore) or over wrecks and isolated offshore rocks (boat), mainly at night when conger feed, with heavy leaders (about 100/100 from shore) (https://www.peche.com/article/37827/le-congre-carnassier-embusque)",
+      "Baits: cuttlefish, squid, mackerel, horse mackerel, herring, sand eel, garfish, sardine (same source)"
+    ],
+    "conservation": "IUCN Least Concern (assessed 2011, per FishBase). France, recreational fishing in the North Sea, Channel and Atlantic: minimum size 60 cm (arrêté of 26 Oct 2012, version of 18 Mar 2022). Spain, Atlantic: minimum biological size 58 cm under RD 560/1995, as listed in the Junta de Andalucía catalogue (2001).",
+    "sources": [
+      { "title": "FishBase: Conger conger", "url": "https://www.fishbase.se/summary/Conger-conger.html" },
+      { "title": "FishBase common names", "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Conger&SpeciesName=conger" },
+      { "title": "DORIS: Congre", "url": "https://doris.ffessm.fr/Especes/Conger-conger-Congre-610" },
+      { "title": "FishBase country record France (Gironde)", "url": "https://www.fishbase.se/country/CountrySummary.php?id=315&ctry=France&genusname=Conger&speciesname=conger&vc_code=250&speccode=301" },
+      { "title": "FishBase country record Spain (Galicia)", "url": "https://www.fishbase.se/country/CountrySummary.php?id=315&ctry=Spain&genusname=Conger&speciesname=conger&vc_code=724&speccode=301" },
+      { "title": "FishBase country record Portugal", "url": "https://www.fishbase.se/country/CountrySummary.php?id=315&ctry=Portugal&genusname=Conger&speciesname=conger&vc_code=620&speccode=301" },
+      { "title": "Junta de Andalucía (2001) Especies de interés pesquero en el litoral de Andalucía", "url": "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf" },
+      { "title": "Carneiro et al. 2014", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "Arrêté du 26 octobre 2012, version of 18 Mar 2022", "url": "https://www.calvados.gouv.fr/contenu/telechargement/18136/140068/file/am-26-octobre-2012-18032022.pdf" },
+      { "title": "peche.com: le congre", "url": "https://www.peche.com/article/37827/le-congre-carnassier-embusque" }
+    ],
+    "uncertain": "Sources disagree on spawning depth: FishBase says 2000-3000 m, DORIS 1000-4000 m. DORIS says conger are 'not subject to specific regulation' but also that a minimum size exists. The Spanish 58 cm size is from a 2001 catalogue and may be out of date. No synonyms were listed on the pages fetched."
+  },
+  {
+    "id": "blackbream",
+    "scientific": "Spondyliosoma cantharus (Linnaeus, 1758)",
+    "family": "Sparidae",
+    "synonyms": [],
+    "names": { "en": "Black seabream", "fr": "Dorade grise", "es": "Chopa", "pt": "Choupa" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Spondyliosoma&SpeciesName=cantharus",
+      "https://doris.ffessm.fr/Especes/Spondyliosoma-cantharus-Dorade-grise-742",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Seagrass beds and rocky and sandy bottoms down to about 300 m. Juveniles live at 5-30 m near rocks or seagrass; older fish prefer deeper sandy bottoms and come inshore in summer, often around wrecks.",
+    "depth": { "usual": null, "range": [5, 300], "source": "https://www.fishbase.se/summary/Spondyliosoma-cantharus.html" },
+    "size": { "common": 30, "max": 60, "maxNote": "FishBase: max 60 cm SL, common 30 cm SL (male/unsexed). DORIS: typically 30-40 cm, max about 60 cm and 1.2 kg.", "source": "https://www.fishbase.se/summary/Spondyliosoma-cantharus.html" },
+    "diet": "Omnivorous: seaweeds and small invertebrates, especially crustaceans (amphipods), plus polychaetes, brittle stars and hydrozoans.",
+    "behaviour": "Gregarious, sometimes in large schools. Protogynous hermaphrodite (female first, then male). In spring, males dig sand nests (30 cm to 1 m across) and fiercely guard the adhesive eggs.",
+    "seasonal": "DORIS: adults move inshore in summer, often onto wrecks; spawning Feb-April with nest building in spring (in the Atlantic males dig down to the rock). Junta de Andalucía: Gulf of Cádiz catches peak April-May.",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "medium", "basis": "Range 'Scandinavia to northern Namibia' (https://www.fishbase.se/summary/Spondyliosoma-cantharus.html); DORIS: 'pratiquement toutes les côtes atlantiques de l'Europe' (https://doris.ffessm.fr/Especes/Spondyliosoma-cantharus-Dorade-grise-742). No Gironde-specific record fetched." },
+      "biscay": { "status": "resident", "confidence": "medium", "basis": "Range statements (FishBase, DORIS); French recreational minimum size set for the Atlantic (https://www.calvados.gouv.fr/contenu/telechargement/18136/140068/file/am-26-octobre-2012-18032022.pdf)." },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Featured on AZTI identification posters for species habitual at Basque/Cantabrian fish markets, with Cantabrian and Asturian names (https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/); within the range." },
+      "galicia": { "status": "resident", "confidence": "high", "basis": "FishBase Spain: 'Found in Galicia' (Bañón et al. 2010) (https://www.fishbase.se/country/CountrySummary.php?id=1374&ctry=Spain&genusname=Spondyliosoma&speciesname=cantharus&vc_code=724&speccode=1356)." },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "FishBase Portugal: Tagus estuary; recorded in shore-angling catches on the south and southwest coast (Veiga et al. 2010) (https://www.fishbase.se/country/CountrySummary.php?id=1374&ctry=Portugal&genusname=Spondyliosoma&speciesname=cantharus&vc_code=620&speccode=1356); Carneiro 2014 mainland." },
+      "cadiz": { "status": "resident", "confidence": "high", "basis": "Junta de Andalucía: common on the Andalusian coast but caught in quantity only on the South Atlantic (Gulf of Cádiz) coast, mainly at Barbate (https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf)." }
+    },
+    "identification": [
+      "Oval, compressed body whose back is as rounded as its belly (DORIS)",
+      "Silvery grey with broken longitudinal lines (yellowish in females); all fins dark, caudal with a black rear margin",
+      "Males darker with a slightly concave forehead; Atlantic breeding males very dark with one or more vertical white bars",
+      "Small mouth with 4-6 rows of fine conical teeth (Junta de Andalucía)"
+    ],
+    "similar": [
+      "Annular seabream (Diplodus annularis) juveniles: lemon-yellow, whereas young black seabream are old-gold (DORIS)",
+      "Other sparids (gilthead, sars, pandoras, dentex): black seabream's longitudinal lines tell it apart; it is sometimes passed off as gilthead seabream (DORIS)"
+    ],
+    "anglingMethods": [
+      "Boat drift or vertical fishing over sandy patches located with a sounder, using a madai-type rig with bait (https://www.peche.com/article/37527/comment-pecher-la-dorade-grise-aux-appats-en-bateau)",
+      "Recorded in recreational shore-angling catches in southern Portugal (Veiga et al. 2010, via FishBase: https://www.fishbase.se/country/CountrySummary.php?id=1374&ctry=Portugal&genusname=Spondyliosoma&speciesname=cantharus&vc_code=620&speccode=1356)"
+    ],
+    "conservation": "IUCN Least Concern (assessed 2009, per FishBase). France, recreational fishing in the Atlantic: minimum size 23 cm (arrêté of 26 Oct 2012, version of 18 Mar 2022; DORIS also gives 23 cm). Spain, Atlantic: 23 cm (RD 560/1995, as listed in the Junta de Andalucía catalogue, 2001).",
+    "sources": [
+      { "title": "FishBase: Spondyliosoma cantharus", "url": "https://www.fishbase.se/summary/Spondyliosoma-cantharus.html" },
+      { "title": "FishBase common names", "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Spondyliosoma&SpeciesName=cantharus" },
+      { "title": "DORIS: Dorade grise", "url": "https://doris.ffessm.fr/Especes/Spondyliosoma-cantharus-Dorade-grise-742" },
+      { "title": "FishBase country record Spain", "url": "https://www.fishbase.se/country/CountrySummary.php?id=1374&ctry=Spain&genusname=Spondyliosoma&speciesname=cantharus&vc_code=724&speccode=1356" },
+      { "title": "FishBase country record Portugal", "url": "https://www.fishbase.se/country/CountrySummary.php?id=1374&ctry=Portugal&genusname=Spondyliosoma&speciesname=cantharus&vc_code=620&speccode=1356" },
+      { "title": "Junta de Andalucía (2001) catalogue", "url": "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf" },
+      { "title": "AZTI 'Cada pez cuenta' sparid posters", "url": "https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/" },
+      { "title": "Carneiro et al. 2014", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "Arrêté du 26 octobre 2012, version of 18 Mar 2022", "url": "https://www.calvados.gouv.fr/contenu/telechargement/18136/140068/file/am-26-octobre-2012-18032022.pdf" },
+      { "title": "peche.com: dorade grise en bateau", "url": "https://www.peche.com/article/37527/comment-pecher-la-dorade-grise-aux-appats-en-bateau" }
+    ],
+    "uncertain": "Sources disagree on who guards the eggs: DORIS says the males guard the nest, while the Junta de Andalucía catalogue says 'la hembra los protege'. FishBase gives no usual depth. The AZTI evidence for Cantabria is based on fish markets, not field surveys. No synonyms were captured from the pages fetched."
+  },
+  {
+    "id": "whitebream",
+    "scientific": "Diplodus cadenati de la Paz, Bauchot & Daget, 1974",
+    "family": "Sparidae",
+    "synonyms": ["Diplodus sargus cadenati de la Paz, Bauchot & Daget, 1974"],
+    "names": { "en": "Moroccan white seabream", "fr": "Sar commun atlantique", "es": "Sargo", "pt": "Sargo-legítimo" },
+    "nameSources": [
+      "https://www.fishbase.se/summary/Diplodus-cadenati.html",
+      "https://doris.ffessm.fr/Especes/Diplodus-cadenati-Sar-commun-atlantique-5360",
+      "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Rocky shallows, where it is most abundant, especially in the surf zone, down to about 150 m. Juveniles live in the first few metres, including rock pools and eelgrass/Zostera beds. It also enters brackish water.",
+    "depth": { "usual": [0, 50], "range": [0, 150], "source": "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf" },
+    "size": { "common": 25, "max": 45, "maxNote": "FishBase (D. cadenati): max 45 cm TL, common 25 cm TL. DORIS: typical 20-25 cm, recorded max 45 cm.", "source": "https://www.fishbase.se/summary/Diplodus-cadenati.html" },
+    "diet": "Mainly small crustaceans and molluscs crushed with its molars; also seaweed (and corals in the tropics). Juveniles omnivorous, adults carnivorous; Andalusian data add bivalves, sea urchins, barnacles and polychaetes.",
+    "behaviour": "Schooling; very active in the surf zone. FishBase calls it a digynic hermaphrodite with partial protandry, while DORIS and the Andalusian catalogue call it a protandrous hermaphrodite. Matures at about 20-22 cm.",
+    "seasonal": "DORIS: spawning Dec-May, peaking Jan-Feb. Junta de Andalucía: Gulf of Cádiz/Andalusian catches very abundant Sept-Dec. Quéro et al. 2004: once confined to the Bay of Biscay south of the Gironde, it reached Brittany in the warm year of 1995 and has stayed there since.",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "medium", "basis": "Quéro et al. 2004 (Ifremer): formerly confined to the Bay of Biscay south of the Gironde, since 1995 also along southern Brittany (https://archimer.ifremer.fr/doc/00000/3656/3189.pdf). French recreational minimum size set for the Atlantic." },
+      "biscay": { "status": "resident", "confidence": "high", "basis": "Quéro et al. 2004 (https://archimer.ifremer.fr/doc/00000/3656/3189.pdf); DORIS range 'Senegal ... to Brittany and the Channel' (https://doris.ffessm.fr/Especes/Diplodus-cadenati-Sar-commun-atlantique-5360); Catalog of Fishes: Bay of Biscay to Senegal." },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "AZTI poster of sparids habitual at Basque/Cantabrian markets includes white seabream (labelled D. sargus) with Cantabrian/Asturian names (https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/); within the Bay of Biscay-Senegal range." },
+      "galicia": { "status": "resident", "confidence": "high", "basis": "FishBase Spain (filed under D. sargus): 'Found in Galicia' (Bañón et al. 2010) (https://www.fishbase.se/country/CountrySummary.php?id=1949&ctry=Spain&genusname=Diplodus&speciesname=sargus&vc_code=724&speccode=1753)." },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "Veiga et al. 2010: the most important species in shore-angling catches on 250 km of the south/southwest coast (44% by number) (https://sapientia.ualg.pt/entities/publication/19645b87-78b7-4832-923d-2a92fac4eea0/full); FishBase Portugal: 'abundant', Tagus estuary; Carneiro 2014 lists D. sargus cadenati for mainland Portugal." },
+      "cadiz": { "status": "resident", "confidence": "high", "basis": "Junta de Andalucía: D. s. cadenati is the Atlantic subspecies, present in almost all ports (less in Tarifa and the Bay of Cádiz) (https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf)." }
+    },
+    "identification": [
+      "Black oval spot (saddle) on the caudal peduncle",
+      "Opercle usually edged black; pelvic fins with a white leading edge",
+      "Dark vertical bars on the flanks that persist into adulthood (in Mediterranean D. sargus they fade)",
+      "8 incisors in each jaw followed by 3-4 rows of molars"
+    ],
+    "similar": [
+      "Two-banded seabream (D. vulgaris): two black bands, one on the nape and one on the peduncle (DORIS)",
+      "Sharpsnout seabream (D. puntazzo): pointed snout, more bars, ring-shaped peduncle spot (DORIS)",
+      "Annular seabream (D. annularis): yellow pelvic fins, ring-shaped peduncle spot, usually under 20 cm (DORIS)",
+      "Mediterranean white seabream (D. sargus s.s.): visually separable only by location and molar count according to DORIS"
+    ],
+    "anglingMethods": [
+      "Shore angling: the top species in southern Portuguese shore-angling catches; recreational catches equalled about 65% of commercial landings (https://sapientia.ualg.pt/entities/publication/19645b87-78b7-4832-923d-2a92fac4eea0/full)",
+      "Float fishing over surf-washed rocks, surfcasting (30-50 g leads, leader at least 1 m), lures in choppy water, and 'toc' with paste. Baits: shrimp, mussel, prawn, worms, sardine (Mediterranean-based article: https://www.peche.com/article/50859/les-differentes-techniques-a-utiliser-pour-la-peche-des-sars)"
+    ],
+    "conservation": "Catalog of Fishes: D. cadenati Not Assessed by IUCN (2025); DORIS cites LC since 2011, which is likely the old D. sargus assessment (FishBase: D. sargus LC, 2011). France, recreational fishing in the North Sea, Channel and Atlantic: 'Sar commun (Diplodus sargus)' 25 cm (arrêté of 26 Oct 2012, version of 18 Mar 2022; DORIS gives the same 25 cm).",
+    "sources": [
+      { "title": "FishBase: Diplodus cadenati", "url": "https://www.fishbase.se/summary/Diplodus-cadenati.html" },
+      { "title": "FishBase: Diplodus sargus", "url": "https://www.fishbase.se/summary/Diplodus-sargus.html" },
+      { "title": "DORIS: Sar commun atlantique (D. cadenati)", "url": "https://doris.ffessm.fr/Especes/Diplodus-cadenati-Sar-commun-atlantique-5360" },
+      { "title": "DORIS: Sar commun de Méditerranée (D. sargus)", "url": "https://doris.ffessm.fr/Especes/Diplodus-sargus-Sar-commun-de-Mediterranee-463" },
+      { "title": "Eschmeyer's Catalog of Fishes: genus Diplodus", "url": "https://researcharchive.calacademy.org/research/ichthyology/catalog/fishcatget.asp?tbl=species&genus=Diplodus" },
+      { "title": "WoRMS: Diplodus cadenati (accepted)", "url": "https://www.marinespecies.org/rest/AphiaRecordsByName/Diplodus%20cadenati?like=false&marine_only=true" },
+      { "title": "Quéro et al. 2004, Observations ichtyologiques effectuées en 2003", "url": "https://archimer.ifremer.fr/doc/00000/3656/3189.pdf" },
+      { "title": "Béarez et al. 2017, Checklist of marine fishes of metropolitan France", "url": "https://sfi-cybium.fr/sites/default/files/pdfs-cybium/7-Bearez%201044%20%5BCybium%202017%2C%20414%5D351-371.pdf" },
+      { "title": "Veiga et al. 2010, shore angling in southern Portugal (abstract)", "url": "https://sapientia.ualg.pt/entities/publication/19645b87-78b7-4832-923d-2a92fac4eea0/full" },
+      { "title": "Junta de Andalucía (2001) catalogue", "url": "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf" },
+      { "title": "Carneiro et al. 2014", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "FishBase country record Spain (D. sargus, Galicia)", "url": "https://www.fishbase.se/country/CountrySummary.php?id=1949&ctry=Spain&genusname=Diplodus&speciesname=sargus&vc_code=724&speccode=1753" },
+      { "title": "AZTI sparid posters", "url": "https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/" },
+      { "title": "Arrêté du 26 octobre 2012, version of 18 Mar 2022", "url": "https://www.calvados.gouv.fr/contenu/telechargement/18136/140068/file/am-26-octobre-2012-18032022.pdf" }
+    ],
+    "uncertain": "The identity is unsettled; I chose D. cadenati, but this needs a decision. Eschmeyer's Catalog of Fishes (D. sargus restricted to the Mediterranean and Black Sea; D. cadenati 'Bay of Biscay south to Senegal'), WoRMS (D. cadenati accepted), DORIS and the Andalusian catalogue (Atlantic subspecies cadenati) all put the European Atlantic white seabream under cadenati. FishBase, however, still gives D. sargus an Atlantic range 'Brittany to Gibraltar', while giving D. cadenati 'Senegal north to ... Bay of Biscay'. Béarez et al. 2017 (French checklist) lists D. sargus as the French species and flags D. cadenati as a rare non-indigenous species. Carneiro 2014 lists both subspecies for mainland Portugal. Most regional data (Veiga 2010, Bañón 2010 via FishBase, AZTI, French size rules) are filed under the name D. sargus, so regional statuses mix both names. FishBase's English name 'Moroccan white seabream' is little used; in practice this fish is the 'white seabream', 'sargo' or 'sar'. The Spanish 'Sargo' and Portuguese 'Sargo-legítimo' are taken from sources applying them to the Atlantic form (DORIS gives Spanish 'Sargo marroquí'). The usual depth of 0-50 m comes from the Andalusian 'rarely below 50 m'; the 150 m maximum is from FishBase."
+  },
+  {
+    "id": "twobanded",
+    "scientific": "Diplodus vulgaris (Geoffroy Saint-Hilaire, 1817)",
+    "family": "Sparidae",
+    "synonyms": ["Sargus vulgaris Geoffroy Saint-Hilaire, 1817", "Sargus salviani"],
+    "names": { "en": "Common two-banded seabream", "fr": "Sar à tête noire", "es": "Mojarra", "pt": "Sargo-safia" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Diplodus&SpeciesName=vulgaris",
+      "https://doris.ffessm.fr/Especes/Diplodus-vulgaris-Sar-a-tete-noire-161",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Euryhaline; rocky and sometimes sandy bottoms, most commonly shallower than 50 m. Juveniles in seagrass beds, shallow rocky slopes, harbour breakwaters and lagoons.",
+    "depth": { "usual": [0, 30], "range": [0, 160], "source": "https://www.fishbase.se/summary/Diplodus-vulgaris.html" },
+    "size": { "common": 22, "max": 45, "maxNote": "FishBase: max 45 cm TL, common 22 cm TL (male/unsexed). DORIS: adults usually 15-30 cm.", "source": "https://www.fishbase.se/summary/Diplodus-vulgaris.html" },
+    "diet": "Crustaceans, worms, molluscs and sea urchins, crushed with strong molars.",
+    "behaviour": "The most gregarious of the sars, rarely alone; large fish often mix with white seabream and salema. Protandrous hermaphrodite according to DORIS ('potentially hermaphroditic' according to FishBase).",
+    "seasonal": "Junta de Andalucía: Andalusian landings peak Oct-Jan and March-April. DORIS gives autumn spawning, but its data are Mediterranean.",
+    "regions": {
+      "gironde": { "status": "occasional", "confidence": "low", "basis": "Range 'Bay of Biscay to Cape Verde' (https://www.fishbase.se/summary/Diplodus-vulgaris.html; DORIS). No Gironde-specific record found; warm-temperate species at the northern part of its range." },
+      "biscay": { "status": "resident", "confidence": "medium", "basis": "FishBase and DORIS (https://doris.ffessm.fr/Especes/Diplodus-vulgaris-Sar-a-tete-noire-161) both start the Atlantic range in the Bay of Biscay." },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "AZTI poster of sparids at Basque/Cantabrian markets (https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/); within the range." },
+      "galicia": { "status": "resident", "confidence": "high", "basis": "FishBase Spain: 'Found in Galicia' (Bañón et al. 2010) (https://www.fishbase.se/country/CountrySummary.php?id=1950&ctry=Spain&genusname=Diplodus&speciesname=vulgaris&vc_code=724&speccode=1754)." },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "FishBase Portugal: 'common (usually seen)', Tagus estuary, south and southwest coast shore-angling catches (https://www.fishbase.se/country/CountrySummary.php?id=1950&ctry=Portugal&genusname=Diplodus&speciesname=vulgaris&vc_code=620&speccode=1754)." },
+      "cadiz": { "status": "resident", "confidence": "high", "basis": "Junta de Andalucía: present in almost all ports; main ports Huelva, Bonanza and Motril (https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf)." }
+    },
+    "identification": [
+      "Two black bands: one across the nape and one on the caudal peduncle",
+      "About fifteen yellow horizontal stripes on the body",
+      "Black pelvic fins",
+      "Pointed head with a small mouth"
+    ],
+    "similar": [
+      "White seabream (D. sargus/cadenati): single rounded peduncle spot not reaching the lower edge, plus flank bars (DORIS)",
+      "Annular seabream (D. annularis): ring-shaped peduncle spot, usually under 20 cm (DORIS)",
+      "Zebra seabream (D. cervinus): larger, with 5-6 broad brown bands (DORIS)",
+      "Sharpsnout seabream (D. puntazzo): larger, pointed snout, ring-shaped spot (DORIS)"
+    ],
+    "anglingMethods": [
+      "Recorded in recreational shore-angling catches on the south and southwest coast of Portugal (Veiga et al. 2010, via FishBase: https://www.fishbase.se/country/CountrySummary.php?id=1950&ctry=Portugal&genusname=Diplodus&speciesname=vulgaris&vc_code=620&speccode=1754)",
+      "Sar techniques: float, surfcasting, lures, 'toc' with paste (Mediterranean-based article: https://www.peche.com/article/50859/les-differentes-techniques-a-utiliser-pour-la-peche-des-sars)"
+    ],
+    "conservation": "IUCN Least Concern (assessed 2009, per FishBase). France: the recreational size table (version of 18 Mar 2022) sets 18 cm in the Mediterranean only; there is no Atlantic entry. DORIS cites an EU 2006 rule of 18 cm, which is the Mediterranean regulation 1967/2006.",
+    "sources": [
+      { "title": "FishBase: Diplodus vulgaris", "url": "https://www.fishbase.se/summary/Diplodus-vulgaris.html" },
+      { "title": "FishBase common names", "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Diplodus&SpeciesName=vulgaris" },
+      { "title": "DORIS: Sar à tête noire", "url": "https://doris.ffessm.fr/Especes/Diplodus-vulgaris-Sar-a-tete-noire-161" },
+      { "title": "FishBase country record Spain", "url": "https://www.fishbase.se/country/CountrySummary.php?id=1950&ctry=Spain&genusname=Diplodus&speciesname=vulgaris&vc_code=724&speccode=1754" },
+      { "title": "FishBase country record Portugal", "url": "https://www.fishbase.se/country/CountrySummary.php?id=1950&ctry=Portugal&genusname=Diplodus&speciesname=vulgaris&vc_code=620&speccode=1754" },
+      { "title": "Junta de Andalucía (2001) catalogue", "url": "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf" },
+      { "title": "AZTI sparid posters", "url": "https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/" },
+      { "title": "Carneiro et al. 2014", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "Arrêté du 26 octobre 2012, version of 18 Mar 2022", "url": "https://www.calvados.gouv.fr/contenu/telechargement/18136/140068/file/am-26-octobre-2012-18032022.pdf" }
+    ],
+    "uncertain": "Spanish name: the FAO name is 'Sargo mojarra'; 'Mojarra' is the FishBase vernacular and the Andalusian index name (the Bay of Cádiz uses 'mojarra' for several Diplodus). DORIS gives the synonym 'Sargus salviani Valenciennes, 1961'; the year looks like a typo and is omitted. There is no source for its status off the Gironde."
+  },
+  {
+    "id": "striped",
+    "scientific": "Lithognathus mormyrus (Linnaeus, 1758)",
+    "family": "Sparidae",
+    "synonyms": ["Sparus mormyrus Linnaeus, 1758", "Pagellus mormyrus"],
+    "names": { "en": "Striped seabream", "fr": "Marbré", "es": "Herrera", "pt": "Ferreira" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Lithognathus&SpeciesName=mormyrus",
+      "https://doris.ffessm.fr/Especes/Lithognathus-mormyrus-Marbre-462",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Continental shelf over sandy and muddy bottoms, seagrass edges and estuaries. In warm months it comes into the surf zone of sandy beaches and enters brackish lagoons.",
+    "depth": { "usual": [10, 20], "range": [0, 150], "source": "https://www.fishbase.se/summary/Lithognathus-mormyrus.html" },
+    "size": { "common": 30, "max": 55, "maxNote": "FishBase: max 55 cm TL, common 30 cm TL (male/unsexed). DORIS: commonly 20-40 cm.", "source": "https://www.fishbase.se/summary/Lithognathus-mormyrus.html" },
+    "diet": "Small benthic invertebrates sifted from the sand: worms, molluscs, small crustaceans, sea urchins.",
+    "behaviour": "Gregarious, sometimes in large schools; forages day and night. Protandric hermaphrodite (male at about 2 years, female at 4-7 years / about 30 cm), though FishBase notes conflicting reports.",
+    "seasonal": "Junta de Andalucía: marked seasonality in Andalusian landings, peaking in July-August; juveniles appear late April-May. DORIS and peche.com: it comes close to beaches in late spring and summer.",
+    "regions": {
+      "gironde": { "status": "occasional", "confidence": "low", "basis": "Range starts at the Bay of Biscay (https://www.fishbase.se/summary/Lithognathus-mormyrus.html). peche.com mentions the French record fish from Arcachon (https://www.peche.com/article/32151/le-marbre-poisson-tatillon). No Gironde-specific record." },
+      "biscay": { "status": "resident", "confidence": "medium", "basis": "FishBase 'Bay of Biscay, Strait of Gibraltar...'; DORIS 'golfe de Gascogne à l'Afrique du Sud' (https://doris.ffessm.fr/Especes/Lithognathus-mormyrus-Marbre-462); Arcachon record (peche.com)." },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "AZTI poster of sparids at Basque/Cantabrian markets includes L. mormyrus (Basque 'Erla') with Cantabrian names (https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/)." },
+      "galicia": { "status": "resident", "confidence": "high", "basis": "FishBase Spain: 'Found in Galicia' (Bañón et al. 2010) (https://www.fishbase.se/country/CountrySummary.php?id=722&ctry=Spain&genusname=Lithognathus&speciesname=mormyrus&vc_code=724&speccode=706)." },
+      "portugal": { "status": "resident", "confidence": "medium", "basis": "Carneiro 2014 lists mainland Portugal; FishBase: recorded from south/southwest coast shore-angling catches, rated 'occasional' there (https://www.fishbase.se/country/CountrySummary.php?id=722&ctry=Portugal&genusname=Lithognathus&speciesname=mormyrus&vc_code=620&speccode=706)." },
+      "cadiz": { "status": "resident", "confidence": "high", "basis": "Junta de Andalucía: fairly common in the Atlantic; Isla Cristina and Huelva are the main ports (scarce at Tarifa, Cádiz and El Puerto) (https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf)." }
+    },
+    "identification": [
+      "About 14-15 dark vertical bars on a silvery-grey body",
+      "Long, pointed snout, darker on top",
+      "Deeply forked caudal fin",
+      "Molariform rear teeth behind fine conical front teeth"
+    ],
+    "similar": [
+      "Sharpsnout seabream (Diplodus puntazzo): less elongated, ring around the caudal peduncle, only about ten bars (DORIS)"
+    ],
+    "anglingMethods": [
+      "Surfcasting from sandy beaches with fine leaders (0.22-0.25 mm fluorocarbon) and light leads, best at night or dusk (https://www.peche.com/article/32151/le-marbre-poisson-tatillon)",
+      "Recorded in recreational shore-angling catches in southern Portugal (Veiga et al. 2010, via FishBase country record)"
+    ],
+    "conservation": "IUCN Least Concern (assessed 2009, per FishBase). France: the recreational size table (version of 18 Mar 2022) sets 20 cm in the Mediterranean; there is no Atlantic entry. DORIS's 20 cm cites the EU Mediterranean rule.",
+    "sources": [
+      { "title": "FishBase: Lithognathus mormyrus", "url": "https://www.fishbase.se/summary/Lithognathus-mormyrus.html" },
+      { "title": "FishBase common names", "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Lithognathus&SpeciesName=mormyrus" },
+      { "title": "DORIS: Marbré", "url": "https://doris.ffessm.fr/Especes/Lithognathus-mormyrus-Marbre-462" },
+      { "title": "FishBase country record Spain", "url": "https://www.fishbase.se/country/CountrySummary.php?id=722&ctry=Spain&genusname=Lithognathus&speciesname=mormyrus&vc_code=724&speccode=706" },
+      { "title": "FishBase country record Portugal", "url": "https://www.fishbase.se/country/CountrySummary.php?id=722&ctry=Portugal&genusname=Lithognathus&speciesname=mormyrus&vc_code=620&speccode=706" },
+      { "title": "Junta de Andalucía (2001) catalogue", "url": "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf" },
+      { "title": "AZTI sparid posters", "url": "https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/" },
+      { "title": "Carneiro et al. 2014", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "peche.com: le marbré", "url": "https://www.peche.com/article/32151/le-marbre-poisson-tatillon" },
+      { "title": "Arrêté du 26 octobre 2012, version of 18 Mar 2022", "url": "https://www.calvados.gouv.fr/contenu/telechargement/18136/140068/file/am-26-octobre-2012-18032022.pdf" }
+    ],
+    "uncertain": "English name: the current FAO/FishBase name is 'Sand steenbras'; 'Striped seabream' is the older FAO name (FishBase 'FAO old') and the one DORIS uses. DORIS's zone markers may show French Atlantic coasts as absent, which conflicts with its own range text; this could not be resolved. FishBase rates it 'occasional' in Portugal, but that rating comes from a shore-angling survey, not an abundance study."
+  },
+  {
+    "id": "redporgy",
+    "scientific": "Pagrus pagrus (Linnaeus, 1758)",
+    "family": "Sparidae",
+    "synonyms": ["Sparus pagrus Linnaeus, 1758", "Sparus orphus", "Sparus argenteus", "Pagrus vulgaris Valenciennes, 1830"],
+    "names": { "en": "Red porgy", "fr": "Pagre commun", "es": "Pargo", "pt": "Pargo-legítimo" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Pagrus&SpeciesName=pagrus",
+      "https://doris.ffessm.fr/Especes/Pagrus-pagrus-Pagre-commun-379",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318",
+      "https://www.juntadeandalucia.es/export/drupaljda/35_pargo.pdf"
+    ],
+    "habitat": "Rock, rubble or sand bottoms, often shallower than 150 m; also algae-covered rocks and vertical walls. Young often in seagrass beds.",
+    "depth": { "usual": [10, 80], "range": [0, 250], "source": "https://www.fishbase.se/summary/Pagrus-pagrus.html" },
+    "size": { "common": 35, "max": 91, "maxNote": "FishBase: max 91 cm TL, common 35 cm SL; max published weight 7.7 kg. DORIS: max 80 cm, divers usually see 15-40 cm.", "source": "https://www.fishbase.se/summary/Pagrus-pagrus.html" },
+    "diet": "Crustaceans (shrimps, crabs), molluscs including bivalves and cephalopods, and some fish (DORIS says it is not a fish hunter and takes fish only incidentally).",
+    "behaviour": "Solitary according to DORIS; rather wary. Protogynous hermaphrodite (female first, then male). Comes inshore in warm months and moves deeper offshore in autumn; spawns in spring.",
+    "seasonal": "DORIS: adults close to shore in warm months, deeper offshore in autumn; spawning April-June; juveniles common inshore in June-July. Junta de Andalucía: Andalusian catches strongly seasonal, peaking June-August.",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "low", "basis": "Range 'British Isles to Gabon' (https://doris.ffessm.fr/Especes/Pagrus-pagrus-Pagre-commun-379); rare in the Channel. No Gironde-specific record." },
+      "biscay": { "status": "resident", "confidence": "medium", "basis": "FishBase: eastern Atlantic 'north to the British Isles' (https://www.fishbase.se/summary/Pagrus-pagrus.html); DORIS range." },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "AZTI sparid poster lists P. pagrus with Cantabria/Asturias names (https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/); the Junta de Andalucía sheet gives official regional names for Asturias (Rubiel/Prao/Machote), Cantabria (Machote/Mazote) and País Vasco (Sabaya) (https://www.juntadeandalucia.es/export/drupaljda/35_pargo.pdf)." },
+      "galicia": { "status": "resident", "confidence": "high", "basis": "FishBase Spain: 'Found in Galicia' (Bañón et al. 2010) (https://www.fishbase.se/country/CountrySummary.php?id=1249&ctry=Spain&genusname=Pagrus&speciesname=pagrus&vc_code=724&speccode=1756); Galician name 'Prago' (Junta de Andalucía sheet)." },
+      "portugal": { "status": "resident", "confidence": "medium", "basis": "Carneiro 2014 lists mainland Portugal; FishBase: recorded in south/southwest coast shore-angling catches, rated 'occasional' there (https://www.fishbase.se/country/CountrySummary.php?id=1249&ctry=Portugal&genusname=Pagrus&speciesname=pagrus&vc_code=620&speccode=1756)." },
+      "cadiz": { "status": "resident", "confidence": "high", "basis": "Junta de Andalucía: present in all Andalusian ports and a common species; Conil and El Puerto de Santa María land about half the Andalusian catch (https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf)." }
+    },
+    "identification": [
+      "Deep, compressed, silvery-pink body with a sloping, convex head profile",
+      "Forked pink caudal fin with white(-bluish) tips to the lobes",
+      "Dark spot at the base (axil) of the pectoral fin",
+      "Front canines: 4 upper and 6 lower"
+    ],
+    "similar": [
+      "Common pandora (Pagellus erythrinus): no white tips on the caudal fin (DORIS)",
+      "Common dentex (Dentex dentex): flatter forehead, no white on the caudal (DORIS)",
+      "Bluespotted seabream (Pagrus caeruleostictus): filamentous dorsal rays; blue spots alone do not separate them (DORIS)",
+      "Redbanded seabream (Pagrus auriga): 4-5 dark red transverse bands and filamentous 3rd-4th dorsal spines (Junta de Andalucía)"
+    ],
+    "anglingMethods": [
+      "Bottom baits (sardine, squid, worms, live baits), chumming with sardine, slow trolling live baits, tenya/inchiku/madai and light jigging at about 20-100 m over rocky or mixed bottoms (https://www.peche.com/article/51071/les-differentes-techniques-pour-pecher-le-pagre-efficacement)",
+      "Light jigging over sandy areas (https://www.peche.com/article/41633/peche-en-jigging-leger-en-mer-une-technique-parfaite-pour-debuter)",
+      "Hook and line ('aparejo de anzuelo') and longline are among the Andalusian gears (Junta de Andalucía catalogue)"
+    ],
+    "conservation": "IUCN Least Concern according to FishBase (assessed 2009); DORIS still cites 'EN since 1996', an older assessment. Spain, Atlantic: minimum biological size 15 cm (Mediterranean 18 cm) according to the Junta de Andalucía species sheet (EU 2019/1241; RD 560/1995). France: the recreational table (version of 18 Mar 2022) sets 18 cm in the Mediterranean only; there is no Atlantic entry.",
+    "sources": [
+      { "title": "FishBase: Pagrus pagrus", "url": "https://www.fishbase.se/summary/Pagrus-pagrus.html" },
+      { "title": "FishBase common names", "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Pagrus&SpeciesName=pagrus" },
+      { "title": "DORIS: Pagre commun", "url": "https://doris.ffessm.fr/Especes/Pagrus-pagrus-Pagre-commun-379" },
+      { "title": "Junta de Andalucía species sheet: Pargo", "url": "https://www.juntadeandalucia.es/export/drupaljda/35_pargo.pdf" },
+      { "title": "Junta de Andalucía (2001) catalogue", "url": "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf" },
+      { "title": "FishBase country record Spain", "url": "https://www.fishbase.se/country/CountrySummary.php?id=1249&ctry=Spain&genusname=Pagrus&speciesname=pagrus&vc_code=724&speccode=1756" },
+      { "title": "FishBase country record Portugal", "url": "https://www.fishbase.se/country/CountrySummary.php?id=1249&ctry=Portugal&genusname=Pagrus&speciesname=pagrus&vc_code=620&speccode=1756" },
+      { "title": "AZTI sparid posters", "url": "https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/" },
+      { "title": "Carneiro et al. 2014", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "peche.com: techniques pour pêcher le pagre", "url": "https://www.peche.com/article/51071/les-differentes-techniques-pour-pecher-le-pagre-efficacement" },
+      { "title": "Arrêté du 26 octobre 2012, version of 18 Mar 2022", "url": "https://www.calvados.gouv.fr/contenu/telechargement/18136/140068/file/am-26-octobre-2012-18032022.pdf" }
+    ],
+    "uncertain": "IUCN status conflict: FishBase LC versus DORIS EN (1996, likely outdated). French name: the FAO name is 'Pagre rouge'; DORIS and the French checklist use 'Pagre commun'. There is no Gironde- or Bay-of-Biscay-specific occurrence data; status there rests on range statements."
+  },
+  {
+    "id": "urta",
+    "scientific": "Pagrus auriga Valenciennes, 1843",
+    "family": "Sparidae",
+    "synonyms": ["Sparus auriga Valenciennes, 1843"],
+    "names": { "en": "Redbanded seabream", "fr": "Pagre rayé", "es": "Urta", "pt": "Pargo-sêmola" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Pagrus&SpeciesName=auriga",
+      "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Demersal on hard bottoms (rock, rubble), from the shore to about 170 m; younger fish live closer to the coast.",
+    "depth": { "usual": null, "range": [0, 170], "source": "https://aiep.pensoft.net/article/26506/" },
+    "size": { "common": 30, "max": 80, "maxNote": "FishBase: max 80 cm SL, common 30 cm SL. Junta de Andalucía: up to 80 cm but rarely over 20-30 cm in catches. One Galician specimen was about 65 cm TL and 2.5 kg (Bañón et al. 2014).", "source": "https://www.fishbase.se/summary/Pagrus-auriga.html" },
+    "diet": "Mainly molluscs (bivalves, cephalopods) and some crustaceans.",
+    "behaviour": "Protogynous hermaphrodite: female first, changing to male at about 55-65 cm / 3-5 kg (IFAPA El Toruño culture work). Young live inshore, adults deeper on rocky bottoms.",
+    "seasonal": "Junta de Andalucía: no marked seasonality in Andalusian catches, more in spring; spawning apparently in late winter. In captivity in Spain, spawning runs Sept-May (Global Seafood Alliance article by IFAPA authors).",
+    "regions": {
+      "gironde": { "status": "absent", "confidence": "medium", "basis": "Not in the checklist of marine fishes of metropolitan France (Béarez et al. 2017: https://sfi-cybium.fr/sites/default/files/pdfs-cybium/7-Bearez%201044%20%5BCybium%202017%2C%20414%5D351-371.pdf); the Galician records are the northernmost confirmed (Bañón et al. 2014)." },
+      "biscay": { "status": "absent", "confidence": "medium", "basis": "Not in the French checklist (Béarez et al. 2017); range 'Portugal to Angola' (https://www.fishbase.se/summary/Pagrus-auriga.html)." },
+      "cantabria": { "status": "absent", "confidence": "medium", "basis": "Bañón et al. 2014: the Galician records are 'the northernmost confirmed records ... in the eastern Atlantic' (https://aiep.pensoft.net/article/26506/)." },
+      "galicia": { "status": "occasional", "confidence": "high", "basis": "Bañón et al. 2014: first Galician records, one in Aug 2005 off A Guarda and one in Aug 2013 off Cabo Udra (Ría de Pontevedra), both taken by spearfishers; absent from the 2010 Galician checklist (https://aiep.pensoft.net/article/26506/)." },
+      "portugal": { "status": "resident", "confidence": "medium", "basis": "Range 'Portugal to Angola' (FishBase; Bañón 2014); Carneiro 2014 lists mainland Portugal as 'Pargo-sêmola' (https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318). No abundance data for Portugal." },
+      "cadiz": { "status": "resident", "confidence": "high", "basis": "Junta de Andalucía catalogue: 'hurta o urta', more frequent on the Cádiz coast; Conil and El Puerto de Santa María land about 80% of the Andalusian hurta+dentón catch; highly prized locally (https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf)." }
+    },
+    "identification": [
+      "Silvery-pink (young) to pinkish-red (adult) body with 4-5 dark red transverse bands, alternately wide and narrow, clearest in young fish",
+      "3rd and 4th dorsal spines long and filamentous, shortening with age",
+      "4-6 canines at the front of each jaw, then rows of blunter teeth becoming molariform",
+      "Dark front of the face and rear edge of the opercle; caudal grey-pink with black edges"
+    ],
+    "similar": [
+      "Bluespotted seabream (Pagrus caeruleostictus): reddish with blue spots on back and flanks, no transverse bands, dark spot at the base of the last dorsal rays; also called 'hurta' in Andalusian markets and fairly abundant in the Atlantic (Junta de Andalucía)",
+      "Dentex species (D. gibbosus, D. maroccanus, D. canariensis, D. dentex): often confused with urta in Andalusia (Junta de Andalucía)",
+      "Red porgy (Pagrus pagrus): no bands, white tips on the caudal lobes (DORIS: https://doris.ffessm.fr/Especes/Pagrus-pagrus-Pagre-commun-379)"
+    ],
+    "anglingMethods": [
+      "Hook and line ('aparejo de anzuelo') and bottom longline are among the Andalusian fishing methods (Junta de Andalucía catalogue)",
+      "Galician specimens were taken by spearfishing (Bañón et al. 2014); spearfishing is not rod and line",
+      "No recreational rod-and-line technique source was found"
+    ],
+    "conservation": "IUCN Least Concern (assessed 2009, per FishBase). No minimum size was found for Spain or Portugal.",
+    "sources": [
+      { "title": "FishBase: Pagrus auriga", "url": "https://www.fishbase.se/summary/Pagrus-auriga.html" },
+      { "title": "FishBase common names", "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Pagrus&SpeciesName=auriga" },
+      { "title": "Bañón et al. 2014, Northernmost records of Pagrus auriga and Pomadasys incisus", "url": "https://aiep.pensoft.net/article/26506/" },
+      { "title": "Junta de Andalucía (2001) catalogue", "url": "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf" },
+      { "title": "Carneiro et al. 2014", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "Béarez et al. 2017, French checklist", "url": "https://sfi-cybium.fr/sites/default/files/pdfs-cybium/7-Bearez%201044%20%5BCybium%202017%2C%20414%5D351-371.pdf" },
+      { "title": "Global Seafood Alliance: red-banded sea bream culture", "url": "https://www.globalseafood.org/advocate/perspectives-red-banded-sea-bream-culture/" },
+      { "title": "FishBase country record Spain", "url": "https://www.fishbase.se/country/CountrySummary.php?id=5303&ctry=Spain&genusname=Pagrus&speciesname=auriga&vc_code=724&speccode=5066" }
+    ],
+    "uncertain": "The name 'urta' is ambiguous. In Andalusia 'hurta/urta' covers P. auriga and also P. caeruleostictus (Junta de Andalucía; an AEF 2006 linguistics paper seen only in search results says FAO linked 'urta' to both). On the Basque coast, the AZTI market poster uses 'Urta' as the Basque name for Dentex dentex. Andalusian landing figures lump hurta with dentón. FishBase gives the latitude range as 44N-16S but the distribution text starts at Portugal. Synonym Sparus auriga is from the Naturalis FNAM name pages, seen via search results only. There is no dedicated IEO/CSIC stock information for the Gulf of Cádiz, and FishSource says no assessment exists (Morocco profile). No usual depth was found."
+  },
+  {
+    "id": "pandora",
+    "scientific": "Pagellus erythrinus (Linnaeus, 1758)",
+    "family": "Sparidae",
+    "synonyms": ["Sparus erythrinus Linnaeus, 1758", "Pagellus canariensis Valenciennes, 1838"],
+    "names": { "en": "Common pandora", "fr": "Pageot commun", "es": "Breca", "pt": "Bica" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Pagellus&SpeciesName=erythrinus",
+      "https://doris.ffessm.fr/Especes/Pagellus-erythrinus-Pageot-commun-2771",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Inshore waters on various bottoms (rock, gravel, sand, mud), preferring soft bottoms, to 200 m in the Mediterranean and 300 m in the Atlantic; most often 20-100 m. Young stay closer to the coast than adults.",
+    "depth": { "usual": [20, 100], "range": [20, 320], "source": "https://www.fishbase.se/summary/Pagellus-erythrinus.html" },
+    "size": { "common": 25, "max": 60, "maxNote": "FishBase: max 60 cm SL, common 25 cm SL. DORIS: common 15-30 cm.", "source": "https://www.fishbase.se/summary/Pagellus-erythrinus.html" },
+    "diet": "Omnivorous but mainly carnivorous: benthic invertebrates (worms, small crustaceans, molluscs) and small fish.",
+    "behaviour": "Gregarious in small schools; wary, easier to approach at night. Protogynous hermaphrodite: females become males from the third year at about 17 cm. Moves deeper in winter.",
+    "seasonal": "FishBase/DORIS: moves to deeper water in winter. Junta de Andalucía: most Andalusian landings in April-July and Sept-January.",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "medium", "basis": "Range 'Norway and the Mediterranean to Guinea-Bissau', rare only in Scandinavia (https://www.fishbase.se/summary/Pagellus-erythrinus.html). No Gironde-specific record." },
+      "biscay": { "status": "resident", "confidence": "medium", "basis": "Range statement (FishBase; DORIS 60N-10N: https://doris.ffessm.fr/Especes/Pagellus-erythrinus-Pageot-commun-2771)." },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "AZTI sparid poster includes P. erythrinus (Basque 'Lamote') with Cantabrian/Asturian names (https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/)." },
+      "galicia": { "status": "resident", "confidence": "high", "basis": "FishBase Spain: 'Found in Galicia' (Bañón et al. 2010) (https://www.fishbase.se/country/CountrySummary.php?id=909&ctry=Spain&genusname=Pagellus&speciesname=erythrinus&vc_code=724&speccode=893)." },
+      "portugal": { "status": "resident", "confidence": "medium", "basis": "Carneiro 2014 lists mainland Portugal; FishBase: in south/southwest coast shore-angling catches (https://www.fishbase.se/country/CountrySummary.php?id=909&ctry=Portugal&genusname=Pagellus&speciesname=erythrinus&vc_code=620&speccode=893)." },
+      "cadiz": { "status": "resident", "confidence": "high", "basis": "Junta de Andalucía: present in all Andalusian ports and fairly common; Huelva, Isla Cristina and Barbate are among the main ports (https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf)." }
+    },
+    "identification": [
+      "Silvery-pink body with bluish sheen and small blue spots on the upper part",
+      "Upper edge of the opercle carmine red; reddish spot at the pectoral base",
+      "Almost straight head profile with a pointed snout; eye clearly smaller than snout length",
+      "Caudal fin without white tips"
+    ],
+    "similar": [
+      "Red porgy (Pagrus pagrus): caudal lobes white-tipped (DORIS)"
+    ],
+    "anglingMethods": [
+      "Light jigging over sandy areas (https://www.peche.com/article/41633/peche-en-jigging-leger-en-mer-une-technique-parfaite-pour-debuter)",
+      "Recorded in recreational shore-angling catches in southern Portugal (Veiga et al. 2010, via FishBase country record)"
+    ],
+    "conservation": "IUCN Least Concern (assessed 2009, per FishBase). France: recreational 15 cm in the Mediterranean only (version of 18 Mar 2022; no Atlantic entry). Spain: 12 cm in the Mediterranean in the 2001 Junta de Andalucía table; no Atlantic size listed there.",
+    "sources": [
+      { "title": "FishBase: Pagellus erythrinus", "url": "https://www.fishbase.se/summary/Pagellus-erythrinus.html" },
+      { "title": "FishBase common names", "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Pagellus&SpeciesName=erythrinus" },
+      { "title": "DORIS: Pageot commun", "url": "https://doris.ffessm.fr/Especes/Pagellus-erythrinus-Pageot-commun-2771" },
+      { "title": "FishBase country record Spain", "url": "https://www.fishbase.se/country/CountrySummary.php?id=909&ctry=Spain&genusname=Pagellus&speciesname=erythrinus&vc_code=724&speccode=893" },
+      { "title": "FishBase country record Portugal", "url": "https://www.fishbase.se/country/CountrySummary.php?id=909&ctry=Portugal&genusname=Pagellus&speciesname=erythrinus&vc_code=620&speccode=893" },
+      { "title": "Junta de Andalucía (2001) catalogue", "url": "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf" },
+      { "title": "AZTI sparid posters", "url": "https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/" },
+      { "title": "Carneiro et al. 2014", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "peche.com: jigging léger", "url": "https://www.peche.com/article/41633/peche-en-jigging-leger-en-mer-une-technique-parfaite-pour-debuter" },
+      { "title": "Arrêté du 26 octobre 2012, version of 18 Mar 2022", "url": "https://www.calvados.gouv.fr/contenu/telechargement/18136/140068/file/am-26-octobre-2012-18032022.pdf" }
+    ],
+    "uncertain": "DORIS does not compare it with axillary seabream (Pagellus acarne) or blackspot seabream (P. bogaraveo), and no source fetched gave those distinctions. Status for the Gironde and Bay of Biscay rests on range statements only. Rod-and-line sources are general, not species-specific."
+  },
+  {
+    "id": "dentex",
+    "scientific": "Dentex dentex (Linnaeus, 1758)",
+    "family": "Sparidae",
+    "synonyms": ["Sparus dentex Linnaeus, 1758", "Dentex vulgaris Valenciennes, 1830"],
+    "names": { "en": "Common dentex", "fr": "Denté commun", "es": "Dentón", "pt": "Capatão-legítimo" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Dentex&SpeciesName=dentex",
+      "https://doris.ffessm.fr/Especes/Dentex-dentex-Dente-commun-denti-258",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Inshore hard bottoms (rock, rubble, coralligenous), wrecks and seagrass meadows, down to 200 m, more common at 15-50 m. Juveniles in very shallow water (seagrass, sand, harbours, sometimes lagoons).",
+    "depth": { "usual": [15, 50], "range": [0, 200], "source": "https://www.fishbase.se/summary/Dentex-dentex.html" },
+    "size": { "common": 50, "max": 100, "maxNote": "FishBase: max 100 cm TL, common 50 cm TL, max published weight 14.3 kg. FNAM: up to 100 cm SL, usually 35-50 cm. Junta de Andalucía: usual catch size about 35 cm.", "source": "https://www.fishbase.se/summary/Dentex-dentex.html" },
+    "diet": "Formidable predator, mainly of fish, plus cephalopods, molluscs and crustaceans; juveniles eat small crustaceans, annelids and fry.",
+    "behaviour": "Adults solitary or in small groups, young gregarious; sometimes hunts in groups, herding prey. Gonochoric, but some specimens are hermaphroditic. Rests on the bottom at night.",
+    "seasonal": "Junta de Andalucía: prefers deeper water in winter and shallower in summer; Andalusian catches somewhat higher in spring; spawning March-June. DORIS: spawning from 15 C, March-June, peak in May (Mediterranean data).",
+    "regions": {
+      "gironde": { "status": "occasional", "confidence": "low", "basis": "DORIS: on French coasts found 'principalement au pays basque' (https://doris.ffessm.fr/Especes/Dentex-dentex-Dente-commun-denti-258); FNAM: Atlantic from the Bay of Biscay, exceptionally the British Isles. No Gironde record found." },
+      "biscay": { "status": "occasional", "confidence": "medium", "basis": "DORIS: French occurrences mainly in the Basque Country; FNAM: 'Atlantic from Bay of Biscay to Cape Blanc and Madeira, exceptionally to British Isles' (https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/nsr_taxon.php?id=109656)." },
+      "cantabria": { "status": "resident", "confidence": "low", "basis": "AZTI poster of sparids habitual at Basque/Cantabrian markets includes D. dentex (Basque 'Urta', Spanish 'Dentón') with Cantabria/Asturias names (https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/). Market-based evidence only." },
+      "galicia": { "status": "resident", "confidence": "medium", "basis": "FishBase Spain: 'Found in Galicia' (Bañón et al. 2010) (https://www.fishbase.se/country/CountrySummary.php?id=453&ctry=Spain&genusname=Dentex&speciesname=dentex&vc_code=724&speccode=439). Abundance not stated." },
+      "portugal": { "status": "resident", "confidence": "medium", "basis": "Carneiro 2014 lists mainland Portugal ('Capatão-legítimo') (https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318); FishBase country list: native." },
+      "cadiz": { "status": "resident", "confidence": "high", "basis": "Junta de Andalucía: present in the Mediterranean and Atlantic, more common on the Cádiz coast, where it is locally called sama or sabia; Conil and El Puerto de Santa María are the main ports (https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf)." }
+    },
+    "identification": [
+      "Massive head; forehead almost straight in the young and convex in adults (old fish may have a slight hump)",
+      "4-6 strong canine teeth at the front of each jaw; thick lips",
+      "Silvery with blue and pink reflections; young greyish with dark spots on the back that fade with age",
+      "Fins yellow in fish under 20 cm (DORIS); wine-red spot under the last dorsal rays (Junta de Andalucía)"
+    ],
+    "similar": [
+      "Red porgy (Pagrus pagrus): white tips to the caudal lobes (DORIS)",
+      "Bluespotted seabream (Pagrus caeruleostictus): less straight forehead, filamentous dorsal fin (DORIS)",
+      "Morocco dentex (Dentex maroccanus): black spot at the pectoral base, smaller, less massive head (DORIS)",
+      "Redbanded seabream (Pagrus auriga) and other Dentex (D. gibbosus, D. canariensis): confused in Andalusian markets (Junta de Andalucía)"
+    ],
+    "anglingMethods": [
+      "Light jigging over rocky areas (https://www.peche.com/article/41633/peche-en-jigging-leger-en-mer-une-technique-parfaite-pour-debuter)",
+      "Trolling ('curricán') is among the Andalusian gears, alongside gillnet, longline and trawl (Junta de Andalucía catalogue)"
+    ],
+    "conservation": "IUCN Vulnerable (assessed 2009, per FishBase). No recreational minimum size for the Atlantic coast was found in the French table (version of 18 Mar 2022).",
+    "sources": [
+      { "title": "FishBase: Dentex dentex", "url": "https://www.fishbase.se/summary/Dentex-dentex.html" },
+      { "title": "FishBase common names", "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Dentex&SpeciesName=dentex" },
+      { "title": "DORIS: Denté commun", "url": "https://doris.ffessm.fr/Especes/Dentex-dentex-Dente-commun-denti-258" },
+      { "title": "FNAM (Naturalis): Dentex dentex", "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/nsr_taxon.php?id=109656" },
+      { "title": "FishBase country record Spain", "url": "https://www.fishbase.se/country/CountrySummary.php?id=453&ctry=Spain&genusname=Dentex&speciesname=dentex&vc_code=724&speccode=439" },
+      { "title": "Junta de Andalucía (2001) catalogue", "url": "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf" },
+      { "title": "AZTI sparid posters", "url": "https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/" },
+      { "title": "Carneiro et al. 2014", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "peche.com: jigging léger", "url": "https://www.peche.com/article/41633/peche-en-jigging-leger-en-mer-une-technique-parfaite-pour-debuter" }
+    ],
+    "uncertain": "Yes, it lives on the Atlantic side, but how common it is varies. Sources agree it occurs from the Bay of Biscay southward (FNAM, FishBase 'British Isles to Cape Blanc'), is most common in the Mediterranean south of 40N, and in Andalusia is more common on the Atlantic Cádiz coast than in most of the Mediterranean. In France it is mainly a Basque-coast fish (DORIS), and DORIS calls it rare overall outside protected areas. There are no abundance data for Galicia, Cantabria or Portugal; Cantabrian evidence is market-based. Name trap: Basque 'Urta' and Cádiz 'sama/sabia' both refer to this species, not Pagrus auriga. DORIS gave no Portuguese name; the Portuguese name is from Carneiro 2014 and FishBase."
+  },
+  {
+    "id": "borriquete",
+    "scientific": "Plectorhinchus mediterraneus (Guichenot, 1850)",
+    "family": "Haemulidae",
+    "synonyms": [],
+    "names": { "en": "Rubberlip grunt", "fr": "Diagramme gris", "es": "Borriquete", "pt": "Pombo" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Plectorhinchus&SpeciesName=mediterraneus",
+      "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Demersal over sandy and muddy bottoms at about 10-150/180 m.",
+    "depth": { "usual": null, "range": [10, 180], "source": "https://www.fishbase.se/summary/Plectorhinchus-mediterraneus.html" },
+    "size": { "common": 60, "max": 80, "maxNote": "FishBase: max 80 cm SL, common 60 cm SL. FNAM: usually 30-60 cm SL. Junta de Andalucía: usual catch 30-60 cm. Ruiz-Jarabo et al. 2022: up to 80 cm and 7.5 kg.", "source": "https://www.fishbase.se/summary/Plectorhinchus-mediterraneus.html" },
+    "diet": "Zoobenthos (benthic invertebrates) and zooplankton.",
+    "behaviour": "Little known. Oviparous with distinct pairing during breeding (FishBase); no reproduction data in FNAM or the Andalusian catalogue.",
+    "seasonal": "Junta de Andalucía: Andalusian catches not markedly seasonal, more in spring (April-May) and winter (Dec-Jan).",
+    "regions": {
+      "gironde": { "status": "absent", "confidence": "medium", "basis": "Not in the checklist of marine fishes of metropolitan France (https://sfi-cybium.fr/sites/default/files/pdfs-cybium/7-Bearez%201044%20%5BCybium%202017%2C%20414%5D351-371.pdf); range 'Spain and Portugal to Namibia'." },
+      "biscay": { "status": "absent", "confidence": "medium", "basis": "Not in the French checklist (Béarez et al. 2017); FNAM range northward only to Portugal (https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/nsr_taxon.php?id=109585)." },
+      "cantabria": { "status": "unknown", "confidence": "low", "basis": "No record found; FishBase's Spain record gives no province (https://www.fishbase.se/country/CountrySummary.php?id=412&ctry=Spain&genusname=Plectorhinchus&speciesname=mediterraneus&vc_code=724&speccode=398). Probably absent." },
+      "galicia": { "status": "unknown", "confidence": "low", "basis": "No Galician record in FishBase's Spain entry (no Bañón 2010 citation); FNAM range ends at Portugal. Not verified." },
+      "portugal": { "status": "resident", "confidence": "medium", "basis": "Carneiro 2014 lists mainland Portugal ('Pombo') (https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318); FNAM: 'Eastern Atlantic from the Canary Islands to Portugal'. No regional abundance data." },
+      "cadiz": { "status": "resident", "confidence": "high", "basis": "Ruiz-Jarabo et al. 2022: caught at 10-50 m off Conil (Gulf of Cádiz), 'highly appreciated in the Gulf of Cadiz' (https://pmc.ncbi.nlm.nih.gov/articles/PMC9741162/); Junta de Andalucía: more common near the Strait (Conil, Barbate), 100-140 t/yr (https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf)." }
+    },
+    "identification": [
+      "Deep, elongated body with a comparatively small head (about 3.3 times in SL, much less than body depth) and long snout",
+      "Small, slightly oblique mouth; maxilla does not reach the front of the eye",
+      "Continuous dorsal fin with 11-12 spines and 17-19 soft rays; small scales (54-57 along the lateral line)",
+      "Back greyish-violet, belly silvery; preopercle edge serrated"
+    ],
+    "similar": [
+      "Parapristipoma humile ('burro boca de oro'): large oblique mouth reaching the pupil, dorsal XIII-15, brown back; South Atlantic Andalusian markets only (Junta de Andalucía)",
+      "Parapristipoma octolineatum ('burro listado'): large mouth, 4 blue longitudinal lines on a brown-violet body (Junta de Andalucía)"
+    ],
+    "anglingMethods": [
+      "Hook and line ('hookline') and gillnet are the gears reported for this species in the Conil artisanal fishery (https://pmc.ncbi.nlm.nih.gov/articles/PMC9741162/)",
+      "No recreational rod-and-line technique source was found"
+    ],
+    "conservation": "IUCN Data Deficient (assessed 2011, per FishBase). Spain: minimum marketing size 20 cm (140 g) according to Ruiz-Jarabo et al. 2022.",
+    "sources": [
+      { "title": "FishBase: Plectorhinchus mediterraneus", "url": "https://www.fishbase.se/summary/Plectorhinchus-mediterraneus.html" },
+      { "title": "FishBase common names", "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Plectorhinchus&SpeciesName=mediterraneus" },
+      { "title": "FNAM (Naturalis): Plectorhinchus mediterraneus", "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/nsr_taxon.php?id=109585" },
+      { "title": "Ruiz-Jarabo et al. 2022, survival of discarded P. mediterraneus (Animals)", "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9741162/" },
+      { "title": "Junta de Andalucía (2001) catalogue", "url": "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf" },
+      { "title": "Carneiro et al. 2014", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "Béarez et al. 2017, French checklist", "url": "https://sfi-cybium.fr/sites/default/files/pdfs-cybium/7-Bearez%201044%20%5BCybium%202017%2C%20414%5D351-371.pdf" }
+    ],
+    "uncertain": "There is no DORIS fiche. French name: the FAO name is 'Diagramme gris'; FishBase also lists French vernaculars 'Dorade grise' (confusable with Spondyliosoma) and 'Gaterin de Méditerranée'. Spanish: the FAO name is 'Burro chiclero'; in Andalusia 'borriquete o burro'. Depth: FishBase 10-180 m, FNAM and Andalusia 10-150 m. Northern limit (Portugal vs northern Spain) is unclear, and there are no Galician or Cantabrian records. No synonyms were captured. Its recreational angling interest is not documented in sources fetched."
+  },
+  {
+    "id": "roncador",
+    "scientific": "Pomadasys incisus (Bowdich, 1825)",
+    "family": "Haemulidae",
+    "synonyms": ["Anomalodon incisus Bowdich, 1825", "Pristipoma ronchus Valenciennes, 1838", "Pristipoma bennettii Lowe, 1838"],
+    "names": { "en": "Bastard grunt", "fr": "Grondeur métis", "es": "Roncador", "pt": "Roncador" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Pomadasys&SpeciesName=incisus",
+      "https://doris.ffessm.fr/Especes/Pomadasys-incisus-Grondeur-metis-4310",
+      "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Coastal, demersal, in marine and brackish waters over hard bottoms and sand/mud, at 10-100 m, most often around 50 m. Enters estuaries and lagoons at maturity. Young are littoral, adults further offshore.",
+    "depth": { "usual": null, "range": [10, 100], "source": "https://www.fishbase.se/summary/Pomadasys-incisus.html" },
+    "size": { "common": 25, "max": 53.5, "maxNote": "FishBase: max 53.5 cm TL, common 25 cm TL. Junta de Andalucía: up to 35 cm, usual catch 20-30 cm.", "source": "https://www.fishbase.se/summary/Pomadasys-incisus.html" },
+    "diet": "Bottom and near-bottom invertebrates.",
+    "behaviour": "Forms schools of several dozen fish. Grunts loudly by grinding its pharyngeal teeth when taken from the water (origin of 'roncador'/'grondeur'). Distinct pairing during breeding; spawns in summer.",
+    "seasonal": "Junta de Andalucía: Andalusian catches not markedly seasonal, more in spring-summer (May-August); reproduction in summer.",
+    "regions": {
+      "gironde": { "status": "absent", "confidence": "medium", "basis": "DORIS: French observations rare and Mediterranean (Var) (https://doris.ffessm.fr/Especes/Pomadasys-incisus-Grondeur-metis-4310); the Galician record is the northernmost confirmed in the eastern Atlantic (Bañón et al. 2014)." },
+      "biscay": { "status": "absent", "confidence": "medium", "basis": "Bañón et al. 2014: the Galician specimen (2014) is 'the northernmost confirmed' Atlantic record (https://aiep.pensoft.net/article/26506/)." },
+      "cantabria": { "status": "absent", "confidence": "medium", "basis": "Same as Biscay: no confirmed record north of Galicia (Bañón et al. 2014)." },
+      "galicia": { "status": "occasional", "confidence": "high", "basis": "Bañón et al. 2014: first Galician record, a single fish speared on 15 Mar 2014 at Pedras Sálvores near O Grove (Ría de Arousa), 12 m, confirmed by DNA barcode (https://aiep.pensoft.net/article/26506/)." },
+      "portugal": { "status": "resident", "confidence": "medium", "basis": "Carneiro 2014 lists mainland Portugal ('Roncador-bravura', 'Roncador') (https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318); Bañón 2014 gives the range as 'from Portugal to Angola'." },
+      "cadiz": { "status": "resident", "confidence": "high", "basis": "Junta de Andalucía: more common in Cádiz and Huelva ports; Huelva and Isla Cristina land about 82% of an approximately 80 t/yr Andalusian catch (https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf)." }
+    },
+    "identification": [
+      "Dark blotch on the upper corner of the operculum",
+      "Preopercle slightly concave with a serrated rear edge",
+      "Two pores on the tip of the chin with a short groove behind",
+      "Brownish back, silvery belly; bright yellow pelvic and anal fins (DORIS)"
+    ],
+    "similar": [
+      "Rubberlip grunt (Plectorhinchus mediterraneus): larger (to 80 cm), greyish-violet back with a comparatively small head (FNAM); the bastard grunt is brownish with a dark blotch on the upper opercle corner (Bañón et al. 2014)"
+    ],
+    "anglingMethods": [
+      "No rod-and-line source found. The Andalusian catalogue lists only gillnet and trawl as gears."
+    ],
+    "conservation": "IUCN Least Concern (assessed 2009, per FishBase). No minimum size found.",
+    "sources": [
+      { "title": "FishBase: Pomadasys incisus", "url": "https://www.fishbase.se/summary/Pomadasys-incisus.html" },
+      { "title": "FishBase common names", "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Pomadasys&SpeciesName=incisus" },
+      { "title": "DORIS: Grondeur métis (fiche in progress)", "url": "https://doris.ffessm.fr/Especes/Pomadasys-incisus-Grondeur-metis-4310" },
+      { "title": "Bañón et al. 2014, Northernmost records of Pagrus auriga and Pomadasys incisus", "url": "https://aiep.pensoft.net/article/26506/" },
+      { "title": "Junta de Andalucía (2001) catalogue", "url": "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf" },
+      { "title": "Carneiro et al. 2014", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "FishBase country record Spain (Galicia record)", "url": "https://www.fishbase.se/country/CountrySummary.php?id=5238&ctry=Spain&genusname=Pomadasys&speciesname=incisus&vc_code=724&speccode=5003" }
+    ],
+    "uncertain": "Range statements differ: FishBase 'Angola to Spain'; DORIS 'Strait of Gibraltar to Angola'; Bañón 2014 'from Portugal to Angola'. Maximum size differs between FishBase (53.5 cm TL) and the Andalusian catalogue (35 cm). The DORIS fiche is unfinished. FishBase's country list does not include Portugal, but Carneiro 2014 does. Synonym spellings vary in DORIS (bennetti/bennettii). There is no rod-and-line documentation."
+  },
+  {
+    "id": "baila",
+    "scientific": "Dicentrarchus punctatus (Bloch, 1792)",
+    "family": "Moronidae",
+    "synonyms": [],
+    "names": { "en": "Spotted seabass", "fr": "Bar moucheté", "es": "Baila", "pt": "Robalo-baila" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Dicentrarchus&SpeciesName=punctatus",
+      "https://www.calvados.gouv.fr/contenu/telechargement/18136/140068/file/am-26-octobre-2012-18032022.pdf",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Coastal marine and brackish waters on various bottoms (rocky or sandy), occasionally in rivers and even hypersaline lagoons. The Andalusian catalogue gives 2-15 m. Surf zones of Gulf of Cádiz beaches are nursery habitat for juveniles.",
+    "depth": { "usual": [2, 15], "range": null, "source": "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf" },
+    "size": { "common": 30, "max": 70, "maxNote": "FishBase: max 70 cm TL, common 30 cm TL. Junta de Andalucía: rarely over 60 cm, up to 7 kg. Gulf of Cádiz surf-zone fish averaged 16.9 cm (Rodríguez-García et al. 2024).", "source": "https://www.fishbase.se/summary/Dicentrarchus-punctatus.html" },
+    "diet": "Mainly shrimps and other crustaceans (mysids, amphipods, isopods) and molluscs, with fish (sand smelts, gobies, mullets) increasingly important in adults.",
+    "behaviour": "Coastal; euryhaline. In the Gulf of Cádiz surf zone, juveniles of age 1+ and 2+ dominate, and their abundance changes with time of day, lunar phase and season.",
+    "seasonal": "Junta de Andalucía: landings peak in winter (Dec-Jan) and early spring (March); postlarvae and juveniles (12-48 mm) occur April-June. Rodríguez-García et al. 2024: surf-zone abundance and diet vary by season, time of day and moon phase (Gulf of Cádiz).",
+    "regions": {
+      "gironde": { "status": "occasional", "confidence": "medium", "basis": "FishBase France: 'Known from the Gironde estuary' (Rochard & Elie 1994); 'Enters brackish waters only occasionally on the Atlantic coasts' (Kottelat & Freyhof 2007) (https://www.fishbase.se/country/CountrySummary.php?id=408&ctry=France&genusname=Dicentrarchus&speciesname=punctatus&vc_code=250&speccode=394)." },
+      "biscay": { "status": "resident", "confidence": "low", "basis": "FishBase range: English Channel (occasional) 'southward along the coasts of Europe and Morocco' (https://www.fishbase.se/summary/Dicentrarchus-punctatus.html); French recreational minimum size set for the Atlantic. No abundance data." },
+      "cantabria": { "status": "unknown", "confidence": "low", "basis": "Covered by the FishBase range statement, but no Cantabrian record or survey was found." },
+      "galicia": { "status": "unknown", "confidence": "low", "basis": "Covered by the range statement; FishBase's Spain record has no Galicia note. Not verified." },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "FishBase Portugal: Tagus estuary; south and southwest coast shore-angling catches (https://www.fishbase.se/country/CountrySummary.php?id=408&ctry=Portugal&genusname=Dicentrarchus&speciesname=punctatus&vc_code=620&speccode=394); Carneiro 2014 mainland ('Robalo-baila or Baila')." },
+      "cadiz": { "status": "resident", "confidence": "high", "basis": "Rodríguez-García et al. 2024, surf zone of Gulf of Cádiz beaches (https://rodin.uca.es/handle/10498/33592); Junta de Andalucía: more abundant in the Atlantic, Conil de la Frontera lands 52% of the Andalusian catch (https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf)." }
+    },
+    "identification": [
+      "Shaped like the European seabass but smaller and chubbier",
+      "Bluish back with black spots extending onto the flanks",
+      "Larger eye, larger scales and stronger opercular spines than the European seabass",
+      "Vomerine teeth form an anchor-shaped patch (a band in D. labrax)"
+    ],
+    "similar": [
+      "European seabass (Dicentrarchus labrax): no black spots on adults, slimmer, vomerine teeth in a band (Junta de Andalucía)"
+    ],
+    "anglingMethods": [
+      "Recorded in recreational shore-angling catches on the south and southwest coast of Portugal (Veiga et al. 2010, via FishBase: https://www.fishbase.se/country/CountrySummary.php?id=408&ctry=Portugal&genusname=Dicentrarchus&speciesname=punctatus&vc_code=620&speccode=394)",
+      "Trolling ('curricán') is among the Andalusian gears, along with trawl, gillnet and longline (Junta de Andalucía catalogue)"
+    ],
+    "conservation": "IUCN Least Concern (assessed 2014, per FishBase). France, recreational fishing in the North Sea, Channel and Atlantic: 'Bar moucheté' minimum size 30 cm (arrêté of 26 Oct 2012, version of 18 Mar 2022).",
+    "sources": [
+      { "title": "FishBase: Dicentrarchus punctatus", "url": "https://www.fishbase.se/summary/Dicentrarchus-punctatus.html" },
+      { "title": "FishBase common names", "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Dicentrarchus&SpeciesName=punctatus" },
+      { "title": "FishBase country record France (Gironde)", "url": "https://www.fishbase.se/country/CountrySummary.php?id=408&ctry=France&genusname=Dicentrarchus&speciesname=punctatus&vc_code=250&speccode=394" },
+      { "title": "FishBase country record Portugal", "url": "https://www.fishbase.se/country/CountrySummary.php?id=408&ctry=Portugal&genusname=Dicentrarchus&speciesname=punctatus&vc_code=620&speccode=394" },
+      { "title": "Rodríguez-García et al. 2024, D. punctatus and D. labrax in the Gulf of Cádiz surf zone", "url": "https://rodin.uca.es/handle/10498/33592" },
+      { "title": "Junta de Andalucía (2001) catalogue", "url": "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf" },
+      { "title": "Carneiro et al. 2014", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "Rochard & Elie 1994 (FishBase reference)", "url": "https://www.fishbase.se/references/FBRefSummary.php?id=51442" },
+      { "title": "Arrêté du 26 octobre 2012, version of 18 Mar 2022", "url": "https://www.calvados.gouv.fr/contenu/telechargement/18136/140068/file/am-26-octobre-2012-18032022.pdf" }
+    ],
+    "uncertain": "There is no DORIS fiche. FishBase gives depth only as '30 - ?', which conflicts with the Andalusian 2-15 m and the surf-zone data, so depth range is left null. French name: the FAO name is 'Bar tacheté'; the regulation and FishBase France use 'Bar moucheté'. Status for Biscay, Cantabria and Galicia lacks regional sources. Synonyms (e.g. Sciaena punctata Bloch, 1792) appeared only in search snippets of the FNAM name pages, so the list is left empty."
+  },
+  {
+    "id": "bluefish",
+    "scientific": "Pomatomus saltatrix (Linnaeus, 1766)",
+    "family": "Pomatomidae",
+    "synonyms": ["Gasterosteus saltatrix Linnaeus, 1766", "Pomatomus saltator", "Temnodon conidens", "Pomatomus pedica"],
+    "names": { "en": "Bluefish", "fr": "Tassergal", "es": "Anjova", "pt": "Anchova" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Pomatomus&SpeciesName=saltatrix",
+      "https://doris.ffessm.fr/Especes/Pomatomus-saltatrix-Tassergal-5383",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Oceanic and coastal waters over the continental shelf from the surface to about 200 m, most often along surf beaches and rocky headlands. Juveniles grow in coastal brackish nurseries; adults enter estuaries but not far.",
+    "depth": { "usual": null, "range": [0, 200], "source": "https://www.fishbase.se/summary/Pomatomus-saltatrix.html" },
+    "size": { "common": 60, "max": 130, "maxNote": "FishBase: max 130 cm TL, common 60 cm TL, max published weight 14.4 kg. DORIS: commonly 20-60 cm. Junta de Andalucía: catches usually 40-60 cm. A 76 cm TL fish was caught in Galicia in 2007.", "source": "https://www.fishbase.se/summary/Pomatomus-saltatrix.html" },
+    "diet": "Voracious predator of schooling fish (mullets, mackerel, sardines, anchovies), plus crustaceans and cephalopods.",
+    "behaviour": "Adults in loose groups attacking fish schools, reputedly killing more than they eat; juveniles school near shore. Bites when handled. Migrates to warmer water in winter and cooler water in summer. Gonochoric.",
+    "seasonal": "Junta de Andalucía: the Andalusian fishery peaks July-September (99% of landings on the South Atlantic coast); spawning July-September when water exceeds 25 C. FishBase: seasonal migrations between warmer winter and cooler summer waters.",
+    "regions": {
+      "gironde": { "status": "occasional", "confidence": "low", "basis": "No Gironde record found. Range begins in Portugal (FishBase, DORIS); Quéro et al. 1998 counted it among tropical-affinity fishes unknown north of Portugal before 1950, with 2 later records along European Atlantic coasts (https://archimer.ifremer.fr/doc/00254/36543/35085.pdf)." },
+      "biscay": { "status": "occasional", "confidence": "medium", "basis": "Quéro et al. 1998: 2 records north of Portugal, with shelf records concentrated in the southern Bay of Biscay (https://archimer.ifremer.fr/doc/00254/36543/35085.pdf); peche.com says it is now also found in the Golfe de Gascogne (https://www.peche.com/article/38392/le-tassergal-un-poisson-de-plus-en-plus-abondant-pour-les-pecheurs-a-la-recherche-de-sensations-fortes)." },
+      "cantabria": { "status": "occasional", "confidence": "low", "basis": "No Cantabrian record found; north of the range given by FishBase/DORIS (Portugal southward)." },
+      "galicia": { "status": "occasional", "confidence": "high", "basis": "FishBase Spain: 'A specimen was caught 76 cm TL on 3 June 2007 in Portosin, Galicia' (Bañón et al. 2010) (https://www.fishbase.se/country/CountrySummary.php?id=378&ctry=Spain&genusname=Pomatomus&speciesname=saltatrix&vc_code=724&speccode=364)." },
+      "portugal": { "status": "resident", "confidence": "medium", "basis": "FishBase 'Portugal to South Africa' (https://www.fishbase.se/summary/Pomatomus-saltatrix.html); DORIS: north-east Atlantic sub-population from mainland Portugal to Senegal; Carneiro 2014 mainland ('Anchova'). Seasonality in Portugal not documented." },
+      "cadiz": { "status": "seasonal", "confidence": "high", "basis": "Junta de Andalucía: more abundant on the South Atlantic coast (El Puerto de Santa María and Bonanza land 94%), with a strong July-September peak (https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf)." }
+    },
+    "identification": [
+      "Fusiform, compressed, silvery body with grey-green back",
+      "Black blotch at the pectoral-fin base (larger in young fish)",
+      "Large oblique mouth with sharp cutting teeth; lower jaw projecting",
+      "Forked caudal; first dorsal short (7-8 spines), second dorsal and anal long and similar"
+    ],
+    "similar": [
+      "Greater amberjack (Seriola dumerili): less forked tail with thicker lobes, dark bar through the eye (fades in adults) (DORIS)",
+      "Leerfish (Lichia amia): deeper body, less visible scales, much more sinuous lateral line, taller fins (DORIS)",
+      "Young European seabass: rounder body, less developed caudal (DORIS)"
+    ],
+    "anglingMethods": [
+      "Lure fishing (surface lures, casting jigs) and live-bait fishing; handle with care because of its teeth (https://www.peche.com/article/38392/le-tassergal-un-poisson-de-plus-en-plus-abondant-pour-les-pecheurs-a-la-recherche-de-sensations-fortes)",
+      "FishBase describes it as a popular gamefish (https://www.fishbase.se/summary/Pomatomus-saltatrix.html)"
+    ],
+    "conservation": "IUCN Vulnerable (A2bd, assessed 2014 per FishBase; DORIS says 2015); global decline estimated at 39-53% over three generations, attributed to commercial and recreational fishing pressure (DORIS). No minimum size found for the study area.",
+    "sources": [
+      { "title": "FishBase: Pomatomus saltatrix", "url": "https://www.fishbase.se/summary/Pomatomus-saltatrix.html" },
+      { "title": "FishBase common names", "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Pomatomus&SpeciesName=saltatrix" },
+      { "title": "DORIS: Tassergal", "url": "https://doris.ffessm.fr/Especes/Pomatomus-saltatrix-Tassergal-5383" },
+      { "title": "FishBase country record Spain (Galicia 2007)", "url": "https://www.fishbase.se/country/CountrySummary.php?id=378&ctry=Spain&genusname=Pomatomus&speciesname=saltatrix&vc_code=724&speccode=364" },
+      { "title": "Quéro, Du Buit & Vayne 1998, tropical fishes and warming in European Atlantic", "url": "https://archimer.ifremer.fr/doc/00254/36543/35085.pdf" },
+      { "title": "Junta de Andalucía (2001) catalogue", "url": "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf" },
+      { "title": "Carneiro et al. 2014", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "peche.com: le tassergal", "url": "https://www.peche.com/article/38392/le-tassergal-un-poisson-de-plus-en-plus-abondant-pour-les-pecheurs-a-la-recherche-de-sensations-fortes" }
+    ],
+    "uncertain": "Spanish: the FAO name is 'Anjova'; Andalusian markets use 'anchova' (Huelva) and 'chova/ajoa' (Cádiz). Portuguese 'Anchova' (or 'Enchova') could be confused with anchovy names. Northward presence (Gironde, Biscay, Cantabria) rests on scattered records and a popular angling article; peche.com's claim that it is increasing in the Bay of Biscay was not confirmed by a scientific source. Whether it is resident or seasonal in Portugal is not documented. DORIS's 'GB' English names (tailor, elf, etc.) are mostly non-European usages."
+  },
+  {
+    "id": "salema",
+    "scientific": "Sarpa salpa (Linnaeus, 1758)",
+    "family": "Sparidae",
+    "synonyms": ["Sparus salpa Linnaeus, 1758", "Boops salpa"],
+    "names": { "en": "Salema", "fr": "Saupe", "es": "Salema", "pt": "Salema" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Sarpa&SpeciesName=salpa",
+      "https://doris.ffessm.fr/Especes/Sarpa-salpa-Saupe-431",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Rocky and sandy bottoms with algal cover or seagrass, often near beaches and breakwaters. DORIS gives surface to 20 m and the Andalusian catalogue says it rarely goes deeper than 20 m; FishBase gives 5-70 m.",
+    "depth": { "usual": null, "range": [5, 70], "source": "https://www.fishbase.se/summary/Sarpa-salpa.html" },
+    "size": { "common": 30, "max": 51, "maxNote": "FishBase: max 51 cm SL, common 30 cm SL. DORIS: average 30 cm, max about 50 cm. Junta de Andalucía: up to 46 cm, rarely over 30 cm in catches.", "source": "https://www.fishbase.se/summary/Sarpa-salpa.html" },
+    "diet": "Adults almost exclusively herbivorous (green algae such as Ulva, red algae, seagrass leaves); juveniles eat mainly small crustaceans.",
+    "behaviour": "Schools of several dozen fish of mixed sizes, sometimes with sars. Protandric hermaphrodite (male first; sex change at about 25-28 cm), though FishBase notes conflicting reports. Flesh can cause hallucinatory poisoning (ichthyoallyeinotoxism) if the fish is not gutted promptly.",
+    "seasonal": "Junta de Andalucía: Andalusian landings slightly higher in Sept-Oct and Feb-March; spawns spring and summer. DORIS: spawning in spring and autumn.",
+    "regions": {
+      "gironde": { "status": "occasional", "confidence": "low", "basis": "Range starts in the Bay of Biscay (https://www.fishbase.se/summary/Sarpa-salpa.html); no Gironde-specific record found." },
+      "biscay": { "status": "resident", "confidence": "medium", "basis": "FishBase and DORIS: 'golfe de Gascogne' (https://doris.ffessm.fr/Especes/Sarpa-salpa-Saupe-431); peche.com: dense schools on the Basque Atlantic coast (https://www.peche.com/article/49033/la-peche-de-la-saupe-techniques-materiel-et-conseils-pour-reussir)." },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "AZTI sparid poster includes S. salpa (Basque 'Sabia') with Cantabrian/Asturian names; FishBase lists many Basque vernacular names (https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/)." },
+      "galicia": { "status": "resident", "confidence": "high", "basis": "FishBase Spain: 'Found in Galicia' (Bañón et al. 2010) (https://www.fishbase.se/country/CountrySummary.php?id=218&ctry=Spain&genusname=Sarpa&speciesname=salpa&vc_code=724&speccode=204)." },
+      "portugal": { "status": "resident", "confidence": "medium", "basis": "Carneiro 2014 mainland; FishBase: in south/southwest coast shore-angling catches (https://www.fishbase.se/country/CountrySummary.php?id=218&ctry=Portugal&genusname=Sarpa&speciesname=salpa&vc_code=620&speccode=204)." },
+      "cadiz": { "status": "resident", "confidence": "high", "basis": "Junta de Andalucía: present in all Atlantic and Mediterranean ports; called 'salema' along the Atlantic Andalusian coast (https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf)." }
+    },
+    "identification": [
+      "10-12 bright yellow/golden longitudinal lines on a grey-blue body",
+      "Small black spot at the pectoral-fin base",
+      "Golden-yellow eye",
+      "Small mouth with a single row of small sharp teeth; forked caudal fin"
+    ],
+    "similar": [
+      "Bogue (Boops boops): slender fusiform body with a dark lateral line and black pectoral spot; feeds on plankton rather than algae (DORIS bogue fiche: https://doris.ffessm.fr/Especes/Boops-boops-Bogue-2701)"
+    ],
+    "anglingMethods": [
+      "Float fishing by day with a light float (4-5 g), fine hook length and small hooks or trebles; baits: bread (most effective), paste, green filamentous algae; bread groundbait brings schools up (https://www.peche.com/article/49033/la-peche-de-la-saupe-techniques-materiel-et-conseils-pour-reussir)",
+      "Recorded in recreational shore-angling catches in southern Portugal (Veiga et al. 2010, via FishBase country record)"
+    ],
+    "conservation": "IUCN Least Concern (assessed 2009, per FishBase). Spain, Atlantic: minimum biological size 15 cm (RD 560/1995, as listed in the Junta de Andalucía catalogue, 2001). There is no French Atlantic recreational size in the 2022 table.",
+    "sources": [
+      { "title": "FishBase: Sarpa salpa", "url": "https://www.fishbase.se/summary/Sarpa-salpa.html" },
+      { "title": "FishBase common names", "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Sarpa&SpeciesName=salpa" },
+      { "title": "DORIS: Saupe", "url": "https://doris.ffessm.fr/Especes/Sarpa-salpa-Saupe-431" },
+      { "title": "FishBase country record Spain", "url": "https://www.fishbase.se/country/CountrySummary.php?id=218&ctry=Spain&genusname=Sarpa&speciesname=salpa&vc_code=724&speccode=204" },
+      { "title": "FishBase country record Portugal", "url": "https://www.fishbase.se/country/CountrySummary.php?id=218&ctry=Portugal&genusname=Sarpa&speciesname=salpa&vc_code=620&speccode=204" },
+      { "title": "Junta de Andalucía (2001) catalogue", "url": "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf" },
+      { "title": "AZTI sparid posters", "url": "https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/" },
+      { "title": "Carneiro et al. 2014", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      { "title": "peche.com: la pêche de la saupe", "url": "https://www.peche.com/article/49033/la-peche-de-la-saupe-techniques-materiel-et-conseils-pour-reussir" }
+    ],
+    "uncertain": "Spawning season differs: DORIS says spring and autumn; the Andalusian catalogue says spring and summer (with juveniles appearing in May-June and Oct-Nov in the Mediterranean). Depth: FishBase 5-70 m versus DORIS/Andalusia 0-20 m. The salema-versus-bogue comparison was assembled from two separate DORIS fiches, not from a single look-alike section. There is no Gironde-specific record."
+  },
+  {
+    "id": "bogue",
+    "scientific": "Boops boops (Linnaeus, 1758)",
+    "family": "Sparidae",
+    "synonyms": ["Box boops", "Sparus boops Linnaeus, 1758", "Box vulgaris", "Boops canariensis", "Box canariensis"],
+    "names": { "en": "Bogue", "fr": "Bogue", "es": "Boga", "pt": "Boga" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Boops&SpeciesName=boops",
+      "https://doris.ffessm.fr/Especes/Boops-boops-Bogue-2701",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Shelf and coastal waters over sand, mud, rock and seaweed, including harbours and seagrass; mid-water near the bottom by day, rising toward the surface at night. Recorded to more than 300 m.",
+    "depth": { "usual": [0, 100], "range": [0, 350], "source": "https://www.fishbase.se/summary/Boops-boops.html" },
+    "size": { "common": 20, "max": 40, "maxNote": "FishBase: max 40 cm TL, common 20 cm TL. DORIS: adults average 25 cm, max 36 cm.", "source": "https://www.fishbase.se/summary/Boops-boops.html" },
+    "diet": "Omnivorous to planktivorous: mostly crustaceans and plankton, also plant particles and small invertebrates.",
+    "behaviour": "Strongly gregarious; loose schools of up to several thousand fish that rise to the surface mainly at night. FishBase calls it a mostly protogynous hermaphrodite (with conflicting reports), while DORIS says juveniles have ovotestes and sexes separate at maturity (11-12 cm), which DORIS does not count as hermaphroditism.",
+    "seasonal": "DORIS: spawning March-May in the Atlantic. Junta de Andalucía: Andalusian landings concentrated in Jan-May and October.",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "medium", "basis": "FishBase: 'common from the Bay of Biscay to Gibraltar' (https://www.fishbase.se/summary/Boops-boops.html). No Gironde-specific record." },
+      "biscay": { "status": "resident", "confidence": "high", "basis": "FishBase: common from the Bay of Biscay to Gibraltar; DORIS: Scandinavia to Angola (https://doris.ffessm.fr/Especes/Boops-boops-Bogue-2701)." },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "AZTI sparid poster includes B. boops (Basque 'Boga') with Cantabrian/Asturian names (https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/); within the 'common' range." },
+      "galicia": { "status": "resident", "confidence": "high", "basis": "FishBase Spain: 'Found in Galicia' (Bañón et al. 2010) (https://www.fishbase.se/country/CountrySummary.php?id=217&ctry=Spain&genusname=Boops&speciesname=boops&vc_code=724&speccode=203)." },
+      "portugal": { "status": "resident", "confidence": "high", "basis": "FishBase: common Bay of Biscay to Gibraltar; recorded in south/southwest coast shore-angling catches (https://www.fishbase.se/country/CountrySummary.php?id=217&ctry=Portugal&genusname=Boops&speciesname=boops&vc_code=620&speccode=203); Carneiro 2014 mainland ('Boga-do-mar')." },
+      "cadiz": { "status": "resident", "confidence": "high", "basis": "Junta de Andalucía: present in all Andalusian ports; El Puerto de Santa María is among the top ports for an approximately 800 t/yr catch (https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf)." }
+    },
+    "identification": [
+      "Slender fusiform body with an oval cross-section",
+      "Long dorsal fin covering more than three-quarters of the back",
+      "Black spot at the pectoral-fin base",
+      "Lateral line clearly marked by a dark colour; large eyes and small mouth"
+    ],
+    "similar": [
+      "Sand smelts (Atherina): smaller, with two small dorsal fins (DORIS)",
+      "Horse mackerels (Trachurus): spiny scutes along the rear lateral line (DORIS)",
+      "Sardine, herring, anchovy: small triangular dorsal fin and no dark lateral line (DORIS)"
+    ],
+    "anglingMethods": [
+      "Recorded in recreational shore-angling catches on the south and southwest coast of Portugal (Veiga et al. 2010, via FishBase: https://www.fishbase.se/country/CountrySummary.php?id=217&ctry=Portugal&genusname=Boops&speciesname=boops&vc_code=620&speccode=203)",
+      "FishBase lists gamefish and bait among its human uses (https://www.fishbase.se/summary/Boops-boops.html)"
+    ],
+    "conservation": "IUCN Least Concern (assessed 2009, per FishBase). France: minimum catch size 12 cm (DORIS; regulation not named). Spain, Atlantic: 11 cm (RD 560/1995, as listed in the Junta de Andalucía catalogue, 2001).",
+    "sources": [
+      { "title": "FishBase: Boops boops", "url": "https://www.fishbase.se/summary/Boops-boops.html" },
+      { "title": "FishBase common names", "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?GenusName=Boops&SpeciesName=boops" },
+      { "title": "DORIS: Bogue", "url": "https://doris.ffessm.fr/Especes/Boops-boops-Bogue-2701" },
+      { "title": "FishBase country record Spain", "url": "https://www.fishbase.se/country/CountrySummary.php?id=217&ctry=Spain&genusname=Boops&speciesname=boops&vc_code=724&speccode=203" },
+      { "title": "FishBase country record Portugal", "url": "https://www.fishbase.se/country/CountrySummary.php?id=217&ctry=Portugal&genusname=Boops&speciesname=boops&vc_code=620&speccode=203" },
+      { "title": "Junta de Andalucía (2001) catalogue", "url": "https://www.juntadeandalucia.es/export/drupaljda/Especies_Pesquera_baja.pdf" },
+      { "title": "AZTI sparid posters", "url": "https://www.azti.es/en/news/cada-pez-cuenta-4-infografias-para-la-identificacion-de-especies-habituales-en-la-cornisa-cantabrica/" },
+      { "title": "Carneiro et al. 2014", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" }
+    ],
+    "uncertain": "Reproductive mode is contradictory (FishBase: protogynous with conflicting reports; DORIS: not hermaphrodite). FishBase rates it 'occasional' in Portugal, but that rating comes from a shore-angling survey and conflicts with FishBase's own 'common from Biscay to Gibraltar'; the latter was used. The French 12 cm figure is from DORIS without a cited regulation, and the bogue is not in the 2022 French Atlantic recreational table. Rod-and-line techniques are not documented beyond angling catch records."
+  }
+]

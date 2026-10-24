@@ -4,7 +4,7 @@
 
 A small, peaceful fishing adventure that runs in the browser. You start in a little wooden boat on Willow Bay, step ashore at a landing, walk up to your camp, and fish a freshwater lake and a clear trout stream. Beyond the bay lies a whole coast: the Wend estuary with its sandbanks and saltings, Longmere (a big inland lake with a boathouse), Gannet Isle with its lighthouse and kelp reefs, a long offshore shoal, and the deep Blue Water where tuna chase the sprat shoals. Four boats get you about: the rowing boat, a motor skiff, a quiet kayak and a bass boat. You choose your rods and tackle, cook what you catch over the fire, sleep in the tent until the hour you like, and keep a handwritten journal and a map of it all.
 
-The water is a living place: weed beds, rocks, lily pads, drowned trees, reefs, sandy flats, channels, deep water and running pools, home to over a thousand fish and squid of 23 kinds that school, cruise, feed, rest by cover, hunt and scatter when startled. Fresh water, brackish water and the sea each have their own. Rings, flashes, jumps, fizzing bubbles, boiling water and diving seabirds on the surface come from real fish below. You can look underwater, follow your bait or lure, and use a fish finder. The fish that takes your bait is one you could have watched swimming there.
+The water is a living place: weed beds, rocks, lily pads, drowned trees, reefs, sandy flats, channels, deep water and running pools, home to over a thousand fish, squid and cuttlefish of 27 kinds that school, cruise, feed, rest by cover, hunt and scatter when startled. Fresh water, brackish water and the sea each have their own. Rings, flashes, jumps, fizzing bubbles, boiling water and diving seabirds on the surface come from real fish below. You can look underwater, follow your bait or lure, and use a fish finder. The fish that takes your bait is one you could have watched swimming there.
 
 It's a static website: plain JavaScript modules, with no framework or bundler. Everything it needs ships in this folder, including [three.js](https://threejs.org) and the fonts, so it makes no requests to other sites. It installs as an app and plays offline (see [Offline play](#offline-play)). The only server code is one small optional function for cloud saves, which stay switched off until you set them up (see [Cloud saves](#cloud-saves-optional)).
 
@@ -22,7 +22,7 @@ Then open <http://localhost:8642>. `serve.py` is a tiny static server with cachi
 node --import ./tests/setup.mjs --test 'tests/*.test.mjs'
 ```
 
-Node 22 or newer, nothing to install (on Node 20, leave out the quotes around the pattern). The tests check saves (version upgrades including the move to four boats, the backup and unreadable copies, a newer save never written over, full storage, junk cleaned up, combining two saves, the explored map and catch positions), the fight (careful play lands big carp at every difficulty, the creak is a real warning on Standard, winding through surges breaks the line, locked drags, pike teeth, weed), tackle (every ready-made setup is castable and complete, impossible rigs are refused with a reason, every kind of fish can be caught with some setup), the world (every species lives somewhere, fresh water fish stay in fresh water and sea fish in the sea), the backpack's pictures (every rod, reel, line, rig, leader, bait, lure, fly and jig has its own model, drawn from its data), the map's memory of where you've been, and that `sw.js` lists every file for offline play. `tests/setup.mjs` loads three.js from `vendor/` so the game's own modules run as they are.
+Node 22 or newer, nothing to install (on Node 20, leave out the quotes around the pattern). The tests check saves (version upgrades including the move to four boats, the backup and unreadable copies, a newer save never written over, full storage, junk cleaned up, combining two saves, the explored map and catch positions), the fight (careful play lands big carp at every difficulty, the creak is a real warning on Standard, winding through surges breaks the line, locked drags, pike teeth, weed), tackle (every ready-made setup is castable and complete, impossible rigs are refused with a reason, every kind of fish can be caught with some setup), the world (every species lives somewhere, fresh water fish stay in fresh water and sea fish in the sea), the backpack's pictures (every rod, reel, line, rig, leader, bait, lure, fly and jig has its own model, drawn from its data), the map's memory of where you've been, the field guide and species register (every species has a recommended setup the tackle rules accept; all 13 real species bite on theirs in the headless ecosystem; their models carry the anatomy that tells them apart; every species in the game is accounted for; every register entry is sourced and says what each regional status rests on; and `src/registerData.js` is what the research compiles to), and that `sw.js` lists every file for offline play. `tests/setup.mjs` loads three.js from `vendor/` so the game's own modules run as they are.
 
 Two tuning tools play the real game code headless: `node --import ./tests/setup.mjs tools/fightsim.mjs` plays thousands of fights per species, rod, difficulty and player style; `node --import ./tests/setup.mjs tools/ecosim.mjs` fishes the living ecosystem with a chosen rig in a chosen spot and reports which species come and how soon they bite.
 
@@ -36,7 +36,7 @@ Any other static host works too. Run `node tools/build-sw.mjs` first (so offline
 index.html  style.css  manifest.webmanifest  sw.js  src/  vendor/  assets/
 ```
 
-`serve.py`, `README.md`, `tools/`, `supabase/` and `.claude/` are for working locally and don't need to go up. `api/` only works on Vercel; elsewhere the game simply stays guest-only. Some other easy hosts:
+`serve.py`, `README.md`, `tools/`, `research/`, `supabase/` and `.claude/` are for working locally and don't need to go up. `api/` only works on Vercel; elsewhere the game simply stays guest-only. Some other easy hosts:
 
 - **Netlify Drop** (app.netlify.com/drop) or **Cloudflare Pages**: drag the folder in and you get a web address within a minute.
 - **GitHub Pages**: set Pages to deploy from the `main` branch, root folder.
@@ -246,28 +246,37 @@ Press **F** for a small sonar screen. Drag its title bar to put it anywhere (it 
 
 ### What's out there
 
-Willow Bay and the coves (salt water):
+The sea fish are real species of the Atlantic coast between Royan and Cádiz, called by the names in the [species register](#the-atlantic-species-register). The [field guide](#the-field-guide) has a page for each, with its model, where to find it and how to catch it.
+
+The Wend estuary (brackish water):
+
+- **European Seabass**: hunts the channel and the estuary mouth, best at dawn and dusk; soft sandeels, shads and metals, or a crab on the bottom. Not the same fish as the largemouth bass in Longmere.
+- **Meagre**: big and powerful, in the deep channel, by rocks and along the quay wall at dusk and after dark. A soft shad or sandeel worked slowly near the bottom, or a fish strip; a long, dogged fight.
+- **Thicklip Grey Mullet**: shoals cruising the shallows, very shy of line and noise. Bread flake under a float on fine line, and patience.
+- **European Flounder**: lies on the sand and mud of the flats and channels. Lugworm or ragworm on a bottom rig.
+- **Common Sole**: on sand, mud and in the channels of the estuary, the bay and the coast, feeding at night. Ragworm or lugworm on the bottom after dark.
+- **Gilthead Seabream**: small groups over the flats, rocks and quay in the estuary, Willow Bay and along the coast, by day. Crab or prawn on a bottom rig; wary of heavy line.
+
+The outer coast and the open sea:
+
+- **Ballan Wrasse**: in the kelp by the reefs of Gannet Isle and the Skerries. Crab or ragworm by the rocks.
+- **Atlantic Mackerel**: fast shoals in the tide, often under diving birds. A metal reeled fast, or a mackerel strip.
+- **European Plaice**: on the sand round Gannet Isle and Long Shoal. Lugworm or ragworm on the bottom.
+- **European Sprat**: the small silver shoals everything else hunts. Tiny baits.
+- **Atlantic Bluefin Tuna**: roams the Blue Water after the sprat shoals; look for the boil and the birds and cast a stickbait into it on the offshore rod.
+
+Not fish (cephalopods):
+
+- **European Squid**: around lights after dark, in the coves and by the reefs along the coast; jigs on the squid rod.
+- **Common Cuttlefish**: over weed, sand and rock in the bay, the coves and along the coast, best at dawn and dusk. The smallest squid jig, let down to the bottom and darted; it squirts ink when landed.
+
+Willow Bay and the coves also hold the five fish of Slow Tide's first version, which were invented. The field guide marks them as fictional, and each has a real species of this coast proposed to replace it (see [the register](#the-atlantic-species-register)); until then they stay as they are, and catches of them keep their names:
 
 - **Glassminnow**: schools over shallow sand and weed edges, by day. A small bait, kept shallow and still.
 - **Sunperch**: weed beds and rocks in Willow Bay, by day. Takes a worm or chases a spinner.
 - **Drizzlefin**: open water past the bay mouth; deep on dry days, near the surface in the rain.
 - **Duskfin**: Driftwood Cove after sundown, drawn to warm light.
 - **Mossback**: large and slow by the deepest rocks; only takes a bait resting on the bottom.
-
-The Wend estuary (brackish water):
-
-- **Sea Bass**: hunts the channel and the estuary mouth, best at dawn and dusk; soft sandeels, shads and metals, or a crab on the bottom. Not the same fish as the largemouth bass in Longmere.
-- **Thick-lipped Mullet**: shoals cruising the shallows, very shy of line and noise. Bread flake under a float on fine line, and patience.
-- **Flounder**: lies on the sand and mud of the flats and channels. Lugworm or ragworm on a bottom rig.
-
-The outer coast and the open sea:
-
-- **Ballan Wrasse**: in the kelp by the reefs of Gannet Isle and the Skerries. Crab or ragworm by the rocks.
-- **Mackerel**: fast shoals in the tide, often under diving birds. A metal reeled fast, or a mackerel strip.
-- **Plaice**: on the sand round Gannet Isle and Long Shoal. Lugworm or ragworm on the bottom.
-- **Sprat**: the small silver shoals everything else hunts. Tiny baits.
-- **Bluefin Tuna**: roams the Blue Water after the sprat shoals; look for the boil and the birds and cast a stickbait into it on the offshore rod.
-- **Squid** (not a fish): around lights after dark, in the coves and by the reefs along the coast; jigs on the squid rod.
 
 Fresh water (Reedmere, Fernbeck and Longmere):
 
@@ -315,9 +324,23 @@ Press **J**. The **Fish & places** pages hold a sketch and notes for every kind 
 
 It shows your heaviest catch, totals and personal bests for each kind, and your recent catches with filters for kind, water, method and what happened to them (25 at a time, with *Show more*).
 
+### The field guide
+
+The journal's third tab, **Field guide** (also the **Field guide** button in the backpack's header), has a page for every species in the game: sea and estuary fish, the cephalopods, the freshwater fish (kept apart from the Atlantic catalogue), and the five fictional originals. Search by any name (English, French, Spanish, Portuguese or Latin) or filter to what you have or haven't caught. **Preview planned species** adds the researched species that aren't in the game yet, clearly marked as such.
+
+Each page shows, before you've caught anything:
+
+- **Identification**: its names, the same 3D model it has in the water (drag or use the arrow keys to turn it, scroll or + and − to zoom, ↺ to reset), its size in the game and in reality against a ruler, the features that tell it apart and what it's easily confused with.
+- **Where to find it**: the waters, habitats and depths the simulation gives it, when it's most active and whether rain stirs it (read from the simulation's own functions, so the guide can't disagree with the game), a small map with the water that suits it shaded, **Show on the big map**, and a table of where it lives along the real coast from Royan to Cádiz, with how sure that is and what each region's word rests on. The game has no seasons yet, and the page says so rather than inventing any.
+- **How to catch it**: the methods that work, the setup the guide recommends (rod, reel, line, rig or leader, bait or lure, each with its picture and every part accepted by the tackle rules), how to present it, other setups that work, and the common mistakes for that species. **Rig it now** sets your rod up if you carry the parts; otherwise it says what's missing and where to get it, and **Open in the backpack** goes to the piece.
+- **Your records**: how often you've seen it underwater (a fish in front of you within about nine metres counts), how many you've caught, your best, where, in what weather, and the setups that caught it.
+- **Sources**: every page the register entry came from, and what is still uncertain.
+
+In the backpack, each bait, lure, fly and jig lists the species it's **Good for** (✓ for ones you've caught); each opens that species' page. The catch card shows the same model as the guide.
+
 ### The map
 
-Press **M** (or the map button). The map is drawn from the real ground and water depths, but only where you've been: land and water fill in around you as you travel (further out on the water than in the woods), and the rest stays blank paper. It marks the places you've found (camps as tents, landings as little piers, landmarks with a cross), where each boat is, where you are, and where your best fish of each kind came from. Drag to move it, scroll or pinch to zoom, ◎ to centre on you. Beside it: your camps (with **Go there**), your boat, and every place you've found.
+Press **M** (or the map button). The map is drawn from the real ground and water depths, but only where you've been: land and water fill in around you as you travel (further out on the water than in the woods), and the rest stays blank paper. It marks the places you've found (camps as tents, landings as little piers, landmarks with a cross), where each boat is, where you are, and where your best fish of each kind came from. Drag to move it, scroll or pinch to zoom, ◎ to centre on you. Beside it: your camps (with **Go there**), your boat, and every place you've found. Opened from the field guide, it shades the water that suits a species and frames the nearest of it; this shows where to look, never where a fish is.
 
 ### Settings
 
@@ -354,6 +377,54 @@ How it behaves:
 
 Not on Vercel? Put the URL and anon key in `src/cloud-config.js` instead. The anon key is designed to be public; never put any other key there.
 
+## The Atlantic species register
+
+Slow Tide's sea is meant to grow into the coast from Royan and the Gironde estuary, along the French Bay of Biscay, the Cantabrian coast, Galicia and Portugal, to the Algarve and the Gulf of Cádiz. The register (`src/register.js`, with the researched entries in `src/registerData.js`) is the checklist of fish and cephalopods for it, and the one source of truth for names and real-world facts across the field guide, the journal, the catch card and the water.
+
+It is an initial, sourced checklist, **not a complete inventory**: 62 species so far (55 fish, 3 cephalopods, 2 sharks and 2 rays). Each entry has:
+
+- a stable id, the scientific name with its author, synonyms and family;
+- English, French, Spanish and Portuguese names where a source gives them (the shanny has no Spanish name yet, and none is made up);
+- habitat, usual and recorded depths, typical and exceptional size (with the source of each), diet, behaviour and seasonal movements;
+- for each of the six regions: resident, seasonal, occasional, absent or unknown, with a confidence (high, medium or low) and what it rests on. A range statement alone ("Morocco to Norway") gives at most medium confidence; a regional checklist, survey or official document is needed for high;
+- identification features, look-alikes, angling methods, conservation and regulations;
+- its sources (578 links in all), and what is uncertain or conflicting.
+
+The research came from FishBase, SeaLifeBase, DORIS, WoRMS and the Catalog of Fishes, regional checklists and papers (the Portuguese marine checklist, the Galician and Cantabrian lists and IEO guides, the Andalusian catalogue, Ifremer and AZTI surveys, ICES and ICCAT documents) and French, Spanish and Portuguese official rules. It lives in `research/register/*.json`; `node tools/build-register.mjs` compiles it into `src/registerData.js` (a test checks the two match). Stock assessments and landings were used only as evidence of presence, never as counts of species. Of the 372 regional statements, 153 are high confidence, 156 medium and 63 low.
+
+**Status in the game**, shown on every card and page:
+
+- **In the game · catchable now**: 13 species (European seabass, meagre, gilthead seabream, common sole, Atlantic mackerel, common cuttlefish, thicklip grey mullet, ballan wrasse, European flounder, European plaice, European sprat, Atlantic bluefin tuna, European squid), each spawning in its habitats, with a recommended setup the tackle rules accept, and each tested biting on that setup in the headless ecosystem.
+- **Planned · not in the game yet**: 48 researched species, previewable in the guide. Protected species are planned **to watch, not to catch** (European sturgeon, allis shad, European eel, sea lamprey), and vulnerable ones as **catch and release** (dusky grouper, common stingray, blue shark, thornback ray).
+- **Needs verification**: the white seabream, whose name on this coast is unsettled (WoRMS and the Catalog of Fishes give the Atlantic fish as *Diplodus cadenati*; FishBase and most regional sources still call it *D. sargus*).
+
+**Known gaps.** Many Cantabrian, Galician and Cádiz statuses rest only on range statements. The plaice's and sprat's presence south of the Bay of Biscay is poorly documented (low confidence), and the flounder's southern limit is disputed and retreating north. No rod-and-line method was found for plaice, sprat or octopus. Some regulations (minimum sizes, closures) change often and are recorded with their dates; check them before relying on them. INPN/TAXREF and several French government pages could not be read by the research and are not cited.
+
+**Identity decisions.** The squid of the coves is the European squid, *Loligo vulgaris* (the usual inshore night-jigging squid; the veined squid *L. forbesii* is deeper and more northern). The bullet tuna is *Auxis rochei* (frigate tuna also turns up in Iberian catches). The garfish is *Belone belone*; the pompano is *Trachinotus ovatus* (several other fish share its Spanish names).
+
+**The fictional originals.** Willow Bay's five invented fish each have a real replacement proposed for the same role: glassminnow → sand smelt (*Atherina presbyter*), sunperch → two-banded seabream (*Diplodus vulgaris*), drizzlefin → pollack (*Pollachius pollachius*), duskfin → Atlantic horse mackerel (*Trachurus trachurus*), mossback → European conger (*Conger conger*, which needs an eel body plan). The originals stay in the water until their replacements are in and working, and catches of them are never renamed.
+
+### Models
+
+The six reference species (European seabass, meagre, gilthead seabream, common sole, Atlantic mackerel and common cuttlefish) have anatomical models built by `src/anatomy.js`: a body lofted from profiles of width and depth along its length, with a mouth cleft, gill cover, scales, eyes, and fins placed and shaped per species (the bass's two separate dorsal fins, the mackerel's five finlets and forked tail, the meagre's square tail, the gilthead's deep body and gold forehead band, the sole's fins running round its body into its tail, the cuttlefish's mantle fin, arms and W-shaped pupils). The sole is a flatfish (both eyes on top, lying flat) and the cuttlefish a cephalopod, each with its own body plan and swimming motion. Skins are painted from each species' markings at load time; fins are translucent with rays; the sides have a soft sheen. The same model is used in the water, in the guide and on the catch card. In the water each of these species has a detailed model near the camera (about 3,600 triangles) and a simpler one further off (about 600), each species in one instanced draw per level. The other species keep their earlier simpler models for now.
+
+**Asset provenance.** Every model, skin and texture is generated by the code in `src/` (`anatomy.js`, `fish.js`, `gearArt.js`, `tackleModels.js`); no external models, textures or photographs are used or shipped. Reference descriptions and photographs on DORIS and FishBase were used only as research for shapes, fins and markings.
+
+**Measured cost** (a 2240 × 1260 view on a laptop, render time per frame): in a normal view the fish are about 49,000 of 1.16 million triangles and about 0.3 ms of a 7.7 ms render; from inside a mackerel school on High, about 85,000 triangles and 0.9 ms. Opening and closing the guide repeatedly, turning every reference model, leaves the studio's GPU memory where it was. The register adds about 93 KB (compressed) to the download and takes about 6 ms to load.
+
+### Expansion plan
+
+Further species come in batches, in this order (the batch is on each planned entry):
+
+1. **Done**: the six reference species with anatomical models, plus names, sources and regional data for the seven other real species in the game.
+2. **The Willow Bay replacements and the commonest coast fish**: sand smelt, two-banded seabream, pollack, Atlantic horse mackerel and European conger (replacing the five fictional originals, which are then retired), white seabream (once its name is settled), black seabream and common octopus.
+3. **Flatfish and the Gulf of Cádiz**: Senegalese sole, sand sole, wedge sole, turbot, tub gurnard, redbanded seabream (urta), spotted seabass (baila), bastard grunt (roncador), rubberlip grunt (borriquete). Needs regions south of the current map.
+4. **Schooling and offshore fish**: European sardine, European anchovy, Atlantic chub mackerel, Atlantic bonito, little tunny, bullet tuna, garfish, bluefish, pompano, salema, bogue.
+5. **Reef, deeper water, sharks and rays**: striped seabream, red porgy, common pandora, common dentex, European hake, John Dory, striped red mullet, thornback ray, common stingray, small-spotted catshark, blue shark, lesser weever, shanny, dusky grouper. Needs ray and shark body plans and catch-and-release.
+6. **Migratory and protected estuary species**: allis and twaite shad, European eel, sea lamprey, European sturgeon, thin-lipped and golden grey mullet. Needs an observation-only mode and seasons.
+
+Alongside: anatomical models for the remaining species already in the game, seasons (spawning runs, the tuna's summer in Biscay, the meagre's spring in the Gironde), and regions further south.
+
 ## Where things live
 
 | File | What it holds |
@@ -367,7 +438,7 @@ Not on Vercel? Put the URL and anon key in `src/cloud-config.js` instead. The an
 | `src/world/shore.js` | Everything built on the west shore: landing pier and signpost, tent, campfire with smoke and light, tackle chest and rod rack, reeds, lily pads, the fallen alder, fishing pegs, stream boulders, footbridge, stepping stones, ferns, grass and hatching flies |
 | `src/world/habitat.js` | The underwater map shared by everything below the surface: depth, weed beds, rock piles, kelp and reefs, the stream's current, and the homes fish live around, for the home waters and each region |
 | `src/world/ecosystem.js` | Every fish in the world: schooling, cruising, feeding, resting, fleeing, rising and jumping, and how each one judges and takes a rig (nibbling, following, ambushing, rising, grazing, running). Fixed 30 Hz simulation, slower far away |
-| `src/world/fishRender.js` | Draws the ecosystem's fish (one instanced draw per species) with a swimming tail wave |
+| `src/world/fishRender.js` | Draws the ecosystem's fish (one instanced draw per species, and a near and a far one for species with anatomical models) with their swimming motion |
 | `src/world/underwater.js` | Weed beds, submerged rocks, particles, light shafts, bubbles, and the colour, haze and sound blend as the camera crosses the waterline |
 | `src/world/caustics.js` | Dancing light on the seabed and rocks |
 | `src/world/world.js` | Terrain mesh (with a finer patch over the west shore), trees, rocks, jetty, cove props, Gull Rock, gulls, fireflies, and the obstacles you bump into on foot |
@@ -388,7 +459,13 @@ Not on Vercel? Put the URL and anon key in `src/cloud-config.js` instead. The an
 | `sw.js` | The service worker: stores every game file for offline play, one cache per version |
 | `tools/build-sw.mjs` | Writes the file list and version into `sw.js` (`--check` reports if it's out of date) |
 | `vercel.json` | Runs `tools/build-sw.mjs` on every Vercel deploy |
-| `src/fish.js` | The 23 species, squid included (where they live, how they behave, what they eat and how they take it, weight), 3D models, journal sketches |
+| `src/fish.js` | The 27 species, squid and cuttlefish included (where they live, how they behave, what they eat and how they take it, weight), 3D models, journal sketches |
+| `src/anatomy.js` | Anatomical models of the reference species: body plans for fish, flatfish and cuttlefish, fins, eyes, painted skins, and the swimming motion |
+| `src/register.js` | The Atlantic species register: regions, statuses, what the game has done with each species, the expansion batches, the fictional originals and their proposed replacements |
+| `src/registerData.js` | The register's researched entries (generated by `tools/build-register.mjs` from `research/register/`) |
+| `src/guide.js` | The field guide: the index, the species pages, recommended setups worked out from the tackle rules, and habits read from the simulation |
+| `research/register/` | The species research, as JSON, with every source |
+| `tools/build-register.mjs` | Compiles the research into `src/registerData.js` (`--check` reports if it's out of date) |
 | `src/pack.js` | The backpack: the equipment browser, the selected piece with its compatibility checks, and your setup as rigged |
 | `src/gearArt.js` | Models of every rod (with its reel), line spool, float, rig, leader, bait, lure, fly and squid jig, built from the tackle data by id |
 | `src/gearView.js` | The backpack's studio: one small renderer that makes cached thumbnails and the turnable preview |
@@ -410,7 +487,7 @@ Not on Vercel? Put the URL and anon key in `src/cloud-config.js` instead. The an
 
 ## Making it your own
 
-- **Add a fish**: add an entry to `FISH` in `src/fish.js`. Its `life` block says where it lives (`homes`, `zones`, `depth`), how it moves, when it is active, how it likes a bait to move, and how cautious it is; `food` says which baits, lures and flies it takes and how keenly; `strike` says how it takes them; `mouth` and `pull` set what size of lure it can manage and how hard it fights. The ecosystem spawns it, and the journal, catch card, 3D model and fish finder pick it up automatically.
+- **Add a fish**: research it into `research/register/` and run `node tools/build-register.mjs`, then add an entry to `FISH` in `src/fish.js` with the same id and mark it in `GAME` in `src/register.js`. Its `life` block says where it lives (`homes`, `zones`, `depth`), how it moves, when it is active, how it likes a bait to move, and how cautious it is; `food` says which baits, lures and flies it takes and how keenly; `strike` says how it takes them; `mouth` and `pull` set what size of lure it can manage and how hard it fights. The ecosystem spawns it, and the journal, catch card, 3D model and fish finder pick it up automatically.
 - **Add tackle**: add an entry to `TACKLE` in `src/tackle.js` (a bait, lure or fly), give it a model in `src/tackleModels.js`, and add it to the `food` of the fish that should like it. Rods live in `RODS`.
 - **More or fewer fish**: `schools`/`members` and `groups`/`group` in each species' `life`, or `fishDensity` in `src/quality.js`.
 - **Change the length of a day**: `HOUR_SECONDS` in `src/main.js` (40 real seconds per in-game hour by default).
@@ -445,8 +522,9 @@ slowTide.eco.agents           // every fish in the world, with its species, size
 
 - [three.js](https://threejs.org) r160, MIT licence (`vendor/three/LICENSE`).
 - Fonts: Caveat, Kalam and Nunito, SIL Open Font License 1.1 (`assets/fonts/OFL-*.txt`).
-- Everything else, including the sound and music, is generated by the code in `src/`.
+- Everything else, including the sound and music and every model and texture, is generated by the code in `src/`.
+- Species facts in the register come from the sources listed in each entry (FishBase, SeaLifeBase, DORIS, WoRMS, regional checklists, papers and official documents); the game quotes facts and names, not their text or images.
 
 ## Ideas for next steps
 
-The journal hints at a softer cushion, a potted fern on the bow, and a little cabin by the lake. Other natural next steps: carrying the brass lantern when you walk at night, tides that cover and uncover the estuary flats, cooking and resting at the far camps as at home, fuel and simple upgrades for the motorboats, and seasons that change which fish are about.
+The journal hints at a softer cushion, a potted fern on the bow, and a little cabin by the lake. Other natural next steps: carrying the brass lantern when you walk at night, tides that cover and uncover the estuary flats, cooking and resting at the far camps as at home, fuel and simple upgrades for the motorboats, and seasons that change which fish are about. For the sea, see the [expansion plan](#expansion-plan).

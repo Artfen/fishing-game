@@ -1,0 +1,2168 @@
+[
+  {
+    "id": "senegalsole",
+    "scientific": "Solea senegalensis Kaup, 1858",
+    "family": "Soleidae",
+    "synonyms": [
+      "Solea melanochira Moreau, 1874",
+      "Solea vulgaris melanochira Moreau, 1874",
+      "Solea cleverleyi Gilchrist, 1906"
+    ],
+    "names": {
+      "en": "Senegalese sole",
+      "fr": "Sole du Sénégal",
+      "es": "Lenguado senegalés",
+      "pt": "Linguado-branco"
+    },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=8852&GenusName=Solea&SpeciesName=senegalensis",
+      "https://doris.ffessm.fr/Especes/Solea-senegalensis-Sole-du-Senegal-3804",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Benthic on sandy or muddy bottoms in coastal waters and brackish lagoons; juveniles live shallower, tolerate brackish water and can be found far up estuaries.",
+    "depth": {
+      "usual": [
+        12,
+        65
+      ],
+      "range": [
+        0,
+        100
+      ],
+      "source": "https://doris.ffessm.fr/Especes/Solea-senegalensis-Sole-du-Senegal-3804"
+    },
+    "size": {
+      "common": 45,
+      "max": 60,
+      "maxNote": "60 cm SL maximum; common length 45 cm TL (FishBase). DORIS gives usually ~45 cm, 60 cm maximum.",
+      "source": "https://www.fishbase.se/summary/Solea-senegalensis.html"
+    },
+    "diet": "Benthic invertebrates: polychaetes, bivalve molluscs and small crustaceans.",
+    "behaviour": "Bottom-dweller, mainly nocturnal; spends the day partly buried in the sediment (DORIS). Matures at ~25-30 cm (about 3 years).",
+    "seasonal": "Spawns March-June (FishBase) / spring-summer at 15-20 C (DORIS). Juveniles use estuaries and brackish water. No region-specific seasonal movements found in fetched sources.",
+    "regions": {
+      "gironde": {
+        "status": "occasional",
+        "confidence": "low",
+        "basis": "Only 1 OBIS record (EVHOE survey) in the Gironde box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); DORIS says the species is rare north of the Bay of Biscay and gives no Gironde record; the estuary-specific sources found concern Solea solea."
+      },
+      "biscay": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "39 EVHOE survey records in the French Biscay box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); synonym Solea melanochira Moreau, 1874 has its type locality at Arcachon (https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/name.php?id=44972); FNAM range 'Bay of Biscay southward' (https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109783)."
+      },
+      "cantabria": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "12 records in the IHCantabria Water Framework Directive monitoring of Cantabrian estuaries (https://obis.org/dataset/cd962c92-1917-40dd-9f82-8e1bf8f22fee)."
+      },
+      "galicia": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Listed for Galicia by Bañón & Maño 2021 (as S. senegalensis; old records as S. melanochira) (https://revistas.usc.gal/index.php/nacc/article/view/7286/10671)."
+      },
+      "portugal": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Listed for mainland Portugal as 'Linguado-branco' in Carneiro et al. 2014 checklist (https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318)."
+      },
+      "cadiz": {
+        "status": "resident",
+        "confidence": "medium",
+        "basis": "Range 'France to Angola' (FishBase) and FNAM 'Bay of Biscay southward'; hatchery-reared juveniles were released on the south-western Spanish coast (Herrera et al. 2023, https://produccioncientifica.uhu.es/documentos/680e72a1611b80261167d2b1?lang=en); 24 iNaturalist research-grade records in the Cadiz box via OBIS (https://api.obis.org/v3/occurrence?scientificname=Solea+senegalensis&geometry=POLYGON%28%28-7.4+35.95%2C-5.6+35.95%2C-5.6+37.3%2C-7.4+37.3%2C-7.4+35.95%29%29&size=0). No Gulf of Cadiz survey source fetched."
+      }
+    },
+    "identification": [
+      "Right-eyed oval sole; eyed-side pectoral fin with an almost black membrane between light yellowish-white rays (FNAM; DORIS: white rays, black interradial zones).",
+      "Eyed side greyish/yellowish-brown with numerous small blue spots in life (fade after death) and many white spots, the largest along the lateral line and the bases of dorsal and anal fins (FNAM, DORIS).",
+      "Caudal fin uniformly coloured (FNAM).",
+      "Anterior nostril on blind side not enlarged (FNAM).",
+      "Dorsal fin 72-95 rays, anal 61-75, lateral line 120-138 pored scales, 43-46 vertebrae (FNAM)."
+    ],
+    "similar": [
+      "Common sole Solea solea: black blotch only at the tip of the eyed-side pectoral (DORIS: on half of its end), large diffuse dark spots, hind part of caudal darker, 46-52 vertebrae (10 vs 9 precaudal in S. senegalensis); large white spots rarer (FNAM, DORIS).",
+      "Sand sole Pegusa lascaris: enlarged rosette-shaped anterior nostril on the blind side and a single black spot ringed with yellow/white in the middle of the pectoral (DORIS, FNAM).",
+      "Egyptian sole Solea aegyptiaca: black spot covers the whole pectoral end; hybridises with S. senegalensis (DORIS).",
+      "Solenette Buglossidium luteum: no black pectoral spot, dark streaks on dorsal/anal fins (DORIS)."
+    ],
+    "anglingMethods": [
+      "No species-specific angling source found. For common sole: small long-shank hooks (size 4-6), small baits held hard on the bottom, best at night close inshore (British Sea Fishing, https://britishseafishing.co.uk/sole/) - applies by analogy only; DORIS notes S. senegalensis is mainly nocturnal."
+    ],
+    "conservation": "IUCN Red List: Data Deficient (assessed 2014; FishBase). EU minimum conservation reference size for Solea spp. in South-Western Waters: 24 cm (Reg. (EU) 2019/1241 Annex VII as adopted, https://www.legislation.gov.uk/eur/2019/1241/annex/VII/adopted). No other regional protection found.",
+    "sources": [
+      {
+        "title": "FishBase - Solea senegalensis summary",
+        "url": "https://www.fishbase.se/summary/Solea-senegalensis.html"
+      },
+      {
+        "title": "FishBase - common names",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=8852&GenusName=Solea&SpeciesName=senegalensis"
+      },
+      {
+        "title": "FishBase - synonyms",
+        "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=8852&SynCode=33029&GenusName=Solea&SpeciesName=senegalensis"
+      },
+      {
+        "title": "DORIS - Solea senegalensis, Sole du Sénégal",
+        "url": "https://doris.ffessm.fr/Especes/Solea-senegalensis-Sole-du-Senegal-3804"
+      },
+      {
+        "title": "FNAM - Solea senegalensis",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109783"
+      },
+      {
+        "title": "FNAM - Solea melanochira (type locality Arcachon)",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/name.php?id=44972"
+      },
+      {
+        "title": "FNAM - Solea vulgaris (= S. solea) for comparison",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109784"
+      },
+      {
+        "title": "Carneiro et al. 2014, checklist of marine fishes of Portugal",
+        "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+      },
+      {
+        "title": "Bañón & Maño 2021, Galician Actinopteri (Trachiniformes-Tetraodontiformes)",
+        "url": "https://revistas.usc.gal/index.php/nacc/article/view/7286/10671"
+      },
+      {
+        "title": "OBIS dataset - IHCantabria estuarine fishes",
+        "url": "https://obis.org/dataset/cd962c92-1917-40dd-9f82-8e1bf8f22fee"
+      },
+      {
+        "title": "OBIS dataset - EVHOE survey",
+        "url": "https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427"
+      },
+      {
+        "title": "Herrera et al. 2023, releases of Senegal sole on SW Spanish coast",
+        "url": "https://produccioncientifica.uhu.es/documentos/680e72a1611b80261167d2b1?lang=en"
+      },
+      {
+        "title": "EU Reg. 2019/1241 Annex VII",
+        "url": "https://www.legislation.gov.uk/eur/2019/1241/annex/VII/adopted"
+      },
+      {
+        "title": "British Sea Fishing - sole",
+        "url": "https://britishseafishing.co.uk/sole/"
+      }
+    ],
+    "uncertain": "Northern limit: FNAM says 'Bay of Biscay southward', FishBase 'France to Angola', DORIS 'Great Britain to Angola' but rare north of the Bay of Biscay - so the French Biscay coast is near the northern edge. Gironde status rests on a single offshore survey record. Cadiz status not backed by a regional survey paper; note restocking releases there. DORIS records a depth of 310 m outside the usual range. Commercial/recreational catches often lump it with S. solea as 'sole/lenguado/linguado'. OBIS record counts quoted in 'basis' come from OBIS API queries (24 Oct 2026) over boxes: Gironde 45.0-45.8N/1.45-0.5W (estuary, Royan and waters off the mouth); French Biscay 43.38-45.0N east of 2.0W (3.0W north of 44N); Cantabria 43.25-44.2N/7.05-2.0W; Galicia 41.8-44.0N/9.8-7.05W; Portugal 36.85-41.8N/10.0-7.4W; Cadiz 35.95-37.3N/7.4-5.6W. Counts show presence only; low Iberian counts mostly reflect which surveys are published in OBIS, not abundance. EVHOE (Ifremer autumn bottom-trawl survey) records near the Gironde lie on the shelf off the mouth, not inside the estuary."
+  },
+  {
+    "id": "sandsole",
+    "scientific": "Pegusa lascaris (Risso, 1810)",
+    "family": "Soleidae",
+    "synonyms": [
+      "Pleuronectes lascaris Risso, 1810",
+      "Solea lascaris (Risso, 1810)",
+      "Solea scriba Valenciennes, 1837",
+      "Solea aurantiaca Günther, 1862",
+      "Solea vermeuleni Metzelaar, 1919"
+    ],
+    "names": {
+      "en": "Sand sole",
+      "fr": "Sole-pole",
+      "es": "Lenguado de arena",
+      "pt": "Linguado-da-areia"
+    },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=1336&GenusName=Pegusa&SpeciesName=lascaris",
+      "https://doris.ffessm.fr/Especes/Pegusa-lascaris-Sole-pole-4815",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318",
+      "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+    ],
+    "habitat": "Demersal on gravel, sand or muddy sand, also in brackish water; mainly in shallow waters of 20-50 m.",
+    "depth": {
+      "usual": [
+        20,
+        50
+      ],
+      "range": [
+        5,
+        350
+      ],
+      "source": "https://www.fishbase.se/summary/Pegusa-lascaris.html"
+    },
+    "size": {
+      "common": 30,
+      "max": 40,
+      "maxNote": "40 cm SL maximum; common length 30 cm TL (FishBase, IEO).",
+      "source": "https://www.fishbase.se/summary/Pegusa-lascaris.html"
+    },
+    "diet": "Small bottom invertebrates: amphipods, mysids, shrimps and other decapods, bivalves and polychaetes.",
+    "behaviour": "Benthic flatfish; no behavioural information found in fetched sources.",
+    "seasonal": "Spawns May-September with a peak in June/July in the Iberian Peninsula, Bay of Biscay and western English Channel (FNAM). No regional movement data found.",
+    "regions": {
+      "gironde": {
+        "status": "resident",
+        "confidence": "low",
+        "basis": "Within FNAM range (eastern Atlantic southward from Scotland, https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109781); only 2 EVHOE records in the Gironde box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); no estuary-specific record found."
+      },
+      "biscay": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "19 EVHOE records in the French Biscay box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); FNAM reports spawning in the Bay of Biscay; DORIS photo of a 50 cm specimen at Olonne-sur-Mer (Vendée, north of this scope)."
+      },
+      "cantabria": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Species file in the IEO guide to fishery species of Galicia, Asturias and Cantabria with local names (Asturias 'lenguao', Cantabria 'lenguado') (https://diversimar.cesga.es/docus/Guia_Especies.pdf); 3 records in IHCantabria estuarine monitoring (https://obis.org/dataset/cd962c92-1917-40dd-9f82-8e1bf8f22fee)."
+      },
+      "galicia": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Listed for Galicia by Bañón & Maño 2021 (https://revistas.usc.gal/index.php/nacc/article/view/7286/10671); IEO guide gives Galician names 'linguado, lerpa' (https://diversimar.cesga.es/docus/Guia_Especies.pdf)."
+      },
+      "portugal": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Listed for mainland Portugal as 'Linguado-da-areia' (Carneiro et al. 2014, https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318)."
+      },
+      "cadiz": {
+        "status": "resident",
+        "confidence": "medium",
+        "basis": "FishBase range 'northeastern to southeastern Atlantic... Mediterranean' and FNAM 'southward to South Africa' include the Gulf of Cadiz; only 1 OBIS (iNaturalist) record in the Cadiz box; no regional paper found."
+      }
+    },
+    "identification": [
+      "Anterior nostril on blind side enlarged and rosette-shaped, close to the posterior nostril (FNAM; IEO guide).",
+      "Eyed-side pectoral with a distinct black patch towards the end of the middle rays, surrounded by yellow and white (FNAM; DORIS photo caption: small black spot edged white and yellow in the middle of the pectoral).",
+      "Eyed side uniform yellowish-brown with small brown spots; more uniformly marbled than Solea, without large white spots (FNAM, DORIS).",
+      "Upper eye about its own diameter or more from the dorsal profile; dorsal fin 70-90 rays (FNAM).",
+      "Caudal fin joined to last dorsal and anal rays by a low membrane (FNAM)."
+    ],
+    "similar": [
+      "Common sole Solea solea: blind-side anterior nostril not enlarged; black blotch at the tip (not the middle) of the pectoral (FNAM).",
+      "Senegalese sole Solea senegalensis: nostril not enlarged, pectoral membrane almost black throughout, many white spots (FNAM, DORIS).",
+      "Pegusa nasuta (Mediterranean) is grouped with P. lascaris by DORIS as 'sole pole' with the same rosette nostril."
+    ],
+    "anglingMethods": [
+      "No species-specific angling source found; common-sole methods (small hooks, worm baits on the bottom, at night) are documented by British Sea Fishing (https://britishseafishing.co.uk/sole/) and apply by analogy only."
+    ],
+    "conservation": "IUCN Red List: Least Concern (assessed 2013; FishBase). IEO guide gives a minimum landing size of 24 cm in Galicia and Asturias (https://diversimar.cesga.es/docus/Guia_Especies.pdf). Whether the EU 24 cm size for 'Solea spp.' applies to Pegusa is not stated in the fetched text.",
+    "sources": [
+      {
+        "title": "FishBase - Pegusa lascaris summary",
+        "url": "https://www.fishbase.se/summary/Pegusa-lascaris.html"
+      },
+      {
+        "title": "FishBase - common names",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=1336&GenusName=Pegusa&SpeciesName=lascaris"
+      },
+      {
+        "title": "FishBase - synonyms",
+        "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=1336&SynCode=23717&GenusName=Pegusa&SpeciesName=lascaris"
+      },
+      {
+        "title": "FNAM - Solea lascaris (= Pegusa lascaris)",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109781"
+      },
+      {
+        "title": "DORIS - Pegusa lascaris, Sole pole (stub)",
+        "url": "https://doris.ffessm.fr/Especes/Pegusa-lascaris-Sole-pole-4815"
+      },
+      {
+        "title": "IEO 2013 - Especies de interés pesquero en Galicia, Asturias y Cantabria",
+        "url": "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+      },
+      {
+        "title": "Carneiro et al. 2014",
+        "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+      },
+      {
+        "title": "Bañón & Maño 2021 (Trachiniformes-Tetraodontiformes)",
+        "url": "https://revistas.usc.gal/index.php/nacc/article/view/7286/10671"
+      },
+      {
+        "title": "OBIS dataset - EVHOE survey",
+        "url": "https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427"
+      },
+      {
+        "title": "OBIS dataset - IHCantabria estuarine fishes",
+        "url": "https://obis.org/dataset/cd962c92-1917-40dd-9f82-8e1bf8f22fee"
+      }
+    ],
+    "uncertain": "DORIS fiche is a stub (no description). Behaviour and Gulf of Cadiz occurrence not documented regionally. English vernaculars 'French sole' and 'lascar' (FishBase, UK) also exist. OBIS record counts quoted in 'basis' come from OBIS API queries (24 Oct 2026) over boxes: Gironde 45.0-45.8N/1.45-0.5W (estuary, Royan and waters off the mouth); French Biscay 43.38-45.0N east of 2.0W (3.0W north of 44N); Cantabria 43.25-44.2N/7.05-2.0W; Galicia 41.8-44.0N/9.8-7.05W; Portugal 36.85-41.8N/10.0-7.4W; Cadiz 35.95-37.3N/7.4-5.6W. Counts show presence only; low Iberian counts mostly reflect which surveys are published in OBIS, not abundance. EVHOE (Ifremer autumn bottom-trawl survey) records near the Gironde lie on the shelf off the mouth, not inside the estuary."
+  },
+  {
+    "id": "acedia",
+    "scientific": "Dicologlossa cuneata (Moreau, 1881)",
+    "family": "Soleidae",
+    "synonyms": [
+      "Solea cuneata Moreau, 1881",
+      "Solea senegalensis mbaoensis Pellegrin, 1907"
+    ],
+    "names": {
+      "en": "Wedge sole",
+      "fr": "Céteau",
+      "es": "Acedía",
+      "pt": "Língua"
+    },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=526&GenusName=Dicologlossa&SpeciesName=cuneata",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318",
+      "https://scientiamarina.revistas.csic.es/index.php/scientiamarina/article/view/172"
+    ],
+    "habitat": "Demersal on sandy or sand-mud bottoms of the warmer continental shelf, mostly 10-100 m in the Bay of Biscay (to 400 m off Mauritania), with temperatures above 9 C; also brackish water.",
+    "depth": {
+      "usual": [
+        10,
+        150
+      ],
+      "range": [
+        10,
+        460
+      ],
+      "source": "https://www.fishbase.se/summary/Dicologlossa-cuneata.html"
+    },
+    "size": {
+      "common": 20,
+      "max": 30,
+      "maxNote": "30 cm SL maximum; common length 20 cm TL (FishBase; FNAM 'to 30 cm SL').",
+      "source": "https://www.fishbase.se/summary/Dicologlossa-cuneata.html"
+    },
+    "diet": "Small bottom-living organisms, mainly crustaceans (amphipods, shrimps, small crabs), polychaetes and bivalves.",
+    "behaviour": "Benthic; pelagic, non-adhesive eggs. No other behaviour data in fetched sources.",
+    "seasonal": "Bay of Biscay: spawns May-September in water above 12-14 C (FNAM). Gulf of Cadiz: long reproductive period from autumn to early summer; spawning in <30 m between the Guadiana and Tinto-Odiel mouths; main nursery between the Tinto-Odiel and Guadalquivir mouths (García-Isarch et al. 2006).",
+    "regions": {
+      "gironde": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "217 EVHOE records in the Gironde box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); Ifremer juvenile-sole nursery surveys 'Nurse Loire et Gironde' (2000-2003) recorded juvenile céteau (https://b2find.eudat.eu/dataset/f75bd04d-c44a-5676-a50d-a8aa8e5082bc)."
+      },
+      "biscay": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "273 EVHOE records in the French Biscay box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); FishBase/FNAM range 'Bay of Biscay ... to South Africa', spawning in the Bay of Biscay (FNAM https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109771)."
+      },
+      "cantabria": {
+        "status": "resident",
+        "confidence": "low",
+        "basis": "Inside the FNAM range ('Bay of Biscay southward') but only 2 EVHOE records in the Cantabria box and no species file in the IEO Cantabrian guide; no regional source found."
+      },
+      "galicia": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Listed for Galicia by Bañón & Maño 2021 (https://revistas.usc.gal/index.php/nacc/article/view/7286/10671)."
+      },
+      "portugal": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Listed for mainland Portugal as 'Língua' (Carneiro et al. 2014, https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318)."
+      },
+      "cadiz": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Important spawning and nursery ground between the Guadalquivir and Guadiana; one of the main targets of Gulf of Cadiz bottom-trawl and gillnet fisheries (García-Isarch et al. 2006, https://scientiamarina.revistas.csic.es/index.php/scientiamarina/article/view/172)."
+      }
+    },
+    "identification": [
+      "Oval but elongate body tapering backwards (wedge-shaped) (FNAM).",
+      "Eyed-side pectoral with an oblong black blotch in the middle (FNAM).",
+      "Supratemporal branch of the lateral line forms an angular S-shape (FNAM).",
+      "Eyed side grey-brown to chocolate-brown, blind side whitish (FNAM).",
+      "Blind-side anterior nostril not enlarged; dorsal fin 74-95 rays (FNAM)."
+    ],
+    "similar": [
+      "Common sole Solea solea: rounder oval body, black blotch at the pectoral tip, supratemporal lateral-line branch a smooth curve (FNAM).",
+      "Sand sole Pegusa lascaris: rosette-shaped blind-side nostril; pectoral spot ringed yellow/white (FNAM).",
+      "Ocellated wedge sole Dicologlossa hexophthalma (listed for mainland Portugal by Carneiro et al. 2014): congener; distinguishing features not given in fetched sources."
+    ],
+    "anglingMethods": [
+      "No rod-and-line source found. Commercially taken by bottom trawl and gillnet in the Gulf of Cadiz (García-Isarch et al. 2006, https://scientiamarina.revistas.csic.es/index.php/scientiamarina/article/view/172)."
+    ],
+    "conservation": "IUCN Red List: Least Concern (assessed 2021; FishBase). No EU minimum conservation reference size listed for this species in Reg. 2019/1241 Annex VII; part of the Guadalquivir-mouth nursery area was declared a fishing reserve (García-Isarch et al. 2006).",
+    "sources": [
+      {
+        "title": "FishBase - Dicologlossa cuneata summary",
+        "url": "https://www.fishbase.se/summary/Dicologlossa-cuneata.html"
+      },
+      {
+        "title": "FishBase - common names",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=526&GenusName=Dicologlossa&SpeciesName=cuneata"
+      },
+      {
+        "title": "FishBase - synonyms",
+        "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=526&SynCode=8265&GenusName=Dicologlossa&SpeciesName=cuneata"
+      },
+      {
+        "title": "FNAM - Dicologlossa cuneata",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109771"
+      },
+      {
+        "title": "García-Isarch et al. 2006, Spawning and nursery habitat of the wedge sole in the Gulf of Cádiz, Scientia Marina 70S2",
+        "url": "https://scientiamarina.revistas.csic.es/index.php/scientiamarina/article/view/172"
+      },
+      {
+        "title": "Ifremer dataset - juvenile céteau abundance, Nurse Loire et Gironde / Nurse Vilaine / PECOS",
+        "url": "https://b2find.eudat.eu/dataset/f75bd04d-c44a-5676-a50d-a8aa8e5082bc"
+      },
+      {
+        "title": "Carneiro et al. 2014",
+        "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+      },
+      {
+        "title": "Bañón & Maño 2021 (Trachiniformes-Tetraodontiformes)",
+        "url": "https://revistas.usc.gal/index.php/nacc/article/view/7286/10671"
+      },
+      {
+        "title": "OBIS dataset - EVHOE survey",
+        "url": "https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427"
+      },
+      {
+        "title": "OBIS query - Dicologlossa cuneata in Gironde box",
+        "url": "https://api.obis.org/v3/occurrence?scientificname=Dicologlossa+cuneata&geometry=POLYGON%28%28-1.45+45.0%2C-0.5+45.0%2C-0.5+45.8%2C-1.45+45.8%2C-1.45+45.0%29%29&size=0"
+      }
+    ],
+    "uncertain": "No DORIS fiche was found. The Ifremer nursery dataset does not state exactly where in the Loire/Gironde surveys juveniles were caught. Cantabrian status weakly supported. FishBase also lists 'Sole séteau' (France) and Spanish 'lenguadillo', 'asedia'. OBIS record counts quoted in 'basis' come from OBIS API queries (24 Oct 2026) over boxes: Gironde 45.0-45.8N/1.45-0.5W (estuary, Royan and waters off the mouth); French Biscay 43.38-45.0N east of 2.0W (3.0W north of 44N); Cantabria 43.25-44.2N/7.05-2.0W; Galicia 41.8-44.0N/9.8-7.05W; Portugal 36.85-41.8N/10.0-7.4W; Cadiz 35.95-37.3N/7.4-5.6W. Counts show presence only; low Iberian counts mostly reflect which surveys are published in OBIS, not abundance. EVHOE (Ifremer autumn bottom-trawl survey) records near the Gironde lie on the shelf off the mouth, not inside the estuary."
+  },
+  {
+    "id": "turbot",
+    "scientific": "Scophthalmus maximus (Linnaeus, 1758)",
+    "family": "Scophthalmidae",
+    "synonyms": [
+      "Pleuronectes maximus Linnaeus, 1758",
+      "Psetta maxima (Linnaeus, 1758)",
+      "Rhombus maximus (Linnaeus, 1758)",
+      "Pleuronectes turbot Lacepède, 1802",
+      "Pleuronectes cyclops Donovan, 1806",
+      "Rhombus magnus Minding, 1832",
+      "Rhombus aculeatus Gottsche, 1835"
+    ],
+    "names": {
+      "en": "Turbot",
+      "fr": "Turbot",
+      "es": "Rodaballo",
+      "pt": "Pregado"
+    },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=1348&GenusName=Scophthalmus&SpeciesName=maximus",
+      "https://doris.ffessm.fr/Especes/Scophthalmus-maximus-Turbot-611",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318",
+      "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+    ],
+    "habitat": "Sandy, rocky or mixed bottoms in shallow coastal waters; common in brackish estuaries, where young fish are frequent; juveniles occupy beaches down to the lowest tides.",
+    "depth": {
+      "usual": [
+        20,
+        70
+      ],
+      "range": [
+        10,
+        140
+      ],
+      "source": "https://doris.ffessm.fr/Especes/Scophthalmus-maximus-Turbot-611"
+    },
+    "size": {
+      "common": 50,
+      "max": 100,
+      "maxNote": "100 cm SL maximum, max published weight 25 kg; common 50 cm TL (males) / 70 cm TL (females) (FishBase). DORIS: commonly 30-60 cm.",
+      "source": "https://www.fishbase.se/summary/Scophthalmus-maximus.html"
+    },
+    "diet": "Mainly bottom-living fishes (sprat, sandeels, gobies, young soles etc.), with fewer larger crustaceans, cephalopods and bivalves.",
+    "behaviour": "Benthic, diurnal and territorial; relies on camouflage (DORIS). Batch spawner with pelagic eggs.",
+    "seasonal": "Spawning March-April (DORIS, Atlantic/North Sea) or April-August (FishBase/FNAM). Juveniles on beaches and in estuaries. No regional seasonal movement documented.",
+    "regions": {
+      "gironde": {
+        "status": "resident",
+        "confidence": "medium",
+        "basis": "DORIS: tolerates brackish estuaries where young are common; 3 EVHOE records in the Gironde box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); no estuary-specific record found."
+      },
+      "biscay": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "19 EVHOE records in the French Biscay box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); FNAM range 'along the European coasts to Arctic Circle' (https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109766)."
+      },
+      "cantabria": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Species file in the IEO guide with local names (Asturias 'clavudo'; Cantabria 'rodaballo'), caught by trawl and gillnet, 30 cm minimum size (https://diversimar.cesga.es/docus/Guia_Especies.pdf)."
+      },
+      "galicia": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Listed for Galicia by Bañón & Maño 2021 (https://revistas.usc.gal/index.php/nacc/article/view/7286/10671); IEO Galician names 'rodaballo, rodo (pequeño)'."
+      },
+      "portugal": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Listed for mainland Portugal as 'Pregado' (Carneiro et al. 2014, https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318)."
+      },
+      "cadiz": {
+        "status": "resident",
+        "confidence": "medium",
+        "basis": "Range statements (whole Mediterranean and European Atlantic coasts; FNAM/FishBase) include the Gulf of Cadiz; no Gulf of Cadiz-specific source found and only 1 OBIS (iNaturalist) record."
+      }
+    },
+    "identification": [
+      "Left-eyed flatfish (eyes on the left side) with an almost circular/lozenge-shaped, thick body (DORIS, FNAM).",
+      "Eyed side scattered with bony tubercles instead of normal scales (DORIS, FNAM).",
+      "Lateral line strongly curved above the pectoral fin (DORIS).",
+      "Dorsal fin starts in front of the eye; first dorsal rays little branched and not free (FNAM, DORIS).",
+      "Colour very variable, grey to sandy brown, with many white to black spots (DORIS)."
+    ],
+    "similar": [
+      "Brill Scophthalmus rhombus: smooth skin without bony tubercles, first dorsal rays deeply branched/free ('beard'), more oval body (DORIS).",
+      "Flounder Platichthys flesus is listed as a look-alike by the IEO guide (distinguishing features not given there)."
+    ],
+    "anglingMethods": [
+      "Shore fishing on open sandy beaches near gullies or patches of rough ground, best at night/late evening in spring-early summer; two-hook flapper with worm/crab for small fish, single-hook clipped rig with fish fillets or whole sandeel (3/0-4/0) for big fish (British Sea Fishing, https://britishseafishing.co.uk/turbot/)."
+    ],
+    "conservation": "IUCN Red List: Least Concern (assessed 2020; FishBase). Minimum size 30 cm in the Spanish Cantabrian-NW national fishing ground (IEO guide, https://diversimar.cesga.es/docus/Guia_Especies.pdf); DORIS cites a 30 cm minimum size in France (arrêté of 7/10/1986). DORIS notes a sharp decline in European coastal waters, gillnets being a major threat.",
+    "sources": [
+      {
+        "title": "FishBase - Scophthalmus maximus summary",
+        "url": "https://www.fishbase.se/summary/Scophthalmus-maximus.html"
+      },
+      {
+        "title": "FishBase - common names",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=1348&GenusName=Scophthalmus&SpeciesName=maximus"
+      },
+      {
+        "title": "FishBase - synonyms",
+        "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=1348&SynCode=3161&GenusName=Scophthalmus&SpeciesName=maximus"
+      },
+      {
+        "title": "DORIS - Scophthalmus maximus, Turbot",
+        "url": "https://doris.ffessm.fr/Especes/Scophthalmus-maximus-Turbot-611"
+      },
+      {
+        "title": "FNAM - Psetta maxima (= S. maximus)",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109766"
+      },
+      {
+        "title": "IEO 2013 guide (Galicia, Asturias, Cantabria)",
+        "url": "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+      },
+      {
+        "title": "Carneiro et al. 2014",
+        "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+      },
+      {
+        "title": "Bañón & Maño 2021 (Trachiniformes-Tetraodontiformes)",
+        "url": "https://revistas.usc.gal/index.php/nacc/article/view/7286/10671"
+      },
+      {
+        "title": "OBIS dataset - EVHOE survey",
+        "url": "https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427"
+      },
+      {
+        "title": "British Sea Fishing - turbot",
+        "url": "https://britishseafishing.co.uk/turbot/"
+      }
+    ],
+    "uncertain": "Depth: FishBase gives 20-70 m (used as 'usual'); DORIS gives 10-140 m and says juveniles live on beaches to the lowest tides, adults rarely shallower than 15 m. Spawning season differs between sources (March-April vs April-August). Gulf of Cadiz occurrence/abundance unverified regionally. Many aquaculture turbot in Spain/France (DORIS). OBIS record counts quoted in 'basis' come from OBIS API queries (24 Oct 2026) over boxes: Gironde 45.0-45.8N/1.45-0.5W (estuary, Royan and waters off the mouth); French Biscay 43.38-45.0N east of 2.0W (3.0W north of 44N); Cantabria 43.25-44.2N/7.05-2.0W; Galicia 41.8-44.0N/9.8-7.05W; Portugal 36.85-41.8N/10.0-7.4W; Cadiz 35.95-37.3N/7.4-5.6W. Counts show presence only; low Iberian counts mostly reflect which surveys are published in OBIS, not abundance. EVHOE (Ifremer autumn bottom-trawl survey) records near the Gironde lie on the shelf off the mouth, not inside the estuary."
+  },
+  {
+    "id": "gurnard",
+    "scientific": "Chelidonichthys lucerna (Linnaeus, 1758)",
+    "family": "Triglidae",
+    "synonyms": [
+      "Trigla lucerna Linnaeus, 1758",
+      "Chelidonichthys lucernus (Linnaeus, 1758)",
+      "Trigla hirundo Linnaeus, 1758",
+      "Trigla corvus Rafinesque, 1810",
+      "Trigla corax Bonaparte, 1834"
+    ],
+    "names": {
+      "en": "Tub gurnard",
+      "fr": "Grondin perlon",
+      "es": "Begel",
+      "pt": "Cabra-cabaço"
+    },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=1366&GenusName=Chelidonichthys&SpeciesName=lucerna",
+      "https://doris.ffessm.fr/Especes/Chelidonichthys-lucerna-Grondin-perlon-875",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318",
+      "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+    ],
+    "habitat": "Sand, muddy sand or gravel bottoms, most often 50-250 m; comes into shallower water and sometimes estuaries in summer; tolerates 8-24 C.",
+    "depth": {
+      "usual": [
+        50,
+        250
+      ],
+      "range": [
+        20,
+        318
+      ],
+      "source": "https://doris.ffessm.fr/Especes/Chelidonichthys-lucerna-Grondin-perlon-875"
+    },
+    "size": {
+      "common": 30,
+      "max": 82.8,
+      "maxNote": "82.8 cm TL maximum (FishBase); DORIS and FNAM give 75 cm and a 6 kg maximum weight; usually under ~50 cm (DORIS) / 30-35 cm (FishBase, FNAM).",
+      "source": "https://www.fishbase.se/summary/Chelidonichthys-lucerna.html"
+    },
+    "diet": "Fish, crustaceans and molluscs; juveniles take small crustaceans and worms, larger fish (from ~30 cm) crabs, adults fish and benthic cephalopods.",
+    "behaviour": "Lives alone or in small groups; walks and probes soft bottoms with three free pectoral rays; grunts with its swim bladder; flashes blue-edged pectorals when threatened; good swimmer that can enter surface waters and estuaries.",
+    "seasonal": "Moves inshore in summer, sometimes into estuaries, and to deeper water (>80 m) in winter (DORIS). Spawns May-June off Brittany (DORIS) / May-July, young in shallow bays or estuaries in late summer (FNAM).",
+    "regions": {
+      "gironde": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "57 EVHOE records in the Gironde box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); FNAM/DORIS note the species can enter estuaries."
+      },
+      "biscay": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "125 EVHOE records in the French Biscay box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); FishBase range 'Norway to Cape Blanc'."
+      },
+      "cantabria": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Species file in the IEO guide with local names (Asturias 'arete, escacho, golondro'; Cantabria 'cuco, perlón, escacho, rubio') caught by trawl and gillnet (https://diversimar.cesga.es/docus/Guia_Especies.pdf); 31 EVHOE records in the Cantabria box."
+      },
+      "galicia": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Listed for Galicia by Bañón & Maño 2021 (old records as Trigla hirundo, T. lucerna) (https://revistas.usc.gal/index.php/nacc/article/view/7198/10694)."
+      },
+      "portugal": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Listed for mainland Portugal as 'Cabra-cabaço' (Carneiro et al. 2014, https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318)."
+      },
+      "cadiz": {
+        "status": "resident",
+        "confidence": "medium",
+        "basis": "Range 'Norway to Cape Blanc' plus Mediterranean (FishBase, FNAM) includes the Gulf of Cadiz; no regional source found (1 OBIS iNaturalist record)."
+      }
+    },
+    "identification": [
+      "Very long pectoral fins reaching the start of the anal fin; inner face blue-black with white or green spots and a bright blue (or red) margin (DORIS, IEO, FNAM).",
+      "Three free lower pectoral rays used as 'legs' (FishBase, IEO).",
+      "Small, well-embedded scales giving smooth skin; lateral line with small tubular scales, only slightly raised (DORIS, FNAM).",
+      "Large bony triangular head without a deep occipital groove; snout long, ending in a slight notch (DORIS, FNAM).",
+      "Body pink to reddish-brown, sometimes mottled, belly white (FNAM, DORIS)."
+    ],
+    "similar": [
+      "Red gurnard Chelidonichthys cuculus (Aspitrigla cuculus): lateral-line scales expanded vertically and clearly visible, shorter snout, shorter pectorals without blue edge (DORIS, IEO).",
+      "Longfin gurnard Chelidonichthys obscurus: very elongate second dorsal spine, plate-like lateral-line scales, dark pectorals bordered blue (DORIS, FNAM).",
+      "Grey gurnard Eutrigla gurnardus: smaller, black spot on first dorsal fin (DORIS).",
+      "Piper Trigla lyra: deeply notched snout (DORIS); streaked gurnard C. lastoviza: much smaller, very short snout (DORIS)."
+    ],
+    "anglingMethods": [
+      "Shore fishing on open sandy beaches or light broken ground with 2-3 hook flapping rigs (size 1-2 hooks), attractor spoons and slow movement of the bait; baits ragworm, lugworm, shellfish, squid, peeler crab, mackerel/herring strip, sandeel; sometimes taken on mackerel feathers fished deep; best in summer when fish come inshore (British Sea Fishing, https://britishseafishing.co.uk/gurnard/)."
+    ],
+    "conservation": "IUCN Red List: Least Concern (assessed 2012; FishBase). Minimum size 20 cm in Galicia and Asturias (IEO guide, https://diversimar.cesga.es/docus/Guia_Especies.pdf). No EU minimum size in Reg. 2019/1241 Annex VII. British Sea Fishing quotes a UK minimum of 28 cm (not applicable here).",
+    "sources": [
+      {
+        "title": "FishBase - Chelidonichthys lucerna summary",
+        "url": "https://www.fishbase.se/summary/Chelidonichthys-lucerna.html"
+      },
+      {
+        "title": "FishBase - common names",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=1366&GenusName=Chelidonichthys&SpeciesName=lucerna"
+      },
+      {
+        "title": "FishBase - synonyms",
+        "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=1366&SynCode=3310&GenusName=Chelidonichthys&SpeciesName=lucerna"
+      },
+      {
+        "title": "DORIS - Chelidonichthys lucerna, Grondin perlon",
+        "url": "https://doris.ffessm.fr/Especes/Chelidonichthys-lucerna-Grondin-perlon-875"
+      },
+      {
+        "title": "FNAM - Trigla lucerna (= C. lucerna)",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109929"
+      },
+      {
+        "title": "IEO 2013 guide (Galicia, Asturias, Cantabria)",
+        "url": "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+      },
+      {
+        "title": "Carneiro et al. 2014",
+        "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+      },
+      {
+        "title": "Bañón & Maño 2021 (Acipenseriformes-Scorpaeniformes)",
+        "url": "https://revistas.usc.gal/index.php/nacc/article/view/7198/10694"
+      },
+      {
+        "title": "OBIS dataset - EVHOE survey",
+        "url": "https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427"
+      },
+      {
+        "title": "British Sea Fishing - gurnard",
+        "url": "https://britishseafishing.co.uk/gurnard/"
+      }
+    ],
+    "uncertain": "Spanish FAO name in FishBase is 'Begel' (old FAO 'Bejel'); regional names vary and gurnards are often lumped in landings (IEO). Gulf of Cadiz occurrence not regionally verified. OBIS record counts quoted in 'basis' come from OBIS API queries (24 Oct 2026) over boxes: Gironde 45.0-45.8N/1.45-0.5W (estuary, Royan and waters off the mouth); French Biscay 43.38-45.0N east of 2.0W (3.0W north of 44N); Cantabria 43.25-44.2N/7.05-2.0W; Galicia 41.8-44.0N/9.8-7.05W; Portugal 36.85-41.8N/10.0-7.4W; Cadiz 35.95-37.3N/7.4-5.6W. Counts show presence only; low Iberian counts mostly reflect which surveys are published in OBIS, not abundance. EVHOE (Ifremer autumn bottom-trawl survey) records near the Gironde lie on the shelf off the mouth, not inside the estuary."
+  },
+  {
+    "id": "sardine",
+    "scientific": "Sardina pilchardus (Walbaum, 1792)",
+    "family": "Alosidae",
+    "synonyms": [
+      "Clupea pilchardus Walbaum, 1792",
+      "Clupea harengus pilchardus Walbaum, 1792",
+      "Alosa pilchardus (Walbaum, 1792)",
+      "Arengus minor Cornide, 1788",
+      "Clupanodon sardina Risso, 1827",
+      "Sardina pilchardus sardina (Risso, 1827)",
+      "Clupea sardina Cuvier, 1829",
+      "Clupea laticosta Lowe, 1843",
+      "Sardina dobrogica Antipa, 1904"
+    ],
+    "names": {
+      "en": "European pilchard",
+      "fr": "Sardine",
+      "es": "Sardina",
+      "pt": "Sardinha"
+    },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=1350&GenusName=Sardina&SpeciesName=pilchardus",
+      "https://doris.ffessm.fr/Especes/Sardina-pilchardus-Sardine-d-Europe-3095",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318",
+      "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+    ],
+    "habitat": "Coastal pelagic schooling fish of the continental shelf, from the coast to open sea, down to about 100 m; enters brackish water.",
+    "depth": {
+      "usual": [
+        25,
+        100
+      ],
+      "range": [
+        10,
+        100
+      ],
+      "source": "https://www.fishbase.se/summary/Sardina-pilchardus.html"
+    },
+    "size": {
+      "common": 20,
+      "max": 27.5,
+      "maxNote": "27.5 cm SL maximum; common 20 cm SL (FishBase; IEO guide gives the same). DORIS: about 20 cm.",
+      "source": "https://www.fishbase.se/summary/Sardina-pilchardus.html"
+    },
+    "diet": "Mainly planktonic crustaceans (small copepods such as Temora, Paracalanus, Calanus), sometimes larger plankton; filter- and particulate-feeding, mostly at night.",
+    "behaviour": "Schooling; daily vertical migration (deeper by day, near the surface at night following zooplankton); oceanodromous/migratory.",
+    "seasonal": "Main spawning October-June with a peak December-March, starting earlier and lasting longer further south (DORIS); FNAM gives spawning from April in the English Channel. No region-specific migration described in fetched sources.",
+    "regions": {
+      "gironde": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "259 EVHOE records in the Gironde box (shelf off the mouth) (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); DORIS cites Ifremer Bay of Biscay biomass estimates of 300,000-500,000 t."
+      },
+      "biscay": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "1,293 EVHOE records in the French Biscay box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); DORIS: PELGAS surveys in the Bay of Biscay, purse-seine (bolinche) fishery."
+      },
+      "cantabria": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "IEO guide: purse-seine target with Cantabrian/Asturian names ('sardina, parrocha') (https://diversimar.cesga.es/docus/Guia_Especies.pdf); 343 larval records in the RADIALES time series (https://obis.org/dataset/e4a8170e-2176-4124-9c97-911c04c3bf2f)."
+      },
+      "galicia": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Bañón & Maño 2021: 'certainly the best known and most studied fish of our coasts' (https://revistas.usc.gal/index.php/nacc/article/view/7198/10694); IEO Galician names 'sardina, parrocha, xouba'."
+      },
+      "portugal": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Listed for mainland Portugal as 'Sardinha' (Carneiro et al. 2014, https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318); 481 OBIS records (ichthyoplankton, Berlengas)."
+      },
+      "cadiz": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Main purse-seine target species of the Gulf of Cadiz national fishing ground (BOE Orden AAA/365/2014, https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf; MAPA draft management order, https://www.mapa.gob.es/dam/mapa/contenido/pesca/participacion-publica/pp_procedimientos-2026/plan-gestion-gplfo-cadiz/borrador-main-modif--orden-golfo-cadiz.pdf); within FishBase range to Senegal."
+      }
+    },
+    "identification": [
+      "Gill cover with 3-5 distinct bony striae radiating downward (FNAM, DORIS, IEO).",
+      "Pelvic fin origin well behind the dorsal fin origin; last two anal rays enlarged (FNAM, DORIS).",
+      "Terminal mouth, jaws not extending past the eye (DORIS, IEO).",
+      "Green/olive back, silvery flanks, with one to three rows of dark spots along the upper flanks (FNAM, IEO).",
+      "Belly with scutes but not sharply keeled (FNAM)."
+    ],
+    "similar": [
+      "Sprat Sprattus sprattus: pelvic fins in front of or under the dorsal origin (DORIS).",
+      "Young shads Alosa spp.: also striated gill cover, but sardine has the last two anal rays enlarged and the mouth ending before the eye centre (DORIS).",
+      "Anchovy: prominent snout, mouth split far behind the eye (DORIS).",
+      "Sardinella: yellow longitudinal line along the flank (DORIS); herring: small firmly attached scales, pelvics before the dorsal (DORIS)."
+    ],
+    "anglingMethods": [
+      "No rod-and-line method documented in fetched sources; taken commercially by purse seine and pelagic trawl (DORIS, IEO guide)."
+    ],
+    "conservation": "IUCN Red List: Least Concern (assessed 2013; FishBase). EU minimum conservation reference size 11 cm in South-Western Waters (Reg. 2019/1241 Annex VII, https://www.legislation.gov.uk/eur/2019/1241/annex/VII/adopted); IEO guide and DORIS also give 11 cm. Gulf of Cadiz purse-seine fishery under a national management plan (BOE).",
+    "sources": [
+      {
+        "title": "FishBase - Sardina pilchardus summary",
+        "url": "https://www.fishbase.se/summary/Sardina-pilchardus.html"
+      },
+      {
+        "title": "FishBase - common names",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=1350&GenusName=Sardina&SpeciesName=pilchardus"
+      },
+      {
+        "title": "FishBase - synonyms",
+        "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=1350&SynCode=23765&GenusName=Sardina&SpeciesName=pilchardus"
+      },
+      {
+        "title": "DORIS - Sardina pilchardus, Sardine d'Europe",
+        "url": "https://doris.ffessm.fr/Especes/Sardina-pilchardus-Sardine-d-Europe-3095"
+      },
+      {
+        "title": "FNAM - Sardina pilchardus",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=108993"
+      },
+      {
+        "title": "IEO 2013 guide (Galicia, Asturias, Cantabria)",
+        "url": "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+      },
+      {
+        "title": "Carneiro et al. 2014",
+        "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+      },
+      {
+        "title": "Bañón & Maño 2021 (Acipenseriformes-Scorpaeniformes)",
+        "url": "https://revistas.usc.gal/index.php/nacc/article/view/7198/10694"
+      },
+      {
+        "title": "BOE Orden AAA/365/2014 - Gulf of Cádiz management plan (purse-seine species)",
+        "url": "https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf"
+      },
+      {
+        "title": "MAPA draft order, Gulf of Cádiz management plan",
+        "url": "https://www.mapa.gob.es/dam/mapa/contenido/pesca/participacion-publica/pp_procedimientos-2026/plan-gestion-gplfo-cadiz/borrador-main-modif--orden-golfo-cadiz.pdf"
+      },
+      {
+        "title": "OBIS dataset - EVHOE survey",
+        "url": "https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427"
+      },
+      {
+        "title": "OBIS dataset - RADIALES fish larvae",
+        "url": "https://obis.org/dataset/e4a8170e-2176-4124-9c97-911c04c3bf2f"
+      },
+      {
+        "title": "EU Reg. 2019/1241 Annex VII",
+        "url": "https://www.legislation.gov.uk/eur/2019/1241/annex/VII/adopted"
+      }
+    ],
+    "uncertain": "Family: FishBase now places Sardina in Alosidae; DORIS, the IEO guide and Bañón & Maño use Clupeidae. FishBase's FAO English name is 'European pilchard'; 'sardine' is used for smaller fish (FNAM). FNAM recognises Atlantic subspecies S. p. pilchardus (Gibraltar to Bergen) and S. p. sardina (Gibraltar southward/Mediterranean), not accepted by all authors. Cadiz evidence is fishery-management documents plus range. OBIS record counts quoted in 'basis' come from OBIS API queries (24 Oct 2026) over boxes: Gironde 45.0-45.8N/1.45-0.5W (estuary, Royan and waters off the mouth); French Biscay 43.38-45.0N east of 2.0W (3.0W north of 44N); Cantabria 43.25-44.2N/7.05-2.0W; Galicia 41.8-44.0N/9.8-7.05W; Portugal 36.85-41.8N/10.0-7.4W; Cadiz 35.95-37.3N/7.4-5.6W. Counts show presence only; low Iberian counts mostly reflect which surveys are published in OBIS, not abundance. EVHOE (Ifremer autumn bottom-trawl survey) records near the Gironde lie on the shelf off the mouth, not inside the estuary."
+  },
+  {
+    "id": "anchovy",
+    "scientific": "Engraulis encrasicolus (Linnaeus, 1758)",
+    "family": "Engraulidae",
+    "synonyms": [
+      "Clupea encrasicolus Linnaeus, 1758",
+      "Stolephorus encrasicolus (Linnaeus, 1758)",
+      "Engraulis encrasicholus (Linnaeus, 1758)",
+      "Engraulis amara Risso, 1827",
+      "Engraulis meletta Cuvier, 1829",
+      "Engraulis vulgaris Nilsson, 1832",
+      "Engraulis argyrophanus Valenciennes, 1848",
+      "Engraulis russoi Dulzetto, 1947",
+      "Anchoviella guineensis Rossignol & Blache, 1961"
+    ],
+    "names": {
+      "en": "European anchovy",
+      "fr": "Anchois commun",
+      "es": "Boquerón",
+      "pt": "Biqueirão"
+    },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=66&GenusName=Engraulis&SpeciesName=encrasicolus",
+      "https://doris.ffessm.fr/Especes/Engraulis-encrasicolus-Anchois-commun-3096",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318",
+      "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+    ],
+    "habitat": "Neritic pelagic schooling fish between the coast and shelf edge; euryhaline (5-41 ppt), entering lagoons and estuaries, especially to spawn and as juveniles.",
+    "depth": {
+      "usual": null,
+      "range": [
+        0,
+        400
+      ],
+      "source": "https://www.fishbase.se/summary/Engraulis-encrasicolus.html"
+    },
+    "size": {
+      "common": 13.5,
+      "max": 20,
+      "maxNote": "20 cm SL maximum; common 13.5 cm SL (FishBase, IEO); FNAM usually 12-15 cm.",
+      "source": "https://www.fishbase.se/summary/Engraulis-encrasicolus.html"
+    },
+    "diet": "Mesozooplankton, mainly calanoid copepods, plus crustacean and mollusc larvae and fish eggs.",
+    "behaviour": "Large, often mixed-species schools in constant motion; daily vertical migration (deeper and grouped by day, dispersed near the surface at night); moves north and into surface waters in summer, retreats and descends in winter.",
+    "seasonal": "Bay of Biscay spawning March-August, peak May-June at 14-18 C surface temperature, with key areas offshore of the Gironde and Adour estuaries and shelf-edge upwellings (DORIS; FNAM: April-August, through October on the Biscay coast). Gulf of Cadiz: larvae/early juveniles abundant in the Guadalquivir estuary in summer (Miró et al., reported by Ecoticias 2020).",
+    "regions": {
+      "gironde": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "DORIS: key Bay of Biscay spawning area offshore of the Gironde estuary; 382 EVHOE records in the Gironde box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427)."
+      },
+      "biscay": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "835 EVHOE records in the French Biscay box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); DORIS: Bay of Biscay spawning, 12 cm French minimum size, pair-trawl/purse-seine fishery."
+      },
+      "cantabria": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "IEO guide: purse-seine target with names 'anchoa, bocarte' in Asturias and Cantabria (https://diversimar.cesga.es/docus/Guia_Especies.pdf); 130 larval records in RADIALES (https://obis.org/dataset/e4a8170e-2176-4124-9c97-911c04c3bf2f)."
+      },
+      "galicia": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Listed for Galicia by Bañón & Maño 2021 (https://revistas.usc.gal/index.php/nacc/article/view/7198/10694); IEO Galician names 'bocareu, bocarte, anxova'."
+      },
+      "portugal": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Listed for mainland Portugal as 'Biqueirão' (Carneiro et al. 2014, https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318)."
+      },
+      "cadiz": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Most abundant fish larva/juvenile in all zones of four Gulf of Cadiz estuaries, highest in the Guadalquivir (Miró et al., Sci. Total Environ., reported at https://www.ecoticias.com/naturaleza/204980_turbidez-guadalquivir-potencia-produccion-boquerones-estuario); main purse-seine target with an ICES IX quota (BOE, https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf)."
+      }
+    },
+    "identification": [
+      "Pointed snout projecting well beyond the lower jaw; mouth inferior with the upper jaw reaching far behind the eye (FNAM, DORIS).",
+      "Single short dorsal fin; anal fin behind the dorsal base (FNAM).",
+      "Silver lateral band edged above by a dark line; back blue-green fading quickly to grey (FNAM).",
+      "Belly rounded, without keeled scutes; scales shed very easily (FNAM).",
+      "Large eye set far forward (DORIS)."
+    ],
+    "similar": [
+      "Sardine: terminal mouth, dorsal fin further forward, spots on flanks (DORIS).",
+      "Sprat: superior mouth (DORIS); herring: small adherent scales (DORIS).",
+      "Sand smelt Atherina presbyter: two dorsal fins (IEO, DORIS).",
+      "Sardinella: yellow longitudinal line and deeper body (DORIS)."
+    ],
+    "anglingMethods": [
+      "No rod-and-line method documented in fetched sources; commercial pelagic pair trawl (~80% of French catch) and purse seine (DORIS, IEO)."
+    ],
+    "conservation": "IUCN Red List: Least Concern (assessed 2013; FishBase; DORIS notes the assessment described declines). EU minimum conservation reference size 12 cm (or 90 per kg), but 9 cm in ICES sub-area 9 (Reg. 2019/1241 Annex VII, https://www.legislation.gov.uk/eur/2019/1241/annex/VII/adopted). DORIS: French Bay of Biscay fishery closed 2005-2010 after a collapse. IEO guide (citing older Reg. 850/98): 10 cm south of Fisterra, 12 cm elsewhere in the Cantabrian-NW ground.",
+    "sources": [
+      {
+        "title": "FishBase - Engraulis encrasicolus summary",
+        "url": "https://www.fishbase.se/summary/Engraulis-encrasicolus.html"
+      },
+      {
+        "title": "FishBase - common names",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=66&GenusName=Engraulis&SpeciesName=encrasicolus"
+      },
+      {
+        "title": "FishBase - synonyms",
+        "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=66&SynCode=22756&GenusName=Engraulis&SpeciesName=encrasicolus"
+      },
+      {
+        "title": "DORIS - Engraulis encrasicolus, Anchois commun",
+        "url": "https://doris.ffessm.fr/Especes/Engraulis-encrasicolus-Anchois-commun-3096"
+      },
+      {
+        "title": "FNAM - Engraulis encrasicolus",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=108998"
+      },
+      {
+        "title": "IEO 2013 guide (Galicia, Asturias, Cantabria)",
+        "url": "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+      },
+      {
+        "title": "Carneiro et al. 2014",
+        "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+      },
+      {
+        "title": "Bañón & Maño 2021 (Acipenseriformes-Scorpaeniformes)",
+        "url": "https://revistas.usc.gal/index.php/nacc/article/view/7198/10694"
+      },
+      {
+        "title": "Ecoticias 2020 on Miró et al., nursery function of Gulf of Cádiz estuaries",
+        "url": "https://www.ecoticias.com/naturaleza/204980_turbidez-guadalquivir-potencia-produccion-boquerones-estuario"
+      },
+      {
+        "title": "BOE Orden AAA/365/2014 - Gulf of Cádiz plan",
+        "url": "https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf"
+      },
+      {
+        "title": "OBIS dataset - EVHOE survey",
+        "url": "https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427"
+      },
+      {
+        "title": "OBIS dataset - RADIALES fish larvae",
+        "url": "https://obis.org/dataset/e4a8170e-2176-4124-9c97-911c04c3bf2f"
+      },
+      {
+        "title": "EU Reg. 2019/1241 Annex VII",
+        "url": "https://www.legislation.gov.uk/eur/2019/1241/annex/VII/adopted"
+      }
+    ],
+    "uncertain": "No 'usual' depth given by FishBase; DORIS/FNAM mention winter descent to 100-150 m (Mediterranean) and 400 m off West Africa. Presence inside the Gironde estuary proper (vs. off its mouth) relies on DORIS's spawning statement and EVHOE records; a search result attributed rising anchovy juvenile densities in the middle Gironde estuary to Pasquaud et al. 2012, but that paper was not fetched. The Miró et al. paper itself was not fetched (only the press article). OBIS record counts quoted in 'basis' come from OBIS API queries (24 Oct 2026) over boxes: Gironde 45.0-45.8N/1.45-0.5W (estuary, Royan and waters off the mouth); French Biscay 43.38-45.0N east of 2.0W (3.0W north of 44N); Cantabria 43.25-44.2N/7.05-2.0W; Galicia 41.8-44.0N/9.8-7.05W; Portugal 36.85-41.8N/10.0-7.4W; Cadiz 35.95-37.3N/7.4-5.6W. Counts show presence only; low Iberian counts mostly reflect which surveys are published in OBIS, not abundance. EVHOE (Ifremer autumn bottom-trawl survey) records near the Gironde lie on the shelf off the mouth, not inside the estuary."
+  },
+  {
+    "id": "horsemackerel",
+    "scientific": "Trachurus trachurus (Linnaeus, 1758)",
+    "family": "Carangidae",
+    "synonyms": [
+      "Scomber trachurus Linnaeus, 1758",
+      "Caranx trachurus (Linnaeus, 1758)",
+      "Trachurus vulgaris Fleming, 1828",
+      "Trachurus europaeus Gronow, 1854"
+    ],
+    "names": {
+      "en": "Atlantic horse mackerel",
+      "fr": "Chinchard commun",
+      "es": "Jurel",
+      "pt": "Carapau"
+    },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=1365&GenusName=Trachurus&SpeciesName=trachurus",
+      "https://doris.ffessm.fr/Especes/Trachurus-trachurus-Chinchard-commun-921",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318",
+      "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+    ],
+    "habitat": "Pelagic-neritic schooling fish, usually over sandy bottoms at 100-200 m but also near the surface and in coastal waters; can descend to over 1,000 m, notably in winter.",
+    "depth": {
+      "usual": [
+        100,
+        200
+      ],
+      "range": [
+        0,
+        1050
+      ],
+      "source": "https://www.fishbase.se/summary/Trachurus-trachurus.html"
+    },
+    "size": {
+      "common": 22,
+      "max": 70,
+      "maxNote": "70 cm TL maximum (FishBase; IEO gives 70 cm FL); common 22 cm FL (FishBase); FNAM: to about 60 cm FL, common to 30 cm; DORIS: 30-40 cm.",
+      "source": "https://www.fishbase.se/summary/Trachurus-trachurus.html"
+    },
+    "diet": "Fishes, crustaceans and cephalopods (squids).",
+    "behaviour": "Gregarious, forming large schools; hunts in schools, more active at night; daily vertical migration (near surface at night, near bottom by day); juveniles shelter under jellyfish.",
+    "seasonal": "Western stock spawns from the Bay of Biscay to Ireland in (early) spring, then moves north and east (FishBase, DORIS). Comes closer to shore in summer (DORIS). British Sea Fishing: within shore range in warm summer months, most active at sunset.",
+    "regions": {
+      "gironde": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "521 EVHOE records plus 28 egg-survey records in the Gironde box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427)."
+      },
+      "biscay": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "4,540 EVHOE records and ~1,800 egg records (ICES egg surveys) in the French Biscay box; FishBase: western stock spawns off Biscay."
+      },
+      "cantabria": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "IEO guide: trawl and purse-seine target ('chicharro, jurel') (https://diversimar.cesga.es/docus/Guia_Especies.pdf); ~5,000 ICES egg-survey records in the Cantabria box."
+      },
+      "galicia": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Bañón & Maño 2021: species of high commercial interest in Galicia (https://revistas.usc.gal/index.php/nacc/article/view/7286/10671); IEO Galician names 'chicharro, chincho, xurelo'."
+      },
+      "portugal": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Listed for mainland Portugal as 'Carapau' (Carneiro et al. 2014, https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318); >1,000 ICES egg-survey records in the Portugal box."
+      },
+      "cadiz": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "154 ICES mackerel/horse-mackerel egg-survey records in the Cadiz box (OBIS, https://api.obis.org/v3/occurrence?scientificname=Trachurus+trachurus&geometry=POLYGON%28%28-7.4+35.95%2C-5.6+35.95%2C-5.6+37.3%2C-7.4+37.3%2C-7.4+35.95%29%29&size=0); 'jureles (Trachurus spp.)' authorised purse-seine species in the Gulf of Cadiz plan (https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf)."
+      }
+    },
+    "identification": [
+      "Enlarged scute-like scales along the whole lateral line (bayonet-shaped course), 66-75 scales+scutes in total (FNAM, DORIS).",
+      "Dorsal accessory lateral line long, ending below soft dorsal rays 23-31 (FNAM; IEO).",
+      "Small black spot on the edge of the gill cover near its upper angle; very large eye (FNAM, DORIS).",
+      "Two dorsal fins; two detached spines before the anal fin (DORIS).",
+      "Back dark grey/blue-green, lower two-thirds silvery; caudal dirty yellow (IEO)."
+    ],
+    "similar": [
+      "Mediterranean horse mackerel T. mediterraneus: accessory lateral line ends below the 8th spine to 3rd soft dorsal ray; 75-89 scales+scutes; often yellowish fins (FNAM, DORIS).",
+      "Blue jack mackerel T. picturatus: accessory lateral line ends below soft dorsal rays 5-10; 93-100 scales+scutes; slender, dark blue back, offshore (FNAM, DORIS).",
+      "From a distance: bogue Boops boops or Atlantic mackerel (DORIS)."
+    ],
+    "anglingMethods": [
+      "Mostly taken on feathers, 'daylights' or other small lures, best around sunset; comes within shore range in warm summer months (British Sea Fishing - scad, https://britishseafishing.co.uk/scad/)."
+    ],
+    "conservation": "IUCN Red List (global): Vulnerable, A2bd (assessed 2013; FishBase). EU minimum conservation reference size 15 cm, with up to 5% 12-15 cm allowed (Reg. 2019/1241 Annex VII, https://www.legislation.gov.uk/eur/2019/1241/annex/VII/adopted); DORIS cites a French 15 cm minimum (arrêté of 19 March 2007).",
+    "sources": [
+      {
+        "title": "FishBase - Trachurus trachurus summary",
+        "url": "https://www.fishbase.se/summary/Trachurus-trachurus.html"
+      },
+      {
+        "title": "FishBase - common names",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=1365&GenusName=Trachurus&SpeciesName=trachurus"
+      },
+      {
+        "title": "FishBase - synonyms",
+        "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=1365&SynCode=23873&GenusName=Trachurus&SpeciesName=trachurus"
+      },
+      {
+        "title": "DORIS - Trachurus trachurus, Chinchard commun",
+        "url": "https://doris.ffessm.fr/Especes/Trachurus-trachurus-Chinchard-commun-921"
+      },
+      {
+        "title": "FNAM - Trachurus trachurus",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109564"
+      },
+      {
+        "title": "FNAM - Trachurus mediterraneus",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109562"
+      },
+      {
+        "title": "FNAM - Trachurus picturatus",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109563"
+      },
+      {
+        "title": "IEO 2013 guide (Galicia, Asturias, Cantabria)",
+        "url": "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+      },
+      {
+        "title": "Carneiro et al. 2014",
+        "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+      },
+      {
+        "title": "Bañón & Maño 2021 (Trachiniformes-Tetraodontiformes)",
+        "url": "https://revistas.usc.gal/index.php/nacc/article/view/7286/10671"
+      },
+      {
+        "title": "BOE Orden AAA/365/2014 - Gulf of Cádiz plan",
+        "url": "https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf"
+      },
+      {
+        "title": "OBIS dataset - EVHOE survey",
+        "url": "https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427"
+      },
+      {
+        "title": "British Sea Fishing - scad",
+        "url": "https://britishseafishing.co.uk/scad/"
+      },
+      {
+        "title": "EU Reg. 2019/1241 Annex VII",
+        "url": "https://www.legislation.gov.uk/eur/2019/1241/annex/VII/adopted"
+      }
+    ],
+    "uncertain": "Max size given as TL by FishBase but FL by the IEO guide. DORIS oddly states the species 'remains rare on French coasts' (contradicted by survey data). In the Gulf of Cadiz fishers call several non-Trachurus carangids 'jureles' (BOE). OBIS record counts quoted in 'basis' come from OBIS API queries (24 Oct 2026) over boxes: Gironde 45.0-45.8N/1.45-0.5W (estuary, Royan and waters off the mouth); French Biscay 43.38-45.0N east of 2.0W (3.0W north of 44N); Cantabria 43.25-44.2N/7.05-2.0W; Galicia 41.8-44.0N/9.8-7.05W; Portugal 36.85-41.8N/10.0-7.4W; Cadiz 35.95-37.3N/7.4-5.6W. Counts show presence only; low Iberian counts mostly reflect which surveys are published in OBIS, not abundance. EVHOE (Ifremer autumn bottom-trawl survey) records near the Gironde lie on the shelf off the mouth, not inside the estuary."
+  },
+  {
+    "id": "chubmackerel",
+    "scientific": "Scomber colias Gmelin, 1789",
+    "family": "Scombridae",
+    "synonyms": [
+      "Pneumatophorus colias (Gmelin, 1789)",
+      "Scomber japonicus colias Gmelin, 1789",
+      "Scomber scomber lacertus Walbaum, 1792",
+      "Scomber pneumatophorus Delaroche, 1809",
+      "Scomber macrophthalmus Rafinesque, 1810",
+      "Scomber grex Mitchill, 1814",
+      "Scomber capensis Cuvier, 1832",
+      "Scomber undulatus Swainson, 1839",
+      "Scomber gracilis Swainson, 1839",
+      "Scomber dekayi Storer, 1853",
+      "Scomber gigas Fowler, 1935"
+    ],
+    "names": {
+      "en": "Atlantic chub mackerel",
+      "fr": "Maquereau espagnol",
+      "es": "Estornino",
+      "pt": "Cavala"
+    },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=54736&GenusName=Scomber&SpeciesName=colias",
+      "https://doris.ffessm.fr/Especes/Scomber-colias-Maquereau-espagnol-2869",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318",
+      "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+    ],
+    "habitat": "Warm-water pelagic-neritic schooling fish, epipelagic to mesodemersal; enters brackish water.",
+    "depth": {
+      "usual": [
+        50,
+        200
+      ],
+      "range": [
+        0,
+        300
+      ],
+      "source": "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+    },
+    "size": {
+      "common": 30,
+      "max": 55,
+      "maxNote": "55 cm TL maximum (FishBase); IEO guide and FNAM give 50 cm FL max and 30 cm FL common.",
+      "source": "https://www.fishbase.se/summary/Scomber-colias.html"
+    },
+    "diet": "Zooplankton when young; larger fish increasingly eat cephalopods, crustaceans and small pelagic fish (anchovy, sardine, sprat).",
+    "behaviour": "Schooling and strongly migratory (FNAM); often caught as by-catch of sardine/anchovy purse seines and pelagic trawls.",
+    "seasonal": "No region-specific seasonality found. FNAM: common north to the Bay of Biscay, occasional individuals further north.",
+    "regions": {
+      "gironde": {
+        "status": "resident",
+        "confidence": "medium",
+        "basis": "12 EVHOE records in the Gironde box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); within FNAM range ('commonly north to the Bay of Biscay', https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109703)."
+      },
+      "biscay": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "177 EVHOE records in the French Biscay box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); FNAM: common north to the Bay of Biscay."
+      },
+      "cantabria": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "IEO guide species file (purse seine; Asturias 'xarda, caballa, verdel'; Cantabria 'caballa') (https://diversimar.cesga.es/docus/Guia_Especies.pdf); 15 RADIALES larval records."
+      },
+      "galicia": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Listed for Galicia by Bañón & Maño 2021 (older records as S. japonicus) (https://revistas.usc.gal/index.php/nacc/article/view/7286/10671); IEO Galician name 'xarda'."
+      },
+      "portugal": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Listed for mainland Portugal as 'Cavala' (Carneiro et al. 2014, https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318)."
+      },
+      "cadiz": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Age and growth study on Gulf of Cadiz samples from the Andalusian fleet and surveys (Velasco et al. 2011, https://www.redalyc.org/pdf/479/47919219004.pdf); described as a commercial species in the Gulf of Cadiz (Rivas-Mena et al. 2024, https://produccioncientifica.uca.es/documentos/65d1e689824cc36763f8c39c?lang=en)."
+      }
+    },
+    "identification": [
+      "Swim bladder present (FNAM, IEO).",
+      "Belly marked with broken wavy lines or spots (FNAM; British Sea Fishing: many small spots on lower flanks).",
+      "Large eye (IEO, British Sea Fishing).",
+      "First dorsal with 8-10 spines; space between the dorsal fins about equal to the first-dorsal groove (FNAM; IEO: barely longer than the first dorsal).",
+      "Back greenish with fine, faint wavy bands; second dorsal and anal yellowish (IEO)."
+    ],
+    "similar": [
+      "Atlantic mackerel Scomber scombrus: no swim bladder, plain unspotted belly, bolder/thicker dark wavy bars, gap between dorsal fins about 1.5 times the first dorsal length (IEO, British Sea Fishing)."
+    ],
+    "anglingMethods": [
+      "Taken on spinners, daylights and feathers, usually incidentally while fishing for Atlantic mackerel (British Sea Fishing - Spanish mackerel, https://britishseafishing.co.uk/spanish-mackerel/)."
+    ],
+    "conservation": "IUCN Red List: Least Concern (assessed 2022; FishBase). EU minimum conservation reference size 20 cm for Scomber spp. in South-Western Waters (Reg. 2019/1241 Annex VII, https://www.legislation.gov.uk/eur/2019/1241/annex/VII/adopted); IEO guide: 20 cm in the Cantabrian-NW ground.",
+    "sources": [
+      {
+        "title": "FishBase - Scomber colias summary",
+        "url": "https://www.fishbase.se/summary/Scomber-colias.html"
+      },
+      {
+        "title": "FishBase - common names",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=54736&GenusName=Scomber&SpeciesName=colias"
+      },
+      {
+        "title": "FishBase - synonyms",
+        "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=54736&SynCode=133251&GenusName=Scomber&SpeciesName=colias"
+      },
+      {
+        "title": "DORIS - Scomber colias, Maquereau espagnol (stub)",
+        "url": "https://doris.ffessm.fr/Especes/Scomber-colias-Maquereau-espagnol-2869"
+      },
+      {
+        "title": "FNAM - Scomber japonicus (Atlantic populations = S. colias)",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109703"
+      },
+      {
+        "title": "IEO 2013 guide (Galicia, Asturias, Cantabria)",
+        "url": "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+      },
+      {
+        "title": "Carneiro et al. 2014",
+        "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+      },
+      {
+        "title": "Bañón & Maño 2021 (Trachiniformes-Tetraodontiformes)",
+        "url": "https://revistas.usc.gal/index.php/nacc/article/view/7286/10671"
+      },
+      {
+        "title": "Velasco et al. 2011, Age and growth of Scomber colias off southern Spain",
+        "url": "https://www.redalyc.org/pdf/479/47919219004.pdf"
+      },
+      {
+        "title": "Rivas-Mena et al. 2024, microplastics in Scomber colias, Gulf of Cadiz",
+        "url": "https://produccioncientifica.uca.es/documentos/65d1e689824cc36763f8c39c?lang=en"
+      },
+      {
+        "title": "OBIS dataset - EVHOE survey",
+        "url": "https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427"
+      },
+      {
+        "title": "British Sea Fishing - Spanish mackerel",
+        "url": "https://britishseafishing.co.uk/spanish-mackerel/"
+      },
+      {
+        "title": "EU Reg. 2019/1241 Annex VII",
+        "url": "https://www.legislation.gov.uk/eur/2019/1241/annex/VII/adopted"
+      }
+    ],
+    "uncertain": "Older literature (FNAM, Galician records pre-2010) used Scomber japonicus for this Atlantic species; British Sea Fishing notes that name belongs to the Pacific chub mackerel. FishBase gives no depth range; depth here is from the IEO guide (to 300 m, usually 50-200 m). 'Caballa' in Cantabria/Asturias also means S. scombrus; Spanish FAO name in FishBase is 'Estornino del Atlántico'. Seasonality in the region unverified. OBIS record counts quoted in 'basis' come from OBIS API queries (24 Oct 2026) over boxes: Gironde 45.0-45.8N/1.45-0.5W (estuary, Royan and waters off the mouth); French Biscay 43.38-45.0N east of 2.0W (3.0W north of 44N); Cantabria 43.25-44.2N/7.05-2.0W; Galicia 41.8-44.0N/9.8-7.05W; Portugal 36.85-41.8N/10.0-7.4W; Cadiz 35.95-37.3N/7.4-5.6W. Counts show presence only; low Iberian counts mostly reflect which surveys are published in OBIS, not abundance. EVHOE (Ifremer autumn bottom-trawl survey) records near the Gironde lie on the shelf off the mouth, not inside the estuary."
+  },
+  {
+    "id": "bonito",
+    "scientific": "Sarda sarda (Bloch, 1793)",
+    "family": "Scombridae",
+    "synonyms": [
+      "Scomber sarda Bloch, 1793",
+      "Pelamys sarda (Bloch, 1793)",
+      "Thynnus sardus (Bloch, 1793)",
+      "Sarda pelamis",
+      "Scomber mediterraneus Bloch & Schneider, 1801",
+      "Sarda mediterranea (Bloch & Schneider, 1801)",
+      "Scomber palamitus Rafinesque, 1810",
+      "Scomber ponticus Pallas, 1814",
+      "Thynnus brachypterus Cuvier, 1829"
+    ],
+    "names": {
+      "en": "Atlantic bonito",
+      "fr": "Bonite à dos rayé",
+      "es": "Bonito del Atlántico",
+      "pt": "Sarrajão"
+    },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=115&GenusName=Sarda&SpeciesName=sarda",
+      "https://doris.ffessm.fr/Especes/Sarda-sarda-Bonite-a-dos-raye-2870",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318",
+      "https://diversimar.cesga.es/docus/Guia_Especies.pdf",
+      "https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_10_1_BON_ENG.pdf"
+    ],
+    "habitat": "Epipelagic, neritic schooling fish mostly in coastal waters over the continental shelf, near the surface; may enter estuaries; tolerates 12-27 C and salinity 14-39.",
+    "depth": {
+      "usual": null,
+      "range": [
+        0,
+        200
+      ],
+      "source": "https://www.fishbase.se/summary/Sarda-sarda.html"
+    },
+    "size": {
+      "common": 50,
+      "max": 91.4,
+      "maxNote": "91.4 cm FL maximum, 11 kg max published weight; common 50 cm FL (FishBase, ICCAT, IEO).",
+      "source": "https://www.fishbase.se/summary/Sarda-sarda.html"
+    },
+    "diet": "Mainly small schooling fishes (anchovy, sardine and other clupeoids, gadoids, mackerels), also squid and shrimp; cannibalistic; daytime predator.",
+    "behaviour": "Gregarious, schools of a few to several hundred fish near the surface, sometimes mixed with tunas, amberjacks and jacks; long coastal migrations (average ~2.6 km/day).",
+    "seasonal": "Seasonal migrations, approaching coasts in summer (DORIS). Spawning does not occur in northern European waters (FNAM). Migrates along the coast from the Atlantic into the Alboran Sea to spawn and back (ICCAT). Autumn records on the French Biscay shelf (EVHOE survey, Oct-Nov).",
+    "regions": {
+      "gironde": {
+        "status": "seasonal",
+        "confidence": "medium",
+        "basis": "19 EVHOE (autumn survey) records in the Gironde box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); seasonal coastal presence per DORIS/FNAM."
+      },
+      "biscay": {
+        "status": "seasonal",
+        "confidence": "medium",
+        "basis": "53 EVHOE (autumn) records in the French Biscay box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); FNAM: no spawning in northern European waters; DORIS: summer inshore migration."
+      },
+      "cantabria": {
+        "status": "seasonal",
+        "confidence": "medium",
+        "basis": "IEO guide species file (troll/'curricán'; Asturias 'sierra, alistao, listado, melva'; Cantabria 'bonito') (https://diversimar.cesga.es/docus/Guia_Especies.pdf); trolling season late spring-early autumn per the same guide."
+      },
+      "galicia": {
+        "status": "seasonal",
+        "confidence": "medium",
+        "basis": "Listed for Galicia by Bañón & Maño 2021 (https://revistas.usc.gal/index.php/nacc/article/view/7286/10671); seasonality inferred from DORIS/FNAM."
+      },
+      "portugal": {
+        "status": "resident",
+        "confidence": "medium",
+        "basis": "Listed for mainland Portugal as 'Sarrajão' (Carneiro et al. 2014, https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318); seasonality not documented."
+      },
+      "cadiz": {
+        "status": "seasonal",
+        "confidence": "medium",
+        "basis": "Authorised purse-seine species in the Gulf of Cadiz plan (BOE, https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf); ICCAT describes coastal migration between the Atlantic and the Alboran Sea through the Strait (https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_10_1_BON_ENG.pdf)."
+      }
+    },
+    "identification": [
+      "5-11 dark, slightly oblique stripes on the back running forward and downward (FNAM, DORIS, IEO).",
+      "Very long first dorsal fin with 20-23 spines and a straight edge; the two dorsals almost touching (FNAM, DORIS).",
+      "7-9 dorsal and 6-8 anal finlets (DORIS).",
+      "Large, widely split mouth (DORIS); strong median caudal keel between two smaller keels (IEO).",
+      "Back and upper sides steel blue, belly silvery (FNAM, IEO)."
+    ],
+    "similar": [
+      "Skipjack Katsuwonus pelamis: stripes only on the belly (DORIS).",
+      "Little tunny Euthynnus alletteratus: wavy marks only on the rear of the back and dark spots between pectoral and pelvic fins (DORIS, ICCAT).",
+      "Bullet tuna Auxis rochei: dorsal fins widely separated (IEO).",
+      "Young tunas: uniform dark back without stripes (DORIS)."
+    ],
+    "anglingMethods": [
+      "Troll lines ('curricán') are the gear listed for it in the Cantabrian-NW guide (https://diversimar.cesga.es/docus/Guia_Especies.pdf).",
+      "A French tackle retailer describes spinning with small jigs (10-45 g), pencil lures and jerkbaits, trolling and chumming from an anchored boat for 'bonito', but does not state which species it means (https://www.leurredelapeche.fr/es/articles/131-donde-pescar-bonito-como-pescar-bonito.html) - low reliability."
+    ],
+    "conservation": "IUCN Red List: Least Concern (assessed 2021; FishBase). IEO guide: no minimum size ('sin regular') in the Cantabrian-NW ground (https://diversimar.cesga.es/docus/Guia_Especies.pdf). Managed under ICCAT as a small tuna.",
+    "sources": [
+      {
+        "title": "FishBase - Sarda sarda summary",
+        "url": "https://www.fishbase.se/summary/Sarda-sarda.html"
+      },
+      {
+        "title": "FishBase - common names",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=115&GenusName=Sarda&SpeciesName=sarda"
+      },
+      {
+        "title": "FishBase - synonyms",
+        "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=115&SynCode=22818&GenusName=Sarda&SpeciesName=sarda"
+      },
+      {
+        "title": "DORIS - Sarda sarda, Bonite à dos rayé",
+        "url": "https://doris.ffessm.fr/Especes/Sarda-sarda-Bonite-a-dos-raye-2870"
+      },
+      {
+        "title": "FNAM - Sarda sarda",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109702"
+      },
+      {
+        "title": "ICCAT Manual 2.1.10.1 Atlantic bonito",
+        "url": "https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_10_1_BON_ENG.pdf"
+      },
+      {
+        "title": "IEO 2013 guide (Galicia, Asturias, Cantabria)",
+        "url": "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+      },
+      {
+        "title": "Carneiro et al. 2014",
+        "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+      },
+      {
+        "title": "Bañón & Maño 2021 (Trachiniformes-Tetraodontiformes)",
+        "url": "https://revistas.usc.gal/index.php/nacc/article/view/7286/10671"
+      },
+      {
+        "title": "BOE Orden AAA/365/2014 - Gulf of Cádiz plan",
+        "url": "https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf"
+      },
+      {
+        "title": "OBIS dataset - EVHOE survey",
+        "url": "https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427"
+      }
+    ],
+    "uncertain": "Name trap: in northern Spain 'bonito (del norte)' usually means albacore Thunnus alalunga (the IEO guide describes the summer 'curricán' fishery for 'bonito (Thunnus alalunga)'), while Sarda sarda is 'bonito del Atlántico', 'cerda' or in Asturias 'sierra'; Asturias also uses 'melva' for it. FishBase lists 'Horse mackerel' as a UK vernacular. Depth: FishBase/ICCAT give '80-200 m', which contradicts DORIS ('rather near the surface'); range set to 0-200 m and 'usual' left null. Seasonal status in France/Spain partly inferred. OBIS record counts quoted in 'basis' come from OBIS API queries (24 Oct 2026) over boxes: Gironde 45.0-45.8N/1.45-0.5W (estuary, Royan and waters off the mouth); French Biscay 43.38-45.0N east of 2.0W (3.0W north of 44N); Cantabria 43.25-44.2N/7.05-2.0W; Galicia 41.8-44.0N/9.8-7.05W; Portugal 36.85-41.8N/10.0-7.4W; Cadiz 35.95-37.3N/7.4-5.6W. Counts show presence only; low Iberian counts mostly reflect which surveys are published in OBIS, not abundance. EVHOE (Ifremer autumn bottom-trawl survey) records near the Gironde lie on the shelf off the mouth, not inside the estuary."
+  },
+  {
+    "id": "littletunny",
+    "scientific": "Euthynnus alletteratus (Rafinesque, 1810)",
+    "family": "Scombridae",
+    "synonyms": [
+      "Scomber alletteratus Rafinesque, 1810",
+      "Gymnosarda alletterata (Rafinesque, 1810)",
+      "Scomber quadripunctatus Geoffroy Saint-Hilaire, 1817",
+      "Euthynnus quadripunctatus (Geoffroy Saint-Hilaire, 1817)",
+      "Thynnus leachianus Risso, 1827",
+      "Thynnus thunina Cuvier, 1829",
+      "Euthynnus thunina (Cuvier, 1829)",
+      "Thynnus brevipinnis Cuvier, 1832",
+      "Thynnus brasiliensis Cuvier, 1832",
+      "Euthynnus alletteratus aurolitoralis Fraser-Brunner, 1949"
+    ],
+    "names": {
+      "en": "Little tunny",
+      "fr": "Thonine commune",
+      "es": "Bacoreta",
+      "pt": "Merma"
+    },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=97&GenusName=Euthynnus&SpeciesName=alletteratus",
+      "https://doris.ffessm.fr/Especes/Euthynnus-alletteratus-Thonine-commune-4528",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318",
+      "https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf"
+    ],
+    "habitat": "Epipelagic, neritic tuna of inshore waters, more coastal than other tunas; near shoals, offshore islands, swift currents, thermal fronts and upwellings; warm water (most abundant at 24-30 C in the tropics).",
+    "depth": {
+      "usual": [
+        1,
+        150
+      ],
+      "range": [
+        1,
+        150
+      ],
+      "source": "https://www.fishbase.se/summary/Euthynnus-alletteratus.html"
+    },
+    "size": {
+      "common": 80,
+      "max": 122,
+      "maxNote": "122 cm TL maximum and 16.5 kg (FishBase; ICCAT: 122 cm FL reported for the Mediterranean). ICCAT: maximum 80.6 cm FL reported for the Northeast Atlantic.",
+      "source": "https://www.fishbase.se/summary/Euthynnus-alletteratus.html"
+    },
+    "diet": "Opportunistic predator of crustaceans, small fishes (mainly clupeoids), squids, heteropods and tunicates.",
+    "behaviour": "Schools by size, scattering at certain times of year; less migratory than larger tunas; large schools signalled by diving birds.",
+    "seasonal": "Rare north of the Iberian Peninsula (FNAM, ICCAT). North Atlantic spawning period April-November (ICCAT). No region-specific seasonality found.",
+    "regions": {
+      "gironde": {
+        "status": "occasional",
+        "confidence": "low",
+        "basis": "FNAM: rare north of the Iberian Peninsula with isolated catches further north (https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109698); no OBIS records in the box."
+      },
+      "biscay": {
+        "status": "occasional",
+        "confidence": "low",
+        "basis": "FNAM and ICCAT: rare north of the Iberian Peninsula (https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_10_5_LTA_ENG.pdf); no OBIS records in the box."
+      },
+      "cantabria": {
+        "status": "occasional",
+        "confidence": "low",
+        "basis": "ICCAT: 'rare in the northern Iberian Peninsula' (https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_10_5_LTA_ENG.pdf); no IEO guide file; no OBIS records."
+      },
+      "galicia": {
+        "status": "occasional",
+        "confidence": "low",
+        "basis": "Bañón & Maño 2021 class the only Galician record (Solórzano et al. 1983, 'rarely seen') as doubtful (https://revistas.usc.gal/index.php/nacc/article/view/7286/10671)."
+      },
+      "portugal": {
+        "status": "resident",
+        "confidence": "low",
+        "basis": "Listed for mainland Portugal as 'Merma' without museum voucher (Carneiro et al. 2014, https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318); ICCAT cites genetic samples from southern Portugal; frequency and seasonality not documented."
+      },
+      "cadiz": {
+        "status": "resident",
+        "confidence": "medium",
+        "basis": "Authorised purse-seine species ('bacoreta') in the Gulf of Cadiz plan (BOE, https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf); ICCAT cites biological studies of fish from the Atlantic area near the Strait and the southern Iberian Peninsula (https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_10_5_LTA_ENG.pdf); seasonality not documented."
+      }
+    },
+    "identification": [
+      "Complex wavy/broken dark striped pattern on the back, not extending forward beyond the middle of the first dorsal fin (FNAM, ICCAT; DORIS photo: irregular pattern on the rear two-thirds of the back).",
+      "Several dark spots between the pectoral and pelvic fins, not always conspicuous (FNAM, ICCAT, DORIS).",
+      "Two dorsal fins separated by a narrow space; anterior first-dorsal spines tall, giving a strongly concave outline (ICCAT).",
+      "Body naked except for the corselet and lateral line; slender caudal peduncle with a median keel between two smaller keels (ICCAT).",
+      "Lower sides and belly silvery white (FNAM)."
+    ],
+    "similar": [
+      "Atlantic bonito Sarda sarda: oblique stripes along the whole back, very long straight-edged first dorsal, no spots under pectorals (DORIS).",
+      "Bullet tuna Auxis rochei: two dorsals widely separated, smaller (ICCAT, IEO).",
+      "Skipjack Katsuwonus pelamis: stripes on the belly, not the back (DORIS)."
+    ],
+    "anglingMethods": [
+      "FishBase calls it a popular gamefish (https://www.fishbase.se/summary/Euthynnus-alletteratus.html); ICCAT gear categories for its catches include rod and reel, handline, trolling and sport fishing (https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_10_5_LTA_ENG.pdf). No regional angling description fetched."
+    ],
+    "conservation": "IUCN Red List: Least Concern (assessed 2022; FishBase). No minimum size found for the region. Managed under ICCAT as a small tuna.",
+    "sources": [
+      {
+        "title": "FishBase - Euthynnus alletteratus summary",
+        "url": "https://www.fishbase.se/summary/Euthynnus-alletteratus.html"
+      },
+      {
+        "title": "FishBase - common names",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=97&GenusName=Euthynnus&SpeciesName=alletteratus"
+      },
+      {
+        "title": "FishBase - synonyms",
+        "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=97&SynCode=22759&GenusName=Euthynnus&SpeciesName=alletteratus"
+      },
+      {
+        "title": "DORIS - Euthynnus alletteratus, Thonine commune (stub)",
+        "url": "https://doris.ffessm.fr/Especes/Euthynnus-alletteratus-Thonine-commune-4528"
+      },
+      {
+        "title": "FNAM - Euthynnus alletteratus",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109698"
+      },
+      {
+        "title": "ICCAT Manual 2.1.10.5 Little tunny",
+        "url": "https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_10_5_LTA_ENG.pdf"
+      },
+      {
+        "title": "Carneiro et al. 2014",
+        "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+      },
+      {
+        "title": "Bañón & Maño 2021 (Trachiniformes-Tetraodontiformes)",
+        "url": "https://revistas.usc.gal/index.php/nacc/article/view/7286/10671"
+      },
+      {
+        "title": "BOE Orden AAA/365/2014 - Gulf of Cádiz plan",
+        "url": "https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf"
+      }
+    ],
+    "uncertain": "Status in Portugal and Cadiz is presence-only; whether it is year-round or seasonal there was not found. Saber et al. 2018 (ICCAT SCRS/2018/029; seen only via search results) sampled 1,266 fish from the Spanish Mediterranean and the Atlantic south of the Iberian Peninsula. Name trap: Portuguese 'melva/melena' and Spanish/Portuguese 'atún' are also listed for this species in FishBase, while Spanish 'melva' normally means Auxis. FishBase depth 1-150 m used for both usual and range. OBIS record counts quoted in 'basis' come from OBIS API queries (24 Oct 2026) over boxes: Gironde 45.0-45.8N/1.45-0.5W (estuary, Royan and waters off the mouth); French Biscay 43.38-45.0N east of 2.0W (3.0W north of 44N); Cantabria 43.25-44.2N/7.05-2.0W; Galicia 41.8-44.0N/9.8-7.05W; Portugal 36.85-41.8N/10.0-7.4W; Cadiz 35.95-37.3N/7.4-5.6W. Counts show presence only; low Iberian counts mostly reflect which surveys are published in OBIS, not abundance. EVHOE (Ifremer autumn bottom-trawl survey) records near the Gironde lie on the shelf off the mouth, not inside the estuary."
+  },
+  {
+    "id": "bullet",
+    "scientific": "Auxis rochei (Risso, 1810)",
+    "family": "Scombridae",
+    "synonyms": [
+      "Scomber rochei Risso, 1810",
+      "Auxis rochei rochei (Risso, 1810)",
+      "Scomber bisus Rafinesque, 1810",
+      "Auxis bisus (Rafinesque, 1810)",
+      "Thynnus rocheanus Risso, 1827",
+      "Auxis vulgaris Cuvier, 1832",
+      "Auxis thynnoides Bleeker, 1855",
+      "Auxis ramsayi Castelnau, 1879",
+      "Auxis maru Kishinouye, 1915"
+    ],
+    "names": {
+      "en": "Bullet tuna",
+      "fr": "Bonitou",
+      "es": "Melva",
+      "pt": "Judeu"
+    },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=93&GenusName=Auxis&SpeciesName=rochei",
+      "https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_10_2_BLT_ENG.pdf",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318",
+      "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+    ],
+    "habitat": "Epipelagic, neritic tuna of inshore waters and around islands, also oceanic; warm water, with a seasonal coastal distribution in temperate areas.",
+    "depth": {
+      "usual": null,
+      "range": null,
+      "source": "https://www.fishbase.se/summary/Auxis-rochei.html"
+    },
+    "size": {
+      "common": 35,
+      "max": 51,
+      "maxNote": "51 cm FL maximum in the eastern Atlantic (ICCAT, Santos & García 2006); 47 cm FL and ~1.9 kg in the Strait of Gibraltar; FishBase gives 50 cm FL; common 35 cm FL (ICCAT, FNAM).",
+      "source": "https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_10_2_BLT_ENG.pdf"
+    },
+    "diet": "Small fishes (especially anchovies/clupeids), crustaceans (megalops and stomatopod larvae) and squids.",
+    "behaviour": "Forms large schools of similar-sized fish; migrates along the coast from the Atlantic through the Strait of Gibraltar to Mediterranean spawning areas and back.",
+    "seasonal": "Algarve (Portugal): caught May-November, associated with warmer water and south-easterly (Levante) winds (ICCAT citing Santos & García 2006). Strait of Gibraltar: maturing fish common from May (ICCAT). Rare north of the Iberian coast (FNAM).",
+    "regions": {
+      "gironde": {
+        "status": "occasional",
+        "confidence": "low",
+        "basis": "FNAM: rare north of the Iberian coast, isolated records from the British Isles, Belgium and Scandinavia (https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109697); no records found for the area."
+      },
+      "biscay": {
+        "status": "occasional",
+        "confidence": "low",
+        "basis": "FNAM: rare north of the Iberian coast (https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109697); no OBIS/GBIF records in the French Biscay box."
+      },
+      "cantabria": {
+        "status": "seasonal",
+        "confidence": "medium",
+        "basis": "IEO guide species file for Auxis rochei rochei with local name 'melva' in Asturias and Cantabria, caught by trolling ('curricán'), a late-spring to early-autumn fishery (https://diversimar.cesga.es/docus/Guia_Especies.pdf); 2 DATRAS records via GBIF."
+      },
+      "galicia": {
+        "status": "seasonal",
+        "confidence": "medium",
+        "basis": "Listed for Galicia by Bañón & Maño 2021 (https://revistas.usc.gal/index.php/nacc/article/view/7286/10671); IEO Galician names 'zurdo, melva'; seasonality inferred from the trolling season."
+      },
+      "portugal": {
+        "status": "seasonal",
+        "confidence": "high",
+        "basis": "Listed for mainland Portugal (Carneiro et al. 2014, https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318); Algarve catches May-November (ICCAT, https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_10_2_BLT_ENG.pdf)."
+      },
+      "cadiz": {
+        "status": "seasonal",
+        "confidence": "high",
+        "basis": "ICCAT: more abundant in the Strait of Gibraltar; migration through the Strait (https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_10_2_BLT_ENG.pdf); 'melva (Auxis rochei/Auxis thazard)' authorised purse-seine species in the Gulf of Cadiz (BOE, https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf)."
+      }
+    },
+    "identification": [
+      "Two dorsal fins separated by a large gap at least equal to the first-dorsal base (ICCAT, IEO).",
+      "Corselet scales form a wide band behind the pectoral: more than 6 (usually 10-15) scales wide under the second-dorsal origin (ICCAT, FNAM).",
+      "15 or more fairly broad, nearly vertical dark bars on the scaleless area above the lateral line (FNAM, ICCAT).",
+      "Short pectoral fin not reaching the scaleless area above the corselet (ICCAT, FNAM).",
+      "Black patch at the postero-ventral border of the eye; white unmarked belly (ICCAT)."
+    ],
+    "similar": [
+      "Frigate tuna Auxis thazard: narrow corselet (no more than 5 scales wide under second-dorsal origin), pectoral reaching past the front of the scaleless area, 15+ narrow oblique-to-nearly-horizontal wavy lines (ICCAT FRI).",
+      "Atlantic bonito Sarda sarda: dorsals nearly continuous, oblique stripes along the whole back (IEO, DORIS).",
+      "Little tunny Euthynnus alletteratus: dorsals close together, dark spots between pectoral and pelvic fins (ICCAT).",
+      "Albacore Thunnus alalunga is listed as a look-alike by the IEO guide."
+    ],
+    "anglingMethods": [
+      "Troll lines ('curricán') in the Cantabrian-NW ground (https://diversimar.cesga.es/docus/Guia_Especies.pdf); ICCAT lists trolling lines and handlines among the artisanal gears (https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_10_2_BLT_ENG.pdf)."
+    ],
+    "conservation": "IUCN Red List: Least Concern (assessed 2022; FishBase). No minimum size ('sin regular') in the Cantabrian-NW ground (IEO guide); listed as a highly migratory species (UNCLOS Annex I) by the IEO guide. Managed under ICCAT as a small tuna.",
+    "sources": [
+      {
+        "title": "FishBase - Auxis rochei summary",
+        "url": "https://www.fishbase.se/summary/Auxis-rochei.html"
+      },
+      {
+        "title": "FishBase - Auxis thazard summary (for comparison)",
+        "url": "https://www.fishbase.se/summary/Auxis-thazard.html"
+      },
+      {
+        "title": "FishBase - common names, A. rochei",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=93&GenusName=Auxis&SpeciesName=rochei"
+      },
+      {
+        "title": "FishBase - common names, A. thazard",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=94&GenusName=Auxis&SpeciesName=thazard"
+      },
+      {
+        "title": "FishBase - synonyms, A. rochei",
+        "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=93&SynCode=22738&GenusName=Auxis&SpeciesName=rochei"
+      },
+      {
+        "title": "ICCAT Manual 2.1.10.2 Bullet tuna",
+        "url": "https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_10_2_BLT_ENG.pdf"
+      },
+      {
+        "title": "ICCAT Manual 2.1.10.3 Frigate tuna",
+        "url": "https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_10_3_FRI_ENG.pdf"
+      },
+      {
+        "title": "FNAM - Auxis rochei",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109697"
+      },
+      {
+        "title": "IEO 2013 guide (Galicia, Asturias, Cantabria)",
+        "url": "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+      },
+      {
+        "title": "Carneiro et al. 2014",
+        "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+      },
+      {
+        "title": "Bañón & Maño 2021 (Trachiniformes-Tetraodontiformes)",
+        "url": "https://revistas.usc.gal/index.php/nacc/article/view/7286/10671"
+      },
+      {
+        "title": "BOE Orden AAA/365/2014 - Gulf of Cádiz plan",
+        "url": "https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf"
+      }
+    ],
+    "uncertain": "Identity decision: 'bullet' = Auxis rochei. Reasons: English 'bullet tuna' is A. rochei and 'frigate tuna' is A. thazard (FishBase, ICCAT); ICCAT says A. rochei is the more abundant Auxis in the Strait of Gibraltar and that most Mediterranean Auxis are probably A. rochei, while A. thazard's Atlantic range is mainly tropical/subtropical (high occurrence 40N-35S); Bañón & Maño (Galicia) and the IEO Cantabrian guide list only A. rochei. However A. thazard is not absent: Carneiro et al. 2014 list both species for mainland Portugal ('Judeu-liso' for A. thazard), and Ollé et al. 2019 (cited by ICCAT) found frigate tuna by genetics within the Iberian bullet-tuna fishery; Spanish 'melva' and Portuguese 'judeu' cover both, and the Gulf of Cadiz plan lists 'Melva (Auxis rochei/Auxis thazard)'. ICCAT notes bullet tuna landings are often recorded as frigate tuna. Depth: FishBase gives only '10 - ? m' and the IEO 'from 10 m', so depth is left null. OBIS had no Auxis records in any box; GBIF showed 2 DATRAS records in the Cantabria box and 17 records in the Portugal box. Cantabrian/Galician seasonality inferred from the trolling season, not from a species-specific study. OBIS record counts quoted in 'basis' come from OBIS API queries (24 Oct 2026) over boxes: Gironde 45.0-45.8N/1.45-0.5W (estuary, Royan and waters off the mouth); French Biscay 43.38-45.0N east of 2.0W (3.0W north of 44N); Cantabria 43.25-44.2N/7.05-2.0W; Galicia 41.8-44.0N/9.8-7.05W; Portugal 36.85-41.8N/10.0-7.4W; Cadiz 35.95-37.3N/7.4-5.6W. Counts show presence only; low Iberian counts mostly reflect which surveys are published in OBIS, not abundance. EVHOE (Ifremer autumn bottom-trawl survey) records near the Gironde lie on the shelf off the mouth, not inside the estuary."
+  },
+  {
+    "id": "garfish",
+    "scientific": "Belone belone (Linnaeus, 1761)",
+    "family": "Belonidae",
+    "synonyms": [
+      "Esox belone Linnaeus, 1760",
+      "Belone belone belone (Linnaeus, 1761)",
+      "Belone longirostris Schinz, 1822",
+      "Belone acus Risso, 1827",
+      "Belone vulgaris Fleming, 1828",
+      "Belone rostrata Faber, 1829",
+      "Belone gracilis Lowe, 1839",
+      "Belone belone gracilis Lowe, 1839",
+      "Belone cornidii Günther, 1866",
+      "Belone linnei Malm, 1877"
+    ],
+    "names": {
+      "en": "Garfish",
+      "fr": "Orphie commune",
+      "es": "Aguja",
+      "pt": "Agulha"
+    },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=47&GenusName=Belone&SpeciesName=belone",
+      "https://doris.ffessm.fr/Especes/Belone-belone-Orphie-commune-1031",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318",
+      "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+    ],
+    "habitat": "Epipelagic, neritic; diurnal coastal fish living in loose groups close to the surface; sometimes moves far up rivers.",
+    "depth": {
+      "usual": null,
+      "range": [
+        2,
+        22
+      ],
+      "source": "https://www.fishbase.se/summary/Belone-belone.html"
+    },
+    "size": {
+      "common": 45,
+      "max": 104,
+      "maxNote": "104 cm TL maximum (FishBase); common 45 cm SL (FishBase, IEO). FNAM: to 62 cm body length (~90 cm SL) for B. b. belone, ~70 cm SL for B. b. gracilis; DORIS: 30 cm to over 1 m, up to 5 kg.",
+      "source": "https://www.fishbase.se/summary/Belone-belone.html"
+    },
+    "diet": "Small fishes (sandeels, anchovy, sprat, sardine and other clupeids), plus crustaceans, worms and plankton; seizes prey sideways in the beak.",
+    "behaviour": "Young form large schools, adults small scattered groups near the surface; fast swimmer that leaps when hooked or chased by tunas; attracted to lights at night; migrates like mackerel.",
+    "seasonal": "Comes inshore in spring, stays through summer and returns offshore with the first cold weather; spawns from early May to end of June near the coast, eggs attached by filaments to seaweed or floating objects (DORIS). British Sea Fishing: in shallow water in summer, deeper in winter.",
+    "regions": {
+      "gironde": {
+        "status": "seasonal",
+        "confidence": "medium",
+        "basis": "DORIS (French coasts): inshore spring-summer and may move up rivers; 1 EVHOE record in the Gironde box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); no estuary-specific record found."
+      },
+      "biscay": {
+        "status": "seasonal",
+        "confidence": "medium",
+        "basis": "DORIS seasonal pattern for French coasts (https://doris.ffessm.fr/Especes/Belone-belone-Orphie-commune-1031); museum and iNaturalist records in the French Biscay box via OBIS."
+      },
+      "cantabria": {
+        "status": "seasonal",
+        "confidence": "low",
+        "basis": "IEO guide species file (purse seine; minimum size 30 cm in Asturias, 25 cm elsewhere; Asturias 'agujachínfano', Cantabria 'aguja') (https://diversimar.cesga.es/docus/Guia_Especies.pdf); seasonality inferred from DORIS, not regional."
+      },
+      "galicia": {
+        "status": "seasonal",
+        "confidence": "low",
+        "basis": "Listed for Galicia by Bañón & Maño 2021 (https://revistas.usc.gal/index.php/nacc/article/view/7198/10694); IEO Galician names 'agulla, corcito'; seasonality inferred from DORIS."
+      },
+      "portugal": {
+        "status": "seasonal",
+        "confidence": "low",
+        "basis": "Listed for mainland Portugal as 'Agulha'/'Peixe-agulha' (Carneiro et al. 2014, https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318); 84 OBIS records (Berlengas, NW Portugal ichthyoplankton); seasonality inferred from DORIS."
+      },
+      "cadiz": {
+        "status": "seasonal",
+        "confidence": "low",
+        "basis": "'Aguja (Belone belone)' is an authorised purse-seine species in the Gulf of Cadiz plan (BOE, https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf); FNAM range to Madeira/Canaries and the Mediterranean; seasonality inferred."
+      }
+    },
+    "identification": [
+      "Very slender body with long beak-like jaws (about twice head length) armed with sharp teeth; lower jaw slightly longer than upper (DORIS, IEO).",
+      "Single dorsal and anal fins set far back, opposite each other; deeply forked caudal (DORIS, IEO).",
+      "Back dark blue-green, flanks silvery, belly white (DORIS, IEO).",
+      "Jaw teeth comparatively large and widely spaced (6-15 per orbit length on mid upper jaw); vomerine teeth usually present in larger fish (FNAM).",
+      "Green bones (biliverdin) (DORIS, British Sea Fishing)."
+    ],
+    "similar": [
+      "Short-beaked garfish Belone svetovidovi: smaller (to ~57 cm SL), shorter beak, smaller closely spaced jaw teeth (13-21 per orbit length), no vomerine teeth, more gill rakers (38-52 vs 27-40), more compressed body and narrower interorbital (FNAM, DORIS, British Sea Fishing).",
+      "Atlantic saury Scomberesox saurus: finlets behind dorsal and anal fins, shorter jaws (IEO lists it as the look-alike).",
+      "Halfbeak Hemiramphus balao: smaller, dorsal and anal fins not aligned (DORIS)."
+    ],
+    "anglingMethods": [
+      "Spinning with thin silver spinners, feathers, daylights or soft lures near the surface from piers and breakwaters, or float fishing a mackerel belly strip (also herring/squid strip, small sandeel) 2-3 ft deep on a size 4-8 hook; groundbait helps; bottom baits do not work (British Sea Fishing, https://britishseafishing.co.uk/garfish/).",
+      "Attracted to lights at night and leaps when hooked (DORIS, FishBase)."
+    ],
+    "conservation": "IUCN Red List: Least Concern (assessed 2012; FishBase). IEO guide: minimum size 30 cm in Asturias and 25 cm in the rest of the Cantabrian-NW ground (https://diversimar.cesga.es/docus/Guia_Especies.pdf). No EU minimum size in Annex VII.",
+    "sources": [
+      {
+        "title": "FishBase - Belone belone summary",
+        "url": "https://www.fishbase.se/summary/Belone-belone.html"
+      },
+      {
+        "title": "FishBase - Belone svetovidovi summary",
+        "url": "https://www.fishbase.se/summary/Belone-svetovidovi.html"
+      },
+      {
+        "title": "FishBase - common names, B. belone",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=47&GenusName=Belone&SpeciesName=belone"
+      },
+      {
+        "title": "FishBase - common names, B. svetovidovi",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=9195&GenusName=Belone&SpeciesName=svetovidovi"
+      },
+      {
+        "title": "FishBase - synonyms, B. belone",
+        "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=47&SynCode=22717&GenusName=Belone&SpeciesName=belone"
+      },
+      {
+        "title": "DORIS - Belone belone, Orphie commune",
+        "url": "https://doris.ffessm.fr/Especes/Belone-belone-Orphie-commune-1031"
+      },
+      {
+        "title": "FNAM - Belone belone",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=108904"
+      },
+      {
+        "title": "FNAM - Belone svetovidovi",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=108905"
+      },
+      {
+        "title": "IEO 2013 guide (Galicia, Asturias, Cantabria)",
+        "url": "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+      },
+      {
+        "title": "Carneiro et al. 2014",
+        "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+      },
+      {
+        "title": "Bañón & Maño 2021 (Acipenseriformes-Scorpaeniformes)",
+        "url": "https://revistas.usc.gal/index.php/nacc/article/view/7198/10694"
+      },
+      {
+        "title": "BOE Orden AAA/365/2014 - Gulf of Cádiz plan",
+        "url": "https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf"
+      },
+      {
+        "title": "British Sea Fishing - garfish",
+        "url": "https://britishseafishing.co.uk/garfish/"
+      }
+    ],
+    "uncertain": "Split/identity: entry is Belone belone. Belone svetovidovi (short-beaked garfish; FishBase/FNAM range southern Ireland, Spain, Portugal, scattered Mediterranean) is listed for mainland Portugal by Carneiro et al. 2014 (no museum voucher) but is NOT in the Galician list of Bañón & Maño 2021, and no French Biscay record was found; OBIS has a single iNaturalist record in the Portugal box. Anglers rarely separate the two (British Sea Fishing). Subspecies: FNAM puts B. b. belone from France northward and B. b. gracilis south of France and in the Mediterranean (FishBase also lists B. b. acus for the Mediterranean/adjacent Atlantic), so the whole study area is a transition zone. FishBase depth '2-22 m' is odd for a surface fish and 'usual' is left null. Seasonal status in Iberia is inferred from DORIS's general description. OBIS record counts quoted in 'basis' come from OBIS API queries (24 Oct 2026) over boxes: Gironde 45.0-45.8N/1.45-0.5W (estuary, Royan and waters off the mouth); French Biscay 43.38-45.0N east of 2.0W (3.0W north of 44N); Cantabria 43.25-44.2N/7.05-2.0W; Galicia 41.8-44.0N/9.8-7.05W; Portugal 36.85-41.8N/10.0-7.4W; Cadiz 35.95-37.3N/7.4-5.6W. Counts show presence only; low Iberian counts mostly reflect which surveys are published in OBIS, not abundance. EVHOE (Ifremer autumn bottom-trawl survey) records near the Gironde lie on the shelf off the mouth, not inside the estuary."
+  },
+  {
+    "id": "pompano",
+    "scientific": "Trachinotus ovatus (Linnaeus, 1758)",
+    "family": "Carangidae",
+    "synonyms": [
+      "Gasterosteus ovatus Linnaeus, 1758",
+      "Scomber glaucus Linnaeus, 1758",
+      "Caranx glaucus (Linnaeus, 1758)",
+      "Lichia glauca (Linnaeus, 1758)",
+      "Trachinotus glaucus (Linnaeus, 1758)",
+      "Centronotus ovalis Lacepède, 1801",
+      "Centronotus binotatus Rafinesque, 1810",
+      "Lichia tetracantha Bowdich, 1825",
+      "Glaucus rondeletii Bleeker, 1863",
+      "Trachinotus madeirensis Borodin, 1934"
+    ],
+    "names": {
+      "en": "Pompano",
+      "fr": "Palomine",
+      "es": "Palometa blanca",
+      "pt": "Sereia-camochilo"
+    },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=1773&GenusName=Trachinotus&SpeciesName=ovatus",
+      "https://doris.ffessm.fr/Especes/Trachinotus-ovatus-Palomine-4352",
+      "https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Schools in the surf zone and clear water along sandy beaches and steep shores, over sand or mud; occasionally enters lagoons and estuaries; recorded to about 200 m.",
+    "depth": {
+      "usual": null,
+      "range": [
+        0,
+        200
+      ],
+      "source": "https://doris.ffessm.fr/Especes/Trachinotus-ovatus-Palomine-4352"
+    },
+    "size": {
+      "common": 35,
+      "max": 70,
+      "maxNote": "70 cm TL maximum, 2.8 kg max published weight; common 35 cm (FishBase, FNAM); DORIS: generally 30-35 cm.",
+      "source": "https://www.fishbase.se/summary/Trachinotus-ovatus.html"
+    },
+    "diet": "Small crustaceans, molluscs and small fishes.",
+    "behaviour": "Schools near the surface, constantly moving; curious but wary; juveniles school along beaches; small fish are regularly caught at night from steep rocky shores (FishBase).",
+    "seasonal": "Galicia: confirmed since 2008 (ría de Pontevedra), with at least 16 more specimens mainly in summer months (Bañón & Maño 2021). French coasts: mostly juveniles seen in summer (DORIS). Spawning July-August (DORIS).",
+    "regions": {
+      "gironde": {
+        "status": "occasional",
+        "confidence": "low",
+        "basis": "FNAM range reaches 'northward to Gulf of Biscay' (https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109561); DORIS: mostly juveniles in summer on French coasts; no record found for the Gironde."
+      },
+      "biscay": {
+        "status": "seasonal",
+        "confidence": "low",
+        "basis": "FishBase/FNAM range to the Bay of Biscay; DORIS summer juveniles on French coasts (https://doris.ffessm.fr/Especes/Trachinotus-ovatus-Palomine-4352); no regional record found."
+      },
+      "cantabria": {
+        "status": "occasional",
+        "confidence": "low",
+        "basis": "No Cantabrian source found; lies between the Bay of Biscay range limit and Galicia, where it is a summer visitor."
+      },
+      "galicia": {
+        "status": "seasonal",
+        "confidence": "medium",
+        "basis": "Bañón & Maño 2021: first confirmed 2008 (335 mm TL, ría de Pontevedra), >=16 further specimens mainly in summer (https://revistas.usc.gal/index.php/nacc/article/view/7286/10671)."
+      },
+      "portugal": {
+        "status": "resident",
+        "confidence": "medium",
+        "basis": "Listed for mainland Portugal as 'Sereia-camochilo', with museum material (Carneiro et al. 2014, https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318); seasonality not documented."
+      },
+      "cadiz": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Age and diet study of pompano living in the surf zone of Gulf of Cadiz beaches (Rodríguez-García et al. 2024, https://produccioncientifica.uca.es/documentos/65b68bea3f557c3e59ec0ac9?lang=en); 'palometa blanca o pámpano blanco' authorised purse-seine species (BOE, https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf)."
+      }
+    },
+    "identification": [
+      "Oval, strongly compressed body pointed at both ends; deeply forked tail (DORIS).",
+      "3-5 dark, vertically elongate blotches on the sides along the front of the lateral line, faint; absent in juveniles (FNAM, DORIS).",
+      "Distal half of dorsal and anal lobes and tips of the caudal black (FNAM, DORIS).",
+      "Lateral line slightly arched over the pectoral, then straight, without scutes (FNAM).",
+      "Back blue-green/dark green, flanks bright silver, belly whitish (DORIS, FNAM)."
+    ],
+    "similar": [
+      "Leerfish Lichia amia: very sinuous lateral line with a strong downward bend behind the pectoral, no black flank spots or black fin tips, much larger (to ~1-2 m) (DORIS - Lichia amia).",
+      "Amberjacks Seriola spp. and Pomatomus/tassergal: lack the black fin tips and very forked tail combination (DORIS).",
+      "Juveniles may be confused with saddled seabream Oblada melanura, which has a dark caudal-peduncle spot (DORIS).",
+      "Blue butterfish Stromateus fiatola shares the Spanish/Portuguese name 'pámpano/pampo' but is a different family (Stromateidae) (FishBase names)."
+    ],
+    "anglingMethods": [
+      "Small specimens are regularly caught at night from steep rocky shores (FishBase, https://www.fishbase.se/summary/Trachinotus-ovatus.html). No fetched source described specific lures or baits."
+    ],
+    "conservation": "IUCN Red List: Least Concern (assessed 2013; FishBase). No minimum size found for the region.",
+    "sources": [
+      {
+        "title": "FishBase - Trachinotus ovatus summary",
+        "url": "https://www.fishbase.se/summary/Trachinotus-ovatus.html"
+      },
+      {
+        "title": "FishBase - common names, T. ovatus",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=1773&GenusName=Trachinotus&SpeciesName=ovatus"
+      },
+      {
+        "title": "FishBase - common names, Lichia amia",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=692&GenusName=Lichia&SpeciesName=amia"
+      },
+      {
+        "title": "FishBase - common names, Stromateus fiatola",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=1198&GenusName=Stromateus&SpeciesName=fiatola"
+      },
+      {
+        "title": "FishBase - common names, Brama brama",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=391&GenusName=Brama&SpeciesName=brama"
+      },
+      {
+        "title": "FishBase - synonyms, T. ovatus",
+        "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=1773&SynCode=23865&GenusName=Trachinotus&SpeciesName=ovatus"
+      },
+      {
+        "title": "DORIS - Trachinotus ovatus, Palomine",
+        "url": "https://doris.ffessm.fr/Especes/Trachinotus-ovatus-Palomine-4352"
+      },
+      {
+        "title": "DORIS - Lichia amia, Liche amie",
+        "url": "https://doris.ffessm.fr/Especes/Lichia-amia-Liche-amie-5498"
+      },
+      {
+        "title": "FNAM - Trachinotus ovatus",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109561"
+      },
+      {
+        "title": "Rodríguez-García et al. 2024, pompano in the surf zone of Gulf of Cádiz beaches (J. Fish Biol.)",
+        "url": "https://produccioncientifica.uca.es/documentos/65b68bea3f557c3e59ec0ac9?lang=en"
+      },
+      {
+        "title": "Bañón & Maño 2021 (Trachiniformes-Tetraodontiformes)",
+        "url": "https://revistas.usc.gal/index.php/nacc/article/view/7286/10671"
+      },
+      {
+        "title": "Carneiro et al. 2014",
+        "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+      },
+      {
+        "title": "BOE Orden AAA/365/2014 - Gulf of Cádiz plan",
+        "url": "https://boe.es/boe/dias/2014/03/14/pdfs/BOE-A-2014-2738.pdf"
+      }
+    ],
+    "uncertain": "Identity decision: 'pompano' = Trachinotus ovatus (FAO English 'Pompano'; FAO French 'Palomine'; FAO Spanish 'Pámpano blanco', old FAO 'Palometa blanca'; the Gulf of Cadiz plan uses 'palometa blanca o pámpano blanco'). Name confusion documented in FishBase/DORIS/Carneiro: Lichia amia (leerfish) is 'palometón' (FAO Spanish), 'liche' / 'fausse palomète' (French) and 'palombeta', 'palmeta', 'doirada' (Portuguese); FishBase also gives 'liche' as a French vernacular for T. ovatus. Stromateus fiatola (blue butterfish) is 'palometa fiatola' (FAO Spanish) and vernacular 'pámpano' (Spain), 'pâmpano', 'pampo', 'pampo-godinho' (Portugal). Brama brama is 'palometa negra' (Spain) and 'palometa' (Basque) (FishBase). Portuguese 'salema' is also listed for T. ovatus by FishBase but is the usual name of Sarpa salpa. Lichia amia occurs in the area too (DORIS: Vendée to South Africa; listed for Galicia and Portugal), so angler reports of 'palometa' need checking. FishBase gives depth '50-200 m', at odds with its own surf-zone habitat; range here follows DORIS. Northern-edge status (Gironde, French Biscay, Cantabria) is not backed by regional records."
+  },
+  {
+    "id": "hake",
+    "scientific": "Merluccius merluccius (Linnaeus, 1758)",
+    "family": "Merlucciidae",
+    "synonyms": [
+      "Gadus merluccius Linnaeus, 1758",
+      "Gadus byrkelange Walbaum, 1792",
+      "Merluccius smiridus Rafinesque, 1810",
+      "Gadus ruber Lacepède, 1803",
+      "Merluccius esculentus Risso, 1827",
+      "Merluccius vulgaris Fleming, 1828",
+      "Hydronus marlucius Minding, 1832",
+      "Merlucius ambiguus Lowe, 1841",
+      "Merluccius argentatus Günther, 1862",
+      "Trachinoides moroccanus Borodin, 1934"
+    ],
+    "names": {
+      "en": "European hake",
+      "fr": "Merlu commun",
+      "es": "Merluza",
+      "pt": "Pescada-branca"
+    },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=30&GenusName=Merluccius&SpeciesName=merluccius",
+      "https://doris.ffessm.fr/Especes/Merluccius-merluccius-Merlu-commun-2643",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318",
+      "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+    ],
+    "habitat": "Demersal on mud and sediment of the shelf edge and slope, chiefly 70-400 m; rises off the bottom into midwater at night.",
+    "depth": {
+      "usual": [
+        70,
+        400
+      ],
+      "range": [
+        18,
+        1075
+      ],
+      "source": "https://www.fishbase.se/summary/Merluccius-merluccius.html"
+    },
+    "size": {
+      "common": 45,
+      "max": 140,
+      "maxNote": "140 cm TL maximum and 15 kg (FishBase, IEO); FNAM: to 120 cm SL, usually 30-70 cm.",
+      "source": "https://www.fishbase.se/summary/Merluccius-merluccius.html"
+    },
+    "diet": "Adults almost entirely fish (blue whiting, whiting, mackerel, herring, Norway pout) and squid; juveniles crustaceans (euphausiids, amphipods).",
+    "behaviour": "Close to the bottom by day, moving into midwater to feed at night; shoaling; deeper in winter and more inshore in summer; batch spawner.",
+    "seasonal": "Deep water in winter, more inshore in summer (FNAM). Spawns in early spring in the Bay of Biscay (FNAM) / February-May in the Atlantic (DORIS); juveniles taken in Bay of Biscay Nephrops trawls (DORIS).",
+    "regions": {
+      "gironde": {
+        "status": "resident",
+        "confidence": "medium",
+        "basis": "328 EVHOE records in the Gironde box (shelf off the mouth) (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); not an estuarine species - presence refers to adjacent shelf waters."
+      },
+      "biscay": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "5,815 EVHOE records in the French Biscay box (https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427); FNAM: spawning in the Bay of Biscay."
+      },
+      "cantabria": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "IEO guide: main trawl, longline and gillnet target ('merluza, pescadilla, carioca'), 27 cm minimum size (https://diversimar.cesga.es/docus/Guia_Especies.pdf); 1,372 EVHOE and 103 RADIALES larval records in the Cantabria box."
+      },
+      "galicia": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Bañón & Maño 2021: widely cited, fished since antiquity (https://revistas.usc.gal/index.php/nacc/article/view/7198/10694)."
+      },
+      "portugal": {
+        "status": "resident",
+        "confidence": "high",
+        "basis": "Listed for mainland Portugal as 'Pescada-branca' (Carneiro et al. 2014, https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318)."
+      },
+      "cadiz": {
+        "status": "resident",
+        "confidence": "medium",
+        "basis": "Range 'Norway and Iceland to Mauritania' (FishBase); 12 hake records from ICES contaminant monitoring in the Cadiz box via OBIS (https://api.obis.org/v3/occurrence?scientificname=Merluccius+merluccius&geometry=POLYGON%28%28-7.4+35.95%2C-5.6+35.95%2C-5.6+37.3%2C-7.4+37.3%2C-7.4+35.95%29%29&size=0); no Gulf of Cadiz survey paper fetched."
+      }
+    },
+    "identification": [
+      "Elongate body with two dorsal fins (first short, second long: 35-40 rays) and a long anal fin (36-40 rays) (FNAM, DORIS).",
+      "Inside of the mouth and gill cavity black (FNAM, IEO, DORIS).",
+      "Slate grey above, lighter sides, white belly; dark lateral line (FNAM, DORIS).",
+      "Large mouth with jaws reaching the eye (IEO)."
+    ],
+    "similar": [
+      "No regional look-alike is given in the fetched sources; DORIS only compares it with non-European hakes (silver hake M. bilinearis, Argentine hake M. hubbsi)."
+    ],
+    "anglingMethods": [
+      "Boat fishing over deep water (at least ~100 m); hake stay on the bottom by day and rise into midwater to feed at night, so night-time midwater fishing is implied to work best (British Sea Fishing, https://britishseafishing.co.uk/hake/). Historic Basque/Asturian handline ('pincho') fisheries for hake existed until the early 1990s (IEO guide)."
+    ],
+    "conservation": "IUCN Red List: Least Concern (assessed 2015; FishBase). EU minimum conservation reference size 27 cm in South-Western Waters (Reg. 2019/1241 Annex VII, https://www.legislation.gov.uk/eur/2019/1241/annex/VII/adopted); IEO guide 27 cm. DORIS quotes 20 cm, which does not match the Atlantic EU size.",
+    "sources": [
+      {
+        "title": "FishBase - Merluccius merluccius summary",
+        "url": "https://www.fishbase.se/summary/Merluccius-merluccius.html"
+      },
+      {
+        "title": "FishBase - common names",
+        "url": "https://www.fishbase.se/ComNames/CommonNamesList.php?ID=30&GenusName=Merluccius&SpeciesName=merluccius"
+      },
+      {
+        "title": "FishBase - synonyms",
+        "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=30&SynCode=22727&GenusName=Merluccius&SpeciesName=merluccius"
+      },
+      {
+        "title": "DORIS - Merluccius merluccius, Merlu commun",
+        "url": "https://doris.ffessm.fr/Especes/Merluccius-merluccius-Merlu-commun-2643"
+      },
+      {
+        "title": "FNAM - Merluccius merluccius",
+        "url": "https://fishes-fnam.linnaeus.naturalis.nl/linnaeus_ng/app/views/species/taxon.php?id=109216"
+      },
+      {
+        "title": "IEO 2013 guide (Galicia, Asturias, Cantabria)",
+        "url": "https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+      },
+      {
+        "title": "Carneiro et al. 2014",
+        "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+      },
+      {
+        "title": "Bañón & Maño 2021 (Acipenseriformes-Scorpaeniformes)",
+        "url": "https://revistas.usc.gal/index.php/nacc/article/view/7198/10694"
+      },
+      {
+        "title": "OBIS dataset - EVHOE survey",
+        "url": "https://obis.org/dataset/34fa67d9-6100-47c6-a264-45ee6a54b427"
+      },
+      {
+        "title": "British Sea Fishing - hake",
+        "url": "https://britishseafishing.co.uk/hake/"
+      },
+      {
+        "title": "EU Reg. 2019/1241 Annex VII",
+        "url": "https://www.legislation.gov.uk/eur/2019/1241/annex/VII/adopted"
+      }
+    ],
+    "uncertain": "French market names 'colin' and 'merlan' are applied to hake 'à tort' (DORIS); FishBase lists 'colin' as French vernacular. Gulf of Cadiz status not supported by a fetched regional survey paper. Gironde status refers to the shelf off the estuary mouth. The pincho handline note is decoded from a PDF with font-encoding problems. OBIS record counts quoted in 'basis' come from OBIS API queries (24 Oct 2026) over boxes: Gironde 45.0-45.8N/1.45-0.5W (estuary, Royan and waters off the mouth); French Biscay 43.38-45.0N east of 2.0W (3.0W north of 44N); Cantabria 43.25-44.2N/7.05-2.0W; Galicia 41.8-44.0N/9.8-7.05W; Portugal 36.85-41.8N/10.0-7.4W; Cadiz 35.95-37.3N/7.4-5.6W. Counts show presence only; low Iberian counts mostly reflect which surveys are published in OBIS, not abundance. EVHOE (Ifremer autumn bottom-trawl survey) records near the Gironde lie on the shelf off the mouth, not inside the estuary."
+  }
+]

@@ -217,7 +217,12 @@ export class Ecosystem {
       a.pz = a.z;
       a.pyaw = a.yaw;
       if (a.state === 'gone') {
-        if (this.time > a.backAt) this.restock(a);
+        // A fish taken from the population is replaced in time, but never out of thin air
+        // in front of you: while you're near its home, the newcomer waits.
+        if (this.time > a.backAt) {
+          if ((a.home.x - fx) ** 2 + (a.home.z - fz) ** 2 < 45 * 45) a.backAt = this.time + 30;
+          else this.restock(a);
+        }
         continue;
       }
       if (!a.active || a.state === 'caught' || a.state === 'hooked') continue;

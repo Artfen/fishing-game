@@ -70,7 +70,11 @@ export class Journal {
     });
     this.el.querySelectorAll('.j-fish-view').forEach((e) => { e.hidden = view !== 'fish'; });
     this.el.querySelectorAll('.j-log-view').forEach((e) => { e.hidden = view !== 'log'; });
+    this.el.querySelectorAll('.j-guide-view').forEach((e) => { e.hidden = view !== 'guide'; });
+    this.el.querySelector('.book').dataset.view = view;
     if (view === 'log') this.renderLog();
+    if (view === 'guide') this.guide?.render();
+    else this.guide?.close();
     this.el.querySelectorAll('.page').forEach((p) => { p.scrollTop = 0; });
   }
 
@@ -80,12 +84,20 @@ export class Journal {
   open(where) {
     this.render(where);
     this.shown = PAGE;
-    this.show(this.view);
     this.el.hidden = false;
+    this.show(this.view);
   }
 
   close() {
     this.el.hidden = true;
+    this.guide?.close();
+  }
+
+  // Straight to a species in the field guide.
+  openGuide(where, id) {
+    if (id) this.guide.show(id);
+    this.view = 'guide';
+    this.open(where);
   }
 
   render(where) {

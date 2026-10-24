@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FISH, buildFishGeometry, fishMaterial } from '../fish.js';
+import { hasAnatomy } from '../anatomy.js';
 import { wrapAngle } from '../util.js';
 
 const _m = new THREE.Matrix4();
@@ -8,8 +9,10 @@ const _e = new THREE.Euler(0, 0, 0, 'YXZ');
 const _p = new THREE.Vector3();
 const _s = new THREE.Vector3();
 
-// Draws every fish in the ecosystem: one instanced draw per species, only the
-// fish near the camera, positions interpolated between simulation steps.
+
+// Draws every fish in the ecosystem: one instanced draw per species (two, near and far, for
+// species with a detailed anatomical model), only the fish near the camera, positions
+// interpolated between simulation steps.
 export class FishRenderer {
   constructor(scene, eco) {
     this.eco = eco;
@@ -17,10 +20,13 @@ export class FishRenderer {
     // same ones stay hidden). Every fish is still simulated, can still bite and shows on the
     // fish finder; the ones near you and the ones interested in your bait are always drawn.
     this.density = 1;
-    this.sets = FISH.map((sp) => {
-      const list = eco.bySpecies[sp.id];
+    // Fish drawn in full detail out to this distance; beyond it, the simpler model of the same
+    // species (for species with an anatomical model). Lower graphics settings bring it closer.
+    this.near = 22;
+    const instanced = (sp, list, detail) => {
       const n = Math.max(1, list.length);
-      const geo = buildFishGeometry(sp);
+      // (Each draw has its own copy: the per-fish swim attribute can't be shared.)
+      const geo = buildFishGeometry(sp, detail).clone();
       const swim = new THREE.InstancedBufferAttribute(new Float32Array(n * 2), 2);
       swim.setUsage(THREE.DynamicDrawUsage);
       geo.setAttribute('aSwim', swim);
@@ -30,8 +36,19 @@ export class FishRenderer {
       mesh.frustumCulled = false;
       mesh.count = 0;
       scene.add(mesh);
-      return { sp, list, mesh, swim, mat };
+      return { mesh, swim, mat };
+    };
+    this.sets = FISH.map((sp) => {
+      const list = this.eco.bySpecies[sp.id];
+      const near = instanced(sp, list, true);
+      const far = hasAnatomy(sp.id) ? instanced(sp, list, false) : null;
+      return { sp, list, ...near, far };
     });
+  }
+
+  // Every mesh drawn (for the reflection to leave out).
+  get meshes() {
+    return this.sets.flatMap((s) => (s.far ? [s.mesh, s.far.mesh] : [s.mesh]));
   }
 
   update(dt, camera, night, submerged) {
@@ -41,8 +58,8 @@ export class FishRenderer {
     const maxD2 = submerged ? 60 * 60 : 80 * 80;
     const busy = this.busy || (this.busy = new Set([...this.eco.engagedSet, 'escort', 'hooked']));
     for (const set of this.sets) {
-      set.mat.userData.glow.value = set.sp.sketch.glow ? 0.25 + night * 1.3 : 0;
-      let k = 0;
+      if (set.mat.userData?.glow) set.mat.userData.glow.value = set.sp.sketch.glow ? 0.25 + night * 1.3 : 0;
+      let k = 0, kf = 0;
       for (const f of set.list) {
         if (!f.active || f.state === 'caught' || f.state === 'gone') continue;
         const x = f.px + (f.x - f.px) * alpha, y = f.py + (f.y - f.py) * alpha, z = f.pz + (f.z - f.pz) * alpha;
@@ -53,13 +70,16 @@ export class FishRenderer {
         _e.set(-f.pitch, f.pyaw + wrapAngle(f.yaw - f.pyaw) * alpha, f.bank);
         _q.setFromEuler(_e);
         _m.compose(_p.set(x, y, z), _q, _s.setScalar(f.scale));
-        set.mesh.setMatrixAt(k, _m);
-        set.swim.setXY(k, f.phase, f.beat);
-        k++;
+        const into = set.far && d2 > this.near * this.near ? set.far : set;
+        const i = into === set ? k++ : kf++;
+        into.mesh.setMatrixAt(i, _m);
+        into.swim.setXY(i, f.phase, f.beat);
       }
-      set.mesh.count = k;
-      set.mesh.instanceMatrix.needsUpdate = true;
-      set.swim.needsUpdate = true;
+      for (const [s, n] of set.far ? [[set, k], [set.far, kf]] : [[set, k]]) {
+        s.mesh.count = n;
+        s.mesh.instanceMatrix.needsUpdate = true;
+        s.swim.needsUpdate = true;
+      }
     }
   }
 }
