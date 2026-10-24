@@ -101,10 +101,12 @@ export class AudioScape {
     this.streamLow = this.bed(this.pink, [['bandpass', 420, 0.8]]);
     this.fireBed = this.bed(this.brown, [['lowpass', 500, 0.6]]);
     this.sizzleBed = this.bed(this.white, [['highpass', 3200, 0.5]]);
+    // A camping stove's soft roar while something cooks.
+    this.stoveBed = this.bed(this.white, [['bandpass', 2400, 0.6], ['lowpass', 5000, 0.5]]);
     this.alarmOsc = null;
     this.setVolumes(this.volumes);
 
-    this.next = { lap: 1, bird: 3, gull: 8, cricket: 2, owl: 25, note: 5, chord: 1, drop: 0, crackle: 0.5, frog: 8, bloop: 1 };
+    this.next = { lap: 1, bird: 3, gull: 8, cricket: 2, owl: 25, note: 5, chord: 1, drop: 0, crackle: 0.5, frog: 8, bloop: 1, clink: 2, curlew: 12, boom: 4, flap: 2 };
     this.lastNote = 5;
     this.chordIdx = 0;
   }
@@ -418,9 +420,58 @@ export class AudioScape {
     this.burst({ buf: this.brown, type: 'lowpass', freq: 700, dur: 0.15, gain: 0.06, attack: 0.004 });
   }
 
-  step(jog = false, pan = 0) {
-    this.burst({ buf: this.pink, type: 'bandpass', freq: rand(500, 800), q: 0.9, dur: 0.09, gain: (jog ? 0.035 : 0.022), attack: 0.004, pan });
-    this.burst({ buf: this.white, type: 'highpass', freq: 3000, q: 0.6, dur: 0.05, gain: 0.006, attack: 0.002, pan });
+  // A footstep, by what's underfoot: grass, sand (soft and dull), stone (a crisp tap) or planks
+  // (a hollow knock).
+  step(jog = false, pan = 0, surface = 'grass') {
+    const k = jog ? 1.5 : 1;
+    if (surface === 'sand') {
+      this.burst({ buf: this.brown, type: 'lowpass', freq: rand(380, 520), q: 0.6, dur: 0.14, gain: 0.03 * k, attack: 0.01, pan });
+      this.burst({ buf: this.white, type: 'bandpass', freq: rand(1800, 2600), q: 0.8, dur: 0.08, gain: 0.004 * k, attack: 0.01, pan });
+    } else if (surface === 'stone') {
+      this.burst({ buf: this.white, type: 'bandpass', freq: rand(2200, 3200), q: 1.4, dur: 0.035, gain: 0.018 * k, attack: 0.001, pan });
+      this.burst({ buf: this.pink, type: 'bandpass', freq: rand(600, 900), q: 1.2, dur: 0.05, gain: 0.014 * k, attack: 0.002, pan });
+    } else if (surface === 'wood') {
+      this.tone({ freq: rand(170, 210), freqEnd: 120, dur: 0.09, gain: 0.03 * k, attack: 0.002, pan });
+      this.burst({ buf: this.pink, type: 'bandpass', freq: rand(700, 1000), q: 1, dur: 0.05, gain: 0.012 * k, attack: 0.002, pan });
+    } else {
+      this.burst({ buf: this.pink, type: 'bandpass', freq: rand(500, 800), q: 0.9, dur: 0.09, gain: 0.022 * k, attack: 0.004, pan });
+      this.burst({ buf: this.white, type: 'highpass', freq: 3000, q: 0.6, dur: 0.05, gain: 0.006, attack: 0.002, pan });
+    }
+  }
+
+  // The camera's shutter: a small mechanical click.
+  shutter() {
+    this.burst({ buf: this.white, type: 'bandpass', freq: 3800, q: 1.2, dur: 0.025, gain: 0.05, attack: 0.001 });
+    this.burst({ buf: this.white, type: 'bandpass', freq: 2600, q: 1.2, dur: 0.03, gain: 0.04, attack: 0.001, when: 0.07 });
+  }
+
+  // Rigging against a mast in the harbour: a bright, thin clink or two.
+  clink(vol, pan) {
+    const f = rand(2500, 3400);
+    for (let i = 0; i < 1 + Math.floor(rand(0, 3)); i++) {
+      this.tone({ type: 'triangle', freq: f * rand(0.98, 1.02), dur: 0.35, gain: vol, attack: 0.001, pan, when: i * rand(0.12, 0.3), dest: this.nature });
+      this.tone({ freq: f * 2.76, dur: 0.12, gain: vol * 0.25, attack: 0.001, pan, when: i * 0.2, dest: this.nature });
+    }
+  }
+
+  // A curlew over the cove channel: a rising, bubbling "cur-lee".
+  curlew(vol, pan) {
+    let t = 0;
+    for (let i = 0; i < 2 + Math.floor(rand(0, 3)); i++) {
+      this.tone({ freq: rand(1500, 1700), freqEnd: rand(2300, 2600), dur: 0.42, gain: vol, attack: 0.06, pan, when: t, vib: 6, dest: this.nature });
+      t += rand(0.5, 0.7);
+    }
+  }
+
+  // The swell breaking on the ledges under Cove Head: a low, slow boom.
+  boom(vol, pan) {
+    this.burst({ buf: this.brown, type: 'lowpass', freq: 260, q: 0.5, dur: 1.6, gain: vol, attack: 0.18, pan, dest: this.wavesBus });
+    this.burst({ buf: this.pink, type: 'bandpass', freq: 700, q: 0.6, dur: 1.2, gain: vol * 0.35, attack: 0.3, pan, when: 0.15, dest: this.wavesBus });
+  }
+
+  // The tent's fly flapping in a gust.
+  flap(vol) {
+    this.burst({ buf: this.pink, type: 'bandpass', freq: rand(700, 1100), q: 0.7, dur: rand(0.12, 0.25), gain: vol, attack: 0.01, pan: rand(-0.4, 0.4), dest: this.windBus });
   }
 
   wade(vol = 1) {
@@ -549,7 +600,7 @@ export class AudioScape {
     if (!this.ctx) return;
     this.t += dt;
     const now = this.ctx.currentTime;
-    const { speed, rain, day, night, land, open, cove, gulls, stream = 0, fire = 0, sizzle = 0, lake = 0, water = 1, wind = 0.3, gust = 1, sea = 0.2 } = s;
+    const { speed, rain, day, night, land, open, cove, gulls, stream = 0, fire = 0, sizzle = 0, lake = 0, water = 1, wind = 0.3, gust = 1, sea = 0.2, stove = 0, harbour = 0, inlet = 0, head = 0, tent = 0 } = s;
 
     // The sea's wash grows with the waves where you are; the surf with the swell on the shore.
     this.set(this.waterBed.g.gain, (0.08 + 0.05 * Math.min(speed / 5, 1) + 0.12 * Math.min(sea, 1)) * (0.25 + 0.75 * water), 1);
@@ -567,6 +618,7 @@ export class AudioScape {
     this.set(this.streamLow.g.gain, 0.06 * stream * above, 0.8);
     this.set(this.fireBed.g.gain, 0.05 * fire, 0.8);
     this.set(this.sizzleBed.g.gain, 0.02 * sizzle, 0.5);
+    this.set(this.stoveBed.g.gain, 0.012 * stove, 0.5);
 
     const n = this.next;
     for (const k in n) n[k] -= dt;
@@ -599,6 +651,25 @@ export class AudioScape {
     if (n.frog <= 0) {
       if (lake > 0.2 && (night > 0.3 || rain > 0.4)) this.frog(0.02 * lake, rand(-0.7, 0.7));
       n.frog = rand(3, 9);
+    }
+    // The cove shore: rigging in the harbour (busier in a breeze), a curlew in the channel at the
+    // turn of the light, the swell booming under Cove Head, and your tent's fly in the wind.
+    if (n.clink <= 0) {
+      if (harbour > 0.15) this.clink(0.012 * harbour * (0.4 + wind), rand(-0.7, 0.7));
+      n.clink = rand(1.2, 5) / (0.5 + wind);
+    }
+    if (n.curlew <= 0) {
+      const dusk = day > 0.05 && day < 0.7 ? 1 : 0.3;
+      if (inlet > 0.2 && rain < 0.6) this.curlew(0.016 * inlet * dusk, rand(-0.8, 0.8));
+      n.curlew = rand(14, 40);
+    }
+    if (n.boom <= 0) {
+      if (head > 0.15 && sea > 0.25) this.boom(0.09 * head * Math.min(1.5, sea), rand(-0.5, 0.5));
+      n.boom = rand(5, 11);
+    }
+    if (n.flap <= 0) {
+      if (tent > 0.1 && wind > 0.25) this.flap(0.02 * tent * wind * Math.max(1, gust));
+      n.flap = rand(0.4, 2.2) / (0.4 + wind);
     }
     if (n.owl <= 0) {
       if (night > 0.6 && land > 0.3) this.owl(0.03 * land, rand(-0.8, 0.8));

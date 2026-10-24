@@ -123,6 +123,40 @@ const SHORE_BOX = { x0: -195, x1: -84, z0: -110, z1: 14 };
 // The water shader gets a sharper map of this area, so the narrow stream reads properly.
 export const SHORE_RECT = { x: -196, z: -112, w: 116, h: 128 };
 
+// The cove shore. Willowhaven, a few cottages round a stone quay on the north shore of the bay;
+// a coast path to it from the landing, and on along the east arm to Shell Strand (a quiet beach
+// facing the sea) and round Driftwood Cove to Cove Head (a rocky knoll with a white daymark over
+// the cove's channel). Off the strand, the Kittiwake lies on the reef with a buoy over her.
+export const HAVEN = { x: 4, z: -97 };
+// The level apron behind the quay, and the cottages, chandlery and net store on their pads up the
+// slope (doors facing the bay, +z). w and d are the building's width and depth.
+export const HAVEN_APRON = { x0: -18, x1: 28, z0: -100, z1: -94.5, h: 1.6 };
+export const HAVEN_HOUSES = [
+  { id: 'chandlery', x: -6, z: -103.5, yaw: 0, w: 6, d: 4.4, kind: 'chandlery' },
+  { id: 'store', x: 21, z: -103, yaw: -0.15, w: 5, d: 4, kind: 'store' },
+  { id: 'rose', x: -24, z: -108, yaw: 0.25, w: 6.5, d: 5, kind: 'cottage', color: '#e9dcc4', door: '#3f6f74' },
+  { id: 'gull', x: 33, z: -110, yaw: -0.3, w: 6, d: 5, kind: 'cottage', color: '#dfe6e4', door: '#a5482f' },
+  { id: 'net', x: 6, z: -114, yaw: 0.05, w: 7, d: 5.2, kind: 'cottage', color: '#efe4cf', door: '#3d5a7a' },
+];
+// The slipway: a ramp of setts down into the bay beside the quay, for launching small boats.
+export const SLIPWAY = { x: -12, z: -91, len: 8, w: 3.2 };
+export const HAVEN_BOARD = { x: 16, z: -98.2, yaw: 0 };   // the notice board, by the head of the quay
+export const HAVEN_BENCH = { x: -1, z: -96.4, yaw: 0 };   // a bench under the lamp, looking out over the bay
+export const HAVEN_LAMP = { x: 3.2, z: -95.6 };
+export const DAYMARK = { x: 176, z: -6, r: 18, rise: 5.5 };     // Cove Head and its beacon
+export const STRAND = { x: 101, z: 21 };                        // Shell Strand
+export const PUNT = { x: 124, z: -31, yaw: 0.6 };              // an old punt pulled up at the cove's head
+export const SHELTER = { x: 90, z: 24, yaw: -0.4 };            // a driftwood shelter on the strand
+export const WRECK = { x: 92, z: 76, yaw: 0.95, len: 22, beam: 5.6 };
+export const WRECK_BUOY = { x: 99, z: 68 };
+// Paths: from the landing round the bay to Willowhaven; from Willowhaven along the east arm and
+// round the head of the cove to Cove Head; and down from the arm to the strand.
+export const COAST_PATHS = [
+  [[-88.6, -8.5], [-89.5, -20], [-87, -34], [-82, -48], [-74.5, -62], [-63, -75], [-49, -85.5], [-33, -93.5], [-17, -96]],
+  [[26, -96], [40, -93], [55, -84], [70, -70], [84, -57], [100, -50], [118, -49], [136, -49], [152, -45], [164, -35], [172, -22], [175, -12]],
+  [[100, -50], [98, -32], [99, -14], [100, 3]],
+];
+
 const sdCircle = (x, z, cx, cz, r) => Math.hypot(x - cx, z - cz) - r;
 
 function sdCapsule(x, z, ax, az, bx, bz, r) {
@@ -329,15 +363,109 @@ let campH = 4;
 
 export function heightAt(x, z) {
   let h = baseHeight(x, z);
-  if (x > SHORE_BOX.x0 && x < SHORE_BOX.x1 && z > SHORE_BOX.z0 && z < SHORE_BOX.z1) return shoreHeight(x, z, h, true);
-  if (x > EST_BOX.x0 && x < EST_BOX.x1 && z > EST_BOX.z0 && z < EST_BOX.z1) h = estuaryHeight(x, z, h);
-  if (x > MERE_BOX.x0 && x < MERE_BOX.x1 && z > MERE_BOX.z0 && z < MERE_BOX.z1) h = mereHeight(x, z, h);
-  if (x > TRAIL_BOX.x0 && x < TRAIL_BOX.x1 && z > TRAIL_BOX.z0 && z < TRAIL_BOX.z1) {
-    const p = trailInfo(x, z);
-    if (p.d < 4) h = lerp(p.h, h, smoothstep(1.2, 4, p.d));
+  if (x > SHORE_BOX.x0 && x < SHORE_BOX.x1 && z > SHORE_BOX.z0 && z < SHORE_BOX.z1) h = shoreHeight(x, z, h, true);
+  else {
+    if (x > EST_BOX.x0 && x < EST_BOX.x1 && z > EST_BOX.z0 && z < EST_BOX.z1) h = estuaryHeight(x, z, h);
+    if (x > MERE_BOX.x0 && x < MERE_BOX.x1 && z > MERE_BOX.z0 && z < MERE_BOX.z1) h = mereHeight(x, z, h);
+    if (x > TRAIL_BOX.x0 && x < TRAIL_BOX.x1 && z > TRAIL_BOX.z0 && z < TRAIL_BOX.z1) {
+      const p = trailInfo(x, z);
+      if (p.d < 4) h = lerp(p.h, h, smoothstep(1.2, 4, p.d));
+    }
+    if (Math.abs(x - GANNET_CAMP.x) < 14 && Math.abs(z - GANNET_CAMP.z) < 14) {
+      h = lerp(gannetCampH, h, smoothstep(GANNET_CAMP.r - 1, GANNET_CAMP.r + 5, Math.hypot(x - GANNET_CAMP.x, z - GANNET_CAMP.z)));
+    }
   }
-  if (Math.abs(x - GANNET_CAMP.x) < 14 && Math.abs(z - GANNET_CAMP.z) < 14) {
-    h = lerp(gannetCampH, h, smoothstep(GANNET_CAMP.r - 1, GANNET_CAMP.r + 5, Math.hypot(x - GANNET_CAMP.x, z - GANNET_CAMP.z)));
+  if (x > COAST_BOX.x0 && x < COAST_BOX.x1 && z > COAST_BOX.z0 && z < COAST_BOX.z1) h = coastHeight(x, z, h, true);
+  return h;
+}
+
+/* ---------------- the cove shore: Willowhaven, the paths, Cove Head ---------------- */
+
+const COAST_BOX = { x0: -96, x1: 200, z0: -125, z1: 40 };
+const HAVEN_BOX = { x0: -42, x1: 52, z0: -125, z1: -84 };
+
+// Each building stands on a level pad cut into the slope at the height of its middle; the apron
+// behind the quay is level too, and ends in a low sea wall above the beach (so the shore and the
+// water stay as they were).
+const havenPads = HAVEN_HOUSES.map((b) => ({ ...b, h: Math.max(1.9, baseHeight(b.x, b.z)) }));
+function havenHeight(x, z, h) {
+  const S = SLIPWAY;
+  // The slipway: a ramp of setts from the apron straight down into the bay.
+  if (Math.abs(x - S.x) < S.w / 2 + 0.6 && z > HAVEN_APRON.z0 && z < HAVEN_APRON.z1 + S.len && h > -1.2) {
+    const ramp = lerp(HAVEN_APRON.h, -0.9, smoothstep(HAVEN_APRON.z1 - 1, HAVEN_APRON.z1 + S.len, z));
+    return lerp(ramp, h, smoothstep(S.w / 2, S.w / 2 + 0.6, Math.abs(x - S.x)));
+  }
+  const A = HAVEN_APRON;
+  // On the apron itself, level ground (its seaward edge is the wall).
+  if (x >= A.x0 && x <= A.x1 && z >= A.z0 && z <= A.z1) return A.h;
+  if (h < 0.15) return h;
+  if (z <= A.z1) {
+    const ax = Math.max(A.x0 - x, 0, x - A.x1), az = Math.max(A.z0 - z, 0);
+    const da = Math.hypot(ax, az);
+    if (da < 7) h = lerp(A.h, h, smoothstep(0, 7, da));
+  }
+  for (const p of havenPads) {
+    const c = Math.cos(p.yaw), s = Math.sin(p.yaw), dx = x - p.x, dz = z - p.z;
+    const u = Math.abs(dx * c - dz * s) - p.w / 2 - 1.4, v = Math.abs(dx * s + dz * c) - p.d / 2 - 1.4;
+    const d = Math.hypot(Math.max(u, 0), Math.max(v, 0));
+    if (d < 11) h = lerp(p.h, h, smoothstep(0, 11, d));
+  }
+  return h;
+}
+
+// Cove Head: a rocky knoll rising from the low point east of the cove's channel. Only the land
+// rises; the shoreline stays where it was, so its seaward sides are steep and rocky.
+function headHeight(x, z, h) {
+  const D = DAYMARK, d = Math.hypot(x - D.x, z - D.z);
+  if (d > D.r + 8 || h < 0.2) return h;
+  const rough = fbm(x * 0.17 + 7, z * 0.17 - 3, 2) * 0.7;
+  return h + (D.rise + rough) * smoothstep(D.r + 6, 3, d) * smoothstep(0.2, 1.8, h);
+}
+
+// The paths: within a few metres of one, the ground is smoothed to the path's own gentle grade.
+let coastH = null;
+const _cp = { d: 0, h: 0 };
+export function coastPathInfo(x, z, out = _cp) {
+  out.d = Infinity;
+  out.h = 0;
+  for (let p = 0; p < COAST_PATHS.length; p++) {
+    const P = COAST_PATHS[p];
+    for (let i = 0; i < P.length - 1; i++) {
+      const a = P[i], b = P[i + 1];
+      const bax = b[0] - a[0], baz = b[1] - a[1];
+      if (Math.min(a[0], b[0]) - 6 > x || Math.max(a[0], b[0]) + 6 < x || Math.min(a[1], b[1]) - 6 > z || Math.max(a[1], b[1]) + 6 < z) continue;
+      const hh = clamp(((x - a[0]) * bax + (z - a[1]) * baz) / (bax * bax + baz * baz), 0, 1);
+      const d = Math.hypot(x - a[0] - bax * hh, z - a[1] - baz * hh);
+      if (d < out.d) {
+        out.d = d;
+        if (coastH) out.h = lerp(coastH[p][i], coastH[p][i + 1], hh);
+      }
+    }
+  }
+  return out;
+}
+
+// Shell Strand: a flat shelf of sand above the beach (the sea's storms laid it down), then the
+// beach shelving into the sea.
+function strandHeight(x, z, h) {
+  const S = STRAND;
+  if (x < S.x - 34 || x > S.x + 30 || z < S.z - 14 || z > S.z + 16) return h;
+  const w = smoothstep(34, 20, Math.abs(x - S.x + 2)) * smoothstep(-14, -7, z - S.z);
+  if (w <= 0) return h;
+  const u = z - S.z;
+  // (The shelf is cut and filled level; the beach below it is only ever cut, never built out
+  // into the sea.)
+  if (u < 7) return lerp(h, lerp(2.0, 1.55, smoothstep(-7, 7, u)) + fbm(x * 0.15, z * 0.15, 2) * 0.12, w);
+  return lerp(h, Math.min(h, lerp(1.55, -0.7, smoothstep(7, 15, u))), w);
+}
+
+function coastHeight(x, z, h, withPaths) {
+  if (x > HAVEN_BOX.x0 && x < HAVEN_BOX.x1 && z > HAVEN_BOX.z0 && z < HAVEN_BOX.z1) h = havenHeight(x, z, h);
+  h = headHeight(x, z, h);
+  h = strandHeight(x, z, h);
+  if (withPaths && coastH && h > -0.4) {
+    const p = coastPathInfo(x, z);
+    if (p.d < 4) h = lerp(p.h, h, smoothstep(1.2, 4, p.d));
   }
   return h;
 }
@@ -495,6 +623,16 @@ PATH[0] = [LANDING.x - 2.2, LANDING.z];
     return Math.max(0.35, (a + h * 2 + b) / 4);
   });
 }
+// The coast paths' heights, the same way (from the ground before the paths are smoothed in). The
+// coast path starts on the landing's land end, level with its deck.
+{
+  coastH = null;
+  coastH = COAST_PATHS.map((P, p) => {
+    const raw = P.map(([x, z]) => heightAt(x, z));
+    if (p === 0) raw[0] = Math.max(raw[0], LANDING.deck);
+    return raw.map((h, i) => (i === 0 || i === raw.length - 1 ? Math.max(0.45, h) : Math.max(0.45, (raw[i - 1] + h * 2 + raw[i + 1]) / 4)));
+  });
+}
 
 // A pier from the shore out along an axis (dx, dz) to water deep enough to tie up a boat.
 // Starts a few metres back on dry ground; returns its box and its two ends.
@@ -515,6 +653,8 @@ function pierAlong(x, z, dx, dz, { width = 2.2, deep = 1.4, deck = 0.95, max = 4
 export const QUAY = pierAlong(WEND_CAMP.x + 4, WEND_CAMP.z, 1, 0, { width: 3, deck: 1.0 });
 export const BOATHOUSE_PIER = pierAlong(BOATHOUSE.x + 4, BOATHOUSE.z, -1, 0, { width: 2, deck: 0.7 });
 export const COVE_PIER = pierAlong(GANNET_CAMP.x, GANNET_CAMP.z - 2, 0, -1, { width: 2, deck: 0.8 });
+// Willowhaven's quay: stone, out from the apron into the bay where it's deep enough for the skiff.
+export const HAVEN_QUAY = pierAlong(10, -97, 0, 1, { width: 3.2, deck: 1.5, deep: 4.2 });
 
 // Walkable decks the boat bumps into: [x0, x1, z0, z1, deck height].
 export const PIERS = [
@@ -523,6 +663,8 @@ export const PIERS = [
   // Wend Quay running out east into the estuary, the Longmere boathouse jetty, and the little
   // landing in Puffin Cove.
   QUAY, BOATHOUSE_PIER, COVE_PIER,
+  // (After the others, so PIERS[1] stays the landing.)
+  HAVEN_QUAY,
 ];
 
 // Where the lake meets the land, walking out from its centre at an angle.
@@ -597,6 +739,9 @@ export function zoneAt(x, z) {
   if (Math.hypot(x - COVE.x, z - COVE.z) < COVE.r + 4) return 'cove';
   for (const c of CHANNEL) if (sdCapsule(x, z, c[0], c[1], c[2], c[3], c[4]) < -1) return 'cove';
   if (Math.hypot(x - BAY.x, z - BAY.z) < BAY.r + 4) return 'bay';
+  // The outer shore east of the bay's mouth (Shell Strand, Cove Head, the Kittiwake's reef) is the
+  // coast: surf, rock and sand within a short row of the land.
+  if (x > 55 && x < 260 && z > -10 && z < 140 && landSDF(x, z) < 70) return 'coast';
   if (z > DEEP_Z) return 'deep';
   if (z > 260 || x < -300 || x > 300) return 'coast';
   return 'open';
@@ -651,6 +796,36 @@ export const PLACES = [
     note: 'Runs down from a spring into Reedmere. Three pools, with fast shallow riffles between.',
     x: STREAM[3][0] - 14, z: STREAM[3][1],
     test: (x, z) => streamSDF(x, z) < 7,
+  },
+  {
+    id: 'haven', name: 'Willowhaven', sub: 'a stone quay, a chandlery, a few cottages', dock: true, harbour: true,
+    note: 'A handful of cottages round a stone quay on the north shore of the bay, with a slipway, a chandlery and a notice board. Boats come and go from here.',
+    x: HAVEN.x, z: HAVEN.z,
+    test: (x, z) => Math.hypot(x - HAVEN.x, z - HAVEN.z) < 26,
+  },
+  {
+    id: 'reach', name: 'The Cove Channel', sub: 'a winding inlet, sheltered from every wind',
+    note: 'The narrow channel into Driftwood Cove. Eelgrass and soft mud along its edges; bream, wrasse and cuttlefish come and go with the light.',
+    x: CHANNEL[1][0] - 2, z: CHANNEL[1][1] + 14,
+    test: (x, z) => CHANNEL.some((c) => sdCapsule(x, z, c[0], c[1], c[2], c[3], c[4] + 6) < 0),
+  },
+  {
+    id: 'head', name: 'Cove Head', sub: 'a rocky knoll with a white daymark',
+    note: 'A rocky knoll over the mouth of the cove’s channel, with a whitewashed daymark on top. Surf breaks on its ledges; the Kittiwake’s buoy is in sight to the south-west.',
+    x: DAYMARK.x, z: DAYMARK.z,
+    test: (x, z) => Math.hypot(x - DAYMARK.x, z - DAYMARK.z) < 24,
+  },
+  {
+    id: 'strand', name: 'Shell Strand', sub: 'a quiet beach facing the sea',
+    note: 'A sandy beach on the seaward side of the east arm, out of the north wind. Bass hunt in the surf at dusk; flatfish lie on the sand beyond. A good place to pitch a tent.',
+    x: STRAND.x, z: STRAND.z,
+    test: (x, z) => Math.hypot(x - STRAND.x, z - STRAND.z) < 24,
+  },
+  {
+    id: 'wreck', name: 'The Kittiwake', sub: 'a wreck on the reef, under a black and red buoy',
+    note: 'A wooden steam drifter that went down on the reef south of Shell Strand, nine or ten metres down. A conger lives in her hull; pollack and wrasse hang over her, and red porgy and pandora feed round her.',
+    x: WRECK.x, z: WRECK.z,
+    test: (x, z) => Math.hypot(x - WRECK.x, z - WRECK.z) < 30,
   },
   {
     id: 'wend', name: 'The Wend', sub: 'where the river meets the sea', area: true, size: 30,

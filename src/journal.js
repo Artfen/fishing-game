@@ -117,8 +117,10 @@ export class Journal {
     this.el.querySelectorAll('.j-fish-view').forEach((e) => { e.hidden = view !== 'fish'; });
     this.el.querySelectorAll('.j-log-view').forEach((e) => { e.hidden = view !== 'log'; });
     this.el.querySelectorAll('.j-guide-view').forEach((e) => { e.hidden = view !== 'guide'; });
+    this.el.querySelectorAll('.j-mem-view').forEach((e) => { e.hidden = view !== 'memories'; });
     this.el.querySelector('.book').dataset.view = view;
     if (view === 'log') this.renderLog();
+    if (view === 'memories') this.memories?.render();
     if (view === 'guide') this.guide?.render();
     else this.guide?.close();
     this.el.querySelectorAll('.page').forEach((p) => { p.scrollTop = 0; });

@@ -73,7 +73,7 @@ function weightFit(rod, w) {
 
 export class PackUI {
   // travel(dest) heads back to 'camp', 'boat' or a camp; travelInfo() says which are possible.
-  constructor(state, { onChange, onClose, travel, travelInfo, openMap, openGuide }) {
+  constructor(state, { onChange, onClose, travel, travelInfo, openMap, openGuide, kit }) {
     this.openGuide = openGuide;
     this.state = state;
     this.onChange = onChange;
@@ -90,7 +90,10 @@ export class PackUI {
     this.pumping = false;
     $('pack-close').addEventListener('click', () => this.onCloseCb());
     $('pack-guide').addEventListener('click', () => this.openGuide?.());
+    this.kit = kit;
     $('travel-camp').addEventListener('click', () => travel('camp'));
+    $('travel-own').addEventListener('click', () => travel('own'));
+    $('travel-haven').addEventListener('click', () => travel('haven'));
     $('travel-boat').addEventListener('click', () => travel('boat'));
     $('travel-map').addEventListener('click', () => openMap?.());
     this.el.addEventListener('click', (e) => { if (e.target === this.el) this.onCloseCb(); });
@@ -1122,10 +1125,16 @@ export class PackUI {
     const info = this.travelInfo();
     $('travel-camp').disabled = !info.camp;
     $('travel-boat').disabled = !info.boat;
+    $('travel-own').hidden = !this.state.camps?.length;
+    $('travel-own').disabled = !info.own;
+    $('travel-own').textContent = this.state.camps?.[0]?.name || 'Your camp';
+    $('travel-haven').hidden = !this.state.places.haven;
+    $('travel-haven').disabled = !info.haven;
     $('travel-note').textContent = info.note || '';
+    this.kit?.($('pack-kit'));
     const keep = this.state.keep || [];
     $('pack-fish').replaceChildren(...(keep.length
-      ? keep.map((f) => el('span', 'gx-fish', `${fishById[f.id]?.name || f.id} · ${f.size} cm`))
+      ? keep.map((f) => el('span', 'gx-fish', `${fishById[f.id]?.name || f.id} · ${f.size} cm${f.cooked ? ' · cooked' : ''}`))
       : [el('span', 'gx-note', 'Empty. Keep a fish from the catch card to cook it at camp.')]));
     $('pack-fish-count').textContent = `${keep.length} of ${PACK.fish}`;
   }

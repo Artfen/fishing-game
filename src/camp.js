@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { fishById, buildFishGeometry, fishMaterial } from './fish.js';
 import { formatClock } from './world/sky.js';
 import { clamp, smoothstep } from './util.js';
+import { PACK } from './tackle.js';
+import { COOLBOX, MEALS_MAX, TENTS, DECOR, DECOR_UNLOCK, settleCooking, startCooking, stow, take, packPlan, cleanName } from './campsite.js';
 
 const $ = (id) => document.getElementById(id);
 const COOK_HOURS = 0.5;       // half an hour on the grill (20 real seconds)
@@ -17,6 +19,16 @@ export const WAKE_TIMES = [
   { h: 22, name: 'Night' },
 ];
 
+// A fish to cook: its own copy of its materials (still, and free to brown without tinting the
+// fish swimming in the water), whether its model has one material or several.
+export function cookedMaterial(sp) {
+  const m = [].concat(fishMaterial(sp, false)).map((x) => x.clone());
+  return m.length === 1 ? m[0] : m;
+}
+export function browned(mesh, done) {
+  for (const m of [].concat(mesh.material)) m.color?.setRGB(1 - done * 0.42, 1 - done * 0.55, 1 - done * 0.7);
+}
+
 function el(tag, cls, text) {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -24,12 +36,14 @@ function el(tag, cls, text) {
   return e;
 }
 
+// (A button only acts while its sheet is open: one left over from an earlier visit does nothing.)
+let live = () => true;
 function button(text, onClick, cls = '') {
   const b = el('button', `pk-btn ${cls}`.trim(), text);
   b.type = 'button';
   b.addEventListener('click', (e) => {
     e.stopPropagation();
-    onClick();
+    if (b.isConnected && live(b)) onClick();
   });
   return b;
 }
@@ -38,6 +52,10 @@ function button(text, onClick, cls = '') {
 // hurts you. An empty stomach only makes your legs a little slower and grumbles now and
 // then; a cooked fish makes you "well fed", and steady hands make fights easier for a while.
 // There are always oatcakes in the tent.
+//
+// The same sheet serves the old camp on the west shore (its fire and grill) and your own camp,
+// wherever you've pitched it (a camping stove, a cool box, and its own tab for naming it,
+// dressing it up, moving it or packing it away). See campsite.js for the rules.
 export class Camp {
   constructor(state, scene, world, hooks) {
     this.state = state;
@@ -47,11 +65,16 @@ export class Camp {
     this.hooks = hooks;
     this.el = $('camp');
     this.tab = 'cook';
+    this.site = null; // null: the old camp; otherwise your camp's record
     this.grillFish = {};
     this.shownFish = null;
     this.lastHunger = this.hunger;
     this.renderT = 0;
+    this.settleT = 0;
     this.scene = scene;
+    this.packing = null; // choosing fish to let go before packing up: Set of cool box indices
+    // The sheet must be open, on a camp that's still pitched, and the button in the pane showing.
+    live = (b) => this.isOpen && (!this.site || (this.state.camps || []).includes(this.site)) && !b.closest('[data-pane]')?.hidden;
     $('camp-close').addEventListener('click', () => hooks.close());
     this.el.addEventListener('click', (e) => { if (e.target === this.el) hooks.close(); });
     for (const b of this.el.querySelectorAll('[data-tab]')) {
@@ -94,8 +117,9 @@ export class Camp {
   cook(i) {
     const c = this.state.camp;
     if (c.cooking) return;
-    const f = this.state.keep.splice(i, 1)[0];
-    if (!f) return;
+    const f = this.state.keep[i];
+    if (!f || f.cooked) return;
+    this.state.keep.splice(i, 1);
     if (this.fireLevel < 0.4) this.lightFire(2.5);
     c.cooking = { id: f.id, size: f.size, logId: f.logId || null, start: this.abs(), dur: COOK_HOURS };
     this.hooks.toast(`The ${fishById[f.id].name.toLowerCase()} goes on the grill. It will take about half an hour.`);
@@ -103,9 +127,8 @@ export class Camp {
     this.render();
   }
 
-  eat(i) {
-    const m = this.state.camp.ready.splice(i, 1)[0];
-    if (!m) return;
+  // Eat a cooked fish: from the grill's ready list, your camp's, or wrapped in your creel.
+  eatMeal(m) {
     this.hooks.outcome?.(m.logId, 'eaten');
     const sp = fishById[m.id];
     const k = (m.size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]);
@@ -116,6 +139,18 @@ export class Camp {
     this.state.meals = (this.state.meals || 0) + 1;
     this.hooks.changed();
     this.render();
+  }
+
+  eat(i) {
+    const m = this.state.camp.ready.splice(i, 1)[0];
+    if (m) this.eatMeal(m);
+  }
+
+  eatFromCreel(i) {
+    const f = this.state.keep[i];
+    if (!f?.cooked) return;
+    this.state.keep.splice(i, 1);
+    this.eatMeal(f);
   }
 
   oatcake() {
@@ -143,6 +178,18 @@ export class Camp {
       if (!asleep) this.hooks.toast('Something smells wonderful: your fish is cooked. Eat it at camp.', 5);
       this.hooks.changed();
     }
+    // Your camps' stoves: looked at now and then (no timer runs for a camp you're far from).
+    this.settleT -= dt;
+    if (this.settleT <= 0 || hours > 0.2) {
+      this.settleT = 1;
+      for (const camp of this.state.camps || []) {
+        const meal = settleCooking(camp, this.abs());
+        if (!meal) continue;
+        this.hooks.outcome?.(meal.logId, 'cooked');
+        if (!asleep && this.hooks.near?.(camp)) this.hooks.toast(`Your ${fishById[meal.id].name.toLowerCase()} is cooked. It’s waiting by the stove.`, 5);
+        this.hooks.changed();
+      }
+    }
     this.updateGrill();
     if (this.isOpen) {
       this.renderT -= dt;
@@ -153,7 +200,7 @@ export class Camp {
     }
   }
 
-  // The fish on the grill, browning as it cooks.
+  // The fish on the old camp's grill, browning as it cooks.
   updateGrill() {
     const c = this.state.camp;
     const show = c.cooking || c.ready[0] || null;
@@ -164,7 +211,7 @@ export class Camp {
     let m = this.grillFish[id];
     if (!m) {
       const sp = fishById[id];
-      m = new THREE.Mesh(buildFishGeometry(sp), fishMaterial(sp, false));
+      m = new THREE.Mesh(buildFishGeometry(sp), cookedMaterial(sp));
       m.rotation.set(0, Math.PI / 2, Math.PI / 2);
       m.castShadow = true;
       this.scene.add(m);
@@ -176,16 +223,26 @@ export class Camp {
     m.position.y += 0.04;
     m.scale.setScalar(Math.min((show.size / 100) * sp.visual, 0.75));
     const done = c.cooking ? clamp((this.abs() - c.cooking.start) / c.cooking.dur, 0, 1) : 1;
-    m.material.color.setRGB(1 - done * 0.42, 1 - done * 0.55, 1 - done * 0.7);
+    browned(m, done);
   }
 
-  open(tab = 'cook') {
+  // site: null for the old camp, or your camp's record.
+  open(tab = 'cook', site = null) {
+    this.site = site;
+    this.packing = null;
     this.el.hidden = false;
-    this.show(tab);
+    $('camp-title').textContent = site ? site.name : 'Camp';
+    const tabs = this.el.querySelectorAll('[data-tab]');
+    for (const b of tabs) {
+      if (b.dataset.tab === 'cook') b.textContent = site ? 'Stove & food' : 'Fire & food';
+      if (b.dataset.tab === 'own') b.hidden = !site;
+    }
+    this.show(tab === 'own' && !site ? 'cook' : tab);
   }
 
   close() {
     this.el.hidden = true;
+    this.packing = null;
   }
 
   show(tab) {
@@ -197,21 +254,21 @@ export class Camp {
 
   render() {
     if (!this.isOpen) return;
-    $('camp-sub').textContent = `${formatClock(this.state.hour)} · day ${this.state.day}`;
-    if (this.tab === 'cook') this.renderCook();
+    // (Your camp may have been packed up from elsewhere.)
+    if (this.site && !(this.state.camps || []).includes(this.site)) {
+      this.hooks.close();
+      return;
+    }
+    $('camp-sub').textContent = `${formatClock(this.state.hour)} · day ${this.state.day}${this.site ? ' · your camp' : ''}`;
+    if (this.tab === 'cook') {
+      if (this.site) this.renderStove();
+      else this.renderCook();
+    } else if (this.tab === 'own') this.renderOwn();
     else this.renderSleep();
   }
 
-  renderCook() {
-    const c = this.state.camp, f = this.food;
-    const out = [];
-    const fire = this.fireLevel;
-    const left = c.fireUntil - this.abs();
-    const fireRow = el('div', 'cp-row');
-    fireRow.append(el('span', `cp-fire ${fire > 0.35 ? 'lit' : fire > 0 ? 'embers' : ''}`), el('p', '', fire > 0.35 ? `The fire is burning: about ${Math.max(1, Math.round(left))} h left.` : fire > 0 ? 'Just embers now, still warm.' : 'The fire ring is cold.'));
-    fireRow.append(button(fire > 0.35 ? 'Add a log' : 'Light the fire', () => this.lightFire(fire > 0.35 ? 1.5 : 3)));
-    out.push(fireRow);
-
+  belly() {
+    const f = this.food;
     const belly = el('div', 'cp-row');
     const word = f.full > 80 ? 'Full' : f.full >= 40 ? 'Content' : f.full >= 15 ? 'Peckish' : 'Hungry';
     const bar = el('span', 'cp-bar');
@@ -219,19 +276,31 @@ export class Camp {
     fill.style.width = `${Math.round(f.full)}%`;
     bar.append(fill);
     belly.append(el('strong', '', word), bar, el('span', 'cp-soft', this.wellFed ? 'Well fed: steady hands' : ''));
-    out.push(belly);
+    return belly;
+  }
+
+  progress(text, done) {
+    const row = el('div', 'cp-row');
+    const pb = el('span', 'cp-bar warm');
+    const pf = el('i');
+    pf.style.width = `${Math.round(done * 100)}%`;
+    pb.append(pf);
+    row.append(el('p', '', text), pb, el('span', 'cp-soft', 'Hold T to wait'));
+    return row;
+  }
+
+  renderCook() {
+    const c = this.state.camp;
+    const out = [];
+    const fire = this.fireLevel;
+    const left = c.fireUntil - this.abs();
+    const fireRow = el('div', 'cp-row');
+    fireRow.append(el('span', `cp-fire ${fire > 0.35 ? 'lit' : fire > 0 ? 'embers' : ''}`), el('p', '', fire > 0.35 ? `The fire is burning: about ${Math.max(1, Math.round(left))} h left.` : fire > 0 ? 'Just embers now, still warm.' : 'The fire ring is cold.'));
+    fireRow.append(button(fire > 0.35 ? 'Add a log' : 'Light the fire', () => this.lightFire(fire > 0.35 ? 1.5 : 3)));
+    out.push(fireRow, this.belly());
 
     out.push(el('h3', '', 'On the grill'));
-    if (c.cooking) {
-      const done = clamp((this.abs() - c.cooking.start) / c.cooking.dur, 0, 1);
-      const row = el('div', 'cp-row');
-      const pb = el('span', 'cp-bar warm');
-      const pf = el('i');
-      pf.style.width = `${Math.round(done * 100)}%`;
-      pb.append(pf);
-      row.append(el('p', '', `${fishById[c.cooking.id].name}, sizzling.`), pb, el('span', 'cp-soft', 'Hold T to wait'));
-      out.push(row);
-    }
+    if (c.cooking) out.push(this.progress(`${fishById[c.cooking.id].name}, sizzling.`, clamp((this.abs() - c.cooking.start) / c.cooking.dur, 0, 1)));
     c.ready.forEach((m, i) => {
       const sp = fishById[m.id];
       const row = el('div', 'cp-row');
@@ -246,17 +315,203 @@ export class Camp {
     keep.forEach((k, i) => {
       const sp = fishById[k.id];
       const row = el('div', 'cp-row');
-      row.append(el('p', '', `${sp.name}, ${k.size} cm`), el('span', 'cp-soft', sp.meal.name));
-      const b = button('Grill it', () => this.cook(i));
-      b.disabled = !!c.cooking;
-      if (c.cooking) b.title = 'The grill is busy';
-      row.append(b);
+      if (k.cooked) {
+        row.append(el('p', '', `${sp.meal.name}, ${k.size} cm`), el('span', 'cp-soft', 'cooked, wrapped in paper'), button('Eat', () => this.eatFromCreel(i)));
+      } else {
+        row.append(el('p', '', `${sp.name}, ${k.size} cm`), el('span', 'cp-soft', sp.meal.name));
+        const b = button('Grill it', () => this.cook(i));
+        b.disabled = !!c.cooking;
+        if (c.cooking) b.title = 'The grill is busy';
+        row.append(b);
+      }
       out.push(row);
     });
     const oat = el('div', 'cp-row');
     oat.append(el('p', 'cp-soft', 'A tin of oatcakes lives in the tent.'), button('Have an oatcake', () => this.oatcake(), 'quiet'));
     out.push(oat);
     $('camp-cook').replaceChildren(...out);
+  }
+
+  /* ---------------- your own camp ---------------- */
+
+  act(r, msg) {
+    if (!r.ok) {
+      this.hooks.toast(r.why, 4);
+      return;
+    }
+    if (msg) this.hooks.toast(msg, 3);
+    this.hooks.changed();
+    this.render();
+  }
+
+  renderStove() {
+    const camp = this.site, out = [];
+    const ck = camp.cooking;
+    const stove = el('div', 'cp-row');
+    stove.append(el('span', `cp-stove ${ck ? 'lit' : ''}`), el('p', '', ck ? 'The stove hisses under the pan.' : 'The little gas stove. It lights when something goes in the pan.'));
+    out.push(stove, this.belly());
+
+    out.push(el('h3', '', 'In the pan'));
+    if (ck) out.push(this.progress(`${fishById[ck.id].name}, sizzling.`, clamp((this.abs() - ck.start) / ck.dur, 0, 1)));
+    else out.push(el('p', 'cp-soft', 'Nothing cooking.'));
+    camp.store.meals.forEach((m, i) => {
+      const sp = fishById[m.id];
+      const row = el('div', 'cp-row');
+      row.append(el('p', '', `${sp.meal.name} (${m.size} cm), ready.`),
+        button('Eat', () => { camp.store.meals.splice(i, 1); this.eatMeal(m); }),
+        button('Wrap it for later', () => this.act(take(this.state, camp, i, true), 'Wrapped in paper and into your creel.'), 'quiet'));
+      out.push(row);
+    });
+
+    const cook = (from, i) => {
+      const r = startCooking(this.state, camp, from, i, this.abs());
+      if (r.ok) {
+        this.hooks.audio.sizzleStart?.();
+        this.act(r, `The ${fishById[r.fish.id].name.toLowerCase()} goes in the pan. About half an hour.`);
+      } else this.act(r);
+    };
+    out.push(el('h3', '', `Cool box (${camp.store.fish.length} of ${COOLBOX})`));
+    if (!camp.store.fish.length) out.push(el('p', 'cp-soft', 'Empty. Fish you keep can wait here on ice, beyond what your creel holds.'));
+    camp.store.fish.forEach((f, i) => {
+      const sp = fishById[f.id];
+      const row = el('div', 'cp-row');
+      const b = button('Cook', () => cook('cooler', i));
+      b.disabled = !!ck;
+      row.append(el('p', '', `${sp.name}, ${f.size} cm`), b, button('To your creel', () => this.act(take(this.state, camp, i)), 'quiet'));
+      out.push(row);
+    });
+
+    out.push(el('h3', '', `Your creel (${this.state.keep.length} of ${PACK.fish})`));
+    if (!this.state.keep.length) out.push(el('p', 'cp-soft', 'Empty.'));
+    this.state.keep.forEach((f, i) => {
+      const sp = fishById[f.id];
+      const row = el('div', 'cp-row');
+      if (f.cooked) {
+        row.append(el('p', '', `${sp.meal.name}, ${f.size} cm`), el('span', 'cp-soft', 'cooked'), button('Eat', () => this.eatFromCreel(i)), button('Leave it here', () => this.act(stow(this.state, camp, i)), 'quiet'));
+      } else {
+        const b = button('Cook', () => cook('creel', i));
+        b.disabled = !!ck;
+        row.append(el('p', '', `${sp.name}, ${f.size} cm`), b, button('Into the cool box', () => this.act(stow(this.state, camp, i)), 'quiet'));
+      }
+      out.push(row);
+    });
+    const oat = el('div', 'cp-row');
+    oat.append(el('p', 'cp-soft', 'A tin of oatcakes lives in the tent.'), button('Have an oatcake', () => this.oatcake(), 'quiet'));
+    out.push(oat);
+    $('camp-cook').replaceChildren(...out);
+  }
+
+  renderOwn() {
+    const camp = this.site, out = [];
+    // Its name.
+    const nameRow = el('div', 'cp-row cp-name');
+    const input = el('input');
+    input.type = 'text';
+    input.maxLength = 40;
+    input.value = camp.name;
+    input.setAttribute('aria-label', 'Your camp’s name');
+    const rename = () => {
+      const n = cleanName(input.value);
+      if (!n || n === camp.name) return;
+      camp.name = n;
+      $('camp-title').textContent = n;
+      this.hooks.changed();
+      this.hooks.toast(`Your camp is called ${n} now.`, 3);
+    };
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') rename(); });
+    input.addEventListener('change', rename);
+    nameRow.append(el('strong', '', 'Name'), input, button('Rename', rename, 'quiet'));
+    out.push(nameRow);
+
+    const chips = (label, opts, current, pick) => {
+      const row = el('div', 'cp-row cp-chips');
+      row.append(el('strong', '', label));
+      const g = el('div', 'cp-choice');
+      g.setAttribute('role', 'radiogroup');
+      g.setAttribute('aria-label', label);
+      for (const [id, text] of opts) {
+        const b = button(text, () => { pick(id); this.hooks.changed(); this.render(); }, `chip${id === current ? ' on' : ''}`);
+        b.setAttribute('role', 'radio');
+        b.setAttribute('aria-checked', id === current);
+        g.append(b);
+      }
+      row.append(g);
+      return row;
+    };
+    out.push(chips('Tent', Object.entries(TENTS).map(([id, t]) => [id, t.name]), camp.tent, (id) => { camp.tent = id; }));
+    out.push(chips('Lantern', [['auto', 'After dark'], ['on', 'Always'], ['off', 'Off']], camp.lantern, (id) => { camp.lantern = id; }));
+    const deco = el('div', 'cp-row cp-chips');
+    deco.append(el('strong', '', 'Put out'));
+    const dg = el('div', 'cp-choice');
+    for (const [k, text] of Object.entries(DECOR)) {
+      if (DECOR_UNLOCK[k] && !this.state.unlocks?.[DECOR_UNLOCK[k]]) continue;
+      const b = button(text, () => { camp.deco[k] = !camp.deco[k]; this.hooks.changed(); this.render(); }, `chip${camp.deco[k] ? ' on' : ''}`);
+      b.setAttribute('aria-pressed', camp.deco[k]);
+      dg.append(b);
+    }
+    deco.append(dg);
+    out.push(deco);
+    out.push(chips('On the map', [['yes', 'Marked'], ['no', 'Not marked']], camp.marked ? 'yes' : 'no', (id) => { camp.marked = id === 'yes'; }));
+
+    const p = camp.pitched;
+    out.push(el('p', 'cp-soft', `Pitched on day ${p.day} at ${formatClock(p.hour)}${camp.visits ? `; you’ve been back ${camp.visits} time${camp.visits === 1 ? '' : 's'}` : ''}. In the cool box: ${camp.store.fish.length} fish${camp.store.meals.length ? `, and ${camp.store.meals.length} cooked` : ''}.`));
+    const row = el('div', 'cp-row cp-acts');
+    row.append(button('Open the journal', () => this.hooks.openJournal()), button('Plan a trip', () => this.hooks.planTrip()));
+    out.push(row);
+
+    out.push(el('h3', '', 'Moving on'));
+    if (this.packing) out.push(this.renderPacking(camp));
+    else {
+      const mv = el('div', 'cp-row cp-acts');
+      mv.append(
+        button('Move this camp…', () => this.hooks.moveCamp(camp)),
+        button('Pack it up…', () => this.startPacking(camp), 'quiet'),
+      );
+      out.push(mv, el('p', 'cp-soft', 'Moving keeps everything just as it is (the cool box comes too). Packing up puts the tent and stove in your backpack, and the cool box’s fish in your creel.'));
+    }
+    $('camp-own').replaceChildren(...out);
+  }
+
+  startPacking(camp) {
+    const plan = packPlan(this.state, camp);
+    if (plan.cooking) {
+      this.hooks.toast('Something is still in the pan: let it finish (hold T), then pack up.', 5);
+      return;
+    }
+    if (plan.fits) {
+      this.hooks.packUp(camp, []);
+      return;
+    }
+    this.packing = new Set();
+    this.render();
+  }
+
+  // Not everything fits: say so, and let you choose (nothing goes unless you say).
+  renderPacking(camp) {
+    const box = el('div', 'cp-pack');
+    const plan = packPlan(this.state, camp);
+    const need = Math.max(0, plan.fish + plan.meals - plan.free - this.packing.size);
+    box.append(el('p', '', `Your creel has room for ${plan.free} more fish, and the cool box holds ${plan.fish}${plan.meals ? ` and ${plan.meals} cooked` : ''}. A full cool box is too heavy to carry with the tent, so the fish travel in your creel.`));
+    box.append(el('p', 'cp-soft', need ? `Choose ${need} more to let go, cook some here first, or keep the camp where it is.` : 'Ready: the rest will fit in your creel.'));
+    camp.store.fish.forEach((f, i) => {
+      const lab = el('label', 'cp-check');
+      const cb = el('input');
+      cb.type = 'checkbox';
+      cb.checked = this.packing.has(i);
+      cb.addEventListener('change', () => {
+        if (cb.checked) this.packing.add(i);
+        else this.packing.delete(i);
+        this.render();
+      });
+      lab.append(cb, el('span', '', `Let go: ${fishById[f.id].name}, ${f.size} cm`));
+      box.append(lab);
+    });
+    const acts = el('div', 'cp-row cp-acts');
+    const go = button(this.packing.size ? `Let ${this.packing.size} go and pack up` : 'Pack up', () => this.hooks.packUp(camp, [...this.packing]));
+    go.disabled = need > 0;
+    acts.append(go, button('Cook some here', () => { this.packing = null; this.show('cook'); }, 'quiet'), button('Keep the camp', () => { this.packing = null; this.render(); }, 'quiet'));
+    box.append(acts);
+    return box;
   }
 
   renderSleep() {
@@ -272,7 +527,9 @@ export class Camp {
       grid.append(b);
     }
     out.push(grid);
-    out.push(el('p', 'cp-soft', 'While you sleep the world goes on: the light changes, the weather may turn, the fire burns down and the fish move to where the new hour suits them.'));
+    out.push(el('p', 'cp-soft', 'While you sleep the world goes on: the light changes, the weather may turn, the fire burns down and the fish move to where the new hour suits them. Your boats stay where you left them.'));
     $('camp-sleep').replaceChildren(...out);
   }
 }
+
+export { COOLBOX, MEALS_MAX };

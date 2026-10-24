@@ -157,6 +157,7 @@
   <div class="card-act">
     <button id="cc-release" type="button"><span class="desk-only"><kbd>Space</kbd> </span>Let it go</button>
     <button id="cc-keep" type="button"><span class="desk-only"><kbd>K</kbd> </span>Keep for the pot</button>
+    <button id="cc-photo" type="button"><span class="desk-only"><kbd data-key="photo">P</kbd> </span>Photograph</button>
   </div>
 </div>
 
@@ -189,10 +190,16 @@
           <summary>Creel <span id="pack-fish-count"></span></summary>
           <div id="pack-fish" class="gx-creel"></div>
         </details>
+        <details class="gx-more" id="pack-kit-box" open>
+          <summary>Camping kit &amp; camera</summary>
+          <div id="pack-kit" class="gx-kit"></div>
+        </details>
         <details class="gx-more" id="pack-travel-box">
           <summary>Head back</summary>
           <div class="gx-travel" role="group" aria-label="Head back">
-            <button id="travel-camp" class="pk-btn" type="button">Camp (the tent)</button>
+            <button id="travel-own" class="pk-btn" type="button">Your camp</button>
+            <button id="travel-camp" class="pk-btn" type="button">The old camp</button>
+            <button id="travel-haven" class="pk-btn" type="button">Willowhaven</button>
             <button id="travel-boat" class="pk-btn" type="button">The boat</button>
             <button id="travel-map" class="pk-btn" type="button">Another camp (map)</button>
             <p id="travel-note" class="gx-note"></p>
@@ -208,18 +215,71 @@
 <div id="camp" class="sheet" role="dialog" aria-label="Camp" hidden>
   <div class="sheet-inner">
     <header>
-      <h2>Camp</h2>
+      <h2 id="camp-title">Camp</h2>
       <p id="camp-sub"></p>
       <button id="camp-close" class="sheet-close" type="button" aria-label="Close">×</button>
     </header>
     <nav class="cp-tabs">
       <button type="button" data-tab="cook">Fire &amp; food</button>
       <button type="button" data-tab="sleep">Sleep</button>
+      <button type="button" data-tab="own" hidden>Your camp</button>
       <button type="button" data-tab="tackle">Tackle box</button>
     </nav>
     <section id="camp-cook" data-pane="cook"></section>
     <section id="camp-sleep" data-pane="sleep" hidden></section>
+    <section id="camp-own" data-pane="own" hidden></section>
   </div>
+</div>
+
+<div id="photo-frame" class="photo-frame" hidden>
+  <div class="pf-thirds" aria-hidden="true"></div>
+  <p class="pf-hint" id="pf-hint"></p>
+  <div class="pf-acts">
+    <button id="pf-take" class="pk-btn" type="button">Take the photograph</button>
+    <button id="pf-leave" class="pk-btn quiet" type="button">Put the camera away</button>
+  </div>
+</div>
+
+<div id="photo-card" class="card photo-card" role="dialog" aria-label="Your photograph" hidden>
+  <img id="pc-img" alt="Your photograph">
+  <input id="pc-title" type="text" maxlength="60" placeholder="A title (optional)" aria-label="A title for the photograph">
+  <p id="pc-text"></p>
+  <div class="card-act">
+    <button id="pc-keep" class="pk-btn" type="button">Keep it</button>
+    <button id="pc-discard" class="pk-btn quiet" type="button">Discard</button>
+  </div>
+</div>
+
+<div id="board" class="sheet" role="dialog" aria-label="The notice board" hidden>
+  <div class="sheet-inner board-inner">
+    <header>
+      <h2>Willowhaven notices</h2>
+      <p id="board-sub"></p>
+      <button id="board-close" class="sheet-close" type="button" aria-label="Close">×</button>
+    </header>
+    <div class="board-cols">
+      <section><h3>Wind &amp; water</h3><div id="board-weather"></div><h3>Gulls diving</h3><div id="board-birds"></div></section>
+      <section><h3>What’s about</h3><div id="board-about"></div></section>
+    </div>
+    <h3>Notices</h3>
+    <div id="board-notices" class="board-notices"></div>
+    <div class="cp-row cp-acts"><button id="board-plan" class="pk-btn" type="button">Plan a trip (field guide)</button><button id="board-map" class="pk-btn quiet" type="button">Open the map</button></div>
+  </div>
+</div>
+
+<div id="place-panel" class="place-panel" role="region" aria-label="Pitching your camp" hidden>
+  <h2 id="pl-title">Pitch your camp</h2>
+  <p id="pl-status" class="pl-status" role="status" aria-live="polite"></p>
+  <p id="pl-warn" class="pl-warn"></p>
+  <div class="pl-tools">
+    <button id="pl-left" type="button" aria-label="Turn the tent left">⟲</button>
+    <button id="pl-right" type="button" aria-label="Turn the tent right">⟳</button>
+    <button id="pl-near" type="button" aria-label="Bring it nearer">−</button>
+    <button id="pl-far" type="button" aria-label="Push it further">+</button>
+    <button id="pl-ok" class="pk-btn" type="button">Pitch it here</button>
+    <button id="pl-cancel" class="pk-btn quiet" type="button">Cancel</button>
+  </div>
+  <p id="pl-keys" class="pl-keys"></p>
 </div>
 
 <div id="note-card" class="card" role="dialog" aria-label="Discovery" hidden>
@@ -261,6 +321,18 @@
         <h3>Camps &amp; boats</h3>
         <ul id="map-camps" class="map-list"></ul>
         <p id="map-note" class="map-note"></p>
+        <h3>Your marks</h3>
+        <div class="map-mark-tools">
+          <button id="map-mark" class="pk-btn quiet" type="button" aria-pressed="false">Mark a spot</button>
+          <button id="map-mark-here" class="pk-btn quiet" type="button">Mark where you are</button>
+        </div>
+        <form id="map-pin-edit" class="map-pin-edit" hidden>
+          <input id="mp-title" type="text" maxlength="40" placeholder="Name (e.g. Bass ledge)" aria-label="The mark’s name">
+          <textarea id="mp-note" maxlength="240" rows="2" placeholder="A note" aria-label="A note"></textarea>
+          <label class="mp-fav"><input id="mp-fav" type="checkbox"> A favourite fishing spot</label>
+          <div class="mp-acts"><button class="pk-btn" type="submit">Save</button><button id="mp-delete" class="pk-btn quiet" type="button">Delete</button><button id="mp-cancel" class="pk-btn quiet" type="button">Cancel</button></div>
+        </form>
+        <ul id="map-pins" class="map-list"></ul>
         <h3>Places</h3>
         <ul id="map-places" class="map-list"></ul>
         <p class="map-key"><span class="mk-tent"></span> camp <span class="mk-dock"></span> landing <span class="mk-x">×</span> landmark <span class="mk-fish"></span> your best fish <span class="mk-you"></span> you</p>
@@ -272,10 +344,37 @@
 <div id="journal" hidden>
   <div class="book" role="dialog" aria-label="Journal">
     <nav class="j-tabs" aria-label="Journal sections">
-      <button type="button" data-view="fish" class="on">Fish &amp; places</button>
-      <button type="button" data-view="log">Catch log</button>
-      <button type="button" data-view="guide">Field guide</button>
+      <button type="button" data-view="fish" class="on" aria-label="Fish &amp; places">Fish<span class="j-tab-more"> &amp; places</span></button>
+      <button type="button" data-view="log" aria-label="Catch log"><span class="j-tab-more">Catch </span>log</button>
+      <button type="button" data-view="guide" aria-label="Field guide"><span class="j-tab-more">Field </span>guide</button>
+      <button type="button" data-view="memories">Memories</button>
     </nav>
+    <section class="page left j-mem-view" aria-label="Memories: photographs and adventures" hidden>
+      <h2>Photographs <span class="count" id="mem-photo-count"></span></h2>
+      <p id="mem-photo-note" class="j-faint"></p>
+      <div id="mem-photos" class="mem-photos"></div>
+      <p class="mem-photo-acts"><button id="mem-take" class="pk-btn" type="button">Take a photograph</button><button id="mem-album-dl" class="pk-btn quiet" type="button">Download the album</button></p>
+      <h2>Adventures</h2>
+      <div id="mem-adv"></div>
+    </section>
+    <section class="page right j-mem-view" aria-label="Memories: marks, camp and places" hidden>
+      <h2>Your marks</h2>
+      <div id="mem-marks"></div>
+      <p><button id="mem-mark-here" class="pk-btn quiet" type="button">Mark where you are</button></p>
+      <h3>Your camp</h3>
+      <div id="mem-camp"></div>
+      <h3>Places you’ve found</h3>
+      <div id="mem-places"></div>
+    </section>
+    <div id="mem-viewer" class="mem-viewer" role="dialog" aria-label="A photograph" hidden>
+      <div class="mem-viewer-inner">
+        <button id="mem-viewer-close" class="sheet-close" type="button" aria-label="Close">×</button>
+        <img id="mem-viewer-img" alt="">
+        <input id="mem-viewer-title" type="text" maxlength="60" placeholder="Give it a title" aria-label="The photograph’s title">
+        <p id="mem-viewer-text"></p>
+        <div id="mem-viewer-acts" class="mem-acts"></div>
+      </div>
+    </div>
     <section class="page left j-guide-view" id="g-index" aria-label="Field guide: species" hidden></section>
     <section class="page right j-guide-view" aria-label="Field guide: the selected species" hidden>
       <div id="g-page"></div>
@@ -333,6 +432,7 @@
   <div class="sheet-inner confirm-inner">
     <h2 id="confirm-title"></h2>
     <p id="confirm-text"></p>
+    <input id="confirm-input" type="text" maxlength="40" hidden>
     <div class="confirm-acts" id="confirm-acts"></div>
   </div>
 </div>

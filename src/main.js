@@ -20,9 +20,10 @@ import { createMist } from './world/mist.js';
 import { surfaceUniforms } from './world/surface.js';
 import { causticUniforms } from './world/caustics.js';
 import {
-  bakeHeightTexture, walkHeight, solidHeight, landSDF, lakeSDF, streamSDF, zoneAt, waterOf, riverSDF, mereSDF,
+  bakeHeightTexture, heightAt, walkHeight, solidHeight, landSDF, lakeSDF, streamSDF, zoneAt, waterOf, riverSDF, mereSDF,
   PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD,
   PEGS, POOLS, STREAM, SNAG, LILIES, JETTY, ISLAND, GANNET_CAMP, SKERRIES, SKELLIG, DEEP_Z,
+  HAVEN, HAVEN_QUAY, HAVEN_BENCH, DAYMARK, STRAND, WRECK, WRECK_BUOY, CHANNEL,
 } from './world/terrain.js';
 import { Boat, BOAT_KINDS } from './boat.js';
 import { Walker } from './walker.js';
@@ -32,6 +33,15 @@ import { drawFishSketch, drawLanternSketch, fishById, weightOf } from './fish.js
 import { RODS, TACKLE, ROD_IDS, PACK, cleanGear, currentRig, fits, termOf, lineInUse } from './tackle.js';
 import { PackUI } from './pack.js';
 import { Camp, WAKE_TIMES } from './camp.js';
+import { kitsFree, newCamp, moveCamp, packUp, checkSite, nearestSite, defaultName, toWorld, LAYOUT } from './campsite.js';
+import { makeSiteWorld } from './siteWorld.js';
+import { CampView, campObstacles } from './campView.js';
+import { Placement } from './placement.js';
+import { Adventures, ADVENTURE_BY_ID, PAGES, KEEPSAKES } from './adventures.js';
+import { PhotoStore, capture, photoId, albumPage, download } from './photos.js';
+import { Memories } from './memories.js';
+import { whatsAbout, birdsWorking, weatherLines, notices, paintBoard } from './harbour.js';
+import { PHOTO_MAX } from './save.js';
 import { Journal } from './journal.js';
 import { MapSheet, Explored } from './map.js';
 import { FieldGuide } from './guide.js';
@@ -117,6 +127,66 @@ scene.add(water.mesh);
 const mist = createMist(water.uniforms.uHeight.value, WATER_RECT, water.uniforms.uHeight2.value, SHORE_RECT);
 scene.add(mist.group);
 const world = buildWorld(scene, renderer, habitat);
+// Your own camps (see campsite.js): drawn by CampView, and solid underfoot like everything else.
+state.camps = Array.isArray(state.camps) ? state.camps : [];
+const campView = new CampView(scene);
+const campSolids = [];
+function refreshCamps() {
+  campSolids.length = 0;
+  for (const c of state.camps) campSolids.push(...campObstacles(c));
+  campView.sync(state.camps);
+}
+// The world's obstacles and your camps' gear together, as one thing to bump into.
+const solids = {
+  resolve(p, r, y = -Infinity) {
+    let hit = world.obstacles.resolve(p, r, y);
+    for (const o of campSolids) {
+      if (y > o.top) continue;
+      const dx = p.x - o.x, dz = p.z - o.z, min = o.r + r, d2 = dx * dx + dz * dz;
+      if (d2 >= min * min) continue;
+      const d = Math.sqrt(d2) || 0.001;
+      p.x = o.x + (dx / d) * min;
+      p.z = o.z + (dz / d) * min;
+      hit = true;
+    }
+    return hit;
+  },
+  near(x, z, pad, out = []) {
+    world.obstacles.near(x, z, pad, out);
+    for (const o of campSolids) if ((x - o.x) ** 2 + (z - o.z) ** 2 < (o.r + pad) ** 2) out.push(o);
+    return out;
+  },
+};
+// Places a camp mustn't go besides those in siteWorld.js: the doorways, the notice board, the
+// bench and the like (see coast.js), the tackle boxes, and the driftwood where the lantern was.
+const interactionKeepOut = [
+  ...world.coast.spots.map((sp) => ({ x: sp.x, z: sp.z, r: sp.r + 1.2, why: `That would block ${sp.name}.` })),
+  ...world.boxes.map((b) => ({ x: b.x, z: b.z, r: 4, why: 'Keep the tackle box clear.' })),
+];
+const siteWorld = makeSiteWorld({
+  obstacles: (x, z, pad, out) => {
+    solids.near(x, z, pad, out);
+    if (siteWorld.ignore) for (let i = out.length - 1; i >= 0; i--) if (out[i].camp === siteWorld.ignore) out.splice(i, 1);
+    return out;
+  },
+  extraKeepOut: () => interactionKeepOut,
+});
+// Camps saved before the ground changed (a world update): kept, with everything in them, and
+// moved to the nearest safe ground with a word about it.
+const campNotes = [];
+for (const c of state.camps) {
+  siteWorld.ignore = c.id;
+  const r = checkSite(c.x, c.z, c.yaw, siteWorld, { others: state.camps, ignore: c.id });
+  if (r.ok) continue;
+  const near = nearestSite(c.x, c.z, c.yaw, siteWorld, 90, { others: state.camps, ignore: c.id });
+  if (near) {
+    const d = Math.round(Math.hypot(near.x - c.x, near.z - c.z));
+    moveCamp(c, near.x, near.z, near.yaw, c.pitched.day, c.pitched.hour);
+    campNotes.push(`The ground where ${c.name} stood has changed (${r.reason.charAt(0).toLowerCase()}${r.reason.slice(1)}). Your camp has been moved ${d} m to safe ground, with everything in it.`);
+  } else campNotes.push(`The ground where ${c.name} stands has changed, and there’s no good ground near it. It’s still there with everything in it: move it or pack it up when you visit.`);
+}
+siteWorld.ignore = null;
+refreshCamps();
 const underwater = new Underwater(scene, habitat, $('underwater-tint'));
 const eco = new Ecosystem(habitat);
 const fishRenderer = new FishRenderer(scene, eco);
@@ -463,6 +533,7 @@ function showCatch(sp, size, agent, rigUsed) {
     on[rigUsed.item.id] = (on[rigUsed.item.id] || 0) + 1;
   }
   logCatch(sp, size, agent, rigUsed);
+  adventures.caught(sp.id, agent.x, agent.z, world.flocks);
   state.tips.caught = true;
   save();
 
@@ -553,6 +624,7 @@ const packUI = new PackUI(state, {
   onClose: () => closePack(),
   travel: (dest) => travel(dest),
   travelInfo: () => travelInfo(),
+  kit: (el) => renderKit(el),
   openMap: () => {
     closePack();
     openMap();
@@ -566,7 +638,7 @@ const packUI = new PackUI(state, {
 // The tackle boxes at the camps beyond the bay (Wend Quay, the boathouse, Puffin Cove).
 const regionBox = (reach = 4) => (onFoot ? world.boxes.find((b) => Math.hypot(walker.pos.x - b.x, walker.pos.z - b.z) < reach) : null);
 // A tackle box within reach: one at a camp, or the locker in a motorboat.
-const tackleBox = () => (nearCamp() || regionBox() ? 'tackle box' : !onFoot && boat.motor ? 'boat locker' : false);
+const tackleBox = () => (nearCamp() || regionBox() || ownCampNear(4.5) ? 'tackle box' : chandleryNear() ? 'chandlery' : !onFoot && boat.motor ? 'boat locker' : false);
 
 function openPack(box = tackleBox()) {
   if (modal) return;
@@ -583,6 +655,47 @@ function closePack() {
   audio.page();
 }
 
+// The camping kit, in the backpack: pitch it, or where your camp is and what to do about it.
+function renderKit(el) {
+  const out = [];
+  const btn = (text, run, dis = false, cls = '') => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `pk-btn ${cls}`.trim();
+    b.textContent = text;
+    b.disabled = dis;
+    b.addEventListener('click', run);
+    return b;
+  };
+  const p = (text, cls = 'gx-note') => {
+    const e = document.createElement('p');
+    e.className = cls;
+    e.textContent = text;
+    return e;
+  };
+  if (kitsFree(state)) {
+    out.push(p('A tent and bedroll, a lantern, a camp chair, a little stove and a cool box, rolled up on your pack. Pitch them wherever the ground allows.', 'gx-kit-text'));
+    out.push(btn('Pitch a camp…', () => startPitching('new'), !onFoot));
+    if (!onFoot) out.push(p('Step ashore first: a tent needs dry ground.'));
+  }
+  for (const c of state.camps) {
+    const P = player().pos, d = Math.round(Math.hypot(c.x - P.x, c.z - P.z));
+    const dir = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'][Math.round((Math.atan2(c.x - P.x, -(c.z - P.z)) / (Math.PI * 2)) * 8 + 8) % 8];
+    out.push(p(d < 12 ? `${c.name}: you’re here. Pack it up or move it from the camp itself (Your camp tab).` : `${c.name}: ${d} m ${dir}, pitched on day ${c.pitched.day}. ${c.store.fish.length ? `${c.store.fish.length} fish in the cool box.` : 'The cool box is empty.'}`, 'gx-kit-text'));
+    const row = document.createElement('div');
+    row.className = 'gx-kit-acts';
+    if (d >= 12) row.append(btn('Head there', () => travel('own'), !travelInfo().own), btn('Move it here…', () => startPitching('move', c), !onFoot, 'quiet'));
+    out.push(row);
+  }
+  // The camera rides in the same pocket (the only way into photo mode on a touch screen).
+  out.push(p(`Your camera: a picture of wherever you are, and under the water, of the fish themselves.${touch.active ? '' : ` (${input.keyLabel('photo')} anywhere.)`}`, 'gx-kit-text'));
+  out.push(btn('Take a photograph', () => {
+    closePack();
+    openPhoto();
+  }, fishing.busy, 'quiet'));
+  el.replaceChildren(...out);
+}
+
 /* ---------------- camp ---------------- */
 
 const camp = new Camp(state, scene, world.camp, {
@@ -593,20 +706,177 @@ const camp = new Camp(state, scene, world.camp, {
     closeCamp();
     openPack('tackle box');
   },
-  changed: () => save(),
+  changed: () => {
+    refreshCamps();
+    save();
+  },
   outcome: (logId, what) => setOutcome(logId, what),
   sleep: (h) => sleepUntil(h),
+  near: (c) => Math.hypot(player().pos.x - c.x, player().pos.z - c.z) < 40,
+  openJournal: () => {
+    closeCamp();
+    openJournal();
+  },
+  planTrip: () => {
+    closeCamp();
+    openGuide();
+  },
+  moveCamp: (c) => {
+    closeCamp();
+    startPitching('move', c);
+  },
+  packUp: (c, release) => packCamp(c, release),
 });
 
 function nearCamp() {
   return onFoot && walker.pos.distanceTo(world.camp.firePos) < 7.5;
 }
 
-function openCamp(tab) {
+// Your own camp, if you're standing by it (its door, or anywhere round its middle).
+function ownCampNear(reach = 3.6) {
+  if (!onFoot) return null;
+  for (const c of state.camps) {
+    const door = toWorld(c.x, c.z, c.yaw, 0, 1.1);
+    if (Math.hypot(walker.pos.x - door.x, walker.pos.z - door.z) < reach || Math.hypot(walker.pos.x - c.x, walker.pos.z - c.z) < reach + 1) return c;
+  }
+  return null;
+}
+
+function openCamp(tab, site = null) {
   if (modal) return;
-  camp.open(tab);
+  camp.open(tab, site);
   modal = 'camp';
   audio.page();
+}
+
+/* ---------------- your own camp: pitching, moving, packing up ---------------- */
+
+const placement = new Placement({
+  walker,
+  yaw: () => rig.yaw,
+  world: siteWorld,
+  preview: campView.preview,
+  others: () => state.camps,
+  keyLabel: (a) => input.keyLabel(a),
+  touch: () => touch.active,
+  nope: (why) => hud.flash(why, t, 2.6),
+  cancel: () => {
+    siteWorld.ignore = null;
+    hud.flash('Nothing pitched: the kit is still rolled up.', t, 2.2);
+  },
+  confirm: (spot, mode, c) => {
+    siteWorld.ignore = null;
+    pitchHere(spot, mode, c);
+  },
+});
+
+// Start choosing where to pitch (mode 'new', from your backpack) or where to move a camp to.
+function startPitching(mode = 'new', c = null) {
+  if (placement.isOn) return;
+  if (!onFoot) {
+    hud.flash('Step ashore first: a tent needs dry ground under it.', t, 3);
+    return;
+  }
+  if (fishing.state === 'reeling' || fishing.state === 'landing' || fishing.state === 'caught' || fishing.state === 'keeping') {
+    hud.flash('Land or let go of the fish first.', t, 3);
+    return;
+  }
+  if (fishing.lineOut || fishing.aiming) {
+    fishing.cancel();
+    hud.flash('You reel in and put the rod down.', t, 2);
+  }
+  if (mode === 'new' && !kitsFree(state)) {
+    hud.flash('Your camping kit is pitched already: move that camp, or pack it up first.', t, 3.5);
+    return;
+  }
+  if (modal === 'pack') closePack();
+  else if (modal === 'camp') closeCamp();
+  else if (modal === 'map') closeMap();
+  if (modal) return;
+  siteWorld.ignore = mode === 'move' ? c.id : null;
+  placement.start(mode, c);
+  audio.rustle?.();
+  teach('pitching', touch.active
+    ? 'Walk to where you’d like your camp: the outline turns green where it fits. The buttons turn it; tap Pitch it here when you’re happy.'
+    : `Walk to where you’d like your camp: the outline turns green where it fits, and says why where it doesn’t. ${input.keyLabel('tackle')} and ${input.keyLabel('interact')} turn it, the mouse wheel brings it nearer or further, ${input.keyLabel('cast')} pitches it, Esc puts the kit away again.`, 10);
+}
+
+function pitchHere(spot, mode, c) {
+  if (mode === 'move') {
+    const d = Math.hypot(spot.x - c.x, spot.z - c.z);
+    const hours = Math.min(2.5, 0.25 + (d / 400) * 2);
+    const mins = Math.round(hours * 60);
+    ask(`Move ${c.name} here?`, `It stands ${Math.round(d)} m away. You go back for it and carry everything over (about ${mins < 90 ? `${mins} minutes` : `${Math.round(hours * 10) / 10} hours`}). The tent, the stove and the cool box come just as they are, with ${c.store.fish.length} fish on ice.`, [
+      { text: 'Leave it where it is', cls: 'quiet', run: () => hud.flash(`${c.name} stays where it is.`, t, 2) },
+      {
+        text: 'Move it here', run: () => {
+          moveCamp(c, spot.x, spot.z, spot.yaw, state.day, state.hour);
+          passTime(hours);
+          refreshCamps();
+          solids.resolve(walker.pos, 0.4);
+          audio.knock(0.4);
+          save();
+          hud.toast(`${c.name} is pitched here now. ${spot.check.words}`, 5);
+        },
+      },
+    ]);
+    return;
+  }
+  const name = defaultName(spot.x, spot.z, PLACES, state.places);
+  const c2 = newCamp({ x: spot.x, z: spot.z, yaw: spot.yaw, name, day: state.day, hour: state.hour });
+  state.camps.push(c2);
+  refreshCamps();
+  solids.resolve(walker.pos, 0.4);
+  audio.knock(0.45);
+  setTimeout(() => audio.knock(0.35), 260);
+  save();
+  ask('Your camp is up', `${spot.check.words}${spot.check.warn ? ` ${spot.check.warn}` : ''} It stays here, just as you leave it, until you move it or pack it up. What shall we call it?`, [
+    { text: 'Keep this name', cls: 'quiet', run: () => campPitchedTip(c2) },
+    {
+      text: 'Name it', run: (v) => {
+        const n = (v || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 40);
+        if (n) c2.name = n;
+        save();
+        campPitchedTip(c2);
+      },
+    },
+  ], { input: name });
+}
+
+function campPitchedTip(c) {
+  hud.toast(`${c.name} is on your map. ${touch.active ? 'Tap the prompt by the door' : `Press ${input.keyLabel('interact')} by the door`} to rest, cook, use the cool box or change your tackle.`, 7);
+}
+
+// Pack it up (fish in the cool box go into your creel; `release` are the ones you chose to let go).
+function packCamp(c, release = []) {
+  const r = packUp(state, c, { release });
+  if (!r.ok) {
+    hud.toast(r.why, 5);
+    return;
+  }
+  for (const f of r.released) setOutcome(f.logId, 'released');
+  closeCamp();
+  refreshCamps();
+  audio.rustle?.();
+  save();
+  hud.toast(`${c.name} is packed up: the tent and stove are rolled up on your backpack${r.carried ? `, and ${r.carried} fish are in your creel` : ''}${r.released.length ? `; ${r.released.length} went back into the water` : ''}.`, 6);
+}
+
+// Back at your camp after time away: a word that it's just as you left it.
+let campAway = new Map();
+function watchCamps() {
+  for (const c of state.camps) {
+    const d = Math.hypot(player().pos.x - c.x, player().pos.z - c.z);
+    const was = campAway.get(c.id) ?? (d > 40);
+    if (was && d < 12 && onFoot) {
+      c.visits = (c.visits || 0) + 1;
+      const fish = c.store.fish.length, meals = c.store.meals.length;
+      hud.place(c.name, 'your camp');
+      if (c.visits > 0) hud.toast(`Back at ${c.name}. Just as you left it${fish || meals ? `: ${fish ? `${fish} fish in the cool box` : ''}${fish && meals ? ' and ' : ''}${meals ? `${meals} cooked by the stove` : ''}` : ''}.`, 5);
+      save();
+    }
+    campAway.set(c.id, d > 40 ? true : d < 12 ? false : was);
+  }
 }
 
 function closeCamp() {
@@ -616,13 +886,20 @@ function closeCamp() {
 
 let sleeping = null;
 function sleepUntil(h) {
-  if (fishing.busy || sleeping) return;
+  if (sleeping) return;
+  if (fishing.state === 'reeling' || fishing.state === 'landing' || fishing.state === 'caught' || fishing.state === 'keeping') {
+    hud.toast('Land or let go of the fish first.', 3);
+    return;
+  }
+  // (A line left out overnight would be a tangle by morning: you reel in before turning in.)
+  if (fishing.lineOut || fishing.aiming) fishing.cancel();
+  const site = camp.site;
   closeCamp();
   modal = 'sleep';
   const w = WAKE_TIMES.find((x) => x.h === h);
   hud.sleep(true, `You sleep until ${w ? w.name.toLowerCase() : formatClock(h)}…`);
   audio.rustle?.();
-  sleeping = { h, phase: 0, t: 0 };
+  sleeping = { h, phase: 0, t: 0, site };
 }
 
 // Halfway through the fade: move the world on.
@@ -646,10 +923,27 @@ function passTheNight() {
   eco.settle();
   for (let i = 0; i < 90; i++) eco.update(1 / 30, ecoCtx);
   sleeping.rain = rain;
+  // You wake at the tent's door, on firm ground (whatever the night did, you're never left in the water).
+  const door = sleeping.site ? toWorld(sleeping.site.x, sleeping.site.z, sleeping.site.yaw, 0.6, 1.6) : null;
+  const spot = door ? standNear(door.x, door.z, 0.3) : onFoot && walkHeight(walker.pos.x, walker.pos.z) < 0.1 ? campSpot() : null;
+  if (spot && onFoot) {
+    walker.place(spot.x, spot.z, spot.heading);
+    rig.reset(walker, t);
+  }
   save();
 }
 
-function wakeLine(h, rain) {
+function wakeLine(h, rain, site = null) {
+  // By the sea (your own camp on the coast): the sea's sounds, not the lake's.
+  const P = player().pos;
+  if (site && !['lake', 'stream', 'mere'].includes(zoneAt(P.x, P.z + 20))) {
+    if (rain) return 'You wake to rain on the canvas and the sea breathing on the sand. A good morning for bass.';
+    if (h < 7) return 'You wake to oystercatchers piping along the tideline, and a pale light over the sea.';
+    if (h < 11) return 'Morning sun through the canvas, and gulls working the water offshore.';
+    if (h < 16) return 'You wake to a bright afternoon and the hush of small waves.';
+    if (h < 20) return 'You wake as the light turns gold over the water: the bass will be coming in.';
+    return 'You wake in the dark to the lantern’s glow and the sea turning over on the sand.';
+  }
   if (rain) return 'You wake to rain pattering on the canvas. The fish will be stirring.';
   if (h < 7) return 'You wake to birdsong. Mist lies on the water, and the trout are rising.';
   if (h < 11) return 'Morning light through the tent. A good time for the stream.';
@@ -668,7 +962,7 @@ function updateSleep(dt) {
   if (sleeping.phase === 1 && sleeping.t > 3.4) {
     hud.sleep(false);
     modal = null;
-    hud.toast(wakeLine(sleeping.h, sleeping.rain), 6);
+    hud.toast(wakeLine(sleeping.h, sleeping.rain, sleeping.site), 6);
     audio.chime();
     sleeping = null;
   }
@@ -688,7 +982,7 @@ function shoreSpot() {
     const x = long ? clamp(b.x, P.x0 + 0.6, P.x1 - 0.6) : (P.x0 + P.x1) / 2;
     const z = long ? (P.z0 + P.z1) / 2 : clamp(b.z, P.z0 + 0.6, P.z1 - 0.6);
     const land = P.land || { x: P.x0, z: (P.z0 + P.z1) / 2 };
-    return { x, z, heading: Math.atan2(land.x - x, land.z - z), pier: true, landing: P === PIERS[1] };
+    return { x, z, heading: Math.atan2(land.x - x, land.z - z), pier: true, landing: P === PIERS[1], quay: P === HAVEN_QUAY };
   }
   for (let r = 1.4; r <= 6.2; r += 0.6) {
     let best = null;
@@ -828,7 +1122,7 @@ function campSpot() {
       if (Math.abs(walkHeight(x + 0.6, z) - walkHeight(x - 0.6, z)) + Math.abs(walkHeight(x, z + 0.6) - walkHeight(x, z - 0.6)) > 0.5) continue;
       p.x = x;
       p.z = z;
-      if (world.obstacles.resolve(p, 0.45)) continue;
+      if (solids.resolve(p, 0.45)) continue;
       return { x, z, heading: Math.atan2(c.x - x, c.z - z) };
     }
   }
@@ -849,7 +1143,7 @@ function standNear(x, z, from = 1.5) {
       if (h < 0.3) continue;
       if (Math.abs(walkHeight(p.x + 0.6, p.z) - walkHeight(p.x - 0.6, p.z)) + Math.abs(walkHeight(p.x, p.z + 0.6) - walkHeight(p.x, p.z - 0.6)) > 0.5) continue;
       const q = { x: p.x, z: p.z };
-      if (world.obstacles.resolve(q, 0.45)) continue;
+      if (solids.resolve(q, 0.45)) continue;
       return { x: q.x, z: q.z, heading: Math.atan2(x - q.x, z - q.z) };
     }
   }
@@ -862,16 +1156,30 @@ function campAt(id) {
   return box && state.places[id] ? box : null;
 }
 
+// Where your own camp's door is, and the safe ground in front of it.
+const ownCampSpot = (c) => {
+  const door = toWorld(c.x, c.z, c.yaw, 0.6, 1.8);
+  return standNear(door.x, door.z, 0.3);
+};
+// Willowhaven: on the apron by the head of the quay.
+const HAVEN_SPOT = { x: HAVEN_QUAY.x0 - 3, z: HAVEN_QUAY.z0 + 1.5 };
+
 function travelInfo() {
   const busy = fishing.state === 'reeling' || fishing.state === 'landing' || fishing.state === 'caught' || fishing.state === 'keeping';
-  if (busy) return { camp: false, boat: false, camps: false, note: 'Land or let go of the fish first.' };
-  if (sleeping || traveling) return { camp: false, boat: false, camps: false, note: '' };
+  if (busy) return { camp: false, boat: false, camps: false, own: false, haven: false, note: 'Land or let go of the fish first.' };
+  if (sleeping || traveling) return { camp: false, boat: false, camps: false, own: false, haven: false, note: '' };
   const atCamp = onFoot && nearCampSpot();
   const box = regionBox(10);
   const camp = !atCamp;
   const boat = onFoot;
-  const note = !onFoot ? 'You’re in the boat. It stays where you leave it.' : atCamp ? 'You’re at camp.' : stuckT > 2.5 ? 'Stuck? Any of these gets you out.' : '';
-  return { camp, boat, camps: true, here: atCamp ? 'camp' : box ? box.place : null, note };
+  const P = player().pos;
+  const ownHere = state.camps.find((c) => onFoot && Math.hypot(P.x - c.x, P.z - c.z) < 12);
+  const atHaven = onFoot && Math.hypot(P.x - HAVEN.x, P.z - HAVEN.z) < 22;
+  const note = !onFoot ? 'You’re in the boat. It stays where you leave it.' : ownHere ? `You’re at ${ownHere.name}.` : atCamp ? 'You’re at the old camp.' : atHaven ? 'You’re in Willowhaven.' : stuckT > 2.5 ? 'Stuck? Any of these gets you out.' : '';
+  return {
+    camp, boat, camps: true, here: atCamp ? 'camp' : ownHere ? 'own' : atHaven ? 'haven' : box ? box.place : null, note,
+    own: !!state.camps.length && !ownHere, haven: !!state.places.haven && !atHaven,
+  };
 }
 
 // The walk (or row) back happens off-screen: a short fade, a little time passes, and
@@ -879,16 +1187,17 @@ function travelInfo() {
 let traveling = null;
 function travel(dest) {
   const info = travelInfo();
-  const far = dest !== 'camp' && dest !== 'boat';
+  const far = !['camp', 'boat', 'own', 'haven'].includes(dest);
   if (far ? !info.camps || !campAt(dest) || info.here === dest : !info[dest]) return;
+  if (placement.isOn) placement.stop();
   if (fishing.lineOut) fishing.cancel();
   if (modal === 'pack') closePack();
   else if (modal === 'camp') closeCamp();
   else if (modal === 'map') closeMap();
   if (modal) return;
   modal = 'travel';
-  const name = far ? PLACES.find((p) => p.id === dest)?.name : '';
-  hud.sleep(true, far ? `You make your way to ${name}…` : dest === 'camp' ? 'You head back to camp…' : 'You make your way back to the boat…');
+  const name = far ? PLACES.find((p) => p.id === dest)?.name : dest === 'own' ? state.camps[0].name : dest === 'haven' ? 'Willowhaven' : '';
+  hud.sleep(true, far || dest === 'haven' ? `You make your way to ${name}…` : dest === 'own' ? `You head back to ${name}…` : dest === 'camp' ? 'You head back to the old camp…' : 'You make your way back to the boat…');
   traveling = { dest, name, t: 0, done: false };
 }
 
@@ -908,7 +1217,8 @@ function updateTravel(dt) {
     traveling.done = true;
     const from = player().pos.clone();
     const box = campAt(traveling.dest);
-    const spot = traveling.dest === 'camp' ? campSpot() : box ? standNear(box.x, box.z) : null;
+    const own = traveling.dest === 'own' ? state.camps[0] : null;
+    const spot = traveling.dest === 'camp' ? campSpot() : own ? ownCampSpot(own) : traveling.dest === 'haven' ? standNear(HAVEN_SPOT.x, HAVEN_SPOT.z, 0.2) : box ? standNear(box.x, box.z) : null;
     if (spot) {
       walker.place(spot.x, spot.z, spot.heading);
       if (!onFoot) setFoot(true, true);
@@ -919,14 +1229,14 @@ function updateTravel(dt) {
     }
     // About as long as the walk (or the sail) would take: half an hour at most back to camp or
     // the boat, longer to the far camps.
-    passTime(clamp(from.distanceTo(player().pos) / 400, 0.05, box ? 2.5 : 0.5));
+    passTime(clamp(from.distanceTo(player().pos) / 400, 0.05, box || own || traveling.dest === 'haven' ? 2.5 : 0.5));
     stuckT = 0;
     save();
   }
   if (traveling.t > 1.9) {
     hud.sleep(false);
     modal = null;
-    hud.toast(traveling.name ? `${traveling.name}. Your boat is where you left it.` : traveling.dest === 'camp' ? 'Back at camp. The boat is where you left it.' : 'Back in the boat.', 3.5);
+    hud.toast(traveling.name ? `${traveling.name}. Your boat is where you left it.` : traveling.dest === 'camp' ? 'Back at the old camp. The boat is where you left it.' : 'Back in the boat.', 3.5);
     traveling = null;
   }
 }
@@ -952,19 +1262,28 @@ const lanternReach = () => !state.items.lantern && (onFoot
 
 // What E (or tapping the prompt) does right now, if anything.
 function interaction() {
-  if (!started || modal || fishing.busy) return null;
+  if (!started || modal || fishing.busy || placement.isOn) return null;
   if (lanternReach()) return { text: 'Look closer at the driftwood', run: takeLantern };
   if (onFoot) {
     const near = boatNear();
     if (near) return { text: `Get in the ${near.name}`, run: () => board(near) };
+    const own = ownCampNear();
+    if (own) return { text: `${own.name}: rest, cook, cool box and tackle`, run: () => openCamp('cook', own) };
     if (nearCamp()) return { text: 'Camp: fire, food, sleep and tackle box', run: () => openCamp() };
     const box = regionBox();
     if (box) return { text: `${PLACES.find((p) => p.id === box.place)?.name || 'Camp'}: the tackle box`, run: () => openPack('tackle box') };
+    // Willowhaven, and the pages round the cove.
+    const page = pageNear();
+    if (page) return { text: PAGES[page].where.startsWith('tucked') ? 'Look at the paper tucked under the seat' : PAGES[page].where.startsWith('folded') ? 'Look at the paper in the crack' : 'Look at the paper in the driftwood', run: () => readPage(page) };
+    if (coastSpot('board')) return { text: 'Read the notice board', run: () => openBoard() };
+    if (chandleryNear()) return { text: 'The chandlery: tackle, bait and charts', run: () => openPack('chandlery') };
+    if (coastSpot('bench')) return { text: 'Sit on the bench a while', run: () => sitOnBench() };
+    if (quayHeadNear()) return { text: 'Have a boat brought round to the quay', run: () => boatsRound() };
     if (stuckT > 2.5) return { text: 'Stuck? Head back to camp or the boat', run: () => openPack() };
     return null;
   }
   const spot = cachedShoreSpot();
-  if (spot) return { text: spot.landing ? 'Step ashore at the landing' : spot.pier ? 'Step onto the jetty' : 'Step ashore', run: () => stepAshore(spot) };
+  if (spot) return { text: spot.landing ? 'Step ashore at the landing' : spot.quay ? 'Step up onto the quay' : spot.pier ? 'Step onto the jetty' : 'Step ashore', run: () => stepAshore(spot) };
   const other = boat.speed < 1 ? otherBoat() : null;
   if (other) return { text: `Step across into the ${other.name}`, run: () => stepAcross(other) };
   if (boat.speed < 0.6 && !fishing.lineOut) return { text: boat.anchored ? 'Raise the anchor' : 'Drop the anchor', run: toggleAnchor };
@@ -1013,6 +1332,435 @@ function takeLantern() {
 function closeNote() {
   $('note-card').hidden = true;
   modal = null;
+  // (Another card waiting: an adventure's ending after the page that finished it.)
+  const next = noteQueue.shift();
+  if (next) setTimeout(() => showNote(...next), 250);
+}
+
+/* ---------------- life on the coast: notes, adventures, the harbour, photographs ---------------- */
+
+// A card with a little sketch: a page found, an adventure's ending, a notice read.
+const noteQueue = [];
+function showNote(title, text, kind = '') {
+  if (modal === 'note' || (modal && modal !== 'journal')) {
+    noteQueue.push([title, text, kind]);
+    return;
+  }
+  if (modal === 'journal') closeJournal();
+  const cv = $('nc-canvas'), ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  drawNoteSketch(ctx, cv.width, cv.height, kind);
+  $('nc-title').textContent = title;
+  $('nc-text').textContent = text;
+  $('note-card').hidden = false;
+  modal = 'note';
+  audio.page();
+}
+
+// Little ink sketches for the cards (drawn here: no pictures from outside).
+function drawNoteSketch(ctx, w, h, kind) {
+  ctx.save();
+  ctx.strokeStyle = '#3a2e26';
+  ctx.fillStyle = '#3a2e26';
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  const cx = w / 2, cy = h / 2;
+  if (kind === 'kittiwake') {
+    // The drifter: hull, wheelhouse, funnel, mast; a line of sea.
+    ctx.beginPath();
+    ctx.moveTo(cx - 70, cy + 10); ctx.quadraticCurveTo(cx - 60, cy + 38, cx - 10, cy + 40); ctx.lineTo(cx + 62, cy + 36); ctx.lineTo(cx + 74, cy + 6); ctx.closePath();
+    ctx.stroke();
+    ctx.strokeRect(cx + 18, cy - 18, 26, 26);
+    ctx.fillRect(cx - 8, cy - 34, 10, 42);
+    ctx.beginPath(); ctx.moveTo(cx - 44, cy + 8); ctx.lineTo(cx - 44, cy - 58); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(10, cy + 48); for (let x = 10; x < w - 10; x += 12) ctx.quadraticCurveTo(x + 3, cy + 44, x + 6, cy + 48); ctx.stroke();
+  } else if (kind === 'notebook' || PAGES[kind]) {
+    ctx.strokeRect(cx - 50, cy - 60, 100, 120);
+    ctx.fillStyle = '#3f5f86';
+    ctx.fillRect(cx - 50, cy - 60, 12, 120);
+    ctx.fillStyle = '#3a2e26';
+    for (let i = 0; i < 7; i++) ctx.fillRect(cx - 30, cy - 42 + i * 14, 66 - ((i * 23) % 20), 1.6);
+  } else if (kind === 'gulls') {
+    for (const [x, y, s] of [[cx - 40, cy - 20, 1.2], [cx + 10, cy - 40, 1], [cx + 40, cy - 6, 0.8], [cx - 6, cy + 4, 0.9]]) {
+      ctx.beginPath(); ctx.moveTo(x - 18 * s, y); ctx.quadraticCurveTo(x - 8 * s, y - 12 * s, x, y); ctx.quadraticCurveTo(x + 8 * s, y - 12 * s, x + 18 * s, y); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.moveTo(10, cy + 40); for (let x = 10; x < w - 10; x += 12) ctx.quadraticCurveTo(x + 3, cy + 36, x + 6, cy + 40); ctx.stroke();
+  } else if (kind === 'wall') {
+    ctx.strokeRect(cx - 52, cy - 40, 104, 80);
+    ctx.beginPath(); ctx.ellipse(cx, cy, 30, 14, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - 30, cy); for (let i = 0; i < 5; i++) ctx.lineTo(cx - 44, cy - 8 + i * 4); ctx.stroke();
+  } else {
+    drawLanternSketch(ctx, cx, cy + 8, 62);
+  }
+  ctx.restore();
+}
+
+const adventures = new Adventures(state, {
+  note: (title, text, id) => showNote(title, text, id),
+  toast: (text, secs) => hud.toast(text, secs),
+  save: () => save(),
+});
+
+// Ada's pages, where they lie (until you've read them).
+const PAGE_SPOTS = { punt: 'punt', head: 'daymark', strand: 'shelter' };
+function pageNear() {
+  if (!onFoot) return null;
+  const read = adventures.pagesFound();
+  for (const [id, kind] of Object.entries(PAGE_SPOTS)) {
+    if (read.includes(id)) continue;
+    const sp = world.coast.spots.find((q) => q.kind === kind);
+    if (sp && Math.hypot(walker.pos.x - sp.x, walker.pos.z - sp.z) < sp.r + 0.6) return id;
+  }
+  return null;
+}
+function readPage(id, again = false) {
+  const P = PAGES[id];
+  if (again) {
+    showNote(P.title, P.text, id);
+    return;
+  }
+  // (The page first; if it was the last one, the notebook's ending follows it.)
+  const found = adventures.pagesFound().length;
+  audio.rustle?.();
+  showNote(P.title, `${found ? `Another of Ada’s pages, ${P.where} (${found + 1} of 3). ` : `A page of someone’s notebook, ${P.where}. `}“${P.text}”`, id);
+  adventures.page(id);
+}
+
+// Coast spots (the board, the bench, the chandlery's door…) within reach on foot.
+const coastSpot = (kind, pad = 0) => (onFoot ? world.coast.spots.find((q) => q.kind === kind && Math.hypot(walker.pos.x - q.x, walker.pos.z - q.z) < q.r + pad) : null);
+const chandleryNear = () => onFoot && world.coast.spots.some((q) => q.kind === 'door' && q.id === 'chandlery' && Math.hypot(walker.pos.x - q.x, walker.pos.z - q.z) < q.r + 0.4);
+// The head of the quay, where a boat can be brought round to.
+const QUAY_HEAD = { x: (HAVEN_QUAY.x0 + HAVEN_QUAY.x1) / 2, z: HAVEN_QUAY.z0 + 3 };
+const quayHeadNear = () => onFoot && Math.hypot(walker.pos.x - QUAY_HEAD.x, walker.pos.z - QUAY_HEAD.z) < 3;
+
+/* ---- the notice board ---- */
+
+function openBoard() {
+  if (modal) return;
+  modal = 'board';
+  $('board').hidden = false;
+  audio.page();
+  renderBoard();
+  teach('board', 'Everything on the board comes from the water itself: the wind and sea right now, which fish are busy at this hour round the harbour, and where gulls are diving. It changes as the day does.', 8);
+}
+function closeBoard() {
+  $('board').hidden = true;
+  if (modal === 'board') modal = null;
+}
+function renderBoard() {
+  const sky = weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : weather.cloud > 0.3 ? 'Some cloud' : 'Clear';
+  $('board-sub').textContent = `${formatClock(state.hour)} · day ${state.day}`;
+  const p = (text, cls = '') => {
+    const e = document.createElement('p');
+    if (cls) e.className = cls;
+    e.textContent = text;
+    return e;
+  };
+  $('board-weather').replaceChildren(...weatherLines(sky).map((l) => p(l)));
+  const birds = birdsWorking(world.flocks, state.places);
+  $('board-birds').replaceChildren(...(birds.length ? birds.map((l) => p(l)) : [p('No gulls working the water just now. They come down where fish drive the bait to the top: watch for them at dawn and dusk.', 'j-faint')]));
+  const about = whatsAbout(eco);
+  $('board-about').replaceChildren(...(about.length ? about.map((a) => {
+    const d = document.createElement('div');
+    d.className = 'board-fish';
+    const b = document.createElement('b');
+    b.textContent = a.sp.name;
+    d.append(b, p(`${a.act > 0.85 ? 'Busy' : 'About'} ${a.where}. ${a.how ? `Try ${a.how}.` : ''}`));
+    const g = document.createElement('button');
+    g.type = 'button';
+    g.className = 'pk-btn quiet';
+    g.textContent = 'In the field guide';
+    g.addEventListener('click', () => {
+      closeBoard();
+      openGuide(a.sp.id);
+    });
+    d.append(g);
+    return d;
+  }) : [p('A quiet hour: little is feeding close to the harbour. The evening is usually better.', 'j-faint')]));
+  const list = notices(adventures).map((n) => {
+    const d = document.createElement('div');
+    d.className = `board-note ${n.status}`;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'board-note-title';
+    b.textContent = `${n.title}${n.status === 'done' ? ' ✓' : n.status === 'unknown' ? '' : ' (read)'}`;
+    b.addEventListener('click', () => {
+      const first = adventures.clue(n.id);
+      closeBoard();
+      if (!first || adventures.status(n.id) !== 'done') showNote(n.title, n.text, n.id);
+    });
+    d.append(b);
+    // The cuttlefish photograph: pin it up here.
+    if (n.id === 'wall' && n.status !== 'unknown' && !state.wallPhoto) {
+      const ph = [...state.photos].reverse().find((q) => q.subjects.species.includes('cuttlefish'));
+      if (ph) {
+        const pin = document.createElement('button');
+        pin.type = 'button';
+        pin.className = 'pk-btn';
+        pin.textContent = 'Pin up your photograph';
+        pin.addEventListener('click', () => {
+          pinWall(ph.id);
+          closeBoard();
+        });
+        d.append(pin);
+      }
+    }
+    return d;
+  });
+  $('board-notices').replaceChildren(...list);
+}
+$('board-close').addEventListener('click', closeBoard);
+$('board').addEventListener('click', (e) => { if (e.target === $('board')) closeBoard(); });
+$('board-plan').addEventListener('click', () => {
+  closeBoard();
+  openGuide();
+});
+$('board-map').addEventListener('click', () => {
+  closeBoard();
+  openMap();
+});
+
+// The board in the world: its notes, and your photograph once it's pinned up.
+async function paintHavenBoard() {
+  let img = null;
+  if (state.wallPhoto) {
+    const u = await photos.url(state.wallPhoto, 'blob');
+    if (u) {
+      img = new Image();
+      img.src = u;
+      await img.decode().catch(() => { img = null; });
+    }
+  }
+  world.coast.paintBoard((ctx, w, h) => paintBoard(ctx, w, h, { photo: img, seen: { kittiwake: adventures.status('kittiwake') === 'done' } }));
+}
+
+function pinWall(id) {
+  state.wallPhoto = id;
+  adventures.step('wall', 'pinned');
+  paintHavenBoard();
+  save();
+}
+
+/* ---- the bench, and boats brought round ---- */
+
+function sitOnBench() {
+  const h = state.hour;
+  const line = h < 6 ? 'The harbour is asleep: just the lamp, and the water knocking at the quay.' : h < 11 ? 'Gulls on the quay wall, and the smell of tar and rope.' : h < 17 ? 'The boats nod at their moorings; someone has left a coil of rope drying on the wall.' : h < 21 ? 'The light goes gold over the bay, and the lamp comes on behind you.' : 'Stars over the bay, and the lamp’s circle of light round the bench.';
+  const opts = [{ text: 'An hour', hours: 1 }];
+  if (h < 17.5) opts.push({ text: 'Until golden hour', to: 18.5 });
+  if (h < 20.5 && h > 4) opts.push({ text: 'Until dark', to: 21.5 });
+  if (h >= 20 || h < 4.5) opts.push({ text: 'Until first light', to: 5.2 });
+  ask('The bench by the lamp', `${line} Sit a while?`, [
+    { text: 'Get up again', cls: 'quiet' },
+    ...opts.map((o) => ({ text: o.text, run: () => waitAWhile(o.hours ?? ((o.to - state.hour + 24) % 24), 'You sit and watch the harbour…') })),
+  ]);
+}
+
+let waiting = null;
+function waitAWhile(hours, text) {
+  if (modal || fishing.busy) return;
+  if (fishing.lineOut) fishing.cancel();
+  modal = 'travel';
+  hud.sleep(true, text);
+  waiting = { hours, t: 0, done: false };
+}
+function updateWaiting(dt) {
+  if (!waiting) return;
+  waiting.t += dt;
+  if (!waiting.done && waiting.t > 0.9) {
+    waiting.done = true;
+    passTime(waiting.hours);
+    eco.settle();
+    save();
+  }
+  if (waiting.t > 1.9) {
+    hud.sleep(false);
+    modal = null;
+    hud.toast(`${formatClock(state.hour)}. ${state.hour > 20.5 || state.hour < 5.5 ? 'The lamp is lit.' : 'The harbour carries on round you.'}`, 3.5);
+    waiting = null;
+  }
+}
+
+// Alongside the quay, in water deep enough for the skiff.
+function quayMooring(b) {
+  for (const [dx, dz] of [[2.4, -3], [-2.4, -3], [2.4, -7], [-2.4, -7]]) {
+    const p = { x: (dx > 0 ? HAVEN_QUAY.x1 : HAVEN_QUAY.x0) + dx * 0.9, z: HAVEN_QUAY.z1 + dz, heading: 0 };
+    const taken = boats.some((o) => o !== b && Math.hypot(o.pos.x - p.x, o.pos.z - p.z) < 3);
+    if (!taken && floats(b, p)) return p;
+  }
+  return null;
+}
+function boatsRound() {
+  const here = (b) => Math.hypot(b.pos.x - QUAY_HEAD.x, b.pos.z - HAVEN_QUAY.z1) < 14;
+  const list = boats.filter((b) => b.kind !== 'bass' && !here(b));
+  if (!list.length) {
+    hud.toast('Your boats are all here at the quay already. (The bass boat lives on Longmere.)', 4);
+    return;
+  }
+  ask('Bring a boat round?', 'One of the harbour lads will row or run it round to the quay for you. It takes a little while.', [
+    { text: 'Never mind', cls: 'quiet' },
+    ...list.map((b) => ({
+      text: `The ${b.name}`, run: () => {
+        const p = quayMooring(b);
+        if (!p) {
+          hud.toast('There’s no room alongside the quay just now.', 3);
+          return;
+        }
+        const d = Math.hypot(b.pos.x - p.x, b.pos.z - p.z);
+        b.place(p.x, p.z, p.heading);
+        // (Made fast alongside, so it's still there when you come down the steps.)
+        b.setAnchor(true);
+        passTime(clamp(d / 300, 0.15, 1.5));
+        audio.knock(0.4);
+        save();
+        hud.toast(`The ${b.name} is made fast alongside the quay. Step down into it from the quay steps (and raise its anchor to go).`, 6);
+      },
+    })),
+  ]);
+}
+
+/* ---- photographs ---- */
+
+const photos = new PhotoStore();
+let photoFov = 50;
+let pendingPhoto = null;
+const _frustum = new THREE.Frustum(), _pm = new THREE.Matrix4(), _pv = new THREE.Vector3();
+
+// What's in the picture: fish close enough to see (under the water, or at the surface), the
+// places in view, and gulls diving.
+function photoSubjects(extra = null) {
+  camera.updateMatrixWorld();
+  _pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  _frustum.setFromProjectionMatrix(_pm);
+  const c = camera.position, under = c.y < -0.05;
+  const species = new Set(extra?.species || []);
+  for (const a of eco.agents) {
+    if (!a.active || a.state === 'caught' || a.state === 'gone' || a.sp.retired) continue;
+    const d = Math.hypot(a.x - c.x, a.y - c.y, a.z - c.z);
+    if (d > (under ? 13 : 5) || (!under && a.y < -0.9)) continue;
+    if (_frustum.containsPoint(_pv.set(a.x, a.y, a.z))) species.add(a.sp.id);
+  }
+  const places = [];
+  for (const p of PLACES) {
+    if (p.area) {
+      if (p.test(c.x, c.z)) places.push(p.id);
+      continue;
+    }
+    const d = Math.hypot(p.x - c.x, p.z - c.z);
+    if (d > 420) continue;
+    if (d < 25 || _frustum.containsPoint(_pv.set(p.x, Math.max(solidHeight(p.x, p.z), 0) + 2, p.z))) places.push(p.id);
+  }
+  const birds = world.flocks.some((f) => Math.hypot(f.x - c.x, f.z - c.z) < 320 && _frustum.containsPoint(_pv.set(f.x, 12, f.z)));
+  return { species: [...species].slice(0, 12), places: places.slice(0, 12), birds };
+}
+
+function openPhoto() {
+  if (modal || !started) return;
+  if (fishing.aiming) fishing.cancel();
+  modal = 'photo';
+  photoFov = camera.fov;
+  hud.hidden(true);
+  $('photo-frame').hidden = false;
+  $('pf-hint').textContent = touch.active ? 'Drag to look, pinch to zoom' : `Drag to look · mouse wheel to zoom · ${input.keyLabel('cast')} or ${input.keyLabel('photo')} takes it · Esc puts the camera away`;
+  teach('photoMode', `Photo mode: frame your picture and take it. Under the water (${touch.active ? 'the eye button, from a boat' : input.keyLabel('view')}) you can photograph the fish themselves. Your album is in the journal, under Memories.`, 8);
+}
+function closePhoto() {
+  $('photo-frame').hidden = true;
+  camera.fov = photoFov;
+  camera.updateProjectionMatrix();
+  hud.hidden(hudOff);
+  if (modal === 'photo') modal = null;
+}
+let capturing = false;
+async function takePhoto(extra = null, title = '') {
+  if (capturing) return;
+  if (state.photos.length >= PHOTO_MAX) {
+    hud.toast(`Your album is full (${PHOTO_MAX} photographs). Download or delete some in the journal (Memories) to make room.`, 6);
+    return;
+  }
+  const subjects = photoSubjects(extra);
+  const from = modal;
+  capturing = true;
+  let shot;
+  try {
+    shot = await capture(renderer.domElement, () => draw());
+  } finally {
+    capturing = false;
+  }
+  audio.shutter?.();
+  const P = player().pos;
+  pendingPhoto = { shot, subjects, from, meta: { x: Math.round(P.x), z: Math.round(P.z), place: placeName(P.x, P.z) || PLACES.find((q) => q.area && q.test(P.x, P.z))?.name || '' } };
+  if (from === 'photo') closePhoto();
+  $('pc-img').src = shot.preview;
+  $('pc-title').value = title;
+  const sp = subjects.species.map((id) => fishById[id]?.name).filter(Boolean);
+  const pl = subjects.places.map((id) => PLACES.find((q) => q.id === id)?.name).filter(Boolean);
+  $('pc-text').textContent = [sp.length ? `In the picture: ${sp.join(', ')}.` : '', pl.length ? `${pl.slice(0, 4).join(', ')}.` : '', subjects.birds ? 'Gulls diving.' : ''].filter(Boolean).join(' ') || 'A quiet moment.';
+  if (from !== 'catch') modal = 'photocard';
+  $('photo-card').hidden = false;
+}
+async function keepPhoto() {
+  const pp = pendingPhoto;
+  if (!pp) return;
+  pendingPhoto = null;
+  $('photo-card').hidden = true;
+  if (modal === 'photocard') modal = null;
+  const id = photoId();
+  await photos.put(id, pp.shot.blob, pp.shot.thumb);
+  const meta = { id, title: $('pc-title').value.replace(/[<>]/g, '').trim().slice(0, 60), at: Date.now(), day: state.day, hour: Math.round(state.hour * 100) / 100, ...pp.meta, sky: weather.state, subjects: pp.subjects };
+  state.photos.push(meta);
+  adventures.photographed(meta);
+  save();
+  hud.toast(`Kept in your album (${state.photos.length} of ${PHOTO_MAX}).${photos.persistent ? '' : ' This browser won’t keep it after you close the tab: download it from the journal.'}`, 4);
+}
+function discardPhoto() {
+  pendingPhoto = null;
+  $('photo-card').hidden = true;
+  if (modal === 'photocard') modal = null;
+}
+$('pf-take').addEventListener('click', () => takePhoto());
+$('pf-leave').addEventListener('click', () => closePhoto());
+$('pc-keep').addEventListener('click', (e) => {
+  e.stopPropagation();
+  keepPhoto();
+});
+$('pc-discard').addEventListener('click', (e) => {
+  e.stopPropagation();
+  discardPhoto();
+});
+$('pc-title').addEventListener('keydown', (e) => { if (e.key === 'Enter') keepPhoto(); });
+
+// Gulls you've seen diving (for the map, once you've learned to look): kept for an hour of game time.
+const birdSightings = [];
+let birdT = 0;
+function watchBirds(dt) {
+  birdT -= dt;
+  if (birdT > 0) return;
+  birdT = 1;
+  const abs = state.day * 24 + state.hour, P = player().pos;
+  for (const f of world.flocks) {
+    if (f.t < 1 || Math.hypot(f.x - P.x, f.z - P.z) > 380) continue;
+    const s = birdSightings.find((b) => Math.hypot(b.x - f.x, b.z - f.z) < 40);
+    if (s) Object.assign(s, { x: f.x, z: f.z, at: abs });
+    else birdSightings.push({ x: f.x, z: f.z, at: abs });
+  }
+  for (let i = birdSightings.length - 1; i >= 0; i--) if (abs - birdSightings[i].at > 1.5) birdSightings.splice(i, 1);
+}
+
+// The adventures' own checks, twice a second.
+let advT = 0;
+const advCtx = { onFoot: false, player: null, boat: null, underwater: false, cam: null, flocks: [] };
+function watchAdventures(dt) {
+  advT -= dt;
+  if (advT > 0) return;
+  advT = 0.5;
+  advCtx.onFoot = onFoot;
+  advCtx.player = player().pos;
+  advCtx.boat = boat.pos;
+  advCtx.underwater = rig.underwaterView && camera.position.y < -0.05;
+  advCtx.cam = camera.position;
+  advCtx.flocks = world.flocks;
+  adventures.check(advCtx);
 }
 
 // Animals you've seen for yourself: in the underwater view or following your bait, close and in
@@ -1068,6 +1816,11 @@ function checkPlaces(dt) {
     if (pl.id === 'boathouse') teach('boathouseTip', 'The Mere Boathouse: a bass boat at the jetty and a tackle box. Largemouth bass lurk by the pads and the drowned oaks; pike lie in the weed.', 8);
     if (pl.id === 'puffin') teach('puffinTip', 'Puffin Cove: a sheltered camp with a tackle box. After dark, squid gather under the lamp light; wrasse live in the kelp by the rocks.', 8);
     if (pl.id === 'deep') teach('deepTip', 'The Blue Water. Watch for seabirds diving and the sea boiling white: tuna chase the sprat shoals out here.', 8);
+    if (pl.id === 'haven') teach('havenTip', `Willowhaven: read the notice board for what’s about today, find all your tackle in the chandlery, sit on the bench a while, or have a boat brought round to the quay (${touch.active ? 'tap the prompts' : input.keyLabel('interact')}).`, 10);
+    if (pl.id === 'strand') teach('strandTip', 'Shell Strand: bass come into the surf at dusk, and flatfish up the sand after dark. The shelf above the beach is a dry, level place for a tent.', 9);
+    if (pl.id === 'head') teach('headTip', 'Cove Head takes the swell: bass and white bream in the wash below the ledges. You can see the Kittiwake’s buoy from the daymark.', 8);
+    if (pl.id === 'reach') teach('reachTip', 'The cove channel is sheltered from every wind: a calm place for a float at dusk, and for watching cuttlefish under the water.', 8);
+    if (pl.id === 'wreck') teach('wreckTip', `The Kittiwake lies below you. Look under the water (${touch.active ? 'the view button' : input.keyLabel('view')}) to see her, or fish over her: a bottom rig for the conger, a shad for the pollack.`, 9);
     save();
   }
 }
@@ -1183,7 +1936,17 @@ for (const b of boats) b.onBump = (v) => audio.knock(clamp(v / 3, 0.4, 1));
 for (const b of boats) {
   if (b.motor) b.onShallow = () => hud.flash(b.kind === 'bass' ? 'Shallow water: the outboard tips up. Ease back to the first notches to creep on with the electric motor.' : 'Shallow water: the motor tips up, so you can only creep along. Steer for deeper water.', t, 3.4);
 }
-walker.onStep = (p, jog) => audio.step(jog);
+// What's underfoot, for the sound of your steps: planks, stone (the quay and Willowhaven's
+// setts), sand (beaches and the strand) or grass.
+function surfaceAt(p) {
+  const g = heightAt(p.x, p.z);
+  if (walkHeight(p.x, p.z) > g + 0.2) return p.x > HAVEN_QUAY.x0 - 0.5 && p.x < HAVEN_QUAY.x1 + 0.5 && p.z > HAVEN_QUAY.z0 - 0.5 && p.z < HAVEN_QUAY.z1 + 0.5 ? 'stone' : 'wood';
+  if (Math.hypot(p.x - HAVEN.x, p.z - HAVEN.z) < 24 && g > 1.4 && g < 1.8) return 'stone';
+  if (Math.hypot(p.x - DAYMARK.x, p.z - DAYMARK.z) < 14) return 'stone';
+  if (g < 1.5 || (Math.abs(p.x - STRAND.x) < 28 && p.z > STRAND.z - 8 && p.z < STRAND.z + 14)) return 'sand';
+  return 'grass';
+}
+walker.onStep = (p, jog) => audio.step(jog, 0, surfaceAt(p));
 walker.onSplash = (p, deep) => {
   audio.wade(0.5 + deep * 0.5);
   fx.ripple(p.x + rand(-0.2, 0.2), p.z + rand(-0.2, 0.2), 0.5, 1.0, 0.35);
@@ -1593,6 +2356,7 @@ function currentHint() {
     case 'casting': case 'landing': case 'caught': case 'releasing': case 'keeping': case 'retrieving': return '';
     default:
   }
+  if (placement.isOn) return '';
   if (onFoot) {
     if (!state.tips.walked) return T ? 'Drag on the left to walk · drag on the right to look around' : `${L('KeyW')}${L('KeyA')}${L('KeyS')}${L('KeyD')} to walk · ${K('jog')} jog · drag to look around`;
     if (!state.places.camp && Math.hypot(walker.pos.x - world.camp.firePos.x, walker.pos.z - world.camp.firePos.z) < 60) return 'Follow the path up to camp';
@@ -1928,9 +2692,13 @@ renderOffline();
 $('update-now').addEventListener('click', updateNow);
 
 // A small "are you sure?" with any buttons we need.
-function ask(title, text, buttons) {
+// A question with buttons; { input } adds a text box (its value goes to the button's run).
+function ask(title, text, buttons, { input = null } = {}) {
   $('confirm-title').textContent = title;
   $('confirm-text').textContent = text;
+  const box = $('confirm-input');
+  box.hidden = input == null;
+  box.value = input ?? '';
   const acts = $('confirm-acts');
   acts.replaceChildren(...buttons.map((b) => {
     const el = document.createElement('button');
@@ -1939,12 +2707,16 @@ function ask(title, text, buttons) {
     el.textContent = b.text;
     el.addEventListener('click', () => {
       if (!b.keepOpen) $('confirm').hidden = true;
-      b.run?.();
+      b.run?.(box.value);
     });
     return el;
   }));
+  box.onkeydown = (e) => { if (e.key === 'Enter') acts.lastChild?.click(); };
   $('confirm').hidden = false;
-  acts.lastChild?.focus();
+  if (input != null) {
+    box.focus();
+    box.select();
+  } else acts.lastChild?.focus();
 }
 
 function downloadSave() {
@@ -2016,6 +2788,17 @@ function begin() {
   if (state.sonar) toggleFinder(true);
   if (cloudStart?.note) setTimeout(() => hud.toast(cloudStart.note, 8), 2600);
   else if (LOAD_NOTES[loaded.outcome]) setTimeout(() => hud.toast(LOAD_NOTES[loaded.outcome], 9), 2600);
+  // A camp whose ground changed with an update: what happened to it (nothing in it is lost).
+  campNotes.forEach((n, i) => setTimeout(() => hud.toast(n, 10), 12000 + i * 11000));
+  // Coming back to a game from before your own camps and Willowhaven: a word about them.
+  if (returning && state.log.length && !state.tips.coastIntro) {
+    setTimeout(() => {
+      if (state.tips.coastIntro) return;
+      state.tips.coastIntro = true;
+      hud.toast(`New on the coast: a camping kit in your backpack (${input.keyLabel('pack')}), to pitch wherever the ground allows, and Willowhaven, a little harbour on the north shore of the bay.`, 11);
+      save();
+    }, 9000 + campNotes.length * 11000);
+  }
   save();
 }
 
@@ -2027,7 +2810,87 @@ const mapSheet = new MapSheet(state, explored, { data: heightTex.image.data, wid
   },
   travelInfo: () => travelInfo(),
   close: () => closeMap(),
+  changed: () => save(),
+  birds: () => {
+    const abs = state.day * 24 + state.hour;
+    return birdSightings.map((b) => ({ x: b.x, z: b.z, age: (abs - b.at) / 1.5 }));
+  },
 });
+
+// Open the map on a spot (a mark, a photograph's place).
+function openMapAt(x, z) {
+  if (modal === 'journal') closeJournal();
+  if (modal) return;
+  const p = player();
+  mapSheet.openAt({ player: { x: p.pos.x, z: p.pos.z, heading: p.heading }, onFoot, boats, boat }, x, z);
+  modal = 'map';
+  audio.page();
+}
+
+// The journal's Memories pages.
+journal.memories = new Memories(state, {
+  photos,
+  adventures,
+  photoHint: () => (touch.active
+    ? 'Take a photograph from here or from your backpack (and from a catch card, a picture of your fish).'
+    : `Press ${input.keyLabel('photo')} anywhere to take a photograph (and on a catch card to photograph your fish).`),
+  takePhoto: () => {
+    closeJournal();
+    openPhoto();
+  },
+  showOnMap: (x, z) => openMapAt(x, z),
+  removePhoto: (id) => {
+    photos.remove(id);
+    const i = state.photos.findIndex((q) => q.id === id);
+    if (i >= 0) state.photos.splice(i, 1);
+    if (state.wallPhoto === id) {
+      state.wallPhoto = null;
+      paintHavenBoard();
+    }
+    save();
+  },
+  renamePhoto: (id, title) => {
+    const ph = state.photos.find((q) => q.id === id);
+    if (ph) ph.title = String(title).replace(/[<>]/g, '').trim().slice(0, 60);
+    save();
+  },
+  downloadPhoto: async (id) => {
+    const r = await photos.get(id);
+    const ph = state.photos.find((q) => q.id === id);
+    if (r?.blob) download(r.blob, `slow-tide-${(ph?.title || `day-${ph?.day}`).replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.jpg`);
+    else hud.toast('That photograph was taken on another device: its picture isn’t in this browser.', 4);
+  },
+  downloadAlbum: async () => {
+    const html = await albumPage(photos, state.photos, (q) => journal.memories.describe(q));
+    download(new Blob([html], { type: 'text/html' }), `slow-tide-album-day-${state.day}.html`);
+  },
+  editPin: (pin) => {
+    openMapAt(pin.x, pin.z);
+    mapSheet.editPin(pin);
+  },
+  markHere: () => {
+    closeJournal();
+    openMap();
+    mapSheet.addPin(player().pos.x, player().pos.z);
+  },
+  canPinWall: (ph) => adventures.status('wall') !== 'unknown' && !state.wallPhoto && ph.subjects.species.includes('cuttlefish'),
+  pinWall: (id) => pinWall(id),
+  readPage: (id) => readPage(id, true),
+});
+paintHavenBoard();
+
+// On a catch card: a picture of the fish you're holding up. (From your own eyes for the moment
+// of the picture, where the fish is held up to the camera; then back to the view you had.)
+async function photographCatch() {
+  const e = state.log[state.log.length - 1], sp = fishById[e?.sp];
+  const was = rig.mode === 'eye';
+  if (!was) {
+    rig.setFirstPerson(true, t);
+    await new Promise((r) => setTimeout(r, 900));
+  }
+  await takePhoto(sp ? { species: [sp.id] } : null, sp ? `${sp.name}, ${e.size} cm` : '');
+  if (!was) rig.setFirstPerson(false, t);
+}
 
 function openMap(highlight = null) {
   if (modal) return;
@@ -2157,6 +3020,22 @@ input.on('press', (code, acts) => {
     if (code === 'Escape') $('confirm').hidden = true;
     return;
   }
+  // A photograph waiting to be kept (over the catch card, or after photo mode).
+  if (!$('photo-card').hidden) {
+    if (code === 'Escape') discardPhoto();
+    else if (code === 'Enter') keepPhoto();
+    return;
+  }
+  // Choosing where to pitch: only its own keys (and Settings); nothing casts or steers a boat.
+  if (placement.isOn && !modal) {
+    if (code === 'Escape') placement.cancel();
+    else if (is('cast')) placement.confirm();
+    else if (is('tackle')) placement.turn(-Math.PI / 12);
+    else if (is('interact')) placement.turn(Math.PI / 12);
+    else if (is('settings')) openSettings();
+    else if (is('pack') || is('map') || is('journal')) hud.flash('Pitch the camp or cancel (Esc) first.', t, 2);
+    return;
+  }
   // Menus first: while one is open, gameplay keys do nothing (except each menu's own keys).
   if (modal === 'settings') {
     if (code === 'Escape' || is('settings')) closeSettings();
@@ -2164,6 +3043,20 @@ input.on('press', (code, acts) => {
   }
   if (modal === 'note') {
     if (is('cast') || code === 'Enter' || code === 'Escape' || is('interact')) closeNote();
+    return;
+  }
+  if (modal === 'photo') {
+    if (code === 'Escape') closePhoto();
+    else if (is('cast') || is('photo')) takePhoto();
+    return;
+  }
+  if (modal === 'photocard') {
+    if (code === 'Escape') discardPhoto();
+    else if (code === 'Enter') keepPhoto();
+    return;
+  }
+  if (modal === 'board') {
+    if (code === 'Escape' || is('interact')) closeBoard();
     return;
   }
   if (modal === 'map') {
@@ -2196,6 +3089,7 @@ input.on('press', (code, acts) => {
   }
   if (modal === 'catch') {
     if (is('keep')) fishing.keep();
+    else if (is('photo') && $('photo-card').hidden) photographCatch();
     return;
   }
   if (modal) return;
@@ -2217,6 +3111,7 @@ input.on('press', (code, acts) => {
     boat.lever = 0;
     hud.flash('Motor to neutral', t, 1.4);
   }
+  else if (is('photo')) openPhoto();
   else if (is('view')) cycleView();
   else if (is('eye')) toggleFirstPerson();
   else if (is('reset')) resetView();
@@ -2239,7 +3134,8 @@ input.on('pointer', () => {
   } else audio.start();
 });
 input.on('cancel', () => {
-  if (started && !modal) fishing.cancel();
+  if (started && !modal && placement.isOn) placement.cancel();
+  else if (started && !modal) fishing.cancel();
 });
 
 $('start-btn').addEventListener('click', begin);
@@ -2267,6 +3163,10 @@ $('cc-keep').addEventListener('click', (e) => {
   if (modal === 'catch') fishing.keep();
 });
 $('note-card').addEventListener('click', closeNote);
+$('cc-photo').addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (modal === 'catch' && $('photo-card').hidden) photographCatch();
+});
 $('prompt').addEventListener('click', () => {
   const act = interaction();
   if (act) act.run();
@@ -2348,7 +3248,7 @@ let last = performance.now();
 const W0 = state.walker;
 if (state.mode === 'foot' && W0 && W0.x > WORLD.x0 && W0.x < WORLD.x1 && W0.z > WORLD.z0 && W0.z < WORLD.z1 && walkHeight(W0.x, W0.z) > -0.55) {
   const at = { x: W0.x, z: W0.z };
-  world.obstacles.resolve(at, 0.45);
+  solids.resolve(at, 0.45);
   walker.place(at.x, at.z, W0.heading);
   setFoot(true, true);
   rig.views.foot.yaw = walker.heading;
@@ -2408,6 +3308,7 @@ function tick(now, manual = false) {
   updateWeather(dt, speed);
   updateSleep(dt);
   updateTravel(dt);
+  updateWaiting(dt);
   camp.update(dt, hours);
   walker.speedMul = camp.hunger === 'hungry' ? 0.82 : 1;
   fishing.steady = camp.wellFed ? 0.8 : 1;
@@ -2489,8 +3390,8 @@ function tick(now, manual = false) {
   }
   // First person: you face where you look.
   if (rig.mode === 'eye' && onFoot && !(move.x || move.z)) walker.heading = dampAngle(walker.heading, rig.yaw, 10, dt);
-  if (onFoot) walker.update(dt, t, move, { jog: input.jogging, locked: fishing.busy, obstacles: world.obstacles });
-  fishing.update(dt, t, rig.yaw, started && !modal && input.action);
+  if (onFoot) walker.update(dt, t, move, { jog: input.jogging, locked: fishing.busy, obstacles: solids });
+  fishing.update(dt, t, rig.yaw, started && !modal && !placement.isOn && input.action);
 
   ecoTick(dt);
   handleClues();
@@ -2498,7 +3399,17 @@ function tick(now, manual = false) {
 
   const drag = input.takeDrag();
   const wheel = input.takeWheel();
-  if (started && !modal) rig.input(drag, wheel, t);
+  // (While pitching a camp the wheel brings it nearer or pushes it further, instead of zooming.)
+  if (started && !modal) rig.input(drag, placement.isOn ? 0 : wheel, t);
+  // Photo mode: look about, and zoom the lens rather than the camera's distance.
+  if (modal === 'photo') {
+    rig.input(drag, 0, t);
+    if (wheel) {
+      camera.fov = clamp(camera.fov + wheel * 0.02, 18, 75);
+      camera.updateProjectionMatrix();
+    }
+  }
+  if (placement.isOn) placement.update(dt, { turning: modal ? 0 : (input.holding('interact') ? 1 : 0) - (input.holding('tackle') ? 1 : 0), wheel: modal ? 0 : wheel });
   // (A steady horizon: your eyes don't pitch and roll with the boat, and only drift gently up and
   // down with the swell; the quick bob of the chop is smoothed away.)
   const steadyCam = settings.controls.boatCam === 'steady' || settings.controls.reducedMotion;
@@ -2523,6 +3434,14 @@ function tick(now, manual = false) {
   fishRenderer.update(dt, camera, env.night, sub > 0.5);
   updateWind(dt * Math.min(speed, 10));
   world.update(dt, t, env, { fireLevel: camp.fireLevel, hatchLevel: hatchLevel(), hour: state.hour, wind: 0.5 + Math.min(1, windAt(camera.position.x, camera.position.z).speed / FRESH) * 1.3, camera, fog: scene.fog.color });
+  {
+    const abs = state.day * 24 + state.hour;
+    campView.update(dt, t, env, state.camps, player().pos, {
+      wind: Math.min(1, windAt(player().pos.x, player().pos.z).speed / FRESH),
+      still: settings.controls.reducedMotion,
+      cooking: (c) => (c.cooking ? { fish: c.cooking, done: clamp((abs - c.cooking.start) / c.cooking.dur, 0, 1) } : c.store.meals[0] ? { fish: c.store.meals[0], done: 1 } : null),
+    });
+  }
   updateRain(dt);
   mist.update(t, state.hour, env, camera);
   surfaceUniforms.uWetTop.value = 0.22 + 0.05 * Math.sin(t * 0.35) + weather.rain * 0.12;
@@ -2557,6 +3476,9 @@ function tick(now, manual = false) {
   zoneW.cove = damp(zoneW.cove, zone === 'cove' ? 1 : 0, 0.5, dt);
   const seaD = landSDF(P.x, P.z);
   const fireD = P.distanceTo(world.camp.firePos);
+  // (Your own camp's stove, while something's in the pan.)
+  let ownCookD = Infinity;
+  for (const c of state.camps) if (c.cooking) ownCookD = Math.min(ownCookD, Math.hypot(P.x - c.x, P.z - c.z));
   const windHere = windAt(P.x, P.z);
   audio.update(dt, {
     wind: Math.min(1, windHere.speed / FRESH),
@@ -2570,6 +3492,7 @@ function tick(now, manual = false) {
     open: zoneW.open,
     cove: zoneW.cove,
     gulls: Math.max(
+      (1 - smoothstep(20, 90, Math.hypot(P.x - HAVEN.x, P.z - HAVEN.z))) * 0.7,
       1 - smoothstep(25, 110, Math.hypot(P.x - STACKS[0].x, P.z - STACKS[0].z)),
       1 - smoothstep(25, 120, Math.hypot(P.x - SKELLIG.x, P.z - SKELLIG.z)),
       1 - smoothstep(25, 100, Math.hypot(P.x - SKERRIES[0].x, P.z - SKERRIES[0].z)),
@@ -2579,11 +3502,21 @@ function tick(now, manual = false) {
     stream: 1 - smoothstep(1.5, 24, streamSDF(P.x, P.z)),
     lake: Math.max(1 - smoothstep(2, 35, lakeSDF(P.x, P.z)), 1 - smoothstep(2, 45, mereSDF(P.x, P.z)), (1 - smoothstep(2, 30, riverSDF(P.x, P.z))) * 0.6),
     fire: camp.fireLevel * (1 - smoothstep(2, 18, fireD)),
-    sizzle: camp.cooking ? 1 - smoothstep(2, 12, fireD) : 0,
+    sizzle: Math.max(camp.cooking ? 1 - smoothstep(2, 12, fireD) : 0, 1 - smoothstep(2, 12, ownCookD)),
+    stove: 1 - smoothstep(1.5, 9, ownCookD),
+    harbour: 1 - smoothstep(15, 70, Math.hypot(P.x - HAVEN.x, P.z - HAVEN.z)),
+    inlet: 1 - smoothstep(10, 60, Math.min(...CHANNEL.map((c) => Math.hypot(P.x - (c[0] + c[2]) / 2, P.z - (c[1] + c[3]) / 2)), Math.hypot(P.x - COVE.x, P.z - COVE.z))),
+    head: 1 - smoothstep(15, 90, Math.hypot(P.x - DAYMARK.x, P.z - (DAYMARK.z + 20))),
+    tent: state.camps.reduce((m, c) => Math.max(m, 1 - smoothstep(3, 18, Math.hypot(P.x - c.x, P.z - c.z))), 0),
   });
 
   if (started) {
     checkPlaces(dt);
+    watchCamps();
+    watchBirds(dt);
+    // An open board keeps up with the hour: it's read off the water as it is now.
+    if (modal === 'board' && $('board-sub').textContent !== `${formatClock(state.hour)} · day ${state.day}`) renderBoard();
+    watchAdventures(dt);
     watchObservations(dt);
     moments();
     saveTimer -= dt;

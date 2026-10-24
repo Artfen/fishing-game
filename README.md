@@ -2,7 +2,7 @@
 
 **Play it: <https://fishing-game-weld.vercel.app>**
 
-A small, peaceful fishing adventure that runs in the browser. You start in a little wooden boat on Willow Bay, step ashore at a landing, walk up to your camp, and fish a freshwater lake and a clear trout stream. Beyond the bay lies a whole coast: the Wend estuary with its sandbanks and saltings, Longmere (a big inland lake with a boathouse), Gannet Isle with its lighthouse and kelp reefs, a long offshore shoal, and the deep Blue Water where tuna chase the sprat shoals. Four boats get you about: the rowing boat, a motor skiff, a quiet kayak and a bass boat. You choose your rods and tackle, cook what you catch over the fire, sleep in the tent until the hour you like, and keep a handwritten journal and a map of it all.
+A small, peaceful fishing adventure that runs in the browser. You start in a little wooden boat on Willow Bay, step ashore at a landing, walk up to your camp, and fish a freshwater lake and a clear trout stream. Beyond the bay lies a whole coast: the Wend estuary with its sandbanks and saltings, Longmere (a big inland lake with a boathouse), Gannet Isle with its lighthouse and kelp reefs, a long offshore shoal, and the deep Blue Water where tuna chase the sprat shoals. Four boats get you about: the rowing boat, a motor skiff, a quiet kayak and a bass boat. On the bay's north shore is **Willowhaven**, a little harbour with a quay, a chandlery and a notice board; round the shore from it lie a rocky headland, a secluded beach and, under a buoy offshore, an old wreck. You choose your rods and tackle, cook what you catch, pitch your own camp wherever the ground allows, sleep in a tent until the hour you like, and keep a handwritten journal, a photo album and a map of it all.
 
 The water is a living place: weed beds, rocks, lily pads, drowned trees, reefs, sandy flats, channels, deep water and running pools, home to some two thousand fish, cephalopods and eels of 54 kinds: 44 real species of the Atlantic coast from Royan to Cádiz to catch, nine freshwater fish, and the European eel, protected, to watch. They school, cruise, feed, rest by cover, hunt, hold station in the current and scatter when startled. Fresh water, brackish water and the sea each have their own. Wind, swell and currents shape the water you fish, gently in the bays and more out on the open coast. Rings, flashes, jumps, fizzing bubbles, boiling water and diving seabirds on the surface come from real fish below. You can look underwater, follow your bait or lure, and use a fish finder. The fish that takes your bait is one you could have watched swimming there.
 
@@ -88,7 +88,10 @@ With a keyboard and mouse (every key below can be changed in **Settings → Cont
 | N | Show or hide the conditions panel: wind, current and sea where you are |
 | T (hold) | Let time drift by quickly |
 | H | Hide the interface |
+| P | Photo mode (take a photograph); on a catch card, a picture of your fish |
 | Esc | Reel in the line, leave the underwater view, close a panel |
+
+While you're choosing where to pitch a camp, only its own keys work: walk and look to move the outline, **Q**/**E** turn it, the mouse wheel brings it nearer or further, **Space** pitches and **Esc** cancels (nothing casts, steers a boat or opens other panels until you do).
 
 On a phone or tablet the controls appear on screen. Drag on the **left** half to row, paddle, drive or walk (a stick appears under your thumb; in a motorboat, push it forward for throttle), drag on the **right** half to look around, and pinch to zoom. While a fish is on, stick up/down sets the drag. The round button on the right does all the fishing: hold to aim and let go to cast, tap to strike, hold to reel. Its label tells you what it will do next. Prompts such as *Step ashore* or *Camp* are buttons: tap them. The buttons along the top open the fish finder, backpack, views, journal, map and settings, and the hourglass lets time drift while you hold it.
 
@@ -111,6 +114,50 @@ The coast is big: the far places are one to three minutes away by motor skiff, a
 - **Longmere**: a big lake inland, reached by the trail from Wend Quay. Weedy bays, a steep north shore where oaks have toppled into the water, an alder island (**Heron Holm**), and the **Mere Boathouse** with its jetty, the bass boat and a tackle box. Pike, perch, roach, and largemouth bass.
 - **Gannet Isle**: a green island far out to the south-west, with the **Gannet Light** turning all night, kelp and reef all round it, and **Puffin Cove**, a sheltered landing with a camp and a tackle box. **The Skerries** lie halfway out. Wrasse, plaice, mackerel and, after dark, squid.
 - **Long Shoal**, marked by a yellow buoy, and **Little Skellig**, a rock covered in birds, on the way out to **The Blue Water**: open sea past the shelf, where tuna hunt the sprat shoals.
+
+### Life on the coast
+
+A path runs from the landing to **Willowhaven** and on round the shore. Each place has its own landmark, sound and fish, and something to find.
+
+- **Willowhaven**: a stone quay with a light at its head, a slipway, cottages, the chandlery and a net store round a cobbled apron. Walk to the head of the quay and press **E** to have one of your boats brought round and made fast alongside (it takes a little while), then step down into it from the quay steps. The **chandlery** door opens the whole tackle store, like a tackle box. The **notice board** reads the water as it is right now: the wind and sea inside and outside the bay, the current in the cove channel, where gulls are diving, which sea fish are busy at this hour round the harbour (from the fish actually living there) with a setup that suits each, and the notices that start adventures. The **bench** by the lamp lets you sit and let the time go by. Rigging clinks against the masts, busier in a breeze.
+- **Cove Channel**: the sheltered way into Driftwood Cove, with eelgrass and a heron in the reeds. An old punt lies at the head of the cove.
+- **Cove Head**: a rocky headland on the open coast with a white daymark tower. The swell breaks on its ledges, where bass and white bream feed.
+- **Shell Strand**: a secluded beach south of the cove with a driftwood shelter and a dry sandy shelf above the waves, the best camping on the coast. Bass come into its surf at dusk; plaice and sole after dark.
+- **The Kittiwake**: a wooden steam drifter lying on her side about nine metres down off Shell Strand, under a black-and-red isolated-danger buoy. Conger live in her hull and pollack and wrasse hang over her ribs. From a boat, the underwater view (**C**) lets you see her for yourself. (Her shape is kept so diving could visit her one day; there's no diving yet.)
+
+### Your own camp
+
+Your backpack carries a camping kit: a tent and bedroll, a lantern on a pole, a camp chair, a little stove, a tackle box and a cool box. Open the backpack (**B**), choose **Pitch a camp…**, and an outline of the camp follows the ground in front of you. It turns green on a good spot and red on a bad one, with the reason (in the water or where the waves reach, too steep to sleep on, a tree, rock or building in the way, across a path, in front of a doorway, on a jetty, too close to a camp, beyond the edge of the world), and warns you about low, exposed ground. The whole footprint is checked, not just the middle, and gentle slopes are fine: if the spot is nearly right the camp settles a step away where it fits. Confirm, give it a name (or keep the one offered), and it's pitched. Cancelling leaves the kit as it was.
+
+At your camp, press **E** by the door:
+
+- **Stove & food**: cook a fish from your creel or the cool box (half an hour), eat what's cooked, or have an oatcake.
+- **Sleep**: until dawn, morning, midday, afternoon, golden hour or night. You wake at the tent door; your boats stay exactly where you left them and your rigs and catches are untouched. A fish on the line has to be landed or let go first, and a line left out is reeled in before you turn in.
+- **Your camp**: rename it, choose the tent colour, set the lantern (after dark, always, or off), put out bunting, a rag rug and wind chimes (and the striped deckchair, once you've earned it), mark it on the map, open the journal or plan a trip from here, **Move this camp…** or **Pack it up…**.
+- **Tackle box**: swap rods and tackle, as at any tackle box.
+
+The cool box keeps six fish on ice and the stove holds four cooked ones. Moving a camp keeps its name, contents and history (it takes a little time). Packing up puts the tent back on your pack; if the cool box holds more than your creel can take, you choose which fish come with you and which go back into the water, and nothing goes without you saying so. You have one camping kit, so one camp of your own at a time, alongside the fixed camps. The backpack's **Head back to** list and the map's camp list both take you straight to it, and when you come back it's just as you left it.
+
+Saved camps are checked when you load: if one somehow ends up somewhere it couldn't be pitched (after an update changed the ground, say), it's moved to the nearest good spot and the game tells you where and why.
+
+### Adventures
+
+Small stories round the cove, each with a clue, somewhere to go, and a modest reward. Clues come from the Willowhaven notice board, or from a page you find lying about. Nothing is timed and nothing needs doing twice: if you've already done part of one before you find its clue, it's recognised and counted.
+
+- **The Kittiwake**: an old photograph on the board. Find where she lies, and see her under the water.
+- **Ada's notebook**: three damp pages from a local angler's notebook, in the punt, at the daymark's foot and in the strand's shelter, in any order. Each one tells you something true about that water.
+- **Where the gulls dive**: get close to gulls working the water and catch one of what they're after. Afterwards, the gulls you've seen diving are marked on your map for a while.
+- **A gap on the chandlery wall**: photograph a live cuttlefish and pin it up on the board. Your photograph hangs there from then on, and the chandlery gives you the striped deckchair.
+
+Rewards are keepsakes (in the journal's Memories pages), map marks and that deckchair: nothing that changes how fish bite.
+
+### Photographs and memories
+
+Press **P** (or **Take a photograph** in the backpack or the album on a phone) for photo mode: the interface steps aside, drag to look and scroll or pinch to zoom, and press again to take the picture. You see it straight away, can give it a title, and keep or discard it. On a catch card, **Photograph** takes a picture of the fish in your hands. The game notes what's in each picture (the fish in view, the places, gulls diving).
+
+The journal's **Memories** pages hold your album (48 photographs; download any one as a JPEG, or the whole album as a single web page), the adventures you've come across and their keepsakes, your map marks, your camp, and the places you've found, each with what you've caught there, your best fish and the tackle that worked. Photographs are stored in your browser's own database, not in the save file, so the save stays small: a downloaded save or a cloud save keeps the list of your photographs but not the pictures, so download the album if you want to keep them elsewhere.
+
+On the map, **Mark a spot** (or **Mark where you are**) adds a mark with a title, a note, and a star for favourites; the Memories pages list what you've caught near each one.
 
 Camps you've found are listed beside the map: **Go there** takes you to any of them in a short fade (a little time passes, more for further camps), and **Go there** by your boat takes you back aboard. Your boats stay where you left them.
 
@@ -289,6 +336,8 @@ The journal's **Your progress** section shows when the game last saved and has t
 - **Load a saved copy…**: loads one of those files (it asks first, and keeps your current game as a backup).
 - **New game…**: starts over after asking you to confirm, with an offer to download a copy first. Your sound and graphics settings stay. The old save is kept aside in the browser rather than deleted.
 
+Your camp, map marks, the list of your photographs, adventures and keepsakes are saved too (save version 5). Saves from before *Life on the coast* load as they were, with the camping kit rolled up in your backpack and nothing else changed.
+
 Saves are careful. Each one carries a version number, so a future update can convert old saves instead of breaking them. Every value is checked when loading, so a damaged save can't crash the game. If the save can't be read at all, it is kept aside (never written over) and the game loads the copy from the start of your previous session instead, and says so. A save made by a newer version is never written over. If you open the game in two tabs, the older tab stops saving so the two can't overwrite each other. In a private window, where the browser may refuse to store anything, the game tells you that progress won't be kept.
 
 ### The journal and catch log
@@ -301,7 +350,7 @@ Press **J**. The **Fish & places** pages hold a sketch and notes for every kind 
 - how deep it took and how deep the water was, and whether flies were hatching,
 - what happened to it: released, kept, cooked or eaten.
 
-It shows your heaviest catch, totals and personal bests for each kind, and your recent catches with filters for kind, water, method and what happened to them (25 at a time, with *Show more*).
+It shows your heaviest catch, totals and personal bests for each kind, and your recent catches with filters for kind, water, method and what happened to them (25 at a time, with *Show more*). The **Memories** pages hold your photographs, adventures and keepsakes, marks, camp and places (see [Photographs and memories](#photographs-and-memories)).
 
 ### The field guide
 
@@ -330,7 +379,7 @@ In the backpack, each bait, lure, fly and jig lists the species it's **Good for*
 
 ### The map
 
-Press **M** (or the map button). The map is drawn from the real ground and water depths, but only where you've been: land and water fill in around you as you travel (further out on the water than in the woods), and the rest stays blank paper. It marks the places you've found (camps as tents, landings as little piers, landmarks with a cross), where each boat is, where you are, and where your best fish of each kind came from. Drag to move it, scroll or pinch to zoom, ◎ to centre on you. Beside it: your camps (with **Go there**), your boat, and every place you've found. Opened from the field guide, it shades the water that suits a species and frames the nearest of it; this shows where to look, never where a fish is.
+Press **M** (or the map button). The map is drawn from the real ground and water depths, but only where you've been: land and water fill in around you as you travel (further out on the water than in the woods), and the rest stays blank paper. It marks the places you've found (camps as tents, landings as little piers, landmarks with a cross), where each boat is, where you are, and where your best fish of each kind came from. Drag to move it, scroll or pinch to zoom, ◎ to centre on you. Beside it: your camps (with **Go there**), Willowhaven, your boat, your marks, and every place you've found. Your own camp shows as a tent in its own colour, marks as stars and flags, and (after *Where the gulls dive*) recent gull sightings as little birds. Opened from the field guide, it shades the water that suits a species and frames the nearest of it; this shows where to look, never where a fish is.
 
 ### Settings
 
@@ -493,7 +542,16 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 | `src/pack.js` | The backpack: the equipment browser, the selected piece with its compatibility checks, and your setup as rigged |
 | `src/gearArt.js` | Models of every rod (with its reel), line spool, float, rig, leader, bait, lure, fly and squid jig, built from the tackle data by id |
 | `src/gearView.js` | The backpack's studio: one small renderer that makes cached thumbnails and the turnable preview |
-| `src/camp.js` | The fire, grill, food and hunger, and the sleep panel |
+| `src/camp.js` | The camp sheet: the fire, grill or stove, food and hunger, sleep, and your own camp's controls (name, tent, lantern, decorations, moving and packing up) |
+| `src/campsite.js` | Your own camps as plain rules: the kit, the footprint, where a camp may go (and why not), finding a spot nearby, storage, packing up, moving, cooking, and checking saved camps |
+| `src/siteWorld.js` | What those rules ask of the world (ground, water, paths, obstacles, doorways and keep-clear areas), from the terrain and the obstacle grid |
+| `src/campView.js` | Your camp in 3D: the tent with its fly sheet moving in the wind, the furniture and decorations, the lantern light, and the placement outline |
+| `src/placement.js` | Choosing where to pitch: the outline following the ground, turning and nudging, and the panel |
+| `src/world/coast.js` | Willowhaven (quay, slipway, cottages, chandlery, notice board, bench, lamp), the punt and heron, Cove Head and its daymark, Shell Strand's shelter, and the Kittiwake and her buoy |
+| `src/harbour.js` | The notice board's contents, read from the conditions, the ecosystem and the gulls |
+| `src/adventures.js` | The adventures, Ada's pages and the keepsakes, and how steps are recognised in any order |
+| `src/photos.js` | Taking photographs, the album's picture store (IndexedDB), and downloads |
+| `src/memories.js` | The journal's Memories pages |
 | `src/sonar.js` | The fish finder (boat and castable), its echoes, and dragging and sizing the panel |
 | `src/journal.js` | The journal pages, catch log (totals, bests, weights, filters) and hand-drawn map |
 | `src/save.js` | Saving and loading in the browser: the versioned save format, checks, migrations, backups, and combining two saves |
@@ -519,6 +577,8 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 - **Reshape the land**: `landSDF` in `src/world/terrain.js`; the lake (`LAKE`), stream (`STREAM`), camp (`CAMP`), path (`PATH`), Longmere (`MERE`), Gannet Isle (`GANNET`) and the rest are constants near the top.
 - **Add a boat**: add a hull to `HULLS` in `src/boat.js` (shape, seat, how it moves) and its mooring in `mooring()` in `src/main.js`.
 - **Change what's saved**: add the field to `DEFAULT_STATE` and `sanitize` in `src/save.js`. If an old save needs converting, raise `SAVE_VERSION` and add a step to `MIGRATIONS`.
+- **Add an adventure**: add an entry to `ADVENTURES` in `src/adventures.js` (a clue, steps with an optional `check` against the game, an ending and a reward). Steps the world settles by itself are checked twice a second; others are recorded where they happen. A notice-board adventure appears on the board by itself.
+- **Add a camp decoration**: add it to `DECOR` in `src/campsite.js` and give it a model in `furnitureParts` in `src/campView.js`.
 - **Add a discovery**: copy the lantern pattern in `src/main.js` (`lanternReach` and `takeLantern`) and its prop in `buildCove` in `src/world/world.js`.
 
 The browser console has a small helper for tinkering:
@@ -546,9 +606,9 @@ slowTide.eco.agents           // every fish in the world, with its species, size
 
 - [three.js](https://threejs.org) r160, MIT licence (`vendor/three/LICENSE`).
 - Fonts: Caveat, Kalam and Nunito, SIL Open Font License 1.1 (`assets/fonts/OFL-*.txt`).
-- Everything else, including the sound and music and every model and texture, is generated by the code in `src/`.
+- Everything else, including the sound and music and every model and texture, is generated by the code in `src/`. That includes everything added in *Life on the coast*: Willowhaven's buildings, quay and signs, the daymark, the Kittiwake and her buoy, the tent, furniture and decorations, the notice board's paper, and the new sounds (stove, footsteps on sand, stone and wood, the camera shutter, curlews, the swell on the headland). The adventures, Ada's pages and the notices are original writing. No outside assets were used.
 - Species facts in the register come from the sources listed in each entry (FishBase, SeaLifeBase, DORIS, WoRMS, regional checklists, papers and official documents); the game quotes facts and names, not their text or images.
 
 ## Ideas for next steps
 
-The journal hints at a softer cushion, a potted fern on the bow, and a little cabin by the lake. Other natural next steps: carrying the brass lantern when you walk at night, tides that cover and uncover the estuary flats, cooking and resting at the far camps as at home, fuel and simple upgrades for the motorboats, and seasons that change which fish are about. For the sea, see the [expansion plan](#expansion-plan).
+The journal hints at a softer cushion, a potted fern on the bow, and a little cabin by the lake. Other natural next steps: carrying the brass lantern when you walk at night, tides that cover and uncover the estuary flats (and Shell Strand), a second camping kit, diving on the Kittiwake, cooking and resting at the far camps as at home, fuel and simple upgrades for the motorboats, and seasons that change which fish are about. For the sea, see the [expansion plan](#expansion-plan).

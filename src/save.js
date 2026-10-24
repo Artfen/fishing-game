@@ -1,6 +1,7 @@
 import { fishById } from './fish.js';
 import { RODS, TACKLE, TERMS, PACK, cleanGear } from './tackle.js';
 import { cleanSettings } from './settings.js';
+import { cleanCamps } from './campsite.js';
 
 // Saving your progress in this browser, with nobody to sign in to.
 //
@@ -13,7 +14,7 @@ import { cleanSettings } from './settings.js';
 // To change the save format later: bump SAVE_VERSION and add a step to MIGRATIONS that turns
 // the previous version's data into the new shape.
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 const KEY = 'slow-tide-save';
 const BACKUP = 'slow-tide-save-backup';          // the save as it was when this session began
 const LEGACY = 'slow-tide-save-v1';              // the format before versioning
@@ -52,6 +53,16 @@ export const DEFAULT_STATE = {
   observed: {},    // species you've seen for yourself: id -> { count, day, hour, zone }
   trip: null,      // a fishing trip under way (see trip.js)
   trips: [],       // trips you've finished, with what they brought (the last twenty)
+  // From save version 5: your own camps (see campsite.js), your marks on the map, the photographs
+  // you've taken (the pictures themselves live in the browser's photo store, see photos.js), the
+  // adventures you've come across, the keepsakes they gave you, and what you've learned.
+  camps: [],
+  pins: [],        // { id, x, z, title, note, fav, day, hour }
+  photos: [],      // { id, title, at, day, hour, x, z, place, sky, subjects: { species, places, birds } }
+  adventures: {},  // id -> { clue, steps: { step: { day, hour } }, done }
+  keepsakes: {},   // id -> { day, hour }
+  unlocks: {},     // birdMarks, deckchair… -> true
+  wallPhoto: null, // the photograph pinned up at the chandlery
 };
 
 const fresh = () => JSON.parse(JSON.stringify(DEFAULT_STATE));
@@ -67,6 +78,10 @@ const ZONES = ['bay', 'cove', 'open', 'lake', 'stream', 'estuary', 'mere', 'coas
 const SKY_STATES = ['clear', 'partly', 'overcast', 'light', 'heavy'];
 const KINDS = ['float', 'lure', 'ledger', 'bottom', 'fly', 'jig'];
 export const OUTCOMES = ['released', 'kept', 'cooked', 'eaten'];
+export const PIN_MAX = 60;
+export const PHOTO_MAX = 48;
+const ID = /^[a-z0-9-]{3,40}$/;
+const when = (v) => (isObj(v) ? { day: int(v.day, 1, 1, 1e6), hour: num(v.hour, 12, 0, 24) } : null);
 
 const VESSELS = ['row', 'skiff', 'kayak', 'bass'];
 
@@ -147,7 +162,7 @@ export function sanitize(raw) {
   s.keep = (Array.isArray(raw.keep) ? raw.keep : [])
     .filter((f) => isObj(f) && fishById[f.id]?.meal)
     .slice(0, PACK.fish)
-    .map((f) => ({ id: f.id, size: int(f.size, fishById[f.id].size[0], 1, 300), logId: str(f.logId, null, 24) }));
+    .map((f) => ({ id: f.id, size: int(f.size, fishById[f.id].size[0], 1, 300), logId: str(f.logId, null, 24), ...(f.cooked ? { cooked: true } : {}) }));
   s.food = isObj(raw.food) ? { full: num(raw.food.full, 80, 0, 100), wellFedUntil: num(raw.food.wellFedUntil, 0, 0) } : null;
   if (isObj(raw.camp)) {
     const c = raw.camp;
@@ -204,6 +219,38 @@ export function sanitize(raw) {
     }
   }
   s.seen = typeof raw.seen === 'string' && raw.seen.length <= 4000 && /^[A-Za-z0-9+/=]*$/.test(raw.seen) ? raw.seen : '';
+  // Your camps, marks, photographs, adventures and keepsakes (version 5).
+  s.camps = cleanCamps(raw.camps);
+  for (const p of (Array.isArray(raw.pins) ? raw.pins : []).slice(0, PIN_MAX)) {
+    if (!isObj(p) || !ID.test(p.id || '')) continue;
+    const x = num(p.x, NaN, -3000, 3000), z = num(p.z, NaN, -3000, 3000);
+    if (!Number.isFinite(x) || !Number.isFinite(z) || s.pins.some((q) => q.id === p.id)) continue;
+    s.pins.push({ id: p.id, x, z, title: str(p.title, '', 40), note: str(p.note, '', 240), fav: !!p.fav, ...when(p) || { day: 1, hour: 12 } });
+  }
+  for (const p of (Array.isArray(raw.photos) ? raw.photos : []).slice(-PHOTO_MAX)) {
+    if (!isObj(p) || !ID.test(p.id || '') || s.photos.some((q) => q.id === p.id)) continue;
+    const sub = isObj(p.subjects) ? p.subjects : {};
+    s.photos.push({
+      id: p.id, title: str(p.title, '', 60), at: num(p.at, 0, 0), ...when(p) || { day: 1, hour: 12 },
+      x: num(p.x, 0, -3000, 3000), z: num(p.z, 0, -3000, 3000), place: str(p.place, '', 60), sky: oneOf(p.sky, ['', ...SKY_STATES], ''),
+      subjects: {
+        species: (Array.isArray(sub.species) ? sub.species : []).filter((id) => fishById[id]).slice(0, 12),
+        places: (Array.isArray(sub.places) ? sub.places : []).filter((id) => typeof id === 'string' && id.length < 30).slice(0, 12),
+        birds: !!sub.birds,
+      },
+    });
+  }
+  if (isObj(raw.adventures)) {
+    for (const [id, a] of Object.entries(raw.adventures)) {
+      if (!/^[a-z]{2,20}$/.test(id) || !isObj(a)) continue;
+      const steps = {};
+      if (isObj(a.steps)) for (const [k, v] of Object.entries(a.steps)) if (/^[a-z0-9]{1,20}$/.test(k) && when(v)) steps[k] = when(v);
+      s.adventures[id] = { clue: when(a.clue), steps, done: when(a.done) };
+    }
+  }
+  if (isObj(raw.keepsakes)) for (const [k, v] of Object.entries(raw.keepsakes)) if (/^[a-z]{2,20}$/.test(k) && when(v)) s.keepsakes[k] = when(v);
+  if (isObj(raw.unlocks)) for (const [k, v] of Object.entries(raw.unlocks)) if (/^[a-zA-Z]{2,20}$/.test(k) && v) s.unlocks[k] = true;
+  s.wallPhoto = typeof raw.wallPhoto === 'string' && s.photos.some((p) => p.id === raw.wallPhoto) ? raw.wallPhoto : null;
   if (isObj(raw.sky)) {
     s.sky = { cloud: num(raw.sky.cloud, 0.3, 0, 1), rain: num(raw.sky.rain, 0, 0, 1), state: oneOf(raw.sky.state, SKY_STATES, 'partly'), timer: num(raw.sky.timer, 120, 0, 3600) };
   }
@@ -222,6 +269,9 @@ const MIGRATIONS = {
   // control and comfort choices) into settings, built from the old values by sanitize(). The
   // boats move into one map, and the kayak and bass boat start at their moorings.
   3: (d) => ({ ...d, boats: { row: d.boat, skiff: d.skiff } }),
+  // Version 4 had no camps of your own, map marks, photographs or adventures: you start with
+  // your camping kit in your backpack and an empty album.
+  4: (d) => ({ ...d, camps: [], pins: [], photos: [], adventures: {}, keepsakes: {}, unlocks: {} }),
 };
 
 function migrate(data, from) {
@@ -391,10 +441,10 @@ export function exportText(state) {
 
 // True once a save holds anything worth keeping.
 export function hasProgress(s) {
-  return !!(s && (Object.keys(s.fish).length || Object.keys(s.places).length || s.log.length || s.items.lantern || s.day > 1 || s.meals));
+  return !!(s && (Object.keys(s.fish).length || Object.keys(s.places).length || s.log.length || s.items.lantern || s.day > 1 || s.meals || s.camps?.length || s.photos?.length || s.pins?.length));
 }
 
-const JOURNAL_KEYS = ['fish', 'places', 'items', 'tips', 'caughtOn', 'log', 'meals'];
+const JOURNAL_KEYS = ['fish', 'places', 'items', 'tips', 'caughtOn', 'log', 'meals', 'pins', 'photos', 'adventures', 'keepsakes', 'unlocks'];
 const SETTINGS_KEYS = ['quality', 'volumes', 'music', 'sonar', 'finder', 'difficulty', 'fishView'];
 
 // Combine two saves so nothing discovered in either is lost: every logged catch (matched by
@@ -449,6 +499,28 @@ export function mergeStates(a, b, world = 'a') {
     }
   }
   out.meals = Math.max(a.meals, b.meals);
+  // Marks and photographs from both (photographs taken on another device keep their record here;
+  // the picture stays on the device that took it). Adventures keep every step found on either,
+  // at the earlier time; keepsakes and what you've learned, from either.
+  const byId = (xs, ys, max) => {
+    const out2 = [], seen = new Set();
+    for (const p of [...xs, ...ys]) if (!seen.has(p.id)) { seen.add(p.id); out2.push(JSON.parse(JSON.stringify(p))); }
+    return out2.slice(-max);
+  };
+  out.pins = byId(a.pins, b.pins, PIN_MAX);
+  out.photos = byId(a.photos, b.photos, PHOTO_MAX).sort((x, y) => x.at - y.at);
+  const first = (x, y) => (!x ? y : !y ? x : x.day < y.day || (x.day === y.day && x.hour <= y.hour) ? x : y);
+  out.adventures = {};
+  for (const id of new Set([...Object.keys(a.adventures), ...Object.keys(b.adventures)])) {
+    const x = a.adventures[id] || { steps: {} }, y = b.adventures[id] || { steps: {} };
+    const steps = {};
+    for (const k of new Set([...Object.keys(x.steps), ...Object.keys(y.steps)])) steps[k] = { ...first(x.steps[k], y.steps[k]) };
+    out.adventures[id] = { clue: first(x.clue, y.clue), steps, done: first(x.done, y.done) };
+  }
+  out.keepsakes = {};
+  for (const k of new Set([...Object.keys(a.keepsakes), ...Object.keys(b.keepsakes)])) out.keepsakes[k] = { ...first(a.keepsakes[k], b.keepsakes[k]) };
+  out.unlocks = { ...b.unlocks, ...a.unlocks };
+  if (!out.wallPhoto) out.wallPhoto = a.wallPhoto || b.wallPhoto || null;
   return out;
 }
 

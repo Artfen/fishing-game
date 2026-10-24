@@ -66,6 +66,8 @@ export class Ecosystem {
         [cands[i], cands[j]] = [cands[j], cands[i]];
       }
       if (nearJetty) cands.sort((a, b) => (b.tag === 'jetty') - (a.tag === 'jetty'));
+      // A few fish are known for one place (the conger in the Kittiwake, bass in the strand's surf).
+      if (L.favour) cands.sort((a, b) => L.favour.includes(b.tag) - L.favour.includes(a.tag));
       const out = [];
       for (const s of cands) {
         if (out.length >= n) break;

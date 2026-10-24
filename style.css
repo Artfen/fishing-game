@@ -926,10 +926,14 @@ p.cp-soft { margin: 6px 0; }
 }
 .j-tabs button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .book .page { padding-top: 46px; }
-/* On a phone the three tabs sit on one line, left of the close button. */
+/* On a phone the tabs sit on one line, left of the close button (short names on the narrowest). */
 @media (max-width: 760px) {
   .j-tabs { left: 14px; transform: none; gap: 4px; }
   .j-tabs button { padding: 5px 9px; font-size: 12px; white-space: nowrap; }
+}
+@media (max-width: 440px) {
+  .j-tab-more { display: none; }
+  .j-tabs button::first-letter { text-transform: uppercase; }
 }
 /* Pages scrolled down fade out under the tabs instead of running into them. */
 @media (min-width: 761px) {
@@ -1945,3 +1949,152 @@ body.touch #rest-veil { padding-bottom: calc(170px + env(safe-area-inset-bottom,
 .st-sub { margin: 18px 0 4px; font: 800 13px var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.75; }
 .st-compass { flex-wrap: wrap; }
 .st-compass button { min-width: 44px; }
+
+/* ---------------- Life on the Coast: your camp ---------------- */
+
+/* Pitching a camp: a small paper panel low on the screen, clear of the view. */
+.place-panel {
+  position: absolute;
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  width: min(560px, calc(100% - 32px));
+  padding: 12px 16px 10px;
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  z-index: 30;
+}
+.place-panel h2 { margin: 0 0 4px; font: 700 28px/1 var(--font-display); }
+.pl-status { margin: 0; font: 16px/1.35 var(--font-hand); padding-left: 22px; position: relative; min-height: 2.6em; }
+.pl-status::before { position: absolute; left: 0; top: 0; font: 800 16px var(--font-ui); }
+.pl-status.ok::before { content: '✓'; color: #3f7f4a; }
+.pl-status.warn::before { content: '!'; color: #b07a12; left: 5px; }
+.pl-status.bad::before { content: '✕'; color: #b5532f; }
+.pl-warn { margin: 2px 0 0; font: 700 12.5px var(--font-ui); color: #8a5a12; }
+.pl-warn:empty { display: none; }
+.pl-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.pl-tools > button:not(.pk-btn) {
+  width: 38px; height: 34px; border-radius: 8px; border: 1.5px solid var(--ink-faint);
+  background: transparent; color: var(--ink); font: 800 18px var(--font-ui); cursor: pointer;
+}
+.pl-tools > button:not(.pk-btn):hover { background: rgba(53, 41, 31, 0.07); }
+#pl-ok { margin-left: auto; }
+/* While choosing a spot, the fish finder and the cast button step aside (the panel pitches). */
+body.placing #sonar, body.placing #act-btn, body.placing #cancel-btn { visibility: hidden; }
+.pl-keys { margin: 8px 0 0; font: 600 12px var(--font-ui); color: var(--ink-soft); }
+@media (max-width: 520px) {
+  .place-panel { padding: 10px 12px 8px; }
+  .place-panel h2 { font-size: 24px; }
+  #pl-ok { margin-left: 0; }
+}
+
+/* The camp sheet: your camp's own controls. */
+.cp-stove { width: 14px; height: 14px; border-radius: 50%; background: #9a9086; }
+.cp-stove.lit { background: #7fb4ff; box-shadow: 0 0 10px #7fb4ff; }
+.cp-name input {
+  flex: 1 1 200px; min-width: 0; padding: 5px 10px; border-radius: 8px; border: 1.5px solid var(--ink-faint);
+  background: rgba(255, 255, 255, 0.5); color: var(--ink); font: 18px var(--font-hand);
+}
+.cp-choice { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 260px; }
+.cp-choice .chip { padding: 4px 11px; font-size: 12.5px; background: transparent; color: var(--ink); border-color: var(--ink-faint); }
+.cp-choice .chip.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.cp-acts { gap: 8px; }
+.cp-pack { padding: 10px 12px; border-radius: 8px; background: rgba(181, 83, 47, 0.08); box-shadow: inset 0 0 0 1px rgba(181, 83, 47, 0.25); }
+.cp-pack p { margin: 0 0 6px; font: 15px/1.35 var(--font-hand); }
+.cp-check { display: flex; gap: 8px; align-items: center; padding: 3px 0; font: 600 13px var(--font-ui); }
+
+/* The camping kit in the backpack. */
+.gx-kit { display: grid; gap: 6px; }
+.gx-kit-text { margin: 0; font: 600 12.5px/1.4 var(--font-ui); }
+.gx-kit-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.gx-kit-acts:empty { display: none; }
+
+/* A text box in a question (naming your camp). */
+#confirm-input {
+  width: 100%; margin: 4px 0 12px; padding: 7px 12px; border-radius: 8px; border: 1.5px solid var(--ink-faint);
+  background: rgba(255, 255, 255, 0.55); color: var(--ink); font: 20px var(--font-hand);
+}
+
+/* ---------------- Life on the Coast: photographs, the board, memories, marks ---------------- */
+
+/* Photo mode: a quiet frame over the view (the picture itself never includes it). */
+.photo-frame { position: fixed; inset: 0; z-index: 25; pointer-events: none; }
+.photo-frame::before {
+  content: ''; position: absolute; inset: 18px; border: 2px solid rgba(255, 249, 239, 0.75); border-radius: 6px;
+  box-shadow: 0 0 0 100vmax rgba(10, 16, 24, 0.12);
+}
+.pf-thirds { position: absolute; inset: 18px; background:
+  linear-gradient(to right, transparent calc(33.33% - 0.5px), rgba(255, 249, 239, 0.28) calc(33.33% - 0.5px), rgba(255, 249, 239, 0.28) calc(33.33% + 0.5px), transparent calc(33.33% + 0.5px), transparent calc(66.66% - 0.5px), rgba(255, 249, 239, 0.28) calc(66.66% - 0.5px), rgba(255, 249, 239, 0.28) calc(66.66% + 0.5px), transparent calc(66.66% + 0.5px)),
+  linear-gradient(to bottom, transparent calc(33.33% - 0.5px), rgba(255, 249, 239, 0.28) calc(33.33% - 0.5px), rgba(255, 249, 239, 0.28) calc(33.33% + 0.5px), transparent calc(33.33% + 0.5px), transparent calc(66.66% - 0.5px), rgba(255, 249, 239, 0.28) calc(66.66% - 0.5px), rgba(255, 249, 239, 0.28) calc(66.66% + 0.5px), transparent calc(66.66% + 0.5px)); }
+.pf-hint { position: absolute; top: 28px; left: 50%; transform: translateX(-50%); margin: 0; padding: 5px 12px; border-radius: 999px; background: var(--hud-veil); color: var(--hud-ink); font: 600 13px var(--font-ui); white-space: nowrap; }
+.pf-acts { position: absolute; bottom: 30px; left: 30px; right: 30px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; pointer-events: none; }
+.pf-acts .pk-btn { padding: 8px 16px; font-size: 14px; white-space: nowrap; pointer-events: auto; }
+.pf-acts .pk-btn.quiet { background: rgba(243, 232, 207, 0.85); }
+@media (max-width: 560px) { .pf-hint { white-space: normal; width: calc(100% - 60px); text-align: center; } }
+
+.photo-card { z-index: 40; width: min(520px, calc(100vw - 32px)); }
+.photo-card img { display: block; width: 100%; border: 8px solid #fbf8f0; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); }
+.photo-card input, .mem-viewer input {
+  width: 100%; margin: 12px 0 4px; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--ink-faint);
+  background: rgba(255, 255, 255, 0.55); color: var(--ink); font: 18px var(--font-hand);
+}
+.photo-card p { font: 15px/1.35 var(--font-hand); margin: 6px 0 10px; }
+#cc-photo { background: transparent; }
+
+/* The notice board. */
+#board .sheet-inner { width: min(820px, 100%); }
+.board-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 26px; }
+.board-cols p { margin: 0 0 6px; font: 15px/1.4 var(--font-hand); }
+.board-fish { padding: 6px 0; border-bottom: 1px dashed var(--ink-faint); }
+.board-fish b { font: 700 15px var(--font-ui); }
+.board-fish .pk-btn { font-size: 12px; padding: 3px 10px; }
+.board-notices { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.board-note { padding: 10px 12px; background: #fbf5e3; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); transform: rotate(-0.6deg); display: grid; gap: 8px; }
+.board-note:nth-child(2n) { transform: rotate(0.8deg); }
+.board-note.done { opacity: 0.75; }
+.board-note-title { border: none; background: none; padding: 0; text-align: left; font: 700 20px var(--font-display); color: var(--ink); cursor: pointer; }
+.board-note-title:hover { text-decoration: underline; }
+@media (max-width: 640px) { .board-cols { grid-template-columns: 1fr; } }
+
+/* Memories. */
+.page h2 .count { font: 700 12px var(--font-ui); color: var(--ink-soft); margin-left: 6px; letter-spacing: 0.04em; }
+.mem-photo-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.mem-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; margin: 6px 0; }
+.mem-photo { display: grid; gap: 4px; padding: 5px 5px 7px; border: none; background: #fbf8f0; box-shadow: 0 1px 5px rgba(0, 0, 0, 0.18); cursor: pointer; text-align: left; color: var(--ink); }
+.mem-photo:nth-child(3n) { transform: rotate(-1deg); }
+.mem-photo:nth-child(3n + 1) { transform: rotate(0.8deg); }
+.mem-photo img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #ddd2b8; }
+.mem-photo span { font: 13px/1.2 var(--font-hand); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mem-photo.away img { opacity: 0.3; }
+.mem-adv { margin: 6px 0 14px; padding: 8px 12px; border-left: 3px solid var(--ink-faint); }
+.mem-adv.done { border-left-color: #6f9a63; }
+.mem-adv h4 { margin: 0 0 4px; font: 700 22px var(--font-display); }
+.mem-clue { margin: 0 0 6px; font: italic 14px/1.4 var(--font-hand); color: var(--ink-soft); }
+.mem-steps { margin: 0 0 6px; padding: 0; list-style: none; font: 600 13px/1.5 var(--font-ui); }
+.mem-steps li.on { color: #3f6f3a; }
+.mem-steps li .pk-btn { margin-left: 6px; padding: 1px 8px; font-size: 11px; }
+.mem-end { margin: 0; font: 14px/1.4 var(--font-hand); }
+.mem-keep, .mem-mark, .mem-place { padding: 6px 0; border-bottom: 1px dashed rgba(53, 41, 31, 0.16); }
+.mem-keep b, .mem-mark b, .mem-place b { font: 700 15px var(--font-ui); }
+.mem-keep p, .mem-mark p { margin: 2px 0; font: 14px/1.35 var(--font-hand); }
+.mem-link { color: #2f6f74; font: 600 12.5px/1.4 var(--font-ui) !important; margin: 2px 0 0; }
+.mem-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.mem-acts .pk-btn { font-size: 12px; padding: 3px 10px; }
+.j-faint { color: var(--ink-soft); font: 14px var(--font-hand); }
+.mem-viewer { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; background: rgba(30, 24, 18, 0.55); padding: 16px; }
+.mem-viewer-inner { position: relative; width: min(820px, 100%); max-height: 100%; overflow-y: auto; padding: 18px 20px 16px; background: var(--paper); border-radius: 8px; color: var(--ink); }
+.mem-viewer-inner img { display: block; width: 100%; border: 8px solid #fbf8f0; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); }
+.mem-viewer-inner p { font: 15px/1.4 var(--font-hand); }
+
+/* Your marks on the map. */
+.map-mark-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.map-mark-tools .pk-btn { font-size: 12px; padding: 4px 10px; }
+.map-mark-tools .pk-btn.on { background: var(--stamp); border-color: var(--stamp); color: #fff; }
+#map-canvas.marking { cursor: crosshair; }
+.map-pin-edit { display: grid; gap: 6px; padding: 8px; margin-bottom: 8px; border-radius: 8px; background: rgba(53, 41, 31, 0.07); }
+.map-pin-edit input[type=text], .map-pin-edit textarea { width: 100%; padding: 5px 8px; border-radius: 6px; border: 1.5px solid var(--ink-faint); background: rgba(255, 255, 255, 0.6); color: var(--ink); font: 15px var(--font-hand); }
+.mp-fav { font: 600 12.5px var(--font-ui); display: flex; gap: 6px; align-items: center; }
+.mp-acts { display: flex; gap: 6px; }
+.mp-acts .pk-btn { font-size: 12px; padding: 3px 10px; }

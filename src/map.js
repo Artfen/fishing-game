@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { PLACES, PATH, WEND_TRAIL, zoneAt, ZONE_NAMES } from './world/terrain.js';
+import { PLACES, PATH, WEND_TRAIL, COAST_PATHS, zoneAt, ZONE_NAMES } from './world/terrain.js';
 import { fishById } from './fish.js';
 import { habitsOf } from './guide.js';
+import { TENTS } from './campsite.js';
 
 // The map (M): the whole coast as you've seen it. Water you've crossed and shores you've
 // walked are drawn in; the rest stays blank paper until you go there. Places you've found are
@@ -97,6 +98,28 @@ export class MapSheet {
     $('map-out').addEventListener('click', () => this.zoomBy(1 / 1.5));
     $('map-me').addEventListener('click', () => this.centre(this.where?.player));
     this.el.addEventListener('click', (e) => { if (e.target === this.el) hooks.close(); });
+    // Your marks: click "Mark a spot" then the map, or mark where you stand; edit them alongside.
+    this.marking = false;
+    this.editing = null;
+    $('map-mark').addEventListener('click', () => this.setMarking(!this.marking));
+    $('map-mark-here').addEventListener('click', () => {
+      const p = this.where?.player;
+      if (p) this.addPin(p.x, p.z);
+    });
+    $('map-pin-edit').addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.savePin();
+    });
+    $('mp-cancel').addEventListener('click', () => this.editPin(null));
+    $('mp-delete').addEventListener('click', () => {
+      if (!this.editing) return;
+      const i = this.state.pins.findIndex((p) => p.id === this.editing.id);
+      if (i >= 0) this.state.pins.splice(i, 1);
+      this.editPin(null);
+      this.hooks.changed?.();
+      this.renderSide();
+      this.draw();
+    });
     this.bindPointer();
     addEventListener('resize', () => { if (this.isOpen) this.draw(); });
   }
@@ -268,7 +291,16 @@ export class MapSheet {
   }
 
   close() {
+    if (this.editing) this.savePin();
+    this.setMarking(false);
     this.el.hidden = true;
+  }
+
+  // Open on a particular spot (a mark, a photograph's place), zoomed in.
+  openAt(where, x, z) {
+    this.open(where);
+    this.view.zoom = this.fitZoom * 4;
+    this.centre({ x, z });
   }
 
   /* ---------------- drawing ---------------- */
@@ -429,8 +461,10 @@ export class MapSheet {
   bindPointer() {
     const cv = this.canvas, pts = new Map();
     let pinch = 0;
+    let down = null;
     cv.addEventListener('pointerdown', (e) => {
       cv.setPointerCapture?.(e.pointerId);
+      down = { x: e.clientX, y: e.clientY, moved: 0 };
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a.x - b.x, a.y - b.y); }
     });
@@ -440,6 +474,7 @@ export class MapSheet {
       const dx = e.clientX - p.x, dy = e.clientY - p.y;
       p.x = e.clientX;
       p.y = e.clientY;
+      if (down) down.moved += Math.abs(dx) + Math.abs(dy);
       if (pts.size === 1) {
         this.view.x -= (dx * this.dpr) / this.view.zoom;
         this.view.z -= (dy * this.dpr) / this.view.zoom;
@@ -452,6 +487,22 @@ export class MapSheet {
       }
     });
     const end = (e) => { pts.delete(e.pointerId); pinch = 0; };
+    // A click (not a drag): on a mark, edit it; in marking mode, put a new one there.
+    cv.addEventListener('pointerup', (e) => {
+      if (!down || down.moved > 6 || pts.size > 1) return;
+      const r = cv.getBoundingClientRect();
+      const px = (e.clientX - r.left) * this.dpr, py = (e.clientY - r.top) * this.dpr;
+      const hit = this.state.pins.find((p) => {
+        const [x, y] = this.toPx(p.x, p.z);
+        return Math.hypot(x - px, y - py) < 14 * this.dpr;
+      });
+      if (hit) this.editPin(hit);
+      else if (this.marking) {
+        const [x, z] = this.toWorld(px, py);
+        this.addPin(x, z);
+      }
+      down = null;
+    });
     cv.addEventListener('pointerup', end);
     cv.addEventListener('pointercancel', end);
     cv.addEventListener('wheel', (e) => {
@@ -499,6 +550,7 @@ export class MapSheet {
     };
     if (st.places.camp) trail(PATH);
     if (st.places.quay || st.places.boathouse) trail(WEND_TRAIL);
+    if (st.places.haven || st.places.landing) for (const P of COAST_PATHS) trail(P);
 
     ctx.drawImage(this.fog, x0, y0, w, h);
     if (this.highlightImg) {
@@ -507,6 +559,8 @@ export class MapSheet {
       ctx.globalAlpha = 1;
     }
 
+    // (Labels don't overlap: each one drawn is remembered for this frame.)
+    this.labels = [];
     // A planned trip's destination: a dashed ring round the water, with what you're after.
     const trip = this.state.trip;
     if (trip) {
@@ -527,7 +581,6 @@ export class MapSheet {
     ctx.lineWidth = 2 * s;
     ctx.strokeRect(x0, y0, w, h);
 
-    this.labels = [];
     // Big waters: their names written across them.
     for (const p of PLACES) {
       if (!p.area || !st.places[p.id]) continue;
@@ -592,6 +645,79 @@ export class MapSheet {
       }
       ctx.restore();
       this.label(ctx, p.name, x + 12 * s, y - 2 * s, p.camp ? 19 : 17, INK, p.camp || p.dock ? 0.95 : 0.85);
+    }
+
+    // Your camp: a tent in its own colour, with its name.
+    for (const c of st.camps || []) {
+      if (!c.marked) continue;
+      const [x, y] = this.toPx(c.x, c.z);
+      ctx.save();
+      ctx.fillStyle = TENTS[c.tent]?.fly || '#7f9a6a';
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 2 * s;
+      ctx.beginPath();
+      ctx.moveTo(x - 10 * s, y + 7 * s);
+      ctx.lineTo(x, y - 9 * s);
+      ctx.lineTo(x + 10 * s, y + 7 * s);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#ffc977';
+      ctx.beginPath();
+      ctx.arc(x + 13 * s, y - 4 * s, 2.5 * s, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      this.label(ctx, c.name, x + 16 * s, y + 4 * s, 18, INK, 1);
+    }
+    // Your marks: a star for a favourite spot, a flag for anything else.
+    for (const p of st.pins || []) {
+      const [x, y] = this.toPx(p.x, p.z);
+      ctx.save();
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 1.6 * s;
+      if (p.fav) {
+        ctx.fillStyle = '#e8b440';
+        ctx.beginPath();
+        for (let k = 0; k < 10; k++) {
+          const a = (k / 10) * Math.PI * 2 - Math.PI / 2, r = (k % 2 ? 3.4 : 8) * s;
+          ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(x, y + 6 * s);
+        ctx.lineTo(x, y - 9 * s);
+        ctx.stroke();
+        ctx.fillStyle = '#b5532f';
+        ctx.beginPath();
+        ctx.moveTo(x, y - 9 * s);
+        ctx.lineTo(x + 9 * s, y - 6 * s);
+        ctx.lineTo(x, y - 3 * s);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+      if (p.title && (p.fav || this.view.zoom > this.fitZoom * 2)) this.label(ctx, p.title, x + 11 * s, y + 3 * s, 15, INK, 0.95);
+    }
+    // Gulls you've seen diving lately (once you've learned to look for them).
+    if (st.unlocks?.birdMarks) {
+      for (const f of this.hooks.birds?.() || []) {
+        const [x, y] = this.toPx(f.x, f.z);
+        ctx.save();
+        ctx.globalAlpha = Math.max(0.25, 1 - f.age);
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 1.8 * s;
+        for (const [dx, dy] of [[-6, -2], [5, -6], [2, 4]]) {
+          ctx.beginPath();
+          ctx.moveTo(x + (dx - 4) * s, y + (dy - 2) * s);
+          ctx.quadraticCurveTo(x + (dx - 2) * s, y + (dy - 4) * s, x + dx * s, y + dy * s);
+          ctx.quadraticCurveTo(x + (dx + 2) * s, y + (dy - 4) * s, x + (dx + 4) * s, y + (dy - 2) * s);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
     }
 
     // The boats, as arrows in their own paint, and you.
@@ -691,6 +817,74 @@ export class MapSheet {
     ctx.restore();
   }
 
+  /* ---------------- your marks ---------------- */
+
+  setMarking(on) {
+    this.marking = on;
+    $('map-mark').setAttribute('aria-pressed', on);
+    $('map-mark').classList.toggle('on', on);
+    $('map-mark').textContent = on ? 'Click the map to mark it…' : 'Mark a spot';
+    this.canvas.classList.toggle('marking', on);
+  }
+
+  addPin(x, z) {
+    const st = this.state;
+    if (st.pins.length >= 60) {
+      $('map-note').textContent = 'You have sixty marks already: delete one to make room.';
+      return;
+    }
+    const p = { id: `pin-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, x: Math.round(x), z: Math.round(z), title: '', note: '', fav: false, day: st.day, hour: Math.round(st.hour * 100) / 100 };
+    st.pins.push(p);
+    this.setMarking(false);
+    this.hooks.changed?.();
+    this.editPin(p);
+    this.draw();
+  }
+
+  editPin(p) {
+    this.editing = p;
+    const f = $('map-pin-edit');
+    f.hidden = !p;
+    if (!p) return;
+    $('mp-title').value = p.title;
+    $('mp-note').value = p.note;
+    $('mp-fav').checked = p.fav;
+    $('mp-title').focus();
+  }
+
+  savePin() {
+    const p = this.editing;
+    if (!p) return;
+    p.title = $('mp-title').value.replace(/[<>]/g, '').trim().slice(0, 40);
+    p.note = $('mp-note').value.replace(/[<>]/g, '').trim().slice(0, 240);
+    p.fav = $('mp-fav').checked;
+    this.editPin(null);
+    this.hooks.changed?.();
+    this.renderSide();
+    this.draw();
+  }
+
+  renderPins() {
+    const pins = [...(this.state.pins || [])].sort((a, b) => b.fav - a.fav);
+    $('map-pins').replaceChildren(...pins.map((p) => {
+      const li = document.createElement('li');
+      const name = document.createElement('button');
+      name.type = 'button';
+      name.className = 'map-name';
+      name.textContent = `${p.fav ? '★' : '⚑'} ${p.title || 'A mark'}`;
+      name.addEventListener('click', () => this.centre(p));
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'pk-btn quiet';
+      edit.textContent = 'Edit';
+      edit.addEventListener('click', () => this.editPin(p));
+      const sub = document.createElement('span');
+      sub.textContent = p.note ? p.note.slice(0, 50) : '';
+      li.append(name, sub, edit);
+      return li;
+    }));
+  }
+
   /* ---------------- the list beside it ---------------- */
 
   renderSide() {
@@ -735,8 +929,32 @@ export class MapSheet {
     bgo.disabled = !info.boat;
     bgo.addEventListener('click', () => this.hooks.travel('boat'));
     boatRow.append(bname, bsub, bgo);
-    $('map-camps').replaceChildren(...rows, boatRow);
+    // Your own camp and Willowhaven, to head straight to.
+    const row = (title, sub, label, can, dest, at) => {
+      const li = document.createElement('li');
+      const name = document.createElement('button');
+      name.type = 'button';
+      name.className = 'map-name';
+      name.textContent = title;
+      name.addEventListener('click', () => this.centre(at));
+      const span = document.createElement('span');
+      span.textContent = sub;
+      const go = document.createElement('button');
+      go.type = 'button';
+      go.className = 'pk-btn';
+      go.textContent = label;
+      go.disabled = !can;
+      go.addEventListener('click', () => this.hooks.travel(dest));
+      li.append(name, span, go);
+      return li;
+    };
+    const extra = [];
+    for (const c of st.camps || []) extra.push(row(c.name, 'your camp', info.here === 'own' ? 'You’re here' : 'Go there', info.own, 'own', c));
+    const haven = PLACES.find((p) => p.id === 'haven');
+    if (st.places.haven) extra.push(row(haven.name, 'the harbour', info.here === 'haven' ? 'You’re here' : 'Go there', info.haven, 'haven', haven));
+    $('map-camps').replaceChildren(...extra, ...rows, boatRow);
     $('map-note').textContent = info.note || '';
+    this.renderPins();
 
     const others = found.filter((p) => !p.camp);
     const items = others.map((p) => {

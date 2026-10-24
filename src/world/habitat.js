@@ -1,7 +1,7 @@
 import {
   heightAt, zoneAt, streamFlow, lakeSDF, ISLAND, COVE, STACKS, CHANNEL, JETTY, LAKE, STREAM, SNAG, LILIES,
   RIVER, riverInfo, riverSDF, MARSH, SANDBANKS, QUAY, MERE, MERE_BAYS, HOLM, TIMBER, mereSDF,
-  GANNET, PUFFIN_COVE, SKERRIES, SKELLIG, SHOAL, DEEP_Z,
+  GANNET, PUFFIN_COVE, SKERRIES, SKELLIG, SHOAL, DEEP_Z, WRECK, STRAND, DAYMARK,
 } from './terrain.js';
 import { fbm, seeded, smoothstep, clamp } from '../util.js';
 
@@ -63,6 +63,11 @@ export function createHabitat() {
       addCluster(x + (-(c[3] - c[1]) / len) * side * 2.5, z + ((c[2] - c[0]) / len) * side * 2.5, 2.5, 'channel');
     }
   }
+  // The Kittiwake: her broken hull on the reef is cover like any rock pile, bow to stern.
+  for (const k of [-0.38, 0, 0.38]) addCluster(WRECK.x + Math.sin(WRECK.yaw) * WRECK.len * k, WRECK.z + Math.cos(WRECK.yaw) * WRECK.len * k, 5, 'wreck');
+  // Ledges under Cove Head.
+  addCluster(DAYMARK.x + 10, DAYMARK.z + 22, 5, 'head');
+  addCluster(DAYMARK.x - 2, DAYMARK.z + 21, 4, 'head');
   // The deepest places in the bay get a big rock pile: home of the largest fish.
   const deepCandidates = [];
   for (let x = -60; x <= 60; x += 6) {
@@ -221,6 +226,21 @@ export function createHabitat() {
       spots.push({ type: 'pool', x, z, depth: habitat.depth(x, z), zone: 'stream', r: 3 });
     }
   }
+
+  // The cove shore: surf off Shell Strand and under Cove Head, sand beyond the strand, and the
+  // wreck itself (reef for the wrasse, and a dark hull for the conger).
+  const coastSpot = (type, x, z, r, tag) => {
+    const d = habitat.depth(x, z);
+    if (d > 0.6) spots.push({ type, x, z, depth: d, zone: zoneAt(x, z), r, tag });
+  };
+  coastSpot('surf', STRAND.x - 3, STRAND.z + 16, 9, 'strand');
+  coastSpot('surf', STRAND.x - 26, STRAND.z + 22, 9, 'strand');
+  coastSpot('sand', STRAND.x + 10, STRAND.z + 30, 14, 'strand');
+  coastSpot('sand', STRAND.x - 22, STRAND.z + 34, 14, 'strand');
+  coastSpot('surf', DAYMARK.x + 2, DAYMARK.z + 20, 9, 'head');
+  coastSpot('reef', DAYMARK.x + 10, DAYMARK.z + 22, 8, 'head');
+  coastSpot('reef', WRECK.x, WRECK.z, 9, 'wreck');
+  coastSpot('rock', WRECK.x - Math.sin(WRECK.yaw) * 6, WRECK.z - Math.cos(WRECK.yaw) * 6, 7, 'wreck');
 
   // A named spot right by the jetty, so there is always life near the start.
   const jz = JETTY.z1 - 3;

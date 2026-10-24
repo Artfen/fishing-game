@@ -403,7 +403,7 @@ export const ATLANTIC = [
     keep: 'Too big and too strong to bring aboard. You lower it back to its rocks.',
     food: { strip: 1.7, crab: 0.9, prawn: 0.8, lug: 0.4 },
     life: {
-      group: [1, 1], groups: 8, spacing: 30, groupsIn: { coast: 3, cove: 2, bay: 2, estuary: 1 },
+      group: [1, 1], groups: 8, spacing: 30, groupsIn: { coast: 3, cove: 2, bay: 2, estuary: 1 }, favour: ['wreck'],
       speed: 0.5, burst: 2.2, turn: 1.6, perception: 12, depthTol: 2.4, cover: 'rock', bottom: true, lurk: true, eel: true,
       homes: ['rock', 'reef', 'quay', 'deep'], zones: ['coast', 'cove', 'bay', 'estuary'],
       depth: () => [2, 14],

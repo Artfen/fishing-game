@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   heightAt, JETTY, COVE, ISLAND, STACKS, CHANNEL, CAMP, LANDING, findShore, lakeSDF, streamSDF, pathInfo,
-  WORLD, riverSDF, mereSDF, trailInfo, MERE, GANNET,
+  WORLD, riverSDF, mereSDF, trailInfo, MERE, GANNET, coastPathInfo, HAVEN_APRON, HAVEN_HOUSES, DAYMARK, SHELTER, PUNT, STRAND,
 } from './terrain.js';
 import { mergeParts, mat, seeded, fbm, clamp, lerp, smoothstep, hash2, jitterGeo, pick, glowTexture } from '../util.js';
 import { buildLanternModel } from '../props.js';
@@ -9,6 +9,7 @@ import { withCaustics } from './caustics.js';
 import { withSurface } from './surface.js';
 import { buildShore, SHORE_PATCH } from './shore.js';
 import { buildRegions } from './regions.js';
+import { buildCoast } from './coast.js';
 
 const shared = { uTime: { value: 0 }, uWind: { value: 1 } };
 const UP = new THREE.Vector3(0, 1, 0);
@@ -124,10 +125,35 @@ function regionColor(c, h, x, z, r, weed) {
   return false;
 }
 
+// Shell Strand's shelf: 1 on the sand, fading to 0 at its grassy back and ends.
+const onStrand = (x, z) => smoothstep(30, 18, Math.abs(x - STRAND.x + 2)) * smoothstep(-12, -4, z - STRAND.z) * (z < STRAND.z + 18 ? 1 : 0);
+
+// The coast paths are bare earth, and the ground round Willowhaven's cottages is trodden.
+function coastColor(c, h, x, z, r) {
+  if (h < 0.3 || x < -96 || x > 200 || z < -125 || z > 40) return false;
+  const st = onStrand(x, z);
+  if (st > 0.01 && h < 3) {
+    const n = fbm(x * 0.12, z * 0.12, 2);
+    c.copy(TC.grassLight).lerp(TC.grass, clamp(0.5 + n, 0, 1)).lerp(TC.sand, clamp(st * 1.3 - 0.15 + n * 0.25, 0, 1));
+    c.multiplyScalar(0.96 + r * 0.08);
+    return true;
+  }
+  const p = coastPathInfo(x, z).d;
+  const nearHouse = z < -96 && z > -122 && x > -36 && x < 44 && HAVEN_HOUSES.some((b) => Math.hypot(x - b.x, z - b.z) < Math.max(b.w, b.d) * 0.5 + 3);
+  if (p > 1.6 && !nearHouse) return false;
+  const n = fbm(x * 0.09, z * 0.09, 2);
+  c.copy(TC.grassLight).lerp(TC.grass, clamp(0.5 + n * 1.2, 0, 1));
+  if (nearHouse) c.lerp(TC.trodden, 0.65);
+  if (p < 1.6) c.lerp(p < 0.7 ? TC.path : TC.pathEdge, smoothstep(1.6, 0.5, p) * (0.75 + n * 0.15));
+  c.multiplyScalar(0.96 + r * 0.08);
+  return true;
+}
+
 function terrainColor(c, h, ny, x, z, r, weed, shore) {
   const n = fbm(x * 0.05, z * 0.05, 2);
   if (shore && h < 5 && shoreColor(c, h, x, z, r, weed)) return;
   if (x > 100 && h < 5 && regionColor(c, h, x, z, r, weed)) return;
+  if (ny > 0.8 && coastColor(c, h, x, z, r)) return;
   if (h < -0.25) {
     c.copy(TC.wetSand).lerp(TC.seabed, smoothstep(0, 6, -h)).lerp(TC.deepBed, smoothstep(6, 18, -h));
     c.lerp(TC.weedBed, weed * 0.55);
@@ -725,11 +751,12 @@ class ObstacleGrid {
 
   // top: how high it stands; you can walk over it on a deck above it. base: where it starts
   // (a tree crown starts above the trunk).
-  add(x, z, r, top = Infinity, base = -Infinity) {
+  // kind and name say what it is (a tree, a rock, a building…), for the camp's check of the ground.
+  add(x, z, r, top = Infinity, base = -Infinity, kind = 'thing', name = '') {
     const c = this.cell, m = r + 0.6; // margin for the walker's own radius
     const i0 = Math.floor((x - m) / c), i1 = Math.floor((x + m) / c);
     const j0 = Math.floor((z - m) / c), j1 = Math.floor((z + m) / c);
-    const o = { x, z, r, top, base };
+    const o = { x, z, r, top, base, kind, name };
     for (let i = i0; i <= i1; i++) {
       for (let j = j0; j <= j1; j++) {
         const k = this.key(i, j);
@@ -738,6 +765,23 @@ class ObstacleGrid {
         list.push(o);
       }
     }
+  }
+
+  // Everything whose circle comes within `pad` of (x, z), at any height (for the camp's check).
+  near(x, z, pad = 0, out = []) {
+    out.length = 0;
+    const c = this.cell, i0 = Math.floor((x - pad - 1) / c), i1 = Math.floor((x + pad + 1) / c);
+    const j0 = Math.floor((z - pad - 1) / c), j1 = Math.floor((z + pad + 1) / c);
+    for (let i = i0; i <= i1; i++) {
+      for (let j = j0; j <= j1; j++) {
+        for (const o of this.cells.get(this.key(i, j)) || []) {
+          if (out.includes(o)) continue;
+          const min = o.r + pad;
+          if ((x - o.x) ** 2 + (z - o.z) ** 2 < min * min) out.push(o);
+        }
+      }
+    }
+    return out;
   }
 
   // Anything at (x, z) whose circle covers the point, with y between its bottom and top
@@ -808,7 +852,12 @@ export function buildWorld(scene, renderer, habitat) {
   ];
   const geos = treeGeometries();
   // Keep the path clear, and leave a few open casting spots along the stream.
-  const lists = scatterTrees(rnd, avoid, (x, z) => pathInfo(x, z).d < 2.6 || streamSDF(x, z) < 1.5);
+  // (The cove shore's paths, Willowhaven, the knoll and the strand's shelter are kept clear too.)
+  const coastClear = (x, z) => coastPathInfo(x, z).d < 2.6
+    || (x > HAVEN_APRON.x0 - 22 && x < HAVEN_APRON.x1 + 22 && z > -124 && z < -88)
+    || Math.hypot(x - DAYMARK.x, z - DAYMARK.z) < DAYMARK.r || Math.hypot(x - SHELTER.x, z - SHELTER.z) < 8 || Math.hypot(x - PUNT.x, z - PUNT.z) < 5
+    || onStrand(x, z) > 0.2;
+  const lists = scatterTrees(rnd, avoid, (x, z) => pathInfo(x, z).d < 2.6 || streamSDF(x, z) < 1.5 || coastClear(x, z));
   const sway = swayMaterial();
   for (const k of Object.keys(geos)) scene.add(instanced(geos[k], lists[k], sway, rnd));
   // Beyond the bay: woods in the Wend valley and round Longmere (clear of the trail and the
@@ -845,11 +894,14 @@ export function buildWorld(scene, renderer, habitat) {
   // Things you bump into on foot: tree trunks, bushes, camp gear, big rocks.
   const obstacles = new ObstacleGrid();
   for (const L of [lists, ...regionTrees]) {
-    for (const k of ['pine', 'round', 'blossom']) for (const t of L[k]) obstacles.add(t.x, t.z, 0.28 * t.s);
-    for (const t of L.bush) obstacles.add(t.x, t.z, 0.45 * t.s);
+    for (const k of ['pine', 'round', 'blossom']) for (const t of L[k]) obstacles.add(t.x, t.z, 0.28 * t.s, Infinity, -Infinity, 'tree', 'a tree');
+    for (const t of L.bush) obstacles.add(t.x, t.z, 0.45 * t.s, Infinity, -Infinity, 'tree', 'a bush');
   }
-  for (const o of shore.obstacles) obstacles.add(o.x, o.z, o.r);
-  for (const o of regions.obstacles) obstacles.add(o.x, o.z, o.r, o.top ?? Infinity);
+  for (const o of shore.obstacles) obstacles.add(o.x, o.z, o.r, Infinity, -Infinity, o.kind || 'thing', o.name || '');
+  for (const o of regions.obstacles) obstacles.add(o.x, o.z, o.r, o.top ?? Infinity, -Infinity, o.kind || 'thing', o.name || '');
+  // The cove shore: its own seed, so building it never reshuffles anything else.
+  const coast = buildCoast(scene, seeded(20261024));
+  for (const o of coast.obstacles) obstacles.add(o.x, o.z, o.r, o.top ?? Infinity, -Infinity, o.kind || 'thing', o.name || '');
   // Tree crowns, for casts that clip a branch: radius, and the height band of the leaves.
   const canopy = new ObstacleGrid(6);
   const crown = { pine: [1.25, 1.1, 4.8], round: [1.5, 1.3, 3.8], blossom: [1.5, 1.3, 3.8] };
@@ -864,7 +916,7 @@ export function buildWorld(scene, renderer, habitat) {
 
   const rockGeo = mergeParts([{ geo: jitterGeo(new THREE.DodecahedronGeometry(1, 0), 0.4, rnd), color: '#a39888', jitter: 0.07 }], rnd);
   const rocks = scatterRocks(rnd);
-  for (const r of rocks) if (r.s > 0.9 && r.y > -0.6) obstacles.add(r.x, r.z, r.s * 0.75, r.y + r.s * 0.4);
+  for (const r of rocks) if (r.s > 0.9 && r.y > -0.6) obstacles.add(r.x, r.z, r.s * 0.75, r.y + r.s * 0.4, -Infinity, 'rock', 'rocks');
   scene.add(instanced(rockGeo, rocks, withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true })), rnd, { tint: 0.08, tilt: 1.2, squash: 0.5 }));
 
   scene.add(buildStacks(rnd));
@@ -920,6 +972,7 @@ export function buildWorld(scene, renderer, habitat) {
     camp: shore.camp,
     obstacles,
     boxes: regions.boxes,
+    coast,
     // Birds over feeding fish: a flock gathers over (x, z) for a while (or freshens if one is there).
     birdsAt(x, z) {
       const near = flocks.find((f) => Math.hypot(f.x - x, f.z - z) < 40);
@@ -971,6 +1024,7 @@ export function buildWorld(scene, renderer, habitat) {
       shared.uWind.value = 1 + env.rain * 1.4;
       shore.update(dt, t, env, { ...extra, wind: shared.uWind.value });
       regions.update(dt, t, env);
+      coast.update(dt, t, env);
       fireflies.material.uniforms.uOpacity.value = env.night * (1 - env.rain * 0.8);
 
       const lamp = env.lantern;

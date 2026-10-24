@@ -458,7 +458,7 @@ export const FISH = [
     meal: { name: 'Sea bass baked whole with fennel', fill: 70 },
     food: { sandeel: 1.5, popper: 1.25, shad: 1.2, crankS: 1.0, metal: 0.7, crab: 1.3, strip: 1.1, prawn: 1.0, rag: 0.8, spinner: 0.6, lug: 0.6 },
     life: {
-      group: [1, 3], groups: 12, spacing: 22,
+      group: [1, 3], groups: 12, spacing: 22, favour: ['strand'],
       speed: 0.9, burst: 3.2, turn: 2.0, perception: 11, depthTol: 2.4, cover: 'any', lineShy: 0.55,
       homes: ['channel', 'quay', 'surf', 'reef'], zones: ['estuary', 'coast'],
       depth: ({ hour, rain = 0 }) => (isTwilight(hour) || rain > 0.3 ? [0.4, 2.5] : [1.2, 5]),
