@@ -116,7 +116,7 @@ const int = (v, d, lo, hi) => Math.round(num(v, d, lo, hi));
 const str = (v, d, max = 60) => (typeof v === 'string' ? v.slice(0, max) : d);
 const oneOf = (v, list, d) => (list.includes(v) ? v : d);
 const ZONES = ['bay', 'cove', 'open', 'lake', 'stream', 'estuary', 'mere', 'coast', 'deep', 'river', 'tarn', 'tideway'];
-const SKY_STATES = ['clear', 'partly', 'overcast', 'light', 'heavy'];
+const SKY_STATES = ['clear', 'partly', 'overcast', 'light', 'heavy', 'storm'];
 const KINDS = ['float', 'lure', 'ledger', 'bottom', 'fly', 'jig', 'spear'];
 export const OUTCOMES = ['released', 'kept', 'cooked', 'eaten'];
 export const PIN_MAX = 60;
@@ -316,7 +316,7 @@ export function sanitize(raw) {
   s.fuel = cleanFuel(raw.fuel);
   s.dive = cleanDive(raw.dive);
   if (isObj(raw.sky)) {
-    s.sky = { cloud: num(raw.sky.cloud, 0.3, 0, 1), rain: num(raw.sky.rain, 0, 0, 1), state: oneOf(raw.sky.state, SKY_STATES, 'partly'), timer: num(raw.sky.timer, 120, 0, 3600) };
+    s.sky = { cloud: num(raw.sky.cloud, 0.3, 0, 1), rain: num(raw.sky.rain, 0, 0, 1), storm: num(raw.sky.storm, 0, 0, 1), state: oneOf(raw.sky.state, SKY_STATES, 'partly'), timer: num(raw.sky.timer, 120, 0, 3600) };
   }
   return s;
 }

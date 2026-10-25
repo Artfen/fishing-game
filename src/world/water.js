@@ -15,18 +15,22 @@ const { SWELL, CHOP } = WAVE_PARTS;
 const WAVE_GLSL = /* glsl */ `
 uniform float uSwellA[${SWELL.length}];
 uniform float uChopA[${CHOP.length}];
+uniform float uPeak;
+uniform float uStorm;
 uniform sampler2D uShelter;
 uniform vec4 uShelterRect;
 vec3 waves(vec2 p, float t, float ground, float fresh) {
   vec4 sh = texture2D(uShelter, (p - uShelterRect.xy) / uShelterRect.zw);
   float ks = sh.r, kc = 0.15 + 0.85 * sh.g;
   vec3 r = vec3(0.0);
-  float a;
+  float a, s;
+  // (The swell peaks in a storm: a Stokes crest, as conditions.js swellShape.)
   ${SWELL.map((w, i) => `a = ${f(w.k)} * (${f(w.dx)} * p.x + ${f(w.dz)} * p.y - ${f(w.c)} * t);
-  r += uSwellA[${i}] * ks * vec3(sin(a), ${f(w.k * w.dx)} * cos(a), ${f(w.k * w.dz)} * cos(a));`).join('\n  ')}
+  s = uSwellA[${i}] * ks;
+  r += vec3(s * sin(a) - ${f(0.5 * w.k)} * s * s * uPeak * cos(2.0 * a), vec2(${f(w.k * w.dx)}, ${f(w.k * w.dz)}) * (s * cos(a) + ${f(w.k)} * s * s * uPeak * sin(2.0 * a)));`).join('\n  ')}
   ${CHOP.map((w, i) => `a = ${f(w.k)} * (${f(w.dx)} * p.x + ${f(w.dz)} * p.y - ${f(w.c)} * t);
   r += uChopA[${i}] * kc * vec3(sin(a), ${f(w.k * w.dx)} * cos(a), ${f(w.k * w.dz)} * cos(a));`).join('\n  ')}
-  return r * smoothstep(0.05, 0.9, -ground) * (1.0 - 0.85 * fresh);
+  return r * smoothstep(0.05, 0.9 + 3.5 * uStorm, -ground) * (1.0 - 0.85 * fresh);
 }
 `;
 
@@ -104,6 +108,7 @@ uniform vec4 uShelterRect;
 uniform vec2 uWindV;     // where the wind blows, times its strength (0 … 1 at a fresh breeze)
 uniform float uSwellH;   // the swell's crest amplitude (m)
 uniform float uChopH;    // the chop's crest amplitude (m)
+uniform float uStorm;    // how stormy (0 … 1)
 varying vec3 vWorld;
 varying vec3 vN;
 varying vec4 vRefl;
@@ -241,6 +246,9 @@ void main() {
   vec3 base = mix(mix(uShallow, uMid, s1), uDeep, s2);
   vec3 freshBase = mix(mix(uFreshShallow, uFreshMid, smoothstep(0.0, 2.2, depth)), uFreshDeep, smoothstep(2.0, 6.0, depth));
   base = mix(base, freshBase, fresh);
+  // A storm sea is dark and grey-green, churned up.
+  float stormy = uStorm * (1.0 - fresh);
+  base = mix(base, mix(vec3(0.2, 0.33, 0.33), vec3(0.09, 0.17, 0.21), s2), stormy * 0.8);
 
   float diff = clamp(dot(N, uLightDir), 0.0, 1.0);
   vec3 col = base * (uAmbient + uSunColor * (0.25 + 0.55 * diff));
@@ -291,9 +299,17 @@ void main() {
   float edge = 1.0 - smoothstep(0.0, (0.4 + n1 * 0.35) * surf, depth);
   float bands = smoothstep(0.85, 1.0, sin(depth * 5.0 / surf - uTime * 1.3 + n1 * 3.0)) * (1.0 - smoothstep(0.2, 1.6 * surf, depth)) * (1.0 - fresh);
   // Whitecaps: a few short-lived streaks of white where a fresh wind has room to raise a chop.
-  float caps = smoothstep(0.86, 0.97, vnoise((p - drift * 1.4) * vec2(0.28, 0.22) + n1 * 0.4)) * smoothstep(0.12, 0.3, uChopH) * shel.g * detail * (1.0 - fresh);
-  float foam = clamp(edge * (0.9 - fresh * 0.75) + bands * 0.55 * min(surf, 1.0) + streak * 0.45 + caps * 0.7, 0.0, 1.0);
-  vec3 foamLit = uFoam * (uAmbient + uSunColor * 0.6);
+  float caps = smoothstep(0.86 - 0.18 * uStorm, 0.97 - 0.1 * uStorm, vnoise((p - drift * 1.4) * vec2(0.28, 0.22) + n1 * 0.4)) * smoothstep(0.12, 0.3, uChopH) * shel.g * max(detail, uStorm * 0.8) * (1.0 - fresh);
+  // In a storm: foam blown in long streaks down the wind, and the crests of the big seas breaking.
+  vec2 wdir = windS > 0.01 ? uWindV / windS : vec2(1.0, 0.0);
+  float lane = vnoise(vec2(dot(p, vec2(-wdir.y, wdir.x)) * 0.85, dot(p, wdir) * 0.03 - uTime * 0.5));
+  float streaks = smoothstep(0.7, 0.86, lane) * smoothstep(0.35, 0.7, vnoise(p * 0.09 - drift * 0.3)) * shel.g * stormy;
+  // (Breaking only at the very tops of the big seas, where their faces are steepest.)
+  float steepSea = smoothstep(0.08, 0.26, length(vN.xz));
+  float crest = smoothstep(uSwellH * 0.62, uSwellH * 1.1, vWorld.y) * mix(0.35, 1.0, steepSea) * smoothstep(0.3, 0.62, vnoise(p * 0.42 - drift * 0.6)) * shel.r * stormy;
+  float foam = clamp(edge * (0.9 - fresh * 0.75) + bands * 0.55 * min(surf, 1.0) + streak * 0.45 + caps * 0.7 + streaks * 0.55 + crest * 0.9, 0.0, 1.0);
+  // (Foam stays white against a dark storm sea.)
+  vec3 foamLit = uFoam * max(uAmbient + uSunColor * 0.6, vec3(0.62 * stormy));
   col = mix(col, foamLit, foam * 0.85);
 
   // Warm lantern light pooling on the water.
@@ -327,6 +343,8 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
     {
       uTime: { value: 0 },
       uSwellA: { value: Array.from(conditions.swellAmps) },
+      uPeak: { value: 1 },
+      uStorm: { value: 0 },
       uChopA: { value: Array.from(conditions.chopAmps) },
       uShelterRect: { value: new THREE.Vector4(SHELTER_RECT.x, SHELTER_RECT.z, SHELTER_RECT.w, SHELTER_RECT.h) },
       uWindV: { value: new THREE.Vector2() },
@@ -408,6 +426,8 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       uniforms.uWindV.value.set(windX, windZ);
       uniforms.uSwellH.value = conditions.sea.swell;
       uniforms.uChopH.value = conditions.sea.chop;
+      uniforms.uPeak.value = conditions.sea.peak;
+      uniforms.uStorm.value = conditions.sea.storm;
     },
     follow(pos) {
       mesh.position.x = Math.round(pos.x / cell) * cell;

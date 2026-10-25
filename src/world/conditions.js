@@ -134,14 +134,20 @@ export const SEA_PRESETS = {
 };
 export const SEA_IDS = Object.keys(SEA_PRESETS);
 
-// The swell: a few long waves from the open Atlantic (from the west-south-west), slightly spread.
+// The swell: a few long waves from the open Atlantic (from the west-south-west), slightly spread;
+// and in a storm, two much longer seas rolling in under them (share: of the swell in fair weather;
+// storm: of it in a full storm, when the fair-weather waves give way to them by half).
 const SWELL_FROM = 250 * (Math.PI / 180); // compass bearing it comes from (clockwise from north)
-const SWELL = [[0, 70, 0.55], [0.18, 52, 0.3], [-0.22, 38, 0.15]].map(([da, len, share]) => {
+const SWELL = [[0, 70, 0.55, 0], [0.18, 52, 0.3, 0], [-0.22, 38, 0.15, 0], [0.06, 78, 0, 0.62], [-0.14, 58, 0, 0.42]].map(([da, len, share, storm]) => {
   const to = SWELL_FROM + Math.PI + da; // the way it travels
   // Compass bearing → world vector (north is -z, east +x).
   const k = TAU / len;
-  return { dx: Math.sin(to), dz: -Math.cos(to), k, c: Math.sqrt((9.81 / k)), share };
+  return { dx: Math.sin(to), dz: -Math.cos(to), k, c: Math.sqrt((9.81 / k)), share, storm };
 });
+// Storm seas stand up in peaks: each swell wave gets a second-order (Stokes) crest, sharpened as
+// the storm builds (peak: 1 in fair weather, up to 3.4 in a full storm). Steep crests, long
+// troughs, the same mean level.
+export const swellShape = (a, k, theta, peak) => a * Math.sin(theta) - 0.5 * k * a * a * peak * Math.cos(2 * theta);
 // The chop: two short wavelengths in six fixed directions; the wind's direction weights them
 // (so a turning wind turns the sea without any wave jumping).
 const CHOP = [];
@@ -161,15 +167,17 @@ export const conditions = {
   // Wind: from (compass radians, where it blows from), sustained speed (m/s), and the slow drifts
   // that move them when left to the weather.
   wind: { from: 3.9, speed: 3, target: 3, turn: 0, timer: 0, gust: 0 },
-  // Sea: the swell's crest amplitude (m) and the chop's (m), each easing towards its target.
-  sea: { swell: 0.1, chop: 0.05 },
+  // Sea: the swell's crest amplitude (m) and the chop's (m), each easing towards its target; how
+  // stormy it is (0 … 1, building over a minute or two and dying away more slowly) and how much
+  // the swell stands up in peaks.
+  sea: { swell: 0.1, chop: 0.05, storm: 0, peak: 1 },
   // From Settings: 'auto' (follow the weather) or a SEA_PRESETS id; wind 'auto' or manual.
   preset: 'auto', manual: null, currents: 'natural',
   chopAmps: new Float32Array(CHOP.length),
   swellAmps: new Float32Array(SWELL.length),
 };
 
-// One step of the weather's wind and sea. weather: { rain, cloud }.
+// One step of the weather's wind and sea. weather: { rain, cloud, storm }.
 export function updateConditions(dt, weather) {
   const C = conditions, W = C.wind;
   const P = SEA_PRESETS[C.preset] || null;
@@ -178,18 +186,24 @@ export function updateConditions(dt, weather) {
     W.from = dampAngleTo(W.from, C.manual.from, 0.5, dt);
   } else {
     W.timer -= dt;
-    if (W.timer <= 0) {
-      W.timer = 70 + Math.random() * 110;
-      const [lo, hi] = P ? P.wind : [1 + weather.cloud * 2, 6 + weather.rain * 5];
-      W.target = clamp(lerp(lo, hi, Math.random()) + weather.rain * 2, 0, 13);
-      W.turn = (Math.random() - 0.5) * 0.004;
+    const storm = weather.storm || 0;
+    // (In a storm the wind gets up to a gale and changes more often.)
+    if (W.timer <= 0 || (storm > 0.3 && W.target < 12 * storm)) {
+      W.timer = (70 + Math.random() * 110) * (1 - storm * 0.5);
+      const [lo, hi] = P && storm < 0.3 ? P.wind : [lerp(1 + weather.cloud * 2, 13, storm), lerp(6 + weather.rain * 5, 18.5, storm)];
+      W.target = clamp(lerp(lo, hi, Math.random()) + weather.rain * 2 * (1 - storm), 0, 20);
+      W.turn = (Math.random() - 0.5) * 0.004 * (1 + storm * 2);
     }
     W.from = (W.from + W.turn * dt + TAU) % TAU;
   }
   W.speed = damp(W.speed, W.target, 0.05, dt);
-  // The sea follows: chop within half a minute or so, the swell over a few minutes.
-  const swellTarget = (P ? P.swell : 0.07 + weather.cloud * 0.08 + weather.rain * 0.12) * (C.manual ? 0.6 + C.manual.speed / 25 : 1);
-  C.sea.swell = damp(C.sea.swell, swellTarget, 0.008, dt);
+  // The sea follows: chop within half a minute or so, the swell over a few minutes; a storm's big
+  // seas build over a minute or two and take longer to die away.
+  const stormTarget = weather.storm || 0;
+  C.sea.storm = damp(C.sea.storm, stormTarget, stormTarget > C.sea.storm ? 0.014 : 0.006, dt);
+  C.sea.peak = 1 + 2.4 * smoothstep(0.15, 1, C.sea.storm);
+  const swellTarget = (P ? P.swell : 0.07 + weather.cloud * 0.08 + weather.rain * 0.12) * (C.manual ? 0.6 + C.manual.speed / 25 : 1) + 2.1 * C.sea.storm;
+  C.sea.swell = damp(C.sea.swell, swellTarget, 0.008 + 0.012 * C.sea.storm, dt);
   C.sea.chop = damp(C.sea.chop, chopFor(W.speed), 0.04, dt);
   // How much of the chop runs in each of its fixed directions: the ones the wind blows along.
   const to = W.from + Math.PI;
@@ -200,7 +214,7 @@ export function updateConditions(dt, weather) {
     sum += C.chopAmps[i];
   }
   for (let i = 0; i < CHOP.length; i++) C.chopAmps[i] = (C.chopAmps[i] / (sum || 1)) * 2 * C.sea.chop * CHOP[i].share;
-  for (let i = 0; i < SWELL.length; i++) C.swellAmps[i] = C.sea.swell * SWELL[i].share;
+  for (let i = 0; i < SWELL.length; i++) C.swellAmps[i] = C.sea.swell * (SWELL[i].share * (1 - 0.5 * C.sea.storm) + SWELL[i].storm * C.sea.storm);
 }
 // Chop crest amplitude for a sustained wind (m/s): a ripple in light air, half a metre of
 // crest-to-trough in a fresh breeze where it has room to build.
@@ -221,7 +235,8 @@ export function windAt(x, z, t = conditions.time, out = _w) {
   // Gusts: smooth patches carried downwind at the wind's speed, a third or so above it.
   const along = (x * dx + z * dz) - W.speed * t, across = x * -dz + z * dx;
   const g = 0.5 + 0.25 * Math.sin(along * 0.045 + Math.sin(across * 0.02) * 1.3) + 0.25 * Math.sin(along * 0.11 - t * 0.21 + across * 0.035);
-  const gust = 1 + 0.38 * Math.max(0, g - 0.45) / 0.55;
+  // (Storm gusts hit harder.)
+  const gust = 1 + (0.38 + 0.3 * conditions.sea.storm) * Math.max(0, g - 0.45) / 0.55;
   const shelter = shelterAt(x, z)[1];
   const s = W.speed * gust * (0.25 + 0.75 * shelter);
   out.x = dx * s;
@@ -240,9 +255,12 @@ export function waveHeight(x, z, t = conditions.time) {
   if (lvl > 0.05) return lvl + 0.012 * Math.sin(x * 1.7 + t * 2.1) * Math.sin(z * 1.3 - t * 1.6) * smoothstep(0.05, 0.6, lvl - solidHeight(x, z));
   const C = conditions, sh = shelterAt(x, z);
   let hs = 0, hc = 0;
+  // (Sheltered, each wave is smaller there before it peaks, as the shader does it.)
+  const peak = C.sea.peak;
   for (let i = 0; i < SWELL.length; i++) {
-    const w = SWELL[i];
-    hs += C.swellAmps[i] * Math.sin(w.k * (w.dx * x + w.dz * z - w.c * t));
+    const w = SWELL[i], a = C.swellAmps[i] * sh[0];
+    if (a < 1e-5) continue;
+    hs += swellShape(a, w.k, w.k * (w.dx * x + w.dz * z - w.c * t), peak);
   }
   for (let i = 0; i < CHOP.length; i++) {
     const a = C.chopAmps[i];
@@ -250,12 +268,13 @@ export function waveHeight(x, z, t = conditions.time) {
     const w = CHOP[i];
     hc += a * Math.sin(w.k * (w.dx * x + w.dz * z - w.c * t));
   }
-  return (hs * sh[0] + hc * (0.15 + 0.85 * sh[1])) * shoreFade(x, z);
+  return (hs + hc * (0.15 + 0.85 * sh[1])) * shoreFade(x, z);
 }
 // Waves die away over the last stretch of shallow water (so boats sit still on a beach) and on
-// fresh water (only the faintest wind ripple reaches the lake).
+// fresh water (only the faintest wind ripple reaches the lake). A storm's big seas feel the bottom
+// sooner: they've broken and spent themselves by the time the water's a few metres deep.
 function shoreFade(x, z) {
-  return smoothstep(0.05, 0.9, -solidHeight(x, z)) * (1 - 0.85 * freshness(x, z));
+  return smoothstep(0.05, 0.9 + 3.5 * conditions.sea.storm, -solidHeight(x, z)) * (1 - 0.85 * freshness(x, z));
 }
 
 // The current (m/s) at a point and depth below the surface: where the water is going.
@@ -373,15 +392,15 @@ export const compass = (rad, words = false) => (words ? COMPASS_WORDS : COMPASS)
 // The way a world vector points, as a compass bearing in radians.
 export const bearingOf = (x, z) => (Math.atan2(x, -z) + TAU) % TAU;
 
-const BEAUFORT = [[0.5, 'calm'], [1.6, 'light air'], [3.4, 'light breeze'], [5.5, 'gentle breeze'], [8, 'moderate breeze'], [10.8, 'fresh breeze'], [13.9, 'strong breeze'], [99, 'near gale']];
+const BEAUFORT = [[0.5, 'calm'], [1.6, 'light air'], [3.4, 'light breeze'], [5.5, 'gentle breeze'], [8, 'moderate breeze'], [10.8, 'fresh breeze'], [13.9, 'strong breeze'], [17.2, 'near gale'], [99, 'gale']];
 export const windWords = (ms) => BEAUFORT.find(([v]) => ms < v)[1];
 // Sea state from the significant wave height (m), after the Douglas scale.
-const SEA = [[0.05, 'glassy'], [0.15, 'rippled'], [0.5, 'smooth'], [1.25, 'slight'], [2.5, 'moderate'], [99, 'rough']];
+const SEA = [[0.05, 'glassy'], [0.15, 'rippled'], [0.5, 'smooth'], [1.25, 'slight'], [2.5, 'moderate'], [4, 'rough'], [99, 'very rough']];
 export const seaWords = (h) => SEA.find(([v]) => h < v)[1];
 // The wave height (m, crest to trough) you'd see at a point.
 export function waveHeightHere(x, z) {
   const C = conditions, sh = shelterAt(x, z);
-  return 2 * (C.sea.swell * sh[0] + C.sea.chop * (0.15 + 0.85 * sh[1])) * shoreFade(x, z);
+  return 2 * (C.sea.swell * (1 + 0.54 * C.sea.storm) * sh[0] + C.sea.chop * (0.15 + 0.85 * sh[1])) * shoreFade(x, z);
 }
 
 // For the water shader: the waves' fixed parts (directions, wavenumbers, speeds).

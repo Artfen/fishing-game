@@ -97,6 +97,9 @@ uniform float uTime;
 uniform float uUnder;
 uniform vec3 uUnderColor;
 uniform float uGlow;
+uniform float uFlash;   // lightning: the whole sky lit for an instant
+uniform vec3 uFlashDir; // where the strike is
+uniform float uStorm;   // how stormy: the sky low and dark, torn cloud racing past
 varying vec3 vDir;
 float hash13(vec3 p3) {
   p3 = fract(p3 * 0.1031);
@@ -133,6 +136,24 @@ void main() {
   float tw = 0.6 + 0.4 * sin(uTime * (1.0 + r * 3.0) + r * 50.0);
   col += vec3(1.0, 0.96, 0.9) * star * tw * moonVis * smoothstep(0.02, 0.3, h) * 1.2;
 
+  // A storm: the sky low and dark, with torn cloud racing across it; lightning lights it all
+  // for an instant, brightest round the strike.
+  if (uStorm > 0.001) {
+    vec2 q = d.xz / max(h + 0.18, 0.05) * 1.6;
+    float n = 0.0, amp = 0.5;
+    for (int i = 0; i < 4; i++) {
+      vec2 c = q + vec2(uTime * 0.05 * float(i + 1), -uTime * 0.03);
+      vec2 ic = floor(c), fc = fract(c);
+      vec2 u2 = fc * fc * (3.0 - 2.0 * fc);
+      float a = hash13(vec3(ic, 1.0)), b = hash13(vec3(ic + vec2(1.0, 0.0), 1.0)), c2 = hash13(vec3(ic + vec2(0.0, 1.0), 1.0)), e = hash13(vec3(ic + 1.0, 1.0));
+      n += amp * mix(mix(a, b, u2.x), mix(c2, e, u2.x), u2.y);
+      q *= 2.1;
+      amp *= 0.5;
+    }
+    vec3 dark = mix(uHorizon * 0.55, uZenith * 0.35, clamp(h * 1.5, 0.0, 1.0));
+    col = mix(col, dark * (0.75 + n * 0.5), uStorm * smoothstep(-0.1, 0.05, h));
+  }
+  col += vec3(0.78, 0.82, 0.95) * uFlash * (0.35 + 0.9 * pow(max(dot(d, uFlashDir), 0.0), 6.0));
   col = mix(col, uUnderColor, uUnder);
   gl_FragColor = vec4(col, 1.0);
   #include <colorspace_fragment>
@@ -149,6 +170,9 @@ function towardsGrey(c, amt, dark) {
   _grey.setRGB(l * 0.96, l, l * 1.04);
   c.lerp(_grey, amt);
 }
+
+const _flashC = new THREE.Color(0.8, 0.84, 0.95);
+const _cold = new THREE.Color(0.7, 0.76, 0.82);
 
 export class Environment {
   constructor(scene) {
@@ -170,6 +194,10 @@ export class Environment {
     this.daylight = 1;
     this.lantern = 0;
     this.rain = 0;
+    // A storm (0 … 1) and a lightning flash this frame (0 … 1, set by the storm: see storm.js).
+    this.storm = 0;
+    this.flash = 0;
+    this.flashDir = new THREE.Vector3(1, 0.2, 0);
 
     const light = (this.light = new THREE.DirectionalLight(0xffffff, 3));
     light.castShadow = true;
@@ -195,6 +223,9 @@ export class Environment {
       uUnder: { value: 0 },
       uUnderColor: { value: new THREE.Color() },
       uGlow: { value: 0 },
+      uFlash: { value: 0 },
+      uFlashDir: { value: new THREE.Vector3(1, 0.2, 0) },
+      uStorm: { value: 0 },
     };
     this.sky = new THREE.Mesh(
       new THREE.SphereGeometry(1000, 32, 16),
@@ -300,6 +331,16 @@ export class Environment {
       this.sunI *= 1 - 0.65 * gloom;
       this.hemiI *= 1 + 0.12 * gloom; // (the light comes from the whole sky, softly)
     }
+    // A storm: the whole sky dark slate, the light dim and cold.
+    if (this.storm > 0.001) {
+      const k = this.storm;
+      towardsGrey(this.zenith, k * 0.6, 0.6);
+      towardsGrey(this.horizon, k * 0.6, 0.72);
+      this.zenith.multiplyScalar(1 - 0.5 * k);
+      this.horizon.multiplyScalar(1 - 0.42 * k);
+      this.skyCol.multiplyScalar(1 - 0.35 * k);
+      this.sunColor.lerp(_cold, 0.5 * k);
+    }
 
     // The sun rises in the east (+x), crosses the southern sky and sets in the west.
     const df = (hour - 5.6) / 14;
@@ -321,9 +362,15 @@ export class Environment {
     light.intensity = this.sunI;
     light.position.copy(focus).addScaledVector(this.lightDir, 180);
     light.target.position.copy(focus);
+    // A storm darkens the day further; lightning lights everything for an instant.
+    if (this.storm > 0.001) {
+      light.intensity *= 1 - 0.45 * this.storm;
+      this.hemiI *= 1 - 0.3 * this.storm;
+    }
+    light.intensity += this.flash * 2.2;
     this.hemi.color.copy(this.skyCol);
     this.hemi.groundColor.copy(this.gndCol);
-    this.hemi.intensity = this.hemiI;
+    this.hemi.intensity = this.hemiI + this.flash * 3.5;
 
     const fog = this.scene.fog;
     fog.color.copy(this.horizon).lerp(this.zenith, 0.08);
@@ -335,7 +382,9 @@ export class Environment {
     fog.color.lerp(_haze.copy(this.sunColor).lerp(this.horizon, 0.4), facing * facing * facing * low * 0.45);
     // Early mornings are hazier, before the day warms up.
     const morning = smoothstep(4.5, 5.8, hour) * (1 - smoothstep(7.5, 10, hour));
-    fog.density = this.fogBase * (this.air + rain * 2.1 + cloud * 0.25 + morning * 0.65);
+    fog.density = this.fogBase * (this.air + rain * 2.1 + cloud * 0.25 + morning * 0.65 + this.storm * 0.6);
+    if (this.storm > 0.001) fog.color.multiplyScalar(1 - 0.35 * this.storm);
+    fog.color.lerp(_flashC, this.flash * 0.5);
 
     const su = this.skyUniforms;
     su.uSunColor.value.copy(this.sunColor);
@@ -343,6 +392,9 @@ export class Environment {
     su.uRain.value = gloom;
     su.uGlow.value = low;
     su.uTime.value = t;
+    su.uFlash.value = this.flash;
+    su.uFlashDir.value.copy(this.flashDir);
+    su.uStorm.value = this.storm;
     this.sky.position.copy(camera.position);
 
     // The clouds drift with you across the sky; how many there are follows the cover.

@@ -9,7 +9,7 @@ import { HUD, kbd } from './ui.js';
 import { AudioScape } from './audio.js';
 import { Environment, phaseName, formatClock } from './world/sky.js';
 import { createWater } from './world/water.js';
-import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeight, waveHeightHere, compass, bearingOf, windWords, seaWords } from './world/conditions.js';
+import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeight, waveHeightHere, compass, bearingOf, windWords, seaWords, shelterAt } from './world/conditions.js';
 import { buildWorld } from './world/world.js';
 import { createHabitat } from './world/habitat.js';
 import { Ecosystem } from './world/ecosystem.js';
@@ -35,6 +35,7 @@ import { BOTHY_DOOR, FELL_SIGN } from './world/fell.js';
 import { trimAdvice, bestSheet, SAIL } from './sailing.js';
 import { SailUI } from './sailui.js';
 import { WindLines } from './world/windlines.js';
+import { Storm } from './world/storm.js';
 import { coldInfo, COLDWATER, FALLS, tarnSDF } from './world/coldwater.js';
 import { Boat, BOAT_KINDS } from './boat.js';
 import { Walker } from './walker.js';
@@ -469,6 +470,8 @@ const SKIES = {
   overcast: { cloud: 0.86, rain: 0, word: 'Overcast' },
   light: { cloud: 0.82, rain: 0.36, word: 'Light rain' },
   heavy: { cloud: 1, rain: 0.92, word: 'Heavy rain' },
+  // A gale off the Atlantic: the wind gets up, the big seas roll in, thunder and lightning.
+  storm: { cloud: 1, rain: 1, storm: 1, word: 'Storm' },
 };
 // When it changes by itself: what can come next (a list may repeat an entry to make it likelier).
 const NEXT_SKY = {
@@ -476,11 +479,12 @@ const NEXT_SKY = {
   partly: ['clear', 'overcast', 'partly'],
   overcast: ['partly', 'light', 'overcast'],
   light: ['overcast', 'heavy', 'partly', 'light'],
-  heavy: ['light'],
+  heavy: ['light', 'light', 'heavy', 'storm'],
+  storm: ['heavy'],
 };
 const startSky = state.sky || { state: 'partly', cloud: SKIES.partly.cloud, rain: 0, timer: state.tips.rained ? rand(120, 220) : 240 };
 const weather = {
-  rain: startSky.rain, cloud: startSky.cloud, state: startSky.state, timer: startSky.timer,
+  rain: startSky.rain, cloud: startSky.cloud, storm: startSky.storm || 0, state: startSky.state, timer: startSky.timer,
   get target() { return SKIES[this.state].rain; },
   override: null, // slowTide.setRain() for testing: a fixed rain level
 };
@@ -1160,6 +1164,7 @@ function passTheNight() {
   // The weather turns while you sleep (unless you've chosen it): sometimes you wake to rain.
   if (skyMode() === 'auto') {
     weather.state = pick(Math.random() < 0.3 ? ['light', 'heavy', 'overcast'] : ['clear', 'partly', 'partly', 'overcast']);
+    weather.storm = 0;
     weather.timer = rand(120, 260);
   }
   weather.rain = SKIES[weather.state].rain * 0.9;
@@ -2100,6 +2105,39 @@ function sailInput(raw, dt) {
 let sheetTouched = -10;
 
 const windLines = new WindLines(scene);
+const stormFx = new Storm(scene);
+hideFromReflection(stormFx.spray);
+// A storm coming in: a word when it starts, and now and then a warning for a small boat caught out
+// in the open; spray off her bow as she plunges into the seas.
+let stormWas = 0, stormWarnT = 0, lastPitch = 0, slamT = 0;
+function watchStorm(dt) {
+  const st = conditions.sea.storm;
+  if (weather.storm > 0.4 && stormWas <= 0.4 && started) {
+    hud.toast('A storm is coming in off the Atlantic: the wind is rising to a gale and big seas are building outside. The bay and the coves stay calmer: a good place to sit it out.', 8);
+  }
+  stormWas = weather.storm;
+  stormWarnT -= dt;
+  if (!onFoot && !dive && st > 0.5 && stormWarnT <= 0) {
+    const exposed = shelterAt(boat.pos.x, boat.pos.z)[0];
+    if (exposed > 0.55 && (boat.kind === 'kayak' || boat.kind === 'row' || boat.kind === 'sail')) {
+      stormWarnT = 45;
+      hud.flash(boat.kind === 'sail' ? 'Too much wind for full sail out here: ease the sheet right out in the gusts, and run for shelter.' : `The seas are too big for the ${boat.name} out here: head for the shelter of the bay.`, t, 5);
+    }
+  }
+  // Plunging into a sea: the bow drops fast and throws spray.
+  slamT -= dt;
+  if (!onFoot && st > 0.2 && dt > 0) {
+    const rate = (boat.pitch - lastPitch) / dt;
+    if (rate > 0.45 && boat.speed > 0.8 && slamT <= 0) {
+      slamT = 0.6;
+      const H = boat.hull, bx = boat.pos.x + boat.fwd.x * H.L * 0.5, bz = boat.pos.z + boat.fwd.z * H.L * 0.5;
+      const w = windAt(bx, bz);
+      stormFx.burst(bx, boat.heave + 0.3, bz, w.x * 0.4 + boat.vel.x * 0.5, w.z * 0.4 + boat.vel.z * 0.5, 30, 2.5 + rate * 2);
+      audio.splashSmall?.(0.6 + st * 0.4);
+    }
+  }
+  lastPitch = boat.pitch;
+}
 hideFromReflection(windLines.mesh);
 const _wl = new THREE.Vector3();
 const sailUI = new SailUI($('sail'), {
@@ -3983,12 +4021,21 @@ function updateRain(dt) {
   rainMat.opacity = 0.42 * Math.min(1, fxRain * 1.2);
   rainGeo.setDrawRange(0, Math.round(rainDrawn * Math.min(1, 0.3 + settings.weather.rainFx * 0.7)) * 2);
   rainLines.position.set(rig.focus.x, Math.max(0, rig.focus.y - 1.4), rig.focus.z);
+  // (Driven slantwise by the wind: hard across in a gale.)
+  const w = windAt(rig.focus.x, rig.focus.z), sx = w.x * 0.045, sz = w.z * 0.045;
   for (let i = 0; i < RAIN_N; i++) {
     const o = i * 6;
     let y = rainPos[o + 1] - 21 * dt;
+    let x = rainPos[o] + w.x * 0.8 * dt, z = rainPos[o + 2] + w.z * 0.8 * dt;
     if (y < -1) y += 27;
+    if (x > 26) x -= 52; else if (x < -26) x += 52;
+    if (z > 26) z -= 52; else if (z < -26) z += 52;
+    rainPos[o] = x;
     rainPos[o + 1] = y;
+    rainPos[o + 2] = z;
+    rainPos[o + 3] = x - sx;
     rainPos[o + 4] = y + 0.75;
+    rainPos[o + 5] = z - sz;
   }
   rainGeo.attributes.position.needsUpdate = true;
 }
@@ -4001,7 +4048,7 @@ function updateWeather(dt, speed) {
     weather.timer -= dt * Math.min(speed, 10);
     if (weather.timer <= 0) {
       weather.state = pick(NEXT_SKY[weather.state]);
-      weather.timer = weather.state === 'heavy' ? rand(60, 110) : weather.state === 'light' ? rand(80, 150) : rand(150, 300);
+      weather.timer = weather.state === 'storm' ? rand(130, 220) : weather.state === 'heavy' ? rand(60, 110) : weather.state === 'light' ? rand(80, 150) : rand(150, 300);
     }
   }
   const sky = SKIES[weather.state];
@@ -4009,6 +4056,7 @@ function updateWeather(dt, speed) {
   const rate = (mode === 'auto' ? 0.08 : 0.3) * Math.min(speed, 6);
   weather.rain = damp(weather.rain, weather.override ?? sky.rain, rate, dt);
   weather.cloud = damp(weather.cloud, Math.max(sky.cloud, weather.override ?? 0), rate, dt);
+  weather.storm = damp(weather.storm, sky.storm || 0, rate * 0.8, dt);
 }
 // How dull the light is: overcast skies and rain both grey the day.
 const gloom = () => Math.max(weather.rain, weather.cloud * 0.72);
@@ -4549,7 +4597,7 @@ function updateConditionsPanel(dt) {
 function updateHud() {
   const h = state.hour;
   const night = h >= 20.5 || h < 5.5;
-  const w = weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : '';
+  const w = weather.storm > 0.5 ? 'Storm' : weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : '';
   hud.clock(formatClock(h), phaseName(h), w, night);
   const hunger = camp.hunger;
   hud.food(camp.wellFed ? 'Well fed' : hunger === 'hungry' ? 'Hungry' : hunger === 'peckish' ? 'Peckish' : '', camp.wellFed ? 'fed' : hunger === 'hungry' ? 'hungry' : '');
@@ -4718,7 +4766,7 @@ function save() {
     if (sp) state.walker = { x: sp.x, z: sp.z, heading: car.heading };
   }
   const r3 = (v) => Math.round(v * 1000) / 1000;
-  state.sky = { cloud: r3(weather.cloud), rain: r3(weather.rain), state: weather.state, timer: r3(weather.timer) };
+  state.sky = { cloud: r3(weather.cloud), rain: r3(weather.rain), storm: r3(weather.storm), state: weather.state, timer: r3(weather.timer) };
   state.seen = explored.toString();
   const ok = saveGame(state);
   if (ok) cloud.queue(state, saveStatus.lastSaved);
@@ -5836,6 +5884,9 @@ function tick(now, manual = false) {
     camera.getWorldDirection(_shadowAt).setY(0).normalize();
     _shadowAt.multiplyScalar(12).add(P);
   }
+  // A storm's lightning (and its thunder, arriving later) and the spray off the seas.
+  stormFx.update(dt, t, { storm: Math.max(weather.storm, conditions.sea.storm * 0.8), camera, env, onThunder: (d, loud) => audio.thunder?.(d, loud), flashes: !settings.controls.reducedMotion });
+  watchStorm(dt);
   env.update(dt, t, state.hour, weather.rain, fpShadow ? _shadowAt : P, camera, renderer, weather.cloud);
   const sub = underwater.updateMedium(t, camera, env, scene, water, weather.rain);
   postLook.under = sub;
@@ -5937,6 +5988,7 @@ function tick(now, manual = false) {
     race: Math.max(1 - smoothstep(10, 110, Math.hypot(P.x - (CALF_SOUND.x0 + CALF_SOUND.x1) / 2, P.z - (CALF_SOUND.z0 + CALF_SOUND.z1) / 2)), falls),
     seals: 1 - smoothstep(15, 70, Math.hypot(P.x - CALF_SKERRY.x, P.z - CALF_SKERRY.z)),
     flap: !onFoot && boat.sailUp ? boat.flutter * smoothstep(1, 6, windHere.speed) : 0,
+    gale: smoothstep(11, 18, windHere.speed),
     tent: state.camps.reduce((m, c) => Math.max(m, 1 - smoothstep(3, 18, Math.hypot(P.x - c.x, P.z - c.z))), 0),
   });
 
@@ -6062,7 +6114,7 @@ requestAnimationFrame((now) => {
 window.slowTide = {
   car, travel: (d) => travel(d), driveTo: (d, how) => driveTo(d, how), enterCar: () => enterCar(), exitCar: () => exitCar(),
   openBench: (st) => openBench(st), get driving() { return driving; }, get modalName() { return modal; },
-  state, walker, fishing, env, weather, renderer, post, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world, explored,
+  state, walker, fishing, env, weather, renderer, post, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world, explored, stormFx,
   get boat() { return boat; }, // the boat you're in (or last used)
   reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI, pads,
   // The first-trip guide as it stands: the step, its words and where it points.

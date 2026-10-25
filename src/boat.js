@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat } from './util.js';
 import { waveHeight } from './world/water.js';
-import { windAt, currentAt, currentScale } from './world/conditions.js';
+import { windAt, currentAt, currentScale, conditions } from './world/conditions.js';
 import { solidHeight, PIERS, SEA } from './world/terrain.js';
 import { buildLanternModel, buildRod, bendRod } from './props.js';
 import { withSurface } from './world/surface.js';
@@ -1311,9 +1311,11 @@ export class Boat {
     const hst = waveHeight(p.x + r.x * B2, p.z + r.z * B2, t);
     const hm = waveHeight(p.x, p.z, t);
     const hc = (hb + hs + hp + hst + 2 * hm) / 6;
-    // (A broad bass boat sits steadier on the swell than the narrow wooden boats.)
-    const targetPitch = clamp(-Math.atan2(hb - hs, 2 * L2) - thrust * 0.004, -0.2, 0.2) * (0.5 + 0.5 * H.steady);
-    const targetRoll = clamp(Math.atan2(hp - hst, 2 * B2) + this.omega * vf * 0.035, -0.22, 0.22) * H.steady + Math.sin(t * 0.9) * 0.008 * H.steady + (H.sail ? this.heel : 0);
+    // (A broad bass boat sits steadier on the swell than the narrow wooden boats. In a storm's big
+    // seas every boat pitches and rolls a good deal more, but none is ever tipped over.)
+    const wild = conditions.sea.storm, pl = 0.2 + 0.24 * wild, rl = 0.22 + 0.22 * wild;
+    const targetPitch = clamp(-Math.atan2(hb - hs, 2 * L2) - thrust * 0.004, -pl, pl) * (0.5 + 0.5 * H.steady);
+    const targetRoll = clamp(Math.atan2(hp - hst, 2 * B2) + this.omega * vf * 0.035, -rl, rl) * H.steady + Math.sin(t * 0.9) * (0.008 + 0.05 * wild) * H.steady + (H.sail ? this.heel : 0);
     const ride = H.ride ?? 4;
     this.pitch = damp(this.pitch, targetPitch, ride, dt);
     this.roll = damp(this.roll, targetRoll, ride, dt);

@@ -14,6 +14,7 @@ export const WEATHER_MODES = [
   { id: 'overcast', name: 'Overcast', note: 'Soft grey light. Predators like pike and bass roam more under cloud.' },
   { id: 'light', name: 'Light rain', note: 'A gentle shower dimples the water. Some sea fish rise in it, and flies hatch a little better.' },
   { id: 'heavy', name: 'Heavy rain', note: 'Steady rain and a darker sky. The fish don’t mind; insects stop hatching.' },
+  { id: 'storm', name: 'Storm', note: 'A gale off the Atlantic: big seas breaking white outside, sheets of rain, thunder and lightning. The bay and the coves stay calmer: a refuge.' },
 ];
 export const WEATHER_IDS = WEATHER_MODES.map((w) => w.id);
 export const CAST_MODES = {
