@@ -109,8 +109,10 @@ test('you can walk onto every pier and quay from the bank (no step too high at i
     const long = p.x1 - p.x0 > p.z1 - p.z0;
     const cx = (p.x0 + p.x1) / 2, cz = (p.z0 + p.z1) / 2;
     const ends = long ? [[p.x0 - 0.3, cz], [p.x1 + 0.3, cz]] : [[cx, p.z0 - 0.3], [cx, p.z1 + 0.3]];
-    // The landward end is the one on higher ground.
-    const bank = Math.max(...ends.map(([x, z]) => heightAt(x, z)));
+    // The landward end is the one on higher ground (or on another pier it joins, as Puerto Brasa's
+    // breakwater arms do).
+    const joined = (x, z) => Math.max(-99, ...PIERS.filter((q) => q !== p && x > q.x0 - 0.5 && x < q.x1 + 0.5 && z > q.z0 - 0.5 && z < q.z1 + 0.5).map((q) => q.deck));
+    const bank = Math.max(...ends.map(([x, z]) => Math.max(heightAt(x, z), joined(x, z))));
     assert.ok(bank >= p.deck - 0.3, `a ${(p.deck - bank).toFixed(2)} m step up onto the deck at (${cx.toFixed(0)}, ${cz.toFixed(0)})`);
   }
 });

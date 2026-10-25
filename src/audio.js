@@ -139,7 +139,7 @@ export class AudioScape {
     this.alarmOsc = null;
     this.setVolumes(this.volumes);
 
-    this.next = { lap: 1, bird: 3, gull: 8, cricket: 2, owl: 25, note: 5, chord: 1, drop: 0, crackle: 0.5, frog: 8, bloop: 1, clink: 2, curlew: 12, boom: 4, flap: 2, seal: 6 };
+    this.next = { lap: 1, bird: 3, gull: 8, cricket: 2, owl: 25, note: 5, chord: 1, drop: 0, crackle: 0.5, frog: 8, bloop: 1, clink: 2, curlew: 12, boom: 4, flap: 2, seal: 6, shear: 4 };
     this.lastNote = 5;
     this.chordIdx = 0;
   }
@@ -622,6 +622,16 @@ export class AudioScape {
     }
   }
 
+  // A Cory's shearwater at night: a hoarse, nasal wail, rising and falling, two or three times.
+  shearwater(vol, pan) {
+    let t = 0;
+    for (let i = 0; i < 2 + Math.floor(rand(0, 2)); i++) {
+      this.tone({ type: 'sawtooth', freq: rand(380, 430), freqEnd: rand(640, 720), dur: 0.3, gain: vol, attack: 0.05, pan, when: t, vib: 9, filter: ['bandpass', 1150, 2.2], dest: this.nature });
+      this.tone({ type: 'sawtooth', freq: rand(620, 680), freqEnd: rand(330, 380), dur: 0.42, gain: vol * 0.9, attack: 0.04, pan, when: t + 0.3, vib: 7, filter: ['bandpass', 1000, 2], dest: this.nature });
+      t += rand(0.85, 1.1);
+    }
+  }
+
   // The swell breaking on the ledges under Cove Head: a low, slow boom.
   boom(vol, pan) {
     this.burst({ buf: this.brown, type: 'lowpass', freq: 260, q: 0.5, dur: 1.6, gain: vol, attack: 0.18, pan, dest: this.wavesBus });
@@ -803,7 +813,7 @@ export class AudioScape {
     if (!this.ctx) return;
     this.t += dt;
     const now = this.ctx.currentTime;
-    const { speed, rain, day, night, land, open, cove, gulls, stream = 0, fire = 0, sizzle = 0, lake = 0, water = 1, wind = 0.3, gust = 1, sea = 0.2, stove = 0, harbour = 0, inlet = 0, head = 0, tent = 0, race = 0, seals = 0, flap = 0, gale = 0 } = s;
+    const { speed, rain, day, night, land, open, cove, gulls, stream = 0, fire = 0, sizzle = 0, lake = 0, water = 1, wind = 0.3, gust = 1, sea = 0.2, stove = 0, harbour = 0, inlet = 0, head = 0, tent = 0, race = 0, seals = 0, flap = 0, gale = 0, shearwaters = 0 } = s;
 
     // The sea's wash grows with the waves where you are; the surf with the swell on the shore.
     this.set(this.waterBed.g.gain, (0.08 + 0.05 * Math.min(speed / 5, 1) + 0.12 * Math.min(sea, 1)) * (0.25 + 0.75 * water), 1);
@@ -884,8 +894,13 @@ export class AudioScape {
       n.flap = rand(0.4, 2.2) / (0.4 + wind);
     }
     if (n.owl <= 0) {
-      if (night > 0.6 && land > 0.3) this.owl(0.03 * land, rand(-0.8, 0.8));
+      if (night > 0.6 && land > 0.3 && !shearwaters) this.owl(0.03 * land, rand(-0.8, 0.8));
       n.owl = rand(25, 60);
+    }
+    // Las Brasas after dark: shearwaters coming in to their burrows in the cliffs, wailing.
+    if (n.shear <= 0) {
+      if (shearwaters > 0.1 && night > 0.5) this.shearwater(0.03 * shearwaters, rand(-0.9, 0.9));
+      n.shear = rand(3, 11);
     }
 
     if (this.musicOn && n.chord <= 0) {

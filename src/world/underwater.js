@@ -14,6 +14,10 @@ const UNDER_DUSK = new THREE.Color('#3b5f7c');
 const UNDER_NIGHT = new THREE.Color('#0b1f33');
 const UNDER_RAIN = new THREE.Color('#4a6f74');
 const UNDER_DEEP = new THREE.Color('#0d3f5a');
+// Las Brasas' water, far to the south: clear ocean blue, seeing twice as far.
+const UNDER_DAY_S = new THREE.Color('#1c87b6');
+const UNDER_DEEP_S = new THREE.Color('#09306e');
+const _day = new THREE.Color(), _deep = new THREE.Color();
 const _look = new THREE.Vector3();
 const _fogC = new THREE.Color();
 const _c = new THREE.Color();
@@ -115,6 +119,7 @@ export class Underwater {
     this.habitat = habitat;
     this.tint = tintEl;
     this.submerge = 0;
+    this.clear = 0; // 1 in Las Brasas' clear blue water (set by the game)
     this.underColor = new THREE.Color().copy(UNDER_DAY);
     const rnd = seeded(9090);
 
@@ -124,6 +129,7 @@ export class Underwater {
     const plants = plantMaterial();
     const grassGeo = bladeClump(rnd, 9, 0.075, 0.35, '#355f37', '#86ad5c');
     const kelpGeo = bladeClump(rnd, 3, 0.16, 0.25, '#4e5a2a', '#a39a4c');
+    this.plants = { material: plants, grassGeo, kelpGeo };
     this.beds = [];
     // (Half again as many as High draws: Ultra and Cinematic draw more of them; see quality.js.)
     const MORE = 1.5;
@@ -274,7 +280,35 @@ export class Underwater {
     this.onPop = null;
   }
 
+  // Weed beds for a region built later (Las Brasas: its seagrass and the brown weed of its reefs),
+  // with a seed of its own. R: { x, z, w, h, grass, kelp }.
+  addBeds(R, rnd, q = this.quality) {
+    const s = {}, grass = [], kelp = [];
+    for (let i = 0; i < (R.grass + R.kelp) * 14 && (grass.length < R.grass || kelp.length < R.kelp); i++) {
+      const x = R.x + rnd() * R.w, z = R.z + rnd() * R.h;
+      this.habitat.sample(x, z, s);
+      if (s.weed < 0.2 || rnd() > Math.pow(s.weed, 0.8)) continue;
+      const y = heightAt(x, z) - 0.05;
+      if (!s.grass && s.depth > 2 && rnd() < 0.4 && kelp.length < R.kelp) kelp.push({ x, y, z, s: rand(1, Math.min(2.6, s.depth * 0.5)), r: rnd() * 6.28 });
+      else if (grass.length < R.grass) grass.push({ x, y, z, s: rand(0.5, 1.1), r: rnd() * 6.28 });
+    }
+    const P = this.plants;
+    const g = instances(P.grassGeo, P.material, grass, rnd, (c, r) => c.setRGB(0.8 + r() * 0.25, 0.95 + r() * 0.2, 0.75 + r() * 0.2));
+    const k = instances(P.kelpGeo, P.material, kelp, rnd, (c, r) => c.setRGB(0.95 + r() * 0.25, 0.8 + r() * 0.2, 0.65 + r() * 0.2));
+    g.frustumCulled = k.frustumCulled = true;
+    g.computeBoundingSphere();
+    k.computeBoundingSphere();
+    const bed = { grass: g, kelp: k, grassTotal: grass.length, kelpTotal: kelp.length };
+    if (q) {
+      g.count = Math.floor(bed.grassTotal * q.plants);
+      k.count = Math.floor(bed.kelpTotal * q.plants);
+    }
+    this.beds.push(bed);
+    this.scene.add(g, k);
+  }
+
   setQuality(q) {
+    this.quality = q;
     for (const b of this.beds) {
       b.grass.count = Math.floor(b.grassTotal * q.plants);
       b.kelp.count = Math.floor(b.kelpTotal * q.plants);
@@ -307,16 +341,18 @@ export class Underwater {
     const cp = camera.position;
     const sub = smoothstep(0.12, -0.12, cp.y - waveHeight(cp.x, cp.z, t));
     const c = this.underColor;
-    c.copy(UNDER_NIGHT).lerp(UNDER_DAY, env.daylight);
+    _day.copy(UNDER_DAY).lerp(UNDER_DAY_S, this.clear);
+    _deep.copy(UNDER_DEEP).lerp(UNDER_DEEP_S, this.clear);
+    c.copy(UNDER_NIGHT).lerp(_day, env.daylight);
     c.lerp(UNDER_DUSK, smoothstep(0.35, 0.05, env.sunDir.y) * env.daylight * 0.5);
     if (rain > 0) c.lerp(UNDER_RAIN, rain * 0.35 * env.daylight);
     c.multiplyScalar(1 - clamp(-cp.y / 40, 0, 0.45));
     if (sub > 0) {
       // Water scatters light from above: looking up the haze is bright, looking down it deepens to blue.
       camera.getWorldDirection(_look);
-      _fogC.copy(c).lerp(UNDER_DEEP, clamp(0.35 - _look.y * 0.6, 0, 0.6) * env.daylight).multiplyScalar(1 + clamp(_look.y, 0, 1) * 0.35);
+      _fogC.copy(c).lerp(_deep, clamp(0.35 - _look.y * 0.6, 0, 0.6) * env.daylight).multiplyScalar(1 + clamp(_look.y, 0, 1) * 0.35);
       scene.fog.color.lerp(_fogC, sub);
-      scene.fog.density = lerp(scene.fog.density, 0.034 + rain * 0.01 + env.night * 0.008, sub);
+      scene.fog.density = lerp(scene.fog.density, lerp(0.034, 0.016, this.clear) + rain * 0.01 + env.night * 0.008, sub);
     }
     env.setUnder(sub, c);
     water.uniforms.uUnderColor.value.copy(c);

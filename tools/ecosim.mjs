@@ -101,8 +101,10 @@ export function fishWithGuide(eco, id, { tries = 2, homes = [0, 5] } = {}) {
   const depth = rod.kind === 'float' ? Math.max(1, Math.round(d[0])) + 1 : 0;
   const fast = (L.likes.fast ?? 0) > (L.likes.slow ?? 0);
   const results = [];
+  // (Where it lives at home, or at Las Brasas for the island's own fish.)
+  const all = eco.bySpecies[id], home = all.filter((a) => !a.home.south), list = home.length ? home : all;
   for (const idx of homes) {
-    const list = eco.bySpecies[id], a = list[idx % list.length];
+    const a = list[idx % list.length];
     const at = a.school ? { x: a.school.x, z: a.school.z } : a.home;
     results.push(...fish({ kind: rod.kind, item: s.item, depth, x: at.x, z: at.z, ax: at.x + 14, az: at.z + 10, hour, thick: 0.3, retrieve: fast ? 1.8 : 0.8, light: L.lantern, eco }, { tries, limit: 200 }));
   }

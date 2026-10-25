@@ -4,6 +4,7 @@ import { hasAnatomy, anatomyGeometry, anatomyMaterials } from './anatomy.js';
 import { registerFor, titleName } from './register.js';
 import { isDay, isEvening, isTwilight, clamp01 } from './habits.js';
 import { ATLANTIC } from './atlantic.js';
+import { SOUTH, AT_BRASAS } from './southFish.js';
 
 // Every species lives in the shared underwater world (see world/ecosystem.js).
 // `life` describes where it lives and how it behaves; there is no separate catch roll:
@@ -832,8 +833,18 @@ export const FISH = [
     },
   },
 ];
-// The Atlantic roster (atlantic.js) joins the original species.
+// The Atlantic roster (atlantic.js) joins the original species, then Las Brasas' own (southFish.js).
 FISH.push(...ATLANTIC);
+FISH.push(...SOUTH);
+// Fish of the home coast that live round Las Brasas too, in its waters and on its homes.
+for (const [id, R] of Object.entries(AT_BRASAS)) {
+  const f = FISH.find((x) => x.id === id);
+  if (!f) continue;
+  f.life.zones = [...f.life.zones, ...R.zones];
+  if (R.homes) f.life.homes = [...f.life.homes, ...R.homes];
+  f.life.southGroups = R.groups;
+  f.whereSouth = R.where;
+}
 
 // Real species take their names from the Atlantic register (register.js), so the water, the
 // catch card, the journal and the field guide all call a fish the same thing.

@@ -59,6 +59,7 @@ export const DEFAULT_STATE = {
   settings: null,  // sound, graphics, weather, controls and comfort (see settings.js)
   sky: null,       // the weather right now: { cloud, rain, state, timer }
   seen: '',        // the parts of the map you've explored (see map.js), as base64
+  seenSouth: '',   // the same for Las Brasas' chart, far to the south
   observed: {},    // species you've seen for yourself: id -> { count, day, hour, zone }
   trip: null,      // a fishing trip under way (see trip.js)
   trips: [],       // trips you've finished, with what they brought (the last twenty)
@@ -131,7 +132,8 @@ const VESSELS = ['row', 'skiff', 'kayak', 'bass', 'cabin', 'sail'];
 function pos(v) {
   if (!isObj(v)) return null;
   const x = num(v.x, NaN), z = num(v.z, NaN);
-  if (!Number.isFinite(x) || !Number.isFinite(z) || Math.abs(x) > 2000 || Math.abs(z) > 2000) return null;
+  // (Home lies within about two kilometres of the bay; Las Brasas far to the south, round z 6000.)
+  if (!Number.isFinite(x) || !Number.isFinite(z) || Math.abs(x) > 2000 || z < -2600 || z > 7600 || (z > 2000 && z < 4500)) return null;
   // (motor: the kayak's electric motor left lowered; older saves have it raised.)
   // (sail: the sailing boat's sail left up, and how far her sheet was eased.)
   const out = { x, z, heading: num(v.heading, 0), anchored: !!v.anchored, ...(v.motor === true ? { motor: true } : {}), ...(typeof v.sail === 'number' && Number.isFinite(v.sail) ? { sail: num(v.sail, 0.5, 0, 1) } : {}) };
@@ -276,6 +278,7 @@ export function sanitize(raw) {
     }
   }
   s.seen = typeof raw.seen === 'string' && raw.seen.length <= 4000 && /^[A-Za-z0-9+/=]*$/.test(raw.seen) ? raw.seen : '';
+  s.seenSouth = typeof raw.seenSouth === 'string' && raw.seenSouth.length <= 2000 && /^[A-Za-z0-9+/=]*$/.test(raw.seenSouth) ? raw.seenSouth : '';
   // Your camps, marks, photographs, adventures and keepsakes (version 5).
   s.camps = cleanCamps(raw.camps);
   for (const p of (Array.isArray(raw.pins) ? raw.pins : []).slice(0, PIN_MAX)) {

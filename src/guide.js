@@ -1,6 +1,6 @@
 import { FISH, fishById, weightOf } from './fish.js';
 import { RODS, TACKLE, TERMS, ROD_IDS, ITEM_IDS, SETUPS, TYPE_NAMES, KIND_NAMES, PACK, fits, checkSetup, castRange, lineOf, termOf } from './tackle.js';
-import { REGISTER, REGIONS, registerFor, titleName, LEGACY, FRESHWATER, STATUS_WORDS } from './register.js';
+import { REGISTER, REGIONS, registerFor, titleName, LEGACY, FRESHWATER, MACARONESIA, STATUS_WORDS } from './register.js';
 import { ZONE_NAMES } from './world/terrain.js';
 import { studio } from './gearView.js';
 import { HOME_WORDS, tripPlaces, tripSummary, summaryText } from './trip.js';
@@ -143,13 +143,15 @@ export class FieldGuide {
       const reg = registerFor(f.id);
       const legacy = LEGACY[f.id];
       const fresh = FRESHWATER[f.id];
+      // (Las Brasas' own fish, outside the register: their names and ranges.)
+      const south = MACARONESIA[f.id];
       // The fictional originals are retired: they only appear if they're in your journal.
       if (legacy && !st.fish[f.id] && !st.observed?.[f.id]) continue;
       const L = f.life;
       const group = legacy ? 'legacy' : fresh ? 'fresh' : f.creature ? 'cephalopods' : L.observe ? 'observe'
         : L.zones[0] === 'estuary' ? 'estuary' : L.flat || L.benthic ? 'sand' : L.school ? 'shoal'
-          : L.homes.some((h) => ['reef', 'rock', 'weed', 'quay', 'cove'].includes(h)) ? 'rocks' : 'sand';
-      out.push({ id: f.id, sp: f, reg, legacy, fresh, group, status: legacy ? 'retired' : L.observe ? 'observation' : 'catchable' });
+          : L.homes.some((h) => ['reef', 'rock', 'weed', 'quay', 'cove', 'cave', 'wall'].includes(h)) ? 'rocks' : 'sand';
+      out.push({ id: f.id, sp: f, reg, legacy, fresh, south, group, status: legacy ? 'retired' : L.observe ? 'observation' : 'catchable' });
     }
     if (this.ui.planned) {
       for (const r of REGISTER) {
@@ -164,6 +166,10 @@ export class FieldGuide {
     return e.sp ? e.sp.name : e.reg?.names?.en ? titleName(e.reg.names.en) : e.reg?.scientific;
   }
 
+  scientific(e) {
+    return e.reg?.scientific || e.south?.scientific;
+  }
+
   /* ---------------- the index (left page) ---------------- */
 
   renderIndex(box) {
@@ -172,7 +178,7 @@ export class FieldGuide {
     const q = this.ui.q.trim().toLowerCase();
     const f = this.ui.filter;
     const shown = all.filter((e) => {
-      if (q && !`${this.name(e)} ${e.reg?.scientific || ''} ${Object.values(e.reg?.names || {}).join(' ')}`.toLowerCase().includes(q)) return false;
+      if (q && !`${this.name(e)} ${this.scientific(e) || ''} ${Object.values(e.reg?.names || {}).join(' ')}`.toLowerCase().includes(q)) return false;
       if (f === 'caught') return !!st.fish[e.id];
       if (f === 'notyet') return e.sp && e.status === 'catchable' && !st.fish[e.id];
       if (f === 'sea') return ['estuary', 'rocks', 'sand', 'shoal'].includes(e.group);
@@ -238,7 +244,7 @@ export class FieldGuide {
     else pic.append(el('span', 'g-nomodel', 'No model yet'));
     const txt = el('span', 'g-ctxt');
     txt.append(el('b', '', this.name(e)));
-    if (e.reg?.scientific) txt.append(el('i', '', e.reg.scientific));
+    if (this.scientific(e)) txt.append(el('i', '', this.scientific(e)));
     const rec = st.fish[e.id], seen = st.observed?.[e.id];
     const status = el('span', `g-status ${e.status}`);
     const plan = e.reg?.planAs?.as;
@@ -312,10 +318,10 @@ export class FieldGuide {
     kids.push(back);
     const title = el('div', 'g-title');
     title.append(el('h2', '', this.name(e)));
-    if (e.reg?.scientific) {
+    if (this.scientific(e)) {
       const sci = el('p', 'g-sci');
-      sci.append(el('i', '', e.reg.scientific));
-      if (e.reg.authority) sci.append(' ', el('span', 'g-auth', e.reg.authority));
+      sci.append(el('i', '', this.scientific(e)));
+      if (e.reg?.authority) sci.append(' ', el('span', 'g-auth', e.reg.authority));
       title.append(sci);
     }
     const badge = el('p', `g-badge ${e.status}`, STATUS_WORDS[e.status] || e.status);
@@ -345,7 +351,7 @@ export class FieldGuide {
     kids.push(...this.identify(e));
     kids.push(...this.where(e));
     if (e.sp && e.status === 'catchable') kids.push(...this.howTo(e));
-    if (e.status === 'observation') kids.push(el('h3', '', 'Not to be caught'), el('p', 'g-text', 'Protected, and to be watched rather than fished: it ignores every bait in the game. Look for it underwater after dark (the view key), and it goes in your records as seen.'));
+    if (e.status === 'observation') kids.push(el('h3', '', 'Not to be caught'), el('p', 'g-text', e.sp.watch || 'Protected, and to be watched rather than fished: it ignores every bait in the game. Look for it underwater after dark (the view key), and it goes in your records as seen.'));
     if (e.sp) kids.push(...this.records(e));
     kids.push(...this.sources(e));
     box.replaceChildren(...kids);
@@ -458,6 +464,8 @@ export class FieldGuide {
       const dl = el('dl', 'g-facts');
       const add = (k, v) => dl.append(el('dt', '', k), el('dd', '', v));
       add('In the game', [...new Set(L.zones.map((z) => ZONE_NAMES[z] || z))].join(', '));
+      // (A home fish that lives round Las Brasas too: where to look there.)
+      if (e.sp.whereSouth) add('At Las Brasas', e.sp.whereSouth);
       add('Habitat', [...new Set(L.homes.map((h) => HOME_WORDS[h] || h))].join(', '));
       add('Depth', L.bottom || L.flat ? `on the bottom, in ${H.depth[0]}–${Math.round(H.depth[1])} m of water` : `about ${H.depth[0]}–${Math.round(H.depth[1])} m down`);
       add('Most active', H.allDay ? 'all day' : H.active);
@@ -797,6 +805,7 @@ export class FieldGuide {
     const r = e.reg;
     if (!r?.sources?.length) {
       if (e.legacy || e.fresh) return [el('p', 'g-note', e.fresh ? `Freshwater species: kept apart from the Atlantic register. ${e.fresh.note}` : '')];
+      if (e.south) return [el('p', 'g-note', `A fish of Las Brasas, outside the Atlantic register (Royan to Cádiz). In reality: ${e.south.note}`)];
       return [];
     }
     const d = el('details', 'g-sources');

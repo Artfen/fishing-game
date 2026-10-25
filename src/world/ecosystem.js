@@ -72,7 +72,7 @@ export class Ecosystem {
   populate() {
     let rnd = seeded(77);
     const pickHomes = (L, n, gap, nearJetty, zones = L.zones) => {
-      const cands = this.habitat.spots.filter((s) => !s.hosts && L.homes.includes(s.type) && zones.includes(s.zone));
+      const cands = this.habitat.spots.filter((s) => !s.hosts && !s.south && L.homes.includes(s.type) && zones.includes(s.zone));
       for (let i = cands.length - 1; i > 0; i--) {
         const j = Math.floor(rnd() * (i + 1));
         [cands[i], cands[j]] = [cands[j], cands[i]];
@@ -119,6 +119,35 @@ export class Ecosystem {
         else {
           const n = L.group[0] + Math.floor(rnd() * (L.group[1] - L.group[0] + 1));
           for (let k = 0; k < n; k++) this.addAgent(sp, home, rnd);
+        }
+      }
+    });
+    // Las Brasas, far to the south: its own homes (see habitat.js), after everything else, and
+    // each species with a seed of its own there, so nothing at home moves. southGroups: how many
+    // groups (or schools) of it live round the island.
+    const south = this.habitat.spots.filter((s) => s.south);
+    FISH.forEach((sp, i) => {
+      const L = sp.life, n = L.southGroups;
+      if (!n || sp.retired) return;
+      rnd = seeded(60606 + i * 1013);
+      const cands = south.filter((s) => L.homes.includes(s.type) && L.zones.includes(s.zone));
+      for (let k = cands.length - 1; k > 0; k--) {
+        const j = Math.floor(rnd() * (k + 1));
+        [cands[k], cands[j]] = [cands[j], cands[k]];
+      }
+      if (L.favour) cands.sort((a, b) => L.favour.includes(b.tag) - L.favour.includes(a.tag));
+      const gap = L.spacing ?? (L.school ? 40 : 22);
+      const homes = [];
+      for (const s of cands) {
+        if (homes.length >= n) break;
+        if (homes.some((o) => Math.hypot(o.x - s.x, o.z - s.z) < gap)) continue;
+        homes.push(s);
+      }
+      for (const home of homes) {
+        if (L.school) this.addSchool(sp, home, rnd);
+        else {
+          const m = L.group[0] + Math.floor(rnd() * (L.group[1] - L.group[0] + 1));
+          for (let k = 0; k < m; k++) this.addAgent(sp, home, rnd);
         }
       }
     });

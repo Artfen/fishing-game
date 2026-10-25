@@ -10,7 +10,8 @@ import { HUD, kbd } from './ui.js';
 import { AudioScape } from './audio.js';
 import { Environment, phaseName, formatClock } from './world/sky.js';
 import { createWater } from './world/water.js';
-import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeight, waveHeightHere, compass, bearingOf, windWords, seaWords, shelterAt } from './world/conditions.js';
+import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeight, waveHeightHere, compass, bearingOf, windWords, seaWords, shelterAt, bakeShelter, shelterRect } from './world/conditions.js';
+import { SOUTH_WATER, SOUTH_MAP, LANDFALL, POSADA, PUERTO as PUERTO_AT } from './world/brasa.js';
 import { buildWorld } from './world/world.js';
 import { createHabitat } from './world/habitat.js';
 import { Ecosystem } from './world/ecosystem.js';
@@ -22,7 +23,7 @@ import { surfaceUniforms } from './world/surface.js';
 import { causticUniforms } from './world/caustics.js';
 import {
   bakeHeightTexture, heightAt, walkHeight, solidHeight, landSDF, lakeSDF, streamSDF, zoneAt, waterOf, riverSDF, mereSDF, waterLevel, depthAt,
-  PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD, SEA,
+  PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD, SEA, inSeas, inWorld, SOUTH_Z,
   PEGS, POOLS, STREAM, SNAG, LILIES, JETTY, ISLAND, GANNET_CAMP, SKERRIES, SKELLIG, DEEP_Z,
   HAVEN, HAVEN_QUAY, HAVEN_BENCH, DAYMARK, STRAND, WRECK, WRECK_BUOY, WRECK_BELL, CHANNEL,
   HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, FUEL_PUMPS, CABIN_BERTH, SAIL_BERTH, laneInfo,
@@ -77,7 +78,7 @@ import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality
 import { Post } from './post.js';
 import { Diver, Shot, buildGun } from './diver.js';
 import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance } from './dive.js';
-import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick } from './util.js';
+import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick, seeded } from './util.js';
 
 const HOUR_SECONDS = 40; // one in-game hour lasts 40 real seconds
 const REST_SPEED = 30;   // holding T lets time drift by
@@ -151,6 +152,54 @@ const water = createWater(heightTex, WATER_RECT, bakeHeightTexture(256, SHORE_RE
 scene.add(water.mesh);
 const mist = createMist(water.uniforms.uHeight.value, WATER_RECT, water.uniforms.uHeight2.value, SHORE_RECT);
 scene.add(mist.group);
+
+/* ---------------- which sea: home, or Las Brasas far to the south ---------------- */
+
+// Las Brasas (see world/brasa.js) is far off the bottom of the home chart, so the water there needs
+// its own map of the seabed and its own shelter (baked the first time you go), and it is another
+// sea: clearer and bluer, in the trade wind. Which one you're in is wherever you are.
+let region = 'home';
+const HARBOUR_RECT = { x: -110, z: 6180, w: 300, h: 300 };
+const HOME_WATER = { tex: heightTex, rect: WATER_RECT, detail: water.uniforms.uHeight2.value, detailRect: SHORE_RECT };
+let SOUTH_TEX = null;
+function southWater() {
+  if (!SOUTH_TEX) SOUTH_TEX = { tex: bakeHeightTexture(560, SOUTH_WATER, 560), rect: SOUTH_WATER, detail: bakeHeightTexture(256, HARBOUR_RECT), detailRect: HARBOUR_RECT, shelter: bakeShelter('south') };
+  return SOUTH_TEX;
+}
+// The colours of each sea, from the shallows to the deep.
+const SEA_COLOURS = {
+  home: { uShallow: '#7fd8c6', uMid: '#38a0ad', uDeep: '#1b5c85' },
+  south: { uShallow: '#6fe3d8', uMid: '#1f97c9', uDeep: '#0d3e86' },
+};
+function setRegion(r) {
+  region = r;
+  conditions.region = r;
+  const W = r === 'south' ? southWater() : HOME_WATER;
+  for (const U of [water.uniforms, mist.uniforms]) {
+    U.uHeight.value = W.tex;
+    U.uRect.value.set(W.rect.x, W.rect.z, W.rect.w, W.rect.h);
+    U.uHeight2.value = W.detail;
+    U.uRect2.value.set(W.detailRect.x, W.detailRect.z, W.detailRect.w, W.detailRect.h);
+  }
+  const SR = shelterRect(r);
+  water.uniforms.uShelter.value = r === 'south' ? W.shelter : bakeShelter();
+  water.uniforms.uShelterRect.value.set(SR.x, SR.z, SR.w, SR.h);
+  for (const [k, c] of Object.entries(SEA_COLOURS[r])) water.uniforms[k].value.set(c);
+  underwater.clear = r === 'south' ? 1 : 0;
+  // (At Las Brasas the trade wind blows from the north-east, unless you've set the wind yourself.)
+  if (r === 'south' && settings.weather.windMode !== 'manual') conditions.wind.from = 0.8;
+  // (The first time: the island's buildings and plants, and its weed beds under the water.)
+  if (r === 'south' && !world.brasa) world.buildBrasa();
+  if (r === 'south' && !southBeds) {
+    southBeds = true;
+    underwater.addBeds({ x: -760, z: 5480, w: 1520, h: 1120, grass: 6500, kelp: 1400 }, seeded(9191));
+  }
+}
+let southBeds = false;
+function watchRegion() {
+  const r = player().pos.z > SOUTH_Z || camera.position.z > SOUTH_Z ? 'south' : 'home';
+  if (r !== region) setRegion(r);
+}
 const world = buildWorld(scene, renderer, habitat);
 // Your own camps (see campsite.js): drawn by CampView, and solid underfoot like everything else.
 state.camps = Array.isArray(state.camps) ? state.camps : [];
@@ -282,9 +331,12 @@ const walker = new Walker(scene);
 const journal = new Journal(state);
 // The parts of the coast you've seen. An older save starts with what's around the places it found.
 const explored = new Explored(state.seen);
+// (Las Brasas' chart, far to the south, remembers its own.)
+const exploredSouth = new Explored(state.seenSouth, SOUTH_MAP);
+const exploredAt = (z) => (z > SOUTH_Z ? exploredSouth : explored);
 if (!state.seen) {
   explored.reveal(START.x, START.z, 160);
-  for (const p of PLACES) if (state.places[p.id]) explored.reveal(p.x, p.z, p.area ? 160 : 110);
+  for (const p of PLACES) if (state.places[p.id]) exploredAt(p.z).reveal(p.x, p.z, p.area ? 160 : 110);
 }
 const input = new Input(canvas);
 input.setBindings(settings.controls.keys || defaultBindings());
@@ -411,7 +463,7 @@ function mooring(kind) {
 // deep enough for its hull, and not on top of a pier. (Tied up alongside one, her middle lies
 // just clear of its edge: that's fine.)
 function floats(b, p) {
-  if (!p || p.x < SEA.x0 || p.x > SEA.x1 || p.z < SEA.z0 || p.z > SEA.z1) return false;
+  if (!p || !inSeas(p.x, p.z)) return false;
   if (solidHeight(p.x, p.z) > -(b.hull.draft + (p.tie ? 0.2 : 0.4))) return false;
   const m = p.tie ? 0.2 : 0.8;
   return !PIERS.some((P) => p.x > P.x0 - m && p.x < P.x1 + m && p.z > P.z0 - m && p.z < P.z1 + m);
@@ -481,6 +533,16 @@ const NEXT_SKY = {
   overcast: ['partly', 'light', 'overcast'],
   light: ['overcast', 'heavy', 'partly', 'light'],
   heavy: ['light', 'light', 'heavy', 'storm'],
+  storm: ['heavy'],
+};
+// At Las Brasas, the trade-wind weather: mostly fine, cloud banking up now and then, a passing
+// shower, very seldom anything worse.
+const NEXT_SKY_SOUTH = {
+  clear: ['clear', 'partly', 'clear'],
+  partly: ['clear', 'partly', 'clear', 'overcast'],
+  overcast: ['partly', 'partly', 'light'],
+  light: ['partly', 'overcast'],
+  heavy: ['light', 'overcast'],
   storm: ['heavy'],
 };
 const startSky = state.sky || { state: 'partly', cloud: SKIES.partly.cloud, rain: 0, timer: state.tips.rained ? rand(120, 220) : 240 };
@@ -1183,7 +1245,7 @@ function passTheNight() {
   // (Overnight, the bass boat's battery charges wherever you sleep.)
   tanks().battery = 1;
   tanks().kayak = 1;
-  const door = sleeping.site === 'house' ? { x: 113.6, z: -78.6 } : sleeping.site === 'bothy' ? BOTHY_DOOR : sleeping.site && sleeping.site !== 'cabin' ? toWorld(sleeping.site.x, sleeping.site.z, sleeping.site.yaw, 0.6, 1.6) : null;
+  const door = sleeping.site === 'house' ? { x: 113.6, z: -78.6 } : sleeping.site === 'bothy' ? BOTHY_DOOR : sleeping.site === 'posada' ? { x: POSADA.x - 2, z: POSADA.z + 5 } : sleeping.site && sleeping.site !== 'cabin' ? toWorld(sleeping.site.x, sleeping.site.z, sleeping.site.yaw, 0.6, 1.6) : null;
   const spot = door ? standNear(door.x, door.z, 0.3) : onFoot && walkHeight(walker.pos.x, walker.pos.z) < 0.1 ? campSpot() : null;
   if (spot && onFoot) {
     walker.place(spot.x, spot.z, spot.heading);
@@ -1209,6 +1271,15 @@ function wakeLine(h, rain, site = null) {
     if (h < 16) return 'You wake to a bright afternoon, the fell warm and the beck chattering past the door.';
     if (h < 20) return 'You wake as the light goes gold on the top of Hoarfell. The trout will be rising in the pools.';
     return 'You wake in the dark: the last of the stove’s glow, and stars thick over the fell.';
+  }
+  // Over the bar at Puerto Brasa: the harbour, the trade wind, the island waking up.
+  if (site === 'posada') {
+    if (rain) return 'You wake to a rare shower rattling on the harbour, the volcano lost in cloud. It won’t last.';
+    if (h < 7) return 'You wake before dawn to the fishing boats putting out, their engines puttering past the breakwater.';
+    if (h < 11) return 'Morning over the harbour: bright sun on white walls, the smell of coffee from the bar below.';
+    if (h < 16) return 'You wake to the heat of the afternoon and the trade wind rattling the palms in the square.';
+    if (h < 20) return 'You wake as the light goes gold on Pico Brasa. The bar is filling up; the parrotfish will be heading for their holes.';
+    return 'You wake in the warm dark: the green harbour light flashing, the lighthouse turning out on the point.';
   }
   // At home: your own bed, the house waking up around you.
   if (site === 'house') {
@@ -1345,7 +1416,7 @@ function teachBoat() {
     kayak: `The kayak: slow, but silent and stable enough to fish from, and it floats in a hand's depth of water. Paddle into the shallows, the saltings and the reeds where the boats can't go: fish hardly notice it. ${S ? `${T ? 'The stick' : 'The left stick'} paddles and steers.` : `${key('forward')}${key('left')}${key('back')}${key('right')} paddle and steer.`} It has a little electric motor on its stern too (${T ? 'the Lower motor button' : S ? key('motor') : key('motor')}): slower than paddling, but quiet and hands-free, for creeping up on fish or trolling a lure. Its battery charges at a jetty and overnight.`,
     bass: `The bass boat: ${lever} The first notches of throttle run the quiet electric motor at the bow, for creeping along the weed beds and the reeds without spooking anything; push on for the outboard to cross the lake fast. Its locker holds your tackle box, and it sits steady when you cast. The outboard takes petrol (Longmere has no pump: bring the jerry can), and the electric motor a battery that charges at the jetty and overnight.`,
     cabin: `The cabin boat: slow and steady, with a little cabin forward: a bunk and a galley stove. ${lever} Anchor (or tie up alongside a quay), then ${T ? 'tap the prompt' : `press ${key('interact')}`} for the cabin: cook what you've kept, and sleep aboard. A camp that floats. It runs on petrol: the harbour pump is right by her berth.`,
-    sail: `The sailing boat: she goes where the wind lets her. ${T ? 'Raise the sail on the panel' : `Raise the sail (${key('motor')})`}, then ${T ? 'the stick up hauls the mainsheet in and down eases it; across steers' : S ? `${stick} up and down hauls the mainsheet in and eases it, across steers` : `${key('forward')} hauls the mainsheet in, ${key('back')} eases it, ${key('left')} and ${key('right')} steer`}. Watch the sail and the panel: if it flaps (luffing), haul in; if she's slow and heeling with the sail in tight across the wind, ease it out. Nothing drives her within about forty degrees of the wind (in irons): to go upwind, zigzag, tacking through the wind with speed on. The white lines in the air show the wind. With the sail down, she rows.`,
+    sail: `The sailing boat: she goes where the wind lets her. ${T ? 'Raise the sail on the panel' : `Raise the sail (${key('motor')})`}, then ${T ? 'the stick up hauls the mainsheet in and down eases it; across steers' : S ? `${stick} up and down hauls the mainsheet in and eases it, across steers` : `${key('forward')} hauls the mainsheet in, ${key('back')} eases it, ${key('left')} and ${key('right')} steer`}. Watch the sail and the panel: if it flaps (luffing), haul in; if she's slow and heeling with the sail in tight across the wind, ease it out. Nothing drives her within about forty degrees of the wind (in irons): to go upwind, zigzag, tacking through the wind with speed on. The white lines in the air show the wind. With the sail down, she rows. She can make the long passage south, too: four days to Las Brasas, a volcanic island in the trade wind (${T ? 'tap the prompt' : key('interact')} out on open water, or beside her at the quay).`,
   }[k];
   hud.toast(text, 12);
 }
@@ -2339,7 +2410,8 @@ function standNear(x, z, from = 1.5) {
 // The camps beyond the bay you can head to: by their tackle boxes.
 function campAt(id) {
   const box = world.boxes.find((b) => b.place === id);
-  return box && state.places[id] ? box : null;
+  // (Only in the sea you're in: Las Brasas and home are four days apart.)
+  return box && state.places[id] && (box.z > SOUTH_Z) === (player().pos.z > SOUTH_Z) ? box : null;
 }
 
 // Where your own camp's door is, and the safe ground in front of it.
@@ -2356,7 +2428,9 @@ function travelInfo() {
   if (sleeping || traveling) return { camp: false, boat: false, camps: false, own: false, haven: false, note: '' };
   const atCamp = onFoot && nearCampSpot();
   const box = regionBox(10);
-  const camp = !atCamp;
+  // (At Las Brasas, home's places are four days away: only the passage takes you there.)
+  const south = player().pos.z > SOUTH_Z;
+  const camp = !atCamp && !south;
   const boat = onFoot;
   const P = player().pos;
   const ownHere = state.camps.find((c) => onFoot && Math.hypot(P.x - c.x, P.z - c.z) < 12);
@@ -2367,8 +2441,8 @@ function travelInfo() {
   const note = driving ? 'You’re in the car.' : !onFoot ? 'You’re in the boat. It stays where you leave it.' : atHome ? 'You’re at home.' : ownHere ? `You’re at ${ownHere.name}.` : atCamp ? 'You’re at the old camp.' : atHaven ? 'You’re in Willowhaven.' : stuckT > 2.5 ? 'Stuck? Any of these gets you out.' : '';
   return {
     camp, boat, camps: true, here: atHome ? 'home' : atCamp ? 'camp' : ownHere ? 'own' : atHaven ? 'haven' : box ? box.place : null, note,
-    own: !!state.camps.length && !ownHere, haven: !!state.places.haven && !atHaven,
-    home: !atHome, car: carAway && carD > 25 && onFoot, carAway, carWords: state.car.at && DESTS[state.car.at] ? `parked at ${DESTS[state.car.at].name}` : 'parked by the lane',
+    own: !!state.camps.length && !ownHere && !south, haven: !!state.places.haven && !atHaven && !south,
+    home: !atHome && !south, car: carAway && carD > 25 && onFoot && !south, carAway, carWords: state.car.at && DESTS[state.car.at] ? `parked at ${DESTS[state.car.at].name}` : 'parked by the lane',
   };
 }
 
@@ -2450,6 +2524,138 @@ function updateTravel(dt) {
     hud.toast(traveling.dest === 'home' ? `Home. ${carAwayWords()}` : traveling.dest === 'car' ? 'Back at the car.' : traveling.name ? `${traveling.name}. Your boat is where you left it.` : traveling.dest === 'camp' ? 'Back at the old camp. The boat is where you left it.' : 'Back in the boat.', 4);
     traveling = null;
   }
+}
+
+/* ---------------- the long passage: Willow Bay and Las Brasas ---------------- */
+
+// Las Brasas lies four days' sail to the south (see world/brasa.js). The sailing boat makes the
+// passage: a few lines of her log while the days go by, and she comes in off Puerto Brasa (or,
+// coming home, alongside Willowhaven quay) with the sail down, ready to row in. Your gear and
+// creel come too; the other boats and the car stay where you left them.
+const PASSAGE_DAYS = 4;
+const PASSAGE_LOG = {
+  south: [
+    'Day 1 · You clear Gannet Light at first light and stand out into the Atlantic on a fresh northerly. By noon the coast is a grey line astern.',
+    'Day 2 · Long seas on the quarter, and shearwaters skimming the troughs at dusk. You sleep in snatches, an eye on the compass.',
+    'Day 3 · The trade wind fills in from the north-east, steady and warm. Flying fish skitter away from the bow, and the sea turns a deeper blue.',
+    'Day 4 · At dawn a smudge on the horizon becomes a mountain with a cloud caught on its top: Pico Brasa. Black cliffs, a white village, the smell of land.',
+  ],
+  home: [
+    'Day 1 · Brasa drops astern in the morning, the cloud on the volcano the last of it you see. The trade wind carries you north.',
+    'Day 2 · The wind backs and freshens, and the sea turns from blue to green-grey. Dolphins ride the bow wave for an hour.',
+    'Day 3 · Cooler air and a long swell from the west; gannets diving far off. You find a jumper for the night watch.',
+    'Day 4 · Gannet Light at dawn, then the hills behind Willow Bay. You lower the sail off Willowhaven and bring her in alongside.',
+  ],
+};
+let passage = null; // { to, t, line, moved }
+const LINE_T = 3.4; // seconds each line of the log stays up
+
+// Why the passage can't be made just now, or null.
+function passageWhy() {
+  const S = BOATS.sail;
+  if (fishing.state === 'reeling' || fishing.state === 'landing' || fishing.state === 'caught' || fishing.state === 'keeping') return 'Land or let go of the fish first.';
+  if (dive) return 'Out of the water first.';
+  if (driving) return 'Out of the car first.';
+  if (sleeping || traveling || passage) return 'Not now.';
+  if (tow && (tow.lead === S || tow.towed === S)) return 'Let go of the tow first.';
+  return null;
+}
+
+function offerPassage(to) {
+  const why = passageWhy();
+  if (why) {
+    hud.flash(why, t, 3);
+    return;
+  }
+  const first = to === 'south' && !state.places.brasa;
+  ask(to === 'south' ? 'The long passage south' : 'The passage home', to === 'south'
+    ? `${first ? 'Far to the south, four days’ sail down the Atlantic, lies Las Brasas: a volcanic island in the trade wind, with warm clear water, black lava reefs and fish you never see at home. ' : ''}Make the passage in the sailing boat? Four days at sea (you eat and sleep aboard), and you come in off Puerto Brasa with the sail down. Your gear and your creel come with you; the other boats and the car stay here.`
+    : 'Sail home to Willow Bay? Four days at sea, and you come in alongside Willowhaven quay. Your gear and your creel come with you.',
+  [
+    { text: 'Not now', cls: 'quiet' },
+    { text: to === 'south' ? 'Set sail for Las Brasas' : 'Set sail for home', run: () => startPassage(to) },
+  ]);
+}
+
+function startPassage(to) {
+  if (passageWhy() || modal) return;
+  if (placement.isOn) placement.stop();
+  if (fishing.lineOut) fishing.cancel();
+  if (cabinIn) leaveCabin(true);
+  modal = 'travel';
+  passage = { to, t: 0, line: -1, moved: false };
+  hud.sleep(true, to === 'south' ? 'You stow the gear, take on water and stores, and cast off…' : 'You stow the gear and cast off for the long run north…');
+}
+
+function updatePassage(dt) {
+  const P = passage;
+  if (!P) return;
+  const log = PASSAGE_LOG[P.to];
+  P.t += dt;
+  const line = Math.min(log.length - 1, Math.floor((P.t - 1.6) / LINE_T));
+  if (line >= 0 && line !== P.line) {
+    P.line = line;
+    hud.sleep(true, log[line]);
+  }
+  // (Out of sight: the boat and you to the other end, and the days gone by.)
+  if (!P.moved && P.t > 2) {
+    P.moved = true;
+    arrivePassage(P.to);
+  }
+  if (P.t > 1.6 + log.length * LINE_T + 0.4) {
+    hud.sleep(false);
+    modal = null;
+    passage = null;
+    if (P.to === 'south') {
+      const first = !state.tips.brasa;
+      state.tips.brasa = true;
+      hud.toast(first
+        ? `Las Brasas. Puerto Brasa lies ahead behind its breakwater: row in (or raise the sail, ${input.keyLabel('motor')}) and tie up at the quay (${input.keyLabel('anchor')}). Bar El Muelle on the waterfront has a room, a stove and a shelf of tackle. The water here is clear and warm: parrotfish on the reefs, groupers down the drop-off.`
+        : 'Las Brasas, and Puerto Brasa ahead behind its breakwater.', first ? 14 : 5);
+    } else hud.toast('Home: Willow Bay, and the sailing boat alongside Willowhaven quay.', 5);
+    save();
+  }
+}
+
+function arrivePassage(to) {
+  const S = BOATS.sail;
+  if (dive) endDive(null, true);
+  // Free of any mooring, the sail down.
+  S.tie = null;
+  S.shove = null;
+  S.anchor = null;
+  S.anchored = false;
+  S.lever = 0;
+  if (S.sailUp) S.setSail(false);
+  const at = to === 'south' ? LANDFALL : SAIL_BERTH;
+  S.place(at.x, at.z, at.heading);
+  switchBoat(S);
+  if (onFoot) setFoot(false, true);
+  rig.reset(boat, t);
+  if (to === 'home') {
+    const B = berthFor(S, boats, { reach: 3 });
+    if (B) {
+      S.place(B.x, B.z, B.heading);
+      S.tieTo({ ...B, t: 9 });
+    }
+  }
+  // The days at sea: you arrive mid-morning (south) or late afternoon (home), fed and rested.
+  const arrive = to === 'south' ? 10 : 17;
+  const hours = PASSAGE_DAYS * 24 - 24 + (((arrive - state.hour) % 24) + 24) % 24;
+  passTime(hours);
+  state.food = { ...(state.food || {}), full: 100 };
+  // The weather where you land: fine, in the trade wind down south.
+  if (skyMode() === 'auto') {
+    weather.state = to === 'south' ? 'clear' : 'partly';
+    weather.timer = rand(200, 320);
+  }
+  conditions.region = to === 'south' ? 'south' : 'home';
+  if (to === 'south') {
+    conditions.wind.from = 0.8;
+    conditions.wind.target = 7;
+  }
+  setRegion(conditions.region);
+  stuckT = 0;
 }
 
 /* ---------------- home, the garage and the car ---------------- */
@@ -3161,12 +3367,22 @@ function interaction() {
         { text: 'Into the cabin', run: () => enterCabin() },
       ]) };
     }
+    // The sailing boat: get in, or the long passage (to Las Brasas, or home from there).
+    if (near && near.hull.sail) {
+      const to = walker.pos.z > SOUTH_Z ? 'home' : 'south';
+      return { text: `The ${near.name}: get in, or the long passage ${to}`, run: () => ask(boatTitle(near), to === 'south' ? 'Get in and sail her here, or make the long passage south to Las Brasas (four days at sea)?' : 'Get in and sail her here, or make the passage home to Willow Bay (four days at sea)?', [
+        { text: to === 'south' ? 'The passage south' : 'The passage home', cls: 'quiet', run: () => offerPassage(to) },
+        { text: 'Get in', run: () => board(near) },
+      ]) };
+    }
     if (near) return { text: `Get in the ${near.name}`, run: () => board(near) };
     const own = ownCampNear();
     if (own) return { text: `${own.name}: rest, cook, cool box and tackle`, run: () => openCamp('cook', own) };
     if (nearCamp()) return { text: 'Camp: fire, food, sleep and tackle box', run: () => openCamp() };
     // Up the Coldwater: the bothy (a stove, a bunk and a shelf of tackle), the fingerpost, the cairn.
     if (coastSpot('bothy')) return { text: 'The bothy: stove, bunk and tackle shelf', run: () => openCamp('cook', 'bothy') };
+    // Puerto Brasa: your room over the bar, its kitchen and a shelf of tackle.
+    if (coastSpot('posada')) return { text: 'Bar El Muelle: your room, the kitchen and a shelf of tackle', run: () => openCamp('cook', 'posada') };
     if (coastSpot('fingerpost')) return { text: 'Read the fingerpost', run: () => readFingerpost() };
     if (coastSpot('cairn')) return { text: 'Add a stone to the cairn', run: () => addToCairn() };
     const box = regionBox();
@@ -3218,8 +3434,19 @@ function interaction() {
   }
   // Stopped over deep water: over the side.
   if (entry) return { text: 'Go diving', run: () => chooseDive(entry) };
+  // In the sailing boat, out on open water: the long passage.
+  if (boat.hull.sail && !fishing.lineOut && passageWaters()) {
+    const to = boat.pos.z > SOUTH_Z ? 'home' : 'south';
+    return { text: to === 'south' ? 'The long passage south: four days' : 'The passage home: four days', run: () => offerPassage(to) };
+  }
 
   return null;
+}
+// Open water to set out from: out of the bays and the harbour (at home, the open sea and the coast;
+// at Las Brasas, anywhere outside Puerto Brasa's basin).
+function passageWaters() {
+  const z = zoneAt(boat.pos.x, boat.pos.z);
+  return boat.pos.z > SOUTH_Z ? z !== 'harbor' : z === 'open' || z === 'coast' || z === 'deep';
 }
 
 // The chandlery fills your dive tank.
@@ -3546,7 +3773,7 @@ function readFingerpost() {
 
 function addToCairn() {
   audio.rustle?.();
-  explored.reveal(player().pos.x, player().pos.z, 900);
+  exploredAt(player().pos.z).reveal(player().pos.x, player().pos.z, 900);
   const first = !state.tips.cairn;
   state.tips.cairn = true;
   const sky = weather.rain > 0.15 ? 'Cloud drags across the top, and the coast comes and goes through it.' : state.hour < 6 || state.hour > 21 ? 'Below, the lights: Willowhaven’s quay, the lighthouse turning out on Gannet Isle.' : 'The whole coast is laid out below: Willow Bay and the Coldwater winding down to it, the Wend estuary, Longmere among its hills, Gannet Isle and the deep water beyond.';
@@ -3828,7 +4055,7 @@ function checkPlaces(dt) {
   placeTimer = 0.4;
   const p = player().pos;
   // The map fills in around you: further out on the water than among the trees.
-  explored.reveal(p.x, p.z, onFoot ? 90 : 150);
+  exploredAt(p.z).reveal(p.x, p.z, onFoot ? 90 : 150);
   for (const pl of PLACES) {
     if (state.places[pl.id] || !pl.test(p.x, p.z)) continue;
     state.places[pl.id] = { day: state.day, hour: state.hour };
@@ -4051,7 +4278,7 @@ function updateWeather(dt, speed) {
   } else {
     weather.timer -= dt * Math.min(speed, 10);
     if (weather.timer <= 0) {
-      weather.state = pick(NEXT_SKY[weather.state]);
+      weather.state = pick((region === 'south' ? NEXT_SKY_SOUTH : NEXT_SKY)[weather.state]);
       weather.timer = weather.state === 'storm' ? rand(130, 220) : weather.state === 'heavy' ? rand(60, 110) : weather.state === 'light' ? rand(80, 150) : rand(150, 300);
     }
   }
@@ -4802,6 +5029,7 @@ function save() {
   const r3 = (v) => Math.round(v * 1000) / 1000;
   state.sky = { cloud: r3(weather.cloud), rain: r3(weather.rain), storm: r3(weather.storm), state: weather.state, timer: r3(weather.timer) };
   state.seen = explored.toString();
+  state.seenSouth = exploredSouth.toString();
   const ok = saveGame(state);
   if (ok) cloud.queue(state, saveStatus.lastSaved);
   if (!ok && saveStatus.canSave && !saveWarned && started) {
@@ -5054,7 +5282,9 @@ function begin() {
   const zone = zoneAt(player().pos.x, player().pos.z);
   const names = { lake: 'Reedmere', stream: 'Fernbeck', cove: 'Driftwood Cove' };
   const home = onFoot && atHomeNow();
-  setTimeout(() => hud.place(home ? 'Home' : onFoot ? (names[zone] || 'The west shore') : 'Willow Bay', returning ? 'welcome back' : home ? 'the cottage and the garage' : onFoot ? 'by the camp' : 'home waters'), 900);
+  // (At Las Brasas: the island, or its harbour.)
+  const south = player().pos.z > SOUTH_Z, puerto = south && Math.hypot(player().pos.x - PUERTO_AT.x, player().pos.z - PUERTO_AT.z) < 160;
+  setTimeout(() => hud.place(south ? (puerto ? 'Puerto Brasa' : 'Las Brasas') : home ? 'Home' : onFoot ? (names[zone] || 'The west shore') : 'Willow Bay', returning ? 'welcome back' : home ? 'the cottage and the garage' : onFoot ? 'by the camp' : 'home waters'), 900);
   if (newPlayer) offerGuide();
   rig.settleUntil = t + 2.5;
   if (state.sonar) toggleFinder(true);
@@ -5085,6 +5315,15 @@ function begin() {
     if (returning && (state.log.length || state.camps.length)) setTimeout(offer, 7000 + campNotes.length * 11000);
     else homeIntroAt = 150;
   }
+  // Las Brasas, new: a word about it (and how to get there), once.
+  if (returning && state.log.length && !state.tips.brasaIntro && !state.tips.brasa) {
+    setTimeout(() => {
+      if (state.tips.brasaIntro || state.tips.brasa) return;
+      state.tips.brasaIntro = true;
+      hud.toast(`New: Las Brasas, a volcanic island four days’ sail to the south, with warm clear water and fish you never see at home. Take the sailing boat out of the bay and ${scheme() === 'touch' ? 'tap the prompt' : `press ${input.keyLabel('interact')}`} for the long passage (or stand beside her at Willowhaven quay).`, 13);
+      save();
+    }, 15000 + campNotes.length * 11000);
+  }
   // Coming back to a game from before your own camps and Willowhaven: a word about them.
   if (returning && state.log.length && !state.tips.coastIntro) {
     setTimeout(() => {
@@ -5110,6 +5349,12 @@ const mapSheet = new MapSheet(state, explored, { data: heightTex.image.data, wid
     const abs = state.day * 24 + state.hour;
     return birdSightings.map((b) => ({ x: b.x, z: b.z, age: (abs - b.at) / 1.5 }));
   },
+});
+
+// Las Brasas' chart: its heights from the island's own water map, baked when first needed.
+mapSheet.addSheet('south', SOUTH_MAP, exploredSouth, () => {
+  const W = southWater();
+  return { data: W.tex.image.data, width: 560, height: 560, rect: SOUTH_WATER };
 });
 
 // Open the map on a spot (a mark, a photograph's place).
@@ -5635,7 +5880,7 @@ if (newPlayer) {
 // Back where you left off: on foot if that's where you were (and somewhere you can stand:
 // otherwise you're back in your boat).
 const W0 = state.walker;
-if (state.mode === 'foot' && W0 && W0.x > WORLD.x0 && W0.x < WORLD.x1 && W0.z > WORLD.z0 && W0.z < WORLD.z1 && walkHeight(W0.x, W0.z) > -0.55) {
+if (state.mode === 'foot' && W0 && inWorld(W0.x, W0.z) && walkHeight(W0.x, W0.z) > -0.55) {
   const at = { x: W0.x, z: W0.z };
   solids.resolve(at, 0.45);
   walker.place(at.x, at.z, W0.heading);
@@ -5659,6 +5904,8 @@ function ecoTick(dt) {
   ecoLights.length = 0;
   if (lanternLit) ecoLights.push({ x: boat.pos.x, z: boat.pos.z });
   if (env.lantern > 0.3) ecoLights.push({ x: world.lampPos.x, z: world.lampPos.z }, { x: GANNET_CAMP.x, z: GANNET_CAMP.z - 14 });
+  // (Puerto Brasa's lights after dark: the bar's terrace and the harbour light.)
+  if (env.lantern > 0.3 && world.brasa) ecoLights.push(...world.brasa.lights);
   ecoCtx.lights = ecoLights;
   ecoCtx.focus.x = rig.focus.x;
   ecoCtx.focus.z = rig.focus.z;
@@ -5681,6 +5928,7 @@ function tick(now, manual = false) {
   last = now;
   t += dt;
   conditions.time = t;
+  watchRegion();
   if (!manual) watchFrameRate(rawDt);
   pads.poll(dt);
 
@@ -5701,6 +5949,7 @@ function tick(now, manual = false) {
   updateWeather(dt, speed);
   updateSleep(dt);
   updateTravel(dt);
+  updatePassage(dt);
   updateWaiting(dt);
   camp.update(dt, hours);
   walker.speedMul = camp.hunger === 'hungry' ? 0.82 : 1;
@@ -5983,7 +6232,7 @@ function tick(now, manual = false) {
   else finder.update(dt, { x: boat.pos.x, z: boat.pos.z, mode: 'boat', moving: boat.speed }, eco.bait);
 
   const zone = zoneAt(P.x, P.z);
-  zoneW.open = damp(zoneW.open, (zone === 'open' || zone === 'coast' || zone === 'deep') && !onFoot ? 1 : 0, 0.5, dt);
+  zoneW.open = damp(zoneW.open, (zone === 'open' || zone === 'coast' || zone === 'deep' || zone === 'veril' || zone === 'ocean' || zone === 'lava') && !onFoot ? 1 : 0, 0.5, dt);
   zoneW.cove = damp(zoneW.cove, zone === 'cove' ? 1 : 0, 0.5, dt);
   const seaD = landSDF(P.x, P.z);
   const fireD = P.distanceTo(world.camp.firePos);
@@ -6012,6 +6261,7 @@ function tick(now, manual = false) {
     cove: zoneW.cove,
     gulls: Math.max(
       (1 - smoothstep(20, 90, Math.hypot(P.x - HAVEN.x, P.z - HAVEN.z))) * 0.7,
+      (1 - smoothstep(30, 120, Math.hypot(P.x - PUERTO_AT.x, P.z - PUERTO_AT.z))) * 0.7,
       1 - smoothstep(25, 110, Math.hypot(P.x - STACKS[0].x, P.z - STACKS[0].z)),
       1 - smoothstep(25, 120, Math.hypot(P.x - SKELLIG.x, P.z - SKELLIG.z)),
       1 - smoothstep(25, 100, Math.hypot(P.x - SKERRIES[0].x, P.z - SKERRIES[0].z)),
@@ -6023,7 +6273,7 @@ function tick(now, manual = false) {
     fire: camp.fireLevel * (1 - smoothstep(2, 18, fireD)),
     sizzle: Math.max(camp.cooking ? 1 - smoothstep(2, 12, fireD) : 0, 1 - smoothstep(2, 12, ownCookD)),
     stove: 1 - smoothstep(1.5, 9, ownCookD),
-    harbour: 1 - smoothstep(15, 70, Math.hypot(P.x - HAVEN.x, P.z - HAVEN.z)),
+    harbour: Math.max(1 - smoothstep(15, 70, Math.hypot(P.x - HAVEN.x, P.z - HAVEN.z)), 1 - smoothstep(20, 90, Math.hypot(P.x - PUERTO_AT.x, P.z - PUERTO_AT.z))),
     inlet: 1 - smoothstep(10, 60, Math.min(...CHANNEL.map((c) => Math.hypot(P.x - (c[0] + c[2]) / 2, P.z - (c[1] + c[3]) / 2)), Math.hypot(P.x - COVE.x, P.z - COVE.z))),
     head: Math.max(1 - smoothstep(15, 90, Math.hypot(P.x - DAYMARK.x, P.z - (DAYMARK.z + 20))), 1 - smoothstep(15, 80, Math.hypot(P.x - (CALF.x - CALF.rx), P.z - CALF.z))),
     race: Math.max(1 - smoothstep(10, 110, Math.hypot(P.x - (CALF_SOUND.x0 + CALF_SOUND.x1) / 2, P.z - (CALF_SOUND.z0 + CALF_SOUND.z1) / 2)), falls),
@@ -6031,6 +6281,8 @@ function tick(now, manual = false) {
     flap: !onFoot && boat.sailUp ? boat.flutter * smoothstep(1, 6, windHere.speed) : 0,
     gale: smoothstep(11, 18, windHere.speed),
     tent: state.camps.reduce((m, c) => Math.max(m, 1 - smoothstep(3, 18, Math.hypot(P.x - c.x, P.z - c.z))), 0),
+    // (Las Brasas: shearwaters calling over the island after dark.)
+    shearwaters: region === 'south' ? 1 - smoothstep(150, 700, Math.abs(landSDF(P.x, P.z))) : 0,
   });
 
   if (started && homeIntroAt > 0 && !modal && !state.outing.intro) {
@@ -6173,6 +6425,9 @@ window.slowTide = {
   // Graphics preset: 'auto', 'high', 'medium' or 'low'.
   setGraphics: (preset) => { settings.graphics.preset = preset; applyQuality(); },
   teleport: (x, z, heading = boat.heading) => boat.place(x, z, heading),
+  // The long passage: slowTide.passage('south') to Las Brasas, ('home') back; which sea you're in.
+  passage: (to = 'south') => startPassage(to),
+  get region() { return region; },
   // Put yourself ashore at (x, z), e.g. slowTide.walkTo(-99, -2) for camp.
   walkTo: (x, z, heading = walker.heading) => {
     walker.place(x, z, heading);

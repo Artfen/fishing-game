@@ -1,4 +1,4 @@
-import { solidHeight, PIERS, SEA } from './world/terrain.js';
+import { solidHeight, PIERS, inSeas } from './world/terrain.js';
 import { clamp, dampAngle } from './util.js';
 
 // Holding a boat still, three ways (the rules here; the boat does the rest, see boat.js):
@@ -59,7 +59,7 @@ function berthFits(b, B, others) {
   const fx = Math.sin(B.heading), fz = Math.cos(B.heading), half = b.hull.L * 0.42;
   for (const k of [-1, 0, 1]) {
     const x = B.x + fx * half * k, z = B.z + fz * half * k;
-    if (x < SEA.x0 || x > SEA.x1 || z < SEA.z0 || z > SEA.z1) return false;
+    if (!inSeas(x, z)) return false;
     if (solidHeight(x, z) > -(b.hull.draft + 0.25)) return false;
     if (PIERS.some((Q, j) => j !== B.pier && x > Q.x0 - 0.3 && x < Q.x1 + 0.3 && z > Q.z0 - 0.3 && z < Q.z1 + 0.3)) return false;
   }

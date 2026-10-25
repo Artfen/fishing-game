@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ATLANTIC_ANATOMY } from './anatomyAtlantic.js';
+import { SOUTH_ANATOMY } from './anatomySouth.js';
 
 // Anatomical models of aquatic animals, one recipe per species, built in code (no external
 // assets). Three body plans share the machinery where the animals really are alike:
@@ -1175,5 +1176,5 @@ export function anatomyGeometry(id, detail = true) {
 
 export const hasAnatomy = (id) => !!ANATOMY[id];
 
-// The Atlantic roster's recipes live in their own module.
-Object.assign(ANATOMY, ATLANTIC_ANATOMY);
+// The Atlantic roster's recipes live in their own module, and so do Las Brasas' fish.
+Object.assign(ANATOMY, ATLANTIC_ANATOMY, SOUTH_ANATOMY);

@@ -5,6 +5,9 @@ import {
   HAVEN, HAVEN_QUAY, BOATHOUSE_PIER, waterLevel,
 } from './terrain.js';
 import { COLDWATER, TARN } from './coldwater.js';
+import {
+  SOUTH_Z, SOUTH_MAP, brasaHeight, brasaZone, brasaHabitat, brasaSDF, PUERTO, QUAY_S, MOLE, DIQUE, PLAYA, ARCO, ARCHES, FARO, COLADAS, SEBADAL,
+} from './brasa.js';
 import { fbm, seeded, smoothstep, clamp } from '../util.js';
 
 // The underwater map every system shares: water depth, weed beds, rocks, and the
@@ -133,6 +136,8 @@ export function createHabitat() {
     spots: [],
     // Bilinear lookup of depth, weed and rock at any point.
     sample(x, z, out = {}) {
+      // (Las Brasas, far to the south, is described by its own functions: see brasa.js.)
+      if (z > SOUTH_Z) return brasaHabitat(x, z, out);
       const fx = (x - HABITAT_RECT.x) / CELL, fz = (z - HABITAT_RECT.z) / CELL;
       if (fx < 0 || fz < 0 || fx >= NX - 1 || fz >= NZ - 1) {
         for (const R of regionGrids) {
@@ -459,6 +464,7 @@ function regionSpots(habitat, rnd) {
   host('weed', BOATHOUSE_PIER.x0 + 7, BOATHOUSE_PIER.z0 - 6, 8, 'boathouse', ['perch', 'roach']);
   host('snag', BOATHOUSE_PIER.x0 - 1, BOATHOUSE_PIER.z0 - 6, 7, 'boathouse', ['pike']);
   coldwaterSpots(habitat, spots);
+  southSpots(habitat, spots);
 }
 
 // The Coldwater's own fish, last of all (so no fish anywhere else moves): brown trout in every
@@ -486,4 +492,71 @@ function coldwaterSpots(habitat, spots) {
   put('channel', at(36).x, at(36).z, 9, 'tideway', ['seabass', 'flounder']);
   put('channel', at(38).x, at(38).z, 9, 'tideway', ['flounder', 'eel']);
   put('flats', at(40).x, at(40).z, 9, 'tideway', ['mullet', 'flounder']);
+}
+
+// Las Brasas, far to the south: homes of its own (marked south, so the home coast's fish never
+// pick them, and its own seed, so nothing at home moves). Reef and boulders round the shore,
+// brown weed and seagrass, sand off the beach and over the sebadal, surf on Playa Negra, the
+// drop-off's wall and its caves, the arches off the Roque, the tide off the points, and the blue
+// water beyond. The fish that live on them are chosen in the ecosystem (see populate).
+function southSpots(habitat, spots) {
+  const rnd = seeded(6006);
+  const S = {};
+  const list = [];
+  const put = (type, x, z, r, tag) => {
+    const depth = Math.max(0, -brasaHeight(x, z));
+    if (depth < 0.6) return;
+    const o = { type, x, z, depth, zone: brasaZone(x, z), r, tag, south: true };
+    list.push(o);
+    spots.push(o);
+  };
+  const clear = (type, x, z, gap) => list.every((p) => p.type !== type || Math.hypot(p.x - x, p.z - z) > gap);
+  const M = SOUTH_MAP;
+  const near = (x, z, P, r) => Math.hypot(x - P.x, z - P.z) < r;
+  for (let z = M.z + 4; z < M.z + M.h; z += 13) {
+    for (let x = M.x + 4; x < M.x + M.w; x += 13) {
+      const px = x + (rnd() - 0.5) * 9, pz = z + (rnd() - 0.5) * 9;
+      const d = brasaSDF(px, pz);
+      if (d < 1) continue;
+      brasaHabitat(px, pz, S);
+      const zone = brasaZone(px, pz), depth = S.depth;
+      const tag = near(px, pz, ARCO, 120) ? 'roque' : near(px, pz, FARO, 160) ? 'faro' : near(px, pz, PLAYA, 190) ? 'playa' : zone === 'harbor' ? 'puerto'
+        : zone === 'sebadal' ? 'sebadal' : COLADAS.some((c) => Math.hypot(px - c[2], pz - c[3]) < 150) ? 'coladas' : zone === 'veril' ? 'veril' : null;
+      if (zone === 'harbor') continue; // (the harbour's are placed by hand, below)
+      if (zone === 'ocean') {
+        if (depth > 60 && clear('blue', px, pz, 160)) put('blue', px, pz, 40, 'ocean');
+        continue;
+      }
+      if (zone === 'veril') {
+        // The wall: the steep edge, with caves in it; open water above and beyond.
+        if (S.rock > 0.55 && depth > 20 && depth < 60 && clear('cave', px, pz, 55)) put('cave', px, pz, 8, tag || 'veril');
+        else if (S.rock > 0.4 && depth > 18 && depth < 70 && clear('wall', px, pz, 45)) put('wall', px, pz, 14, tag || 'veril');
+        else if (depth > 30 && clear('open', px, pz, 90)) put('open', px, pz, 26, tag || 'veril');
+        continue;
+      }
+      if (tag === 'playa' && depth > 0.8 && depth < 3.2 && clear('surf', px, pz, 24)) put('surf', px, pz, 9, 'playa');
+      else if (S.grass > 0.45 && clear('weed', px, pz, 34)) put('weed', px, pz, 12, tag || 'sebadal');
+      else if (S.rock > 0.6 && depth > 2 && depth < 20 && clear('reef', px, pz, 30)) put('reef', px, pz, 10, tag);
+      else if (S.rock > 0.35 && depth > 0.9 && depth < 8 && clear('rock', px, pz, 26)) put('rock', px, pz, 8, tag);
+      else if (S.weed > 0.4 && depth > 1 && depth < 9 && clear('weed', px, pz, 30)) put('weed', px, pz, 9, tag);
+      else if (S.rock < 0.25 && S.weed < 0.25 && depth > 3 && depth < 22 && clear('sand', px, pz, 40)) put('sand', px, pz, 12, tag);
+      else if (depth > 6 && depth < 30 && (tag === 'faro' || tag === 'roque') && clear('tide', px, pz, 60)) put('tide', px, pz, 18, tag);
+    }
+  }
+  // The harbour: along the quay and the inside of the breakwater, and the middle of the basin.
+  for (let x = QUAY_S.x0 + 6; x < QUAY_S.x1; x += 16) put('quay', x, QUAY_S.z1 + 3, 6, 'puerto');
+  for (let z = DIQUE.z0 + 10; z < DIQUE.z1 - 6; z += 18) put('quay', DIQUE.x0 - 3, z, 6, 'puerto');
+  put('rock', MOLE.x0 + 10, MOLE.z0 - 3, 6, 'puerto');
+  put('sand', PUERTO.x - 10, PUERTO.z + 10, 10, 'puerto');
+  // Los Arcos: the arches under the water off the Roque, and the caves round it.
+  for (const A of ARCHES) {
+    put('cave', A.x, A.z, 7, 'arcos');
+    put('reef', A.x + Math.cos(A.yaw) * 14, A.z + Math.sin(A.yaw) * 14, 9, 'arcos');
+  }
+  for (let k = 0; k < 6; k++) {
+    const a = (k / 6) * Math.PI * 2 + 0.3, r = ARCO.r + 14;
+    put(k % 2 ? 'reef' : 'cave', ARCO.x + Math.cos(a) * r, ARCO.z + Math.sin(a) * r, 8, 'roque');
+  }
+  // (The middle of the sebadal: sand where the seagrass parts.)
+  for (let k = 0; k < 5; k++) put('sand', SEBADAL.x - 160 + k * 80, SEBADAL.z + (k % 2 ? 40 : -30), 14, 'sebadal');
 }

@@ -10,7 +10,7 @@
 // - It never touches saved games: those live in the browser's local storage, not here.
 
 // <precache> Written by tools/build-sw.mjs: do not edit by hand.
-const VERSION = '46903ef90dd5';
+const VERSION = '0d3318817ffd';
 const FILES = [
   './index.html',
   './style.css',
@@ -19,6 +19,7 @@ const FILES = [
   './src/advice.js',
   './src/anatomy.js',
   './src/anatomyAtlantic.js',
+  './src/anatomySouth.js',
   './src/atlantic.js',
   './src/audio.js',
   './src/behaviour.js',
@@ -70,6 +71,7 @@ const FILES = [
   './src/settings.js',
   './src/siteWorld.js',
   './src/sonar.js',
+  './src/southFish.js',
   './src/tackle.js',
   './src/tackleModels.js',
   './src/throttle.js',
@@ -79,6 +81,8 @@ const FILES = [
   './src/util.js',
   './src/walker.js',
   './src/workbench.js',
+  './src/world/brasa.js',
+  './src/world/brasaWorld.js',
   './src/world/calf.js',
   './src/world/caustics.js',
   './src/world/coast.js',

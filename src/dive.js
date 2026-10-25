@@ -75,6 +75,9 @@ const CURIOUS = {
   wrasse: 0.85, blackbream: 0.75, whitebream: 0.75, twobanded: 0.75, striped: 0.65, gilthead: 0.6,
   pandora: 0.6, redporgy: 0.55, dentex: 0.7, seabass: 0.55, pollack: 0.6, meagre: 0.5, salema: 0.4,
   bogue: 0.45, horsemackerel: 0.4, mullet: 0.25, conger: 0.35, cuttlefish: 0.5, squid: 0.4,
+  // Las Brasas: the ornate wrasse follows a diver everywhere; groupers and amberjack come to look,
+  // triggerfish and barracuda a little; a moray stays in its hole.
+  ornatewrasse: 0.9, grouper: 0.6, amberjack: 0.6, triggerfish: 0.5, barracuda: 0.45, parrotfish: 0.4, moray: 0.15,
 };
 export function curiosity(sp) {
   if (sp.life.flat || sp.life.benthic || sp.life.observe) return 0;
@@ -87,10 +90,13 @@ export function curiosity(sp) {
 // is only sure at three or so. After a shot the shaft is pulled back in and the bands loaded.
 export const SPEAR = { range: 4.6, sure: 3.2, speed: 16, retrieve: 1.1, load: 1.8 };
 
-// Taken with a speargun, or not: never in fresh water (banned), never a protected fish (the
-// eel), never bluefin tuna (strict quotas), and a fish too small is let grow.
+// Taken with a speargun, or not: never in fresh water (banned), never a fish with a reason of its
+// own (noSpear: the dusky grouper, vulnerable, every one goes back; the trumpetfish, one to
+// watch), never a protected fish (the eel, the angelshark), never bluefin tuna (strict quotas),
+// and a fish too small is let grow.
 export function canSpear(sp, size, water) {
   if (water === 'fresh') return { ok: false, why: 'Spearfishing isn’t allowed in fresh water.' };
+  if (sp.noSpear) return { ok: false, why: sp.noSpear };
   if (sp.life.observe) return { ok: false, why: `The ${sp.name.toLowerCase()} is protected: watch it, never take it.` };
   if (sp.id === 'tuna') return { ok: false, why: 'Bluefin tuna are under strict quotas: never with a speargun here.' };
   if (smallFor(sp, size)) return { ok: false, small: true, why: 'Too small: let it grow.' };

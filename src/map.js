@@ -22,13 +22,18 @@ const ZOOM = 1.55;
 
 // Which cells you've seen, kept in the save as a short base64 string.
 export class Explored {
-  constructor(saved = '') {
+  // sheet: the part of the world it covers (home's SHEET, or Las Brasas' far to the south).
+  constructor(saved = '', sheet = SHEET) {
+    this.sheet = sheet;
+    this.cols = sheet.w / CELL;
+    this.rows = sheet.h / CELL;
+    const COLS = this.cols, ROWS = this.rows;
     this.bits = new Uint8Array(Math.ceil((COLS * ROWS) / 8));
     this.version = 0;
     if (typeof saved === 'string' && saved) {
       try {
         const raw = atob(saved);
-        if (raw.length === Math.ceil((OLD_SHEET.cols * OLD_SHEET.rows) / 8)) {
+        if (sheet === SHEET && raw.length === Math.ceil((OLD_SHEET.cols * OLD_SHEET.rows) / 8)) {
           // A map from before the sheet grew: each cell moves to its place on the new one.
           const di = (OLD_SHEET.x - SHEET.x) / CELL, dj = (OLD_SHEET.z - SHEET.z) / CELL;
           for (let k = 0; k < OLD_SHEET.cols * OLD_SHEET.rows; k++) {
@@ -44,6 +49,7 @@ export class Explored {
   }
 
   has(i, j) {
+    const COLS = this.cols, ROWS = this.rows;
     if (i < 0 || j < 0 || i >= COLS || j >= ROWS) return false;
     const k = j * COLS + i;
     return (this.bits[k >> 3] >> (k & 7)) & 1;
@@ -51,6 +57,7 @@ export class Explored {
 
   // Everything within r metres of (x, z) has been seen. Says whether anything was new.
   reveal(x, z, r) {
+    const SHEET = this.sheet, COLS = this.cols, ROWS = this.rows;
     let fresh = false;
     const i0 = Math.floor((x - r - SHEET.x) / CELL), i1 = Math.floor((x + r - SHEET.x) / CELL);
     const j0 = Math.floor((z - r - SHEET.z) / CELL), j1 = Math.floor((z + r - SHEET.z) / CELL);
@@ -71,7 +78,7 @@ export class Explored {
   get fraction() {
     let n = 0;
     for (const b of this.bits) for (let v = b; v; v &= v - 1) n++;
-    return n / (COLS * ROWS);
+    return n / (this.cols * this.rows);
   }
 
   toString() {
@@ -89,6 +96,14 @@ const canvas2 = (w, h) => {
   return c;
 };
 const INK = '#3a2e26';
+// The home waters' zones (anything else is Las Brasas', far to the south).
+const HOME_ZONES = new Set(['bay', 'cove', 'open', 'coast', 'deep', 'estuary', 'lake', 'stream', 'mere', 'river', 'tarn', 'tideway']);
+// The sheet a species lives on: 'south' if only round Las Brasas, 'home' if only at home, or null
+// for both.
+const sheetOf = (id) => {
+  const z = fishById[id]?.life.zones || [];
+  return z.every((k) => !HOME_ZONES.has(k)) ? 'south' : z.every((k) => HOME_ZONES.has(k)) ? 'home' : null;
+};
 const half = THREE.DataUtils.fromHalfFloat;
 
 export class MapSheet {
@@ -96,9 +111,12 @@ export class MapSheet {
   // height and freshness first). hooks: travel(dest), travelInfo(), close().
   constructor(state, explored, height, hooks) {
     this.state = state;
-    this.explored = explored;
-    this.height = height;
     this.hooks = hooks;
+    // The sheets: home's, and (added later) Las Brasas', far to the south. Each has its own
+    // extent, explored memory, baked heights and drawings; useSheet() picks the one to show.
+    this.sheets = {};
+    this.addSheet('home', SHEET, explored, () => height);
+    this.useSheet('home');
     this.el = $('map');
     this.canvas = $('map-canvas');
     this.base = null;
@@ -139,22 +157,56 @@ export class MapSheet {
 
   get isOpen() { return !this.el.hidden; }
 
+  // A sheet: its key, the part of the world it covers, its explored memory, and its heights (a
+  // function, so they can be baked only when first needed).
+  addSheet(key, S, explored, height) {
+    this.sheets[key] = { key, S, explored, height, base: null, fog: null, fogVersion: -1, masks: null, areas: null, far: null, heightData: null };
+  }
+
+  useSheet(key) {
+    const N = this.sheets[key];
+    if (!N || this.key === key) return;
+    const C = this.sheets[this.key];
+    if (C) Object.assign(C, { base: this.base, fog: this.fog, fogVersion: this.fogVersion, masks: this.masks, areas: this.areas, far: this.far });
+    this.key = key;
+    this.S = N.S;
+    this.cols = N.S.w / CELL;
+    this.rows = N.S.h / CELL;
+    this.explored = N.explored;
+    N.heightData = N.heightData || N.height();
+    this.height = N.heightData;
+    this.base = N.base;
+    this.fog = N.fog;
+    this.fogVersion = N.fogVersion;
+    this.masks = N.masks;
+    this.areas = N.areas;
+    this.far = N.far;
+  }
+
+  // Which sheet a point of the world is on.
+  sheetFor(x, z) {
+    for (const [k, N] of Object.entries(this.sheets)) {
+      if (k !== 'home' && x > N.S.x && x < N.S.x + N.S.w && z > N.S.z && z < N.S.z + N.S.h) return k;
+    }
+    return 'home';
+  }
+
   // Where a species can live, as cells of the map: its waters, at depths that suit it. (From
   // the simulation's own habitat data, so it never shows a fish where the game has none.)
   suitability(id) {
     this.masks = this.masks || new Map();
     if (this.masks.has(id)) return this.masks.get(id);
     const sp = fishById[id], L = sp.life, H = habitsOf(sp);
-    const mask = new Uint8Array(COLS * ROWS);
-    for (let j = 0; j < ROWS; j++) {
-      for (let i = 0; i < COLS; i++) {
-        const x = SHEET.x + (i + 0.5) * CELL, z = SHEET.z + (j + 0.5) * CELL;
+    const mask = new Uint8Array(this.cols * this.rows);
+    for (let j = 0; j < this.rows; j++) {
+      for (let i = 0; i < this.cols; i++) {
+        const x = this.S.x + (i + 0.5) * CELL, z = this.S.z + (j + 0.5) * CELL;
         const depth = -this.sample(x, z)[0];
         if (depth < 0.3) continue;
         if (!L.zones.includes(zoneAt(x, z))) continue;
         if (depth < Math.max(0.3, H.depth[0] * 0.6)) continue;
         if ((L.bottom || L.flat) && depth > H.depth[1] + 3) continue;
-        mask[j * COLS + i] = 1;
+        mask[j * this.cols + i] = 1;
       }
     }
     this.masks.set(id, mask);
@@ -165,11 +217,11 @@ export class MapSheet {
   // shading is coarse).
   suitableAt(id, x, z) {
     const mask = this.suitability(id);
-    const i0 = Math.floor((x - SHEET.x) / CELL), j0 = Math.floor((z - SHEET.z) / CELL);
+    const i0 = Math.floor((x - this.S.x) / CELL), j0 = Math.floor((z - this.S.z) / CELL);
     for (let dj = -1; dj <= 1; dj++) {
       for (let di = -1; di <= 1; di++) {
         const i = i0 + di, j = j0 + dj;
-        if (i >= 0 && j >= 0 && i < COLS && j < ROWS && mask[j * COLS + i]) return true;
+        if (i >= 0 && j >= 0 && i < this.cols && j < this.rows && mask[j * this.cols + i]) return true;
       }
     }
     return false;
@@ -186,11 +238,11 @@ export class MapSheet {
       const stack = [k], cells = [];
       seen[k] = 1;
       while (stack.length) {
-        const c = stack.pop(), i = c % COLS, j = (c - i) / COLS;
+        const c = stack.pop(), i = c % this.cols, j = (c - i) / this.cols;
         cells.push(c);
         for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const ni = i + di, nj = j + dj, n = nj * COLS + ni;
-          if (ni < 0 || nj < 0 || ni >= COLS || nj >= ROWS || seen[n] || !mask[n]) continue;
+          const ni = i + di, nj = j + dj, n = nj * this.cols + ni;
+          if (ni < 0 || nj < 0 || ni >= this.cols || nj >= this.rows || seen[n] || !mask[n]) continue;
           seen[n] = 1;
           stack.push(n);
         }
@@ -198,7 +250,7 @@ export class MapSheet {
       if (cells.length < 2) continue;
       // Its middle (the cell nearest the centroid, so it's always in the water that suits).
       let sx = 0, sz = 0;
-      const pts = cells.map((c) => [SHEET.x + ((c % COLS) + 0.5) * CELL, SHEET.z + (Math.floor(c / COLS) + 0.5) * CELL]);
+      const pts = cells.map((c) => [this.S.x + ((c % this.cols) + 0.5) * CELL, this.S.z + (Math.floor(c / this.cols) + 0.5) * CELL]);
       for (const [x, z] of pts) { sx += x; sz += z; }
       sx /= pts.length;
       sz /= pts.length;
@@ -215,7 +267,7 @@ export class MapSheet {
   // The suitable water as a soft overlay, in a canvas the size of the base map.
   overlay(id) {
     const mask = this.suitability(id);
-    const m = canvas2(COLS, ROWS), mctx = m.getContext('2d'), img = mctx.createImageData(COLS, ROWS);
+    const m = canvas2(this.cols, this.rows), mctx = m.getContext('2d'), img = mctx.createImageData(this.cols, this.rows);
     for (let k = 0; k < mask.length; k++) if (mask[k]) {
       img.data[k * 4] = 32;
       img.data[k * 4 + 1] = 128;
@@ -234,22 +286,33 @@ export class MapSheet {
   // A small map for the field guide: the coast as far as you've explored it, with the water that
   // suits a species shaded over it (and, planning a trip, the places to choose from ringed).
   miniMap(cv, id, places = null, me = null) {
+    // (A fish of Las Brasas is shown on the island's sheet; then back to the one you were on.)
+    const was = this.key, there = (this.sheets.south && sheetOf(id)) || (this.sheets[was] ? was : 'home');
+    if (there !== was) {
+      this.useSheet(there);
+      this.miniMap(cv, id, places, me);
+      this.useSheet(was);
+      return;
+    }
     if (!this.base) this.bake();
     if (this.fogVersion !== this.explored.version || !this.fog) this.buildFog();
+    // (The canvas takes the sheet's shape: Las Brasas' chart is wider than it is tall.)
+    const h = Math.round((cv.width * this.S.h) / this.S.w);
+    if (cv.height !== h) cv.height = h;
     const ctx = cv.getContext('2d');
     ctx.drawImage(this.base, 0, 0, cv.width, cv.height);
     ctx.drawImage(this.fog, 0, 0, cv.width, cv.height);
     ctx.globalAlpha = 0.6;
     ctx.drawImage(this.overlay(id), 0, 0, cv.width, cv.height);
     ctx.globalAlpha = 1;
-    const kx = cv.width / SHEET.w, kz = cv.height / SHEET.h;
+    const kx = cv.width / this.S.w, kz = cv.height / this.S.h;
     for (const p of places || []) {
       ctx.save();
       ctx.strokeStyle = p.on ? '#b5532f' : 'rgba(58, 46, 38, 0.55)';
       ctx.lineWidth = p.on ? 2.5 : 1.5;
       if (!p.on) ctx.setLineDash([3, 3]);
       ctx.beginPath();
-      ctx.arc((p.x - SHEET.x) * kx, (p.z - SHEET.z) * kz, Math.max(6, p.r * kx), 0, Math.PI * 2);
+      ctx.arc((p.x - this.S.x) * kx, (p.z - this.S.z) * kz, Math.max(6, p.r * kx), 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
@@ -257,7 +320,7 @@ export class MapSheet {
     if (me) {
       ctx.fillStyle = '#b5532f';
       ctx.beginPath();
-      ctx.arc((me.x - SHEET.x) * kx, (me.z - SHEET.z) * kz, 3, 0, Math.PI * 2);
+      ctx.arc((me.x - this.S.x) * kx, (me.z - this.S.z) * kz, 3, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.strokeStyle = 'rgba(58, 46, 38, 0.5)';
@@ -267,6 +330,8 @@ export class MapSheet {
   // where = { player: { x, z, heading }, onFoot, boats, boat (the one you're in or last used) }
   // highlight: a species id, to shade the water that suits it.
   open(where, highlight = null) {
+    // (The sheet you're on: home's, or Las Brasas'; or, showing a fish's water, the one it lives on.)
+    this.useSheet((highlight && this.sheets.south && sheetOf(highlight)) || this.sheetFor(where.player.x, where.player.z));
     this.where = where;
     this.highlight = highlight;
     this.highlightImg = highlight ? this.overlay(highlight) : null;
@@ -276,12 +341,17 @@ export class MapSheet {
     // Start a little zoomed in, around you; showing a species' water, take in the nearest of it
     // too.
     this.view.zoom = this.fitZoom * 2.2 * ZOOM;
-    const near = highlight && (this.state.trip?.sp === highlight ? this.state.trip : this.nearestSuitable(highlight, where.player));
+    const here = this.key === this.sheetFor(where.player.x, where.player.z);
+    const near = highlight && here && (this.state.trip?.sp === highlight ? this.state.trip : this.nearestSuitable(highlight, where.player));
     if (near) {
       const p = where.player, m = 1.5 * CELL;
       const w = Math.abs(near.x - p.x) + 2 * m, h = Math.abs(near.z - p.z) + 2 * m;
       this.view.zoom = Math.max(this.fitZoom, Math.min(this.view.zoom, (this.canvas.width * 0.8) / w, (this.canvas.height * 0.8) / h));
       this.centre({ x: (p.x + near.x) / 2, z: (p.z + near.z) / 2 });
+    } else if (highlight && !here) {
+      // (Its water is on the other sheet: show all of it.)
+      this.view.zoom = this.fitZoom;
+      this.centre({ x: this.S.x + this.S.w / 2, z: this.S.z + this.S.h / 2 });
     } else this.centre(where.player);
     this.renderSide();
   }
@@ -290,10 +360,10 @@ export class MapSheet {
   nearestSuitable(id, p) {
     const mask = this.suitability(id);
     let best = null, bd = Infinity;
-    for (let j = 0; j < ROWS; j++) {
-      for (let i = 0; i < COLS; i++) {
-        if (!mask[j * COLS + i]) continue;
-        const x = SHEET.x + (i + 0.5) * CELL, z = SHEET.z + (j + 0.5) * CELL, d = (x - p.x) ** 2 + (z - p.z) ** 2;
+    for (let j = 0; j < this.rows; j++) {
+      for (let i = 0; i < this.cols; i++) {
+        if (!mask[j * this.cols + i]) continue;
+        const x = this.S.x + (i + 0.5) * CELL, z = this.S.z + (j + 0.5) * CELL, d = (x - p.x) ** 2 + (z - p.z) ** 2;
         if (d < bd) {
           bd = d;
           best = { x, z };
@@ -312,6 +382,11 @@ export class MapSheet {
   // Open on a particular spot (a mark, a photograph's place), zoomed in.
   openAt(where, x, z) {
     this.open(where);
+    if (this.sheetFor(x, z) !== this.key) {
+      this.useSheet(this.sheetFor(x, z));
+      if (!this.base) this.bake();
+      this.fit();
+    }
     this.view.zoom = this.fitZoom * 4 * ZOOM;
     this.centre({ x, z });
   }
@@ -320,7 +395,7 @@ export class MapSheet {
 
   // The land and water, drawn once: shoreline in ink, hills in contours, water by depth.
   bake() {
-    const BW = 896, BH = 1232; // (2.5 m a pixel)
+    const BW = Math.round(this.S.w / 2.5), BH = Math.round(this.S.h / 2.5); // (2.5 m a pixel)
     const c = document.createElement('canvas');
     c.width = BW;
     c.height = BH;
@@ -330,9 +405,9 @@ export class MapSheet {
     const H = this.height;
     const hs = new Float32Array(BW * BH), fr = new Float32Array(BW * BH);
     for (let j = 0; j < BH; j++) {
-      const z = SHEET.z + ((j + 0.5) / BH) * SHEET.h;
+      const z = this.S.z + ((j + 0.5) / BH) * this.S.h;
       for (let i = 0; i < BW; i++) {
-        const x = SHEET.x + ((i + 0.5) / BW) * SHEET.w;
+        const x = this.S.x + ((i + 0.5) / BW) * this.S.w;
         const s = this.sample(x, z);
         hs[j * BW + i] = s[0];
         fr[j * BW + i] = s[1];
@@ -371,7 +446,11 @@ export class MapSheet {
     ctx.putImageData(img, 0, 0);
     // The Coldwater above the tide and Hoar Tarn, up on the fell (the land under them is drawn
     // as land, so their water goes on top).
-    const kx = BW / SHEET.w, kz = BH / SHEET.h, at = (x, z) => [(x - SHEET.x) * kx, (z - SHEET.z) * kz];
+    if (this.key !== 'home') {
+      this.base = c;
+      return;
+    }
+    const kx = BW / this.S.w, kz = BH / this.S.h, at = (x, z) => [(x - this.S.x) * kx, (z - this.S.z) * kz];
     ctx.save();
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -421,13 +500,13 @@ export class MapSheet {
   }
 
   beyond(x, z) {
-    const G = 8, gw = SHEET.w / G + 1, gh = SHEET.h / G + 1;
+    const G = 8, gw = this.S.w / G + 1, gh = this.S.h / G + 1;
     this.far = this.far || new Float32Array(gw * gh).fill(NaN);
-    const u = Math.max(0, Math.min(gw - 1.001, (x - SHEET.x) / G)), v = Math.max(0, Math.min(gh - 1.001, (z - SHEET.z) / G));
+    const u = Math.max(0, Math.min(gw - 1.001, (x - this.S.x) / G)), v = Math.max(0, Math.min(gh - 1.001, (z - this.S.z) / G));
     const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j;
     const at = (ii, jj) => {
       const k = jj * gw + ii;
-      if (Number.isNaN(this.far[k])) this.far[k] = heightAt(SHEET.x + ii * G, SHEET.z + jj * G);
+      if (Number.isNaN(this.far[k])) this.far[k] = heightAt(this.S.x + ii * G, this.S.z + jj * G);
       return this.far[k];
     };
     return (at(i, j) * (1 - fu) + at(i + 1, j) * fu) * (1 - fv) + (at(i, j + 1) * (1 - fu) + at(i + 1, j + 1) * fu) * fv;
@@ -436,17 +515,17 @@ export class MapSheet {
   // Blank paper over everything you haven't seen yet, with soft edges.
   buildFog() {
     const m = document.createElement('canvas');
-    m.width = COLS;
-    m.height = ROWS;
+    m.width = this.cols;
+    m.height = this.rows;
     const mctx = m.getContext('2d');
-    const img = mctx.createImageData(COLS, ROWS);
-    for (let j = 0; j < ROWS; j++) {
-      for (let i = 0; i < COLS; i++) img.data[(j * COLS + i) * 4 + 3] = this.explored.has(i, j) ? 255 : 0;
+    const img = mctx.createImageData(this.cols, this.rows);
+    for (let j = 0; j < this.rows; j++) {
+      for (let i = 0; i < this.cols; i++) img.data[(j * this.cols + i) * 4 + 3] = this.explored.has(i, j) ? 255 : 0;
     }
     mctx.putImageData(img, 0, 0);
     const f = this.fog || document.createElement('canvas');
-    f.width = COLS * 5;
-    f.height = ROWS * 5;
+    f.width = this.cols * 5;
+    f.height = this.rows * 5;
     const ctx = f.getContext('2d');
     ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = '#efe3c6';
@@ -476,7 +555,7 @@ export class MapSheet {
     this.canvas.width = Math.max(1, Math.round(r.width * dpr));
     this.canvas.height = Math.max(1, Math.round(r.height * dpr));
     this.dpr = dpr;
-    this.fitZoom = Math.min(this.canvas.width / SHEET.w, this.canvas.height / SHEET.h);
+    this.fitZoom = Math.min(this.canvas.width / this.S.w, this.canvas.height / this.S.h);
   }
 
   // World (x, z) → canvas pixels.
@@ -516,8 +595,8 @@ export class MapSheet {
   clampView() {
     const v = this.view;
     const hw = this.canvas.width / 2 / v.zoom, hh = this.canvas.height / 2 / v.zoom;
-    v.x = SHEET.w / 2 < hw ? SHEET.x + SHEET.w / 2 : Math.max(SHEET.x + hw, Math.min(SHEET.x + SHEET.w - hw, v.x));
-    v.z = SHEET.h / 2 < hh ? SHEET.z + SHEET.h / 2 : Math.max(SHEET.z + hh, Math.min(SHEET.z + SHEET.h - hh, v.z));
+    v.x = this.S.w / 2 < hw ? this.S.x + this.S.w / 2 : Math.max(this.S.x + hw, Math.min(this.S.x + this.S.w - hw, v.x));
+    v.z = this.S.h / 2 < hh ? this.S.z + this.S.h / 2 : Math.max(this.S.z + hh, Math.min(this.S.z + this.S.h - hh, v.z));
   }
 
   bindPointer() {
@@ -588,8 +667,8 @@ export class MapSheet {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#efe3c6';
     ctx.fillRect(0, 0, cv.width, cv.height);
-    const [x0, y0] = this.toPx(SHEET.x, SHEET.z);
-    const w = SHEET.w * this.view.zoom, h = SHEET.h * this.view.zoom;
+    const [x0, y0] = this.toPx(this.S.x, this.S.z);
+    const w = this.S.w * this.view.zoom, h = this.S.h * this.view.zoom;
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(this.base, x0, y0, w, h);
 
@@ -994,7 +1073,7 @@ export class MapSheet {
     const found = PLACES.filter((p) => st.places[p.id]);
     $('map-sub').textContent = this.highlight
       ? `Shaded: water that suits ${fishById[this.highlight].name.toLowerCase()} (${[...new Set(fishById[this.highlight].life.zones.map((z) => ZONE_NAMES[z] || z))].join(', ')}). It shows where to look, not where each fish is.`
-      : `${found.length} of ${PLACES.length} places found · ${Math.round(this.explored.fraction * 100)}% of the coast explored`;
+      : `${found.length} of ${PLACES.length} places found · ${Math.round(this.explored.fraction * 100)}% of ${this.key === 'south' ? 'Las Brasas' : 'the coast'} explored`;
 
     // Camps you can head to (the walk or sail there happens in a short fade; time passes).
     const camps = found.filter((p) => p.camp);
@@ -1011,7 +1090,8 @@ export class MapSheet {
       go.type = 'button';
       go.className = 'pk-btn';
       go.textContent = info.here === p.id ? 'You’re here' : 'Go there';
-      go.disabled = !info.camps || info.here === p.id;
+      // (Home's camps from Las Brasas, or its harbour from home: only the long passage.)
+      go.disabled = !info.camps || info.here === p.id || !!p.south !== (this.key === 'south');
       go.addEventListener('click', () => this.hooks.travel(p.id === 'camp' ? 'camp' : p.id));
       li.append(name, sub, go);
       return li;
@@ -1083,3 +1163,7 @@ export class MapSheet {
     $('map-places').replaceChildren(...items);
   }
 }
+// (Home's sheet unless told otherwise, even for a map made without its window, as the tests do.)
+MapSheet.prototype.S = SHEET;
+MapSheet.prototype.cols = COLS;
+MapSheet.prototype.rows = ROWS;

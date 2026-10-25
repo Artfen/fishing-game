@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import { clamp, smoothstep, damp, lerp } from '../util.js';
 import {
   WATER_RECT, BAY, COVE, CHANNEL, GANNET, SHOAL, SKERRIES, RIVER, DEEP_Z,
-  zoneAt, solidHeight, streamFlow, riverInfo, freshness, CALF_SOUND, waterLevel,
+  zoneAt, solidHeight, streamFlow, riverInfo, freshness, CALF_SOUND, waterLevel, SOUTH_Z,
 } from './terrain.js';
 import { coldwaterFlow } from './coldwater.js';
+import { SOUTH_WATER, brasaCurrent } from './brasa.js';
 
 // Wind, waves and currents: one shared state for the whole game, so the water you see, the
 // boats on it, a float, a cast, the trees and the sound of the wind all answer to the same
@@ -34,16 +35,30 @@ const TAU = Math.PI * 2;
 // (for the water to show it flowing: the stream's own is in the height map). Open sea 1; bays, coves and the estuary
 // much less; close under a shore less again; lakes and the stream almost none. Smoothed so there
 // are never edges. The water shader samples the same texture as the boats do here.
-const SH = { w: 250, h: 312 }; // cells over the whole water rect (8 m each)
-const SWELL_BY_ZONE = { deep: 1, coast: 0.9, open: 0.75, bay: 0.28, cove: 0.18, estuary: 0.16, lake: 0, stream: 0, mere: 0.02 };
-const WIND_BY_ZONE = { deep: 1, coast: 0.95, open: 0.9, bay: 0.6, cove: 0.45, estuary: 0.7, lake: 0.35, stream: 0.2, mere: 0.55 };
-let shelterData = null; // Float32 [swell, wind] per cell (as the texture holds them)
-let currentData = null; // Float32 [x, z] per cell: the sea's surface current, for quick lookups
-let shelterTex = null;
+// (Las Brasas, far to the south, has its own: the windward north and west take the swell and the
+// trade wind; the lee and the harbour are calm.)
+const SWELL_BY_ZONE = {
+  deep: 1, coast: 0.9, open: 0.75, bay: 0.28, cove: 0.18, estuary: 0.16, lake: 0, stream: 0, mere: 0.02,
+  harbor: 0.04, lee: 0.3, lava: 1, sebadal: 0.42, veril: 0.75, ocean: 1,
+};
+const WIND_BY_ZONE = {
+  deep: 1, coast: 0.95, open: 0.9, bay: 0.6, cove: 0.45, estuary: 0.7, lake: 0.35, stream: 0.2, mere: 0.55,
+  harbor: 0.35, lee: 0.62, lava: 1, sebadal: 0.85, veril: 0.95, ocean: 1,
+};
+// One baked field per sea: home (the whole water rect, 8 m cells) and the far south.
+// data: Float32 [swell, wind] per cell (as the texture holds them); cur: Float32 [x, z] per cell,
+// the sea's surface current, for quick lookups.
+const FIELDS = {
+  home: { rect: WATER_RECT, w: 250, h: 312, data: null, cur: null, tex: null },
+  south: { rect: SOUTH_WATER, w: 280, h: 280, data: null, cur: null, tex: null },
+};
+const fieldAt = (z) => (z > SOUTH_Z ? FIELDS.south : FIELDS.home);
+export const shelterRect = (region = 'home') => FIELDS[region].rect;
 
-export function bakeShelter() {
-  if (shelterTex) return shelterTex;
-  const { w, h } = SH, R = WATER_RECT;
+export function bakeShelter(region = 'home') {
+  const F = FIELDS[region];
+  if (F.tex) return F.tex;
+  const { w, h } = F, R = F.rect;
   const a = new Float32Array(w * h * 2);
   for (let j = 0; j < h; j++) {
     const z = R.z + ((j + 0.5) / h) * R.h;
@@ -79,7 +94,7 @@ export function bakeShelter() {
   // Half floats, as the GPU will see them; the CPU reads back the very same values.
   const toHalf = THREE.DataUtils.toHalfFloat, fromHalf = THREE.DataUtils.fromHalfFloat;
   const data = new Uint16Array(w * h * 4);
-  shelterData = new Float32Array(w * h * 2);
+  const shelterData = (F.data = new Float32Array(w * h * 2));
   for (let k = 0; k < w * h; k++) {
     data[k * 4] = toHalf(a[k * 2]);
     data[k * 4 + 1] = toHalf(a[k * 2 + 1]);
@@ -87,7 +102,7 @@ export function bakeShelter() {
     shelterData[k * 2 + 1] = fromHalf(data[k * 4 + 1]);
   }
   const cur = { x: 0, z: 0 };
-  currentData = new Float32Array(w * h * 2);
+  const currentData = (F.cur = new Float32Array(w * h * 2));
   for (let j = 0; j < h; j++) {
     const z = R.z + ((j + 0.5) / h) * R.h;
     for (let i = 0; i < w; i++) {
@@ -100,18 +115,19 @@ export function bakeShelter() {
       currentData[k * 2 + 1] = cur.z;
     }
   }
-  shelterTex = new THREE.DataTexture(data, w, h, THREE.RGBAFormat, THREE.HalfFloatType);
-  shelterTex.magFilter = shelterTex.minFilter = THREE.LinearFilter;
-  shelterTex.wrapS = shelterTex.wrapT = THREE.ClampToEdgeWrapping;
-  shelterTex.needsUpdate = true;
-  return shelterTex;
+  const tex = (F.tex = new THREE.DataTexture(data, w, h, THREE.RGBAFormat, THREE.HalfFloatType));
+  tex.magFilter = tex.minFilter = THREE.LinearFilter;
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.needsUpdate = true;
+  return tex;
 }
 
 // Bilinear, at texel centres, exactly as the GPU filters the texture. out = [swell, wind].
 const _sh = [0, 0];
 export function shelterAt(x, z, out = _sh) {
-  if (!shelterData) bakeShelter();
-  const R = WATER_RECT, { w, h } = SH;
+  const F = fieldAt(z);
+  if (!F.data) bakeShelter(F === FIELDS.south ? 'south' : 'home');
+  const R = F.rect, { w, h } = F, shelterData = F.data;
   const u = ((x - R.x) / R.w) * w - 0.5, v = ((z - R.z) / R.h) * h - 0.5;
   const i = clamp(Math.floor(u), 0, w - 2), j = clamp(Math.floor(v), 0, h - 2);
   const fu = clamp(u - i, 0, 1), fv = clamp(v - j, 0, 1);
@@ -121,7 +137,7 @@ export function shelterAt(x, z, out = _sh) {
   }
   return out;
 }
-export const SHELTER_RECT = WATER_RECT;
+export const SHELTER_RECT = WATER_RECT; // (home's; the far south's is shelterRect('south'))
 
 /* ---------------- the shared state ---------------- */
 
@@ -160,7 +176,8 @@ for (const [len, share] of [[9, 0.65], [5, 0.35]]) {
 }
 export const WAVE_COUNTS = { swell: SWELL.length, chop: CHOP.length };
 
-export const TIDE = { flow: 1 }; // +1 ebb (out to sea), −1 flood; constant until tides arrive
+export const TIDE = { flow: 1 };
+const TRADES_FROM = 0.8; // the trade wind's bearing: from the north-east // +1 ebb (out to sea), −1 flood; constant until tides arrive
 
 export const conditions = {
   time: 0, // the shared wave clock (seconds), set by the game each frame
@@ -173,6 +190,8 @@ export const conditions = {
   sea: { swell: 0.1, chop: 0.05, storm: 0, peak: 1 },
   // From Settings: 'auto' (follow the weather) or a SEA_PRESETS id; wind 'auto' or manual.
   preset: 'auto', manual: null, currents: 'natural',
+  // Which sea you're in ('home', or 'south' at Las Brasas, where the trade wind blows).
+  region: 'home',
   chopAmps: new Float32Array(CHOP.length),
   swellAmps: new Float32Array(SWELL.length),
 };
@@ -188,13 +207,17 @@ export function updateConditions(dt, weather) {
     W.timer -= dt;
     const storm = weather.storm || 0;
     // (In a storm the wind gets up to a gale and changes more often.)
+    const trades = C.region === 'south' && storm < 0.3;
     if (W.timer <= 0 || (storm > 0.3 && W.target < 12 * storm)) {
       W.timer = (70 + Math.random() * 110) * (1 - storm * 0.5);
-      const [lo, hi] = P && storm < 0.3 ? P.wind : [lerp(1 + weather.cloud * 2, 13, storm), lerp(6 + weather.rain * 5, 18.5, storm)];
+      // (At Las Brasas, the trade wind: a steady breeze from the north-east, fresher in the
+      // afternoon, seldom calm.)
+      const [lo, hi] = P && storm < 0.3 ? P.wind : trades ? [4.5, 9.5] : [lerp(1 + weather.cloud * 2, 13, storm), lerp(6 + weather.rain * 5, 18.5, storm)];
       W.target = clamp(lerp(lo, hi, Math.random()) + weather.rain * 2 * (1 - storm), 0, 20);
       W.turn = (Math.random() - 0.5) * 0.004 * (1 + storm * 2);
     }
     W.from = (W.from + W.turn * dt + TAU) % TAU;
+    if (trades) W.from = dampAngleTo(W.from, TRADES_FROM + Math.sin(C.time * 0.0021) * 0.25, 0.01, dt);
   }
   W.speed = damp(W.speed, W.target, 0.05, dt);
   // The sea follows: chop within half a minute or so, the swell over a few minutes; a storm's big
@@ -316,6 +339,8 @@ export function currentAt(x, z, depth = 0, out = _c) {
 
 // The sea's current at the surface (everything but the stream).
 function seaCurrent(x, z, out) {
+  // (Las Brasas: the Canary current, see brasa.js.)
+  if (z > SOUTH_Z) return brasaCurrent(x, z, out);
   let cx = 0, cz = 0;
   const sh = shelterAt(x, z);
   const exposed = sh[0];
@@ -366,8 +391,9 @@ function seaCurrent(x, z, out) {
 }
 // The sea's surface current from the baked grid (8 m): cheap enough for every fish, every step.
 export function currentFast(x, z, out = _c) {
-  if (!currentData) bakeShelter();
-  const R = WATER_RECT, { w, h } = SH;
+  const F = fieldAt(z);
+  if (!F.cur) bakeShelter(F === FIELDS.south ? 'south' : 'home');
+  const R = F.rect, { w, h } = F, currentData = F.cur;
   const u = ((x - R.x) / R.w) * w - 0.5, v = ((z - R.z) / R.h) * h - 0.5;
   const i = clamp(Math.floor(u), 0, w - 2), j = clamp(Math.floor(v), 0, h - 2);
   const fu = clamp(u - i, 0, 1), fv = clamp(v - j, 0, 1);

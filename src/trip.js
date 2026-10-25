@@ -13,6 +13,7 @@ export const HOME_WORDS = {
   reef: 'reefs and kelp', surf: 'surf off rocky points', tide: 'tide races', channel: 'the channel', flats: 'sand and mud flats',
   quay: 'the quay wall', reeds: 'reed edges', blue: 'the open ocean', pool: 'stream pools', margin: 'lake margins', pads: 'lily pads',
   snag: 'snags and fallen trees', dropoff: 'drop-offs', holm: 'island shores', shallows: 'shallows',
+  wall: 'the wall of the drop-off', cave: 'caves in the rock',
 };
 
 const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];

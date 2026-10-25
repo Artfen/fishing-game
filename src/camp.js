@@ -65,7 +65,7 @@ export class Camp {
     this.hooks = hooks;
     this.el = $('camp');
     this.tab = 'cook';
-    this.site = null; // null: the old camp; 'house': home; 'cabin': the cabin boat; 'bothy': the bothy on the fell; otherwise your camp's record
+    this.site = null; // null: the old camp; 'house': home; 'cabin': the cabin boat; 'bothy': the bothy on the fell; 'posada': your room at Bar El Muelle (Las Brasas); otherwise your camp's record
     this.grillFish = {};
     this.shownFish = null;
     this.lastHunger = this.hunger;
@@ -86,12 +86,15 @@ export class Camp {
   }
 
   get isOpen() { return !this.el.hidden; }
-  get own() { return !!this.site && this.site !== 'house' && this.site !== 'cabin' && this.site !== 'bothy'; }
-  // Home, the cabin boat and the bothy work the same way: a kitchen (a galley, a stove) to cook
-  // what's in your creel, and a bed (a bunk). (The bothy has a shelf of tackle too.)
-  get house() { return this.site === 'house' || this.site === 'cabin' || this.site === 'bothy'; }
+  get own() { return !!this.site && this.site !== 'house' && this.site !== 'cabin' && this.site !== 'bothy' && this.site !== 'posada'; }
+  // Home, the cabin boat, the bothy and the room at Bar El Muelle work the same way: a kitchen (a
+  // galley, a stove) to cook what's in your creel, and a bed (a bunk). (The bothy and the bar have
+  // a shelf of tackle too.)
+  get house() { return this.site === 'house' || this.site === 'cabin' || this.site === 'bothy' || this.site === 'posada'; }
   get cabin() { return this.site === 'cabin'; }
   get bothy() { return this.site === 'bothy'; }
+  get posada() { return this.site === 'posada'; }
+  get shelf() { return this.bothy || this.posada; }
   abs() { return this.state.day * 24 + this.state.hour; }
   get food() { return this.state.food; }
   get wellFed() { return this.abs() < this.food.wellFedUntil; }
@@ -161,7 +164,7 @@ export class Camp {
 
   oatcake() {
     this.food.full = Math.min(100, this.food.full + 22);
-    this.hooks.toast('An oatcake from the tin. It keeps you going, but a hot meal would be nicer.');
+    this.hooks.toast(this.posada ? 'Papas arrugadas: little potatoes boiled in salty water till their skins wrinkle, with a hot red mojo. They keep you going; a fish would be better.' : 'An oatcake from the tin. It keeps you going, but a hot meal would be nicer.');
     this.hooks.changed();
     this.render();
   }
@@ -238,15 +241,15 @@ export class Camp {
     this.site = site;
     this.packing = null;
     this.el.hidden = false;
-    $('camp-title').textContent = this.cabin ? 'The cabin' : this.bothy ? 'The bothy' : this.house ? 'Home' : site ? site.name : 'Camp';
+    $('camp-title').textContent = this.cabin ? 'The cabin' : this.bothy ? 'The bothy' : this.posada ? 'Bar El Muelle' : this.house ? 'Home' : site ? site.name : 'Camp';
     const tabs = this.el.querySelectorAll('[data-tab]');
     for (const b of tabs) {
       if (b.dataset.tab === 'cook') b.textContent = this.cabin ? 'Galley' : this.bothy ? 'Stove & food' : this.house ? 'Kitchen' : site ? 'Stove & food' : 'Fire & food';
-      if (b.dataset.tab === 'sleep') b.textContent = this.cabin || this.bothy ? 'Bunk' : this.house ? 'Bed' : 'Sleep';
+      if (b.dataset.tab === 'sleep') b.textContent = this.cabin || this.bothy ? 'Bunk' : this.posada ? 'Your room' : this.house ? 'Bed' : 'Sleep';
       if (b.dataset.tab === 'own') b.hidden = !this.own;
-      if (b.dataset.tab === 'tackle') b.hidden = this.house && !this.bothy;
+      if (b.dataset.tab === 'tackle') b.hidden = this.house && !this.shelf;
     }
-    this.show((tab === 'own' && !this.own) || (tab === 'tackle' && this.house && !this.bothy) ? 'cook' : tab);
+    this.show((tab === 'own' && !this.own) || (tab === 'tackle' && this.house && !this.shelf) ? 'cook' : tab);
   }
 
   close() {
@@ -268,7 +271,7 @@ export class Camp {
       this.hooks.close();
       return;
     }
-    $('camp-sub').textContent = `${formatClock(this.state.hour)} · day ${this.state.day}${this.cabin ? ' · aboard' : this.bothy ? ' · up the Coldwater' : this.house ? ' · home' : this.site ? ' · your camp' : ''}`;
+    $('camp-sub').textContent = `${formatClock(this.state.hour)} · day ${this.state.day}${this.cabin ? ' · aboard' : this.bothy ? ' · up the Coldwater' : this.posada ? ' · Puerto Brasa' : this.house ? ' · home' : this.site ? ' · your camp' : ''}`;
     if (this.tab === 'cook') {
       if (this.house) this.renderKitchen();
       else if (this.site) this.renderStove();
@@ -557,7 +560,7 @@ export class Camp {
   renderKitchen() {
     const out = [this.belly()];
     out.push(el('h3', '', `Your creel (${this.state.keep.length} of ${PACK.fish})`));
-    if (!this.state.keep.length) out.push(el('p', 'cp-soft', this.bothy ? 'Empty. The Coldwater’s trout and grayling are just down the slope.' : 'Empty. Fish you keep come home in your creel.'));
+    if (!this.state.keep.length) out.push(el('p', 'cp-soft', this.bothy ? 'Empty. The Coldwater’s trout and grayling are just down the slope.' : this.posada ? 'Empty. Bring in a parrotfish and the kitchen will show you how they cook them here.' : 'Empty. Fish you keep come home in your creel.'));
     this.state.keep.forEach((f, i) => {
       const sp = fishById[f.id];
       const row = el('div', 'cp-row');
@@ -575,14 +578,14 @@ export class Camp {
       out.push(row);
     });
     const oat = el('div', 'cp-row');
-    oat.append(el('p', 'cp-soft', this.bothy ? 'Someone has left a tin of oatcakes on the shelf, for whoever comes next.' : 'The oatcake tin is on the shelf.'), button('Have an oatcake', () => this.oatcake(), 'quiet'));
+    oat.append(el('p', 'cp-soft', this.bothy ? 'Someone has left a tin of oatcakes on the shelf, for whoever comes next.' : this.posada ? 'There’s always a bowl of little wrinkled potatoes and a pot of red mojo on the bar.' : 'The oatcake tin is on the shelf.'), button(this.posada ? 'Have some potatoes' : 'Have an oatcake', () => this.oatcake(), 'quiet'));
     out.push(oat);
     $('camp-cook').replaceChildren(...out);
   }
 
   renderSleep() {
     const out = [];
-    out.push(el('p', 'cp-lead', this.cabin ? 'Turn in to the bunk and sleep until…' : this.bothy ? 'Unroll your bag on the sleeping platform and sleep until…' : this.house ? 'Go to bed and sleep until…' : 'Crawl into the tent and sleep until…'));
+    out.push(el('p', 'cp-lead', this.cabin ? 'Turn in to the bunk and sleep until…' : this.bothy ? 'Unroll your bag on the sleeping platform and sleep until…' : this.posada ? 'Climb the stairs to your room over the harbour and sleep until…' : this.house ? 'Go to bed and sleep until…' : 'Crawl into the tent and sleep until…'));
     const grid = el('div', 'cp-wake');
     const now = this.state.hour;
     for (const w of WAKE_TIMES) {

@@ -204,7 +204,8 @@ export class Journal {
     const text = el('div', 'j-text');
     text.append(el('h3', '', rec || seen ? f.name : 'Unknown fish'), el('p', 'j-note', rec || seen ? f.note : f.hint));
     if (seen) {
-      text.append(el('p', 'j-meta', `Seen ${seen.count} time${seen.count > 1 ? 's' : ''} · protected: to watch, not to catch · ${f.where}`));
+      // (Protected, or simply one nobody fishes for: the trumpetfish.)
+      text.append(el('p', 'j-meta', `Seen ${seen.count} time${seen.count > 1 ? 's' : ''} · ${f.noSpear && f.watch ? 'to watch, not to catch' : 'protected: to watch, not to catch'} · ${f.where}`));
       art.append(cv, text);
       return art;
     }

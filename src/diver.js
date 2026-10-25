@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { heightAt, waterLevel, WORLD } from './world/terrain.js';
+import { heightAt, waterLevel, inWorld } from './world/terrain.js';
 import { waveHeight } from './world/water.js';
 import { currentAt, currentScale } from './world/conditions.js';
 import { SPEAR } from './dive.js';
@@ -220,7 +220,7 @@ export class Diver {
     // Not up the beach: where the water's too shallow to swim, you stop (and can stand up).
     const g1 = heightAt(nx, nz), s1 = waveHeight(nx, nz, t);
     this.aground = g1 > s1 - 0.65;
-    if (!this.aground && nx > WORLD.x0 + 5 && nx < WORLD.x1 - 5 && nz > WORLD.z0 + 5 && nz < WORLD.z1 - 5) {
+    if (!this.aground && inWorld(nx, nz, 5)) {
       P.x = nx;
       P.z = nz;
     } else {

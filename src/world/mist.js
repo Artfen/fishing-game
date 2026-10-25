@@ -87,6 +87,7 @@ export function createMist(heightTex, rect, detailTex, detailRect) {
 
   return {
     group,
+    uniforms: shared,
     // How many layers to draw (graphics setting).
     setLayers(n) { count = n; },
     // How misty it is at this hour (0..1).

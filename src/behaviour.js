@@ -108,6 +108,19 @@ const PREFS = {
   octopus: { current: [0.05, 0.5], rough: -0.2, bright: 0.8, disturb: 1, jumpy: 0 },
   sardine: { current: [0.3, 0.4], rough: 0, bright: 0, disturb: 0.8, jumpy: 0 },
   horsemackerel: { current: [0.35, 0.5], rough: 0.2, bright: 0.2, disturb: 0.5, jumpy: 0.2 },
+  // Las Brasas. Parrotfish and ornate wrasse are fish of the sunny shallows; a grouper and a moray
+  // shun bright light and a disturbance; barracuda leap and shake their heads when hooked, and
+  // amberjack shake theirs on the way down; the angelshark keeps still on the sand.
+  parrotfish: { current: [0.1, 0.4], rough: 0.2, bright: -0.1, disturb: 0.9, jumpy: 0 },
+  ornatewrasse: { current: [0.1, 0.5], rough: 0.2, bright: -0.1, disturb: 0.4, jumpy: 0 },
+  triggerfish: { current: [0.15, 0.4], rough: 0.1, bright: 0, disturb: 0.5, jumpy: 0 },
+  moray: { current: [0.05, 0.5], rough: 0, bright: 1, disturb: 0.7, jumpy: 0 },
+  grouper: { current: [0.1, 0.4], rough: 0, bright: 0.5, disturb: 1.3, jumpy: 0 },
+  barracuda: { current: [0.3, 0.5], rough: 0.2, bright: 0.3, disturb: 0.8, jumpy: 0.6 },
+  amberjack: { current: [0.4, 0.5], rough: 0.3, bright: 0.2, disturb: 0.7, jumpy: 0.3 },
+  chubmackerel: { current: [0.4, 0.6], rough: 0.3, bright: 0, disturb: 0.5, jumpy: 0.25 },
+  angelshark: { current: [0.05, 0.5], rough: -0.2, bright: 0.8, disturb: 1, jumpy: 0 },
+  trumpetfish: { current: [0.05, 0.4], rough: -0.2, bright: 0.2, disturb: 1, jumpy: 0 },
 };
 export const prefsFor = (id) => PREFS[id] || DEFAULT;
 

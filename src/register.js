@@ -40,7 +40,8 @@ const GAME_TO_REGISTER = { squid: 'squid' };
 // lives in its habitats, has an anatomical model, takes the setup the field guide recommends
 // in the headless ecosystem (tests/guide.test.mjs), can be landed with it (tests/fight.test.mjs)
 // and is logged in the journal. The European eel is in the water to be seen only: it is
-// critically endangered and protected.
+// critically endangered and protected. The dusky grouper lives only round Las Brasas, far to
+// the south, and is catch-and-release: every one goes back (it has no meal in the game).
 const CATCHABLE = [
   // the first species and the reference models
   'seabass', 'meagre', 'gilthead', 'sole', 'mackerel', 'cuttlefish', 'mullet', 'wrasse', 'flounder', 'plaice', 'sprat', 'tuna', 'squid',
@@ -48,6 +49,8 @@ const CATCHABLE = [
   'baila', 'blackbream', 'whitebream', 'twobanded', 'striped', 'urta', 'redporgy', 'pandora', 'dentex', 'borriquete', 'roncador',
   'pollack', 'conger', 'bluefish', 'senegalsole', 'sandsole', 'acedia', 'turbot', 'gurnard', 'sardine', 'anchovy', 'horsemackerel',
   'sandsmelt', 'bogue', 'salema', 'garfish', 'bonito', 'littletunny', 'bullet', 'pompano', 'octopus',
+  // Las Brasas, far to the south (the grouper to be released)
+  'grouper', 'chubmackerel',
 ];
 const GAME = {
   ...Object.fromEntries(CATCHABLE.map((id) => [id, { status: 'catchable', model: 'anatomical' }])),
@@ -58,21 +61,21 @@ const GAME = {
 // expansion plan in the README). Deep-water fish and occasional visitors may stay here.
 const BATCH = {
   // next: common coastal fish still missing, and catch-and-release on the bottom.
-  chubmackerel: 2, redmullet: 2, weever: 2, shanny: 2, thinlip: 2, goldengrey: 2, catshark: 2, thornback: 2,
+  redmullet: 2, weever: 2, shanny: 2, thinlip: 2, goldengrey: 2, catshark: 2, thornback: 2,
   // deeper water and rarer visitors.
-  hake: 3, johndory: 3, stingray: 3, blueshark: 3, grouper: 3,
+  hake: 3, johndory: 3, stingray: 3, blueshark: 3,
   // migratory and protected estuary species, with seasons (observation-only where protected).
   allisshad: 4, twaiteshad: 4, lamprey: 4, sturgeon: 4,
 };
 
 // How a planned species should come into the game where catching it isn't the whole story:
 // protected species only to be seen, vulnerable ones to be released (see each entry's
-// conservation notes and sources).
+// conservation notes and sources). (The dusky grouper came in this way, as catch-and-release:
+// vulnerable, slow-growing and protected in parts of its range.)
 export const PLAN_AS = {
   sturgeon: { as: 'observation', why: 'Fully protected (fishing banned in France since 1982; critically endangered).' },
   allisshad: { as: 'observation', why: 'All fishing for it in the Gironde basin has been under a moratorium since 2008.' },
   lamprey: { as: 'observation', why: 'All fishing for it in the Gironde estuary has been banned since 2023.' },
-  grouper: { as: 'release', why: 'Vulnerable, slow-growing and protected in parts of its range.' },
   stingray: { as: 'release', why: 'Vulnerable, and its tail spine is venomous.' },
   blueshark: { as: 'release', why: 'Near threatened.' },
   thornback: { as: 'release', why: 'Near threatened.' },
@@ -137,4 +140,20 @@ export const FRESHWATER = {
   tench: { scientific: 'Tinca tinca', note: 'Native to France and Iberia.' },
   roach: { scientific: 'Rutilus rutilus', note: 'Native to France; introduced in Iberia.' },
   lmbass: { scientific: 'Micropterus salmoides', note: 'A North American fish, introduced and invasive in France and Iberia.' },
+};
+
+// Fish of Las Brasas, the invented island far to the south, that live outside the Atlantic
+// register (which covers Royan to Cádiz): warm-water fish of the eastern Atlantic islands
+// (Macaronesia: the Azores, Madeira, the Canaries, Cape Verde) and the coasts near them. Like the
+// freshwater species, their names are standard and their ranges and status are noted here, not
+// researched in depth. (The dusky grouper and the chub mackerel are in the register.)
+export const MACARONESIA = {
+  parrotfish: { scientific: 'Sparisoma cretense', note: 'Eastern Atlantic islands and the warm coasts from Portugal to Senegal, and the Mediterranean; very common on Canary reefs, where it is the prized “vieja”.' },
+  ornatewrasse: { scientific: 'Thalassoma pavo', note: 'Shallow rocky reefs of the Mediterranean and the eastern Atlantic, from Portugal south to the Gulf of Guinea, the Atlantic islands included; abundant in the Canaries.' },
+  triggerfish: { scientific: 'Balistes capriscus', note: 'Both sides of the Atlantic, in the east from the Mediterranean to Angola, the Canaries included.' },
+  moray: { scientific: 'Muraena helena', note: 'Rocky coasts of the Mediterranean and the eastern Atlantic, the Atlantic islands included; common in the Canaries.' },
+  barracuda: { scientific: 'Sphyraena viridensis', note: 'The Mediterranean and the eastern Atlantic islands (the Azores, Madeira, the Canaries, Cape Verde).' },
+  amberjack: { scientific: 'Seriola dumerili', note: 'Warm seas worldwide, the Canaries included. Large amberjack from warm waters have been linked to ciguatera there.' },
+  angelshark: { scientific: 'Squatina squatina', note: 'Once from Scandinavia to north-west Africa and the Mediterranean; critically endangered (IUCN), protected in Spain, and the Canaries are one of its last strongholds. Observation only.' },
+  trumpetfish: { scientific: 'Aulostomus strigosus', note: 'Reefs of the eastern Atlantic islands (Madeira, the Canaries, Cape Verde) and the tropical coast of West Africa. Not fished: observation only.' },
 };

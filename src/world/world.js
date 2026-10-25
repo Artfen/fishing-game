@@ -16,6 +16,8 @@ import { buildRegions } from './regions.js';
 import { buildCoast } from './coast.js';
 import { buildHome, buildGravel } from './home.js';
 import { buildCalf } from './calf.js';
+import { SOUTH_Z, SOUTH_RECT } from './brasa.js';
+import { brasaColor, buildBrasa } from './brasaWorld.js';
 
 const shared = { uTime: { value: 0 }, uWind: { value: 1 } };
 const UP = new THREE.Vector3(0, 1, 0);
@@ -206,6 +208,11 @@ function coastColor(c, h, x, z, r) {
 }
 
 function terrainColor(c, h, ny, x, z, r, weed, shore) {
+  // (Las Brasas, far to the south, has colours of its own.)
+  if (z > SOUTH_Z) {
+    brasaColor(c, h, ny, x, z, r);
+    return;
+  }
   if (x < COLD_BOX.x1 && z < -330 && fellColor(c, h, ny, x, z, r)) return;
   const n = fbm(x * 0.05, z * 0.05, 2);
   if (shore && h < 5 && shoreColor(c, h, x, z, r, weed)) return;
@@ -242,6 +249,10 @@ export const TERRAIN_PATCHES = [
   // far off, a coarse stand-in carries them on the horizon; see buildWorld).
   { id: 'dale', x0: -760, x1: -40, z0: -940, z1: -420, cell: 4, jitter: 0.5, shadows: true, later: true },
   { id: 'fell', x0: -1380, x1: -500, z0: -1840, z1: -940, cell: 5, jitter: 0.45, shadows: true, later: true },
+  // Las Brasas, far to the south: built when you get there (a coarse stand-in until then), with
+  // a finer grid over Puerto Brasa and its village.
+  { id: 'brasa-w', x0: -760, x1: -140, z0: 5480, z1: 6600, cell: 4, jitter: 0.45, shadows: true, later: true },
+  { id: 'brasa-e', x0: -140, x1: 760, z0: 5480, z1: 6600, cell: 4, jitter: 0.45, shadows: true, later: true, inner: { x0: -100, x1: 160, z0: 6180, z1: 6440 }, innerSub: 2 },
 ];
 const FAR_RECT = { x0: -1800, x1: 1500, z0: -2200, z1: 1800 };
 
@@ -418,6 +429,10 @@ function buildTerrain(rnd, habitat) {
     m.userData.far = true;
     meshes.push(m);
   }
+  // Las Brasas' own coarse sheet: its sea floor round the island (its own seed too).
+  const south = coarseMesh(habitat, SOUTH_RECT, seeded(6007), true);
+  south.userData.far = true;
+  meshes.push(south);
   for (const P of TERRAIN_PATCHES) {
     if (P.later) {
       const stand = coarseMesh(habitat, P, seeded(7001 + P.x0), false);
@@ -1162,6 +1177,7 @@ export function buildWorld(scene, renderer, habitat) {
 
   const lanternPos = cove.lantern.group.position.clone();
   let lanternTaken = false;
+  let brasa = null;
 
   return {
     lanternSpot: lanternPos,
@@ -1212,10 +1228,21 @@ export function buildWorld(scene, renderer, habitat) {
     },
     set drawDistance(d) { drawDistance = d; },
     get drawDistance() { return drawDistance; },
+    // Las Brasas' buildings, plants and rocks (see brasaWorld.js), once you've come near.
+    get brasa() { return brasa; },
+    buildBrasa() {
+      if (brasa) return brasa;
+      brasa = buildBrasa(scene, seeded(20261025));
+      for (const o of brasa.obstacles) obstacles.add(o.x, o.z, o.r, o.top ?? Infinity, -Infinity, o.kind || 'thing', o.name || '');
+      coast.spots.push(...brasa.spots);
+      regions.boxes.push(...brasa.boxes);
+      return brasa;
+    },
     update(dt, t, env, extra = {}) {
       shared.uTime.value = t;
       if (extra.camera) {
         const cp = extra.camera.position;
+        if (!brasa && cp.z > SOUTH_Z - 500) this.buildBrasa();
         for (const o of distant) {
           const b = o.isInstancedMesh ? o.boundingSphere : o.geometry.boundingSphere;
           if (!b) continue;
@@ -1233,12 +1260,15 @@ export function buildWorld(scene, renderer, habitat) {
         coldwater.update(t, env, extra.camera);
         fell.update(dt, t, env, cp);
         mountains.position.set(extra.camera.position.x, 0, extra.camera.position.z);
+        // (Out at Las Brasas there's only the ocean all round: no far hills.)
+        mountains.visible = cp.z < SOUTH_Z;
         if (extra.fog) mountains.material.emissive.copy(extra.fog).multiplyScalar(0.55);
       }
       shared.uWind.value = 1 + env.rain * 1.4;
       shore.update(dt, t, env, { ...extra, wind: shared.uWind.value });
       regions.update(dt, t, env);
       coast.update(dt, t, env);
+      if (brasa) brasa.update(dt, t, env);
       if (extra.camera) calf.update(dt, t, { from: extra.camera.position });
       fireflies.material.uniforms.uOpacity.value = env.night * (1 - env.rain * 0.8);
 

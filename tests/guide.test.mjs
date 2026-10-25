@@ -16,7 +16,7 @@ const { FISH, fishById } = await import('../src/fish.js');
 const { RODS, TACKLE, TERMS, fits, checkSetup } = await import('../src/tackle.js');
 const { setupsFor, habitsOf } = await import('../src/guide.js');
 const { ANATOMY, anatomyGeometry } = await import('../src/anatomy.js');
-const { REGISTER, registerFor, LEGACY, FRESHWATER, REGIONS, PLAN_AS } = await import('../src/register.js');
+const { REGISTER, registerFor, LEGACY, FRESHWATER, MACARONESIA, REGIONS, PLAN_AS } = await import('../src/register.js');
 const { execFileSync } = await import('node:child_process');
 const { fileURLToPath } = await import('node:url');
 const { fish, fishWithGuide, SCENARIOS } = await import('../tools/ecosim.mjs?nomain');
@@ -103,10 +103,17 @@ test('the reference models carry their distinguishing anatomy', () => {
   assert.equal(new Set(shapes).size, REFERENCE.length);
 });
 
-test('every game species is accounted for: in the register, a fictional original, or fresh water', () => {
+test('every game species is accounted for: in the register, a fictional original, fresh water, or Las Brasas', () => {
   for (const sp of FISH) {
-    const ok = registerFor(sp.id) || LEGACY[sp.id] || FRESHWATER[sp.id];
+    const ok = registerFor(sp.id) || LEGACY[sp.id] || FRESHWATER[sp.id] || MACARONESIA[sp.id];
     assert.ok(ok, `${sp.id} has no register entry`);
+  }
+  // Las Brasas' own fish outside the register carry their scientific name, the same in the game.
+  for (const [id, m] of Object.entries(MACARONESIA)) {
+    assert.ok(fishById[id] && !registerFor(id), `${id}: in the game, and not in the register`);
+    assert.match(m.scientific, /^[A-Z][a-z]+ [a-z]+$/, `${id}: scientific name`);
+    assert.equal(fishById[id].scientific, m.scientific, id);
+    assert.ok(m.note.length > 20, `${id}: note`);
   }
   for (const id of REFERENCE) assert.ok(registerFor(id), `${id} is in the register`);
 });
@@ -138,6 +145,11 @@ test('the register is sourced, and honest about what is in the game', () => {
   // The eel is in the water to be watched only: it ignores every bait.
   assert.equal(registerFor('eel').status, 'observation');
   assert.ok(fishById.eel.life.observe && !Object.keys(fishById.eel.food).length);
+  // The dusky grouper (Las Brasas) is caught and released, never kept; the angelshark and the
+  // trumpetfish are only watched.
+  assert.equal(registerFor('grouper').status, 'catchable');
+  assert.ok(!fishById.grouper.meal && fishById.grouper.keep);
+  for (const id of ['angelshark', 'trumpetfish']) assert.ok(fishById[id].life.observe && !Object.keys(fishById[id].food).length, id);
   // And src/registerData.js is what the research compiles to.
   assert.doesNotThrow(() => execFileSync(process.execPath, [fileURLToPath(new URL('../tools/build-register.mjs', import.meta.url)), '--check'], { stdio: 'pipe' }));
 });
