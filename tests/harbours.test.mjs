@@ -65,6 +65,24 @@ test('the sailing boat’s outboard: down, it drives her about six knots in a fl
   conditions.manual = null;
 });
 
+test('nothing in the game reads a main motor’s settings without allowing for the sailing boat’s outboard', async () => {
+  // (The outboard lives in hull.outboard, not hull.motor: reading hull.motor.something while it
+  // runs crashed the game once.)
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const files = ['src/main.js', ...readdirSync('src').filter((f) => f.endsWith('.js')).map((f) => `src/${f}`)];
+  for (const f of new Set(files)) {
+    const bad = readFileSync(f, 'utf8').split('\n').filter((l) => /hull\.motor\.[a-z]/.test(l));
+    assert.deepEqual(bad, [], `${f} reads hull.motor.… unguarded`);
+  }
+  // And the sailing boat with her outboard down has a motor, a lever and fuel to burn.
+  const b = boatAt('sail', OPEN.x, OPEN.z, 0);
+  b.setOutboard(true);
+  assert.ok(b.motor && !b.hull.motor && b.hull.outboard);
+  const f = F.defaultFuel();
+  assert.equal(F.burnBoat(f, 'sail', 1, 10, b.hull.motor?.troll || 0), null);
+  assert.ok(f.boats.sail < F.TANKS.sail);
+});
+
 /* ---------------- the pumps ---------------- */
 
 test('a fuel pump on Puerto Brasa quay and a fuel point on Willowhaven’s pontoon, within reach of the berths', () => {

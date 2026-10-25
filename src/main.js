@@ -6363,7 +6363,8 @@ function tick(now, manual = false) {
       hud.flash('The kayak’s battery is flat: the motor’s up, paddle on. It charges at a jetty, and overnight.', t, 5);
     }
     if (boat.motor && throttle && !onFoot) {
-      const ran = burnBoat(f, boat.kind, throttle, dt, boat.hull.motor.troll || 0);
+      // (The sailing boat's outboard has no electric notches: it's hull.outboard, not hull.motor.)
+      const ran = burnBoat(f, boat.kind, throttle, dt, boat.hull.motor?.troll || 0);
       const what = scheme() === 'touch' ? 'tap the prompt' : K('interact');
       if (ran === 'dry') hud.flash(`The outboard splutters and stops: the tank is dry. An oar moves her along, slowly; stop, then ${what} for the jerry can or a tow.`, t, 6);
       if (ran === 'flat') hud.flash('The electric motor whines down: the battery is flat. It charges at a jetty, and overnight; the outboard still runs.', t, 5);
