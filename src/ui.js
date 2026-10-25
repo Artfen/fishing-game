@@ -8,6 +8,7 @@ export class HUD {
       hud: $('hud'),
       hint: $('hint'),
       prompt: $('prompt'),
+      prompt2: $('prompt2'),
       place: $('place'),
       placeName: $('place-name'),
       placeSub: $('place-sub'),
@@ -81,6 +82,13 @@ export class HUD {
   prompt(html) {
     this.setHTML('prompt', this.el.prompt, html);
     this.el.prompt.hidden = !html;
+  }
+
+  // The mooring prompt beside it (anchor, tie up, cast off, let go a tow), on its own key.
+  prompt2(html) {
+    this.setHTML('prompt2', this.el.prompt2, html);
+    this.el.prompt2.hidden = !html;
+    document.body.classList.toggle('moor-prompt', !!html);
   }
 
   place(name, sub) {

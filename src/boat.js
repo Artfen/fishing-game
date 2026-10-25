@@ -6,6 +6,8 @@ import { solidHeight, PIERS, WORLD } from './world/terrain.js';
 import { buildLanternModel, buildRod, bendRod } from './props.js';
 import { withSurface } from './world/surface.js';
 import { RODS } from './tackle.js';
+import { Rope } from './rope.js';
+import { reachFor, berthAt } from './mooring.js';
 
 // The five boats. Each has its own hull (metres; the bow points along local +z), its own
 // way of moving and its own place to sit:
@@ -193,8 +195,12 @@ export class Boat {
     this.kflat = false;    // the kayak's battery flat
     this.dry = false;      // out of petrol (set by the game: see fuel.js)
     this.flat = false;     // the electric motor's battery flat
-    this.anchored = false;
+    this.anchored = false;  // the anchor is out (going down, holding, or being hauled in)
+    this.anchor = null;     // { x, z, floor, depth, reach, y, phase: 'drop' | 'set' | 'haul', tension }
     this.anchorPt = new THREE.Vector3();
+    this.tie = null;        // tied up alongside a pier: { pier, side, along, heading, x, z, t }
+    this.shove = null;      // pushed off from a pier: { x, z, t }
+    this.onAnchor = null;   // (the game hears the anchor bite and come up)
     this.drift = new THREE.Vector3(); // the current carrying it (m/s)
     this.tilted = false;   // the motor tips up in shallow water so the propeller can't catch the bottom
     this.onShallow = null;
@@ -239,7 +245,8 @@ export class Boat {
     if (H.motor) this.buildMotor();
     if (H.cabin) this.buildCabin();
     if (H.emotor) this.buildEMotor();
-    this.buildAnchorLine();
+    this.buildAnchorLine(scene);
+    this.buildMooringGear(scene);
     this.buildRods();
     this.buildLantern();
   }
@@ -750,21 +757,87 @@ export class Boat {
     this.body.add(g);
   }
 
-  // A rope from the bow down into the water while the anchor is down.
-  buildAnchorLine() {
-    this.anchorLine = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1, 5), new THREE.MeshLambertMaterial({ color: '#d8c49a' }));
-    this.anchorLine.visible = false;
-    this.anchorLine.position.set(0, sheer(this.hull, 1) - 0.35, this.hull.L / 2 + 0.15);
-    this.anchorLine.rotation.x = 0.7;
-    this.anchorLine.scale.y = 1.4;
-    this.body.add(this.anchorLine);
+  // The anchor: stowed on the foredeck, and the same anchor out in the world on its rope (a
+  // smaller grapnel on the kayak). Out, it goes down to the seabed from the bow, holds, and comes
+  // back up when you haul it in.
+  buildAnchorLine(scene) {
+    const H = this.hull, k = H.paddle ? 0.6 : H.L > 5 ? 1.2 : 1;
+    const model = () => {
+      const parts = [
+        { geo: new THREE.CylinderGeometry(0.018, 0.018, 0.5, 6), matrix: mat(0, 0.25, 0), color: '#4a4d52' },
+        { geo: new THREE.TorusGeometry(0.04, 0.012, 5, 10), matrix: mat(0, 0.53, 0), color: '#4a4d52' },
+        { geo: new THREE.CylinderGeometry(0.012, 0.012, 0.34, 5), matrix: mat(0, 0.44, 0, 0, 0, Math.PI / 2), color: '#4a4d52' },
+        { geo: new THREE.BoxGeometry(0.3, 0.04, 0.03), matrix: mat(0, 0.02, 0), color: '#4a4d52' },
+        { geo: new THREE.BoxGeometry(0.08, 0.13, 0.025), matrix: mat(0.15, 0.07, 0, 0, 0, -0.5), color: '#3f4246' },
+        { geo: new THREE.BoxGeometry(0.08, 0.13, 0.025), matrix: mat(-0.15, 0.07, 0, 0, 0, 0.5), color: '#3f4246' },
+      ];
+      const m = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.4 }));
+      m.scale.setScalar(k);
+      m.castShadow = true;
+      return m;
+    };
+    // Stowed: lying on the foredeck.
+    this.anchorStowed = model();
+    this.anchorStowed.position.set(0.1, sheer(H, 0.9) + 0.03, zAt(H, 0.86));
+    this.anchorStowed.rotation.set(-Math.PI / 2, 0, 0.3);
+    this.body.add(this.anchorStowed);
+    // Out: in the world, on the end of its rope (the ring at the top).
+    this.anchorOut = new THREE.Group();
+    this.anchorOut.add(model());
+    this.anchorOut.visible = false;
+    scene.add(this.anchorOut);
+    this.rode = new Rope(scene, { segments: 16, radius: 0.012 * Math.max(1, k) });
+    this.fairlead = new THREE.Vector3(0, sheer(H, 1) - 0.04, H.L / 2 - 0.05);
   }
 
-  setAnchor(on) {
-    this.anchored = on;
-    this.anchorPt.copy(this.pos);
-    this.anchorLine.visible = on;
-    if (on) this.lever = 0;
+  // Lines and fenders for tying up: a cleat at the bow and the stern, a line from each to the
+  // pier, and two fenders hung over the side against it.
+  buildMooringGear(scene) {
+    const H = this.hull;
+    this.cleats = [new THREE.Vector3(0.06, sheer(H, 0.93) + 0.02, zAt(H, 0.92)), new THREE.Vector3(0.06, sheer(H, 0.06) + 0.02, zAt(H, 0.07))];
+    this.lines = [new Rope(scene, { segments: 6, radius: 0.011, color: '#e8dcc0' }), new Rope(scene, { segments: 6, radius: 0.011, color: '#e8dcc0' })];
+    const fender = new THREE.CylinderGeometry(0.075, 0.075, 0.34, 10);
+    const mat2 = new THREE.MeshLambertMaterial({ color: '#f1efe8' });
+    this.fenders = [0.3, 0.68].map((t) => {
+      const f = new THREE.Mesh(fender, mat2);
+      f.userData.t = t;
+      f.visible = false;
+      this.body.add(f);
+      return f;
+    });
+  }
+
+  // Drop the anchor (on) or haul it in (off). at: where it lies, instant: already on the bottom
+  // (a saved game). Hauling in takes a moment: she stays at anchor until it's up.
+  setAnchor(on, { at = null, instant = false } = {}) {
+    if (!on) {
+      if (this.anchor) this.anchor.phase = 'haul';
+      return;
+    }
+    this.lever = 0;
+    this.anchored = true;
+    if (this.anchor && this.anchor.phase === 'haul') {
+      this.anchor.phase = 'set';
+      this.anchor.reach = reachFor(this.anchor.depth);
+      return;
+    }
+    const x = at ? at.x : this.pos.x + this.fwd.x * this.hull.L * 0.45, z = at ? at.z : this.pos.z + this.fwd.z * this.hull.L * 0.45;
+    const floor = solidHeight(x, z), depth = Math.max(0.3, -floor);
+    this.anchor = { x, z, floor, depth, reach: reachFor(depth), y: instant ? floor : this.heave + sheer(this.hull, 1) - this.hull.draft, phase: instant ? 'set' : 'drop', tension: 0 };
+    this.anchorPt.set(x, floor, z);
+  }
+
+  // Made fast alongside a pier (a berth from mooring.js), or cast off (pushed gently clear: nx, nz
+  // the way out).
+  tieTo(B) {
+    this.tie = { ...B, t: 0 };
+    this.lever = 0;
+  }
+
+  castOff(nx = 0, nz = 0) {
+    this.tie = null;
+    // (A shove off with a hand on the pier: a steady push away for a moment, eased off.)
+    this.shove = { x: nx, z: nz, t: 2 };
   }
 
   buildOar(side) {
@@ -916,7 +989,7 @@ export class Boat {
       // motor at the bow instead: slow, silent, and happy in shallow water. The kayak's motor is
       // electric too, on its stern.)
       const p = this.pos;
-      const lever = this.anchored ? 0 : throttle;
+      const lever = this.anchored || this.tie ? 0 : throttle;
       const troll = !!M?.troll && lever > 0 && lever <= M.troll;
       this.spool(dt, lever, troll || !!E);
       const pw = this.power;
@@ -944,13 +1017,13 @@ export class Boat {
     } else {
       // Rowing (or paddling) rhythm
       this.power = 0;
-      const rowing = (throttle !== 0 || steer !== 0) && !this.anchored;
+      const rowing = (throttle !== 0 || steer !== 0) && !this.anchored && !this.tie;
       if (rowing) this.phase += dt * Math.PI * 2 * H.rate;
       // A paddle pulls on every half-stroke, left then right; oars once a stroke.
       const sw = H.paddle ? Math.abs(Math.sin(this.phase)) : Math.max(0, Math.sin(this.phase));
       const pulse = 0.5 + 0.5 * sw;
       // Throttle can be partial (touch stick), so it scales the stroke.
-      const pull = this.anchored ? 0 : throttle;
+      const pull = this.anchored || this.tie ? 0 : throttle;
       thrust = pull > 0 ? H.pull * pulse * pull : pull < 0 ? H.back * pulse * pull : 0;
       vf = step(vf, thrust + wf, H.drag[0] + H.drag[1] * Math.abs(vf));
       vr = step(vr, wr, H.side);
@@ -960,16 +1033,16 @@ export class Boat {
     // (Fishing without a motor running, the boat settles; under power it goes on, trolling.)
     if (fishing && !this.power) vf *= Math.exp(-0.9 * dt);
     this.vel.copy(this.fwd).multiplyScalar(vf).addScaledVector(this.right, vr).add(this.drift);
-    // At anchor: the rope holds it near the spot (it lies a little down-wind and down-current of
-    // it), it settles, and it swings round to lie bow to the rope.
-    if (this.anchored) {
-      const dx = this.pos.x - this.anchorPt.x, dz = this.pos.z - this.anchorPt.z, d = Math.hypot(dx, dz);
-      if (d > 1.5) {
-        this.vel.x -= (dx / d) * (d - 1.5) * 1.6 * dt;
-        this.vel.z -= (dz / d) * (d - 1.5) * 1.6 * dt;
+    if (this.anchor) this.holdAnchor(dt, steer);
+    if (this.tie) this.holdTie(dt);
+    if (this.shove) {
+      const S = this.shove, want = 0.75 * Math.min(1, S.t / 1.2), along = this.vel.x * S.x + this.vel.z * S.z;
+      if (along < want) {
+        this.vel.x += S.x * (want - along);
+        this.vel.z += S.z * (want - along);
       }
-      this.vel.multiplyScalar(Math.exp(-1.2 * dt));
-      if (d > 1.1 && Math.abs(steer) < 0.05) this.heading = dampAngle(this.heading, Math.atan2(-dx, -dz), 0.12, dt);
+      S.t -= dt;
+      if (S.t <= 0) this.shove = null;
     }
     this.forwardSpeed = vf;
     this.heading += this.omega * dt;
@@ -1004,6 +1077,109 @@ export class Boat {
 
     this.animate(dt, t, throttle, steer, lanternLevel);
     this.group.updateMatrixWorld(true);
+    this.updateGear();
+  }
+
+  // At anchor. The anchor goes down to the seabed (she drifts a little until it bites); then
+  // the rope holds her bow within its reach of it: she drifts back on the wind and tide until it
+  // comes tight, lies there head to the anchor, swinging and riding the waves as they come (no
+  // more held than that: nothing pins her in place). Hauling in shortens the rope, drawing her up
+  // over the anchor, and then it comes up to the bow.
+  holdAnchor(dt, steer) {
+    const A = this.anchor, H = this.hull;
+    const bowY = this.heave + sheer(H, 1) - H.draft;
+    if (A.phase === 'drop') {
+      A.y = Math.max(A.floor, A.y - Math.max(2.6, A.depth / 3) * dt);
+      if (A.y <= A.floor + 0.001) {
+        A.phase = 'set';
+        this.onAnchor?.('set', this);
+      } else return;
+    }
+    if (A.phase === 'haul') {
+      A.reach = Math.max(0, A.reach - 2.4 * dt);
+      if (A.reach < 0.8) {
+        A.y = Math.min(bowY, A.y + Math.max(2.4, A.depth / 3) * dt);
+        if (A.y >= bowY - 0.05) {
+          this.anchor = null;
+          this.anchored = false;
+          this.onAnchor?.('up', this);
+          return;
+        }
+      }
+    }
+    const bx = this.pos.x + this.fwd.x * H.L * 0.45, bz = this.pos.z + this.fwd.z * H.L * 0.45;
+    const dx = bx - A.x, dz = bz - A.z, d = Math.hypot(dx, dz) || 1e-6, reach = Math.max(0.3, A.reach);
+    A.tension = clamp((d - reach * 0.8) / (reach * 0.2 + 0.3), 0, 1);
+    if (d > reach) {
+      const nx = dx / d, nz = dz / d, k = Math.min(1, 4 * dt);
+      this.pos.x -= nx * (d - reach) * k;
+      this.pos.z -= nz * (d - reach) * k;
+      const out = this.vel.x * nx + this.vel.z * nz;
+      if (out > 0) {
+        this.vel.x -= nx * out;
+        this.vel.z -= nz * out;
+      }
+    }
+    // Held by the bow, she swings to lie head to the anchor (the tighter the rope, the surer).
+    if (A.tension > 0.05 && Math.abs(steer) < 0.05) this.heading = dampAngle(this.heading, Math.atan2(-dx, -dz), 0.2 + 1.1 * A.tension, dt);
+  }
+
+  // Tied up: the lines hold her at her berth, lying along the pier (eased in over a moment as
+  // they're made fast), nudged by the waves and the wind but going nowhere.
+  holdTie(dt) {
+    const T = this.tie;
+    T.t += dt;
+    const k = T.t < 1.5 ? 3 : 7, c = T.t < 1.5 ? 3 : 5;
+    this.vel.x += ((T.x - this.pos.x) * k - this.vel.x * c) * dt;
+    this.vel.z += ((T.z - this.pos.z) * k - this.vel.z * c) * dt;
+    this.heading = dampAngle(this.heading, T.heading, T.t < 1.5 ? 1.6 : 3, dt);
+    this.omega = 0;
+  }
+
+  // Where the anchor, its rope, the mooring lines and the fenders are this frame.
+  updateGear() {
+    const A = this.anchor, H = this.hull;
+    this.anchorStowed.visible = !A;
+    if (A) {
+      const o = this.anchorOut, lying = A.y <= A.floor + 0.05 && A.phase !== 'haul';
+      o.visible = true;
+      o.position.set(A.x, A.y, A.z);
+      // Hanging from its ring on the way down and up; on the bottom it falls over on its side.
+      o.rotation.set(lying ? 1.25 : 0, Math.atan2(this.pos.x - A.x, this.pos.z - A.z), 0);
+      this.body.localToWorld(_a.copy(this.fairlead));
+      // (The rope's made fast to the anchor's ring, wherever that lies.)
+      o.updateMatrixWorld(true);
+      o.children[0].localToWorld(_b.set(0, 0.53, 0));
+      this.rode.rode(_a, _b, A.phase === 'drop' || (A.phase === 'haul' && A.reach < 0.8) ? 1 : A.tension, solidHeight);
+    } else {
+      this.anchorOut.visible = false;
+      this.rode.hide();
+    }
+    const T = this.tie;
+    if (T) {
+      const P = PIERS[T.pier], fx = Math.sin(T.heading), fz = Math.cos(T.heading);
+      const long = P.x1 - P.x0 >= P.z1 - P.z0;
+      // The pier's edge on her side, with a bollard abreast her bow and her stern.
+      const edge = (u) => (long
+        ? _d.set(clamp(T.x + fx * u, P.x0 + 0.1, P.x1 - 0.1), P.deck + 0.12, T.side < 0 ? P.z0 + 0.05 : P.z1 - 0.05)
+        : _d.set(T.side < 0 ? P.x0 + 0.05 : P.x1 - 0.05, P.deck + 0.12, clamp(T.z + fz * u, P.z0 + 0.1, P.z1 - 0.1)));
+      for (let i = 0; i < 2; i++) {
+        this.body.localToWorld(_a.copy(this.cleats[i]));
+        edge(i ? -H.L * 0.55 : H.L * 0.55);
+        this.lines[i].lay(_a, _d, { tension: 0.3, sag: 0.35 });
+      }
+      // The fenders hang on the side towards the pier.
+      const px = long ? 0 : -T.side, pz = long ? -T.side : 0;
+      const sx = Math.sign(px * Math.cos(this.heading) - pz * Math.sin(this.heading)) || 1;
+      for (const f of this.fenders) {
+        const t = f.userData.t;
+        f.visible = true;
+        f.position.set(sx * (hw(H, t) + 0.06), sheer(H, t) - 0.22, zAt(H, t));
+      }
+    } else {
+      for (const l of this.lines) l.hide();
+      for (const f of this.fenders) f.visible = false;
+    }
   }
 
   collide(dt) {
@@ -1032,22 +1208,24 @@ export class Boat {
           impact = Math.max(impact, -vn);
         }
       }
-      // The jetty and the landing pier
-      for (const P of PIERS) {
+      // The jetties and quays (closer alongside than the rough circles above: no wider than the
+      // hull, so she can lie against a pier; tied up, the lines keep her there instead).
+      const pr = Math.min(rad, H.B * 0.5 + 0.12);
+      for (const P of this.tie ? [] : PIERS) {
         const bx0 = P.x0 - 0.1, bx1 = P.x1 + 0.1, bz0 = P.z0 - 0.1, bz1 = P.z1 + 0.1;
         const qx = clamp(px, bx0, bx1), qz = clamp(pz, bz0, bz1);
         const dx = px - qx, dz = pz - qz;
         const dist = Math.hypot(dx, dz);
-        if (dist >= rad) continue;
+        if (dist >= pr) continue;
         let nx, nz, pen;
         if (dist < 1e-4) {
           // Centre is inside the pier: push out through the nearest side.
           const ex = Math.min(px - bx0, bx1 - px), ez = Math.min(pz - bz0, bz1 - pz);
-          if (ex < ez) { nx = px - bx0 < bx1 - px ? -1 : 1; nz = 0; pen = ex + rad; } else { nx = 0; nz = pz - bz0 < bz1 - pz ? -1 : 1; pen = ez + rad; }
+          if (ex < ez) { nx = px - bx0 < bx1 - px ? -1 : 1; nz = 0; pen = ex + pr; } else { nx = 0; nz = pz - bz0 < bz1 - pz ? -1 : 1; pen = ez + pr; }
         } else {
           nx = dx / dist;
           nz = dz / dist;
-          pen = rad - dist;
+          pen = pr - dist;
         }
         p.x += nx * pen;
         p.z += nz * pen;

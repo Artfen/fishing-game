@@ -24,7 +24,7 @@ export const ACTIONS = [
   { id: 'advice', label: 'Why aren’t they biting? (what the field guide makes of your rig)', keys: ['KeyY'], group: 'Fishing' },
   { id: 'interact', label: 'Step ashore · board · camp · look closer', keys: ['KeyE'], group: 'Around' },
   { id: 'rest', label: 'Let time drift (hold)', keys: ['KeyT'], group: 'Around' },
-  { id: 'anchor', label: 'Drop or raise the anchor', keys: ['KeyZ'], group: 'Boats' },
+  { id: 'anchor', label: 'Mooring: drop or raise the anchor · tie up alongside · cast off · let go a tow (as the prompt says)', keys: ['KeyZ'], group: 'Boats' },
   { id: 'neutral', label: 'Motor to neutral (stop)', keys: ['KeyX'], group: 'Boats' },
   { id: 'throttleUp', label: 'Throttle up a notch (also with a line out)', keys: ['Equal', 'NumpadAdd'], group: 'Boats' },
   { id: 'throttleDown', label: 'Throttle down a notch (also with a line out)', keys: ['Minus', 'NumpadSubtract'], group: 'Boats' },

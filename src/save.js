@@ -32,8 +32,10 @@ export const DEFAULT_STATE = {
   places: {},    // id -> { day, hour }
   items: {},     // lantern: true
   tips: {},      // which gentle hints have already been shown
-  boats: {},     // where each boat was left: kind ('row', 'skiff', 'kayak', 'bass', 'cabin') -> { x, z, heading, anchored, motor }
+  boats: {},     // where each boat was left: kind ('row', 'skiff', 'kayak', 'bass', 'cabin') ->
+                 //   { x, z, heading, anchored, anchor: { x, z }, tie: { pier, side, along, heading }, motor }
   vessel: 'row', // which boat you're in, or last used
+  tow: null,     // one boat towing another: { lead, towed } (kinds)
   mode: 'boat',  // 'boat' or 'foot'
   walker: null,  // { x, z, heading } while on foot
   gear: null,    // rods and tackle in the backpack, and what's tied on (see tackle.js)
@@ -125,7 +127,17 @@ function pos(v) {
   const x = num(v.x, NaN), z = num(v.z, NaN);
   if (!Number.isFinite(x) || !Number.isFinite(z) || Math.abs(x) > 2000 || Math.abs(z) > 2000) return null;
   // (motor: the kayak's electric motor left lowered; older saves have it raised.)
-  return { x, z, heading: num(v.heading, 0), anchored: !!v.anchored, ...(v.motor === true ? { motor: true } : {}) };
+  const out = { x, z, heading: num(v.heading, 0), anchored: !!v.anchored, ...(v.motor === true ? { motor: true } : {}) };
+  // Where her anchor lies (on the bottom, near her), and the berth she's tied up at.
+  if (isObj(v.anchor)) {
+    const ax = num(v.anchor.x, NaN), az = num(v.anchor.z, NaN);
+    if (Number.isFinite(ax) && Number.isFinite(az) && Math.hypot(ax - x, az - z) < 40) out.anchor = { x: ax, z: az };
+  }
+  if (isObj(v.tie) && Number.isInteger(v.tie.pier) && v.tie.pier >= 0 && v.tie.pier < 32 && (v.tie.side === 1 || v.tie.side === -1)) {
+    const along = num(v.tie.along, NaN), heading = num(v.tie.heading, NaN);
+    if (Number.isFinite(along) && Number.isFinite(heading)) out.tie = { pier: v.tie.pier, side: v.tie.side, along, heading };
+  }
+  return out;
 }
 
 export function sanitizeLogEntry(e) {
@@ -191,6 +203,7 @@ export function sanitize(raw) {
     if (b) s.boats[k] = b;
   }
   s.vessel = oneOf(raw.vessel, VESSELS, 'row');
+  s.tow = isObj(raw.tow) && VESSELS.includes(raw.tow.lead) && VESSELS.includes(raw.tow.towed) && raw.tow.lead !== raw.tow.towed ? { lead: raw.tow.lead, towed: raw.tow.towed } : null;
   s.mode = oneOf(raw.mode, ['boat', 'foot'], 'boat');
   s.walker = pos(raw.walker);
   if (s.mode === 'foot' && !s.walker) s.mode = 'boat';

@@ -62,6 +62,8 @@ import { setupTouch } from './touch.js';
 import { Gamepads, buttonFor, topDialog, focusables } from './gamepad.js';
 import { levers, nearest, step, setIndex, within, capIndex, leverWords } from './throttle.js';
 import { LeverUI } from './lever.js';
+import { anchorCheck, berthFor, berthAt, castOffCheck, canTow, towStep, TOW } from './mooring.js';
+import { Rope } from './rope.js';
 import { isPetrol, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, burnKayak, chargeBattery, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
 import { STEPS as TRIP_STEPS, stepOf, stepNumber, complete as completeStep, start as startGuide, words as guideWords, isNewGame, placeAt, FISH_SPOTS } from './firstTrip.js';
 import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality } from './quality.js';
@@ -393,19 +395,48 @@ function mooring(kind) {
 }
 
 // A saved spot is only trusted if the boat would float there: inside the world, in water
-// deep enough for its hull, and not on top of a pier.
+// deep enough for its hull, and not on top of a pier. (Tied up alongside one, her middle lies
+// just clear of its edge: that's fine.)
 function floats(b, p) {
   if (!p || p.x < WORLD.x0 || p.x > WORLD.x1 || p.z < WORLD.z0 || p.z > WORLD.z1) return false;
-  if (solidHeight(p.x, p.z) > -(b.hull.draft + 0.4)) return false;
-  return !PIERS.some((P) => p.x > P.x0 - 0.8 && p.x < P.x1 + 0.8 && p.z > P.z0 - 0.8 && p.z < P.z1 + 0.8);
+  if (solidHeight(p.x, p.z) > -(b.hull.draft + (p.tie ? 0.2 : 0.4))) return false;
+  const m = p.tie ? 0.2 : 0.8;
+  return !PIERS.some((P) => p.x > P.x0 - m && p.x < P.x1 + m && p.z > P.z0 - m && p.z < P.z1 + m);
 }
 for (const [kind, b] of Object.entries(BOATS)) {
   const saved = state.boats[kind];
   const at = floats(b, saved) ? saved : mooring(kind);
   b.place(at.x, at.z, at.heading);
-  if (saved?.anchored && at === saved) b.setAnchor(true);
   // (The kayak's motor as you left it: lowered, or up.)
   if (saved?.motor && b.hull.emotor) b.setEMotor(true);
+}
+// How each boat was left: tied up alongside (made fast again where she lies, held firm from the
+// start), at anchor (the anchor already on the bottom where it was), or free. A boat at her home
+// mooring starts tied up there; an older save's boat "anchored" right alongside a pier (how boats
+// brought round to the quay used to be left) is tied up instead.
+for (const [kind, b] of Object.entries(BOATS)) {
+  const saved = state.boats[kind], here = !!saved && floats(b, saved) && Math.hypot(saved.x - b.pos.x, saved.z - b.pos.z) < 0.01;
+  const T = here ? saved.tie : null;
+  const berth = T ? berthAt(b, T.pier, T.side, T.along, T.heading) : null;
+  if (berth && Math.hypot(berth.x - b.pos.x, berth.z - b.pos.z) < 3) {
+    b.tieTo({ ...berth, t: 9 });
+    continue;
+  }
+  if (here && saved.anchored) {
+    const old = !saved.anchor && berthFor(b, boats, { reach: 2.5 });
+    if (old) {
+      b.place(old.x, old.z, old.heading);
+      b.tieTo({ ...old, t: 9 });
+    } else b.setAnchor(true, { at: saved.anchor || null, instant: true });
+    continue;
+  }
+  if (!here) {
+    const home = berthFor(b, boats, { reach: 2.5 });
+    if (home) {
+      b.place(home.x, home.z, home.heading);
+      b.tieTo({ ...home, t: 9 });
+    }
+  }
 }
 boat = BOATS[state.vessel] || rowboat;
 for (const b of boats) if (b !== boat) b.setRower(false);
@@ -1277,18 +1308,128 @@ function teachBoat() {
   hud.toast(text, 12);
 }
 
-// Z (or the prompt when stopped): drop or raise the anchor.
+// Drop the anchor (where the water's right for it: the depth under the bow), or haul it in.
 function toggleAnchor() {
-  if (onFoot || fishing.busy) return;
-  if (!boat.anchored && boat.speed > 1.2) {
-    hud.flash('Slow down before dropping the anchor', t, 2.2);
+  if (onFoot || cabinIn) return;
+  if (boat.anchored) {
+    if (boat.anchor?.phase === 'haul') return;
+    if (fishing.state === 'reeling' || fishing.state === 'landing') {
+      hud.flash('Land or let go of the fish first', t, 2);
+      return;
+    }
+    boat.setAnchor(false);
+    audio.knock(0.3);
+    hud.flash('Hauling in the anchor…', t, 3);
     return;
   }
-  boat.setAnchor(!boat.anchored);
+  const c = anchorCheck(boat);
+  if (!c.ok) {
+    hud.flash(c.why, t, 4);
+    return;
+  }
+  boat.setAnchor(true);
+  audio.plop(1.2);
   audio.knock(0.35);
-  audio.plop(boat.anchored ? 1.2 : 0.7);
-  hud.flash(boat.anchored ? 'Anchor down: the boat will hold here while you fish' : 'Anchor up', t, 2.4);
+  hud.flash(`The anchor goes down: ${c.depth < 10 ? c.depth.toFixed(1) : Math.round(c.depth)} m of water…`, t, 3);
   save();
+}
+// What the anchor does as it goes: it bites on the bottom, and comes up again.
+for (const b of boats) {
+  b.onAnchor = (what, who) => {
+    if (who !== boat || onFoot) return;
+    if (what === 'set') hud.flash('The anchor’s holding: she’ll lie back on her rope, head to the wind and tide', t, 4);
+    else {
+      audio.knock(0.4);
+      audio.plop(0.6);
+      hud.flash('Anchor up: she’s free to go', t, 2.4);
+      save();
+    }
+  };
+}
+
+/* ---------------- tying up, and towing ---------------- */
+
+// Tie up alongside the pier she's beside (where there's a berth for her), or cast off again.
+function tieUp(B = berthFor(boat, boats)) {
+  if (!B || onFoot) return;
+  boat.tieTo(B);
+  audio.knock(0.45);
+  const T = scheme() === 'touch';
+  hud.flash(`Tied up alongside, fenders out: she’ll stay here. ${T ? 'Tap Step ashore when you’re ready, or Cast off to go' : `${K('interact')} steps ashore, ${K('anchor')} casts off`}.`, t, 4.5);
+  save();
+}
+function castOff() {
+  const c = castOffCheck(boat, boats);
+  if (!c.ok) {
+    hud.flash(c.why, t, 4);
+    return;
+  }
+  boat.castOff(c.nx, c.nz);
+  audio.knock(0.35);
+  hud.flash('Cast off: lines in, fenders up, and she drifts clear of the pier', t, 2.6);
+  save();
+}
+
+// One boat towing another: a line from your stern to her bow. She follows where you go, and
+// stays wherever you let her go.
+let tow = null; // { lead, towed, tight }
+const towRope = new Rope(scene, { segments: 12, radius: 0.013 });
+function takeInTow(other) {
+  const c = canTow(boat, other);
+  if (!c.ok) {
+    hud.flash(c.why, t, 3.5);
+    return;
+  }
+  tow = { lead: boat, towed: other, tight: 0 };
+  audio.knock(0.35);
+  hud.flash(`The ${other.name} is on a towline from your stern, and follows where you go. ${scheme() === 'touch' ? 'Let go the tow' : `${K('anchor')} lets her go`} whenever you like: she stays where she is.`, t, 5);
+  save();
+}
+function letGoTow(quiet = false) {
+  if (!tow) return;
+  const name = tow.towed.name;
+  tow = null;
+  towRope.hide();
+  if (quiet) return;
+  audio.knock(0.25);
+  hud.flash(`You let the ${name} go: she lies where she is (anchor her or tie her up, or come back for her)`, t, 3.5);
+  save();
+}
+const _ts = new THREE.Vector3(), _tb = new THREE.Vector3();
+function updateTow(dt) {
+  if (!tow) return;
+  const { lead, towed } = tow;
+  // (Anything that parts them, a journey by map, say, or one of them made fast, lets the tow go.)
+  if (Math.hypot(lead.pos.x - towed.pos.x, lead.pos.z - towed.pos.z) > 30 || towed.tie || towed.anchored) {
+    letGoTow(true);
+    return;
+  }
+  tow.tight = towStep(lead, towed, dt);
+  lead.body.localToWorld(_ts.copy(lead.cleats[1]));
+  towed.body.localToWorld(_tb.copy(towed.cleats[0]));
+  towRope.lay(_ts, _tb, { tension: tow.tight, sag: 0.9 });
+}
+// (A tow kept from last time, if the two boats are still together.)
+{
+  const T = state.tow, L = T && BOATS[T.lead], W = T && BOATS[T.towed];
+  if (L && W && L !== W && !W.tie && !W.anchored && Math.hypot(L.pos.x - W.pos.x, L.pos.z - W.pos.z) < TOW.len * 3) tow = { lead: L, towed: W, tight: 0 };
+}
+
+// The mooring prompt (the anchor key, X on a controller, or a tap): what holding her still means
+// here and now. Tied up: cast off. Beside a pier: tie up. Towing: let the tow go. Out on the
+// water: the anchor, down or up.
+function mooringAction() {
+  if (!started || modal || onFoot || driving || cabinIn || placement.isOn) return null;
+  if (boat.tie) return { text: 'Cast off', run: castOff };
+  if (fishing.state === 'reeling' || fishing.state === 'landing') return null;
+  if (!boat.anchored && boat.speed < 0.9) {
+    const B = berthFor(boat, boats);
+    if (B) return { text: 'Tie up alongside', run: () => tieUp(B) };
+  }
+  if (tow && (tow.lead === boat || tow.towed === boat)) return { text: `Let go the tow (the ${tow.lead === boat ? tow.towed.name : tow.lead.name})`, run: () => letGoTow() };
+  if (boat.anchored) return boat.anchor?.phase === 'haul' ? { text: 'Hauling in the anchor…', run: () => {}, busy: true } : { text: 'Raise the anchor', run: toggleAnchor };
+  if (boat.speed < 1) return { text: 'Drop the anchor', run: toggleAnchor };
+  return null;
 }
 
 function setFoot(foot, silent = false) {
@@ -1304,6 +1445,17 @@ function setFoot(foot, silent = false) {
 }
 
 function stepAshore(spot) {
+  // At a jetty or quay you make her fast before you step off (out on a bank she's left as she is:
+  // anchored, or pulled up and drifting nowhere).
+  let tied = false;
+  if (spot.pier && !boat.tie && !boat.anchored) {
+    const B = berthFor(boat, boats, { reach: 5 });
+    if (B) {
+      boat.tieTo(B);
+      tied = true;
+    }
+  }
+  if (tied) hud.flash(`You make her fast alongside and step ashore (${scheme() === 'touch' ? 'Cast off' : K('anchor')} from aboard to go again)`, t, 3.5);
   walker.place(spot.x, spot.z, spot.heading);
   setFoot(true);
   audio.step(false);
@@ -1343,6 +1495,10 @@ const CAP_WORDS = {
 function setLever(i) {
   const kind = leverKind();
   if (!kind) return;
+  if (boat.tie && levers(kind)[i]?.v !== 0) {
+    hud.flash(`Tied up alongside: cast off first (${scheme() === 'touch' ? 'the Cast off prompt' : K('anchor')})`, t, 2.2);
+    return;
+  }
   if (boat.anchored && levers(kind)[i]?.v > 0) {
     hud.flash(`The anchor is down: raise it first (${K('anchor')})`, t, 2);
     return;
@@ -1356,6 +1512,10 @@ function stepLever(dir, fresh = true) {
   if (!kind) return;
   const L = levers(kind), i = nearest(kind, boat.lever);
   if (!fresh && L[i].id === 'N') return;
+  if (boat.tie) {
+    if (fresh) hud.flash(`Tied up alongside: cast off first (${scheme() === 'touch' ? 'the Cast off prompt' : K('anchor')})`, t, 2.2);
+    return;
+  }
   if (boat.anchored && dir > 0 && L[i].v >= 0) {
     hud.flash(`The anchor is down: raise it first (${K('anchor')})`, t, 2);
     return;
@@ -1378,6 +1538,7 @@ function leverNeutral(say = false) {
 // Held forward or back (the keys, or the stick pushed well over): one notch now, and more
 // while held, pausing at neutral.
 let leverHeld = 0, leverRepeat = 0;
+let tieWordT = 0;
 function helmInput(raw, dt) {
   const dir = Math.abs(raw) > 0.55 ? Math.sign(raw) : 0;
   if (!dir) {
@@ -1481,7 +1642,7 @@ function updateLever() {
 // Inside the cabin: where you stand (the doorway, the galley, the bunk), walking between them.
 let cabinIn = null;
 const _cab = new THREE.Vector3(), _cab2 = new THREE.Vector3();
-const canEnterCabin = (b) => !!b.hull.cabin && (b.anchored || moored(b)) && b.speed < 0.6;
+const canEnterCabin = (b) => !!b.hull.cabin && (b.anchored || !!b.tie || moored(b)) && b.speed < 0.6 && b.anchor?.phase !== 'haul';
 
 function enterCabin() {
   const b = BOATS.cabin;
@@ -1493,8 +1654,12 @@ function enterCabin() {
   // From the quay: aboard first (into the cockpit), and straight on in.
   if (onFoot || boat !== b) board(b);
   changeLever(0);
-  // (Tied up alongside but not anchored: you make her fast, so she can't wander off while you're in.)
-  if (!b.anchored) b.setAnchor(true);
+  // (Alongside but loose: you make her fast, so she can't wander off while you're in.)
+  if (!b.anchored && !b.tie) {
+    const B = berthFor(b, boats, { reach: 5 });
+    if (B) b.tieTo(B);
+    else b.setAnchor(true);
+  }
   cabinIn = { at: 0, from: 0, k: 1 };
   boat.setRower(false);
   walker.setVisible(true);
@@ -1843,7 +2008,7 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const fuelName = (what) => (what === 'car' ? 'the car' : `the ${BOATS[what].name}`);
 // Within reach of a jetty or quay (where a boat ties up, and the battery charges).
 const pierNear = (b, reach = 4) => PIERS.some((P) => Math.hypot(b.pos.x - clamp(b.pos.x, P.x0, P.x1), b.pos.z - clamp(b.pos.z, P.z0, P.z1)) < reach);
-const moored = (b) => b.speed < 0.4 && pierNear(b);
+const moored = (b) => !!b.tie || (b.speed < 0.4 && pierNear(b));
 const pumpNear = () => (onFoot && !driving ? Object.keys(FUEL_PUMPS).find((id) => Math.hypot(walker.pos.x - FUEL_PUMPS[id].x, walker.pos.z - FUEL_PUMPS[id].z) < 1.9) || null : null);
 // The jerry can within reach: carried, or in the boot of a car close by.
 const canHere = (reach = 8) => tanks().can.at === 'pack' || (tanks().can.at === 'car' && Math.hypot(car.pos.x - player().pos.x, car.pos.z - player().pos.z) < reach);
@@ -2008,7 +2173,7 @@ function driveTo(to, how = 'skip', aim = to) {
       }
       enterCar();
     }
-    hud.toast(`Follow the lane to ${DESTS[to].name}: the car park is at its end. Stop, then ${scheme() === 'touch' ? 'tap the prompt' : K('interact')} to get out.`, 7);
+    hud.toast(`Follow the lane to ${DESTS[to].name}: the car park is at its end. Stop, then ${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} to get out.`, 7);
     save();
     return;
   }
@@ -2458,14 +2623,19 @@ function interaction() {
     ]) };
   }
   if (spot) return { text: ashore, run: () => stepAshore(spot) };
-  const other = boat.speed < 1 ? otherBoat() : null;
-  if (other) return { text: `Step across into the ${other.name}`, run: () => stepAcross(other) };
+  const other = boat.speed < 1 ? otherBoat(tow && (tow.lead === boat || tow.towed === boat) ? 9 : 4.5) : null;
+  if (other) {
+    const towing = tow && ((tow.lead === boat && tow.towed === other) || (tow.towed === boat && tow.lead === other));
+    return { text: `The ${other.name}: step across${towing ? ', or let her go' : ', or take her in tow'}`, run: () => ask(boatTitle(other), towing ? 'She’s on your towline. Step across into her, or let her go?' : 'Step across into her, or take her in tow? (A line from your stern to her bow: she follows where you go.)', [
+      { text: towing ? 'Let go the tow' : 'Take her in tow', cls: 'quiet', run: () => (towing ? letGoTow() : takeInTow(other)) },
+      { text: 'Step across', run: () => stepAcross(other) },
+    ]) };
+  }
   // A dry tank: the jerry can, a tow, or an oar.
   if (isPetrol(boat.kind) && fuelLevel(tanks(), boat.kind) <= 0 && boat.speed < 1) return { text: 'Out of fuel: what now?', run: () => boatChoices() };
   // The cabin boat, stopped: its galley and bunk.
   if (boat.hull.cabin && !fishing.lineOut && canEnterCabin(boat)) return { text: 'Into the cabin: galley and bunk', run: () => enterCabin() };
-  if (boat.hull.cabin && boat.speed < 0.6 && !fishing.lineOut && !boat.anchored) return { text: 'Drop the anchor (then the cabin)', run: toggleAnchor };
-  if (boat.speed < 0.6 && !fishing.lineOut) return { text: boat.anchored ? 'Raise the anchor' : 'Drop the anchor', run: toggleAnchor };
+
   return null;
 }
 
@@ -2827,13 +2997,21 @@ function boatsRound() {
           return;
         }
         const d = Math.hypot(b.pos.x - p.x, b.pos.z - p.z);
+        if (tow && (tow.lead === b || tow.towed === b)) letGoTow(true);
+        // (Brought round, her anchor comes up with her.)
+        b.anchor = null;
+        b.anchored = false;
         b.place(p.x, p.z, p.heading);
-        // (Made fast alongside, so it's still there when you come down the steps.)
-        b.setAnchor(true);
+        // (Tied up alongside, so she's still there when you come down the steps.)
+        const B = berthFor(b, boats, { reach: 4 });
+        if (B) {
+          b.place(B.x, B.z, B.heading);
+          b.tieTo({ ...B, t: 9 });
+        }
         passTime(clamp(d / 300, 0.15, 1.5));
         audio.knock(0.4);
         save();
-        hud.toast(`The ${b.name} is made fast alongside the quay. Step down into it from the quay steps (and raise its anchor to go).`, 6);
+        hud.toast(`The ${b.name} is tied up alongside the quay. Step down into her from the quay steps, and cast off (${scheme() === 'touch' ? 'the Cast off prompt' : input.keyLabel('anchor')}) to go.`, 6);
       },
     })),
   ]);
@@ -3735,6 +3913,9 @@ function updateHud() {
   updateLever();
   const act = interaction();
   hud.prompt(act ? (scheme() === 'touch' ? `Tap: ${act.text}` : `${K('interact')} ${act.text}`) : '');
+  // Beside it, the mooring prompt (anchor, tie up, cast off, let go a tow), on its own key.
+  const moor = mooringAction();
+  hud.prompt2(moor ? (scheme() === 'touch' || moor.busy ? moor.text : `${K('anchor')} ${moor.text}`) : '');
   const F = fishing.fight;
   // Ease off: the flick before a run, and the surge as it starts.
   const easy = fishing.state === 'reeling' && !!F && (F.surgeT > 0 || (F.warned && !F.pulling));
@@ -3808,7 +3989,14 @@ function updateHud() {
 
 let saveWarned = false;
 function save() {
-  for (const [k, b] of Object.entries(BOATS)) state.boats[k] = { x: b.pos.x, z: b.pos.z, heading: b.heading, anchored: b.anchored, ...(b.emotorDown ? { motor: true } : {}) };
+  for (const [k, b] of Object.entries(BOATS)) {
+    state.boats[k] = { x: b.pos.x, z: b.pos.z, heading: b.heading, anchored: b.anchored && b.anchor?.phase !== 'haul', ...(b.emotorDown ? { motor: true } : {}) };
+    // (Where her anchor lies, or the berth she's tied up at, so she's found just as she was left.)
+    if (b.anchor && b.anchor.phase !== 'haul') state.boats[k].anchor = { x: b.anchor.x, z: b.anchor.z };
+    if (b.tie) state.boats[k].tie = { pier: b.tie.pier, side: b.tie.side, along: b.tie.along, heading: b.tie.heading };
+  }
+  const kindOf = (b) => Object.keys(BOATS).find((k) => BOATS[k] === b);
+  state.tow = tow ? { lead: kindOf(tow.lead), towed: kindOf(tow.towed) } : null;
   state.vessel = boat.kind;
   state.mode = onFoot ? 'foot' : 'boat';
   state.walker = onFoot ? { x: walker.pos.x, z: walker.pos.z, heading: walker.heading } : null;
@@ -4468,7 +4656,7 @@ input.on('press', (code, acts) => {
     hud.flash(settings.weather.panel ? 'Conditions panel shown' : 'Conditions panel hidden', t, 1.4);
     save();
   }
-  else if (is('anchor')) toggleAnchor();
+  else if (is('anchor')) mooringAction()?.run();
   else if (is('neutral') && leverKind()) leverNeutral(true);
   else if (is('throttleUp') && leverKind()) stepLever(1);
   else if (is('throttleDown') && leverKind()) stepLever(-1);
@@ -4533,6 +4721,7 @@ $('prompt').addEventListener('click', () => {
   const act = interaction();
   if (act) act.run();
 });
+$('prompt2').addEventListener('click', () => mooringAction()?.run());
 $('j-settings-open').addEventListener('click', () => openSettings());
 $('gd-fold').addEventListener('click', () => {
   state.guide.min = !state.guide.min;
@@ -4744,6 +4933,11 @@ function tick(now, manual = false) {
     } else {
       throttle = ti;
       steer = si;
+      // (Tied up, the oars or the paddle can't take her anywhere: a word on casting off.)
+      if (boat.tie && (ti || si) && t > tieWordT) {
+        tieWordT = t + 4;
+        hud.flash(`Tied up alongside: cast off first (${scheme() === 'touch' ? 'the Cast off prompt' : K('anchor')})`, t, 2.4);
+      }
     }
   }
   if (boat.motor && (onFoot || modal || cabinIn)) throttle = 0;
@@ -4801,6 +4995,7 @@ function tick(now, manual = false) {
   }
   boat.update(dt, t, throttle, steer, env.lantern);
   for (const b of boats) if (b !== boat) b.update(dt, t, 0, 0, env.lantern);
+  updateTow(dt);
   keepBoatsApart();
   if (cabinIn) placeInCabin(dt);
   BOATS.cabin.setCabinLight(env.night, !!cabinIn);

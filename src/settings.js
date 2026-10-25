@@ -37,7 +37,7 @@ export const PAD_HELP = [
     ['play', 'forward', 'walk, row, steer'], ['play', 'look', 'look around (push up to sink the view under the water)'], ['play', 'jog', 'jog (press; stop to walk again)'],
     ['play', 'cast', 'hold to aim, let go to cast · hold to reel'], ['play', 'interact', 'whatever the prompt says'],
     ['play', 'cancel', 'cancel a cast · reel in · back'], ['play', 'pack', 'backpack'], ['play', 'rod1', 'the other rod'],
-    ['play', 'tackle', 'next bait, lure or fly'], ['play', 'anchor', 'anchor down or up'], ['play', 'rest', 'let time drift (hold)'],
+    ['play', 'tackle', 'next bait, lure or fly'], ['play', 'anchor', 'mooring: anchor down or up, tie up, cast off, let go a tow'], ['play', 'rest', 'let time drift (hold)'],
   ]],
   ['Views and panels', [
     ['play', 'view', 'next view'], ['play', 'reset', 'reset the camera'], ['play', 'photo', 'photo mode'],
@@ -405,6 +405,8 @@ export class SettingsUI {
       'Fishing under way: you can cast at up to trolling speed, and the boat carries the cast along as it flies. A moving boat tows your line behind it (trolling). With a line out the throttle goes no higher than slow ahead (+ and − move it, or the D-pad on a controller); when a fish takes, the motor goes to neutral.',
       'The kayak’s electric motor: lower it (or raise it again) with its key, L3, or the Motor button by the lever. Lowered, the lever drives it, quietly and slowly, hands free for the rod; raised, you paddle. Its battery charges at a jetty and overnight, and when it runs flat you simply paddle.',
       'The cabin boat: anchored or tied up, the prompt takes you into the cabin (from the helm, or straight from the quay). Inside, forward and back move between the doorway, the galley and the bunk; the prompt cooks or sleeps; cancel (Esc or B) takes you back on deck.',
+      'Mooring: a second prompt (on the anchor key, X on a controller, or a tap) says what holding her still means where you are. Out on the water it drops the anchor: it goes down to the seabed, and she drifts back on her rope and lies head to the anchor, riding the waves; again, and you haul it in. Too shallow or too deep (deeper than its 30 m rope) and it says so. Beside a jetty or quay it ties her up alongside instead (lines and fenders); tied up, it casts off, pushing her clear if there’s room. Stepping ashore at a jetty makes her fast for you.',
+      'Towing: alongside another boat, the prompt offers to step across or take her in tow. She follows on a line from your stern; the mooring prompt (or the same prompt beside her) lets her go. A small boat can’t tow a much bigger one.',
       'The camera turns all the way round you or your boat. Drag upwards (or push the right stick up) and the view sinks past the waterline to look beneath it, at the hull or the fish below; drag down again and you’re back in the air. The view key still steps through first person, a fixed underwater view and your bait.',
     ]) out.push(el('p', 'st-note', line));
     out.push(list);

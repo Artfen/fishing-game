@@ -116,10 +116,19 @@ test('boats ride the waves gently and differently: a kayak follows the chop, the
   assert.ok(bass.maxRoll < kayak.maxRoll, `bass boat ${bass.maxRoll.toFixed(3)} vs kayak ${kayak.maxRoll.toFixed(3)}`);
 });
 
-test('an anchored boat stays by its anchor, and lies to its rope', () => {
+test('an anchored boat stays on its rope, and lies to it', () => {
   const r = drift('row', 30, 90, { anchored: true });
-  const d = Math.hypot(r.x + 120, r.z - 420);
-  assert.ok(d < 4, `it stayed within ${d.toFixed(1)} m of the anchor`);
+  const A = r.b.anchor;
+  assert.ok(A && A.phase === 'set', 'the anchor is on the bottom');
+  // Her bow no further from the anchor than the rope reaches (it never drags), and once the
+  // wind and tide have taken her back on it, lying head to it.
+  const bx = r.x + r.b.fwd.x * r.b.hull.L * 0.45, bz = r.z + r.b.fwd.z * r.b.hull.L * 0.45;
+  const d = Math.hypot(bx - A.x, bz - A.z);
+  assert.ok(d <= A.reach + 0.3, `${d.toFixed(1)} m from the anchor, on a ${A.reach.toFixed(1)} m reach`);
+  if (A.tension > 0.5) {
+    const to = Math.atan2(A.x - r.x, A.z - r.z), off = Math.abs(Math.atan2(Math.sin(to - r.b.heading), Math.cos(to - r.b.heading)));
+    assert.ok(off < 0.5, `head to the anchor (${off.toFixed(2)} rad off)`);
+  }
 });
 
 test('the Currents setting steadies your boat (the fish still know the water)', () => {

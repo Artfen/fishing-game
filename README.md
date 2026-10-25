@@ -75,7 +75,7 @@ With a keyboard and mouse (every key below can be changed in **Settings → Cont
 | Q | Next bait, lure, fly or jig in your backpack for the rod in hand |
 | 1 / 2 | Switch between the two rods you carry |
 | G | Throw a pouch of loose bait around a carp rig |
-| Z | Drop or raise the anchor (when slow) |
+| Z | The mooring prompt (shown above the main one): drop or raise the anchor out on the water, tie up alongside a jetty or quay, cast off, or let go a tow |
 | X | Throttle to neutral (stop): the motor idles and the boat coasts on |
 | + / − | Throttle up or down a notch (works with a line out too, when W/S work the lure) |
 | U | Kayak: lower or raise its electric motor |
@@ -110,7 +110,7 @@ With a controller (an Xbox controller, or any the browser recognises; plug it in
 | **A** / **B** | whatever the prompt says / cancel a cast, reel in, back out of a menu |
 | **Y** · **View** · **D-pad ↑** · **Menu** | backpack · map · journal · settings |
 | **LB** / **RB** | the other rod / the next bait or lure (with a line out: *why aren't they biting?* / loose bait) |
-| **X** · **LT** | anchor · let time drift (hold) |
+| **X** · **LT** | the mooring prompt (anchor, tie up, cast off, let go a tow) · let time drift (hold) |
 | **D-pad ← / → / ↓**, **R3** | next view / photo mode / fish finder, reset the camera |
 | A fish on | **RT** reels, **LT** eases the drag, left stick up/down sets it |
 | Catch card | **A** let it go, **X** keep it, **Y** photograph it |
@@ -327,6 +327,14 @@ Gear matters: a lure too big for a fish's mouth is ignored by small fish (so big
 | Cabin boat | Alongside Willowhaven quay | Slow and steady, with a little cabin forward you can go into: a bunk and a galley stove. A camp that floats |
 
 Walk up to a boat and press **E** to get in; step across between two boats side by side; step ashore at any bank, pier or jetty. In shallow water an outboard tips up and you can only creep. Fish hear an outboard (not the electric motors), so slow down near them.
+
+**Anchoring, tying up and towing.** A second, smaller prompt above the main one (**Z**, **X** on a controller, or tap it) is always about holding the boat still, and says what it will do where you are:
+
+- *Out on the water*, **Drop the anchor**: the anchor goes over the bow and down to the seabed on its rope, about two and a half times the depth paid out. She drifts back on the wind and tide until the rope comes tight, then lies there head to the anchor, swinging a little and riding the waves; nothing pins her in place. **Raise the anchor** hauls it in: the rope shortens, drawing her up over it, and it comes up to the foredeck (a few seconds; the motor and oars wait until it's up). It needs water at least a little deeper than she draws (or she'd swing onto the bottom) and no deeper than 25 m (the rope is 30 m): where you can't, the prompt says why. Under the water you can see the rope and the anchor lying on the bottom.
+- *Beside a jetty or quay* (any of them: the old jetty, the landing, Wend Quay, the boathouse jetty, Puffin Cove, Willowhaven quay, the Calf's landing), slow and within a few metres of it, **Tie up alongside**: she's drawn in to lie along it, a line at the bow and the stern, fenders between, and stays there, the waves still moving her a little. Step ashore and use the quay; she waits. Tied up, the throttle and the oars don't move her; **Cast off** pushes her clear (out from the pier, or along it where it's shallow outside), and only into open water: if another boat is lying right beside her, it says so. Stepping ashore at a jetty makes her fast for you, and boats brought round to Willowhaven quay arrive tied up.
+- *Towing*: alongside another boat, the main prompt offers to **step across** or **take her in tow**. A line from your stern to her bow: she follows where you go, swinging round behind you on the turns, and slows you a little. **Let go the tow** (the mooring prompt, or the same choice beside her) leaves her where she is, to anchor, tie up or come back for. A small boat can't tow a much bigger one: the kayak tows nothing, the rowing boat not the cabin boat.
+
+Whether a boat is anchored (and where its anchor lies), tied up (and at which berth) or on a tow is kept with the save, so she's found exactly as you left her.
 
 **The throttle.** The motor skiff, the bass boat and the cabin boat each have a throttle lever with notches: **R** astern, **N** neutral, then **1** dead slow (about 1 m/s, for creeping round piers and moorings), **2** slow ahead (about 2 m/s, trolling speed), **3** half and **F** full ahead (on the bass boat the first two notches, **E1** and **E2**, are its quiet electric motor). The lever is on screen at the bottom right while you're at the helm (above the round button on a touch screen): click or tap a notch, or drag the handle; the fill beside it shows what the motor is actually giving. **W**/**S** (or the left stick pushed and let go, or **+**/**−**) move it a notch at a time, and it stays where you leave it; held down, it steps on, pausing at neutral before going astern. **X**, **B** on a controller or the big **Stop** under the lever knock it into neutral: the motor idles and the boat coasts on, slowing gradually. The motor takes a moment to build up and to ease off (an electric one less), and changing between ahead and astern it goes through neutral and pauses while the gear changes. Steering (A/D, the stick across) is separate and works at any speed, best with a little way on.
 
