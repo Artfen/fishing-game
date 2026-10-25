@@ -77,6 +77,7 @@ import { STEPS as TRIP_STEPS, stepOf, stepNumber, complete as completeStep, star
 import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality } from './quality.js';
 import { Post } from './post.js';
 import { Diver, Shot, buildGun } from './diver.js';
+import { stepComfort, effectsOf, needsOf, dressFor, drink as drinkFrom, refill, eatRoll, packRolls, CLOTHES, CLOTHES_IDS, BOTTLE, ROLLS, feelsLike } from './comfort.js';
 import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance } from './dive.js';
 import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick, seeded } from './util.js';
 
@@ -884,6 +885,7 @@ const packUI = new PackUI(state, {
   travel: (dest) => travel(dest),
   travelInfo: () => travelInfo(),
   kit: (el) => renderKit(el),
+  wear: (el) => renderWear(el),
   openMap: () => {
     closePack();
     openMap();
@@ -1230,6 +1232,11 @@ function passTheNight() {
   if (state.hour + hours >= 24) state.day++;
   state.hour = h;
   camp.update(0, hours, true);
+  // You wake warm and dry, and fill your water bottle before you set off.
+  if (needsMode() !== 'off') {
+    stepComfort(state.comfort, hours, { asleep: true });
+    refill(state.comfort);
+  }
   // The weather turns while you sleep (unless you've chosen it): sometimes you wake to rain.
   if (skyMode() === 'auto') {
     weather.state = pick(Math.random() < 0.3 ? ['light', 'heavy', 'overcast'] : ['clear', 'partly', 'partly', 'overcast']);
@@ -1814,7 +1821,7 @@ function freediveStep(dt, depth, surf) {
     }
     d.hold = 0;
     d.said.turn = d.said.low = false;
-    d.o2 = Math.min(1, d.o2 + recoverRate() * dt);
+    d.o2 = Math.min(1, d.o2 + recoverRate() * comfortFx.breath * dt);
     return;
   }
   d.hold += dt;
@@ -2396,6 +2403,187 @@ function cabinAction() {
   return { text: moored(boat) ? 'Back out on deck (and ashore)' : 'Back out on deck', run: () => leaveCabin() };
 }
 
+/* ---------------- how you feel: warmth, wet clothes, thirst (see comfort.js) ---------------- */
+
+const needsMode = () => settings.controls.needs || 'gentle';
+let comfortFx = { pace: 1, shake: 1, breath: 1 };
+let lastNeeds = null, dressT = 0;
+const needSaid = {}; // need id -> when it was last mentioned (game hours)
+
+// The weather on you just now: the hour, where you are and how high, the wind and sun on you, rain
+// and spray, how hard you're working, and a roof over you or a fire beside you.
+function comfortEnv() {
+  const P = player().pos, w = windAt(P.x, P.z);
+  const indoors = driving || !!cabinIn || (modal === 'camp' && camp.house) || modal === 'bench';
+  const F = world.camp.firePos;
+  let fire = onFoot ? camp.fireLevel * smoothstep(5, 1.5, Math.hypot(P.x - F.x, P.z - F.z)) : 0;
+  if (modal === 'camp' && camp.own) fire = Math.max(fire, 0.5);
+  const afloat = !onFoot && !driving;
+  const rowing = afloat && !boat.motor && !boat.sailUp && boat.speed > 0.6;
+  const spray = afloat ? smoothstep(4, 8, boat.speed) * smoothstep(0.2, 1, waveHeightHere(P.x, P.z)) + weather.storm * 0.4 : 0;
+  return {
+    hour: state.hour, south: conditions.region === 'south', height: onFoot ? Math.max(0, walker.pos.y) : 0,
+    cloud: weather.cloud, rain: weather.rain, storm: weather.storm,
+    wind: w.speed * (onFoot ? 0.75 : 1), sun: (1 - env.night) * (1 - 0.85 * weather.cloud) * (1 - weather.rain),
+    moving: onFoot ? smoothstep(0.4, 4.5, walker.speed) : rowing ? 0.6 : 0,
+    shelter: indoors ? 1 : 0, fire, wading: onFoot ? walker.wading : 0, spray: clamp(spray, 0, 1),
+  };
+}
+
+// Each frame: how you feel moves on with the day and the weather (not while you're under the
+// water, asleep or at sea on the long passage), the small effects when a need is very low (on
+// Gentle), and the figure: what you're wearing, a shiver, a hand to your brow.
+function updateComfort(dt, hours) {
+  const c = state.comfort, mode = needsMode(), off = mode === 'off';
+  camp.quiet = off;
+  if (!off && hours > 0 && !dive && !sleeping && !passage) stepComfort(c, hours, comfortEnv());
+  comfortFx = effectsOf(c, state.food, mode);
+  walker.speedMul = comfortFx.pace;
+  fishing.steady = (camp.wellFed ? 0.8 : 1) * comfortFx.shake;
+  const shiver = off ? 0 : smoothstep(9, 4, c.warm), sweat = off ? 0 : smoothstep(28, 32, c.warm);
+  walker.cue.shiver = shiver;
+  walker.cue.sweat = sweat;
+  for (const b of boats) b.shiver = b === boat && !onFoot ? shiver : 0;
+  dressT -= dt;
+  if (dressT <= 0) {
+    dressT = 0.25;
+    const wet = off ? 0 : c.wet;
+    walker.dress.set(c.wear, wet);
+    for (const b of boats) b.dress.set(c.wear, wet);
+  }
+  if (!off) sayNeeds(c);
+}
+
+// A word when you start to feel something (once in a while, not a nag): what it is and what would
+// help. (Hunger has its own words: see camp.js.)
+function sayNeeds(c) {
+  const now = new Set(needsOf(c).map((n) => n.id));
+  const prev = lastNeeds;
+  lastNeeds = now;
+  if (!prev || modal || sleeping || dive || !started) return;
+  const abs = state.day * 24 + state.hour;
+  for (const id of now) {
+    if (prev.has(id) || abs - (needSaid[id] ?? -99) < 3) continue;
+    needSaid[id] = abs;
+    const first = !state.tips.comfort;
+    state.tips.comfort = true;
+    const pack = input.keyLabel('pack'), sip = input.keyLabel('drink');
+    const tip = {
+      chilly: `You’re getting chilly. ${!c.wear.jumper ? `Put your jumper on (the backpack, ${pack})` : !c.wear.hat ? `The woolly hat would help (the backpack, ${pack})` : 'Get out of the wind, or warm up by a fire'}.`,
+      cold: 'You’re cold, and your hands are getting clumsy. Layers on (the backpack), out of the wind, or warm up by a fire or indoors.',
+      warm: `It’s warm work. ${c.wear.coat ? 'Take the raincoat off' : c.wear.jumper ? 'Take the jumper off' : 'Take it easy a moment'} (the backpack, ${pack}), and have a drink (${sip}).`,
+      hot: `You’re too hot: shed a layer, have a drink (${sip}), and take it easy for a bit.`,
+      damp: `Your clothes are getting damp.${weather.rain > 0.15 && !c.wear.coat ? ' The raincoat would keep the rain off.' : ''} A fire or a roof dries them, or the sun and wind, slowly.`,
+      soaked: 'Soaked through, and the wind feels colder for it. Dry off by a fire or indoors.',
+      thirsty: c.bottle ? `You’re thirsty: have a drink from your water bottle (${sip}).` : 'You’re thirsty, and your bottle is empty: fill it at a camp, a kitchen, the chandlery or a clear stream.',
+      parched: c.bottle ? `You’re parched, and it’s slowing you down: have a drink (${sip}).` : 'You’re parched, and your bottle is empty: fill it at a camp, a kitchen, the chandlery or a clear stream.',
+    }[id];
+    if (!tip) continue;
+    hud.toast(first ? `${tip} (Your angler feels the day now: cold and heat, wet clothes, thirst and hunger. The words by the clock say how you are, and the backpack has your clothes, water bottle and rolls. Settings → Controls & comfort turns it down or off.)` : tip, first ? 11 : 6);
+    break;
+  }
+}
+
+// A drink from your water bottle.
+function takeDrink() {
+  const c = state.comfort;
+  if (needsMode() === 'off' || dive) return;
+  if (!drinkFrom(c)) {
+    hud.flash('Your water bottle is empty: fill it at a camp, a kitchen, the chandlery or a clear stream.', t, 3.5);
+    return;
+  }
+  walker.cue.drink = 2;
+  hud.flash(`A long drink of water. ${c.bottle ? `${c.bottle} left in the bottle.` : 'That’s the bottle empty.'}`, t, 2.5);
+  packUI.render();
+  save();
+}
+
+// Where your bottle can be filled (and where there's a kitchen to pack rolls from): at a camp or
+// a kitchen (home, the bothy, Bar El Muelle, a boat's galley), the chandlery, or a clear stream
+// or river beside you.
+const kitchenHere = () => (onFoot ? !!(insideHome(walker.pos.x, walker.pos.z) || coastSpot('bothy', 1) || coastSpot('posada', 1) || chandleryNear()) : !driving && !!boat.hull.cabin);
+function streamHere() {
+  if (!onFoot) return false;
+  const P = walker.pos;
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2, x = P.x + Math.sin(a) * 1.6, z = P.z + Math.cos(a) * 1.6;
+    if (depthAt(x, z) > 0.12 && ['stream', 'river', 'tarn'].includes(zoneAt(x, z))) return true;
+  }
+  return false;
+}
+const waterHere = () => kitchenHere() || nearCamp() || !!ownCampNear(4.5) || streamHere();
+
+function fillBottle(quiet = false) {
+  refill(state.comfort);
+  if (!quiet) hud.flash(`Your water bottle is full (${BOTTLE} drinks), and you drink your fill while you’re at it.`, t, 3);
+  packUI.render();
+  camp.render();
+  save();
+}
+function takeRolls() {
+  const got = packRolls(state.comfort);
+  hud.flash(got ? `${got} ${got > 1 ? 'rolls' : 'roll'} wrapped and into your backpack (${ROLLS} in all).` : 'Your backpack has all the rolls it can carry.', t, 3);
+  packUI.render();
+  camp.render();
+  save();
+}
+function eatARoll() {
+  if (!eatRoll(state.comfort, state.food)) return;
+  hud.flash(`A roll from your backpack: ${conditions.region === 'south' ? 'bread, cheese and a slice of chorizo' : 'cheese and pickle'}. ${state.comfort.rolls ? `${state.comfort.rolls} left.` : 'That was the last one.'}`, t, 3);
+  packUI.render();
+  save();
+}
+
+// The backpack's clothes, water and food: what you're wearing (and what would suit the weather),
+// the bottle and the rolls.
+function renderWear(el) {
+  const c = state.comfort, off = needsMode() === 'off';
+  const mk = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  };
+  const btn = (text, run, dis = false, pressed = null) => {
+    const b = mk('button', 'pk-btn', text);
+    b.type = 'button';
+    b.disabled = dis;
+    if (pressed != null) b.setAttribute('aria-pressed', pressed);
+    b.addEventListener('click', run);
+    return b;
+  };
+  const out = [];
+  const env2 = comfortEnv(), feel = Math.round(feelsLike(c, env2)), suits = dressFor(c, env2);
+  const words = off ? [] : needsOf(c, state.food).map((n) => n.word.toLowerCase());
+  out.push(mk('p', 'gx-kit-text', off ? 'Character needs are off (Settings → Controls & comfort): the weather never bothers you.'
+    : `${words.length ? `You’re ${words.join(', ')}.` : 'You’re comfortable.'} It feels about ${feel}° to you just now.`));
+  const row = mk('div', 'gx-kit-acts');
+  for (const id of CLOTHES_IDS) {
+    const on = !!c.wear[id];
+    row.append(btn(`${CLOTHES[id].name}${on ? ' ✓' : ''}`, () => {
+      c.wear[id] = !on;
+      dressT = 0;
+      packUI.render();
+      save();
+    }, false, on));
+  }
+  out.push(row);
+  const advice = CLOTHES_IDS.filter((id) => !!suits[id] !== !!c.wear[id]);
+  if (!off && advice.length) out.push(mk('p', 'gx-kit-note', `For this weather: ${CLOTHES_IDS.filter((id) => suits[id]).map((id) => CLOTHES[id].name.toLowerCase()).join(', ') || 'nothing extra'}.`));
+  const water = waterHere(), kitchen = kitchenHere();
+  out.push(mk('p', 'gx-kit-text', `Water bottle: ${c.bottle} of ${BOTTLE} drinks. Rolls: ${c.rolls} of ${ROLLS}.`));
+  const acts = mk('div', 'gx-kit-acts');
+  acts.append(
+    btn('Have a drink', () => takeDrink(), off || c.bottle <= 0 || !!dive),
+    btn('Fill the bottle', () => fillBottle(), off || !water || c.bottle >= BOTTLE),
+    btn('Eat a roll', () => eatARoll(), off || c.rolls <= 0),
+    btn('Pack rolls', () => takeRolls(), off || !kitchen || c.rolls >= ROLLS),
+  );
+  out.push(acts);
+  if (!off && (!water || !kitchen)) out.push(mk('p', 'gx-kit-note', `${water ? '' : 'Fill the bottle at a camp, a kitchen, the chandlery or a clear stream. '}${kitchen ? '' : 'Rolls come from a kitchen (home, the bothy, Bar El Muelle, a boat’s galley) or the chandlery.'}`.trim()));
+  el.replaceChildren(...out);
+}
+
 /* ---------------- heading back: camp or boat ---------------- */
 
 // A safe place to stand by the fire: on dry, level ground, clear of the tent and gear.
@@ -2505,6 +2693,8 @@ function travel(dest) {
 function passTime(hours) {
   if (moored(BOATS.bass)) chargeBattery(tanks(), hours);
   if (moored(BOATS.kayak)) chargeBattery(tanks(), hours, 'kayak');
+  // (A while gone by: you feel it, as if you'd been here the while; the long passage is its own.)
+  if (needsMode() !== 'off' && !passage) stepComfort(state.comfort, Math.min(hours, 3), comfortEnv());
   state.hour += hours;
   if (state.hour >= 24) {
     state.hour -= 24;
@@ -2704,6 +2894,8 @@ function arrivePassage(to) {
   const hours = PASSAGE_DAYS * 24 - 24 + (((arrive - state.hour) % 24) + 24) % 24;
   passTime(hours);
   state.food = { ...(state.food || {}), full: 100 };
+  Object.assign(state.comfort, { warm: 18, wet: 0 });
+  refill(state.comfort);
   // The weather where you land: fine, in the trade wind down south.
   if (skyMode() === 'auto') {
     weather.state = to === 'south' ? 'clear' : 'partly';
@@ -3466,6 +3658,8 @@ function interaction() {
     if (chandleryNear()) return { text: 'The chandlery: tackle, bait, charts and air', run: () => { fillTank(); openPack('chandlery'); } };
     if (coastSpot('bench')) return { text: 'Sit on the bench a while', run: () => sitOnBench() };
     if (quayHeadNear()) return { text: 'Have a boat brought round to the quay', run: () => boatsRound() };
+    // Clear running water beside you, and room in your bottle.
+    if (needsMode() !== 'off' && state.comfort.bottle < BOTTLE && streamHere()) return { text: 'Fill your water bottle', run: () => fillBottle() };
     if (stuckT > 2.5) return { text: 'Stuck? Head back to camp or the boat', run: () => openPack() };
     // Deep water a stride away: in you go.
     const entry = diveEntry();
@@ -4944,8 +5138,11 @@ function updateHud() {
   const night = h >= 20.5 || h < 5.5;
   const w = weather.storm > 0.5 ? 'Storm' : weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : '';
   hud.clock(formatClock(h), phaseName(h), w, night);
-  const hunger = camp.hunger;
-  hud.food(camp.wellFed ? 'Well fed' : hunger === 'hungry' ? 'Hungry' : hunger === 'peckish' ? 'Peckish' : '', camp.wellFed ? 'fed' : hunger === 'hungry' ? 'hungry' : '');
+  // How you feel, in a word or two by the clock (the worst first), and well fed when you are.
+  const needs = needsMode() === 'off' ? [] : needsOf(state.comfort, state.food);
+  const words = needs.slice(0, 2).map((n) => n.word);
+  if (camp.wellFed && !needs.some((n) => n.id === 'hungry' || n.id === 'peckish')) words.push('Well fed');
+  hud.food(words.join(' · '), needs.some((n) => n.low) ? 'hungry' : camp.wellFed ? 'fed' : '');
   hud.hint(currentHint(), t);
   updateLever();
   updateSailPanel();
@@ -5794,6 +5991,7 @@ input.on('press', (code, acts) => {
   else if (is('tackle')) nextTackle();
   else if (is('rod1')) pickRod(0);
   else if (is('rod2')) pickRod(1);
+  else if (is('drink')) takeDrink();
   else if (is('feed')) looseFeed();
   else if (is('advice')) giveAdvice(true);
   else if (is('conditions')) {
@@ -6047,8 +6245,7 @@ function tick(now, manual = false) {
   updatePassage(dt);
   updateWaiting(dt);
   camp.update(dt, hours);
-  walker.speedMul = camp.hunger === 'hungry' ? 0.82 : 1;
-  fishing.steady = camp.wellFed ? 0.8 : 1;
+  updateComfort(dt, hours);
   if (gearDirty && !fishing.busy) applyGear();
 
   // The movement keys row the boat or walk you along the shore; while aiming they swing

@@ -74,7 +74,7 @@ function weightFit(rod, w) {
 
 export class PackUI {
   // travel(dest) heads back to 'camp', 'boat' or a camp; travelInfo() says which are possible.
-  constructor(state, { onChange, onClose, travel, travelInfo, openMap, openGuide, kit }) {
+  constructor(state, { onChange, onClose, travel, travelInfo, openMap, openGuide, kit, wear }) {
     this.openGuide = openGuide;
     this.state = state;
     this.onChange = onChange;
@@ -92,6 +92,7 @@ export class PackUI {
     $('pack-close').addEventListener('click', () => this.onCloseCb());
     $('pack-guide').addEventListener('click', () => this.openGuide?.());
     this.kit = kit;
+    this.wear = wear; // (the clothes, water bottle and rolls: see the game)
     $('travel-camp').addEventListener('click', () => travel('camp'));
     $('travel-own').addEventListener('click', () => travel('own'));
     $('travel-home').addEventListener('click', () => travel('home'));
@@ -1175,6 +1176,7 @@ export class PackUI {
     $('travel-haven').disabled = !info.haven;
     $('travel-note').textContent = info.note || '';
     this.kit?.($('pack-kit'));
+    this.wear?.($('pack-wear'));
     const keep = this.state.keep || [];
     $('pack-fish').replaceChildren(...(keep.length
       ? keep.map((f) => el('span', 'gx-fish', `${fishById[f.id]?.name || f.id} · ${f.size} cm${f.cooked ? ' · cooked' : ''}`))

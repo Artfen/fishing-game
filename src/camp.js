@@ -3,6 +3,7 @@ import { fishById, buildFishGeometry, fishMaterial } from './fish.js';
 import { formatClock } from './world/sky.js';
 import { clamp, smoothstep } from './util.js';
 import { PACK } from './tackle.js';
+import { mealDrink, refill, packRolls, BOTTLE, ROLLS } from './comfort.js';
 import { COOLBOX, MEALS_MAX, TENTS, DECOR, DECOR_UNLOCK, settleCooking, startCooking, stow, take, packPlan, cleanName } from './campsite.js';
 
 const $ = (id) => document.getElementById(id);
@@ -69,6 +70,7 @@ export class Camp {
     this.grillFish = {};
     this.shownFish = null;
     this.lastHunger = this.hunger;
+    this.quiet = false; // (Character needs off: no words about hunger)
     this.renderT = 0;
     this.settleT = 0;
     this.scene = scene;
@@ -143,6 +145,8 @@ export class Camp {
     const k = (m.size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]);
     this.food.full = Math.min(100, this.food.full + sp.meal.fill * (0.6 + 0.6 * k));
     this.food.wellFedUntil = this.abs() + WELL_FED_HOURS;
+    // (With a mug of tea.)
+    if (this.state.comfort && !this.quiet) mealDrink(this.state.comfort);
     this.hooks.audio.chime();
     this.hooks.toast(`${sp.meal.name}. Warm, smoky and delicious. You feel well fed: steady hands for a few hours.`, 6);
     this.state.meals = (this.state.meals || 0) + 1;
@@ -174,7 +178,7 @@ export class Camp {
     const f = this.food;
     f.full = clamp(f.full - hours * (asleep ? DRAIN_ASLEEP : DRAIN_AWAKE), 0, 100);
     const h = this.hunger;
-    if (h !== this.lastHunger && !asleep) {
+    if (h !== this.lastHunger && !asleep && !this.quiet) {
       if (h === 'peckish') this.hooks.toast('You’re getting peckish. A fish from the grill at camp would be lovely.', 5);
       if (h === 'hungry') this.hooks.toast('Your stomach rumbles, and your legs feel slow. There’s food at camp: grill a fish, or have an oatcake.', 6);
     }
@@ -289,7 +293,29 @@ export class Camp {
     fill.style.width = `${Math.round(f.full)}%`;
     bar.append(fill);
     belly.append(el('strong', '', word), bar, el('span', 'cp-soft', this.wellFed ? 'Well fed: steady hands' : ''));
-    return belly;
+    return [belly, ...this.supplies()];
+  }
+
+  // Your water bottle (filled at any camp or kitchen) and a few rolls for the day (wrapped at a
+  // kitchen: home, the bothy, the bar, a galley).
+  supplies() {
+    const c = this.state.comfort;
+    if (!c || this.quiet) return [];
+    const row = el('div', 'cp-row');
+    row.append(el('p', '', `Water bottle: ${c.bottle} of ${BOTTLE}. Rolls in your pack: ${c.rolls} of ${ROLLS}.`));
+    if (c.bottle < BOTTLE) row.append(button('Fill the bottle', () => {
+      refill(c);
+      this.hooks.toast('You fill your water bottle, and drink your fill while you’re at it.', 3);
+      this.hooks.changed();
+      this.render();
+    }));
+    if (this.house && c.rolls < ROLLS) row.append(button('Pack rolls', () => {
+      const got = packRolls(c);
+      this.hooks.toast(`${got} ${got > 1 ? 'rolls' : 'roll'} wrapped and into your backpack, for when you’re far from a kitchen.`, 4);
+      this.hooks.changed();
+      this.render();
+    }));
+    return [row];
   }
 
   progress(text, done) {
@@ -310,7 +336,7 @@ export class Camp {
     const fireRow = el('div', 'cp-row');
     fireRow.append(el('span', `cp-fire ${fire > 0.35 ? 'lit' : fire > 0 ? 'embers' : ''}`), el('p', '', fire > 0.35 ? `The fire is burning: about ${Math.max(1, Math.round(left))} h left.` : fire > 0 ? 'Just embers now, still warm.' : 'The fire ring is cold.'));
     fireRow.append(button(fire > 0.35 ? 'Add a log' : 'Light the fire', () => this.lightFire(fire > 0.35 ? 1.5 : 3)));
-    out.push(fireRow, this.belly());
+    out.push(fireRow, ...this.belly());
 
     out.push(el('h3', '', 'On the grill'));
     if (c.cooking) out.push(this.progress(`${fishById[c.cooking.id].name}, sizzling.`, clamp((this.abs() - c.cooking.start) / c.cooking.dur, 0, 1)));
@@ -376,7 +402,7 @@ export class Camp {
       stove.append(el('span', `cp-stove ${ck ? 'lit' : ''}`), el('p', '', ck ? 'The stove hisses under the pan.' : 'The little gas stove. It lights when something goes in the pan.'));
       out.push(stove);
     } else out.push(this.missing(camp, 'stove', 'stove'));
-    out.push(this.belly());
+    out.push(...this.belly());
 
     out.push(el('h3', '', 'In the pan'));
     if (ck) out.push(this.progress(`${fishById[ck.id].name}, sizzling.`, clamp((this.abs() - ck.start) / ck.dur, 0, 1)));
@@ -558,7 +584,7 @@ export class Camp {
 
   // Home's kitchen: cook a fish from your creel and sit down to it, or eat one cooked earlier.
   renderKitchen() {
-    const out = [this.belly()];
+    const out = [...this.belly()];
     out.push(el('h3', '', `Your creel (${this.state.keep.length} of ${PACK.fish})`));
     if (!this.state.keep.length) out.push(el('p', 'cp-soft', this.bothy ? 'Empty. The Coldwater’s trout and grayling are just down the slope.' : this.posada ? 'Empty. Bring in a parrotfish and the kitchen will show you how they cook them here.' : 'Empty. Fish you keep come home in your creel.'));
     this.state.keep.forEach((f, i) => {

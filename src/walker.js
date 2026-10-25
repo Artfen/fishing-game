@@ -4,6 +4,7 @@ import { waveHeight } from './world/water.js';
 import { buildRod, bendRod } from './props.js';
 import { RODS } from './tackle.js';
 import { lerp, damp, dampAngle, smoothstep } from './util.js';
+import { Dress } from './dress.js';
 
 const WALK = 3.0;      // metres per second
 const JOG = 5.4;
@@ -24,7 +25,8 @@ function setLimb(mesh, a, b, r) {
   mesh.scale.set(r, len, r);
 }
 
-// You, on foot: the same yellow coat and teal hat as in the boat, with a backpack.
+// You, on foot: the same yellow coat and teal hat as in the boat (or whatever you've put on: see
+// dress.js), with a backpack.
 // Implements the same "angler" shape as the Boat (pos, heading, rodTip, pose, holdPoint),
 // so the fishing system doesn't mind where you're standing.
 export class Walker {
@@ -45,6 +47,10 @@ export class Walker {
     this.moving = false;
     this.jogging = false;
     this.speedMul = 1;
+    // How you feel, for the figure (set by the game from comfort.js): shiver (0 … 1) when you're
+    // cold, sweat (0 … 1) when you're hot, drink (seconds left of a drink from the bottle).
+    this.cue = { shiver: 0, sweat: 0, drink: 0 };
+    this.wipeT = 0;
     this.onStep = null;
     this.onSplash = null;
     // (bendTo: where the line pulls the rod tip, set by the fishing: see bendRod.)
@@ -122,6 +128,7 @@ export class Walker {
     hatGroup.add(brim, crown);
     hatGroup.rotation.set(-0.12, 0, 0.08);
     this.head.add(hatGroup);
+    this.dress = new Dress({ coat, pants, head: this.head, sunHat: hatGroup, mats: this.selfMats });
 
     // Legs: hip → knee → foot, each a pivot so they swing naturally.
     const limbGeo = new THREE.CylinderGeometry(1, 1, 1, 7).translate(0, -0.5, 0);
@@ -150,6 +157,12 @@ export class Walker {
       this.body.add(arm, hand);
       return { s, arm, hand, shoulder: new THREE.Vector3(s * 0.22, 0.44, 0), target: new THREE.Vector3() };
     });
+    // The water bottle, in your hand while you drink.
+    const bottleMat = new THREE.MeshLambertMaterial({ color: '#4f7c95' });
+    this.selfMats.push(bottleMat);
+    this.bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.034, 0.17, 8), bottleMat);
+    this.bottle.visible = false;
+    this.body.add(this.bottle);
 
     // One of each rod, held in front of you while fishing.
     this.rods = {};
@@ -276,10 +289,19 @@ export class Walker {
     }
     const bob = Math.abs(Math.sin(this.phase)) * 0.045 * amt * (this.jogging ? 1.6 : 1);
     this.body.position.y = bob - (1 - amt) * Math.sin(t * 1.6) * 0.004;
+    // How you feel: cold, a tremble and your arms hugged in while you stand about; hot, a hand
+    // across your brow now and then; and the bottle tipped up when you drink (head back).
+    const C = this.cue, idle = (1 - fishing) * (1 - amt);
+    C.drink = Math.max(0, C.drink - dt);
+    const sip = C.drink > 0 ? smoothstep(2, 1.6, C.drink) * smoothstep(0, 0.4, C.drink) : 0;
+    const hug = smoothstep(0.3, 0.8, C.shiver) * idle * (1 - sip);
+    this.wipeT = C.sweat > 0.5 && idle > 0.8 && !sip ? this.wipeT + dt : 0;
+    const wipe = smoothstep(0, 0.3, this.wipeT % 9) * smoothstep(1.4, 1.0, this.wipeT % 9) * (this.wipeT > 2 ? 1 : 0);
     this.torso.rotation.x = amt * (this.jogging ? 0.18 : 0.06) + fishing * 0.05;
+    this.torso.rotation.z = Math.sin(t * 38) * 0.018 * C.shiver * (1 - amt);
     this.torso.rotation.y = damp(this.torso.rotation.y, this.pose.rodYaw * 0.35 * fishing, 4, dt);
-    this.head.rotation.y = damp(this.head.rotation.y, fishing ? this.pose.rodYaw * 0.45 : Math.sin(t * 0.17) * 0.3 * (1 - amt), 2, dt);
-    this.head.rotation.x = fishing ? 0.12 : 0;
+    this.head.rotation.y = damp(this.head.rotation.y, fishing ? this.pose.rodYaw * 0.45 : Math.sin(t * 0.17) * 0.3 * (1 - amt) * (1 - sip), 2, dt);
+    this.head.rotation.x = fishing ? 0.12 : -0.35 * sip + 0.1 * hug;
 
     // Rod
     this.rod.visible = fishing > 0.02;
@@ -297,10 +319,20 @@ export class Walker {
       const ph = this.phase + (a.s > 0 ? Math.PI : 0);
       const sw = Math.sin(ph) * swing * 0.8;
       const free = _b.set(a.s * 0.27, shoulder.y - 0.55 * Math.cos(sw), 0.55 * Math.sin(sw) + 0.04);
+      // (Hugged across your chest; at your lips with the bottle, the right hand; across your brow,
+      // the left.)
+      if (hug) free.lerp(_d.set(-a.s * 0.06, 0.32, 0.19).applyMatrix4(this.torso.matrix), hug);
+      if (a.s > 0 && sip) free.lerp(_d.set(0.02, 0.6, 0.2).applyMatrix4(this.torso.matrix), sip);
+      if (a.s < 0 && wipe) free.lerp(_d.set(0.03, 0.74, 0.15).applyMatrix4(this.torso.matrix), wipe);
       const onRod = _d.set(0, a.s > 0 ? 0.06 : 0.32, 0).applyMatrix4(this.rod.matrix);
       a.target.lerpVectors(free, onRod, smoothstep(0, 1, fishing));
       setLimb(a.arm, shoulder, a.target, 0.055);
       a.hand.position.copy(a.target);
+      if (a.s > 0) {
+        this.bottle.visible = sip > 0.05;
+        this.bottle.position.copy(a.target);
+        this.bottle.rotation.set(-1.9 * sip, 0, 0);
+      }
     }
   }
 }

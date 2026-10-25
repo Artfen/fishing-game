@@ -7,6 +7,7 @@ import { cleanGuide } from './firstTrip.js';
 import { cleanFuel } from './fuel.js';
 import { CHOICES } from './quality.js';
 import { cleanDive } from './dive.js';
+import { cleanComfort } from './comfort.js';
 import { BEHAVIOUR_IDS } from './behaviour.js';
 
 // Saving your progress in this browser, with nobody to sign in to.
@@ -82,6 +83,7 @@ export const DEFAULT_STATE = {
   guide: null,     // the first-trip guide: { on, done, dest, offered, finished, min, since } (see firstTrip.js)
   fuel: null,      // petrol in the car and the motorboats, the electric motor's battery, the jerry can (see fuel.js)
   dive: null,      // the dive tank and your diving records (see dive.js)
+  comfort: null,   // how you feel: warm, wet, thirsty, what you wear, the bottle and rolls (see comfort.js)
 };
 
 // A new game: every setting at its default (a loaded save gets its own from sanitize).
@@ -108,6 +110,7 @@ const fresh = () => {
   s.guide = cleanGuide(null);
   s.fuel = cleanFuel(null);
   s.dive = cleanDive(null);
+  s.comfort = cleanComfort(null);
   return s;
 };
 
@@ -321,6 +324,7 @@ export function sanitize(raw) {
   s.guide = cleanGuide(raw.guide);
   s.fuel = cleanFuel(raw.fuel);
   s.dive = cleanDive(raw.dive);
+  s.comfort = cleanComfort(raw.comfort);
   if (isObj(raw.sky)) {
     s.sky = { cloud: num(raw.sky.cloud, 0.3, 0, 1), rain: num(raw.sky.rain, 0, 0, 1), storm: num(raw.sky.storm, 0, 0, 1), state: oneOf(raw.sky.state, SKY_STATES, 'partly'), timer: num(raw.sky.timer, 120, 0, 3600) };
   }

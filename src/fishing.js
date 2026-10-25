@@ -86,7 +86,8 @@ export class Fishing {
     this.agent = null;
     this.fight = null;
     this.biteKind = 'float';
-    this.steady = 1; // under 1 when you're well fed: steadier hands soften the jolt of a run
+    this.steady = 1; // under 1 when you're well fed: steadier hands soften the jolt of a run (a
+                     // little over 1 when you're very cold or parched: see comfort.js)
     this.diff = DIFFICULTY.standard;
     this.drags = {};  // drag setting for each rod (index into DRAG_LEVELS), kept with your gear
     this.dragStep = 0;
@@ -1665,7 +1666,7 @@ export class Fishing {
 
   updateFight(dt, t, held) {
     const F = this.fight;
-    const diff = this.steady < 1 ? { ...this.diff, shock: this.diff.shock * this.steady } : this.diff;
+    const diff = this.steady !== 1 ? { ...this.diff, shock: this.diff.shock * this.steady } : this.diff;
     const b = this.angler.pos;
     // The current along the line: running away from you it helps the fish (and tows it), running
     // towards you it helps you. And the rod swung to one side: side pressure.

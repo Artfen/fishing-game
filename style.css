@@ -2072,9 +2072,13 @@ body.placing #sonar, body.placing #act-btn, body.placing #cancel-btn { visibilit
 .cp-pack p { margin: 0 0 6px; font: 15px/1.35 var(--font-hand); }
 .cp-check { display: flex; gap: 8px; align-items: center; padding: 3px 0; font: 600 13px var(--font-ui); }
 
-/* The camping kit in the backpack. */
+/* The camping kit, and the clothes, water and food, in the backpack (one column of rows). */
 .gx-kit { display: grid; gap: 6px; }
+#pack-kit, #pack-wear { grid-template-columns: minmax(0, 1fr); }
+#pack-wear .pk-btn[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--gx-accent, #b5532f); }
 .gx-kit-text { margin: 0; font: 600 12.5px/1.4 var(--font-ui); }
+.gx-kit-note { margin: 0; font: 500 12px/1.4 var(--font-ui); color: var(--gx-ink-soft); }
+#pack-kit .gx-note { margin: 0; color: var(--gx-ink-soft); }
 .gx-kit-acts { display: flex; flex-wrap: wrap; gap: 6px; }
 .gx-kit-acts:empty { display: none; }
 

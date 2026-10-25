@@ -4,6 +4,7 @@ import { DIFFICULTY, DIFFICULTY_IDS } from './fight.js';
 import { BEHAVIOUR, BEHAVIOUR_IDS } from './behaviour.js';
 import { SEA_PRESETS, SEA_IDS, compass } from './world/conditions.js';
 import { buttonFor } from './gamepad.js';
+import { NEEDS_MODES, NEEDS_IDS } from './comfort.js';
 
 // Preferences: sound, graphics, weather, controls and comfort. They live with the save
 // (state.settings), survive "New game", and every value is checked when loading.
@@ -31,7 +32,8 @@ export const DEFAULT_SETTINGS = {
   // windLines: the white wind lines in the air (when sailing, always, or never).
   weather: { mode: 'auto', rainFx: 1, sea: 'auto', windMode: 'auto', windSpeed: 4, windFrom: 225, currents: 'natural', panel: true, windLines: 'sailing' },
   // sailTrim: the sailing boat's mainsheet by hand, or helped (it trims itself when left alone).
-  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, rumble: true, sailTrim: 'hand' },
+  // needs: how much the angler feels the weather and the day (see comfort.js): off, shown, gentle.
+  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, rumble: true, sailTrim: 'hand', needs: 'gentle' },
 };
 
 // The controller's buttons, as Settings lists them: [where, action, what it does]. The buttons
@@ -104,6 +106,7 @@ export function cleanSettings(raw, legacy = {}) {
     reducedMotion: !!c.reducedMotion,
     boatCam: oneOf(c.boatCam, ['swell', 'steady'], 'swell'),
     sailTrim: oneOf(c.sailTrim, ['hand', 'helped'], 'hand'),
+    needs: oneOf(c.needs, NEEDS_IDS, 'gentle'),
     cast: oneOf(c.cast, Object.keys(CAST_MODES), 'assisted'),
     hints: oneOf(c.hints, ['gentle', 'more', 'off'], 'gentle'),
     keys: c.keys ? cleanBindings(c.keys) : null,
@@ -386,6 +389,8 @@ export class SettingsUI {
       this.choice([['swell', 'Moves with the boat'], ['steady', 'Steady horizon']], C.boatCam, (v) => this.set('controls', 'boatCam', v))));
     out.push(this.row('Sail trim', C.sailTrim === 'helped' ? 'The sailing boat’s mainsheet trims itself to the wind whenever you leave it alone for a moment: you steer, and haul in or ease to take over.' : 'You trim the sailing boat’s mainsheet yourself: haul in when the sail flaps, ease out when she’s pressed and slow.',
       this.choice([['hand', 'By hand'], ['helped', 'Helped']], C.sailTrim, (v) => this.set('controls', 'sailTrim', v))));
+    out.push(this.row('Character needs', `${NEEDS_MODES[C.needs].desc} Warmth, wet clothes, thirst and hunger.`,
+      this.choice(NEEDS_IDS.map((id) => [id, NEEDS_MODES[id].label]), C.needs, (v) => this.set('controls', 'needs', v))));
     out.push(this.row('Fishing hints', { gentle: 'When nothing has come for a while, one word from the field guide on what the fish make of your rig.', more: 'A word whenever a cast stays quiet, and again if it stays quiet.', off: 'No hints by themselves. You can still ask (the key for “Why aren’t they biting?”).' }[C.hints],
       this.choice([['gentle', 'Gentle'], ['more', 'More'], ['off', 'Off']], C.hints, (v) => this.set('controls', 'hints', v))));
     // Key bindings
@@ -429,7 +434,7 @@ export class SettingsUI {
     // How the boats, the cabin and the camera work, whatever the controls.
     out.push(el('h3', null, 'Boats, the cabin and the camera'));
     for (const line of [
-      'The throttle: the motor skiff, the bass boat and the cabin boat have a lever with notches (astern, neutral, dead slow, slow, half, full). Forward and back move it a notch at a time and it stays where you leave it; you can also click or drag the lever on screen (bottom right), or tap a notch. Neutral (or the big Stop under the lever) stops the motor, and the boat coasts on. The motor takes a moment to build up and ease off, and pauses in neutral between ahead and astern.',
+      'The throttle: the motor skiff, the bass boat, the cabin boat and the motor cruiser have a lever with notches (astern, neutral, dead slow, slow, half, full), and the sailing boat’s outboard a smaller one. Forward and back move it a notch at a time and it stays where you leave it; you can also click or drag the lever on screen (bottom right), or tap a notch. Neutral (or the big Stop under the lever) stops the motor, and the boat coasts on. The motor takes a moment to build up and ease off, and pauses in neutral between ahead and astern.',
       'Fishing under way: you can cast at up to trolling speed, and the boat carries the cast along as it flies. A moving boat tows your line behind it (trolling). With a line out the throttle goes no higher than slow ahead (+ and − move it, or the D-pad on a controller); when a fish takes, the motor goes to neutral.',
       'The kayak’s electric motor: lower it (or raise it again) with its key, L3, or the Motor button by the lever. Lowered, the lever drives it, quietly and slowly, hands free for the rod; raised, you paddle. Its battery charges at a jetty and overnight, and when it runs flat you simply paddle.',
       'The cabin boat: anchored or tied up, the prompt takes you into the cabin (from the helm, or straight from the quay). Inside, forward and back move between the doorway, the galley and the bunk; the prompt cooks or sleeps; cancel (Esc or B) takes you back on deck.',

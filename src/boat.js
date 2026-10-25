@@ -9,6 +9,7 @@ import { withSurface } from './world/surface.js';
 import { RODS } from './tackle.js';
 import { Rope } from './rope.js';
 import { reachFor, berthAt } from './mooring.js';
+import { Dress } from './dress.js';
 import { sailForce, hullDrag, boardGrip, heelFor, SAIL } from './sailing.js';
 
 // The boats. Each has its own hull (metres; the bow points along local +z), its own
@@ -523,6 +524,9 @@ export class Boat {
     hatGroup.add(brim, crown);
     hatGroup.rotation.set(-0.12, 0, 0.08);
     this.head.add(hatGroup);
+    // (What you're wearing, and a shiver when you're cold: set by the game from comfort.js.)
+    this.dress = new Dress({ coat, pants, head: this.head, sunHat: hatGroup, mats: this.selfMats });
+    this.shiver = 0;
 
     const limbGeo = new THREE.CylinderGeometry(1, 1, 1, 7);
     const leg = (s) => {
@@ -1721,6 +1725,7 @@ export class Boat {
     // Upper body sways with the stroke, and turns towards the line while fishing.
     const blendRow = P ? P.blend : this.oars.length ? (this.oars[0].blend + this.oars[1].blend) / 2 : 0;
     this.torso.rotation.x = 0.12 * Math.cos(this.phase) * blendRow + fishing * 0.08;
+    this.torso.rotation.z = Math.sin(t * 38) * 0.018 * this.shiver * (1 - blendRow);
     this.torso.rotation.y = damp(this.torso.rotation.y, this.pose.rodYaw * 0.35 * fishing, 4, dt);
     const look = fishing ? this.pose.rodYaw * 0.45 : Math.sin(t * 0.21) * 0.35 * (1 - blendRow);
     this.head.rotation.y = damp(this.head.rotation.y, look, 2, dt);
