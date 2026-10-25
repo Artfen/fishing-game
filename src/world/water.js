@@ -16,20 +16,28 @@ const WAVE_GLSL = /* glsl */ `
 uniform float uSwellA[${SWELL.length}];
 uniform float uChopA[${CHOP.length}];
 uniform float uPeak;
+uniform float uChopPeak;
 uniform float uStorm;
 uniform sampler2D uShelter;
 uniform vec4 uShelterRect;
 vec3 waves(vec2 p, float t, float ground, float fresh) {
   vec4 sh = texture2D(uShelter, (p - uShelterRect.xy) / uShelterRect.zw);
-  float ks = sh.r, kc = 0.15 + 0.85 * sh.g;
+  float depth = max(-ground, 0.0);
+  // (Running into shallow water the swell grows and steepens: conditions.js shoalGrow, shoalPeak.)
+  float ks = sh.r * (1.0 + 0.8 * smoothstep(8.0, 2.5, depth) * smoothstep(0.8, 2.2, depth)), kc = 0.15 + 0.85 * sh.g;
+  float pk = min(uPeak + 1.4 * smoothstep(5.0, 1.5, depth), 3.6);
   vec3 r = vec3(0.0);
   float a, s;
-  // (The swell peaks in a storm: a Stokes crest, as conditions.js swellShape.)
+  // (Every wave has a Stokes crest, as conditions.js swellShape: the swell's sharpened in a storm
+  // and in the shallows, the wind sea's as the wind freshens.)
   ${SWELL.map((w, i) => `a = ${f(w.k)} * (${f(w.dx)} * p.x + ${f(w.dz)} * p.y - ${f(w.c)} * t);
   s = uSwellA[${i}] * ks;
-  r += vec3(s * sin(a) - ${f(0.5 * w.k)} * s * s * uPeak * cos(2.0 * a), vec2(${f(w.k * w.dx)}, ${f(w.k * w.dz)}) * (s * cos(a) + ${f(w.k)} * s * s * uPeak * sin(2.0 * a)));`).join('\n  ')}
+  r += vec3(s * sin(a) - ${f(0.5 * w.k)} * s * s * pk * cos(2.0 * a), vec2(${f(w.k * w.dx)}, ${f(w.k * w.dz)}) * (s * cos(a) + ${f(w.k)} * s * s * pk * sin(2.0 * a)));`).join('\n  ')}
+  vec3 c = vec3(0.0);
   ${CHOP.map((w, i) => `a = ${f(w.k)} * (${f(w.dx)} * p.x + ${f(w.dz)} * p.y - ${f(w.c)} * t);
-  r += uChopA[${i}] * kc * vec3(sin(a), ${f(w.k * w.dx)} * cos(a), ${f(w.k * w.dz)} * cos(a));`).join('\n  ')}
+  s = uChopA[${i}];
+  c += vec3(s * sin(a) - ${f(0.5 * w.k)} * s * s * uChopPeak * cos(2.0 * a), vec2(${f(w.k * w.dx)}, ${f(w.k * w.dz)}) * (s * cos(a) + ${f(w.k)} * s * s * uChopPeak * sin(2.0 * a)));`).join('\n  ')}
+  r += c * kc;
   return r * smoothstep(0.05, 0.9 + 3.5 * uStorm, -ground) * (1.0 - 0.85 * fresh);
 }
 `;
@@ -109,6 +117,7 @@ uniform vec2 uWindV;     // where the wind blows, times its strength (0 … 1 at
 uniform float uSwellH;   // the swell's crest amplitude (m)
 uniform float uChopH;    // the chop's crest amplitude (m)
 uniform float uStorm;    // how stormy (0 … 1)
+uniform float uWindMS;   // the sustained wind (m/s), for the whitecaps
 uniform float uClear;    // clear blue water (Las Brasas): you see the seabed and the fish much deeper
 varying vec3 vWorld;
 varying vec3 vN;
@@ -210,7 +219,7 @@ void main() {
   float windS = length(uWindV);
   vec2 drift = uWindV * uTime * 2.2;
   float gust = smoothstep(0.2, 0.8, vnoise((p - drift) * 0.016) * 0.7 + vnoise((p - drift * 1.6) * 0.05) * 0.3);
-  float wind = mix(0.4, 1.2, gust) * mix(1.0, 0.6, fresh) * (0.35 + 1.1 * windS * (0.3 + 0.7 * shel.g));
+  float wind = mix(0.4, 1.2, gust) * mix(1.0, 0.6, fresh) * (0.35 + 0.85 * min(windS, 1.0) * (0.3 + 0.7 * shel.g));
   // Still water (the lake) gets only a faint ruffle; the sea keeps its chop.
   float chop = 1.0 - fresh * 0.65;
   vec2 g = ngrad(p * 0.45 + vec2(uTime * 0.16, uTime * 0.07)) * 0.10 * chop
@@ -238,6 +247,9 @@ void main() {
   }
   g += rainRings(p, uTime) * uRings * 0.45;
   g *= detail;
+  // (Never so steep that a ruffled patch turns to mirror the white haze on the horizon: in a
+  // strong wind the gusts darken the water, as they do, rather than whiten it.)
+  g /= max(1.0, length(g) / 0.38);
   g += rip;
   vec3 N = normalize(vec3(vN.x - g.x, vN.y, vN.z - g.y));
   vec3 V = normalize(cameraPosition - vWorld);
@@ -262,8 +274,10 @@ void main() {
   vec3 sky = mix(uHorizon, uZenith, clamp(R.y * 1.5, 0.0, 1.0));
   // The mirrored scene (sky, shore, boat, lights), nudged by the small waves and ripples.
   // Calm fresh water mirrors crisply; the sea breaks it up.
+  // (A rough sea breaks the mirror up: clouds and shores reflect only on calm water.)
+  float roughSea = smoothstep(0.06, 0.4, uChopH + 0.5 * uSwellH) * shel.g * (1.0 - fresh);
   if (uReflOn > 0.5) {
-    vec2 ruv = vRefl.xy / vRefl.w + (g * 0.9 + vec2(-vN.x, -vN.z) * 0.25) * mix(0.14, 0.05, fresh);
+    vec2 ruv = vRefl.xy / vRefl.w + (g * 0.9 + vec2(-vN.x, -vN.z) * (0.25 + 0.6 * roughSea)) * mix(0.14, 0.05, fresh);
     vec2 inside = smoothstep(vec2(0.0), vec2(0.04), ruv) * smoothstep(vec2(1.0), vec2(0.96), ruv);
     ruv = clamp(ruv, 0.002, 0.998);
     // Choppy sea water blurs what it mirrors; the calm lake keeps it sharp.
@@ -271,7 +285,7 @@ void main() {
     vec3 mirrored = texture2D(uRefl, ruv).rgb * 0.4
       + (texture2D(uRefl, ruv + vec2(bl.x, bl.y)).rgb + texture2D(uRefl, ruv - vec2(bl.x, bl.y)).rgb
       + texture2D(uRefl, ruv + vec2(bl.x, -bl.y)).rgb + texture2D(uRefl, ruv + vec2(-bl.x, bl.y)).rgb) * 0.15;
-    sky = mix(sky, mirrored, inside.x * inside.y * (1.0 - uRain * 0.4));
+    sky = mix(sky, mirrored, inside.x * inside.y * (1.0 - uRain * 0.4) * (1.0 - 0.75 * roughSea));
   }
   // Looking straight down you mostly see into the water; at a glancing angle, mostly reflection.
   float reflAmt = mix(0.035 + fres * 0.66, 0.08 + fres * 0.82, fresh);
@@ -300,8 +314,22 @@ void main() {
   float surf = clamp(0.35 + shel.r * uSwellH * 6.0, 0.35, 1.6);
   float edge = 1.0 - smoothstep(0.0, (0.4 + n1 * 0.35) * surf, depth);
   float bands = smoothstep(0.85, 1.0, sin(depth * 5.0 / surf - uTime * 1.3 + n1 * 3.0)) * (1.0 - smoothstep(0.2, 1.6 * surf, depth)) * (1.0 - fresh);
-  // Whitecaps: a few short-lived streaks of white where a fresh wind has room to raise a chop.
-  float caps = smoothstep(0.86 - 0.18 * uStorm, 0.97 - 0.1 * uStorm, vnoise((p - drift * 1.4) * vec2(0.28, 0.22) + n1 * 0.4)) * smoothstep(0.12, 0.3, uChopH) * shel.g * max(detail, uStorm * 0.8) * (1.0 - fresh);
+  // Breakers: where the swell has grown and steepened in the shallows its crests spill over in
+  // white, rolling in with the waves themselves; then the wash runs up the beach.
+  float swellHere = max(0.04, uSwellH * shel.r * 1.6);
+  float breaker = smoothstep(0.35, 0.8, vWorld.y / swellHere) * smoothstep(0.45 + 3.0 * surf, 0.8, depth) * smoothstep(0.05, 0.35, depth)
+    * smoothstep(0.35, 0.7, vnoise(p * vec2(0.6, 0.25) + uTime * 0.1)) * smoothstep(0.05, 0.12, uSwellH * shel.r) * (1.0 - fresh);
+  // Whitecaps: from a moderate breeze up, the steepest crests of the wind sea break in white,
+  // more of them the fresher the wind (a few scattered at 5 m/s, everywhere by 10); and a few
+  // short-lived streaks of foam beside them.
+  float steepW = smoothstep(0.035, 0.13, length(vN.xz));
+  float capWind = smoothstep(4.5, 10.5, uWindMS);
+  float capCrest = smoothstep(0.02, 0.45, vWorld.y / max(0.05, uChopH + 0.6 * uSwellH * shel.r));
+  // (Each cap a small patch: the crest test picks the steep tops, the fine noise breaks them into
+  // flecks; the scattered streaks stay rare, so nothing merges into broad white blotches.)
+  float caps = (capCrest * steepW * smoothstep(0.55 - 0.15 * capWind, 0.7, vnoise((p - drift * 1.4) * vec2(0.9, 0.7) + n1 * 0.6))
+    + 0.45 * smoothstep(0.86, 0.97, vnoise((p - drift * 1.4) * vec2(0.28, 0.22) + n1 * 0.4)))
+    * capWind * shel.g * max(detail, uStorm * 0.8) * (1.0 - fresh);
   // In a storm: foam blown in long streaks down the wind, and the crests of the big seas breaking.
   vec2 wdir = windS > 0.01 ? uWindV / windS : vec2(1.0, 0.0);
   float lane = vnoise(vec2(dot(p, vec2(-wdir.y, wdir.x)) * 0.85, dot(p, wdir) * 0.03 - uTime * 0.5));
@@ -309,7 +337,7 @@ void main() {
   // (Breaking only at the very tops of the big seas, where their faces are steepest.)
   float steepSea = smoothstep(0.08, 0.26, length(vN.xz));
   float crest = smoothstep(uSwellH * 0.62, uSwellH * 1.1, vWorld.y) * mix(0.35, 1.0, steepSea) * smoothstep(0.3, 0.62, vnoise(p * 0.42 - drift * 0.6)) * shel.r * stormy;
-  float foam = clamp(edge * (0.9 - fresh * 0.75) + bands * 0.55 * min(surf, 1.0) + streak * 0.45 + caps * 0.7 + streaks * 0.55 + crest * 0.9, 0.0, 1.0);
+  float foam = clamp(edge * (0.9 - fresh * 0.75) + bands * 0.35 * min(surf, 1.0) + breaker * 0.85 + streak * 0.45 + caps * 0.75 + streaks * 0.55 + crest * 0.9, 0.0, 1.0);
   // (Foam stays white against a dark storm sea.)
   vec3 foamLit = uFoam * max(uAmbient + uSunColor * 0.6, vec3(0.62 * stormy));
   col = mix(col, foamLit, foam * 0.85);
@@ -349,6 +377,8 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       uTime: { value: 0 },
       uSwellA: { value: Array.from(conditions.swellAmps) },
       uPeak: { value: 1 },
+      uChopPeak: { value: 1 },
+      uWindMS: { value: 0 },
       uStorm: { value: 0 },
       uChopA: { value: Array.from(conditions.chopAmps) },
       uShelterRect: { value: new THREE.Vector4(SHELTER_RECT.x, SHELTER_RECT.z, SHELTER_RECT.w, SHELTER_RECT.h) },
@@ -433,6 +463,8 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       uniforms.uSwellH.value = conditions.sea.swell;
       uniforms.uChopH.value = conditions.sea.chop;
       uniforms.uPeak.value = conditions.sea.peak;
+      uniforms.uChopPeak.value = conditions.sea.chopPeak;
+      uniforms.uWindMS.value = conditions.wind.speed;
       uniforms.uStorm.value = conditions.sea.storm;
     },
     follow(pos) {

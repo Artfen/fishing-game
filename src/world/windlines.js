@@ -10,9 +10,17 @@ import { clamp, smoothstep } from '../util.js';
 //
 // Each streak is a short ribbon traced through the points its head has passed, turned to face
 // the camera and kept a few pixels wide whatever the distance, its tail fading to nothing.
+//
+// In a strong wind they don't race past at its full speed (at 20 m/s they'd shoot across the
+// view as long white bars): above a moderate breeze they drift faster only a little, keep short
+// tails, live shorter and stay up off the water, and grow a little fainter, a sense of the gale
+// rather than a streak of it.
 
 const N = 18; // points along each streak
-const SAMPLE = 0.05; // seconds between points
+const SAMPLE = 0.05; // seconds between points (shorter in a strong wind, so the tails stay short)
+// How fast a streak is carried, for a wind of `sp` m/s: the wind's own speed in light air, then
+// more and more slowly.
+const carried = (sp) => (sp < 4 ? sp : 4 + (sp - 4) * 0.35);
 
 export class WindLines {
   constructor(scene, count = 56) {
@@ -38,18 +46,20 @@ export class WindLines {
     this.mesh.visible = false;
     scene.add(this.mesh);
     this.strength = 0;
+    this.gale = 0;
   }
 
   // Each frame: around `center` (where you are), shown or not (`on`), seen from `camera`.
   update(dt, t, center, on, camera) {
     const ws = windAt(center.x, center.z).speed;
+    this.gale = smoothstep(10, 18, ws);
     this.strength += ((on ? smoothstep(0.8, 6, ws) : 0) - this.strength) * Math.min(1, dt * 1.5);
     this.mesh.visible = this.strength > 0.01;
     if (!this.mesh.visible) {
       for (const L of this.lines) L.alive = false;
       return;
     }
-    const want = Math.round(this.count * clamp(0.25 + this.strength * 0.75, 0, 1));
+    const want = Math.round(this.count * clamp(0.18 + this.strength * 0.37, 0, 1));
     let live = 0;
     for (const L of this.lines) if (L.alive) live++;
     const cam = camera.position;
@@ -69,9 +79,9 @@ export class WindLines {
       // streak loops over once in the middle of its life.
       const hx = L.pts[0], hy = L.pts[1], hz = L.pts[2];
       const w = windAt(hx, hz, t);
-      const sp = Math.max(0.5, w.speed), dx = w.x / sp, dz = w.z / sp;
+      const sp0 = Math.max(0.5, w.speed), dx = w.x / sp0, dz = w.z / sp0, sp = carried(sp0);
       const wob = Math.sin(t * 2.1 + L.seed) * 0.35 * sp * 0.18;
-      let vx = w.x - dz * wob, vy = Math.sin(t * 1.6 + L.seed * 2.3) * 0.22, vz = w.z + dx * wob;
+      let vx = dx * sp - dz * wob, vy = Math.sin(t * 1.6 + L.seed * 2.3) * 0.22, vz = dz * sp + dx * wob;
       const k = L.age / L.life;
       if (L.curl && k > 0.3 && k < 0.7) {
         const ph = ((k - 0.3) / 0.4) * Math.PI * 2, r = 1.6 * Math.PI * 2 / (L.life * 0.4);
@@ -80,7 +90,7 @@ export class WindLines {
         vy += Math.cos(ph) * r;
       }
       L.since += dt;
-      if (L.since >= SAMPLE) {
+      if (L.since >= SAMPLE * clamp(3.5 / sp, 0.35, 1)) {
         L.since = 0;
         L.pts.copyWithin(3, 0, (N - 1) * 3);
         L.n = Math.min(N, L.n + 1);
@@ -95,7 +105,7 @@ export class WindLines {
   spawn(L, c, t) {
     const w = windAt(c.x, c.z, t), sp = Math.max(0.5, w.speed), dx = w.x / sp, dz = w.z / sp;
     const up = 4 + Math.random() * 22, across = (Math.random() - 0.5) * 40;
-    const x = c.x - dx * up - dz * across, z = c.z - dz * up + dx * across, y = c.y + 0.6 + Math.random() * 5.5;
+    const x = c.x - dx * up - dz * across, z = c.z - dz * up + dx * across, y = c.y + 1.4 + Math.random() * 5;
     for (let i = 0; i < N; i++) {
       L.pts[i * 3] = x;
       L.pts[i * 3 + 1] = y;
@@ -103,15 +113,15 @@ export class WindLines {
     }
     L.n = 1;
     L.age = 0;
-    L.life = 2.4 + Math.random() * 2.2;
+    L.life = (2.4 + Math.random() * 2.2) * clamp(6 / carried(sp), 0.55, 1);
     L.since = 0;
-    L.curl = Math.random() < 0.22;
+    L.curl = Math.random() < 0.22 * (1 - this.gale); // (no lazy loops in a gale)
     L.alive = true;
   }
 
   // The ribbons: each point split into two, across the line and square to the view.
   write(cam) {
-    const P = this.pos, C = this.col, S = this.strength;
+    const P = this.pos, C = this.col, S = this.strength * (1 - 0.35 * this.gale);
     for (let li = 0; li < this.lines.length; li++) {
       const L = this.lines[li], base = li * N * 2;
       const fade = L.alive ? Math.sin(Math.PI * clamp(L.age / L.life, 0, 1)) : 0;
@@ -131,7 +141,7 @@ export class WindLines {
         P[o + 3] = x + ax; P[o + 4] = y + ay; P[o + 5] = z + az;
         // White, brightest at the head, gone at the tail; fading in and out over its life, and
         // where it's very near or far.
-        const a = (i < L.n ? (1 - i / N) ** 1.4 : 0) * fade * S * 0.85 * smoothstep(1.5, 4, dist) * (1 - smoothstep(32, 46, dist));
+        const a = (i < L.n ? (1 - i / N) ** 1.4 : 0) * fade * S * 0.6 * smoothstep(1.5, 4, dist) * (1 - smoothstep(26, 40, dist));
         const c = (base + i * 2) * 4;
         C[c] = C[c + 1] = C[c + 2] = C[c + 4] = C[c + 5] = C[c + 6] = 1;
         C[c + 3] = C[c + 7] = a;

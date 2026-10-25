@@ -4496,7 +4496,8 @@ BOATS.sail.onTack = (b) => {
 BOATS.sail.onGybe = (b) => {
   if (b !== boat || onFoot) return;
   audio.knock(0.9);
-  rig.shake?.(0.25);
+  // (A jolt as the boom slams over: the camera's shake is an amount, as for a strike.)
+  if (!settings.controls.reducedMotion) rig.shake = Math.max(rig.shake, 0.25);
   hud.flash(state.tips.gybed ? 'Gybe!' : 'Gybe! The wind crossed the stern and the boom slammed across. Haul the sheet in a little before you turn the stern through the wind, and it comes over gently.', t, state.tips.gybed ? 1.4 : 5);
   state.tips.gybed = true;
 };

@@ -175,3 +175,12 @@ test('wind lines show only with a wind to show, and only when wanted', () => {
   assert.equal(W.mesh.visible, false, 'switched off: they fade away');
   assert.ok(W.pos.every(Number.isFinite));
 });
+
+test('a gybe never stops the game: the camera’s shake is an amount to set, not a function to call', async () => {
+  // (Calling it as one crashed the game the first time the boom came across.)
+  const { readFileSync } = await import('node:fs');
+  const main = readFileSync('src/main.js', 'utf8');
+  assert.ok(!/rig\.shake\??\.?\(/.test(main), 'rig.shake(…) called');
+  const { readFileSync: read } = await import('node:fs');
+  assert.ok(/this\.shake = 0/.test(read('src/camera.js', 'utf8')), 'the camera keeps shake as a number');
+});

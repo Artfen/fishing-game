@@ -14,10 +14,16 @@ import { SOUTH_WATER, brasaCurrent } from './brasa.js';
 //  · Wind has a direction (where it blows from, in the weather forecast's sense), a sustained
 //    speed that changes slowly with the weather (or as you set it), and gusts: smooth patches of
 //    stronger air drifting downwind. Land breaks it: coves, bays and the lee of a shore get less.
+//    On a fair day at home a sea breeze sets in towards midday, onshore and fresher through the
+//    afternoon, and dies in the evening; at Las Brasas the trade wind blows, fresher still in
+//    the afternoon. (An Atlantic coast is seldom still: a breeze most days, often a fresh one.)
 //  · Waves are a sum of long swell from the open Atlantic (west-south-west), which takes minutes
-//    to build or fade and barely reaches into sheltered water, and shorter chop raised by the
-//    local wind, which builds over tens of seconds and is weaker where the fetch is short. The
-//    same function moves the water's vertices (water.js) and lifts the boats and floats.
+//    to build or fade, barely reaches into sheltered water, and steepens and grows as it runs
+//    into shallow water before it breaks on the shore; and a wind sea raised by the local wind,
+//    which builds over tens of seconds, is weaker where the fetch is short, and grows longer
+//    waves as the wind freshens (a ruffle of short ones in light air; in a fresh breeze, long
+//    steep ones with sharp crests). The same function moves the water's vertices (water.js) and
+//    lifts the boats and floats.
 //  · Currents are a modest background drift along the coast, the river and estuary flowing out
 //    to sea, and authored zones where water squeezes past headlands, through channels and over
 //    shoals; sheltered water is slacker. Each zone carries a tidal flag: today every tidal zone
@@ -144,9 +150,9 @@ export const SHELTER_RECT = WATER_RECT; // (home's; the far south's is shelterRe
 // Sea states for the setting, and what the weather brings when it's left to the weather.
 // wind: [low, high] sustained m/s; swell: crest amplitude in m.
 export const SEA_PRESETS = {
-  calm: { name: 'Calm', wind: [0.5, 3.5], swell: 0.06, note: 'Light airs and a gentle swell. Easy casting and still water in the bays.' },
-  moderate: { name: 'Moderate', wind: [3, 7.5], swell: 0.16, note: 'A breeze and a moderate swell outside; the bays stay sheltered.' },
-  lively: { name: 'Lively', wind: [6.5, 11], swell: 0.3, note: 'A fresh wind, whitecaps in the open and a long swell on the outer coast. Shelter in the bays and coves.' },
+  calm: { name: 'Calm', wind: [0.5, 3.5], swell: 0.08, note: 'Light airs and a gentle swell. Easy casting and still water in the bays.' },
+  moderate: { name: 'Moderate', wind: [4, 8.5], swell: 0.3, note: 'A good breeze, a few whitecaps and a swell outside; the bays stay sheltered.' },
+  lively: { name: 'Lively', wind: [8, 13], swell: 0.55, note: 'A fresh to strong wind, whitecaps everywhere in the open, a long swell breaking on the outer coast. Shelter in the bays and coves.' },
 };
 export const SEA_IDS = Object.keys(SEA_PRESETS);
 
@@ -164,16 +170,27 @@ const SWELL = [[0, 70, 0.55, 0], [0.18, 52, 0.3, 0], [-0.22, 38, 0.15, 0], [0.06
 // the storm builds (peak: 1 in fair weather, up to 3.4 in a full storm). Steep crests, long
 // troughs, the same mean level.
 export const swellShape = (a, k, theta, peak) => a * Math.sin(theta) - 0.5 * k * a * a * peak * Math.cos(2 * theta);
-// The chop: two short wavelengths in six fixed directions; the wind's direction weights them
-// (so a turning wind turns the sea without any wave jumping).
+// The wind sea: four wavelengths, from short wavelets to long wind waves, each in six fixed
+// directions (each length's set turned a little, so they never line up); the wind's direction
+// weights them (so a turning wind turns the sea without any wave jumping), and the wind's
+// strength decides how much of the sea is in the longer ones (on: the wind, m/s, over which a
+// length builds; bias: its share once built). Shorter waves than these are the water's own
+// surface detail (see water.js).
+const CHOP_BANDS = [{ len: 9, on: [0, 0.1], bias: 0.6 }, { len: 15, on: [2, 6], bias: 1 }, { len: 26, on: [5, 10], bias: 1.3 }, { len: 42, on: [8, 14], bias: 1.5 }];
 const CHOP = [];
-for (const [len, share] of [[9, 0.65], [5, 0.35]]) {
+CHOP_BANDS.forEach((B, band) => {
   for (let d = 0; d < 6; d++) {
-    const ang = (d / 6) * TAU + (len === 5 ? 0.5 : 0);
-    const k = TAU / len;
-    CHOP.push({ dx: Math.sin(ang), dz: -Math.cos(ang), k, c: Math.sqrt(9.81 / k), share, ang });
+    const ang = (d / 6) * TAU + band * 0.37;
+    const k = TAU / B.len;
+    CHOP.push({ dx: Math.sin(ang), dz: -Math.cos(ang), k, c: Math.sqrt(9.81 / k), band, ang });
   }
-}
+});
+// Swell running into shallow water: it slows, grows and steepens over the last few metres, and
+// once it's broken (in water not much deeper than the wave is high) it shrinks again, spent
+// (depth: metres of water). Its crests never peak more than a storm's.
+export const shoalGrow = (depth) => 1 + 0.8 * smoothstep(8, 2.5, depth) * smoothstep(0.8, 2.2, depth);
+export const shoalPeak = (depth) => 1.4 * smoothstep(5, 1.5, depth);
+const MAX_PEAK = 3.6;
 export const WAVE_COUNTS = { swell: SWELL.length, chop: CHOP.length };
 
 export const TIDE = { flow: 1 };
@@ -187,7 +204,10 @@ export const conditions = {
   // Sea: the swell's crest amplitude (m) and the chop's (m), each easing towards its target; how
   // stormy it is (0 … 1, building over a minute or two and dying away more slowly) and how much
   // the swell stands up in peaks.
-  sea: { swell: 0.1, chop: 0.05, storm: 0, peak: 1 },
+  sea: { swell: 0.1, chop: 0.05, storm: 0, peak: 1, chopPeak: 1 },
+  // The hour of the day (set by the game; null: no daily cycle, as in the tests), for the sea
+  // breeze and the trade wind's afternoon freshening.
+  hour: null,
   // From Settings: 'auto' (follow the weather) or a SEA_PRESETS id; wind 'auto' or manual.
   preset: 'auto', manual: null, currents: 'natural',
   // Which sea you're in ('home', or 'south' at Las Brasas, where the trade wind blows).
@@ -210,38 +230,67 @@ export function updateConditions(dt, weather) {
     const trades = C.region === 'south' && storm < 0.3;
     if (W.timer <= 0 || (storm > 0.3 && W.target < 12 * storm)) {
       W.timer = (70 + Math.random() * 110) * (1 - storm * 0.5);
-      // (At Las Brasas, the trade wind: a steady breeze from the north-east, fresher in the
-      // afternoon, seldom calm.)
-      const [lo, hi] = P && storm < 0.3 ? P.wind : trades ? [4.5, 9.5] : [lerp(1 + weather.cloud * 2, 13, storm), lerp(6 + weather.rain * 5, 18.5, storm)];
+      // (At Las Brasas, the trade wind: a steady fresh breeze from the north-east, seldom calm.
+      // At home, the weather's own wind: a breeze most days, fresher under cloud and in rain.)
+      const [lo, hi] = P && storm < 0.3 ? P.wind : trades ? [7, 11.5] : [lerp(3 + weather.cloud * 1.5, 13, storm), lerp(8.5 + weather.rain * 4, 18.5, storm)];
       W.target = clamp(lerp(lo, hi, Math.random()) + weather.rain * 2 * (1 - storm), 0, 20);
       W.turn = (Math.random() - 0.5) * 0.004 * (1 + storm * 2);
     }
     W.from = (W.from + W.turn * dt + TAU) % TAU;
     if (trades) W.from = dampAngleTo(W.from, TRADES_FROM + Math.sin(C.time * 0.0021) * 0.25, 0.01, dt);
+    // The day's own wind, on a fair day: at home a sea breeze sets in towards midday, blowing in
+    // from the sea (the south) and freshening through the afternoon, and a lighter land breeze at
+    // night; at Las Brasas the trade wind freshens in the afternoon.
+    const day = dayWind(C.hour) * (1 - storm) * (P ? 0 : 1) * (1 - 0.6 * (weather.cloud || 0));
+    W.daily = trades ? Math.max(0, day) * 0.6 : day;
+    if (!trades && day > 0.2) W.from = dampAngleTo(W.from, Math.PI, 0.004 * day, dt);
   }
-  W.speed = damp(W.speed, W.target, 0.05, dt);
+  W.speed = damp(W.speed, Math.max(0, W.target + (C.manual ? 0 : W.daily || 0)), 0.05, dt);
   // The sea follows: chop within half a minute or so, the swell over a few minutes; a storm's big
   // seas build over a minute or two and take longer to die away.
   const stormTarget = weather.storm || 0;
   C.sea.storm = damp(C.sea.storm, stormTarget, stormTarget > C.sea.storm ? 0.014 : 0.006, dt);
   C.sea.peak = 1 + 2.4 * smoothstep(0.15, 1, C.sea.storm);
-  const swellTarget = (P ? P.swell : 0.07 + weather.cloud * 0.08 + weather.rain * 0.12) * (C.manual ? 0.6 + C.manual.speed / 25 : 1) + 2.1 * C.sea.storm;
+  // (The Atlantic swell comes and goes over hours too: some days a long one is running.)
+  const swellTarget = (P ? P.swell : 0.18 + weather.cloud * 0.1 + weather.rain * 0.15 + 0.08 * Math.sin(C.time * 0.0006)) * (C.manual ? 0.6 + C.manual.speed / 25 : 1) + 2.1 * C.sea.storm;
   C.sea.swell = damp(C.sea.swell, swellTarget, 0.008 + 0.012 * C.sea.storm, dt);
   C.sea.chop = damp(C.sea.chop, chopFor(W.speed), 0.04, dt);
-  // How much of the chop runs in each of its fixed directions: the ones the wind blows along.
+  // A fresh wind's sea is steep, its crests sharp (and breaking: see water.js).
+  C.sea.chopPeak = 1 + 1.2 * smoothstep(5, 14, W.speed);
+  // How the wind sea is shared between its lengths (longer ones as the wind freshens), and in
+  // each, between its fixed directions: the ones the wind blows along.
   const to = W.from + Math.PI;
-  let sum = 0;
+  let bandSum = 0;
+  for (let b = 0; b < CHOP_BANDS.length; b++) {
+    const B = CHOP_BANDS[b];
+    BAND_SHARE[b] = smoothstep(B.on[0], B.on[1], W.speed) * B.bias;
+    bandSum += BAND_SHARE[b];
+  }
+  const dirSum = new Float32Array(CHOP_BANDS.length);
   for (let i = 0; i < CHOP.length; i++) {
     const a = Math.max(0, Math.cos(CHOP[i].ang - to));
     C.chopAmps[i] = a * a;
-    sum += C.chopAmps[i];
+    dirSum[CHOP[i].band] += C.chopAmps[i];
   }
-  for (let i = 0; i < CHOP.length; i++) C.chopAmps[i] = (C.chopAmps[i] / (sum || 1)) * 2 * C.sea.chop * CHOP[i].share;
+  for (let i = 0; i < CHOP.length; i++) {
+    const b = CHOP[i].band;
+    C.chopAmps[i] = (C.chopAmps[i] / (dirSum[b] || 1)) * C.sea.chop * (BAND_SHARE[b] / (bandSum || 1));
+  }
   for (let i = 0; i < SWELL.length; i++) C.swellAmps[i] = C.sea.swell * (SWELL[i].share * (1 - 0.5 * C.sea.storm) + SWELL[i].storm * C.sea.storm);
 }
-// Chop crest amplitude for a sustained wind (m/s): a ripple in light air, half a metre of
-// crest-to-trough in a fresh breeze where it has room to build.
-const chopFor = (u) => 0.012 + 0.0045 * Math.pow(u, 1.6);
+// The wind sea's crest amplitude for a sustained wind (m/s): a ripple in light air, about half a
+// metre crest to trough in a moderate breeze and a metre in a strong one, where it has room to
+// build (less in the bays, where the fetch is short: see the shelter).
+const chopFor = (u) => 0.02 + 0.005 * Math.pow(u, 1.75);
+const BAND_SHARE = new Float32Array(CHOP_BANDS.length);
+// The day's own wind, as a share of a few m/s: the sea breeze building from late morning to a
+// mid-afternoon peak and dying by dusk, a lighter land breeze in the small hours. (No hour: none.)
+export function dayWind(hour) {
+  if (hour == null) return 0;
+  const breeze = smoothstep(10, 14, hour) * (1 - smoothstep(17, 20.5, hour));
+  const night = smoothstep(21, 23, hour) + 1 - smoothstep(4, 7, hour);
+  return 3.5 * breeze - 1.2 * Math.min(1, night);
+}
 function dampAngleTo(a, b, k, dt) {
   const d = Math.atan2(Math.sin(b - a), Math.cos(b - a));
   return (a + d * (1 - Math.exp(-k * dt)) + TAU) % TAU;
@@ -259,7 +308,7 @@ export function windAt(x, z, t = conditions.time, out = _w) {
   const along = (x * dx + z * dz) - W.speed * t, across = x * -dz + z * dx;
   const g = 0.5 + 0.25 * Math.sin(along * 0.045 + Math.sin(across * 0.02) * 1.3) + 0.25 * Math.sin(along * 0.11 - t * 0.21 + across * 0.035);
   // (Storm gusts hit harder.)
-  const gust = 1 + (0.38 + 0.3 * conditions.sea.storm) * Math.max(0, g - 0.45) / 0.55;
+  const gust = 1 + (0.45 + 0.3 * conditions.sea.storm) * Math.max(0, g - 0.45) / 0.55;
   const shelter = shelterAt(x, z)[1];
   const s = W.speed * gust * (0.25 + 0.75 * shelter);
   out.x = dx * s;
@@ -276,20 +325,22 @@ export function windAt(x, z, t = conditions.time, out = _w) {
 export function waveHeight(x, z, t = conditions.time) {
   const lvl = waterLevel(x, z);
   if (lvl > 0.05) return lvl + 0.012 * Math.sin(x * 1.7 + t * 2.1) * Math.sin(z * 1.3 - t * 1.6) * smoothstep(0.05, 0.6, lvl - solidHeight(x, z));
-  const C = conditions, sh = shelterAt(x, z);
+  const C = conditions, sh = shelterAt(x, z), depth = Math.max(0, -solidHeight(x, z));
   let hs = 0, hc = 0;
-  // (Sheltered, each wave is smaller there before it peaks, as the shader does it.)
-  const peak = C.sea.peak;
+  // (Sheltered, each wave is smaller there before it peaks, as the shader does it; running into
+  // shallow water the swell grows and steepens.)
+  const peak = Math.min(C.sea.peak + shoalPeak(depth), MAX_PEAK), grow = shoalGrow(depth);
   for (let i = 0; i < SWELL.length; i++) {
-    const w = SWELL[i], a = C.swellAmps[i] * sh[0];
+    const w = SWELL[i], a = C.swellAmps[i] * sh[0] * grow;
     if (a < 1e-5) continue;
     hs += swellShape(a, w.k, w.k * (w.dx * x + w.dz * z - w.c * t), peak);
   }
+  const cp = C.sea.chopPeak;
   for (let i = 0; i < CHOP.length; i++) {
     const a = C.chopAmps[i];
     if (a < 1e-5) continue;
     const w = CHOP[i];
-    hc += a * Math.sin(w.k * (w.dx * x + w.dz * z - w.c * t));
+    hc += swellShape(a, w.k, w.k * (w.dx * x + w.dz * z - w.c * t), cp);
   }
   return (hs + hc * (0.15 + 0.85 * sh[1])) * shoreFade(x, z);
 }

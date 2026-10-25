@@ -139,3 +139,56 @@ test('the Currents setting steadies your boat (the fish still know the water)', 
   C.conditions.currents = 'natural';
   assert.ok(Math.hypot(C.currentFast(600, -250).x, C.currentFast(600, -250).z) > 0.2, 'fish still feel the river');
 });
+
+/* ---------------- a livelier sea ---------------- */
+
+// The weather left to itself for a while, at a given hour, on a fair day: the sustained wind.
+function fairDay(hour, region = 'home', minutes = 40) {
+  const save = { region: C.conditions.region, hour: C.conditions.hour };
+  C.conditions.preset = 'auto';
+  C.conditions.manual = null;
+  C.conditions.region = region;
+  C.conditions.hour = hour;
+  const seen = [];
+  for (let i = 0; i < minutes * 60; i++) {
+    C.updateConditions(1, { rain: 0, cloud: 0.25, storm: 0 });
+    if (i > 300) seen.push(C.conditions.wind.speed);
+  }
+  Object.assign(C.conditions, save);
+  return seen.reduce((a, b) => a + b, 0) / seen.length;
+}
+
+test('an Atlantic coast is seldom still: a breeze most days, a sea breeze in the afternoon, the trade wind at Las Brasas', () => {
+  const morning = fairDay(8), afternoon = fairDay(15), night = fairDay(2);
+  assert.ok(morning > 4 && morning < 8, `a breeze in the morning: ${morning.toFixed(1)} m/s`);
+  assert.ok(afternoon > morning + 2, `fresher in the afternoon: ${afternoon.toFixed(1)} m/s`);
+  assert.ok(night < morning, `lighter at night: ${night.toFixed(1)} m/s`);
+  const trades = fairDay(15, 'south');
+  assert.ok(trades > 8.5 && trades < 14, `the trade wind: ${trades.toFixed(1)} m/s`);
+  assert.equal(C.dayWind(null), 0, 'no hour, no daily cycle');
+});
+
+test('the wind sea grows longer waves as the wind freshens, and bigger ones', () => {
+  const { CHOP } = C.WAVE_PARTS;
+  const bands = (speed) => {
+    settle('auto', speed);
+    const out = [0, 0, 0, 0];
+    CHOP.forEach((w, i) => { out[w.band] += C.conditions.chopAmps[i]; });
+    return out;
+  };
+  const light = bands(3), fresh = bands(12);
+  assert.ok(light[3] < 0.002 && light[0] > light[2], `light air: short waves only (${light.map((a) => a.toFixed(3)).join(', ')})`);
+  assert.ok(fresh[3] > fresh[0] && fresh[2] > fresh[0], `a fresh breeze: the longest carry the most (${fresh.map((a) => a.toFixed(3)).join(', ')})`);
+  assert.ok(fresh.reduce((a, b) => a + b) > light.reduce((a, b) => a + b) * 5);
+  // Out in the open in a fresh breeze, about a metre crest to trough, with sharp crests.
+  settle('lively', 12);
+  const h = C.waveHeightHere(0, 300);
+  assert.ok(h > 0.9 && h < 3, `${h.toFixed(2)} m`);
+  assert.ok(C.conditions.sea.chopPeak > 1.5);
+});
+
+test('the swell grows and steepens running into shallow water, then breaks and is spent', () => {
+  assert.ok(C.shoalGrow(3) > 1.6 && C.shoalGrow(12) === 1, 'bigger over the last few metres');
+  assert.ok(C.shoalGrow(0.8) < 1.05, 'spent once it has broken');
+  assert.ok(C.shoalPeak(2) > 1 && C.shoalPeak(8) === 0, 'and steeper');
+});
