@@ -135,7 +135,9 @@ export class Ecosystem {
         const j = Math.floor(rnd() * (k + 1));
         [cands[k], cands[j]] = [cands[j], cands[k]];
       }
-      if (L.favour) cands.sort((a, b) => L.favour.includes(b.tag) - L.favour.includes(a.tag));
+      // (Favoured places first: the island's own for the home coast's fish that live there too.)
+      const fav = L.favourSouth || L.favour;
+      if (fav) cands.sort((a, b) => fav.includes(b.tag) - fav.includes(a.tag));
       const gap = L.spacing ?? (L.school ? 40 : 22);
       const homes = [];
       for (const s of cands) {

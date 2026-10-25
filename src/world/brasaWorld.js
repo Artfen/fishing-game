@@ -4,7 +4,7 @@ import { withSurface } from './surface.js';
 import { withCaustics } from './caustics.js';
 import {
   brasaHeight, brasaSDF, brasaHabitat, lavaRough, onBeach, windward, ISLE, PICO, ROJA, FARO, PUERTO, PLAYA, ARCO, ARCHES,
-  VILLAGE, QUAY_S, DIQUE, MOLE, POSADA, QUAY_STEPS, SEBADAL, SOUTH_MAP, PONTOON_S, FINGERS_S, PONTOON_STEPS, FUEL_S,
+  VILLAGE, QUAY_S, DIQUE, MOLE, POSADA, QUAY_STEPS, SEBADAL, SOUTH_MAP, PONTOON_S, FINGERS_S, PONTOON_STEPS, FUEL_S, BAJON, onBajon,
 } from './brasa.js';
 import { fuelPumpParts, pontoonParts } from '../props.js';
 
@@ -20,7 +20,11 @@ import { fuelPumpParts, pontoonParts } from '../props.js';
 //    candelabras of cardón, Canary pines high on the volcano's flanks; the lighthouse on Punta del
 //    Faro; Roque del Arco with the sea running through its arch.
 //  · Under the water: black lava boulders, the long-spined urchins that graze the rock bare, brown
-//    weed in the shallows, seagrass on the sebadal, and the arches off the Roque.
+//    weed in the shallows, seagrass on the sebadal, and the arches off the Roque. Below the surge,
+//    the reef's own colour, as on the real islands' reefs: sea fans (yellow, orange and red
+//    gorgonians) standing across the current, sponges, orange sun coral under the overhangs,
+//    anemones, and the pale bushes of black coral down the walls. Thickest of all on El Bajón, the
+//    reef off the harbour mouth, which has a yellow buoy over it.
 
 /* ---------------- colours ---------------- */
 
@@ -194,6 +198,62 @@ function urchinGeometry() {
   }
   return mergeParts(parts);
 }
+// A sea fan (a gorgonian): a flat fan of branches forking from a short stem, about two thirds of a
+// metre tall at scale 1, in the x-y plane (it stands across the current). White: each is tinted.
+function fanGeometry(rnd, depth = 5) {
+  const pos = [];
+  const strip = (x0, y0, x1, y1, w) => {
+    const L = Math.hypot(x1 - x0, y1 - y0) || 1, nx = (-(y1 - y0) / L) * w, ny = ((x1 - x0) / L) * w;
+    pos.push(x0 - nx, y0 - ny, 0, x1 - nx, y1 - ny, 0, x1 + nx, y1 + ny, 0, x0 - nx, y0 - ny, 0, x1 + nx, y1 + ny, 0, x0 + nx, y0 + ny, 0);
+  };
+  const grow = (x, y, a, len, w, n) => {
+    const x1 = x + Math.sin(a) * len, y1 = y + Math.cos(a) * len;
+    strip(x, y, x1, y1, w);
+    if (n === 0) return;
+    for (const s of [-1, 1]) grow(x1, y1, a + s * (0.26 + rnd() * 0.32), len * (0.74 + rnd() * 0.16), w * 0.8, n - 1);
+  };
+  grow(0, 0, (rnd() - 0.5) * 0.2, 0.17, 0.022, depth);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(pos.length).fill(1), 3));
+  g.computeVertexNormals();
+  return g;
+}
+// Black coral: a pale, bushy colony (two fans crossed).
+function blackCoralGeometry(rnd) {
+  return mergeParts([{ geo: fanGeometry(rnd, 5), color: '#ffffff', jitter: 0.04 }, { geo: fanGeometry(rnd, 5), matrix: mat(0, 0, 0, 0, Math.PI / 2, 0, 0.85), color: '#f2efe4', jitter: 0.04 }], rnd);
+}
+// A cluster of tube sponges, open at the top (dark inside).
+function spongeGeometry(rnd) {
+  const parts = [];
+  const n = 3 + Math.floor(rnd() * 3);
+  for (let i = 0; i < n; i++) {
+    const h = 0.16 + rnd() * 0.3, r = 0.04 + rnd() * 0.045, a = rnd() * 6.28, d = i ? 0.06 + rnd() * 0.07 : 0;
+    const x = Math.cos(a) * d, z = Math.sin(a) * d;
+    parts.push({ geo: new THREE.CylinderGeometry(r, r * 1.2, h, 7, 1, true), matrix: mat(x, h / 2, z), color: '#ffffff' });
+    parts.push({ geo: new THREE.CircleGeometry(r * 0.92, 7), matrix: mat(x, h - 0.02, z, -Math.PI / 2, 0, 0), color: '#4a3326' });
+  }
+  return mergeParts(parts, rnd);
+}
+// Orange sun coral: a low cushion of little cup polyps, in the shade of overhangs.
+function sunCoralGeometry(rnd) {
+  const parts = [{ geo: jitterGeo(new THREE.SphereGeometry(0.15, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), 0.025, rnd), matrix: mat(0, 0, 0, 0, 0, 0, 1, 0.6, 1), color: '#ffffff' }];
+  for (let i = 0; i < 10; i++) {
+    const a = rnd() * 6.28, r = Math.sqrt(rnd()) * 0.12;
+    parts.push({ geo: new THREE.CylinderGeometry(0.02, 0.016, 0.035, 6), matrix: mat(Math.cos(a) * r, 0.085 - r * 0.45, Math.sin(a) * r), color: '#fff3c4' });
+  }
+  return mergeParts(parts, rnd);
+}
+// An anemone: a short column and a ring of tentacles.
+function anemoneGeometry() {
+  const parts = [{ geo: new THREE.CylinderGeometry(0.05, 0.07, 0.1, 8), matrix: mat(0, 0.05, 0), color: '#e8d6cc' }];
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+    parts.push({ geo: new THREE.ConeGeometry(0.011, 0.13, 4), matrix: mat(c * 0.06, 0.15, s * 0.06, s * 0.7, 0, -c * 0.7), color: '#ffffff' });
+  }
+  return mergeParts(parts);
+}
+
 // A little wooden fishing boat, open, pulled up or lying at a mooring (bow along +z): a hull
 // that narrows to a pointed bow and in towards the keel, a band of colour under the gunwale,
 // thwarts across it.
@@ -484,6 +544,71 @@ export function buildBrasa(scene, rnd) {
       }
     }
   }
+  // El Bajón's rock: big blocks and boulders of lava piled on the pinnacles and round their feet,
+  // so they stand up broken and cragged (with the fans and sponges among them, below).
+  {
+    const c = Math.cos(BAJON.yaw), s = Math.sin(BAJON.yaw);
+    for (let i = 0, n = 0; i < 1400 && n < 220; i++) {
+      const u = (rnd() - 0.5) * (BAJON.len + 8), v = (rnd() - 0.5) * (BAJON.w + 4);
+      const x = BAJON.x + u * c + v * s, z = BAJON.z - u * s + v * c;
+      if (onBajon(x, z) < 0.35) continue;
+      const h = H(x, z), sc = 0.35 + rnd() * rnd() * 1.4;
+      rocksUnder.push({ x, y: h - sc * 0.55, z, s: sc, r: rnd() * 6.28 });
+      n++;
+    }
+  }
+  // The reef's colour below the surge (see the top): on El Bajón above all, round the Roque's
+  // arches, and on the rock reefs and down El Veril's wall elsewhere.
+  const fans = [], blacks = [], sponges = [], suns = [], anemones = [];
+  {
+    const FAN = ['#e8bf38', '#e8bf38', '#e9782c', '#e9782c', '#c9392d', '#a8325a', '#e8e2d2'];
+    const SPONGE = ['#e8722a', '#e6c23a', '#c43a2e', '#7a3a6a', '#e88a3a'];
+    const across = Math.atan2(-0.72, 0.69); // (fans stand across the current, which runs south-west)
+    const tryAt = (x, z, dense) => {
+      const h = H(x, z), depth = -h;
+      if (depth < 3 || depth > 42) return;
+      const bj = onBajon(x, z), hb = brasaHabitat(x, z, _hb);
+      if (bj < 0.3 && hb.rock < 0.55) return;
+      const slope = Math.abs(H(x + 0.8, z) - H(x - 0.8, z)) + Math.abs(H(x, z + 0.8) - H(x, z - 0.8));
+      const r = rnd();
+      if (depth > 22 && r < 0.35) blacks.push({ x, y: h - 0.05, z, s: 0.8 + rnd() * 1.1, r: rnd() * 6.28 });
+      else if (depth > 5 && r < (dense ? 0.42 : 0.38)) fans.push({ x, y: h - 0.04, z, s: 0.55 + rnd() * (dense ? 1.1 : 0.8), r: across + (rnd() - 0.5) * 0.5, color: pick(FAN, rnd) });
+      else if (r < 0.66) sponges.push({ x, y: h - 0.03, z, s: 0.8 + rnd() * 0.9, r: rnd() * 6.28, color: pick(SPONGE, rnd) });
+      else if (slope > 1.2 && depth > 4 && r < 0.86) suns.push({ x, y: h - 0.02, z, s: 0.7 + rnd() * 0.8, r: rnd() * 6.28, color: '#f07a1e' });
+      else if (depth < 20) anemones.push({ x, y: h - 0.01, z, s: 0.8 + rnd() * 0.5, r: rnd() * 6.28, color: pick(['#f2c3b8', '#efe6d4', '#e9a9a0'], rnd) });
+    };
+    // El Bajón: thick with it.
+    const c = Math.cos(BAJON.yaw), s = Math.sin(BAJON.yaw);
+    for (let i = 0; i < 2600; i++) {
+      const u = (rnd() - 0.5) * (BAJON.len + 10), v = (rnd() - 0.5) * (BAJON.w + 6);
+      tryAt(BAJON.x + u * c + v * s, BAJON.z - u * s + v * c, true);
+    }
+    // Round the Roque and its arches, and over the rest of the island's rock.
+    for (let i = 0; i < 900; i++) tryAt(ARCO.x + (rnd() - 0.5) * 220, ARCO.z + 20 + (rnd() - 0.5) * 200, true);
+    for (let i = 0; i < 26000 && fans.length + sponges.length < 3400; i++) {
+      const x = SOUTH_MAP.x + rnd() * SOUTH_MAP.w, z = SOUTH_MAP.z + rnd() * SOUTH_MAP.h, d = brasaSDF(x, z);
+      if (d < 8 || d > 260) continue;
+      tryAt(x, z, false);
+    }
+  }
+  // The yellow buoy over El Bajón's shallowest pinnacle, nodding on the swell.
+  const buoy = new THREE.Group();
+  {
+    const yellow = '#e8c234';
+    const g = mergeParts([
+      { geo: new THREE.CylinderGeometry(0.42, 0.5, 0.9, 12), matrix: mat(0, 0.1, 0), color: yellow },
+      { geo: new THREE.ConeGeometry(0.42, 0.45, 12), matrix: mat(0, 0.78, 0), color: yellow },
+      { geo: new THREE.CylinderGeometry(0.03, 0.03, 0.9, 6), matrix: mat(0, 1.3, 0), color: '#3a3d40' },
+      { geo: new THREE.BoxGeometry(0.42, 0.07, 0.07), matrix: mat(0, 1.68, 0, 0, 0, 0.78), color: yellow },
+      { geo: new THREE.BoxGeometry(0.42, 0.07, 0.07), matrix: mat(0, 1.68, 0, 0, 0, -0.78), color: yellow },
+      { geo: new THREE.CylinderGeometry(0.52, 0.52, 0.12, 12), matrix: mat(0, -0.32, 0), color: '#2b2e33' },
+    ], rnd);
+    const m = new THREE.Mesh(g, plain());
+    m.castShadow = true;
+    buoy.add(m);
+    buoy.position.set(BAJON.buoy.x, -0.15, BAJON.buoy.z);
+    group.add(buoy);
+  }
   // Little boats: two pulled up at the west end of the waterfront, three at moorings in the basin.
   const boats = [];
   const boatCols = ['#2c5d8a', '#b8423a', '#2f8f55', '#d9a032', '#3f7f86'];
@@ -509,6 +634,19 @@ export function buildBrasa(scene, rnd) {
   group.add(under);
   const urch = instanced(urchinGeometry(), urchins, plain(), rnd, { tint: 0.05, shadows: false });
   group.add(urch);
+  // (The reef's colour thins out with the Vegetation setting: El Bajón's, placed first, stay longest.)
+  const soft = withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+  const reefLife = [
+    instanced(fanGeometry(rnd), fans, soft, rnd, { shadows: false }),
+    instanced(blackCoralGeometry(rnd), blacks, soft, rnd, { tint: 0.08, shadows: false }),
+    instanced(spongeGeometry(rnd), sponges, soft, rnd, { tilt: 0.25, shadows: false }),
+    instanced(sunCoralGeometry(rnd), suns, withCaustics(plain()), rnd, { tilt: 0.5, shadows: false }),
+    instanced(anemoneGeometry(), anemones, withCaustics(plain()), rnd, { shadows: false }),
+  ];
+  for (const m of reefLife) {
+    m.userData.total = m.count;
+    group.add(m);
+  }
   for (const p of palms) obstacles.push({ x: p.x, z: p.z, r: 0.45 * p.s, kind: 'tree', name: 'a palm' });
   for (const c of cardon) obstacles.push({ x: c.x, z: c.z, r: 0.85 * c.s, kind: 'tree', name: 'a cardón' });
   for (const p of pines) obstacles.push({ x: p.x, z: p.z, r: 0.3 * p.s, kind: 'tree', name: 'a pine' });
@@ -525,6 +663,9 @@ export function buildBrasa(scene, rnd) {
 
   return {
     group, obstacles, spots, boxes,
+    setQuality(q) {
+      for (const m of reefLife) m.count = Math.max(Math.min(m.userData.total, 200), Math.floor(m.userData.total * q.plants));
+    },
     lights: [{ x: POSADA.x, z: POSADA.z + 8 }, { x: MOLE.x0 + 1.5, z: MOLE.z0 }],
     update(dt, t, env) {
       const night = clamp(env.lantern * 1.2, 0, 1);
@@ -534,6 +675,8 @@ export function buildBrasa(scene, rnd) {
       // The harbour light flashes green every four seconds.
       harbourLight.userData.glow.material.opacity = night * (Math.sin(t * Math.PI * 0.5) > 0.6 ? 1 : 0.1);
       glass.emissiveIntensity = smoothstep(0.15, 0.6, env.night) * 0.8;
+      buoy.position.y = -0.15 + Math.sin(t * 1.3) * 0.07;
+      buoy.rotation.set(Math.sin(t * 0.9) * 0.06, 0, Math.sin(t * 1.1 + 1) * 0.06);
       for (const b of boats) {
         if (!b.userData.afloat) continue;
         b.position.y = -0.25 + Math.sin(t * 1.1 + b.userData.ph) * 0.05;

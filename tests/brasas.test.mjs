@@ -99,6 +99,27 @@ test('its fish live on homes of their own, in its waters, and none of its own ki
   for (const a of eco.agents) if (!a.home.south) assert.ok(a.home.z < T.SOUTH_Z);
 });
 
+test('El Bajón: a reef just off the harbour mouth, its pinnacles near the surface under a buoy, and the island’s fish on it', () => {
+  const mouth = { x: B.MOLE.x0 - 10, z: B.MOLE.z0 };
+  assert.ok(Math.hypot(B.BAJON.x - mouth.x, B.BAJON.z - mouth.z) < 220, 'a short row from the harbour');
+  assert.equal(T.zoneAt(B.BAJON.x, B.BAJON.z), 'lee', 'in the calm water of the lee');
+  // Pinnacles from the shelf to a few metres under the surface (deep enough for every boat).
+  const c = Math.cos(B.BAJON.yaw), s = Math.sin(B.BAJON.yaw);
+  const tops = B.BAJON.peaks.map((p) => -T.heightAt(B.BAJON.x + p.u * c + p.v * s, B.BAJON.z - p.u * s + p.v * c));
+  assert.ok(Math.min(...tops) > 1.5 && Math.min(...tops) < 4, `the shallowest ${Math.min(...tops).toFixed(1)} m down`);
+  assert.ok(tops.every((d) => d < 9), tops.map((d) => d.toFixed(1)).join(', '));
+  const foot = -T.heightAt(B.BAJON.x + 40, B.BAJON.z - 30);
+  assert.ok(foot > 13, `the shelf round it ${foot.toFixed(0)} m deep`);
+  assert.ok(-T.heightAt(B.BAJON.buoy.x, B.BAJON.buoy.z) < 5, 'the buoy over a pinnacle');
+  // Found as you go, there.
+  const place = T.PLACES.find((p) => p.id === 'bajon');
+  assert.ok(place && place.test(B.BAJON.buoy.x, B.BAJON.buoy.z) && !place.test(B.PUERTO.x, B.PUERTO.z));
+  // The island's own reef fish live on it.
+  const eco = new Ecosystem(createHabitat());
+  const on = new Set(eco.agents.filter((a) => Math.hypot(a.home.x - B.BAJON.x, a.home.z - B.BAJON.z) < 50).map((a) => a.sp.id));
+  for (const id of ['parrotfish', 'ornatewrasse', 'triggerfish', 'moray', 'grouper', 'trumpetfish']) assert.ok(on.has(id), `${id} on El Bajón`);
+});
+
 /* ---------------- boats, the save and the chart ---------------- */
 
 test('a boat floats in Puerto Brasa and lies at its quay; the sea there has edges of its own', async () => {

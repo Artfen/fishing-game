@@ -6,7 +6,7 @@ import {
 } from './terrain.js';
 import { COLDWATER, TARN } from './coldwater.js';
 import {
-  SOUTH_Z, SOUTH_MAP, brasaHeight, brasaZone, brasaHabitat, brasaSDF, PUERTO, QUAY_S, MOLE, DIQUE, PLAYA, ARCO, ARCHES, FARO, COLADAS, SEBADAL,
+  SOUTH_Z, SOUTH_MAP, brasaHeight, brasaZone, brasaHabitat, brasaSDF, PUERTO, QUAY_S, MOLE, DIQUE, PLAYA, ARCO, ARCHES, FARO, COLADAS, SEBADAL, BAJON, onBajon,
 } from './brasa.js';
 import { fbm, seeded, smoothstep, clamp } from '../util.js';
 
@@ -520,6 +520,7 @@ function southSpots(habitat, spots) {
       if (d < 1) continue;
       brasaHabitat(px, pz, S);
       const zone = brasaZone(px, pz), depth = S.depth;
+      if (onBajon(px, pz) > 0.2) continue; // (El Bajón's are placed by hand, below)
       const tag = near(px, pz, ARCO, 120) ? 'roque' : near(px, pz, FARO, 160) ? 'faro' : near(px, pz, PLAYA, 190) ? 'playa' : zone === 'harbor' ? 'puerto'
         : zone === 'sebadal' ? 'sebadal' : COLADAS.some((c) => Math.hypot(px - c[2], pz - c[3]) < 150) ? 'coladas' : zone === 'veril' ? 'veril' : null;
       if (zone === 'harbor') continue; // (the harbour's are placed by hand, below)
@@ -556,6 +557,22 @@ function southSpots(habitat, spots) {
   for (let k = 0; k < 6; k++) {
     const a = (k / 6) * Math.PI * 2 + 0.3, r = ARCO.r + 14;
     put(k % 2 ? 'reef' : 'cave', ARCO.x + Math.cos(a) * r, ARCO.z + Math.sin(a) * r, 8, 'roque');
+  }
+  // El Bajón: the tops of its pinnacles (rock), their sides (reef), a cave under the biggest, the
+  // seaward foot (the wall), and sand in the gullies.
+  {
+    const c = Math.cos(BAJON.yaw), s = Math.sin(BAJON.yaw);
+    const at = (u, v) => ({ x: BAJON.x + u * c + v * s, z: BAJON.z - u * s + v * c });
+    BAJON.peaks.forEach((p, i) => {
+      const t = at(p.u, p.v);
+      put('rock', t.x, t.z, 5, 'bajon');
+      const f = at(p.u + 2, p.v + (i % 2 ? 6 : -6));
+      put('reef', f.x, f.z, 6, 'bajon');
+    });
+    for (const [u, v, type] of [[-14, 9, 'cave'], [4, -11, 'cave'], [-30, 0, 'wall'], [32, 4, 'wall'], [0, 14, 'wall'], [-10, -14, 'reef'], [16, 12, 'reef'], [3, 0, 'sand']]) {
+      const t = at(u, v);
+      put(type, t.x, t.z, type === 'wall' ? 10 : 6, 'bajon');
+    }
   }
   // (The middle of the sebadal: sand where the seagrass parts.)
   for (let k = 0; k < 5; k++) put('sand', SEBADAL.x - 160 + k * 80, SEBADAL.z + (k % 2 ? 40 : -30), 14, 'sebadal');

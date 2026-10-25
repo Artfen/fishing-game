@@ -47,6 +47,38 @@ export const ARCHES = [ // the arches under the water off the Roque: [x, z, yaw,
   { x: -428, z: 6528, yaw: 0.6, span: 9, top: -7 },
   { x: -452, z: 6545, yaw: 1.9, span: 7, top: -10 },
 ];
+// El Bajón: a reef of lava pinnacles on the shelf off the harbour mouth, rising from about twenty
+// metres to a few under the surface, with a yellow buoy over it. Its pinnacles are given along the
+// reef (u, metres from its middle; v across it), with their tops (metres, negative: below the
+// surface) and how wide they are at the foot.
+export const BAJON = {
+  x: -100, z: 6432, yaw: 0.35, len: 60, w: 26, buoy: { x: -118, z: 6440.5 },
+  peaks: [{ u: -20, v: 2, top: -3.2, r: 9 }, { u: -4, v: -3, top: -5.5, r: 8 }, { u: 10, v: 3, top: -4.2, r: 8.5 }, { u: 23, v: -1, top: -7.5, r: 7 }],
+};
+// (In the reef's own frame: u along it, v across it.)
+function bajonUV(x, z) {
+  const c = Math.cos(BAJON.yaw), s = Math.sin(BAJON.yaw), dx = x - BAJON.x, dz = z - BAJON.z;
+  return [dx * c - dz * s, dx * s + dz * c];
+}
+// How far up the reef's rock stands here (metres; -Infinity off the reef): a broken ridge, the
+// pinnacles steep-sided and cragged, gullies between them.
+export function bajonHeight(x, z) {
+  const [u, v] = bajonUV(x, z);
+  const e = Math.hypot(u / (BAJON.len / 2 + 6), v / (BAJON.w / 2 + 4));
+  if (e > 1) return -Infinity;
+  let top = -15.5 + 3.5 * smoothstep(1, 0.35, e);
+  for (const p of BAJON.peaks) {
+    const d = Math.hypot(u - p.u, v - p.v) / p.r;
+    if (d < 1.4) top = Math.max(top, p.top - 11 * Math.pow(Math.min(d, 1.4), 1.6));
+  }
+  const crag = Math.abs(fbm(x * 0.32 + 4, z * 0.32 - 2, 2)) * 1.8 + fbm(x * 0.11, z * 0.11, 2) * 1.2;
+  return top + crag * smoothstep(1, 0.6, e) - 2.5 * smoothstep(0.75, 1, e);
+}
+// On the reef (0 … 1): for its rock, its colours and its homes.
+export function onBajon(x, z) {
+  const [u, v] = bajonUV(x, z);
+  return smoothstep(1, 0.75, Math.hypot(u / (BAJON.len / 2 + 6), v / (BAJON.w / 2 + 4)));
+}
 export const COLADAS = [ // lava tongues on the north-west: from inland out into the sea
   [-300, 5700, -390, 5560, 34],
   [-430, 5760, -560, 5650, 30],
@@ -206,7 +238,8 @@ function seaHeight(x, z, d) {
   // The harbour basin: dredged to a level four metres, quieter water than outside.
   const dh = Math.hypot(x - PUERTO.x, z - PUERTO.z);
   if (dh < PUERTO.r + 40) h = lerp(-4.2 + fbm(x * 0.1, z * 0.1, 2) * 0.3, h, smoothstep(PUERTO.r - 8, PUERTO.r + 40, dh));
-  return h;
+  // El Bajón standing up off the shelf.
+  return Math.max(h, bajonHeight(x, z));
 }
 
 // The ground (or seabed) height anywhere in the far south.
@@ -255,11 +288,11 @@ export function brasaHabitat(x, z, out) {
   const h = brasaHeight(x, z), depth = Math.max(0, -h), d = brasaSDF(x, z);
   const sb = smoothstep(1.1, 0.8, Math.hypot((x - SEBADAL.x) / SEBADAL.rx, (z - SEBADAL.z) / SEBADAL.rz));
   const grass = sb * smoothstep(3, 6, depth) * (1 - smoothstep(16, 22, depth)) * smoothstep(-0.2, 0.3, fbm(x * 0.03 + 5, z * 0.03, 2) + 0.15);
-  const reef = (1 - sb) * (1 - smoothstep(40, 170, d));
+  const reef = Math.max((1 - sb) * (1 - smoothstep(40, 170, d)), onBajon(x, z));
   const algae = reef * smoothstep(0.8, 2, depth) * (1 - smoothstep(10, 18, depth)) * smoothstep(-0.3, 0.2, fbm(x * 0.05 - 2, z * 0.05 + 7, 2));
   out.depth = depth;
   out.weed = clamp(Math.max(grass, algae * 0.7), 0, 1);
-  out.rock = clamp(reef * 0.85 + smoothstep(shelfWidth(x, z) - 25, shelfWidth(x, z) + 10, d) * (1 - smoothstep(shelfWidth(x, z) + 60, shelfWidth(x, z) + 120, d)), 0, 1);
+  out.rock = clamp(Math.max(reef * 0.85, onBajon(x, z)) + smoothstep(shelfWidth(x, z) - 25, shelfWidth(x, z) + 10, d) * (1 - smoothstep(shelfWidth(x, z) + 60, shelfWidth(x, z) + 120, d)), 0, 1);
   out.grass = grass;
   return out;
 }
@@ -271,6 +304,7 @@ export const BRASA_PLACES = [
   { id: 'playa', name: 'Playa Negra', sub: 'a beach of black sand', south: true, x: PLAYA.x, z: PLAYA.z, note: 'Fine black sand, hot underfoot by midday. The surf here brings in white bream and palometa; out beyond, the sand runs into the sebadal.' },
   { id: 'sebadal', name: 'El Sebadal', sub: 'a meadow of seagrass under clear water', area: true, south: true, x: SEBADAL.x, z: SEBADAL.z, note: 'A broad shallow shelf of sand and seagrass. Angel sharks lie buried in the sand here, flat as a doormat, and must be left in peace; cuttlefish, striped bream and rays feed over it.' },
   { id: 'coladas', name: 'Las Coladas', sub: 'old lava running into the sea', south: true, x: -420, z: 5700, note: 'Tongues of black lava that ran down into the sea long ago, broken into a reef the swell works over. Parrotfish graze the rocks, triggerfish cruise above them, and morays watch from the holes.' },
+  { id: 'bajon', name: 'El Bajón', sub: 'a reef just off the harbour mouth', south: true, x: BAJON.x, z: BAJON.z, note: 'Lava pinnacles standing up off the shelf, the tallest a few metres under a yellow buoy. Sea fans, sponges and orange sun coral on their sides; parrotfish, wrasse and triggerfish over the top, morays in the cracks, a grouper in the cave at the foot. Best seen diving, or looking down from a boat over the shallowest pinnacle.' },
   { id: 'arco', name: 'Roque del Arco', sub: 'an islet with a sea arch', south: true, x: ARCO.x, z: ARCO.z, note: 'A tall rock off the south-west point with an arch the sea runs through. Under the water, more arches of old lava: a dive among barracuda and big groupers.' },
   { id: 'veril', name: 'El Veril', sub: 'the drop-off into the deep blue', area: true, south: true, x: 120, z: 6600, size: 22, note: 'The edge of the island’s shelf, where the bottom falls away from twenty-odd metres into the deep. Groupers in the caves of the wall, amberjack and barracuda along the edge.' },
   { id: 'faro', name: 'Punta del Faro', sub: 'the long east point and its lighthouse', south: true, x: FARO.x, z: FARO.z, note: 'A long, low tongue of lava with a white lighthouse at its end. The current runs past the point a little faster; bluefish and little tunny hunt there.' },

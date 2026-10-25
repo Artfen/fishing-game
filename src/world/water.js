@@ -109,6 +109,7 @@ uniform vec2 uWindV;     // where the wind blows, times its strength (0 … 1 at
 uniform float uSwellH;   // the swell's crest amplitude (m)
 uniform float uChopH;    // the chop's crest amplitude (m)
 uniform float uStorm;    // how stormy (0 … 1)
+uniform float uClear;    // clear blue water (Las Brasas): you see the seabed and the fish much deeper
 varying vec3 vWorld;
 varying vec3 vN;
 varying vec4 vRefl;
@@ -242,7 +243,8 @@ void main() {
   vec3 V = normalize(cameraPosition - vWorld);
 
   float s1 = smoothstep(0.0, 3.0, depth);
-  float s2 = smoothstep(2.5, 13.0, depth);
+  // (In clear water the deep blue comes on further down.)
+  float s2 = mix(smoothstep(2.5, 13.0, depth), smoothstep(5.0, 32.0, depth), uClear);
   vec3 base = mix(mix(uShallow, uMid, s1), uDeep, s2);
   vec3 freshBase = mix(mix(uFreshShallow, uFreshMid, smoothstep(0.0, 2.2, depth)), uFreshDeep, smoothstep(2.0, 6.0, depth));
   base = mix(base, freshBase, fresh);
@@ -327,6 +329,9 @@ void main() {
   col = mix(col, vec3(dot(col, vec3(0.3, 0.59, 0.11))), uNight * 0.35);
 
   float alpha = mix(0.42, 0.95, smoothstep(0.0, 5.0, depth));
+  // Clear blue water (Las Brasas): the reef and its fish show from a boat down to a dozen metres or
+  // so (not in a storm, when it's churned up).
+  alpha = mix(alpha, mix(0.3, 0.92, smoothstep(1.0, 18.0, depth)), uClear * (1.0 - stormy));
   // Clear fresh water: you can see the gravel in the stream and fish in the shallows.
   alpha = mix(alpha, mix(0.5, 0.92, smoothstep(0.0, 3.0, depth)), fresh);
   alpha = max(alpha, foam);
@@ -370,6 +375,7 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       uLights: { value: [new THREE.Vector4(), new THREE.Vector4()] },
       uReflOn: { value: 0 },
       uUnder: { value: 0 },
+      uClear: { value: 0 },
       uReflMatrix: { value: new THREE.Matrix4() },
       uRippleOn: { value: 0 },
       uRippleTexel: { value: 1 / 512 },

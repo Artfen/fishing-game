@@ -160,11 +160,12 @@ scene.add(mist.group);
 // its own map of the seabed and its own shelter (baked the first time you go), and it is another
 // sea: clearer and bluer, in the trade wind. Which one you're in is wherever you are.
 let region = 'home';
-const HARBOUR_RECT = { x: -110, z: 6180, w: 300, h: 300 };
+// (A sharper map over the harbour and El Bajón, the reef off its mouth.)
+const HARBOUR_RECT = { x: -150, z: 6180, w: 340, h: 300 };
 const HOME_WATER = { tex: heightTex, rect: WATER_RECT, detail: water.uniforms.uHeight2.value, detailRect: SHORE_RECT };
 let SOUTH_TEX = null;
 function southWater() {
-  if (!SOUTH_TEX) SOUTH_TEX = { tex: bakeHeightTexture(560, SOUTH_WATER, 560), rect: SOUTH_WATER, detail: bakeHeightTexture(256, HARBOUR_RECT), detailRect: HARBOUR_RECT, shelter: bakeShelter('south') };
+  if (!SOUTH_TEX) SOUTH_TEX = { tex: bakeHeightTexture(560, SOUTH_WATER, 560), rect: SOUTH_WATER, detail: bakeHeightTexture(320, HARBOUR_RECT, 282), detailRect: HARBOUR_RECT, shelter: bakeShelter('south') };
   return SOUTH_TEX;
 }
 // The colours of each sea, from the shallows to the deep.
@@ -187,6 +188,7 @@ function setRegion(r) {
   water.uniforms.uShelterRect.value.set(SR.x, SR.z, SR.w, SR.h);
   for (const [k, c] of Object.entries(SEA_COLOURS[r])) water.uniforms[k].value.set(c);
   underwater.clear = r === 'south' ? 1 : 0;
+  water.uniforms.uClear.value = r === 'south' ? 1 : 0;
   // (At Las Brasas the trade wind blows from the north-east, unless you've set the wind yourself.)
   if (r === 'south' && settings.weather.windMode !== 'manual') conditions.wind.from = 0.8;
   // (The first time: the island's buildings and plants, and its weed beds under the water.)
@@ -2854,9 +2856,11 @@ function updatePassage(dt) {
     if (P.to === 'south') {
       const first = !state.tips.brasa;
       state.tips.brasa = true;
+      // (The first arrival's word mentions El Bajón already.)
+      if (first) state.tips.bajonNews = true;
       const how = motor ? 'motor in' : `row in (or raise the sail, ${input.keyLabel('motor')})`;
       hud.toast(first
-        ? `Las Brasas. Puerto Brasa lies ahead behind its breakwater: ${how} and tie up at the quay or the pontoon (${input.keyLabel('anchor')}). Bar El Muelle on the waterfront has a room, a stove and a shelf of tackle, and the fuel pump is on the quay. The water here is clear and warm: parrotfish on the reefs, groupers down the drop-off.`
+        ? `Las Brasas. Puerto Brasa lies ahead behind its breakwater: ${how} and tie up at the quay or the pontoon (${input.keyLabel('anchor')}). Bar El Muelle on the waterfront has a room, a stove and a shelf of tackle, and the fuel pump is on the quay. The water here is clear and warm: just west of the harbour mouth a yellow buoy marks El Bajón, a reef of lava pinnacles with sea fans and sponges, parrotfish, wrasse and morays (dive it, or look down from a boat over it); groupers live down the drop-off.`
         : `Las Brasas, and Puerto Brasa ahead behind its breakwater${motor ? ` (the fuel pump is on the quay: ${tankWords(tanks(), P.kind)} left)` : ''}.`, first ? 14 : 6);
     } else hud.toast(motor ? `Home: Willow Bay, and the motor cruiser at her berth on the pontoon (${tankWords(tanks(), P.kind)} left: the fuel point is on the pontoon).` : 'Home: Willow Bay, and the sailing boat alongside Willowhaven quay.', 6);
     save();
@@ -4356,6 +4360,7 @@ function checkPlaces(dt) {
     if (pl.id === 'boathouse') teach('boathouseTip', 'The Mere Boathouse: a bass boat at the jetty and a tackle box. Largemouth bass lurk by the pads and the drowned oaks; pike lie in the weed.', 8);
     if (pl.id === 'puffin') teach('puffinTip', 'Puffin Cove: a sheltered camp with a tackle box. After dark, squid gather under the lamp light; wrasse live in the kelp by the rocks.', 8);
     if (pl.id === 'deep') teach('deepTip', 'The Blue Water. Watch for seabirds diving and the sea boiling white: tuna chase the sprat shoals out here.', 8);
+    if (pl.id === 'bajon') teach('bajonTip', `El Bajón: lava pinnacles from twenty metres down to three, the shallowest under the yellow buoy. Look down from a boat in this clear water, or dive it (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} over deep water with the boat stopped): sea fans, sponges and orange sun coral, parrotfish and ornate wrasse over the tops, triggerfish, morays in the cracks, a grouper in the cave at its foot, barracuda hanging over it.`, 12);
     if (pl.id === 'haven') teach('havenTip', `Willowhaven: read the notice board for what’s about today, find all your tackle in the chandlery, sit on the bench a while, or have a boat brought round to the quay (${scheme() === 'touch' ? 'tap the prompts' : input.keyLabel('interact')}).`, 10);
     if (pl.id === 'strand') teach('strandTip', 'Shell Strand: bass come into the surf at dusk, and flatfish up the sand after dark. The shelf above the beach is a dry, level place for a tent.', 9);
     if (pl.id === 'head') teach('headTip', 'Cove Head takes the swell: bass and white bream in the wash below the ledges. You can see the Kittiwake’s buoy from the daymark.', 8);
@@ -6222,6 +6227,11 @@ function tick(now, manual = false) {
   t += dt;
   conditions.time = t;
   watchRegion();
+  // (At Las Brasas before El Bajón was there to find: a word about it, once, a moment after you
+  // start.)
+  if (started && region === 'south' && !modal && !passage && !state.places.bajon && state.tips.brasa && t > 8) {
+    teach('bajonNews', 'New at Las Brasas: El Bajón, a reef of lava pinnacles just west of the harbour mouth, under a yellow buoy. Sea fans, sponges and the island’s own fish: parrotfish, wrasse, triggerfish, morays and a grouper. The water is clear enough to see it from a boat; better still, dive it.', 12);
+  }
   if (!manual) watchFrameRate(rawDt);
   pads.poll(dt);
 

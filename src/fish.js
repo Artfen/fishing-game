@@ -843,6 +843,7 @@ for (const [id, R] of Object.entries(AT_BRASAS)) {
   f.life.zones = [...f.life.zones, ...R.zones];
   if (R.homes) f.life.homes = [...f.life.homes, ...R.homes];
   f.life.southGroups = R.groups;
+  if (R.favour) f.life.favourSouth = R.favour;
   f.whereSouth = R.where;
 }
 

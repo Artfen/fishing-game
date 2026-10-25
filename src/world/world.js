@@ -252,7 +252,7 @@ export const TERRAIN_PATCHES = [
   // Las Brasas, far to the south: built when you get there (a coarse stand-in until then), with
   // a finer grid over Puerto Brasa and its village.
   { id: 'brasa-w', x0: -760, x1: -140, z0: 5480, z1: 6600, cell: 4, jitter: 0.45, shadows: true, later: true },
-  { id: 'brasa-e', x0: -140, x1: 760, z0: 5480, z1: 6600, cell: 4, jitter: 0.45, shadows: true, later: true, inner: { x0: -100, x1: 160, z0: 6180, z1: 6440 }, innerSub: 2 },
+  { id: 'brasa-e', x0: -140, x1: 760, z0: 5480, z1: 6600, cell: 4, jitter: 0.45, shadows: true, later: true, inner: { x0: -138, x1: 160, z0: 6180, z1: 6466 }, innerSub: 2 },
 ];
 const FAR_RECT = { x0: -1800, x1: 1500, z0: -2200, z1: 1800 };
 
@@ -1177,7 +1177,7 @@ export function buildWorld(scene, renderer, habitat) {
 
   const lanternPos = cove.lantern.group.position.clone();
   let lanternTaken = false;
-  let brasa = null;
+  let brasa = null, quality = null;
 
   return {
     lanternSpot: lanternPos,
@@ -1224,7 +1224,9 @@ export function buildWorld(scene, renderer, habitat) {
       shore.setPixelRatio(pr);
     },
     setQuality(q) {
+      quality = q;
       shore.setQuality(q);
+      brasa?.setQuality(q);
     },
     set drawDistance(d) { drawDistance = d; },
     get drawDistance() { return drawDistance; },
@@ -1233,6 +1235,7 @@ export function buildWorld(scene, renderer, habitat) {
     buildBrasa() {
       if (brasa) return brasa;
       brasa = buildBrasa(scene, seeded(20261025));
+      if (quality) brasa.setQuality(quality);
       for (const o of brasa.obstacles) obstacles.add(o.x, o.z, o.r, o.top ?? Infinity, -Infinity, o.kind || 'thing', o.name || '');
       coast.spots.push(...brasa.spots);
       regions.boxes.push(...brasa.boxes);
