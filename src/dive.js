@@ -111,14 +111,16 @@ export function spearHit(from, dir, range, agents) {
     if (!a.active || a.state === 'caught' || a.state === 'gone' || a.state === 'hooked') continue;
     const len = Math.max(0.08, a.size / 100);
     // (A quick cull: nowhere near the shaft's path.)
-    const ox = a.x - from.x, oy = a.y - from.y, oz = a.z - from.z;
+    // (A fish's height is from its own water's surface: up the Coldwater that's above the sea.)
+    const ay = a.y + (a.lvl || 0);
+    const ox = a.x - from.x, oy = ay - from.y, oz = a.z - from.z;
     const s0 = ox * dir.x + oy * dir.y + oz * dir.z;
     if (s0 < -len || s0 > range + len) continue;
     const px = ox - dir.x * s0, py = oy - dir.y * s0, pz = oz - dir.z * s0;
     if (px * px + py * py + pz * pz > (len + 0.2) ** 2) continue;
     const cp = Math.cos(a.pitch || 0);
     const hx = Math.sin(a.yaw) * cp, hy = Math.sin(a.pitch || 0), hz = Math.cos(a.yaw) * cp;
-    const c = closest(from, dir, range, a, hx, hy, hz, len);
+    const c = closest(from, dir, range, a.x, ay, a.z, hx, hy, hz, len);
     // The body: widest a third back from the head, narrow at the tail (with a little allowance
     // for the shaft and the flopper on its tip).
     const r = Math.max(0.03, len * 0.14) * (c.along < 0.7 ? 1 : 0.6) + 0.03;
@@ -130,8 +132,8 @@ export function spearHit(from, dir, range, agents) {
 
 // Closest points between the shot (from + dir·s, 0 ≤ s ≤ range) and the fish's body (its middle
 // ± half its length along its heading).
-function closest(from, dir, range, a, hx, hy, hz, len) {
-  const tx = a.x - hx * len / 2, ty = a.y - hy * len / 2, tz = a.z - hz * len / 2; // the tail
+function closest(from, dir, range, ax, ay, az, hx, hy, hz, len) {
+  const tx = ax - hx * len / 2, ty = ay - hy * len / 2, tz = az - hz * len / 2; // the tail
   const ux = hx * len, uy = hy * len, uz = hz * len; // tail → head
   const wx = from.x - tx, wy = from.y - ty, wz = from.z - tz;
   const A = 1, B = dir.x * ux + dir.y * uy + dir.z * uz, C = len * len;

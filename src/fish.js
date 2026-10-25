@@ -310,7 +310,7 @@ export const FISH = [
     life: {
       group: [1, 2], groups: 6, spacing: 5,
       speed: 0.8, turn: 2.6, perception: 7, depthTol: 1.3, cover: 'rock', stream: true, spooky: 9, lineShy: 0.5,
-      homes: ['pool'], zones: ['stream'],
+      homes: ['pool'], zones: ['stream', 'river', 'tarn'],
       depth: () => [0.25, 1.3],
       activity: ({ hour, rain }) => clamp01((hour >= 5.5 && hour < 10 ? 0.9 : hour >= 17.5 && hour < 22 ? 1 : isDay(hour) ? 0.45 : 0.25) + rain * 0.25),
       likes: { still: 0.9, slow: 1.0, fast: 0.6, twitch: 0.6 },
@@ -340,7 +340,7 @@ export const FISH = [
     life: {
       group: [2, 4], groups: 4, spacing: 5,
       speed: 0.7, turn: 2.4, perception: 6, depthTol: 1.2, cover: 'open', stream: true, spooky: 7, lineShy: 0.6,
-      homes: ['pool'], zones: ['stream'],
+      homes: ['pool'], zones: ['stream', 'river'],
       depth: () => [0.3, 1.2],
       activity: ({ hour }) => (isDay(hour) ? 0.9 : isTwilight(hour) ? 0.7 : 0.2),
       likes: { still: 1, slow: 0.7, fast: 0.3, twitch: 0.5 },
@@ -460,7 +460,7 @@ export const FISH = [
     life: {
       group: [1, 3], groups: 12, spacing: 22, favour: ['strand'],
       speed: 0.9, burst: 3.2, turn: 2.0, perception: 11, depthTol: 2.4, cover: 'any', lineShy: 0.55,
-      homes: ['channel', 'quay', 'surf', 'reef'], zones: ['estuary', 'coast'],
+      homes: ['channel', 'quay', 'surf', 'reef'], zones: ['estuary', 'coast', 'tideway'],
       depth: ({ hour, rain = 0 }) => (isTwilight(hour) || rain > 0.3 ? [0.4, 2.5] : [1.2, 5]),
       activity: ({ hour, rain = 0, cloud = 0 }) => clamp01((isTwilight(hour) ? 1 : isDay(hour) ? 0.45 : 0.6) + rain * 0.25 + cloud * 0.1),
       likes: { still: 0.8, slow: 1.2, fast: 1.0, twitch: 1.2 },
@@ -490,7 +490,7 @@ export const FISH = [
     life: {
       school: true, schools: 6, members: [5, 10], spacing: 26,
       speed: 0.7, turn: 2.2, perception: 9, depthTol: 1.0, cover: 'open', spooky: 4, lineShy: 0.4,
-      homes: ['flats', 'quay', 'reeds'], zones: ['estuary', 'bay'],
+      homes: ['flats', 'quay', 'reeds'], zones: ['estuary', 'bay', 'tideway'],
       depth: () => [0.2, 1.4],
       activity: ({ hour }) => (isDay(hour) ? 0.9 : isTwilight(hour) ? 0.7 : 0.25),
       likes: { still: 1.2, slow: 0.5, fast: 0, twitch: 0.2 },
@@ -579,7 +579,7 @@ export const FISH = [
     life: {
       group: [1, 1], groups: 18, spacing: 12, flat: true,
       speed: 0.3, turn: 1.2, perception: 9, depthTol: 1.0, cover: 'open', bottom: true,
-      homes: ['flats', 'channel'], zones: ['estuary'],
+      homes: ['flats', 'channel'], zones: ['estuary', 'tideway'],
       depth: () => [0.5, 4],
       activity: ({ hour, rain = 0 }) => clamp01((isDay(hour) ? 0.6 : 0.85) + rain * 0.1),
       likes: { still: 1.2, slow: 0.9, fast: 0.1, twitch: 0.5 },

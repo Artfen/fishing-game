@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { clamp, smoothstep, damp, lerp } from '../util.js';
 import {
   WATER_RECT, BAY, COVE, CHANNEL, GANNET, SHOAL, SKERRIES, RIVER, DEEP_Z,
-  zoneAt, solidHeight, streamFlow, riverInfo, freshness, CALF_SOUND,
+  zoneAt, solidHeight, streamFlow, riverInfo, freshness, CALF_SOUND, waterLevel,
 } from './terrain.js';
+import { coldwaterFlow } from './coldwater.js';
 
 // Wind, waves and currents: one shared state for the whole game, so the water you see, the
 // boats on it, a float, a cast, the trees and the sound of the wind all answer to the same
@@ -232,8 +233,11 @@ export function windAt(x, z, t = conditions.time, out = _w) {
 
 // Water height (m) at a point: swell (sheltered by the coast) plus wind chop (less where the
 // fetch is short), fading in the last half metre of depth so nothing bobs on the sand. The
-// water shader computes exactly this (see water.js WAVE_GLSL).
+// sea's water shader computes exactly this (see water.js WAVE_GLSL). Up the Coldwater and on Hoar
+// Tarn the water has its own level (see coldwater.js), and only the faintest ripple.
 export function waveHeight(x, z, t = conditions.time) {
+  const lvl = waterLevel(x, z);
+  if (lvl > 0.05) return lvl + 0.012 * Math.sin(x * 1.7 + t * 2.1) * Math.sin(z * 1.3 - t * 1.6) * smoothstep(0.05, 0.6, lvl - solidHeight(x, z));
   const C = conditions, sh = shelterAt(x, z);
   let hs = 0, hc = 0;
   for (let i = 0; i < SWELL.length; i++) {
@@ -257,6 +261,7 @@ function shoreFade(x, z) {
 // The current (m/s) at a point and depth below the surface: where the water is going.
 const _c = { x: 0, z: 0 };
 const _f = { x: 0, z: 0 };
+const _cw = { x: 0, z: 0 };
 const _ri = {};
 // Authored current zones: water squeezed past headlands and through channels, flowing over the
 // shoal. dir: the way it runs on the ebb (world vector); tidal: turns with the tide.
@@ -279,13 +284,14 @@ const RIVER_MOUTH = RIVER[RIVER.length - 1];
 
 export function currentAt(x, z, depth = 0, out = _c) {
   seaCurrent(x, z, out);
-  // The stream's own current (fine-grained, in terrain.js).
+  // The stream's own current (fine-grained, in terrain.js), and the Coldwater's.
   streamFlow(x, z, _f);
-  // Slower near the seabed: full at the surface, 60% at the bottom.
-  const bottom = Math.max(0.3, -solidHeight(x, z));
+  coldwaterFlow(x, z, _cw);
+  // Slower near the bottom: full at the surface, 60% at the bottom.
+  const bottom = Math.max(0.3, waterLevel(x, z) - solidHeight(x, z));
   const k = 1 - 0.4 * clamp(depth / bottom, 0, 1);
-  out.x = (out.x + _f.x) * k;
-  out.z = (out.z + _f.z) * k;
+  out.x = (out.x + _f.x + _cw.x) * k;
+  out.z = (out.z + _f.z + _cw.z) * k;
   return out;
 }
 

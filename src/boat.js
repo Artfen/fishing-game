@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat } from './util.js';
 import { waveHeight } from './world/water.js';
 import { windAt, currentAt, currentScale } from './world/conditions.js';
-import { solidHeight, PIERS, WORLD } from './world/terrain.js';
+import { solidHeight, PIERS, SEA } from './world/terrain.js';
 import { buildLanternModel, buildRod, bendRod } from './props.js';
 import { withSurface } from './world/surface.js';
 import { RODS } from './tackle.js';
@@ -1242,7 +1242,7 @@ export class Boat {
       }
     }
     // The open sea goes on forever: near the edge of the map, a gentle current eases you back.
-    const W = WORLD, m = 80;
+    const W = SEA, m = 80;
     const ox = p.x < W.x0 + m ? W.x0 + m - p.x : p.x > W.x1 - m ? W.x1 - m - p.x : 0;
     const oz = p.z < W.z0 + m ? W.z0 + m - p.z : p.z > W.z1 - m ? W.z1 - m - p.z : 0;
     v.x += ox * 0.5 * dt;

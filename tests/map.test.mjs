@@ -34,3 +34,25 @@ test('places off the edge of the sheet are simply not recorded', () => {
   const e = new Explored();
   assert.equal(e.reveal(5000, 5000, 50), false);
 });
+
+test('the sheet takes in Hoarfell and the Coldwater, and a map from before it grew keeps every cell you’d seen', () => {
+  const e = new Explored();
+  assert.equal(e.reveal(-1034, -1496, 60), true, 'the summit is on the sheet');
+  assert.equal(e.reveal(-925, -1328, 60), true, 'and the tarn');
+  // A map saved on the first sheet (70 by 100 cells from -560, -720): the cells you'd seen at the
+  // old camp, and in two opposite corners.
+  const OLD = { x: -560, z: -720, cols: 70 };
+  const bits = new Uint8Array(875);
+  const seen = [[-99, -2], [-550, -710], [830, 1270]];
+  for (const [x, z] of seen) {
+    const k = Math.floor((z - OLD.z) / 20) * OLD.cols + Math.floor((x - OLD.x) / 20);
+    bits[k >> 3] |= 1 << (k & 7);
+  }
+  const old = new Explored(btoa(String.fromCharCode(...bits)));
+  for (const [x, z] of seen) assert.ok(old.has(...cellOf(x, z)), `${x}, ${z} still seen`);
+  assert.equal(Math.round(old.fraction * COLS * ROWS), seen.length);
+  // Saved again, it's the new sheet's (and still short enough for the save).
+  const again = old.toString();
+  assert.ok(again.length <= 4000);
+  for (const [x, z] of seen) assert.ok(new Explored(again).has(...cellOf(x, z)));
+});

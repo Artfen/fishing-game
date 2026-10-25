@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { PLACES, PATH, WEND_TRAIL, COAST_PATHS, LANES, HOME, CAR_PARKS, zoneAt, ZONE_NAMES } from './world/terrain.js';
+import { PLACES, PATH, WEND_TRAIL, COAST_PATHS, LANES, HOME, CAR_PARKS, zoneAt, ZONE_NAMES, heightAt } from './world/terrain.js';
+import { COLDWATER, TARN, FELL_PATH } from './world/coldwater.js';
 import { fishById } from './fish.js';
 import { habitsOf } from './guide.js';
 import { TENTS } from './campsite.js';
@@ -10,10 +11,14 @@ import { TENTS } from './campsite.js';
 
 const $ = (id) => document.getElementById(id);
 
-// The part of the world the map covers (metres), and the grid of 20 m cells it remembers.
-export const SHEET = { x: -560, z: -720, w: 1400, h: 2000 };
+// The part of the world the map covers (metres), and the grid of 20 m cells it remembers. (It
+// grew to take in the Coldwater and Hoarfell; the first sheet, OLD_SHEET, sits inside it.)
+export const SHEET = { x: -1400, z: -1800, w: 2240, h: 3080 };
 const CELL = 20;
 export const COLS = SHEET.w / CELL, ROWS = SHEET.h / CELL;
+const OLD_SHEET = { x: -560, z: -720, cols: 70, rows: 100 };
+// (Zoom levels were set on the first, smaller sheet: this keeps them where they were.)
+const ZOOM = 1.55;
 
 // Which cells you've seen, kept in the save as a short base64 string.
 export class Explored {
@@ -23,7 +28,15 @@ export class Explored {
     if (typeof saved === 'string' && saved) {
       try {
         const raw = atob(saved);
-        for (let i = 0; i < Math.min(raw.length, this.bits.length); i++) this.bits[i] = raw.charCodeAt(i);
+        if (raw.length === Math.ceil((OLD_SHEET.cols * OLD_SHEET.rows) / 8)) {
+          // A map from before the sheet grew: each cell moves to its place on the new one.
+          const di = (OLD_SHEET.x - SHEET.x) / CELL, dj = (OLD_SHEET.z - SHEET.z) / CELL;
+          for (let k = 0; k < OLD_SHEET.cols * OLD_SHEET.rows; k++) {
+            if (!((raw.charCodeAt(k >> 3) >> (k & 7)) & 1)) continue;
+            const n = (Math.floor(k / OLD_SHEET.cols) + dj) * COLS + (k % OLD_SHEET.cols) + di;
+            this.bits[n >> 3] |= 1 << (n & 7);
+          }
+        } else for (let i = 0; i < Math.min(raw.length, this.bits.length); i++) this.bits[i] = raw.charCodeAt(i);
       } catch {
         // A damaged string: start the map afresh rather than trust it.
       }
@@ -262,7 +275,7 @@ export class MapSheet {
     this.fit();
     // Start a little zoomed in, around you; showing a species' water, take in the nearest of it
     // too.
-    this.view.zoom = this.fitZoom * 2.2;
+    this.view.zoom = this.fitZoom * 2.2 * ZOOM;
     const near = highlight && (this.state.trip?.sp === highlight ? this.state.trip : this.nearestSuitable(highlight, where.player));
     if (near) {
       const p = where.player, m = 1.5 * CELL;
@@ -299,7 +312,7 @@ export class MapSheet {
   // Open on a particular spot (a mark, a photograph's place), zoomed in.
   openAt(where, x, z) {
     this.open(where);
-    this.view.zoom = this.fitZoom * 4;
+    this.view.zoom = this.fitZoom * 4 * ZOOM;
     this.centre({ x, z });
   }
 
@@ -307,7 +320,7 @@ export class MapSheet {
 
   // The land and water, drawn once: shoreline in ink, hills in contours, water by depth.
   bake() {
-    const BW = 700, BH = 1000;
+    const BW = 896, BH = 1232; // (2.5 m a pixel)
     const c = document.createElement('canvas');
     c.width = BW;
     c.height = BH;
@@ -325,7 +338,8 @@ export class MapSheet {
         fr[j * BW + i] = s[1];
       }
     }
-    const band = (h, step) => Math.floor(h / step);
+    // (Contours every 8 m on the low ground, every 40 m up the fell.)
+    const band = (h) => (h < 40 ? Math.floor(h / 8) : 4 + Math.floor((h - 40) / 40));
     for (let j = 1; j < BH - 1; j++) {
       for (let i = 1; i < BW - 1; i++) {
         const k = j * BW + i, h = hs[k], o = k * 4;
@@ -333,10 +347,13 @@ export class MapSheet {
         let r, g, b;
         if (h > 0) {
           if (nb.some((n) => n <= 0)) [r, g, b] = [74, 58, 44];
-          else if (nb.some((n) => n > 0 && band(n, 8) !== band(h, 8))) [r, g, b] = [150, 128, 92];
+          else if (nb.some((n) => n > 0 && band(n) !== band(h))) [r, g, b] = h > 330 ? [176, 170, 160] : [150, 128, 92];
           else if (h < 2.5) [r, g, b] = [226, 208, 166];
           else if (h < 14) [r, g, b] = [205, 200, 150];
-          else [r, g, b] = [196, 178, 132];
+          else if (h < 130) [r, g, b] = [196, 178, 132];
+          else if (h < 260) [r, g, b] = [186, 170, 136];
+          else if (h < 330) [r, g, b] = [184, 178, 166];
+          else [r, g, b] = [240, 238, 232];
         } else {
           const depth = -h;
           const fresh = fr[k] > 0.5;
@@ -352,12 +369,42 @@ export class MapSheet {
       }
     }
     ctx.putImageData(img, 0, 0);
+    // The Coldwater above the tide and Hoar Tarn, up on the fell (the land under them is drawn
+    // as land, so their water goes on top).
+    const kx = BW / SHEET.w, kz = BH / SHEET.h, at = (x, z) => [(x - SHEET.x) * kx, (z - SHEET.z) * kz];
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (let i = 0; i < COLDWATER.length - 1; i++) {
+      const a = COLDWATER[i], b = COLDWATER[i + 1];
+      if (a.l <= 0.05) break;
+      ctx.strokeStyle = 'rgb(74, 58, 44)';
+      ctx.lineWidth = Math.max(2.2, (a.w + b.w) * kx + 1.4);
+      ctx.beginPath(); ctx.moveTo(...at(a.x, a.z)); ctx.lineTo(...at(b.x, b.z)); ctx.stroke();
+    }
+    for (let i = 0; i < COLDWATER.length - 1; i++) {
+      const a = COLDWATER[i], b = COLDWATER[i + 1];
+      if (a.l <= 0.05) break;
+      ctx.strokeStyle = 'rgb(146, 188, 172)';
+      ctx.lineWidth = Math.max(1.2, (a.w + b.w) * kx);
+      ctx.beginPath(); ctx.moveTo(...at(a.x, a.z)); ctx.lineTo(...at(b.x, b.z)); ctx.stroke();
+    }
+    const [tx, tz] = at(TARN.x, TARN.z);
+    ctx.translate(tx, tz);
+    ctx.rotate(-TARN.yaw);
+    ctx.fillStyle = 'rgb(118, 166, 170)';
+    ctx.strokeStyle = 'rgb(74, 58, 44)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.ellipse(0, 0, TARN.rx * kx, TARN.rz * kz, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.restore();
     this.base = c;
   }
 
-  // Height and freshness at (x, z) from the baked texture (bilinear).
+  // Height and freshness at (x, z) from the baked texture (bilinear); beyond it (up the
+  // Coldwater and on Hoarfell), from heights worked out afresh on a coarser grid.
   sample(x, z) {
     const H = this.height, W = H.width, Hh = H.height;
+    if (x < H.rect.x || z < H.rect.z || x > H.rect.x + H.rect.w || z > H.rect.z + H.rect.h) return [this.beyond(x, z), 0];
     const u = ((x - H.rect.x) / H.rect.w) * W - 0.5, v = ((z - H.rect.z) / H.rect.h) * Hh - 0.5;
     const i = Math.max(0, Math.min(W - 2, Math.floor(u))), j = Math.max(0, Math.min(Hh - 2, Math.floor(v)));
     const fu = Math.max(0, Math.min(1, u - i)), fv = Math.max(0, Math.min(1, v - j));
@@ -368,7 +415,22 @@ export class MapSheet {
       const b = at(i, j + 1, c) * (1 - fu) + at(i + 1, j + 1, c) * fu;
       out[c] = a * (1 - fv) + b * fv;
     }
+    // (The texture stops at 60 m: higher ground, up the dale, is worked out afresh.)
+    if (out[0] > 55) out[0] = Math.max(out[0], this.beyond(x, z));
     return out;
+  }
+
+  beyond(x, z) {
+    const G = 8, gw = SHEET.w / G + 1, gh = SHEET.h / G + 1;
+    this.far = this.far || new Float32Array(gw * gh).fill(NaN);
+    const u = Math.max(0, Math.min(gw - 1.001, (x - SHEET.x) / G)), v = Math.max(0, Math.min(gh - 1.001, (z - SHEET.z) / G));
+    const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j;
+    const at = (ii, jj) => {
+      const k = jj * gw + ii;
+      if (Number.isNaN(this.far[k])) this.far[k] = heightAt(SHEET.x + ii * G, SHEET.z + jj * G);
+      return this.far[k];
+    };
+    return (at(i, j) * (1 - fu) + at(i + 1, j) * fu) * (1 - fv) + (at(i, j + 1) * (1 - fu) + at(i + 1, j + 1) * fu) * fv;
   }
 
   // Blank paper over everything you haven't seen yet, with soft edges.
@@ -383,8 +445,8 @@ export class MapSheet {
     }
     mctx.putImageData(img, 0, 0);
     const f = this.fog || document.createElement('canvas');
-    f.width = 350;
-    f.height = 500;
+    f.width = COLS * 5;
+    f.height = ROWS * 5;
     const ctx = f.getContext('2d');
     ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = '#efe3c6';
@@ -435,7 +497,7 @@ export class MapSheet {
   zoomBy(k, px, py) {
     const v = this.view;
     const before = px == null ? null : this.toWorld(px, py);
-    v.zoom = Math.max(this.fitZoom, Math.min(this.fitZoom * 8, v.zoom * k));
+    v.zoom = Math.max(this.fitZoom, Math.min(this.fitZoom * 8 * ZOOM, v.zoom * k));
     if (before) {
       // Keep the point under the pointer where it is.
       const after = this.toWorld(px, py);
@@ -551,6 +613,8 @@ export class MapSheet {
     if (st.places.camp) trail(PATH);
     if (st.places.quay || st.places.boathouse) trail(WEND_TRAIL);
     if (st.places.haven || st.places.landing) for (const P of COAST_PATHS) trail(P);
+    // The path up the Coldwater to the top of Hoarfell, once you've found its foot or the bothy.
+    if (st.places.coldfoot || st.places.bothy || st.places.summit) trail(FELL_PATH);
     // The lanes from home (under the fog where you haven't been).
     for (const P of LANES) trail(P);
 
@@ -600,7 +664,7 @@ export class MapSheet {
     // Where your best fish of each kind came from (zoomed in, with names).
     const best = {};
     for (const e of st.log) if (e.x != null && (!best[e.sp] || e.size > best[e.sp].size)) best[e.sp] = e;
-    const near = this.view.zoom > this.fitZoom * 3;
+    const near = this.view.zoom > this.fitZoom * 3 * ZOOM;
     for (const e of Object.values(best)) {
       const [x, y] = this.toPx(e.x, e.z);
       ctx.save();
@@ -737,7 +801,7 @@ export class MapSheet {
         ctx.fill();
       }
       ctx.restore();
-      if (p.title && (p.fav || this.view.zoom > this.fitZoom * 2)) this.label(ctx, p.title, x + 11 * s, y + 3 * s, 15, INK, 0.95);
+      if (p.title && (p.fav || this.view.zoom > this.fitZoom * 2 * ZOOM)) this.label(ctx, p.title, x + 11 * s, y + 3 * s, 15, INK, 0.95);
     }
     // Gulls you've seen diving lately (once you've learned to look for them).
     if (st.unlocks?.birdMarks) {

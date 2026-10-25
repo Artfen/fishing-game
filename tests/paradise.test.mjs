@@ -156,7 +156,7 @@ test('more fish, but not absurdly many; Fernbeck’s pools all hold fish', () =>
   const stream = eco.agents.filter((a) => a.home.zone === 'stream');
   assert.ok(stream.length >= 18, `${stream.length} in the stream`);
   const pools = new Set(stream.map((a) => a.home));
-  const all = eco.habitat.spots.filter((s) => s.type === 'pool');
+  const all = eco.habitat.spots.filter((s) => s.type === 'pool' && s.zone === 'stream');
   assert.equal(pools.size, all.length, 'a fish in every pool');
   assert.ok(stream.some((a) => a.sp.id === 'trout') && stream.some((a) => a.sp.id === 'grayling'));
   // Never a crowd: no more than a handful in one small pool.

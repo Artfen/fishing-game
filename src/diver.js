@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { heightAt, WORLD } from './world/terrain.js';
+import { heightAt, waterLevel, WORLD } from './world/terrain.js';
 import { waveHeight } from './world/water.js';
 import { currentAt, currentScale } from './world/conditions.js';
 import { SPEAR } from './dive.js';
@@ -86,7 +86,8 @@ export class Diver {
     this.build();
   }
 
-  get depth() { return Math.max(0, -this.pos.y); }
+  // (Below the surface here: up the Coldwater or in Hoar Tarn the water sits above the sea.)
+  get depth() { return Math.max(0, waterLevel(this.pos.x, this.pos.z) - this.pos.y); }
   // Floating at the surface (or near enough to breathe through a snorkel).
   surfaceAt(t) { return waveHeight(this.pos.x, this.pos.z, t) - FLOAT; }
   atSurface(t) { return this.pos.y > this.surfaceAt(t) - 0.12; }

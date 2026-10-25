@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { clamp, lerp, smoothstep, fbm } from '../util.js';
+import { COLD_BOX, coldwaterHeight, inColdwater, waterLevel, neckSDF, coldInfo, FELL_PATH, FELL_BOX, FELL_PATH_SEGS, fellPathNear, fellPathCandidates, BOTHY, FOOTBRIDGE, SUMMIT_CAIRN, COLDWATER, TARN, tarnSDF } from './coldwater.js';
+export { waterLevel } from './coldwater.js';
 
 // The whole archipelago is one signed-distance function: negative on land, positive on water.
 // World axes: +x east, -z north. Water level is y = 0.
@@ -28,9 +30,11 @@ export const START = { x: 12, z: 32, heading: Math.PI };
 // Beyond the bay. The coast runs east and west from Willow Bay; the Wend estuary opens to the
 // sea in the east, with Longmere, a big inland lake, up a trail from Wend Quay. Out to sea lie
 // the Skerries, Gannet Isle with its cove and light, the Long Shoal, and past them the deep water.
-// WORLD is the land and sea you can reach; the map and textures cover it.
-export const WORLD = { x0: -900, x1: 1100, z0: -1100, z1: 1400 };
-export const WATER_RECT = { x: WORLD.x0, z: WORLD.z0, w: WORLD.x1 - WORLD.x0, h: WORLD.z1 - WORLD.z0 };
+// WORLD is the land and sea you can reach. To the north-west it runs on up to Hoarfell and the
+// Coldwater (see coldwater.js); the sea and its textures cover SEA, the part with any sea in it.
+export const WORLD = { x0: -1700, x1: 1100, z0: -2100, z1: 1400 };
+export const SEA = { x0: -900, x1: 1100, z0: -1100, z1: 1400 };
+export const WATER_RECT = { x: SEA.x0, z: SEA.z0, w: SEA.x1 - SEA.x0, h: SEA.z1 - SEA.z0 };
 export const MAP_RECT = { x: -620, z: -700, w: 1380, h: 1700 };
 // The old home map (for the hand-drawn bay map in the journal).
 export const HOME_RECT = { x: -180, z: -112, w: 375, h: 284 };
@@ -264,6 +268,8 @@ export function landSDF(x, z) {
     d = smax(d, -sdCapsule(x, z, CALF_SOUND.x0, CALF_SOUND.z0, CALF_SOUND.x1, CALF_SOUND.z1, 8), 4);
   }
   d = smin(d, sdCircle(x, z, SKELLIG.x, SKELLIG.z, SKELLIG.r) + n2 * 4, 3);
+  // The neck across the old strait, where the Coldwater comes through to the bay.
+  if (x > -200 && x < 60 && z > -420 && z < -160) d = smin(d, neckSDF(x, z, n1 * 6 + n2 * 2), 18);
   // The bay itself, open to the south
   d = smax(d, -(sdCircle(x, z, BAY.x, BAY.z, BAY.r) + n1 * 7 + n2 * 1.5), 10);
   // Little island with the jetty
@@ -448,7 +454,49 @@ export function heightAt(x, z) {
   }
   if (x > COAST_BOX.x0 && x < COAST_BOX.x1 && z > COAST_BOX.z0 && z < COAST_BOX.z1) h = coastHeight(x, z, h, true);
   if (parkH) h = parkHeight(x, z, h);
+  // Hoarfell, and the Coldwater's valley down to the bay, with the fell path trodden into it.
+  if (x < COLD_BOX.x1 && z < COLD_BOX.z1 && x > COLD_BOX.x0 && z > COLD_BOX.z0) {
+    h = coldwaterHeight(x, z, h);
+    if (fellH && x > FELL_BOX.x0 && x < FELL_BOX.x1 && z > FELL_BOX.z0 && z < FELL_BOX.z1) h = fellTread(x, z, h);
+    // (The bothy's level ground, cut back into the hillside.)
+    if (Math.abs(x - BOTHY.x) < 12 && Math.abs(z - BOTHY.z) < 12) h = lerp(BOTHY.level, h, smoothstep(BOTHY.r, BOTHY.r + 3.5, Math.hypot(x - BOTHY.x, z - BOTHY.z)));
+  }
   return h;
+}
+
+// The fell path: how far from it, and the height of its tread there.
+let fellH = null; // for each stretch of the path, the tread's height every few metres along it
+const treadAt = (i, u) => {
+  const H = fellH[i], k = u * (H.length - 1), j = Math.min(H.length - 2, Math.floor(k));
+  return lerp(H[j], H[j + 1], k - j);
+};
+const _fi = { d: 0, h: 0 };
+export function fellPathInfo(x, z, out = _fi) {
+  const n = fellPathNear(x, z);
+  out.d = n.d;
+  out.h = fellH && n.d < Infinity ? treadAt(n.i, n.u) : 0;
+  return out;
+}
+// The path trodden into the land (h, without it): level across, its banks easing back into the
+// hillside (spread wider where it's cut in deeper or built up higher). Every stretch near here
+// counts, the nearest most, so where two legs of a zigzag come close the slope between them runs
+// smoothly from one to the other.
+function fellTread(x, z, h) {
+  let most = 0, sum = 0, wsum = 0;
+  for (const k of fellPathCandidates(x, z)) {
+    const g = FELL_PATH_SEGS[k], bax = g.bx - g.ax, baz = g.bz - g.az;
+    const u = clamp(((x - g.ax) * bax + (z - g.az) * baz) / (g.len * g.len), 0, 1);
+    const d = Math.hypot(x - g.ax - bax * u, z - g.az - baz * u);
+    if (d > 10) continue;
+    const t = treadAt(k, u), reach = 3.6 + Math.min(Math.abs(t - h), 3) * 0.9;
+    const w = 1 - smoothstep(1.3, reach, d);
+    if (w <= 0) continue;
+    const w4 = w ** 4;
+    most = Math.max(most, w);
+    sum += w4 * t;
+    wsum += w4;
+  }
+  return most > 0 ? lerp(h, sum / wsum, most) : h;
 }
 
 /* ---------------- the cove shore: Willowhaven, the paths, Cove Head ---------------- */
@@ -859,6 +907,7 @@ export const DECKS = [
   ...PIERS.map((p) => ({ x: (p.x0 + p.x1) / 2, z: (p.z0 + p.z1) / 2, hx: (p.x1 - p.x0) / 2, hz: (p.z1 - p.z0) / 2, yaw: 0, deck: p.deck })),
   ...PEGS.map((p) => ({ x: p.x, z: p.z, hx: 1.1, hz: 1.1, yaw: p.angle, deck: 0.32 })),
   { x: BRIDGE.x, z: BRIDGE.z, hx: BRIDGE.len / 2, hz: BRIDGE.w / 2, yaw: BRIDGE.yaw, deck: BRIDGE.deck },
+  { x: FOOTBRIDGE.x, z: FOOTBRIDGE.z, hx: FOOTBRIDGE.len / 2, hz: FOOTBRIDGE.w / 2, yaw: FOOTBRIDGE.yaw, deck: FOOTBRIDGE.deck, arch: FOOTBRIDGE.arch },
 ];
 
 // Ground height for someone on foot, including decks.
@@ -869,7 +918,8 @@ export function walkHeight(x, z) {
     if (Math.abs(dx) > d.hx + d.hz || Math.abs(dz) > d.hx + d.hz) continue;
     const c = Math.cos(d.yaw), s = Math.sin(d.yaw);
     const u = dx * c - dz * s, v = dx * s + dz * c;
-    if (Math.abs(u) <= d.hx && Math.abs(v) <= d.hz) h = Math.max(h, d.deck);
+    // (An arched deck rises to its middle.)
+    if (Math.abs(u) <= d.hx && Math.abs(v) <= d.hz) h = Math.max(h, d.arch ? d.deck + d.arch * (1 - (u / d.hx) ** 2) : d.deck);
   }
   return h;
 }
@@ -882,6 +932,8 @@ export function stackHeight(x, z) {
 
 // Height including the sea stacks, used for collisions and the water shader.
 export const solidHeight = (x, z) => Math.max(heightAt(x, z), stackHeight(x, z));
+// How deep the water is here (below its own surface: the sea's, or the Coldwater's up on the fell).
+export const depthAt = (x, z) => waterLevel(x, z) - solidHeight(x, z);
 
 // Fresh water first: Reedmere, Fernbeck and Longmere are their own little worlds.
 export function freshZone(x, z) {
@@ -897,6 +949,12 @@ export function freshZone(x, z) {
 export function zoneAt(x, z) {
   const fresh = freshZone(x, z);
   if (fresh) return fresh;
+  // The Coldwater and Hoar Tarn (the river's mouth, out in the bay, is the bay's).
+  if (x < COLD_BOX.x1 && z < COLD_BOX.z1) {
+    const c = inColdwater(x, z, 3);
+    if (c === 'tarn') return 'tarn';
+    if (c && landSDF(x, z) < -1) return c;
+  }
   if (riverSDF(x, z) < 6 && z < 175) return 'estuary';
   if (Math.hypot(x - COVE.x, z - COVE.z) < COVE.r + 4) return 'cove';
   for (const c of CHANNEL) if (sdCapsule(x, z, c[0], c[1], c[2], c[3], c[4]) < -1) return 'cove';
@@ -909,11 +967,13 @@ export function zoneAt(x, z) {
   return 'open';
 }
 export const SALT_ZONES = ['bay', 'cove', 'open', 'coast', 'deep'];
-export const waterOf = (zone) => (zone === 'lake' || zone === 'stream' || zone === 'mere' ? 'fresh' : zone === 'estuary' ? 'brackish' : 'salt');
+export const FRESH_ZONES = ['lake', 'stream', 'mere', 'river', 'tarn'];
+export const waterOf = (zone) => (FRESH_ZONES.includes(zone) ? 'fresh' : zone === 'estuary' || zone === 'tideway' ? 'brackish' : 'salt');
 
 export const ZONE_NAMES = {
   bay: 'Willow Bay', cove: 'Driftwood Cove', open: 'open water', lake: 'Reedmere', stream: 'Fernbeck',
   estuary: 'the Wend estuary', mere: 'Longmere', coast: 'the outer coast', deep: 'the deep water',
+  river: 'the Coldwater', tarn: 'Hoar Tarn', tideway: 'the Coldwater’s tideway',
 };
 
 export const PLACES = [
@@ -1097,6 +1157,49 @@ export const PLACES = [
     x: STACKS[0].x, z: STACKS[0].z,
     test: (x, z) => Math.hypot(x - STACKS[0].x, z - STACKS[0].z) < 34,
   },
+  // Up the Coldwater, from the bay to the top of Hoarfell.
+  {
+    id: 'coldfoot', name: 'Coldwater Foot', sub: 'a footbridge over the river’s mouth',
+    note: 'Where the Coldwater comes out into the bay, under a timber footbridge on the coast path. A fingerpost points up the river: the path to Hoarfell starts here. Bass and mullet come in on the tide.',
+    x: FOOTBRIDGE.x, z: FOOTBRIDGE.z,
+    test: (x, z) => Math.hypot(x - FOOTBRIDGE.x, z - FOOTBRIDGE.z) < 26,
+  },
+  {
+    id: 'lowerforce', name: 'The Lower Force', sub: 'the last fall, where the tide stops',
+    note: 'The Coldwater’s last waterfall, a dozen metres down into the Force Pool, where the fresh water meets the tide. Sea bass and eels come up as far as the pool; above the fall it’s trout and grayling.',
+    x: COLDWATER[33].x, z: COLDWATER[33].z,
+    test: (x, z) => Math.hypot(x - COLDWATER[32].x, z - COLDWATER[32].z) < 30 || Math.hypot(x - COLDWATER[33].x, z - COLDWATER[33].z) < 24,
+  },
+  {
+    id: 'dale', name: 'Coldwater Dale', sub: 'a long valley under the fell', area: true, size: 30,
+    note: 'The Coldwater’s valley, wooded along the river with alder and birch: runs and riffles, and a pool at every bend. Trout and grayling all the way up.',
+    x: COLDWATER[22].x - 60, z: COLDWATER[22].z, region: 'fell',
+    test: (x, z) => z < -420 && z > -950 && x < -60 && coldInfo(x, z).d < 80,
+  },
+  {
+    id: 'spout', name: 'Spout Force', sub: 'a high fall into a deep pool', region: 'fell',
+    note: 'The Coldwater drops thirty metres off the lip of the dale into Spout Pool, deep and cold and full of spray. The bothy is just above it.',
+    x: COLDWATER[11].x, z: COLDWATER[11].z,
+    test: (x, z) => Math.hypot(x - COLDWATER[11].x, z - COLDWATER[11].z) < 34 || Math.hypot(x - COLDWATER[10].x, z - COLDWATER[10].z) < 22,
+  },
+  {
+    id: 'bothy', name: 'The Bothy', sub: 'a stone hut kept open for walkers', camp: true, region: 'fell',
+    note: 'An old shepherd’s hut above Spout Pool, kept open for anyone on the fell: a stove, a sleeping platform, a shelf with a few rods and a tin of oatcakes. Halfway to the top.',
+    x: BOTHY.x, z: BOTHY.z,
+    test: (x, z) => Math.hypot(x - BOTHY.x, z - BOTHY.z) < 16,
+  },
+  {
+    id: 'tarn', name: 'Hoar Tarn', sub: 'a cold lake in the corrie under the top', region: 'fell',
+    note: 'A deep, dark tarn in a bowl scooped out of the fell, crags all round its back. Small wild trout rise to anything at dusk. The river starts at its lip.',
+    x: TARN.x, z: TARN.z,
+    test: (x, z) => tarnSDF(x, z) < 14,
+  },
+  {
+    id: 'summit', name: 'Hoarfell', sub: 'the top: 570 metres, the whole coast below', region: 'fell',
+    note: 'The top of Hoarfell, with a cairn of stones that walkers have carried up. On a clear day you can see the whole coast: the bay, the Wend, Longmere, Gannet Isle and the deep water beyond.',
+    x: SUMMIT_CAIRN.x, z: SUMMIT_CAIRN.z,
+    test: (x, z) => Math.hypot(x - SUMMIT_CAIRN.x, z - SUMMIT_CAIRN.z) < 26,
+  },
 ];
 
 // Walk outward from a point until the ground rises above minH.
@@ -1137,6 +1240,14 @@ export function bakeHeightTexture(size = 512, rect = WATER_RECT, sizeZ = size) {
 
 // 1 on the lakes and stream, 0 on the sea; the estuary is brackish, fresher upstream.
 export function freshness(x, z) {
+  if (x < COLD_BOX.x1 && z < COLD_BOX.z1 && x > COLD_BOX.x0 && z > COLD_BOX.z0) {
+    const c = inColdwater(x, z, 8);
+    if (c) {
+      // (The tidal stretch is salty towards the bay, fresh up at the Force.)
+      const r = coldInfo(x, z);
+      return c === 'tarn' || r.l > 0.05 ? 1 : smoothstep(-80, -330, z) * 0.85 + 0.1;
+    }
+  }
   if (x > MERE_BOX.x0 && x < MERE_BOX.x1 && z > MERE_BOX.z0 && z < MERE_BOX.z1) return smoothstep(6, 0, mereSDF(x, z));
   if (x > EST_BOX.x0 && x < EST_BOX.x1 && z > EST_BOX.z0 && z < EST_BOX.z1) {
     const r = riverInfo(x, z);
@@ -1144,4 +1255,51 @@ export function freshness(x, z) {
   }
   if (x < SHORE_BOX.x0 || x > SHORE_BOX.x1 || z < SHORE_BOX.z0 || z > SHORE_BOX.z1) return 0;
   return Math.max(smoothstep(6, 0, lakeSDF(x, z)), smoothstep(4, 0, streamSDF(x, z)));
+}
+
+// The fell path's tread: the land along it every few metres, eased into a steady climb (never
+// steeper than three in five, rather than every lump and crag), kept within a metre or so of
+// the hillside where it can be (not banked up above it or cut deep into it), and never down at
+// the water. Round each hairpin it levels out into a landing, so the two legs of the zigzag
+// meet at much the same height.
+{
+  const pts = [], ends = [0];
+  let s = 0;
+  for (const g of FELL_PATH_SEGS) {
+    const n = Math.max(1, Math.round(g.len / 4));
+    for (let k = pts.length ? 1 : 0; k <= n; k++) pts.push({ x: lerp(g.ax, g.bx, k / n), z: lerp(g.az, g.bz, k / n), ds: g.len / n, s: s + (g.len * k) / n });
+    s += g.len;
+    ends.push(pts.length - 1);
+  }
+  // The hairpins: wherever the path turns right round (more than 110 degrees) within a few metres.
+  const bends = [];
+  for (let v = 1, sv = FELL_PATH_SEGS[0].len; v < FELL_PATH_SEGS.length; sv += FELL_PATH_SEGS[v].len, v++) {
+    const a = FELL_PATH_SEGS[v - 1], b = FELL_PATH_SEGS[v];
+    const turn = Math.abs(Math.atan2((a.bx - a.ax) * (b.bz - b.az) - (a.bz - a.az) * (b.bx - b.ax), (a.bx - a.ax) * (b.bx - b.ax) + (a.bz - a.az) * (b.bz - b.az)));
+    bends.push({ s: sv, turn });
+  }
+  const hairpins = bends.filter((b) => bends.reduce((t, c) => t + (Math.abs(c.s - b.s) <= 7 ? c.turn : 0), 0) > 1.9).map((b) => b.s);
+  const bare = pts.map((p) => heightAt(p.x, p.z));
+  const ground = pts.map((p, i) => Math.max(bare[i], waterLevel(p.x, p.z) + 0.9, i < 4 ? 0.9 : -Infinity));
+  const GRADE = 0.6, BAND = 1.2, last = pts.length - 1;
+  const steep = pts.map((p) => lerp(0.35, GRADE, smoothstep(2, 10, Math.min(Infinity, ...hairpins.map((hs) => Math.abs(hs - p.s))))));
+  let h = ground.slice();
+  const ease = () => {
+    for (let i = 1; i <= last; i++) {
+      const g = Math.min(steep[i - 1], steep[i]) * pts[i].ds;
+      h[i] = clamp(h[i], h[i - 1] - g, h[i - 1] + g);
+    }
+    for (let i = last - 1; i >= 0; i--) {
+      const g = Math.min(steep[i], steep[i + 1]) * pts[i + 1].ds;
+      h[i] = clamp(h[i], h[i + 1] - g, h[i + 1] + g);
+    }
+  };
+  for (let pass = 0; pass < 6; pass++) {
+    h = h.map((v, i) => (i === 0 || i === last ? v : (h[i - 1] + v * 2 + h[i + 1]) / 4));
+    h = h.map((v, i) => clamp(v, ground[i] - BAND, ground[i] + BAND));
+    ease();
+  }
+  // (Never below the water, whatever the easing did.)
+  h = h.map((v, i) => Math.max(v, waterLevel(pts[i].x, pts[i].z) + 0.6));
+  fellH = FELL_PATH_SEGS.map((g, i) => h.slice(ends[i], ends[i + 1] + 1));
 }

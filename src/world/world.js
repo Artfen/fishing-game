@@ -2,8 +2,11 @@ import * as THREE from 'three';
 import {
   heightAt, JETTY, COVE, ISLAND, STACKS, CHANNEL, CAMP, LANDING, findShore, lakeSDF, streamSDF, pathInfo,
   WORLD, riverSDF, mereSDF, trailInfo, MERE, GANNET, coastPathInfo, HAVEN_APRON, HAVEN_HOUSES, DAYMARK, SHELTER, PUNT, STRAND,
-  HOME_PAD, CAR_PARKS, laneInfo, CALF,
+  HOME_PAD, CAR_PARKS, laneInfo, CALF, waterLevel, fellPathInfo,
 } from './terrain.js';
+import { COLD_BOX, coldInfo, inColdwater, tarnSDF, TARN, BOTHY } from './coldwater.js';
+import { buildColdwaterWater } from './riverwater.js';
+import { buildFell } from './fell.js';
 import { mergeParts, mat, seeded, fbm, clamp, lerp, smoothstep, hash2, jitterGeo, pick, glowTexture } from '../util.js';
 import { buildLanternModel } from '../props.js';
 import { withCaustics } from './caustics.js';
@@ -73,7 +76,53 @@ const TC = {
   pathEdge: new THREE.Color('#93a463'),
   trodden: new THREE.Color('#a6a06a'),
   marsh: new THREE.Color('#9aa25e'),
+  // Up the fell.
+  fellGrass: new THREE.Color('#9db35f'),
+  fellGrassDark: new THREE.Color('#7d9a51'),
+  bracken: new THREE.Color('#a98b56'),
+  heather: new THREE.Color('#8c7068'),
+  scree: new THREE.Color('#9b968c'),
+  crag: new THREE.Color('#7f7b74'),
+  snow: new THREE.Color('#f3f5f7'),
+  snowShade: new THREE.Color('#dde4ec'),
+  bankStone: new THREE.Color('#a7a294'),
+  riverBed: new THREE.Color('#7a7260'),
+  peat: new THREE.Color('#5c5444'),
 };
+
+// Hoarfell and the Coldwater's dale: upland grass low down, bracken and heather higher, scree and
+// crags, and snow on the top (lying deeper on the flatter ground, the steepest crags showing
+// through); the river's bed is gravel and its banks are stones; the fell path is trodden earth.
+function fellColor(c, h, ny, x, z, r) {
+  if (x < COLD_BOX.x0 || x > COLD_BOX.x1 || z < COLD_BOX.z0 || z > -330) return false;
+  const lv = waterLevel(x, z);
+  const n = fbm(x * 0.02 + 3, z * 0.02 - 8, 3), n2 = fbm(x * 0.09 - 1, z * 0.09 + 6, 2);
+  if (lv > 0.05 && h < lv - 0.12) {
+    c.copy(TC.bankStone).lerp(TC.riverBed, smoothstep(0, 0.8, lv - h)).lerp(TC.peat, smoothstep(1.5, 4, lv - h) * 0.6 + n2 * 0.1);
+    c.multiplyScalar(0.96 + r * 0.08);
+    return true;
+  }
+  if (h < 1.5) return false; // (the lowland round the bay keeps its own colours)
+  const steep = smoothstep(0.82, 0.6, ny);
+  // Snow above about 330 m, lower in the hollows: lying on everything but the steepest crags,
+  // and on those in streaks down the gullies, more of it the higher up.
+  const snowLine = 330 + n * 30 - smoothstep(0.85, 1, ny) * 20;
+  const lying = smoothstep(0.3, 0.55, ny), gullies = (1 - lying) * smoothstep(0.05, 0.45, n2 + (h - 420) / 300) * 0.85;
+  const snow = smoothstep(snowLine - 20, snowLine + 15, h) * clamp(lying + gullies, 0, 1);
+  if (h > 290) c.copy(TC.scree).lerp(TC.crag, clamp(0.4 + n2 * 0.8, 0, 1)).lerp(TC.fellGrassDark, smoothstep(330, 290, h) * 0.5);
+  else if (h > 140) c.copy(TC.heather).lerp(TC.bracken, clamp(0.5 + n * 1.3, 0, 1)).lerp(TC.fellGrassDark, clamp(0.35 - n2, 0, 0.6)).lerp(TC.scree, smoothstep(230, 290, h) * 0.6);
+  else c.copy(TC.fellGrass).lerp(TC.fellGrassDark, clamp(0.5 + n * 1.2, 0, 1)).lerp(TC.bracken, clamp(n2 * 1.4 - 0.2, 0, 0.55) * smoothstep(30, 90, h));
+  c.lerp(TC.crag, steep * 0.85);
+  if (snow > 0) c.lerp(ny > 0.9 ? TC.snow : TC.snowShade, snow);
+  // Stones at the water's edge, and the trodden path.
+  const R = coldInfo(x, z);
+  if (R.l > 0.05 && R.d - R.w < 2.2) c.lerp(TC.bankStone, smoothstep(2.2, 0.4, R.d - R.w) * 0.8);
+  if (Math.abs(x - TARN.x) < 120 && Math.abs(z - TARN.z) < 120) c.lerp(TC.bankStone, smoothstep(4, 0.5, tarnSDF(x, z)) * 0.8);
+  const p = fellPathInfo(x, z).d;
+  if (p < 1.6) c.lerp(p < 0.8 ? TC.path : TC.pathEdge, smoothstep(1.6, 0.6, p) * (0.8 - snow * 0.4));
+  c.multiplyScalar(0.96 + r * 0.08);
+  return true;
+}
 
 // Lake and stream banks are mud and grass rather than beach sand; the path is bare earth.
 function shoreColor(c, h, x, z, r, weed) {
@@ -157,6 +206,7 @@ function coastColor(c, h, x, z, r) {
 }
 
 function terrainColor(c, h, ny, x, z, r, weed, shore) {
+  if (x < COLD_BOX.x1 && z < -330 && fellColor(c, h, ny, x, z, r)) return;
   const n = fbm(x * 0.05, z * 0.05, 2);
   if (shore && h < 5 && shoreColor(c, h, x, z, r, weed)) return;
   if (x > 100 && h < 5 && regionColor(c, h, x, z, r, weed)) return;
@@ -188,8 +238,12 @@ export const TERRAIN_PATCHES = [
   { id: 'gannet', x0: -380, x1: -140, z0: 420, z1: 680, cell: 2.5, jitter: 0.5, shadows: true },
   // The Calf and Heron Point: small, steep and close up, so a fine grid.
   { id: 'calf', x0: -560, x1: -420, z0: 80, z1: 220, cell: 2, jitter: 0.45, shadows: true },
+  // The Coldwater's dale, and Hoarfell itself: built bit by bit as you come near (until then, and
+  // far off, a coarse stand-in carries them on the horizon; see buildWorld).
+  { id: 'dale', x0: -760, x1: -40, z0: -940, z1: -420, cell: 4, jitter: 0.5, shadows: true, later: true },
+  { id: 'fell', x0: -1380, x1: -500, z0: -1840, z1: -940, cell: 5, jitter: 0.45, shadows: true, later: true },
 ];
-const FAR_RECT = { x0: -1300, x1: 1500, z0: -1900, z1: 1800 };
+const FAR_RECT = { x0: -1800, x1: 1500, z0: -2200, z1: 1800 };
 
 function terrainMesh(pos, col, shadows) {
   const geo = new THREE.BufferGeometry();
@@ -204,135 +258,189 @@ function terrainMesh(pos, col, shadows) {
   return mesh;
 }
 
-function buildTerrain(rnd, habitat) {
-  const c = new THREE.Color();
-  const hs = {};
-  const meshes = [];
-  const makeTri = (pos, col, detailed) => (ax, ay, az, bx, by, bz, dx, dy, dz, shore) => {
+// One triangle of terrain into the lists, coloured by where it lies.
+const _tc = new THREE.Color();
+const _hs = {};
+function makeTri(habitat, pos, col, detailed, rnd) {
+  return (ax, ay, az, bx, by, bz, dx, dy, dz, shore) => {
     pos.push(ax, ay, az, bx, by, bz, dx, dy, dz);
     const ux = bx - ax, uy = by - ay, uz = bz - az;
     const vx = dx - ax, vy = dy - ay, vz = dz - az;
     const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
     const nyn = Math.abs(ny) / (Math.hypot(nx, ny, nz) || 1);
     const mx = (ax + bx + dx) / 3, mz = (az + bz + dz) / 3, my = (ay + by + dy) / 3;
-    terrainColor(c, my, nyn, mx, mz, rnd(), detailed && my < -0.3 ? habitat.sample(mx, mz, hs).weed : 0, shore);
-    col.push(c.r, c.g, c.b, c.r, c.g, c.b, c.r, c.g, c.b);
+    terrainColor(_tc, my, nyn, mx, mz, rnd(), detailed && my < -0.3 ? habitat.sample(mx, mz, _hs).weed : 0, shore);
+    col.push(_tc.r, _tc.g, _tc.b, _tc.r, _tc.g, _tc.b, _tc.r, _tc.g, _tc.b);
   };
-  const quad = (tri, i, j, A, B, D, E, shore) => {
-    if ((i + j) % 2 === 0) { tri(...A, ...D, ...B, shore); tri(...B, ...D, ...E, shore); } else { tri(...A, ...D, ...E, shore); tri(...A, ...E, ...B, shore); }
-  };
+}
+const quad = (tri, i, j, A, B, D, E, shore) => {
+  if ((i + j) % 2 === 0) { tri(...A, ...D, ...B, shore); tri(...B, ...D, ...E, shore); } else { tri(...A, ...D, ...E, shore); tri(...A, ...E, ...B, shore); }
+};
+const farH = (x, z) => heightAt(x, z);
+const inPatch = (cx, cz) => TERRAIN_PATCHES.some((p) => cx > p.x0 && cx < p.x1 && cz > p.z0 && cz < p.z1);
 
-  // The coarse sheet, with a hole wherever a patch is.
-  const farH = (x, z) => heightAt(x, z);
-  {
-    const pos = [], col = [];
-    const tri = makeTri(pos, col, false);
-    const nx = (FAR_RECT.x1 - FAR_RECT.x0) / FAR, nz = (FAR_RECT.z1 - FAR_RECT.z0) / FAR;
-    const H = new Float32Array((nx + 1) * (nz + 1));
-    for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) H[j * (nx + 1) + i] = farH(FAR_RECT.x0 + i * FAR, FAR_RECT.z0 + j * FAR);
-    const v = (i, j) => [FAR_RECT.x0 + i * FAR, H[j * (nx + 1) + i], FAR_RECT.z0 + j * FAR];
-    for (let j = 0; j < nz; j++) {
-      for (let i = 0; i < nx; i++) {
-        const cx = FAR_RECT.x0 + (i + 0.5) * FAR, cz = FAR_RECT.z0 + (j + 0.5) * FAR;
-        if (TERRAIN_PATCHES.some((p) => cx > p.x0 && cx < p.x1 && cz > p.z0 && cz < p.z1)) continue;
-        quad(tri, i, j, v(i, j), v(i + 1, j), v(i, j + 1), v(i + 1, j + 1), false);
-      }
+// The coarse sheet over a rectangle (all of FAR_RECT, with holes where the patches are; or just a
+// patch's own rectangle, as its stand-in).
+function coarseMesh(habitat, rect, rnd, skipPatches, cell = FAR, hf = farH) {
+  const pos = [], col = [];
+  const tri = makeTri(habitat, pos, col, false, rnd);
+  const nx = Math.round((rect.x1 - rect.x0) / cell), nz = Math.round((rect.z1 - rect.z0) / cell);
+  const H = new Float32Array((nx + 1) * (nz + 1));
+  for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) H[j * (nx + 1) + i] = hf(rect.x0 + i * cell, rect.z0 + j * cell);
+  const v = (i, j) => [rect.x0 + i * cell, H[j * (nx + 1) + i], rect.z0 + j * cell];
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) {
+      if (skipPatches && inPatch(rect.x0 + (i + 0.5) * cell, rect.z0 + (j + 0.5) * cell)) continue;
+      quad(tri, i, j, v(i, j), v(i + 1, j), v(i, j + 1), v(i + 1, j + 1), false);
     }
-    const far = terrainMesh(pos, col, false);
-    far.userData.far = true;
-    meshes.push(far);
   }
+  return terrainMesh(pos, col, false);
+}
 
-  // Each patch: its border vertices sit on the coarse sheet's edges; inside, the land in detail.
-  for (const P of TERRAIN_PATCHES) {
-    const step = P.cell, N = Math.round((P.x1 - P.x0) / step), M = Math.round((P.z1 - P.z0) / step), V = N + 1;
-    const X = new Float32Array(V * (M + 1)), Y = new Float32Array(V * (M + 1)), Z = new Float32Array(V * (M + 1));
-    const per = FAR / step; // patch cells per coarse cell
-    for (let j = 0; j <= M; j++) {
-      for (let i = 0; i <= N; i++) {
-        let x = P.x0 + i * step, z = P.z0 + j * step, y;
-        const k = j * V + i;
-        const edgeI = i === 0 || i === N, edgeJ = j === 0 || j === M;
-        if (edgeI || edgeJ) {
-          // On the border: straight between the coarse sheet's vertices.
-          if (edgeI) {
-            const g = Math.floor(j / per), f = (j % per) / per;
-            y = lerp(farH(x, P.z0 + g * FAR), farH(x, P.z0 + Math.min(g + 1, M / per) * FAR), f);
-          } else {
-            const g = Math.floor(i / per), f = (i % per) / per;
-            y = lerp(farH(P.x0 + g * FAR, z), farH(P.x0 + Math.min(g + 1, N / per) * FAR, z), f);
-          }
+// Beyond the land drawn in full, to the north and west: rough country rising into far hills, in
+// big cells. Only ever seen from high up (from Hoarfell, say), and through the haze; it keeps the
+// land from simply stopping. (Its inner edge tucks under the sheet's edge, a little lower.)
+const OUTER = [
+  { x0: -3400, x1: FAR_RECT.x0 + 40, z0: -3600, z1: 260 },
+  { x0: FAR_RECT.x0 + 40, x1: FAR_RECT.x1 + 40, z0: -3600, z1: FAR_RECT.z0 + 40 },
+];
+function outerHeight(x, z) {
+  const out = Math.max(FAR_RECT.x0 - x, FAR_RECT.z0 - z, 0);
+  const hills = 240 * smoothstep(0, 1300, out) * clamp(0.45 + fbm(x * 0.0011 + 7, z * 0.0011 - 3, 3) * 0.9, 0.1, 1.2);
+  return heightAt(x, z) + hills + fbm(x * 0.004, z * 0.004, 2) * 25 * smoothstep(0, 500, out) - (out <= 0 ? 2.5 : 0);
+}
+
+// One detailed patch, built a few rows at a time (a generator: each yield is a slice of work;
+// run it to the end to have it all at once). Its border vertices sit on the coarse grid's edges;
+// inside, the land in detail.
+function* patchBuilder(P, habitat, rnd) {
+  const step = P.cell, N = Math.round((P.x1 - P.x0) / step), M = Math.round((P.z1 - P.z0) / step), V = N + 1;
+  const X = new Float32Array(V * (M + 1)), Y = new Float32Array(V * (M + 1)), Z = new Float32Array(V * (M + 1));
+  const per = FAR / step; // patch cells per coarse cell
+  for (let j = 0; j <= M; j++) {
+    for (let i = 0; i <= N; i++) {
+      let x = P.x0 + i * step, z = P.z0 + j * step, y;
+      const k = j * V + i;
+      const edgeI = i === 0 || i === N, edgeJ = j === 0 || j === M;
+      if (edgeI || edgeJ) {
+        // On the border: straight between the coarse sheet's vertices.
+        if (edgeI) {
+          const g = Math.floor(j / per), f = (j % per) / per;
+          y = lerp(farH(x, P.z0 + g * FAR), farH(x, P.z0 + Math.min(g + 1, M / per) * FAR), f);
         } else {
-          x += (hash2(i + P.x0, j) - 0.5) * step * P.jitter;
-          z += (hash2(j + 991 + P.z0, i + 37) - 0.5) * step * P.jitter;
+          const g = Math.floor(i / per), f = (i % per) / per;
+          y = lerp(farH(P.x0 + g * FAR, z), farH(P.x0 + Math.min(g + 1, N / per) * FAR, z), f);
+        }
+      } else {
+        x += (hash2(i + P.x0, j) - 0.5) * step * P.jitter;
+        z += (hash2(j + 991 + P.z0, i + 37) - 0.5) * step * P.jitter;
+        y = heightAt(x, z);
+      }
+      X[k] = x; Y[k] = y; Z[k] = z;
+    }
+    if (j % 16 === 15) yield;
+  }
+  const pos = [], col = [];
+  const tri = makeTri(habitat, pos, col, true, rnd);
+  const vtx = (k) => [X[k], Y[k], Z[k]];
+  const I = P.inner;
+  const pi0 = I ? Math.floor((I.x0 - P.x0) / step) : -1, pi1 = I ? Math.ceil((I.x1 - P.x0) / step) : -1;
+  const pj0 = I ? Math.floor((I.z0 - P.z0) / step) : -1, pj1 = I ? Math.ceil((I.z1 - P.z0) / step) : -1;
+  for (let j = 0; j < M; j++) {
+    for (let i = 0; i < N; i++) {
+      if (I && i >= pi0 && i < pi1 && j >= pj0 && j < pj1) continue;
+      const a = j * V + i;
+      quad(tri, i, j, vtx(a), vtx(a + 1), vtx(a + V), vtx(a + V + 1), false);
+    }
+    if (j % 12 === 11) yield;
+  }
+  // A finer patch inside (the west shore), its border on this patch's grid.
+  if (I) {
+    const S = P.innerSub, pn = (pi1 - pi0) * S, pm = (pj1 - pj0) * S, ps = step / S, PV = pn + 1;
+    const PX = new Float32Array(PV * (pm + 1)), PY = new Float32Array(PV * (pm + 1)), PZ = new Float32Array(PV * (pm + 1));
+    const big = (i, j) => Y[j * V + i];
+    for (let j = 0; j <= pm; j++) {
+      for (let i = 0; i <= pn; i++) {
+        let x = P.x0 + pi0 * step + i * ps, z = P.z0 + pj0 * step + j * ps;
+        const k = j * PV + i;
+        const edgeI = i === 0 || i === pn, edgeJ = j === 0 || j === pm;
+        let y;
+        if (edgeI || edgeJ) {
+          // On the border: on the straight edge between two of the outer grid's vertices.
+          let k0, k1, f;
+          if (edgeI) {
+            const ii = pi0 + (i === 0 ? 0 : pn / S), gj = pj0 + Math.floor(j / S);
+            f = (j % S) / S;
+            k0 = gj * V + ii;
+            k1 = Math.min(gj + 1, pj1) * V + ii;
+          } else {
+            const jj = pj0 + (j === 0 ? 0 : pm / S), gi = pi0 + Math.floor(i / S);
+            f = (i % S) / S;
+            k0 = jj * V + gi;
+            k1 = jj * V + Math.min(gi + 1, pi1);
+          }
+          x = lerp(X[k0], X[k1], f);
+          y = lerp(big(k0 % V, Math.floor(k0 / V)), big(k1 % V, Math.floor(k1 / V)), f);
+          z = lerp(Z[k0], Z[k1], f);
+        } else {
+          x += (hash2(i + 5003, j) - 0.5) * ps * 0.5;
+          z += (hash2(j + 7919, i + 11) - 0.5) * ps * 0.5;
           y = heightAt(x, z);
         }
-        X[k] = x; Y[k] = y; Z[k] = z;
+        PX[k] = x; PY[k] = y; PZ[k] = z;
       }
     }
-    const pos = [], col = [];
-    const tri = makeTri(pos, col, true);
-    const vtx = (k) => [X[k], Y[k], Z[k]];
-    const I = P.inner;
-    const pi0 = I ? Math.floor((I.x0 - P.x0) / step) : -1, pi1 = I ? Math.ceil((I.x1 - P.x0) / step) : -1;
-    const pj0 = I ? Math.floor((I.z0 - P.z0) / step) : -1, pj1 = I ? Math.ceil((I.z1 - P.z0) / step) : -1;
-    for (let j = 0; j < M; j++) {
-      for (let i = 0; i < N; i++) {
-        if (I && i >= pi0 && i < pi1 && j >= pj0 && j < pj1) continue;
-        const a = j * V + i;
-        quad(tri, i, j, vtx(a), vtx(a + 1), vtx(a + V), vtx(a + V + 1), false);
+    const pv = (k) => [PX[k], PY[k], PZ[k]];
+    for (let j = 0; j < pm; j++) {
+      for (let i = 0; i < pn; i++) {
+        const a = j * PV + i;
+        quad(tri, i, j, pv(a), pv(a + 1), pv(a + PV), pv(a + PV + 1), true);
       }
     }
-    // A finer patch inside (the west shore), its border on this patch's grid.
-    if (I) {
-      const S = P.innerSub, pn = (pi1 - pi0) * S, pm = (pj1 - pj0) * S, ps = step / S, PV = pn + 1;
-      const PX = new Float32Array(PV * (pm + 1)), PY = new Float32Array(PV * (pm + 1)), PZ = new Float32Array(PV * (pm + 1));
-      const big = (i, j) => Y[j * V + i];
-      for (let j = 0; j <= pm; j++) {
-        for (let i = 0; i <= pn; i++) {
-          let x = P.x0 + pi0 * step + i * ps, z = P.z0 + pj0 * step + j * ps;
-          const k = j * PV + i;
-          const edgeI = i === 0 || i === pn, edgeJ = j === 0 || j === pm;
-          let y;
-          if (edgeI || edgeJ) {
-            // On the border: on the straight edge between two of the outer grid's vertices.
-            let k0, k1, f;
-            if (edgeI) {
-              const ii = pi0 + (i === 0 ? 0 : pn / S), gj = pj0 + Math.floor(j / S);
-              f = (j % S) / S;
-              k0 = gj * V + ii;
-              k1 = Math.min(gj + 1, pj1) * V + ii;
-            } else {
-              const jj = pj0 + (j === 0 ? 0 : pm / S), gi = pi0 + Math.floor(i / S);
-              f = (i % S) / S;
-              k0 = jj * V + gi;
-              k1 = jj * V + Math.min(gi + 1, pi1);
-            }
-            x = lerp(X[k0], X[k1], f);
-            y = lerp(big(k0 % V, Math.floor(k0 / V)), big(k1 % V, Math.floor(k1 / V)), f);
-            z = lerp(Z[k0], Z[k1], f);
-          } else {
-            x += (hash2(i + 5003, j) - 0.5) * ps * 0.5;
-            z += (hash2(j + 7919, i + 11) - 0.5) * ps * 0.5;
-            y = heightAt(x, z);
-          }
-          PX[k] = x; PY[k] = y; PZ[k] = z;
-        }
-      }
-      const pv = (k) => [PX[k], PY[k], PZ[k]];
-      for (let j = 0; j < pm; j++) {
-        for (let i = 0; i < pn; i++) {
-          const a = j * PV + i;
-          quad(tri, i, j, pv(a), pv(a + 1), pv(a + PV), pv(a + PV + 1), true);
-        }
-      }
+  }
+  const mesh = terrainMesh(pos, col, P.shadows);
+  mesh.userData.patch = P.id;
+  return mesh;
+}
+
+// The land and seabed: the coarse sheet, and the patches built straight away. Patches marked
+// `later` (up the fell) get a coarse stand-in now; their detail is built when you come near (see
+// buildWorld), with its own seed so building it never changes anything else.
+function buildTerrain(rnd, habitat) {
+  const meshes = [];
+  const far = coarseMesh(habitat, FAR_RECT, rnd, true);
+  far.userData.far = true;
+  meshes.push(far);
+  // (Its own seed: it changes nothing else.)
+  const outerRnd = seeded(8191);
+  for (const R of OUTER) {
+    const m = coarseMesh(habitat, R, outerRnd, false, 40, outerHeight);
+    m.userData.far = true;
+    meshes.push(m);
+  }
+  for (const P of TERRAIN_PATCHES) {
+    if (P.later) {
+      const stand = coarseMesh(habitat, P, seeded(7001 + P.x0), false);
+      stand.userData.standIn = P.id;
+      meshes.push(stand);
+      continue;
     }
-    const mesh = terrainMesh(pos, col, P.shadows);
-    mesh.userData.patch = P.id;
-    meshes.push(mesh);
+    const g = patchBuilder(P, habitat, rnd);
+    let r;
+    while (!(r = g.next()).done);
+    meshes.push(r.value);
+    // (And a coarse stand-in for when it's too far off to draw in detail: from high up, the
+    // far patches would otherwise leave holes. Its own seed, so the rest is as it was.)
+    if (P.id !== 'home') {
+      const stand = coarseMesh(habitat, P, seeded(7001 + P.x0), false);
+      stand.userData.standFor = P.id;
+      stand.visible = false;
+      meshes.push(stand);
+    }
   }
   return meshes;
 }
+export const laterPatches = (habitat) => TERRAIN_PATCHES.filter((P) => P.later).map((P) => ({ P, start: () => patchBuilder(P, habitat, seeded(9001 + P.x0)) }));
 
 /* ---------------- vegetation & rocks ---------------- */
 
@@ -842,6 +950,30 @@ export function buildWorld(scene, renderer, habitat) {
     distant.push(o);
   };
   for (const m of terrain) if (m.userData.patch && m.userData.patch !== 'home') watchDistance(m);
+  const eager = terrain.filter((m) => m.userData.standFor).map((stand) => ({ stand, mesh: terrain.find((m) => m.userData.patch === stand.userData.standFor) }));
+  // The fell's detailed patches: built a slice at a time once you're within reach of them
+  // (a few milliseconds a frame), the coarse stand-in shown until then and whenever the detail
+  // is out of range.
+  const later = laterPatches(habitat).map((L) => ({ ...L, gen: null, mesh: null, stand: terrain.find((m) => m.userData.standIn === L.P.id) }));
+  const nearRect = (R, p, d) => p.x > R.x0 - d && p.x < R.x1 + d && p.z > R.z0 - d && p.z < R.z1 + d;
+  // (budget: milliseconds a frame; more while the screen is dark, travelling or asleep.)
+  function buildLater(cp, budget = 5) {
+    const t0 = performance.now();
+    for (const L of later) {
+      if (L.mesh || !nearRect(L.P, cp, drawDistance + 350)) continue;
+      L.gen = L.gen || L.start();
+      while (performance.now() - t0 < budget) {
+        const r = L.gen.next();
+        if (r.done) {
+          L.mesh = r.value;
+          scene.add(L.mesh);
+          L.gen = null;
+          break;
+        }
+      }
+      return; // (one at a time)
+    }
+  }
 
   const jetty = buildJetty(rnd);
   scene.add(jetty.mesh, jetty.lamp.group, jetty.light);
@@ -875,7 +1007,8 @@ export function buildWorld(scene, renderer, habitat) {
   // own set of meshes, so the ones out of view aren't drawn.
   // (The Calf is too windswept for trees.)
   const regionSkip = (x, z) => trailInfo(x, z).d < 3 || riverSDF(x, z) < 8 || mereSDF(x, z) < 4 || (x < 380 && x > -380 && z > -420 && z < 340)
-    || Math.hypot((x - CALF.x) / (CALF.rx + 8), (z - CALF.z) / (CALF.rz + 8)) < 1;
+    || Math.hypot((x - CALF.x) / (CALF.rx + 8), (z - CALF.z) / (CALF.rz + 8)) < 1
+    || inColdwater(x, z, 6) || fellPathInfo(x, z).d < 3.5 || (x < -40 && z < -420 && x > -760 && z > -940);
   const areas = [
     { x0: 380, x1: 780, z0: -420, z1: 300, step: 5, thin: 0.9 },
     { x0: 100, x1: 600, z0: -680, z1: -420, step: 5, thin: 0.9 },
@@ -903,8 +1036,50 @@ export function buildWorld(scene, renderer, habitat) {
     }
   }
 
+  // Up the Coldwater: alder and birch along the river, pines on the dale's sides thinning out
+  // up the fell's flank, nothing above about 260 m (its own seed: building it changes nothing else).
+  const fellRnd = seeded(20261201);
+  const fellTrees = [];
+  for (const A of [{ x0: -760, x1: -40, z0: -940, z1: -420 }, { x0: -1380, x1: -500, z0: -1840, z1: -940 }]) {
+    for (let x = A.x0; x < A.x1; x += 250) {
+      for (let z = A.z0; z < A.z1; z += 250) {
+        const T = { pine: [], round: [], blossom: [], bush: [] };
+        for (let zz = z; zz < Math.min(A.z1, z + 250); zz += 6) {
+          for (let xx = x; xx < Math.min(A.x1, x + 250); xx += 6) {
+            const px = xx + (fellRnd() - 0.5) * 6, pz = zz + (fellRnd() - 0.5) * 6, pick = fellRnd(), sz = fellRnd(), rot = fellRnd();
+            const h = heightAt(px, pz);
+            if (h < 2 || h > 265) continue;
+            const R = coldInfo(px, pz), e = R.d - R.w;
+            if (e < 2.5 || inColdwater(px, pz, 2.5) || fellPathInfo(px, pz).d < 3.2 || Math.hypot(px - BOTHY.x, pz - BOTHY.z) < 14) continue;
+            const hx = heightAt(px + 1, pz) - heightAt(px - 1, pz), hz = heightAt(px, pz + 1) - heightAt(px, pz - 1);
+            if (Math.hypot(hx, hz) / 2 > 0.75) continue;
+            const dens = fbm(px * 0.015 + 5, pz * 0.015 - 9, 3);
+            // Along the water: alders and birches. On the slopes: pines, thinning with height.
+            const river = smoothstep(30, 6, e) * (R.l > 0.05 || R.l === 0 ? 1 : 0);
+            const p = river * 0.55 + (0.12 + dens * 0.5) * smoothstep(265, 120, h) * (1 - river);
+            if (pick > p) continue;
+            const kind = river > 0.4 ? (sz < 0.75 ? 'round' : 'bush') : h > 150 || sz < 0.7 ? 'pine' : 'round';
+            T[kind].push({ x: px, y: h - 0.2, z: pz, s: (kind === 'pine' ? 0.8 : 0.7) + sz * 0.6 - smoothstep(150, 260, h) * 0.25, r: rot * Math.PI * 2 });
+          }
+        }
+        fellTrees.push(T);
+        for (const k of Object.keys(geos)) {
+          if (!T[k].length) continue;
+          const m = instanced(geos[k], T[k], sway, fellRnd);
+          scene.add(m);
+          watchDistance(m);
+        }
+      }
+    }
+  }
+  regionTrees.push(...fellTrees);
+  const fell = buildFell(scene, seeded(20261202));
+  for (const m of fell.distant) watchDistance(m);
+  const coldwater = buildColdwaterWater(scene);
+
   // Things you bump into on foot: tree trunks, bushes, camp gear, big rocks.
   const obstacles = new ObstacleGrid();
+  for (const o of fell.obstacles) obstacles.add(o.x, o.z, o.r, o.top ?? Infinity, -Infinity, o.kind || 'thing', o.name || '');
   for (const L of [lists, ...regionTrees]) {
     for (const k of ['pine', 'round', 'blossom']) for (const t of L[k]) obstacles.add(t.x, t.z, 0.28 * t.s, Infinity, -Infinity, 'tree', 'a tree');
     for (const t of L.bush) obstacles.add(t.x, t.z, 0.45 * t.s, Infinity, -Infinity, 'tree', 'a bush');
@@ -922,6 +1097,9 @@ export function buildWorld(scene, renderer, habitat) {
   const calf = buildCalf(scene, seeded(20261024 + 77));
   for (const o of calf.obstacles) obstacles.add(o.x, o.z, o.r, o.top ?? Infinity, -Infinity, o.kind || 'thing', o.name || '');
   coast.spots.push(...calf.spots);
+  // Up the Coldwater: the bothy's door, the fingerpost and the cairn; the bothy's tackle shelf.
+  coast.spots.push(...fell.spots);
+  regions.boxes.push(...fell.boxes);
   // Tree crowns, for casts that clip a branch: radius, and the height band of the leaves.
   const canopy = new ObstacleGrid(6);
   const crown = { pine: [1.25, 1.1, 4.8], round: [1.5, 1.3, 3.8], blossom: [1.5, 1.3, 3.8] };
@@ -995,6 +1173,7 @@ export function buildWorld(scene, renderer, habitat) {
     coast,
     home,
     calf,
+    fell,
     // Birds over feeding fish: a flock gathers over (x, z) for a while (or freshens if one is there).
     birdsAt(x, z) {
       const near = flocks.find((f) => Math.hypot(f.x - x, f.z - z) < 40);
@@ -1042,6 +1221,17 @@ export function buildWorld(scene, renderer, habitat) {
           if (!b) continue;
           o.visible = Math.hypot(b.center.x - cp.x, b.center.z - cp.z) - b.radius < drawDistance;
         }
+        // The other patches: their stand-ins wherever the detail isn't drawn.
+        for (const E of eager) E.stand.visible = !E.mesh.visible;
+        // The fell: detail near, the stand-in far (and until the detail is built).
+        buildLater(cp, extra.hurry ? 40 : 5);
+        for (const L of later) {
+          const near = !!L.mesh && nearRect(L.P, cp, drawDistance);
+          if (L.mesh) L.mesh.visible = near;
+          if (L.stand) L.stand.visible = !near;
+        }
+        coldwater.update(t, env, extra.camera);
+        fell.update(dt, t, env, cp);
         mountains.position.set(extra.camera.position.x, 0, extra.camera.position.z);
         if (extra.fog) mountains.material.emissive.copy(extra.fog).multiplyScalar(0.55);
       }

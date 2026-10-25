@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { walkHeight } from './world/terrain.js';
+import { walkHeight, waterLevel } from './world/terrain.js';
 import { waveHeight } from './world/water.js';
 import { buildRod, bendRod } from './props.js';
 import { RODS } from './tackle.js';
@@ -211,7 +211,8 @@ export class Walker {
   // you get a little extra help up the bank.
   canStand(x, z, fromH) {
     const h = walkHeight(x, z);
-    if (h < DEEP) return false;
+    // (Deep is below the water here: the sea, or the Coldwater and Hoar Tarn up on the fell.)
+    if (h < waterLevel(x, z) + DEEP) return false;
     const step = Math.abs(h - fromH);
     const run = Math.hypot(x - this.pos.x, z - this.pos.z) || 0.01;
     return step / run < STEEP || step < (this.wading > 0.2 ? 0.45 : 0.3);

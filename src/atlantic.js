@@ -984,7 +984,7 @@ export const ATLANTIC = [
     life: {
       group: [1, 1], groups: 6, spacing: 24, groupsIn: { estuary: 4, bay: 2 }, observe: true,
       speed: 0.4, burst: 2.0, turn: 1.6, perception: 8, depthTol: 2, cover: 'weed', bottom: true, lurk: true, eel: true,
-      homes: ['reeds', 'quay', 'channel', 'rock'], zones: ['estuary', 'bay'],
+      homes: ['reeds', 'quay', 'channel', 'rock'], zones: ['estuary', 'bay', 'tideway'],
       depth: () => [0.8, 6],
       activity: ({ hour }) => (isEvening(hour) ? 1 : isTwilight(hour) ? 0.5 : 0.05),
       likes: { still: 0, slow: 0, fast: 0, twitch: 0 },

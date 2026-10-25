@@ -2,8 +2,9 @@ import {
   heightAt, zoneAt, streamFlow, lakeSDF, ISLAND, COVE, STACKS, CHANNEL, JETTY, LAKE, STREAM, SNAG, LILIES,
   RIVER, riverInfo, riverSDF, MARSH, SANDBANKS, QUAY, MERE, MERE_BAYS, HOLM, TIMBER, mereSDF,
   GANNET, PUFFIN_COVE, SKERRIES, SKELLIG, SHOAL, DEEP_Z, WRECK, STRAND, DAYMARK, CALF, CALF_SKERRY, CALF_SOUND,
-  HAVEN, HAVEN_QUAY, BOATHOUSE_PIER,
+  HAVEN, HAVEN_QUAY, BOATHOUSE_PIER, waterLevel,
 } from './terrain.js';
+import { COLDWATER, TARN } from './coldwater.js';
 import { fbm, seeded, smoothstep, clamp } from '../util.js';
 
 // The underwater map every system shares: water depth, weed beds, rocks, and the
@@ -137,7 +138,7 @@ export function createHabitat() {
         for (const R of regionGrids) {
           if (R.sample(x, z, out)) return out;
         }
-        out.depth = Math.max(0, -heightAt(x, z));
+        out.depth = Math.max(0, waterLevel(x, z) - heightAt(x, z));
         out.weed = 0;
         out.rock = 0;
         return out;
@@ -157,7 +158,7 @@ export function createHabitat() {
           const d = R.depth(x, z);
           if (d >= 0) return d;
         }
-        return Math.max(0, -heightAt(x, z));
+        return Math.max(0, waterLevel(x, z) - heightAt(x, z));
       }
       const i = Math.floor(fx), j = Math.floor(fz), u = fx - i, v = fz - j;
       const k = j * NX + i;
@@ -188,6 +189,8 @@ export function createHabitat() {
       const px = x + (rnd() - 0.5) * 6, pz = z + (rnd() - 0.5) * 6;
       habitat.sample(px, pz, s);
       const zone = zoneAt(px, pz);
+      // (The Coldwater keeps its own homes, added after everything else: see coldwaterSpots.)
+      if (zone === 'river' || zone === 'tarn' || zone === 'tideway') continue;
       if (s.weed > 0.5 && s.depth > 0.9 && s.depth < 6.5 && far(px, pz, 'weed', 16)) {
         spots.push({ type: 'weed', x: px, z: pz, depth: s.depth, zone, r: 9 });
       } else if (s.depth > 0.8 && s.depth < 2.8 && s.weed < 0.3 && zone !== 'open' && far(px, pz, 'sand', 20)) {
@@ -455,4 +458,32 @@ function regionSpots(habitat, rnd) {
   //  · The Longmere boathouse: perch and roach in its shade, and a pike waiting for them.
   host('weed', BOATHOUSE_PIER.x0 + 7, BOATHOUSE_PIER.z0 - 6, 8, 'boathouse', ['perch', 'roach']);
   host('snag', BOATHOUSE_PIER.x0 - 1, BOATHOUSE_PIER.z0 - 6, 7, 'boathouse', ['pike']);
+  coldwaterSpots(habitat, spots);
+}
+
+// The Coldwater's own fish, last of all (so no fish anywhere else moves): brown trout in every
+// pool from the tarn to the Lower Force, grayling in the dale's bigger pools as well, trout round
+// Hoar Tarn's shores; and in the tideway below the Force, sea bass, flounder and grey mullet
+// that come up on the tide, and an eel or two (protected: to watch). Each home knows its water's
+// level, so its fish swim in the pool up the fell and not in the air above the sea.
+function coldwaterSpots(habitat, spots) {
+  const put = (type, x, z, r, tag, hosts) => {
+    const d = habitat.depth(x, z);
+    if (d > 0.7) spots.push({ type, x, z, depth: d, zone: zoneAt(x, z), r, tag, hosts, level: waterLevel(x, z) });
+  };
+  COLDWATER.forEach((n, i) => {
+    if (n.l <= 0.05 || n.d < 1.4) return;
+    put('pool', n.x, n.z, Math.min(n.w * 0.9, 7), i === 11 || i === 12 ? 'spout' : i < 10 ? 'beck' : i < 19 ? 'gill' : 'dale', n.l < 80 ? ['trout', 'grayling'] : ['trout']);
+  });
+  for (let k = 0; k < 4; k++) {
+    const a = TARN.yaw + (k / 4) * Math.PI * 2 + 0.4;
+    const x = TARN.x + Math.cos(a) * TARN.rx * 0.55, z = TARN.z + Math.sin(a) * TARN.rz * 0.55;
+    put('pool', x, z, 12, 'tarn', ['trout']);
+  }
+  const at = (i) => COLDWATER[i];
+  // (The Force Pool's fish keep below the fall's churn, in the tide's reach.)
+  put('channel', at(33).x + (at(34).x - at(33).x) * 0.45, at(33).z + (at(34).z - at(33).z) * 0.45, 6, 'forcepool', ['seabass', 'eel']);
+  put('channel', at(36).x, at(36).z, 9, 'tideway', ['seabass', 'flounder']);
+  put('channel', at(38).x, at(38).z, 9, 'tideway', ['flounder', 'eel']);
+  put('flats', at(40).x, at(40).z, 9, 'tideway', ['mullet', 'flounder']);
 }

@@ -20,8 +20,8 @@ import { createMist } from './world/mist.js';
 import { surfaceUniforms } from './world/surface.js';
 import { causticUniforms } from './world/caustics.js';
 import {
-  bakeHeightTexture, heightAt, walkHeight, solidHeight, landSDF, lakeSDF, streamSDF, zoneAt, waterOf, riverSDF, mereSDF,
-  PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD,
+  bakeHeightTexture, heightAt, walkHeight, solidHeight, landSDF, lakeSDF, streamSDF, zoneAt, waterOf, riverSDF, mereSDF, waterLevel, depthAt,
+  PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD, SEA,
   PEGS, POOLS, STREAM, SNAG, LILIES, JETTY, ISLAND, GANNET_CAMP, SKERRIES, SKELLIG, DEEP_Z,
   HAVEN, HAVEN_QUAY, HAVEN_BENCH, DAYMARK, STRAND, WRECK, WRECK_BUOY, WRECK_BELL, CHANNEL,
   HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, FUEL_PUMPS, CABIN_BERTH, laneInfo,
@@ -31,6 +31,8 @@ import { Car } from './car.js';
 import { Workbench, OutingSheet } from './workbench.js';
 import { KIT, KIT_IDS, DESTS, launchOf, parkNear, driveMinutes, moveKit, reconcile, campOfKit, campHas, statusOf, snapshot } from './outing.js';
 import { insideHome, HOME_SPOTS } from './world/home.js';
+import { BOTHY_DOOR, FELL_SIGN } from './world/fell.js';
+import { coldInfo, COLDWATER, FALLS, tarnSDF } from './world/coldwater.js';
 import { Boat, BOAT_KINDS } from './boat.js';
 import { Walker } from './walker.js';
 import { Effects } from './effects.js';
@@ -403,7 +405,7 @@ function mooring(kind) {
 // deep enough for its hull, and not on top of a pier. (Tied up alongside one, her middle lies
 // just clear of its edge: that's fine.)
 function floats(b, p) {
-  if (!p || p.x < WORLD.x0 || p.x > WORLD.x1 || p.z < WORLD.z0 || p.z > WORLD.z1) return false;
+  if (!p || p.x < SEA.x0 || p.x > SEA.x1 || p.z < SEA.z0 || p.z > SEA.z1) return false;
   if (solidHeight(p.x, p.z) > -(b.hull.draft + (p.tie ? 0.2 : 0.4))) return false;
   const m = p.tie ? 0.2 : 0.8;
   return !PIERS.some((P) => p.x > P.x0 - m && p.x < P.x1 + m && p.z > P.z0 - m && p.z < P.z1 + m);
@@ -1164,7 +1166,7 @@ function passTheNight() {
   // (Overnight, the bass boat's battery charges wherever you sleep.)
   tanks().battery = 1;
   tanks().kayak = 1;
-  const door = sleeping.site === 'house' ? { x: 113.6, z: -78.6 } : sleeping.site && sleeping.site !== 'cabin' ? toWorld(sleeping.site.x, sleeping.site.z, sleeping.site.yaw, 0.6, 1.6) : null;
+  const door = sleeping.site === 'house' ? { x: 113.6, z: -78.6 } : sleeping.site === 'bothy' ? BOTHY_DOOR : sleeping.site && sleeping.site !== 'cabin' ? toWorld(sleeping.site.x, sleeping.site.z, sleeping.site.yaw, 0.6, 1.6) : null;
   const spot = door ? standNear(door.x, door.z, 0.3) : onFoot && walkHeight(walker.pos.x, walker.pos.z) < 0.1 ? campSpot() : null;
   if (spot && onFoot) {
     walker.place(spot.x, spot.z, spot.heading);
@@ -1181,6 +1183,15 @@ function wakeLine(h, rain, site = null) {
     if (h < 16) return 'You wake in the bunk with the boat turning gently on her rope. A good day on the water.';
     if (h < 20) return 'You wake to evening light on the water through the cabin windows. Time for a cast at dusk.';
     return 'You wake in the dark cabin: stars over the water, and the tide talking under the hull.';
+  }
+  // In the bothy: the stone walls, the river below, the fell outside.
+  if (site === 'bothy') {
+    if (rain) return 'You wake to rain blowing against the bothy’s little window and Spout Force roaring below. The stove first.';
+    if (h < 7) return 'You wake in the grey before dawn to the sound of the falls. Frost on the inside of the window.';
+    if (h < 11) return 'Morning on the fell: sun on the crags above, and mist lifting off Spout Pool.';
+    if (h < 16) return 'You wake to a bright afternoon, the fell warm and the beck chattering past the door.';
+    if (h < 20) return 'You wake as the light goes gold on the top of Hoarfell. The trout will be rising in the pools.';
+    return 'You wake in the dark: the last of the stove’s glow, and stars thick over the fell.';
   }
   // At home: your own bed, the house waking up around you.
   if (site === 'house') {
@@ -1520,18 +1531,19 @@ function diveEntry() {
       const off = boat.hull.B * 0.5 + 0.7;
       for (const s of [1, -1]) {
         const x = boat.pos.x + boat.right.x * off * s, z = boat.pos.z + boat.right.z * off * s;
-        if (-heightAt(x, z) > 1.6) {
+        if (depthAt(x, z) > 1.6) {
           spot = { x, z, heading: boat.heading, from: 'boat' };
           break;
         }
       }
     }
-  } else if (!driving && walker.pos.y < 3 && !insideHome(walker.pos.x, walker.pos.z)) {
+  } else if (!driving && !insideHome(walker.pos.x, walker.pos.z)) {
     for (let r = 1.2; r <= 3.2 && !spot; r += 1) {
       for (let i = 0; i < 12; i++) {
         const a = (i / 12) * Math.PI * 2, x = walker.pos.x + Math.sin(a) * r, z = walker.pos.z + Math.cos(a) * r;
-        const d = -heightAt(x, z);
-        if (d > 1.4 && (!spot || d > spot.d)) spot = { x, z, d, heading: a, from: 'shore' };
+        // (Deep enough, and not a leap down off a cliff to it.)
+        const d = depthAt(x, z);
+        if (d > 1.4 && walker.pos.y - waterLevel(x, z) < 3 && (!spot || d > spot.d)) spot = { x, z, d, heading: a, from: 'shore' };
       }
     }
   }
@@ -1684,7 +1696,8 @@ function updateDive(dt) {
   d.lastY = D.pos.y;
   if (d.kit === 'free') freediveStep(dt, depth, surf);
   else scubaStep(dt, depth, surf);
-  Object.assign(diverCtx, { x: D.pos.x, y: D.pos.y, z: D.pos.z, vx: D.vel.x, vy: D.vel.y, vz: D.vel.z, speed: D.speed, kicking: D.kicking, still: D.still });
+  // (The fish reckon heights from their own water's surface.)
+  Object.assign(diverCtx, { x: D.pos.x, y: D.pos.y - waterLevel(D.pos.x, D.pos.z), z: D.pos.z, vx: D.vel.x, vy: D.vel.y, vz: D.vel.z, speed: D.speed, kicking: D.kicking, still: D.still });
   // (Where "you" are, for the markers, the map and the places you pass.)
   walker.pos.set(D.pos.x, Math.max(D.pos.y, 0), D.pos.z);
   if (d.kit === 'free') gunStep(dt);
@@ -1839,7 +1852,7 @@ function fireSpear() {
   audio.spear?.();
   underwater.bubbles(_dFrom.x, _dFrom.y, _dFrom.z, 5, 0.04);
   // The thump of the bands carries: fish close by startle.
-  eco.startle(_dFrom.x, _dFrom.y, _dFrom.z, 2.5, 0.6);
+  eco.startle(_dFrom.x, _dFrom.y - waterLevel(_dFrom.x, _dFrom.z), _dFrom.z, 2.5, 0.6);
   if (!fish) teach('spearMiss', 'Missed. Get closer (the shaft is only sure at three metres or so), keep still as they come to look, and aim just behind the head.', 7);
 }
 
@@ -3039,6 +3052,10 @@ function interaction() {
     const own = ownCampNear();
     if (own) return { text: `${own.name}: rest, cook, cool box and tackle`, run: () => openCamp('cook', own) };
     if (nearCamp()) return { text: 'Camp: fire, food, sleep and tackle box', run: () => openCamp() };
+    // Up the Coldwater: the bothy (a stove, a bunk and a shelf of tackle), the fingerpost, the cairn.
+    if (coastSpot('bothy')) return { text: 'The bothy: stove, bunk and tackle shelf', run: () => openCamp('cook', 'bothy') };
+    if (coastSpot('fingerpost')) return { text: 'Read the fingerpost', run: () => readFingerpost() };
+    if (coastSpot('cairn')) return { text: 'Add a stone to the cairn', run: () => addToCairn() };
     const box = regionBox();
     if (box) return { text: `${PLACES.find((p) => p.id === box.place)?.name || 'Camp'}: the tackle box`, run: () => openPack('tackle box') };
     // Willowhaven, and the pages round the cove.
@@ -3214,6 +3231,20 @@ function drawNoteSketch(ctx, w, h, kind) {
     ctx.beginPath(); ctx.ellipse(w - 46, cy + 34, 24, 6, 0, Math.PI, 0); ctx.stroke();
     for (const [x, s] of [[w - 58, 1], [w - 38, 0.8]]) { ctx.beginPath(); ctx.ellipse(x, cy + 26, 8 * s, 3.5 * s, -0.2, 0, Math.PI * 2); ctx.fill(); }
     ctx.beginPath(); ctx.moveTo(10, cy + 40); for (let x = 10; x < w - 10; x += 12) ctx.quadraticCurveTo(x + 3, cy + 36, x + 6, cy + 40); ctx.stroke();
+  } else if (kind === 'sign') {
+    // A fingerpost: the post, three pointed arms, a tuft of grass at its foot.
+    ctx.beginPath(); ctx.moveTo(cx, cy + 60); ctx.lineTo(cx, cy - 64); ctx.stroke();
+    for (const [y, dir, len] of [[-50, 1, 70], [-26, -1, 60], [-4, 1, 52]]) {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + y - 7); ctx.lineTo(cx + dir * len, cy + y - 7); ctx.lineTo(cx + dir * (len + 10), cy + y); ctx.lineTo(cx + dir * len, cy + y + 7); ctx.lineTo(cx, cy + y + 7);
+      ctx.stroke();
+    }
+    ctx.beginPath(); ctx.moveTo(cx - 24, cy + 60); for (let x = -24; x <= 24; x += 6) ctx.lineTo(cx + x, cy + 60 - (x % 12 ? 10 : 4)); ctx.stroke();
+  } else if (kind === 'cairn') {
+    // The fell's top, a cairn on it, and the sea far below.
+    ctx.beginPath(); ctx.moveTo(10, cy + 34); ctx.quadraticCurveTo(cx - 40, cy - 30, cx, cy - 34); ctx.quadraticCurveTo(cx + 50, cy - 30, w - 10, cy + 44); ctx.stroke();
+    for (const [x, y, r] of [[0, -40, 9], [-8, -50, 7], [6, -51, 6], [-1, -60, 5], [0, -68, 4]]) { ctx.beginPath(); ctx.ellipse(cx + x, cy + y, r, r * 0.7, 0, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(14, cy + 56); for (let x = 14; x < w - 14; x += 12) ctx.quadraticCurveTo(x + 3, cy + 52, x + 6, cy + 56); ctx.stroke();
   } else if (kind === 'wall') {
     ctx.strokeRect(cx - 52, cy - 40, 104, 80);
     ctx.beginPath(); ctx.ellipse(cx, cy, 30, 14, 0, 0, Math.PI * 2); ctx.stroke();
@@ -3392,6 +3423,24 @@ function climbTower() {
   if (adventures.status('watch') === 'done') paintHavenBoard();
 }
 
+/* ---- up the Coldwater: the fingerpost and the cairn ---- */
+
+const km = (v) => `${v.toFixed(1)} km`;
+function readFingerpost() {
+  audio.rustle?.();
+  showNote('The fingerpost', `Three arms, the paint weathered grey. Up the river: “Hoarfell by the Coldwater, ${km(FELL_SIGN.summit)} · Bothy at Spout Force, ${km(FELL_SIGN.bothy)}”. West over the footbridge: “Coast path · The Landing”. East: “Willowhaven”. Someone has scratched underneath: “allow an hour to the top”.`, 'sign');
+}
+
+function addToCairn() {
+  audio.rustle?.();
+  explored.reveal(player().pos.x, player().pos.z, 900);
+  const first = !state.tips.cairn;
+  state.tips.cairn = true;
+  const sky = weather.rain > 0.15 ? 'Cloud drags across the top, and the coast comes and goes through it.' : state.hour < 6 || state.hour > 21 ? 'Below, the lights: Willowhaven’s quay, the lighthouse turning out on Gannet Isle.' : 'The whole coast is laid out below: Willow Bay and the Coldwater winding down to it, the Wend estuary, Longmere among its hills, Gannet Isle and the deep water beyond.';
+  showNote('Hoarfell', `${first ? 'You pick up a stone on the way to the top, as walkers do, and add it to the cairn.' : 'Another stone on the cairn.'} ${sky}`, 'cairn');
+  save();
+}
+
 /* ---- the bench, and boats brought round ---- */
 
 function sitOnBench() {
@@ -3495,9 +3544,10 @@ function photoSubjects(extra = null) {
   const species = new Set(extra?.species || []);
   for (const a of eco.agents) {
     if (!a.active || a.state === 'caught' || a.state === 'gone' || a.sp.retired) continue;
-    const d = Math.hypot(a.x - c.x, a.y - c.y, a.z - c.z);
+    const ay = a.y + (a.lvl || 0);
+    const d = Math.hypot(a.x - c.x, ay - c.y, a.z - c.z);
     if (d > (under ? 13 : 5) || (!under && a.y < -0.9)) continue;
-    if (_frustum.containsPoint(_pv.set(a.x, a.y, a.z))) species.add(a.sp.id);
+    if (_frustum.containsPoint(_pv.set(a.x, ay, a.z))) species.add(a.sp.id);
   }
   const places = [];
   for (const p of PLACES) {
@@ -3651,7 +3701,7 @@ function watchObservations(dt) {
   const c = camera.position;
   for (const a of eco.agents) {
     if (!a.active || a.state === 'gone' || a.state === 'caught') continue;
-    const dx = a.x - c.x, dy = a.y - c.y, dz = a.z - c.z, d = Math.hypot(dx, dy, dz);
+    const dx = a.x - c.x, dy = a.y + (a.lvl || 0) - c.y, dz = a.z - c.z, d = Math.hypot(dx, dy, dz);
     if (d > 9 || d < 0.2) continue;
     if ((dx * _fwd.x + dy * _fwd.y + dz * _fwd.z) / d < 0.55) continue;
     markObserved(a.sp.id, a);
@@ -3687,6 +3737,10 @@ function checkPlaces(dt) {
     if (pl.id === 'reach') teach('reachTip', 'The cove channel is sheltered from every wind: a calm place for a float at dusk, and for watching cuttlefish under the water.', 8);
     if (pl.id === 'calf') teach('calfTip', `The Calf: tie up at the landing in its lee and step ashore. Pollack and wrasse live over the kelp under the cliffs, bass hunt the white water off the Nose, and the watch tower looks out over the whole coast (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} at its door).`, 10);
     if (pl.id === 'sound') teach('soundTip', 'Calf Sound: the tide pours through here, the fastest water on the coast. Mackerel, garfish and bluefish hunt sandeels in it: cast a metal or a soft sandeel across the current and let it swing round, or drift through with it. It sets a boat east as it goes.', 10);
+    if (pl.id === 'coldfoot') teach('coldfootTip', 'Coldwater Foot: the fingerpost points up the river to the bothy and the top of Hoarfell. The path follows the Coldwater all the way: an hour’s walk to the top, past waterfalls and pools full of trout.', 9);
+    if (pl.id === 'bothy') teach('bothyTip', `The bothy: cook, sleep and swap tackle here (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} at the door). Now you’ve walked here, you can come straight back from the map.`, 9);
+    if (pl.id === 'tarn') teach('tarnTip', 'Hoar Tarn: small, wild trout rise at dusk in the cold water. Cast a fly or a little spinner along the edge where the shelf drops away.', 8);
+    if (pl.id === 'summit') teach('summitTip', `The top of Hoarfell. ${scheme() === 'touch' ? 'Tap the prompt' : `Press ${input.keyLabel('interact')}`} at the cairn to add a stone and look out over the coast.`, 8);
     if (pl.id === 'wreck') teach('wreckTip', `The Kittiwake lies below you. Look under the water (${scheme() === 'touch' ? 'the view button' : input.keyLabel('view')}) to see her, or fish over her: a bottom rig for the conger, a shad for the pollack.`, 9);
     save();
   }
@@ -5679,7 +5733,7 @@ function tick(now, manual = false) {
   underwater.update(dt, t, camera, env, weather.rain);
   fishRenderer.update(dt, camera, env.night, sub > 0.5);
   updateWind(dt * Math.min(speed, 10));
-  world.update(dt, t, env, { fireLevel: camp.fireLevel, hatchLevel: hatchLevel(), hour: state.hour, wind: 0.5 + Math.min(1, windAt(camera.position.x, camera.position.z).speed / FRESH) * 1.3, camera, fog: scene.fog.color });
+  world.update(dt, t, env, { fireLevel: camp.fireLevel, hatchLevel: hatchLevel(), hour: state.hour, wind: 0.5 + Math.min(1, windAt(camera.position.x, camera.position.z).speed / FRESH) * 1.3, camera, fog: scene.fog.color, hurry: !!(traveling || sleeping) });
   {
     const abs = state.day * 24 + state.hour;
     campView.update(dt, t, env, state.camps, player().pos, {
@@ -5735,6 +5789,14 @@ function tick(now, manual = false) {
   let ownCookD = Infinity;
   for (const c of state.camps) if (c.cooking) ownCookD = Math.min(ownCookD, Math.hypot(P.x - c.x, P.z - c.z));
   const windHere = windAt(P.x, P.z);
+  // Up the Coldwater: the beck running beside you (louder in the quick, steep runs), the roar of
+  // the falls, and the stillness of the tarn.
+  const cold = coldInfo(P.x, P.z);
+  const beck = cold.l > 0.05 ? (1 - smoothstep(2, 30, cold.d - cold.w)) * clamp(0.55 + cold.steep * 3, 0, 1) : 0;
+  const falls = Math.max(...FALLS.map((F) => {
+    const a = COLDWATER[F.top], b = COLDWATER[F.foot], big = a.l - b.l > 20;
+    return (1 - smoothstep(8, big ? 170 : 110, Math.hypot(P.x - b.x, P.z - b.z))) * (big ? 1 : 0.7);
+  }));
   audio.update(dt, {
     wind: Math.min(1, windHere.speed / FRESH),
     gust: windHere.gust,
@@ -5754,15 +5816,15 @@ function tick(now, manual = false) {
       ...world.flocks.map((f) => 1 - smoothstep(20, 160, Math.hypot(P.x - f.x, P.z - f.z))),
     ),
     water: onFoot ? Math.max(1 - smoothstep(3, 30, -seaD), 1 - smoothstep(3, 30, Math.min(mereSDF(P.x, P.z), riverSDF(P.x, P.z)))) : 1,
-    stream: 1 - smoothstep(1.5, 24, streamSDF(P.x, P.z)),
-    lake: Math.max(1 - smoothstep(2, 35, lakeSDF(P.x, P.z)), 1 - smoothstep(2, 45, mereSDF(P.x, P.z)), (1 - smoothstep(2, 30, riverSDF(P.x, P.z))) * 0.6),
+    stream: Math.max(1 - smoothstep(1.5, 24, streamSDF(P.x, P.z)), beck),
+    lake: Math.max(1 - smoothstep(2, 35, lakeSDF(P.x, P.z)), 1 - smoothstep(2, 45, mereSDF(P.x, P.z)), (1 - smoothstep(2, 30, riverSDF(P.x, P.z))) * 0.6, (1 - smoothstep(2, 40, tarnSDF(P.x, P.z))) * 0.7),
     fire: camp.fireLevel * (1 - smoothstep(2, 18, fireD)),
     sizzle: Math.max(camp.cooking ? 1 - smoothstep(2, 12, fireD) : 0, 1 - smoothstep(2, 12, ownCookD)),
     stove: 1 - smoothstep(1.5, 9, ownCookD),
     harbour: 1 - smoothstep(15, 70, Math.hypot(P.x - HAVEN.x, P.z - HAVEN.z)),
     inlet: 1 - smoothstep(10, 60, Math.min(...CHANNEL.map((c) => Math.hypot(P.x - (c[0] + c[2]) / 2, P.z - (c[1] + c[3]) / 2)), Math.hypot(P.x - COVE.x, P.z - COVE.z))),
     head: Math.max(1 - smoothstep(15, 90, Math.hypot(P.x - DAYMARK.x, P.z - (DAYMARK.z + 20))), 1 - smoothstep(15, 80, Math.hypot(P.x - (CALF.x - CALF.rx), P.z - CALF.z))),
-    race: 1 - smoothstep(10, 110, Math.hypot(P.x - (CALF_SOUND.x0 + CALF_SOUND.x1) / 2, P.z - (CALF_SOUND.z0 + CALF_SOUND.z1) / 2)),
+    race: Math.max(1 - smoothstep(10, 110, Math.hypot(P.x - (CALF_SOUND.x0 + CALF_SOUND.x1) / 2, P.z - (CALF_SOUND.z0 + CALF_SOUND.z1) / 2)), falls),
     seals: 1 - smoothstep(15, 70, Math.hypot(P.x - CALF_SKERRY.x, P.z - CALF_SKERRY.z)),
     tent: state.camps.reduce((m, c) => Math.max(m, 1 - smoothstep(3, 18, Math.hypot(P.x - c.x, P.z - c.z))), 0),
   });
@@ -5889,7 +5951,7 @@ requestAnimationFrame((now) => {
 window.slowTide = {
   car, travel: (d) => travel(d), driveTo: (d, how) => driveTo(d, how), enterCar: () => enterCar(), exitCar: () => exitCar(),
   openBench: (st) => openBench(st), get driving() { return driving; }, get modalName() { return modal; },
-  state, walker, fishing, env, weather, renderer, post, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world,
+  state, walker, fishing, env, weather, renderer, post, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world, explored,
   get boat() { return boat; }, // the boat you're in (or last used)
   reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI, pads,
   // The first-trip guide as it stands: the step, its words and where it points.

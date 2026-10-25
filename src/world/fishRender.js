@@ -62,7 +62,7 @@ export class FishRenderer {
       let k = 0, kf = 0;
       for (const f of set.list) {
         if (!f.active || f.state === 'caught' || f.state === 'gone') continue;
-        const x = f.px + (f.x - f.px) * alpha, y = f.py + (f.y - f.py) * alpha, z = f.pz + (f.z - f.pz) * alpha;
+        const x = f.px + (f.x - f.px) * alpha, y = f.py + (f.y - f.py) * alpha + (f.lvl || 0), z = f.pz + (f.z - f.pz) * alpha;
         const d2 = (x - cx) ** 2 + (y - cy) ** 2 + (z - cz) ** 2;
         if (d2 > maxD2) continue;
         if (f.rank >= this.density && d2 > 324 && !busy.has(f.state)) continue;

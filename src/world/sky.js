@@ -1,6 +1,42 @@
 import * as THREE from 'three';
 import { clamp, lerp, smoothstep, seeded, mergeParts, mat } from '../util.js';
 
+// The haze lies low: thick over the sea and the low ground, thinner higher up, so the snow on
+// Hoarfell shows from the bay while the far edges of the land stay lost in it. (The fog's
+// density, for each thing drawn, goes by how high that thing is.)
+THREE.ShaderChunk.fog_pars_vertex = `#ifdef USE_FOG
+  varying float vFogDepth;
+  varying float vFogY;
+#endif`;
+THREE.ShaderChunk.fog_vertex = `#ifdef USE_FOG
+  vFogDepth = - mvPosition.z;
+  vFogY = cameraPosition.y + dot(viewMatrix[1].xyz, mvPosition.xyz);
+#endif`;
+THREE.ShaderChunk.fog_pars_fragment = `#ifdef USE_FOG
+  uniform vec3 fogColor;
+  varying float vFogDepth;
+  varying float vFogY;
+  #ifdef FOG_EXP2
+    uniform float fogDensity;
+  #else
+    uniform float fogNear;
+    uniform float fogFar;
+  #endif
+#endif`;
+THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
+  #ifdef FOG_EXP2
+    // (How hazy the air is at each height, and on the way here from the eye: the less of the two,
+    // so the high tops stand clear from below, and from up high you see down through the haze.)
+    #define HAZE(y) mix(1.0, 0.16, smoothstep(40.0, 330.0, y))
+    float fogAlong = (HAZE(cameraPosition.y) + 4.0 * HAZE((cameraPosition.y + vFogY) * 0.5) + HAZE(vFogY)) / 6.0;
+    float fogThin = fogDensity * min(HAZE(vFogY), fogAlong);
+    float fogFactor = 1.0 - exp( - fogThin * fogThin * vFogDepth * vFogDepth );
+  #else
+    float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
+  #endif
+  gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );
+#endif`;
+
 // Hand-picked colours for each part of the day. Everything else is interpolated.
 const KEYS = [
   { h: 0,    zen: '#0f1d3a', hor: '#2a3d66', sun: '#9cb2e4', sunI: 0.5, sky: '#53689e', gnd: '#1c2132', hemiI: 1.1 },

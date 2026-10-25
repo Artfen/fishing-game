@@ -121,6 +121,9 @@ export class Ecosystem {
     const size = Math.round(lerp(sp.size[0], sp.size[1], Math.pow(rnd(), 1.7)));
     const a = {
       id: this.agents.length, sp, L, size, scale: (size / 100) * sp.visual, home, school, slot: null,
+      // The level of its water's surface (0 for the sea and the lakes; a pool up the Coldwater or
+      // Hoar Tarn sits higher). Every height here is reckoned from that surface.
+      lvl: home.level || 0,
       x: home.x + (rnd() - 0.5) * home.r, y: -1, z: home.z + (rnd() - 0.5) * home.r,
       px: 0, py: 0, pz: 0, pyaw: 0,
       yaw: rnd() * Math.PI * 2, pitch: 0, bank: 0, speed: 0, wantSpeed: 0, turnRate: 0,
@@ -1015,9 +1018,10 @@ export class Ecosystem {
     this.startle(a.x, a.y, a.z, 5, 0.8);
   }
 
+  // (x, y, z in the world: y is taken back to the fish's own water.)
   placeHooked(a, x, y, z, yaw, beat) {
     a.x = a.px = x;
-    a.y = a.py = y;
+    a.y = a.py = y - (a.lvl || 0);
     a.z = a.pz = z;
     a.yaw = a.pyaw = yaw;
     a.pitch = 0;

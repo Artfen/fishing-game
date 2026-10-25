@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { FISH, buildFishMesh } from './fish.js';
 import { waveHeight } from './world/water.js';
 import { currentAt, windAt, currentScale } from './world/conditions.js';
-import { solidHeight } from './world/terrain.js';
+import { solidHeight, depthAt, waterLevel } from './world/terrain.js';
 import { RODS, TACKLE, TERMS, LINE_COLORS, castRange, windSensitivity, splashOf, checkSetup, castWeight } from './tackle.js';
 import { buildTackleModel, buildFloat, buildIndicator, buildLead } from './tackleModels.js';
 import { clamp, lerp, damp, rand, smoothstep, wrapAngle, glowTexture } from './util.js';
@@ -378,7 +378,9 @@ export class Fishing {
       carry = Math.hypot(a.vel.x, a.vel.z) * flight * 0.85;
     }
     const minDepth = fly ? 0.3 : 0.6;
-    const wet = (px, pz) => solidHeight(px, pz) < -minDepth;
+    const wet = (px, pz) => depthAt(px, pz) > minDepth;
+    // (The flight comes down to the water where it lands: the sea, or a pool up the Coldwater.)
+    const landY = waveHeight(x, z);
     let obstruct = null;
     // Along the flight: a hill or high bank in the way, or a tree's crown.
     this.from.copy(this.tip);
@@ -386,7 +388,7 @@ export class Fishing {
     for (let i = 1; i < 20; i++) {
       const u = i / 20;
       const px = lerp(this.from.x, x, u), pz = lerp(this.from.z, z, u);
-      const py = lerp(this.from.y, 0, u) + 4 * apex * u * (1 - u);
+      const py = lerp(this.from.y, landY, u) + 4 * apex * u * (1 - u);
       const ground = solidHeight(px, pz);
       const tree = u > 0.06 && this.hooks.canopyAt?.(px, py, pz);
       if (ground > py - 0.15 || tree) {
@@ -537,7 +539,7 @@ export class Fishing {
     this.reelSpeed = 0;
     this.relSpeed = 0;
     this.twitchT = 0;
-    this.bottom = Math.max(0.25, -solidHeight(this.to.x, this.to.z));
+    this.bottom = Math.max(0.25, depthAt(this.to.x, this.to.z));
     // The line out: what reached the rig (a float gets a little more, to drift on).
     this.lineLen = Math.hypot(this.to.x - this.tip.x, this.to.z - this.tip.z) * (this.kind === 'float' ? 1.15 : 1) + (this.kind === 'float' ? 4 : 0.5);
     this.towSpeed = 0;
@@ -651,8 +653,9 @@ export class Fishing {
     b.vx = clamp((this.hook.x - this.lastSync.x) / this.frameDt, -4, 4);
     b.vz = clamp((this.hook.z - this.lastSync.z) / this.frameDt, -4, 4);
     this.lastSync.copy(this.hook);
+    // (The fish reckon heights from their own water's surface: see ecosystem.js.)
     b.x = this.hook.x;
-    b.y = this.hook.y;
+    b.y = this.hook.y - waterLevel(this.hook.x, this.hook.z);
     b.z = this.hook.z;
     b.anglerX = this.tip.x;
     b.anglerZ = this.tip.z;
@@ -731,7 +734,7 @@ export class Fishing {
     this.t = 0;
     this.agent = a;
     this.biteKind = kind;
-    const shallow = this.hook.y > -1.3;
+    const shallow = this.hook.y - waterLevel(this.hook.x, this.hook.z) > -1.3;
     // Sea bottom rigs and squid jigs need a strike too: the rod tip pulls round, or the jig
     // stops sinking under a squid's weight. One gentle ring.
     if (this.kind === 'bottom' && kind !== 'strike') {
@@ -846,7 +849,7 @@ export class Fishing {
     const dx = this.hook.x - a.pos.x, dz = this.hook.z - a.pos.z, l = Math.hypot(dx, dz) || 1;
     for (let d = 0.5; d < l; d += 0.4) {
       const x = a.pos.x + (dx / l) * d, z = a.pos.z + (dz / l) * d;
-      if (solidHeight(x, z) < -0.45) return new THREE.Vector3(x + (dx / l) * 0.6, 0, z + (dz / l) * 0.6);
+      if (depthAt(x, z) > 0.45) return new THREE.Vector3(x + (dx / l) * 0.6, 0, z + (dz / l) * 0.6);
     }
     return this.hook.clone();
   }
@@ -914,7 +917,7 @@ export class Fishing {
     const cp = Math.cos(a.pitch);
     return out.set(
       a.x + Math.sin(a.yaw) * cp * a.scale * 0.5,
-      a.y + Math.sin(a.pitch) * a.scale * 0.5,
+      a.y + (a.lvl || 0) + Math.sin(a.pitch) * a.scale * 0.5,
       a.z + Math.cos(a.yaw) * cp * a.scale * 0.5,
     );
   }
@@ -1102,7 +1105,7 @@ export class Fishing {
       case 'releasing': {
         const u = clamp(this.t / 0.65, 0, 1);
         fishMesh.position.lerpVectors(this.from, this.to, u);
-        fishMesh.position.y = lerp(this.from.y, -0.3, u) + Math.sin(u * Math.PI) * 0.6;
+        fishMesh.position.y = lerp(this.from.y, waterLevel(this.to.x, this.to.z) - 0.3, u) + Math.sin(u * Math.PI) * 0.6;
         fishMesh.rotation.set(lerp(-1.2, 1.3, u), face + Math.PI / 2, 0, 'YXZ');
         rodPitch = 0.9;
         if (u >= 1) {
@@ -1263,7 +1266,7 @@ export class Fishing {
     }
     this.dip = damp(this.dip, 0, 8, dt);
     this.bob.y = waveHeight(this.bob.x, this.bob.z, t) - this.dip;
-    this.bottom = Math.max(0.3, -solidHeight(this.hook.x, this.hook.z));
+    this.bottom = Math.max(0.3, depthAt(this.hook.x, this.hook.z));
 
     // The bait hangs below the float at the chosen depth; reeling lifts it a little.
     let want = Math.min(this.depth, Math.max(0.3, this.bottom - 0.15));
@@ -1324,7 +1327,7 @@ export class Fishing {
     r.pausing = r.wasMoving && !moving && r.pauseT < 1.4;
     if (!moving && r.pauseT > 1.4) r.wasMoving = false;
 
-    this.bottom = Math.max(0.15, -solidHeight(this.hook.x, this.hook.z));
+    this.bottom = Math.max(0.15, depthAt(this.hook.x, this.hook.z));
     let want, rate;
     const act = it.action;
     r.hop = Math.max(0, (r.hop || 0) - dt);
@@ -1417,7 +1420,7 @@ export class Fishing {
         if (Math.random() < dt * 0.6) this.rodBounce = Math.max(this.rodBounce || 0, 0.05);
       }
     }
-    this.bottom = Math.max(0.25, -solidHeight(this.hook.x, this.hook.z));
+    this.bottom = Math.max(0.25, depthAt(this.hook.x, this.hook.z));
     if (!r.settled) {
       this.baitDepth = Math.min(this.baitDepth + 2.4 * dt, this.bottom - 0.03);
       if (this.baitDepth >= this.bottom - 0.04) {
@@ -1455,7 +1458,7 @@ export class Fishing {
     if (this.twitchT > 0) this.twitchT -= dt;
     r.darted = Math.max(0, r.darted - dt);
     if (!r.onBottom) this.carry(this.hook, this.baitDepth, dt, 0.9, 0);
-    this.bottom = Math.max(0.2, -solidHeight(this.hook.x, this.hook.z));
+    this.bottom = Math.max(0.2, depthAt(this.hook.x, this.hook.z));
     const floor = Math.max(0.2, this.bottom - 0.3);
     if (r.lift > 0) {
       r.lift -= dt;
@@ -1522,7 +1525,7 @@ export class Fishing {
     }
     // How fast it moves through the water (a fly drifting with the current is "still").
     this.relSpeed = Math.hypot((this.hook.x - this.prevHook.x) / dt - this.flow.x, (this.hook.z - this.prevHook.z) / dt - this.flow.z);
-    this.bottom = Math.max(0.2, -solidHeight(this.hook.x, this.hook.z));
+    this.bottom = Math.max(0.2, depthAt(this.hook.x, this.hook.z));
     if (it.fly === 'dry') this.baitDepth = 0;
     else {
       const want = Math.min(strip ? it.sink * 0.6 : it.sink, this.bottom - 0.08);
@@ -1607,12 +1610,12 @@ export class Fishing {
     const wig = Math.sin(t * 6.5) * 0.15;
     let x = cx - dz * (F.lat + wig), z = cz + dx * (F.lat + wig);
     // Don't let it swim up onto the bank.
-    if (solidHeight(x, z) > -0.35) {
+    if (depthAt(x, z) < 0.35) {
       x = cx;
       z = cz;
     }
-    const floor = solidHeight(x, z) + 0.3;
-    const y = Math.min(Math.max(lerp(F.start.y, -0.35, e) - (F.pulling ? St.dive * (1 - e * 0.5) : 0), floor), -0.2);
+    const floor = solidHeight(x, z) + 0.3, lv = waterLevel(x, z);
+    const y = Math.min(Math.max(lerp(F.start.y, lv - 0.35, e) - (F.pulling ? St.dive * (1 - e * 0.5) : 0), floor), lv - 0.2);
     this.fishPos.set(x, y, z);
     const away = Math.atan2(x - b.x, z - b.z);
     this.eco.placeHooked(F.agent, x, y, z, away + (F.pulling ? F.lat * 0.15 : F.dir * 1.6), F.pulling ? 1 : 0.5);

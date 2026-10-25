@@ -115,7 +115,7 @@ const num = (v, d, lo = -Infinity, hi = Infinity) => (typeof v === 'number' && N
 const int = (v, d, lo, hi) => Math.round(num(v, d, lo, hi));
 const str = (v, d, max = 60) => (typeof v === 'string' ? v.slice(0, max) : d);
 const oneOf = (v, list, d) => (list.includes(v) ? v : d);
-const ZONES = ['bay', 'cove', 'open', 'lake', 'stream', 'estuary', 'mere', 'coast', 'deep'];
+const ZONES = ['bay', 'cove', 'open', 'lake', 'stream', 'estuary', 'mere', 'coast', 'deep', 'river', 'tarn', 'tideway'];
 const SKY_STATES = ['clear', 'partly', 'overcast', 'light', 'heavy'];
 const KINDS = ['float', 'lure', 'ledger', 'bottom', 'fly', 'jig', 'spear'];
 export const OUTCOMES = ['released', 'kept', 'cooked', 'eaten'];
