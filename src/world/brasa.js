@@ -103,6 +103,9 @@ export const FINGERS_S = [
 ];
 export const PONTOON_STEPS = [1.34, 1.08, 0.82].map((deck, i) => ({ x: 60, z: 6301.5 + i, hx: 0.9, hz: 0.5, yaw: 0, deck }));
 export const FUEL_S = { x: 65, z: 6298.5, yaw: 0, name: 'the fuel pump on Puerto Brasa quay' };
+// The harbour office: a white kiosk on the quay, where the harbour master has your boats brought
+// round, or shipped down from Willowhaven on the supply ship.
+export const HARBOUR_OFFICE = { x: 52, z: 6293.6, w: 3, d: 2.2 };
 // Where you come ashore by the quay steps, and the bar with a room upstairs.
 export const QUAY_STEPS = { x: 30, z: 6297 };
 export const POSADA = { x: 18, z: 6276, yaw: 0 };

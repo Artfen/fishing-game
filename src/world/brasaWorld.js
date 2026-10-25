@@ -4,7 +4,7 @@ import { withSurface } from './surface.js';
 import { withCaustics } from './caustics.js';
 import {
   brasaHeight, brasaSDF, brasaHabitat, lavaRough, onBeach, windward, ISLE, PICO, ROJA, FARO, PUERTO, PLAYA, ARCO, ARCHES,
-  VILLAGE, QUAY_S, DIQUE, MOLE, POSADA, QUAY_STEPS, SEBADAL, SOUTH_MAP, PONTOON_S, FINGERS_S, PONTOON_STEPS, FUEL_S, BAJON, onBajon,
+  VILLAGE, QUAY_S, DIQUE, MOLE, POSADA, QUAY_STEPS, SEBADAL, SOUTH_MAP, PONTOON_S, FINGERS_S, PONTOON_STEPS, FUEL_S, BAJON, onBajon, HARBOUR_OFFICE,
 } from './brasa.js';
 import { fuelPumpParts, pontoonParts } from '../props.js';
 
@@ -331,6 +331,17 @@ export function buildBrasa(scene, rnd) {
       const len = along === 'z' ? B.z1 - B.z0 : B.x1 - B.x0;
       for (let u = 1; u < len; u += 3) obstacles.push({ x: along === 'z' ? B.x1 - 0.6 : B.x0 + u, z: along === 'z' ? B.z0 + u : B.z1 - 0.6, r: 0.8, top: B.deck + 1.4 });
     }
+  }
+  // The harbour office: a little white kiosk on the quay with a blue door and a window on the
+  // harbour (its door faces the water).
+  {
+    const O = HARBOUR_OFFICE, y = QUAY_S.deck;
+    white.push({ geo: new THREE.BoxGeometry(O.w, 2.5, O.d), matrix: mat(O.x, y + 1.25, O.z), color: '#f1ede4' });
+    plainParts.push({ geo: new THREE.BoxGeometry(O.w + 0.3, 0.14, O.d + 0.3), matrix: mat(O.x, y + 2.55, O.z), color: '#3a6fa0' });
+    plainParts.push({ geo: new THREE.BoxGeometry(0.85, 1.9, 0.05), matrix: mat(O.x - 0.6, y + 0.95, O.z + O.d / 2 + 0.01), color: '#2c5d8a' });
+    plainParts.push({ geo: new THREE.BoxGeometry(0.9, 0.7, 0.05), matrix: mat(O.x + 0.65, y + 1.45, O.z + O.d / 2 + 0.01), color: '#30434d' });
+    obstacles.push({ x: O.x, z: O.z, r: 1.5, kind: 'harbour', name: 'the harbour office' });
+    spots.push({ kind: 'office', name: 'the harbour office', x: O.x - 0.6, z: O.z + O.d / 2 + 0.9, r: 1.8 });
   }
   // The pontoon (see props.js), its fingers and the gangway down from the quay; the fuel pump on
   // the quay at its root.

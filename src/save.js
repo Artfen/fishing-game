@@ -61,6 +61,7 @@ export const DEFAULT_STATE = {
   sky: null,       // the weather right now: { cloud, rain, state, timer }
   seen: '',        // the parts of the map you've explored (see map.js), as base64
   seenSouth: '',   // the same for Las Brasas' chart, far to the south
+  shipping: [],    // boats on the supply ship between the harbours: { kind, to ('south' or 'home'), due (game hours) }
   observed: {},    // species you've seen for yourself: id -> { count, day, hour, zone }
   trip: null,      // a fishing trip under way (see trip.js)
   trips: [],       // trips you've finished, with what they brought (the last twenty)
@@ -281,6 +282,10 @@ export function sanitize(raw) {
     }
   }
   s.seen = typeof raw.seen === 'string' && raw.seen.length <= 4000 && /^[A-Za-z0-9+/=]*$/.test(raw.seen) ? raw.seen : '';
+  s.shipping = (Array.isArray(raw.shipping) ? raw.shipping : [])
+    .filter((x) => isObj(x) && VESSELS.includes(x.kind) && x.kind !== 'bass' && (x.to === 'south' || x.to === 'home') && Number.isFinite(x.due))
+    .slice(0, VESSELS.length)
+    .map((x) => ({ kind: x.kind, to: x.to, due: x.due }));
   s.seenSouth = typeof raw.seenSouth === 'string' && raw.seenSouth.length <= 2000 && /^[A-Za-z0-9+/=]*$/.test(raw.seenSouth) ? raw.seenSouth : '';
   // Your camps, marks, photographs, adventures and keepsakes (version 5).
   s.camps = cleanCamps(raw.camps);

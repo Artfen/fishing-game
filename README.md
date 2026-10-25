@@ -407,6 +407,8 @@ Whether a boat is anchored (and where its anchor lies), tied up (and at which be
 
 **The jet ski.** It lies beside the board. It drives on the throttle lever like the motorboats (a light touch goes a long way: half ahead is already eight metres a second), up to about seventeen metres a second, over thirty knots. It steers by its jet, so it only turns with the throttle on. At speed it leaves the wave crests and flies a moment before landing with a smack, and it throws a plume of spray behind it; in a calm it skims flat. It runs on petrol (60 L; the fuel point is beside its berth). No fishing from it.
 
+**Your boats in either sea.** At Willowhaven's quay head, or Puerto Brasa's **harbour office** (the white kiosk on the quay by the gangway), you can have any of your boats brought round to the pontoon or the quay; and one that's in the other sea goes on the **supply ship** overnight and is tied up at the pontoon here at eight the next morning (sleep, or rest a while). The bass boat stays on Longmere.
+
 The motor cruiser carries the board and the jet ski on her deck on the long passage, if they're beside her when she sets off: they come off at Las Brasas beside her, and go back to their berths when she brings them home.
 
 **The pontoons.** Willowhaven and Puerto Brasa each have a floating pontoon: a gangway of steps down from the quay, a walkway low on the water, and finger berths off it with room for the bigger boats. Tie up alongside a finger as at any quay (**Z**), and walk ashore up the gangway. Willowhaven's has a **fuel point** near its head; Puerto Brasa's pump is on the quay at the gangway's top, and reaches boats at the nearest fingers and alongside the quay.

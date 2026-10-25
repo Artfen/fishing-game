@@ -210,3 +210,12 @@ test('her fuel: a big tank, the passage takes half of it, and the save keeps her
   assert.equal(s.boats.cruiser.z, B.LANDFALL.z);
   assert.equal(s.fuel.boats.cruiser, 120);
 });
+
+test('boats on the supply ship between the harbours are kept in the save, cleaned', async () => {
+  const { parseSave, SAVE_VERSION } = await import('../src/save.js');
+  const shipping = [{ kind: 'jetski', to: 'south', due: 200 }, { kind: 'bass', to: 'south', due: 200 }, { kind: 'yacht', to: 'home', due: 1 }, { kind: 'kayak', to: 'moon', due: 3 }];
+  const s = parseSave(JSON.stringify({ game: 'slow-tide', version: SAVE_VERSION, savedAt: 1000, data: { day: 8, shipping } })).state;
+  assert.deepEqual(s.shipping, [{ kind: 'jetski', to: 'south', due: 200 }], 'only real boats (not the lake’s bass boat) to a real harbour');
+  const B = await import('../src/world/brasa.js');
+  assert.ok(B.HARBOUR_OFFICE.x > B.QUAY_S.x0 && B.HARBOUR_OFFICE.x < B.QUAY_S.x1 && B.HARBOUR_OFFICE.z > B.QUAY_S.z0 && B.HARBOUR_OFFICE.z < B.QUAY_S.z1, 'the office on the quay');
+});

@@ -11,6 +11,10 @@ const ctx2d = new Proxy({}, {
 });
 globalThis.document ??= { createElement: () => ({ width: 0, height: 0, getContext: () => ctx2d }) };
 
+// (The ecosystem rolls dice: a fixed seed, so a species that bites, bites every run.)
+const { seeded } = await import('../src/util.js');
+Math.random = seeded(20261025);
+
 const THREE = await import('three');
 const { FISH, fishById } = await import('../src/fish.js');
 const { RODS, TACKLE, TERMS, fits, checkSetup } = await import('../src/tackle.js');

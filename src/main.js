@@ -3690,7 +3690,8 @@ function interaction() {
     if (coastSpot('tower')) return { text: 'The watch tower', run: () => climbTower() };
     if (chandleryNear()) return { text: 'The chandlery: tackle, bait, charts and air', run: () => { fillTank(); openPack('chandlery'); } };
     if (coastSpot('bench')) return { text: 'Sit on the bench a while', run: () => sitOnBench() };
-    if (quayHeadNear()) return { text: 'Have a boat brought round to the quay', run: () => boatsRound() };
+    if (quayHeadNear()) return { text: boats.some((b) => b.kind !== 'bass' && regionOf(b) === 'south') ? 'Have a boat brought round, or shipped from Las Brasas' : 'Have a boat brought round to the quay', run: () => boatsRound('home') };
+    if (coastSpot('office')) return { text: 'The harbour office: your boats, brought round or shipped from Willowhaven', run: () => boatsRound('south') };
     // Clear running water beside you, and room in your bottle.
     if (needsMode() !== 'off' && state.comfort.bottle < BOTTLE && streamHere()) return { text: 'Fill your water bottle', run: () => fillBottle() };
     if (stuckT > 2.5) return { text: 'Stuck? Head back to camp or the boat', run: () => openPack() };
@@ -4143,46 +4144,94 @@ function quayMooring(b) {
   }
   return null;
 }
-function boatsRound() {
-  const here = (b) => Math.hypot(b.pos.x - QUAY_HEAD.x, b.pos.z - HAVEN_QUAY.z1) < 14 || (b.hull.passage && Math.hypot(b.pos.x - CRUISER_BERTH.x, b.pos.z - CRUISER_BERTH.z) < 6);
-  // (Not a boat you left at Las Brasas: she's four days away.)
-  const away = boats.filter((b) => b.pos.z > SOUTH_Z);
-  const list = boats.filter((b) => b.kind !== 'bass' && !here(b) && b.pos.z < SOUTH_Z);
-  const far = away.length ? ` (The ${away.map((b) => b.name).join(' and the ')} ${away.length > 1 ? 'are' : 'is'} at Las Brasas.)` : '';
-  if (!list.length) {
-    hud.toast(`Your boats are all here at the quay already. (The bass boat lives on Longmere.)${far}`, 4);
+// Your boats, from either harbour's quay (Willowhaven's quay head, Puerto Brasa's harbour
+// office): one in this sea is brought round for you now; one in the other goes on the supply
+// ship overnight and is at the pontoon here the next morning at eight. (The bass boat lives on
+// Longmere.)
+const regionOf = (b) => (b.pos.z > SOUTH_Z ? 'south' : 'home');
+function boatsRound(here = regionOf(player())) {
+  const south = here === 'south';
+  const atHand = (b) => (south ? Math.hypot(b.pos.x - PONTOON_S.x0, b.pos.z - 6320) < 45
+    : Math.hypot(b.pos.x - QUAY_HEAD.x, b.pos.z - HAVEN_QUAY.z1) < 14 || (b.hull.passage && Math.hypot(b.pos.x - CRUISER_BERTH.x, b.pos.z - CRUISER_BERTH.z) < 6));
+  const coming = new Set((state.shipping || []).filter((s) => s.to === here).map((s) => s.kind));
+  const near = boats.filter((b) => b.kind !== 'bass' && regionOf(b) === here && !atHand(b) && !coming.has(b.kind));
+  const far = boats.filter((b) => b.kind !== 'bass' && regionOf(b) !== here && !coming.has(b.kind) && b !== boat);
+  const otherName = south ? 'Willowhaven' : 'Puerto Brasa';
+  const onShip = [...coming].map((k) => BOATS[k].name);
+  const shipNote = onShip.length ? ` On the supply ship already: the ${onShip.join(' and the ')}, here tomorrow morning.` : '';
+  if (!near.length && !far.length) {
+    hud.toast(`Your boats are all here already.${shipNote} (The bass boat lives on Longmere.)`, 5);
     return;
   }
-  ask('Bring a boat round?', 'One of the harbour lads will row or run it round to the quay for you. It takes a little while.', [
+  ask(south ? 'The harbour office' : 'Bring a boat round?', `${near.length ? 'A boat in this sea is brought round to the pontoon or the quay for you now.' : ''}${far.length ? ` A boat at ${otherName} goes on the supply ship tonight, and is at the pontoon here at eight tomorrow morning.` : ''}${shipNote}`.trim(), [
     { text: 'Never mind', cls: 'quiet' },
-    ...list.map((b) => ({
-      text: `The ${b.name}`, run: () => {
-        // (The cruiser to her own berth on the pontoon; the others alongside the quay.)
-        const p = b.hull.passage ? pontoonBerth(b, false) : quayMooring(b);
-        if (!p) {
-          hud.toast('There’s no room alongside the quay just now.', 3);
-          return;
-        }
-        const d = Math.hypot(b.pos.x - p.x, b.pos.z - p.z);
-        if (tow && (tow.lead === b || tow.towed === b)) letGoTow(true);
-        // (Brought round, her anchor comes up with her.)
-        b.anchor = null;
-        b.anchored = false;
-        b.place(p.x, p.z, p.heading);
-        // (Tied up alongside, so she's still there when you come down the steps.)
-        const B = berthFor(b, boats, { reach: 4 });
-        if (B) {
-          b.place(B.x, B.z, B.heading);
-          b.tieTo({ ...B, t: 9 });
-        }
-        passTime(clamp(d / 300, 0.15, 1.5));
-        audio.knock(0.4);
-        save();
-        hud.toast(b.hull.passage ? `The ${b.name} is at her berth on the pontoon, off the end of the quay. Down the gangway, step aboard, and cast off (${scheme() === 'touch' ? 'the Cast off prompt' : input.keyLabel('anchor')}) to go.`
-          : `The ${b.name} is tied up alongside the quay. Step down into her from the quay steps, and cast off (${scheme() === 'touch' ? 'the Cast off prompt' : input.keyLabel('anchor')}) to go.`, 6);
-      },
-    })),
+    ...near.map((b) => ({ text: `The ${b.name}`, run: () => bringRound(b, here) })),
+    ...far.map((b) => ({ text: `Ship the ${b.name} from ${otherName}`, cls: 'quiet', run: () => shipBoat(b, here) })),
   ]);
+}
+
+// A boat in this sea brought round to the pontoon (or Willowhaven's quay).
+function bringRound(b, here) {
+  const south = here === 'south';
+  const p = south || b.hull.passage ? pontoonBerth(b, south) || (south ? null : quayMooring(b)) : quayMooring(b) || pontoonBerth(b, false);
+  if (!p) {
+    hud.toast('There’s no room alongside just now.', 3);
+    return;
+  }
+  const d = Math.hypot(b.pos.x - p.x, b.pos.z - p.z);
+  if (tow && (tow.lead === b || tow.towed === b)) letGoTow(true);
+  // (Brought round, her anchor comes up with her.)
+  b.anchor = null;
+  b.anchored = false;
+  b.place(p.x, p.z, p.heading);
+  // (Tied up alongside, so she's still there when you come down the steps.)
+  const B = berthFor(b, boats, { reach: 4 });
+  if (B) {
+    b.place(B.x, B.z, B.heading);
+    b.tieTo({ ...B, t: 9 });
+  }
+  passTime(clamp(d / 300, 0.15, 1.5));
+  audio.knock(0.4);
+  save();
+  const pontoon = south || b.hull.passage || (B && PIERS[B.pier] !== HAVEN_QUAY);
+  hud.toast(pontoon ? `The ${b.name} is tied up at the pontoon. Down the gangway, step aboard, and cast off (${scheme() === 'touch' ? 'the Cast off prompt' : input.keyLabel('anchor')}) to go.`
+    : `The ${b.name} is tied up alongside the quay. Step down into her from the quay steps, and cast off (${scheme() === 'touch' ? 'the Cast off prompt' : input.keyLabel('anchor')}) to go.`, 6);
+}
+
+// On the supply ship: she leaves where she is tonight and is at the pontoon in the other
+// harbour at eight tomorrow morning.
+function shipBoat(b, to) {
+  const due = (state.hour < 3 ? state.day : state.day + 1) * 24 + 8;
+  state.shipping = [...(state.shipping || []).filter((s) => s.kind !== b.kind), { kind: b.kind, to, due }];
+  audio.knock?.(0.3);
+  hud.toast(`The ${b.name} goes on the supply ship tonight: she’ll be tied up at the pontoon in ${to === 'south' ? 'Puerto Brasa' : 'Willowhaven'} at eight tomorrow morning. (Sleep, or rest a while.)`, 7);
+  save();
+}
+function deliverShipping() {
+  const list = state.shipping || [];
+  if (!list.length) return;
+  const now = state.day * 24 + state.hour;
+  for (const s of [...list]) {
+    if (now < s.due) continue;
+    const b = BOATS[s.kind];
+    state.shipping = state.shipping.filter((x) => x !== s);
+    // (Not the boat you're in: she stays with you, and the order's cancelled.)
+    if (!b || (b === boat && !onFoot)) continue;
+    if (tow && (tow.lead === b || tow.towed === b)) letGoTow(true);
+    Object.assign(b, { tie: null, shove: null, anchor: null, anchored: false, lever: 0, power: 0 });
+    const south = s.to === 'south';
+    const B = pontoonBerth(b, south);
+    if (B) {
+      b.place(B.x, B.z, B.heading);
+      b.tieTo({ ...B, t: 9 });
+    } else {
+      const p = south ? { x: PONTOON_S.x1 + 9, z: PONTOON_S.z1 + 6, heading: 0 } : mooring(b.kind);
+      b.place(p.x, p.z, p.heading);
+      b.setAnchor(true, { instant: true });
+    }
+    if (regionOf(player()) === s.to) hud.toast(`The supply ship is in: the ${b.name} is at the pontoon.`, 5);
+    save();
+  }
 }
 
 /* ---- photographs ---- */
@@ -6287,6 +6336,7 @@ function tick(now, manual = false) {
   t += dt;
   conditions.time = t;
   watchRegion();
+  deliverShipping();
   // (At Las Brasas before El Bajón was there to find: a word about it, once, a moment after you
   // start.)
   if (started && region === 'south' && !modal && !passage && !state.places.bajon && state.tips.brasa && t > 8) {
