@@ -1,11 +1,13 @@
 import { DESTS, driveMinutes } from './outing.js';
 
 // Fuel: light, and only for what has an engine. The car and the petrol boats (the motor skiff,
-// the bass boat's outboard and the cabin boat) burn petrol; the rowing boat and the kayak never
+// the bass boat's outboard, the cabin boat, the sailing boat's little outboard and the motor
+// cruiser) burn petrol; the rowing boat and the kayak never
 // need any; the bass boat's quiet electric motor runs on a battery of its own.
 //
-//  · You fill up at the pump by the garage at home, or the harbour pump on Willowhaven quay (it
-//    reaches the boats alongside and, with a can, the car park). Petrol costs nothing but a few
+//  · You fill up at the pump by the garage at home, the harbour pump on Willowhaven quay (it
+//    reaches the boats alongside and, with a can, the car park), the fuel point on Willowhaven's
+//    pontoon, or the pump on Puerto Brasa quay far to the south. Petrol costs nothing but a few
 //    minutes: this is about planning a trip, not money.
 //  · A 10-litre jerry can goes wherever you take it (the garage, the car's boot, your backpack):
 //    fill it at a pump and pour it into the car or a boat somewhere without one (Longmere, say).
@@ -17,11 +19,16 @@ import { DESTS, driveMinutes } from './outing.js';
 //  · The kayak's little electric motor has a battery of its own, charged the same way. Flat, it
 //    simply stops: the paddle is always there.
 //
-// state.fuel: { car, boats: { skiff, bass, cabin } (litres), battery (0…1), kayak (0…1),
-//   can: { at, litres } }
+// state.fuel: { car, boats: { skiff, bass, cabin, sail, cruiser } (litres), battery (0…1),
+//   kayak (0…1), can: { at, litres } }
 
-export const TANKS = { car: 45, skiff: 20, bass: 30, cabin: 40 };
-export const PETROL = ['skiff', 'bass', 'cabin'];
+// (The sailing boat's little outboard has a small tank of its own; the cruiser a big one, enough
+// for the long passage south and some.)
+export const TANKS = { car: 45, skiff: 20, bass: 30, cabin: 40, sail: 12, cruiser: 300 };
+export const PETROL = ['skiff', 'bass', 'cabin', 'sail', 'cruiser'];
+// What the long passage takes from the cruiser's tank (half of it): she needs that much aboard
+// to set out.
+export const PASSAGE_FUEL = 150;
 export const CAN = 10;
 export const CAN_PLACES = ['home', 'car', 'pack'];
 // The car: litres a minute of driving (a drive you let go by), and a metre (one you drive).
@@ -30,7 +37,7 @@ export const CAR_PER_MIN = 0.35;
 export const CAR_PER_M = 0.014;
 // The boats: litres a second at full throttle (a full tank of the skiff is a good quarter of an
 // hour flat out, far longer at the speeds you fish at).
-export const BOAT_PER_S = { skiff: 0.02, bass: 0.03, cabin: 0.03 };
+export const BOAT_PER_S = { skiff: 0.02, bass: 0.03, cabin: 0.03, sail: 0.008, cruiser: 0.05 };
 // The battery: what a second of the electric motor at full takes (about ten minutes of it), and
 // what an hour tied up at a jetty or a quay gives back.
 export const BATTERY_PER_S = 0.0017;
@@ -50,7 +57,7 @@ const num = (v, d, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Mat
 const r1 = (v) => Math.round(v * 10) / 10;
 
 export function defaultFuel() {
-  return { car: TANKS.car, boats: { skiff: TANKS.skiff, bass: TANKS.bass, cabin: TANKS.cabin }, battery: 1, kayak: 1, can: { at: 'home', litres: CAN } };
+  return { car: TANKS.car, boats: Object.fromEntries(PETROL.map((k) => [k, TANKS[k]])), battery: 1, kayak: 1, can: { at: 'home', litres: CAN } };
 }
 
 // A saved record made safe (and a save from before fuel: everything full).

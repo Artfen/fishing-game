@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import {
   heightAt, HAVEN, HAVEN_APRON, HAVEN_HOUSES, HAVEN_QUAY, SLIPWAY, HAVEN_BOARD, HAVEN_BENCH, HAVEN_LAMP, FUEL_PUMPS,
+  HAVEN_PONTOON, HAVEN_FINGERS, HAVEN_STEPS,
   DAYMARK, STRAND, PUNT, SHELTER, WRECK, WRECK_BUOY, WRECK_BELL, CHANNEL, COVE,
 } from './terrain.js';
 import { waveHeight } from './conditions.js';
 import { mergeParts, mat, pick, jitterGeo, glowTexture, clamp, smoothstep } from '../util.js';
 import { reedClump } from './shore.js';
 import { withSurface } from './surface.js';
-import { fuelPumpParts } from '../props.js';
+import { fuelPumpParts, pontoonParts } from '../props.js';
 
 const LAMPS = ['#ffffff', '#ffe0b8', '#fff0d8'];
 import { withCaustics } from './caustics.js';
@@ -137,6 +138,17 @@ function buildHaven(rnd, group, obstacles, spots) {
     // The light at the end (green, lit after dark).
     stone.push({ geo: new THREE.CylinderGeometry(0.3, 0.38, 1.4, 8), matrix: mat(cx, Q.deck + 0.7, Q.z1 - 0.6), color: '#e7e1d4', jitter: 0.02 });
     obstacles.push({ x: cx, z: Q.z1 - 0.6, r: 0.45, top: Q.deck + 1.5, kind: 'quay', name: 'the quay light' });
+  }
+  // The pontoon on out from the end of the quay (see props.js), with its fingers, the gangway
+  // down beside the quay light, and the fuel point on it.
+  {
+    const P = pontoonParts({ walk: HAVEN_PONTOON, fingers: HAVEN_FINGERS, steps: HAVEN_STEPS, from: Q.deck }, heightAt, rnd);
+    woodParts.push(...P.wood);
+    dark.push(...P.metal);
+    obstacles.push(...P.obstacles.map((o) => ({ ...o, kind: 'quay' })));
+    const F = FUEL_PUMPS.marina;
+    dark.push(...fuelPumpParts(F.x, F.deck, F.z, F.yaw));
+    obstacles.push({ x: F.x, z: F.z, r: 0.42, kind: 'harbour', name: 'the fuel point' });
   }
   // The slipway: setts down into the water, with a winch post at the top.
   {

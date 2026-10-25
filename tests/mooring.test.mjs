@@ -136,6 +136,7 @@ test('every jetty and quay has a berth alongside; she lies along it and stays th
   PIERS.forEach((P, i) => {
     const long = P.x1 - P.x0 >= P.z1 - P.z0;
     for (const kind of who[i] || sea) {
+      // (Where piers meet, as a pontoon's fingers do, the nearest berth may be on the next one.)
       let b = null, B = null;
       for (const side of [-1, 1]) for (let u = 0.15; u <= 0.85 && !B; u += 0.1) {
         const x = long ? P.x0 + (P.x1 - P.x0) * u : (side < 0 ? P.x0 - 2.4 : P.x1 + 2.4);
@@ -150,7 +151,8 @@ test('every jetty and quay has a berth alongside; she lies along it and stays th
       run(b, 6);
       assert.ok(Math.hypot(b.pos.x - B.x, b.pos.z - B.z) < 0.25, `${kind} at ${names[i]}: on her berth`);
       assert.ok(Math.abs(Math.atan2(Math.sin(b.heading - B.heading), Math.cos(b.heading - B.heading))) < 0.05, 'lying along it');
-      const gap = long ? Math.min(Math.abs(b.pos.z - P.z0), Math.abs(b.pos.z - P.z1)) : Math.min(Math.abs(b.pos.x - P.x0), Math.abs(b.pos.x - P.x1));
+      const Q = PIERS[B.pier], along = Q.x1 - Q.x0 >= Q.z1 - Q.z0;
+      const gap = along ? Math.min(Math.abs(b.pos.z - Q.z0), Math.abs(b.pos.z - Q.z1)) : Math.min(Math.abs(b.pos.x - Q.x0), Math.abs(b.pos.x - Q.x1));
       assert.ok(gap > b.hull.B * 0.5 && gap < b.hull.B * 0.5 + 0.4, `alongside, fenders between (${(gap - b.hull.B * 0.5).toFixed(2)} m)`);
       assert.ok(b.lines.every((l) => l.mesh.visible) && b.fenders.every((f) => f.visible), 'lines and fenders out');
       // The motor and the oars don't move her while she's tied.
@@ -163,7 +165,7 @@ test('every jetty and quay has a berth alongside; she lies along it and stays th
       b.castOff(c.nx, c.nz);
       run(b, 3);
       assert.ok(!b.tie && b.lines.every((l) => !l.mesh.visible) && b.fenders.every((f) => !f.visible));
-      const out = long ? Math.min(Math.abs(b.pos.z - P.z0), Math.abs(b.pos.z - P.z1)) : Math.min(Math.abs(b.pos.x - P.x0), Math.abs(b.pos.x - P.x1));
+      const out = along ? Math.min(Math.abs(b.pos.z - Q.z0), Math.abs(b.pos.z - Q.z1)) : Math.min(Math.abs(b.pos.x - Q.x0), Math.abs(b.pos.x - Q.x1));
       assert.ok(out > gap, 'she drifts clear of the pier');
     }
   });

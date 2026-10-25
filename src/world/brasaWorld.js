@@ -4,15 +4,16 @@ import { withSurface } from './surface.js';
 import { withCaustics } from './caustics.js';
 import {
   brasaHeight, brasaSDF, brasaHabitat, lavaRough, onBeach, windward, ISLE, PICO, ROJA, FARO, PUERTO, PLAYA, ARCO, ARCHES,
-  VILLAGE, QUAY_S, DIQUE, MOLE, POSADA, QUAY_STEPS, SEBADAL, SOUTH_MAP,
+  VILLAGE, QUAY_S, DIQUE, MOLE, POSADA, QUAY_STEPS, SEBADAL, SOUTH_MAP, PONTOON_S, FINGERS_S, PONTOON_STEPS, FUEL_S,
 } from './brasa.js';
+import { fuelPumpParts, pontoonParts } from '../props.js';
 
 // What Las Brasas looks like (its shape is in brasa.js): the colours of its ground and seabed,
 // and everything built on it or grown on it. Built the first time you come near (see world.js),
 // with seeds of its own, so nothing at home changes.
 //
 //  · Puerto Brasa: a stone quay, a breakwater of big concrete blocks round the basin with a
-//    harbour light on its end, little wooden boats pulled up and moored, white flat-roofed houses
+//    harbour light on its end, a floating pontoon with finger berths and a fuel pump at its root, little wooden boats pulled up and moored, white flat-roofed houses
 //    stepping up the slope with coloured doors and shutters, a church with a bell gable and dark
 //    stone corners, palms in the square, and Bar El Muelle on the waterfront, where there's a room.
 //  · The island: black lava, red cinder on the cones, ochre tuff, grey-green tabaiba scrub and the
@@ -271,6 +272,21 @@ export function buildBrasa(scene, rnd) {
       for (let u = 1; u < len; u += 3) obstacles.push({ x: along === 'z' ? B.x1 - 0.6 : B.x0 + u, z: along === 'z' ? B.z0 + u : B.z1 - 0.6, r: 0.8, top: B.deck + 1.4 });
     }
   }
+  // The pontoon (see props.js), its fingers and the gangway down from the quay; the fuel pump on
+  // the quay at its root.
+  {
+    const P = pontoonParts({ walk: PONTOON_S, fingers: FINGERS_S, steps: PONTOON_STEPS, from: QUAY_S.deck }, H, rnd);
+    wood.push(...P.wood);
+    plainParts.push(...P.metal);
+    obstacles.push(...P.obstacles);
+    // The fuel pump, and a lifebuoy on a post beside it.
+    const F = FUEL_S;
+    plainParts.push(...fuelPumpParts(F.x, QUAY_S.deck, F.z, F.yaw));
+    obstacles.push({ x: F.x, z: F.z, r: 0.42, kind: 'harbour', name: 'the fuel pump' });
+    plainParts.push({ geo: new THREE.CylinderGeometry(0.05, 0.05, 1.3, 6), matrix: mat(F.x + 2.2, QUAY_S.deck + 0.65, F.z + 0.4), color: '#d8d4ca' });
+    plainParts.push({ geo: new THREE.TorusGeometry(0.3, 0.07, 6, 14), matrix: mat(F.x + 2.2, QUAY_S.deck + 1.05, F.z + 0.5), color: '#e2552f' });
+    obstacles.push({ x: F.x + 2.2, z: F.z + 0.4, r: 0.15, kind: 'harbour', name: 'the lifebuoy' });
+  }
   // The harbour light: a little green tower on the end of the mole.
   const harbourLight = new THREE.Group();
   {
@@ -471,7 +487,7 @@ export function buildBrasa(scene, rnd) {
   // Little boats: two pulled up at the west end of the waterfront, three at moorings in the basin.
   const boats = [];
   const boatCols = ['#2c5d8a', '#b8423a', '#2f8f55', '#d9a032', '#3f7f86'];
-  for (const [x, z, yaw, afloat] of [[-6, 6296, 0.3, false], [-11, 6294, -0.2, false], [20, 6330, 1.4, true], [55, 6345, 2.2, true], [8, 6360, 0.9, true]]) {
+  for (const [x, z, yaw, afloat] of [[-6, 6296, 0.3, false], [-11, 6294, -0.2, false], [20, 6330, 1.4, true], [26, 6362, 2.2, true], [8, 6360, 0.9, true]]) {
     const g = new THREE.Mesh(boatGeometry(rnd, pick(boatCols, rnd)), plain());
     g.position.set(x, afloat ? -0.25 : H(x, z) - 0.05, z);
     g.rotation.y = yaw;

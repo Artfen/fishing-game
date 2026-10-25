@@ -35,7 +35,7 @@ export const DEFAULT_STATE = {
   places: {},    // id -> { day, hour }
   items: {},     // lantern: true
   tips: {},      // which gentle hints have already been shown
-  boats: {},     // where each boat was left: kind ('row', 'skiff', 'kayak', 'bass', 'cabin') ->
+  boats: {},     // where each boat was left: kind ('row', 'skiff', 'kayak', 'bass', 'cabin', 'sail', 'cruiser') ->
                  //   { x, z, heading, anchored, anchor: { x, z }, tie: { pier, side, along, heading }, motor }
   vessel: 'row', // which boat you're in, or last used
   tow: null,     // one boat towing another: { lead, towed } (kinds)
@@ -127,7 +127,7 @@ export const PHOTO_MAX = 48;
 const ID = /^[a-z0-9-]{3,40}$/;
 const when = (v) => (isObj(v) ? { day: int(v.day, 1, 1, 1e6), hour: num(v.hour, 12, 0, 24) } : null);
 
-const VESSELS = ['row', 'skiff', 'kayak', 'bass', 'cabin', 'sail'];
+const VESSELS = ['row', 'skiff', 'kayak', 'bass', 'cabin', 'sail', 'cruiser'];
 
 function pos(v) {
   if (!isObj(v)) return null;

@@ -48,7 +48,9 @@ const BOAT_GAP = 1.35;
 export function berthAt(b, i, side, along, heading) {
   const P = PIERS[i];
   if (!P) return null;
-  const off = b.hull.B * 0.5 + 0.2;
+  // (fend: how far her side lies out from her middle, against a pier; for most boats the fenders
+  // take up half the beam figure.)
+  const off = (b.hull.fend ?? b.hull.B * 0.5) + 0.2;
   return across(P) === 'z'
     ? { pier: i, side, along, heading, x: along, z: side < 0 ? P.z0 - off : P.z1 + off }
     : { pier: i, side, along, heading, x: side < 0 ? P.x0 - off : P.x1 + off, z: along };

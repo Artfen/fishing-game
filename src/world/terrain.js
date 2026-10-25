@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { clamp, lerp, smoothstep, fbm } from '../util.js';
 import { COLD_BOX, coldwaterHeight, inColdwater, waterLevel, neckSDF, coldInfo, FELL_PATH, FELL_BOX, FELL_PATH_SEGS, fellPathNear, fellPathCandidates, BOTHY, FOOTBRIDGE, SUMMIT_CAIRN, COLDWATER, TARN, tarnSDF } from './coldwater.js';
 export { waterLevel } from './coldwater.js';
-import { SOUTH_Z, brasaHeight, brasaSDF, brasaZone, SOUTH_ZONES, BRASA_PLACES, PUERTO, ISLE, inSouth, QUAY_S, MOLE, DIQUE, SOUTH_RECT } from './brasa.js';
+import { SOUTH_Z, brasaHeight, brasaSDF, brasaZone, SOUTH_ZONES, BRASA_PLACES, PUERTO, ISLE, inSouth, QUAY_S, MOLE, DIQUE, SOUTH_RECT, PONTOON_S, FINGERS_S, PONTOON_STEPS, FUEL_S } from './brasa.js';
 export { SOUTH_Z, inSouth } from './brasa.js';
 
 // The whole archipelago is one signed-distance function: negative on land, positive on water.
@@ -186,11 +186,13 @@ export const COAST_PATHS = [
 // Strand to the sea, with the hill behind (see home.js). The pad is cut and filled level; the
 // house and garage share a wall, with a door between them; the garage door faces the drive.
 export const HOME = { x: 123, z: -74 };
-// The fuel pumps (see fuel.js): by the garage at home, facing the drive, and at the root of
-// Willowhaven quay, where the boats come alongside. yaw: the way the pump faces.
+// The fuel pumps (see fuel.js): by the garage at home, facing the drive, at the root of
+// Willowhaven quay, where the boats come alongside, and on Puerto Brasa's quay far to the south
+// (and Willowhaven's fuel point on its pontoon: see HAVEN_PONTOON). yaw: the way the pump faces.
 export const FUEL_PUMPS = {
   home: { x: 136.6, z: -68.8, yaw: -Math.PI / 2, name: 'the fuel pump by the garage' },
   haven: { x: 13.6, z: -96.2, yaw: -Math.PI / 2, name: 'the harbour fuel pump' },
+  brasa: FUEL_S,
 };
 // Where a new game begins: in front of the cottage, the garage on your right, the car on the drive.
 export const HOME_START = { x: 123.5, z: -66, heading: Math.PI };
@@ -887,6 +889,22 @@ export const SAIL_BERTH = (() => {
   return { x: Q.x0 - 3, z: Q.z1 - 3, heading: 0 };
 })();
 
+// Willowhaven's pontoon: a floating jetty on out from the end of the quay, low on the water, with
+// fingers either side for the bigger boats; a gangway of steps down to it beside the quay light,
+// and a fuel point on its west edge near its head (out of the way of the gangway).
+export const HAVEN_PONTOON = (() => {
+  const Q = HAVEN_QUAY, z0 = Q.z1;
+  return { x0: 9.8, x1: 12.2, z0, z1: z0 + 24, deck: 0.55, land: { x: (Q.x0 + Q.x1) / 2, z: Q.z0 } };
+})();
+export const HAVEN_FINGERS = [10, 19.5].flatMap((u) => {
+  const P = HAVEN_PONTOON, z0 = P.z0 + u, z1 = z0 + 2.2, land = { x: (P.x0 + P.x1) / 2, z: z0 + 1.1 };
+  return [{ x0: P.x1, x1: P.x1 + 12, z0, z1, deck: 0.5, land }, { x0: P.x0 - 12, x1: P.x0, z0, z1, deck: 0.5, land }];
+});
+export const HAVEN_STEPS = [1.26, 1.02, 0.78].map((deck, i) => ({ x: 11, z: HAVEN_PONTOON.z0 + 0.5 + i, hx: 0.6, hz: 0.5, yaw: 0, deck }));
+FUEL_PUMPS.marina = { x: HAVEN_PONTOON.x0 + 0.35, z: HAVEN_PONTOON.z0 + 5.5, yaw: Math.PI, name: 'the fuel point on the pontoon', deck: HAVEN_PONTOON.deck };
+// Where the motor cruiser lies: alongside the first finger east of the pontoon, bow out to the bay.
+export const CRUISER_BERTH = { x: HAVEN_FINGERS[0].x0 + 6, z: HAVEN_FINGERS[0].z1 + 1.65, heading: Math.PI / 2 };
+
 // Walkable decks the boat bumps into: [x0, x1, z0, z1, deck height].
 export const PIERS = [
   { x0: JETTY.x - JETTY.halfW, x1: JETTY.x + JETTY.halfW, z0: JETTY.z0, z1: JETTY.z1, deck: JETTY.deck },
@@ -897,8 +915,11 @@ export const PIERS = [
   // (After the others, so PIERS[1] stays the landing.)
   HAVEN_QUAY,
   CALF_LANDING,
-  // Puerto Brasa, far to the south: the quay, and the breakwater round the basin.
-  QUAY_S, DIQUE, MOLE,
+  // Puerto Brasa, far to the south: the quay, and the breakwater round the basin; the pontoon
+  // and its fingers.
+  QUAY_S, DIQUE, MOLE, PONTOON_S, ...FINGERS_S,
+  // Willowhaven's pontoon and its fingers.
+  HAVEN_PONTOON, ...HAVEN_FINGERS,
 ];
 
 // Where the lake meets the land, walking out from its centre at an angle.
@@ -932,6 +953,8 @@ export const DECKS = [
   ...PEGS.map((p) => ({ x: p.x, z: p.z, hx: 1.1, hz: 1.1, yaw: p.angle, deck: 0.32 })),
   { x: BRIDGE.x, z: BRIDGE.z, hx: BRIDGE.len / 2, hz: BRIDGE.w / 2, yaw: BRIDGE.yaw, deck: BRIDGE.deck },
   { x: FOOTBRIDGE.x, z: FOOTBRIDGE.z, hx: FOOTBRIDGE.len / 2, hz: FOOTBRIDGE.w / 2, yaw: FOOTBRIDGE.yaw, deck: FOOTBRIDGE.deck, arch: FOOTBRIDGE.arch },
+  // (The gangways' steps down from the quays to the pontoons.)
+  ...PONTOON_STEPS, ...HAVEN_STEPS,
 ];
 
 // Ground height for someone on foot, including decks.

@@ -29,6 +29,7 @@ export const ACTIONS = [
   { id: 'throttleUp', label: 'Throttle up a notch (also with a line out)', keys: ['Equal', 'NumpadAdd'], group: 'Boats' },
   { id: 'throttleDown', label: 'Throttle down a notch (also with a line out)', keys: ['Minus', 'NumpadSubtract'], group: 'Boats' },
   { id: 'motor', label: 'Kayak motor down or up · sailing boat: sail up or down', keys: ['KeyU'], group: 'Boats' },
+  { id: 'outboard', label: 'Sailing boat: the outboard down or up (when there’s no wind)', keys: ['KeyL'], group: 'Boats' },
   { id: 'view', label: 'Next view (first person, underwater, your bait)', keys: ['KeyC'], group: 'Views' },
   { id: 'eye', label: 'First person on or off', keys: ['KeyV'], group: 'Views' },
   { id: 'reset', label: 'Reset the camera', keys: ['KeyR'], group: 'Views' },

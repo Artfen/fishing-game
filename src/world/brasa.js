@@ -60,6 +60,17 @@ export const QUAY_S = { x0: 6, x1: 82, z0: 6292, z1: 6301, deck: 1.6, land: { x:
 export const DIQUE = { x0: 92, x1: 101, z0: 6312, z1: 6402, deck: 2.4, land: { x: 96, z: 6300 } };
 export const MOLE = { x0: 44, x1: 101, z0: 6394, z1: 6403, deck: 2.4, land: { x: 96, z: 6300 } };
 export const SAIL_BERTH_S = { x: 46, z: 6302.6, heading: Math.PI / 2 };
+// The pontoon: a floating jetty out from the quay into the basin, low on the water, with finger
+// berths off it (room for the bigger boats), a gangway of steps down to it from the quay, and the
+// fuel pump on the quay at its root.
+export const PONTOON_S = { x0: 58.5, x1: 61.5, z0: 6301, z1: 6347, deck: 0.55, land: { x: 60, z: 6290 } };
+export const FINGERS_S = [
+  { x0: 61.5, x1: 73, z0: 6317, z1: 6319.2, deck: 0.5, land: { x: 60, z: 6318 } },
+  { x0: 61.5, x1: 73, z0: 6333, z1: 6335.2, deck: 0.5, land: { x: 60, z: 6334 } },
+  { x0: 46, x1: 58.5, z0: 6325, z1: 6327.2, deck: 0.5, land: { x: 60, z: 6326 } },
+];
+export const PONTOON_STEPS = [1.34, 1.08, 0.82].map((deck, i) => ({ x: 60, z: 6301.5 + i, hx: 0.9, hz: 0.5, yaw: 0, deck }));
+export const FUEL_S = { x: 65, z: 6298.5, yaw: 0, name: 'the fuel pump on Puerto Brasa quay' };
 // Where you come ashore by the quay steps, and the bar with a room upstairs.
 export const QUAY_STEPS = { x: 30, z: 6297 };
 export const POSADA = { x: 18, z: 6276, yaw: 0 };
@@ -85,6 +96,17 @@ function smin(a, b, k) {
 }
 const smax = (a, b, k) => -smin(-a, -b, k);
 const inBox = (B, x, z, pad = 0) => x > B.x0 - pad && x < B.x1 + pad && z > B.z0 - pad && z < B.z1 + pad;
+function sdBox(x, z, B) {
+  const dx = Math.max(B.x0 - x, x - B.x1), dz = Math.max(B.z0 - z, z - B.z1);
+  return Math.hypot(Math.max(dx, 0), Math.max(dz, 0)) + Math.min(Math.max(dx, dz), 0);
+}
+// The harbour basin: round to seaward, squared off along the quay, whose wall is its north side
+// (no water behind the quay, and no land in front of it).
+function sdBasin(x, z) {
+  const round = sdCircle(x, z, PUERTO.x, PUERTO.z, PUERTO.r);
+  const front = sdBox(x, z, { x0: QUAY_S.x0, x1: QUAY_S.x1, z0: QUAY_S.z1, z1: PUERTO.z });
+  return Math.max(smin(round, front, 6), QUAY_S.z1 - z);
+}
 
 // How settled the coast is here: near the harbour and the village the shore keeps to its line
 // (no wild noise), elsewhere it's ragged.
@@ -99,8 +121,8 @@ export function brasaSDF(x, z) {
   d = smin(d, sdCapsule(x, z, FARO_POINT.x0, FARO_POINT.z0, FARO_POINT.x1, FARO_POINT.z1, FARO_POINT.r + n2 * 10), 60);
   // Las Coladas: lava tongues out into the sea.
   for (const c of COLADAS) d = smin(d, sdCapsule(x, z, c[0], c[1], c[2], c[3], c[4] + n2 * 7), 26);
-  // The harbour basin.
-  d = smax(d, -(sdCircle(x, z, PUERTO.x, PUERTO.z, PUERTO.r) + n2 * 1.5), 10);
+  // The harbour basin (its edge kept straight along the quay).
+  d = smax(d, -(sdBasin(x, z) + n2 * 1.5 * smoothstep(QUAY_S.z1 + 1, QUAY_S.z1 + 8, z)), 10);
   // Roque del Arco.
   d = smin(d, sdCircle(x, z, ARCO.x, ARCO.z, ARCO.r) + n2 * 5, 4);
   return d;

@@ -140,9 +140,9 @@ test('the packing list says whether the tank will do', () => {
   assert.equal(Fu.fuelCheck(f, 'home', 'quay')[0].level, 'warn');
 });
 
-test('the pumps stand on firm ground you can walk up to', () => {
+test('the pumps stand on firm ground (or a pontoon) you can walk up to', () => {
   for (const [id, P] of Object.entries(FUEL_PUMPS)) {
-    assert.ok(walkHeight(P.x, P.z) > 1, id);
+    assert.ok(walkHeight(P.x, P.z) > (P.deck ? P.deck - 0.05 : 1), id);
     const front = { x: P.x + Math.sin(P.yaw) * 1.4, z: P.z + Math.cos(P.yaw) * 1.4 };
     assert.ok(Math.abs(walkHeight(front.x, front.z) - walkHeight(P.x, P.z)) < 0.3, `${id}: level in front of it`);
   }

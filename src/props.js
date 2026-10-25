@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mergeParts, mat } from './util.js';
+import { mergeParts, mat, pick, lerp } from './util.js';
 import { withSurface } from './world/surface.js';
 
 // A fuel pump (at home, and on Willowhaven quay): a red cabinet on a plinth with a dial window,
@@ -20,6 +20,52 @@ export function fuelPumpParts(x, y, z, yaw) {
     { geo: new THREE.CylinderGeometry(0.02, 0.02, 0.22, 6), matrix: at(0.33, 0.92, 0.12, 0.6, 0, 0), color: '#3a3d42' },
     { geo: new THREE.TorusGeometry(0.22, 0.022, 5, 12, Math.PI), matrix: at(0.3, 0.98, -0.02, 0, Math.PI / 2, 0), color: '#1f2124' },
   ];
+}
+
+// A floating pontoon (Willowhaven's and Puerto Brasa's): a deck of planks on grey floats, a dark
+// timber edge with cleats, steel piles holding it in place (it rides up and down them with the
+// tide), its fingers, and a gangway of aluminium steps down to it from the quay (from: the quay's
+// deck height). ground(x, z): the bed. Parts for mergeParts: wood (planks and timber) and metal
+// (floats, cleats, piles, the gangway); and obstacles (the piles).
+export function pontoonParts({ walk, fingers, steps, from }, ground, rnd) {
+  const wood = [], metal = [], obstacles = [];
+  const deck = (B) => {
+    const long = B.z1 - B.z0 > B.x1 - B.x0, len = long ? B.z1 - B.z0 : B.x1 - B.x0, w = long ? B.x1 - B.x0 : B.z1 - B.z0;
+    const cx = (B.x0 + B.x1) / 2, cz = (B.z0 + B.z1) / 2;
+    const at = (u, y, v) => (long ? mat(cx + v, y, B.z0 + u) : mat(B.x0 + u, y, cz + v));
+    const box = (a, h, b) => (long ? new THREE.BoxGeometry(b, h, a) : new THREE.BoxGeometry(a, h, b));
+    for (let u = 0.3; u < len; u += 0.6) wood.push({ geo: box(0.56, 0.06, w - 0.2), matrix: at(u, B.deck - 0.03, 0), color: pick(['#9a8466', '#8f7a5e', '#a28c6c'], rnd), jitter: 0.04 });
+    for (const s of [-1, 1]) {
+      wood.push({ geo: box(len, 0.22, 0.12), matrix: at(len / 2, B.deck - 0.1, s * (w / 2 - 0.06)), color: '#4e3f31' });
+      for (let u = 2; u < len - 1; u += 5) metal.push({ geo: box(0.32, 0.07, 0.1), matrix: at(u, B.deck + 0.04, s * (w / 2 - 0.12)), color: '#c9cbcc' });
+    }
+    // (The floats: a little above the water, mostly below it.)
+    for (let u = 1; u < len - 0.5; u += 2.5) metal.push({ geo: box(2.1, 0.62, w - 0.5), matrix: at(u + 0.2, B.deck - 0.48, 0), color: '#4a4d50' });
+    return len;
+  };
+  const len = deck(walk);
+  for (const F of fingers) deck(F);
+  // The piles: every dozen metres or so down the walkway, and at the fingers' far ends.
+  const mid = (walk.x0 + walk.x1) / 2, piles = [];
+  for (let u = 6; u < len; u += 13) for (const s of [-1, 1]) piles.push({ x: s < 0 ? walk.x0 + 0.25 : walk.x1 - 0.25, z: walk.z0 + u });
+  for (const F of fingers) piles.push({ x: F.x1 > mid ? F.x1 - 0.3 : F.x0 + 0.3, z: (F.z0 + F.z1) / 2 });
+  for (const p of piles) {
+    const bottom = Math.min(ground(p.x, p.z), 0) - 0.5;
+    metal.push({ geo: new THREE.CylinderGeometry(0.17, 0.17, 2.6 - bottom, 10), matrix: mat(p.x, (2.6 + bottom) / 2, p.z), color: '#3a3f44' });
+    metal.push({ geo: new THREE.CylinderGeometry(0.2, 0.2, 0.1, 10), matrix: mat(p.x, 2.62, p.z), color: '#d8d4ca' });
+    obstacles.push({ x: p.x, z: p.z, r: 0.22, top: 2.6, name: 'a pile' });
+  }
+  // The gangway: aluminium treads down from the quay, with a rail each side.
+  for (const S of steps) metal.push({ geo: new THREE.BoxGeometry(S.hx * 2, 0.08, S.hz * 2 + 0.04), matrix: mat(S.x, S.deck - 0.04, S.z), color: '#a9aeb2' });
+  const g0 = steps[0], gN = steps[steps.length - 1];
+  const z0 = g0.z - g0.hz, runZ = gN.z + gN.hz - z0, fall = from - walk.deck, tilt = Math.atan2(fall, runZ);
+  for (const s of [-1, 1]) {
+    const x = g0.x + s * (g0.hx + 0.04), z = z0 + runZ / 2, y = (from + walk.deck) / 2;
+    metal.push({ geo: new THREE.BoxGeometry(0.06, 0.3, Math.hypot(runZ, fall)), matrix: mat(x, y, z, tilt, 0, 0), color: '#b9bec2' });
+    metal.push({ geo: new THREE.BoxGeometry(0.05, 0.05, Math.hypot(runZ, fall)), matrix: mat(x, y + 0.9, z, tilt, 0, 0), color: '#c9cdd0' });
+    for (const k of [0.15, 0.85]) metal.push({ geo: new THREE.CylinderGeometry(0.025, 0.025, 0.9, 6), matrix: mat(x, lerp(from, walk.deck, k) + 0.45, z0 + runZ * k), color: '#c9cdd0' });
+  }
+  return { wood, metal, obstacles };
 }
 
 // A little brass lantern. The glass material is returned so its glow can follow the evening.

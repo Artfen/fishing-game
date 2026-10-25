@@ -130,8 +130,8 @@ export class LeverUI {
     this.title.textContent = s.title || 'Throttle';
     this.now.textContent = s.words;
     this.motorBtn.hidden = !s.motor;
-    this.motorBtn.textContent = s.motor === 'down' ? 'Raise motor · paddle' : 'Lower motor';
-    this.motorBtn.setAttribute('aria-pressed', s.motor === 'down');
+    this.motorBtn.textContent = s.motor === 'outboard' ? 'Outboard up · sail or row' : s.motor === 'down' ? 'Raise motor · paddle' : 'Lower motor';
+    this.motorBtn.setAttribute('aria-pressed', s.motor === 'down' || s.motor === 'outboard');
     this.stopBtn.hidden = !s.kind;
     this.body.hidden = !s.kind;
     if (this.keys.innerHTML !== (s.keys || '')) this.keys.innerHTML = s.keys || '';

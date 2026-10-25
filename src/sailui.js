@@ -17,7 +17,8 @@ const el = (tag, cls, text) => {
 const TAU = Math.PI * 2;
 
 export class SailUI {
-  // hooks: { toggle() } — raise or lower the sail. this.hold: −1 while Haul in is held, +1 Ease.
+  // hooks: { toggle() } — raise or lower the sail; outboard() — put the outboard down (she
+  // motors). this.hold: −1 while Haul in is held, +1 Ease.
   constructor(root, hooks) {
     this.root = root;
     this.h = hooks;
@@ -41,10 +42,11 @@ export class SailUI {
     this.inBtn = el('button', 'lv-motor', 'Haul in');
     this.outBtn = el('button', 'lv-motor', 'Ease');
     this.upBtn = el('button', 'lv-motor sl-up', 'Raise sail');
-    for (const b of [this.inBtn, this.outBtn, this.upBtn]) b.type = 'button';
+    this.motorBtn = el('button', 'lv-motor sl-up', 'Outboard down');
+    for (const b of [this.inBtn, this.outBtn, this.upBtn, this.motorBtn]) b.type = 'button';
     btns.append(this.inBtn, this.outBtn);
     this.keys = el('div', 'lv-keys');
-    root.append(head, this.canvas, this.sheetRow, this.speed, btns, this.upBtn, this.keys);
+    root.append(head, this.canvas, this.sheetRow, this.speed, btns, this.upBtn, this.motorBtn, this.keys);
     const hold = (b, v) => {
       b.addEventListener('pointerdown', (e) => {
         e.preventDefault();
@@ -60,6 +62,11 @@ export class SailUI {
       e.preventDefault();
       e.stopPropagation();
       this.h.toggle();
+    });
+    this.motorBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.h.outboard?.();
     });
     for (const ev of ['contextmenu', 'selectstart']) root.addEventListener(ev, (e) => e.preventDefault());
     for (const ev of ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'click']) root.addEventListener(ev, (e) => e.stopPropagation());

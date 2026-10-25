@@ -49,7 +49,7 @@ export const PAD_HELP = [
   ]],
   ['At the helm', [
     ['helm', 'forward', 'throttle a notch up or down (push and let go), and steer'], ['helm', 'neutral', 'stop: the motor to neutral'],
-    ['helm', 'motor', 'kayak: lower or raise the electric motor · sailing boat: raise or lower the sail'],
+    ['helm', 'motor', 'kayak: lower or raise the electric motor · sailing boat: the sail, the outboard or the oars'],
     ['troll', 'throttleUp', 'with a line out: throttle up a notch'], ['troll', 'throttleDown', 'with a line out: throttle down a notch'],
   ]],
   ['A line in the water', [['fish', 'advice', 'why aren’t they biting?'], ['fish', 'feed', 'throw loose bait']]],

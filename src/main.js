@@ -11,7 +11,7 @@ import { AudioScape } from './audio.js';
 import { Environment, phaseName, formatClock } from './world/sky.js';
 import { createWater } from './world/water.js';
 import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeight, waveHeightHere, compass, bearingOf, windWords, seaWords, shelterAt, bakeShelter, shelterRect } from './world/conditions.js';
-import { SOUTH_WATER, SOUTH_MAP, LANDFALL, POSADA, PUERTO as PUERTO_AT } from './world/brasa.js';
+import { SOUTH_WATER, SOUTH_MAP, LANDFALL, POSADA, PUERTO as PUERTO_AT, PONTOON_S, FINGERS_S } from './world/brasa.js';
 import { buildWorld } from './world/world.js';
 import { createHabitat } from './world/habitat.js';
 import { Ecosystem } from './world/ecosystem.js';
@@ -26,7 +26,7 @@ import {
   PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD, SEA, inSeas, inWorld, SOUTH_Z,
   PEGS, POOLS, STREAM, SNAG, LILIES, JETTY, ISLAND, GANNET_CAMP, SKERRIES, SKELLIG, DEEP_Z,
   HAVEN, HAVEN_QUAY, HAVEN_BENCH, DAYMARK, STRAND, WRECK, WRECK_BUOY, WRECK_BELL, CHANNEL,
-  HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, FUEL_PUMPS, CABIN_BERTH, SAIL_BERTH, laneInfo,
+  HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, FUEL_PUMPS, CABIN_BERTH, SAIL_BERTH, CRUISER_BERTH, HAVEN_PONTOON, HAVEN_FINGERS, laneInfo,
   CALF, CALF_TOWER, CALF_SKERRY, CALF_SOUND, CALF_LANDING,
 } from './world/terrain.js';
 import { Car } from './car.js';
@@ -72,7 +72,7 @@ import { levers, nearest, step, setIndex, within, capIndex, leverWords } from '.
 import { LeverUI } from './lever.js';
 import { anchorCheck, berthFor, berthAt, castOffCheck, canTow, towStep, TOW } from './mooring.js';
 import { Rope } from './rope.js';
-import { isPetrol, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, burnKayak, chargeBattery, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
+import { isPetrol, PASSAGE_FUEL, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, burnKayak, chargeBattery, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
 import { STEPS as TRIP_STEPS, stepOf, stepNumber, complete as completeStep, start as startGuide, words as guideWords, isNewGame, placeAt, FISH_SPOTS } from './firstTrip.js';
 import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality } from './quality.js';
 import { Post } from './post.js';
@@ -446,6 +446,7 @@ function mooring(kind) {
   }
   if (kind === 'cabin') return { ...CABIN_BERTH };
   if (kind === 'sail') return { ...SAIL_BERTH };
+  if (kind === 'cruiser') return { ...CRUISER_BERTH };
   if (kind === 'bass') {
     const P = BOATHOUSE_PIER, d = P.dir, side = { x: -d.z, z: d.x };
     for (const off of [2.1, -2.1, 2.8, -2.8]) {
@@ -474,6 +475,8 @@ for (const [kind, b] of Object.entries(BOATS)) {
   b.place(at.x, at.z, at.heading);
   // (The kayak's motor as you left it: lowered, or up; the sailing boat's sail, and its sheet.)
   if (saved?.motor && b.hull.emotor) b.setEMotor(true);
+  // (The sailing boat's outboard, left down and running.)
+  if (saved?.motor && b.hull.outboard) b.setOutboard(true);
   if (saved?.sail != null && b.hull.sail) {
     b.setSail(true);
     b.sheet = saved.sail;
@@ -1415,6 +1418,7 @@ function teachBoat() {
     skiff: `The motor skiff, for the open coast and the islands: ${lever} Near a shore, slow down and ${T ? 'tap the prompt' : `press ${key('interact')}`} to step off. It runs on petrol: the harbour pump is at the root of Willowhaven quay.`,
     kayak: `The kayak: slow, but silent and stable enough to fish from, and it floats in a hand's depth of water. Paddle into the shallows, the saltings and the reeds where the boats can't go: fish hardly notice it. ${S ? `${T ? 'The stick' : 'The left stick'} paddles and steers.` : `${key('forward')}${key('left')}${key('back')}${key('right')} paddle and steer.`} It has a little electric motor on its stern too (${T ? 'the Lower motor button' : S ? key('motor') : key('motor')}): slower than paddling, but quiet and hands-free, for creeping up on fish or trolling a lure. Its battery charges at a jetty and overnight.`,
     bass: `The bass boat: ${lever} The first notches of throttle run the quiet electric motor at the bow, for creeping along the weed beds and the reeds without spooking anything; push on for the outboard to cross the lake fast. Its locker holds your tackle box, and it sits steady when you cast. The outboard takes petrol (Longmere has no pump: bring the jerry can), and the electric motor a battery that charges at the jetty and overnight.`,
+    cruiser: `The motor cruiser: a sea-going boat with a wheelhouse cabin (bunks and a galley) and a big outboard, quick once she's going but slow to turn, so give her room. ${lever} Tie up at a quay or a pontoon, or anchor, then ${T ? 'tap the prompt' : `press ${key('interact')}`} for the cabin: cook, and sleep aboard. She can make the long passage south under power too: four days to Las Brasas, and it takes half her tank (${T ? 'tap the prompt' : key('interact')} out on open water, or beside her at her berth). The fuel point is on Willowhaven's pontoon, by her berth.`,
     cabin: `The cabin boat: slow and steady, with a little cabin forward: a bunk and a galley stove. ${lever} Anchor (or tie up alongside a quay), then ${T ? 'tap the prompt' : `press ${key('interact')}`} for the cabin: cook what you've kept, and sleep aboard. A camp that floats. It runs on petrol: the harbour pump is right by her berth.`,
     sail: `The sailing boat: she goes where the wind lets her. ${T ? 'Raise the sail on the panel' : `Raise the sail (${key('motor')})`}, then ${T ? 'the stick up hauls the mainsheet in and down eases it; across steers' : S ? `${stick} up and down hauls the mainsheet in and eases it, across steers` : `${key('forward')} hauls the mainsheet in, ${key('back')} eases it, ${key('left')} and ${key('right')} steer`}. Watch the sail and the panel: if it flaps (luffing), haul in; if she's slow and heeling with the sail in tight across the wind, ease it out. Nothing drives her within about forty degrees of the wind (in irons): to go upwind, zigzag, tacking through the wind with speed on. The white lines in the air show the wind. With the sail down, she rows. She can make the long passage south, too: four days to Las Brasas, a volcanic island in the trade wind (${T ? 'tap the prompt' : key('interact')} out on open water, or beside her at the quay).`,
   }[k];
@@ -2145,6 +2149,31 @@ function toggleKayakMotor() {
   save();
 }
 
+// The sailing boat's outboard: down (the sail comes down, and she motors on a throttle lever like
+// the skiff's), or up again (she sails or rows). It runs on petrol, from a small tank of its own.
+function toggleOutboard() {
+  if (onFoot || driving || cabinIn || !boat.hull.outboard) return;
+  if (fishing.state === 'reeling' || fishing.state === 'landing') {
+    hud.flash('Land or let go of the fish first', t, 2);
+    return;
+  }
+  if (boat.outboardDown) {
+    boat.setOutboard(false);
+    audio.knock(0.25);
+    hud.flash(`Outboard up. ${scheme() === 'touch' ? 'Raise the sail on the panel, or row with the stick.' : `${K('motor')} raises the sail; or row (${MOVE()}).`}`, t, 3);
+  } else {
+    if (fuelLevel(tanks(), 'sail') <= 0) {
+      hud.flash(`The outboard’s tank is dry. ${boat.pos.z > SOUTH_Z ? 'The pump on Puerto Brasa quay fills it' : 'The harbour pump on Willowhaven quay fills it'} (or the jerry can). Sail or row for now.`, t, 4);
+      return;
+    }
+    boat.setOutboard(true);
+    audio.knock(0.25);
+    const how = scheme() === 'touch' ? 'the stick up or down (or the lever) moves the throttle a notch' : scheme() === 'pad' ? `${kbd('L-stick')} up or down moves the throttle a notch, ${K('neutral')} stops` : `${K('forward')}${K('back')} move the throttle a notch, ${K('neutral')} stops`;
+    hud.flash(`Outboard down, the sail down: she motors. ${how}. ${fuelHint('sail')}.`, t, 4.5);
+  }
+  save();
+}
+
 // The sailing boat's sail: up (and drawing, or flapping, as the wind and the sheet have it), or
 // down and furled on the boom, so she rows.
 function toggleSail() {
@@ -2217,9 +2246,11 @@ hideFromReflection(windLines.mesh);
 const _wl = new THREE.Vector3();
 const sailUI = new SailUI($('sail'), {
   toggle: () => { if (started && !modal) toggleSail(); },
+  outboard: () => { if (started && !modal) toggleOutboard(); },
 });
 function updateSailPanel() {
-  const show = started && !modal && !hudOff && !placement.isOn && !onFoot && !driving && !cabinIn && !!boat.hull.sail;
+  // (With the outboard down, the throttle lever takes its place.)
+  const show = started && !modal && !hudOff && !placement.isOn && !onFoot && !driving && !cabinIn && !!boat.hull.sail && !boat.outboardDown;
   if (!show) {
     sailUI.update({ show: false });
     return;
@@ -2236,14 +2267,14 @@ function updateSailPanel() {
     words: !boat.sailUp ? 'sail down' : boat.anchored ? 'at anchor' : boat.tie ? 'tied up' : advice.words,
     knots: Math.max(0, boat.forwardSpeed) * 1.944,
     awa: up ? A.awa * A.side : twa, twa, side: up ? A.side : 1, boom: up ? A.boom : 0,
-    keys: T ? '' : P ? `${kbd('L-stick')} ↕ sheet · ${K('motor')} sail` : `${K('forward')} in · ${K('back')} out · ${K('motor')} sail ${boat.sailUp ? 'down' : 'up'}`,
+    keys: T ? '' : P ? `${kbd('L-stick')} ↕ sheet · ${K('motor')} sail` : `${K('forward')} in · ${K('back')} out · ${K('motor')} sail ${boat.sailUp ? 'down' : 'up'} · ${K('outboard')} outboard`,
   });
 }
 
 const leverUI = new LeverUI($('lever'), {
   set: (i) => { if (started && !modal) setLever(i); },
   stop: () => { if (started && !modal) leverNeutral(true); },
-  motor: () => { if (started && !modal) toggleKayakMotor(); },
+  motor: () => { if (started && !modal) (boat.hull.outboard ? toggleOutboard() : toggleKayakMotor()); },
 });
 
 function updateLever() {
@@ -2260,12 +2291,15 @@ function updateLever() {
   // (With a line out on a controller the D-pad steps it, down through neutral.)
   if (kind && !T) keys = P ? (line ? `${K('throttleUp')} ${K('throttleDown')} a notch` : `${kbd('L-stick')} ↕ a notch · ${K('neutral')} stop`) : `${line ? `${K('throttleUp')}${K('throttleDown')}` : `${K('forward')}${K('back')}`} a notch · ${K('neutral')} stop`;
   if (kayak && !T) keys += `${keys ? ' · ' : ''}${K('motor')} motor`;
+  // (The sailing boat's outboard: its own button raises it again.)
+  const outboard = kind === 'sail';
+  if (outboard && !T) keys += ` · ${K('outboard')} outboard up`;
   const dead = kind && (kind === 'kayak' ? boat.kflat : boat.trolling ? boat.flat : boat.dry);
   leverUI.update({
     show: true, kind, index: kind ? nearest(kind, boat.lever) : 0, power: boat.power, cap: kind ? capIndex(kind, sit) : 0,
     words: !kind ? 'paddling' : boat.anchored ? 'at anchor' : dead ? (kind === 'kayak' ? 'battery flat' : 'motor dead') : cap(leverWords(kind, boat.lever)),
-    title: kind === 'kayak' ? 'Kayak motor' : kayak ? 'Kayak' : 'Throttle',
-    motor: kayak ? (boat.emotorDown ? 'down' : 'up') : null, keys,
+    title: kind === 'kayak' ? 'Kayak motor' : kayak ? 'Kayak' : outboard ? 'Outboard' : 'Throttle',
+    motor: kayak ? (boat.emotorDown ? 'down' : 'up') : outboard ? 'outboard' : null, keys,
   });
 }
 
@@ -2276,8 +2310,7 @@ let cabinIn = null;
 const _cab = new THREE.Vector3(), _cab2 = new THREE.Vector3();
 const canEnterCabin = (b) => !!b.hull.cabin && (b.anchored || !!b.tie || moored(b)) && b.speed < 0.6 && b.anchor?.phase !== 'haul';
 
-function enterCabin() {
-  const b = BOATS.cabin;
+function enterCabin(b = boat) {
   if (!canEnterCabin(b)) {
     hud.flash(`She has to be still: drop the anchor (${K('anchor')}), or tie up alongside a quay, then go in`, t, 3);
     return;
@@ -2529,10 +2562,25 @@ function updateTravel(dt) {
 /* ---------------- the long passage: Willow Bay and Las Brasas ---------------- */
 
 // Las Brasas lies four days' sail to the south (see world/brasa.js). The sailing boat makes the
-// passage: a few lines of her log while the days go by, and she comes in off Puerto Brasa (or,
-// coming home, alongside Willowhaven quay) with the sail down, ready to row in. Your gear and
-// creel come too; the other boats and the car stay where you left them.
+// passage, or the motor cruiser under power (it takes half her tank): a few lines of the log while
+// the days go by, and she comes in off Puerto Brasa (or, coming home, to her berth at Willowhaven),
+// ready to go in. Your gear and creel come too; the other boats and the car stay where you left
+// them.
 const PASSAGE_DAYS = 4;
+const PASSAGE_LOG_MOTOR = {
+  south: [
+    'Day 1 · You clear Gannet Light at first light and settle her at an easy cruising speed, the motor droning steadily. By noon the coast is a grey line astern.',
+    'Day 2 · Long seas on the quarter, and shearwaters skimming the troughs at dusk. You sleep in snatches in the wheelhouse, an eye on the compass.',
+    'Day 3 · The trade wind fills in from the north-east, warm in the cockpit. Flying fish skitter away from the bow, and the sea turns a deeper blue.',
+    'Day 4 · At dawn a smudge on the horizon becomes a mountain with a cloud caught on its top: Pico Brasa. Black cliffs, a white village, the smell of land.',
+  ],
+  home: [
+    'Day 1 · Brasa drops astern in the morning, the cloud on the volcano the last of it you see. North into the trade wind, spray rattling on the wheelhouse.',
+    'Day 2 · The wind eases and the sea turns from blue to green-grey. Dolphins ride the bow wave for an hour.',
+    'Day 3 · Cooler air and a long swell from the west; gannets diving far off. You find a jumper for the night watch.',
+    'Day 4 · Gannet Light at dawn, then the hills behind Willow Bay. You throttle back off Willowhaven and bring her in to her berth on the pontoon.',
+  ],
+};
 const PASSAGE_LOG = {
   south: [
     'Day 1 · You clear Gannet Light at first light and stand out into the Atlantic on a fresh northerly. By noon the coast is a grey line astern.',
@@ -2547,50 +2595,57 @@ const PASSAGE_LOG = {
     'Day 4 · Gannet Light at dawn, then the hills behind Willow Bay. You lower the sail off Willowhaven and bring her in alongside.',
   ],
 };
-let passage = null; // { to, t, line, moved }
+let passage = null; // { to, kind, t, line, moved }
 const LINE_T = 3.4; // seconds each line of the log stays up
 
-// Why the passage can't be made just now, or null.
-function passageWhy() {
-  const S = BOATS.sail;
+// Why the passage can't be made just now in this boat (the sailing boat or the cruiser), or null.
+function passageWhy(S = BOATS.sail) {
   if (fishing.state === 'reeling' || fishing.state === 'landing' || fishing.state === 'caught' || fishing.state === 'keeping') return 'Land or let go of the fish first.';
   if (dive) return 'Out of the water first.';
   if (driving) return 'Out of the car first.';
   if (sleeping || traveling || passage) return 'Not now.';
   if (tow && (tow.lead === S || tow.towed === S)) return 'Let go of the tow first.';
+  if (S.hull.passage && fuelLevel(tanks(), S.kind) < PASSAGE_FUEL) {
+    return `The passage takes half her tank: she needs ${litres(PASSAGE_FUEL)} aboard, and has ${litres(fuelLevel(tanks(), S.kind))}. Fill up first (${S.pos.z > SOUTH_Z ? 'the pump on Puerto Brasa quay' : 'the fuel point on Willowhaven’s pontoon'}).`;
+  }
   return null;
 }
 
-function offerPassage(to) {
-  const why = passageWhy();
+function offerPassage(to, S = boat) {
+  const why = passageWhy(S);
   if (why) {
-    hud.flash(why, t, 3);
+    hud.flash(why, t, 4);
     return;
   }
+  const motor = !!S.hull.passage;
   const first = to === 'south' && !state.places.brasa;
   ask(to === 'south' ? 'The long passage south' : 'The passage home', to === 'south'
-    ? `${first ? 'Far to the south, four days’ sail down the Atlantic, lies Las Brasas: a volcanic island in the trade wind, with warm clear water, black lava reefs and fish you never see at home. ' : ''}Make the passage in the sailing boat? Four days at sea (you eat and sleep aboard), and you come in off Puerto Brasa with the sail down. Your gear and your creel come with you; the other boats and the car stay here.`
-    : 'Sail home to Willow Bay? Four days at sea, and you come in alongside Willowhaven quay. Your gear and your creel come with you.',
+    ? `${first ? 'Far to the south, four days’ sail down the Atlantic, lies Las Brasas: a volcanic island in the trade wind, with warm clear water, black lava reefs and fish you never see at home. ' : ''}${motor
+      ? `Make the passage in the motor cruiser? Four days at sea under power (you eat and sleep aboard), and it takes half her tank (${litres(PASSAGE_FUEL)}): fill up again at the pump on Puerto Brasa quay.`
+      : 'Make the passage in the sailing boat? Four days at sea (you eat and sleep aboard), and you come in off Puerto Brasa with the sail down.'} Your gear and your creel come with you; the other boats and the car stay here.`
+    : motor ? `Head home to Willow Bay? Four days at sea under power (half her tank, ${litres(PASSAGE_FUEL)}), and you come in to her berth on Willowhaven’s pontoon. Your gear and your creel come with you.`
+      : 'Sail home to Willow Bay? Four days at sea, and you come in alongside Willowhaven quay. Your gear and your creel come with you.',
   [
     { text: 'Not now', cls: 'quiet' },
-    { text: to === 'south' ? 'Set sail for Las Brasas' : 'Set sail for home', run: () => startPassage(to) },
+    { text: to === 'south' ? (motor ? 'Set off for Las Brasas' : 'Set sail for Las Brasas') : motor ? 'Set off for home' : 'Set sail for home', run: () => startPassage(to, S) },
   ]);
 }
 
-function startPassage(to) {
-  if (passageWhy() || modal) return;
+function startPassage(to, S = boat) {
+  if (passageWhy(S) || modal) return;
   if (placement.isOn) placement.stop();
   if (fishing.lineOut) fishing.cancel();
   if (cabinIn) leaveCabin(true);
   modal = 'travel';
-  passage = { to, t: 0, line: -1, moved: false };
-  hud.sleep(true, to === 'south' ? 'You stow the gear, take on water and stores, and cast off…' : 'You stow the gear and cast off for the long run north…');
+  passage = { to, kind: S.kind, t: 0, line: -1, moved: false };
+  hud.sleep(true, to === 'south' ? `You stow the gear, take on water and stores${S.hull.passage ? ', check the oil' : ''}, and cast off…` : 'You stow the gear and cast off for the long run north…');
 }
 
 function updatePassage(dt) {
   const P = passage;
   if (!P) return;
-  const log = PASSAGE_LOG[P.to];
+  const motor = !!BOATS[P.kind]?.hull.passage;
+  const log = (motor ? PASSAGE_LOG_MOTOR : PASSAGE_LOG)[P.to];
   P.t += dt;
   const line = Math.min(log.length - 1, Math.floor((P.t - 1.6) / LINE_T));
   if (line >= 0 && line !== P.line) {
@@ -2609,31 +2664,36 @@ function updatePassage(dt) {
     if (P.to === 'south') {
       const first = !state.tips.brasa;
       state.tips.brasa = true;
+      const how = motor ? 'motor in' : `row in (or raise the sail, ${input.keyLabel('motor')})`;
       hud.toast(first
-        ? `Las Brasas. Puerto Brasa lies ahead behind its breakwater: row in (or raise the sail, ${input.keyLabel('motor')}) and tie up at the quay (${input.keyLabel('anchor')}). Bar El Muelle on the waterfront has a room, a stove and a shelf of tackle. The water here is clear and warm: parrotfish on the reefs, groupers down the drop-off.`
-        : 'Las Brasas, and Puerto Brasa ahead behind its breakwater.', first ? 14 : 5);
-    } else hud.toast('Home: Willow Bay, and the sailing boat alongside Willowhaven quay.', 5);
+        ? `Las Brasas. Puerto Brasa lies ahead behind its breakwater: ${how} and tie up at the quay or the pontoon (${input.keyLabel('anchor')}). Bar El Muelle on the waterfront has a room, a stove and a shelf of tackle, and the fuel pump is on the quay. The water here is clear and warm: parrotfish on the reefs, groupers down the drop-off.`
+        : `Las Brasas, and Puerto Brasa ahead behind its breakwater${motor ? ` (the fuel pump is on the quay: ${tankWords(tanks(), P.kind)} left)` : ''}.`, first ? 14 : 6);
+    } else hud.toast(motor ? `Home: Willow Bay, and the motor cruiser at her berth on the pontoon (${tankWords(tanks(), P.kind)} left: the fuel point is on the pontoon).` : 'Home: Willow Bay, and the sailing boat alongside Willowhaven quay.', 6);
     save();
   }
 }
 
 function arrivePassage(to) {
-  const S = BOATS.sail;
+  const S = BOATS[passage?.kind] || BOATS.sail;
   if (dive) endDive(null, true);
-  // Free of any mooring, the sail down.
+  // Free of any mooring, the sail down (the cruiser's motor in neutral, half her tank gone).
   S.tie = null;
   S.shove = null;
   S.anchor = null;
   S.anchored = false;
   S.lever = 0;
+  S.power = 0;
   if (S.sailUp) S.setSail(false);
-  const at = to === 'south' ? LANDFALL : SAIL_BERTH;
-  S.place(at.x, at.z, at.heading);
+  if (S.hull.passage) tanks().boats[S.kind] = Math.max(0, fuelLevel(tanks(), S.kind) - PASSAGE_FUEL);
+  const at = to === 'south' ? LANDFALL : mooring(S.kind);
+  // (Off Puerto Brasa, clear of a boat you left lying there.)
+  const busy = to === 'south' && boats.some((o) => o !== S && Math.hypot(o.pos.x - at.x, o.pos.z - at.z) < 12);
+  S.place(at.x + (busy ? -18 : 0), at.z, at.heading);
   switchBoat(S);
   if (onFoot) setFoot(false, true);
   rig.reset(boat, t);
   if (to === 'home') {
-    const B = berthFor(S, boats, { reach: 3 });
+    const B = berthFor(S, boats, { reach: 3 }) || pontoonBerth(S);
     if (B) {
       S.place(B.x, B.z, B.heading);
       S.tieTo({ ...B, t: 9 });
@@ -2794,22 +2854,24 @@ const fuelWarned = {};
 function watchTank(what) {
   const lowNow = fuelLow(tanks(), what) && fuelLevel(tanks(), what) > 0;
   if (lowNow && !fuelWarned[what]) {
-    hud.toast(`${cap(fuelName(what))} is low on fuel: ${tankWords(tanks(), what)}. ${what === 'car' ? 'The pump by the garage fills it (or the jerry can).' : what === 'bass' ? 'Longmere has no pump: the jerry can fills it.' : 'The harbour pump on Willowhaven quay fills it.'}`, 6);
+    hud.toast(`${cap(fuelName(what))} is low on fuel: ${tankWords(tanks(), what)}. ${what === 'car' ? 'The pump by the garage fills it (or the jerry can).' : what === 'bass' ? 'Longmere has no pump: the jerry can fills it.' : player().pos.z > SOUTH_Z ? 'The pump on Puerto Brasa quay fills it.' : 'The harbour pump on Willowhaven quay fills it.'}`, 6);
   }
   fuelWarned[what] = lowNow || fuelLevel(tanks(), what) <= 0;
 }
 
-// Fill up at a pump: whatever of yours is in reach (the car, the boats alongside, the jerry can).
+// Fill up at a pump: whatever of yours is in reach (the car, the boats alongside or at the nearest
+// pontoon berths, the jerry can).
+const PUMP_REACH = 25;
 function openPump(id) {
   const P = FUEL_PUMPS[id], f = tanks(), here = [];
   if (Math.hypot(car.pos.x - P.x, car.pos.z - P.z) < (id === 'home' ? 12 : 32)) here.push('car');
-  if (id === 'haven') for (const b of boats) if (isPetrol(b.kind) && Math.hypot(b.pos.x - P.x, b.pos.z - P.z) < 22) here.push(b.kind);
+  if (id !== 'home') for (const b of boats) if (isPetrol(b.kind) && Math.hypot(b.pos.x - P.x, b.pos.z - P.z) < PUMP_REACH) here.push(b.kind);
   const can = f.can.at === 'pack' || (f.can.at === 'car' && here.includes('car')) || (id === 'home' && f.can.at === 'home');
   const lines = here.map((w) => `${cap(fuelName(w))}: ${tankWords(f, w)}.`);
   if (can) lines.push(`The jerry can: ${canWords(f)}.`);
   if (!here.length && !can) lines.push(id === 'home' ? 'The car isn’t here, and nor is the jerry can.' : 'None of your boats is alongside, and the car and the jerry can aren’t here.');
   const needs = [...here.filter((w) => fuelRoom(f, w) > 0.05), ...(can && f.can.litres < 9.95 ? ['can'] : [])];
-  const name = id === 'home' ? 'The fuel pump' : 'The harbour fuel pump';
+  const name = id === 'home' ? 'The fuel pump' : id === 'brasa' ? 'The fuel pump on the quay' : 'The harbour fuel pump';
   if (!needs.length) {
     ask(name, `${lines.join(' ')}${here.length || can ? ' Everything here is full.' : ''}`, [{ text: 'OK' }]);
     return;
@@ -2859,21 +2921,25 @@ function boatChoices() {
   const f = tanks(), kind = boat.kind;
   const acts = [{ text: 'Paddle on with the oar', cls: 'quiet', run: () => {} }];
   if (f.can.at === 'pack' && f.can.litres >= 0.5) acts.push({ text: `Pour in the jerry can (${litres(f.can.litres)})`, cls: 'quiet', run: () => pourCan(kind) });
-  acts.push({ text: kind === 'bass' ? 'A tow to the boathouse (about an hour)' : 'A tow to Willowhaven quay (about an hour)', run: () => towBoat() });
+  acts.push({ text: kind === 'bass' ? 'A tow to the boathouse (about an hour)' : boat.pos.z > SOUTH_Z ? 'A tow in to Puerto Brasa (about an hour)' : 'A tow to Willowhaven quay (about an hour)', run: () => towBoat() });
   ask(`The ${boat.name}: out of fuel`, `The tank is dry. An oar moves her along, slowly${kind === 'bass' && f.battery > 0 ? ', and the electric motor still runs on its battery' : ''}.${f.can.at === 'pack' ? '' : ' (The jerry can isn’t with you.)'}`, acts);
 }
 
 function towBoat() {
   if (fishing.lineOut || fishing.aiming) fishing.cancel();
-  const p = boat.kind === 'bass' ? mooring('bass') : quayMooring(boat) || mooring(boat.kind);
+  // (Down south, into Puerto Brasa: a berth on the pontoon.)
+  const south = boat.pos.z > SOUTH_Z, berth = south ? pontoonBerth(boat, true) : null;
+  const p = berth || (south ? { x: PONTOON_S.x1 + 6, z: PONTOON_S.z1 + 6, heading: 0 } : boat.kind === 'bass' ? mooring('bass') : quayMooring(boat) || mooring(boat.kind));
   boat.place(p.x, p.z, p.heading);
-  boat.setAnchor(true);
+  if (berth) boat.tieTo({ ...berth, t: 9 });
+  else boat.setAnchor(true);
   passTime(rescue(tanks(), boat.kind));
   rig.reset(boat, t);
   audio.knock?.(0.4);
   hud.toast(boat.kind === 'bass'
     ? `The boathouse keeper tows you back to the jetty, an hour gone, and leaves you ${litres(fuelLevel(tanks(), 'bass'))} to potter with. The jerry can fills at home or at Willowhaven.`
-    : `A boat from the harbour tows you in to Willowhaven quay, an hour gone, and they leave you ${litres(fuelLevel(tanks(), boat.kind))}. The pump is at the root of the quay.`, 8);
+    : south ? `A fishing boat tows you in to Puerto Brasa, an hour gone, and they leave you ${litres(fuelLevel(tanks(), boat.kind))}. The pump is on the quay.`
+      : `A boat from the harbour tows you in to Willowhaven quay, an hour gone, and they leave you ${litres(fuelLevel(tanks(), boat.kind))}. The pump is at the root of the quay.`, 8);
   save();
 }
 
@@ -3360,18 +3426,23 @@ function interaction() {
     const hs = homeSpotNear();
     if (hs) return HOME_ACTS[hs.id];
     const near = boatNear();
-    // The cabin boat made fast: aboard to the helm, or straight into the cabin.
+    // A boat with a cabin made fast: aboard to the helm, or straight into the cabin (and the
+    // cruiser: the long passage too).
     if (near && near.hull.cabin && canEnterCabin(near)) {
-      return { text: 'The cabin boat: the helm or the cabin', run: () => ask('The cabin boat', 'She’s made fast here. Take the helm, or go straight into the cabin (the galley and the bunk)?', [
+      const long = !!near.hull.passage, to = walker.pos.z > SOUTH_Z ? 'home' : 'south';
+      return { text: long ? `The ${near.name}: the helm, the cabin, or the passage ${to}` : `The ${near.name}: the helm or the cabin`, run: () => ask(boatTitle(near), long
+        ? `She’s made fast here. Take the helm, go into the cabin (the galley and the bunks), or make the long passage ${to === 'south' ? 'south to Las Brasas' : 'home to Willow Bay'} under power (four days at sea)?`
+        : 'She’s made fast here. Take the helm, or go straight into the cabin (the galley and the bunk)?', [
+        ...(long ? [{ text: to === 'south' ? 'The passage south' : 'The passage home', cls: 'quiet', run: () => offerPassage(to, near) }] : []),
         { text: 'The helm', cls: 'quiet', run: () => board(near) },
-        { text: 'Into the cabin', run: () => enterCabin() },
+        { text: 'Into the cabin', run: () => enterCabin(near) },
       ]) };
     }
     // The sailing boat: get in, or the long passage (to Las Brasas, or home from there).
     if (near && near.hull.sail) {
       const to = walker.pos.z > SOUTH_Z ? 'home' : 'south';
       return { text: `The ${near.name}: get in, or the long passage ${to}`, run: () => ask(boatTitle(near), to === 'south' ? 'Get in and sail her here, or make the long passage south to Las Brasas (four days at sea)?' : 'Get in and sail her here, or make the passage home to Willow Bay (four days at sea)?', [
-        { text: to === 'south' ? 'The passage south' : 'The passage home', cls: 'quiet', run: () => offerPassage(to) },
+        { text: to === 'south' ? 'The passage south' : 'The passage home', cls: 'quiet', run: () => offerPassage(to, near) },
         { text: 'Get in', run: () => board(near) },
       ]) };
     }
@@ -3405,7 +3476,7 @@ function interaction() {
   const ashore = spot && (spot.landing ? 'Step ashore at the landing' : spot.quay ? 'Step up onto the quay' : spot.pier ? 'Step onto the jetty' : 'Step ashore');
   // The cabin boat, anchored or tied up by the shore: the cabin, or ashore.
   if (spot && boat.hull.cabin && canEnterCabin(boat) && !fishing.lineOut) {
-    return { text: 'Into the cabin, or ashore', run: () => ask('The cabin boat', 'Tied up here. Into the cabin (the galley and the bunk), or ashore?', [
+    return { text: 'Into the cabin, or ashore', run: () => ask(boatTitle(boat), 'Tied up here. Into the cabin (the galley and the bunk), or ashore?', [
       { text: ashore, cls: 'quiet', run: () => stepAshore(spot) },
       { text: 'Into the cabin', run: () => enterCabin() },
     ]) };
@@ -3420,12 +3491,12 @@ function interaction() {
     ]) };
   }
   // A dry tank: the jerry can, a tow, or an oar.
-  if (isPetrol(boat.kind) && fuelLevel(tanks(), boat.kind) <= 0 && boat.speed < 1) return { text: 'Out of fuel: what now?', run: () => boatChoices() };
+  if (isPetrol(boat.kind) && boat.motor && fuelLevel(tanks(), boat.kind) <= 0 && boat.speed < 1) return { text: 'Out of fuel: what now?', run: () => boatChoices() };
   // The cabin boat, stopped: its galley and bunk (or over the side for a dive).
   const entry = !fishing.lineOut ? diveEntry() : null;
   if (boat.hull.cabin && !fishing.lineOut && canEnterCabin(boat)) {
     if (entry) {
-      return { text: 'The cabin, or go diving', run: () => ask('The cabin boat', 'Into the cabin (the galley and the bunk), or over the side for a dive?', [
+      return { text: 'The cabin, or go diving', run: () => ask(boatTitle(boat), 'Into the cabin (the galley and the bunk), or over the side for a dive?', [
         { text: 'Go diving', cls: 'quiet', run: () => chooseDive(entry) },
         { text: 'Into the cabin', run: () => enterCabin() },
       ]) };
@@ -3434,8 +3505,8 @@ function interaction() {
   }
   // Stopped over deep water: over the side.
   if (entry) return { text: 'Go diving', run: () => chooseDive(entry) };
-  // In the sailing boat, out on open water: the long passage.
-  if (boat.hull.sail && !fishing.lineOut && passageWaters()) {
+  // In the sailing boat or the cruiser, out on open water: the long passage.
+  if ((boat.hull.sail || boat.hull.passage) && !fishing.lineOut && passageWaters()) {
     const to = boat.pos.z > SOUTH_Z ? 'home' : 'south';
     return { text: to === 'south' ? 'The long passage south: four days' : 'The passage home: four days', run: () => offerPassage(to) };
   }
@@ -3822,6 +3893,21 @@ function updateWaiting(dt) {
 }
 
 // Alongside the quay, in water deep enough for the skiff.
+// A free berth for her alongside a pontoon finger (Willowhaven's at home, Puerto Brasa's in the
+// south), bow out, nearest the walkway first; or null.
+function pontoonBerth(b, south = b.pos.z > SOUTH_Z) {
+  const others = boats.filter((o) => o !== b);
+  const P = south ? PONTOON_S : HAVEN_PONTOON;
+  for (const F of south ? FINGERS_S : HAVEN_FINGERS) {
+    const out = F.x0 >= P.x1 ? 1 : -1;
+    for (const side of [1, -1]) {
+      const x = out > 0 ? F.x0 + 0.5 + b.hull.L * 0.5 : F.x1 - 0.5 - b.hull.L * 0.5, z = side > 0 ? F.z1 + 2 : F.z0 - 2;
+      const B = berthFor({ hull: b.hull, pos: { x, z }, heading: out * Math.PI / 2 }, others);
+      if (B) return B;
+    }
+  }
+  return null;
+}
 function quayMooring(b) {
   for (const [dx, dz] of [[2.4, -3], [-2.4, -3], [2.4, -7], [-2.4, -7]]) {
     const p = { x: (dx > 0 ? HAVEN_QUAY.x1 : HAVEN_QUAY.x0) + dx * 0.9, z: HAVEN_QUAY.z1 + dz, heading: 0 };
@@ -3831,17 +3917,21 @@ function quayMooring(b) {
   return null;
 }
 function boatsRound() {
-  const here = (b) => Math.hypot(b.pos.x - QUAY_HEAD.x, b.pos.z - HAVEN_QUAY.z1) < 14;
-  const list = boats.filter((b) => b.kind !== 'bass' && !here(b));
+  const here = (b) => Math.hypot(b.pos.x - QUAY_HEAD.x, b.pos.z - HAVEN_QUAY.z1) < 14 || (b.hull.passage && Math.hypot(b.pos.x - CRUISER_BERTH.x, b.pos.z - CRUISER_BERTH.z) < 6);
+  // (Not a boat you left at Las Brasas: she's four days away.)
+  const away = boats.filter((b) => b.pos.z > SOUTH_Z);
+  const list = boats.filter((b) => b.kind !== 'bass' && !here(b) && b.pos.z < SOUTH_Z);
+  const far = away.length ? ` (The ${away.map((b) => b.name).join(' and the ')} ${away.length > 1 ? 'are' : 'is'} at Las Brasas.)` : '';
   if (!list.length) {
-    hud.toast('Your boats are all here at the quay already. (The bass boat lives on Longmere.)', 4);
+    hud.toast(`Your boats are all here at the quay already. (The bass boat lives on Longmere.)${far}`, 4);
     return;
   }
   ask('Bring a boat round?', 'One of the harbour lads will row or run it round to the quay for you. It takes a little while.', [
     { text: 'Never mind', cls: 'quiet' },
     ...list.map((b) => ({
       text: `The ${b.name}`, run: () => {
-        const p = quayMooring(b);
+        // (The cruiser to her own berth on the pontoon; the others alongside the quay.)
+        const p = b.hull.passage ? pontoonBerth(b, false) : quayMooring(b);
         if (!p) {
           hud.toast('There’s no room alongside the quay just now.', 3);
           return;
@@ -3861,7 +3951,8 @@ function boatsRound() {
         passTime(clamp(d / 300, 0.15, 1.5));
         audio.knock(0.4);
         save();
-        hud.toast(`The ${b.name} is tied up alongside the quay. Step down into her from the quay steps, and cast off (${scheme() === 'touch' ? 'the Cast off prompt' : input.keyLabel('anchor')}) to go.`, 6);
+        hud.toast(b.hull.passage ? `The ${b.name} is at her berth on the pontoon, off the end of the quay. Down the gangway, step aboard, and cast off (${scheme() === 'touch' ? 'the Cast off prompt' : input.keyLabel('anchor')}) to go.`
+          : `The ${b.name} is tied up alongside the quay. Step down into her from the quay steps, and cast off (${scheme() === 'touch' ? 'the Cast off prompt' : input.keyLabel('anchor')}) to go.`, 6);
       },
     })),
   ]);
@@ -4747,14 +4838,14 @@ function currentHint() {
     const dead = kind === 'kayak' ? boat.kflat : boat.trolling ? boat.flat : boat.dry && Math.abs(lv) >= 0.03;
     const word = boat.anchored ? 'at anchor' : dead ? (kind === 'kayak' ? 'battery flat' : 'the motor’s dead: an oar, slowly') : leverWords(kind, lv);
     const fuel = kind === 'kayak' ? batteryWords(tanks(), 'kayak') : fuelHint(boat.kind);
-    const motor = kind === 'kayak' ? ` · ${T ? 'Raise motor to paddle' : `${K('motor')} raise it and paddle`}` : '';
+    const motor = kind === 'kayak' ? ` · ${T ? 'Raise motor to paddle' : `${K('motor')} raise it and paddle`}` : kind === 'sail' ? ` · ${T ? 'Raise the outboard on the lever' : `${K('outboard')} outboard up`}` : '';
     if (T) return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · the stick: up or down a notch, across to steer · Stop on the lever · ${fuel}`;
     if (P) return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · ${kbd('L-stick')} ↕ a notch, ↔ steer · ${K('neutral')} stop · ${K('anchor')} anchor${motor} · ${fuel}`;
     return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · ${UD} a notch · ${LR} steer · ${K('neutral')} stop · ${K('anchor')} anchor${motor} · ${fuel}`;
   }
   // The sailing boat: the sheet and the helm, and the sail up or down.
   if (boat.hull.sail) {
-    if (!boat.sailUp) return T ? 'Row with the stick · Raise sail on the panel' : `${MOVE()} row · ${K('motor')} raise the sail`;
+    if (!boat.sailUp) return T ? 'Row with the stick · Raise sail or the outboard on the panel' : `${MOVE()} row · ${K('motor')} raise the sail · ${K('outboard')} the outboard`;
     if (T) return 'The stick: up hauls the sheet in, down eases it, across steers · Haul in and Ease on the panel';
     if (P) return `${kbd('L-stick')} ↕ sheet in and out, ↔ steer · ${K('motor')} lower the sail · ${K('anchor')} anchor`;
     return `${K('forward')} haul in · ${K('back')} ease · ${LR} steer · ${K('motor')} lower the sail · ${K('anchor')} anchor`;
@@ -5001,7 +5092,7 @@ function updateDiveHud() {
 let saveWarned = false;
 function save() {
   for (const [k, b] of Object.entries(BOATS)) {
-    state.boats[k] = { x: b.pos.x, z: b.pos.z, heading: b.heading, anchored: b.anchored && b.anchor?.phase !== 'haul', ...(b.emotorDown ? { motor: true } : {}), ...(b.sailUp ? { sail: Math.round(b.sheet * 100) / 100 } : {}) };
+    state.boats[k] = { x: b.pos.x, z: b.pos.z, heading: b.heading, anchored: b.anchored && b.anchor?.phase !== 'haul', ...(b.emotorDown || b.outboardDown ? { motor: true } : {}), ...(b.sailUp ? { sail: Math.round(b.sheet * 100) / 100 } : {}) };
     // (Where her anchor lies, or the berth she's tied up at, so she's found just as she was left.)
     if (b.anchor && b.anchor.phase !== 'haul') state.boats[k].anchor = { x: b.anchor.x, z: b.anchor.z };
     if (b.tie) state.boats[k].tie = { pier: b.tie.pier, side: b.tie.side, along: b.tie.along, heading: b.tie.heading };
@@ -5715,9 +5806,13 @@ input.on('press', (code, acts) => {
   else if (is('throttleUp') && leverKind()) stepLever(1);
   else if (is('throttleDown') && leverKind()) stepLever(-1);
   else if (is('motor')) {
-    if (!onFoot && !driving && !cabinIn && boat.hull.sail) toggleSail();
-    else toggleKayakMotor();
-  }
+    // (On a controller, the sailing boat's one button goes round sail, outboard and oars.)
+    if (!onFoot && !driving && !cabinIn && boat.hull.sail) {
+      if (pads.active && boat.sailUp) toggleOutboard();
+      else if (pads.active && boat.outboardDown) toggleOutboard();
+      else toggleSail();
+    } else toggleKayakMotor();
+  } else if (is('outboard')) toggleOutboard();
   else if (is('photo')) openPhoto();
   else if (is('view')) cycleView();
   else if (is('eye')) toggleFirstPerson();
@@ -6071,7 +6166,7 @@ function tick(now, manual = false) {
     fuelCheckT -= dt;
     if (fuelCheckT <= 0) {
       fuelCheckT = 1;
-      if (!onFoot && isPetrol(boat.kind)) watchTank(boat.kind);
+      if (!onFoot && isPetrol(boat.kind) && boat.motor) watchTank(boat.kind);
       if (driving) watchTank('car');
     }
   }
@@ -6093,7 +6188,7 @@ function tick(now, manual = false) {
     diveIn.fwd = diveIn.up = 0;
     diveIn.kick = false;
   }
-  BOATS.cabin.setCabinLight(env.night, !!cabinIn);
+  for (const b of boats) if (b.hull.cabin) b.setCabinLight(env.night, !!cabinIn && b === boat);
   // The motor: a putter at idle when you're aboard, rising with the throttle. Fish nearby
   // hear it, so slow down (or anchor) before you fish. (The bass boat's electric motor is
   // almost silent, and doesn't bother them.)
