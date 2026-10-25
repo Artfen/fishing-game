@@ -39,6 +39,15 @@ export const LEVERS = {
     { v: 0.48, id: '3', name: 'half ahead' },
     { v: 1, id: 'F', name: 'full ahead' },
   ],
+  // The jet ski: a light touch goes a long way.
+  jetski: [
+    { v: -0.15, id: 'R', name: 'astern' },
+    { v: 0, id: 'N', name: 'neutral' },
+    { v: 0.015, id: '1', name: 'dead slow' },
+    { v: 0.035, id: '2', name: 'slow ahead' },
+    { v: 0.27, id: '3', name: 'half ahead' },
+    { v: 1, id: 'F', name: 'full ahead' },
+  ],
   bass: [
     { v: -0.3, id: 'R', name: 'astern' },
     { v: 0, id: 'N', name: 'neutral' },
@@ -67,8 +76,8 @@ export const LEVERS = {
 // The highest notch allowed with a line out, and with a fish on: trolling speed at most (the
 // lure swims, the line never drags it skipping across the top); once a fish takes, no more than
 // dead slow (it's your fish to play, not the boat's).
-const LINE_MAX = { skiff: '2', cabin: '2', bass: 'E2', kayak: '3', sail: '2', cruiser: '2' };
-const FIGHT_MAX = { skiff: '1', cabin: '1', bass: 'E1', kayak: '1', sail: '1', cruiser: '1' };
+const LINE_MAX = { skiff: '2', cabin: '2', bass: 'E2', kayak: '3', sail: '2', cruiser: '2', jetski: '2' };
+const FIGHT_MAX = { skiff: '1', cabin: '1', bass: 'E1', kayak: '1', sail: '1', cruiser: '1', jetski: '1' };
 
 export const levers = (kind) => LEVERS[kind] || null;
 const indexOf = (kind, id) => LEVERS[kind].findIndex((n) => n.id === id);

@@ -130,7 +130,7 @@ export const PHOTO_MAX = 48;
 const ID = /^[a-z0-9-]{3,40}$/;
 const when = (v) => (isObj(v) ? { day: int(v.day, 1, 1, 1e6), hour: num(v.hour, 12, 0, 24) } : null);
 
-const VESSELS = ['row', 'skiff', 'kayak', 'bass', 'cabin', 'sail', 'cruiser'];
+const VESSELS = ['row', 'skiff', 'kayak', 'bass', 'cabin', 'sail', 'cruiser', 'windsurf', 'jetski'];
 
 function pos(v) {
   if (!isObj(v)) return null;

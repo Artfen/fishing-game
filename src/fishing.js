@@ -255,6 +255,11 @@ export class Fishing {
   onDown() {
     switch (this.state) {
       case 'idle': {
+        // (Not from a windsurf board or a jet ski: they're for the fun of it.)
+        if (this.angler.onBoat && this.angler.hull?.noFish) {
+          this.hooks.flash(`No fishing from the ${this.angler.name}: it's for the sport of it. Step ashore, or take a boat.`, 3);
+          return;
+        }
         // An impossible setup is explained before the cast, not after.
         const block = this.problems.find((p) => p.level === 'block');
         if (block) {

@@ -74,7 +74,7 @@ const SOMEDAY = ['a softer cushion', 'a potted fern', 'a little cabin by the lak
 const OUTCOME_WORDS = { released: 'Released', kept: 'Kept', cooked: 'Cooked', eaten: 'Eaten' };
 const RAIN_WORDS = ['', 'light rain', 'rain'];
 const PAGE = 25;
-const BOAT_COLORS = { row: '#b5532f', skiff: '#2f4f7a', kayak: '#e8742a', bass: '#7a2430', cabin: '#1f4e5f', sail: '#c4774a', cruiser: '#1d3b56' };
+const BOAT_COLORS = { row: '#b5532f', skiff: '#2f4f7a', kayak: '#e8742a', bass: '#7a2430', cabin: '#1f4e5f', sail: '#c4774a', cruiser: '#1d3b56', windsurf: '#f2a32a', jetski: '#e8b820' };
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);

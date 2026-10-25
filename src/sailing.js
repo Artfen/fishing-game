@@ -49,7 +49,9 @@ export const sheetFor = (boom) => clamp((boom - SAIL.boomMin) / (SAIL.boomMax - 
 //   leeward); alpha: the angle of attack; drive: forward; lateral: along the right vector (to
 //   leeward, so opposite in sign to side); state: 'irons', 'luffing', 'stalled' or 'drawing'.
 const _out = { awa: 0, side: 1, boom: 0, alpha: 0, drive: 0, lateral: 0, speed: 0, state: 'drawing', power: 0 };
-export function sailForce(ax, az, fx, fz, rx, rz, sheet, out = _out) {
+// (rig: the sail's area and what it drives, { area, mass }: the sailing boat's by default; a
+// windsurf board has its own.)
+export function sailForce(ax, az, fx, fz, rx, rz, sheet, out = _out, rig = SAIL) {
   const V = Math.hypot(ax, az);
   out.speed = V;
   if (V < 0.05) {
@@ -65,7 +67,7 @@ export function sailForce(ax, az, fx, fz, rx, rz, sheet, out = _out) {
   const boom = Math.min(boomLimit(sheet), Math.max(0, awa - 0.02));
   const alpha = awa - boom;
   const { cl, cd } = coefficients(alpha);
-  const q = (0.5 * SAIL.rho * SAIL.area * V * V) / SAIL.mass;
+  const q = (0.5 * SAIL.rho * rig.area * V * V) / rig.mass;
   // Drag along the air; lift square to it, towards the leeward side (forward, on a reach).
   const lf = side > 0 ? -ar : ar, lr = side > 0 ? af : -af;
   out.drive = q * (cl * lf + cd * af);
@@ -74,8 +76,10 @@ export function sailForce(ax, az, fx, fz, rx, rz, sheet, out = _out) {
   out.side = side;
   out.boom = boom;
   out.alpha = alpha;
-  // How hard the sail is pulling, 0 … 1 (for the telltales, the sheet's creak and the heel).
-  out.power = clamp(q * Math.hypot(cl, cd) / 1.6, 0, 1);
+  // How hard the sail is pulling, 0 … 1 (for the telltales, the sheet's creak and the heel), and
+  // its whole pull (m/s² on what it drives: what a windsurfer has to hold).
+  out.pull = q * Math.hypot(cl, cd);
+  out.power = clamp(out.pull / 1.6, 0, 1);
   out.state = awa < 0.42 && alpha < 0.12 ? 'irons'
     : alpha < 0.1 ? 'luffing'
       : alpha > SAIL.best + 0.32 && awa < 2.3 ? 'stalled' : 'drawing';
@@ -100,5 +104,13 @@ export const bestSheet = (awa) => sheetFor(Math.max(SAIL.boomMin, awa - SAIL.bes
 export const hullDrag = (v) => 0.2 + 0.05 * Math.abs(v) + 0.32 * Math.max(0, Math.abs(v) - 2.4) ** 2;
 // The centreboard's grip on the water: more the faster she goes.
 export const boardGrip = (v) => 2.6 + 2.2 * Math.min(Math.abs(v), 3);
+// A windsurf board: slow and draggy while it ploughs along at a walking pace; past about four
+// metres a second it climbs onto the plane and slips away (and seldom much past ten).
+export const boardDrag = (v) => {
+  const a = Math.abs(v), plane = smoothstep(3.2, 4.6, a);
+  return lerp(0.35 + 0.08 * a + 0.4 * Math.max(0, a - 2.4) ** 2, 0.22 + 0.03 * a, plane) + 0.05 * Math.max(0, a - 10) ** 2;
+};
+// Its fin's grip on the water: little when it's slow, a lot once it's going.
+export const finGrip = (v) => 3 + 3 * Math.min(Math.abs(v), 4);
 // How far she heels for a sideways push (rad), with you sitting out: never over.
 export const heelFor = (lateral) => clamp(lateral * 0.24, -0.5, 0.5);

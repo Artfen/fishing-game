@@ -31,6 +31,7 @@ export const bowOf = (b, out = { x: 0, z: 0 }) => {
 
 // Can she anchor here? { ok, depth, x, z } (where the anchor goes down) or { ok: false, why }.
 export function anchorCheck(b) {
+  if (b.hull.rig) return { ok: false, why: 'A windsurf board has no anchor: tie up at a pontoon or a jetty, or step ashore.' };
   const bow = bowOf(b), depth = -solidHeight(bow.x, bow.z);
   if (b.speed > 1) return { ok: false, why: 'Slow down before dropping the anchor' };
   if (depth < b.hull.draft + 0.6) return { ok: false, why: `Too shallow to anchor here (${depth < 0.1 ? 'barely any water' : `${depth.toFixed(1)} m`}): she’d swing onto the bottom. Find a little more water, or tie up or step ashore instead.` };

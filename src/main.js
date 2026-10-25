@@ -450,6 +450,11 @@ function mooring(kind) {
   if (kind === 'cabin') return { ...CABIN_BERTH };
   if (kind === 'sail') return { ...SAIL_BERTH };
   if (kind === 'cruiser') return { ...CRUISER_BERTH };
+  // The jet ski and the windsurf board: alongside the first finger west of Willowhaven's pontoon.
+  if (kind === 'jetski' || kind === 'windsurf') {
+    const F = HAVEN_FINGERS[1];
+    return kind === 'jetski' ? { x: F.x1 - 3, z: F.z0 - 0.9, heading: -Math.PI / 2 } : { x: F.x1 - 8.5, z: F.z0 - 0.6, heading: -Math.PI / 2 };
+  }
   if (kind === 'bass') {
     const P = BOATHOUSE_PIER, d = P.dir, side = { x: -d.z, z: d.x };
     for (const off of [2.1, -2.1, 2.8, -2.8]) {
@@ -1427,6 +1432,8 @@ function teachBoat() {
     skiff: `The motor skiff, for the open coast and the islands: ${lever} Near a shore, slow down and ${T ? 'tap the prompt' : `press ${key('interact')}`} to step off. It runs on petrol: the harbour pump is at the root of Willowhaven quay.`,
     kayak: `The kayak: slow, but silent and stable enough to fish from, and it floats in a hand's depth of water. Paddle into the shallows, the saltings and the reeds where the boats can't go: fish hardly notice it. ${S ? `${T ? 'The stick' : 'The left stick'} paddles and steers.` : `${key('forward')}${key('left')}${key('back')}${key('right')} paddle and steer.`} It has a little electric motor on its stern too (${T ? 'the Lower motor button' : S ? key('motor') : key('motor')}): slower than paddling, but quiet and hands-free, for creeping up on fish or trolling a lure. Its battery charges at a jetty and overnight.`,
     bass: `The bass boat: ${lever} The first notches of throttle run the quiet electric motor at the bow, for creeping along the weed beds and the reeds without spooking anything; push on for the outboard to cross the lake fast. Its locker holds your tackle box, and it sits steady when you cast. The outboard takes petrol (Longmere has no pump: bring the jerry can), and the electric motor a battery that charges at the jetty and overnight.`,
+    windsurf: `The windsurf board: you sail it standing up. ${T ? 'The stick up sheets the sail in and down eases it out; across steers (you lean the rig)' : S ? `${stick} up and down sheets in and out, across steers (you lean the rig)` : `${key('forward')} sheets in, ${key('back')} eases out, ${key('left')} and ${key('right')} steer (you lean the rig)`}. Like the sailing boat it goes where the wind lets it, and the panel shows how the sail is drawing; in a good breeze (from about 25 km/h) it climbs up onto the plane and flies. Hang on to too much power for too long (hauled in hard in a gust) and you're catapulted in: ease out in the gusts. You climb back on in a moment. Sail trim: Helped (Settings) trims it for you. No fishing from it, and no anchor: tie up at a pontoon or step ashore.`,
+    jetski: `The jet ski: very quick (over thirty knots flat out). ${lever} It steers by its jet, so it only turns with the throttle on. At speed it leaves the wave crests and lands with a smack, throwing a plume of spray behind it: hold on. It runs on petrol (the fuel point is on Willowhaven's pontoon, beside its berth). No fishing from it.`,
     cruiser: `The motor cruiser: a sea-going boat with a wheelhouse cabin (bunks and a galley) and a big outboard, quick once she's going but slow to turn, so give her room. ${lever} Tie up at a quay or a pontoon, or anchor, then ${T ? 'tap the prompt' : `press ${key('interact')}`} for the cabin: cook, and sleep aboard. She can make the long passage south under power too: four days to Las Brasas, and it takes half her tank (${T ? 'tap the prompt' : key('interact')} out on open water, or beside her at her berth). The fuel point is on Willowhaven's pontoon, by her berth.`,
     cabin: `The cabin boat: slow and steady, with a little cabin forward: a bunk and a galley stove. ${lever} Anchor (or tie up alongside a quay), then ${T ? 'tap the prompt' : `press ${key('interact')}`} for the cabin: cook what you've kept, and sleep aboard. A camp that floats. It runs on petrol: the harbour pump is right by her berth.`,
     sail: `The sailing boat: she goes where the wind lets her. ${T ? 'Raise the sail on the panel' : `Raise the sail (${key('motor')})`}, then ${T ? 'the stick up hauls the mainsheet in and down eases it; across steers' : S ? `${stick} up and down hauls the mainsheet in and eases it, across steers` : `${key('forward')} hauls the mainsheet in, ${key('back')} eases it, ${key('left')} and ${key('right')} steer`}. Watch the sail and the panel: if it flaps (luffing), haul in; if she's slow and heeling with the sail in tight across the wind, ease it out. Nothing drives her within about forty degrees of the wind (in irons): to go upwind, zigzag, tacking through the wind with speed on. The white lines in the air show the wind. With the sail down, she rows. She can make the long passage south, too: four days to Las Brasas, a volcanic island in the trade wind (${T ? 'tap the prompt' : key('interact')} out on open water, or beside her at the quay).`,
@@ -2211,7 +2218,9 @@ function sailInput(raw, dt) {
     boat.sheet = clamp(boat.sheet + want * SAIL.sheetRate * dt * (Math.abs(raw) > 0.2 ? Math.abs(raw) : 1), 0, 1);
     sheetTouched = t;
   } else if (settings.controls.sailTrim === 'helped' && boat.sailing && t - sheetTouched > 2.5) {
-    const best = bestSheet(boat.sailing.awa);
+    let best = bestSheet(boat.sailing.awa);
+    // (On a windsurf board in a strong wind it eases out past its best, spilling the gusts.)
+    if (boat.hull.rig && boat.sailing.pull > 5.5) best = Math.min(1, best + (boat.sailing.pull - 5.5) * 0.09);
     boat.sheet += clamp(best - boat.sheet, -0.25 * dt, 0.25 * dt);
   }
 }
@@ -2259,7 +2268,7 @@ const sailUI = new SailUI($('sail'), {
 });
 function updateSailPanel() {
   // (With the outboard down, the throttle lever takes its place.)
-  const show = started && !modal && !hudOff && !placement.isOn && !onFoot && !driving && !cabinIn && !!boat.hull.sail && !boat.outboardDown;
+  const show = started && !modal && !hudOff && !placement.isOn && !onFoot && !driving && !cabinIn && !!(boat.hull.sail || boat.hull.rig) && !boat.outboardDown;
   if (!show) {
     sailUI.update({ show: false });
     return;
@@ -2272,11 +2281,11 @@ function updateSailPanel() {
   const up = boat.sailUp && !!A;
   const advice = up ? trimAdvice(A) : null;
   sailUI.update({
-    show: true, up: boat.sailUp, sheet: boat.sheet, best: up && A.state !== 'irons' ? bestSheet(A.awa) : null,
-    words: !boat.sailUp ? 'sail down' : boat.anchored ? 'at anchor' : boat.tie ? 'tied up' : advice.words,
+    show: true, up: boat.sailUp, sheet: boat.sheet, best: up && A.state !== 'irons' ? bestSheet(A.awa) : null, board: !!boat.hull.rig,
+    words: !boat.sailUp ? 'sail down' : boat.fallen > 0 ? 'in the water' : boat.anchored ? 'at anchor' : boat.tie ? 'tied up' : `${advice.words}${boat.planing > 0.6 ? ' · planing' : ''}`,
     knots: Math.max(0, boat.forwardSpeed) * 1.944,
     awa: up ? A.awa * A.side : twa, twa, side: up ? A.side : 1, boom: up ? A.boom : 0,
-    keys: T ? '' : P ? `${kbd('L-stick')} ↕ sheet · ${K('motor')} sail` : `${K('forward')} in · ${K('back')} out · ${K('motor')} sail ${boat.sailUp ? 'down' : 'up'} · ${K('outboard')} outboard`,
+    keys: T ? '' : boat.hull.rig ? (P ? `${kbd('L-stick')} ↕ sheet` : `${K('forward')} in · ${K('back')} out`) : P ? `${kbd('L-stick')} ↕ sheet · ${K('motor')} sail` : `${K('forward')} in · ${K('back')} out · ${K('motor')} sail ${boat.sailUp ? 'down' : 'up'} · ${K('outboard')} outboard`,
   });
 }
 
@@ -2811,11 +2820,13 @@ function offerPassage(to, S = boat) {
   }
   const motor = !!S.hull.passage;
   const first = to === 'south' && !state.places.brasa;
+  const along = motor ? ['jetski', 'windsurf'].filter((k) => Math.hypot(BOATS[k].pos.x - S.pos.x, BOATS[k].pos.z - S.pos.z) < 45) : [];
+  const deck = along.length ? ` The ${along.map((k) => BOATS[k].name).join(' and the ')} ${along.length > 1 ? 'come' : 'comes'} too, lashed on her deck.` : '';
   ask(to === 'south' ? 'The long passage south' : 'The passage home', to === 'south'
     ? `${first ? 'Far to the south, four days’ sail down the Atlantic, lies Las Brasas: a volcanic island in the trade wind, with warm clear water, black lava reefs and fish you never see at home. ' : ''}${motor
       ? `Make the passage in the motor cruiser? Four days at sea under power (you eat and sleep aboard), and it takes half her tank (${litres(PASSAGE_FUEL)}): fill up again at the pump on Puerto Brasa quay.`
-      : 'Make the passage in the sailing boat? Four days at sea (you eat and sleep aboard), and you come in off Puerto Brasa with the sail down.'} Your gear and your creel come with you; the other boats and the car stay here.`
-    : motor ? `Head home to Willow Bay? Four days at sea under power (half her tank, ${litres(PASSAGE_FUEL)}), and you come in to her berth on Willowhaven’s pontoon. Your gear and your creel come with you.`
+      : 'Make the passage in the sailing boat? Four days at sea (you eat and sleep aboard), and you come in off Puerto Brasa with the sail down.'}${deck} Your gear and your creel come with you; the other boats and the car stay here.`
+    : motor ? `Head home to Willow Bay? Four days at sea under power (half her tank, ${litres(PASSAGE_FUEL)}), and you come in to her berth on Willowhaven’s pontoon.${deck} Your gear and your creel come with you.`
       : 'Sail home to Willow Bay? Four days at sea, and you come in alongside Willowhaven quay. Your gear and your creel come with you.',
   [
     { text: 'Not now', cls: 'quiet' },
@@ -2829,7 +2840,9 @@ function startPassage(to, S = boat) {
   if (fishing.lineOut) fishing.cancel();
   if (cabinIn) leaveCabin(true);
   modal = 'travel';
-  passage = { to, kind: S.kind, t: 0, line: -1, moved: false };
+  // (The cruiser takes the jet ski and the windsurf board along, lashed on deck, if they're by her.)
+  const carry = S.hull.passage ? ['jetski', 'windsurf'].filter((k) => Math.hypot(BOATS[k].pos.x - S.pos.x, BOATS[k].pos.z - S.pos.z) < 45 && !(tow && (tow.lead === BOATS[k] || tow.towed === BOATS[k]))) : [];
+  passage = { to, kind: S.kind, t: 0, line: -1, moved: false, carry };
   hud.sleep(true, to === 'south' ? `You stow the gear, take on water and stores${S.hull.passage ? ', check the oil' : ''}, and cast off…` : 'You stow the gear and cast off for the long run north…');
 }
 
@@ -2883,6 +2896,22 @@ function arrivePassage(to) {
   // (Off Puerto Brasa, clear of a boat you left lying there.)
   const busy = to === 'south' && boats.some((o) => o !== S && Math.hypot(o.pos.x - at.x, o.pos.z - at.z) < 12);
   S.place(at.x + (busy ? -18 : 0), at.z, at.heading);
+  // (The jet ski and the board come off her deck beside her, or back to their berths at home.)
+  (passage?.carry || []).forEach((k, i) => {
+    const c = BOATS[k];
+    c.tie = null;
+    c.anchor = null;
+    c.anchored = false;
+    c.lever = 0;
+    c.power = 0;
+    const p = to === 'south' ? { x: S.pos.x + 7 + i * 5, z: S.pos.z + 3, heading: at.heading } : mooring(k);
+    c.place(p.x, p.z, p.heading);
+    const B = to === 'home' ? berthFor(c, boats, { reach: 3 }) : null;
+    if (B) {
+      c.place(B.x, B.z, B.heading);
+      c.tieTo({ ...B, t: 9 });
+    }
+  });
   switchBoat(S);
   if (onFoot) setFoot(false, true);
   rig.reset(boat, t);
@@ -4485,6 +4514,29 @@ BOATS.kayak.onStroke = (p, side) => {
 };
 for (const b of boats) b.onBump = (v) => audio.knock(clamp(v / 3, 0.4, 1));
 // Under sail: the boom comes across in a tack, or slams across in a gybe.
+// The windsurf board: catapulted in, back up, the rig flipping across; and planing, the first
+// time. The jet ski landing off a wave.
+BOATS.windsurf.onFall = (b) => {
+  if (b !== boat || onFoot) return;
+  fx.splash(b.pos.x, 0.05, b.pos.z, 26, 3, 1.6);
+  audio.splashBig?.();
+  hud.flash(state.tips.catapult ? 'Catapulted in!' : 'Catapulted in! Too much power in the sail for too long. Ease the sheet out in the gusts (or set Sail trim to Helped), and you’ll hold it. You climb back on in a moment.', t, state.tips.catapult ? 2 : 6);
+  state.tips.catapult = true;
+};
+BOATS.windsurf.onUp = (b) => { if (b === boat && !onFoot) hud.flash('Back on the board, the rig up. Sheet in and away.', t, 2.2); };
+BOATS.windsurf.onGybe = (b) => {
+  if (b !== boat || onFoot) return;
+  audio.rustle?.();
+  hud.flash('Gybed: the rig flipped across, and away the other way.', t, 1.6);
+};
+BOATS.windsurf.onTack = (b) => { if (b === boat && !onFoot && b.speed > 0.3) audio.rustle?.(); };
+BOATS.jetski.onLand = (b, hit) => {
+  if (b !== boat || onFoot) return;
+  fx.splash(b.pos.x, 0.05, b.pos.z, Math.round(10 + hit * 8), 1.5 + hit, 1.4);
+  audio.knock(clamp(hit / 3, 0.3, 1));
+  if (!settings.controls.reducedMotion) rig.shake = Math.max(rig.shake, Math.min(0.22, hit * 0.07));
+};
+let jetSprayT = 0;
 BOATS.sail.onTack = (b) => {
   if (b !== boat || onFoot || b.speed < 0.3) return;
   audio.rustle?.();
@@ -4927,7 +4979,7 @@ function padContext() {
   if (fishing.state === 'reeling') return 'fight';
   // (A line out from a boat under power: the D-pad works the throttle.)
   if (fishing.busy) return leverKind() ? 'troll' : 'fish';
-  if (!onFoot && !cabinIn && (boat.motor || boat.hull.emotor || boat.hull.sail)) return 'helm';
+  if (!onFoot && !cabinIn && (boat.motor || boat.hull.emotor || boat.hull.sail || boat.hull.rig)) return 'helm';
   return 'play';
 }
 
@@ -5042,6 +5094,13 @@ function currentHint() {
     if (T) return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · the stick: up or down a notch, across to steer · Stop on the lever · ${fuel}`;
     if (P) return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · ${kbd('L-stick')} ↕ a notch, ↔ steer · ${K('neutral')} stop · ${K('anchor')} anchor${motor} · ${fuel}`;
     return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · ${UD} a notch · ${LR} steer · ${K('neutral')} stop · ${K('anchor')} anchor${motor} · ${fuel}`;
+  }
+  // The windsurf board: the sheet and leaning the rig to steer; ease out in the gusts.
+  if (boat.hull.rig) {
+    if (boat.fallen > 0) return 'In the water: you climb back on and pull the rig up in a moment';
+    if (T) return 'The stick: up sheets in, down eases out, across steers · ease out in the gusts';
+    if (P) return `${kbd('L-stick')} ↕ sheet in and out, ↔ steer · ease out in the gusts · ${K('anchor')} tie up`;
+    return `${K('forward')} sheet in · ${K('back')} ease · ${LR} steer · ease out in the gusts or you'll be catapulted in · ${K('anchor')} tie up`;
   }
   // The sailing boat: the sheet and the helm, and the sail up or down.
   if (boat.hull.sail) {
@@ -6304,9 +6363,9 @@ function tick(now, manual = false) {
     } else if (cabinIn) {
       // Inside the cabin: forward and back walk between the doorway, the galley and the bunk.
       cabinInput(ti);
-    } else if (boat.hull.sail && boat.sailUp) {
-      // Under sail: forward and back haul in and ease the mainsheet (it stays where you leave
-      // it), across steers with the tiller.
+    } else if ((boat.hull.sail || boat.hull.rig) && boat.sailUp) {
+      // Under sail (or on the windsurf board): forward and back haul in and ease the sheet (it
+      // stays where you leave it), across steers.
       sailInput(ti, dt);
       steer = si;
     } else if (leverKind()) {
@@ -6383,7 +6442,7 @@ function tick(now, manual = false) {
   for (const b of boats) if (b !== boat) b.update(dt, t, 0, 0, env.lantern);
   // The wind lines: round the boat while you sail (or wherever you are, if you like them always).
   {
-    const L = settings.weather.windLines, sailing = !onFoot && !driving && !dive && boat.hull.sail && boat.sailUp;
+    const L = settings.weather.windLines, sailing = !onFoot && !driving && !dive && (boat.hull.sail || boat.hull.rig) && boat.sailUp;
     const P = onFoot ? walker.pos : boat.pos;
     _wl.set(P.x, onFoot ? walker.pos.y : boat.heave, P.z);
     windLines.update(dt, t, _wl, started && !modal && (L === 'always' ? !dive : L === 'sailing' && sailing), camera);
@@ -6405,7 +6464,18 @@ function tick(now, manual = false) {
   const kayakOn = !onFoot && boat.kind === 'kayak' && boat.emotorDown && !boat.kflat;
   const motorOn = !onFoot && ((boat.motor && !(boat.trolling ? boat.flat : boat.dry)) || kayakOn);
   const outboard = motorOn && boat.motor && !boat.trolling;
-  audio.engine?.(motorOn ? (outboard ? Math.max(0.12, Math.abs(boat.power) * (boat.tilted ? 0.5 : 1)) : 0.03 + Math.abs(boat.power) * 0.02) : 0);
+  audio.engine?.(motorOn ? (outboard ? Math.max(0.12, Math.abs(boat.power) * (boat.tilted ? 0.5 : 1)) : 0.03 + Math.abs(boat.power) * 0.02) : 0, !onFoot && !!boat.hull.motor?.jet);
+  // The windsurf board up on the plane for the first time: a word.
+  if (!onFoot && boat.hull.rig && boat.planing > 0.8) teach('planing', 'Planing! The board’s up on the water and flying. Keep the sheet just in, and ease out in the gusts.', 6);
+  // The jet ski's plume: spray thrown up behind it at speed (none while it's in the air).
+  if (!onFoot && boat.kind === 'jetski' && Math.abs(boat.forwardSpeed) > 4 && !boat.air) {
+    jetSprayT -= dt;
+    if (jetSprayT <= 0) {
+      jetSprayT = 0.06;
+      const k = clamp((Math.abs(boat.forwardSpeed) - 4) / 12, 0, 1);
+      fx.splash(boat.pos.x - boat.fwd.x * 1.8, 0.1, boat.pos.z - boat.fwd.z * 1.8, Math.round(2 + 4 * k), 1.6 + 3 * k, 0.35);
+    }
+  }
   motorNoiseT -= dt;
   if (outboard && Math.abs(boat.power) > 0.25 && motorNoiseT <= 0) {
     motorNoiseT = 0.5;

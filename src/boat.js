@@ -10,7 +10,7 @@ import { RODS } from './tackle.js';
 import { Rope } from './rope.js';
 import { reachFor, berthAt } from './mooring.js';
 import { Dress } from './dress.js';
-import { sailForce, hullDrag, boardGrip, heelFor, SAIL } from './sailing.js';
+import { sailForce, hullDrag, boardGrip, heelFor, SAIL, boardDrag, finGrip } from './sailing.js';
 
 // The boats. Each has its own hull (metres; the bow points along local +z), its own
 // way of moving and its own place to sit:
@@ -32,6 +32,13 @@ import { sailForce, hullDrag, boardGrip, heelFor, SAIL } from './sailing.js';
 //    open cockpit aft with the wheel on a console, rails round the foredeck. Quick (about fifteen
 //    knots flat out), steady in a sea, slow to turn; big enough to make the passage south under
 //    power, and a camp that floats like the cabin boat.
+//  · windsurf: a board and a rig, sailed standing up: the same sail as the sailing boat's on a
+//    smaller scale (see sailing.js), steered by leaning; in a fresh breeze it climbs onto the
+//    plane and flies. Hold too much power too long and you're catapulted in; you climb back on
+//    and pull the rig up a few seconds later. No fishing from it.
+//  · jetski: a sit-down jet ski: very quick (over thirty knots flat out), steered by its jet, so
+//    it only turns while the throttle's on; at speed it leaves the wave crests and lands with a
+//    smack, throwing a plume of spray behind it. Runs on petrol. No fishing from it.
 // The kayak also carries a little electric motor on its stern: lowered, it pushes the kayak along
 // slowly and silently (hands free for the rod); raised, you paddle as ever.
 // The motorboats run on petrol (and the bass boat's electric motor on its battery: see fuel.js);
@@ -115,6 +122,34 @@ const HULLS = {
     cabin: [0.38, 0.86], cabinH: 1.25, cabinRoof: '#e9e5dc', wheel: true, rails: true,
     lantern: [1.05, -4.05], stow: [-1.0, 1.25, -2.5], noise: 1, steady: 0.3,
     windage: 0.005, ride: 1.8, // big and heavy: she shoulders the chop aside, but the wind gets a grip on the wheelhouse
+  },
+  windsurf: {
+    name: 'windsurf board', L: 2.6, B: 0.34, D: 0.13, draft: 0.05, shallow: 0.35, seatZ: -0.45, seatY: 1.02, floorY: 0.14,
+    hw: (t) => Math.pow(Math.sin(Math.PI * (0.1 + 0.9 * t)), 0.4),
+    sheer: (t) => 0.05 * Math.pow(t, 4),
+    keel: (t) => 0.12 * Math.pow(t, 5),
+    paint: '#f4f1e8', stripe: '#1f8fb8', bottom: '#f0ece2', inside: 'plastic',
+    decks: [[0, 1, 0]], noFish: true, noLantern: true, stand: true,
+    // The rig: the sail's area and what it drives (board and you), the mast foot (t along the
+    // board), its height, the wishbone's height and length, and the sail's colours.
+    rig: { area: 6, mass: 105, mast: 0.56, height: 4.3, boomY: 1.32, boom: 1.85, cloth: '#f2a32a', panel: '#d9472b', window: '#bfe0ec' },
+    drag: [0.35, 0.08], side: 3.4, turn: 1.25, rate: 1, noise: 0.5, steady: 0.9,
+    lantern: [0, -0.9], stow: [0, 0.2, -0.6],
+    windage: 0.002, ride: 7, // light: it rides every wave
+  },
+  jetski: {
+    name: 'jet ski', L: 3.1, B: 0.58, D: 0.62, draft: 0.22, shallow: 0.3, seatZ: -0.35, seatY: 0.95, floorY: 0.5,
+    hw: (t) => Math.pow(Math.sin(Math.PI * (0.28 + 0.72 * t)), 0.55),
+    sheer: (t) => 0.18 * Math.pow(t, 2) + 0.04,
+    keel: (t) => 0.22 * Math.pow(t, 3),
+    paint: '#f2f0ea', stripe: '#e8b820', bottom: '#20262c', inside: 'plastic',
+    decks: [[0.06, 1, 0]], noFish: true, noLantern: true, astride: true, bars: true, grip: [0.32, 0],
+    // The jet: a strong push (about seventeen metres a second, thirty-three knots, flat out); it
+    // steers by turning its nozzle, so only under power.
+    motor: { thrust: 18, astern: 2.2, tilt: 0.25, scale: 1, jet: true, cowl: '#20262c', band: '#e8b820' },
+    drag: [0.2, 0.05], helm: 1.7, jumps: true,
+    lantern: [0, -1.2], stow: [0, 0.6, -1],
+    noise: 1.2, steady: 0.7, windage: 0.002, ride: 6,
   },
 };
 for (const id of ['skiff', 'cabin']) Object.assign(HULLS[id], { hw: HULLS.row.hw, sheer: HULLS.row.sheer, keel: HULLS.row.keel });
@@ -245,6 +280,20 @@ export class Boat {
     this.heel = 0;
     this.boomYaw = 0;
     this.sailSide = 1;
+    // The windsurf board: in the water after a fall (seconds until you're back up), how long
+    // you've been overpowered, and planing (0 … 1). The jet ski: in the air off a wave, and its
+    // climb (m/s).
+    this.fallen = 0;
+    this.overT = 0;
+    this.flutter = 0; // (how much a sail is flapping, for its sound: the sailing boat's and the board's)
+    this.planing = 0;
+    this.air = false;
+    this.vy = 0;
+    this.lastHc = 0;
+    this.lastSv = 0;
+    this.onFall = null;     // (the game hears a fall, the climb back up, and a jet ski landing)
+    this.onUp = null;
+    this.onLand = null;
     this.onGybe = null;     // (the game hears the boom come across)
     this.onTack = null;
     this.kflat = false;    // the kayak's battery flat
@@ -301,6 +350,12 @@ export class Boat {
     if (H.motor || H.outboard) this.buildMotor();
     if (H.cabin) this.buildCabin();
     if (H.wheel) this.buildHelm();
+    if (H.rig) {
+      this.buildBoardRig();
+      this.sailUp = true; // (a board's rig is always up, but for a fall)
+      this.standLegs(1);
+    }
+    if (H.bars) this.buildBars();
     if (H.emotor) this.buildEMotor();
     if (H.sail) this.buildRig();
     this.buildAnchorLine(scene);
@@ -533,10 +588,11 @@ export class Boat {
       const thigh = cast(new THREE.Mesh(limbGeo, pants));
       const shin = cast(new THREE.Mesh(limbGeo, pants));
       const z = this.seatZ, y = this.seatY, H = this.hull;
-      // Knees up on a seat; in the kayak, legs stretched out along the hull.
-      const hip = new THREE.Vector3(s * 0.09, y + 0.05, 0.06 + z);
-      const knee = H.paddle ? new THREE.Vector3(s * 0.13, y + 0.2, 0.48 + z) : new THREE.Vector3(s * 0.11, y + 0.09, 0.42 + z);
-      const foot = H.paddle ? new THREE.Vector3(s * 0.11, y + 0.04, 0.88 + z) : new THREE.Vector3(s * 0.11, H.floorY + 0.06, 0.5 + z);
+      // Knees up on a seat; in the kayak, legs stretched out along the hull; astride the jet ski,
+      // knees out and feet down in its footwells.
+      const hip = new THREE.Vector3(s * (H.astride ? 0.13 : 0.09), y + (H.astride ? -0.04 : 0.05), 0.06 + z);
+      const knee = H.paddle ? new THREE.Vector3(s * 0.13, y + 0.2, 0.48 + z) : H.astride ? new THREE.Vector3(s * 0.27, y - 0.1, 0.44 + z) : new THREE.Vector3(s * 0.11, y + 0.09, 0.42 + z);
+      const foot = H.paddle ? new THREE.Vector3(s * 0.11, y + 0.04, 0.88 + z) : H.astride ? new THREE.Vector3(s * 0.25, sheer(H, 0.45) + 0.04, 0.6 + z) : new THREE.Vector3(s * 0.11, H.floorY + 0.06, 0.5 + z);
       setLimb(thigh, hip, knee, 0.07);
       setLimb(shin, knee, foot, 0.06);
       const b = cast(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.22), boot));
@@ -544,7 +600,9 @@ export class Boat {
       if (H.paddle) b.rotation.x = -0.9;
       this.body.add(thigh, shin, b);
       this.rowerParts.push(thigh, shin, b);
+      this.legs.push({ s, thigh, shin, boot: b });
     };
+    this.legs = [];
     leg(1);
     leg(-1);
 
@@ -565,6 +623,18 @@ export class Boat {
     // (An outboard that's up starts tilted out of the water.)
     if (!H.motor) g.rotation.x = -1.3;
     g.scale.setScalar(M.scale);
+    if (M.jet) {
+      // (A jet ski: no outboard, just its nozzle under the stern, turning to steer.)
+      g.position.set(0, 0.12, zAt(H, 0) - 0.02);
+      const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.3, 10).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#2b2e33', roughness: 0.5 }));
+      nozzle.position.z = -0.1;
+      g.add(nozzle);
+      this.prop = new THREE.Group();
+      g.add(this.prop);
+      this.tillerGrip = new THREE.Vector3(0, 0.3, 0.3);
+      this.body.add(g);
+      return;
+    }
     const parts = [
       { geo: new THREE.BoxGeometry(0.16, 0.14, 0.12), matrix: mat(0, 0, 0.02), color: '#3a3d42' },
       { geo: new THREE.BoxGeometry(0.3, 0.3, 0.42), matrix: mat(0, 0.24, -0.12), color: M.cowl },
@@ -822,6 +892,101 @@ export class Boat {
       this.mastLight.position.set(0, ry + 1.34, zm);
       this.cabinRoof.add(this.mastLight);
     }
+  }
+
+  // The windsurf board's rig: a mast stepped in the board, a wishbone boom round the sail, and the
+  // sail itself (a bright cloth, a darker head panel and a clear window). Two pivots at the mast
+  // foot: one leans it to windward against the pull (and lays it flat in a fall), the other swings
+  // it out to leeward as the sheet lets it. Under the board, its fin; on the deck, footstraps.
+  buildBoardRig() {
+    const H = this.hull, R = H.rig;
+    const zm = zAt(H, R.mast), y0 = sheer(H, R.mast);
+    const rake = (this.rake = new THREE.Group());
+    rake.position.set(0, y0, zm);
+    const swing = (this.swing = new THREE.Group());
+    rake.add(swing);
+    const parts = [
+      { geo: new THREE.CylinderGeometry(0.022, 0.03, R.height, 8), matrix: mat(0, R.height / 2, 0), color: '#ececec' },
+      { geo: new THREE.CylinderGeometry(0.05, 0.06, 0.12, 8), matrix: mat(0, 0.04, 0), color: '#2b2e33' },
+    ];
+    for (const s of [1, -1]) {
+      const pts = [new THREE.Vector3(0, R.boomY, 0.06), new THREE.Vector3(s * 0.21, R.boomY, -R.boom * 0.3), new THREE.Vector3(s * 0.2, R.boomY - 0.02, -R.boom * 0.72), new THREE.Vector3(0, R.boomY - 0.05, -R.boom)];
+      parts.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, 0.018, 5), color: '#3a3d42' });
+    }
+    const hard = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.2 }));
+    hard.castShadow = true;
+    swing.add(hard);
+    // The sail, in the rig's own plane: (back along the boom, up the mast) → (0, up, back).
+    const sheet = (pts, color, x = 0) => {
+      const g = new THREE.ShapeGeometry(new THREE.Shape(pts.map(([u, v]) => new THREE.Vector2(u, v))));
+      g.rotateY(-Math.PI / 2);
+      g.translate(x, 0, 0);
+      return { geo: g, color, jitter: 0.02 };
+    };
+    const Ht = R.height;
+    const cloth = [[0.04, 0.22], [0.03, Ht - 0.05], [-0.45, Ht * 0.82], [-0.95, Ht * 0.58], [-R.boom + 0.05, R.boomY + 0.2], [-R.boom * 0.72, 0.42], [-0.3, 0.2]];
+    const head = [[0.03, Ht * 0.7], [0.03, Ht - 0.05], [-0.45, Ht * 0.82], [-0.72, Ht * 0.68]];
+    const win = [[-0.12, R.boomY - 0.45], [-0.12, R.boomY + 0.65], [-0.7, R.boomY + 0.45], [-0.8, R.boomY - 0.3]];
+    const sail = new THREE.Mesh(mergeParts([
+      sheet(cloth, R.cloth),
+      ...[0.006, -0.006].flatMap((x) => [sheet(head, R.panel, x), sheet(win, R.window, x)]),
+    ]), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+    sail.castShadow = true;
+    swing.add(sail);
+    this.body.add(rake);
+    // The fin, and two pairs of footstraps.
+    const under = [{ geo: new THREE.BoxGeometry(0.02, 0.36, 0.2), matrix: mat(0, -0.12, zAt(H, 0.08)), color: '#2b2e33' }];
+    for (const t of [0.22, 0.42]) for (const s of [1, -1]) under.push({ geo: new THREE.TorusGeometry(0.07, 0.015, 4, 8, Math.PI), matrix: mat(s * 0.13, sheer(H, t) + 0.01, zAt(H, t), 0, Math.PI / 2, 0), color: '#1f3b56' });
+    this.body.add(new THREE.Mesh(mergeParts(under), new THREE.MeshLambertMaterial({ vertexColors: true })));
+  }
+
+  // The windsurfer's stance: side-on to the board facing the sail, feet apart along it (the front
+  // one by the mast), knees a little bent, hips out over the windward rail. s: the leeward side
+  // (+1: the boat's +x). In the water after a fall, the legs are out of sight.
+  standLegs(s, down = false) {
+    const H = this.hull, z0 = this.seatZ, deck = H.floorY;
+    for (const L of this.legs) {
+      const foot = new THREE.Vector3(-s * 0.1, deck + 0.04, z0 + L.s * 0.36);
+      const hip = new THREE.Vector3(-s * 0.26, H.seatY - 0.02, z0 + L.s * 0.1);
+      const knee = new THREE.Vector3(-s * 0.12, (hip.y + foot.y) / 2 + 0.04, z0 + L.s * 0.27);
+      setLimb(L.thigh, hip, knee, 0.07);
+      setLimb(L.shin, knee, foot, 0.06);
+      L.boot.position.set(foot.x, foot.y - 0.02, foot.z + 0.02);
+      L.boot.rotation.set(0, Math.PI / 2, 0);
+      L.thigh.visible = L.shin.visible = L.boot.visible = !down && this.occupied !== false;
+    }
+  }
+
+  // Catapulted in (the windsurf board): the rig goes over, you're in the water beside it, and in a
+  // few seconds you're back on and pulling it up.
+  fall(why = 'catapult') {
+    if (!this.hull.rig || this.fallen > 0) return;
+    this.fallen = 3.4;
+    this.overT = 0;
+    this.vel.multiplyScalar(0.3);
+    this.standLegs(this.sailSide || 1, true);
+    this.onFall?.(this, why);
+  }
+
+  // The jet ski's saddle, its hood, and the handlebars (turning with the jet), hands on the grips.
+  buildBars() {
+    const H = this.hull, z = this.seatZ, y = this.seatY;
+    const parts = [
+      { geo: new THREE.BoxGeometry(0.42, 0.22, 1.25), matrix: mat(0, y - 0.15, z - 0.05), color: '#1d2125' },
+      { geo: new THREE.BoxGeometry(0.66, 0.3, 0.72), matrix: mat(0, sheer(H, 0.74) + 0.08, zAt(H, 0.74), -0.28, 0, 0), color: H.stripe },
+      { geo: new THREE.BoxGeometry(0.5, 0.05, 0.4), matrix: mat(0, sheer(H, 0.74) + 0.24, zAt(H, 0.74) - 0.05, -0.28, 0, 0), color: '#20262c' },
+      { geo: new THREE.BoxGeometry(0.1, 0.34, 0.1), matrix: mat(0, y + 0.04, z + 0.74, -0.45, 0, 0), color: '#2b2e33' },
+    ];
+    const m = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.1 }));
+    m.castShadow = true;
+    this.body.add(m);
+    const bars = (this.wheel = new THREE.Group());
+    bars.position.set(0, y + 0.2, z + 0.8);
+    bars.add(new THREE.Mesh(mergeParts([
+      { geo: new THREE.BoxGeometry(0.7, 0.035, 0.035), color: '#3a3d42' },
+      ...[1, -1].map((s) => ({ geo: new THREE.CylinderGeometry(0.025, 0.025, 0.14, 6), matrix: mat(s * 0.32, 0, 0, 0, 0, Math.PI / 2), color: '#111316' })),
+    ]), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5 })));
+    this.body.add(bars);
   }
 
   // The cabin as you see it: open is how far the door stands open (0 shut … 1 open), roof whether
@@ -1298,6 +1463,7 @@ export class Boat {
   }
 
   setLantern(on) {
+    if (this.hull.noLantern) on = false; // (nowhere to hang one on a board or a jet ski)
     this.hasLantern = on;
     this.lanternRig.visible = on;
   }
@@ -1361,8 +1527,43 @@ export class Boat {
       vr = step(vr, wr, H.side || 3.2);
       // The tiller turns the boat even when slow, more so with the propeller pushing (the
       // trolling motor steers the bow round on the spot; the kayak's rudder needs way on).
-      const turnRate = (troll ? 0.9 : E ? 0.5 + 0.6 * clamp(Math.abs(vf) / 1.2, 0, 1) : 0.45 + 0.75 * clamp(Math.abs(vf) / 4, 0, 1) + 0.35 * Math.abs(pw)) * (H.helm ?? 1);
+      // (A jet steers by turning its jet: off the throttle it hardly turns at all.)
+      const jet = M?.jet ? 0.15 + 0.85 * clamp(Math.abs(pw) * 2.5, 0, 1) : 1;
+      const turnRate = (troll ? 0.9 : E ? 0.5 + 0.6 * clamp(Math.abs(vf) / 1.2, 0, 1) : 0.45 + 0.75 * clamp(Math.abs(vf) / 4, 0, 1) + 0.35 * Math.abs(pw)) * (H.helm ?? 1) * jet;
       this.omega = damp(this.omega, steer * turnRate * (vf < -0.3 ? -1 : 1), 2.6, dt);
+    } else if (H.rig) {
+      // The windsurf board: the same sail (sailing.js) on a small rig and a light board. Fast
+      // enough it planes and slips away; held overpowered too long (hauled in hard in a gust) and
+      // you're catapulted in; a few seconds later you're back on and pulling the rig up.
+      this.power = 0;
+      const down = this.fallen > 0, held = this.anchored || this.tie;
+      const A = (this.sailing = sailForce(ax, az, this.fwd.x, this.fwd.z, this.right.x, this.right.z, this.sheet, this.sailing || {}, H.rig));
+      thrust = held || down ? 0 : A.drive;
+      const lateral = held || down ? 0 : A.lateral;
+      vf = step(vf, thrust + wf * 0.3, down ? 1.6 : boardDrag(vf));
+      vr = step(vr, lateral + wr * 0.3, down ? 2.5 : finGrip(vf));
+      this.planing = damp(this.planing, smoothstep(3.2, 4.6, Math.abs(vf)), 2, dt);
+      const bite = 0.3 + 0.9 * clamp(Math.abs(vf) / 4, 0, 1);
+      this.omega = damp(this.omega, down ? 0 : steer * bite * H.turn * (vf < -0.3 ? -1 : 1), 3, dt);
+      if (down) {
+        this.fallen = Math.max(0, this.fallen - dt);
+        if (!this.fallen) {
+          this.standLegs(this.sailSide || 1);
+          this.onUp?.(this);
+        }
+      } else if (!held) {
+        // (More than you can hang on to: hauled in past its best in a strong wind, or simply a
+        // gale in the sail. Eased to its best angle it's held in anything short of that.)
+        const over = (A.pull > 7 && A.alpha > SAIL.best + 0.12) || A.pull > 13;
+        this.overT = over ? this.overT + dt : Math.max(0, this.overT - dt * 0.8);
+        if (this.overT > 1.1) this.fall('catapult');
+      }
+      if (A.side !== this.sailSide && !down) {
+        if (A.awa > 1.9 && Math.abs(vf) > 2.5) this.onGybe?.(this, A);
+        else this.onTack?.(this, A);
+        this.sailSide = A.side;
+        this.standLegs(this.sailSide);
+      }
     } else if (H.sail && this.sailUp) {
       // Under sail: the apparent wind on the sail (the air's motion less hers, gusts and all)
       // drives her on and pushes her sideways; the centreboard grips the water against the push,
@@ -1443,9 +1644,39 @@ export class Boat {
     const targetPitch = clamp(-Math.atan2(hb - hs, 2 * L2) - thrust * 0.004, -pl, pl) * (0.5 + 0.5 * H.steady);
     const targetRoll = clamp(Math.atan2(hp - hst, 2 * B2) + this.omega * vf * 0.035, -rl, rl) * H.steady + Math.sin(t * 0.9) * (0.008 + 0.05 * wild) * H.steady + (H.sail ? this.heel : 0);
     const ride = H.ride ?? 4;
-    this.pitch = damp(this.pitch, targetPitch, ride, dt);
+    this.pitch = damp(this.pitch, this.air ? -0.12 : targetPitch, ride, dt);
     this.roll = damp(this.roll, targetRoll, ride, dt);
-    this.heave = damp(this.heave, hc, ride + 1, dt);
+    if (H.jumps && (this.air || Math.abs(vf) > 7)) {
+      // The jet ski at speed: up a wave's face and off its top it flies, the water dropping away
+      // faster than it falls, and lands a little way on with a smack.
+      if (this.air) {
+        this.vy -= 9.81 * dt;
+        this.heave += this.vy * dt;
+        if (this.heave <= hc) {
+          const hit = -this.vy;
+          this.air = false;
+          this.heave = hc;
+          this.vy = 0;
+          if (hit > 1) this.onLand?.(this, hit);
+        }
+      } else {
+        const was = this.heave;
+        this.heave = damp(this.heave, hc, ride + 1, dt);
+        this.vy = (this.heave - was) / Math.max(dt, 1e-3);
+        // (Over a crest the water falls away under her faster than she can follow, the bow
+        // lifting her: she leaves it, a little higher the faster she's going.)
+        const surface = (hc - this.lastHc) / Math.max(dt, 1e-3), drop = (surface - this.lastSv) / Math.max(dt, 1e-3);
+        this.lastSv = surface;
+        if (drop < -3.2 && surface > -0.35 && this.vy > -0.1) {
+          this.air = true;
+          this.vy = Math.max(this.vy, 0) + 0.25 + 0.75 * smoothstep(7, 17, Math.abs(vf));
+        }
+      }
+    } else {
+      this.air = false;
+      this.heave = damp(this.heave, hc, ride + 1, dt);
+    }
+    this.lastHc = hc;
 
     this.group.position.set(p.x, this.heave - H.draft, p.z);
     this.group.rotation.y = this.heading;
@@ -1685,7 +1916,7 @@ export class Boat {
     }
     // The outboard: propeller spinning, the leg turning with the tiller. (The sailing boat's,
     // when it's up, tilts right out of the water on its bracket.)
-    if (this.wheel) this.wheel.rotation.z = damp(this.wheel.rotation.z, -this.omega * 2.2, 6, dt);
+    if (this.wheel && !this.hull.bars) this.wheel.rotation.z = damp(this.wheel.rotation.z, -this.omega * 2.2, 6, dt);
     if (this.motor) {
       this.prop.rotation.z = this.propSpin;
       this.motorGroup.rotation.y = damp(this.motorGroup.rotation.y, -this.omega * 0.35, 6, dt);
@@ -1727,13 +1958,40 @@ export class Boat {
     this.torso.rotation.x = 0.12 * Math.cos(this.phase) * blendRow + fishing * 0.08;
     this.torso.rotation.z = Math.sin(t * 38) * 0.018 * this.shiver * (1 - blendRow);
     this.torso.rotation.y = damp(this.torso.rotation.y, this.pose.rodYaw * 0.35 * fishing, 4, dt);
+    if (this.swing) {
+      // The windsurf rig: swung out to leeward as the sheet and the wind let it, leant to windward
+      // against the pull (more the harder it pulls), raked forward a touch when she planes; laid
+      // flat on the water in a fall. You stand side-on facing it, hanging back off the boom; or
+      // you're in the water beside the board.
+      const A = this.sailing, s = this.sailSide || 1, down = this.fallen > 0, pull = A && !down ? clamp(A.pull / 7, 0, 1) : 0;
+      this.boomYaw = damp(this.boomYaw, A && !down ? -s * A.boom : 0, 5, dt);
+      this.swing.rotation.y = this.boomYaw;
+      this.flutter = damp(this.flutter, A && !down ? (1 - smoothstep(0.04, 0.14, A.alpha)) * smoothstep(0.8, 3, A.speed) : 0, 4, dt);
+      this.rake.rotation.z = damp(this.rake.rotation.z, down ? -s * 1.45 : s * (0.12 + 0.22 * pull), down ? 4 : 3, dt);
+      this.rake.rotation.x = damp(this.rake.rotation.x, down ? 0 : 0.12 * this.planing, 3, dt);
+      const T = this.torso;
+      T.rotation.order = 'YXZ';
+      if (down) {
+        T.position.set(-s * 0.75, this.hull.floorY - 0.25, this.seatZ + 0.2);
+        T.rotation.set(-1.05, s * Math.PI / 2, 0);
+      } else {
+        T.position.set(-s * (0.26 + 0.14 * pull), this.hull.seatY, this.seatZ);
+        T.rotation.set(-(0.22 + 0.4 * pull), s * Math.PI / 2, 0);
+      }
+    }
+    if (this.hull.astride) {
+      // Astride the jet ski: leaning into the speed and into the turns; the bars turn with the jet.
+      this.torso.rotation.x = 0.22 + 0.14 * clamp(Math.abs(this.forwardSpeed) / 12, 0, 1);
+      this.torso.rotation.z = clamp(-this.omega * 0.3, -0.3, 0.3);
+      this.wheel.rotation.y = damp(this.wheel.rotation.y, clamp(this.omega * 0.45, -0.5, 0.5), 8, dt);
+    }
     const look = fishing ? this.pose.rodYaw * 0.45 : Math.sin(t * 0.21) * 0.35 * (1 - blendRow);
     this.head.rotation.y = damp(this.head.rotation.y, look, 2, dt);
     this.head.rotation.x = fishing ? 0.15 : 0;
 
     // Rod
     this.rod.visible = this.occupied && fishing > 0.02;
-    this.rodStowed.visible = !this.rod.visible;
+    this.rodStowed.visible = !this.rod.visible && !this.hull.noFish;
     this.rod.position.copy(this.active.hold);
     this.rod.rotation.y = this.pose.rodYaw;
     this.rod.rotation.x = this.pose.rodPitch;
@@ -1748,6 +2006,13 @@ export class Boat {
       if (P) {
         P.g.updateMatrix();
         onOar = _b.copy(P.grips[a.s > 0 ? 0 : 1]).applyMatrix4(P.g.matrix);
+      } else if (this.swing) {
+        // Both hands on the windward arm of the wishbone, a shoulder's width apart.
+        this.rake.updateMatrix();
+        this.swing.updateMatrix();
+        const s2 = this.sailSide || 1;
+        onOar = _b.set(-s2 * 0.2, this.hull.rig.boomY, a.s > 0 ? -0.42 : -0.92).applyMatrix4(this.swing.matrix).applyMatrix4(this.rake.matrix);
+        if (this.fallen > 0) onOar.set(-s2 * (0.75 + 0.1 * a.s), this.hull.floorY + 0.1, this.seatZ + 0.5 + a.s * 0.15);
       } else if (this.sailUp) {
         // One hand on the tiller, the other on the mainsheet.
         this.rudder.updateMatrix();
@@ -1755,7 +2020,8 @@ export class Boat {
       } else if (this.wheel && this.motor) {
         // Both hands on the wheel.
         this.wheel.updateMatrix();
-        onOar = _b.set(a.s > 0 ? 0.17 : -0.17, 0.06, 0).applyMatrix4(this.wheel.matrix);
+        const G = this.hull.grip || [0.17, 0.06];
+        onOar = _b.set(a.s > 0 ? G[0] : -G[0], G[1], 0).applyMatrix4(this.wheel.matrix);
       } else if (this.motor) {
         // One hand on the tiller, the other resting on a knee.
         this.motorGroup.updateMatrix();

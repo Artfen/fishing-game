@@ -83,6 +83,8 @@ export class SailUI {
     }
     this.now.textContent = s.words;
     this.upBtn.textContent = s.up ? 'Lower sail' : 'Raise sail';
+    // (A windsurf board's rig is always up, and it has no outboard.)
+    this.upBtn.hidden = this.motorBtn.hidden = !!s.board;
     this.inBtn.hidden = this.outBtn.hidden = !s.up;
     this.sheetRow.hidden = !s.up;
     this.mark.style.left = `${(s.sheet * 100).toFixed(1)}%`;

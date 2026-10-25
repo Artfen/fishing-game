@@ -430,8 +430,8 @@ export class AudioScape {
   alarmRun() {}
 
   // The skiff's outboard: a low putter at idle that rises in pitch and loudness with the
-  // throttle. level 0 is off.
-  engine(level) {
+  // throttle. level 0 is off. (jet: the jet ski's, a higher, harder whine that climbs further.)
+  engine(level, jet = false) {
     if (!this.ctx) return;
     const ctx = this.ctx;
     if (!this.eng && level > 0) {
@@ -468,12 +468,12 @@ export class AudioScape {
     }
     if (!this.eng) return;
     const e = this.eng, on = level > 0.001;
-    const rpm = 34 + level * 58;
+    const rpm = jet ? 55 + level * 165 : 34 + level * 58;
     this.set(e.o1.frequency, rpm, 0.25);
     this.set(e.o2.frequency, rpm * 2.02, 0.25);
     this.set(e.lfo.frequency, rpm / 2.2, 0.25);
-    this.set(e.f.frequency, 260 + level * 900, 0.3);
-    this.set(e.g.gain, on ? 0.035 + level * 0.07 : 0, on ? 0.3 : 0.6);
+    this.set(e.f.frequency, jet ? 480 + level * 2400 : 260 + level * 900, 0.3);
+    this.set(e.g.gain, on ? (jet ? 0.03 + level * 0.08 : 0.035 + level * 0.07) : 0, on ? 0.3 : 0.6);
   }
 
   // The car: a soft four-cylinder hum that rises with the revs, and gravel under the tyres with
