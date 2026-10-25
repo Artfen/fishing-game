@@ -8,6 +8,7 @@ import { withSurface } from './world/surface.js';
 import { RODS } from './tackle.js';
 import { Rope } from './rope.js';
 import { reachFor, berthAt } from './mooring.js';
+import { sailForce, hullDrag, boardGrip, heelFor, SAIL } from './sailing.js';
 
 // The five boats. Each has its own hull (metres; the bow points along local +z), its own
 // way of moving and its own place to sit:
@@ -19,6 +20,9 @@ import { reachFor, berthAt } from './mooring.js';
 //    motor for fishing (the lever's first notches), and a steady casting deck with a locker.
 //  · cabin: a little wooden cabin boat, slow and steady, with a cuddy forward holding a bunk and
 //    a galley stove: a camp that floats (anchor it, or tie up, and go inside).
+//  · sail: a little gaff-free sloop of about sixteen feet, tan sails on a wooden mast: she goes
+//    where the wind lets her (see sailing.js), steered with the tiller, her mainsheet hauled in
+//    and eased by hand. With the sail down, a pair of oars.
 // The kayak also carries a little electric motor on its stern: lowered, it pushes the kayak along
 // slowly and silently (hands free for the rod); raised, you paddle as ever.
 // The motorboats run on petrol (and the bass boat's electric motor on its battery: see fuel.js);
@@ -64,6 +68,20 @@ const HULLS = {
     motor: { thrust: 7.6, astern: 3, tilt: 0.85, scale: 1.3, cowl: '#2b2e33', band: '#b8312f', troll: 0.3 },
     lantern: [0.8, -1.95], stow: [-0.72, 0.62, 0.4], noise: 1, steady: 0.45,
     windage: 0.0036, ride: 3, // high-sided: the wind pushes it more; broad and heavy: it rides the swell slowly
+  },
+  sail: {
+    name: 'sailing boat', L: 4.9, B: 0.84, D: 0.66, draft: 0.24, shallow: 0.55, seatZ: -1.45, seatY: 0.45, floorY: 0.09,
+    hw: (t) => Math.pow(Math.sin(Math.PI * (0.2 + 0.8 * t)), 0.6),
+    sheer: (t) => 0.2 * Math.pow(t, 2.2) + 0.07 * Math.pow(1 - t, 3),
+    keel: (t) => 0.16 * Math.pow(t, 3),
+    paint: '#2f4d63', stripe: '#ece3cf', bottom: '#8a3b2c', inside: 'wood',
+    oars: true, thwarts: true, decks: [[0.84, 1, 0]], lantern: [-0.45, -1.95], stow: [-0.5, 0.55, -0.4],
+    // Under oars (the sail down): a heavier boat than the rowing boat, a little slower.
+    pull: 5.4, back: 2.8, drag: [0.3, 0.07], side: 3.2, turn: 0.75, rate: 0.75, noise: 0.45, steady: 0.8,
+    // The rig: mast (at t along the hull), its height, the gooseneck, the boom's length, the jib.
+    sail: { mast: 0.76, height: 6.3, gooseneck: 1.6, boom: 2.75, head: 6.15, jibHead: 4.9, jibFoot: 1.55, cloth: '#c4774a', jib: '#cf8a5c' },
+    rowZ: 0.05, // where you sit to row
+    windage: 0.0026, ride: 3.6,
   },
   cabin: {
     name: 'cabin boat', L: 6.2, B: 1.0, D: 0.9, draft: 0.38, shallow: 0.75, seatZ: -2.3, seatY: 0.55, floorY: 0.12,
@@ -192,6 +210,16 @@ export class Boat {
     this.lastGear = 0;     // ahead (1) or astern (-1), the last way the propeller turned
     this.shiftT = 0;       // changing gear: a pause in neutral
     this.emotorDown = false; // the kayak's electric motor lowered into the water (else you paddle)
+    // Under sail (see sailing.js): the sail up or down, the mainsheet (0 hauled in … 1 let out),
+    // what the wind is doing to the sail just now, the heel, and where the boom lies.
+    this.sailUp = false;
+    this.sheet = 0.5;
+    this.sailing = null;
+    this.heel = 0;
+    this.boomYaw = 0;
+    this.sailSide = 1;
+    this.onGybe = null;     // (the game hears the boom come across)
+    this.onTack = null;
     this.kflat = false;    // the kayak's battery flat
     this.dry = false;      // out of petrol (set by the game: see fuel.js)
     this.flat = false;     // the electric motor's battery flat
@@ -245,6 +273,7 @@ export class Boat {
     if (H.motor) this.buildMotor();
     if (H.cabin) this.buildCabin();
     if (H.emotor) this.buildEMotor();
+    if (H.sail) this.buildRig();
     this.buildAnchorLine(scene);
     this.buildMooringGear(scene);
     this.buildRods();
@@ -764,6 +793,196 @@ export class Boat {
   // The anchor: stowed on the foredeck, and the same anchor out in the world on its rope (a
   // smaller grapnel on the kayak). Out, it goes down to the seabed from the bow, holds, and comes
   // back up when you haul it in.
+  // The sailing boat's rig: a wooden mast stepped through the forward thwart, held by shrouds and
+  // a forestay; the boom on its gooseneck with the mainsail above it (triangular, tan cloth); the
+  // jib forward of the mast; a little flag at the masthead that streams downwind; a rudder at the
+  // transom and its tiller. The sails are cloth: each frame they belly out to leeward as the wind
+  // fills them, flap when they luff, and swing across with the boom when she tacks or gybes.
+  buildRig() {
+    const H = this.hull, R = H.sail;
+    const zm = zAt(H, R.mast), wood = '#b98a56';
+    this.rig = { zm };
+    const spars = [
+      { geo: new THREE.CylinderGeometry(0.035, 0.055, R.height, 8), matrix: mat(0, 0.1 + R.height / 2, zm), color: wood },
+      // (A cap and a sheave at the masthead, a cleat or two.)
+      { geo: new THREE.CylinderGeometry(0.045, 0.04, 0.12, 8), matrix: mat(0, 0.1 + R.height, zm), color: '#3d3a36' },
+      { geo: new THREE.BoxGeometry(0.06, 0.12, 0.04), matrix: mat(0.05, 1.1, zm), color: '#3d3a36' },
+      // The rudder hung on the transom, and its blade under the water.
+      { geo: new THREE.BoxGeometry(0.035, 0.85, 0.32), matrix: mat(0, sheer(H, 0) - 0.42, zAt(H, 0) - 0.18), color: '#2a3a46' },
+    ];
+    // Shrouds to the gunwales abreast of the mast, and the forestay to the stemhead.
+    const wire = (a, b) => {
+      const d = new THREE.Vector3().subVectors(b, a), len = d.length();
+      const m = new THREE.Matrix4().compose(a.clone().addScaledVector(d, 0.5), new THREE.Quaternion().setFromUnitVectors(UP, d.normalize()), new THREE.Vector3(1, 1, 1));
+      spars.push({ geo: new THREE.CylinderGeometry(0.007, 0.007, len, 4), matrix: m, color: '#8e9396', jitter: 0 });
+    };
+    const hb = hw(H, R.mast) - 0.03, sy = sheer(H, R.mast);
+    wire(new THREE.Vector3(0, R.height * 0.86, zm), new THREE.Vector3(hb, sy, zm - 0.15));
+    wire(new THREE.Vector3(0, R.height * 0.86, zm), new THREE.Vector3(-hb, sy, zm - 0.15));
+    this.rig.stem = new THREE.Vector3(0, sheer(H, 1) + 0.02, zAt(H, 1) - 0.06);
+    this.rig.jibTop = new THREE.Vector3(0, R.jibHead, zm);
+    wire(this.rig.jibTop, this.rig.stem);
+    const sparMesh = new THREE.Mesh(mergeParts(spars), withSurface(new THREE.MeshLambertMaterial({ vertexColors: true }), 'wood', { axis: 'z' }));
+    sparMesh.castShadow = true;
+    this.body.add(sparMesh);
+
+    // The boom, on its gooseneck: it swings round the mast.
+    const pivot = (this.boomPivot = new THREE.Group());
+    pivot.position.set(0, R.gooseneck, zm - 0.06);
+    const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.034, R.boom, 7), withSurface(new THREE.MeshLambertMaterial({ color: wood }), 'wood', { axis: 'y' }));
+    boom.rotation.x = Math.PI / 2;
+    boom.position.z = -R.boom / 2;
+    boom.castShadow = true;
+    pivot.add(boom);
+    // The sail furled along the boom when it's down.
+    this.furl = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.06, R.boom * 0.9, 8), new THREE.MeshLambertMaterial({ color: R.cloth }));
+    this.furl.rotation.x = Math.PI / 2;
+    this.furl.position.set(0, 0.08, -R.boom * 0.47);
+    pivot.add(this.furl);
+    this.body.add(pivot);
+
+    // Sailcloth: a grid of points (chordwise u, up the luff v) set afresh each frame.
+    const clothMat = (color) => new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, color });
+    const makeCloth = (NU, NV, color) => {
+      const geo = new THREE.BufferGeometry();
+      const n = (NU + 1) * (NV + 1);
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(n * 3), 3));
+      // Seams: each horizontal panel a shade apart, the cloth a little darker at the leech.
+      const col = new Float32Array(n * 3);
+      for (let j = 0; j <= NV; j++) {
+        for (let i = 0; i <= NU; i++) {
+          const k = (j * (NU + 1) + i) * 3, f = (j % 2 ? 0.94 : 1) * (1 - 0.08 * (i / NU));
+          col[k] = col[k + 1] = col[k + 2] = f;
+        }
+      }
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      const idx = [];
+      for (let j = 0; j < NV; j++) {
+        for (let i = 0; i < NU; i++) {
+          const a = j * (NU + 1) + i, b = a + 1, c = a + NU + 1, d = c + 1;
+          idx.push(a, c, b, b, c, d);
+        }
+      }
+      geo.setIndex(idx);
+      const mesh = new THREE.Mesh(geo, clothMat(color));
+      mesh.castShadow = true;
+      mesh.frustumCulled = false;
+      return { mesh, geo, NU, NV };
+    };
+    this.main = makeCloth(7, 10, R.cloth);
+    pivot.add(this.main.mesh);
+    this.jib = makeCloth(5, 8, R.jib);
+    this.body.add(this.jib.mesh);
+    // The masthead flag, and two telltales on the mainsail's luff.
+    this.burgee = new THREE.Group();
+    this.burgee.position.set(0, 0.16 + R.height, zm);
+    const flag = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.06, 0), new THREE.Vector3(0, -0.06, 0), new THREE.Vector3(0, 0, 0.42)]), new THREE.MeshBasicMaterial({ color: '#c0392b', side: THREE.DoubleSide }));
+    this.burgee.add(flag);
+    this.body.add(this.burgee);
+    this.telltales = [0.35, 0.62].map((v) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(0.02, 0.24).translate(0, -0.12, 0).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#2e6f9e', side: THREE.DoubleSide }));
+      pivot.add(m);
+      return { m, v };
+    });
+    // The mainsheet, from the end of the boom down to its block on the stern thwart.
+    this.sheetLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: '#e9e2d0' }));
+    this.sheetLine.frustumCulled = false;
+    this.body.add(this.sheetLine);
+    this.sheetBlock = new THREE.Vector3(0, sheer(H, 0.12) - 0.02, zAt(H, 0.12));
+    // The tiller, turning with the rudder (one hand on it at the helm).
+    this.rudder = new THREE.Group();
+    this.rudder.position.set(0, sheer(H, 0) + 0.05, zAt(H, 0) - 0.12);
+    const tiller = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.03, 0.95, 6), new THREE.MeshLambertMaterial({ color: '#8a6440' }));
+    tiller.rotation.x = Math.PI / 2 - 0.12;
+    tiller.position.set(0, 0.05, 0.47);
+    this.rudder.add(tiller);
+    this.tillerGrip = new THREE.Vector3(0, 0.1, 0.88); // in the rudder's own space
+    this.body.add(this.rudder);
+    this.fill = 0;
+    this.flutter = 0;
+    this.setSail(false);
+  }
+
+  // The sail up (you sit at the helm, aft) or down and furled on the boom (you sit at the oars).
+  setSail(up) {
+    if (!this.hull.sail) return;
+    // (Raised, the boom goes out on the side away from the wind as it is now.)
+    if (up && !this.sailUp) {
+      const air = windAt(this.pos.x, this.pos.z);
+      this.sailSide = air.x * this.right.x + air.z * this.right.z < 0 ? 1 : -1;
+    }
+    this.sailUp = !!up;
+    this.main.mesh.visible = this.jib.mesh.visible = this.sailUp;
+    this.furl.visible = !this.sailUp;
+    for (const tt of this.telltales) tt.m.visible = this.sailUp;
+    this.sheetLine.visible = this.sailUp;
+    // (Under sail the oars lie stowed in the bottom of the boat.)
+    for (const oar of this.oars || []) oar.g.visible = !this.sailUp;
+    this.setSeat(this.sailUp ? this.hull.seatZ : this.hull.sail && this.hull.rowZ);
+  }
+
+  // Where you sit, fore and aft (the rod comes with you).
+  setSeat(z) {
+    if (this.seatZ === z) return;
+    this.seatZ = z;
+    if (this.torso) this.torso.position.z = 0.02 + z;
+    for (const rod of Object.values(this.rods || {})) {
+      rod.group.position.z = 0.34 + z;
+      rod.hold.z = 0.34 + z;
+    }
+  }
+
+  // Lay the sails out for this frame: the main round the boom, the jib from its tack; bellied to
+  // leeward by how full the wind holds them, rippling where they luff.
+  shapeSails(t) {
+    const R = this.hull.sail, side = this.sailSide, fill = this.fill, fl = this.flutter;
+    const M = this.main, mp = M.geo.attributes.position.array;
+    const luff = R.head - R.gooseneck - 0.05;
+    for (let j = 0; j <= M.NV; j++) {
+      const v = j / M.NV, chord = R.boom * 0.97 * (1 - v) + 0.22 * Math.sin(Math.PI * v) * (1 - v);
+      for (let i = 0; i <= M.NU; i++) {
+        const u = i / M.NU, k = (j * (M.NU + 1) + i) * 3;
+        const camber = chord * (0.11 * fill + 0.015) * 4 * u * (1 - u) * (1 - 0.35 * v);
+        const ripple = fl * chord * 0.07 * Math.sin(u * 9 + t * 17 + v * 4) * Math.min(1, u * 3) * (0.5 + 0.5 * v);
+        mp[k] = side * (camber + ripple);
+        mp[k + 1] = 0.06 + v * luff + u * 0.04 * (1 - v);
+        mp[k + 2] = -u * chord;
+      }
+    }
+    M.geo.attributes.position.needsUpdate = true;
+    M.geo.computeVertexNormals();
+    // The jib: luff along the forestay, its clew swung out to leeward with the boom (a little
+    // less), bellied the same way.
+    const J = this.jib, jp = J.geo.attributes.position.array;
+    const top = this.rig.jibTop, stem = this.rig.stem, ja = Math.max(0.08, Math.abs(this.boomYaw) * 0.82);
+    const clew = _a.set(side * Math.sin(ja) * R.jibFoot, stem.y + 0.45, stem.z - Math.cos(ja) * R.jibFoot);
+    for (let j = 0; j <= J.NV; j++) {
+      const v = j / J.NV;
+      // Up the luff from the tack to the head; the leech from the clew to the head.
+      const lx = stem.x + (top.x - stem.x) * v, ly = stem.y + 0.05 + (top.y - stem.y) * v, lz = stem.z + (top.z - stem.z) * v;
+      const cx = clew.x + (top.x - clew.x) * v, cy = clew.y + (top.y - clew.y) * v, cz = clew.z + (top.z - clew.z) * v;
+      const chord = Math.hypot(cx - lx, cz - lz);
+      for (let i = 0; i <= J.NU; i++) {
+        const u = i / J.NU, k = (j * (J.NU + 1) + i) * 3;
+        const camber = chord * (0.13 * fill + 0.02) * 4 * u * (1 - u);
+        const ripple = fl * chord * 0.09 * Math.sin(u * 8 + t * 19 + v * 3) * Math.min(1, u * 3);
+        // (Out to leeward, square to the chord.)
+        const nx = (cz - lz) / (chord || 1), nz = -(cx - lx) / (chord || 1), sgn = Math.sign(nx * side || side);
+        jp[k] = lx + (cx - lx) * u + nx * sgn * (camber + ripple);
+        jp[k + 1] = ly + (cy - ly) * u;
+        jp[k + 2] = lz + (cz - lz) * u + nz * sgn * (camber + ripple);
+      }
+    }
+    J.geo.attributes.position.needsUpdate = true;
+    J.geo.computeVertexNormals();
+    // Telltales on the luff: streaming aft when she's drawing, lifting and twitching when not.
+    for (const tt of this.telltales) {
+      const y = 0.06 + tt.v * luff, chord = R.boom * (1 - tt.v);
+      tt.m.position.set(side * chord * 0.02, y, -0.12 - tt.v * 0.02);
+      tt.m.rotation.set(fl * Math.sin(t * 23 + tt.v * 9) * 0.9, side * 0.15 + fl * Math.sin(t * 13 + tt.v) * 0.8, 0);
+    }
+  }
+
   buildAnchorLine(scene) {
     const H = this.hull, k = H.paddle ? 0.6 : H.L > 5 ? 1.2 : 1;
     const model = () => {
@@ -1018,9 +1237,35 @@ export class Boat {
       // trolling motor steers the bow round on the spot; the kayak's rudder needs way on).
       const turnRate = troll ? 0.9 : E ? 0.5 + 0.6 * clamp(Math.abs(vf) / 1.2, 0, 1) : 0.45 + 0.75 * clamp(Math.abs(vf) / 4, 0, 1) + 0.35 * Math.abs(pw);
       this.omega = damp(this.omega, steer * turnRate * (vf < -0.3 ? -1 : 1), 2.6, dt);
+    } else if (H.sail && this.sailUp) {
+      // Under sail: the apparent wind on the sail (the air's motion less hers, gusts and all)
+      // drives her on and pushes her sideways; the centreboard grips the water against the push,
+      // you sit out against the heel, and a hard-pressed boat slows and turns up into the wind.
+      // The tiller only bites with way on; stopped head to wind, the bow blows off one way or
+      // the other.
+      this.power = 0;
+      const A = (this.sailing = sailForce(ax, az, this.fwd.x, this.fwd.z, this.right.x, this.right.z, this.sheet, this.sailing || {}));
+      thrust = this.anchored || this.tie ? 0 : A.drive;
+      const lateral = this.anchored || this.tie ? 0 : A.lateral;
+      this.heel = damp(this.heel, heelFor(lateral), 2.2, dt);
+      const pressed = smoothstep(0.3, 0.5, Math.abs(this.heel));
+      vf = step(vf, thrust * (1 - 0.5 * pressed) + wf * 0.4, hullDrag(vf));
+      vr = step(vr, lateral + wr * 0.4, boardGrip(vf));
+      const bite = 0.16 + 0.62 * clamp(Math.abs(vf) / 2.2, 0, 1);
+      // (Turning up into the wind when pressed; falling off when stopped in irons.)
+      const helm = -A.side * pressed * 0.25;
+      const blowOff = A.state === 'irons' && Math.abs(vf) < 0.6 ? (steer ? -Math.sign(steer) : A.side) * 0.14 : 0;
+      this.omega = damp(this.omega, steer * bite * (vf < -0.3 ? -1 : 1) + helm + blowOff, 2.4, dt);
+      // Tacking and gybing: the wind crosses the bow or the stern and the boom comes across.
+      if (A.side !== this.sailSide) {
+        if (A.awa > 1.9) this.onGybe?.(this, A);
+        else this.onTack?.(this, A);
+        this.sailSide = A.side;
+      }
     } else {
       // Rowing (or paddling) rhythm
       this.power = 0;
+      if (H.sail) this.heel = damp(this.heel, 0, 2, dt);
       const rowing = (throttle !== 0 || steer !== 0) && !this.anchored && !this.tie;
       if (rowing) this.phase += dt * Math.PI * 2 * H.rate;
       // A paddle pulls on every half-stroke, left then right; oars once a stroke.
@@ -1068,7 +1313,7 @@ export class Boat {
     const hc = (hb + hs + hp + hst + 2 * hm) / 6;
     // (A broad bass boat sits steadier on the swell than the narrow wooden boats.)
     const targetPitch = clamp(-Math.atan2(hb - hs, 2 * L2) - thrust * 0.004, -0.2, 0.2) * (0.5 + 0.5 * H.steady);
-    const targetRoll = clamp(Math.atan2(hp - hst, 2 * B2) + this.omega * vf * 0.035, -0.22, 0.22) * H.steady + Math.sin(t * 0.9) * 0.008 * H.steady;
+    const targetRoll = clamp(Math.atan2(hp - hst, 2 * B2) + this.omega * vf * 0.035, -0.22, 0.22) * H.steady + Math.sin(t * 0.9) * 0.008 * H.steady + (H.sail ? this.heel : 0);
     const ride = H.ride ?? 4;
     this.pitch = damp(this.pitch, targetPitch, ride, dt);
     this.roll = damp(this.roll, targetRoll, ride, dt);
@@ -1315,6 +1560,34 @@ export class Boat {
       this.motorGroup.rotation.y = damp(this.motorGroup.rotation.y, -this.omega * 0.35, 6, dt);
       this.motorGroup.rotation.x = damp(this.motorGroup.rotation.x, this.tilted ? -0.5 : 0, 3, dt);
     }
+    // The rig: the boom swings out to leeward as far as the sheet and the wind let it (quickly
+    // across in a gybe, more gently through a tack), the sails fill or flap, the flag streams
+    // downwind and the rudder follows the helm.
+    if (this.boomPivot) {
+      const A = this.sailing;
+      const up = this.sailUp && A;
+      const want = up ? -this.sailSide * A.boom : 0;
+      const across = Math.sign(want) !== Math.sign(this.boomYaw) && Math.abs(this.boomYaw) > 0.05;
+      this.boomYaw = damp(this.boomYaw, want, up && A.awa > 1.9 && across ? 9 : 3.2, dt);
+      this.boomPivot.rotation.y = this.boomYaw;
+      const drawing = up ? smoothstep(0.06, 0.2, A.alpha) * smoothstep(0.4, 2.2, A.speed) : 0;
+      this.fill = damp(this.fill, drawing, 3, dt);
+      this.flutter = damp(this.flutter, up ? (1 - smoothstep(0.04, 0.14, A.alpha)) * smoothstep(0.8, 3, A.speed) : 0, 4, dt);
+      if (this.sailUp) this.shapeSails(t);
+      this.rudder.rotation.y = damp(this.rudder.rotation.y, -steer * 0.5, 6, dt);
+      // The flag: where the apparent wind goes, in her own frame.
+      const air = windAt(this.pos.x, this.pos.z);
+      const wx = air.x - this.vel.x, wz = air.z - this.vel.z;
+      const lx = wx * Math.cos(this.heading) - wz * Math.sin(this.heading), lz = wx * Math.sin(this.heading) + wz * Math.cos(this.heading);
+      if (Math.hypot(lx, lz) > 0.3) this.burgee.rotation.y = Math.atan2(lx, lz) + Math.sin(t * 9) * 0.08;
+      if (this.sailUp) {
+        const end = _b.set(-Math.sin(this.boomYaw) * this.hull.sail.boom, this.hull.sail.gooseneck - 0.02, this.boomPivot.position.z - Math.cos(this.boomYaw) * this.hull.sail.boom);
+        const pts = this.sheetLine.geometry.attributes.position;
+        pts.setXYZ(0, end.x, end.y, end.z);
+        pts.setXYZ(1, this.sheetBlock.x, this.sheetBlock.y, this.sheetBlock.z);
+        pts.needsUpdate = true;
+      }
+    }
     // Upper body sways with the stroke, and turns towards the line while fishing.
     const blendRow = P ? P.blend : this.oars.length ? (this.oars[0].blend + this.oars[1].blend) / 2 : 0;
     this.torso.rotation.x = 0.12 * Math.cos(this.phase) * blendRow + fishing * 0.08;
@@ -1340,6 +1613,10 @@ export class Boat {
       if (P) {
         P.g.updateMatrix();
         onOar = _b.copy(P.grips[a.s > 0 ? 0 : 1]).applyMatrix4(P.g.matrix);
+      } else if (this.sailUp) {
+        // One hand on the tiller, the other on the mainsheet.
+        this.rudder.updateMatrix();
+        onOar = a.s > 0 ? _b.copy(this.tillerGrip).applyMatrix4(this.rudder.matrix) : _b.set(-0.18, this.seatY + 0.42, 0.42 + this.seatZ);
       } else if (this.motor) {
         // One hand on the tiller, the other resting on a knee.
         this.motorGroup.updateMatrix();

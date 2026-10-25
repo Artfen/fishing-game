@@ -865,6 +865,18 @@ export const CABIN_BERTH = (() => {
   return { x: Q.x1 + 3, z: Q.z1 - 3, heading: 0 };
 })();
 
+// Where the sailing boat lies: alongside the other (west) side of Willowhaven quay, bow to the sea.
+export const SAIL_BERTH = (() => {
+  const Q = HAVEN_QUAY;
+  for (const dx of [2.6, 3.0, 3.4]) {
+    for (let z = Q.z1 - 1.5; z > Q.z0 + 4; z -= 0.5) {
+      const x = Q.x0 - dx;
+      if ([-2.6, 0, 2.6].every((k) => heightAt(x, z + k) < -1.1)) return { x, z, heading: 0 };
+    }
+  }
+  return { x: Q.x0 - 3, z: Q.z1 - 3, heading: 0 };
+})();
+
 // Walkable decks the boat bumps into: [x0, x1, z0, z1, deck height].
 export const PIERS = [
   { x0: JETTY.x - JETTY.halfW, x1: JETTY.x + JETTY.halfW, z0: JETTY.z0, z1: JETTY.z1, deck: JETTY.deck },

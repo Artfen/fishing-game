@@ -2266,6 +2266,38 @@ body.placing #sonar, body.placing #act-btn, body.placing #cancel-btn { visibilit
   animation: rise 0.3s ease;
 }
 #lever[hidden] { display: none; }
+/* The sailing panel: in the lever's place. */
+#sail {
+  position: absolute;
+  right: calc(18px + env(safe-area-inset-right, 0px));
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  width: 168px;
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  z-index: 3;
+  font: 600 13px var(--font-ui);
+  animation: rise 0.3s ease;
+}
+#sail[hidden] { display: none; }
+#hud.off #sail { display: none; }
+.sl-chart { width: 132px; height: 132px; align-self: center; }
+.sl-sheet { display: flex; align-items: center; gap: 6px; font-size: 11px; opacity: 0.9; }
+.sl-sheet[hidden] { display: none; }
+.sl-end { opacity: 0.7; }
+.sl-track { position: relative; flex: 1; height: 10px; border-radius: 5px; background: rgba(255, 249, 239, 0.14); border: 1px solid var(--hud-line); }
+.sl-mark { position: absolute; top: -4px; width: 10px; height: 16px; margin-left: -5px; border-radius: 4px; background: var(--lantern); }
+.sl-best { position: absolute; top: -2px; width: 4px; height: 12px; margin-left: -2px; border-radius: 2px; background: rgba(147, 220, 205, 0.8); }
+.sl-best[hidden] { display: none; }
+.sl-speed { font-size: 12px; text-align: center; opacity: 0.85; }
+.sl-btns { display: flex; gap: 6px; }
+.sl-btns button { flex: 1; }
+.sl-btns button[hidden] { display: none; }
 #hud.off #lever { display: none; }
 .lv-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
 .lv-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.72; }
@@ -2316,7 +2348,7 @@ body.placing #sonar, body.placing #act-btn, body.placing #cancel-btn { visibilit
   transition: top 0.12s ease;
 }
 #lever.lv-dragging .lv-handle { transition: none; background: var(--lantern); }
-.lv-stop, .lv-motor {
+.lv-stop, .lv-motor, #sail .lv-motor {
   width: 100%;
   min-height: 34px;
   border-radius: 10px;

@@ -124,14 +124,15 @@ export const PHOTO_MAX = 48;
 const ID = /^[a-z0-9-]{3,40}$/;
 const when = (v) => (isObj(v) ? { day: int(v.day, 1, 1, 1e6), hour: num(v.hour, 12, 0, 24) } : null);
 
-const VESSELS = ['row', 'skiff', 'kayak', 'bass', 'cabin'];
+const VESSELS = ['row', 'skiff', 'kayak', 'bass', 'cabin', 'sail'];
 
 function pos(v) {
   if (!isObj(v)) return null;
   const x = num(v.x, NaN), z = num(v.z, NaN);
   if (!Number.isFinite(x) || !Number.isFinite(z) || Math.abs(x) > 2000 || Math.abs(z) > 2000) return null;
   // (motor: the kayak's electric motor left lowered; older saves have it raised.)
-  const out = { x, z, heading: num(v.heading, 0), anchored: !!v.anchored, ...(v.motor === true ? { motor: true } : {}) };
+  // (sail: the sailing boat's sail left up, and how far her sheet was eased.)
+  const out = { x, z, heading: num(v.heading, 0), anchored: !!v.anchored, ...(v.motor === true ? { motor: true } : {}), ...(typeof v.sail === 'number' && Number.isFinite(v.sail) ? { sail: num(v.sail, 0.5, 0, 1) } : {}) };
   // Where her anchor lies (on the bottom, near her), and the berth she's tied up at.
   if (isObj(v.anchor)) {
     const ax = num(v.anchor.x, NaN), az = num(v.anchor.z, NaN);

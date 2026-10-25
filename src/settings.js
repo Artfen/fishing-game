@@ -26,8 +26,10 @@ export const DEFAULT_SETTINGS = {
   graphics: { preset: 'auto', scale: 1, shadows: 'auto', water: 'auto', plants: 'auto', particles: 'auto', underwater: 'auto', life: 'auto', fps: 0 },
   // sea: 'auto' (with the weather) or a SEA_PRESETS id; wind 'auto' or 'manual' (windSpeed m/s,
   // windFrom compass degrees); currents: natural, gentle or still (on your rig and boat).
-  weather: { mode: 'auto', rainFx: 1, sea: 'auto', windMode: 'auto', windSpeed: 4, windFrom: 225, currents: 'natural', panel: true },
-  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, rumble: true },
+  // windLines: the white wind lines in the air (when sailing, always, or never).
+  weather: { mode: 'auto', rainFx: 1, sea: 'auto', windMode: 'auto', windSpeed: 4, windFrom: 225, currents: 'natural', panel: true, windLines: 'sailing' },
+  // sailTrim: the sailing boat's mainsheet by hand, or helped (it trims itself when left alone).
+  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, rumble: true, sailTrim: 'hand' },
 };
 
 // The controller's buttons, as Settings lists them: [where, action, what it does]. The buttons
@@ -45,7 +47,7 @@ export const PAD_HELP = [
   ]],
   ['At the helm', [
     ['helm', 'forward', 'throttle a notch up or down (push and let go), and steer'], ['helm', 'neutral', 'stop: the motor to neutral'],
-    ['helm', 'motor', 'kayak: lower or raise the electric motor'],
+    ['helm', 'motor', 'kayak: lower or raise the electric motor · sailing boat: raise or lower the sail'],
     ['troll', 'throttleUp', 'with a line out: throttle up a notch'], ['troll', 'throttleDown', 'with a line out: throttle down a notch'],
   ]],
   ['A line in the water', [['fish', 'advice', 'why aren’t they biting?'], ['fish', 'feed', 'throw loose bait']]],
@@ -89,6 +91,7 @@ export function cleanSettings(raw, legacy = {}) {
     sea: oneOf(w.sea, ['auto', ...SEA_IDS], 'auto'), windMode: oneOf(w.windMode, ['auto', 'manual'], 'auto'),
     windSpeed: num(w.windSpeed, 4, 0, 13), windFrom: num(w.windFrom, 225, 0, 360) % 360,
     currents: oneOf(w.currents, ['natural', 'gentle', 'still'], 'natural'), panel: w.panel !== false,
+    windLines: oneOf(w.windLines, ['sailing', 'always', 'off'], 'sailing'),
   };
   const c = isObj(r.controls) ? r.controls : {};
   const controls = {
@@ -97,6 +100,7 @@ export function cleanSettings(raw, legacy = {}) {
     invertY: !!c.invertY,
     reducedMotion: !!c.reducedMotion,
     boatCam: oneOf(c.boatCam, ['swell', 'steady'], 'swell'),
+    sailTrim: oneOf(c.sailTrim, ['hand', 'helped'], 'hand'),
     cast: oneOf(c.cast, Object.keys(CAST_MODES), 'assisted'),
     hints: oneOf(c.hints, ['gentle', 'more', 'off'], 'gentle'),
     keys: c.keys ? cleanBindings(c.keys) : null,
@@ -351,6 +355,8 @@ export class SettingsUI {
     }
     out.push(this.row('Currents', { natural: 'Currents carry your boat, float and rig as they run: strongest in the river, the estuary channel, off Gannet Isle and over Long Shoal.', gentle: 'Currents carry your boat and rig at half strength.', still: 'Your boat and rig stay where you put them (the fish still know where the water runs).' }[W.currents],
       this.choice([['natural', 'Natural'], ['gentle', 'Gentle'], ['still', 'Still']], W.currents, (v) => this.set('weather', 'currents', v))));
+    out.push(this.row('Wind lines', { sailing: 'White lines drift through the air with the wind while you sail, showing where it blows from and how hard (the gusts too).', always: 'The wind lines show wherever you are: on foot, rowing or under motor too.', off: 'No wind lines: read the wind from the water, the flag at the masthead and the panel.' }[W.windLines],
+      this.choice([['sailing', 'When sailing'], ['always', 'Always'], ['off', 'Off']], W.windLines, (v) => this.set('weather', 'windLines', v))));
     out.push(this.row('Conditions panel', 'A small panel with the wind, the current and the sea where you are. (Its key is under Controls.)', this.toggle('weather', 'panel', 'Shown', 'Hidden')));
     out.push(el('p', 'st-note', 'Calm days are a full way to play: every fish can be found in calm water. Wind and waves change how you fish, not what you can catch.'));
     return out;
@@ -370,6 +376,8 @@ export class SettingsUI {
     out.push(this.row('Reduced camera motion', 'No camera shake, no boat roll in first person, and the view never turns by itself to follow a running fish.', this.toggle('controls', 'reducedMotion')));
     out.push(this.row('Boat camera', C.boatCam === 'steady' ? 'The view keeps a level horizon and only drifts gently up and down while the boat rides the waves beneath you.' : 'The view rises and rolls a little with the boat on the swell.',
       this.choice([['swell', 'Moves with the boat'], ['steady', 'Steady horizon']], C.boatCam, (v) => this.set('controls', 'boatCam', v))));
+    out.push(this.row('Sail trim', C.sailTrim === 'helped' ? 'The sailing boat’s mainsheet trims itself to the wind whenever you leave it alone for a moment: you steer, and haul in or ease to take over.' : 'You trim the sailing boat’s mainsheet yourself: haul in when the sail flaps, ease out when she’s pressed and slow.',
+      this.choice([['hand', 'By hand'], ['helped', 'Helped']], C.sailTrim, (v) => this.set('controls', 'sailTrim', v))));
     out.push(this.row('Fishing hints', { gentle: 'When nothing has come for a while, one word from the field guide on what the fish make of your rig.', more: 'A word whenever a cast stays quiet, and again if it stays quiet.', off: 'No hints by themselves. You can still ask (the key for “Why aren’t they biting?”).' }[C.hints],
       this.choice([['gentle', 'Gentle'], ['more', 'More'], ['off', 'Off']], C.hints, (v) => this.set('controls', 'hints', v))));
     // Key bindings

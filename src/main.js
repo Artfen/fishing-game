@@ -24,7 +24,7 @@ import {
   PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD, SEA,
   PEGS, POOLS, STREAM, SNAG, LILIES, JETTY, ISLAND, GANNET_CAMP, SKERRIES, SKELLIG, DEEP_Z,
   HAVEN, HAVEN_QUAY, HAVEN_BENCH, DAYMARK, STRAND, WRECK, WRECK_BUOY, WRECK_BELL, CHANNEL,
-  HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, FUEL_PUMPS, CABIN_BERTH, laneInfo,
+  HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, FUEL_PUMPS, CABIN_BERTH, SAIL_BERTH, laneInfo,
   CALF, CALF_TOWER, CALF_SKERRY, CALF_SOUND, CALF_LANDING,
 } from './world/terrain.js';
 import { Car } from './car.js';
@@ -32,6 +32,9 @@ import { Workbench, OutingSheet } from './workbench.js';
 import { KIT, KIT_IDS, DESTS, launchOf, parkNear, driveMinutes, moveKit, reconcile, campOfKit, campHas, statusOf, snapshot } from './outing.js';
 import { insideHome, HOME_SPOTS } from './world/home.js';
 import { BOTHY_DOOR, FELL_SIGN } from './world/fell.js';
+import { trimAdvice, bestSheet, SAIL } from './sailing.js';
+import { SailUI } from './sailui.js';
+import { WindLines } from './world/windlines.js';
 import { coldInfo, COLDWATER, FALLS, tarnSDF } from './world/coldwater.js';
 import { Boat, BOAT_KINDS } from './boat.js';
 import { Walker } from './walker.js';
@@ -388,6 +391,7 @@ function mooring(kind) {
     return { x: L.x + L.len + 4, z: L.z + (skiff ? 0 : 3), heading: Math.PI / 2 };
   }
   if (kind === 'cabin') return { ...CABIN_BERTH };
+  if (kind === 'sail') return { ...SAIL_BERTH };
   if (kind === 'bass') {
     const P = BOATHOUSE_PIER, d = P.dir, side = { x: -d.z, z: d.x };
     for (const off of [2.1, -2.1, 2.8, -2.8]) {
@@ -414,8 +418,12 @@ for (const [kind, b] of Object.entries(BOATS)) {
   const saved = state.boats[kind];
   const at = floats(b, saved) ? saved : mooring(kind);
   b.place(at.x, at.z, at.heading);
-  // (The kayak's motor as you left it: lowered, or up.)
+  // (The kayak's motor as you left it: lowered, or up; the sailing boat's sail, and its sheet.)
   if (saved?.motor && b.hull.emotor) b.setEMotor(true);
+  if (saved?.sail != null && b.hull.sail) {
+    b.setSail(true);
+    b.sheet = saved.sail;
+  }
 }
 // How each boat was left: tied up alongside (made fast again where she lies, held firm from the
 // start), at anchor (the anchor already on the bottom where it was), or free. A boat at her home
@@ -1328,6 +1336,7 @@ function teachBoat() {
     kayak: `The kayak: slow, but silent and stable enough to fish from, and it floats in a hand's depth of water. Paddle into the shallows, the saltings and the reeds where the boats can't go: fish hardly notice it. ${S ? `${T ? 'The stick' : 'The left stick'} paddles and steers.` : `${key('forward')}${key('left')}${key('back')}${key('right')} paddle and steer.`} It has a little electric motor on its stern too (${T ? 'the Lower motor button' : S ? key('motor') : key('motor')}): slower than paddling, but quiet and hands-free, for creeping up on fish or trolling a lure. Its battery charges at a jetty and overnight.`,
     bass: `The bass boat: ${lever} The first notches of throttle run the quiet electric motor at the bow, for creeping along the weed beds and the reeds without spooking anything; push on for the outboard to cross the lake fast. Its locker holds your tackle box, and it sits steady when you cast. The outboard takes petrol (Longmere has no pump: bring the jerry can), and the electric motor a battery that charges at the jetty and overnight.`,
     cabin: `The cabin boat: slow and steady, with a little cabin forward: a bunk and a galley stove. ${lever} Anchor (or tie up alongside a quay), then ${T ? 'tap the prompt' : `press ${key('interact')}`} for the cabin: cook what you've kept, and sleep aboard. A camp that floats. It runs on petrol: the harbour pump is right by her berth.`,
+    sail: `The sailing boat: she goes where the wind lets her. ${T ? 'Raise the sail on the panel' : `Raise the sail (${key('motor')})`}, then ${T ? 'the stick up hauls the mainsheet in and down eases it; across steers' : S ? `${stick} up and down hauls the mainsheet in and eases it, across steers` : `${key('forward')} hauls the mainsheet in, ${key('back')} eases it, ${key('left')} and ${key('right')} steer`}. Watch the sail and the panel: if it flaps (luffing), haul in; if she's slow and heeling with the sail in tight across the wind, ease it out. Nothing drives her within about forty degrees of the wind (in irons): to go upwind, zigzag, tacking through the wind with speed on. The white lines in the air show the wind. With the sail down, she rows.`,
   }[k];
   hud.toast(text, 12);
 }
@@ -2054,6 +2063,68 @@ function toggleKayakMotor() {
     hud.flash(`Motor down: quiet and slow, hands free for the rod. ${how}.`, t, 4);
   }
   save();
+}
+
+// The sailing boat's sail: up (and drawing, or flapping, as the wind and the sheet have it), or
+// down and furled on the boom, so she rows.
+function toggleSail() {
+  if (onFoot || driving || cabinIn || !boat.hull.sail) return;
+  if (fishing.state === 'reeling' || fishing.state === 'landing') {
+    hud.flash('Land or let go of the fish first', t, 2);
+    return;
+  }
+  boat.setSail(!boat.sailUp);
+  audio.rustle?.();
+  if (boat.sailUp) {
+    const A = boat.sailing;
+    hud.flash(`Sail up. ${settings.controls.sailTrim === 'helped' ? 'The sheet trims itself; steer her, and haul in or ease to take over.' : `Trim the mainsheet (${scheme() === 'touch' ? 'the stick up and down' : `${K('forward')} in, ${K('back')} out`}) until the sail stops flapping.`}`, t, 3.5);
+    if (A) boat.sheet = clamp(boat.sheet, 0, 1);
+  } else hud.flash(`Sail down: she rows (${scheme() === 'touch' ? 'the stick' : MOVE()}).`, t, 2.6);
+  save();
+}
+
+// The mainsheet, a little at a time while the key (or stick, or button) is held: in to drive her
+// closer to the wind, out to let the sail breathe. On the helped setting it trims itself towards
+// the best angle whenever you leave it be.
+function sailInput(raw, dt) {
+  const ui = sailUI.hold;
+  const want = ui || (Math.abs(raw) > 0.2 ? -raw : 0);
+  if (want) {
+    boat.sheet = clamp(boat.sheet + want * SAIL.sheetRate * dt * (Math.abs(raw) > 0.2 ? Math.abs(raw) : 1), 0, 1);
+    sheetTouched = t;
+  } else if (settings.controls.sailTrim === 'helped' && boat.sailing && t - sheetTouched > 2.5) {
+    const best = bestSheet(boat.sailing.awa);
+    boat.sheet += clamp(best - boat.sheet, -0.25 * dt, 0.25 * dt);
+  }
+}
+let sheetTouched = -10;
+
+const windLines = new WindLines(scene);
+hideFromReflection(windLines.mesh);
+const _wl = new THREE.Vector3();
+const sailUI = new SailUI($('sail'), {
+  toggle: () => { if (started && !modal) toggleSail(); },
+});
+function updateSailPanel() {
+  const show = started && !modal && !hudOff && !placement.isOn && !onFoot && !driving && !cabinIn && !!boat.hull.sail;
+  if (!show) {
+    sailUI.update({ show: false });
+    return;
+  }
+  const A = boat.sailing, T = scheme() === 'touch', P = scheme() === 'pad';
+  // Where the true wind comes from, off her bow (signed: + over the right side).
+  const w = windAt(boat.pos.x, boat.pos.z);
+  const fromX = -w.x, fromZ = -w.z, f = boat.fwd, r = boat.right;
+  const twa = Math.atan2(fromX * r.x + fromZ * r.z, fromX * f.x + fromZ * f.z);
+  const up = boat.sailUp && !!A;
+  const advice = up ? trimAdvice(A) : null;
+  sailUI.update({
+    show: true, up: boat.sailUp, sheet: boat.sheet, best: up && A.state !== 'irons' ? bestSheet(A.awa) : null,
+    words: !boat.sailUp ? 'sail down' : boat.anchored ? 'at anchor' : boat.tie ? 'tied up' : advice.words,
+    knots: Math.max(0, boat.forwardSpeed) * 1.944,
+    awa: up ? A.awa * A.side : twa, twa, side: up ? A.side : 1, boom: up ? A.boom : 0,
+    keys: T ? '' : P ? `${kbd('L-stick')} ↕ sheet · ${K('motor')} sail` : `${K('forward')} in · ${K('back')} out · ${K('motor')} sail ${boat.sailUp ? 'down' : 'up'}`,
+  });
 }
 
 const leverUI = new LeverUI($('lever'), {
@@ -3854,6 +3925,22 @@ BOATS.kayak.onStroke = (p, side) => {
   audio.oar(side > 0 ? -0.3 : 0.3, 0.35);
 };
 for (const b of boats) b.onBump = (v) => audio.knock(clamp(v / 3, 0.4, 1));
+// Under sail: the boom comes across in a tack, or slams across in a gybe.
+BOATS.sail.onTack = (b) => {
+  if (b !== boat || onFoot || b.speed < 0.3) return;
+  audio.rustle?.();
+  if (!state.tips.tacked) {
+    state.tips.tacked = true;
+    hud.flash('Tacked: the bow went through the wind and the boom came across. Sail on, close-hauled the other way.', t, 4);
+  }
+};
+BOATS.sail.onGybe = (b) => {
+  if (b !== boat || onFoot) return;
+  audio.knock(0.9);
+  rig.shake?.(0.25);
+  hud.flash(state.tips.gybed ? 'Gybe!' : 'Gybe! The wind crossed the stern and the boom slammed across. Haul the sheet in a little before you turn the stern through the wind, and it comes over gently.', t, state.tips.gybed ? 1.4 : 5);
+  state.tips.gybed = true;
+};
 for (const b of boats) {
   if (b.motor) b.onShallow = () => hud.flash(b.kind === 'bass' ? 'Shallow water: the outboard tips up. Ease back to the first notches to creep on with the electric motor.' : 'Shallow water: the motor tips up, so you can only creep along. Steer for deeper water.', t, 3.4);
 }
@@ -4250,7 +4337,7 @@ function padContext() {
   if (fishing.state === 'reeling') return 'fight';
   // (A line out from a boat under power: the D-pad works the throttle.)
   if (fishing.busy) return leverKind() ? 'troll' : 'fish';
-  if (!onFoot && !cabinIn && (boat.motor || boat.hull.emotor)) return 'helm';
+  if (!onFoot && !cabinIn && (boat.motor || boat.hull.emotor || boat.hull.sail)) return 'helm';
   return 'play';
 }
 
@@ -4363,6 +4450,13 @@ function currentHint() {
     if (P) return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · ${kbd('L-stick')} ↕ a notch, ↔ steer · ${K('neutral')} stop · ${K('anchor')} anchor${motor} · ${fuel}`;
     return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · ${UD} a notch · ${LR} steer · ${K('neutral')} stop · ${K('anchor')} anchor${motor} · ${fuel}`;
   }
+  // The sailing boat: the sheet and the helm, and the sail up or down.
+  if (boat.hull.sail) {
+    if (!boat.sailUp) return T ? 'Row with the stick · Raise sail on the panel' : `${MOVE()} row · ${K('motor')} raise the sail`;
+    if (T) return 'The stick: up hauls the sheet in, down eases it, across steers · Haul in and Ease on the panel';
+    if (P) return `${kbd('L-stick')} ↕ sheet in and out, ↔ steer · ${K('motor')} lower the sail · ${K('anchor')} anchor`;
+    return `${K('forward')} haul in · ${K('back')} ease · ${LR} steer · ${K('motor')} lower the sail · ${K('anchor')} anchor`;
+  }
   // The kayak, paddling: a word on its motor, until you've tried it.
   if (boat.hull.emotor && !state.tips.kayakMotor) {
     return T ? 'Paddle with the stick · the Lower motor button gives you a quiet electric motor' : `${MOVE()} paddle · ${K('motor')} lowers the quiet electric motor`;
@@ -4461,6 +4555,7 @@ function updateHud() {
   hud.food(camp.wellFed ? 'Well fed' : hunger === 'hungry' ? 'Hungry' : hunger === 'peckish' ? 'Peckish' : '', camp.wellFed ? 'fed' : hunger === 'hungry' ? 'hungry' : '');
   hud.hint(currentHint(), t);
   updateLever();
+  updateSailPanel();
   const act = interaction();
   hud.prompt(act ? (scheme() === 'touch' ? `Tap: ${act.text}` : `${K('interact')} ${act.text}`) : '');
   // Beside it, the mooring prompt (anchor, tie up, cast off, let go a tow), on its own key.
@@ -4597,7 +4692,7 @@ function updateDiveHud() {
 let saveWarned = false;
 function save() {
   for (const [k, b] of Object.entries(BOATS)) {
-    state.boats[k] = { x: b.pos.x, z: b.pos.z, heading: b.heading, anchored: b.anchored && b.anchor?.phase !== 'haul', ...(b.emotorDown ? { motor: true } : {}) };
+    state.boats[k] = { x: b.pos.x, z: b.pos.z, heading: b.heading, anchored: b.anchored && b.anchor?.phase !== 'haul', ...(b.emotorDown ? { motor: true } : {}), ...(b.sailUp ? { sail: Math.round(b.sheet * 100) / 100 } : {}) };
     // (Where her anchor lies, or the berth she's tied up at, so she's found just as she was left.)
     if (b.anchor && b.anchor.phase !== 'haul') state.boats[k].anchor = { x: b.anchor.x, z: b.anchor.z };
     if (b.tie) state.boats[k].tie = { pier: b.tie.pier, side: b.tie.side, along: b.tie.along, heading: b.tie.heading };
@@ -5292,7 +5387,10 @@ input.on('press', (code, acts) => {
   else if (is('neutral') && leverKind()) leverNeutral(true);
   else if (is('throttleUp') && leverKind()) stepLever(1);
   else if (is('throttleDown') && leverKind()) stepLever(-1);
-  else if (is('motor')) toggleKayakMotor();
+  else if (is('motor')) {
+    if (!onFoot && !driving && !cabinIn && boat.hull.sail) toggleSail();
+    else toggleKayakMotor();
+  }
   else if (is('photo')) openPhoto();
   else if (is('view')) cycleView();
   else if (is('eye')) toggleFirstPerson();
@@ -5565,6 +5663,11 @@ function tick(now, manual = false) {
     } else if (cabinIn) {
       // Inside the cabin: forward and back walk between the doorway, the galley and the bunk.
       cabinInput(ti);
+    } else if (boat.hull.sail && boat.sailUp) {
+      // Under sail: forward and back haul in and ease the mainsheet (it stays where you leave
+      // it), across steers with the tiller.
+      sailInput(ti, dt);
+      steer = si;
     } else if (leverKind()) {
       // At the helm: the throttle lever moves a notch at a time (the keys, or the stick pushed
       // and let go) and stays where you leave it; steering is the stick or keys across.
@@ -5636,6 +5739,13 @@ function tick(now, manual = false) {
   }
   boat.update(dt, t, throttle, steer, env.lantern);
   for (const b of boats) if (b !== boat) b.update(dt, t, 0, 0, env.lantern);
+  // The wind lines: round the boat while you sail (or wherever you are, if you like them always).
+  {
+    const L = settings.weather.windLines, sailing = !onFoot && !driving && !dive && boat.hull.sail && boat.sailUp;
+    const P = onFoot ? walker.pos : boat.pos;
+    _wl.set(P.x, onFoot ? walker.pos.y : boat.heave, P.z);
+    windLines.update(dt, t, _wl, started && !modal && (L === 'always' ? !dive : L === 'sailing' && sailing), camera);
+  }
   updateTow(dt);
   keepBoatsApart();
   if (cabinIn) placeInCabin(dt);
@@ -5826,6 +5936,7 @@ function tick(now, manual = false) {
     head: Math.max(1 - smoothstep(15, 90, Math.hypot(P.x - DAYMARK.x, P.z - (DAYMARK.z + 20))), 1 - smoothstep(15, 80, Math.hypot(P.x - (CALF.x - CALF.rx), P.z - CALF.z))),
     race: Math.max(1 - smoothstep(10, 110, Math.hypot(P.x - (CALF_SOUND.x0 + CALF_SOUND.x1) / 2, P.z - (CALF_SOUND.z0 + CALF_SOUND.z1) / 2)), falls),
     seals: 1 - smoothstep(15, 70, Math.hypot(P.x - CALF_SKERRY.x, P.z - CALF_SKERRY.z)),
+    flap: !onFoot && boat.sailUp ? boat.flutter * smoothstep(1, 6, windHere.speed) : 0,
     tent: state.camps.reduce((m, c) => Math.max(m, 1 - smoothstep(3, 18, Math.hypot(P.x - c.x, P.z - c.z))), 0),
   });
 
