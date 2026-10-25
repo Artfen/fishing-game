@@ -67,6 +67,7 @@ import { Rope } from './rope.js';
 import { isPetrol, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, burnKayak, chargeBattery, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
 import { STEPS as TRIP_STEPS, stepOf, stepNumber, complete as completeStep, start as startGuide, words as guideWords, isNewGame, placeAt, FISH_SPOTS } from './firstTrip.js';
 import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality } from './quality.js';
+import { Post } from './post.js';
 import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick } from './util.js';
 
 const HOUR_SECONDS = 40; // one in-game hour lasts 40 real seconds
@@ -124,6 +125,8 @@ renderer.setSize(innerWidth, innerHeight, false);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// The finishing pass of the Ultra and Cinematic levels (off below them).
+const post = new Post(renderer);
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0xd5ebf1, 0.0021);
@@ -3422,6 +3425,7 @@ function hatchLevel() {
 const quality = {
   choice: settings.graphics.preset,
   autoLevel: startingLevel(touch.active),
+  shadowSpan: 55,
 };
 const frameWatch = new FrameWatch();
 const qualityLevel = () => (quality.choice === 'auto' ? quality.autoLevel : quality.choice);
@@ -3436,10 +3440,13 @@ function applyQuality() {
   quality.choice = G.preset;
   state.quality = G.preset;
   const q = resolveQuality(qualityLevel(), G);
-  const pr = Math.max(0.5, Math.min(window.devicePixelRatio, q.pixelRatio) * q.scale);
+  // (Ultra and Cinematic draw more pixels than an ordinary screen has, and smooth them down.)
+  const pr = Math.max(0.5, Math.max(q.minRatio, Math.min(window.devicePixelRatio, q.pixelRatio)) * q.scale);
   renderer.setPixelRatio(pr);
   renderer.setSize(innerWidth, innerHeight, false);
   env.setShadows(q.shadows, q.shadowSize);
+  quality.shadowSpan = q.shadowSpan;
+  env.air = q.air;
   water.setSegments(q.waterSegments);
   water.setDetail(q.waterDetail);
   reflection.setQuality(q.reflection, q.reflectEvery);
@@ -3450,14 +3457,16 @@ function applyQuality() {
   rainDrawn = q.rain;
   world.setPixelRatio(pr);
   world.setQuality(q);
+  world.drawDistance = q.drawDistance;
   // Fewer distant fish are drawn on lower settings, but every one of them is still there:
   // simulated, able to bite, and on the fish finder.
   fishRenderer.density = q.fishDensity;
-  fishRenderer.near = 8 + 14 * q.fishDensity;
+  fishRenderer.near = q.fishNear;
   eco.simRadius = q.simRadius;
   underwater.setQuality(q);
   underwater.setPixelRatio(pr);
   quality.caustics = q.caustics;
+  post.setMode(q.post);
   const text = `Graphics: ${qualityText()}`;
   $('title-quality').textContent = text;
 }
@@ -5073,13 +5082,14 @@ function tick(now, manual = false) {
   const P = player().pos;
   // In first person the shadows gather in front of you, finer, where you're looking.
   const fpShadow = rig.eyeBlend > 0.5;
-  env.setShadowSpan(fpShadow ? 30 : 55);
+  env.setShadowSpan(Math.round(quality.shadowSpan * (fpShadow ? 0.55 : 1)));
   if (fpShadow) {
     camera.getWorldDirection(_shadowAt).setY(0).normalize();
     _shadowAt.multiplyScalar(12).add(P);
   }
   env.update(dt, t, state.hour, weather.rain, fpShadow ? _shadowAt : P, camera, renderer, weather.cloud);
   const sub = underwater.updateMedium(t, camera, env, scene, water, weather.rain);
+  postLook.under = sub;
   audio.setUnderwater(sub);
   underwater.update(dt, t, camera, env, weather.rain);
   fishRenderer.update(dt, camera, env.night, sub > 0.5);
@@ -5258,6 +5268,24 @@ function draw() {
   wu.uRipple.value = ripples.target?.texture || null;
   wu.uRippleRect.value.copy(ripples.rect);
   renderer.render(scene, camera);
+  if (post.on) post.finish(camera, lookOfTheHour());
+}
+
+// The colour of the hour for the finishing pass: warm at sunrise and in the golden hour, a little
+// cool by moonlight, plain in rain and underwater (where the water has its own colour).
+const postLook = { sunDir: env.sunDir, sunColor: new THREE.Color(), low: 0, night: 0, tint: new THREE.Color(), sat: 1, under: 0 };
+const _warm = new THREE.Color(1.045, 1.0, 0.93), _cool = new THREE.Color(0.95, 0.98, 1.05), _rose = new THREE.Color(1.035, 0.985, 0.985);
+function lookOfTheHour() {
+  const L = postLook, h = state.hour, clear = (1 - weather.rain) * (1 - weather.cloud * 0.6) * (1 - L.under);
+  L.sunColor.copy(env.sunColor).convertLinearToSRGB();
+  // How low and strong the sun is: the shafts come with it.
+  L.low = smoothstep(-0.03, 0.05, env.sunDir.y) * (1 - smoothstep(0.22, 0.5, env.sunDir.y)) * clear;
+  const golden = smoothstep(16.8, 18.4, h) * (1 - smoothstep(19.6, 20.6, h));
+  const dawn = smoothstep(5.2, 6, h) * (1 - smoothstep(7.2, 8.6, h));
+  L.tint.setRGB(1, 1, 1).lerp(_warm, golden * clear).lerp(_rose, dawn * clear).lerp(_cool, env.night * (1 - L.under));
+  L.sat = 1 - weather.rain * 0.06 - L.under * 0.03;
+  L.night = env.night * (1 - L.under);
+  return L;
 }
 
 function frame(now) {
@@ -5276,7 +5304,7 @@ requestAnimationFrame((now) => {
 window.slowTide = {
   car, travel: (d) => travel(d), driveTo: (d, how) => driveTo(d, how), enterCar: () => enterCar(), exitCar: () => exitCar(),
   openBench: (st) => openBench(st), get driving() { return driving; }, get modalName() { return modal; },
-  state, walker, fishing, env, weather, renderer, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world,
+  state, walker, fishing, env, weather, renderer, post, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world,
   get boat() { return boat; }, // the boat you're in (or last used)
   reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI, pads,
   // The first-trip guide as it stands: the step, its words and where it points.

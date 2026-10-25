@@ -6,12 +6,14 @@ const KEYS = [
   { h: 0,    zen: '#0f1d3a', hor: '#2a3d66', sun: '#9cb2e4', sunI: 0.5, sky: '#53689e', gnd: '#1c2132', hemiI: 1.1 },
   { h: 4.4,  zen: '#17264f', hor: '#41507e', sun: '#9cb2e4', sunI: 0.5, sky: '#5a6a9e', gnd: '#202436', hemiI: 1.1 },
   { h: 5.8,  zen: '#4d679c', hor: '#eeb28e', sun: '#ffb27c', sunI: 1.4, sky: '#aaadc8', gnd: '#6e5a50', hemiI: 1.25 },
+  { h: 6.5,  zen: '#6487c4', hor: '#f3c9a2', sun: '#ffd29c', sunI: 2.0, sky: '#bcc2d6', gnd: '#7a6a56', hemiI: 1.35 },
   { h: 7.5,  zen: '#5d97d3', hor: '#d3e3e6', sun: '#ffeccc', sunI: 2.5, sky: '#c2d8ec', gnd: '#8a7a5c', hemiI: 1.45 },
   { h: 12,   zen: '#4a8cd6', hor: '#d5ebf1', sun: '#fff6e4', sunI: 3.0, sky: '#cbe2f4', gnd: '#8e8060', hemiI: 1.55 },
   { h: 16,   zen: '#5690d0', hor: '#e9e3cb', sun: '#ffe4b4', sunI: 2.8, sky: '#cfdcea', gnd: '#8e7a5c', hemiI: 1.45 },
   { h: 18,   zen: '#6582c0', hor: '#f6c48e', sun: '#ffb168', sunI: 2.5, sky: '#d4bcc4', gnd: '#86624c', hemiI: 1.3 },
   { h: 19.3, zen: '#4f5498', hor: '#f29572', sun: '#ff8650', sunI: 1.7, sky: '#b48ca8', gnd: '#68484a', hemiI: 1.2 },
   { h: 20.5, zen: '#283166', hor: '#8a6a8f', sun: '#b892c0', sunI: 0.8, sky: '#71699c', gnd: '#2c2638', hemiI: 1.15 },
+  { h: 21.1, zen: '#1b2858', hor: '#4b5890', sun: '#8fa0d8', sunI: 0.6, sky: '#5d6a9e', gnd: '#242838', hemiI: 1.12 },
   { h: 22,   zen: '#0f1d3a', hor: '#2a3d66', sun: '#9cb2e4', sunI: 0.5, sky: '#53689e', gnd: '#1c2132', hemiI: 1.1 },
   { h: 24,   zen: '#0f1d3a', hor: '#2a3d66', sun: '#9cb2e4', sunI: 0.5, sky: '#53689e', gnd: '#1c2132', hemiI: 1.1 },
 ].map((k) => ({
@@ -58,6 +60,7 @@ uniform float uRain;
 uniform float uTime;
 uniform float uUnder;
 uniform vec3 uUnderColor;
+uniform float uGlow;
 varying vec3 vDir;
 float hash13(vec3 p3) {
   p3 = fract(p3 * 0.1031);
@@ -67,8 +70,15 @@ float hash13(vec3 p3) {
 void main() {
   vec3 d = normalize(vDir);
   float h = d.y;
-  vec3 col = mix(uHorizon, uZenith, pow(clamp(h, 0.0, 1.0), 0.6));
-  col = mix(col, uHorizon * 0.92, smoothstep(0.0, -0.2, h));
+  // With the sun low, the sky round it glows warm along the horizon, and the far side, away from
+  // it, turns a cooler dusky blue and rose.
+  vec2 across = normalize(d.xz + vec2(1e-5));
+  vec2 sunFlat = normalize(uSunDir.xz + vec2(1e-5));
+  float toward = dot(across, sunFlat) * 0.5 + 0.5;
+  vec3 hor = mix(mix(uHorizon, uZenith * 1.15 + vec3(0.07, 0.035, 0.09), 0.42 * uGlow), uHorizon * 1.04 + uSunColor * 0.1 * uGlow, smoothstep(0.15, 1.0, toward));
+  vec3 col = mix(hor, uZenith, pow(clamp(h, 0.0, 1.0), mix(0.6, 0.45, uGlow)));
+  col += uSunColor * pow(toward, 4.0) * exp(-max(h, 0.0) * 7.0) * 0.22 * uGlow;
+  col = mix(col, hor * 0.92, smoothstep(0.0, -0.2, h));
 
   float sd = max(dot(d, uSunDir), 0.0);
   float sunVis = smoothstep(-0.12, 0.02, uSunDir.y) * (1.0 - uRain * 0.8);
@@ -108,6 +118,7 @@ export class Environment {
   constructor(scene) {
     this.scene = scene;
     this.fogBase = 0.0021; // haze on a clear day; rain, cloud and early mornings thicken it
+    this.air = 1; // how hazy the air is drawn: less on Ultra and Cinematic, which see further
     this.cloud = 0;
     this.zenith = new THREE.Color();
     this.horizon = new THREE.Color();
@@ -147,6 +158,7 @@ export class Environment {
       uTime: { value: 0 },
       uUnder: { value: 0 },
       uUnderColor: { value: new THREE.Color() },
+      uGlow: { value: 0 },
     };
     this.sky = new THREE.Mesh(
       new THREE.SphereGeometry(1000, 32, 16),
@@ -250,7 +262,7 @@ export class Environment {
       towardsGrey(this.skyCol, gloom * 0.5, 0.9);
       towardsGrey(this.sunColor, gloom * 0.4, 1);
       this.sunI *= 1 - 0.65 * gloom;
-      this.hemiI *= 1 - 0.08 * gloom;
+      this.hemiI *= 1 + 0.12 * gloom; // (the light comes from the whole sky, softly)
     }
 
     // The sun rises in the east (+x), crosses the southern sky and sets in the west.
@@ -287,12 +299,13 @@ export class Environment {
     fog.color.lerp(_haze.copy(this.sunColor).lerp(this.horizon, 0.4), facing * facing * facing * low * 0.45);
     // Early mornings are hazier, before the day warms up.
     const morning = smoothstep(4.5, 5.8, hour) * (1 - smoothstep(7.5, 10, hour));
-    fog.density = this.fogBase * (1 + rain * 2.1 + cloud * 0.25 + morning * 0.65);
+    fog.density = this.fogBase * (this.air + rain * 2.1 + cloud * 0.25 + morning * 0.65);
 
     const su = this.skyUniforms;
     su.uSunColor.value.copy(this.sunColor);
     su.uNight.value = this.night;
     su.uRain.value = gloom;
+    su.uGlow.value = low;
     su.uTime.value = t;
     this.sky.position.copy(camera.position);
 

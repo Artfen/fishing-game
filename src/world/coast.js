@@ -8,6 +8,8 @@ import { mergeParts, mat, pick, jitterGeo, glowTexture, clamp, smoothstep } from
 import { reedClump } from './shore.js';
 import { withSurface } from './surface.js';
 import { fuelPumpParts } from '../props.js';
+
+const LAMPS = ['#ffffff', '#ffe0b8', '#fff0d8'];
 import { withCaustics } from './caustics.js';
 
 // The cove shore, built from the map in terrain.js: Willowhaven (a stone quay and sea wall, a
@@ -163,9 +165,11 @@ function buildHaven(rnd, group, obstacles, spots) {
     const front = b.d / 2 + 0.02;
     dark.push({ geo: new THREE.BoxGeometry(0.95, 1.95, 0.06), matrix: placed(b.x, y, b.z, b.yaw, b.kind === 'chandlery' ? -1.4 : 0, 0.98, front), color: b.door || (b.kind === 'chandlery' ? '#30484c' : '#2a2522') });
     const winX = b.kind === 'chandlery' ? [1.2] : b.kind === 'store' ? [] : [-b.w / 2 + 1.2, b.w / 2 - 1.2];
-    for (const wx of winX) windows.push({ geo: new THREE.BoxGeometry(b.kind === 'chandlery' ? 1.8 : 0.9, 0.9, 0.06), matrix: placed(b.x, y, b.z, b.yaw, wx, 1.55, front + 0.01), color: '#ffffff' });
+    // (Each window's lamp a slightly different warmth.)
+    const lamp = () => LAMPS[windows.length % LAMPS.length];
+    for (const wx of winX) windows.push({ geo: new THREE.BoxGeometry(b.kind === 'chandlery' ? 1.8 : 0.9, 0.9, 0.06), matrix: placed(b.x, y, b.z, b.yaw, wx, 1.55, front + 0.01), color: lamp() });
     if (b.kind === 'cottage') {
-      windows.push({ geo: new THREE.BoxGeometry(0.8, 0.7, 0.06), matrix: placed(b.x, y, b.z, b.yaw, 0, wallH - 0.6 + 0.9, front + 0.01), color: '#ffffff' });
+      windows.push({ geo: new THREE.BoxGeometry(0.8, 0.7, 0.06), matrix: placed(b.x, y, b.z, b.yaw, 0, wallH - 0.6 + 0.9, front + 0.01), color: lamp() });
       stone.push({ geo: new THREE.BoxGeometry(0.6, 1.6, 0.6), matrix: placed(b.x, y, b.z, b.yaw, b.w / 2 - 0.6, wallH + rise * 0.6, -0.4), color: '#8d8478' });
     }
     // The building blocks the way; a little apron in front of the door is kept clear.
@@ -311,7 +315,8 @@ function buildHaven(rnd, group, obstacles, spots) {
       lampGlass.color.setRGB(0.55 + night * 0.45, 0.5 + night * 0.38, 0.4 + night * 0.25);
       lampGlow.material.opacity = 0.75 * night;
       lampLight.intensity = 14 * night;
-      windowMat.color.setRGB(0.18 + night * 0.82, 0.24 + night * 0.58, 0.28 + night * 0.22);
+      // (Lamplight, not daylight: warm amber after dark, so the haven looks lived-in from the water.)
+      windowMat.color.setRGB(0.18 + night * 1.02, 0.24 + night * 0.44, 0.28 + night * 0.02);
       qLight.material.color.setRGB(0.2 + night * 0.1, 0.45 + night * 0.55, 0.3 + night * 0.25);
       for (const [i, f] of floats.entries()) {
         const b = f.userData.base;

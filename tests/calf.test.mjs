@@ -148,7 +148,7 @@ test('by boat from Willowhaven quay to the Calf’s landing: open water all the 
 
 test('fish of their own: mackerel, garfish and bluefish in the race, pollack and wrasse on the reefs, bass off the Nose', () => {
   const habitat = createHabitat();
-  const hosted = habitat.spots.filter((s) => s.hosts?.length);
+  const hosted = habitat.spots.filter((s) => s.hosts?.length && ['race', 'calf', 'nose'].includes(s.tag));
   assert.ok(hosted.some((s) => s.type === 'tide' && s.tag === 'race'));
   assert.ok(hosted.some((s) => s.type === 'reef' && s.tag === 'calf'));
   assert.ok(hosted.some((s) => s.type === 'surf' && s.tag === 'nose'));

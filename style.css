@@ -1350,6 +1350,7 @@ body.touch #rest-veil { padding-bottom: calc(170px + env(safe-area-inset-bottom,
 .st-label { font: 700 15px var(--font-ui); }
 .st-desc { font: 13px/1.35 var(--font-ui); color: var(--ink-soft); }
 .st-note { margin: 8px 2px; font: 14px/1.4 var(--font-hand); color: var(--ink-soft); }
+.st-warn { padding: 8px 12px; border-left: 3px solid var(--stamp); background: rgba(181, 83, 47, 0.08); border-radius: 4px; color: var(--ink); }
 .st-slider { display: flex; align-items: center; gap: 10px; min-width: 220px; }
 .st-slider input { flex: 1; accent-color: #5c4028; }
 .st-slider output { width: 44px; text-align: right; font: 700 13px var(--font-ui); font-variant-numeric: tabular-nums; }

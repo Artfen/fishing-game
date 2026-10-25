@@ -2,6 +2,7 @@ import {
   heightAt, zoneAt, streamFlow, lakeSDF, ISLAND, COVE, STACKS, CHANNEL, JETTY, LAKE, STREAM, SNAG, LILIES,
   RIVER, riverInfo, riverSDF, MARSH, SANDBANKS, QUAY, MERE, MERE_BAYS, HOLM, TIMBER, mereSDF,
   GANNET, PUFFIN_COVE, SKERRIES, SKELLIG, SHOAL, DEEP_Z, WRECK, STRAND, DAYMARK, CALF, CALF_SKERRY, CALF_SOUND,
+  HAVEN, HAVEN_QUAY, BOATHOUSE_PIER,
 } from './terrain.js';
 import { fbm, seeded, smoothstep, clamp } from '../util.js';
 
@@ -440,4 +441,18 @@ function regionSpots(habitat, rnd) {
   host('reef', CALF.x - 4, CALF.z + CALF.rz + 8, 9, 'calf', ['pollack', 'wrasse']);
   host('reef', CALF_SKERRY.x, CALF_SKERRY.z + CALF_SKERRY.r + 5, 8, 'calf', ['wrasse']);
   host('surf', CALF.x + 6, CALF.z - CALF.rz - 4, 9, 'nose', ['seabass']);
+  // The places you fish from that were too quiet for how often you're there: they get fish of
+  // their own the same way, the kinds that really haunt such places.
+  //  · The haven, home: grey mullet cruising the quay wall, gilthead and a conger in its stones,
+  //    squid under the lamp after dark, sand smelt in the calm water inside.
+  host('quay', HAVEN_QUAY.end.x + 4, HAVEN_QUAY.end.z - 2.5, 7, 'haven', ['mullet', 'gilthead', 'conger']);
+  host('cove', HAVEN_QUAY.end.x - 2, HAVEN_QUAY.end.z + 3.5, 9, 'haven', ['squid']);
+  host('weed', HAVEN.x + 2, HAVEN.z + 11, 7, 'haven', ['sandsmelt']);
+  //  · The lake landing's pier, out into the bay: sand smelt and gilthead off its end.
+  host('weed', -72, -9, 8, 'landing', ['sandsmelt', 'gilthead']);
+  //  · Wend Quay: mullet along the wall on the flood, a bass or two after them.
+  host('quay', QUAY.end.x + 3, QUAY.end.z, 8, 'quay', ['mullet', 'seabass']);
+  //  · The Longmere boathouse: perch and roach in its shade, and a pike waiting for them.
+  host('weed', BOATHOUSE_PIER.x0 + 7, BOATHOUSE_PIER.z0 - 6, 8, 'boathouse', ['perch', 'roach']);
+  host('snag', BOATHOUSE_PIER.x0 - 1, BOATHOUSE_PIER.z0 - 6, 7, 'boathouse', ['pike']);
 }

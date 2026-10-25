@@ -5,6 +5,7 @@ import { cleanCamps } from './campsite.js';
 import { cleanEquip, cleanCar, cleanOuting, defaultEquip } from './outing.js';
 import { cleanGuide } from './firstTrip.js';
 import { cleanFuel } from './fuel.js';
+import { CHOICES } from './quality.js';
 
 // Saving your progress in this browser, with nobody to sign in to.
 //
@@ -47,7 +48,7 @@ export const DEFAULT_STATE = {
   meals: 0,
   finder: null,  // { x, y } as fractions of the screen, and { size }
   music: true,
-  quality: 'auto', // 'auto' | 'high' | 'medium' | 'low'
+  quality: 'auto', // the graphics preset (a copy of settings.graphics.preset, see quality.js)
   difficulty: 'standard', // 'relaxed' | 'standard' | 'realistic'
   fishView: 'first',       // 'first' (first person when you cast) | 'shoulder'
   sonar: false,    // fish finder shown
@@ -238,7 +239,7 @@ export function sanitize(raw) {
     s.finder = { x: f.x == null ? null : num(f.x, null, 0, 1), y: f.y == null ? null : num(f.y, null, 0, 1), size: int(f.size, 1, 0, 2) };
   }
   s.music = raw.music !== false;
-  s.quality = oneOf(raw.quality, ['auto', 'high', 'medium', 'low'], 'auto');
+  s.quality = oneOf(raw.quality, CHOICES, 'auto');
   s.difficulty = oneOf(raw.difficulty, ['relaxed', 'standard', 'realistic'], 'standard');
   s.fishView = oneOf(raw.fishView, ['first', 'shoulder'], 'first');
   s.sonar = !!raw.sonar;

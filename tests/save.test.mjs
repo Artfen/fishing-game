@@ -136,7 +136,7 @@ test('full storage reports failure instead of throwing, and saving works again l
 test('junk in a save is cleaned up rather than trusted', async () => {
   const S = await freshSave();
   const s = S.sanitize({
-    hour: 99, day: -3, difficulty: 'impossible', fishView: 'sideways', quality: 'ultra',
+    hour: 99, day: -3, difficulty: 'impossible', fishView: 'sideways', quality: 'maximum',
     fish: { carp: { count: 2, best: 60 }, dragon: { count: 9 } },
     log: [catchEntry('ok'), { sp: 'dragon', size: 900 }, 'nonsense'],
     boats: { row: { x: 1e9, z: 0 }, kayak: { x: 3, z: 4 }, yacht: { x: 1, z: 1 } },

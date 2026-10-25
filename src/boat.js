@@ -578,17 +578,17 @@ export class Boat {
       { geo: new THREE.BoxGeometry(0.05, doorH, wall + 0.02), matrix: mat(door + 0.02, base + doorH / 2, zb + wall / 2), color: '#7b5434' },
       { geo: new THREE.BoxGeometry(0.05, doorH, wall + 0.02), matrix: mat(-door - 0.02, base + doorH / 2, zb + wall / 2), color: '#7b5434' },
     ];
-    // Windows down each side, set into the slope of the walls (dark glass outside, daylight
-    // inside); a window at the front.
-    const glow = [];
+    // Windows down each side, set into the slope of the walls (dark glass outside, glowing warm
+    // when the lamp's lit after dark; daylight inside); a window at the front.
+    const glow = [], glass = [];
     for (const t of [0.52, 0.66, 0.79]) {
       const a = Math.atan2(side(t + 0.02) - side(t - 0.02), zAt(H, t + 0.02) - zAt(H, t - 0.02));
       for (const sd of [1, -1]) {
-        walls.push({ geo: new THREE.BoxGeometry(0.03, 0.3, 0.44), matrix: mat(sd * (side(t) + 0.005), base + height * 0.66, zAt(H, t), 0, sd * a, 0), color: '#30434d', jitter: 0 });
+        glass.push({ geo: new THREE.BoxGeometry(0.03, 0.3, 0.44), matrix: mat(sd * (side(t) + 0.005), base + height * 0.66, zAt(H, t), 0, sd * a, 0), color: '#30434d' });
         glow.push({ geo: new THREE.BoxGeometry(0.008, 0.28, 0.42), matrix: mat(sd * (side(t) - wall - 0.006), base + height * 0.66, zAt(H, t), 0, sd * a, 0), color: '#bcd8e2' });
       }
     }
-    walls.push({ geo: new THREE.BoxGeometry(side(t1) * 1.2, 0.3, 0.03), matrix: mat(0, base + height * 0.66, zf + 0.01), color: '#30434d', jitter: 0 });
+    glass.push({ geo: new THREE.BoxGeometry(side(t1) * 1.2, 0.3, 0.03), matrix: mat(0, base + height * 0.66, zf + 0.01), color: '#30434d' });
     glow.push({ geo: new THREE.BoxGeometry(side(t1) * 1.1, 0.28, 0.008), matrix: mat(0, base + height * 0.66, zf - wall - 0.008), color: '#bcd8e2' });
     // The bench across the stern, and its back against the motor well.
     walls.push(
@@ -636,6 +636,8 @@ export class Boat {
     // The window panes from inside: daylight by day, dusk-blue at night (see setCabinLight).
     this.cabinPanes = new THREE.Mesh(mergeParts(glow), new THREE.MeshBasicMaterial({ vertexColors: true }));
     this.body.add(this.cabinPanes);
+    this.cabinGlass = new THREE.Mesh(mergeParts(glass), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: '#ffb25c', emissiveIntensity: 0 }));
+    this.body.add(this.cabinGlass);
     // The lamp: a warm glow under the roof, and a little light of its own that fills the cabin
     // after dark (and while you're inside), so it reads warm and lived-in from in and out.
     this.cabinLamp = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffd28a' }));
@@ -691,6 +693,8 @@ export class Boat {
     this.cabinLight.intensity = on * (inside ? 2.4 : 1.4);
     this.cabinLamp.material.color.set('#ffd28a').multiplyScalar(0.55 + 0.45 * on);
     this.cabinPanes.material.color.setScalar(0.25 + 0.75 * (1 - night));
+    // From outside, the lit cabin glows through its windows: a little home on the water.
+    this.cabinGlass.material.emissiveIntensity = night * 1.1;
   }
 
   // A point in the cabin (in the boat's own space) out into the world.

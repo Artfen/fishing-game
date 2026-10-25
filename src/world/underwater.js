@@ -125,8 +125,11 @@ export class Underwater {
     const grassGeo = bladeClump(rnd, 9, 0.075, 0.35, '#355f37', '#86ad5c');
     const kelpGeo = bladeClump(rnd, 3, 0.16, 0.25, '#4e5a2a', '#a39a4c');
     this.beds = [];
-    for (const R of habitat.regions) {
-      if (!R.grass && !R.kelp) continue;
+    // (Half again as many as High draws: Ultra and Cinematic draw more of them; see quality.js.)
+    const MORE = 1.5;
+    for (const R0 of habitat.regions) {
+      if (!R0.grass && !R0.kelp) continue;
+      const R = { ...R0, grass: Math.round(R0.grass * MORE), kelp: Math.round(R0.kelp * MORE) };
       const grass = [], kelp = [];
       for (let i = 0; i < (R.grass + R.kelp) * 50 && (grass.length < R.grass || kelp.length < R.kelp); i++) {
         const x = R.x + rnd() * R.w, z = R.z + rnd() * R.h;

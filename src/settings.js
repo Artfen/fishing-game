@@ -115,7 +115,7 @@ const el = (tag, cls, text) => {
   return e;
 };
 const TABS = [['audio', 'Sound'], ['graphics', 'Graphics'], ['weather', 'Weather & sea'], ['controls', 'Controls & comfort']];
-const LEVEL_NAMES = { auto: 'With the preset', low: 'Low', medium: 'Medium', high: 'High' };
+const LEVEL_NAMES = { auto: 'With the preset', low: 'Low', medium: 'Medium', high: 'High', ultra: 'Ultra' };
 
 // hooks: { changed(section, key, value), close(), playAlert(), qualityText(), difficulty(), setDifficulty(id), keyLabel(code) }
 export class SettingsUI {
@@ -273,8 +273,20 @@ export class SettingsUI {
   graphicsPane() {
     const G = this.S.graphics;
     const out = [];
-    out.push(this.row('Preset', `${this.hooks.qualityText()}. Auto starts at High on computers and Medium on phones, and steps down by itself if the game runs slowly.`,
+    out.push(this.row('Preset', `${this.hooks.qualityText()}. Auto starts at High on computers and Medium on phones, and steps down by itself if the game runs slowly; it never picks Ultra or Cinematic for you. Ultra is the best that still plays smoothly on a computer with a good graphics card.`,
       this.choice(CHOICES.map((c) => [c, c === 'auto' ? 'Auto' : PRESETS[c].label]), G.preset, (v) => this.set('graphics', 'preset', v))));
+    if (G.preset === 'cinematic') {
+      out.push(el('p', 'st-note st-warn', 'Cinematic draws the richest picture the game has: sharper, clearer and further, with glowing light and shafts from a low sun. It is made for powerful computers and photographs, and can run at a lower frame rate, especially on laptops and phones. Ultra keeps most of the look and plays more smoothly.'));
+    }
+    const reset = el('button', 'pk-btn quiet', 'Restore recommended settings');
+    reset.type = 'button';
+    reset.addEventListener('click', () => {
+      Object.assign(G, { preset: 'auto', scale: 1, shadows: 'auto', fps: 0 });
+      for (const id of Object.keys(GROUPS)) G[id] = 'auto';
+      this.hooks.changed('graphics', 'preset', 'auto');
+      this.render();
+    });
+    out.push(this.row('Recommended', 'Back to Auto, with every part below following it: the game picks what suits this device.', reset));
     out.push(this.row('Render resolution', 'Lower draws fewer pixels and runs faster, a little softer. 100% is sharpest.',
       this.slider('graphics', 'scale', { min: 0.5, max: 1, step: 0.05 })));
     out.push(this.row('Shadows', 'Soft shadows from the sun and the lantern. Off is quicker.',

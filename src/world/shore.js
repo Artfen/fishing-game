@@ -732,7 +732,8 @@ export function buildShore(scene, rnd) {
       ferns.push({ x, y: h - 0.03, z, s: 0.8 + rnd() * 0.7, r: rnd() * 6.28 });
       continue;
     }
-    if (h > 0.4 && h < 14 && grass.length < 2400) {
+    // (Half again as much grass as High draws: Ultra and Cinematic draw more of it; see quality.js.)
+    if (h > 0.4 && h < 14 && grass.length < 3600) {
       const near = Math.min(dl, ds, pathInfo(x, z).d * 2, Math.hypot(x - CAMP.x, z - CAMP.z) - CAMP.r);
       if (near > 16 || rnd() > 0.85) continue;
       grass.push({ x, y: h - 0.02, z, s: 0.45 + rnd() * 0.45, r: rnd() * 6.28 });

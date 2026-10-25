@@ -308,7 +308,7 @@ export const FISH = [
     meal: { name: 'Trout cooked in foil with wild thyme', fill: 60 },
     food: { dry: 1.3, nymph: 1.25, streamer: 1.0, worm: 0.8, spinner: 0.6, crankS: 0.2, tspin: 1.3, spoon: 1.15, minnow: 1.0, maggot: 0.6 },
     life: {
-      group: [1, 1], groups: 6, spacing: 5,
+      group: [1, 2], groups: 6, spacing: 5,
       speed: 0.8, turn: 2.6, perception: 7, depthTol: 1.3, cover: 'rock', stream: true, spooky: 9, lineShy: 0.5,
       homes: ['pool'], zones: ['stream'],
       depth: () => [0.25, 1.3],
@@ -338,7 +338,7 @@ export const FISH = [
     meal: { name: 'Grayling grilled whole on the embers', fill: 40 },
     food: { nymph: 1.4, dry: 0.9, worm: 0.7, corn: 0.3, tspin: 0.45, maggot: 1.1 },
     life: {
-      group: [2, 3], groups: 3, spacing: 7,
+      group: [2, 4], groups: 4, spacing: 5,
       speed: 0.7, turn: 2.4, perception: 6, depthTol: 1.2, cover: 'open', stream: true, spooky: 7, lineShy: 0.6,
       homes: ['pool'], zones: ['stream'],
       depth: () => [0.3, 1.2],

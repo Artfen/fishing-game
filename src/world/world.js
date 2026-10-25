@@ -834,6 +834,7 @@ export function buildWorld(scene, renderer, habitat) {
   // Detail far from you (beyond the haze) isn't drawn: the terrain patches, the woods and the
   // reeds of places you're nowhere near. The coarse sheet and the home bay always are.
   const distant = [];
+  let drawDistance = 650; // metres (further on Ultra and Cinematic, see quality.js)
   const watchDistance = (o) => {
     if (!o.geometry) return;
     if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
@@ -1030,6 +1031,8 @@ export function buildWorld(scene, renderer, habitat) {
     setQuality(q) {
       shore.setQuality(q);
     },
+    set drawDistance(d) { drawDistance = d; },
+    get drawDistance() { return drawDistance; },
     update(dt, t, env, extra = {}) {
       shared.uTime.value = t;
       if (extra.camera) {
@@ -1037,7 +1040,7 @@ export function buildWorld(scene, renderer, habitat) {
         for (const o of distant) {
           const b = o.isInstancedMesh ? o.boundingSphere : o.geometry.boundingSphere;
           if (!b) continue;
-          o.visible = Math.hypot(b.center.x - cp.x, b.center.z - cp.z) - b.radius < 650;
+          o.visible = Math.hypot(b.center.x - cp.x, b.center.z - cp.z) - b.radius < drawDistance;
         }
         mountains.position.set(extra.camera.position.x, 0, extra.camera.position.z);
         if (extra.fog) mountains.material.emissive.copy(extra.fog).multiplyScalar(0.55);
