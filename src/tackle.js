@@ -15,11 +15,13 @@ import { clamp, smoothstep } from './util.js';
 //       fly    – a fly that drifts or is stripped back
 //       jig    – a squid jig: let it sink, lift it, pause
 // thick: how visible the line is to a wary fish (0 invisible … 1 obvious).
+// flex: how stiff the rod is (a soft one, under 1, bends further and cushions a running fish's
+// surges, but tires it more slowly; a stiff one, over 1, the other way: see fight.js).
 export const RODS = {
   float: {
     id: 'float', name: 'Willow float rod', short: 'Float rod', kind: 'float', accepts: ['bait'],
     length: '3.6 m', reel: 'small fixed-spool reel',
-    cast: [3, 26], weight: [2, 12], power: 1.0, finesse: 0.8, drag: 1, build: 1.3,
+    cast: [3, 26], weight: [2, 12], power: 1.0, finesse: 0.8, flex: 0.75, drag: 1, build: 1.3,
     lines: [
       { id: 'm4', name: '4 lb mono', kg: 1.8, thick: 0.35 },
       { id: 'm6', name: '6 lb mono', kg: 2.7, thick: 0.45 },
@@ -33,7 +35,7 @@ export const RODS = {
   trout: {
     id: 'trout', name: 'Light spinning rod', short: 'Light rod', kind: 'lure', accepts: ['lure'],
     length: '1.8 m, ultralight', reel: 'small fixed-spool reel',
-    cast: [5, 28], weight: [2, 8], power: 0.9, finesse: 0.85, drag: 1, build: 1.2,
+    cast: [5, 28], weight: [2, 8], power: 0.9, finesse: 0.85, flex: 0.8, drag: 1, build: 1.2,
     lines: [
       { id: 'f4', name: '4 lb fluorocarbon', kg: 1.8, thick: 0.25 },
       { id: 'm6', name: '6 lb mono', kg: 2.7, thick: 0.45 },
@@ -46,7 +48,7 @@ export const RODS = {
   spin: {
     id: 'spin', name: 'Spinning rod', short: 'Spinning rod', kind: 'lure', accepts: ['lure'],
     length: '2.4 m, medium', reel: 'medium fixed-spool reel',
-    cast: [8, 40], weight: [7, 30], power: 1.15, finesse: 0.55, drag: 2, build: 1.4,
+    cast: [8, 40], weight: [7, 30], power: 1.15, finesse: 0.55, flex: 1.0, drag: 2, build: 1.4,
     lines: [
       { id: 'b10', name: '10 lb braid', kg: 4.5, thick: 0.55 },
       { id: 'b20', name: '20 lb braid', kg: 9, thick: 0.62 },
@@ -59,7 +61,7 @@ export const RODS = {
   carp: {
     id: 'carp', name: 'Carp rod', short: 'Carp rod', kind: 'ledger', accepts: ['bait'],
     length: '3.6 m, 2¾ lb test curve', reel: 'big-pit reel with a free-spool',
-    cast: [10, 50], weight: [40, 120], power: 1.35, finesse: 0.35, drag: 2, build: 1.6,
+    cast: [10, 50], weight: [40, 120], power: 1.35, finesse: 0.35, flex: 1.05, drag: 2, build: 1.6,
     lines: [
       { id: 'm12', name: '12 lb mono', kg: 5.4, thick: 0.75 },
       { id: 'm15', name: '15 lb mono', kg: 6.8, thick: 0.85 },
@@ -72,7 +74,7 @@ export const RODS = {
   fly: {
     id: 'fly', name: 'Fly rod', short: 'Fly rod', kind: 'fly', accepts: ['fly'],
     length: '2.7 m, #5', reel: 'fly reel with floating line',
-    cast: [5, 20], weight: [0, 1], power: 0.85, finesse: 1.0, drag: 1, build: 1.2,
+    cast: [5, 20], weight: [0, 1], power: 0.85, finesse: 1.0, flex: 0.6, drag: 1, build: 1.2,
     lines: [
       { id: 't3', name: 'floating line, 3 lb tippet', kg: 1.4, thick: 0.22 },
       { id: 't5', name: 'floating line, 5 lb tippet', kg: 2.3, thick: 0.32 },
@@ -85,7 +87,7 @@ export const RODS = {
   sea: {
     id: 'sea', name: 'Coastal spinning rod', short: 'Coastal rod', kind: 'lure', accepts: ['lure'],
     length: '2.9 m, 15–50 g', reel: 'saltwater fixed-spool reel',
-    cast: [12, 60], weight: [12, 50], power: 1.25, finesse: 0.6, drag: 2, build: 1.5,
+    cast: [12, 60], weight: [12, 50], power: 1.25, finesse: 0.6, flex: 1.15, drag: 2, build: 1.5,
     lines: [
       { id: 'b20', name: '20 lb braid', kg: 9, thick: 0.6 },
       { id: 'b30', name: '30 lb braid', kg: 13.6, thick: 0.7 },
@@ -98,7 +100,7 @@ export const RODS = {
   boat: {
     id: 'boat', name: 'Boat & bottom rod', short: 'Bottom rod', kind: 'bottom', accepts: ['bait'],
     length: '2.1 m, 6–12 oz', reel: 'small multiplier reel',
-    cast: [4, 34], weight: [50, 200], power: 1.3, finesse: 0.4, drag: 2, build: 1.4,
+    cast: [4, 34], weight: [50, 200], power: 1.3, finesse: 0.4, flex: 1.25, drag: 2, build: 1.4,
     lines: [
       { id: 'm20', name: '20 lb mono', kg: 9, thick: 0.75 },
     ],
@@ -110,7 +112,7 @@ export const RODS = {
   squid: {
     id: 'squid', name: 'Squid rod (egi)', short: 'Squid rod', kind: 'jig', accepts: ['jig'],
     length: '2.5 m, egi 1.8–3.5', reel: 'light fixed-spool reel',
-    cast: [8, 42], weight: [5, 22], power: 0.95, finesse: 0.85, drag: 1, build: 1.3,
+    cast: [8, 42], weight: [5, 22], power: 0.95, finesse: 0.85, flex: 0.9, drag: 1, build: 1.3,
     lines: [
       { id: 'pe08', name: 'PE 0.8 braid, 10 lb fluoro leader', kg: 4.5, thick: 0.3 },
     ],
@@ -122,7 +124,7 @@ export const RODS = {
   offshore: {
     id: 'offshore', name: 'Offshore rod', short: 'Offshore rod', kind: 'lure', accepts: ['lure'],
     length: '2.3 m, PE 6', reel: 'big saltwater spinning reel',
-    cast: [15, 70], weight: [40, 160], power: 1.8, finesse: 0.45, drag: 2, build: 1.8,
+    cast: [15, 70], weight: [40, 160], power: 1.8, finesse: 0.45, flex: 1.4, drag: 2, build: 1.8,
     lines: [
       { id: 'pe6', name: '80 lb braid, 100 lb leader', kg: 36, thick: 0.85 },
     ],

@@ -118,10 +118,12 @@ export class HUD {
 
   // drag: where the reel's drag gives line, as a fraction of the line's breaking strain (-1: none).
   // alert: the ring pulses (ease off now).
-  meter(visible, outer = 0, inner = -1, warm = 0, label = '', drag = -1, alert = false) {
+  // danger: the line is near its breaking strain (the tension ring flashes red).
+  meter(visible, outer = 0, inner = -1, warm = 0, label = '', drag = -1, alert = false, danger = false) {
     this.el.meter.hidden = !visible;
     if (!visible) return;
     this.el.meter.classList.toggle('alert', alert);
+    this.el.meter.classList.toggle('danger', danger);
     const dm = document.getElementById('m-drag');
     dm.style.display = drag < 0 ? 'none' : '';
     if (drag >= 0) {

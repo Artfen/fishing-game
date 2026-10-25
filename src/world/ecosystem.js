@@ -1,5 +1,6 @@
 import { FISH } from '../fish.js';
-import { currentFast } from './conditions.js';
+import { currentFast, currentAt, waveHeightHere } from './conditions.js';
+import { traits, mood, whyRejected, BEHAVIOUR } from '../behaviour.js';
 import { zoneAt } from './terrain.js';
 import { clamp, lerp, damp, rand, smoothstep, wrapAngle, seeded } from '../util.js';
 import { spookRadius, curiosity } from '../dive.js';
@@ -15,15 +16,22 @@ const BITE_WINDOW = 2.6; // seconds you have to set the hook once a fish takes t
 const ENGAGEABLE = new Set(['cruise', 'rest', 'feed', 'school']);
 const BAIT_STATES = new Set(['approach', 'investigate', 'nibble', 'bite', 'follow', 'lunge', 'inspect', 'sip']);
 // How long you have to strike, by how the fish took it.
-const WINDOWS = { strike: 1.15, sip: 1.0, take: 1.35, run: 4.2 };
+const WINDOWS = { strike: 1.15, sip: 1.0, take: 1.35, run: 4.2, tap: 0.7 };
 const _f = { x: 0, z: 0 };
 const _s = {};
 const _g = { x: 0, z: 0 };
+const _cur = { x: 0, z: 0 };
 
 export class Ecosystem {
   constructor(habitat) {
     this.habitat = habitat;
     this.biteScale = 1; // how long a fish holds the bait (the difficulty setting changes it)
+    // How fussy and wary the fish are (the Fish behaviour setting: see behaviour.js).
+    this.level = BEHAVIOUR.relaxed;
+    // Disturbances lately (splashes, motors, casts landing): { x, z, a, t }, fading over a minute
+    // or two. Fish nearby are warier while they last.
+    this.noise = [];
+    this.envCache = { current: 0, waves: 0, light: 1, disturb: 0, storm: 0 };
     this.agents = [];
     this.schools = [];
     this.bySpecies = Object.fromEntries(FISH.map((f) => [f.id, []]));
@@ -146,6 +154,8 @@ export class Ecosystem {
     a.py = a.y;
     a.pz = a.z;
     a.pyaw = a.yaw;
+    // Its own build: condition, weight, vigour and temper (from who it is, not the dice).
+    Object.assign(a, traits(sp, size, a.id));
     this.agents.push(a);
     this.bySpecies[sp.id].push(a);
     return a;
@@ -717,22 +727,62 @@ export class Ecosystem {
   // How tempting the rig in the water is to this fish, or 0 if it ignores it completely.
   // Everything a fish cares about lives here: what's on the hook, how it moves, its size,
   // whether a dry fly matches the hatch or drags, and how thick the line looks.
-  appeal(a, b) {
-    const sp = a.sp, L = a.L;
+  appeal(a, b, parts = null) {
+    const sp = a.sp, L = a.L, V = this.level;
     let f = sp.food?.[b.item] ?? 0;
     if (f <= 0 || b.fouled) return 0;
     if (L.bottom && !b.nearBottom) return 0;
     // A big lure is too much for a small fish; the bigger ones of a kind can manage more.
-    // (A natural bait is softer and easier to manage than a hard lure of the same size.)
+    // (A natural bait is softer and easier to manage than a hard lure of the same size.) How
+    // much each fault counts goes by the Fish behaviour setting.
     const k = (a.size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]);
-    if (b.size > (sp.mouth ?? 2) * (b.natural ? 1.05 + 0.4 * k : 0.7 + 0.5 * k)) f *= 0.05;
+    const big = b.size > (sp.mouth ?? 2) * (b.natural ? 1.05 + 0.4 * k : 0.7 + 0.5 * k);
+    if (big) f *= Math.max(0.02, 1 - 0.95 * V.fussy);
     if (b.fly === 'dry') {
       f *= 0.25 + (this.ctx.hatch ?? 0.5);
-      if (b.drag) f *= 0.07;
-    } else if (b.drag) f *= 0.55;
-    if (L.lineShy && b.thick > L.lineShy) f *= 0.3;
-    f *= L.likes[b.motion] ?? 0.5;
+      if (b.drag) f *= Math.max(0.03, 1 - 0.93 * V.fussy);
+    } else if (b.drag) f *= Math.max(0.3, 1 - 0.45 * V.fussy);
+    const seen = L.lineShy && b.thick > L.lineShy;
+    if (seen) f *= Math.max(0.08, 1 - 0.7 * V.shy);
+    const liked = L.likes[b.motion] ?? 0.5;
+    f *= liked;
+    if (parts) Object.assign(parts, { size: big, drag: !!b.drag, line: seen, motion: liked < 0.45 ? b.motion : null, lure: !b.natural });
     return f;
+  }
+
+  // The water round a fish, as it feels it (for its mood: see behaviour.js).
+  envAt(a) {
+    const c = currentAt(a.x, a.z, Math.max(0, -a.y), _cur);
+    const E = this.envCache;
+    E.current = Math.hypot(c.x, c.z);
+    E.waves = waveHeightHere(a.x, a.z);
+    E.light = (this.ctx.daylight ?? 1) * (1 - 0.75 * (this.ctx.cloud ?? 0)) * smoothstep(0.1, 0.6, this.ctx.daylight ?? 1);
+    E.disturb = this.disturbAt(a.x, a.z);
+    E.storm = this.ctx.storm ?? 0;
+    return E;
+  }
+
+  // Something disturbed the water here (a splash, a motor, a cast landing): fish nearby stay
+  // warier for a minute or two.
+  disturb(x, z, amount = 0.3) {
+    const N = this.noise;
+    const near = N.find((n) => Math.abs(n.x - x) < 5 && Math.abs(n.z - z) < 5);
+    if (near) {
+      near.a = Math.min(1.5, near.a * Math.exp(-(this.time - near.t) / 75) + amount);
+      near.t = this.time;
+    } else N.push({ x, z, a: amount, t: this.time });
+    if (N.length > 48) N.shift();
+  }
+  disturbAt(x, z) {
+    let s = 0;
+    for (const n of this.noise) {
+      const age = this.time - n.t;
+      if (age > 240) continue;
+      const d = Math.hypot(n.x - x, n.z - z);
+      if (d > 30) continue;
+      s += n.a * Math.exp(-age / 75) * smoothstep(30, 6, d);
+    }
+    return clamp(s, 0, 1);
   }
 
   considerBait(a) {
@@ -755,6 +805,11 @@ export class Ecosystem {
     let p = this.activity[a.sp.id] * ap
       * (1 - smoothstep(L.depthTol * 0.6, L.depthTol * 2.2, dv))
       * Math.pow(1 - d / per, 0.6) * 0.35;
+    // How the water suits it just now: the current, the waves, the light, the weather, any
+    // disturbance, and its own temper (see behaviour.js).
+    const M = mood(a, this.envAt(a), this.level);
+    a.moodWhy = M.worst;
+    p *= M.m;
     if (b.fresh > 0) p *= 1.6;
     if (a.caught > 0) p *= 0.6;
     if (L.grazer && this.feedSpots.some((f) => f.amount > 0.05 && Math.hypot(f.x - b.x, f.z - b.z) < 6)) p *= 2;
@@ -937,7 +992,9 @@ export class Ecosystem {
         a.tz = b.z;
         a.wantSpeed = L.speed * (L.burst || 2.6);
         a.speed = Math.max(a.speed, a.wantSpeed * 0.75);
-        if (d < 0.4) this.startBite(a, 'strike');
+        // A lure ripped through gets a hard hit; one crawled or twitched is often just tapped
+        // (a fish nipping at its tail), and needs a quick strike.
+        if (d < 0.4) this.startBite(a, b.kind === 'lure' && (b.motion === 'slow' || b.twitch > 0 || b.pause) && Math.random() < 0.4 ? 'tap' : 'strike');
         else if (a.t > 2.2) this.disengage(a, 'missed', 12);
         break;
       case 'inspect':
@@ -999,15 +1056,29 @@ export class Ecosystem {
 
   disengage(a, reason, wary) {
     const b = this.bait;
+    // Why it gave up on the rig, in a sentence you can act on (see behaviour.js).
+    let why = null;
+    if (b.owner === a && b.active && ['lost', 'refused', 'turned', 'startled', 'spooked'].includes(reason)) {
+      const parts = {};
+      this.appeal(a, b, parts);
+      const dy = b.y - a.y;
+      if (Math.abs(dy) > a.L.depthTol * 0.9) {
+        parts.depth = true;
+        parts.above = dy > 0;
+      }
+      parts.fast = b.motion === 'fast' || b.speed > 1;
+      parts.mood = a.moodWhy;
+      why = whyRejected(parts, reason);
+    }
     if (b.owner === a) {
       b.owner = null;
       b.held = false;
     }
-    a.wary = Math.max(a.wary, wary);
+    a.wary = Math.max(a.wary, wary * (reason === 'gone' ? 1 : this.level.disturb > 1 ? 1.3 : 1));
     a.faceBait = false;
     if (a.school) a.state = 'school';
     else this.startState(a, 'cruise');
-    this.listener.onLeave?.(a, reason);
+    this.listener.onLeave?.(a, reason, why);
   }
 
   // Called by fishing: the player set the hook.
@@ -1049,6 +1120,9 @@ export class Ecosystem {
     const sp = a.sp;
     a.size = Math.round(lerp(sp.size[0], sp.size[1], Math.pow(Math.random(), 1.7)));
     a.scale = (a.size / 100) * sp.visual;
+    // (A newcomer: a build of its own.)
+    a.gen = (a.gen || 0) + 1;
+    Object.assign(a, traits(sp, a.size, a.id + a.gen * 7919));
     a.caught = 0;
     a.wary = 0;
     a.x = a.px = a.home.x;
@@ -1096,6 +1170,7 @@ export class Ecosystem {
   /* ---------- disturbances ---------- */
 
   startle(x, y, z, radius, strength = 1) {
+    this.disturb(x, z, 0.12 * strength * Math.min(2, radius / 4));
     const r2 = radius * radius;
     const schools = new Set();
     for (const a of this.agents) {

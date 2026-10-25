@@ -259,7 +259,8 @@ export class Boat {
     this.onBump = null;
     this.bumpCooldown = 0;
     // Set by the fishing system each frame.
-    this.pose = { fishing: 0, rodYaw: 0, rodPitch: 0.85, bend: 0.05 };
+    // (bendTo: where the line pulls the rod tip, set by the fishing: see bendRod.)
+    this.pose = { fishing: 0, rodYaw: 0, rodPitch: 0.85, bend: 0.05, bendVel: 0, bendTo: null };
     // In first person (set by the game): where a landed fish is held up in view, and which way
     // you face for it.
     this.viewHold = null;
@@ -1604,7 +1605,7 @@ export class Boat {
     this.rod.position.copy(this.active.hold);
     this.rod.rotation.y = this.pose.rodYaw;
     this.rod.rotation.x = this.pose.rodPitch;
-    bendRod(this.active, this.pose.bend);
+    bendRod(this.active, this.pose.bend, this.pose.bendTo);
 
     // Hands go to the oar handles, or to the rod grip.
     this.torso.updateMatrix();

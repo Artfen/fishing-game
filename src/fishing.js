@@ -8,8 +8,16 @@ import { buildTackleModel, buildFloat, buildIndicator, buildLead } from './tackl
 import { clamp, lerp, damp, rand, smoothstep, wrapAngle, glowTexture } from './util.js';
 import { newFight, stepFight, DIFFICULTY, DRAG_LEVELS, DEFAULT_DRAG } from './fight.js';
 import { CAST_SPEED } from './throttle.js';
+import { FishLine } from './fishline.js';
+import { BEHAVIOUR, prefsFor } from './behaviour.js';
 
-const LINE_N = 28;
+// The line as drawn: from the reel up through the rod's guides to its tip (ROD_PTS), then out
+// to the float, lure or fish as a light string that hangs, blows and floats (LINE_PTS, see
+// fishline.js).
+const ROD_PTS = 6;
+const LINE_PTS = 30;
+const LINE_N = ROD_PTS + LINE_PTS;
+const STRAINED = new THREE.Color('#ff6a3d'); // the line's colour as it nears its breaking strain
 const ARC_N = 24;
 const TAP = 0.22; // a press shorter than this is a twitch; longer is reeling
 const SWEET_HOLD = 0.4; // manual casting: how long the rod stays fully loaded before it overloads
@@ -99,7 +107,33 @@ export class Fishing {
     this.viewer = null;
     this.admire = 0;
     this.lineEnd = new THREE.Vector3();
-    this.lineSag = 0;
+    // How fussy the fish are, and whether a hooked one can come off (the Fish behaviour setting).
+    this.level = BEHAVIOUR.relaxed;
+    // Side pressure while a fish is on: the rod swung to your left (−1) or right (+1).
+    this.side = 0;
+    // The line out, hanging, blowing and floating (fishline.js), how slack it is, and how much it
+    // thrums near its breaking strain; where it pulls the rod tip (the rod bends that way).
+    this.fishLine = new FishLine(LINE_PTS);
+    this.waveT = 0;
+    this.lineWorld = {
+      surface: (x, z) => Math.max(waveHeight(x, z, this.waveT), solidHeight(x, z) + 0.03),
+      wind: (x, z, out) => {
+        const w = windAt(x, z);
+        out.x = w.x * 0.45;
+        out.z = w.z * 0.45;
+      },
+      flow: (x, z, out) => {
+        const c = currentAt(x, z, 0), k = currentScale();
+        out.x = c.x * k;
+        out.z = c.z * k;
+      },
+    };
+    this.lineBuzz = 0;
+    this.bendAt = new THREE.Vector3();
+    // What the reel and line are doing, for the sound and the turning spool: line going out
+    // against the drag (m/s), line being wound in (m/s), the load (0 … 1 of the breaking strain),
+    // the drag setting (0 … 1), and the line singing as it nears breaking (0 … 1).
+    this.reelFx = { payout: 0, wind: 0, load: 0, drag: 0, sing: 0, free: false };
 
     this.bobber = buildFloat();
     this.bobber.visible = false;
@@ -165,7 +199,7 @@ export class Fishing {
       onFollow: (a) => this.onFollow(a),
       onNibble: (a) => this.onNibble(a),
       onBite: (a, kind) => this.onBite(a, kind),
-      onLeave: (a, reason) => this.onLeave(a, reason),
+      onLeave: (a, reason, why) => this.onLeave(a, reason, why),
       onSpooked: (a) => this.hooks.spooked?.(a),
     };
     this.setRig({ ...RODS.float, line: { ...RODS.float.lines[0], trace: false } }, TACKLE.worm, TERMS.waggler);
@@ -198,7 +232,8 @@ export class Fishing {
     this.term = term;
     this.kind = rod.kind;
     this.problems = checkSetup(rod, item, term);
-    this.line.material.color.set(LINE_COLORS[this.kind]);
+    this.lineColor = new THREE.Color(LINE_COLORS[this.kind]);
+    this.line.material.color.copy(this.lineColor);
     if (this.model) this.model.visible = false;
     this.model = item ? this.modelFor(item) : null;
     return true;
@@ -571,7 +606,8 @@ export class Fishing {
     this.quietT = 0;
     this.hintedQuiet = false;
     // What the fish make of this cast, for advice when nothing bites (see advice.js).
-    this.interest = { looks: 0, follows: 0, nibbles: 0, turned: 0, refused: 0, spooked: 0, left: 0, kinds: {}, at: { x: this.bob.x, z: this.bob.z }, t: 0 };
+    this.interest = { looks: 0, follows: 0, nibbles: 0, turned: 0, refused: 0, spooked: 0, left: 0, kinds: {}, at: { x: this.bob.x, z: this.bob.z }, t: 0, why: null };
+    this.whyT = 0;
   }
 
   twitch() {
@@ -632,7 +668,6 @@ export class Fishing {
     this.t = 0;
     this.from.copy(this.kind === 'float' ? this.bob : this.hook);
     this.from.y = Math.max(this.from.y, waveHeight(this.from.x, this.from.z));
-    this.audio.reelIn();
     this.audio.alarmRun?.(false);
     this.endBait();
   }
@@ -764,6 +799,19 @@ export class Fishing {
           this.hooks.flash('It hit the lure and hooked itself! Keep reeling.', 2.4);
         }
         return;
+      case 'tap':
+        // A quick tap on the line: a fish nipping at the lure's tail as it crawls or pauses. It
+        // lets go almost at once: strike straight away (if you're winding, now and then it hooks
+        // itself).
+        this.fx.ripple(this.hook.x, this.hook.z, 0.8, 1, 0.4);
+        this.audio.knock?.(0.6);
+        this.rodBounce = 0.4;
+        this.setStatus('tap');
+        if (this.hold && this.reelSpeed > 0.15 && Math.random() < 0.25) {
+          this.setHook();
+          this.hooks.flash('It tapped the lure and hooked itself! Keep reeling.', 2.4);
+        } else this.hooks.teach('tap', 'A tap on the line: a fish nipped at the lure. Strike at once: these are gone in a moment. A slow or twitched lure gets more of them.', 6);
+        return;
       case 'run':
         // A carp rig is self-hooking: the hook is set as the fish bolts with the bait, so this
         // is a hooked fish, not a bite to strike. One pleasant ring says so.
@@ -790,13 +838,15 @@ export class Fishing {
     }
   }
 
-  onLeave(a, reason) {
+  // why: the reason it gave up on the rig, as [code, a sentence to act on] (see behaviour.js).
+  onLeave(a, reason, why = null) {
     if (a !== this.agent) return;
     if (this.interest && this.state === 'drifting') {
       this.interest.left++;
       if (reason === 'turned') this.interest.turned++;
       else if (reason === 'refused') this.interest.refused++;
       else if (reason === 'startled' || reason === 'spooked') this.interest.spooked++;
+      if (why && why[0] !== 'fussy') this.interest.why = why[1];
     }
     const wasBite = this.state === 'bite';
     if (wasBite) {
@@ -808,7 +858,11 @@ export class Fishing {
     this.setStatus('quiet');
     if (wasBite) {
       const k = this.biteKind;
-      this.hooks.flash(k === 'run' ? 'The run stops. It dropped the bait.' : k === 'strike' ? 'It let go of the lure. Too slow!' : k === 'sip' ? 'Too slow: it spat the fly.' : 'It let go of the bait. Another may come.');
+      this.hooks.flash(k === 'run' ? 'The run stops. It dropped the bait.' : k === 'strike' ? 'It let go of the lure. Too slow!' : k === 'tap' ? 'Gone: a tap is over in a moment. Strike straight away.' : k === 'sip' ? 'Too slow: it spat the fly.' : 'It let go of the bait. Another may come.');
+    } else if (why && why[0] !== 'fussy' && (reason !== 'lost' || this.t > this.whyT)) {
+      // It says why it turned away (a fish that just drifted off says so less often).
+      this.whyT = this.t + 14;
+      this.hooks.flash(why[1], 4);
     } else if (reason === 'turned') {
       this.hooks.flash('It followed all the way in, then turned away. Try a twitch, or a pause.', 3.6);
     } else if (reason === 'missed') {
@@ -828,10 +882,18 @@ export class Fishing {
     // Weed, lilies, rocks or roots nearby give a running fish something to reach.
     const s = this.eco.habitat.sample(this.hook.x, this.hook.z);
     const cover = s.weed > 0.35 || s.rock > 0.4;
-    this.fight = Object.assign(newFight(sp, a.size, { line: this.rod.line, power: this.rod.power, drag: this.dragLevel }, this.diff, cover), {
-      sp, size: a.size, agent: a, lat: 0, dir: 1, splashT: 0, tickT: 0, slipT: 0, start: this.hook.clone(), end: this.fightEnd(), creaked: false,
+    // The fish fights as itself (its vigour and condition, how jumpy its kind is), against this
+    // rod (its power and how soft it is) and the Fish behaviour setting.
+    const who = { vigour: a.vigour, condition: a.condition, jumpy: prefsFor(sp.id).jumpy, level: this.level };
+    this.fight = Object.assign(newFight(sp, a.size, { line: this.rod.line, power: this.rod.power, flex: this.rod.flex, drag: this.dragLevel }, this.diff, cover, Math.random, who), {
+      sp, size: a.size, agent: a, lat: 0, splashT: 0, start: this.hook.clone(), end: this.fightEnd(), creaked: false,
       selfHooked, pickedUp: !selfHooked,
+      // How far off it was hooked (m), so the line it takes and gives back can be told in metres;
+      // a leap under way; what was last said (so a turn or the tiring is named, not shouted).
+      dist: Math.max(3, this.tip.distanceTo(this.hook)), leapT: 0, roll: 0, word: '', wordT: 0,
     });
+    this.fishPos.copy(this.hook);
+    this.side = 0;
     this.state = 'reeling';
     this.t = 0;
     if (!selfHooked) this.audio.hookSet();
@@ -852,6 +914,19 @@ export class Fishing {
       if (depthAt(x, z) > 0.45) return new THREE.Vector3(x + (dx / l) * 0.6, 0, z + (dz / l) * 0.6);
     }
     return this.hook.clone();
+  }
+
+  // The fish comes off with the line whole: 'thrown' (it leapt on a slack line and threw the
+  // hook) or 'pulled' (a light hold tore free under heavy pressure). See fight.js.
+  lose(why) {
+    const F = this.fight;
+    this.eco.lostHooked(F.agent);
+    this.fight = null;
+    this.agent = null;
+    this.fx.splash(this.fishPos.x, 0.05, this.fishPos.z, 8, 1.8, 0.6);
+    this.audio.splashSmall();
+    this.hooks.onSnap(why, F.sp, this.rod);
+    this.reelIn();
   }
 
   // The line gives way: 'tension', 'drag', 'snag' or 'teeth' (see fight.js).
@@ -929,7 +1004,11 @@ export class Fishing {
     this.frameDt = Math.max(dt, 1e-3);
     this.statusT += dt;
     this.held = held;
+    this.waveT = t;
     const A = this.angler, pose = A.pose;
+    const R = this.reelFx;
+    R.payout = R.wind = R.load = R.sing = 0;
+    R.free = false;
     A.rodTip.getWorldPosition(this.tip);
     this.rodBounce = damp(this.rodBounce, 0, 5, dt);
 
@@ -1072,7 +1151,11 @@ export class Fishing {
         const F = this.fight;
         if (!F) break;
         rodPitch = 0.95 - F.tension * 0.25;
-        bend = 0.25 + F.tension * 0.95 + (F.pulling ? Math.sin(t * 22) * 0.06 : 0) + this.rodBounce;
+        // Swung low to one side for side pressure (a positive yaw swings it to your left).
+        rodYaw = clamp(rodYaw - this.side * 0.75, -2.2, 2.2);
+        rodPitch -= Math.abs(this.side) * 0.2;
+        // The load bends it (a soft rod further), and it kicks as the fish shakes on a run.
+        bend = (0.25 + F.tension * 0.95) / Math.sqrt(this.rod.flex ?? 1) + (F.pulling ? Math.sin(t * 22) * 0.06 * (0.4 + F.tension) : 0) + this.rodBounce;
         break;
       }
       case 'landing': {
@@ -1140,6 +1223,7 @@ export class Fishing {
       }
       case 'retrieving': {
         const u = clamp(this.t / 0.45, 0, 1);
+        R.wind = 3;
         this.bob.lerpVectors(this.from, this.tip, u * u);
         this.bob.y += Math.sin(u * Math.PI) * 0.6;
         this.hook.copy(this.bob);
@@ -1152,9 +1236,45 @@ export class Fishing {
     pose.fishing = damp(pose.fishing, this.state === 'idle' ? 0 : 1, this.state === 'idle' ? 5 : 9, dt);
     pose.rodYaw = this.state === 'aiming' ? rodYaw : damp(pose.rodYaw, rodYaw, 6, dt);
     pose.rodPitch = damp(pose.rodPitch, rodPitch, 16, dt);
-    pose.bend = damp(pose.bend, bend, 10, dt);
+    // The blank springs towards the bend the line asks of it, and back as the load comes off,
+    // swinging a little past (a soft rod slower and further, a stiff one quick).
+    {
+      const K = 150 * (this.rod.flex ?? 1), C = 2 * Math.sqrt(K) * 0.5;
+      for (let left = Math.min(dt, 0.1); left > 1e-5; left -= 1 / 60) {
+        const h = Math.min(left, 1 / 60);
+        pose.bendVel = (pose.bendVel || 0) + ((bend - pose.bend) * K - (pose.bendVel || 0) * C) * h;
+        pose.bend += pose.bendVel * h;
+      }
+      pose.bend = clamp(pose.bend, -0.6, 1.9);
+    }
 
+    // Line out from a fishing reel: the drag clicking as a fish takes line, the handle turning
+    // as you wind, and the line singing as it nears breaking.
+    if (this.state === 'drifting' && this.reelSpeed > 0.05) {
+      R.wind = this.reelSpeed;
+      R.load = this.kind === 'lure' || this.kind === 'jig' ? 0.15 : 0.08;
+    }
+    R.drag = this.dragLevel / (DRAG_LEVELS.length - 1);
+    if (this.state === 'casting') {
+      // (Line pouring off the reel as the cast flies out: the bail's open, so no clicks.)
+      R.payout = Math.min(14, this.castDist / Math.max(0.3, this.flight));
+      R.free = true;
+    }
     this.updateVisuals(t, dt, fishMesh);
+    this.turnReel(dt);
+    this.audio.reel?.(R);
+  }
+
+  // The reel's spool turns as line goes out (and on a centrepin or fly reel as you wind it back,
+  // since the drum is the spool), and its handle as you wind.
+  turnReel(dt) {
+    const rod = this.angler.active, R = this.reelFx;
+    if (!rod?.spool) return;
+    const drum = !rod.handle;
+    const r = drum ? 0.045 : 0.037;
+    // (Past a few turns a second it's a blur: a wheel in a film seems to stand still or turn back.)
+    rod.spool.rotation.y += clamp((R.payout - (drum ? R.wind : 0)) / r, -22, 22) * dt;
+    if (rod.handle) rod.handle.rotation.x -= clamp(R.wind * 9, 0, 16) * dt;
   }
 
   // A landed fish held up in your hands, wriggling now and then.
@@ -1178,7 +1298,9 @@ export class Fishing {
     }
     if (!this.line.visible) return;
     if (this.holdingLine && mesh) mesh.localToWorld(this.lineEnd.set(0, 0, 0.5));
-    this.setLine(this.tip, this.lineEnd, this.lineSag);
+    // (Pin it to where the tip is now.)
+    this.fishLine.constrain(this.tip, this.lineEnd, 3);
+    this.drawLine(t);
   }
 
   // The water moving a rig: the current at its depth (by the Currents setting), plus a share of
@@ -1544,14 +1666,38 @@ export class Fishing {
   updateFight(dt, t, held) {
     const F = this.fight;
     const diff = this.steady < 1 ? { ...this.diff, shock: this.diff.shock * this.steady } : this.diff;
+    const b = this.angler.pos;
+    // The current along the line: running away from you it helps the fish (and tows it), running
+    // towards you it helps you. And the rod swung to one side: side pressure.
+    {
+      const fx = this.fishPos.x - b.x, fz = this.fishPos.z - b.z, l = Math.hypot(fx, fz) || 1;
+      const c = currentAt(this.fishPos.x, this.fishPos.z, Math.max(0, waterLevel(this.fishPos.x, this.fishPos.z) - this.fishPos.y));
+      F.flow = ((c.x * fx + c.z * fz) / l) * currentScale();
+    }
+    F.side = this.side;
+    const before = F.progress;
     const ev = stepFight(F, held, dt, diff);
     if (ev && ev.startsWith('snap:')) {
       this.snap(ev.slice(5));
       return;
     }
-    if (ev === 'run') {
-      F.dir = Math.random() < 0.5 ? -1 : 1;
+    if (ev && ev.startsWith('off:')) {
+      this.lose(ev.slice(4));
+      return;
+    }
+    // What it's doing, said briefly beside the meter (see the game's fight meter).
+    const say = (w, secs = 1.4) => {
+      F.word = w;
+      F.wordT = secs;
+    };
+    F.wordT -= dt;
+    if (ev === 'run' || ev === 'jump') {
       F.creaked = false;
+      this.hooks.cue?.('run');
+      if (F.time > 6 && F.sizeK > 0.35 && !F.toldSide) {
+        F.toldSide = true;
+        this.hooks.teach('side', `A big fish runs hard. Swing the rod low to the side against its run (${this.hooks.key('left')} or ${this.hooks.key('right')}): side pressure turns it and tires it sooner.`, 7);
+      }
     }
     // A flick on the surface just before each run, so it can be read in time; the rod tip
     // nods with it.
@@ -1562,7 +1708,27 @@ export class Fishing {
       this.rodBounce = 0.3;
       this.hooks.cue?.('warn');
     }
-    if (ev === 'run') this.hooks.cue?.('run');
+    // A leap: out of the water and back with a crash. Slack line now can lose it.
+    if (ev === 'jump') {
+      F.leapT = 0.75;
+      this.fx.splash(this.fishPos.x, 0.05, this.fishPos.z, 16, 2.4, 0.7);
+      this.audio.splashSmall(1.3);
+      say('jumping!', 1.2);
+      if (this.level.throwHook > 0) this.hooks.flash('It leaps! Keep the line tight: rod up, and wind.', 1.8);
+    }
+    if (ev === 'turn') {
+      // It turns on its run: a swirl where it swings round.
+      this.fx.ripple(this.fishPos.x, this.fishPos.z, 0.9, 1.0, 0.4);
+      say('it turns', 1);
+    }
+    if (ev === 'tiring') {
+      say('tiring', 2.5);
+      this.hooks.flash('It’s tiring: its runs are getting shorter. Keep a steady pressure on it.', 2.6);
+    }
+    if (ev === 'beaten') {
+      say('beaten', 3);
+      this.hooks.flash('It’s beaten, rolling on its side. Wind it in gently.', 2.6);
+    }
     if (held) F.pickedUp = true;
     // The line creaks when it's at its limit, and keeps creaking while it strains: easing off
     // now saves it (see fight.js).
@@ -1578,24 +1744,15 @@ export class Fishing {
         this.audio.strain();
       }
     }
-    // The drag giving line: a fast ratchet.
-    if (F.slipping) {
-      F.slipT -= dt;
-      if (F.slipT <= 0) {
-        this.audio.tick(0.55);
-        F.slipT = 0.05;
-      }
-    }
-    if (held) {
-      F.tickT -= dt;
-      if (F.tickT <= 0) {
-        this.audio.tick(F.pulling ? 0.7 : 1);
-        F.tickT = F.pulling ? 0.12 : 0.065;
-      }
-    }
+    // The reel: line going out against the drag on a run (m/s), and coming in as you wind; the
+    // handle turns whenever you wind, even into a run (the spool slips under it).
+    const R = this.reelFx, gain = ((F.progress - before) * F.dist) / Math.max(dt, 1e-3);
+    R.payout = F.slipping ? Math.max(0.3, -gain) : 0;
+    R.wind = held ? Math.max(0.5, gain) : 0;
+    R.load = F.tension;
+    R.sing = smoothstep(0.78, 0.98, F.tension);
 
     // The fish swims where the fight takes it, closer to you and the surface as you win.
-    const b = this.angler.pos;
     let dx = F.start.x - b.x, dz = F.start.z - b.z;
     const dl = Math.hypot(dx, dz) || 1;
     dx /= dl;
@@ -1604,10 +1761,11 @@ export class Fishing {
     const ex = F.end ? F.end.x : b.x + dx * 2.6, ez = F.end ? F.end.z : b.z + dz * 2.6;
     const cx = lerp(F.start.x, ex, e), cz = lerp(F.start.z, ez, e);
     // How it moves on a run depends on how it fights: darting wide, plodding, flat on the
-    // bottom, deep and circling, or jetting back in pulses.
+    // bottom, deep and circling, or jetting back in pulses (F.dir +1 is off to your right, as you
+    // face it). Side pressure swings it back.
     const St = F.style;
-    F.lat = damp(F.lat, F.pulling ? F.dir * St.sway * (1 - F.progress * 0.6) : 0, 1.4, dt);
-    const wig = Math.sin(t * 6.5) * 0.15;
+    F.lat = damp(F.lat, F.pulling ? F.dir * St.sway * (1 - F.progress * 0.6) * (1 - 0.5 * F.turn) : 0, 1.4, dt);
+    const wig = Math.sin(t * 6.5) * 0.15 * (F.stage === 'beaten' ? 0.3 : 1);
     let x = cx - dz * (F.lat + wig), z = cz + dx * (F.lat + wig);
     // Don't let it swim up onto the bank.
     if (depthAt(x, z) < 0.35) {
@@ -1615,10 +1773,27 @@ export class Fishing {
       z = cz;
     }
     const floor = solidHeight(x, z) + 0.3, lv = waterLevel(x, z);
-    const y = Math.min(Math.max(lerp(F.start.y, lv - 0.35, e) - (F.pulling ? St.dive * (1 - e * 0.5) : 0), floor), lv - 0.2);
+    let y = Math.min(Math.max(lerp(F.start.y, lv - 0.35, e) - (F.pulling ? St.dive * (1 - e * 0.5) : 0), floor), lv - 0.2);
+    // In a leap it clears the water, nose up, and falls back in.
+    let pitch = 0;
+    if (F.leapT > 0) {
+      F.leapT -= dt;
+      const u = 1 - clamp(F.leapT / 0.75, 0, 1);
+      y = Math.max(y, lv + Math.sin(u * Math.PI) * (0.35 + F.sizeK * 0.6) - 0.15);
+      pitch = lerp(0.9, -0.9, u);
+      if (F.leapT <= 0) {
+        this.fx.splash(x, 0.05, z, 18, 2.2, 0.8);
+        this.fx.ripple(x, z, 1.8, 1.4, 0.6);
+        this.audio.splashSmall(1.2);
+      }
+    }
     this.fishPos.set(x, y, z);
     const away = Math.atan2(x - b.x, z - b.z);
-    this.eco.placeHooked(F.agent, x, y, z, away + (F.pulling ? F.lat * 0.15 : F.dir * 1.6), F.pulling ? 1 : 0.5);
+    this.eco.placeHooked(F.agent, x, y, z, away + (F.pulling ? F.lat * 0.15 : F.dir * 1.6), F.pulling ? 1 : F.stage === 'beaten' ? 0.2 : 0.5);
+    // Beaten, it rolls on its side; in a leap, it's nose up.
+    F.roll = damp(F.roll, F.stage === 'beaten' && !F.pulling ? 1.25 : 0, 2, dt);
+    F.agent.bank = F.roll;
+    F.agent.pitch = pitch;
     this.mouthOf(F.agent, this.hook);
     if (this.kind === 'float' || (this.kind === 'fly' && this.item.fly === 'nymph')) this.bob.set(x, waveHeight(x, z, t) - (F.pulling ? 0.16 : 0.06), z);
     else this.bob.set(x, waveHeight(x, z, t), z);
@@ -1660,26 +1835,57 @@ export class Fishing {
     if (this.lead.visible) this.lead.position.set(this.hook.x + 0.18, this.hook.y + 0.02, this.hook.z + 0.1);
 
     this.line.visible = lineVisible;
+    this.pullingTip = false;
     if (lineVisible) {
-      let end = this.bob, sag = 0.35;
+      // How much more line is out than the straight distance to the end of it: slack line sags
+      // from the rod tip, lies on the water and drifts with the current; tight line runs straight
+      // from the tip down into the water.
+      let end = this.bob, slack = 0.05, tight = 0;
+      const floatOn = kind === 'float' || (kind === 'fly' && it?.fly === 'nymph');
       if (holdingFish) {
         end = fishMesh.localToWorld(_v.set(0, 0, 0.5));
-        sag = 0.02;
-      } else if (s === 'aiming') sag = 0;
-      else if (s === 'casting' || s === 'retrieving') sag = 0.12;
-      else if (s === 'reeling') sag = (1 - this.fight.tension) * 0.3;
-      else if (kind === 'lure' || kind === 'ledger') sag = 0.06 + (this.reelSpeed > 0.1 ? 0 : 0.12);
-      else if (kind === 'fly') sag = 0.25 + this.tip.distanceTo(this.bob) * 0.02;
-      else sag = 0.35 + this.tip.distanceTo(this.bob) * 0.015;
-      if (s === 'bite' && this.biteKind !== 'float') sag = 0.02;
+        slack = 0.08;
+      } else if (s === 'aiming') slack = 0.02;
+      else if (s === 'casting' || s === 'retrieving') slack = 0.03;
+      else if (s === 'reeling') {
+        // On a fish: as tight as the fight makes it, slack when it eases (or leaps at you).
+        const F = this.fight;
+        if (!floatOn) end = this.hook;
+        const loose = F.leapT > 0 && F.tension < 0.2;
+        slack = loose ? 0.06 : 0.001 + Math.pow(1 - F.tension, 3) * 0.02;
+        tight = loose ? 0 : 0.15 + 0.85 * smoothstep(0.08, 0.6, F.tension);
+        this.pullingTip = true;
+      } else if (s === 'bite') {
+        slack = this.biteKind === 'float' ? 0.02 : 0.002;
+        tight = this.biteKind === 'float' ? 0 : 0.6;
+        this.pullingTip = this.biteKind !== 'float';
+      } else if (kind === 'lure' || kind === 'jig') {
+        slack = this.reelSpeed > 0.1 ? 0.004 : 0.03;
+        tight = this.reelSpeed > 0.1 ? 0.5 : 0;
+      } else if (kind === 'ledger' || kind === 'bottom') {
+        slack = 0.012;
+        tight = 0.3;
+      } else if (kind === 'fly') slack = this.reelSpeed > 0.05 ? 0.01 : 0.05;
+      else slack = this.reelSpeed > 0.1 ? 0.01 : 0.05;
       this.holdingLine = holdingFish;
       this.lineEnd.copy(end);
-      this.lineSag = sag;
-      this.setLine(this.tip, end, sag);
+      const straight = this.tip.distanceTo(end);
+      this.fishLine.step(this.tip, end, straight * (1 + slack) + 0.02, dt, this.lineWorld);
+      if (tight > 0) this.fishLine.straighten(this.tip, end, 1 - Math.exp(-tight * 18 * dt));
+      // Near its breaking strain the line hums taut, thrumming, and glows a warning colour.
+      const load = s === 'reeling' ? this.fight.tension : 0;
+      this.lineBuzz = smoothstep(0.8, 1, load) * 0.012;
+      this.line.material.color.copy(this.lineColor).lerp(STRAINED, smoothstep(0.78, 0.97, load));
+      this.line.material.opacity = 0.75 + 0.25 * smoothstep(0.78, 0.97, load);
+      this.drawLine(t);
+      // (Where it pulls the tip: a little way out along it.)
+      const P = this.fishLine.p, o = 4 * 3;
+      this.bendAt.set(P[o], P[o + 1], P[o + 2]);
     }
+    this.angler.pose.bendTo = this.pullingTip ? this.bendAt : null;
 
     // Underwater line from the float/indicator, or from where the line enters, to the hook.
-    const leader = inWater && s !== 'reeling' && !(kind === 'fly' && it?.fly === 'dry');
+    const leader = inWater && (s !== 'reeling' || kind === 'float' || (kind === 'fly' && it?.fly === 'nymph')) && !(kind === 'fly' && it?.fly === 'dry');
     this.leader.visible = leader;
     if (leader) {
       const top = kind === 'float' ? 0.26 : 0.02;
@@ -1712,13 +1918,27 @@ export class Fishing {
     this.arc.visible = this.arc.material.opacity > 0.01;
   }
 
-  setLine(a, b, sag) {
-    const P = this.linePos;
-    for (let i = 0; i < LINE_N; i++) {
-      const u = i / (LINE_N - 1);
-      P[i * 3] = lerp(a.x, b.x, u);
-      P[i * 3 + 1] = lerp(a.y, b.y, u) - sag * 4 * u * (1 - u);
-      P[i * 3 + 2] = lerp(a.z, b.z, u);
+  // The line as drawn: from the reel up through the guides to the rod tip, then the line out.
+  drawLine(t) {
+    const P = this.linePos, rod = this.angler.active;
+    let n = 0;
+    const put = (v) => {
+      P[n++] = v.x;
+      P[n++] = v.y;
+      P[n++] = v.z;
+    };
+    if (rod?.lineFrom && rod.guides?.length) {
+      put(rod.lineFrom.getWorldPosition(_w));
+      for (let i = 0; i < ROD_PTS - 1; i++) put((rod.guides[i] || rod.tip).getWorldPosition(_w));
+    } else for (let i = 0; i < ROD_PTS; i++) put(this.tip);
+    const L = this.fishLine.p, buzz = this.lineBuzz;
+    for (let i = 0; i < LINE_PTS; i++) {
+      const o = i * 3;
+      // (Thrumming near breaking: a quick shiver along it, most in the middle.)
+      const k = buzz ? Math.sin(t * 95 + i * 2.3) * buzz * Math.sin((Math.PI * i) / (LINE_PTS - 1)) : 0;
+      P[n++] = L[o] + k * 0.5;
+      P[n++] = L[o + 1] + k;
+      P[n++] = L[o + 2];
     }
     this.line.geometry.attributes.position.needsUpdate = true;
   }

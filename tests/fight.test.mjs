@@ -14,7 +14,7 @@ function dice(seed) {
 
 const carp = fishById.carp, pike = fishById.pike, trout = fishById.trout;
 // A rod with its first (default) line, and its default leader (the spinning rod's wire trace).
-const rodOf = (id, drag, line = 0) => ({ line: { ...RODS[id].lines[line], trace: !!TERMS[RODS[id].terms[0]].trace }, power: RODS[id].power, drag: drag ?? RODS[id].drag });
+const rodOf = (id, drag, line = 0) => ({ line: { ...RODS[id].lines[line], trace: !!TERMS[RODS[id].terms[0]].trace }, power: RODS[id].power, flex: RODS[id].flex, drag: drag ?? RODS[id].drag });
 const sizeAt = (sp, k) => sp.size[0] + (sp.size[1] - sp.size[0]) * k;
 
 // careful: eases off at the flick and through the surge. human: lets go a reaction time after

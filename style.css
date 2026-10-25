@@ -317,6 +317,11 @@ kbd {
 #meter.alert .m-track { stroke: rgba(255, 196, 110, 0.55); animation: meterPulse 0.45s ease-in-out infinite alternate; }
 #meter.alert #meter-label { color: #ffd59a; }
 @keyframes meterPulse { from { stroke-width: 6; opacity: 0.6; } to { stroke-width: 10; opacity: 1; } }
+/* Near the line's breaking strain: the tension ring flashes red, and the word with it. */
+#meter.danger .m-inner { stroke: var(--coral) !important; animation: meterDanger 0.16s ease-in-out infinite alternate; }
+#meter.danger #meter-label > span:first-child { color: #ffb3a1; }
+@keyframes meterDanger { from { stroke-width: 4; opacity: 0.7; } to { stroke-width: 9; opacity: 1; } }
+.reduce-motion #meter.danger .m-inner { animation: none; stroke-width: 7; }
 /* Where the reel's drag starts to give line, on the tension ring. */
 .m-drag { fill: var(--hud-ink); stroke: rgba(15, 27, 43, 0.75); stroke-width: 1.5; }
 .m-drag.locked { fill: var(--coral); }
@@ -1106,7 +1111,7 @@ p.cp-soft { margin: 6px 0; }
 .t-keys dd { margin: 0; opacity: 0.85; }
 .t-pad { margin: 10px 0 0; font-size: 13px; opacity: 0.75; animation: rise 1.6s 0.65s ease both; }
 .t-pad:empty { display: none; }
-#meter-label .ml-sub { margin-top: 3px; font: 800 11px/1 var(--font-ui); opacity: 0.9; }
+#meter-label .ml-sub { margin-top: 3px; font: 800 11px/1 var(--font-ui); opacity: 0.9; white-space: nowrap; }
 /* Shorter screens: a more compact title so the settings line and offline status fit. */
 @media (max-height: 780px) {
   #title h1 { font-size: clamp(60px, 12vh, 120px); }

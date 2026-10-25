@@ -1,6 +1,7 @@
 import { ACTIONS, ACTION_BY_ID, cleanBindings, defaultBindings } from './input.js';
 import { GROUPS, LEVELS, CHOICES, PRESETS } from './quality.js';
 import { DIFFICULTY, DIFFICULTY_IDS } from './fight.js';
+import { BEHAVIOUR, BEHAVIOUR_IDS } from './behaviour.js';
 import { SEA_PRESETS, SEA_IDS, compass } from './world/conditions.js';
 import { buttonFor } from './gamepad.js';
 
@@ -23,7 +24,7 @@ export const CAST_MODES = {
 };
 
 export const DEFAULT_SETTINGS = {
-  audio: { master: 1, mute: false, music: 0.8, ambient: 1, wind: 0.8, waves: 0.9, rain: 0.8, effects: 1, alerts: 0.8 },
+  audio: { master: 1, mute: false, music: 0.8, ambient: 1, wind: 0.8, waves: 0.9, rain: 0.8, effects: 1, reel: 0.9, alerts: 0.8 },
   graphics: { preset: 'auto', scale: 1, shadows: 'auto', water: 'auto', plants: 'auto', particles: 'auto', underwater: 'auto', life: 'auto', fps: 0 },
   // sea: 'auto' (with the weather) or a SEA_PRESETS id; wind 'auto' or 'manual' (windSpeed m/s,
   // windFrom compass degrees); currents: natural, gentle or still (on your rig and boat).
@@ -76,6 +77,7 @@ export function cleanSettings(raw, legacy = {}) {
     waves: num(a.waves, d.audio.waves, 0, 1),
     rain: num(a.rain, d.audio.rain, 0, 1),
     effects: num(a.effects, num(lv.nature, d.audio.effects, 0, 1), 0, 1),
+    reel: num(a.reel, d.audio.reel, 0, 1),
     alerts: num(a.alerts, d.audio.alerts, 0, 1),
   };
   const g = isObj(r.graphics) ? r.graphics : {};
@@ -122,7 +124,8 @@ const el = (tag, cls, text) => {
 const TABS = [['audio', 'Sound'], ['graphics', 'Graphics'], ['weather', 'Weather & sea'], ['controls', 'Controls & comfort']];
 const LEVEL_NAMES = { auto: 'With the preset', low: 'Low', medium: 'Medium', high: 'High', ultra: 'Ultra' };
 
-// hooks: { changed(section, key, value), close(), playAlert(), qualityText(), difficulty(), setDifficulty(id), keyLabel(code) }
+// hooks: { changed(section, key, value), close(), playAlert(), qualityText(), difficulty(), setDifficulty(id),
+//   behaviour(), setBehaviour(id), keyLabel(code) }
 export class SettingsUI {
   constructor(state, hooks) {
     this.state = state;
@@ -265,7 +268,8 @@ export class SettingsUI {
     vol('wind', 'Wind', 'The wind in your ears: louder in gusts and out in the open.');
     vol('waves', 'Waves', 'The wash of the sea and surf on the shore, with the sea state.');
     vol('rain', 'Rain', 'The patter and hiss of rain.');
-    vol('effects', 'Fishing and boat sounds', 'Oars, the motor, casts, splashes, the reel and the line.');
+    vol('effects', 'Fishing and boat sounds', 'Oars, the motor, casts and splashes.');
+    vol('reel', 'Reel and line', 'The drag clicking as a fish takes line (faster the faster it runs), the reel whirring as you wind, and the line singing as it nears breaking. Turn it down for a quieter fight.');
     const test = el('button', 'pk-btn quiet', 'Play the ring');
     test.type = 'button';
     test.addEventListener('click', () => this.hooks.playAlert());
@@ -371,6 +375,9 @@ export class SettingsUI {
     const d = this.hooks.difficulty();
     out.push(this.row('Difficulty', `${DIFFICULTY[d].desc} Change it whenever you like: nothing is lost.`,
       this.choice(DIFFICULTY_IDS.map((id) => [id, DIFFICULTY[id].label]), d, (v) => this.hooks.setDifficulty(v))));
+    const b = this.hooks.behaviour?.() || 'relaxed';
+    out.push(this.row('Fish behaviour', `${BEHAVIOUR[b].desc}`,
+      this.choice(BEHAVIOUR_IDS.map((id) => [id, BEHAVIOUR[id].label]), b, (v) => this.hooks.setBehaviour?.(v))));
     out.push(this.row('Camera sensitivity', 'How far the view turns as you drag.', this.slider('controls', 'sensitivity', { min: 0.3, max: 2.5, step: 0.1, pct: false })));
     out.push(this.row('Invert left and right', 'Dragging moves the view the other way across.', this.toggle('controls', 'invertX')));
     out.push(this.row('Invert up and down', 'Dragging up looks down, like a flight stick.', this.toggle('controls', 'invertY')));

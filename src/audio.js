@@ -10,15 +10,16 @@ const CHORDS = [[50, 57, 62], [47, 54, 62], [43, 50, 59], [45, 52, 61]];
 //
 // Every sound reaches the speakers through one master gain, so muting silences all of it,
 // including sounds that start after you mute. Under the master there are separate volumes
-// for the surroundings (water, wind, birds), rain, fishing effects, bite alerts and music.
-export const VOLUME_KEYS = ['master', 'music', 'ambient', 'wind', 'waves', 'rain', 'effects', 'alerts'];
+// for the surroundings (water, wind, birds), rain, fishing effects, the reel and line, bite
+// alerts and music.
+export const VOLUME_KEYS = ['master', 'music', 'ambient', 'wind', 'waves', 'rain', 'effects', 'reel', 'alerts'];
 export class AudioScape {
   constructor() {
     this.ctx = null;
     this.musicOn = true;
     this.t = 0;
     this.under = 0;
-    this.volumes = { master: 1, mute: false, music: 0.8, ambient: 1, wind: 0.8, waves: 0.9, rain: 1, effects: 1, alerts: 0.8 };
+    this.volumes = { master: 1, mute: false, music: 0.8, ambient: 1, wind: 0.8, waves: 0.9, rain: 1, effects: 1, reel: 0.9, alerts: 0.8 };
   }
 
   start() {
@@ -60,6 +61,7 @@ export class AudioScape {
     this.alerts = bus();
     this.musicVol = bus();
     this.effects = bus();
+    this.reelBus = bus();
 
     this.reverb = ctx.createConvolver();
     this.reverb.buffer = this.impulse(3.4, 2.4);
@@ -109,6 +111,31 @@ export class AudioScape {
     this.flapBed = this.bed(this.white, [['bandpass', 950, 0.7], ['highpass', 280, 0.5]]);
     // A gale: the wind howling, whistling in rigging and round rocks.
     this.howlBed = this.bed(this.pink, [['bandpass', 640, 7], ['lowpass', 2400, 0.5]], this.windBus);
+    // The reel and the line (see reel()): the drag's ratchet clicking as a fish takes line, the
+    // gears whirring as you wind, and the line singing taut near its breaking strain. Each click
+    // train is noise gated by a train of short pulses, so its rate can follow the line smoothly.
+    this.ratchet = this.clicker(this.white, [['bandpass', 3200, 1.4]]);
+    this.whirr = this.clicker(this.pink, [['bandpass', 1500, 1.1]], 0.3);
+    this.whirrBed = this.bed(this.pink, [['bandpass', 650, 1.2]], this.reelBus);
+    this.singOsc = ctx.createOscillator();
+    this.singOsc.type = 'triangle';
+    this.singOsc.frequency.value = 1500;
+    const sv = ctx.createOscillator(), svg = ctx.createGain();
+    sv.frequency.value = 11;
+    svg.gain.value = 14;
+    sv.connect(svg);
+    svg.connect(this.singOsc.frequency);
+    const sf = ctx.createBiquadFilter();
+    sf.type = 'bandpass';
+    sf.frequency.value = 1700;
+    sf.Q.value = 2;
+    this.singGain = ctx.createGain();
+    this.singGain.gain.value = 0;
+    this.singOsc.connect(sf);
+    sf.connect(this.singGain);
+    this.singGain.connect(this.reelBus);
+    this.singOsc.start();
+    sv.start();
     this.alarmOsc = null;
     this.setVolumes(this.volumes);
 
@@ -131,6 +158,7 @@ export class AudioScape {
     this.wavesBus.gain.setTargetAtTime(V.waves ?? 0.9, now, 0.05);
     this.rainBus.gain.setTargetAtTime(V.rain, now, 0.05);
     this.effects.gain.setTargetAtTime(V.effects, now, 0.05);
+    this.reelBus.gain.setTargetAtTime(V.reel ?? 0.9, now, 0.05);
     this.alerts.gain.setTargetAtTime(V.alerts, now, 0.05);
     this.musicVol.gain.setTargetAtTime(V.music, now, 0.05);
   }
@@ -206,6 +234,27 @@ export class AudioScape {
     g.connect(dest);
     src.start(0, Math.random() * buffer.duration);
     return { g, f };
+  }
+
+  // A train of clicks: looped noise through filters, gated by a pulse wave whose frequency is the
+  // click rate (0 = silent). duty: how long each click is, as a share of the gap.
+  clicker(buffer, filters, duty = 0.14) {
+    const ctx = this.ctx, b = this.bed(buffer, filters, this.reelBus);
+    // A narrow pulse from its harmonics (a pulse wave has no steady part here: see the offset).
+    const N = 40, real = new Float32Array(N), imag = new Float32Array(N);
+    for (let n = 1; n < N; n++) {
+      // (Softened towards the top, so it doesn't ring.)
+      real[n] = ((2 / (n * Math.PI)) * Math.sin(n * Math.PI * duty)) * Math.exp(-n / 26);
+    }
+    const lfo = ctx.createOscillator();
+    lfo.setPeriodicWave(ctx.createPeriodicWave(real, imag));
+    lfo.frequency.value = 1;
+    const depth = ctx.createGain();
+    depth.gain.value = 0;
+    lfo.connect(depth);
+    depth.connect(b.g.gain);
+    lfo.start();
+    return { ...b, lfo, depth, duty };
   }
 
   set(param, v, tc = 0.5) {
@@ -660,6 +709,43 @@ export class AudioScape {
 
   reelIn() {
     this.tickRun(9, 0.045, 0.03);
+  }
+
+  // The reel and the line, each frame while there's line out. r: { payout: line going out
+  // against the drag (m/s), wind: line wound in (m/s), load: 0 … 1 of the breaking strain,
+  // drag: the drag setting 0 … 1, sing: the line singing near breaking 0 … 1, free: line
+  // pouring off an open bail (no clicks) }.
+  //  · The drag's ratchet clicks faster the faster line goes, from a slow tick-tick as a fish
+  //    leans on it to a scream on a long run; brighter and louder with the drag set tighter and
+  //    the load heavier.
+  //  · The gears whirr as you wind, lower and grinding under load.
+  //  · Near breaking the line sings: a thin, rising whine you can't mistake.
+  reel(r) {
+    if (!this.ctx || !this.ratchet) return;
+    const now = this.ctx.currentTime;
+    const click = r.free ? 0 : r.payout;
+    const rate = Math.min(70, click * 16);
+    const on = rate > 0.5 ? 1 : 0;
+    const vol = on * (0.035 + 0.05 * r.load + 0.03 * r.drag) * Math.min(1, click / 0.4);
+    this.setClicks(this.ratchet, rate, vol, now);
+    this.ratchet.f[0].frequency.setTargetAtTime(2600 + 1400 * r.drag + 600 * r.load, now, 0.05);
+    // Winding: a fine gear rattle and a soft hum.
+    const w = Math.min(r.wind, 6);
+    this.setClicks(this.whirr, w > 0.05 ? 22 + w * 26 : 0, w > 0.05 ? (0.012 + 0.02 * r.load) * Math.min(1, w / 0.6) : 0, now);
+    this.whirr.f[0].frequency.setTargetAtTime(1700 - 700 * r.load, now, 0.08);
+    this.set(this.whirrBed.g.gain, w > 0.05 ? (0.008 + 0.025 * r.load) * Math.min(1, w / 0.6) : 0, 0.06);
+    this.whirrBed.f[0].frequency.setTargetAtTime(520 + w * 60 - 200 * r.load, now, 0.1);
+    // The line singing.
+    this.set(this.singGain.gain, 0.03 * r.sing * r.sing, 0.05);
+    this.singOsc.frequency.setTargetAtTime(1250 + 900 * r.sing, now, 0.08);
+  }
+
+  setClicks(c, rate, vol, now) {
+    // (Gain = offset + depth × pulse: the pulse wave's floor is lifted to silence between clicks.)
+    const floor = c.duty / (1 - c.duty);
+    c.lfo.frequency.setTargetAtTime(Math.max(rate, 0.5), now, 0.03);
+    c.depth.gain.setTargetAtTime(vol, now, 0.03);
+    c.g.gain.setTargetAtTime(vol * floor, now, 0.03);
   }
 
   strain() {

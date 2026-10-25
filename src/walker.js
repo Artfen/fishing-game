@@ -47,7 +47,8 @@ export class Walker {
     this.speedMul = 1;
     this.onStep = null;
     this.onSplash = null;
-    this.pose = { fishing: 0, rodYaw: 0, rodPitch: 0.85, bend: 0.05 };
+    // (bendTo: where the line pulls the rod tip, set by the fishing: see bendRod.)
+    this.pose = { fishing: 0, rodYaw: 0, rodPitch: 0.85, bend: 0.05, bendVel: 0, bendTo: null };
     // In first person (set by the game): where a landed fish is held up in view, and which way
     // you face for it.
     this.viewHold = null;
@@ -286,7 +287,7 @@ export class Walker {
     this.rod.position.copy(HOLD);
     this.rod.rotation.y = this.pose.rodYaw;
     this.rod.rotation.x = this.pose.rodPitch;
-    bendRod(this.active, this.pose.bend);
+    bendRod(this.active, this.pose.bend, this.pose.bendTo);
 
     // Arms swing while walking, or reach for the rod.
     this.torso.updateMatrix();

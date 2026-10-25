@@ -7,6 +7,7 @@ import { cleanGuide } from './firstTrip.js';
 import { cleanFuel } from './fuel.js';
 import { CHOICES } from './quality.js';
 import { cleanDive } from './dive.js';
+import { BEHAVIOUR_IDS } from './behaviour.js';
 
 // Saving your progress in this browser, with nobody to sign in to.
 //
@@ -51,6 +52,7 @@ export const DEFAULT_STATE = {
   music: true,
   quality: 'auto', // the graphics preset (a copy of settings.graphics.preset, see quality.js)
   difficulty: 'standard', // 'relaxed' | 'standard' | 'realistic'
+  behaviour: 'relaxed',    // how fussy the fish are: 'relaxed' | 'natural' | 'demanding' (behaviour.js)
   fishView: 'first',       // 'first' (first person when you cast) | 'shoulder'
   sonar: false,    // fish finder shown
   volumes: { master: 1, nature: 1, music: 0.8 },
@@ -245,6 +247,7 @@ export function sanitize(raw) {
   s.music = raw.music !== false;
   s.quality = oneOf(raw.quality, CHOICES, 'auto');
   s.difficulty = oneOf(raw.difficulty, ['relaxed', 'standard', 'realistic'], 'standard');
+  s.behaviour = oneOf(raw.behaviour, BEHAVIOUR_IDS, 'relaxed');
   s.fishView = oneOf(raw.fishView, ['first', 'shoulder'], 'first');
   s.sonar = !!raw.sonar;
   if (isObj(raw.volumes)) {
@@ -519,7 +522,7 @@ export function hasProgress(s) {
 }
 
 const JOURNAL_KEYS = ['fish', 'places', 'items', 'tips', 'caughtOn', 'log', 'meals', 'pins', 'photos', 'adventures', 'keepsakes', 'unlocks'];
-const SETTINGS_KEYS = ['quality', 'volumes', 'music', 'sonar', 'finder', 'difficulty', 'fishView'];
+const SETTINGS_KEYS = ['quality', 'volumes', 'music', 'sonar', 'finder', 'difficulty', 'behaviour', 'fishView'];
 
 // Combine two saves so nothing discovered in either is lost: every logged catch (matched by
 // id), each fish's count and best, places, keepsakes and hints. Where you are, the time,

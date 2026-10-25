@@ -79,7 +79,7 @@ export function diagnose(fishing, eco, map, target = null) {
     const came = I.looks + I.follows;
     if ((came >= 2 && I.left >= 2) || (I.follows >= 1 && fishing.status === 'follow' && reasons.some((r) => r.key === 'motion'))) {
       const why = reasons.find((r) => r.key === 'motion' || r.key === 'line' || r.key === 'size');
-      reasons.push({ key: 'interest', text: `${came} fish came to look and turned away. ${why ? why.text : (L.caution ?? 1) >= 1.2 ? `The ${name} is wary: give it longer, and keep still.` : 'A twitch or a pause often turns a follower into a take.'}` });
+      reasons.push({ key: 'interest', text: `${came} fish came to look and turned away. ${why ? why.text : I.why ? I.why : (L.caution ?? 1) >= 1.2 ? `The ${name} is wary: give it longer, and keep still.` : 'A twitch or a pause often turns a follower into a take.'}` });
     }
   }
   if (!reasons.length) reasons.push({ key: 'fine', text: `Everything suits the ${name} here: the water, the depth, the ${item.type} and the hour. It just hasn’t found yours yet. Give it time, or try a little further along the same kind of water.` });

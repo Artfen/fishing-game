@@ -5,6 +5,7 @@ import { loadGame, saveGame, newGame, saveStatus, parseSave, importSave, exportT
 import { Cloud } from './cloud.js';
 import { setupOffline, offline, applyUpdate } from './offline.js';
 import { DIFFICULTY, DIFFICULTY_IDS, DRAG_LEVELS, DRAG_NAMES, breakReason } from './fight.js';
+import { BEHAVIOUR, conditionWords } from './behaviour.js';
 import { HUD, kbd } from './ui.js';
 import { AudioScape } from './audio.js';
 import { Environment, phaseName, formatClock } from './world/sky.js';
@@ -587,8 +588,9 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
     save();
   },
   // Every break has a reason you can see and do something about (see fight.js).
+  // A fish thrown or pulled free has the line whole: it says so.
   onSnap: (why, sp, rod) => {
-    hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : 'Snap! The line broke.', t, 3);
+    hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : why === 'thrown' ? 'It threw the hook!' : why === 'pulled' ? 'The hook pulled free.' : 'Snap! The line broke.', t, 3);
     hud.toast(breakReason(why, sp, rod), 9);
   },
   onDrag: (level, rod) => {
@@ -676,7 +678,7 @@ function logCatch(sp, size, agent, rigUsed, how = null) {
     item: rigUsed?.item?.id || null,
     line: how ? '' : rigUsed?.rod?.line?.name || '',
     term: how ? '' : fishing.term?.id || '',
-    weight: Math.round(weightOf(sp, size) * 100) / 100,
+    weight: Math.round((agent?.weight ?? weightOf(sp, size)) * 100) / 100,
     sky: weather.state,
     from: how?.from || (onFoot ? 'shore' : 'boat'),
     rain: weather.rain > 0.6 ? 2 : weather.rain > 0.15 ? 1 : 0,
@@ -740,9 +742,11 @@ function showCatch(sp, size, agent, rigUsed) {
   photo.src = studio().thumb({ type: 'fish', id: sp.id }, cv.width, cv.height);
   $('cc-new').hidden = !isNew;
   $('cc-name').textContent = sp.name;
-  const kg = weightOf(sp, size);
+  // (Its own weight: a fish in fine condition is heavier for its length than a lean one.)
+  const kg = agent?.weight ?? weightOf(sp, size);
   const wtText = kg < 1 ? `${Math.round(kg * 1000 / 10) * 10} g` : `${kg.toFixed(kg < 10 ? 1 : 0)} kg`;
-  $('cc-size').textContent = `${size} cm${sp.creature ? ' mantle' : ''} · about ${wtText}${record ? ' · your biggest yet' : ''}`;
+  const build = agent?.condition && !sp.creature ? ` · ${conditionWords(agent.condition)}` : '';
+  $('cc-size').textContent = `${size} cm${sp.creature ? ' mantle' : ''} · about ${wtText}${build}${record ? ' · your biggest yet' : ''}`;
   $('cc-note').textContent = isNew ? sp.note : agent.caught > 0 ? 'This one has met your hook before.' : sp.creature ? pick(['It flushes pale and dark, and squirts a last jet of ink.', 'Its great eyes look you over.', 'It wraps an arm round your finger, then lets go.']) : pick(REPEAT_LINES);
   $('cc-rig').textContent = (rigUsed?.item ? `Caught on ${rigUsed.item.on}, with the ${rigUsed.rod.short.toLowerCase()}` : '') + (state.trip?.sp === sp.id ? ' · the fish your trip is for' : '');
   const keepBtn = $('cc-keep');
@@ -4130,6 +4134,23 @@ function applyDifficulty() {
   $('title-difficulty').textContent = `Difficulty: ${d.label}`;
 }
 
+// How fussy the fish are, and whether a hooked one can come off (Settings: Fish behaviour).
+function applyBehaviour() {
+  const B = BEHAVIOUR[state.behaviour] || BEHAVIOUR.relaxed;
+  fishing.level = B;
+  eco.level = B;
+}
+
+function setBehaviour(id) {
+  if (fishing.fight) {
+    hud.flash('Land this fish first, then change how the fish behave', t, 2.4);
+    return;
+  }
+  state.behaviour = id;
+  applyBehaviour();
+  save();
+}
+
 function setDifficulty(id) {
   if (fishing.fight) {
     hud.flash('Land this fish first, then change the difficulty', t, 2.4);
@@ -4195,6 +4216,8 @@ const settingsUI = new SettingsUI(state, {
   qualityText,
   difficulty: () => state.difficulty,
   setDifficulty,
+  behaviour: () => state.behaviour,
+  setBehaviour,
   keyLabel: (code) => input.label(code),
 });
 
@@ -4328,7 +4351,7 @@ function updateFirstPerson(dt) {
     A.rod.visible = onFoot || boat.occupied;
     if (onFoot) walker.tube.visible = false;
     rodView.place(A.rod, camera, w);
-    bendRod(A.active, lerp(A.pose.bend, rodView.bend, w));
+    bendRod(A.active, lerp(A.pose.bend, rodView.bend, w), A.pose.bendTo);
   }
   fishing.afterView(t);
 }
@@ -4360,6 +4383,7 @@ const STATUS_TEXT = {
   bite: 'Bite! Strike now',
   rattle: 'The rod tip rattles: something is at the bait…',
   tip: 'The rod tip pulls round! Strike now',
+  tap: 'Tap! Something nipped the lure: strike now',
   touch: 'Something touches the jig…',
   grab: 'The jig stops sinking: weight on it! Strike now',
   jigbottom: 'The jig rests on the bottom: lift it',
@@ -4466,7 +4490,7 @@ function currentHint() {
       return `${UD} bait depth · hold ${space} to reel in · tap to twitch${state.tips.under ? '' : ` · ${P ? `${kbd('R-stick')} up` : 'drag up'} to sink the view under the water`}`;
     case 'bite': {
       const k = fishing.biteKind;
-      const what = k === 'strike' ? 'It hit the lure!' : k === 'run' ? 'A run!' : k === 'sip' ? 'It took the fly!' : k === 'take' ? 'The indicator dipped!' : 'Bite! The float went under.';
+      const what = k === 'strike' ? 'It hit the lure!' : k === 'tap' ? 'A tap on the lure!' : k === 'run' ? 'A run!' : k === 'sip' ? 'It took the fly!' : k === 'take' ? 'The indicator dipped!' : 'Bite! The float went under.';
       return T ? `${what} Tap the button to strike` : `${what} Press ${space} to strike`;
     }
     case 'reeling': {
@@ -4476,7 +4500,10 @@ function currentHint() {
       if (F && F.tension > 0.97) return T ? 'The line is straining! Let go of the button' : `The line is straining! Let go of ${space}`;
       if (F?.surgeT > 0) return T ? 'It’s surging! Let go of the button' : `It’s surging! Let go of ${space}`;
       if (F && !F.pulling && F.warned) return 'A flick on the surface: it’s about to run. Ease off';
-      if (F?.pulling) return `${F.slipping ? 'It’s taking line against the drag.' : F.style?.words || 'It’s pulling.'} ${T ? 'Hold' : `Hold ${space}`} to keep pressure on and tire it · ${drag}`;
+      if (F?.jumping > 0) return T ? 'It’s leaping! Keep holding: keep the line tight' : `It’s leaping! Keep holding ${space}: keep the line tight`;
+      // (Side pressure: the rod swung low against its run.)
+      const side = T ? '' : ` · ${LR} swing the rod against its run`;
+      if (F?.pulling) return `${F.slipping ? 'It’s taking line against the drag.' : F.style?.words || 'It’s pulling.'} ${T ? 'Hold' : `Hold ${space}`} to keep pressure on and tire it${side} · ${drag}`;
       return `${T ? 'Hold the button' : `Hold ${space}`} to reel it in · ease off when it surges · ${drag}`;
     }
     case 'casting': case 'landing': case 'caught': case 'releasing': case 'keeping': case 'retrieving': return '';
@@ -4625,7 +4652,14 @@ function updateHud() {
     const sub_ = fishing.overload > 0 ? 'overload' : fishing.sweet ? 'sweet spot' : wind.strength > 0.15 ? `wind ${Math.round(wind.strength * FRESH * 3.6)} km/h ${windArrow()}` : '';
     hud.meter(true, fishing.power, load, warm, fishing.aimValid ? `<span>${Math.round(fishing.castDist)} m</span>${sub_ ? `<span class="ml-sub">${sub_}</span>` : ''}` : '—', -1, fishing.sweet || (fly && fishing.flyForward));
   }
-  else if (fishing.state === 'reeling' && F) hud.meter(true, F.progress, F.tension, F.tension, F.surgeT > 0 ? 'easy!' : easy ? 'flick!' : F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel', DRAG_LEVELS[F.drag], easy);
+  else if (fishing.state === 'reeling' && F) {
+    // The ring: how near you are to landing it, and the load on the line (red and shaking near
+    // breaking). The word: what to do now, and under it what the fish is doing and the line out.
+    const word = F.surgeT > 0 ? 'easy!' : easy ? 'flick!' : F.tension > 0.9 ? 'ease off!' : F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel';
+    const doing = F.wordT > 0 ? F.word : fishing.side && F.pulling ? `side strain ${fishing.side < 0 ? '←' : '→'}` : F.stage !== 'fresh' ? F.stage : '';
+    const out = Math.round(fishing.tip.distanceTo(fishing.fishPos));
+    hud.meter(true, F.progress, F.tension, F.tension, `<span>${word}</span>${doing ? `<span class="ml-sub">${doing}</span>` : ''}<span class="ml-sub">${out} m out</span>`, DRAG_LEVELS[F.drag], easy, F.tension > 0.86);
+  }
   else hud.meter(false);
 
   if (started && !modal && fishing.baitInWater) {
@@ -4647,7 +4681,7 @@ function updateHud() {
     _p.y = Math.max(_p.y, 0) + 0.35;
     _p.project(camera);
     const k = fishing.biteKind;
-    const text = fishOn ? 'Fish on!' : k === 'float' ? 'Bite — strike!' : k === 'tip' ? 'Tip pulls — strike!' : k === 'grab' ? 'Squid — strike!' : k === 'sip' ? 'Rise — strike!' : 'Strike!';
+    const text = fishOn ? 'Fish on!' : k === 'float' ? 'Bite — strike!' : k === 'tip' ? 'Tip pulls — strike!' : k === 'grab' ? 'Squid — strike!' : k === 'sip' ? 'Rise — strike!' : k === 'tap' ? 'Tap — strike!' : 'Strike!';
     hud.bite((_p.x * 0.5 + 0.5) * innerWidth, (-_p.y * 0.5 + 0.5) * innerHeight, _p.z < 1, text, fishOn);
   } else hud.bite(0, 0, false);
 
@@ -4975,7 +5009,7 @@ function startNewGame() {
     {
       text: 'Start a new game', cls: 'danger', run: () => {
         cloud.replaceNextSync();
-        newGame({ quality: state.quality, volumes: state.volumes, music: state.music, difficulty: state.difficulty, settings: state.settings });
+        newGame({ quality: state.quality, volumes: state.volumes, music: state.music, difficulty: state.difficulty, behaviour: state.behaviour, settings: state.settings });
         location.reload();
       },
     },
@@ -5526,6 +5560,7 @@ $('title-settings').addEventListener('click', (e) => {
   openSettings();
 });
 applyDifficulty();
+applyBehaviour();
 applyControls();
 fishing.drags = state.gear.drag;
 $('save-download').addEventListener('click', downloadSave);
@@ -5614,6 +5649,7 @@ function ecoTick(dt) {
   ecoCtx.env.hour = state.hour;
   ecoCtx.env.rain = weather.rain;
   ecoCtx.env.cloud = weather.cloud;
+  ecoCtx.env.storm = Math.max(weather.storm, conditions.sea.storm);
   ecoCtx.env.daylight = env.daylight;
   ecoCtx.env.night = env.night;
   ecoCtx.env.hatch = hatchLevel();
@@ -5676,6 +5712,7 @@ function tick(now, manual = false) {
   let throttle = 0, steer = 0;
   move.x = 0;
   move.z = 0;
+  fishing.side = 0;
   carIn.throttle = 0;
   carIn.steer = 0;
   if (started && !modal) {
@@ -5689,7 +5726,11 @@ function tick(now, manual = false) {
     } else if (fishing.lineOut) {
       // (On a controller, LT eases the drag off while a fish is on.)
       fishing.depthBy(pads.active && fishing.state === 'reeling' && pads.lt > 0.4 ? -1 : ti, dt);
-      if (!onFoot) steer = si;
+      // With a fish on, across swings the rod low to that side (side pressure, to turn it);
+      // otherwise in a boat it steers.
+      // (The steer keys give +1 for left; side pressure counts left as −1.)
+      if (fishing.state === 'reeling') fishing.side = -si;
+      else if (!onFoot) steer = si;
       // (Under power the motor runs on at its notch while you fish: trolling.)
       if (leverKind()) throttle = boat.lever;
     } else if (dive) {

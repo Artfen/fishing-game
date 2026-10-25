@@ -16,6 +16,16 @@
 // - 'drag':    the drag was set so tight it couldn't slip before the line broke;
 // - 'snag':    the line was too light to stop the fish reaching weed or roots, and it cut on them;
 // - 'teeth':   a pike's teeth cut line that had no wire trace.
+// Or the fish comes off without the line breaking (the Fish behaviour setting decides how
+// likely; on Relaxed, never):
+// - 'thrown':  it leapt or shook its head while the line hung slack, and threw the hook;
+// - 'pulled':  a hook with only a light hold tore free under heavy, sustained pressure.
+//
+// Each fish fights as itself: its kind's style, its size (a big fish's runs longer and heavier,
+// a small one's quick), its own vigour and condition; it changes direction on a run, some kinds
+// leap; it tires (shorter runs, then beaten, rolling on its side). The current helps a fish
+// running with it; a soft rod cushions a surge but tires a fish more slowly than a stiff one;
+// and side pressure (the rod swung against the way it's running) turns it and tires it sooner.
 
 // The drag settings: the fraction of the line's breaking strain at which the reel gives line.
 export const DRAG_LEVELS = [0.3, 0.42, 0.55, 0.68, 0.82, 1.05]; // "locked" is past the line's breaking strain
@@ -72,12 +82,33 @@ export const JOLT = [0.2, 0.55]; // the extra load (over the drag) of winding in
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const approach = (v, target, up, down, dt) => (v < target ? Math.min(target, v + up * dt) : Math.max(target, v - down * dt));
 
-// sp: species, size in cm, rod (with line.kg and power), diff: a DIFFICULTY entry,
-// cover: true if the fish was hooked near weed, lilies or roots it could run into.
-export function newFight(sp, size, rod, diff, cover = false, rnd = Math.random) {
+// sp: species, size in cm, rod (with line.kg and power, and its flex), diff: a DIFFICULTY entry,
+// cover: true if the fish was hooked near weed, lilies or roots it could run into. who: the fish
+// itself, { vigour, condition }, how jumpy its kind is, and the Fish behaviour setting's
+// { throwHook, pull } (see behaviour.js); all optional.
+export function newFight(sp, size, rod, diff, cover = false, rnd = Math.random, who = {}) {
   const sizeK = clamp((size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]), 0, 1);
-  const force = sp.pull * (0.35 + 0.65 * sizeK) * diff.force; // kg, when fresh
+  const vigour = who.vigour ?? 1;
+  const force = sp.pull * (0.35 + 0.65 * sizeK) * diff.force * vigour; // kg, when fresh
+  const level = who.level || { throwHook: 0, pull: 0 };
   return {
+    vigour,
+    endure: (who.condition ?? 1) * vigour,
+    jumpy: who.jumpy ?? 0,
+    flex: rod.flex ?? 1,
+    level,
+    // A hook in the scissors holds; one just nicked in the lip has a light hold.
+    hold: level.pull > 0 && rnd() < 0.3 ? 'light' : 'solid',
+    flow: 0,     // the current, pulling it away from you (+) or towards you (−), m/s (set each step)
+    side: 0,     // side pressure: the rod swung left (−1) or right (+1) (set each step)
+    dir: 1,      // the way it's running, across the line
+    turnT: 1,
+    turn: 0,     // how much side pressure is turning it just now (0 … 1)
+    leapIn: 0,   // a leap coming on this run (seconds until it clears the water)
+    jumping: 0,  // a leap under way (seconds left), and whether the line went slack in it
+    jumpSlack: false,
+    pullT: 0,
+    stage: 'fresh', // 'fresh', 'tiring', 'beaten'
     sizeK,
     style: FIGHT_STYLES[sp.fight] || FIGHT_STYLES.steady,
     force,
@@ -103,32 +134,68 @@ export function newFight(sp, size, rod, diff, cover = false, rnd = Math.random) 
 }
 
 // Advance the fight by dt seconds. held: the player is winding (holding the reel).
-// Returns what happened this step: null, 'warn' (a flick before a run), 'run', or a break:
-// 'snap:tension' | 'snap:drag' | 'snap:snag' | 'snap:teeth'.
+// Returns what happened this step: null, 'warn' (a flick before a run), 'run', 'turn' (it
+// changed direction), 'jump', 'tiring', 'beaten', or an end: a break 'snap:tension' |
+// 'snap:drag' | 'snap:snag' | 'snap:teeth', or the fish coming off, 'off:thrown' | 'off:pulled'.
 export function stepFight(F, held, dt, diff, rnd = Math.random) {
   F.time += dt;
   let event = null;
   F.phaseT -= dt;
-  if (F.phaseT <= 0) {
+  const beaten = F.stage === 'beaten';
+  // (A run lasts until a leap in it is back in the water.)
+  if (F.phaseT <= 0 && !(F.pulling && (F.jumping > 0 || F.leapIn > 0))) {
     if (F.pulling) {
       F.pulling = false;
       F.warned = false;
+      F.leapIn = 0;
       F.phaseT = (1.1 + rnd() * 1.3) * (1 + (1 - F.stamina) * 0.5) * F.style.rest;
     } else {
       F.pulling = true;
       F.surgeT = SURGE;
       F.phaseT = (0.7 + rnd() * 0.7 + F.strength * 0.5) * (0.45 + 0.55 * F.stamina) * F.style.run;
+      F.dir = rnd() < 0.5 ? -1 : 1;
+      F.turnT = 0.5 + rnd() * 1.2;
       event = 'run';
       if (F.teeth && rnd() < 0.2 * diff.teeth) return 'snap:teeth';
+      // Some kinds leap or shake their heads at the top a moment into a run (once the surge
+      // has passed, so it's time to be winding again).
+      if (!beaten && F.jumpy > 0 && rnd() < F.jumpy * 0.55 * (1 - F.progress * 0.5)) F.leapIn = SURGE + 0.15 + rnd() * 0.5;
+    }
+  }
+  if (F.leapIn > 0) {
+    F.leapIn -= dt;
+    if (F.leapIn <= 0) {
+      F.jumping = 0.75;
+      F.jumpSlack = false;
+      event = event || 'jump';
     }
   }
   if (!F.pulling && !F.warned && F.phaseT < diff.warn) {
     F.warned = true;
     event = 'warn';
   }
+  // On a run it changes direction now and then: the darting kinds often.
+  if (F.pulling) {
+    F.turnT -= dt;
+    if (F.turnT <= 0) {
+      const darty = F.style.run < 0.8 ? 0.6 : 0.3;
+      F.turnT = 0.6 + rnd() * 1.1;
+      if (rnd() < darty) {
+        F.dir = -F.dir;
+        event = event || 'turn';
+      }
+    }
+  }
 
   const d = DRAG_LEVELS[F.drag];
-  const f = F.ratio * (0.35 + 0.65 * F.stamina); // how hard it pulls right now, against the line
+  // How hard it pulls right now, against the line: tiring as it goes, helped by the current when
+  // it runs with it, half-hearted once beaten.
+  const flowK = 1 + 0.5 * Math.max(0, F.flow) * (F.level.current ?? 1);
+  const f = F.ratio * (0.35 + 0.65 * F.stamina) * flowK;
+  // Side pressure: the rod swung against the way it's running turns it and shortens the run.
+  const against = F.pulling ? clamp(-F.side * F.dir, 0, 1) : 0;
+  F.turn = against;
+  if (against > 0) F.phaseT -= against * 0.5 * dt;
   if (F.pulling) {
     // The first moment of a run is a surge: winding through it jolts the line before the drag
     // can start to slip. Ease off for that moment, then keep the rod up and let the drag work.
@@ -138,24 +205,29 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
     if (F.surgeT > 0) {
       F.surgeT -= dt;
       const k = clamp((SURGE - F.surgeT) / diff.onset, 0, 1);
-      if (held) jolt = (JOLT[0] + JOLT[1] * Math.min(f, 2.2)) * diff.shock * F.style.surge * k * k * (3 - 2 * k);
+      // (A soft rod cushions it; a stiff one passes it straight to the line.)
+      if (held) jolt = (JOLT[0] + JOLT[1] * Math.min(f, 2.2)) * diff.shock * F.style.surge * k * k * (3 - 2 * k) * (0.55 + 0.45 * F.flex);
     }
     const hold = held ? 1 : 0.6; // easing off lowers the rod and lets the drag work sooner
-    const target = Math.min(f, d) * hold + jolt;
+    let target = Math.min(f, d) * hold + jolt + Math.abs(F.side) * 0.05;
+    // In the air it isn't pulling: the line falls slack unless you keep winding, rod up.
+    const air = F.jumping > 0;
+    if (air) target = held ? Math.max(0.24, target * 0.6) : 0.04;
     // Easing off drops the load at once (the drag slips, the rod straightens); so does the end of a surge.
     F.tension = approach(F.tension, target, jolt ? 7 : 3.5, held ? 2.5 : 5, dt);
-    F.slipping = f > d * hold;
+    F.slipping = !air && f > d * hold;
     if (F.slipping) {
       // The drag gives line: it gains distance, the more so the harder it outpulls the drag.
       F.progress -= (0.03 + 0.05 * Math.min(f / (d * hold) - 1, 2)) * dt;
-    } else if (held) F.progress += F.reel * 0.35 * dt; // it can't take line: you gain a little
-    // Fighting the drag tires it, the more so under steady pressure.
-    F.stamina -= (0.03 + 0.13 * F.tension) * diff.tire * F.style.tire / Math.max(0.35, F.strength) * dt;
+    } else if (held) F.progress += F.reel * 0.35 * dt * (1 - 0.35 * Math.max(0, F.flow)); // it can't take line: you gain a little
+    // Fighting the drag tires it, the more so under steady pressure, from a stiffer rod, and with
+    // the rod swung against it; a fish in fine fettle lasts longer.
+    F.stamina -= (0.03 + 0.13 * F.tension + 0.05 * against) * diff.tire * F.style.tire * (0.85 + 0.25 * F.flex) / Math.max(0.35, F.strength) / Math.max(0.7, F.endure ?? 1) * dt;
   } else {
     F.slipping = false;
     if (held) {
       F.tension = approach(F.tension, Math.min(0.2 + 0.35 * f, d), 2.5, 1.5, dt);
-      F.progress += F.reel * (0.75 + 0.6 * (1 - F.stamina)) * dt;
+      F.progress += F.reel * (0.75 + 0.6 * (1 - F.stamina)) * dt * (1 - 0.3 * Math.max(0, F.flow));
       F.stamina -= 0.012 * diff.tire * dt;
     } else {
       F.tension = approach(F.tension, 0.1, 1, 1.4, dt);
@@ -165,6 +237,27 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
   F.stamina = clamp(F.stamina, 0, 1);
   F.progress = clamp(F.progress, 0, 1);
   F.peak = Math.max(F.peak, F.tension);
+  // How it's lasting: tiring (its runs shorter), then beaten.
+  if (F.stage === 'fresh' && F.stamina < 0.55) {
+    F.stage = 'tiring';
+    event = event || 'tiring';
+  } else if (F.stage === 'tiring' && F.stamina < 0.16) {
+    F.stage = 'beaten';
+    event = event || 'beaten';
+  }
+
+  // A leap: a line left slack while it's in the air lets it throw the hook (on Natural, now and
+  // then; on Demanding, often; never on Relaxed).
+  if (F.jumping > 0) {
+    F.jumping -= dt;
+    if (F.tension < 0.16) F.jumpSlack = true;
+    if (F.jumping <= 0 && F.jumpSlack && rnd() < F.level.throwHook * 2.2) return 'off:thrown';
+  }
+  // A light hold tears free under heavy pressure held too long (a drag set tight, or a heavy hand).
+  if (F.hold === 'light' && F.tension > 0.76) {
+    F.pullT += dt * F.level.pull;
+    if (F.pullT > 1.4) return 'off:pulled';
+  } else F.pullT = Math.max(0, F.pullT - dt);
 
   // Out at the far end with line pouring off: near weed or roots, it can reach them.
   // Only line that is light for this fish can't turn it in time.
@@ -179,10 +272,14 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
   return event;
 }
 
-// Advice after a break, in words.
+// Advice after a break (or a fish lost), in words.
 export function breakReason(cause, sp, rod) {
   const fish = sp.name.toLowerCase();
   switch (cause) {
+    case 'thrown':
+      return `The ${fish} leapt and shook its head while the line hung slack, and threw the hook. Keep the rod up and the line tight when it jumps: wind down to it.`;
+    case 'pulled':
+      return `The hook pulled out: it only had a light hold in the ${fish}’s lip, and the pressure stayed too heavy for too long. A lighter drag and a softer touch keep a lightly hooked fish on.`;
     case 'teeth':
       return `The ${fish}’s teeth cut straight through the ${rod.line.name}. Pike need a wire trace: rig one on the spinning rod.`;
     case 'drag':
