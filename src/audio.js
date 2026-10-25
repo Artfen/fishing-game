@@ -497,6 +497,47 @@ export class AudioScape {
     this.burst({ buf: this.white, type: 'bandpass', freq: 2600, q: 1.2, dur: 0.03, gain: 0.04, attack: 0.001, when: 0.07 });
   }
 
+  /* ---- diving ---- */
+
+  // A breath through the regulator: the hiss in, then the rumble of bubbles going out.
+  regulator(vol = 1) {
+    this.burst({ type: 'bandpass', freq: 1500, freqEnd: 2100, q: 1.4, dur: 0.95, gain: 0.03 * vol, attack: 0.3 });
+    this.burst({ buf: this.brown, type: 'lowpass', freq: 380, dur: 1.1, gain: 0.08 * vol, attack: 0.05, when: 1.3 });
+    for (let i = 0; i < 6; i++) this.tone({ freq: rand(160, 320), freqEnd: rand(420, 700), dur: 0.07, gain: 0.025 * vol, attack: 0.004, when: 1.35 + i * rand(0.07, 0.16) });
+  }
+
+  // The heart, louder and quicker as the breath runs out (call every frame; 0 is quiet).
+  heart(level) {
+    if (!this.ctx || level < 0.05) return;
+    const now = this.ctx.currentTime;
+    if (now < (this.heartAt || 0)) return;
+    this.heartAt = now + 1.15 - level * 0.45;
+    this.tone({ freq: 58, freqEnd: 42, dur: 0.16, gain: 0.08 + level * 0.12, attack: 0.01 });
+    this.tone({ freq: 52, freqEnd: 40, dur: 0.14, gain: 0.05 + level * 0.08, attack: 0.01, when: 0.24 });
+  }
+
+  // Back at the surface: the first breath, a gasp after a long one.
+  gasp(k = 0.5) {
+    this.burst({ type: 'bandpass', freq: 900, freqEnd: 1500, q: 1.1, dur: 0.45, gain: 0.03 + k * 0.05, attack: 0.04 });
+  }
+
+  // The dive computer's warning: two quick beeps.
+  beep() {
+    this.tone({ type: 'square', freq: 2300, dur: 0.07, gain: 0.025, attack: 0.002 });
+    this.tone({ type: 'square', freq: 2300, dur: 0.07, gain: 0.025, attack: 0.002, when: 0.13 });
+  }
+
+  // The speargun: the bands' twang, the shaft away.
+  spear() {
+    this.tone({ type: 'triangle', freq: 190, freqEnd: 85, dur: 0.32, gain: 0.08, attack: 0.002 });
+    this.burst({ type: 'bandpass', freq: 2600, freqEnd: 900, q: 1, dur: 0.07, gain: 0.05, attack: 0.001 });
+  }
+
+  // The shaft striking home.
+  thud() {
+    this.burst({ buf: this.brown, type: 'lowpass', freq: 320, dur: 0.14, gain: 0.14, attack: 0.002 });
+  }
+
   // Rigging against a mast in the harbour: a bright, thin clink or two.
   clink(vol, pan) {
     const f = rand(2500, 3400);

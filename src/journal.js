@@ -235,6 +235,7 @@ export class Journal {
 
   // How it was caught: "Spinning rod, small silver spoon · from the shore".
   static howText(e) {
+    if (e.kind === 'spear') return 'Speargun · freediving';
     const rod = RODS[e.rod]?.short || KIND_NAMES[e.kind] || e.kind;
     const item = e.item ? TACKLE[e.item]?.name : null;
     return `${rod}${item ? `, ${item.toLowerCase()}` : ''}${e.line ? ` · ${e.line}` : ''} · from the ${e.from}`;

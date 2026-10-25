@@ -43,6 +43,9 @@ export const MAPS = {
   // At the wheel: RT accelerates and LT brakes (both read as triggers by the game), the left
   // stick steers (and pulled back, reverses).
   drive: { A: 'interact', B: 'cancel', X: 'tackle', Y: 'pack', VIEW: 'map', MENU: 'settings', R3: 'reset', LEFT: 'view', UP: 'journal' },
+  // In the water: the left stick swims where you look, A and RB swim up (and at the surface,
+  // A climbs out), LB swims down, RT fires the speargun or takes a photograph, L3 kicks hard.
+  dive: { A: 'interact', RB: 'interact', LB: 'tackle', RT: 'cast', B: 'cancel', L3: 'jog', R3: 'reset', LEFT: 'view', RIGHT: 'photo', VIEW: 'map', MENU: 'settings', UP: 'journal' },
   // The title screen: A presses the focused button, Menu opens Settings.
   title: { MENU: 'settings' },
   menu: {}, // (moving between buttons: see menu())

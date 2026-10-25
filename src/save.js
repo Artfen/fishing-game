@@ -6,6 +6,7 @@ import { cleanEquip, cleanCar, cleanOuting, defaultEquip } from './outing.js';
 import { cleanGuide } from './firstTrip.js';
 import { cleanFuel } from './fuel.js';
 import { CHOICES } from './quality.js';
+import { cleanDive } from './dive.js';
 
 // Saving your progress in this browser, with nobody to sign in to.
 //
@@ -64,7 +65,7 @@ export const DEFAULT_STATE = {
   // adventures you've come across, the keepsakes they gave you, and what you've learned.
   camps: [],
   pins: [],        // { id, x, z, title, note, fav, day, hour }
-  photos: [],      // { id, title, at, day, hour, x, z, place, sky, subjects: { species, places, birds } }
+  photos: [],      // { id, title, at, day, hour, x, z, place, sky, subjects: { species, places, birds, bell? } }
   adventures: {},  // id -> { clue, steps: { step: { day, hour } }, done }
   keepsakes: {},   // id -> { day, hour }
   unlocks: {},     // birdMarks, deckchair… -> true
@@ -77,6 +78,7 @@ export const DEFAULT_STATE = {
   home: null,      // { photos: [ids], keepsake, catchId, auto }
   guide: null,     // the first-trip guide: { on, done, dest, offered, finished, min, since } (see firstTrip.js)
   fuel: null,      // petrol in the car and the motorboats, the electric motor's battery, the jerry can (see fuel.js)
+  dive: null,      // the dive tank and your diving records (see dive.js)
 };
 
 // A new game: every setting at its default (a loaded save gets its own from sanitize).
@@ -102,6 +104,7 @@ const fresh = () => {
   s.home = cleanHome(null, s);
   s.guide = cleanGuide(null);
   s.fuel = cleanFuel(null);
+  s.dive = cleanDive(null);
   return s;
 };
 
@@ -114,7 +117,7 @@ const str = (v, d, max = 60) => (typeof v === 'string' ? v.slice(0, max) : d);
 const oneOf = (v, list, d) => (list.includes(v) ? v : d);
 const ZONES = ['bay', 'cove', 'open', 'lake', 'stream', 'estuary', 'mere', 'coast', 'deep'];
 const SKY_STATES = ['clear', 'partly', 'overcast', 'light', 'heavy'];
-const KINDS = ['float', 'lure', 'ledger', 'bottom', 'fly', 'jig'];
+const KINDS = ['float', 'lure', 'ledger', 'bottom', 'fly', 'jig', 'spear'];
 export const OUTCOMES = ['released', 'kept', 'cooked', 'eaten'];
 export const PIN_MAX = 60;
 export const PHOTO_MAX = 48;
@@ -155,9 +158,9 @@ export function sanitizeLogEntry(e) {
     place: str(e.place, ''),
     water: oneOf(e.water, ['salt', 'fresh', 'brackish'], sp.water === 'fresh' ? 'fresh' : 'salt'),
     kind: oneOf(e.kind, KINDS, 'float'),
-    rod: RODS[e.rod] ? e.rod : 'float',
+    rod: RODS[e.rod] ? e.rod : e.kind === 'spear' ? 'speargun' : 'float',
     item: TACKLE[e.item] ? e.item : null,
-    from: oneOf(e.from, ['boat', 'shore'], 'boat'),
+    from: oneOf(e.from, ['boat', 'shore', 'dive'], 'boat'),
     rain: int(e.rain, 0, 0, 2),
     hatch: num(e.hatch, 0, 0, 2),
     depth: num(e.depth, 0, 0, 60),
@@ -287,6 +290,8 @@ export function sanitize(raw) {
         species: (Array.isArray(sub.species) ? sub.species : []).filter((id) => fishById[id]).slice(0, 12),
         places: (Array.isArray(sub.places) ? sub.places : []).filter((id) => typeof id === 'string' && id.length < 30).slice(0, 12),
         birds: !!sub.birds,
+        // (The Kittiwake's bell, photographed under the water.)
+        ...(sub.bell ? { bell: true } : {}),
       },
     });
   }
@@ -308,6 +313,7 @@ export function sanitize(raw) {
   s.home = cleanHome(raw.home, s);
   s.guide = cleanGuide(raw.guide);
   s.fuel = cleanFuel(raw.fuel);
+  s.dive = cleanDive(raw.dive);
   if (isObj(raw.sky)) {
     s.sky = { cloud: num(raw.sky.cloud, 0.3, 0, 1), rain: num(raw.sky.rain, 0, 0, 1), state: oneOf(raw.sky.state, SKY_STATES, 'partly'), timer: num(raw.sky.timer, 120, 0, 3600) };
   }

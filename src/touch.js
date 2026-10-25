@@ -90,6 +90,25 @@ export function setupTouch(input) {
   rest.addEventListener('pointerup', restUp);
   rest.addEventListener('pointercancel', restUp);
 
+  // Diving: swim straight up and down while held (the same actions as E and Q).
+  for (const [id, action] of [['dive-up', 'interact'], ['dive-down', 'tackle']]) {
+    const b = $(id);
+    if (!b) continue;
+    b.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      capture(b, e.pointerId);
+      b.classList.add('down');
+      input.pressVirtual(action);
+    });
+    const up = () => {
+      b.classList.remove('down');
+      input.releaseVirtual(action);
+    };
+    b.addEventListener('pointerup', up);
+    b.addEventListener('pointercancel', up);
+    b.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+
   for (const el of [zone, act, rest]) el.addEventListener('contextmenu', (e) => e.preventDefault());
 
   return {

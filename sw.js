@@ -10,7 +10,7 @@
 // - It never touches saved games: those live in the browser's local storage, not here.
 
 // <precache> Written by tools/build-sw.mjs: do not edit by hand.
-const VERSION = '66a8b6ae013e';
+const VERSION = 'daac0c12d30d';
 const FILES = [
   './index.html',
   './style.css',
@@ -29,6 +29,8 @@ const FILES = [
   './src/car.js',
   './src/cloud-config.js',
   './src/cloud.js',
+  './src/dive.js',
+  './src/diver.js',
   './src/effects.js',
   './src/fight.js',
   './src/firstTrip.js',

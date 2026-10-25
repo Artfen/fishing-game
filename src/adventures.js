@@ -1,4 +1,4 @@
-import { WRECK, PUNT, DAYMARK, SHELTER, CALF, CALF_SKERRY } from './world/terrain.js';
+import { WRECK, WRECK_BELL, PUNT, DAYMARK, SHELTER, CALF, CALF_SKERRY } from './world/terrain.js';
 import { fishById } from './fish.js';
 
 // Small adventures on the cove shore: a clue to start each (a notice at Willowhaven, a page
@@ -12,11 +12,13 @@ export const KEEPSAKES = {
   notebook: { name: 'Ada’s notebook', text: 'Three pages in a blue cloth cover, damp-stained and complete again: the cove channel, Cove Head and Shell Strand, as Ada Marr fished them.' },
   feather: { name: 'A gull’s feather', text: 'Grey and white, picked out of the water where the birds were diving. A reminder to watch the sky.' },
   deckchair: { name: 'A striped deckchair', text: 'From the chandlery, for the photograph on its wall. It folds up small; put it out at your camp.' },
+  bell: { name: 'The Kittiwake’s bell, photographed', text: 'Your photograph of her bell where it lies in the sand by her bow, green with age, KITTIWAKE · 1907 still raised round its rim. The chandlery has the print; the bell stays with her.' },
   slate: { name: 'Tam’s slate', text: 'A roofing slate from the watch tower on the Calf, scratched with forty years of tally marks: the seals on the skerry, counted every morning. In one corner, “bass off the Nose at the top of the tide; mackerel in the race when the terns are working”.' },
 };
 
 // steps: each has an id, what to do, and (for the ones the world settles by itself) a check
-// against the game as it is right now: ctx = { onFoot, player, boat, underwater, cam, flocks }.
+// against the game as it is right now: ctx = { onFoot, player, boat, underwater, cam, flocks,
+// diving, depth }.
 export const ADVENTURES = [
   {
     id: 'kittiwake',
@@ -78,6 +80,22 @@ export const ADVENTURES = [
     ],
     end: 'Your photograph hangs on the chandlery wall, where everyone coming up from the quay can see it. They’ve given you a striped deckchair for your camp.',
     reward: { keepsake: 'deckchair', unlock: 'deckchair' },
+  },
+  {
+    id: 'bell',
+    title: 'The Kittiwake’s bell',
+    clue: 'A card from the chandlery: “The Kittiwake’s bell is down there still, they say, in the sand by her bow with her name cast round it. Nine metres: one breath for a good freediver, an easy dive on a tank (we fill tanks). A photograph for our wall, please, and leave the bell where she lies: a wreck is no one’s to take from.”',
+    where: 'The notice board at Willowhaven',
+    steps: [
+      {
+        id: 'down', text: 'Dive down to the Kittiwake',
+        check: (c) => c.diving && c.depth > 4 && Math.hypot(c.player.x - WRECK.x, c.player.z - WRECK.z) < 16,
+        done: 'Down among her ribs: the light green and dim, wrasse picking at the timbers, a conger’s head in the dark of the boiler.',
+      },
+      { id: 'photo', text: 'Photograph her bell, and leave it where it lies' },
+    ],
+    end: 'There she is in your picture: the bell on its side in the sand, green with age, KITTIWAKE raised round the rim. The chandlery pins it up by the door, and the bell stays where she lost it.',
+    reward: { keepsake: 'bell' },
   },
   {
     id: 'watch',
@@ -212,6 +230,7 @@ export class Adventures {
 
   photographed(photo) {
     if (photo.subjects.species.includes('cuttlefish')) this.step('wall', 'photo');
+    if (photo.subjects.bell) this.step('bell', 'photo');
   }
 
   // Ada's page at a spot: found, read, kept.

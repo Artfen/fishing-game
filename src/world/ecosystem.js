@@ -2,6 +2,7 @@ import { FISH } from '../fish.js';
 import { currentFast } from './conditions.js';
 import { zoneAt } from './terrain.js';
 import { clamp, lerp, damp, rand, smoothstep, wrapAngle, seeded } from '../util.js';
+import { spookRadius, curiosity } from '../dive.js';
 
 // Every fish in the world lives here. The renderer draws these fish, the fish finder
 // pings these fish, surface clues come from these fish, and the fish that takes your
@@ -38,6 +39,9 @@ export class Ecosystem {
     this.boat = { x: 0, z: 0, speed: 0 };
     this.walker = null;
     this.walkT = 0;
+    // A diver in the water (see dive.js): { x, y, z, vx, vy, vz, speed, kicking, still }.
+    this.diver = null;
+    this.diveT = 0;
     // Handfuls of loose bait thrown in for the carp: { x, z, amount }.
     this.feedSpots = [];
     this.lantern = null;
@@ -201,6 +205,7 @@ export class Ecosystem {
     this.focus = ctx.focus;
     this.boat = ctx.boat;
     this.walker = ctx.walker;
+    this.diver = ctx.diver || null;
     this.lantern = ctx.lantern;
     this.lights = ctx.lights || (this.lantern ? [this.lantern] : []);
     for (const f of this.feedSpots) f.amount -= dt * 0.002;
@@ -252,6 +257,7 @@ export class Ecosystem {
     }
     this.boatStartle(h);
     this.walkerStartle(h);
+    this.diverReact(h);
   }
 
   /* ---------- individual fish ---------- */
@@ -273,7 +279,10 @@ export class Ecosystem {
         else if (a.t > a.dur) this.decide(a);
         break;
       case 'cruise':
-        if (a.t > a.dur || this.near(a, 1.2)) this.decide(a);
+        // (Come to look at a diver: once there, it hangs about, circling slowly, for a while.)
+        if (a.curiousT && this.diver && a.t <= a.dur) {
+          if (this.near(a, 0.8)) this.circleDiver(a);
+        } else if (a.t > a.dur || this.near(a, 1.2)) this.decide(a);
         // A squid now and then jets off in a short burst.
         else if (a.L.squid && Math.random() < h * 0.12) a.speed = a.L.speed * (a.L.burst || 2.5);
         break;
@@ -1136,6 +1145,88 @@ export class Ecosystem {
       a.wary = Math.max(a.wary, 25);
       this.listener.onSpooked?.(a);
     }
+  }
+
+  // A diver in the water. Swim straight at a fish and it bolts while you're still a few metres
+  // off (sooner for a wary kind, sooner still if you're kicking hard); drift past slowly and it
+  // lets you come close. Settle near the bottom and keep still, and the curious ones (the sea
+  // breams, wrasse, bass) come over to look at you. Flatfish lie tight until you're almost on
+  // them.
+  diverReact(h) {
+    this.diveT -= h;
+    const D = this.diver;
+    if (!D || this.diveT > 0) return;
+    this.diveT = 0.25;
+    const bottom = this.habitat.depth(D.x, D.z);
+    const settled = D.still > 3 && -D.y > bottom - 2.2;
+    const schools = new Set();
+    for (const a of this.agents) {
+      if (!a.active || a.state === 'caught' || a.state === 'hooked' || a.state === 'gone' || a.state === 'jump') continue;
+      const dx = a.x - D.x, dy = a.y - D.y, dz = a.z - D.z;
+      if (Math.abs(dx) > 16 || Math.abs(dz) > 16) continue;
+      const d = Math.hypot(dx, dy, dz);
+      if (d > 16) continue;
+      // Coming at it, or right on top of it?
+      const closing = d > 0.01 ? (D.vx * dx + D.vy * dy + D.vz * dz) / d : 0;
+      const r = spookRadius(a.L, D.speed, D.kicking);
+      if (d < r && (closing > 0.12 || d < r * 0.5)) {
+        if (a.school) {
+          schools.add(a.school);
+          continue;
+        }
+        if (a.state !== 'flee') {
+          this.flee(a, D.x, D.y, D.z, rand(1.5, 3), D.kicking ? 2.8 : 2.2);
+          a.wary = Math.max(a.wary, 20);
+        }
+        continue;
+      }
+      // Curious: drift over and hang a few metres off, looking.
+      if (settled && !a.school && d > 3.5 && d < 14 && a.wary <= 0 && ENGAGEABLE.has(a.state) && a.state !== 'school' && !a.curiousT) {
+        const c = curiosity(a.sp);
+        if (c > 0 && Math.random() < c * 0.18) {
+          // (Long enough to come over and hang there a few seconds, looking.)
+          const ang = Math.atan2(dx, dz) + rand(-0.6, 0.6), ring = rand(2.3, 3.6);
+          a.state = 'cruise';
+          a.t = 0;
+          a.wantSpeed = a.L.speed * 0.85;
+          a.dur = (d - ring) / Math.max(0.2, a.wantSpeed) + rand(4, 8);
+          a.tx = D.x + Math.sin(ang) * ring;
+          a.tz = D.z + Math.cos(ang) * ring;
+          a.ty = clamp(D.y + rand(-0.6, 0.6), -this.habitat.depth(a.tx, a.tz) + 0.3, -0.4);
+          a.curiousT = 1;
+        }
+      }
+      if (a.curiousT && a.state !== 'cruise') a.curiousT = 0;
+    }
+    // A shoal parts round a diver swimming into it, and closes again behind.
+    for (const s of schools) {
+      s.scatterT = D.kicking ? 1.6 : 1;
+      s.sx = D.x;
+      s.sy = D.y;
+      s.sz = D.z;
+    }
+  }
+
+  // A curious fish beside a diver: on to another point a little round them, slowly.
+  circleDiver(a) {
+    const D = this.diver;
+    const ang = Math.atan2(a.x - D.x, a.z - D.z) + (a.id % 2 ? 1 : -1) * rand(0.3, 0.7), ring = rand(2.2, 3.4);
+    a.tx = D.x + Math.sin(ang) * ring;
+    a.tz = D.z + Math.cos(ang) * ring;
+    a.ty = clamp(D.y + rand(-0.5, 0.5), -this.habitat.depth(a.tx, a.tz) + 0.3, -0.4);
+    a.wantSpeed = a.L.speed * 0.35;
+  }
+
+  // A speared fish: off the sim, on the shaft (the game places it).
+  spear(a) {
+    if (this.bait.owner === a) {
+      this.bait.owner = null;
+      this.bait.held = false;
+    }
+    a.state = 'hooked';
+    a.faceBait = false;
+    a.curiousT = 0;
+    this.startle(a.x, a.y, a.z, 4.5, 0.9);
   }
 
   /* ---------- clues & queries ---------- */

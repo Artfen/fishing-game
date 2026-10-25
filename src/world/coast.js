@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   heightAt, HAVEN, HAVEN_APRON, HAVEN_HOUSES, HAVEN_QUAY, SLIPWAY, HAVEN_BOARD, HAVEN_BENCH, HAVEN_LAMP, FUEL_PUMPS,
-  DAYMARK, STRAND, PUNT, SHELTER, WRECK, WRECK_BUOY, CHANNEL, COVE,
+  DAYMARK, STRAND, PUNT, SHELTER, WRECK, WRECK_BUOY, WRECK_BELL, CHANNEL, COVE,
 } from './terrain.js';
 import { waveHeight } from './conditions.js';
 import { mergeParts, mat, pick, jitterGeo, glowTexture, clamp, smoothstep } from '../util.js';
@@ -473,6 +473,18 @@ function buildWreck(rnd, group) {
   parts.push({ geo: new THREE.CylinderGeometry(0.45, 0.45, 1.6, 10), matrix: placed(W.x, bed + 2.4, W.z, W.yaw, 0.6, 0, -2.0, 0.4, 0, 0.5), color: '#4e3022' });
   parts.push({ geo: new THREE.BoxGeometry(0.3, 3.2, 0.35), matrix: placed(W.x, bed + 1.5, W.z, W.yaw, 0, 0, -W.len / 2 + 0.3, -0.25, 0, 0.3), color: '#3d3127' });
   parts.push({ geo: new THREE.BoxGeometry(0.3, 2.6, 0.35), matrix: placed(W.x, bed + 1.2, W.z, W.yaw, 0, 0, W.len / 2 - 0.3, 0.35, 0, 0.3), color: '#3d3127' });
+  // Her bell, on its side in the sand by the bow: bronze gone green, her name cast round it.
+  {
+    const B = WRECK_BELL, by = heightAt(B.x, B.z) + 0.22, a = W.yaw + 0.6;
+    const dx = Math.sin(a), dz = Math.cos(a);
+    const at = (k) => mat(B.x + dx * k, by, B.z + dz * k);
+    parts.push(
+      { geo: new THREE.CylinderGeometry(0.15, 0.25, 0.36, 14, 1).rotateX(Math.PI / 2).rotateY(a), matrix: at(0), color: '#5f8a6a' },
+      { geo: new THREE.TorusGeometry(0.25, 0.03, 6, 16).rotateY(a), matrix: at(-0.18), color: '#8a6f3c' },
+      { geo: new THREE.SphereGeometry(0.15, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(Math.PI / 2).rotateY(a), matrix: at(0.18), color: '#56805f' },
+      { geo: new THREE.TorusGeometry(0.06, 0.02, 5, 10).rotateY(a + Math.PI / 2), matrix: at(0.36), color: '#4c6f53' },
+    );
+  }
   const hull = mesh(mergeParts(parts, rnd), withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true })), false);
   group.add(hull);
 

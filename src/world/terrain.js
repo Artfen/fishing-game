@@ -158,6 +158,11 @@ export const PUNT = { x: 124, z: -31, yaw: 0.6 };              // an old punt pu
 export const SHELTER = { x: 90, z: 24, yaw: -0.4 };            // a driftwood shelter on the strand
 export const WRECK = { x: 92, z: 76, yaw: 0.95, len: 22, beam: 5.6 };
 export const WRECK_BUOY = { x: 99, z: 68 };
+// Her bell, fallen from the wheelhouse onto the sand by her bow (for divers to find, and leave).
+export const WRECK_BELL = {
+  x: WRECK.x + 0.9 * Math.cos(WRECK.yaw) + (WRECK.len / 2 + 1.4) * Math.sin(WRECK.yaw),
+  z: WRECK.z - 0.9 * Math.sin(WRECK.yaw) + (WRECK.len / 2 + 1.4) * Math.cos(WRECK.yaw),
+};
 // Paths: from the landing round the bay to Willowhaven; from Willowhaven along the east arm and
 // round the head of the cove to Cove Head; and down from the arm to the strand.
 export const COAST_PATHS = [

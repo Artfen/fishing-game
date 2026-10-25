@@ -256,7 +256,7 @@ export const ITEM_IDS = Object.keys(TACKLE);
 export const TERM_IDS = Object.keys(TERMS);
 export const PACK = { rods: 2, items: 8, fish: 4, saved: 6 };
 export const TYPE_NAMES = { bait: 'Baits', lure: 'Lures', fly: 'Flies', jig: 'Squid jigs' };
-export const KIND_NAMES = { float: 'Float fishing', lure: 'Lure fishing', ledger: 'Carp fishing', bottom: 'Bottom fishing', fly: 'Fly fishing', jig: 'Squid jigging' };
+export const KIND_NAMES = { float: 'Float fishing', lure: 'Lure fishing', ledger: 'Carp fishing', bottom: 'Bottom fishing', fly: 'Fly fishing', jig: 'Squid jigging', spear: 'Spearfishing' };
 
 // Ready-made setups to pack in one go at camp or from a boat's tackle locker: rods, how each
 // is rigged, what to start with, and what else to carry.

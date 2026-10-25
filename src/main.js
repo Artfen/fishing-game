@@ -9,7 +9,7 @@ import { HUD, kbd } from './ui.js';
 import { AudioScape } from './audio.js';
 import { Environment, phaseName, formatClock } from './world/sky.js';
 import { createWater } from './world/water.js';
-import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeightHere, compass, bearingOf, windWords, seaWords } from './world/conditions.js';
+import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeight, waveHeightHere, compass, bearingOf, windWords, seaWords } from './world/conditions.js';
 import { buildWorld } from './world/world.js';
 import { createHabitat } from './world/habitat.js';
 import { Ecosystem } from './world/ecosystem.js';
@@ -23,7 +23,7 @@ import {
   bakeHeightTexture, heightAt, walkHeight, solidHeight, landSDF, lakeSDF, streamSDF, zoneAt, waterOf, riverSDF, mereSDF,
   PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD,
   PEGS, POOLS, STREAM, SNAG, LILIES, JETTY, ISLAND, GANNET_CAMP, SKERRIES, SKELLIG, DEEP_Z,
-  HAVEN, HAVEN_QUAY, HAVEN_BENCH, DAYMARK, STRAND, WRECK, WRECK_BUOY, CHANNEL,
+  HAVEN, HAVEN_QUAY, HAVEN_BENCH, DAYMARK, STRAND, WRECK, WRECK_BUOY, WRECK_BELL, CHANNEL,
   HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, FUEL_PUMPS, CABIN_BERTH, laneInfo,
   CALF, CALF_TOWER, CALF_SKERRY, CALF_SOUND, CALF_LANDING,
 } from './world/terrain.js';
@@ -68,6 +68,8 @@ import { isPetrol, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, burn
 import { STEPS as TRIP_STEPS, stepOf, stepNumber, complete as completeStep, start as startGuide, words as guideWords, isNewGame, placeAt, FISH_SPOTS } from './firstTrip.js';
 import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality } from './quality.js';
 import { Post } from './post.js';
+import { Diver, Shot, buildGun } from './diver.js';
+import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance } from './dive.js';
 import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick } from './util.js';
 
 const HOUR_SECONDS = 40; // one in-game hour lasts 40 real seconds
@@ -516,7 +518,8 @@ let hudOff = false;
 let rowTime = 0;
 let walkTime = 0;
 let onFoot = false;
-const player = () => (onFoot ? walker : boat);
+let dive = null; // in the water: see the diving section
+const player = () => (dive ? diver : onFoot ? walker : boat);
 
 /* ---------------- fishing ---------------- */
 
@@ -640,9 +643,10 @@ function setOutcome(id, outcome) {
 }
 
 let lastCatchId = null;
-function logCatch(sp, size, agent, rigUsed) {
+// how: for a fish not caught on a rod (speared): { kind, rod, from, at }.
+function logCatch(sp, size, agent, rigUsed, how = null) {
   const F = fishing.fight;
-  const at = F ? F.start : fishing.hook;
+  const at = how?.at || (F ? F.start : fishing.hook);
   const entry = {
     id: `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
     at: Date.now(),
@@ -653,14 +657,14 @@ function logCatch(sp, size, agent, rigUsed) {
     zone: zoneAt(agent.x, agent.z),
     place: placeName(agent.x, agent.z),
     water: waterOf(zoneAt(agent.x, agent.z)),
-    kind: rigUsed?.rod?.kind || 'float',
-    rod: rigUsed?.rod?.id || 'float',
+    kind: how?.kind || rigUsed?.rod?.kind || 'float',
+    rod: how?.rod || rigUsed?.rod?.id || 'float',
     item: rigUsed?.item?.id || null,
-    line: rigUsed?.rod?.line?.name || '',
-    term: fishing.term?.id || '',
+    line: how ? '' : rigUsed?.rod?.line?.name || '',
+    term: how ? '' : fishing.term?.id || '',
     weight: Math.round(weightOf(sp, size) * 100) / 100,
     sky: weather.state,
-    from: onFoot ? 'shore' : 'boat',
+    from: how?.from || (onFoot ? 'shore' : 'boat'),
     rain: weather.rain > 0.6 ? 2 : weather.rain > 0.15 ? 1 : 0,
     hatch: Math.round(hatchLevel() * 10) / 10,
     depth: Math.round(Math.max(0, -at.y) * 10) / 10,
@@ -682,7 +686,8 @@ const REPEAT_LINES = [
   'It eyes you, unimpressed.',
 ];
 
-function showCatch(sp, size, agent, rigUsed) {
+// Into the records: the species' tally and best, the log, the adventures. Returns { isNew, record }.
+function recordCatch(sp, size, agent, rigUsed, how = null) {
   const isNew = !state.fish[sp.id];
   if (isNew) {
     state.fish[sp.id] = {
@@ -698,10 +703,16 @@ function showCatch(sp, size, agent, rigUsed) {
     const on = (state.caughtOn[sp.id] = state.caughtOn[sp.id] || {});
     on[rigUsed.item.id] = (on[rigUsed.item.id] || 0) + 1;
   }
-  logCatch(sp, size, agent, rigUsed);
+  logCatch(sp, size, agent, rigUsed, how);
   adventures.caught(sp.id, agent.x, agent.z, world.flocks);
+  markObserved(sp.id, agent);
   state.tips.caught = true;
   save();
+  return { isNew, record };
+}
+
+function showCatch(sp, size, agent, rigUsed) {
+  const { isNew, record } = recordCatch(sp, size, agent, rigUsed);
 
   // The species' own model, as it swims in the water and appears in the field guide.
   const cv = $('cc-canvas');
@@ -713,7 +724,6 @@ function showCatch(sp, size, agent, rigUsed) {
     ctx.drawImage(photo, 0, 0, cv.width, cv.height);
   };
   photo.src = studio().thumb({ type: 'fish', id: sp.id }, cv.width, cv.height);
-  markObserved(sp.id, agent);
   $('cc-new').hidden = !isNew;
   $('cc-name').textContent = sp.name;
   const kg = weightOf(sp, size);
@@ -1480,6 +1490,428 @@ function board(target = boatNear() || boat) {
   hud.chip('<b>Boat view</b>', 2);
 }
 
+/* ---------------- diving (the rules are in dive.js, the swimmer in diver.js) ---------------- */
+
+// Over the side of a stopped boat, or in off a jetty, the rocks or a steep beach: freediving on
+// one breath with the speargun, or on scuba with the camera. While you're in the water you're
+// out of the boat (onFoot, your figure put away) and the diver is you: where you look is where
+// you swim. Back at the surface, climb aboard, up onto a jetty, or wade ashore.
+const diver = new Diver(scene);
+const shot = new Shot(scene, new Rope(scene, { segments: 10, radius: 0.0035, color: '#e9e4d6' }));
+const fpGun = buildGun();
+fpGun.scale.setScalar(0.85);
+fpGun.visible = false;
+scene.add(fpGun);
+const diveIn = { fwd: 0, up: 0, kick: false, dir: new THREE.Vector3(0, 0, 1) };
+const diverCtx = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, speed: 0, kicking: false, still: 0 };
+const _dFrom = new THREE.Vector3(), _dDir = new THREE.Vector3(), _dAim = new THREE.Vector3(), _dMuz = new THREE.Vector3(), _dEye = new THREE.Vector3();
+const diveVeil = $('dive-veil');
+let aim = null; // what's in the sights: { sp, size, dist, ok, why, known }
+let aimT = 0;
+
+// Where you could go in from here, if anywhere: deep water beside a stopped boat, or within a
+// stride or two of where you stand ashore (off a jetty, a quay, the rocks, a steep beach).
+let diveSpotCache = { t: -1, spot: null };
+function diveEntry() {
+  if (t - diveSpotCache.t < 0.3) return diveSpotCache.spot;
+  let spot = null;
+  if (!onFoot) {
+    if (boat.speed < 0.6) {
+      const off = boat.hull.B * 0.5 + 0.7;
+      for (const s of [1, -1]) {
+        const x = boat.pos.x + boat.right.x * off * s, z = boat.pos.z + boat.right.z * off * s;
+        if (-heightAt(x, z) > 1.6) {
+          spot = { x, z, heading: boat.heading, from: 'boat' };
+          break;
+        }
+      }
+    }
+  } else if (!driving && walker.pos.y < 3 && !insideHome(walker.pos.x, walker.pos.z)) {
+    for (let r = 1.2; r <= 3.2 && !spot; r += 1) {
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2, x = walker.pos.x + Math.sin(a) * r, z = walker.pos.z + Math.cos(a) * r;
+        const d = -heightAt(x, z);
+        if (d > 1.4 && (!spot || d > spot.d)) spot = { x, z, d, heading: a, from: 'shore' };
+      }
+    }
+  }
+  diveSpotCache = { t, spot };
+  return spot;
+}
+
+// Which way in: the speargun on a breath, or the camera on a tank.
+function chooseDive(entry) {
+  const tank = state.dive.tank;
+  const drift = entry.from === 'boat' && !boat.anchored && !boat.tie;
+  const fresh = waterOf(zoneAt(entry.x, entry.z)) === 'fresh';
+  const buttons = [];
+  if (drift) buttons.push({ text: 'Drop the anchor first', cls: 'quiet', run: () => toggleAnchor() });
+  buttons.push(tank > SCUBA.reserve
+    ? { text: `Scuba, with the camera (${Math.round(tank)} bar)`, cls: 'quiet', run: () => startDive('scuba', entry) }
+    : { text: 'Scuba: the tank needs filling', cls: 'quiet', run: () => hud.flash('The tank’s nearly empty: the chandlery in Willowhaven fills it.', t, 3.5) });
+  buttons.push({ text: fresh ? 'Freedive, to look' : 'Freedive, with the speargun', run: () => startDive('free', entry) });
+  ask('Go diving', `${drift ? `The ${boat.name} isn’t anchored: she’ll drift off while you’re down. ` : ''}${fresh
+    ? 'Fresh water: a breath-hold dive or a tank, to look (spearfishing isn’t allowed in fresh water).'
+    : 'Hold your breath and take the speargun, or dive on a tank with the camera, to look and take photographs (spearfishing on scuba is banned).'}`, buttons);
+}
+
+function startDive(kit, entry) {
+  if (dive) return;
+  if (fishing.busy) fishing.cancel();
+  if (entry.from === 'boat') {
+    walker.place(entry.x, entry.z, entry.heading);
+    setFoot(true, true);
+  }
+  const back = entry.from === 'shore' ? { x: walker.pos.x, z: walker.pos.z, heading: walker.heading } : null;
+  walker.setVisible(false);
+  diver.enter(kit, entry.x, waveHeight(entry.x, entry.z, t) - 0.3, entry.z, entry.heading);
+  dive = {
+    kit, from: entry.from, boat: entry.from === 'boat' ? boat : null, back, t: 0,
+    o2: 1, hold: 0, longest: 0, maxDepth: 0, lastY: diver.pos.y, rate: 0, breathT: 1.5, blackT: 0,
+    stop: { need: false, left: SCUBA.stopFor, done: false, said: false },
+    said: {}, fastT: 0, catches: [], fresh: waterOf(zoneAt(entry.x, entry.z)) === 'fresh',
+  };
+  shot.reset();
+  rig.setDive(diver, kit === 'free', t);
+  fx.splash(entry.x, 0.05, entry.z, 14, 1.8, 0.8);
+  audio.splashBig();
+  state.dive.dives++;
+  document.body.classList.add('diving');
+  const T = scheme() === 'touch', P = scheme() === 'pad';
+  hud.chip(T
+    ? '<b>Diving</b> · the stick swims where you look · drag to look · ▲ ▼ up and down'
+    : P ? `<b>Diving</b> · ${kbd('L-stick')} swim where you look · ${kbd('R-stick')} look · ${K('interact')} up · ${K('tackle')} down`
+      : `<b>Diving</b> · ${K('forward')}${K('back')} swim where you look · ${K('left')}${K('right')} turn · drag to look · ${K('interact')} up · ${K('tackle')} down`, 7);
+  if (kit === 'free') {
+    teach('freedive', `Freediving: one breath. The gauge shows it running down, and the mark on it is when to turn for the surface. Swim slowly to make it last; ${T ? 'the action button' : K('cast')} fires the speargun. Aim just behind the head. At the surface, breathe up before the next dive.`, 10);
+  } else {
+    teach('scuba', `Scuba: your air goes faster the deeper you are. Head up at ${SCUBA.reserve} bar, not too fast (the computer warns you), and after a dive below ${SCUBA.stopFrom} m stop for a moment at five metres. ${T ? 'The action button' : K('cast')} takes a photograph.`, 10);
+  }
+  save();
+}
+
+// Out of the water: aboard a boat alongside, up onto a jetty, or ashore. With nowhere given
+// (travelling off, or a save), back where you went in.
+function endDive(to = null, quiet = false) {
+  if (!dive) return;
+  const d = dive;
+  if (shot.fish && !shot.fish.gone) eco.lostHooked(shot.fish.agent);
+  shot.reset();
+  aim = null;
+  diver.leave();
+  fpGun.visible = false;
+  dive = null;
+  document.body.classList.remove('diving');
+  rig.setDive(null, false, t);
+  const S = state.dive;
+  S.deepest = Math.max(S.deepest, Math.round(d.maxDepth * 10) / 10);
+  const back = to || (d.boat ? { boat: d.boat } : { spot: d.back });
+  if (back.boat) board(back.boat);
+  else {
+    walker.place(back.spot.x, back.spot.z, back.spot.heading ?? walker.heading);
+    setFoot(true, true);
+    walker.setVisible(true);
+  }
+  if (!quiet) {
+    const mins = Math.max(1, Math.round(d.t / 60));
+    const fish = d.catches.length ? ` · ${d.catches.join(', ')}` : '';
+    hud.toast(`${d.kit === 'free' ? 'Freedive' : 'Scuba dive'}: ${mins} min in the water, down to ${d.maxDepth.toFixed(1)} m${d.kit === 'free' && d.longest > 5 ? `, longest breath-hold ${Math.round(d.longest)} s` : ''}${d.kit === 'scuba' ? `, ${Math.round(S.tank)} bar left` : ''}${fish}.`, 6);
+  }
+  save();
+}
+
+// At the surface: what's there to climb out onto.
+function diveExit() {
+  if (!dive || dive.blackT > 0 || !diver.atSurface(t)) return null;
+  const P = diver.pos;
+  let best = null, bd = 1.7;
+  for (const b of boats) {
+    const d = Math.hypot(P.x - b.pos.x, P.z - b.pos.z) - b.hull.L * 0.45;
+    if (d < bd) {
+      bd = d;
+      best = b;
+    }
+  }
+  if (best) return { text: `Climb aboard the ${best.name}`, run: () => endDive({ boat: best }) };
+  for (const Q of PIERS) {
+    const qx = clamp(P.x, Q.x0, Q.x1), qz = clamp(P.z, Q.z0, Q.z1);
+    if (Math.hypot(P.x - qx, P.z - qz) > 1.6) continue;
+    const long = Q.x1 - Q.x0 > Q.z1 - Q.z0;
+    const x = long ? clamp(P.x, Q.x0 + 0.6, Q.x1 - 0.6) : (Q.x0 + Q.x1) / 2, z = long ? (Q.z0 + Q.z1) / 2 : clamp(P.z, Q.z0 + 0.6, Q.z1 - 0.6);
+    const land = Q.land || { x: Q.x0, z: (Q.z0 + Q.z1) / 2 };
+    return { text: Q === HAVEN_QUAY ? 'Up the ladder onto the quay' : 'Climb out onto the jetty', run: () => endDive({ spot: { x, z, heading: Math.atan2(land.x - x, land.z - z) } }) };
+  }
+  if (diver.aground || heightAt(P.x, P.z) > -1.4) {
+    // Somewhere you can stand: knee deep or drier, the nearest.
+    for (let r = 0.6; r <= 7; r += 0.6) {
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * Math.PI * 2, x = P.x + Math.sin(a) * r, z = P.z + Math.cos(a) * r;
+        const h = walkHeight(x, z);
+        if (h > -0.45 && h < 3) return { text: 'Stand up and wade ashore', run: () => endDive({ spot: { x, z, heading: a } }) };
+      }
+    }
+  }
+  return null;
+}
+
+// Each frame in the water (not while a panel's open: the dive waits for you).
+function updateDive(dt) {
+  const d = dive, D = diver;
+  if (d.blackT > 0) {
+    // Blacked out: carried up, and you come to at the surface.
+    d.blackT -= dt;
+    diveIn.fwd = 0;
+    diveIn.up = 1;
+    diveIn.kick = false;
+  }
+  camera.getWorldDirection(diveIn.dir);
+  // (Out of air: up you go, steadily.)
+  if (d.kit === 'scuba' && state.dive.tank <= 0 && !D.atSurface(t)) diveIn.up = Math.max(diveIn.up, 0.8);
+  D.update(dt, t, diveIn, boats);
+  // (Blacked out, you're carried up while it's dark, and come to at the surface.)
+  if (d.black) {
+    D.pos.y += (D.surfaceAt(t) - D.pos.y) * (1 - Math.exp(-2.2 * dt));
+    if (d.blackT <= 0) {
+      d.black = false;
+      D.pos.y = D.surfaceAt(t);
+      D.vel.set(0, 0, 0);
+    }
+  }
+  d.t += dt;
+  const depth = D.depth, surf = D.atSurface(t);
+  d.maxDepth = Math.max(d.maxDepth, depth);
+  d.rate = damp(d.rate, (D.pos.y - d.lastY) / Math.max(dt, 1e-3), 3, dt);
+  d.lastY = D.pos.y;
+  if (d.kit === 'free') freediveStep(dt, depth, surf);
+  else scubaStep(dt, depth, surf);
+  Object.assign(diverCtx, { x: D.pos.x, y: D.pos.y, z: D.pos.z, vx: D.vel.x, vy: D.vel.y, vz: D.vel.z, speed: D.speed, kicking: D.kicking, still: D.still });
+  // (Where "you" are, for the markers, the map and the places you pass.)
+  walker.pos.set(D.pos.x, Math.max(D.pos.y, 0), D.pos.z);
+  if (d.kit === 'free') gunStep(dt);
+  // Finning along the surface leaves rings; under it, a few bubbles now and then.
+  if (surf && D.speed > 0.3 && Math.random() < dt * 4) fx.ripple(D.pos.x - D.vel.x * 0.4, D.pos.z - D.vel.z * 0.4, 0.5, 1.2, 0.25);
+  if (!surf && d.kit === 'free' && Math.random() < dt * 0.4) underwater.bubbles(D.pos.x, D.pos.y + 0.1, D.pos.z, 2, 0.05);
+  // The view through the mask darkens at the edges as the breath runs low; a blackout goes dark.
+  const low = d.kit === 'free' && !surf ? clamp((BREATH.low - d.o2) / BREATH.low, 0, 1) : 0;
+  diveVeil.style.setProperty('--low', low.toFixed(3));
+  diveVeil.style.setProperty('--black', clamp(d.blackT > 0 ? Math.min(1, d.blackT) : 0, 0, 1).toFixed(3));
+  audio.heart?.(low);
+}
+
+function freediveStep(dt, depth, surf) {
+  const d = dive;
+  if (surf) {
+    if (d.hold > 2.5) {
+      d.longest = Math.max(d.longest, d.hold);
+      state.dive.longest = Math.max(state.dive.longest, Math.round(d.hold));
+      if (d.blackT <= 0) audio.gasp?.(clamp(1 - d.o2, 0.2, 1));
+    }
+    d.hold = 0;
+    d.said.turn = d.said.low = false;
+    d.o2 = Math.min(1, d.o2 + recoverRate() * dt);
+    return;
+  }
+  d.hold += dt;
+  if (d.blackT > 0) return;
+  d.o2 -= breathUse(Math.abs(diveIn.fwd), diver.kicking) * dt;
+  if (depth > 1.5 && d.o2 < breathToSurface(depth) && !d.said.turn) {
+    d.said.turn = true;
+    hud.flash('Your breath is at the turn mark: head up now', t, 2.6);
+  }
+  if (d.o2 < BREATH.low && !d.said.low) {
+    d.said.low = true;
+    hud.flash('Your chest is tight and the edges are going dark: up, now!', t, 2.4);
+  }
+  if (d.o2 <= 0) blackout();
+}
+
+// Ran out of breath: everything goes dark, and you come to at the surface. (In real life, a
+// blackout underwater drowns you unless someone's there: freedivers never dive alone, and
+// always turn for the surface with breath to spare.)
+function blackout() {
+  const d = dive;
+  d.o2 = 0.3;
+  d.blackT = 3.2;
+  d.black = true;
+  state.dive.blackouts++;
+  if (shot.fish && !shot.fish.gone) {
+    shot.fish.gone = true;
+    eco.lostHooked(shot.fish.agent);
+  }
+  hud.toast('You blacked out. In real life that’s how freedivers drown: never dive alone, and always turn for the surface with breath to spare. Here, you come to at the surface, coughing.', 10);
+  save();
+}
+
+function scubaStep(dt, depth, surf) {
+  const d = dive, S = state.dive;
+  const before = S.tank;
+  // (At the surface you breathe through the snorkel, saving the tank.)
+  if (!surf && S.tank > 0) S.tank = Math.max(0, S.tank - airUse(depth, Math.abs(diveIn.fwd), diver.kicking) * dt);
+  // A breath every few seconds: the regulator hisses, and out goes a stream of bubbles.
+  d.breathT -= dt;
+  if (!surf && S.tank > 0 && d.breathT <= 0) {
+    d.breathT = 4.2 - Math.min(1.8, diver.speed);
+    audio.regulator?.(1.2);
+    _dEye.set(0, 0.18, 0.12);
+    diver.head.localToWorld(_dEye);
+    setTimeout(() => dive && underwater.bubbles(_dEye.x, _dEye.y, _dEye.z, 7, 0.05), 1300);
+  }
+  // Coming up too fast.
+  d.fastT -= dt;
+  if (d.rate > SCUBA.maxAscent && depth > 0.8 && d.fastT <= 0) {
+    d.fastT = 2.5;
+    audio.beep?.();
+    hud.flash('Slow down: you’re coming up too fast', t, 2);
+  }
+  // The safety stop, after a deeper dive.
+  if (d.maxDepth >= SCUBA.stopFrom && !d.stop.done) {
+    d.stop.need = true;
+    if (depth >= SCUBA.stopAt[0] && depth <= SCUBA.stopAt[1] && Math.abs(d.rate) < 0.25) {
+      d.stop.left -= dt;
+      if (d.stop.left <= 0) {
+        d.stop.done = true;
+        hud.flash('Safety stop done: up you go, slowly', t, 2.6);
+      }
+    }
+  }
+  if (surf && d.stop.need && !d.stop.done && !d.stop.said) {
+    d.stop.said = true;
+    hud.toast(`Up without your safety stop. On a real dive that’s how decompression sickness starts: after any dive below ${SCUBA.stopFrom} m, three minutes at five metres before the surface.`, 8);
+  }
+  if (before > SCUBA.reserve && S.tank <= SCUBA.reserve) hud.flash(`${SCUBA.reserve} bar: time to head up`, t, 3);
+  if (before > SCUBA.low && S.tank <= SCUBA.low) hud.flash(`${SCUBA.low} bar: up now, slowly`, t, 3);
+  if (before > 0 && S.tank <= 0) hud.toast('Out of air! You rise steadily to the surface, breathing out all the way. (In real life: watch the gauge, and turn at the reserve.)', 8);
+}
+
+/* ---- the speargun ---- */
+
+// The shot runs from the gun to the middle of the screen at the gun's sure range: through your
+// mask, from just under your eyes; behind you, from the gun's muzzle in your hands.
+function aimRay(from, dir) {
+  camera.getWorldDirection(_dDir);
+  const eye = rig.mode === 'eye';
+  _dAim.copy(camera.position).addScaledVector(_dDir, (eye ? 0 : camera.position.distanceTo(diver.pos)) + SPEAR.sure);
+  if (eye) from.copy(camera.position).addScaledVector(_dDir, 0.45).add(_dEye.set(0, -0.09, 0).applyQuaternion(camera.quaternion));
+  else diver.muzzle(from);
+  dir.subVectors(_dAim, from).normalize();
+  return _dAim;
+}
+
+// The shot stops at the seabed, a rock, the surface, or the end of its line.
+function shotLength(from, dir) {
+  for (let s = 0.25; s < SPEAR.range; s += 0.2) {
+    const x = from.x + dir.x * s, y = from.y + dir.y * s, z = from.z + dir.z * s;
+    if (y < solidHeight(x, z) + 0.04 || y > waveHeight(x, z, t)) return s;
+  }
+  return SPEAR.range;
+}
+
+function fireSpear() {
+  if (!shot.loaded) {
+    hud.flash(shot.state === 'loading' ? 'Loading the bands…' : 'The shaft is still out', t, 1.2);
+    return;
+  }
+  if (dive.blackT > 0) return;
+  if (dive.fresh) {
+    hud.flash('Spearfishing isn’t allowed in fresh water.', t, 2.5);
+    return;
+  }
+  aimRay(_dFrom, _dDir);
+  let end = shotLength(_dFrom, _dDir), fish = null;
+  const hit = spearHit(_dFrom, _dDir, end, eco.agents);
+  if (hit) {
+    const a = hit.agent, ok = canSpear(a.sp, a.size, waterOf(zoneAt(a.x, a.z)));
+    // (A fish you shouldn't take: you hold your shot.)
+    if (!ok.ok) {
+      hud.flash(`You hold your shot. ${ok.why}`, t, 2.6);
+      return;
+    }
+    if (state.keep.length >= PACK.fish) {
+      hud.flash(`Your creel is full (${PACK.fish} fish): take only what you’ll eat. Cook some at camp first.`, t, 3.2);
+      return;
+    }
+    const q = shotQuality(hit.along);
+    end = hit.dist;
+    fish = { agent: a, quality: q, tears: Math.random() < tearChance(q, a.sp, a.size), gone: false };
+    eco.spear(a);
+  }
+  shot.fire(_dFrom, _dDir, end, fish);
+  audio.spear?.();
+  underwater.bubbles(_dFrom.x, _dFrom.y, _dFrom.z, 5, 0.04);
+  // The thump of the bands carries: fish close by startle.
+  eco.startle(_dFrom.x, _dFrom.y, _dFrom.z, 2.5, 0.6);
+  if (!fish) teach('spearMiss', 'Missed. Get closer (the shaft is only sure at three metres or so), keep still as they come to look, and aim just behind the head.', 7);
+}
+
+function gunStep(dt) {
+  const fp = rig.eyeBlend > 0.5;
+  const target = aimRay(_dFrom, _dDir);
+  // The gun you see: in your hands (behind you), or out in front of the mask.
+  fpGun.visible = fp;
+  if (fp) {
+    fpGun.position.copy(camera.position).add(_dEye.set(0.07, -0.19, -0.34).applyQuaternion(camera.quaternion));
+    fpGun.lookAt(target);
+  }
+  if (fp) {
+    fpGun.updateMatrixWorld();
+    fpGun.localToWorld(_dMuz.set(0, 0.03, 0.9));
+  } else diver.muzzle(_dMuz);
+  const F = shot.fish; // (read first: landing it hands it over)
+  const ev = shot.update(dt, _dMuz);
+  fpGun.setLoaded(shot.bandsLoaded);
+  diver.gun.setLoaded(shot.bandsLoaded);
+  if (F && !F.gone && shot.fish === F && shot.state !== 'flying') {
+    // On the shaft: it thrashes, then hangs as it comes in.
+    const a = F.agent, w = shot.state === 'back' && shot.t < 0.8 ? Math.sin(t * 22) * 0.5 : Math.sin(t * 8) * 0.15;
+    eco.placeHooked(a, shot.tip.x, shot.tip.y, shot.tip.z, Math.atan2(_dDir.x, _dDir.z) + Math.PI / 2 + w, 1);
+  }
+  if (ev === 'hit') {
+    audio.thud?.();
+    if (F.quality === 'poor') hud.flash('In the tail: hold on!', t, 1.6);
+  } else if (ev === 'tore') {
+    eco.lostHooked(F.agent);
+    hud.flash('It tore free! Aim just behind the head: a clean shot holds, a tail shot doesn’t.', t, 3.2);
+  } else if (ev === 'landed') landSpeared(F.agent);
+  // What's in the sights (a few times a second).
+  aimT -= dt;
+  if (aimT <= 0) {
+    aimT = 0.12;
+    aim = null;
+    if (shot.loaded) {
+      const hit = spearHit(_dFrom, _dDir, SPEAR.range + 1.5, eco.agents);
+      if (hit) {
+        const a = hit.agent, ok = canSpear(a.sp, a.size, waterOf(zoneAt(a.x, a.z)));
+        const known = !!(state.fish[a.sp.id] || state.observed?.[a.sp.id]);
+        aim = { sp: a.sp, size: a.size, dist: hit.dist, ok: ok.ok, why: ok.why, small: !!ok.small, known, far: hit.dist > SPEAR.sure, quality: shotQuality(hit.along) };
+      }
+    }
+  }
+}
+
+// A fish on the shaft, in hand: logged, and onto the stringer (your creel), as a kept fish.
+function landSpeared(a) {
+  const sp = a.sp, size = a.size;
+  const { isNew } = recordCatch(sp, size, a, null, { kind: 'spear', rod: 'speargun', from: 'dive', at: { x: a.x, y: a.y, z: a.z } });
+  eco.keep(a);
+  state.keep.push({ id: sp.id, size, logId: lastCatchId });
+  setOutcome(lastCatchId, 'kept');
+  state.dive.speared++;
+  dive.catches.push(`${sp.name.toLowerCase()} ${size} cm`);
+  hud.flash(`${isNew ? 'A first! ' : ''}${sp.name}, ${size} cm: on the stringer`, t, 3);
+  if (isNew) {
+    audio.fanfare();
+    hud.pulseJournal();
+  } else audio.chime();
+  teach('speared', `Speared fish go in your creel (it holds ${PACK.fish}), to cook at camp: a speargun only takes what you keep, so take only what you'll eat.`, 7);
+  save();
+}
+
+// Space (or the action button): fire the speargun, or take a photograph on scuba.
+function diveAction() {
+  if (dive.kit === 'free') fireSpear();
+  else takePhoto();
+}
+
 /* ---------------- the throttle lever, and the kayak's motor ---------------- */
 
 // The lever the boat you're in has (see throttle.js): a motorboat's own, the kayak's with its
@@ -1818,6 +2250,8 @@ function travelInfo() {
 // you arrive somewhere safe. Catches, gear and the creel all come with you.
 let traveling = null;
 function travel(dest) {
+  // (Out of the water first: back where you went in.)
+  if (dive) endDive(null, true);
   if (dest === 'home' && carCloseBy() && !atHomeNow() && !carHome()) return driveTo('home');
   const info = travelInfo();
   const far = !['camp', 'boat', 'own', 'haven', 'home', 'car'].includes(dest);
@@ -2571,6 +3005,8 @@ const lanternReach = () => !state.items.lantern && (onFoot
 // What E (or tapping the prompt) does right now, if anything.
 function interaction() {
   if (!started || modal || fishing.busy || placement.isOn) return null;
+  // In the water: something to climb out onto, at the surface.
+  if (dive) return diveExit();
   // Inside the cabin: what's where you stand.
   if (cabinIn) return cabinAction();
   // At the wheel: get out when you've stopped (or back on the lane if you're stuck).
@@ -2610,10 +3046,13 @@ function interaction() {
     if (page) return { text: PAGES[page].where.startsWith('tucked') ? 'Look at the paper tucked under the seat' : PAGES[page].where.startsWith('folded') ? 'Look at the paper in the crack' : 'Look at the paper in the driftwood', run: () => readPage(page) };
     if (coastSpot('board')) return { text: 'Read the notice board', run: () => openBoard() };
     if (coastSpot('tower')) return { text: 'The watch tower', run: () => climbTower() };
-    if (chandleryNear()) return { text: 'The chandlery: tackle, bait and charts', run: () => openPack('chandlery') };
+    if (chandleryNear()) return { text: 'The chandlery: tackle, bait, charts and air', run: () => { fillTank(); openPack('chandlery'); } };
     if (coastSpot('bench')) return { text: 'Sit on the bench a while', run: () => sitOnBench() };
     if (quayHeadNear()) return { text: 'Have a boat brought round to the quay', run: () => boatsRound() };
     if (stuckT > 2.5) return { text: 'Stuck? Head back to camp or the boat', run: () => openPack() };
+    // Deep water a stride away: in you go.
+    const entry = diveEntry();
+    if (entry) return { text: 'Go diving', run: () => chooseDive(entry) };
     return null;
   }
   const spot = cachedShoreSpot();
@@ -2636,10 +3075,29 @@ function interaction() {
   }
   // A dry tank: the jerry can, a tow, or an oar.
   if (isPetrol(boat.kind) && fuelLevel(tanks(), boat.kind) <= 0 && boat.speed < 1) return { text: 'Out of fuel: what now?', run: () => boatChoices() };
-  // The cabin boat, stopped: its galley and bunk.
-  if (boat.hull.cabin && !fishing.lineOut && canEnterCabin(boat)) return { text: 'Into the cabin: galley and bunk', run: () => enterCabin() };
+  // The cabin boat, stopped: its galley and bunk (or over the side for a dive).
+  const entry = !fishing.lineOut ? diveEntry() : null;
+  if (boat.hull.cabin && !fishing.lineOut && canEnterCabin(boat)) {
+    if (entry) {
+      return { text: 'The cabin, or go diving', run: () => ask('The cabin boat', 'Into the cabin (the galley and the bunk), or over the side for a dive?', [
+        { text: 'Go diving', cls: 'quiet', run: () => chooseDive(entry) },
+        { text: 'Into the cabin', run: () => enterCabin() },
+      ]) };
+    }
+    return { text: 'Into the cabin: galley and bunk', run: () => enterCabin() };
+  }
+  // Stopped over deep water: over the side.
+  if (entry) return { text: 'Go diving', run: () => chooseDive(entry) };
 
   return null;
+}
+
+// The chandlery fills your dive tank.
+function fillTank() {
+  if (state.dive.tank >= SCUBA.full - 0.5) return;
+  state.dive.tank = SCUBA.full;
+  hud.flash(`They fill your dive tank: ${SCUBA.full} bar.`, t, 3);
+  save();
 }
 
 // G: a pouch of loose bait around your bottom rig, to draw the carp in.
@@ -3052,7 +3510,10 @@ function photoSubjects(extra = null) {
     if (d < 25 || _frustum.containsPoint(_pv.set(p.x, Math.max(solidHeight(p.x, p.z), 0) + 2, p.z))) places.push(p.id);
   }
   const birds = world.flocks.some((f) => Math.hypot(f.x - c.x, f.z - c.z) < 320 && _frustum.containsPoint(_pv.set(f.x, 12, f.z)));
-  return { species: [...species].slice(0, 12), places: places.slice(0, 12), birds };
+  // The Kittiwake's bell, close enough to make out, under the water.
+  const by = heightAt(WRECK_BELL.x, WRECK_BELL.z) + 0.2;
+  const bell = under && Math.hypot(WRECK_BELL.x - c.x, by - c.y, WRECK_BELL.z - c.z) < 7 && _frustum.containsPoint(_pv.set(WRECK_BELL.x, by, WRECK_BELL.z));
+  return { species: [...species].slice(0, 12), places: places.slice(0, 12), birds, ...(bell ? { bell: true } : {}) };
 }
 
 function openPhoto() {
@@ -3097,7 +3558,7 @@ async function takePhoto(extra = null, title = '') {
   $('pc-title').value = title;
   const sp = subjects.species.map((id) => fishById[id]?.name).filter(Boolean);
   const pl = subjects.places.map((id) => PLACES.find((q) => q.id === id)?.name).filter(Boolean);
-  $('pc-text').textContent = [sp.length ? `In the picture: ${sp.join(', ')}.` : '', pl.length ? `${pl.slice(0, 4).join(', ')}.` : '', subjects.birds ? 'Gulls diving.' : ''].filter(Boolean).join(' ') || 'A quiet moment.';
+  $('pc-text').textContent = [subjects.bell ? 'The Kittiwake’s bell, where it lies.' : '', sp.length ? `In the picture: ${sp.join(', ')}.` : '', pl.length ? `${pl.slice(0, 4).join(', ')}.` : '', subjects.birds ? 'Gulls diving.' : ''].filter(Boolean).join(' ') || 'A quiet moment.';
   if (from !== 'catch') modal = 'photocard';
   $('photo-card').hidden = false;
 }
@@ -3151,7 +3612,7 @@ function watchBirds(dt) {
 
 // The adventures' own checks, twice a second.
 let advT = 0;
-const advCtx = { onFoot: false, player: null, boat: null, underwater: false, cam: null, flocks: [] };
+const advCtx = { onFoot: false, player: null, boat: null, underwater: false, cam: null, flocks: [], diving: false, depth: 0 };
 function watchAdventures(dt) {
   advT -= dt;
   if (advT > 0) return;
@@ -3162,6 +3623,8 @@ function watchAdventures(dt) {
   advCtx.underwater = (rig.underwaterView || underwater.submerge > 0.5) && camera.position.y < -0.05;
   advCtx.cam = camera.position;
   advCtx.flocks = world.flocks;
+  advCtx.diving = !!dive;
+  advCtx.depth = dive ? diver.depth : 0;
   adventures.check(advCtx);
 }
 
@@ -3580,6 +4043,10 @@ fitCamera();
 
 function viewChip() {
   const T = scheme() === 'touch', P = scheme() === 'pad';
+  if (dive) {
+    hud.chip(rig.mode === 'eye' ? '<b>Through your mask</b> · look straight up or down' : '<b>Diving</b> · just behind you', 2.5);
+    return;
+  }
   const back = onFoot ? 'back over your shoulder' : 'back to the boat';
   if (rig.mode === 'under') {
     hud.chip(T
@@ -3632,6 +4099,18 @@ function toggleFirstPerson() {
 // Each frame after the camera: hold the rod in front of your eyes, hide your own figure (its
 // shadow stays), and hold a landed fish up in view.
 function updateFirstPerson(dt) {
+  if (dive) {
+    // Through the mask: your own body out of the way, the gun out in front (see gunStep).
+    diver.setSelfHidden(rig.eyeBlend > 0.5);
+    fishing.viewer = null;
+    const near = rig.eyeBlend > 0.5 ? 0.05 : 0.1;
+    if (camera.near !== near) {
+      camera.near = near;
+      camera.updateProjectionMatrix();
+    }
+    return;
+  }
+  diver.setSelfHidden(false);
   const A = player();
   const w = rig.eyeBlend;
   const fp = w > 0.5;
@@ -3711,6 +4190,7 @@ function padContext() {
   if (modal === 'catch') return 'catch';
   if (modal === 'photo') return 'photo';
   if (modal) return 'menu';
+  if (dive) return 'dive';
   if (placement.isOn) return 'place';
   if (driving) return 'drive';
   if (fishing.state === 'reeling') return 'fight';
@@ -3732,6 +4212,12 @@ function currentHint() {
     if (T) return `The stick drives and steers · the button brakes · stop to get out · ${fuelHint('car')}`;
     if (P) return `${kbd('RT')} drive · ${kbd('LT')} brake, hold to reverse · ${LR} steer · stop, then ${K('interact')} to get out · ${fuelHint('car')}`;
     return `${K('forward')}${K('back')} drive and reverse · ${K('left')}${K('right')} steer · hold ${K('cast')} to brake · ${K('view')} view · stop, then ${K('interact')} to get out · ${fuelHint('car')}`;
+  }
+  if (dive) {
+    const tool = dive.kit === 'free' ? 'shoot' : 'photograph';
+    if (T) return `The stick swims where you look · drag to look · ▲ ▼ up and down · the button to ${tool}`;
+    if (P) return `${kbd('L-stick')} swim where you look · ${kbd('R-stick')} look · ${K('interact')} up · ${K('tackle')} down · ${K('jog')} kick hard · ${K('cast')} ${tool}`;
+    return `${UD} swim where you look · ${LR} turn · drag to look · ${K('interact')} up · ${K('tackle')} down · hold ${K('jog')} to kick hard · ${K('cast')} ${tool} · ${K('view')} view`;
   }
   if (cabinIn) {
     return T ? 'In the cabin · the stick walks between the galley and the bunk · tap the prompt to use them'
@@ -3843,6 +4329,7 @@ const ACTION_LABELS = {
 
 function actionLabel() {
   if (modal === 'note') return 'OK';
+  if (dive) return dive.kit === 'scuba' ? 'Photo' : shot.loaded ? 'Shoot' : '…';
   if (driving) return 'Brake';
   if (fishing.state === 'reeling' && (fishing.fight?.surgeT > 0 || (fishing.fight?.warned && !fishing.pulling))) return 'Easy';
   if (fishing.state === 'reeling' && fishing.pulling) return 'Hold';
@@ -3930,6 +4417,7 @@ function updateHud() {
   const easy = fishing.state === 'reeling' && !!F && (F.surgeT > 0 || (F.warned && !F.pulling));
   if (touch.active) hud.action(actionLabel(), fishing.state === 'bite' || easy);
   $('cancel-btn').hidden = !(touch.active && fishing.aiming);
+  updateDiveHud();
 
   if (fishing.aiming) {
     // Outer ring: how far it will go. Inner ring: the rod's load (amber in the sweet spot, red
@@ -3975,9 +4463,9 @@ function updateHud() {
   const carD = Math.hypot(car.pos.x - player().pos.x, car.pos.z - player().pos.z);
   // (Not twice over: when the guide is pointing at the car, its marker is the one.)
   const guideOnCar = guiding && guideTarget?.label === 'Car';
-  placeMarker($('car-marker'), car.pos.x, car.pos.y + 2.2, car.pos.z, started && onFoot && !driving && !modal && carD > 18 && carD < 600 && !carHome() && !guideOnCar);
+  placeMarker($('car-marker'), car.pos.x, car.pos.y + 2.2, car.pos.z, started && onFoot && !driving && !dive && !modal && carD > 18 && carD < 600 && !carHome() && !guideOnCar);
   const campD = Math.hypot(player().pos.x - cp.x, player().pos.z - cp.z);
-  placeMarker($('camp-marker'), cp.x, cp.y + 2.4, cp.z, started && !modal && campD > 14 && !guiding && !(onFoot && insideHome(walker.pos.x, walker.pos.z)) && (onFoot ? campD < 400 : !state.places.camp && !!state.tips.caught));
+  placeMarker($('camp-marker'), cp.x, cp.y + 2.4, cp.z, started && !modal && !dive && campD > 14 && !guiding && !(onFoot && insideHome(walker.pos.x, walker.pos.z)) && (onFoot ? campD < 400 : !state.places.camp && !!state.tips.caught));
   const gt = guideTarget, gd = gt ? Math.hypot(gt.x - player().pos.x, gt.z - player().pos.z) : 0;
   placeMarker($('guide-marker'), gt?.x ?? 0, (gt?.y ?? heightAt(gt?.x ?? 0, gt?.z ?? 0)) + 1.8, gt?.z ?? 0, !!gt && guiding && started && !modal && gd > 3.5);
   // A trip's destination: a marker until you're on the water it rings.
@@ -3992,6 +4480,62 @@ function updateHud() {
     $('trip-name').textContent = fishById[trip.sp].name;
   }
   placeMarker($('trip-marker'), trip?.x ?? 0, 1.2, trip?.z ?? 0, !!trip && started && !modal && Math.hypot((trip?.x ?? 0) - player().pos.x, (trip?.z ?? 0) - player().pos.z) > (trip?.r ?? 0));
+}
+
+// The dive computer (depth, breath or air, the way up), and what's in the speargun's sights.
+let diveShown = false;
+function updateDiveHud() {
+  const on = !!dive && started && !modal && !hudOff;
+  if (on !== diveShown) {
+    diveShown = on;
+    $('dive').hidden = !on;
+    if (!on) {
+      $('dive-aim').hidden = true;
+      diveVeil.style.setProperty('--low', '0');
+      diveVeil.style.setProperty('--black', '0');
+    }
+  }
+  if (!on) return;
+  const d = dive, depth = diver.depth, free = d.kit === 'free';
+  hud.setHTML('dvKind', $('dv-kind'), free ? 'Freediving' : 'Scuba');
+  hud.setHTML('dvDepth', $('dv-depth'), `${depth.toFixed(1)} m`);
+  const bottom = Math.max(0, -heightAt(diver.pos.x, diver.pos.z));
+  let info = `bottom ${bottom.toFixed(0)} m`;
+  let fill, mark = -1, warn = false;
+  if (free) {
+    fill = d.o2;
+    mark = depth > 1 ? Math.min(1, breathToSurface(depth)) : -1;
+    const surf = diver.atSurface(t);
+    hud.setHTML('dvGas', $('dv-gas'), surf ? (d.o2 < 0.98 ? 'Breathing up' : 'Breath') : `Breath · ${Math.round(d.hold)} s`);
+    warn = !surf && d.o2 < mark;
+  } else {
+    const bar = state.dive.tank;
+    fill = bar / SCUBA.full;
+    mark = SCUBA.reserve / SCUBA.full;
+    warn = bar <= SCUBA.reserve;
+    hud.setHTML('dvGas', $('dv-gas'), `Air · ${Math.round(bar)} bar`);
+    if (!diver.atSurface(t)) info = `${Math.floor(minutesLeft(bar, depth))} min to reserve · ${info}`;
+    if (d.rate > SCUBA.maxAscent && depth > 0.8) info = 'SLOW · up too fast';
+    else if (d.stop.need && !d.stop.done && depth < 9) info = depth >= SCUBA.stopAt[0] && depth <= SCUBA.stopAt[1] ? `safety stop · ${Math.ceil(d.stop.left)} s` : `safety stop at ${SCUBA.stopAt[0]}–${SCUBA.stopAt[1]} m`;
+  }
+  hud.setHTML('dvInfo', $('dv-info'), info);
+  $('dv-fill').style.width = `${(clamp(fill, 0, 1) * 100).toFixed(1)}%`;
+  $('dv-turn').style.left = `${(clamp(mark, 0, 1) * 100).toFixed(1)}%`;
+  $('dv-turn').hidden = mark < 0;
+  $('dive').classList.toggle('warn', warn);
+  // The gun, or the camera.
+  hud.setHTML('dvTool', $('dv-tool'), free
+    ? `${d.fresh ? 'No spearfishing in fresh water' : shot.loaded ? 'Speargun loaded' : shot.state === 'loading' ? 'Loading the bands…' : 'Shaft out…'} · creel ${state.keep.length}/${PACK.fish}`
+    : `Camera ready · ${state.photos.length}/${PHOTO_MAX} photos`);
+  // The sights: what's there, roughly how big, and whether to take it.
+  const A = free && !d.fresh ? aim : null;
+  $('dive-aim').hidden = !free || d.fresh;
+  $('dive-aim').classList.toggle('on', !!A);
+  $('dive-aim').classList.toggle('bad', !!A && !A.ok);
+  $('dive-aim').classList.toggle('far', !!A && A.ok && A.far);
+  hud.setHTML('daText', $('da-text'), A
+    ? `${A.known ? A.sp.name : 'A fish'} · ${sizeGuess(A.size)}${!A.ok ? ` · ${A.small ? 'too small' : 'not this one'}` : A.far ? ' · closer' : A.quality === 'poor' ? ' · aim further forward' : ''}`
+    : '');
 }
 
 /* ---------------- input ---------------- */
@@ -4009,6 +4553,14 @@ function save() {
   state.vessel = boat.kind;
   state.mode = onFoot ? 'foot' : 'boat';
   state.walker = onFoot ? { x: walker.pos.x, z: walker.pos.z, heading: walker.heading } : null;
+  // In the water, you're saved where you went in: aboard, or on the bank.
+  if (dive) {
+    if (dive.boat) {
+      state.mode = 'boat';
+      state.vessel = dive.boat.kind;
+      state.walker = null;
+    } else state.walker = { ...dive.back };
+  }
   // The car where it is; at the wheel, you're saved standing by its door (you get out on loading).
   const at = state.car.at;
   state.car = { x: Math.round(car.pos.x * 100) / 100, z: Math.round(car.pos.z * 100) / 100, yaw: Math.round(car.heading * 1000) / 1000, at: driving ? parkNear(car.pos.x, car.pos.z, 9) : at };
@@ -4642,6 +5194,23 @@ input.on('press', (code, acts) => {
     }
     return;
   }
+  // In the water: its own few keys.
+  if (dive && !modal) {
+    if (is('cast')) diveAction();
+    else if (is('interact')) interaction()?.run();
+    else if (is('view')) cycleView();
+    else if (is('eye')) toggleFirstPerson();
+    else if (is('reset')) resetView();
+    else if (is('photo')) openPhoto();
+    else if (is('map')) openMap();
+    else if (is('settings')) openSettings();
+    else if (is('finder') || is('pack')) hud.flash('Out of the water first', t, 1.4);
+    else if (is('hide')) {
+      hudOff = !hudOff;
+      hud.hidden(hudOff);
+    } else if (code === 'Escape' && rig.mode !== rig.third) resetView();
+    return;
+  }
   if (is('cast')) {
     fishing.onDown();
     return;
@@ -4685,7 +5254,7 @@ input.on('press', (code, acts) => {
   }
 });
 input.on('release', (code, acts) => {
-  if (acts.includes('cast')) fishing.onUp();
+  if (acts.includes('cast') && !dive) fishing.onUp();
 });
 input.on('pointer', () => {
   if (!started) {
@@ -4864,7 +5433,8 @@ function ecoTick(dt) {
   walkerCtx.x = walker.pos.x;
   walkerCtx.z = walker.pos.z;
   walkerCtx.speed = walker.speed;
-  ecoCtx.walker = onFoot ? walkerCtx : null;
+  ecoCtx.walker = onFoot && !dive ? walkerCtx : null;
+  ecoCtx.diver = dive ? diverCtx : null;
   ecoCtx.lantern = lanternLit ? ecoCtx.boat : null;
   eco.update(dt, ecoCtx);
 }
@@ -4878,7 +5448,8 @@ function tick(now, manual = false) {
   if (!manual) watchFrameRate(rawDt);
   pads.poll(dt);
 
-  const resting = started && (!modal || modal === 'camp') && input.resting;
+  // (Not in the water: time can't drift by on one breath, or a tank.)
+  const resting = started && (!modal || modal === 'camp') && input.resting && !dive;
   const speed = resting ? REST_SPEED : 1;
   hud.rest(resting);
   let hours = 0;
@@ -4921,6 +5492,13 @@ function tick(now, manual = false) {
       if (!onFoot) steer = si;
       // (Under power the motor runs on at its notch while you fish: trolling.)
       if (leverKind()) throttle = boat.lever;
+    } else if (dive) {
+      // In the water: forward and back swim where you look, across turns you, and the
+      // interact and tackle keys (E and Q) swim straight up and down.
+      diveIn.fwd = ti;
+      diveIn.up = (input.holding('interact') ? 1 : 0) - (input.holding('tackle') ? 1 : 0);
+      diveIn.kick = input.jogging || (pads.active && pads.jog);
+      if (si) rig.turn(si, dt, t);
     } else if (driving) {
       // On a controller the triggers drive: RT to go, LT to brake and then reverse.
       carIn.throttle = pads.active ? pads.rt - pads.lt : ti;
@@ -4964,7 +5542,7 @@ function tick(now, manual = false) {
       save();
     }
   }
-  watchStuck(dt, !driving && !!(move.x || move.z));
+  watchStuck(dt, !driving && !dive && !!(move.x || move.z));
   if (onFoot && (move.x || move.z)) {
     walkTime += dt;
     if (walkTime > 3 && !state.tips.walked) {
@@ -5007,6 +5585,12 @@ function tick(now, manual = false) {
   updateTow(dt);
   keepBoatsApart();
   if (cabinIn) placeInCabin(dt);
+  if (dive) {
+    if (!modal) updateDive(dt);
+  } else {
+    diveIn.fwd = diveIn.up = 0;
+    diveIn.kick = false;
+  }
   BOATS.cabin.setCabinLight(env.night, !!cabinIn);
   // The motor: a putter at idle when you're aboard, rising with the throttle. Fish nearby
   // hear it, so slow down (or anchor) before you fish. (The bass boat's electric motor is
@@ -5023,7 +5607,7 @@ function tick(now, manual = false) {
   }
   // First person: you face where you look.
   if (rig.mode === 'eye' && onFoot && !(move.x || move.z)) walker.heading = dampAngle(walker.heading, rig.yaw, 10, dt);
-  if (onFoot && !driving) walker.update(dt, t, move, { jog: input.jogging || (pads.active && pads.jog), locked: fishing.busy, obstacles: solids });
+  if (onFoot && !driving && !dive) walker.update(dt, t, move, { jog: input.jogging || (pads.active && pads.jog), locked: fishing.busy, obstacles: solids });
   // The car: driven while you're at the wheel (a menu open puts the brake on); otherwise parked.
   {
     const live = driving && started;
@@ -5042,7 +5626,7 @@ function tick(now, manual = false) {
       audio.car?.(Math.min(1, Math.abs(car.speed) / 12), started && !modal && !dry ? Math.abs(carIn.throttle) : 0, !dry);
     } else audio.car?.(0, 0, false);
   }
-  fishing.update(dt, t, rig.yaw, started && !modal && !placement.isOn && !driving && !cabinIn && input.action);
+  fishing.update(dt, t, rig.yaw, started && !modal && !placement.isOn && !driving && !cabinIn && !dive && input.action);
 
   ecoTick(dt);
   handleClues();
@@ -5065,6 +5649,7 @@ function tick(now, manual = false) {
   // down with the swell; the quick bob of the chop is smoothed away.)
   const steadyCam = settings.controls.boatCam === 'steady' || settings.controls.reducedMotion;
   if (driving) car.eyePoint(_eye);
+  else if (dive) diver.eyePoint(_eye);
   else if (onFoot || cabinIn) walker.eyePoint(_eye);
   else boat.eyePoint(_eye, steadyCam);
   if (!onFoot && steadyCam) _eye.y = eyeY = Math.abs(eyeY - _eye.y) > 1 ? _eye.y : damp(eyeY, _eye.y, 0.3, dt);
@@ -5211,7 +5796,7 @@ function tick(now, manual = false) {
   updateConditionsPanel(dt);
 
   // Wading through the shallows sends rings out around your boots.
-  if (onFoot && walker.wading > 0.05 && (move.x || move.z) && !fishing.busy) {
+  if (onFoot && !dive && walker.wading > 0.05 && (move.x || move.z) && !fishing.busy) {
     wadeT -= dt;
     if (wadeT <= 0) {
       wadeT = walker.jogging ? 0.18 : 0.3;
@@ -5311,6 +5896,12 @@ window.slowTide = {
   guideNow: () => ({ step: stepOf(state.guide), title: $('gd-title').textContent, text: $('gd-text').textContent, target: guideTarget, shown: !$('guide').hidden }),
   firstPerson: (on = true) => rig.setFirstPerson(on, t),
   setHour: (h) => { state.hour = ((h % 24) + 24) % 24; },
+  // Diving: start here (kit 'free' or 'scuba', where there's water deep enough), and look inside.
+  diving: {
+    get state() { return dive; }, diver, shot, get aim() { return aim; },
+    entry: () => diveEntry(), start: (kit = 'free') => { diveSpotCache.t = -1; const e = diveEntry(); if (e) startDive(kit, e); return !!e; },
+    end: (to) => endDive(to), exit: () => diveExit(), fire: () => fireSpear(),
+  },
   setRain: (r) => { weather.override = r; weather.rain = r; },
   setWeather: (id) => { settings.weather.mode = id; if (id !== 'auto') weather.state = id; },
   // Graphics preset: 'auto', 'high', 'medium' or 'low'.

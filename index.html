@@ -37,6 +37,7 @@
 <div id="underwater-tint" aria-hidden="true"></div>
 <div id="vignette" aria-hidden="true"></div>
 <div id="rest-veil" aria-hidden="true"><span>time drifts by…</span></div>
+<div id="dive-veil" aria-hidden="true"></div>
 <div id="sleep-veil" aria-hidden="true"><span id="sleep-text">You sleep…</span></div>
 
 <div id="hud">
@@ -96,7 +97,15 @@
     </dl>
     <p id="bait-status"></p>
   </div>
+  <section id="dive" class="panel" hidden aria-label="Dive computer" aria-live="off">
+    <div class="dv-top"><span id="dv-kind">Freediving</span><b id="dv-depth">0.0 m</b></div>
+    <div class="dv-gauge" aria-hidden="true"><span id="dv-fill"></span><span id="dv-turn"></span></div>
+    <div class="dv-row"><span id="dv-gas">Breath</span></div>
+    <div class="dv-row soft" id="dv-info"></div>
+    <div class="dv-row soft" id="dv-tool"></div>
+  </section>
   </div>
+  <div id="dive-aim" hidden aria-hidden="true"><span class="da-ring"></span><span id="da-text"></span></div>
   <div id="bite-mark" aria-hidden="true"><b>!</b><span id="bite-text"></span></div>
   <div id="meter" hidden>
     <svg viewBox="0 0 120 120" aria-hidden="true">
@@ -157,6 +166,8 @@
     </div>
     <button id="act-btn" type="button" aria-label="Fishing: cast, hook, reel"><span id="act-label">Cast</span></button>
     <button id="cancel-btn" type="button" aria-label="Cancel the cast" hidden>✕</button>
+    <button id="dive-up" class="dive-btn" type="button" aria-label="Swim up">▲</button>
+    <button id="dive-down" class="dive-btn" type="button" aria-label="Swim down">▼</button>
     <button id="rest-btn" class="pill" type="button" aria-label="Hold to let time drift">
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M7 3h10M7 21h10M8 3c0 5 8 5 8 9s-8 4-8 9M16 3c0 5-8 5-8 9s8 4 8 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
     </button>
