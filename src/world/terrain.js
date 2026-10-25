@@ -904,6 +904,8 @@ export const HAVEN_STEPS = [1.26, 1.02, 0.78].map((deck, i) => ({ x: 11, z: HAVE
 FUEL_PUMPS.marina = { x: HAVEN_PONTOON.x0 + 0.35, z: HAVEN_PONTOON.z0 + 5.5, yaw: Math.PI, name: 'the fuel point on the pontoon', deck: HAVEN_PONTOON.deck };
 // Where the motor cruiser lies: alongside the first finger east of the pontoon, bow out to the bay.
 export const CRUISER_BERTH = { x: HAVEN_FINGERS[0].x0 + 6, z: HAVEN_FINGERS[0].z1 + 1.65, heading: Math.PI / 2 };
+// And the centre-console boat: alongside the second finger east, on its seaward side.
+export const CONSOLE_BERTH = { x: HAVEN_FINGERS[2].x0 + 5, z: HAVEN_FINGERS[2].z1 + 1.4, heading: Math.PI / 2 };
 
 // Walkable decks the boat bumps into: [x0, x1, z0, z1, deck height].
 export const PIERS = [

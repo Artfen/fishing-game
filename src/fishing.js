@@ -5,7 +5,7 @@ import { currentAt, windAt, currentScale } from './world/conditions.js';
 import { solidHeight, depthAt, waterLevel } from './world/terrain.js';
 import { RODS, TACKLE, TERMS, LINE_COLORS, castRange, windSensitivity, splashOf, checkSetup, castWeight } from './tackle.js';
 import { buildTackleModel, buildFloat, buildIndicator, buildLead } from './tackleModels.js';
-import { clamp, lerp, damp, rand, smoothstep, wrapAngle, glowTexture } from './util.js';
+import { clamp, lerp, damp, dampAngle, rand, smoothstep, wrapAngle, glowTexture } from './util.js';
 import { newFight, stepFight, DIFFICULTY, DRAG_LEVELS, DEFAULT_DRAG } from './fight.js';
 import { CAST_SPEED } from './throttle.js';
 import { FishLine } from './fishline.js';
@@ -1019,15 +1019,18 @@ export class Fishing {
     this.rodBounce = damp(this.rodBounce, 0, 5, dt);
 
     let rodPitch = this.kind === 'ledger' ? 1.15 : 0.85, bend = 0.05;
-    let rodYaw = this.state === 'idle' ? 0 : clamp(wrapAngle(Math.atan2(this.bob.x - A.pos.x, this.bob.z - A.pos.z) - A.heading), -2, 2);
+    // The rod's swing from the way the boat points: seated, no further round than your side; standing
+    // in a boat's cockpit (the yacht, the centre console), you turn to face it, any way at all.
+    const turns = !!A.turns, yawTo = (a) => (turns ? wrapAngle(a - A.heading) : clamp(wrapAngle(a - A.heading), -2, 2));
+    let rodYaw = this.state === 'idle' ? 0 : yawTo(Math.atan2(this.bob.x - A.pos.x, this.bob.z - A.pos.z));
     const fishMesh = this.fight ? this.fishMeshes[this.fight.sp.id] : null;
-    const face = A.faceYaw ?? A.heading; // the way you face to look at a fish in your hands
+    const face = A.faceYaw ?? A.facing ?? A.heading; // the way you face to look at a fish in your hands
 
     switch (this.state) {
       case 'aiming': {
         this.aimYaw = camYaw + this.aimOffset;
         this.aimT += dt;
-        rodYaw = clamp(wrapAngle(this.aimYaw - A.heading), -2, 2);
+        rodYaw = yawTo(this.aimYaw);
         if (this.kind === 'fly') {
           // False casting: each forward stroke shoots a little more line out.
           const prev = this.flyPhase;
@@ -1093,7 +1096,7 @@ export class Fishing {
       case 'casting': {
         const u = clamp(this.t / this.flight, 0, 1);
         rodPitch = this.t < 0.12 ? lerp(-0.45, 1.25, this.t / 0.12) : lerp(1.25, 0.85, smoothstep(0.12, 0.6, this.t));
-        rodYaw = clamp(wrapAngle(this.aimYaw - A.heading), -2, 2);
+        rodYaw = yawTo(this.aimYaw);
         this.arcPoint(u, this.bob);
         if (u >= 1) this.land(t);
         break;
@@ -1158,7 +1161,7 @@ export class Fishing {
         if (!F) break;
         rodPitch = 0.95 - F.tension * 0.25;
         // Swung low to one side for side pressure (a positive yaw swings it to your left).
-        rodYaw = clamp(rodYaw - this.side * 0.75, -2.2, 2.2);
+        rodYaw = turns ? wrapAngle(rodYaw - this.side * 0.75) : clamp(rodYaw - this.side * 0.75, -2.2, 2.2);
         rodPitch -= Math.abs(this.side) * 0.2;
         // The load bends it (a soft rod further), and it kicks as the fish shakes on a run.
         bend = (0.25 + F.tension * 0.95) / Math.sqrt(this.rod.flex ?? 1) + (F.pulling ? Math.sin(t * 22) * 0.06 * (0.4 + F.tension) : 0) + this.rodBounce;
@@ -1175,7 +1178,7 @@ export class Fishing {
         } else this.holdUp(fishMesh, t, face);
         rodPitch = 1.1;
         bend = 0.7;
-        rodYaw = 0.2;
+        rodYaw = turns ? pose.rodYaw : 0.2; // (standing, you stay facing the way it came in)
         // In first person you hold it up for a good look before the card comes.
         if (this.t >= 0.8 + this.admire) {
           this.state = 'caught';
@@ -1188,7 +1191,7 @@ export class Fishing {
         this.holdUp(fishMesh, t, face);
         rodPitch = 1.15;
         bend = 0.6;
-        rodYaw = 0.2;
+        rodYaw = turns ? pose.rodYaw : 0.2;
         break;
       }
       case 'releasing': {
@@ -1240,7 +1243,7 @@ export class Fishing {
     }
 
     pose.fishing = damp(pose.fishing, this.state === 'idle' ? 0 : 1, this.state === 'idle' ? 5 : 9, dt);
-    pose.rodYaw = this.state === 'aiming' ? rodYaw : damp(pose.rodYaw, rodYaw, 6, dt);
+    pose.rodYaw = this.state === 'aiming' ? rodYaw : (turns ? dampAngle : damp)(pose.rodYaw, rodYaw, 6, dt);
     pose.rodPitch = damp(pose.rodPitch, rodPitch, 16, dt);
     // The blank springs towards the bend the line asks of it, and back as the load comes off,
     // swinging a little past (a soft rod slower and further, a stiff one quick).

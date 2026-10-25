@@ -1,7 +1,7 @@
 // Boats and harbours: the sailing boat's little outboard for a calm; the fuel pumps on Puerto
 // Brasa's quay and Willowhaven's pontoon; the pontoons themselves (down a gangway from the quay,
-// with finger berths for the bigger boats); and the motor cruiser, a sea-going boat with a
-// wheelhouse cabin that can make the long passage south under power. Run with
+// with finger berths for the bigger boats); and the sport-fishing yacht (id 'cruiser'), a
+// sea-going boat with a cabin that can make the long passage south under power. Run with
 // `node --import ./tests/setup.mjs --test tests/`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -159,18 +159,18 @@ test('room on the fingers for the bigger boats: berths alongside, in deep water,
   }
 });
 
-/* ---------------- the motor cruiser ---------------- */
+/* ---------------- the yacht ---------------- */
 
-test('the motor cruiser: big, quick, slow to turn, with a cabin and a wheel, and her own berth at Willowhaven', () => {
+test('the yacht: big, quick, slow to turn at speed, with a cabin and a wheel, and her own berth at Willowhaven', () => {
   calm();
   assert.ok(BOAT_KINDS.includes('cruiser'));
   const c = boatAt('cruiser', OPEN.x, OPEN.z, 0), skiff = boatAt('skiff', OPEN.x + 40, OPEN.z, 0), cabin = new Boat(scene, { kind: 'cabin' });
   assert.ok(c.motor && c.hull.cabin && c.wheel && c.hull.passage, 'a motor, a cabin, a wheel, and she can make the passage');
   assert.ok(c.hull.L > cabin.hull.L * 1.4 && c.hull.draft > cabin.hull.draft, 'much bigger than the cabin boat');
   assert.deepEqual(c.cabinStations.map((s) => s.id), ['door', 'galley', 'bunk']);
-  assert.ok(c.cabinRoofY - c.cabinFloor > 1.8, 'standing headroom in the wheelhouse');
+  assert.ok(c.cabinRoofY - c.cabinFloor > 1.8, 'standing headroom in the cabin');
   const v = run(c, 50, 1).forwardSpeed;
-  assert.ok(v > 7 && v < 9, `${v.toFixed(2)} m/s flat out (about fifteen knots)`);
+  assert.ok(v > 9.3 && v < 11, `${v.toFixed(2)} m/s flat out (about twenty knots)`);
   // The lever's notches give the usual speeds: about 1 m/s dead slow, 2 slow, 4–5 half.
   for (const [id, lo, hi] of [['1', 0.7, 1.3], ['2', 1.5, 2.4], ['3', 4, 5.5]]) {
     const n = LEVERS.cruiser.find((x) => x.id === id);

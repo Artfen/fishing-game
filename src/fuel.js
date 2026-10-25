@@ -1,8 +1,8 @@
 import { DESTS, driveMinutes } from './outing.js';
 
-// Fuel: light, and only for what has an engine. The car and the petrol boats (the motor skiff,
-// the bass boat's outboard, the cabin boat, the sailing boat's little outboard, the motor
-// cruiser and the jet ski) burn petrol; the rowing boat and the kayak never
+// Fuel: light, and only for what has an engine. The car and the motorboats (the motor skiff,
+// the bass boat's outboard, the cabin boat, the sailing boat's little outboard, the centre
+// console, the jet ski, and the yacht's diesels) burn fuel from the pumps; the rowing boat and the kayak never
 // need any; the bass boat's quiet electric motor runs on a battery of its own.
 //
 //  · You fill up at the pump by the garage at home, the harbour pump on Willowhaven quay (it
@@ -19,14 +19,14 @@ import { DESTS, driveMinutes } from './outing.js';
 //  · The kayak's little electric motor has a battery of its own, charged the same way. Flat, it
 //    simply stops: the paddle is always there.
 //
-// state.fuel: { car, boats: { skiff, bass, cabin, sail, cruiser } (litres), battery (0…1),
+// state.fuel: { car, boats: { skiff, bass, cabin, sail, cruiser, console, jetski } (litres), battery (0…1),
 //   kayak (0…1), can: { at, litres } }
 
-// (The sailing boat's little outboard has a small tank of its own; the cruiser a big one, enough
-// for the long passage south and some.)
-export const TANKS = { car: 45, skiff: 20, bass: 30, cabin: 40, sail: 12, cruiser: 300, jetski: 60 };
-export const PETROL = ['skiff', 'bass', 'cabin', 'sail', 'cruiser', 'jetski'];
-// What the long passage takes from the cruiser's tank (half of it): she needs that much aboard
+// (The sailing boat's little outboard has a small tank of its own; the yacht (id 'cruiser') a
+// big one, enough for the long passage south and some.)
+export const TANKS = { car: 45, skiff: 20, bass: 30, cabin: 40, sail: 12, cruiser: 300, console: 200, jetski: 60 };
+export const PETROL = ['skiff', 'bass', 'cabin', 'sail', 'cruiser', 'console', 'jetski'];
+// What the long passage takes from the yacht's tank (half of it): she needs that much aboard
 // to set out.
 export const PASSAGE_FUEL = 150;
 export const CAN = 10;
@@ -37,7 +37,7 @@ export const CAR_PER_MIN = 0.35;
 export const CAR_PER_M = 0.014;
 // The boats: litres a second at full throttle (a full tank of the skiff is a good quarter of an
 // hour flat out, far longer at the speeds you fish at).
-export const BOAT_PER_S = { skiff: 0.02, bass: 0.03, cabin: 0.03, sail: 0.008, cruiser: 0.05, jetski: 0.045 };
+export const BOAT_PER_S = { skiff: 0.02, bass: 0.03, cabin: 0.03, sail: 0.008, cruiser: 0.05, console: 0.06, jetski: 0.045 };
 // The battery: what a second of the electric motor at full takes (about ten minutes of it), and
 // what an hour tied up at a jetty or a quay gives back.
 export const BATTERY_PER_S = 0.0017;

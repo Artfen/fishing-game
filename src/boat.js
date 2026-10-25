@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat } from './util.js';
+import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat, wrapAngle } from './util.js';
 import { waveHeight } from './world/water.js';
 import { windAt, currentAt, currentScale, conditions } from './world/conditions.js';
 import { solidHeight, PIERS, SEA, SOUTH_Z } from './world/terrain.js';
@@ -27,11 +27,19 @@ import { sailForce, hullDrag, boardGrip, heelFor, SAIL, boardDrag, finGrip } fro
 //    and eased by hand. With the sail down, a pair of oars; and a little outboard on a bracket
 //    on her quarter for when there's no wind (or to motor in and out of harbour): lowered, it
 //    drives her on a throttle lever like the skiff's, and it runs on petrol.
-//  · cruiser: a sea-going motor cruiser of about thirty feet, a navy hull and a white wheelhouse: a big
-//    outboard on her transom, a wheelhouse cabin forward (bunks, a galley, standing headroom), an
-//    open cockpit aft with the wheel on a console, rails round the foredeck. Quick (about fifteen
-//    knots flat out), steady in a sea, slow to turn; big enough to make the passage south under
-//    power, and a camp that floats like the cabin boat.
+//  · cruiser: a sport-fishing yacht of about thirty feet: twin inboard diesels (two propellers and
+//    two rudders under her stern, the exhausts in her transom), a cabin forward (bunks, a galley,
+//    standing headroom), and aft of it the helm under a hardtop with outriggers and a rack of rods,
+//    then a wide-open cockpit with a fighting chair, rod holders in the gunwales and a tuna door in
+//    the transom. You stand at the wheel, and stand in the cockpit to cast and fight a fish, turned
+//    whichever way the line goes, off the stern as readily as the side. Quick (about twenty knots
+//    flat out), steady in a sea, slow to turn at speed (the twin screws bring her round handily
+//    when she's slow); big enough to make the passage south under power, and a camp that floats.
+//    (Her id stays 'cruiser', for the saves.)
+//  · console: a centre-console boat of about twenty-four feet: twin outboards, the wheel on a
+//    console amidships under a T-top, a leaning post behind it, an open deck all round. Fast
+//    (about twenty-seven knots), driven standing; you fish from the cockpit aft or the bow,
+//    whichever way you're facing when you cast.
 //  · windsurf: a board and a rig, sailed standing up: the same sail as the sailing boat's on a
 //    smaller scale (see sailing.js), steered by leaning; in a fresh breeze it climbs onto the
 //    plane and flies. Hold too much power too long and you're catapulted in; you climb back on
@@ -110,18 +118,40 @@ const HULLS = {
     windage: 0.0042, ride: 2.6, // long and heavy: it bridges the chop, and the cabin catches the wind
   },
   cruiser: {
-    name: 'motor cruiser', L: 9.2, B: 1.5, D: 1.6, draft: 0.75, shallow: 1.1, seatZ: -2.9, seatY: 1.3, floorY: 0.85,
+    name: 'sport-fishing yacht', L: 9.2, B: 1.5, D: 1.6, draft: 0.75, shallow: 1.1, seatZ: -2.28, seatY: 1.73, floorY: 0.85,
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.3 + 0.7 * t)), 0.5),
     sheer: (t) => 0.42 * Math.pow(t, 2.2) + 0.04 * Math.pow(1 - t, 3),
     keel: (t) => 0.3 * Math.pow(t, 3),
     paint: '#f2efe8', stripe: '#1d3b56', bottom: '#2a3442', inside: 'plastic',
     // A teak cockpit sole running forward into the cabin; the foredeck ahead of the wheelhouse.
     floor: [0.02, 0.86], floorColor: '#a8784a', decks: [[0.86, 1, 0]],
-    motor: { thrust: 6.2, astern: 2.6, tilt: 1.3, scale: 1.9, cowl: '#f1efe9', band: '#1d3b56' },
+    // Twin inboards: two shafts and propellers under her stern (twin: how far out each side),
+    // turning together on the one lever. (tilt: the depth where the propellers touch bottom.)
+    motor: { thrust: 9.5, astern: 3.2, tilt: 1.3, inboard: true, twin: 0.46 },
     drag: [0.3, 0.06], helm: 0.7, fend: 1.45, passage: true,
-    cabin: [0.38, 0.86], cabinH: 1.25, cabinRoof: '#e9e5dc', wheel: true, rails: true,
-    lantern: [1.05, -4.05], stow: [-1.0, 1.25, -2.5], noise: 1, steady: 0.3,
-    windage: 0.005, ride: 1.8, // big and heavy: she shoulders the chop aside, but the wind gets a grip on the wheelhouse
+    cabin: [0.4, 0.86], cabinH: 1.25, cabinRoof: '#e9e5dc', wheel: true, rails: [0.44, 0.57, 0.7, 0.82, 0.92], sportfish: true,
+    // You stand: at the wheel (the helm to starboard), or in the cockpit to fish. aft: the middle
+    // of where you fish from, how far you go out to the side as you turn, and back to the transom;
+    // side: which way round the fighting chair you go between the two.
+    standing: { helm: [-0.62, -2.28], aft: [0, -3.6, 0.7, 0.45], side: -1, round: 0.55 },
+    lantern: [1.05, -4.05], stow: null, noise: 1, steady: 0.3,
+    windage: 0.005, ride: 1.8, // big and heavy: she shoulders the chop aside, but the wind gets a grip on the hardtop
+  },
+  console: {
+    name: 'centre-console boat', L: 7.4, B: 1.25, D: 1.15, draft: 0.42, shallow: 0.7, seatZ: -0.62, seatY: 1.38, floorY: 0.5,
+    hw: (t) => Math.pow(Math.sin(Math.PI * (0.32 + 0.68 * t)), 0.45),
+    sheer: (t) => 0.36 * Math.pow(t, 2.2) + 0.02,
+    keel: (t) => 0.22 * Math.pow(t, 3),
+    paint: '#eef0ee', stripe: '#3a8fc4', bottom: '#d9dedd', inside: 'plastic',
+    floor: [0.03, 0.88], floorColor: '#dcd8cc', decks: [[0.88, 1, 0]],
+    motor: { thrust: 13, astern: 3.2, tilt: 0.9, scale: 1.35, cowl: '#1d2125', band: '#3a8fc4', twin: 0.4 },
+    drag: [0.22, 0.05], side: 3, helm: 0.95, fend: 1.2, rails: [0.62, 0.72, 0.82, 0.92],
+    console: true,
+    // At the wheel behind the console; fishing, in the cockpit aft or up in the bow (whichever
+    // way you face as you cast), round the console or the leaning post on the way.
+    standing: { helm: [0, -0.62], aft: [0, -2.5, 0.6, 0.55], bow: [0, 1.9, 0.4, 0.3], round: 0.85 },
+    lantern: [0.8, -3.2], stow: null, noise: 1.1, steady: 0.45,
+    windage: 0.004, ride: 2.6,
   },
   windsurf: {
     name: 'windsurf board', L: 2.6, B: 0.34, D: 0.13, draft: 0.05, shallow: 0.35, seatZ: -0.45, seatY: 1.02, floorY: 0.14,
@@ -157,7 +187,7 @@ export const BOAT_KINDS = Object.keys(HULLS);
 const OAR_T = 0.56;
 
 const UP = new THREE.Vector3(0, 1, 0);
-const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3();
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3(), _e = new THREE.Vector3();
 
 // The hull's shape at t (0 stern … 1 bow): half-beam, height of the gunwale, height of the keel.
 const hw = (H, t) => H.B * H.hw(t);
@@ -256,6 +286,13 @@ function setLimb(mesh, a, b, r) {
   mesh.scale.set(r, len, r);
 }
 
+// A tube from a to b (radius r0 at a, r1 at b), as a part to merge: shafts, posts, outriggers, rods.
+function strut(a, b, r0, r1, color) {
+  const d = new THREE.Vector3().subVectors(b, a), len = d.length() || 0.001;
+  const m = new THREE.Matrix4().compose(a.clone().addScaledVector(d, 0.5), new THREE.Quaternion().setFromUnitVectors(UP, d.divideScalar(len)), new THREE.Vector3(1, 1, 1));
+  return { geo: new THREE.CylinderGeometry(r1, r0, len, 6), matrix: m, color, jitter: 0.02 };
+}
+
 // One of the boats in HULLS: the rowing boat, the motor skiff, the kayak or the bass boat.
 export class Boat {
   constructor(scene, { kind = 'row' } = {}) {
@@ -342,6 +379,11 @@ export class Boat {
     this.viewHold = null;
     this.faceYaw = null;
     this.selfHidden = false;
+    // Standing (the yacht, the centre console): you turn to face the way you cast, wherever that
+    // is; where you fish from (the cockpit aft, the bow), and where you stand just now.
+    this.turns = !!H.standing;
+    this.spot = null;
+    this.standAt = null;
 
     this.buildHull();
     this.buildCharacter();
@@ -349,7 +391,8 @@ export class Boat {
     if (H.paddle) this.buildPaddle();
     if (H.motor || H.outboard) this.buildMotor();
     if (H.cabin) this.buildCabin();
-    if (H.wheel) this.buildHelm();
+    if (H.sportfish) this.buildSportfish();
+    if (H.console) this.buildConsole();
     if (H.rig) {
       this.buildBoardRig();
       this.sailUp = true; // (a board's rig is always up, but for a fall)
@@ -615,14 +658,22 @@ export class Boat {
     });
   }
 
-  // An outboard on the transom: cowling, leg, propeller and a tiller to steer by.
+  // An outboard on the transom: cowling, leg, propeller and a tiller to steer by (two of them on
+  // the centre console). The yacht's inboards instead: under her stern two shafts run aft and
+  // down through their struts to the propellers, a rudder behind each; the exhausts in the
+  // transom.
   buildMotor() {
     const H = this.hull, M = H.motor || H.outboard;
-    const g = (this.motorGroup = new THREE.Group());
-    g.position.set(M.side || 0, sheer(H, 0) - 0.02, zAt(H, 0) - 0.04);
-    // (An outboard that's up starts tilted out of the water.)
-    if (!H.motor) g.rotation.x = -1.3;
-    g.scale.setScalar(M.scale);
+    if (M.inboard) return this.buildInboards();
+    const one = (x) => {
+      const g = new THREE.Group();
+      g.position.set(x, sheer(H, 0) - 0.02, zAt(H, 0) - 0.04);
+      // (An outboard that's up starts tilted out of the water.)
+      if (!H.motor) g.rotation.x = -1.3;
+      g.scale.setScalar(M.scale);
+      return g;
+    };
+    const g = (this.motorGroup = one(M.side || 0));
     if (M.jet) {
       // (A jet ski: no outboard, just its nozzle under the stern, turning to steer.)
       g.position.set(0, 0.12, zAt(H, 0) - 0.02);
@@ -631,6 +682,8 @@ export class Boat {
       g.add(nozzle);
       this.prop = new THREE.Group();
       g.add(this.prop);
+      this.props = [this.prop];
+      this.motorGroups = [g];
       this.tillerGrip = new THREE.Vector3(0, 0.3, 0.3);
       this.body.add(g);
       return;
@@ -642,27 +695,45 @@ export class Boat {
       { geo: new THREE.BoxGeometry(0.09, 0.95, 0.11), matrix: mat(0, -0.42, -0.14), color: '#3a3d42' },
       { geo: new THREE.CylinderGeometry(0.06, 0.05, 0.3, 8), matrix: mat(0, -0.86, -0.16, Math.PI / 2, 0, 0), color: '#3a3d42' },
       { geo: new THREE.BoxGeometry(0.02, 0.14, 0.12), matrix: mat(0, -0.95, -0.1), color: '#3a3d42' },
-      { geo: new THREE.CylinderGeometry(0.018, 0.022, 0.62, 6), matrix: mat(0.04, 0.17, 0.26, Math.PI / 2 - 0.12, 0, 0), color: '#2b2b2b' },
-      { geo: new THREE.CylinderGeometry(0.03, 0.03, 0.14, 8), matrix: mat(0.04, 0.2, 0.55, Math.PI / 2 - 0.12, 0, 0), color: '#c0392b' },
+      // (The tiller: none on a boat steered by a wheel.)
+      ...(H.console ? [] : [
+        { geo: new THREE.CylinderGeometry(0.018, 0.022, 0.62, 6), matrix: mat(0.04, 0.17, 0.26, Math.PI / 2 - 0.12, 0, 0), color: '#2b2b2b' },
+        { geo: new THREE.CylinderGeometry(0.03, 0.03, 0.14, 8), matrix: mat(0.04, 0.2, 0.55, Math.PI / 2 - 0.12, 0, 0), color: '#c0392b' },
+      ]),
     ];
-    const mesh = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.1 }));
-    mesh.castShadow = true;
-    g.add(mesh);
-    this.prop = new THREE.Group();
-    this.prop.position.set(0, -0.86, -0.33);
+    const geo = mergeParts(parts), shell = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.1 });
+    const bladeMat = new THREE.MeshStandardMaterial({ color: '#9aa1a8', metalness: 0.6, roughness: 0.35 });
     const blade = new THREE.BoxGeometry(0.03, 0.17, 0.012);
-    for (let i = 0; i < 3; i++) {
-      const b = new THREE.Mesh(blade, new THREE.MeshStandardMaterial({ color: '#9aa1a8', metalness: 0.6, roughness: 0.35 }));
-      b.position.y = 0.07;
-      const arm = new THREE.Group();
-      arm.rotation.z = (i / 3) * Math.PI * 2;
-      b.rotation.y = 0.5;
-      arm.add(b);
-      this.prop.add(arm);
-    }
-    g.add(this.prop);
+    const fit = (grp) => {
+      const mesh = new THREE.Mesh(geo, shell);
+      mesh.castShadow = true;
+      grp.add(mesh);
+      const prop = new THREE.Group();
+      prop.position.set(0, -0.86, -0.33);
+      for (let i = 0; i < 3; i++) {
+        const b = new THREE.Mesh(blade, bladeMat);
+        b.position.y = 0.07;
+        const arm = new THREE.Group();
+        arm.rotation.z = (i / 3) * Math.PI * 2;
+        b.rotation.y = 0.5;
+        arm.add(b);
+        prop.add(arm);
+      }
+      grp.add(prop);
+      this.body.add(grp);
+      return prop;
+    };
+    this.prop = fit(g);
     this.tillerGrip = new THREE.Vector3(0.04, 0.2, 0.55); // in the motor's own space
-    this.body.add(g);
+    this.motorGroups = [g];
+    this.props = [this.prop];
+    if (M.twin) {
+      // (A pair: one each side of the middle, counter-rotating.)
+      g.position.x = M.twin;
+      const g2 = one(-M.twin);
+      this.props.push(fit(g2));
+      this.motorGroups.push(g2);
+    }
     if (M.troll) {
       // The electric trolling motor, clamped to the bow: a shaft down into the water and a
       // little torpedo with a propeller.
@@ -686,6 +757,51 @@ export class Boat {
       t.add(this.trollProp);
       this.body.add(t);
     }
+  }
+
+  // The yacht's twin inboards, as you'd see them from the water: a shaft each side angling down
+  // and aft from the hull, a strut holding it, a four-bladed propeller, a rudder behind; two
+  // exhausts in the transom just above the waterline.
+  buildInboards() {
+    const H = this.hull, M = H.motor, zs = zAt(H, 0), steel = '#9aa1a8', bronze = '#b08d57';
+    const parts = [];
+    this.props = [];
+    this.rudders = [];
+    for (const sd of [1, -1]) {
+      const x = sd * M.twin;
+      parts.push(
+        strut(new THREE.Vector3(x, 0.05, zs + 2.4), new THREE.Vector3(x, -0.3, zs + 0.62), 0.035, 0.035, steel),
+        strut(new THREE.Vector3(x, 0.02, zs + 0.9), new THREE.Vector3(x, -0.26, zs + 0.86), 0.025, 0.02, '#3a3d42'),
+        { geo: new THREE.CylinderGeometry(0.08, 0.08, 0.04, 12), matrix: mat(x * 1.55, H.draft + 0.2, zs - 0.012, Math.PI / 2, 0, 0), color: '#1d1f22' },
+      );
+      const prop = new THREE.Group();
+      prop.position.set(x, -0.31, zs + 0.56);
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.035, 0.12, 8).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: bronze, metalness: 0.6, roughness: 0.35 }));
+      prop.add(hub);
+      for (let i = 0; i < 4; i++) {
+        const b = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.2, 0.012), new THREE.MeshStandardMaterial({ color: bronze, metalness: 0.6, roughness: 0.35 }));
+        b.position.y = 0.12;
+        b.rotation.y = sd * 0.5;
+        const arm = new THREE.Group();
+        arm.rotation.z = (i / 4) * Math.PI * 2;
+        arm.add(b);
+        prop.add(arm);
+      }
+      this.body.add(prop);
+      this.props.push(prop);
+      const rudder = new THREE.Group();
+      rudder.position.set(x, 0.02, zs + 0.3);
+      rudder.add(new THREE.Mesh(mergeParts([
+        { geo: new THREE.CylinderGeometry(0.02, 0.02, 0.12, 6), matrix: mat(0, 0.0, 0), color: steel },
+        { geo: new THREE.BoxGeometry(0.03, 0.46, 0.34), matrix: mat(0, -0.27, -0.14), color: '#3a3d42' },
+      ]), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.3 })));
+      this.body.add(rudder);
+      this.rudders.push(rudder);
+    }
+    const m = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.35 }));
+    m.castShadow = true;
+    this.body.add(m);
+    this.prop = this.props[0];
   }
 
   // The cabin boat's cuddy: a cabin over the forward half that follows the hull in, with windows
@@ -835,63 +951,165 @@ export class Boat {
     this.cabinMid = new THREE.Vector3(0, base, (zb + zf) / 2);
   }
 
-  // The cruiser's helm: a console in the cockpit with the wheel, a throttle and a compass under a
-  // little windscreen, and a helm seat behind it; stainless rails round the foredeck, grab rails
-  // and a mast with a white light on the wheelhouse roof.
-  buildHelm() {
-    const H = this.hull, y0 = H.floorY, z = this.seatZ, sy = this.seatY, cz = z + 0.72;
-    const parts = [
-      { geo: new THREE.CylinderGeometry(0.05, 0.08, sy - y0 - 0.05, 8), matrix: mat(0, (sy + y0) / 2 - 0.03, z), color: '#9aa0a6' },
-      { geo: new THREE.BoxGeometry(0.52, 0.1, 0.46), matrix: mat(0, sy - 0.03, z), color: '#e7e1d4' },
-      { geo: new THREE.BoxGeometry(0.52, 0.42, 0.08), matrix: mat(0, sy + 0.2, z - 0.23, -0.12, 0, 0), color: '#e7e1d4' },
-      { geo: new THREE.BoxGeometry(0.72, 0.95, 0.5), matrix: mat(0, y0 + 0.475, cz + 0.28), color: H.paint },
-      { geo: new THREE.BoxGeometry(0.68, 0.04, 0.4), matrix: mat(0, y0 + 0.98, cz + 0.24, -0.45, 0, 0), color: '#2b2e33' },
-      { geo: new THREE.SphereGeometry(0.07, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), matrix: mat(-0.2, y0 + 1.03, cz + 0.3), color: '#1d1f22' },
-      { geo: new THREE.BoxGeometry(0.74, 0.3, 0.02), matrix: mat(0, y0 + 1.18, cz + 0.5, -0.3, 0, 0), color: '#9fb4bf' },
-      { geo: new THREE.BoxGeometry(0.08, 0.1, 0.12), matrix: mat(0.3, y0 + 1.0, cz + 0.12), color: '#2b2e33' },
-      { geo: new THREE.CylinderGeometry(0.015, 0.015, 0.2, 5), matrix: mat(0.3, y0 + 1.12, cz + 0.12, 0.35, 0, 0), color: '#c9cdd0' },
-    ];
-    if (H.rails) {
-      // Posts up from the gunwale round the foredeck, a rail along their tops meeting at the bow.
-      const steel = '#c9cdd0';
-      for (const sd of [1, -1]) {
-        const pts = [];
-        for (const t of [0.42, 0.56, 0.7, 0.82, 0.92]) {
-          const x = sd * (hw(H, t) - 0.05), y = sheer(H, t), zz = zAt(H, t);
-          parts.push({ geo: new THREE.CylinderGeometry(0.018, 0.018, 0.62, 5), matrix: mat(x, y + 0.31, zz), color: steel });
-          pts.push(new THREE.Vector3(x, y + 0.62, zz));
-        }
-        pts.push(new THREE.Vector3(sd * 0.12, sheer(H, 0.99) + 0.62, zAt(H, 0.985)));
-        parts.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.02, 5), color: steel });
+  // Stainless rails round the bow: posts up from the gunwale at each t of ts, a rail along their
+  // tops either side meeting at the stem.
+  bowRails(parts, ts, h = 0.62) {
+    const H = this.hull, steel = '#c9cdd0';
+    for (const sd of [1, -1]) {
+      const pts = [];
+      for (const t of ts) {
+        const x = sd * (hw(H, t) - 0.05), y = sheer(H, t), zz = zAt(H, t);
+        parts.push({ geo: new THREE.CylinderGeometry(0.018, 0.018, h, 5), matrix: mat(x, y + h / 2, zz), color: steel });
+        pts.push(new THREE.Vector3(x, y + h, zz));
       }
-      parts.push({ geo: new THREE.CylinderGeometry(0.02, 0.02, 0.62, 5), matrix: mat(0, sheer(H, 0.995) + 0.31, zAt(H, 0.99)), color: steel });
+      pts.push(new THREE.Vector3(sd * 0.12, sheer(H, 0.99) + h, zAt(H, 0.985)));
+      parts.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.02, 5), color: steel });
     }
-    const mesh = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.15 }));
-    mesh.castShadow = true;
-    this.body.add(mesh);
-    // The wheel: its rim, three spokes and a hub, tilted towards you, turning with the helm.
+    parts.push({ geo: new THREE.CylinderGeometry(0.02, 0.02, h, 5), matrix: mat(0, sheer(H, 0.995) + h / 2, zAt(H, 0.99)), color: steel });
+  }
+
+  // A big-game rod standing in a holder: the butt at a, leaning along dir, a gold reel near its foot.
+  rackRod(parts, a, dir, len = 1.85) {
+    const d = dir.clone().normalize();
+    parts.push(
+      strut(a.clone().addScaledVector(d, -0.18), a.clone().addScaledVector(d, 0.06), 0.032, 0.032, '#c9cdd0'),
+      strut(a, a.clone().addScaledVector(d, len), 0.017, 0.006, '#1d2125'),
+      strut(a.clone().addScaledVector(d, 0.2), a.clone().addScaledVector(d, 0.3), 0.055, 0.055, '#c9a34a'),
+    );
+  }
+
+  // The wheel: its rim, three spokes and a hub, tilted towards you, turning with the helm.
+  buildWheel(x, y, z, tilt = -0.55) {
     const w = (this.wheel = new THREE.Group());
-    w.position.set(0, y0 + 1.06, cz + 0.02);
-    w.rotation.x = -0.55;
+    w.position.set(x, y, z);
+    w.rotation.x = tilt;
     w.add(new THREE.Mesh(mergeParts([
       { geo: new THREE.TorusGeometry(0.19, 0.018, 6, 20), color: '#2b2e33' },
       { geo: new THREE.CylinderGeometry(0.035, 0.035, 0.08, 8), matrix: mat(0, 0, 0.02, Math.PI / 2, 0, 0), color: '#c9cdd0' },
       ...[0, 1, 2].map((k) => ({ geo: new THREE.BoxGeometry(0.018, 0.17, 0.012), matrix: mat(Math.sin((k / 3) * Math.PI * 2) * 0.09, Math.cos((k / 3) * Math.PI * 2) * 0.09, 0, 0, 0, -(k / 3) * Math.PI * 2), color: '#c9cdd0' })),
     ]), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3 })));
     this.body.add(w);
+  }
+
+  // The yacht, aft of her cabin: the helm to starboard (a console with the wheel, a throttle for
+  // each engine, a compass and a windscreen) under a hardtop carried on from the cabin roof, a
+  // rack of rods along its back edge and an outrigger either side; the open cockpit with the
+  // fighting chair (facing aft), rods in the gunwale holders, a fish box in the sole and a tuna
+  // door in the transom; rails round the foredeck; on the cabin roof, grab rails and a mast with
+  // a white light.
+  buildSportfish() {
+    const H = this.hull, y0 = H.floorY, [hx, hz] = H.standing.helm, cz = hz + 0.72;
+    const steel = '#c9cdd0', white = '#f3f1ea', V = (x, y, z) => new THREE.Vector3(x, y, z);
+    const parts = [
+      { geo: new THREE.BoxGeometry(0.78, 1.0, 0.5), matrix: mat(hx, y0 + 0.5, cz), color: H.paint },
+      { geo: new THREE.BoxGeometry(0.74, 0.04, 0.36), matrix: mat(hx, y0 + 0.98, cz - 0.17, -0.45, 0, 0), color: '#2b2e33' },
+      { geo: new THREE.SphereGeometry(0.07, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), matrix: mat(hx - 0.2, y0 + 1.03, cz - 0.12), color: '#1d1f22' },
+      { geo: new THREE.BoxGeometry(0.8, 0.32, 0.02), matrix: mat(hx, y0 + 1.18, cz + 0.2, -0.3, 0, 0), color: '#9fb4bf' },
+      { geo: new THREE.BoxGeometry(0.12, 0.1, 0.12), matrix: mat(hx + 0.28, y0 + 1.0, cz - 0.1), color: '#2b2e33' },
+      ...[-0.03, 0.03].map((dx) => ({ geo: new THREE.CylinderGeometry(0.013, 0.013, 0.2, 5), matrix: mat(hx + 0.28 + dx, y0 + 1.12, cz - 0.1, 0.35, 0, 0), color: steel })),
+    ];
+    this.buildWheel(hx, y0 + 1.06, hz + 0.42);
+    // The hardtop, on from the cabin roof over the helm, on two posts aft; the rods racked along
+    // its back edge; the outriggers.
+    const ry = this.cabinRoofY + 0.02, zf = zAt(H, H.cabin[0]), za = hz - 0.32, wide = 1.3;
+    parts.push({ geo: new THREE.BoxGeometry(wide * 2, 0.08, zf - za), matrix: mat(0, ry + 0.04, (zf + za) / 2), color: '#e9e5dc', jitter: 0.02 });
+    for (const sd of [1, -1]) {
+      parts.push(strut(V(sd * (wide - 0.08), y0, za + 0.08), V(sd * (wide - 0.08), ry, za + 0.08), 0.032, 0.032, steel));
+      parts.push(strut(V(sd * (wide - 0.05), ry + 0.08, zf - 0.6), V(sd * 3.3, ry + 4.3, za - 1.6), 0.03, 0.012, steel));
+      parts.push(strut(V(sd * (wide - 0.05), ry + 0.02, zf - 0.75), V(sd * (wide - 0.05), ry + 0.22, zf - 0.6), 0.045, 0.04, '#3a3d42'));
+    }
+    for (const x of [-0.8, -0.4, 0, 0.4, 0.8]) this.rackRod(parts, V(x, ry + 0.12, za + 0.05), V(0, 1, -0.38));
+    // The cockpit: rods in the gunwale holders, leaning out and aft.
+    for (const t of [0.09, 0.19]) for (const sd of [1, -1]) this.rackRod(parts, V(sd * (hw(H, t) - 0.12), sheer(H, t) + 0.02, zAt(H, t)), V(sd * 0.35, 1, -0.55), 1.75);
+    // The fighting chair, facing aft: its pedestal, the seat and back, arms, the footrest and the
+    // gimbal at the front of the seat a rod's butt fits into.
+    const fz = -3.0;
+    parts.push(
+      { geo: new THREE.CylinderGeometry(0.22, 0.24, 0.04, 14), matrix: mat(0, y0 + 0.02, fz), color: steel },
+      { geo: new THREE.CylinderGeometry(0.09, 0.11, 0.4, 10), matrix: mat(0, y0 + 0.22, fz), color: steel },
+      { geo: new THREE.BoxGeometry(0.58, 0.11, 0.5), matrix: mat(0, y0 + 0.47, fz), color: white },
+      { geo: new THREE.BoxGeometry(0.58, 0.62, 0.09), matrix: mat(0, y0 + 0.8, fz + 0.26, 0.15, 0, 0), color: white },
+      { geo: new THREE.BoxGeometry(0.62, 0.05, 0.1), matrix: mat(0, y0 + 1.12, fz + 0.31, 0.15, 0, 0), color: '#a8784a' },
+      ...[1, -1].map((sd) => ({ geo: new THREE.BoxGeometry(0.07, 0.07, 0.44), matrix: mat(sd * 0.31, y0 + 0.66, fz + 0.02), color: '#a8784a' })),
+      ...[1, -1].map((sd) => strut(V(sd * 0.12, y0 + 0.4, fz - 0.05), V(sd * 0.26, y0 + 0.22, fz - 0.66), 0.02, 0.02, steel)),
+      { geo: new THREE.BoxGeometry(0.62, 0.05, 0.1), matrix: mat(0, y0 + 0.22, fz - 0.68), color: steel },
+      { geo: new THREE.CylinderGeometry(0.045, 0.04, 0.16, 8), matrix: mat(0, y0 + 0.5, fz - 0.27), color: steel },
+      // The fish box in the sole, and the tuna door in the transom (outside and in), port side.
+      { geo: new THREE.BoxGeometry(1.1, 0.02, 0.6), matrix: mat(0, y0 + 0.006, -4.0), color: '#8e6640' },
+      { geo: new THREE.BoxGeometry(0.2, 0.025, 0.04), matrix: mat(0, y0 + 0.02, -3.74), color: steel },
+    );
+    const zs = zAt(H, 0), dy = (y0 + sheer(H, 0)) / 2 + 0.02;
+    for (const [z, k] of [[zs - 0.016, 1], [zs + 0.016, -1]]) {
+      parts.push(
+        { geo: new THREE.BoxGeometry(0.64, 0.66, 0.02), matrix: mat(0.55, dy, z), color: '#3a3d42' },
+        { geo: new THREE.BoxGeometry(0.58, 0.6, 0.02), matrix: mat(0.55, dy, z - k * 0.006), color: H.paint },
+        { geo: new THREE.BoxGeometry(0.05, 0.12, 0.03), matrix: mat(0.32, dy, z - k * 0.016), color: steel },
+      );
+    }
+    this.bowRails(parts, H.rails);
+    const mesh = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.15 }));
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    this.body.add(mesh);
     if (this.cabinRoof) {
       // On the roof (so it lifts away with it when you look down inside).
-      const [t0, t1] = H.cabin, ry = this.cabinRoofY + 0.07, zm = zAt(H, t0 + (t1 - t0) * 0.2);
+      const [t0, t1] = H.cabin, ry2 = this.cabinRoofY + 0.07, zm = zAt(H, t0 + (t1 - t0) * 0.35);
       const roofParts = [
-        ...[1, -1].map((sd) => ({ geo: new THREE.BoxGeometry(0.04, 0.06, H.L * (t1 - t0) * 0.6), matrix: mat(sd * hw(H, (t0 + t1) / 2) * 0.55, ry + 0.06, zAt(H, (t0 + t1) / 2)), color: '#c9cdd0' })),
-        { geo: new THREE.CylinderGeometry(0.035, 0.045, 1.3, 6), matrix: mat(0, ry + 0.65, zm), color: '#d8d4ca' },
-        { geo: new THREE.BoxGeometry(0.5, 0.03, 0.03), matrix: mat(0, ry + 1.0, zm), color: '#d8d4ca' },
+        ...[1, -1].map((sd) => ({ geo: new THREE.BoxGeometry(0.04, 0.06, H.L * (t1 - t0) * 0.5), matrix: mat(sd * hw(H, (t0 + t1) / 2) * 0.55, ry2 + 0.06, zAt(H, t0 + (t1 - t0) * 0.6)), color: steel })),
+        { geo: new THREE.CylinderGeometry(0.035, 0.045, 1.3, 6), matrix: mat(0, ry2 + 0.65, zm), color: '#d8d4ca' },
+        { geo: new THREE.BoxGeometry(0.5, 0.03, 0.03), matrix: mat(0, ry2 + 1.0, zm), color: '#d8d4ca' },
       ];
       this.cabinRoof.add(new THREE.Mesh(mergeParts(roofParts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.2 })));
       this.mastLight = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({ color: '#fff3d6' }));
-      this.mastLight.position.set(0, ry + 1.34, zm);
+      this.mastLight.position.set(0, ry2 + 1.34, zm);
       this.cabinRoof.add(this.mastLight);
     }
+  }
+
+  // The centre console: the console amidships (the wheel, a throttle for each motor, a screen and a
+  // compass behind a windscreen, a cushioned seat on its front); a T-top over it on four legs, two
+  // from the console and two from the leaning post, with rods racked along its back edge; the
+  // leaning post behind the wheel with a cooler under it; rods in the gunwale holders, a live well
+  // in the deck aft; rails round the bow.
+  buildConsole() {
+    const H = this.hull, y0 = H.floorY, [hx, hz] = H.standing.helm, cz = hz + 0.75;
+    const steel = '#c9cdd0', V = (x, y, z) => new THREE.Vector3(x, y, z);
+    const pz = hz - 0.42, ty = y0 + 2.15;
+    const parts = [
+      { geo: new THREE.BoxGeometry(0.8, 1.0, 0.66), matrix: mat(hx, y0 + 0.5, cz), color: H.paint },
+      { geo: new THREE.BoxGeometry(0.76, 0.04, 0.3), matrix: mat(hx, y0 + 0.98, cz - 0.22, -0.5, 0, 0), color: '#2b2e33' },
+      { geo: new THREE.BoxGeometry(0.3, 0.2, 0.03), matrix: mat(hx + 0.16, y0 + 1.1, cz - 0.16, -0.4, 0, 0), color: '#111316' },
+      { geo: new THREE.SphereGeometry(0.06, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), matrix: mat(hx - 0.12, y0 + 1.03, cz - 0.12), color: '#1d1f22' },
+      { geo: new THREE.BoxGeometry(0.86, 0.36, 0.02), matrix: mat(hx, y0 + 1.2, cz - 0.02, -0.35, 0, 0), color: '#9fb4bf' },
+      { geo: new THREE.BoxGeometry(0.1, 0.09, 0.1), matrix: mat(hx - 0.3, y0 + 1.0, cz - 0.26), color: '#2b2e33' },
+      ...[-0.025, 0.025].map((dx) => ({ geo: new THREE.CylinderGeometry(0.012, 0.012, 0.18, 5), matrix: mat(hx - 0.3 + dx, y0 + 1.1, cz - 0.26, 0.35, 0, 0), color: steel })),
+      // The seat on the console's front, and the stripe round it.
+      { geo: new THREE.BoxGeometry(0.72, 0.12, 0.4), matrix: mat(hx, y0 + 0.45, cz + 0.53), color: '#1f3b56' },
+      { geo: new THREE.BoxGeometry(0.72, 0.4, 0.07), matrix: mat(hx, y0 + 0.76, cz + 0.36), color: '#1f3b56' },
+      { geo: new THREE.BoxGeometry(0.81, 0.06, 0.67), matrix: mat(hx, y0 + 0.82, cz), color: H.stripe },
+      // The leaning post: a cooler to sit on, a bolster to lean against, the frame between.
+      { geo: new THREE.BoxGeometry(0.72, 0.45, 0.5), matrix: mat(hx, y0 + 0.225, pz), color: '#e6e2d8' },
+      { geo: new THREE.BoxGeometry(0.72, 0.03, 0.5), matrix: mat(hx, y0 + 0.46, pz), color: H.stripe },
+      { geo: new THREE.BoxGeometry(0.72, 0.18, 0.2), matrix: mat(hx, y0 + 0.92, pz + 0.08), color: '#1f3b56' },
+      ...[1, -1].map((sd) => strut(V(hx + sd * 0.34, y0 + 0.46, pz), V(hx + sd * 0.34, y0 + 0.92, pz + 0.04), 0.02, 0.02, steel)),
+      // The T-top.
+      { geo: new THREE.BoxGeometry(1.5, 0.06, 1.75), matrix: mat(hx, ty, hz + 0.2), color: '#f2f0ea', jitter: 0.02 },
+      { geo: new THREE.BoxGeometry(1.46, 0.02, 1.7), matrix: mat(hx, ty - 0.04, hz + 0.2), color: H.stripe, jitter: 0.02 },
+      ...[1, -1].flatMap((sd) => [
+        strut(V(hx + sd * 0.36, y0 + 1.0, cz + 0.15), V(hx + sd * 0.55, ty - 0.03, cz + 0.12), 0.025, 0.025, steel),
+        strut(V(hx + sd * 0.34, y0 + 0.92, pz), V(hx + sd * 0.55, ty - 0.03, pz - 0.05), 0.025, 0.025, steel),
+      ]),
+      // The live well hatch in the deck aft.
+      { geo: new THREE.BoxGeometry(0.8, 0.02, 0.45), matrix: mat(0, y0 + 0.006, zAt(H, 0.08)), color: '#c9c5ba' },
+    ];
+    for (const x of [-0.6, -0.2, 0.2, 0.6]) this.rackRod(parts, V(hx + x, ty + 0.05, hz + 0.2 - 0.85), V(0, 1, -0.38));
+    for (const t of [0.1, 0.24]) for (const sd of [1, -1]) this.rackRod(parts, V(sd * (hw(H, t) - 0.1), sheer(H, t) + 0.02, zAt(H, t)), V(sd * 0.35, 1, -0.55), 1.75);
+    this.bowRails(parts, H.rails, 0.55);
+    const mesh = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.12 }));
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    this.body.add(mesh);
+    this.buildWheel(hx, y0 + 1.03, hz + 0.36, -0.6);
   }
 
   // The windsurf board's rig: a mast stepped in the board, a wishbone boom round the sail, and the
@@ -1388,10 +1606,11 @@ export class Boat {
     }
     this.setRod('float');
 
-    // Stowed rod lying along the starboard side.
+    // Stowed rod lying along the starboard side. (The yacht and the centre console have theirs
+    // standing in the rod holders.)
     this.rodStowed = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.024, 2.4, 5), new THREE.MeshLambertMaterial({ color: '#8a5a34' }));
     this.rodStowed.rotation.set(Math.PI / 2 - 0.06, 0, 0);
-    this.rodStowed.position.set(...this.hull.stow);
+    if (this.hull.stow) this.rodStowed.position.set(...this.hull.stow);
     this.body.add(this.rodStowed);
   }
 
@@ -1411,16 +1630,30 @@ export class Boat {
     if (!on) this.rod.visible = false;
   }
 
+  // A point in the boat's own space a little way from you (across, up, ahead): ahead is the way
+  // you face, standing.
+  fromYou(out, across, up, ahead) {
+    const S = this.standAt;
+    if (!S) return out.set(across, this.seatY + up, this.seatZ + ahead);
+    const c = Math.cos(S.yaw), s = Math.sin(S.yaw);
+    return out.set(S.x + across * c + ahead * s, this.seatY + up, S.z - across * s + ahead * c);
+  }
+
+  // The way you face (standing, you turn to face your line).
+  get facing() {
+    return this.heading + (this.standAt ? this.standAt.yaw : 0);
+  }
+
   // Where a landed fish is held up for a look.
   holdPoint(out) {
     if (this.viewHold) return out.copy(this.viewHold);
-    return this.body.localToWorld(out.set(-0.15, this.seatY + 0.98, 1.05 + this.seatZ));
+    return this.body.localToWorld(this.fromYou(out, -0.15, 0.98, 1.05));
   }
 
-  // Your eyes in first person: where you sit, rising and rolling with the boat (level: only
-  // rising and falling with it, for a steady horizon).
+  // Your eyes in first person: where you sit (or stand), rising and rolling with the boat (level:
+  // only rising and falling with it, for a steady horizon).
   eyePoint(out, level = false) {
-    return (level ? this.group : this.body).localToWorld(out.set(0, this.seatY + 0.81, this.seatZ + 0.1));
+    return (level ? this.group : this.body).localToWorld(this.fromYou(out, 0, 0.81, 0.1));
   }
 
   // In first person the figure draws nothing on screen, but still casts its shadow.
@@ -1433,8 +1666,12 @@ export class Boat {
     }
   }
 
-  // Where a released fish goes back in: just off the side.
+  // Where a released fish goes back in: just off the side (standing, over the rail you're facing).
   releasePoint(out) {
+    if (this.standAt) {
+      this.body.localToWorld(this.fromYou(out, 0, 0, 2.2));
+      return out.setY(0);
+    }
     return out.set(this.pos.x + this.right.x * 2.2 + this.fwd.x, 0, this.pos.z + this.right.z * 2.2 + this.fwd.z);
   }
 
@@ -1528,8 +1765,10 @@ export class Boat {
       // The tiller turns the boat even when slow, more so with the propeller pushing (the
       // trolling motor steers the bow round on the spot; the kayak's rudder needs way on).
       // (A jet steers by turning its jet: off the throttle it hardly turns at all.)
+      // (Twin screws bring a big boat round handily when she's slow: one ahead, one astern.)
       const jet = M?.jet ? 0.15 + 0.85 * clamp(Math.abs(pw) * 2.5, 0, 1) : 1;
-      const turnRate = (troll ? 0.9 : E ? 0.5 + 0.6 * clamp(Math.abs(vf) / 1.2, 0, 1) : 0.45 + 0.75 * clamp(Math.abs(vf) / 4, 0, 1) + 0.35 * Math.abs(pw)) * (H.helm ?? 1) * jet;
+      const twin = M?.twin && !dead ? 0.45 * (1 - clamp(Math.abs(vf) / 3, 0, 1)) : 0;
+      const turnRate = (troll ? 0.9 : E ? 0.5 + 0.6 * clamp(Math.abs(vf) / 1.2, 0, 1) : 0.45 + 0.75 * clamp(Math.abs(vf) / 4, 0, 1) + 0.35 * Math.abs(pw) + twin) * (H.helm ?? 1) * jet;
       this.omega = damp(this.omega, steer * turnRate * (vf < -0.3 ? -1 : 1), 2.6, dt);
     } else if (H.rig) {
       // The windsurf board: the same sail (sailing.js) on a small rig and a light board. Fast
@@ -1859,6 +2098,38 @@ export class Boat {
     }
   }
 
+  // Standing (the yacht, the centre console): at the wheel; or, with a line out, at the rail you
+  // fish from (the cockpit aft, or the console's bow if that's the way you face as you cast),
+  // turned to face the way the rod points, off the stern as readily as the side; round the
+  // console or the fighting chair on the way between the two, not through it.
+  standUp(fishing) {
+    const S = this.hull.standing, u = smoothstep(0, 1, fishing), rod = wrapAngle(this.pose.rodYaw), yaw = rod * u;
+    if (fishing < 0.02) this.spot = null;
+    else if (!this.spot) this.spot = S.bow && Math.abs(rod) < 1.2 ? S.bow : S.aft;
+    const F = this.spot || S.aft, c = Math.cos(yaw), sn = Math.sin(yaw);
+    const fx = F[0] + sn * F[2], fz = F[1] + (F === S.bow ? Math.max(0, c) : Math.min(0, c)) * F[3];
+    const side = S.side ?? (Math.sign(sn) || 1);
+    const A = (this.standAt ||= { x: 0, z: 0, yaw: 0 });
+    A.x = lerp(S.helm[0], fx, u) + Math.sin(Math.PI * u) * S.round * side;
+    A.z = lerp(S.helm[1], fz, u);
+    A.yaw = yaw;
+    const T = this.torso;
+    T.rotation.order = 'YXZ';
+    T.position.set(A.x, this.seatY, A.z);
+    T.rotation.y = yaw;
+    // Feet a little apart under the hips, knees soft.
+    const down = this.hull.floorY + 0.04 - this.seatY;
+    for (const L of this.legs) {
+      this.fromYou(_a, L.s * 0.1, -0.02, 0.02);
+      this.fromYou(_b, L.s * 0.12, down / 2 + 0.02, 0.09);
+      this.fromYou(_e, L.s * 0.14, down, 0.02);
+      setLimb(L.thigh, _a, _b, 0.07);
+      setLimb(L.shin, _b, _e, 0.06);
+      L.boot.position.set(_e.x + sn * 0.05, _e.y - 0.02, _e.z + c * 0.05);
+      L.boot.rotation.set(0, yaw, 0);
+    }
+  }
+
   animate(dt, t, throttle, steer, lanternLevel) {
     const fishing = this.pose.fishing;
     const rowW = 1 - fishing;
@@ -1917,10 +2188,16 @@ export class Boat {
     // The outboard: propeller spinning, the leg turning with the tiller. (The sailing boat's,
     // when it's up, tilts right out of the water on its bracket.)
     if (this.wheel && !this.hull.bars) this.wheel.rotation.z = damp(this.wheel.rotation.z, -this.omega * 2.2, 6, dt);
-    if (this.motor) {
-      this.prop.rotation.z = this.propSpin;
-      this.motorGroup.rotation.y = damp(this.motorGroup.rotation.y, -this.omega * 0.35, 6, dt);
-      this.motorGroup.rotation.x = damp(this.motorGroup.rotation.x, this.tilted ? -0.5 : 0, 3, dt);
+    if (this.rudders) {
+      // (The yacht's inboards: the propellers turning opposite ways, the rudders with the helm.)
+      this.props.forEach((p, i) => (p.rotation.z = i ? -this.propSpin : this.propSpin));
+      for (const r of this.rudders) r.rotation.y = damp(r.rotation.y, -steer * 0.5, 6, dt);
+    } else if (this.motor) {
+      this.props.forEach((p, i) => (p.rotation.z = i ? -this.propSpin : this.propSpin));
+      for (const g of this.motorGroups) {
+        g.rotation.y = damp(g.rotation.y, -this.omega * 0.35, 6, dt);
+        g.rotation.x = damp(g.rotation.x, this.tilted ? -0.5 : 0, 3, dt);
+      }
     } else if (this.motorGroup) {
       this.motorGroup.rotation.y = damp(this.motorGroup.rotation.y, 0, 4, dt);
       this.motorGroup.rotation.x = damp(this.motorGroup.rotation.x, -1.3, 3, dt);
@@ -1985,15 +2262,17 @@ export class Boat {
       this.torso.rotation.z = clamp(-this.omega * 0.3, -0.3, 0.3);
       this.wheel.rotation.y = damp(this.wheel.rotation.y, clamp(this.omega * 0.45, -0.5, 0.5), 8, dt);
     }
-    const look = fishing ? this.pose.rodYaw * 0.45 : Math.sin(t * 0.21) * 0.35 * (1 - blendRow);
+    if (this.hull.standing) this.standUp(fishing);
+    const look = fishing ? (this.standAt ? 0 : this.pose.rodYaw * 0.45) : Math.sin(t * 0.21) * 0.35 * (1 - blendRow);
     this.head.rotation.y = damp(this.head.rotation.y, look, 2, dt);
     this.head.rotation.x = fishing ? 0.15 : 0;
 
     // Rod
     this.rod.visible = this.occupied && fishing > 0.02;
-    this.rodStowed.visible = !this.rod.visible && !this.hull.noFish;
-    this.rod.position.copy(this.active.hold);
-    this.rod.rotation.y = this.pose.rodYaw;
+    this.rodStowed.visible = !this.rod.visible && !this.hull.noFish && !!this.hull.stow;
+    if (this.standAt) this.fromYou(this.rod.position, 0.05, 0.33, 0.34);
+    else this.rod.position.copy(this.active.hold);
+    this.rod.rotation.y = this.standAt ? this.standAt.yaw : this.pose.rodYaw;
     this.rod.rotation.x = this.pose.rodPitch;
     bendRod(this.active, this.pose.bend, this.pose.bendTo);
 
