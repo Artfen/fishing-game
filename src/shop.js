@@ -1,10 +1,12 @@
-import { PACK } from './tackle.js';
+import { fishById, weightOf } from './fish.js';
 
 // The chandlery's counter (Old Bert Hale behind it): the tackle itself stays free, as ever, and
 // the counter sells the few things that make a trip go better, and mends what wears out.
 //
-//  · Creels: the one you start with holds four fish; a bigger one six; a cool-lined wicker one
-//    eight, and fish in it keep fresh twice as long.
+//  · Creels hold fish by weight, not by number: the one you start with takes 15 kg (thirty-odd
+//    mackerel, or a few good bass); a bigger one 25 kg; a cool-lined wicker one 40 kg, and fish in
+//    it keep fresh twice as long. One big fish always goes in an empty creel, however heavy (a
+//    yellowfin tuna fills it on its own), but then there's no room for anything else.
 //  · Ice: a bag in the creel keeps every fish in it fresh for the next day (the clock on their
 //    freshness stops while they're on ice).
 //  · Fresh bait, dug and gathered this morning: lively and smelly, so fish find a natural bait
@@ -15,11 +17,12 @@ import { PACK } from './tackle.js';
 // state.shop: { creel (index into CREELS), iceUntil (game hours), baitDay, wear: { rod id: 0 … 1 } }.
 
 export const CREELS = [
-  { id: 'creel', name: 'Your old creel', fish: PACK.fish, price: 0 },
-  { id: 'bigger', name: 'A bigger creel', fish: 6, price: 30, note: 'Canvas and leather, room for six fish.' },
-  { id: 'wicker', name: 'A cool-lined wicker creel', fish: 8, price: 80, cool: true, note: 'Room for eight, and a lining that keeps them cool: fish in it stay fresh twice as long.' },
+  { id: 'creel', name: 'Your old creel', kg: 15, price: 0 },
+  { id: 'bigger', name: 'A bigger creel', kg: 25, price: 30, note: 'Canvas and leather: 25 kg of fish.' },
+  { id: 'wicker', name: 'A cool-lined wicker creel', kg: 40, price: 80, cool: true, note: '40 kg of fish, and a lining that keeps them cool: they stay fresh twice as long.' },
 ];
-export const CREEL_MAX = Math.max(...CREELS.map((c) => c.fish));
+// (However light they are, no more than this many fish at once: a limit you'd hardly meet.)
+export const CREEL_MAX = 80;
 export const ICE = { price: 2, hours: 24 };
 export const BAIT = { price: 3, boost: 1.3 };
 export const WEAR_MAX_LOSS = 0.2; // a line worn right through is a fifth weaker
@@ -41,7 +44,38 @@ export function cleanShop(raw, rodIds) {
 
 const shopOf = (state) => state.shop || newShop();
 export const creelOf = (state) => CREELS[shopOf(state).creel] || CREELS[0];
-export const creelSize = (state) => creelOf(state).fish;
+export const creelKg = (state) => creelOf(state).kg;
+// What a fish in the creel weighs (cooked, the same near enough).
+export const keptKg = (f) => (fishById[f.id] ? weightOf(fishById[f.id], f.size) : 0);
+export const creelLoad = (state) => (state.keep || []).reduce((s, f) => s + keptKg(f), 0);
+// Room for a fish of this weight? (An empty creel always takes one, however big.)
+export function creelFits(state, kg) {
+  const keep = state.keep || [];
+  if (keep.length >= CREEL_MAX) return false;
+  return !keep.length || creelLoad(state) + kg <= creelKg(state) + 1e-6;
+}
+export const kgWords = (kg) => (kg < 1 ? `${Math.round(kg * 100) / 100} kg` : `${kg.toFixed(kg < 10 ? 1 : 0)} kg`);
+export const creelWords = (state) => `${kgWords(creelLoad(state))} of ${creelKg(state)} kg`;
+// The creel's fish, kind by kind (thirty mackerel are one line, not thirty): [{ id, cooked, n,
+// first (the index of the biggest, the one an action takes), idx (all their indices), min, max (cm),
+// kg }].
+export function creelGroups(keep) {
+  const by = new Map();
+  keep.forEach((f, i) => {
+    const key = `${f.id}${f.cooked ? ':c' : ''}`;
+    let g = by.get(key);
+    if (!g) by.set(key, (g = { id: f.id, cooked: !!f.cooked, n: 0, first: i, idx: [], min: f.size, max: f.size, kg: 0 }));
+    g.n++;
+    g.idx.push(i);
+    if (f.size > keep[g.first].size) g.first = i;
+    g.min = Math.min(g.min, f.size);
+    g.max = Math.max(g.max, f.size);
+    g.kg += keptKg(f);
+  });
+  return [...by.values()];
+}
+// "Atlantic Mackerel ×12, 24–33 cm" or "Sea bass, 52 cm".
+export const groupWords = (name, g) => `${name}${g.n > 1 ? ` ×${g.n}` : ''}, ${g.min === g.max ? g.min : `${g.min}–${g.max}`} cm`;
 export const freshBaitToday = (state) => shopOf(state).baitDay === state.day;
 export const onIce = (state, now) => shopOf(state).iceUntil > now;
 

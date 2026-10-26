@@ -3,7 +3,7 @@ import {
   castRange, castWeight, checkSetup, currentRig, fits, lineOf, termOf, lineInUse,
 } from './tackle.js';
 import { FISH, fishById } from './fish.js';
-import { creelSize } from './shop.js';
+import { creelKg, creelLoad, creelWords } from './shop.js';
 import { studio, refKey } from './gearView.js';
 import { reelOf } from './gearArt.js';
 import { CAR_HOLD, moveToCar, packSetup as packInto } from './outing.js';
@@ -1156,11 +1156,12 @@ export class PackUI {
       ? `By the ${this.boxName}: swap rods and tackle, pack a setup, or save your own.`
       : 'What you carry. Line, rig and what’s tied on change anywhere; rods and tackle swap at a camp or a boat’s locker.';
     const keep = this.state.keep || [];
-    const caps = [['Rods', g.pack.rods.length, PACK.rods], ['Tackle', g.pack.items.length, PACK.items], ['Creel', keep.length, creelSize(this.state)]];
-    $('pack-caps').replaceChildren(...caps.map(([k, n, m]) => {
+    const load = Math.round(creelLoad(this.state) * 10) / 10;
+    const caps = [['Rods', g.pack.rods.length, PACK.rods], ['Tackle', g.pack.items.length, PACK.items], ['Creel', load, creelKg(this.state), ' kg']];
+    $('pack-caps').replaceChildren(...caps.map(([k, n, m, unit = '']) => {
       const li = el('li', n >= m ? 'full' : '');
-      li.append(el('span', '', k), el('b', '', `${n}/${m}`));
-      li.setAttribute('aria-label', `${k}: ${n} of ${m}`);
+      li.append(el('span', '', k), el('b', '', `${n}/${m}${unit}`));
+      li.setAttribute('aria-label', `${k}: ${n} of ${m}${unit}`);
       return li;
     }));
   }
@@ -1182,7 +1183,7 @@ export class PackUI {
     $('pack-fish').replaceChildren(...(keep.length
       ? keep.map((f) => el('span', 'gx-fish', `${fishById[f.id]?.name || f.id} · ${f.size} cm${f.cooked ? ' · cooked' : ''}`))
       : [el('span', 'gx-note', 'Empty. Keep a fish from the catch card to cook it at camp.')]));
-    $('pack-fish-count').textContent = `${keep.length} of ${creelSize(this.state)}`;
+    $('pack-fish-count').textContent = `${keep.length} fish · ${creelWords(this.state)}`;
   }
 
   render() {

@@ -2,7 +2,7 @@ import { fishById } from './fish.js';
 import { formatClock } from './world/sky.js';
 import { MARKET_HOURS, ORDERS_BY, demandFor, fishValue, ordersFor, fills, money } from './market.js';
 import { nextStory, adviceFor, rumoursNow, lower, an } from './innTalk.js';
-import { CREELS, ICE, BAIT, creelOf, newShop, onIce, freshBaitToday, wearOf, wearWords, respoolPrice } from './shop.js';
+import { CREELS, ICE, BAIT, creelOf, newShop, onIce, freshBaitToday, wearOf, wearWords, respoolPrice, creelGroups, groupWords, creelWords, kgWords } from './shop.js';
 
 // The harbour's sheet: the fish market on Willowhaven quay (Mags Pennock at her slab), The Lobster
 // Pot (Ruth Alder behind the bar, and her kitchen), Bar El Muelle at Puerto Brasa (Paco: his bar,
@@ -131,32 +131,33 @@ export class HarbourSheet {
     slate.append(el('p', '', `Wanted: ${names(D.wanted)} (half as much again)`));
     slate.append(el('p', '', `Plenty of: ${names(D.plenty)} (a bit less)`));
     out.push(slate);
-    out.push(el('h3', '', `Your creel (${this.state.keep.length})`));
+    out.push(el('h3', '', `Your creel (${this.state.keep.length} fish, ${creelWords(this.state)})`));
     const orders = ordersFor(day, place).filter((o) => !this.harbour.filled.includes(o.key));
     let any = 0, total = 0;
-    const sellable = [];
-    this.state.keep.forEach((f, i) => {
-      const sp = fishById[f.id];
+    // (Kind by kind: thirty mackerel are one line, sold together.)
+    for (const g of creelGroups(this.state.keep)) {
+      const sp = fishById[g.id];
       const row = el('div', 'cp-row');
-      const v = fishValue(f, { day, now, place });
-      if (f.cooked) {
-        row.append(el('p', '', `${sp.meal.name}, ${f.size} cm`), el('span', 'cp-soft', 'cooked: for eating, not for the slab'));
+      const vs = g.idx.map((i) => fishValue(this.state.keep[i], { day, now, place }));
+      const v = vs[0];
+      if (g.cooked) {
+        row.append(el('p', '', groupWords(sp.meal.name, g)), el('span', 'cp-soft', 'cooked: for eating, not for the slab'));
       } else if (!v.wanted) {
-        row.append(el('p', '', `${sp.name}, ${f.size} cm`), el('span', 'cp-soft', place === 'haven' ? 'nobody here buys it' : 'Paco doesn’t take it'));
+        row.append(el('p', '', groupWords(sp.name, g)), el('span', 'cp-soft', place === 'haven' ? 'nobody here buys it' : 'Paco doesn’t take it'));
       } else {
-        const tags = [`${v.kg.toFixed(v.kg < 1 ? 2 : 1)} kg`, OLD(v.fresh), v.demand === 'wanted' ? 'wanted today' : v.demand === 'plenty' ? 'plenty about' : ''].filter(Boolean).join(' · ');
-        row.append(el('p', '', `${sp.name}, ${f.size} cm`), el('span', 'cp-soft', tags));
-        const order = orders.find((o) => o.id === f.id && f.size >= o.min);
-        if (order) row.append(el('span', 'cp-soft hb-hint', `${place === 'haven' ? 'Ruth at The Lobster Pot' : 'Paco’s kitchen'} wants this one: ${money(order.reward)}`));
-        const b = this.button(`Sell: ${money(v.price)}`, () => this.sell(i));
+        const sum = vs.reduce((s, x) => s + x.price, 0), fresh = Math.min(...vs.map((x) => x.fresh));
+        const tags = [kgWords(g.kg), OLD(fresh), v.demand === 'wanted' ? 'wanted today' : v.demand === 'plenty' ? 'plenty about' : ''].filter(Boolean).join(' · ');
+        row.append(el('p', '', groupWords(sp.name, g)), el('span', 'cp-soft', tags));
+        const order = orders.find((o) => o.id === g.id && g.max >= o.min);
+        if (order) row.append(el('span', 'cp-soft hb-hint', `${place === 'haven' ? 'Ruth at The Lobster Pot' : 'Paco’s kitchen'} wants ${g.n > 1 ? 'one of these' : 'this one'}: ${money(order.reward)}`));
+        const b = this.button(g.n > 1 ? `Sell all ${g.n}: ${money(sum)}` : `Sell: ${money(sum)}`, () => (g.n > 1 ? this.sellKind(g.id) : this.sell(g.first)));
         b.disabled = !this.marketOpen;
         row.append(b);
-        any++;
-        total += v.price;
-        sellable.push(f);
+        any += g.n;
+        total += sum;
       }
       out.push(row);
-    });
+    }
     if (!this.state.keep.length) out.push(el('p', 'cp-soft', 'Nothing in your creel. Fish you keep (K, or Keep on the catch card) can be sold here, cooked at camp, or taken to the inn’s kitchen.'));
     if (any > 1 && this.marketOpen) {
       const row = el('div', 'cp-row cp-acts');
@@ -184,6 +185,24 @@ export class HarbourSheet {
       this.render();
     }
     return v.price;
+  }
+
+  // Every one of a kind (raw), in one go.
+  sellKind(id) {
+    let n = 0, sum = 0;
+    for (let i = this.state.keep.length - 1; i >= 0; i--) {
+      if (this.state.keep[i].id !== id || this.state.keep[i].cooked) continue;
+      const p = this.sell(i, true);
+      if (p > 0) {
+        n++;
+        sum += p;
+      }
+    }
+    if (!n) return;
+    this.hooks.chime();
+    this.hooks.toast(`${this.place === 'haven' ? 'Mags' : 'Paco'} weighs them up: ${n} ${lower(fishById[id].name)}, ${money(sum)} into your purse.`, 4);
+    this.hooks.changed();
+    this.render();
   }
 
   sellAll() {
@@ -238,13 +257,13 @@ export class HarbourSheet {
       this.render();
     }));
     out.push(plate);
-    const raw = this.state.keep.map((f, i) => ({ f, i })).filter(({ f }) => !f.cooked);
+    const raw = creelGroups(this.state.keep).filter((g) => !g.cooked);
     if (raw.length) {
       out.push(el('p', 'cp-soft', `Or ${host} will cook one of yours for ${money(COOK_YOURS)}:`));
-      for (const { f, i } of raw) {
-        const sp = fishById[f.id];
+      for (const g of raw) {
+        const sp = fishById[g.id], i = g.first, f = this.state.keep[i];
         const row = el('div', 'cp-row');
-        row.append(el('p', '', `${sp.name}, ${f.size} cm`), el('span', 'cp-soft', sp.meal.name), this.button('Cook it for me', () => {
+        row.append(el('p', '', groupWords(sp.name, g)), el('span', 'cp-soft', sp.meal.name), this.button(g.n > 1 ? 'Cook one for me' : 'Cook it for me', () => {
           if (this.state.keep[i] !== f || !this.pay(COOK_YOURS)) return;
           this.state.keep.splice(i, 1);
           this.hooks.eatMeal({ id: f.id, size: f.size, logId: f.logId || null });
@@ -330,7 +349,7 @@ export class HarbourSheet {
     out.push(el('h3', '', 'Creels'));
     const mine = creelOf(this.state);
     const row0 = el('div', 'cp-row');
-    row0.append(el('p', '', `${mine.name === CREELS[0].name ? 'Your creel' : mine.name}: holds ${mine.fish} fish`), el('span', 'hb-done', 'yours'));
+    row0.append(el('p', '', `${mine.name === CREELS[0].name ? 'Your creel' : mine.name}: holds ${mine.kg} kg of fish`), el('span', 'hb-done', 'yours'));
     out.push(row0);
     CREELS.forEach((c, i) => {
       if (i <= S.creel) return;
@@ -339,7 +358,7 @@ export class HarbourSheet {
         if (this.shop.creel >= i || !this.pay(c.price)) return;
         this.shop.creel = i;
         this.hooks.chime();
-        this.hooks.toast(`${c.name}, over your shoulder: room for ${c.fish} fish now${c.cool ? ', and they keep cool in it' : ''}. Your old creel goes on the hook behind the door.`, 6);
+        this.hooks.toast(`${c.name}, over your shoulder: room for ${c.kg} kg of fish now${c.cool ? ', and they keep cool in it' : ''}. Your old creel goes on the hook behind the door.`, 6);
         this.hooks.changed();
         this.render();
       }));

@@ -667,7 +667,7 @@ export const FISH = [
     where: 'The Blue Water: roaming far offshore after the bait shoals',
     hint: 'Far past the shelf, birds dive and the sea erupts as something huge drives sprats to the surface. Cast a big stickbait into the boil, on the offshore rod.',
     note: 'Steel-blue and torpedo-shaped, with a sickle tail and a row of yellow finlets. It roams the open sea at the speed of a boat and fights for a long, long time.',
-    keep: 'Far too much fish for one creel. You hold it alongside a moment, then let it swim free.',
+    keep: 'Every bluefin goes back in these waters: anglers may only catch and release them, to let the stock that has come back keep coming back. You hold it alongside a moment, then let it swim free.',
     food: { stickbait: 1.6, mjig: 1.4, popper: 0.9, metal: 0.6, strip: 0.5, sandeel: 0.6 },
     life: {
       school: true, schools: 3, members: [4, 6], spacing: 140, range: 3.2, hunter: 'sprat',

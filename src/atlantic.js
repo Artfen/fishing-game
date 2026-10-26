@@ -856,7 +856,7 @@ export const ATLANTIC = [
     where: 'Now and then along the outer coast and over the Blue Water, chasing sardine shoals: rare',
     hint: 'A few packs of small, powerful tuna with worm-like markings on the back hunt the sardine shoals off the coast. Rare: when you see a boil, a metal or a stickbait cast into it.',
     note: 'A compact little tuna, dark blue with wavy, worm-like dark lines on the back behind the first dorsal fin, and a few dark spots between the pectoral and pelvic fins. A warm-water fish, uncommon north of Iberia.',
-    keep: 'More fish than one creel can carry. You let it go with a splash.',
+    meal: { name: 'Little tunny salted and grilled over the coals, the island way', fill: 55 },
     food: { metal: 1.5, popper: 1.1, stickbait: 1.0, mjig: 1.0, sandeel: 0.8 },
     life: {
       school: true, schools: 2, members: [4, 7], spacing: 140, range: 3.2, hunter: 'sardine',

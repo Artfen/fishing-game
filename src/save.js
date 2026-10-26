@@ -1,6 +1,6 @@
 import { fishById } from './fish.js';
 import { RODS, TACKLE, TERMS, cleanGear } from './tackle.js';
-import { cleanShop, creelSize, CREEL_MAX } from './shop.js';
+import { cleanShop, CREEL_MAX } from './shop.js';
 import { cleanSettings } from './settings.js';
 import { cleanCamps } from './campsite.js';
 import { cleanEquip, cleanCar, cleanOuting, defaultEquip } from './outing.js';
@@ -44,7 +44,7 @@ export const DEFAULT_STATE = {
   mode: 'boat',  // 'boat' or 'foot'
   walker: null,  // { x, z, heading } while on foot
   gear: null,    // rods and tackle in the backpack, and what's tied on (see tackle.js)
-  keep: [],      // fish in the creel: { id, size, logId, at (game hours when caught: how fresh it is), cooked }
+  keep: [],      // fish in the creel (it holds them by weight, see shop.js): { id, size, logId, at (game hours when caught: how fresh it is), cooked }
   food: null,    // { full, wellFedUntil }
   camp: null,    // { fireUntil, cooking, ready }
   caughtOn: {},  // species id -> { tackle id: count }
@@ -365,7 +365,6 @@ export function sanitize(raw) {
   s.money = Math.round(num(raw.money, 20, 0, 1e7) * 100) / 100;
   s.harbour = cleanHarbour(raw.harbour);
   s.shop = cleanShop(raw.shop, Object.keys(RODS));
-  s.keep = s.keep.slice(0, creelSize(s));
   if (isObj(raw.sky)) {
     s.sky = { cloud: num(raw.sky.cloud, 0.3, 0, 1), rain: num(raw.sky.rain, 0, 0, 1), storm: num(raw.sky.storm, 0, 0, 1), state: oneOf(raw.sky.state, SKY_STATES, 'partly'), timer: num(raw.sky.timer, 120, 0, 3600) };
   }

@@ -290,7 +290,7 @@ export const BIG_GAME = [
     where: 'The blue water off the island, in schools, under the birds',
     hint: 'Schools of yellowfin chase the sardines and mackerel to the top in the blue water, birds diving over them. Troll a skirted lure fast on the big-game rod, or cast a stickbait into the boil on the offshore rod.',
     note: 'A tuna of the warm oceans: dark metallic blue above, a golden-yellow stripe along the flank, silvery below with pale vertical lines, and bright yellow finlets; in big fish the second dorsal and anal fins grow into long yellow scythes. It hunts in schools, often with dolphins and birds, and fights deep and hard.',
-    keep: 'Far too much fish for one creel. You hold it alongside a moment, then let it swim free.',
+    meal: { name: 'Yellowfin steaks seared on the plancha, rare in the middle, with mojo verde', fill: 75 },
     food: { skirt: 1.4, stickbait: 1.3, mjig: 1.2, popper: 0.9, ballyhoo: 1.0 },
     life: {
       school: true, members: [3, 6], southGroups: 3, spacing: 300, range: 3, big: true,

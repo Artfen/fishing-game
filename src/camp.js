@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { fishById, buildFishGeometry, fishMaterial } from './fish.js';
 import { formatClock } from './world/sky.js';
 import { clamp, smoothstep } from './util.js';
-import { creelSize } from './shop.js';
+import { creelWords, creelGroups, groupWords } from './shop.js';
 import { mealDrink, refill, packRolls, BOTTLE, ROLLS } from './comfort.js';
 import { COOLBOX, MEALS_MAX, TENTS, DECOR, DECOR_UNLOCK, settleCooking, startCooking, stow, take, packPlan, cleanName } from './campsite.js';
 
@@ -362,20 +362,20 @@ export class Camp {
     out.push(el('h3', '', 'Your creel'));
     const keep = this.state.keep || [];
     if (!keep.length) out.push(el('p', 'cp-soft', 'No fish kept. When you land one you’d like to eat, press K (or tap Keep) on the catch card.'));
-    keep.forEach((k, i) => {
-      const sp = fishById[k.id];
+    for (const g of creelGroups(keep)) {
+      const sp = fishById[g.id], i = g.first;
       const row = el('div', 'cp-row');
-      if (k.cooked) {
-        row.append(el('p', '', `${sp.meal.name}, ${k.size} cm`), el('span', 'cp-soft', 'cooked, wrapped in paper'), button('Eat', () => this.eatFromCreel(i)));
+      if (g.cooked) {
+        row.append(el('p', '', groupWords(sp.meal.name, g)), el('span', 'cp-soft', 'cooked, wrapped in paper'), button(g.n > 1 ? 'Eat one' : 'Eat', () => this.eatFromCreel(i)));
       } else {
-        row.append(el('p', '', `${sp.name}, ${k.size} cm`), el('span', 'cp-soft', sp.meal.name));
-        const b = button('Grill it', () => this.cook(i));
+        row.append(el('p', '', groupWords(sp.name, g)), el('span', 'cp-soft', sp.meal.name));
+        const b = button(g.n > 1 ? 'Grill one' : 'Grill it', () => this.cook(i));
         b.disabled = !!c.cooking;
         if (c.cooking) b.title = 'The grill is busy';
         row.append(b);
       }
       out.push(row);
-    });
+    }
     const oat = el('div', 'cp-row');
     oat.append(el('p', 'cp-soft', 'A tin of oatcakes lives in the tent.'), button('Have an oatcake', () => this.oatcake(), 'quiet'));
     out.push(oat);
@@ -447,22 +447,22 @@ export class Camp {
       out.push(row);
     });
 
-    out.push(el('h3', '', `Your creel (${this.state.keep.length} of ${creelSize(this.state)})`));
+    out.push(el('h3', '', `Your creel (${this.state.keep.length} fish, ${creelWords(this.state)})`));
     if (!this.state.keep.length) out.push(el('p', 'cp-soft', 'Empty.'));
-    this.state.keep.forEach((f, i) => {
-      const sp = fishById[f.id];
+    for (const g of creelGroups(this.state.keep)) {
+      const sp = fishById[g.id], i = g.first;
       const row = el('div', 'cp-row');
-      if (f.cooked) {
-        row.append(el('p', '', `${sp.meal.name}, ${f.size} cm`), el('span', 'cp-soft', 'cooked'), button('Eat', () => this.eatFromCreel(i)));
-        if (hasBox || hasStove) row.append(button('Leave it here', () => this.act(stow(this.state, camp, i)), 'quiet'));
+      if (g.cooked) {
+        row.append(el('p', '', groupWords(sp.meal.name, g)), el('span', 'cp-soft', 'cooked'), button(g.n > 1 ? 'Eat one' : 'Eat', () => this.eatFromCreel(i)));
+        if (hasBox || hasStove) row.append(button(g.n > 1 ? 'Leave one here' : 'Leave it here', () => this.act(stow(this.state, camp, i)), 'quiet'));
       } else {
-        const b = button('Cook', () => cook('creel', i));
+        const b = button(g.n > 1 ? 'Cook one' : 'Cook', () => cook('creel', i));
         b.disabled = !!ck || !hasStove;
-        row.append(el('p', '', `${sp.name}, ${f.size} cm`), b);
-        if (hasBox) row.append(button('Into the cool box', () => this.act(stow(this.state, camp, i)), 'quiet'));
+        row.append(el('p', '', groupWords(sp.name, g)), b);
+        if (hasBox) row.append(button(g.n > 1 ? 'One into the cool box' : 'Into the cool box', () => this.act(stow(this.state, camp, i)), 'quiet'));
       }
       out.push(row);
-    });
+    }
     const oat = el('div', 'cp-row');
     oat.append(el('p', 'cp-soft', 'A tin of oatcakes lives in the tent.'), button('Have an oatcake', () => this.oatcake(), 'quiet'));
     out.push(oat);
@@ -596,14 +596,14 @@ export class Camp {
   // Home's kitchen: cook a fish from your creel and sit down to it, or eat one cooked earlier.
   renderKitchen() {
     const out = [...this.belly()];
-    out.push(el('h3', '', `Your creel (${this.state.keep.length} of ${creelSize(this.state)})`));
+    out.push(el('h3', '', `Your creel (${this.state.keep.length} fish, ${creelWords(this.state)})`));
     if (!this.state.keep.length) out.push(el('p', 'cp-soft', this.bothy ? 'Empty. The Coldwater’s trout and grayling are just down the slope.' : this.posada ? 'Empty. Bring in a parrotfish and the kitchen will show you how they cook them here.' : 'Empty. Fish you keep come home in your creel.'));
-    this.state.keep.forEach((f, i) => {
-      const sp = fishById[f.id];
+    for (const g of creelGroups(this.state.keep)) {
+      const sp = fishById[g.id], i = g.first;
       const row = el('div', 'cp-row');
-      if (f.cooked) row.append(el('p', '', `${sp.meal.name}, ${f.size} cm`), el('span', 'cp-soft', 'cooked earlier'), button('Eat', () => this.eatFromCreel(i)));
+      if (g.cooked) row.append(el('p', '', groupWords(sp.meal.name, g)), el('span', 'cp-soft', 'cooked earlier'), button(g.n > 1 ? 'Eat one' : 'Eat', () => this.eatFromCreel(i)));
       else {
-        row.append(el('p', '', `${sp.name}, ${f.size} cm`), el('span', 'cp-soft', sp.meal.name), button('Cook and eat', () => {
+        row.append(el('p', '', groupWords(sp.name, g)), el('span', 'cp-soft', sp.meal.name), button(g.n > 1 ? 'Cook one and eat' : 'Cook and eat', () => {
           const k = this.state.keep[i];
           if (!k) return;
           this.state.keep.splice(i, 1);
@@ -613,7 +613,7 @@ export class Camp {
         }));
       }
       out.push(row);
-    });
+    }
     const oat = el('div', 'cp-row');
     oat.append(el('p', 'cp-soft', this.bothy ? 'Someone has left a tin of oatcakes on the shelf, for whoever comes next.' : this.posada ? 'There’s always a bowl of little wrinkled potatoes and a pot of red mojo on the bar.' : 'The oatcake tin is on the shelf.'), button(this.posada ? 'Have some potatoes' : 'Have an oatcake', () => this.oatcake(), 'quiet'));
     out.push(oat);

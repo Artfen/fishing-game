@@ -28,7 +28,7 @@ export const PRICES = {
   acedia: 10, turbot: 20, gurnard: 6, sardine: 4, horsemackerel: 3, bogue: 2, salema: 2, garfish: 3, bonito: 8,
   bullet: 5, pompano: 8, octopus: 11, albacore: 10,
   // Las Brasas.
-  parrotfish: 16, triggerfish: 9, moray: 6, barracuda: 7, chubmackerel: 3, wahoo: 12, dorado: 12,
+  parrotfish: 16, triggerfish: 9, moray: 6, barracuda: 7, chubmackerel: 3, wahoo: 12, dorado: 12, yellowfin: 14, littletunny: 6,
 };
 
 // When the market on the quay is open (hours of the day). The inn's kitchen takes its orders until

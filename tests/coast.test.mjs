@@ -8,7 +8,6 @@ import assert from 'node:assert/strict';
 const C = await import('../src/campsite.js');
 const W = await import('../src/siteWorld.js');
 const T = await import('../src/world/terrain.js');
-const { PACK } = await import('../src/tackle.js');
 
 // The ground as the game sees it, with a few things standing on it for the tests.
 const things = [];
@@ -112,12 +111,14 @@ test('fish move between your creel and the cool box, never past either’s room,
   const full = C.stow(state, camp, 0);
   assert.equal(full.ok, false);
   assert.match(full.why, /full/);
-  state.keep.push(...creel('gilthead', 'gilthead', 'gilthead', 'gilthead').slice(0, PACK.fish - state.keep.length));
+  // (The creel holds fish by weight: a big meagre fills it.)
+  state.keep.push({ id: 'meagre', size: 118, logId: 'big' });
   assert.equal(C.take(state, camp, 0).ok, false, 'a full creel takes no more');
 });
 
 test('packing up empties the cool box into your creel; if it won’t fit it says so and drops nothing', () => {
-  const state = { keep: creel('mackerel', 'gilthead', 'sole'), camps: [] };
+  // (A creel nearly full by weight: 15 kg, and a big meagre in it already.)
+  const state = { keep: [...creel('mackerel', 'gilthead', 'sole'), { id: 'meagre', size: 112, logId: 'm' }], camps: [] };
   const camp = C.newCamp({ x: 1, z: 1, yaw: 0, name: 'Full camp' });
   camp.store.fish = creel('seabass', 'pollack', 'wrasse');
   state.camps.push(camp);
@@ -127,12 +128,12 @@ test('packing up empties the cool box into your creel; if it won’t fit it says
   const no = C.packUp(state, camp);
   assert.equal(no.ok, false);
   assert.equal(state.camps.length, 1, 'still pitched');
-  assert.equal(count(state, camp), 6, 'nothing lost');
-  const yes = C.packUp(state, camp, { release: [0, 1] });
+  assert.equal(count(state, camp), 7, 'nothing lost');
+  const yes = C.packUp(state, camp, { release: [0, 2] });
   assert.ok(yes.ok);
   assert.equal(state.camps.length, 0);
-  assert.equal(state.keep.length, 4);
-  assert.deepEqual(yes.released.map((f) => f.id), ['seabass', 'pollack']);
+  assert.equal(state.keep.length, 5);
+  assert.deepEqual(yes.released.map((f) => f.id), ['seabass', 'wrasse']);
   assert.equal(C.kitsFree(state), 1, 'the kit is back in your backpack');
 });
 

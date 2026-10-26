@@ -1,5 +1,5 @@
 import { fishById } from './fish.js';
-import { creelSize } from './shop.js';
+import { creelFits, creelKg, keptKg, creelLoad, CREEL_MAX } from './shop.js';
 
 // Your own camp, pitched wherever the ground allows: a tent, a lantern, a bedroll, a little
 // stove, a camp chair, a tackle box and a cool box. The rules for where it can go look at the
@@ -254,7 +254,6 @@ export const kitsFree = (state) => (state.equip ? (state.equip.kit.tent === 'pac
 
 /* ---------------- what's in it ---------------- */
 
-const creelFree = (state) => creelSize(state) - state.keep.length;
 
 // From your creel into the cool box.
 export function stow(state, camp, i) {
@@ -277,18 +276,33 @@ export function take(state, camp, i, meal = false) {
   const list = meal ? camp.store.meals : camp.store.fish;
   const f = list[i];
   if (!f) return { ok: false, why: 'Nothing there.' };
-  if (creelFree(state) <= 0) return { ok: false, why: `Your creel is full (${creelSize(state)} fish).` };
+  if (!creelFits(state, keptKg(f))) return { ok: false, why: `No room in your creel for it (it holds ${creelKg(state)} kg).` };
   list.splice(i, 1);
   state.keep.push({ id: f.id, size: f.size, logId: f.logId || null, ...(meal ? { cooked: true } : {}) });
   return { ok: true };
+}
+
+// How many of these fish wouldn't fit in the creel, by weight, on top of what's in it already
+// (the heaviest left out first).
+function overBy(state, list) {
+  let load = creelLoad(state), n = state.keep.length, over = 0;
+  for (const f of [...list].sort((a, b) => keptKg(a) - keptKg(b))) {
+    const kg = keptKg(f);
+    if (n < CREEL_MAX && (!n || load + kg <= creelKg(state) + 1e-6)) {
+      load += kg;
+      n++;
+    } else over++;
+  }
+  return over;
 }
 
 // Packing up: the tent, stove and the rest go in your backpack; the cool box is emptied into
 // your creel (a full cool box is too heavy to carry with a tent), cooked fish wrapped in paper.
 // Returns what that would take, so the game can explain and offer a way out if it doesn't fit.
 export function packPlan(state, camp) {
-  const fish = camp.store.fish.length, meals = camp.store.meals.length, free = creelFree(state);
-  return { fish, meals, free, over: Math.max(0, fish + meals - free), cooking: !!camp.cooking, fits: !camp.cooking && fish + meals <= free };
+  const fish = camp.store.fish.length, meals = camp.store.meals.length;
+  const over = overBy(state, [...camp.store.fish, ...camp.store.meals]);
+  return { fish, meals, free: fish + meals - over, over, cooking: !!camp.cooking, fits: !camp.cooking && !over };
 }
 
 // Pack it up. `release`: indices into the cool box of fish to let go first (chosen by you).
@@ -297,8 +311,8 @@ export function packUp(state, camp, { release = [] } = {}) {
   if (camp.cooking) return { ok: false, why: 'Something is still on the stove: let it finish, or take it off first.' };
   const keepFish = camp.store.fish.filter((f, i) => !release.includes(i));
   const released = camp.store.fish.filter((f, i) => release.includes(i));
-  if (keepFish.length + camp.store.meals.length > creelFree(state)) {
-    return { ok: false, why: `Your creel has room for ${creelFree(state)} more; the cool box has ${camp.store.fish.length + camp.store.meals.length}.` };
+  if (overBy(state, [...keepFish, ...camp.store.meals])) {
+    return { ok: false, why: `Your creel holds ${creelKg(state)} kg: not room for everything in the cool box.` };
   }
   for (const f of keepFish) state.keep.push({ id: f.id, size: f.size, logId: f.logId || null });
   for (const f of camp.store.meals) state.keep.push({ id: f.id, size: f.size, logId: f.logId || null, cooked: true });

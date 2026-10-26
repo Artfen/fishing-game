@@ -8,22 +8,42 @@ import assert from 'node:assert/strict';
 const S = await import('../src/shop.js');
 const { freshness } = await import('../src/market.js');
 const { parseSave, SAVE_VERSION } = await import('../src/save.js');
-const { RODS, PACK } = await import('../src/tackle.js');
+const { RODS } = await import('../src/tackle.js');
 const { newFight } = await import('../src/fight.js');
-const { fishById } = await import('../src/fish.js');
+const { fishById, weightOf } = await import('../src/fish.js');
 
 const wrap = (data) => JSON.stringify({ game: 'slow-tide', version: SAVE_VERSION, savedAt: 1, data: { day: 3, ...data } });
 
-test('creels: four fish to start, six and eight bought; the save keeps the creel and what fits in it', () => {
-  assert.equal(S.creelSize({}), PACK.fish);
-  assert.deepEqual(S.CREELS.map((c) => c.fish), [4, 6, 8]);
+test('creels hold fish by weight: thirty-odd mackerel, or one big fish on its own; 15, 25 and 40 kg', () => {
+  assert.deepEqual(S.CREELS.map((c) => c.kg), [15, 25, 40]);
+  assert.equal(S.creelKg({}), 15);
   assert.ok(S.CREELS[2].price > S.CREELS[1].price);
-  const seven = Array.from({ length: 7 }, (_, i) => ({ id: 'mackerel', size: 30 + i, logId: `c${i}` }));
-  const small = parseSave(wrap({ keep: seven })).state;
-  assert.equal(small.keep.length, 4, 'the old creel holds four');
-  const big = parseSave(wrap({ keep: seven, shop: { creel: 2, iceUntil: 90, baitDay: 3, wear: { spin: 0.7, nosuchrod: 0.5, float: 'x' } } })).state;
-  assert.equal(big.keep.length, 7);
-  assert.equal(S.creelSize(big), 8);
+  // Mackerel after mackerel, until it's full.
+  const state = { keep: [] };
+  let n = 0;
+  while (S.creelFits(state, weightOf(fishById.mackerel, 32))) {
+    state.keep.push({ id: 'mackerel', size: 32 });
+    n++;
+  }
+  assert.ok(n >= 30 && n < S.CREEL_MAX, `${n} mackerel`);
+  // A yellowfin on its own fills it, however heavy; nothing more after.
+  const tuna = { keep: [] };
+  const kg = weightOf(fishById.yellowfin, 120);
+  assert.ok(kg > 15);
+  assert.ok(S.creelFits(tuna, kg), 'an empty creel takes one big fish');
+  tuna.keep.push({ id: 'yellowfin', size: 120 });
+  assert.ok(!S.creelFits(tuna, weightOf(fishById.mackerel, 30)));
+  // The list shows them kind by kind.
+  const g = S.creelGroups([...state.keep.slice(0, 3), { id: 'seabass', size: 50 }, { id: 'mackerel', size: 36 }]);
+  assert.equal(g.length, 2);
+  assert.equal(g[0].n, 4);
+  assert.equal(g[0].first, 4, 'the biggest first');
+  assert.equal(S.groupWords('Atlantic Mackerel', g[0]), 'Atlantic Mackerel ×4, 32–36 cm');
+  // Saves keep them all (well, up to a very generous number), and the creel you bought.
+  const many = Array.from({ length: 30 }, (_, i) => ({ id: 'mackerel', size: 30 + (i % 5), logId: `c${i}` }));
+  const big = parseSave(wrap({ keep: many, shop: { creel: 2, iceUntil: 90, baitDay: 3, wear: { spin: 0.7, nosuchrod: 0.5, float: 'x' } } })).state;
+  assert.equal(big.keep.length, 30);
+  assert.equal(S.creelKg(big), 40);
   assert.deepEqual(big.shop, { creel: 2, iceUntil: 90, baitDay: 3, wear: { spin: 0.7 } });
   assert.deepEqual(parseSave(wrap({})).state.shop, S.newShop());
 });

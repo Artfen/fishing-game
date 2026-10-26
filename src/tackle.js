@@ -281,7 +281,7 @@ export const LINE_COLORS = { float: '#f5efe2', lure: '#c3dc98', ledger: '#e9f0e6
 export const ROD_IDS = Object.keys(RODS);
 export const ITEM_IDS = Object.keys(TACKLE);
 export const TERM_IDS = Object.keys(TERMS);
-export const PACK = { rods: 2, items: 8, fish: 4, saved: 6 };
+export const PACK = { rods: 2, items: 8, saved: 6 }; // (the creel holds fish by weight: see shop.js)
 export const TYPE_NAMES = { bait: 'Baits', lure: 'Lures', fly: 'Flies', jig: 'Squid jigs' };
 export const KIND_NAMES = { float: 'Float fishing', lure: 'Lure fishing', ledger: 'Carp fishing', bottom: 'Bottom fishing', fly: 'Fly fishing', jig: 'Squid jigging', spear: 'Spearfishing' };
 

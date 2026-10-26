@@ -61,7 +61,7 @@ import { HarbourSheet, paintSlate } from './harbourView.js';
 import { Townsfolk, FOLK, sayTo } from './townsfolk.js';
 import { FolkView } from './world/folk.js';
 import { demandFor, money } from './market.js';
-import { creelSize, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
+import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
 import { PHOTO_MAX } from './save.js';
 import { Journal } from './journal.js';
 import { MapSheet, Explored } from './map.js';
@@ -690,8 +690,9 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   onCatch: showCatch,
   onRelease: hideCatch,
   canKeep: () => {
-    if (state.keep.length < creelSize(state)) return true;
-    hud.flash(`Your creel is full (${creelSize(state)} fish). Cook or sell some, or let this one go.`, t, 3.5);
+    const F = fishing.fight, kg = F ? weightOf(F.sp, F.size) : 0;
+    if (creelFits(state, kg)) return true;
+    hud.flash(`No room in your creel for this one (${creelWords(state)}). Cook or sell some, or let it go.`, t, 3.5);
     return false;
   },
   onKeep: (sp, size) => {
@@ -699,8 +700,9 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
     setOutcome(lastCatchId, 'kept');
     $('catch-card').hidden = true;
     modal = null;
-    hud.flash(`Into the creel: ${sp.name.toLowerCase()}, ${size} cm. Cook it at camp.`, t, 3);
-    teach('kept', 'Fish you keep ride in the creel on your backpack. Grill them at camp, then eat.', 6);
+    const kg = weightOf(sp, size);
+    hud.flash(kg > creelKg(state) ? `It fills your creel on its own: ${sp.name.toLowerCase()}, ${kgWords(kg)}. Sell it or cook it before you keep anything else.` : `Into the creel: ${sp.name.toLowerCase()}, ${size} cm (${creelWords(state)}). Cook it at camp, or sell it at the market.`, t, 3.5);
+    teach('kept', 'Fish you keep ride in the creel on your backpack. It holds them by weight: thirty-odd mackerel, or one big tuna. Grill them at camp, or sell them at the market.', 7);
     save();
   },
   // Every break has a reason you can see and do something about (see fight.js).
@@ -874,8 +876,9 @@ function showCatch(sp, size, agent, rigUsed) {
   $('cc-rig').textContent = (rigUsed?.item ? `Caught on ${rigUsed.item.on}, with the ${rigUsed.rod.short.toLowerCase()}` : '') + (state.trip?.sp === sp.id ? ' · the fish your trip is for' : '');
   const keepBtn = $('cc-keep');
   keepBtn.hidden = !sp.meal;
-  keepBtn.disabled = state.keep.length >= creelSize(state);
-  keepBtn.lastChild.textContent = state.keep.length >= creelSize(state) ? 'Creel full' : 'Keep for the pot';
+  const room = creelFits(state, weightOf(sp, size));
+  keepBtn.disabled = !room;
+  keepBtn.lastChild.textContent = room ? (state.keep.length && creelLoad(state) + weightOf(sp, size) > creelKg(state) * 0.75 ? 'Keep it (the creel’s nearly full)' : 'Keep for the pot') : 'No room in the creel';
   $('catch-card').hidden = false;
   modal = 'catch';
   if (isNew) {
@@ -1338,8 +1341,8 @@ function innTalk(place) {
 // Ready for a trip: what Bert runs through with you at the counter.
 function tripChecklist() {
   const out = [];
-  const now = state.day * 24 + state.hour, size = creelSize(state), free = size - state.keep.length;
-  out.push({ ok: free >= 2, text: free ? `Room in your creel for ${free} more fish (it holds ${size}).` : `Your creel is full (${size}). Sell some at the market, or cook them.` });
+  const now = state.day * 24 + state.hour, cap = creelKg(state), free = Math.max(0, cap - creelLoad(state));
+  out.push({ ok: free >= cap * 0.3, text: free > 0.05 ? `Room in your creel for ${kgWords(free)} more fish (it holds ${cap} kg).` : `Your creel is full (${cap} kg). Sell some at the market, or cook them.` });
   out.push(onIce(state, now)
     ? { ok: true, text: 'Ice in your creel: your catch keeps fresh.' }
     : { ok: false, text: 'No ice in your creel: fish start to lose their freshness after half a day.', act: { label: `Ice: ${money(ICE.price)}`, run: () => buyIce() } });
@@ -2129,8 +2132,8 @@ function fireSpear() {
       hud.flash(`You hold your shot. ${ok.why}`, t, 2.6);
       return;
     }
-    if (state.keep.length >= creelSize(state)) {
-      hud.flash(`Your creel is full (${creelSize(state)} fish): take only what you’ll eat. Cook some at camp first.`, t, 3.2);
+    if (!creelFits(state, weightOf(a.sp, a.size))) {
+      hud.flash(`No room in your creel for it (${creelWords(state)}): take only what you’ll eat. Cook some at camp first.`, t, 3.2);
       return;
     }
     const q = shotQuality(hit.along);
@@ -2205,7 +2208,7 @@ function landSpeared(a) {
     audio.fanfare();
     hud.pulseJournal();
   } else audio.chime();
-  teach('speared', `Speared fish go in your creel (it holds ${creelSize(state)}), to cook at camp: a speargun only takes what you keep, so take only what you'll eat.`, 7);
+  teach('speared', `Speared fish go in your creel (it holds ${creelKg(state)} kg of fish), to cook at camp: a speargun only takes what you keep, so take only what you'll eat.`, 7);
   save();
 }
 
@@ -5619,7 +5622,7 @@ function updateDiveHud() {
   $('dive').classList.toggle('warn', warn);
   // The gun, or the camera.
   hud.setHTML('dvTool', $('dv-tool'), free
-    ? `${d.fresh ? 'No spearfishing in fresh water' : shot.loaded ? 'Speargun loaded' : shot.state === 'loading' ? 'Loading the bands…' : 'Shaft out…'} · creel ${state.keep.length}/${creelSize(state)}`
+    ? `${d.fresh ? 'No spearfishing in fresh water' : shot.loaded ? 'Speargun loaded' : shot.state === 'loading' ? 'Loading the bands…' : 'Shaft out…'} · creel ${creelWords(state)}`
     : `Camera ready · ${state.photos.length}/${PHOTO_MAX} photos`);
   // The sights: what's there, roughly how big, and whether to take it.
   const A = free && !d.fresh ? aim : null;
