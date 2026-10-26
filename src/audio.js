@@ -117,6 +117,8 @@ export class AudioScape {
     this.ratchet = this.clicker(this.white, [['bandpass', 3200, 1.4]]);
     this.whirr = this.clicker(this.pink, [['bandpass', 1500, 1.1]], 0.3);
     this.whirrBed = this.bed(this.pink, [['bandpass', 650, 1.2]], this.reelBus);
+    // Line peeling off an open spool as a cast flies out: a soft, rising hiss.
+    this.spoolBed = this.bed(this.white, [['bandpass', 4200, 0.9]], this.reelBus);
     this.singOsc = ctx.createOscillator();
     this.singOsc.type = 'triangle';
     this.singOsc.frequency.value = 1500;
@@ -740,6 +742,14 @@ export class AudioScape {
     this.burst({ type: 'highpass', freq: 3500, q: 0.7, dur: 0.018, gain: 0.035 * vol, attack: 0.001 });
   }
 
+  // The drag knob turned a notch (level: 0 slack … 1 locked down): a crisp detent click and its
+  // spring, higher and harder the tighter it's set, so you can hear where it is.
+  dragClick(level = 0.5) {
+    const f = 2400 + level * 2200;
+    this.burst({ type: 'bandpass', freq: f, q: 3, dur: 0.022, gain: 0.05 + 0.03 * level, attack: 0.001, dest: this.reelBus });
+    this.burst({ type: 'bandpass', freq: f * 0.72, q: 4, dur: 0.03, gain: 0.025, attack: 0.002, when: 0.028, dest: this.reelBus });
+  }
+
   tickRun(n, gap, vol) {
     for (let i = 0; i < n; i++) this.burst({ type: 'highpass', freq: 3800, q: 0.7, dur: 0.015, gain: vol, attack: 0.001, when: i * gap });
   }
@@ -772,6 +782,10 @@ export class AudioScape {
     this.whirr.f[0].frequency.setTargetAtTime(1700 - 700 * r.load, now, 0.08);
     this.set(this.whirrBed.g.gain, w > 0.05 ? (0.008 + 0.025 * r.load) * Math.min(1, w / 0.6) : 0, 0.06);
     this.whirrBed.f[0].frequency.setTargetAtTime(520 + w * 60 - 200 * r.load, now, 0.1);
+    // A cast flying out: line hissing off the open spool, higher the faster it goes.
+    const pour = r.free ? Math.min(1, r.payout / 12) : 0;
+    this.set(this.spoolBed.g.gain, 0.03 * pour, pour > 0 ? 0.03 : 0.12);
+    this.spoolBed.f[0].frequency.setTargetAtTime(3200 + 2600 * pour, now, 0.05);
     // The line singing.
     this.set(this.singGain.gain, 0.03 * r.sing * r.sing, 0.05);
     this.singOsc.frequency.setTargetAtTime(1250 + 900 * r.sing, now, 0.08);

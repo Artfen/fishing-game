@@ -55,6 +55,10 @@ export class Walker {
     this.onSplash = null;
     // (bendTo: where the line pulls the rod tip, set by the fishing: see bendRod.)
     this.pose = { fishing: 0, rodYaw: 0, rodPitch: 0.85, bend: 0.05, bendVel: 0, bendTo: null };
+    // Sitting (0 standing … 1 sat down), on a seat this high; warming your hands at a fire.
+    this.seat = 0;
+    this.seatH = 0.42;
+    this.warmHands = false;
     // In first person (set by the game): where a landed fish is held up in view, and which way
     // you face for it.
     this.viewHold = null;
@@ -289,6 +293,15 @@ export class Walker {
     }
     const bob = Math.abs(Math.sin(this.phase)) * 0.045 * amt * (this.jogging ? 1.6 : 1);
     this.body.position.y = bob - (1 - amt) * Math.sin(t * 1.6) * 0.004;
+    // Sat down: thighs forward, shins down, the hips on the seat.
+    const st = this.seat;
+    for (const L of this.legs) {
+      L.hip.rotation.z = st * L.s * 0.1;
+      if (!st) continue;
+      L.hip.rotation.x = lerp(L.hip.rotation.x, -1.5, st);
+      L.knee.rotation.x = lerp(L.knee.rotation.x, 1.45, st);
+    }
+    if (st) this.body.position.y = lerp(this.body.position.y, this.seatH - 0.9 + Math.sin(t * 0.9) * 0.004, st);
     // How you feel: cold, a tremble and your arms hugged in while you stand about; hot, a hand
     // across your brow now and then; and the bottle tipped up when you drink (head back).
     const C = this.cue, idle = (1 - fishing) * (1 - amt);
@@ -297,7 +310,7 @@ export class Walker {
     const hug = smoothstep(0.3, 0.8, C.shiver) * idle * (1 - sip);
     this.wipeT = C.sweat > 0.5 && idle > 0.8 && !sip ? this.wipeT + dt : 0;
     const wipe = smoothstep(0, 0.3, this.wipeT % 9) * smoothstep(1.4, 1.0, this.wipeT % 9) * (this.wipeT > 2 ? 1 : 0);
-    this.torso.rotation.x = amt * (this.jogging ? 0.18 : 0.06) + fishing * 0.05;
+    this.torso.rotation.x = lerp(amt * (this.jogging ? 0.18 : 0.06) + fishing * 0.05, this.warmHands ? 0.22 : 0.1, st);
     this.torso.rotation.z = Math.sin(t * 38) * 0.018 * C.shiver * (1 - amt);
     this.torso.rotation.y = damp(this.torso.rotation.y, this.pose.rodYaw * 0.35 * fishing, 4, dt);
     this.head.rotation.y = damp(this.head.rotation.y, fishing ? this.pose.rodYaw * 0.45 : Math.sin(t * 0.17) * 0.3 * (1 - amt) * (1 - sip), 2, dt);
@@ -324,6 +337,8 @@ export class Walker {
       if (hug) free.lerp(_d.set(-a.s * 0.06, 0.32, 0.19).applyMatrix4(this.torso.matrix), hug);
       if (a.s > 0 && sip) free.lerp(_d.set(0.02, 0.6, 0.2).applyMatrix4(this.torso.matrix), sip);
       if (a.s < 0 && wipe) free.lerp(_d.set(0.03, 0.74, 0.15).applyMatrix4(this.torso.matrix), wipe);
+      // Sitting: hands resting on your knees, or held out to the fire.
+      if (st) free.lerp(this.warmHands ? _d.set(a.s * 0.12, 0.2, 0.46).applyMatrix4(this.torso.matrix) : _d.set(a.s * 0.15, -0.3, 0.34).applyMatrix4(this.torso.matrix), st);
       const onRod = _d.set(0, a.s > 0 ? 0.06 : 0.32, 0).applyMatrix4(this.rod.matrix);
       a.target.lerpVectors(free, onRod, smoothstep(0, 1, fishing));
       setLimb(a.arm, shoulder, a.target, 0.055);

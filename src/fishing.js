@@ -353,7 +353,8 @@ export class Fishing {
     if (next === this.dragLevel) return;
     this.drags[this.rod.id] = next;
     if (this.fight) this.fight.drag = next;
-    this.audio.tick(0.4);
+    if (this.audio.dragClick) this.audio.dragClick(next / (DRAG_LEVELS.length - 1));
+    else this.audio.tick(0.4);
     this.hooks.onDrag?.(next, this.rod);
   }
 

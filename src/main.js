@@ -45,8 +45,8 @@ import { Boat, BOAT_KINDS } from './boat.js';
 import { Walker } from './walker.js';
 import { Effects } from './effects.js';
 import { buildSeaLife, SEA_LIFE } from './world/sealife.js';
-import { seeSign, readSign, SIGNS, SEEN_AT, stepColour, colourKey, colourWords, NATURE, noteNature } from './grounds.js';
-import { newToday, notePlace, noteMove, noteBoat, noteDive, noteSeen, noteSky, noteGale, noteRecord, closeDay, dayLine, checkChallenges, isSheltered, CHALLENGES, challengeById } from './daybook.js';
+import { seeSign, readSign, SIGNS, SEEN_AT, stepColour, colourKey, colourWords, NATURE, noteNature, groundsOf, groundWords } from './grounds.js';
+import { newToday, notePlace, noteMove, noteBoat, noteDive, noteSeen, noteSky, noteGale, noteRecord, closeDay, dayLine, checkChallenges, isSheltered, CHALLENGES, challengeById, dayPage, dayText, noteSat } from './daybook.js';
 import { SeaGlow, nightGlow } from './world/seaglow.js';
 import { Fishing } from './fishing.js';
 import { drawFishSketch, drawLanternSketch, fishById, weightOf } from './fish.js';
@@ -2873,10 +2873,11 @@ const needSaid = {}; // need id -> when it was last mentioned (game hours)
 // and spray, how hard you're working, and a roof over you or a fire beside you.
 function comfortEnv() {
   const P = player().pos, w = windAt(P.x, P.z);
-  const indoors = driving || !!cabinIn || (modal === 'camp' && camp.house) || modal === 'bench';
+  const indoors = driving || !!cabinIn || (modal === 'camp' && camp.house) || modal === 'bench' || sitting?.kind === 'home';
   const F = world.camp.firePos;
   let fire = onFoot ? camp.fireLevel * smoothstep(5, 1.5, Math.hypot(P.x - F.x, P.z - F.z)) : 0;
   if (modal === 'camp' && camp.own) fire = Math.max(fire, 0.5);
+  if (sitting?.kind === 'chair' || sitting?.kind === 'home') fire = Math.max(fire, 0.55);
   const afloat = !onFoot && !driving;
   const rowing = afloat && !boat.motor && !boat.sailUp && boat.speed > 0.6;
   const spray = afloat ? smoothstep(4, 8, boat.speed) * smoothstep(0.2, 1, waveHeightHere(P.x, P.z)) + weather.storm * 0.4 : 0;
@@ -4081,6 +4082,8 @@ function interaction() {
   if (dive) return diveExit();
   // Inside the cabin: what's where you stand.
   if (cabinIn) return cabinAction();
+  // Sitting a while: up again.
+  if (sitting) return { text: sitting.kind === 'boat' ? 'Sit up' : 'Get up', run: () => standUp() };
   // At the wheel: get out when you've stopped (or back on the lane if you're stuck).
   if (driving) {
     if (car.stuckT > 1.5) return { text: 'Back on the lane', run: () => resetCar() };
@@ -4096,6 +4099,9 @@ function interaction() {
     const P = walker.pos, boot = car.bootSpot(), door = car.doorSpot();
     if (Math.hypot(P.x - boot.x, P.z - boot.z) < 1.8) return { text: 'Open the boot', run: () => openOutSheet('boot') };
     if (Math.hypot(P.x - door.x, P.z - door.z) < 1.6 || Math.hypot(P.x - car.pos.x, P.z - car.pos.z) < 2.4) return { text: 'Get in and drive', run: () => enterCar() };
+    // Somewhere to sit a while (see sitDown).
+    const seat = seatNear();
+    if (seat) return { text: seat.kind === 'fire' ? 'Sit by the fire' : seat.kind === 'chair' ? 'Sit in your camp chair' : 'Sit by the stove', run: () => sitDown(seat) };
     // Home and the garage.
     const hs = homeSpotNear();
     if (hs) return HOME_ACTS[hs.id];
@@ -4186,6 +4192,16 @@ function interaction() {
     }
     return { text: 'Into the cabin: galley and bunk', run: () => enterCabin() };
   }
+  // At anchor or made fast, and still: sit back a while (or over the side, over deep water).
+  const settled = (boat.anchored || boat.tie) && Math.abs(boat.speed) < 0.3 && !fishing.lineOut;
+  const sitBoat = () => sitDown({ kind: 'boat', name: `back in the ${boat.name}` });
+  if (settled && entry) {
+    return { text: 'Sit back a while, or go diving', run: () => ask(boatTitle(boat), 'At anchor, and all quiet. Sit back a while and watch the water, or over the side for a dive?', [
+      { text: 'Go diving', cls: 'quiet', run: () => chooseDive(entry) },
+      { text: 'Sit back a while', run: sitBoat },
+    ]) };
+  }
+  if (settled) return { text: 'Sit back a while', run: sitBoat };
   // Stopped over deep water: over the side.
   if (entry) return { text: 'Go diving', run: () => chooseDive(entry) };
   // In the sailing boat or the cruiser, out on open water: the long passage.
@@ -4537,6 +4553,143 @@ function addToCairn() {
 
 /* ---- the bench, and boats brought round ---- */
 
+/* ---------------- a quiet moment: sitting a while ---------------- */
+
+// Somewhere to sit: the log by the camp fire, your own camp's chair, the armchair at home, the
+// bench under the lamp on Willowhaven quay, or back in the boat at anchor. You sit down, the view
+// settles on what's in front of you, time drifts by four times as fast, a fire (or the stove)
+// warms you through, and now and then a quiet thought: weather on its way, the tide turning, the
+// sun going down, the stars, a bird, the day so far, what you've learned. Any key, the stick or a
+// tap on the prompt gets you up.
+const SIT_SPEED = 4;
+let sitting = null;
+const _sitPos = new THREE.Vector3(), _sitLook = new THREE.Vector3(), _sitAim = new THREE.Vector3();
+// The seat you're standing at, if any: { kind, x, z, heading, h (its height), look: [x, y, z],
+// name }.
+function seatNear() {
+  if (!onFoot || driving || dive) return null;
+  const P = walker.pos;
+  const S = world.camp.seat, F = world.camp.firePos;
+  if (S && Math.hypot(P.x - S.x, P.z - S.z) < 1.3) return { kind: 'fire', x: S.x, z: S.z, heading: Math.atan2(F.x - S.x, F.z - S.z), h: 0.42, look: [F.x, F.y + 0.5, F.z], name: 'by the fire' };
+  for (const c of state.camps) {
+    const ch = toWorld(c.x, c.z, c.yaw, LAYOUT.chair.x, LAYOUT.chair.z);
+    if (Math.hypot(P.x - ch.x, P.z - ch.z) < 0.65) {
+      const ahead = toWorld(c.x, c.z, c.yaw, LAYOUT.chair.x, LAYOUT.chair.z + 30);
+      return { kind: 'chair', x: ch.x, z: ch.z, heading: c.yaw, h: 0.42, look: [ahead.x, walkHeight(ch.x, ch.z) + 1, ahead.z], name: 'in your camp chair' };
+    }
+  }
+  // (The armchair by the stove faces the south window.)
+  if (insideHome(P.x, P.z) === 'house' && Math.hypot(P.x - 121.8, P.z + 77.8) < 1.25) return { kind: 'home', x: 121.8, z: -77.75, heading: 0, h: 0.44, look: [121.5, walker.pos.y + 1.3, -71.5], name: 'in the armchair by the stove' };
+  return null;
+}
+function sitDown(seat) {
+  if (sitting || modal || fishing.busy) return;
+  if (fishing.lineOut) fishing.cancel();
+  if (seat.kind !== 'boat') {
+    walker.place(seat.x, seat.z, seat.heading);
+    walker.seatH = seat.h;
+  }
+  if (seat.kind === 'fire' && camp.fireLevel < 0.35) camp.lightFire(2.5);
+  sitting = { ...seat, t: 0, next: 5, said: new Set(), sat: 0, tea: false };
+  document.body.classList.add('sitting');
+  noteSat(state.today, seat.kind, state.hour);
+  _sitPos.copy(camera.position);
+  camera.getWorldDirection(_sitAim);
+  _sitLook.copy(camera.position).addScaledVector(_sitAim, 10);
+  hud.chip(`<b>Sitting ${seat.name}</b> · time drifts by · ${scheme() === 'touch' ? 'tap the prompt' : `${K('interact')}, or move,`} to get up`, 6);
+}
+function standUp() {
+  if (!sitting) return;
+  sitting = null;
+  walker.warmHands = false;
+  document.body.classList.remove('sitting');
+}
+// Each frame while you sit: the pose, the fire kept going, a mug of tea, and a quiet thought now
+// and then.
+function updateSitting(dt) {
+  walker.seat = damp(walker.seat, sitting && sitting.kind !== 'boat' ? 1 : 0, 4, dt);
+  if (!sitting) return;
+  const S = sitting;
+  // (Moved off it, or the boat's under way: you're up.)
+  if (S.kind === 'boat' ? (onFoot || Math.abs(boat.speed) > 0.6) : !onFoot) return standUp();
+  S.t += dt;
+  S.sat += dt / HOUR_SECONDS * SIT_SPEED;
+  walker.warmHands = S.kind === 'fire' && state.comfort.warm < 15;
+  // (You keep the fire going: a log on now and then, without a word.)
+  if (S.kind === 'fire' && camp.fireLevel < 0.6) state.camp.fireUntil = Math.max(state.camp.fireUntil, state.day * 24 + state.hour) + 1;
+  if (!S.tea && S.sat > 0.8 && S.kind !== 'boat') {
+    S.tea = true;
+    mealDrink(state.comfort);
+    state.comfort.warm = Math.min(state.comfort.warm + 1.5, 24);
+    hud.toast(S.kind === 'home' ? 'The kettle on the stove sings: a mug of tea, hot in your hands.' : 'The kettle boils on the stove: a mug of tea, hot in your hands.', 6);
+    return;
+  }
+  if ((S.next -= dt) > 0) return;
+  S.next = 14 + Math.random() * 8;
+  const line = sitThought(S);
+  if (line) hud.toast(line, 8);
+}
+// A quiet thought: the first of these that fits and hasn't come yet this sitting.
+function sitThought(S) {
+  const abs = state.day * 24 + state.hour, h = state.hour, sun = sunTimes(abs);
+  const T = tideAt(abs), was = tideAt(abs - 0.6), toGale = hoursToGale(abs);
+  const night = h > sun.set + 0.7 || h < sun.rise - 0.4;
+  const page = state.today ? dayPage(state, state.today) : null;
+  const known = groundsOf(state.log).flatMap((g) => g.kinds.filter((K) => K.n >= 3).map((K) => ({ place: g.place, K })));
+  const tip = known.length ? known[Math.floor(Math.random() * known.length)] : null;
+  const where = S.kind === 'boat' ? 'the boat' : S.kind === 'home' ? 'the house' : 'camp';
+  const C = [
+    toGale != null && toGale < 8 && ['gale', toGale < 3 ? 'The wind is getting up in gusts, and the sky to the south-west has gone the colour of a bruise. The gale won’t be long.' : 'A long, oily swell has come in from the south-west, and high thin cloud is fanning out across the sky: weather on its way.'],
+    weather.rain > 0.3 && ['rain', S.kind === 'fire' ? 'Rain hisses in the fire. You pull your collar up and edge closer.' : S.kind === 'boat' ? 'Rain patters on the boat and rings the water all round.' : 'Rain drums on the roof and runs down the window.'],
+    was.phase !== T.phase && (T.phase === 'flood' || T.phase === 'ebb') && ['tide', T.phase === 'flood' ? 'The tide’s turned: it’s making now, creeping back up the shore. The bass and the flatfish will be on the move.' : 'The tide’s turned and started to ebb: the water’s slipping away down the shore.'],
+    (T.phase === 'high' || T.phase === 'low') && ['slack', 'Slack water: for a while everything holds still, the boats swinging slowly on their moorings.'],
+    Math.abs(h - sun.set) < 0.7 && ['sunset', 'The sun goes down: the water turns copper, then pewter, and the first lamps come on round the bay.'],
+    Math.abs(h - sun.rise) < 0.7 && ['dawn', 'First light: the birds start up one by one, and a mist lifts off the water.'],
+    night && weather.cloud < 0.4 && ['stars', 'The stars are out: more of them every minute you look, and the Milky Way right across the sky.'],
+    night && ['owl', 'An owl calls somewhere up the hill, and another answers from across the water.'],
+    !night && S.kind !== 'home' && ['birds', S.kind === 'boat' ? 'A gull drifts down and settles on the water nearby, watching you with one yellow eye.' : 'A curlew calls from the shore, that long, bubbling cry.'],
+    page && page.caught + page.dives.length > 0 && ['day', `You think back over the day. ${dayText(page).split('. ').slice(0, 3).join('. ').replace(/\.?$/, '.')}`],
+    tip && ['learned', `You go over what you’ve learned. At ${tip.place}: ${groundWords(tip.K).toLowerCase()}`],
+    S.kind === 'fire' && ['fire', 'A log shifts and settles in the fire, and a stream of sparks goes up into the dark.'],
+    state.comfort.wet > 0.3 && ['drying', 'Your clothes steam gently as they dry.'],
+    ['season', { spring: 'There’s a softness in the air: spring, the green coming back.', summer: 'A warm evening: midges dancing over the water, the smell of salt and cut grass.', autumn: 'Leaves blow across the ground: autumn coming on, the evenings drawing in.', winter: 'A cold, clear stillness: winter, and the year asleep.' }[seasonOf(state.day).name]],
+    ['quiet', `Nothing to do and nowhere to be. The ${where === 'camp' ? 'water laps at the shore' : where === 'the boat' ? 'water knocks softly at the hull' : 'stove ticks as it warms'}.`],
+  ].filter(Boolean);
+  const pickOne = C.find(([id]) => !S.said.has(id));
+  if (!pickOne) return null;
+  S.said.add(pickOne[0]);
+  if (pickOne[0] === 'owl') audio.owl?.(0.5, 0.3);
+  if (pickOne[0] === 'birds' && S.kind !== 'boat') audio.curlew?.(0.4, -0.3);
+  return pickOne[1];
+}
+// The view while you sit: over your shoulder at what's in front of you, drifting slowly round.
+function sitCamera(dt) {
+  const S = sitting;
+  let cx, cy, cz, lx, ly, lz;
+  const drift = Math.sin(S.t * 0.045) * 0.35;
+  if (S.kind === 'boat') {
+    const a = boat.heading + Math.PI + 0.2 + drift * 0.5;
+    cx = boat.pos.x + Math.sin(a) * 6.5;
+    cz = boat.pos.z + Math.cos(a) * 6.5;
+    cy = 2.4;
+    lx = boat.pos.x + Math.sin(boat.heading) * 30;
+    lz = boat.pos.z + Math.cos(boat.heading) * 30;
+    ly = -0.5;
+  } else {
+    const a = S.heading + Math.PI + 0.6 + drift, d = S.kind === 'home' ? 1.9 : 3.3;
+    cx = S.x + Math.sin(a) * d;
+    cz = S.z + Math.cos(a) * d;
+    cy = walker.pos.y + (S.kind === 'home' ? 1.45 : 1.85);
+    [lx, ly, lz] = S.look;
+  }
+  cy = Math.max(cy, heightAt(cx, cz) + 0.5, waveHeight(cx, cz, t) + 0.5);
+  const k = 1 - Math.exp(-1.6 * dt);
+  _sitPos.lerp(_sitAim.set(cx, cy, cz), k);
+  _sitLook.lerp(_sitAim.set(lx, ly, lz), k);
+  camera.position.copy(_sitPos);
+  camera.lookAt(_sitLook);
+}
+
 function sitOnBench() {
   const h = state.hour;
   const line = h < 6 ? 'The harbour is asleep: just the lamp, and the water knocking at the quay.' : h < 11 ? 'Gulls on the quay wall, and the smell of tar and rope.' : h < 17 ? 'The boats nod at their moorings; someone has left a coil of rope drying on the wall.' : h < 21 ? 'The light goes gold over the bay, and the lamp comes on behind you.' : 'Stars over the bay, and the lamp’s circle of light round the bench.';
@@ -4546,6 +4699,7 @@ function sitOnBench() {
   if (h >= 20 || h < 4.5) opts.push({ text: 'Until first light', to: 5.2 });
   ask('The bench by the lamp', `${line} Sit a while?`, [
     { text: 'Get up again', cls: 'quiet' },
+    { text: 'Just sit and watch', cls: 'quiet', run: () => sitDown({ kind: 'bench', x: HAVEN_BENCH.x, z: HAVEN_BENCH.z + 0.1, heading: HAVEN_BENCH.yaw, h: 0.45, look: [HAVEN_BENCH.x + 6, 0.5, HAVEN_BENCH.z + 60], name: 'on the bench' }) },
     ...opts.map((o) => ({ text: o.text, run: () => waitAWhile(o.hours ?? ((o.to - state.hour + 24) % 24), 'You sit and watch the harbour…') })),
   ]);
 }
@@ -6703,6 +6857,11 @@ input.on('press', (code, acts) => {
     } else if (code === 'Escape' && rig.mode !== rig.third) resetView();
     return;
   }
+  // Sitting a while: casting, the prompt's key or Escape get you up first.
+  if (sitting && !modal && (is('cast') || is('interact') || code === 'Escape')) {
+    standUp();
+    return;
+  }
   if (is('cast')) {
     fishing.onDown();
     return;
@@ -6968,7 +7127,7 @@ function tick(now, manual = false) {
 
   // (Not in the water: time can't drift by on one breath, or a tank.)
   const resting = started && (!modal || modal === 'camp') && input.resting && !dive;
-  const speed = resting ? REST_SPEED : 1;
+  const speed = resting ? REST_SPEED : sitting && !modal ? SIT_SPEED : 1;
   hud.rest(resting);
   let hours = 0;
   if (started && !sleeping) {
@@ -7001,6 +7160,7 @@ function tick(now, manual = false) {
   carIn.steer = 0;
   if (started && (!modal || mapAboard())) {
     const ti = input.throttle, si = input.steer;
+    if (sitting && (Math.abs(ti) > 0.3 || Math.abs(si) > 0.3)) standUp();
     if (fishing.aiming) {
       // In first person the keys turn your head (and the cast with it); otherwise they swing the cast.
       if (rig.mode === 'eye') rig.turn(si, dt, t);
@@ -7240,6 +7400,8 @@ function tick(now, manual = false) {
   // Indoors (with the roof lifted), the camera comes in closer and looks down a little more.
   rig.indoor = onFoot && !driving && !!insideHome(walker.pos.x, walker.pos.z);
   rig.update(dt, t, { boat, walker, started, fishing, baitFocus: fishing.watchPoint, eye: _eye, roll: onFoot || steadyCam || cabinIn ? 0 : boat.roll * 0.45 });
+  updateSitting(dt);
+  if (sitting && !modal) sitCamera(dt);
   // The first time the view dips under the water by itself: a word on how it works.
   if (rig.below && started && !state.tips.under) {
     state.tips.under = true;

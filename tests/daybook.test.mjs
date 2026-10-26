@@ -65,6 +65,19 @@ test('a day out is written up as a page: where, how, the weather, the catch, fir
   assert.match(B.dayLine(p), /^Day 5 is written up in your journal: 4 fish, a new kind, a dive, a new place and common dolphins\.$/);
 });
 
+test('a while sat by the fire goes in the day’s page, and through a save', () => {
+  const state = sanitize({ day: 8 });
+  B.noteSat(state.today, 'fire', 19.5);
+  B.noteSat(state.today, 'boat', 22);
+  assert.deepEqual(state.today.sat, { kind: 'fire', hour: 19.5 }, 'the first of the day');
+  const back = sanitize(JSON.parse(JSON.stringify(state)));
+  assert.deepEqual(back.today.sat, { kind: 'fire', hour: 19.5 });
+  const p = B.closeDay(state, 9);
+  assert.ok(p, 'a quiet day by the fire is still a day worth a page');
+  assert.match(B.dayText(p), /You sat a while by the camp fire as the evening came on\./);
+  assert.equal(sanitize({ day: 9, days: [{ day: 8, sat: { kind: 'sofa', hour: 3 } }] }).days[0].sat, null);
+});
+
 test('a day with nothing in it isn’t written; the book keeps the last sixty', () => {
   const state = sanitize({ day: 3 });
   B.noteSky(state.today, 'clear');

@@ -2519,4 +2519,6 @@ body.touch.diving #dive-down { bottom: calc(152px + env(safe-area-inset-bottom, 
 body.touch.diving #prompt { bottom: calc(286px + env(safe-area-inset-bottom, 0px)); }
 body.touch.diving .dive-btn.down { background: rgba(255, 249, 239, 0.25); }
 body.touch.diving #rest-btn { display: none; }
+/* Sitting a while: the helm's panels and hints out of the way of the view. */
+body.sitting #lever, body.sitting #hint { display: none !important; }
 @media (prefers-reduced-motion: reduce) { #dive #dv-fill { transition: none; } }

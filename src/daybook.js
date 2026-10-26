@@ -20,7 +20,13 @@ export const isSheltered = (zone) => SHELTERED.has(zone);
 /* ---------------- today, as it goes ---------------- */
 
 export function newToday(day) {
-  return { day, out: null, back: null, places: [], boats: [], dives: [], seen: [], sky: [], gale: null, records: [], dist: { boat: 0, foot: 0, car: 0, swim: 0 } };
+  return { day, out: null, back: null, places: [], boats: [], dives: [], seen: [], sky: [], gale: null, records: [], sat: null, dist: { boat: 0, foot: 0, car: 0, swim: 0 } };
+}
+// A while sat somewhere (the first of the day): by the fire, in your camp chair, at home, on the
+// bench, or back in the boat.
+export const SATS = { fire: 'by the camp fire', chair: 'in your camp chair', home: 'in the armchair by the stove', bench: 'on the bench on the quay', boat: 'in the boat at anchor' };
+export function noteSat(today, kind, hour) {
+  if (!today.sat && SATS[kind]) today.sat = { kind, hour };
 }
 // Somewhere you were (a place's id), in order: only when it changes.
 export function notePlace(today, id, hour) {
@@ -80,14 +86,14 @@ export function dayPage(state, today = state.today) {
   const firstLife = Object.entries(state.seaLife || {}).filter(([, r]) => r.day === day).map(([k]) => k).filter((k) => SEA_LIFE[k]);
   const moved = Object.values(today.dist).reduce((a, b) => a + b, 0);
   const top = log.reduce((b, e) => (!b || rel(e) > rel(b) ? e : b), null);
-  if (!log.length && !today.dives.length && !today.seen.length && moved < 150 && !firstPlaces.length) return null;
+  if (!log.length && !today.dives.length && !today.seen.length && moved < 150 && !firstPlaces.length && !today.sat) return null;
   return {
     day, season: seasonWords(day), sky: today.sky.slice(), out: today.out, back: today.back,
     places: today.places.slice(), boats: today.boats.slice(), dist: Object.fromEntries(Object.entries(today.dist).map(([k, v]) => [k, Math.round(v)])),
     caught: log.length, kept: log.filter((e) => e.outcome !== 'released').length, kinds,
     best: top ? { sp: top.sp, size: top.size } : null,
     records: today.records.filter((r) => !firstFish.includes(r.sp)), firsts: { fish: firstFish, places: firstPlaces, sites: firstSites, life: firstLife },
-    dives: today.dives.slice(), seen: today.seen.slice(), gale: today.gale,
+    dives: today.dives.slice(), seen: today.seen.slice(), gale: today.gale, sat: today.sat,
   };
 }
 // The page goes into the book (the last sixty days), and a new day starts.
@@ -149,6 +155,10 @@ export function dayText(p) {
   if (p.seen.length) out.push(`Saw ${listWords(p.seen.map((k) => (SEA_LIFE[k]?.name || k).toLowerCase()))}.`);
   const found = [...p.firsts.places.map(placeName)].filter(Boolean);
   if (found.length) out.push(`Found ${listWords(found)}.`);
+  if (p.sat && SATS[p.sat.kind]) {
+    const h = p.sat.hour, when = h >= 18 && h < 22 ? ' as the evening came on' : h >= 22 || h < 5 ? ' late into the night' : h < 8 ? ' in the early morning' : '';
+    out.push(`You sat a while ${SATS[p.sat.kind]}${when}.`);
+  }
   if (p.gale === 'out') out.push('A gale caught you out on open water.');
   else if (p.gale === 'shelter') out.push('When the gale blew, you kept to sheltered water.');
   else if (p.gale === 'ashore') out.push('You sat the gale out ashore.');
@@ -297,8 +307,11 @@ export function cleanToday(raw, day) {
   return {
     day, out: raw.out == null ? null : num(raw.out, null, 0, 24), back: raw.back == null ? null : num(raw.back, null, 0, 24),
     places: strs(raw.places, 30), boats: strs(raw.boats, 6), dives: cleanDives(raw.dives), seen: strs(raw.seen, 12, (k) => !!SEA_LIFE[k]),
-    sky: strs(raw.sky, 8), gale: GALE.includes(raw.gale) ? raw.gale : null, records: cleanRecords(raw.records), dist: cleanDist(raw.dist),
+    sky: strs(raw.sky, 8), gale: GALE.includes(raw.gale) ? raw.gale : null, records: cleanRecords(raw.records), sat: cleanSat(raw.sat), dist: cleanDist(raw.dist),
   };
+}
+function cleanSat(v) {
+  return v && typeof v === 'object' && SATS[v.kind] ? { kind: v.kind, hour: num(v.hour, 12, 0, 24) } : null;
 }
 export function cleanDays(raw) {
   if (!Array.isArray(raw)) return [];
@@ -314,7 +327,7 @@ export function cleanDays(raw) {
       best: p.best && fishOk(p.best.sp) ? { sp: p.best.sp, size: Math.round(num(p.best.size, 1, 1, 400)) } : null,
       records: cleanRecords(p.records),
       firsts: { fish: strs(f.fish, 20, fishOk), places: strs(f.places, 20), sites: strs(f.sites, 5, (x) => !!siteById[x]), life: strs(f.life, 12, (k) => !!SEA_LIFE[k]) },
-      dives: cleanDives(p.dives), seen: strs(p.seen, 12, (k) => !!SEA_LIFE[k]), gale: GALE.includes(p.gale) ? p.gale : null,
+      dives: cleanDives(p.dives), seen: strs(p.seen, 12, (k) => !!SEA_LIFE[k]), gale: GALE.includes(p.gale) ? p.gale : null, sat: cleanSat(p.sat),
     };
   });
 }
