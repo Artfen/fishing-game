@@ -84,6 +84,7 @@ export const DEFAULT_STATE = {
   guide: null,     // the first-trip guide: { on, done, dest, offered, finished, min, since } (see firstTrip.js)
   fuel: null,      // petrol in the car and the motorboats, the electric motor's battery, the jerry can (see fuel.js)
   dive: null,      // the dive tank and your diving records (see dive.js)
+  seaLife: {},     // the sea life you've seen (see world/sealife.js): kind -> { n, day, hour, where }
   comfort: null,   // how you feel: warm, wet, thirsty, what you wear, the bottle and rolls (see comfort.js)
 };
 
@@ -118,6 +119,18 @@ const fresh = () => {
 /* ---------------- checking what we read ---------------- */
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+// The sea life you can see (the same kinds as world/sealife.js's SEA_LIFE).
+export const SEA_LIFE_KINDS = ['bottlenose', 'commondolphin', 'spotteddolphin', 'seal', 'gannet', 'finwhale', 'minkewhale', 'pilotwhale', 'spermwhale', 'glow'];
+function cleanSeaLife(raw) {
+  const out = {};
+  if (!isObj(raw)) return out;
+  for (const k of SEA_LIFE_KINDS) {
+    const r = raw[k];
+    if (!isObj(r) || !Number.isFinite(r.n) || r.n < 1) continue;
+    out[k] = { n: Math.min(9999, Math.floor(r.n)), day: Number.isFinite(r.day) ? r.day : 1, hour: Number.isFinite(r.hour) ? r.hour : 12, where: typeof r.where === 'string' ? r.where.slice(0, 60) : '' };
+  }
+  return out;
+}
 const num = (v, d, lo = -Infinity, hi = Infinity) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
 const int = (v, d, lo, hi) => Math.round(num(v, d, lo, hi));
 const str = (v, d, max = 60) => (typeof v === 'string' ? v.slice(0, max) : d);
@@ -329,6 +342,7 @@ export function sanitize(raw) {
   s.guide = cleanGuide(raw.guide);
   s.fuel = cleanFuel(raw.fuel);
   s.dive = cleanDive(raw.dive);
+  s.seaLife = cleanSeaLife(raw.seaLife);
   s.comfort = cleanComfort(raw.comfort);
   if (isObj(raw.sky)) {
     s.sky = { cloud: num(raw.sky.cloud, 0.3, 0, 1), rain: num(raw.sky.rain, 0, 0, 1), storm: num(raw.sky.storm, 0, 0, 1), state: oneOf(raw.sky.state, SKY_STATES, 'partly'), timer: num(raw.sky.timer, 120, 0, 3600) };

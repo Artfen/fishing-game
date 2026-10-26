@@ -42,6 +42,8 @@ import { coldInfo, COLDWATER, FALLS, tarnSDF } from './world/coldwater.js';
 import { Boat, BOAT_KINDS } from './boat.js';
 import { Walker } from './walker.js';
 import { Effects } from './effects.js';
+import { buildSeaLife, SEA_LIFE } from './world/sealife.js';
+import { SeaGlow, nightGlow } from './world/seaglow.js';
 import { Fishing } from './fishing.js';
 import { drawFishSketch, drawLanternSketch, fishById, weightOf } from './fish.js';
 import { RODS, TACKLE, ROD_IDS, PACK, cleanGear, currentRig, fits, termOf, lineInUse } from './tackle.js';
@@ -289,6 +291,13 @@ const fx = new Effects(scene);
 const reflection = new Reflection();
 const ripples = new RippleField();
 fx.setField(ripples);
+// The sea glowing at night (splashes, wakes and strokes light it: see seaglow.js), and the
+// whales, dolphins, seals and gannets you watch rather than catch (sealife.js).
+const glow = new SeaGlow(scene);
+fx.glow = glow;
+glow.setPixelRatio(renderer.getPixelRatio());
+hideFromReflection(glow.points);
+const sealife = buildSeaLife(scene, { glow });
 camera.layers.enable(NO_REFLECT);
 hideFromReflection(water.mesh);
 hideFromReflection(water.ring);
@@ -4598,6 +4607,49 @@ BOATS.jetski.onLand = (b, hit) => {
   if (!settings.controls.reducedMotion) rig.shake = Math.max(rig.shake, Math.min(0.22, hit * 0.07));
 };
 let jetSprayT = 0;
+
+// Sea life: how loud and from which side a sound from (x, z) is, where you are.
+function heardFrom(x, z, range) {
+  const cp = camera.position, dx = x - cp.x, dz = z - cp.z, d = Math.hypot(dx, dz);
+  const fx_ = Math.sin(rig.yaw), fz_ = Math.cos(rig.yaw);
+  return { vol: clamp(1 - d / range, 0, 1), pan: clamp(((-fz_ * dx + fx_ * dz) / (d || 1)) * -0.8, -0.8, 0.8) };
+}
+sealife.onBlow = (x, z, size) => {
+  const h = heardFrom(x, z, size > 0.6 ? 700 : 120);
+  if (h.vol > 0) audio.blow?.(0.09 * h.vol * (0.5 + size), h.pan, size);
+};
+sealife.onWhistle = (x, z) => {
+  const h = heardFrom(x, z, 45);
+  if (h.vol > 0) audio.whistle?.(0.02 * h.vol, h.pan);
+};
+sealife.onPlunge = (x, z) => {
+  fx.splash(x, 0.05, z, 16, 3.4, 0.7);
+  fx.ripple(x, z, 1.6, 1.5, 0.6);
+  const h = heardFrom(x, z, 260);
+  if (h.vol > 0) audio.plunge?.(0.08 * h.vol, h.pan);
+};
+sealife.onSplash = (x, z, len) => {
+  fx.splash(x, 0.05, z, 12 + Math.round(len * 4), 2.2, 0.9);
+  fx.ripple(x, z, 1.2 + len * 0.4, 1.4, 0.5);
+  const h = heardFrom(x, z, 120);
+  if (h.vol > 0) audio.splashSmall?.(0.25 * h.vol, h.pan);
+};
+// What you've seen goes in the journal; the first time, a word about it.
+const seaLifeSeenAt = {};
+function seeSeaLife(kind, x, z) {
+  const now = performance.now() / 1000;
+  if (seaLifeSeenAt[kind] && now - seaLifeSeenAt[kind] < 600) return;
+  seaLifeSeenAt[kind] = now;
+  const S = (state.seaLife ||= {});
+  if (S[kind]) S[kind].n++;
+  else {
+    S[kind] = { n: 1, day: state.day, hour: state.hour, where: region === 'south' ? 'off Las Brasas' : placeName(x, z) || '' };
+    hud.toast(`${SEA_LIFE[kind].note} (The journal keeps the sea life you’ve seen, under Memories.)`, 9);
+  }
+  save();
+}
+sealife.onSighting = seeSeaLife;
+let glowFishT = 0;
 BOATS.sail.onTack = (b) => {
   if (b !== boat || onFoot || b.speed < 0.3) return;
   audio.rustle?.();
@@ -4745,6 +4797,7 @@ function applyQuality() {
   water.uniforms.uRippleTexel.value = 1 / Math.max(1, ripples.size);
   rainDrawn = q.rain;
   world.setPixelRatio(pr);
+  glow.setPixelRatio(pr);
   world.setQuality(q);
   world.drawDistance = q.drawDistance;
   // Fewer distant fish are drawn on lower settings, but every one of them is still there:
@@ -6574,6 +6627,26 @@ function tick(now, manual = false) {
   ecoTick(dt);
   handleClues();
   fx.update(dt, t, boat);
+  // The sea life round you, and (after dark, some nights more than others) the sea glowing
+  // wherever it's stirred: fish darting near the surface, a moving lure, a diver's kicks.
+  {
+    const P = player().pos, aboard = !onFoot && !driving && !dive && !cabinIn;
+    sealife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, daylight: env.daylight, region, eco, diving: !!dive });
+    glow.update(t, nightGlow(state.day) * smoothstep(0.35, 0.85, env.night) * (1 - 0.5 * (weather.rain ?? 0)));
+    glow.foamColor(fx.wake.material.color, env.daylight);
+    glowFishT -= dt;
+    if (glow.level > 0.04 && glowFishT <= 0) {
+      glowFishT = 0.2;
+      for (const a of eco.agents) {
+        if (!a.active || a.state === 'gone' || a.y < -2 || a.speed < 0.35 || Math.abs(a.x - P.x) > 30 || Math.abs(a.z - P.z) > 30) continue;
+        glow.spawn(a.x, a.z, a.speed > 1.2 ? 3 : 1, 0.2 + a.scale * 0.3, 0.6, t);
+      }
+      if (fishing.lineOut && (fishing.relSpeed ?? 0) > 0.3) glow.spawn(fishing.hook.x, fishing.hook.z, 2, 0.25, 0.6, t);
+      if (dive && diver.pos.y > -3) glow.spawn(diver.pos.x, diver.pos.z, 4, 0.8, 0.9, t);
+      // (Your own wake or oars alight: you've seen the sea glow.)
+      if (glow.level > 0.2 && !onFoot && !driving && boat.speed > 0.8) seeSeaLife('glow', boat.pos.x, boat.pos.z);
+    }
+  }
 
   const drag = input.takeDrag();
   const wheel = input.takeWheel();
@@ -6850,7 +6923,7 @@ window.slowTide = {
   openBench: (st) => openBench(st), get driving() { return driving; }, get modalName() { return modal; },
   state, walker, fishing, env, weather, renderer, post, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world, explored, stormFx,
   get boat() { return boat; }, // the boat you're in (or last used)
-  reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI, pads,
+  reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI, pads, sealife, glow,
   // The first-trip guide as it stands: the step, its words and where it points.
   guideNow: () => ({ step: stepOf(state.guide), title: $('gd-title').textContent, text: $('gd-text').textContent, target: guideTarget, shown: !$('guide').hidden }),
   firstPerson: (on = true) => rig.setFirstPerson(on, t),

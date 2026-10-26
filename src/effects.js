@@ -66,6 +66,7 @@ export class Effects {
     this.lapT = 0;
     this.bowT = 0;
     this.field = null; // the ripple height field (higher graphics settings), see waterfx.js
+    this.glow = null;  // the sea glowing at night (see world/seaglow.js): splashes and wakes light it
     for (const r of this.ripples) hideFromReflection(r.m);
     for (const f of this.flashes) hideFromReflection(f.m);
     hideFromReflection(this.points);
@@ -99,6 +100,7 @@ export class Effects {
 
   ripple(x, z, size = 1.5, life = 1.6, str = 0.5) {
     if (this.field?.on) this.field.add(x, z, size * 1.15, life * 1.3, str);
+    this.glow?.spawn(x, z, Math.round(2 + str * 6), size * 0.45, 0.4 + str);
     const r = this.ripples[this.ri++ % this.ripples.length];
     Object.assign(r, { x, z, size, max: life, life, str });
     r.m.visible = true;
@@ -111,6 +113,7 @@ export class Effects {
   }
 
   splash(x, y, z, n = 12, power = 2.2, spread = 1) {
+    if (y < 0.6) this.glow?.spawn(x, z, Math.round(n * 0.8), 0.4 + spread * 0.5, 0.6 + power * 0.25);
     for (let k = 0; k < n; k++) {
       const i = this.pi++ % this.N;
       this.pp[i * 3] = x + rand(-0.15, 0.15) * spread;
@@ -159,6 +162,12 @@ export class Effects {
       const f = boat.fwd;
       this.trail.unshift({ x: boat.pos.x - f.x * 1.75, z: boat.pos.z - f.z * 1.75, fx: f.x, fz: f.z, age: 0, s: clamp(sp / 4.5, 0, 1) });
       if (this.trail.length > WAKE_POINTS) this.trail.pop();
+      // (At night the wake and the bow wave glow.)
+      if (this.glow) {
+        const s = clamp(sp / 4.5, 0, 1), bow = (boat.hull?.L ?? 3.6) * 0.48;
+        this.glow.spawn(boat.pos.x - f.x * 1.9, boat.pos.z - f.z * 1.9, 3 + Math.round(8 * s), 0.5 + s * 1.0, 0.8 + s * 0.6, t);
+        for (const side of [-1, 1]) this.glow.spawn(boat.pos.x + f.x * bow + boat.right.x * side * 0.5, boat.pos.z + f.z * bow + boat.right.z * side * 0.5, 2 + Math.round(3 * s), 0.4, 0.7 + s * 0.4, t);
+      }
     }
     const n = this.trail.length;
     const P = this.wakePos, C = this.wakeCol;

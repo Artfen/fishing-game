@@ -5,6 +5,7 @@ import { formatClock } from './world/sky.js';
 import { PHOTO_MAX } from './save.js';
 import { ADVENTURES, KEEPSAKES, PAGES } from './adventures.js';
 import { TENTS } from './campsite.js';
+import { SEA_LIFE } from './world/sealife.js';
 
 // The journal's Memories pages: your photographs, the adventures you've come across and what
 // they left you, your marks on the map (favourite spots with what they've given you), your camp,
@@ -65,6 +66,7 @@ export class Memories {
     this.renderMarks();
     this.renderCamp();
     this.renderPlaces();
+    this.renderSeaLife();
   }
 
   renderPhotos() {
@@ -220,5 +222,20 @@ export class Memories {
     }
     if (!out.length) out.push(el('p', 'j-empty', 'Nowhere yet.'));
     $('mem-places').replaceChildren(...out);
+  }
+
+  // The whales, dolphins, seals and seabirds you've watched, and the night the sea glowed.
+  renderSeaLife() {
+    const S = this.state.seaLife || {}, out = [];
+    for (const [id, info] of Object.entries(SEA_LIFE)) {
+      const r = S[id];
+      if (!r) continue;
+      const d = el('div', 'mem-place');
+      d.append(el('b', '', info.name), el('span', 'j-faint', ` · first seen ${whenText(r)}${r.where ? `, ${r.where}` : ''}${r.n > 1 ? ` · ${r.n} times` : ''}`));
+      d.append(el('p', '', info.note));
+      out.push(d);
+    }
+    if (!out.length) out.push(el('p', 'j-empty', 'Nothing yet. Keep an eye out at sea: dolphins come to a boat going along at a good clip, seals haul out on the rocks, gannets dive where small fish come up, whales blow far offshore, and some nights the sea glows.'));
+    $('mem-sealife').replaceChildren(...out);
   }
 }

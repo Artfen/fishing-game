@@ -647,6 +647,31 @@ export class AudioScape {
     this.tone({ type: 'triangle', freq: f * 2, freqEnd: f * 1.5, dur: 1.2, gain: vol * 0.18, attack: 0.4, pan, when: 0.1, dest: this.nature });
   }
 
+  // A whale or a dolphin breathing out at the surface: a sharp, hollow whoosh, deep and long for a
+  // great whale, a quick "pfff" for a dolphin. size: 0 … 1 (how big a breath).
+  blow(vol, pan, size = 0.3) {
+    const big = clamp(size, 0, 1);
+    this.burst({ buf: this.pink, type: 'bandpass', freq: 1400 - big * 900, freqEnd: 700 - big * 450, q: 0.6, dur: 0.25 + big * 1.1, gain: vol, attack: 0.02 + big * 0.06, pan, dest: this.nature });
+    this.burst({ buf: this.brown, type: 'lowpass', freq: 300 + (1 - big) * 300, dur: 0.3 + big * 1.3, gain: vol * (0.4 + big * 0.6), attack: 0.03, pan, dest: this.nature });
+  }
+
+  // Dolphins riding the bow: a run of rising and falling whistles, and a few clicks.
+  whistle(vol, pan) {
+    let t = 0;
+    for (let i = 0; i < 1 + Math.floor(rand(0, 3)); i++) {
+      const f = rand(6500, 9500);
+      this.tone({ freq: f, freqEnd: f * rand(0.6, 1.4), dur: rand(0.25, 0.6), gain: vol, attack: 0.03, pan, when: t, vib: rand(4, 12), dest: this.nature });
+      t += rand(0.3, 0.7);
+    }
+    for (let i = 0; i < 6; i++) this.burst({ type: 'highpass', freq: 4000, q: 0.8, dur: 0.008, gain: vol * 0.6, attack: 0.001, when: t + i * 0.04, pan, dest: this.nature });
+  }
+
+  // A gannet hitting the water from on high: a sharp slap and a burst of spray.
+  plunge(vol, pan) {
+    this.burst({ type: 'bandpass', freq: 1800, freqEnd: 600, q: 0.7, dur: 0.18, gain: vol, attack: 0.002, pan, dest: this.nature });
+    this.burst({ buf: this.brown, type: 'lowpass', freq: 700, dur: 0.4, gain: vol * 0.8, attack: 0.005, pan, dest: this.nature });
+  }
+
   // The tent's fly flapping in a gust.
   flap(vol) {
     this.burst({ buf: this.pink, type: 'bandpass', freq: rand(700, 1100), q: 0.7, dur: rand(0.12, 0.25), gain: vol, attack: 0.01, pan: rand(-0.4, 0.4), dest: this.windBus });

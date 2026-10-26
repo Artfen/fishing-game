@@ -26,6 +26,27 @@ const TOWER_R = 2.2;      // outer radius
 const DOOR_YAW = Math.PI / 2; // the doorway faces east, towards the landing
 const DOOR_H = 1.9;
 
+// A grey seal's body and head, in grey with darker blotches (also used for the seals elsewhere
+// on the coast, see sealife.js): the body hauled out, about two metres long, nose at +z.
+export function sealParts(rnd) {
+  const bodyGeo = mergeParts([
+    { geo: new THREE.SphereGeometry(0.5, 12, 8), matrix: new THREE.Matrix4().compose(new THREE.Vector3(0, 0.26, 0), new THREE.Quaternion(), new THREE.Vector3(0.85, 0.62, 1.55)), color: '#7d8187', jitter: 0.03 },
+    { geo: new THREE.ConeGeometry(0.3, 0.75, 10), matrix: mat(0, 0.2, -1.0, -Math.PI / 2, 0, 0), color: '#6f7379', jitter: 0.03 },
+    { geo: new THREE.BoxGeometry(0.42, 0.04, 0.26), matrix: mat(0.12, 0.18, -1.42, 0, 0.5, 0), color: '#4f5358' },
+    { geo: new THREE.BoxGeometry(0.42, 0.04, 0.26), matrix: mat(-0.12, 0.18, -1.42, 0, -0.5, 0), color: '#4f5358' },
+    { geo: new THREE.BoxGeometry(0.08, 0.05, 0.3), matrix: mat(0.38, 0.08, 0.35, 0, 0.4, -0.3), color: '#5f6368' },
+    { geo: new THREE.BoxGeometry(0.08, 0.05, 0.3), matrix: mat(-0.38, 0.08, 0.35, 0, -0.4, 0.3), color: '#5f6368' },
+  ], rnd);
+  // (Mottled: a few darker blotches over the grey.)
+  const headGeo = mergeParts([
+    { geo: new THREE.SphereGeometry(0.21, 10, 8), matrix: new THREE.Matrix4().compose(new THREE.Vector3(0, 0, 0.08), new THREE.Quaternion(), new THREE.Vector3(1, 0.9, 1.15)), color: '#7a7e84', jitter: 0.03 },
+    { geo: new THREE.SphereGeometry(0.11, 8, 6), matrix: mat(0, -0.04, 0.3), color: '#5d6166' },
+    { geo: new THREE.SphereGeometry(0.03, 5, 4), matrix: mat(0.09, 0.07, 0.2), color: '#111111' },
+    { geo: new THREE.SphereGeometry(0.03, 5, 4), matrix: mat(-0.09, 0.07, 0.2), color: '#111111' },
+  ], rnd);
+  return { bodyGeo, headGeo };
+}
+
 // Where you stand at the tower's doorway (the game's interaction spot).
 export const TOWER_DOOR = { x: T.x + Math.sin(DOOR_YAW) * (TOWER_R + 1.3), z: T.z + Math.cos(DOOR_YAW) * (TOWER_R + 1.3), r: 1.7 };
 
@@ -131,21 +152,7 @@ export function buildCalf(scene, rnd) {
 
   /* ---------- grey seals ---------- */
   const sealMat = new THREE.MeshLambertMaterial({ vertexColors: true });
-  const bodyGeo = mergeParts([
-    { geo: new THREE.SphereGeometry(0.5, 12, 8), matrix: new THREE.Matrix4().compose(new THREE.Vector3(0, 0.26, 0), new THREE.Quaternion(), new THREE.Vector3(0.85, 0.62, 1.55)), color: '#7d8187', jitter: 0.03 },
-    { geo: new THREE.ConeGeometry(0.3, 0.75, 10), matrix: mat(0, 0.2, -1.0, -Math.PI / 2, 0, 0), color: '#6f7379', jitter: 0.03 },
-    { geo: new THREE.BoxGeometry(0.42, 0.04, 0.26), matrix: mat(0.12, 0.18, -1.42, 0, 0.5, 0), color: '#4f5358' },
-    { geo: new THREE.BoxGeometry(0.42, 0.04, 0.26), matrix: mat(-0.12, 0.18, -1.42, 0, -0.5, 0), color: '#4f5358' },
-    { geo: new THREE.BoxGeometry(0.08, 0.05, 0.3), matrix: mat(0.38, 0.08, 0.35, 0, 0.4, -0.3), color: '#5f6368' },
-    { geo: new THREE.BoxGeometry(0.08, 0.05, 0.3), matrix: mat(-0.38, 0.08, 0.35, 0, -0.4, 0.3), color: '#5f6368' },
-  ], rnd);
-  // (Mottled: a few darker blotches over the grey.)
-  const headGeo = mergeParts([
-    { geo: new THREE.SphereGeometry(0.21, 10, 8), matrix: new THREE.Matrix4().compose(new THREE.Vector3(0, 0, 0.08), new THREE.Quaternion(), new THREE.Vector3(1, 0.9, 1.15)), color: '#7a7e84', jitter: 0.03 },
-    { geo: new THREE.SphereGeometry(0.11, 8, 6), matrix: mat(0, -0.04, 0.3), color: '#5d6166' },
-    { geo: new THREE.SphereGeometry(0.03, 5, 4), matrix: mat(0.09, 0.07, 0.2), color: '#111111' },
-    { geo: new THREE.SphereGeometry(0.03, 5, 4), matrix: mat(-0.09, 0.07, 0.2), color: '#111111' },
-  ], rnd);
+  const { bodyGeo, headGeo } = sealParts(rnd);
   const makeSeal = () => {
     const g = new THREE.Group();
     const body = mesh(bodyGeo, sealMat);

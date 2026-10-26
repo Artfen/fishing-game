@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { ATLANTIC_ANATOMY } from './anatomyAtlantic.js';
 import { SOUTH_ANATOMY } from './anatomySouth.js';
 import { BIG_ANATOMY } from './anatomyBig.js';
+import { SEA_ANATOMY } from './anatomySea.js';
 
 // Anatomical models of aquatic animals, one recipe per species, built in code (no external
 // assets). Three body plans share the machinery where the animals really are alike:
@@ -529,8 +530,11 @@ function buildFish(A, detail) {
       else if (f.shape === 'rounded') out = [[0, -hb], [len * 0.4, -H * 0.85], [len * 0.85, -H * 0.6], [len, 0], [len * 0.85, H * 0.6], [len * 0.4, H * 0.85], [0, hb]];
       else if (f.shape === 'truncate') out = [[0, -hb], [len * 0.55, -H * 0.85], [len * 0.97, -H], [len, -H * 0.3], [len * 1.0, H * 0.3], [len * 0.97, H], [len * 0.55, H * 0.85], [0, hb]];
       else out = [[0, -hb], [len * 0.5, -H * 0.55], [len, -H], [len * (1 - fork) + len * 0.08, -H * 0.2], [len * (1 - fork), 0], [len * (1 - fork) + len * 0.08, H * 0.2], [len, H], [len * 0.5, H * 0.55], [0, hb]];
+      // (A whale's or a dolphin's flukes lie flat, across the tail, not upright.)
+      const flat = f.shape === 'flukes';
+      if (flat) out = [[0, -hb * 1.4], [len * 0.25, -H * 0.55], [len * 0.7, -H], [len * 0.85, -H * 0.92], [len * 0.72, -H * 0.4], [len * 0.82, 0], [len * 0.72, H * 0.4], [len * 0.85, H * 0.92], [len * 0.7, H], [len * 0.25, H * 0.55], [0, hb * 1.4]];
       // (Dark-tipped lobes: the edge colour by distance from the stalk and from the middle.)
-      finMesh(B, out, (d, h) => [0, yb + h, zb - d], (d, h) => [(h / H + 1) * 0.5 * (f.rays || 18), 1 - d / len],
+      finMesh(B, out, flat ? (d, h) => [h, yb, zb - d] : (d, h) => [0, yb + h, zb - d], (d, h) => [(h / H + 1) * 0.5 * (f.rays || 18), 1 - d / len],
         tintOf(f, (d, h) => (f.tips ? Math.max(d / len, Math.abs(h) / H) * (Math.abs(h) / H) : d / len), f.edgeFrom));
     } else if (f.kind === 'rays' && detail) {
       // Free fin rays, like fingers, below the pectoral fin (a gurnard walks on them).
@@ -1103,7 +1107,10 @@ export const ANATOMY = {
 //  4 tuna: a stiff body, the beat all in the tail stalk and crescent tail
 //  5 squid: the fins rippling and flapping at the rear, the arms trailing
 //  6 octopus: the arms rippling and curling as it crawls, the mantle breathing
+//  7 whale or dolphin: the body stiff, the tail stock and flukes beating up and down
 const SWIM = {
+  7: `float bend = smoothstep(-0.05, -0.55, position.z);
+      transformed.y += sin(sw.x - position.z * 3.5) * bend * bend * (0.03 + sw.y * 0.1);`,
   2: `float bend = 0.35 + 0.65 * smoothstep(0.45, -0.5, position.z);
       transformed.x += sin(sw.x - position.z * 13.0) * bend * (0.02 + sw.y * 0.045);`,
   4: `float bend = smoothstep(-0.02, -0.55, position.z);
@@ -1170,8 +1177,10 @@ export function anatomyMaterials(id, instanced) {
   if (A.plan !== 'fish') body.side = THREE.DoubleSide;
   // (The fins' colours are in the geometry: each fin can have its own, and its edge another.)
   const fins = new THREE.MeshStandardMaterial({
-    color: '#ffffff', vertexColors: true, map: finTexture(), transparent: true, opacity: A.finOpacity ?? 0.88, side: THREE.DoubleSide,
-    depthWrite: false, roughness: 0.55, metalness: 0,
+    // (A whale's or a dolphin's fins are smooth skin: no rays.)
+    // (Solid fins, a whale's say, are drawn like the body, so the water never paints over them.)
+    color: '#ffffff', vertexColors: true, map: A.smoothFins ? null : finTexture(), transparent: (A.finOpacity ?? 0.88) < 1, opacity: A.finOpacity ?? 0.88, side: THREE.DoubleSide,
+    depthWrite: (A.finOpacity ?? 0.88) >= 1, roughness: 0.55, metalness: 0,
   });
   const eyes = new THREE.MeshStandardMaterial({ map: eyeTexture(A.eye?.iris || '#c9b37a', A.eye?.pupil), roughness: 0.08, metalness: 0.15 });
   // One swim phase for all three, so fins and eyes move with the body.
@@ -1194,4 +1203,4 @@ export const hasAnatomy = (id) => !!ANATOMY[id];
 
 // The Atlantic roster's recipes live in their own module, and so do Las Brasas' fish and the
 // big game of the open ocean.
-Object.assign(ANATOMY, ATLANTIC_ANATOMY, SOUTH_ANATOMY, BIG_ANATOMY);
+Object.assign(ANATOMY, ATLANTIC_ANATOMY, SOUTH_ANATOMY, BIG_ANATOMY, SEA_ANATOMY);
