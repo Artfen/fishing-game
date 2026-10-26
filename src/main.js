@@ -63,6 +63,7 @@ import { requestById, businessWith, accept as acceptFavour, decline as declineFa
 import { lower } from './innTalk.js';
 import { tideAt, tideWords } from './world/tide.js';
 import { seasonOf, seasonWords, sunTimes, sunHour, seasonWarmth, riverFlow, leafTint, seasonLine } from './world/season.js';
+import { galeSky, galeNear, hoursToGale, outlook } from './world/forecast.js';
 import { FolkView } from './world/folk.js';
 import { demandFor, money } from './market.js';
 import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
@@ -749,8 +750,16 @@ const NEXT_SKY = {
   partly: ['clear', 'overcast', 'partly'],
   overcast: ['partly', 'light', 'overcast'],
   light: ['overcast', 'heavy', 'partly', 'light'],
-  heavy: ['light', 'light', 'heavy', 'storm'],
+  heavy: ['light', 'light', 'heavy'],
   storm: ['heavy'],
+};
+// (Storms don't come by chance any more: gales are forecast a day ahead, see world/forecast.js.)
+// The season leans the weather: grey and wet in winter, fine in summer.
+const SEASON_SKY = {
+  spring: { overcast: ['light', 'partly'] },
+  summer: { partly: ['clear', 'clear'], overcast: ['partly'], light: ['partly'], heavy: ['light'] },
+  autumn: { partly: ['overcast'], overcast: ['light'] },
+  winter: { clear: ['overcast', 'partly'], partly: ['overcast', 'light'], overcast: ['light', 'overcast'], light: ['heavy', 'light'] },
 };
 // At Las Brasas, the trade-wind weather: mostly fine, cloud banking up now and then, a passing
 // shower, very seldom anything worse.
@@ -1538,6 +1547,10 @@ function tripChecklist() {
   const storm = Math.max(weather.storm, conditions.sea.storm);
   out.push({ ok: storm < 0.4, text: storm >= 0.4 ? 'A storm is blowing: stay in the bay and the sheltered water today.' : weatherLines(weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : weather.cloud > 0.3 ? 'Some cloud' : 'Clear')[0] });
   out.push({ ok: true, text: `Tide: ${tideWords(state.day * 24 + state.hour)}.` });
+  {
+    const abs = state.day * 24 + state.hour, h = hoursToGale(abs), g = h != null ? galeNear(abs) : null;
+    if (g && h < 14) out.push({ ok: false, text: `Gale due about ${formatClock(g.start % 24)}: plan to be in sheltered water by then (the estuary, the coves, the bay or the lakes fish well in a blow).` });
+  }
   const a = whatsAbout(eco, { max: 1 })[0];
   out.push(a ? { ok: true, text: `${a.sp.name}: ${a.act > 0.85 ? 'busy' : 'about'} ${a.where}${a.how ? `; try ${a.how}` : ''}.`, act: { label: 'Plan a trip', run: () => { closeHarbour(); openGuide(); } } } : { ok: true, text: 'Little is feeding near the harbour this hour. Dawn and dusk are usually better.', act: { label: 'Plan a trip', run: () => { closeHarbour(); openGuide(); } } });
   return out;
@@ -4325,7 +4338,7 @@ function renderBoard() {
     e.textContent = text;
     return e;
   };
-  $('board-weather').replaceChildren(...[seasonLine(state.day * 24 + state.hour), ...weatherLines(sky, state.day * 24 + state.hour)].map((l) => p(l)));
+  $('board-weather').replaceChildren(...[seasonLine(state.day * 24 + state.hour), ...outlook(state.day * 24 + state.hour), ...weatherLines(sky, state.day * 24 + state.hour)].map((l) => p(l)));
   const birds = birdsWorking(world.flocks, state.places);
   $('board-birds').replaceChildren(...(birds.length ? birds.map((l) => p(l)) : [p('No gulls working the water just now. They come down where fish drive the bait to the top: watch for them at dawn and dusk.', 'j-faint')]));
   const about = whatsAbout(eco);
@@ -5085,10 +5098,18 @@ function updateWeather(dt, speed) {
     weather.state = mode;
   } else {
     weather.timer -= dt * Math.min(speed, 10);
-    if (weather.timer <= 0) {
-      weather.state = pick((region === 'south' ? NEXT_SKY_SOUTH : NEXT_SKY)[weather.state]);
-      weather.timer = weather.state === 'storm' ? rand(130, 220) : weather.state === 'heavy' ? rand(60, 110) : weather.state === 'light' ? rand(80, 150) : rand(150, 300);
+    // A gale on its way (or blowing) makes the sky; otherwise it wanders as the season leans it.
+    const forced = region === 'home' ? galeSky(state.day * 24 + state.hour) : null;
+    if (forced) {
+      weather.state = forced;
+      weather.timer = Math.max(weather.timer, 20);
+    } else if (weather.timer <= 0) {
+      const lean = region === 'home' ? SEASON_SKY[seasonOf(state.day).name][weather.state] || [] : [];
+      weather.state = pick([...(region === 'south' ? NEXT_SKY_SOUTH : NEXT_SKY)[weather.state], ...lean]);
+      if (weather.state === 'storm') weather.state = 'heavy';
+      weather.timer = weather.state === 'heavy' ? rand(60, 110) : weather.state === 'light' ? rand(80, 150) : rand(150, 300);
     }
+    galeWarnings();
   }
   const sky = SKIES[weather.state];
   // A change you choose settles in about ten seconds; a change by itself drifts in more slowly.
@@ -5096,6 +5117,30 @@ function updateWeather(dt, speed) {
   weather.rain = damp(weather.rain, weather.override ?? sky.rain, rate, dt);
   weather.cloud = damp(weather.cloud, Math.max(sky.cloud, weather.override ?? 0), rate, dt);
   weather.storm = damp(weather.storm, sky.storm || 0, rate * 0.8, dt);
+}
+// Warnings of a gale coming: six hours out (time to think about shelter), and an hour and a half
+// (time to be in it). Each once.
+const galeWarned = new Set();
+function galeWarnings() {
+  if (!started || region !== 'home') return;
+  const abs = state.day * 24 + state.hour, h = hoursToGale(abs), g = h != null ? galeNear(abs) : null;
+  if (!g) return;
+  if (h <= 6 && h > 1.5 && !galeWarned.has(`${g.day}:6`)) {
+    galeWarned.add(`${g.day}:6`);
+    hud.toast(`Gale warning: a storm is due about ${formatClock(g.start % 24)}, blowing until about ${formatClock(g.end % 24)}. Plenty of time to finish up and make for shelter: the harbour, the bay, the coves, the estuary or the lakes.`, 10);
+    audio.chime?.();
+  }
+  if (h <= 1.5 && !galeWarned.has(`${g.day}:1`)) {
+    galeWarned.add(`${g.day}:1`);
+    hud.toast('The sky’s blackening to the south-west and the wind is rising: the gale’s an hour or so off. If you’re out past the bay, come in now.', 9);
+  }
+}
+// After a blow: what's left of it (1 just as it ends, fading over eight hours), for the fish.
+let lastBlow = -1e9;
+function blowAfter() {
+  const abs = state.day * 24 + state.hour;
+  if (weather.storm > 0.5) lastBlow = abs;
+  return weather.storm > 0.3 ? 0 : clamp(1 - (abs - lastBlow) / 8, 0, 1);
 }
 // How dull the light is: overcast skies and rain both grey the day.
 const gloom = () => Math.max(weather.rain, weather.cloud * 0.72);
@@ -6724,6 +6769,9 @@ function ecoTick(dt) {
   ecoCtx.env.hour = sunHour(state.hour, state.day * 24 + state.hour);
   ecoCtx.env.abs = state.day * 24 + state.hour;
   ecoCtx.env.tide = tideNow;
+  // (In a blow the fish of sheltered water feed hard, the open sea's go quiet; after it too.)
+  ecoCtx.env.storming = Math.max(weather.storm, conditions.sea.storm);
+  ecoCtx.env.after = blowAfter();
   ecoCtx.env.rain = weather.rain;
   ecoCtx.env.cloud = weather.cloud;
   ecoCtx.env.storm = Math.max(weather.storm, conditions.sea.storm);

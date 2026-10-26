@@ -519,6 +519,12 @@ The year turns: spring, summer, autumn and winter, a week of days each (a short 
 - **The leaves**: fresh in spring, deep green in summer, gold and rust in autumn, dull brown in winter; the pines stay green, and the reeds turn to straw.
 - **The people**: no cruising boats in winter (and fewer in autumn), no mackerel trips for Ian and no crabbing for Kit; the catch log records the season of every fish.
 
+### Gales
+
+The big storms off the Atlantic don't come out of nowhere: each **gale** is known a day ahead. The notice board gives the outlook for today and tomorrow ("Gale warning for today, from about 2:10 pm until 8:20 pm"), and they're rare: once in a couple of weeks in summer, two or three times a week in winter. A gale comes in over hours: the cloud thickens about seven hours before, the rain sets in, then heavy rain, then the storm itself (the wind at a gale, big breaking seas outside, thunder) for four to eight hours, and showers as it clears. You're warned **six hours** ahead (time to finish up and make for shelter) and again about **an hour and a half** before (if you're out past the bay, come in now); Bert's trip checklist flags one due within the next half day.
+
+What to do with a gale day: the open sea goes dead and dangerous, but **sheltered water fishes**: the estuary, the coves, the bay, the lakes and rivers, where the fish feed hard in the blow and in the coloured water for hours after it. Or stay ashore: the inn, the market, the chandlery and the favours are all there, and the harbour's people (Dougie in the lee of the quay, Hettie on the sheltered side) are doing the same. Only Willow Bay's sea gets gales; Las Brasas' trade-wind weather hardly knows one. (Choosing a fixed sky in Settings turns them off.)
+
 ### Tides
 
 The sea rises and falls twice a day, high water coming about fifty minutes later each day, and over a fortnight the tides grow from small **neaps** to big **springs** and back (a range of about a metre at springs in the game, a third of that at neaps). The water creeps up the beaches and the slipway and the boats rise with it.
@@ -790,6 +796,7 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 | `src/world/sky.js` | Day cycle colours, sun and moon, sky dome, clouds |
 | `src/camera.js` | The views (boat, on foot, first person, underwater, bait), their limits and smooth transitions |
 | `src/firstperson.js` | First person: where the rod is held in front of your eyes for each moment of fishing, and its springy whip |
+| `src/world/forecast.js` | Gales: when they come (by the season), how they build and clear, the board's outlook, the warnings, and the fishing in a blow |
 | `src/world/season.js` | The year: seasons, sunrise and sunset, warmth, each fish's seasons, the rivers' flow, the leaves' colour |
 | `src/world/tide.js` | The tide: high and low water, springs and neaps, the sea's level and the streams' flow, the fish's feeding on a running tide, tide times in words |
 | `src/world/sealife.js`, `src/world/seaglow.js`, `src/anatomySea.js` | Sea life to watch: dolphin pods that ride a bow wave, grey seals, gannets plunging on shoals, whales surfacing with their blows; the sea glowing at night; the whales' and dolphins' models (with flat flukes and an up-and-down swim) |

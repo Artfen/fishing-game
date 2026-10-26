@@ -81,7 +81,7 @@ export function weatherLines(skyWord, abs = null) {
   const seaIn = waveHeightHere(0, -20), seaOut = waveHeightHere(60, 140);
   lines.push(`Sea: ${seaWords(seaOut).toLowerCase()} outside (about ${seaOut < 0.1 ? 'nothing' : `${seaOut.toFixed(1)} m`}), ${seaWords(seaIn).toLowerCase()} in the bay.`);
   const c = currentAt(146, 30, 0), cs = Math.hypot(c.x, c.z);
-  lines.push(cs < 0.03 ? 'The cove channel is slack.' : `The cove channel runs ${cs.toFixed(1)} m/s to the ${compass(Math.atan2(c.x, -c.z), true)}.`);
+  lines.push(cs < 0.05 ? 'The cove channel is slack.' : `The cove channel runs ${cs.toFixed(cs < 0.1 ? 2 : 1)} m/s to the ${compass(Math.atan2(c.x, -c.z), true)}.`);
   if (skyWord) lines.push(`Sky: ${skyWord.toLowerCase()}.`);
   if (abs != null) lines.push(`Tide: ${tideWords(abs)}. ${dayTides(Math.floor(abs / 24))}`);
   return lines;

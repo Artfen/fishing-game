@@ -4,6 +4,7 @@ import { traits, mood, whyRejected, BEHAVIOUR } from '../behaviour.js';
 import { zoneAt } from './terrain.js';
 import { tideBoost } from './tide.js';
 import { seasonBoost } from './season.js';
+import { blowFactor } from './forecast.js';
 import { clamp, lerp, damp, rand, smoothstep, wrapAngle, seeded } from '../util.js';
 import { spookRadius, curiosity } from '../dive.js';
 
@@ -866,6 +867,8 @@ export class Ecosystem {
     p *= M.m;
     if (b.fresh > 0) p *= 1.6;
     if (a.caught > 0) p *= 0.6;
+    // A gale, and the coloured water after it: sheltered water fishes, the open sea doesn't.
+    if (this.ctx.storming || this.ctx.after) p *= blowFactor(a.home.zone, this.ctx.storming, this.ctx.after);
     if (L.grazer && this.feedSpots.some((f) => f.amount > 0.05 && Math.hypot(f.x - b.x, f.z - b.z) < 6)) p *= 2;
     if (Math.random() < p) this.engage(a);
   }
