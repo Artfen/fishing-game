@@ -508,6 +508,14 @@ What they're up to (Dougie out at his pots, or not going out; what he landed; He
 
 You start with £20 in your purse; sold fish show as *Sold* in the catch log. The money is for small pleasures and helps, never a grind: nothing in the game needs it, and the chandlery's tackle stays free.
 
+### Tides
+
+The sea rises and falls twice a day, high water coming about fifty minutes later each day, and over a fortnight the tides grow from small **neaps** to big **springs** and back (a range of about a metre at springs in the game, a third of that at neaps). The water creeps up the beaches and the slipway and the boats rise with it.
+
+- **Tidal streams** run out on the **ebb** and in on the **flood**, strongest at half tide and on springs, slack at high and low water: the race through Calf Sound, round Gannet Isle's points, over Long Shoal, through the Skerries and the cove channel, and the lower Wend, which the flood pushes back up its estuary. Your drifting rig and your boat feel them.
+- **The fish of the sea feed best on a running tide** and go quiet at slack water; bass, mullet and the flatfish feed hardest on the flood. (The lakes' and rivers' fish don't care.)
+- The **conditions panel** shows the tide (flooding, ebbing, high or low water now, and the next turn); the **notice board** gives the day's high and low waters and whether it's springs or neaps; the **catch log** records the tide each fish was caught on; Ruth's advice at the bar takes it into account; and Bert's trip checklist has it.
+
 ### Sea life to watch
 
 Not everything in the sea is for catching. Keep an eye out:
@@ -771,6 +779,7 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 | `src/world/sky.js` | Day cycle colours, sun and moon, sky dome, clouds |
 | `src/camera.js` | The views (boat, on foot, first person, underwater, bait), their limits and smooth transitions |
 | `src/firstperson.js` | First person: where the rod is held in front of your eyes for each moment of fishing, and its springy whip |
+| `src/world/tide.js` | The tide: high and low water, springs and neaps, the sea's level and the streams' flow, the fish's feeding on a running tide, tide times in words |
 | `src/world/sealife.js`, `src/world/seaglow.js`, `src/anatomySea.js` | Sea life to watch: dolphin pods that ride a bow wave, grey seals, gannets plunging on shoals, whales surfacing with their blows; the sea glowing at night; the whales' and dolphins' models (with flat flukes and an up-and-down swim) |
 | `src/boat.js` | The ten boats (rowing boat, motor skiff, kayak, bass boat, cabin boat, sailing boat, sport-fishing yacht, centre console, windsurf board, jet ski): hulls, the cabins, the sailing rig and its cloth, the windsurf rig and the windsurfer's stance and falls, the jet ski's saddle, bars, jet and jumps, the yacht's twin inboards, hardtop, outriggers and fighting chair, the console and its T-top, the standing angler who turns to face the line, the figure aboard, oars, paddle, outboards and trolling motor, rods, lantern and anchor; their physics (drift in wind and current, riding the waves, under sail, an oar when the motor's dead), draft and collisions |
 | `src/sailing.js` | The wind on the sail: apparent wind, angle of attack, lift and drag, luffing, stalling and irons, the hull and centreboard, heel |

@@ -26,8 +26,9 @@ import { SOUTH_WATER, brasaCurrent } from './brasa.js';
 //    lifts the boats and floats.
 //  · Currents are a modest background drift along the coast, the river and estuary flowing out
 //    to sea, and authored zones where water squeezes past headlands, through channels and over
-//    shoals; sheltered water is slacker. Each zone carries a tidal flag: today every tidal zone
-//    runs on the ebb (TIDE.flow = 1), and a future tide can turn them by changing TIDE.flow.
+//    shoals; sheltered water is slacker. Each zone carries a tidal flag: it runs with the tide
+//    (TIDE.flow, set by the game from tide.js: +1 out on a full ebb, −1 in on the flood, 0 slack);
+//    and the sea's level rises and falls with it (TIDE.level).
 //    Depth: a simple profile, full speed at the surface easing to 60% at the seabed.
 //
 // Units: wind in m/s (shown in km/h), current in m/s, wave height in metres (crest to trough).
@@ -107,20 +108,37 @@ export function bakeShelter(region = 'home') {
     shelterData[k * 2] = fromHalf(data[k * 4]);
     shelterData[k * 2 + 1] = fromHalf(data[k * 4 + 1]);
   }
-  const cur = { x: 0, z: 0 };
+  // The current in two parts: what runs whatever the tide (B, A), and the tidal streams at full
+  // ebb (their own texture), so the game turns them with the tide: base + flow × tidal.
+  const cur = { x: 0, z: 0 }, full = { x: 0, z: 0 };
   const currentData = (F.cur = new Float32Array(w * h * 2));
+  const tidalData = (F.tid = new Float32Array(w * h * 2));
+  const tdata = new Uint16Array(w * h * 4);
+  const flow = TIDE.flow;
   for (let j = 0; j < h; j++) {
     const z = R.z + ((j + 0.5) / h) * R.h;
     for (let i = 0; i < w; i++) {
       const x = R.x + ((i + 0.5) / w) * R.w, k = j * w + i;
       if (a[k * 2 + 1] <= 0) continue;
+      TIDE.flow = 0;
       seaCurrent(x, z, cur);
+      TIDE.flow = 1;
+      seaCurrent(x, z, full);
       data[k * 4 + 2] = toHalf(cur.x);
       data[k * 4 + 3] = toHalf(cur.z);
       currentData[k * 2] = cur.x;
       currentData[k * 2 + 1] = cur.z;
+      tidalData[k * 2] = full.x - cur.x;
+      tidalData[k * 2 + 1] = full.z - cur.z;
+      tdata[k * 4] = toHalf(full.x - cur.x);
+      tdata[k * 4 + 1] = toHalf(full.z - cur.z);
     }
   }
+  TIDE.flow = flow;
+  const tt = (F.tidTex = new THREE.DataTexture(tdata, w, h, THREE.RGBAFormat, THREE.HalfFloatType));
+  tt.magFilter = tt.minFilter = THREE.LinearFilter;
+  tt.wrapS = tt.wrapT = THREE.ClampToEdgeWrapping;
+  tt.needsUpdate = true;
   const tex = (F.tex = new THREE.DataTexture(data, w, h, THREE.RGBAFormat, THREE.HalfFloatType));
   tex.magFilter = tex.minFilter = THREE.LinearFilter;
   tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -193,8 +211,10 @@ export const shoalPeak = (depth) => 1.4 * smoothstep(5, 1.5, depth);
 const MAX_PEAK = 3.6;
 export const WAVE_COUNTS = { swell: SWELL.length, chop: CHOP.length };
 
-export const TIDE = { flow: 1 };
-const TRADES_FROM = 0.8; // the trade wind's bearing: from the north-east // +1 ebb (out to sea), −1 flood; constant until tides arrive
+// The tide as it is now (see tide.js): flow +1 ebb (out to sea) … −1 flood; level, metres above
+// the mean. (Left to itself, as in the tests, a steady ebb at mean level.)
+export const TIDE = { flow: 1, level: 0 };
+const TRADES_FROM = 0.8; // the trade wind's bearing: from the north-east
 
 export const conditions = {
   time: 0, // the shared wave clock (seconds), set by the game each frame
@@ -342,7 +362,12 @@ export function waveHeight(x, z, t = conditions.time) {
     const w = CHOP[i];
     hc += swellShape(a, w.k, w.k * (w.dx * x + w.dz * z - w.c * t), cp);
   }
-  return (hs + hc * (0.15 + 0.85 * sh[1])) * shoreFade(x, z);
+  return TIDE.level * (1 - freshness(x, z)) + (hs + hc * (0.15 + 0.85 * sh[1])) * shoreFade(x, z);
+}
+// The tidal streams' texture for the water shader (see bakeShelter): they turn with uTideFlow.
+export function tidalTexture(region = 'home') {
+  bakeShelter(region);
+  return FIELDS[region].tidTex;
 }
 // Waves die away over the last stretch of shallow water (so boats sit still on a beach) and on
 // fresh water (only the faintest wind ripple reaches the lake). A storm's big seas feel the bottom
@@ -444,12 +469,12 @@ function seaCurrent(x, z, out) {
 export function currentFast(x, z, out = _c) {
   const F = fieldAt(z);
   if (!F.cur) bakeShelter(F === FIELDS.south ? 'south' : 'home');
-  const R = F.rect, { w, h } = F, currentData = F.cur;
+  const R = F.rect, { w, h } = F, currentData = F.cur, tidal = F.tid, flow = TIDE.flow;
   const u = ((x - R.x) / R.w) * w - 0.5, v = ((z - R.z) / R.h) * h - 0.5;
   const i = clamp(Math.floor(u), 0, w - 2), j = clamp(Math.floor(v), 0, h - 2);
   const fu = clamp(u - i, 0, 1), fv = clamp(v - j, 0, 1);
   for (let c = 0; c < 2; c++) {
-    const at = (ii, jj) => currentData[(jj * w + ii) * 2 + c];
+    const at = (ii, jj) => currentData[(jj * w + ii) * 2 + c] + flow * tidal[(jj * w + ii) * 2 + c];
     const val = lerp(lerp(at(i, j), at(i + 1, j), fu), lerp(at(i, j + 1), at(i + 1, j + 1), fu), fv);
     if (c) out.z = val;
     else out.x = val;

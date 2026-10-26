@@ -10,7 +10,7 @@ import { HUD, kbd } from './ui.js';
 import { AudioScape } from './audio.js';
 import { Environment, phaseName, formatClock } from './world/sky.js';
 import { createWater } from './world/water.js';
-import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeight, waveHeightHere, compass, bearingOf, windWords, seaWords, shelterAt, bakeShelter, shelterRect } from './world/conditions.js';
+import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeight, waveHeightHere, compass, bearingOf, windWords, seaWords, shelterAt, bakeShelter, shelterRect, TIDE, tidalTexture } from './world/conditions.js';
 import { SOUTH_WATER, SOUTH_MAP, LANDFALL, POSADA, PUERTO as PUERTO_AT, PONTOON_S, FINGERS_S } from './world/brasa.js';
 import { buildWorld } from './world/world.js';
 import { createHabitat } from './world/habitat.js';
@@ -61,6 +61,7 @@ import { HarbourSheet, paintSlate } from './harbourView.js';
 import { Townsfolk, FOLK, sayTo } from './townsfolk.js';
 import { requestById, businessWith, accept as acceptFavour, decline as declineFavour, complete as completeFavour, caught as favourCaught, saw as favourSaw, photographed as favourPhotographed, buoyAt, pickUpBuoy, fishFor, remember, cleanFavours } from './requests.js';
 import { lower } from './innTalk.js';
+import { tideAt, tideWords } from './world/tide.js';
 import { FolkView } from './world/folk.js';
 import { demandFor, money } from './market.js';
 import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
@@ -194,6 +195,7 @@ function setRegion(r) {
   }
   const SR = shelterRect(r);
   water.uniforms.uShelter.value = r === 'south' ? W.shelter : bakeShelter();
+  water.uniforms.uTidal.value = tidalTexture(r === 'south' ? 'south' : 'home');
   water.uniforms.uShelterRect.value.set(SR.x, SR.z, SR.w, SR.h);
   for (const [k, c] of Object.entries(SEA_COLOURS[r])) water.uniforms[k].value.set(c);
   underwater.clear = r === 'south' ? 1 : 0;
@@ -336,6 +338,17 @@ function talkTo(p) {
   audio.page?.();
 }
 const talkedToday = {};
+
+// The tide (see world/tide.js): the sea's level and the tidal streams, set every frame for the
+// currents, the water and the fish.
+let tideNow = tideAt(state.day * 24 + state.hour);
+function updateTide() {
+  tideNow = tideAt(state.day * 24 + state.hour);
+  TIDE.flow = tideNow.flow;
+  TIDE.level = tideNow.level;
+  water.uniforms.uTideFlow.value = tideNow.flow;
+  water.uniforms.uTideLevel.value = tideNow.level;
+}
 
 /* ---- the favours the harbour's people ask of you (see requests.js) ---- */
 
@@ -936,6 +949,7 @@ function logCatch(sp, size, agent, rigUsed, how = null) {
     sky: weather.state,
     from: how?.from || (onFoot ? 'shore' : 'boat'),
     rain: weather.rain > 0.6 ? 2 : weather.rain > 0.15 ? 1 : 0,
+    tide: tideAt(state.day * 24 + state.hour).phase,
     hatch: Math.round(hatchLevel() * 10) / 10,
     depth: Math.round(Math.max(0, -at.y) * 10) / 10,
     bottom: Math.round(Math.max(0, -solidHeight(at.x, at.z)) * 10) / 10,
@@ -1454,7 +1468,7 @@ function innTalk(place) {
     if (k > 0.75 && (!yours || k > yours.k)) yours = { k, name: sp.name, size: e.size };
   }
   return {
-    advice: { place, hour: state.hour, rain: weather.rain, wind: conditions.wind.speed, storm, about: home ? whatsAbout(eco) : [], caught: new Set(Object.keys(state.fish)) },
+    advice: { place, hour: state.hour, rain: weather.rain, wind: conditions.wind.speed, storm, tide: tideNow, about: home ? whatsAbout(eco) : [], caught: new Set(Object.keys(state.fish)) },
     rumours: {
       place, hour: state.hour, nameOf, storm, rain: weather.rain,
       birds: home ? birdsWorking(world.flocks, state.places) : [],
@@ -1492,6 +1506,7 @@ function tripChecklist() {
   out.push(freshBaitToday(state) ? { ok: true, text: 'Fresh bait for today.' } : { ok: true, text: 'No fresh bait today (a help with worms and crab, never a need).' });
   const storm = Math.max(weather.storm, conditions.sea.storm);
   out.push({ ok: storm < 0.4, text: storm >= 0.4 ? 'A storm is blowing: stay in the bay and the sheltered water today.' : weatherLines(weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : weather.cloud > 0.3 ? 'Some cloud' : 'Clear')[0] });
+  out.push({ ok: true, text: `Tide: ${tideWords(state.day * 24 + state.hour)}.` });
   const a = whatsAbout(eco, { max: 1 })[0];
   out.push(a ? { ok: true, text: `${a.sp.name}: ${a.act > 0.85 ? 'busy' : 'about'} ${a.where}${a.how ? `; try ${a.how}` : ''}.`, act: { label: 'Plan a trip', run: () => { closeHarbour(); openGuide(); } } } : { ok: true, text: 'Little is feeding near the harbour this hour. Dawn and dusk are usually better.', act: { label: 'Plan a trip', run: () => { closeHarbour(); openGuide(); } } });
   return out;
@@ -4279,7 +4294,7 @@ function renderBoard() {
     e.textContent = text;
     return e;
   };
-  $('board-weather').replaceChildren(...weatherLines(sky).map((l) => p(l)));
+  $('board-weather').replaceChildren(...weatherLines(sky, state.day * 24 + state.hour).map((l) => p(l)));
   const birds = birdsWorking(world.flocks, state.places);
   $('board-birds').replaceChildren(...(birds.length ? birds.map((l) => p(l)) : [p('No gulls working the water just now. They come down where fish drive the bait to the top: watch for them at dawn and dusk.', 'j-faint')]));
   const about = whatsAbout(eco);
@@ -5616,6 +5631,7 @@ function updateConditionsPanel(dt) {
   $('cd-cur').textContent = cs < 0.03 ? `slack${fishing.state === 'drifting' ? ' at your rig' : ''}` : `${arrowFor(c.x, c.z)} ${cs.toFixed(cs < 0.1 ? 2 : 1)} m/s to ${compass(bearingOf(c.x, c.z))}${fishing.state === 'drifting' ? ' at your rig' : ''}`;
   const hgt = waveHeightHere(P.x, P.z);
   $('cd-sea').textContent = `${seaWords(hgt)}, ${hgt < 0.1 ? 'under 0.1' : `about ${hgt.toFixed(1)}`} m`;
+  $('cd-tide').textContent = tideWords(state.day * 24 + state.hour);
 }
 
 function updateHud() {
@@ -6674,6 +6690,7 @@ applyGear();
 
 function ecoTick(dt) {
   ecoCtx.env.hour = state.hour;
+  ecoCtx.env.tide = tideNow;
   ecoCtx.env.rain = weather.rain;
   ecoCtx.env.cloud = weather.cloud;
   ecoCtx.env.storm = Math.max(weather.storm, conditions.sea.storm);
@@ -6735,6 +6752,7 @@ function tick(now, manual = false) {
     }
   }
   updateWeather(dt, speed);
+  updateTide();
   updateSleep(dt);
   updateTravel(dt);
   updatePassage(dt);

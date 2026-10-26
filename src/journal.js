@@ -253,6 +253,7 @@ export class Journal {
     if (e.sky) bits.push(SKY_WORDS[e.sky]);
     else if (e.rain) bits.push(RAIN_WORDS[e.rain]);
     if (e.water === 'fresh' && e.hatch >= 0.5) bits.push('flies hatching');
+    if (e.tide && e.water !== 'fresh') bits.push({ flood: 'on the flood', ebb: 'on the ebb', high: 'at high water', low: 'at low water' }[e.tide]);
     return bits.join(' · ');
   }
 

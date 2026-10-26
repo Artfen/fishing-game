@@ -205,6 +205,7 @@ export function sanitizeLogEntry(e) {
     from: oneOf(e.from, ['boat', 'shore', 'dive'], 'boat'),
     rain: int(e.rain, 0, 0, 2),
     hatch: num(e.hatch, 0, 0, 2),
+    ...(['flood', 'ebb', 'high', 'low'].includes(e.tide) ? { tide: e.tide } : {}),
     depth: num(e.depth, 0, 0, 60),
     bottom: num(e.bottom, 0, 0, 60),
     outcome: oneOf(e.outcome, OUTCOMES, 'released'),

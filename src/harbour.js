@@ -1,4 +1,5 @@
 import { RODS, TACKLE } from './tackle.js';
+import { tideWords, dayTides } from './world/tide.js';
 import { setupsFor } from './guide.js';
 import { PLACES, HAVEN } from './world/terrain.js';
 import { HOME_WORDS, bearing } from './trip.js';
@@ -71,7 +72,7 @@ export function birdsWorking(flocks, known) {
   return out;
 }
 
-export function weatherLines(skyWord) {
+export function weatherLines(skyWord, abs = null) {
   const inside = windAt(0, -40), out = windAt(40, 160);
   const kmh = (v) => Math.round(v * 3.6);
   const lines = [];
@@ -82,6 +83,7 @@ export function weatherLines(skyWord) {
   const c = currentAt(146, 30, 0), cs = Math.hypot(c.x, c.z);
   lines.push(cs < 0.03 ? 'The cove channel is slack.' : `The cove channel runs ${cs.toFixed(1)} m/s to the ${compass(Math.atan2(c.x, -c.z), true)}.`);
   if (skyWord) lines.push(`Sky: ${skyWord.toLowerCase()}.`);
+  if (abs != null) lines.push(`Tide: ${tideWords(abs)}. ${dayTides(Math.floor(abs / 24))}`);
   return lines;
 }
 

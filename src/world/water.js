@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { conditions, WAVE_PARTS, bakeShelter, SHELTER_RECT, waveHeight as conditionsWaveHeight } from './conditions.js';
+import { conditions, WAVE_PARTS, bakeShelter, tidalTexture, SHELTER_RECT, waveHeight as conditionsWaveHeight } from './conditions.js';
 
 // The water surface: swell and wind chop from the shared conditions (conditions.js). The same
 // function moves these vertices and lifts the boats and floats (waveHeight below), so a hull
@@ -20,9 +20,10 @@ uniform float uChopPeak;
 uniform float uStorm;
 uniform sampler2D uShelter;
 uniform vec4 uShelterRect;
+uniform float uTideLevel; // the tide: the sea's level above the mean (m); not the lakes'
 vec3 waves(vec2 p, float t, float ground, float fresh) {
   vec4 sh = texture2D(uShelter, (p - uShelterRect.xy) / uShelterRect.zw);
-  float depth = max(-ground, 0.0);
+  float depth = max(uTideLevel * (1.0 - fresh) - ground, 0.0);
   // (Running into shallow water the swell grows and steepens: conditions.js shoalGrow, shoalPeak.)
   float ks = sh.r * (1.0 + 0.8 * smoothstep(8.0, 2.5, depth) * smoothstep(0.8, 2.2, depth)), kc = 0.15 + 0.85 * sh.g;
   float pk = min(uPeak + 1.4 * smoothstep(5.0, 1.5, depth), 3.6);
@@ -74,7 +75,7 @@ void main() {
   #else
   vec3 w = waves(wp.xz, uTime, mapV.r, mapV.g);
   #endif
-  wp.y += w.x;
+  wp.y += w.x + uTideLevel * (1.0 - mapV.g);
   vN = vec3(-w.y, 1.0, -w.z);
   vWorld = wp.xyz;
   vec4 mvPosition = viewMatrix * wp;
@@ -113,6 +114,9 @@ uniform float uRippleOn;
 uniform float uRippleTexel;
 uniform sampler2D uShelter;
 uniform vec4 uShelterRect;
+uniform sampler2D uTidal;  // the tidal streams at full ebb (RG), turned by uTideFlow
+uniform float uTideFlow;   // +1 full ebb … −1 full flood
+uniform float uTideLevel;  // the sea's level above the mean (m)
 uniform vec2 uWindV;     // where the wind blows, times its strength (0 … 1 at a fresh breeze)
 uniform float uSwellH;   // the swell's crest amplitude (m)
 uniform float uChopH;    // the chop's crest amplitude (m)
@@ -207,9 +211,10 @@ void main() {
   float fresh = hs.g;
   vec4 shel = texture2D(uShelter, (vWorld.xz - uShelterRect.xy) / uShelterRect.zw);
   // The stream's current (fine) and the sea's: the river, channels, headlands and the shoal.
-  vec2 flow = hs.ba + shel.ba * 1.6;
+  vec2 tidal = texture2D(uTidal, (vWorld.xz - uShelterRect.xy) / uShelterRect.zw).rg;
+  vec2 flow = hs.ba + (shel.ba + tidal * uTideFlow) * 1.6;
   float flowSpeed = length(flow);
-  float depth = max(-ground, 0.0);
+  float depth = max(uTideLevel * (1.0 - fresh) - ground, 0.0);
   float dist = length(cameraPosition - vWorld);
   float detail = 1.0 - smoothstep(40.0, 220.0, dist);
 
@@ -418,6 +423,9 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
   uniforms.uRect2 = { value: new THREE.Vector4(detailRect.x, detailRect.z, detailRect.w, detailRect.h) };
   uniforms.uRefl = { value: null };
   uniforms.uShelter = { value: bakeShelter() };
+  uniforms.uTidal = { value: tidalTexture() };
+  uniforms.uTideFlow = { value: 1 };
+  uniforms.uTideLevel = { value: 0 };
   uniforms.uRipple = { value: null };
   uniforms.uRippleRect = { value: new THREE.Vector4(0, 0, 1, 1) };
 

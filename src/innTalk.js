@@ -47,7 +47,7 @@ export const an = (w) => `${!/^(eu|uni|use)/i.test(w) && /^[aeiou]/i.test(w) ? '
 
 // Advice for the water as it is. ctx: { place ('haven' or 'muelle'), hour, rain, wind (m/s), about
 // (whatsAbout's list near Willowhaven: { sp, where, how, act }), storm (0 … 1), caught (Set of
-// species ids you've ever caught) }. One line, picked from the few that fit best just now.
+// species ids you've ever caught), tide (tide.js tideAt) }. One line, picked from the few that fit best just now.
 export function adviceFor(ctx) {
   const out = [];
   const dawnDusk = (ctx.hour >= 4.5 && ctx.hour < 7.5) || (ctx.hour >= 18.5 && ctx.hour < 21.5);
@@ -64,6 +64,11 @@ export function adviceFor(ctx) {
     return pick(out.slice(0, 3));
   }
   if (ctx.storm > 0.4) out.push('Stay in the bay today. Out past the Calf it’s no place for a small boat. The flounder don’t mind a blow: a worm on the bottom in the lee of the quay, and you’ll do fine.');
+  // The tide (see world/tide.js): the fish of the sea feed on a running tide, some on the flood.
+  const T = ctx.tide;
+  if (T?.phase === 'flood') out.push('The tide’s making. Bass, mullet and the flatfish feed hardest on the flood: the Wend, the cove channel and the strand are the places to be while it runs.');
+  else if (T?.phase === 'ebb') out.push('It’s ebbing. Fish the mouths of things on an ebb: where the channel pours out of the cove, where the Wend runs out over the sand. The tide brings the food to them.');
+  else if (T) out.push(`Slack water just now, ${T.phase === 'high' ? 'top of the tide' : 'bottom of the tide'}: the fish go quiet. Wait for it to turn and start running again.`);
   for (const a of ctx.about || []) {
     const fresh = ctx.caught && !ctx.caught.has(a.sp.id);
     out.push(`${fresh ? `You’ve not had ${an(lower(a.sp.name))} yet, have you? ` : ''}The ${lower(a.sp.name)} are ${a.act > 0.85 ? 'on' : 'about'} ${a.where} just now.${a.how ? ` ${a.how[0].toUpperCase()}${a.how.slice(1)}, that’s what I’d use.` : ''}`);
