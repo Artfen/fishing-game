@@ -4,7 +4,7 @@ import { hasAnatomy, anatomyGeometry, anatomyMaterials } from './anatomy.js';
 import { registerFor, titleName } from './register.js';
 import { isDay, isEvening, isTwilight, clamp01 } from './habits.js';
 import { ATLANTIC } from './atlantic.js';
-import { SOUTH, AT_BRASAS } from './southFish.js';
+import { SOUTH, AT_BRASAS, SOUTH_REEF } from './southFish.js';
 import { BIG_GAME } from './bigGame.js';
 
 // Every species lives in the shared underwater world (see world/ecosystem.js).
@@ -839,6 +839,8 @@ FISH.push(...ATLANTIC);
 FISH.push(...SOUTH);
 // The big game of the open ocean, at home and round Las Brasas (bigGame.js).
 FISH.push(...BIG_GAME);
+// Las Brasas' commonest reef fish, joined last of all (so no fish anywhere moves).
+FISH.push(...SOUTH_REEF);
 // Fish of the home coast that live round Las Brasas too, in its waters and on its homes.
 for (const [id, R] of Object.entries(AT_BRASAS)) {
   const f = FISH.find((x) => x.id === id);
@@ -847,6 +849,8 @@ for (const [id, R] of Object.entries(AT_BRASAS)) {
   if (R.homes) f.life.homes = [...f.life.homes, ...R.homes];
   f.life.southGroups = R.groups;
   if (R.favour) f.life.favourSouth = R.favour;
+  // (Who it hunts round the island, where the home coast's prey don't live.)
+  if (R.hunter) f.life.hunterSouth = R.hunter;
   f.whereSouth = R.where;
 }
 

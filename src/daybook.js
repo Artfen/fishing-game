@@ -3,7 +3,7 @@ import { PLACES } from './world/terrain.js';
 import { SOUTH_ZONES } from './world/brasa.js';
 import { seasonWords } from './world/season.js';
 import { SEA_LIFE } from './world/sealife.js';
-import { DIVE_SITES, siteById } from './world/divesites.js';
+import { DIVE_SITES, HOME_SITES, SOUTH_SITES, siteById } from './world/divesites.js';
 import { lower, an } from './innTalk.js';
 
 // The day book: every day out becomes a page in your journal, written up when the day ends (you
@@ -256,7 +256,12 @@ export const CHALLENGES = [
   {
     id: 'sites', name: 'Five dives', color: '#c23b2e', mark: 'flag',
     text: 'All five dive sites dived: Skerries Reef, the Kelp Forest, the Kittiwake, Anchor Sands and the Hound.',
-    check: (s) => ({ n: DIVE_SITES.filter((x) => s.dive?.sites?.[x.id]?.dives).length, of: DIVE_SITES.length }),
+    check: (s) => ({ n: HOME_SITES.filter((x) => s.dive?.sites?.[x.id]?.dives).length, of: HOME_SITES.length }),
+  },
+  {
+    id: 'brasadives', name: 'Under the island', color: '#1c87b6', mark: 'flag',
+    text: 'All five of Las Brasas’ dive sites dived: El Bajón, Los Arcos, El Veril, El Sebadal and Las Coladas.',
+    check: (s) => ({ n: SOUTH_SITES.filter((x) => s.dive?.sites?.[x.id]?.dives).length, of: SOUTH_SITES.length }),
   },
   {
     id: 'thirty', name: 'Thirty metres', color: '#1f4e6f', mark: 'down',

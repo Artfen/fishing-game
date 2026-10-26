@@ -141,7 +141,8 @@ export class Ecosystem {
       const L = sp.life, n = L.southGroups;
       if (!n || sp.retired) return;
       rnd = seeded(60606 + i * 1013);
-      const cands = south.filter((s) => L.homes.includes(s.type) && L.zones.includes(s.zone));
+      // (Not the island's hand-placed homes, the harbour's and the dive sites': they keep their own.)
+      const cands = south.filter((s) => !s.hosts && L.homes.includes(s.type) && L.zones.includes(s.zone));
       for (let k = cands.length - 1; k > 0; k--) {
         const j = Math.floor(rnd() * (k + 1));
         [cands[k], cands[j]] = [cands[j], cands[k]];
@@ -610,7 +611,7 @@ export class Ecosystem {
     const act = this.activity[s.sp.id];
     // Tuna hunt the sprat shoals: they drive one up to the surface, the sea boils, and birds
     // come down on it.
-    if (s.L.hunter && act > 0.4 && this.hunt(s, h, coarse)) return;
+    if ((s.home.south ? s.L.hunterSouth || s.L.hunter : s.L.hunter) && act > 0.4 && this.hunt(s, h, coarse)) return;
     if (s.t > s.dur || this.near(s, 1.5)) {
       const mode = act < 0.3 ? 'rest' : Math.random() < 0.65 ? 'cruise' : 'feed';
       this.pickPoint(s, mode);
@@ -658,7 +659,7 @@ export class Ecosystem {
     if (s.huntT <= 0 || !s.prey) {
       s.huntT = 4;
       let best = null, bd = 380;
-      const prey = [].concat(s.L.hunter);
+      const prey = [].concat(s.home.south ? s.L.hunterSouth || s.L.hunter : s.L.hunter);
       for (const o of this.schools) {
         if (!prey.includes(o.sp.id)) continue;
         const d = Math.hypot(o.x - s.x, o.z - s.z);

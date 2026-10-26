@@ -467,6 +467,69 @@ function regionSpots(habitat, rnd) {
   coldwaterSpots(habitat, spots);
   southSpots(habitat, spots);
   diveSpots(habitat, spots);
+  southDiveSpots(habitat, spots);
+}
+
+// Las Brasas' dive sites' own fish (see divesites.js), after even the home coast's: each site with
+// life at the depths it's known for (down: how deep its fish go there, below where they'd keep
+// anywhere else).
+function southDiveSpots(habitat, spots) {
+  const put = (id, type, x, z, r, hosts, down) => {
+    const depth = Math.max(0, -brasaHeight(x, z));
+    if (depth < 0.6) return;
+    spots.push({ type, x, z, depth, zone: brasaZone(x, z), r, tag: id, south: true, site: id, hosts, ...(down ? { down } : {}) });
+  };
+  //  · El Bajón: chromis over every top, parrotfish and wrasse grazing them, salema in the weed;
+  //    combers, bream and an octopus on the ledges; the grouper, a moray and a comber in the cave
+  //    at the foot; triggerfish and trumpetfish along the sides; barracuda hanging over it all, and
+  //    a shoal of bogue passing.
+  {
+    const c = Math.cos(BAJON.yaw), s = Math.sin(BAJON.yaw);
+    const at = (u, v) => ({ x: BAJON.x + u * c + v * s, z: BAJON.z - u * s + v * c });
+    BAJON.peaks.forEach((p, i) => {
+      const t = at(p.u, p.v);
+      put('bajon', 'reef', t.x, t.z, 6, i % 2 ? ['chromis', 'ornatewrasse'] : ['chromis', 'parrotfish'], 12);
+    });
+    const q = (u, v, type, r, hosts, down) => {
+      const t = at(u, v);
+      put('bajon', type, t.x, t.z, r, hosts, down);
+    };
+    q(-20, 2, 'weed', 5, ['salema', 'twobanded']);
+    q(-8, 8, 'rock', 7, ['comber', 'whitebream', 'octopus'], 14);
+    q(14, -6, 'rock', 7, ['comber', 'parrotfish', 'twobanded'], 12);
+    q(-14, 9, 'cave', 5, ['grouper', 'moray', 'comber'], 20);
+    q(6, 10, 'reef', 8, ['triggerfish', 'trumpetfish', 'bogue'], 16);
+    q(0, 0, 'wall', 14, ['barracuda', 'trumpetfish'], 12);
+  }
+  //  · Los Arcos: groupers, morays and combers in the caves at the arches' feet, chromis and
+  //    trumpetfish round the arches, red porgy and an octopus on the rocks, barracuda and amberjack
+  //    passing on the outside.
+  for (const A of ARCHES) {
+    put('arcos', 'cave', A.x, A.z, 5, ['grouper', 'moray', 'comber'], 14);
+    put('arcos', 'reef', A.x + Math.cos(A.yaw) * 6, A.z + Math.sin(A.yaw) * 6, 6, ['chromis', 'trumpetfish'], 12);
+  }
+  put('arcos', 'rock', -432, 6550, 7, ['redporgy', 'octopus', 'parrotfish'], 15);
+  put('arcos', 'wall', -455, 6560, 12, ['barracuda', 'amberjack'], 16);
+  //  · El Veril: down the wall, groupers in its caves, red porgy and dentex on its ledges, a cloud
+  //    of chromis off the lip; along the edge, amberjack and barracuda; out in the blue off it,
+  //    bogue, horse mackerel and a sardine shoal for them to hunt.
+  put('veril', 'wall', 120, 6580, 10, ['grouper', 'redporgy', 'dentex', 'chromis'], 40);
+  put('veril', 'wall', 140, 6588, 10, ['redporgy', 'comber', 'chromis'], 38);
+  put('veril', 'cave', 100, 6568, 6, ['grouper', 'comber'], 40);
+  put('veril', 'open', 110, 6600, 18, ['amberjack', 'barracuda', 'bogue', 'horsemackerel'], 30);
+  put('veril', 'tide', 150, 6612, 20, ['sardine']);
+  //  · El Sebadal: cuttlefish and sand smelt over the seagrass, salema grazing it; striped bream and
+  //    the angel sharks on the sand between.
+  put('sebadal', 'weed', 430, 6490, 14, ['cuttlefish', 'sandsmelt', 'salema'], 12);
+  put('sebadal', 'weed', 400, 6470, 12, ['salema', 'cuttlefish'], 12);
+  put('sebadal', 'sand', 455, 6510, 12, ['angelshark', 'striped'], 13);
+  put('sebadal', 'sand', 410, 6515, 10, ['striped', 'sandsmelt'], 12);
+  //  · Las Coladas: parrotfish, wrasse and chromis over the lava, triggerfish above it, salema in
+  //    the gullies, a moray in its hole, combers, bream, an octopus and a borriquete on the rocks.
+  put('coladas', 'reef', -500, 5620, 9, ['parrotfish', 'chromis', 'ornatewrasse'], 12);
+  put('coladas', 'reef', -520, 5604, 8, ['parrotfish', 'triggerfish'], 13);
+  put('coladas', 'rock', -485, 5632, 8, ['moray', 'comber', 'salema'], 12);
+  put('coladas', 'rock', -512, 5636, 8, ['whitebream', 'octopus', 'borriquete'], 10);
 }
 
 // The dive sites' own fish (see divesites.js), the very last of all, so nothing anywhere else
@@ -588,6 +651,22 @@ function southSpots(habitat, spots) {
   for (let z = DIQUE.z0 + 10; z < DIQUE.z1 - 6; z += 18) put('quay', DIQUE.x0 - 3, z, 6, 'puerto');
   put('rock', MOLE.x0 + 10, MOLE.z0 - 3, 6, 'puerto');
   put('sand', PUERTO.x - 10, PUERTO.z + 10, 10, 'puerto');
+  // ...and the harbour's own fish, what you see looking down off the quay into the clear water:
+  // wrasse, bream, salema and combers along the breakwater's blocks with a cloud of chromis off
+  // them, an octopus and a moray in the mole, sand smelt over the sand in the middle, bogue and
+  // squid at the mouth, horse mackerel under the lights at night.
+  const host = (type, x, z, r, hosts) => {
+    const depth = Math.max(0, -brasaHeight(x, z));
+    if (depth < 0.6) return;
+    const o = { type, x, z, depth, zone: brasaZone(x, z), r, tag: 'puerto', south: true, hosts };
+    list.push(o);
+    spots.push(o);
+  };
+  host('rock', DIQUE.x0 - 4, DIQUE.z0 + 30, 7, ['ornatewrasse', 'twobanded', 'salema', 'comber', 'chromis']);
+  host('rock', DIQUE.x0 - 4, DIQUE.z0 + 62, 7, ['ornatewrasse', 'twobanded', 'horsemackerel']);
+  host('rock', MOLE.x0 + 30, MOLE.z0 - 3, 6, ['octopus', 'moray', 'roncador', 'comber']);
+  host('sand', PUERTO.x + 8, PUERTO.z + 4, 9, ['sandsmelt', 'roncador']);
+  host('reef', MOLE.x0 - 6, MOLE.z0 - 4, 7, ['bogue', 'squid']);
   // Los Arcos: the arches under the water off the Roque, and the caves round it.
   for (const A of ARCHES) {
     put('cave', A.x, A.z, 7, 'arcos');

@@ -142,8 +142,8 @@ const fresh = () => {
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 // The sea life you can see (the same kinds as world/sealife.js's SEA_LIFE).
 // (The wildlife a photograph can have in it: see world/wildlife.js.)
-const LIFE_KINDS = ['otter', 'heron', 'cormorant', 'tern', 'oystercatcher'];
-export const SEA_LIFE_KINDS = ['bottlenose', 'commondolphin', 'spotteddolphin', 'seal', 'gannet', 'finwhale', 'minkewhale', 'pilotwhale', 'spermwhale', 'glow', 'otter', 'heron', 'cormorant', 'tern', 'oystercatcher'];
+const LIFE_KINDS = ['otter', 'heron', 'cormorant', 'tern', 'oystercatcher', 'shearwater', 'turtle'];
+export const SEA_LIFE_KINDS = ['bottlenose', 'commondolphin', 'spotteddolphin', 'seal', 'gannet', 'finwhale', 'minkewhale', 'pilotwhale', 'spermwhale', 'glow', 'otter', 'heron', 'cormorant', 'tern', 'oystercatcher', 'shearwater', 'turtle'];
 // The harbour: stories heard at each inn, the kitchens' orders you've filled, and a tally.
 function cleanHarbour(raw) {
   const r = isObj(raw) ? raw : {};

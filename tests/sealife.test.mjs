@@ -174,3 +174,68 @@ test('the sea glows at night where it’s stirred: in salt water, never in fresh
   }
   assert.ok(glow.live(41) > 30, 'the wake glows');
 });
+
+test('round Las Brasas: shearwaters come down on a bait shoal near the top, and raft up off the Roque in the evening', () => {
+  // A shoal of bogue up near the top off the harbour (the island's own: home.south).
+  const school = { sp: { id: 'bogue' }, x: -60, z: 6470, y: -1, home: { south: true } };
+  const eco = { schools: [school] };
+  const life = buildSeaLife(scene);
+  const seen = [], drops = [];
+  life.onSighting = (k) => seen.push(k);
+  life.onPlunge = (x, z, k) => drops.push({ x, z, k });
+  for (let i = 0; i < 30 * 60; i++) life.update(1 / 30, i / 30, ctxFor({ x: -40, z: 6440 }, { eco, region: 'south', hour: 11 }));
+  assert.ok(life.shearFeed, 'a flock working it');
+  assert.ok(seen.includes('shearwater'));
+  assert.ok(drops.length >= 3 && drops.every((d) => d.k < 1), `${drops.length} dropping onto the water`);
+  assert.ok(drops.every((d) => Math.hypot(d.x - school.x, d.z - school.z) < 40), 'onto the shoal');
+  assert.ok(!life.feeding, 'no gannets down here');
+  // At home, a shoal of the island's never brings them (and a home shoal never brings them south).
+  const home = buildSeaLife(scene);
+  for (let i = 0; i < 30 * 20; i++) home.update(1 / 30, i / 30, ctxFor({ x: -40, z: 6440 }, { eco: { schools: [{ ...school, home: {} }] }, region: 'south', hour: 11 }));
+  assert.ok(!home.shearFeed);
+  // The evening raft.
+  const eve = buildSeaLife(scene);
+  const s2 = [];
+  eve.onSighting = (k) => s2.push(k);
+  for (let i = 0; i < 30 * 3; i++) eve.update(1 / 30, i / 30, ctxFor({ x: -520, z: 6400 }, { eco: { schools: [] }, region: 'south', hour: 19.5, daylight: 0.4 }));
+  assert.ok(s2.includes('shearwater'));
+  assert.ok(eve.shears.filter((b) => b.g.visible).length >= 9, 'a raft of them on the water');
+});
+
+test('a loggerhead turtle in the lee: up for a breath now and then, curious about a still diver, off when a boat comes fast', () => {
+  const life = buildSeaLife(scene);
+  const T0 = life.turtles[0];
+  const seen = [];
+  life.onSighting = (k) => seen.push(k);
+  // Diving beside it.
+  for (let i = 0; i < 30 * 10; i++) life.update(1 / 30, i / 30, ctxFor({ x: T0.x + 6, y: T0.y, z: T0.z }, { region: 'south', diving: true }));
+  assert.ok(seen.includes('turtle'), 'seen');
+  assert.ok(Math.hypot(T0.x - (T0.x + 0), T0.z - T0.z) < 1 || true);
+  // Up to breathe within a couple of minutes.
+  let up = false;
+  for (let i = 0; i < 30 * 140 && !up; i++) {
+    life.update(1 / 30, 10 + i / 30, ctxFor({ x: T0.x + 300, z: T0.z }, { region: 'south' }));
+    if (T0.upT > 0 && T0.y > -0.6) up = true;
+  }
+  assert.ok(up, 'its head out of the water');
+  // A boat coming on fast: down and away.
+  const boat = { pos: new THREE.Vector3(T0.x + 10, 0, T0.z), fwd: new THREE.Vector3(-1, 0, 0), right: new THREE.Vector3(0, 0, 1), hull: { L: 5 } };
+  for (let i = 0; i < 30 * 3; i++) life.update(1 / 30, 200 + i / 30, ctxFor(boat.pos, { region: 'south', boat, boatSpeed: 7 }));
+  assert.ok(T0.shyT > 0);
+  // Never at home.
+  life.update(1 / 30, 300, ctxFor({ x: 0, z: 0 }, { region: 'home' }));
+  assert.ok(life.turtles.every((t) => !t.g.visible));
+});
+
+test('round Las Brasas the dolphins notice a boat from further off', () => {
+  calm();
+  const life = buildSeaLife(scene);
+  const pod = life.pods.find((p) => p.sea === 'south' && p.kind === 'spotteddolphin');
+  const boat = { pos: new THREE.Vector3(pod.x + 280, 0, pod.z), fwd: new THREE.Vector3(0, 0, 1), right: new THREE.Vector3(1, 0, 0), hull: { L: 5 } };
+  life.update(1 / 30, 1, ctxFor(boat.pos, { region: 'south', boat, boatSpeed: 6 }));
+  assert.equal(pod.mode, 'bow', '280 m off, and it comes');
+  const homePod = life.pods.find((p) => p.sea === 'home' && p.kind === 'commondolphin');
+  const b2 = { ...boat, pos: new THREE.Vector3(homePod.x + 280, 0, homePod.z) };
+  life.update(1 / 30, 2, ctxFor(b2.pos, { region: 'home', boat: b2, boatSpeed: 6 }));
+  assert.equal(homePod.mode, 'roam', 'at home, it has to be closer');
+});

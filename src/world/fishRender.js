@@ -55,7 +55,9 @@ export class FishRenderer {
     const alpha = this.eco.alpha;
     const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
     // Underwater the haze hides fish sooner; from above only fairly close fish can show through.
-    const maxD2 = submerged ? 60 * 60 : 80 * 80;
+    // (In Las Brasas' clear water, see `clear`, you see a good way further.)
+    const reach = (submerged ? 60 : 80) + 18 * (this.clear || 0);
+    const maxD2 = reach * reach;
     const busy = this.busy || (this.busy = new Set([...this.eco.engagedSet, 'escort', 'hooked']));
     for (const set of this.sets) {
       if (set.mat.userData?.glow) set.mat.userData.glow.value = set.sp.sketch.glow ? 0.25 + night * 1.3 : 0;

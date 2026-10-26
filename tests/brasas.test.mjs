@@ -81,7 +81,8 @@ test('the lee and the harbour are calm, the windward reef takes the swell, and t
 test('its fish live on homes of their own, in its waters, and none of its own kinds live at home', () => {
   const eco = new Ecosystem(createHabitat());
   const south = eco.agents.filter((a) => a.home.south);
-  assert.ok(south.length > 400 && south.length < 1400, `${south.length} fish round the island`);
+  // (Busy: the clouds of chromis over every reef, and the harbour's and the dive sites' own.)
+  assert.ok(south.length > 1200 && south.length < 2400, `${south.length} fish round the island`);
   const zones = new Set(B.SOUTH_ZONES);
   for (const a of south) {
     assert.ok(a.home.z > T.SOUTH_Z && zones.has(a.home.zone), `${a.sp.id} at ${a.home.zone}`);

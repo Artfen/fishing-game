@@ -326,4 +326,66 @@ export const SOUTH_ANATOMY = {
       P.noise(201, 40, '#2a1a12', 0.5, 0.004, 0.02, 0.2, 0.9);
     },
   },
+
+  /* ================= the island's commonest reef fish (SOUTH_REEF) ================= */
+
+  // Azores chromis, Chromis limbata: a small damselfish, deep, oval and compressed, with a small
+  // terminal mouth, one continuous dorsal fin (the spiny part longer), a deeply forked tail with
+  // pointed lobes; dusky slate-brown, the tail lobes' tips white.
+  chromis: {
+    plan: 'fish', bodyLen: 0.78, round: 2.3, mode: 0, lod: 0.6,
+    top: [[0, 0.004], [0.04, 0.04], [0.12, 0.09], [0.28, 0.13], [0.45, 0.136], [0.62, 0.11], [0.8, 0.06], [0.92, 0.036], [1, 0.032]],
+    bottom: [[0, -0.014], [0.05, -0.05], [0.14, -0.094], [0.3, -0.122], [0.5, -0.116], [0.68, -0.084], [0.84, -0.046], [0.94, -0.03], [1, -0.028]],
+    width: [[0, 0.004], [0.08, 0.026], [0.25, 0.036], [0.45, 0.034], [0.7, 0.024], [0.9, 0.012], [1, 0.009]],
+    mouth: { len: 0.04, y: -0.004, slope: -0.05, gape: 0.006 }, gill: { t: 0.22, curve: 0.04 },
+    eye: { t: 0.1, y: 0.028, r: 0.02, iris: '#c8c0a0' },
+    fins: [
+      { kind: 'dorsal', shape: 'spiny', t0: 0.28, t1: 0.6, h: 0.05, spines: 14, profile: [[0, 0.6], [0.25, 1], [1, 0.8]] },
+      { kind: 'dorsal', t0: 0.6, t1: 0.8, h: 0.07, profile: [[0, 0.9], [0.35, 1], [1, 0.35]], rays: 11 },
+      { kind: 'anal', t0: 0.6, t1: 0.8, h: 0.064, profile: [[0, 0.8], [0.35, 1], [1, 0.35]], rays: 11 },
+      { kind: 'pectoral', t: 0.25, a: 0.16, len: 0.09, splay: 0.5, droop: 0.15, profile: [[0, 0.4], [0.4, 1], [1, 0.5]] },
+      { kind: 'pelvic', t: 0.28, a: 0.04, len: 0.07, splay: 0.3, droop: 0.5 },
+      { kind: 'caudal', shape: 'forked', h: 0.13, fork: 0.5, rays: 15, tips: true, edge: '#f2f2ee', edgeFrom: 0.7 },
+    ],
+    colors: { back: '#2e323e', flank: '#4e5464', belly: '#7e8496', fin: '#3e4452', split: 0.4 },
+    scaleRows: [26, 10], metal: 0.12, sheen: 0.45,
+    paint: (P) => {
+      // Each scale edged darker, a faint bluish sheen along the back.
+      P.noise(211, 70, '#22262e', 0.3, 0.012, 0.03, 0.2, 0.95);
+      P.band(0.75, 1, '#4a5a7a', 0.25);
+    },
+  },
+
+  // Blacktail comber, Serranus atricauda: a slender sea bass, long-headed, with a big oblique mouth;
+  // one continuous dorsal fin (ten spines, then soft rays); a slightly concave tail; reddish-brown
+  // with dark irregular bars and blotches down the flanks, fine bluish lines about the head, and a
+  // dark, blotched tail.
+  comber: {
+    plan: 'fish', bodyLen: 0.82, round: 2.2, mode: 0, lod: 0.7,
+    top: [[0, 0.002], [0.05, 0.03], [0.14, 0.064], [0.28, 0.088], [0.45, 0.09], [0.65, 0.074], [0.84, 0.046], [1, 0.036]],
+    bottom: [[0, -0.024], [0.05, -0.044], [0.14, -0.068], [0.3, -0.082], [0.5, -0.08], [0.7, -0.06], [0.86, -0.04], [1, -0.034]],
+    width: [[0, 0.006], [0.08, 0.032], [0.25, 0.044], [0.45, 0.042], [0.7, 0.03], [0.9, 0.016], [1, 0.012]],
+    mouth: { len: 0.12, y: -0.012, slope: -0.08, gape: 0.014, lips: 0.15 }, gill: { t: 0.28, curve: 0.045 },
+    eye: { t: 0.1, y: 0.034, r: 0.016, iris: '#d8a050', up: 0.1 },
+    fins: [
+      { kind: 'dorsal', shape: 'spiny', t0: 0.3, t1: 0.6, h: 0.05, spines: 10, profile: [[0, 0.6], [0.25, 1], [1, 0.8]], color: '#7a3e28' },
+      { kind: 'dorsal', t0: 0.6, t1: 0.82, h: 0.056, profile: [[0, 0.95], [0.4, 1], [1, 0.5]], rays: 13, color: '#7a3e28' },
+      { kind: 'anal', t0: 0.64, t1: 0.8, h: 0.05, profile: [[0, 0.8], [0.4, 1], [1, 0.5]], rays: 7, color: '#8a4a30' },
+      { kind: 'pectoral', t: 0.28, a: 0.14, len: 0.1, splay: 0.45, droop: 0.2, profile: [[0, 0.35], [0.3, 0.95], [0.7, 1], [1, 0.6]], color: '#b0703a' },
+      { kind: 'pelvic', t: 0.3, a: 0.04, len: 0.07, splay: 0.3, droop: 0.5, color: '#8a4a30' },
+      { kind: 'caudal', shape: 'truncate', h: 0.1, rays: 15, color: '#3a2018' },
+    ],
+    colors: { back: '#5a3020', flank: '#a8683e', belly: '#e4c49a', fin: '#7a3e28', split: 0.42 },
+    scaleRows: [60, 18], metal: 0.08, sheen: 0.35,
+    paint: (P) => {
+      // Dark irregular bars down the flanks, broken into blotches.
+      for (let k = 0; k < 6; k++) {
+        const u = 0.3 + k * 0.1;
+        P.blob(u, 0.62, 0.035, 0.32, '#3e2014', 0.55, 0.7);
+      }
+      P.noise(221, 50, '#2e1a10', 0.35, 0.008, 0.025, 0.2, 0.95);
+      // Fine bluish lines over the head.
+      for (const v of [0.45, 0.6, 0.75]) P.line([[0.02, v], [0.14, v + 0.04], [0.26, v + 0.02]], 2, '#6a90c0', 0.6);
+    },
+  },
 };

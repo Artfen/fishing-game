@@ -56,6 +56,11 @@ export function adviceFor(ctx) {
   const night = ctx.hour >= 22 || ctx.hour < 4.5;
   if (ctx.place === 'muelle') {
     if (ctx.storm > 0.4) out.push('Nobody goes out past the point in this. Fish inside the harbour: the little fish come right in under the boats, and a small bait under a float will keep you busy.');
+    // What Chano and the boats have seen today: the island's fish as they are this hour.
+    for (const a of ctx.about || []) {
+      const fresh = ctx.caught && !ctx.caught.has(a.sp.id);
+      out.push(`${fresh ? `Have you had ${an(lower(a.sp.name))} yet? ` : ''}The ${lower(a.sp.name)} are ${a.act > 0.85 ? 'feeding hard' : 'about'} ${a.where} just now.${a.how ? ` ${a.how[0].toUpperCase()}${a.how.slice(1)}, that’s what Chano uses.` : ''}`);
+    }
     if (dawnDusk) out.push('Go to Punta del Faro at first light or at sunset. The current runs past the point a little faster, and the bluefish and the little tunny hunt there.');
     if (night) out.push('At night the squid come to the lights on the quay. And on the reef the morays come out of their holes to hunt.');
     if (ctx.wind > 9) out.push('With the trade wind blowing like this the north side is all white water. Stay in the lee, along the south shore, where the sea is flat.');

@@ -19,17 +19,26 @@ const TAG_WORDS = {
 };
 const ZONE_WORDS = { bay: 'in Willow Bay', cove: 'in Driftwood Cove', open: 'out past the bay', coast: 'along the cove shore' };
 const SEA = Object.keys(ZONE_WORDS); // (a harbour board talks about the sea, not the lakes behind it)
+// Las Brasas' (see world/brasa.js and habitat.js), for Paco and Chano: the island's own places.
+const TAG_WORDS_S = {
+  puerto: 'in the harbour, along the quay and the breakwater', bajon: 'over El Bajón', arcos: 'round Los Arcos', veril: 'along El Veril',
+  sebadal: 'over the seagrass of El Sebadal', coladas: 'on the lava of Las Coladas', faro: 'off Punta del Faro', roque: 'round the Roque',
+  playa: 'in the surf off Playa Negra', ocean: 'out in the blue water',
+};
+const ZONE_WORDS_S = { harbor: 'in the harbour', lee: 'in the lee', lava: 'on the lava to windward', sebadal: 'over El Sebadal', veril: 'along the drop-off', ocean: 'out in the blue water' };
 
-export function whatsAbout(eco, { x = HAVEN.x, z = HAVEN.z, reach = 380, max = 5 } = {}) {
+// (south: round Las Brasas, from wherever x, z is there, in its words.)
+export function whatsAbout(eco, { x = HAVEN.x, z = HAVEN.z, reach = 380, max = 5, south = false } = {}) {
   const by = new Map();
+  const TW = south ? TAG_WORDS_S : TAG_WORDS, ZW = south ? ZONE_WORDS_S : ZONE_WORDS;
   for (const a of eco.agents) {
-    if (!a.active || a.sp.retired || a.L.observe || !SEA.includes(a.home.zone)) continue;
+    if (!a.active || a.sp.retired || a.L.observe || !!a.home.south !== south || !ZW[a.home.zone]) continue;
     const d = Math.hypot(a.home.x - x, a.home.z - z);
     if (d > reach) continue;
     let e = by.get(a.sp.id);
     if (!e) by.set(a.sp.id, (e = { sp: a.sp, n: 0, homes: new Map() }));
     e.n++;
-    const key = a.home.tag && TAG_WORDS[a.home.tag] ? `t:${a.home.tag}` : `z:${a.home.zone}:${a.home.type}`;
+    const key = a.home.tag && TW[a.home.tag] ? `t:${a.home.tag}` : `z:${a.home.zone}:${a.home.type}`;
     e.homes.set(key, (e.homes.get(key) || 0) + 1);
   }
   const out = [];
@@ -38,10 +47,10 @@ export function whatsAbout(eco, { x = HAVEN.x, z = HAVEN.z, reach = 380, max = 5
     if (act < 0.45 || e.n < 2) continue;
     const [key] = [...e.homes.entries()].sort((p, q) => q[1] - p[1])[0];
     let where;
-    if (key.startsWith('t:')) where = TAG_WORDS[key.slice(2)];
+    if (key.startsWith('t:')) where = TW[key.slice(2)];
     else {
       const [, zone, type] = key.split(':');
-      where = `${HOME_WORDS[type] ? `over ${HOME_WORDS[type]} ` : ''}${ZONE_WORDS[zone] || ''}`.trim();
+      where = `${HOME_WORDS[type] ? `over ${HOME_WORDS[type]} ` : ''}${ZW[zone] || ''}`.trim();
     }
     const s = setupsFor(e.sp)[0];
     out.push({

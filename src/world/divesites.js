@@ -1,4 +1,5 @@
 import { heightAt, WRECK, DIVE_MARKS, PLACES } from './terrain.js';
+import { BAJON } from './brasa.js';
 import { fbm, seeded, clamp } from '../util.js';
 
 // The dive sites of the home coast: five places worth going down at, each different, each with a
@@ -22,6 +23,23 @@ import { fbm, seeded, clamp } from '../util.js';
 //
 // Each has a yellow buoy over it (a special mark: yellow, with a yellow cross on top), except the
 // Kittiwake, which has her own black and red one.
+//
+// And Las Brasas' five, far to the south (south: true), in water clear enough to see the whole
+// reef from its top:
+//
+//  · El Bajón, off the harbour mouth (3 to 20 m): lava pinnacles under the yellow buoy, sea fans
+//    and sponges on their sides; clouds of chromis over the tops, parrotfish and ornate wrasse
+//    grazing, combers on every ledge, morays in the cracks, a grouper in the cave at the foot,
+//    barracuda hanging over it all.
+//  · Los Arcos, off Roque del Arco (4 to 16 m): arches of old lava to swim through, groupers and
+//    morays in the caves round them, barracuda and amberjack passing.
+//  · El Veril, south-east of the harbour (20 to 40 m, and the blue below): the wall where the shelf
+//    drops away, groupers in its caves, red porgy and dentex on the ledges, amberjack along it.
+//  · El Sebadal (8 to 14 m): the seagrass meadow; striped bream and salema grazing, cuttlefish,
+//    sand smelt over it, and the angel sharks buried in the sand between (to be left in peace).
+//    Its buoy is a mooring: no anchoring in the seagrass.
+//  · Las Coladas, on the windward north-west (4 to 14 m): the lava tongues broken into a reef,
+//    parrotfish, triggerfish and salema; the swell works over it, so dive it on a calm day.
 
 const M = DIVE_MARKS;
 const place = (id) => PLACES.find((p) => p.id === id);
@@ -46,7 +64,31 @@ export const DIVE_SITES = [
     id: 'hound', x: M.hound.x, z: M.hound.z, r: 40, buoy: M.hound.buoy, depth: [10, 30],
     first: 'The Hound: the pinnacle rises out of the blue, its walls covered in pink sea fans and jewel anemones, pollack hanging off it all the way down. Watch your air: it’s thirty metres at its foot.',
   },
+  // Las Brasas (see world/brasa.js): El Bajón's yellow buoy is the island's own (brasaWorld.js).
+  {
+    id: 'bajon', south: true, x: BAJON.x, z: BAJON.z, r: 40, buoy: null, depth: [3, 20],
+    first: 'El Bajón: the pinnacles rise out of the blue under you, sea fans and sponges up their sides, a cloud of chromis over every top. Combers watch from the ledges, a moray from a crack. Look in the cave at the foot of the biggest for the grouper.',
+  },
+  {
+    id: 'arcos', south: true, x: -440, z: 6537, r: 32, buoy: { x: -446, z: 6522 }, depth: [4, 16],
+    first: 'Los Arcos: arches of old lava standing off the Roque, the light coming through them in shafts. Swim through, slowly. Groupers and morays live in the caves round their feet, and barracuda hang off the outer one.',
+  },
+  {
+    id: 'veril', south: true, x: 120, z: 6578, r: 32, buoy: { x: 120, z: 6556 }, depth: [20, 40],
+    first: 'El Veril: the shelf ends and the wall drops away beneath you into the blue. Groupers in the caves of the wall, red porgy and dentex on its ledges, amberjack cruising along it. Watch your depth and your air: it never stops going down.',
+  },
+  {
+    id: 'sebadal', south: true, x: 430, z: 6490, r: 60, buoy: { x: 430, z: 6490 }, depth: [8, 14],
+    first: 'El Sebadal: a meadow of seagrass under clear water, bending with the swell. Striped bream and salema graze it, cuttlefish hover over it, and somewhere in the sand between lies an angel shark, buried to its eyes. Leave it be.',
+  },
+  {
+    id: 'coladas', south: true, x: -500, z: 5620, r: 36, buoy: { x: -505, z: 5612 }, depth: [4, 14],
+    first: 'Las Coladas: the old lava broken into a reef of black blocks and gullies, the swell surging through them. Parrotfish grazing, triggerfish cruising over, a moray in every other hole. Keep off the rocks when a big one comes through.',
+  },
 ].map((S) => ({ ...S, name: place(S.id).name, sub: place(S.id).sub, note: place(S.id).note }));
+// The home coast's five (the challenge on the board is for these), and Las Brasas'.
+export const HOME_SITES = DIVE_SITES.filter((S) => !S.south);
+export const SOUTH_SITES = DIVE_SITES.filter((S) => S.south);
 export const siteById = Object.fromEntries(DIVE_SITES.map((s) => [s.id, s]));
 
 // The dive site at a point, if any.

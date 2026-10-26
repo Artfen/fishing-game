@@ -14,14 +14,15 @@ const { cleanDive, logSite } = await import('../src/dive.js');
 const { Seabed, seabedKind } = await import('../src/world/seabed.js');
 const { buildDiveSites } = await import('../src/world/divesiteWorld.js');
 const { seeded } = await import('../src/util.js');
+const FISHMOD = await import('../src/fish.js');
 const { currentAt } = await import('../src/world/conditions.js');
 const { TIDE } = await import('../src/world/conditions.js');
 
 const depth = (x, z) => -T.heightAt(x, z);
 
 test('five sites, each its own kind of water, at the depths it says', () => {
-  assert.deepEqual(D.DIVE_SITES.map((s) => s.id), ['reef', 'kelp', 'wreck', 'sands', 'hound']);
-  for (const S of D.DIVE_SITES) {
+  assert.deepEqual(D.HOME_SITES.map((s) => s.id), ['reef', 'kelp', 'wreck', 'sands', 'hound']);
+  for (const S of D.HOME_SITES) {
     const d = depth(S.x, S.z);
     // (The middle of each within its stated range, give or take a metre.)
     assert.ok(d > S.depth[0] - 1 && d < S.depth[1] + 1.5, `${S.id}: ${d.toFixed(1)} m`);
@@ -33,7 +34,7 @@ test('five sites, each its own kind of water, at the depths it says', () => {
     if (S.buoy) assert.ok(depth(S.buoy.x, S.buoy.z) > 3, `${S.id}'s buoy is afloat`);
   }
   // Far enough apart to be different places.
-  for (const a of D.DIVE_SITES) for (const b of D.DIVE_SITES) if (a !== b) assert.ok(Math.hypot(a.x - b.x, a.z - b.z) > 200, `${a.id}–${b.id}`);
+  for (const a of D.HOME_SITES) for (const b of D.HOME_SITES) if (a !== b) assert.ok(Math.hypot(a.x - b.x, a.z - b.z) > 200, `${a.id}–${b.id}`);
   // The Hound is the deep one: thirty metres at its foot.
   assert.ok(depth(D.siteById.hound.x, D.siteById.hound.z) > 28);
   assert.ok(depth(D.siteById.reef.x, D.siteById.reef.z) < 10);
@@ -174,7 +175,7 @@ test('the seabed is never bare: shells, starfish and the rest, the same each tim
 test('what the sites look like is built, and only drawn near each', () => {
   const scene = new THREE.Scene();
   const W = buildDiveSites(scene, seeded(20261026));
-  assert.equal(W.buoys.length, 4, 'a yellow buoy over each site but the Kittiwake');
+  assert.equal(W.buoys.length, 8, 'a yellow buoy over each site but the Kittiwake (and El Bajón, which has the island’s own)');
   assert.equal(W.towers.length, 2, 'the Hound and its Pup');
   const tris = () => {
     let n = 0;
@@ -193,4 +194,66 @@ test('what the sites look like is built, and only drawn near each', () => {
   // Far from all of them (up the Wend): only the buoys.
   W.update(0.016, 1, { position: new THREE.Vector3(520, 2, -170) });
   assert.ok(tris() < 5000);
+});
+
+test('Las Brasas’ five: each where it says, at its depths, with its buoy and the life it’s known for', () => {
+  assert.deepEqual(D.SOUTH_SITES.map((s) => s.id), ['bajon', 'arcos', 'veril', 'sebadal', 'coladas']);
+  for (const S of D.SOUTH_SITES) {
+    const d = depth(S.x, S.z);
+    assert.ok(S.south && S.z > T.SOUTH_Z, S.id);
+    assert.ok(d > S.depth[0] - 1 && d < S.depth[1] + 1.5, `${S.id}: ${d.toFixed(1)} m`);
+    assert.ok(S.name && S.sub && S.note && S.first, `${S.id} has its words`);
+    const P = T.PLACES.find((p) => p.id === S.id);
+    assert.ok(P && P.test(S.x, S.z), `${S.id} is a place`);
+    if (S.buoy) assert.ok(depth(S.buoy.x, S.buoy.z) > 3, `${S.id}'s buoy is afloat`);
+  }
+  for (const a of D.SOUTH_SITES) for (const b of D.SOUTH_SITES) if (a !== b) assert.ok(Math.hypot(a.x - b.x, a.z - b.z) > 150, `${a.id}–${b.id}`);
+  // Who lives at each, at the depths you can see them: a dive there is never empty.
+  const eco = new Ecosystem(createHabitat());
+  const at = (id) => eco.agents.filter((a) => a.home.site === id);
+  const kinds = (id) => new Set(at(id).map((a) => a.sp.id));
+  const expect = {
+    bajon: ['chromis', 'parrotfish', 'ornatewrasse', 'comber', 'grouper', 'moray', 'barracuda', 'trumpetfish', 'triggerfish', 'salema'],
+    arcos: ['grouper', 'moray', 'comber', 'chromis', 'barracuda', 'amberjack'],
+    veril: ['grouper', 'redporgy', 'dentex', 'amberjack', 'sardine'],
+    sebadal: ['cuttlefish', 'sandsmelt', 'salema', 'striped', 'angelshark'],
+    coladas: ['parrotfish', 'triggerfish', 'moray', 'comber', 'chromis'],
+  };
+  for (const [id, list] of Object.entries(expect)) {
+    const k = kinds(id);
+    for (const sp of list) assert.ok(k.has(sp), `${sp} at ${id}`);
+    assert.ok(at(id).length > 25, `${id}: ${at(id).length} fish`);
+    // Every one of them on a home that suits its kind, in a water it lives in.
+    for (const a of at(id)) assert.ok(a.sp.life.homes.includes(a.home.type) && a.sp.life.zones.includes(a.home.zone), `${a.sp.id} at ${id}`);
+  }
+  // The deep ones go down the wall: El Veril's groupers below twenty metres.
+  const deep = at('veril').filter((a) => a.sp.id === 'grouper');
+  assert.ok(deep.some((a) => -a.y > 20), 'a grouper down the wall');
+});
+
+test('the island’s hunters drive its own shoals up; and the harbour’s full of fish', () => {
+  const { fishById } = FISHMOD;
+  for (const id of ['barracuda', 'amberjack']) assert.ok([].concat(fishById[id].life.hunter).includes('bogue'), id);
+  for (const id of ['bluefish', 'littletunny', 'bullet']) assert.ok(fishById[id].life.hunterSouth?.includes('sardine'), id);
+  // (At home they hunt what they always did.)
+  assert.deepEqual([].concat(fishById.bluefish.life.hunter), ['sardine', 'anchovy']);
+  const eco = new Ecosystem(createHabitat());
+  const harbour = eco.agents.filter((a) => a.home.south && a.home.tag === 'puerto');
+  const k = new Set(harbour.map((a) => a.sp.id));
+  for (const sp of ['mullet', 'ornatewrasse', 'twobanded', 'salema', 'comber', 'chromis', 'octopus', 'sandsmelt', 'bogue', 'horsemackerel']) assert.ok(k.has(sp), `${sp} in the harbour`);
+  assert.ok(harbour.length > 80, `${harbour.length} fish in Puerto Brasa`);
+  // A barracuda school near El Bajón finds a chromis cloud or a bogue shoal to hunt and drives it.
+  const bar = eco.schools.find((s) => s.sp.id === 'barracuda' && s.home.site === 'bajon');
+  assert.ok(bar);
+  Object.assign(eco.ctx, { hour: 7, daylight: 0.6 });
+  eco.activity.barracuda = 1;
+  let frenzy = false, boil = false;
+  for (let i = 0; i < 30 * 120 && !frenzy; i++) {
+    eco.stepSchool(bar, 1 / 30, false);
+    if (bar.frenzy > 0) frenzy = true;
+  }
+  assert.ok(frenzy, 'a frenzy on the bait');
+  for (let i = 0; i < 30 * 10; i++) eco.stepSchool(bar, 1 / 30, false);
+  for (const c of eco.takeClues()) if (c.type === 'boil' || c.type === 'birds') boil = true;
+  assert.ok(boil, 'the sea boils, and the birds come');
 });

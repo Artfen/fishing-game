@@ -207,6 +207,7 @@ function setRegion(r) {
   water.uniforms.uShelterRect.value.set(SR.x, SR.z, SR.w, SR.h);
   for (const [k, c] of Object.entries(SEA_COLOURS[r])) water.uniforms[k].value.set(c);
   underwater.clear = r === 'south' ? 1 : 0;
+  fishRenderer.clear = underwater.clear;
   water.uniforms.uClear.value = r === 'south' ? 1 : 0;
   // (At Las Brasas the trade wind blows from the north-east, unless you've set the wind yourself.)
   if (r === 'south' && settings.weather.windMode !== 'manual') conditions.wind.from = 0.8;
@@ -1534,7 +1535,7 @@ function innTalk(place) {
     if (k > 0.75 && (!yours || k > yours.k)) yours = { k, name: sp.name, size: e.size };
   }
   return {
-    advice: { place, hour: state.hour, rain: weather.rain, wind: conditions.wind.speed, storm, tide: tideNow, about: home ? whatsAbout(eco) : [], caught: new Set(Object.keys(state.fish)) },
+    advice: { place, hour: state.hour, rain: weather.rain, wind: conditions.wind.speed, storm, tide: tideNow, about: home ? whatsAbout(eco) : whatsAbout(eco, { south: true, x: PUERTO_AT.x, z: PUERTO_AT.z, reach: 900, max: 2 }), caught: new Set(Object.keys(state.fish)) },
     rumours: {
       place, hour: state.hour, nameOf, storm, rain: weather.rain,
       birds: home ? birdsWorking(world.flocks, state.places) : [],
@@ -5372,11 +5373,12 @@ sealife.onWhistle = (x, z) => {
   const h = heardFrom(x, z, 45);
   if (h.vol > 0) audio.whistle?.(0.02 * h.vol, h.pan);
 };
-sealife.onPlunge = (x, z) => {
-  fx.splash(x, 0.05, z, 16, 3.4, 0.7);
-  fx.ripple(x, z, 1.6, 1.5, 0.6);
-  const h = heardFrom(x, z, 260);
-  if (h.vol > 0) audio.plunge?.(0.08 * h.vol, h.pan);
+// (k: how big a splash: a gannet's dart is 1, a shearwater dropping onto the water much less.)
+sealife.onPlunge = (x, z, k = 1) => {
+  fx.splash(x, 0.05, z, Math.round(16 * k) + 2, 3.4 * k, 0.7 * k);
+  fx.ripple(x, z, 1.6 * k, 1.5, 0.6 * k);
+  const h = heardFrom(x, z, 260 * k);
+  if (h.vol > 0) audio.plunge?.(0.08 * h.vol * k, h.pan);
 };
 sealife.onSplash = (x, z, len) => {
   fx.splash(x, 0.05, z, 12 + Math.round(len * 4), 2.2, 0.9);
@@ -7470,7 +7472,7 @@ function tick(now, manual = false) {
   // wherever it's stirred: fish darting near the surface, a moving lure, a diver's kicks.
   {
     const P = player().pos, aboard = !onFoot && !driving && !dive && !cabinIn;
-    sealife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, daylight: env.daylight, region, eco, diving: !!dive });
+    sealife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, daylight: env.daylight, hour: state.hour, region, eco, diving: !!dive });
     // (How fast you're coming: walking, the boat, swimming; sitting still is stillest of all.)
     const pace = sitting ? 0 : dive ? diver.speed : onFoot ? walker.speed : driving ? 10 : Math.abs(boat.forwardSpeed) + (boat.motor && boat.lever > 0 ? 1 : 0);
     wildlife.update(dt, t, { from: P, onFoot: onFoot && !dive && !driving, speed: pace, daylight: env.daylight, hour: state.hour, season: seasonOf(state.day).name, tideLevel: tideNow.level, region });

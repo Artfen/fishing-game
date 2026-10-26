@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { anatomyGeometry, anatomyMaterials } from '../anatomy.js';
 import { waveHeight } from './water.js';
 import { depthAt, heightAt, GANNET, SKERRIES } from './terrain.js';
+import { ARCO, PICO } from './brasa.js';
 import { sealParts } from './calf.js';
 import { clamp, lerp, damp, dampAngle, smoothstep, wrapAngle, glowTexture, mergeParts, mat } from '../util.js';
 
@@ -27,6 +28,13 @@ import { clamp, lerp, damp, dampAngle, smoothstep, wrapAngle, glowTexture, merge
 //    far off (tall and narrow for the fin whale, bushy and slanting forward for the sperm whale),
 //    then arch down; the sperm whale lifts its flukes high as it goes.
 //
+//  · Round Las Brasas: Cory's shearwaters, the island's seabird, working the bait shoals the
+//    barracuda and the tuna drive up (sweeping low over the water on stiff wings, dropping onto
+//    the fish and diving after them from the surface), and gathering in rafts on the sea off the
+//    Roque in the evening before they fly in to their burrows in the cliffs after dark; and
+//    loggerhead turtles in the lee, drifting near the surface, up now and then for a breath. The
+//    dolphins there notice a boat from further off, in water that clear and that calm.
+//
 // The game hears what you see (onSighting) for its record of sea life, and the blows, whistles and
 // splashes for their sounds. Only the sea you're in is alive at a time.
 
@@ -47,6 +55,8 @@ export const SEA_LIFE = {
   tern: { name: 'Terns', note: 'Terns: slim white seabirds with black caps and forked tails, here for the summer from Africa. They hover over the shallows and plunge in after little fish, with a grating “kee-arr”.' },
   oystercatcher: { name: 'Oystercatchers', note: 'Oystercatchers: black and white waders with long orange bills, probing the sand and mud at low water. Disturb them and they go off low along the shore, piping loudly.' },
   glow: { name: 'The sea glowing at night', note: 'The sea is glowing: tiny plankton flash blue-green wherever the water is disturbed, in the wake, under an oar, where a fish darts. Brighter some nights than others.' },
+  shearwater: { name: 'Cory’s shearwaters', note: 'Cory’s shearwaters: big brown-and-white seabirds that sweep low over the waves on long stiff wings, hardly flapping. They come down on a bait shoal the tuna drive up and dive after it from the surface; in the evening they raft up on the sea off their cliffs, and after dark fly in to their burrows wailing like babies.' },
+  turtle: { name: 'A loggerhead turtle', note: 'A loggerhead turtle: a big reddish-brown shell, a heavy head and slow strokes of its long front flippers. Young ones grow up in the warm Atlantic round the islands, drifting near the surface and coming up for a breath now and then. Protected: watch it, and keep your boat slow near it.' },
 };
 
 // The pods, where they roam (an area, kept to water at least minDepth deep), how fast they go,
@@ -54,8 +64,11 @@ export const SEA_LIFE = {
 const PODS = [
   { kind: 'bottlenose', sea: 'home', n: 5, len: [2.6, 3.4], area: [-450, 450, -60, 820], minDepth: 6, speed: 2.2, period: [7, 12], bow: true },
   { kind: 'commondolphin', sea: 'home', n: 9, len: [1.8, 2.3], area: [-600, 900, 650, 1350], minDepth: 15, speed: 3, period: [5, 9], bow: true },
-  { kind: 'spotteddolphin', sea: 'south', n: 7, len: [1.7, 2.2], area: [-900, 900, 5400, 6850], minDepth: 20, speed: 2.6, period: [5, 9], bow: true },
-  { kind: 'bottlenose', sea: 'south', n: 4, len: [2.6, 3.3], area: [-600, 700, 6250, 6800], minDepth: 10, speed: 2, period: [7, 12], bow: true },
+  // (Round Las Brasas, where the water's clear and the lee calm, they notice a boat from further
+  // off (reach) and are seen from further off (seen); the spotted dolphins keep to the lee and the
+  // approaches to the harbour, where the boats are.)
+  { kind: 'spotteddolphin', sea: 'south', n: 7, len: [1.7, 2.2], area: [-700, 800, 6300, 6750], minDepth: 20, speed: 2.6, period: [5, 9], bow: true, reach: 320, seen: 260 },
+  { kind: 'bottlenose', sea: 'south', n: 4, len: [2.6, 3.3], area: [-600, 700, 6250, 6800], minDepth: 10, speed: 2, period: [7, 12], bow: true, reach: 280, seen: 240 },
   // (The pilot whales: a family, slow and often resting at the surface; they don't ride bows.)
   { kind: 'pilotwhale', sea: 'south', n: 6, len: [3.8, 5.6], area: [-950, -150, 6250, 6880], minDepth: 60, speed: 1.1, period: [9, 15], bow: false, whale: true },
 ];
@@ -114,6 +127,60 @@ function buildGannet() {
     return m;
   };
   return { g, wl: wing(1), wr: wing(-1) };
+}
+
+// A Cory's shearwater: smaller than a gannet, brown-grey above and white below, a pale yellow bill,
+// and long, narrow, stiff wings it holds out straight and a little bowed as it sweeps over the sea.
+function buildShearwater() {
+  const g = new THREE.Group();
+  g.rotation.order = 'YXZ';
+  g.add(new THREE.Mesh(mergeParts([
+    { geo: new THREE.SphereGeometry(0.16, 8, 6), matrix: mat(0, 0, 0, 0, 0, 0, 0.75, 0.6, 1.9), color: '#f1efe9', jitter: 0.02 },
+    { geo: new THREE.SphereGeometry(0.15, 8, 6), matrix: mat(0, 0.035, -0.01, 0, 0, 0, 0.72, 0.5, 1.85), color: '#7a7262', jitter: 0.02 },
+    { geo: new THREE.SphereGeometry(0.09, 8, 6), matrix: mat(0, 0.045, 0.32), color: '#857c6c', jitter: 0.02 },
+    { geo: new THREE.ConeGeometry(0.028, 0.15, 5), matrix: mat(0, 0.035, 0.46, Math.PI / 2, 0, 0), color: '#e6cf72' },
+    { geo: new THREE.ConeGeometry(0.08, 0.24, 4), matrix: mat(0, 0.01, -0.4, -Math.PI / 2, 0, 0, 1, 1, 0.35), color: '#5e5648' },
+  ]), new THREE.MeshLambertMaterial({ vertexColors: true })));
+  const wingMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
+  const wing = (s) => {
+    const geo = new THREE.BufferGeometry();
+    // (Long and narrow: brown-grey, darker at the tip.)
+    const p = [0, 0, 0.11, 0, 0, -0.07, 0.55 * s, 0, 0.05, 0.55 * s, 0, 0.05, 0, 0, -0.07, 0.55 * s, 0, -0.05,
+      0.55 * s, 0, 0.05, 0.55 * s, 0, -0.05, 0.95 * s, -0.04, -0.09];
+    const c = [];
+    for (let i = 0; i < 6; i++) c.push(0.55, 0.52, 0.46);
+    for (let i = 0; i < 3; i++) c.push(0.3, 0.28, 0.25);
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(c, 3));
+    geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, wingMat);
+    m.position.set(0.06 * s, 0.04, 0.04);
+    g.add(m);
+    return m;
+  };
+  return { g, wl: wing(1), wr: wing(-1) };
+}
+
+// A loggerhead turtle (a young one, the size you see round the islands): a domed reddish-brown
+// shell, a pale belly, a big head, long front flippers and short back ones.
+function buildTurtle() {
+  const g = new THREE.Group();
+  g.rotation.order = 'YXZ';
+  const m = new THREE.MeshLambertMaterial({ vertexColors: true });
+  g.add(new THREE.Mesh(mergeParts([
+    { geo: new THREE.SphereGeometry(0.5, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), matrix: mat(0, 0, 0, 0, 0, 0, 0.62, 0.36, 0.78), color: '#7a4a2a', jitter: 0.015 },
+    { geo: new THREE.SphereGeometry(0.5, 10, 6), matrix: mat(0, 0.0, 0, 0, 0, 0, 0.58, 0.1, 0.72), color: '#d8c08a' },
+    { geo: new THREE.SphereGeometry(0.12, 8, 6), matrix: mat(0, 0.03, 0.46, 0, 0, 0, 1, 0.85, 1.15), color: '#8a5a34' },
+    { geo: new THREE.ConeGeometry(0.06, 0.16, 5), matrix: mat(0, 0.02, -0.42, -Math.PI / 2, 0, 0), color: '#7a5030' },
+  ]), m));
+  const flip = (sx, z, len, w) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(sx * 0.24, 0.0, z);
+    pivot.add(new THREE.Mesh(mergeParts([{ geo: new THREE.BoxGeometry(len, 0.025, w), matrix: mat(sx * len * 0.5, 0, -w * 0.25, 0, sx * 0.35, 0), color: '#8a5a34' }]), m));
+    g.add(pivot);
+    return pivot;
+  };
+  return { g, fl: flip(1, 0.18, 0.42, 0.13), fr: flip(-1, 0.18, 0.42, 0.13), bl: flip(1, -0.26, 0.16, 0.1), br: flip(-1, -0.26, 0.16, 0.1) };
 }
 
 // A blow: a column of mist that shoots up and spreads, then drifts and fades.
@@ -206,7 +273,7 @@ export function buildSeaLife(scene, { glow = null } = {}) {
     pod.seenT = Math.max(0, pod.seenT - dt);
     // A boat going along at a good clip draws a pod in to ride its bow.
     const dBoat = boat ? Math.hypot(boat.pos.x - pod.x, boat.pos.z - pod.z) : Infinity;
-    if (pod.bow && pod.mode === 'roam' && boat && sp > 3 && sp < 11 && dBoat < 160 && !pod.bored) {
+    if (pod.bow && pod.mode === 'roam' && boat && sp > 3 && sp < 11 && dBoat < (pod.reach ?? 160) && !pod.bored) {
       pod.mode = 'bow';
       pod.modeT = rand(45, 90);
       pod.slowT = 0;
@@ -215,7 +282,7 @@ export function buildSeaLife(scene, { glow = null } = {}) {
     if (pod.mode === 'bow') {
       pod.modeT -= dt;
       pod.slowT = sp < 2 || sp > 12 ? pod.slowT + dt : 0;
-      if (!boat || pod.modeT <= 0 || pod.slowT > 4 || dBoat > 260) {
+      if (!boat || pod.modeT <= 0 || pod.slowT > 4 || dBoat > Math.max(260, (pod.reach ?? 160) + 100)) {
         pod.mode = 'roam';
         pod.bored = rand(150, 240);
         pod.target = pickTarget(pod.area, pod.minDepth, pod.x, pod.z);
@@ -325,7 +392,7 @@ export function buildSeaLife(scene, { glow = null } = {}) {
         events.onWhistle?.(pod.x, pod.z);
       }
     }
-    if (up && !pod.seenT && Math.hypot(pod.x - ctx.from.x, pod.z - ctx.from.z) < (pod.whale ? 400 : 160)) {
+    if (up && !pod.seenT && Math.hypot(pod.x - ctx.from.x, pod.z - ctx.from.z) < (pod.whale ? 400 : pod.seen ?? 160)) {
       pod.seenT = 240;
       events.onSighting?.(pod.kind, pod.x, pod.z);
     }
@@ -598,6 +665,198 @@ export function buildSeaLife(scene, { glow = null } = {}) {
     b.wl.rotation.z = f;
     b.wr.rotation.z = -f;
   };
+
+  /* ---------- Cory's shearwaters, round Las Brasas ---------- */
+  // Feeding: down on a bait shoal near the top (one the barracuda or the tuna have driven up, or
+  // feeding up there by itself): sweeping round it low, dropping onto the water, diving from the
+  // surface, up and round again. In the evening, a raft of them on the sea off the Roque.
+  const BAIT_S = new Set(['sardine', 'chubmackerel', 'horsemackerel', 'bogue', 'sandsmelt', 'garfish']);
+  const RAFT = { x: -560, z: 6420 };
+  const shears = [];
+  for (let i = 0; i < 12; i++) {
+    const b = buildShearwater();
+    b.g.visible = false;
+    scene.add(b.g);
+    shears.push({ ...b, state: 'off', a: Math.random() * 6.28, r: rand(9, 22), y0: rand(2.5, 6), sp: (Math.random() < 0.5 ? -1 : 1) * rand(8, 11), ph: Math.random() * 10, t: 0, x: 0, y: 0, z: 0, ox: rand(-14, 14), oz: rand(-10, 10) });
+  }
+  let shearFeed = null, shearLook = 1;
+  const stepShears = (dt, t, ctx, near) => {
+    const day = ctx.daylight > 0.3;
+    if (!near) {
+      if (shears[0].g.visible || shearFeed) for (const b of shears) b.g.visible = false;
+      shearFeed = null;
+      return;
+    }
+    shearLook -= dt;
+    if (!shearFeed && shearLook <= 0 && day && ctx.eco) {
+      shearLook = 2.5;
+      let best = null, bd = 520;
+      for (const S of ctx.eco.schools) {
+        if (!BAIT_S.has(S.sp.id) || !S.home?.south || S.y < -3) continue;
+        const d = Math.hypot(S.x - ctx.from.x, S.z - ctx.from.z);
+        if (d < bd && depthAt(S.x, S.z) > 3) {
+          bd = d;
+          best = S;
+        }
+      }
+      if (best) {
+        shearFeed = { school: best, t: 0, life: rand(55, 95) };
+        // (In from far off, low over the sea.)
+        for (const b of shears) {
+          b.state = 'circle';
+          b.t = rand(4, 12);
+          b.a = Math.random() * 6.28;
+          b.x = best.x + Math.cos(b.a) * 160;
+          b.z = best.z + Math.sin(b.a) * 160;
+          b.y = b.y0 + 2;
+        }
+      }
+    }
+    const hour = ctx.hour ?? 12;
+    // The evening raft (an hour or so either side of sunset), when they're not feeding.
+    const raft = !shearFeed && hour > 17.5 && hour < 21.5;
+    if (shearFeed) {
+      const F = shearFeed;
+      F.t += dt;
+      const S = F.school, cx = S.x, cz = S.z;
+      const done = F.t > F.life || S.y < -4.5 || !day;
+      if (done && shears.every((b) => b.state === 'circle')) {
+        shearFeed = null;
+        for (const b of shears) b.state = 'off';
+      } else {
+        if (Math.hypot(cx - ctx.from.x, cz - ctx.from.z) < 380) events.onSighting?.('shearwater', cx, cz);
+        for (const b of shears) {
+          b.t -= dt;
+          if (b.state === 'circle') {
+            // Sweeping round low on stiff wings, banking, now and then a few quick beats.
+            b.a += (b.sp / b.r) * dt;
+            const wx = cx + Math.cos(b.a) * b.r, wz = cz + Math.sin(b.a) * b.r;
+            b.x = damp(b.x, wx, 1.2, dt);
+            b.z = damp(b.z, wz, 1.2, dt);
+            b.y = damp(b.y, surface(b.x, b.z, t) + b.y0 + Math.sin(t * 0.8 + b.ph) * 1.2, 1, dt);
+            const dir = Math.sign(b.sp);
+            b.g.rotation.set(0, Math.atan2(-Math.sin(b.a) * dir, Math.cos(b.a) * dir), -0.55 * dir);
+            flap(b, t * 1.6, (t + b.ph) % 5 < 0.6 ? 0.9 : 0.05);
+            if (b.t <= 0 && !done) {
+              b.state = 'drop';
+              b.v = 5;
+            }
+          } else if (b.state === 'drop') {
+            // Down onto the water by the fish, wings up as it lands.
+            const s = surface(b.x, b.z, t);
+            b.y = Math.max(s, b.y - 4 * dt);
+            b.wl.rotation.z = 0.9;
+            b.wr.rotation.z = -0.9;
+            if (b.y <= s + 0.05) {
+              b.state = 'sit';
+              b.t = rand(3, 8);
+              events.onPlunge?.(b.x, b.z, 0.4);
+            }
+          } else if (b.state === 'sit' || b.state === 'under') {
+            // On the water among the fish, now and then down after them for a moment.
+            const s = surface(b.x, b.z, t);
+            if (b.state === 'sit' && Math.random() < dt * 0.25) {
+              b.state = 'under';
+              b.u = rand(1.2, 2.5);
+            }
+            if (b.state === 'under' && (b.u -= dt) <= 0) b.state = 'sit';
+            b.y = s - (b.state === 'under' ? 1.2 : 0.06);
+            b.g.rotation.set(0, b.g.rotation.y, 0);
+            b.wl.rotation.z = -0.15;
+            b.wr.rotation.z = 0.15;
+            if (b.t <= 0) {
+              b.state = 'circle';
+              b.t = rand(5, 14);
+            }
+          }
+          b.g.position.set(b.x, b.y, b.z);
+          b.g.visible = b.state !== 'under' && Math.hypot(b.x - ctx.from.x, b.z - ctx.from.z) < 900;
+        }
+      }
+    } else if (raft) {
+      const d = Math.hypot(RAFT.x - ctx.from.x, RAFT.z - ctx.from.z);
+      if (d < 420) events.onSighting?.('shearwater', RAFT.x, RAFT.z);
+      shears.forEach((b, i) => {
+        // Most sat in a loose raft, drifting; two or three sweeping round it.
+        if (i < 9) {
+          const x = RAFT.x + b.ox + Math.sin(t * 0.05 + b.ph) * 2, z = RAFT.z + b.oz + Math.cos(t * 0.04 + b.ph) * 2;
+          b.g.position.set(x, surface(x, z, t) - 0.06, z);
+          b.g.rotation.set(0, 0.6 + b.ph * 0.3, 0);
+          b.wl.rotation.z = -0.15;
+          b.wr.rotation.z = 0.15;
+        } else {
+          b.a += (b.sp / 30) * dt;
+          const x = RAFT.x + Math.cos(b.a) * 30, z = RAFT.z + Math.sin(b.a) * 30;
+          b.g.position.set(x, surface(x, z, t) + 2 + Math.sin(t + b.ph), z);
+          const dir = Math.sign(b.sp);
+          b.g.rotation.set(0, Math.atan2(-Math.sin(b.a) * dir, Math.cos(b.a) * dir), -0.5 * dir);
+          flap(b, t * 1.6, 0.05);
+        }
+        b.state = 'raft';
+        b.g.visible = d < 1400;
+      });
+    } else if (shears[0].state !== 'off') {
+      for (const b of shears) {
+        b.state = 'off';
+        b.g.visible = false;
+      }
+    }
+  };
+
+  /* ---------- loggerhead turtles, round Las Brasas ---------- */
+  const TURTLE_AREA = [-300, 700, 6330, 6700];
+  const turtles = [0, 1, 2].map(() => {
+    const at = pickTarget(TURTLE_AREA, 5);
+    const b = buildTurtle();
+    b.g.visible = false;
+    b.g.scale.setScalar(rand(0.85, 1.25));
+    scene.add(b.g);
+    return { ...b, x: at.x, z: at.z, y: -2, heading: Math.random() * 6.28, target: pickTarget(TURTLE_AREA, 5, at.x, at.z), breathT: rand(20, 70), upT: 0, stroke: Math.random() * 6, deep: rand(1.5, 4), shyT: 0, seenT: 0 };
+  });
+  const stepTurtles = (dt, t, ctx, near) => {
+    for (const T of turtles) {
+      if (!near) {
+        T.g.visible = false;
+        continue;
+      }
+      T.seenT = Math.max(0, T.seenT - dt);
+      const dYou = Math.hypot(T.x - ctx.from.x, T.z - ctx.from.z);
+      // A boat coming on fast close by: it goes down and away. A still diver: it comes to look.
+      if (ctx.boat && (ctx.boatSpeed ?? 0) > 4 && dYou < 18) T.shyT = 25;
+      T.shyT = Math.max(0, T.shyT - dt);
+      if (Math.hypot(T.target.x - T.x, T.target.z - T.z) < 12) T.target = pickTarget(TURTLE_AREA, 5, T.x, T.z);
+      const curious = ctx.diving && dYou < 12 && !T.shyT;
+      const want = curious ? Math.atan2(ctx.from.x - T.x, ctx.from.z - T.z) : Math.atan2(T.target.x - T.x, T.target.z - T.z);
+      T.heading = dampAngle(T.heading, want, 0.4, dt);
+      const v = T.shyT ? 1.1 : curious ? (dYou > 3 ? 0.25 : 0) : 0.35;
+      T.x += Math.sin(T.heading) * v * dt;
+      T.z += Math.cos(T.heading) * v * dt;
+      // Up for a breath now and then, its head out for a few seconds.
+      T.breathT -= dt;
+      if (T.breathT <= 0 && !T.shyT) {
+        T.upT = rand(4, 7);
+        T.breathT = rand(45, 110);
+      }
+      T.upT = Math.max(0, T.upT - dt);
+      const s = surface(T.x, T.z, t), floor = -depthAt(T.x, T.z);
+      const wantY = T.upT > 0 ? s - 0.12 : T.shyT ? Math.max(floor + 1, s - 6) : Math.max(floor + 0.8, s - T.deep);
+      T.y = damp(T.y, wantY, T.upT > 0 ? 1.2 : 0.5, dt);
+      T.stroke += dt * (v > 0.5 ? 3.2 : 1.4);
+      const k = Math.sin(T.stroke);
+      T.fl.rotation.z = -0.5 * k;
+      T.fr.rotation.z = 0.5 * k;
+      T.bl.rotation.y = 0.3 * k;
+      T.br.rotation.y = -0.3 * k;
+      T.g.position.set(T.x, T.y, T.z);
+      T.g.rotation.set(T.upT > 0 ? -0.2 : 0, T.heading, Math.sin(t * 0.6 + T.stroke * 0.2) * 0.05);
+      T.g.visible = dYou < 160;
+      const seen = (T.y > s - 1.2 && dYou < 70) || (ctx.diving && dYou < 16);
+      if (seen && !T.seenT) {
+        T.seenT = 300;
+        events.onSighting?.('turtle', T.x, T.z);
+      }
+    }
+  };
   const stepGannets = (dt, t, ctx, near) => {
     const day = ctx.daylight > 0.3;
     // The colony, wheeling round Gannet Isle by day.
@@ -712,8 +971,9 @@ export function buildSeaLife(scene, { glow = null } = {}) {
 
   return {
     ...events,
-    pods, whales, ashore, visitors, colony, feeders, haulouts,
+    pods, whales, ashore, visitors, colony, feeders, haulouts, shears, turtles,
     get feeding() { return feeding; },
+    get shearFeed() { return shearFeed; },
     // ctx: { from (where you are), boat (the boat you're aboard, under way on the surface, or
     // null), boatSpeed, daylight, region ('home' or 'south'), eco, diving }
     update(dt, t, ctx) {
@@ -723,6 +983,8 @@ export function buildSeaLife(scene, { glow = null } = {}) {
       for (const w of whales) stepWhale(w, dt, t, ctx, (w.sea === 'home') === home && Math.hypot(w.x - ctx.from.x, w.z - ctx.from.z) < 2000);
       stepSeals(dt, t, ctx, home);
       stepGannets(dt, t, ctx, home);
+      stepShears(dt, t, ctx, !home);
+      stepTurtles(dt, t, ctx, !home);
       blows.update(dt, t);
     },
   };
