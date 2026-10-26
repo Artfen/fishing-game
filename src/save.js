@@ -43,7 +43,7 @@ export const DEFAULT_STATE = {
   mode: 'boat',  // 'boat' or 'foot'
   walker: null,  // { x, z, heading } while on foot
   gear: null,    // rods and tackle in the backpack, and what's tied on (see tackle.js)
-  keep: [],      // fish in the creel: { id, size, logId }
+  keep: [],      // fish in the creel: { id, size, logId, at (game hours when caught: how fresh it is), cooked }
   food: null,    // { full, wellFedUntil }
   camp: null,    // { fireUntil, cooking, ready }
   caughtOn: {},  // species id -> { tackle id: count }
@@ -86,6 +86,10 @@ export const DEFAULT_STATE = {
   dive: null,      // the dive tank and your diving records (see dive.js)
   seaLife: {},     // the sea life you've seen (see world/sealife.js): kind -> { n, day, hour, where }
   comfort: null,   // how you feel: warm, wet, thirsty, what you wear, the bottle and rolls (see comfort.js)
+  // The harbour (see market.js and innTalk.js): your purse, in pounds, from fish sold at the market
+  // and orders for the inns' kitchens, and what's been heard and done at the inns.
+  money: 20,
+  harbour: null,   // { heard: { haven, muelle: [story ids] }, filled: [order keys], earned, sold, served }
 };
 
 // A new game: every setting at its default (a loaded save gets its own from sanitize).
@@ -121,6 +125,18 @@ const fresh = () => {
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 // The sea life you can see (the same kinds as world/sealife.js's SEA_LIFE).
 export const SEA_LIFE_KINDS = ['bottlenose', 'commondolphin', 'spotteddolphin', 'seal', 'gannet', 'finwhale', 'minkewhale', 'pilotwhale', 'spermwhale', 'glow'];
+// The harbour: stories heard at each inn, the kitchens' orders you've filled, and a tally.
+function cleanHarbour(raw) {
+  const r = isObj(raw) ? raw : {};
+  const ids = (a, n) => (Array.isArray(a) ? a.filter((x) => typeof x === 'string' && /^[a-z0-9-]{1,40}$/.test(x)).slice(-n) : []);
+  return {
+    heard: { haven: ids(r.heard?.haven, 40), muelle: ids(r.heard?.muelle, 40) },
+    filled: ids(r.filled, 24),
+    earned: num(r.earned, 0, 0, 1e7),
+    sold: int(r.sold, 0, 0, 1e6),
+    served: int(r.served, 0, 0, 1e6),
+  };
+}
 function cleanSeaLife(raw) {
   const out = {};
   if (!isObj(raw)) return out;
@@ -138,7 +154,7 @@ const oneOf = (v, list, d) => (list.includes(v) ? v : d);
 const ZONES = ['bay', 'cove', 'open', 'lake', 'stream', 'estuary', 'mere', 'coast', 'deep', 'river', 'tarn', 'tideway'];
 const SKY_STATES = ['clear', 'partly', 'overcast', 'light', 'heavy', 'storm'];
 const KINDS = ['float', 'lure', 'ledger', 'bottom', 'fly', 'jig', 'spear'];
-export const OUTCOMES = ['released', 'kept', 'cooked', 'eaten'];
+export const OUTCOMES = ['released', 'kept', 'cooked', 'eaten', 'sold'];
 export const PIN_MAX = 60;
 export const PHOTO_MAX = 48;
 const ID = /^[a-z0-9-]{3,40}$/;
@@ -237,7 +253,7 @@ export function sanitize(raw) {
   s.keep = (Array.isArray(raw.keep) ? raw.keep : [])
     .filter((f) => isObj(f) && fishById[f.id]?.meal)
     .slice(0, PACK.fish)
-    .map((f) => ({ id: f.id, size: int(f.size, fishById[f.id].size[0], 1, 300), logId: str(f.logId, null, 24), ...(f.cooked ? { cooked: true } : {}) }));
+    .map((f) => ({ id: f.id, size: int(f.size, fishById[f.id].size[0], 1, 300), logId: str(f.logId, null, 24), ...(Number.isFinite(f.at) ? { at: num(f.at, 0, 0) } : {}), ...(f.cooked ? { cooked: true } : {}) }));
   s.food = isObj(raw.food) ? { full: num(raw.food.full, 80, 0, 100), wellFedUntil: num(raw.food.wellFedUntil, 0, 0) } : null;
   if (isObj(raw.camp)) {
     const c = raw.camp;
@@ -344,6 +360,8 @@ export function sanitize(raw) {
   s.dive = cleanDive(raw.dive);
   s.seaLife = cleanSeaLife(raw.seaLife);
   s.comfort = cleanComfort(raw.comfort);
+  s.money = Math.round(num(raw.money, 20, 0, 1e7) * 100) / 100;
+  s.harbour = cleanHarbour(raw.harbour);
   if (isObj(raw.sky)) {
     s.sky = { cloud: num(raw.sky.cloud, 0.3, 0, 1), rain: num(raw.sky.rain, 0, 0, 1), storm: num(raw.sky.storm, 0, 0, 1), state: oneOf(raw.sky.state, SKY_STATES, 'partly'), timer: num(raw.sky.timer, 120, 0, 3600) };
   }

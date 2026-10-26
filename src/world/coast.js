@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {
-  heightAt, HAVEN, HAVEN_APRON, HAVEN_HOUSES, HAVEN_QUAY, SLIPWAY, HAVEN_BOARD, HAVEN_BENCH, HAVEN_LAMP, FUEL_PUMPS,
+  heightAt, HAVEN, HAVEN_APRON, HAVEN_HOUSES, HAVEN_MARKET, HAVEN_QUAY, SLIPWAY, HAVEN_BOARD, HAVEN_BENCH, HAVEN_LAMP, FUEL_PUMPS,
   HAVEN_PONTOON, HAVEN_FINGERS, HAVEN_STEPS,
   DAYMARK, STRAND, PUNT, SHELTER, WRECK, WRECK_BUOY, WRECK_BELL, CHANNEL, COVE,
 } from './terrain.js';
@@ -14,8 +14,8 @@ const LAMPS = ['#ffffff', '#ffe0b8', '#fff0d8'];
 import { withCaustics } from './caustics.js';
 
 // The cove shore, built from the map in terrain.js: Willowhaven (a stone quay and sea wall, a
-// slipway, the chandlery, a net store and three cottages, a notice board, a bench under a lamp,
-// lobster pots and fish boxes), the old punt and the reeds at the head of Driftwood Cove, the
+// slipway, the chandlery, The Lobster Pot inn, the fish market, a net store and three cottages, a
+// notice board, a bench under a lamp, lobster pots and fish boxes), the old punt and the reeds at the head of Driftwood Cove, the
 // daymark and ledges on Cove Head, the driftwood shelter on Shell Strand, and the Kittiwake on
 // the reef under her buoy. All of it is made here from simple shapes (no outside models).
 
@@ -165,21 +165,79 @@ function buildHaven(rnd, group, obstacles, spots) {
   // The buildings.
   const windows = [];
   let sign = null;
+  // The inn's lanterns either side of its door, lit after dark.
+  const innLamp = new THREE.MeshBasicMaterial({ color: '#8a7a60' });
+  const innGlows = [];
   for (const b of HAVEN_HOUSES) {
+    const inn = b.kind === 'inn';
     const y = heightAt(b.x, b.z) - 0.05;
-    const wallH = b.kind === 'cottage' ? 3.0 : 2.6, rise = b.kind === 'cottage' ? 1.7 : 1.3;
+    const wallH = inn ? 4.7 : b.kind === 'cottage' ? 3.0 : 2.6, rise = inn ? 2.0 : b.kind === 'cottage' ? 1.7 : 1.3;
     const col = b.kind === 'chandlery' ? '#7c8f8c' : b.kind === 'store' ? '#3b3632' : b.color;
-    const target = b.kind === 'cottage' ? walls : woodParts;
+    const target = b.kind === 'cottage' || inn ? walls : woodParts;
     target.push({ geo: new THREE.BoxGeometry(b.w, wallH + 0.4, b.d), matrix: placed(b.x, y, b.z, b.yaw, 0, (wallH + 0.4) / 2 - 0.4, 0), color: col, jitter: 0.03 });
     target.push({ geo: gableEnds(b.w, b.d, rise), matrix: placed(b.x, y + wallH, b.z, b.yaw, 0, 0, 0), color: col, jitter: 0.03 });
     roofs.push({ geo: gable(b.w, b.d, rise), matrix: placed(b.x, y + wallH, b.z, b.yaw, 0, 0, 0), color: b.kind === 'store' ? '#2c2a28' : pick(ROOF, rnd), jitter: 0.04 });
     // Door, front windows and a chimney (on the cottages).
     const front = b.d / 2 + 0.02;
     dark.push({ geo: new THREE.BoxGeometry(0.95, 1.95, 0.06), matrix: placed(b.x, y, b.z, b.yaw, b.kind === 'chandlery' ? -1.4 : 0, 0.98, front), color: b.door || (b.kind === 'chandlery' ? '#30484c' : '#2a2522') });
-    const winX = b.kind === 'chandlery' ? [1.2] : b.kind === 'store' ? [] : [-b.w / 2 + 1.2, b.w / 2 - 1.2];
+    const winX = b.kind === 'chandlery' ? [1.2] : b.kind === 'store' ? [] : inn ? [-2.6, 2.6] : [-b.w / 2 + 1.2, b.w / 2 - 1.2];
     // (Each window's lamp a slightly different warmth.)
     const lamp = () => LAMPS[windows.length % LAMPS.length];
-    for (const wx of winX) windows.push({ geo: new THREE.BoxGeometry(b.kind === 'chandlery' ? 1.8 : 0.9, 0.9, 0.06), matrix: placed(b.x, y, b.z, b.yaw, wx, 1.55, front + 0.01), color: lamp() });
+    for (const wx of winX) windows.push({ geo: new THREE.BoxGeometry(b.kind === 'chandlery' ? 1.8 : inn ? 1.6 : 0.9, 0.9, 0.06), matrix: placed(b.x, y, b.z, b.yaw, wx, 1.55, front + 0.01), color: lamp() });
+    if (inn) {
+      // Upstairs, three windows; a chimney at each gable; the sign over the door, and a lantern
+      // either side of it.
+      for (const wx of [-2.8, 0, 2.8]) windows.push({ geo: new THREE.BoxGeometry(0.9, 0.85, 0.06), matrix: placed(b.x, y, b.z, b.yaw, wx, 3.6, front + 0.01), color: lamp() });
+      for (const s of [-1, 1]) stone.push({ geo: new THREE.BoxGeometry(0.7, 1.8, 0.7), matrix: placed(b.x, y, b.z, b.yaw, s * (b.w / 2 - 0.45), wallH + rise * 0.55, -0.3), color: '#8d8478' });
+      for (const s of [-1, 1]) {
+        dark.push({ geo: new THREE.BoxGeometry(0.05, 0.05, 0.3), matrix: placed(b.x, y, b.z, b.yaw, s * 0.85, 2.32, front + 0.15), color: '#2a2d30' });
+        const p = local(b.x, b.z, b.yaw, s * 0.85, front + 0.28);
+        const lantern = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.26, 0.18), innLamp);
+        lantern.position.set(p.x, y + 2.15, p.z);
+        group.add(lantern);
+        const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture('rgba(255,200,120,1)'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
+        glow.position.copy(lantern.position);
+        glow.scale.setScalar(1.3);
+        group.add(glow);
+        innGlows.push(glow);
+      }
+      const t = textTexture(512, 112, (ctx, w, h) => {
+        ctx.fillStyle = '#5a2620';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = '#d8b46a';
+        ctx.lineWidth = 6;
+        ctx.strokeRect(8, 8, w - 16, h - 16);
+        ctx.fillStyle = '#f3e6c4';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = '700 52px Kalam, Caveat, cursive';
+        ctx.fillText('The Lobster Pot', w / 2, h * 0.42);
+        ctx.font = '600 22px Kalam, Caveat, cursive';
+        ctx.fillText('inn · fresh fish · ale', w / 2, h * 0.8);
+      });
+      const innSign = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.79), new THREE.MeshLambertMaterial({ map: t.tex }));
+      const p = local(b.x, b.z, b.yaw, 0, front + 0.05);
+      innSign.position.set(p.x, y + 2.75, p.z);
+      innSign.rotation.y = b.yaw;
+      group.add(innSign);
+      // The bank behind and beside it, held back by a wall of dry stone (the inn is cut into the
+      // slope): as high as the ground a couple of metres beyond it.
+      const m = b.margin + 0.25;
+      const wallRun = (lx0, lz0, lx1, lz1, nx, nz) => {
+        const len = Math.hypot(lx1 - lx0, lz1 - lz0), n = Math.max(1, Math.round(len));
+        for (let i = 0; i < n; i++) {
+          const k = (i + 0.5) / n, lx = lx0 + (lx1 - lx0) * k, lz = lz0 + (lz1 - lz0) * k;
+          const out = local(b.x, b.z, b.yaw, lx + nx * 2.4, lz + nz * 2.4);
+          const top = Math.max(y + 0.5, heightAt(out.x, out.z) - 0.2);
+          if (top < y + 0.55 && nz === 0) continue;
+          stone.push({ geo: new THREE.BoxGeometry(nz ? len / n + 0.04 : 0.6, top - y + 0.3, nz ? 0.6 : len / n + 0.04), matrix: placed(b.x, y, b.z, b.yaw, lx, (top - y) / 2 - 0.15, lz), color: pick(STONE, rnd), jitter: 0.05 });
+          const at = local(b.x, b.z, b.yaw, lx, lz);
+          obstacles.push({ x: at.x, z: at.z, r: 0.5, top: top + 0.1, kind: 'building', name: 'a stone wall' });
+        }
+      };
+      wallRun(-b.w / 2 - m, -b.d / 2 - m, b.w / 2 + m, -b.d / 2 - m, 0, -1);
+      for (const sx of [-1, 1]) wallRun(sx * (b.w / 2 + m), -b.d / 2 - m + 0.5, sx * (b.w / 2 + m), b.d / 2 - 0.5, sx, 0);
+    }
     if (b.kind === 'cottage') {
       windows.push({ geo: new THREE.BoxGeometry(0.8, 0.7, 0.06), matrix: placed(b.x, y, b.z, b.yaw, 0, wallH - 0.6 + 0.9, front + 0.01), color: lamp() });
       stone.push({ geo: new THREE.BoxGeometry(0.6, 1.6, 0.6), matrix: placed(b.x, y, b.z, b.yaw, b.w / 2 - 0.6, wallH + rise * 0.6, -0.4), color: '#8d8478' });
@@ -188,11 +246,11 @@ function buildHaven(rnd, group, obstacles, spots) {
     for (let lx = -b.w / 2 + 0.9; lx <= b.w / 2 - 0.9 + 0.01; lx += Math.max(1.2, (b.w - 1.8) / Math.max(1, Math.round((b.w - 1.8) / 1.6)))) {
       for (let lz = -b.d / 2 + 0.9; lz <= b.d / 2 - 0.9 + 0.01; lz += Math.max(1.2, (b.d - 1.8) / Math.max(1, Math.round((b.d - 1.8) / 1.6)))) {
         const p = local(b.x, b.z, b.yaw, lx, lz);
-        obstacles.push({ x: p.x, z: p.z, r: 1.3, top: y + wallH + rise, kind: 'building', name: b.kind === 'cottage' ? 'a cottage' : b.kind === 'chandlery' ? 'the chandlery' : 'the net store' });
+        obstacles.push({ x: p.x, z: p.z, r: 1.3, top: y + wallH + rise, kind: 'building', name: b.kind === 'cottage' ? 'a cottage' : b.kind === 'chandlery' ? 'the chandlery' : inn ? 'The Lobster Pot' : 'the net store' });
       }
     }
     const door = local(b.x, b.z, b.yaw, b.kind === 'chandlery' ? -1.4 : 0, b.d / 2 + 1.2);
-    spots.push({ kind: 'door', name: b.kind === 'chandlery' ? 'the chandlery door' : b.kind === 'cottage' ? 'a cottage door' : 'the net store door', x: door.x, z: door.z, r: 2.4, id: b.id });
+    spots.push({ kind: 'door', name: b.kind === 'chandlery' ? 'the chandlery door' : b.kind === 'cottage' ? 'a cottage door' : inn ? 'The Lobster Pot' : 'the net store door', x: door.x, z: door.z, r: 2.4, id: b.id });
     if (b.kind === 'chandlery') {
       // The sign over the window.
       const t = textTexture(512, 128, (ctx, w, h) => {
@@ -243,6 +301,82 @@ function buildHaven(rnd, group, obstacles, spots) {
   }
   spots.push({ kind: 'board', name: 'the notice board', x: local(B.x, B.z, B.yaw, 0, 1.4).x, z: local(B.x, B.z, B.yaw, 0, 1.4).z, r: 2.6 });
 
+  // The fish market: an open shed by the head of the quay, a marble slab across its front with fish
+  // boxes on crushed ice, the scales hanging from the beam, a sign under the eaves, and a slate on
+  // an easel beside it with what's wanted today (drawn by the game, see market.js).
+  const M = HAVEN_MARKET, hw = M.w / 2, hd = M.d / 2;
+  let slateTex;
+  {
+    const hi = 2.75, lo = 2.35;
+    const at = (lx, ly, lz, rx = 0, ry = 0, rz = 0, sx = 1, sy = sx, sz = sx) => placed(M.x, ay, M.z, M.yaw, lx, ly, lz, rx, ry, rz, sx, sy, sz);
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        const ph = sz > 0 ? hi : lo;
+        woodParts.push({ geo: new THREE.BoxGeometry(0.16, ph, 0.16), matrix: at(sx * (hw - 0.1), ph / 2, sz * (hd - 0.1)), color: '#5a4030' });
+        const p = local(M.x, M.z, M.yaw, sx * (hw - 0.1), sz * (hd - 0.1));
+        obstacles.push({ x: p.x, z: p.z, r: 0.18, kind: 'harbour', name: 'the fish market' });
+      }
+      // Boarded sides, waist high.
+      woodParts.push({ geo: new THREE.BoxGeometry(0.06, 1.1, M.d - 0.2), matrix: at(sx * (hw - 0.1), 0.55, 0), color: '#6f8f96', jitter: 0.04 });
+    }
+    // The back, boarded to the roof; the front beam; the roof, one slope, high at the front.
+    woodParts.push({ geo: new THREE.BoxGeometry(M.w - 0.2, lo, 0.08), matrix: at(0, lo / 2, -hd + 0.1), color: '#6f8f96', jitter: 0.04 });
+    woodParts.push({ geo: new THREE.BoxGeometry(M.w, 0.16, 0.14), matrix: at(0, hi - 0.08, hd - 0.1), color: '#5a4030' });
+    const run = Math.hypot(M.d, hi - lo) + 0.6;
+    roofs.push({ geo: new THREE.BoxGeometry(M.w + 0.5, 0.06, run), matrix: at(0, (hi + lo) / 2 + 0.06, 0, -Math.atan2(hi - lo, M.d)), color: '#4f6d74', jitter: 0.03 });
+    // The slab on its stand, and the boxes on it: crushed ice, and the day's fish laid out.
+    woodParts.push({ geo: new THREE.BoxGeometry(M.w - 0.9, 0.86, 0.66), matrix: at(0, 0.43, hd - 0.6), color: '#6a503b' });
+    stone.push({ geo: new THREE.BoxGeometry(M.w - 0.6, 0.07, 0.84), matrix: at(0, 0.895, hd - 0.6), color: '#e2ded6', jitter: 0.02 });
+    const FISHY = ['#b9c2c6', '#8e9aa0', '#c9b3a4', '#7d8c6f', '#a7a9a2'];
+    for (const [i, lx] of [-1.65, -0.55, 0.55, 1.65].entries()) {
+      woodParts.push({ geo: new THREE.BoxGeometry(0.9, 0.13, 0.6), matrix: at(lx, 0.995, hd - 0.6), color: ['#3f6f74', '#a5482f', '#c9a65a', '#3d5a7a'][i], jitter: 0.04 });
+      stone.push({ geo: new THREE.BoxGeometry(0.82, 0.02, 0.52), matrix: at(lx, 1.06, hd - 0.6), color: '#eef3f4', jitter: 0.02 });
+      for (let k = 0; k < 3; k++) {
+        stone.push({ geo: new THREE.SphereGeometry(1, 8, 5), matrix: at(lx - 0.24 + k * 0.24, 1.085, hd - 0.6 + (k % 2 ? 0.03 : -0.03), 0, 0, 0, 0.055, 0.03, 0.2), color: FISHY[(i + k) % FISHY.length], jitter: 0.05 });
+      }
+    }
+    for (const lx of [-1.6, 0, 1.6]) {
+      const p = local(M.x, M.z, M.yaw, lx, hd - 0.6);
+      obstacles.push({ x: p.x, z: p.z, r: 0.55, top: ay + 0.95, kind: 'harbour', name: 'the fish slab' });
+    }
+    // The scales, hanging from the beam.
+    dark.push({ geo: new THREE.CylinderGeometry(0.01, 0.01, 0.5, 4), matrix: at(hw - 0.55, hi - 0.4, hd - 0.12), color: '#2a2d30' });
+    dark.push({ geo: new THREE.CylinderGeometry(0.11, 0.11, 0.05, 12), matrix: at(hw - 0.55, hi - 0.7, hd - 0.12, Math.PI / 2, 0, 0), color: '#e8e4da' });
+    dark.push({ geo: new THREE.CylinderGeometry(0.17, 0.14, 0.05, 14), matrix: at(hw - 0.55, hi - 0.98, hd - 0.12), color: '#b8bcbf' });
+    // The sign under the eaves.
+    const t = textTexture(512, 112, (ctx, w, h) => {
+      ctx.fillStyle = '#24465a';
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#f2efe6';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = '700 50px Kalam, Caveat, cursive';
+      ctx.fillText('Fresh Fish', w / 2, h * 0.4);
+      ctx.font = '600 22px Kalam, Caveat, cursive';
+      ctx.fillText('M. Pennock · fishmonger · fish bought from the boats', w / 2, h * 0.8);
+    });
+    const ms = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 0.66), new THREE.MeshLambertMaterial({ map: t.tex }));
+    const p = local(M.x, M.z, M.yaw, 0, hd + 0.01);
+    ms.position.set(p.x, ay + hi - 0.42, p.z);
+    ms.rotation.y = M.yaw;
+    group.add(ms);
+    // The slate on its easel, by the market's west post.
+    const e = local(M.x, M.z, M.yaw, -hw - 0.75, hd + 0.2);
+    for (const s of [-1, 1]) woodParts.push({ geo: new THREE.BoxGeometry(0.05, 1.3, 0.05), matrix: placed(e.x, ay, e.z, M.yaw - 0.5, s * 0.36, 0.62, 0.08, -0.14, 0, 0), color: '#6a503b' });
+    woodParts.push({ geo: new THREE.BoxGeometry(0.05, 1.25, 0.05), matrix: placed(e.x, ay, e.z, M.yaw - 0.5, 0, 0.6, -0.22, 0.3, 0, 0), color: '#6a503b' });
+    slateTex = textTexture(256, 320, (ctx, w, h) => {
+      ctx.fillStyle = '#2b2f2e';
+      ctx.fillRect(0, 0, w, h);
+    });
+    const slate = new THREE.Mesh(new THREE.PlaneGeometry(0.78, 0.98), new THREE.MeshLambertMaterial({ map: slateTex.tex }));
+    slate.position.set(e.x + Math.sin(M.yaw - 0.5) * 0.12, ay + 0.86, e.z + Math.cos(M.yaw - 0.5) * 0.12);
+    slate.rotation.set(-0.14, M.yaw - 0.5, 0, 'YXZ');
+    group.add(slate);
+    obstacles.push({ x: e.x, z: e.z, r: 0.4, kind: 'harbour', name: 'the slate' });
+    const f = local(M.x, M.z, M.yaw, 0, hd + 1.15);
+    spots.push({ kind: 'market', name: 'the fish market', x: f.x, z: f.z, r: 2.6 });
+  }
+
   // The harbour's fuel pump at the root of the quay, for the boats alongside (and a can for the car).
   {
     const F = FUEL_PUMPS.haven, fy = heightAt(F.x, F.z);
@@ -277,8 +411,8 @@ function buildHaven(rnd, group, obstacles, spots) {
 
   // Lobster pots, fish boxes, barrels and an upturned dinghy along the apron.
   const props = [
-    { x: 20, z: -97.5, k: 'pots' }, { x: 23.5, z: -96.6, k: 'pots' }, { x: -15.5, z: -97.8, k: 'boxes' },
-    { x: 6, z: -99.3, k: 'barrels' }, { x: 26, z: -99.2, k: 'dinghy' }, { x: -17, z: -99.4, k: 'boxes' },
+    { x: 20, z: -97.5, k: 'pots' }, { x: 2.4, z: -99.5, k: 'pots' }, { x: -12.6, z: -99.3, k: 'boxes' },
+    { x: 5.6, z: -99.3, k: 'barrels' }, { x: -15.8, z: -97.4, k: 'dinghy' }, { x: -17, z: -99.4, k: 'boxes' },
   ];
   for (const p of props) {
     if (p.k === 'pots') {
@@ -321,11 +455,13 @@ function buildHaven(rnd, group, obstacles, spots) {
   group.add(qLight);
 
   return {
-    board, boardTex, sign,
+    board, boardTex, sign, slateTex,
     update(dt, t, env) {
       const night = clamp(env.lantern * 1.15, 0, 1);
       lampGlass.color.setRGB(0.55 + night * 0.45, 0.5 + night * 0.38, 0.4 + night * 0.25);
       lampGlow.material.opacity = 0.75 * night;
+      innLamp.color.setRGB(0.54 + night * 0.46, 0.48 + night * 0.36, 0.38 + night * 0.12);
+      for (const g of innGlows) g.material.opacity = 0.7 * night;
       lampLight.intensity = 14 * night;
       // (Lamplight, not daylight: warm amber after dark, so the haven looks lived-in from the water.)
       windowMat.color.setRGB(0.18 + night * 1.02, 0.24 + night * 0.44, 0.28 + night * 0.02);
@@ -543,9 +679,15 @@ export function buildCoast(scene, rnd) {
     draw(t.canvas.getContext('2d'), t.canvas.width, t.canvas.height);
     t.tex.needsUpdate = true;
   };
+  // The market's slate: the day's prices, chalked up (see market.js).
+  const paintSlate = (draw) => {
+    const t = haven.slateTex;
+    draw(t.canvas.getContext('2d'), t.canvas.width, t.canvas.height);
+    t.tex.needsUpdate = true;
+  };
 
   return {
-    group, obstacles, spots, wreck, paintBoard,
+    group, obstacles, spots, wreck, paintBoard, paintSlate,
     havenCentre: HAVEN,
     update(dt, t, env) {
       haven.update(dt, t, env);

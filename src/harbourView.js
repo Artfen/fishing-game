@@ -1,0 +1,341 @@
+import { fishById } from './fish.js';
+import { formatClock } from './world/sky.js';
+import { MARKET_HOURS, ORDERS_BY, demandFor, fishValue, ordersFor, fills, money } from './market.js';
+import { nextStory, adviceFor, rumoursNow, lower, an } from './innTalk.js';
+
+// The harbour's sheet: the fish market on Willowhaven quay (Mags Pennock at her slab), The Lobster
+// Pot (Ruth Alder behind the bar, and her kitchen), and Bar El Muelle at Puerto Brasa (Paco: his
+// bar, his kitchen, the fish he buys from the boats, and your room upstairs).
+//
+// hooks: { toast(text, secs), chime(), changed(), close(), now() (game hours), sold(logId),
+// eatMeal({ id, size, logId }), eatDish(text, fill), drink(), openRoom(), talk(place) → { advice,
+// rumours } (the contexts innTalk.js wants) }.
+
+const $ = (id) => document.getElementById(id);
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+export const PINT = 4;       // a pint at the bar (a caña at Paco's), and a story with it
+export const PLATE = 9;      // the plate of the day
+export const COOK_YOURS = 3; // the kitchen cooking a fish of yours for you
+const PLATES = {
+  haven: { name: 'fish pie', text: 'Ruth’s fish pie: smoked haddock and prawns under a crust of mash, browned on top. You eat every crumb.', fill: 55 },
+  muelle: { name: 'sancocho', text: 'Paco’s sancocho: salted fish and sweet potato, with papas arrugadas and green mojo. Just right.', fill: 55 },
+};
+const HOST = { haven: 'Ruth', muelle: 'Paco' };
+const OLD = (fresh) => (fresh >= 0.99 ? 'fresh' : fresh > 0.8 ? 'a day old' : 'getting on');
+
+export class HarbourSheet {
+  constructor(state, hooks) {
+    this.state = state;
+    this.hooks = hooks;
+    this.el = $('harbour');
+    this.where = null;  // 'market' | 'inn' | 'muelle'
+    this.tab = 'sell';
+    this.said = { advice: null, story: null };
+    $('hb-close').addEventListener('click', () => hooks.close());
+    this.el.addEventListener('click', (e) => { if (e.target === this.el) hooks.close(); });
+  }
+
+  get isOpen() { return !this.el.hidden; }
+  get place() { return this.where === 'muelle' ? 'muelle' : 'haven'; }
+  get harbour() {
+    this.state.harbour ??= { heard: { haven: [], muelle: [] }, filled: [], earned: 0, sold: 0, served: 0 };
+    return this.state.harbour;
+  }
+  get marketOpen() {
+    if (this.where === 'muelle') return true;
+    return this.state.hour >= MARKET_HOURS[0] && this.state.hour < MARKET_HOURS[1];
+  }
+
+  open(where) {
+    this.where = where;
+    this.said = { advice: null, story: null };
+    this.tab = where === 'market' ? 'sell' : 'bar';
+    this.el.hidden = false;
+    this.render();
+  }
+
+  close() {
+    this.el.hidden = true;
+  }
+
+  button(text, run, cls = '') {
+    const b = el('button', `pk-btn ${cls}`.trim(), text);
+    b.type = 'button';
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (b.isConnected && this.isOpen) run();
+    });
+    return b;
+  }
+
+  pay(v) {
+    if (this.state.money < v - 1e-6) {
+      this.hooks.toast(`That’s ${money(v)}, and you’ve only ${money(this.state.money)} in your purse. Sell a fish or two at the market first.`, 5);
+      return false;
+    }
+    this.state.money = Math.round((this.state.money - v) * 100) / 100;
+    return true;
+  }
+  earn(v) {
+    this.state.money = Math.round((this.state.money + v) * 100) / 100;
+    this.harbour.earned = Math.round((this.harbour.earned + v) * 100) / 100;
+  }
+
+  render() {
+    if (!this.isOpen) return;
+    const W = this.where;
+    $('hb-title').textContent = W === 'market' ? 'The fish market' : W === 'inn' ? 'The Lobster Pot' : 'Bar El Muelle';
+    $('hb-sub').textContent = `${formatClock(this.state.hour)} · day ${this.state.day} · ${W === 'muelle' ? 'Puerto Brasa' : 'Willowhaven'}`;
+    $('hb-purse').textContent = `In your purse: ${money(this.state.money)}`;
+    const tabs = W === 'market' ? [] : W === 'inn' ? [['bar', 'The bar'], ['kitchen', 'The kitchen']] : [['bar', 'The bar'], ['kitchen', 'The kitchen'], ['sell', 'Sell to Paco']];
+    $('hb-tabs').replaceChildren(...tabs.map(([id, text]) => {
+      const b = el('button', id === this.tab ? 'on' : '', text);
+      b.type = 'button';
+      b.addEventListener('click', () => {
+        this.tab = id;
+        this.render();
+      });
+      return b;
+    }), ...(W === 'muelle' ? [this.button('Your room upstairs', () => this.hooks.openRoom(), 'quiet hb-room')] : []));
+    $('hb-tabs').hidden = !tabs.length;
+    const body = this.tab === 'sell' ? this.renderSell() : this.tab === 'kitchen' ? this.renderKitchen() : this.renderBar();
+    $('hb-body').replaceChildren(...body);
+  }
+
+  /* ---- the market (and Paco buying from the boats) ---- */
+
+  renderSell() {
+    const out = [];
+    const place = this.place, day = this.state.day, now = this.hooks.now();
+    const D = demandFor(day, place);
+    const names = (ids) => ids.map((id) => fishById[id].name).join(', ');
+    if (place === 'haven') {
+      out.push(el('p', 'hb-say', this.marketOpen
+        ? 'Mags Pennock, behind her slab in a blue apron, sleeves rolled: “What have you brought me, then?”'
+        : `The market’s shut: the slab scrubbed, the boxes stacked. Mags opens at ${formatClock(MARKET_HOURS[0])} and packs up at ${formatClock(MARKET_HOURS[1])}.`));
+    } else {
+      out.push(el('p', 'hb-say', 'Paco buys fish for his kitchen from the boats, and sells what he can’t cook on to the restaurants up the hill. “¡A ver! Let me see.”'));
+    }
+    const slate = el('div', 'hb-slate');
+    slate.append(el('h3', '', place === 'haven' ? 'On the slate today' : 'Paco wants today'));
+    slate.append(el('p', '', `Wanted: ${names(D.wanted)} (half as much again)`));
+    slate.append(el('p', '', `Plenty of: ${names(D.plenty)} (a bit less)`));
+    out.push(slate);
+    out.push(el('h3', '', `Your creel (${this.state.keep.length})`));
+    const orders = ordersFor(day, place).filter((o) => !this.harbour.filled.includes(o.key));
+    let any = 0, total = 0;
+    const sellable = [];
+    this.state.keep.forEach((f, i) => {
+      const sp = fishById[f.id];
+      const row = el('div', 'cp-row');
+      const v = fishValue(f, { day, now, place });
+      if (f.cooked) {
+        row.append(el('p', '', `${sp.meal.name}, ${f.size} cm`), el('span', 'cp-soft', 'cooked: for eating, not for the slab'));
+      } else if (!v.wanted) {
+        row.append(el('p', '', `${sp.name}, ${f.size} cm`), el('span', 'cp-soft', place === 'haven' ? 'nobody here buys it' : 'Paco doesn’t take it'));
+      } else {
+        const tags = [`${v.kg.toFixed(v.kg < 1 ? 2 : 1)} kg`, OLD(v.fresh), v.demand === 'wanted' ? 'wanted today' : v.demand === 'plenty' ? 'plenty about' : ''].filter(Boolean).join(' · ');
+        row.append(el('p', '', `${sp.name}, ${f.size} cm`), el('span', 'cp-soft', tags));
+        const order = orders.find((o) => o.id === f.id && f.size >= o.min);
+        if (order) row.append(el('span', 'cp-soft hb-hint', `${place === 'haven' ? 'Ruth at The Lobster Pot' : 'Paco’s kitchen'} wants this one: ${money(order.reward)}`));
+        const b = this.button(`Sell: ${money(v.price)}`, () => this.sell(i));
+        b.disabled = !this.marketOpen;
+        row.append(b);
+        any++;
+        total += v.price;
+        sellable.push(f);
+      }
+      out.push(row);
+    });
+    if (!this.state.keep.length) out.push(el('p', 'cp-soft', 'Nothing in your creel. Fish you keep (K, or Keep on the catch card) can be sold here, cooked at camp, or taken to the inn’s kitchen.'));
+    if (any > 1 && this.marketOpen) {
+      const row = el('div', 'cp-row cp-acts');
+      row.append(this.button(`Sell all ${any}: ${money(total)}`, () => this.sellAll()));
+      out.push(row);
+    }
+    out.push(el('p', 'cp-soft', 'Fish fetch their best fresh: within half a day of the catch. After that the price slips, a little more each day. A camp’s cool box keeps them on ice.'));
+    return out;
+  }
+
+  sell(i, quiet = false) {
+    const f = this.state.keep[i];
+    if (!f || f.cooked || !this.marketOpen) return 0;
+    const v = fishValue(f, { day: this.state.day, now: this.hooks.now(), place: this.place });
+    if (!v.wanted) return 0;
+    this.state.keep.splice(i, 1);
+    this.earn(v.price);
+    this.harbour.sold++;
+    this.hooks.sold(f.logId);
+    if (!quiet) {
+      const sp = fishById[f.id];
+      this.hooks.chime();
+      this.hooks.toast(`${this.place === 'haven' ? 'Mags' : 'Paco'} weighs the ${lower(sp.name)}: ${v.kg.toFixed(v.kg < 1 ? 2 : 1)} kg. ${money(v.price)} into your purse.`, 4);
+      this.hooks.changed();
+      this.render();
+    }
+    return v.price;
+  }
+
+  sellAll() {
+    let n = 0, sum = 0;
+    for (let i = this.state.keep.length - 1; i >= 0; i--) {
+      const p = this.sell(i, true);
+      if (p > 0) {
+        n++;
+        sum += p;
+      }
+    }
+    if (!n) return;
+    this.hooks.chime();
+    this.hooks.toast(`${n} fish weighed and paid for: ${money(sum)} into your purse.`, 4);
+    this.hooks.changed();
+    this.render();
+  }
+
+  /* ---- the kitchen: the day's orders, a fish of yours cooked, the plate of the day ---- */
+
+  renderKitchen() {
+    const out = [];
+    const place = this.place, host = HOST[place];
+    const early = this.state.hour < 6, late = this.state.hour >= ORDERS_BY;
+    out.push(el('p', 'hb-say', place === 'haven'
+      ? 'Ruth Alder runs the kitchen as well as the bar. She buys her fish from whoever brings in the best of it, and she pays well for what she’s after.'
+      : 'Paco’s mother cooks, in a kitchen the size of a cupboard. What goes on the menu depends on what the boats bring in.'));
+    out.push(el('h3', '', `${host}’s orders for tonight`));
+    for (const o of ordersFor(this.state.day, place)) {
+      const sp = fishById[o.id];
+      const row = el('div', 'cp-row');
+      const a = an(lower(sp.name));
+      const want = `${a[0].toUpperCase()}${a.slice(1)}${o.min > sp.size[0] ? `, ${o.min} cm or more` : ''}`;
+      row.append(el('p', '', want), el('span', 'cp-soft', `${money(o.reward)} · by ${formatClock(o.by)}`));
+      if (this.harbour.filled.includes(o.key)) row.append(el('span', 'hb-done', 'Done ✓'));
+      else if (late || early) row.append(el('span', 'cp-soft', early ? 'the kitchen opens at six' : 'too late tonight'));
+      else {
+        const i = fills(this.state.keep, o);
+        if (i >= 0) row.append(this.button(`Bring your ${this.state.keep[i].size} cm one`, () => this.fill(o)));
+        else row.append(el('span', 'cp-soft', 'none in your creel'));
+      }
+      out.push(row);
+    }
+    out.push(el('p', 'cp-soft', `New orders every morning. ${place === 'haven' ? 'The board on the quay says what’s about, and where.' : 'Ask Paco at the bar where they’re biting.'}`));
+    out.push(el('h3', '', 'Something to eat'));
+    const P = PLATES[place];
+    const plate = el('div', 'cp-row');
+    plate.append(el('p', '', `The plate of the day: ${P.name}`), el('span', 'cp-soft', money(PLATE)), this.button('Order it', () => {
+      if (!this.pay(PLATE)) return;
+      this.hooks.eatDish(P.text, P.fill);
+      this.hooks.changed();
+      this.render();
+    }));
+    out.push(plate);
+    const raw = this.state.keep.map((f, i) => ({ f, i })).filter(({ f }) => !f.cooked);
+    if (raw.length) {
+      out.push(el('p', 'cp-soft', `Or ${host} will cook one of yours for ${money(COOK_YOURS)}:`));
+      for (const { f, i } of raw) {
+        const sp = fishById[f.id];
+        const row = el('div', 'cp-row');
+        row.append(el('p', '', `${sp.name}, ${f.size} cm`), el('span', 'cp-soft', sp.meal.name), this.button('Cook it for me', () => {
+          if (this.state.keep[i] !== f || !this.pay(COOK_YOURS)) return;
+          this.state.keep.splice(i, 1);
+          this.hooks.eatMeal({ id: f.id, size: f.size, logId: f.logId || null });
+          this.hooks.changed();
+          this.render();
+        }, 'quiet'));
+        out.push(row);
+      }
+    }
+    return out;
+  }
+
+  fill(o) {
+    const i = fills(this.state.keep, o);
+    if (i < 0 || this.harbour.filled.includes(o.key)) return;
+    const f = this.state.keep.splice(i, 1)[0];
+    this.harbour.filled.push(o.key);
+    if (this.harbour.filled.length > 24) this.harbour.filled.splice(0, this.harbour.filled.length - 24);
+    this.harbour.served++;
+    this.earn(o.reward);
+    this.hooks.sold(f.logId);
+    this.hooks.chime();
+    const sp = fishById[f.id];
+    this.hooks.toast(this.place === 'haven'
+      ? `Ruth holds up the ${lower(sp.name)} to the light. “Now that’s a fish.” ${money(o.reward)} into your purse, and it’s on the board tonight.`
+      : `Paco shouts into the kitchen, and his mother comes out to see the ${lower(sp.name)}. ${money(o.reward)} into your purse.`, 6);
+    this.hooks.changed();
+    this.render();
+  }
+
+  /* ---- the bar: a pint and a story, advice, and what's being said ---- */
+
+  renderBar() {
+    const out = [];
+    const place = this.place, host = HOST[place];
+    const talk = this.hooks.talk(place);
+    out.push(el('p', 'hb-say', place === 'haven'
+      ? 'Low beams, a coal fire, a stuffed bass in a glass case over the bar. Ruth Alder is drying glasses. A couple of the old boys are in their corner by the window, watching the quay.'
+      : 'Plastic chairs out on the quay, a television with the football on, a fan turning slowly. Paco leans on the bar, a cloth over his shoulder.'));
+    // A pint, and a story with it.
+    const pint = el('div', 'cp-row');
+    pint.append(el('p', '', place === 'haven' ? 'A pint of Ruth’s best bitter, and a story with it' : 'A caña, a little cold beer, and a story with it'), el('span', 'cp-soft', money(PINT)), this.button(this.said.story ? 'Another' : 'Buy one', () => {
+      if (!this.pay(PINT)) return;
+      const heard = this.harbour.heard[place];
+      const s = nextStory(place, heard);
+      if (!heard.includes(s.id)) heard.push(s.id);
+      this.said.story = s;
+      this.hooks.drink();
+      this.hooks.changed();
+      this.render();
+    }));
+    out.push(pint);
+    if (this.said.story) out.push(el('blockquote', 'hb-story', `“${this.said.story.text}”`));
+    // Advice (free: everyone has some).
+    const adv = el('div', 'cp-row');
+    adv.append(el('p', '', `Ask ${host} what’s biting`), this.button(this.said.advice ? 'Ask again' : 'Ask', () => {
+      this.said.advice = adviceFor(talk.advice);
+      this.render();
+    }, 'quiet'));
+    out.push(adv);
+    if (this.said.advice) out.push(el('blockquote', 'hb-story', `“${this.said.advice}”`));
+    // What's being said today.
+    const lines = rumoursNow(talk.rumours).slice(0, 4);
+    out.push(el('h3', '', 'What they’re saying'));
+    if (lines.length) for (const l of lines) out.push(el('p', 'hb-rumour', l));
+    else out.push(el('p', 'cp-soft', place === 'haven' ? 'A quiet day: the talk is of the weather, the price of diesel, and whose turn it is to buy.' : 'Nothing much: the football, the heat, a cousin’s wedding.'));
+    const heard = this.harbour.heard[place].length;
+    out.push(el('p', 'cp-soft', `Stories heard here: ${heard}.`));
+    return out;
+  }
+}
+
+// The market's slate in the world, chalked up each morning with what's wanted.
+export function paintSlate(ctx, w, h, { day, wanted = [], plenty = [] } = {}) {
+  ctx.fillStyle = '#2b2f2e';
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = '#6a503b';
+  ctx.lineWidth = 14;
+  ctx.strokeRect(0, 0, w, h);
+  ctx.fillStyle = 'rgba(240,240,232,0.92)';
+  ctx.textAlign = 'center';
+  ctx.font = '700 34px Kalam, Caveat, cursive';
+  ctx.fillText('Today', w / 2, 46);
+  ctx.font = '600 22px Kalam, Caveat, cursive';
+  ctx.fillText(`day ${day}`, w / 2, 72);
+  ctx.textAlign = 'left';
+  ctx.font = '700 24px Kalam, Caveat, cursive';
+  ctx.fillText('Wanted:', 22, 112);
+  ctx.font = '600 24px Kalam, Caveat, cursive';
+  wanted.forEach((n, i) => ctx.fillText(`· ${n}`, 30, 142 + i * 30));
+  ctx.font = '700 24px Kalam, Caveat, cursive';
+  ctx.fillText('Plenty of:', 22, 222);
+  ctx.font = '600 24px Kalam, Caveat, cursive';
+  plenty.forEach((n, i) => ctx.fillText(`· ${n}`, 30, 252 + i * 30));
+  ctx.font = '600 18px Kalam, Caveat, cursive';
+  ctx.textAlign = 'center';
+  ctx.fillText(`open ${MARKET_HOURS[0]} am till ${MARKET_HOURS[1] - 12} pm`, w / 2, h - 18);
+}

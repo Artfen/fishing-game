@@ -301,6 +301,19 @@
   </div>
 </div>
 
+<div id="harbour" class="sheet" role="dialog" aria-label="The harbour" hidden>
+  <div class="sheet-inner harbour-inner">
+    <header>
+      <h2 id="hb-title">The fish market</h2>
+      <p id="hb-sub"></p>
+      <button id="hb-close" class="sheet-close" type="button" aria-label="Close">×</button>
+    </header>
+    <p id="hb-purse" class="hb-purse"></p>
+    <nav id="hb-tabs" class="cp-tabs"></nav>
+    <section id="hb-body"></section>
+  </div>
+</div>
+
 <div id="bench" class="sheet" role="dialog" aria-label="The workbench: planning an outing" hidden>
   <div class="sheet-inner bench-inner">
     <header>
@@ -462,7 +475,7 @@
         <label>Fish <select id="f-species"></select></label>
         <label>Water <select id="f-water"><option value="">All</option><option value="salt">Salt</option><option value="brackish">Brackish</option><option value="fresh">Fresh</option></select></label>
         <label>Method <select id="f-method"><option value="">All</option><option value="float">Float</option><option value="lure">Lure</option><option value="ledger">Carp rig</option><option value="bottom">Sea bottom rig</option><option value="fly">Fly</option><option value="jig">Squid jig</option></select></label>
-        <label>Kept? <select id="f-outcome"><option value="">All</option><option value="released">Released</option><option value="kept">Kept</option><option value="cooked">Cooked or eaten</option></select></label>
+        <label>Kept? <select id="f-outcome"><option value="">All</option><option value="released">Released</option><option value="kept">Kept</option><option value="cooked">Cooked or eaten</option><option value="sold">Sold</option></select></label>
       </div>
       <ol id="log-list"></ol>
       <button id="log-more" type="button" hidden>Show more</button>

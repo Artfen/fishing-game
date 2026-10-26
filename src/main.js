@@ -57,6 +57,8 @@ import { Adventures, ADVENTURE_BY_ID, PAGES, KEEPSAKES } from './adventures.js';
 import { PhotoStore, capture, photoId, albumPage, download } from './photos.js';
 import { Memories } from './memories.js';
 import { whatsAbout, birdsWorking, weatherLines, notices, paintBoard } from './harbour.js';
+import { HarbourSheet, paintSlate } from './harbourView.js';
+import { demandFor } from './market.js';
 import { PHOTO_MAX } from './save.js';
 import { Journal } from './journal.js';
 import { MapSheet, Explored } from './map.js';
@@ -79,7 +81,7 @@ import { STEPS as TRIP_STEPS, stepOf, stepNumber, complete as completeStep, star
 import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality } from './quality.js';
 import { Post } from './post.js';
 import { Diver, Shot, buildGun } from './diver.js';
-import { stepComfort, effectsOf, needsOf, dressFor, drink as drinkFrom, refill, eatRoll, packRolls, CLOTHES, CLOTHES_IDS, BOTTLE, ROLLS, feelsLike } from './comfort.js';
+import { stepComfort, effectsOf, needsOf, dressFor, drink as drinkFrom, refill, eatRoll, packRolls, mealDrink, CLOTHES, CLOTHES_IDS, BOTTLE, ROLLS, feelsLike } from './comfort.js';
 import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance } from './dive.js';
 import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick, seeded } from './util.js';
 
@@ -670,7 +672,7 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
     return false;
   },
   onKeep: (sp, size) => {
-    state.keep.push({ id: sp.id, size, logId: lastCatchId });
+    state.keep.push({ id: sp.id, size, logId: lastCatchId, at: state.day * 24 + state.hour });
     setOutcome(lastCatchId, 'kept');
     $('catch-card').hidden = true;
     modal = null;
@@ -1224,6 +1226,83 @@ function closeCamp() {
   camp.close();
   if (modal === 'camp') modal = null;
 }
+
+/* ---------------- the harbour: the fish market and the inns ---------------- */
+
+const harbourSheet = new HarbourSheet(state, {
+  toast: (text, secs) => hud.toast(text, secs),
+  chime: () => audio.chime?.(),
+  changed: () => save(),
+  close: () => closeHarbour(),
+  now: () => state.day * 24 + state.hour,
+  sold: (logId) => setOutcome(logId, 'sold'),
+  eatMeal: (m) => camp.eatMeal(m),
+  eatDish: (text, fill) => camp.eatDish(text, fill),
+  drink: () => { if (state.comfort) mealDrink(state.comfort); },
+  openRoom: () => {
+    closeHarbour();
+    openCamp('cook', 'posada');
+  },
+  talk: (place) => innTalk(place),
+});
+// where: 'market' (Willowhaven's fish market), 'inn' (The Lobster Pot) or 'muelle' (Bar El Muelle).
+function openHarbour(where) {
+  if (modal) return;
+  modal = 'harbour';
+  harbourSheet.open(where);
+  audio.page();
+  if (where === 'market') teach('market', 'The fish market buys what you keep: the price is by weight, more for the kinds wanted today, and best while the fish is fresh. Money goes on a pint, a hot meal, or a fish cooked for you at the inn.', 9);
+  else teach('inn', 'The inn: buy a pint and hear a story, ask what’s biting, and catch what’s being said about the sea today. The kitchen asks for particular fish each day, and pays well for them.', 9);
+}
+function closeHarbour() {
+  harbourSheet.close();
+  if (modal === 'harbour') modal = null;
+}
+// What the bar is talking about: the water as it is (for the advice), and what's going on out
+// there (for the rumours). Every word of it read off the world as it is now.
+function innTalk(place) {
+  const home = place !== 'muelle';
+  const storm = Math.max(weather.storm, conditions.sea.storm);
+  const nameOf = (x, z) => {
+    if (!home) return 'off the island';
+    const n = placeName(x, z);
+    return n ? `near ${n.replace(/^The /, 'the ')}` : 'out past the bay';
+  };
+  const inSea = (z) => (z > SOUTH_Z) === !home;
+  const F = sealife.feeding;
+  const tuna = eco.schools.find((s) => s.frenzy > 0 && s.prey && inSea(s.z));
+  // The best fish you've had today, if it was a good one.
+  let yours = null;
+  for (let i = state.log.length - 1; i >= 0 && state.log[i].day === state.day; i--) {
+    const e = state.log[i], sp = fishById[e.sp];
+    if (!sp || !inSea(e.z)) continue;
+    const k = (e.size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]);
+    if (k > 0.75 && (!yours || k > yours.k)) yours = { k, name: sp.name, size: e.size };
+  }
+  return {
+    advice: { place, hour: state.hour, rain: weather.rain, wind: conditions.wind.speed, storm, about: home ? whatsAbout(eco) : [], caught: new Set(Object.keys(state.fish)) },
+    rumours: {
+      place, hour: state.hour, nameOf, storm, rain: weather.rain,
+      birds: home ? birdsWorking(world.flocks, state.places) : [],
+      gannets: home && F ? { x: F.school.x, z: F.school.z } : null,
+      boil: tuna ? { x: tuna.x, z: tuna.z } : null,
+      // (Dolphins only when they're somewhere with a name: close in, worth going to look for.)
+      pods: state.hour > 6 && state.hour < 21 ? sealife.pods.filter((p) => p.sea === (home ? 'home' : 'south') && (!home || placeName(p.x, p.z))).slice(0, 1).map((p) => ({ kind: p.kind, x: p.x, z: p.z })) : [],
+      whales: sealife.whales.filter((w) => w.sea === (home ? 'home' : 'south') && w.state !== 'down').slice(0, 1).map((w) => ({ kind: w.kind, x: w.x, z: w.z, up: w.state === 'breathe' })),
+      glow: nightGlow(state.day),
+      landed: [],
+      yours,
+    },
+  };
+}
+// The market's slate on the quay: chalked up afresh each morning.
+let slateDay = -1;
+function chalkSlate() {
+  slateDay = state.day;
+  const D = demandFor(state.day, 'haven');
+  world.coast.paintSlate((ctx, w, h) => paintSlate(ctx, w, h, { day: state.day, wanted: D.wanted.map((id) => fishById[id].name), plenty: D.plenty.map((id) => fishById[id].name) }));
+}
+const innNear = () => onFoot && world.coast.spots.some((q) => q.kind === 'door' && q.id === 'inn' && Math.hypot(walker.pos.x - q.x, walker.pos.z - q.z) < q.r + 0.4);
 
 let sleeping = null;
 function sleepUntil(h) {
@@ -2034,7 +2113,7 @@ function landSpeared(a) {
   const sp = a.sp, size = a.size;
   const { isNew } = recordCatch(sp, size, a, null, { kind: 'spear', rod: 'speargun', from: 'dive', at: { x: a.x, y: a.y, z: a.z } });
   eco.keep(a);
-  state.keep.push({ id: sp.id, size, logId: lastCatchId });
+  state.keep.push({ id: sp.id, size, logId: lastCatchId, at: state.day * 24 + state.hour });
   setOutcome(lastCatchId, 'kept');
   state.dive.speared++;
   dive.catches.push(`${sp.name.toLowerCase()} ${size} cm`);
@@ -3698,7 +3777,7 @@ function interaction() {
     // Up the Coldwater: the bothy (a stove, a bunk and a shelf of tackle), the fingerpost, the cairn.
     if (coastSpot('bothy')) return { text: 'The bothy: stove, bunk and tackle shelf', run: () => openCamp('cook', 'bothy') };
     // Puerto Brasa: your room over the bar, its kitchen and a shelf of tackle.
-    if (coastSpot('posada')) return { text: 'Bar El Muelle: your room, the kitchen and a shelf of tackle', run: () => openCamp('cook', 'posada') };
+    if (coastSpot('posada')) return { text: 'Bar El Muelle: Paco’s bar, his kitchen, and your room', run: () => openHarbour('muelle') };
     if (coastSpot('fingerpost')) return { text: 'Read the fingerpost', run: () => readFingerpost() };
     if (coastSpot('cairn')) return { text: 'Add a stone to the cairn', run: () => addToCairn() };
     const box = regionBox();
@@ -3707,6 +3786,8 @@ function interaction() {
     const page = pageNear();
     if (page) return { text: PAGES[page].where.startsWith('tucked') ? 'Look at the paper tucked under the seat' : PAGES[page].where.startsWith('folded') ? 'Look at the paper in the crack' : 'Look at the paper in the driftwood', run: () => readPage(page) };
     if (coastSpot('board')) return { text: 'Read the notice board', run: () => openBoard() };
+    if (coastSpot('market')) return { text: 'The fish market: sell your catch', run: () => openHarbour('market') };
+    if (innNear()) return { text: 'The Lobster Pot: the bar and the kitchen', run: () => openHarbour('inn') };
     if (coastSpot('tower')) return { text: 'The watch tower', run: () => climbTower() };
     if (chandleryNear()) return { text: 'The chandlery: tackle, bait, charts and air', run: () => { fillTank(); openPack('chandlery'); } };
     if (coastSpot('bench')) return { text: 'Sit on the bench a while', run: () => sitOnBench() };
@@ -6071,6 +6152,10 @@ input.on('press', (code, acts) => {
     if (code === 'Escape' || is('interact')) closeBoard();
     return;
   }
+  if (modal === 'harbour') {
+    if (code === 'Escape' || is('interact')) closeHarbour();
+    return;
+  }
   if (modal === 'bench') {
     if (code === 'Escape') closeBench();
     return;
@@ -6815,6 +6900,7 @@ function tick(now, manual = false) {
     watchBirds(dt);
     // An open board keeps up with the hour: it's read off the water as it is now.
     if (modal === 'board' && $('board-sub').textContent !== `${formatClock(state.hour)} · day ${state.day}`) renderBoard();
+    if (slateDay !== state.day) chalkSlate();
     watchAdventures(dt);
     watchObservations(dt);
     moments();

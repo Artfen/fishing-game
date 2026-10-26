@@ -1025,6 +1025,7 @@ p.cp-soft { margin: 6px 0; }
 #log-list .l-info { font: 14px/1.35 var(--font-hand); }
 #log-list .l-tag { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font: 700 10px/1.7 var(--font-ui); letter-spacing: 0.04em; text-transform: uppercase; background: rgba(53, 41, 31, 0.08); }
 #log-list .l-tag.kept, #log-list .l-tag.cooked, #log-list .l-tag.eaten { background: rgba(181, 83, 47, 0.14); color: var(--stamp); }
+#log-list .l-tag.sold { background: rgba(47, 111, 116, 0.14); color: #2f6f74; }
 #log-list .l-empty { font: 15px var(--font-hand); color: var(--ink-soft); border: none; }
 #log-more { margin-top: 10px; padding: 6px 14px; border: 1.5px solid var(--ink-faint); border-radius: 999px; background: rgba(255, 255, 255, 0.35); color: var(--ink); font: 700 13px var(--font-ui); cursor: pointer; }
 
@@ -2128,6 +2129,19 @@ body.placing #sonar, body.placing #act-btn, body.placing #cancel-btn { visibilit
 .board-note-title { border: none; background: none; padding: 0; text-align: left; font: 700 20px var(--font-display); color: var(--ink); cursor: pointer; }
 .board-note-title:hover { text-decoration: underline; }
 @media (max-width: 640px) { .board-cols { grid-template-columns: 1fr; } }
+
+/* The harbour: the fish market and the inns. */
+#harbour .sheet-inner { width: min(640px, 100%); }
+.hb-purse { margin: 4px 0 0; font: 700 14px var(--font-ui); color: var(--ink-soft); }
+.hb-say { margin: 10px 0 6px; font: italic 16px/1.4 var(--font-hand); color: var(--ink-soft); }
+.hb-slate { margin: 8px 0; padding: 10px 14px; background: #2b2f2e; color: #efefe6; border: 6px solid #6a503b; border-radius: 4px; }
+.hb-slate h3 { margin: 0 0 4px; color: #efefe6; }
+.hb-slate p { margin: 2px 0; font: 600 16px/1.35 var(--font-hand); }
+.hb-hint { flex-basis: 100%; color: #2f6f74; }
+.hb-done { font: 700 13px var(--font-ui); color: #2f6f74; }
+.hb-story { margin: 6px 0 10px; padding: 8px 14px; border-left: 3px solid var(--ink-faint); font: 17px/1.45 var(--font-hand); }
+.hb-rumour { margin: 0; padding: 6px 0; border-bottom: 1px dashed var(--ink-faint); font: 16px/1.4 var(--font-hand); }
+#hb-tabs .hb-room { margin-left: auto; }
 
 /* Memories. */
 .page h2 .count { font: 700 12px var(--font-ui); color: var(--ink-soft); margin-left: 6px; letter-spacing: 0.04em; }

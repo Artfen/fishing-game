@@ -157,7 +157,14 @@ export const HAVEN_HOUSES = [
   { id: 'rose', x: -24, z: -108, yaw: 0.25, w: 6.5, d: 5, kind: 'cottage', color: '#e9dcc4', door: '#3f6f74' },
   { id: 'gull', x: 33, z: -110, yaw: -0.3, w: 6, d: 5, kind: 'cottage', color: '#dfe6e4', door: '#a5482f' },
   { id: 'net', x: 6, z: -114, yaw: 0.05, w: 7, d: 5.2, kind: 'cottage', color: '#efe4cf', door: '#3d5a7a' },
+  // The Lobster Pot, the harbour's inn, at the back of the apron and facing straight down the
+  // quay: cut into the slope level with the setts (pad), so you walk in off the apron, with a
+  // stone wall holding back the bank behind it (a narrow margin and a short blend).
+  { id: 'inn', x: 8, z: -103.3, yaw: 0, w: 8.4, d: 5.4, kind: 'inn', color: '#ece3d0', door: '#7a2f28', pad: 1.6, margin: 0.8, blend: 4 },
 ];
+// The fish market: an open shed at the east end of the apron, by the board and the head of the
+// quay, its slab facing the bay (w along the apron, d back to front).
+export const HAVEN_MARKET = { x: 24.8, z: -97.6, yaw: 0, w: 5.4, d: 3.2 };
 // The slipway: a ramp of setts down into the bay beside the quay, for launching small boats.
 export const SLIPWAY = { x: -12, z: -91, len: 8, w: 3.2 };
 export const HAVEN_BOARD = { x: 16, z: -98.2, yaw: 0 };   // the notice board, by the head of the quay
@@ -519,7 +526,7 @@ const HAVEN_BOX = { x0: -42, x1: 52, z0: -125, z1: -84 };
 // Each building stands on a level pad cut into the slope at the height of its middle; the apron
 // behind the quay is level too, and ends in a low sea wall above the beach (so the shore and the
 // water stay as they were).
-const havenPads = HAVEN_HOUSES.map((b) => ({ ...b, h: Math.max(1.9, baseHeight(b.x, b.z)) }));
+const havenPads = HAVEN_HOUSES.map((b) => ({ ...b, h: b.pad ?? Math.max(1.9, baseHeight(b.x, b.z)), margin: b.margin ?? 1.4, blend: b.blend ?? 11 }));
 function havenHeight(x, z, h) {
   const S = SLIPWAY;
   // The slipway: a ramp of setts from the apron straight down into the bay.
@@ -538,9 +545,9 @@ function havenHeight(x, z, h) {
   }
   for (const p of havenPads) {
     const c = Math.cos(p.yaw), s = Math.sin(p.yaw), dx = x - p.x, dz = z - p.z;
-    const u = Math.abs(dx * c - dz * s) - p.w / 2 - 1.4, v = Math.abs(dx * s + dz * c) - p.d / 2 - 1.4;
+    const u = Math.abs(dx * c - dz * s) - p.w / 2 - p.margin, v = Math.abs(dx * s + dz * c) - p.d / 2 - p.margin;
     const d = Math.hypot(Math.max(u, 0), Math.max(v, 0));
-    if (d < 11) h = lerp(p.h, h, smoothstep(0, 11, d));
+    if (d < p.blend) h = lerp(p.h, h, smoothstep(0, p.blend, d));
   }
   return h;
 }

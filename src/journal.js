@@ -71,7 +71,7 @@ export function weightText(kg) {
   return kg < 1 ? `${Math.max(5, Math.round((kg * 1000) / 5) * 5)} g` : `${kg < 10 ? kg.toFixed(1) : Math.round(kg)} kg`;
 }
 const SOMEDAY = ['a softer cushion', 'a potted fern', 'a little cabin by the lake'];
-const OUTCOME_WORDS = { released: 'Released', kept: 'Kept', cooked: 'Cooked', eaten: 'Eaten' };
+const OUTCOME_WORDS = { released: 'Released', kept: 'Kept', cooked: 'Cooked', eaten: 'Eaten', sold: 'Sold' };
 const RAIN_WORDS = ['', 'light rain', 'rain'];
 const PAGE = 25;
 const BOAT_COLORS = { row: '#b5532f', skiff: '#2f4f7a', kayak: '#e8742a', bass: '#7a2430', cabin: '#1f4e5f', sail: '#c4774a', cruiser: '#1d3b56', console: '#3a8fc4', windsurf: '#f2a32a', jetski: '#e8b820' };
