@@ -609,6 +609,9 @@ let walkTime = 0;
 let onFoot = false;
 let dive = null; // in the water: see the diving section
 const player = () => (dive ? diver : onFoot ? walker : boat);
+// The map open while you're aboard: the boat carries on (her motor at its notch, her sail as it's
+// trimmed), and the helm still answers the keys, so you can steer by the map.
+const mapAboard = () => modal === 'map' && !onFoot && !driving && !dive && !cabinIn;
 
 /* ---------------- fishing ---------------- */
 
@@ -6387,7 +6390,7 @@ function tick(now, manual = false) {
   fishing.side = 0;
   carIn.throttle = 0;
   carIn.steer = 0;
-  if (started && !modal) {
+  if (started && (!modal || mapAboard())) {
     const ti = input.throttle, si = input.steer;
     if (fishing.aiming) {
       // In first person the keys turn your head (and the cast with it); otherwise they swing the cast.
@@ -6445,7 +6448,7 @@ function tick(now, manual = false) {
       }
     }
   }
-  if (boat.motor && (onFoot || modal || cabinIn)) throttle = 0;
+  if (boat.motor && (onFoot || (modal && !mapAboard()) || cabinIn)) throttle = 0;
   // What's allowed with a line out or a fish on (a lever left higher comes back).
   if (leverKind()) {
     watchHookup();
@@ -6565,6 +6568,8 @@ function tick(now, manual = false) {
     } else audio.car?.(0, 0, false);
   }
   fishing.update(dt, t, rig.yaw, started && !modal && !placement.isOn && !driving && !cabinIn && !dive && input.action);
+  // (On the open map, you move across it as you go.)
+  if (modal === 'map') mapSheet.follow(player());
 
   ecoTick(dt);
   handleClues();

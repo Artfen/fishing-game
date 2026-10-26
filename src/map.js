@@ -356,6 +356,24 @@ export class MapSheet {
     this.renderSide();
   }
 
+  // Keep "You" where you are while the map is open (aboard a boat that's moving, say): your mark
+  // follows you, redrawn a few times a second as you go.
+  follow(p) {
+    const me = this.where?.player;
+    if (!this.isOpen || !me || !p?.pos) return;
+    if (Math.hypot(p.pos.x - me.x, p.pos.z - me.z) > 0.3 || Math.abs(p.heading - me.heading) > 0.01) {
+      me.x = p.pos.x;
+      me.z = p.pos.z;
+      me.heading = p.heading;
+      this.moved = true;
+    }
+    const now = performance.now();
+    if (!this.moved || now - (this.drawnAt || 0) < 250) return;
+    this.moved = false;
+    this.drawnAt = now;
+    this.draw();
+  }
+
   // The middle of the suitable cell nearest a point.
   nearestSuitable(id, p) {
     const mask = this.suitability(id);
