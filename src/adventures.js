@@ -13,6 +13,10 @@ export const KEEPSAKES = {
   feather: { name: 'A gull’s feather', text: 'Grey and white, picked out of the water where the birds were diving. A reminder to watch the sky.' },
   deckchair: { name: 'A striped deckchair', text: 'From the chandlery, for the photograph on its wall. It folds up small; put it out at your camp.' },
   bell: { name: 'The Kittiwake’s bell, photographed', text: 'Your photograph of her bell where it lies in the sand by her bow, green with age, KITTIWAKE · 1907 still raised round its rim. The chandlery has the print; the bell stays with her.' },
+  plug: { name: 'Bert’s pike plug', text: 'A battered striped wooden plug, its paint chewed to the wood: the lure that caught Bert Hale’s 72 cm pike off the Mere Boathouse in 1984. He gave it to you when you beat his record.' },
+  sandeel: { name: 'Hettie’s sandeel', text: 'A soft sandeel lure, faded and nicked, that rode on Hettie Moss’s hat for years: “more bass than I’ve had hot dinners”. Hers, until your big bass.' },
+  drawing: { name: 'Kit’s drawing', text: 'A crayon drawing by Kit: you, a very small boat, and a very large whale, blowing. “TO MY FREND” across the top.' },
+  hook: { name: 'Chano’s hook', text: 'A big old hand-forged hook from Chano’s tin, his father’s, given for luck after you photographed the grouper still living in El Bajón’s cave.' },
   slate: { name: 'Tam’s slate', text: 'A roofing slate from the watch tower on the Calf, scratched with forty years of tally marks: the seals on the skerry, counted every morning. In one corner, “bass off the Nose at the top of the tide; mackerel in the race when the terns are working”.' },
 };
 

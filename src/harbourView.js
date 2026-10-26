@@ -78,6 +78,23 @@ export class HarbourSheet {
     return b;
   }
 
+  // A favour (see requests.js) the person here has for you: to ask, to hand over, to hear about.
+  favourBlock(who) {
+    const f = this.hooks.favour?.(who);
+    if (!f) return [];
+    const box = el('div', 'hb-favour');
+    box.append(el('p', 'hb-story', f.text));
+    const row = el('div', 'cp-row cp-acts');
+    for (const a of f.acts) {
+      row.append(this.button(a.text, () => {
+        a.run();
+        this.render();
+      }, a.cls || ''));
+    }
+    box.append(row);
+    return [box];
+  }
+
   pay(v) {
     if (this.state.money < v - 1e-6) {
       this.hooks.toast(`That’s ${money(v)}, and you’ve only ${money(this.state.money)} in your purse. Sell a fish or two at the market first.`, 5);
@@ -126,6 +143,7 @@ export class HarbourSheet {
     } else {
       out.push(el('p', 'hb-say', 'Paco buys fish for his kitchen from the boats, and sells what he can’t cook on to the restaurants up the hill. “¡A ver! Let me see.”'));
     }
+    if (place === 'haven' && this.marketOpen) out.push(...this.favourBlock('mags'));
     const slate = el('div', 'hb-slate');
     slate.append(el('h3', '', place === 'haven' ? 'On the slate today' : 'Paco wants today'));
     slate.append(el('p', '', `Wanted: ${names(D.wanted)} (half as much again)`));
@@ -303,6 +321,7 @@ export class HarbourSheet {
     out.push(el('p', 'hb-say', place === 'haven'
       ? 'Low beams, a coal fire, a stuffed bass in a glass case over the bar. Ruth Alder is drying glasses. A couple of the old boys are in their corner by the window, watching the quay.'
       : 'Plastic chairs out on the quay, a television with the football on, a fan turning slowly. Paco leans on the bar, a cloth over his shoulder.'));
+    out.push(...this.favourBlock(place === 'haven' ? 'ruth' : 'paco'));
     // A pint, and a story with it.
     const pint = el('div', 'cp-row');
     pint.append(el('p', '', place === 'haven' ? 'A pint of Ruth’s best bitter, and a story with it' : 'A caña, a little cold beer, and a story with it'), el('span', 'cp-soft', money(PINT)), this.button(this.said.story ? 'Another' : 'Buy one', () => {
@@ -346,6 +365,7 @@ export class HarbourSheet {
     const out = [];
     const S = this.shop, now = this.hooks.now();
     out.push(el('p', 'hb-say', 'Old Bert Hale, behind a counter worn smooth by sixty years of elbows, a pencil behind his ear: “Now then. The tackle’s through there, help yourself, same as always. Anything else?”'));
+    out.push(...this.favourBlock('bert'));
     out.push(el('h3', '', 'Creels'));
     const mine = creelOf(this.state);
     const row0 = el('div', 'cp-row');

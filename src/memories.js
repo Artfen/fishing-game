@@ -4,6 +4,8 @@ import { PLACES } from './world/terrain.js';
 import { formatClock } from './world/sky.js';
 import { PHOTO_MAX } from './save.js';
 import { ADVENTURES, KEEPSAKES, PAGES } from './adventures.js';
+import { requestById, standing } from './requests.js';
+import { FOLK } from './townsfolk.js';
 import { TENTS } from './campsite.js';
 import { SEA_LIFE } from './world/sealife.js';
 
@@ -67,6 +69,7 @@ export class Memories {
     this.renderCamp();
     this.renderPlaces();
     this.renderSeaLife();
+    this.renderFavours();
   }
 
   renderPhotos() {
@@ -237,5 +240,27 @@ export class Memories {
     }
     if (!out.length) out.push(el('p', 'j-empty', 'Nothing yet. Keep an eye out at sea: dolphins come to a boat going along at a good clip, seals haul out on the rocks, gannets dive where small fish come up, whales blow far offshore, and some nights the sea glows.'));
     $('mem-sealife').replaceChildren(...out);
+  }
+
+  // Favours for the harbour's people: the ones you're doing, and the ones you've done.
+  renderFavours() {
+    const F = this.state.favours || { active: [], done: {} }, out = [];
+    const names = Object.fromEntries(Object.entries(FOLK).map(([id, f]) => [id, f.short]));
+    for (const a of F.active) {
+      const R = requestById[a.id];
+      const d = el('div', 'mem-place');
+      d.append(el('b', '', R.short), el('span', 'j-faint', ` · asked by ${names[R.who]} on day ${a.day}`));
+      d.append(el('p', '', standing(a, names)));
+      out.push(d);
+    }
+    for (const [id, day] of Object.entries(F.done)) {
+      const R = requestById[id];
+      if (!R) continue;
+      const d = el('div', 'mem-place done');
+      d.append(el('b', '', `${R.short} ✓`), el('span', 'j-faint', ` · day ${day}`));
+      out.push(d);
+    }
+    if (!out.length) out.push(el('p', 'j-empty', 'Nobody has asked you anything yet. Stop for a word with the harbour’s people (E): now and then they’ll ask a small favour.'));
+    $('mem-favours').replaceChildren(...out);
   }
 }

@@ -154,13 +154,14 @@ export class Camp {
     this.render();
   }
 
-  // A meal someone else cooked (a plate at the inn): text says what it was.
-  eatDish(text, fill) {
+  // A meal someone else cooked (a plate at the inn): text says what it was. (quiet: the game says
+  // so itself, along with whatever else.)
+  eatDish(text, fill, quiet = false) {
     this.food.full = Math.min(100, this.food.full + fill);
     this.food.wellFedUntil = this.abs() + WELL_FED_HOURS;
     if (this.state.comfort && !this.quiet) mealDrink(this.state.comfort);
     this.hooks.audio.chime();
-    this.hooks.toast(`${text} You feel well fed: steady hands for a few hours.`, 6);
+    if (!quiet) this.hooks.toast(`${text} You feel well fed: steady hands for a few hours.`, 6);
     this.state.meals = (this.state.meals || 0) + 1;
     this.hooks.changed();
   }

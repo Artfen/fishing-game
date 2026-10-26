@@ -59,6 +59,8 @@ import { Memories } from './memories.js';
 import { whatsAbout, birdsWorking, weatherLines, notices, paintBoard } from './harbour.js';
 import { HarbourSheet, paintSlate } from './harbourView.js';
 import { Townsfolk, FOLK, sayTo } from './townsfolk.js';
+import { requestById, businessWith, accept as acceptFavour, decline as declineFavour, complete as completeFavour, caught as favourCaught, saw as favourSaw, photographed as favourPhotographed, buoyAt, pickUpBuoy, fishFor, remember, cleanFavours } from './requests.js';
+import { lower } from './innTalk.js';
 import { FolkView } from './world/folk.js';
 import { demandFor, money } from './market.js';
 import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
@@ -319,9 +321,136 @@ function folkCtx(dt) {
 }
 // A word with someone you walk up to.
 function talkTo(p) {
+  // A favour to ask, to hand over or to tell them about comes first.
+  const f = favourFor(p.id);
+  if (f) {
+    ask(f.title, f.text, f.acts);
+    audio.page?.();
+    return;
+  }
+  // The first word of the day, if there's something of yours they've heard about; then the usual.
+  const r = talkedToday[p.id] === state.day ? '' : remember(p.id, memoryCtx());
+  talkedToday[p.id] = state.day;
   const wanted = demandFor(state.day, 'haven').wanted.map((id) => fishById[id].name);
-  hud.toast(`${FOLK[p.id].short}: ${sayTo(p, { hour: state.hour, storm: Math.max(weather.storm, conditions.sea.storm), wanted, caught: Math.floor(state.hour) % 3, landed: town.landed })}`, 8);
+  hud.toast(`${FOLK[p.id].short}: ${r ? `“${r}”` : sayTo(p, { hour: state.hour, storm: Math.max(weather.storm, conditions.sea.storm), wanted, caught: Math.floor(state.hour) % 3, landed: town.landed })}`, 8);
   audio.page?.();
+}
+const talkedToday = {};
+
+/* ---- the favours the harbour's people ask of you (see requests.js) ---- */
+
+state.favours = cleanFavours(state.favours);
+const NAMES = Object.fromEntries(Object.entries(FOLK).map(([id, F]) => [id, F.short]));
+// What someone has for you just now: { title, text, acts } for the dialog (or the harbour's sheet),
+// or null.
+function favourFor(who) {
+  const F = state.favours, b = businessWith(who, F, state.keep, state.day);
+  if (!b) return null;
+  const R = b.R, name = NAMES[who];
+  if (b.act === 'ask') {
+    return { title: name, text: R.ask, acts: [
+      { text: 'Not now', cls: 'quiet', run: () => { declineFavour(F, R.id, state.day); hud.toast(`${name}: “Another day, then.”`, 3); save(); } },
+      { text: 'I’ll do it', run: () => takeFavour(R) },
+    ] };
+  }
+  if (b.act === 'give') {
+    const idx = fishFor(state.keep, R), f = state.keep[idx[0]], sp = fishById[R.species];
+    const what = idx.length > 1 ? `${idx.length} ${lower(sp.name)}` : `your ${f.size} cm ${lower(sp.name)}`;
+    return { title: name, text: `${R.short}. Give ${name} ${what}?`, acts: [
+      { text: 'Not yet', cls: 'quiet', run: () => {} },
+      { text: 'Give it', run: () => {
+        for (const i of [...idx].sort((a, z) => z - a)) {
+          setOutcome(state.keep[i].logId, 'sold');
+          state.keep.splice(i, 1);
+        }
+        finishFavour(R);
+      } },
+    ] };
+  }
+  if (b.act === 'deliver') return { title: name, text: `You have ${R.item} from ${NAMES[R.who]} for ${name}.`, acts: [{ text: 'Hand it over', run: () => finishFavour(R) }] };
+  return { title: name, text: `${R.short}: done.`, acts: [{ text: R.kind === 'find' ? 'Hand over the buoy' : `Tell ${name}`, run: () => finishFavour(R) }] };
+}
+function takeFavour(R) {
+  const e = acceptFavour(state.favours, R.id, state.day);
+  if (!e) return;
+  // Dougie's buoy: roughly where it was lost goes on your map.
+  if (R.kind === 'find' && state.pins.length < 60) state.pins.push({ id: 'fav-buoy', x: Math.round(e.pos.x), z: Math.round(e.pos.z), title: 'Dougie’s buoy?', note: 'Somewhere about here, drifting: an orange float with a flag.', fav: false, day: state.day, hour: state.hour });
+  hud.toast(`${NAMES[R.who]} is counting on you: ${R.short.charAt(0).toLowerCase()}${R.short.slice(1)}.${R.kind === 'deliver' ? ` (You have ${R.item}.)` : ''}`, 6);
+  teach('favours', 'Favours you’ve agreed to are listed in your journal, under Memories. Nothing is timed: take as long as you like.', 7);
+  save();
+}
+function finishFavour(R) {
+  const who = R.kind === 'deliver' ? R.to : R.who;
+  const rw = completeFavour(state.favours, R.id, state.day) || {};
+  const gave = [];
+  if (rw.money) {
+    state.money = Math.round((state.money + rw.money) * 100) / 100;
+    gave.push(`${money(rw.money)} into your purse`);
+  }
+  if (rw.keepsake && !state.keepsakes[rw.keepsake]) {
+    state.keepsakes[rw.keepsake] = { day: state.day, hour: state.hour };
+    gave.push(`${KEEPSAKES[rw.keepsake].name.toLowerCase()} for the shelf at home`);
+  }
+  if (rw.pin && state.pins.length < 60) {
+    state.pins.push({ id: `fav-${R.id}`, x: rw.pin.x, z: rw.pin.z, title: rw.pin.title, note: rw.pin.note, fav: true, day: state.day, hour: state.hour });
+    gave.push(`a mark on your map: ${rw.pin.title}`);
+  }
+  if (R.kind === 'find') state.pins = state.pins.filter((p) => p.id !== 'fav-buoy');
+  if (rw.dish) {
+    camp.eatDish(rw.dish.text, rw.dish.fill, true);
+    gave.push(`${rw.dish.text.charAt(0).toLowerCase()}${rw.dish.text.slice(1).replace(/\.$/, '')}: well fed`);
+  }
+  audio.chime?.();
+  hud.toast(`${NAMES[who]}: ${R.thanks}${gave.length ? ` (${gave.join(' · ')}.)` : ''}`, 12);
+  harbourSheet.render();
+  save();
+}
+// Something that does a favour you're doing: say so, and who to tell.
+function favoursReady(list) {
+  for (const R of list) hud.toast(`That’s ${R.short.charAt(0).toLowerCase()}${R.short.slice(1)}: go and tell ${NAMES[R.who]}.`, 6);
+  if (list.length) save();
+}
+// What they might remember of you: your best fish of the last day or so, the place you found last,
+// your last trip.
+function memoryCtx() {
+  let notable = null;
+  for (let i = state.log.length - 1; i >= 0 && state.log[i].day >= state.day - 1; i--) {
+    const e = state.log[i], sp = fishById[e.sp];
+    if (!sp) continue;
+    const k = (e.size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]);
+    if (k > 0.75 && (!notable || k > notable.k)) notable = { k, name: sp.name, size: e.size, day: e.day };
+  }
+  let place = null;
+  for (const [id, r] of Object.entries(state.places || {})) {
+    const P = PLACES.find((q) => q.id === id);
+    if (P && !P.area && r.day >= state.day - 1 && (!place || r.day * 24 + r.hour > place.day * 24 + place.hour)) place = { name: P.name, day: r.day, hour: r.hour };
+  }
+  const tr = state.trips[state.trips.length - 1];
+  return { day: state.day, notable, place, trip: tr && tr.day >= state.day - 1 ? { name: tr.name, total: tr.total, day: tr.day } : null };
+}
+// Dougie's buoy adrift: an orange float and a little flag, riding the swell where it's got to.
+const lostBuoy = (() => {
+  const g = new THREE.Group();
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), new THREE.MeshLambertMaterial({ color: '#e8742a' }));
+  const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.1, 5), new THREE.MeshLambertMaterial({ color: '#2a2d30' }));
+  stick.position.y = 0.55;
+  const flag = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.16, 0.24), new THREE.MeshLambertMaterial({ color: '#2a2d30' }));
+  flag.position.set(0, 1.0, 0.12);
+  g.add(ball, stick, flag);
+  g.visible = false;
+  scene.add(g);
+  return g;
+})();
+function lostBuoyNear() {
+  const B = buoyAt(state.favours, state.day * 24 + state.hour);
+  return B && !onFoot && Math.hypot(boat.pos.x - B.x, boat.pos.z - B.z) < 5 ? B : null;
+}
+function pickUpLostBuoy() {
+  const R = pickUpBuoy(state.favours);
+  if (!R) return;
+  audio.splashSmall?.();
+  hud.toast('You lean out and haul Dougie’s buoy aboard, its rope trailing. Take it in to him.', 5);
+  save();
 }
 camera.layers.enable(NO_REFLECT);
 hideFromReflection(water.mesh);
@@ -846,6 +975,7 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
   }
   logCatch(sp, size, agent, rigUsed, how);
   adventures.caught(sp.id, agent.x, agent.z, world.flocks);
+  favoursReady(favourCaught(state.favours, { id: sp.id, size, night: state.hour >= 20.5 || state.hour < 5, shore: onFoot }));
   markObserved(sp.id, agent);
   state.tips.caught = true;
   save();
@@ -1281,6 +1411,7 @@ const harbourSheet = new HarbourSheet(state, {
     closeHarbour();
     openPack('chandlery');
   },
+  favour: (who) => favourFor(who),
   // The rods Bert looks over: the ones you carry, and any other with worn line.
   rods: () => ROD_IDS.filter((id) => state.gear.pack.rods.includes(id) || wearOf(state, id) > 0)
     .map((id) => ({ id, name: RODS[id].name, line: lineInUse(state.gear, RODS[id]) })),
@@ -3899,6 +4030,7 @@ function interaction() {
       { text: 'Into the cabin', run: () => enterCabin() },
     ]) };
   }
+  if (lostBuoyNear()) return { text: 'Pick up Dougie’s buoy', run: () => pickUpLostBuoy() };
   if (spot) return { text: ashore, run: () => stepAshore(spot) };
   const other = boat.speed < 1 ? otherBoat(tow && (tow.lead === boat || tow.towed === boat) ? 9 : 4.5) : null;
   if (other) {
@@ -4521,6 +4653,7 @@ async function keepPhoto() {
   const meta = { id, title: $('pc-title').value.replace(/[<>]/g, '').trim().slice(0, 60), at: Date.now(), day: state.day, hour: Math.round(state.hour * 100) / 100, ...pp.meta, sky: weather.state, subjects: pp.subjects };
   state.photos.push(meta);
   adventures.photographed(meta);
+  favoursReady(favourPhotographed(state.favours, meta.subjects));
   save();
   hud.toast(`Kept in your album (${state.photos.length} of ${PHOTO_MAX}).${photos.persistent ? '' : ' This browser won’t keep it after you close the tab: download it from the journal.'}`, 4);
 }
@@ -4807,6 +4940,7 @@ sealife.onSplash = (x, z, len) => {
 // What you've seen goes in the journal; the first time, a word about it.
 const seaLifeSeenAt = {};
 function seeSeaLife(kind, x, z) {
+  favoursReady(favourSaw(state.favours, kind));
   const now = performance.now() / 1000;
   if (seaLifeSeenAt[kind] && now - seaLifeSeenAt[kind] < 600) return;
   seaLifeSeenAt[kind] = now;
@@ -6808,6 +6942,14 @@ function tick(now, manual = false) {
     sealife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, daylight: env.daylight, region, eco, diving: !!dive });
     // The harbour's people going about their day, and Dougie's boat.
     town.update(state.day * 24 + state.hour, folkCtx(dt));
+    {
+      const B = region === 'home' ? buoyAt(state.favours, state.day * 24 + state.hour) : null;
+      lostBuoy.visible = !!B;
+      if (B) {
+        lostBuoy.position.set(B.x, waveHeight(B.x, B.z, t) + 0.05, B.z);
+        lostBuoy.rotation.z = Math.sin(t * 1.3) * 0.15;
+      }
+    }
     folkView.update(dt, t, town, { from: P, south: region === 'south', fx, glow, night: env.lantern });
     glow.update(t, nightGlow(state.day) * smoothstep(0.35, 0.85, env.night) * (1 - 0.5 * (weather.rain ?? 0)));
     glow.foamColor(fx.wake.material.color, env.daylight);

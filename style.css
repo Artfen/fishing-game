@@ -2143,6 +2143,8 @@ body.placing #sonar, body.placing #act-btn, body.placing #cancel-btn { visibilit
 .hb-story { margin: 6px 0 10px; padding: 8px 14px; border-left: 3px solid var(--ink-faint); font: 17px/1.45 var(--font-hand); }
 .hb-rumour { margin: 0; padding: 6px 0; border-bottom: 1px dashed var(--ink-faint); font: 16px/1.4 var(--font-hand); }
 #hb-tabs .hb-room { margin-left: auto; }
+.hb-favour { margin: 8px 0 12px; padding: 4px 12px 8px; background: rgba(201, 166, 90, 0.14); border: 1px solid rgba(138, 106, 74, 0.35); border-radius: 8px; }
+.hb-favour .hb-story { border-left: none; padding-left: 0; }
 
 /* Memories. */
 .page h2 .count { font: 700 12px var(--font-ui); color: var(--ink-soft); margin-left: 6px; letter-spacing: 0.04em; }

@@ -352,6 +352,15 @@ export function buildHome(scene, rnd) {
   keep.chart = keepMesh([{ geo: box(0.22, 0.17, 0.02), matrix: mat(120.1, Y + 1.24, -80.78, -0.15, 0, 0), color: '#3d2f22' }, { geo: box(0.18, 0.13, 0.025), matrix: mat(120.1, Y + 1.24, -80.775, -0.15, 0, 0), color: '#8a7a5e' }]);
   keep.notebook = keepMesh([{ geo: box(0.16, 0.03, 0.22), matrix: mat(121.0, Y + 1.16, -80.72), color: '#34558a' }, { geo: box(0.15, 0.025, 0.21), matrix: mat(121.0, Y + 1.19, -80.72, 0, 0.12, 0), color: '#e8dfc8' }]);
   keep.feather = keepMesh([{ geo: box(0.02, 0.008, 0.2), matrix: mat(121.6, Y + 1.16, -80.7, 0, 0.6, 0), color: '#f2f2ef' }, { geo: box(0.05, 0.006, 0.12), matrix: mat(121.62, Y + 1.165, -80.69, 0, 0.6, 0), color: '#a7adb2' }]);
+  // From the harbour's people: Bert's pike plug, Hettie's sandeel, Kit's drawing propped against
+  // the wall, Chano's hook.
+  keep.plug = keepMesh([
+    { geo: box(0.12, 0.035, 0.035), matrix: mat(122.05, Y + 1.165, -80.7, 0, 0.3, 0), color: '#c9a65a' },
+    ...[-0.03, 0.01, 0.05].map((dx) => ({ geo: box(0.012, 0.037, 0.037), matrix: mat(122.05 + dx, Y + 1.166, -80.7 + dx * 0.3, 0, 0.3, 0), color: '#3a5a3a' })),
+  ]);
+  keep.sandeel = keepMesh([{ geo: box(0.1, 0.012, 0.016), matrix: mat(122.3, Y + 1.155, -80.68, 0, -0.4, 0), color: '#9fb0a8' }, { geo: box(0.04, 0.014, 0.018), matrix: mat(122.34, Y + 1.156, -80.7, 0, -0.4, 0), color: '#e8d6a0' }]);
+  keep.drawing = keepMesh([{ geo: box(0.2, 0.15, 0.004), matrix: mat(119.6, Y + 1.24, -80.8, -0.15, 0, 0), color: '#f4f1e8' }, { geo: box(0.12, 0.04, 0.005), matrix: mat(119.62, Y + 1.22, -80.797, -0.15, 0, 0), color: '#3d5a8a' }, { geo: box(0.03, 0.06, 0.005), matrix: mat(119.55, Y + 1.27, -80.797, -0.15, 0, 0), color: '#8fb8d8' }]);
+  keep.hook = keepMesh([{ geo: box(0.008, 0.09, 0.008), matrix: mat(119.95, Y + 1.19, -80.7), color: '#6a6e72' }, { geo: box(0.05, 0.008, 0.008), matrix: mat(119.97, Y + 1.15, -80.7), color: '#6a6e72' }]);
   // Tam's slate, propped against the wall: tally marks scratched pale on the dark stone.
   keep.slate = keepMesh([
     { geo: box(0.26, 0.19, 0.015), matrix: mat(120.55, Y + 1.245, -80.79, -0.18, 0, 0), color: '#3f454c' },

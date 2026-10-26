@@ -1,6 +1,7 @@
 import { fishById } from './fish.js';
 import { RODS, TACKLE, TERMS, cleanGear } from './tackle.js';
 import { cleanShop, CREEL_MAX } from './shop.js';
+import { cleanFavours } from './requests.js';
 import { cleanSettings } from './settings.js';
 import { cleanCamps } from './campsite.js';
 import { cleanEquip, cleanCar, cleanOuting, defaultEquip } from './outing.js';
@@ -92,6 +93,7 @@ export const DEFAULT_STATE = {
   money: 20,
   harbour: null,   // { heard: { haven, muelle: [story ids] }, filled: [order keys], earned, sold, served }
   shop: null,      // the chandlery's counter (see shop.js): { creel, iceUntil, baitDay, wear: { rod: 0 … 1 } }
+  favours: null,   // what the harbour's people have asked of you (see requests.js): { active, done, last, declined }
 };
 
 // A new game: every setting at its default (a loaded save gets its own from sanitize).
@@ -365,6 +367,7 @@ export function sanitize(raw) {
   s.money = Math.round(num(raw.money, 20, 0, 1e7) * 100) / 100;
   s.harbour = cleanHarbour(raw.harbour);
   s.shop = cleanShop(raw.shop, Object.keys(RODS));
+  s.favours = cleanFavours(raw.favours);
   if (isObj(raw.sky)) {
     s.sky = { cloud: num(raw.sky.cloud, 0.3, 0, 1), rain: num(raw.sky.rain, 0, 0, 1), storm: num(raw.sky.storm, 0, 0, 1), state: oneOf(raw.sky.state, SKY_STATES, 'partly'), timer: num(raw.sky.timer, 120, 0, 3600) };
   }

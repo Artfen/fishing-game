@@ -500,6 +500,10 @@ Willowhaven is a working harbour, and a catch you keep can do more than go on th
 - **Paco** stands in the door of Bar El Muelle at Las Brasas.
 - **Chano**, a fisherman of Puerto Brasa, takes his white-and-blue boat the **Virgen del Carmen** out of the harbour mouth at sunrise to El Bajón, handlines over the pinnacles by the yellow buoy, and comes back late in the morning to land his catch at the quay steps for Paco's kitchen. When the trade wind blows too hard he mends his nets on the quay instead. Lunchtime and evenings he sits at the white table outside the bar.
 
+**Favours.** Now and then, when you stop for a word, someone asks you a small favour: Mags needs a good sole for her mother's eightieth, Ruth a big bass for a wedding party, Dougie two mackerel for bait or his pot buoy found (it's adrift at sea: an orange float with a flag, and your map gets a mark near where); Bert wants a box of hooks taken to Hettie, or his pike record beaten; Hettie bets you can't catch a squid off the quay after dark; Kit longs to hear about a whale; Ian about the fin whale; Paco needs a big vieja; Chano would love a photograph of the old grouper in El Bajón's cave. One at a time from each of them, three at most on the go, nothing timed: say *Not now* and they'll ask again another day. Mags, Ruth, Bert and Paco ask across the counter (in the market, inn, chandlery and bar screens); the rest when you walk up and press **E**. What they give back: a little money, a keepsake for the shelf at home (Bert's pike plug, Hettie's lucky sandeel, Kit's drawing, Chano's hook), a mark on your map only a local would know, or supper. The journal lists them under **Memories → Favours**.
+
+**They remember you.** The first time you stop for a word each day, they may mention the good fish you had yesterday, the trip you've just come back from, or the place you've just found.
+
 What they're up to (Dougie out at his pots, or not going out; what he landed; Hettie's mark and her best fish of the day; Kit on the quay; Ian out after the mackerel; the Puffin coming in or at anchor) is part of the talk at The Lobster Pot, and Chano's morning (and his catch) at Bar El Muelle. There are no seasons or tides in the game yet, so their days follow the clock, the weather and the fish.
 
 You start with £20 in your purse; sold fish show as *Sold* in the catch log. The money is for small pleasures and helps, never a grind: nothing in the game needs it, and the chandlery's tackle stays free.
@@ -820,6 +824,7 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 | `src/harbour.js` | The notice board's contents, read from the conditions, the ecosystem and the gulls |
 | `src/market.js`, `src/innTalk.js`, `src/harbourView.js` | The harbour: fish prices, the day's demand, freshness and the kitchens' orders; the stories, advice and rumours at the bar; the sheet for the market, The Lobster Pot, Bar El Muelle and the chandlery's counter (and the market's slate) |
 | `src/shop.js` | The chandlery's counter: creel sizes, ice and the cool-lined creel keeping fish fresh, fresh bait, line wear and respooling |
+| `src/requests.js` | The favours the harbour's people ask of you (what, how it's done, what they give back), and what they remember of you |
 | `src/townsfolk.js`, `src/world/folk.js` | The harbour's people: their days (by the clock, the weather and the fish), the paths they walk round Willowhaven, Dougie's trip to his pots, Hettie's marks and catches, what they say; and how they and the Morning Star look |
 | `src/adventures.js` | The adventures, Ada's pages and the keepsakes, and how steps are recognised in any order |
 | `src/photos.js` | Taking photographs, the album's picture store (IndexedDB), and downloads |
