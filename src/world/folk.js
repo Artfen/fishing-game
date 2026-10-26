@@ -3,7 +3,7 @@ import { walkHeight } from './terrain.js';
 import { waveHeight } from './water.js';
 import { Boat } from '../boat.js';
 import { damp, dampAngle, clamp } from '../util.js';
-import { FOLK_IDS, SPOTS, POTS } from '../townsfolk.js';
+import { FOLK, FOLK_IDS, SPOTS, POTS } from '../townsfolk.js';
 
 // How the harbour's people look, and the Morning Star (Dougie's boat), drawn where townsfolk.js
 // says they are: walking (legs and arms swinging), standing about, sitting (on the bench, Bert's
@@ -19,9 +19,19 @@ const LOOKS = {
   hettie: { coat: '#55603a', legs: '#4a4036', boots: '#2f4a2f', skin: '#f0c6a0', hat: 'bucket', hatColor: '#8a7a52' },
   kit: { coat: '#c43b2f', legs: '#3b5a8a', boots: '#e8e4da', skin: '#f3cba6', hat: 'cap', hatColor: '#2f6f74', scale: 0.7 },
   paco: { coat: '#f4f1ea', legs: '#2a2a2e', boots: '#1f1f22', skin: '#c99a72', hat: 'hair', hair: '#2a211c' },
+  ian: { coat: '#3d5a7a', legs: '#5b5a50', boots: '#3a2b20', skin: '#efc6a2', hat: 'flatcap', hatColor: '#6b6152', stoop: 0.06 },
+  chano: { coat: '#e9e2d0', legs: '#2f4a6a', boots: '#3a2e26', skin: '#b98863', hat: 'bucket', hatColor: '#d8c38a', sleeves: 'rolled' },
+  // (The Puffin's skipper, at the helm: never ashore, so no figure of their own.)
+  puffin: { coat: '#c8452f', legs: '#2f3a4a', boots: '#2a2a2a', skin: '#efc6a2', hatColor: '#2f3a4a' },
 };
 // Dougie's boat: a little cabin boat like yours, but green, with a red stripe and her name.
 export const MORNING_STAR = { name: 'Morning Star', paint: '#2f5d47', stripe: '#b8402f', bottom: '#5a2a22' };
+// The other boats, each painted her own way, and who's at her helm.
+const BOAT_LOOKS = {
+  jean: { kind: 'skiff', skipper: 'ian', rod: 'spin', look: { name: 'Bonny Jean', paint: '#e6dcc0', stripe: '#2f6f74', bottom: '#7a3a2a' } },
+  carmen: { kind: 'skiff', skipper: 'chano', rod: 'float', look: { name: 'Virgen del Carmen', paint: '#f4f1ea', stripe: '#2c5d8a', bottom: '#b8423a' } },
+  puffin: { kind: 'sail', skipper: 'puffin', look: { name: 'Puffin', paint: '#7a2430', stripe: '#efe6cf', bottom: '#2a2f36' } },
+};
 
 const UP = new THREE.Vector3(0, 1, 0);
 const mat = (c) => new THREE.MeshLambertMaterial({ color: c });
@@ -282,23 +292,69 @@ export class FolkView {
       scene.add(g);
       return g;
     });
-    this.roll = 0;
-    this.rippleT = 0;
+    // The table and chairs outside Bar El Muelle, where Chano sits of an afternoon.
+    {
+      const T = SPOTS.barTable, ty = walkHeight(T.x, T.z), white = mat('#eeeeea');
+      this.terrace = new THREE.Group();
+      const top = cast(new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.03, 16), white));
+      top.position.set(-0.75, 0.72, 0);
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 0.72, 8), white);
+      stem.position.set(-0.75, 0.36, 0);
+      this.terrace.add(top, stem);
+      for (const [x, z, yaw] of [[0, 0, -Math.PI / 2], [-1.5, 0.1, Math.PI / 2]]) {
+        const c = new THREE.Group();
+        const seat = cast(new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.04, 0.42), white));
+        seat.position.y = 0.45;
+        const back = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.4, 0.04), white);
+        back.position.set(0, 0.68, -0.2);
+        c.add(seat, back);
+        for (const [lx, lz] of [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]]) {
+          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.45, 0.03), white);
+          leg.position.set(lx, 0.225, lz);
+          c.add(leg);
+        }
+        c.position.set(x, 0, z - 0.08);
+        c.rotation.y = yaw;
+        this.terrace.add(c);
+      }
+      this.terrace.position.set(T.x, ty, T.z);
+      this.terrace.rotation.y = T.yaw + Math.PI / 2;
+      this.terrace.visible = false;
+      scene.add(this.terrace);
+    }
+    // The other boats.
+    this.boats = { star: this.boat };
+    for (const [id, D] of Object.entries(BOAT_LOOKS)) {
+      const b = new Boat(scene, { kind: D.kind, look: D.look });
+      b.name = D.look.name;
+      const L = LOOKS[D.skipper], M = b.selfMats;
+      M[0].color.set(L.coat);
+      M[2].color.set(L.hatColor || L.hair || '#333');
+      M[3].color.set(L.legs);
+      M[4].color.set(L.boots);
+      if (D.rod) b.setRod(D.rod);
+      b.group.visible = false;
+      this.boats[id] = b;
+    }
+    this.roll = {};
+    this.rippleT = {};
   }
 
-  // town: the Townsfolk; from: where you are (people far off aren't drawn); fx: for the boat's
-  // wake (ripples, and the glow at night); south: you're at Las Brasas.
-  update(dt, t, town, { from, south = false, fx = null, glow = null } = {}) {
+  // town: the Townsfolk; from: where you are (people far off aren't drawn); fx: for the boats'
+  // wakes (ripples, and the glow at night); south: you're at Las Brasas; night (0 … 1): the
+  // Puffin's anchor light.
+  update(dt, t, town, { from, south = false, fx = null, glow = null, night = 0 } = {}) {
     for (const id of FOLK_IDS) {
       const p = town.people[id], f = this.figures[id];
       const hidden = p.act === 'inside' || p.act === 'away' || p.act === 'aboard';
       const far = Math.hypot(p.pos.x - from.x, p.pos.z - from.z) > 260;
-      if (hidden || far || (p.id === 'paco') !== south) {
+      if (hidden || far || !!FOLK[p.id].south !== south) {
         f.group.visible = false;
         continue;
       }
       f.update(dt, t, p, walkHeight(p.pos.x, p.pos.z));
     }
+    this.terrace.visible = south && Math.hypot(SPOTS.barTable.x - from.x, SPOTS.barTable.z - from.z) < 260;
     for (const [i, g] of this.buoys.entries()) {
       const P = g.userData.at;
       g.visible = !south && Math.hypot(P.x - from.x, P.z - from.z) < 600;
@@ -306,9 +362,17 @@ export class FolkView {
       g.position.set(P.x, waveHeight(P.x, P.z, t) + 0.05, P.z);
       g.rotation.z = Math.sin(t * 1.1 + i) * 0.12;
     }
-    // The boat rides the swell where she is: bow up a little under way, rolling as she goes.
-    const B = town.boat, b = this.boat;
-    const show = !south && Math.hypot(B.x - from.x, B.z - from.z) < 1800;
+    for (const id of Object.keys(this.boats)) {
+      const B = town.boats[id];
+      const show = !!B.south === south && B.present !== false && Math.hypot(B.x - from.x, B.z - from.z) < 1800;
+      this.drawBoat(id, B, show, dt, t, { fx, glow, night });
+    }
+  }
+
+  // A boat rides the swell where she is: bow up a little under way, rolling as she goes; her
+  // skipper aboard (or not), fishing, or under sail.
+  drawBoat(id, B, show, dt, t, { fx, glow, night }) {
+    const b = this.boats[id];
     b.group.visible = show;
     if (!show) return;
     const fw = { x: Math.sin(B.heading), z: Math.cos(B.heading) };
@@ -323,17 +387,30 @@ export class FolkView {
     b.group.position.set(B.x, w - H.draft + 0.05, B.z);
     b.group.rotation.y = B.heading;
     b.body.rotation.x = clamp(Math.atan2(aft - fore, H.L * 0.8) - Math.min(0.08, B.speed * 0.012), -0.3, 0.3);
-    this.roll = damp(this.roll, Math.sin(t * 0.9) * 0.05 + (B.hauling ? 0.06 : 0), 2, dt);
-    b.body.rotation.z = this.roll;
+    this.roll[id] = damp(this.roll[id] || 0, Math.sin(t * 0.9 + id.length) * 0.05 + (B.hauling ? 0.06 : 0) + (B.sails && !B.anchored ? 0.12 : 0), 2, dt);
+    b.body.rotation.z = this.roll[id];
     if (b.occupied !== B.aboard) b.setRower(B.aboard);
-    if (b.rod) b.rod.visible = false;
-    b.animate(dt, t, B.speed > 0.3 ? 0.7 : 0, 0, 0);
+    // Fishing over the side, the rod out; or under sail (the wind drawing her sails), or at anchor
+    // with the sails stowed and her light lit after dark.
+    b.pose.fishing = B.fishing ? 1 : 0;
+    if (B.fishing) {
+      b.pose.rodYaw = 1.1;
+      b.pose.rodPitch = 0.75 + Math.max(0, Math.sin(t * 0.8 + id.length) - 0.85) * 2;
+      b.pose.bend = 0.12;
+    }
+    if (b.hull.sail) {
+      if (b.sailUp !== !!B.sails) b.setSail(!!B.sails);
+      b.sailing = B.sails ? { boom: 0.55, awa: 1.3, alpha: 0.14, speed: 3.5, pull: 3 } : null;
+      b.setLantern?.(B.anchored && night > 0.3);
+    }
+    b.animate(dt, t, B.speed > 0.3 && !b.hull.sail ? 0.7 : 0, 0, B.anchored ? night : 0);
     b.group.updateMatrixWorld(true);
+    if (!B.fishing && b.rod && b.hull.sail == null) b.rod.visible = false;
     // A wake of ripples behind her under way (glowing after dark, on a glowing night).
     if (fx && B.speed > 0.5) {
-      this.rippleT -= dt;
-      if (this.rippleT <= 0) {
-        this.rippleT = 0.18;
+      this.rippleT[id] = (this.rippleT[id] || 0) - dt;
+      if (this.rippleT[id] <= 0) {
+        this.rippleT[id] = 0.18;
         fx.ripple(B.x - fw.x * H.L * 0.5, B.z - fw.z * H.L * 0.5, 1.2 + B.speed * 0.25, 1.8, 0.5);
         glow?.spawn(B.x - fw.x * H.L * 0.5, B.z - fw.z * H.L * 0.5, 6, 0.8, 1, t);
       }

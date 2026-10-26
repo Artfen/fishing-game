@@ -1330,7 +1330,7 @@ function innTalk(place) {
       pods: state.hour > 6 && state.hour < 21 ? sealife.pods.filter((p) => p.sea === (home ? 'home' : 'south') && (!home || placeName(p.x, p.z))).slice(0, 1).map((p) => ({ kind: p.kind, x: p.x, z: p.z })) : [],
       whales: sealife.whales.filter((w) => w.sea === (home ? 'home' : 'south') && w.state !== 'down').slice(0, 1).map((w) => ({ kind: w.kind, x: w.x, z: w.z, up: w.state === 'breathe' })),
       glow: nightGlow(state.day),
-      news: home ? town.news(state.hour) : [],
+      news: home ? town.news(state.hour) : town.newsSouth(state.hour),
       yours,
     },
   };
@@ -6805,7 +6805,7 @@ function tick(now, manual = false) {
     sealife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, daylight: env.daylight, region, eco, diving: !!dive });
     // The harbour's people going about their day, and Dougie's boat.
     town.update(state.day * 24 + state.hour, folkCtx(dt));
-    folkView.update(dt, t, town, { from: P, south: region === 'south', fx, glow });
+    folkView.update(dt, t, town, { from: P, south: region === 'south', fx, glow, night: env.lantern });
     glow.update(t, nightGlow(state.day) * smoothstep(0.35, 0.85, env.night) * (1 - 0.5 * (weather.rain ?? 0)));
     glow.foamColor(fx.wake.material.color, env.daylight);
     glowFishT -= dt;

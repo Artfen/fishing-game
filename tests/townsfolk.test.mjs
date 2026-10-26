@@ -27,7 +27,7 @@ const at = (town, h, ctx) => {
 
 test('the paths: every place reachable from every other, never through a building, a wall or the clutter', () => {
   const P = new F.Paths(coast.obstacles);
-  const names = Object.keys(F.SPOTS).filter((k) => k !== 'strand' && k !== 'paco');
+  const names = Object.keys(F.SPOTS).filter((k) => !['strand', 'paco', 'chanoHome', 'steps', 'barTable'].includes(k));
   const walls = coast.obstacles.filter((o) => o.kind === 'building' || o.kind === 'harbour');
   for (const a of names) {
     for (const b of names) {
@@ -178,4 +178,104 @@ test('the figures and the Morning Star are drawn where they are, and hidden when
   assert.ok(Math.hypot(view.boat.group.position.x - town.boat.x, view.boat.group.position.z - town.boat.z) < 0.01);
   view.update(1 / 30, 1, town, { from: { x: 10, z: 6300 }, south: true });
   assert.ok(!view.figures.mags.group.visible && !view.boat.group.visible);
+});
+
+const CALM = { ...FAIR, wind: 5 };
+const GALE = { storm: 0.1, rain: 0.2, wind: 15, about: [], activity: {} };
+const puffinDay = () => {
+  let d = 1;
+  while (!(seeded(d * 7919 + 21)() < F.PUFFIN.chance)) d++;
+  return d;
+};
+
+test('the other boats keep to water deep enough for them: Ian’s, Chano’s, and the Puffin’s passage in and out', () => {
+  const check = (P, what) => {
+    const L = F.pathLength(P);
+    for (let s = 0; s <= L; s += 1) {
+      const q = F.along(P, s);
+      const berth = [...Object.values(F.OUTINGS).flatMap((O) => [O.mooring, O.landing].filter(Boolean))].some((b) => Math.hypot(q.x - b.x, q.z - b.z) < 4);
+      assert.ok(T.heightAt(q.x, q.z) < (berth ? -0.6 : -1.4), `${what} aground at ${q.x.toFixed(0)}, ${q.z.toFixed(0)}`);
+    }
+  };
+  for (const [id, O] of Object.entries(F.OUTINGS)) for (const L of F.outingLegs(id)) if (L.path) check(L.path, id);
+  check(F.PUFFIN.route, 'the Puffin');
+  assert.ok(F.OUTING_HOURS.jean < 4.5 && F.OUTING_HOURS.carmen < 6.5);
+});
+
+test('a calm afternoon: Ian takes the Bonny Jean out past the Calf after mackerel, and comes back to her mooring; not when it’s blowing', () => {
+  const town = new F.Townsfolk({ obstacles: coast.obstacles });
+  at(town, 12, CALM);
+  let out = false, fished = false;
+  for (let h = 12; h < 19; h += 0.05) {
+    at(town, h, CALM);
+    const J = town.boats.jean;
+    if (J.aboard && Math.hypot(J.x - F.OUTINGS.jean.mooring.x, J.z - F.OUTINGS.jean.mooring.z) > 60) out = true;
+    if (J.fishing) fished = true;
+  }
+  assert.ok(out && fished, 'out to the mark, a line down');
+  assert.ok(!town.boats.jean.aboard);
+  assert.equal(town.people.ian.block.spot, 'inn', 'and a pint after');
+  const windy = new F.Townsfolk({ obstacles: coast.obstacles });
+  for (let h = 12; h < 19; h += 0.25) {
+    at(windy, h, { ...FAIR, wind: 10 });
+    assert.ok(!windy.boats.jean.aboard, `at ${h}, she stays on her mooring`);
+  }
+});
+
+test('Chano goes out to El Bajón at sunrise and lands his catch at the quay steps for Paco; in a gale he mends his nets', () => {
+  const town = new F.Townsfolk({ obstacles: coast.obstacles });
+  at(town, 5, CALM);
+  let landed = false, overReef = false;
+  for (let h = 5; h < 14; h += 0.05) {
+    at(town, h, CALM);
+    const C = town.boats.carmen;
+    if (C.fishing && Math.hypot(C.x - (-104), C.z - 6434) < 12) overReef = true;
+    if (C.leg === 'land') {
+      landed = true;
+      assert.ok(Math.hypot(C.x - F.OUTINGS.carmen.landing.x, C.z - F.OUTINGS.carmen.landing.z) < 0.1);
+    }
+  }
+  assert.ok(overReef && landed);
+  assert.ok(town.newsSouth(14).some((l) => /Chano came in from El Bajón with \d+ viejas/.test(l)));
+  at(town, 19, CALM);
+  assert.equal(town.people.chano.act, 'sit', 'outside the bar of an evening');
+  const gale = new F.Townsfolk({ obstacles: coast.obstacles });
+  for (let h = 5; h < 11; h += 0.25) {
+    at(gale, h, GALE);
+    assert.ok(!gale.boats.carmen.aboard);
+  }
+  assert.equal(gale.people.chano.act, 'work');
+  assert.ok(gale.newsSouth(10).some((l) => l.includes('mending his nets')));
+});
+
+test('some fine afternoons the Puffin sails in to anchor in the bay; she sails on next morning, unless it’s blowing', () => {
+  const d = puffinDay();
+  const town = new F.Townsfolk({ obstacles: coast.obstacles });
+  town.update(d * 24 + 13, CALM);
+  assert.ok(!town.boats.puffin.present);
+  for (let h = 13; h < 15.5; h += 0.05) town.update(d * 24 + h, CALM);
+  assert.ok(town.boats.puffin.present && town.boats.puffin.sails, 'coming in under sail');
+  for (let h = 15.5; h < 22; h += 0.1) town.update(d * 24 + h, CALM);
+  assert.ok(town.boats.puffin.anchored && !town.boats.puffin.sails);
+  assert.ok(town.news(22).some((l) => l.includes('Puffin’s at anchor')));
+  for (let h = 22; h < 24 + 13; h += 0.1) town.update(d * 24 + h, CALM);
+  assert.ok(!town.boats.puffin.present, 'gone on round the coast');
+  // Weather-bound: a blow at sailing time keeps her another day.
+  const held = new F.Townsfolk({ obstacles: coast.obstacles });
+  for (let h = 13; h < 24 + 8.9; h += 0.1) held.update(d * 24 + h, CALM);
+  for (let h = 24 + 8.9; h < 24 + 13; h += 0.1) held.update(d * 24 + h, { ...STORM });
+  assert.ok(held.boats.puffin.anchored, 'still at anchor');
+  assert.ok(held.news(12).some((l) => l.includes('waiting for the weather')));
+});
+
+test('the new boats are drawn in their own sea: Ian’s at home, Chano’s and his table at Las Brasas', () => {
+  const scene = new THREE.Scene();
+  const view = new FolkView(scene);
+  const town = new F.Townsfolk({ obstacles: coast.obstacles });
+  at(town, 15.5, CALM);
+  view.update(1 / 30, 1, town, { from: { x: 10, z: -95 } });
+  assert.ok(view.boats.jean.group.visible && view.boats.jean.occupied && view.boats.jean.pose.fishing === 1);
+  assert.ok(!view.boats.carmen.group.visible && !view.terrace.visible);
+  view.update(1 / 30, 1, town, { from: { x: 20, z: 6300 }, south: true });
+  assert.ok(view.boats.carmen.group.visible && view.terrace.visible && !view.boats.jean.group.visible);
 });
