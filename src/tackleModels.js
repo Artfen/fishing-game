@@ -124,6 +124,23 @@ function lure(id) {
       { geo: new THREE.SphereGeometry(0.006, 6, 4), matrix: mat(0.016, 0.006, big ? 0.06 : 0.025), color: '#1a1512', jitter: 0 },
       { geo: new THREE.SphereGeometry(0.006, 6, 4), matrix: mat(-0.016, 0.006, big ? 0.06 : 0.025), color: '#1a1512', jitter: 0 },
     ])));
+  } else if (id === 'skirt' || id === 'ballyhoo') {
+    // Big-game trolling lures, seen in the water: a resin head and a streaming skirt; a slim
+    // silver halfbeak with its long lower jaw.
+    const parts = [];
+    if (id === 'skirt') {
+      parts.push({ geo: new THREE.CylinderGeometry(0.02, 0.026, 0.07, 10), matrix: mat(0, 0, 0.09, Math.PI / 2, 0, 0), color: '#7fc8e8', jitter: 0 });
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        parts.push({ geo: new THREE.BoxGeometry(0.008, 0.004, 0.16), matrix: mat(Math.cos(a) * 0.026, Math.sin(a) * 0.026, -0.02, 0, 0, a), color: Math.sin(a) > 0 ? '#2a5ad0' : '#e86a9a', jitter: 0 });
+      }
+    } else {
+      parts.push({ geo: new THREE.SphereGeometry(0.02, 8, 6), matrix: mat(0, 0, 0, 0, 0, 0, 0.7, 0.8, 5), color: '#dfe6ec', jitter: 0.02 });
+      parts.push({ geo: new THREE.SphereGeometry(0.016, 8, 6), matrix: mat(0, 0.008, 0, 0, 0, 0, 0.65, 0.5, 5), color: '#3a5a7a', jitter: 0.02 });
+      parts.push({ geo: new THREE.CylinderGeometry(0.002, 0.003, 0.06, 4), matrix: mat(0, -0.006, 0.13, Math.PI / 2, 0, 0), color: '#c84a3a', jitter: 0 });
+      parts.push({ geo: new THREE.ConeGeometry(0.018, 0.04, 6), matrix: mat(0, 0, 0.1, Math.PI / 2, 0, 0), color: '#f08ab4', jitter: 0 });
+    }
+    g.add(shiny(mergeParts(parts)));
   } else if (id === 'sabiki') {
     // In the water: a little string of flashing feathers above a lead.
     const parts = [];

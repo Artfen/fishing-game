@@ -704,6 +704,7 @@ export class Fishing {
     b.speed = sp + (this.twitchT > 0 ? 0.5 : 0);
     b.motion = this.twitchT > 0 ? 'twitch' : sp > 1.15 ? 'fast' : sp > 0.15 ? 'slow' : 'still';
     b.pause = !!this.r.pausing;
+    b.towed = this.towSpeed > 1;
     b.drag = !!this.r.drag;
     b.fouled = !!this.r.fouled;
     b.nearBottom = this.baitDepth >= this.bottom - 0.7;
@@ -803,6 +804,12 @@ export class Fishing {
         if (this.hold && this.reelSpeed > 0.15 && Math.random() < 0.75) {
           this.setHook();
           this.hooks.flash('It hit the lure and hooked itself! Keep reeling.', 2.4);
+        } else if (this.towSpeed > 1.2 && Math.random() < 0.85) {
+          // A lure trolled behind a moving boat: the fish hooks itself against the boat's way,
+          // and the reel screams.
+          this.audio.biteAlert?.('fishon');
+          this.setHook(true);
+          this.hooks.flash('Fish on! It hit the trolled lure and hooked itself, and the reel’s screaming. Hold to play it.', 4);
         }
         return;
       case 'tap':
@@ -1168,12 +1175,18 @@ export class Fishing {
         break;
       }
       case 'landing': {
-        const hp = A.holdPoint(_w);
+        const hp = this.showPoint(_w);
         const u = clamp(this.t / 0.8, 0, 1);
         if (u < 1) {
           fishMesh.position.lerpVectors(this.from, hp, smoothstep(0, 1, u));
-          fishMesh.position.y += Math.sin(u * Math.PI) * 1.0;
-          fishMesh.rotation.set(-1.25 + Math.sin(t * 14) * 0.15, face + Math.PI / 2, 0, 'YXZ');
+          // (Lifted out in an arc; a big one drawn alongside on the surface.)
+          if (this.bigCatch()) {
+            fishMesh.position.y += Math.sin(u * Math.PI) * 0.15;
+            fishMesh.rotation.set(Math.sin(t * 14) * 0.08, face + Math.PI / 2, 0.35 * u, 'YXZ');
+          } else {
+            fishMesh.position.y += Math.sin(u * Math.PI) * 1.0;
+            fishMesh.rotation.set(-1.25 + Math.sin(t * 14) * 0.15, face + Math.PI / 2, 0, 'YXZ');
+          }
           fishMesh.userData.swim.set(t * 18, 1);
         } else this.holdUp(fishMesh, t, face);
         rodPitch = 1.1;
@@ -1244,6 +1257,8 @@ export class Fishing {
 
     pose.fishing = damp(pose.fishing, this.state === 'idle' ? 0 : 1, this.state === 'idle' ? 5 : 9, dt);
     pose.rodYaw = this.state === 'aiming' ? rodYaw : (turns ? dampAngle : damp)(pose.rodYaw, rodYaw, 6, dt);
+    // (A fish on the big-game rod: on the yacht you fight it from the fighting chair.)
+    pose.chair = this.state === 'reeling' && !!this.rod?.chair;
     pose.rodPitch = damp(pose.rodPitch, rodPitch, 16, dt);
     // The blank springs towards the bend the line asks of it, and back as the load comes off,
     // swinging a little past (a soft rod slower and further, a stiff one quick).
@@ -1287,11 +1302,28 @@ export class Fishing {
   }
 
   // A landed fish held up in your hands, wriggling now and then.
+  // A big fish landed from a boat (the big game, or anything well over a metre) isn't lifted
+  // aboard: it lies alongside, at the surface beside you, until you let it go.
+  bigCatch() {
+    const F = this.fight;
+    return !!F && this.angler.onBoat && (!!F.sp.life.big || F.size > 120);
+  }
+
+  // Where a landed fish is shown: up in your hands, or alongside in the water.
+  showPoint(out) {
+    if (!this.bigCatch()) return this.angler.holdPoint(out);
+    this.angler.releasePoint(out);
+    out.y = waterLevel(out.x, out.z) - 0.1;
+    return out;
+  }
+
   holdUp(fishMesh, t, face) {
-    this.angler.holdPoint(fishMesh.position);
+    this.showPoint(fishMesh.position);
     fishMesh.position.y += Math.sin(t * 2) * 0.03;
     const wig = Math.sin(t * 9) * Math.max(0, Math.sin(t * 1.3)) * 0.25;
-    fishMesh.rotation.set(-1.2 + wig * 0.3, face + Math.PI / 2 + wig, 0, 'YXZ');
+    // (Alongside: broadside to you, rolled a little so its flank shows, its tail working slowly.)
+    if (this.bigCatch()) fishMesh.rotation.set(wig * 0.05, face + Math.PI / 2, 0.35, 'YXZ');
+    else fishMesh.rotation.set(-1.2 + wig * 0.3, face + Math.PI / 2 + wig, 0, 'YXZ');
     fishMesh.userData.swim.set(t * 10, 0.4 * Math.max(0.2, Math.sin(t * 1.3)));
   }
 

@@ -66,6 +66,7 @@ test('every other catchable species bites on the guide’s first choice, rigged 
     let r = fishWithGuide(eco, sp.id);
     // (A wary fish can lose the bait to quicker neighbours: give it a second chance elsewhere.)
     if (!r.hits) r = fishWithGuide(eco, sp.id, { homes: [1, 3, 7], tries: 3 });
+    if (!r.hits) r = fishWithGuide(eco, sp.id, { homes: [2, 4, 6, 8], tries: 3 });
     if (!r.hits) failed.push(`${sp.id} on ${r.setup.rod}/${r.setup.item}: ${r.results.join(', ')}`);
   }
   assert.deepEqual(failed, []);

@@ -133,6 +133,22 @@ export const RODS = {
     limits: 'Heavy: no good for small fish or light lures, and tiring to cast all day.',
     look: { len: 2.3, color: '#22323f', handle: '#1e1e1e', reel: 'big' },
   },
+  // Trolled from a moving boat for the big ocean fish: let the lure out a little way astern and
+  // the boat does the rest. chair: on the yacht you fight a fish on it from the fighting chair.
+  biggame: {
+    id: 'biggame', name: 'Big-game trolling rod', short: 'Big-game rod', kind: 'lure', accepts: ['lure'],
+    length: '1.7 m stand-up, 50–80 lb class', reel: 'big two-speed lever-drag multiplier reel',
+    cast: [6, 32], weight: [90, 400], power: 2.3, finesse: 0.3, flex: 1.6, drag: 2, build: 2.0,
+    lines: [
+      { id: 'm50', name: '50 lb mono, 200 lb wind-on leader', kg: 23, thick: 1.0 },
+      { id: 'm80', name: '80 lb mono, 300 lb wind-on leader', kg: 36, thick: 1.1 },
+    ],
+    terms: ['windon', 'wire'],
+    chair: true,
+    strengths: 'Trolled behind a moving boat for the big fish of the open ocean: skirted lures fast for marlin, wahoo, dorado and tuna, a rigged ballyhoo slower for sailfish, spearfish and sharks (on a wire trace: their teeth cut anything else). On the yacht you fight from the fighting chair.',
+    limits: 'For trolling, not casting: let the lure out astern and troll at six or seven knots (the yacht and the centre console have a trolling notch). Far too heavy for anything small.',
+    look: { len: 1.75, color: '#1d2a3a', handle: '#e2ddd0', reel: 'big' },
+  },
 };
 
 // What goes between the line and the hook: a float rig, a bottom rig, a leader or a tippet.
@@ -162,6 +178,8 @@ export const TERMS = {
     desc: 'The leader turns the fly over so it lands softly.' },
   shock: { id: 'shock', name: '100 lb shock leader', short: 'Shock leader', weight: 0,
     desc: 'Thick enough to survive a tuna’s first run and its sandpaper mouth.' },
+  windon: { id: 'windon', name: '200 lb wind-on leader', short: 'Wind-on leader', weight: 0,
+    desc: 'A long, heavy leader spliced to the main line, so it winds onto the reel at the end of a fight: a marlin’s bill and sandpaper jaw can’t chafe through it.' },
 };
 
 // type: bait | lure | fly | jig. size: 0.5 tiny, 1 small … 4 huge (what a fish's mouth can manage).
@@ -231,6 +249,13 @@ export const TACKLE = {
   mjig: { id: 'mjig', on: 'a metal jig', type: 'lure', name: 'Metal jig (80 g)', short: 'Metal jig', size: 3, weight: 80,
     action: 'flutter', sink: 2.6, water: 'salt',
     desc: 'Drops fast to deep fish; lift and let it flutter back. Tuna below the birds.' },
+  // --- big-game trolling lures (trolled behind a moving boat on the big-game rod) ---
+  skirt: { id: 'skirt', on: 'a skirted trolling lure', type: 'lure', name: 'Skirted trolling lure (Konahead, 25 cm)', short: 'Skirted lure', size: 4, weight: 140,
+    action: 'troll', suspend: 0.35, sink: 0.6, water: 'salt',
+    desc: 'A heavy resin head trailing a long vinyl skirt: trolled fast it dives, pops up and leaves a trail of bubbles like a fleeing fish. Marlin, wahoo, dorado and tuna.' },
+  ballyhoo: { id: 'ballyhoo', on: 'a rigged ballyhoo', type: 'lure', name: 'Rigged ballyhoo (with a skirt)', short: 'Ballyhoo', size: 3, weight: 160,
+    action: 'troll', suspend: 0.5, sink: 0.5, water: 'salt',
+    desc: 'A real halfbeak, rigged on a big hook and a little chin lead so it swims, trolled slowly: sailfish, spearfish and sharks find it hard to resist.' },
   sabiki: { id: 'sabiki', on: 'sabiki feathers', type: 'lure', name: 'Sabiki feathers (6 tiny hooks, 20 g)', short: 'Sabiki', size: 0.5, weight: 20,
     action: 'flutter', sink: 0.9, water: 'salt',
     desc: 'A string of tiny hooks dressed in shiny fish skin, above a small lead. Let it down, then lift and drop it: sardines, anchovies, horse mackerel, bogue and sprats.' },
@@ -293,6 +318,9 @@ export const SETUPS = [
   { id: 'offshore', name: 'Offshore', note: 'Offshore rod with a stickbait and metal jig for tuna, and the coastal rod',
     rods: ['offshore', 'sea'], items: ['stickbait', 'mjig', 'metal', 'sandeel'], rod: 'offshore',
     term: { sea: 'fluoro' }, rig: { offshore: 'stickbait', sea: 'metal' } },
+  { id: 'biggame', name: 'Big Game', note: 'Big-game trolling rod with skirted lures and rigged ballyhoo, and the offshore rod with a stickbait and jig: marlin, sailfish, wahoo, dorado, tuna and sharks',
+    rods: ['biggame', 'offshore'], items: ['skirt', 'ballyhoo', 'stickbait', 'mjig'], rod: 'biggame',
+    line: { biggame: 'm80' }, term: { biggame: 'windon' }, rig: { biggame: 'skirt', offshore: 'stickbait' } },
   { id: 'bay', name: 'The Bay', note: 'Float rod and spinning rod with sea baits and lures (the way Slow Tide began)',
     rods: ['float', 'spin'], items: ['worm', 'prawn', 'corn', 'spinner', 'crankS', 'crankD'], rod: 'float',
     line: { float: 'm4', spin: 'b10' }, term: { float: 'waggler', spin: 'wire' }, rig: { float: 'worm', spin: 'spinner' } },
@@ -302,7 +330,7 @@ export function defaultGear() {
   return {
     pack: { rods: ['float', 'spin'], items: ['worm', 'prawn', 'corn', 'spinner', 'crankS', 'crankD'] },
     rod: 'float',
-    rig: { float: 'worm', spin: 'spinner', carp: 'boilie', fly: 'dry', trout: 'tspin', sea: 'metal', boat: 'lug', squid: 'egi25', offshore: 'stickbait' },
+    rig: { float: 'worm', spin: 'spinner', carp: 'boilie', fly: 'dry', trout: 'tspin', sea: 'metal', boat: 'lug', squid: 'egi25', offshore: 'stickbait', biggame: 'skirt' },
     line: {},  // rod id -> line id (defaults to the rod's first line)
     term: {},  // rod id -> terminal tackle id (defaults to the rod's first)
     drag: {},

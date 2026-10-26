@@ -62,6 +62,7 @@ export class Ecosystem {
       active: false, kind: 'float', item: 'worm', size: 1, fly: null, thick: 0.35,
       x: 0, y: 0, z: 0, vx: 0, vz: 0, speed: 0, motion: 'still', twitch: 0, pause: false, drag: false, fouled: false,
       fresh: 0, nearBottom: false, anglerX: 0, anglerZ: 0, owner: null, held: false,
+      towed: false, // trolled behind a moving boat (it raises the big game from far off)
     };
     this.listener = {};
     this.populate();
@@ -828,6 +829,22 @@ export class Ecosystem {
     if (L.squid) per *= b.kind === 'jig' && b.darted > 0 ? 1.6 : 0.6;
     // Bottom feeders follow the scent of a natural bait lying on the bottom.
     if (L.bottom && b.natural && b.nearBottom) per *= 1.8;
+    // The big game is raised by a lure trolled behind a boat (the wake, the engines, the splash
+    // and smoke trail of the lure): from well beyond what it would otherwise notice, it comes up
+    // the wake towards it, and then looks (a school comes all together).
+    if (L.big && b.kind === 'lure' && b.towed && b.speed > 1.5 && d > per && d < per * 3) {
+      if (Math.random() < 0.3 * this.activity[a.sp.id]) {
+        const t = a.school || a;
+        t.tx = b.x + (b.vx || 0) * 2;
+        t.tz = b.z + (b.vz || 0) * 2;
+        t.ty = Math.min(-0.6, b.y - 0.6);
+        t.t = 0;
+        t.dur = 8;
+        t.wantSpeed = Math.max(L.speed * (L.burst || 2) * 0.6, b.speed * 1.5);
+        if (!a.school) a.state = 'cruise';
+      }
+      return;
+    }
     if (d > per) return;
     const dv = Math.abs(dy);
     if (dv > L.depthTol * 2.2) return;
@@ -991,9 +1008,10 @@ export class Ecosystem {
         // It keeps pace with the lure, closing in on it: a slow cruiser speeds up to follow.
         // (An ambusher shadowing from cover closes the gap in short pushes, then goes from further off.)
         const ambush = a.style === 'ambush';
-        a.wantSpeed = clamp(bv * 1.1 + d * 0.8, 0.2, Math.max(L.speed * (ambush ? L.burst * 0.75 : 2.3), bv * 1.35 + 0.4));
+        // (The big game comes up behind a trolled lure from far back, fast, and stays on it longer.)
+        a.wantSpeed = clamp(bv * 1.1 + d * 0.8, 0.2, Math.max(L.speed * (ambush ? L.burst * 0.75 : 2.3), bv * 1.35 + 0.4, L.big ? bv + 3 : 0));
         if (tl < 3.2) return this.disengage(a, 'turned', 10);
-        if (a.followT > 11 || d > L.perception * 1.4) return this.disengage(a, 'lost', 6);
+        if (a.followT > (L.big ? 22 : 11) || d > L.perception * 1.4) return this.disengage(a, 'lost', 6);
         if (this.appeal(a, b) <= 0) return this.disengage(a, 'lost', 6);
         a.strikeCD -= h;
         if (a.strikeCD <= 0 && d < (ambush ? 3 : 1.8)) {

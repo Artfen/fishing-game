@@ -12,6 +12,7 @@ const C = await import('../src/world/coldwater.js');
 const { createHabitat } = await import('../src/world/habitat.js');
 const { Ecosystem } = await import('../src/world/ecosystem.js');
 const { fishById } = await import('../src/fish.js');
+const { BIG_GAME } = await import('../src/bigGame.js');
 
 // Every metre along the fell path: [x, z].
 const alongPath = () => {
@@ -180,12 +181,14 @@ test('the bothy stands beside the path above Spout Pool, on level ground', () =>
 
 test('every fish already in the world is where it was, the same size, the same kind', () => {
   // (A fingerprint of every fish outside the Coldwater, taken before the river was added: the
-  // river only adds homes of its own, after all the others. So does Las Brasas, far to the south.)
+  // river only adds homes of its own, after all the others. So does Las Brasas, far to the south,
+  // and the big game of the open ocean adds fish of its own, moving nobody.)
   const eco = new Ecosystem(createHabitat());
   const COLD = new Set(['beck', 'gill', 'spout', 'dale', 'tarn', 'forcepool', 'tideway', 'flats']);
+  const BIG = new Set(BIG_GAME.map((f) => f.id));
   let h = 0x811c9dc5, n = 0;
   for (const a of eco.agents) {
-    if (COLD.has(a.home.tag) || a.home.level || a.home.south) continue;
+    if (COLD.has(a.home.tag) || a.home.level || a.home.south || BIG.has(a.sp.id)) continue;
     n++;
     const s = `${a.sp.id}|${a.home.type}@${a.home.x.toFixed(1)},${a.home.z.toFixed(1)}:${a.size}`;
     for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0;

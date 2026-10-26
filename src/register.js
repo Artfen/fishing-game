@@ -51,6 +51,8 @@ const CATCHABLE = [
   'sandsmelt', 'bogue', 'salema', 'garfish', 'bonito', 'littletunny', 'bullet', 'pompano', 'octopus',
   // Las Brasas, far to the south (the grouper to be released)
   'grouper', 'chubmackerel',
+  // The big game of the open ocean (see bigGame.js), every shark released
+  'blueshark', 'mako', 'albacore',
 ];
 const GAME = {
   ...Object.fromEntries(CATCHABLE.map((id) => [id, { status: 'catchable', model: 'anatomical' }])),
@@ -63,7 +65,7 @@ const BATCH = {
   // next: common coastal fish still missing, and catch-and-release on the bottom.
   redmullet: 2, weever: 2, shanny: 2, thinlip: 2, goldengrey: 2, catshark: 2, thornback: 2,
   // deeper water and rarer visitors.
-  hake: 3, johndory: 3, stingray: 3, blueshark: 3,
+  hake: 3, johndory: 3, stingray: 3,
   // migratory and protected estuary species, with seasons (observation-only where protected).
   allisshad: 4, twaiteshad: 4, lamprey: 4, sturgeon: 4,
 };
@@ -77,7 +79,6 @@ export const PLAN_AS = {
   allisshad: { as: 'observation', why: 'All fishing for it in the Gironde basin has been under a moratorium since 2008.' },
   lamprey: { as: 'observation', why: 'All fishing for it in the Gironde estuary has been banned since 2023.' },
   stingray: { as: 'release', why: 'Vulnerable, and its tail spine is venomous.' },
-  blueshark: { as: 'release', why: 'Near threatened.' },
   thornback: { as: 'release', why: 'Near threatened.' },
 };
 
@@ -156,4 +157,12 @@ export const MACARONESIA = {
   amberjack: { scientific: 'Seriola dumerili', note: 'Warm seas worldwide, the Canaries included. Large amberjack from warm waters have been linked to ciguatera there.' },
   angelshark: { scientific: 'Squatina squatina', note: 'Once from Scandinavia to north-west Africa and the Mediterranean; critically endangered (IUCN), protected in Spain, and the Canaries are one of its last strongholds. Observation only.' },
   trumpetfish: { scientific: 'Aulostomus strigosus', note: 'Reefs of the eastern Atlantic islands (Madeira, the Canaries, Cape Verde) and the tropical coast of West Africa. Not fished: observation only.' },
+  // The big game of the blue water (bigGame.js): the billfish and the hammerhead are released.
+  bluemarlin: { scientific: 'Makaira nigricans', note: 'Tropical and warm-temperate Atlantic; off the Canaries and Madeira mostly in summer, when the islands are a noted big-game ground. Released by anglers; the Atlantic stock is managed by ICCAT.' },
+  sailfish: { scientific: 'Istiophorus platypterus', note: 'Warm seas worldwide (the Atlantic fish was once named Istiophorus albicans). Commonest off West Africa (Senegal, Cape Verde); a summer visitor round the Canaries. Released by anglers.' },
+  spearfish: { scientific: 'Tetrapturus pfluegeri', note: 'Open ocean of the tropical and warm Atlantic; rarely caught anywhere, though the Canaries and Madeira are among the places it turns up most. Released by anglers.' },
+  wahoo: { scientific: 'Acanthocybium solandri', note: 'Tropical and subtropical oceans worldwide, the Canaries included (the “peto”), mostly in the warmer months. A prized food fish.' },
+  dorado: { scientific: 'Coryphaena hippurus', note: 'Warm oceans worldwide; common round the Canaries in summer and autumn, often under floating weed and debris. Fast-growing and short-lived; a prized food fish (mahi-mahi).' },
+  yellowfin: { scientific: 'Thunnus albacares', note: 'Tropical and subtropical oceans worldwide; the Canaries’ “rabil”, fished in the warmer months. Managed by ICCAT.' },
+  hammerhead: { scientific: 'Sphyrna zygaena', note: 'Warm-temperate seas worldwide, the Canaries included, often near the surface; listed as Vulnerable (IUCN) and on CITES Appendix II. Released by anglers.' },
 };

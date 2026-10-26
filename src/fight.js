@@ -75,6 +75,13 @@ export const FIGHT_STYLES = {
   twist: { run: 1.15, rest: 0.8, surge: 1.1, tire: 0.9, sway: 1.4, dive: 2.4, splash: false, words: 'It’s twisting and backing down towards the rocks.' },
   // Garfish: skittering, leaping and tail-walking across the top.
   leap: { run: 0.6, rest: 0.7, surge: 0.9, tire: 1.5, sway: 3.2, dive: 0.1, splash: true, words: 'It’s skittering and leaping across the surface.' },
+  // Marlin, sailfish, spearfish: long, fast runs across the top, greyhounding and tail-walking,
+  // then sounding deep; a long fight, but they do tire.
+  billfish: { run: 1.75, rest: 0.85, surge: 1.05, tire: 0.6, sway: 4.4, dive: 0.5, splash: true, words: 'It’s greyhounding away across the top, leaping as it goes!' },
+  // Sharks: heavy, relentless runs deep, shaking their heads, and they never quite give up.
+  shark: { run: 1.5, rest: 1.0, surge: 1.1, tire: 0.7, sway: 2.2, dive: 1.6, splash: false, words: 'It’s boring away deep, shaking its head: heavy and relentless.' },
+  // Wahoo: one blistering first run that strips line off the reel, then shorter ones.
+  blister: { run: 1.7, rest: 1.15, surge: 1.15, tire: 1.45, sway: 2.0, dive: 0.6, splash: false, words: 'It’s off on a blistering run: let the drag work.' },
 };
 
 const SURGE = 0.5;  // seconds

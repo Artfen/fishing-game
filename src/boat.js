@@ -133,7 +133,7 @@ const HULLS = {
     // You stand: at the wheel (the helm to starboard), or in the cockpit to fish. aft: the middle
     // of where you fish from, how far you go out to the side as you turn, and back to the transom;
     // side: which way round the fighting chair you go between the two.
-    standing: { helm: [-0.62, -2.28], aft: [0, -3.6, 0.7, 0.45], side: -1, round: 0.55 },
+    standing: { helm: [-0.62, -2.28], aft: [0, -3.6, 0.7, 0.45], side: -1, round: 0.55, chair: [0, -3.0, 0.52] },
     lantern: [1.05, -4.05], stow: null, noise: 1, steady: 0.3,
     windage: 0.005, ride: 1.8, // big and heavy: she shoulders the chop aside, but the wind gets a grip on the hardtop
   },
@@ -373,7 +373,7 @@ export class Boat {
     this.bumpCooldown = 0;
     // Set by the fishing system each frame.
     // (bendTo: where the line pulls the rod tip, set by the fishing: see bendRod.)
-    this.pose = { fishing: 0, rodYaw: 0, rodPitch: 0.85, bend: 0.05, bendVel: 0, bendTo: null };
+    this.pose = { fishing: 0, rodYaw: 0, rodPitch: 0.85, bend: 0.05, bendVel: 0, bendTo: null, chair: false };
     // In first person (set by the game): where a landed fish is held up in view, and which way
     // you face for it.
     this.viewHold = null;
@@ -384,6 +384,7 @@ export class Boat {
     this.turns = !!H.standing;
     this.spot = null;
     this.standAt = null;
+    this.chairT = 0; // in the fighting chair (0 … 1), fighting a big fish on the yacht
 
     this.buildHull();
     this.buildCharacter();
@@ -1023,21 +1024,29 @@ export class Boat {
     for (const t of [0.09, 0.19]) for (const sd of [1, -1]) this.rackRod(parts, V(sd * (hw(H, t) - 0.12), sheer(H, t) + 0.02, zAt(H, t)), V(sd * 0.35, 1, -0.55), 1.75);
     // The fighting chair, facing aft: its pedestal, the seat and back, arms, the footrest and the
     // gimbal at the front of the seat a rod's butt fits into.
-    const fz = -3.0;
+    const [, fz] = H.standing.chair;
     parts.push(
       { geo: new THREE.CylinderGeometry(0.22, 0.24, 0.04, 14), matrix: mat(0, y0 + 0.02, fz), color: steel },
       { geo: new THREE.CylinderGeometry(0.09, 0.11, 0.4, 10), matrix: mat(0, y0 + 0.22, fz), color: steel },
-      { geo: new THREE.BoxGeometry(0.58, 0.11, 0.5), matrix: mat(0, y0 + 0.47, fz), color: white },
-      { geo: new THREE.BoxGeometry(0.58, 0.62, 0.09), matrix: mat(0, y0 + 0.8, fz + 0.26, 0.15, 0, 0), color: white },
-      { geo: new THREE.BoxGeometry(0.62, 0.05, 0.1), matrix: mat(0, y0 + 1.12, fz + 0.31, 0.15, 0, 0), color: '#a8784a' },
-      ...[1, -1].map((sd) => ({ geo: new THREE.BoxGeometry(0.07, 0.07, 0.44), matrix: mat(sd * 0.31, y0 + 0.66, fz + 0.02), color: '#a8784a' })),
-      ...[1, -1].map((sd) => strut(V(sd * 0.12, y0 + 0.4, fz - 0.05), V(sd * 0.26, y0 + 0.22, fz - 0.66), 0.02, 0.02, steel)),
-      { geo: new THREE.BoxGeometry(0.62, 0.05, 0.1), matrix: mat(0, y0 + 0.22, fz - 0.68), color: steel },
-      { geo: new THREE.CylinderGeometry(0.045, 0.04, 0.16, 8), matrix: mat(0, y0 + 0.5, fz - 0.27), color: steel },
       // The fish box in the sole, and the tuna door in the transom (outside and in), port side.
       { geo: new THREE.BoxGeometry(1.1, 0.02, 0.6), matrix: mat(0, y0 + 0.006, -4.0), color: '#8e6640' },
       { geo: new THREE.BoxGeometry(0.2, 0.025, 0.04), matrix: mat(0, y0 + 0.02, -3.74), color: steel },
     );
+    // The chair itself swivels on its pedestal to follow a fish (facing aft at rest).
+    const chair = (this.chair = new THREE.Group());
+    chair.position.set(0, y0, fz);
+    chair.rotation.y = Math.PI;
+    chair.add(new THREE.Mesh(mergeParts([
+      { geo: new THREE.BoxGeometry(0.58, 0.11, 0.5), matrix: mat(0, 0.47, 0), color: white },
+      { geo: new THREE.BoxGeometry(0.58, 0.62, 0.09), matrix: mat(0, 0.8, -0.26, -0.15, 0, 0), color: white },
+      { geo: new THREE.BoxGeometry(0.62, 0.05, 0.1), matrix: mat(0, 1.12, -0.31, -0.15, 0, 0), color: '#a8784a' },
+      ...[1, -1].map((sd) => ({ geo: new THREE.BoxGeometry(0.07, 0.07, 0.44), matrix: mat(sd * 0.31, 0.66, -0.02), color: '#a8784a' })),
+      ...[1, -1].map((sd) => strut(V(sd * 0.12, 0.4, 0.05), V(sd * 0.26, 0.22, 0.66), 0.02, 0.02, steel)),
+      { geo: new THREE.BoxGeometry(0.62, 0.05, 0.1), matrix: mat(0, 0.22, 0.68), color: steel },
+      { geo: new THREE.CylinderGeometry(0.045, 0.04, 0.16, 8), matrix: mat(0, 0.5, 0.27), color: steel },
+    ]), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.15 })));
+    chair.children[0].castShadow = true;
+    this.body.add(chair);
     const zs = zAt(H, 0), dy = (y0 + sheer(H, 0)) / 2 + 0.02;
     for (const [z, k] of [[zs - 0.016, 1], [zs + 0.016, -1]]) {
       parts.push(
@@ -1636,7 +1645,7 @@ export class Boat {
     const S = this.standAt;
     if (!S) return out.set(across, this.seatY + up, this.seatZ + ahead);
     const c = Math.cos(S.yaw), s = Math.sin(S.yaw);
-    return out.set(S.x + across * c + ahead * s, this.seatY + up, S.z - across * s + ahead * c);
+    return out.set(S.x + across * c + ahead * s, S.y + up, S.z - across * s + ahead * c);
   }
 
   // The way you face (standing, you turn to face your line).
@@ -2101,28 +2110,39 @@ export class Boat {
   // Standing (the yacht, the centre console): at the wheel; or, with a line out, at the rail you
   // fish from (the cockpit aft, or the console's bow if that's the way you face as you cast),
   // turned to face the way the rod points, off the stern as readily as the side; round the
-  // console or the fighting chair on the way between the two, not through it.
-  standUp(fishing) {
-    const S = this.hull.standing, u = smoothstep(0, 1, fishing), rod = wrapAngle(this.pose.rodYaw), yaw = rod * u;
+  // console or the fighting chair on the way between the two, not through it. On the yacht, a
+  // big fish on the big-game rod is fought from the fighting chair: you sit, facing aft, the rod
+  // butt in the gimbal between your knees and your feet on the footrest, and the chair swings
+  // round to follow the fish.
+  standUp(fishing, dt) {
+    const S = this.hull.standing, u = smoothstep(0, 1, fishing), rod = wrapAngle(this.pose.rodYaw);
     if (fishing < 0.02) this.spot = null;
     else if (!this.spot) this.spot = S.bow && Math.abs(rod) < 1.2 ? S.bow : S.aft;
+    this.chairT = damp(this.chairT, S.chair && this.pose.chair ? 1 : 0, 3, dt);
+    const k = smoothstep(0, 1, this.chairT);
+    // (In the chair you face aft, swinging no more than so far either side.)
+    const swing = Math.PI + clamp(wrapAngle(rod - Math.PI), -1.1, 1.1);
+    const yaw = lerp(rod * u, swing, k);
     const F = this.spot || S.aft, c = Math.cos(yaw), sn = Math.sin(yaw);
     const fx = F[0] + sn * F[2], fz = F[1] + (F === S.bow ? Math.max(0, c) : Math.min(0, c)) * F[3];
     const side = S.side ?? (Math.sign(sn) || 1);
-    const A = (this.standAt ||= { x: 0, z: 0, yaw: 0 });
-    A.x = lerp(S.helm[0], fx, u) + Math.sin(Math.PI * u) * S.round * side;
-    A.z = lerp(S.helm[1], fz, u);
+    if (this.chair) this.chair.rotation.y = lerp(Math.PI, swing, k);
+    const A = (this.standAt ||= { x: 0, z: 0, y: this.seatY, yaw: 0 });
+    A.x = lerp(lerp(S.helm[0], fx, u) + Math.sin(Math.PI * u) * S.round * side, S.chair?.[0] ?? 0, k);
+    A.z = lerp(lerp(S.helm[1], fz, u), S.chair?.[1] ?? 0, k);
+    A.y = lerp(this.seatY, this.hull.floorY + (S.chair?.[2] ?? 0) + 0.02, k);
     A.yaw = yaw;
     const T = this.torso;
     T.rotation.order = 'YXZ';
-    T.position.set(A.x, this.seatY, A.z);
+    T.position.set(A.x, A.y, A.z);
     T.rotation.y = yaw;
-    // Feet a little apart under the hips, knees soft.
-    const down = this.hull.floorY + 0.04 - this.seatY;
+    // Standing: feet a little apart under the hips, knees soft. Seated: knees up, feet out on the
+    // footrest.
+    const deck = this.hull.floorY + 0.04 - A.y;
     for (const L of this.legs) {
-      this.fromYou(_a, L.s * 0.1, -0.02, 0.02);
-      this.fromYou(_b, L.s * 0.12, down / 2 + 0.02, 0.09);
-      this.fromYou(_e, L.s * 0.14, down, 0.02);
+      this.fromYou(_a, L.s * 0.1, -0.02, lerp(0.02, 0.06, k));
+      this.fromYou(_b, L.s * lerp(0.12, 0.15, k), lerp(deck / 2 + 0.02, 0.06, k), lerp(0.09, 0.44, k));
+      this.fromYou(_e, L.s * lerp(0.14, 0.2, k), lerp(deck, -0.28, k), lerp(0.02, 0.66, k));
       setLimb(L.thigh, _a, _b, 0.07);
       setLimb(L.shin, _b, _e, 0.06);
       L.boot.position.set(_e.x + sn * 0.05, _e.y - 0.02, _e.z + c * 0.05);
@@ -2262,7 +2282,7 @@ export class Boat {
       this.torso.rotation.z = clamp(-this.omega * 0.3, -0.3, 0.3);
       this.wheel.rotation.y = damp(this.wheel.rotation.y, clamp(this.omega * 0.45, -0.5, 0.5), 8, dt);
     }
-    if (this.hull.standing) this.standUp(fishing);
+    if (this.hull.standing) this.standUp(fishing, dt);
     const look = fishing ? (this.standAt ? 0 : this.pose.rodYaw * 0.45) : Math.sin(t * 0.21) * 0.35 * (1 - blendRow);
     this.head.rotation.y = damp(this.head.rotation.y, look, 2, dt);
     this.head.rotation.x = fishing ? 0.15 : 0;
@@ -2270,7 +2290,8 @@ export class Boat {
     // Rod
     this.rod.visible = this.occupied && fishing > 0.02;
     this.rodStowed.visible = !this.rod.visible && !this.hull.noFish && !!this.hull.stow;
-    if (this.standAt) this.fromYou(this.rod.position, 0.05, 0.33, 0.34);
+    // (In the fighting chair the rod's butt sits in the gimbal at the front of the seat.)
+    if (this.standAt) this.fromYou(this.rod.position, 0.05 * (1 - this.chairT), lerp(0.33, 0.06, this.chairT), lerp(0.34, 0.3, this.chairT));
     else this.rod.position.copy(this.active.hold);
     this.rod.rotation.y = this.standAt ? this.standAt.yaw : this.pose.rodYaw;
     this.rod.rotation.x = this.pose.rodPitch;

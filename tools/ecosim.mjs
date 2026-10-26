@@ -31,7 +31,7 @@ export function fish(sc, { tries = 6, limit = 240 } = {}) {
     Object.assign(b, {
       active: true, kind: sc.kind, item: it.id, size: it.size, fly: it.fly || null, thick: sc.thick ?? 0.4, fresh: 4, owner: null, held: false,
       twitch: 0, speed: 0, motion: 'still', pause: false, drag: false, fouled: false, natural: it.type === 'bait', sinking: false, darted: 0,
-      anglerX: sc.ax, anglerZ: sc.az,
+      anglerX: sc.ax, anglerZ: sc.az, towed: false,
     });
     let t = 0, phase = 0, dartT = 0;
     const env = { hour: sc.hour ?? 10, rain: sc.rain ?? 0, cloud: sc.cloud ?? 0.3, daylight: sc.hour >= 7 && sc.hour < 19 ? 1 : 0.1, night: sc.hour >= 21 || sc.hour < 5 ? 1 : 0, lanternNear: !!sc.light, hatch: 0.3 };
@@ -75,6 +75,7 @@ export function fish(sc, { tries = 6, limit = 240 } = {}) {
       if (Math.abs(b.vx) > 4 || Math.abs(b.vz) > 4) b.vx = b.vz = 0; // (a recast, not movement)
       b.x = x; b.y = -depth; b.z = z;
       b.speed = speed;
+      b.towed = !!sc.towed && speed > 1;
       b.motion = b.twitch > 0 ? 'twitch' : speed > 1.15 ? 'fast' : speed > 0.15 ? 'slow' : 'still';
       b.nearBottom = depth >= bottom - 0.7;
       b.fresh = Math.max(0, b.fresh - STEP);
@@ -93,7 +94,8 @@ export function fish(sc, { tries = 6, limit = 240 } = {}) {
 }
 
 // Fish one species with the field guide's first choice, rigged as the guide says, where it lives
-// and at the hour it is keenest. Shoaling fish are found where their shoal is now.
+// and at the hour it is keenest. Shoaling fish are found where their shoal is now. (The big game
+// is trolled, as the guide says: the big-game rod's lure towed behind a moving boat.)
 export function fishWithGuide(eco, id, { tries = 2, homes = [0, 5] } = {}) {
   const sp = fishById[id], s = setupsFor(sp)[0], rod = RODS[s.rod], d = habitsOf(sp).depth, L = sp.life;
   const env = (h) => ({ hour: h, rain: 0, cloud: 0.3, daylight: h >= 7 && h < 19 ? 1 : 0.1, night: h >= 21 || h < 5 ? 1 : 0, lanternNear: false, hatch: 0.5 });
@@ -105,8 +107,9 @@ export function fishWithGuide(eco, id, { tries = 2, homes = [0, 5] } = {}) {
   const all = eco.bySpecies[id], home = all.filter((a) => !a.home.south), list = home.length ? home : all;
   for (const idx of homes) {
     const a = list[idx % list.length];
-    const at = a.school ? { x: a.school.x, z: a.school.z } : a.home;
-    results.push(...fish({ kind: rod.kind, item: s.item, depth, x: at.x, z: at.z, ax: at.x + 14, az: at.z + 10, hour, thick: 0.3, retrieve: fast ? 1.8 : 0.8, light: L.lantern, eco }, { tries, limit: 200 }));
+    // (The big game roams far from any home: you troll where it is, as where a school is.)
+    const at = a.school ? { x: a.school.x, z: a.school.z } : L.big ? { x: a.x, z: a.z } : a.home;
+    results.push(...fish({ kind: rod.kind, item: s.item, depth, x: at.x, z: at.z, ax: at.x + 14, az: at.z + 10, hour, thick: 0.3, retrieve: fast ? 1.8 : 0.8, light: L.lantern, towed: !!rod.chair, eco }, { tries, limit: 200 }));
   }
   return { setup: s, hour, results, hits: results.filter((r) => r.startsWith(`${id} `)).length };
 }

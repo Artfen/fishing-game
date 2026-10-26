@@ -639,6 +639,11 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
       state.tips.cast = true;
       save();
     }
+    // The big-game rod, the first time: how trolling goes.
+    if (fishing.rod?.chair) {
+      const T = scheme() === 'touch', big = !onFoot && !!levers(boat.kind)?.some((n) => n.id === 'T');
+      teach('trolling', `Trolling: with the lure out astern, motor on and it swims behind the boat. ${big ? `Push the throttle up to T (trolling, about seven knots) for marlin, wahoo, dorado and tuna, or keep to dead slow or slow for sailfish, spearfish and sharks with a ballyhoo.` : 'Slow ahead is the most this boat allows with a line out; the yacht and the centre console troll faster.'} Out in the blue water the big fish come up the wake to look. When one hits, it hooks itself: ${T ? 'hold the reel button' : 'hold'} to play it${boat.hull.standing?.chair ? ', from the fighting chair' : ''}, and ease off when it runs.`, 12);
+    }
   },
   castResult: (text, good) => {
     hud.flash(text, t, good ? 2.2 : 3.6);
@@ -2137,7 +2142,8 @@ function watchHookup() {
   const s = fishing.state;
   if (s === 'reeling' && fishWas !== 'reeling' && leverKind() && boat.lever > 0) {
     changeLever(0);
-    hud.flash('Fish on! You knock the motor into neutral: she coasts while you play it', t, 3.2);
+    const chair = boat.hull.standing?.chair && fishing.rod?.chair;
+    hud.flash(chair ? 'Fish on! You knock the engines into neutral and get into the fighting chair' : 'Fish on! You knock the motor into neutral: she coasts while you play it', t, 3.2);
   }
   fishWas = s;
 }
@@ -6864,6 +6870,8 @@ window.slowTide = {
     if (!onFoot) setFoot(true);
   },
   board: () => board(),
+  // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
+  openGuide: (id) => openGuide(id),
   rowboat, skiff, boats: BOATS, wind,
   // Set the breeze: strength 0–1, blowing towards dir (radians, like a heading).
   // A steady wind for testing: strength 0 … 1 (1 = a fresh breeze, 12 m/s), blowing towards dir

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ATLANTIC_ANATOMY } from './anatomyAtlantic.js';
 import { SOUTH_ANATOMY } from './anatomySouth.js';
+import { BIG_ANATOMY } from './anatomyBig.js';
 
 // Anatomical models of aquatic animals, one recipe per species, built in code (no external
 // assets). Three body plans share the machinery where the animals really are alike:
@@ -420,6 +421,19 @@ function buildFish(A, detail) {
     }
   }
   B.add(0, pos, uv, idx);
+  // A broad front closed too (the hammerhead's head).
+  if (A.capNose) {
+    const ring = [], uvs = [], ix = [];
+    ring.push(0, (top(0) + bot(0)) / 2, zOf(0) + 0.002);
+    uvs.push(0, 0.5);
+    for (let j = 0; j <= NR; j++) {
+      const [x, y] = at(0, j / NR);
+      ring.push(x, y, zOf(0));
+      uvs.push(0, 0.5);
+    }
+    for (let j = 1; j <= NR; j++) ix.push(0, j, j + 1);
+    B.add(0, ring, uvs, ix);
+  }
   // The end of the tail stalk, closed.
   {
     const t = 1, ring = [], uvs = [], ix = [];
@@ -508,6 +522,8 @@ function buildFish(A, detail) {
       let out;
       // An eel's tail: the dorsal and anal fins meeting round a pointed tip.
       if (f.shape === 'eel') out = [[0, -hb - H * 0.7], [len * 0.55, -H * 0.55], [len, 0], [len * 0.55, H * 0.55], [0, hb + H * 0.7]];
+      // A shark's: the upper lobe long and swept up, the lower one short.
+      else if (f.shape === 'shark') out = [[0, -hb], [len * 0.26, -H * 0.4], [len * 0.36, -H * 0.5], [len * 0.33, -H * 0.16], [len * 0.62, H * 0.1], [len, H * 0.6], [len * 0.9, H * 0.72], [len * 0.45, H * 0.42], [0, hb]];
       // A tuna's: a narrow, stiff crescent on a slim stalk.
       else if (f.shape === 'lunate') out = [[0, -hb], [len * 0.35, -H * 0.3], [len * 0.85, -H * 0.85], [len, -H], [len * 0.62, -H * 0.42], [len * 0.5, 0], [len * 0.62, H * 0.42], [len, H], [len * 0.85, H * 0.85], [len * 0.35, H * 0.3], [0, hb]];
       else if (f.shape === 'rounded') out = [[0, -hb], [len * 0.4, -H * 0.85], [len * 0.85, -H * 0.6], [len, 0], [len * 0.85, H * 0.6], [len * 0.4, H * 0.85], [0, hb]];
@@ -1176,5 +1192,6 @@ export function anatomyGeometry(id, detail = true) {
 
 export const hasAnatomy = (id) => !!ANATOMY[id];
 
-// The Atlantic roster's recipes live in their own module, and so do Las Brasas' fish.
-Object.assign(ANATOMY, ATLANTIC_ANATOMY, SOUTH_ANATOMY);
+// The Atlantic roster's recipes live in their own module, and so do Las Brasas' fish and the
+// big game of the open ocean.
+Object.assign(ANATOMY, ATLANTIC_ANATOMY, SOUTH_ANATOMY, BIG_ANATOMY);

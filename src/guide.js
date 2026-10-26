@@ -73,7 +73,7 @@ export function habitsOf(sp) {
 
 // Which rods are made for the sea and which for fresh water (from what each rod is for, in
 // tackle.js); the float and spinning rods do both. Recommendations prefer the right kind.
-const SEA_RODS = new Set(['sea', 'boat', 'squid', 'offshore']), FRESH_RODS = new Set(['trout', 'carp', 'fly']);
+const SEA_RODS = new Set(['sea', 'boat', 'squid', 'offshore', 'biggame']), FRESH_RODS = new Set(['trout', 'carp', 'fly']);
 
 // Every way the game can catch a species: rod, line, rig or leader, bait or lure, all checked by
 // the fishing system's own rules. Best first. (A rod made for the other kind of water is left
@@ -87,6 +87,8 @@ export function setupsFor(sp) {
   const midwater = L.midwater || (!L.bottom && !L.flat && L.homes.every((h) => ['blue', 'tide', 'open', 'deep'].includes(h)));
   for (const rodId of ROD_IDS) {
     const rod = RODS[rodId];
+    // (The big game needs a rod whose line can stand up to it at all.)
+    if (L.big && !rod.lines.some((l) => l.kg >= sp.pull * 0.4)) continue;
     for (const itemId of ITEM_IDS) {
       const it = TACKLE[itemId], like = sp.food?.[itemId] ?? 0;
       if (like < 0.6 || !fits(rod, it)) continue;
@@ -111,6 +113,8 @@ export function setupsFor(sp) {
         if (term.trace && !L.teeth) score *= 0.9;
         if (midwater && it.type === 'bait' && ['bottom', 'ledger'].includes(rod.kind)) score *= 0.5;
         if (sea ? SEA_RODS.has(rodId) : FRESH_RODS.has(rodId)) score *= 1.15;
+        // The big game is trolled on the big-game rod, and fought from the chair.
+        if (L.big && rod.chair) score *= 1.12;
         else if (wrongWater(rodId)) score *= 0.8;
         if (!best || score > best.score) best = { rod: rodId, item: itemId, term: termId, score };
       }

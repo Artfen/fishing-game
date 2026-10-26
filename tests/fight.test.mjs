@@ -142,9 +142,21 @@ test('every catchable sea species can be landed with careful play on the setup t
     const s = setupsFor(sp)[0], R = RODS[s.rod];
     const rod = { line: { ...R.lines.find((l) => l.id === s.line), trace: !!TERMS[s.term].trace }, power: R.power, drag: R.drag };
     const r = play(sp, rod, 'standard', 'careful', { n: 60 });
-    if (r.rate < 0.95 || r.time >= 60) failed.push(`${sp.id} on ${s.rod} (${s.line}): ${JSON.stringify(r)}`);
+    // (The big game of the open ocean fights longer, up to a couple of minutes; the rest under one.)
+    if (r.rate < 0.95 || r.time >= (sp.life.big ? 120 : 60)) failed.push(`${sp.id} on ${s.rod} (${s.line}): ${JSON.stringify(r)}`);
   }
   assert.deepEqual(failed, []);
+});
+
+test('the big game fights longest: a marlin outlasts a tuna, and a tuna a dorado', async () => {
+  const { setupsFor } = await import('../src/guide.js');
+  const time = (id) => {
+    const sp = fishById[id], s = setupsFor(sp)[0], R = RODS[s.rod];
+    return play(sp, { line: { ...R.lines.find((l) => l.id === s.line), trace: !!TERMS[s.term].trace }, power: R.power, drag: R.drag }, 'standard', 'careful', { n: 40 }).time;
+  };
+  const marlin = time('bluemarlin'), tuna = time('tuna'), dorado = time('dorado');
+  assert.ok(marlin > tuna * 1.3 && tuna > dorado, `marlin ${marlin} s, tuna ${tuna} s, dorado ${dorado} s`);
+  assert.equal(setupsFor(fishById.bluemarlin)[0].rod, 'biggame', 'the marlin on the big-game rod');
 });
 
 test('fish of different kinds fight differently: squid jet in short pulses, tuna run long and deep', () => {

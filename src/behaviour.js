@@ -120,6 +120,18 @@ const PREFS = {
   amberjack: { current: [0.4, 0.5], rough: 0.3, bright: 0.2, disturb: 0.7, jumpy: 0.3 },
   chubmackerel: { current: [0.4, 0.6], rough: 0.3, bright: 0, disturb: 0.5, jumpy: 0.25 },
   angelshark: { current: [0.05, 0.5], rough: -0.2, bright: 0.8, disturb: 1, jumpy: 0 },
+  // The big game: the open ocean's hunters care little for current or a boat's wake (billfish
+  // even come to it); the billfish, the mako and the dorado leap when hooked.
+  blueshark: { current: [0.3, 0.3], rough: 0.2, bright: 0, disturb: 0.3, jumpy: 0 },
+  mako: { current: [0.3, 0.3], rough: 0.3, bright: 0, disturb: 0.3, jumpy: 0.45 },
+  albacore: { current: [0.4, 0.4], rough: 0.3, bright: 0, disturb: 0.5, jumpy: 0.05 },
+  bluemarlin: { current: [0.3, 0.3], rough: 0.3, bright: 0, disturb: 0.2, jumpy: 0.7 },
+  sailfish: { current: [0.3, 0.3], rough: 0.2, bright: 0, disturb: 0.25, jumpy: 0.8 },
+  spearfish: { current: [0.3, 0.3], rough: 0.2, bright: 0, disturb: 0.3, jumpy: 0.6 },
+  wahoo: { current: [0.4, 0.4], rough: 0.3, bright: 0, disturb: 0.4, jumpy: 0.05 },
+  dorado: { current: [0.3, 0.3], rough: 0.2, bright: 0, disturb: 0.3, jumpy: 0.55 },
+  yellowfin: { current: [0.4, 0.4], rough: 0.3, bright: 0, disturb: 0.8, jumpy: 0.15 },
+  hammerhead: { current: [0.3, 0.3], rough: 0.1, bright: 0.1, disturb: 0.5, jumpy: 0 },
   trumpetfish: { current: [0.05, 0.4], rough: -0.2, bright: 0.2, disturb: 1, jumpy: 0 },
 };
 export const prefsFor = (id) => PREFS[id] || DEFAULT;

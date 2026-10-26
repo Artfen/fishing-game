@@ -535,10 +535,10 @@ function leader(id) {
     g.add(mesh(new THREE.TorusGeometry(0.004, 0.0009, 8, 16), STEEL(), 0.018, 0, 0, 0, Math.PI / 2, 0));
   } else {
     // Leader material comes on its own little spool, labelled; its end tied to what it ends in.
-    const shock = id === 'shock', tip = id === 'tippet';
+    const shock = id === 'shock' || id === 'windon', tip = id === 'tippet';
     const color = tip ? '#e6e0d0' : '#dfe8ee';
     const spool = labelledSpool({
-      big: shock ? '100 lb' : tip ? 'Tippet' : 'Fluoro', small: shock ? 'shock' : tip ? 'tapered' : 'leader',
+      big: id === 'windon' ? '200 lb' : shock ? '100 lb' : tip ? 'Tippet' : 'Fluoro', small: id === 'windon' ? 'wind-on' : shock ? 'shock' : tip ? 'tapered' : 'leader',
       kind: shock ? 'shock' : tip ? 'tippet' : 'leader', lineColor: color, key: `leader|${id}`, R: 0.034, W: 0.018,
     });
     g.add(spool);
@@ -953,6 +953,43 @@ function lure(id) {
       for (const x of [0.03, -0.06]) hangTreble(g, x, -0.013, 0.02);
       return g;
     }
+    case 'skirt': {
+      // A Konahead: a slanted resin head with a big eye, a long two-tone vinyl skirt streaming
+      // back over a big single hook on its cable.
+      const len = 0.24;
+      const head = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.02, 0.06, 18).rotateZ(-Math.PI / 2), material('skirthead', () => new THREE.MeshPhysicalMaterial({ color: '#7fc8e8', roughness: 0.05, metalness: 0.1, transmission: 0.3, clearcoat: 1 })));
+      head.position.x = len / 2 - 0.03;
+      g.add(head);
+      g.add(mesh(new THREE.CircleGeometry(0.019, 18), glossy('#c8d8e0'), len / 2, 0, 0, 0, Math.PI / 2 - 0.5, 0));
+      for (const s of [-1, 1]) g.add(mesh(new THREE.SphereGeometry(0.006, 10, 8), glossy('#141414'), len / 2 - 0.022, 0.008, s * 0.017));
+      // The skirt: many soft strands, blue over pink, flaring a little towards the tail.
+      for (let i = 0; i < 14; i++) {
+        const a = (i / 14) * Math.PI * 2, r0 = 0.017, r1 = 0.024;
+        const color = Math.sin(a) > 0 ? '#2a5ad0' : '#e86a9a';
+        g.add(tube([[len / 2 - 0.06, Math.sin(a) * r0, Math.cos(a) * r0], [0, Math.sin(a) * r1, Math.cos(a) * r1], [-len / 2, Math.sin(a) * (r1 + 0.006), Math.cos(a) * (r1 + 0.006)]], 0.0028, soft(color), 10));
+      }
+      const h = hook(0.04);
+      h.position.set(-len / 2 + 0.03, -0.004, 0);
+      g.add(h);
+      return g;
+    }
+    case 'ballyhoo': {
+      // A halfbeak on a big hook: slim and silver, its long lower jaw out in front, a little chin
+      // lead, and a short pink skirt over its head.
+      const len = 0.22;
+      g.add(plugBody(len * 0.8, 0.012, '#3a5a7a', '#dfe6ec', '#f6f8f8', 0.85));
+      g.add(mesh(new THREE.ConeGeometry(0.0022, 0.05, 6).rotateZ(-Math.PI / 2), soft('#c84a3a'), len * 0.4 + 0.025, -0.006, 0));
+      g.add(mesh(new THREE.ConeGeometry(0.013, 0.03, 8).rotateZ(Math.PI / 2), soft('#3a5a7a'), -len * 0.4 - 0.012, 0, 0, 0, 0, 0));
+      g.add(mesh(new THREE.SphereGeometry(0.006, 10, 8), LEAD(), len * 0.33, -0.013, 0));
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        g.add(tube([[len * 0.4, Math.sin(a) * 0.012, Math.cos(a) * 0.012], [len * 0.22, Math.sin(a) * 0.016, Math.cos(a) * 0.016]], 0.002, soft('#f08ab4'), 6));
+      }
+      const h = hook(0.035);
+      h.position.set(0, -0.012, 0);
+      g.add(h);
+      return g;
+    }
     case 'sabiki': {
       // A string of six tiny hooks on short droppers, each dressed in a wisp of shiny fish skin
       // and flash, with a small lead at the bottom of the string.
@@ -1099,7 +1136,7 @@ export function buildGear(ref, { closeUp = false, thick = 1, line } = {}) {
   }
   if (ref.type === 'term') {
     const vertical = FLOAT_TIP[ref.id] || ref.id === 'flapper';
-    const spool = ['fluoro', 'tippet', 'shock'].includes(ref.id);
+    const spool = ['fluoro', 'tippet', 'shock', 'windon'].includes(ref.id);
     return { object: buildTerm(ref.id), view: vertical ? { yaw: 0.3, pitch: 0.05, roll: -0.95 } : spool ? { yaw: 0.75, pitch: 0.25 } : { yaw: 0.35, pitch: 0.35 } };
   }
   if (ref.type === 'item') {

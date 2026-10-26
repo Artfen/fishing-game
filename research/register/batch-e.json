@@ -1,0 +1,227 @@
+[
+  {
+    "id": "mako",
+    "scientific": "Isurus oxyrinchus Rafinesque, 1810",
+    "family": "Lamnidae",
+    "synonyms": [
+      "Isurus spallanzani Rafinesque, 1810",
+      "Squalus cepedii Lesson, 1831",
+      "Lamna oxyrhina Cuvier & Valenciennes, 1835",
+      "Oxyrhina glauca Müller & Henle, 1839",
+      "Isuropsis dekayi Gill, 1862",
+      "Isurus mako Whitley, 1929"
+    ],
+    "names": { "en": "Shortfin mako", "fr": "Requin-taupe bleu", "es": "Marrajo dientuso", "pt": "Tubarão-anequim" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/752",
+      "https://doris.ffessm.fr/Especes/Isurus-oxyrinchus-Requin-mako-4903",
+      "https://www.iccat.int/Documents/SCRS/Manual/CH2/2_2_1_2_SMA_ENG.pdf",
+      "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/105839",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Oceanic, epipelagic shark of tropical to temperate seas that is sometimes found close inshore (FishBase). Recorded in water of 5.2-31.7 C, preferring 17-27 C, and spends most of its time above the thermocline at 0-90 m; tagging shows many makos spend much of their time over the shelf and inside national waters rather than roaming the open ocean (ICCAT manual).",
+    "depth": { "usual": [0, 150], "range": [0, 888], "source": "https://www.fishbase.se/summary/Isurus-oxyrinchus.html" },
+    "size": {
+      "common": 270,
+      "max": 445,
+      "maxNote": "FishBase: max 445 cm TL, common 270 cm TL, heaviest published weight 505.8 kg, max reported age 32 years. ICCAT manual: estimated maximum about 500 cm TL, sizes over 400 cm rare; North Atlantic 50% maturity at 182 cm FL (males) and 280 cm FL (females). UK boat record 500 lb (Looe, 1971; British Sea Fishing). The mako AZTI tagged in the Bay of Biscay in 2024 was a 1.4 m female.",
+      "source": "https://www.fishbase.se/summary/Isurus-oxyrinchus.html"
+    },
+    "diet": "Mainly bony fishes, also cephalopods, crustaceans and other sharks; a study off south-west Portugal (Maia et al. 2006, summarised by ICCAT) found bony fish in 87% of stomachs and 90% of content by weight. Large makos take swordfish, billfish and small cetaceans (FishBase, ICCAT). In British waters it eats mackerel, herring and squid (British Sea Fishing).",
+    "behaviour": "Very fast and highly migratory, probably the fastest shark; leaps when hooked (FishBase, British Sea Fishing). Segregates by size and sex. Aplacental viviparous with oophagy: litters of 4-25 pups (up to 30) of 60-70 cm after a 15-18 month gestation, on a 2-3 year cycle; males mature at about 7-8 years and females at 12-19 years (ICCAT manual).",
+    "seasonal": "No Biscay or Iberian seasonal pattern was found. AZTI tagged a 1.4 m female in the Bay of Biscay in mid-August 2024 and reports several makos seen during shark-watching trips off the Basque coast (season not given). Births occur from late winter to spring, and the Strait of Gibraltar is presumed to be a nursery area (ICCAT manual).",
+    "regions": {
+      "gironde": {
+        "status": "occasional",
+        "confidence": "low",
+        "basis": "Range statement only (Norway to South Africa); oceanic species not expected in the estuary, and no record off Royan or the Gironde mouth was found. https://www.fishbase.se/summary/Isurus-oxyrinchus.html"
+      },
+      "biscay": {
+        "status": "occasional",
+        "confidence": "low",
+        "basis": "Range statement; ICCAT lists France among countries with recreational mako catches but gives no area, and a French angling site calls a mako near French coasts 'very rare'. No French Biscay record found. https://www.iccat.int/Documents/SCRS/Manual/CH2/2_2_1_2_SMA_ENG.pdf ; https://www.peche.com/article/46819/requin-mako-une-espece-que-l-on-peut-rencontrer-pres-des-cotes"
+      },
+      "cantabria": {
+        "status": "occasional",
+        "confidence": "medium",
+        "basis": "AZTI: several makos seen on shark-watching trips off the Basque coast and a 1.4 m female tagged in the Bay of Biscay in August 2024; the IEO guide lists it as a species of fishing interest with Asturian and Cantabrian names ('marrajo', 'marraxu'), taken by surface longline and trawl. Frequency not documented. https://www.azti.es/en/projects/spatio-temporal-interaction-of-the-basque-fleet-with-blue-sharks/ ; https://www.azti.es/en/news/the-first-shortfin-mako-shark-tagged-in-the-bay-of-biscay-by-azti/ ; https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+      },
+      "galicia": {
+        "status": "occasional",
+        "confidence": "medium",
+        "basis": "The IEO guide gives Galician names ('marraxo', 'quenllón') and lists surface longline and trawl as the gears; the ICCAT manual cites a study of makos taken by the swordfish longline fishery in NW and N Spain (Mejuto & Garcés 1984, title only). Frequency and season not documented. https://diversimar.cesga.es/docus/Guia_Especies.pdf ; https://www.iccat.int/Documents/SCRS/Manual/CH2/2_2_1_2_SMA_ENG.pdf"
+      },
+      "portugal": {
+        "status": "resident",
+        "confidence": "medium",
+        "basis": "Listed for mainland Portugal as 'Tubarão-anequim' (Carneiro et al. 2014); the ICCAT manual summarises a diet study of makos off the south-west coast of Portugal (Maia et al. 2006). Offshore waters; seasonality not documented. https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318 ; https://www.iccat.int/Documents/SCRS/Manual/CH2/2_2_1_2_SMA_ENG.pdf"
+      },
+      "cadiz": {
+        "status": "resident",
+        "confidence": "low",
+        "basis": "ICCAT manual: the Strait of Gibraltar is presumed to be a nursery area in the north-eastern Atlantic (Buencuerpo et al. 1998); the Junta de Andalucía publishes a mako sheet with the retention ban. No survey data for the Gulf of Cádiz itself. https://www.iccat.int/Documents/SCRS/Manual/CH2/2_2_1_2_SMA_ENG.pdf ; https://www.juntadeandalucia.es/export/drupaljda/isurus_oxyrinchus_2022.pdf"
+      }
+    },
+    "identification": [
+      "Robust, torpedo-shaped body with a long, acutely conical snout and large eyes (ICCAT manual, British Sea Fishing)",
+      "Metallic blue to purplish back, white belly; the underside of the snout is white (ICCAT manual)",
+      "Strong keel on each side of the tail stalk with no secondary keels; near-symmetrical crescent tail (ICCAT manual)",
+      "Relatively short, narrow-tipped pectoral fins, shorter than the head (ICCAT manual)",
+      "Large smooth blade-like teeth without side cusps; the slender lower front teeth stick out even with the mouth closed (ICCAT manual)"
+    ],
+    "similar": [
+      "Porbeagle (Lamna nasus): white patch on the free rear tip of the first dorsal fin, short secondary keels below the main tail keel, and teeth with small side cusps (ICCAT porbeagle chapter)",
+      "Longfin mako (Isurus paucus): pectoral fins as long as or longer than the head with broad rounded tips, and larger eyes (ICCAT longfin mako chapter, British Sea Fishing)",
+      "Blue shark (Prionace glauca): slender, with long sickle-shaped dark-tipped pectoral fins, a weak tail keel and a cobalt to electric-blue back (DORIS)"
+    ],
+    "anglingMethods": [
+      "Catch-and-release only: North Atlantic makos may not be retained (see conservation). Mostly taken as bycatch on pelagic longlines; ICCAT also lists recreational catches in Canada, the UK, Ireland, Mexico, France and the US https://www.iccat.int/Documents/SCRS/Manual/CH2/2_2_1_2_SMA_ENG.pdf",
+      "UK big-game method: rods and reels with at least 50 lb line, a wire trace with a 12/0 hook and a 200 lb mono rubbing leader, a whole mackerel or other oily fish suspended in midwater over chum (rubby-dubby); hooked makos make long runs and jumps https://britishseafishing.co.uk/shortfin-mako/",
+      "Cantabrian-NW fishing ground (IEO 2013): gears listed are surface longline and trawl, with no minimum size, a listing that predates the retention ban https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+    ],
+    "conservation": "IUCN global: EN (A2bd, assessed 5 Nov 2018; FishBase); Mediterranean: CR (Junta de Andalucía sheet, which still shows the older global VU, as does the 2013 IEO guide). CITES Appendix II (listed 2019) and CMS Appendix II (FishBase, ICCAT manual). ICCAT: North Atlantic stock overfished with overfishing occurring (2017 assessment; the 2025 North assessment gave no reliable result and is due to be finished in 2026). ICCAT Rec. 21-09 banned retaining, transhipping and landing North Atlantic shortfin mako in 2022 and 2023, capped total mortality at 250 t, and allows any later retention only through an annual SCRS and Commission process, only for fish dead at haulback with an observer or electronic monitoring on board, plus mandatory safe-handling and release. The SCRS recommends non-retention without exception. In 2024 most of the 944 t North Atlantic catch was dead discards (ICCAT executive summary). EU: Council Regulation (EU) 2022/109 banned retaining, transhipping or landing North Atlantic makos from ICCAT fisheries (as cited by the Junta de Andalucía sheet). Barcelona Convention SPA/BD Protocol Annex II and Spain's list of specially protected wild species for the Mediterranean (Junta de Andalucía). FishBase lists it as potentially dangerous (traumatogenic). Treat as catch-and-release only.",
+    "sources": [
+      { "title": "FishBase summary: Isurus oxyrinchus", "url": "https://www.fishbase.se/summary/Isurus-oxyrinchus.html" },
+      { "title": "FishBase common names: Isurus oxyrinchus", "url": "https://www.fishbase.se/ComNames/752" },
+      {
+        "title": "FishBase synonyms: Isurus oxyrinchus",
+        "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=752&SynCode=58485&GenusName=Isurus&SpeciesName=oxyrinchus"
+      },
+      { "title": "DORIS: Isurus oxyrinchus (stub sheet, names only)", "url": "https://doris.ffessm.fr/Especes/Isurus-oxyrinchus-Requin-mako-4903" },
+      { "title": "ICCAT Manual 2.2.1.2: Shortfin mako (Aug 2022)", "url": "https://www.iccat.int/Documents/SCRS/Manual/CH2/2_2_1_2_SMA_ENG.pdf" },
+      { "title": "ICCAT Manual 2.2.1.3: Porbeagle (Aug 2022)", "url": "https://www.iccat.int/Documents/SCRS/Manual/CH2/2_2_1_3_POR_ENG.pdf" },
+      { "title": "ICCAT Manual 2.2.1.11: Longfin mako (Aug 2022)", "url": "https://www.iccat.int/Documents/SCRS/Manual/CH2/2_2_1_11_LMA_ENG.pdf" },
+      { "title": "ICCAT executive summary SMA (Report 2024-2025)", "url": "https://www.iccat.int/Documents/SCRS/ExecSum/SMA_ENG.pdf" },
+      { "title": "ICCAT Rec. 21-09, North Atlantic shortfin mako", "url": "https://www.iccat.int/Documents/Recs/compendiopdf-e/2021-09-e.pdf" },
+      { "title": "Junta de Andalucía sheet: Isurus oxyrinchus (2022)", "url": "https://www.juntadeandalucia.es/export/drupaljda/isurus_oxyrinchus_2022.pdf" },
+      { "title": "IEO 2013, Especies de interés pesquero en Galicia, Asturias y Cantabria", "url": "https://diversimar.cesga.es/docus/Guia_Especies.pdf" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      {
+        "title": "AZTI news (17 Dec 2024): first shortfin mako tagged in the Bay of Biscay",
+        "url": "https://www.azti.es/en/news/the-first-shortfin-mako-shark-tagged-in-the-bay-of-biscay-by-azti/"
+      },
+      {
+        "title": "AZTI project: Basque fleet interaction with blue sharks (mako sightings)",
+        "url": "https://www.azti.es/en/projects/spatio-temporal-interaction-of-the-basque-fleet-with-blue-sharks/"
+      },
+      { "title": "British Sea Fishing: Shortfin mako", "url": "https://britishseafishing.co.uk/shortfin-mako/" },
+      {
+        "title": "peche.com (Sept 2024): requin mako near French coasts",
+        "url": "https://www.peche.com/article/46819/requin-mako-une-espece-que-l-on-peut-rencontrer-pres-des-cotes"
+      },
+      { "title": "DORIS: Prionace glauca (look-alike)", "url": "https://doris.ffessm.fr/Especes/Prionace-glauca-Requin-peau-bleue-1660" },
+      { "title": "WoRMS vernacular names (AphiaID 105839)", "url": "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/105839" }
+    ],
+    "uncertain": "Current EU rule not verified: search results point to Council Regulation (EU) 2025/669 (amending 2025/202, Article 29(2)) extending the North Atlantic retention ban through 2025, but EUR-Lex could not be fetched, and the 2026 position, including whether ICCAT validated any retention after 2023, is unknown. Not verified whether the ban formally covers recreational anglers in France, Spain or Portugal (Rec. 21-09 is written for ICCAT fisheries and vessels); release is the safe assumption. The IUCN Red List page returned 403, so the category comes from FishBase. No record from the Gironde or the French Biscay coast was found, and AZTI did not give where in the Bay of Biscay its mako was tagged. Galicia, Cantabria and Cádiz statuses rest on fishery guides and ICCAT summaries, not surveys. OBIS has only 5 records in the six regional boxes (1 Galicia, 4 Portugal), too few to use. FishBase's usual-depth field says 100-150 m, which conflicts with its own text ('surface waters down to about 150 m') and with ICCAT (mean 67 m, mostly 0-90 m); 0-150 m is used. Max size: FishBase 445 cm vs ICCAT's estimated 500 cm. The EU commercial-names database could not be read (bot check); a search snippet suggested France's official name there is 'requin bleu', which would clash with the blue shark, but this is unverified. FishBase treats Isurus glaucus as ambiguous, while ICCAT lists it as a synonym. No IPMA page for the species was found."
+  },
+  {
+    "id": "albacore",
+    "scientific": "Thunnus alalunga (Bonnaterre, 1788)",
+    "family": "Scombridae",
+    "synonyms": [
+      "Scomber alalunga Bonnaterre, 1788",
+      "Germo alalunga (Bonnaterre, 1788)",
+      "Scomber germo Lacepède, 1801",
+      "Thynnus pacificus Cuvier, 1832"
+    ],
+    "names": { "en": "Albacore", "fr": "Germon", "es": "Atún blanco", "pt": "Atum-voador" },
+    "nameSources": [
+      "https://www.fishbase.se/ComNames/142",
+      "https://doris.ffessm.fr/Especes/Thunnus-alalunga-Thon-blanc-820",
+      "https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_4_ALB_ENG.pdf",
+      "https://diversimar.cesga.es/docus/Guia_Especies.pdf",
+      "https://www.juntadeandalucia.es/export/drupaljda/6_atun_blanco.pdf",
+      "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/127026",
+      "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318"
+    ],
+    "habitat": "Epipelagic and mesopelagic oceanic tuna that seldom comes close to shore and prefers deep open water (ICCAT manual). Temperate tuna preferring 10-20 C, mainly 16-21 C in the north-east Atlantic (ICCAT); concentrates along thermal fronts and may gather around floating objects such as sargassum (FishBase). Juveniles stay near the surface because the swim bladder is not developed below about 50 cm; adults live deeper (ICCAT).",
+    "depth": { "usual": null, "range": [0, 600], "source": "https://www.fishbase.se/summary/Thunnus-alalunga.html" },
+    "size": {
+      "common": 100,
+      "max": 140,
+      "maxNote": "FishBase: max 140 cm FL (cited as a record), common 100 cm FL, heaviest published weight 60.3 kg, max reported age 9 years. ICCAT manual: max 127 cm (Collette & Nauen 1983), about 130 cm likely in the Atlantic; north-east Atlantic surface fisheries take mostly juveniles of 50-90 cm FL (mode around 64 cm); 50% maturity at 90 cm FL (age 5). Recreational minimum in France: 2 kg (Gironde prefecture).",
+      "source": "https://www.fishbase.se/summary/Thunnus-alalunga.html"
+    },
+    "diet": "Fishes, crustaceans and squid (FishBase). In the north-east Atlantic mainly fish, especially horse mackerel (Trachurus trachurus), with fewer crustaceans; opportunistic on schools of sardine, anchovy, mackerel and squid (ICCAT manual).",
+    "behaviour": "Schools by size; schools are smaller and looser than those of tropical tunas, and mixed-species schools are less common (ICCAT). One of the longest fish migrations: juveniles aged about 1-4 make a summer feeding migration from the central Atlantic to the north-east Atlantic, while adults migrate to spawn in the western North Atlantic (Sargasso Sea, off Venezuela) from April to September, peaking around July (ICCAT manual). Males dominate among fish over about 85 cm (ICCAT, FishBase).",
+    "seasonal": "Summer visitor to the Bay of Biscay: from May juveniles gather near the Azores and move north in 17-20 C water, reaching south-west of Ireland and the Bay of Biscay within 1-2 months; in early autumn they head back to the mid-Atlantic past southern Portugal, the Canaries and the Azores (ICCAT manual). This is the 'germon' fishery of France and the 'bonito del norte' fishery of northern Spain: Cantabrian trolling ('curricán') and live-bait boats work from late spring to early autumn (IEO guide). Spanish surface boats then fish albacore in the western Mediterranean in autumn (ICCAT). Pelagis survey sightings in the French Biscay box date from October 2011 and 2016 (OBIS).",
+    "regions": {
+      "gironde": {
+        "status": "occasional",
+        "confidence": "low",
+        "basis": "Offshore Bay of Biscay summer fish that ICCAT says seldom comes close to shore; no record off Royan or in the estuary was found. The Gironde prefecture's recreational size table does list 'thon germon' (2 kg). https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_4_ALB_ENG.pdf ; https://www.gironde.gouv.fr/contenu/telechargement/68064/507453/file/Fiche%2018%20-%20Tailles%20l%C3%A9gales.pdf"
+      },
+      "biscay": {
+        "status": "seasonal",
+        "confidence": "high",
+        "basis": "ICCAT manual: juvenile albacore reach the Bay of Biscay in early summer and leave in early autumn; surface fisheries are concentrated in the Bay of Biscay and adjacent waters, with French trolling and baitboats important in the 1950s-1970s. Pelagis boat-survey sightings in October 2011 and 2016. https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_4_ALB_ENG.pdf ; https://obis.org/dataset/924c4d25-6358-44a3-8f4d-24086256ad3e"
+      },
+      "cantabria": {
+        "status": "seasonal",
+        "confidence": "high",
+        "basis": "IEO guide: the Cantabrian 'curricán' troll fishery for 'bonito (Thunnus alalunga)' runs from late spring to early autumn, with live-bait boats; names 'bonito del Norte' (Cantabria) and 'bonito' (Asturias). ICCAT: Spanish trolling and baitboats in the Bay of Biscay. https://diversimar.cesga.es/docus/Guia_Especies.pdf ; https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_4_ALB_ENG.pdf"
+      },
+      "galicia": {
+        "status": "seasonal",
+        "confidence": "medium",
+        "basis": "IEO guide gives Galician names ('albacora', 'bonito do Norte') and troll and live-bait gears for the Cantabrian-NW ground; the summer season is described for the guide's whole area, not Galicia specifically. https://diversimar.cesga.es/docus/Guia_Especies.pdf"
+      },
+      "portugal": {
+        "status": "seasonal",
+        "confidence": "medium",
+        "basis": "Listed for mainland Portugal as 'Atum-voador' or 'Voador' (Carneiro et al. 2014); ICCAT describes the autumn return migration passing south of Portugal. No Portuguese fishery source fetched. https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318 ; https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_4_ALB_ENG.pdf"
+      },
+      "cadiz": {
+        "status": "occasional",
+        "confidence": "low",
+        "basis": "Junta de Andalucía: Andalusian fish auctions use 'atún blanco', 'albacora', 'bonito del norte' and 'janco' (Barbate), which shows landings occur but not how often or when. ICCAT's autumn return route passes south of Portugal. https://www.juntadeandalucia.es/export/drupaljda/6_atun_blanco.pdf ; https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_4_ALB_ENG.pdf"
+      }
+    },
+    "identification": [
+      "Very long pectoral fins (30% of fork length or more in fish over 50 cm) reaching the second dorsal finlets or beyond the second dorsal fin; short in fish under 30 cm (ICCAT manual, IEO guide)",
+      "Narrow white rear edge to the tail fin, unique among tunas (ICCAT manual)",
+      "Metallic dark-blue back, silvery-white belly, a faint iridescent blue band along the side in life, and no stripes or spots (ICCAT manual)",
+      "Deepest point of the body at or just before the second dorsal fin, further back than in other tunas (ICCAT manual, IEO guide)",
+      "First dorsal fin deep yellow, second dorsal and anal fins light yellow, anal finlets dark (ICCAT manual)"
+    ],
+    "similar": [
+      "Bigeye tuna (Thunnus obesus): juveniles also have long pectoral fins, but with rounded tips (ICCAT manual)",
+      "Atlantic bluefin tuna (Thunnus thynnus): listed as a look-alike by the IEO guide; check pectoral length and the white rear edge of the tail (IEO guide, ICCAT manual)",
+      "Striped tunas such as Atlantic bonito (Sarda sarda) and skipjack (Katsuwonus pelamis): the albacore has no stripes or spots (ICCAT manual). Name trap: in Asturias and Cantabria 'bonito' means albacore (IEO guide)"
+    ],
+    "anglingMethods": [
+      "Trolling ('curricán'): lures towed below 6 knots from the side or outriggers; the lure was once made from maize leaf and is now a rubber octopus-style skirt. Live-bait pole-and-line is the other traditional gear https://diversimar.cesga.es/docus/Guia_Especies.pdf",
+      "FishBase: a gamefish caught offshore, often on live or dead baitfish, with hard strikes and powerful runs https://www.fishbase.se/summary/Thunnus-alalunga.html",
+      "France: recreational minimum weight 2 kg ('thon germon'; arrêté of 26 Oct 2012 as amended 15 Jan 2018, Gironde prefecture guide, May 2023) https://www.gironde.gouv.fr/contenu/telechargement/68064/507453/file/Fiche%2018%20-%20Tailles%20l%C3%A9gales.pdf",
+      "Basque Country (Spain): recreational albacore needs a specific vessel authorisation from the Secretaría General de Pesca Marítima, a limit of 5 fish per licence per day (higher per-boat cap with 4 or more licence holders) and monthly catch declarations https://www.euskadi.eus/web01-a2arraku/es/contenidos/informacion/especies_tallas_cupos/es_def/index.shtml"
+    ],
+    "conservation": "IUCN global: LC (assessed 15 Jan 2021; FishBase); CITES and CMS not evaluated (FishBase). ICCAT 2023 assessment: North Atlantic stock not overfished and not subject to overfishing (SSB2021/SSBMSY 2.19, F/FMSY 0.45). It is managed by a management procedure (Rec. 21-04, amended by Rec. 23-05) with a TAC of 47,251 t a year for 2024-2026, of which 35,815.9 t is the EU quota; the provisional 2024 catch was 24,420 t (ICCAT executive summary). Rec. 21-04 exempts recreational vessels from its fleet-capacity limit. There is no ICCAT retention ban. France: recreational minimum 2 kg. Spain: no biological minimum size in the Atlantic or Mediterranean; minimum marketing weight 1.5 kg under Regulation (EC) 2406/96 (Junta de Andalucía, IEO guide). Highly migratory species under UNCLOS Annex I (IEO guide).",
+    "sources": [
+      { "title": "FishBase summary: Thunnus alalunga", "url": "https://www.fishbase.se/summary/Thunnus-alalunga.html" },
+      { "title": "FishBase common names: Thunnus alalunga", "url": "https://www.fishbase.se/ComNames/142" },
+      {
+        "title": "FishBase synonyms: Thunnus alalunga",
+        "url": "https://www.fishbase.se/Nomenclature/SynonymsList.php?ID=142&SynCode=22832&GenusName=Thunnus&SpeciesName=alalunga"
+      },
+      { "title": "DORIS: Thunnus alalunga (stub sheet, names only)", "url": "https://doris.ffessm.fr/Especes/Thunnus-alalunga-Thon-blanc-820" },
+      { "title": "ICCAT Manual 2.1.4: Albacore (AZTI, 2004; 1st edition 2010)", "url": "https://www.iccat.int/Documents/SCRS/Manual/CH2/2_1_4_ALB_ENG.pdf" },
+      { "title": "ICCAT executive summary ALB (Report 2024-2025)", "url": "https://www.iccat.int/Documents/SCRS/ExecSum/ALB_ENG.pdf" },
+      { "title": "ICCAT Rec. 21-04, North Atlantic albacore management procedure", "url": "https://www.iccat.int/Documents/Recs/compendiopdf-e/2021-04-e.pdf" },
+      { "title": "ICCAT Rec. 23-05, North Atlantic albacore TAC 2024-2026", "url": "https://www.iccat.int/Documents/Recs/compendiopdf-e/2023-05-e.pdf" },
+      { "title": "IEO 2013, Especies de interés pesquero en Galicia, Asturias y Cantabria", "url": "https://diversimar.cesga.es/docus/Guia_Especies.pdf" },
+      { "title": "Junta de Andalucía fiche FTPE6: Atún blanco", "url": "https://www.juntadeandalucia.es/export/drupaljda/6_atun_blanco.pdf" },
+      { "title": "Carneiro et al. 2014, checklist of marine fishes from Portugal", "url": "https://europeanjournaloftaxonomy.eu/index.php/ejt/article/download/196/318" },
+      {
+        "title": "Préfecture de la Gironde, Guide plaisance fiche 18: tailles légales (May 2023)",
+        "url": "https://www.gironde.gouv.fr/contenu/telechargement/68064/507453/file/Fiche%2018%20-%20Tailles%20l%C3%A9gales.pdf"
+      },
+      {
+        "title": "Basque Government: recreational fishing species, sizes and limits (updated 3 June 2024)",
+        "url": "https://www.euskadi.eus/web01-a2arraku/es/contenidos/informacion/especies_tallas_cupos/es_def/index.shtml"
+      },
+      { "title": "OBIS dataset: Observatoire Pelagis boat surveys 2003-2021", "url": "https://obis.org/dataset/924c4d25-6358-44a3-8f4d-24086256ad3e" },
+      { "title": "WoRMS vernacular names (AphiaID 127026)", "url": "https://www.marinespecies.org/rest/AphiaVernacularsByAphiaID/127026" }
+    ],
+    "uncertain": "The ICCAT biology chapter dates from 2004, so migration timing may have shifted; recent Bay of Biscay availability was not checked. Galicia and Portugal seasonality is inferred from the IEO guide's area-wide season and ICCAT's migration description, not from local catch data. Gulf of Cádiz frequency is unknown: the evidence is auction names only. A 2022 Marine Biodiversity paper on albacore and skipjack diets in the Gulf of Cádiz appeared in search results but was not read. A Portuguese Portaria (263/2020) said to split the albacore quota 15% mainland and 85% Azores/Madeira appeared only in search results and could not be fetched. The Basque Government page's text is partly garbled and cites repealed Regulation (EC) 850/98, so its bag limit should be rechecked; the Spanish national recreational rules (RD 347/2011 annexes, MAPA annual resolution) were not read, and the 2025 MAPA resolution URL returned 404. Whether the 1.5 kg marketing minimum (Regulation (EC) 2406/96) still applies was not verified. No record near Royan was found. FishBase flags 140 cm FL as a record, while ICCAT cites 127-130 cm. DORIS's albacore sheet is an empty stub (author spelt 'Bonaterre'). OBIS counts come from API queries (October 2026) over boxes: Gironde 45.0-45.8N/1.45-0.5W; French Biscay about 43.38-45.0N east of 2.0W (3.0W north of 44N); Cantabria 43.25-44.2N/7.05-2.0W; Galicia 41.8-44.0N/9.8-7.05W; Portugal 36.85-41.8N/10.0-7.4W; Cádiz 35.95-37.3N/7.4-5.6W. They returned only 3 records (2 French Biscay, 1 Cantabria, all October Pelagis sightings), which reflects survey coverage, not abundance."
+  }
+]

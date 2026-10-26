@@ -33,6 +33,10 @@ export const AT_BRASAS = {
   bluefish: { zones: ['veril', 'lava', 'lee'], groups: 2, where: 'hunting off the points and along El Veril' },
   bullet: { zones: ['veril', 'ocean'], groups: 2, where: 'out over El Veril' },
   littletunny: { zones: ['ocean', 'veril'], groups: 2, where: 'the blue water off the island' },
+  // (The big game of the home coast's Blue Water: see bigGame.js.)
+  blueshark: { zones: ['ocean'], groups: 3, where: 'the blue water off the island' },
+  mako: { zones: ['ocean'], groups: 2, where: 'the blue water off the island, hunting the tuna' },
+  albacore: { zones: ['ocean'], groups: 2, where: 'schools in the blue water off the island' },
 };
 
 // The island's own species (new to the game), in the same shape as fish.js and atlantic.js. They

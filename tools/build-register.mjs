@@ -20,7 +20,7 @@ const out = join(root, 'src', 'registerData.js');
 const REGIONS = ['gironde', 'biscay', 'cantabria', 'galicia', 'portugal', 'cadiz'];
 const STATUSES = new Set(['resident', 'seasonal', 'occasional', 'absent', 'unknown']);
 const CONF = new Set(['high', 'medium', 'low']);
-const KIND = { squid: 'cephalopod', cuttlefish: 'cephalopod', octopus: 'cephalopod', catshark: 'shark', blueshark: 'shark', thornback: 'ray', stingray: 'ray' };
+const KIND = { squid: 'cephalopod', cuttlefish: 'cephalopod', octopus: 'cephalopod', catshark: 'shark', blueshark: 'shark', mako: 'shark', thornback: 'ray', stingray: 'ray' };
 // Common names in lower case, as in running text, except for words from proper names.
 const PROPER = /^(European|Atlantic|Mediterranean|Moroccan|Senegalese|Portuguese|Spanish|French|Bay|Canary|John)\b/;
 
