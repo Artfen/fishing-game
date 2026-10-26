@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat, wrapAngle } from './util.js';
 import { waveHeight } from './world/water.js';
 import { windAt, currentAt, currentScale, conditions } from './world/conditions.js';
-import { solidHeight, PIERS, SEA, SOUTH_Z } from './world/terrain.js';
+import { solidHeight, PIERS, SEA, SOUTH_Z, CROSSING } from './world/terrain.js';
 import { SOUTH_RECT } from './world/brasa.js';
 import { buildLanternModel, buildRod, bendRod } from './props.js';
 import { withSurface } from './world/surface.js';
@@ -314,6 +314,10 @@ export class Boat {
     // what the wind is doing to the sail just now, the heel, and where the boom lies.
     this.sailUp = false;
     this.sheet = 0.5;
+    // Out on the crossing (see crossing.js): the sail shortened in a blow (1 full … less, reefed),
+    // and the fastest a motor boat can be driven in the ocean's long swell (m/s).
+    this.reef = 1;
+    this.vmax = Infinity;
     this.sailing = null;
     this.heel = 0;
     this.boomYaw = 0;
@@ -1821,8 +1825,8 @@ export class Boat {
       // the other.
       this.power = 0;
       const A = (this.sailing = sailForce(ax, az, this.fwd.x, this.fwd.z, this.right.x, this.right.z, this.sheet, this.sailing || {}));
-      thrust = this.anchored || this.tie ? 0 : A.drive;
-      const lateral = this.anchored || this.tie ? 0 : A.lateral;
+      thrust = this.anchored || this.tie ? 0 : A.drive * this.reef;
+      const lateral = this.anchored || this.tie ? 0 : A.lateral * this.reef;
       this.heel = damp(this.heel, heelFor(lateral), 2.2, dt);
       const pressed = smoothstep(0.3, 0.5, Math.abs(this.heel));
       vf = step(vf, thrust * (1 - 0.5 * pressed) + wf * 0.4, hullDrag(vf));
@@ -1857,6 +1861,8 @@ export class Boat {
     }
     // (Fishing without a motor running, the boat settles; under power it goes on, trolling.)
     if (fishing && !this.power) vf *= Math.exp(-0.9 * dt);
+    // (In the ocean's long swell, driven harder than she'll take, she slams and slows to it.)
+    if (vf > this.vmax) vf = this.vmax + (vf - this.vmax) * Math.exp(-10 * dt);
     this.vel.copy(this.fwd).multiplyScalar(vf).addScaledVector(this.right, vr).add(this.drift);
     if (this.anchor) this.holdAnchor(dt, steer);
     if (this.tie) this.holdTie(dt);
@@ -2095,10 +2101,13 @@ export class Boat {
       }
     }
     // The open sea goes on forever: near the edge of the map, a gentle current eases you back.
-    // (Las Brasas, far to the south, has its own edges.)
+    // (Las Brasas, far to the south, has its own edges; and between the two, the open sea of the
+    // crossing joins them, with edges only to either side.)
     const W = p.z > SOUTH_Z ? SOUTH_RECT : SEA, m = 80;
-    const ox = p.x < W.x0 + m ? W.x0 + m - p.x : p.x > W.x1 - m ? W.x1 - m - p.x : 0;
-    const oz = p.z < W.z0 + m ? W.z0 + m - p.z : p.z > W.z1 - m ? W.z1 - m - p.z : 0;
+    const across = p.x > CROSSING.x0 && p.x < CROSSING.x1 && p.z > SEA.z1 - m - 20 && p.z < SOUTH_RECT.z0 + m + 20;
+    const X0 = across ? CROSSING.x0 : W.x0, X1 = across ? CROSSING.x1 : W.x1;
+    const ox = p.x < X0 + m ? X0 + m - p.x : p.x > X1 - m ? X1 - m - p.x : 0;
+    const oz = across ? 0 : p.z < W.z0 + m ? W.z0 + m - p.z : p.z > W.z1 - m ? W.z1 - m - p.z : 0;
     v.x += ox * 0.5 * dt;
     v.z += oz * 0.5 * dt;
     this.bumpCooldown -= dt;

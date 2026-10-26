@@ -188,7 +188,8 @@ test('every fish already in the world is where it was, the same size, the same k
   const BIG = new Set(BIG_GAME.map((f) => f.id));
   let h = 0x811c9dc5, n = 0;
   for (const a of eco.agents) {
-    if (COLD.has(a.home.tag) || a.home.level || a.home.south || a.home.site || BIG.has(a.sp.id)) continue;
+    // (The crossing to Las Brasas, out past the bottom of the home chart, has homes of its own too.)
+    if (COLD.has(a.home.tag) || a.home.level || a.home.south || a.home.site || a.home.crossing || BIG.has(a.sp.id)) continue;
     n++;
     const s = `${a.sp.id}|${a.home.type}@${a.home.x.toFixed(1)},${a.home.z.toFixed(1)}:${a.size}`;
     for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0;

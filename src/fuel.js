@@ -26,9 +26,9 @@ import { DESTS, driveMinutes } from './outing.js';
 // big one, enough for the long passage south and some.)
 export const TANKS = { car: 45, skiff: 20, bass: 30, cabin: 40, sail: 12, cruiser: 300, console: 200, jetski: 60 };
 export const PETROL = ['skiff', 'bass', 'cabin', 'sail', 'cruiser', 'console', 'jetski'];
-// What the long passage takes from the yacht's tank (half of it): she needs that much aboard
-// to set out.
-export const PASSAGE_FUEL = 150;
+// What the yacht needs aboard to set out on the crossing to Las Brasas or home (see crossing.js):
+// she burns about 55 litres across with the lever down the whole way; this leaves a margin.
+export const PASSAGE_FUEL = 90;
 export const CAN = 10;
 export const CAN_PLACES = ['home', 'car', 'pack'];
 // The car: litres a minute of driving (a drive you let go by), and a metre (one you drive).

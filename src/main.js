@@ -25,7 +25,7 @@ import { surfaceUniforms } from './world/surface.js';
 import { causticUniforms } from './world/caustics.js';
 import {
   bakeHeightTexture, heightAt, walkHeight, solidHeight, landSDF, lakeSDF, streamSDF, zoneAt, waterOf, riverSDF, mereSDF, waterLevel, depthAt,
-  PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD, SEA, inSeas, inWorld, SOUTH_Z,
+  PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD, SEA, inSeas, inWorld, SOUTH_Z, CROSSING,
   PEGS, POOLS, STREAM, SNAG, LILIES, JETTY, ISLAND, GANNET_CAMP, SKERRIES, SKELLIG, DEEP_Z,
   HAVEN, HAVEN_QUAY, HAVEN_BENCH, DAYMARK, STRAND, WRECK, WRECK_BUOY, WRECK_BELL, CHANNEL,
   HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, FUEL_PUMPS, CABIN_BERTH, SAIL_BERTH, CRUISER_BERTH, CONSOLE_BERTH, HAVEN_PONTOON, HAVEN_FINGERS, laneInfo,
@@ -36,6 +36,8 @@ import { Workbench, OutingSheet } from './workbench.js';
 import { KIT, KIT_IDS, DESTS, launchOf, parkNear, driveMinutes, moveKit, reconcile, campOfKit, campHas, statusOf, snapshot } from './outing.js';
 import { insideHome, HOME_SPOTS } from './world/home.js';
 import { insideHaven, HAVEN_ROOMS, ROOM_SPOTS } from './world/havenHouses.js';
+import { ENDS, CROSS_M, crossProgress, onCrossing, inOcean, arrived, tradeAt, oceanAt, seaKindly, LONG_RANGE, crossSeconds, crossHours, CROSS_FUEL, bearingTo, pointWords, steerFor, planCrossing, ISLAND_SEEN, cleanPassages } from './crossing.js';
+import { buildCrossingLife } from './world/crossingLife.js';
 import { BOTHY_DOOR, FELL_SIGN } from './world/fell.js';
 import { trimAdvice, bestSheet, SAIL } from './sailing.js';
 import { SailUI } from './sailui.js';
@@ -48,7 +50,7 @@ import { Effects } from './effects.js';
 import { buildSeaLife, SEA_LIFE } from './world/sealife.js';
 import { buildWildlife } from './world/wildlife.js';
 import { seeSign, readSign, SIGNS, SEEN_AT, stepColour, colourKey, colourWords, NATURE, noteNature, groundsOf, groundWords } from './grounds.js';
-import { newToday, notePlace, noteMove, noteBoat, noteDive, noteSeen, noteSky, noteGale, noteRecord, closeDay, dayLine, checkChallenges, isSheltered, CHALLENGES, challengeById, dayPage, dayText, noteSat } from './daybook.js';
+import { newToday, notePlace, noteMove, noteBoat, noteDive, noteSeen, noteSky, noteGale, noteRecord, closeDay, dayLine, checkChallenges, isSheltered, CHALLENGES, challengeById, dayPage, dayText, noteSat, noteCrossing } from './daybook.js';
 import { SeaGlow, nightGlow } from './world/seaglow.js';
 import { Fishing } from './fishing.js';
 import { drawFishSketch, drawLanternSketch, fishById, weightOf } from './fish.js';
@@ -75,7 +77,7 @@ import { demandFor, money, ordersFor, ORDERS_BY } from './market.js';
 import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
 import { PHOTO_MAX } from './save.js';
 import { Journal } from './journal.js';
-import { MapSheet, Explored } from './map.js';
+import { MapSheet, Explored, OCEAN_SHEET } from './map.js';
 import { FieldGuide } from './guide.js';
 import { startTrip, endTrip, summaryText } from './trip.js';
 import { diagnose } from './advice.js';
@@ -90,7 +92,7 @@ import { levers, nearest, step, setIndex, within, capIndex, leverWords } from '.
 import { LeverUI } from './lever.js';
 import { anchorCheck, berthFor, berthAt, castOffCheck, canTow, towStep, TOW } from './mooring.js';
 import { Rope } from './rope.js';
-import { isPetrol, PASSAGE_FUEL, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, burnKayak, chargeBattery, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
+import { BOAT_PER_S, isPetrol, PASSAGE_FUEL, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, burnKayak, chargeBattery, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
 import { STEPS as TRIP_STEPS, stepOf, stepNumber, complete as completeStep, start as startGuide, words as guideWords, isNewGame, placeAt, FISH_SPOTS } from './firstTrip.js';
 import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality } from './quality.js';
 import { Post } from './post.js';
@@ -210,7 +212,7 @@ function setRegion(r) {
   fishRenderer.clear = underwater.clear;
   water.uniforms.uClear.value = r === 'south' ? 1 : 0;
   // (At Las Brasas the trade wind blows from the north-east, unless you've set the wind yourself.)
-  if (r === 'south' && settings.weather.windMode !== 'manual') conditions.wind.from = 0.8;
+  if (r === 'south' && settings.weather.windMode !== 'manual' && !(conditions.ocean > 0.05)) conditions.wind.from = 0.8;
   // (The first time: the island's buildings and plants, and its weed beds under the water.)
   if (r === 'south' && !world.brasa) world.buildBrasa();
   if (r === 'south' && !southBeds) {
@@ -320,6 +322,8 @@ hideFromReflection(glow.points);
 const sealife = buildSeaLife(scene, { glow });
 // The quieter wildlife at home: otters, herons, cormorants, terns, oystercatchers (wildlife.js).
 const wildlife = buildWildlife(scene);
+// Out on the crossing to Las Brasas: the weed rafts and the flying fish (see crossing.js).
+const crossingLife = buildCrossingLife(scene);
 // The harbour's people (Mags, Bert, Ruth, Dougie and his boat, Hettie, Kit; Paco at Las Brasas).
 const town = new Townsfolk({ obstacles: world.coast.obstacles });
 const folkView = new FolkView(scene);
@@ -1844,9 +1848,9 @@ function teachBoat() {
     windsurf: `The windsurf board: you sail it standing up. ${T ? 'The stick up sheets the sail in and down eases it out; across steers (you lean the rig)' : S ? `${stick} up and down sheets in and out, across steers (you lean the rig)` : `${key('forward')} sheets in, ${key('back')} eases out, ${key('left')} and ${key('right')} steer (you lean the rig)`}. Like the sailing boat it goes where the wind lets it, and the panel shows how the sail is drawing; in a good breeze (from about 25 km/h) it climbs up onto the plane and flies. Hang on to too much power for too long (hauled in hard in a gust) and you're catapulted in: ease out in the gusts. You climb back on in a moment. Sail trim: Helped (Settings) trims it for you. No fishing from it, and no anchor: tie up at a pontoon or step ashore.`,
     console: `The centre-console boat: twin outboards, fast (about twenty-seven knots flat out), and open all round. You drive it standing at the console, under the T-top: ${lever} To fish, cast as from any boat: you step back into the cockpit (or up into the bow, if that's the way you're facing) and turn to face your line. It runs on petrol: the fuel point is on Willowhaven's pontoon, by its berth.`,
     jetski: `The jet ski: very quick (over thirty knots flat out). ${lever} It steers by its jet, so it only turns with the throttle on. At speed it leaves the wave crests and lands with a smack, throwing a plume of spray behind it: hold on. It runs on petrol (the fuel point is on Willowhaven's pontoon, beside its berth). No fishing from it.`,
-    cruiser: `The sport-fishing yacht: twin diesels, a cabin forward (bunks and a galley), and an open cockpit aft to fish from. You stand at the wheel: ${lever} She's quick once she's going (about twenty knots) but slow to turn at speed, so give her room; slow, her twin screws bring her round handily. To fish, cast as from any boat: you step back into the cockpit and turn to face your line, so you can cast off the stern or either side, and fight a fish wherever it runs. Tie up at a quay or a pontoon, or anchor, then ${T ? 'tap the prompt' : `press ${key('interact')}`} for the cabin: cook, and sleep aboard. She can make the long passage south under power too: four days to Las Brasas, and it takes half her tank (${T ? 'tap the prompt' : key('interact')} out on open water, or beside her at her berth). The fuel point is on Willowhaven's pontoon, by her berth.`,
+    cruiser: `The sport-fishing yacht: twin diesels, a cabin forward (bunks and a galley), and an open cockpit aft to fish from. You stand at the wheel: ${lever} She's quick once she's going (about twenty knots) but slow to turn at speed, so give her room; slow, her twin screws bring her round handily. To fish, cast as from any boat: you step back into the cockpit and turn to face your line, so you can cast off the stern or either side, and fight a fish wherever it runs. Tie up at a quay or a pontoon, or anchor, then ${T ? 'tap the prompt' : `press ${key('interact')}`} for the cabin: cook, and sleep aboard. She can make the crossing south to Las Brasas, about twenty minutes at the helm across the open sea, or the fast passage (${T ? 'tap the prompt' : key('interact')} out on open water, or beside her at her berth); it takes about ${litres(CROSS_FUEL(BOAT_PER_S.cruiser))} of diesel, and out in the ocean swell she makes about six knots. The fuel point is on Willowhaven's pontoon, by her berth.`,
     cabin: `The cabin boat: slow and steady, with a little cabin forward: a bunk and a galley stove. ${lever} Anchor (or tie up alongside a quay), then ${T ? 'tap the prompt' : `press ${key('interact')}`} for the cabin: cook what you've kept, and sleep aboard. A camp that floats. It runs on petrol: the harbour pump is right by her berth.`,
-    sail: `The sailing boat: she goes where the wind lets her. ${T ? 'Raise the sail on the panel' : `Raise the sail (${key('motor')})`}, then ${T ? 'the stick up hauls the mainsheet in and down eases it; across steers' : S ? `${stick} up and down hauls the mainsheet in and eases it, across steers` : `${key('forward')} hauls the mainsheet in, ${key('back')} eases it, ${key('left')} and ${key('right')} steer`}. Watch the sail and the panel: if it flaps (luffing), haul in; if she's slow and heeling with the sail in tight across the wind, ease it out. Nothing drives her within about forty degrees of the wind (in irons): to go upwind, zigzag, tacking through the wind with speed on. The white lines in the air show the wind. With the sail down, she rows. She can make the long passage south, too: four days to Las Brasas, a volcanic island in the trade wind (${T ? 'tap the prompt' : key('interact')} out on open water, or beside her at the quay).`,
+    sail: `The sailing boat: she goes where the wind lets her. ${T ? 'Raise the sail on the panel' : `Raise the sail (${key('motor')})`}, then ${T ? 'the stick up hauls the mainsheet in and down eases it; across steers' : S ? `${stick} up and down hauls the mainsheet in and eases it, across steers` : `${key('forward')} hauls the mainsheet in, ${key('back')} eases it, ${key('left')} and ${key('right')} steer`}. Watch the sail and the panel: if it flaps (luffing), haul in; if she's slow and heeling with the sail in tight across the wind, ease it out. Nothing drives her within about forty degrees of the wind (in irons): to go upwind, zigzag, tacking through the wind with speed on. The white lines in the air show the wind. With the sail down, she rows. She can make the crossing south to Las Brasas too, a volcanic island in the trade wind: about twenty-five minutes at the helm across the open sea, or the fast passage (${T ? 'tap the prompt' : key('interact')} out on open water, or beside her at the quay).`,
   }[k];
   hud.toast(text, 12);
 }
@@ -3106,7 +3110,7 @@ function standNear(x, z, from = 1.5) {
 // The camps beyond the bay you can head to: by their tackle boxes.
 function campAt(id) {
   const box = world.boxes.find((b) => b.place === id);
-  // (Only in the sea you're in: Las Brasas and home are four days apart.)
+  // (Only in the sea you're in: Las Brasas and home are a crossing of the open sea apart.)
   return box && state.places[id] && (box.z > SOUTH_Z) === (player().pos.z > SOUTH_Z) ? box : null;
 }
 
@@ -3122,9 +3126,11 @@ function travelInfo() {
   const busy = fishing.state === 'reeling' || fishing.state === 'landing' || fishing.state === 'caught' || fishing.state === 'keeping';
   if (busy) return { camp: false, boat: false, camps: false, own: false, haven: false, note: 'Land or let go of the fish first.' };
   if (sleeping || traveling) return { camp: false, boat: false, camps: false, own: false, haven: false, note: '' };
+  // (Out on the open sea, crossing: nowhere to go but on, or back.)
+  if (state.crossing || inOcean(player().pos.x, player().pos.z)) return { camp: false, boat: false, camps: false, own: false, haven: false, note: 'Out on the open sea: the only way from here is on across, or back.' };
   const atCamp = onFoot && nearCampSpot();
   const box = regionBox(10);
-  // (At Las Brasas, home's places are four days away: only the passage takes you there.)
+  // (At Las Brasas, home's places are across the open sea: only the crossing takes you there.)
   const south = player().pos.z > SOUTH_Z;
   const camp = !atCamp && !south;
   const boat = onFoot;
@@ -3224,89 +3230,87 @@ function updateTravel(dt) {
   }
 }
 
-/* ---------------- the long passage: Willow Bay and Las Brasas ---------------- */
+/* ---------------- the fast passage: Willow Bay and Las Brasas ---------------- */
 
-// Las Brasas lies four days' sail to the south (see world/brasa.js). The sailing boat makes the
-// passage, or the sport-fishing yacht under power (it takes half her tank): a few lines of the log while
-// the days go by, and she comes in off Puerto Brasa (or, coming home, to her berth at Willowhaven),
-// ready to go in. Your gear and creel come too; the other boats and the car stay where you left
-// them.
-const PASSAGE_DAYS = 4;
+// The crossing (see crossing.js and above) made without taking the helm: a few lines of the log
+// while the hours go by (the same hours the crossing takes at the helm, and for the yacht the same
+// fuel), and she comes in off Puerto Brasa (or, coming home, to her berth at Willowhaven), ready
+// to go in. Your gear and creel come too; the other boats and the car stay where you left them.
 const PASSAGE_LOG_MOTOR = {
   south: [
-    'Day 1 · You clear Gannet Light at first light and settle her at an easy cruising speed, the twin diesels droning steadily. By noon the coast is a grey line astern.',
-    'Day 2 · Long seas on the quarter, and shearwaters skimming the troughs at dusk. You sleep in snatches in the cabin, an eye on the compass.',
-    'Day 3 · The trade wind fills in from the north-east, warm in the cockpit. Flying fish skitter away from the bow, and the sea turns a deeper blue.',
-    'Day 4 · At dawn a smudge on the horizon becomes a mountain with a cloud caught on its top: Pico Brasa. Black cliffs, a white village, the smell of land.',
+    'Morning · You clear Gannet Light and settle her at her ocean speed, the twin diesels droning steadily. By noon the coast is a grey line astern.',
+    'Afternoon · The long Atlantic swell under her, and shearwaters skimming the troughs. The trade wind fills in from the north-east, warm in the cockpit.',
+    'Night · A watch at the wheel under more stars than you knew there were, the wake glowing. Flying fish thump onto the foredeck in the dark.',
+    'Landfall · A smudge on the horizon becomes a mountain with a cloud caught on its top: Pico Brasa. Round Punta del Faro, and the smell of land.',
   ],
   home: [
-    'Day 1 · Brasa drops astern in the morning, the cloud on the volcano the last of it you see. North into the trade wind, spray rattling on the hardtop.',
-    'Day 2 · The wind eases and the sea turns from blue to green-grey. Dolphins ride the bow wave for an hour.',
-    'Day 3 · Cooler air and a long swell from the west; gannets diving far off. You find a jumper for the night watch.',
-    'Day 4 · Gannet Light at dawn, then the hills behind Willow Bay. You throttle back off Willowhaven and bring her in to her berth on the pontoon.',
+    'Morning · Brasa drops astern, the cloud on the volcano the last of it you see. North into the trade wind, spray rattling on the hardtop.',
+    'Afternoon · The wind eases and the sea turns from blue to green-grey. Dolphins ride the bow wave for an hour.',
+    'Night · Cooler air and a long swell from the west. You find a jumper for the night watch.',
+    'Landfall · Gannet Light ahead, then the hills behind Willow Bay. You throttle back off Willowhaven and bring her in to her berth on the pontoon.',
   ],
 };
 const PASSAGE_LOG = {
   south: [
-    'Day 1 · You clear Gannet Light at first light and stand out into the Atlantic on a fresh northerly. By noon the coast is a grey line astern.',
-    'Day 2 · Long seas on the quarter, and shearwaters skimming the troughs at dusk. You sleep in snatches, an eye on the compass.',
-    'Day 3 · The trade wind fills in from the north-east, steady and warm. Flying fish skitter away from the bow, and the sea turns a deeper blue.',
-    'Day 4 · At dawn a smudge on the horizon becomes a mountain with a cloud caught on its top: Pico Brasa. Black cliffs, a white village, the smell of land.',
+    'Morning · You clear Gannet Light and stand out into the Atlantic, the boat leaning into it. By noon the coast is a grey line astern.',
+    'Afternoon · The wind backs into the north-east trade, steady and warm on the quarter. Flying fish skitter away from the bow, and the sea turns a deeper blue.',
+    'Night · A night at the tiller under the stars, the sea glowing in the wake, shearwaters wailing somewhere out in the dark.',
+    'Landfall · A smudge on the horizon becomes a mountain with a cloud caught on its top: Pico Brasa. Black cliffs, a white village, the smell of land.',
   ],
   home: [
-    'Day 1 · Brasa drops astern in the morning, the cloud on the volcano the last of it you see. The trade wind carries you north.',
-    'Day 2 · The wind backs and freshens, and the sea turns from blue to green-grey. Dolphins ride the bow wave for an hour.',
-    'Day 3 · Cooler air and a long swell from the west; gannets diving far off. You find a jumper for the night watch.',
-    'Day 4 · Gannet Light at dawn, then the hills behind Willow Bay. You lower the sail off Willowhaven and bring her in alongside.',
+    'Morning · Brasa drops astern, the cloud on the volcano the last of it you see. The trade wind carries you north.',
+    'Afternoon · The wind backs and freshens, and the sea turns from blue to green-grey. Dolphins ride the bow wave for an hour.',
+    'Night · Cooler air and a long swell from the west; you find a jumper for the night watch.',
+    'Landfall · Gannet Light ahead, then the hills behind Willow Bay. You lower the sail off Willowhaven and bring her in alongside.',
   ],
 };
 let passage = null; // { to, kind, t, line, moved }
 const LINE_T = 3.4; // seconds each line of the log stays up
 
 // Why the passage can't be made just now in this boat (the sailing boat or the yacht), or null.
-function passageWhy(S = BOATS.sail) {
+// (part: how much of the crossing is left to make.)
+function passageWhy(S = BOATS.sail, part = 1) {
   if (fishing.state === 'reeling' || fishing.state === 'landing' || fishing.state === 'caught' || fishing.state === 'keeping') return 'Land or let go of the fish first.';
   if (dive) return 'Out of the water first.';
   if (driving) return 'Out of the car first.';
   if (sleeping || traveling || passage) return 'Not now.';
   if (tow && (tow.lead === S || tow.towed === S)) return 'Let go of the tow first.';
-  if (S.hull.passage && fuelLevel(tanks(), S.kind) < PASSAGE_FUEL) {
-    return `The passage takes half her tank: she needs ${litres(PASSAGE_FUEL)} aboard, and has ${litres(fuelLevel(tanks(), S.kind))}. Fill up first (${S.pos.z > SOUTH_Z ? 'the pump on Puerto Brasa quay' : 'the fuel point on Willowhaven’s pontoon'}).`;
+  const need = Math.round(PASSAGE_FUEL * part);
+  if (S.hull.passage && fuelLevel(tanks(), S.kind) < need) {
+    return `She needs ${litres(need)} aboard for the crossing, and has ${litres(fuelLevel(tanks(), S.kind))}. Fill up first (${S.pos.z > SOUTH_Z ? 'the pump on Puerto Brasa quay' : 'the fuel point on Willowhaven’s pontoon'}).`;
   }
   return null;
 }
 
+// (The old offer of the passage: now the crossing's card, at the helm or the fast passage.)
 function offerPassage(to, S = boat) {
-  const why = passageWhy(S);
-  if (why) {
-    hud.flash(why, t, 4);
-    return;
-  }
-  const motor = !!S.hull.passage;
-  const first = to === 'south' && !state.places.brasa;
-  const along = motor ? ['jetski', 'windsurf'].filter((k) => Math.hypot(BOATS[k].pos.x - S.pos.x, BOATS[k].pos.z - S.pos.z) < 45) : [];
-  const deck = along.length ? ` The ${along.map((k) => BOATS[k].name).join(' and the ')} ${along.length > 1 ? 'come' : 'comes'} too, lashed on her deck.` : '';
-  ask(to === 'south' ? 'The long passage south' : 'The passage home', to === 'south'
-    ? `${first ? 'Far to the south, four days’ sail down the Atlantic, lies Las Brasas: a volcanic island in the trade wind, with warm clear water, black lava reefs and fish you never see at home. ' : ''}${motor
-      ? `Make the passage in the sport-fishing yacht? Four days at sea under power (you eat and sleep aboard), and it takes half her tank (${litres(PASSAGE_FUEL)}): fill up again at the pump on Puerto Brasa quay.`
-      : 'Make the passage in the sailing boat? Four days at sea (you eat and sleep aboard), and you come in off Puerto Brasa with the sail down.'}${deck} Your gear and your creel come with you; the other boats and the car stay here.`
-    : motor ? `Head home to Willow Bay? Four days at sea under power (half her tank, ${litres(PASSAGE_FUEL)}), and you come in to her berth on Willowhaven’s pontoon.${deck} Your gear and your creel come with you.`
-      : 'Sail home to Willow Bay? Four days at sea, and you come in alongside Willowhaven quay. Your gear and your creel come with you.',
-  [
-    { text: 'Not now', cls: 'quiet' },
-    { text: to === 'south' ? (motor ? 'Set off for Las Brasas' : 'Set sail for Las Brasas') : motor ? 'Set off for home' : 'Set sail for home', run: () => startPassage(to, S) },
+  offerCrossing(to, S);
+}
+
+// Partway across at the helm: the rest of the way by the fast passage (the hours and the fuel for
+// what's left of it).
+function restOfTheWay(to) {
+  const C = state.crossing;
+  if (!C) return;
+  const left = to === 'south' ? 1 - crossProgress(boat.pos.x, boat.pos.z) : crossProgress(boat.pos.x, boat.pos.z);
+  ask(to === 'south' ? 'The rest of the way south' : 'The rest of the way home', `${(CROSS_M * left / 1000).toFixed(1)} km of open sea still to go: about ${Math.round(crossSeconds(C.kind) * left / 60)} minutes at the helm. Make the rest of it by the fast passage (the same hours go by, and you're there)?`, [
+    { text: 'Carry on at the helm', cls: 'quiet' },
+    { text: 'The fast passage', run: () => {
+      state.crossing = null;
+      startPassage(to, boat, Math.max(0.05, left));
+    } },
   ]);
 }
 
-function startPassage(to, S = boat) {
-  if (passageWhy(S) || modal) return;
+function startPassage(to, S = boat, part = 1) {
+  if (passageWhy(S, part) || modal) return;
   if (placement.isOn) placement.stop();
   if (fishing.lineOut) fishing.cancel();
   if (cabinIn) leaveCabin(true);
   modal = 'travel';
   // (The cruiser takes the jet ski and the windsurf board along, lashed on deck, if they're by her.)
   const carry = S.hull.passage ? ['jetski', 'windsurf'].filter((k) => Math.hypot(BOATS[k].pos.x - S.pos.x, BOATS[k].pos.z - S.pos.z) < 45 && !(tow && (tow.lead === BOATS[k] || tow.towed === BOATS[k]))) : [];
-  passage = { to, kind: S.kind, t: 0, line: -1, moved: false, carry };
+  passage = { to, kind: S.kind, t: 0, line: -1, moved: false, carry, part };
   hud.sleep(true, to === 'south' ? `You stow the gear, take on water and stores${S.hull.passage ? ', check the oil' : ''}, and cast off…` : 'You stow the gear and cast off for the long run north…');
 }
 
@@ -3330,6 +3334,10 @@ function updatePassage(dt) {
     hud.sleep(false);
     modal = null;
     passage = null;
+    // (In the day book: the passage made, on the day you arrive.)
+    noteCrossing(state.today, { to: P.to, stage: 'in', how: 'fast', boat: BOATS[P.kind]?.name || '' });
+    state.passages = cleanPassages(state.passages);
+    state.passages.fast++;
     if (P.to === 'south') {
       const first = !state.tips.brasa;
       state.tips.brasa = true;
@@ -3347,7 +3355,7 @@ function updatePassage(dt) {
 function arrivePassage(to) {
   const S = BOATS[passage?.kind] || BOATS.sail;
   if (dive) endDive(null, true);
-  // Free of any mooring, the sail down (the cruiser's motor in neutral, half her tank gone).
+  // Free of any mooring, the sail down (the cruiser's motor in neutral).
   S.tie = null;
   S.shove = null;
   S.anchor = null;
@@ -3355,7 +3363,10 @@ function arrivePassage(to) {
   S.lever = 0;
   S.power = 0;
   if (S.sailUp) S.setSail(false);
-  if (S.hull.passage) tanks().boats[S.kind] = Math.max(0, fuelLevel(tanks(), S.kind) - PASSAGE_FUEL);
+  // (The yacht burns what she'd burn at the helm, the lever down the whole way, and a little for
+  // the harbours each end.)
+  const part = passage?.part ?? 1;
+  if (S.hull.passage) tanks().boats[S.kind] = Math.max(0, fuelLevel(tanks(), S.kind) - CROSS_FUEL(BOAT_PER_S.cruiser) * part - 6);
   const at = to === 'south' ? LANDFALL : mooring(S.kind);
   // (Off Puerto Brasa, clear of a boat you left lying there.)
   const busy = to === 'south' && boats.some((o) => o !== S && Math.hypot(o.pos.x - at.x, o.pos.z - at.z) < 12);
@@ -3386,9 +3397,9 @@ function arrivePassage(to) {
       S.tieTo({ ...B, t: 9 });
     }
   }
-  // The days at sea: you arrive mid-morning (south) or late afternoon (home), fed and rested.
-  const arrive = to === 'south' ? 10 : 17;
-  const hours = PASSAGE_DAYS * 24 - 24 + (((arrive - state.hour) % 24) + 24) % 24;
+  // The hours at sea: as many as the crossing takes at the helm (see crossing.js), and a couple
+  // more for the coast at each end; you arrive fed and rested.
+  const hours = Math.round(crossHours(S.kind) * part + 2.5);
   passTime(hours);
   state.food = { ...(state.food || {}), full: 100 };
   Object.assign(state.comfort, { warm: 18, wet: 0 });
@@ -4134,10 +4145,10 @@ function interaction() {
     // cruiser: the long passage too).
     if (near && near.hull.cabin && canEnterCabin(near)) {
       const long = !!near.hull.passage, to = walker.pos.z > SOUTH_Z ? 'home' : 'south';
-      return { text: long ? `The ${near.name}: the helm, the cabin, or the passage ${to}` : `The ${near.name}: the helm or the cabin`, run: () => ask(boatTitle(near), long
-        ? `She’s made fast here. Take the helm, go into the cabin (the galley and the bunks), or make the long passage ${to === 'south' ? 'south to Las Brasas' : 'home to Willow Bay'} under power (four days at sea)?`
+      return { text: long ? `The ${near.name}: the helm, the cabin, or the crossing ${to}` : `The ${near.name}: the helm or the cabin`, run: () => ask(boatTitle(near), long
+        ? `She’s made fast here. Take the helm, go into the cabin (the galley and the bunks), or set out on the crossing ${to === 'south' ? 'south to Las Brasas' : 'home to Willow Bay'} (at the helm, or the fast passage)?`
         : 'She’s made fast here. Take the helm, or go straight into the cabin (the galley and the bunk)?', [
-        ...(long ? [{ text: to === 'south' ? 'The passage south' : 'The passage home', cls: 'quiet', run: () => offerPassage(to, near) }] : []),
+        ...(long ? [{ text: to === 'south' ? 'The crossing south' : 'The crossing home', cls: 'quiet', run: () => offerPassage(to, near) }] : []),
         { text: 'The helm', cls: 'quiet', run: () => board(near) },
         { text: 'Into the cabin', run: () => enterCabin(near) },
       ]) };
@@ -4145,8 +4156,8 @@ function interaction() {
     // The sailing boat: get in, or the long passage (to Las Brasas, or home from there).
     if (near && near.hull.sail) {
       const to = walker.pos.z > SOUTH_Z ? 'home' : 'south';
-      return { text: `The ${near.name}: get in, or the long passage ${to}`, run: () => ask(boatTitle(near), to === 'south' ? 'Get in and sail her here, or make the long passage south to Las Brasas (four days at sea)?' : 'Get in and sail her here, or make the passage home to Willow Bay (four days at sea)?', [
-        { text: to === 'south' ? 'The passage south' : 'The passage home', cls: 'quiet', run: () => offerPassage(to, near) },
+      return { text: `The ${near.name}: get in, or the crossing ${to}`, run: () => ask(boatTitle(near), to === 'south' ? 'Get in and sail her here, or set out on the crossing south to Las Brasas (at the helm, or the fast passage)?' : 'Get in and sail her here, or set out on the crossing home to Willow Bay (at the helm, or the fast passage)?', [
+        { text: to === 'south' ? 'The crossing south' : 'The crossing home', cls: 'quiet', run: () => offerPassage(to, near) },
         { text: 'Get in', run: () => board(near) },
       ]) };
     }
@@ -4226,10 +4237,15 @@ function interaction() {
   if (settled) return { text: 'Sit back a while', run: sitBoat };
   // Stopped over deep water: over the side.
   if (entry) return { text: 'Go diving', run: () => chooseDive(entry) };
-  // In the sailing boat or the cruiser, out on open water: the long passage.
+  // In the sailing boat or the cruiser, out on open water: the crossing (at the helm, or fast).
   if ((boat.hull.sail || boat.hull.passage) && !fishing.lineOut && passageWaters()) {
+    const C = state.crossing;
+    if (C && BOATS[C.kind] === boat) {
+      const going = C.back ? (C.to === 'south' ? 'home' : 'south') : C.to;
+      return { text: 'The rest of the way by the fast passage', run: () => restOfTheWay(going) };
+    }
     const to = boat.pos.z > SOUTH_Z ? 'home' : 'south';
-    return { text: to === 'south' ? 'The long passage south: four days' : 'The passage home: four days', run: () => offerPassage(to) };
+    return { text: to === 'south' ? 'The crossing to Las Brasas' : 'The crossing home', run: () => offerPassage(to) };
   }
 
   return null;
@@ -4240,6 +4256,282 @@ function passageWaters() {
   const z = zoneAt(boat.pos.x, boat.pos.z);
   return boat.pos.z > SOUTH_Z ? z !== 'harbor' : z === 'open' || z === 'coast' || z === 'deep';
 }
+
+/* ---------------- the crossing, at the helm ---------------- */
+
+// Across the open Atlantic between Willow Bay and Las Brasas, the whole way, in the sailing boat or
+// the yacht (see crossing.js): the crossing under way is state.crossing; the marker points where
+// to steer; what's met along the way is seeded by the day you set out.
+const CROSS_KM = (CROSS_M / 1000).toFixed(1);
+let crossAim = null, crossAfter = null, edgeAsked = false, edgeToastT = 0, crossSaid = {};
+const hoursWords = (h) => (h < 30 ? `about a day (${Math.round(h)} hours)` : `a day and a half (${Math.round(h)} hours)`);
+
+// What setting out needs, and how it looks: the lines for the card, and what (if anything) stops you.
+function crossingChecks(to, S) {
+  const list = [];
+  let stop = null;
+  if (!LONG_RANGE.includes(S.kind)) stop = `The ${S.name} is no boat for the open Atlantic: the crossing is for the sailing boat or the sport-fishing yacht.`;
+  const why = passageWhy(S);
+  if (why) stop = stop || why;
+  const secs = crossSeconds(S.kind), hrs = crossHours(S.kind);
+  list.push({ ok: true, text: `${S.kind === 'sail' ? 'The sailing boat' : 'The yacht'}: about ${Math.round(secs / 60)} minutes at the helm across ${CROSS_KM} km of open sea (${hoursWords(hrs)} go by, through a night), then ${to === 'south' ? 'round Punta del Faro into Puerto Brasa' : 'in past Gannet Light to Willow Bay'}.` });
+  if (S.kind === 'cruiser') {
+    const have = fuelLevel(tanks(), 'cruiser');
+    list.push(have >= PASSAGE_FUEL
+      ? { ok: true, text: `Fuel: ${litres(have)} aboard. The crossing takes about ${litres(CROSS_FUEL(BOAT_PER_S.cruiser))} with the lever down the whole way.` }
+      : { ok: false, text: `Fuel: she needs ${litres(PASSAGE_FUEL)} aboard for the crossing, and has ${litres(have)}. Fill up first (${S.pos.z > SOUTH_Z ? 'the pump on Puerto Brasa quay' : 'the fuel point on Willowhaven’s pontoon'}).` });
+    list.push({ ok: true, text: 'Out in the ocean’s long swell she makes about six knots: drive her harder and she slams, so you hold her there.' });
+  } else {
+    list.push({ ok: true, text: to === 'south' ? 'The wind: home’s own weather this side, then backing into the north-east trade halfway over, on the quarter: fast going. Ease the sheet as it comes aft.' : 'The wind: the north-east trade on the quarter going north, then home’s own weather the far side.' });
+  }
+  list.push({ ok: true, text: 'Water and stores for the crossing, taken aboard as you set out.' });
+  const abs = state.day * 24 + state.hour, h = hoursToGale(abs), storm = Math.max(weather.storm, conditions.sea.storm);
+  if (storm > 0.35) list.push({ ok: false, text: 'It’s blowing a gale: no weather to be out on the open sea. Wait for it to pass, or take the fast passage.' });
+  else if (h != null && h < crossHours(S.kind) + 3) list.push({ ok: false, text: `A gale is due in about ${Math.max(1, Math.round(h))} hours, before you'd be across. Wait for it to pass, or take the fast passage.` });
+  else list.push({ ok: true, text: 'No gale due before you’re across.' });
+  const T = to === 'south' ? ENDS.south : ENDS.home;
+  list.push({ ok: true, text: `Steer ${pointWords(bearingTo(S.pos.x, S.pos.z, T.x, T.z))}: the marker shows the way, and the chart (${input.keyLabel('map')}) has the open sea on it.` });
+  return { list, stop };
+}
+
+// The card: sail her across yourself, or the fast passage (the same hours, the same fuel). At the
+// edge of the chart, turning back is the first choice.
+function offerCrossing(to, S = boat, atEdge = false) {
+  const { list, stop } = crossingChecks(to, S);
+  const first = to === 'south' && !state.places.brasa;
+  const intro = first ? 'Across the open Atlantic to the south lies Las Brasas: a volcanic island in the trade wind, with warm clear water, black lava reefs and fish you never see at home. ' : '';
+  const text = `${intro}${atEdge ? 'Beyond here is the open Atlantic. ' : ''}${to === 'south' ? 'The crossing to Las Brasas' : 'The crossing home to Willow Bay'}: sail her across yourself, or take the fast passage (the same hours go by${S.kind === 'cruiser' ? ', the same fuel' : ''}, and you're there).`;
+  const buttons = [{ text: atEdge ? 'Turn back' : 'Not now', cls: 'quiet', run: () => { if (atEdge) hud.toast('You put her about for home waters.', 3); } }];
+  if (!stop) {
+    buttons.push({ text: 'Fast passage', cls: 'quiet', run: () => startPassage(to, S) });
+    buttons.push({ text: S.kind === 'sail' ? 'Sail her across' : 'Take her across', run: () => startCrossing(to, S) });
+  } else list.unshift({ ok: false, text: stop });
+  ask(to === 'south' ? 'The crossing south' : 'The crossing home', text, buttons, { list });
+}
+
+function startCrossing(to, S = boat) {
+  if (crossingChecks(to, S).stop || modal) return;
+  if (onFoot || boat !== S) board(S);
+  state.crossing = { to, kind: S.kind, day: state.day, abs: state.day * 24 + state.hour, secs: 0, events: planCrossing(state.day, to), weather: null, eased: false, back: false };
+  crossSaid = {};
+  noteCrossing(state.today, { to, stage: 'out', boat: S.name });
+  // Water and stores aboard for the crossing.
+  state.food = { ...(state.food || {}), full: Math.max(state.food?.full ?? 0, 90) };
+  refill(state.comfort);
+  const T = to === 'south' ? ENDS.south : ENDS.home;
+  hud.toast(`You take on water and stores and set your course: ${pointWords(bearingTo(S.pos.x, S.pos.z, T.x, T.z))} for ${to === 'south' ? 'Las Brasas' : 'Gannet Light and home'}. The marker shows the way; the chart (${input.keyLabel('map')}) has the open sea on it.${S.kind === 'sail' ? (to === 'south' ? ' The wind will back into the trade halfway over: ease the sheet as it comes aft.' : '') : ' Out in the swell, hold her at about six knots.'}`, 10);
+  save();
+}
+
+// Out past the edge of the chart without a crossing set: a boat fit for it is offered it (and held
+// at the edge till you choose); anything smaller is turned back.
+function holdOff() {
+  const z = boat.pos.z, fromHome = z < (CROSSING.z0 + CROSSING.z1) / 2;
+  if (LONG_RANGE.includes(boat.kind) && !edgeAsked && !modal && $('confirm').hidden && !fishing.busy) {
+    edgeAsked = true;
+    offerCrossing(fromHome ? 'south' : 'home', boat, true);
+  }
+  const lim = fromHome ? CROSSING.z0 + 40 : CROSSING.z1 - 40;
+  if (fromHome ? z > lim : z < lim) {
+    boat.vel.z = fromHome ? Math.min(boat.vel.z, -0.3) : Math.max(boat.vel.z, 0.3);
+    if (edgeToastT <= 0) {
+      edgeToastT = 40;
+      hud.toast(LONG_RANGE.includes(boat.kind) ? 'The open Atlantic: set out on the crossing to go on (or turn back).' : `Beyond here it's the open Atlantic, days from anywhere: no place for the ${boat.name}. Las Brasas is a crossing for the sailing boat or the sport-fishing yacht.`, 6);
+    }
+  }
+}
+
+// Every frame: the weather over the open sea where you are, a motor boat held to what the swell
+// allows, and the crossing itself (the way, what's met, the weather turning, arriving).
+function updateCrossing(dt) {
+  const P = player().pos;
+  const C = state.crossing;
+  conditions.trade = P.z > CROSSING.z0 - 400 && P.z < CROSSING.z1 + 400 ? tradeAt(P.z) : null;
+  conditions.ocean = oceanAt(P.z, !!C);
+  for (const b of boats) b.vmax = b.hull.sail && b.sailUp ? Infinity : seaKindly(oceanAt(b.pos.z, C?.kind === b.kind), conditions.sea.swell, !!(C?.eased && C.kind === b.kind));
+  BOATS.sail.reef = C?.eased && C.kind === 'sail' ? 0.72 : 1;
+  edgeToastT -= dt;
+  crossAim = null;
+  if (!started || sleeping || traveling || passage) return;
+  const afloat = !onFoot && !driving && !dive;
+  if (afloat && !inOcean(boat.pos.x, boat.pos.z)) edgeAsked = false;
+  if (!C) {
+    if (afloat && inOcean(boat.pos.x, boat.pos.z)) holdOff();
+    // (Just across: the way on in to the harbour, for a while.)
+    if (crossAfter && (t > crossAfter.until || Math.hypot(P.x - crossAfter.x, P.z - crossAfter.z) < 160)) crossAfter = null;
+    if (crossAfter) crossAim = crossAfter.to === 'south' ? steerFor('south', P.x, P.z) : null;
+    return;
+  }
+  const B = BOATS[C.kind];
+  const going = C.back ? (C.to === 'south' ? 'home' : 'south') : C.to;
+  crossAim = steerFor(going, B.pos.x, B.pos.z);
+  // (Only while you're aboard her: ashore, or in another boat, the crossing waits for you.)
+  const aboard = afloat && boat === B;
+  if (!aboard) return;
+  if (!modal) C.secs += dt;
+  // (The stores: a meal and a drink from them every few hours at sea.)
+  C.storesT = (C.storesT ?? 0) + dt;
+  if (C.storesT > 6 * HOUR_SECONDS) {
+    C.storesT = 0;
+    state.food = { ...(state.food || {}), full: Math.max(state.food?.full ?? 0, 75) };
+    if (state.comfort) state.comfort.drink = Math.max(state.comfort.drink, 75);
+  }
+  const z = B.pos.z, south = going === 'south';
+  // What's met along the way, in order.
+  for (const ev of C.events) {
+    if (ev.done) continue;
+    if (south ? z >= ev.z : z <= ev.z) {
+      ev.done = true;
+      meet(ev, B);
+    }
+    break;
+  }
+  // The landmarks: the island coming up over the horizon, halfway, the home coast.
+  const p = crossProgress(B.pos.x, B.pos.z), done = south ? p : 1 - p;
+  const say = (k, text) => {
+    if (crossSaid[k]) return;
+    crossSaid[k] = true;
+    hud.toast(text, 8);
+  };
+  if (south && z > ISLAND_SEEN) say('island', 'Land ho: a mountain on the horizon dead ahead, a cloud caught on its top. Pico Brasa.');
+  if (done > 0.5 && done < 0.6) say('half', `Halfway across: ${(CROSS_M * (1 - done) / 1000).toFixed(1)} km to go, nothing but sea all round, and the ${south ? 'trade wind filling in from the north-east' : 'trade wind dropping astern'}.`);
+  if (!south && done > 0.85) say('home', 'Gannet Light on the horizon ahead, and the hills behind Willow Bay: home waters.');
+  // The weather turning: a gale due, or blowing up now.
+  const abs = state.day * 24 + state.hour, h = hoursToGale(abs), storm = Math.max(weather.storm, conditions.sea.storm);
+  if (!C.weather && onCrossing(B.pos.x, B.pos.z) && (storm > 0.3 || (h != null && h < 4)) && !modal && $('confirm').hidden) weatherTurns(C, B, h, storm, done);
+  // Across.
+  if (arrived(going, B.pos.x, B.pos.z)) finishCrossing(C, going);
+}
+
+// What's met along the way, brought to just off the bow where you'll see it.
+function meet(ev, B) {
+  const side = Math.random() < 0.5 ? 1 : -1, sideWord = side > 0 ? 'starboard' : 'port';
+  const at = (ahead, across) => ({ x: B.pos.x + B.fwd.x * ahead + B.right.x * across * side, z: B.pos.z + B.fwd.z * ahead + B.right.z * across * side });
+  const heading = Math.atan2(B.fwd.x, B.fwd.z);
+  switch (ev.kind) {
+    case 'dolphins': {
+      const q = at(260, 170);
+      sealife.summon('commondolphin', q.x, q.z, Math.atan2(B.pos.x - q.x, B.pos.z - q.z));
+      hud.toast(`Dolphins! A big pod of common dolphins racing in from off the ${sideWord} bow, leaping as they come. Keep her going and they'll ride the bow.`, 8);
+      break;
+    }
+    case 'whale': {
+      const q = at(380, 260), kind = B.pos.z > SOUTH_Z ? 'spermwhale' : 'finwhale';
+      sealife.summon(kind, q.x, q.z, heading + side * 0.6);
+      hud.toast(kind === 'finwhale' ? `A blow, tall and narrow, off the ${sideWord} bow: a fin whale, travelling. Watch for it to come up again.` : `A bushy blow slanting forward off the ${sideWord} bow: a sperm whale, lying at the surface, breathing. It'll lift its flukes when it dives.`, 9);
+      break;
+    }
+    case 'flyingfish':
+      crossingLife.flyingFish(240);
+      hud.toast('Flying fish! They burst out ahead of the bow and glide away over the waves, ten, twenty, thirty metres, before they drop back in. The water is warm and blue now.', 8);
+      break;
+    case 'turtle': {
+      if (region !== 'south') break;
+      const q = at(70, 22);
+      sealife.summon('turtle', q.x, q.z);
+      hud.toast(`A loggerhead turtle at the surface off the ${sideWord} bow, its head up for a breath. Ease her down and you'll see it close.`, 8);
+      break;
+    }
+    case 'squall':
+      if (skyMode() === 'auto' && !weather.storm) {
+        weather.state = 'heavy';
+        weather.timer = rand(60, 110);
+        conditions.wind.target = Math.min(18, conditions.wind.target + 4);
+        conditions.wind.timer = 80;
+        hud.toast('A squall: a dark line racing over the water, then rain hissing on the sea and the wind gusting hard for a minute or two. Ease the sheet (or the throttle) and let it blow through.', 9);
+      }
+      break;
+    case 'boil':
+      boilAhead(B, sideWord);
+      break;
+    default:
+  }
+}
+
+// Birds over tuna on the bait, ahead: the crossing's own fish (see habitat.js CROSSING_HOMES),
+// the hunters set on the bait just as they'd find it themselves.
+function boilAhead(B, sideWord) {
+  if (env.daylight < 0.3) return;
+  // (The nearest ahead with hunters and their bait both living there.)
+  let best = null, bait = null, bd = 1300;
+  for (const S of eco.schools) {
+    if (!S.home.crossing) continue;
+    const prey = S.home.south ? S.L.hunterSouth || S.L.hunter : S.L.hunter;
+    if (!prey) continue;
+    const dx = S.home.x - B.pos.x, dz = S.home.z - B.pos.z, d = Math.hypot(dx, dz);
+    if (dx * B.fwd.x + dz * B.fwd.z < 0 || d > bd) continue;
+    const on = eco.schools.find((o) => o.home === S.home && [].concat(prey).includes(o.sp.id));
+    if (!on) continue;
+    bd = d;
+    best = S;
+    bait = on;
+  }
+  if (!best) return;
+  Object.assign(best, { x: bait.x + 30, z: bait.z, rest: 0, frenzy: 0, prey: bait, huntT: 4 });
+  eco.activity[best.sp.id] = Math.max(eco.activity[best.sp.id] ?? 0, 0.8);
+  hud.toast(`Birds working ahead, off the ${sideWord} bow: ${best.home.south ? 'shearwaters' : 'gannets'} diving and the sea boiling under them. ${lower(best.sp.name).replace(/^./, (c) => c.toUpperCase())} on the bait: troll a lure past the edge of it, or stop short and cast in.`, 9);
+}
+
+// The weather turning out on the open sea: shorten sail (or ease her back) and carry on, turn back
+// while you're less than halfway, or heave to and let it pass.
+function weatherTurns(C, B, h, storm, done) {
+  C.weather = 'asked';
+  const back = C.to === 'south' ? 'Willow Bay' : 'Las Brasas';
+  const text = storm > 0.3 ? 'It’s blowing up hard: white water everywhere, the seas building, spray coming over green.' : `The glass is falling: a gale is due in about ${Math.max(1, Math.round(h))} hours, and you're ${Math.round(done * 100)}% of the way across.`;
+  ask('The weather’s turning', `${text} What now?`, [
+    { text: 'Heave to, let it pass', cls: 'quiet', run: () => heaveTo(C, B) },
+    ...(done < 0.5 ? [{ text: `Turn back for ${back}`, cls: 'quiet', run: () => {
+      C.back = !C.back;
+      C.weather = 'back';
+      noteCrossing(state.today, { to: C.to, stage: 'back', boat: B.name });
+      hud.toast(`You put her about for ${back}: better a day lost than the boat. The marker shows the way back.`, 7);
+      save();
+    } }] : []),
+    { text: C.kind === 'sail' ? 'Reef and carry on' : 'Ease back, carry on', run: () => {
+      C.eased = true;
+      C.weather = 'carry';
+      hud.toast(C.kind === 'sail' ? 'You tie in a reef: less sail, less heel, slower but easier on her. On you go.' : 'You ease her back to take the seas on the shoulder: slower, and kinder to her. On you go.', 7);
+      save();
+    } },
+  ]);
+}
+function heaveTo(C, B) {
+  C.weather = 'wait';
+  const abs = state.day * 24 + state.hour, g = galeNear(abs);
+  const hours = g && abs < g.end + 2 ? Math.max(2, g.end + 1.5 - abs) : 4;
+  if (B.sailUp) B.setSail(false);
+  B.lever = 0;
+  B.power = 0;
+  waitAWhile(hours, 'You heave to: the sail down to a scrap, her head held up to the seas, and you ride it out wedged in the cockpit, an eye on the compass…');
+}
+
+// Across: your time at the helm in the record, the page in the day book, and the way on in.
+function finishCrossing(C, going) {
+  state.crossing = null;
+  crossSaid = {};
+  const mins = Math.round(C.secs / 6) / 10;
+  const P = (state.passages ||= cleanPassages(null));
+  if (going !== C.to) {
+    hud.toast(`Back in ${going === 'home' ? 'home waters, Gannet Light ahead' : 'Las Brasas’ waters'}. The crossing will keep for a better day.`, 7);
+    save();
+    return;
+  }
+  P[going]++;
+  const was = P.best[C.kind];
+  if (!was || mins < was) P.best[C.kind] = mins;
+  noteCrossing(state.today, { to: going, stage: 'in', boat: BOATS[C.kind].name, mins });
+  if (going === 'south') {
+    const first = !state.tips.brasa;
+    state.tips.brasa = true;
+    if (first) state.tips.bajonNews = true;
+    hud.toast(first
+      ? `Landfall: Las Brasas, after ${mins} minutes at the helm. Puerto Brasa is on the island's south side, behind its breakwater: round Punta del Faro, the low point with the lighthouse, and in (the marker shows the way). Bar El Muelle on the waterfront has a room, a stove and a shelf of tackle; the fuel pump is on the quay. The water here is clear and warm: just west of the harbour mouth a yellow buoy marks El Bajón, a reef of lava pinnacles to dive, or look down on from a boat.`
+      : `Landfall: Las Brasas, ${mins} minutes at the helm${was && mins < was ? ': your quickest crossing yet' : ''}. Round Punta del Faro for Puerto Brasa.`, first ? 18 : 8);
+    crossAfter = { to: 'south', x: HARBOUR_AT.x, z: HARBOUR_AT.z, until: t + 900 };
+  } else hud.toast(`Home waters: Gannet Light ahead, ${mins} minutes at the helm across the open sea${was && mins < was ? ': your quickest crossing yet' : ''}. Willowhaven is in past the Skerries.`, 8);
+  save();
+}
+const HARBOUR_AT = { x: PUERTO_AT.x, z: PUERTO_AT.z };
 
 // The chandlery fills your dive tank.
 function fillTank() {
@@ -5403,6 +5695,11 @@ function seeSeaLife(kind, x, z) {
   save();
 }
 sealife.onSighting = seeSeaLife;
+crossingLife.events.onSighting = seeSeaLife;
+crossingLife.events.onPlop = (x, z, k = 0.4) => {
+  fx.splash(x, 0.05, z, 3 + Math.round(k * 6), 0.9 * k, 0.3 * k);
+  fx.ripple(x, z, 0.4 + k * 0.6, 0.9, 0.25);
+};
 sealife.onSnort = (x, z) => {
   const h = heardFrom(x, z, 60);
   if (h.vol > 0) audio.snort?.(0.07 * h.vol, h.pan);
@@ -6227,6 +6524,9 @@ function updateHud() {
     }
     $('trip-name').textContent = fishById[trip.sp].name;
   }
+  // The crossing: where to steer for now (across, round the point, into the harbour).
+  if (crossAim && $('cross-name').textContent !== crossAim.name) $('cross-name').textContent = crossAim.name;
+  placeMarker($('cross-marker'), crossAim?.x ?? 0, 6, crossAim?.z ?? 0, !!crossAim && started && !modal && !dive);
   placeMarker($('trip-marker'), trip?.x ?? 0, 1.2, trip?.z ?? 0, !!trip && started && !modal && Math.hypot((trip?.x ?? 0) - player().pos.x, (trip?.z ?? 0) - player().pos.z) > (trip?.r ?? 0));
 }
 
@@ -6481,9 +6781,24 @@ $('update-now').addEventListener('click', updateNow);
 
 // A small "are you sure?" with any buttons we need.
 // A question with buttons; { input } adds a text box (its value goes to the button's run).
-function ask(title, text, buttons, { input = null } = {}) {
+// (list: lines to set out below the words, each { ok, text }: ready, or a warning.)
+function ask(title, text, buttons, { input = null, list = null } = {}) {
   $('confirm-title').textContent = title;
   $('confirm-text').textContent = text;
+  let ul = $('confirm-list');
+  if (!ul) {
+    ul = document.createElement('ul');
+    ul.id = 'confirm-list';
+    ul.className = 'cf-list';
+    $('confirm-text').after(ul);
+  }
+  ul.hidden = !list?.length;
+  ul.replaceChildren(...(list || []).map((l) => {
+    const li = document.createElement('li');
+    li.className = l.ok ? 'ok' : 'warn';
+    li.textContent = l.text;
+    return li;
+  }));
   const box = $('confirm-input');
   box.hidden = input == null;
   box.value = input ?? '';
@@ -6610,7 +6925,7 @@ function begin() {
     setTimeout(() => {
       if (state.tips.brasaIntro || state.tips.brasa) return;
       state.tips.brasaIntro = true;
-      hud.toast(`New: Las Brasas, a volcanic island four days’ sail to the south, with warm clear water and fish you never see at home. Take the sailing boat out of the bay and ${scheme() === 'touch' ? 'tap the prompt' : `press ${input.keyLabel('interact')}`} for the long passage (or stand beside her at Willowhaven quay).`, 13);
+      hud.toast(`New: Las Brasas, a volcanic island across the open sea to the south, with warm clear water and fish you never see at home. Take the sailing boat out of the bay and ${scheme() === 'touch' ? 'tap the prompt' : `press ${input.keyLabel('interact')}`} for the crossing (sail her there yourself, or the fast passage), or stand beside her at Willowhaven quay.`, 13);
       save();
     }, 15000 + campNotes.length * 11000);
   }
@@ -6646,6 +6961,12 @@ mapSheet.addSheet('south', SOUTH_MAP, exploredSouth, () => {
   const W = southWater();
   return { data: W.tex.image.data, width: 560, height: 560, rect: SOUTH_WATER };
 });
+// The open sea's, between them (see crossing.js): all charted, its heights worked out as needed.
+{
+  const all = new Explored('', OCEAN_SHEET);
+  all.bits.fill(255);
+  mapSheet.addSheet('ocean', OCEAN_SHEET, all, () => ({ data: new Uint16Array(16), width: 2, height: 2, rect: { x: 1e9, z: 1e9, w: 1, h: 1 } }));
+}
 
 // Open the map on a spot (a mark, a photograph's place).
 function openMapAt(x, z) {
@@ -7269,6 +7590,7 @@ function tick(now, manual = false) {
   updateSleep(dt);
   updateTravel(dt);
   updatePassage(dt);
+  updateCrossing(dt);
   updateWaiting(dt);
   camp.update(dt, hours);
   updateComfort(dt, hours);
@@ -7472,7 +7794,9 @@ function tick(now, manual = false) {
   // wherever it's stirred: fish darting near the surface, a moving lure, a diver's kicks.
   {
     const P = player().pos, aboard = !onFoot && !driving && !dive && !cabinIn;
-    sealife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, daylight: env.daylight, hour: state.hour, region, eco, diving: !!dive });
+    const crossingNow = !!state.crossing || inOcean(P.x, P.z);
+    sealife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, daylight: env.daylight, hour: state.hour, region, eco, diving: !!dive, crossing: crossingNow });
+    crossingLife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, crossing: crossingNow });
     // (How fast you're coming: walking, the boat, swimming; sitting still is stillest of all.)
     const pace = sitting ? 0 : dive ? diver.speed : onFoot ? walker.speed : driving ? 10 : Math.abs(boat.forwardSpeed) + (boat.motor && boat.lever > 0 ? 1 : 0);
     wildlife.update(dt, t, { from: P, onFoot: onFoot && !dive && !driving, speed: pace, daylight: env.daylight, hour: state.hour, season: seasonOf(state.day).name, tideLevel: tideNow.level, region });
@@ -7792,7 +8116,7 @@ window.slowTide = {
   openBench: (st) => openBench(st), get driving() { return driving; }, get modalName() { return modal; },
   state, walker, fishing, env, weather, renderer, post, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world, explored, stormFx,
   get boat() { return boat; }, // the boat you're in (or last used)
-  reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI, pads, sealife, wildlife, glow,
+  reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI, pads, sealife, wildlife, crossingLife, glow,
   // The first-trip guide as it stands: the step, its words and where it points.
   guideNow: () => ({ step: stepOf(state.guide), title: $('gd-title').textContent, text: $('gd-text').textContent, target: guideTarget, shown: !$('guide').hidden }),
   firstPerson: (on = true) => rig.setFirstPerson(on, t),
@@ -7808,8 +8132,11 @@ window.slowTide = {
   // Graphics preset: 'auto', 'high', 'medium' or 'low'.
   setGraphics: (preset) => { settings.graphics.preset = preset; applyQuality(); },
   teleport: (x, z, heading = boat.heading) => boat.place(x, z, heading),
-  // The long passage: slowTide.passage('south') to Las Brasas, ('home') back; which sea you're in.
+  // The fast passage: slowTide.passage('south') to Las Brasas, ('home') back; which sea you're in.
+  // The crossing at the helm: slowTide.cross('south'), and where it's at (slowTide.crossing()).
   passage: (to = 'south') => startPassage(to),
+  cross: (to = 'south') => startCrossing(to),
+  crossing: () => state.crossing,
   get region() { return region; },
   // Put yourself ashore at (x, z), e.g. slowTide.walkTo(-99, -2) for camp.
   walkTo: (x, z, heading = walker.heading) => {

@@ -139,7 +139,9 @@ test('a boat floats in Puerto Brasa and lies at its quay; the sea there has edge
   o.place(0, 6800, 0);
   for (let i = 0; i < 300; i++) o.update(1 / 30, i / 30, 0, 0, 0);
   assert.ok(Math.hypot(o.pos.x, o.pos.z - 6800) < 3, `drifted ${Math.hypot(o.pos.x, o.pos.z - 6800).toFixed(1)} m`);
-  assert.ok(T.inSeas(0, 6800) && T.inWorld(40, 6250) && !T.inWorld(0, 3000));
+  // (And the open sea of the crossing joins it to home's: see crossing.js. Off to either side of
+  // the crossing, nothing.)
+  assert.ok(T.inSeas(0, 6800) && T.inWorld(40, 6250) && T.inWorld(0, 3000) && !T.inWorld(2600, 3000));
 });
 
 test('a game left at Las Brasas is kept: the boats, you ashore, and the islandâ€™s chart', async () => {
@@ -157,7 +159,8 @@ test('a game left at Las Brasas is kept: the boats, you ashore, and the islandâ€
   assert.equal(s.mode, 'foot');
   assert.equal(s.walker.z, 6280);
   assert.equal(s.boats.sail.z, B.SAIL_BERTH_S.z);
-  assert.equal(s.boats.row, undefined, 'nowhere in between');
+  assert.equal(s.boats.row.z, 3500, 'out on the open sea between (mid-crossing): kept where she was');
+  assert.equal(parseSave(JSON.stringify({ game: 'slow-tide', version: SAVE_VERSION, savedAt: 1000, data: { ...data, boats: { row: { x: 2600, z: 3500, heading: 0 } } } })).state.boats.row, undefined, 'nowhere off the side of the world');
   const back = new Explored(s.seenSouth, B.SOUTH_MAP);
   assert.equal(back.toString(), chart.toString());
 });

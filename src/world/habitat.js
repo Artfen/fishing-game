@@ -9,6 +9,7 @@ import {
   SOUTH_Z, SOUTH_MAP, brasaHeight, brasaZone, brasaHabitat, brasaSDF, PUERTO, QUAY_S, MOLE, DIQUE, PLAYA, ARCO, ARCHES, FARO, COLADAS, SEBADAL, BAJON, onBajon,
 } from './brasa.js';
 import { siteById, PINNACLES } from './divesites.js';
+import { ENDS } from '../crossing.js';
 import { fbm, seeded, smoothstep, clamp } from '../util.js';
 
 // The underwater map every system shares: water depth, weed beds, rocks, and the
@@ -468,6 +469,28 @@ function regionSpots(habitat, rnd) {
   southSpots(habitat, spots);
   diveSpots(habitat, spots);
   southDiveSpots(habitat, spots);
+  crossingSpots(habitat, spots);
+}
+
+// Out on the crossing (see crossing.js): every half kilometre or so along the way, something
+// living in the open water, after everything else so nothing moves. In the northern half (home's
+// deep water) sprat shoals with bluefin hunting them, mackerel and bonito; in the warm southern
+// half sardine with little tunny and bullet tuna after them, and dorado, yellowfin and albacore
+// under the rafts of floating weed (see crossingLife.js). Troll a lure across and you'll meet them.
+export const CROSSING_HOMES = [];
+function crossingSpots(habitat, spots) {
+  const dx = ENDS.south.x - ENDS.home.x, dz = ENDS.south.z - ENDS.home.z, L = Math.hypot(dx, dz);
+  const nx = -dz / L, nz = dx / L;
+  for (let k = 0; k < 8; k++) {
+    const f = 0.1 + k * 0.11, side = k % 2 ? 1 : -1;
+    const x = ENDS.home.x + dx * f + nx * side * 70, z = ENDS.home.z + dz * f + nz * side * 70;
+    const south = z > SOUTH_Z, alt = k % 2 === 0;
+    const type = south ? (alt ? 'tide' : 'blue') : (alt ? 'blue' : 'tide');
+    const hosts = south ? (alt ? ['sardine', 'littletunny', 'bullet'] : ['dorado', 'yellowfin', 'albacore']) : (alt ? ['sprat', 'tuna', 'albacore'] : ['mackerel', 'bonito']);
+    const o = { type, x, z, depth: habitat.depth(x, z), zone: zoneAt(x, z), r: 30, tag: 'crossing', crossing: true, south, hosts, ...(hosts.includes('dorado') ? { weed: true } : {}) };
+    spots.push(o);
+    CROSSING_HOMES.push(o);
+  }
 }
 
 // Las Brasas' dive sites' own fish (see divesites.js), after even the home coast's: each site with

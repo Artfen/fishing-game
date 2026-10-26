@@ -56,6 +56,7 @@ export const SEA_LIFE = {
   oystercatcher: { name: 'Oystercatchers', note: 'Oystercatchers: black and white waders with long orange bills, probing the sand and mud at low water. Disturb them and they go off low along the shore, piping loudly.' },
   glow: { name: 'The sea glowing at night', note: 'The sea is glowing: tiny plankton flash blue-green wherever the water is disturbed, in the wake, under an oar, where a fish darts. Brighter some nights than others.' },
   shearwater: { name: 'Cory’s shearwaters', note: 'Cory’s shearwaters: big brown-and-white seabirds that sweep low over the waves on long stiff wings, hardly flapping. They come down on a bait shoal the tuna drive up and dive after it from the surface; in the evening they raft up on the sea off their cliffs, and after dark fly in to their burrows wailing like babies.' },
+  flyingfish: { name: 'Flying fish', note: 'Flying fish: little blue-backed fish that burst out of the sea ahead of a boat, spread their long, clear pectoral fins like wings, and glide low over the waves for twenty or thirty metres before dropping back in. A fish of the warm blue water.' },
   turtle: { name: 'A loggerhead turtle', note: 'A loggerhead turtle: a big reddish-brown shell, a heavy head and slow strokes of its long front flippers. Young ones grow up in the warm Atlantic round the islands, drifting near the surface and coming up for a breath now and then. Protected: watch it, and keep your boat slow near it.' },
 };
 
@@ -69,6 +70,9 @@ const PODS = [
   // approaches to the harbour, where the boats are.)
   { kind: 'spotteddolphin', sea: 'south', n: 7, len: [1.7, 2.2], area: [-700, 800, 6300, 6750], minDepth: 20, speed: 2.6, period: [5, 9], bow: true, reach: 320, seen: 260 },
   { kind: 'bottlenose', sea: 'south', n: 4, len: [2.6, 3.3], area: [-600, 700, 6250, 6800], minDepth: 10, speed: 2, period: [7, 12], bow: true, reach: 280, seen: 240 },
+  // (Out on the crossing between the two: a big pod of common dolphins, met along the way (see
+  // crossing.js and summon below); they come racing to a bow from a long way off.)
+  { kind: 'commondolphin', sea: 'crossing', n: 12, len: [1.8, 2.3], area: [-1200, 1400, 1500, 5000], minDepth: 50, speed: 3, period: [5, 9], bow: true, reach: 480, seen: 320 },
   // (The pilot whales: a family, slow and often resting at the surface; they don't ride bows.)
   { kind: 'pilotwhale', sea: 'south', n: 6, len: [3.8, 5.6], area: [-950, -150, 6250, 6880], minDepth: 60, speed: 1.1, period: [9, 15], bow: false, whale: true },
 ];
@@ -79,6 +83,9 @@ const WHALES = [
   { kind: 'finwhale', sea: 'home', len: 19, area: [-500, 1000, 950, 1380], minDepth: 40, speed: 2.4, blow: [7, 1.3, 0], breaths: [3, 5], down: [110, 170], gap: [12, 18] },
   { kind: 'minkewhale', sea: 'home', len: 8, area: [-400, 700, 700, 1100], minDepth: 20, speed: 2, blow: [2.4, 0.9, 0], breaths: [3, 4], down: [70, 110], gap: [8, 14] },
   { kind: 'spermwhale', sea: 'south', len: 14, area: [-950, 950, 6550, 6880], minDepth: 80, speed: 0.7, blow: [4, 2.2, 0.8], breaths: [7, 10], down: [160, 240], gap: [10, 15], rests: true, flukes: true },
+  // (And out on the crossing: a fin whale in the cooler northern half, a sperm whale in the warm.)
+  { kind: 'finwhale', sea: 'crossing', len: 18, area: [-1200, 1400, 1500, 3200], minDepth: 40, speed: 2.2, blow: [7, 1.3, 0], breaths: [3, 5], down: [110, 170], gap: [12, 18] },
+  { kind: 'spermwhale', sea: 'crossing', len: 14, area: [-1200, 1400, 3000, 5000], minDepth: 80, speed: 0.7, blow: [4, 2.2, 0.8], breaths: [7, 10], down: [160, 240], gap: [10, 15], rests: true, flukes: true },
 ];
 
 const BAIT = new Set(['sprat', 'sardine', 'anchovy', 'mackerel', 'horsemackerel', 'chubmackerel', 'garfish']);
@@ -974,13 +981,46 @@ export function buildSeaLife(scene, { glow = null } = {}) {
     pods, whales, ashore, visitors, colony, feeders, haulouts, shears, turtles,
     get feeding() { return feeding; },
     get shearFeed() { return shearFeed; },
+    // Met on the crossing (see crossing.js): a kind brought to (x, z), about to show itself (a pod
+    // heading across your bow, a whale about to come up to breathe, a turtle at the surface).
+    summon(kind, x, z, heading = 0) {
+      const pod = pods.find((p) => p.sea === 'crossing' && p.kind === kind);
+      if (pod) {
+        Object.assign(pod, { x, z, heading, mode: 'roam', bored: 0, seenT: 0, target: { x: x + Math.sin(heading) * 300, z: z + Math.cos(heading) * 300 } });
+        for (const m of pod.members) {
+          m.x = x + (Math.random() - 0.5) * 12;
+          m.z = z + (Math.random() - 0.5) * 12;
+        }
+        return pod;
+      }
+      const w = whales.find((q) => q.sea === 'crossing' && q.kind === kind);
+      if (w) {
+        Object.assign(w, { x, z, heading, state: 'down', t: 6, seenT: 0, target: { x: x + Math.sin(heading) * 600, z: z + Math.cos(heading) * 600 } });
+        return w;
+      }
+      if (kind === 'turtle') {
+        const T = turtles[0];
+        Object.assign(T, { x, z, y: surface(x, z, 0) - 0.5, upT: 8, breathT: 60, shyT: 0, seenT: 0, target: { x: x + 40, z: z + 40 } });
+        return T;
+      }
+      return null;
+    },
     // ctx: { from (where you are), boat (the boat you're aboard, under way on the surface, or
     // null), boatSpeed, daylight, region ('home' or 'south'), eco, diving }
     update(dt, t, ctx) {
       for (const k of Object.keys(events)) events[k] = this[k];
       const home = ctx.region !== 'south';
-      for (const p of pods) stepPod(p, dt, t, ctx, (p.sea === 'home') === home && Math.hypot(p.x - ctx.from.x, p.z - ctx.from.z) < 1200);
-      for (const w of whales) stepWhale(w, dt, t, ctx, (w.sea === 'home') === home && Math.hypot(w.x - ctx.from.x, w.z - ctx.from.z) < 2000);
+      // (Each sea's own where you are; the crossing's only while you're out on it.)
+      const here = (sea) => (sea === 'crossing' ? !!ctx.crossing : (sea === 'home') === home);
+      for (const p of pods) stepPod(p, dt, t, ctx, here(p.sea) && Math.hypot(p.x - ctx.from.x, p.z - ctx.from.z) < 1200);
+      for (const w of whales) {
+        // (The crossing's lie dormant till you're out there: no blows from the open sea at home.)
+        if (w.sea === 'crossing' && !ctx.crossing) {
+          w.mesh.visible = false;
+          continue;
+        }
+        stepWhale(w, dt, t, ctx, here(w.sea) && Math.hypot(w.x - ctx.from.x, w.z - ctx.from.z) < 2000);
+      }
       stepSeals(dt, t, ctx, home);
       stepGannets(dt, t, ctx, home);
       stepShears(dt, t, ctx, !home);

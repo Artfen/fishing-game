@@ -1,10 +1,10 @@
 import { clamp, lerp, smoothstep, fbm } from '../util.js';
 
-// Las Brasas: a volcanic island far to the south, four days' sail down the Atlantic from Willow
-// Bay, like the Canaries (an invented island, not a real one). It lies in the same world as home,
-// a long way off the bottom of the chart (everything south of SOUTH_Z is the far south), so the
-// boats, the fish, the water and the weather all work there as they do at home; you only ever get
-// there by the long passage (see passage.js), never by sailing the whole way.
+// Las Brasas: a volcanic island far to the south across the open Atlantic from Willow Bay, like the
+// Canaries (an invented island, not a real one). It lies in the same world as home, off the bottom
+// of the chart (everything south of SOUTH_Z is the far south), so the boats, the fish, the water
+// and the weather all work there as they do at home; you get there by the crossing, sailing (or
+// motoring) the whole way at the helm, or by the fast passage (see crossing.js).
 //
 //  · Brasa itself: black lava and red cinder, a volcano (Pico Brasa) in the middle with a crater
 //    at the top, a younger red cone (Montaña Roja) to the east, sea cliffs on the windward north
@@ -302,15 +302,15 @@ export function brasaHabitat(x, z, out) {
 
 // Named places, found as you go (the journal's places and the chart's labels).
 export const BRASA_PLACES = [
-  { id: 'brasa', name: 'Las Brasas', sub: 'a volcanic island, four days south', area: true, south: true, x: ISLE.x, z: ISLE.z - 80, size: 30, note: 'Black lava, red cinder and a volcano with its head in the cloud: an island four days’ sail to the south, in the trade wind. Warm, clear water, and fish you never see at home.' },
+  { id: 'brasa', name: 'Las Brasas', sub: 'a volcanic island across the sea to the south', area: true, south: true, x: ISLE.x, z: ISLE.z - 80, size: 30, note: 'Black lava, red cinder and a volcano with its head in the cloud: an island across the open Atlantic to the south, in the trade wind. Warm, clear water, and fish you never see at home.' },
   { id: 'puerto', name: 'Puerto Brasa', sub: 'a little harbour, a white village and a room at the bar', camp: true, dock: true, harbour: true, south: true, x: PUERTO.x, z: PUERTO.z - 40, note: 'White houses climbing the slope above a stone harbour. Tie up at the quay; the bar on the waterfront has a room upstairs to sleep in, and a stove.' },
   { id: 'playa', name: 'Playa Negra', sub: 'a beach of black sand', south: true, x: PLAYA.x, z: PLAYA.z, note: 'Fine black sand, hot underfoot by midday. The surf here brings in white bream and palometa; out beyond, the sand runs into the sebadal.' },
-  { id: 'sebadal', name: 'El Sebadal', sub: 'a meadow of seagrass under clear water', area: true, south: true, x: SEBADAL.x, z: SEBADAL.z, note: 'A broad shallow shelf of sand and seagrass. Angel sharks lie buried in the sand here, flat as a doormat, and must be left in peace; cuttlefish, striped bream and rays feed over it.' },
-  { id: 'coladas', name: 'Las Coladas', sub: 'old lava running into the sea', south: true, x: -480, z: 5640, note: 'Tongues of black lava that ran down into the sea long ago, broken into a reef the swell works over. Parrotfish graze the rocks, triggerfish cruise above them, and morays watch from the holes.' },
-  { id: 'bajon', name: 'El Bajón', sub: 'a reef just off the harbour mouth', south: true, x: BAJON.x, z: BAJON.z, note: 'Lava pinnacles standing up off the shelf, the tallest a few metres under a yellow buoy. Sea fans, sponges and orange sun coral on their sides; parrotfish, wrasse and triggerfish over the top, morays in the cracks, a grouper in the cave at the foot. Best seen diving, or looking down from a boat over the shallowest pinnacle.' },
+  { id: 'sebadal', dive: true, name: 'El Sebadal', sub: 'a meadow of seagrass under clear water', area: true, south: true, x: SEBADAL.x, z: SEBADAL.z, note: 'A broad shallow shelf of sand and seagrass. Angel sharks lie buried in the sand here, flat as a doormat, and must be left in peace; cuttlefish, striped bream and rays feed over it.' },
+  { id: 'coladas', dive: true, name: 'Las Coladas', sub: 'old lava running into the sea', south: true, x: -480, z: 5640, note: 'Tongues of black lava that ran down into the sea long ago, broken into a reef the swell works over. Parrotfish graze the rocks, triggerfish cruise above them, and morays watch from the holes.' },
+  { id: 'bajon', dive: true, name: 'El Bajón', sub: 'a reef just off the harbour mouth', south: true, x: BAJON.x, z: BAJON.z, note: 'Lava pinnacles standing up off the shelf, the tallest a few metres under a yellow buoy. Sea fans, sponges and orange sun coral on their sides; parrotfish, wrasse and triggerfish over the top, morays in the cracks, a grouper in the cave at the foot. Best seen diving, or looking down from a boat over the shallowest pinnacle.' },
   { id: 'arco', name: 'Roque del Arco', sub: 'an islet with a sea arch', south: true, x: ARCO.x, z: ARCO.z, note: 'A tall rock off the south-west point with an arch the sea runs through. Under the water, more arches of old lava: a dive among barracuda and big groupers.' },
-  { id: 'arcos', name: 'Los Arcos', sub: 'arches under the water off the Roque', south: true, x: -440, z: 6537, note: 'Two arches of old lava standing on the seabed just off Roque del Arco, their tops seven and ten metres down, with a yellow buoy over them. Swim through them; groupers and morays live in the caves round their feet.' },
-  { id: 'veril', name: 'El Veril', sub: 'the drop-off into the deep blue', area: true, south: true, x: 120, z: 6600, size: 22, note: 'The edge of the island’s shelf, where the bottom falls away from twenty-odd metres into the deep. Groupers in the caves of the wall, amberjack and barracuda along the edge.' },
+  { id: 'arcos', dive: true, name: 'Los Arcos', sub: 'arches under the water off the Roque', south: true, x: -440, z: 6537, note: 'Two arches of old lava standing on the seabed just off Roque del Arco, their tops seven and ten metres down, with a yellow buoy over them. Swim through them; groupers and morays live in the caves round their feet.' },
+  { id: 'veril', dive: true, name: 'El Veril', sub: 'the drop-off into the deep blue', area: true, south: true, x: 120, z: 6600, size: 22, note: 'The edge of the island’s shelf, where the bottom falls away from twenty-odd metres into the deep. Groupers in the caves of the wall, amberjack and barracuda along the edge.' },
   { id: 'faro', name: 'Punta del Faro', sub: 'the long east point and its lighthouse', south: true, x: FARO.x, z: FARO.z, note: 'A long, low tongue of lava with a white lighthouse at its end. The current runs past the point a little faster; bluefish and little tunny hunt there.' },
   { id: 'pico', name: 'Pico Brasa', sub: 'the volcano', south: true, x: PICO.x, z: PICO.z, note: 'The old volcano in the middle of the island, three hundred metres high, its crater full of cinders. From the sea it seems to smoke when the trade-wind cloud catches on its top.' },
 ];

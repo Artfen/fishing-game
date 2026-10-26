@@ -97,9 +97,11 @@ test('each site has fish of its own, and nothing anywhere else moved for them', 
   const hound = eco.agents.filter((a) => a.home.site === 'hound' && !a.school);
   assert.ok(hound.some((a) => a.y < -16), 'some deep down');
   for (const a of hound) assert.ok(!D.pushOut({ x: a.x, y: a.y, z: a.z }, 0.2), `${a.sp.id} clear of the rock`);
-  // Their homes come after everyone else's.
-  const spots = eco.habitat.spots, first = spots.findIndex((s) => s.site);
+  // Their homes come after everyone else's (but for the crossing's, out on the open sea, after
+  // even theirs).
+  const spots = eco.habitat.spots.filter((s) => !s.crossing), first = spots.findIndex((s) => s.site);
   assert.ok(first > 0 && spots.slice(first).every((s) => s.site), 'the dive sites’ homes come last');
+  assert.ok(eco.habitat.spots.slice(eco.habitat.spots.findIndex((s) => s.crossing)).every((s) => s.crossing), 'the crossing’s after them');
 });
 
 test('the tide runs hard over the Hound, and not at slack water', () => {

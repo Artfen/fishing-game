@@ -5,6 +5,7 @@ import { COLDWATER, TARN, FELL_PATH } from './world/coldwater.js';
 import { fishById } from './fish.js';
 import { habitsOf } from './guide.js';
 import { TENTS } from './campsite.js';
+import { ENDS, CROSS_M } from './crossing.js';
 
 // The map (M): the whole coast as you've seen it. Water you've crossed and shores you've
 // walked are drawn in; the rest stays blank paper until you go there. Places you've found are
@@ -15,6 +16,10 @@ const $ = (id) => document.getElementById(id);
 // The part of the world the map covers (metres), and the grid of 20 m cells it remembers. (It
 // grew to take in the Coldwater and Hoarfell; the first sheet, OLD_SHEET, sits inside it.)
 export const SHEET = { x: -1400, z: -1800, w: 2240, h: 3080 };
+// The open sea between home and Las Brasas (see crossing.js): a chart of its own, both coasts on
+// its edges, drawn coarser (px: metres a pixel; grid: of the heights worked out for it), and all
+// of it charted from the start (it's the sea: nothing to find).
+export const OCEAN_SHEET = { x: -1600, z: 400, w: 3200, h: 5600, px: 10, grid: 24 };
 const CELL = 20;
 export const COLS = SHEET.w / CELL, ROWS = SHEET.h / CELL;
 const OLD_SHEET = { x: -560, z: -720, cols: 70, rows: 100 };
@@ -186,9 +191,11 @@ export class MapSheet {
 
   // Which sheet a point of the world is on.
   sheetFor(x, z) {
-    for (const [k, N] of Object.entries(this.sheets)) {
-      if (k !== 'home' && x > N.S.x && x < N.S.x + N.S.w && z > N.S.z && z < N.S.z + N.S.h) return k;
-    }
+    // (Las Brasas' own chart first; then, between the bottom of home's and the top of the island's,
+    // the open sea's.)
+    const S = this.sheets.south?.S, O = this.sheets.ocean?.S;
+    if (S && x > S.x && x < S.x + S.w && z > S.z && z < S.z + S.h) return 'south';
+    if (O && x > O.x && x < O.x + O.w && z > SHEET.z + SHEET.h && z < (S ? S.z : O.z + O.h)) return 'ocean';
     return 'home';
   }
 
@@ -414,7 +421,8 @@ export class MapSheet {
 
   // The land and water, drawn once: shoreline in ink, hills in contours, water by depth.
   bake() {
-    const BW = Math.round(this.S.w / 2.5), BH = Math.round(this.S.h / 2.5); // (2.5 m a pixel)
+    const PX = this.S.px ?? 2.5; // (2.5 m a pixel, but for the open sea's chart)
+    const BW = Math.round(this.S.w / PX), BH = Math.round(this.S.h / PX);
     const c = document.createElement('canvas');
     c.width = BW;
     c.height = BH;
@@ -519,7 +527,7 @@ export class MapSheet {
   }
 
   beyond(x, z) {
-    const G = 8, gw = this.S.w / G + 1, gh = this.S.h / G + 1;
+    const G = this.S.grid ?? 8, gw = this.S.w / G + 1, gh = this.S.h / G + 1;
     this.far = this.far || new Float32Array(gw * gh).fill(NaN);
     const u = Math.max(0, Math.min(gw - 1.001, (x - this.S.x) / G)), v = Math.max(0, Math.min(gh - 1.001, (z - this.S.z) / G));
     const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j;
@@ -954,6 +962,23 @@ export class MapSheet {
       ctx.stroke();
       ctx.restore();
     }
+    // On the open sea's chart: the crossing, Gannet Light to the island, with its length.
+    if (this.key === 'ocean') {
+      const [ax, ay] = this.toPx(ENDS.home.x, ENDS.home.z), [bx, by] = this.toPx(ENDS.south.x, ENDS.south.z);
+      ctx.save();
+      ctx.strokeStyle = '#2f6f74';
+      ctx.globalAlpha = 0.8;
+      ctx.lineWidth = 2.5 * s;
+      ctx.setLineDash([8 * s, 6 * s]);
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+      ctx.restore();
+      this.label(ctx, 'Gannet Light', ax + 10 * s, ay - 10 * s, 16, INK, 0.9);
+      this.label(ctx, 'Las Brasas', bx + 10 * s, by + 14 * s, 18, INK, 0.9);
+      this.label(ctx, `${(CROSS_M / 1000).toFixed(1)} km of open sea`, (ax + bx) / 2 + 12 * s, (ay + by) / 2, 16, '#2f6f74', 0.9);
+    }
     const me = this.where?.player;
     if (me) {
       const [x, y] = this.toPx(me.x, me.z);
@@ -1107,7 +1132,8 @@ export class MapSheet {
     const found = PLACES.filter((p) => st.places[p.id]);
     $('map-sub').textContent = this.highlight
       ? `Shaded: water that suits ${fishById[this.highlight].name.toLowerCase()} (${[...new Set(fishById[this.highlight].life.zones.map((z) => ZONE_NAMES[z] || z))].join(', ')}). It shows where to look, not where each fish is.`
-      : `${found.length} of ${PLACES.length} places found · ${Math.round(this.explored.fraction * 100)}% of ${this.key === 'south' ? 'Las Brasas' : 'the coast'} explored`;
+      : this.key === 'ocean' ? `The open Atlantic between Willow Bay and Las Brasas: ${(CROSS_M / 1000).toFixed(1)} km of open sea from Gannet Light to the island.`
+        : `${found.length} of ${PLACES.length} places found · ${Math.round(this.explored.fraction * 100)}% of ${this.key === 'south' ? 'Las Brasas' : 'the coast'} explored`;
 
     // Camps you can head to (the walk or sail there happens in a short fade; time passes).
     const camps = found.filter((p) => p.camp);

@@ -121,6 +121,7 @@ export class Ecosystem {
     // a group of each species they host, on top of the rest, each with its own seed.
     this.habitat.spots.forEach((home, h) => {
       if (home.site) return; // (the dive sites': last of all, below)
+      if (home.south || home.crossing) return; // (Puerto Brasa's and the crossing's: after even those)
       for (const id of home.hosts || []) {
         const i = FISH.findIndex((f) => f.id === id), sp = FISH[i];
         if (!sp || sp.retired || !sp.life.homes.includes(home.type) || !sp.life.zones.includes(home.zone)) continue;
@@ -178,6 +179,47 @@ export class Ecosystem {
         else {
           const n = L.group[0] + Math.floor(rnd() * (L.group[1] - L.group[0] + 1));
           for (let k = 0; k < n; k++) this.addAgent(sp, home, rnd);
+        }
+      }
+    });
+    // Later still (so every fish above keeps its place, and its own build): Puerto Brasa's harbour
+    // fish and the crossing's (see habitat.js), each home with a seed of its own...
+    this.habitat.spots.forEach((home, h) => {
+      if (home.site || !(home.south || home.crossing) || !home.hosts) return;
+      for (const id of home.hosts) {
+        const i = FISH.findIndex((f) => f.id === id), sp = FISH[i];
+        if (!sp || sp.retired || !sp.life.homes.includes(home.type) || !sp.life.zones.includes(home.zone)) continue;
+        rnd = seeded(80808 + i * 1013 + h * 7);
+        const L = sp.life;
+        if (L.school) this.addSchool(sp, home, rnd);
+        else {
+          const n = L.group[0] + Math.floor(rnd() * (L.group[1] - L.group[0] + 1));
+          for (let k = 0; k < n; k++) this.addAgent(sp, home, rnd);
+        }
+      }
+    });
+    // ...and the island's further groups of the home coast's fish (southMore: the salema and
+    // bogue shoals it grew, the sand smelt it gained), on homes the island's own rules allow.
+    FISH.forEach((sp, i) => {
+      const L = sp.life, n = L.southMore;
+      if (!n || sp.retired) return;
+      rnd = seeded(70707 + i * 1013);
+      const cands = south.filter((s) => !s.hosts && L.homes.includes(s.type) && L.zones.includes(s.zone));
+      for (let k = cands.length - 1; k > 0; k--) {
+        const j = Math.floor(rnd() * (k + 1));
+        [cands[k], cands[j]] = [cands[j], cands[k]];
+      }
+      const gap = L.spacing ?? (L.school ? 40 : 22), taken = this.agents.filter((a) => a.sp === sp).map((a) => a.home);
+      let added = 0;
+      for (const s of cands) {
+        if (added >= n) break;
+        if (taken.some((o) => Math.hypot(o.x - s.x, o.z - s.z) < gap)) continue;
+        taken.push(s);
+        added++;
+        if (L.school) this.addSchool(sp, s, rnd);
+        else {
+          const m = L.group[0] + Math.floor(rnd() * (L.group[1] - L.group[0] + 1));
+          for (let k = 0; k < m; k++) this.addAgent(sp, s, rnd);
         }
       }
     });

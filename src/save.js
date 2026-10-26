@@ -12,6 +12,7 @@ import { cleanDive } from './dive.js';
 import { cleanToday, cleanDays, cleanBadges, newToday } from './daybook.js';
 import { cleanGrounds, newGrounds } from './grounds.js';
 import { cleanComfort } from './comfort.js';
+import { cleanCrossing, cleanPassages } from './crossing.js';
 import { BEHAVIOUR_IDS } from './behaviour.js';
 
 // Saving your progress in this browser, with nobody to sign in to.
@@ -105,6 +106,10 @@ export const DEFAULT_STATE = {
   // notes; and how coloured the sea is just now (0 clear … 1 thick after a blow).
   grounds: null,
   seaColour: 0,
+  // The crossing to Las Brasas (see crossing.js): one under way ({ to, kind, day, abs, secs,
+  // events, weather, eased, back }), and your crossings so far ({ south, home, fast, best }).
+  crossing: null,
+  passages: null,
 };
 
 // A new game: every setting at its default (a loaded save gets its own from sanitize).
@@ -142,8 +147,8 @@ const fresh = () => {
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 // The sea life you can see (the same kinds as world/sealife.js's SEA_LIFE).
 // (The wildlife a photograph can have in it: see world/wildlife.js.)
-const LIFE_KINDS = ['otter', 'heron', 'cormorant', 'tern', 'oystercatcher', 'shearwater', 'turtle'];
-export const SEA_LIFE_KINDS = ['bottlenose', 'commondolphin', 'spotteddolphin', 'seal', 'gannet', 'finwhale', 'minkewhale', 'pilotwhale', 'spermwhale', 'glow', 'otter', 'heron', 'cormorant', 'tern', 'oystercatcher', 'shearwater', 'turtle'];
+const LIFE_KINDS = ['otter', 'heron', 'cormorant', 'tern', 'oystercatcher', 'shearwater', 'turtle', 'flyingfish'];
+export const SEA_LIFE_KINDS = ['bottlenose', 'commondolphin', 'spotteddolphin', 'seal', 'gannet', 'finwhale', 'minkewhale', 'pilotwhale', 'spermwhale', 'glow', 'otter', 'heron', 'cormorant', 'tern', 'oystercatcher', 'shearwater', 'turtle', 'flyingfish'];
 // The harbour: stories heard at each inn, the kitchens' orders you've filled, and a tally.
 function cleanHarbour(raw) {
   const r = isObj(raw) ? raw : {};
@@ -184,8 +189,9 @@ const VESSELS = ['row', 'skiff', 'kayak', 'bass', 'cabin', 'sail', 'cruiser', 'c
 function pos(v) {
   if (!isObj(v)) return null;
   const x = num(v.x, NaN), z = num(v.z, NaN);
-  // (Home lies within about two kilometres of the bay; Las Brasas far to the south, round z 6000.)
-  if (!Number.isFinite(x) || !Number.isFinite(z) || Math.abs(x) > 2000 || z < -2600 || z > 7600 || (z > 2000 && z < 4500)) return null;
+  // (Home lies within about two kilometres of the bay; Las Brasas far to the south, round z 6000;
+  // and the open sea between, where a boat can be left mid-crossing.)
+  if (!Number.isFinite(x) || !Number.isFinite(z) || Math.abs(x) > 2000 || z < -2600 || z > 7600) return null;
   // (motor: the kayak's electric motor left lowered; older saves have it raised.)
   // (sail: the sailing boat's sail left up, and how far her sheet was eased.)
   const out = { x, z, heading: num(v.heading, 0), anchored: !!v.anchored, ...(v.motor === true ? { motor: true } : {}), ...(typeof v.sail === 'number' && Number.isFinite(v.sail) ? { sail: num(v.sail, 0.5, 0, 1) } : {}) };
@@ -338,6 +344,9 @@ export function sanitize(raw) {
     .slice(0, VESSELS.length)
     .map((x) => ({ kind: x.kind, to: x.to, due: x.due }));
   s.seenSouth = typeof raw.seenSouth === 'string' && raw.seenSouth.length <= 2000 && /^[A-Za-z0-9+/=]*$/.test(raw.seenSouth) ? raw.seenSouth : '';
+  // A crossing under way (an older save has none: nothing to resume), and your crossings so far.
+  s.crossing = cleanCrossing(raw.crossing);
+  s.passages = cleanPassages(raw.passages);
   // Your camps, marks, photographs, adventures and keepsakes (version 5).
   s.camps = cleanCamps(raw.camps);
   for (const p of (Array.isArray(raw.pins) ? raw.pins : []).slice(0, PIN_MAX)) {

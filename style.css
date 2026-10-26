@@ -611,6 +611,15 @@ body.pad .keys-only { display: none !important; }
 .marker.camp .m-arrow { border-bottom-color: var(--seaglass); }
 .marker.trip { border-color: rgba(240, 180, 140, 0.6); }
 .marker.trip .m-arrow { border-bottom-color: #f0b48c; }
+/* The crossing's: where to steer for, across the open sea. */
+.marker.cross { border-color: rgba(140, 200, 240, 0.7); }
+.marker.cross .m-arrow { border-bottom-color: #8cc8f0; }
+/* A dialog's list: what's ready (a tick) and what isn't (a warning). */
+.cf-list { list-style: none; margin: 4px 0 12px; padding: 0; display: grid; gap: 6px; text-align: left; }
+.cf-list li { position: relative; padding-left: 22px; font-size: 14px; line-height: 1.35; }
+.cf-list li::before { position: absolute; left: 0; top: 0; width: 16px; text-align: center; font-weight: 700; }
+.cf-list li.ok::before { content: '✓'; color: #5a9a6a; }
+.cf-list li.warn::before { content: '!'; color: #d07040; }
 .marker.near { opacity: 0.75; }
 .marker.guide { border-color: rgba(255, 214, 140, 0.85); background: rgba(40, 32, 20, 0.6); }
 .marker.guide .m-arrow { border-bottom-color: #ffd68c; }

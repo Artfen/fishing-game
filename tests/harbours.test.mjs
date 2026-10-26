@@ -195,9 +195,10 @@ test('the yacht: big, quick, slow to turn at speed, with a cabin and a wheel, an
   conditions.manual = null;
 });
 
-test('her fuel: a big tank, the passage takes half of it, and the save keeps her where she was', async () => {
+test('her fuel: a big tank, enough aboard for the crossing, and the save keeps her where she was', async () => {
   assert.ok(F.isPetrol('cruiser'));
-  assert.equal(F.PASSAGE_FUEL, F.TANKS.cruiser / 2);
+  // (What she needs aboard to set out on the crossing: what it burns, and a margin; see crossing.js.)
+  assert.ok(F.PASSAGE_FUEL > 60 && F.PASSAGE_FUEL < F.TANKS.cruiser / 2);
   const f = F.defaultFuel();
   assert.equal(f.boats.cruiser, F.TANKS.cruiser, 'full to begin with');
   F.burnBoat(f, 'cruiser', 1, 600);

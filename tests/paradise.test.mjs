@@ -153,7 +153,7 @@ test('more fish, but not absurdly many; Fernbeck’s pools all hold fish', () =>
   const eco = new Ecosystem(createHabitat());
   // (At home: Las Brasas, far to the south, has its own, see tests/brasas.test.mjs; so do the
   // dive sites, see tests/divesites.test.mjs.)
-  const n = eco.agents.filter((a) => !a.home.south && !a.home.site).length;
+  const n = eco.agents.filter((a) => !a.home.south && !a.home.site && !a.home.crossing).length;
   assert.ok(n > 2300 && n < 2500, `${n} fish in all`);
   const stream = eco.agents.filter((a) => a.home.zone === 'stream');
   assert.ok(stream.length >= 18, `${stream.length} in the stream`);

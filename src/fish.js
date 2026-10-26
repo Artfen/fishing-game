@@ -848,6 +848,7 @@ for (const [id, R] of Object.entries(AT_BRASAS)) {
   f.life.zones = [...f.life.zones, ...R.zones];
   if (R.homes) f.life.homes = [...f.life.homes, ...R.homes];
   f.life.southGroups = R.groups;
+  if (R.more) f.life.southMore = R.more;
   if (R.favour) f.life.favourSouth = R.favour;
   // (Who it hunts round the island, where the home coast's prey don't live.)
   if (R.hunter) f.life.hunterSouth = R.hunter;

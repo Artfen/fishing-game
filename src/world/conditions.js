@@ -215,6 +215,7 @@ export const WAVE_COUNTS = { swell: SWELL.length, chop: CHOP.length };
 // the mean. (Left to itself, as in the tests, a steady ebb at mean level.)
 export const TIDE = { flow: 1, level: 0 };
 const TRADES_FROM = 0.8; // the trade wind's bearing: from the north-east
+const HOME_FROM = 3.9;    // home's usual wind: from the south-west
 
 export const conditions = {
   time: 0, // the shared wave clock (seconds), set by the game each frame
@@ -232,6 +233,10 @@ export const conditions = {
   preset: 'auto', manual: null, currents: 'natural',
   // Which sea you're in ('home', or 'south' at Las Brasas, where the trade wind blows).
   region: 'home',
+  // Out on the crossing between them (see crossing.js, set by the game from where you are): how far
+  // into the trade wind (0 … 1; null: by the region), and how far out into the open Atlantic,
+  // where the long swell runs bigger (0 … 1).
+  trade: null, ocean: 0,
   // How full the rivers run (set by the game from the season and the rain; 1 as built).
   riverScale: 1,
   chopAmps: new Float32Array(CHOP.length),
@@ -249,7 +254,8 @@ export function updateConditions(dt, weather) {
     W.timer -= dt;
     const storm = weather.storm || 0;
     // (In a storm the wind gets up to a gale and changes more often.)
-    const trades = C.region === 'south' && storm < 0.3;
+    const trade = C.trade ?? (C.region === 'south' ? 1 : 0);
+    const trades = trade > 0.5 && storm < 0.3;
     if (W.timer <= 0 || (storm > 0.3 && W.target < 12 * storm)) {
       W.timer = (70 + Math.random() * 110) * (1 - storm * 0.5);
       // (At Las Brasas, the trade wind: a steady fresh breeze from the north-east, seldom calm.
@@ -259,11 +265,18 @@ export function updateConditions(dt, weather) {
       W.turn = (Math.random() - 0.5) * 0.004 * (1 + storm * 2);
     }
     W.from = (W.from + W.turn * dt + TAU) % TAU;
-    if (trades) W.from = dampAngleTo(W.from, TRADES_FROM + Math.sin(C.time * 0.0021) * 0.25, 0.01, dt);
+    // (Out on the crossing the wind comes round into the trade a little at a time as you go south,
+    // veering through the north as it does between the westerlies and the trades (south-west,
+    // west, north-west, north, north-east), and back out of it going north.)
+    if (trade > 0.02 && storm < 0.3) {
+      const toward = C.trade != null && C.trade < 0.97 ? (HOME_FROM + C.trade * (TRADES_FROM + TAU - HOME_FROM)) % TAU : TRADES_FROM + Math.sin(C.time * 0.0021) * 0.25;
+      W.from = dampAngleTo(W.from, toward, 0.01 * Math.max(trade, 0.4), dt);
+    }
     // The day's own wind, on a fair day: at home a sea breeze sets in towards midday, blowing in
     // from the sea (the south) and freshening through the afternoon, and a lighter land breeze at
     // night; at Las Brasas the trade wind freshens in the afternoon.
-    const day = dayWind(C.hour) * (1 - storm) * (P ? 0 : 1) * (1 - 0.6 * (weather.cloud || 0));
+    // (A sea breeze is the coast's: out on the open sea it fades away.)
+    const day = dayWind(C.hour) * (1 - storm) * (P ? 0 : 1) * (1 - 0.6 * (weather.cloud || 0)) * (1 - (C.ocean || 0));
     W.daily = trades ? Math.max(0, day) * 0.6 : day;
     if (!trades && day > 0.2) W.from = dampAngleTo(W.from, Math.PI, 0.004 * day, dt);
   }
@@ -274,7 +287,7 @@ export function updateConditions(dt, weather) {
   C.sea.storm = damp(C.sea.storm, stormTarget, stormTarget > C.sea.storm ? 0.014 : 0.006, dt);
   C.sea.peak = 1 + 2.4 * smoothstep(0.15, 1, C.sea.storm);
   // (The Atlantic swell comes and goes over hours too: some days a long one is running.)
-  const swellTarget = (P ? P.swell : 0.18 + weather.cloud * 0.1 + weather.rain * 0.15 + 0.08 * Math.sin(C.time * 0.0006)) * (C.manual ? 0.6 + C.manual.speed / 25 : 1) + 2.1 * C.sea.storm;
+  const swellTarget = (P ? P.swell : 0.18 + weather.cloud * 0.1 + weather.rain * 0.15 + 0.08 * Math.sin(C.time * 0.0006)) * (C.manual ? 0.6 + C.manual.speed / 25 : 1) + 2.1 * C.sea.storm + 0.45 * (C.ocean || 0);
   C.sea.swell = damp(C.sea.swell, swellTarget, 0.008 + 0.012 * C.sea.storm, dt);
   C.sea.chop = damp(C.sea.chop, chopFor(W.speed), 0.04, dt);
   // A fresh wind's sea is steep, its crests sharp (and breaking: see water.js).

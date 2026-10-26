@@ -37,11 +37,17 @@ export const START = { x: 12, z: 32, heading: Math.PI };
 export const WORLD = { x0: -1700, x1: 1100, z0: -2100, z1: 1400 };
 export const SEA = { x0: -900, x1: 1100, z0: -1100, z1: 1400 };
 export const WATER_RECT = { x: SEA.x0, z: SEA.z0, w: SEA.x1 - SEA.x0, h: SEA.z1 - SEA.z0 };
-// Inside the world: home's, or Las Brasas' far to the south (see brasa.js). pad: a margin inside.
+// The open Atlantic between them: the crossing to Las Brasas (see crossing.js), deep water all
+// the way, from the bottom of the home chart to the top of the island's.
+export const CROSSING = { x0: -1700, x1: 1700, z0: 1350, z1: 4600 };
+const inCrossing = (x, z, pad = 0) => x > CROSSING.x0 + pad && x < CROSSING.x1 - pad && z > CROSSING.z0 - 100 && z < CROSSING.z1 + 100;
+// Inside the world: home's, or Las Brasas' far to the south (see brasa.js), or the sea between.
+// pad: a margin inside.
 export const inWorld = (x, z, pad = 0) => (x > WORLD.x0 + pad && x < WORLD.x1 - pad && z > WORLD.z0 + pad && z < WORLD.z1 - pad)
-  || (x > SOUTH_RECT.x0 + pad && x < SOUTH_RECT.x1 - pad && z > SOUTH_RECT.z0 + pad && z < SOUTH_RECT.z1 - pad);
-// In either of the game's seas: home, or Las Brasas' far to the south (see brasa.js).
-export const inSeas = (x, z) => (x > SEA.x0 && x < SEA.x1 && z > SEA.z0 && z < SEA.z1) || (x > SOUTH_RECT.x0 && x < SOUTH_RECT.x1 && z > SOUTH_RECT.z0 && z < SOUTH_RECT.z1);
+  || (x > SOUTH_RECT.x0 + pad && x < SOUTH_RECT.x1 - pad && z > SOUTH_RECT.z0 + pad && z < SOUTH_RECT.z1 - pad) || inCrossing(x, z, pad);
+// In either of the game's seas: home, or Las Brasas' far to the south (see brasa.js), or the open
+// sea between them.
+export const inSeas = (x, z) => (x > SEA.x0 && x < SEA.x1 && z > SEA.z0 && z < SEA.z1) || (x > SOUTH_RECT.x0 && x < SOUTH_RECT.x1 && z > SOUTH_RECT.z0 && z < SOUTH_RECT.z1) || inCrossing(x, z);
 export const MAP_RECT = { x: -620, z: -700, w: 1380, h: 1700 };
 // The old home map (for the hand-drawn bay map in the journal).
 export const HOME_RECT = { x: -180, z: -112, w: 375, h: 284 };

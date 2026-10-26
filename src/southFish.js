@@ -11,12 +11,13 @@ import { isDay, isEvening, isTwilight } from './habits.js';
 // life.southGroups says how many groups (or schools) of it the island has.
 
 // Fish of the home coast that live round Las Brasas too: which of its waters, how many groups or
-// schools, and where to look for them (added to the field guide's "where").
+// schools (and more: further ones, added after every other fish so none of them moves), and where
+// to look for them (added to the field guide's "where").
 export const AT_BRASAS = {
   whitebream: { zones: ['lava', 'lee'], groups: 8, favour: ['bajon'], where: 'El Bajón, off the harbour mouth, and the reefs and surf all round the island' },
   twobanded: { zones: ['lee', 'harbor', 'lava'], groups: 6, favour: ['bajon'], where: 'the top of El Bajón, and weed and rocks in the lee and the harbour' },
-  salema: { zones: ['lee', 'harbor', 'lava', 'sebadal'], groups: 7, where: 'shoals grazing the shallow weed in the lee and the seagrass of El Sebadal' },
-  bogue: { zones: ['lee', 'veril', 'harbor'], groups: 7, where: 'shoals over the reefs, in the harbour mouth and off El Veril' },
+  salema: { zones: ['lee', 'harbor', 'lava', 'sebadal'], groups: 5, more: 2, where: 'shoals grazing the shallow weed in the lee and the seagrass of El Sebadal' },
+  bogue: { zones: ['lee', 'veril', 'harbor'], groups: 5, more: 2, where: 'shoals over the reefs, in the harbour mouth and off El Veril' },
   redporgy: { zones: ['lee', 'lava', 'veril'], groups: 6, homes: ['wall'], where: 'rocky ground in deeper water, and the top of El Veril' },
   dentex: { zones: ['veril', 'lee'], groups: 3, homes: ['wall'], where: 'the edge of El Veril' },
   striped: { zones: ['sebadal', 'lee'], groups: 5, where: 'the sand of El Sebadal and off Playa Negra' },
@@ -27,13 +28,13 @@ export const AT_BRASAS = {
   mullet: { zones: ['harbor'], groups: 2, where: 'Puerto Brasa’s harbour, along the quay' },
   squid: { zones: ['lee', 'harbor'], groups: 3, where: 'the lee and the harbour mouth, at night' },
   horsemackerel: { zones: ['lee', 'harbor', 'veril'], groups: 4, where: 'shoals in the lee and under the harbour lights' },
-  sardine: { zones: ['lee', 'veril'], groups: 3, where: 'shoals off the lee' },
+  sardine: { zones: ['lee', 'veril', 'ocean'], groups: 3, where: 'shoals off the lee, and out on the crossing' },
   garfish: { zones: ['lee', 'veril'], groups: 2, where: 'just under the surface off the lee' },
   pompano: { zones: ['lee'], groups: 2, where: 'the surf of Playa Negra' },
   bluefish: { zones: ['veril', 'lava', 'lee'], groups: 2, hunter: ['sardine', 'bogue', 'chubmackerel'], where: 'hunting off the points and along El Veril' },
   bullet: { zones: ['veril', 'ocean'], groups: 2, hunter: ['sardine', 'chubmackerel'], where: 'out over El Veril' },
   littletunny: { zones: ['ocean', 'veril'], groups: 2, hunter: ['sardine', 'chubmackerel', 'bogue'], where: 'the blue water off the island' },
-  sandsmelt: { zones: ['harbor', 'sebadal', 'lee'], groups: 4, where: 'shoals in Puerto Brasa’s harbour and over the seagrass of El Sebadal' },
+  sandsmelt: { zones: ['harbor', 'sebadal', 'lee'], groups: 0, more: 4, where: 'shoals in Puerto Brasa’s harbour and over the seagrass of El Sebadal' },
   // (The big game of the home coast's Blue Water: see bigGame.js.)
   blueshark: { zones: ['ocean'], groups: 3, where: 'the blue water off the island' },
   mako: { zones: ['ocean'], groups: 2, where: 'the blue water off the island, hunting the tuna' },
