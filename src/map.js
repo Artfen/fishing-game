@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { groundsOf } from './grounds.js';
 import { PLACES, PATH, WEND_TRAIL, COAST_PATHS, LANES, HOME, CAR_PARKS, zoneAt, ZONE_NAMES, heightAt } from './world/terrain.js';
 import { COLDWATER, TARN, FELL_PATH } from './world/coldwater.js';
 import { fishById } from './fish.js';
@@ -1174,6 +1175,8 @@ export class MapSheet {
     this.renderPins();
 
     const others = found.filter((p) => !p.camp);
+    // (What you've had at each, from your own catches: see grounds.js.)
+    const had = new Map(groundsOf(st.log).map((g) => [g.place, g]));
     const items = others.map((p) => {
       const li = document.createElement('li');
       const name = document.createElement('button');
@@ -1184,6 +1187,13 @@ export class MapSheet {
       const sub = document.createElement('span');
       sub.textContent = p.sub;
       li.append(name, sub);
+      const g = had.get(p.name);
+      if (g) {
+        const k = document.createElement('span');
+        k.className = 'map-had';
+        k.textContent = `Yours here: ${g.kinds.slice(0, 3).map((K) => `${fishById[K.sp]?.name.toLowerCase() || K.sp} ${K.n}`).join(' · ')}${g.kinds.length > 3 ? ' …' : ''}`;
+        li.append(k);
+      }
       return li;
     });
     const left = PLACES.length - found.length;

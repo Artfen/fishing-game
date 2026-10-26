@@ -483,6 +483,14 @@ Long days out leave a mark, gently. Your angler feels the weather and the trip, 
 
 Each of these comes from a real fish at that spot. Press **C** to look underwater and you'll find it there.
 
+**Reading them right.** The signs you see are noted as you see them. Fish where one was, soon after, and catch the fish that made it, and you're told what it was: *"The birds were right: a shoal of Atlantic mackerel under them. Where gulls and gannets dive, bait has been driven to the top, and something is driving it."* The journal's **Notes** keep each sign: how often you've seen it, how often you've read it, and what you found under it.
+
+**The water's colour.** Rain and a blow stir up the silt: the shallows go olive-green and you can't see the weed through them, and under the water it's murky. It settles over most of a day. The conditions panel says how it is (*clear*, *a little colour in it*, *coloured, after the weather*). It changes who's feeding: bass, conger and the flatfish hunt by smell and feel and come on in coloured water; the fish that hunt by sight (mackerel, garfish, wrasse, pollack, the breams, squid) do worse in it. The catch log notes it.
+
+**The grounds.** The journal's **Notes** turn your own catches into local knowledge, place by place: what you've had there and, once there are three or more of a kind, when they came: *"Atlantic mackerel: 14 (best 38 cm), mostly on the flood, at dawn, in summer; most on sabiki feathers."* (the tide, the time of day, the season, coloured water, and the bait or lure that took most). Nothing you haven't found out yourself. The map's list of places says what you've had at each.
+
+**Field notes.** The naturalist's pages: the life of the seabed, the reef and the wreck you've met up close while diving (starfish and brittlestars, urchins, scallops and hermit crabs, lugworm casts, burrowing anemones and sea pens, dahlia, jewel and plumose anemones, dead man's fingers, pink sea fans, sponges, kelp and the red weeds under it, the lobster, and the swan mussels in the lakes), each with its Latin name, a line on how it lives, and where you first met it; and the sea life you've seen from the boat.
+
 ### The harbour: the fish market and the inn
 
 Willowhaven is a working harbour, and a catch you keep can do more than go on the grill.
@@ -629,7 +637,7 @@ Press **J**. The **Fish & places** pages hold a sketch and notes for every kind 
 - how deep it took and how deep the water was, and whether flies were hatching,
 - what happened to it: released, kept, cooked or eaten.
 
-It shows your heaviest catch, totals and personal bests for each kind, and your recent catches with filters for kind, water, method and what happened to them (25 at a time, with *Show more*). The **Memories** pages hold your photographs, adventures and keepsakes, marks, camp and places (see [Photographs and memories](#photographs-and-memories)).
+It shows your heaviest catch, totals and personal bests for each kind, and your recent catches with filters for kind, water, method and what happened to them (25 at a time, with *Show more*). The **Memories** pages hold your photographs, adventures and keepsakes, marks, camp and places (see [Photographs and memories](#photographs-and-memories)); **Days** is the day book and your record (below); **Notes** holds the grounds, the signs you've read and your field notes (see [Reading the water](#reading-the-water)).
 
 ### The day book, your record and the harbour's challenges
 
@@ -805,6 +813,7 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 | `src/world/habitat.js` | The underwater map shared by everything below the surface: depth, weed beds, rock piles, kelp and reefs, the stream's current, and the homes fish live around, for the home waters and each region |
 | `src/world/ecosystem.js` | Every fish in the world: schooling, cruising, feeding, resting, fleeing, rising and jumping, and how each one judges and takes a rig (nibbling, following, ambushing, rising, grazing, running). Fixed 30 Hz simulation, slower far away |
 | `src/world/fishRender.js` | Draws the ecosystem's fish (a near and a far instanced draw per species, skipped when none are in view) with their swimming motion |
+| `src/grounds.js` | Learning the grounds: the signs on the water and what was under them, what your catches say about each place, the water's colour, the naturalist's notes |
 | `src/daybook.js` | The day book: today's notes, each day's page in words, your record, the harbour's challenges and their badges |
 | `src/world/divesites.js` | The dive sites: where they are, the Hound's shape, the solid rock a diver and the sites' fish keep out of |
 | `src/world/divesiteWorld.js` | What the dive sites look like: the buoys, the arch and boulders, the kelp forest, the anchor and its chain, the Hound and the life on it |

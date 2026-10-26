@@ -126,6 +126,8 @@ export class Seabed {
       this.meshes[k] = m;
     }
     this.on = false;
+    // Where each kind lies just now: flat [x, y, z, …] (for what you're close to, see kindsNear).
+    this.at = {};
   }
 
   // Each frame: laid out round the camera while it's under the water at home, else put away.
@@ -148,7 +150,10 @@ export class Seabed {
 
   layOut(px, pz) {
     const counts = {}, s = {};
-    for (const k in this.meshes) counts[k] = 0;
+    for (const k in this.meshes) {
+      counts[k] = 0;
+      this.at[k] = [];
+    }
     const o = new THREE.Object3D(), c = new THREE.Color();
     const i0 = Math.floor((px - REACH) / CELL), i1 = Math.floor((px + REACH) / CELL);
     const j0 = Math.floor((pz - REACH) / CELL), j1 = Math.floor((pz + REACH) / CELL);
@@ -168,6 +173,7 @@ export class Seabed {
           const w = hash2(i + 7, j + 13 * n);
           const tilt = kind === 'pen' || kind === 'ceri' ? 0.08 : 0.25;
           o.position.set(x, heightAt(x, z) - 0.005, z);
+          this.at[kind].push(o.position.x, o.position.y, o.position.z);
           o.rotation.set((w - 0.5) * tilt, w * 40, (hash2(j, i) - 0.5) * tilt);
           o.scale.setScalar(0.75 + w * 0.6);
           o.updateMatrix();
@@ -179,8 +185,24 @@ export class Seabed {
     }
     for (const [k, m] of Object.entries(this.meshes)) {
       m.count = counts[k];
+      m.userData.kind = k;
       m.instanceMatrix.needsUpdate = true;
       if (m.instanceColor) m.instanceColor.needsUpdate = true;
     }
+  }
+
+  // The kinds lying within r of p (while you're under the water), into `out`.
+  kindsNear(p, r, out = new Set()) {
+    if (!this.on) return out;
+    for (const [k, a] of Object.entries(this.at)) {
+      if (out.has(k)) continue;
+      for (let i = 0; i < a.length; i += 3) {
+        if (Math.abs(a[i] - p.x) < r && Math.abs(a[i + 2] - p.z) < r && Math.hypot(a[i] - p.x, a[i + 1] - p.y, a[i + 2] - p.z) < r) {
+          out.add(k);
+          break;
+        }
+      }
+    }
+    return out;
   }
 }

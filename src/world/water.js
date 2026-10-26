@@ -123,6 +123,7 @@ uniform float uChopH;    // the chop's crest amplitude (m)
 uniform float uStorm;    // how stormy (0 … 1)
 uniform float uWindMS;   // the sustained wind (m/s), for the whitecaps
 uniform float uClear;    // clear blue water (Las Brasas): you see the seabed and the fish much deeper
+uniform float uColour;   // silt stirred up by rain or a blow (0 clear … 1 thick): see grounds.js
 varying vec3 vWorld;
 varying vec3 vN;
 varying vec4 vRefl;
@@ -268,6 +269,9 @@ void main() {
   // A storm sea is dark and grey-green, churned up.
   float stormy = uStorm * (1.0 - fresh);
   base = mix(base, mix(vec3(0.2, 0.33, 0.33), vec3(0.09, 0.17, 0.21), s2), stormy * 0.8);
+  // Coloured water after rain or a blow: silt in the shallows, olive-brown, and you can't see down.
+  float silty = uColour * (1.0 - fresh) * (1.0 - smoothstep(3.0, 16.0, depth)) * (1.0 - uClear);
+  base = mix(base, mix(vec3(0.43, 0.46, 0.33), vec3(0.25, 0.33, 0.28), s1), silty * 0.7);
 
   float diff = clamp(dot(N, uLightDir), 0.0, 1.0);
   vec3 col = base * (uAmbient + uSunColor * (0.25 + 0.55 * diff));
@@ -367,6 +371,7 @@ void main() {
   alpha = mix(alpha, mix(0.3, 0.92, smoothstep(1.0, 18.0, depth)), uClear * (1.0 - stormy));
   // Clear fresh water: you can see the gravel in the stream and fish in the shallows.
   alpha = mix(alpha, mix(0.5, 0.92, smoothstep(0.0, 3.0, depth)), fresh);
+  alpha = mix(alpha, 0.93, silty * 0.8);
   alpha = max(alpha, foam);
   gl_FragColor = vec4(col, alpha);
   #include <tonemapping_fragment>
@@ -411,6 +416,7 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       uReflOn: { value: 0 },
       uUnder: { value: 0 },
       uClear: { value: 0 },
+      uColour: { value: 0 },
       uReflMatrix: { value: new THREE.Matrix4() },
       uRippleOn: { value: 0 },
       uRippleTexel: { value: 1 / 512 },

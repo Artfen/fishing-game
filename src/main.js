@@ -45,6 +45,7 @@ import { Boat, BOAT_KINDS } from './boat.js';
 import { Walker } from './walker.js';
 import { Effects } from './effects.js';
 import { buildSeaLife, SEA_LIFE } from './world/sealife.js';
+import { seeSign, readSign, SIGNS, SEEN_AT, stepColour, colourKey, colourWords, NATURE, noteNature } from './grounds.js';
 import { newToday, notePlace, noteMove, noteBoat, noteDive, noteSeen, noteSky, noteGale, noteRecord, closeDay, dayLine, checkChallenges, isSheltered, CHALLENGES, challengeById } from './daybook.js';
 import { SeaGlow, nightGlow } from './world/seaglow.js';
 import { Fishing } from './fishing.js';
@@ -1001,6 +1002,8 @@ function logCatch(sp, size, agent, rigUsed, how = null) {
     from: how?.from || (onFoot ? 'shore' : 'boat'),
     rain: weather.rain > 0.6 ? 2 : weather.rain > 0.15 ? 1 : 0,
     tide: tideAt(state.day * 24 + state.hour).phase,
+    // (The water's colour, at sea: see grounds.js.)
+    ...(waterOf(zoneAt(agent.x, agent.z)) !== 'fresh' && colourKey(state.seaColour) !== 'clear' ? { colour: colourKey(state.seaColour) } : {}),
     season: seasonOf(state.day).name,
     hatch: Math.round(hatchLevel() * 10) / 10,
     depth: Math.round(Math.max(0, -at.y) * 10) / 10,
@@ -1034,6 +1037,9 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
   const rec = state.fish[sp.id];
   const record = !isNew && size > rec.best;
   if (record) noteRecord(state.today, sp.id, size);
+  // Was it under a sign you saw just now? Then you know what that sign was (see grounds.js).
+  const read = agent ? readSign(state.grounds, recentSigns, sp.id, agent.x, agent.z, state.day * 24 + state.hour) : null;
+  if (read) later(read.first ? SIGNS[read.kind].lesson(sp.id) : `${SIGNS[read.kind].name}: ${read.kind === 'birds' ? 'under the birds again' : 'you read it right again'}.`);
   rec.count++;
   rec.best = Math.max(rec.best, size);
   if (rigUsed?.item) {
@@ -2199,6 +2205,7 @@ function updateDive(dt) {
   if (d.kit === 'free') freediveStep(dt, depth, surf);
   else scubaStep(dt, depth, surf);
   diveSiteStep(depth);
+  noteLife(dt);
   // (The fish reckon heights from their own water's surface.)
   Object.assign(diverCtx, { x: D.pos.x, y: D.pos.y - waterLevel(D.pos.x, D.pos.z), z: D.pos.z, vx: D.vel.x, vy: D.vel.y, vz: D.vel.z, speed: D.speed, kicking: D.kicking, still: D.still });
   // (Where "you" are, for the markers, the map and the places you pass.)
@@ -2235,6 +2242,29 @@ function diveSiteStep(depth) {
   }
   const rec = state.dive.sites[S.id];
   if (rec && depth > rec.deepest && Math.hypot(P.x - S.x, P.z - S.z) < S.r + 12) rec.deepest = Math.round(depth * 10) / 10;
+}
+
+// The naturalist's notes (see grounds.js): what lives within reach of you on the bottom, the reef
+// or the wreck, the first time you meet it (and once a dive after that).
+let lifeT = 0;
+function noteLife(dt) {
+  if ((lifeT -= dt) > 0 || diver.depth < 0.8) return;
+  lifeT = 0.5;
+  const d = dive, P = diver.pos;
+  d.met ||= new Set();
+  const near = seabed.kindsNear(P, 2.6);
+  world.dives.kindsNear(P, 2.8, near);
+  const fresh = [];
+  for (const k of near) {
+    if (!NATURE[k] || d.met.has(k)) continue;
+    d.met.add(k);
+    if (noteNature(state.grounds, k, { day: state.day, hour: state.hour, where: placeName(P.x, P.z) || '' })) fresh.push(k);
+  }
+  if (!fresh.length) return;
+  // (One at a time, with its note; several at once, by name: the journal has the rest.)
+  const names = fresh.map((k) => `the ${NATURE[k].name.toLowerCase()}`);
+  later(fresh.length === 1 ? `Your field notes: ${names[0]}. ${NATURE[fresh[0]].note}` : `Your field notes: ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}. (Notes, in the journal.)`);
+  hud.pulseJournal();
 }
 
 function freediveStep(dt, depth, surf) {
@@ -4847,10 +4877,26 @@ let placeTimer = 0;
 // about, the boat you're in, the sky, and where you are if a gale's blowing; when the day turns
 // (asleep, or at midnight), its page is written up, and in the morning you hear so.
 let dayTimer = 0, dayLast = null, dayNews = null, challengesDue = true;
+// Things to say once the card in front of you is closed, one at a time.
+const laterLines = [];
+let laterT = 0, colourAbs = null;
+const later = (text) => laterLines.length < 6 && laterLines.push(text);
+const recentSigns = [];
 function noteTheDay(dt) {
+  laterT -= dt;
+  if (laterLines.length && laterT <= 0 && !modal && !sleeping && !traveling) {
+    hud.toast(laterLines.shift(), 9);
+    laterT = 7;
+  }
   dayTimer -= dt;
   if (dayTimer > 0) return;
   dayTimer = 2;
+  // The water's colour (see grounds.js): stirred up by rain and a blow, settling over a day.
+  const abs = state.day * 24 + state.hour;
+  if (colourAbs != null) state.seaColour = stepColour(state.seaColour, { rain: weather.rain, storm: Math.max(weather.storm, conditions.sea.storm) }, Math.max(0, abs - colourAbs));
+  colourAbs = abs;
+  water.uniforms.uColour.value = state.seaColour;
+  underwater.colour = state.seaColour;
   if (!state.today || state.today.day !== state.day) closeTheDay();
   if (challengesDue && !modal) {
     challengesDue = false;
@@ -4963,6 +5009,8 @@ function handleClues() {
     const dx = c.x - cp.x, dz = c.z - cp.z;
     const d = Math.hypot(dx, dz);
     if (d > (c.type === 'birds' ? 400 : c.type === 'boil' ? 220 : 90)) continue;
+    // Seen, if it's near enough and light enough to see: noted (see grounds.js).
+    if (SEEN_AT[c.type] && d < SEEN_AT[c.type] && (env.daylight > 0.2 || c.type === 'rise' || c.type === 'jump')) seeSign(state.grounds, recentSigns, c, state.day * 24 + state.hour, state.day);
     const vol = clamp(1 - d / 60, 0, 1);
     const pan = clamp(((-fz_ * dx + fx_ * dz) / (d || 1)) * -0.8, -0.8, 0.8);
     switch (c.type) {
@@ -5805,6 +5853,8 @@ function updateConditionsPanel(dt) {
   const hgt = waveHeightHere(P.x, P.z);
   $('cd-sea').textContent = `${seaWords(hgt)}, ${hgt < 0.1 ? 'under 0.1' : `about ${hgt.toFixed(1)}`} m`;
   $('cd-tide').textContent = tideWords(state.day * 24 + state.hour);
+  const wz = waterOf(zoneAt(P.x, P.z));
+  $('cd-water').textContent = wz === 'fresh' ? 'fresh' : `${wz === 'brackish' ? 'brackish, ' : ''}${colourWords(state.seaColour)}`;
 }
 
 function updateHud() {
@@ -6869,6 +6919,7 @@ function ecoTick(dt) {
   // (In a blow the fish of sheltered water feed hard, the open sea's go quiet; after it too.)
   ecoCtx.env.storming = Math.max(weather.storm, conditions.sea.storm);
   ecoCtx.env.after = blowAfter();
+  ecoCtx.env.colour = state.seaColour;
   ecoCtx.env.rain = weather.rain;
   ecoCtx.env.cloud = weather.cloud;
   ecoCtx.env.storm = Math.max(weather.storm, conditions.sea.storm);

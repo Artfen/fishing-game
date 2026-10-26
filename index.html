@@ -57,6 +57,7 @@
     <span class="cd-row"><span class="cd-k">Current</span><span id="cd-cur"></span></span>
     <span class="cd-row"><span class="cd-k">Sea</span><span id="cd-sea"></span></span>
     <span class="cd-row"><span class="cd-k">Tide</span><span id="cd-tide"></span></span>
+    <span class="cd-row"><span class="cd-k">Water</span><span id="cd-water"></span></span>
   </div>
   <div id="boat-marker" class="marker" hidden aria-hidden="true"><span class="m-arrow"></span><span class="m-label">Boat · <b id="boat-dist">0</b> m</span></div>
   <div id="camp-marker" class="marker camp" hidden aria-hidden="true"><span class="m-arrow"></span><span class="m-label">Camp · <b id="camp-dist">0</b> m</span></div>
@@ -423,6 +424,7 @@
       <button type="button" data-view="guide" aria-label="Field guide"><span class="j-tab-more">Field </span>guide</button>
       <button type="button" data-view="memories">Memories</button>
       <button type="button" data-view="days" aria-label="Days and your record">Days</button>
+      <button type="button" data-view="notes" aria-label="Notes: the grounds and the field notes">Notes</button>
     </nav>
     <section class="page left j-mem-view" aria-label="Memories: photographs and adventures" hidden>
       <h2>Photographs <span class="count" id="mem-photo-count"></span></h2>
@@ -464,6 +466,22 @@
       <h3>The harbour’s challenges</h3>
       <p class="j-faint">On the board in the Lobster Pot. Each one done puts a cloth badge on the board at home.</p>
       <ul id="rec-challenges" class="rec-challenges"></ul>
+    </section>
+    <section class="page left j-notes-view" aria-label="The grounds and the signs on the water" hidden>
+      <h2>The grounds</h2>
+      <p class="j-faint">What your own catches say about each place: what you’ve had there, and when it came.</p>
+      <div id="notes-grounds"></div>
+      <h2>Signs on the water</h2>
+      <p class="j-faint">What you’ve seen, and what you found under it when you fished it.</p>
+      <ul id="notes-signs" class="rec-challenges"></ul>
+    </section>
+    <section class="page right j-notes-view" aria-label="The naturalist’s field notes" hidden>
+      <h2>Field notes</h2>
+      <p class="j-faint">The life of the coast you’ve met: under the water, close enough to touch, and out on it.</p>
+      <h3>On the seabed, the reef and the wreck <span class="count" id="notes-life-count"></span></h3>
+      <div id="notes-life"></div>
+      <h3>Out on the water</h3>
+      <div id="notes-sea"></div>
     </section>
     <div id="mem-viewer" class="mem-viewer" role="dialog" aria-label="A photograph" hidden>
       <div class="mem-viewer-inner">

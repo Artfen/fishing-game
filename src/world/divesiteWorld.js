@@ -576,6 +576,22 @@ export function buildDiveSites(scene, rnd) {
 
   return {
     group, buoys, towers, anchor, pot,
+    // What grows within r of p, kind by kind (at the site you're at), into `out`.
+    kindsNear(p, r, out = new Set()) {
+      for (const S of DIVE_SITES) {
+        if (Math.hypot(p.x - S.x, p.z - S.z) > S.r + 30) continue;
+        for (const [k, list] of Object.entries(bySite[S.id])) {
+          if (out.has(k)) continue;
+          for (const t of list) {
+            if (Math.abs(t.x - p.x) < r && Math.abs(t.z - p.z) < r && Math.hypot(t.x - p.x, t.y - p.y, t.z - p.z) < r) {
+              out.add(k);
+              break;
+            }
+          }
+        }
+      }
+      return out;
+    },
     setQuality(q) {
       for (const m of life) m.count = Math.max(Math.min(m.userData.total, 120), Math.floor(m.userData.total * Math.max(0.5, q.plants)));
     },

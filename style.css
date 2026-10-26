@@ -2156,6 +2156,16 @@ body.placing #sonar, body.placing #act-btn, body.placing #cancel-btn { visibilit
 .mem-photo img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #ddd2b8; }
 .mem-photo span { font: 13px/1.2 var(--font-hand); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mem-photo.away img { opacity: 0.3; }
+/* Notes: the grounds, the signs, the naturalist's field notes. */
+.map-had { display: block; font: 12px/1.35 var(--font-ui); color: #2f6f74; }
+.n-place { margin: 6px 0 12px; }
+.n-place strong { display: block; font: 700 19px var(--font-display); }
+.n-place p { margin: 1px 0 0; font: 16px/1.4 var(--font-hand); }
+.n-life { margin: 6px 0 10px; padding: 4px 0 4px 10px; border-left: 3px solid #6f9a63; }
+.n-life.faint { border-left-color: var(--ink-faint); opacity: 0.55; }
+.n-life b { font: 700 15px var(--font-ui); }
+.n-life i { font: italic 13px var(--font-ui); color: var(--ink-soft); }
+.n-life p { margin: 2px 0 0; font: 13px/1.4 var(--font-ui); }
 /* The day book: a page for each day out, your record, the harbour's challenges. */
 .j-day { margin: 6px 0 14px; padding: 6px 12px 8px; border-left: 3px solid var(--ink-faint); }
 .j-day strong { display: block; font: 700 20px var(--font-display); }

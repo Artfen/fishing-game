@@ -5,6 +5,7 @@ import { zoneAt } from './terrain.js';
 import { pushOut } from './divesites.js';
 import { tideBoost } from './tide.js';
 import { seasonBoost } from './season.js';
+import { colourFactor } from '../grounds.js';
 import { blowFactor } from './forecast.js';
 import { clamp, lerp, damp, rand, smoothstep, wrapAngle, seeded } from '../util.js';
 import { spookRadius, curiosity } from '../dive.js';
@@ -304,9 +305,9 @@ export class Ecosystem {
     this.lights = ctx.lights || (this.lantern ? [this.lantern] : []);
     for (const f of this.feedSpots) f.amount -= dt * 0.002;
     if (this.feedSpots.length && this.feedSpots[0].amount <= 0) this.feedSpots = this.feedSpots.filter((f) => f.amount > 0);
-    // (The sea's fish feed best on a running tide, some on the flood: see tide.js; and each kind
-    // has its seasons: see season.js.)
-    for (const sp of FISH) this.activity[sp.id] = Math.min(1, sp.life.activity(this.ctx) * tideBoost(sp, this.ctx.tide) * seasonBoost(sp, this.ctx.abs));
+    // (The sea's fish feed best on a running tide, some on the flood: see tide.js; each kind has
+    // its seasons: see season.js; and coloured water suits some and not others: see grounds.js.)
+    for (const sp of FISH) this.activity[sp.id] = Math.min(1, sp.life.activity(this.ctx) * tideBoost(sp, this.ctx.tide) * seasonBoost(sp, this.ctx.abs) * colourFactor(sp, this.ctx.colour));
     const b = this.bait;
     if (b.fresh > 0) b.fresh -= dt;
     if (b.twitch > 0) b.twitch -= dt;

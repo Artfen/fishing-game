@@ -10,6 +10,7 @@ import { cleanFuel } from './fuel.js';
 import { CHOICES } from './quality.js';
 import { cleanDive } from './dive.js';
 import { cleanToday, cleanDays, cleanBadges, newToday } from './daybook.js';
+import { cleanGrounds, newGrounds } from './grounds.js';
 import { cleanComfort } from './comfort.js';
 import { BEHAVIOUR_IDS } from './behaviour.js';
 
@@ -100,6 +101,10 @@ export const DEFAULT_STATE = {
   today: null,
   days: [],
   badges: {},
+  // Learning the grounds (see grounds.js): the signs you've seen and read, and the naturalist's
+  // notes; and how coloured the sea is just now (0 clear … 1 thick after a blow).
+  grounds: null,
+  seaColour: 0,
 };
 
 // A new game: every setting at its default (a loaded save gets its own from sanitize).
@@ -128,6 +133,7 @@ const fresh = () => {
   s.dive = cleanDive(null);
   s.comfort = cleanComfort(null);
   s.today = newToday(s.day);
+  s.grounds = newGrounds();
   return s;
 };
 
@@ -214,6 +220,7 @@ export function sanitizeLogEntry(e) {
     hatch: num(e.hatch, 0, 0, 2),
     ...(['flood', 'ebb', 'high', 'low'].includes(e.tide) ? { tide: e.tide } : {}),
     ...(['spring', 'summer', 'autumn', 'winter'].includes(e.season) ? { season: e.season } : {}),
+    ...(['tinged', 'coloured'].includes(e.colour) ? { colour: e.colour } : {}),
     depth: num(e.depth, 0, 0, 60),
     bottom: num(e.bottom, 0, 0, 60),
     outcome: oneOf(e.outcome, OUTCOMES, 'released'),
@@ -380,6 +387,8 @@ export function sanitize(raw) {
   s.today = cleanToday(raw.today, s.day);
   s.days = cleanDays(raw.days);
   s.badges = cleanBadges(raw.badges);
+  s.grounds = cleanGrounds(raw.grounds);
+  s.seaColour = num(raw.seaColour, 0, 0, 1);
   if (isObj(raw.sky)) {
     s.sky = { cloud: num(raw.sky.cloud, 0.3, 0, 1), rain: num(raw.sky.rain, 0, 0, 1), storm: num(raw.sky.storm, 0, 0, 1), state: oneOf(raw.sky.state, SKY_STATES, 'partly'), timer: num(raw.sky.timer, 120, 0, 3600) };
   }

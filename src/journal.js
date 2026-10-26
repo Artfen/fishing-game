@@ -5,6 +5,8 @@ import { TACKLE, RODS, KIND_NAMES } from './tackle.js';
 import { PLACES, MAP_RECT, PATH, ZONE_NAMES, solidHeight } from './world/terrain.js';
 import { formatClock } from './world/sky.js';
 import { dayPage, dayText, careerOf, CHALLENGES } from './daybook.js';
+import { groundsOf, groundWords, SIGNS, NATURE, NATURE_IDS } from './grounds.js';
+import { SEA_LIFE } from './world/sealife.js';
 
 const $ = (id) => document.getElementById(id);
 const ZONE_WORDS = {
@@ -120,10 +122,12 @@ export class Journal {
     this.el.querySelectorAll('.j-guide-view').forEach((e) => { e.hidden = view !== 'guide'; });
     this.el.querySelectorAll('.j-mem-view').forEach((e) => { e.hidden = view !== 'memories'; });
     this.el.querySelectorAll('.j-days-view').forEach((e) => { e.hidden = view !== 'days'; });
+    this.el.querySelectorAll('.j-notes-view').forEach((e) => { e.hidden = view !== 'notes'; });
     this.el.querySelector('.book').dataset.view = view;
     if (view === 'log') this.renderLog();
     if (view === 'memories') this.memories?.render();
     if (view === 'days') this.renderDays();
+    if (view === 'notes') this.renderNotes();
     if (view === 'guide') this.guide?.render();
     else this.guide?.close();
     this.el.querySelectorAll('.page').forEach((p) => { p.scrollTop = 0; });
@@ -196,6 +200,41 @@ export class Journal {
       li.append(dot, el('b', '', c.name), el('span', '', `${c.text} ${got ? `Done, day ${got.day}.` : p.of > 1 ? `${Math.min(p.n, p.of)} of ${p.of}.` : ''}`));
       return li;
     }));
+  }
+
+  // Notes (see grounds.js): the grounds as your catches tell them, the signs you've read, and the
+  // naturalist's field notes.
+  renderNotes() {
+    const st = this.state, G = st.grounds || { signs: {}, notes: {} };
+    const grounds = groundsOf(st.log);
+    $('notes-grounds').replaceChildren(...(grounds.length ? grounds.slice(0, 24).map((P) => {
+      const d = el('div', 'n-place');
+      d.append(el('strong', '', `${P.place} · ${P.n} fish`));
+      for (const K of P.kinds.slice(0, 5)) d.append(el('p', '', groundWords(K)));
+      if (P.kinds.length > 5) d.append(el('p', 'j-faint', `and ${P.kinds.length - 5} more kind${P.kinds.length - 5 === 1 ? '' : 's'}.`));
+      return d;
+    }) : [el('p', 'j-faint', 'Nothing yet. Every fish you catch tells you something about where it was: once there are a few from a place, its tides and hours show here.')]));
+    $('notes-signs').replaceChildren(...Object.entries(SIGNS).map(([k, S]) => {
+      const R = G.signs[k], li = el('li', R?.read ? 'done' : '');
+      const under = R && Object.keys(R.sp).length ? ` Under it: ${Object.entries(R.sp).sort((a, b) => b[1] - a[1]).map(([id, n]) => `${fishById[id]?.name.toLowerCase() || id}${n > 1 ? ` (${n})` : ''}`).join(', ')}.` : '';
+      li.append(el('i', 'rec-badge'), el('b', '', S.name), el('span', '', R ? `${S.note} Seen ${R.seen === 1 ? 'once' : `${R.seen} times`}${R.read ? `, read ${R.read === 1 ? 'once' : `${R.read} times`}` : ': fish under one soon after you see it, and you’ll find out what it was'}.${under}` : `${S.note} Not seen yet.`));
+      return li;
+    }));
+    const met = NATURE_IDS.filter((k) => G.notes[k]).length;
+    $('notes-life-count').textContent = `${met} of ${NATURE_IDS.length}`;
+    $('notes-life').replaceChildren(...NATURE_IDS.map((k) => {
+      const N = NATURE[k], R = G.notes[k], d = el('div', `n-life${R ? '' : ' faint'}`);
+      if (R) {
+        d.append(el('b', '', N.name), document.createTextNode(' '), el('i', '', N.latin), el('p', '', N.note), el('p', 'j-seen', `First met day ${R.day}${R.where ? `, ${R.where}` : ''}${R.n > 1 ? `; met on ${R.n} dives` : ''}.`));
+      } else d.append(el('b', '', '· · ·'), el('p', '', 'Not met yet: dive, and look closely at the bottom.'));
+      return d;
+    }));
+    const sea = Object.entries(st.seaLife || {}).filter(([k]) => SEA_LIFE[k]);
+    $('notes-sea').replaceChildren(...(sea.length ? sea.map(([k, R]) => {
+      const d = el('div', 'n-life');
+      d.append(el('b', '', SEA_LIFE[k].name), el('p', '', SEA_LIFE[k].note), el('p', 'j-seen', `First seen day ${R.day}${R.where ? `, ${R.where}` : ''}; seen ${R.n === 1 ? 'once' : `${R.n} times`}.`));
+      return d;
+    }) : [el('p', 'j-faint', 'Dolphins, seals, whales and the gannets: watch from the boat.')]));
   }
 
   render(where) {

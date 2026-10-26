@@ -14,6 +14,7 @@ const UNDER_DUSK = new THREE.Color('#3b5f7c');
 const UNDER_NIGHT = new THREE.Color('#0b1f33');
 const UNDER_RAIN = new THREE.Color('#4a6f74');
 const UNDER_DEEP = new THREE.Color('#0d3f5a');
+const UNDER_SILT = new THREE.Color('#4a5a3e');
 // Las Brasas' water, far to the south: clear ocean blue, seeing twice as far.
 const UNDER_DAY_S = new THREE.Color('#1c87b6');
 const UNDER_DEEP_S = new THREE.Color('#09306e');
@@ -120,6 +121,7 @@ export class Underwater {
     this.tint = tintEl;
     this.submerge = 0;
     this.clear = 0; // 1 in Las Brasas' clear blue water (set by the game)
+    this.colour = 0; // silt after rain or a blow (set by the game, see grounds.js): murkier, greener
     this.underColor = new THREE.Color().copy(UNDER_DAY);
     const rnd = seeded(9090);
 
@@ -346,13 +348,14 @@ export class Underwater {
     c.copy(UNDER_NIGHT).lerp(_day, env.daylight);
     c.lerp(UNDER_DUSK, smoothstep(0.35, 0.05, env.sunDir.y) * env.daylight * 0.5);
     if (rain > 0) c.lerp(UNDER_RAIN, rain * 0.35 * env.daylight);
+    if (this.colour > 0) c.lerp(UNDER_SILT, this.colour * 0.5 * (1 - this.clear));
     c.multiplyScalar(1 - clamp(-cp.y / 40, 0, 0.45));
     if (sub > 0) {
       // Water scatters light from above: looking up the haze is bright, looking down it deepens to blue.
       camera.getWorldDirection(_look);
       _fogC.copy(c).lerp(_deep, clamp(0.35 - _look.y * 0.6, 0, 0.6) * env.daylight).multiplyScalar(1 + clamp(_look.y, 0, 1) * 0.35);
       scene.fog.color.lerp(_fogC, sub);
-      scene.fog.density = lerp(scene.fog.density, lerp(0.034, 0.016, this.clear) + rain * 0.01 + env.night * 0.008, sub);
+      scene.fog.density = lerp(scene.fog.density, lerp(0.034, 0.016, this.clear) + rain * 0.01 + env.night * 0.008 + this.colour * 0.03 * (1 - this.clear), sub);
     }
     env.setUnder(sub, c);
     water.uniforms.uUnderColor.value.copy(c);
