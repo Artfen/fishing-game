@@ -291,9 +291,11 @@ export const fitForSea = (ctx) => (ctx.storm ?? 0) < 0.3 && (ctx.wind ?? 0) < 11
 const fair = (ctx) => (ctx.storm ?? 0) < 0.25 && (ctx.rain ?? 0) < 0.3;
 // Ian only goes out on a calm, dry afternoon; Chano unless the trade wind's blowing a gale (El
 // Bajón is in the island's lee); the Puffin wants a sailing breeze, and no storm.
-export const calmSea = (ctx) => (ctx.storm ?? 0) < 0.2 && (ctx.wind ?? 0) < 8 && (ctx.rain ?? 0) < 0.4;
+export const calmSea = (ctx) => (ctx.storm ?? 0) < 0.2 && (ctx.wind ?? 0) < 8 && (ctx.rain ?? 0) < 0.4 && ctx.season !== 'winter';
 export const chanoSea = (ctx) => (ctx.storm ?? 0) < 0.3 && (ctx.wind ?? 0) < 13.5 && (ctx.rain ?? 0) < 0.7;
 export const sailingWeather = (ctx) => (ctx.storm ?? 0) < 0.25 && (ctx.wind ?? 0) > 2 && (ctx.wind ?? 0) < 11.5;
+// How likely the Puffin (or her like) is to come in on a fine afternoon: a summer thing.
+export const puffinChance = (season) => PUFFIN.chance * ({ spring: 0.75, summer: 1.35, autumn: 0.4, winter: 0 }[season] ?? 1);
 
 // Where Hettie goes, for the stretch of the day starting at `hour`: { spot, target (what she's
 // after), why } (or null: home).
@@ -352,7 +354,7 @@ export function blockFor(id, hour, ctx, day) {
       return B(`${mark.spot}-${s0}`, until, mark.spot, 'fish', { target: mark.target, why: mark.why });
     }
     case 'kit':
-      if (fair(ctx) && ((h >= 9.5 && h < 12) || (h >= 16 && h < 18.5))) return B(`crab-${h < 12 ? 'am' : 'pm'}`, h < 12 ? 12 : 18.5, 'crab', 'crab');
+      if (fair(ctx) && ctx.season !== 'winter' && ((h >= 9.5 && h < 12) || (h >= 16 && h < 18.5))) return B(`crab-${h < 12 ? 'am' : 'pm'}`, h < 12 ? 12 : 18.5, 'crab', 'crab');
       return B(`home-${h < 9.5 ? 0 : h < 16 ? 1 : 2}`, h < 9.5 ? 9.5 : h < 16 ? 16 : 33.5, 'net', 'inside');
     case 'ian': {
       const end = OUTINGS.jean.start + OUTING_HOURS.jean + 0.25;
@@ -491,7 +493,7 @@ export class Townsfolk {
     this.visit = null;
     for (const d of [day, day - 1]) {
       const inAt = d * 24 + PUFFIN.arrive, leaveAt = (d + 1) * 24 + PUFFIN.leave;
-      if (abs >= inAt && abs < leaveAt + PUFFIN_HOURS && dayDice(d, 21) < PUFFIN.chance && sailingWeather(ctx)) this.visit = { day: d, inAt, leaveAt, stay: 0 };
+      if (abs >= inAt && abs < leaveAt + PUFFIN_HOURS && dayDice(d, 21) < puffinChance(ctx.season) && sailingWeather(ctx)) this.visit = { day: d, inAt, leaveAt, stay: 0 };
     }
     for (const id of FOLK_IDS) {
       const p = this.people[id];
@@ -727,7 +729,7 @@ export class Townsfolk {
   // morning she sails on, unless it's blowing, when she waits for it to pass (a day or two).
   puffin(abs, ctx, day, hour) {
     const B = this.boats.puffin;
-    if (!this.visit && hour >= PUFFIN.arrive && hour < PUFFIN.arrive + 0.5 && dayDice(day, 21) < PUFFIN.chance && sailingWeather(ctx)) {
+    if (!this.visit && hour >= PUFFIN.arrive && hour < PUFFIN.arrive + 0.5 && dayDice(day, 21) < puffinChance(ctx.season) && sailingWeather(ctx)) {
       this.visit = { day, inAt: day * 24 + PUFFIN.arrive, leaveAt: (day + 1) * 24 + PUFFIN.leave, stay: 0 };
     }
     const V = this.visit;

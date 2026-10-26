@@ -508,6 +508,17 @@ What they're up to (Dougie out at his pots, or not going out; what he landed; He
 
 You start with £20 in your purse; sold fish show as *Sold* in the catch log. The money is for small pleasures and helps, never a grind: nothing in the game needs it, and the chandlery's tackle stays free.
 
+### Seasons
+
+The year turns: spring, summer, autumn and winter, a week of days each (a short year, so the seasons come round while you play). A new game starts in mid-spring. The clock shows the season beside the time of day, the notice board gives the day's sunrise and sunset, and a word marks each season's turn.
+
+- **The light**: at midsummer the sun's up before five and sets near nine; at midwinter it rises about half past eight and is gone by five. The sky, the colours and the lamps follow it, and so do the fish's dawn and dusk; the night passes quicker while it's dark, and you can sleep until dawn or the golden hour whenever they fall.
+- **The warmth**: a few degrees warmer in summer, colder in winter (you feel it: see [How you feel](#how-you-feel-warmth-wet-clothes-thirst-and-hunger)); hardly any winter at Las Brasas.
+- **The fish**: mackerel and the summer visitors (bass, mullet, garfish, gilthead, bonito, albacore, blue sharks) come in with the warm water and are gone or scarce in winter; bluefin come in late summer and autumn; squid crowd inshore in autumn and winter, cuttlefish in spring; pike and grayling come into their own as the year turns, while the lake's carp and tench go torpid in the cold. Las Brasas' own fish barely notice.
+- **The rivers** run fuller in winter (and after rain), lower in summer.
+- **The leaves**: fresh in spring, deep green in summer, gold and rust in autumn, dull brown in winter; the pines stay green, and the reeds turn to straw.
+- **The people**: no cruising boats in winter (and fewer in autumn), no mackerel trips for Ian and no crabbing for Kit; the catch log records the season of every fish.
+
 ### Tides
 
 The sea rises and falls twice a day, high water coming about fifty minutes later each day, and over a fortnight the tides grow from small **neaps** to big **springs** and back (a range of about a metre at springs in the game, a third of that at neaps). The water creeps up the beaches and the slipway and the boats rise with it.
@@ -779,6 +790,7 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 | `src/world/sky.js` | Day cycle colours, sun and moon, sky dome, clouds |
 | `src/camera.js` | The views (boat, on foot, first person, underwater, bait), their limits and smooth transitions |
 | `src/firstperson.js` | First person: where the rod is held in front of your eyes for each moment of fishing, and its springy whip |
+| `src/world/season.js` | The year: seasons, sunrise and sunset, warmth, each fish's seasons, the rivers' flow, the leaves' colour |
 | `src/world/tide.js` | The tide: high and low water, springs and neaps, the sea's level and the streams' flow, the fish's feeding on a running tide, tide times in words |
 | `src/world/sealife.js`, `src/world/seaglow.js`, `src/anatomySea.js` | Sea life to watch: dolphin pods that ride a bow wave, grey seals, gannets plunging on shoals, whales surfacing with their blows; the sea glowing at night; the whales' and dolphins' models (with flat flukes and an up-and-down swim) |
 | `src/boat.js` | The ten boats (rowing boat, motor skiff, kayak, bass boat, cabin boat, sailing boat, sport-fishing yacht, centre console, windsurf board, jet ski): hulls, the cabins, the sailing rig and its cloth, the windsurf rig and the windsurfer's stance and falls, the jet ski's saddle, bars, jet and jumps, the yacht's twin inboards, hardtop, outriggers and fighting chair, the console and its T-top, the standing angler who turns to face the line, the figure aboard, oars, paddle, outboards and trolling motor, rods, lantern and anchor; their physics (drift in wind and current, riding the waves, under sail, an oar when the motor's dead), draft and collisions |

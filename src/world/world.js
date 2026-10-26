@@ -19,15 +19,28 @@ import { buildCalf } from './calf.js';
 import { SOUTH_Z, SOUTH_RECT } from './brasa.js';
 import { brasaColor, buildBrasa } from './brasaWorld.js';
 
-const shared = { uTime: { value: 0 }, uWind: { value: 1 } };
+const shared = { uTime: { value: 0 }, uWind: { value: 1 }, uLeaf: { value: new THREE.Vector3(1, 1, 1) } };
 const UP = new THREE.Vector3(0, 1, 0);
 
 // Lambert with a little wind sway baked into the vertex shader (for trees and reeds).
-function swayMaterial() {
+// leaves: the green of it turns with the season (see season.js leafTint): the broadleaved trees,
+// the bushes, the reeds; not the pines.
+function swayMaterial({ leaves = false } = {}) {
   const m = new THREE.MeshLambertMaterial({ vertexColors: true });
+  // (The two kinds compile differently: keep their programs apart.)
+  m.customProgramCacheKey = () => (leaves ? 'sway-leaves' : 'sway');
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = shared.uTime;
     shader.uniforms.uWind = shared.uWind;
+    if (leaves) {
+      shader.uniforms.uLeaf = shared.uLeaf;
+      shader.fragmentShader = 'uniform vec3 uLeaf;\n' + shader.fragmentShader.replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        float leafy = smoothstep(0.03, 0.12, vColor.g - max(vColor.r, vColor.b));
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * uLeaf, leafy);`,
+      );
+    }
     shader.vertexShader = 'uniform float uTime;\nuniform float uWind;\n' + shader.vertexShader.replace(
       '#include <begin_vertex>',
       `#include <begin_vertex>
@@ -719,7 +732,7 @@ function buildCove(rnd) {
     color: i % 2 ? '#8f9d5c' : '#a5a96b',
   })));
 
-  const sway = swayMaterial();
+  const sway = swayMaterial({ leaves: true });
   const plain = new THREE.MeshLambertMaterial({ vertexColors: true });
   const group = new THREE.Group();
   group.add(
@@ -1015,8 +1028,8 @@ export function buildWorld(scene, renderer, habitat) {
     || Math.hypot(x - DAYMARK.x, z - DAYMARK.z) < DAYMARK.r || Math.hypot(x - SHELTER.x, z - SHELTER.z) < 8 || Math.hypot(x - PUNT.x, z - PUNT.z) < 5
     || onStrand(x, z) > 0.2 || homeClear(x, z);
   const lists = scatterTrees(rnd, avoid, (x, z) => pathInfo(x, z).d < 2.6 || streamSDF(x, z) < 1.5 || coastClear(x, z));
-  const sway = swayMaterial();
-  for (const k of Object.keys(geos)) scene.add(instanced(geos[k], lists[k], sway, rnd));
+  const sway = swayMaterial(), leafy = swayMaterial({ leaves: true });
+  for (const k of Object.keys(geos)) scene.add(instanced(geos[k], lists[k], k === 'pine' ? sway : leafy, rnd));
   // Beyond the bay: woods in the Wend valley and round Longmere (clear of the trail and the
   // banks), trees on Gannet Isle, and thinner woods along the rest of the coast. Each area is its
   // own set of meshes, so the ones out of view aren't drawn.
@@ -1180,6 +1193,8 @@ export function buildWorld(scene, renderer, habitat) {
   let brasa = null, quality = null;
 
   return {
+    // The leaves' colour for the season: [r, g, b] multipliers on their green.
+    setLeaves: (rgb) => shared.uLeaf.value.set(rgb[0], rgb[1], rgb[2]),
     lanternSpot: lanternPos,
     lampPos: jetty.lampPos,
     shore,

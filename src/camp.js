@@ -626,7 +626,7 @@ export class Camp {
     out.push(el('p', 'cp-lead', this.cabin ? 'Turn in to the bunk and sleep until…' : this.bothy ? 'Unroll your bag on the sleeping platform and sleep until…' : this.posada ? 'Climb the stairs to your room over the harbour and sleep until…' : this.house ? 'Go to bed and sleep until…' : 'Crawl into the tent and sleep until…'));
     const grid = el('div', 'cp-wake');
     const now = this.state.hour;
-    for (const w of WAKE_TIMES) {
+    for (const w of this.hooks.wakeTimes?.() || WAKE_TIMES) {
       let hrs = w.h - now;
       if (hrs <= 0.5) hrs += 24;
       const b = button(`${w.name}`, () => this.hooks.sleep(w.h), 'wake');

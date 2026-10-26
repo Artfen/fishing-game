@@ -232,6 +232,8 @@ export const conditions = {
   preset: 'auto', manual: null, currents: 'natural',
   // Which sea you're in ('home', or 'south' at Las Brasas, where the trade wind blows).
   region: 'home',
+  // How full the rivers run (set by the game from the season and the rain; 1 as built).
+  riverScale: 1,
   chopAmps: new Float32Array(CHOP.length),
   swellAmps: new Float32Array(SWELL.length),
 };
@@ -408,8 +410,10 @@ export function currentAt(x, z, depth = 0, out = _c) {
   // Slower near the bottom: full at the surface, 60% at the bottom.
   const bottom = Math.max(0.3, waterLevel(x, z) - solidHeight(x, z));
   const k = 1 - 0.4 * clamp(depth / bottom, 0, 1);
-  out.x = (out.x + _f.x + _cw.x) * k;
-  out.z = (out.z + _f.z + _cw.z) * k;
+  // (The rivers run fuller in winter and after rain, lower in summer: see season.js.)
+  const rv = conditions.riverScale;
+  out.x = (out.x + (_f.x + _cw.x) * rv) * k;
+  out.z = (out.z + (_f.z + _cw.z) * rv) * k;
   return out;
 }
 

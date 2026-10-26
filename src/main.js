@@ -62,6 +62,7 @@ import { Townsfolk, FOLK, sayTo } from './townsfolk.js';
 import { requestById, businessWith, accept as acceptFavour, decline as declineFavour, complete as completeFavour, caught as favourCaught, saw as favourSaw, photographed as favourPhotographed, buoyAt, pickUpBuoy, fishFor, remember, cleanFavours } from './requests.js';
 import { lower } from './innTalk.js';
 import { tideAt, tideWords } from './world/tide.js';
+import { seasonOf, seasonWords, sunTimes, sunHour, seasonWarmth, riverFlow, leafTint, seasonLine } from './world/season.js';
 import { FolkView } from './world/folk.js';
 import { demandFor, money } from './market.js';
 import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
@@ -319,7 +320,7 @@ function folkCtx(dt) {
     folkAboutT = 5;
     folkAbout = whatsAbout(eco).map((a) => ({ id: a.sp.id, name: a.sp.name, act: a.act }));
   }
-  return { storm: Math.max(weather.storm, conditions.sea.storm), rain: weather.rain, wind: conditions.wind.speed, about: folkAbout, activity: eco.activity };
+  return { storm: Math.max(weather.storm, conditions.sea.storm), rain: weather.rain, wind: conditions.wind.speed, about: folkAbout, activity: eco.activity, season: seasonOf(state.day).name };
 }
 // A word with someone you walk up to.
 function talkTo(p) {
@@ -342,7 +343,35 @@ const talkedToday = {};
 // The tide (see world/tide.js): the sea's level and the tidal streams, set every frame for the
 // currents, the water and the fish.
 let tideNow = tideAt(state.day * 24 + state.hour);
+// The year: the rivers' flow (fuller after rain), the leaves' colour, a word when a season turns.
+let seasonWas = seasonOf(state.day).name;
+function updateSeason() {
+  const abs = state.day * 24 + state.hour;
+  conditions.riverScale = riverFlow(abs) * (1 + 0.5 * weather.rain);
+  world.setLeaves(leafTint(abs));
+  const S = seasonOf(state.day);
+  if (S.name !== seasonWas) {
+    seasonWas = S.name;
+    if (started) hud.toast(SEASON_NEWS[S.name], 10);
+  }
+}
+const SEASON_NEWS = {
+  spring: 'Spring comes to Willow Bay: the light coming back, the leaves breaking, the cuttlefish in to spawn on the eelgrass and the garfish arriving. The first mackerel aren’t far off.',
+  summer: 'Summer: long light evenings, the mackerel shoaling in the bay, bass in the surf, the tunas and blue sharks out in the Blue Water, and cruising boats calling in.',
+  autumn: 'Autumn: the leaves turning, the bass at their best before they go, squid crowding in under the lights at night, and the bluefin out past the shelf. The days shorten.',
+  winter: 'Winter: short days and long nights, the rivers in spate, the summer fish gone south. Pike and grayling come into their own, the pollack are on the wrecks, and the squid stay.',
+};
+// When you can choose to wake: dawn and the golden hour by the sun.
+function wakeTimes() {
+  const t = sunTimes(state.day * 24 + state.hour + 12);
+  const q = (h) => Math.round(h * 4) / 4;
+  return [
+    { h: q(t.rise - 0.25), name: 'Dawn' }, { h: Math.max(8, q(t.rise + 1)), name: 'Morning' }, { h: 12, name: 'Midday' },
+    { h: 15, name: 'Afternoon' }, { h: q(t.set - 1.25), name: 'Golden hour' }, { h: Math.min(23.5, q(t.set + 1.5)), name: 'Night' },
+  ];
+}
 function updateTide() {
+  updateSeason();
   tideNow = tideAt(state.day * 24 + state.hour);
   TIDE.flow = tideNow.flow;
   TIDE.level = tideNow.level;
@@ -950,6 +979,7 @@ function logCatch(sp, size, agent, rigUsed, how = null) {
     from: how?.from || (onFoot ? 'shore' : 'boat'),
     rain: weather.rain > 0.6 ? 2 : weather.rain > 0.15 ? 1 : 0,
     tide: tideAt(state.day * 24 + state.hour).phase,
+    season: seasonOf(state.day).name,
     hatch: Math.round(hatchLevel() * 10) / 10,
     depth: Math.round(Math.max(0, -at.y) * 10) / 10,
     bottom: Math.round(Math.max(0, -solidHeight(at.x, at.z)) * 10) / 10,
@@ -1199,6 +1229,7 @@ const camp = new Camp(state, scene, world.camp, {
   },
   outcome: (logId, what) => setOutcome(logId, what),
   sleep: (h) => sleepUntil(h),
+  wakeTimes: () => wakeTimes(),
   near: (c) => Math.hypot(player().pos.x - c.x, player().pos.z - c.z) < 40,
   openJournal: () => {
     closeCamp();
@@ -1553,7 +1584,7 @@ function sleepUntil(h) {
   const site = camp.site;
   closeCamp();
   modal = 'sleep';
-  const w = WAKE_TIMES.find((x) => x.h === h);
+  const w = wakeTimes().find((x) => x.h === h);
   hud.sleep(true, `You sleep until ${w ? w.name.toLowerCase() : formatClock(h)}…`);
   audio.rustle?.();
   sleeping = { h, phase: 0, t: 0, site };
@@ -2764,7 +2795,7 @@ function comfortEnv() {
   const rowing = afloat && !boat.motor && !boat.sailUp && boat.speed > 0.6;
   const spray = afloat ? smoothstep(4, 8, boat.speed) * smoothstep(0.2, 1, waveHeightHere(P.x, P.z)) + weather.storm * 0.4 : 0;
   return {
-    hour: state.hour, south: conditions.region === 'south', height: onFoot ? Math.max(0, walker.pos.y) : 0,
+    hour: state.hour, south: conditions.region === 'south', height: onFoot ? Math.max(0, walker.pos.y) : 0, warmth: seasonWarmth(state.day * 24 + state.hour),
     cloud: weather.cloud, rain: weather.rain, storm: weather.storm,
     wind: w.speed * (onFoot ? 0.75 : 1), sun: (1 - env.night) * (1 - 0.85 * weather.cloud) * (1 - weather.rain),
     moving: onFoot ? smoothstep(0.4, 4.5, walker.speed) : rowing ? 0.6 : 0,
@@ -4294,7 +4325,7 @@ function renderBoard() {
     e.textContent = text;
     return e;
   };
-  $('board-weather').replaceChildren(...weatherLines(sky, state.day * 24 + state.hour).map((l) => p(l)));
+  $('board-weather').replaceChildren(...[seasonLine(state.day * 24 + state.hour), ...weatherLines(sky, state.day * 24 + state.hour)].map((l) => p(l)));
   const birds = birdsWorking(world.flocks, state.places);
   $('board-birds').replaceChildren(...(birds.length ? birds.map((l) => p(l)) : [p('No gulls working the water just now. They come down where fish drive the bait to the top: watch for them at dawn and dusk.', 'j-faint')]));
   const about = whatsAbout(eco);
@@ -5635,10 +5666,10 @@ function updateConditionsPanel(dt) {
 }
 
 function updateHud() {
-  const h = state.hour;
-  const night = h >= 20.5 || h < 5.5;
+  const h = state.hour, sh = sunHour(h, state.day * 24 + h);
+  const night = sh >= 20.5 || sh < 5.5;
   const w = weather.storm > 0.5 ? 'Storm' : weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : '';
-  hud.clock(formatClock(h), phaseName(h), w, night);
+  hud.clock(formatClock(h), `${phaseName(sh)} · ${seasonWords(state.day).toLowerCase()}`, w, night);
   // How you feel, in a word or two by the clock (the worst first), and well fed when you are.
   const needs = needsMode() === 'off' ? [] : needsOf(state.comfort, state.food);
   const words = needs.slice(0, 2).map((n) => n.word);
@@ -6689,7 +6720,9 @@ if (state.mode === 'foot' && W0 && inWorld(W0.x, W0.z) && walkHeight(W0.x, W0.z)
 applyGear();
 
 function ecoTick(dt) {
-  ecoCtx.env.hour = state.hour;
+  // (The fish go by the sun: dawn and dusk move with the season. And the year itself: see season.js.)
+  ecoCtx.env.hour = sunHour(state.hour, state.day * 24 + state.hour);
+  ecoCtx.env.abs = state.day * 24 + state.hour;
   ecoCtx.env.tide = tideNow;
   ecoCtx.env.rain = weather.rain;
   ecoCtx.env.cloud = weather.cloud;
@@ -6743,7 +6776,8 @@ function tick(now, manual = false) {
   hud.rest(resting);
   let hours = 0;
   if (started && !sleeping) {
-    const nightRate = state.hour >= 21.5 || state.hour < 5 ? 2.2 : 1;
+    const sun = sunTimes(state.day * 24 + state.hour);
+    const nightRate = state.hour >= sun.set + 1.5 || state.hour < sun.rise - 0.6 ? 2.2 : 1;
     hours = (dt * speed * nightRate) / HOUR_SECONDS;
     state.hour += hours;
     if (state.hour >= 24) {
@@ -7028,7 +7062,7 @@ function tick(now, manual = false) {
   // A storm's lightning (and its thunder, arriving later) and the spray off the seas.
   stormFx.update(dt, t, { storm: Math.max(weather.storm, conditions.sea.storm * 0.8), camera, env, onThunder: (d, loud) => audio.thunder?.(d, loud), flashes: !settings.controls.reducedMotion });
   watchStorm(dt);
-  env.update(dt, t, state.hour, weather.rain, fpShadow ? _shadowAt : P, camera, renderer, weather.cloud);
+  env.update(dt, t, sunHour(state.hour, state.day * 24 + state.hour), weather.rain, fpShadow ? _shadowAt : P, camera, renderer, weather.cloud);
   const sub = underwater.updateMedium(t, camera, env, scene, water, weather.rain);
   postLook.under = sub;
   audio.setUnderwater(sub);

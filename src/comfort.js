@@ -62,10 +62,11 @@ export function cleanComfort(raw) {
 
 // The air's temperature (°C). env: { hour, south (at Las Brasas), height (m above the sea),
 // cloud, rain, storm }.
-export function airTemp({ hour, south = false, height = 0, cloud = 0.3, rain = 0, storm = 0 }) {
-  // Coolest just before dawn, warmest mid-afternoon.
+export function airTemp({ hour, south = false, height = 0, cloud = 0.3, rain = 0, storm = 0, warmth = 0 }) {
+  // Coolest just before dawn, warmest mid-afternoon; warmer in summer, colder in winter (warmth:
+  // see season.js; hardly felt in the south).
   const day = 0.5 + 0.5 * Math.cos(((hour - 15) / 24) * Math.PI * 2);
-  let t = south ? lerp(18.5, 25, day) : lerp(8, 17, day);
+  let t = (south ? lerp(18.5, 25, day) : lerp(8, 17, day)) + warmth * (south ? 0.25 : 1);
   // Cloud keeps the night warmer and the day cooler; rain and a storm chill it.
   t -= (day - 0.4) * 4 * cloud;
   t -= rain * 2 + storm * 3;
