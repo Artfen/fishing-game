@@ -9,6 +9,7 @@ import { cleanGuide } from './firstTrip.js';
 import { cleanFuel } from './fuel.js';
 import { CHOICES } from './quality.js';
 import { cleanDive } from './dive.js';
+import { cleanToday, cleanDays, cleanBadges, newToday } from './daybook.js';
 import { cleanComfort } from './comfort.js';
 import { BEHAVIOUR_IDS } from './behaviour.js';
 
@@ -94,6 +95,11 @@ export const DEFAULT_STATE = {
   harbour: null,   // { heard: { haven, muelle: [story ids] }, filled: [order keys], earned, sold, served }
   shop: null,      // the chandlery's counter (see shop.js): { creel, iceUntil, baitDay, wear: { rod: 0 … 1 } }
   favours: null,   // what the harbour's people have asked of you (see requests.js): { active, done, last, declined }
+  // The day book (see daybook.js): today as it goes, the pages of the days before, and the badges
+  // from the harbour's challenges ({ id: { day, hour } }).
+  today: null,
+  days: [],
+  badges: {},
 };
 
 // A new game: every setting at its default (a loaded save gets its own from sanitize).
@@ -121,6 +127,7 @@ const fresh = () => {
   s.fuel = cleanFuel(null);
   s.dive = cleanDive(null);
   s.comfort = cleanComfort(null);
+  s.today = newToday(s.day);
   return s;
 };
 
@@ -370,6 +377,9 @@ export function sanitize(raw) {
   s.harbour = cleanHarbour(raw.harbour);
   s.shop = cleanShop(raw.shop, Object.keys(RODS));
   s.favours = cleanFavours(raw.favours);
+  s.today = cleanToday(raw.today, s.day);
+  s.days = cleanDays(raw.days);
+  s.badges = cleanBadges(raw.badges);
   if (isObj(raw.sky)) {
     s.sky = { cloud: num(raw.sky.cloud, 0.3, 0, 1), rain: num(raw.sky.rain, 0, 0, 1), storm: num(raw.sky.storm, 0, 0, 1), state: oneOf(raw.sky.state, SKY_STATES, 'partly'), timer: num(raw.sky.timer, 120, 0, 3600) };
   }

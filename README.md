@@ -631,6 +631,14 @@ Press **J**. The **Fish & places** pages hold a sketch and notes for every kind 
 
 It shows your heaviest catch, totals and personal bests for each kind, and your recent catches with filters for kind, water, method and what happened to them (25 at a time, with *Show more*). The **Memories** pages hold your photographs, adventures and keepsakes, marks, camp and places (see [Photographs and memories](#photographs-and-memories)).
 
+### The day book, your record and the harbour's challenges
+
+Every day you go out is written up as a page of the journal (**Days**) when it ends, when you sleep or at midnight, and in the morning you're told so. It reads the way you'd write it yourself: the weather through the day; where you set out from, how (the boats you took) and where you went, and whether you came back, with the distance on the water, on foot, by car and swimming; what you caught, what you kept and what you let go; your first of a kind and your biggest yet; the dive sites you dived and how deep; the sea life you saw; the places you found; and, if a gale blew, whether it caught you out on open water, you kept to sheltered water, or you sat it out ashore. Today's page fills in as you go. The book keeps the last sixty days.
+
+Beside it, **Your record**: days written up, fish caught (kept and let go), kinds, places found, dives (the deepest and your longest breath-hold), dive sites and sea life seen; your best of each kind, the biggest for its kind first; and the fish to remember (near the top of the sizes their kind grows to).
+
+**The harbour's challenges** are pinned on the board by the door of the Lobster Pot, in Ruth's hand: "Not a competition. Just something to go for." Ten from the bay, the coast slam (a bass, a pollack and a mackerel on one day), every water (sea, estuary, lake and river), twenty-five kinds, a specimen (the top tenth of its kind's sizes), fifty let go, after midnight, fished through a gale (from sheltered water), five dives (every dive site), thirty metres, Las Brasas, and a week on the water. Each one done puts a cloth badge on the cork board at home, between the record card and the stove. The harbour's people notice: they'll mention your new badge, or the dive site you were down at, for a day or so.
+
 ### The field guide
 
 The journal's third tab, **Field guide** (also the **Field guide** button in the backpack's header), has a page for every species in the game: sea and estuary fish, the cephalopods, the freshwater fish (kept apart from the Atlantic catalogue), and the five fictional originals. Search by any name (English, French, Spanish, Portuguese or Latin) or filter to what you have or haven't caught. **Preview planned species** adds the researched species that aren't in the game yet, clearly marked as such.
@@ -797,6 +805,7 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 | `src/world/habitat.js` | The underwater map shared by everything below the surface: depth, weed beds, rock piles, kelp and reefs, the stream's current, and the homes fish live around, for the home waters and each region |
 | `src/world/ecosystem.js` | Every fish in the world: schooling, cruising, feeding, resting, fleeing, rising and jumping, and how each one judges and takes a rig (nibbling, following, ambushing, rising, grazing, running). Fixed 30 Hz simulation, slower far away |
 | `src/world/fishRender.js` | Draws the ecosystem's fish (a near and a far instanced draw per species, skipped when none are in view) with their swimming motion |
+| `src/daybook.js` | The day book: today's notes, each day's page in words, your record, the harbour's challenges and their badges |
 | `src/world/divesites.js` | The dive sites: where they are, the Hound's shape, the solid rock a diver and the sites' fish keep out of |
 | `src/world/divesiteWorld.js` | What the dive sites look like: the buoys, the arch and boulders, the kelp forest, the anchor and its chain, the Hound and the life on it |
 | `src/world/seabed.js` | The small life of the seabed, laid out round you while you're under the water |

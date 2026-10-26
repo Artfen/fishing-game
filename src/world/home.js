@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { HOME_PAD, HOUSE, GARAGE, CAR_PARKS, LANES, PLACES, FUEL_PUMPS, heightAt } from './terrain.js';
 import { RODS, ROD_IDS } from '../tackle.js';
-import { mergeParts, mat, pick, clamp, smoothstep, glowTexture } from '../util.js';
+import { mergeParts, mat, pick, clamp, smoothstep, glowTexture, seeded } from '../util.js';
 import { withSurface } from './surface.js';
 import { fuelPumpParts } from '../props.js';
 
@@ -31,6 +31,143 @@ function mesh(geo, material, shadows = true) {
 }
 const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 const cyl = (r0, r1, h, n = 10) => new THREE.CylinderGeometry(r0, r1, h, n);
+
+// The badge board's face: cork, and a round cloth badge for each challenge done (stitched edge,
+// a mark in the middle, its name under it), or a faint pencilled ring where one will go.
+function paintBadges(ctx, w, h, list) {
+  const rnd = seeded(31);
+  ctx.fillStyle = '#b58a5c';
+  ctx.fillRect(0, 0, w, h);
+  for (let i = 0; i < 900; i++) {
+    ctx.fillStyle = `rgba(${rnd() < 0.5 ? '90,60,30' : '220,190,150'},${0.12 + rnd() * 0.15})`;
+    ctx.fillRect(rnd() * w, rnd() * h, 2, 2);
+  }
+  ctx.fillStyle = '#3a2a1c';
+  ctx.textAlign = 'center';
+  ctx.font = '700 30px Kalam, Caveat, cursive';
+  ctx.fillText('Badges', w / 2, 36);
+  const cols = 4, r = 38, gx = w / cols, gy = 106;
+  list.forEach((b, i) => {
+    const x = gx * (i % cols) + gx / 2, y = 92 + gy * Math.floor(i / cols);
+    if (!b.done) {
+      ctx.strokeStyle = 'rgba(60,40,24,0.28)';
+      ctx.setLineDash([4, 6]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      return;
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.arc(x + 3, y + 4, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = b.color;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,248,230,0.85)';
+    ctx.setLineDash([5, 4]);
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(x, y, r - 5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    badgeMark(ctx, b.mark, x, y, '#f6efdc');
+    ctx.fillStyle = '#2a1e14';
+    ctx.font = '600 15px Kalam, Caveat, cursive';
+    ctx.fillText(b.name, x, y + r + 16, gx - 12);
+    // (A brass pin through the top.)
+    ctx.fillStyle = '#d9b44a';
+    ctx.beginPath();
+    ctx.arc(x, y - r + 4, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+function badgeMark(ctx, mark, x, y, ink) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = ink;
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 3.5;
+  ctx.lineCap = 'round';
+  const text = { ten: '10', three: '3', seven: '7' }[mark];
+  if (text) {
+    ctx.font = '700 30px Kalam, Caveat, cursive';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 0, 2);
+  } else if (mark === 'fish') {
+    ctx.beginPath();
+    ctx.ellipse(-3, 0, 15, 7, 0, 0, Math.PI * 2);
+    ctx.moveTo(10, 0);
+    ctx.lineTo(19, -8);
+    ctx.lineTo(19, 8);
+    ctx.fill();
+  } else if (mark === 'drop') {
+    ctx.beginPath();
+    ctx.moveTo(0, -17);
+    ctx.quadraticCurveTo(14, 2, 0, 15);
+    ctx.quadraticCurveTo(-14, 2, 0, -17);
+    ctx.fill();
+  } else if (mark === 'star') {
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2 - Math.PI / 2, rr = i % 2 ? 7 : 17;
+      ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    ctx.fill();
+  } else if (mark === 'wave') {
+    for (const dy of [-6, 6]) {
+      ctx.beginPath();
+      for (let k = -18; k <= 18; k += 2) ctx.lineTo(k, dy + Math.sin(k * 0.35) * 4);
+      ctx.stroke();
+    }
+  } else if (mark === 'moon') {
+    ctx.beginPath();
+    ctx.arc(0, 0, 15, 0.6, Math.PI * 2 - 0.6);
+    ctx.arc(7, 0, 11, Math.PI * 2 - 0.9, 0.9, true);
+    ctx.fill();
+  } else if (mark === 'storm') {
+    ctx.beginPath();
+    ctx.moveTo(4, -18);
+    ctx.lineTo(-8, 2);
+    ctx.lineTo(1, 2);
+    ctx.lineTo(-4, 18);
+    ctx.lineTo(9, -4);
+    ctx.lineTo(0, -4);
+    ctx.closePath();
+    ctx.fill();
+  } else if (mark === 'flag') {
+    ctx.fillRect(-14, -11, 28, 22);
+    ctx.strokeStyle = '#c23b2e';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(-14, -11);
+    ctx.lineTo(14, 11);
+    ctx.stroke();
+  } else if (mark === 'down') {
+    ctx.beginPath();
+    ctx.moveTo(0, -16);
+    ctx.lineTo(0, 12);
+    ctx.moveTo(-9, 4);
+    ctx.lineTo(0, 14);
+    ctx.lineTo(9, 4);
+    ctx.stroke();
+  } else if (mark === 'sun') {
+    ctx.beginPath();
+    ctx.arc(0, 0, 8, 0, Math.PI * 2);
+    ctx.fill();
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * 12, Math.sin(a) * 12);
+      ctx.lineTo(Math.cos(a) * 18, Math.sin(a) * 18);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
 
 function canvasTex(w, h, draw) {
   const c = document.createElement('canvas');
@@ -369,6 +506,16 @@ export function buildHome(scene, rnd) {
     ...[0, 1, 2].map((i) => ({ geo: box(0.004, 0.05, 0.004), matrix: mat(120.6 + i * 0.02, Y + 1.27, -80.78, -0.18, 0, -0.08), color: '#c9ccc8' })),
   ]);
 
+  // The badge board between the record card and the stove: cork in a wooden frame, a cloth badge
+  // pinned on it for each of the harbour's challenges you've done (see daybook.js), and the empty
+  // places for the rest.
+  const board = canvasTex(512, 384, (ctx, w, h, list) => paintBadges(ctx, w, h, list || []));
+  board.paint(null);
+  const boardMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.465), new THREE.MeshLambertMaterial({ map: board.tex }));
+  boardMesh.position.set(123.6, Y + 1.66, -80.835);
+  group.add(boardMesh);
+  group.add(mesh(mergeParts([{ geo: box(0.68, 0.52, 0.025), matrix: mat(123.6, Y + 1.66, -80.86), color: '#6b4e34' }], rnd), plain()));
+
   // ---- inside the garage ----
   const G_PARTS = [];
   const gput = (geo, x, y, z, color, rx = 0, ry = 0, rz = 0) => G_PARTS.push({ geo, matrix: mat(x, Y + y, z, rx, ry, rz), color });
@@ -565,6 +712,13 @@ export function buildHome(scene, rnd) {
     showGear(rodsHome, kitHome) {
       for (const id of ROD_IDS) rodMeshes[id].visible = rodsHome.has(id);
       for (const k of Object.keys(kitMesh)) kitMesh[k].visible = !!kitHome[k];
+    },
+    // The badge board: [{ id, name, color, mark, done }].
+    showBadges(list) {
+      const key = JSON.stringify(list.map((b) => [b.id, !!b.done]));
+      if (board.key === key) return;
+      board.key = key;
+      board.paint(list);
     },
     showKeepsakes(have) {
       for (const k of Object.keys(keep)) keep[k].visible = !!have[k];

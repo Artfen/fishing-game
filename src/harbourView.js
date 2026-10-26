@@ -2,6 +2,7 @@ import { fishById } from './fish.js';
 import { formatClock } from './world/sky.js';
 import { MARKET_HOURS, ORDERS_BY, demandFor, fishValue, ordersFor, fills, money } from './market.js';
 import { nextStory, adviceFor, rumoursNow, lower, an } from './innTalk.js';
+import { CHALLENGES } from './daybook.js';
 import { CREELS, ICE, BAIT, creelOf, newShop, onIce, freshBaitToday, wearOf, wearWords, respoolPrice, creelGroups, groupWords, creelWords, kgWords } from './shop.js';
 
 // The harbour's sheet: the fish market on Willowhaven quay (Mags Pennock at her slab), The Lobster
@@ -351,6 +352,18 @@ export class HarbourSheet {
     else out.push(el('p', 'cp-soft', place === 'haven' ? 'A quiet day: the talk is of the weather, the price of diesel, and whose turn it is to buy.' : 'Nothing much: the football, the heat, a cousin’s wedding.'));
     const heard = this.harbour.heard[place].length;
     out.push(el('p', 'cp-soft', `Stories heard here: ${heard}.`));
+    // The board by the door: the harbour's challenges (see daybook.js), and who's done what.
+    if (place === 'haven') {
+      out.push(el('h3', '', 'The board by the door'));
+      out.push(el('p', 'cp-soft', 'Pinned up in Ruth’s hand: “Not a competition. Just something to go for.” A cloth badge for each, for your wall at home.'));
+      for (const c of CHALLENGES) {
+        const done = this.state.badges?.[c.id], p = c.check(this.state);
+        const row = el('div', 'cp-row');
+        row.append(el('p', '', c.name), el('span', 'cp-soft', `${c.text}${!done && p.of > 1 ? ` (${Math.min(p.n, p.of)} of ${p.of})` : ''}`));
+        if (done) row.append(el('span', 'hb-done', 'done'));
+        out.push(row);
+      }
+    }
     return out;
   }
 

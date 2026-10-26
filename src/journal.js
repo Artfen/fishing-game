@@ -4,6 +4,7 @@ import { studio } from './gearView.js';
 import { TACKLE, RODS, KIND_NAMES } from './tackle.js';
 import { PLACES, MAP_RECT, PATH, ZONE_NAMES, solidHeight } from './world/terrain.js';
 import { formatClock } from './world/sky.js';
+import { dayPage, dayText, careerOf, CHALLENGES } from './daybook.js';
 
 const $ = (id) => document.getElementById(id);
 const ZONE_WORDS = {
@@ -118,9 +119,11 @@ export class Journal {
     this.el.querySelectorAll('.j-log-view').forEach((e) => { e.hidden = view !== 'log'; });
     this.el.querySelectorAll('.j-guide-view').forEach((e) => { e.hidden = view !== 'guide'; });
     this.el.querySelectorAll('.j-mem-view').forEach((e) => { e.hidden = view !== 'memories'; });
+    this.el.querySelectorAll('.j-days-view').forEach((e) => { e.hidden = view !== 'days'; });
     this.el.querySelector('.book').dataset.view = view;
     if (view === 'log') this.renderLog();
     if (view === 'memories') this.memories?.render();
+    if (view === 'days') this.renderDays();
     if (view === 'guide') this.guide?.render();
     else this.guide?.close();
     this.el.querySelectorAll('.page').forEach((p) => { p.scrollTop = 0; });
@@ -146,6 +149,53 @@ export class Journal {
     if (id) this.guide.show(id);
     this.view = 'guide';
     this.open(where);
+  }
+
+  // The day book (see daybook.js): today so far and the days before, your record, and the
+  // harbour's challenges.
+  renderDays() {
+    const st = this.state;
+    const page = (p, today = false) => {
+      const d = el('div', `j-day${today ? ' today' : ''}`);
+      d.append(el('strong', '', `Day ${p.day} · ${p.season}`), el('p', '', dayText(p) || 'A quiet day.'));
+      return d;
+    };
+    const now = st.today ? dayPage(st, st.today) : null;
+    $('days-today-when').textContent = `day ${st.day}, ${formatClock(st.hour)}`;
+    $('days-today').replaceChildren(now ? page(now, true) : el('p', 'j-faint', 'Nothing written yet today. Go out, and it will be.'));
+    const days = st.days.slice().reverse();
+    $('days-list').replaceChildren(...(days.length ? days.map((p) => page(p)) : [el('p', 'j-faint', 'Each day you go out is written up here when it ends: when you sleep, or at midnight.')]));
+    const C = careerOf(st);
+    const dl = $('rec-totals');
+    const row = (k, v) => [el('dt', '', k), el('dd', '', v)];
+    dl.replaceChildren(
+      ...row('Days written up', String(C.days)),
+      ...row('Fish caught', C.fish ? `${C.fish} (${C.kept} kept, ${C.released} let go)` : 'none yet'),
+      ...row('Kinds', String(C.kinds)),
+      ...row('Places found', `${C.places} of ${C.placesOf}`),
+      ...row('Dives', C.dives ? `${C.dives} · deepest ${C.deepest.toFixed(1)} m${C.longest ? ` · longest breath ${Math.round(C.longest)} s` : ''}` : 'none yet'),
+      ...row('Dive sites', `${C.sites} of ${C.sitesOf}`),
+      ...row('Sea life seen', `${C.life} kinds`),
+    );
+    const sp = (id) => fishById[id]?.name || id;
+    $('rec-bests').replaceChildren(...(C.bests.length ? C.bests.slice(0, 12).map((b) => {
+      const li = el('li', '', `${sp(b.sp)}, ${b.size} cm `);
+      li.append(el('small', '', `(${b.count} caught; they grow to ${fishById[b.sp].size[1]} cm here)`));
+      return li;
+    }) : [el('li', 'j-faint', 'Nothing yet.')]));
+    $('rec-notable').replaceChildren(...(C.notable.length ? C.notable.map((e) => {
+      const li = el('li', '', `${sp(e.sp)}, ${e.size} cm `);
+      li.append(el('small', '', `day ${e.day}${e.place ? `, ${e.place}` : ''}${e.outcome === 'released' ? ', let go' : ''}`));
+      return li;
+    }) : [el('li', 'j-faint', 'A fish near the top of its size, when you catch one, is remembered here.')]));
+    $('rec-challenges').replaceChildren(...CHALLENGES.map((c) => {
+      const got = st.badges?.[c.id], p = c.check(st);
+      const li = el('li', got ? 'done' : '');
+      const dot = el('i', 'rec-badge');
+      dot.style.background = c.color;
+      li.append(dot, el('b', '', c.name), el('span', '', `${c.text} ${got ? `Done, day ${got.day}.` : p.of > 1 ? `${Math.min(p.n, p.of)} of ${p.of}.` : ''}`));
+      return li;
+    }));
   }
 
   render(where) {

@@ -2156,6 +2156,23 @@ body.placing #sonar, body.placing #act-btn, body.placing #cancel-btn { visibilit
 .mem-photo img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #ddd2b8; }
 .mem-photo span { font: 13px/1.2 var(--font-hand); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mem-photo.away img { opacity: 0.3; }
+/* The day book: a page for each day out, your record, the harbour's challenges. */
+.j-day { margin: 6px 0 14px; padding: 6px 12px 8px; border-left: 3px solid var(--ink-faint); }
+.j-day strong { display: block; font: 700 20px var(--font-display); }
+.j-day p { margin: 2px 0 0; font: 17px/1.4 var(--font-hand); color: var(--ink); }
+.j-day.today { border-left-color: #2f6f74; }
+.rec-totals { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 6px 0 12px; font: 14px/1.35 var(--font-ui); }
+.rec-totals dt { color: var(--ink-soft); }
+.rec-totals dd { margin: 0; font-weight: 700; }
+.rec-bests, .rec-notable { margin: 4px 0 12px; padding-left: 22px; font: 16px/1.45 var(--font-hand); }
+.rec-bests small, .rec-notable small { font: 12px var(--font-ui); color: var(--ink-soft); }
+.rec-challenges { list-style: none; margin: 4px 0 12px; padding: 0; }
+.rec-challenges li { display: grid; grid-template-columns: 34px 1fr; gap: 2px 10px; align-items: start; margin: 0 0 10px; }
+.rec-badge { grid-row: span 2; width: 30px; height: 30px; border-radius: 50%; border: 2px dashed rgba(255, 255, 255, 0.7); box-shadow: 0 0 0 1.5px var(--ink-faint); opacity: 0.25; }
+.rec-challenges li.done .rec-badge { opacity: 1; }
+.rec-challenges b { font: 700 15px var(--font-ui); }
+.rec-challenges span { font: 13px/1.35 var(--font-ui); color: var(--ink-soft); }
+.rec-challenges li.done span::after { content: ' ✓'; color: #4f7a43; font-weight: 700; }
 .mem-adv { margin: 6px 0 14px; padding: 8px 12px; border-left: 3px solid var(--ink-faint); }
 .mem-adv.done { border-left-color: #6f9a63; }
 .mem-adv h4 { margin: 0 0 4px; font: 700 22px var(--font-display); }

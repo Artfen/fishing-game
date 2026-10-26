@@ -284,6 +284,14 @@ export function standing(a, names) {
 // mem: { notable: { name, size, day }, place: { name, day }, trip: { name, total, best, day }, day }.
 export function remember(who, mem) {
   const lines = [];
+  if (mem.badge && mem.day - mem.badge.day <= 1) {
+    const b = mem.badge.name;
+    lines.push({ ruth: `I’ve ticked you off on the board: ${b}. Well done, you.`, mags: `Ruth says you’ve a badge for “${b}” now. About time.`, dougie: `${b}, eh? Ruth’s board’s getting full of you.`, ian: `Congratulations on “${b}”. I never managed that one.`, kit: `You got a badge! Can I see it?` }[who]);
+  }
+  if (mem.dive && mem.day - mem.dive.day <= 1) {
+    const at = mem.dive.site;
+    lines.push({ bert: `Down at ${at}, I hear. Bring the tank in when it wants filling.`, hettie: `You dived ${at}? What did you see down there?`, ian: `${at[0].toUpperCase()}${at.slice(1)}! I dived it once, when I had the knees for it.`, dougie: `Down at ${at}, they say. Rather you than me.`, kit: `Did you see a lobster at ${at}? Did you?`, chano: `You dive, eh? Come and dive El Bajón some time.` }[who]);
+  }
   if (mem.notable && mem.day - mem.notable.day <= 1) {
     const f = `${mem.notable.size} cm ${lower(mem.notable.name)}`;
     lines.push({ mags: `I heard about that ${f} of yours. Bring the next one to me!`, bert: `They tell me you had a ${f}. What was it on?`, ruth: `The whole bar was talking about your ${f}.`, dougie: `That ${f}! Not bad at all.`, hettie: `A ${f}, they say. Where?`, kit: `Is it true you caught a ${f}? Was it THIS big?`, ian: `A ${f}, I hear. Splendid.`, paco: `¡Ese ${f}! Everybody talks.`, chano: `Paco says you had a ${f}. ¡Bien!` }[who]);

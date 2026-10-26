@@ -422,6 +422,7 @@
       <button type="button" data-view="log" aria-label="Catch log"><span class="j-tab-more">Catch </span>log</button>
       <button type="button" data-view="guide" aria-label="Field guide"><span class="j-tab-more">Field </span>guide</button>
       <button type="button" data-view="memories">Memories</button>
+      <button type="button" data-view="days" aria-label="Days and your record">Days</button>
     </nav>
     <section class="page left j-mem-view" aria-label="Memories: photographs and adventures" hidden>
       <h2>Photographs <span class="count" id="mem-photo-count"></span></h2>
@@ -446,6 +447,23 @@
       <div id="mem-sealife"></div>
       <h3>Favours</h3>
       <div id="mem-favours"></div>
+    </section>
+    <section class="page left j-days-view" aria-label="Your days" hidden>
+      <h2>Today <span class="count" id="days-today-when"></span></h2>
+      <div id="days-today"></div>
+      <h2>The days before</h2>
+      <div id="days-list"></div>
+    </section>
+    <section class="page right j-days-view" aria-label="Your record and the harbour’s challenges" hidden>
+      <h2>Your record</h2>
+      <dl id="rec-totals" class="rec-totals"></dl>
+      <h3>Your best of each kind</h3>
+      <ol id="rec-bests" class="rec-bests"></ol>
+      <h3>Fish to remember</h3>
+      <ul id="rec-notable" class="rec-notable"></ul>
+      <h3>The harbour’s challenges</h3>
+      <p class="j-faint">On the board in the Lobster Pot. Each one done puts a cloth badge on the board at home.</p>
+      <ul id="rec-challenges" class="rec-challenges"></ul>
     </section>
     <div id="mem-viewer" class="mem-viewer" role="dialog" aria-label="A photograph" hidden>
       <div class="mem-viewer-inner">

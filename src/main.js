@@ -18,7 +18,7 @@ import { Ecosystem } from './world/ecosystem.js';
 import { FishRenderer } from './world/fishRender.js';
 import { Underwater } from './world/underwater.js';
 import { Seabed } from './world/seabed.js';
-import { siteAt, pushOut } from './world/divesites.js';
+import { siteAt, siteById, pushOut } from './world/divesites.js';
 import { Reflection, RippleField, NO_REFLECT, hideFromReflection } from './world/waterfx.js';
 import { createMist } from './world/mist.js';
 import { surfaceUniforms } from './world/surface.js';
@@ -45,6 +45,7 @@ import { Boat, BOAT_KINDS } from './boat.js';
 import { Walker } from './walker.js';
 import { Effects } from './effects.js';
 import { buildSeaLife, SEA_LIFE } from './world/sealife.js';
+import { newToday, notePlace, noteMove, noteBoat, noteDive, noteSeen, noteSky, noteGale, noteRecord, closeDay, dayLine, checkChallenges, isSheltered, CHALLENGES, challengeById } from './daybook.js';
 import { SeaGlow, nightGlow } from './world/seaglow.js';
 import { Fishing } from './fishing.js';
 import { drawFishSketch, drawLanternSketch, fishById, weightOf } from './fish.js';
@@ -473,7 +474,14 @@ function memoryCtx() {
     if (P && !P.area && r.day >= state.day - 1 && (!place || r.day * 24 + r.hour > place.day * 24 + place.hour)) place = { name: P.name, day: r.day, hour: r.hour };
   }
   const tr = state.trips[state.trips.length - 1];
-  return { day: state.day, notable, place, trip: tr && tr.day >= state.day - 1 ? { name: tr.name, total: tr.total, day: tr.day } : null };
+  // Your latest dive at a site (today's or yesterday's), and your latest badge.
+  let dive = null;
+  for (const pg of [state.days[state.days.length - 1], state.today]) {
+    for (const d of pg?.dives || []) if (d.site && pg.day >= state.day - 1) dive = { site: siteById[d.site].name.replace(/^The /, 'the '), day: pg.day };
+  }
+  const bid = Object.keys(state.badges || {}).sort((a, b) => (state.badges[b].day - state.badges[a].day) || (state.badges[b].hour - state.badges[a].hour))[0];
+  const badge = bid && challengeById[bid] ? { name: challengeById[bid].name, day: state.badges[bid].day } : null;
+  return { day: state.day, notable, place, dive, badge, trip: tr && tr.day >= state.day - 1 ? { name: tr.name, total: tr.total, day: tr.day } : null };
 }
 // Dougie's buoy adrift: an orange float and a little flag, riding the swell where it's got to.
 const lostBuoy = (() => {
@@ -1025,6 +1033,7 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
   }
   const rec = state.fish[sp.id];
   const record = !isNew && size > rec.best;
+  if (record) noteRecord(state.today, sp.id, size);
   rec.count++;
   rec.best = Math.max(rec.best, size);
   if (rigUsed?.item) {
@@ -1036,6 +1045,8 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
   favoursReady(favourCaught(state.favours, { id: sp.id, size, night: state.hour >= 20.5 || state.hour < 5, shore: onFoot }));
   markObserved(sp.id, agent);
   state.tips.caught = true;
+  // (Checked once the catch card's closed, when you've kept it or let it go.)
+  challengesDue = true;
   save();
   return { isNew, record };
 }
@@ -2106,6 +2117,8 @@ function endDive(to = null, quiet = false) {
   rig.setDive(null, false, t);
   const S = state.dive;
   S.deepest = Math.max(S.deepest, Math.round(d.maxDepth * 10) / 10);
+  if (d.maxDepth > 1.5) noteDive(state.today, d.site?.id || null, d.maxDepth);
+  challengesDone();
   const back = to || (d.boat ? { boat: d.boat } : { spot: d.back });
   if (back.boat) board(back.boat);
   else {
@@ -3995,6 +4008,7 @@ async function refreshHomeWall() {
   const total = Object.values(state.fish).reduce((a, f) => a + f.count, 0), kinds = Object.keys(state.fish).length;
   world.home.showTally(total ? [`${total} fish, ${kinds} kind${kinds === 1 ? '' : 's'}`, best[0] ? `Best: ${best[0].title}` : '', `Day ${state.day}`] : null);
   const rec = H.auto ? best[0] : best.find((b) => b.id === H.catchId);
+  refreshBadges();
   const key = JSON.stringify([ids, keepsake, rec?.id]);
   if (key === wallKey) return;
   wallKey = key;
@@ -4829,6 +4843,56 @@ function watchObservations(dt) {
 }
 
 let placeTimer = 0;
+// The day book (see daybook.js): every couple of seconds, where you are and how you're getting
+// about, the boat you're in, the sky, and where you are if a gale's blowing; when the day turns
+// (asleep, or at midnight), its page is written up, and in the morning you hear so.
+let dayTimer = 0, dayLast = null, dayNews = null, challengesDue = true;
+function noteTheDay(dt) {
+  dayTimer -= dt;
+  if (dayTimer > 0) return;
+  dayTimer = 2;
+  if (!state.today || state.today.day !== state.day) closeTheDay();
+  if (challengesDue && !modal) {
+    challengesDue = false;
+    challengesDone();
+  }
+  if (dayNews && !sleeping && !traveling && !modal) {
+    hud.toast(dayNews, 7);
+    hud.pulseJournal();
+    dayNews = null;
+  }
+  const T = state.today, h = state.hour, p = player().pos;
+  const mode = traveling ? null : driving ? 'car' : dive ? 'swim' : onFoot ? 'foot' : 'boat';
+  // (Not the jumps: travel from the map, a passage south, being put somewhere.)
+  if (dayLast && mode) {
+    const d = Math.hypot(p.x - dayLast.x, p.z - dayLast.z);
+    if (d < 120) noteMove(T, mode, d, h);
+  }
+  dayLast = { x: p.x, z: p.z };
+  const pl = PLACES.find((q) => !q.area && q.test(p.x, p.z));
+  if (pl) notePlace(T, pl.id, h);
+  if (mode === 'boat' && Math.abs(boat.speed) > 0.5) noteBoat(T, boat.name);
+  noteSky(T, weather.state);
+  if (Math.max(weather.storm, conditions.sea.storm) > 0.3) noteGale(T, mode === 'boat' || mode === 'swim' ? (isSheltered(zoneAt(p.x, p.z)) ? 'shelter' : 'out') : 'ashore');
+}
+function closeTheDay() {
+  const page = closeDay(state, state.day);
+  if (page) dayNews = dayLine(page);
+  save();
+}
+// The harbour's challenges: any newly done puts a badge on the board at home.
+function challengesDone() {
+  for (const c of checkChallenges(state)) {
+    hud.toast(`Done: ${c.name}. ${c.text} A cloth badge for the board at home.`, 8);
+    audio.chime();
+    hud.pulseJournal();
+  }
+  refreshBadges();
+}
+function refreshBadges() {
+  world.home.showBadges(CHALLENGES.map((c) => ({ id: c.id, name: c.name, color: c.color, mark: c.mark, done: !!state.badges?.[c.id] })));
+}
+
 function checkPlaces(dt) {
   placeTimer -= dt;
   if (placeTimer > 0) return;
@@ -5032,6 +5096,7 @@ sealife.onSplash = (x, z, len) => {
 const seaLifeSeenAt = {};
 function seeSeaLife(kind, x, z) {
   favoursReady(favourSaw(state.favours, kind));
+  noteSeen(state.today, kind);
   const now = performance.now() / 1000;
   if (seaLifeSeenAt[kind] && now - seaLifeSeenAt[kind] < 600) return;
   seaLifeSeenAt[kind] = now;
@@ -7262,6 +7327,7 @@ function tick(now, manual = false) {
   }
   if (started) {
     checkPlaces(dt);
+    noteTheDay(dt);
     updateGuide(dt);
     watchCamps();
     watchBirds(dt);
