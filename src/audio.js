@@ -643,6 +643,40 @@ export class AudioScape {
   }
 
   // A grey seal hauled out on the skerry: a long, wavering moan, half song.
+  // A seal surfacing close by: a short, wet snort through the nostrils.
+  snort(vol, pan) {
+    this.burst({ buf: this.pink, type: 'bandpass', freq: 700, freqEnd: 380, q: 1.4, dur: 0.32, gain: vol, attack: 0.02, pan, dest: this.nature });
+    this.burst({ buf: this.pink, type: 'bandpass', freq: 1200, freqEnd: 600, q: 2, dur: 0.15, gain: vol * 0.5, attack: 0.01, pan, when: 0.05, dest: this.nature });
+  }
+
+  // Oystercatchers going up: loud, shrill "kleep" piping, several birds at once.
+  piping(vol, pan) {
+    let t = 0;
+    for (let i = 0; i < 4 + Math.floor(rand(0, 5)); i++) {
+      const f = rand(2700, 3300);
+      this.tone({ freq: f, freqEnd: f * 0.82, dur: rand(0.08, 0.12), gain: vol * rand(0.6, 1), attack: 0.004, pan: clamp(pan + rand(-0.2, 0.2), -1, 1), when: t, dest: this.nature });
+      t += rand(0.09, 0.17);
+    }
+  }
+
+  // A tern: a grating, two-part "kee-arr".
+  tern(vol, pan) {
+    this.tone({ type: 'sawtooth', freq: 2300, freqEnd: 2700, dur: 0.12, gain: vol * 0.7, attack: 0.01, pan, filter: ['bandpass', 2600, 3], dest: this.nature });
+    this.tone({ type: 'sawtooth', freq: 2500, freqEnd: 1500, dur: 0.3, gain: vol, attack: 0.02, pan, when: 0.12, vib: 30, filter: ['bandpass', 2000, 2.2], dest: this.nature });
+  }
+
+  // A heron put up: a harsh, deep "fraank", once or twice.
+  croak(vol, pan) {
+    for (let i = 0; i < 1 + Math.floor(rand(0, 2)); i++) {
+      this.tone({ type: 'sawtooth', freq: rand(240, 290), freqEnd: rand(170, 200), dur: 0.38, gain: vol, attack: 0.02, pan, when: i * 0.6, vib: 22, filter: ['bandpass', 650, 1.4], dest: this.nature });
+    }
+  }
+
+  // An otter: a thin, high whistle, to another one along the bank.
+  otterWhistle(vol, pan) {
+    this.tone({ freq: rand(3200, 3700), freqEnd: rand(2600, 2900), dur: 0.45, gain: vol, attack: 0.03, pan, dest: this.nature });
+  }
+
   seal(vol, pan) {
     const f = rand(190, 260);
     this.tone({ freq: f, freqEnd: f * rand(0.7, 0.82), dur: rand(1.4, 2.2), gain: vol, attack: 0.35, pan, vib: 4, dest: this.nature });

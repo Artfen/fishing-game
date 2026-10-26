@@ -10,7 +10,7 @@
 // - It never touches saved games: those live in the browser's local storage, not here.
 
 // <precache> Written by tools/build-sw.mjs: do not edit by hand.
-const VERSION = '8b3fe66f698f';
+const VERSION = 'cf6968cccaa2';
 const FILES = [
   './index.html',
   './style.css',
@@ -126,6 +126,7 @@ const FILES = [
   './src/world/underwater.js',
   './src/world/water.js',
   './src/world/waterfx.js',
+  './src/world/wildlife.js',
   './src/world/windlines.js',
   './src/world/world.js',
   './vendor/three/three.module.min.js',

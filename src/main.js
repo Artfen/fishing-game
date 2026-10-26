@@ -45,6 +45,7 @@ import { Boat, BOAT_KINDS } from './boat.js';
 import { Walker } from './walker.js';
 import { Effects } from './effects.js';
 import { buildSeaLife, SEA_LIFE } from './world/sealife.js';
+import { buildWildlife } from './world/wildlife.js';
 import { seeSign, readSign, SIGNS, SEEN_AT, stepColour, colourKey, colourWords, NATURE, noteNature, groundsOf, groundWords } from './grounds.js';
 import { newToday, notePlace, noteMove, noteBoat, noteDive, noteSeen, noteSky, noteGale, noteRecord, closeDay, dayLine, checkChallenges, isSheltered, CHALLENGES, challengeById, dayPage, dayText, noteSat } from './daybook.js';
 import { SeaGlow, nightGlow } from './world/seaglow.js';
@@ -315,6 +316,8 @@ fx.glow = glow;
 glow.setPixelRatio(renderer.getPixelRatio());
 hideFromReflection(glow.points);
 const sealife = buildSeaLife(scene, { glow });
+// The quieter wildlife at home: otters, herons, cormorants, terns, oystercatchers (wildlife.js).
+const wildlife = buildWildlife(scene);
 // The harbour's people (Mags, Bert, Ruth, Dougie and his boat, Hettie, Kit; Paco at Las Brasas).
 const town = new Townsfolk({ obstacles: world.coast.obstacles });
 const folkView = new FolkView(scene);
@@ -4880,7 +4883,9 @@ function photoSubjects(extra = null) {
   // The Kittiwake's bell, close enough to make out, under the water.
   const by = heightAt(WRECK_BELL.x, WRECK_BELL.z) + 0.2;
   const bell = under && Math.hypot(WRECK_BELL.x - c.x, by - c.y, WRECK_BELL.z - c.z) < 7 && _frustum.containsPoint(_pv.set(WRECK_BELL.x, by, WRECK_BELL.z));
-  return { species: [...species].slice(0, 12), places: places.slice(0, 12), birds, ...(bell ? { bell: true } : {}) };
+  // The wildlife in the picture (see wildlife.js).
+  const life = wildlife.inFrame(_frustum, c);
+  return { species: [...species].slice(0, 12), places: places.slice(0, 12), birds, ...(bell ? { bell: true } : {}), ...(life.length ? { life } : {}) };
 }
 
 function openPhoto() {
@@ -4925,7 +4930,8 @@ async function takePhoto(extra = null, title = '') {
   $('pc-title').value = title;
   const sp = subjects.species.map((id) => fishById[id]?.name).filter(Boolean);
   const pl = subjects.places.map((id) => PLACES.find((q) => q.id === id)?.name).filter(Boolean);
-  $('pc-text').textContent = [subjects.bell ? 'The Kittiwake’s bell, where it lies.' : '', sp.length ? `In the picture: ${sp.join(', ')}.` : '', pl.length ? `${pl.slice(0, 4).join(', ')}.` : '', subjects.birds ? 'Gulls diving.' : ''].filter(Boolean).join(' ') || 'A quiet moment.';
+  const life = (subjects.life || []).map((k) => SEA_LIFE[k]?.name.toLowerCase()).filter(Boolean);
+  $('pc-text').textContent = [subjects.bell ? 'The Kittiwake’s bell, where it lies.' : '', sp.length ? `In the picture: ${sp.join(', ')}.` : '', life.length ? `Wildlife: ${life.join(', ')}.` : '', pl.length ? `${pl.slice(0, 4).join(', ')}.` : '', subjects.birds ? 'Gulls diving.' : ''].filter(Boolean).join(' ') || 'A quiet moment.';
   if (from !== 'catch') modal = 'photocard';
   $('photo-card').hidden = false;
 }
@@ -5306,11 +5312,43 @@ function seeSeaLife(kind, x, z) {
   if (S[kind]) S[kind].n++;
   else {
     S[kind] = { n: 1, day: state.day, hour: state.hour, where: region === 'south' ? 'off Las Brasas' : placeName(x, z) || '' };
-    hud.toast(`${SEA_LIFE[kind].note} (The journal keeps the sea life you’ve seen, under Memories.)`, 9);
+    hud.toast(`${SEA_LIFE[kind].note} (Your field notes keep the wildlife you’ve seen: Notes, in the journal.)`, 9);
   }
   save();
 }
 sealife.onSighting = seeSeaLife;
+sealife.onSnort = (x, z) => {
+  const h = heardFrom(x, z, 60);
+  if (h.vol > 0) audio.snort?.(0.07 * h.vol, h.pan);
+};
+// Wildlife moments: a word when something worth watching happens near you (one at a time, and
+// not the same thing again for a good while).
+const momentAt = {};
+let lastMoment = -1e9;
+function wildMoment(kind, text) {
+  const now = performance.now() / 1000;
+  if (now - lastMoment < 90 || now - (momentAt[kind] ?? -1e9) < 1200 || sleeping || traveling) return;
+  momentAt[kind] = lastMoment = now;
+  later(text);
+}
+sealife.onMoment = wildMoment;
+wildlife.onSighting = seeSeaLife;
+wildlife.onMoment = wildMoment;
+wildlife.onCall = (kind, x, z) => {
+  const h = heardFrom(x, z, kind === 'heron' ? 220 : 160);
+  if (h.vol <= 0) return;
+  if (kind === 'oystercatcher') audio.piping?.(0.05 * h.vol, h.pan);
+  else if (kind === 'tern') audio.tern?.(0.04 * h.vol, h.pan);
+  else if (kind === 'heron') audio.croak?.(0.06 * h.vol, h.pan);
+  else if (kind === 'otter') audio.otterWhistle?.(0.02 * h.vol, h.pan);
+};
+wildlife.onRipple = (x, z) => fx.ripple(x, z, 0.4, 1.0, 0.3);
+wildlife.onSplash = (x, z, size) => {
+  fx.splash(x, 0.05, z, 6, 1.0 + size * 2, 0.4);
+  fx.ripple(x, z, 0.6 + size * 2, 1.2, 0.4);
+  const h = heardFrom(x, z, 60);
+  if (h.vol > 0) audio.splashSmall?.(0.12 * h.vol, h.pan);
+};
 let glowFishT = 0;
 BOATS.sail.onTack = (b) => {
   if (b !== boat || onFoot || b.speed < 0.3) return;
@@ -7348,6 +7386,9 @@ function tick(now, manual = false) {
   {
     const P = player().pos, aboard = !onFoot && !driving && !dive && !cabinIn;
     sealife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, daylight: env.daylight, region, eco, diving: !!dive });
+    // (How fast you're coming: walking, the boat, swimming; sitting still is stillest of all.)
+    const pace = sitting ? 0 : dive ? diver.speed : onFoot ? walker.speed : driving ? 10 : Math.abs(boat.forwardSpeed) + (boat.motor && boat.lever > 0 ? 1 : 0);
+    wildlife.update(dt, t, { from: P, onFoot: onFoot && !dive && !driving, speed: pace, daylight: env.daylight, hour: state.hour, season: seasonOf(state.day).name, tideLevel: tideNow.level, region });
     // The harbour's people going about their day, and Dougie's boat.
     town.update(state.day * 24 + state.hour, folkCtx(dt));
     {
@@ -7659,7 +7700,7 @@ window.slowTide = {
   openBench: (st) => openBench(st), get driving() { return driving; }, get modalName() { return modal; },
   state, walker, fishing, env, weather, renderer, post, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world, explored, stormFx,
   get boat() { return boat; }, // the boat you're in (or last used)
-  reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI, pads, sealife, glow,
+  reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI, pads, sealife, wildlife, glow,
   // The first-trip guide as it stands: the step, its words and where it points.
   guideNow: () => ({ step: stepOf(state.guide), title: $('gd-title').textContent, text: $('gd-text').textContent, target: guideTarget, shown: !$('guide').hidden }),
   firstPerson: (on = true) => rig.setFirstPerson(on, t),

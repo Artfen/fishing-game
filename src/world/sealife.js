@@ -14,7 +14,10 @@ import { clamp, lerp, damp, dampAngle, smoothstep, wrapAngle, glowTexture, merge
 //    ride its bow wave, side by side just ahead of the stem, leaping now and then, until it slows
 //    or they tire of it. After dark their trails glow (see seaglow.js).
 //  · Grey seals hauled out on Gannet Isle's west shore and on the Skerries (as on the Calf), and
-//    a curious one or two that come up near a quiet boat (or a diver) to look you over.
+//    a curious one or two that come up near a quiet boat (or a diver) to look you over; and now
+//    and then, along the coast near their rocks, one that takes to following a boat going along
+//    slowly (fishing boats are worth following: there are fish in them), surfacing in your wake
+//    a few boat-lengths astern, going under, and coming up again behind you.
 //  · Gannets: a few always wheeling round Gannet Isle by day, and, when a shoal of small fish comes
 //    up near the surface, a flock that gathers high above it and plunges in, one after another,
 //    wings folded, with a white splash.
@@ -38,6 +41,11 @@ export const SEA_LIFE = {
   minkewhale: { name: 'A minke whale', note: 'A minke whale: the smallest of the great whales, its blow faint and low. A dark back and a curved fin roll briefly through the surface, and it’s gone.' },
   pilotwhale: { name: 'Short-finned pilot whales', note: 'Short-finned pilot whales: black, round-headed and sociable. A family group lives off Las Brasas’ south-west, resting at the surface for long spells.' },
   spermwhale: { name: 'A sperm whale', note: 'A sperm whale: the great square head, the wrinkled skin, and a bushy blow slanting forward and to the left. As it dives, it lifts its flukes high.' },
+  otter: { name: 'Otters', note: 'Eurasian otters: a long brown back and a thick tail along the bank, a flat head, a pale chin. They fish the quiet rivers and the salt channels, busiest at dawn and dusk, and take what they catch onto the bank to eat. Shy: they hear you coming.' },
+  heron: { name: 'Grey herons', note: 'Grey herons: tall, grey and still as posts in the shallows, then a lightning jab of the bill. They fly with the neck folded back and slow, deep wingbeats, and a harsh “fraank” when you put them up.' },
+  cormorant: { name: 'Cormorants', note: 'Cormorants: black seabirds with a hooked bill, swimming low and diving for half a minute at a time. Their feathers soak through, which is why you see them on the rocks with their wings spread out to dry.' },
+  tern: { name: 'Terns', note: 'Terns: slim white seabirds with black caps and forked tails, here for the summer from Africa. They hover over the shallows and plunge in after little fish, with a grating “kee-arr”.' },
+  oystercatcher: { name: 'Oystercatchers', note: 'Oystercatchers: black and white waders with long orange bills, probing the sand and mud at low water. Disturb them and they go off low along the shore, piping loudly.' },
   glow: { name: 'The sea glowing at night', note: 'The sea is glowing: tiny plankton flash blue-green wherever the water is disturbed, in the wake, under an oar, where a fish darts. Brighter some nights than others.' },
 };
 
@@ -153,7 +161,7 @@ class Blows {
 
 export function buildSeaLife(scene, { glow = null } = {}) {
   const blows = new Blows(scene);
-  const events = { onSighting: null, onBlow: null, onWhistle: null, onPlunge: null, onSplash: null };
+  const events = { onSighting: null, onBlow: null, onWhistle: null, onPlunge: null, onSplash: null, onMoment: null, onSnort: null };
   const surface = (x, z, t) => waveHeight(x, z, t);
   // A spot in this area deep enough, reachable from (fx, fz) without crossing land.
   const pickTarget = (A, minDepth, fx, fz) => {
@@ -458,7 +466,7 @@ export function buildSeaLife(scene, { glow = null } = {}) {
       s.body.visible = false;
       s.neck.position.set(0, 0, 0);
       s.head.rotation.x = -0.35;
-      visitors.push({ ...s, H, x: H.x, z: H.z, a: Math.random() * 6.28, r: rand(14, 30), depth: 1, down: true, t: rand(5, 30), look: 0, mode: 'idle', visits: 0, cool: rand(20, 60) });
+      visitors.push({ ...s, H, x: H.x, z: H.z, a: Math.random() * 6.28, r: rand(14, 30), depth: 1, down: true, t: rand(5, 30), look: 0, mode: 'idle', visits: 0, cool: rand(20, 60), followCool: rand(60, 200) });
     }
   }
   const stepSeals = (dt, t, ctx, near) => {
@@ -479,10 +487,52 @@ export function buildSeaLife(scene, { glow = null } = {}) {
     // Heads in the water: drifting off the haul-out, sinking and coming up again; and, near a quiet
     // boat (or a diver), coming over to have a look at you from a few boat-lengths off.
     const quiet = (ctx.boat && (ctx.boatSpeed ?? 0) < 1.5) || ctx.diving;
+    // (Going along slowly: rowing, dead slow under power, trolling.)
+    const slow = ctx.boat && (ctx.boatSpeed ?? 0) > 0.6 && (ctx.boatSpeed ?? 0) < 4.5;
+    const following = visitors.some((v) => v.mode === 'follow');
     for (const s of visitors) {
       const H = s.H, dH = Math.hypot(ctx.from.x - H.x, ctx.from.z - H.z);
       s.t -= dt;
       s.cool = Math.max(0, s.cool - dt);
+      s.followCool = Math.max(0, s.followCool - dt);
+      // Taking to following you: near its rocks, the boat going along slowly.
+      if (s.mode === 'idle' && slow && !following && dH < 700 && !s.followCool && s.down && Math.random() < dt * 0.02) {
+        s.mode = 'follow';
+        s.down = true;
+        s.t = rand(3, 6);
+        s.left = rand(90, 200);
+        s.fx = 0;
+      }
+      if (s.mode === 'follow') {
+        const B = ctx.boat;
+        s.left -= dt;
+        if (!B || (ctx.boatSpeed ?? 0) > 5.5 || s.left <= 0 || dH > 1600) {
+          // Lost interest (or left behind): under, and home.
+          s.mode = 'idle';
+          s.down = true;
+          s.followCool = rand(240, 480);
+          s.t = rand(8, 16);
+        } else {
+          // Astern, a few boat-lengths back, a little to one side; up for a look, under, up again.
+          const fx = B.fwd?.x ?? Math.sin(B.heading), fz = B.fwd?.z ?? Math.cos(B.heading), back = 11 + Math.sin(t * 0.3) * 3, side = Math.sin(t * 0.13 + s.a) * 4;
+          const tx = B.pos.x - fx * back + fz * side, tz = B.pos.z - fz * back - fx * side;
+          if (depthAt(tx, tz) > 1.2) {
+            s.x = damp(s.x, tx, s.down ? 3 : 1.2, dt);
+            s.z = damp(s.z, tz, s.down ? 3 : 1.2, dt);
+          }
+          if (s.t <= 0) {
+            s.down = !s.down;
+            s.t = s.down ? rand(4, 9) : rand(7, 14);
+            if (!s.down) {
+              events.onSnort?.(s.x, s.z);
+              if (!s.fx) {
+                s.fx = 1;
+                events.onMoment?.('sealFollow', 'A grey seal has come up in your wake, a few lengths astern, and it’s following you: up for a look, a snort, under, and up again behind you. Fishing boats are worth following, to a seal.');
+              }
+            }
+          }
+        }
+      }
       if (s.mode === 'idle' && quiet && dH < 240 && !s.cool && s.down) {
         // Off to look: it comes up a little way off you, to one side.
         s.mode = 'visit';
@@ -495,7 +545,9 @@ export function buildSeaLife(scene, { glow = null } = {}) {
           s.t = rand(12, 25);
         }
       }
-      if (s.mode === 'idle') {
+      if (s.mode === 'follow') {
+        // (Placed above.)
+      } else if (s.mode === 'idle') {
         s.a += 0.03 * dt;
         s.x = H.x + Math.sin(s.a) * s.r;
         s.z = H.z + Math.cos(s.a) * s.r;
@@ -520,9 +572,9 @@ export function buildSeaLife(scene, { glow = null } = {}) {
       if (!s.g.visible) continue;
       s.g.position.set(s.x, surface(s.x, s.z, t) + 0.05 - s.depth * 0.9, s.z);
       const toYou = Math.atan2(ctx.from.x - s.x, ctx.from.z - s.z);
-      s.look = dampAngle(s.look, s.mode === 'visit' ? toYou : s.a + Math.PI / 2, 1.5, dt);
+      s.look = dampAngle(s.look, s.mode === 'visit' || s.mode === 'follow' ? toYou : s.a + Math.PI / 2, 1.5, dt);
       s.g.rotation.y = s.look;
-      if (s.mode === 'visit' && s.depth < 0.3 && d < 40) events.onSighting?.('seal', s.x, s.z);
+      if ((s.mode === 'visit' || s.mode === 'follow') && s.depth < 0.3 && d < 40) events.onSighting?.('seal', s.x, s.z);
     }
   };
 
@@ -665,7 +717,7 @@ export function buildSeaLife(scene, { glow = null } = {}) {
     // ctx: { from (where you are), boat (the boat you're aboard, under way on the surface, or
     // null), boatSpeed, daylight, region ('home' or 'south'), eco, diving }
     update(dt, t, ctx) {
-      for (const k of ['onSighting', 'onBlow', 'onWhistle', 'onPlunge', 'onSplash']) events[k] = this[k];
+      for (const k of Object.keys(events)) events[k] = this[k];
       const home = ctx.region !== 'south';
       for (const p of pods) stepPod(p, dt, t, ctx, (p.sea === 'home') === home && Math.hypot(p.x - ctx.from.x, p.z - ctx.from.z) < 1200);
       for (const w of whales) stepWhale(w, dt, t, ctx, (w.sea === 'home') === home && Math.hypot(w.x - ctx.from.x, w.z - ctx.from.z) < 2000);

@@ -66,6 +66,13 @@ export const REQUESTS = [
     thanks: '“From Ruth?” Dougie goes a little pink. “Well. Tell her thank you.” He lowers his voice. “Here’s one for you: the pollack hang over the Kittiwake at dusk, thick as you like. I’ll mark it.”',
     reward: { pin: { x: 99, z: 68, title: 'Dougie’s pollack', note: 'Over the Kittiwake, at dusk: the pollack come up off her ribs. A shad or a jig worked over the wreck, not too deep.' } },
   },
+  {
+    id: 'otter', who: 'ruth', kind: 'see', what: ['otter'],
+    ask: '“My dad used to say there were otters on the Coldwater, before the war. Gone for fifty years. Old Tam swore he saw one in the Saltings last winter, and nobody believed him. If you ever see one, come and tell me. Dawn or dusk, he said, and quiet.”',
+    short: 'See an otter, and tell Ruth',
+    thanks: '“An otter. On our river.” Ruth puts down the glass she’s drying. “Then Tam was right, God rest him.” She won’t take your money for supper tonight.',
+    reward: { money: 5, dish: { text: 'Supper on Ruth at The Lobster Pot: a bowl of fish stew and crusty bread, for the otter.', fill: 40 } },
+  },
   // Dougie Ferris, the lobsterman.
   {
     id: 'buoy', who: 'dougie', kind: 'find',
