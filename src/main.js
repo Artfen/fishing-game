@@ -58,7 +58,8 @@ import { PhotoStore, capture, photoId, albumPage, download } from './photos.js';
 import { Memories } from './memories.js';
 import { whatsAbout, birdsWorking, weatherLines, notices, paintBoard } from './harbour.js';
 import { HarbourSheet, paintSlate } from './harbourView.js';
-import { demandFor } from './market.js';
+import { demandFor, money } from './market.js';
+import { creelSize, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
 import { PHOTO_MAX } from './save.js';
 import { Journal } from './journal.js';
 import { MapSheet, Explored } from './map.js';
@@ -667,8 +668,8 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   onCatch: showCatch,
   onRelease: hideCatch,
   canKeep: () => {
-    if (state.keep.length < PACK.fish) return true;
-    hud.flash(`Your creel is full (${PACK.fish} fish). Cook some at camp, or let this one go.`, t, 3.5);
+    if (state.keep.length < creelSize(state)) return true;
+    hud.flash(`Your creel is full (${creelSize(state)} fish). Cook or sell some, or let this one go.`, t, 3.5);
     return false;
   },
   onKeep: (sp, size) => {
@@ -686,6 +687,13 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
     hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : why === 'thrown' ? 'It threw the hook!' : why === 'pulled' ? 'The hook pulled free.' : 'Snap! The line broke.', t, 3);
     hud.toast(breakReason(why, sp, rod), 9);
   },
+  // The line as it is (worn by hard fights, see shop.js); and the wear a fight just ended leaves.
+  line: (rod) => wornLine(rod.line, wearOf(state, rod.id)),
+  fought: (F, rod) => {
+    const w = addWear(state, rod.id, wearFrom(F));
+    if (w.was < 0.6 && w.now >= 0.6) teach('frayed', `That fight has left the line on your ${rod.short.toLowerCase()} frayed: it’s a little weaker now. Old Bert at the chandlery will put fresh line on for a few pounds.`, 9);
+  },
+  baitBoost: () => (freshBaitToday(state) ? BAIT.boost : 1),
   onDrag: (level, rod) => {
     hud.flash(`Drag: ${DRAG_NAMES[level]}${level === DRAG_LEVELS.length - 1 ? ' (it can’t slip: the line breaks first)' : ''}`, t, 2);
     save();
@@ -844,8 +852,8 @@ function showCatch(sp, size, agent, rigUsed) {
   $('cc-rig').textContent = (rigUsed?.item ? `Caught on ${rigUsed.item.on}, with the ${rigUsed.rod.short.toLowerCase()}` : '') + (state.trip?.sp === sp.id ? ' · the fish your trip is for' : '');
   const keepBtn = $('cc-keep');
   keepBtn.hidden = !sp.meal;
-  keepBtn.disabled = state.keep.length >= PACK.fish;
-  keepBtn.lastChild.textContent = state.keep.length >= PACK.fish ? 'Creel full' : 'Keep for the pot';
+  keepBtn.disabled = state.keep.length >= creelSize(state);
+  keepBtn.lastChild.textContent = state.keep.length >= creelSize(state) ? 'Creel full' : 'Keep for the pot';
   $('catch-card').hidden = false;
   modal = 'catch';
   if (isNew) {
@@ -1244,14 +1252,24 @@ const harbourSheet = new HarbourSheet(state, {
     openCamp('cook', 'posada');
   },
   talk: (place) => innTalk(place),
+  openStore: () => {
+    closeHarbour();
+    openPack('chandlery');
+  },
+  // The rods Bert looks over: the ones you carry, and any other with worn line.
+  rods: () => ROD_IDS.filter((id) => state.gear.pack.rods.includes(id) || wearOf(state, id) > 0)
+    .map((id) => ({ id, name: RODS[id].name, line: lineInUse(state.gear, RODS[id]) })),
+  trip: () => tripChecklist(),
 });
-// where: 'market' (Willowhaven's fish market), 'inn' (The Lobster Pot) or 'muelle' (Bar El Muelle).
+// where: 'market' (Willowhaven's fish market), 'inn' (The Lobster Pot), 'muelle' (Bar El Muelle) or
+// 'chandlery' (its counter: creels, ice, fresh bait, mending, ready for a trip).
 function openHarbour(where) {
   if (modal) return;
   modal = 'harbour';
   harbourSheet.open(where);
   audio.page();
-  if (where === 'market') teach('market', 'The fish market buys what you keep: the price is by weight, more for the kinds wanted today, and best while the fish is fresh. Money goes on a pint, a hot meal, or a fish cooked for you at the inn.', 9);
+  if (where === 'chandlery') teach('counter', 'The chandlery’s tackle is free to take, as always (The tackle store). At the counter, Old Bert sells a bigger creel, ice to keep your catch fresh and fresh bait, puts new line on a worn rod, and runs through what you need for a trip.', 10);
+  else if (where === 'market') teach('market', 'The fish market buys what you keep: the price is by weight, more for the kinds wanted today, and best while the fish is fresh. Money goes on a pint, a hot meal, or a fish cooked for you at the inn.', 9);
   else teach('inn', 'The inn: buy a pint and hear a story, ask what’s biting, and catch what’s being said about the sea today. The kitchen asks for particular fish each day, and pays well for them.', 9);
 }
 function closeHarbour() {
@@ -1295,8 +1313,51 @@ function innTalk(place) {
     },
   };
 }
+// Ready for a trip: what Bert runs through with you at the counter.
+function tripChecklist() {
+  const out = [];
+  const now = state.day * 24 + state.hour, size = creelSize(state), free = size - state.keep.length;
+  out.push({ ok: free >= 2, text: free ? `Room in your creel for ${free} more fish (it holds ${size}).` : `Your creel is full (${size}). Sell some at the market, or cook them.` });
+  out.push(onIce(state, now)
+    ? { ok: true, text: 'Ice in your creel: your catch keeps fresh.' }
+    : { ok: false, text: 'No ice in your creel: fish start to lose their freshness after half a day.', act: { label: `Ice: ${money(ICE.price)}`, run: () => buyIce() } });
+  if (needsMode() !== 'off' && state.comfort) {
+    const c = state.comfort;
+    out.push(c.bottle >= BOTTLE ? { ok: true, text: `Your water bottle is full (${BOTTLE} drinks).` } : { ok: false, text: `Your water bottle has ${c.bottle} of ${BOTTLE} drinks.`, act: { label: 'Fill it here', run: () => fillBottle() } });
+    out.push(c.rolls >= 2 ? { ok: true, text: `${c.rolls} rolls in your backpack.` } : { ok: false, text: c.rolls ? 'Only one roll in your backpack.' : 'No rolls in your backpack for later.', act: { label: 'Pack some', run: () => takeRolls() } });
+  }
+  const worn = state.gear.pack.rods.filter((id) => wearOf(state, id) >= 0.6);
+  out.push(worn.length ? { ok: false, text: `Frayed line on your ${worn.map((id) => RODS[id].short.toLowerCase()).join(' and ')}.`, act: { label: 'Mending', run: () => { harbourSheet.tab = 'mend'; } } } : { ok: true, text: 'Your lines are sound.' });
+  const v = state.vessel;
+  if (isPetrol(v) && BOATS[v]) {
+    const low = fuelLow(tanks(), v);
+    out.push({ ok: !low, text: `${boatTitle(BOATS[v])}: ${tankWords(tanks(), v)}${low ? '. Fill up at the fuel point on the pontoon, or the pump by the quay.' : '.'}` });
+  }
+  out.push(freshBaitToday(state) ? { ok: true, text: 'Fresh bait for today.' } : { ok: true, text: 'No fresh bait today (a help with worms and crab, never a need).' });
+  const storm = Math.max(weather.storm, conditions.sea.storm);
+  out.push({ ok: storm < 0.4, text: storm >= 0.4 ? 'A storm is blowing: stay in the bay and the sheltered water today.' : weatherLines(weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : weather.cloud > 0.3 ? 'Some cloud' : 'Clear')[0] });
+  const a = whatsAbout(eco, { max: 1 })[0];
+  out.push(a ? { ok: true, text: `${a.sp.name}: ${a.act > 0.85 ? 'busy' : 'about'} ${a.where}${a.how ? `; try ${a.how}` : ''}.`, act: { label: 'Plan a trip', run: () => { closeHarbour(); openGuide(); } } } : { ok: true, text: 'Little is feeding near the harbour this hour. Dawn and dusk are usually better.', act: { label: 'Plan a trip', run: () => { closeHarbour(); openGuide(); } } });
+  return out;
+}
+function buyIce() {
+  const now = state.day * 24 + state.hour;
+  state.shop ??= { creel: 0, iceUntil: 0, baitDay: 0, wear: {} };
+  if (state.shop.iceUntil > now + 12) return;
+  if (state.money < ICE.price) {
+    hud.toast(`Ice is ${money(ICE.price)}, and your purse has ${money(state.money)}. Sell a fish or two at the market first.`, 5);
+    return;
+  }
+  state.money = Math.round((state.money - ICE.price) * 100) / 100;
+  state.shop.iceUntil = now + ICE.hours;
+  hud.toast('Bert shovels crushed ice into a bag and packs it into your creel. Your fish keep fresh for a day.', 5);
+  save();
+}
+
 // The market's slate on the quay: chalked up afresh each morning.
 let slateDay = -1;
+// The game hour the creel's fish were last kept cold up to (see shop.js chill).
+let chilledTo = state.day * 24 + state.hour;
 function chalkSlate() {
   slateDay = state.day;
   const D = demandFor(state.day, 'haven');
@@ -2046,8 +2107,8 @@ function fireSpear() {
       hud.flash(`You hold your shot. ${ok.why}`, t, 2.6);
       return;
     }
-    if (state.keep.length >= PACK.fish) {
-      hud.flash(`Your creel is full (${PACK.fish} fish): take only what you’ll eat. Cook some at camp first.`, t, 3.2);
+    if (state.keep.length >= creelSize(state)) {
+      hud.flash(`Your creel is full (${creelSize(state)} fish): take only what you’ll eat. Cook some at camp first.`, t, 3.2);
       return;
     }
     const q = shotQuality(hit.along);
@@ -2122,7 +2183,7 @@ function landSpeared(a) {
     audio.fanfare();
     hud.pulseJournal();
   } else audio.chime();
-  teach('speared', `Speared fish go in your creel (it holds ${PACK.fish}), to cook at camp: a speargun only takes what you keep, so take only what you'll eat.`, 7);
+  teach('speared', `Speared fish go in your creel (it holds ${creelSize(state)}), to cook at camp: a speargun only takes what you keep, so take only what you'll eat.`, 7);
   save();
 }
 
@@ -3789,7 +3850,7 @@ function interaction() {
     if (coastSpot('market')) return { text: 'The fish market: sell your catch', run: () => openHarbour('market') };
     if (innNear()) return { text: 'The Lobster Pot: the bar and the kitchen', run: () => openHarbour('inn') };
     if (coastSpot('tower')) return { text: 'The watch tower', run: () => climbTower() };
-    if (chandleryNear()) return { text: 'The chandlery: tackle, bait, charts and air', run: () => { fillTank(); openPack('chandlery'); } };
+    if (chandleryNear()) return { text: 'The chandlery: tackle, the counter, mending and air', run: () => { fillTank(); openHarbour('chandlery'); } };
     if (coastSpot('bench')) return { text: 'Sit on the bench a while', run: () => sitOnBench() };
     if (quayHeadNear()) return { text: boats.some((b) => b.kind !== 'bass' && regionOf(b) === 'south') ? 'Have a boat brought round, or shipped from Las Brasas' : 'Have a boat brought round to the quay', run: () => boatsRound('home') };
     if (coastSpot('office')) return { text: 'The harbour office: your boats, brought round or shipped from Willowhaven', run: () => boatsRound('south') };
@@ -5533,7 +5594,7 @@ function updateDiveHud() {
   $('dive').classList.toggle('warn', warn);
   // The gun, or the camera.
   hud.setHTML('dvTool', $('dv-tool'), free
-    ? `${d.fresh ? 'No spearfishing in fresh water' : shot.loaded ? 'Speargun loaded' : shot.state === 'loading' ? 'Loading the bands…' : 'Shaft out…'} · creel ${state.keep.length}/${PACK.fish}`
+    ? `${d.fresh ? 'No spearfishing in fresh water' : shot.loaded ? 'Speargun loaded' : shot.state === 'loading' ? 'Loading the bands…' : 'Shaft out…'} · creel ${state.keep.length}/${creelSize(state)}`
     : `Camera ready · ${state.photos.length}/${PHOTO_MAX} photos`);
   // The sights: what's there, roughly how big, and whether to take it.
   const A = free && !d.fresh ? aim : null;
@@ -6901,6 +6962,10 @@ function tick(now, manual = false) {
     // An open board keeps up with the hour: it's read off the water as it is now.
     if (modal === 'board' && $('board-sub').textContent !== `${formatClock(state.hour)} · day ${state.day}`) renderBoard();
     if (slateDay !== state.day) chalkSlate();
+    // The fish in your creel: on ice, or in a cool-lined creel, their freshness keeps.
+    const nowH = state.day * 24 + state.hour;
+    if (chilledTo < nowH) chill(state, chilledTo, nowH);
+    chilledTo = nowH;
     watchAdventures(dt);
     watchObservations(dt);
     moments();

@@ -2139,6 +2139,7 @@ body.placing #sonar, body.placing #act-btn, body.placing #cancel-btn { visibilit
 .hb-slate p { margin: 2px 0; font: 600 16px/1.35 var(--font-hand); }
 .hb-hint { flex-basis: 100%; color: #2f6f74; }
 .hb-done { font: 700 13px var(--font-ui); color: #2f6f74; }
+.hb-warn { font: 700 13px var(--font-ui); color: var(--stamp); min-width: 10px; }
 .hb-story { margin: 6px 0 10px; padding: 8px 14px; border-left: 3px solid var(--ink-faint); font: 17px/1.45 var(--font-hand); }
 .hb-rumour { margin: 0; padding: 6px 0; border-bottom: 1px dashed var(--ink-faint); font: 16px/1.4 var(--font-hand); }
 #hb-tabs .hb-room { margin-left: auto; }

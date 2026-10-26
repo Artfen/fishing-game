@@ -2,14 +2,18 @@ import { fishById } from './fish.js';
 import { formatClock } from './world/sky.js';
 import { MARKET_HOURS, ORDERS_BY, demandFor, fishValue, ordersFor, fills, money } from './market.js';
 import { nextStory, adviceFor, rumoursNow, lower, an } from './innTalk.js';
+import { CREELS, ICE, BAIT, creelOf, newShop, onIce, freshBaitToday, wearOf, wearWords, respoolPrice } from './shop.js';
 
 // The harbour's sheet: the fish market on Willowhaven quay (Mags Pennock at her slab), The Lobster
-// Pot (Ruth Alder behind the bar, and her kitchen), and Bar El Muelle at Puerto Brasa (Paco: his
-// bar, his kitchen, the fish he buys from the boats, and your room upstairs).
+// Pot (Ruth Alder behind the bar, and her kitchen), Bar El Muelle at Puerto Brasa (Paco: his bar,
+// his kitchen, the fish he buys from the boats, and your room upstairs), and the chandlery's
+// counter (Old Bert Hale: creels, ice, fresh bait, fresh line, and getting ready for a trip).
 //
 // hooks: { toast(text, secs), chime(), changed(), close(), now() (game hours), sold(logId),
 // eatMeal({ id, size, logId }), eatDish(text, fill), drink(), openRoom(), talk(place) → { advice,
-// rumours } (the contexts innTalk.js wants) }.
+// rumours } (the contexts innTalk.js wants), openStore() (the free tackle store), rods() → [{ id,
+// name, line }] (the rods to look over), trip() → [{ ok, text, act?: { label, run } }] (the
+// checklist for a trip) }.
 
 const $ = (id) => document.getElementById(id);
 function el(tag, cls, text) {
@@ -55,7 +59,7 @@ export class HarbourSheet {
   open(where) {
     this.where = where;
     this.said = { advice: null, story: null };
-    this.tab = where === 'market' ? 'sell' : 'bar';
+    this.tab = where === 'market' ? 'sell' : where === 'chandlery' ? 'counter' : 'bar';
     this.el.hidden = false;
     this.render();
   }
@@ -90,10 +94,10 @@ export class HarbourSheet {
   render() {
     if (!this.isOpen) return;
     const W = this.where;
-    $('hb-title').textContent = W === 'market' ? 'The fish market' : W === 'inn' ? 'The Lobster Pot' : 'Bar El Muelle';
+    $('hb-title').textContent = W === 'market' ? 'The fish market' : W === 'inn' ? 'The Lobster Pot' : W === 'chandlery' ? 'The chandlery' : 'Bar El Muelle';
     $('hb-sub').textContent = `${formatClock(this.state.hour)} · day ${this.state.day} · ${W === 'muelle' ? 'Puerto Brasa' : 'Willowhaven'}`;
     $('hb-purse').textContent = `In your purse: ${money(this.state.money)}`;
-    const tabs = W === 'market' ? [] : W === 'inn' ? [['bar', 'The bar'], ['kitchen', 'The kitchen']] : [['bar', 'The bar'], ['kitchen', 'The kitchen'], ['sell', 'Sell to Paco']];
+    const tabs = W === 'market' ? [] : W === 'inn' ? [['bar', 'The bar'], ['kitchen', 'The kitchen']] : W === 'chandlery' ? [['counter', 'The counter'], ['mend', 'Mending'], ['ready', 'Ready for a trip']] : [['bar', 'The bar'], ['kitchen', 'The kitchen'], ['sell', 'Sell to Paco']];
     $('hb-tabs').replaceChildren(...tabs.map(([id, text]) => {
       const b = el('button', id === this.tab ? 'on' : '', text);
       b.type = 'button';
@@ -102,9 +106,9 @@ export class HarbourSheet {
         this.render();
       });
       return b;
-    }), ...(W === 'muelle' ? [this.button('Your room upstairs', () => this.hooks.openRoom(), 'quiet hb-room')] : []));
+    }), ...(W === 'muelle' ? [this.button('Your room upstairs', () => this.hooks.openRoom(), 'quiet hb-room')] : W === 'chandlery' ? [this.button('The tackle store (free)', () => this.hooks.openStore(), 'quiet hb-room')] : []));
     $('hb-tabs').hidden = !tabs.length;
-    const body = this.tab === 'sell' ? this.renderSell() : this.tab === 'kitchen' ? this.renderKitchen() : this.renderBar();
+    const body = this.tab === 'sell' ? this.renderSell() : this.tab === 'kitchen' ? this.renderKitchen() : this.tab === 'counter' ? this.renderCounter() : this.tab === 'mend' ? this.renderMend() : this.tab === 'ready' ? this.renderReady() : this.renderBar();
     $('hb-body').replaceChildren(...body);
   }
 
@@ -309,6 +313,105 @@ export class HarbourSheet {
     else out.push(el('p', 'cp-soft', place === 'haven' ? 'A quiet day: the talk is of the weather, the price of diesel, and whose turn it is to buy.' : 'Nothing much: the football, the heat, a cousin’s wedding.'));
     const heard = this.harbour.heard[place].length;
     out.push(el('p', 'cp-soft', `Stories heard here: ${heard}.`));
+    return out;
+  }
+
+  /* ---- the chandlery's counter: creels, ice, fresh bait; mending; ready for a trip ---- */
+
+  get shop() {
+    this.state.shop ??= newShop();
+    return this.state.shop;
+  }
+
+  renderCounter() {
+    const out = [];
+    const S = this.shop, now = this.hooks.now();
+    out.push(el('p', 'hb-say', 'Old Bert Hale, behind a counter worn smooth by sixty years of elbows, a pencil behind his ear: “Now then. The tackle’s through there, help yourself, same as always. Anything else?”'));
+    out.push(el('h3', '', 'Creels'));
+    const mine = creelOf(this.state);
+    const row0 = el('div', 'cp-row');
+    row0.append(el('p', '', `${mine.name === CREELS[0].name ? 'Your creel' : mine.name}: holds ${mine.fish} fish`), el('span', 'hb-done', 'yours'));
+    out.push(row0);
+    CREELS.forEach((c, i) => {
+      if (i <= S.creel) return;
+      const row = el('div', 'cp-row');
+      row.append(el('p', '', `${c.name}. ${c.note}`), el('span', 'cp-soft', money(c.price)), this.button('Buy it', () => {
+        if (this.shop.creel >= i || !this.pay(c.price)) return;
+        this.shop.creel = i;
+        this.hooks.chime();
+        this.hooks.toast(`${c.name}, over your shoulder: room for ${c.fish} fish now${c.cool ? ', and they keep cool in it' : ''}. Your old creel goes on the hook behind the door.`, 6);
+        this.hooks.changed();
+        this.render();
+      }));
+      out.push(row);
+    });
+    out.push(el('h3', '', 'For the day'));
+    const ice = el('div', 'cp-row');
+    const iced = onIce(this.state, now), lots = S.iceUntil > now + 12;
+    ice.append(el('p', '', 'A bag of ice for your creel: whatever you catch keeps fresh for the next day'), el('span', 'cp-soft', iced ? `on ice till ${formatClock(S.iceUntil % 24)}${S.iceUntil >= (this.state.day + 1) * 24 ? ' tomorrow' : ''}` : money(ICE.price)));
+    const ib = this.button('Buy a bag', () => {
+      if (this.shop.iceUntil > this.hooks.now() + 12 || !this.pay(ICE.price)) return;
+      this.shop.iceUntil = this.hooks.now() + ICE.hours;
+      this.hooks.toast('Bert shovels crushed ice into a bag and packs it into your creel. Your fish keep fresh for a day.', 5);
+      this.hooks.changed();
+      this.render();
+    });
+    ib.disabled = lots;
+    if (lots) ib.title = 'Plenty of ice in your creel still';
+    ice.append(ib);
+    out.push(ice);
+    const bait = el('div', 'cp-row');
+    const today = freshBaitToday(this.state);
+    bait.append(el('p', '', 'Fresh bait, dug and gathered this morning: ragworm, peeler crab and sandeel, lively and smelling of the sea. Fish find your natural baits from further off, all day.'), el('span', 'cp-soft', today ? 'you’ve some today' : money(BAIT.price)));
+    const bb = this.button('Buy a tub', () => {
+      if (freshBaitToday(this.state) || !this.pay(BAIT.price)) return;
+      this.shop.baitDay = this.state.day;
+      this.hooks.toast('A tub of fresh bait, wrapped in wet newspaper, goes in your bag. For the rest of today, your worms, crab, prawn and the like fish better.', 6);
+      this.hooks.changed();
+      this.render();
+    });
+    bb.disabled = today;
+    bait.append(bb);
+    out.push(bait);
+    out.push(el('p', 'cp-soft', 'Everything here is a help, never a need: the tackle store is free, and a fish caught on the plainest worm counts the same.'));
+    return out;
+  }
+
+  renderMend() {
+    const out = [];
+    out.push(el('p', 'hb-say', '“Let’s have a look at your lines, then.” Bert runs each one through his fingers, feeling for the rough bits.'));
+    for (const r of this.hooks.rods()) {
+      const w = wearOf(this.state, r.id);
+      const row = el('div', 'cp-row');
+      row.append(el('p', '', `${r.name}: ${r.line.name}`), el('span', 'cp-soft', `${wearWords(w)}${w >= 0.25 ? ` (${Math.round(w * 20)}% weaker)` : ''}`));
+      if (w > 0.05) {
+        const price = respoolPrice(r.line);
+        row.append(this.button(`Fresh line: ${money(price)}`, () => {
+          if (!this.pay(price)) return;
+          delete this.shop.wear[r.id];
+          this.hooks.toast(`Bert strips off the old line and winds on new ${r.line.name}, humming. Good as new.`, 5);
+          this.hooks.changed();
+          this.render();
+        }));
+      }
+      out.push(row);
+    }
+    out.push(el('p', 'cp-soft', 'Line wears in long, hard fights: a frayed line is a little weaker (never by more than a fifth). Fresh line puts it right.'));
+    return out;
+  }
+
+  renderReady() {
+    const out = [];
+    out.push(el('p', 'hb-say', '“Going out, are you? Let’s see you’ve got what you need.”'));
+    for (const c of this.hooks.trip()) {
+      const row = el('div', 'cp-row');
+      row.append(el('span', c.ok ? 'hb-done' : 'hb-warn', c.ok ? '✓' : '!'), el('p', '', c.text));
+      if (c.act) row.append(this.button(c.act.label, () => {
+        c.act.run();
+        this.render();
+      }, 'quiet'));
+      out.push(row);
+    }
     return out;
   }
 }

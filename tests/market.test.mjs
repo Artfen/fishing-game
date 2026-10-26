@@ -282,3 +282,43 @@ test('the sheet: selling at the market fills your purse; the kitchen pays for it
   assert.ok(text('hb-body').includes('shut'));
   assert.ok(buttons('hb-body').filter((b) => b.textContent.startsWith('Sell')).every((b) => b.disabled));
 });
+
+test('the chandlery’s counter: a bigger creel, ice, fresh bait and fresh line, paid for from your purse', async () => {
+  const S = await import('../src/shop.js');
+  const { RODS } = await import('../src/tackle.js');
+  const state = { day: 6, hour: 9, money: 50, keep: [], harbour: null, shop: null };
+  let store = 0;
+  const sheet = new HarbourSheet(state, {
+    toast() {}, chime() {}, changed() {}, close: () => sheet.close(), now: () => state.day * 24 + state.hour,
+    openStore: () => { store++; },
+    rods: () => [{ id: 'spin', name: RODS.spin.name, line: RODS.spin.lines[0] }],
+    trip: () => [{ ok: false, text: 'No ice in your creel.', act: { label: 'Ice', run() {} } }, { ok: true, text: 'Your lines are sound.' }],
+  });
+  sheet.open('chandlery');
+  assert.ok(text('hb-body').includes('Old Bert'));
+  buttons('hb-tabs').find((b) => b.textContent.startsWith('The tackle store')).click();
+  assert.equal(store, 1, 'the free tackle store is a button away');
+  // The bigger creel (£30), then the wicker one is too dear for what's left.
+  buttons('hb-body').find((b) => b.textContent === 'Buy it').click();
+  assert.equal(state.shop.creel, 1);
+  assert.equal(state.money, 20);
+  buttons('hb-body').find((b) => b.textContent === 'Buy it').click();
+  assert.equal(state.shop.creel, 1, 'not enough in the purse for the wicker creel');
+  // Ice and fresh bait.
+  buttons('hb-body').find((b) => b.textContent === 'Buy a bag').click();
+  assert.equal(state.shop.iceUntil, state.day * 24 + state.hour + S.ICE.hours);
+  assert.ok(buttons('hb-body').find((b) => b.textContent === 'Buy a bag').disabled, 'one bag at a time');
+  buttons('hb-body').find((b) => b.textContent === 'Buy a tub').click();
+  assert.ok(S.freshBaitToday(state));
+  assert.equal(state.money, 20 - S.ICE.price - S.BAIT.price);
+  // Mending: a frayed line, respooled.
+  state.shop.wear.spin = 0.8;
+  buttons('hb-tabs').find((b) => b.textContent === 'Mending').click();
+  assert.ok(text('hb-body').includes('frayed'));
+  buttons('hb-body').find((b) => b.textContent.startsWith('Fresh line')).click();
+  assert.equal(S.wearOf(state, 'spin'), 0);
+  // Ready for a trip: the checklist, with something to do about what's missing.
+  buttons('hb-tabs').find((b) => b.textContent === 'Ready for a trip').click();
+  assert.ok(text('hb-body').includes('No ice in your creel.'));
+  assert.ok(buttons('hb-body').some((b) => b.textContent === 'Ice'));
+});

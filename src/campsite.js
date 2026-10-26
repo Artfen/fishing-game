@@ -1,5 +1,5 @@
 import { fishById } from './fish.js';
-import { PACK } from './tackle.js';
+import { creelSize } from './shop.js';
 
 // Your own camp, pitched wherever the ground allows: a tent, a lantern, a bedroll, a little
 // stove, a camp chair, a tackle box and a cool box. The rules for where it can go look at the
@@ -254,7 +254,7 @@ export const kitsFree = (state) => (state.equip ? (state.equip.kit.tent === 'pac
 
 /* ---------------- what's in it ---------------- */
 
-const creelFree = (state) => PACK.fish - state.keep.length;
+const creelFree = (state) => creelSize(state) - state.keep.length;
 
 // From your creel into the cool box.
 export function stow(state, camp, i) {
@@ -277,7 +277,7 @@ export function take(state, camp, i, meal = false) {
   const list = meal ? camp.store.meals : camp.store.fish;
   const f = list[i];
   if (!f) return { ok: false, why: 'Nothing there.' };
-  if (creelFree(state) <= 0) return { ok: false, why: `Your creel is full (${PACK.fish} fish).` };
+  if (creelFree(state) <= 0) return { ok: false, why: `Your creel is full (${creelSize(state)} fish).` };
   list.splice(i, 1);
   state.keep.push({ id: f.id, size: f.size, logId: f.logId || null, ...(meal ? { cooked: true } : {}) });
   return { ok: true };

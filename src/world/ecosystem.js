@@ -829,6 +829,8 @@ export class Ecosystem {
     if (L.squid) per *= b.kind === 'jig' && b.darted > 0 ? 1.6 : 0.6;
     // Bottom feeders follow the scent of a natural bait lying on the bottom.
     if (L.bottom && b.natural && b.nearBottom) per *= 1.8;
+    // Fresh bait (lively, and smelling of the sea) is found from further off.
+    if (b.natural && b.boost > 1) per *= b.boost;
     // The big game is raised by a lure trolled behind a boat (the wake, the engines, the splash
     // and smoke trail of the lure): from well beyond what it would otherwise notice, it comes up
     // the wake towards it, and then looks (a school comes all together).

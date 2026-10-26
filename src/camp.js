@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { fishById, buildFishGeometry, fishMaterial } from './fish.js';
 import { formatClock } from './world/sky.js';
 import { clamp, smoothstep } from './util.js';
-import { PACK } from './tackle.js';
+import { creelSize } from './shop.js';
 import { mealDrink, refill, packRolls, BOTTLE, ROLLS } from './comfort.js';
 import { COOLBOX, MEALS_MAX, TENTS, DECOR, DECOR_UNLOCK, settleCooking, startCooking, stow, take, packPlan, cleanName } from './campsite.js';
 
@@ -447,7 +447,7 @@ export class Camp {
       out.push(row);
     });
 
-    out.push(el('h3', '', `Your creel (${this.state.keep.length} of ${PACK.fish})`));
+    out.push(el('h3', '', `Your creel (${this.state.keep.length} of ${creelSize(this.state)})`));
     if (!this.state.keep.length) out.push(el('p', 'cp-soft', 'Empty.'));
     this.state.keep.forEach((f, i) => {
       const sp = fishById[f.id];
@@ -596,7 +596,7 @@ export class Camp {
   // Home's kitchen: cook a fish from your creel and sit down to it, or eat one cooked earlier.
   renderKitchen() {
     const out = [...this.belly()];
-    out.push(el('h3', '', `Your creel (${this.state.keep.length} of ${PACK.fish})`));
+    out.push(el('h3', '', `Your creel (${this.state.keep.length} of ${creelSize(this.state)})`));
     if (!this.state.keep.length) out.push(el('p', 'cp-soft', this.bothy ? 'Empty. The Coldwater’s trout and grayling are just down the slope.' : this.posada ? 'Empty. Bring in a parrotfish and the kitchen will show you how they cook them here.' : 'Empty. Fish you keep come home in your creel.'));
     this.state.keep.forEach((f, i) => {
       const sp = fishById[f.id];

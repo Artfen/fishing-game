@@ -605,6 +605,8 @@ export class Fishing {
       fresh: 4, owner: null, held: false, twitch: 0, speed: 0, motion: 'still', pause: false, drag: false, fouled: false,
       feeder: !!this.term?.feeder, surface: !!it.floats && (it.action === 'pop' || it.action === 'walk'), sinking: false, darted: 0,
       natural: it.type === 'bait',
+      // (Fresh bait from the chandlery, today: a natural bait found from further off.)
+      boost: it.type === 'bait' ? this.hooks.baitBoost?.() || 1 : 1,
     });
     this.syncBait();
     this.agent = null;
@@ -898,7 +900,9 @@ export class Fishing {
     // The fish fights as itself (its vigour and condition, how jumpy its kind is), against this
     // rod (its power and how soft it is) and the Fish behaviour setting.
     const who = { vigour: a.vigour, condition: a.condition, jumpy: prefsFor(sp.id).jumpy, level: this.level };
-    this.fight = Object.assign(newFight(sp, a.size, { line: this.rod.line, power: this.rod.power, flex: this.rod.flex, drag: this.dragLevel }, this.diff, cover, Math.random, who), {
+    // (The line as it is now: a little weaker if hard fights have worn it, see shop.js.)
+    const line = this.hooks.line ? this.hooks.line(this.rod) : this.rod.line;
+    this.fight = Object.assign(newFight(sp, a.size, { line, power: this.rod.power, flex: this.rod.flex, drag: this.dragLevel }, this.diff, cover, Math.random, who), {
       sp, size: a.size, agent: a, lat: 0, splashT: 0, start: this.hook.clone(), end: this.fightEnd(), creaked: false,
       selfHooked, pickedUp: !selfHooked,
       // How far off it was hooked (m), so the line it takes and gives back can be told in metres;
@@ -938,6 +942,7 @@ export class Fishing {
     this.agent = null;
     this.fx.splash(this.fishPos.x, 0.05, this.fishPos.z, 8, 1.8, 0.6);
     this.audio.splashSmall();
+    this.hooks.fought?.(F, this.rod);
     this.hooks.onSnap(why, F.sp, this.rod);
     this.reelIn();
   }
@@ -950,6 +955,7 @@ export class Fishing {
     this.agent = null;
     this.audio.strain();
     this.hooks.shake(0.35);
+    this.hooks.fought?.(F, this.rod);
     this.hooks.onSnap(why, F.sp, this.rod);
     this.reelIn();
   }
@@ -959,6 +965,7 @@ export class Fishing {
     const mesh = this.fishMeshes[F.sp.id];
     this.eco.catchAgent(F.agent);
     this.eco.bait.active = false;
+    this.hooks.fought?.(F, this.rod);
     this.state = 'landing';
     this.t = 0;
     this.from.copy(this.fishPos);

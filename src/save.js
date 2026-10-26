@@ -1,5 +1,6 @@
 import { fishById } from './fish.js';
-import { RODS, TACKLE, TERMS, PACK, cleanGear } from './tackle.js';
+import { RODS, TACKLE, TERMS, cleanGear } from './tackle.js';
+import { cleanShop, creelSize, CREEL_MAX } from './shop.js';
 import { cleanSettings } from './settings.js';
 import { cleanCamps } from './campsite.js';
 import { cleanEquip, cleanCar, cleanOuting, defaultEquip } from './outing.js';
@@ -90,6 +91,7 @@ export const DEFAULT_STATE = {
   // and orders for the inns' kitchens, and what's been heard and done at the inns.
   money: 20,
   harbour: null,   // { heard: { haven, muelle: [story ids] }, filled: [order keys], earned, sold, served }
+  shop: null,      // the chandlery's counter (see shop.js): { creel, iceUntil, baitDay, wear: { rod: 0 … 1 } }
 };
 
 // A new game: every setting at its default (a loaded save gets its own from sanitize).
@@ -252,7 +254,7 @@ export function sanitize(raw) {
   s.gear = cleanGear(isObj(raw.gear) ? raw.gear : null);
   s.keep = (Array.isArray(raw.keep) ? raw.keep : [])
     .filter((f) => isObj(f) && fishById[f.id]?.meal)
-    .slice(0, PACK.fish)
+    .slice(0, CREEL_MAX)
     .map((f) => ({ id: f.id, size: int(f.size, fishById[f.id].size[0], 1, 300), logId: str(f.logId, null, 24), ...(Number.isFinite(f.at) ? { at: num(f.at, 0, 0) } : {}), ...(f.cooked ? { cooked: true } : {}) }));
   s.food = isObj(raw.food) ? { full: num(raw.food.full, 80, 0, 100), wellFedUntil: num(raw.food.wellFedUntil, 0, 0) } : null;
   if (isObj(raw.camp)) {
@@ -362,6 +364,8 @@ export function sanitize(raw) {
   s.comfort = cleanComfort(raw.comfort);
   s.money = Math.round(num(raw.money, 20, 0, 1e7) * 100) / 100;
   s.harbour = cleanHarbour(raw.harbour);
+  s.shop = cleanShop(raw.shop, Object.keys(RODS));
+  s.keep = s.keep.slice(0, creelSize(s));
   if (isObj(raw.sky)) {
     s.sky = { cloud: num(raw.sky.cloud, 0.3, 0, 1), rain: num(raw.sky.rain, 0, 0, 1), storm: num(raw.sky.storm, 0, 0, 1), state: oneOf(raw.sky.state, SKY_STATES, 'partly'), timer: num(raw.sky.timer, 120, 0, 3600) };
   }

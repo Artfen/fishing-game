@@ -439,7 +439,7 @@ Boats ride the water you see: they heave, pitch and roll on the swell and chop, 
 
 ### Backpack, creel and camp
 
-You carry **two rods and eight baits, lures, flies or jigs**, plus a **creel** for up to four fish you keep. Everything else waits in a **tackle box**: at camp, at Wend Quay, at the Mere Boathouse and at Puffin Cove, and in the lockers of the motor skiff and the bass boat. Open the backpack within reach of one to swap. Press **Q** to change tackle anywhere, and **1**/**2** to switch rods.
+You carry **two rods and eight baits, lures, flies or jigs**, plus a **creel** for up to four fish you keep (a bigger one from the chandlery's counter holds six or eight). Everything else waits in a **tackle box**: at camp, at Wend Quay, at the Mere Boathouse and at Puffin Cove, and in the lockers of the motor skiff and the bass boat. Open the backpack within reach of one to swap. Press **Q** to change tackle anywhere, and **1**/**2** to switch rods.
 
 The top of the backpack has **Head back to: Camp (the tent) · The boat · Another camp (map)**. Use it any time to return to a safe spot beside a tent or to climb back into your boat, keeping everything you carry and have caught. If you ever get stuck on foot, a *Stuck?* prompt appears that opens it for you. (It waits while a fish is on the line.)
 
@@ -479,9 +479,15 @@ Willowhaven is a working harbour, and a catch you keep can do more than go on th
 - **The Lobster Pot**, the whitewashed inn at the back of the apron, facing straight down the quay. Ruth Alder runs the bar and the kitchen:
   - **The bar**: buy a pint (£4) and hear one of the harbour's stories (a new one each time, until you've heard them all); ask Ruth what's biting (worked out from the water as it is: what's about and busy round the harbour, the hour, the wind and rain, a storm); and hear **what they're saying**: every rumour is true, read off the world as it is (gannets diving on a shoal, the tuna up and the sea boiling, a pod of dolphins, a whale blowing, the sea set to glow tonight, a good fish you landed today).
   - **The kitchen**: two **orders** a day for particular fish (sometimes a good-sized one), paying well over the market (up to £60), until 10 pm. Or order the plate of the day (£9), or have Ruth cook a fish of yours (£3). Either way you're well fed.
+- **The chandlery's counter.** The tackle store is free to take from, as always (the first button). At the counter, Old Bert Hale sells:
+  - **creels**: a bigger one (6 fish, £30) and a cool-lined wicker one (8 fish, £80, and fish in it keep fresh twice as long);
+  - **ice** (£2): fish in your creel keep fresh for a day (their freshness clock stops while they're on ice);
+  - **fresh bait** (£3): ragworm, peeler crab and sandeel dug that morning; for the rest of the day fish find your natural baits from further off.
+  - **Mending**: line wears in long, hard fights (the longer and harder, the more). Frayed line is a little weaker, never more than a fifth, and Bert puts fresh line on for £3 to £8.
+  - **Ready for a trip**: a checklist of your creel space, ice, water bottle, rolls, lines, your boat's fuel, the weather and what's about, with a button to put right whatever needs it.
 - **Bar El Muelle**, at Puerto Brasa, works the same way: Paco's bar and stories, his mother's kitchen with an order a day, and Paco buys the island's fish from the boats. Your room upstairs is a button away.
 
-You start with £20 in your purse; sold fish show as *Sold* in the catch log. The money is for small pleasures, never a grind: nothing in the game needs it, and the chandlery's tackle stays free.
+You start with £20 in your purse; sold fish show as *Sold* in the catch log. The money is for small pleasures and helps, never a grind: nothing in the game needs it, and the chandlery's tackle stays free.
 
 ### Sea life to watch
 
@@ -797,7 +803,8 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 | `src/placement.js` | Choosing where to pitch: the outline following the ground, turning and nudging, and the panel |
 | `src/world/coast.js` | Willowhaven (quay, pontoon and fuel point, slipway, cottages, chandlery, The Lobster Pot, the fish market and its slate, notice board, bench, lamp), the punt and heron, Cove Head and its daymark, Shell Strand's shelter, and the Kittiwake and her buoy |
 | `src/harbour.js` | The notice board's contents, read from the conditions, the ecosystem and the gulls |
-| `src/market.js`, `src/innTalk.js`, `src/harbourView.js` | The harbour: fish prices, the day's demand, freshness and the kitchens' orders; the stories, advice and rumours at the bar; the sheet for the market, The Lobster Pot and Bar El Muelle (and the market's slate) |
+| `src/market.js`, `src/innTalk.js`, `src/harbourView.js` | The harbour: fish prices, the day's demand, freshness and the kitchens' orders; the stories, advice and rumours at the bar; the sheet for the market, The Lobster Pot, Bar El Muelle and the chandlery's counter (and the market's slate) |
+| `src/shop.js` | The chandlery's counter: creel sizes, ice and the cool-lined creel keeping fish fresh, fresh bait, line wear and respooling |
 | `src/adventures.js` | The adventures, Ada's pages and the keepsakes, and how steps are recognised in any order |
 | `src/photos.js` | Taking photographs, the album's picture store (IndexedDB), and downloads |
 | `src/memories.js` | The journal's Memories pages |
