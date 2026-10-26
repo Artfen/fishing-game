@@ -9,6 +9,7 @@ import { mergeParts, mat, pick, jitterGeo, glowTexture, clamp, smoothstep } from
 import { reedClump } from './shore.js';
 import { withSurface } from './surface.js';
 import { fuelPumpParts, pontoonParts } from '../props.js';
+import { buildHavenHouses } from './havenHouses.js';
 
 const LAMPS = ['#ffffff', '#ffe0b8', '#fff0d8'];
 import { withCaustics } from './caustics.js';
@@ -85,7 +86,7 @@ function textTexture(w, h, draw) {
 /* ---------------- Willowhaven ---------------- */
 
 function buildHaven(rnd, group, obstacles, spots) {
-  const stone = [], woodParts = [], roofs = [], walls = [], dark = [];
+  const stone = [], woodParts = [], roofs = [], dark = [];
   const A = HAVEN_APRON, ay = A.h;
 
   // The apron: setts laid level, with a kerb along the sea wall.
@@ -162,128 +163,9 @@ function buildHaven(rnd, group, obstacles, spots) {
     obstacles.push({ x: S2.x + S2.w / 2 + 0.6, z: A.z1 - 1.4, r: 0.3, kind: 'harbour', name: 'the winch' });
   }
 
-  // The buildings.
-  const windows = [];
-  let sign = null;
-  // The inn's lanterns either side of its door, lit after dark.
-  const innLamp = new THREE.MeshBasicMaterial({ color: '#8a7a60' });
-  const innGlows = [];
-  for (const b of HAVEN_HOUSES) {
-    const inn = b.kind === 'inn';
-    const y = heightAt(b.x, b.z) - 0.05;
-    const wallH = inn ? 4.7 : b.kind === 'cottage' ? 3.0 : 2.6, rise = inn ? 2.0 : b.kind === 'cottage' ? 1.7 : 1.3;
-    const col = b.kind === 'chandlery' ? '#7c8f8c' : b.kind === 'store' ? '#3b3632' : b.color;
-    const target = b.kind === 'cottage' || inn ? walls : woodParts;
-    target.push({ geo: new THREE.BoxGeometry(b.w, wallH + 0.4, b.d), matrix: placed(b.x, y, b.z, b.yaw, 0, (wallH + 0.4) / 2 - 0.4, 0), color: col, jitter: 0.03 });
-    target.push({ geo: gableEnds(b.w, b.d, rise), matrix: placed(b.x, y + wallH, b.z, b.yaw, 0, 0, 0), color: col, jitter: 0.03 });
-    roofs.push({ geo: gable(b.w, b.d, rise), matrix: placed(b.x, y + wallH, b.z, b.yaw, 0, 0, 0), color: b.kind === 'store' ? '#2c2a28' : pick(ROOF, rnd), jitter: 0.04 });
-    // Door, front windows and a chimney (on the cottages).
-    const front = b.d / 2 + 0.02;
-    dark.push({ geo: new THREE.BoxGeometry(0.95, 1.95, 0.06), matrix: placed(b.x, y, b.z, b.yaw, b.kind === 'chandlery' ? -1.4 : 0, 0.98, front), color: b.door || (b.kind === 'chandlery' ? '#30484c' : '#2a2522') });
-    const winX = b.kind === 'chandlery' ? [1.2] : b.kind === 'store' ? [] : inn ? [-2.6, 2.6] : [-b.w / 2 + 1.2, b.w / 2 - 1.2];
-    // (Each window's lamp a slightly different warmth.)
-    const lamp = () => LAMPS[windows.length % LAMPS.length];
-    for (const wx of winX) windows.push({ geo: new THREE.BoxGeometry(b.kind === 'chandlery' ? 1.8 : inn ? 1.6 : 0.9, 0.9, 0.06), matrix: placed(b.x, y, b.z, b.yaw, wx, 1.55, front + 0.01), color: lamp() });
-    if (inn) {
-      // Upstairs, three windows; a chimney at each gable; the sign over the door, and a lantern
-      // either side of it.
-      for (const wx of [-2.8, 0, 2.8]) windows.push({ geo: new THREE.BoxGeometry(0.9, 0.85, 0.06), matrix: placed(b.x, y, b.z, b.yaw, wx, 3.6, front + 0.01), color: lamp() });
-      for (const s of [-1, 1]) stone.push({ geo: new THREE.BoxGeometry(0.7, 1.8, 0.7), matrix: placed(b.x, y, b.z, b.yaw, s * (b.w / 2 - 0.45), wallH + rise * 0.55, -0.3), color: '#8d8478' });
-      for (const s of [-1, 1]) {
-        dark.push({ geo: new THREE.BoxGeometry(0.05, 0.05, 0.3), matrix: placed(b.x, y, b.z, b.yaw, s * 0.85, 2.32, front + 0.15), color: '#2a2d30' });
-        const p = local(b.x, b.z, b.yaw, s * 0.85, front + 0.28);
-        const lantern = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.26, 0.18), innLamp);
-        lantern.position.set(p.x, y + 2.15, p.z);
-        group.add(lantern);
-        const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture('rgba(255,200,120,1)'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
-        glow.position.copy(lantern.position);
-        glow.scale.setScalar(1.3);
-        group.add(glow);
-        innGlows.push(glow);
-      }
-      const t = textTexture(512, 112, (ctx, w, h) => {
-        ctx.fillStyle = '#5a2620';
-        ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = '#d8b46a';
-        ctx.lineWidth = 6;
-        ctx.strokeRect(8, 8, w - 16, h - 16);
-        ctx.fillStyle = '#f3e6c4';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.font = '700 52px Kalam, Caveat, cursive';
-        ctx.fillText('The Lobster Pot', w / 2, h * 0.42);
-        ctx.font = '600 22px Kalam, Caveat, cursive';
-        ctx.fillText('inn · fresh fish · ale', w / 2, h * 0.8);
-      });
-      const innSign = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.79), new THREE.MeshLambertMaterial({ map: t.tex }));
-      const p = local(b.x, b.z, b.yaw, 0, front + 0.05);
-      innSign.position.set(p.x, y + 2.75, p.z);
-      innSign.rotation.y = b.yaw;
-      group.add(innSign);
-      // The bank behind and beside it, held back by a wall of dry stone (the inn is cut into the
-      // slope): as high as the ground a couple of metres beyond it.
-      const m = b.margin + 0.25;
-      const wallRun = (lx0, lz0, lx1, lz1, nx, nz) => {
-        const len = Math.hypot(lx1 - lx0, lz1 - lz0), n = Math.max(1, Math.round(len));
-        for (let i = 0; i < n; i++) {
-          const k = (i + 0.5) / n, lx = lx0 + (lx1 - lx0) * k, lz = lz0 + (lz1 - lz0) * k;
-          const out = local(b.x, b.z, b.yaw, lx + nx * 2.4, lz + nz * 2.4);
-          const top = Math.max(y + 0.5, heightAt(out.x, out.z) - 0.2);
-          if (top < y + 0.55 && nz === 0) continue;
-          stone.push({ geo: new THREE.BoxGeometry(nz ? len / n + 0.04 : 0.6, top - y + 0.3, nz ? 0.6 : len / n + 0.04), matrix: placed(b.x, y, b.z, b.yaw, lx, (top - y) / 2 - 0.15, lz), color: pick(STONE, rnd), jitter: 0.05 });
-          const at = local(b.x, b.z, b.yaw, lx, lz);
-          obstacles.push({ x: at.x, z: at.z, r: 0.5, top: top + 0.1, kind: 'building', name: 'a stone wall' });
-        }
-      };
-      wallRun(-b.w / 2 - m, -b.d / 2 - m, b.w / 2 + m, -b.d / 2 - m, 0, -1);
-      for (const sx of [-1, 1]) wallRun(sx * (b.w / 2 + m), -b.d / 2 - m + 0.5, sx * (b.w / 2 + m), b.d / 2 - 0.5, sx, 0);
-    }
-    if (b.kind === 'cottage') {
-      windows.push({ geo: new THREE.BoxGeometry(0.8, 0.7, 0.06), matrix: placed(b.x, y, b.z, b.yaw, 0, wallH - 0.6 + 0.9, front + 0.01), color: lamp() });
-      stone.push({ geo: new THREE.BoxGeometry(0.6, 1.6, 0.6), matrix: placed(b.x, y, b.z, b.yaw, b.w / 2 - 0.6, wallH + rise * 0.6, -0.4), color: '#8d8478' });
-    }
-    // The building blocks the way; a little apron in front of the door is kept clear.
-    for (let lx = -b.w / 2 + 0.9; lx <= b.w / 2 - 0.9 + 0.01; lx += Math.max(1.2, (b.w - 1.8) / Math.max(1, Math.round((b.w - 1.8) / 1.6)))) {
-      for (let lz = -b.d / 2 + 0.9; lz <= b.d / 2 - 0.9 + 0.01; lz += Math.max(1.2, (b.d - 1.8) / Math.max(1, Math.round((b.d - 1.8) / 1.6)))) {
-        const p = local(b.x, b.z, b.yaw, lx, lz);
-        obstacles.push({ x: p.x, z: p.z, r: 1.3, top: y + wallH + rise, kind: 'building', name: b.kind === 'cottage' ? 'a cottage' : b.kind === 'chandlery' ? 'the chandlery' : inn ? 'The Lobster Pot' : 'the net store' });
-      }
-    }
-    const door = local(b.x, b.z, b.yaw, b.kind === 'chandlery' ? -1.4 : 0, b.d / 2 + 1.2);
-    spots.push({ kind: 'door', name: b.kind === 'chandlery' ? 'the chandlery door' : b.kind === 'cottage' ? 'a cottage door' : inn ? 'The Lobster Pot' : 'the net store door', x: door.x, z: door.z, r: 2.4, id: b.id });
-    if (b.kind === 'chandlery') {
-      // The sign over the window.
-      const t = textTexture(512, 128, (ctx, w, h) => {
-        ctx.fillStyle = '#26383b';
-        ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = '#d8c48f';
-        ctx.lineWidth = 6;
-        ctx.strokeRect(8, 8, w - 16, h - 16);
-        ctx.fillStyle = '#efe2bd';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.font = '700 54px Kalam, Caveat, cursive';
-        ctx.fillText('Chandlery', w / 2, h * 0.42);
-        ctx.font = '600 26px Kalam, Caveat, cursive';
-        ctx.fillText('tackle · bait · charts · advice', w / 2, h * 0.78);
-      });
-      sign = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.8), new THREE.MeshLambertMaterial({ map: t.tex }));
-      const p = local(b.x, b.z, b.yaw, 0, front + 0.05);
-      sign.position.set(p.x, y + 2.55, p.z);
-      sign.rotation.y = b.yaw;
-      group.add(sign);
-    }
-    if (b.kind === 'store') {
-      // Nets hung to dry on poles beside the store.
-      for (const lx of [b.w / 2 + 1.0, b.w / 2 + 3.2]) {
-        const p = local(b.x, b.z, b.yaw, lx, 0.8);
-        woodParts.push({ geo: new THREE.CylinderGeometry(0.05, 0.06, 2.4, 6), matrix: mat(p.x, heightAt(p.x, p.z) + 1.2, p.z), color: '#6a503b' });
-        obstacles.push({ x: p.x, z: p.z, r: 0.2, kind: 'harbour', name: 'the net poles' });
-      }
-      const p = local(b.x, b.z, b.yaw, b.w / 2 + 2.1, 0.8);
-      dark.push({ geo: new THREE.PlaneGeometry(2.2, 1.6, 6, 4), matrix: placed(p.x, heightAt(p.x, p.z) + 1.3, p.z, b.yaw, 0, 0, 0), color: '#4f6a5a', jitter: 0.15 });
-    }
-  }
+  // The buildings: the chandlery and The Lobster Pot (both of which you can walk into), the net
+  // store and the cottages (see havenHouses.js).
+  const houses = buildHavenHouses(rnd, group, obstacles, spots);
 
   // The notice board (its paper is drawn by the game: notices, and later your photograph).
   const B = HAVEN_BOARD, by = heightAt(B.x, B.z);
@@ -412,7 +294,7 @@ function buildHaven(rnd, group, obstacles, spots) {
   // Lobster pots, fish boxes, barrels and an upturned dinghy along the apron.
   const props = [
     { x: 20, z: -97.5, k: 'pots' }, { x: 2.4, z: -99.5, k: 'pots' }, { x: -12.6, z: -99.3, k: 'boxes' },
-    { x: 5.6, z: -99.3, k: 'barrels' }, { x: -15.8, z: -97.4, k: 'dinghy' }, { x: -17, z: -99.4, k: 'boxes' },
+    { x: 13.3, z: -100.4, k: 'barrels' }, { x: -15.8, z: -97.4, k: 'dinghy' }, { x: -17, z: -99.4, k: 'boxes' },
   ];
   for (const p of props) {
     if (p.k === 'pots') {
@@ -442,29 +324,23 @@ function buildHaven(rnd, group, obstacles, spots) {
   }
 
   group.add(mesh(mergeParts(stone, rnd), plain()));
-  group.add(mesh(mergeParts(walls, rnd), plain()));
   group.add(mesh(mergeParts(woodParts, rnd), wood()));
   group.add(mesh(mergeParts(roofs, rnd), plain()));
   group.add(mesh(mergeParts(dark, rnd), plain()));
-  const windowMat = new THREE.MeshBasicMaterial({ vertexColors: true, color: '#2e3c46' });
-  const windowMesh = new THREE.Mesh(mergeParts(windows, rnd), windowMat);
-  group.add(windowMesh);
   // The quay light, green after dark.
   const qLight = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.26, 0.22), new THREE.MeshBasicMaterial({ color: '#3a7a52' }));
   qLight.position.set((Q.x0 + Q.x1) / 2, Q.deck + 1.55, Q.z1 - 0.6);
   group.add(qLight);
 
   return {
-    board, boardTex, sign, slateTex,
-    update(dt, t, env) {
+    board, boardTex, sign: houses.signs.chandlery, slateTex, houses,
+    update(dt, t, env, view = {}) {
       const night = clamp(env.lantern * 1.15, 0, 1);
       lampGlass.color.setRGB(0.55 + night * 0.45, 0.5 + night * 0.38, 0.4 + night * 0.25);
       lampGlow.material.opacity = 0.75 * night;
-      innLamp.color.setRGB(0.54 + night * 0.46, 0.48 + night * 0.36, 0.38 + night * 0.12);
-      for (const g of innGlows) g.material.opacity = 0.7 * night;
       lampLight.intensity = 14 * night;
       // (Lamplight, not daylight: warm amber after dark, so the haven looks lived-in from the water.)
-      windowMat.color.setRGB(0.18 + night * 1.02, 0.24 + night * 0.44, 0.28 + night * 0.02);
+      houses.update(dt, t, { night, ...view });
       qLight.material.color.setRGB(0.2 + night * 0.1, 0.45 + night * 0.55, 0.3 + night * 0.25);
       for (const [i, f] of floats.entries()) {
         const b = f.userData.base;
@@ -689,8 +565,12 @@ export function buildCoast(scene, rnd) {
   return {
     group, obstacles, spots, wreck, paintBoard, paintSlate,
     havenCentre: HAVEN,
-    update(dt, t, env) {
-      haven.update(dt, t, env);
+    houses: haven.houses,
+    // The kitchen's board in The Lobster Pot: what it wants today (drawn by the game).
+    paintKitchen: (draw) => haven.houses.paintKitchen(draw),
+    // view: { from (you), cam, cutaway, onDoor } for the rooms you can walk into.
+    update(dt, t, env, view = {}) {
+      haven.update(dt, t, env, view);
       shore.update(dt, t, env);
       wreck.update(dt, t, env);
     },

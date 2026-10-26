@@ -152,8 +152,10 @@ export const HAVEN = { x: 4, z: -97 };
 // slope (doors facing the bay, +z). w and d are the building's width and depth.
 export const HAVEN_APRON = { x0: -18, x1: 28, z0: -100, z1: -94.5, h: 1.6 };
 export const HAVEN_HOUSES = [
-  { id: 'chandlery', x: -6, z: -103.5, yaw: 0, w: 6, d: 4.4, kind: 'chandlery' },
-  { id: 'store', x: 21, z: -103, yaw: -0.15, w: 5, d: 4, kind: 'store' },
+  // The chandlery and the net store stand at the harbour's own level, cut into the bank behind
+  // them like the inn (pad: their floor; doorX: the door's place along the front).
+  { id: 'chandlery', x: -6, z: -103.8, yaw: 0, w: 7.2, d: 5.4, kind: 'chandlery', doorX: -1.7, pad: 1.6, margin: 0.8, blend: 4 },
+  { id: 'store', x: 21, z: -103.2, yaw: -0.15, w: 5.2, d: 4, kind: 'store', pad: 1.6, margin: 1.6, blend: 9 },
   { id: 'rose', x: -24, z: -108, yaw: 0.25, w: 6.5, d: 5, kind: 'cottage', color: '#e9dcc4', door: '#3f6f74' },
   { id: 'gull', x: 33, z: -110, yaw: -0.3, w: 6, d: 5, kind: 'cottage', color: '#dfe6e4', door: '#a5482f' },
   { id: 'net', x: 6, z: -114, yaw: 0.05, w: 7, d: 5.2, kind: 'cottage', color: '#efe4cf', door: '#3d5a7a' },
@@ -538,7 +540,10 @@ const HAVEN_BOX = { x0: -42, x1: 52, z0: -125, z1: -84 };
 // Each building stands on a level pad cut into the slope at the height of its middle; the apron
 // behind the quay is level too, and ends in a low sea wall above the beach (so the shore and the
 // water stay as they were).
-const havenPads = HAVEN_HOUSES.map((b) => ({ ...b, h: b.pad ?? Math.max(1.9, baseHeight(b.x, b.z)), margin: b.margin ?? 1.4, blend: b.blend ?? 11 }));
+// (Those cut down to the harbour's level go last, so a cottage's long blend up the hill never
+// tilts their floors: the chandlery's and the inn's are dead level, inside and out.)
+const havenPads = HAVEN_HOUSES.map((b) => ({ ...b, h: b.pad ?? Math.max(1.9, baseHeight(b.x, b.z)), margin: b.margin ?? 1.4, blend: b.blend ?? 11 }))
+  .sort((a, b) => (a.pad != null) - (b.pad != null));
 function havenHeight(x, z, h) {
   const S = SLIPWAY;
   // The slipway: a ramp of setts from the apron straight down into the bay.

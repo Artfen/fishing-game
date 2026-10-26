@@ -1304,7 +1304,7 @@ export function buildWorld(scene, renderer, habitat) {
       shared.uWind.value = 1 + env.rain * 1.4;
       shore.update(dt, t, env, { ...extra, wind: shared.uWind.value });
       regions.update(dt, t, env);
-      coast.update(dt, t, env);
+      coast.update(dt, t, env, extra.haven || {});
       if (brasa) brasa.update(dt, t, env);
       if (extra.camera) calf.update(dt, t, { from: extra.camera.position });
       dives.update(dt, t, extra.camera);

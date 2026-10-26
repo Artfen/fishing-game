@@ -35,6 +35,7 @@ import { Car } from './car.js';
 import { Workbench, OutingSheet } from './workbench.js';
 import { KIT, KIT_IDS, DESTS, launchOf, parkNear, driveMinutes, moveKit, reconcile, campOfKit, campHas, statusOf, snapshot } from './outing.js';
 import { insideHome, HOME_SPOTS } from './world/home.js';
+import { insideHaven, HAVEN_ROOMS, ROOM_SPOTS } from './world/havenHouses.js';
 import { BOTHY_DOOR, FELL_SIGN } from './world/fell.js';
 import { trimAdvice, bestSheet, SAIL } from './sailing.js';
 import { SailUI } from './sailui.js';
@@ -62,7 +63,7 @@ import { Adventures, ADVENTURE_BY_ID, PAGES, KEEPSAKES } from './adventures.js';
 import { PhotoStore, capture, photoId, albumPage, download } from './photos.js';
 import { Memories } from './memories.js';
 import { whatsAbout, birdsWorking, weatherLines, notices, paintBoard } from './harbour.js';
-import { HarbourSheet, paintSlate } from './harbourView.js';
+import { HarbourSheet, paintSlate, paintKitchenBoard } from './harbourView.js';
 import { Townsfolk, FOLK, sayTo } from './townsfolk.js';
 import { requestById, businessWith, accept as acceptFavour, decline as declineFavour, complete as completeFavour, caught as favourCaught, saw as favourSaw, photographed as favourPhotographed, buoyAt, pickUpBuoy, fishFor, remember, cleanFavours } from './requests.js';
 import { lower } from './innTalk.js';
@@ -70,7 +71,7 @@ import { tideAt, tideWords, turns } from './world/tide.js';
 import { seasonOf, seasonWords, sunTimes, sunHour, seasonWarmth, riverFlow, leafTint, seasonLine } from './world/season.js';
 import { galeSky, galeNear, hoursToGale, outlook } from './world/forecast.js';
 import { FolkView } from './world/folk.js';
-import { demandFor, money } from './market.js';
+import { demandFor, money, ordersFor, ORDERS_BY } from './market.js';
 import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
 import { PHOTO_MAX } from './save.js';
 import { Journal } from './journal.js';
@@ -1498,10 +1499,10 @@ const harbourSheet = new HarbourSheet(state, {
 });
 // where: 'market' (Willowhaven's fish market), 'inn' (The Lobster Pot), 'muelle' (Bar El Muelle) or
 // 'chandlery' (its counter: creels, ice, fresh bait, mending, ready for a trip).
-function openHarbour(where) {
+function openHarbour(where, tab = null) {
   if (modal) return;
   modal = 'harbour';
-  harbourSheet.open(where);
+  harbourSheet.open(where, tab);
   audio.page();
   if (where === 'chandlery') teach('counter', 'The chandlery’s tackle is free to take, as always (The tackle store). At the counter, Old Bert sells a bigger creel, ice to keep your catch fresh and fresh bait, puts new line on a worn rod, and runs through what you need for a trip.', 10);
   else if (where === 'market') teach('market', 'The fish market buys what you keep: the price is by weight, more for the kinds wanted today, and best while the fish is fresh. Money goes on a pint, a hot meal, or a fish cooked for you at the inn.', 9);
@@ -1603,7 +1604,16 @@ function chalkSlate() {
   const D = demandFor(state.day, 'haven');
   world.coast.paintSlate((ctx, w, h) => paintSlate(ctx, w, h, { day: state.day, wanted: D.wanted.map((id) => fishById[id].name), plenty: D.plenty.map((id) => fishById[id].name) }));
 }
-const innNear = () => onFoot && world.coast.spots.some((q) => q.kind === 'door' && q.id === 'inn' && Math.hypot(walker.pos.x - q.x, walker.pos.z - q.z) < q.r + 0.4);
+const innNear = () => onFoot && !driving && insideHaven(walker.pos.x, walker.pos.z) === 'inn';
+// The kitchen's board by the pass, chalked up with what Ruth wants tonight (crossed off as it comes).
+let kitchenChalk = '';
+function chalkKitchen() {
+  const orders = ordersFor(state.day, 'haven').map((o) => ({ name: fishById[o.id].name, min: o.min > fishById[o.id].size[0] ? o.min : 0, done: (state.harbour?.filled || []).includes(o.key) }));
+  const closed = state.hour < 6 || state.hour >= ORDERS_BY, key = JSON.stringify([orders, closed]);
+  if (key === kitchenChalk) return;
+  kitchenChalk = key;
+  world.coast.paintKitchen((ctx, w, h) => paintKitchenBoard(ctx, w, h, { orders, closed }));
+}
 
 let sleeping = null;
 function sleepUntil(h) {
@@ -2046,7 +2056,7 @@ function diveEntry() {
         }
       }
     }
-  } else if (!driving && !insideHome(walker.pos.x, walker.pos.z)) {
+  } else if (!driving && !indoorsAt(walker.pos.x, walker.pos.z)) {
     for (let r = 1.2; r <= 3.2 && !spot; r += 1) {
       for (let i = 0; i < 12; i++) {
         const a = (i / 12) * Math.PI * 2, x = walker.pos.x + Math.sin(a) * r, z = walker.pos.z + Math.cos(a) * r;
@@ -2876,11 +2886,12 @@ const needSaid = {}; // need id -> when it was last mentioned (game hours)
 // and spray, how hard you're working, and a roof over you or a fire beside you.
 function comfortEnv() {
   const P = player().pos, w = windAt(P.x, P.z);
-  const indoors = driving || !!cabinIn || (modal === 'camp' && camp.house) || modal === 'bench' || sitting?.kind === 'home';
+  const indoors = driving || !!cabinIn || (modal === 'camp' && camp.house) || modal === 'bench' || sitting?.kind === 'home' || (onFoot && !!insideHaven(P.x, P.z));
   const F = world.camp.firePos;
   let fire = onFoot ? camp.fireLevel * smoothstep(5, 1.5, Math.hypot(P.x - F.x, P.z - F.z)) : 0;
   if (modal === 'camp' && camp.own) fire = Math.max(fire, 0.5);
   if (sitting?.kind === 'chair' || sitting?.kind === 'home') fire = Math.max(fire, 0.55);
+  if (onFoot && insideHaven(P.x, P.z) === 'inn') fire = Math.max(fire, sitting?.spot === 'fire' ? 0.7 : 0.3);
   const afloat = !onFoot && !driving;
   const rowing = afloat && !boat.motor && !boat.sailUp && boat.speed > 0.6;
   const spray = afloat ? smoothstep(4, 8, boat.speed) * smoothstep(0.2, 1, waveHeightHere(P.x, P.z)) + weather.storm * 0.4 : 0;
@@ -4108,6 +4119,15 @@ function interaction() {
     // Home and the garage.
     const hs = homeSpotNear();
     if (hs) return HOME_ACTS[hs.id];
+    // Inside the chandlery or The Lobster Pot: what's where you stand; at their doors, in.
+    const rs = roomSpotNear();
+    if (rs) return ROOM_ACTS[rs.id](rs);
+    if (insideHaven(walker.pos.x, walker.pos.z)) {
+      const folk = town.near(walker.pos.x, walker.pos.z, 1.9);
+      return folk ? { text: `Talk to ${FOLK[folk.id].short}`, run: () => talkTo(folk) } : null;
+    }
+    const hd = havenDoorNear();
+    if (hd) return { text: hd.id === 'inn' ? 'Go into The Lobster Pot' : 'Go into the chandlery', run: () => goIn(hd) };
     const near = boatNear();
     // A boat with a cabin made fast: aboard to the helm, or straight into the cabin (and the
     // cruiser: the long passage too).
@@ -4146,9 +4166,7 @@ function interaction() {
     if (page) return { text: PAGES[page].where.startsWith('tucked') ? 'Look at the paper tucked under the seat' : PAGES[page].where.startsWith('folded') ? 'Look at the paper in the crack' : 'Look at the paper in the driftwood', run: () => readPage(page) };
     if (coastSpot('board')) return { text: 'Read the notice board', run: () => openBoard() };
     if (coastSpot('market')) return { text: 'The fish market: sell your catch', run: () => openHarbour('market') };
-    if (innNear()) return { text: 'The Lobster Pot: the bar and the kitchen', run: () => openHarbour('inn') };
     if (coastSpot('tower')) return { text: 'The watch tower', run: () => climbTower() };
-    if (chandleryNear()) return { text: 'The chandlery: tackle, the counter, mending and air', run: () => { fillTank(); openHarbour('chandlery'); } };
     // Someone to talk to: the harbour's people (and Paco).
     const folk = town.near(walker.pos.x, walker.pos.z, 1.9);
     if (folk) return { text: `Talk to ${FOLK[folk.id].short}`, run: () => talkTo(folk) };
@@ -4403,7 +4421,66 @@ function readPage(id, again = false) {
 
 // Coast spots (the board, the bench, the chandlery's door…) within reach on foot.
 const coastSpot = (kind, pad = 0) => (onFoot ? world.coast.spots.find((q) => q.kind === kind && Math.hypot(walker.pos.x - q.x, walker.pos.z - q.z) < q.r + pad) : null);
-const chandleryNear = () => onFoot && world.coast.spots.some((q) => q.kind === 'door' && q.id === 'chandlery' && Math.hypot(walker.pos.x - q.x, walker.pos.z - q.z) < q.r + 0.4);
+const chandleryNear = () => onFoot && !driving && insideHaven(walker.pos.x, walker.pos.z) === 'chandlery';
+// Indoors on foot: the house at home, or the chandlery or the inn at Willowhaven.
+const indoorsAt = (x, z) => !!(insideHome(x, z) || insideHaven(x, z));
+// The chandlery's and the inn's things you use, where you stand at them (see world/havenHouses.js).
+const roomSpotNear = () => {
+  if (!onFoot || driving) return null;
+  const P = walker.pos, room = insideHaven(P.x, P.z);
+  if (!room) return null;
+  let best = null, bd = Infinity;
+  for (const sp of ROOM_SPOTS) {
+    if (sp.room !== room) continue;
+    const d = Math.hypot(P.x - sp.x, P.z - sp.z);
+    if (d < sp.r && d < bd) { bd = d; best = sp; }
+  }
+  // (Just inside the door: the way out.)
+  const R = HAVEN_ROOMS[room];
+  if (!best && Math.abs(P.x - R.doorX) < 0.9 && P.z > R.z1 - 1.3) best = { id: 'out', room };
+  return best;
+};
+// The door from the quay, for whichever of the two you're standing at.
+const havenDoorNear = () => {
+  if (!onFoot || driving) return null;
+  for (const R of Object.values(HAVEN_ROOMS)) if (Math.abs(walker.pos.x - R.doorX) < 1.1 && walker.pos.z > R.front + 0.15 && walker.pos.z < R.front + 2.2) return R;
+  return null;
+};
+function goIn(R) {
+  walker.place(R.doorX, R.z1 - 0.9, Math.PI);
+  audio.door?.(true);
+  if (R.id === 'inn') teach('innIn', 'The Lobster Pot. Ruth’s at the bar (a pint, a story, what’s biting); the kitchen’s board by the pass says what she’s after tonight; and there’s a seat by the fire or the window. The door is behind you.', 9);
+  else teach('chandleryIn', 'The chandlery. Bert’s counter at the back (ice, bait, creels, mending and what you need for a trip), the tackle along the left wall (free, as always), and the dive compressor by the window. The door is behind you.', 9);
+}
+function goOut(R) {
+  walker.place(R.doorX, R.front + 1.0, 0);
+  audio.door?.(true);
+}
+// (Behind the counter or the bar, or not: if not, the bell on it brings them down.)
+const atPost = (id, spot) => town.people[id]?.block?.spot === spot && town.people[id].act !== 'walk';
+function ringFor(id, where, tab = null) {
+  audio.tone?.({ type: 'triangle', freq: 2350, dur: 0.6, gain: 0.05, attack: 0.001 });
+  hud.toast(id === 'bert' ? 'You ring the bell on the counter. Bert comes down the stairs in his slippers: “Now then. What can I do you for?”' : 'You ring the bell on the bar. Ruth comes through from the back, drying her hands: “Sorry, love. What’ll it be?”', 5);
+  openHarbour(where, tab);
+}
+const ROOM_ACTS = {
+  counter: () => (atPost('bert', 'shopCounter') ? { text: 'Bert’s counter: ice, bait, creels, mending, advice', run: () => openHarbour('chandlery') } : { text: 'Ring the bell on the counter for Bert', run: () => ringFor('bert', 'chandlery') }),
+  tackle: () => ({ text: 'The tackle: help yourself (free)', run: () => openPack('chandlery') }),
+  air: () => ({ text: state.dive.tank >= SCUBA.full - 0.5 ? 'The dive compressor: your tank is full' : 'The dive compressor: fill your tank', run: () => (state.dive.tank >= SCUBA.full - 0.5 ? hud.flash(`Your tank is full: ${SCUBA.full} bar.`, t, 2.5) : fillTank()) }),
+  bar: () => (atPost('ruth', 'innBar') ? { text: 'The bar: a pint, a story, what’s biting', run: () => openHarbour('inn') } : { text: 'Ring the bell on the bar for Ruth', run: () => ringFor('ruth', 'inn') }),
+  pass: () => ({ text: 'The kitchen pass: what Ruth wants tonight, and a meal', run: () => (atPost('ruth', 'innBar') ? openHarbour('inn', 'kitchen') : ringFor('ruth', 'inn', 'kitchen')) }),
+  tableW: () => ({ text: 'Sit at the table by the window', run: () => sitDown(innSeat('tableW')) }),
+  fire: () => ({ text: 'Sit on the settle by the fire', run: () => sitDown(innSeat('fire')) }),
+  out: (sp) => ({ text: sp.room === 'inn' ? 'Out onto the quay' : 'Out of the shop, onto the quay', run: () => goOut(HAVEN_ROOMS[sp.room]) }),
+};
+// (Each with its own view: down over the settle and the fire from the front, the roof lifted;
+// from the bar across your table to the window.)
+function innSeat(id) {
+  const sp = ROOM_SPOTS.find((q) => q.id === id), R = HAVEN_ROOMS.inn;
+  const look = id === 'fire' ? [R.x0 + 1.0, R.y + 0.7, R.z0 + 1.6] : [R.x0 + 1.3, R.y + 0.9, R.z1 - 0.5];
+  const cam = id === 'fire' ? [R.x0 + 1.4, R.y + 3.6, R.z1 + 1.0] : [R.x0 + 3.7, R.y + 1.85, R.z1 - 2.0];
+  return { kind: 'inn', spot: id, x: sp.seat.x, z: sp.seat.z, heading: sp.seat.heading, h: 0.45, look, cam, name: id === 'fire' ? 'by the fire in The Lobster Pot' : 'at a table in The Lobster Pot' };
+}
 // The head of the quay, where a boat can be brought round to.
 const QUAY_HEAD = { x: (HAVEN_QUAY.x0 + HAVEN_QUAY.x1) / 2, z: HAVEN_QUAY.z0 + 3 };
 const quayHeadNear = () => onFoot && Math.hypot(walker.pos.x - QUAY_HEAD.x, walker.pos.z - QUAY_HEAD.z) < 3;
@@ -4624,7 +4701,7 @@ function updateSitting(dt) {
     S.tea = true;
     mealDrink(state.comfort);
     state.comfort.warm = Math.min(state.comfort.warm + 1.5, 24);
-    hud.toast(S.kind === 'home' ? 'The kettle on the stove sings: a mug of tea, hot in your hands.' : 'The kettle boils on the stove: a mug of tea, hot in your hands.', 6);
+    hud.toast(S.kind === 'home' ? 'The kettle on the stove sings: a mug of tea, hot in your hands.' : S.kind === 'inn' ? 'Ruth brings over a mug of tea and sets it down by you. “On the house.”' : 'The kettle boils on the stove: a mug of tea, hot in your hands.', 6);
     return;
   }
   if ((S.next -= dt) > 0) return;
@@ -4640,7 +4717,7 @@ function sitThought(S) {
   const page = state.today ? dayPage(state, state.today) : null;
   const known = groundsOf(state.log).flatMap((g) => g.kinds.filter((K) => K.n >= 3).map((K) => ({ place: g.place, K })));
   const tip = known.length ? known[Math.floor(Math.random() * known.length)] : null;
-  const where = S.kind === 'boat' ? 'the boat' : S.kind === 'home' ? 'the house' : 'camp';
+  const where = S.kind === 'boat' ? 'the boat' : S.kind === 'home' ? 'the house' : S.kind === 'inn' ? 'the inn' : 'camp';
   const C = [
     toGale != null && toGale < 8 && ['gale', toGale < 3 ? 'The wind is getting up in gusts, and the sky to the south-west has gone the colour of a bruise. The gale won’t be long.' : 'A long, oily swell has come in from the south-west, and high thin cloud is fanning out across the sky: weather on its way.'],
     weather.rain > 0.3 && ['rain', S.kind === 'fire' ? 'Rain hisses in the fire. You pull your collar up and edge closer.' : S.kind === 'boat' ? 'Rain patters on the boat and rings the water all round.' : 'Rain drums on the roof and runs down the window.'],
@@ -4650,13 +4727,16 @@ function sitThought(S) {
     Math.abs(h - sun.rise) < 0.7 && ['dawn', 'First light: the birds start up one by one, and a mist lifts off the water.'],
     night && weather.cloud < 0.4 && ['stars', 'The stars are out: more of them every minute you look, and the Milky Way right across the sky.'],
     night && ['owl', 'An owl calls somewhere up the hill, and another answers from across the water.'],
-    !night && S.kind !== 'home' && ['birds', S.kind === 'boat' ? 'A gull drifts down and settles on the water nearby, watching you with one yellow eye.' : 'A curlew calls from the shore, that long, bubbling cry.'],
+    !night && S.kind !== 'home' && S.kind !== 'inn' && ['birds', S.kind === 'boat' ? 'A gull drifts down and settles on the water nearby, watching you with one yellow eye.' : 'A curlew calls from the shore, that long, bubbling cry.'],
     page && page.caught + page.dives.length > 0 && ['day', `You think back over the day. ${dayText(page).split('. ').slice(0, 3).join('. ').replace(/\.?$/, '.')}`],
     tip && ['learned', `You go over what you’ve learned. At ${tip.place}: ${groundWords(tip.K).toLowerCase()}`],
     S.kind === 'fire' && ['fire', 'A log shifts and settles in the fire, and a stream of sparks goes up into the dark.'],
+    S.kind === 'inn' && ['pub', state.hour >= 17 || state.hour < 1 ? 'The bar fills up: boots on the flagstones, the door going, a laugh from the old boys’ corner by the window.' : 'Quiet in here at this hour: Ruth polishing glasses, the clock ticking, someone’s dog asleep under a table.'],
+    S.kind === 'inn' && S.spot === 'fire' && ['coal', 'The coal settles in the grate with a soft crunch, and the heat comes up into your face.'],
+    S.kind === 'inn' && ['kitchen', 'Something good is going on in the kitchen: onions, butter, the sea smell of fish in a hot pan.'],
     state.comfort.wet > 0.3 && ['drying', 'Your clothes steam gently as they dry.'],
     ['season', { spring: 'There’s a softness in the air: spring, the green coming back.', summer: 'A warm evening: midges dancing over the water, the smell of salt and cut grass.', autumn: 'Leaves blow across the ground: autumn coming on, the evenings drawing in.', winter: 'A cold, clear stillness: winter, and the year asleep.' }[seasonOf(state.day).name]],
-    ['quiet', `Nothing to do and nowhere to be. The ${where === 'camp' ? 'water laps at the shore' : where === 'the boat' ? 'water knocks softly at the hull' : 'stove ticks as it warms'}.`],
+    ['quiet', `Nothing to do and nowhere to be. The ${where === 'camp' ? 'water laps at the shore' : where === 'the boat' ? 'water knocks softly at the hull' : where === 'the inn' ? 'clock over the bar ticks on' : 'stove ticks as it warms'}.`],
   ].filter(Boolean);
   const pickOne = C.find(([id]) => !S.said.has(id));
   if (!pickOne) return null;
@@ -4678,11 +4758,15 @@ function sitCamera(dt) {
     lx = boat.pos.x + Math.sin(boat.heading) * 30;
     lz = boat.pos.z + Math.cos(boat.heading) * 30;
     ly = -0.5;
+  } else if (S.cam) {
+    [cx, cy, cz] = S.cam;
+    cx += drift * 0.6;
+    [lx, ly, lz] = S.look;
   } else {
-    const a = S.heading + Math.PI + 0.6 + drift, d = S.kind === 'home' ? 1.9 : 3.3;
+    const a = S.heading + Math.PI + 0.6 + drift, d = S.kind === 'home' || S.kind === 'inn' ? 1.9 : 3.3;
     cx = S.x + Math.sin(a) * d;
     cz = S.z + Math.cos(a) * d;
-    cy = walker.pos.y + (S.kind === 'home' ? 1.45 : 1.85);
+    cy = walker.pos.y + (S.kind === 'home' || S.kind === 'inn' ? 1.45 : 1.85);
     [lx, ly, lz] = S.look;
   }
   cy = Math.max(cy, heightAt(cx, cz) + 0.5, waveHeight(cx, cz, t) + 0.5);
@@ -6121,13 +6205,13 @@ function updateHud() {
   placed.length = 0;
   // (On the first trip only the guide's marker and the car's: one thing to look for at a time.)
   const guiding = state.guide.on;
-  placeMarker($('boat-marker'), boat.pos.x, boat.heave + 1.6, boat.pos.z, started && onFoot && !driving && !modal && !nearBoat() && !(insideHome(walker.pos.x, walker.pos.z)) && !guiding);
+  placeMarker($('boat-marker'), boat.pos.x, boat.heave + 1.6, boat.pos.z, started && onFoot && !driving && !modal && !nearBoat() && !indoorsAt(walker.pos.x, walker.pos.z) && !guiding);
   const carD = Math.hypot(car.pos.x - player().pos.x, car.pos.z - player().pos.z);
   // (Not twice over: when the guide is pointing at the car, its marker is the one.)
   const guideOnCar = guiding && guideTarget?.label === 'Car';
   placeMarker($('car-marker'), car.pos.x, car.pos.y + 2.2, car.pos.z, started && onFoot && !driving && !dive && !modal && carD > 18 && carD < 600 && !carHome() && !guideOnCar);
   const campD = Math.hypot(player().pos.x - cp.x, player().pos.z - cp.z);
-  placeMarker($('camp-marker'), cp.x, cp.y + 2.4, cp.z, started && !modal && !dive && campD > 14 && !guiding && !(onFoot && insideHome(walker.pos.x, walker.pos.z)) && (onFoot ? campD < 400 : !state.places.camp && !!state.tips.caught));
+  placeMarker($('camp-marker'), cp.x, cp.y + 2.4, cp.z, started && !modal && !dive && campD > 14 && !guiding && !(onFoot && indoorsAt(walker.pos.x, walker.pos.z)) && (onFoot ? campD < 400 : !state.places.camp && !!state.tips.caught));
   const gt = guideTarget, gd = gt ? Math.hypot(gt.x - player().pos.x, gt.z - player().pos.z) : 0;
   placeMarker($('guide-marker'), gt?.x ?? 0, (gt?.y ?? heightAt(gt?.x ?? 0, gt?.z ?? 0)) + 1.8, gt?.z ?? 0, !!gt && guiding && started && !modal && gd > 3.5);
   // A trip's destination: a marker until you're on the water it rings.
@@ -7374,7 +7458,8 @@ function tick(now, manual = false) {
       audio.car?.(Math.min(1, Math.abs(car.speed) / 12), started && !modal && !dry ? Math.abs(carIn.throttle) : 0, !dry);
     } else audio.car?.(0, 0, false);
   }
-  fishing.update(dt, t, rig.yaw, started && !modal && !placement.isOn && !driving && !cabinIn && !dive && input.action);
+  // (No casting indoors: not through the chandlery's window, nor across the inn.)
+  fishing.update(dt, t, rig.yaw, started && !modal && !placement.isOn && !driving && !cabinIn && !dive && !(onFoot && insideHaven(walker.pos.x, walker.pos.z)) && input.action);
   // (On the open map, you move across it as you go.)
   if (modal === 'map') mapSheet.follow(player());
 
@@ -7439,7 +7524,7 @@ function tick(now, manual = false) {
   if (!onFoot && steadyCam) _eye.y = eyeY = Math.abs(eyeY - _eye.y) > 1 ? _eye.y : damp(eyeY, _eye.y, 0.3, dt);
   else eyeY = _eye.y;
   // Indoors (with the roof lifted), the camera comes in closer and looks down a little more.
-  rig.indoor = onFoot && !driving && !!insideHome(walker.pos.x, walker.pos.z);
+  rig.indoor = onFoot && !driving && indoorsAt(walker.pos.x, walker.pos.z);
   rig.update(dt, t, { boat, walker, started, fishing, baitFocus: fishing.watchPoint, eye: _eye, roll: onFoot || steadyCam || cabinIn ? 0 : boat.roll * 0.45 });
   updateSitting(dt);
   if (sitting && !modal) sitCamera(dt);
@@ -7469,7 +7554,7 @@ function tick(now, manual = false) {
   seabed.update(camera, sub);
   fishRenderer.update(dt, camera, env.night, sub > 0.5);
   updateWind(dt * Math.min(speed, 10));
-  world.update(dt, t, env, { fireLevel: camp.fireLevel, hatchLevel: hatchLevel(), hour: state.hour, wind: 0.5 + Math.min(1, windAt(camera.position.x, camera.position.z).speed / FRESH) * 1.3, camera, fog: scene.fog.color, hurry: !!(traveling || sleeping) });
+  world.update(dt, t, env, { fireLevel: camp.fireLevel, hatchLevel: hatchLevel(), hour: state.hour, wind: 0.5 + Math.min(1, windAt(camera.position.x, camera.position.z).speed / FRESH) * 1.3, camera, fog: scene.fog.color, hurry: !!(traveling || sleeping), haven: { from: started ? player().pos : null, cam: camera.position, cutaway: rig.mode !== 'eye', onDoor: (open) => audio.door?.(open) } });
   {
     const abs = state.day * 24 + state.hour;
     campView.update(dt, t, env, state.camps, player().pos, {
@@ -7533,6 +7618,7 @@ function tick(now, manual = false) {
     const a = COLDWATER[F.top], b = COLDWATER[F.foot], big = a.l - b.l > 20;
     return (1 - smoothstep(8, big ? 170 : 110, Math.hypot(P.x - b.x, P.z - b.z))) * (big ? 1 : 0.7);
   }));
+  const room = onFoot && !driving ? insideHaven(P.x, P.z) : null;
   audio.update(dt, {
     wind: Math.min(1, windHere.speed / FRESH),
     gust: windHere.gust,
@@ -7555,7 +7641,10 @@ function tick(now, manual = false) {
     water: onFoot ? Math.max(1 - smoothstep(3, 30, -seaD), 1 - smoothstep(3, 30, Math.min(mereSDF(P.x, P.z), riverSDF(P.x, P.z)))) : 1,
     stream: Math.max(1 - smoothstep(1.5, 24, streamSDF(P.x, P.z)), beck),
     lake: Math.max(1 - smoothstep(2, 35, lakeSDF(P.x, P.z)), 1 - smoothstep(2, 45, mereSDF(P.x, P.z)), (1 - smoothstep(2, 30, riverSDF(P.x, P.z))) * 0.6, (1 - smoothstep(2, 40, tarnSDF(P.x, P.z))) * 0.7),
-    fire: camp.fireLevel * (1 - smoothstep(2, 18, fireD)),
+    fire: Math.max(camp.fireLevel * (1 - smoothstep(2, 18, fireD)), room === 'inn' ? 0.45 : 0),
+    // Indoors: the outside muffled; at the inn, the talk at the bar (busier with more in).
+    indoor: onFoot && indoorsAt(P.x, P.z) ? 1 : 0,
+    pub: room === 'inn' ? Math.min(1, 0.25 + 0.2 * town.inside('inn')) : 0,
     sizzle: Math.max(camp.cooking ? 1 - smoothstep(2, 12, fireD) : 0, 1 - smoothstep(2, 12, ownCookD)),
     stove: 1 - smoothstep(1.5, 9, ownCookD),
     harbour: Math.max(1 - smoothstep(15, 70, Math.hypot(P.x - HAVEN.x, P.z - HAVEN.z)), 1 - smoothstep(20, 90, Math.hypot(P.x - PUERTO_AT.x, P.z - PUERTO_AT.z))),
@@ -7588,6 +7677,7 @@ function tick(now, manual = false) {
     // An open board keeps up with the hour: it's read off the water as it is now.
     if (modal === 'board' && $('board-sub').textContent !== `${formatClock(state.hour)} · day ${state.day}`) renderBoard();
     if (slateDay !== state.day) chalkSlate();
+    if (Math.hypot(player().pos.x - HAVEN_ROOMS.inn.doorX, player().pos.z - HAVEN_ROOMS.inn.front) < 40) chalkKitchen();
     // The fish in your creel: on ice, or in a cool-lined creel, their freshness keeps.
     const nowH = state.day * 24 + state.hour;
     if (chilledTo < nowH) chill(state, chilledTo, nowH);

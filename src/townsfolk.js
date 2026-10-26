@@ -2,6 +2,7 @@ import { HAVEN_HOUSES, HAVEN_QUAY, HAVEN_MARKET, HAVEN_BENCH, SLIPWAY, STRAND, S
 import { POSADA, QUAY_S } from './world/brasa.js';
 import { fishById } from './fish.js';
 import { seeded } from './util.js';
+import { ROOM_PLACES, ROOM_WAY, insideHaven } from './world/havenHouses.js';
 import { lower } from './innTalk.js';
 
 // The people of Willowhaven (and Paco at Las Brasas), going about their days: what they do hour by
@@ -38,8 +39,8 @@ const SLOW = 1.8 * HOUR_SECONDS;  // round the harbour, and between pots
 
 export const FOLK = {
   mags: { name: 'Mags Pennock', short: 'Mags', role: 'the fishmonger', home: 'gull' },
-  bert: { name: 'Old Bert Hale', short: 'Bert', role: 'the chandler', home: 'chandlery' },
-  ruth: { name: 'Ruth Alder', short: 'Ruth', role: 'keeps The Lobster Pot', home: 'inn' },
+  bert: { name: 'Old Bert Hale', short: 'Bert', role: 'the chandler', home: 'shopUp' },
+  ruth: { name: 'Ruth Alder', short: 'Ruth', role: 'keeps The Lobster Pot', home: 'innUp' },
   dougie: { name: 'Dougie Ferris', short: 'Dougie', role: 'the lobsterman', home: 'rose' },
   hettie: { name: 'Hettie Moss', short: 'Hettie', role: 'an angler', home: 'east' },
   kit: { name: 'Kit', short: 'Kit', role: 'a boy who fishes off the quay', home: 'net' },
@@ -56,7 +57,7 @@ const local = (b, lx, lz) => {
 };
 const doorOf = (id, out = 1.2) => {
   const b = house(id);
-  const p = local(b, id === 'chandlery' ? -1.4 : 0, b.d / 2 + out);
+  const p = local(b, b.doorX ?? 0, b.d / 2 + out);
   return { x: p.x, z: p.z, yaw: b.yaw };
 };
 const Q = HAVEN_QUAY, M = HAVEN_MARKET;
@@ -82,6 +83,11 @@ export const SPOTS = {
   chanoHome: { x: -4, z: 6290, yaw: 0 },
   steps: { x: 30, z: QUAY_S.z1 - 1.6, yaw: 0 },
   barTable: { x: POSADA.x + 2.6, z: POSADA.z + 7, yaw: -Math.PI / 2 },
+  // Inside the chandlery and The Lobster Pot (see world/havenHouses.js): Bert behind his counter,
+  // Ruth behind her bar, the regulars at the bar, the tables and the settle by the fire.
+  ...ROOM_PLACES,
+  // (Upstairs, over the bar and over the shop: gone up from behind the bar or the counter.)
+  innUp: { ...ROOM_PLACES.innBar }, shopUp: { ...ROOM_PLACES.shopCounter },
 };
 // Each boat's skipper, and where they come ashore from her.
 const BOAT_OF = { dougie: 'star', ian: 'jean', chano: 'carmen' };
@@ -319,28 +325,32 @@ export function blockFor(id, hour, ctx, day) {
   switch (id) {
     case 'mags':
       if (h >= 4.2 && h < 19) return B('slab', 19, 'slab', 'work');
-      if (h >= 19 && h < 21.5 && dayDice(day, 1) < 0.6) return B('pub', 21.5, 'inn', 'inside');
+      if (h >= 19 && h < 21.5 && dayDice(day, 1) < 0.6) return B('pub', 21.5, 'innTableW', 'sit');
       return B('home', h < 4.2 ? 4.2 : 28.2, 'gull', 'inside');
     case 'bert':
-      if (h >= 7.5 && h < 10.5) return fair(ctx) ? B('chair-am', 10.5, 'chair', 'sit') : B('shop-am', 10.5, 'chandlery', 'inside');
-      if (h >= 15 && h < 17.5) return fair(ctx) ? B('chair-pm', 17.5, 'chair', 'sit') : B('shop-pm', 17.5, 'chandlery', 'inside');
-      if (h >= 19 && h < 22) return B('pub', 22, 'inn', 'inside');
-      return B(`shop-${Math.floor(h)}`, h < 7.5 ? 7.5 : h < 15 ? 15 : h < 19 ? 19 : 31.5, 'chandlery', 'inside');
+      // (Behind his counter in shop hours; upstairs over the shop at night.)
+      if (h >= 7.5 && h < 10.5) return fair(ctx) ? B('chair-am', 10.5, 'chair', 'sit') : B('shop-am', 10.5, 'shopCounter', 'stand');
+      if (h >= 15 && h < 17.5) return fair(ctx) ? B('chair-pm', 17.5, 'chair', 'sit') : B('shop-pm', 17.5, 'shopCounter', 'stand');
+      if (h >= 19 && h < 22) return B('pub', 22, 'innSettle', 'sit');
+      if (h >= 22 || h < 7.5) return B('night', h < 7.5 ? 7.5 : 31.5, 'shopUp', 'inside');
+      return B(`shop-${Math.floor(h)}`, h < 15 ? 15 : 19, 'shopCounter', 'stand');
     case 'ruth':
       if (h >= 7.5 && h < 8.3) return B('sweep', 8.3, 'innFront', 'work');
       if (h >= 14.5 && h < 15.3 && (ctx.rain ?? 0) < 0.3 && (ctx.storm ?? 0) < 0.3) return B('bench', 15.3, 'bench', 'sit');
       if (h >= 22.5 && h < 23) return B('time', 23, 'inn', 'stand');
-      return B(`in-${h < 7.5 ? 0 : h < 14.5 ? 1 : h < 22.5 ? 2 : 3}`, h < 7.5 ? 7.5 : h < 14.5 ? 14.5 : h < 22.5 ? 22.5 : 31.5, 'inn', 'inside');
+      // (Behind the bar from opening till last orders; upstairs the rest of the night.)
+      if (h >= 8.3 && h < 22.5) return B(`bar-${h < 14.5 ? 1 : 2}`, h < 14.5 ? 14.5 : 22.5, 'innBar', 'work');
+      return B(`in-${h < 7.5 ? 0 : 3}`, h < 7.5 ? 7.5 : 31.5, 'innUp', 'inside');
     case 'dougie': {
       if (h < 5) return B('night', 5, 'rose', 'inside');
-      if (h >= 19 && h < 22) return B('pub', 22, 'inn', 'inside');
+      if (h >= 19 && h < 22) return B('pub', 22, 'innBarFront', 'stand');
       if (h >= 22) return B('home', 29, 'rose', 'inside');
       // Out to the pots at first light, if the weather lets him.
       if (h >= 5 && h < 5.6) return fitForSea(ctx) ? B('down', 5.6, 'slipway', 'stand', { sea: true }) : B('lie-in', 7.5, 'rose', 'inside');
       if (h >= 5.6 && h < 12.4 && ctx.trip) return B('trip', 12.4, 'slipway', 'boat');
       if (h < 7.5) return B('lie-in', 7.5, 'rose', 'inside');
       if (h < 12) return B('mend-am', 12, 'pots', 'work');
-      if (h < 13.5) return B('lunch', 13.5, 'inn', 'inside');
+      if (h < 13.5) return B('lunch', 13.5, 'innBarFront', 'stand');
       if (h < 17.5) return (ctx.storm ?? 0) >= 0.3 || !fitForSea(ctx) ? B('lee', 17.5, 'lee', 'fish', { target: 'flounder' }) : B('mend-pm', 17.5, 'pots', 'work');
       return B('bench', 19, 'bench', (ctx.rain ?? 0) > 0.3 ? 'stand' : 'sit');
     }
@@ -348,7 +358,7 @@ export function blockFor(id, hour, ctx, day) {
       // Her day in stretches; where she goes for each depends on the hour, the weather and the fish.
       const s0 = h < 1 ? 21.5 : [21.5, 18, 13, 12, 8, 4.5, 1].find((s) => h >= s);
       const until = { 1: 4.5, 4.5: 8, 8: 12, 12: 13, 13: 18, 18: 21.5, 21.5: 25 }[s0];
-      if (s0 === 12) return B('lunch', until, 'inn', 'inside');
+      if (s0 === 12) return B('lunch', until, 'innTableW', 'sit');
       const mark = hettieMark(s0, ctx);
       if (!mark) return B(`home-${s0}`, until, 'east', 'inside');
       return B(`${mark.spot}-${s0}`, until, mark.spot, 'fish', { target: mark.target, why: mark.why });
@@ -361,7 +371,7 @@ export function blockFor(id, hour, ctx, day) {
       if (h >= 9.5 && h < 11 && fair(ctx)) return B('bench', 11, 'bench', 'sit');
       if (h >= 13.6 && h < OUTINGS.jean.start && calmSea(ctx)) return B('down', OUTINGS.jean.start, 'slipway', 'stand', { sea: true });
       if (h >= OUTINGS.jean.start && h < end && ctx.trip) return B('trip', end, 'slipway', 'boat');
-      if (h >= 17.8 && h < 21) return B('pub', 21, 'inn', 'inside');
+      if (h >= 17.8 && h < 21) return B('pub', 21, 'innTableE', 'sit');
       return B(`home-${h < 11 ? 0 : h < 17.8 ? 1 : 2}`, h < 11 ? 11 : h < 17.8 ? 17.8 : 33.5, 'east', 'inside');
     }
     case 'paco':
@@ -456,6 +466,13 @@ export class Townsfolk {
     this.haul = null;     // Dougie's pots today: { day, hour, text }
     this.chanoHaul = null; // Chano's catch today: { day, hour, text }
     this.abs = null;
+  }
+
+  // How many are in the chandlery or the inn just now (sat, stood, at work, on their way in).
+  inside(room) {
+    let n = 0;
+    for (const p of Object.values(this.people)) if (p.act !== 'inside' && p.act !== 'away' && p.act !== 'aboard' && insideHaven(p.pos.x, p.pos.z) === room) n++;
+    return n;
   }
 
   // Someone's boat trip (Dougie's, Ian's, Chano's), if they're on one.
@@ -559,8 +576,20 @@ export class Townsfolk {
       return;
     }
     if (!(p.away > abs)) p.away = 0;
-    p.path = Math.hypot(S.x - from.x, S.z - from.z) < 0.3 ? null : this.paths.route(from, S);
+    p.path = Math.hypot(S.x - from.x, S.z - from.z) < 0.3 ? null : this.wayTo(from, was ? SPOTS[was.spot] : null, S);
     p.len = p.path ? pathLength(p.path) : 0;
+  }
+  // The way from where someone is to a spot: across the harbour by the paths, and in or out of the
+  // chandlery and the inn by their doors (and round the counter, the bar and the tables inside).
+  wayTo(from, W, S) {
+    const a = insideHaven(from.x, from.z), b = insideHaven(S.x, S.z);
+    const back = W?.inner && insideHaven(W.x, W.z) === a ? [...W.inner].reverse() : [];
+    if (a && a === b) return [from, ...back, ...(S.inner || []), { x: S.x, z: S.z }];
+    const pre = a ? [from, ...back, ROOM_WAY[a][1], ROOM_WAY[a][0]] : [];
+    const post = b ? [ROOM_WAY[b][0], ROOM_WAY[b][1], ...(S.inner || []), { x: S.x, z: S.z }] : [];
+    const start = a ? ROOM_WAY[a][0] : from, end = b ? ROOM_WAY[b][0] : S;
+    const mid = Math.hypot(end.x - start.x, end.z - start.z) < 0.3 ? [start] : this.paths.route(start, end);
+    return [...(pre.length ? pre.slice(0, -1) : []), ...mid, ...(post.length ? post.slice(1) : [])];
   }
 
   move(p, abs, ctx, day) {

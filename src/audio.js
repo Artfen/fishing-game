@@ -105,6 +105,9 @@ export class AudioScape {
     this.sizzleBed = this.bed(this.white, [['highpass', 3200, 0.5]]);
     // A camping stove's soft roar while something cooks.
     this.stoveBed = this.bed(this.white, [['bandpass', 2400, 0.6], ['lowpass', 5000, 0.5]]);
+    // Indoors at the inn: the murmur of talk at the bar (pink noise in the voice band, rising and
+    // falling as conversations come and go).
+    this.murmurBed = this.bed(this.pink, [['bandpass', 420, 1.6], ['lowpass', 1400, 0.5]]);
     // The race in Calf Sound: a deep, restless roar of water going somewhere in a hurry.
     this.raceBed = this.bed(this.pink, [['bandpass', 360, 0.45], ['lowpass', 1500, 0.5]], this.wavesBus);
     // A sail flogging in the wind: a ragged, fluttering rustle of cloth.
@@ -141,7 +144,7 @@ export class AudioScape {
     this.alarmOsc = null;
     this.setVolumes(this.volumes);
 
-    this.next = { lap: 1, bird: 3, gull: 8, cricket: 2, owl: 25, note: 5, chord: 1, drop: 0, crackle: 0.5, frog: 8, bloop: 1, clink: 2, curlew: 12, boom: 4, flap: 2, seal: 6, shear: 4 };
+    this.next = { lap: 1, bird: 3, gull: 8, cricket: 2, owl: 25, note: 5, chord: 1, drop: 0, crackle: 0.5, frog: 8, bloop: 1, clink: 2, curlew: 12, boom: 4, flap: 2, seal: 6, shear: 4, pub: 3, clock: 1 };
     this.lastNote = 5;
     this.chordIdx = 0;
   }
@@ -888,19 +891,22 @@ export class AudioScape {
     if (!this.ctx) return;
     this.t += dt;
     const now = this.ctx.currentTime;
-    const { speed, rain, day, night, land, open, cove, gulls, stream = 0, fire = 0, sizzle = 0, lake = 0, water = 1, wind = 0.3, gust = 1, sea = 0.2, stove = 0, harbour = 0, inlet = 0, head = 0, tent = 0, race = 0, seals = 0, flap = 0, gale = 0, shearwaters = 0 } = s;
+    const { speed, rain, day, night, land, open, cove, gulls, stream = 0, fire = 0, sizzle = 0, lake = 0, water = 1, wind = 0.3, gust = 1, sea = 0.2, stove = 0, harbour = 0, inlet = 0, head = 0, tent = 0, race = 0, seals = 0, flap = 0, gale = 0, shearwaters = 0, indoor = 0, pub = 0 } = s;
+    // Indoors (home, the chandlery, the inn) the outside is muffled: the walls between you and it.
+    const shut = 1 - 0.65 * indoor;
 
     // The sea's wash grows with the waves where you are; the surf with the swell on the shore.
-    this.set(this.waterBed.g.gain, (0.08 + 0.05 * Math.min(speed / 5, 1) + 0.12 * Math.min(sea, 1)) * (0.25 + 0.75 * water), 1);
-    const above = 1 - this.under * 0.75;
+    this.set(this.waterBed.g.gain, (0.08 + 0.05 * Math.min(speed / 5, 1) + 0.12 * Math.min(sea, 1)) * (0.25 + 0.75 * water) * shut, 1);
+    const above = (1 - this.under * 0.75) * shut;
     this.set(this.surfBed.g.gain, (0.008 + land * (0.02 + 0.05 * Math.min(sea, 1)) * (1 - cove * 0.5)) * above, 1.5);
     // The wind: its strength where you are (0 … 1 at a fresh breeze), louder and brighter in gusts.
     this.set(this.windBed.g.gain, (0.006 + 0.07 * wind * wind + 0.02 * rain) * above, 1.2);
     this.set(this.gustBed.g.gain, 0.012 * Math.max(0, gust - 1.1) * wind * above, 0.6);
     this.set(this.underBed.g.gain, 0.16 * this.under, 0.4);
     this.windBed.f[0].frequency.setTargetAtTime(500 + wind * 400 + (gust - 1) * 500 + Math.sin(this.t * 0.11) * 120, now, 0.8);
-    this.set(this.rainBed.g.gain, 0.085 * rain, 1.5);
-    this.set(this.rainLow.g.gain, 0.08 * rain, 1.5);
+    this.set(this.rainBed.g.gain, 0.085 * rain * shut, 1.5);
+    this.set(this.rainLow.g.gain, 0.08 * rain * (0.5 + 0.5 * shut), 1.5);
+    this.set(this.murmurBed.g.gain, 0.03 * pub * (0.7 + 0.3 * Math.sin(this.t * 0.37) * Math.sin(this.t * 0.13 + 1)), 1.2);
     this.set(this.music.gain, this.musicOn ? 0.9 * (1 - rain * 0.3) : 0, 1.5);
     this.set(this.streamBed.g.gain, 0.05 * stream * above, 0.8);
     this.set(this.streamLow.g.gain, 0.06 * stream * above, 0.8);
@@ -925,16 +931,16 @@ export class AudioScape {
       n.drop = rain > 0.05 ? rand(0.02, 0.09) / rain : 0.5;
     }
     if (n.bird <= 0) {
-      if (day > 0.3 && land > 0.15 && rain < 0.5) this.bird(0.03 * land * day, rand(-0.8, 0.8));
+      if (day > 0.3 && land > 0.15 && rain < 0.5) this.bird(0.03 * land * day * shut, rand(-0.8, 0.8));
       n.bird = rand(2.5, 8);
     }
     if (n.gull <= 0) {
       const g = Math.max(gulls, open * 0.4);
-      if (g > 0.1 && day > 0.3) this.gull(0.022 * g, rand(-0.7, 0.7));
+      if (g > 0.1 && day > 0.3) this.gull(0.022 * g * shut, rand(-0.7, 0.7));
       n.gull = rand(5, 14);
     }
     if (n.cricket <= 0) {
-      if (night > 0.4 && land > 0.2 && rain < 0.4) this.cricket(0.007 * land * night, rand(-0.8, 0.8));
+      if (night > 0.4 && land > 0.2 && rain < 0.4 && !indoor) this.cricket(0.007 * land * night, rand(-0.8, 0.8));
       n.cricket = rand(0.4, 1.2);
     }
     if (n.crackle <= 0) {
@@ -948,7 +954,7 @@ export class AudioScape {
     // The cove shore: rigging in the harbour (busier in a breeze), a curlew in the channel at the
     // turn of the light, the swell booming under Cove Head, and your tent's fly in the wind.
     if (n.clink <= 0) {
-      if (harbour > 0.15) this.clink(0.012 * harbour * (0.4 + wind), rand(-0.7, 0.7));
+      if (harbour > 0.15) this.clink(0.012 * harbour * (0.4 + wind) * shut, rand(-0.7, 0.7));
       n.clink = rand(1.2, 5) / (0.5 + wind);
     }
     if (n.curlew <= 0) {
@@ -971,6 +977,18 @@ export class AudioScape {
     if (n.owl <= 0) {
       if (night > 0.6 && land > 0.3 && !shearwaters) this.owl(0.03 * land, rand(-0.8, 0.8));
       n.owl = rand(25, 60);
+    }
+    // At the inn: a glass set down, a knife on a plate, now and then; and a clock ticking indoors.
+    if (n.pub <= 0) {
+      if (pub > 0.05) {
+        if (Math.random() < 0.6) this.tone({ type: 'triangle', freq: rand(2200, 3200), dur: 0.22, gain: 0.006 * pub, attack: 0.001, pan: rand(-0.6, 0.6), dest: this.nature });
+        else this.burst({ type: 'bandpass', freq: rand(3800, 5200), q: 6, dur: 0.05, gain: 0.01 * pub, attack: 0.001, pan: rand(-0.6, 0.6), dest: this.nature });
+      }
+      n.pub = rand(1.5, 6) / (0.4 + pub);
+    }
+    if (n.clock <= 0) {
+      if (indoor > 0.5) this.burst({ type: 'highpass', freq: 2600, q: 0.7, dur: 0.012, gain: 0.006, attack: 0.001, dest: this.nature });
+      n.clock = 1;
     }
     // Las Brasas after dark: shearwaters coming in to their burrows in the cliffs, wailing.
     if (n.shear <= 0) {

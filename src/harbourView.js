@@ -57,10 +57,11 @@ export class HarbourSheet {
     return this.state.hour >= MARKET_HOURS[0] && this.state.hour < MARKET_HOURS[1];
   }
 
-  open(where) {
+  // (tab: which to open at, if not the first: 'kitchen' from the pass, 'ready' and so on.)
+  open(where, tab = null) {
     this.where = where;
     this.said = { advice: null, story: null };
-    this.tab = where === 'market' ? 'sell' : where === 'chandlery' ? 'counter' : 'bar';
+    this.tab = tab || (where === 'market' ? 'sell' : where === 'chandlery' ? 'counter' : 'bar');
     this.el.hidden = false;
     this.render();
   }
@@ -379,6 +380,15 @@ export class HarbourSheet {
     const S = this.shop, now = this.hooks.now();
     out.push(el('p', 'hb-say', 'Old Bert Hale, behind a counter worn smooth by sixty years of elbows, a pencil behind his ear: “Now then. The tackle’s through there, help yourself, same as always. Anything else?”'));
     out.push(...this.favourBlock('bert'));
+    // Advice over the counter: Bert's read of the water today (the same as the bar's, from the
+    // world as it is).
+    const adv = el('div', 'cp-row');
+    adv.append(el('p', '', 'Ask Bert what’s biting, and where'), this.button(this.said.advice ? 'Ask again' : 'Ask', () => {
+      this.said.advice = adviceFor(this.hooks.talk('haven').advice);
+      this.render();
+    }, 'quiet'));
+    out.push(adv);
+    if (this.said.advice) out.push(el('blockquote', 'hb-story', `“${this.said.advice}”`));
     out.push(el('h3', '', 'Creels'));
     const mine = creelOf(this.state);
     const row0 = el('div', 'cp-row');
@@ -493,4 +503,31 @@ export function paintSlate(ctx, w, h, { day, wanted = [], plenty = [] } = {}) {
   ctx.font = '600 18px Kalam, Caveat, cursive';
   ctx.textAlign = 'center';
   ctx.fillText(`open ${MARKET_HOURS[0]} am till ${MARKET_HOURS[1] - 12} pm`, w / 2, h - 18);
+}
+
+// The kitchen's board inside The Lobster Pot, by the pass: what Ruth is after tonight, chalked up
+// afresh each day, crossed off as it comes in.
+export function paintKitchenBoard(ctx, w, h, { orders = [], closed = false } = {}) {
+  ctx.fillStyle = '#2b2f2e';
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = '#6a503b';
+  ctx.lineWidth = 10;
+  ctx.strokeRect(0, 0, w, h);
+  ctx.fillStyle = 'rgba(240,240,232,0.92)';
+  ctx.textAlign = 'center';
+  ctx.font = '700 26px Kalam, Caveat, cursive';
+  ctx.fillText('Kitchen wants', w / 2, 36);
+  ctx.textAlign = 'left';
+  ctx.font = '600 20px Kalam, Caveat, cursive';
+  orders.forEach((o, i) => {
+    const y = 76 + i * 34, text = `· ${o.name}${o.min ? ` ${o.min}cm+` : ''}`;
+    ctx.fillText(text, 16, y);
+    if (o.done) {
+      const tw = ctx.measureText(text).width;
+      ctx.fillRect(14, y - 7, tw + 4, 2.5);
+    }
+  });
+  ctx.textAlign = 'center';
+  ctx.font = '600 16px Kalam, Caveat, cursive';
+  ctx.fillText(closed ? 'kitchen closed' : `by ${ORDERS_BY - 12} pm · paid well`, w / 2, h - 16);
 }

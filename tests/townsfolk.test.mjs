@@ -12,6 +12,7 @@ globalThis.document ??= { createElement: () => ({ width: 0, height: 0, getContex
 
 const F = await import('../src/townsfolk.js');
 const T = await import('../src/world/terrain.js');
+const H = await import('../src/world/havenHouses.js');
 const { buildCoast } = await import('../src/world/coast.js');
 const { seeded } = await import('../src/util.js');
 const { FolkView } = await import('../src/world/folk.js');
@@ -27,7 +28,8 @@ const at = (town, h, ctx) => {
 
 test('the paths: every place reachable from every other, never through a building, a wall or the clutter', () => {
   const P = new F.Paths(coast.obstacles);
-  const names = Object.keys(F.SPOTS).filter((k) => !['strand', 'paco', 'chanoHome', 'steps', 'barTable'].includes(k));
+  // (The places inside the chandlery and the inn are reached through their doors: see below.)
+  const names = Object.keys(F.SPOTS).filter((k) => !['strand', 'paco', 'chanoHome', 'steps', 'barTable'].includes(k) && !F.SPOTS[k].via);
   const walls = coast.obstacles.filter((o) => o.kind === 'building' || o.kind === 'harbour');
   for (const a of names) {
     for (const b of names) {
@@ -45,6 +47,39 @@ test('the paths: every place reachable from every other, never through a buildin
       assert.ok(L < Math.hypot(A.x - B.x, A.z - B.z) * 3 + 6, `${a} → ${b}: ${L.toFixed(0)} m is a long way round`);
     }
   }
+});
+
+test('in and out of the chandlery and the inn: through the door, round the counter, the bar and the tables', () => {
+  const town = new F.Townsfolk({ obstacles: coast.obstacles });
+  const inside = Object.keys(F.SPOTS).filter((k) => F.SPOTS[k].via);
+  assert.ok(inside.length >= 6);
+  const solid = coast.obstacles.filter((o) => o.kind === 'building' || o.kind === 'harbour');
+  const check = (r, a, b, A, B) => {
+    const L = F.pathLength(r);
+    for (let s = 0; s <= L; s += 0.1) {
+      const q = F.along(r, s);
+      if (Math.hypot(q.x - A.x, q.z - A.z) < 1.1 || Math.hypot(q.x - B.x, q.z - B.z) < 1.1) continue;
+      for (const o of solid) assert.ok(Math.hypot(q.x - o.x, q.z - o.z) > o.r + 0.05, `${a} → ${b} runs through ${o.name} at ${q.x.toFixed(2)}, ${q.z.toFixed(2)}`);
+    }
+    // In by the door only: wherever the way crosses a room's wall, it's at the door.
+    for (let s = 0; s <= L; s += 0.05) {
+      const p = F.along(r, s), q = F.along(r, Math.min(L, s + 0.05));
+      const was = H.insideHaven(p.x, p.z), now = H.insideHaven(q.x, q.z);
+      if (was !== now) {
+        const R = H.HAVEN_ROOMS[was || now];
+        assert.ok(Math.abs(q.x - R.doorX) < 0.3, `${a} → ${b} goes through the wall of ${R.id} at ${q.x.toFixed(2)}`);
+      }
+    }
+  };
+  for (const a of [...inside, 'slab', 'bench', 'chair']) {
+    for (const b of [...inside, 'slab', 'bench']) {
+      if (a === b) continue;
+      const A = F.SPOTS[a], B = F.SPOTS[b];
+      check(town.wayTo({ x: A.x, z: A.z }, A, B), a, b, A, B);
+    }
+  }
+  // Each place inside is in its room, and each room's way in leads through its door.
+  for (const k of inside) assert.ok(H.insideHaven(F.SPOTS[k].x, F.SPOTS[k].z), k);
 });
 
 test('the Morning Star’s trip stays in water deep enough for her, out to the pots and home', () => {
@@ -90,10 +125,14 @@ test('a fine day: Mags at her slab, Bert in his chair, Dougie out at his pots an
   assert.ok(Math.hypot(town.boat.x - F.MOORING.x, town.boat.z - F.MOORING.z) < 0.1);
   assert.ok(!town.boat.aboard);
   assert.notEqual(town.people.dougie.act, 'aboard');
-  // Evening: everyone to the inn, and home after.
+  // Evening: everyone to the inn (Bert on the settle by the fire, Dougie at the bar), and home after.
   at(town, 20.5, FAIR);
-  for (const id of ['bert', 'dougie']) assert.equal(town.people[id].block.spot, 'inn', id);
-  assert.ok(['inn', 'gull'].includes(town.people.mags.block.spot), 'Mags: the inn some evenings, home others');
+  assert.equal(town.people.bert.block.spot, 'innSettle');
+  assert.equal(town.people.dougie.block.spot, 'innBarFront');
+  assert.equal(H.insideHaven(town.people.bert.pos.x, town.people.bert.pos.z), 'inn', 'in by now');
+  assert.ok(['innTableW', 'gull'].includes(town.people.mags.block.spot), 'Mags: the inn some evenings, home others');
+  assert.equal(town.people.ruth.block.spot, 'innBar', 'Ruth behind her bar');
+  assert.equal(town.people.ruth.act, 'work');
   assert.equal(town.people.hettie.block.spot, 'strand');
   at(town, 23.5, FAIR);
   assert.equal(town.people.hettie.block.spot, 'quayEnd', 'squid under the quay light');
@@ -172,12 +211,16 @@ test('the figures and the Morning Star are drawn where they are, and hidden when
   view.update(1 / 30, 1, town, { from: { x: 10, z: -95 } });
   assert.ok(view.figures.mags.group.visible);
   assert.ok(Math.abs(view.figures.mags.group.position.x - F.SPOTS.slab.x) < 0.01);
-  assert.ok(!view.figures.ruth.group.visible, 'Ruth is inside');
+  assert.ok(view.figures.ruth.group.visible, 'Ruth behind her bar');
+  assert.equal(H.insideHaven(view.figures.ruth.group.position.x, view.figures.ruth.group.position.z), 'inn');
   assert.ok(!view.figures.paco.group.visible, 'Paco is far to the south');
   assert.ok(view.boat.group.visible && view.boat.occupied, 'out with Dougie at the helm');
   assert.ok(Math.hypot(view.boat.group.position.x - town.boat.x, view.boat.group.position.z - town.boat.z) < 0.01);
   view.update(1 / 30, 1, town, { from: { x: 10, z: 6300 }, south: true });
   assert.ok(!view.figures.mags.group.visible && !view.boat.group.visible);
+  at(town, 23.6, FAIR);
+  view.update(1 / 30, 1, town, { from: { x: 10, z: -95 } });
+  assert.ok(!view.figures.ruth.group.visible, 'Ruth gone up to bed');
 });
 
 const CALM = { ...FAIR, wind: 5 };
@@ -214,7 +257,7 @@ test('a calm afternoon: Ian takes the Bonny Jean out past the Calf after mackere
   }
   assert.ok(out && fished, 'out to the mark, a line down');
   assert.ok(!town.boats.jean.aboard);
-  assert.equal(town.people.ian.block.spot, 'inn', 'and a pint after');
+  assert.equal(town.people.ian.block.spot, 'innTableE', 'and a pint after');
   const windy = new F.Townsfolk({ obstacles: coast.obstacles });
   for (let h = 12; h < 19; h += 0.25) {
     at(windy, h, { ...FAIR, wind: 10 });

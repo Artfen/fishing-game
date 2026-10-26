@@ -24,7 +24,7 @@ export function newToday(day) {
 }
 // A while sat somewhere (the first of the day): by the fire, in your camp chair, at home, on the
 // bench, or back in the boat.
-export const SATS = { fire: 'by the camp fire', chair: 'in your camp chair', home: 'in the armchair by the stove', bench: 'on the bench on the quay', boat: 'in the boat at anchor' };
+export const SATS = { fire: 'by the camp fire', chair: 'in your camp chair', home: 'in the armchair by the stove', bench: 'on the bench on the quay', boat: 'in the boat at anchor', inn: 'in The Lobster Pot' };
 export function noteSat(today, kind, hour) {
   if (!today.sat && SATS[kind]) today.sat = { kind, hour };
 }
