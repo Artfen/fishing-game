@@ -8,6 +8,7 @@ import { COLDWATER, TARN } from './coldwater.js';
 import {
   SOUTH_Z, SOUTH_MAP, brasaHeight, brasaZone, brasaHabitat, brasaSDF, PUERTO, QUAY_S, MOLE, DIQUE, PLAYA, ARCO, ARCHES, FARO, COLADAS, SEBADAL, BAJON, onBajon,
 } from './brasa.js';
+import { siteById, PINNACLES } from './divesites.js';
 import { fbm, seeded, smoothstep, clamp } from '../util.js';
 
 // The underwater map every system shares: water depth, weed beds, rocks, and the
@@ -465,6 +466,44 @@ function regionSpots(habitat, rnd) {
   host('snag', BOATHOUSE_PIER.x0 - 1, BOATHOUSE_PIER.z0 - 6, 7, 'boathouse', ['pike']);
   coldwaterSpots(habitat, spots);
   southSpots(habitat, spots);
+  diveSpots(habitat, spots);
+}
+
+// The dive sites' own fish (see divesites.js), the very last of all, so nothing anywhere else
+// moves. site: which site's; down: how deep its fish go there (the Hound's hang off it right down
+// to its foot, deeper than they'd keep anywhere else).
+function diveSpots(habitat, spots) {
+  const put = (id, type, dx, dz, r, hosts, down) => {
+    const S = siteById[id], x = S.x + dx, z = S.z + dz;
+    spots.push({ type, x, z, depth: habitat.depth(x, z), zone: zoneAt(x, z), r, tag: 'dive', site: id, hosts, ...(down ? { down } : {}) });
+  };
+  //  · Skerries Reef: wrasse and pollack over the boulders, bream and the octopus on the rocks,
+  //    cuttlefish and a shoal of salema by the kelp.
+  put('reef', 'reef', 0, 0, 12, ['wrasse', 'pollack']);
+  put('reef', 'reef', 8, 9, 8, ['wrasse']);
+  put('reef', 'reef', -10, -7, 8, ['wrasse']);
+  put('reef', 'rock', -9, 8, 9, ['blackbream', 'octopus']);
+  put('reef', 'weed', 10, -6, 9, ['cuttlefish', 'salema']);
+  //  · The Kelp Forest: pollack among the stalks, wrasse, bream and cuttlefish on the floor.
+  put('kelp', 'reef', 0, 0, 14, ['pollack', 'wrasse']);
+  put('kelp', 'reef', -4, -14, 10, ['pollack', 'wrasse']);
+  put('kelp', 'weed', -6, 12, 10, ['cuttlefish', 'blackbream']);
+  put('kelp', 'rock', 4, 6, 8, ['whitebream', 'bogue']);
+  //  · The Kittiwake: pollack and bogue over her, redbanded bream and pandora round her.
+  put('wreck', 'reef', 0, 0, 9, ['pollack', 'bogue']);
+  put('wreck', 'rock', 4, -5, 8, ['urta', 'pandora']);
+  //  · Anchor Sands: flatfish in the sand, gurnards on it, cuttlefish and bream over it.
+  put('sands', 'sand', 0, 0, 16, ['plaice', 'turbot', 'gurnard']);
+  put('sands', 'sand', -12, 10, 14, ['sole', 'sandsole', 'cuttlefish']);
+  put('sands', 'sand', 12, 8, 14, ['striped', 'pandora']);
+  //  · The Hound: pollack, conger, red porgy and dentex down its walls to its foot; wrasse and
+  //    bream round its top; mackerel and scad passing over.
+  const [H, Pup] = PINNACLES;
+  put('hound', 'deep', 0, 0, 16, ['pollack', 'conger', 'redporgy', 'dentex'], 30);
+  put('hound', 'deep', -6, 7, 12, ['pollack', 'redporgy'], 26);
+  put('hound', 'reef', 3, -4, 8, ['wrasse', 'urta', 'bogue'], 18);
+  put('hound', 'deep', Pup.x - H.x, Pup.z - H.z, 9, ['pollack', 'conger'], 30);
+  put('hound', 'tide', 0, 0, 30, ['mackerel', 'horsemackerel']);
 }
 
 // The Coldwater's own fish, last of all (so no fish anywhere else moves): brown trout in every

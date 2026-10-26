@@ -14,6 +14,7 @@ import { withSurface } from './surface.js';
 import { buildShore, SHORE_PATCH } from './shore.js';
 import { buildRegions } from './regions.js';
 import { buildCoast } from './coast.js';
+import { buildDiveSites } from './divesiteWorld.js';
 import { buildHome, buildGravel } from './home.js';
 import { buildCalf } from './calf.js';
 import { SOUTH_Z, SOUTH_RECT } from './brasa.js';
@@ -266,6 +267,12 @@ export const TERRAIN_PATCHES = [
   // a finer grid over Puerto Brasa and its village.
   { id: 'brasa-w', x0: -760, x1: -140, z0: 5480, z1: 6600, cell: 4, jitter: 0.45, shadows: true, later: true },
   { id: 'brasa-e', x0: -140, x1: 760, z0: 5480, z1: 6600, cell: 4, jitter: 0.45, shadows: true, later: true, inner: { x0: -138, x1: 160, z0: 6180, z1: 6466 }, innerSub: 2 },
+  // The dive sites out on the coarse sheet (see divesites.js): Skerries Reef, the Hound and the
+  // Gannet Drop, Anchor Sands; in detail, so what lies on the bottom sits on it. (Added after the
+  // rest: the sheet still rolls its dice for their cells, so nothing else moves.)
+  { id: 'skerries', x0: -180, x1: -20, z0: 340, z1: 420, cell: 2.5, jitter: 0.5, shadows: true, later: true, added: true },
+  { id: 'hound', x0: -280, x1: -120, z0: 680, z1: 820, cell: 2.5, jitter: 0.4, shadows: false, later: true, added: true },
+  { id: 'sands', x0: 320, x1: 440, z0: 540, z1: 660, cell: 4, jitter: 0.4, shadows: false, later: true, added: true },
 ];
 const FAR_RECT = { x0: -1800, x1: 1500, z0: -2200, z1: 1800 };
 
@@ -301,7 +308,7 @@ const quad = (tri, i, j, A, B, D, E, shore) => {
   if ((i + j) % 2 === 0) { tri(...A, ...D, ...B, shore); tri(...B, ...D, ...E, shore); } else { tri(...A, ...D, ...E, shore); tri(...A, ...E, ...B, shore); }
 };
 const farH = (x, z) => heightAt(x, z);
-const inPatch = (cx, cz) => TERRAIN_PATCHES.some((p) => cx > p.x0 && cx < p.x1 && cz > p.z0 && cz < p.z1);
+const inPatch = (cx, cz) => TERRAIN_PATCHES.find((p) => cx > p.x0 && cx < p.x1 && cz > p.z0 && cz < p.z1);
 
 // The coarse sheet over a rectangle (all of FAR_RECT, with holes where the patches are; or just a
 // patch's own rectangle, as its stand-in).
@@ -314,7 +321,15 @@ function coarseMesh(habitat, rect, rnd, skipPatches, cell = FAR, hf = farH) {
   const v = (i, j) => [rect.x0 + i * cell, H[j * (nx + 1) + i], rect.z0 + j * cell];
   for (let j = 0; j < nz; j++) {
     for (let i = 0; i < nx; i++) {
-      if (skipPatches && inPatch(rect.x0 + (i + 0.5) * cell, rect.z0 + (j + 0.5) * cell)) continue;
+      const P = skipPatches && inPatch(rect.x0 + (i + 0.5) * cell, rect.z0 + (j + 0.5) * cell);
+      if (P) {
+        // (Two triangles' worth of dice, as if they'd been drawn.)
+        if (P.added) {
+          rnd();
+          rnd();
+        }
+        continue;
+      }
       quad(tri, i, j, v(i, j), v(i + 1, j), v(i, j + 1), v(i + 1, j + 1), false);
     }
   }
@@ -1125,6 +1140,8 @@ export function buildWorld(scene, renderer, habitat) {
   const calf = buildCalf(scene, seeded(20261024 + 77));
   for (const o of calf.obstacles) obstacles.add(o.x, o.z, o.r, o.top ?? Infinity, -Infinity, o.kind || 'thing', o.name || '');
   coast.spots.push(...calf.spots);
+  // The dive sites: the buoys over them, and what's down there (their own seed too).
+  const dives = buildDiveSites(scene, seeded(20261026));
   // Up the Coldwater: the bothy's door, the fingerpost and the cairn; the bothy's tackle shelf.
   coast.spots.push(...fell.spots);
   regions.boxes.push(...fell.boxes);
@@ -1205,6 +1222,7 @@ export function buildWorld(scene, renderer, habitat) {
     home,
     calf,
     fell,
+    dives,
     // Birds over feeding fish: a flock gathers over (x, z) for a while (or freshens if one is there).
     birdsAt(x, z) {
       const near = flocks.find((f) => Math.hypot(f.x - x, f.z - z) < 40);
@@ -1241,6 +1259,7 @@ export function buildWorld(scene, renderer, habitat) {
     setQuality(q) {
       quality = q;
       shore.setQuality(q);
+      dives.setQuality(q);
       brasa?.setQuality(q);
     },
     set drawDistance(d) { drawDistance = d; },
@@ -1288,6 +1307,7 @@ export function buildWorld(scene, renderer, habitat) {
       coast.update(dt, t, env);
       if (brasa) brasa.update(dt, t, env);
       if (extra.camera) calf.update(dt, t, { from: extra.camera.position });
+      dives.update(dt, t, extra.camera);
       fireflies.material.uniforms.uOpacity.value = env.night * (1 - env.rain * 0.8);
 
       const lamp = env.lantern;

@@ -17,6 +17,8 @@ import { createHabitat } from './world/habitat.js';
 import { Ecosystem } from './world/ecosystem.js';
 import { FishRenderer } from './world/fishRender.js';
 import { Underwater } from './world/underwater.js';
+import { Seabed } from './world/seabed.js';
+import { siteAt, pushOut } from './world/divesites.js';
 import { Reflection, RippleField, NO_REFLECT, hideFromReflection } from './world/waterfx.js';
 import { createMist } from './world/mist.js';
 import { surfaceUniforms } from './world/surface.js';
@@ -61,7 +63,7 @@ import { HarbourSheet, paintSlate } from './harbourView.js';
 import { Townsfolk, FOLK, sayTo } from './townsfolk.js';
 import { requestById, businessWith, accept as acceptFavour, decline as declineFavour, complete as completeFavour, caught as favourCaught, saw as favourSaw, photographed as favourPhotographed, buoyAt, pickUpBuoy, fishFor, remember, cleanFavours } from './requests.js';
 import { lower } from './innTalk.js';
-import { tideAt, tideWords } from './world/tide.js';
+import { tideAt, tideWords, turns } from './world/tide.js';
 import { seasonOf, seasonWords, sunTimes, sunHour, seasonWarmth, riverFlow, leafTint, seasonLine } from './world/season.js';
 import { galeSky, galeNear, hoursToGale, outlook } from './world/forecast.js';
 import { FolkView } from './world/folk.js';
@@ -90,7 +92,7 @@ import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality
 import { Post } from './post.js';
 import { Diver, Shot, buildGun } from './diver.js';
 import { stepComfort, effectsOf, needsOf, dressFor, drink as drinkFrom, refill, eatRoll, packRolls, mealDrink, CLOTHES, CLOTHES_IDS, BOTTLE, ROLLS, feelsLike } from './comfort.js';
-import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance } from './dive.js';
+import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance, logSite } from './dive.js';
 import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick, seeded } from './util.js';
 
 const HOUR_SECONDS = 40; // one in-game hour lasts 40 real seconds
@@ -295,6 +297,8 @@ for (const c of state.camps) {
 siteWorld.ignore = null;
 refreshCamps();
 const underwater = new Underwater(scene, habitat, $('underwater-tint'));
+// The small life of the seabed, laid out round you while you're under (see seabed.js).
+const seabed = new Seabed(scene, habitat);
 const eco = new Ecosystem(habitat);
 const fishRenderer = new FishRenderer(scene, eco);
 const fx = new Effects(scene);
@@ -633,6 +637,7 @@ function showControls() {
     : 'getGamepads' in navigator && scheme() === 'keys' ? 'Got a controller? Press any button on it.' : '';
 }
 const rig = new CameraRig(camera);
+rig.solid = pushOut;
 const rodView = new RodView();
 const finder = new FishFinder(eco, habitat, state);
 
@@ -1991,6 +1996,7 @@ function board(target = boatNear() || boat) {
 // out of the boat (onFoot, your figure put away) and the diver is you: where you look is where
 // you swim. Back at the surface, climb aboard, up onto a jetty, or wade ashore.
 const diver = new Diver(scene);
+diver.solid = pushOut;
 const shot = new Shot(scene, new Rope(scene, { segments: 10, radius: 0.0035, color: '#e9e4d6' }));
 const fpGun = buildGun();
 fpGun.scale.setScalar(0.85);
@@ -2110,7 +2116,7 @@ function endDive(to = null, quiet = false) {
   if (!quiet) {
     const mins = Math.max(1, Math.round(d.t / 60));
     const fish = d.catches.length ? ` · ${d.catches.join(', ')}` : '';
-    hud.toast(`${d.kit === 'free' ? 'Freedive' : 'Scuba dive'}: ${mins} min in the water, down to ${d.maxDepth.toFixed(1)} m${d.kit === 'free' && d.longest > 5 ? `, longest breath-hold ${Math.round(d.longest)} s` : ''}${d.kit === 'scuba' ? `, ${Math.round(S.tank)} bar left` : ''}${fish}.`, 6);
+    hud.toast(`${d.kit === 'free' ? 'Freedive' : 'Scuba dive'}${d.site ? ` at ${d.site.name.replace(/^The /, 'the ')}` : ''}: ${mins} min in the water, down to ${d.maxDepth.toFixed(1)} m${d.kit === 'free' && d.longest > 5 ? `, longest breath-hold ${Math.round(d.longest)} s` : ''}${d.kit === 'scuba' ? `, ${Math.round(S.tank)} bar left` : ''}${fish}.`, 6);
   }
   save();
 }
@@ -2179,6 +2185,7 @@ function updateDive(dt) {
   d.lastY = D.pos.y;
   if (d.kit === 'free') freediveStep(dt, depth, surf);
   else scubaStep(dt, depth, surf);
+  diveSiteStep(depth);
   // (The fish reckon heights from their own water's surface.)
   Object.assign(diverCtx, { x: D.pos.x, y: D.pos.y - waterLevel(D.pos.x, D.pos.z), z: D.pos.z, vx: D.vel.x, vy: D.vel.y, vz: D.vel.z, speed: D.speed, kicking: D.kicking, still: D.still });
   // (Where "you" are, for the markers, the map and the places you pass.)
@@ -2192,6 +2199,29 @@ function updateDive(dt) {
   diveVeil.style.setProperty('--low', low.toFixed(3));
   diveVeil.style.setProperty('--black', clamp(d.blackT > 0 ? Math.min(1, d.blackT) : 0, 0, 1).toFixed(3));
   audio.heart?.(low);
+}
+
+// At a dive site: the first time you're down there, what it is (and, at the Hound, what the tide's
+// doing: it runs hard over it); every dive there goes in the log, and the deepest you've been.
+function diveSiteStep(depth) {
+  const d = dive, P = diver.pos;
+  if (depth < 2.5) return;
+  const S = d.site || siteAt(P.x, P.z);
+  if (!S) return;
+  if (!d.site) {
+    d.site = S;
+    const first = logSite(state.dive, S.id, state.day, depth);
+    hud.place(S.name, S.sub);
+    if (first) {
+      audio.chime();
+      const c = currentAt(S.x, S.z, 0), slack = turns(state.day * 24 + state.hour, 1)[0];
+      const tide = S.id === 'hound' ? (Math.hypot(c.x, c.z) > 0.18 ? ` The tide’s running across it: hard work down here. Slack water about ${formatClock(slack.at % 24)}.` : ' The tide’s slack: a good time to be here.') : '';
+      hud.toast(`${S.first}${tide}`, 10);
+      hud.pulseJournal();
+    }
+  }
+  const rec = state.dive.sites[S.id];
+  if (rec && depth > rec.deepest && Math.hypot(P.x - S.x, P.z - S.z) < S.r + 12) rec.deepest = Math.round(depth * 10) / 10;
 }
 
 function freediveStep(dt, depth, surf) {
@@ -4822,6 +4852,8 @@ function checkPlaces(dt) {
     if (pl.id === 'puffin') teach('puffinTip', 'Puffin Cove: a sheltered camp with a tackle box. After dark, squid gather under the lamp light; wrasse live in the kelp by the rocks.', 8);
     if (pl.id === 'deep') teach('deepTip', 'The Blue Water. Watch for seabirds diving and the sea boiling white: tuna chase the sprat shoals out here.', 8);
     if (pl.id === 'bajon') teach('bajonTip', `El Bajón: lava pinnacles from twenty metres down to three, the shallowest under the yellow buoy. Look down from a boat in this clear water, or dive it (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} over deep water with the boat stopped): sea fans, sponges and orange sun coral, parrotfish and ornate wrasse over the tops, triggerfish, morays in the cracks, a grouper in the cave at its foot, barracuda hanging over it.`, 12);
+    if (pl.dive && pl.id !== 'wreck') teach('diveSiteTip', `${pl.name}: a dive site, under the yellow buoy. Stop the boat close by, drop the anchor and go in (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} with the boat stopped over deep water): on a tank you can stay down and look round, on one breath it’s a quick look. Every site you dive goes on your map with a tick.`, 11);
+    if (pl.id === 'hound') teach('houndTip', 'The Hound: ten metres down at its top, thirty at its foot. Dive it on a tank, at slack water (the tides are on the notice board: high and low water are slack), and watch your air: at thirty metres it goes three times as fast as at the surface.', 11);
     if (pl.id === 'haven') teach('havenTip', `Willowhaven: read the notice board for what’s about today, find all your tackle in the chandlery, sit on the bench a while, or have a boat brought round to the quay (${scheme() === 'touch' ? 'tap the prompts' : input.keyLabel('interact')}).`, 10);
     if (pl.id === 'strand') teach('strandTip', 'Shell Strand: bass come into the surf at dusk, and flatfish up the sand after dark. The shelf above the beach is a dry, level place for a tent.', 9);
     if (pl.id === 'head') teach('headTip', 'Cove Head takes the swell: bass and white bream in the wash below the ledges. You can see the Kittiwake’s buoy from the daymark.', 8);
@@ -7115,6 +7147,7 @@ function tick(now, manual = false) {
   postLook.under = sub;
   audio.setUnderwater(sub);
   underwater.update(dt, t, camera, env, weather.rain);
+  seabed.update(camera, sub);
   fishRenderer.update(dt, camera, env.night, sub > 0.5);
   updateWind(dt * Math.min(speed, 10));
   world.update(dt, t, env, { fireLevel: camp.fireLevel, hatchLevel: hatchLevel(), hour: state.hour, wind: 0.5 + Math.min(1, windAt(camera.position.x, camera.position.z).speed / FRESH) * 1.3, camera, fog: scene.fog.color, hurry: !!(traveling || sleeping) });

@@ -257,6 +257,18 @@ You swim where you look: **W/S** forward and back, **A/D** turn, drag to look al
 
 **The Kittiwake's bell.** A card on the notice board: her bell lies in the sand by her bow, nine metres down. Dive to her (on one breath, or a tank), photograph the bell and leave it where it lies.
 
+**Dive sites.** Five places on the home coast are worth going down at, each different, each with a landmark to find and fish of its own (they go on the map as a red diver-down flag when you pass over them, with a tick once you've dived them; the yellow buoys show you where):
+
+| Site | Depth | What's down there |
+|---|---|---|
+| **Skerries Reef**, south-west of the Skerries | 3–9 m | Boulders and gullies, kelp on their tops, and a **rock arch you can swim through**. Wrasse, pollack, black bream, salema and an octopus; jewel and dahlia anemones, urchins, starfish, a lobster at the arch's foot. |
+| **The Kelp Forest**, off Gannet Isle's west shore | 4–10 m | Tall kelp standing like trees, streaming with the tide, red weed under it. Pollack among the stalks, cuttlefish, bream and bogue; a **big boulder in a clearing** with a lost lobster pot against it. |
+| **The Kittiwake**, off Shell Strand | 8–10 m | The wooden drifter, her boiler now grown over with plumose anemones and dead man's fingers, a lobster in its mouth; a conger, pollack and a shoal of bogue. |
+| **Anchor Sands**, south of Long Shoal | about 17 m | Open sand rippled by the tide, and an **old Admiralty anchor** with its chain. Plaice, turbot and sole lie in the sand, gurnards walk it, cuttlefish hunt it; burrowing anemones and sea pens stand up out of it. |
+| **The Hound**, beyond Gannet Light | 10–30 m | A **rock pinnacle** standing from the seabed at thirty metres to ten, with its little Pup beside it, at the foot of the Gannet Drop. Pink sea fans and sheets of jewel anemones down its walls, dead man's fingers and plumose anemones on its ledges, kelp on its top; pollack hanging off it right down, conger, red porgy and dentex at its foot, mackerel and scad over it. The tide runs hard across it: **dive it at slack water** (high or low water, on the notice board), on a full tank. The fish finder shows its top under you. |
+
+You can't swim through the rock (the Hound, the arch's piers, the boulders), but you can swim under the arch. The first time you're down at a site a note tells you what it is; your journal keeps how often you've dived each and the deepest you've been there. And wherever you dive, the seabed is never bare: shells and scallops, starfish and brittlestars, hermit crabs, worm casts, burrowing anemones and sea pens deeper down, urchins and anemones on the rock, stones and mussels in fresh water.
+
 ### Bite alerts
 
 Alerts are gentle and never repeat: a nibble on a float is silent, a strike-worthy bite rings a soft bell once (**Bite — strike!**), a carp or a lure fish that has hooked itself rings a three-note bell (**Fish on!**). The bite-alert bell has its own volume in Settings, and the master mute silences it like everything else. The camera never jumps on a bite or a hooked fish.
@@ -785,6 +797,9 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 | `src/world/habitat.js` | The underwater map shared by everything below the surface: depth, weed beds, rock piles, kelp and reefs, the stream's current, and the homes fish live around, for the home waters and each region |
 | `src/world/ecosystem.js` | Every fish in the world: schooling, cruising, feeding, resting, fleeing, rising and jumping, and how each one judges and takes a rig (nibbling, following, ambushing, rising, grazing, running). Fixed 30 Hz simulation, slower far away |
 | `src/world/fishRender.js` | Draws the ecosystem's fish (a near and a far instanced draw per species, skipped when none are in view) with their swimming motion |
+| `src/world/divesites.js` | The dive sites: where they are, the Hound's shape, the solid rock a diver and the sites' fish keep out of |
+| `src/world/divesiteWorld.js` | What the dive sites look like: the buoys, the arch and boulders, the kelp forest, the anchor and its chain, the Hound and the life on it |
+| `src/world/seabed.js` | The small life of the seabed, laid out round you while you're under the water |
 | `src/world/underwater.js` | Weed beds, submerged rocks, particles, light shafts, bubbles, and the colour, haze and sound blend as the camera crosses the waterline |
 | `src/world/caustics.js` | Dancing light on the seabed and rocks |
 | `src/world/world.js` | Terrain mesh (with a finer patch over the west shore), trees, rocks, jetty, cove props, Gull Rock, gulls, fireflies, and the obstacles you bump into on foot |

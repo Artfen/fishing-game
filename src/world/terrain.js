@@ -176,6 +176,15 @@ export const PUNT = { x: 124, z: -31, yaw: 0.6 };              // an old punt pu
 export const SHELTER = { x: 90, z: 24, yaw: -0.4 };            // a driftwood shelter on the strand
 export const WRECK = { x: 92, z: 76, yaw: 0.95, len: 22, beam: 5.6 };
 export const WRECK_BUOY = { x: 99, z: 68 };
+// The dive sites, besides the Kittiwake (see divesites.js): Skerries Reef, the Kelp Forest off
+// Gannet Isle, Anchor Sands south of Long Shoal, and the Hound, a pinnacle beyond Gannet Light;
+// each with a yellow buoy over it.
+export const DIVE_MARKS = {
+  reef: { x: -128, z: 378, buoy: { x: -122, z: 371 } },
+  kelp: { x: -354, z: 562, buoy: { x: -364, z: 556 } },
+  sands: { x: 372, z: 604, buoy: { x: 378, z: 598 } },
+  hound: { x: -196, z: 744, buoy: { x: -190, z: 738 } },
+};
 // Her bell, fallen from the wheelhouse onto the sand by her bow (for divers to find, and leave).
 export const WRECK_BELL = {
   x: WRECK.x + 0.9 * Math.cos(WRECK.yaw) + (WRECK.len / 2 + 1.4) * Math.sin(WRECK.yaw),
@@ -272,9 +281,12 @@ export function landSDF(x, z) {
   // Gannet Isle, with Puffin Cove cut into its north side.
   if (Math.abs(x - GANNET.x) < 160 && Math.abs(z - GANNET.z) < 160) {
     const ng = fbm(x * 0.05 + 11, z * 0.05 - 4, 3);
-    d = smin(d, sdEllipse(x, z, GANNET.x, GANNET.z, GANNET.r, GANNET.r * 0.78) + ng * 10 + n2 * 3, 10);
-    d = smax(d, -(sdCircle(x, z, PUFFIN_COVE.x, PUFFIN_COVE.z, PUFFIN_COVE.r) + n2 * 2), 8);
-    d = smax(d, -sdCapsule(x, z, PUFFIN_COVE.x, PUFFIN_COVE.z, PUFFIN_COVE.x + 8, PUFFIN_COVE.z - 60, 9 + n2 * 2), 6);
+    let g = smin(d, sdEllipse(x, z, GANNET.x, GANNET.z, GANNET.r, GANNET.r * 0.78) + ng * 10 + n2 * 3, 10);
+    g = smax(g, -(sdCircle(x, z, PUFFIN_COVE.x, PUFFIN_COVE.z, PUFFIN_COVE.r) + n2 * 2), 8);
+    g = smax(g, -sdCapsule(x, z, PUFFIN_COVE.x, PUFFIN_COVE.z, PUFFIN_COVE.x + 8, PUFFIN_COVE.z - 60, 9 + n2 * 2), 6);
+    // (Eased out over the last twenty metres to the south, so the shelf round the island goes
+    // down to the deep water there in a steep slope, the Gannet Drop, not a sheer step.)
+    d = lerp(d, g, smoothstep(GANNET.z + 160, GANNET.z + 140, z));
   }
   for (const s of SKERRIES) d = smin(d, sdCircle(x, z, s.x, s.z, s.r) + n2 * 1.8, 2);
   // The Calf and its skerry, and Calf Sound kept open between it and the Point (whatever the
@@ -1102,7 +1114,7 @@ export const PLACES = [
     test: (x, z) => Math.hypot(x - STRAND.x, z - STRAND.z) < 24,
   },
   {
-    id: 'wreck', name: 'The Kittiwake', sub: 'a wreck on the reef, under a black and red buoy',
+    id: 'wreck', name: 'The Kittiwake', sub: 'a wreck on the reef, under a black and red buoy', dive: true,
     note: 'A wooden steam drifter that went down on the reef south of Shell Strand, nine or ten metres down. A conger lives in her hull; pollack and wrasse hang over her, and red porgy and pandora feed round her.',
     x: WRECK.x, z: WRECK.z,
     test: (x, z) => Math.hypot(x - WRECK.x, z - WRECK.z) < 30,
@@ -1178,6 +1190,31 @@ export const PLACES = [
     note: 'Only a few metres deep, far from any shore. Plaice on the sand, and mackerel shoals that birds give away.',
     x: SHOAL.x, z: SHOAL.z, region: 'coast',
     test: (x, z) => Math.hypot((x - SHOAL.x) / SHOAL.rx, (z - SHOAL.z) / SHOAL.rz) < 1.4,
+  },
+  // The dive sites, each under a yellow buoy (see divesites.js).
+  {
+    id: 'reef', name: 'Skerries Reef', sub: 'a shallow reef, an arch to swim through', dive: true,
+    note: 'A shallow reef on the south-west side of the Skerries, three to nine metres down: boulders and gullies, kelp on their tops, and a rock arch you can swim through. Wrasse and pollack over it, black bream on the rocks, an octopus in the cracks; jewel anemones, urchins and starfish everywhere. Under a yellow buoy.',
+    x: DIVE_MARKS.reef.x, z: DIVE_MARKS.reef.z, region: 'coast',
+    test: (x, z) => Math.hypot(x - DIVE_MARKS.reef.x, z - DIVE_MARKS.reef.z) < 24,
+  },
+  {
+    id: 'kelp', name: 'The Kelp Forest', sub: 'tall kelp off Gannet Isle’s west shore', dive: true,
+    note: 'Off Gannet Isle’s west shore, five to ten metres down, the kelp grows tall enough to swim between its stalks like trees, the light coming down green. Pollack hang among them, cuttlefish and black bream on the floor; a big boulder stands in a clearing, with a lost lobster pot against it. Under a yellow buoy.',
+    x: DIVE_MARKS.kelp.x, z: DIVE_MARKS.kelp.z, region: 'coast',
+    test: (x, z) => Math.hypot(x - DIVE_MARKS.kelp.x, z - DIVE_MARKS.kelp.z) < 26,
+  },
+  {
+    id: 'sands', name: 'Anchor Sands', sub: 'open sand, and an old anchor', dive: true,
+    note: 'Open sand south of Long Shoal, seventeen metres down, rippled by the tide: it looks empty until you look closely. Plaice, turbot and sole lie in it, gurnards walk over it, cuttlefish hunt it; burrowing anemones and sea pens stand up out of it. An old Admiralty anchor lies there with its chain. Under a yellow buoy.',
+    x: DIVE_MARKS.sands.x, z: DIVE_MARKS.sands.z, region: 'coast',
+    test: (x, z) => Math.hypot(x - DIVE_MARKS.sands.x, z - DIVE_MARKS.sands.z) < 26,
+  },
+  {
+    id: 'hound', name: 'The Hound', sub: 'a pinnacle in thirty metres, beyond Gannet Light', dive: true,
+    note: 'A rock pinnacle standing from thirty metres up to ten, at the foot of the Gannet Drop, with its little Pup beside it. Pink sea fans and jewel anemones on its walls, dead man’s fingers and plumose anemones on its ledges, kelp on its top. Pollack hang off it right down, conger and red porgy live at its foot, mackerel pass over it. The tide runs hard across it: dive it at slack water, on a tank. Under a yellow buoy.',
+    x: DIVE_MARKS.hound.x, z: DIVE_MARKS.hound.z, region: 'coast',
+    test: (x, z) => Math.hypot(x - DIVE_MARKS.hound.x, z - DIVE_MARKS.hound.z) < 30,
   },
   {
     id: 'skellig', name: 'Little Skellig', sub: 'a lone rock out in the tide',

@@ -1,4 +1,5 @@
 import { clamp } from './util.js';
+import { rockTopAt } from './world/divesites.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -169,6 +170,13 @@ export class FishFinder {
     }
     const x = src.x, z = src.z;
     const s = this.habitat.sample(x, z, this.sample);
+    // (Over the Hound, the pinnacle's rock comes up under you: hard bottom, ten metres down.)
+    const top = rockTopAt(x, z);
+    if (top != null && -top < s.depth) {
+      s.depth = -top;
+      s.rock = 1;
+      s.weed = 0;
+    }
     const raw = this.eco.queryCone(x, z, CONE, []);
     // Echoes, not fish: small or off-centre ones are sometimes missed, depths wobble a little.
     const echoes = [];

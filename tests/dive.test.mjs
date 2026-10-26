@@ -238,10 +238,10 @@ test('the Kittiwake’s bell lies on the sand by her bow, and photographing it f
 test('a dive’s catches and records survive a save; old saves start with a full tank', async () => {
   const S = await freshSave();
   const s = S.sanitize({
-    dive: { tank: 123.4, dives: 7, deepest: 12.3, longest: 48, speared: 2, blackouts: 1 },
+    dive: { tank: 123.4, dives: 7, deepest: 12.3, longest: 48, speared: 2, blackouts: 1, sites: { hound: { first: 3, dives: 2, deepest: 24.5 } } },
     log: [{ id: 'c1', sp: 'redporgy', size: 43, kind: 'spear', rod: 'speargun', from: 'dive', outcome: 'kept', depth: 7.7, bottom: 8.6 }],
   });
-  assert.deepEqual(s.dive, { tank: 123.4, dives: 7, deepest: 12.3, longest: 48, speared: 2, blackouts: 1 });
+  assert.deepEqual(s.dive, { tank: 123.4, dives: 7, deepest: 12.3, longest: 48, speared: 2, blackouts: 1, sites: { hound: { first: 3, dives: 2, deepest: 24.5 } } });
   const e = s.log[0];
   assert.equal(e.kind, 'spear');
   assert.equal(e.rod, 'speargun');
@@ -249,7 +249,7 @@ test('a dive’s catches and records survive a save; old saves start with a full
   assert.equal(e.outcome, 'kept');
   assert.equal(KIND_NAMES.spear, 'Spearfishing');
   // Junk is cleaned; an older save (no dive record) starts with a full tank.
-  assert.deepEqual(S.sanitize({ dive: { tank: 9e9, dives: -3, deepest: 'deep' } }).dive, { tank: V.SCUBA.full, dives: 0, deepest: 0, longest: 0, speared: 0, blackouts: 0 });
+  assert.deepEqual(S.sanitize({ dive: { tank: 9e9, dives: -3, deepest: 'deep' } }).dive, { tank: V.SCUBA.full, dives: 0, deepest: 0, longest: 0, speared: 0, blackouts: 0, sites: {} });
   assert.equal(S.sanitize({}).dive.tank, V.SCUBA.full);
   // A photograph of the bell keeps it.
   const p = S.sanitize({ photos: [{ id: 'p1abc', subjects: { species: [], places: ['wreck'], bell: true } }] }).photos[0];

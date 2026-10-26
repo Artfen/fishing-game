@@ -22,7 +22,7 @@ const _look = new THREE.Vector3();
 const _fogC = new THREE.Color();
 const _c = new THREE.Color();
 
-function plantMaterial() {
+export function plantMaterial() {
   const m = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = shared.uTime;
@@ -42,7 +42,7 @@ function plantMaterial() {
 }
 
 // A clump of thin, gently curving blades about one unit tall.
-function bladeClump(rnd, blades, width, lean, baseHex, tipHex) {
+export function bladeClump(rnd, blades, width, lean, baseHex, tipHex) {
   const pos = [], col = [];
   const base = new THREE.Color(baseHex), tip = new THREE.Color(tipHex);
   for (let b = 0; b < blades; b++) {

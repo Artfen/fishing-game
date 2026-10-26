@@ -200,7 +200,7 @@ function urchinGeometry() {
 }
 // A sea fan (a gorgonian): a flat fan of branches forking from a short stem, about two thirds of a
 // metre tall at scale 1, in the x-y plane (it stands across the current). White: each is tinted.
-function fanGeometry(rnd, depth = 5) {
+export function fanGeometry(rnd, depth = 5) {
   const pos = [];
   const strip = (x0, y0, x1, y1, w) => {
     const L = Math.hypot(x1 - x0, y1 - y0) || 1, nx = (-(y1 - y0) / L) * w, ny = ((x1 - x0) / L) * w;
@@ -245,7 +245,7 @@ function sunCoralGeometry(rnd) {
   return mergeParts(parts, rnd);
 }
 // An anemone: a short column and a ring of tentacles.
-function anemoneGeometry() {
+export function anemoneGeometry() {
   const parts = [{ geo: new THREE.CylinderGeometry(0.05, 0.07, 0.1, 8), matrix: mat(0, 0.05, 0), color: '#e8d6cc' }];
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);

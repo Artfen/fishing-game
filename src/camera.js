@@ -36,6 +36,7 @@ const ABOVE = 0.6, BELOW = 0.4;
 const EYE_PITCH = 0.2; // looking a little down at the water when you first raise your eyes
 
 const _f = new THREE.Vector3();
+const _rock = { x: 0, y: 0, z: 0 };
 const _look = new THREE.Vector3();
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -59,6 +60,9 @@ export class CameraRig {
     };
     // The diver, while you're in the water (null otherwise).
     this.diver = null;
+    // Solid rock under the water, besides the seabed (the dive sites' pinnacle, arch and boulders:
+    // see world/divesites.js): (point, pad) => true if it had to push the point out.
+    this.solid = null;
     // Inside the cabin boat's cabin: where to look (set by the game), and whether you're in.
     this.inCabin = false;
     this.cabinFocus = new THREE.Vector3();
@@ -302,7 +306,7 @@ export class CameraRig {
     for (let i = 1; i <= steps; i++) {
       const k = i / steps;
       const x = lerp(this.focus.x, cx, k), y = lerp(this.focus.y, cy, k), z = lerp(this.focus.z, cz, k);
-      if (y < heightAt(x, z) + 0.45) {
+      if (y < heightAt(x, z) + 0.45 || (this.diver && this.solid && this.solid(Object.assign(_rock, { x, y, z }), 0.3))) {
         cx = px;
         cy = py;
         cz = pz;

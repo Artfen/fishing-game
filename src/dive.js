@@ -166,10 +166,18 @@ export function tearChance(quality, sp, size) {
 
 /* ---------------- the save ---------------- */
 
-// state.dive: the tank (bar) and a few records for the journal.
+// state.dive: the tank (bar) and a few records for the journal; and the dive sites you've been
+// down at (see world/divesites.js): { id: { first (day), dives, deepest (m) } }.
 export function cleanDive(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
   const n = (v, d, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? clamp(v, lo, hi) : d);
+  const sites = {};
+  if (r.sites && typeof r.sites === 'object') {
+    for (const [id, v] of Object.entries(r.sites).slice(0, 24)) {
+      if (!/^[a-z]{2,12}$/.test(id) || !v || typeof v !== 'object') continue;
+      sites[id] = { first: Math.round(n(v.first, 1, 1, 1e6)), dives: Math.round(n(v.dives, 1, 0, 1e6)), deepest: n(v.deepest, 0, 0, 100) };
+    }
+  }
   return {
     tank: n(r.tank, SCUBA.full, 0, SCUBA.full),
     dives: Math.round(n(r.dives, 0, 0, 1e6)),
@@ -177,5 +185,14 @@ export function cleanDive(raw) {
     longest: n(r.longest, 0, 0, 1000),
     speared: Math.round(n(r.speared, 0, 0, 1e6)),
     blackouts: Math.round(n(r.blackouts, 0, 0, 1e6)),
+    sites,
   };
+}
+// A dive at a site, into the log: the first time, and how deep you went there.
+export function logSite(dive, id, day, depth) {
+  const s = dive.sites[id] || (dive.sites[id] = { first: day, dives: 0, deepest: 0 });
+  const first = s.dives === 0;
+  s.dives++;
+  s.deepest = Math.max(s.deepest, Math.round(depth * 10) / 10);
+  return first;
 }

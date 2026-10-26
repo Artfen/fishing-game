@@ -238,6 +238,11 @@ export class Diver {
       V.y = Math.max(V.y, 0);
     }
     P.y = ny;
+    // Out of the rock of the dive sites (the Hound, the arch on Skerries Reef, the boulders).
+    if (this.solid && this.solid(P, 0.45)) {
+      V.multiplyScalar(0.7);
+      P.y = Math.max(P.y, heightAt(P.x, P.z) + CLEAR);
+    }
     // Keep out of the boats' hulls.
     for (const b of boats) {
       if (!b?.hull || P.y < -(b.hull.draft + 0.5)) continue;

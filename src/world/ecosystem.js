@@ -2,6 +2,7 @@ import { FISH } from '../fish.js';
 import { currentFast, currentAt, waveHeightHere } from './conditions.js';
 import { traits, mood, whyRejected, BEHAVIOUR } from '../behaviour.js';
 import { zoneAt } from './terrain.js';
+import { pushOut } from './divesites.js';
 import { tideBoost } from './tide.js';
 import { seasonBoost } from './season.js';
 import { blowFactor } from './forecast.js';
@@ -22,6 +23,7 @@ const BAIT_STATES = new Set(['approach', 'investigate', 'nibble', 'bite', 'follo
 const WINDOWS = { strike: 1.15, sip: 1.0, take: 1.35, run: 4.2, tap: 0.7 };
 const _f = { x: 0, z: 0 };
 const _s = {};
+const _rp = { x: 0, y: 0, z: 0 }, _tp = { x: 0, y: 0, z: 0 };
 const _g = { x: 0, z: 0 };
 const _cur = { x: 0, z: 0 };
 
@@ -68,6 +70,9 @@ export class Ecosystem {
       towed: false, // trolled behind a moving boat (it raises the big game from far off)
     };
     this.listener = {};
+    // Solid rock besides the seabed, for the dive sites' fish to keep out of (the Hound, the arch
+    // on Skerries Reef, the boulders): (point, pad) => true if it pushed the point out.
+    this.solid = pushOut;
     this.populate();
   }
 
@@ -114,6 +119,7 @@ export class Ecosystem {
     // A few homes keep fish of their own (the Calf's race and reefs, see habitat.js): a school or
     // a group of each species they host, on top of the rest, each with its own seed.
     this.habitat.spots.forEach((home, h) => {
+      if (home.site) return; // (the dive sites': last of all, below)
       for (const id of home.hosts || []) {
         const i = FISH.findIndex((f) => f.id === id), sp = FISH[i];
         if (!sp || sp.retired || !sp.life.homes.includes(home.type) || !sp.life.zones.includes(home.zone)) continue;
@@ -157,6 +163,40 @@ export class Ecosystem {
         }
       }
     });
+    // The dive sites' own fish (see divesites.js), after everything else, so nobody moves: a school
+    // or a group of each kind each of their homes hosts, each with a seed of its own.
+    this.habitat.spots.forEach((home, h) => {
+      if (!home.site) return;
+      for (const id of home.hosts || []) {
+        const i = FISH.findIndex((f) => f.id === id), sp = FISH[i];
+        if (!sp || sp.retired || !sp.life.homes.includes(home.type) || !sp.life.zones.includes(home.zone)) continue;
+        rnd = seeded(91919 + i * 1013 + h * 7);
+        const L = sp.life;
+        if (L.school) this.addSchool(sp, home, rnd);
+        else {
+          const n = L.group[0] + Math.floor(rnd() * (L.group[1] - L.group[0] + 1));
+          for (let k = 0; k < n; k++) this.addAgent(sp, home, rnd);
+        }
+      }
+    });
+  }
+
+  // The depths a fish keeps to: its kind's, unless its home takes it deeper (the Hound's fish
+  // hang off the pinnacle right down to its foot).
+  bandOf(a) {
+    const b = a.L.depth(this.ctx);
+    return a.home.down ? [b[0], Math.max(b[1], a.home.down)] : b;
+  }
+  // Out of the rock of a dive site (the pinnacle, the arch, the boulders): a hook the world sets.
+  clearOfRock(a, p) {
+    if (!a.home.site || !this.solid) return;
+    _rp.x = p.x;
+    _rp.y = p.y;
+    _rp.z = p.z;
+    if (!this.solid(_rp, 0.5)) return;
+    p.x = _rp.x;
+    p.y = Math.min(_rp.y, -0.3);
+    p.z = _rp.z;
   }
 
   addAgent(sp, home, rnd, school = null) {
@@ -179,9 +219,15 @@ export class Ecosystem {
       a.x = home.x;
       a.z = home.z;
     }
-    const band = L.depth(this.ctx);
+    const band = home.down ? [L.depth(this.ctx)[0], Math.max(L.depth(this.ctx)[1], home.down)] : L.depth(this.ctx);
     const depth = Math.max(this.habitat.depth(a.x, a.z), 0.8);
     a.y = -clamp(lerp(band[0], band[1], rnd()), 0.3, depth - 0.3);
+    if (home.site && this.solid) {
+      _rp.x = a.x;
+      _rp.y = a.y;
+      _rp.z = a.z;
+      if (this.solid(_rp, 0.5)) Object.assign(a, { x: _rp.x, y: Math.min(_rp.y, -0.3), z: _rp.z });
+    }
     a.tx = a.x;
     a.ty = a.y;
     a.tz = a.z;
@@ -236,7 +282,7 @@ export class Ecosystem {
       a.faceBait = false;
       if (a.school) a.state = 'school';
       else this.decide(a);
-      const band = a.L.depth(this.ctx);
+      const band = this.bandOf(a);
       const depth = Math.max(this.habitat.depth(a.x, a.z), 0.8);
       a.y = a.py = -clamp(lerp(band[0], band[1], Math.random()), 0.3, depth - 0.3);
     }
@@ -427,7 +473,7 @@ export class Ecosystem {
   // Choose somewhere to go within the fish's home range, preferring cover for resting and feeding.
   pickPoint(a, mode) {
     const L = a.L, home = a.home, R = home.r * (L.range || 1);
-    const band = L.depth(this.ctx);
+    const band = this.bandOf(a);
     let bx = home.x, bz = home.z, bd = Math.max(this.habitat.depth(home.x, home.z), 0.8), best = -Infinity;
     for (let i = 0; i < 8; i++) {
       const ang = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * R;
@@ -457,6 +503,15 @@ export class Ecosystem {
     a.tx = bx;
     a.ty = y;
     a.tz = bz;
+    if (home.site) {
+      _tp.x = bx;
+      _tp.y = y;
+      _tp.z = bz;
+      this.clearOfRock(a, _tp);
+      a.tx = _tp.x;
+      a.ty = _tp.y;
+      a.tz = _tp.z;
+    }
   }
 
   feed(a, h) {

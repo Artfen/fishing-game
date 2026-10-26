@@ -798,6 +798,20 @@ export class MapSheet {
         ctx.fillStyle = '#a77746';
         ctx.fillRect(x - 8 * s, y - 2.5 * s, 16 * s, 5 * s);
         ctx.strokeRect(x - 8 * s, y - 2.5 * s, 16 * s, 5 * s);
+      } else if (p.dive) {
+        // A dive site: a diver-down flag (red, a white stripe across) on a short pole.
+        ctx.beginPath();
+        ctx.moveTo(x - 5 * s, y + 6 * s);
+        ctx.lineTo(x - 5 * s, y - 8 * s);
+        ctx.stroke();
+        ctx.fillStyle = '#c23b2e';
+        ctx.fillRect(x - 5 * s, y - 8 * s, 11 * s, 8 * s);
+        ctx.strokeStyle = '#f4efe6';
+        ctx.lineWidth = 1.8 * s;
+        ctx.beginPath();
+        ctx.moveTo(x - 5 * s, y - 8 * s);
+        ctx.lineTo(x + 6 * s, y);
+        ctx.stroke();
       } else {
         ctx.beginPath();
         ctx.moveTo(x - 5 * s, y - 5 * s);
@@ -807,7 +821,8 @@ export class MapSheet {
         ctx.stroke();
       }
       ctx.restore();
-      this.label(ctx, p.name, x + 12 * s, y - 2 * s, p.camp ? 19 : 17, INK, p.camp || p.dock ? 0.95 : 0.85);
+      const dived = p.dive && st.dive?.sites?.[p.id]?.dives;
+      this.label(ctx, dived ? `${p.name} ✓` : p.name, x + 12 * s, y - 2 * s, p.camp ? 19 : 17, INK, p.camp || p.dock ? 0.95 : 0.85);
     }
 
     // Home: a little house; and the car, wherever it's parked.

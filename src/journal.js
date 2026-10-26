@@ -168,6 +168,9 @@ export class Journal {
         li.append(el('strong', '', p.name), el('span', '', p.note));
         const kinds = new Set((AREA_ZONES[p.id] || []).flatMap((z) => [...(seenIn[z] || [])]));
         if (kinds.size) li.append(el('span', 'j-seen', `Caught here: ${[...kinds].map((id) => fishById[id]?.name.toLowerCase()).join(', ')}`));
+        // A dive site: how often you've been down, and how deep.
+        const dv = p.dive && st.dive?.sites?.[p.id];
+        if (p.dive) li.append(el('span', 'j-seen', dv?.dives ? `Dived ${dv.dives === 1 ? 'once' : dv.dives === 2 ? 'twice' : `${dv.dives} times`}, down to ${dv.deepest.toFixed(1)} m.` : 'A dive site: not dived yet.'));
       } else {
         li.append(el('strong', '', '· · ·'), el('span', '', 'Somewhere not yet found.'));
       }

@@ -21,6 +21,8 @@ export const STORIES = {
     { id: 'glow', text: 'Some summer nights the whole bay lights up. Row out and every stroke of the oars leaves a puddle of green fire, and the fish going off under the boat are like shooting stars. My grandfather called it “the burning”.' },
     { id: 'fell', text: 'They say the Coldwater runs out of Hoar Tarn up on the fell, and that the trout up there are as dark as peat and wild as hares. It’s a long walk. Take a coat: the weather comes over the top of Hoarfell faster than you can get down.' },
     { id: 'dolphins', text: 'Kit swears a dolphin looked him in the eye from under the bow, last summer, all the way from the Skerries to the quay. Dolphins love a boat going along at a fair lick. Slow down and they’re off, like children when the game stops.' },
+    { id: 'hound', text: 'The Hound’s a rock out past Gannet Light that never shows, not even at the bottom of a spring tide: ten metres under at its top, thirty at its foot. The old men set their pots round it and lost half of them to the tide. The divers say its walls are pink with sea fans. Go at slack water, or it’ll have you off it like a leaf.' },
+    { id: 'anchor', text: 'There’s an anchor on the sand south of Long Shoal, an old Admiralty one taller than a man, and nobody knows whose. A ship rode out a gale there, the story goes, and cut her cable to run for it. The flatfish like it: there’s always a turbot lying in the lee of its chain.' },
   ],
   muelle: [
     { id: 'vieja', text: 'The vieja, the parrotfish, is the queen of fish here. Every grandmother on the island has her way with it: boiled with potatoes and mojo, that’s the only right way, and every other grandmother’s way is wrong.' },
@@ -78,6 +80,8 @@ export function adviceFor(ctx) {
   if (ctx.rain > 0.3) out.push('A bit of rain’s no bad thing. Up the Fernbeck the trout come on when the water colours up after rain, and the light’s down so they’re bolder.');
   if (ctx.wind > 9) out.push('With this wind the surf’ll be up on Shell Strand. Bass love a bit of white water: a soft sandeel worked through the surf, or a peeler crab on the bottom.');
   else if (ctx.wind < 3 && !night) out.push('Flat calm. Fish fine and far off: a light line and a long cast. On days like this the mullet cruise the quay wall: bread flake under a little float, and patience.');
+  // A calm, clear day: the water's at its clearest for going down (see world/divesites.js).
+  if (!night && (ctx.storm || 0) < 0.2 && ctx.wind < 7 && (ctx.rain || 0) < 0.3) out.push('A day like this the water clears: it’s a day for going down, if you dive. Skerries Reef is shallow and easy, there’s an arch to swim through; the kelp off Gannet’s west shore grows like a forest. The Hound off the Light is deep: a full tank, and go at slack water.');
   if (!out.length) out.push('Talk to the water, my mother used to say. Watch for birds, for rings and swirls, for the bait jumping. The fish tell you where they are if you look.');
   return pick(out.slice(0, 3));
 }

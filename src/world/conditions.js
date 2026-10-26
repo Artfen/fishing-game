@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { clamp, smoothstep, damp, lerp } from '../util.js';
 import {
   WATER_RECT, BAY, COVE, CHANNEL, GANNET, SHOAL, SKERRIES, RIVER, DEEP_Z,
-  zoneAt, solidHeight, streamFlow, riverInfo, freshness, CALF_SOUND, waterLevel, SOUTH_Z,
+  zoneAt, solidHeight, streamFlow, riverInfo, freshness, CALF_SOUND, waterLevel, SOUTH_Z, DIVE_MARKS,
 } from './terrain.js';
 import { coldwaterFlow } from './coldwater.js';
 import { SOUTH_WATER, brasaCurrent } from './brasa.js';
@@ -399,6 +399,9 @@ const ZONES = [
   { kind: 'disc', x: SKERRIES[0].x - 10, z: SKERRIES[0].z + 15, rx: 55, rz: 40, dx: 0.6, dz: 0.8, speed: 0.28, tidal: true },
   // The mouth of Willow Bay: a slow exchange with the open water.
   { kind: 'disc', x: BAY.x + 10, z: BAY.z + BAY.r + 15, rx: 60, rz: 35, dx: 0.2, dz: 0.98, speed: 0.08, tidal: true },
+  // Over the Hound (see divesites.js): the tide runs hard along the foot of the Gannet Drop and
+  // across the pinnacle; a diver there wants slack water.
+  { kind: 'disc', x: DIVE_MARKS.hound.x, z: DIVE_MARKS.hound.z, rx: 70, rz: 45, dx: 0.97, dz: 0.24, speed: 0.5, tidal: true },
 ];
 const RIVER_MOUTH = RIVER[RIVER.length - 1];
 
