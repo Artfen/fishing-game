@@ -487,6 +487,18 @@ Willowhaven is a working harbour, and a catch you keep can do more than go on th
   - **Ready for a trip**: a checklist of your creel space, ice, water bottle, rolls, lines, your boat's fuel, the weather and what's about, with a button to put right whatever needs it.
 - **Bar El Muelle**, at Puerto Brasa, works the same way: Paco's bar and stories, his mother's kitchen with an order a day, and Paco buys the island's fish from the boats. Your room upstairs is a button away.
 
+**The harbour's people** go about their days, by the clock, the weather and the fish. Walk up to one and press **E** to talk.
+
+- **Mags Pennock** keeps the fish market, behind her slab from five in the morning till seven at night, and some evenings goes over to the inn.
+- **Old Bert Hale** sits in his chair by the chandlery door on a fine morning and again in the late afternoon (inside if it's raining), and has his pint at the inn of an evening.
+- **Ruth Alder** sweeps the front of The Lobster Pot first thing, and takes five minutes on the bench in the afternoon if it's dry.
+- **Dougie Ferris** works lobster pots off Gull Rock from his boat, the green-and-red **Morning Star**. At first light he's down to the slipway and out to her on her mooring off the quay; she runs out round the Calf to his buoys (orange floats with a flag), stops to haul each pot, and comes in about noon to lie alongside the end of the quay while he lands his catch; then back to her mooring. In a storm, a gale or a downpour she stays in: Dougie mends pots on the apron, then fishes in the lee of the quay. If a blow comes on while he's out, he leaves the rest of his pots and comes straight in.
+- **Hettie Moss**, the keenest angler on the coast, goes where the fish are: Shell Strand for the bass at dawn and dusk (she cycles over), the end of the quay when the mackerel or garfish are in, the slipway for flounder on a quiet day, squid under the quay light at night, and the sheltered water in the lee of the quay in a storm. Now and then you'll see her hold one up.
+- **Kit** crabs off the side of the quay on a fine day, mornings and late afternoons.
+- **Paco** stands in the door of Bar El Muelle at Las Brasas.
+
+What they're up to (Dougie out at his pots, or not going out; what he landed; Hettie's mark and her best fish of the day; Kit on the quay) is part of the talk at the bar. There are no seasons or tides in the game yet, so their days follow the clock, the weather and the fish.
+
 You start with £20 in your purse; sold fish show as *Sold* in the catch log. The money is for small pleasures and helps, never a grind: nothing in the game needs it, and the chandlery's tackle stays free.
 
 ### Sea life to watch
@@ -805,6 +817,7 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 | `src/harbour.js` | The notice board's contents, read from the conditions, the ecosystem and the gulls |
 | `src/market.js`, `src/innTalk.js`, `src/harbourView.js` | The harbour: fish prices, the day's demand, freshness and the kitchens' orders; the stories, advice and rumours at the bar; the sheet for the market, The Lobster Pot, Bar El Muelle and the chandlery's counter (and the market's slate) |
 | `src/shop.js` | The chandlery's counter: creel sizes, ice and the cool-lined creel keeping fish fresh, fresh bait, line wear and respooling |
+| `src/townsfolk.js`, `src/world/folk.js` | The harbour's people: their days (by the clock, the weather and the fish), the paths they walk round Willowhaven, Dougie's trip to his pots, Hettie's marks and catches, what they say; and how they and the Morning Star look |
 | `src/adventures.js` | The adventures, Ada's pages and the keepsakes, and how steps are recognised in any order |
 | `src/photos.js` | Taking photographs, the album's picture store (IndexedDB), and downloads |
 | `src/memories.js` | The journal's Memories pages |

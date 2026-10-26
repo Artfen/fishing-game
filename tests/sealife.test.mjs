@@ -40,7 +40,7 @@ test('dolphins come racing to ride the bow of a boat going along briskly, and le
   const b = new Boat(scene, { kind: 'console' });
   b.place(pod.x - 70, pod.z + 10, Math.atan2(70, -10));
   let t = 0, seen = null;
-  life.onSighting = (k) => { seen ??= k; };
+  life.onSighting = (k) => { if (k === 'bottlenose') seen ??= k; };
   const run = (secs, lever) => {
     for (let i = 0; i < secs * 30; i++) {
       t += 1 / 30;

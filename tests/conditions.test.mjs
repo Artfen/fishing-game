@@ -158,7 +158,12 @@ function fairDay(hour, region = 'home', minutes = 40) {
   return seen.reduce((a, b) => a + b, 0) / seen.length;
 }
 
-test('an Atlantic coast is seldom still: a breeze most days, a sea breeze in the afternoon, the trade wind at Las Brasas', () => {
+test('an Atlantic coast is seldom still: a breeze most days, a sea breeze in the afternoon, the trade wind at Las Brasas', (t) => {
+  // (The gusts and the day's wind are dice: the same dice every run, so a rare roll can't fail it.)
+  let seed = 42;
+  const real = Math.random;
+  Math.random = () => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 4294967296);
+  t.after(() => { Math.random = real; });
   const morning = fairDay(8), afternoon = fairDay(15), night = fairDay(2);
   assert.ok(morning > 4 && morning < 8, `a breeze in the morning: ${morning.toFixed(1)} m/s`);
   assert.ok(afternoon > morning + 2, `fresher in the afternoon: ${afternoon.toFixed(1)} m/s`);

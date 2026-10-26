@@ -167,9 +167,9 @@ test('the rumours are all true: nothing said without something there to say it a
   const r = I.rumoursNow({
     place: 'haven', hour: 16, nameOf, storm: 0.7, gannets: { x: 1, z: 2 }, boil: { x: 3, z: 4 },
     pods: [{ kind: 'commondolphin', x: 0, z: 0 }], whales: [{ kind: 'finwhale', x: 0, z: 0, up: true }], glow: 0.9,
-    landed: [{ who: 'Dougie', name: 'Turbot', size: 61 }], yours: { name: 'Sea bass', size: 71 }, birds: ['Gulls are diving off Gull Rock.'],
+    news: ['Dougie’s out at his pots off Gull Rock.'], yours: { name: 'Sea bass', size: 71 }, birds: ['Gulls are diving off Gull Rock.'],
   });
-  for (const w of ['race off the Calf', 'gannets are diving near Gull Rock', 'tuna are up', 'common dolphins', 'fin whale', 'burning tonight', 'Dougie brought in a turbot', 'sea bass of yours, 71 cm', 'Mags says gulls are diving']) {
+  for (const w of ['race off the Calf', 'gannets are diving near Gull Rock', 'tuna are up', 'common dolphins', 'fin whale', 'burning tonight', 'Dougie’s out at his pots', 'sea bass of yours, 71 cm', 'Mags says gulls are diving']) {
     assert.ok(r.some((l) => l.includes(w)), w);
   }
   const south = I.rumoursNow({ place: 'muelle', hour: 12, storm: 0.7, rain: 0.8 });

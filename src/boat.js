@@ -295,8 +295,9 @@ function strut(a, b, r0, r1, color) {
 
 // One of the boats in HULLS: the rowing boat, the motor skiff, the kayak or the bass boat.
 export class Boat {
-  constructor(scene, { kind = 'row' } = {}) {
-    const H = (this.hull = HULLS[kind] || HULLS.row);
+  // look: paint and the like over the hull's own (someone else's boat of the same kind).
+  constructor(scene, { kind = 'row', look = null } = {}) {
+    const H = (this.hull = look ? { ...(HULLS[kind] || HULLS.row), ...look } : HULLS[kind] || HULLS.row);
     this.kind = HULLS[kind] ? kind : 'row';
     this.motor = !!H.motor;
     this.name = H.name;

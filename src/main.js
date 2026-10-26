@@ -58,6 +58,8 @@ import { PhotoStore, capture, photoId, albumPage, download } from './photos.js';
 import { Memories } from './memories.js';
 import { whatsAbout, birdsWorking, weatherLines, notices, paintBoard } from './harbour.js';
 import { HarbourSheet, paintSlate } from './harbourView.js';
+import { Townsfolk, FOLK, sayTo } from './townsfolk.js';
+import { FolkView } from './world/folk.js';
 import { demandFor, money } from './market.js';
 import { creelSize, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
 import { PHOTO_MAX } from './save.js';
@@ -301,6 +303,26 @@ fx.glow = glow;
 glow.setPixelRatio(renderer.getPixelRatio());
 hideFromReflection(glow.points);
 const sealife = buildSeaLife(scene, { glow });
+// The harbour's people (Mags, Bert, Ruth, Dougie and his boat, Hettie, Kit; Paco at Las Brasas).
+const town = new Townsfolk({ obstacles: world.coast.obstacles });
+const folkView = new FolkView(scene);
+// What the people go by: the weather, and what the fish near the harbour are up to (looked at every
+// few seconds, not every frame).
+let folkAbout = [], folkAboutT = 0;
+function folkCtx(dt) {
+  folkAboutT -= dt;
+  if (folkAboutT <= 0) {
+    folkAboutT = 5;
+    folkAbout = whatsAbout(eco).map((a) => ({ id: a.sp.id, name: a.sp.name, act: a.act }));
+  }
+  return { storm: Math.max(weather.storm, conditions.sea.storm), rain: weather.rain, wind: conditions.wind.speed, about: folkAbout, activity: eco.activity };
+}
+// A word with someone you walk up to.
+function talkTo(p) {
+  const wanted = demandFor(state.day, 'haven').wanted.map((id) => fishById[id].name);
+  hud.toast(`${FOLK[p.id].short}: ${sayTo(p, { hour: state.hour, storm: Math.max(weather.storm, conditions.sea.storm), wanted, caught: Math.floor(state.hour) % 3, landed: town.landed })}`, 8);
+  audio.page?.();
+}
 camera.layers.enable(NO_REFLECT);
 hideFromReflection(water.mesh);
 hideFromReflection(water.ring);
@@ -1308,7 +1330,7 @@ function innTalk(place) {
       pods: state.hour > 6 && state.hour < 21 ? sealife.pods.filter((p) => p.sea === (home ? 'home' : 'south') && (!home || placeName(p.x, p.z))).slice(0, 1).map((p) => ({ kind: p.kind, x: p.x, z: p.z })) : [],
       whales: sealife.whales.filter((w) => w.sea === (home ? 'home' : 'south') && w.state !== 'down').slice(0, 1).map((w) => ({ kind: w.kind, x: w.x, z: w.z, up: w.state === 'breathe' })),
       glow: nightGlow(state.day),
-      landed: [],
+      news: home ? town.news(state.hour) : [],
       yours,
     },
   };
@@ -3851,6 +3873,9 @@ function interaction() {
     if (innNear()) return { text: 'The Lobster Pot: the bar and the kitchen', run: () => openHarbour('inn') };
     if (coastSpot('tower')) return { text: 'The watch tower', run: () => climbTower() };
     if (chandleryNear()) return { text: 'The chandlery: tackle, the counter, mending and air', run: () => { fillTank(); openHarbour('chandlery'); } };
+    // Someone to talk to: the harbour's people (and Paco).
+    const folk = town.near(walker.pos.x, walker.pos.z, 1.9);
+    if (folk) return { text: `Talk to ${FOLK[folk.id].short}`, run: () => talkTo(folk) };
     if (coastSpot('bench')) return { text: 'Sit on the bench a while', run: () => sitOnBench() };
     if (quayHeadNear()) return { text: boats.some((b) => b.kind !== 'bass' && regionOf(b) === 'south') ? 'Have a boat brought round, or shipped from Las Brasas' : 'Have a boat brought round to the quay', run: () => boatsRound('home') };
     if (coastSpot('office')) return { text: 'The harbour office: your boats, brought round or shipped from Willowhaven', run: () => boatsRound('south') };
@@ -6778,6 +6803,9 @@ function tick(now, manual = false) {
   {
     const P = player().pos, aboard = !onFoot && !driving && !dive && !cabinIn;
     sealife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, daylight: env.daylight, region, eco, diving: !!dive });
+    // The harbour's people going about their day, and Dougie's boat.
+    town.update(state.day * 24 + state.hour, folkCtx(dt));
+    folkView.update(dt, t, town, { from: P, south: region === 'south', fx, glow });
     glow.update(t, nightGlow(state.day) * smoothstep(0.35, 0.85, env.night) * (1 - 0.5 * (weather.rain ?? 0)));
     glow.foamColor(fx.wake.material.color, env.daylight);
     glowFishT -= dt;
@@ -7101,7 +7129,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind,
+  rowboat, skiff, boats: BOATS, wind, town, folkView,
   // Set the breeze: strength 0–1, blowing towards dir (radians, like a heading).
   // A steady wind for testing: strength 0 … 1 (1 = a fresh breeze, 12 m/s), blowing towards dir
   // (as atan2(x, z) of its vector). setWind(null) gives it back to the weather and Settings.

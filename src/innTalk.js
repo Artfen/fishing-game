@@ -80,7 +80,8 @@ export function adviceFor(ctx) {
 // What's being said about the sea today: a few true things. ctx: { place, hour, nameOf(x, z)
 // (a place in words), birds (the board's lines about gulls diving), gannets ({ x, z } or null),
 // pods ([{ kind, x, z }]), whales ([{ kind, x, z, up }]), boil ({ x, z } or null), glow (tonight,
-// 0 … 1), storm (0 … 1), rain, landed ([{ who, name, size }]), yours ({ name, size } or null) }.
+// 0 … 1), storm (0 … 1), rain, news ([lines]: the harbour's own people, see townsfolk.js), yours
+// ({ name, size } or null) }.
 export function rumoursNow(ctx) {
   const out = [];
   const name = (x, z) => ctx.nameOf?.(x, z) || 'out there';
@@ -94,7 +95,7 @@ export function rumoursNow(ctx) {
     const what = { finwhale: 'a fin whale', minkewhale: 'a minke whale', spermwhale: 'the sperm whale', pilotwhale: 'the pilot whales' }[w.kind] || 'a whale';
     out.push(`Somebody saw ${what} blowing ${name(w.x, w.z)} ${w.up ? 'not an hour ago' : 'earlier today'}. Watch for the spout: you see it a long way off.`);
   }
-  for (const n of ctx.landed || []) out.push(`${n.who} brought in ${an(lower(n.name))} this morning, ${n.size} cm. The whole quay came to look.`);
+  for (const l of ctx.news || []) out.push(l);
   if (ctx.yours) out.push(`They’re talking about that ${lower(ctx.yours.name)} of yours, ${ctx.yours.size} cm. Word gets round.`);
   if (ctx.glow > 0.7 && ctx.hour > 14) out.push('Mark my words, the sea’ll be burning tonight: the water’s full of the stuff. Take the boat out after dark and watch your wake.');
   if (ctx.rain > 0.5 && home) out.push('Rain’s set in for a while. The trout up the Fernbeck will like it, mind.');

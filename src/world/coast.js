@@ -316,8 +316,8 @@ function buildHaven(rnd, group, obstacles, spots) {
         const p = local(M.x, M.z, M.yaw, sx * (hw - 0.1), sz * (hd - 0.1));
         obstacles.push({ x: p.x, z: p.z, r: 0.18, kind: 'harbour', name: 'the fish market' });
       }
-      // Boarded sides, waist high.
-      woodParts.push({ geo: new THREE.BoxGeometry(0.06, 1.1, M.d - 0.2), matrix: at(sx * (hw - 0.1), 0.55, 0), color: '#6f8f96', jitter: 0.04 });
+      // The west side boarded waist high; the east side open, for Mags to come and go.
+      if (sx < 0) woodParts.push({ geo: new THREE.BoxGeometry(0.06, 1.1, M.d - 0.2), matrix: at(sx * (hw - 0.1), 0.55, 0), color: '#6f8f96', jitter: 0.04 });
     }
     // The back, boarded to the roof; the front beam; the roof, one slope, high at the front.
     woodParts.push({ geo: new THREE.BoxGeometry(M.w - 0.2, lo, 0.08), matrix: at(0, lo / 2, -hd + 0.1), color: '#6f8f96', jitter: 0.04 });
