@@ -46,12 +46,13 @@ const BOAT_GAP = 1.35;
 
 // The berth alongside pier i on a side (-1 or 1), at a point along it, for this boat: where her
 // middle sits and which way she faces. (Saved as { pier, side, along, heading } and found again.)
+export const sideOut = (b) => b.hull.fend ?? b.hull.B - 0.05;
 export function berthAt(b, i, side, along, heading) {
   const P = PIERS[i];
   if (!P) return null;
-  // (fend: how far her side lies out from her middle, against a pier; for most boats the fenders
-  // take up half the beam figure.)
-  const off = (b.hull.fend ?? b.hull.B * 0.5) + 0.2;
+  // (fend: how far her side lies out from her middle, against a pier, rubbing strake and all;
+  // for most boats her half-beam. Then the fenders between.)
+  const off = sideOut(b) + 0.2;
   return across(P) === 'z'
     ? { pier: i, side, along, heading, x: along, z: side < 0 ? P.z0 - off : P.z1 + off }
     : { pier: i, side, along, heading, x: side < 0 ? P.x0 - off : P.x1 + off, z: along };
@@ -59,11 +60,15 @@ export function berthAt(b, i, side, along, heading) {
 
 // Is a berth any good: deep enough under her length, clear of other boats and of other piers?
 function berthFits(b, B, others) {
-  const fx = Math.sin(B.heading), fz = Math.cos(B.heading), half = b.hull.L * 0.42;
-  for (const k of [-1, 0, 1]) {
-    const x = B.x + fx * half * k, z = B.z + fz * half * k;
+  // (Her whole length, bow and stern, clear of any other pier: she can't lie with her bow under
+  // the next finger.)
+  const fx = Math.sin(B.heading), fz = Math.cos(B.heading), half = b.hull.L * 0.5 + 0.2;
+  const n = Math.ceil(half / 0.5);
+  for (let i = -n; i <= n; i++) {
+    const k = i / n, x = B.x + fx * half * k, z = B.z + fz * half * k;
     if (!inSeas(x, z)) return false;
-    if (solidHeight(x, z) > -(b.hull.draft + 0.25)) return false;
+    // (Deep enough under her middle and most of her length; her very ends may hang over less.)
+    if (Math.abs(k) <= 0.85 && solidHeight(x, z) > -(b.hull.draft + 0.25)) return false;
     if (PIERS.some((Q, j) => j !== B.pier && x > Q.x0 - 0.3 && x < Q.x1 + 0.3 && z > Q.z0 - 0.3 && z < Q.z1 + 0.3)) return false;
   }
   return !others.some((o) => o !== b && Math.hypot(o.pos.x - B.x, o.pos.z - B.z) < (o.hull.B + b.hull.B) * BOAT_GAP);
@@ -96,7 +101,11 @@ export function berthFor(b, others = [], { reach = 4 } = {}) {
       const d = Math.hypot(B.x - b.pos.x, B.z - b.pos.z);
       if (d > reach + 1.5) continue;
       if (!berthFits(b, B, others)) continue;
-      if (!best || d < best.d) best = { ...B, d };
+      // (Nearest, and lying the way she already lies: swinging a long boat right round on her
+      // lines in a tight corner jams her against the next pier.)
+      const turn = Math.abs(Math.atan2(Math.sin(heading - b.heading), Math.cos(heading - b.heading)));
+      const cost = d + turn * b.hull.L * 0.5;
+      if (!best || cost < best.cost) best = { ...B, d, cost };
       break;
     }
   });
@@ -150,15 +159,37 @@ export function canTow(lead, towed) {
 const sternOf = (b) => ({ x: b.pos.x - b.fwd.x * b.hull.L * 0.5, z: b.pos.z - b.fwd.z * b.hull.L * 0.5 });
 const bowEnd = (b) => ({ x: b.pos.x + b.fwd.x * b.hull.L * 0.5, z: b.pos.z + b.fwd.z * b.hull.L * 0.5 });
 
-// One step of the towline, after both boats have moved: it only pulls (a rope can't push), the
-// pull shared between them by their size, and the towed boat's bow turns to follow it. Returns
-// how tight it is (0 … 1).
+// One step of the towline, after both boats have moved: it only pulls (a rope can't push). A
+// tight line snatches at both ends, stern of the one and bow of the other: it stops them parting
+// (the pull shared between them by their weight), slows the leader for what she's pulling, and,
+// pulling the towed boat by her bow, brings her round to follow it. Returns how tight it is (0 … 1).
 export function towStep(lead, towed, dt, len = TOW.len) {
   const s = sternOf(lead), w = bowEnd(towed);
   let dx = s.x - w.x, dz = s.z - w.z;
   const d = Math.hypot(dx, dz) || 1e-6;
   dx /= d;
   dz /= d;
+  const A = lead._phys, B = towed._phys;
+  if (A && B) {
+    if (d > len) {
+      const mL = A.m, mT = B.m, wL = mT / (mL + mT), wT = mL / (mL + mT), c = d - len;
+      A.x[0] -= dx * c * wL; A.x[2] -= dz * c * wL;
+      B.x[0] += dx * c * wT; B.x[2] += dz * c * wT;
+      const rel = (lead.vel.x - towed.vel.x) * dx + (lead.vel.z - towed.vel.z) * dz;
+      if (rel > 0) {
+        const J = rel / (1 / mL + 1 / mT);
+        A.updateR();
+        B.updateR();
+        const ps = A.toWorld([lead.cleats[1].x, lead.cleats[1].y, lead.cleats[1].z]), pb = B.toWorld([towed.cleats[0].x, towed.cleats[0].y, towed.cleats[0].z]);
+        A.applyImpulse(-dx * J, 0, -dz * J, ps[0], ps[1], ps[2]);
+        B.applyImpulse(dx * J, 0, dz * J, pb[0], pb[1], pb[2]);
+      }
+      lead.syncFromPhys();
+      towed.syncFromPhys();
+    }
+    return clamp((d - len * 0.9) / (len * 0.1), 0, 1);
+  }
+  // (Boats without a hull of their own to push: the line simply holds them together.)
   const mL = heft(lead), mT = heft(towed), wL = mT / (mL + mT), wT = mL / (mL + mT);
   if (d > len) {
     const c = d - len;
@@ -166,7 +197,6 @@ export function towStep(lead, towed, dt, len = TOW.len) {
     towed.pos.z += dz * c * wT;
     lead.pos.x -= dx * c * wL;
     lead.pos.z -= dz * c * wL;
-    // (The rope stops them parting: what's left of their speed apart is shared out.)
     const rel = (lead.vel.x - towed.vel.x) * dx + (lead.vel.z - towed.vel.z) * dz;
     if (rel > 0) {
       towed.vel.x += dx * rel * wT;
@@ -176,7 +206,6 @@ export function towStep(lead, towed, dt, len = TOW.len) {
     }
   }
   const tight = clamp((d - len * 0.9) / (len * 0.1), 0, 1);
-  // Towed, she follows the line: her bow comes round to point along it.
   if (tight > 0.2) {
     towed.heading = dampAngle(towed.heading, Math.atan2(dx, dz), 1 + 2 * tight, dt);
     towed.omega = 0;

@@ -177,6 +177,7 @@ export class RippleField {
     }));
     this.mesh.frustumCulled = false;
     this.scene.add(this.mesh);
+    this.extra = null; // (cx, cz, span) => whether it drew anything more into the scene
   }
 
   get on() { return this.size > 0 && !!this.target; }
@@ -245,13 +246,15 @@ export class RippleField {
     this.geo.instanceCount = k;
     this.aPacket.needsUpdate = true;
     this.aShape.needsUpdate = true;
+    // (Anything else drawn into the field this frame: the boats' wakes, see wakes.js.)
+    const more = this.extra ? this.extra(x0 + this.span / 2, z0 + this.span / 2, this.span) : false;
     const prev = renderer.getRenderTarget();
     const prevColor = renderer.getClearColor(new THREE.Color());
     const prevAlpha = renderer.getClearAlpha();
     renderer.setRenderTarget(this.target);
     renderer.setClearColor(0x000000, 0);
     renderer.clear(true, false, false);
-    if (k) renderer.render(this.scene, cam);
+    if (k || more) renderer.render(this.scene, cam);
     renderer.setRenderTarget(prev);
     renderer.setClearColor(prevColor, prevAlpha);
   }

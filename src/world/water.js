@@ -8,7 +8,7 @@ export const waveHeight = conditionsWaveHeight;
 const NEAR_R = 444; // the fine water sheet is round, this far around the camera
 
 const f = (n) => n.toFixed(5);
-const { SWELL, CHOP } = WAVE_PARTS;
+const { SWELL, CHOP, CHOP_LENS } = WAVE_PARTS;
 // The waves at a point: height and its slope (for the normal), each wave scaled by how exposed
 // the water is to swell (shelter.r) and to wind (shelter.g), faded in the last shallows and on
 // fresh water. Mirrors conditions.js waveHeight term for term.
@@ -21,7 +21,15 @@ uniform float uStorm;
 uniform sampler2D uShelter;
 uniform vec4 uShelterRect;
 uniform float uTideLevel; // the tide: the sea's level above the mean (m); not the lakes'
-vec3 waves(vec2 p, float t, float ground, float fresh) {
+uniform vec2 uWaveLod;    // the sheet's finest cell (m), and how far out (m per m of wavelength) it can still draw a wave
+// How much of a wave of length len the sheet can draw this far from you (dist, m): as its cells
+// grow with distance, each wave fades out before they're too coarse for it (so none flickers),
+// the shortest first; the same fade at the same distance on every ring of the sheet.
+float waveLod(float len, float dist) {
+  float far = len * uWaveLod.y;
+  return smoothstep(2.4 * uWaveLod.x, 3.0 * uWaveLod.x, len) * smoothstep(far, far * 0.7, dist);
+}
+vec3 waves(vec2 p, float t, float ground, float fresh, float dist) {
   vec4 sh = texture2D(uShelter, (p - uShelterRect.xy) / uShelterRect.zw);
   float depth = max(uTideLevel * (1.0 - fresh) - ground, 0.0);
   // (Running into shallow water the swell grows and steepens: conditions.js shoalGrow, shoalPeak.)
@@ -35,8 +43,10 @@ vec3 waves(vec2 p, float t, float ground, float fresh) {
   s = uSwellA[${i}] * ks;
   r += vec3(s * sin(a) - ${f(0.5 * w.k)} * s * s * pk * cos(2.0 * a), vec2(${f(w.k * w.dx)}, ${f(w.k * w.dz)}) * (s * cos(a) + ${f(w.k)} * s * s * pk * sin(2.0 * a)));`).join('\n  ')}
   vec3 c = vec3(0.0);
+  float lod[${CHOP_LENS.length}];
+  ${CHOP_LENS.map((len, b) => `lod[${b}] = waveLod(${f(len)}, dist);`).join('\n  ')}
   ${CHOP.map((w, i) => `a = ${f(w.k)} * (${f(w.dx)} * p.x + ${f(w.dz)} * p.y - ${f(w.c)} * t);
-  s = uChopA[${i}];
+  s = uChopA[${i}] * lod[${w.band}];
   c += vec3(s * sin(a) - ${f(0.5 * w.k)} * s * s * uChopPeak * cos(2.0 * a), vec2(${f(w.k * w.dx)}, ${f(w.k * w.dz)}) * (s * cos(a) + ${f(w.k)} * s * s * uChopPeak * sin(2.0 * a)));`).join('\n  ')}
   r += c * kc;
   return r * smoothstep(0.05, 0.9 + 3.5 * uStorm, -ground) * (1.0 - 0.85 * fresh);
@@ -61,10 +71,23 @@ ${WAVE_GLSL}
 ${MAP_GLSL}
 uniform float uTime;
 uniform mat4 uReflMatrix;
+uniform sampler2D uRipple;
+uniform vec4 uRippleRect;
+uniform float uRippleOn;
+attribute vec3 aEdge; // on a ring's outer edge, between two of the coarser ring's vertices: 1, and the offset to them
 varying vec3 vWorld;
 varying vec3 vN;
 varying vec4 vRefl;
 #include <fog_pars_vertex>
+// The wakes and the ripples (the ripple field: see waterfx.js and wakes.js): heights, metres.
+float rippleHeight(vec2 p) {
+  if (uRippleOn < 0.5) return 0.0;
+  vec2 uv = (p - uRippleRect.xy) / uRippleRect.zw;
+  float edge = min(min(uv.x, uv.y), min(1.0 - uv.x, 1.0 - uv.y));
+  if (edge <= 0.0) return 0.0;
+  vec4 r = texture2D(uRipple, uv);
+  return (r.r + r.g) * smoothstep(0.0, 0.15, edge);
+}
 void main() {
   vec4 wp = modelMatrix * vec4(position, 1.0);
   vRefl = uReflMatrix * vec4(wp.x, 0.0, wp.z, 1.0);
@@ -73,7 +96,21 @@ void main() {
   // The far ocean, out to the horizon: too far off to see the waves move.
   vec3 w = vec3(0.0);
   #else
-  vec3 w = waves(wp.xz, uTime, mapV.r, mapV.g);
+  float dist = length(wp.xz - cameraPosition.xz);
+  vec3 w;
+  if (aEdge.x > 0.5) {
+    // (Where a finer ring meets a coarser one, its in-between vertices sit on the coarser ring's
+    // straight edge, so the two meet without a crack.)
+    vec2 e = aEdge.yz;
+    vec4 m0 = worldMap(wp.xz - e), m1 = worldMap(wp.xz + e);
+    w = 0.5 * (waves(wp.xz - e, uTime, m0.r, m0.g, dist) + waves(wp.xz + e, uTime, m1.r, m1.g, dist));
+    w.x += 0.5 * (rippleHeight(wp.xz - e) + rippleHeight(wp.xz + e)) * waveLod(3.0, dist);
+  } else {
+    w = waves(wp.xz, uTime, mapV.r, mapV.g, dist);
+    // (The wakes lift the sheet close by, where its cells are fine enough for their short waves;
+    // further off they show in its shading alone.)
+    w.x += rippleHeight(wp.xz) * waveLod(3.0, dist);
+  }
   #endif
   wp.y += w.x + uTideLevel * (1.0 - mapV.g);
   vN = vec3(-w.y, 1.0, -w.z);
@@ -163,16 +200,17 @@ vec2 rainRings(vec2 p, float t) {
   return g;
 }
 
-// Slope of the ripple field (casts, the bobber, rising fish, the boat, wading).
-vec2 rippleSlope(vec2 p) {
-  if (uRippleOn < 0.5) return vec2(0.0);
+// Slopes of the ripple field: xy the little rings (casts, the bobber, rising fish, the boat,
+// wading), zw the boats' wakes (see wakes.js).
+vec4 rippleSlopes(vec2 p) {
+  if (uRippleOn < 0.5) return vec4(0.0);
   vec2 uv = (p - uRippleRect.xy) / uRippleRect.zw;
   float edge = min(min(uv.x, uv.y), min(1.0 - uv.x, 1.0 - uv.y));
-  if (edge <= 0.0) return vec2(0.0);
+  if (edge <= 0.0) return vec4(0.0);
   float e = uRippleTexel;
-  float hx = texture2D(uRipple, uv + vec2(e, 0.0)).r - texture2D(uRipple, uv - vec2(e, 0.0)).r;
-  float hz = texture2D(uRipple, uv + vec2(0.0, e)).r - texture2D(uRipple, uv - vec2(0.0, e)).r;
-  return vec2(hx, hz) * smoothstep(0.0, 0.06, edge) / (2.0 * e * uRippleRect.z);
+  vec2 hx = (texture2D(uRipple, uv + vec2(e, 0.0)) - texture2D(uRipple, uv - vec2(e, 0.0))).rg;
+  vec2 hz = (texture2D(uRipple, uv + vec2(0.0, e)) - texture2D(uRipple, uv - vec2(0.0, e))).rg;
+  return vec4(hx.x, hz.x, hx.y, hz.y) * smoothstep(0.0, 0.15, edge) / (2.0 * e * uRippleRect.z);
 }
 
 void main() {
@@ -180,7 +218,8 @@ void main() {
   #ifndef RING
   if (length(vWorld.xz - cameraPosition.xz) > ${NEAR_R.toFixed(1)}) discard;
   #endif
-  vec2 rip = rippleSlope(vWorld.xz);
+  vec4 rips = rippleSlopes(vWorld.xz);
+  vec2 rip = rips.xy + rips.zw;
   // Seen from below: bright where you look straight up through the surface,
   // the darker underwater colour where the light reflects back at a slant.
   // From under the water every part of the surface is its underside, even far-off wave slopes
@@ -316,7 +355,7 @@ void main() {
 #endif
   col += uSunColor * sunSpec * up * (1.0 - uRain * 0.85);
   // Ripple crests catch a little extra light.
-  col += (uAmbient + uSunColor * 0.4) * clamp(length(rip) * 0.6, 0.0, 0.25);
+  col += (uAmbient + uSunColor * 0.4) * clamp(length(rips.xy) * 0.6 + max(0.0, length(rips.zw) - 0.18) * 0.8, 0.0, 0.25);
 
   // Shoreline foam: a soft edge plus bands rolling in, bigger where the swell reaches the shore.
   float n1 = vnoise(p * 0.7 + uTime * 0.25);
@@ -420,6 +459,7 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       uReflMatrix: { value: new THREE.Matrix4() },
       uRippleOn: { value: 0 },
       uRippleTexel: { value: 1 / 512 },
+      uWaveLod: { value: new THREE.Vector2(0.6, 128 / 12) },
       uReflTexel: { value: new THREE.Vector2(1 / 512, 1 / 512) },
     },
   ]);
@@ -445,12 +485,12 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
     side: THREE.DoubleSide,
   });
 
-  // A finely tessellated sheet that follows the camera, snapped to its grid
-  // so the vertices never swim. Fewer segments on lower quality settings.
-  const SIZE = 900;
-  const sheet = (seg) => new THREE.PlaneGeometry(SIZE, SIZE, seg, seg).rotateX(-Math.PI / 2);
-  let cell = SIZE / 300;
-  const mesh = new THREE.Mesh(sheet(300), material);
+  // A sheet that follows the camera: fine close by, where you see each wave and every wake, and
+  // coarser ring by ring further out (each ring's cells twice the last's), out past where the
+  // near sheet ends. Snapped to the coarsest ring's grid as it follows, so no vertex ever swims.
+  // Fewer, coarser cells on lower quality settings.
+  let cell = 0, snap = 1, segs = 0;
+  const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
   mesh.frustumCulled = false;
   mesh.renderOrder = 1;
 
@@ -465,7 +505,7 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
   ring.renderOrder = 1;
   mesh.add(ring);
 
-  return {
+  const api = {
     mesh,
     ring,
     uniforms,
@@ -482,8 +522,8 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       uniforms.uStorm.value = conditions.sea.storm;
     },
     follow(pos) {
-      mesh.position.x = Math.round(pos.x / cell) * cell;
-      mesh.position.z = Math.round(pos.z / cell) * cell;
+      mesh.position.x = Math.round(pos.x / snap) * snap;
+      mesh.position.z = Math.round(pos.z / snap) * snap;
       ring.position.set(pos.x - mesh.position.x, 0, pos.z - mesh.position.z);
     },
     // 0: two wave layers (low), 1: plus fine wavelets and glints, 2: plus the finest layer.
@@ -492,11 +532,57 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       material.defines.DETAIL = level;
       material.needsUpdate = true;
     },
+    // seg: the quality setting's resolution (about how many cells across the old 900 m sheet).
     setSegments(seg) {
-      if (cell === SIZE / seg) return;
+      if (segs === seg) return;
+      segs = seg;
+      // (Fewer cells across each ring on the lower settings, for slower machines.)
+      const N = seg <= 150 ? 64 : seg <= 220 ? 96 : 128;
+      cell = 180 / seg;
+      const R0 = (N * cell) / 2, levels = 1 + Math.ceil(Math.log2(NEAR_R / R0));
       mesh.geometry.dispose();
-      mesh.geometry = sheet(seg);
-      cell = SIZE / seg;
+      mesh.geometry = clipmap(cell, N, levels);
+      snap = cell * 2 ** (levels - 1);
+      uniforms.uWaveLod.value.set(cell, N / 12);
     },
   };
+  api.setSegments(300);
+  return api;
+}
+
+// The near sheet: a square of n × n cells of `cell` metres round the middle, then rings round it,
+// each twice as coarse and twice as wide as the one inside, `levels` in all. aEdge marks the
+// vertices on each ring's outer edge that fall between two of the next ring's (see the shader).
+function clipmap(cell, n, levels) {
+  const pos = [], edge = [], idx = [];
+  let base = 0;
+  for (let L = 0; L < levels; L++) {
+    const c = cell * 2 ** L, half = (n * c) / 2, inner = L ? n / 4 : -1;
+    const at = (i, j) => base + i * (n + 1) + j;
+    for (let i = 0; i <= n; i++) {
+      for (let j = 0; j <= n; j++) {
+        const x = -half + j * c, z = -half + i * c;
+        pos.push(x, 0, z);
+        // (Odd vertices on the outer edge, not the last ring's: between two coarser ones.)
+        const onEdge = (i === 0 || i === n || j === 0 || j === n) && L < levels - 1;
+        const odd = (i === 0 || i === n) ? j % 2 === 1 : (j === 0 || j === n) ? i % 2 === 1 : false;
+        if (onEdge && odd) edge.push(1, i === 0 || i === n ? c : 0, i === 0 || i === n ? 0 : c);
+        else edge.push(0, 0, 0);
+      }
+    }
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        // (A ring leaves out the middle, where the finer one lies.)
+        if (L && i >= inner && i < n - inner && j >= inner && j < n - inner) continue;
+        const a = at(i, j), b = at(i, j + 1), d = at(i + 1, j), e = at(i + 1, j + 1);
+        idx.push(a, d, b, b, d, e);
+      }
+    }
+    base += (n + 1) * (n + 1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('aEdge', new THREE.Float32BufferAttribute(edge, 3));
+  g.setIndex(idx);
+  return g;
 }

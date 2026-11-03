@@ -401,6 +401,12 @@ export class AudioScape {
     this.burst({ buf: this.brown, type: 'lowpass', freq: 400, dur: 0.14, gain: 0.15 * vol, attack: 0.003 });
   }
 
+  // A hull grinding over sand or shingle: a low, rough scrape (vol 0 … 1; called while it lasts).
+  scrape(vol = 1) {
+    this.burst({ buf: this.brown, type: 'bandpass', freq: 260 + Math.random() * 140, freqEnd: 160, q: 0.9, dur: 0.32, gain: 0.12 * vol, attack: 0.04 });
+    this.burst({ buf: this.pink, type: 'bandpass', freq: 1400 + Math.random() * 600, q: 2, dur: 0.18, gain: 0.025 * vol, attack: 0.02 });
+  }
+
   cast(vol = 1) {
     this.burst({ type: 'bandpass', freq: 2400, freqEnd: 500, q: 1.2, dur: 0.42, gain: 0.07 * vol, attack: 0.06 });
     this.tickRun(10, 0.03, 0.025 * vol);

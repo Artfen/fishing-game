@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { walkHeight } from './terrain.js';
 import { waveHeight } from './water.js';
-import { Boat } from '../boat.js';
+import { Boat, floatDraft, wakeOf } from '../boat.js';
+import { wakes } from './wakes.js';
 import { damp, dampAngle, clamp } from '../util.js';
 import { FOLK, FOLK_IDS, SPOTS, POTS } from '../townsfolk.js';
 
@@ -384,7 +385,10 @@ export class FolkView {
     b.forwardSpeed = B.speed;
     const H = b.hull, w = waveHeight(B.x, B.z, t);
     const fore = waveHeight(B.x + fw.x * H.L * 0.4, B.z + fw.z * H.L * 0.4, t), aft = waveHeight(B.x - fw.x * H.L * 0.4, B.z - fw.z * H.L * 0.4, t);
-    b.group.position.set(B.x, w - H.draft + 0.05, B.z);
+    b.group.position.set(B.x, w - floatDraft(b.base), B.z);
+    // (Under way, she leaves a wake like any boat: it rocks yours as it passes.)
+    const wk = (b._wake ||= wakeOf(b.base));
+    wakes.trail(b, B.x, B.z, fw.x, fw.z, B.speed, t, wk.mass, wk.L, wk.fine);
     b.group.rotation.y = B.heading;
     b.body.rotation.x = clamp(Math.atan2(aft - fore, H.L * 0.8) - Math.min(0.08, B.speed * 0.012), -0.3, 0.3);
     this.roll[id] = damp(this.roll[id] || 0, Math.sin(t * 0.9 + id.length) * 0.05 + (B.hauling ? 0.06 : 0) + (B.sails && !B.anchored ? 0.12 : 0), 2, dt);

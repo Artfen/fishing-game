@@ -1,0 +1,351 @@
+import * as THREE from 'three';
+
+// Wakes: the waves a boat makes as she goes. Every boat under way leaves a Kelvin wake behind
+// her, the pattern any ship makes in deep water: inside a wedge 19.5° either side of her track,
+// the feathered divergent waves angling out from her bow and stern, the transverse waves square
+// across her track behind her, the two meeting in a line of bigger, steeper crests along the
+// wedge's edge (the cusps). It's worked out where the waves are from where she went: each point
+// of her track remembers when she passed it and how fast she was going, and the waves she made
+// there go on spreading out as they age, whatever she does after; on a turn they fan out round
+// the curve. How big they are follows her weight and how fine her hull is, and her speed: biggest
+// as she pushes a hump of water around her at about her hull speed, smaller once she's planing,
+// and nothing much at a crawl. They lift and rock any other boat they reach (sample, for the
+// physics: see boat.js), and they're drawn on the water (the ripple field: see waterfx.js).
+// (Stationary-phase theory of the Kelvin pattern; the heights scaled from measured small-craft
+// wakes, a few centimetres for a kayak, half a metre or more for a big boat pushing hard.)
+
+const G = 9.81;
+const CUSP = Math.asin(1 / 3); // the wedge's half-angle: 19.47°
+const STEP = 0.8;      // metres between remembered points of a track
+const MAX_AGE = 40;    // seconds a wake lasts
+const MAX_POINTS = 120; // per track
+const FAR = 140;       // how far behind (m) a wake is still worth drawing
+const DECAY = 30;      // seconds for a wake's waves to die down by e (beyond their spreading)
+
+const smooth = (a, b, x) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+// A boat's wake height scale (m: the crest amplitude a boat's length out, on the wedge's line)
+// for her weight (kg), length (m), how fine she is (length over the cube root of her displaced
+// volume) and speed (m/s).
+export function wakeScale(mass, L, fine, U) {
+  const fn = U / Math.sqrt(G * L);
+  const hump = smooth(0.12, 0.42, fn) * (1 - 0.55 * smooth(0.7, 1.6, fn));
+  const slim = Math.min(1.3, Math.max(0.2, (5 / fine) ** 2));
+  return 0.5 * 0.23 * Math.cbrt(mass / 1000) * hump * slim;
+}
+
+// The wake's height at a point x metres behind where she was (along her track: her speed there
+// times the time since), y across it (m), for a boat of length L going at U m/s with a scale a0
+// (wakeScale), age seconds on. out (optional): { h, vy } added to.
+export function kelvin(x, y, U, a0, L, age, out = null) {
+  if (U < 0.4 || x <= 0.05 || a0 <= 0) return 0;
+  const ay = Math.abs(y), th = Math.atan2(ay, x);
+  if (th >= CUSP + 0.025) return 0;
+  const r = Math.hypot(x, ay);
+  const fade = smooth(CUSP + 0.025, CUSP - 0.015, th) * smooth(0, 0.6 * L, x) * smooth(FAR, FAR * 0.75, x) * Math.exp(-age / DECAY);
+  if (fade <= 0) return 0;
+  const tt = Math.max(1e-5, Math.tan(Math.min(th, CUSP - 1e-4)));
+  const disc = Math.sqrt(Math.max(0, 1 - 8 * tt * tt));
+  const t1 = (2 * tt) / (1 + disc), t2 = (1 + disc) / (4 * tt); // tan ψ: transverse, divergent
+  const fn = U / Math.sqrt(G * L), u2 = U * U;
+  // (A fast boat's wake looks narrower than the Kelvin wedge: its biggest waves lie at an angle
+  // that closes in as she speeds up, about 0.4/Fr radians past a Froude number of one or so,
+  // the wedge's edge itself left faint. Rabaud & Moisy, 2013.)
+  const peak = Math.min(CUSP, 0.4 / fn), narrow = peak < CUSP - 0.005;
+  const cusp = 1 + 0.8 * Math.exp(-(((CUSP - th) / 0.035) ** 2)) * smooth(CUSP * 0.8, CUSP, peak);
+  const lean = narrow ? 0.25 + 0.75 * Math.exp(-(((th - peak) / (0.45 * peak)) ** 2)) : 1;
+  const q = L / (r + L);
+  let h = 0, vy = 0;
+  // The transverse waves (long, square across her track; faint once she's planing).
+  const aT = a0 * 0.7 * (1 - smooth(0.6, 1.2, fn)) * Math.sqrt(q) * cusp * fade;
+  if (aT > 1e-5) {
+    const kx = (G * Math.sqrt(1 + t1 * t1)) / u2;
+    const ph = kx * (x + ay * t1);
+    h += aT * Math.cos(ph);
+    vy -= aT * Math.sin(ph) * kx * U;
+  }
+  // The divergent waves (shorter, angling out; the shortest, close in along her track, too small
+  // to matter).
+  // (They're strongest out towards the wedge's edges, faint close in along her track.)
+  const kx2 = (G * Math.sqrt(1 + t2 * t2)) / u2, k2 = kx2 * Math.sqrt(1 + t2 * t2);
+  const aD = a0 * Math.cbrt(q) * cusp * fade * smooth(12, 4, k2) * (0.2 + 0.8 * smooth(0.25, 0.9, th / peak)) * lean;
+  if (aD > 1e-5) {
+    const ph = kx2 * (x + ay * t2);
+    h += aD * Math.cos(ph);
+    vy -= aD * Math.sin(ph) * kx2 * U;
+  }
+  if (out) {
+    out.h += h;
+    out.vy += vy;
+  }
+  return h;
+}
+
+// The same, for the ripple field's shader (per pixel of a track's ribbon).
+const KELVIN_GLSL = /* glsl */ `
+float kelvinH(float x, float y, float U, float a0, float L, float age) {
+  if (U < 0.4 || x <= 0.05 || a0 <= 0.0) return 0.0;
+  float ay = abs(y), th = atan(ay, x);
+  const float CUSP = ${CUSP.toFixed(6)};
+  if (th >= CUSP + 0.025) return 0.0;
+  float r = length(vec2(x, ay));
+  float fade = smoothstep(CUSP + 0.025, CUSP - 0.015, th) * smoothstep(0.0, 0.6 * L, x) * smoothstep(${FAR.toFixed(1)}, ${(FAR * 0.75).toFixed(1)}, x) * exp(-age / ${DECAY.toFixed(1)});
+  float tt = max(1e-5, tan(min(th, CUSP - 1e-4)));
+  float disc = sqrt(max(0.0, 1.0 - 8.0 * tt * tt));
+  float t1 = 2.0 * tt / (1.0 + disc), t2 = (1.0 + disc) / (4.0 * tt);
+  float fn = U / sqrt(${G} * L), u2 = U * U;
+  float peak = min(CUSP, 0.4 / fn);
+  float cusp = 1.0 + 0.8 * exp(-pow((CUSP - th) / 0.035, 2.0)) * smoothstep(CUSP * 0.8, CUSP, peak);
+  float lean = peak < CUSP - 0.005 ? 0.25 + 0.75 * exp(-pow((th - peak) / (0.45 * peak), 2.0)) : 1.0;
+  float q = L / (r + L);
+  float aT = a0 * 0.7 * (1.0 - smoothstep(0.6, 1.2, fn)) * sqrt(q) * cusp * fade;
+  float kx = ${G} * sqrt(1.0 + t1 * t1) / u2;
+  float h = aT * cos(kx * (x + ay * t1));
+  float s2 = sqrt(1.0 + t2 * t2);
+  float kx2 = ${G} * s2 / u2;
+  float aD = a0 * pow(q, 1.0 / 3.0) * cusp * fade * smoothstep(12.0, 4.0, kx2 * s2) * (0.2 + 0.8 * smoothstep(0.25, 0.9, th / peak)) * lean;
+  h += aD * cos(kx2 * (x + ay * t2));
+  return h;
+}
+`;
+
+// Each ribbon vertex carries the track point it stands beside (where, and which way she was
+// heading), so every pixel works out exactly how far along and across her track it lies.
+const ribbonVert = /* glsl */ `
+attribute vec4 aTrack; // the track point: x, z, and her heading there (unit x, z)
+attribute vec4 aWake;  // how far she's gone since (m), speed (m/s), scale a0 (m), length (m)
+attribute float aAge;  // seconds since she passed
+varying vec2 vP;
+varying vec4 vTrack;
+varying vec4 vWake;
+varying float vAge;
+void main() {
+  vP = position.xy;
+  vTrack = aTrack;
+  vWake = aWake;
+  vAge = aAge;
+  gl_Position = projectionMatrix * viewMatrix * vec4(position.xy, 0.0, 1.0);
+}
+`;
+const ribbonFrag = /* glsl */ `
+varying vec2 vP;
+varying vec4 vTrack;
+varying vec4 vWake;
+varying float vAge;
+${KELVIN_GLSL}
+void main() {
+  vec2 t = normalize(vTrack.zw), d = vP - vTrack.xy;
+  float along = dot(d, t), across = dot(d, vec2(-t.y, t.x));
+  float age = vAge - along / max(vWake.y, 0.1);
+  // (Into the field's second channel: the water shader lifts the sheet by both, but only the
+  // little rings, not the wakes' long smooth waves, catch the light as foam.)
+  gl_FragColor = vec4(0.0, kelvinH(vWake.x - along, across, vWake.y, vWake.z, vWake.w, age), 0.0, 1.0);
+}
+`;
+
+const MAX_TRACKS = 12;
+
+export class Wakes {
+  constructor() {
+    this.tracks = new Map(); // boat → { pts: [{ x, z, tx, tz, t, U, a0 }], L, seen }
+    this.n = 0;               // trail calls so far (a track not written lately is gone)
+    this.mesh = null;
+  }
+
+  // A boat at (x, z), heading along (fx, fz), going U m/s through the water at time t: remember
+  // her track. mass (kg), L (m), fine: see wakeScale.
+  trail(boat, x, z, fx, fz, U, t, mass, L, fine) {
+    let T = this.tracks.get(boat);
+    if (!T) this.tracks.set(boat, (T = { pts: [], L, seen: 0 }));
+    T.seen = ++this.n;
+    T.lastT = t;
+    T.L = L;
+    const P = T.pts, last = P[P.length - 1];
+    // (Moved a long way at once, or the clock turned back: a fresh track.)
+    if (last && (Math.hypot(x - last.x, z - last.z) > 8 || t < last.t)) P.length = 0;
+    while (P.length && t - P[0].t > MAX_AGE) P.shift();
+    const a0 = wakeScale(mass, L, fine, Math.abs(U));
+    if (P.length && Math.hypot(x - P[P.length - 1].x, z - P[P.length - 1].z) < STEP) {
+      // (Not far enough for a new point: the newest one follows her.)
+      if (P.length > 1) return;
+    }
+    if (Math.abs(U) < 0.4 && (!P.length || P[P.length - 1].a0 === 0)) {
+      if (P.length) P[P.length - 1].t = Math.max(P[P.length - 1].t, t - MAX_AGE);
+      return;
+    }
+    // (The way her track runs, not where her bow happens to point this instant: a boat yaws a
+    // little in a seaway, but her wake follows her course, smoothly.)
+    let tx = fx, tz = fz;
+    const prev = P[P.length - 1];
+    if (prev) {
+      // (Along the chord from a few metres back, eased: the way she's been going.)
+      let q = prev;
+      for (let i = P.length - 1; i >= 0 && Math.hypot(x - P[i].x, z - P[i].z) < 8; i--) q = P[i];
+      const dx = x - q.x, dz = z - q.z, d = Math.hypot(dx, dz);
+      if (d > 0.4) {
+        const dir = Math.sign(U || 1);
+        tx = prev.tx * 0.7 + (dir * dx / d) * 0.3;
+        tz = prev.tz * 0.7 + (dir * dz / d) * 0.3;
+        const l = Math.hypot(tx, tz) || 1;
+        tx /= l;
+        tz /= l;
+      } else {
+        tx = prev.tx;
+        tz = prev.tz;
+      }
+    }
+    P.push({ x, z, tx, tz, t, U: Math.abs(U), a0: Math.abs(U) < 0.4 ? 0 : a0 });
+    if (P.length > MAX_POINTS) P.shift();
+  }
+
+  forget(boat) {
+    this.tracks.delete(boat);
+  }
+
+  // The wakes near a boat (other boats' only: her own runs away astern), worked out once a
+  // frame at her middle: for each track, the stretch of it she's beside. ctx is reused.
+  context(boat, x, z, t, reach, ctx = []) {
+    ctx.length = 0;
+    for (const [o, T] of this.tracks) {
+      if (o === boat) continue;
+      // (A boat that's stopped being moved at all, gone from the world, takes her wake with her.)
+      if (this.n - T.seen > 400 || !(Math.abs(t - T.lastT) < 2)) {
+        if (this.n - T.seen > 4000) this.tracks.delete(o);
+        continue;
+      }
+      const P = T.pts;
+      if (P.length < 2) continue;
+      // The point of her track nearest to us, among those whose waves could have got here.
+      let best = -1, bd = Infinity;
+      for (let i = 0; i < P.length; i++) {
+        const p = P[i], age = t - p.t;
+        if (age < 0 || age > MAX_AGE || p.a0 <= 0) continue;
+        const d = (x - p.x) ** 2 + (z - p.z) ** 2;
+        if (d < bd) {
+          bd = d;
+          best = i;
+        }
+      }
+      if (best < 0) continue;
+      const p = P[best];
+      const back = p.U * (t - p.t);
+      if (Math.sqrt(bd) > back * 0.4 + reach + T.L) continue;
+      ctx.push({ x: p.x, z: p.z, tx: p.tx, tz: p.tz, t: p.t, U: p.U, a0: p.a0, L: T.L });
+    }
+    return ctx;
+  }
+
+  // Add the wakes at (x, z) to out ({ h, vy }), from a context.
+  sample(ctx, x, z, t, out) {
+    for (let i = 0; i < ctx.length; i++) {
+      const c = ctx[i];
+      const dx = x - c.x, dz = z - c.z;
+      // Ahead of that point along her track (she got there later) and across it.
+      const along = dx * c.tx + dz * c.tz, across = dx * -c.tz + dz * c.tx;
+      const passed = c.t + along / c.U;
+      kelvin(c.U * (t - c.t) - along, across, c.U, c.a0, c.L, t - passed, out);
+    }
+    return out;
+  }
+
+  // The wakes' height at a point (every track; for a float or a bobber, say).
+  heightAt(x, z, t) {
+    const o = { h: 0, vy: 0 };
+    return this.sample(this.context(null, x, z, t, 0, _hctx), x, z, t, o).h;
+  }
+
+  /* ---------------- drawn in the ripple field ---------------- */
+
+  // The ribbons drawn into the ripple field (see waterfx.js): one strip down each track, as
+  // wide as its wake has spread, each pixel working out the wake's height there.
+  buildMesh() {
+    const n = MAX_TRACKS * MAX_POINTS * 2;
+    const g = new THREE.BufferGeometry();
+    this.pos = new Float32Array(n * 3);
+    this.tr = new Float32Array(n * 4);
+    this.w1 = new Float32Array(n * 4);
+    this.ag = new Float32Array(n);
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('aTrack', new THREE.BufferAttribute(this.tr, 4).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('aWake', new THREE.BufferAttribute(this.w1, 4).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('aAge', new THREE.BufferAttribute(this.ag, 1).setUsage(THREE.DynamicDrawUsage));
+    const idx = [];
+    for (let k = 0; k < MAX_TRACKS; k++) {
+      for (let i = 0; i < MAX_POINTS - 1; i++) {
+        const a = (k * MAX_POINTS + i) * 2;
+        idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      }
+    }
+    g.setIndex(idx);
+    this.mesh = new THREE.Mesh(g, new THREE.ShaderMaterial({
+      vertexShader: ribbonVert,
+      fragmentShader: ribbonFrag,
+      blending: THREE.CustomBlending,
+      blendEquation: THREE.AddEquation,
+      blendSrc: THREE.OneFactor,
+      blendDst: THREE.OneFactor,
+      depthTest: false,
+      depthWrite: false,
+      transparent: true,
+      side: THREE.DoubleSide,
+    }));
+    this.mesh.frustumCulled = false;
+    return this.mesh;
+  }
+
+  // Lay the ribbons for time t (only tracks within `range` of (cx, cz)). Returns whether any.
+  updateMesh(t, cx, cz, range) {
+    if (!this.mesh) return false;
+    const P3 = this.pos, TR = this.tr, W1 = this.w1, AG = this.ag;
+    let k = 0;
+    for (const [, T] of this.tracks) {
+      if (k >= MAX_TRACKS) break;
+      if (this.n - T.seen > 400 || !(Math.abs(t - T.lastT) < 2)) continue;
+      const P = T.pts;
+      if (P.length < 2) continue;
+      // (Only if some of it is near enough to see.)
+      let near = false;
+      for (let i = P.length - 1; i >= 0 && !near; i -= 4) near = Math.abs(P[i].x - cx) < range + 60 && Math.abs(P[i].z - cz) < range + 60;
+      if (!near) continue;
+      const base = k * MAX_POINTS * 2;
+      const m = Math.min(P.length, MAX_POINTS);
+      for (let j = 0; j < MAX_POINTS; j++) {
+        // Newest first; past the end, the strip folds up on its last point (no area).
+        const p = P[P.length - 1 - Math.min(j, m - 1)];
+        const age = Math.max(0, t - p.t), back = p.U * age;
+        const half = j < m ? Math.min(FAR * 0.4, back * Math.tan(CUSP) * 1.15 + T.L * 0.6 + 1) : 0;
+        // (Square across her heading there, either side.)
+        const nx = -p.tz, nz = p.tx;
+        for (let s = 0; s < 2; s++) {
+          const v = base + j * 2 + s, sd = s ? 1 : -1;
+          P3[v * 3] = p.x + nx * half * sd;
+          P3[v * 3 + 1] = p.z + nz * half * sd;
+          P3[v * 3 + 2] = 0;
+          TR[v * 4] = p.x;
+          TR[v * 4 + 1] = p.z;
+          TR[v * 4 + 2] = p.tx;
+          TR[v * 4 + 3] = p.tz;
+          W1[v * 4] = back;
+          W1[v * 4 + 1] = p.U;
+          W1[v * 4 + 2] = p.a0;
+          W1[v * 4 + 3] = T.L;
+          AG[v] = age;
+        }
+      }
+      k++;
+    }
+    const g = this.mesh.geometry;
+    g.setDrawRange(0, k * (MAX_POINTS - 1) * 6);
+    g.attributes.position.needsUpdate = true;
+    g.attributes.aTrack.needsUpdate = true;
+    g.attributes.aWake.needsUpdate = true;
+    g.attributes.aAge.needsUpdate = true;
+    return k > 0;
+  }
+}
+const _hctx = [];
+
+export const wakes = new Wakes();

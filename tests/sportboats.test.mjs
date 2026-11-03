@@ -58,15 +58,26 @@ test('the yacht: twin inboards under her stern (no outboard), about twenty knots
   run(y, 1, 1, 1);
   assert.ok(Math.abs(y.rudders[0].rotation.y) > 0.3);
   assert.ok(Math.sign(y.props[0].rotation.z) !== Math.sign(y.props[1].rotation.z) || y.props[0].rotation.z === 0);
-  // Slow, the twin screws bring her round more readily than the skiff at its own dead slow.
+  // Slow, the twin screws (one ahead, one astern) walk her round in a tighter circle for her
+  // size than the skiff turns at its own dead slow. (Nine tonnes don't swing as quickly as a
+  // light skiff, but she comes round within a fraction of her own length.)
   const turn = (b) => {
     b.place(OPEN.x, OPEN.z, 0);
     run(b, 6, LEVERS[b.kind][2].v);
     const h0 = b.heading;
-    run(b, 3, LEVERS[b.kind][2].v, 1);
-    return Math.abs(b.heading - h0);
+    let path = 0, x = b.pos.x, z = b.pos.z;
+    for (let i = 0; i < 90; i++) {
+      run(b, 1 / 30, LEVERS[b.kind][2].v, 1);
+      path += Math.hypot(b.pos.x - x, b.pos.z - z);
+      x = b.pos.x;
+      z = b.pos.z;
+    }
+    const turned = Math.abs(b.heading - h0);
+    assert.ok(turned > 0.5, `${b.kind}: turned ${turned.toFixed(2)} rad in 3 s`);
+    return path / turned / b.hull.L;
   };
-  assert.ok(turn(boatAt('cruiser')) > turn(boatAt('skiff')), 'twin screws when slow');
+  const yr = turn(boatAt('cruiser')), sr = turn(boatAt('skiff'));
+  assert.ok(yr < sr, `twin screws when slow: a turning radius of ${yr.toFixed(2)} of her length, the skiff ${sr.toFixed(2)}`);
   conditions.manual = null;
 });
 
