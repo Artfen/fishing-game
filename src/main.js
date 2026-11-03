@@ -45,6 +45,7 @@ import { WindLines } from './world/windlines.js';
 import { Storm } from './world/storm.js';
 import { coldInfo, COLDWATER, FALLS, tarnSDF } from './world/coldwater.js';
 import { Boat, BOAT_KINDS } from './boat.js';
+import { wakes } from './world/wakes.js';
 import { Walker } from './walker.js';
 import { Effects } from './effects.js';
 import { buildSeaLife, SEA_LIFE } from './world/sealife.js';
@@ -312,6 +313,9 @@ const fx = new Effects(scene);
 // The water mirrors the world and shows every ripple (both scale with the graphics setting).
 const reflection = new Reflection();
 const ripples = new RippleField();
+// The boats' wakes, drawn into the ripple field with the rings (see wakes.js).
+ripples.scene.add(wakes.buildMesh());
+ripples.extra = (cx, cz, span) => wakes.updateMesh(t, cx, cz, span);
 fx.setField(ripples);
 // The sea glowing at night (splashes, wakes and strokes light it: see seaglow.js), and the
 // whales, dolphins, seals and gannets you watch rather than catch (sealife.js).
@@ -5626,6 +5630,13 @@ BOATS.kayak.onStroke = (p, side) => {
   audio.oar(side > 0 ? -0.3 : 0.3, 0.35);
 };
 for (const b of boats) b.onBump = (v) => audio.knock(clamp(v / 3, 0.4, 1));
+// Running aground, or dragged up a beach: the hull grinding on the bottom (yours, a few times a second).
+let scrapeT = 0;
+for (const b of boats) b.onScrape = (v, on) => {
+  if (b !== boat || t - scrapeT < 0.28) return;
+  scrapeT = t;
+  audio.scrape(clamp(v / 1.5, 0.2, 1) * clamp(on * 2, 0.3, 1));
+};
 // Under sail: the boom comes across in a tack, or slams across in a gybe.
 // The windsurf board: catapulted in, back up, the rig flipping across; and planing, the first
 // time. The jet ski landing off a wave.
@@ -7718,7 +7729,12 @@ function tick(now, manual = false) {
     }
   }
   boat.update(dt, t, throttle, steer, env.lantern);
-  for (const b of boats) if (b !== boat) b.update(dt, t, 0, 0, env.lantern);
+  // (The others: any lying still a long way from you rest; see Boat.update.)
+  for (const b of boats) {
+    if (b === boat) continue;
+    const far = Math.hypot(b.pos.x - camera.position.x, b.pos.z - camera.position.z) > 140 && !(tow && (tow.lead === b || tow.towed === b));
+    b.update(dt, t, 0, 0, env.lantern, far);
+  }
   // The wind lines: round the boat while you sail (or wherever you are, if you like them always).
   {
     const L = settings.weather.windLines, sailing = !onFoot && !driving && !dive && (boat.hull.sail || boat.hull.rig) && boat.sailUp;
@@ -8189,6 +8205,7 @@ window.slowTide = {
     window.slowTide.paused = true;
     camera.position.set(x, y, z);
     camera.lookAt(tx, ty, tz);
+    water.follow(camera.position);
     const sub = underwater.updateMedium(t, camera, env, scene, water, weather.rain);
     fishRenderer.update(0, camera, env.night, sub > 0.5); // the fish near this view, in full detail
     reflection.active = false; // a fresh reflection for the new view

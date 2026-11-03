@@ -51,11 +51,13 @@ test('nothing jumps at an invisible line: waves and currents vary smoothly acros
   // From inside Willow Bay out through its mouth to the open coast, and across the estuary.
   for (const [x0, z0, x1, z1] of [[0, -10, 0, 320], [480, 60, 680, 60], [-400, 560, -120, 560], [140, -30, 150, 70]]) {
     let lastH = null, lastC = null;
-    const n = Math.round(Math.hypot(x1 - x0, z1 - z0));
+    // (Every quarter metre: a steep wind sea's own slope stays well under the limit there, while
+    // a seam in the water would still show as a step.)
+    const n = Math.round(Math.hypot(x1 - x0, z1 - z0) * 4);
     for (let i = 0; i <= n; i++) {
       const x = x0 + ((x1 - x0) * i) / n, z = z0 + ((z1 - z0) * i) / n;
       const h = C.waveHeight(x, z), c = C.currentAt(x, z, 0);
-      if (lastH != null) assert.ok(Math.abs(h - lastH) < 0.12, `wave jump ${Math.abs(h - lastH).toFixed(3)} m at ${x.toFixed(0)},${z.toFixed(0)}`);
+      if (lastH != null) assert.ok(Math.abs(h - lastH) < 0.08, `wave jump ${Math.abs(h - lastH).toFixed(3)} m at ${x.toFixed(1)},${z.toFixed(1)}`);
       if (lastC) assert.ok(Math.hypot(c.x - lastC.x, c.z - lastC.z) < 0.06, `current jump at ${x.toFixed(0)},${z.toFixed(0)}`);
       lastH = h;
       lastC = { ...c };
@@ -175,16 +177,19 @@ test('an Atlantic coast is seldom still: a breeze most days, a sea breeze in the
 
 test('the wind sea grows longer waves as the wind freshens, and bigger ones', () => {
   const { CHOP } = C.WAVE_PARTS;
+  // Each wavelength's energy (the sum of its waves' squared amplitudes), shortest first.
   const bands = (speed) => {
     settle('auto', speed);
-    const out = [0, 0, 0, 0];
-    CHOP.forEach((w, i) => { out[w.band] += C.conditions.chopAmps[i]; });
+    const out = [];
+    CHOP.forEach((w, i) => { out[w.band] = (out[w.band] || 0) + C.conditions.chopAmps[i] ** 2; });
     return out;
   };
   const light = bands(3), fresh = bands(12);
-  assert.ok(light[3] < 0.002 && light[0] > light[2], `light air: short waves only (${light.map((a) => a.toFixed(3)).join(', ')})`);
-  assert.ok(fresh[3] > fresh[0] && fresh[2] > fresh[0], `a fresh breeze: the longest carry the most (${fresh.map((a) => a.toFixed(3)).join(', ')})`);
-  assert.ok(fresh.reduce((a, b) => a + b) > light.reduce((a, b) => a + b) * 5);
+  const peak = (e) => e.indexOf(Math.max(...e)), sum = (e) => e.reduce((a, b) => a + b);
+  const show = (e) => e.map((a) => Math.sqrt(a).toFixed(3)).join(', ');
+  assert.ok(peak(light) <= 1 && sum(light.slice(3)) < sum(light) * 0.02, `light air: short waves only (${show(light)})`);
+  assert.ok(peak(fresh) >= 3 && fresh[3] > fresh[0] * 5, `a fresh breeze: longer waves carry the most (${show(fresh)})`);
+  assert.ok(Math.sqrt(sum(fresh)) > Math.sqrt(sum(light)) * 5, 'and bigger');
   // Out in the open in a fresh breeze, about a metre crest to trough, with sharp crests.
   settle('lively', 12);
   const h = C.waveHeightHere(0, 300);

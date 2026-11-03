@@ -153,7 +153,8 @@ test('every jetty and quay has a berth alongside; she lies along it and stays th
       assert.ok(Math.abs(Math.atan2(Math.sin(b.heading - B.heading), Math.cos(b.heading - B.heading))) < 0.05, 'lying along it');
       const Q = PIERS[B.pier], along = Q.x1 - Q.x0 >= Q.z1 - Q.z0;
       const gap = along ? Math.min(Math.abs(b.pos.z - Q.z0), Math.abs(b.pos.z - Q.z1)) : Math.min(Math.abs(b.pos.x - Q.x0), Math.abs(b.pos.x - Q.x1));
-      assert.ok(gap > b.hull.B * 0.5 && gap < b.hull.B * 0.5 + 0.4, `alongside, fenders between (${(gap - b.hull.B * 0.5).toFixed(2)} m)`);
+      const half = M.sideOut(b);
+      assert.ok(gap > half && gap < half + 0.4, `alongside, fenders between (${(gap - half).toFixed(2)} m)`);
       assert.ok(b.lines.every((l) => l.mesh.visible) && b.fenders.every((f) => f.visible), 'lines and fenders out');
       // The motor and the oars don't move her while she's tied.
       const before = b.pos.clone();

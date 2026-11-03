@@ -183,8 +183,10 @@ export class Effects {
         const a = p.age, life = 1 - a / WAKE_LIFE;
         const rx = -p.fz, rz = p.fx;
         let off, w, alpha;
-        if (side !== 0) { off = side * (0.55 + a * 1.15); w = 0.14 + a * 0.2; alpha = 0.45; }
-        else { off = 0; w = 0.4 + a * 0.7; alpha = 0.2; }
+        // (The churned white water straight astern, widening as it settles. The wake's waves
+        // spreading out either side are the water's own now: see world/wakes.js.)
+        if (side !== 0) { off = side * (0.55 + a * 0.35); w = 0.14 + a * 0.12; alpha = 0.25 * Math.max(0, 1 - a / 1.5); }
+        else { off = 0; w = 0.4 + a * 0.7; alpha = 0.22; }
         alpha *= p.s * life * life * smoothstep(0, 0.12, a) * (k < n ? 1 : 0);
         const cx = p.x + rx * off, cz = p.z + rz * off;
         const y = waveHeight(cx, cz, t) + 0.035;
