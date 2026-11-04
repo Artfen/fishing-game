@@ -98,9 +98,9 @@ test('the centre console: twin outboards, quick, its own berth, fuel and lever; 
   const home = boatAt('console', T.CONSOLE_BERTH.x, T.CONSOLE_BERTH.z, T.CONSOLE_BERTH.heading);
   const berth = M.berthFor(home, []);
   assert.ok(berth && Math.hypot(berth.x - T.CONSOLE_BERTH.x, berth.z - T.CONSOLE_BERTH.z) < 0.5, 'its berth is a berth');
-  assert.equal(T.PIERS[berth.pier], T.HAVEN_FINGERS[2]);
-  // Clear of the yacht's berth.
-  assert.ok(Math.hypot(T.CONSOLE_BERTH.x - T.CRUISER_BERTH.x, T.CONSOLE_BERTH.z - T.CRUISER_BERTH.z) > 6);
+  assert.equal(T.PIERS[berth.pier], T.OWN_FINGER);
+  // Clear of the yacht's berth (the other side of your finger).
+  assert.ok(T.CONSOLE_BERTH.z < T.OWN_FINGER.z0 && T.CRUISER_BERTH.z > T.OWN_FINGER.z1);
   const { parseSave, SAVE_VERSION } = await import('../src/save.js');
   const data = { day: 2, hour: 10, vessel: 'console', mode: 'boat', boats: { console: { x: 20, z: 300, heading: 1 } }, fuel: { boats: { console: 80 } } };
   const s = parseSave(JSON.stringify({ game: 'slow-tide', version: SAVE_VERSION, savedAt: 1000, data })).state;

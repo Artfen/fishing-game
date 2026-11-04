@@ -102,7 +102,8 @@ export const MOORING = { x: 17, z: -79.6, heading: Math.PI };
 export const LANDING = { x: Q.x1 + 1.45, z: Q.z1 - 3.2, heading: Math.PI };
 const G = STACKS[0];
 export const POTS = [[G.x + 18, G.z - 8], [G.x + 28, G.z + 17], [G.x + 8, G.z + 32], [G.x - 17, G.z + 27], [G.x - 27, G.z + 2]].map(([x, z]) => ({ x, z }));
-export const ROUTE_OUT = [[MOORING.x, MOORING.z], [24, -60], [32, -30], [30, 10], [5, 55], [-25, 85], [POTS[0].x, POTS[0].z]].map(([x, z]) => ({ x, z }));
+// (Out round the east end of the pontoon's fingers, clear of the berths.)
+export const ROUTE_OUT = [[MOORING.x, MOORING.z], [32.5, -77.5], [36, -60], [35.5, -38], [30, 10], [5, 55], [-25, 85], [POTS[0].x, POTS[0].z]].map(([x, z]) => ({ x, z }));
 const pts = (a) => a.map(([x, z]) => ({ x, z }));
 // The other boats that go out: Ian's skiff from the other mooring off the quay, out past the Calf
 // to drift for mackerel; Chano's boat from her mooring in Puerto Brasa's basin, out through the
@@ -110,8 +111,8 @@ const pts = (a) => a.map(([x, z]) => ({ x, z }));
 export const OUTINGS = {
   jean: {
     owner: 'ian', name: 'Bonny Jean', kind: 'skiff', start: 14.1, target: 'mackerel', where: 'from the Bonny Jean, out past the Calf', south: false,
-    mooring: { x: 2.5, z: -77.9, heading: Math.PI },
-    route: pts([[2.5, -77.9], [22, -58], [33, -25], [32, 12], [36, 26]]), drift: pts([[36, 26], [46, 34]]), fishHours: 2.4,
+    mooring: { x: 25, z: -80.5, heading: Math.PI },
+    route: pts([[25, -80.5], [32.5, -77.5], [36, -60], [35.5, -38], [33, -25], [32, 12], [36, 26]]), drift: pts([[36, 26], [46, 34]]), fishHours: 2.4,
   },
   carmen: {
     owner: 'chano', name: 'Virgen del Carmen', kind: 'skiff', start: 6.9, target: 'parrotfish', where: 'over El Bajón', south: true,
