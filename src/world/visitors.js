@@ -102,7 +102,7 @@ export class VisitorView {
     for (const p of peers.values()) {
       if (!p.name || !p.pose || !p.at) continue;
       const d = this.entry(p);
-      const P = p.pose, A = p.at;
+      const P = p.view || p.pose, A = p.at;
       const far = Math.hypot(A.x - from.x, A.z - from.z);
       const onFoot = P.m === 'foot' && far < 400;
       const afloat = P.m === 'boat' && far < 1800;

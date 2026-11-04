@@ -118,9 +118,16 @@ class Hub {
 }
 
 const CFG = { url: 'https://example.supabase.co', anonKey: 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.c2ln' };
+// (One clock for everyone in a test, moved on by each step of the game.)
+const clock = { t: 100 };
 function player(hub, name, extra = {}) {
   const me = { name };
-  const T = new Together({ config: () => CFG, name: () => me.name, kinds: ['row', 'skiff', 'sail'], WS: hub.WS, online: () => true, listenMs: 25, retryScale: 0.01, ...extra });
+  const T = new Together({ config: () => CFG, name: () => me.name, kinds: ['row', 'skiff', 'sail'], WS: hub.WS, online: () => true, listenMs: 25, retryScale: 0.01, now: () => clock.t, ...extra });
+  const update = T.update.bind(T);
+  T.update = (dt, me) => {
+    clock.t += dt;
+    update(dt, me);
+  };
   T.events = [];
   T.onEvent = (kind, p, data) => T.events.push([kind, p?.name ?? null, data ?? null]);
   T.who = me;
@@ -511,4 +518,73 @@ test('someone who left while your connection was down is let go after a while', 
   assert.deepEqual(b.others.map((p) => p.name), ['Mags'], 'Ruth is gone; Mags, still here, stays');
   a.leave();
   await until(() => b.status === 'off');
+});
+
+/* ---------- drawing friends smoothly ---------- */
+
+// A friend's positions as they arrive: sent every `every` seconds by their clock, each delivered
+// after `lag` plus up to `wobble` seconds more. Returns the frames as drawn here at 60 fps.
+function watch(path, { seconds = 6, every = 0.25, lag = 0.08, wobble = 0.15, seed = 7 } = {}) {
+  let r = seed;
+  const rand = () => ((r = (r * 16807) % 2147483647) / 2147483647);
+  let now = 50;
+  const T = new Together({ config: () => null, name: () => 'Me', now: () => now });
+  const pending = [];
+  for (let t = 0; t <= seconds; t += every) {
+    const P = path(t);
+    pending.push({ at: 1000 + t + lag + rand() * wobble, msg: { id: 'friend', n: 'Mags', t: 1000 + t, p: { m: 'boat', k: 'row', ...P } } });
+  }
+  const frames = [];
+  for (now = 1000; now < 1000 + seconds; now += 1 / 60) {
+    for (const m of pending.filter((q) => !q.done && q.at <= now)) {
+      m.done = true;
+      T.receive('broadcast', { type: 'broadcast', event: 'pose', payload: m.msg });
+    }
+    T.update(1 / 60, null);
+    const p = T.peers.get('friend');
+    if (p?.at) frames.push({ x: p.at.x, z: p.at.z, v: p.at.v });
+  }
+  return frames;
+}
+
+test('a friend glides at an even speed, however unevenly their messages arrive', () => {
+  // Rowing along a straight line at 3 m/s, messages arriving with up to 150 ms of wobble.
+  const frames = watch((t) => ({ x: 3 * t, z: 0, h: Math.PI / 2, vx: 3, vz: 0 })).slice(90, -45);
+  assert.ok(frames.length > 100);
+  for (let i = 1; i < frames.length; i++) {
+    const step = (frames[i].x - frames[i - 1].x) * 60;
+    assert.ok(Math.abs(step - 3) < 0.15, `frame ${i}: ${step.toFixed(2)} m/s`);
+  }
+  // (And about half a second behind, not more.)
+  const last = frames[frames.length - 1];
+  assert.ok(last.x > 3 * (6 - 0.75 - 0.75) && last.x < 3 * (6 - 0.75), `at ${last.x}`);
+});
+
+test('turning, a friend follows a smooth curve, without corners or wobbles', () => {
+  // A circle of 20 m at 4 m/s.
+  const R = 20, w = 4 / R;
+  const path = (t) => ({ x: R * Math.sin(w * t), z: R - R * Math.cos(w * t), h: w * t, vx: 4 * Math.cos(w * t), vz: 4 * Math.sin(w * t) });
+  const frames = watch(path, { seconds: 8 }).slice(90, -45);
+  for (let i = 2; i < frames.length; i++) {
+    const v1 = [(frames[i - 1].x - frames[i - 2].x) * 60, (frames[i - 1].z - frames[i - 2].z) * 60];
+    const v2 = [(frames[i].x - frames[i - 1].x) * 60, (frames[i].z - frames[i - 1].z) * 60];
+    const speed = Math.hypot(...v2);
+    const accel = Math.hypot(v2[0] - v1[0], v2[1] - v1[1]) * 60;
+    assert.ok(Math.abs(speed - 4) < 0.25, `frame ${i}: ${speed.toFixed(2)} m/s`);
+    assert.ok(accel < 4 * 4 / R * 2, `frame ${i}: a jerk of ${accel.toFixed(2)} m/s²`); // (the turn itself is 0.8)
+  }
+});
+
+test('a friend who stops stays stopped, and one who goes somewhere new is there at once', () => {
+  const stopAt = 3;
+  const frames = watch((t) => (t < stopAt ? { x: 2 * t, z: 0, h: 0, vx: 2, vz: 0 } : { x: 2 * stopAt, z: 0, h: 0, vx: 0, vz: 0 }));
+  const end = frames.slice(-60);
+  for (const f of end) assert.ok(Math.abs(f.x - 2 * stopAt) < 0.02 && f.v < 0.01, `still moving at ${f.x}`);
+  const xs = frames.map((f) => f.x);
+  for (let i = 1; i < xs.length; i++) assert.ok(xs[i] >= xs[i - 1] - 1e-9, 'never steps back');
+  // A passage: 5 km in an instant (a new place, not a slide across the map).
+  const far = watch((t) => (t < 2 ? { x: 0, z: 0, h: 0, vx: 0, vz: 0 } : { x: 0, z: 5000, h: 0, vx: 0, vz: 0 }), { seconds: 3 });
+  const jumpAt = far.findIndex((f) => f.z > 1);
+  assert.ok(jumpAt > 0);
+  assert.ok(far[jumpAt].z > 4999, 'there at once');
 });
