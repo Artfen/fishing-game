@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { walkHeight } from './terrain.js';
+import { walkHeight, solidHeight } from './terrain.js';
 import { waveHeight } from './water.js';
 import { Boat, floatDraft, wakeOf } from '../boat.js';
 import { wakes } from './wakes.js';
 import { damp, dampAngle, clamp } from '../util.js';
 import { FOLK, FOLK_IDS, SPOTS, POTS } from '../townsfolk.js';
+import { Skipper } from './skipper.js';
 
 // How the harbour's people look, and the Morning Star (Dougie's boat), drawn where townsfolk.js
 // says they are: walking (legs and arms swinging), standing about, sitting (on the bench, Bert's
@@ -341,12 +342,37 @@ export class FolkView {
     }
     this.roll = {};
     this.rippleT = {};
+    // Each boat's skipper: the clock says where she should be; they take her there, keeping
+    // clear of every other boat on the way (see skipper.js).
+    this.skippers = {};
+    for (const [id, b] of Object.entries(this.boats)) {
+      const k = (this.skippers[id] = new Skipper(b.hull.L, b.hull.B, b.hull.draft));
+      k.m = wakeOf(b.base).mass;
+    }
+    this._others = [];
+  }
+
+  // The boats the harbour's skippers keep clear of: yours (boats: Boat[]), friends' (more), and
+  // each other.
+  obstacles(boats = [], more = []) {
+    const O = this._others;
+    O.length = 0;
+    const add = (b, fixed) => {
+      if (!b?.group?.visible) return;
+      O.push({ x: b.pos.x, z: b.pos.z, heading: b.heading, L: b.hull.L, B: b.hull.B, vx: b.vel.x, vz: b.vel.z, m: b._phys?.m ?? 600, fixed, boat: b });
+    };
+    // (Yours lying still a long way off aren't being worked out: they won't give, so the
+    // harbour's boats go round them entirely.)
+    for (const b of boats) add(b, !!b._resting);
+    for (const b of more) add(b, true);
+    return O;
   }
 
   // town: the Townsfolk; from: where you are (people far off aren't drawn); fx: for the boats'
   // wakes (ripples, and the glow at night); south: you're at Las Brasas; night (0 … 1): the
   // Puffin's anchor light.
-  update(dt, t, town, { from, south = false, fx = null, glow = null, night = 0 } = {}) {
+  // boats: yours (and more: friends'), for the skippers to keep clear of.
+  update(dt, t, town, { from, south = false, fx = null, glow = null, night = 0, boats = [], more = [] } = {}) {
     for (const id of FOLK_IDS) {
       const p = town.people[id], f = this.figures[id];
       const hidden = p.act === 'inside' || p.act === 'away' || p.act === 'aboard';
@@ -365,9 +391,26 @@ export class FolkView {
       g.position.set(P.x, waveHeight(P.x, P.z, t) + 0.05, P.z);
       g.rotation.z = Math.sin(t * 1.1 + i) * 0.12;
     }
+    const others = this.obstacles(boats, more), n0 = others.length;
+    // (Each skipper keeps clear of the others' boats too, as they are this frame.)
     for (const id of Object.keys(this.boats)) {
-      const B = town.boats[id];
-      const show = !!B.south === south && B.present !== false && Math.hypot(B.x - from.x, B.z - from.z) < 1800;
+      const B = town.boats[id], k = this.skippers[id];
+      if (!!B.south === south && B.present !== false && k.on) others.push({ x: k.x, z: k.z, heading: k.heading, L: k.L, B: k.B, vx: k.vx, vz: k.vz, m: k.m, fixed: false, id });
+    }
+    for (const id of Object.keys(this.boats)) {
+      const B = town.boats[id], k = this.skippers[id];
+      const d = Math.hypot(B.x - from.x, B.z - from.z);
+      const show = !!B.south === south && B.present !== false && d < 1800;
+      if (show) {
+        // (Not herself.)
+        const mine = others.findIndex((o, i) => i >= n0 && o.id === id);
+        const me = mine >= 0 ? others.splice(mine, 1)[0] : null;
+        k.step(dt, B, others, solidHeight, d < 400);
+        if (me) {
+          Object.assign(me, { x: k.x, z: k.z, heading: k.heading, vx: k.vx, vz: k.vz });
+          others.splice(mine, 0, me);
+        }
+      } else k.on = false;
       this.drawBoat(id, B, show, dt, t, { fx, glow, night });
     }
   }
@@ -378,21 +421,23 @@ export class FolkView {
     const b = this.boats[id];
     b.group.visible = show;
     if (!show) return;
-    const fw = { x: Math.sin(B.heading), z: Math.cos(B.heading) };
-    b.pos.set(B.x, 0, B.z);
-    b.heading = B.heading;
+    // (Where her skipper has her: the clock's place for her, give or take the boats in her way.)
+    const k = this.skippers[id], x = k.x, z = k.z, heading = k.heading, speed = k.speed;
+    const fw = { x: Math.sin(heading), z: Math.cos(heading) };
+    b.pos.set(x, 0, z);
+    b.heading = heading;
     b.fwd.set(fw.x, 0, fw.z);
     b.right.set(-fw.z, 0, fw.x);
-    b.vel.set(fw.x * B.speed, 0, fw.z * B.speed);
-    b.forwardSpeed = B.speed;
-    const H = b.hull, w = waveHeight(B.x, B.z, t);
-    const fore = waveHeight(B.x + fw.x * H.L * 0.4, B.z + fw.z * H.L * 0.4, t), aft = waveHeight(B.x - fw.x * H.L * 0.4, B.z - fw.z * H.L * 0.4, t);
-    b.group.position.set(B.x, w - floatDraft(b.base), B.z);
+    b.vel.set(k.vx, 0, k.vz);
+    b.forwardSpeed = speed;
+    const H = b.hull, w = waveHeight(x, z, t);
+    const fore = waveHeight(x + fw.x * H.L * 0.4, z + fw.z * H.L * 0.4, t), aft = waveHeight(x - fw.x * H.L * 0.4, z - fw.z * H.L * 0.4, t);
+    b.group.position.set(x, w - floatDraft(b.base), z);
     // (Under way, she leaves a wake like any boat: it rocks yours as it passes.)
     const wk = (b._wake ||= wakeOf(b.base));
-    wakes.trail(b, B.x, B.z, fw.x, fw.z, B.speed, t, wk.mass, wk.L, wk.fine, B.sails ? 0 : Math.min(0.7, B.speed / 4), H.B);
-    b.group.rotation.y = B.heading;
-    b.body.rotation.x = clamp(Math.atan2(aft - fore, H.L * 0.8) - Math.min(0.08, B.speed * 0.012), -0.3, 0.3);
+    wakes.trail(b, x, z, fw.x, fw.z, speed, t, wk.mass, wk.L, wk.fine, B.sails ? 0 : Math.min(0.7, Math.abs(speed) / 4), H.B);
+    b.group.rotation.y = heading;
+    b.body.rotation.x = clamp(Math.atan2(aft - fore, H.L * 0.8) - Math.min(0.08, Math.max(0, speed) * 0.012), -0.3, 0.3);
     this.roll[id] = damp(this.roll[id] || 0, Math.sin(t * 0.9 + id.length) * 0.05 + (B.hauling ? 0.06 : 0) + (B.sails && !B.anchored ? 0.12 : 0), 2, dt);
     b.body.rotation.z = this.roll[id];
     if (b.occupied !== B.aboard) b.setRower(B.aboard);
@@ -409,16 +454,18 @@ export class FolkView {
       b.sailing = B.sails ? { boom: 0.55, awa: 1.3, alpha: 0.14, speed: 3.5, pull: 3 } : null;
       b.setLantern?.(B.anchored && night > 0.3);
     }
-    b.animate(dt, t, B.speed > 0.3 && !b.hull.sail ? 0.7 : 0, 0, B.anchored ? night : 0);
+    b.animate(dt, t, Math.abs(speed) > 0.3 && !b.hull.sail ? 0.7 * Math.sign(speed) : 0, 0, B.anchored ? night : 0);
     b.group.updateMatrixWorld(true);
+    // (Out on the water: solid to your boats, which bump off her as off any boat.)
+    b.afloat(t);
     if (!B.fishing && b.rod && b.hull.sail == null) b.rod.visible = false;
     // A wake of ripples behind her under way (glowing after dark, on a glowing night).
-    if (fx && B.speed > 0.5) {
+    if (fx && Math.abs(speed) > 0.5) {
       this.rippleT[id] = (this.rippleT[id] || 0) - dt;
       if (this.rippleT[id] <= 0) {
         this.rippleT[id] = 0.18;
-        fx.ripple(B.x - fw.x * H.L * 0.5, B.z - fw.z * H.L * 0.5, 1.2 + B.speed * 0.25, 1.8, 0.5);
-        glow?.spawn(B.x - fw.x * H.L * 0.5, B.z - fw.z * H.L * 0.5, 6, 0.8, 1, t);
+        fx.ripple(x - fw.x * H.L * 0.5, z - fw.z * H.L * 0.5, 1.2 + Math.abs(speed) * 0.25, 1.8, 0.5);
+        glow?.spawn(x - fw.x * H.L * 0.5, z - fw.z * H.L * 0.5, 6, 0.8, 1, t);
       }
     }
   }
