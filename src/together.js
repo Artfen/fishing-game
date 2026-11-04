@@ -210,8 +210,9 @@ export class Realtime {
     const payload = {
       config: { broadcast: { ack: false, self: false }, presence: { key, enabled: true }, postgres_changes: [], private: false },
     };
-    // (A legacy anon key is a JWT and goes along as the access token; a publishable key can't.)
-    if (this.key.split('.').length === 3) payload.access_token = this.key;
+    // (Signed out, the key itself goes as the access token, legacy anon JWT or publishable key
+    // alike: just as Supabase's own client does.)
+    if (this.key) payload.access_token = this.key;
     await this.request(this.topic, 'phx_join', payload);
   }
 

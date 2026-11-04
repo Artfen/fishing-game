@@ -228,11 +228,12 @@ test('Realtime joins a public channel with presence, broadcasts, and answers hea
   assert.equal(rt.open, false);
   assert.ok(hub.log.some((m) => m.event === 'phx_leave'));
 
-  // A publishable key isn't a JWT: it goes as the apikey only.
+  // A publishable key goes the same way (as Supabase's own client sends it), and as the apikey.
   const rt2 = new Realtime({ url: CFG.url, key: 'sb_publishable_abc', WS: hub.WS });
+  assert.match(rt2.endpoint, /\?apikey=sb_publishable_abc&vsn=1\.0\.0$/);
   await rt2.connect();
   await rt2.join('slow-tide-9', 'me');
-  assert.equal(hub.log.filter((m) => m.event === 'phx_join').at(-1).payload.access_token, undefined);
+  assert.equal(hub.log.filter((m) => m.event === 'phx_join').at(-1).payload.access_token, 'sb_publishable_abc');
   rt2.close();
 });
 
