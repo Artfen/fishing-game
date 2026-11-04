@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   heightAt, HAVEN, HAVEN_APRON, HAVEN_HOUSES, HAVEN_MARKET, HAVEN_QUAY, SLIPWAY, HAVEN_BOARD, HAVEN_BENCH, HAVEN_LAMP, FUEL_PUMPS,
-  HAVEN_PONTOON, HAVEN_FINGERS, HAVEN_STEPS,
+  HAVEN_PONTOON, HAVEN_FINGERS, HAVEN_STEPS, OWN_FINGER, VISITOR_FINGERS, HARBOUR_OFFICE,
   DAYMARK, STRAND, PUNT, SHELTER, WRECK, WRECK_BUOY, WRECK_BELL, CHANNEL, COVE,
 } from './terrain.js';
 import { waveHeight } from './conditions.js';
@@ -151,6 +151,78 @@ function buildHaven(rnd, group, obstacles, spots) {
     dark.push(...fuelPumpParts(F.x, F.deck, F.z, F.yaw));
     obstacles.push({ x: F.x, z: F.z, r: 0.42, kind: 'harbour', name: 'the fuel point' });
   }
+  // The harbour office: a little timber hut at the head of the quay, a hatch in its front under a
+  // board with its name, a door in its side, and a lifebuoy on the wall.
+  let officeSignTex;
+  {
+    const O = HARBOUR_OFFICE, oy = ay, H = 2.25, hw = O.w / 2, hd = O.d / 2;
+    const at = (lx, ly, lz, rx = 0, ry = 0, rz = 0) => placed(O.x, oy, O.z, O.yaw, lx, ly, lz, rx, ry, rz);
+    woodParts.push({ geo: new THREE.BoxGeometry(O.w, H, O.d), matrix: at(0, H / 2, 0), color: '#2f5563' });
+    // (Corner posts and a white trim.)
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) woodParts.push({ geo: new THREE.BoxGeometry(0.1, H, 0.1), matrix: at(sx * hw, H / 2, sz * hd), color: '#eeeae0' });
+    roofs.push({ geo: gable(O.w, O.d, 0.7), matrix: at(0, H, 0), color: '#4d5157' });
+    woodParts.push({ geo: gableEnds(O.w, O.d, 0.7), matrix: at(0, H, 0), color: '#2f5563' });
+    // The hatch: a window with a counter under it, and the name board over it.
+    dark.push({ geo: new THREE.BoxGeometry(1.2, 0.75, 0.04), matrix: at(0, 1.45, hd + 0.01), color: '#2a3238' });
+    woodParts.push({ geo: new THREE.BoxGeometry(1.4, 0.06, 0.32), matrix: at(0, 1.05, hd + 0.14), color: '#eeeae0' });
+    // (The door, on the west side.)
+    woodParts.push({ geo: new THREE.BoxGeometry(0.04, 1.85, 0.8), matrix: at(-hw - 0.01, 0.93, -0.3), color: '#1f3a44' });
+    // (The lifebuoy, on the east wall.)
+    dark.push({ geo: new THREE.TorusGeometry(0.28, 0.07, 6, 14), matrix: at(hw + 0.05, 1.4, 0, 0, Math.PI / 2, 0), color: '#e8742a' });
+    officeSignTex = textTexture(256, 48, (ctx, w, h) => {
+      ctx.fillStyle = '#eeeae0';
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#1f3a44';
+      ctx.font = 'bold 26px Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('HARBOUR OFFICE', w / 2, h / 2 + 1);
+    });
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.3), new THREE.MeshLambertMaterial({ map: officeSignTex.tex }));
+    const p = local(O.x, O.z, O.yaw, 0, hd + 0.03);
+    sign.position.set(p.x, oy + 2.0, p.z);
+    sign.rotation.y = O.yaw;
+    group.add(sign);
+    for (const sx of [-0.6, 0.6]) {
+      const q = local(O.x, O.z, O.yaw, sx, 0);
+      obstacles.push({ x: q.x, z: q.z, r: 1.1, top: oy + H + 0.7, kind: 'building', name: 'the harbour office' });
+    }
+  }
+  // Signs on the pontoon: your own finger (a plate with your name, painted by the game: see
+  // ownerSign), and the visitors' row at the end.
+  const signPost = (x, z, yaw, w, h, draw) => {
+    const T = textTexture(256, Math.round((256 * h) / w), draw);
+    woodParts.push({ geo: new THREE.BoxGeometry(0.08, 1.3, 0.08), matrix: mat(x, HAVEN_PONTOON.deck + 0.65, z), color: '#5a4030' });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: T.tex, side: THREE.DoubleSide }));
+    m.position.set(x, HAVEN_PONTOON.deck + 1.3 + h / 2 - 0.1, z);
+    m.rotation.y = yaw;
+    group.add(m);
+    obstacles.push({ x, z, r: 0.12, kind: 'quay', name: 'a sign' });
+    return T;
+  };
+  const plate = (title, sub) => (ctx, w, h) => {
+    ctx.fillStyle = '#f2efe6';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#1f3a44';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(3, 3, w - 6, h - 6);
+    ctx.fillStyle = '#1f3a44';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `bold ${Math.round(h * 0.34)}px Georgia, serif`;
+    ctx.fillText(title, w / 2, h * 0.4, w - 20);
+    ctx.font = `${Math.round(h * 0.2)}px Georgia, serif`;
+    ctx.fillText(sub, w / 2, h * 0.75, w - 20);
+  };
+  let ownerName = '';
+  const ownerTex = signPost(OWN_FINGER.x0 + 0.35, OWN_FINGER.z1 - 0.2, Math.PI / 2, 0.9, 0.45, (ctx, w, h) => plate(ownerName ? `${ownerName}` : 'Private', 'Berths reserved')(ctx, w, h));
+  const V = VISITOR_FINGERS[0];
+  signPost((HAVEN_PONTOON.x0 + HAVEN_PONTOON.x1) / 2 + 0.9, V.z0 - 0.3, 0, 1.0, 0.5, plate('VISITORS', 'Welcome to Willowhaven'));
+  const ownerSign = (name) => {
+    ownerName = String(name || '').slice(0, 16);
+    ownerTex.repaint();
+  };
+
   // The slipway: setts down into the water, with a winch post at the top.
   {
     const S2 = SLIPWAY;
@@ -333,7 +405,7 @@ function buildHaven(rnd, group, obstacles, spots) {
   group.add(qLight);
 
   return {
-    board, boardTex, sign: houses.signs.chandlery, slateTex, houses,
+    board, boardTex, sign: houses.signs.chandlery, slateTex, houses, ownerSign,
     update(dt, t, env, view = {}) {
       const night = clamp(env.lantern * 1.15, 0, 1);
       lampGlass.color.setRGB(0.55 + night * 0.45, 0.5 + night * 0.38, 0.4 + night * 0.25);
@@ -566,6 +638,8 @@ export function buildCoast(scene, rnd) {
     group, obstacles, spots, wreck, paintBoard, paintSlate,
     havenCentre: HAVEN,
     houses: haven.houses,
+    // Your name on the plate at the root of your finger of the pontoon.
+    ownerSign: (name) => haven.ownerSign(name),
     // The kitchen's board in The Lobster Pot: what it wants today (drawn by the game).
     paintKitchen: (draw) => haven.houses.paintKitchen(draw),
     // view: { from (you), cam, cutaway, onDoor } for the rooms you can walk into.

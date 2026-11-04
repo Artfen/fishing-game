@@ -133,6 +133,14 @@ export const REQUESTS = [
     thanks: '“Fifty! From a boat!” He shakes your hand. “Then we’re equal, you and I.”',
     reward: { money: 12 },
   },
+  // Wenna Penhallow, the harbourmaster.
+  {
+    id: 'harbourseal', who: 'wenna', kind: 'see', what: ['seal'],
+    ask: '“There’s a grey seal been following the boats in of an evening, they tell me, after the scraps off the pontoon. Twenty years I’ve kept this harbour and never once seen her. If you see a seal out there, come and tell me?”',
+    short: 'See a grey seal, and tell Wenna',
+    thanks: '“Head like a wet dog, and those eyes?” She laughs. “That’s her. Here, for your trouble: a tank of fuel’s worth.”',
+    reward: { money: 8 },
+  },
   // At Las Brasas.
   {
     id: 'vieja', who: 'paco', kind: 'bring', species: 'parrotfish', min: 35,

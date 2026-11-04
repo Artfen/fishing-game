@@ -34,10 +34,11 @@ import {
   PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD, SEA, inSeas, inWorld, SOUTH_Z, CROSSING,
   PEGS, POOLS, STREAM, SNAG, LILIES, JETTY, ISLAND, GANNET_CAMP, SKERRIES, SKELLIG, DEEP_Z,
   HAVEN, HAVEN_QUAY, HAVEN_BENCH, DAYMARK, STRAND, WRECK, WRECK_BUOY, WRECK_BELL, CHANNEL,
-  HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, FUEL_PUMPS, CABIN_BERTH, SAIL_BERTH, CRUISER_BERTH, CONSOLE_BERTH, HAVEN_PONTOON, HAVEN_FINGERS, laneInfo,
+  HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, FUEL_PUMPS, HAVEN_PONTOON, HAVEN_FINGERS, OWN_FINGER, HARBOUR_OFFICE, laneInfo,
   CALF, CALF_TOWER, CALF_SKERRY, CALF_SOUND, CALF_LANDING,
 } from './world/terrain.js';
 import { Car } from './car.js';
+import { MAX_AFLOAT, homeOf, STORE_WORDS, LAUNCH_WORDS, NEW_AFLOAT, chooseAfloat, ownBerths, cleanStored } from './fleet.js';
 import { Workbench, OutingSheet } from './workbench.js';
 import { KIT, KIT_IDS, DESTS, launchOf, parkNear, driveMinutes, moveKit, reconcile, campOfKit, campHas, statusOf, snapshot } from './outing.js';
 import { insideHome, HOME_SPOTS } from './world/home.js';
@@ -351,6 +352,8 @@ const wildlife = buildWildlife(scene);
 const crossingLife = buildCrossingLife(scene);
 // The harbour's people (Mags, Bert, Ruth, Dougie and his boat, Hettie, Kit; Paco at Las Brasas).
 const town = new Townsfolk({ obstacles: world.coast.obstacles });
+// (Your name on the plate at the root of your finger of Willowhaven's pontoon.)
+world.coast.ownerSign(settings.player.name);
 const folkView = new FolkView(scene);
 // Playing together (see together.js): friends in a session, drawn where they are.
 const together = new Together({ config: () => cloud.cfg, name: () => settings.player.name, kinds: BOAT_KINDS, skies: Object.keys(SKIES) });
@@ -705,15 +708,9 @@ function mooring(kind) {
     }
     return { x: L.x + L.len + 4, z: L.z + (skiff ? 0 : 3), heading: Math.PI / 2 };
   }
-  if (kind === 'cabin') return { ...CABIN_BERTH };
-  if (kind === 'sail') return { ...SAIL_BERTH };
-  if (kind === 'cruiser') return { ...CRUISER_BERTH };
-  if (kind === 'console') return { ...CONSOLE_BERTH };
-  // The jet ski and the windsurf board: alongside the first finger west of Willowhaven's pontoon.
-  if (kind === 'jetski' || kind === 'windsurf') {
-    const F = HAVEN_FINGERS[1];
-    return kind === 'jetski' ? { x: F.x1 - 3, z: F.z0 - 0.9, heading: -Math.PI / 2 } : { x: F.x1 - 8.5, z: F.z0 - 0.6, heading: -Math.PI / 2 };
-  }
+  // The boats that live at Willowhaven: alongside your own finger of the pontoon (where, depends
+  // on which of them are in the water: see fleet.js).
+  if (homeOf(kind) === 'harbour') return ownBerth(kind);
   if (kind === 'bass') {
     const P = BOATHOUSE_PIER, d = P.dir, side = { x: -d.z, z: d.x };
     for (const off of [2.1, -2.1, 2.8, -2.8]) {
@@ -727,6 +724,71 @@ function mooring(kind) {
   return { x: START.x, z: START.z, heading: START.heading };
 }
 
+// Which of your boats are laid up ashore (see fleet.js). A game from before there was a boat
+// store keeps the three you'd most want in the water (the one you were in first) and lays up
+// the rest; a new game starts with the camp's three boats in the water.
+const KINDS = Object.keys(BOATS);
+const fleetNews = (() => {
+  if (cleanStored(state.stored, KINDS)) return null;
+  const saved = state.boats || {}, fresh = !Object.keys(saved).length;
+  const homes = { harbour: { x: 11, z: -70 }, camp: { x: LANDING.x, z: LANDING.z }, lake: BOATHOUSE_PIER.end };
+  const away = KINDS.filter((k) => saved[k] && Math.hypot(saved[k].x - homes[homeOf(k)].x, saved[k].z - homes[homeOf(k)].z) > 60);
+  const afloat = fresh ? NEW_AFLOAT : chooseAfloat(KINDS, { vessel: state.vessel, away });
+  state.stored = KINDS.filter((k) => !afloat.includes(k));
+  return fresh ? null : afloat;
+})();
+const isStored = (k) => state.stored.includes(k);
+const LENGTHS = Object.fromEntries(KINDS.map((k) => [k, BOATS[k].hull.L]));
+const BEAMS = Object.fromEntries(KINDS.map((k) => [k, BOATS[k].hull.B]));
+// Her berth on your finger, alongside the others of yours in the water there.
+function ownBerth(kind) {
+  const set = KINDS.filter((k) => homeOf(k) === 'harbour' && (!isStored(k) || k === kind));
+  const B = ownBerths(OWN_FINGER, set, LENGTHS, BEAMS)[kind];
+  return B ? { x: B.x, z: B.z, heading: B.heading } : { x: OWN_FINGER.x1 + 8, z: (OWN_FINGER.z0 + OWN_FINGER.z1) / 2, heading: Math.PI / 2 };
+}
+// In among the berths at Willowhaven (where a harbour boat left lying is moved to her own).
+const inMarina = (p) => !!p && p.x > -12 && p.x < 34 && p.z > -92 && p.z < -38;
+// Laid up: out of the water, out of sight, and out of everything that goes on afloat.
+function stow(b, loading = false) {
+  if (!loading && tow && (tow.lead === b || tow.towed === b)) letGoTow(true);
+  Object.assign(b, { tie: null, shove: null, anchor: null, anchored: false, lever: 0, power: 0, stowed: true });
+  b.group.visible = false;
+  const i = boats.indexOf(b);
+  if (i >= 0) boats.splice(i, 1);
+  wakes.forget(b);
+}
+// Back in the water, at home (her berth, the camp's landing, the boathouse jetty), tied up.
+function unstow(b) {
+  b.stowed = false;
+  b.group.visible = true;
+  // (Nobody aboard her; and the lantern, if you have one.)
+  if (b !== boat || onFoot) b.setRower(false);
+  if (state.items.lantern) b.setLantern(true);
+  if (!boats.includes(b)) {
+    boats.length = 0;
+    for (const o of Object.values(BOATS)) if (!o.stowed) boats.push(o);
+  }
+  const p = homeOf(b.kind) === 'harbour' ? freeOwnBerth(b) : mooring(b.kind);
+  b.place(p.x, p.z, p.heading);
+  const B = berthFor(b, boats, { reach: 3 });
+  if (B) {
+    b.place(B.x, B.z, B.heading);
+    b.tieTo({ ...B, t: 9 });
+  }
+}
+// Her place on your finger now, clear of your other boats lying there (along whichever side has
+// room); or off the end of it, if there's none.
+function freeOwnBerth(b) {
+  const want = ownBerth(b.kind), F = OWN_FINGER, L = b.hull.L, others = boats.filter((o) => o !== b);
+  const clear = (x, z) => others.every((o) => Math.abs(o.pos.z - z) > (o.hull.B + b.hull.B) * 1.05 || Math.abs(o.pos.x - x) > (o.hull.L + L) / 2 + 0.4);
+  if (clear(want.x, want.z)) return want;
+  for (const side of [1, -1]) {
+    const z = side > 0 ? F.z1 + b.hull.B + 0.25 : F.z0 - b.hull.B - 0.25;
+    for (let x = F.x0 + 0.6 + L / 2; x + L / 2 <= F.x1 + 0.4; x += 0.5) if (clear(x, z)) return { x, z, heading: Math.PI / 2 };
+  }
+  return { x: F.x1 + L / 2 + 3, z: (F.z0 + F.z1) / 2, heading: Math.PI / 2 };
+}
+
 // A saved spot is only trusted if the boat would float there: inside the world, in water
 // deep enough for its hull, and not on top of a pier. (Tied up alongside one, her middle lies
 // just clear of its edge: that's fine.)
@@ -738,7 +800,8 @@ function floats(b, p) {
 }
 for (const [kind, b] of Object.entries(BOATS)) {
   const saved = state.boats[kind];
-  const at = floats(b, saved) ? saved : mooring(kind);
+  // (One of the Willowhaven boats left in among the berths goes to hers on your finger.)
+  const at = floats(b, saved) && !(homeOf(kind) === 'harbour' && inMarina(saved)) ? saved : mooring(kind);
   b.place(at.x, at.z, at.heading);
   // (The kayak's motor as you left it: lowered, or up; the sailing boat's sail, and its sheet.)
   if (saved?.motor && b.hull.emotor) b.setEMotor(true);
@@ -749,11 +812,14 @@ for (const [kind, b] of Object.entries(BOATS)) {
     b.sheet = saved.sail;
   }
 }
+// (The ones laid up ashore, out of the way first.)
+for (const k of state.stored) stow(BOATS[k], true);
 // How each boat was left: tied up alongside (made fast again where she lies, held firm from the
 // start), at anchor (the anchor already on the bottom where it was), or free. A boat at her home
 // mooring starts tied up there; an older save's boat "anchored" right alongside a pier (how boats
 // brought round to the quay used to be left) is tied up instead.
 for (const [kind, b] of Object.entries(BOATS)) {
+  if (b.stowed) continue;
   const saved = state.boats[kind], here = !!saved && floats(b, saved) && Math.hypot(saved.x - b.pos.x, saved.z - b.pos.z) < 0.01;
   const T = here ? saved.tie : null;
   const berth = T ? berthAt(b, T.pier, T.side, T.along, T.heading) : null;
@@ -777,7 +843,7 @@ for (const [kind, b] of Object.entries(BOATS)) {
     }
   }
 }
-boat = BOATS[state.vessel] || rowboat;
+boat = BOATS[state.vessel] && !BOATS[state.vessel].stowed ? BOATS[state.vessel] : boats[0];
 for (const b of boats) if (b !== boat) b.setRower(false);
 if (state.items.lantern) {
   for (const b of boats) b.setLantern(true);
@@ -1914,6 +1980,7 @@ function teachBoat() {
     bass: `The bass boat: ${lever} The first notches of throttle run the quiet electric motor at the bow, for creeping along the weed beds and the reeds without spooking anything; push on for the outboard to cross the lake fast. Its locker holds your tackle box, and it sits steady when you cast. The outboard takes petrol (Longmere has no pump: bring the jerry can), and the electric motor a battery that charges at the jetty and overnight.`,
     windsurf: `The windsurf board: you sail it standing up. ${T ? 'The stick up sheets the sail in and down eases it out; across steers (you lean the rig)' : S ? `${stick} up and down sheets in and out, across steers (you lean the rig)` : `${key('forward')} sheets in, ${key('back')} eases out, ${key('left')} and ${key('right')} steer (you lean the rig)`}. Like the sailing boat it goes where the wind lets it, and the panel shows how the sail is drawing; in a good breeze (from about 25 km/h) it climbs up onto the plane and flies. Hang on to too much power for too long (hauled in hard in a gust) and you're catapulted in: ease out in the gusts. You climb back on in a moment. Sail trim: Helped (Settings) trims it for you. No fishing from it, and no anchor: tie up at a pontoon or step ashore.`,
     console: `The centre-console boat: twin outboards, fast (about twenty-seven knots flat out), and open all round. You drive it standing at the console, under the T-top: ${lever} To fish, cast as from any boat: you step back into the cockpit (or up into the bow, if that's the way you're facing) and turn to face your line. It runs on petrol: the fuel point is on Willowhaven's pontoon, by its berth.`,
+    rib: `The RIB, a rigid inflatable: a deep-V hull with grey tubes round her, one big outboard, and quick (about thirty-five knots flat out). You drive her standing at the little console, leaning on the jockey seat: ${lever} The tubes stand her up when she heels, bank her into a turn and soften her landings in a sea: a dry, steady ride out to the marks. To fish, cast as from any boat: you step back into the cockpit (or up into the bow, if that's the way you're facing) and turn to face your line. She has a trolling notch, as the console does. She runs on petrol: the fuel point is on Willowhaven's pontoon.`,
     jetski: `The jet ski: very quick (over thirty knots flat out). ${lever} It steers by its jet, so it only turns with the throttle on. At speed it leaves the wave crests and lands with a smack, throwing a plume of spray behind it: hold on. It runs on petrol (the fuel point is on Willowhaven's pontoon, beside its berth). No fishing from it.`,
     cruiser: `The sport-fishing yacht: twin diesels, a cabin forward (bunks and a galley), and an open cockpit aft to fish from. You stand at the wheel: ${lever} She's quick once she's going (about twenty knots) but slow to turn at speed, so give her room; slow, her twin screws bring her round handily. To fish, cast as from any boat: you step back into the cockpit and turn to face your line, so you can cast off the stern or either side, and fight a fish wherever it runs. Tie up at a quay or a pontoon, or anchor, then ${T ? 'tap the prompt' : `press ${key('interact')}`} for the cabin: cook, and sleep aboard. She can make the crossing south to Las Brasas, about twenty minutes at the helm across the open sea, or the fast passage (${T ? 'tap the prompt' : key('interact')} out on open water, or beside her at her berth); it takes about ${litres(CROSS_FUEL(BOAT_PER_S.cruiser))} of diesel, and out in the ocean swell she makes about six knots. The fuel point is on Willowhaven's pontoon, by her berth.`,
     cabin: `The cabin boat: slow and steady, with a little cabin forward: a bunk and a galley stove. ${lever} Anchor (or tie up alongside a quay), then ${T ? 'tap the prompt' : `press ${key('interact')}`} for the cabin: cook what you've kept, and sleep aboard. A camp that floats. It runs on petrol: the harbour pump is right by her berth.`,
@@ -2026,7 +2093,7 @@ function updateTow(dt) {
 // (A tow kept from last time, if the two boats are still together.)
 {
   const T = state.tow, L = T && BOATS[T.lead], W = T && BOATS[T.towed];
-  if (L && W && L !== W && !W.tie && !W.anchored && Math.hypot(L.pos.x - W.pos.x, L.pos.z - W.pos.z) < TOW.len * 3) tow = { lead: L, towed: W, tight: 0 };
+  if (L && W && L !== W && !L.stowed && !W.stowed && !W.tie && !W.anchored && Math.hypot(L.pos.x - W.pos.x, L.pos.z - W.pos.z) < TOW.len * 3) tow = { lead: L, towed: W, tight: 0 };
 }
 
 // The mooring prompt (the anchor key, X on a controller, or a tap): what holding her still means
@@ -3378,7 +3445,7 @@ function startPassage(to, S = boat, part = 1) {
   if (cabinIn) leaveCabin(true);
   modal = 'travel';
   // (The cruiser takes the jet ski and the windsurf board along, lashed on deck, if they're by her.)
-  const carry = S.hull.passage ? ['jetski', 'windsurf'].filter((k) => Math.hypot(BOATS[k].pos.x - S.pos.x, BOATS[k].pos.z - S.pos.z) < 45 && !(tow && (tow.lead === BOATS[k] || tow.towed === BOATS[k]))) : [];
+  const carry = S.hull.passage ? ['jetski', 'windsurf'].filter((k) => !BOATS[k].stowed && Math.hypot(BOATS[k].pos.x - S.pos.x, BOATS[k].pos.z - S.pos.z) < 45 && !(tow && (tow.lead === BOATS[k] || tow.towed === BOATS[k]))) : [];
   passage = { to, kind: S.kind, t: 0, line: -1, moved: false, carry, part };
   hud.sleep(true, to === 'south' ? `You stow the gear, take on water and stores${S.hull.passage ? ', check the oil' : ''}, and cast off…` : 'You stow the gear and cast off for the long run north…');
 }
@@ -4253,7 +4320,7 @@ function interaction() {
     const folk = town.near(walker.pos.x, walker.pos.z, 1.9);
     if (folk) return { text: `Talk to ${FOLK[folk.id].short}`, run: () => talkTo(folk) };
     if (coastSpot('bench')) return { text: 'Sit on the bench a while', run: () => sitOnBench() };
-    if (quayHeadNear()) return { text: boats.some((b) => b.kind !== 'bass' && regionOf(b) === 'south') ? 'Have a boat brought round, or shipped from Las Brasas' : 'Have a boat brought round to the quay', run: () => boatsRound('home') };
+    if (officeNear()) return { text: 'The harbour office: your boats', run: () => harbourOffice() };
     if (coastSpot('office')) return { text: 'The harbour office: your boats, brought round or shipped from Willowhaven', run: () => boatsRound('south') };
     // Clear running water beside you, and room in your bottle.
     if (needsMode() !== 'off' && state.comfort.bottle < BOTTLE && streamHere()) return { text: 'Fill your water bottle', run: () => fillBottle() };
@@ -4847,6 +4914,9 @@ function innSeat(id) {
 // The head of the quay, where a boat can be brought round to.
 const QUAY_HEAD = { x: (HAVEN_QUAY.x0 + HAVEN_QUAY.x1) / 2, z: HAVEN_QUAY.z0 + 3 };
 const quayHeadNear = () => onFoot && Math.hypot(walker.pos.x - QUAY_HEAD.x, walker.pos.z - QUAY_HEAD.z) < 3;
+// At the harbour office's hatch (or the head of the quay beside it).
+const OFFICE_HATCH = { x: HARBOUR_OFFICE.x, z: HARBOUR_OFFICE.z + HARBOUR_OFFICE.d / 2 + 0.7 };
+const officeNear = () => onFoot && (Math.hypot(walker.pos.x - OFFICE_HATCH.x, walker.pos.z - OFFICE_HATCH.z) < 2.4 || quayHeadNear());
 
 /* ---- the notice board ---- */
 
@@ -5188,6 +5258,11 @@ function updateWaiting(dt) {
 // south), bow out, nearest the walkway first; or null.
 function pontoonBerth(b, south = b.pos.z > SOUTH_Z) {
   const others = boats.filter((o) => o !== b);
+  // (At home, one of the Willowhaven boats goes to your own finger.)
+  if (!south && homeOf(b.kind) === 'harbour') {
+    const p = freeOwnBerth(b), B = berthFor({ hull: b.hull, pos: { x: p.x, z: p.z }, heading: p.heading }, others);
+    if (B) return B;
+  }
   const P = south ? PONTOON_S : HAVEN_PONTOON;
   for (const F of south ? FINGERS_S : HAVEN_FINGERS) {
     const out = F.x0 >= P.x1 ? 1 : -1;
@@ -5212,11 +5287,10 @@ function quayMooring(b) {
 // ship overnight and is at the pontoon here the next morning at eight. (The bass boat lives on
 // Longmere.)
 const regionOf = (b) => (b.pos.z > SOUTH_Z ? 'south' : 'home');
-const PONTOON_BOATS = ['cruiser', 'console', 'jetski', 'windsurf']; // (their own berths on Willowhaven's pontoon)
 function boatsRound(here = regionOf(player())) {
   const south = here === 'south';
   const atHand = (b) => (south ? Math.hypot(b.pos.x - PONTOON_S.x0, b.pos.z - 6320) < 45
-    : Math.hypot(b.pos.x - QUAY_HEAD.x, b.pos.z - HAVEN_QUAY.z1) < 14 || (PONTOON_BOATS.includes(b.kind) && Math.hypot(b.pos.x - mooring(b.kind).x, b.pos.z - mooring(b.kind).z) < 6));
+    : Math.hypot(b.pos.x - QUAY_HEAD.x, b.pos.z - HAVEN_QUAY.z1) < 14 || (homeOf(b.kind) === 'harbour' && inMarina(b.pos)));
   const coming = new Set((state.shipping || []).filter((s) => s.to === here).map((s) => s.kind));
   const near = boats.filter((b) => b.kind !== 'bass' && regionOf(b) === here && !atHand(b) && !coming.has(b.kind));
   const far = boats.filter((b) => b.kind !== 'bass' && regionOf(b) !== here && !coming.has(b.kind) && b !== boat);
@@ -5232,6 +5306,94 @@ function boatsRound(here = regionOf(player())) {
     ...near.map((b) => ({ text: `The ${b.name}`, run: () => bringRound(b, here) })),
     ...far.map((b) => ({ text: `Ship the ${b.name} from ${otherName}`, cls: 'quiet', run: () => shipBoat(b, here) })),
   ]);
+}
+
+// The harbour office at Willowhaven: your boats, which are in the water and where, and which are
+// laid up (see fleet.js); one put in the water, or laid up, or brought round.
+function whereWords(b) {
+  if (regionOf(b) === 'south') return 'at Las Brasas';
+  if (b.tie && PIERS[b.tie.pier] === OWN_FINGER) return 'on your finger';
+  if (inMarina(b.pos)) return 'in the harbour';
+  if (Math.hypot(b.pos.x - LANDING.x, b.pos.z - LANDING.z) < 40) return 'at the camp';
+  if (b.kind === 'bass') return 'on Longmere';
+  return 'out on the water';
+}
+const canStore = (b) => !(b === boat && !onFoot) && regionOf(b) === 'home' && !(tow && (tow.lead === b || tow.towed === b)) && !(state.shipping || []).some((s) => s.kind === b.kind);
+function harbourOffice() {
+  const laid = KINDS.filter(isStored).map((k) => BOATS[k]);
+  const south = boats.some((b) => b.kind !== 'bass' && regionOf(b) === 'south');
+  // (Wenna at the hatch in office hours; out of them, the yard's board beside it does as well.)
+  const W = town.people.wenna, inOffice = W?.block?.spot === 'office' && W.act === 'inside';
+  const greet = inOffice ? 'Wenna Penhallow, the harbourmaster, looks up from her ledger. ' : W?.block?.spot === 'gangway' ? 'Wenna’s down at the gangway looking over the pontoon; the board by the hatch does as well. ' : 'The hatch is shut for the night, but the yard’s board beside it sees to your boats all the same. ';
+  ask('The harbour office', `${greet}In the water (${boats.length} of ${MAX_AFLOAT}): ${boats.map((b) => `the ${b.name}, ${whereWords(b)}`).join('; ')}.${laid.length ? ` Laid up: ${laid.map((b) => `the ${b.name}`).join(', ')}.` : ''}`, [
+    { text: 'Never mind', cls: 'quiet' },
+    ...(laid.length ? [{ text: 'Put a boat in the water…', run: () => chooseLaunch() }] : []),
+    ...(boats.length > 1 ? [{ text: 'Lay a boat up…', run: () => chooseStore() }] : []),
+    { text: south ? 'Bring one round, or ship one from Las Brasas…' : 'Bring a boat round…', cls: 'quiet', run: () => boatsRound('home') },
+  ]);
+}
+function chooseStore() {
+  const can = boats.filter(canStore);
+  if (!can.length) {
+    hud.toast('None of your boats can be laid up just now: not one at Las Brasas, on the supply ship, on a towline, or the one you’re in.', 5);
+    return;
+  }
+  ask('Lay a boat up', 'Which one comes out of the water? She’s fetched if she’s lying somewhere else, and kept where she lives until you want her.', [
+    { text: 'Never mind', cls: 'quiet' },
+    ...can.map((b) => ({ text: `The ${b.name} (${whereWords(b)})`, run: () => storeBoat(b) })),
+  ]);
+}
+function chooseLaunch() {
+  const laid = KINDS.filter(isStored).map((k) => BOATS[k]);
+  ask('Put a boat in the water', boats.length >= MAX_AFLOAT ? `Three of your boats are in the water already, so one of them is laid up in her place.` : 'Which one?', [
+    { text: 'Never mind', cls: 'quiet' },
+    ...laid.map((b) => ({ text: `The ${b.name}`, run: () => launchBoat(b) })),
+  ]);
+}
+// Out of the water: fetched by the yard if she's lying somewhere else, then kept where she lives.
+function storeBoat(b, { quiet = false } = {}) {
+  if (!canStore(b) || boats.length <= 1) return false;
+  const home = homeOf(b.kind) === 'harbour' ? OWN_FINGER : mooring(b.kind);
+  const far = Math.hypot(b.pos.x - (home.x ?? (home.x0 + home.x1) / 2), b.pos.z - (home.z ?? (home.z0 + home.z1) / 2));
+  stow(b);
+  state.stored = [...new Set([...state.stored, b.kind])];
+  // (Not the boat you'd go back to any more: the nearest of the others in the water is.)
+  if (boat === b) switchBoat(boats.reduce((best, o) => (!best || Math.hypot(o.pos.x - walker.pos.x, o.pos.z - walker.pos.z) < Math.hypot(best.pos.x - walker.pos.x, best.pos.z - walker.pos.z) ? o : best), null));
+  if (!quiet) {
+    passTime(clamp(0.3 + far / 600, 0.3, 1.5));
+    audio.knock(0.35);
+    hud.toast(`The ${b.name} is out of the water, ${STORE_WORDS[homeOf(b.kind)]}.`, 5);
+  }
+  save();
+  return true;
+}
+// Back in the water: hers is a berth on your finger (or the camp's landing, or the boathouse
+// jetty). With three in the water already, one goes ashore in her place.
+function launchBoat(b, { quiet = false } = {}) {
+  if (!b.stowed) return false;
+  if (boats.length >= MAX_AFLOAT) {
+    if (quiet) return false;
+    const can = boats.filter(canStore);
+    if (!can.length) {
+      hud.toast('Three of your boats are in the water, and none of them can be laid up just now.', 5);
+      return false;
+    }
+    ask(`The ${b.name} in the water`, 'Three of your boats are in the water already. Which one is laid up in her place?', [
+      { text: 'Never mind', cls: 'quiet' },
+      ...can.map((o) => ({ text: `Lay up the ${o.name} (${whereWords(o)})`, run: () => storeBoat(o, { quiet: true }) && launchBoat(b) })),
+    ]);
+    return false;
+  }
+  state.stored = state.stored.filter((k) => k !== b.kind);
+  unstow(b);
+  if (!quiet) {
+    passTime(0.4);
+    audio.knock(0.4);
+    const where = homeOf(b.kind) === 'harbour' ? 'tied up on your finger of the pontoon (the second out, with your name on it): down the gangway and out along it' : LAUNCH_WORDS[homeOf(b.kind)];
+    hud.toast(`The ${b.name} is in the water, ${where}.`, 7);
+  }
+  save();
+  return true;
 }
 
 // A boat in this sea brought round to the pontoon (or Willowhaven's quay).
@@ -5279,8 +5441,8 @@ function deliverShipping() {
     if (now < s.due) continue;
     const b = BOATS[s.kind];
     state.shipping = state.shipping.filter((x) => x !== s);
-    // (Not the boat you're in: she stays with you, and the order's cancelled.)
-    if (!b || (b === boat && !onFoot)) continue;
+    // (Not the boat you're in: she stays with you, and the order's cancelled; nor one laid up.)
+    if (!b || b.stowed || (b === boat && !onFoot)) continue;
     if (tow && (tow.lead === b || tow.towed === b)) letGoTow(true);
     Object.assign(b, { tie: null, shove: null, anchor: null, anchored: false, lever: 0, power: 0 });
     const south = s.to === 'south';
@@ -5576,7 +5738,7 @@ function checkPlaces(dt) {
     if (pl.id === 'bajon') teach('bajonTip', `El Bajón: lava pinnacles from twenty metres down to three, the shallowest under the yellow buoy. Look down from a boat in this clear water, or dive it (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} over deep water with the boat stopped): sea fans, sponges and orange sun coral, parrotfish and ornate wrasse over the tops, triggerfish, morays in the cracks, a grouper in the cave at its foot, barracuda hanging over it.`, 12);
     if (pl.dive && pl.id !== 'wreck') teach('diveSiteTip', `${pl.name}: a dive site, under the yellow buoy. Stop the boat close by, drop the anchor and go in (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} with the boat stopped over deep water): on a tank you can stay down and look round, on one breath it’s a quick look. Every site you dive goes on your map with a tick.`, 11);
     if (pl.id === 'hound') teach('houndTip', 'The Hound: ten metres down at its top, thirty at its foot. Dive it on a tank, at slack water (the tides are on the notice board: high and low water are slack), and watch your air: at thirty metres it goes three times as fast as at the surface.', 11);
-    if (pl.id === 'haven') teach('havenTip', `Willowhaven: read the notice board for what’s about today, find all your tackle in the chandlery, sit on the bench a while, or have a boat brought round to the quay (${scheme() === 'touch' ? 'tap the prompts' : input.keyLabel('interact')}).`, 10);
+    if (pl.id === 'haven') teach('havenTip', `Willowhaven: read the notice board for what’s about today, find all your tackle in the chandlery, sit on the bench a while, or see to your boats at the harbour office by the head of the quay (${scheme() === 'touch' ? 'tap the prompts' : input.keyLabel('interact')}).`, 10);
     if (pl.id === 'strand') teach('strandTip', 'Shell Strand: bass come into the surf at dusk, and flatfish up the sand after dark. The shelf above the beach is a dry, level place for a tent.', 9);
     if (pl.id === 'head') teach('headTip', 'Cove Head takes the swell: bass and white bream in the wash below the ledges. You can see the Kittiwake’s buoy from the daymark.', 8);
     if (pl.id === 'reach') teach('reachTip', 'The cove channel is sheltered from every wind: a calm place for a float at dusk, and for watching cuttlefish under the water.', 8);
@@ -6107,6 +6269,7 @@ function setName(name) {
   const n = cleanName(name);
   if (!n || n === settings.player.name) return;
   settings.player.name = n;
+  world.coast.ownerSign(n);
   together.renamed();
   save();
 }
@@ -7145,6 +7308,10 @@ function begin() {
   }
   started = true;
   audio.start();
+  // (A game from before there was a boat store: which of your boats are still in the water.)
+  if (fleetNews) {
+    ask('Your boats', `Willowhaven has a harbour office now, by the head of the quay, and you have a finger of the pontoon of your own. No more than ${MAX_AFLOAT} of your boats are in the water at a time: the ${fleetNews.map((k) => BOATS[k].name).join(', the ')}. The rest are laid up, safe, each where she lives; the harbour office puts any of them back in the water whenever you like.`, [{ text: 'OK' }]);
+  }
   document.body.classList.add('started');
   frameWatch.reset();
   $('title').classList.add('gone');
@@ -8487,6 +8654,10 @@ window.slowTide = {
   // Climb into the skiff (or another boat: 'row', 'kayak', 'bass') at (x, z).
   useSkiffAt: (x, z, heading = 0, kind = 'skiff') => {
     const b = BOATS[kind];
+    if (b.stowed) {
+      if (boats.length >= MAX_AFLOAT) storeBoat(boats.find((o) => o !== boat && o !== b) || boats[0], { quiet: true });
+      launchBoat(b, { quiet: true });
+    }
     b.place(x, z, heading);
     b.setAnchor(false);
     board(b);

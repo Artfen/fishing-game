@@ -6,6 +6,7 @@ import { wakes } from './wakes.js';
 import { damp, dampAngle, clamp } from '../util.js';
 import { FOLK, FOLK_IDS, SPOTS, POTS } from '../townsfolk.js';
 import { Skipper } from './skipper.js';
+import { berthFor } from '../mooring.js';
 
 // How the harbour's people look, and the Morning Star (Dougie's boat), drawn where townsfolk.js
 // says they are: walking (legs and arms swinging), standing about, sitting (on the bench, Bert's
@@ -23,6 +24,12 @@ const LOOKS = {
   paco: { coat: '#f4f1ea', legs: '#2a2a2e', boots: '#1f1f22', skin: '#c99a72', hat: 'hair', hair: '#2a211c' },
   ian: { coat: '#3d5a7a', legs: '#5b5a50', boots: '#3a2b20', skin: '#efc6a2', hat: 'flatcap', hatColor: '#6b6152', stoop: 0.06 },
   chano: { coat: '#e9e2d0', legs: '#2f4a6a', boots: '#3a2e26', skin: '#b98863', hat: 'bucket', hatColor: '#d8c38a', sleeves: 'rolled' },
+  wenna: { coat: '#24435a', legs: '#2f3236', boots: '#2a2a2a', skin: '#f0c6a0', hat: 'cap', hatColor: '#1f3a44', hair: '#5a3a28' },
+  // (Skippers seen only at the helm: the Sea Wren's, the Halcyon's, and the two kayakers.)
+  tam: { coat: '#d9472b', legs: '#2f3a4a', boots: '#2a2a2a', skin: '#e3b48e', hatColor: '#2c3e50' },
+  halcyon: { coat: '#f2efe6', legs: '#3a3f46', boots: '#2a2a2a', skin: '#efc6a2', hatColor: '#f2efe6' },
+  pad1: { coat: '#e8b820', legs: '#2f3a4a', boots: '#2a2a2a', skin: '#c99a72', hatColor: '#e8742a' },
+  pad2: { coat: '#3a8fc4', legs: '#3b3b3b', boots: '#2a2a2a', skin: '#f1c7a1', hatColor: '#e8e4da' },
   // (The Puffin's skipper, at the helm: never ashore, so no figure of their own.)
   puffin: { coat: '#c8452f', legs: '#2f3a4a', boots: '#2a2a2a', skin: '#efc6a2', hatColor: '#2f3a4a' },
 };
@@ -33,6 +40,16 @@ const BOAT_LOOKS = {
   jean: { kind: 'skiff', skipper: 'ian', rod: 'spin', look: { name: 'Bonny Jean', paint: '#e6dcc0', stripe: '#2f6f74', bottom: '#7a3a2a' } },
   carmen: { kind: 'skiff', skipper: 'chano', rod: 'float', look: { name: 'Virgen del Carmen', paint: '#f4f1ea', stripe: '#2c5d8a', bottom: '#b8423a' } },
   puffin: { kind: 'sail', skipper: 'puffin', look: { name: 'Puffin', paint: '#7a2430', stripe: '#efe6cf', bottom: '#2a2f36' } },
+  // The marina's: locals' boats on their berths, the charter, the visiting yacht, two kayaks.
+  bluebell: { kind: 'cabin', look: { name: 'Bluebell', paint: '#e9e4d6', stripe: '#3d5a9a', bottom: '#7a3a2a' } },
+  tern: { kind: 'skiff', look: { name: 'Tern', paint: '#cfd8d6', stripe: '#2a2f36', bottom: '#5a2a22' } },
+  marigold: { kind: 'sail', look: { name: 'Marigold', paint: '#f0e6c8', stripe: '#c46a2a', bottom: '#2f4d63' } },
+  ladyellen: { kind: 'cruiser', look: { name: 'Lady Ellen', paint: '#f5f3ec', stripe: '#6a2430', bottom: '#2a3442' } },
+  osprey: { kind: 'console', look: { name: 'Osprey', paint: '#e8ece9', stripe: '#2f6f74', bottom: '#d9dedd' } },
+  wren: { kind: 'console', skipper: 'tam', rod: 'spin', look: { name: 'Sea Wren', paint: '#f2f1ec', stripe: '#d9472b', bottom: '#2c3e50' } },
+  halcyon: { kind: 'cruiser', skipper: 'halcyon', look: { name: 'Halcyon', paint: '#eef0f2', stripe: '#1f3a6a', bottom: '#20262c' } },
+  kay1: { kind: 'kayak', skipper: 'pad1', look: { name: 'kayak', paint: '#e8b820', stripe: '#e8742a', bottom: '#c45a1c' } },
+  kay2: { kind: 'kayak', skipper: 'pad2', look: { name: 'kayak', paint: '#3fae5c', stripe: '#f3d36b', bottom: '#2f7a40' } },
 };
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -332,10 +349,12 @@ export class FolkView {
       const b = new Boat(scene, { kind: D.kind, look: D.look });
       b.name = D.look.name;
       const L = LOOKS[D.skipper], M = b.selfMats;
-      M[0].color.set(L.coat);
-      M[2].color.set(L.hatColor || L.hair || '#333');
-      M[3].color.set(L.legs);
-      M[4].color.set(L.boots);
+      if (L) {
+        M[0].color.set(L.coat);
+        M[2].color.set(L.hatColor || L.hair || '#333');
+        M[3].color.set(L.legs);
+        M[4].color.set(L.boots);
+      }
       if (D.rod) b.setRod(D.rod);
       b.group.visible = false;
       this.boats[id] = b;
@@ -456,6 +475,12 @@ export class FolkView {
     }
     b.animate(dt, t, Math.abs(speed) > 0.3 && !b.hull.sail ? 0.7 * Math.sign(speed) : 0, 0, B.anchored ? night : 0);
     b.group.updateMatrixWorld(true);
+    // (Lying alongside her berth: her lines out to the finger, and her fenders down.)
+    const lying = B.moored && Math.abs(speed) < 0.05 && Math.hypot(x - B.x, z - B.z) < 0.5;
+    if (lying && !b.tie) b.tie = berthFor({ hull: b.hull, pos: { x, z }, heading }, [], { reach: 2 });
+    else if (!lying && b.tie) b.tie = null;
+    if (b.tie || b._tied) b.updateGear();
+    b._tied = !!b.tie;
     // (Out on the water: solid to your boats, which bump off her as off any boat.)
     b.afloat(t);
     if (!B.fishing && b.rod && b.hull.sail == null) b.rod.visible = false;

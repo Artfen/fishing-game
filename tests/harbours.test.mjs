@@ -187,11 +187,11 @@ test('the yacht: big, quick, slow to turn at speed, with a cabin and a wheel, an
     return Math.abs(b.heading - h0);
   };
   assert.ok(turn(c) < turn(skiff) * 0.85, 'she turns slower');
-  // Her berth: alongside the first finger east of Willowhaven's pontoon, in deep water.
+  // Her berth: alongside your own finger of Willowhaven's pontoon, in deep water.
   const home = boatAt('cruiser', T.CRUISER_BERTH.x, T.CRUISER_BERTH.z, T.CRUISER_BERTH.heading);
   const berth = M.berthFor(home, []);
   assert.ok(berth && Math.hypot(berth.x - T.CRUISER_BERTH.x, berth.z - T.CRUISER_BERTH.z) < 0.5, 'her berth is a berth');
-  assert.equal(T.PIERS[berth.pier], T.HAVEN_FINGERS[0]);
+  assert.equal(T.PIERS[berth.pier], T.OWN_FINGER);
   conditions.manual = null;
 });
 

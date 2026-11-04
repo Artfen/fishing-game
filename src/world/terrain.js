@@ -920,22 +920,30 @@ export const SAIL_BERTH = (() => {
 })();
 
 // Willowhaven's pontoon: a floating jetty on out from the end of the quay, low on the water, with
-// fingers either side for the bigger boats; a gangway of steps down to it beside the quay light,
-// and a fuel point on its west edge near its head (out of the way of the gangway).
+// three rows of fingers either side for the bigger boats; a gangway of steps down to it beside the
+// quay light, and a fuel point on its west edge near its head (out of the way of the gangway).
+// The second row's east finger is yours (OWN_FINGER: your boats in the water lie alongside it);
+// the outer row is the visitors' pontoon (VISITOR_FINGERS: friends', and boats calling in).
 export const HAVEN_PONTOON = (() => {
   const Q = HAVEN_QUAY, z0 = Q.z1;
-  return { x0: 9.8, x1: 12.2, z0, z1: z0 + 24, deck: 0.55, land: { x: (Q.x0 + Q.x1) / 2, z: Q.z0 } };
+  return { x0: 9.8, x1: 12.2, z0, z1: z0 + 37.2, deck: 0.55, land: { x: (Q.x0 + Q.x1) / 2, z: Q.z0 } };
 })();
-export const HAVEN_FINGERS = [10, 19.5].flatMap((u) => {
+export const HAVEN_FINGERS = [10, 22.5, 35].flatMap((u) => {
   const P = HAVEN_PONTOON, z0 = P.z0 + u, z1 = z0 + 2.2, land = { x: (P.x0 + P.x1) / 2, z: z0 + 1.1 };
-  return [{ x0: P.x1, x1: P.x1 + 12, z0, z1, deck: 0.5, land }, { x0: P.x0 - 12, x1: P.x0, z0, z1, deck: 0.5, land }];
+  return [{ x0: P.x1, x1: P.x1 + 16, z0, z1, deck: 0.5, land }, { x0: P.x0 - 16, x1: P.x0, z0, z1, deck: 0.5, land }];
 });
+export const OWN_FINGER = HAVEN_FINGERS[2];
+export const VISITOR_FINGERS = [HAVEN_FINGERS[4], HAVEN_FINGERS[5]];
+// The harbour office: a little timber hut on the apron beside the head of the quay (west of it,
+// between the inn's door and the lobster pots), its hatch facing the bay (yaw: the way its front
+// faces); your boats are seen to there.
+export const HARBOUR_OFFICE = { x: 5.4, z: -98.7, yaw: 0, w: 2.3, d: 1.9 };
 export const HAVEN_STEPS = [1.26, 1.02, 0.78].map((deck, i) => ({ x: 11, z: HAVEN_PONTOON.z0 + 0.5 + i, hx: 0.6, hz: 0.5, yaw: 0, deck }));
 FUEL_PUMPS.marina = { x: HAVEN_PONTOON.x0 + 0.35, z: HAVEN_PONTOON.z0 + 5.5, yaw: Math.PI, name: 'the fuel point on the pontoon', deck: HAVEN_PONTOON.deck };
-// Where the motor cruiser lies: alongside the first finger east of the pontoon, bow out to the bay.
-export const CRUISER_BERTH = { x: HAVEN_FINGERS[0].x0 + 6, z: HAVEN_FINGERS[0].z1 + 1.65, heading: Math.PI / 2 };
-// And the centre-console boat: alongside the second finger east, on its seaward side.
-export const CONSOLE_BERTH = { x: HAVEN_FINGERS[2].x0 + 5, z: HAVEN_FINGERS[2].z1 + 1.4, heading: Math.PI / 2 };
+// The yacht's place on your finger with the centre console beside her (see fleet.js, ownBerths:
+// where each of your boats lies depends on which are in the water).
+export const CRUISER_BERTH = { x: OWN_FINGER.x0 + 0.6 + 4.6, z: OWN_FINGER.z1 + 1.75, heading: Math.PI / 2 };
+export const CONSOLE_BERTH = { x: OWN_FINGER.x0 + 0.6 + 3.7, z: OWN_FINGER.z0 - 1.5, heading: Math.PI / 2 };
 
 // Walkable decks the boat bumps into: [x0, x1, z0, z1, deck height].
 export const PIERS = [
