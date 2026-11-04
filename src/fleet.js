@@ -70,10 +70,12 @@ export function ownBerths(F, kinds, lengths, beams) {
 
 // A saved list of stored boats, made sensible: known kinds only, each once, and never so many
 // that fewer than one is afloat (nor so few that more than MAX_AFLOAT are). null: not yet chosen
-// (a game from before boats were laid up).
-export function cleanStored(raw, kinds) {
+// (a game from before boats were laid up). seen: the kinds the save knew (where each was left);
+// a boat new to the game since starts laid up.
+export function cleanStored(raw, kinds, seen = null) {
   if (!Array.isArray(raw)) return null;
   const s = [...new Set(raw.filter((k) => kinds.includes(k)))];
+  if (seen) for (const k of kinds) if (!seen.includes(k) && !s.includes(k)) s.push(k);
   const afloat = kinds.filter((k) => !s.includes(k));
   if (afloat.length < 1) return null;
   if (afloat.length > MAX_AFLOAT) return null;

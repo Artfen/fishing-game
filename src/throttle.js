@@ -10,7 +10,7 @@
 //   slow       about 2 m/s    trolling a lure, and the most you can motor with a line out
 //   half       about 4–5 m/s  getting somewhere
 //   full                      flat out
-// The yacht and the centre console also have a trolling notch (T, about 3.6 m/s, seven knots)
+// The yacht, the centre console and the RIB also have a trolling notch (T, about 3.6 m/s, seven knots)
 // between slow and half: the speed the big ocean fish are trolled for, allowed with a line out.
 // On the bass boat the first two notches run its quiet electric motor; on the kayak the whole
 // lever is its little electric motor (with the paddle the kayak is faster still).
@@ -52,6 +52,16 @@ export const LEVERS = {
     { v: 0.155, id: '3', name: 'half ahead' },
     { v: 1, id: 'F', name: 'full ahead' },
   ],
+  // The RIB: light, with a big outboard.
+  rib: [
+    { v: -0.15, id: 'R', name: 'astern' },
+    { v: 0, id: 'N', name: 'neutral' },
+    { v: 0.011, id: '1', name: 'dead slow' },
+    { v: 0.027, id: '2', name: 'slow ahead' },
+    { v: 0.066, id: 'T', name: 'trolling' },
+    { v: 0.095, id: '3', name: 'half ahead' },
+    { v: 1, id: 'F', name: 'full ahead' },
+  ],
   // The jet ski: a light touch goes a long way.
   jetski: [
     { v: -0.15, id: 'R', name: 'astern' },
@@ -89,8 +99,8 @@ export const LEVERS = {
 // The highest notch allowed with a line out, and with a fish on: trolling speed at most (the
 // lure swims, the line never drags it skipping across the top); once a fish takes, no more than
 // dead slow (it's your fish to play, not the boat's).
-const LINE_MAX = { skiff: '2', cabin: '2', bass: 'E2', kayak: '3', sail: '2', cruiser: 'T', console: 'T', jetski: '2' };
-const FIGHT_MAX = { skiff: '1', cabin: '1', bass: 'E1', kayak: '1', sail: '1', cruiser: '1', console: '1', jetski: '1' };
+const LINE_MAX = { skiff: '2', cabin: '2', bass: 'E2', kayak: '3', sail: '2', cruiser: 'T', console: 'T', rib: 'T', jetski: '2' };
+const FIGHT_MAX = { skiff: '1', cabin: '1', bass: 'E1', kayak: '1', sail: '1', cruiser: '1', console: '1', rib: '1', jetski: '1' };
 
 export const levers = (kind) => LEVERS[kind] || null;
 const indexOf = (kind, id) => LEVERS[kind].findIndex((n) => n.id === id);
