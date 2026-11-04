@@ -184,6 +184,8 @@ export const OUTCOMES = ['released', 'kept', 'cooked', 'eaten', 'sold'];
 export const PIN_MAX = 60;
 export const PHOTO_MAX = 48;
 const ID = /^[a-z0-9-]{3,40}$/;
+// Where things in the world can be: home's coast, and Las Brasas far to the south (z about 6000).
+const X_LO = -3000, X_HI = 3000, Z_LO = -3000, Z_HI = 8000;
 const when = (v) => (isObj(v) ? { day: int(v.day, 1, 1, 1e6), hour: num(v.hour, 12, 0, 24) } : null);
 
 const VESSELS = ['row', 'skiff', 'kayak', 'bass', 'cabin', 'sail', 'cruiser', 'console', 'windsurf', 'jetski', 'rib'];
@@ -242,8 +244,8 @@ export function sanitizeLogEntry(e) {
     line: str(e.line, '', 60),
     term: str(e.term, '', 20),
     // Where it was caught, for the map (null in older entries).
-    x: e.x == null ? null : num(e.x, null, -3000, 3000),
-    z: e.z == null ? null : num(e.z, null, -3000, 3000),
+    x: e.x == null ? null : num(e.x, null, X_LO, X_HI),
+    z: e.z == null ? null : num(e.z, null, Z_LO, Z_HI),
   };
 }
 
@@ -357,16 +359,18 @@ export function sanitize(raw) {
   s.camps = cleanCamps(raw.camps);
   for (const p of (Array.isArray(raw.pins) ? raw.pins : []).slice(0, PIN_MAX)) {
     if (!isObj(p) || !ID.test(p.id || '')) continue;
-    const x = num(p.x, NaN, -3000, 3000), z = num(p.z, NaN, -3000, 3000);
+    const x = num(p.x, NaN, X_LO, X_HI), z = num(p.z, NaN, Z_LO, Z_HI);
     if (!Number.isFinite(x) || !Number.isFinite(z) || s.pins.some((q) => q.id === p.id)) continue;
-    s.pins.push({ id: p.id, x, z, title: str(p.title, '', 40), note: str(p.note, '', 240), fav: !!p.fav, ...when(p) || { day: 1, hour: 12 } });
+    // from: a friend's name, for a mark a friend shared while you played together.
+    const from = str(p.from, '', 16);
+    s.pins.push({ id: p.id, x, z, title: str(p.title, '', 40), note: str(p.note, '', 240), fav: !!p.fav, ...(from ? { from } : {}), ...when(p) || { day: 1, hour: 12 } });
   }
   for (const p of (Array.isArray(raw.photos) ? raw.photos : []).slice(-PHOTO_MAX)) {
     if (!isObj(p) || !ID.test(p.id || '') || s.photos.some((q) => q.id === p.id)) continue;
     const sub = isObj(p.subjects) ? p.subjects : {};
     s.photos.push({
       id: p.id, title: str(p.title, '', 60), at: num(p.at, 0, 0), ...when(p) || { day: 1, hour: 12 },
-      x: num(p.x, 0, -3000, 3000), z: num(p.z, 0, -3000, 3000), place: str(p.place, '', 60), sky: oneOf(p.sky, ['', ...SKY_STATES], ''),
+      x: num(p.x, 0, X_LO, X_HI), z: num(p.z, 0, Z_LO, Z_HI), place: str(p.place, '', 60), sky: oneOf(p.sky, ['', ...SKY_STATES], ''),
       subjects: {
         species: (Array.isArray(sub.species) ? sub.species : []).filter((id) => fishById[id]).slice(0, 12),
         places: (Array.isArray(sub.places) ? sub.places : []).filter((id) => typeof id === 'string' && id.length < 30).slice(0, 12),

@@ -148,6 +148,13 @@ export class MapSheet {
       this.savePin();
     });
     $('mp-cancel').addEventListener('click', () => this.editPin(null));
+    // Playing together: send a mark (as it stands in the form) to your friends' maps.
+    $('mp-send').addEventListener('click', () => {
+      const p = this.editing;
+      if (!p) return;
+      this.savePin();
+      $('map-note').textContent = this.hooks.sharePin?.(p) || '';
+    });
     $('mp-delete').addEventListener('click', () => {
       if (!this.editing) return;
       const i = this.state.pins.findIndex((p) => p.id === this.editing.id);
@@ -913,7 +920,8 @@ export class MapSheet {
         ctx.moveTo(x, y + 6 * s);
         ctx.lineTo(x, y - 9 * s);
         ctx.stroke();
-        ctx.fillStyle = '#b5532f';
+        // (A friend's mark flies a sea-green flag.)
+        ctx.fillStyle = p.from ? '#2f8f8a' : '#b5532f';
         ctx.beginPath();
         ctx.moveTo(x, y - 9 * s);
         ctx.lineTo(x + 9 * s, y - 6 * s);
@@ -922,7 +930,7 @@ export class MapSheet {
         ctx.fill();
       }
       ctx.restore();
-      if (p.title && (p.fav || this.view.zoom > this.fitZoom * 2 * ZOOM)) this.label(ctx, p.title, x + 11 * s, y + 3 * s, 15, INK, 0.95);
+      if (p.title && (p.fav || this.view.zoom > this.fitZoom * 2 * ZOOM)) this.label(ctx, p.from ? `${p.title} (${p.from})` : p.title, x + 11 * s, y + 3 * s, 15, INK, 0.95);
     }
     // Gulls you've seen diving lately (once you've learned to look for them).
     if (st.unlocks?.birdMarks) {
@@ -1115,6 +1123,7 @@ export class MapSheet {
     $('mp-title').value = p.title;
     $('mp-note').value = p.note;
     $('mp-fav').checked = p.fav;
+    $('mp-send').hidden = !this.hooks.canShare?.();
     $('mp-title').focus();
   }
 
@@ -1137,7 +1146,7 @@ export class MapSheet {
       const name = document.createElement('button');
       name.type = 'button';
       name.className = 'map-name';
-      name.textContent = `${p.fav ? '★' : '⚑'} ${p.title || 'A mark'}`;
+      name.textContent = `${p.fav ? '★' : '⚑'} ${p.title || 'A mark'}${p.from ? ` · from ${p.from}` : ''}`;
       name.addEventListener('click', () => this.centre(p));
       const edit = document.createElement('button');
       edit.type = 'button';
