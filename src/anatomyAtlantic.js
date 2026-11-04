@@ -45,6 +45,14 @@ function stripes(P, n, v0, v1, color, alpha, width, u0 = 0.18, u1 = 1) {
   }
 }
 
+// Five gill slits, a little curved, low on the side behind the head (the catshark's).
+const gillSlits = (P, u0, u1, color = '#1a1e24') => {
+  for (let k = 0; k < 5; k++) {
+    const u = u0 + (k / 4) * (u1 - u0);
+    P.line([[u, 0.62], [u + 0.004, 0.5], [u, 0.38]], 2, color, 0.45);
+  }
+};
+
 export const ATLANTIC_ANATOMY = {
   /* ================= bass ================= */
 
@@ -971,6 +979,140 @@ export const ATLANTIC_ANATOMY = {
       // The arms' pale undersides with their rows of suckers.
       P.band(0, 0.2, '#f0e0d4', 1, 0.6, 1);
       for (let u = 0.62; u < 1; u += 0.01) P.blob(u, 0.08, 0.003, 0.03, '#d8b8a8', 0.8, 0.3);
+    },
+  },
+  /* ================= the angling depth release: a ray, a catshark, the weever, hake, the John Dory ================= */
+
+  // Thornback ray, Raja clavata: a broad diamond of wings with the head at its point, a long
+  // slender tail with two small dorsal fins near its end; brown, marbled, with pale spots ringed
+  // dark, and thorny bucklers down the back and tail.
+  thornback: {
+    plan: 'fish', bodyLen: 0.96, round: 2.2, mode: 1, view: { yaw: -Math.PI / 2 + 0.35, pitch: 0.95 },
+    top: [[0, 0.002], [0.05, 0.012], [0.15, 0.022], [0.28, 0.026], [0.4, 0.02], [0.5, 0.012], [0.65, 0.008], [0.85, 0.006], [1, 0.003]],
+    bottom: [[0, -0.002], [0.05, -0.008], [0.15, -0.012], [0.28, -0.014], [0.4, -0.012], [0.5, -0.008], [0.65, -0.006], [0.85, -0.005], [1, -0.003]],
+    // (The disc: the body itself spreads into the diamond of the wings, as a ray's does.)
+    width: [[0, 0.012], [0.05, 0.08], [0.13, 0.16], [0.22, 0.2], [0.3, 0.18], [0.38, 0.13], [0.45, 0.06], [0.5, 0.018], [0.6, 0.011], [0.8, 0.008], [1, 0.004]],
+    mouth: null, gill: null,
+    eye: { t: 0.11, y: 0.02, r: 0.009, iris: '#b8a870', up: 2.6, fwd: 0.15 },
+    fins: [
+      { kind: 'pectoral', t: 0.22, a: 0.2, len: 0.1, w: 0.2, splay: 1.57, droop: 0, spread: true, rays: 0, profile: [[0, 1], [0.5, 0.75], [1, 0.2]] },
+      { kind: 'pelvic', t: 0.46, a: 0.2, len: 0.05, w: 0.06, splay: 1.4, droop: 0, spread: true, rays: 0, profile: [[0, 1], [0.6, 0.6], [1, 0.15]] },
+      { kind: 'dorsal', t0: 0.82, t1: 0.86, h: 0.018, profile: [[0, 0.5], [0.4, 1], [1, 0.3]], rays: 6 },
+      { kind: 'dorsal', t0: 0.89, t1: 0.93, h: 0.016, profile: [[0, 0.5], [0.4, 1], [1, 0.3]], rays: 6 },
+      { kind: 'caudal', shape: 'rounded', h: 0.018, rays: 8 },
+    ],
+    colors: { back: '#7a6a4e', flank: '#8a7a5c', belly: '#efe9dc', fin: '#7e6c50', split: 0.52 },
+    scaleRows: null, metal: 0.03, sheen: 0.2, finOpacity: 0.98,
+    paint: (P) => {
+      // Marbling, pale spots ringed dark, and the row of thorns down the middle of the back and tail.
+      P.noise(211, 140, '#5e5038', 0.55, 0.006, 0.02, 0.5, 1);
+      P.noise(213, 70, '#e8dcb0', 0.6, 0.006, 0.014, 0.55, 1);
+      for (let k = 0; k < 16; k++) P.blob(0.12 + k * 0.05, 0.96, 0.006, 0.02, '#e8dcc0', 0.9, 0.5);
+    },
+  },
+
+  // Small-spotted catshark, Scyliorhinus canicula: a slim little shark, its two dorsal fins far
+  // back; sandy brown, densely peppered with small dark spots (and a few pale ones); cat-like eyes.
+  catshark: {
+    plan: 'fish', bodyLen: 0.8, round: 2.0, mode: 0,
+    top: [[0, -0.004], [0.03, 0.008], [0.1, 0.022], [0.25, 0.032], [0.45, 0.03], [0.65, 0.02], [0.85, 0.012], [1, 0.008]],
+    bottom: [[0, -0.008], [0.04, -0.018], [0.12, -0.026], [0.3, -0.03], [0.5, -0.026], [0.7, -0.016], [0.9, -0.01], [1, -0.006]],
+    width: [[0, 0.004], [0.05, 0.022], [0.15, 0.034], [0.35, 0.036], [0.55, 0.028], [0.75, 0.016], [1, 0.006]],
+    mouth: null, gill: null,
+    eye: { t: 0.07, y: 0.01, r: 0.009, iris: '#c8b060' },
+    fins: [
+      { kind: 'dorsal', t0: 0.52, t1: 0.59, h: 0.035, profile: [[0, 0.3], [0.4, 1], [1, 0.25]], rays: 7 },
+      { kind: 'dorsal', t0: 0.67, t1: 0.72, h: 0.025, profile: [[0, 0.3], [0.4, 1], [1, 0.25]], rays: 6 },
+      { kind: 'anal', t0: 0.6, t1: 0.67, h: 0.02, profile: [[0, 0.4], [0.4, 1], [1, 0.2]], rays: 6 },
+      { kind: 'pectoral', t: 0.2, a: 0.1, len: 0.1, w: 0.05, splay: 0.9, droop: 0.4, profile: [[0, 1], [0.5, 0.7], [1, 0.1]], rays: 9 },
+      { kind: 'pelvic', t: 0.44, a: 0.06, len: 0.06, w: 0.03, splay: 0.7, droop: 0.4 },
+      { kind: 'caudal', shape: 'shark', h: 0.06, rays: 12 },
+    ],
+    colors: { back: '#9a8262', flank: '#b89c78', belly: '#efe6d6', fin: '#a08868', split: 0.55 },
+    scaleRows: null, metal: 0.05, sheen: 0.3, finOpacity: 0.97,
+    paint: (P) => {
+      P.noise(221, 260, '#4a3624', 0.6, 0.004, 0.01, 0.35, 1);
+      P.noise(223, 50, '#e8d8b8', 0.5, 0.004, 0.009, 0.35, 1);
+      gillSlits(P, 0.15, 0.2);
+    },
+  },
+
+  // Lesser weever, Echiichthys vipera: small, elongate and compressed; a big upturned mouth and
+  // eyes high on the head; a short jet-black first dorsal fin of venomous spines, a long second
+  // dorsal and anal fin; sandy grey-brown above, pale below.
+  weever: {
+    plan: 'fish', bodyLen: 0.8, round: 2.2, mode: 0, lod: 0.6,
+    top: [[0, 0.014], [0.04, 0.03], [0.12, 0.05], [0.25, 0.06], [0.45, 0.054], [0.7, 0.036], [0.9, 0.022], [1, 0.02]],
+    bottom: [[0, -0.01], [0.05, -0.034], [0.14, -0.05], [0.3, -0.054], [0.5, -0.046], [0.75, -0.03], [1, -0.018]],
+    width: [[0, 0.01], [0.06, 0.03], [0.2, 0.036], [0.45, 0.03], [0.75, 0.018], [1, 0.008]],
+    mouth: { len: 0.06, y: 0.01, slope: 0.35, gape: 0.012 }, gill: { t: 0.22, curve: 0.03 },
+    eye: { t: 0.08, y: 0.032, r: 0.014, iris: '#b8a060', up: 0.8 },
+    fins: [
+      { kind: 'dorsal', shape: 'spiny', t0: 0.22, t1: 0.3, h: 0.05, spines: 6, profile: [[0, 1], [0.5, 0.85], [1, 0.4]], color: '#18140f' },
+      { kind: 'dorsal', t0: 0.33, t1: 0.92, h: 0.035, profile: [[0, 0.8], [0.2, 1], [1, 0.7]], rays: 22 },
+      { kind: 'anal', t0: 0.36, t1: 0.92, h: 0.03, profile: [[0, 0.8], [0.2, 1], [1, 0.7]], rays: 24 },
+      { kind: 'pectoral', t: 0.24, a: 0.06, len: 0.1, w: 0.06, splay: 0.5, droop: 0.3, rays: 10 },
+      { kind: 'pelvic', t: 0.2, a: 0.02, len: 0.05, splay: 0.3, droop: 0.6 },
+      { kind: 'caudal', shape: 'truncate', h: 0.08, rays: 14 },
+    ],
+    colors: { back: '#a89878', flank: '#d4c8a8', belly: '#f2eee2', fin: '#c0b490', split: 0.5 },
+    scaleRows: [50, 14], metal: 0.15, sheen: 0.35,
+    paint: (P) => {
+      P.noise(231, 50, '#7a6a4a', 0.4, 0.01, 0.03, 0.55, 1);
+      for (let k = 0; k < 9; k++) P.line([[0.3 + k * 0.07, 0.72], [0.33 + k * 0.07, 0.5]], 1.2, '#8a7a5a', 0.3);
+    },
+  },
+
+  // European hake, Merluccius merluccius: long and slender, a big head and a deep mouth lined
+  // black, full of needle teeth; a short first dorsal, a long second and a long anal fin, both
+  // notched; steel-grey above, silver below.
+  hake: {
+    plan: 'fish', bodyLen: 0.84, round: 2.1, mode: 0,
+    top: [[0, 0.004], [0.04, 0.022], [0.12, 0.04], [0.25, 0.05], [0.45, 0.046], [0.7, 0.032], [0.9, 0.018], [1, 0.014]],
+    bottom: [[0, -0.014], [0.05, -0.03], [0.14, -0.042], [0.3, -0.046], [0.5, -0.04], [0.75, -0.026], [1, -0.014]],
+    width: [[0, 0.008], [0.06, 0.03], [0.2, 0.036], [0.45, 0.032], [0.75, 0.02], [1, 0.008]],
+    mouth: { len: 0.1, y: -0.006, slope: 0.08, gape: 0.012 }, gill: { t: 0.24, curve: 0.03 },
+    eye: { t: 0.1, y: 0.018, r: 0.017, iris: '#c8ccd0' },
+    fins: [
+      { kind: 'dorsal', t0: 0.28, t1: 0.36, h: 0.05, profile: [[0, 0.6], [0.3, 1], [1, 0.3]], rays: 10 },
+      { kind: 'dorsal', t0: 0.4, t1: 0.93, h: 0.035, profile: [[0, 0.7], [0.35, 0.55], [0.6, 0.9], [1, 0.6]], rays: 36 },
+      { kind: 'anal', t0: 0.42, t1: 0.93, h: 0.032, profile: [[0, 0.7], [0.35, 0.55], [0.6, 0.9], [1, 0.6]], rays: 36 },
+      { kind: 'pectoral', t: 0.26, a: 0.08, len: 0.11, splay: 0.4, droop: 0.3, rays: 12 },
+      { kind: 'pelvic', t: 0.24, a: 0.02, len: 0.06, splay: 0.3, droop: 0.6 },
+      { kind: 'caudal', shape: 'truncate', h: 0.08, rays: 16 },
+    ],
+    colors: { back: '#56606c', flank: '#aeb6be', belly: '#f0f2f4', fin: '#78828c', split: 0.48 },
+    scaleRows: [70, 18], metal: 0.55, sheen: 0.7,
+    paint: (P) => {
+      P.line([[0.24, 0.62], [0.5, 0.64], [0.8, 0.6], [1, 0.56]], 1.5, '#4a545e', 0.45);
+      P.line([[0.02, 0.44], [0.1, 0.42]], 3, '#16181c', 0.7); // the black inside of the mouth, showing
+    },
+  },
+
+  // John Dory, Zeus faber: tall, oval and paper-thin; a big mouth that shoots out like a tube;
+  // long trailing spines on the first dorsal fin; olive-gold with faint wavy lines and a black
+  // spot ringed in yellow in the middle of each side (St Peter's thumbprint).
+  johndory: {
+    plan: 'fish', bodyLen: 0.74, round: 2.0, mode: 0,
+    top: [[0, -0.01], [0.05, 0.05], [0.14, 0.13], [0.28, 0.2], [0.44, 0.215], [0.62, 0.17], [0.82, 0.08], [1, 0.04]],
+    bottom: [[0, -0.03], [0.06, -0.08], [0.18, -0.15], [0.35, -0.19], [0.55, -0.17], [0.75, -0.1], [0.9, -0.05], [1, -0.035]],
+    width: [[0, 0.004], [0.08, 0.02], [0.25, 0.03], [0.45, 0.03], [0.7, 0.02], [0.9, 0.01], [1, 0.006]],
+    mouth: { len: 0.12, y: -0.02, slope: 0.25, gape: 0.022 }, gill: { t: 0.26, curve: 0.05 },
+    eye: { t: 0.15, y: 0.06, r: 0.022, iris: '#d8c070' },
+    fins: [
+      { kind: 'dorsal', shape: 'spiny', t0: 0.28, t1: 0.5, h: 0.22, spines: 10, profile: [[0, 0.9], [0.2, 1], [0.6, 0.85], [1, 0.6]] },
+      { kind: 'dorsal', t0: 0.52, t1: 0.84, h: 0.06, profile: [[0, 0.9], [0.3, 1], [1, 0.5]], rays: 23 },
+      { kind: 'anal', t0: 0.52, t1: 0.84, h: 0.055, profile: [[0, 0.9], [0.3, 1], [1, 0.5]], rays: 22 },
+      { kind: 'pectoral', t: 0.3, a: 0.0, len: 0.08, splay: 0.4, droop: 0.2, rays: 12 },
+      { kind: 'pelvic', t: 0.3, a: 0.0, len: 0.14, splay: 0.4, droop: 0.7 },
+      { kind: 'caudal', shape: 'rounded', h: 0.1, rays: 13 },
+    ],
+    colors: { back: '#7a7a62', flank: '#c4c0a0', belly: '#e6e2cc', fin: '#9a8e6a', split: 0.5 },
+    scaleRows: null, metal: 0.25, sheen: 0.5,
+    paint: (P) => {
+      for (let k = 0; k < 6; k++) P.line([[0.2, 0.3 + k * 0.08], [0.45, 0.34 + k * 0.08], [0.75, 0.3 + k * 0.08]], 1.2, '#8a8668', 0.3);
+      P.blob(0.42, 0.52, 0.04, 0.12, '#e0c050', 0.85, 0.35); // the yellow ring
+      P.blob(0.42, 0.52, 0.03, 0.09, '#1a1a16', 0.95, 0.4);  // St Peter's thumbprint
     },
   },
 };
