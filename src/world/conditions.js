@@ -6,6 +6,7 @@ import {
 } from './terrain.js';
 import { coldwaterFlow } from './coldwater.js';
 import { SOUTH_WATER, brasaCurrent } from './brasa.js';
+import { longSea } from './ocean.js';
 
 // Wind, waves and currents: one shared state for the whole game, so the water you see, the
 // boats on it, a float, a cast, the trees and the sound of the wind all answer to the same
@@ -188,21 +189,11 @@ const SWELL = [[0, 70, 0.55, 0], [0.18, 52, 0.3, 0], [-0.22, 38, 0.15, 0], [0.06
 // the storm builds (peak: 1 in fair weather, up to 3.4 in a full storm). Steep crests, long
 // troughs, the same mean level.
 export const swellShape = (a, k, theta, peak) => a * Math.sin(theta) - 0.5 * k * a * a * peak * Math.cos(2 * theta);
-// The wind sea: seven wavelengths, from short steep wavelets to the long wind waves of a gale,
-// each in six fixed directions (each length's set turned a little, so they never line up). How
-// the sea's energy is shared between the lengths follows the wind, as a real wind sea's spectrum
-// does (fetch-limited JONSWAP: the fresher the wind, the longer the waves it peaks in), and
-// between the directions, the ones the wind blows along (so a turning wind turns the sea without
-// any wave jumping). Shorter waves than these are the water's own surface detail (see water.js).
+// The wind sea: thousands of waves of every length, from the wind's spectrum, worked out by a
+// fast Fourier transform (see ocean.js longSea; the shortest, only for the eye, on the graphics
+// card: oceangpu.js). Its height (sea.chop below) and the spectrum's shape follow the wind.
+// (A handful of reference lengths, for reading the spectrum: see chopSpectrum.)
 const CHOP_LENS = [4, 6.5, 10, 15, 23, 35, 52];
-const CHOP = [];
-CHOP_LENS.forEach((len, band) => {
-  for (let d = 0; d < 6; d++) {
-    const ang = (d / 6) * TAU + band * 0.37;
-    const k = TAU / len;
-    CHOP.push({ dx: Math.sin(ang), dz: -Math.cos(ang), k, c: Math.sqrt(9.81 / k), band, ang });
-  }
-});
 // (The fetch: how far the wind has blown over open water to raise the sea, metres. The coast's
 // own shelter cuts the sea down further in the bays: see the shelter map.)
 const FETCH = 12000;
@@ -227,7 +218,7 @@ export function chopSpectrum(u, out = new Float32Array(CHOP_LENS.length)) {
 export const shoalGrow = (depth) => 1 + 0.8 * smoothstep(8, 2.5, depth) * smoothstep(0.8, 2.2, depth);
 export const shoalPeak = (depth) => 1.4 * smoothstep(5, 1.5, depth);
 const MAX_PEAK = 3.6;
-export const WAVE_COUNTS = { swell: SWELL.length, chop: CHOP.length };
+export const WAVE_COUNTS = { swell: SWELL.length };
 
 // The tide as it is now (see tide.js): flow +1 ebb (out to sea) … −1 flood; level, metres above
 // the mean. (Left to itself, as in the tests, a steady ebb at mean level.)
@@ -257,7 +248,6 @@ export const conditions = {
   trade: null, ocean: 0,
   // How full the rivers run (set by the game from the season and the rain; 1 as built).
   riverScale: 1,
-  chopAmps: new Float32Array(CHOP.length),
   swellAmps: new Float32Array(SWELL.length),
 };
 
@@ -310,29 +300,19 @@ export function updateConditions(dt, weather) {
   C.sea.chop = damp(C.sea.chop, chopFor(W.speed), 0.04, dt);
   // A fresh wind's sea is steep, its crests sharp (and breaking: see water.js).
   C.sea.chopPeak = 1 + 1.2 * smoothstep(5, 14, W.speed);
-  // How the wind sea is shared between its lengths (longer ones as the wind freshens), and in
-  // each, between its fixed directions: the ones the wind blows along. (sea.chop is the sea's
-  // significant crest height, half its significant wave height: its energy, (Hs/4)², is shared
-  // out among the waves, each wave's amplitude the square root of its share.)
+  // The wind sea itself (ocean.js): its spectrum for this wind, blowing the way the wind does,
+  // carrying the energy of its height (sea.chop is the significant crest height, half the
+  // significant wave height: energy (Hs/4)²), its crests sharper the fresher it blows.
   const to = W.from + Math.PI;
-  chopSpectrum(W.speed, BAND_SHARE);
-  const dirSum = DIR_SUM.fill(0);
-  for (let i = 0; i < CHOP.length; i++) {
-    const a = Math.max(0, Math.cos(CHOP[i].ang - to));
-    C.chopAmps[i] = a * a;
-    dirSum[CHOP[i].band] += C.chopAmps[i];
-  }
-  for (let i = 0; i < CHOP.length; i++) {
-    const b = CHOP[i].band;
-    C.chopAmps[i] = C.sea.chop * Math.sqrt(((C.chopAmps[i] / (dirSum[b] || 1)) * BAND_SHARE[b]) / 2);
-  }
+  longSea.setWind(W.speed, Math.atan2(-Math.cos(to), Math.sin(to)), (C.sea.chop * C.sea.chop) / 4, chopping(C.sea.chopPeak));
   for (let i = 0; i < SWELL.length; i++) C.swellAmps[i] = C.sea.swell * (SWELL[i].share * (1 - 0.5 * C.sea.storm) + SWELL[i].storm * C.sea.storm);
 }
 // The wind sea's crest amplitude for a sustained wind (m/s): a ripple in light air, about half a
 // metre crest to trough in a moderate breeze and a metre in a strong one, where it has room to
 // build (less in the bays, where the fetch is short: see the shelter).
 const chopFor = (u) => 0.02 + 0.005 * Math.pow(u, 1.75);
-const BAND_SHARE = new Float32Array(CHOP_LENS.length), DIR_SUM = new Float32Array(CHOP_LENS.length);
+// How far the water's to-and-fro carries a crest along (sharpening it), from how steep the sea is.
+export const chopping = (peak) => 0.45 + 0.4 * (peak - 1);
 // The day's own wind, as a share of a few m/s: the sea breeze building from late morning to a
 // mid-afternoon peak and dying by dusk, a lighter land breeze in the small hours. (No hour: none.)
 export function dayWind(hour) {
@@ -385,14 +365,10 @@ export function waveHeight(x, z, t = conditions.time) {
     if (a < 1e-5) continue;
     hs += swellShape(a, w.k, w.k * (w.dx * x + w.dz * z - w.c * t), peak);
   }
-  const cp = C.sea.chopPeak;
-  for (let i = 0; i < CHOP.length; i++) {
-    const a = C.chopAmps[i];
-    if (a < 1e-5) continue;
-    const w = CHOP[i];
-    hc += swellShape(a, w.k, w.k * (w.dx * x + w.dz * z - w.c * t), cp);
-  }
-  return TIDE.level * (1 - freshness(x, z)) + (hs + hc * (0.15 + 0.85 * sh[1])) * shoreFade(x, z);
+  const fade = shoreFade(x, z);
+  _wh.h = 0;
+  hc = longSea.add(x, z, t, (0.15 + 0.85 * sh[1]) * fade, _wh).h;
+  return TIDE.level * (1 - freshness(x, z)) + hs * fade + hc;
 }
 // The waves around one place, for a boat's hull (see hydro.js): everything that changes slowly
 // across a boat's length (shelter, shoaling, the shore's fade, fresh water, the tide) is read once
@@ -400,12 +376,13 @@ export function waveHeight(x, z, t = conditions.time) {
 // the surface at a point exactly as waveHeight does there, and the water's own motion: how fast
 // it rises and falls, and the orbital drift under each crest (forward under a crest, back in a
 // trough), which is what carries a floating thing to and fro.
-export function waveSampler(x, z, S = { n: 0, k: new Float32Array(SWELL.length + CHOP.length), kx: null, kz: null, w: null, a: null, b: null }) {
-  const N = SWELL.length + CHOP.length;
+export function waveSampler(x, z, S = { n: 0, kx: null, kz: null, w: null, a: null, b: null, sea: 0 }) {
+  const N = SWELL.length;
   if (!S.kx) for (const key of ['kx', 'kz', 'w', 'a', 'b', 'dx', 'dz']) S[key] = new Float32Array(N);
   const lvl = waterLevel(x, z);
   S.level = 0;
   S.n = 0;
+  S.sea = 0;
   if (lvl > 0.05) {
     // (Up the Coldwater and on Hoar Tarn: still water at its own level.)
     S.level = lvl;
@@ -429,8 +406,8 @@ export function waveSampler(x, z, S = { n: 0, k: new Float32Array(SWELL.length +
     S.dz[i] = w.dz;
   };
   for (let i = 0; i < SWELL.length; i++) add(SWELL[i], C.swellAmps[i] * sh[0] * grow, peak, fade);
-  const kc = (0.15 + 0.85 * sh[1]) * fade;
-  for (let i = 0; i < CHOP.length; i++) add(CHOP[i], C.chopAmps[i], C.sea.chopPeak, kc);
+  // (The wind sea: its share here, the same as waveHeight's.)
+  S.sea = (0.15 + 0.85 * sh[1]) * fade;
   return S;
 }
 // out: { h (m), vx, vy, vz (m/s) }.
@@ -450,8 +427,10 @@ export function sampleWaves(S, x, z, t, out) {
   out.vx = vx;
   out.vy = vy;
   out.vz = vz;
+  if (S.sea > 0) longSea.add(x, z, t, S.sea, out);
   return out;
 }
+const _wh = { h: 0, vy: 0, vx: 0, vz: 0 };
 
 // The tidal streams' texture for the water shader (see bakeShelter): they turn with uTideFlow.
 export function tidalTexture(region = 'home') {
@@ -600,4 +579,4 @@ export function waveHeightHere(x, z) {
 }
 
 // For the water shader: the waves' fixed parts (directions, wavenumbers, speeds).
-export const WAVE_PARTS = { SWELL, CHOP, CHOP_LENS };
+export const WAVE_PARTS = { SWELL, CHOP_LENS };

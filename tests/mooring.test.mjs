@@ -16,7 +16,7 @@ const { PIERS, solidHeight } = await import('../src/world/terrain.js');
 const { conditions } = await import('../src/world/conditions.js');
 // (A little swell running, as on most days out there.)
 conditions.swellAmps.fill(0.12);
-conditions.chopAmps.fill(0.03);
+(await import('../src/world/ocean.js')).longSea.setWind(6, 0, 0.06 ** 2 / 4, 0.5);
 const scene = new THREE.Scene();
 const OPEN = { x: 150, z: 330 };
 let clock = 0;

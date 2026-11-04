@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 
 const THREE = await import('three');
 const C = await import('../src/world/conditions.js');
+const O = await import('../src/world/ocean.js');
 const water = await import('../src/world/water.js');
 const { Boat } = await import('../src/boat.js');
 
@@ -176,13 +177,15 @@ test('an Atlantic coast is seldom still: a breeze most days, a sea breeze in the
 });
 
 test('the wind sea grows longer waves as the wind freshens, and bigger ones', () => {
-  const { CHOP } = C.WAVE_PARTS;
-  // Each wavelength's energy (the sum of its waves' squared amplitudes), shortest first.
+  // Each band of wavelength's energy in the sea as it's worked out (ocean.js: the long waves
+  // here, the short ones the graphics card adds), shortest first.
+  const edges = [0, 5.2, 8, 12.5, 19, 29, 44, 1e9];
   const bands = (speed) => {
     settle('auto', speed);
-    const out = [];
-    CHOP.forEach((w, i) => { out[w.band] = (out[w.band] || 0) + C.conditions.chopAmps[i] ** 2; });
-    return out;
+    const W = O.longSea.wind, S = new O.ShortSpectrum();
+    O.longSea.patch.setSpectrum(W.u, W.to, W.m0);
+    S.update(W.u, W.to, W.m0);
+    return O.bandEnergy(S.patch, edges, O.bandEnergy(O.longSea.patch, edges));
   };
   const light = bands(3), fresh = bands(12);
   const peak = (e) => e.indexOf(Math.max(...e)), sum = (e) => e.reduce((a, b) => a + b);
@@ -194,7 +197,7 @@ test('the wind sea grows longer waves as the wind freshens, and bigger ones', ()
   settle('lively', 12);
   const h = C.waveHeightHere(0, 300);
   assert.ok(h > 0.9 && h < 3, `${h.toFixed(2)} m`);
-  assert.ok(C.conditions.sea.chopPeak > 1.5);
+  assert.ok(C.conditions.sea.chopPeak > 1.5 && O.longSea.choppy > 0.6, 'sharp crests');
 });
 
 test('the swell grows and steepens running into shallow water, then breaks and is spent', () => {

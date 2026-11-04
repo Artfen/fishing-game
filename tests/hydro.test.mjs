@@ -12,6 +12,7 @@ const { Boat, HULLS } = await import('../src/boat.js');
 const { buildHullModel, hydrostatics, HydroBody, RHO } = await import('../src/hydro.js');
 const C = await import('../src/world/conditions.js');
 const { kelvin, wakeScale, wakes } = await import('../src/world/wakes.js');
+const O = await import('../src/world/ocean.js');
 
 const scene = new THREE.Scene();
 const flat = () => {
@@ -20,8 +21,8 @@ const flat = () => {
   C.conditions.wind.speed = C.conditions.wind.target = 0;
   for (let i = 0; i < 300; i++) C.updateConditions(0.1, { rain: 0, cloud: 0.2 });
   C.conditions.swellAmps.fill(0);
-  C.conditions.chopAmps.fill(0);
   C.conditions.sea.swell = C.conditions.sea.chop = 0;
+  O.longSea.setWind(0, 0, 0, 0);
 };
 
 test('every hull floats at the draft her own weight sinks her to, level', () => {
@@ -73,7 +74,6 @@ test('a hull grips the water sideways about as real hulls do (Clarke’s measure
 });
 
 test('the wind sea’s energy is shared as a real one’s is, and adds up to its height', () => {
-  const { CHOP } = C.WAVE_PARTS;
   for (const u of [3, 8, 14]) {
     const S = C.chopSpectrum(u);
     assert.ok(Math.abs(S.reduce((a, b) => a + b) - 1) < 1e-6);
@@ -86,10 +86,25 @@ test('the wind sea’s energy is shared as a real one’s is, and adds up to its
   C.conditions.manual = { speed: 10, from: 0 };
   C.conditions.wind.speed = C.conditions.wind.target = 10;
   for (let i = 0; i < 3000; i++) C.updateConditions(0.1, { rain: 0, cloud: 0.2 });
+  // (The long waves as worked out, over their patch; the short ones' share from their spectrum.)
+  const L = O.longSea;
+  L.at(50);
   let m0 = 0;
-  CHOP.forEach((w, i) => { m0 += C.conditions.chopAmps[i] ** 2 / 2; });
+  for (const v of L.a.h) m0 += v * v;
+  m0 /= L.a.h.length;
+  const S = new O.ShortSpectrum();
+  S.update(L.wind.u, L.wind.to, L.wind.m0);
+  for (const a of S.patch.amp) m0 += 2 * a * a;
   const hs = 4 * Math.sqrt(m0);
-  assert.ok(Math.abs(hs - 2 * C.conditions.sea.chop) < 0.01, `Hs ${hs.toFixed(2)} m for a crest of ${C.conditions.sea.chop.toFixed(2)}`);
+  assert.ok(Math.abs(hs / (2 * C.conditions.sea.chop) - 1) < 0.12, `Hs ${hs.toFixed(2)} m for a crest of ${C.conditions.sea.chop.toFixed(2)}`);
+  // It runs downwind, and the physics feels exactly the surface that's drawn.
+  const o1 = { h: 0, vx: 0, vy: 0, vz: 0 }, o2 = { h: 0, vx: 0, vy: 0, vz: 0 };
+  L.add(12.3, 45.6, 80, 1, o1);
+  L.add(12.3, 45.6, 80.02, 1, o2);
+  assert.ok(Math.abs((o2.h - o1.h) / 0.02 - o1.vy) < 0.1 + Math.abs(o1.vy) * 0.2, 'its rise and fall is its height changing');
+  L.fill(80);
+  const q = 9 * L.N + 17, t0 = L.tex0;
+  assert.ok(Number.isFinite(t0[q * 4]) && Number.isFinite(t0[q * 4 + 1]), 'sent up to the water');
   C.conditions.manual = null;
 });
 

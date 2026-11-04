@@ -26,7 +26,7 @@ export const CAST_MODES = {
 
 export const DEFAULT_SETTINGS = {
   audio: { master: 1, mute: false, music: 0.8, ambient: 1, wind: 0.8, waves: 0.9, rain: 0.8, effects: 1, reel: 0.9, alerts: 0.8 },
-  graphics: { preset: 'auto', scale: 1, shadows: 'auto', water: 'auto', plants: 'auto', particles: 'auto', underwater: 'auto', life: 'auto', fps: 0 },
+  graphics: { preset: 'auto', scale: 1, shadows: 'auto', ocean: 'auto', water: 'auto', plants: 'auto', particles: 'auto', underwater: 'auto', life: 'auto', fps: 0 },
   // sea: 'auto' (with the weather) or a SEA_PRESETS id; wind 'auto' or 'manual' (windSpeed m/s,
   // windFrom compass degrees); currents: natural, gentle or still (on your rig and boat).
   // windLines: the white wind lines in the air (when sailing, always, or never).
@@ -87,6 +87,7 @@ export function cleanSettings(raw, legacy = {}) {
     preset: oneOf(g.preset, CHOICES, oneOf(legacy.quality, CHOICES, 'auto')),
     scale: num(g.scale, 1, 0.5, 1),
     shadows: oneOf(g.shadows, ['auto', 'on', 'off'], 'auto'),
+    ocean: oneOf(g.ocean, ['auto', 'full', 'simple'], 'auto'),
     fps: oneOf(g.fps, [0, 30, 60], 0),
   };
   for (const k of Object.keys(GROUPS)) graphics[k] = oneOf(g[k], ['auto', ...LEVELS], 'auto');
@@ -293,7 +294,7 @@ export class SettingsUI {
     const reset = el('button', 'pk-btn quiet', 'Restore recommended settings');
     reset.type = 'button';
     reset.addEventListener('click', () => {
-      Object.assign(G, { preset: 'auto', scale: 1, shadows: 'auto', fps: 0 });
+      Object.assign(G, { preset: 'auto', scale: 1, shadows: 'auto', ocean: 'auto', fps: 0 });
       for (const id of Object.keys(GROUPS)) G[id] = 'auto';
       this.hooks.changed('graphics', 'preset', 'auto');
       this.render();
@@ -303,6 +304,8 @@ export class SettingsUI {
       this.slider('graphics', 'scale', { min: 0.5, max: 1, step: 0.05 })));
     out.push(this.row('Shadows', 'Soft shadows from the sun and the lantern. Off is quicker.',
       this.choice([['auto', 'With the preset'], ['on', 'On'], ['off', 'Off']], G.shadows, (v) => this.set('graphics', 'shadows', v))));
+    out.push(this.row('Ocean', `${this.hooks.oceanText?.() || ''} Full works out the sea's short waves on the graphics card, every frame: its texture and glitter close by, lacy foam on the breaking crests, and wakes you can see a long way off. Simple leaves them to the shading, for phones and slower computers. The waves your boat rides are the same either way. Auto picks Full on a computer that can run it.`,
+      this.choice([['auto', 'Auto'], ['full', 'Full'], ['simple', 'Simple']], G.ocean, (v) => this.set('graphics', 'ocean', v))));
     for (const [id, grp] of Object.entries(GROUPS)) {
       out.push(this.row(grp.label, grp.desc, this.choice(['auto', ...LEVELS].map((l) => [l, LEVEL_NAMES[l]]), G[id], (v) => this.set('graphics', id, v))));
     }

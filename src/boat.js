@@ -2120,7 +2120,7 @@ export class Boat {
       if (H.sail) this.heel = this.roll;
       const rowing = (throttle !== 0 || steer !== 0) && !held;
       // (Sat low in a kayak, you keep her upright with your hips as the chop rolls under her.)
-      if (H.paddle) b.balance = 0.12;
+      if (H.paddle) b.balance = 0.06;
       if (rowing) this.phase += dt * Math.PI * 2 * H.rate;
       const pull = held ? 0 : throttle;
       // (Pulling straight, a little more on one oar keeps her straight.)
@@ -2249,7 +2249,7 @@ export class Boat {
     const H = this.hull, M = H.motor;
     // (How far over it goes at full speed, from what speed on, and how quickly it turns: bars
     // and tillers quickest, a big boat's wheel slowest.)
-    const spec = M?.jet ? [0.5, 3, 13, 3.5] : M?.inboard ? [0.55, 2, 9, 1.6] : H.rig ? [0.5, 3, 9, 3] : H.cabin ? [0.3, 1.5, 5, 1.8] : H.wheel ? [0.3, 2, 8, 2.2] : M ? [0.3, 2, 8, 4.5] : [0.7, 1.5, 4, 3];
+    const spec = M?.jet ? [0.5, 3, 13, 3.5] : M?.inboard ? [0.55, 2, 9, 1.6] : H.rig ? [0.5, 3, 9, 3] : H.cabin ? [0.3, 1.5, 5, 1.8] : H.wheel ? [0.3, 2, 8, 2.2] : M ? [0.3, 2, 8, 6] : [0.7, 1.5, 4, 3];
     const fast = smoothstep(spec[1], spec[2], Math.abs(vf));
     const most = 1 - (1 - spec[0]) * fast;
     const target = clamp(want, -1, 1) * most;

@@ -5902,6 +5902,14 @@ const qualityText = () => {
   return `${quality.choice === 'auto' ? `Auto (${L})` : L}${custom ? ', adjusted' : ''}`;
 };
 
+// What the Ocean setting is doing just now, for Settings.
+let oceanMode = 'simple';
+const oceanText = () => {
+  const G = settings.graphics, auto = G.ocean === 'auto';
+  if (oceanMode === 'full') return auto ? 'Auto: Full on this device.' : 'Full.';
+  if (G.ocean === 'full') return 'This browser can’t work the short waves out on its graphics card, so it’s Simple.';
+  return auto ? 'Auto: Simple on this device.' : 'Simple.';
+};
 function applyQuality() {
   const G = settings.graphics;
   quality.choice = G.preset;
@@ -5921,6 +5929,10 @@ function applyQuality() {
   surfaceUniforms.uDetail.value = q.surfaceDetail;
   ripples.setQuality(q.ripples, q.rippleSpan, renderer);
   water.uniforms.uRippleTexel.value = 1 / Math.max(1, ripples.size);
+  // The Ocean: Full (the short waves worked out on the graphics card) or Simple. Auto: Full on a
+  // computer at Medium or above, Simple on a phone or tablet or on Low.
+  const oceanWant = G.ocean === 'auto' ? (touch.active || qualityLevel() === 'low' ? 'simple' : 'full') : G.ocean;
+  oceanMode = water.setOcean(oceanWant, renderer);
   rainDrawn = q.rain;
   world.setPixelRatio(pr);
   glow.setPixelRatio(pr);
@@ -6026,6 +6038,7 @@ const settingsUI = new SettingsUI(state, {
     audio.biteAlert('strike');
   },
   qualityText,
+  oceanText,
   difficulty: () => state.difficulty,
   setDifficulty,
   behaviour: () => state.behaviour,
