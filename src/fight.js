@@ -73,6 +73,11 @@ export const FIGHT_STYLES = {
   cling: { run: 1.4, rest: 1.3, surge: 0.75, tire: 0.85, sway: 0.8, dive: 2.6, splash: false, words: 'It’s clinging to the bottom: keep a steady lift.' },
   // Conger: twisting and backing down towards its hole in the rocks.
   twist: { run: 1.15, rest: 0.8, surge: 1.1, tire: 0.9, sway: 1.4, dive: 2.4, splash: false, words: 'It’s twisting and backing down towards the rocks.' },
+  // Rays: wings spread, they kite off wide across the tide and clamp flat on the bottom (plating),
+  // a dead weight you pump up off the sand a little at a time.
+  plate: { run: 1.35, rest: 1.25, surge: 0.8, tire: 0.8, sway: 3.0, dive: 3.2, splash: false, words: 'It’s kiting off with its wings spread, then clamping flat on the sand: pump it up off the bottom.' },
+  // Catsharks and dogfish: writhing and rolling, wrapping themselves in the line.
+  roll: { run: 0.6, rest: 0.7, surge: 1.15, tire: 1.3, sway: 1.1, dive: 1.4, splash: false, words: 'It’s writhing and rolling, wrapping itself in the line.' },
   // Garfish: skittering, leaping and tail-walking across the top.
   leap: { run: 0.6, rest: 0.7, surge: 0.9, tire: 1.5, sway: 3.2, dive: 0.1, splash: true, words: 'It’s skittering and leaping across the surface.' },
   // Marlin, sailfish, spearfish: long, fast runs across the top, greyhounding and tail-walking,
@@ -104,8 +109,10 @@ export function newFight(sp, size, rod, diff, cover = false, rnd = Math.random, 
     jumpy: who.jumpy ?? 0,
     flex: rod.flex ?? 1,
     level,
-    // A hook in the scissors holds; one just nicked in the lip has a light hold.
-    hold: level.pull > 0 && rnd() < 0.3 ? 'light' : 'solid',
+    // A hook in the scissors holds; one just nicked in the lip has a light hold. (A soft mouth,
+    // a hake's, holds lightly more often than not: play it gently.)
+    hold: level.pull > 0 && rnd() < (sp.life?.softMouth ? 0.75 : 0.3) ? 'light' : 'solid',
+    soft: !!sp.life?.softMouth,
     flow: 0,     // the current, pulling it away from you (+) or towards you (−), m/s (set each step)
     side: 0,     // side pressure: the rod swung left (−1) or right (+1) (set each step)
     dir: 1,      // the way it's running, across the line
@@ -261,8 +268,8 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
     if (F.jumping <= 0 && F.jumpSlack && rnd() < F.level.throwHook * 2.2) return 'off:thrown';
   }
   // A light hold tears free under heavy pressure held too long (a drag set tight, or a heavy hand).
-  if (F.hold === 'light' && F.tension > 0.76) {
-    F.pullT += dt * F.level.pull;
+  if (F.hold === 'light' && F.tension > (F.soft ? 0.66 : 0.76)) {
+    F.pullT += dt * F.level.pull * (F.soft ? 1.6 : 1);
     if (F.pullT > 1.4) return 'off:pulled';
   } else F.pullT = Math.max(0, F.pullT - dt);
 

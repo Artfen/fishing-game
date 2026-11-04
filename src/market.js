@@ -27,6 +27,7 @@ export const PRICES = {
   pandora: 8, dentex: 14, borriquete: 7, roncador: 5, pollack: 7, bluefish: 6, senegalsole: 16, sandsole: 14,
   acedia: 10, turbot: 20, gurnard: 6, sardine: 4, horsemackerel: 3, bogue: 2, salema: 2, garfish: 3, bonito: 8,
   bullet: 5, pompano: 8, octopus: 11, albacore: 10,
+  catshark: 4, hake: 13, johndory: 22,
   // Las Brasas.
   parrotfish: 16, triggerfish: 9, moray: 6, barracuda: 7, chubmackerel: 3, wahoo: 12, dorado: 12, yellowfin: 14, littletunny: 6, comber: 8,
 };
@@ -97,7 +98,7 @@ export function fishValue(f, { day, now, place = 'haven' } = {}) {
 
 // The fish a kitchen likes to put on its menu.
 const MENU = {
-  haven: ['seabass', 'sole', 'turbot', 'plaice', 'gilthead', 'mackerel', 'squid', 'cuttlefish', 'pollack', 'blackbream', 'gurnard', 'flounder', 'bonito', 'octopus', 'redporgy', 'trout'],
+  haven: ['seabass', 'sole', 'turbot', 'plaice', 'gilthead', 'mackerel', 'squid', 'cuttlefish', 'pollack', 'blackbream', 'gurnard', 'flounder', 'bonito', 'octopus', 'redporgy', 'trout', 'hake', 'johndory'],
   muelle: ['parrotfish', 'moray', 'wahoo', 'dorado', 'octopus', 'squid', 'redporgy', 'dentex', 'triggerfish', 'albacore', 'chubmackerel', 'whitebream'],
 };
 

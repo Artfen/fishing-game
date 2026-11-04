@@ -1148,6 +1148,8 @@ function showCatch(sp, size, agent, rigUsed) {
   const build = agent?.condition && !sp.creature ? ` · ${conditionWords(agent.condition)}` : '';
   $('cc-size').textContent = `${size} cm${sp.creature ? ' mantle' : ''} · about ${wtText}${build}${record ? ' · your biggest yet' : ''}`;
   $('cc-note').textContent = isNew ? sp.note : agent.caught > 0 ? 'This one has met your hook before.' : sp.creature ? pick(['It flushes pale and dark, and squirts a last jet of ink.', 'Its great eyes look you over.', 'It wraps an arm round your finger, then lets go.']) : pick(REPEAT_LINES);
+  // (A venomous fish, a weever: unhooked with pliers and a cloth, never a bare hand.)
+  if (sp.venom) hud.flash('Careful: venomous spines. Pliers and a wet cloth to unhook it, and keep your fingers clear of that black fin.', t, 4.5);
   $('cc-rig').textContent = (rigUsed?.item ? `Caught on ${rigUsed.item.on}, with the ${rigUsed.rod.short.toLowerCase()}` : '') + (state.trip?.sp === sp.id ? ' · the fish your trip is for' : '');
   const keepBtn = $('cc-keep');
   keepBtn.hidden = !sp.meal;

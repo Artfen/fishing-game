@@ -53,6 +53,8 @@ const CATCHABLE = [
   'grouper', 'chubmackerel',
   // The big game of the open ocean (see bigGame.js), every shark released
   'blueshark', 'mako', 'albacore',
+  // The angling depth release: the thornback (released), the catshark, the weever (released), hake and the John Dory
+  'thornback', 'catshark', 'weever', 'hake', 'johndory',
 ];
 const GAME = {
   ...Object.fromEntries(CATCHABLE.map((id) => [id, { status: 'catchable', model: 'anatomical' }])),
@@ -63,9 +65,9 @@ const GAME = {
 // expansion plan in the README). Deep-water fish and occasional visitors may stay here.
 const BATCH = {
   // next: common coastal fish still missing, and catch-and-release on the bottom.
-  redmullet: 2, weever: 2, shanny: 2, thinlip: 2, goldengrey: 2, catshark: 2, thornback: 2,
+  redmullet: 2, shanny: 2, thinlip: 2, goldengrey: 2,
   // deeper water and rarer visitors.
-  hake: 3, johndory: 3, stingray: 3,
+  stingray: 3,
   // migratory and protected estuary species, with seasons (observation-only where protected).
   allisshad: 4, twaiteshad: 4, lamprey: 4, sturgeon: 4,
 };
