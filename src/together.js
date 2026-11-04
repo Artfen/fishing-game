@@ -31,6 +31,9 @@ const WORLD_STALE = 20;
 const HOST_GRACE = 60;      // seconds the others wait for a host who's gone (a reload, a blip)
 const RESUME_FOR = 10 * 60; // seconds a session can be picked up again after a reload
 const SESSION_KEY = 'slow-tide-session';
+// Quick calls: a few words to the others, one at a time (no typing, nothing to moderate).
+export const CALLS = ['Over here!', 'Fish on!', 'Come and look at this', 'Good spot here', 'Wait for me', 'Heading in'];
+const CALL_GAP = 1.5;       // seconds between calls, each way
 const MODES = ['foot', 'boat', 'dive', 'car'];
 // The fastest anyone really goes, m/s, on foot, afloat, swimming and driving: anything quicker is
 // a step ashore, a drive skipped or a passage made, and they're simply somewhere new.
@@ -89,6 +92,7 @@ export function cleanPose(p, kinds = null) {
     out.n = !!p.n;   // at anchor or tied up
   }
   if (m === 'foot') out.a = ACTS.includes(p.a) ? p.a : 'stand';
+  if (m === 'foot' || m === 'boat') out.o = !!p.o; // (a fish on: their rod bent, and a word)
   return out;
 }
 
@@ -152,6 +156,7 @@ export class Realtime {
     this.cancel = null;
     this.onMessage = () => {};
     this.onClose = () => {};
+    this.onTraffic = () => {}; // ('in' | 'out', bytes): the messages Supabase counts
   }
 
   get open() { return !!this.ws && this.ws.readyState === 1; }
@@ -209,7 +214,11 @@ export class Realtime {
     const ref = String(++this.ref);
     const msg = { topic, event, payload, ref };
     if (topic !== 'phoenix' && this.joinRef) msg.join_ref = this.joinRef;
-    if (this.open) this.ws.send(JSON.stringify(msg));
+    if (this.open) {
+      const text = JSON.stringify(msg);
+      this.ws.send(text);
+      if (event === 'broadcast' || event === 'presence') this.onTraffic('out', text.length);
+    }
     return ref;
   }
 
@@ -247,6 +256,7 @@ export class Realtime {
       try { this.ws.close(); } catch { /* gone */ }
       return;
     }
+    if (msg.event === 'broadcast' || msg.event === 'presence_diff' || msg.event === 'presence_state') this.onTraffic('in', String(data).length);
     this.onMessage(msg.event, msg.payload);
   }
 
@@ -378,6 +388,8 @@ export class Together {
     this.hostName = '';
     this.hostGoneAt = null;
     this.newer = false;       // someone's on a newer version of the game
+    this.calledT = -99;
+    this.stats = Together.freshStats();
     this.id = newId();
     this.status = 'off';  // off | connecting | hosting | joined
     this.code = '';
@@ -395,6 +407,19 @@ export class Together {
     this.attempt = 0;     // bumped by each start or leave, so a stale attempt stops itself
     this.onChange = () => {};
     this.onEvent = () => {}; // (kind: 'joined' | 'join' | 'leave' | 'catch' | 'ended' | 'lost' | 'back', peer, data)
+  }
+
+  // What a session has sent and received (the messages Supabase counts against its allowance), and
+  // how often the connection had to be got back: shown in Settings, nothing sent anywhere.
+  static freshStats() { return { out: 0, in: 0, bytesOut: 0, bytesIn: 0, reconnects: 0, since: Date.now() }; }
+  traffic(dir, bytes) {
+    if (dir === 'out') {
+      this.stats.out++;
+      this.stats.bytesOut += bytes;
+    } else {
+      this.stats.in++;
+      this.stats.bytesIn += bytes;
+    }
   }
 
   get available() { return !!this.config() && !!this.WS; }
@@ -429,6 +454,7 @@ export class Together {
     }
     const attempt = ++this.attempt;
     this.status = 'connecting';
+    this.stats = Together.freshStats();
     this.changed('Starting a session…');
     try {
       for (let i = 0; i < 6; i++) {
@@ -470,6 +496,7 @@ export class Together {
     }
     const attempt = ++this.attempt;
     this.status = 'connecting';
+    this.stats = Together.freshStats();
     this.changed(`Looking for session ${code}…`);
     try {
       const alone = await this.open(code, attempt, true);
@@ -507,6 +534,7 @@ export class Together {
     const cfg = this.config();
     const rt = (this.rt = new Realtime({ url: cfg.url, key: cfg.anonKey, WS: this.WS }));
     rt.onMessage = (event, payload) => this.receive(event, payload);
+    rt.onTraffic = (dir, bytes) => this.traffic(dir, bytes);
     rt.onClose = () => this.lost();
     this.code = code;
     await rt.connect();
@@ -607,6 +635,7 @@ export class Together {
       // (Until it's back, a failure here is this attempt's to handle, not onClose's.)
       const rt = (this.rt = new Realtime({ url: cfg.url, key: cfg.anonKey, WS: this.WS }));
       rt.onMessage = (event, payload) => this.receive(event, payload);
+    rt.onTraffic = (dir, bytes) => this.traffic(dir, bytes);
       try {
         await rt.connect();
         await rt.join(topicFor(this.code), this.id);
@@ -617,6 +646,7 @@ export class Together {
         this.sent = null;
         this.reconnecting = false;
         this.retry = 0;
+        this.stats.reconnects++;
         this.changed('Connected again.');
         this.onEvent('back', null);
       } catch {
@@ -760,6 +790,7 @@ export class Together {
       const S = p.snaps, last = S[S.length - 1];
       const jump = !p.pose || !last || pose.m !== p.pose.m || pose.k !== p.pose.k || Math.hypot(pose.x - last.x, pose.z - last.z) > 60;
       if (!jump && t <= last.t) return; // (a late one, overtaken)
+      if (pose.o && !p.pose?.o && p.name) this.onEvent('fishOn', p);
       p.pose = pose;
       const snap = { t, x: pose.x, z: pose.z, h: pose.h, vx: pose.vx, vz: pose.vz, pose };
       if (jump) {
@@ -776,6 +807,13 @@ export class Together {
       if (this.clock - (p.caughtT ?? -99) < 4) return; // (one at a time)
       p.caughtT = this.clock;
       this.onEvent('catch', p, { sp: data.sp, kg, best: !!data.best, first: !!data.first });
+    } else if (kind === 'call') {
+      const c = data.c;
+      if (!Number.isInteger(c) || c < 0 || c >= CALLS.length || !p.name) return;
+      if (this.clock - (p.callT ?? -99) < CALL_GAP) return;
+      p.callT = this.clock;
+      p.call = { text: CALLS[c], at: this.clock };
+      this.onEvent('call', p, { text: CALLS[c] });
     } else if (kind === 'world') {
       // Only the host's world counts (whoever else might send one).
       if (this.hosting || (p.id !== this.hostId && !p.host)) return;
@@ -814,9 +852,10 @@ export class Together {
     const msg = { m: P.m, x: r2(P.x), z: r2(P.z), h: r2(P.h), vx: slow ? 0 : r2(P.vx), vz: slow ? 0 : r2(P.vz) };
     if (P.m === 'boat') Object.assign(msg, { k: P.k, f: P.f ? 1 : 0, s: P.s ? 1 : 0, n: P.n ? 1 : 0 });
     if (P.m === 'foot') msg.a = P.a;
+    if ((P.m === 'foot' || P.m === 'boat') && P.o) msg.o = 1;
     const S = this.sent;
     // (Slowing down or stopping counts too, so nobody's carried on past where you stopped.)
-    const moved = !S || S.m !== msg.m || S.k !== msg.k || S.a !== msg.a || S.f !== msg.f || S.s !== msg.s || S.n !== msg.n
+    const moved = !S || S.m !== msg.m || S.k !== msg.k || S.a !== msg.a || S.f !== msg.f || S.s !== msg.s || S.n !== msg.n || S.o !== msg.o
       || Math.hypot(S.x - msg.x, S.z - msg.z) > 0.25 || Math.abs(S.h - msg.h) > 0.05 || Math.hypot(S.vx - msg.vx, S.vz - msg.vz) > 0.3;
     if (!now && (this.sendT > 0 || (!moved && this.clock - (S?.at ?? -99) < IDLE_EVERY))) return;
     this.rt.send('pose', { id: this.id, n: this.name(), host: this.hosting, t: Math.round(this.now() * 1000) / 1000, p: msg });
@@ -859,6 +898,15 @@ export class Together {
   }
 
   get hostLabel() { return this.hostName || 'the host'; }
+
+  // A quick call to the others (index into CALLS). Returns whether it went.
+  call(i) {
+    if (!this.active || !this.rt?.open || this.reconnecting || !Number.isInteger(i) || i < 0 || i >= CALLS.length) return false;
+    if (this.clock - this.calledT < CALL_GAP) return false;
+    this.calledT = this.clock;
+    this.rt.send('call', { id: this.id, c: i });
+    return true;
+  }
 
   // You caught something: tell the others (sp: species id, kg).
   caught(sp, kg, { best = false, first = false } = {}) {

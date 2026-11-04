@@ -623,9 +623,19 @@ body.pad .keys-only { display: none !important; }
 .marker.near { opacity: 0.75; }
 .marker.guide { border-color: rgba(255, 214, 140, 0.85); background: rgba(40, 32, 20, 0.6); }
 .marker.guide .m-arrow { border-bottom-color: #ffd68c; }
+/* Quick calls (playing together): a short list of words to send, by the top bar. */
+#calls { position: fixed; top: 64px; right: max(16px, env(safe-area-inset-right, 0px)); z-index: 11; }
+#calls .calls-inner { width: min(280px, calc(100vw - 32px)); padding: 12px; border-radius: 14px; background: rgba(22, 30, 42, 0.92); border: 1px solid rgba(178, 214, 255, 0.5); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
+#calls .calls-title { margin: 0 0 8px; font: 700 12px var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: #b2d6ff; }
+#calls .calls-list { display: grid; gap: 6px; }
+#calls .calls-list button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 10px; background: rgba(255, 255, 255, 0.06); color: #f6efe2; font: 600 14px var(--font-ui); text-align: left; cursor: pointer; }
+#calls .calls-list button:hover, #calls .calls-list button:focus-visible { background: rgba(178, 214, 255, 0.18); outline: none; }
+#calls .calls-list kbd { min-width: 18px; text-align: center; opacity: 0.7; }
 /* A friend you're playing with: their name over them, or pointing the way to them. */
 .marker.friend { border-color: rgba(178, 214, 255, 0.85); background: rgba(20, 34, 54, 0.62); }
 .marker.friend .m-arrow { border-bottom-color: #b2d6ff; }
+.marker.friend .m-call { color: #ffd68c; }
+.marker.friend.calling { border-color: #ffd68c; }
 
 /* The first-trip guide: a small card under the corner buttons, one step at a time. */
 #guide {

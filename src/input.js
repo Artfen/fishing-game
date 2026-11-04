@@ -31,6 +31,7 @@ export const ACTIONS = [
   { id: 'motor', label: 'Kayak motor down or up · sailing boat: sail up or down', keys: ['KeyU'], group: 'Boats' },
   { id: 'outboard', label: 'Sailing boat: the outboard down or up (when there’s no wind)', keys: ['KeyL'], group: 'Boats' },
   { id: 'drink', label: 'A drink from your water bottle', keys: ['Digit3'], group: 'Around' },
+  { id: 'call', label: 'Playing together: a quick call to your friends', keys: ['Digit4'], group: 'Around' },
   { id: 'view', label: 'Next view (first person, underwater, your bait)', keys: ['KeyC'], group: 'Views' },
   { id: 'eye', label: 'First person on or off', keys: ['KeyV'], group: 'Views' },
   { id: 'reset', label: 'Reset the camera', keys: ['KeyR'], group: 'Views' },

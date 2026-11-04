@@ -962,6 +962,32 @@ export class MapSheet {
       ctx.stroke();
       ctx.restore();
     }
+    // Friends you're playing with: a boat arrow (or a dot, ashore) in their own colour, and their name.
+    for (const f of this.where?.friends?.() || []) {
+      const [x, y] = this.toPx(f.x, f.z);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = f.colour || INK;
+      ctx.strokeStyle = '#f6efe2';
+      ctx.lineWidth = 1.6 * s;
+      if (f.mode === 'boat') {
+        ctx.rotate(Math.atan2(Math.cos(f.heading), Math.sin(f.heading)));
+        ctx.beginPath();
+        ctx.moveTo(12 * s, 0);
+        ctx.lineTo(-8 * s, 7 * s);
+        ctx.lineTo(-4 * s, 0);
+        ctx.lineTo(-8 * s, -7 * s);
+        ctx.closePath();
+      } else {
+        ctx.beginPath();
+        ctx.arc(0, 0, 6 * s, 0, Math.PI * 2);
+      }
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+      const what = f.on ? ', a fish on!' : f.boat ? `, in the ${f.boat}` : f.mode === 'dive' ? ', diving' : f.mode === 'car' ? ', driving' : '';
+      this.label(ctx, `${f.name}${what}`, x + 13 * s, y - 9 * s, 16, f.colour || INK, 0.95);
+    }
     // On the open sea's chart: the crossing, Gannet Light to the island, with its length.
     if (this.key === 'ocean') {
       const [ax, ay] = this.toPx(ENDS.home.x, ENDS.home.z), [bx, by] = this.toPx(ENDS.south.x, ENDS.south.z);

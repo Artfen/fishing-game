@@ -3,7 +3,7 @@ import { Input, defaultBindings } from './input.js';
 import { SettingsUI, WEATHER_MODES } from './settings.js';
 import { loadGame, saveGame, newGame, saveStatus, parseSave, importSave, exportText, stopSaving, SAVE_KEY, adoptJournal } from './save.js';
 import { Cloud } from './cloud.js';
-import { Together, cleanName, suggestName, NAME_MAX } from './together.js';
+import { Together, cleanName, suggestName, NAME_MAX, CALLS } from './together.js';
 import { setupOffline, offline, applyUpdate } from './offline.js';
 import { DIFFICULTY, DIFFICULTY_IDS, DRAG_LEVELS, DRAG_NAMES, breakReason } from './fight.js';
 import { BEHAVIOUR, conditionWords } from './behaviour.js';
@@ -6640,26 +6640,97 @@ function placeFriendMarkers() {
       friendMarkers.set(p.id, el);
     }
     const P = p.view || p.pose, A = p.at;
+    // (Their latest call shows with their name for a few seconds; a fish on, while it's on.)
+    const call = p.call && together.clock - p.call.at < 7 ? p.call.text : P.o ? 'fish on!' : '';
     const text = P.m === 'dive' ? `${p.name} (diving)` : P.m === 'car' ? `${p.name} (driving)` : p.name;
     const nameEl = el.querySelector('.m-name');
     if (nameEl.textContent !== text) nameEl.textContent = text;
+    let callEl = el.querySelector('.m-call');
+    if (call && !callEl) {
+      callEl = document.createElement('span');
+      callEl.className = 'm-call';
+      nameEl.after(callEl);
+    }
+    if (callEl) {
+      const words = call ? `: ${call}` : '';
+      if (callEl.textContent !== words) callEl.textContent = words;
+    }
+    el.classList.toggle('calling', !!call);
     const y = P.m === 'boat' ? waveHeight(A.x, A.z, t) + 3 : P.m === 'foot' ? walkHeight(A.x, A.z) + 2.4 : P.m === 'car' ? heightAt(A.x, A.z) + 2.6 : 1.2;
     placeMarker(el, A.x, y, A.z, started && !modal);
   }
 }
 
+const fishOnSaid = {};
+let friendMapT = 0;
+// Friends for the map: where they are, in what, in their own colour.
+function friendsOnMap() {
+  return together.others.filter((p) => p.at && (p.view || p.pose)).map((p) => {
+    const P = p.view || p.pose;
+    return { name: p.name, x: p.at.x, z: p.at.z, heading: p.at.h, mode: P.m, boat: P.m === 'boat' ? BOATS[P.k]?.name : null, colour: visitors.colourOf(p.name), on: !!P.o };
+  });
+}
+// How far and which way a friend is, in a few words, for the news of them.
+function friendWhere(p) {
+  if (!p.at) return '';
+  const P = player().pos, d = Math.hypot(p.at.x - P.x, p.at.z - P.z);
+  if (d < 25) return '(right by you)';
+  return `(${d >= 1000 ? `${(d / 1000).toFixed(1)} km` : `${Math.round(d / 10) * 10} m`} ${compass(bearingOf(p.at.x - P.x, p.at.z - P.z))})`;
+}
+
+/* ---------- quick calls ---------- */
+
+function renderCalls() {
+  $('calls-list').replaceChildren(...CALLS.map((text, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    const k = document.createElement('kbd');
+    k.textContent = String(i + 1);
+    b.append(k, text);
+    b.addEventListener('click', () => sendCall(i));
+    return b;
+  }));
+}
+function openCalls() {
+  if (!together.active) return;
+  renderCalls();
+  $('calls').hidden = false;
+  $('calls-list').firstElementChild?.focus();
+}
+function closeCalls() {
+  $('calls').hidden = true;
+}
+const callsOpen = () => !$('calls').hidden;
+function sendCall(i) {
+  closeCalls();
+  if (together.call(i)) hud.toast(`You call: “${CALLS[i]}”`, 3);
+  else hud.flash('A moment between calls.', t, 2);
+}
+$('call-btn').addEventListener('click', () => (callsOpen() ? closeCalls() : openCalls()));
+addEventListener('pointerdown', (e) => {
+  if (callsOpen() && !e.target.closest?.('#calls, #call-btn')) closeCalls();
+});
+
 // Where you are and what you're doing, for the friends you're playing with.
 function whereIAm() {
   if (dive) return { m: 'dive', x: diver.pos.x, z: diver.pos.z, h: diver.heading };
   if (driving) return { m: 'car', x: car.pos.x, z: car.pos.z, h: car.heading };
-  if (onFoot) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: sitting ? 'sit' : fishing.lineOut ? 'fish' : walker.speed > 0.4 ? 'walk' : 'stand' };
-  return { m: 'boat', k: boat.kind, x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie) };
+  const on = fishing.state === 'reeling' || fishing.state === 'landing';
+  if (onFoot) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: sitting ? 'sit' : fishing.lineOut ? 'fish' : walker.speed > 0.4 ? 'walk' : 'stand', o: on };
+  return { m: 'boat', k: boat.kind, x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), o: on };
 }
 
 // Toasts for what happens in a session (the details are in Settings → Play together).
 together.onEvent = (kind, p, data) => {
   if (kind === 'join') hud.toast(`${p.name} has joined you.`, 5);
   else if (kind === 'leave') hud.toast(data?.host && !together.hosting ? `${p.name} has left. If they’re back within a minute (a reload, a dropped connection), the session carries on; otherwise it ends.` : `${p.name} has left the session.`, data?.host ? 7 : 4);
+  else if (kind === 'fishOn') {
+    // (Once in a while for each friend: a lost fish and another straight after is one moment.)
+    if (t - (fishOnSaid[p.id] ?? -99) > 20) {
+      fishOnSaid[p.id] = t;
+      hud.toast(`${p.name} has a fish on! ${friendWhere(p)}`, 5);
+    }
+  } else if (kind === 'call') hud.toast(`${p.name}: “${data.text}” ${friendWhere(p)}`, 5);
   else if (kind === 'joined') hud.toast(`You’re playing with ${p?.name || 'your friend'}. Look for their name on the screen: it points the way to them.`, 7);
   else if (kind === 'catch') {
     const sp = fishById[data.sp];
@@ -7206,7 +7277,7 @@ function openMap(highlight = null) {
   if (modal) return;
   if (fishing.aiming) fishing.cancel();
   const p = player();
-  mapSheet.open({ player: { x: p.pos.x, z: p.pos.z, heading: p.heading }, onFoot, boats, boat }, typeof highlight === 'string' ? highlight : null);
+  mapSheet.open({ player: { x: p.pos.x, z: p.pos.z, heading: p.heading }, onFoot, boats, boat, friends: friendsOnMap }, typeof highlight === 'string' ? highlight : null);
   modal = 'map';
   audio.page();
   teach('map', 'The map fills in as you explore. Camps you’ve found are listed beside it: you can head straight to any of them.', 6);
@@ -7329,6 +7400,13 @@ input.on('press', (code, acts) => {
   }
   audio.start();
   if (modal === 'sleep' || modal === 'travel') return;
+  // The quick calls: their numbers send them, Esc (or the key again) closes.
+  if (callsOpen()) {
+    const n = /^(Digit|Numpad)([1-9])$/.exec(code);
+    if (n && Number(n[2]) <= CALLS.length) sendCall(Number(n[2]) - 1);
+    else if (code === 'Escape' || is('call')) closeCalls();
+    return;
+  }
   if (!$('confirm').hidden) {
     if (code === 'Escape') $('confirm').hidden = true;
     return;
@@ -7509,7 +7587,10 @@ input.on('press', (code, acts) => {
   else if (is('finder')) toggleFinder();
   else if (is('map')) openMap();
   else if (is('settings')) openSettings();
-  else if (is('hide')) {
+  else if (is('call')) {
+    if (together.active) openCalls();
+    else hud.flash('Quick calls are for playing together (Settings → Play together).', t, 2.5);
+  } else if (is('hide')) {
     hudOff = !hudOff;
     hud.hidden(hudOff);
   } else if (code === 'Escape') {
@@ -7994,6 +8075,21 @@ function tick(now, manual = false) {
     // Friends you're playing with: where you are goes to them, and they're drawn where they are.
     together.update(dt, started ? whereIAm() : null);
     visitors.update(dt, t, together.peers, { from: P, fx, glow, night: env.lantern });
+    // A boat of yours lying where a friend's boat is (boats from the same jetty start in the same
+    // spot) steps out of sight while theirs is there, rather than two hulls drawn in one.
+    for (const b of boats) {
+      if (!onFoot && b === boat) {
+        b.group.visible = true;
+        continue;
+      }
+      b.group.visible = !(together.active && b.speed < 0.3 && visitors.boatNear(b.pos.x, b.pos.z, b.hull.L * 0.35));
+    }
+    $('call-btn').hidden = !(started && together.active);
+    if (!together.active && callsOpen()) closeCalls();
+    if (modal === 'map' && together.active && (friendMapT -= dt) <= 0) {
+      friendMapT = 0.5;
+      mapSheet.draw();
+    }
     glow.update(t, nightGlow(clock.day) * smoothstep(0.35, 0.85, env.night) * (1 - 0.5 * (weather.rain ?? 0)));
     glow.foamColor(fx.wake.material.color, env.daylight);
     glowFishT -= dt;
