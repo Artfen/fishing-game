@@ -106,3 +106,20 @@ test('the visitors’ row at the end of the pontoon, and the harbour office at t
   assert.equal(typeof coast.ownerSign, 'function');
   coast.ownerSign('Robin');
 });
+
+test('a guest in a friend’s harbour: any three of their Willowhaven boats lie alongside the visitors’ row, clear of each other and of the Halcyon’s berth', async () => {
+  const F = T.VISITOR_FINGERS[1], east = F.x0 >= T.HAVEN_PONTOON.x1;
+  const { CALLER } = await import('../src/townsfolk.js');
+  for (let i = 0; i < HARBOUR.length; i++) for (let j = i + 1; j < HARBOUR.length; j++) for (let k = j + 1; k < HARBOUR.length; k++) {
+    const set = [HARBOUR[i], HARBOUR[j], HARBOUR[k]];
+    const B = FL.ownBerths(F, set, LENGTHS, BEAMS, [1, -1], east);
+    assert.equal(Object.keys(B).length, 3, `all of ${set.join(', ')} fit`);
+    for (const kind of set) {
+      const b = B[kind], h = boats[kind].hull;
+      assert.ok(T.solidHeight(b.x, b.z) < -(h.draft + 0.8), `${kind}: deep enough`);
+      const berth = M.berthFor({ hull: h, pos: { x: b.x, z: b.z }, heading: b.heading }, []);
+      assert.ok(berth && T.PIERS[berth.pier] === F, `${kind}: ties up there`);
+      assert.ok(Math.hypot(b.x - CALLER.berth.x, b.z - CALLER.berth.z) > 8, 'clear of the Halcyon');
+    }
+  }
+});

@@ -18,6 +18,8 @@
 export const NAME_MAX = 16;
 export const MAX_PLAYERS = 8;
 const SEND_EVERY = 0.25;    // seconds between position messages while you move
+const FLEET_EVERY = 5;      // seconds between word of where your boats in the water are lying
+const FLEET_MAX = 4;
 const IDLE_EVERY = 3;       // ... and while you keep still
 const HEARTBEAT = 25000;    // ms: Realtime drops a connection that stays quiet for a minute
 const LISTEN_MS = 1800;     // how long to listen for anyone already in a room before deciding
@@ -93,6 +95,20 @@ export function cleanPose(p, kinds = null) {
   }
   if (m === 'foot') out.a = ACTS.includes(p.a) ? p.a : 'stand';
   if (m === 'foot' || m === 'boat') out.o = !!p.o; // (a fish on: their rod bent, and a word)
+  return out;
+}
+
+// Where someone's boats in the water are lying (all but the one they're in): [{ k, x, z, h }],
+// checked like a pose; at most FLEET_MAX.
+export function cleanFleet(list, kinds = null) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  for (const b of list.slice(0, FLEET_MAX)) {
+    if (!b || typeof b !== 'object' || typeof b.k !== 'string' || (kinds && !kinds.includes(b.k))) continue;
+    const x = finite(b.x, -1e5, 1e5), z = finite(b.z, -1e5, 1e5), h = finite(b.h, -100, 100);
+    if (x == null || z == null || h == null || out.some((o) => o.k === b.k)) continue;
+    out.push({ k: b.k, x, z, h });
+  }
   return out;
 }
 
@@ -382,6 +398,9 @@ export class Together {
     // (sessionStorage, where a session waits through a reload; null where there's none.)
     this.store = store !== undefined ? store : (() => { try { return globalThis.sessionStorage ?? null; } catch { return null; } })();
     this.worldSource = null;  // host: () => the world to share (see shareWorld)
+    this.fleetSource = null;  // () => your boats in the water, but the one you're in: [{ k, x, z, h }]
+    this.fleetT = 0;
+    this.fleetSent = null;
     this.world = null;        // joiner: the host's world as last heard ({ ...cleanWorld, heard })
     this.worldT = 0;
     this.worldSent = null;
@@ -767,6 +786,8 @@ export class Together {
         this.sent = null;
         this.sendPose(true);
         if (this.hosting) this.sendWorld();
+        this.fleetSent = null;
+        this.fleetT = 0;
       }
       return;
     }
@@ -801,6 +822,8 @@ export class Together {
       }
       S.push(snap);
       if (S.length > KEEP) S.shift();
+    } else if (kind === 'fleet') {
+      p.fleet = cleanFleet(data.fl, this.kinds);
     } else if (kind === 'catch') {
       const kg = finite(data.kg, 0, 2000);
       if (typeof data.sp !== 'string' || data.sp.length > 40 || kg == null) return;
@@ -861,6 +884,26 @@ export class Together {
     this.rt.send('pose', { id: this.id, n: this.name(), host: this.hosting, t: Math.round(this.now() * 1000) / 1000, p: msg });
     this.sent = { ...msg, at: this.clock };
     this.sendT = SEND_EVERY;
+  }
+
+  // Where your boats in the water are lying (every FLEET_EVERY seconds, or sooner when one moves).
+  sendFleet() {
+    if (!this.fleetSource || !this.rt?.open || this.reconnecting) return;
+    const fl = this.fleetSource().slice(0, FLEET_MAX).map((b) => ({ k: b.k, x: r2(b.x), z: r2(b.z), h: r2(b.h) }));
+    const S = this.fleetSent;
+    const moved = !S || S.length !== fl.length || fl.some((b, i) => b.k !== S[i].k || Math.hypot(b.x - S[i].x, b.z - S[i].z) > 1 || Math.abs(b.h - S[i].h) > 0.1);
+    if (!moved && this.fleetT > -FLEET_EVERY * 2) return;
+    this.rt.send('fleet', { id: this.id, fl });
+    this.fleetSent = fl;
+    this.fleetT = FLEET_EVERY;
+  }
+
+  // Which of the visitors' berths are yours, playing in someone else's session: your place among
+  // the guests (by id, the same on every screen), or -1 (on your own, or hosting).
+  get guestSlot() {
+    if (this.status !== 'joined') return -1;
+    const ids = [this.id, ...[...this.peers.values()].filter((p) => !p.host && p.id !== this.hostId).map((p) => p.id)].sort();
+    return ids.indexOf(this.id);
   }
 
   // Host: share the world now (and every WORLD_EVERY seconds, or sooner when it changes).
@@ -934,6 +977,8 @@ export class Together {
       }
       this.me = me;
       this.sendPose();
+      this.fleetT -= dt;
+      if (this.fleetT <= 0) this.sendFleet();
     }
     if (this.hosting) {
       this.worldT -= dt;

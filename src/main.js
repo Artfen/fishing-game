@@ -34,7 +34,7 @@ import {
   PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD, SEA, inSeas, inWorld, SOUTH_Z, CROSSING,
   PEGS, POOLS, STREAM, SNAG, LILIES, JETTY, ISLAND, GANNET_CAMP, SKERRIES, SKELLIG, DEEP_Z,
   HAVEN, HAVEN_QUAY, HAVEN_BENCH, DAYMARK, STRAND, WRECK, WRECK_BUOY, WRECK_BELL, CHANNEL,
-  HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, FUEL_PUMPS, HAVEN_PONTOON, HAVEN_FINGERS, OWN_FINGER, HARBOUR_OFFICE, laneInfo,
+  HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, FUEL_PUMPS, HAVEN_PONTOON, HAVEN_FINGERS, OWN_FINGER, VISITOR_FINGERS, HARBOUR_OFFICE, laneInfo,
   CALF, CALF_TOWER, CALF_SKERRY, CALF_SOUND, CALF_LANDING,
 } from './world/terrain.js';
 import { Car } from './car.js';
@@ -740,11 +740,20 @@ const fleetNews = (() => {
 const isStored = (k) => state.stored.includes(k);
 const LENGTHS = Object.fromEntries(KINDS.map((k) => [k, BOATS[k].hull.L]));
 const BEAMS = Object.fromEntries(KINDS.map((k) => [k, BOATS[k].hull.B]));
-// Her berth on your finger, alongside the others of yours in the water there.
+// Where your Willowhaven boats lie: your own finger; or, a guest in a friend's session (it's their
+// harbour), the visitors' row at the end of the pontoon, each guest a finger or a side of their
+// own (by their place among the guests: see together.js guestSlot).
+function homeBerths() {
+  const g = together.guestSlot;
+  if (g < 0) return { F: OWN_FINGER, sides: [1, -1], east: true };
+  const V = VISITOR_FINGERS;
+  return [{ F: V[1], sides: [1, -1], east: false }, { F: V[0], sides: [-1], east: true }][g] || { F: V[1], sides: [1, -1], east: false, extra: true };
+}
+// Her berth there, alongside the others of yours in the water.
 function ownBerth(kind) {
-  const set = KINDS.filter((k) => homeOf(k) === 'harbour' && (!isStored(k) || k === kind));
-  const B = ownBerths(OWN_FINGER, set, LENGTHS, BEAMS)[kind];
-  return B ? { x: B.x, z: B.z, heading: B.heading } : { x: OWN_FINGER.x1 + 8, z: (OWN_FINGER.z0 + OWN_FINGER.z1) / 2, heading: Math.PI / 2 };
+  const H = homeBerths(), set = KINDS.filter((k) => homeOf(k) === 'harbour' && (!isStored(k) || k === kind));
+  const B = H.extra ? null : ownBerths(H.F, set, LENGTHS, BEAMS, H.sides, H.east)[kind];
+  return B ? { x: B.x, z: B.z, heading: B.heading } : { x: H.F.x1 + 8, z: (H.F.z0 + H.F.z1) / 2, heading: Math.PI / 2 };
 }
 // In among the berths at Willowhaven (where a harbour boat left lying is moved to her own).
 const inMarina = (p) => !!p && p.x > -12 && p.x < 34 && p.z > -92 && p.z < -38;
@@ -779,14 +788,17 @@ function unstow(b) {
 // Her place on your finger now, clear of your other boats lying there (along whichever side has
 // room); or off the end of it, if there's none.
 function freeOwnBerth(b) {
-  const want = ownBerth(b.kind), F = OWN_FINGER, L = b.hull.L, others = boats.filter((o) => o !== b);
+  const want = ownBerth(b.kind), { F, sides, east } = homeBerths(), L = b.hull.L, others = [...boats.filter((o) => o !== b), ...(together.active ? visitors.boats() : [])];
   const clear = (x, z) => others.every((o) => Math.abs(o.pos.z - z) > (o.hull.B + b.hull.B) * 1.05 || Math.abs(o.pos.x - x) > (o.hull.L + L) / 2 + 0.4);
   if (clear(want.x, want.z)) return want;
-  for (const side of [1, -1]) {
+  for (const side of sides) {
     const z = side > 0 ? F.z1 + b.hull.B + 0.25 : F.z0 - b.hull.B - 0.25;
-    for (let x = F.x0 + 0.6 + L / 2; x + L / 2 <= F.x1 + 0.4; x += 0.5) if (clear(x, z)) return { x, z, heading: Math.PI / 2 };
+    for (let u = 0.6 + L / 2; u + L / 2 <= F.x1 - F.x0 + 0.4; u += 0.5) {
+      const x = east ? F.x0 + u : F.x1 - u;
+      if (clear(x, z)) return { x, z, heading: east ? Math.PI / 2 : -Math.PI / 2 };
+    }
   }
-  return { x: F.x1 + L / 2 + 3, z: (F.z0 + F.z1) / 2, heading: Math.PI / 2 };
+  return east ? { x: F.x1 + L / 2 + 3, z: (F.z0 + F.z1) / 2, heading: Math.PI / 2 } : { x: F.x0 - L / 2 - 3, z: (F.z0 + F.z1) / 2, heading: -Math.PI / 2 };
 }
 
 // A saved spot is only trusted if the boat would float there: inside the world, in water
@@ -5311,6 +5323,7 @@ function boatsRound(here = regionOf(player())) {
 function whereWords(b) {
   if (regionOf(b) === 'south') return 'at Las Brasas';
   if (b.tie && PIERS[b.tie.pier] === OWN_FINGER) return 'on your finger';
+  if (b.tie && VISITOR_FINGERS.includes(PIERS[b.tie.pier])) return 'at the visitors’ pontoon';
   if (inMarina(b.pos)) return 'in the harbour';
   if (Math.hypot(b.pos.x - LANDING.x, b.pos.z - LANDING.z) < 40) return 'at the camp';
   if (b.kind === 'bass') return 'on Longmere';
@@ -6918,6 +6931,35 @@ function whereIAm() {
   return { m: 'boat', k: boat.kind, x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), o: on };
 }
 
+// Your boats in the water as your friends see them: where each is lying (but the one you're in).
+together.fleetSource = () => boats.filter((b) => !(b === boat && !onFoot)).map((b) => ({ k: b.kind, x: b.pos.x, z: b.pos.z, h: b.heading }));
+// Playing in a friend's session you're a visitor in their harbour: your Willowhaven boats lying at
+// Willowhaven go to the visitors' row (theirs is the finger with their name on it); leaving it,
+// back to your own finger.
+let homeSlot = -1, platedName = settings.player.name;
+function rehome() {
+  const was = homeSlot;
+  homeSlot = together.guestSlot;
+  let moved = 0;
+  for (const b of boats) {
+    if (homeOf(b.kind) !== 'harbour' || (b === boat && !onFoot) || !b.tie) continue;
+    const P = PIERS[b.tie.pier];
+    if (P !== OWN_FINGER && !VISITOR_FINGERS.includes(P)) continue;
+    b.tie = null;
+    const p = freeOwnBerth(b);
+    b.place(p.x, p.z, p.heading);
+    const B = berthFor(b, boats, { reach: 3 });
+    if (B) {
+      b.place(B.x, B.z, B.heading);
+      b.tieTo({ ...B, t: 9 });
+    }
+    moved++;
+  }
+  if (moved && homeSlot >= 0 && was < 0) hud.toast(`You’re a visitor in ${together.hostLabel}’s harbour while you play together: your boats at Willowhaven are lying at the visitors’ pontoon, the end row.`, 7);
+  else if (moved && homeSlot < 0) hud.toast('Your boats are back on your own finger of the pontoon.', 5);
+  if (moved) save();
+}
+
 // Toasts for what happens in a session (the details are in Settings → Play together).
 together.onEvent = (kind, p, data) => {
   if (kind === 'join') hud.toast(`${p.name} has joined you.`, 5);
@@ -8276,6 +8318,15 @@ function tick(now, manual = false) {
     folkView.update(dt, t, town, { from: P, south: region === 'south', fx, glow, night: env.lantern, boats, more: visitors.boats() });
     // Friends you're playing with: where you are goes to them, and they're drawn where they are.
     together.update(dt, started ? whereIAm() : null);
+    // (A guest in a friend's harbour, or back from one: your Willowhaven boats to where yours lie.)
+    if (together.guestSlot !== homeSlot) rehome();
+    {
+      const plate = together.guestSlot >= 0 ? together.hostName || '' : settings.player.name;
+      if (plate !== platedName) {
+        platedName = plate;
+        world.coast.ownerSign(plate);
+      }
+    }
     visitors.update(dt, t, together.peers, { from: P, fx, glow, night: env.lantern });
     // A boat of yours lying where a friend's boat is (boats from the same jetty start in the same
     // spot) steps out of sight while theirs is there, rather than two hulls drawn in one.

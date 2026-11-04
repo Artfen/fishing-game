@@ -48,21 +48,22 @@ export function chooseAfloat(kinds, { vessel = null, away = [] } = {}) {
 }
 
 // The berths along your own finger (F: { x0, x1, z0, z1 }, running out from the pontoon on its
-// east side) for the harbour boats in the water: each lies alongside, bow out, along one side or
-// the other, longest first, a metre between them. lengths: kind -> her length (m); beams: kind
+// east side, or its west with east false) for the harbour boats in the water: each lies
+// alongside, bow out, along one side or the other (of `sides`), longest first, a metre between. lengths: kind -> her length (m); beams: kind
 // -> her half-beam. Returns kind -> { x, z, heading, side } (side +1: the seaward side), leaving
 // out any that don't fit.
-export function ownBerths(F, kinds, lengths, beams) {
+export function ownBerths(F, kinds, lengths, beams, sides = [1, -1], east = true) {
   const out = {};
-  const room = [{ side: 1, at: F.x0 + 0.6 }, { side: -1, at: F.x0 + 0.6 }];
+  // (Along from the pontoon: out towards +x on an east finger, −x on a west one.)
+  const room = sides.map((side) => ({ side, at: 0.6 }));
   const order = [...kinds].sort((a, b) => lengths[b] - lengths[a] || a.localeCompare(b));
   for (const k of order) {
     const L = lengths[k];
     // (The side with the most room left.)
-    const r = room.filter((s) => s.at + L <= F.x1 + 0.4).sort((a, b) => a.at - b.at)[0];
+    const r = room.filter((s) => s.at + L <= F.x1 - F.x0 + 0.4).sort((a, b) => a.at - b.at)[0];
     if (!r) continue;
-    const x = r.at + L / 2, z = r.side > 0 ? F.z1 + beams[k] + 0.25 : F.z0 - beams[k] - 0.25;
-    out[k] = { x, z, heading: Math.PI / 2, side: r.side };
+    const u = r.at + L / 2, x = east ? F.x0 + u : F.x1 - u, z = r.side > 0 ? F.z1 + beams[k] + 0.25 : F.z0 - beams[k] - 0.25;
+    out[k] = { x, z, heading: east ? Math.PI / 2 : -Math.PI / 2, side: r.side };
     r.at += L + 1;
   }
   return out;
