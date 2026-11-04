@@ -218,3 +218,34 @@ test('the crossing in the day book: setting out, landfall at the helm, the fast 
   const s2 = sanitize({ day: 9, days: [p3] });
   assert.deepEqual(s2.days[0].cross, p3.cross);
 });
+
+test('a ship crosses ahead some days: well clear at a sailing boat’s pace, a blast on her horn if you push close, lit at night', async () => {
+  const THREE = await import('three');
+  const { buildCrossingLife, SHIP } = await import('../src/world/crossingLife.js');
+  assert.ok(X.ENCOUNTERS.ship && !X.ENCOUNTERS.ship.warm);
+  let days = 0;
+  for (let d = 1; d < 60; d++) if (X.planCrossing(d, 'south').some((e) => e.kind === 'ship')) days++;
+  assert.ok(days > 8 && days < 50, `a ship on ${days} of 59 crossings`);
+  for (const [pace, close] of [[3, false], [6, true]]) {
+    const L = buildCrossingLife(new THREE.Scene());
+    const B = { pos: { x: 0, z: 1500 }, fwd: { x: 0, z: 1 }, right: { x: -1, z: 0 } };
+    L.sendShip(B, pace === 3 ? 1 : -1);
+    let horn = 0, nearest = Infinity, ahead = 0;
+    L.events.onHorn = () => horn++;
+    for (let i = 0; i < 3000; i++) {
+      B.pos.z += pace / 10;
+      L.update(0.1, i / 10, { from: B.pos, boat: null, night: i > 1500 ? 1 : 0 });
+      const d = Math.hypot(L.ship.x - B.pos.x, L.ship.z - B.pos.z);
+      if (d < nearest) {
+        nearest = d;
+        ahead = L.ship.z - B.pos.z;
+      }
+      if (i === 100) assert.equal(L.shipMesh.children.some((m) => m.visible), false, 'no lights by day');
+      if (i === 1600) assert.ok(L.shipMesh.children.every((m) => m.visible), 'her lights after dark');
+    }
+    assert.ok(ahead > 0, 'she crosses ahead of you, not astern');
+    if (close) assert.ok(nearest < 320 && horn === 1, `pushing on: ${Math.round(nearest)} m, horn ${horn}`);
+    else assert.ok(nearest > 400 && horn === 0, `at a sailing pace she passes ${Math.round(nearest)} m off`);
+  }
+  assert.ok(SHIP.len > 50 && SHIP.speed > 5);
+});

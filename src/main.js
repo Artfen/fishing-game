@@ -4637,6 +4637,13 @@ function meet(ev, B) {
     case 'boil':
       boilAhead(B, sideWord);
       break;
+    case 'ship': {
+      crossingLife.sendShip(B, side, (Math.random() - 0.5) * 0.5);
+      hud.toast(env.night > 0.4
+        ? `Lights off the ${sideWord} bow: a white light over a white light, and a ${side > 0 ? 'red' : 'green'} one. A ship, crossing ahead of you. Keep well clear: she won’t turn for you.`
+        : `A ship off the ${sideWord} bow: a little container ship, deep-laden, crossing ahead on her way between the Channel and the islands. Keep well clear: she won’t turn for you.`, 9);
+      break;
+    }
     default:
   }
 }
@@ -6080,6 +6087,13 @@ function seeSeaLife(kind, x, z) {
 }
 sealife.onSighting = seeSeaLife;
 crossingLife.events.onSighting = seeSeaLife;
+// The ship's horn (a long blast, heard a long way off), and the white water at her bow and stern.
+crossingLife.events.onHorn = (x, z) => {
+  const h = heardFrom(x, z, 2500);
+  audio.horn?.(Math.max(0.3, h.vol), h.pan);
+  hud.toast('One long blast from the ship’s horn: you’re close. Turn away and let her by.', 6);
+};
+crossingLife.events.onWake = (x, z, k = 1) => fx.ripple(x, z, 2.5 * k, 3.5 * k, 0.4 * k);
 crossingLife.events.onPlop = (x, z, k = 0.4) => {
   fx.splash(x, 0.05, z, 3 + Math.round(k * 6), 0.9 * k, 0.3 * k);
   fx.ripple(x, z, 0.4 + k * 0.6, 0.9, 0.25);
@@ -8484,7 +8498,7 @@ function tick(now, manual = false) {
     const P = player().pos, aboard = !onFoot && !driving && !dive && !cabinIn;
     const crossingNow = !!state.crossing || inOcean(P.x, P.z);
     sealife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, daylight: env.daylight, hour: clock.hour, region, eco, diving: !!dive, crossing: crossingNow });
-    crossingLife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, crossing: crossingNow });
+    crossingLife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, crossing: crossingNow, night: env.night });
     // (How fast you're coming: walking, the boat, swimming; sitting still is stillest of all.)
     const pace = sitting ? 0 : dive ? diver.speed : onFoot ? walker.speed : driving ? 10 : Math.abs(boat.forwardSpeed) + (boat.motor && boat.lever > 0 ? 1 : 0);
     wildlife.update(dt, t, { from: P, onFoot: onFoot && !dive && !driving, speed: pace, daylight: env.daylight, hour: clock.hour, season: seasonOf(clock.day).name, tideLevel: tideNow.level, region });
