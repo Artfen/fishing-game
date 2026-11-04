@@ -11,7 +11,8 @@ globalThis.innerHeight ??= 800;
 const { Boat, HULLS } = await import('../src/boat.js');
 const { buildHullModel, hydrostatics, HydroBody, RHO } = await import('../src/hydro.js');
 const C = await import('../src/world/conditions.js');
-const { kelvin, wakeScale, wakes } = await import('../src/world/wakes.js');
+const { kelvin, wakeScale, wakes, hullWave } = await import('../src/world/wakes.js');
+const O = await import('../src/world/ocean.js');
 
 const scene = new THREE.Scene();
 const flat = () => {
@@ -20,8 +21,8 @@ const flat = () => {
   C.conditions.wind.speed = C.conditions.wind.target = 0;
   for (let i = 0; i < 300; i++) C.updateConditions(0.1, { rain: 0, cloud: 0.2 });
   C.conditions.swellAmps.fill(0);
-  C.conditions.chopAmps.fill(0);
   C.conditions.sea.swell = C.conditions.sea.chop = 0;
+  O.longSea.setWind(0, 0, 0, 0);
 };
 
 test('every hull floats at the draft her own weight sinks her to, level', () => {
@@ -73,7 +74,6 @@ test('a hull grips the water sideways about as real hulls do (Clarke’s measure
 });
 
 test('the wind sea’s energy is shared as a real one’s is, and adds up to its height', () => {
-  const { CHOP } = C.WAVE_PARTS;
   for (const u of [3, 8, 14]) {
     const S = C.chopSpectrum(u);
     assert.ok(Math.abs(S.reduce((a, b) => a + b) - 1) < 1e-6);
@@ -86,10 +86,25 @@ test('the wind sea’s energy is shared as a real one’s is, and adds up to its
   C.conditions.manual = { speed: 10, from: 0 };
   C.conditions.wind.speed = C.conditions.wind.target = 10;
   for (let i = 0; i < 3000; i++) C.updateConditions(0.1, { rain: 0, cloud: 0.2 });
+  // (The long waves as worked out, over their patch; the short ones' share from their spectrum.)
+  const L = O.longSea;
+  L.at(50);
   let m0 = 0;
-  CHOP.forEach((w, i) => { m0 += C.conditions.chopAmps[i] ** 2 / 2; });
+  for (const v of L.a.h) m0 += v * v;
+  m0 /= L.a.h.length;
+  const S = new O.ShortSpectrum();
+  S.update(L.wind.u, L.wind.to, L.wind.m0);
+  for (const a of S.patch.amp) m0 += 2 * a * a;
   const hs = 4 * Math.sqrt(m0);
-  assert.ok(Math.abs(hs - 2 * C.conditions.sea.chop) < 0.01, `Hs ${hs.toFixed(2)} m for a crest of ${C.conditions.sea.chop.toFixed(2)}`);
+  assert.ok(Math.abs(hs / (2 * C.conditions.sea.chop) - 1) < 0.12, `Hs ${hs.toFixed(2)} m for a crest of ${C.conditions.sea.chop.toFixed(2)}`);
+  // It runs downwind, and the physics feels exactly the surface that's drawn.
+  const o1 = { h: 0, vx: 0, vy: 0, vz: 0 }, o2 = { h: 0, vx: 0, vy: 0, vz: 0 };
+  L.add(12.3, 45.6, 80, 1, o1);
+  L.add(12.3, 45.6, 80.02, 1, o2);
+  assert.ok(Math.abs((o2.h - o1.h) / 0.02 - o1.vy) < 0.1 + Math.abs(o1.vy) * 0.2, 'its rise and fall is its height changing');
+  L.fill(80);
+  const q = 9 * L.N + 17, t0 = L.tex0;
+  assert.ok(Number.isFinite(t0[q * 4]) && Number.isFinite(t0[q * 4 + 1]), 'sent up to the water');
   C.conditions.manual = null;
 });
 
@@ -108,6 +123,49 @@ test('a Kelvin wake: inside a 19.5° wedge, biggest on its edge, dying away behi
   // Heavier boats pushing harder make bigger wakes; a kayak hardly any.
   assert.ok(wakeScale(86, 3.7, 8.4, 3) < 0.03 && wakeScale(9000, 9.2, 4.4, 5) > 0.2);
   assert.ok(wakeScale(2400, 7.4, 5.5, 4.5) > wakeScale(2400, 7.4, 5.5, 13), 'planing, less than at hull speed');
+});
+
+test('the water heaps round a moving hull: a bow wave off each shoulder, a stern wave at displacement speed, white water when fast', () => {
+  const L = 7, B = 1.3, arm = (s) => [L / 2 - s * Math.cos(0.5), s * Math.sin(0.5)];
+  const [u, v] = arm(2);
+  const foam = {};
+  assert.ok(hullWave(u, v, L, B, 3) > 0.04, 'a crest off her bow shoulder');
+  assert.equal(hullWave(u, v, L, B, 3), hullWave(u, -v, L, B, 3), 'the same either side');
+  assert.equal(hullWave(1, 0.5, L, B, 3), 0, 'nothing where she is');
+  assert.equal(hullWave(-6, 0, L, B, 0.2), 0, 'nothing when she is still');
+  assert.ok(hullWave(-6, 0, L, B, 3) > 0.03 && Math.abs(hullWave(-6, 0, L, B, 12)) < 0.005, 'a stern wave at displacement speed, gone once she planes');
+  hullWave(u, v, L, B, 12, foam);
+  assert.ok(foam.foam > 0.2, `white water at the foot of a fast bow wave (${foam.foam.toFixed(2)})`);
+  hullWave(u, v, L, B, 3, foam);
+  assert.equal(foam.foam, 0, 'none at a gentle pace');
+});
+
+test('a wake comes back off a quay wall, after it gets there, weaker, and never through the wall', () => {
+  // Up the west side of the old jetty (its face at x = 2.75, z −14 … 9), ten metres off.
+  const boat = {};
+  let t = 0, z = -70, before = 0, after = 0, direct = 0, through = 0;
+  for (let i = 0; i < 30 * 34; i++) {
+    t += 1 / 30;
+    z += 5 / 30;
+    wakes.trail(boat, -8, z, 0, 1, 5, t, 2400, 7, 5.5, 0.5, 1.3);
+    if (i < 30 * 10) continue;
+    // Between her track and the wall.
+    for (const c of wakes.context(null, -2.5, 0, t, 0, [])) {
+      const o = wakes.sample([c], -2.5, 0, t, { h: 0, vy: 0 });
+      if (c.mirrored) {
+        assert.ok(c.x > 2.75, 'the reflection comes from beyond the face');
+        if (t < 20) before = Math.max(before, Math.abs(o.h));
+        else after = Math.max(after, Math.abs(o.h));
+      } else if (!c.hull) direct = Math.max(direct, Math.abs(o.h));
+    }
+    // On the far side of the jetty, nothing comes back.
+    if (wakes.context(null, 8, 0, t, 0, []).some((c) => c.mirrored)) through++;
+  }
+  assert.equal(before, 0, 'nothing back before her wake has crossed to the wall and back');
+  assert.ok(after > 0.02, `then it comes back (${after.toFixed(3)} m)`);
+  assert.ok(after < direct, `weaker than her wake itself (${after.toFixed(3)} vs ${direct.toFixed(3)} m)`);
+  assert.equal(through, 0, 'not through the wall');
+  wakes.forget(boat);
 });
 
 test('a boat going by rocks a boat drifting beside her track; on flat calm, fast boats run smooth', () => {
