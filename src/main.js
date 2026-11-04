@@ -5320,7 +5320,10 @@ const canStore = (b) => !(b === boat && !onFoot) && regionOf(b) === 'home' && !(
 function harbourOffice() {
   const laid = KINDS.filter(isStored).map((k) => BOATS[k]);
   const south = boats.some((b) => b.kind !== 'bass' && regionOf(b) === 'south');
-  ask('The harbour office', `In the water (${boats.length} of ${MAX_AFLOAT}): ${boats.map((b) => `the ${b.name}, ${whereWords(b)}`).join('; ')}.${laid.length ? ` Laid up: ${laid.map((b) => `the ${b.name}`).join(', ')}.` : ''}`, [
+  // (Wenna at the hatch in office hours; out of them, the yard's board beside it does as well.)
+  const W = town.people.wenna, inOffice = W?.block?.spot === 'office' && W.act === 'inside';
+  const greet = inOffice ? 'Wenna Penhallow, the harbourmaster, looks up from her ledger. ' : W?.block?.spot === 'gangway' ? 'Wenna’s down at the gangway looking over the pontoon; the board by the hatch does as well. ' : 'The hatch is shut for the night, but the yard’s board beside it sees to your boats all the same. ';
+  ask('The harbour office', `${greet}In the water (${boats.length} of ${MAX_AFLOAT}): ${boats.map((b) => `the ${b.name}, ${whereWords(b)}`).join('; ')}.${laid.length ? ` Laid up: ${laid.map((b) => `the ${b.name}`).join(', ')}.` : ''}`, [
     { text: 'Never mind', cls: 'quiet' },
     ...(laid.length ? [{ text: 'Put a boat in the water…', run: () => chooseLaunch() }] : []),
     ...(boats.length > 1 ? [{ text: 'Lay a boat up…', run: () => chooseStore() }] : []),

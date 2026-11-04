@@ -120,6 +120,26 @@ export class Skipper {
       this.snap(S);
       return this;
     }
+    // Going astern (out of a berth: S.astern): her bow kept the way the clock has it, she backs
+    // along her line after the clock, eased sideways onto it as on her lines; nothing else.
+    if (S.astern) {
+      const fx = Math.sin(S.heading), fz = Math.cos(S.heading);
+      const behind = -(dx0 * fx + dz0 * fz), side = dx0 * fz - dz0 * fx;
+      const turn = wrap(S.heading - this.heading);
+      this.heading = wrap(this.heading + clamp(turn, -0.35 * dt, 0.35 * dt));
+      const target = -clamp(behind * 0.5, 0, 0.8);
+      this.speed += clamp(target - this.speed, -1.4 * dt, 1.4 * dt);
+      const k = Math.min(1, dt * 0.8);
+      const hx = Math.sin(this.heading), hz = Math.cos(this.heading);
+      this.px *= Math.exp(-dt * 1.2);
+      this.pz *= Math.exp(-dt * 1.2);
+      this.vx = hx * this.speed + this.px;
+      this.vz = hz * this.speed + this.pz;
+      this.x += this.vx * dt + fz * side * k;
+      this.z += this.vz * dt - fx * side * k;
+      this.lag = Math.abs(behind);
+      return this;
+    }
     const moving = (S.speed || 0) > 0.05;
     const sfx = Math.sin(S.heading), sfz = Math.cos(S.heading);
     // Where she's making for: a little way ahead of where the clock has her (so she runs along
