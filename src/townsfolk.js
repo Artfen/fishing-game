@@ -1,4 +1,4 @@
-import { HAVEN_HOUSES, HAVEN_QUAY, HAVEN_MARKET, HAVEN_BENCH, SLIPWAY, STRAND, STACKS, walkHeight, heightAt } from './world/terrain.js';
+import { HAVEN_HOUSES, HAVEN_QUAY, HAVEN_MARKET, HAVEN_BENCH, SLIPWAY, STRAND, STACKS, HAVEN_FINGERS, HAVEN_PONTOON, VISITOR_FINGERS, HARBOUR_OFFICE, walkHeight, heightAt } from './world/terrain.js';
 import { POSADA, QUAY_S } from './world/brasa.js';
 import { fishById } from './fish.js';
 import { seeded } from './util.js';
@@ -45,6 +45,7 @@ export const FOLK = {
   hettie: { name: 'Hettie Moss', short: 'Hettie', role: 'an angler', home: 'east' },
   kit: { name: 'Kit', short: 'Kit', role: 'a boy who fishes off the quay', home: 'net' },
   ian: { name: 'Ian Rennie', short: 'Ian', role: 'a retired schoolmaster with a skiff', home: 'east' },
+  wenna: { name: 'Morwenna Penhallow', short: 'Wenna', role: 'the harbourmaster', home: 'innUp' },
   paco: { name: 'Paco', short: 'Paco', role: 'Bar El Muelle', home: 'paco', south: true },
   chano: { name: 'Chano', short: 'Chano', role: 'a fisherman of Puerto Brasa', home: 'chanoHome', south: true },
 };
@@ -77,6 +78,9 @@ export const SPOTS = {
   lee: { x: Q.x0 + 0.35, z: -91.8, yaw: -Math.PI / 2 },
   slipway: { x: SLIPWAY.x + 0.2, z: -92.5, yaw: 0 },
   east: { x: 27.2, z: -95.6, yaw: Math.PI / 2 },
+  // The harbour office's side door, and the top of the gangway, looking over the pontoon.
+  office: { x: HARBOUR_OFFICE.x + HARBOUR_OFFICE.w / 2 + 0.6, z: HARBOUR_OFFICE.z - 0.2, yaw: -Math.PI / 2 },
+  gangway: { x: 10.9, z: Q.z1 - 3.2, yaw: 0 },
   strand: { x: STRAND.x - 1, z: STRAND.z + 4.5, yaw: 0 },
   paco: { x: POSADA.x - 1.2, z: POSADA.z + 5.8, yaw: 0 },
   // Puerto Brasa: Chano's door up the lane, the quay steps, and the table outside the bar.
@@ -122,6 +126,45 @@ export const OUTINGS = {
     home: pts([[-100, 6431], [-60, 6432], [25, 6408], [37, 6372], [34, 6330], [31, 6306], [30, QUAY_S.z1 + 1.35]]),
   },
 };
+// The marina's boats (see terrain.js HAVEN_FINGERS). A berth alongside finger f, on its seaward
+// (side +1) or landward side, bow out, `slot` metres further out along it.
+const SIZES = { cabin: [6.2, 1.0], skiff: [3.8, 0.8], sail: [4.9, 0.84], cruiser: [9.2, 1.5], console: [7.4, 1.25] };
+export function fingerBerth(f, side, kind, slot = 0) {
+  const F = HAVEN_FINGERS[f], [L, Bm] = SIZES[kind], east = F.x0 >= HAVEN_PONTOON.x1, along = 0.6 + L / 2 + slot;
+  return { x: east ? F.x0 + along : F.x1 - along, z: side > 0 ? F.z1 + Bm + 0.25 : F.z0 - Bm - 0.25, heading: east ? Math.PI / 2 : -Math.PI / 2 };
+}
+// Locals' boats lying on their berths (their owners away: they don't go out while you're about).
+export const LOCAL_BOATS = {
+  bluebell: { kind: 'cabin', at: fingerBerth(0, 1, 'cabin') },
+  tern: { kind: 'skiff', at: fingerBerth(1, -1, 'skiff', 1) },
+  marigold: { kind: 'sail', at: fingerBerth(1, 1, 'sail') },
+  ladyellen: { kind: 'cruiser', at: fingerBerth(3, -1, 'cruiser') },
+  osprey: { kind: 'console', at: fingerBerth(3, 1, 'console') },
+};
+// The Sea Wren: a charter boat, out of a fair morning with a party to fish off Gull Rock. (She
+// lies bow in, having come home that way: see charterLegs.)
+const WREN_BERTH = { ...fingerBerth(0, -1, 'console'), heading: -Math.PI / 2 };
+export const CHARTER = {
+  name: 'Sea Wren', kind: 'console', start: 9, chance: 0.7, mooring: WREN_BERTH,
+  route: [[WREN_BERTH.x, WREN_BERTH.z], [32.5, -74.5], [36, -60], [35.5, -38], [30, 10], [5, 55], [G.x - 40, G.z - 4]].map(([x, z]) => ({ x, z })),
+  drift: [[G.x - 40, G.z - 4], [G.x - 46, G.z + 2]].map(([x, z]) => ({ x, z })), fishHours: 2.6,
+};
+// The Halcyon: a motor yacht cruising the coast, in to the visitors' pontoon some afternoons,
+// away again next morning.
+const V0 = VISITOR_FINGERS[0];
+export const CALLER = {
+  name: 'Halcyon', kind: 'cruiser', arrive: 15.6, leave: 9.4, chance: 0.35,
+  berth: { x: V0.x0 + 0.6 + 4.6, z: V0.z1 + 1.5 + 0.25, heading: -Math.PI / 2 },
+  // (In round the north of the shoals off Shell Strand, then down the deep water into the bay.)
+  route: [[300, 240], [150, 110], [100, 63], [46, 61], [43, 10], [40, -30], [33, -42.55], [V0.x0 + 5.2, V0.z1 + 1.75]].map(([x, z]) => ({ x, z })),
+};
+// Two kayaks out from the slipway of a fine spring or summer afternoon, round the west of the
+// bay and back.
+export const PADDLE = {
+  start: 14.6, chance: 0.6, speed: 48, // metres an hour of the game's clock: about 1.2 m/s
+  loop: [[-11, -88], [-20, -78], [-30, -62], [-33, -45], [-26, -36], [-16, -42], [-12, -60], [-11, -88]].map(([x, z]) => ({ x, z })),
+};
+
 // The Puffin: in from the open sea of an afternoon to anchor in the bay; out again next morning.
 export const PUFFIN = {
   name: 'Puffin', kind: 'sail', arrive: 14.5, leave: 9, chance: 0.4,
@@ -375,6 +418,19 @@ export function blockFor(id, hour, ctx, day) {
       if (h >= 17.8 && h < 21) return B('pub', 21, 'innTableE', 'sit');
       return B(`home-${h < 11 ? 0 : h < 17.8 ? 1 : 2}`, h < 11 ? 11 : h < 17.8 ? 17.8 : 33.5, 'east', 'inside');
     }
+    case 'wenna':
+      // (The harbourmaster: in the office from eight, down to the gangway to look over the pontoon
+      // mid-morning and late afternoon, lunch at the inn, an hour on the bench of a dry evening;
+      // she lodges at the inn.)
+      if (h >= 7.8 && h < 10) return B('office-1', 10, 'office', 'inside');
+      if (h >= 10 && h < 10.6) return B('round-am', 10.6, 'gangway', 'stand');
+      if (h >= 10.6 && h < 12.3) return B('office-2', 12.3, 'office', 'inside');
+      if (h >= 12.3 && h < 13.2) return B('lunch', 13.2, 'innTableE', 'sit');
+      if (h >= 13.2 && h < 16) return B('office-3', 16, 'office', 'inside');
+      if (h >= 16 && h < 16.6) return B('round-pm', 16.6, 'gangway', 'stand');
+      if (h >= 16.6 && h < 18) return B('office-4', 18, 'office', 'inside');
+      if (h >= 19.2 && h < 20.5 && (ctx.rain ?? 0) < 0.3 && (ctx.storm ?? 0) < 0.3) return B('bench', 20.5, 'bench', 'sit');
+      return B(`in-${h < 7.8 ? 0 : h < 19.2 ? 1 : 2}`, h < 7.8 ? 7.8 : h < 19.2 ? 19.2 : 31.8, 'innUp', 'inside');
     case 'paco':
       if (h >= 8 && h < 23.5) return B('door', 23.5, 'paco', 'stand');
       return B('in', h < 8 ? 8 : 32, 'paco', 'inside');
@@ -444,6 +500,27 @@ function onLegs(legs, t) {
   return null;
 }
 
+// The Sea Wren's morning: ready, astern out of her berth along the finger, away to Gull Rock,
+// drifting there with her party, and home, in bow first. (Backing out, she keeps her bow where it
+// was: a boat that long doesn't turn round alongside a finger.)
+const BACK = 0.5 * HOUR_SECONDS; // astern out of a berth, about half a metre a second
+export function charterLegs() {
+  const O = CHARTER, R = O.route;
+  const legs = [{ kind: 'prep', hours: 0.15 }, { kind: 'back', path: [R[0], R[1]], speed: BACK }, { kind: 'go', path: R.slice(1), speed: BOAT }, { kind: 'fish', path: O.drift, hours: O.fishHours }];
+  legs.push({ kind: 'go', path: [O.drift[O.drift.length - 1], ...[...R].reverse().slice(1)], speed: BOAT });
+  for (const L of legs) {
+    if (!L.path) continue;
+    L.len = pathLength(L.path);
+    if (L.speed) L.hours = L.len / L.speed;
+  }
+  return legs;
+}
+const CHARTER_LEGS = charterLegs();
+export const CHARTER_HOURS = CHARTER_LEGS.reduce((s, L) => s + L.hours, 0);
+const CALL_SPEED = 4 * HOUR_SECONDS;
+export const CALL_HOURS = pathLength(CALLER.route) / CALL_SPEED;
+const CALL_BACK = Math.hypot(CALLER.route.at(-2).x - CALLER.berth.x, CALLER.route.at(-2).z - CALLER.berth.z);
+
 /* ---- everyone together ---- */
 
 export class Townsfolk {
@@ -460,6 +537,15 @@ export class Townsfolk {
     this.boats = { star: this.boat };
     for (const [id, O] of Object.entries(OUTINGS)) this.boats[id] = { x: O.mooring.x, z: O.mooring.z, heading: O.mooring.heading, speed: 0, aboard: false, leg: null, fishing: false, south: O.south, present: true };
     this.boats.puffin = { x: PUFFIN.route[0].x, z: PUFFIN.route[0].z, heading: 0, speed: 0, aboard: true, leg: null, sails: false, anchored: false, present: false };
+    // The marina's: the locals' boats on their berths, the Sea Wren, the Halcyon (when she's in),
+    // and two kayaks (when they're out). (moored: lying alongside, her lines out.)
+    for (const [id, L] of Object.entries(LOCAL_BOATS)) this.boats[id] = { x: L.at.x, z: L.at.z, heading: L.at.heading, speed: 0, aboard: false, leg: null, present: true, moored: true };
+    const W = CHARTER.mooring;
+    this.boats.wren = { x: W.x, z: W.z, heading: W.heading, speed: 0, aboard: false, leg: null, fishing: false, present: true, moored: true };
+    this.boats.halcyon = { x: CALLER.berth.x, z: CALLER.berth.z, heading: CALLER.berth.heading, speed: 0, aboard: true, leg: null, present: false, moored: false };
+    for (const id of ['kay1', 'kay2']) this.boats[id] = { x: PADDLE.loop[0].x, z: PADDLE.loop[0].z, heading: 0, speed: 0, aboard: true, leg: null, present: false };
+    this.charterTrip = null; // the Sea Wren's morning out: { t0 }
+    this.call = null;        // the Halcyon's visit: { day, inAt, leaveAt }
     this.outLegs = Object.fromEntries(Object.keys(OUTINGS).map((id) => [id, outingLegs(id)]));
     this.trips = { jean: null, carmen: null }; // { t0, landed }
     this.visit = null;    // the Puffin: { day, inAt, leaveAt, stay }
@@ -513,6 +599,12 @@ export class Townsfolk {
       const inAt = d * 24 + PUFFIN.arrive, leaveAt = (d + 1) * 24 + PUFFIN.leave;
       if (abs >= inAt && abs < leaveAt + PUFFIN_HOURS && dayDice(d, 21) < puffinChance(ctx.season) && sailingWeather(ctx)) this.visit = { day: d, inAt, leaveAt, stay: 0 };
     }
+    this.charterTrip = hour >= CHARTER.start && hour < CHARTER.start + CHARTER_HOURS && this.charterDay(day, ctx) ? { t0: day * 24 + CHARTER.start } : null;
+    this.call = null;
+    for (const d of [day, day - 1]) {
+      const inAt = d * 24 + CALLER.arrive, leaveAt = (d + 1) * 24 + CALLER.leave;
+      if (abs >= inAt && abs < leaveAt + CALL_HOURS && this.callDay(d, ctx)) this.call = { day: d, inAt, leaveAt };
+    }
     for (const id of FOLK_IDS) {
       const p = this.people[id];
       const b = blockFor(id, hour, this.ctxFor(id, ctx), day);
@@ -543,6 +635,89 @@ export class Townsfolk {
     this.sail(abs, ctx, day);
     for (const id of Object.keys(OUTINGS)) this.outing(id, abs, ctx, day);
     this.puffin(abs, ctx, day, hour);
+    this.charter(abs, ctx, day, hour);
+    this.caller(abs, ctx, day, hour);
+    this.paddlers(ctx, day, hour);
+  }
+
+  // Whether the Sea Wren goes out today (a fair morning, most days), and whether the Halcyon
+  // calls in (some fine afternoons, seldom in winter).
+  charterDay(day, ctx) {
+    return fitForSea(ctx) && fair(ctx) && dayDice(day, 51) < CHARTER.chance;
+  }
+  callDay(day, ctx) {
+    return fitForSea(ctx) && dayDice(day, 61) < CALLER.chance * (ctx.season === 'winter' ? 0.3 : 1);
+  }
+
+  // The Sea Wren: on her berth, or out on her morning (see charterLegs).
+  charter(abs, ctx, day, hour) {
+    const B = this.boats.wren, O = CHARTER;
+    if (!this.charterTrip && hour >= O.start && hour < O.start + 0.1 && this.charterDay(day, ctx)) this.charterTrip = { t0: day * 24 + O.start };
+    if (this.charterTrip && abs - this.charterTrip.t0 > CHARTER_HOURS + 0.5) this.charterTrip = null;
+    Object.assign(B, { speed: 0, leg: null, fishing: false, aboard: false, moored: true, astern: false, x: O.mooring.x, z: O.mooring.z, heading: O.mooring.heading });
+    const T = this.charterTrip, at = T && abs >= T.t0 ? onLegs(CHARTER_LEGS, abs - T.t0) : null;
+    if (!at) return;
+    B.aboard = true;
+    B.leg = at.leg.kind;
+    if (at.leg.kind === 'prep') return;
+    B.moored = false;
+    Object.assign(B, { x: at.q.x, z: at.q.z, heading: at.heading || B.heading, speed: at.speed });
+    // (Astern out of her berth: bow still where it was, and she's eased along to the clock.)
+    if (at.leg.kind === 'back') Object.assign(B, { heading: O.mooring.heading, speed: 0, astern: true });
+    if (at.leg.kind === 'fish') {
+      B.fishing = true;
+      B.speed = Math.min(B.speed, 0.4);
+    }
+  }
+
+  // The Halcyon: in along the coast to the visitors' pontoon, lying there for the night, and
+  // away next morning (astern off the berth first, then round and out).
+  caller(abs, ctx, day, hour) {
+    const B = this.boats.halcyon, O = CALLER;
+    if (!this.call && hour >= O.arrive && hour < O.arrive + 0.5 && this.callDay(day, ctx)) this.call = { day, inAt: day * 24 + O.arrive, leaveAt: (day + 1) * 24 + O.leave };
+    const V = this.call;
+    Object.assign(B, { present: !!V, speed: 0, leg: null, moored: false, aboard: true, astern: false });
+    if (!V) return;
+    const R = O.route, L = pathLength(R);
+    const put = (s, back, speed) => {
+      const q = along(R, s), a = along(R, back ? Math.max(0, s - 2) : Math.min(L, s + 2));
+      Object.assign(B, { x: q.x, z: q.z, heading: Math.atan2(a.x - q.x, a.z - q.z), speed });
+    };
+    if (abs < V.inAt + CALL_HOURS) {
+      B.leg = 'in';
+      put((abs - V.inAt) * CALL_SPEED, false, CALL_SPEED / HOUR_SECONDS);
+    } else if (abs < V.leaveAt) {
+      Object.assign(B, { x: O.berth.x, z: O.berth.z, heading: O.berth.heading, leg: 'berthed', moored: true, aboard: false });
+    } else {
+      // Astern off the berth, slowly, to clear the finger; then away at her cruise.
+      const backHours = CALL_BACK / BACK, t = abs - V.leaveAt;
+      if (t < backHours) {
+        put(L - t * BACK, true, 0);
+        Object.assign(B, { heading: O.berth.heading, leg: 'out', astern: true });
+      } else if (t < backHours + (L - CALL_BACK) / CALL_SPEED) {
+        B.leg = 'out';
+        put(L - CALL_BACK - (t - backHours) * CALL_SPEED, true, CALL_SPEED / HOUR_SECONDS);
+      } else {
+        this.call = null;
+        B.present = false;
+      }
+    }
+  }
+
+  // Two kayaks round the west of the bay of a fine spring or summer afternoon, one behind the
+  // other; pulled up at the slipway the rest of the time.
+  paddlers(ctx, day, hour) {
+    const O = PADDLE, L = pathLength(O.loop);
+    const on = (ctx.season === 'spring' || ctx.season === 'summer') && calmSea(ctx) && dayDice(day, 71) < O.chance;
+    ['kay1', 'kay2'].forEach((id, i) => {
+      const B = this.boats[id], s = (hour - O.start) * O.speed - i * 5;
+      if (!on || s < 0 || s > L) {
+        Object.assign(B, { present: false, speed: 0 });
+        return;
+      }
+      const q = along(O.loop, s), a = along(O.loop, Math.min(L, s + 2));
+      Object.assign(B, { present: true, x: q.x, z: q.z, heading: Math.atan2(a.x - q.x, a.z - q.z) || B.heading, speed: O.speed / HOUR_SECONDS, aboard: true });
+    });
   }
 
   begin(p, b, abs, ctx) {
@@ -808,6 +983,10 @@ export class Townsfolk {
     if (K.act === 'crab') out.push(hour < 12.5 ? 'Kit’s been crabbing off the quay all morning.' : 'Kit’s back on the quay with his crab line.');
     const J = this.boats.jean;
     if (J.aboard && J.leg !== 'prep') out.push(J.fishing ? 'Ian Rennie’s out in the Bonny Jean past the Calf, feathering for mackerel.' : 'That’s Ian Rennie in the Bonny Jean: off after the mackerel, now the wind’s dropped.');
+    if (this.boats.wren.aboard && this.boats.wren.leg !== 'prep') out.push(this.boats.wren.fishing ? 'The Sea Wren’s out off Gull Rock with a party, drifting for pollack.' : 'That’s the Sea Wren going out: a charter, with a party aboard after the pollack off Gull Rock.');
+    const HB = this.boats.halcyon;
+    if (HB.present) out.push(HB.leg === 'in' ? 'There’s a motor yacht coming in: the Halcyon, cruising the coast. She’ll lie at the visitors’ pontoon tonight.' : HB.leg === 'out' ? 'The Halcyon’s off again, on round the coast.' : 'The Halcyon’s in at the visitors’ pontoon for the night, a motor yacht cruising the coast.');
+    if (this.boats.kay1.present) out.push('A couple of kayaks are out round the west of the bay.');
     const P = this.boats.puffin, V = this.visit;
     if (P.present) {
       if (P.leg === 'in') out.push('There’s a little cruising boat coming in under sail: the Puffin, by the look of her. She’ll anchor in the bay for the night.');
@@ -867,6 +1046,10 @@ export function sayTo(p, { hour = 12, storm = 0, wanted = [], caught = 0, landed
       return caught > 0 ? '“I’ve caught loads of crabs! Gran says I’ve to put them all back.”' : '“Bacon’s the best bait for crabs. Everybody knows that.”';
     case 'ian':
       return act === 'sit' ? '“Forty years I taught Latin up at the school. Now I fish. Calm afternoons, the mackerel come in past the Calf: a string of feathers, and you can’t go wrong.”' : '“Off out in the Bonny Jean later, if the wind stays down.”';
+    case 'wenna':
+      if (b.spot === 'gangway') return '“Just looking over the lines. That finger with your name on it is yours, mind: nobody else ties up there. Visitors go on the end row.”';
+      if (b.spot === 'bench') return '“I like to see them all in before I turn in. Quiet night for it.”';
+      return '“Your boats are in good hands: three in the water at a time, and the rest snug in the store. Ask at the hatch whenever you want one.”';
     case 'paco':
       return hour < 12 ? '“¡Buenos días! Coffee? The boats are out at El Bajón.”' : '“¡Hola! A cold caña? Sit, sit.”';
     case 'chano':
