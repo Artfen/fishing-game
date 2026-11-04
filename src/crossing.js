@@ -109,6 +109,7 @@ export const ENCOUNTERS = {
   flyingfish: { warm: true, words: 'flying fish' },
   turtle: { warm: true, words: 'a loggerhead turtle' },
   squall: { warm: false, words: 'a squall' },
+  ship: { warm: false, words: 'a ship' },
 };
 export function planCrossing(day, to) {
   const r = seeded(Math.imul(day + 11, 0x9e3779b1) ^ (to === 'south' ? 0x1234567 : 0x7654321));
@@ -116,7 +117,7 @@ export function planCrossing(day, to) {
   // Always something big (dolphins or a whale), birds over tuna, and in the warm half flying fish;
   // then one or two of the rest.
   const kinds = [pick(['dolphins', 'whale', 'dolphins']), 'boil', 'flyingfish'];
-  const rest = ['dolphins', 'whale', 'turtle', 'squall', 'turtle'].filter((k) => !kinds.includes(k));
+  const rest = ['dolphins', 'whale', 'turtle', 'squall', 'turtle', 'ship', 'ship'].filter((k) => !kinds.includes(k));
   kinds.push(pick(rest));
   if (r() < 0.6) kinds.push(pick(rest.filter((k) => !kinds.includes(k))));
   // Where: spread across the crossing, the warm-water ones in its southern half, never two close.
