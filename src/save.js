@@ -8,6 +8,7 @@ import { cleanEquip, cleanCar, cleanOuting, defaultEquip } from './outing.js';
 import { cleanGuide } from './firstTrip.js';
 import { cleanFuel } from './fuel.js';
 import { CHOICES } from './quality.js';
+import { cleanStored } from './fleet.js';
 import { cleanDive } from './dive.js';
 import { cleanToday, cleanDays, cleanBadges, newToday } from './daybook.js';
 import { cleanGrounds, newGrounds } from './grounds.js';
@@ -67,6 +68,7 @@ export const DEFAULT_STATE = {
   seen: '',        // the parts of the map you've explored (see map.js), as base64
   seenSouth: '',   // the same for Las Brasas' chart, far to the south
   shipping: [],    // boats on the supply ship between the harbours: { kind, to ('south' or 'home'), due (game hours) }
+  stored: null,    // your boats laid up ashore (kinds; see fleet.js): null until it's been decided
   observed: {},    // species you've seen for yourself: id -> { count, day, hour, zone }
   trip: null,      // a fishing trip under way (see trip.js)
   trips: [],       // trips you've finished, with what they brought (the last twenty)
@@ -343,6 +345,7 @@ export function sanitize(raw) {
     .filter((x) => isObj(x) && VESSELS.includes(x.kind) && x.kind !== 'bass' && (x.to === 'south' || x.to === 'home') && Number.isFinite(x.due))
     .slice(0, VESSELS.length)
     .map((x) => ({ kind: x.kind, to: x.to, due: x.due }));
+  s.stored = cleanStored(raw.stored, VESSELS);
   s.seenSouth = typeof raw.seenSouth === 'string' && raw.seenSouth.length <= 2000 && /^[A-Za-z0-9+/=]*$/.test(raw.seenSouth) ? raw.seenSouth : '';
   // A crossing under way (an older save has none: nothing to resume), and your crossings so far.
   s.crossing = cleanCrossing(raw.crossing);
