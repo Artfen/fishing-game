@@ -27,7 +27,15 @@ const MODES = ['foot', 'boat', 'dive', 'car'];
 // The fastest anyone really goes, m/s, on foot, afloat, swimming and driving: anything quicker is
 // a step ashore, a drive skipped or a passage made, and they're simply somewhere new.
 const TOP_SPEED = { foot: 8, boat: 30, dive: 4, car: 40 };
-const AHEAD = 0.6;          // seconds others are carried on past their last message
+// Friends are shown a moment in the past, gliding between positions they've already sent (timed
+// by their own clock), so a message arriving a little early or late never shows as a jerk. The
+// delay covers the gap between messages and the wobble in delivery; past their last word they're
+// carried on at their speed for a moment, then wait.
+const DELAY = 0.45;         // seconds behind (a message every 0.25 s, and up to 0.2 s of wobble)
+const CARRY = 0.3;          // seconds carried on past the last message, at most
+const KEEP = 32;            // positions kept per friend
+const LAGS = 40;            // messages (about ten seconds' worth) to judge the quickest delivery by
+const CATCH_UP = 0.05;      // how much faster or slower than real time a friend's replay may run
 const ACTS = ['walk', 'stand', 'fish', 'sit'];
 
 /* ---------------- names and codes ---------------- */
@@ -253,13 +261,65 @@ export class Realtime {
   }
 }
 
+/* ---------------- drawing a friend smoothly ---------------- */
+
+const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+
+// Where friend p was at time `at` (by their clock), from the positions they've sent: a smooth
+// curve through them (Catmull-Rom, so it runs through each one and turns without corners), or,
+// past the last, carried on a little at their speed. Sets p.at (x, z, h, v) and p.view.
+export function glide(p, at, dt) {
+  const S = p.snaps;
+  // (The positions before the one just behind `at` are done with, but for one to shape the curve.)
+  while (S.length > 2 && S[2].t <= at) S.shift();
+  let i = S.length > 1 && S[1].t <= at ? 1 : 0;
+  const a = S[i], b = S[i + 1];
+  let x, z, h, vx, vz;
+  if (at <= a.t) {
+    ({ x, z, h } = a);
+    vx = vz = 0;
+  } else if (b) {
+    const T = b.t - a.t, u = Math.min(1, (at - a.t) / T);
+    // Tangents from the neighbours (or the segment itself at either end), per segment, kept from
+    // carrying the curve past either end (so a stop is a stop, not an overshoot and back).
+    const A = S[i - 1], B = S[i + 2];
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const tame = (m, d) => (d === 0 || Math.sign(m) !== Math.sign(d) ? 0 : Math.sign(d) * Math.min(Math.abs(m), 3 * Math.abs(d)));
+    // (Without a neighbour yet, the way they said they were going stands in for it.)
+    const ma = A ? [tame((b.x - A.x) / (b.t - A.t) * T, dx), tame((b.z - A.z) / (b.t - A.t) * T, dz)] : [tame(a.vx * T, dx), tame(a.vz * T, dz)];
+    const mb = B ? [tame((B.x - a.x) / (B.t - a.t) * T, dx), tame((B.z - a.z) / (B.t - a.t) * T, dz)] : [tame(b.vx * T, dx), tame(b.vz * T, dz)];
+    const u2 = u * u, u3 = u2 * u;
+    const h00 = 2 * u3 - 3 * u2 + 1, h10 = u3 - 2 * u2 + u, h01 = -2 * u3 + 3 * u2, h11 = u3 - u2;
+    x = h00 * a.x + h10 * ma[0] + h01 * b.x + h11 * mb[0];
+    z = h00 * a.z + h10 * ma[1] + h01 * b.z + h11 * mb[1];
+    const d00 = 6 * u2 - 6 * u, d10 = 3 * u2 - 4 * u + 1, d01 = -6 * u2 + 6 * u, d11 = 3 * u2 - 2 * u;
+    vx = (d00 * a.x + d10 * ma[0] + d01 * b.x + d11 * mb[0]) / T;
+    vz = (d00 * a.z + d10 * ma[1] + d01 * b.z + d11 * mb[1]) / T;
+    h = a.h + wrap(b.h - a.h) * u;
+  } else {
+    const e = Math.min(at - a.t, CARRY);
+    x = a.x + a.vx * e;
+    z = a.z + a.vz * e;
+    h = a.h;
+    vx = e < CARRY ? a.vx : 0;
+    vz = e < CARRY ? a.vz : 0;
+  }
+  p.view = a.pose;
+  // (A light hand on top, so that coming back from carrying on, or a late message, never snaps.)
+  const A = p.at, k = 1 - Math.exp(-20 * dt);
+  A.x += (x - A.x) * k;
+  A.z += (z - A.z) * k;
+  A.h += wrap(h - A.h) * k;
+  A.v = Math.hypot(vx, vz);
+}
+
 /* ---------------- the session ---------------- */
 
 // hooks: config() → { url, anonKey } or null (no backend); name() → your name; kinds: the boat
 // kinds a pose may name; WS: the WebSocket class; online() → whether the browser is online.
-// (listenMs, retryScale and newCode are there for the tests.)
+// (listenMs, retryScale, newCode and now are there for the tests.)
 export class Together {
-  constructor({ config, name, kinds = null, WS = globalThis.WebSocket, online = () => globalThis.navigator?.onLine !== false, listenMs = LISTEN_MS, retryScale = 1, newCode = makeCode }) {
+  constructor({ config, name, kinds = null, WS = globalThis.WebSocket, online = () => globalThis.navigator?.onLine !== false, listenMs = LISTEN_MS, retryScale = 1, newCode = makeCode, now = () => globalThis.performance.now() / 1000 }) {
     this.config = config;
     this.name = name;
     this.kinds = kinds;
@@ -268,6 +328,7 @@ export class Together {
     this.listenMs = listenMs;
     this.retryScale = retryScale;
     this.newCode = newCode;
+    this.now = now;           // real time in seconds: positions are stamped with it
     this.id = newId();
     this.status = 'off';  // off | connecting | hosting | joined
     this.code = '';
@@ -511,7 +572,9 @@ export class Together {
     let p = this.peers.get(id);
     if (!p && create) {
       if (this.peers.size >= MAX_PLAYERS * 2) return null;
-      p = { id, name: '', host: false, present: false, pose: null, at: null, got: 0, seen: this.clock };
+      // pose: the latest word from them; snaps: their recent positions, by their clock (t), for
+      // drawing them; view: the pose they're drawn in; at: where they're drawn.
+      p = { id, name: '', host: false, present: false, pose: null, snaps: [], lags: [], offset: 0, ofs: null, ofsT: 0, view: null, at: null, seen: this.clock };
       this.peers.set(id, p);
     }
     return p;
@@ -599,10 +662,25 @@ export class Together {
       const pose = cleanPose(data.p, this.kinds);
       if (data.n) this.named(p, data.n, !!data.host);
       if (!pose) return;
-      const jump = !p.pose || !p.at || pose.m !== p.pose.m || pose.k !== p.pose.k || Math.hypot(pose.x - p.at.x, pose.z - p.at.z) > 60;
+      // When they sent it, by their clock; and how far their clock is behind ours, plus the
+      // quickest delivery lately (each message's lag beyond that is the wobble the delay hides).
+      const here = this.now(), t = finite(data.t, -1e12, 1e12) ?? here;
+      p.lags.push(here - t);
+      if (p.lags.length > LAGS) p.lags.shift();
+      p.offset = Math.min(...p.lags);
+      const S = p.snaps, last = S[S.length - 1];
+      const jump = !p.pose || !last || pose.m !== p.pose.m || pose.k !== p.pose.k || Math.hypot(pose.x - last.x, pose.z - last.z) > 60;
+      if (!jump && t <= last.t) return; // (a late one, overtaken)
       p.pose = pose;
-      p.got = this.clock;
-      if (jump) p.at = { x: pose.x, z: pose.z, h: pose.h };
+      const snap = { t, x: pose.x, z: pose.z, h: pose.h, vx: pose.vx, vz: pose.vz, pose };
+      if (jump) {
+        // Somewhere new (a passage, a boat to step into): there at once, not slid across the map.
+        S.length = 0;
+        p.at = { x: pose.x, z: pose.z, h: pose.h, v: 0 };
+        p.view = pose;
+      }
+      S.push(snap);
+      if (S.length > KEEP) S.shift();
     } else if (kind === 'catch') {
       const kg = finite(data.kg, 0, 2000);
       if (typeof data.sp !== 'string' || data.sp.length > 40 || kg == null) return;
@@ -625,7 +703,8 @@ export class Together {
   sendPose(now = false) {
     if (!this.me || !this.rt?.open || this.reconnecting) return;
     const P = this.me;
-    const msg = { m: P.m, x: r2(P.x), z: r2(P.z), h: r2(P.h), vx: r2(P.vx || 0), vz: r2(P.vz || 0) };
+    const slow = Math.hypot(P.vx || 0, P.vz || 0) < 0.15; // (keeping still is keeping still)
+    const msg = { m: P.m, x: r2(P.x), z: r2(P.z), h: r2(P.h), vx: slow ? 0 : r2(P.vx), vz: slow ? 0 : r2(P.vz) };
     if (P.m === 'boat') Object.assign(msg, { k: P.k, f: P.f ? 1 : 0, s: P.s ? 1 : 0, n: P.n ? 1 : 0 });
     if (P.m === 'foot') msg.a = P.a;
     const S = this.sent;
@@ -633,7 +712,7 @@ export class Together {
     const moved = !S || S.m !== msg.m || S.k !== msg.k || S.a !== msg.a || S.f !== msg.f || S.s !== msg.s || S.n !== msg.n
       || Math.hypot(S.x - msg.x, S.z - msg.z) > 0.25 || Math.abs(S.h - msg.h) > 0.05 || Math.hypot(S.vx - msg.vx, S.vz - msg.vz) > 0.3;
     if (!now && (this.sendT > 0 || (!moved && this.clock - (S?.at ?? -99) < IDLE_EVERY))) return;
-    this.rt.send('pose', { id: this.id, n: this.name(), host: this.hosting, p: msg });
+    this.rt.send('pose', { id: this.id, n: this.name(), host: this.hosting, t: Math.round(this.now() * 1000) / 1000, p: msg });
     this.sent = { ...msg, at: this.clock };
     this.sendT = SEND_EVERY;
   }
@@ -665,8 +744,8 @@ export class Together {
       this.me = me;
       this.sendPose();
     }
-    // Everyone else eases towards where they last said they were, carried on at their speed for
-    // a moment (so they glide between messages rather than jump).
+    // Everyone else, drawn where they were a moment ago (see DELAY).
+    const now = this.now();
     for (const p of this.peers.values()) {
       // (Anyone Realtime's presence still counts as here stays, however quiet: a phone in a
       // pocket, a tab in the background. Presence says when they go.)
@@ -674,17 +753,15 @@ export class Together {
         this.gone(p.id);
         continue;
       }
-      const P = p.pose;
-      if (!P || !p.at) continue;
-      const ahead = Math.min(this.clock - p.got, AHEAD);
-      const tx = P.x + P.vx * ahead, tz = P.z + P.vz * ahead;
-      const k = 1 - Math.exp(-8 * dt);
-      p.at.x += (tx - p.at.x) * k;
-      p.at.z += (tz - p.at.z) * k;
-      let dh = P.h - p.at.h;
-      dh = Math.atan2(Math.sin(dh), Math.cos(dh));
-      p.at.h += dh * k;
-      p.at.v = Math.hypot(P.vx, P.vz);
+      if (!p.at || !p.snaps.length) continue;
+      // (The replay eases onto a new reckoning of the delivery time, never jumping to it: twice
+      // smoothed, so its speed changes gently too, and never more than CATCH_UP off real time.)
+      if (p.ofs == null || Math.abs(p.offset - p.ofs) > 1) p.ofs = p.ofsT = p.offset;
+      else {
+        p.ofsT += Math.max(-CATCH_UP * dt, Math.min(CATCH_UP * dt, (p.offset - p.ofsT) * dt));
+        p.ofs += (p.ofsT - p.ofs) * (1 - Math.exp(-dt));
+      }
+      glide(p, now - p.ofs - DELAY, dt);
     }
   }
 }

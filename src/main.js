@@ -6641,7 +6641,7 @@ function placeFriendMarkers() {
       $('boat-marker').before(el);
       friendMarkers.set(p.id, el);
     }
-    const P = p.pose, A = p.at;
+    const P = p.view || p.pose, A = p.at;
     const text = P.m === 'dive' ? `${p.name} (diving)` : P.m === 'car' ? `${p.name} (driving)` : p.name;
     const nameEl = el.querySelector('.m-name');
     if (nameEl.textContent !== text) nameEl.textContent = text;
