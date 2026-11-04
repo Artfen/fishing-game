@@ -24,7 +24,7 @@ import { FishRenderer } from './world/fishRender.js';
 import { Underwater } from './world/underwater.js';
 import { Seabed } from './world/seabed.js';
 import { Drifters } from './world/drifters.js';
-import { siteAt, siteById, pushOut } from './world/divesites.js';
+import { siteAt, siteById, pushOut, detailsNear, SITE_DETAILS } from './world/divesites.js';
 import { Reflection, RippleField, NO_REFLECT, hideFromReflection } from './world/waterfx.js';
 import { createMist } from './world/mist.js';
 import { surfaceUniforms } from './world/surface.js';
@@ -107,7 +107,7 @@ import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality
 import { Post } from './post.js';
 import { Diver, Shot, buildGun } from './diver.js';
 import { stepComfort, effectsOf, needsOf, dressFor, drink as drinkFrom, refill, eatRoll, packRolls, mealDrink, CLOTHES, CLOTHES_IDS, BOTTLE, ROLLS, feelsLike } from './comfort.js';
-import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance, logSite } from './dive.js';
+import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance, logSite, logFind } from './dive.js';
 import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick, seeded } from './util.js';
 
 const REST_SPEED = 30;   // holding T lets time drift by
@@ -1195,6 +1195,11 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
   }
   logCatch(sp, size, agent, rigUsed, how);
   together.caught(sp.id, agent?.weight ?? weightOf(sp, size), { best: record, first: isNew });
+  // A first of its kind: how it was caught, for your friends (a tip, on their map where you were).
+  if (isNew) {
+    const e = logById(lastCatchId);
+    if (e) shareFind('fish', e.x ?? agent.x, e.z ?? agent.z, sp.name, tipWords(e));
+  }
   adventures.caught(sp.id, agent.x, agent.z, world.flocks);
   favoursReady(favourCaught(state.favours, { id: sp.id, size, night: clock.hour >= 20.5 || clock.hour < 5, shore: onFoot }));
   markObserved(sp.id, agent);
@@ -2371,6 +2376,7 @@ function updateDive(dt) {
   else scubaStep(dt, depth, surf);
   diveSiteStep(depth);
   noteLife(dt);
+  findStep(dt);
   // (The fish reckon heights from their own water's surface.)
   Object.assign(diverCtx, { x: D.pos.x, y: D.pos.y - waterLevel(D.pos.x, D.pos.z), z: D.pos.z, vx: D.vel.x, vy: D.vel.y, vz: D.vel.z, speed: D.speed, kicking: D.kicking, still: D.still });
   // (Where "you" are, for the markers, the map and the places you pass.)
@@ -2397,16 +2403,46 @@ function diveSiteStep(depth) {
     d.site = S;
     const first = logSite(state.dive, S.id, state.day, depth);
     hud.place(S.name, S.sub);
+    // How far you can see today (the clearest you've had here goes in the log).
+    const vis = underwater.visibility(weather.rain, env.night), rec = state.dive.sites[S.id];
+    rec.vis = Math.max(rec.vis || 0, vis);
     if (first) {
       audio.chime();
       const c = currentAt(S.x, S.z, 0), slack = turns(clock.abs, 1)[0];
       const tide = S.id === 'hound' ? (Math.hypot(c.x, c.z) > 0.18 ? ` The tide’s running across it: hard work down here. Slack water about ${formatClock(slack.at % 24)}.` : ' The tide’s slack: a good time to be here.') : '';
-      hud.toast(`${S.first}${tide}`, 10);
+      const look = SITE_DETAILS[S.id] ? ` Visibility about ${vis} m today. Look around: there’s more here to find.` : ` Visibility about ${vis} m today.`;
+      hud.toast(`${S.first}${tide}${look}`, 11);
+      shareFind('site', S.x, S.z, S.name, `Dived to ${depth.toFixed(0)} m, visibility about ${vis} m.`, S.id);
       hud.pulseJournal();
     }
   }
   const rec = state.dive.sites[S.id];
   if (rec && depth > rec.deepest && Math.hypot(P.x - S.x, P.z - S.z) < S.r + 12) rec.deepest = Math.round(depth * 10) / 10;
+}
+
+// What there is to find at a site (see divesites.js SITE_DETAILS): within reach and in view, it
+// goes in the log (and the journal), and to your friends if you're sharing what you find.
+let findT = 0;
+const _ff = new THREE.Frustum(), _fm = new THREE.Matrix4(), _fv = new THREE.Vector3();
+function findStep(dt) {
+  if ((findT -= dt) > 0 || !dive?.site || dive.black || diver.depth < 1) return;
+  findT = 0.3;
+  const S = dive.site, rec = state.dive.sites[S.id];
+  // (Within reach of you, the diver; in view of the camera behind you.)
+  const near = detailsNear(S.id, diver.pos, rec?.found || []);
+  if (!near.length) return;
+  _fm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  _ff.setFromProjectionMatrix(_fm);
+  const F = near.find((d) => _ff.containsPoint(_fv.set(d.x, d.y, d.z)));
+  if (!F || !logFind(state.dive, S.id, F.id, state.day)) return;
+  const all = SITE_DETAILS[S.id], n = state.dive.sites[S.id].found.filter((id) => all.some((d) => d.id === id)).length;
+  audio.chime();
+  laterT = Math.max(laterT, 9); // (the field notes can wait their turn)
+  hud.toast(`${F.note}${all.length > 1 ? ` (${n} of ${all.length} found on ${S.name === 'The Kittiwake' ? 'her' : S.name}.)` : ''}`, 10);
+  hud.pulseJournal();
+  const what = `${F.name[0].toUpperCase()}${F.name.slice(1)}`;
+  shareFind('detail', F.x, F.z, S.id === 'wreck' ? `The Kittiwake: ${F.name}` : what, F.note);
+  save();
 }
 
 // The naturalist's notes (see grounds.js): what lives within reach of you on the bottom, the reef
@@ -5738,6 +5774,7 @@ function checkPlaces(dt) {
     if (state.places[pl.id] || !pl.test(p.x, p.z)) continue;
     state.places[pl.id] = { day: state.day, hour: state.hour };
     hud.place(pl.name, pl.sub);
+    shareFind('place', pl.x ?? p.x, pl.z ?? p.z, pl.name, pl.sub || '', pl.id);
     audio.chime();
     hud.toast(`${pl.name} is in your journal now`);
     hud.pulseJournal();
@@ -6963,6 +7000,52 @@ function rehome() {
   if (moved) save();
 }
 
+// Sharing what you find (Settings → Play together → Share what you find): a place or dive site,
+// something found on a dive, a first fish and how it was caught, or a mark sent from the map. It
+// goes to your friends' maps as a mark with your name on it. Returns whether it went.
+function shareFind(k, x, z, t, n = '', id = null) {
+  if (!together.active || settings.player.share === false || !together.others.length) return false;
+  return together.share({ k, x, z, t, n, ...(id ? { id } : {}) });
+}
+// A first fish, as a tip: where, on what, when, and the tide.
+function tipWords(e) {
+  const item = e.item && TACKLE[e.item] ? TACKLE[e.item].name : null, rod = RODS[e.rod]?.name;
+  const h = e.hour, when = h < 5 || h >= 21.5 ? 'after dark' : h < 8 ? 'at dawn' : h < 11.5 ? 'in the morning' : h < 14 ? 'around midday' : h < 17.5 ? 'in the afternoon' : 'in the evening';
+  const tide = { high: 'at high water', low: 'at low water', flood: 'on the flood', ebb: 'on the ebb' }[e.tide];
+  const on = item ? `on ${/^[aeiou]/i.test(item) ? 'an' : 'a'} ${item[0].toLowerCase()}${item.slice(1)}${rod ? ` (${rod.toLowerCase()})` : ''}` : rod ? `on the ${rod.toLowerCase()}` : '';
+  const bits = [e.place, on, when, e.water === 'fresh' ? null : tide, e.depth >= 1 ? `${Math.round(e.depth)} m down` : null].filter(Boolean);
+  return `${bits.join(', ')}.`.replace(/^./, (c) => c.toUpperCase());
+}
+// A friend's find, onto your map: once (found again, it's brought up to date), and not for a place
+// you know already (just the news). If your map's full of marks, just the news.
+function friendFind(p, F) {
+  const the = (t) => t.replace(/^The /, 'the ');
+  const wreck = F.t.startsWith('The Kittiwake: ');
+  const news = {
+    place: `${p.name} found ${the(F.t)}`, site: `${p.name} dived ${the(F.t)}`,
+    detail: wreck ? `${p.name} found something on the Kittiwake: ${F.t.slice(15)}` : `${p.name} found ${the(F.t)}`,
+    fish: `${p.name}’s tip for ${F.t.toLowerCase()}`, mark: `${p.name} sent you a mark: ${F.t}`,
+  }[F.k];
+  if ((F.k === 'place' || F.k === 'site') && F.id && state.places[F.id] && (F.k === 'place' || state.dive.sites[F.id])) {
+    hud.toast(`${news}.`, 5);
+    return;
+  }
+  const same = state.pins.find((q) => q.from === p.name && q.title === F.t && Math.hypot(q.x - F.x, q.z - F.z) < 60);
+  let where = 'it’s on your map';
+  if (same) Object.assign(same, { x: F.x, z: F.z, note: F.n || same.note });
+  else if (state.pins.length < 60) state.pins.push({ id: `fr-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, x: F.x, z: F.z, title: F.t, note: F.n, fav: false, from: p.name, day: state.day, hour: Math.round(state.hour * 100) / 100 });
+  else where = 'your map has no room for another mark';
+  const text = `${news}${F.k === 'fish' && F.n ? `: ${F.n}` : ''} (${where}).`;
+  // (A first fish's tip comes after the news of the catch, not over it.)
+  if (F.k === 'fish') later(text);
+  else hud.toast(text, 6);
+  if (mapSheet.isOpen) {
+    mapSheet.renderSide();
+    mapSheet.draw();
+  }
+  save();
+}
+
 // Toasts for what happens in a session (the details are in Settings → Play together).
 together.onEvent = (kind, p, data) => {
   if (kind === 'join') hud.toast(`${p.name} has joined you.`, 5);
@@ -6979,6 +7062,7 @@ together.onEvent = (kind, p, data) => {
     const sp = fishById[data.sp];
     if (sp) hud.toast(`${p.name} caught ${data.first ? 'their first' : 'a'} ${sp.name.toLowerCase()}, ${kgWords(data.kg)}${data.best ? ': their best yet' : ''}.`, 5);
   } else if (kind === 'ended') hud.toast(p ? `${p.name} ended the session.` : data?.hostGone ? `${data.name[0].toUpperCase()}${data.name.slice(1)} didn’t come back, so the session has ended. Your own time and weather are back.` : 'The connection to your session was lost, so you’ve left it.', 7);
+  else if (kind === 'find') friendFind(p, data);
   else if (kind === 'lost') hud.toast('Lost the connection to your session. Trying again…', 4);
   else if (kind === 'back') hud.toast('Back in your session.', 3);
 };
@@ -7009,7 +7093,7 @@ function updateDiveHud() {
   hud.setHTML('dvKind', $('dv-kind'), free ? 'Freediving' : 'Scuba');
   hud.setHTML('dvDepth', $('dv-depth'), `${depth.toFixed(1)} m`);
   const bottom = Math.max(0, -heightAt(diver.pos.x, diver.pos.z));
-  let info = `bottom ${bottom.toFixed(0)} m`;
+  let info = `bottom ${bottom.toFixed(0)} m · visibility ${underwater.visibility(weather.rain, env.night)} m`;
   let fill, mark = -1, warn = false;
   if (free) {
     fill = d.o2;
@@ -7427,6 +7511,12 @@ const mapSheet = new MapSheet(state, explored, { data: heightTex.image.data, wid
   travelInfo: () => travelInfo(),
   close: () => closeMap(),
   changed: () => save(),
+  // Playing together: send a mark to your friends.
+  canShare: () => together.active && together.others.length > 0,
+  sharePin: (p) => {
+    if (!together.active || !together.others.length) return 'There’s no one in your session to send it to.';
+    return together.share({ k: 'mark', x: p.x, z: p.z, t: p.title || 'A mark', n: p.note }) ? `Sent to ${together.others.map((o) => o.name).join(', ')}.` : 'Not sent: wait a moment and try again.';
+  },
   birds: () => {
     const abs = clock.abs;
     return birdSightings.map((b) => ({ x: b.x, z: b.z, age: (abs - b.at) / 1.5 }));

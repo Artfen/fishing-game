@@ -37,7 +37,8 @@ export const DEFAULT_SETTINGS = {
   // needs: how much the angler feels the weather and the day (see comfort.js): off, shown, gentle.
   controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, rumble: true, sailTrim: 'hand', needs: 'gentle' },
   // name: what friends see over you when playing together ('' until you've chosen one).
-  player: { name: '' },
+  // share: whether what you find (places, dive sites, a wreck's details, first fish) goes to them.
+  player: { name: '', share: true },
 };
 
 // The controller's buttons, as Settings lists them: [where, action, what it does]. The buttons
@@ -118,7 +119,7 @@ export function cleanSettings(raw, legacy = {}) {
     rumble: c.rumble !== false,
   };
   const p = isObj(r.player) ? r.player : {};
-  const player = { name: cleanName(p.name) };
+  const player = { name: cleanName(p.name), share: p.share !== false };
   return { audio, graphics, weather, controls, player };
 }
 
@@ -250,7 +251,7 @@ export class SettingsUI {
     const T = this.hooks.together(), out = [];
     this.drafts ||= { name: null, code: '' };
     const name = this.S.player.name;
-    out.push(el('p', 'st-note', `Play alongside friends: each of you in your own game, in the same waters. You see each other (on foot, or in whichever boat you’re in, with your name over you) and hear about each other’s catches. Up to ${MAX_PLAYERS} can play together. Your time of day, weather, fish, gear and progress stay your own.`));
+    out.push(el('p', 'st-note', `Play alongside friends: each of you in your own game, in the same waters. You see each other (on foot, or in whichever boat you’re in, with your name over you) and hear about each other’s catches. Up to ${MAX_PLAYERS} can play together. While you do, everyone shares the host’s time of day, weather and tide; your fish, gear and progress stay your own.`));
     out.push(this.row('Your name', 'What friends see over you, and in their news of your catches.', this.field('tg-name', {
       value: this.drafts.name ?? name, placeholder: 'Your name', max: NAME_MAX, button: 'Save', label: 'Your name',
       draft: (v) => { this.drafts.name = v; },
@@ -262,6 +263,7 @@ export class SettingsUI {
         this.render();
       },
     })));
+    out.push(this.row('Share what you find', 'Places and dive sites you find, what you find on a wreck, and how you caught a new kind of fish go to your friends’ maps as marks with your name on them. You can also send any of your own marks from the map.', this.toggle('player', 'share', 'Share', 'Keep to myself')));
     const why = T.why();
     if (why && !T.active) {
       out.push(el('p', 'st-note st-warn', why));
