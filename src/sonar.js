@@ -18,6 +18,7 @@ const COLORS = {
   weak: [255, 214, 130],
   strong: [255, 112, 64],
   bait: '#9fe3ff',
+  shoal: '#7fe0c8', // a bait ball's cloud
   scale: 'rgba(233, 244, 240, 0.55)',
   now: 'rgba(233, 244, 240, 0.07)',
 };
@@ -187,8 +188,12 @@ export class FishFinder {
         depth: f.depth * (1 + (Math.random() - 0.5) * 0.06),
         size: f.size * (0.8 + Math.random() * 0.4),
         strength: clamp(f.strength * (0.75 + Math.random() * 0.5), 0.1, 1),
+        bait: f.bait,
       });
     }
+    // A bait ball: a dense cloud of small baitfish (sprat, sardine, anchovy), which hunters work
+    // from below. Shown in its own colour, and named in the readout while it's under you.
+    const baitBall = echoes.filter((e) => e.bait).length >= 6;
     // Specks of drifting debris, and surface clutter when the water is churned up.
     const clutter = [];
     if (Math.random() < 0.08) clutter.push(Math.random() * s.depth);
@@ -200,7 +205,7 @@ export class FishFinder {
       if (d > 0 && r < CONE * d + 0.6) baitDepth = d;
     }
     this.pings.push({
-      bottom: s.depth, weed: s.weed, rock: s.rock, fish: echoes, clutter, bait: baitDepth,
+      bottom: s.depth, weed: s.weed, rock: s.rock, fish: echoes, clutter, bait: baitDepth, ball: baitBall,
       weedH: 0.4 + Math.random() * 0.6,
     });
     if (this.pings.length > HISTORY) this.pings.shift();
@@ -208,7 +213,9 @@ export class FishFinder {
     for (const p of this.pings) deepest = Math.max(deepest, p.bottom);
     this.range = RANGES.find((r) => r >= deepest + 0.6) || RANGES[RANGES.length - 1];
     const type = s.rock > 0.45 ? 'rock' : s.weed > 0.3 ? 'weed' : s.depth < 3 ? 'sand' : 'silt';
-    this.depthEl.textContent = `${s.depth.toFixed(1)} m · ${type}`;
+    // (And the water's temperature at the surface, when the game gives it: see seatemp.js.)
+    const temp = src.temp != null ? ` · ${Math.round(src.temp)}°C` : '';
+    this.depthEl.textContent = `${s.depth.toFixed(1)} m · ${type}${temp}${baitBall ? ' · bait below' : ''}`;
     this.draw();
   }
 
@@ -261,7 +268,7 @@ export class FishFinder {
       for (const f of p.fish) {
         const fy = yOf(f.depth);
         ctx.globalAlpha = alpha * (0.35 + 0.65 * f.strength);
-        ctx.fillStyle = echo(clamp(f.size * 1.2 * f.strength, 0, 1));
+        ctx.fillStyle = f.bait && p.ball ? COLORS.shoal : echo(clamp(f.size * 1.2 * f.strength, 0, 1));
         if (f.size < 0.3) {
           // Small fry: a speck. Schools of them build a cloud.
           ctx.fillRect(x, fy, Math.max(w, 2), 2);

@@ -10,7 +10,7 @@
 // - It never touches saved games: those live in the browser's local storage, not here.
 
 // <precache> Written by tools/build-sw.mjs: do not edit by hand.
-const VERSION = '50c012974ddb';
+const VERSION = '63a3fcc690a5';
 const FILES = [
   './index.html',
   './style.css',
@@ -109,6 +109,7 @@ const FILES = [
   './src/world/crossingLife.js',
   './src/world/divesiteWorld.js',
   './src/world/divesites.js',
+  './src/world/drifters.js',
   './src/world/ecosystem.js',
   './src/world/fell.js',
   './src/world/fishRender.js',
@@ -120,12 +121,14 @@ const FILES = [
   './src/world/mist.js',
   './src/world/ocean.js',
   './src/world/oceangpu.js',
+  './src/world/pressure.js',
   './src/world/regions.js',
   './src/world/riverwater.js',
   './src/world/seabed.js',
   './src/world/seaglow.js',
   './src/world/sealife.js',
   './src/world/season.js',
+  './src/world/seatemp.js',
   './src/world/shore.js',
   './src/world/skipper.js',
   './src/world/sky.js',
