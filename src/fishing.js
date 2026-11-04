@@ -1,12 +1,12 @@
 import * as THREE from 'three';
-import { FISH, buildFishMesh } from './fish.js';
+import { FISH, buildFishMesh, weightOf } from './fish.js';
 import { waveHeight } from './world/water.js';
 import { currentAt, windAt, currentScale } from './world/conditions.js';
 import { solidHeight, depthAt, waterLevel } from './world/terrain.js';
 import { RODS, TACKLE, TERMS, LINE_COLORS, castRange, windSensitivity, splashOf, checkSetup, castWeight } from './tackle.js';
 import { buildTackleModel, buildFloat, buildIndicator, buildLead } from './tackleModels.js';
 import { clamp, lerp, damp, dampAngle, rand, smoothstep, wrapAngle, glowTexture } from './util.js';
-import { newFight, stepFight, DIFFICULTY, DRAG_LEVELS, DEFAULT_DRAG } from './fight.js';
+import { newFight, stepFight, DIFFICULTY, DRAG_LEVELS, DEFAULT_DRAG, swingLimit } from './fight.js';
 import { CAST_SPEED } from './throttle.js';
 import { FishLine } from './fishline.js';
 import { BEHAVIOUR, prefsFor } from './behaviour.js';
@@ -20,11 +20,24 @@ const LINE_N = ROD_PTS + LINE_PTS;
 const STRAINED = new THREE.Color('#ff6a3d'); // the line's colour as it nears its breaking strain
 const ARC_N = 24;
 const TAP = 0.22; // a press shorter than this is a twitch; longer is reeling
+// The landing net: a hoop on a pole with a deep mesh bag. Its origin is the middle of the hoop; the
+// pole runs off along +z (turned to point at your hands).
+function buildNet() {
+  const g = new THREE.Group();
+  const frame = new THREE.MeshLambertMaterial({ color: '#3b4a3e' });
+  const hoop = new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.016, 6, 24).rotateX(Math.PI / 2), frame);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 1.9, 6).rotateX(Math.PI / 2).translate(0, 0, 0.33 + 0.95), frame);
+  const bag = new THREE.Mesh(new THREE.ConeGeometry(0.33, 0.5, 14, 3, true).rotateX(Math.PI).translate(0, -0.25, 0),
+    new THREE.MeshBasicMaterial({ color: '#2b3a30', wireframe: true, transparent: true, opacity: 0.75 }));
+  g.add(hoop, pole, bag);
+  g.visible = false;
+  return g;
+}
 const SWEET_HOLD = 0.4; // manual casting: how long the rod stays fully loaded before it overloads
 const OVERLOAD = 0.9;   // …and how long more until the cast collapses completely
 const FLY_CYCLE = 1.15; // one back-and-forward false cast with the fly rod
 const _v = new THREE.Vector3();
-const _w = new THREE.Vector3();
+const _w = new THREE.Vector3(), _nh = new THREE.Vector3();
 
 // The fishing loop:
 // idle → aiming (hold, aim, choose distance) → casting → drifting (rig in the water)
@@ -39,6 +52,9 @@ const _w = new THREE.Vector3();
 export class Fishing {
   constructor(scene, angler, fx, audio, eco, hooks) {
     this.scene = scene;
+    this.net = buildNet();
+    scene.add(this.net);
+    this.netted = false;
     this.angler = angler;
     this.fx = fx;
     this.audio = audio;
@@ -293,6 +309,10 @@ export class Fishing {
         break;
       case 'bite':
         this.setHook();
+        break;
+      case 'reeling':
+        // Beaten and alongside, too heavy to lift: a tap nets it.
+        if (this.fight?.atNet) this.netFish();
         break;
       case 'caught':
         if (this.t > 0.5) this.letGo();
@@ -895,12 +915,12 @@ export class Fishing {
     this.eco.hook(a);
     this.audio.alarmRun?.(false);
     const sp = a.sp;
-    // Weed, lilies, rocks or roots nearby give a running fish something to reach.
+    // Weed, lilies, rocks or roots nearby give a running fish something to reach (rock chafes).
     const s = this.eco.habitat.sample(this.hook.x, this.hook.z);
-    const cover = s.weed > 0.35 || s.rock > 0.4;
+    const cover = s.rock > 0.4 ? 'rock' : s.weed > 0.35 ? 'weed' : false;
     // The fish fights as itself (its vigour and condition, how jumpy its kind is), against this
     // rod (its power and how soft it is) and the Fish behaviour setting.
-    const who = { vigour: a.vigour, condition: a.condition, jumpy: prefsFor(sp.id).jumpy, level: this.level };
+    const who = { vigour: a.vigour, condition: a.condition, jumpy: prefsFor(sp.id).jumpy, level: this.level, range: this.tip.distanceTo(this.hook) };
     // (The line as it is now: a little weaker if hard fights have worn it, see shop.js.)
     const line = this.hooks.line ? this.hooks.line(this.rod) : this.rod.line;
     this.fight = Object.assign(newFight(sp, a.size, { line, power: this.rod.power, flex: this.rod.flex, drag: this.dragLevel }, this.diff, cover, Math.random, who), {
@@ -961,9 +981,106 @@ export class Fishing {
     this.reelIn();
   }
 
+  // Beaten and alongside: does it need the net? Too heavy to swing in on this line (see fight.js
+  // swingLimit); a big fish drawn alongside the boat is seen to there, as ever.
+  needsNet() {
+    const F = this.fight;
+    if (!F || this.bigCatch()) return false;
+    return (F.agent?.weight ?? weightOf(F.sp, F.size)) > swingLimit(this.rod.line);
+  }
+
+  // Into the net with it.
+  netFish() {
+    const F = this.fight;
+    if (!F?.atNet) return;
+    F.netted = true;
+    this.audio.splashSmall(0.8);
+    this.fx.splash(this.fishPos.x, 0.05, this.fishPos.z, 10, 1.6, 0.5);
+    this.landFish();
+  }
+
+  // Beaten, rolled on its side, lying alongside, waiting for the net. Holding the reel instead tries
+  // to lift it out on the line; now and then it gives a last kick, and winding hard through that can
+  // tear the hook out (on Natural and Demanding). On Relaxed, it's netted for you after a moment.
+  netStep(dt, t, held) {
+    const F = this.fight, b = this.angler.pos, L = this.level;
+    F.netT += dt;
+    F.progress = 1;
+    F.stage = 'beaten';
+    F.pulling = false;
+    F.slipping = false;
+    F.kick = Math.max(0, F.kick - dt * 1.2);
+    F.kickT -= dt;
+    if (F.kickT <= 0) {
+      F.kickT = rand(3.5, 6);
+      F.kick = 1;
+      this.fx.splash(this.fishPos.x, 0.05, this.fishPos.z, 12, 2, 0.6);
+      this.audio.splashSmall(0.9);
+      F.word = 'a last kick';
+      F.wordT = 1.2;
+      if (held && L.pull > 0 && (F.hold === 'light' || Math.random() < 0.25 * L.pull)) {
+        this.lose('kicked');
+        return;
+      }
+    }
+    // (A moment's grace to let go: you've been winding all the way in.)
+    if (held && F.netT > 1.2) F.liftT += dt;
+    else F.liftT = Math.max(0, F.liftT - dt * 2);
+    if (L.pull > 0 && F.liftT > 1.6) {
+      this.lose('lifted');
+      return;
+    }
+    // (On Relaxed nothing's lost: just how it's done.)
+    if (L.pull === 0 && F.liftT > 0.4 && !F.toldLift) {
+      F.toldLift = true;
+      this.hooks.flash(`Too heavy to lift on the line: let go, and tap ${this.hooks.key('cast')} to net it.`, 2.6);
+    }
+    if (L.pull === 0 && F.netT > 2.6) {
+      this.netFish();
+      return;
+    }
+    F.tension = held ? Math.min(0.95, 0.45 + F.liftT * 0.3) : 0.12;
+    F.wordT -= dt;
+    if (F.wordT <= 0) {
+      F.word = 'net it';
+      F.wordT = 0.5;
+    }
+    // Where it lies: at the end of the fight, kicked a little way out now and then.
+    let dx = F.start.x - b.x, dz = F.start.z - b.z;
+    const dl = Math.hypot(dx, dz) || 1;
+    dx /= dl;
+    dz /= dl;
+    const ex = F.end ? F.end.x : b.x + dx * 2.6, ez = F.end ? F.end.z : b.z + dz * 2.6;
+    const out = F.kick * 1.2 + Math.sin(t * 1.3) * 0.08;
+    const x = ex + dx * out, z = ez + dz * out, lv = waterLevel(x, z);
+    this.fishPos.set(x, lv - 0.15, z);
+    const away = Math.atan2(x - b.x, z - b.z);
+    this.eco.placeHooked(F.agent, x, lv - 0.15, z, away + Math.PI / 2 + Math.sin(t * 0.7) * 0.2, F.kick > 0.3 ? 0.8 : 0.15);
+    F.roll = damp(F.roll, F.kick > 0.3 ? 0.3 : 1.25, 3, dt);
+    F.agent.bank = F.roll;
+    F.agent.pitch = 0;
+    this.mouthOf(F.agent, this.hook);
+    this.bob.set(x, waveHeight(x, z, t), z);
+  }
+
+  // The net, held out alongside the fish waiting for it, and with the fish in it as it comes out.
+  placeNet(fishMesh, t) {
+    const F = this.fight, s = this.state;
+    const waiting = s === 'reeling' && F?.atNet, lifting = s === 'landing' && this.netted && this.t < 0.8;
+    this.net.visible = !!(waiting || lifting);
+    if (!this.net.visible) return;
+    const hand = this.angler.holdPoint(_nh);
+    if (waiting) {
+      const x = this.fishPos.x, z = this.fishPos.z, k = 0.45 / Math.max(0.5, Math.hypot(hand.x - x, hand.z - z));
+      this.net.position.set(x + (hand.x - x) * k, waterLevel(x, z) - 0.05, z + (hand.z - z) * k);
+    } else this.net.position.set(fishMesh.position.x, fishMesh.position.y - 0.12, fishMesh.position.z);
+    this.net.lookAt(hand.x, hand.y - 0.3, hand.z);
+  }
+
   landFish() {
     const F = this.fight;
     const mesh = this.fishMeshes[F.sp.id];
+    this.netted = !!F.netted;
     this.eco.catchAgent(F.agent);
     this.eco.bait.active = false;
     this.hooks.fought?.(F, this.rod);
@@ -1293,6 +1410,7 @@ export class Fishing {
       R.free = true;
     }
     this.updateVisuals(t, dt, fishMesh);
+    this.placeNet(fishMesh, t);
     this.turnReel(dt);
     this.audio.reel?.(R);
   }
@@ -1714,6 +1832,10 @@ export class Fishing {
 
   updateFight(dt, t, held) {
     const F = this.fight;
+    if (F.atNet) {
+      this.netStep(dt, t, held);
+      return;
+    }
     const diff = this.steady !== 1 ? { ...this.diff, shock: this.diff.shock * this.steady } : this.diff;
     const b = this.angler.pos;
     // The current along the line: running away from you it helps the fish (and tows it), running
@@ -1857,7 +1979,15 @@ export class Fishing {
         this.fx.ripple(x, z, St.splash ? 1.0 : 0.7, 1.0, St.splash ? 0.4 : 0.25);
       }
     }
-    if (F.progress >= 1) this.landFish();
+    if (F.progress >= 1) {
+      if (!this.needsNet()) {
+        this.landFish();
+        return;
+      }
+      // Beaten and alongside, and too heavy to lift out on the line: the net.
+      Object.assign(F, { atNet: true, netT: 0, kick: 0, kickT: rand(2.5, 4), liftT: 0 });
+      this.hooks.teach('net', `A fish this size needs the net: when it’s beaten and alongside, let go of the reel and tap ${this.hooks.key('cast')}. Lifting it out on the line can tear the hook out, and so can winding hard as it kicks.`, 8);
+    }
   }
 
   updateVisuals(t, dt, fishMesh) {

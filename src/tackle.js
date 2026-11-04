@@ -55,7 +55,7 @@ export const RODS = {
     ],
     terms: ['wire', 'fluoro', 'none'],
     strengths: 'Casts lures a long way and works them with life: pike, perch, largemouth bass, and sea bass from the shore.',
-    limits: 'Braid is easy for wary fish to see: a fluorocarbon leader hides it. Pike need the wire trace.',
+    limits: 'Braid is easy for wary fish to see and cuts on rock: a fluorocarbon leader hides it and takes the rough stuff. Pike need the wire trace.',
     look: { len: 2.35, color: '#2f3640', handle: '#c9a87a', reel: 'spin' },
   },
   carp: {
@@ -171,7 +171,7 @@ export const TERMS = {
   wire: { id: 'wire', name: 'Wire trace', short: 'Wire trace', weight: 1, trace: true,
     desc: 'Bite-proof: pike can’t cut it. Wary fish do notice it.' },
   fluoro: { id: 'fluoro', name: 'Fluorocarbon leader', short: 'Fluoro leader', weight: 0, hides: 0.25,
-    desc: 'A near-invisible length of line before the lure: wary bass, trout and mullet don’t see the braid.' },
+    desc: 'A near-invisible length of line before the lure: wary bass, trout and mullet don’t see the braid, and it stands up to rock where braid chafes through.' },
   none: { id: 'none', name: 'Straight through', short: 'No leader', weight: 0,
     desc: 'The main line tied straight to the lure.' },
   tippet: { id: 'tippet', name: 'Tapered leader and tippet', short: 'Tippet', weight: 0,
@@ -381,13 +381,27 @@ export const fits = (rod, item) => !!rod && !!item && rod.accepts.includes(item.
 export const lineOf = (gear, rod) => rod.lines.find((l) => l.id === gear.line?.[rod.id]) || rod.lines[0];
 export const termOf = (gear, rod) => TERMS[termOk(rod, gear.term?.[rod.id]) ? gear.term[rod.id] : rod.terms[0]];
 
+// How a line behaves, from what it is: how much it stretches (mono soaks up a strike and a lunge,
+// fluorocarbon a little less, braid not at all) and how it stands up to rock (braid chafes through
+// in a moment; fluorocarbon is the toughest of the three).
+export function lineNature(name) {
+  if (/braid|\bPE\b/i.test(name)) return { stretch: 0, abrade: 0.55 };
+  if (/fluoro/i.test(name)) return { stretch: 0.7, abrade: 1.3 };
+  return { stretch: 1, abrade: 1 };
+}
+// The leader decides what touches the rock: a fluorocarbon leader, wire, or a heavy shock or
+// wind-on leader.
+const LEADER_ABRADE = { fluoro: 1.4, wire: 2, shock: 2.5, windon: 2.5 };
+
 // What the fish (and the fight) see of the line: the main line, hidden by a fluorocarbon
-// leader, protected by wire. { name, kg, thick, trace }
+// leader, protected by wire. { name, kg, thick, trace, stretch, abrade }
 export function lineInUse(gear, rod) {
   const l = lineOf(gear, rod), term = termOf(gear, rod);
   const thick = term.hides != null ? Math.min(l.thick, term.hides) : term.trace ? Math.max(l.thick, 0.8) : l.thick;
   const name = term.trace ? `${l.name} and a wire trace` : term.hides != null ? `${l.name} with a fluorocarbon leader` : l.name;
-  return { name, kg: l.kg, thick, trace: !!term.trace };
+  // (A braid with a leader already on it, like the egi rod's PE: the leader takes the rock.)
+  const N = lineNature(l.name), leader = LEADER_ABRADE[term.id] ?? (/leader/i.test(l.name) ? 1.3 : 0);
+  return { name, kg: l.kg, thick, trace: !!term.trace, stretch: N.stretch, abrade: Math.max(N.abrade, leader) };
 }
 
 // What the current rod has tied on: its chosen item if it is in the backpack, otherwise the

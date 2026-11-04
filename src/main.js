@@ -969,7 +969,8 @@ const mapAboard = () => modal === 'map' && !onFoot && !driving && !dive && !cabi
 function teach(key, text, secs = 5) {
   if (state.tips[key]) return;
   state.tips[key] = true;
-  hud.toast(text, secs);
+  // (Plain words: a key's label comes as a <kbd>, which the toast would show as it is.)
+  hud.toast(text.replace(/<[^>]+>/g, ''), secs);
   save();
 }
 
@@ -1026,7 +1027,7 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   // Every break has a reason you can see and do something about (see fight.js).
   // A fish thrown or pulled free has the line whole: it says so.
   onSnap: (why, sp, rod) => {
-    hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : why === 'thrown' ? 'It threw the hook!' : why === 'pulled' ? 'The hook pulled free.' : 'Snap! The line broke.', t, 3);
+    hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : why === 'rock' ? 'Cut on the rocks!' : why === 'thrown' ? 'It threw the hook!' : why === 'pulled' || why === 'lifted' ? 'The hook pulled free.' : why === 'kicked' ? 'It kicked free at the net!' : 'Snap! The line broke.', t, 3);
     hud.toast(breakReason(why, sp, rod), 9);
   },
   // The line as it is (worn by hard fights, see shop.js); and the wear a fight just ended leaves.
@@ -6789,6 +6790,7 @@ function actionLabel() {
   if (modal === 'note') return 'OK';
   if (dive) return dive.kit === 'scuba' ? 'Photo' : shot.loaded ? 'Shoot' : '…';
   if (driving) return 'Brake';
+  if (fishing.state === 'reeling' && fishing.fight?.atNet) return 'Net it';
   if (fishing.state === 'reeling' && (fishing.fight?.surgeT > 0 || (fishing.fight?.warned && !fishing.pulling))) return 'Easy';
   if (fishing.state === 'reeling' && fishing.pulling) return 'Hold';
   if (fishing.state === 'drifting' && (fishing.kind === 'ledger' || fishing.kind === 'bottom')) return 'Wind in';
@@ -6896,7 +6898,7 @@ function updateHud() {
   else if (fishing.state === 'reeling' && F) {
     // The ring: how near you are to landing it, and the load on the line (red and shaking near
     // breaking). The word: what to do now, and under it what the fish is doing and the line out.
-    const word = F.surgeT > 0 ? 'easy!' : easy ? 'flick!' : F.tension > 0.9 ? 'ease off!' : F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel';
+    const word = F.atNet ? `net it: tap ${K('cast')}` : F.surgeT > 0 ? 'easy!' : easy ? 'flick!' : F.tension > 0.9 ? 'ease off!' : F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel';
     const doing = F.wordT > 0 ? F.word : fishing.side && F.pulling ? `side strain ${fishing.side < 0 ? '←' : '→'}` : F.stage !== 'fresh' ? F.stage : '';
     const out = Math.round(fishing.tip.distanceTo(fishing.fishPos));
     hud.meter(true, F.progress, F.tension, F.tension, `<span>${word}</span>${doing ? `<span class="ml-sub">${doing}</span>` : ''}<span class="ml-sub">${out} m out</span>`, DRAG_LEVELS[F.drag], easy, F.tension > 0.86);
