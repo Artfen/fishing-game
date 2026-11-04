@@ -2224,6 +2224,13 @@ export class Boat {
   // Hands off the helm while she's being driven, you still hold the heading you let go at: the
   // little corrections anyone at a tiller, a wheel or a pair of oars makes without thinking.
   // Returns the correction (-1 … 1, + to starboard), or 0 when you're steering yourself.
+  // Out on the water this moment, though not worked out here (a townsperson's boat, a friend's):
+  // other boats feel her as solid, and bump off her.
+  afloat(t) {
+    this.lastT = t;
+    this.lastSeq = ++SEQ.n;
+  }
+
   // Resting, far off: she lies where she is, lifted and tipped by the waves under her, no more.
   rest(dt, t, lanternLevel) {
     const H = this.hull, p = this.pos, f = this.fwd, r = this.right, L2 = H.L * 0.4, B2 = Math.max(0.3, H.B * 0.9);
