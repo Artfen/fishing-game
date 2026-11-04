@@ -33,9 +33,23 @@ const zAt = (H, t) => -H.L / 2 + H.L * t;
 // (starboard gunwale), exactly as boat.js hullSurface.
 function hullPoint(H, t, j, NP) {
   const w = hw(H, t), s = sheer(H, t), k = H.keel(t);
-  const a = -Math.PI / 2 + Math.PI * (j / NP);
-  const sn = Math.sin(a), cs = Math.max(Math.cos(a), 0);
-  return [w * Math.sign(sn) * Math.pow(Math.abs(sn), 0.65), k + (s - k) * (1 - Math.pow(cs, 0.55)), zAt(H, t)];
+  const [x, y] = section(H, w, s, k, -Math.PI / 2 + Math.PI * (j / NP));
+  return [x, y, zAt(H, t)];
+}
+// A point round a hull's section, at angle a from the keel (−π/2 the port gunwale, π/2 the
+// starboard): half-beam w, gunwale height s, keel height k. Most hulls are a soft round-bilged
+// curve; a deep-V (H.vee: { chine, wc, rise }) runs straight up from the keel at its deadrise to a
+// hard chine (at `chine` of the way round, `wc` of the half-beam out), then up the topside.
+export function section(H, w, s, k, a) {
+  const V = H.vee;
+  if (!V) {
+    const sn = Math.sin(a), cs = Math.max(Math.cos(a), 0);
+    return [w * Math.sign(sn) * Math.pow(Math.abs(sn), 0.65), k + (s - k) * (1 - Math.pow(cs, 0.55))];
+  }
+  const u = Math.min(1, Math.abs(a) / (Math.PI / 2)), c = V.chine, wc = w * V.wc, yc = k + Math.min(V.rise * wc, 0.8 * (s - k));
+  const x = u < c ? wc * (u / c) : wc + (w - wc) * ((u - c) / (1 - c));
+  const y = u < c ? k + (yc - k) * (u / c) : yc + (s - yc) * ((u - c) / (1 - c));
+  return [Math.sign(a) * x, y];
 }
 
 // A RIB's tubes (H.tubes: { r, out, drop, t1 }): the centre of the tube's round section at t
