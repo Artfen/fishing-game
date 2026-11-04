@@ -38,6 +38,14 @@ function hullPoint(H, t, j, NP) {
   return [w * Math.sign(sn) * Math.pow(Math.abs(sn), 0.65), k + (s - k) * (1 - Math.pow(cs, 0.55)), zAt(H, t)];
 }
 
+// A RIB's tubes (H.tubes: { r, out, drop, t1 }): the centre of the tube's round section at t
+// along her (0 stern … t1, where the two meet at the nose) on side sd (+1 starboard, −1 port),
+// lying along her gunwale, out from the hull by `out` of its radius and down by `drop`.
+export function tubeCentre(H, t, sd) {
+  const T = H.tubes, u = Math.min(1, Math.max(0, t));
+  return [sd * (hw(H, u) + T.r * T.out), sheer(H, u) - T.r * T.drop, zAt(H, t)];
+}
+
 /* ---------------- the hull model ---------------- */
 
 // Build what the physics needs from a hull spec (boat.js HULLS): a closed mesh (the hull, the
@@ -94,6 +102,36 @@ export function buildHullModel(H) {
     addTri(idx(i, 0), idx(i, NP), idx(i + 1, NP), [0, 1, 0]);
     addTri(idx(i, 0), idx(i + 1, NP), idx(i + 1, 0), [0, 1, 0]);
   }
+  // A RIB's tubes, each a sealed shell of its own along her side: out of the water lying still,
+  // they press on it as she heels or pitches into a sea, and stand her up again.
+  if (H.tubes) {
+    const TB = H.tubes, NT = 12, NS = 8, t0 = -0.05, t1 = TB.t1 ?? 0.93;
+    for (const sd of [1, -1]) {
+      const base = verts.length, centres = [];
+      for (let i = 0; i <= NT; i++) {
+        const c = tubeCentre(H, t0 + (t1 - t0) * (i / NT), sd);
+        centres.push(c);
+        for (let k = 0; k < NS; k++) {
+          const a = (k / NS) * Math.PI * 2;
+          verts.push([c[0] + sd * TB.r * Math.cos(a), c[1] + TB.r * Math.sin(a), c[2]]);
+        }
+      }
+      const at = (i, k) => base + i * NS + (k % NS);
+      for (let i = 0; i < NT; i++) {
+        for (let k = 0; k < NS; k++) {
+          const a = ((k + 0.5) / NS) * Math.PI * 2, out = [sd * Math.cos(a), Math.sin(a), 0];
+          addTri(at(i, k), at(i + 1, k), at(i + 1, k + 1), out);
+          addTri(at(i, k), at(i + 1, k + 1), at(i, k + 1), out);
+        }
+      }
+      // (Sealed at both ends.)
+      for (const [i, dir] of [[0, -1], [NT, 1]]) {
+        verts.push(centres[i]);
+        const m = verts.length - 1;
+        for (let k = 0; k < NS; k++) addTri(m, at(i, k), at(i, k + 1), [0, 0, dir]);
+      }
+    }
+  }
 
   const nv = verts.length, nt = tris.length;
   const V = new Float64Array(nv * 3);
@@ -116,7 +154,7 @@ export function buildHullModel(H) {
   // lattice is no finer than her length allows, so she bridges short chop as a real one does.
   const NA = H.L > 6 ? 9 : 7, NC = 3;
   let bMax = 0;
-  for (let i = 0; i <= NZ; i++) bMax = Math.max(bMax, hw(H, i / NZ));
+  for (let i = 0; i <= NZ; i++) bMax = Math.max(bMax, hw(H, i / NZ) + (H.tubes ? H.tubes.r * (H.tubes.out + 1) : 0));
   const latX = [-bMax * 1.05, 0, bMax * 1.05];
   const latZ = [];
   for (let a = 0; a < NA; a++) latZ.push(-H.L / 2 - 0.05 + (H.L + 0.1) * (a / (NA - 1)));
@@ -184,6 +222,15 @@ export function buildHullModel(H) {
     ring.push([hw(H, i / NZ) * 0.95, wl, zAt(H, i / NZ)], [-hw(H, i / NZ) * 0.95, wl, zAt(H, i / NZ)]);
   }
   ring.push([0, sheer(H, 1), zAt(H, 1) + 0.02], [0, H.draft + 0.05, zAt(H, 1)]);
+  // (A RIB meets a pier or another boat with her tubes: the outside of each, all along.)
+  if (H.tubes) {
+    for (let t = 0; t <= (H.tubes.t1 ?? 0.93); t += 0.12) {
+      for (const sd of [1, -1]) {
+        const c = tubeCentre(H, t, sd);
+        ring.push([c[0] + sd * H.tubes.r, c[1], c[2]]);
+      }
+    }
+  }
   model.ring = ring;
   model.drag = calibrate(model);
   return model;

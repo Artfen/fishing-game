@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat, wrapAngle } from './util.js';
 import { waveHeight } from './world/water.js';
 import { windAt, currentAt, currentScale, conditions, waveSampler, sampleWaves } from './world/conditions.js';
-import { buildHullModel, HydroBody, G, RHO } from './hydro.js';
+import { buildHullModel, HydroBody, G, RHO, tubeCentre } from './hydro.js';
 import { wakes } from './world/wakes.js';
 import { solidHeight, PIERS, SEA, SOUTH_Z, CROSSING } from './world/terrain.js';
 import { SOUTH_RECT } from './world/brasa.js';
@@ -158,6 +158,27 @@ const HULLS = {
     standing: { helm: [0, -0.62], aft: [0, -2.5, 0.6, 0.55], bow: [0, 1.9, 0.4, 0.3], round: 0.85 },
     lantern: [0.8, -3.2], stow: null, noise: 1.1, steady: 0.45,
     windage: 0.004, ride: 2.6,
+  },
+  // A rigid inflatable boat of about twenty-one feet, the way fishermen like them: a deep-V hull
+  // with grey tubes round her sides and bow (out of the water lying still, they stand her up as
+  // she heels and soften her landings), one big outboard, a small console with a jockey seat
+  // behind it, a stainless A-frame over the stern. Quick (about thirty-five knots), dry and
+  // steady in a sea; driven standing, fished from anywhere, as the centre console.
+  rib: {
+    name: 'RIB', mass: 1250, L: 6.5, B: 0.95, D: 0.92, draft: 0.24, shallow: 0.6, seatZ: -0.3, seatY: 1.25, floorY: 0.4,
+    hw: (t) => Math.pow(Math.sin(Math.PI * (0.3 + 0.7 * t)), 0.5),
+    sheer: (t) => 0.32 * Math.pow(t, 2.4) + 0.02,
+    keel: (t) => 0.2 * Math.pow(t, 3),
+    paint: '#f2f1ec', stripe: '#c43b2f', bottom: '#30363c', inside: 'plastic',
+    floor: [0.03, 0.87], floorColor: '#3d4248', decks: [[0.87, 1, 0]],
+    tubes: { r: 0.26, out: 0.4, drop: 0.12, t1: 0.93, color: '#5b6168', strake: '#2a2e33' },
+    motor: { thrust: 22, astern: 3.2, tilt: 0.85, scale: 1.45, cowl: '#1d2125', band: '#c43b2f' },
+    drag: [0.21, 0.05], side: 3, helm: 0.8, fend: 1.35,
+    // (Her weight low in her: the deck sits down inside the tubes, so she banks into a turn.)
+    cgY: 0.45, console: true, rib: true,
+    standing: { helm: [0, -0.35], aft: [0, -2.2, 0.55, 0.5], bow: [0, 1.65, 0.35, 0.3], round: 0.7 },
+    lantern: [0.7, -2.75], stow: null, noise: 1.1, steady: 0.5,
+    windage: 0.0033, ride: 2.8,
   },
   windsurf: {
     name: 'windsurf board', L: 2.6, B: 0.34, D: 0.13, draft: 0.05, shallow: 0.35, seatZ: -0.45, seatY: 1.02, floorY: 0.14,
@@ -480,6 +501,7 @@ export class Boat {
     if (H.cabin) this.buildCabin();
     if (H.sportfish) this.buildSportfish();
     if (H.console) this.buildConsole();
+    if (H.tubes) this.buildTubes();
     if (H.rig) {
       this.buildBoardRig();
       this.sailUp = true; // (a board's rig is always up, but for a fall)
@@ -1188,6 +1210,7 @@ export class Boat {
   // leaning post behind the wheel with a cooler under it; rods in the gunwale holders, a live well
   // in the deck aft; rails round the bow.
   buildConsole() {
+    if (this.hull.rib) return this.buildRibConsole();
     const H = this.hull, y0 = H.floorY, [hx, hz] = H.standing.helm, cz = hz + 0.75;
     const steel = '#c9cdd0', V = (x, y, z) => new THREE.Vector3(x, y, z);
     const pz = hz - 0.42, ty = y0 + 2.15;
@@ -1226,6 +1249,82 @@ export class Boat {
     mesh.receiveShadow = true;
     this.body.add(mesh);
     this.buildWheel(hx, y0 + 1.03, hz + 0.36, -0.6);
+  }
+
+  // A RIB's tubes: one grey tube along each side and round the bow (the two meeting at the nose),
+  // their ends standing out past the transom as cones; a dark rubbing strake along the outside
+  // of each, and a grab line looped along the top.
+  buildTubes() {
+    const H = this.hull, T = H.tubes, V = (p) => new THREE.Vector3(p[0], p[1], p[2]);
+    const pts = [];
+    for (let t = -0.05; t <= T.t1 + 1e-6; t += 0.035) pts.push(V(tubeCentre(H, t, -1)));
+    // (Round the nose: the two sides meeting a little ahead of where the tubes would cross.)
+    const nose = tubeCentre(H, T.t1, 1), noseZ = zAt(H, 1) + T.r * 0.2;
+    pts.push(new THREE.Vector3(0, nose[1] + T.r * 0.15, noseZ));
+    for (let t = T.t1; t >= -0.05 - 1e-6; t -= 0.035) pts.push(V(tubeCentre(H, t, 1)));
+    const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
+    const parts = [{ geo: new THREE.TubeGeometry(curve, 140, T.r, 14), color: T.color, jitter: 0 }];
+    // (The cones at the stern.)
+    for (const sd of [1, -1]) {
+      const c = tubeCentre(H, -0.05, sd);
+      parts.push({ geo: new THREE.ConeGeometry(T.r, T.r * 1.3, 14).rotateX(-Math.PI / 2), matrix: mat(c[0], c[1], c[2] - T.r * 0.65), color: T.color, jitter: 0 });
+    }
+    // The rubbing strake, low on the outside of each tube, and the grab line along the top.
+    const along = (dx, dy, r, color, t0 = 0.0, t1 = T.t1 - 0.05) => {
+      for (const sd of [1, -1]) {
+        const q = [];
+        for (let t = t0; t <= t1 + 1e-6; t += 0.05) {
+          const c = tubeCentre(H, t, sd);
+          q.push(new THREE.Vector3(c[0] + sd * T.r * dx, c[1] + T.r * dy, c[2]));
+        }
+        parts.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(q), 60, r, 6), color, jitter: 0 });
+      }
+    };
+    along(0.85, -0.5, 0.045, T.strake);
+    along(0.1, 1.02, 0.012, '#d9d4c4', 0.1, T.t1 - 0.12);
+    const mesh = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75, metalness: 0.02 }));
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    this.body.add(mesh);
+  }
+
+  // A RIB's console: small and upright, a windscreen and a grab rail round its top, the wheel and
+  // the throttle on its face; a jockey seat behind it to stand against or straddle; a stainless
+  // A-frame over the stern with the navigation light and a whip aerial; rod holders on the frame.
+  buildRibConsole() {
+    const H = this.hull, y0 = H.floorY, [hx, hz] = H.standing.helm, cz = hz + 0.7;
+    const steel = '#c9cdd0', V = (x, y, z) => new THREE.Vector3(x, y, z);
+    const jz = hz - 0.45, az = zAt(H, 0.06), ah = 1.75;
+    const parts = [
+      { geo: new THREE.BoxGeometry(0.7, 1.0, 0.6), matrix: mat(hx, y0 + 0.5, cz), color: '#ebe9e2' },
+      { geo: new THREE.BoxGeometry(0.66, 0.04, 0.28), matrix: mat(hx, y0 + 0.98, cz - 0.2, -0.5, 0, 0), color: '#2b2e33' },
+      { geo: new THREE.BoxGeometry(0.28, 0.2, 0.03), matrix: mat(hx + 0.14, y0 + 1.1, cz - 0.15, -0.4, 0, 0), color: '#111316' },
+      { geo: new THREE.BoxGeometry(0.74, 0.32, 0.02), matrix: mat(hx, y0 + 1.18, cz - 0.02, -0.35, 0, 0), color: '#9fb4bf' },
+      { geo: new THREE.BoxGeometry(0.1, 0.09, 0.1), matrix: mat(hx - 0.26, y0 + 1.0, cz - 0.24), color: '#2b2e33' },
+      { geo: new THREE.CylinderGeometry(0.012, 0.012, 0.18, 5), matrix: mat(hx - 0.26, y0 + 1.1, cz - 0.24, 0.35, 0, 0), color: steel },
+      { geo: new THREE.BoxGeometry(0.71, 0.05, 0.61), matrix: mat(hx, y0 + 0.82, cz), color: H.stripe },
+      // (The grab rail round the console's top.)
+      ...[1, -1].map((sd) => strut(V(hx + sd * 0.38, y0 + 0.8, cz + 0.3), V(hx + sd * 0.38, y0 + 1.25, cz - 0.05), 0.016, 0.016, steel)),
+      // The jockey seat: a padded saddle on a pedestal, a grab handle on its front, a box under it.
+      { geo: new THREE.BoxGeometry(0.5, 0.5, 0.55), matrix: mat(hx, y0 + 0.25, jz), color: '#e6e2d8' },
+      { geo: new THREE.BoxGeometry(0.44, 0.16, 0.6), matrix: mat(hx, y0 + 0.82, jz), color: '#2a2e33' },
+      strut(V(hx, y0 + 0.5, jz), V(hx, y0 + 0.74, jz), 0.07, 0.07, steel),
+      strut(V(hx - 0.16, y0 + 0.9, jz + 0.3), V(hx + 0.16, y0 + 0.9, jz + 0.3), 0.014, 0.014, steel),
+      // The A-frame over the stern: two legs up from the transom corners to a crossbar.
+      ...[1, -1].map((sd) => strut(V(sd * (hw(H, 0.06) - 0.15), sheer(H, 0.06), az), V(sd * 0.55, y0 + ah, az + 0.25), 0.03, 0.03, steel)),
+      strut(V(-0.58, y0 + ah, az + 0.25), V(0.58, y0 + ah, az + 0.25), 0.032, 0.032, steel),
+      // (The all-round light on top, and a whip aerial.)
+      { geo: new THREE.CylinderGeometry(0.05, 0.05, 0.12, 8), matrix: mat(0, y0 + ah + 0.1, az + 0.25), color: '#eae6da' },
+      strut(V(0.42, y0 + ah, az + 0.25), V(0.48, y0 + ah + 1.4, az + 0.15), 0.008, 0.004, '#1d2125'),
+    ];
+    // Rods in the holders on the A-frame's crossbar, and two in the gunwale holders forward of it.
+    for (const x of [-0.35, 0.35]) this.rackRod(parts, V(x, y0 + ah + 0.02, az + 0.22), V(x * 0.4, 1, -0.45), 1.8);
+    for (const sd of [1, -1]) this.rackRod(parts, V(sd * (hw(H, 0.2) - 0.08), sheer(H, 0.2) + 0.02, zAt(H, 0.2)), V(sd * 0.35, 1, -0.55), 1.75);
+    const mesh = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.12 }));
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    this.body.add(mesh);
+    this.buildWheel(hx, y0 + 1.03, hz + 0.33, -0.6);
   }
 
   // The windsurf board's rig: a mast stepped in the board, a wishbone boom round the sail, and the

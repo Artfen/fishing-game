@@ -189,3 +189,48 @@ test('from the yacht’s cockpit you turn and cast straight off the stern; seate
   assert.ok(Math.abs(skiff.b.pose.rodYaw) <= 2.2 + 1e-6, `the skiff: the rod no further round than your side (${skiff.b.pose.rodYaw.toFixed(2)})`);
   conditions.manual = null;
 });
+
+test('the RIB: tubes round a deep-V hull, one big outboard, about thirty-five knots, her own notches, fuel and berth', async () => {
+  conditions.manual = { speed: 0, from: 0 };
+  conditions.wind.speed = conditions.wind.target = 0;
+  assert.ok(BOAT_KINDS.includes('rib'));
+  const r = boatAt('rib');
+  assert.ok(r.motor && r.hull.tubes && r.hull.standing && r.wheel, 'a motor, tubes, a wheel, and you stand');
+  assert.ok(!r.hull.motor.twin, 'one outboard');
+  const v = run(boatAt('rib'), 45, 1).forwardSpeed;
+  assert.ok(v > 17 && v < 20, `${v.toFixed(2)} m/s flat out (about thirty-five knots)`);
+  for (const [id, lo, hi] of [['1', 0.7, 1.3], ['2', 1.5, 2.4], ['T', 3.2, 4], ['3', 4, 5.5]]) {
+    const s = run(boatAt('rib'), 35, LEVERS.rib.find((n) => n.id === id).v).forwardSpeed;
+    assert.ok(s > lo && s < hi, `notch ${id}: ${s.toFixed(2)} m/s`);
+  }
+  // Held hard over flat out, she banks into the turn and stays upright; the tubes take some of it.
+  const turn = (kind) => {
+    const b = run(boatAt(kind), 40, 1);
+    let heel = 0;
+    for (let i = 0; i < 30 * 4; i++) {
+      run(b, 1 / 30, 1, 1);
+      heel = Math.max(heel, Math.abs(b.roll));
+    }
+    return heel;
+  };
+  const { HULLS } = await import('../src/boat.js');
+  HULLS.rib_bare = { ...HULLS.rib };
+  delete HULLS.rib_bare.tubes;
+  const withTubes = turn('rib'), bare = turn('rib_bare');
+  delete HULLS.rib_bare;
+  assert.ok(withTubes < 0.45, `heeled ${withTubes.toFixed(2)} rad in a hard turn at full speed`);
+  assert.ok(withTubes < bare, `the tubes stand her up (${withTubes.toFixed(2)} vs ${bare.toFixed(2)} rad without)`);
+  // Petrol, a tank of her own, the trolling notch with a line out, and a berth on your finger.
+  assert.ok(F.isPetrol('rib') && F.TANKS.rib > F.TANKS.jetski && F.TANKS.rib < F.TANKS.console);
+  assert.ok(LEVERS.rib.some((n) => n.id === 'T'));
+  const FL = await import('../src/fleet.js');
+  assert.equal(FL.homeOf('rib'), 'harbour');
+  // An older save, from before her: she starts laid up, and the boats it had in the water stay.
+  const { parseSave, SAVE_VERSION } = await import('../src/save.js');
+  const old = BOAT_KINDS.filter((k) => k !== 'rib');
+  const stored = old.filter((k) => !['row', 'skiff', 'console'].includes(k));
+  const boats = Object.fromEntries(old.map((k) => [k, { x: 0, z: 0, heading: 0 }]));
+  const s = parseSave(JSON.stringify({ game: 'slow-tide', version: SAVE_VERSION, savedAt: 1, data: { day: 2, hour: 10, boats, stored } })).state;
+  assert.ok(s.stored.includes('rib') && !s.stored.includes('console'));
+  conditions.manual = null;
+});
