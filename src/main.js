@@ -38,6 +38,7 @@ import {
   CALF, CALF_TOWER, CALF_SKERRY, CALF_SOUND, CALF_LANDING,
 } from './world/terrain.js';
 import { Car } from './car.js';
+import { TRAILABLE, TRAILER_HOME, launchSpot, loadable } from './trailer.js';
 import { MAX_AFLOAT, homeOf, STORE_WORDS, LAUNCH_WORDS, NEW_AFLOAT, chooseAfloat, ownBerths, cleanStored } from './fleet.js';
 import { Workbench, OutingSheet } from './workbench.js';
 import { KIT, KIT_IDS, DESTS, launchOf, parkNear, driveMinutes, moveKit, reconcile, campOfKit, campHas, statusOf, snapshot } from './outing.js';
@@ -728,13 +729,15 @@ function mooring(kind) {
 // store keeps the three you'd most want in the water (the one you were in first) and lays up
 // the rest; a new game starts with the camp's three boats in the water.
 const KINDS = Object.keys(BOATS);
+// (A boat on the trailer is out of the water but not laid up: she's left out of the count.)
+const FLEET = KINDS.filter((k) => k !== state.trailer?.boat);
 const fleetNews = (() => {
-  if (cleanStored(state.stored, KINDS)) return null;
+  if (cleanStored(state.stored, FLEET)) return null;
   const saved = state.boats || {}, fresh = !Object.keys(saved).length;
   const homes = { harbour: { x: 11, z: -70 }, camp: { x: LANDING.x, z: LANDING.z }, lake: BOATHOUSE_PIER.end };
   const away = KINDS.filter((k) => saved[k] && Math.hypot(saved[k].x - homes[homeOf(k)].x, saved[k].z - homes[homeOf(k)].z) > 60);
-  const afloat = fresh ? NEW_AFLOAT : chooseAfloat(KINDS, { vessel: state.vessel, away });
-  state.stored = KINDS.filter((k) => !afloat.includes(k));
+  const afloat = fresh ? NEW_AFLOAT : chooseAfloat(FLEET, { vessel: state.vessel, away });
+  state.stored = FLEET.filter((k) => !afloat.includes(k));
   return fresh ? null : afloat;
 })();
 const isStored = (k) => state.stored.includes(k);
@@ -824,8 +827,9 @@ for (const [kind, b] of Object.entries(BOATS)) {
     b.sheet = saved.sail;
   }
 }
-// (The ones laid up ashore, out of the way first.)
+// (The ones laid up ashore, out of the way first; and one on the trailer.)
 for (const k of state.stored) stow(BOATS[k], true);
+if (state.trailer?.boat) stow(BOATS[state.trailer.boat], true);
 // How each boat was left: tied up alongside (made fast again where she lies, held firm from the
 // start), at anchor (the anchor already on the bottom where it was), or free. A boat at her home
 // mooring starts tied up there; an older save's boat "anchored" right alongside a pier (how boats
@@ -4311,6 +4315,9 @@ function interaction() {
     const P = walker.pos, boot = car.bootSpot(), door = car.doorSpot();
     if (Math.hypot(P.x - boot.x, P.z - boot.z) < 1.8) return { text: 'Open the boot', run: () => openOutSheet('boot') };
     if (Math.hypot(P.x - door.x, P.z - door.z) < 1.6 || Math.hypot(P.x - car.pos.x, P.z - car.pos.z) < 2.4) return { text: 'Get in and drive', run: () => enterCar() };
+    // The boat trailer, hitched behind or standing by the garage.
+    const tr = trailerAct(P);
+    if (tr) return tr;
     // Somewhere to sit a while (see sitDown).
     const seat = seatNear();
     if (seat) return { text: seat.kind === 'fire' ? 'Sit by the fire' : seat.kind === 'chair' ? 'Sit in your camp chair' : 'Sit by the stove', run: () => sitDown(seat) };
@@ -5375,7 +5382,7 @@ function harbourOffice() {
   // (Wenna at the hatch in office hours; out of them, the yard's board beside it does as well.)
   const W = town.people.wenna, inOffice = W?.block?.spot === 'office' && W.act === 'inside';
   const greet = inOffice ? 'Wenna Penhallow, the harbourmaster, looks up from her ledger. ' : W?.block?.spot === 'gangway' ? 'Wenna’s down at the gangway looking over the pontoon; the board by the hatch does as well. ' : 'The hatch is shut for the night, but the yard’s board beside it sees to your boats all the same. ';
-  ask('The harbour office', `${greet}In the water (${boats.length} of ${MAX_AFLOAT}): ${boats.map((b) => `the ${b.name}, ${whereWords(b)}`).join('; ')}.${laid.length ? ` Laid up: ${laid.map((b) => `the ${b.name}`).join(', ')}.` : ''}`, [
+  ask('The harbour office', `${greet}In the water (${boats.length} of ${MAX_AFLOAT}): ${boats.map((b) => `the ${b.name}, ${whereWords(b)}`).join('; ')}.${laid.length ? ` Laid up: ${laid.map((b) => `the ${b.name}`).join(', ')}.` : ''}${state.trailer.boat ? ` On your trailer: the ${BOATS[state.trailer.boat].name}.` : ''}`, [
     { text: 'Never mind', cls: 'quiet' },
     ...(laid.length ? [{ text: 'Put a boat in the water…', run: () => chooseLaunch() }] : []),
     ...(boats.length > 1 ? [{ text: 'Lay a boat up…', run: () => chooseStore() }] : []),
@@ -5400,6 +5407,88 @@ function chooseLaunch() {
     ...laid.map((b) => ({ text: `The ${b.name}`, run: () => launchBoat(b) })),
   ]);
 }
+/* ---------- the boat trailer (see trailer.js) ---------- */
+
+// Hitched, or standing by the garage; and a boat on it sits on its bunks wherever it goes.
+car.setTrailer(state.trailer.hitched ? true : TRAILER_HOME);
+const _trailerAt = { x: 0, z: 0, y: 0, yaw: 0, pitch: 0 };
+function trailerBoatStep() {
+  const k = state.trailer.boat;
+  if (!k) return;
+  const b = BOATS[k], T = car.trailerSpot(_trailerAt);
+  b.group.visible = car.trailer.visible;
+  b.group.position.set(T.x, T.y + 0.6, T.z);
+  b.group.rotation.set(T.pitch, T.yaw, 0, 'YXZ');
+}
+trailerBoatStep();
+// What you can do at the trailer, standing beside it.
+function trailerAct(P) {
+  if (!car.trailer.visible || driving) return null;
+  const T = car.trailerSpot(_trailerAt);
+  if (Math.hypot(P.x - T.x, P.z - T.z) > 2.6) return null;
+  if (!state.trailer.hitched) {
+    const close = Math.hypot(car.pos.x - TRAILER_HOME.x, car.pos.z - TRAILER_HOME.z) < 20;
+    return close ? { text: 'Hitch the trailer to the car', run: () => hitchTrailer(true) }
+      : { text: 'The boat trailer', run: () => hud.toast('Bring the car round to hitch it up: it carries a small boat (the kayak, the rowing boat, the skiff, the bass boat or the jet ski) to any water the car can get close to.', 6) };
+  }
+  const b = state.trailer.boat ? BOATS[state.trailer.boat] : null;
+  return { text: b ? `The trailer: the ${b.name}` : 'The trailer', run: () => trailerChoices() };
+}
+function hitchTrailer(on) {
+  state.trailer.hitched = on;
+  car.setTrailer(on ? true : TRAILER_HOME);
+  audio.knock(0.3);
+  hud.toast(on ? 'The trailer’s hitched on. Back it down to the water with a boat to launch, or bring one in to load: from the slipway at Willowhaven, the strand, Wend Quay or the Mere Boathouse.' : 'The trailer’s unhitched, back by the garage.', 6);
+  save();
+}
+function trailerChoices() {
+  const T = car.trailerSpot(_trailerAt), k = state.trailer.boat, b = k ? BOATS[k] : null;
+  const home = Math.hypot(T.x - TRAILER_HOME.x, T.z - TRAILER_HOME.z) < 25;
+  const opts = [{ text: 'Never mind', cls: 'quiet' }];
+  let text;
+  if (b) {
+    const spot = launchSpot(depthAt, T.x, T.z, T.yaw);
+    if (!spot) text = `The ${b.name} is on the trailer. There’s no water close enough to launch her here: back the trailer down to the water’s edge (a slipway, a beach, a quay).`;
+    else if (boats.length >= MAX_AFLOAT) text = `The ${b.name} is on the trailer, but three of your boats are in the water already: bring one in onto the trailer, or lay one up at the harbour office, first.`;
+    else {
+      text = `The ${b.name} is on the trailer, and there’s water to launch her ${spot.r < 8 ? 'right behind it' : `${Math.round(spot.r)} metres off`}.`;
+      opts.push({ text: `Launch the ${b.name}`, run: () => launchOffTrailer(b, spot) });
+    }
+  } else {
+    const near = loadable(boats.map((o) => ({ kind: o.kind, pos: o.pos, aboard: o === boat && !onFoot, towing: !!(tow && (tow.lead === o || tow.towed === o)), o })), T.x, T.z);
+    const shown = near.filter((n) => regionOf(n.o) === 'home');
+    text = shown.length ? 'Which boat comes out onto it? (She’s brought in to the bank and winched up.)' : `Nothing to load here: bring a small boat (${TRAILABLE.map((t) => BOATS[t]?.name).filter(Boolean).join(', ')}) in close to the trailer, and step ashore.`;
+    if (shown.length && boats.length <= 1) text = 'She’s your only boat in the water: put another in first.';
+    else for (const n of shown) opts.push({ text: `The ${n.o.name}`, run: () => loadOnTrailer(n.o) });
+    if (home) opts.push({ text: 'Unhitch it here', cls: 'quiet', run: () => hitchTrailer(false) });
+  }
+  ask('The boat trailer', text, opts);
+}
+function loadOnTrailer(b) {
+  if (state.trailer.boat || boats.length <= 1) return;
+  stow(b);
+  state.trailer.boat = b.kind;
+  // (Not the boat you'd go back to any more: the nearest of the others in the water is.)
+  if (boat === b) switchBoat(boats.reduce((best, o) => (!best || Math.hypot(o.pos.x - walker.pos.x, o.pos.z - walker.pos.z) < Math.hypot(best.pos.x - walker.pos.x, best.pos.z - walker.pos.z) ? o : best), null));
+  passTime(0.25);
+  audio.knock(0.4);
+  trailerBoatStep();
+  hud.toast(`The ${b.name} is out of the water and on the trailer, strapped down. She goes where the car goes.`, 6);
+  save();
+}
+function launchOffTrailer(b, spot) {
+  if (boats.length >= MAX_AFLOAT) return;
+  state.trailer.boat = null;
+  unstow(b);
+  b.group.rotation.set(0, b.heading, 0, 'XYZ');
+  b.tie = null;
+  b.place(spot.x, spot.z, spot.heading);
+  passTime(0.25);
+  audio.knock(0.4);
+  hud.toast(`The ${b.name} is in the water, off the trailer: step aboard and away.`, 6);
+  save();
+}
+
 // Out of the water: fetched by the yard if she's lying somewhere else, then kept where she lives.
 function storeBoat(b, { quiet = false } = {}) {
   if (!canStore(b) || boats.length <= 1) return false;
@@ -8369,6 +8458,7 @@ function tick(now, manual = false) {
     const dry = tanks().car <= 0;
     const bump = car.update(dt, t, { throttle: modal || dry ? 0 : carIn.throttle, steer: modal ? 0 : carIn.steer, brake: live && (modal || input.holding('cast')) ? 1 : 0 }, carWorld, { live, night: env.night, still: settings.controls.reducedMotion });
     if (bump) carBumped(bump);
+    trailerBoatStep();
     if (live && !dry && carIn.throttle && burnCar(tanks(), Math.abs(car.speed) * dt)) {
       hud.flash(`The engine coughs and dies: the tank is dry. Roll to a stop, then ${scheme() === 'touch' ? 'tap the prompt' : K('interact')}.`, t, 5);
     }

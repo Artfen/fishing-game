@@ -9,6 +9,7 @@ import { cleanGuide } from './firstTrip.js';
 import { cleanFuel } from './fuel.js';
 import { CHOICES } from './quality.js';
 import { cleanStored } from './fleet.js';
+import { cleanTrailer } from './trailer.js';
 import { cleanDive } from './dive.js';
 import { cleanToday, cleanDays, cleanBadges, newToday } from './daybook.js';
 import { cleanGrounds, newGrounds } from './grounds.js';
@@ -86,6 +87,7 @@ export const DEFAULT_STATE = {
   // loadouts, and what's on the wall at home.
   equip: null,     // { kit: { tent, stove, coolbox: 'home' | 'car' | 'pack' | 'camp:<id>' }, car: { rods, items } }
   car: null,       // { x, z, yaw, at: 'home' | destination id | null }
+  trailer: null,   // the boat trailer (see trailer.js): { hitched, boat (on it: a kind, or null) }
   outing: null,    // { plan, last, lastDest, loadouts, travel, intro }
   home: null,      // { photos: [ids], keepsake, catchId, auto }
   guide: null,     // the first-trip guide: { on, done, dest, offered, finished, min, since } (see firstTrip.js)
@@ -133,6 +135,7 @@ const fresh = () => {
   s.settings = cleanSettings(null);
   s.equip = defaultEquip('home');
   s.car = cleanCar(null);
+  s.trailer = cleanTrailer(null);
   s.outing = cleanOuting(null);
   s.home = cleanHome(null, s);
   s.guide = cleanGuide(null);
@@ -350,7 +353,10 @@ export function sanitize(raw) {
     .slice(0, VESSELS.length)
     .map((x) => ({ kind: x.kind, to: x.to, due: x.due }));
   // (A boat new to the game since this save was made starts laid up.)
-  s.stored = cleanStored(raw.stored, VESSELS, isObj(raw.boats) ? Object.keys(raw.boats) : null);
+  // (A boat on the trailer is neither in the water nor laid up.)
+  s.trailer = cleanTrailer(raw.trailer, VESSELS);
+  const fleet = VESSELS.filter((k) => k !== s.trailer.boat);
+  s.stored = cleanStored(raw.stored, fleet, isObj(raw.boats) ? Object.keys(raw.boats).filter((k) => k !== s.trailer.boat) : null);
   s.seenSouth = typeof raw.seenSouth === 'string' && raw.seenSouth.length <= 2000 && /^[A-Za-z0-9+/=]*$/.test(raw.seenSouth) ? raw.seenSouth : '';
   // A crossing under way (an older save has none: nothing to resume), and your crossings so far.
   s.crossing = cleanCrossing(raw.crossing);

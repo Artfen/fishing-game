@@ -36,8 +36,9 @@ const listWords = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join
 /* ---------------- where you can go by car ---------------- */
 
 // Each destination: where the car parks (terrain.js), the water you fish (for what lives there),
-// how you get there, and what's there. drive: the lanes reach it (you can drive yourself);
-// otherwise it's by road, a short travel transition. mins: how long the drive takes in game time.
+// how you get there, and what's there. drive: the lanes reach it (you can drive yourself, or let
+// the drive go by); the road round the bay (see terrain.js ROAD) reaches Wend Quay and the Mere
+// Boathouse. mins: how long the drive takes in game time.
 // boat: no road goes there at all: you drive to its launch (a harbour) and go on by boat.
 export const DESTS = {
   haven: {
@@ -68,19 +69,19 @@ export const DESTS = {
     explore: 'The daymark (with a view of the Kittiwake’s buoy), the cove channel, and an old punt at the head of the cove.',
   },
   quay: {
-    id: 'quay', place: 'quay', name: 'Wend Quay', kind: 'An estuary quay', drive: false, mins: 35, water: 'brackish',
+    id: 'quay', place: 'quay', name: 'Wend Quay', kind: 'An estuary quay', drive: true, mins: 35, water: 'brackish',
     at: { x: 540, z: -150, r: 150 },
     terrain: 'Old stones where the estuary narrows, reeds and mudflats either side.',
-    access: 'By road round the bay: you park by the quay and its little camp.',
+    access: 'The road round the bay, past the Mere Boathouse and down beside the Wend: you park by the quay and its little camp.',
     boats: 'A mooring ring on the quay; your boats stay where you left them.',
     camp: 'A fixed camp with a tent and a tackle box, and room for your own.',
     explore: 'The Saltings’ reedy channels, and the trail inland to Longmere.',
   },
   boathouse: {
-    id: 'boathouse', place: 'boathouse', name: 'Mere Boathouse', kind: 'A lake boathouse', drive: false, mins: 45, water: 'fresh',
+    id: 'boathouse', place: 'boathouse', name: 'Mere Boathouse', kind: 'A lake boathouse', drive: true, mins: 28, water: 'fresh',
     at: { x: 380, z: -440, r: 170 },
     terrain: 'A tarred boathouse and jetty on the south-east shore of Longmere, a big lake among the hills.',
-    access: 'By road over the hill: you park beside the boathouse.',
+    access: 'The road round the bay, over the hill and along the neck of land below Longmere: you park beside the boathouse.',
     boats: 'The bass boat lives at the jetty (with a tackle locker).',
     camp: 'The boathouse has a bunk and a tackle box; grass along the shore for a tent.',
     explore: 'Heron Holm, the drowned oaks under the north shore, and the weedy bays.',
