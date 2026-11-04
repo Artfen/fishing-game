@@ -309,3 +309,88 @@ test('only the host’s world counts, and a newer game’s world asks for a relo
   mags.T.leave();
   await until(() => bert.T.status === 'off' && ruth.T.status === 'off');
 });
+
+/* ---------- R2: social signals ---------- */
+
+const { CALLS } = await import('../src/together.js');
+
+test('quick calls reach the others, one at a time, and nothing else counts as one', async () => {
+  const hub = new Hub(), time = { now: 5000 };
+  const mags = player(hub, 'Mags', time, { day: 10, hour: 12, sky: 'clear', code: '3030' });
+  const bert = player(hub, 'Bert', time, { day: 2, hour: 9, sky: 'clear' });
+  await mags.T.host();
+  await bert.T.join('3030');
+  await run([mags, bert], time, 1);
+  assert.equal(mags.T.call(0), true);
+  assert.equal(mags.T.call(1), false, 'a moment between calls');
+  await run([mags, bert], time, 2);
+  assert.equal(mags.T.call(5), true);
+  assert.equal(mags.T.call(99), false);
+  assert.equal(mags.T.call(1.5), false);
+  await run([mags, bert], time, 1);
+  const calls = bert.events.filter((e) => e[0] === 'call');
+  assert.deepEqual(calls.map((e) => [e[1], e[2].text]), [['Mags', CALLS[0]], ['Mags', CALLS[5]]]);
+  assert.equal(bert.T.peers.get(mags.T.id).call.text, CALLS[5]);
+  // Junk calls from anyone are ignored.
+  mags.T.rt.send('call', { id: mags.T.id, c: 'Over here!' });
+  mags.T.rt.send('call', { id: mags.T.id, c: -1 });
+  await run([mags, bert], time, 2);
+  assert.equal(bert.events.filter((e) => e[0] === 'call').length, 2);
+  mags.T.leave();
+  await until(() => bert.T.status === 'off');
+});
+
+test('a fish on is news once, and shows while it lasts', async () => {
+  const hub = new Hub(), time = { now: 6000 };
+  const mags = player(hub, 'Mags', time, { day: 10, hour: 12, sky: 'clear', code: '4040' });
+  const bert = player(hub, 'Bert', time, { day: 2, hour: 9, sky: 'clear' });
+  await mags.T.host();
+  await bert.T.join('4040');
+  let on = false;
+  const pose = () => ({ m: 'boat', k: 'row', x: 5, z: 5, h: 0, f: true, o: on });
+  const go = async (secs) => {
+    for (let i = 0; i < secs * 30; i++) {
+      time.now += 1 / 30;
+      mags.T.update(1 / 30, pose());
+      bert.T.update(1 / 30, null);
+      if (i % 3 === 0) await wait(1);
+    }
+  };
+  await go(2);
+  assert.equal(bert.events.filter((e) => e[0] === 'fishOn').length, 0);
+  on = true;
+  await go(3);
+  assert.deepEqual(bert.events.filter((e) => e[0] === 'fishOn').map((e) => e[1]), ['Mags']);
+  assert.equal(bert.T.peers.get(mags.T.id).pose.o, true);
+  on = false;
+  await go(2);
+  assert.equal(bert.T.peers.get(mags.T.id).pose.o, false);
+  on = true;
+  await go(2);
+  assert.equal(bert.events.filter((e) => e[0] === 'fishOn').length, 2, 'another fish, another word (the game spaces them out)');
+  mags.T.leave();
+  await until(() => bert.T.status === 'off');
+});
+
+test('a session counts what it sends and receives, and the times its connection was got back', async () => {
+  const hub = new Hub(), time = { now: 7000 };
+  const mags = player(hub, 'Mags', time, { day: 10, hour: 12, sky: 'clear', code: '5050' });
+  const bert = player(hub, 'Bert', time, { day: 2, hour: 9, sky: 'clear' });
+  await mags.T.host();
+  await bert.T.join('5050');
+  await run([mags, bert], time, 6);
+  const A = mags.T.stats, B = bert.T.stats;
+  assert.ok(A.out >= 3, `host sent ${A.out}`);
+  assert.ok(B.in >= 3, `joiner received ${B.in}`);
+  assert.ok(A.bytesOut > 100 && B.bytesIn > 100);
+  assert.equal(B.reconnects, 0);
+  hub.drop(bert.T.rt.ws);
+  await until(() => bert.events.some((e) => e[0] === 'back'));
+  assert.equal(bert.T.stats.reconnects, 1);
+  // A new session starts counting afresh.
+  mags.T.leave();
+  await until(() => bert.T.status === 'off');
+  await mags.T.host();
+  assert.equal(mags.T.stats.out <= 3, true);
+  mags.T.leave();
+});
