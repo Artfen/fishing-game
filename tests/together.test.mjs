@@ -494,3 +494,35 @@ test('a friend who stops stays stopped, and one who goes somewhere new is there 
   assert.ok(jumpAt > 0);
   assert.ok(far[jumpAt].z > 4999, 'there at once');
 });
+
+test('your boats in the water go across to your friends, and a guest has a place of their own on the visitors’ row', async () => {
+  const { cleanFleet } = await import('../src/together.js');
+  // What comes over the wire is checked: known kinds, numbers that make sense, each kind once, a few.
+  assert.deepEqual(cleanFleet([{ k: 'skiff', x: 1, z: 2, h: 0 }, { k: 'skiff', x: 9, z: 9, h: 0 }, { k: 'yacht', x: 1, z: 1, h: 0 }, { k: 'row', x: 'x', z: 1, h: 0 }, null], ['row', 'skiff']), [{ k: 'skiff', x: 1, z: 2, h: 0 }]);
+  assert.deepEqual(cleanFleet('junk'), []);
+  assert.equal(cleanFleet(Array.from({ length: 9 }, (_, i) => ({ k: `k${i}`, x: 0, z: 0, h: 0 }))).length, 4);
+
+  const hub = new Hub();
+  const a = player(hub, 'Mags', { newCode: () => '5150' });
+  const b = player(hub, 'Bert'), c = player(hub, 'Hettie');
+  a.fleetSource = () => [{ k: 'sail', x: 17.4, z: -55.05, h: 1.57 }, { k: 'row', x: -70, z: -5, h: 0 }];
+  b.fleetSource = () => [{ k: 'skiff', x: 0, z: -48, h: -1.57 }];
+  assert.equal(await a.host(), true);
+  assert.equal(a.guestSlot, -1, 'the host is at home');
+  assert.equal(b.guestSlot, -1, 'on your own, at home');
+  await b.join('5150');
+  await c.join('5150');
+  await until(() => a.others.length === 2 && b.others.length === 2 && c.others.length === 2);
+  for (let i = 0; i < 6; i++) tick([a, b, c]);
+  await until(() => b.others.find((p) => p.name === 'Mags')?.fleet?.length === 2 && a.others.find((p) => p.name === 'Bert')?.fleet?.length === 1);
+  assert.deepEqual(b.others.find((p) => p.name === 'Mags').fleet[0], { k: 'sail', x: 17.4, z: -55.05, h: 1.57 });
+  // Two guests: a place each on the visitors' row, the same on every screen.
+  assert.deepEqual([b.guestSlot, c.guestSlot].sort(), [0, 1]);
+  assert.equal(a.guestSlot, -1);
+  // A boat of Mags's moves: word of it goes across soon after.
+  a.fleetSource = () => [{ k: 'sail', x: 30, z: -40, h: 0.5 }];
+  for (let i = 0; i < 25; i++) tick([a, b, c]);
+  await until(() => b.others.find((p) => p.name === 'Mags')?.fleet?.[0]?.x === 30);
+  for (const T of [a, b, c]) T.leave();
+  await until(() => hub.sockets.size === 0);
+});
