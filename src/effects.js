@@ -169,6 +169,10 @@ export class Effects {
         for (const side of [-1, 1]) this.glow.spawn(boat.pos.x + f.x * bow + boat.right.x * side * 0.5, boat.pos.z + f.z * bow + boat.right.z * side * 0.5, 2 + Math.round(3 * s), 0.4, 0.7 + s * 0.4, t);
       }
     }
+    // (Where the ripple field draws the boats' white water into the sea itself, these strips
+    // aren't needed: see world/wakes.js.)
+    this.wake.visible = !this.field?.on;
+    if (!this.wake.visible) return;
     const n = this.trail.length;
     const P = this.wakePos, C = this.wakeCol;
     for (let b = 0; b < 3; b++) {

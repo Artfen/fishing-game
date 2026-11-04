@@ -134,7 +134,7 @@ export class VisitorView {
     const fore = waveHeight(A.x + fw.x * H.L * 0.4, A.z + fw.z * H.L * 0.4, t), aft = waveHeight(A.x - fw.x * H.L * 0.4, A.z - fw.z * H.L * 0.4, t);
     b.group.position.set(A.x, w - floatDraft(b.base), A.z);
     const wk = (b._wake ||= wakeOf(b.base));
-    wakes.trail(b, A.x, A.z, fw.x, fw.z, speed, t, wk.mass, wk.L, wk.fine);
+    wakes.trail(b, A.x, A.z, fw.x, fw.z, speed, t, wk.mass, wk.L, wk.fine, P.s ? 0 : Math.min(0.7, speed / 4), H.B);
     b.group.rotation.y = A.h;
     b.body.rotation.x = clamp(Math.atan2(aft - fore, H.L * 0.8) - Math.min(0.08, speed * 0.012), -0.3, 0.3);
     d.roll = damp(d.roll, Math.sin(t * 0.9) * 0.05 + (P.s && !P.n ? 0.12 : 0), 2, dt);

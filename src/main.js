@@ -315,9 +315,19 @@ const fx = new Effects(scene);
 // The water mirrors the world and shows every ripple (both scale with the graphics setting).
 const reflection = new Reflection();
 const ripples = new RippleField();
-// The boats' wakes, drawn into the ripple field with the rings (see wakes.js).
-ripples.scene.add(wakes.buildMesh());
-ripples.extra = (cx, cz, span) => wakes.updateMesh(t, cx, cz, span);
+// The boats' wakes, drawn into the ripple field with the rings (see wakes.js); and with Ocean:
+// Full, into a second, coarser field half a kilometre across, so they're seen a long way off.
+const wakeMesh = wakes.buildMesh();
+ripples.scene.add(wakeMesh);
+ripples.extra = (cx, cz, span) => {
+  ripples.scene.add(wakeMesh);
+  return wakes.updateMesh(t, cx, cz, span);
+};
+const farWakes = new RippleField(1);
+farWakes.extra = (cx, cz, span) => {
+  farWakes.scene.add(wakeMesh);
+  return wakes.updateMesh(t, cx, cz, span);
+};
 fx.setField(ripples);
 // The sea glowing at night (splashes, wakes and strokes light it: see seaglow.js), and the
 // whales, dolphins, seals and gannets you watch rather than catch (sealife.js).
@@ -5666,7 +5676,7 @@ BOATS.jetski.onLand = (b, hit) => {
   audio.knock(clamp(hit / 3, 0.3, 1));
   if (!settings.controls.reducedMotion) rig.shake = Math.max(rig.shake, Math.min(0.22, hit * 0.07));
 };
-let jetSprayT = 0;
+let jetSprayT = 0, bowSprayT = 0;
 
 // Sea life: how loud and from which side a sound from (x, z) is, where you are.
 function heardFrom(x, z, range) {
@@ -5908,6 +5918,14 @@ const qualityText = () => {
   return `${quality.choice === 'auto' ? `Auto (${L})` : L}${custom ? ', adjusted' : ''}`;
 };
 
+// What the Ocean setting is doing just now, for Settings.
+let oceanMode = 'simple';
+const oceanText = () => {
+  const G = settings.graphics, auto = G.ocean === 'auto';
+  if (oceanMode === 'full') return auto ? 'Auto: Full on this device.' : 'Full.';
+  if (G.ocean === 'full') return 'This browser can’t work the short waves out on its graphics card, so it’s Simple.';
+  return auto ? 'Auto: Simple on this device.' : 'Simple.';
+};
 function applyQuality() {
   const G = settings.graphics;
   quality.choice = G.preset;
@@ -5927,6 +5945,12 @@ function applyQuality() {
   surfaceUniforms.uDetail.value = q.surfaceDetail;
   ripples.setQuality(q.ripples, q.rippleSpan, renderer);
   water.uniforms.uRippleTexel.value = 1 / Math.max(1, ripples.size);
+  // The Ocean: Full (the short waves worked out on the graphics card) or Simple. Auto: Full on a
+  // computer at Medium or above, Simple on a phone or tablet or on Low.
+  const oceanWant = G.ocean === 'auto' ? (touch.active || qualityLevel() === 'low' ? 'simple' : 'full') : G.ocean;
+  oceanMode = water.setOcean(oceanWant, renderer);
+  // (Ocean: Full also draws the wakes far off.)
+  farWakes.setQuality(oceanMode === 'full' && q.ripples ? 512 : 0, 512, renderer);
   rainDrawn = q.rain;
   world.setPixelRatio(pr);
   glow.setPixelRatio(pr);
@@ -6032,6 +6056,7 @@ const settingsUI = new SettingsUI(state, {
     audio.biteAlert('strike');
   },
   qualityText,
+  oceanText,
   difficulty: () => state.difficulty,
   setDifficulty,
   behaviour: () => state.behaviour,
@@ -7890,6 +7915,21 @@ function tick(now, manual = false) {
       fx.splash(boat.pos.x - boat.fwd.x * 1.8, 0.1, boat.pos.z - boat.fwd.z * 1.8, Math.round(2 + 4 * k), 1.6 + 3 * k, 0.35);
     }
   }
+  // Spray off a fast boat's bow: sheets thrown out from her chines at speed, and a burst when she
+  // drops into a sea.
+  bowSprayT -= dt;
+  if (!onFoot && !dive && boat.motor && boat.kind !== 'jetski' && bowSprayT <= 0) {
+    const v = Math.abs(boat.forwardSpeed), H = boat.hull;
+    const k = clamp((v - 5) / 8, 0, 1), slam = clamp((boat.slam - 1.2) / 2.5, 0, 1);
+    if (k > 0 || slam > 0) {
+      bowSprayT = 0.05;
+      for (const side of [-1, 1]) {
+        const u = H.L * (0.2 - 0.12 * k), x = boat.pos.x + boat.fwd.x * u + boat.right.x * side * H.B * 1.05, z = boat.pos.z + boat.fwd.z * u + boat.right.z * side * H.B * 1.05;
+        const n = Math.round(k * 2.5 + slam * 9 + (Math.random() < k * 0.5 ? 1 : 0));
+        if (n) fx.splash(x, waveHeight(x, z, t) + 0.08, z, n, 1.1 + 1.8 * k + 3 * slam, 0.35 + slam * 0.8);
+      }
+    }
+  }
   motorNoiseT -= dt;
   if (outboard && Math.abs(boat.power) > 0.25 && motorNoiseT <= 0) {
     motorNoiseT = 0.5;
@@ -8204,6 +8244,7 @@ function draw() {
     camera.getWorldDirection(_rf);
     _rf.set(P.x + _rf.x * 14, 0, P.z + _rf.z * 14);
   }
+  if (farWakes.on) farWakes.render(renderer, camera.position.x, camera.position.z);
   ripples.render(renderer, _rf.x, _rf.z);
   reflection.render(renderer, scene, camera);
   const wu = water.uniforms;
@@ -8214,6 +8255,9 @@ function draw() {
   wu.uRippleOn.value = ripples.on ? 1 : 0;
   wu.uRipple.value = ripples.target?.texture || null;
   wu.uRippleRect.value.copy(ripples.rect);
+  wu.uFarOn.value = farWakes.on ? 1 : 0;
+  wu.uFarRipple.value = farWakes.target?.texture || null;
+  wu.uFarRect.value.copy(farWakes.rect);
   renderer.render(scene, camera);
   if (post.on) post.finish(camera, lookOfTheHour());
 }

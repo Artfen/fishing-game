@@ -402,6 +402,7 @@ export class Boat {
     this.boomYaw = 0;
     this.sailSide = 1;
     this.helm = 0;          // where the tiller, wheel or bars actually are (-1 … 1; see helmTo)
+    this.slam = 0;          // how hard her bow's meeting the water (m/s down into it)
     // The windsurf board: in the water after a fall (seconds until you're back up), how long
     // you've been overpowered, and planing (0 … 1). The jet ski: in the air off a wave, and its
     // climb (m/s).
@@ -2120,7 +2121,7 @@ export class Boat {
       if (H.sail) this.heel = this.roll;
       const rowing = (throttle !== 0 || steer !== 0) && !held;
       // (Sat low in a kayak, you keep her upright with your hips as the chop rolls under her.)
-      if (H.paddle) b.balance = 0.12;
+      if (H.paddle) b.balance = 0.06;
       if (rowing) this.phase += dt * Math.PI * 2 * H.rate;
       const pull = held ? 0 : throttle;
       // (Pulling straight, a little more on one oar keeps her straight.)
@@ -2188,7 +2189,14 @@ export class Boat {
     this.forwardSpeed = (this.vel.x - this.drift.x) * this.fwd.x + (this.vel.z - this.drift.z) * this.fwd.z;
     this.thrustNow = thrust;
     // Her own wake, left behind her.
-    if (!this.air) wakes.trail(this, this.pos.x, this.pos.z, this.fwd.x, this.fwd.z, this.forwardSpeed, t, b.m, H.L, H.L / Math.cbrt(b.m / RHO));
+    // (With the white water her propeller churns up: how hard it's working, prop or jet.)
+    if (!this.air) wakes.trail(this, this.pos.x, this.pos.z, this.fwd.x, this.fwd.z, this.forwardSpeed, t, b.m, H.L, H.L / Math.cbrt(b.m / RHO), Math.min(1, Math.abs(this.power) * 1.2), H.B);
+    // How hard her bow is meeting the water just now (m/s down into it), for the spray.
+    {
+      const bp = b.toWorld([0, H.draft, zAt(H, 0.88)], _w3);
+      b.pointVel(bp, _w4);
+      this.slam = bp[1] < waveHeight(bp[0], bp[2], t) + 0.12 ? Math.max(0, -_w4[1]) : 0;
+    }
     // Clear of the water (a jet ski off a crest): in the air, and the smack of landing.
     this.air = b.dryT > 0.06;
     if (wasAir && !this.air && -airVy > 1) this.onLand?.(this, -airVy);
@@ -2249,7 +2257,7 @@ export class Boat {
     const H = this.hull, M = H.motor;
     // (How far over it goes at full speed, from what speed on, and how quickly it turns: bars
     // and tillers quickest, a big boat's wheel slowest.)
-    const spec = M?.jet ? [0.5, 3, 13, 3.5] : M?.inboard ? [0.55, 2, 9, 1.6] : H.rig ? [0.5, 3, 9, 3] : H.cabin ? [0.3, 1.5, 5, 1.8] : H.wheel ? [0.3, 2, 8, 2.2] : M ? [0.3, 2, 8, 4.5] : [0.7, 1.5, 4, 3];
+    const spec = M?.jet ? [0.5, 3, 13, 3.5] : M?.inboard ? [0.55, 2, 9, 1.6] : H.rig ? [0.5, 3, 9, 3] : H.cabin ? [0.3, 1.5, 5, 1.8] : H.wheel ? [0.3, 2, 8, 2.2] : M ? [0.3, 2, 8, 6] : [0.7, 1.5, 4, 3];
     const fast = smoothstep(spec[1], spec[2], Math.abs(vf));
     const most = 1 - (1 - spec[0]) * fast;
     const target = clamp(want, -1, 1) * most;

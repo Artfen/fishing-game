@@ -105,9 +105,11 @@ test('the jet ski: quick, steered by its jet, a light touch on the lever', () =>
 });
 
 test('the jet ski leaves the crests at speed in a lively sea, and stays on a calm one', () => {
+  // (Heading into the sea, as you would to jump it: the wind from the south-west, she runs
+  // south-west into the waves it raises. Across them, she'd ride along their crests.)
   const ride = (preset, speed) => {
     wind(speed, preset, 225);
-    const j = at('jetski', Math.PI * 0.25);
+    const j = at('jetski', -Math.PI * 0.25);
     let jumps = 0, was = false;
     for (let i = 0; i < 30 * 20; i++) {
       clock += 1 / 30;
