@@ -300,6 +300,15 @@ export class SettingsUI {
       }
       box.append(list);
       if (!others.length) box.append(el('p', 'st-note', T.hosting ? 'Waiting for someone to join…' : 'Everyone else has left.'));
+      else box.append(el('p', 'st-note', `Quick calls: the Call button at the top, or ${this.hooks.keyLabel(this.S.controls.keys?.call?.[0] || 'Digit4')}. Friends are on the map too.`));
+      // What the session has cost in messages (Supabase counts them against its monthly allowance).
+      const U = T.stats;
+      if (U) {
+        const mins = Math.max(1, Math.round((Date.now() - U.since) / 60000));
+        const kb = Math.round((U.bytesOut + U.bytesIn) / 1024);
+        const again = U.reconnects ? `, and the connection was got back ${U.reconnects === 1 ? 'once' : `${U.reconnects} times`}` : '';
+        box.append(el('p', 'st-note st-tg-usage', `This session so far: ${U.out.toLocaleString()} messages sent and ${U.in.toLocaleString()} received (about ${kb.toLocaleString()} KB) in ${mins} minute${mins === 1 ? '' : 's'}${again}. Supabase counts messages against its monthly Realtime allowance.`));
+      }
       const leave = el('button', 'pk-btn quiet', T.hosting ? 'End the session' : 'Leave the session');
       leave.type = 'button';
       leave.addEventListener('click', () => {

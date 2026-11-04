@@ -86,7 +86,7 @@ test('codes are four digits', () => {
 
 test('poses from others are checked: bad numbers, modes or boats are dropped', () => {
   const kinds = ['row', 'skiff'];
-  assert.deepEqual(cleanPose({ m: 'boat', k: 'skiff', x: 1, z: 2, h: 0.5, vx: 1, vz: 0, f: 1, s: 0, n: 0 }, kinds), { m: 'boat', k: 'skiff', x: 1, z: 2, h: 0.5, vx: 1, vz: 0, f: true, s: false, n: false });
+  assert.deepEqual(cleanPose({ m: 'boat', k: 'skiff', x: 1, z: 2, h: 0.5, vx: 1, vz: 0, f: 1, s: 0, n: 0 }, kinds), { m: 'boat', k: 'skiff', x: 1, z: 2, h: 0.5, vx: 1, vz: 0, f: true, s: false, n: false, o: false });
   assert.equal(cleanPose({ m: 'boat', k: 'battleship', x: 1, z: 2, h: 0 }, kinds), null);
   assert.equal(cleanPose({ m: 'foot', x: NaN, z: 2, h: 0 }), null);
   assert.equal(cleanPose({ m: 'foot', x: '1', z: 2, h: 0 }), null);

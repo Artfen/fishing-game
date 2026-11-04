@@ -83,6 +83,20 @@ export class VisitorView {
     return d.figure;
   }
 
+  // A friend's boat drawn within `r` of (x, z), if any (so a boat of yours lying in the same spot,
+  // as boats from the same jetty do, can step aside: see main.js).
+  boatNear(x, z, r) {
+    for (const d of this.drawn.values()) {
+      for (const b of Object.values(d.boats)) {
+        if (b.group.visible && Math.hypot(b.pos.x - x, b.pos.z - z) < r) return b;
+      }
+    }
+    return null;
+  }
+
+  // A friend's own colour (their coat), for the map.
+  colourOf(name) { return lookFor(name).coat; }
+
   // Hide (and let go of) someone who has left.
   forget(id) {
     const d = this.drawn.get(id);
@@ -110,8 +124,13 @@ export class VisitorView {
       for (const [k, b] of Object.entries(d.boats)) if (k !== P.k || !afloat) b.group.visible = false;
       if (onFoot) {
         const f = this.figureFor(d, p.id);
-        const act = P.a === 'walk' || (A.v > 0.4 && P.a !== 'sit') ? 'walk' : P.a;
+        const act = P.o ? 'fish' : P.a === 'walk' || (A.v > 0.4 && P.a !== 'sit') ? 'walk' : P.a;
         f.update(dt, t, { act, pos: A, yaw: A.h }, walkHeight(A.x, A.z));
+        // A fish on: the rod up and working, pumping as they play it.
+        if (P.o) {
+          f.rod.visible = true;
+          f.rod.rotation.x = 2.05 + Math.sin(t * 6.5 + d.look.coat.length) * 0.14;
+        }
       } else if (afloat) {
         this.drawBoat(d, this.boatFor(d, P.k), P, A, dt, t, { fx, glow, night });
       }
@@ -140,11 +159,12 @@ export class VisitorView {
     d.roll = damp(d.roll, Math.sin(t * 0.9) * 0.05 + (P.s && !P.n ? 0.12 : 0), 2, dt);
     b.body.rotation.z = d.roll;
     if (!b.occupied) b.setRower(true);
-    b.pose.fishing = P.f ? 1 : 0;
-    if (P.f) {
+    b.pose.fishing = P.f || P.o ? 1 : 0;
+    if (P.f || P.o) {
       b.pose.rodYaw = 1.1;
-      b.pose.rodPitch = 0.75;
-      b.pose.bend = 0.12;
+      // (A fish on: the rod high and bent hard, nodding as it runs.)
+      b.pose.rodPitch = P.o ? 1.05 + Math.sin(t * 6.5) * 0.08 : 0.75;
+      b.pose.bend = P.o ? 0.55 + Math.sin(t * 9) * 0.1 : 0.12;
     }
     if (H.sail) {
       if (b.sailUp !== !!P.s) b.setSail(!!P.s);
