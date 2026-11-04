@@ -623,6 +623,13 @@ body.pad .keys-only { display: none !important; }
 .marker.near { opacity: 0.75; }
 .marker.guide { border-color: rgba(255, 214, 140, 0.85); background: rgba(40, 32, 20, 0.6); }
 .marker.guide .m-arrow { border-bottom-color: #ffd68c; }
+/* A sale's receipt at the market: each fish, its weight and price by the kilo and why, the total. */
+.hb-receipt { margin: 10px 0 14px; padding: 10px 14px; border: 1.5px dashed var(--ink-faint); border-radius: 6px; background: rgba(255, 255, 255, 0.45); font: 13.5px/1.4 var(--font-ui); }
+.hb-receipt h3 { margin: 0 0 6px; }
+.hb-rline { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-bottom: 1px dotted rgba(53, 41, 31, 0.18); }
+.hb-rline strong { white-space: nowrap; }
+.hb-rtotal { border-bottom: none; font-weight: 700; padding-top: 6px; }
+.hb-standing { margin: 4px 0 10px; }
 /* Quick calls (playing together): a short list of words to send, by the top bar. */
 #calls { position: fixed; top: 64px; right: max(16px, env(safe-area-inset-right, 0px)); z-index: 11; }
 #calls .calls-inner { width: min(280px, calc(100vw - 32px)); padding: 12px; border-radius: 14px; background: rgba(22, 30, 42, 0.92); border: 1px solid rgba(178, 214, 255, 0.5); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }

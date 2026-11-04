@@ -87,11 +87,13 @@ test('a fish fetches its weight in money, half as much again when wanted, less w
   }
   const bass = { id: 'seabass', size: 45, at: plain * 24 + 6 };
   const v = M.fishValue(bass, { day: plain, now: plain * 24 + 8 });
-  assert.ok(Math.abs(v.price - weightOf(fishById.seabass, 45) * M.PRICES.seabass) < 0.06, `${v.price}`);
+  // (The season and the fish's size move the price by the kilo too: see seasonPrice, sizePrice.)
+  const k = (day) => M.seasonPrice(fishById.seabass, day * 24 + 8) * M.sizePrice(fishById.seabass, 45);
+  assert.ok(Math.abs(v.price - weightOf(fishById.seabass, 45) * M.PRICES.seabass * k(plain)) < 0.06, `${v.price}`);
   assert.equal(v.fresh, 1);
   const w = M.fishValue({ ...bass, at: wanted * 24 + 6 }, { day: wanted, now: wanted * 24 + 8 });
   assert.equal(w.demand, 'wanted');
-  assert.ok(Math.abs(w.price / v.price - 1.5) < 0.02);
+  assert.ok(Math.abs((w.price / k(wanted)) / (v.price / k(plain)) - 1.5) < 0.03);
   // Freshness: a day and a half old fetches less, two days and more just over half.
   assert.equal(M.freshness(0, 12), 1);
   assert.ok(M.freshness(0, 30) < 0.85 && M.freshness(0, 30) > 0.7);

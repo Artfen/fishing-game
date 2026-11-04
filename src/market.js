@@ -1,4 +1,5 @@
 import { FISH, fishById, weightOf } from './fish.js';
+import { seasonBoost } from './world/season.js';
 
 // The harbour's trade in fish, kept gentle: a catch you keep can go to the pot (as ever), to the
 // fish market on Willowhaven quay, or to the kitchen at The Lobster Pot when it's asked for one
@@ -16,6 +17,12 @@ import { FISH, fishById, weightOf } from './fish.js';
 //    thing, but it shouldn't make the purse meaningless).
 //  · The kitchen asks for a couple of particular fish each day (sometimes a good-sized one), and
 //    pays well over the market for them.
+//  · The seasons move prices: a fish in its season, with plenty coming in, fetches a little less;
+//    one out of season, scarce, a little more. A prime fish of its kind (the top quarter of its
+//    sizes) fetches more by the kilo, a small one a little less.
+//  · The kitchen remembers who brings it good fish: a regular supplier is paid a little more, and
+//    a fine one (well over the size asked) earns a bonus. Nothing here asks you to fish for money:
+//    it only makes a good catch count for something.
 
 // £ a kilo, at the quay.
 export const PRICES = {
@@ -83,17 +90,40 @@ export function freshness(at, now) {
   return age <= 12 ? 1 : Math.max(0.55, 1 - ((age - 12) / 36) * 0.45);
 }
 
+// The season's hand on the price at `abs` (game hours): ×0.85 in a glut, up to ×1.2 out of season.
+// (Fish with no season of their own, and Las Brasas' in the trade wind, stay as they are.)
+export function seasonPrice(sp, abs) {
+  if (!Number.isFinite(abs)) return 1;
+  return Math.round(Math.min(1.2, Math.max(0.85, 1.25 - 0.25 * seasonBoost(sp, abs))) * 100) / 100;
+}
+export const seasonWord = (k) => (k <= 0.94 ? 'in season, plenty coming in' : k >= 1.1 ? 'out of season, scarce' : '');
+
+// A prime fish of its kind (the top quarter of its sizes) fetches more by the kilo; a small one less.
+export function sizePrice(sp, size) {
+  const k = (size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]);
+  return k >= 0.75 ? 1.15 : k < 0.2 ? 0.9 : 1;
+}
+
 // What a fish from your creel fetches here today: { price (£), kg, each (£/kg), fresh, demand
-// ('wanted' | 'plenty' | null), wanted (false if nobody here buys it) }.
+// ('wanted' | 'plenty' | null), season (×), prime (bool), wanted (false if nobody here buys it) }.
 export function fishValue(f, { day, now, place = 'haven' } = {}) {
   const sp = fishById[f.id];
-  if (!sp || f.cooked || !buyers[place](sp)) return { price: 0, kg: 0, each: 0, fresh: 1, demand: null, wanted: false };
+  if (!sp || f.cooked || !buyers[place](sp)) return { price: 0, kg: 0, each: 0, fresh: 1, demand: null, season: 1, prime: false, wanted: false };
   const kg = weightOf(sp, f.size);
   const D = demandFor(day, place);
   const demand = D.wanted.includes(sp.id) ? 'wanted' : D.plenty.includes(sp.id) ? 'plenty' : null;
-  const each = PRICES[sp.id] * (demand === 'wanted' ? 1.5 : demand === 'plenty' ? 0.7 : 1);
+  const season = place === 'haven' ? seasonPrice(sp, now) : 1;
+  const size = sizePrice(sp, f.size);
+  const each = Math.round(PRICES[sp.id] * (demand === 'wanted' ? 1.5 : demand === 'plenty' ? 0.7 : 1) * season * size * 100) / 100;
   const fresh = freshness(f.at, now);
-  return { price: Math.min(MAX_PRICE, Math.max(0.2, Math.round(kg * each * fresh * 20) / 20)), kg, each, fresh, demand, wanted: true };
+  return { price: Math.min(MAX_PRICE, Math.max(0.2, Math.round(kg * each * fresh * 20) / 20)), kg, each, fresh, demand, season, prime: size > 1, wanted: true };
+}
+
+// A line of a sale's receipt: what it was, its weight, the price by the kilo and why, the total.
+export function receiptLine(f, v) {
+  const sp = fishById[f.id];
+  const why = [v.demand === 'wanted' ? 'wanted today' : v.demand === 'plenty' ? 'plenty about' : '', seasonWord(v.season), v.prime ? 'a prime fish' : '', v.fresh < 0.99 ? `${Math.round(v.fresh * 100)}% fresh` : ''].filter(Boolean);
+  return { id: f.id, name: sp.name, size: f.size, kg: Math.round(v.kg * 100) / 100, each: v.each, why, price: v.price };
 }
 
 // The fish a kitchen likes to put on its menu.
@@ -117,8 +147,46 @@ export function ordersFor(day, place = 'haven') {
   });
 }
 
+// How well the kitchen knows you, by the orders you've filled: a newcomer, then a regular supplier
+// (paid a tenth more), then the kitchen's own (a fifth more, and your name on the board).
+export const STANDING = [
+  { at: 0, name: 'a newcomer', bonus: 0 },
+  { at: 3, name: 'a regular supplier', bonus: 0.1 },
+  { at: 8, name: 'the kitchen’s own supplier', bonus: 0.2 },
+];
+export function standingOf(served = 0) {
+  let i = 0;
+  while (i + 1 < STANDING.length && served >= STANDING[i + 1].at) i++;
+  return { tier: i, ...STANDING[i], next: STANDING[i + 1]?.at ?? null };
+}
+
+// What filling an order with fish `f` pays: the order's reward, more for a regular supplier, and
+// a quarter more again for a fine one (well over the size asked). { pay, fine, bonus }.
+export function orderPay(o, f, served = 0) {
+  const sp = fishById[o.id];
+  const fine = !!sp && f.size >= o.min + 0.3 * (sp.size[1] - o.min);
+  const bonus = standingOf(served).bonus;
+  const pay = Math.min(Math.round(MAX_REWARD * 1.3), Math.round(o.reward * (1 + bonus) * (fine ? 1.25 : 1)));
+  return { pay, fine, bonus };
+}
+
 // The first fish in your creel that fills an order (or -1).
 export const fills = (keep, o) => keep.findIndex((f) => f.id === o.id && !f.cooked && f.size >= o.min);
+
+// Worth going after today, for the chandlery's word over the counter: of the fish the market wants
+// and the kitchen's orders, the one most in season just now (null if none of them is about).
+export function worthGoingAfter(day, abs, place = 'haven') {
+  const D = demandFor(day, place);
+  const ids = [...new Set([...ordersFor(day, place).map((o) => o.id), ...D.wanted])];
+  let best = null;
+  for (const id of ids) {
+    const sp = fishById[id], boost = seasonBoost(sp, abs);
+    const why = ordersFor(day, place).some((o) => o.id === id) ? 'order' : 'market';
+    const score = boost * (why === 'order' ? 1.15 : 1);
+    if (boost >= 0.6 && (!best || score > best.score)) best = { id, why, boost, score };
+  }
+  return best;
+}
 
 // Money, in words: £12, £3.40.
 export const money = (v) => `£${(Math.round(v * 100) / 100).toFixed(Number.isInteger(Math.round(v * 100) / 100) ? 0 : 2)}`;
