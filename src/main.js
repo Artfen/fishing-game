@@ -3,6 +3,7 @@ import { Input, defaultBindings } from './input.js';
 import { SettingsUI, WEATHER_MODES } from './settings.js';
 import { loadGame, saveGame, newGame, saveStatus, parseSave, importSave, exportText, stopSaving, SAVE_KEY, adoptJournal } from './save.js';
 import { Cloud } from './cloud.js';
+import { Together, cleanName, suggestName, NAME_MAX } from './together.js';
 import { setupOffline, offline, applyUpdate } from './offline.js';
 import { DIFFICULTY, DIFFICULTY_IDS, DRAG_LEVELS, DRAG_NAMES, breakReason } from './fight.js';
 import { BEHAVIOUR, conditionWords } from './behaviour.js';
@@ -74,6 +75,7 @@ import { tideAt, tideWords, turns } from './world/tide.js';
 import { seasonOf, seasonWords, sunTimes, sunHour, seasonWarmth, riverFlow, leafTint, seasonLine } from './world/season.js';
 import { galeSky, galeNear, hoursToGale, outlook } from './world/forecast.js';
 import { FolkView } from './world/folk.js';
+import { VisitorView } from './world/visitors.js';
 import { demandFor, money, ordersFor, ORDERS_BY } from './market.js';
 import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
 import { PHOTO_MAX } from './save.js';
@@ -331,6 +333,9 @@ const crossingLife = buildCrossingLife(scene);
 // The harbour's people (Mags, Bert, Ruth, Dougie and his boat, Hettie, Kit; Paco at Las Brasas).
 const town = new Townsfolk({ obstacles: world.coast.obstacles });
 const folkView = new FolkView(scene);
+// Playing together (see together.js): friends in a session, drawn where they are.
+const together = new Together({ config: () => cloud.cfg, name: () => settings.player.name, kinds: BOAT_KINDS });
+const visitors = new VisitorView(scene);
 // What the people go by: the weather, and what the fish near the harbour are up to (looked at every
 // few seconds, not every frame).
 let folkAbout = [], folkAboutT = 0;
@@ -1060,6 +1065,7 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
     on[rigUsed.item.id] = (on[rigUsed.item.id] || 0) + 1;
   }
   logCatch(sp, size, agent, rigUsed, how);
+  together.caught(sp.id, agent?.weight ?? weightOf(sp, size), { best: record, first: isNew });
   adventures.caught(sp.id, agent.x, agent.z, world.flocks);
   favoursReady(favourCaught(state.favours, { id: sp.id, size, night: state.hour >= 20.5 || state.hour < 5, shore: onFoot }));
   markObserved(sp.id, agent);
@@ -6031,7 +6037,40 @@ const settingsUI = new SettingsUI(state, {
   behaviour: () => state.behaviour,
   setBehaviour,
   keyLabel: (code) => input.label(code),
+  together: () => together,
+  setName: (name) => setName(name),
+  boatName: (kind) => BOATS[kind]?.name || 'boat',
 });
+
+// The name you go by when playing together (kept with the settings, so a new game keeps it).
+function setName(name) {
+  const n = cleanName(name);
+  if (!n || n === settings.player.name) return;
+  settings.player.name = n;
+  together.renamed();
+  save();
+}
+
+// The first time you play (or the first time since playing together came along): what should
+// friends call you? A name is suggested, so Enter (or the button) is enough.
+function askName(then) {
+  ask('What should we call you?', 'Choose a name to go by. It’s what friends see over you when you play together (Settings → Play together), and you can change it there any time.', [
+    {
+      text: 'That’s me', keepOpen: true, run: (v) => {
+        const n = cleanName(v);
+        if (!n) {
+          $('confirm-input').focus();
+          return;
+        }
+        $('confirm').hidden = true;
+        setName(n);
+        then?.();
+      },
+    },
+  ], { input: suggestName(), placeholder: 'Your name', maxLength: NAME_MAX });
+  // (With a controller, the suggested name is ready to take with A.)
+  if (scheme() === 'pad') $('confirm-acts').lastChild?.focus();
+}
 
 let modalBeforeSettings = null;
 function openSettings(tab) {
@@ -6539,7 +6578,78 @@ function updateHud() {
   if (crossAim && $('cross-name').textContent !== crossAim.name) $('cross-name').textContent = crossAim.name;
   placeMarker($('cross-marker'), crossAim?.x ?? 0, 6, crossAim?.z ?? 0, !!crossAim && started && !modal && !dive);
   placeMarker($('trip-marker'), trip?.x ?? 0, 1.2, trip?.z ?? 0, !!trip && started && !modal && Math.hypot((trip?.x ?? 0) - player().pos.x, (trip?.z ?? 0) - player().pos.z) > (trip?.r ?? 0));
+  placeFriendMarkers();
 }
+
+// Friends you're playing with: their name over them, or pinned to the edge of the screen pointing
+// the way to them (with how far), so you can always find each other.
+const friendMarkers = new Map();
+let friendsKey = '';
+function placeFriendMarkers() {
+  // (Settings → Play together lists who's where: kept up to date while it's open.)
+  if (settingsUI.isOpen && settingsUI.tab === 'together' && together.active) {
+    const key = together.others.map((p) => `${p.name}:${p.pose?.m}:${p.pose?.k}:${p.pose?.f}:${p.pose?.a}`).join('|');
+    if (key !== friendsKey) {
+      friendsKey = key;
+      settingsUI.render();
+    }
+  }
+  for (const [id, el] of friendMarkers) {
+    if (together.peers.has(id)) continue;
+    el.remove();
+    friendMarkers.delete(id);
+  }
+  for (const p of together.peers.values()) {
+    if (!p.name || !p.pose || !p.at) continue;
+    let el = friendMarkers.get(p.id);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'marker friend';
+      el.dataset.km = 'exact';
+      el.setAttribute('aria-hidden', 'true');
+      const arrow = document.createElement('span'), label = document.createElement('span'), name = document.createElement('span');
+      arrow.className = 'm-arrow';
+      label.className = 'm-label';
+      name.className = 'm-name';
+      label.append(name, ' · ', document.createElement('b'));
+      el.append(arrow, label);
+      $('boat-marker').before(el);
+      friendMarkers.set(p.id, el);
+    }
+    const P = p.pose, A = p.at;
+    const text = P.m === 'dive' ? `${p.name} (diving)` : P.m === 'car' ? `${p.name} (driving)` : p.name;
+    const nameEl = el.querySelector('.m-name');
+    if (nameEl.textContent !== text) nameEl.textContent = text;
+    const y = P.m === 'boat' ? waveHeight(A.x, A.z, t) + 3 : P.m === 'foot' ? walkHeight(A.x, A.z) + 2.4 : P.m === 'car' ? heightAt(A.x, A.z) + 2.6 : 1.2;
+    placeMarker(el, A.x, y, A.z, started && !modal);
+  }
+}
+
+// Where you are and what you're doing, for the friends you're playing with.
+function whereIAm() {
+  if (dive) return { m: 'dive', x: diver.pos.x, z: diver.pos.z, h: diver.heading };
+  if (driving) return { m: 'car', x: car.pos.x, z: car.pos.z, h: car.heading };
+  if (onFoot) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: sitting ? 'sit' : fishing.lineOut ? 'fish' : walker.speed > 0.4 ? 'walk' : 'stand' };
+  return { m: 'boat', k: boat.kind, x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie) };
+}
+
+// Toasts for what happens in a session (the details are in Settings → Play together).
+together.onEvent = (kind, p, data) => {
+  if (kind === 'join') hud.toast(`${p.name} has joined you.`, 5);
+  else if (kind === 'leave') hud.toast(`${p.name} has left the session.`, 4);
+  else if (kind === 'joined') hud.toast(`You’re playing with ${p?.name || 'your friend'}. Look for their name on the screen: it points the way to them.`, 7);
+  else if (kind === 'catch') {
+    const sp = fishById[data.sp];
+    if (sp) hud.toast(`${p.name} caught ${data.first ? 'their first' : 'a'} ${sp.name.toLowerCase()}, ${kgWords(data.kg)}${data.best ? ': their best yet' : ''}.`, 5);
+  } else if (kind === 'ended') hud.toast(p ? `${p.name} ended the session.` : 'The connection to your session was lost, so you’ve left it.', 7);
+  else if (kind === 'lost') hud.toast('Lost the connection to your session. Trying again…', 4);
+  else if (kind === 'back') hud.toast('Back in your session.', 3);
+};
+together.onChange = () => {
+  if (settingsUI.isOpen && settingsUI.tab === 'together') settingsUI.render();
+};
+// Leaving the game leaves the session (and ends it, if it's yours).
+addEventListener('pagehide', () => together.leave(true));
 
 // The dive computer (depth, breath or air, the way up), and what's in the speargun's sights.
 let diveShown = false;
@@ -6784,6 +6894,7 @@ setupOffline((event) => {
   if (event === 'online') {
     if (cloud.signedIn && cloud.pending) hud.toast('Back online. Syncing your progress…', 4);
     cloud.reconnected(state, saveStatus.lastSaved);
+    together.nudge();
   }
   if (modal === 'journal') renderCloud();
 });
@@ -6793,7 +6904,7 @@ $('update-now').addEventListener('click', updateNow);
 // A small "are you sure?" with any buttons we need.
 // A question with buttons; { input } adds a text box (its value goes to the button's run).
 // (list: lines to set out below the words, each { ok, text }: ready, or a warning.)
-function ask(title, text, buttons, { input = null, list = null } = {}) {
+function ask(title, text, buttons, { input = null, list = null, placeholder = '', maxLength = 40 } = {}) {
   $('confirm-title').textContent = title;
   $('confirm-text').textContent = text;
   let ul = $('confirm-list');
@@ -6813,6 +6924,8 @@ function ask(title, text, buttons, { input = null, list = null } = {}) {
   const box = $('confirm-input');
   box.hidden = input == null;
   box.value = input ?? '';
+  box.placeholder = placeholder;
+  box.maxLength = maxLength;
   const acts = $('confirm-acts');
   acts.replaceChildren(...buttons.map((b) => {
     const el = document.createElement('button');
@@ -6887,6 +7000,11 @@ function loadSaveFile(file) {
 
 function begin() {
   if (started) return;
+  // (A name first, the very first time: see askName. Any key or click while it's asked waits.)
+  if (!settings.player.name) {
+    if ($('confirm').hidden) askName(begin);
+    return;
+  }
   started = true;
   audio.start();
   document.body.classList.add('started');
@@ -7827,6 +7945,9 @@ function tick(now, manual = false) {
       }
     }
     folkView.update(dt, t, town, { from: P, south: region === 'south', fx, glow, night: env.lantern });
+    // Friends you're playing with: where you are goes to them, and they're drawn where they are.
+    together.update(dt, started ? whereIAm() : null);
+    visitors.update(dt, t, together.peers, { from: P, fx, glow, night: env.lantern });
     glow.update(t, nightGlow(state.day) * smoothstep(0.35, 0.85, env.night) * (1 - 0.5 * (weather.rain ?? 0)));
     glow.foamColor(fx.wake.material.color, env.daylight);
     glowFishT -= dt;
@@ -8162,7 +8283,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView,
+  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors,
   // Set the breeze: strength 0–1, blowing towards dir (radians, like a heading).
   // A steady wind for testing: strength 0 … 1 (1 = a fresh breeze, 12 m/s), blowing towards dir
   // (as atan2(x, z) of its vector). setWind(null) gives it back to the weather and Settings.

@@ -208,8 +208,9 @@ export class HUD {
     el.classList.toggle('near', near);
     const arrow = el.firstElementChild;
     arrow.style.transform = onScreen ? 'rotate(180deg)' : `rotate(${angle.toFixed(2)}rad)`;
-    // (A marker for somewhere far off, the crossing's, says how far in kilometres once it's that far.)
-    const d = el.dataset.km ? (dist >= 1000 ? `${(dist / 1000).toFixed(1)} km` : `${Math.round(dist / 10) * 10} m`) : String(Math.round(dist));
+    // (A marker for somewhere far off, the crossing's, says how far in kilometres once it's that far;
+    // a friend's, to the metre until then.)
+    const d = el.dataset.km ? (dist >= 1000 ? `${(dist / 1000).toFixed(1)} km` : `${el.dataset.km === 'exact' ? Math.round(dist) : Math.round(dist / 10) * 10} m`) : String(Math.round(dist));
     if (el._label.textContent !== d) el._label.textContent = d;
   }
 

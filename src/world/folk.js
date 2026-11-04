@@ -41,10 +41,12 @@ const cast = (m) => {
   return m;
 };
 
-class Figure {
-  constructor(id) {
-    const L = LOOKS[id];
+// (Exported for the friends you play with, each in a look of their own: see visitors.js.)
+export class Figure {
+  constructor(id, look = LOOKS[id]) {
+    const L = look;
     this.id = id;
+    this.look = L;
     this.group = new THREE.Group();
     this.group.visible = false;
     this.group.scale.setScalar(L.scale ?? L.big ?? 1);
@@ -183,7 +185,7 @@ class Figure {
   // Pose for what they're doing (see townsfolk.js), and where.
   update(dt, t, p, y) {
     const act = p.act;
-    const L = LOOKS[this.id];
+    const L = this.look;
     this.group.visible = true;
     this.group.position.x = p.pos.x;
     this.group.position.z = p.pos.z;
