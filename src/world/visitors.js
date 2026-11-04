@@ -3,6 +3,7 @@ import { waveHeight } from './water.js';
 import { Boat, floatDraft, wakeOf } from '../boat.js';
 import { wakes } from './wakes.js';
 import { Figure } from './folk.js';
+import { berthFor } from '../mooring.js';
 import { damp, clamp } from '../util.js';
 
 // The friends you're playing with (see together.js), drawn where they are: on foot, a figure of
@@ -54,7 +55,7 @@ export class VisitorView {
       d = null;
     }
     if (!d) {
-      d = { name: p.name, look: lookFor(p.name), figure: null, boats: {}, roll: 0 };
+      d = { name: p.name, look: lookFor(p.name), figure: null, boats: {}, moored: {}, roll: 0 };
       this.drawn.set(p.id, d);
     }
     return d;
@@ -75,6 +76,17 @@ export class VisitorView {
     return b;
   }
 
+  // One of a friend's boats lying where they left her (nobody aboard): her own instance, apart from
+  // the one they ride in.
+  mooredFor(d, kind) {
+    if (d.moored[kind]) return d.moored[kind];
+    const b = new Boat(this.scene, { kind, look: { stripe: d.look.coat } });
+    b.setRower(false);
+    b.group.visible = false;
+    d.moored[kind] = b;
+    return b;
+  }
+
   figureFor(d, id) {
     if (!d.figure) {
       d.figure = new Figure(`visitor:${id}`, d.look);
@@ -87,7 +99,7 @@ export class VisitorView {
   // as boats from the same jetty do, can step aside: see main.js).
   boatNear(x, z, r) {
     for (const d of this.drawn.values()) {
-      for (const b of Object.values(d.boats)) {
+      for (const b of [...Object.values(d.boats), ...Object.values(d.moored)]) {
         if (b.group.visible && Math.hypot(b.pos.x - x, b.pos.z - z) < r) return b;
       }
     }
@@ -106,7 +118,7 @@ export class VisitorView {
       d.figure.group.visible = false;
     }
     // (Boats hold on to their mooring gear in the scene: they're only ever hidden, never rebuilt.)
-    for (const b of Object.values(d.boats)) b.group.visible = false;
+    for (const b of [...Object.values(d.boats), ...Object.values(d.moored)]) b.group.visible = false;
     this.drawn.delete(id);
   }
 
@@ -134,13 +146,46 @@ export class VisitorView {
       } else if (afloat) {
         this.drawBoat(d, this.boatFor(d, P.k), P, A, dt, t, { fx, glow, night });
       }
+      // Their other boats in the water, lying where they left them (not the one they're in).
+      const keep = new Set();
+      for (const F of p.fleet || []) {
+        if ((P.m === 'boat' && F.k === P.k) || Math.hypot(F.x - from.x, F.z - from.z) > 900) continue;
+        keep.add(F.k);
+        this.drawMoored(this.mooredFor(d, F.k), F, t);
+      }
+      for (const [k, b] of Object.entries(d.moored)) if (!keep.has(k)) b.group.visible = false;
     }
+  }
+
+  // A friend's boat lying where they left her: riding the swell, her lines out if she's alongside,
+  // solid to your boats.
+  drawMoored(b, F, t) {
+    const moved = !b.group.visible || Math.hypot(b.pos.x - F.x, b.pos.z - F.z) > 0.3;
+    b.group.visible = true;
+    const fw = { x: Math.sin(F.h), z: Math.cos(F.h) };
+    b.pos.set(F.x, 0, F.z);
+    b.heading = F.h;
+    b.fwd.set(fw.x, 0, fw.z);
+    b.right.set(-fw.z, 0, fw.x);
+    b.vel.set(0, 0, 0);
+    b.forwardSpeed = 0;
+    const H = b.hull, L2 = H.L * 0.4, w = waveHeight(F.x, F.z, t);
+    const fore = waveHeight(F.x + fw.x * L2, F.z + fw.z * L2, t), aft = waveHeight(F.x - fw.x * L2, F.z - fw.z * L2, t);
+    b.group.position.set(F.x, w - floatDraft(b.base), F.z);
+    b.group.rotation.y = F.h;
+    b.body.rotation.x = clamp(Math.atan2(aft - fore, H.L * 0.8), -0.3, 0.3);
+    b.body.rotation.z = Math.sin(t * 0.8 + F.x) * 0.03;
+    b.animate(0, t, 0, 0, 0);
+    b.group.updateMatrixWorld(true);
+    if (moved) b.tie = berthFor({ hull: H, pos: { x: F.x, z: F.z }, heading: F.h }, [], { reach: 1.5 });
+    b.updateGear();
+    b.afloat(t);
   }
 
   // The friends' boats drawn on the water just now.
   boats(out = (this._boats ||= [])) {
     out.length = 0;
-    for (const d of this.drawn.values()) for (const b of Object.values(d.boats || {})) if (b.group.visible) out.push(b);
+    for (const d of this.drawn.values()) for (const b of [...Object.values(d.boats || {}), ...Object.values(d.moored || {})]) if (b.group.visible) out.push(b);
     return out;
   }
 
