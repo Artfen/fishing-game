@@ -23,6 +23,14 @@ const HEARTBEAT = 25000;    // ms: Realtime drops a connection that stays quiet 
 const LISTEN_MS = 1800;     // how long to listen for anyone already in a room before deciding
 const PEER_TIMEOUT = 45;    // seconds without a word before someone is taken to have gone
 const RECONNECT = [1, 2, 4, 8, 15, 15, 15]; // seconds between tries after the connection drops
+// The world the host shares (see shareWorld): its version (a newer game's is left alone, with a
+// word to reload), how often it's sent, and how long a word from the host stays good.
+export const WORLD_V = 1;
+const WORLD_EVERY = 2;
+const WORLD_STALE = 20;
+const HOST_GRACE = 60;      // seconds the others wait for a host who's gone (a reload, a blip)
+const RESUME_FOR = 10 * 60; // seconds a session can be picked up again after a reload
+const SESSION_KEY = 'slow-tide-session';
 const MODES = ['foot', 'boat', 'dive', 'car'];
 // The fastest anyone really goes, m/s, on foot, afloat, swimming and driving: anything quicker is
 // a step ashore, a drive skipped or a passage made, and they're simply somewhere new.
@@ -82,6 +90,37 @@ export function cleanPose(p, kinds = null) {
   }
   if (m === 'foot') out.a = ACTS.includes(p.a) ? p.a : 'stand';
   return out;
+}
+
+// The world as the host shares it: their time (game hours since day 0) and how fast it runs, the
+// sky, the wind, the sea as chosen in Settings, and the water's colour. Checked like everything
+// else that comes in; null if it isn't one (or is a newer game's).
+export function cleanWorld(w, skies = null) {
+  if (!w || typeof w !== 'object' || w.v !== WORLD_V) return null;
+  const abs = finite(w.abs, 0, 1e7), rate = finite(w.rate, 0, 5);
+  const S = w.sky, Wd = w.wind;
+  if (abs == null || rate == null || !S || typeof S !== 'object' || !Wd || typeof Wd !== 'object') return null;
+  const state = typeof S.state === 'string' && (!skies || skies.includes(S.state)) ? S.state : null;
+  const from = finite(Wd.from, -100, 100), speed = finite(Wd.speed, 0, 40);
+  if (!state || from == null || speed == null) return null;
+  const unit = (v) => finite(v, 0, 1) ?? 0;
+  return {
+    v: WORLD_V, abs, rate,
+    sky: { state, cloud: unit(S.cloud), rain: unit(S.rain), storm: unit(S.storm) },
+    wind: { from, speed },
+    sea: typeof w.sea === 'string' && /^[a-z]{1,16}$/.test(w.sea) ? w.sea : 'auto',
+    colour: unit(w.colour),
+  };
+}
+
+// What to tell the player when the online service can't be reached or says no.
+export function explain(err) {
+  const why = String(err?.message || err || '');
+  if (/couldn’t connect|timed out|no answer|closed/.test(why)) {
+    return 'Couldn’t reach the game’s online service. If nobody has played together for a while, the Supabase project may be paused: whoever runs this copy of the game can restore it from the Supabase dashboard. Then try again.';
+  }
+  const quota = /limit|quota|exceed|too many/i.test(why) ? ' The Supabase plan’s Realtime allowance may be used up (see Usage in the Supabase dashboard).' : '';
+  return `The online service said no (${why || 'no reason given'}).${quota}`;
 }
 
 // The one-line description of where someone is, for the list in Settings.
@@ -319,7 +358,7 @@ export function glide(p, at, dt) {
 // kinds a pose may name; WS: the WebSocket class; online() → whether the browser is online.
 // (listenMs, retryScale, newCode and now are there for the tests.)
 export class Together {
-  constructor({ config, name, kinds = null, WS = globalThis.WebSocket, online = () => globalThis.navigator?.onLine !== false, listenMs = LISTEN_MS, retryScale = 1, newCode = makeCode, now = () => globalThis.performance.now() / 1000 }) {
+  constructor({ config, name, kinds = null, skies = null, WS = globalThis.WebSocket, online = () => globalThis.navigator?.onLine !== false, listenMs = LISTEN_MS, retryScale = 1, newCode = makeCode, now = () => globalThis.performance.now() / 1000, store = undefined }) {
     this.config = config;
     this.name = name;
     this.kinds = kinds;
@@ -329,6 +368,16 @@ export class Together {
     this.retryScale = retryScale;
     this.newCode = newCode;
     this.now = now;           // real time in seconds: positions are stamped with it
+    this.skies = skies;       // the skies a shared world may name
+    // (sessionStorage, where a session waits through a reload; null where there's none.)
+    this.store = store !== undefined ? store : (() => { try { return globalThis.sessionStorage ?? null; } catch { return null; } })();
+    this.worldSource = null;  // host: () => the world to share (see shareWorld)
+    this.world = null;        // joiner: the host's world as last heard ({ ...cleanWorld, heard })
+    this.worldT = 0;
+    this.worldSent = null;
+    this.hostName = '';
+    this.hostGoneAt = null;
+    this.newer = false;       // someone's on a newer version of the game
     this.id = newId();
     this.status = 'off';  // off | connecting | hosting | joined
     this.code = '';
@@ -369,8 +418,9 @@ export class Together {
     return { id: this.id, name: this.name() || 'Someone', host: this.hosting };
   }
 
-  // Start a session of your own: a fresh code nobody else is using.
-  async host() {
+  // Start a session of your own: a fresh code nobody else is using (or, given one, take back your
+  // own session after a reload: the others are waiting in it).
+  async host(resume = null) {
     if (this.active || this.status === 'connecting') return false;
     const why = this.why();
     if (why) {
@@ -382,14 +432,15 @@ export class Together {
     this.changed('Starting a session…');
     try {
       for (let i = 0; i < 6; i++) {
-        const code = this.newCode();
+        const code = resume && validCode(resume) ? resume : this.newCode();
         const alone = await this.open(code, attempt);
         if (attempt !== this.attempt) return false;
-        if (alone) {
+        if (alone || resume) {
           this.status = 'hosting';
           this.hostId = this.id;
           this.rt.track(this.meta());
-          this.changed(`Your session is open. Give your friend the code ${code}.`);
+          this.changed(resume ? `Back in your session, ${code}.` : `Your session is open. Give your friend the code ${code}.`);
+          this.sendWorld();
           return true;
         }
         this.drop(); // someone else's session already has that code: try another
@@ -399,7 +450,7 @@ export class Together {
       if (attempt !== this.attempt) return false;
       this.drop();
       this.status = 'off';
-      this.changed(`Couldn’t start a session (${err.message}). Try again in a moment.`);
+      this.changed(`Couldn’t start a session. ${explain(err)}`);
       return false;
     }
   }
@@ -445,7 +496,7 @@ export class Together {
       if (attempt !== this.attempt) return false;
       this.drop();
       this.status = 'off';
-      this.changed(`Couldn’t join (${err.message}). Check your connection and try again.`);
+      this.changed(`Couldn’t join. ${explain(err)}`);
       return false;
     }
   }
@@ -472,12 +523,36 @@ export class Together {
 
   // Leave the session (the host's leaving ends it for everyone).
   leave(quiet = false) {
+    this.forget();
     if (this.status === 'off') return;
     this.attempt++;
     if (this.hosting && this.rt?.open) this.rt.send('end', { id: this.id });
     this.drop();
     this.status = 'off';
     if (!quiet) this.changed('You’ve left the session.');
+  }
+
+  // The page is going (a reload, the Update button, the tab closing): leave quietly, and keep the
+  // session where a reload of this tab can pick it up (resume). The others wait a minute for a host.
+  suspend() {
+    if (!this.active) return;
+    try { this.store?.setItem(SESSION_KEY, JSON.stringify({ code: this.code, host: this.hosting, at: Date.now() })); } catch { /* storage blocked */ }
+    this.attempt++;
+    this.drop();
+    this.status = 'off';
+  }
+
+  // After a reload: back into the session this tab was in, if it was a few minutes ago.
+  async resume() {
+    let S = null;
+    try { S = JSON.parse(this.store?.getItem(SESSION_KEY) || 'null'); } catch { /* unreadable */ }
+    this.forget();
+    if (!S || !validCode(S.code) || !(Date.now() - S.at < RESUME_FOR * 1000) || this.status !== 'off') return false;
+    return S.host ? this.host(S.code) : this.join(S.code);
+  }
+
+  forget() {
+    try { this.store?.removeItem(SESSION_KEY); } catch { /* storage blocked */ }
   }
 
   drop() {
@@ -494,6 +569,9 @@ export class Together {
     this.peers.clear();
     this.hostId = '';
     this.sent = null;
+    this.world = null;
+    this.worldSent = null;
+    this.hostGoneAt = null;
   }
 
   // The connection dropped mid-session: keep trying for a while, then give up.
@@ -505,6 +583,7 @@ export class Together {
     const wait = RECONNECT[this.retry++];
     if (wait == null) {
       const code = this.code;
+      this.forget();
       this.drop();
       this.status = 'off';
       this.changed(`The connection was lost and couldn’t be got back, so you’ve left session ${code}.`);
@@ -585,9 +664,13 @@ export class Together {
     const n = cleanName(raw);
     if (n) p.name = n;
     if (host) {
+      // (A new host, or the host back after a reload: what the last one said no longer holds.)
+      if (p.id !== this.hostId) this.world = null;
       p.host = true;
       this.hostId = p.id;
+      this.hostGoneAt = null;
     }
+    if (p.id === this.hostId && p.name) this.hostName = p.name;
     // (Once a session is under way, a newcomer is news.)
     if (fresh && p.name && this.active) this.onEvent('join', p);
     if (fresh && p.name) this.onChange();
@@ -597,7 +680,8 @@ export class Together {
     const p = this.peers.get(id);
     if (!p) return;
     this.peers.delete(id);
-    if (p.name && this.active) this.onEvent('leave', p);
+    if (id === this.hostId) this.world = null;
+    if (p.name && this.active) this.onEvent('leave', p, { host: id === this.hostId });
     this.onChange();
   }
 
@@ -635,6 +719,10 @@ export class Together {
       });
       return;
     }
+    if (event === 'system' && payload?.status === 'error') {
+      this.changed(`The online service reported a problem: ${String(payload.message || 'unknown').slice(0, 120)}.`);
+      return;
+    }
     if (event !== 'broadcast' || !payload) return;
     const kind = payload.event, data = payload.payload;
     if (!data || typeof data !== 'object') return;
@@ -648,6 +736,7 @@ export class Together {
       if (this.active || this.status === 'connecting') {
         this.sent = null;
         this.sendPose(true);
+        if (this.hosting) this.sendWorld();
       }
       return;
     }
@@ -687,8 +776,26 @@ export class Together {
       if (this.clock - (p.caughtT ?? -99) < 4) return; // (one at a time)
       p.caughtT = this.clock;
       this.onEvent('catch', p, { sp: data.sp, kg, best: !!data.best, first: !!data.first });
+    } else if (kind === 'world') {
+      // Only the host's world counts (whoever else might send one).
+      if (this.hosting || (p.id !== this.hostId && !p.host)) return;
+      const w = cleanWorld(data.w, this.skies);
+      if (!w) {
+        if (typeof data.w?.v === 'number' && data.w.v > WORLD_V && !this.newer) {
+          this.newer = true;
+          this.changed(`${p.name || 'The host'} is playing a newer version of Slow Tide. Reload the page to update, so you share the same sky.`);
+        }
+        return;
+      }
+      if (p.id !== this.hostId) {
+        p.host = true;
+        this.hostId = p.id;
+        this.hostGoneAt = null;
+      }
+      this.world = { ...w, heard: this.now() };
     } else if (kind === 'end') {
       if (!this.active || (this.hostId && p.id !== this.hostId)) return;
+      this.forget();
       const name = p.name || 'The host';
       this.attempt++;
       this.drop();
@@ -717,6 +824,42 @@ export class Together {
     this.sendT = SEND_EVERY;
   }
 
+  // Host: share the world now (and every WORLD_EVERY seconds, or sooner when it changes).
+  sendWorld() {
+    if (!this.hosting || !this.worldSource || !this.rt?.open || this.reconnecting) return;
+    const w = this.worldSource();
+    if (!w) return;
+    const r3 = (v) => Math.round(v * 1000) / 1000;
+    const msg = {
+      v: WORLD_V, abs: Math.round(w.abs * 10000) / 10000, rate: Math.round(w.rate * 1e6) / 1e6,
+      sky: { state: w.sky.state, cloud: r3(w.sky.cloud), rain: r3(w.sky.rain), storm: r3(w.sky.storm) },
+      wind: { from: r3(w.wind.from), speed: r3(w.wind.speed) }, sea: w.sea || 'auto', colour: r3(w.colour || 0),
+    };
+    this.rt.send('world', { id: this.id, w: msg });
+    this.worldSent = { ...msg, at: this.now() };
+    this.worldT = WORLD_EVERY;
+  }
+
+  // Whether the world has moved on from what was last shared more than the others would guess
+  // (a sleep, a change of sky or of pace).
+  worldChanged() {
+    const S = this.worldSent, w = this.worldSource?.();
+    if (!S || !w) return !!w;
+    const guess = S.abs + S.rate * (this.now() - S.at);
+    const moved = (a, b) => Math.abs(a - b) > 0.05;
+    return S.sky.state !== w.sky.state || moved(S.sky.rain, w.sky.rain) || moved(S.sky.cloud, w.sky.cloud) || moved(S.sky.storm, w.sky.storm)
+      || Math.abs(w.abs - guess) > 0.05 || Math.abs(w.rate - S.rate) > S.rate * 0.05 + 1e-6 || S.sea !== (w.sea || 'auto');
+  }
+
+  // Joiner: the host's world to follow, while there's a host and a recent word from them.
+  hostWorld() {
+    const W = this.world;
+    if (!this.active || this.hosting || !W || !this.peers.has(this.hostId)) return null;
+    return this.now() - W.heard < WORLD_STALE ? W : null;
+  }
+
+  get hostLabel() { return this.hostName || 'the host'; }
+
   // You caught something: tell the others (sp: species id, kg).
   caught(sp, kg, { best = false, first = false } = {}) {
     if (this.active && this.rt?.open && !this.reconnecting) this.rt.send('catch', { id: this.id, sp, kg: Math.round(kg * 100) / 100, best, first });
@@ -743,6 +886,23 @@ export class Together {
       }
       this.me = me;
       this.sendPose();
+    }
+    if (this.hosting) {
+      this.worldT -= dt;
+      if (this.worldT <= 0 || this.worldChanged()) this.sendWorld();
+    } else if (this.active && !this.reconnecting) {
+      // The host gone (a reload, a dropped connection): wait a while for them, then call it a day.
+      if (this.hostId && this.peers.has(this.hostId)) this.hostGoneAt = null;
+      else if (this.hostGoneAt == null) this.hostGoneAt = this.clock;
+      else if (this.clock - this.hostGoneAt > HOST_GRACE) {
+        const name = this.hostLabel;
+        this.forget();
+        this.attempt++;
+        this.drop();
+        this.status = 'off';
+        this.changed(`${name[0].toUpperCase()}${name.slice(1)} has gone, so the session has ended.`);
+        this.onEvent('ended', null, { hostGone: true, name });
+      }
     }
     // Everyone else, drawn where they were a moment ago (see DELAY).
     const now = this.now();
