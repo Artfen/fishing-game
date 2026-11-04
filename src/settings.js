@@ -5,9 +5,11 @@ import { BEHAVIOUR, BEHAVIOUR_IDS } from './behaviour.js';
 import { SEA_PRESETS, SEA_IDS, compass } from './world/conditions.js';
 import { buttonFor } from './gamepad.js';
 import { NEEDS_MODES, NEEDS_IDS } from './comfort.js';
+import { cleanName, cleanCode, validCode, poseWords, NAME_MAX, MAX_PLAYERS } from './together.js';
 
-// Preferences: sound, graphics, weather, controls and comfort. They live with the save
-// (state.settings), survive "New game", and every value is checked when loading.
+// Preferences: sound, graphics, weather, controls and comfort, and the name you go by when
+// playing together. They live with the save (state.settings), survive "New game", and every
+// value is checked when loading.
 
 export const WEATHER_MODES = [
   { id: 'auto', name: 'Changing', note: 'The weather comes and goes by itself: clear spells, cloud, now and then a shower.' },
@@ -34,6 +36,8 @@ export const DEFAULT_SETTINGS = {
   // sailTrim: the sailing boat's mainsheet by hand, or helped (it trims itself when left alone).
   // needs: how much the angler feels the weather and the day (see comfort.js): off, shown, gentle.
   controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, rumble: true, sailTrim: 'hand', needs: 'gentle' },
+  // name: what friends see over you when playing together ('' until you've chosen one).
+  player: { name: '' },
 };
 
 // The controller's buttons, as Settings lists them: [where, action, what it does]. The buttons
@@ -113,7 +117,9 @@ export function cleanSettings(raw, legacy = {}) {
     keys: c.keys ? cleanBindings(c.keys) : null,
     rumble: c.rumble !== false,
   };
-  return { audio, graphics, weather, controls };
+  const p = isObj(r.player) ? r.player : {};
+  const player = { name: cleanName(p.name) };
+  return { audio, graphics, weather, controls, player };
 }
 
 /* ---------------- the Settings panel ---------------- */
@@ -125,11 +131,12 @@ const el = (tag, cls, text) => {
   if (text != null) e.textContent = text;
   return e;
 };
-const TABS = [['audio', 'Sound'], ['graphics', 'Graphics'], ['weather', 'Weather & sea'], ['controls', 'Controls & comfort']];
+const TABS = [['audio', 'Sound'], ['graphics', 'Graphics'], ['weather', 'Weather & sea'], ['controls', 'Controls & comfort'], ['together', 'Play together']];
 const LEVEL_NAMES = { auto: 'With the preset', low: 'Low', medium: 'Medium', high: 'High', ultra: 'Ultra' };
 
 // hooks: { changed(section, key, value), close(), playAlert(), qualityText(), difficulty(), setDifficulty(id),
-//   behaviour(), setBehaviour(id), keyLabel(code) }
+//   behaviour(), setBehaviour(id), keyLabel(code), together() (the Together session), setName(name),
+//   boatName(kind) }
 export class SettingsUI {
   constructor(state, hooks) {
     this.state = state;
@@ -203,12 +210,128 @@ export class SettingsUI {
 
   render() {
     for (const b of this.tabs.children) b.classList.toggle('on', b.dataset.tab === this.tab);
+    // (A box being typed in keeps its focus when the pane is drawn again, e.g. as a friend joins.)
+    const typing = this.body.contains(document.activeElement) && document.activeElement.id ? document.activeElement.id : null;
     const kids = [];
     if (this.tab === 'audio') kids.push(...this.audioPane());
     else if (this.tab === 'graphics') kids.push(...this.graphicsPane());
     else if (this.tab === 'weather') kids.push(...this.weatherPane());
+    else if (this.tab === 'together') kids.push(...this.togetherPane());
     else kids.push(...this.controlsPane());
     this.body.replaceChildren(...kids);
+    if (typing) {
+      const e = $(typing);
+      e?.focus();
+      if (e?.setSelectionRange && typeof e.value === 'string') e.setSelectionRange(e.value.length, e.value.length);
+    }
+  }
+
+  /* ---------- playing together ---------- */
+
+  // A text box and a button, as a form (Enter submits); the box's draft survives redraws.
+  field(id, { value, placeholder, max, mode = 'text', button, label, run, draft }) {
+    const f = el('form', 'st-field');
+    const i = el('input');
+    Object.assign(i, { id, type: 'text', value, placeholder, maxLength: max, autocomplete: 'off', spellcheck: false });
+    if (mode === 'numeric') Object.assign(i, { inputMode: 'numeric', pattern: '[0-9]*' });
+    i.setAttribute('aria-label', label);
+    i.addEventListener('input', () => draft(i.value));
+    const b = el('button', 'pk-btn', button);
+    b.type = 'submit';
+    f.append(i, b);
+    f.addEventListener('submit', (e) => {
+      e.preventDefault();
+      run(i.value);
+    });
+    return f;
+  }
+
+  togetherPane() {
+    const T = this.hooks.together(), out = [];
+    this.drafts ||= { name: null, code: '' };
+    const name = this.S.player.name;
+    out.push(el('p', 'st-note', `Play alongside friends: each of you in your own game, in the same waters. You see each other (on foot, or in whichever boat you’re in, with your name over you) and hear about each other’s catches. Up to ${MAX_PLAYERS} can play together. Your time of day, weather, fish, gear and progress stay your own.`));
+    out.push(this.row('Your name', 'What friends see over you, and in their news of your catches.', this.field('tg-name', {
+      value: this.drafts.name ?? name, placeholder: 'Your name', max: NAME_MAX, button: 'Save', label: 'Your name',
+      draft: (v) => { this.drafts.name = v; },
+      run: (v) => {
+        const n = cleanName(v);
+        if (!n) return;
+        this.drafts.name = null;
+        this.hooks.setName(n);
+        this.render();
+      },
+    })));
+    const why = T.why();
+    if (why && !T.active) {
+      out.push(el('p', 'st-note st-warn', why));
+      if (T.message && T.message !== why) out.push(el('p', 'st-note', T.message));
+      return out;
+    }
+    if (T.status === 'connecting') {
+      out.push(el('p', 'st-tg-status', T.message || 'Connecting…'));
+      const stop = el('button', 'pk-btn quiet', 'Cancel');
+      stop.type = 'button';
+      stop.addEventListener('click', () => { T.leave(true); T.changed(''); });
+      out.push(stop);
+      return out;
+    }
+    if (T.active) {
+      this.drafts.code = '';
+      const box = el('div', 'st-tg-session');
+      if (T.hosting) {
+        box.append(el('span', 'st-label', 'Your session code'));
+        const code = el('div', 'st-tg-code', T.code);
+        code.setAttribute('aria-label', `Session code ${T.code.split('').join(' ')}`);
+        box.append(code, el('p', 'st-note', 'Your friend opens Settings → Play together and types this code under “Join a session”. It works while you’re in the game; anyone with the code can join.'));
+      } else {
+        box.append(el('span', 'st-label', `Session ${T.code}`));
+      }
+      if (T.reconnecting) box.append(el('p', 'st-note st-warn', T.message));
+      const list = el('ul', 'st-tg-list');
+      const me = el('li', 'me');
+      me.append(el('strong', null, name || 'You'), el('span', null, ` (you${T.hosting ? ', host' : ''})`));
+      list.append(me);
+      const others = T.others;
+      for (const p of others) {
+        const li = el('li');
+        li.append(el('strong', null, p.name), el('span', null, `${p.host ? ' (host)' : ''} · ${poseWords(p.pose, this.hooks.boatName)}`));
+        list.append(li);
+      }
+      box.append(list);
+      if (!others.length) box.append(el('p', 'st-note', T.hosting ? 'Waiting for someone to join…' : 'Everyone else has left.'));
+      const leave = el('button', 'pk-btn quiet', T.hosting ? 'End the session' : 'Leave the session');
+      leave.type = 'button';
+      leave.addEventListener('click', () => {
+        T.leave();
+        this.render();
+      });
+      box.append(leave);
+      out.push(box);
+      return out;
+    }
+    if (!name) {
+      out.push(el('p', 'st-note st-warn', 'Choose a name first: it’s what your friends will see.'));
+      return out;
+    }
+    const start = el('button', 'pk-btn', 'Start a session');
+    start.type = 'button';
+    start.addEventListener('click', () => T.host());
+    out.push(this.row('Start a session', 'You get a four-digit code to give a friend.', start));
+    out.push(this.row('Join a session', 'Type the code your friend got when they started theirs.', this.field('tg-code', {
+      value: this.drafts.code, placeholder: '1234', max: 4, mode: 'numeric', button: 'Join', label: 'Session code',
+      draft: (v) => { this.drafts.code = cleanCode(v); },
+      run: (v) => {
+        const code = cleanCode(v);
+        if (!validCode(code)) {
+          T.changed('A session code is four digits, like 4821.');
+          return;
+        }
+        T.join(code);
+      },
+    })));
+    if (T.message) out.push(el('p', 'st-note', T.message));
+    return out;
   }
 
   /* ---------- controls ---------- */

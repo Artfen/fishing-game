@@ -623,6 +623,9 @@ body.pad .keys-only { display: none !important; }
 .marker.near { opacity: 0.75; }
 .marker.guide { border-color: rgba(255, 214, 140, 0.85); background: rgba(40, 32, 20, 0.6); }
 .marker.guide .m-arrow { border-bottom-color: #ffd68c; }
+/* A friend you're playing with: their name over them, or pointing the way to them. */
+.marker.friend { border-color: rgba(178, 214, 255, 0.85); background: rgba(20, 34, 54, 0.62); }
+.marker.friend .m-arrow { border-bottom-color: #b2d6ff; }
 
 /* The first-trip guide: a small card under the corner buttons, one step at a time. */
 #guide {
@@ -1407,6 +1410,19 @@ body.touch #rest-veil { padding-bottom: calc(170px + env(safe-area-inset-bottom,
 .st-key.st-pad { grid-template-columns: minmax(0, 1fr) auto; }
 .st-key .pk-btn.waiting { background: var(--lantern); border-color: var(--lantern); color: #3a2a14; }
 .st-fixed { justify-self: center; font: 600 12px var(--font-ui); color: var(--ink-soft); }
+/* Play together: your name, a session's code, and who's in it. */
+.st-field { display: flex; gap: 6px; justify-content: flex-end; }
+.st-field input {
+  width: 100%; max-width: 200px; min-width: 0; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--ink-faint);
+  background: rgba(255, 255, 255, 0.55); color: var(--ink); font: 18px var(--font-hand);
+}
+.st-field input[inputmode="numeric"] { max-width: 96px; font: 700 18px var(--font-ui); letter-spacing: 0.2em; text-align: center; font-variant-numeric: tabular-nums; }
+.st-tg-status { margin: 12px 2px; font: 700 15px var(--font-ui); }
+.st-tg-session { display: grid; gap: 8px; justify-items: start; margin-top: 10px; padding: 14px 16px; border-radius: 10px; background: rgba(53, 41, 31, 0.06); }
+.st-tg-code { font: 800 44px/1 var(--font-ui); letter-spacing: 0.22em; font-variant-numeric: tabular-nums; color: var(--ink); user-select: all; }
+.st-tg-session .st-note { margin: 0; }
+.st-tg-list { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 4px; font: 14px var(--font-ui); }
+.st-tg-list span { color: var(--ink-soft); }
 @media (max-width: 620px) {
   .st-row { grid-template-columns: 1fr; }
   .st-choice { justify-content: flex-start; }
