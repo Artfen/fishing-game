@@ -17,10 +17,13 @@ import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeig
 import { SOUTH_WATER, SOUTH_MAP, LANDFALL, POSADA, PUERTO as PUERTO_AT, PONTOON_S, FINGERS_S } from './world/brasa.js';
 import { buildWorld } from './world/world.js';
 import { createHabitat } from './world/habitat.js';
+import { HEAVY as PRESSURE_HEAVY, CELL as PRESSURE_CELL } from './world/pressure.js';
+import { seaTemp, tempWords } from './world/seatemp.js';
 import { Ecosystem } from './world/ecosystem.js';
 import { FishRenderer } from './world/fishRender.js';
 import { Underwater } from './world/underwater.js';
 import { Seabed } from './world/seabed.js';
+import { Drifters } from './world/drifters.js';
 import { siteAt, siteById, pushOut } from './world/divesites.js';
 import { Reflection, RippleField, NO_REFLECT, hideFromReflection } from './world/waterfx.js';
 import { createMist } from './world/mist.js';
@@ -313,6 +316,8 @@ refreshCamps();
 const underwater = new Underwater(scene, habitat, $('underwater-tint'));
 // The small life of the seabed, laid out round you while you're under (see seabed.js).
 const seabed = new Seabed(scene, habitat);
+// The open water's own life: jellyfish and shoals of fry (see world/drifters.js).
+const drifters = new Drifters(scene, habitat);
 const eco = new Ecosystem(habitat);
 const fishRenderer = new FishRenderer(scene, eco);
 const fx = new Effects(scene);
@@ -926,6 +931,7 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
     return false;
   },
   onKeep: (sp, size) => {
+    notePressure(player().pos.x, player().pos.z);
     state.keep.push({ id: sp.id, size, logId: lastCatchId, at: state.day * 24 + state.hour });
     setOutcome(lastCatchId, 'kept');
     $('catch-card').hidden = true;
@@ -1007,6 +1013,32 @@ function placeName(x, z) {
 }
 
 const logById = (id) => (id ? state.log.find((e) => e.id === id) : null);
+
+// (The fish finder's thermometer reads the surface, a few times a second.)
+let finderTempT = 0, finderTempV = null;
+function finderTemp(x, z, dt) {
+  if ((finderTempT -= dt) <= 0 || finderTempV == null) {
+    finderTempT = 0.5;
+    finderTempV = waterTempAt(x, z);
+  }
+  return finderTempV;
+}
+// The water's temperature at (x, z), depth metres down (see world/seatemp.js).
+function waterTempAt(x, z, depth = 0) {
+  const south = z > SOUTH_Z ? 1 : inOcean(x, z) ? clamp(crossProgress(x, z), 0, 1) : 0;
+  return seaTemp({ abs: clock.abs, zone: zoneAt(x, z), depth, south, hour: clock.hour });
+}
+
+// A spot fished hard (see world/pressure.js): a word, once a day for each, when you've kept enough
+// from it that the rest have turned wary and the newcomers will be a while.
+const pressureSaid = new Set();
+function notePressure(x, z) {
+  if (eco.pressureAt(x, z) < PRESSURE_HEAVY) return;
+  const key = `${Math.floor(x / PRESSURE_CELL)},${Math.floor(z / PRESSURE_CELL)}:${clock.day}`;
+  if (pressureSaid.has(key)) return;
+  pressureSaid.add(key);
+  later('You’ve taken a fair few from this spot today. The fish left here are warier now, and the ones that move in to replace them will be a while: try somewhere else, and come back to it later, or tomorrow.');
+}
 // What happened to a logged fish: kept, cooked, eaten (it starts as released).
 function setOutcome(id, outcome) {
   const e = logById(id);
@@ -1044,6 +1076,7 @@ function logCatch(sp, size, agent, rigUsed, how = null) {
     hatch: Math.round(hatchLevel() * 10) / 10,
     depth: Math.round(Math.max(0, -at.y) * 10) / 10,
     bottom: Math.round(Math.max(0, -solidHeight(at.x, at.z)) * 10) / 10,
+    temp: waterTempAt(at.x, at.z, Math.max(0, -at.y)),
     outcome: 'released',
     x: Math.round(at.x),
     z: Math.round(at.z),
@@ -2304,6 +2337,7 @@ function noteLife(dt) {
   d.met ||= new Set();
   const near = seabed.kindsNear(P, 2.6);
   world.dives.kindsNear(P, 2.8, near);
+  drifters.kindsNear(P, 4, near);
   const fresh = [];
   for (const k of near) {
     if (!NATURE[k] || d.met.has(k)) continue;
@@ -2512,6 +2546,7 @@ function landSpeared(a) {
   const sp = a.sp, size = a.size;
   const { isNew } = recordCatch(sp, size, a, null, { kind: 'spear', rod: 'speargun', from: 'dive', at: { x: a.x, y: a.y, z: a.z } });
   eco.keep(a);
+  notePressure(a.x, a.z);
   state.keep.push({ id: sp.id, size, logId: lastCatchId, at: state.day * 24 + state.hour });
   setOutcome(lastCatchId, 'kept');
   state.dive.speared++;
@@ -6502,7 +6537,7 @@ function updateConditionsPanel(dt) {
   $('cd-sea').textContent = `${seaWords(hgt)}, ${hgt < 0.1 ? 'under 0.1' : `about ${hgt.toFixed(1)}`} m`;
   $('cd-tide').textContent = tideWords(clock.abs);
   const wz = waterOf(zoneAt(P.x, P.z));
-  $('cd-water').textContent = wz === 'fresh' ? 'fresh' : `${wz === 'brackish' ? 'brackish, ' : ''}${colourWords(seaColourNow())}`;
+  $('cd-water').textContent = `${tempWords(waterTempAt(P.x, P.z))}, ${wz === 'fresh' ? 'fresh' : `${wz === 'brackish' ? 'brackish, ' : ''}${colourWords(seaColourNow())}`}`;
 }
 
 function updateHud() {
@@ -8157,6 +8192,7 @@ function tick(now, manual = false) {
   audio.setUnderwater(sub);
   underwater.update(dt, t, camera, env, weather.rain);
   seabed.update(camera, sub);
+  drifters.update(dt, t, camera, sub, clock.abs);
   fishRenderer.update(dt, camera, env.night, sub > 0.5);
   updateWind(dt * Math.min(speed, 10));
   world.update(dt, t, env, { fireLevel: camp.fireLevel, hatchLevel: hatchLevel(), hour: clock.hour, wind: 0.5 + Math.min(1, windAt(camera.position.x, camera.position.z).speed / FRESH) * 1.3, camera, fog: scene.fog.color, hurry: !!(traveling || sleeping), haven: { from: started ? player().pos : null, cam: camera.position, cutaway: rig.mode !== 'eye', onDoor: (open) => audio.door?.(open) } });
@@ -8203,8 +8239,8 @@ function tick(now, manual = false) {
   water.follow(camera.position);
 
   // The boat's sonar reads under the hull; on foot it reads around your rig once it's in the water.
-  if (onFoot) finder.update(dt, fishing.baitInWater ? { x: fishing.hook.x, z: fishing.hook.z, mode: 'rig', moving: fishing.reelSpeed } : { mode: 'none' }, eco.bait);
-  else finder.update(dt, { x: boat.pos.x, z: boat.pos.z, mode: 'boat', moving: boat.speed }, eco.bait);
+  if (onFoot) finder.update(dt, fishing.baitInWater ? { x: fishing.hook.x, z: fishing.hook.z, mode: 'rig', moving: fishing.reelSpeed, temp: finderTemp(fishing.hook.x, fishing.hook.z, dt) } : { mode: 'none' }, eco.bait);
+  else finder.update(dt, { x: boat.pos.x, z: boat.pos.z, mode: 'boat', moving: boat.speed, temp: finderTemp(boat.pos.x, boat.pos.z, dt) }, eco.bait);
 
   const zone = zoneAt(P.x, P.z);
   zoneW.open = damp(zoneW.open, (zone === 'open' || zone === 'coast' || zone === 'deep' || zone === 'veril' || zone === 'ocean' || zone === 'lava') && !onFoot ? 1 : 0, 0.5, dt);
@@ -8429,7 +8465,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock,
+  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed,
   // Set the breeze: strength 0–1, blowing towards dir (radians, like a heading).
   // A steady wind for testing: strength 0 … 1 (1 = a fresh breeze, 12 m/s), blowing towards dir
   // (as atan2(x, z) of its vector). setWind(null) gives it back to the weather and Settings.

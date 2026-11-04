@@ -231,6 +231,8 @@ export function sanitizeLogEntry(e) {
     ...(['tinged', 'coloured'].includes(e.colour) ? { colour: e.colour } : {}),
     depth: num(e.depth, 0, 0, 60),
     bottom: num(e.bottom, 0, 0, 60),
+    // (The water's temperature where it was caught, °C: from the living ocean on; null before.)
+    ...(typeof e.temp === 'number' && Number.isFinite(e.temp) ? { temp: Math.round(Math.min(35, Math.max(-2, e.temp)) * 10) / 10 } : {}),
     outcome: oneOf(e.outcome, OUTCOMES, 'released'),
     // From save version 4: what it weighed (estimated from its length), the sky, the line and rig.
     weight: num(e.weight, 0, 0, 1000),

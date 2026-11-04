@@ -1,4 +1,5 @@
 import { FISH } from '../fish.js';
+import { Pressure, restockFactor, pressureWariness } from './pressure.js';
 import { currentFast, currentAt, waveHeightHere } from './conditions.js';
 import { traits, mood, whyRejected, BEHAVIOUR } from '../behaviour.js';
 import { zoneAt } from './terrain.js';
@@ -37,6 +38,7 @@ export class Ecosystem {
     // Disturbances lately (splashes, motors, casts landing): { x, z, a, t }, fading over a minute
     // or two. Fish nearby are warier while they last.
     this.noise = [];
+    this.pressure = new Pressure(); // how hard each stretch of water has been fished lately
     this.envCache = { current: 0, waves: 0, light: 1, disturb: 0, storm: 0 };
     this.agents = [];
     this.schools = [];
@@ -893,7 +895,8 @@ export class Ecosystem {
     E.current = Math.hypot(c.x, c.z);
     E.waves = waveHeightHere(a.x, a.z);
     E.light = (this.ctx.daylight ?? 1) * (1 - 0.75 * (this.ctx.cloud ?? 0)) * smoothstep(0.1, 0.6, this.ctx.daylight ?? 1);
-    E.disturb = this.disturbAt(a.x, a.z);
+    // (A spot fished hard: the fish still there are warier, as if it had just been disturbed.)
+    E.disturb = Math.min(1, this.disturbAt(a.x, a.z) + pressureWariness(this.pressureAt(a.x, a.z)));
     E.storm = this.ctx.storm ?? 0;
     return E;
   }
@@ -1267,10 +1270,19 @@ export class Ecosystem {
     }
   }
 
-  // Kept for the pot: gone for a while, then another fish of its kind turns up at its home.
+  // Kept for the pot: gone for a while, then another fish of its kind turns up at its home (later
+  // where the water's been fished hard: see pressure.js). Returns the pressure where it was taken.
   keep(a) {
+    const abs = this.ctx.abs ?? this.time / 40;
+    const level = this.pressure.add(a.x, a.z, abs);
     a.state = 'gone';
-    a.backAt = this.time + rand(240, 420);
+    a.backAt = this.time + rand(240, 420) * restockFactor(this.pressure.level(a.home.x, a.home.z, abs));
+    return level;
+  }
+
+  // How hard the water at (x, z) has been fished lately (see pressure.js).
+  pressureAt(x, z) {
+    return this.pressure.level(x, z, this.ctx.abs ?? this.time / 40);
   }
 
   restock(a) {
@@ -1503,7 +1515,7 @@ export class Ecosystem {
       const r = Math.hypot(a.x - x, a.z - z);
       const cone = tanA * depth + 0.6;
       if (r > cone) continue;
-      out.push({ depth: Math.hypot(depth, r * 0.6), size: a.scale, strength: 1 - r / cone });
+      out.push({ depth: Math.hypot(depth, r * 0.6), size: a.scale, strength: 1 - r / cone, bait: !!a.L.bait });
     }
     return out;
   }

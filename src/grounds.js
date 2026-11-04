@@ -172,6 +172,15 @@ export const NATURE = {
   kelp: { name: 'Kelp', latin: 'Laminaria hyperborea', note: 'A stiff stalk and a broad blade split into fingers. A kelp forest shelters fish, crabs and a crust of life on every stalk.' },
   red: { name: 'Red seaweeds', latin: 'Rhodophyta', note: 'Delicate red weeds under the kelp, where the light is dim: their red pigment uses the blue-green light that reaches down.' },
   lobster: { name: 'European lobster', latin: 'Homarus gammarus', note: 'Blue-black, with two great unequal claws, one for crushing and one for cutting. It lives in a hole under a ledge and comes out at night.' },
+  // (Las Brasas' seabed, and the life of the open water: see seabed.js and drifters.js.)
+  diadema: { name: 'Long-spined sea urchin', latin: 'Diadema africanum', note: 'Black, with needle spines as long as your hand that track your shadow as you pass. They graze the island’s rock bare in great herds: keep your knees off it.' },
+  redstar: { name: 'Red sea star', latin: 'Echinaster sepositus', note: 'A slim, bright red starfish with smooth rounded arms, on the island’s rock and in the weed. It feeds on sponges and the film of life on the stone.' },
+  cucumber: { name: 'Sea cucumber', latin: 'Holothuria sanctori', note: 'A soft brown sausage lying on the sand, slowly swallowing it and passing it out clean. Bothered, it can throw out sticky white threads.' },
+  gardeneel: { name: 'Garden eels', latin: 'Heteroconger longissimus', note: 'A field of thin eels standing out of burrows in the sand, leaning into the current to pick plankton; come close and they sink back down out of sight.' },
+  moonjelly: { name: 'Moon jellyfish', latin: 'Aurelia aurita', note: 'A clear saucer with four pale rings in it, pulsing slowly along. Summer and autumn bring them in, some years in thousands. A mild sting, if any.' },
+  compass: { name: 'Compass jellyfish', latin: 'Chrysaora hysoscella', note: 'A white bell marked with brown Vs like the points of a compass, and long trailing tentacles that do sting. Late summer, in the warmer water.' },
+  stinger: { name: 'Mauve stinger', latin: 'Pelagia noctiluca', note: 'A small pinkish-mauve jellyfish of the open ocean, warty and stinging, that glows when disturbed at night. Swept in by the trade wind now and then.' },
+  fry: { name: 'Sand smelt', latin: 'Atherina presbyter', note: 'Shoals of small silver fish with a bright stripe along the side, hanging over sand and weed in the shallows: food for bass, mackerel and terns.' },
   mussel: { name: 'Swan mussel', latin: 'Anodonta cygnea', note: 'A big thin-shelled mussel half buried in the lake mud, filtering the water. Its young ride on the gills of fish.' },
 };
 export const NATURE_IDS = Object.keys(NATURE);
