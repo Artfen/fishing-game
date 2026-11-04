@@ -318,6 +318,11 @@ function foilsFor(H, bMax) {
     // Two rudders behind the propellers.
     for (const s of [1, -1]) foil({ p: [s * (H.motor.twin ?? 0.4), keelAt(0.05) - 0.3, zAt(H, 0) + 0.25], area: 0.16, ar: 1.6, span: 0.5, steer: 0.6, rudder: true, stall: 0.4 });
   }
+  if (H.motor?.jet) {
+    // A jet ski's pump housing and ride plate under her stern, and the sponsons either side:
+    // the grip aft that keeps her running straight at speed instead of swapping ends.
+    foil({ p: [0, keelAt(0.06) - 0.07, zAt(H, 0.06)], area: 0.05, ar: 1.4, span: 0.14, stall: 0.45 });
+  }
   const ob = H.motor && !H.motor.inboard && !H.motor.jet ? H.motor : H.outboard;
   if (ob) {
     // An outboard's leg (its gearcase and skeg) under the transom: turned with the tiller or the

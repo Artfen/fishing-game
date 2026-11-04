@@ -145,3 +145,41 @@ test('a boat going by rocks a boat drifting beside her track; on flat calm, fast
   }
   C.conditions.manual = null;
 });
+
+test('at speed the helm is gentle: a tap turns her a little, held over she comes round without spinning out, let go she settles', () => {
+  C.conditions.preset = 'calm';
+  C.conditions.manual = { speed: 2, from: 0 };
+  C.conditions.wind.speed = C.conditions.wind.target = 2;
+  for (let i = 0; i < 2000; i++) C.updateConditions(0.1, { rain: 0, cloud: 0.2 });
+  let clock = 0;
+  const go = (kind) => {
+    const b = new Boat(scene, { kind });
+    b.place(-60, 470, 0.5);
+    const step = (s) => { clock += 1 / 60; C.conditions.time = clock; b.update(1 / 60, clock, 1, s, 0); };
+    for (let i = 0; i < 60 * 12; i++) step(0);
+    return { b, step };
+  };
+  for (const kind of ['jetski', 'skiff', 'console']) {
+    // A tap: a little way round, and she stays on her new course (no swinging back).
+    const { b, step } = go(kind);
+    const h0 = b.heading;
+    for (let i = 0; i < 30; i++) step(1);
+    let most = 0, last = 0;
+    for (let i = 0; i < 60 * 4; i++) {
+      step(0);
+      last = (b.heading - h0) * Math.sign(b.heading - h0 || 1);
+      most = Math.max(most, last);
+    }
+    assert.ok(most > 0.03 && most < 0.5, `${kind}: a tap turned her ${most.toFixed(2)} rad`);
+    assert.ok(most - last < 0.06, `${kind}: let go, she settles (${(most - last).toFixed(2)} rad back)`);
+    assert.ok(Math.abs(b.omega) < 0.1, `${kind}: and holds her course`);
+    // Held hard over at full speed: round she comes, still going ahead, never spun round.
+    const r = go(kind);
+    let fastest = 0;
+    for (let i = 0; i < 60 * 3; i++) { r.step(1); fastest = Math.max(fastest, Math.abs(r.b.omega)); }
+    assert.ok(fastest < 1.6 && r.b.forwardSpeed > 4, `${kind}: turning ${fastest.toFixed(2)} rad/s at ${r.b.forwardSpeed.toFixed(1)} m/s`);
+    wakes.forget(b);
+    wakes.forget(r.b);
+  }
+  C.conditions.manual = null;
+});

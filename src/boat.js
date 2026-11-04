@@ -401,6 +401,7 @@ export class Boat {
     this.heel = 0;
     this.boomYaw = 0;
     this.sailSide = 1;
+    this.helm = 0;          // where the tiller, wheel or bars actually are (-1 … 1; see helmTo)
     // The windsurf board: in the water after a fall (seconds until you're back up), how long
     // you've been overpowered, and planing (0 … 1). The jet ski: in the air off a wave, and its
     // climb (m/s).
@@ -1923,6 +1924,7 @@ export class Boat {
     b.legDown = false;
     b.balance = 0;
     b.pitchBalance = 0;
+    b.trimBias = 0;
     b.heelMoment = 0;
     b.current[0] = this.drift.x;
     b.current[1] = this.drift.z;
@@ -1957,13 +1959,18 @@ export class Boat {
       this.propSpin += dt * (6 + Math.abs(spin) * 60) * Math.sign(spin || 1) * (Math.abs(spin) > 0.02 ? 1 : 0.1);
       if (this.trollProp) this.trollProp.rotation.z += dt * (troll && !dead ? 40 * Math.min(1, pw / 0.05) : 0);
       if (this.kayakProp) this.kayakProp.rotation.z += dt * (E && !dead ? 34 * pw : 0);
-      // (Hands off the helm under way, the course held.)
+      // (Hands off the helm under way, the course held.) The helm itself goes over at a hand's
+      // pace, and only a little way at speed: see helmTo.
       const hold = this.holdCourse(steer, !held && Math.abs(pw) > 0.02 && Math.abs(vf) > 0.6);
-      if (hold) b.rudder = hold * (vf < 0 ? -1 : 1);
+      const helm = this.helmTo(steer || -hold * (vf < 0 ? -1 : 1), dt, vf);
+      b.rudder = -helm;
       // (Astride a jet ski you balance it with your weight; at the wheel of a fast boat, the
       // driver's trim keeps her from walking from chine to chine.)
       b.balance = M?.jet ? 0.8 : M ? 0.25 * smoothstep(4, 10, Math.abs(vf)) : 0;
       b.pitchBalance = M?.jet ? smoothstep(4, 8, Math.abs(vf)) : 0;
+      // (And on a jet ski you lean into a turn, as on a motorbike, so her V carves round it
+      // instead of skidding: as far over as the turn wants, up to thirty degrees or so.)
+      b.trimBias = M?.jet ? clamp(-Math.atan((vf * this.omega) / G) * 0.9, -0.5, 0.5) : 0;
       // (Out in the ocean's long swell, a skipper eases her back to what she'll take.)
       const gov = vf > this.vmax ? Math.exp(-(vf - this.vmax) * 2.5) : 1;
       const f = thrust * m * gov;
@@ -1985,8 +1992,8 @@ export class Boat {
         // her round on the spot (the skipper easing the inside one back as far as it balances the
         // other, so she turns where she is rather than going on).
         const tw = M.twin ?? 0.4, slow = 1 - clamp(Math.abs(vf) / 3, 0, 1);
-        const diff = dead ? 0 : steer * slow * m * 2.5;
-        const ahead = f * (1 - Math.abs(steer) * slow * 0.9);
+        const diff = dead ? 0 : helm * slow * m * 2.5;
+        const ahead = f * (1 - Math.abs(helm) * slow * 0.9);
         for (const sd of [1, -1]) {
           b.thrusters.push({ p: [sd * tw, keel0 - 0.22, stern + 0.45], d: [0, 0, 1], f: ahead / 2 - sd * diff, vent: 0.1,
             foil: { p: [sd * tw, keel0 - 0.3, stern + 0.25], d: dirAt(b.rudder * 0.6), area: 0.16, disk: 0.35 } });
@@ -1996,7 +2003,7 @@ export class Boat {
         const tw = M.twin ?? 0, legs = tw ? [tw, -tw] : [M.side || 0];
         const slow = M.twin ? 1 - clamp(Math.abs(vf) / 3, 0, 1) : 0;
         for (const x of legs) {
-          const diff = M.twin && !dead ? -Math.sign(x) * steer * slow * m * 1.2 : 0;
+          const diff = M.twin && !dead ? -Math.sign(x) * helm * slow * m * 1.2 : 0;
           b.thrusters.push({ p: [x, keel0 - 0.28, stern - 0.18], d: dirAt(b.rudder * 0.7), f: f / legs.length + diff, vent: 0.1 });
         }
       }
@@ -2025,9 +2032,11 @@ export class Boat {
       // (Not steering, you hold your line, raking the rig against any turn.)
       const hold = this.holdCourse(steer, !down && !held);
       if (hold) b.forces.push(...yawCouple(b, -hold * m * 6));
-      if (!down && steer) {
+      // (Raking the rig takes a moment, and at speed a little rake goes a long way.)
+      const rake = this.helmTo(down ? 0 : steer, dt, vf);
+      if (!down && rake) {
         const bite = 0.3 + 0.9 * clamp(Math.abs(vf) / 4, 0, 1);
-        const tq = steer * bite * H.turn * (vf < -0.3 ? -1 : 1) * m * 0.9;
+        const tq = rake * bite * H.turn * (vf < -0.3 ? -1 : 1) * m * 0.9;
         b.forces.push(...yawCouple(b, tq));
       }
       this.planing = damp(this.planing, smoothstep(3.2, 4.6, Math.abs(vf)), 2, dt);
@@ -2073,15 +2082,17 @@ export class Boat {
       // (Through the wind and the helm let go, you finish the tack, as anyone would: the tiller
       // kept over the way she was turning until the sail fills on the new side.)
       const fin = this._finish;
+      let tiller = steer;
       if (fin && (steer || held || fin.t > 4 || (A.awa > 0.75 && A.state === 'drawing'))) this._finish = null;
       else if (fin) {
         fin.t += dt;
-        b.rudder = -fin.s * 0.8;
+        tiller = fin.s * 0.8;
       }
       if (steer) this._lastSteer = { s: Math.sign(steer), t };
       const hold = this.holdCourse(steer, !held && !this._finish && A.state !== 'irons' && A.awa > 0.6 && (thrust > 0.05 || Math.abs(vf) > 0.5));
       this._holding = hold;
-      if (hold) b.rudder = hold;
+      if (hold) tiller = -hold;
+      b.rudder = -this.helmTo(tiller, dt, vf);
       // You sit out on the windward side against the heel, as far as a person can lean. (Once
       // she heels past five degrees or so: your weight, three-quarters of a metre out.)
       b.heelMoment = -Math.sign(this.roll) * smoothstep(0.08, 0.3, Math.abs(this.roll)) * CREW * G * 0.75;
@@ -2230,13 +2241,38 @@ export class Boat {
     this.updateGear();
   }
 
+  // The helm (tiller, wheel or the jet ski's bars) moves towards where you're steering at the pace
+  // a hand turns it, not in an instant; and going fast you only ever put on a little of it (as
+  // anyone driving a fast boat does: hard over at speed, a jet ski spins out and a skiff trips
+  // over its chine). Returns where it is, -1 … 1 (+: to starboard, as steer).
+  helmTo(want, dt, vf) {
+    const H = this.hull, M = H.motor;
+    // (How far over it goes at full speed, from what speed on, and how quickly it turns: bars
+    // and tillers quickest, a big boat's wheel slowest.)
+    const spec = M?.jet ? [0.5, 3, 13, 3.5] : M?.inboard ? [0.55, 2, 9, 1.6] : H.rig ? [0.5, 3, 9, 3] : H.cabin ? [0.3, 1.5, 5, 1.8] : H.wheel ? [0.3, 2, 8, 2.2] : M ? [0.3, 2, 8, 4.5] : [0.7, 1.5, 4, 3];
+    const fast = smoothstep(spec[1], spec[2], Math.abs(vf));
+    const most = 1 - (1 - spec[0]) * fast;
+    const target = clamp(want, -1, 1) * most;
+    // (Back towards amidships a little quicker than over: let go, and it comes back.)
+    const rate = spec[3] * (Math.abs(target) < Math.abs(this.helm) ? 1.5 : 1);
+    this.helm += clamp(target - this.helm, -rate * dt, rate * dt);
+    if (Math.abs(this.helm) < 1e-4) this.helm = 0;
+    return this.helm;
+  }
+
+  // Hands off the helm under way: you let her swing settle (a touch of opposite helm, no more),
+  // then hold her on the course she settles on, rather than hauling her back to wherever she was
+  // pointing when you let go. Returns a rudder angle (as b.rudder: + turns her to port).
   holdCourse(steer, driven) {
     if (Math.abs(steer) > 0.05 || !driven) {
       this._held = null;
       return 0;
     }
-    if (this._held == null) this._held = this.heading;
-    return clamp(2.5 * wrapAngle(this.heading - this._held) + 3 * this.omega, -1, 1);
+    if (this._held == null) {
+      if (Math.abs(this.omega) > 0.06) return clamp(1.5 * this.omega, -0.6, 0.6);
+      this._held = this.heading;
+    }
+    return clamp(1.6 * wrapAngle(this.heading - this._held) + 2 * this.omega, -0.8, 0.8);
   }
 
   // At anchor. The anchor goes down to the seabed (she drifts a little until it bites); then the
