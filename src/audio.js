@@ -396,6 +396,11 @@ export class AudioScape {
     }
   }
 
+  // A ship's horn: one long, low blast (two notes beating together), from far off.
+  horn(vol = 1, pan = 0) {
+    for (const f of [87, 131]) this.tone({ type: 'sawtooth', freq: f, dur: 3.6, gain: 0.05 * vol, attack: 0.3, pan, filter: ['lowpass', 480, 0.8] });
+  }
+
   knock(vol = 1) {
     this.tone({ freq: 160, freqEnd: 90, dur: 0.22, gain: 0.22 * vol, attack: 0.003 });
     this.burst({ buf: this.brown, type: 'lowpass', freq: 400, dur: 0.14, gain: 0.15 * vol, attack: 0.003 });

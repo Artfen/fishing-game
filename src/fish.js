@@ -3,7 +3,7 @@ import { lerp, smoothstep, seeded } from './util.js';
 import { hasAnatomy, anatomyGeometry, anatomyMaterials } from './anatomy.js';
 import { registerFor, titleName } from './register.js';
 import { isDay, isEvening, isTwilight, clamp01 } from './habits.js';
-import { ATLANTIC } from './atlantic.js';
+import { ATLANTIC, DEPTHS } from './atlantic.js';
 import { SOUTH, AT_BRASAS, SOUTH_REEF } from './southFish.js';
 import { BIG_GAME } from './bigGame.js';
 
@@ -841,6 +841,9 @@ FISH.push(...SOUTH);
 FISH.push(...BIG_GAME);
 // Las Brasas' commonest reef fish, joined last of all (so no fish anywhere moves).
 FISH.push(...SOUTH_REEF);
+// The angling depth release (atlantic.js): the ray, the catshark, the weever, hake and the John
+// Dory, after everything else for the same reason.
+FISH.push(...DEPTHS);
 // Fish of the home coast that live round Las Brasas too, in its waters and on its homes.
 for (const [id, R] of Object.entries(AT_BRASAS)) {
   const f = FISH.find((x) => x.id === id);

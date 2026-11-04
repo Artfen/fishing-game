@@ -189,6 +189,7 @@ export class Memories {
       const d = el('div', 'mem-mark');
       d.append(el('b', '', `${p.fav ? '★ ' : '⚑ '}${p.title || 'A mark'}`));
       if (p.note) d.append(el('p', '', p.note));
+      if (p.from) d.append(el('p', 'mem-link', `From ${p.from}, while you played together.`));
       d.append(el('p', 'mem-link', linkText(catchesNear(st.log, p.x, p.z, 40))));
       const acts = el('div', 'mem-acts');
       acts.append(btn('On the map', () => this.h.showOnMap(p.x, p.z)), btn('Edit', () => this.h.editPin(p)));

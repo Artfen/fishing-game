@@ -194,5 +194,5 @@ test('the explored map and where each catch was made are kept, and junk in them 
   const bad = S.sanitize({ seen: '<script>', log: [{ ...catchEntry('c'), x: 'far', z: 1e9 }] });
   assert.equal(bad.seen, '');
   assert.equal(bad.log[0].x, null);
-  assert.equal(bad.log[0].z, 3000);
+  assert.equal(bad.log[0].z, 8000);
 });

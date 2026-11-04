@@ -7,6 +7,7 @@ import { formatClock } from './world/sky.js';
 import { dayPage, dayText, careerOf, CHALLENGES } from './daybook.js';
 import { groundsOf, groundWords, SIGNS, NATURE, NATURE_IDS } from './grounds.js';
 import { SEA_LIFE } from './world/sealife.js';
+import { SITE_DETAILS, foundWords } from './world/divesites.js';
 
 const $ = (id) => document.getElementById(id);
 const ZONE_WORDS = {
@@ -259,7 +260,13 @@ export class Journal {
         if (kinds.size) li.append(el('span', 'j-seen', `Caught here: ${[...kinds].map((id) => fishById[id]?.name.toLowerCase()).join(', ')}`));
         // A dive site: how often you've been down, and how deep.
         const dv = p.dive && st.dive?.sites?.[p.id];
-        if (p.dive) li.append(el('span', 'j-seen', dv?.dives ? `Dived ${dv.dives === 1 ? 'once' : dv.dives === 2 ? 'twice' : `${dv.dives} times`}, down to ${dv.deepest.toFixed(1)} m.` : 'A dive site: not dived yet.'));
+        if (p.dive) li.append(el('span', 'j-seen', dv?.dives ? `Dived ${dv.dives === 1 ? 'once' : dv.dives === 2 ? 'twice' : `${dv.dives} times`}, down to ${dv.deepest.toFixed(1)} m${dv.vis ? `; the clearest water, about ${dv.vis} m` : ''}.` : 'A dive site: not dived yet.'));
+        // What there is to find there (see divesites.js), and how much of it you have.
+        const all = SITE_DETAILS[p.id];
+        if (p.dive && all && dv?.dives) {
+          const got = foundWords(p.id, dv.found || []), left = all.length - all.filter((d) => dv.found?.includes(d.id)).length;
+          li.append(el('span', 'j-seen', got ? `Found here: ${got}.${left ? ' There’s more to find.' : ''}` : 'Something here is still to find: look around on your next dive.'));
+        }
       } else {
         li.append(el('strong', '', '· · ·'), el('span', '', 'Somewhere not yet found.'));
       }

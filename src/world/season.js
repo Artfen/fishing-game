@@ -79,6 +79,9 @@ export const SEASON_FISH = {
   squid: [0.6, 0.5, 1.3, 1.2], cuttlefish: [1.3, 1.0, 0.7, 0.4],
   plaice: [0.9, 1.1, 1.0, 0.6], sole: [1.0, 1.1, 1.0, 0.6], turbot: [0.8, 1.2, 1.0, 0.5], flounder: [1.0, 0.9, 1.1, 0.8],
   pollack: [0.9, 1.0, 1.2, 1.0], wrasse: [1.0, 1.2, 1.0, 0.4],
+  // (Rays come inshore in spring; weevers move into the warm shallows from late spring; hake feed
+  // hardest in the dark months; the John Dory in late summer and autumn; catsharks all year.)
+  thornback: [1.3, 1.1, 0.9, 0.6], weever: [0.8, 1.3, 1.0, 0.15], hake: [0.9, 0.8, 1.1, 1.25], johndory: [0.7, 1.2, 1.2, 0.6], catshark: [1.0, 1.0, 1.0, 0.9],
   trout: [1.0, 0.8, 1.1, 0.35], grayling: [0.8, 0.9, 1.2, 1.1], perch: [1.0, 1.0, 1.1, 0.8], pike: [0.8, 0.7, 1.3, 1.1],
   carp: [0.8, 1.2, 1.0, 0.25], tench: [0.8, 1.2, 0.9, 0.2], roach: [0.9, 1.1, 1.0, 0.6], rudd: [0.8, 1.2, 1.0, 0.4],
 };

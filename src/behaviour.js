@@ -103,6 +103,12 @@ const PREFS = {
   dentex: { current: [0.3, 0.5], rough: 0.2, bright: 0.5, disturb: 0.8, jumpy: 0 },
   sole: { current: [0.1, 0.5], rough: -0.1, bright: 1, disturb: 0.8, jumpy: 0 },
   turbot: { current: [0.2, 0.5], rough: 0, bright: 0.6, disturb: 0.7, jumpy: 0 },
+  // (The angling depth release: none of them leaps; the dory is shy of bright, still water.)
+  thornback: { current: [0.15, 0.55], rough: 0, bright: 0.7, disturb: 0.6, jumpy: 0 },
+  catshark: { current: [0.1, 0.6], rough: 0.2, bright: 0.8, disturb: 0.4, jumpy: 0 },
+  weever: { current: [0.1, 0.5], rough: 0.4, bright: 0.2, disturb: 0.8, jumpy: 0 },
+  hake: { current: [0.1, 0.5], rough: 0, bright: 1, disturb: 0.8, jumpy: 0.1 },
+  johndory: { current: [0.05, 0.35], rough: 0, bright: 0.5, disturb: 1.3, jumpy: 0 },
   bonito: { current: [0.4, 0.4], rough: 0.3, bright: 0, disturb: 0.6, jumpy: 0.3 },
   cuttlefish: { current: [0.05, 0.6], rough: -0.3, bright: 0.5, disturb: 1.2, jumpy: 0 },
   octopus: { current: [0.05, 0.5], rough: -0.2, bright: 0.8, disturb: 1, jumpy: 0 },

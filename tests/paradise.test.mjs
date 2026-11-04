@@ -154,7 +154,9 @@ test('more fish, but not absurdly many; Fernbeck’s pools all hold fish', () =>
   // (At home: Las Brasas, far to the south, has its own, see tests/brasas.test.mjs; so do the
   // dive sites, see tests/divesites.test.mjs.)
   const n = eco.agents.filter((a) => !a.home.south && !a.home.site && !a.home.crossing).length;
-  assert.ok(n > 2300 && n < 2500, `${n} fish in all`);
+  // (The angling depth release added five kinds to the home coast: a ray, a catshark, the weever,
+  // hake and the John Dory, a hundred-odd fish between them.)
+  assert.ok(n > 2300 && n < 2560, `${n} fish in all`);
   const stream = eco.agents.filter((a) => a.home.zone === 'stream');
   assert.ok(stream.length >= 18, `${stream.length} in the stream`);
   const pools = new Set(stream.map((a) => a.home));

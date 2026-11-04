@@ -24,7 +24,7 @@ import { FishRenderer } from './world/fishRender.js';
 import { Underwater } from './world/underwater.js';
 import { Seabed } from './world/seabed.js';
 import { Drifters } from './world/drifters.js';
-import { siteAt, siteById, pushOut } from './world/divesites.js';
+import { siteAt, siteById, pushOut, detailsNear, SITE_DETAILS } from './world/divesites.js';
 import { Reflection, RippleField, NO_REFLECT, hideFromReflection } from './world/waterfx.js';
 import { createMist } from './world/mist.js';
 import { surfaceUniforms } from './world/surface.js';
@@ -38,6 +38,7 @@ import {
   CALF, CALF_TOWER, CALF_SKERRY, CALF_SOUND, CALF_LANDING,
 } from './world/terrain.js';
 import { Car } from './car.js';
+import { TRAILABLE, TRAILER_HOME, launchSpot, loadable } from './trailer.js';
 import { MAX_AFLOAT, homeOf, STORE_WORDS, LAUNCH_WORDS, NEW_AFLOAT, chooseAfloat, ownBerths, cleanStored } from './fleet.js';
 import { Workbench, OutingSheet } from './workbench.js';
 import { KIT, KIT_IDS, DESTS, launchOf, parkNear, driveMinutes, moveKit, reconcile, campOfKit, campHas, statusOf, snapshot } from './outing.js';
@@ -107,7 +108,7 @@ import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality
 import { Post } from './post.js';
 import { Diver, Shot, buildGun } from './diver.js';
 import { stepComfort, effectsOf, needsOf, dressFor, drink as drinkFrom, refill, eatRoll, packRolls, mealDrink, CLOTHES, CLOTHES_IDS, BOTTLE, ROLLS, feelsLike } from './comfort.js';
-import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance, logSite } from './dive.js';
+import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance, logSite, logFind } from './dive.js';
 import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick, seeded } from './util.js';
 
 const REST_SPEED = 30;   // holding T lets time drift by
@@ -728,13 +729,15 @@ function mooring(kind) {
 // store keeps the three you'd most want in the water (the one you were in first) and lays up
 // the rest; a new game starts with the camp's three boats in the water.
 const KINDS = Object.keys(BOATS);
+// (A boat on the trailer is out of the water but not laid up: she's left out of the count.)
+const FLEET = KINDS.filter((k) => k !== state.trailer?.boat);
 const fleetNews = (() => {
-  if (cleanStored(state.stored, KINDS)) return null;
+  if (cleanStored(state.stored, FLEET)) return null;
   const saved = state.boats || {}, fresh = !Object.keys(saved).length;
   const homes = { harbour: { x: 11, z: -70 }, camp: { x: LANDING.x, z: LANDING.z }, lake: BOATHOUSE_PIER.end };
   const away = KINDS.filter((k) => saved[k] && Math.hypot(saved[k].x - homes[homeOf(k)].x, saved[k].z - homes[homeOf(k)].z) > 60);
-  const afloat = fresh ? NEW_AFLOAT : chooseAfloat(KINDS, { vessel: state.vessel, away });
-  state.stored = KINDS.filter((k) => !afloat.includes(k));
+  const afloat = fresh ? NEW_AFLOAT : chooseAfloat(FLEET, { vessel: state.vessel, away });
+  state.stored = FLEET.filter((k) => !afloat.includes(k));
   return fresh ? null : afloat;
 })();
 const isStored = (k) => state.stored.includes(k);
@@ -824,8 +827,9 @@ for (const [kind, b] of Object.entries(BOATS)) {
     b.sheet = saved.sail;
   }
 }
-// (The ones laid up ashore, out of the way first.)
+// (The ones laid up ashore, out of the way first; and one on the trailer.)
 for (const k of state.stored) stow(BOATS[k], true);
+if (state.trailer?.boat) stow(BOATS[state.trailer.boat], true);
 // How each boat was left: tied up alongside (made fast again where she lies, held firm from the
 // start), at anchor (the anchor already on the bottom where it was), or free. A boat at her home
 // mooring starts tied up there; an older save's boat "anchored" right alongside a pier (how boats
@@ -965,7 +969,8 @@ const mapAboard = () => modal === 'map' && !onFoot && !driving && !dive && !cabi
 function teach(key, text, secs = 5) {
   if (state.tips[key]) return;
   state.tips[key] = true;
-  hud.toast(text, secs);
+  // (Plain words: a key's label comes as a <kbd>, which the toast would show as it is.)
+  hud.toast(text.replace(/<[^>]+>/g, ''), secs);
   save();
 }
 
@@ -1022,7 +1027,7 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   // Every break has a reason you can see and do something about (see fight.js).
   // A fish thrown or pulled free has the line whole: it says so.
   onSnap: (why, sp, rod) => {
-    hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : why === 'thrown' ? 'It threw the hook!' : why === 'pulled' ? 'The hook pulled free.' : 'Snap! The line broke.', t, 3);
+    hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : why === 'rock' ? 'Cut on the rocks!' : why === 'thrown' ? 'It threw the hook!' : why === 'pulled' || why === 'lifted' ? 'The hook pulled free.' : why === 'kicked' ? 'It kicked free at the net!' : 'Snap! The line broke.', t, 3);
     hud.toast(breakReason(why, sp, rod), 9);
   },
   // The line as it is (worn by hard fights, see shop.js); and the wear a fight just ended leaves.
@@ -1195,6 +1200,11 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
   }
   logCatch(sp, size, agent, rigUsed, how);
   together.caught(sp.id, agent?.weight ?? weightOf(sp, size), { best: record, first: isNew });
+  // A first of its kind: how it was caught, for your friends (a tip, on their map where you were).
+  if (isNew) {
+    const e = logById(lastCatchId);
+    if (e) shareFind('fish', e.x ?? agent.x, e.z ?? agent.z, sp.name, tipWords(e));
+  }
   adventures.caught(sp.id, agent.x, agent.z, world.flocks);
   favoursReady(favourCaught(state.favours, { id: sp.id, size, night: clock.hour >= 20.5 || clock.hour < 5, shore: onFoot }));
   markObserved(sp.id, agent);
@@ -1226,6 +1236,8 @@ function showCatch(sp, size, agent, rigUsed) {
   const build = agent?.condition && !sp.creature ? ` · ${conditionWords(agent.condition)}` : '';
   $('cc-size').textContent = `${size} cm${sp.creature ? ' mantle' : ''} · about ${wtText}${build}${record ? ' · your biggest yet' : ''}`;
   $('cc-note').textContent = isNew ? sp.note : agent.caught > 0 ? 'This one has met your hook before.' : sp.creature ? pick(['It flushes pale and dark, and squirts a last jet of ink.', 'Its great eyes look you over.', 'It wraps an arm round your finger, then lets go.']) : pick(REPEAT_LINES);
+  // (A venomous fish, a weever: unhooked with pliers and a cloth, never a bare hand.)
+  if (sp.venom) hud.flash('Careful: venomous spines. Pliers and a wet cloth to unhook it, and keep your fingers clear of that black fin.', t, 4.5);
   $('cc-rig').textContent = (rigUsed?.item ? `Caught on ${rigUsed.item.on}, with the ${rigUsed.rod.short.toLowerCase()}` : '') + (state.trip?.sp === sp.id ? ' · the fish your trip is for' : '');
   const keepBtn = $('cc-keep');
   keepBtn.hidden = !sp.meal;
@@ -1622,6 +1634,7 @@ const harbourSheet = new HarbourSheet(state, {
   changed: () => save(),
   close: () => closeHarbour(),
   now: () => state.day * 24 + state.hour,
+  playerName: () => settings.player.name,
   sold: (logId) => setOutcome(logId, 'sold'),
   eatMeal: (m) => camp.eatMeal(m),
   eatDish: (text, fill) => camp.eatDish(text, fill),
@@ -2368,6 +2381,7 @@ function updateDive(dt) {
   else scubaStep(dt, depth, surf);
   diveSiteStep(depth);
   noteLife(dt);
+  findStep(dt);
   // (The fish reckon heights from their own water's surface.)
   Object.assign(diverCtx, { x: D.pos.x, y: D.pos.y - waterLevel(D.pos.x, D.pos.z), z: D.pos.z, vx: D.vel.x, vy: D.vel.y, vz: D.vel.z, speed: D.speed, kicking: D.kicking, still: D.still });
   // (Where "you" are, for the markers, the map and the places you pass.)
@@ -2394,16 +2408,46 @@ function diveSiteStep(depth) {
     d.site = S;
     const first = logSite(state.dive, S.id, state.day, depth);
     hud.place(S.name, S.sub);
+    // How far you can see today (the clearest you've had here goes in the log).
+    const vis = underwater.visibility(weather.rain, env.night), rec = state.dive.sites[S.id];
+    rec.vis = Math.max(rec.vis || 0, vis);
     if (first) {
       audio.chime();
       const c = currentAt(S.x, S.z, 0), slack = turns(clock.abs, 1)[0];
       const tide = S.id === 'hound' ? (Math.hypot(c.x, c.z) > 0.18 ? ` The tide’s running across it: hard work down here. Slack water about ${formatClock(slack.at % 24)}.` : ' The tide’s slack: a good time to be here.') : '';
-      hud.toast(`${S.first}${tide}`, 10);
+      const look = SITE_DETAILS[S.id] ? ` Visibility about ${vis} m today. Look around: there’s more here to find.` : ` Visibility about ${vis} m today.`;
+      hud.toast(`${S.first}${tide}${look}`, 11);
+      shareFind('site', S.x, S.z, S.name, `Dived to ${depth.toFixed(0)} m, visibility about ${vis} m.`, S.id);
       hud.pulseJournal();
     }
   }
   const rec = state.dive.sites[S.id];
   if (rec && depth > rec.deepest && Math.hypot(P.x - S.x, P.z - S.z) < S.r + 12) rec.deepest = Math.round(depth * 10) / 10;
+}
+
+// What there is to find at a site (see divesites.js SITE_DETAILS): within reach and in view, it
+// goes in the log (and the journal), and to your friends if you're sharing what you find.
+let findT = 0;
+const _ff = new THREE.Frustum(), _fm = new THREE.Matrix4(), _fv = new THREE.Vector3();
+function findStep(dt) {
+  if ((findT -= dt) > 0 || !dive?.site || dive.black || diver.depth < 1) return;
+  findT = 0.3;
+  const S = dive.site, rec = state.dive.sites[S.id];
+  // (Within reach of you, the diver; in view of the camera behind you.)
+  const near = detailsNear(S.id, diver.pos, rec?.found || []);
+  if (!near.length) return;
+  _fm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  _ff.setFromProjectionMatrix(_fm);
+  const F = near.find((d) => _ff.containsPoint(_fv.set(d.x, d.y, d.z)));
+  if (!F || !logFind(state.dive, S.id, F.id, state.day)) return;
+  const all = SITE_DETAILS[S.id], n = state.dive.sites[S.id].found.filter((id) => all.some((d) => d.id === id)).length;
+  audio.chime();
+  laterT = Math.max(laterT, 9); // (the field notes can wait their turn)
+  hud.toast(`${F.note}${all.length > 1 ? ` (${n} of ${all.length} found on ${S.name === 'The Kittiwake' ? 'her' : S.name}.)` : ''}`, 10);
+  hud.pulseJournal();
+  const what = `${F.name[0].toUpperCase()}${F.name.slice(1)}`;
+  shareFind('detail', F.x, F.z, S.id === 'wreck' ? `The Kittiwake: ${F.name}` : what, F.note);
+  save();
 }
 
 // The naturalist's notes (see grounds.js): what lives within reach of you on the bottom, the reef
@@ -4272,6 +4316,9 @@ function interaction() {
     const P = walker.pos, boot = car.bootSpot(), door = car.doorSpot();
     if (Math.hypot(P.x - boot.x, P.z - boot.z) < 1.8) return { text: 'Open the boot', run: () => openOutSheet('boot') };
     if (Math.hypot(P.x - door.x, P.z - door.z) < 1.6 || Math.hypot(P.x - car.pos.x, P.z - car.pos.z) < 2.4) return { text: 'Get in and drive', run: () => enterCar() };
+    // The boat trailer, hitched behind or standing by the garage.
+    const tr = trailerAct(P);
+    if (tr) return tr;
     // Somewhere to sit a while (see sitDown).
     const seat = seatNear();
     if (seat) return { text: seat.kind === 'fire' ? 'Sit by the fire' : seat.kind === 'chair' ? 'Sit in your camp chair' : 'Sit by the stove', run: () => sitDown(seat) };
@@ -4591,6 +4638,13 @@ function meet(ev, B) {
     case 'boil':
       boilAhead(B, sideWord);
       break;
+    case 'ship': {
+      crossingLife.sendShip(B, side, (Math.random() - 0.5) * 0.5);
+      hud.toast(env.night > 0.4
+        ? `Lights off the ${sideWord} bow: a white light over a white light, and a ${side > 0 ? 'red' : 'green'} one. A ship, crossing ahead of you. Keep well clear: she won’t turn for you.`
+        : `A ship off the ${sideWord} bow: a little container ship, deep-laden, crossing ahead on her way between the Channel and the islands. Keep well clear: she won’t turn for you.`, 9);
+      break;
+    }
     default:
   }
 }
@@ -5336,7 +5390,7 @@ function harbourOffice() {
   // (Wenna at the hatch in office hours; out of them, the yard's board beside it does as well.)
   const W = town.people.wenna, inOffice = W?.block?.spot === 'office' && W.act === 'inside';
   const greet = inOffice ? 'Wenna Penhallow, the harbourmaster, looks up from her ledger. ' : W?.block?.spot === 'gangway' ? 'Wenna’s down at the gangway looking over the pontoon; the board by the hatch does as well. ' : 'The hatch is shut for the night, but the yard’s board beside it sees to your boats all the same. ';
-  ask('The harbour office', `${greet}In the water (${boats.length} of ${MAX_AFLOAT}): ${boats.map((b) => `the ${b.name}, ${whereWords(b)}`).join('; ')}.${laid.length ? ` Laid up: ${laid.map((b) => `the ${b.name}`).join(', ')}.` : ''}`, [
+  ask('The harbour office', `${greet}In the water (${boats.length} of ${MAX_AFLOAT}): ${boats.map((b) => `the ${b.name}, ${whereWords(b)}`).join('; ')}.${laid.length ? ` Laid up: ${laid.map((b) => `the ${b.name}`).join(', ')}.` : ''}${state.trailer.boat ? ` On your trailer: the ${BOATS[state.trailer.boat].name}.` : ''}`, [
     { text: 'Never mind', cls: 'quiet' },
     ...(laid.length ? [{ text: 'Put a boat in the water…', run: () => chooseLaunch() }] : []),
     ...(boats.length > 1 ? [{ text: 'Lay a boat up…', run: () => chooseStore() }] : []),
@@ -5361,6 +5415,88 @@ function chooseLaunch() {
     ...laid.map((b) => ({ text: `The ${b.name}`, run: () => launchBoat(b) })),
   ]);
 }
+/* ---------- the boat trailer (see trailer.js) ---------- */
+
+// Hitched, or standing by the garage; and a boat on it sits on its bunks wherever it goes.
+car.setTrailer(state.trailer.hitched ? true : TRAILER_HOME);
+const _trailerAt = { x: 0, z: 0, y: 0, yaw: 0, pitch: 0 };
+function trailerBoatStep() {
+  const k = state.trailer.boat;
+  if (!k) return;
+  const b = BOATS[k], T = car.trailerSpot(_trailerAt);
+  b.group.visible = car.trailer.visible;
+  b.group.position.set(T.x, T.y + 0.6, T.z);
+  b.group.rotation.set(T.pitch, T.yaw, 0, 'YXZ');
+}
+trailerBoatStep();
+// What you can do at the trailer, standing beside it.
+function trailerAct(P) {
+  if (!car.trailer.visible || driving) return null;
+  const T = car.trailerSpot(_trailerAt);
+  if (Math.hypot(P.x - T.x, P.z - T.z) > 2.6) return null;
+  if (!state.trailer.hitched) {
+    const close = Math.hypot(car.pos.x - TRAILER_HOME.x, car.pos.z - TRAILER_HOME.z) < 20;
+    return close ? { text: 'Hitch the trailer to the car', run: () => hitchTrailer(true) }
+      : { text: 'The boat trailer', run: () => hud.toast('Bring the car round to hitch it up: it carries a small boat (the kayak, the rowing boat, the skiff, the bass boat or the jet ski) to any water the car can get close to.', 6) };
+  }
+  const b = state.trailer.boat ? BOATS[state.trailer.boat] : null;
+  return { text: b ? `The trailer: the ${b.name}` : 'The trailer', run: () => trailerChoices() };
+}
+function hitchTrailer(on) {
+  state.trailer.hitched = on;
+  car.setTrailer(on ? true : TRAILER_HOME);
+  audio.knock(0.3);
+  hud.toast(on ? 'The trailer’s hitched on. Back it down to the water with a boat to launch, or bring one in to load: from the slipway at Willowhaven, the strand, Wend Quay or the Mere Boathouse.' : 'The trailer’s unhitched, back by the garage.', 6);
+  save();
+}
+function trailerChoices() {
+  const T = car.trailerSpot(_trailerAt), k = state.trailer.boat, b = k ? BOATS[k] : null;
+  const home = Math.hypot(T.x - TRAILER_HOME.x, T.z - TRAILER_HOME.z) < 25;
+  const opts = [{ text: 'Never mind', cls: 'quiet' }];
+  let text;
+  if (b) {
+    const spot = launchSpot(depthAt, T.x, T.z, T.yaw);
+    if (!spot) text = `The ${b.name} is on the trailer. There’s no water close enough to launch her here: back the trailer down to the water’s edge (a slipway, a beach, a quay).`;
+    else if (boats.length >= MAX_AFLOAT) text = `The ${b.name} is on the trailer, but three of your boats are in the water already: bring one in onto the trailer, or lay one up at the harbour office, first.`;
+    else {
+      text = `The ${b.name} is on the trailer, and there’s water to launch her ${spot.r < 8 ? 'right behind it' : `${Math.round(spot.r)} metres off`}.`;
+      opts.push({ text: `Launch the ${b.name}`, run: () => launchOffTrailer(b, spot) });
+    }
+  } else {
+    const near = loadable(boats.map((o) => ({ kind: o.kind, pos: o.pos, aboard: o === boat && !onFoot, towing: !!(tow && (tow.lead === o || tow.towed === o)), o })), T.x, T.z);
+    const shown = near.filter((n) => regionOf(n.o) === 'home');
+    text = shown.length ? 'Which boat comes out onto it? (She’s brought in to the bank and winched up.)' : `Nothing to load here: bring a small boat (${TRAILABLE.map((t) => BOATS[t]?.name).filter(Boolean).join(', ')}) in close to the trailer, and step ashore.`;
+    if (shown.length && boats.length <= 1) text = 'She’s your only boat in the water: put another in first.';
+    else for (const n of shown) opts.push({ text: `The ${n.o.name}`, run: () => loadOnTrailer(n.o) });
+    if (home) opts.push({ text: 'Unhitch it here', cls: 'quiet', run: () => hitchTrailer(false) });
+  }
+  ask('The boat trailer', text, opts);
+}
+function loadOnTrailer(b) {
+  if (state.trailer.boat || boats.length <= 1) return;
+  stow(b);
+  state.trailer.boat = b.kind;
+  // (Not the boat you'd go back to any more: the nearest of the others in the water is.)
+  if (boat === b) switchBoat(boats.reduce((best, o) => (!best || Math.hypot(o.pos.x - walker.pos.x, o.pos.z - walker.pos.z) < Math.hypot(best.pos.x - walker.pos.x, best.pos.z - walker.pos.z) ? o : best), null));
+  passTime(0.25);
+  audio.knock(0.4);
+  trailerBoatStep();
+  hud.toast(`The ${b.name} is out of the water and on the trailer, strapped down. She goes where the car goes.`, 6);
+  save();
+}
+function launchOffTrailer(b, spot) {
+  if (boats.length >= MAX_AFLOAT) return;
+  state.trailer.boat = null;
+  unstow(b);
+  b.group.rotation.set(0, b.heading, 0, 'XYZ');
+  b.tie = null;
+  b.place(spot.x, spot.z, spot.heading);
+  passTime(0.25);
+  audio.knock(0.4);
+  hud.toast(`The ${b.name} is in the water, off the trailer: step aboard and away.`, 6);
+  save();
+}
+
 // Out of the water: fetched by the yard if she's lying somewhere else, then kept where she lives.
 function storeBoat(b, { quiet = false } = {}) {
   if (!canStore(b) || boats.length <= 1) return false;
@@ -5735,6 +5871,7 @@ function checkPlaces(dt) {
     if (state.places[pl.id] || !pl.test(p.x, p.z)) continue;
     state.places[pl.id] = { day: state.day, hour: state.hour };
     hud.place(pl.name, pl.sub);
+    shareFind('place', pl.x ?? p.x, pl.z ?? p.z, pl.name, pl.sub || '', pl.id);
     audio.chime();
     hud.toast(`${pl.name} is in your journal now`);
     hud.pulseJournal();
@@ -5951,6 +6088,13 @@ function seeSeaLife(kind, x, z) {
 }
 sealife.onSighting = seeSeaLife;
 crossingLife.events.onSighting = seeSeaLife;
+// The ship's horn (a long blast, heard a long way off), and the white water at her bow and stern.
+crossingLife.events.onHorn = (x, z) => {
+  const h = heardFrom(x, z, 2500);
+  audio.horn?.(Math.max(0.3, h.vol), h.pan);
+  hud.toast('One long blast from the ship’s horn: you’re close. Turn away and let her by.', 6);
+};
+crossingLife.events.onWake = (x, z, k = 1) => fx.ripple(x, z, 2.5 * k, 3.5 * k, 0.4 * k);
 crossingLife.events.onPlop = (x, z, k = 0.4) => {
   fx.splash(x, 0.05, z, 3 + Math.round(k * 6), 0.9 * k, 0.3 * k);
   fx.ripple(x, z, 0.4 + k * 0.6, 0.9, 0.25);
@@ -6646,6 +6790,7 @@ function actionLabel() {
   if (modal === 'note') return 'OK';
   if (dive) return dive.kit === 'scuba' ? 'Photo' : shot.loaded ? 'Shoot' : '…';
   if (driving) return 'Brake';
+  if (fishing.state === 'reeling' && fishing.fight?.atNet) return 'Net it';
   if (fishing.state === 'reeling' && (fishing.fight?.surgeT > 0 || (fishing.fight?.warned && !fishing.pulling))) return 'Easy';
   if (fishing.state === 'reeling' && fishing.pulling) return 'Hold';
   if (fishing.state === 'drifting' && (fishing.kind === 'ledger' || fishing.kind === 'bottom')) return 'Wind in';
@@ -6753,7 +6898,7 @@ function updateHud() {
   else if (fishing.state === 'reeling' && F) {
     // The ring: how near you are to landing it, and the load on the line (red and shaking near
     // breaking). The word: what to do now, and under it what the fish is doing and the line out.
-    const word = F.surgeT > 0 ? 'easy!' : easy ? 'flick!' : F.tension > 0.9 ? 'ease off!' : F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel';
+    const word = F.atNet ? `net it: tap ${K('cast')}` : F.surgeT > 0 ? 'easy!' : easy ? 'flick!' : F.tension > 0.9 ? 'ease off!' : F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel';
     const doing = F.wordT > 0 ? F.word : fishing.side && F.pulling ? `side strain ${fishing.side < 0 ? '←' : '→'}` : F.stage !== 'fresh' ? F.stage : '';
     const out = Math.round(fishing.tip.distanceTo(fishing.fishPos));
     hud.meter(true, F.progress, F.tension, F.tension, `<span>${word}</span>${doing ? `<span class="ml-sub">${doing}</span>` : ''}<span class="ml-sub">${out} m out</span>`, DRAG_LEVELS[F.drag], easy, F.tension > 0.86);
@@ -6960,6 +7105,52 @@ function rehome() {
   if (moved) save();
 }
 
+// Sharing what you find (Settings → Play together → Share what you find): a place or dive site,
+// something found on a dive, a first fish and how it was caught, or a mark sent from the map. It
+// goes to your friends' maps as a mark with your name on it. Returns whether it went.
+function shareFind(k, x, z, t, n = '', id = null) {
+  if (!together.active || settings.player.share === false || !together.others.length) return false;
+  return together.share({ k, x, z, t, n, ...(id ? { id } : {}) });
+}
+// A first fish, as a tip: where, on what, when, and the tide.
+function tipWords(e) {
+  const item = e.item && TACKLE[e.item] ? TACKLE[e.item].name : null, rod = RODS[e.rod]?.name;
+  const h = e.hour, when = h < 5 || h >= 21.5 ? 'after dark' : h < 8 ? 'at dawn' : h < 11.5 ? 'in the morning' : h < 14 ? 'around midday' : h < 17.5 ? 'in the afternoon' : 'in the evening';
+  const tide = { high: 'at high water', low: 'at low water', flood: 'on the flood', ebb: 'on the ebb' }[e.tide];
+  const on = item ? `on ${/^[aeiou]/i.test(item) ? 'an' : 'a'} ${item[0].toLowerCase()}${item.slice(1)}${rod ? ` (${rod.toLowerCase()})` : ''}` : rod ? `on the ${rod.toLowerCase()}` : '';
+  const bits = [e.place, on, when, e.water === 'fresh' ? null : tide, e.depth >= 1 ? `${Math.round(e.depth)} m down` : null].filter(Boolean);
+  return `${bits.join(', ')}.`.replace(/^./, (c) => c.toUpperCase());
+}
+// A friend's find, onto your map: once (found again, it's brought up to date), and not for a place
+// you know already (just the news). If your map's full of marks, just the news.
+function friendFind(p, F) {
+  const the = (t) => t.replace(/^The /, 'the ');
+  const wreck = F.t.startsWith('The Kittiwake: ');
+  const news = {
+    place: `${p.name} found ${the(F.t)}`, site: `${p.name} dived ${the(F.t)}`,
+    detail: wreck ? `${p.name} found something on the Kittiwake: ${F.t.slice(15)}` : `${p.name} found ${the(F.t)}`,
+    fish: `${p.name}’s tip for ${F.t.toLowerCase()}`, mark: `${p.name} sent you a mark: ${F.t}`,
+  }[F.k];
+  if ((F.k === 'place' || F.k === 'site') && F.id && state.places[F.id] && (F.k === 'place' || state.dive.sites[F.id])) {
+    hud.toast(`${news}.`, 5);
+    return;
+  }
+  const same = state.pins.find((q) => q.from === p.name && q.title === F.t && Math.hypot(q.x - F.x, q.z - F.z) < 60);
+  let where = 'it’s on your map';
+  if (same) Object.assign(same, { x: F.x, z: F.z, note: F.n || same.note });
+  else if (state.pins.length < 60) state.pins.push({ id: `fr-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, x: F.x, z: F.z, title: F.t, note: F.n, fav: false, from: p.name, day: state.day, hour: Math.round(state.hour * 100) / 100 });
+  else where = 'your map has no room for another mark';
+  const text = `${news}${F.k === 'fish' && F.n ? `: ${F.n}` : ''} (${where}).`;
+  // (A first fish's tip comes after the news of the catch, not over it.)
+  if (F.k === 'fish') later(text);
+  else hud.toast(text, 6);
+  if (mapSheet.isOpen) {
+    mapSheet.renderSide();
+    mapSheet.draw();
+  }
+  save();
+}
+
 // Toasts for what happens in a session (the details are in Settings → Play together).
 together.onEvent = (kind, p, data) => {
   if (kind === 'join') hud.toast(`${p.name} has joined you.`, 5);
@@ -6976,6 +7167,7 @@ together.onEvent = (kind, p, data) => {
     const sp = fishById[data.sp];
     if (sp) hud.toast(`${p.name} caught ${data.first ? 'their first' : 'a'} ${sp.name.toLowerCase()}, ${kgWords(data.kg)}${data.best ? ': their best yet' : ''}.`, 5);
   } else if (kind === 'ended') hud.toast(p ? `${p.name} ended the session.` : data?.hostGone ? `${data.name[0].toUpperCase()}${data.name.slice(1)} didn’t come back, so the session has ended. Your own time and weather are back.` : 'The connection to your session was lost, so you’ve left it.', 7);
+  else if (kind === 'find') friendFind(p, data);
   else if (kind === 'lost') hud.toast('Lost the connection to your session. Trying again…', 4);
   else if (kind === 'back') hud.toast('Back in your session.', 3);
 };
@@ -7006,7 +7198,7 @@ function updateDiveHud() {
   hud.setHTML('dvKind', $('dv-kind'), free ? 'Freediving' : 'Scuba');
   hud.setHTML('dvDepth', $('dv-depth'), `${depth.toFixed(1)} m`);
   const bottom = Math.max(0, -heightAt(diver.pos.x, diver.pos.z));
-  let info = `bottom ${bottom.toFixed(0)} m`;
+  let info = `bottom ${bottom.toFixed(0)} m · visibility ${underwater.visibility(weather.rain, env.night)} m`;
   let fill, mark = -1, warn = false;
   if (free) {
     fill = d.o2;
@@ -7424,6 +7616,12 @@ const mapSheet = new MapSheet(state, explored, { data: heightTex.image.data, wid
   travelInfo: () => travelInfo(),
   close: () => closeMap(),
   changed: () => save(),
+  // Playing together: send a mark to your friends.
+  canShare: () => together.active && together.others.length > 0,
+  sharePin: (p) => {
+    if (!together.active || !together.others.length) return 'There’s no one in your session to send it to.';
+    return together.share({ k: 'mark', x: p.x, z: p.z, t: p.title || 'A mark', n: p.note }) ? `Sent to ${together.others.map((o) => o.name).join(', ')}.` : 'Not sent: wait a moment and try again.';
+  },
   birds: () => {
     const abs = clock.abs;
     return birdSightings.map((b) => ({ x: b.x, z: b.z, age: (abs - b.at) / 1.5 }));
@@ -8276,6 +8474,7 @@ function tick(now, manual = false) {
     const dry = tanks().car <= 0;
     const bump = car.update(dt, t, { throttle: modal || dry ? 0 : carIn.throttle, steer: modal ? 0 : carIn.steer, brake: live && (modal || input.holding('cast')) ? 1 : 0 }, carWorld, { live, night: env.night, still: settings.controls.reducedMotion });
     if (bump) carBumped(bump);
+    trailerBoatStep();
     if (live && !dry && carIn.throttle && burnCar(tanks(), Math.abs(car.speed) * dt)) {
       hud.flash(`The engine coughs and dies: the tank is dry. Roll to a stop, then ${scheme() === 'touch' ? 'tap the prompt' : K('interact')}.`, t, 5);
     }
@@ -8301,7 +8500,7 @@ function tick(now, manual = false) {
     const P = player().pos, aboard = !onFoot && !driving && !dive && !cabinIn;
     const crossingNow = !!state.crossing || inOcean(P.x, P.z);
     sealife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, daylight: env.daylight, hour: clock.hour, region, eco, diving: !!dive, crossing: crossingNow });
-    crossingLife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, crossing: crossingNow });
+    crossingLife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, crossing: crossingNow, night: env.night });
     // (How fast you're coming: walking, the boat, swimming; sitting still is stillest of all.)
     const pace = sitting ? 0 : dive ? diver.speed : onFoot ? walker.speed : driving ? 10 : Math.abs(boat.forwardSpeed) + (boat.motor && boat.lever > 0 ? 1 : 0);
     wildlife.update(dt, t, { from: P, onFoot: onFoot && !dive && !driving, speed: pace, daylight: env.daylight, hour: clock.hour, season: seasonOf(clock.day).name, tideLevel: tideNow.level, region });
@@ -8684,6 +8883,8 @@ window.slowTide = {
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
   rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed,
+  // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
+  harbour: (where, tab) => openHarbour(where, tab),
   // Set the breeze: strength 0–1, blowing towards dir (radians, like a heading).
   // A steady wind for testing: strength 0 … 1 (1 = a fresh breeze, 12 m/s), blowing towards dir
   // (as atan2(x, z) of its vector). setWind(null) gives it back to the weather and Settings.

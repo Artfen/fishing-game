@@ -13,6 +13,7 @@ import { buildHavenHouses } from './havenHouses.js';
 
 const LAMPS = ['#ffffff', '#ffe0b8', '#fff0d8'];
 import { withCaustics } from './caustics.js';
+import { SITE_DETAILS } from './divesites.js';
 
 // The cove shore, built from the map in terrain.js: Willowhaven (a stone quay and sea wall, a
 // slipway, the chandlery, The Lobster Pot inn, the fish market, a net store and three cottages, a
@@ -581,8 +582,69 @@ function buildWreck(rnd, group) {
       { geo: new THREE.TorusGeometry(0.06, 0.02, 5, 10).rotateY(a + Math.PI / 2), matrix: at(0.36), color: '#4c6f53' },
     );
   }
+  // What a diver can find on her besides (see divesites.js SITE_DETAILS): her propeller under the
+  // stern, the steam capstan on her foredeck, her name on the bow, the bottles from her galley.
+  const D = Object.fromEntries(SITE_DETAILS.wreck.map((d) => [d.id, d]));
+  {
+    // The propeller: a hub on a stub of shaft, three iron blades, one snapped off short.
+    const P = D.propeller, at = mat(P.x, P.y, P.z, 0, W.yaw, 0);
+    parts.push({ geo: new THREE.CylinderGeometry(0.15, 0.19, 0.42, 10).rotateX(Math.PI / 2), matrix: at, color: '#5e3a2a' });
+    parts.push({ geo: new THREE.CylinderGeometry(0.07, 0.07, 1.3, 8).rotateX(Math.PI / 2).translate(0, 0, 0.8), matrix: at, color: '#4e3022' });
+    for (let k = 0; k < 3; k++) {
+      const len = k === 2 ? 0.22 : 0.58;
+      const blade = new THREE.BoxGeometry(0.05, len, 0.3).translate(0, 0.16 + len / 2, 0).rotateY(0.5).rotateZ(0.4 + (k * Math.PI * 2) / 3);
+      parts.push({ geo: blade, matrix: at, color: pick(['#5e3a2a', '#6b4130'], rnd) });
+    }
+  }
+  {
+    // The capstan, fallen on its side: a barrel between two flanges, on its iron bed-plate.
+    const C = D.capstan, at = mat(C.x, C.y, C.z, 0, W.yaw + 0.3, 0);
+    parts.push({ geo: new THREE.CylinderGeometry(0.27, 0.3, 0.55, 12).rotateZ(Math.PI / 2), matrix: at, color: '#4a3a30' });
+    for (const side of [-1, 1]) parts.push({ geo: new THREE.CylinderGeometry(0.38, 0.38, 0.06, 14).rotateZ(Math.PI / 2).translate(side * 0.3, 0, 0), matrix: at, color: '#5a3c2c' });
+    parts.push({ geo: new THREE.BoxGeometry(0.8, 0.1, 0.7).translate(0, -0.42, 0.1).rotateZ(0.2), matrix: at, color: '#3d3127' });
+  }
+  {
+    // Stoneware bottles in the sand: cream bodies, brown shoulders, lying where they rolled.
+    const G = D.bottles;
+    for (let k = 0; k < 5; k++) {
+      const a = rnd() * Math.PI * 2, d = 0.15 + rnd() * 0.55, x = G.x + Math.cos(a) * d, z = G.z + Math.sin(a) * d;
+      const y = heightAt(x, z) + 0.045, yaw = rnd() * Math.PI * 2, tip = k === 0 ? 0 : Math.PI / 2 - 0.15;
+      const at = mat(x, y + (k === 0 ? 0.06 : 0), z, 0, yaw, tip);
+      parts.push({ geo: new THREE.CylinderGeometry(0.048, 0.052, 0.17, 9), matrix: at, color: '#d9c9a4' });
+      parts.push({ geo: new THREE.CylinderGeometry(0.022, 0.044, 0.07, 9).translate(0, 0.12, 0), matrix: at, color: '#7a5532' });
+    }
+  }
   const hull = mesh(mergeParts(parts, rnd), withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true })), false);
   group.add(hull);
+  {
+    // Her name on the bow: a board on the planking still on her low side, the letters cut deep.
+    const N = D.name;
+    const { tex } = textTexture(512, 128, (ctx, w, h) => {
+      ctx.fillStyle = '#4b3c2e';
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalAlpha = 0.25;
+      for (let i = 0; i < 18; i++) {
+        ctx.fillStyle = i % 2 ? '#2f251c' : '#5e4b39';
+        ctx.fillRect(0, (i / 18) * h + Math.sin(i * 7.1) * 3, w, 2 + (i % 3));
+      }
+      ctx.globalAlpha = 1;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const carve = (text, y, size) => {
+        ctx.font = `bold ${size}px Georgia, 'Times New Roman', serif`;
+        ctx.fillStyle = '#6e5a45';
+        ctx.fillText(text, w / 2 + 2, y + 2);
+        ctx.fillStyle = '#1f1812';
+        ctx.fillText(text, w / 2, y);
+      };
+      carve('KITTIWAKE', h * 0.4, 66);
+      carve('WH 27', h * 0.82, 30);
+    });
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.42).rotateY(Math.PI / 2), new THREE.MeshLambertMaterial({ map: tex }));
+    board.position.set(N.x, N.y, N.z);
+    board.rotation.set(0, W.yaw, 0.5, 'YXZ');
+    group.add(board);
+  }
 
   // The buoy.
   const buoy = new THREE.Group();

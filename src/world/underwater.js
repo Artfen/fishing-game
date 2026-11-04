@@ -337,6 +337,18 @@ export class Underwater {
     }
   }
 
+  // How thick the water is: clear blue water (Las Brasas) thinner than home's green, rain, the dark
+  // and the water's colour (silt and plankton after a blow) thickening it.
+  density(rain = 0, night = 0) {
+    return lerp(0.034, 0.016, this.clear) + rain * 0.01 + night * 0.008 + this.colour * 0.03 * (1 - this.clear);
+  }
+
+  // The visibility a diver would give it, in metres: about nine at home on a good day, four or five
+  // in stirred-up water, twenty at Las Brasas.
+  visibility(rain = 0, night = 0) {
+    return Math.max(1, Math.round(0.32 / this.density(rain, night)));
+  }
+
   // Blend everything about the medium (fog, colour, sky, particles) by how far under
   // the surface the camera is. Returns 0 above water, 1 fully submerged.
   updateMedium(t, camera, env, scene, water, rain) {
@@ -355,7 +367,7 @@ export class Underwater {
       camera.getWorldDirection(_look);
       _fogC.copy(c).lerp(_deep, clamp(0.35 - _look.y * 0.6, 0, 0.6) * env.daylight).multiplyScalar(1 + clamp(_look.y, 0, 1) * 0.35);
       scene.fog.color.lerp(_fogC, sub);
-      scene.fog.density = lerp(scene.fog.density, lerp(0.034, 0.016, this.clear) + rain * 0.01 + env.night * 0.008 + this.colour * 0.03 * (1 - this.clear), sub);
+      scene.fog.density = lerp(scene.fog.density, this.density(rain, env.night), sub);
     }
     env.setUnder(sub, c);
     water.uniforms.uUnderColor.value.copy(c);

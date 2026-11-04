@@ -1049,7 +1049,7 @@ export function buildWorld(scene, renderer, habitat) {
   // banks), trees on Gannet Isle, and thinner woods along the rest of the coast. Each area is its
   // own set of meshes, so the ones out of view aren't drawn.
   // (The Calf is too windswept for trees.)
-  const regionSkip = (x, z) => trailInfo(x, z).d < 3 || riverSDF(x, z) < 8 || mereSDF(x, z) < 4 || (x < 380 && x > -380 && z > -420 && z < 340)
+  const regionSkip = (x, z) => trailInfo(x, z).d < 3 || laneInfo(x, z).d < 4.5 || riverSDF(x, z) < 8 || mereSDF(x, z) < 4 || (x < 380 && x > -380 && z > -420 && z < 340)
     || Math.hypot((x - CALF.x) / (CALF.rx + 8), (z - CALF.z) / (CALF.rz + 8)) < 1
     || inColdwater(x, z, 6) || fellPathInfo(x, z).d < 3.5 || (x < -40 && z < -420 && x > -760 && z > -940);
   const areas = [

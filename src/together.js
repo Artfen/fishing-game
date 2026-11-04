@@ -36,6 +36,22 @@ const SESSION_KEY = 'slow-tide-session';
 // Quick calls: a few words to the others, one at a time (no typing, nothing to moderate).
 export const CALLS = ['Over here!', 'Fish on!', 'Come and look at this', 'Good spot here', 'Wait for me', 'Heading in'];
 const CALL_GAP = 1.5;       // seconds between calls, each way
+// Discoveries shared with friends, if you choose to share them (Settings → Play together): a place
+// or dive site found, something found on a wreck, a first fish with how it was caught, or a mark
+// from your map. Each arrives as a mark on their map, with your name on it.
+export const FIND_KINDS = ['place', 'site', 'detail', 'fish', 'mark'];
+const FIND_BURST = 6, FIND_WINDOW = 30; // at most six in any half-minute, each way
+// Plain words only (nothing that could be read as markup), trimmed to fit.
+const plain = (v, max) => (typeof v === 'string' ? v.replace(/[<>\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '');
+export function cleanFind(f) {
+  if (!f || typeof f !== 'object' || !FIND_KINDS.includes(f.k)) return null;
+  const x = finite(f.x, -3000, 3000), z = finite(f.z, -3000, 8000);
+  const t = plain(f.t, 40);
+  if (x == null || z == null || !t) return null;
+  const out = { k: f.k, x: Math.round(x), z: Math.round(z), t, n: plain(f.n, 240) };
+  if (typeof f.id === 'string' && /^[a-z0-9-]{1,24}$/.test(f.id)) out.id = f.id;
+  return out;
+}
 const MODES = ['foot', 'boat', 'dive', 'car'];
 // The fastest anyone really goes, m/s, on foot, afloat, swimming and driving: anything quicker is
 // a step ashore, a drive skipped or a passage made, and they're simply somewhere new.
@@ -408,6 +424,7 @@ export class Together {
     this.hostGoneAt = null;
     this.newer = false;       // someone's on a newer version of the game
     this.calledT = -99;
+    this.shared = [];
     this.stats = Together.freshStats();
     this.id = newId();
     this.status = 'off';  // off | connecting | hosting | joined
@@ -425,7 +442,7 @@ export class Together {
     this.reconnecting = false;
     this.attempt = 0;     // bumped by each start or leave, so a stale attempt stops itself
     this.onChange = () => {};
-    this.onEvent = () => {}; // (kind: 'joined' | 'join' | 'leave' | 'catch' | 'ended' | 'lost' | 'back', peer, data)
+    this.onEvent = () => {}; // (kind: 'joined' | 'join' | 'leave' | 'catch' | 'call' | 'fishOn' | 'find' | 'ended' | 'lost' | 'back', peer, data)
   }
 
   // What a session has sent and received (the messages Supabase counts against its allowance), and
@@ -830,6 +847,13 @@ export class Together {
       if (this.clock - (p.caughtT ?? -99) < 4) return; // (one at a time)
       p.caughtT = this.clock;
       this.onEvent('catch', p, { sp: data.sp, kg, best: !!data.best, first: !!data.first });
+    } else if (kind === 'find') {
+      const F = cleanFind(data.f);
+      if (!F || !p.name) return;
+      p.finds = (p.finds || []).filter((at) => this.clock - at < FIND_WINDOW);
+      if (p.finds.length >= FIND_BURST) return;
+      p.finds.push(this.clock);
+      this.onEvent('find', p, F);
     } else if (kind === 'call') {
       const c = data.c;
       if (!Number.isInteger(c) || c < 0 || c >= CALLS.length || !p.name) return;
@@ -954,6 +978,17 @@ export class Together {
   // You caught something: tell the others (sp: species id, kg).
   caught(sp, kg, { best = false, first = false } = {}) {
     if (this.active && this.rt?.open && !this.reconnecting) this.rt.send('catch', { id: this.id, sp, kg: Math.round(kg * 100) / 100, best, first });
+  }
+
+  // Something you found, shared with the others (see FIND_KINDS). Returns whether it went.
+  share(find) {
+    const F = cleanFind(find);
+    if (!F || !this.active || !this.rt?.open || this.reconnecting) return false;
+    this.shared = this.shared.filter((at) => this.clock - at < FIND_WINDOW);
+    if (this.shared.length >= FIND_BURST) return false;
+    this.shared.push(this.clock);
+    this.rt.send('find', { id: this.id, f: F });
+    return true;
   }
 
   /* ---------- every frame ---------- */

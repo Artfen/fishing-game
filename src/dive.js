@@ -167,7 +167,8 @@ export function tearChance(quality, sp, size) {
 /* ---------------- the save ---------------- */
 
 // state.dive: the tank (bar) and a few records for the journal; and the dive sites you've been
-// down at (see world/divesites.js): { id: { first (day), dives, deepest (m) } }.
+// down at (see world/divesites.js): { id: { first (day), dives, deepest (m), found?: [what you've
+// found there], vis?: the clearest water you've had there (m) } }.
 export function cleanDive(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
   const n = (v, d, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? clamp(v, lo, hi) : d);
@@ -176,6 +177,9 @@ export function cleanDive(raw) {
     for (const [id, v] of Object.entries(r.sites).slice(0, 24)) {
       if (!/^[a-z]{2,12}$/.test(id) || !v || typeof v !== 'object') continue;
       sites[id] = { first: Math.round(n(v.first, 1, 1, 1e6)), dives: Math.round(n(v.dives, 1, 0, 1e6)), deepest: n(v.deepest, 0, 0, 100) };
+      const found = Array.isArray(v.found) ? [...new Set(v.found.filter((f) => typeof f === 'string' && /^[a-z]{2,12}$/.test(f)))].slice(0, 12) : [];
+      if (found.length) sites[id].found = found;
+      if (Number.isFinite(v.vis) && v.vis > 0) sites[id].vis = Math.round(clamp(v.vis, 0, 60));
     }
   }
   return {
@@ -187,6 +191,14 @@ export function cleanDive(raw) {
     blackouts: Math.round(n(r.blackouts, 0, 0, 1e6)),
     sites,
   };
+}
+// Something found at a site (see world/divesites.js SITE_DETAILS): true the first time.
+export function logFind(dive, siteId, id, day) {
+  const s = dive.sites[siteId] || (dive.sites[siteId] = { first: day, dives: 0, deepest: 0 });
+  const found = (s.found ||= []);
+  if (found.includes(id)) return false;
+  found.push(id);
+  return true;
 }
 // A dive at a site, into the log: the first time, and how deep you went there.
 export function logSite(dive, id, day, depth) {

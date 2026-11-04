@@ -73,6 +73,11 @@ export const FIGHT_STYLES = {
   cling: { run: 1.4, rest: 1.3, surge: 0.75, tire: 0.85, sway: 0.8, dive: 2.6, splash: false, words: 'It’s clinging to the bottom: keep a steady lift.' },
   // Conger: twisting and backing down towards its hole in the rocks.
   twist: { run: 1.15, rest: 0.8, surge: 1.1, tire: 0.9, sway: 1.4, dive: 2.4, splash: false, words: 'It’s twisting and backing down towards the rocks.' },
+  // Rays: wings spread, they kite off wide across the tide and clamp flat on the bottom (plating),
+  // a dead weight you pump up off the sand a little at a time.
+  plate: { run: 1.35, rest: 1.25, surge: 0.8, tire: 0.8, sway: 3.0, dive: 3.2, splash: false, words: 'It’s kiting off with its wings spread, then clamping flat on the sand: pump it up off the bottom.' },
+  // Catsharks and dogfish: writhing and rolling, wrapping themselves in the line.
+  roll: { run: 0.6, rest: 0.7, surge: 1.15, tire: 1.3, sway: 1.1, dive: 1.4, splash: false, words: 'It’s writhing and rolling, wrapping itself in the line.' },
   // Garfish: skittering, leaping and tail-walking across the top.
   leap: { run: 0.6, rest: 0.7, surge: 0.9, tire: 1.5, sway: 3.2, dive: 0.1, splash: true, words: 'It’s skittering and leaping across the surface.' },
   // Marlin, sailfish, spearfish: long, fast runs across the top, greyhounding and tail-walking,
@@ -84,28 +89,57 @@ export const FIGHT_STYLES = {
   blister: { run: 1.7, rest: 1.15, surge: 1.15, tire: 1.45, sway: 2.0, dive: 0.6, splash: false, words: 'It’s off on a blistering run: let the drag work.' },
 };
 
+// How hard each kind makes for cover (weed, roots, rock) when it runs: 1 an ordinary fish; more,
+// one that heads straight for a snag (a pollack crash-diving into the kelp, a conger backing into
+// its hole, a tench for the lily roots); less, a fish of the open water that just runs (mackerel,
+// tuna, garfish). By fight style, and for a few kinds their own.
+const STYLE_COVER = {
+  steady: 1, dogged: 1.6, dash: 0.6, thrash: 1.3, flat: 0.3, jet: 0.4, deep: 0.1, cling: 2.2,
+  twist: 2.6, plate: 0.4, roll: 0.8, leap: 0.1, billfish: 0, shark: 0.2, blister: 0.1,
+};
+export const COVER = {
+  perch: 1.3, trout: 1.1, seabass: 1, eel: 2, pollack: 2.2, wrasse: 2, tench: 1.9, carp: 1.6, lmbass: 1.6, pike: 1.3,
+  comber: 1.7, triggerfish: 1.9, grouper: 2.6, mackerel: 0.1, horsemackerel: 0.15, sardine: 0.05, anchovy: 0.05,
+  chubmackerel: 0.1, bogue: 0.3, mullet: 0.7, dorado: 0.1, barracuda: 0.3, hake: 0.3, sprat: 0.05,
+};
+export const coverPull = (sp) => COVER[sp.id] ?? STYLE_COVER[sp.fight || 'steady'] ?? 1;
+
+// The heaviest fish you can swing in on a line (kg): a quarter of its breaking strain, no more than
+// two kilos (a hook-hold and a rod tip won't take more, whatever the line). Heavier: the net.
+export const swingLimit = (line) => Math.min(2, Math.max(0.4, (line?.kg ?? 2) * 0.25));
+
 const SURGE = 0.5;  // seconds
 export const JOLT = [0.2, 0.55]; // the extra load (over the drag) of winding into a surge: base, and per unit of pull
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const approach = (v, target, up, down, dt) => (v < target ? Math.min(target, v + up * dt) : Math.max(target, v - down * dt));
 
 // sp: species, size in cm, rod (with line.kg and power, and its flex), diff: a DIFFICULTY entry,
-// cover: true if the fish was hooked near weed, lilies or roots it could run into. who: the fish
-// itself, { vigour, condition }, how jumpy its kind is, and the Fish behaviour setting's
-// { throwHook, pull } (see behaviour.js); all optional.
+// cover: what the fish was hooked near that it could run into: 'weed' (weed, lilies, roots),
+// 'rock', or nothing (true counts as weed). who: the fish itself, { vigour, condition }, how
+// jumpy its kind is, the Fish behaviour setting's { throwHook, pull } (see behaviour.js), and how
+// far off it was hooked (range, metres); all optional. The line (rod.line) may say how much it
+// stretches (stretch: mono 1, fluorocarbon less, braid 0) and how it stands up to rock (abrade).
 export function newFight(sp, size, rod, diff, cover = false, rnd = Math.random, who = {}) {
   const sizeK = clamp((size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]), 0, 1);
   const vigour = who.vigour ?? 1;
   const force = sp.pull * (0.35 + 0.65 * sizeK) * diff.force * vigour; // kg, when fresh
   const level = who.level || { throwHook: 0, pull: 0 };
+  // The hook-set: a hook in the scissors holds; one just nicked in the lip has a light hold (a soft
+  // mouth, a hake's, more often than not). Line that stretches soaks up the strike at long range,
+  // so it sets the hook less well out there; braid doesn't stretch, and sets it home.
+  const stretch = rod.line.stretch ?? 1;
+  let light = sp.life?.softMouth ? 0.75 : 0.3;
+  if (who.range != null) light += 0.25 * stretch * clamp((who.range - 20) / 30, 0, 1);
+  if (stretch === 0) light -= 0.1;
   return {
     vigour,
     endure: (who.condition ?? 1) * vigour,
     jumpy: who.jumpy ?? 0,
     flex: rod.flex ?? 1,
     level,
-    // A hook in the scissors holds; one just nicked in the lip has a light hold.
-    hold: level.pull > 0 && rnd() < 0.3 ? 'light' : 'solid',
+    hold: level.pull > 0 && rnd() < clamp(light, 0.05, 0.9) ? 'light' : 'solid',
+    stretch,
+    soft: !!sp.life?.softMouth,
     flow: 0,     // the current, pulling it away from you (+) or towards you (−), m/s (set each step)
     side: 0,     // side pressure: the rod swung left (−1) or right (+1) (set each step)
     dir: 1,      // the way it's running, across the line
@@ -132,7 +166,12 @@ export function newFight(sp, size, rod, diff, cover = false, rnd = Math.random, 
     slipping: false,
     snagT: 0,
     drag: rod.drag ?? DEFAULT_DRAG,
-    cover,
+    cover: !!cover,
+    coverKind: cover === 'rock' ? 'rock' : cover ? 'weed' : null,
+    coverK: coverPull(sp),
+    // How the line stands up to rock: braid chafes through in a moment, a fluorocarbon leader or
+    // heavy mono stands up to it, wire and the heavy leaders more still.
+    abrade: rod.line.abrade ?? 1,
     teeth: !!sp.life?.teeth && !rod.line.trace,
     time: 0,
     peak: 0,
@@ -143,7 +182,7 @@ export function newFight(sp, size, rod, diff, cover = false, rnd = Math.random, 
 // Advance the fight by dt seconds. held: the player is winding (holding the reel).
 // Returns what happened this step: null, 'warn' (a flick before a run), 'run', 'turn' (it
 // changed direction), 'jump', 'tiring', 'beaten', or an end: a break 'snap:tension' |
-// 'snap:drag' | 'snap:snag' | 'snap:teeth', or the fish coming off, 'off:thrown' | 'off:pulled'.
+// 'snap:drag' | 'snap:snag' | 'snap:rock' | 'snap:teeth', or the fish coming off, 'off:thrown' | 'off:pulled'.
 export function stepFight(F, held, dt, diff, rnd = Math.random) {
   F.time += dt;
   let event = null;
@@ -260,17 +299,20 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
     if (F.tension < 0.16) F.jumpSlack = true;
     if (F.jumping <= 0 && F.jumpSlack && rnd() < F.level.throwHook * 2.2) return 'off:thrown';
   }
-  // A light hold tears free under heavy pressure held too long (a drag set tight, or a heavy hand).
-  if (F.hold === 'light' && F.tension > 0.76) {
-    F.pullT += dt * F.level.pull;
+  // A light hold tears free under heavy pressure held too long (a drag set tight, or a heavy hand);
+  // sooner on braid, which has no stretch to cushion it.
+  if (F.hold === 'light' && F.tension > (F.soft ? 0.66 : 0.76)) {
+    F.pullT += dt * F.level.pull * (F.soft ? 1.6 : 1) * (F.stretch === 0 ? 1.35 : 1);
     if (F.pullT > 1.4) return 'off:pulled';
   } else F.pullT = Math.max(0, F.pullT - dt);
 
-  // Out at the far end with line pouring off: near weed or roots, it can reach them.
-  // Only line that is light for this fish can't turn it in time.
-  if (F.cover && F.slipping && F.progress < 0.1 && F.ratio > diff.light) F.snagT += dt;
+  // Out at the far end with line pouring off: near weed, roots or rock, it can reach them (a
+  // fish that makes for cover sooner). Only line that is light for this fish can't turn it in
+  // time; on rock, how the line stands up to it counts as much (braid goes in a moment).
+  const rock = F.coverKind === 'rock', wear = rock ? F.abrade : 1;
+  if (F.cover && F.coverK > 0 && F.slipping && F.progress < 0.1 && F.ratio > diff.light * wear) F.snagT += dt * F.coverK;
   else F.snagT = Math.max(0, F.snagT - dt * 0.5);
-  if (F.snagT > 3.5 * diff.snag) return 'snap:snag';
+  if (F.snagT > 3.5 * diff.snag * wear) return rock ? 'snap:rock' : 'snap:snag';
 
   // Past its rating the line strains, faster the further past; below it, it recovers slowly.
   if (F.tension > 0.97) F.strain += (F.tension - 0.97) / diff.strain * dt;
@@ -291,8 +333,16 @@ export function breakReason(cause, sp, rod) {
       return `The ${fish}’s teeth cut straight through the ${rod.line.name}. Pike need a wire trace: rig one on the spinning rod.`;
     case 'drag':
       return `The line snapped: the drag was locked tight, so it couldn’t give line when the ${fish} ran. Loosen it (S while the fish is on).`;
+    case 'lifted':
+      return `You tried to lift the ${fish} out on the line, and the hook tore free: a fish that size needs the net. When it’s beaten and alongside, let go of the reel and tap to net it.`;
+    case 'kicked':
+      return `The ${fish} gave a last kick alongside while you were winding hard, and the hook came out. Let go as it kicks, and net it when it rolls over again.`;
     case 'snag':
       return `The ${fish} ran into the weed and the ${rod.line.name} parted on the stems. Heavier line or a firmer drag would have turned it sooner.`;
+    case 'rock':
+      return (rod.line.abrade ?? 1) < 1
+        ? `The ${fish} got down among the rocks and the ${rod.line.name} chafed through on them: braid cuts on rock in a moment. A fluorocarbon leader stands up to it far better, and side strain keeps a fish out of the rocks.`
+        : `The ${fish} got down among the rocks and the line chafed through on them. Turn it sooner (a firmer drag, side strain) before it reaches them.`;
     default:
       return `The line snapped: you kept winding while the ${fish} surged, and it strained past its limit. Watch for the flick on the surface before each run and ease off, or at the latest when the line creaks.`;
   }

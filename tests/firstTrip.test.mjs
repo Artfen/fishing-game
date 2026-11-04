@@ -159,13 +159,16 @@ test('the guide points the way: the bench, the car, the car park, the water', ()
   const spot = G.words(g, ctx('keys', { at: null, carAt: 'strand' }));
   assert.equal(spot.target.x, G.FISH_SPOTS.strand.x);
   assert.match(spot.text, /a worm on the float rod/);
-  // A place you can't drive to yourself: the car's "Where to?" takes you.
+  // A long way round (Wend Quay, by the road round the bay): drive it, or the car's "Where to?".
   const far = G.cleanGuide(null);
   G.start(far);
   G.complete(far, 'plan');
   far.dest = 'quay';
-  assert.ok(!DESTS.quay.drive);
+  assert.ok(DESTS.quay.drive);
   assert.match(G.words(far, ctx('keys')).text, /Where to\?/);
+  const road = G.words(far, ctx('keys', { driving: true }));
+  assert.match(road.text, /road round the bay/);
+  assert.equal(road.target.x, CAR_PARKS.quay.x);
 });
 
 test('the last step only offers a camp when the tent is with you', () => {

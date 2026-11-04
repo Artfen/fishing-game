@@ -1,4 +1,4 @@
-import { heightAt, WRECK, DIVE_MARKS, PLACES } from './terrain.js';
+import { heightAt, WRECK, WRECK_BELL, DIVE_MARKS, PLACES } from './terrain.js';
 import { BAJON } from './brasa.js';
 import { fbm, seeded, clamp } from '../util.js';
 
@@ -239,4 +239,66 @@ export function rockTopAt(x, z) {
     if (h != null) return P.bed + h;
   }
   return null;
+}
+
+/* ---------------- what there is to find ---------------- */
+
+// For a diver who looks closely: the details of a site, each where it lies (x, y, z), found by
+// coming within reach of it (r, metres) with it in view. The Kittiwake has the most: her bell,
+// her boiler, her propeller, the steam capstan, the name on her bow and the bottles from her
+// galley; the other sites at home, the thing their first words promise is there somewhere.
+const WK = WRECK, wc = Math.cos(WK.yaw), ws = Math.sin(WK.yaw), wbed = heightAt(WK.x, WK.z);
+// (In her own frame: across her, up from the bed by her middle, along her from the middle, bow +.)
+export const onWreck = (lx, ly, lz) => ({ x: WK.x + lx * wc + lz * ws, y: wbed + ly, z: WK.z - lx * ws + lz * wc });
+const onBed = (x, z, up = 0.25) => ({ x, y: heightAt(x, z) + up, z });
+const galley = onWreck(-3.3, 0, 1.6);
+// (Her stern lies up the slope of the reef: the propeller stands clear of the bed there.)
+const prop = onWreck(0, 0.75, -WK.len / 2 - 0.35);
+prop.y = Math.max(prop.y, heightAt(prop.x, prop.z) + 0.8);
+const reef = siteById.reef, kelp = siteById.kelp, sands = siteById.sands;
+export const SITE_DETAILS = {
+  wreck: [
+    { id: 'bell', name: 'her bell', r: 2.6, ...onBed(WRECK_BELL.x, WRECK_BELL.z),
+      note: 'Her bell, on its side in the sand by her bow: bronze gone green, KITTIWAKE raised round the rim. Leave it where it lies.' },
+    { id: 'boiler', name: 'her boiler', r: 3.4, ...onWreck(0.2, 1.0, -2.5),
+      note: 'Her boiler: a drum of riveted iron as long as you are tall, white and orange with plumose anemones and dead man’s fingers, and a lobster in the mouth of the firebox, claws out.' },
+    { id: 'propeller', name: 'her propeller', r: 2.8, ...prop,
+      note: 'Her propeller, still on its shaft under the stern post: three iron blades, one snapped off short, dead man’s fingers growing on the hub.' },
+    { id: 'capstan', name: 'her steam capstan', r: 2.8, ...onWreck(-0.4, 0.9, 7.0),
+      note: 'The steam capstan on her foredeck, that hauled in a mile of drift net every night she fished: an iron barrel on its side now, the groove the warp wore in it still bright.' },
+    { id: 'name', name: 'her name', r: 2.4, ...onWreck(2.5, 0.8, 8.3),
+      note: 'Her name, on a board on her bow, the paint long gone and the letters cut deep: KITTIWAKE, and under it her number, WH 27.' },
+    { id: 'bottles', name: 'the bottles from her galley', r: 2.4, ...onBed(galley.x, galley.z, 0.15),
+      note: 'Stoneware bottles from her galley, half buried in the sand where they spilled: ginger beer, the potter’s stamp still sharp on them. Leave them where they lie.' },
+  ],
+  reef: [
+    { id: 'arch', name: 'the arch', r: 4.5, ...onBed(reef.x, reef.z, 2.0),
+      note: 'The arch: two piers of piled rock and a slab laid over them, a gap three metres wide to swim through, the light green on the far side.' },
+  ],
+  kelp: [
+    { id: 'boulder', name: 'the clearing’s boulder', r: 5, ...onBed(kelp.x + 4, kelp.z + 6, 2.2),
+      note: 'The clearing in the kelp, and its boulder, as big as a cottage, the stalks standing round it like a hedge. Pollack hang in its shadow.' },
+  ],
+  sands: [
+    { id: 'anchor', name: 'the old anchor', r: 3.2, ...onBed(sands.x - 2, sands.z + 1, 0.3),
+      note: 'The old anchor, on its own in the sand: longer than you are, its stock grown over with anemones and its chain running off under the ripples. Whose it was, nobody knows.' },
+  ],
+  hound: [
+    { id: 'crown', name: 'the crown of the Hound', r: 6, x: PINNACLES[0].x, y: PINNACLES[0].bed + PINNACLES[0].top, z: PINNACLES[0].z,
+      note: 'The crown of the Hound, ten metres down: the top of the pinnacle, pink sea fans standing out into the tide, and the blue falling away on every side.' },
+    { id: 'pup', name: 'the Pup', r: 5, x: PINNACLES[1].x, y: PINNACLES[1].bed + PINNACLES[1].top, z: PINNACLES[1].z,
+      note: 'The Pup, the Hound’s little tower a stone’s throw to the south-east, its top twenty metres down, with a shoal of bib round it and a conger’s head out of a crack.' },
+  ],
+};
+// What's within reach of a diver at p ({ x, y, z }) at a site, not yet found (found: ids).
+export function detailsNear(siteId, p, found = []) {
+  return (SITE_DETAILS[siteId] || []).filter((d) => !found.includes(d.id) && Math.hypot(d.x - p.x, d.y - p.y, d.z - p.z) < d.r);
+}
+// How much of a site you've found, in words: "her bell and her boiler (2 of 6)".
+export function foundWords(siteId, found = []) {
+  const all = SITE_DETAILS[siteId] || [];
+  const got = all.filter((d) => found.includes(d.id)).map((d) => d.name);
+  if (!all.length || !got.length) return '';
+  const list = got.length === 1 ? got[0] : `${got.slice(0, -1).join(', ')} and ${got[got.length - 1]}`;
+  return all.length === 1 ? list : `${list} (${got.length} of ${all.length})`;
 }

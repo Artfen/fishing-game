@@ -235,12 +235,120 @@ export const CAR_PARKS = {
   boathouse: { x: 425, z: -391, yaw: -2.4, r: 5 },
 };
 // The lanes a car can drive: the drive down from home, and the coast path widened into a gravel
-// lane from Willowhaven along the east arm to Cove Head, with its branch down to Shell Strand.
+// lane from Willowhaven along the east arm to Cove Head, with its branch down to Shell Strand;
+// and the road round the bay (ROAD).
+// The road round the bay: off the drive at home, up over the hill behind Willowhaven, along the
+// Coldwater's east bank, over the neck of land between the sea and Longmere past the Mere
+// Boathouse, and down the old trail beside the Wend to Wend Quay. About 1.2 km, on dry ground
+// six metres or more from any water, no steeper than one in four. (Laid out by a search over the
+// heights for the gentlest dry way round, then straightened.)
+const ROAD_PTS = [
+  [141.2, -54.2], [180, -70], [190, -130], [155, -160], [120, -205], [55, -220], [-10, -235], [-35, -260],
+  [-40, -300], [-35, -325], [-20, -335], [5, -335], [60, -375], [90, -390], [130, -395], [150, -380],
+  [180, -375], [230, -375], [295, -370], [355, -370], [380, -380], [400, -375], [425, -391], [440, -394],
+  [458, -366], [470, -334], [486, -292], [500, -248], [512, -205], [526, -170], [530, -157],
+];
 export const LANES = [
   [[132, -58.5], [137.5, -57], [141.2, -54.2], [142.4, -50.6], [142.2, -47.4]],
   [[36, -91.5], [42, -91], [55, -84], [70, -70], [84, -57], [100, -50], [118, -49], [136, -49], [150, -45.5], [157, -41.5]],
   [[100, -50], [98, -32], [99, -14], [100, -7]],
+  ROAD_PTS,
 ];
+export const ROAD = ROAD_PTS;
+// Under the road the ground is level across, at the road's own height there: the land under its
+// middle, smoothed along it and held to one in four (a little cut and fill where it must), easing
+// back to the land ten metres out. (Its segments by 25 m cell, so finding the nearest is quick:
+// heightAt is called a lot. The heights along it, every two metres, are worked out once the land
+// is made: see buildRoad.)
+const ROAD_W = 10, ROAD_CELL = 25, ROAD_STEP = 2, ROAD_GRADE = 0.25;
+const roadCum = [0];
+for (let i = 1; i < ROAD_PTS.length; i++) roadCum.push(roadCum[i - 1] + Math.hypot(ROAD_PTS[i][0] - ROAD_PTS[i - 1][0], ROAD_PTS[i][1] - ROAD_PTS[i - 1][1]));
+export const ROAD_LENGTH = roadCum[roadCum.length - 1];
+let roadH = null;
+const ROAD_BOX = (() => {
+  const xs = ROAD_PTS.map((p) => p[0]), zs = ROAD_PTS.map((p) => p[1]);
+  return { x0: Math.min(...xs) - ROAD_W, x1: Math.max(...xs) + ROAD_W, z0: Math.min(...zs) - ROAD_W, z1: Math.max(...zs) + ROAD_W };
+})();
+const roadCells = new Map();
+for (let i = 0; i < ROAD_PTS.length - 1; i++) {
+  const [ax, az] = ROAD_PTS[i], [bx, bz] = ROAD_PTS[i + 1];
+  for (let cx = Math.floor((Math.min(ax, bx) - ROAD_W) / ROAD_CELL); cx <= Math.floor((Math.max(ax, bx) + ROAD_W) / ROAD_CELL); cx++) {
+    for (let cz = Math.floor((Math.min(az, bz) - ROAD_W) / ROAD_CELL); cz <= Math.floor((Math.max(az, bz) + ROAD_W) / ROAD_CELL); cz++) {
+      const k = cx * 4096 + cz;
+      if (!roadCells.has(k)) roadCells.set(k, []);
+      roadCells.get(k).push(i);
+    }
+  }
+}
+const _ro = { d: Infinity, px: 0, pz: 0, s: 0, h: 0 };
+// The nearest point on the road's middle (within ROAD_W; d is Infinity further off), how far along
+// the road it is (s, metres from the fork at home), and the road's height there (h: on the inside
+// of a bend, where two stretches are both near, a blend of the two, nearer counting for more, so
+// the ground has no step where one gives way to the other).
+export function roadNear(x, z, out = _ro) {
+  out.d = Infinity;
+  if (x < ROAD_BOX.x0 || x > ROAD_BOX.x1 || z < ROAD_BOX.z0 || z > ROAD_BOX.z1) return out;
+  const list = roadCells.get(Math.floor(x / ROAD_CELL) * 4096 + Math.floor(z / ROAD_CELL));
+  if (!list) return out;
+  let hw = 0, hs = 0;
+  for (const i of list) {
+    const [ax, az] = ROAD_PTS[i], [bx, bz] = ROAD_PTS[i + 1];
+    const dx = bx - ax, dz = bz - az, t = clamp(((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz), 0, 1);
+    const px = ax + dx * t, pz = az + dz * t, d = Math.hypot(x - px, z - pz), s = roadCum[i] + t * (roadCum[i + 1] - roadCum[i]);
+    if (d < out.d) {
+      out.d = d;
+      out.px = px;
+      out.pz = pz;
+      out.s = s;
+    }
+    if (roadH && d < ROAD_W) {
+      const w = (1 - d / ROAD_W) ** 4;
+      hw += w;
+      hs += w * roadHeightAt(s);
+    }
+  }
+  out.h = hw > 0 ? hs / hw : 0;
+  return out;
+}
+// The road's height at s metres along it.
+export function roadHeightAt(s) {
+  if (!roadH) return null;
+  const k = clamp(s / ROAD_STEP, 0, roadH.length - 1), i = Math.min(Math.floor(k), roadH.length - 2);
+  return lerp(roadH[i], roadH[i + 1], k - i);
+}
+// Once the land is made: the land under the road's middle every ROAD_STEP metres, smoothed along
+// it, then held to ROAD_GRADE (the ends kept where they meet the drive and the quay's car park).
+function buildRoad() {
+  const n = Math.ceil(ROAD_LENGTH / ROAD_STEP) + 1, raw = new Float64Array(n);
+  let seg = 0;
+  for (let k = 0; k < n; k++) {
+    const s = Math.min(k * ROAD_STEP, ROAD_LENGTH);
+    while (seg < ROAD_PTS.length - 2 && roadCum[seg + 1] < s) seg++;
+    const [ax, az] = ROAD_PTS[seg], [bx, bz] = ROAD_PTS[seg + 1], t = (s - roadCum[seg]) / (roadCum[seg + 1] - roadCum[seg]);
+    raw[k] = Math.max(0.8, groundAt(ax + (bx - ax) * t, az + (bz - az) * t));
+  }
+  let h = Float64Array.from(raw);
+  for (let pass = 0; pass < 2; pass++) {
+    const next = new Float64Array(n);
+    for (let k = 0; k < n; k++) {
+      let sum = 0, w = 0;
+      for (let j = Math.max(0, k - 4); j <= Math.min(n - 1, k + 4); j++) {
+        sum += h[j];
+        w++;
+      }
+      next[k] = sum / w;
+    }
+    h = next;
+  }
+  h[0] = raw[0];
+  h[n - 1] = raw[n - 1];
+  const g = ROAD_GRADE * ROAD_STEP;
+  for (let pass = 0; pass < 4; pass++) {
+    for (let k = 1; k < n; k++) h[k] = clamp(h[k], h[k - 1] - g, h[k - 1] + g);
+    for (let k = n - 2; k >= 0; k--) h[k] = clamp(h[k], h[k + 1] - g, h[k + 1] + g);
+  }
+  return h;
+}
 
 const sdCircle = (x, z, cx, cz, r) => Math.hypot(x - cx, z - cz) - r;
 
@@ -477,6 +585,16 @@ function shoreHeight(x, z, h, withPath) {
 let campH = 4;
 
 export function heightAt(x, z) {
+  const h = groundAt(x, z);
+  // (The road round the bay: see ROAD.)
+  if (!roadH || x < ROAD_BOX.x0 || x > ROAD_BOX.x1 || z < ROAD_BOX.z0 || z > ROAD_BOX.z1 || h <= 0) return h;
+  const r = roadNear(x, z);
+  if (r.d >= ROAD_W) return h;
+  // (Never at the water's edge: the road keeps clear of the water, and leaves its banks alone.)
+  return lerp(h, r.h, (1 - smoothstep(2.5, ROAD_W, r.d)) * smoothstep(0, 0.8, h));
+}
+
+function groundAt(x, z) {
   if (z > SOUTH_Z) return brasaHeight(x, z);
   let h = baseHeight(x, z);
   if (x > SHORE_BOX.x0 && x < SHORE_BOX.x1 && z > SHORE_BOX.z0 && z < SHORE_BOX.z1) h = shoreHeight(x, z, h, true);
@@ -631,7 +749,7 @@ function coastHeight(x, z, h, withPaths) {
     if (p.d < 4) h = lerp(p.h, h, smoothstep(1.2, 4, p.d));
   }
   if (withPaths && laneH && h > -0.4) {
-    const p = laneInfo(x, z);
+    const p = laneInfo(x, z, undefined, 8, 3);
     if (p.d < 6.5) h = lerp(p.h, h, smoothstep(2.6, 6.5, p.d));
   }
   return h;
@@ -652,10 +770,11 @@ function homeHeight(x, z, h) {
 let laneH = null;
 const _li = { d: 0, h: 0, i: 0, l: 0, tx: 0, tz: 1, px: 0, pz: 0 };
 // reach: how far to look (the ground's shaping only needs the lanes close by).
-export function laneInfo(x, z, out = _li, reach = 8) {
+// lanes: how many of LANES to look at (the coast's levelling leaves the road to level its own).
+export function laneInfo(x, z, out = _li, reach = 8, lanes = LANES.length) {
   out.d = Infinity;
   out.h = 0;
-  for (let p = 0; p < LANES.length; p++) {
+  for (let p = 0; p < lanes; p++) {
     const P = LANES[p];
     for (let i = 0; i < P.length - 1; i++) {
       const a = P[i], b = P[i + 1];
@@ -867,6 +986,7 @@ PATH[0] = [LANDING.x - 2.2, LANDING.z];
   const ph = {};
   for (const id in CAR_PARKS) ph[id] = Math.max(0.9, heightAt(CAR_PARKS[id].x, CAR_PARKS[id].z));
   parkH = ph;
+  roadH = buildRoad();
 }
 
 // A pier from the shore out along an axis (dx, dz) to water deep enough to tie up a boat.
