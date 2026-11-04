@@ -1,6 +1,8 @@
 import { fishById } from './fish.js';
 import { formatClock } from './world/sky.js';
-import { MARKET_HOURS, ORDERS_BY, demandFor, fishValue, ordersFor, fills, money } from './market.js';
+import { MARKET_HOURS, ORDERS_BY, demandFor, fishValue, ordersFor, fills, money, receiptLine, seasonWord, standingOf, orderPay, worthGoingAfter, STANDING } from './market.js';
+import { setupsFor } from './guide.js';
+import { RODS, TACKLE } from './tackle.js';
 import { nextStory, adviceFor, rumoursNow, lower, an } from './innTalk.js';
 import { CHALLENGES } from './daybook.js';
 import { CREELS, ICE, BAIT, creelOf, newShop, onIce, freshBaitToday, wearOf, wearWords, respoolPrice, creelGroups, groupWords, creelWords, kgWords } from './shop.js';
@@ -42,6 +44,7 @@ export class HarbourSheet {
     this.where = null;  // 'market' | 'inn' | 'muelle'
     this.tab = 'sell';
     this.said = { advice: null, story: null };
+    this.receipt = null; // the last sale's receipt: { lines, total }, shown until you leave
     $('hb-close').addEventListener('click', () => hooks.close());
     this.el.addEventListener('click', (e) => { if (e.target === this.el) hooks.close(); });
   }
@@ -61,6 +64,7 @@ export class HarbourSheet {
   open(where, tab = null) {
     this.where = where;
     this.said = { advice: null, story: null };
+    this.receipt = null;
     this.tab = tab || (where === 'market' ? 'sell' : where === 'chandlery' ? 'counter' : 'bar');
     this.el.hidden = false;
     this.render();
@@ -146,6 +150,7 @@ export class HarbourSheet {
       out.push(el('p', 'hb-say', 'Paco buys fish for his kitchen from the boats, and sells what he can’t cook on to the restaurants up the hill. “¡A ver! Let me see.”'));
     }
     if (place === 'haven' && this.marketOpen) out.push(...this.favourBlock('mags'));
+    if (this.receipt) out.push(this.renderReceipt());
     const slate = el('div', 'hb-slate');
     slate.append(el('h3', '', place === 'haven' ? 'On the slate today' : 'Paco wants today'));
     slate.append(el('p', '', `Wanted: ${names(D.wanted)} (half as much again)`));
@@ -166,7 +171,8 @@ export class HarbourSheet {
         row.append(el('p', '', groupWords(sp.name, g)), el('span', 'cp-soft', place === 'haven' ? 'nobody here buys it' : 'Paco doesn’t take it'));
       } else {
         const sum = vs.reduce((s, x) => s + x.price, 0), fresh = Math.min(...vs.map((x) => x.fresh));
-        const tags = [kgWords(g.kg), OLD(fresh), v.demand === 'wanted' ? 'wanted today' : v.demand === 'plenty' ? 'plenty about' : ''].filter(Boolean).join(' · ');
+        const prime = vs.some((x) => x.prime);
+        const tags = [kgWords(g.kg), OLD(fresh), v.demand === 'wanted' ? 'wanted today' : v.demand === 'plenty' ? 'plenty about' : '', seasonWord(v.season), prime ? (g.n > 1 ? 'prime ones among them' : 'a prime fish') : ''].filter(Boolean).join(' · ');
         row.append(el('p', '', groupWords(sp.name, g)), el('span', 'cp-soft', tags));
         const order = orders.find((o) => o.id === g.id && g.max >= o.min);
         if (order) row.append(el('span', 'cp-soft hb-hint', `${place === 'haven' ? 'Ruth at The Lobster Pot' : 'Paco’s kitchen'} wants ${g.n > 1 ? 'one of these' : 'this one'}: ${money(order.reward)}`));
@@ -184,8 +190,23 @@ export class HarbourSheet {
       row.append(this.button(`Sell all ${any}: ${money(total)}`, () => this.sellAll()));
       out.push(row);
     }
-    out.push(el('p', 'cp-soft', 'Fish fetch their best fresh: within half a day of the catch. After that the price slips, a little more each day. A camp’s cool box keeps them on ice.'));
+    out.push(el('p', 'cp-soft', 'Fish fetch their best fresh: within half a day of the catch. After that the price slips, a little more each day. A camp’s cool box keeps them on ice. The seasons move prices too: plenty in season fetches a little less, a scarce fish out of season a little more, and a prime fish of its kind more by the kilo.'));
     return out;
+  }
+
+  // The last sale, line by line: what, how heavy, the price by the kilo and why, and the total.
+  renderReceipt() {
+    const R = this.receipt, box = el('div', 'hb-receipt');
+    box.append(el('h3', '', `${this.place === 'haven' ? 'Mags’s' : 'Paco’s'} receipt`));
+    for (const L of R.lines) {
+      const row = el('div', 'hb-rline');
+      row.append(el('span', '', `${L.name}, ${L.size} cm · ${kgWords(L.kg)} at ${money(L.each)}/kg${L.why.length ? ` (${L.why.join(', ')})` : ''}`), el('strong', '', money(L.price)));
+      box.append(row);
+    }
+    const tot = el('div', 'hb-rline hb-rtotal');
+    tot.append(el('span', '', `${R.lines.length} fish`), el('strong', '', money(R.total)));
+    box.append(tot);
+    return box;
   }
 
   sell(i, quiet = false) {
@@ -194,6 +215,10 @@ export class HarbourSheet {
     const v = fishValue(f, { day: this.state.day, now: this.hooks.now(), place: this.place });
     if (!v.wanted) return 0;
     this.state.keep.splice(i, 1);
+    // (Onto the receipt: a fresh one for each sale, unless it's one of several in one go.)
+    if (!quiet || !this.receipt?.open) this.receipt = { lines: [], total: 0, open: quiet };
+    this.receipt.lines.push(receiptLine(f, v));
+    this.receipt.total = Math.round((this.receipt.total + v.price) * 100) / 100;
     this.earn(v.price);
     this.harbour.sold++;
     this.hooks.sold(f.logId);
@@ -218,6 +243,7 @@ export class HarbourSheet {
         sum += p;
       }
     }
+    if (this.receipt) this.receipt.open = false;
     if (!n) return;
     this.hooks.chime();
     this.hooks.toast(`${this.place === 'haven' ? 'Mags' : 'Paco'} weighs them up: ${n} ${lower(fishById[id].name)}, ${money(sum)} into your purse.`, 4);
@@ -234,6 +260,7 @@ export class HarbourSheet {
         sum += p;
       }
     }
+    if (this.receipt) this.receipt.open = false;
     if (!n) return;
     this.hooks.chime();
     this.hooks.toast(`${n} fish weighed and paid for: ${money(sum)} into your purse.`, 4);
@@ -250,6 +277,11 @@ export class HarbourSheet {
     out.push(el('p', 'hb-say', place === 'haven'
       ? 'Ruth Alder runs the kitchen as well as the bar. She buys her fish from whoever brings in the best of it, and she pays well for what she’s after.'
       : 'Paco’s mother cooks, in a kitchen the size of a cupboard. What goes on the menu depends on what the boats bring in.'));
+    // How well the kitchen knows you (orders filled), and what that's worth.
+    const st = standingOf(this.harbour.served);
+    out.push(el('p', 'cp-soft hb-standing', st.tier
+      ? `${host} counts you ${st.name}: ${Math.round(st.bonus * 100)}% over the order’s price${st.next != null ? ` (${st.next - this.harbour.served} more ${st.next - this.harbour.served === 1 ? 'order' : 'orders'} and you’re ${STANDING[st.tier + 1].name})` : ', and your name goes on the board with the dish'}.`
+      : `${host} doesn’t know you yet. Bring good fish for her orders and she will (${st.next - this.harbour.served} more and you’re a regular supplier). A fine fish, well over the size asked, earns a quarter more.`));
     out.push(el('h3', '', `${host}’s orders for tonight`));
     for (const o of ordersFor(this.state.day, place)) {
       const sp = fishById[o.id];
@@ -261,7 +293,10 @@ export class HarbourSheet {
       else if (late || early) row.append(el('span', 'cp-soft', early ? 'the kitchen opens at six' : 'too late tonight'));
       else {
         const i = fills(this.state.keep, o);
-        if (i >= 0) row.append(this.button(`Bring your ${this.state.keep[i].size} cm one`, () => this.fill(o)));
+        if (i >= 0) {
+          const P = orderPay(o, this.state.keep[i], this.harbour.served);
+          row.append(this.button(`Bring your ${this.state.keep[i].size} cm one: ${money(P.pay)}${P.fine ? ' (a fine one)' : ''}`, () => this.fill(o)));
+        }
         else row.append(el('span', 'cp-soft', 'none in your creel'));
       }
       out.push(row);
@@ -299,19 +334,39 @@ export class HarbourSheet {
   fill(o) {
     const i = fills(this.state.keep, o);
     if (i < 0 || this.harbour.filled.includes(o.key)) return;
-    const f = this.state.keep.splice(i, 1)[0];
+    const f = this.state.keep[i];
+    const P = orderPay(o, f, this.harbour.served);
+    this.state.keep.splice(i, 1);
     this.harbour.filled.push(o.key);
     if (this.harbour.filled.length > 24) this.harbour.filled.splice(0, this.harbour.filled.length - 24);
+    const was = standingOf(this.harbour.served);
     this.harbour.served++;
-    this.earn(o.reward);
+    const now = standingOf(this.harbour.served);
+    this.earn(P.pay);
     this.hooks.sold(f.logId);
     this.hooks.chime();
-    const sp = fishById[f.id];
+    const sp = fishById[f.id], name = this.hooks.playerName?.() || '';
+    // (The kitchen's own supplier gets their name on the board with the dish.)
+    const board = now.tier >= 2 && name ? ` On the board tonight: “${name}’s ${lower(sp.meal?.name || sp.name)}”.` : ' It’s on the board tonight.';
+    const fine = P.fine ? ' A fine one, and paid for it.' : '';
+    const up = now.tier > was.tier ? ` ${this.place === 'haven' ? 'Ruth' : 'Paco'} counts you ${now.name} now.` : '';
     this.hooks.toast(this.place === 'haven'
-      ? `Ruth holds up the ${lower(sp.name)} to the light. “Now that’s a fish.” ${money(o.reward)} into your purse, and it’s on the board tonight.`
-      : `Paco shouts into the kitchen, and his mother comes out to see the ${lower(sp.name)}. ${money(o.reward)} into your purse.`, 6);
+      ? `Ruth holds up the ${lower(sp.name)} to the light. “Now that’s a fish.” ${money(P.pay)} into your purse.${fine}${board}${up}`
+      : `Paco shouts into the kitchen, and his mother comes out to see the ${lower(sp.name)}. ${money(P.pay)} into your purse.${fine}${up}`, 7);
     this.hooks.changed();
     this.render();
+  }
+
+  // Bert's word on the fish worth going after today: one the market wants or the kitchen has
+  // ordered, in its season now, where it lives, and how he'd rig for it (the field guide's way).
+  worthTip() {
+    const W = worthGoingAfter(this.state.day, this.hooks.now(), 'haven');
+    if (!W) return null;
+    const sp = fishById[W.id], s = setupsFor(sp)[0];
+    const who = W.why === 'order' ? 'Ruth’s after one for her kitchen tonight' : 'Mags wants them on the slab today';
+    const season = W.boost >= 1.1 ? 'and they’re well in just now' : W.boost >= 0.9 ? 'and they’re about' : 'though they’re thin on the ground this time of year';
+    const rig = s ? ` I’d put ${an(lower(TACKLE[s.item].name))} on the ${lower(RODS[s.rod].name)}.` : '';
+    return `${an(lower(sp.name)).replace(/^./, (c) => c.toUpperCase())}: ${who}, ${season}. ${sp.where}.${rig}`;
   }
 
   /* ---- the bar: a pint and a story, advice, and what's being said ---- */
@@ -389,6 +444,11 @@ export class HarbourSheet {
     }, 'quiet'));
     out.push(adv);
     if (this.said.advice) out.push(el('blockquote', 'hb-story', `“${this.said.advice}”`));
+    const tip = this.worthTip();
+    if (tip) {
+      out.push(el('h3', '', 'Worth going after today'));
+      out.push(el('blockquote', 'hb-story', `“${tip}”`));
+    }
     out.push(el('h3', '', 'Creels'));
     const mine = creelOf(this.state);
     const row0 = el('div', 'cp-row');

@@ -1624,6 +1624,7 @@ const harbourSheet = new HarbourSheet(state, {
   changed: () => save(),
   close: () => closeHarbour(),
   now: () => state.day * 24 + state.hour,
+  playerName: () => settings.player.name,
   sold: (logId) => setOutcome(logId, 'sold'),
   eatMeal: (m) => camp.eatMeal(m),
   eatDish: (text, fill) => camp.eatDish(text, fill),
@@ -8686,6 +8687,8 @@ window.slowTide = {
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
   rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed,
+  // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
+  harbour: (where, tab) => openHarbour(where, tab),
   // Set the breeze: strength 0–1, blowing towards dir (radians, like a heading).
   // A steady wind for testing: strength 0 … 1 (1 = a fresh breeze, 12 m/s), blowing towards dir
   // (as atan2(x, z) of its vector). setWind(null) gives it back to the weather and Settings.
