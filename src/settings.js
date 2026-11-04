@@ -136,7 +136,7 @@ const LEVEL_NAMES = { auto: 'With the preset', low: 'Low', medium: 'Medium', hig
 
 // hooks: { changed(section, key, value), close(), playAlert(), qualityText(), difficulty(), setDifficulty(id),
 //   behaviour(), setBehaviour(id), keyLabel(code), together() (the Together session), setName(name),
-//   boatName(kind) }
+//   boatName(kind), following() (the host's name while their world is followed, or null) }
 export class SettingsUI {
   constructor(state, hooks) {
     this.state = state;
@@ -453,6 +453,8 @@ export class SettingsUI {
       });
       grid.append(b);
     }
+    const host = this.hooks.following?.();
+    if (host) out.push(el('p', 'st-note st-warn', `Playing together, the weather, wind and sea are ${host}’s, so you both see the same. Your own choices here come back when you leave the session.`));
     out.push(el('p', 'st-note', 'Choose the weather you like: it changes smoothly, and stays as you leave it. Weather nudges what the fish do, but every choice is a good day out.'));
     out.push(grid);
     out.push(this.row('Rain effects', 'How much rain you see on screen and on the water. Turn it down if the drops get in the way; rain still counts for the fish. (Rain volume is under Sound.)',

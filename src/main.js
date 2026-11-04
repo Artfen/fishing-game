@@ -10,6 +10,8 @@ import { BEHAVIOUR, conditionWords } from './behaviour.js';
 import { HUD, kbd } from './ui.js';
 import { AudioScape } from './audio.js';
 import { Environment, phaseName, formatClock } from './world/sky.js';
+import { WorldClock, advance as advanceClock, HOUR_SECONDS, rateAt } from './world/clock.js';
+import { SKIES, createWeather, stepWeather, skyOf } from './world/weather.js';
 import { createWater } from './world/water.js';
 import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeight, waveHeightHere, compass, bearingOf, windWords, seaWords, shelterAt, bakeShelter, shelterRect, TIDE, tidalTexture } from './world/conditions.js';
 import { SOUTH_WATER, SOUTH_MAP, LANDFALL, POSADA, PUERTO as PUERTO_AT, PONTOON_S, FINGERS_S } from './world/brasa.js';
@@ -104,7 +106,6 @@ import { stepComfort, effectsOf, needsOf, dressFor, drink as drinkFrom, refill, 
 import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance, logSite } from './dive.js';
 import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick, seeded } from './util.js';
 
-const HOUR_SECONDS = 40; // one in-game hour lasts 40 real seconds
 const REST_SPEED = 30;   // holding T lets time drift by
 const $ = (id) => document.getElementById(id);
 
@@ -133,6 +134,9 @@ state.caughtOn = state.caughtOn || {};
 const hud = new HUD();
 const audio = new AudioScape();
 const settings = state.settings;
+// The world's clock: the time everyone sees (your own, or the host's when playing together); your
+// own clock (state.day, state.hour) keeps time for your own things. See world/clock.js.
+const clock = new WorldClock(() => state.day * 24 + state.hour);
 audio.musicOn = state.music !== false;
 audio.setVolumes(settings.audio);
 
@@ -344,7 +348,7 @@ const crossingLife = buildCrossingLife(scene);
 const town = new Townsfolk({ obstacles: world.coast.obstacles });
 const folkView = new FolkView(scene);
 // Playing together (see together.js): friends in a session, drawn where they are.
-const together = new Together({ config: () => cloud.cfg, name: () => settings.player.name, kinds: BOAT_KINDS });
+const together = new Together({ config: () => cloud.cfg, name: () => settings.player.name, kinds: BOAT_KINDS, skies: Object.keys(SKIES) });
 const visitors = new VisitorView(scene);
 // What the people go by: the weather, and what the fish near the harbour are up to (looked at every
 // few seconds, not every frame).
@@ -355,7 +359,7 @@ function folkCtx(dt) {
     folkAboutT = 5;
     folkAbout = whatsAbout(eco).map((a) => ({ id: a.sp.id, name: a.sp.name, act: a.act }));
   }
-  return { storm: Math.max(weather.storm, conditions.sea.storm), rain: weather.rain, wind: conditions.wind.speed, about: folkAbout, activity: eco.activity, season: seasonOf(state.day).name };
+  return { storm: Math.max(weather.storm, conditions.sea.storm), rain: weather.rain, wind: conditions.wind.speed, about: folkAbout, activity: eco.activity, season: seasonOf(clock.day).name };
 }
 // A word with someone you walk up to.
 function talkTo(p) {
@@ -370,24 +374,25 @@ function talkTo(p) {
   const r = talkedToday[p.id] === state.day ? '' : remember(p.id, memoryCtx());
   talkedToday[p.id] = state.day;
   const wanted = demandFor(state.day, 'haven').wanted.map((id) => fishById[id].name);
-  hud.toast(`${FOLK[p.id].short}: ${r ? `“${r}”` : sayTo(p, { hour: state.hour, storm: Math.max(weather.storm, conditions.sea.storm), wanted, caught: Math.floor(state.hour) % 3, landed: town.landed })}`, 8);
+  hud.toast(`${FOLK[p.id].short}: ${r ? `“${r}”` : sayTo(p, { hour: clock.hour, storm: Math.max(weather.storm, conditions.sea.storm), wanted, caught: Math.floor(state.hour) % 3, landed: town.landed })}`, 8);
   audio.page?.();
 }
 const talkedToday = {};
 
 // The tide (see world/tide.js): the sea's level and the tidal streams, set every frame for the
 // currents, the water and the fish.
-let tideNow = tideAt(state.day * 24 + state.hour);
+let tideNow = tideAt(clock.abs);
 // The year: the rivers' flow (fuller after rain), the leaves' colour, a word when a season turns.
-let seasonWas = seasonOf(state.day).name;
+let seasonWas = seasonOf(clock.day).name;
 function updateSeason() {
-  const abs = state.day * 24 + state.hour;
+  const abs = clock.abs;
   conditions.riverScale = riverFlow(abs) * (1 + 0.5 * weather.rain);
   world.setLeaves(leafTint(abs));
-  const S = seasonOf(state.day);
+  const S = seasonOf(clock.day);
   if (S.name !== seasonWas) {
     seasonWas = S.name;
-    if (started) hud.toast(SEASON_NEWS[S.name], 10);
+    // (Not while the world's time sweeps to a friend's, or back: that's not the season turning.)
+    if (started && !clock.sweeping) hud.toast(SEASON_NEWS[S.name], 10);
   }
 }
 const SEASON_NEWS = {
@@ -398,7 +403,7 @@ const SEASON_NEWS = {
 };
 // When you can choose to wake: dawn and the golden hour by the sun.
 function wakeTimes() {
-  const t = sunTimes(state.day * 24 + state.hour + 12);
+  const t = sunTimes(clock.abs + 12);
   const q = (h) => Math.round(h * 4) / 4;
   return [
     { h: q(t.rise - 0.25), name: 'Dawn' }, { h: Math.max(8, q(t.rise + 1)), name: 'Morning' }, { h: 12, name: 'Midday' },
@@ -407,7 +412,7 @@ function wakeTimes() {
 }
 function updateTide() {
   updateSeason();
-  tideNow = tideAt(state.day * 24 + state.hour);
+  tideNow = tideAt(clock.abs);
   TIDE.flow = tideNow.flow;
   TIDE.level = tideNow.level;
   water.uniforms.uTideFlow.value = tideNow.flow;
@@ -777,50 +782,52 @@ rig.init(boat);
 
 // The weather: how cloudy the sky is and how hard it rains (each 0–1), drifting smoothly
 // towards the sky of the moment. Choose one in Settings, or let it change by itself.
-const SKIES = {
-  clear: { cloud: 0.06, rain: 0, word: '' },
-  partly: { cloud: 0.4, rain: 0, word: 'Partly cloudy' },
-  overcast: { cloud: 0.86, rain: 0, word: 'Overcast' },
-  light: { cloud: 0.82, rain: 0.36, word: 'Light rain' },
-  heavy: { cloud: 1, rain: 0.92, word: 'Heavy rain' },
-  // A gale off the Atlantic: the wind gets up, the big seas roll in, thunder and lightning.
-  storm: { cloud: 1, rain: 1, storm: 1, word: 'Storm' },
-};
-// When it changes by itself: what can come next (a list may repeat an entry to make it likelier).
-const NEXT_SKY = {
-  clear: ['partly', 'partly', 'clear'],
-  partly: ['clear', 'overcast', 'partly'],
-  overcast: ['partly', 'light', 'overcast'],
-  light: ['overcast', 'heavy', 'partly', 'light'],
-  heavy: ['light', 'light', 'heavy'],
-  storm: ['heavy'],
-};
-// (Storms don't come by chance any more: gales are forecast a day ahead, see world/forecast.js.)
-// The season leans the weather: grey and wet in winter, fine in summer.
-const SEASON_SKY = {
-  spring: { overcast: ['light', 'partly'] },
-  summer: { partly: ['clear', 'clear'], overcast: ['partly'], light: ['partly'], heavy: ['light'] },
-  autumn: { partly: ['overcast'], overcast: ['light'] },
-  winter: { clear: ['overcast', 'partly'], partly: ['overcast', 'light'], overcast: ['light', 'overcast'], light: ['heavy', 'light'] },
-};
-// At Las Brasas, the trade-wind weather: mostly fine, cloud banking up now and then, a passing
-// shower, very seldom anything worse.
-const NEXT_SKY_SOUTH = {
-  clear: ['clear', 'partly', 'clear'],
-  partly: ['clear', 'partly', 'clear', 'overcast'],
-  overcast: ['partly', 'partly', 'light'],
-  light: ['partly', 'overcast'],
-  heavy: ['light', 'overcast'],
-  storm: ['heavy'],
-};
-const startSky = state.sky || { state: 'partly', cloud: SKIES.partly.cloud, rain: 0, timer: state.tips.rained ? rand(120, 220) : 240 };
-const weather = {
-  rain: startSky.rain, cloud: startSky.cloud, storm: startSky.storm || 0, state: startSky.state, timer: startSky.timer,
-  get target() { return SKIES[this.state].rain; },
-  override: null, // slowTide.setRain() for testing: a fixed rain level
-};
+// The sky (see world/weather.js): yours, or the host's when playing together.
 const skyMode = () => settings.weather.mode;
-if (skyMode() !== 'auto') weather.state = skyMode();
+const weather = createWeather(state.sky, { mode: skyMode(), rained: !!state.tips.rained });
+let restRefused = false; // (told already that resting is the host's, this press of the key)
+let ownSky = null;       // your own sky, waiting while you follow the host's
+let worldSpeed = 1;      // how fast your time runs just now (resting, sitting): shared when hosting
+
+/* ---------------- playing together: one world ---------------- */
+
+// Hosting, the world you share: your time and how fast it's running, your sky and wind, the sea
+// you've chosen, the water's colour. (Your own things, the day book, favours, the creel, aren't in it.)
+function worldToShare() {
+  const abs = state.day * 24 + state.hour;
+  return {
+    abs, rate: started && !sleeping && !waiting ? rateAt(abs, worldSpeed) : 0,
+    sky: { state: weather.state, cloud: weather.cloud, rain: weather.rain, storm: weather.storm },
+    wind: { from: conditions.wind.from, speed: conditions.wind.speed },
+    sea: settings.weather.sea || 'auto', colour: state.seaColour,
+  };
+}
+
+// Joining, the host's world is followed while there is one: their time (the clock sweeps to it),
+// their sky and wind and sea. Your own sky waits (ownSky) and comes back when you leave.
+function followWorld() {
+  const H = together.hostWorld();
+  if (H) {
+    if (!clock.following) {
+      ownSky = skyOf(weather);
+      hud.toast(`You’re sharing ${together.hostLabel}’s world now: their time of day, weather and tide. Your own come back when you leave the session.`, 8);
+    }
+    clock.hear(H.abs, H.rate, H.heard);
+    conditions.follow = { speed: H.wind.speed, from: H.wind.from };
+  } else if (clock.following) {
+    clock.release();
+    conditions.follow = null;
+    if (ownSky) {
+      weather.state = ownSky.state;
+      weather.timer = ownSky.timer;
+      ownSky = null;
+    }
+  }
+}
+// The water's colour as you see it: the host's, playing together.
+const seaColourNow = () => (clock.following ? together.hostWorld()?.colour ?? state.seaColour : state.seaColour);
+// What a joiner is told when they try to rest, sleep or wait: the world's time is the host's.
+const timeIsHosts = () => `Playing together, time is ${together.hostLabel}’s to pass: they can rest or sleep the night through, and you’ll see it go by.`;
 // The wind, the sea and the currents live in conditions.js, shared by the water, the boats, the
 // rig, the trees and the sound. `wind` is a small view of it for the HUD and the console.
 const FRESH = 12; // m/s: a fresh breeze, strength 1 for the casting maths
@@ -830,8 +837,9 @@ const wind = {
   get strength() { return Math.min(1, windAt(player().pos.x, player().pos.z).speed / FRESH); },
 };
 function updateWind(dt) {
-  conditions.preset = settings.weather.sea || 'auto';
-  conditions.manual = settings.weather.windMode === 'manual' ? { speed: settings.weather.windSpeed, from: settings.weather.windFrom * Math.PI / 180 } : null;
+  const H = clock.following ? together.hostWorld() : null;
+  conditions.preset = H ? H.sea : settings.weather.sea || 'auto';
+  conditions.manual = !H && settings.weather.windMode === 'manual' ? { speed: settings.weather.windSpeed, from: settings.weather.windFrom * Math.PI / 180 } : null;
   conditions.currents = settings.weather.currents || 'natural';
   updateConditions(dt, weather);
   // The wind on the cast: where you stand, gusts and all (the landing preview allows for it).
@@ -1016,7 +1024,7 @@ function logCatch(sp, size, agent, rigUsed, how = null) {
     sp: sp.id,
     size,
     day: state.day,
-    hour: Math.round(state.hour * 100) / 100,
+    hour: Math.round(clock.hour * 100) / 100,
     zone: zoneAt(agent.x, agent.z),
     place: placeName(agent.x, agent.z),
     water: waterOf(zoneAt(agent.x, agent.z)),
@@ -1029,10 +1037,10 @@ function logCatch(sp, size, agent, rigUsed, how = null) {
     sky: weather.state,
     from: how?.from || (onFoot ? 'shore' : 'boat'),
     rain: weather.rain > 0.6 ? 2 : weather.rain > 0.15 ? 1 : 0,
-    tide: tideAt(state.day * 24 + state.hour).phase,
+    tide: tideAt(clock.abs).phase,
     // (The water's colour, at sea: see grounds.js.)
-    ...(waterOf(zoneAt(agent.x, agent.z)) !== 'fresh' && colourKey(state.seaColour) !== 'clear' ? { colour: colourKey(state.seaColour) } : {}),
-    season: seasonOf(state.day).name,
+    ...(waterOf(zoneAt(agent.x, agent.z)) !== 'fresh' && colourKey(seaColourNow()) !== 'clear' ? { colour: colourKey(seaColourNow()) } : {}),
+    season: seasonOf(clock.day).name,
     hatch: Math.round(hatchLevel() * 10) / 10,
     depth: Math.round(Math.max(0, -at.y) * 10) / 10,
     bottom: Math.round(Math.max(0, -solidHeight(at.x, at.z)) * 10) / 10,
@@ -1058,7 +1066,7 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
   const isNew = !state.fish[sp.id];
   if (isNew) {
     state.fish[sp.id] = {
-      count: 0, best: 0, firstDay: state.day, firstHour: state.hour,
+      count: 0, best: 0, firstDay: state.day, firstHour: clock.hour,
       firstZone: zoneAt(agent.x, agent.z), firstRain: weather.rain > 0.4,
     };
   }
@@ -1066,7 +1074,7 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
   const record = !isNew && size > rec.best;
   if (record) noteRecord(state.today, sp.id, size);
   // Was it under a sign you saw just now? Then you know what that sign was (see grounds.js).
-  const read = agent ? readSign(state.grounds, recentSigns, sp.id, agent.x, agent.z, state.day * 24 + state.hour) : null;
+  const read = agent ? readSign(state.grounds, recentSigns, sp.id, agent.x, agent.z, clock.abs) : null;
   if (read) later(read.first ? SIGNS[read.kind].lesson(sp.id) : `${SIGNS[read.kind].name}: ${read.kind === 'birds' ? 'under the birds again' : 'you read it right again'}.`);
   rec.count++;
   rec.best = Math.max(rec.best, size);
@@ -1077,7 +1085,7 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
   logCatch(sp, size, agent, rigUsed, how);
   together.caught(sp.id, agent?.weight ?? weightOf(sp, size), { best: record, first: isNew });
   adventures.caught(sp.id, agent.x, agent.z, world.flocks);
-  favoursReady(favourCaught(state.favours, { id: sp.id, size, night: state.hour >= 20.5 || state.hour < 5, shore: onFoot }));
+  favoursReady(favourCaught(state.favours, { id: sp.id, size, night: clock.hour >= 20.5 || clock.hour < 5, shore: onFoot }));
   markObserved(sp.id, agent);
   state.tips.caught = true;
   // (Checked once the catch card's closed, when you've kept it or let it go.)
@@ -1559,17 +1567,17 @@ function innTalk(place) {
     if (k > 0.75 && (!yours || k > yours.k)) yours = { k, name: sp.name, size: e.size };
   }
   return {
-    advice: { place, hour: state.hour, rain: weather.rain, wind: conditions.wind.speed, storm, tide: tideNow, about: home ? whatsAbout(eco) : whatsAbout(eco, { south: true, x: PUERTO_AT.x, z: PUERTO_AT.z, reach: 900, max: 2 }), caught: new Set(Object.keys(state.fish)) },
+    advice: { place, hour: clock.hour, rain: weather.rain, wind: conditions.wind.speed, storm, tide: tideNow, about: home ? whatsAbout(eco) : whatsAbout(eco, { south: true, x: PUERTO_AT.x, z: PUERTO_AT.z, reach: 900, max: 2 }), caught: new Set(Object.keys(state.fish)) },
     rumours: {
-      place, hour: state.hour, nameOf, storm, rain: weather.rain,
+      place, hour: clock.hour, nameOf, storm, rain: weather.rain,
       birds: home ? birdsWorking(world.flocks, state.places) : [],
       gannets: home && F ? { x: F.school.x, z: F.school.z } : null,
       boil: tuna ? { x: tuna.x, z: tuna.z } : null,
       // (Dolphins only when they're somewhere with a name: close in, worth going to look for.)
-      pods: state.hour > 6 && state.hour < 21 ? sealife.pods.filter((p) => p.sea === (home ? 'home' : 'south') && (!home || placeName(p.x, p.z))).slice(0, 1).map((p) => ({ kind: p.kind, x: p.x, z: p.z })) : [],
+      pods: clock.hour > 6 && clock.hour < 21 ? sealife.pods.filter((p) => p.sea === (home ? 'home' : 'south') && (!home || placeName(p.x, p.z))).slice(0, 1).map((p) => ({ kind: p.kind, x: p.x, z: p.z })) : [],
       whales: sealife.whales.filter((w) => w.sea === (home ? 'home' : 'south') && w.state !== 'down').slice(0, 1).map((w) => ({ kind: w.kind, x: w.x, z: w.z, up: w.state === 'breathe' })),
-      glow: nightGlow(state.day),
-      news: home ? town.news(state.hour) : town.newsSouth(state.hour),
+      glow: nightGlow(clock.day),
+      news: home ? town.news(clock.hour) : town.newsSouth(clock.hour),
       yours,
     },
   };
@@ -1597,9 +1605,9 @@ function tripChecklist() {
   out.push(freshBaitToday(state) ? { ok: true, text: 'Fresh bait for today.' } : { ok: true, text: 'No fresh bait today (a help with worms and crab, never a need).' });
   const storm = Math.max(weather.storm, conditions.sea.storm);
   out.push({ ok: storm < 0.4, text: storm >= 0.4 ? 'A storm is blowing: stay in the bay and the sheltered water today.' : weatherLines(weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : weather.cloud > 0.3 ? 'Some cloud' : 'Clear')[0] });
-  out.push({ ok: true, text: `Tide: ${tideWords(state.day * 24 + state.hour)}.` });
+  out.push({ ok: true, text: `Tide: ${tideWords(clock.abs)}.` });
   {
-    const abs = state.day * 24 + state.hour, h = hoursToGale(abs), g = h != null ? galeNear(abs) : null;
+    const abs = clock.abs, h = hoursToGale(abs), g = h != null ? galeNear(abs) : null;
     if (g && h < 14) out.push({ ok: false, text: `Gale due about ${formatClock(g.start % 24)}: plan to be in sheltered water by then (the estuary, the coves, the bay or the lakes fish well in a blow).` });
   }
   const a = whatsAbout(eco, { max: 1 })[0];
@@ -1643,6 +1651,10 @@ function chalkKitchen() {
 let sleeping = null;
 function sleepUntil(h) {
   if (sleeping) return;
+  if (clock.following) {
+    hud.toast(timeIsHosts(), 6);
+    return;
+  }
   if (fishing.state === 'reeling' || fishing.state === 'landing' || fishing.state === 'caught' || fishing.state === 'keeping') {
     hud.toast('Land or let go of the fish first.', 3);
     return;
@@ -1678,7 +1690,7 @@ function passTheNight() {
     refill(state.comfort);
   }
   // The weather turns while you sleep (unless you've chosen it): sometimes you wake to rain.
-  if (skyMode() === 'auto') {
+  if (skyMode() === 'auto' && !clock.following) {
     weather.state = pick(Math.random() < 0.3 ? ['light', 'heavy', 'overcast'] : ['clear', 'partly', 'partly', 'overcast']);
     weather.storm = 0;
     weather.timer = rand(120, 260);
@@ -2272,7 +2284,7 @@ function diveSiteStep(depth) {
     hud.place(S.name, S.sub);
     if (first) {
       audio.chime();
-      const c = currentAt(S.x, S.z, 0), slack = turns(state.day * 24 + state.hour, 1)[0];
+      const c = currentAt(S.x, S.z, 0), slack = turns(clock.abs, 1)[0];
       const tide = S.id === 'hound' ? (Math.hypot(c.x, c.z) > 0.18 ? ` The tide’s running across it: hard work down here. Slack water about ${formatClock(slack.at % 24)}.` : ' The tide’s slack: a good time to be here.') : '';
       hud.toast(`${S.first}${tide}`, 10);
       hud.pulseJournal();
@@ -2921,7 +2933,7 @@ function comfortEnv() {
   const rowing = afloat && !boat.motor && !boat.sailUp && boat.speed > 0.6;
   const spray = afloat ? smoothstep(4, 8, boat.speed) * smoothstep(0.2, 1, waveHeightHere(P.x, P.z)) + weather.storm * 0.4 : 0;
   return {
-    hour: state.hour, south: conditions.region === 'south', height: onFoot ? Math.max(0, walker.pos.y) : 0, warmth: seasonWarmth(state.day * 24 + state.hour),
+    hour: clock.hour, south: conditions.region === 'south', height: onFoot ? Math.max(0, walker.pos.y) : 0, warmth: seasonWarmth(clock.abs),
     cloud: weather.cloud, rain: weather.rain, storm: weather.storm,
     wind: w.speed * (onFoot ? 0.75 : 1), sun: (1 - env.night) * (1 - 0.85 * weather.cloud) * (1 - weather.rain),
     moving: onFoot ? smoothstep(0.4, 4.5, walker.speed) : rowing ? 0.6 : 0,
@@ -3424,8 +3436,9 @@ function arrivePassage(to) {
   state.food = { ...(state.food || {}), full: 100 };
   Object.assign(state.comfort, { warm: 18, wet: 0 });
   refill(state.comfort);
-  // The weather where you land: fine, in the trade wind down south.
-  if (skyMode() === 'auto') {
+  // The weather where you land: fine, in the trade wind down south (your own sky: playing
+  // together, the sky is the host's).
+  if (skyMode() === 'auto' && !clock.following) {
     weather.state = to === 'south' ? 'clear' : 'partly';
     weather.timer = rand(200, 320);
   }
@@ -3797,7 +3810,7 @@ const bench = new Workbench(state, {
     const D = DESTS[id], w = windAt(D.at.x, D.at.z), sea = waveHeightHere(D.at.x, D.at.z);
     const sky = weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : weather.cloud > 0.3 ? 'Some cloud' : 'Clear';
     return [
-      `${formatClock(state.hour)}, ${phaseName(state.hour).toLowerCase()}. ${sky}.`,
+      `${formatClock(clock.hour)}, ${phaseName(clock.hour).toLowerCase()}. ${sky}.`,
       w.speed < 0.6 ? 'Wind: flat calm.' : `Wind: ${windWords(w.speed).toLowerCase()} from the ${compass(conditions.wind.from, true)}, about ${Math.round(w.speed * 3.6)} km/h there.`,
       D.water === 'fresh' ? 'A lake: the water is calm whatever the sea does.' : `Sea: ${seaWords(sea).toLowerCase()} (about ${sea < 0.1 ? 'nothing' : `${sea.toFixed(1)} m`}).`,
     ];
@@ -4305,7 +4318,7 @@ function crossingChecks(to, S) {
     list.push({ ok: true, text: to === 'south' ? 'The wind: home’s own weather this side, then backing into the north-east trade halfway over, on the quarter: fast going. Ease the sheet as it comes aft.' : 'The wind: the north-east trade on the quarter going north, then home’s own weather the far side.' });
   }
   list.push({ ok: true, text: 'Water and stores for the crossing, taken aboard as you set out.' });
-  const abs = state.day * 24 + state.hour, h = hoursToGale(abs), storm = Math.max(weather.storm, conditions.sea.storm);
+  const abs = clock.abs, h = hoursToGale(abs), storm = Math.max(weather.storm, conditions.sea.storm);
   if (storm > 0.35) list.push({ ok: false, text: 'It’s blowing a gale: no weather to be out on the open sea. Wait for it to pass, or take the fast passage.' });
   else if (h != null && h < crossHours(S.kind) + 3) list.push({ ok: false, text: `A gale is due in about ${Math.max(1, Math.round(h))} hours, before you'd be across. Wait for it to pass, or take the fast passage.` });
   else list.push({ ok: true, text: 'No gale due before you’re across.' });
@@ -4417,7 +4430,7 @@ function updateCrossing(dt) {
   if (done > 0.5 && done < 0.6) say('half', `Halfway across: ${(CROSS_M * (1 - done) / 1000).toFixed(1)} km to go, nothing but sea all round, and the ${south ? 'trade wind filling in from the north-east' : 'trade wind dropping astern'}.`);
   if (!south && done > 0.85) say('home', 'Gannet Light on the horizon ahead, and the hills behind Willow Bay: home waters.');
   // The weather turning: a gale due, or blowing up now.
-  const abs = state.day * 24 + state.hour, h = hoursToGale(abs), storm = Math.max(weather.storm, conditions.sea.storm);
+  const abs = clock.abs, h = hoursToGale(abs), storm = Math.max(weather.storm, conditions.sea.storm);
   if (!C.weather && onCrossing(B.pos.x, B.pos.z) && (storm > 0.3 || (h != null && h < 4)) && !modal && $('confirm').hidden) weatherTurns(C, B, h, storm, done);
   // Across.
   if (arrived(going, B.pos.x, B.pos.z)) finishCrossing(C, going);
@@ -4453,7 +4466,7 @@ function meet(ev, B) {
       break;
     }
     case 'squall':
-      if (skyMode() === 'auto' && !weather.storm) {
+      if (skyMode() === 'auto' && !clock.following && !weather.storm) {
         weather.state = 'heavy';
         weather.timer = rand(60, 110);
         conditions.wind.target = Math.min(18, conditions.wind.target + 4);
@@ -4517,7 +4530,7 @@ function weatherTurns(C, B, h, storm, done) {
 }
 function heaveTo(C, B) {
   C.weather = 'wait';
-  const abs = state.day * 24 + state.hour, g = galeNear(abs);
+  const abs = clock.abs, g = galeNear(abs);
   const hours = g && abs < g.end + 2 ? Math.max(2, g.end + 1.5 - abs) : 4;
   if (B.sailUp) B.setSail(false);
   B.lever = 0;
@@ -4814,14 +4827,14 @@ function closeBoard() {
 }
 function renderBoard() {
   const sky = weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : weather.cloud > 0.3 ? 'Some cloud' : 'Clear';
-  $('board-sub').textContent = `${formatClock(state.hour)} · day ${state.day}`;
+  $('board-sub').textContent = `${formatClock(clock.hour)} · day ${state.day}`;
   const p = (text, cls = '') => {
     const e = document.createElement('p');
     if (cls) e.className = cls;
     e.textContent = text;
     return e;
   };
-  $('board-weather').replaceChildren(...[seasonLine(state.day * 24 + state.hour), ...outlook(state.day * 24 + state.hour), ...weatherLines(sky, state.day * 24 + state.hour)].map((l) => p(l)));
+  $('board-weather').replaceChildren(...[seasonLine(clock.abs), ...outlook(clock.abs), ...weatherLines(sky, clock.abs)].map((l) => p(l)));
   const birds = birdsWorking(world.flocks, state.places);
   $('board-birds').replaceChildren(...(birds.length ? birds.map((l) => p(l)) : [p('No gulls working the water just now. They come down where fish drive the bait to the top: watch for them at dawn and dusk.', 'j-faint')]));
   const about = whatsAbout(eco);
@@ -4939,7 +4952,7 @@ function addToCairn() {
   exploredAt(player().pos.z).reveal(player().pos.x, player().pos.z, 900);
   const first = !state.tips.cairn;
   state.tips.cairn = true;
-  const sky = weather.rain > 0.15 ? 'Cloud drags across the top, and the coast comes and goes through it.' : state.hour < 6 || state.hour > 21 ? 'Below, the lights: Willowhaven’s quay, the lighthouse turning out on Gannet Isle.' : 'The whole coast is laid out below: Willow Bay and the Coldwater winding down to it, the Wend estuary, Longmere among its hills, Gannet Isle and the deep water beyond.';
+  const sky = weather.rain > 0.15 ? 'Cloud drags across the top, and the coast comes and goes through it.' : clock.hour < 6 || clock.hour > 21 ? 'Below, the lights: Willowhaven’s quay, the lighthouse turning out on Gannet Isle.' : 'The whole coast is laid out below: Willow Bay and the Coldwater winding down to it, the Wend estuary, Longmere among its hills, Gannet Isle and the deep water beyond.';
   showNote('Hoarfell', `${first ? 'You pick up a stone on the way to the top, as walkers do, and add it to the cairn.' : 'Another stone on the cairn.'} ${sky}`, 'cairn');
   save();
 }
@@ -5024,7 +5037,7 @@ function updateSitting(dt) {
 }
 // A quiet thought: the first of these that fits and hasn't come yet this sitting.
 function sitThought(S) {
-  const abs = state.day * 24 + state.hour, h = state.hour, sun = sunTimes(abs);
+  const abs = clock.abs, h = clock.hour, sun = sunTimes(abs);
   const T = tideAt(abs), was = tideAt(abs - 0.6), toGale = hoursToGale(abs);
   const night = h > sun.set + 0.7 || h < sun.rise - 0.4;
   const page = state.today ? dayPage(state, state.today) : null;
@@ -5044,7 +5057,7 @@ function sitThought(S) {
     page && page.caught + page.dives.length > 0 && ['day', `You think back over the day. ${dayText(page).split('. ').slice(0, 3).join('. ').replace(/\.?$/, '.')}`],
     tip && ['learned', `You go over what you’ve learned. At ${tip.place}: ${groundWords(tip.K).toLowerCase()}`],
     S.kind === 'fire' && ['fire', 'A log shifts and settles in the fire, and a stream of sparks goes up into the dark.'],
-    S.kind === 'inn' && ['pub', state.hour >= 17 || state.hour < 1 ? 'The bar fills up: boots on the flagstones, the door going, a laugh from the old boys’ corner by the window.' : 'Quiet in here at this hour: Ruth polishing glasses, the clock ticking, someone’s dog asleep under a table.'],
+    S.kind === 'inn' && ['pub', clock.hour >= 17 || clock.hour < 1 ? 'The bar fills up: boots on the flagstones, the door going, a laugh from the old boys’ corner by the window.' : 'Quiet in here at this hour: Ruth polishing glasses, the clock ticking, someone’s dog asleep under a table.'],
     S.kind === 'inn' && S.spot === 'fire' && ['coal', 'The coal settles in the grate with a soft crunch, and the heat comes up into your face.'],
     S.kind === 'inn' && ['kitchen', 'Something good is going on in the kitchen: onions, butter, the sea smell of fish in a hot pan.'],
     state.comfort.wet > 0.3 && ['drying', 'Your clothes steam gently as they dry.'],
@@ -5107,6 +5120,10 @@ function sitOnBench() {
 let waiting = null;
 function waitAWhile(hours, text) {
   if (modal || fishing.busy) return;
+  if (clock.following) {
+    hud.toast(timeIsHosts(), 6);
+    return;
+  }
   if (fishing.lineOut) fishing.cancel();
   modal = 'travel';
   hud.sleep(true, text);
@@ -5371,7 +5388,7 @@ function watchBirds(dt) {
   birdT -= dt;
   if (birdT > 0) return;
   birdT = 1;
-  const abs = state.day * 24 + state.hour, P = player().pos;
+  const abs = clock.abs, P = player().pos;
   for (const f of world.flocks) {
     if (f.t < 1 || Math.hypot(f.x - P.x, f.z - P.z) > 380) continue;
     const s = birdSightings.find((b) => Math.hypot(b.x - f.x, b.z - f.z) < 40);
@@ -5450,10 +5467,11 @@ function noteTheDay(dt) {
   dayTimer = 2;
   // The water's colour (see grounds.js): stirred up by rain and a blow, settling over a day.
   const abs = state.day * 24 + state.hour;
-  if (colourAbs != null) state.seaColour = stepColour(state.seaColour, { rain: weather.rain, storm: Math.max(weather.storm, conditions.sea.storm) }, Math.max(0, abs - colourAbs));
+  // (Playing together it's the host's water you see, and your own waits as it was.)
+  if (colourAbs != null && !clock.following) state.seaColour = stepColour(state.seaColour, { rain: weather.rain, storm: Math.max(weather.storm, conditions.sea.storm) }, Math.max(0, abs - colourAbs));
   colourAbs = abs;
-  water.uniforms.uColour.value = state.seaColour;
-  underwater.colour = state.seaColour;
+  water.uniforms.uColour.value = seaColourNow();
+  underwater.colour = seaColourNow();
   if (!state.today || state.today.day !== state.day) closeTheDay();
   if (challengesDue && !modal) {
     challengesDue = false;
@@ -5537,7 +5555,7 @@ function checkPlaces(dt) {
 }
 
 function moments() {
-  const h = state.hour;
+  const h = clock.hour;
   if (!state.tips.dusk && h > 17.6 && h < 19.5) {
     state.tips.dusk = true;
     hud.toast('The light turns gold. Some fish only stir after sundown.', 6);
@@ -5567,7 +5585,7 @@ function handleClues() {
     const d = Math.hypot(dx, dz);
     if (d > (c.type === 'birds' ? 400 : c.type === 'boil' ? 220 : 90)) continue;
     // Seen, if it's near enough and light enough to see: noted (see grounds.js).
-    if (SEEN_AT[c.type] && d < SEEN_AT[c.type] && (env.daylight > 0.2 || c.type === 'rise' || c.type === 'jump')) seeSign(state.grounds, recentSigns, c, state.day * 24 + state.hour, state.day);
+    if (SEEN_AT[c.type] && d < SEEN_AT[c.type] && (env.daylight > 0.2 || c.type === 'rise' || c.type === 'jump')) seeSign(state.grounds, recentSigns, c, clock.abs, state.day);
     const vol = clamp(1 - d / 60, 0, 1);
     const pan = clamp(((-fz_ * dx + fx_ * dz) / (d || 1)) * -0.8, -0.8, 0.8);
     switch (c.type) {
@@ -5840,37 +5858,16 @@ function updateRain(dt) {
 }
 
 function updateWeather(dt, speed) {
-  const mode = skyMode();
-  if (mode !== 'auto') {
-    weather.state = mode;
-  } else {
-    weather.timer -= dt * Math.min(speed, 10);
-    // A gale on its way (or blowing) makes the sky; otherwise it wanders as the season leans it.
-    const forced = region === 'home' ? galeSky(state.day * 24 + state.hour) : null;
-    if (forced) {
-      weather.state = forced;
-      weather.timer = Math.max(weather.timer, 20);
-    } else if (weather.timer <= 0) {
-      const lean = region === 'home' ? SEASON_SKY[seasonOf(state.day).name][weather.state] || [] : [];
-      weather.state = pick([...(region === 'south' ? NEXT_SKY_SOUTH : NEXT_SKY)[weather.state], ...lean]);
-      if (weather.state === 'storm') weather.state = 'heavy';
-      weather.timer = weather.state === 'heavy' ? rand(60, 110) : weather.state === 'light' ? rand(80, 150) : rand(150, 300);
-    }
-    galeWarnings();
-  }
-  const sky = SKIES[weather.state];
-  // A change you choose settles in about ten seconds; a change by itself drifts in more slowly.
-  const rate = (mode === 'auto' ? 0.08 : 0.3) * Math.min(speed, 6);
-  weather.rain = damp(weather.rain, weather.override ?? sky.rain, rate, dt);
-  weather.cloud = damp(weather.cloud, Math.max(sky.cloud, weather.override ?? 0), rate, dt);
-  weather.storm = damp(weather.storm, sky.storm || 0, rate * 0.8, dt);
+  const host = clock.following ? together.hostWorld()?.sky : null;
+  const how = stepWeather(weather, dt, { mode: skyMode(), region, abs: clock.abs, speed, host });
+  if (how === 'auto' || how === 'host') galeWarnings();
 }
 // Warnings of a gale coming: six hours out (time to think about shelter), and an hour and a half
 // (time to be in it). Each once.
 const galeWarned = new Set();
 function galeWarnings() {
   if (!started || region !== 'home') return;
-  const abs = state.day * 24 + state.hour, h = hoursToGale(abs), g = h != null ? galeNear(abs) : null;
+  const abs = clock.abs, h = hoursToGale(abs), g = h != null ? galeNear(abs) : null;
   if (!g) return;
   if (h <= 6 && h > 1.5 && !galeWarned.has(`${g.day}:6`)) {
     galeWarned.add(`${g.day}:6`);
@@ -5885,7 +5882,7 @@ function galeWarnings() {
 // After a blow: what's left of it (1 just as it ends, fading over eight hours), for the fish.
 let lastBlow = -1e9;
 function blowAfter() {
-  const abs = state.day * 24 + state.hour;
+  const abs = clock.abs;
   if (weather.storm > 0.5) lastBlow = abs;
   return weather.storm > 0.3 ? 0 : clamp(1 - (abs - lastBlow) / 8, 0, 1);
 }
@@ -5895,7 +5892,7 @@ const gloom = () => Math.max(weather.rain, weather.cloud * 0.72);
 // Flies hatch over the stream and lake in the morning and (most of all) the evening;
 // a light shower helps, heavy rain stops it.
 function hatchLevel() {
-  const h = state.hour;
+  const h = clock.hour;
   const morning = smoothstep(6.3, 7.8, h) * (1 - smoothstep(9.5, 11, h));
   const evening = smoothstep(17.3, 18.5, h) * (1 - smoothstep(20.5, 21.6, h));
   const day = 0.25 * smoothstep(8, 10, h) * (1 - smoothstep(16, 18, h));
@@ -6062,6 +6059,7 @@ const settingsUI = new SettingsUI(state, {
   behaviour: () => state.behaviour,
   setBehaviour,
   keyLabel: (code) => input.label(code),
+  following: () => (clock.following ? together.hostLabel : null),
   together: () => together,
   setName: (name) => setName(name),
   boatName: (kind) => BOATS[kind]?.name || 'boat',
@@ -6502,16 +6500,16 @@ function updateConditionsPanel(dt) {
   $('cd-cur').textContent = cs < 0.03 ? `slack${fishing.state === 'drifting' ? ' at your rig' : ''}` : `${arrowFor(c.x, c.z)} ${cs.toFixed(cs < 0.1 ? 2 : 1)} m/s to ${compass(bearingOf(c.x, c.z))}${fishing.state === 'drifting' ? ' at your rig' : ''}`;
   const hgt = waveHeightHere(P.x, P.z);
   $('cd-sea').textContent = `${seaWords(hgt)}, ${hgt < 0.1 ? 'under 0.1' : `about ${hgt.toFixed(1)}`} m`;
-  $('cd-tide').textContent = tideWords(state.day * 24 + state.hour);
+  $('cd-tide').textContent = tideWords(clock.abs);
   const wz = waterOf(zoneAt(P.x, P.z));
-  $('cd-water').textContent = wz === 'fresh' ? 'fresh' : `${wz === 'brackish' ? 'brackish, ' : ''}${colourWords(state.seaColour)}`;
+  $('cd-water').textContent = wz === 'fresh' ? 'fresh' : `${wz === 'brackish' ? 'brackish, ' : ''}${colourWords(seaColourNow())}`;
 }
 
 function updateHud() {
-  const h = state.hour, sh = sunHour(h, state.day * 24 + h);
+  const h = clock.hour, sh = sunHour(h, clock.abs);
   const night = sh >= 20.5 || sh < 5.5;
   const w = weather.storm > 0.5 ? 'Storm' : weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : '';
-  hud.clock(formatClock(h), `${phaseName(sh)} · ${seasonWords(state.day).toLowerCase()}`, w, night);
+  hud.clock(formatClock(h), `${phaseName(sh)} · ${seasonWords(clock.day).toLowerCase()}`, w, night);
   // How you feel, in a word or two by the clock (the worst first), and well fed when you are.
   const needs = needsMode() === 'off' ? [] : needsOf(state.comfort, state.food);
   const words = needs.slice(0, 2).map((n) => n.word);
@@ -6661,12 +6659,12 @@ function whereIAm() {
 // Toasts for what happens in a session (the details are in Settings → Play together).
 together.onEvent = (kind, p, data) => {
   if (kind === 'join') hud.toast(`${p.name} has joined you.`, 5);
-  else if (kind === 'leave') hud.toast(`${p.name} has left the session.`, 4);
+  else if (kind === 'leave') hud.toast(data?.host && !together.hosting ? `${p.name} has left. If they’re back within a minute (a reload, a dropped connection), the session carries on; otherwise it ends.` : `${p.name} has left the session.`, data?.host ? 7 : 4);
   else if (kind === 'joined') hud.toast(`You’re playing with ${p?.name || 'your friend'}. Look for their name on the screen: it points the way to them.`, 7);
   else if (kind === 'catch') {
     const sp = fishById[data.sp];
     if (sp) hud.toast(`${p.name} caught ${data.first ? 'their first' : 'a'} ${sp.name.toLowerCase()}, ${kgWords(data.kg)}${data.best ? ': their best yet' : ''}.`, 5);
-  } else if (kind === 'ended') hud.toast(p ? `${p.name} ended the session.` : 'The connection to your session was lost, so you’ve left it.', 7);
+  } else if (kind === 'ended') hud.toast(p ? `${p.name} ended the session.` : data?.hostGone ? `${data.name[0].toUpperCase()}${data.name.slice(1)} didn’t come back, so the session has ended. Your own time and weather are back.` : 'The connection to your session was lost, so you’ve left it.', 7);
   else if (kind === 'lost') hud.toast('Lost the connection to your session. Trying again…', 4);
   else if (kind === 'back') hud.toast('Back in your session.', 3);
 };
@@ -6674,7 +6672,10 @@ together.onChange = () => {
   if (settingsUI.isOpen && settingsUI.tab === 'together') settingsUI.render();
 };
 // Leaving the game leaves the session (and ends it, if it's yours).
-addEventListener('pagehide', () => together.leave(true));
+// Leaving the page (a reload, Update, closing the tab) steps out quietly: a reload of this tab
+// picks the session up again (resume), and the others wait a minute for a host who's reloading.
+addEventListener('pagehide', () => together.suspend());
+together.worldSource = worldToShare;
 
 // The dive computer (depth, breath or air, the way up), and what's in the speargun's sights.
 let diveShown = false;
@@ -6762,8 +6763,8 @@ function save() {
     const sp = carExitSpot();
     if (sp) state.walker = { x: sp.x, z: sp.z, heading: car.heading };
   }
-  const r3 = (v) => Math.round(v * 1000) / 1000;
-  state.sky = { cloud: r3(weather.cloud), rain: r3(weather.rain), storm: r3(weather.storm), state: weather.state, timer: r3(weather.timer) };
+  // (Your own sky, even while you're following the host's.)
+  state.sky = ownSky || skyOf(weather);
   state.seen = explored.toString();
   state.seenSouth = exploredSouth.toString();
   const ok = saveGame(state);
@@ -6877,6 +6878,10 @@ addEventListener('hashchange', () => {
 });
 cloudReady.then(() => {
   if (modal === 'journal') renderCloud();
+  // Back after a reload (or Update) in the middle of a session: into it again.
+  together.resume().then((back) => {
+    if (back && together.hosting) hud.toast(`Back in your session, ${together.code}.`, 5);
+  });
   // Signed in, but startup didn't wait for the cloud (it was slow): sync once it's ready.
   if (cloud.signedIn && !cloudStart && saveStatus.canSave) cloud.queue(state, saveStatus.lastSaved);
 });
@@ -7105,7 +7110,7 @@ const mapSheet = new MapSheet(state, explored, { data: heightTex.image.data, wid
   close: () => closeMap(),
   changed: () => save(),
   birds: () => {
-    const abs = state.day * 24 + state.hour;
+    const abs = clock.abs;
     return birdSightings.map((b) => ({ x: b.x, z: b.z, age: (abs - b.at) / 1.5 }));
   },
 });
@@ -7671,13 +7676,13 @@ applyGear();
 
 function ecoTick(dt) {
   // (The fish go by the sun: dawn and dusk move with the season. And the year itself: see season.js.)
-  ecoCtx.env.hour = sunHour(state.hour, state.day * 24 + state.hour);
-  ecoCtx.env.abs = state.day * 24 + state.hour;
+  ecoCtx.env.hour = sunHour(clock.hour, clock.abs);
+  ecoCtx.env.abs = clock.abs;
   ecoCtx.env.tide = tideNow;
   // (In a blow the fish of sheltered water feed hard, the open sea's go quiet; after it too.)
   ecoCtx.env.storming = Math.max(weather.storm, conditions.sea.storm);
   ecoCtx.env.after = blowAfter();
-  ecoCtx.env.colour = state.seaColour;
+  ecoCtx.env.colour = seaColourNow();
   ecoCtx.env.rain = weather.rain;
   ecoCtx.env.cloud = weather.cloud;
   ecoCtx.env.storm = Math.max(weather.storm, conditions.sea.storm);
@@ -7725,20 +7730,21 @@ function tick(now, manual = false) {
   pads.poll(dt);
 
   // (Not in the water: time can't drift by on one breath, or a tank.)
-  const resting = started && (!modal || modal === 'camp') && input.resting && !dive;
+  const wantsRest = started && (!modal || modal === 'camp') && input.resting && !dive;
+  // (Playing together, time is the host's to pass: see timeIsHosts.)
+  if (wantsRest && clock.following && !restRefused) {
+    restRefused = true;
+    hud.flash(timeIsHosts(), t, 3.5);
+  }
+  if (!input.resting) restRefused = false;
+  const resting = wantsRest && !clock.following;
   const speed = resting ? REST_SPEED : sitting && !modal ? SIT_SPEED : 1;
   hud.rest(resting);
   let hours = 0;
-  if (started && !sleeping) {
-    const sun = sunTimes(state.day * 24 + state.hour);
-    const nightRate = state.hour >= sun.set + 1.5 || state.hour < sun.rise - 0.6 ? 2.2 : 1;
-    hours = (dt * speed * nightRate) / HOUR_SECONDS;
-    state.hour += hours;
-    if (state.hour >= 24) {
-      state.hour -= 24;
-      state.day++;
-    }
-  }
+  if (started && !sleeping) hours = advanceClock(state, dt, speed);
+  followWorld();
+  clock.update(dt, performance.now() / 1000);
+  worldSpeed = speed;
   updateWeather(dt, speed);
   updateTide();
   updateSleep(dt);
@@ -7969,13 +7975,13 @@ function tick(now, manual = false) {
   {
     const P = player().pos, aboard = !onFoot && !driving && !dive && !cabinIn;
     const crossingNow = !!state.crossing || inOcean(P.x, P.z);
-    sealife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, daylight: env.daylight, hour: state.hour, region, eco, diving: !!dive, crossing: crossingNow });
+    sealife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, daylight: env.daylight, hour: clock.hour, region, eco, diving: !!dive, crossing: crossingNow });
     crossingLife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, crossing: crossingNow });
     // (How fast you're coming: walking, the boat, swimming; sitting still is stillest of all.)
     const pace = sitting ? 0 : dive ? diver.speed : onFoot ? walker.speed : driving ? 10 : Math.abs(boat.forwardSpeed) + (boat.motor && boat.lever > 0 ? 1 : 0);
-    wildlife.update(dt, t, { from: P, onFoot: onFoot && !dive && !driving, speed: pace, daylight: env.daylight, hour: state.hour, season: seasonOf(state.day).name, tideLevel: tideNow.level, region });
+    wildlife.update(dt, t, { from: P, onFoot: onFoot && !dive && !driving, speed: pace, daylight: env.daylight, hour: clock.hour, season: seasonOf(clock.day).name, tideLevel: tideNow.level, region });
     // The harbour's people going about their day, and Dougie's boat.
-    town.update(state.day * 24 + state.hour, folkCtx(dt));
+    town.update(clock.abs, folkCtx(dt));
     {
       const B = region === 'home' ? buoyAt(state.favours, state.day * 24 + state.hour) : null;
       lostBuoy.visible = !!B;
@@ -7988,7 +7994,7 @@ function tick(now, manual = false) {
     // Friends you're playing with: where you are goes to them, and they're drawn where they are.
     together.update(dt, started ? whereIAm() : null);
     visitors.update(dt, t, together.peers, { from: P, fx, glow, night: env.lantern });
-    glow.update(t, nightGlow(state.day) * smoothstep(0.35, 0.85, env.night) * (1 - 0.5 * (weather.rain ?? 0)));
+    glow.update(t, nightGlow(clock.day) * smoothstep(0.35, 0.85, env.night) * (1 - 0.5 * (weather.rain ?? 0)));
     glow.foamColor(fx.wake.material.color, env.daylight);
     glowFishT -= dt;
     if (glow.level > 0.04 && glowFishT <= 0) {
@@ -8049,7 +8055,7 @@ function tick(now, manual = false) {
   // A storm's lightning (and its thunder, arriving later) and the spray off the seas.
   stormFx.update(dt, t, { storm: Math.max(weather.storm, conditions.sea.storm * 0.8), camera, env, onThunder: (d, loud) => audio.thunder?.(d, loud), flashes: !settings.controls.reducedMotion });
   watchStorm(dt);
-  env.update(dt, t, sunHour(state.hour, state.day * 24 + state.hour), weather.rain, fpShadow ? _shadowAt : P, camera, renderer, weather.cloud);
+  env.update(dt, t, sunHour(clock.hour, clock.abs), weather.rain, fpShadow ? _shadowAt : P, camera, renderer, weather.cloud);
   const sub = underwater.updateMedium(t, camera, env, scene, water, weather.rain);
   postLook.under = sub;
   audio.setUnderwater(sub);
@@ -8057,7 +8063,7 @@ function tick(now, manual = false) {
   seabed.update(camera, sub);
   fishRenderer.update(dt, camera, env.night, sub > 0.5);
   updateWind(dt * Math.min(speed, 10));
-  world.update(dt, t, env, { fireLevel: camp.fireLevel, hatchLevel: hatchLevel(), hour: state.hour, wind: 0.5 + Math.min(1, windAt(camera.position.x, camera.position.z).speed / FRESH) * 1.3, camera, fog: scene.fog.color, hurry: !!(traveling || sleeping), haven: { from: started ? player().pos : null, cam: camera.position, cutaway: rig.mode !== 'eye', onDoor: (open) => audio.door?.(open) } });
+  world.update(dt, t, env, { fireLevel: camp.fireLevel, hatchLevel: hatchLevel(), hour: clock.hour, wind: 0.5 + Math.min(1, windAt(camera.position.x, camera.position.z).speed / FRESH) * 1.3, camera, fog: scene.fog.color, hurry: !!(traveling || sleeping), haven: { from: started ? player().pos : null, cam: camera.position, cutaway: rig.mode !== 'eye', onDoor: (open) => audio.door?.(open) } });
   {
     const abs = state.day * 24 + state.hour;
     campView.update(dt, t, env, state.camps, player().pos, {
@@ -8076,7 +8082,7 @@ function tick(now, manual = false) {
     }
   }
   updateRain(dt);
-  mist.update(t, state.hour, env, camera);
+  mist.update(t, clock.hour, env, camera);
   surfaceUniforms.uWetTop.value = 0.22 + 0.05 * Math.sin(t * 0.35) + weather.rain * 0.12;
   causticUniforms.uCausticTime.value = t;
   causticUniforms.uCaustic.value = (quality.caustics ?? 1) * env.daylight * (1 - gloom() * 0.6);
@@ -8178,7 +8184,7 @@ function tick(now, manual = false) {
     watchCamps();
     watchBirds(dt);
     // An open board keeps up with the hour: it's read off the water as it is now.
-    if (modal === 'board' && $('board-sub').textContent !== `${formatClock(state.hour)} · day ${state.day}`) renderBoard();
+    if (modal === 'board' && $('board-sub').textContent !== `${formatClock(clock.hour)} · day ${state.day}`) renderBoard();
     if (slateDay !== state.day) chalkSlate();
     if (Math.hypot(player().pos.x - HAVEN_ROOMS.inn.doorX, player().pos.z - HAVEN_ROOMS.inn.front) < 40) chalkKitchen();
     // The fish in your creel: on ice, or in a cool-lined creel, their freshness keeps.
@@ -8267,7 +8273,7 @@ function draw() {
 const postLook = { sunDir: env.sunDir, sunColor: new THREE.Color(), low: 0, night: 0, tint: new THREE.Color(), sat: 1, under: 0 };
 const _warm = new THREE.Color(1.045, 1.0, 0.93), _cool = new THREE.Color(0.95, 0.98, 1.05), _rose = new THREE.Color(1.035, 0.985, 0.985);
 function lookOfTheHour() {
-  const L = postLook, h = state.hour, clear = (1 - weather.rain) * (1 - weather.cloud * 0.6) * (1 - L.under);
+  const L = postLook, h = clock.hour, clear = (1 - weather.rain) * (1 - weather.cloud * 0.6) * (1 - L.under);
   L.sunColor.copy(env.sunColor).convertLinearToSRGB();
   // How low and strong the sun is: the shafts come with it.
   L.low = smoothstep(-0.03, 0.05, env.sunDir.y) * (1 - smoothstep(0.22, 0.5, env.sunDir.y)) * clear;
@@ -8327,7 +8333,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors,
+  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock,
   // Set the breeze: strength 0–1, blowing towards dir (radians, like a heading).
   // A steady wind for testing: strength 0 … 1 (1 = a fresh breeze, 12 m/s), blowing towards dir
   // (as atan2(x, z) of its vector). setWind(null) gives it back to the weather and Settings.

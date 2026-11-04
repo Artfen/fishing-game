@@ -240,6 +240,8 @@ export const conditions = {
   hour: null,
   // From Settings: 'auto' (follow the weather) or a SEA_PRESETS id; wind 'auto' or manual.
   preset: 'auto', manual: null, currents: 'natural',
+  // Playing together, a joiner's wind is the host's: { speed, from } (see together.js), or null.
+  follow: null,
   // Which sea you're in ('home', or 'south' at Las Brasas, where the trade wind blows).
   region: 'home',
   // Out on the crossing between them (see crossing.js, set by the game from where you are): how far
@@ -255,7 +257,12 @@ export const conditions = {
 export function updateConditions(dt, weather) {
   const C = conditions, W = C.wind;
   const P = SEA_PRESETS[C.preset] || null;
-  if (C.manual) {
+  if (C.follow) {
+    // (The host's wind already has its gusts of weather and its daily turn in it.)
+    W.target = C.follow.speed;
+    W.daily = 0;
+    W.from = dampAngleTo(W.from, C.follow.from, 0.5, dt);
+  } else if (C.manual) {
     W.target = C.manual.speed;
     W.from = dampAngleTo(W.from, C.manual.from, 0.5, dt);
   } else {
@@ -288,7 +295,7 @@ export function updateConditions(dt, weather) {
     W.daily = trades ? Math.max(0, day) * 0.6 : day;
     if (!trades && day > 0.2) W.from = dampAngleTo(W.from, Math.PI, 0.004 * day, dt);
   }
-  W.speed = damp(W.speed, Math.max(0, W.target + (C.manual ? 0 : W.daily || 0)), 0.05, dt);
+  W.speed = damp(W.speed, Math.max(0, W.target + (C.manual || C.follow ? 0 : W.daily || 0)), C.follow ? 0.3 : 0.05, dt);
   // The sea follows: chop within half a minute or so, the swell over a few minutes; a storm's big
   // seas build over a minute or two and take longer to die away.
   const stormTarget = weather.storm || 0;
