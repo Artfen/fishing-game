@@ -5,7 +5,7 @@ import { jewelGeometry, urchinGeometry, starGeometry, cerianthusGeometry, seaPen
 import { anemoneGeometry } from './brasaWorld.js';
 import { mergeParts, mat, jitterGeo, hash2, seeded } from '../util.js';
 
-// The small life of the seabed, wherever you dive at home: so the bottom is never bare. Shells
+// The small life of the seabed, wherever you dive (at home, and at Las Brasas): so the bottom is never bare. Shells
 // and scallops on the sand, starfish and brittlestars, a hermit crab dragging its whelk shell,
 // worm casts; deeper, burrowing anemones and sea pens; on rock, urchins, dahlia anemones, jewel
 // anemones and sponges; in fresh water, stones and mussels. Laid out round the camera only while
@@ -63,6 +63,34 @@ function stoneGeometry(rnd) {
 function musselGeometry() {
   return mergeParts([{ geo: new THREE.SphereGeometry(0.05, 7, 4), matrix: mat(0, 0.012, 0, 0, 0, 0, 0.45, 0.3, 1), color: '#ffffff' }]);
 }
+// A long-spined urchin: a small black ball and long needle spines all round.
+function diademaGeometry(rnd) {
+  const parts = [{ geo: new THREE.SphereGeometry(0.05, 8, 6), matrix: mat(0, 0.05, 0), color: '#ffffff' }];
+  for (let i = 0; i < 18; i++) {
+    const u = rnd() * 2 - 1, a = rnd() * Math.PI * 2, r = Math.sqrt(1 - u * u);
+    const dir = new THREE.Vector3(r * Math.cos(a), Math.abs(u) * 0.8 + 0.2, r * Math.sin(a)).normalize();
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    const e = new THREE.Euler().setFromQuaternion(q);
+    const len = 0.16 + rnd() * 0.08;
+    parts.push({ geo: new THREE.ConeGeometry(0.004, len, 3).translate(0, len / 2, 0), matrix: mat(0, 0.05, 0, e.x, e.y, e.z), color: '#ffffff' });
+  }
+  return mergeParts(parts, rnd);
+}
+// A sea cucumber: a soft brown sausage on the sand.
+function cucumberGeometry(rnd) {
+  return mergeParts([{ geo: jitterGeo(new THREE.CapsuleGeometry(0.045, 0.2, 4, 8), 0.01, rnd), matrix: mat(0, 0.035, 0, Math.PI / 2, 0, 0, 1, 1, 0.8), color: '#ffffff' }], rnd);
+}
+// Garden eels: a little colony, each a thin stalk standing out of the sand, its head bent over.
+function gardenEelGeometry(rnd) {
+  const parts = [];
+  for (let i = 0; i < 6; i++) {
+    const x = (rnd() - 0.5) * 1.1, z = (rnd() - 0.5) * 1.1, h = 0.18 + rnd() * 0.16, lean = (rnd() - 0.5) * 0.35;
+    parts.push({ geo: new THREE.CylinderGeometry(0.008, 0.011, h, 5).translate(0, h / 2, 0), matrix: mat(x, 0, z, lean, 0, 0), color: '#ffffff' });
+    parts.push({ geo: new THREE.SphereGeometry(0.013, 5, 4), matrix: mat(x, h * Math.cos(lean) + 0.004, z + h * Math.sin(lean) + 0.012, 0, 0, 0, 1, 0.8, 1.5), color: '#e8e0c8' });
+    parts.push({ geo: new THREE.CircleGeometry(0.02, 8).rotateX(-Math.PI / 2), matrix: mat(x, 0.003, z), color: '#8a7e66' });
+  }
+  return mergeParts(parts, rnd);
+}
 // A worm cast: a little coil of sand.
 function castGeometry() {
   return mergeParts([{ geo: new THREE.TorusGeometry(0.03, 0.012, 4, 9, Math.PI * 3.2), matrix: mat(0, 0.01, 0, Math.PI / 2, 0, 0), color: '#ffffff' }]);
@@ -83,6 +111,11 @@ const KINDS = {
   jewel: { geo: jewelGeometry, colors: ['#ef6fa4', '#7fd59a', '#f2a04e', '#b98ae6'] },
   sponge: { geo: spongeBlob, colors: ['#d9b43a', '#e0a83a'] },
   mussel: { geo: musselGeometry, colors: ['#2a2c38', '#30303a'] },
+  // (Las Brasas.)
+  diadema: { geo: diademaGeometry, colors: ['#1c1a22', '#22202a', '#2a1f2e'] },
+  cucumber: { geo: cucumberGeometry, colors: ['#5a4030', '#6a4a36', '#4a3a2e'] },
+  gardeneel: { geo: gardenEelGeometry, colors: ['#ece4cc', '#e0d6b8'] },
+  redstar: { geo: starGeometry, colors: ['#c8302a', '#d8442e', '#b82a3a'] },
 };
 
 // What lies on a spot of seabed (if anything), from what the bottom is there: kind names.
@@ -106,6 +139,21 @@ export function seabedKind(s, salt, u) {
   if (v < 0.79) return d > 8 ? 'ceri' : 'stone';
   if (v < 0.86) return d > 13 ? 'pen' : 'shell';
   return 'stone';
+}
+
+// At Las Brasas (warm, clear, volcanic): long-spined urchins grazing the black rock, red
+// starfish and sponges; on the sand, sea cucumbers, shells and colonies of garden eels.
+export function seabedKindSouth(s, u) {
+  const d = s.depth;
+  if (d < 0.8 || d > 45) return null;
+  if (s.rock > 0.35) return u < 0.22 ? 'diadema' : u < 0.28 ? 'redstar' : u < 0.34 ? 'sponge' : u < 0.38 && d > 6 ? 'jewel' : u < 0.48 ? 'stone' : null;
+  if (s.weed > 0.4) return u < 0.1 ? 'cucumber' : u < 0.16 ? 'shell' : u < 0.2 ? 'redstar' : null;
+  if (u < 0.07 && d > 5) return 'gardeneel';
+  if (u < 0.17) return 'cucumber';
+  if (u < 0.28) return 'shell';
+  if (u < 0.31) return 'redstar';
+  if (u < 0.36) return 'stone';
+  return null;
 }
 
 export class Seabed {
@@ -133,7 +181,9 @@ export class Seabed {
   // Each frame: laid out round the camera while it's under the water at home, else put away.
   update(camera, sub) {
     const cp = camera.position;
-    const on = sub > 0.02 && cp.z < SOUTH_Z - 400;
+    // (At home, and at Las Brasas; not out on the open sea between them, too deep to see.)
+    this.south = cp.z > SOUTH_Z;
+    const on = sub > 0.02 && (cp.z < SOUTH_Z - 400 || this.south);
     if (on !== this.on) {
       this.on = on;
       for (const m of Object.values(this.meshes)) m.visible = on;
@@ -167,7 +217,8 @@ export class Seabed {
           if (n === 1 && u > 0.5) break;
           const x = x0 + (hash2(i + 913 * n, j - 37) - 0.5) * CELL, z = z0 + (hash2(i - 59, j + 401 * n) - 0.5) * CELL;
           this.habitat.sample(x, z, s);
-          const kind = seabedKind(s, waterOf(zoneAt(x, z)) !== 'fresh', hash2(i * 3 + 17 * n, j * 5 + 3));
+          const roll = hash2(i * 3 + 17 * n, j * 5 + 3);
+          const kind = this.south ? seabedKindSouth(s, roll) : seabedKind(s, waterOf(zoneAt(x, z)) !== 'fresh', roll);
           if (!kind || counts[kind] >= MAX) continue;
           const K = KINDS[kind], m = this.meshes[kind], at = counts[kind]++;
           const w = hash2(i + 7, j + 13 * n);

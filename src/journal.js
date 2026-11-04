@@ -347,6 +347,7 @@ export class Journal {
     if (e.water === 'fresh' && e.hatch >= 0.5) bits.push('flies hatching');
     if (e.tide && e.water !== 'fresh') bits.push({ flood: 'on the flood', ebb: 'on the ebb', high: 'at high water', low: 'at low water' }[e.tide]);
     if (e.season) bits.push(`in ${e.season}`);
+    if (e.temp != null) bits.push(`water ${Math.round(e.temp)}°C`);
     return bits.join(' · ');
   }
 
