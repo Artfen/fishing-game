@@ -137,6 +137,13 @@ export class VisitorView {
     }
   }
 
+  // The friends' boats drawn on the water just now.
+  boats(out = (this._boats ||= [])) {
+    out.length = 0;
+    for (const d of this.drawn.values()) for (const b of Object.values(d.boats || {})) if (b.group.visible) out.push(b);
+    return out;
+  }
+
   // Like the harbour's own boats (see folk.js): she rides the swell where she is, bow up a little
   // under way, her skipper at the helm, a rod out if they're fishing, the sail up if it is.
   drawBoat(d, b, P, A, dt, t, { fx, glow, night }) {
@@ -173,6 +180,8 @@ export class VisitorView {
     }
     b.animate(dt, t, speed > 0.3 && !H.sail ? 0.7 : 0, 0, P.n ? night : 0);
     b.group.updateMatrixWorld(true);
+    // (Solid to your boats: you bump off a friend's boat as off any other.)
+    b.afloat(t);
     if (fx && speed > 0.5) {
       d.rippleT = (d.rippleT || 0) - dt;
       if (d.rippleT <= 0) {

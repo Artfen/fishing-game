@@ -8106,7 +8106,7 @@ function tick(now, manual = false) {
         lostBuoy.rotation.z = Math.sin(t * 1.3) * 0.15;
       }
     }
-    folkView.update(dt, t, town, { from: P, south: region === 'south', fx, glow, night: env.lantern });
+    folkView.update(dt, t, town, { from: P, south: region === 'south', fx, glow, night: env.lantern, boats, more: visitors.boats() });
     // Friends you're playing with: where you are goes to them, and they're drawn where they are.
     together.update(dt, started ? whereIAm() : null);
     visitors.update(dt, t, together.peers, { from: P, fx, glow, night: env.lantern });
