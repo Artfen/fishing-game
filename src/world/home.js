@@ -856,7 +856,7 @@ function drawCoastMap(ctx, w, h) {
     if (p) label(p.x, p.z + (id === 'strand' ? 18 : 14), p.name, 0);
   }
   ctx.font = '13px Kalam, Caveat, cursive';
-  ctx.fillText('Wend Quay & Longmere: by road →', w - 120, 22);
+  ctx.fillText('Wend Quay & Longmere: the road round ↑', w - 120, 22);
   ctx.strokeStyle = 'rgba(58,42,28,0.5)';
   ctx.lineWidth = 3;
   ctx.strokeRect(1.5, 1.5, w - 3, h - 3);

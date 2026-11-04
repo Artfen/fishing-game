@@ -43,7 +43,11 @@ const LANE_WORDS = {
   haven: 'down the drive and west along the coast lane',
   strand: 'down the drive and south, down to the beach',
   head: 'down the drive and east along the lane to the headland',
+  boathouse: 'up the road round the bay (it forks off the drive): over the hill behind Willowhaven, up beside the Coldwater, then east along under Longmere',
+  quay: 'up the road round the bay (it forks off the drive): over the hill behind Willowhaven, up beside the Coldwater, east past the Mere Boathouse and down beside the Wend',
 };
+// (The far ones are a long drive: or let it go by.)
+const FAR = 20;
 const BENCH = HOME_SPOTS.find((s) => s.id === 'bench');
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -127,12 +131,12 @@ export function words(g, ctx) {
       const to = dest ? `${dest.name}${by ? ` (${by.name} is by boat from there)` : ''}` : 'the coast';
       if (ctx.driving) {
         out.text = dest && LANE_WORDS[dest.id]
-          ? `Drive ${LANE_WORDS[dest.id]} to ${to}. Park in the car park at the end, stop, then ${use('“Get out, or go somewhere”')}.`
+          ? `Drive ${LANE_WORDS[dest.id]} to ${to}. Park in the car park at the end, stop, then ${use('“Get out, or go somewhere”')}.${dest.mins >= FAR ? ` (It’s a long way round: stop, choose ${use('“Get out, or go somewhere”')} and let the drive go by if you’d rather.)` : ''}`
           : `Drive down to the coast lane: west for Willowhaven, south for Shell Strand, east for Cove Head. Stop in a car park, then ${use('“Get out, or go somewhere”')}.`;
         out.title = `Drive to ${dest ? dest.name : 'the coast'}`;
         if (dest?.drive) out.target = { x: CAR_PARKS[dest.id].x, z: CAR_PARKS[dest.id].z, label: `${dest.name} car park` };
       } else {
-        out.text = `${ctx.nearCar ? 'The car is right here' : 'Walk to the car'}: ${use('“Get in and drive”')} at the driver’s door, then drive to ${to}${dest && !dest.drive ? ' (it’s a long way round by road: in the car, choose “Where to?” and let the drive go by)' : ''}. The boot at the back shows what you’ve packed.`;
+        out.text = `${ctx.nearCar ? 'The car is right here' : 'Walk to the car'}: ${use('“Get in and drive”')} at the driver’s door, then drive to ${to}${dest && (!dest.drive || dest.mins >= FAR) ? ' (it’s a long way round by road: drive it yourself, or in the car choose “Where to?” and let the drive go by)' : ''}. The boot at the back shows what you’ve packed.`;
         out.title = `Drive to ${dest ? dest.name : 'the coast'}`;
         if (ctx.car) out.target = { x: ctx.car.x, z: ctx.car.z, label: 'Car' };
       }

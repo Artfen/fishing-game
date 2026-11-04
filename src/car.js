@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { heightAt, laneInfo } from './world/terrain.js';
 import { mergeParts, mat, clamp, damp, dampAngle, smoothstep, glowTexture } from './util.js';
+import { HITCH, TONGUE } from './trailer.js';
 
 // The car: a modest old estate in faded sage green, with a roof rack, a big boot and the gear
 // you've loaded in it showing through the back window (a tackle bag, a rod tube, the tent bundle,
@@ -158,6 +159,45 @@ function build() {
   return { g, body, gate, wheels, glows, cargo, glassMat };
 }
 
+// The boat trailer (see trailer.js): a galvanised frame on two little wheels, an A-frame drawbar to
+// the hitch, carpeted bunks for a hull to sit on and a winch post at the front. Its origin is the
+// middle of its axle on the ground; +z is towards the hitch.
+function buildTrailer() {
+  const g = new THREE.Group();
+  const GALV = '#a9b0b3', DARK = '#2a2d30', BUNK = '#5b4636';
+  const P = [];
+  const put = (geo, x, y, z, color, rx = 0, ry = 0, rz = 0) => P.push({ geo, matrix: mat(x, y, z, rx, ry, rz), color });
+  for (const side of [-1, 1]) {
+    put(box(0.08, 0.1, 2.9), side * 0.55, 0.42, -0.35, GALV);
+    // (The drawbar: from each rail's front to the hitch.)
+    const ax = side * 0.55, az = 1.1, len = Math.hypot(ax, TONGUE - az);
+    put(box(0.08, 0.08, len), ax / 2, 0.44, (az + TONGUE) / 2, GALV, 0, -Math.atan2(ax, TONGUE - az), 0);
+    put(box(0.12, 0.06, 2.6), side * 0.36, 0.56, -0.4, BUNK);
+    put(box(0.36, 0.05, 0.9), side * 0.85, 0.6, 0, GALV);
+  }
+  for (const z of [-1.7, -0.6, 0.5, 1.1]) put(box(1.18, 0.08, 0.08), 0, 0.42, z, GALV);
+  put(new THREE.CylinderGeometry(0.035, 0.035, 1.7, 8), 0, 0.28, 0, DARK, 0, 0, Math.PI / 2);
+  put(box(0.09, 0.09, 0.4), 0, 0.46, TONGUE - 0.1, DARK);
+  // The winch post, its winch, and the lights board at the back.
+  put(box(0.08, 0.5, 0.08), 0, 0.68, 1.05, GALV, -0.15, 0, 0);
+  put(new THREE.CylinderGeometry(0.07, 0.07, 0.16, 10), 0, 0.88, 1.08, DARK, 0, 0, Math.PI / 2);
+  put(box(1.3, 0.12, 0.05), 0, 0.5, -1.8, DARK);
+  for (const side of [-1, 1]) put(box(0.16, 0.08, 0.03), side * 0.52, 0.5, -1.83, '#9c2a22');
+  g.add(new THREE.Mesh(mergeParts(P), plain()));
+  const wheelGeo = mergeParts([
+    { geo: new THREE.CylinderGeometry(0.26, 0.26, 0.17, 14), matrix: mat(0, 0, 0, 0, 0, Math.PI / 2), color: DARK },
+    { geo: new THREE.CylinderGeometry(0.13, 0.13, 0.18, 10), matrix: mat(0, 0, 0, 0, 0, Math.PI / 2), color: GALV },
+  ]);
+  const wheels = [-0.85, 0.85].map((x) => {
+    const w = new THREE.Mesh(wheelGeo, plain());
+    w.position.set(x, 0.26, 0);
+    g.add(w);
+    return w;
+  });
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  return { g, wheels };
+}
+
 export class Car {
   constructor(scene) {
     const m = build();
@@ -180,6 +220,67 @@ export class Car {
     this.spin = 0;
     this.stuckT = 0;
     this.bumpT = 0;
+    // The trailer: hitched behind (its axle following the hitch round, like a real one), or
+    // standing where it was left ({ x, z, yaw }), or put away (null).
+    const T = buildTrailer();
+    this.trailer = T.g;
+    this.trailerWheels = T.wheels;
+    this.trailer.visible = false;
+    scene.add(this.trailer);
+    this.hitched = false;
+    this.axle = new THREE.Vector3();
+    this.trailerYaw = 0;
+  }
+
+  // Hitch the trailer on (true), or leave it standing somewhere ({ x, z, yaw }), or put it away (null).
+  setTrailer(how) {
+    this.hitched = how === true;
+    this.trailer.visible = !!how;
+    if (this.hitched) this.resetTrailer();
+    else if (how) {
+      this.axle.set(how.x, heightAt(how.x, how.z), how.z);
+      this.trailerYaw = how.yaw;
+      // (Standing on its jockey wheel: level.)
+      this.poseTrailer(this.axle.y);
+    }
+  }
+  // Straight out behind the car.
+  resetTrailer() {
+    const h = this.local(0, -HITCH);
+    this.axle.set(h.x - Math.sin(this.heading) * TONGUE, 0, h.z - Math.cos(this.heading) * TONGUE);
+    this.trailerYaw = this.heading;
+    this.towTrailer();
+  }
+  // The axle follows the hitch at the drawbar's length (never folding back on the car).
+  towTrailer() {
+    const h = this.local(0, -HITCH);
+    let yaw = Math.atan2(h.x - this.axle.x, h.z - this.axle.z), rel = yaw - this.heading;
+    while (rel > Math.PI) rel -= Math.PI * 2;
+    while (rel < -Math.PI) rel += Math.PI * 2;
+    if (Math.abs(rel) > 1.25) yaw = this.heading + Math.sign(rel) * 1.25;
+    const dx = Math.sin(yaw), dz = Math.cos(yaw);
+    const nx = h.x - dx * TONGUE, nz = h.z - dz * TONGUE, moved = Math.hypot(this.axle.x - nx, this.axle.z - nz);
+    this.axle.x = nx;
+    this.axle.z = nz;
+    this.trailerYaw = yaw;
+    for (const w of this.trailerWheels) w.rotation.x += (moved / 0.26) * (this.speed < 0 ? -1 : 1);
+    this.poseTrailer(this.pos.y - 0.02);
+  }
+  // On the ground at the axle, nose up or down to the hitch (at hitchY).
+  poseTrailer(hitchY) {
+    const y = heightAt(this.axle.x, this.axle.z);
+    this.axle.y = y;
+    this.trailer.position.set(this.axle.x, y, this.axle.z);
+    this.trailer.rotation.set(-Math.atan2(hitchY - y, TONGUE), this.trailerYaw, 0, 'YXZ');
+  }
+  // The middle of the trailer's bed, in the world (where a boat sits, and where you stand to see to it).
+  trailerSpot(out = { x: 0, z: 0, y: 0, yaw: 0, pitch: 0 }) {
+    out.x = this.axle.x - Math.sin(this.trailerYaw) * 0.35;
+    out.z = this.axle.z - Math.cos(this.trailerYaw) * 0.35;
+    out.y = this.axle.y;
+    out.yaw = this.trailerYaw;
+    out.pitch = this.trailer.rotation.x;
+    return out;
   }
 
   get forwardSpeed() { return this.speed; }
@@ -191,6 +292,7 @@ export class Car {
     this.steer = 0;
     this.stuckT = 0;
     this.pose(1);
+    if (this.hitched) this.resetTrailer();
   }
 
   // Which of the boot's things to show: { bag, rods, tent, stove, coolbox }.
@@ -316,6 +418,7 @@ export class Car {
       wh.pivot.rotation.y = wh.front ? this.steer : 0;
       wh.w.rotation.x = this.spin;
     }
+    if (this.hitched) this.towTrailer();
   }
 
   // Back on the lane: the nearest point on it, facing along it (the way you were going), clear of
