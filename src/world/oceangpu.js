@@ -130,6 +130,7 @@ export class ShortSea {
     this.scene.add(this.quad);
     this.cam = new THREE.Camera();
     this.lastT = -1;
+    this.specT = -1e9;
   }
 
   draw(material, target) {
@@ -141,7 +142,12 @@ export class ShortSea {
   // The short waves at time t for this wind (u m/s blowing towards `to`, the wind sea's energy m0),
   // crests carried along by `chop`.
   update(t, u, to, m0, chop) {
-    if (this.spectrum.update(u, to, m0)) this.h0.needsUpdate = true;
+    // (The spectrum follows the wind a second at a time, as the long waves' does: the gusts
+    // would otherwise have it rebuilt and sent to the card every frame.)
+    if (!(t <= this.specT + 1 && t >= this.specT)) {
+      this.specT = t;
+      if (this.spectrum.update(u, to, m0)) this.h0.needsUpdate = true;
+    }
     if (t === this.lastT) return;
     this.lastT = t;
     const r = this.renderer, prev = r.getRenderTarget(), auto = r.autoClear;

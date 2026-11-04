@@ -103,7 +103,16 @@ vec3 waves(vec2 p, float t, float ground, float fresh, float dist, out vec2 shif
   }
   sea *= kc * fade;
   shift = sea.yz * uSeaChop;
-  return r * fade + vec3(sea.x, 0.0, 0.0);
+  // The swash: on a beach each swell's last run-up, the water's edge sliding up the sand and
+  // draining back, in time with the swell offshore (higher where it comes in bigger).
+  float swash = 0.0;
+  float onBeach = smoothstep(-1.6, -0.3, ground) * smoothstep(0.6, 0.05, ground) * (1.0 - fresh);
+  if (onBeach > 0.0) {
+    float th = ${f(SWELL[0].k)} * (${f(SWELL[0].dx)} * p.x + ${f(SWELL[0].dz)} * p.y - ${f(SWELL[0].c)} * t);
+    float run = uSwellA[0] * sh.r * 1.4 + 0.05 * (0.15 + 0.85 * sh.g);
+    swash = run * pow(0.5 + 0.5 * sin(th), 1.6) * onBeach;
+  }
+  return r * fade + vec3(sea.x + swash, 0.0, 0.0);
 }
 `;
 
@@ -136,13 +145,26 @@ varying vec2 vRest; // where this bit of surface lies when the water's still (fo
 varying float vWave; // how high the waves have lifted it here (m)
 #include <fog_pars_vertex>
 // The wakes and the ripples (the ripple field: see waterfx.js and wakes.js): heights, metres.
+uniform sampler2D uFarRipple; // the wakes again, coarser, over a much wider square (Ocean: Full)
+uniform vec4 uFarRect;
+uniform float uFarOn;
 float rippleHeight(vec2 p) {
-  if (uRippleOn < 0.5) return 0.0;
-  vec2 uv = (p - uRippleRect.xy) / uRippleRect.zw;
-  float edge = min(min(uv.x, uv.y), min(1.0 - uv.x, 1.0 - uv.y));
-  if (edge <= 0.0) return 0.0;
-  vec4 r = texture2D(uRipple, uv);
-  return (r.r + r.g) * smoothstep(0.0, 0.15, edge);
+  float near = 0.0, h = 0.0;
+  if (uRippleOn > 0.5) {
+    vec2 uv = (p - uRippleRect.xy) / uRippleRect.zw;
+    float edge = min(min(uv.x, uv.y), min(1.0 - uv.x, 1.0 - uv.y));
+    if (edge > 0.0) {
+      vec4 r = texture2D(uRipple, uv);
+      near = smoothstep(0.0, 0.15, edge);
+      h = (r.r + r.g) * near;
+    }
+  }
+  if (uFarOn > 0.5 && near < 1.0) {
+    vec2 uv = (p - uFarRect.xy) / uFarRect.zw;
+    float edge = min(min(uv.x, uv.y), min(1.0 - uv.x, 1.0 - uv.y));
+    if (edge > 0.0) h += texture2D(uFarRipple, uv).g * smoothstep(0.0, 0.08, edge) * (1.0 - near);
+  }
+  return h;
 }
 void main() {
   vec4 wp = modelMatrix * vec4(position, 1.0);
@@ -282,15 +304,51 @@ vec2 rainRings(vec2 p, float t) {
 
 // Slopes of the ripple field: xy the little rings (casts, the bobber, rising fish, the boat,
 // wading), zw the boats' wakes (see wakes.js).
-vec4 rippleSlopes(vec2 p) {
-  if (uRippleOn < 0.5) return vec4(0.0);
+uniform sampler2D uFarRipple; // the wakes again, coarser, over a much wider square (Ocean: Full)
+uniform vec4 uFarRect;
+uniform float uFarOn;
+// How far into the near field a point is (0 outside it, 1 well inside), and the far field's.
+float nearIn(vec2 p) {
+  if (uRippleOn < 0.5) return 0.0;
   vec2 uv = (p - uRippleRect.xy) / uRippleRect.zw;
-  float edge = min(min(uv.x, uv.y), min(1.0 - uv.x, 1.0 - uv.y));
-  if (edge <= 0.0) return vec4(0.0);
-  float e = uRippleTexel;
-  vec2 hx = (texture2D(uRipple, uv + vec2(e, 0.0)) - texture2D(uRipple, uv - vec2(e, 0.0))).rg;
-  vec2 hz = (texture2D(uRipple, uv + vec2(0.0, e)) - texture2D(uRipple, uv - vec2(0.0, e))).rg;
-  return vec4(hx.x, hz.x, hx.y, hz.y) * smoothstep(0.0, 0.15, edge) / (2.0 * e * uRippleRect.z);
+  return smoothstep(0.0, 0.15, min(min(uv.x, uv.y), min(1.0 - uv.x, 1.0 - uv.y)));
+}
+float farIn(vec2 p) {
+  if (uFarOn < 0.5) return 0.0;
+  vec2 uv = (p - uFarRect.xy) / uFarRect.zw;
+  return smoothstep(0.0, 0.08, min(min(uv.x, uv.y), min(1.0 - uv.x, 1.0 - uv.y)));
+}
+// The white water in the ripple field (a propeller's wash, a fast boat's bow): 0 … 1.
+float rippleWash(vec2 p) {
+  float n = nearIn(p), w = 0.0;
+  if (n > 0.0) w = clamp(texture2D(uRipple, (p - uRippleRect.xy) / uRippleRect.zw).b, 0.0, 1.0) * n;
+  if (n < 1.0) {
+    float f = farIn(p);
+    if (f > 0.0) w += clamp(texture2D(uFarRipple, (p - uFarRect.xy) / uFarRect.zw).b, 0.0, 1.0) * f * (1.0 - n);
+  }
+  return w;
+}
+vec4 rippleSlopes(vec2 p) {
+  float n = nearIn(p);
+  vec4 r = vec4(0.0);
+  if (n > 0.0) {
+    vec2 uv = (p - uRippleRect.xy) / uRippleRect.zw;
+    float e = uRippleTexel;
+    vec2 hx = (texture2D(uRipple, uv + vec2(e, 0.0)) - texture2D(uRipple, uv - vec2(e, 0.0))).rg;
+    vec2 hz = (texture2D(uRipple, uv + vec2(0.0, e)) - texture2D(uRipple, uv - vec2(0.0, e))).rg;
+    r = vec4(hx.x, hz.x, hx.y, hz.y) * n / (2.0 * e * uRippleRect.z);
+  }
+  if (n < 1.0) {
+    float f = farIn(p);
+    if (f > 0.0) {
+      vec2 uv = (p - uFarRect.xy) / uFarRect.zw;
+      float e = 1.0 / 512.0;
+      float hx = texture2D(uFarRipple, uv + vec2(e, 0.0)).g - texture2D(uFarRipple, uv - vec2(e, 0.0)).g;
+      float hz = texture2D(uFarRipple, uv + vec2(0.0, e)).g - texture2D(uFarRipple, uv - vec2(0.0, e)).g;
+      r.zw += vec2(hx, hz) * f * (1.0 - n) / (2.0 * e * uFarRect.z);
+    }
+  }
+  return r;
 }
 
 void main() {
@@ -492,7 +550,17 @@ void main() {
   // (Breaking only at the very tops of the big seas, where their faces are steepest.)
   float steepSea = smoothstep(0.08, 0.26, length(Nw.xz));
   float crest = smoothstep(uSwellH * 0.62, uSwellH * 1.1, vWorld.y) * mix(0.35, 1.0, steepSea) * smoothstep(0.3, 0.62, vnoise(p * 0.42 - drift * 0.6)) * shel.r * stormy;
-  float foam = clamp(edge * (0.9 - fresh * 0.75) + bands * 0.35 * min(surf, 1.0) + breaker * 0.85 + streak * 0.45 + caps * 0.75 + streaks * 0.55 + crest * 0.9, 0.0, 1.0);
+  // The boats' white water: the churn behind a propeller, settling into bubbly lace as it spreads,
+  // and the foam at the foot of a fast boat's bow wave.
+  float washed = rippleWash(vRest);
+  float wash = 0.0;
+  if (washed > 0.01) {
+    // (Bubbly web: the thin contours of a pair of noise fields, finer close behind her.)
+    float web = max(1.0 - smoothstep(0.03, 0.12, abs(vnoise(p * 1.9 + uTime * 0.07) - 0.5)),
+                    1.0 - smoothstep(0.03, 0.1, abs(vnoise(p * 4.3 - uTime * 0.05 + 3.7) - 0.5)) * 0.8);
+    wash = smoothstep(0.6, 0.95, washed) * (0.7 + 0.3 * web) + smoothstep(0.05, 0.6, washed) * web * 0.8;
+  }
+  float foam = clamp(edge * (0.9 - fresh * 0.75) + bands * 0.35 * min(surf, 1.0) + breaker * 0.85 + streak * 0.45 + caps * 0.75 + streaks * 0.55 + crest * 0.9 + wash * 0.85, 0.0, 1.0);
   // (Foam stays white against a dark storm sea.)
   vec3 foamLit = uFoam * max(uAmbient + uSunColor * 0.6, vec3(0.62 * stormy));
   col = mix(col, foamLit, foam * 0.85);
@@ -579,6 +647,9 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
   uniforms.uTideLevel = { value: 0 };
   uniforms.uRipple = { value: null };
   uniforms.uRippleRect = { value: new THREE.Vector4(0, 0, 1, 1) };
+  uniforms.uFarRipple = { value: null };
+  uniforms.uFarRect = { value: new THREE.Vector4(0, 0, 1, 1) };
+  uniforms.uFarOn = { value: 0 };
   const seaTex = seaTextures();
   uniforms.uSea0 = { value: seaTex.t0 };
   uniforms.uSea1 = { value: seaTex.t1 };

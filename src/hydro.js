@@ -404,6 +404,7 @@ export class HydroBody {
     this.WV = new Float64Array(nv * 3);  // the water's velocity at each vertex
     this.LH = new Float64Array(nl);      // the lattice: water height and velocity
     this.LV = new Float64Array(nl * 3);
+    this.LH0 = new Float64Array(nl);
     this.F = [0, 0, 0];
     this.Tq = [0, 0, 0];
     this.submerged = 0;   // the hull's wetted area this step (m²)
@@ -509,18 +510,23 @@ export class HydroBody {
     const hMax = fast ? 1 / 240 : 1 / 120;
     const n = Math.max(1, Math.ceil(dt / hMax - 1e-6)), h = dt / n;
     this.impact *= Math.exp(-dt * 4);
-    for (let s = 0; s < n; s++) this.substep(h, env.t + s * h, env);
+    // (Barely moving, she reads the water round her once a step and carries its rise and fall on
+    // through the substeps; under way, every substep.)
+    const v = this.v, w = this.w;
+    const slow = !fast && v[0] * v[0] + v[2] * v[2] < 2.25 && Math.abs(v[1]) < 0.5 && w[0] * w[0] + w[1] * w[1] + w[2] * w[2] < 0.25;
+    for (let s = 0; s < n; s++) this.substep(h, env.t + s * h, env, slow && s > 0 ? h * s : -1);
   }
 
-  substep(h, t, env) {
+  substep(h, t, env, carry = -1) {
     const M = this.model, R = this.R, x = this.x;
     this.updateR();
     this.F[0] = 0; this.F[1] = -this.m * G; this.F[2] = 0;
     this.Tq[0] = this.Tq[1] = this.Tq[2] = 0;
     const cg = M.cg;
-    // The water on the lattice.
+    // The water on the lattice (or, carry ≥ 0, the step's first reading carried on that long).
     const nl = M.NA * M.NC;
-    for (let j = 0; j < nl; j++) {
+    if (carry >= 0) for (let j = 0; j < nl; j++) this.LH[j] = this.LH0[j] + this.LV[j * 3 + 1] * carry;
+    else for (let j = 0; j < nl; j++) {
       const lx = M.lat[j * 2] - cg[0], ly = M.H.draft - cg[1], lz = M.lat[j * 2 + 1] - cg[2];
       const wx = x[0] + R[0] * lx + R[1] * ly + R[2] * lz, wz = x[2] + R[6] * lx + R[7] * ly + R[8] * lz;
       env.water(wx, wz, t, _o);
@@ -528,6 +534,7 @@ export class HydroBody {
       this.LV[j * 3] = _o.vx + this.current[0];
       this.LV[j * 3 + 1] = _o.vy;
       this.LV[j * 3 + 2] = _o.vz + this.current[1];
+      this.LH0[j] = _o.h;
     }
     // Each vertex in the world, the water's height and motion there.
     const { V, W, WI, nv } = M, P = this.P;

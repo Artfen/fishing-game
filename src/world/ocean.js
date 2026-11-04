@@ -193,8 +193,13 @@ export class LongSea {
     const n = N * N;
     this.re = [new Float64Array(n), new Float64Array(n), new Float64Array(n), new Float64Array(n)];
     this.im = [new Float64Array(n), new Float64Array(n), new Float64Array(n), new Float64Array(n)];
-    this.a = frame(n);
-    this.b = frame(n);
+    // (A few worked-out moments kept: every boat's physics steps back over the last frame's
+    // fraction of a second, so the moments either side of it are wanted again and again.)
+    this.cache = Array.from({ length: 6 }, () => frame(n));
+    this.a = this.cache[0];
+    this.b = this.cache[1];
+    this.latest = -1e9;
+    this.specT = -1e9;
     this.foam = new Float32Array(n);
     this.foamT = -1e9;
     this.choppy = 0.8;   // how far the to-and-fro carries the crests along (1: fully, as Tessendorf)
@@ -218,7 +223,12 @@ export class LongSea {
   // Work out the moment t into frame f.
   compute(f, t) {
     const P = this.patch, N = this.N, n = N * N;
-    P.setSpectrum(this.wind.u, this.wind.to, this.wind.m0);
+    // (The spectrum follows the wind a second at a time: the sea changes far more slowly than
+    // that, and between, the moments already worked out stay good.)
+    if (!(t <= this.specT + 1 && t >= this.specT - 1) || !P.key) {
+      P.setSpectrum(this.wind.u, this.wind.to, this.wind.m0);
+      this.specT = t;
+    }
     this.empty = this.wind.m0 < 1e-9;
     const [r1, r2, r3, r4] = this.re, [i1, i2, i3, i4] = this.im;
     for (let q = 0; q < n; q++) {
@@ -269,18 +279,32 @@ export class LongSea {
 
   // Make sure the two worked-out moments either side of t are ready; returns the blend (0 … 1).
   at(t) {
-    const t0 = Math.floor(t / STEP) * STEP, t1 = t0 + STEP;
-    if (Math.abs(this.a.t - t0) > 1e-6 || Math.abs(this.b.t - t1) > 1e-6) {
-      if (Math.abs(this.b.t - t0) < 1e-6) {
-        // (Moving on: the later becomes the earlier.)
-        const x = this.a;
-        this.a = this.b;
-        this.b = x;
-      } else this.compute(this.a, t0);
-      this.compute(this.b, t1);
-      this.ageFoam(t0);
+    const i0 = Math.floor(t / STEP), t0 = i0 * STEP, t1 = t0 + STEP;
+    if (this.a.t !== t0 || this.b.t !== t1 || this.dirty) {
+      this.dirty = false;
+      this.a = this.moment(t0, this.b);
+      this.b = this.moment(t1, this.a);
+      // (Foam builds and fades going forward in time only.)
+      if (t0 > this.latest) {
+        this.latest = t0;
+        this.ageFoam(t0);
+      }
     }
     return Math.min(1, Math.max(0, (t - t0) / STEP));
+  }
+
+  // The worked-out moment at time tm from the cache, working it out if it isn't there (into the
+  // stalest slot, never the one in use).
+  moment(tm, keep) {
+    let worst = null;
+    for (const f of this.cache) {
+      if (f.t === tm && f.key === this.patch.key) return f;
+      if (f === keep) continue;
+      if (!worst || Math.abs(f.t - tm) > Math.abs(worst.t - tm)) worst = f;
+    }
+    this.compute(worst, tm);
+    worst.key = this.patch.key;
+    return worst;
   }
 
   // Foam: the crests break where they're pinched tightest (the surface's Jacobian lowest), on as

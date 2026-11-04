@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PIERS } from './terrain.js';
 
 // Wakes: the waves a boat makes as she goes. Every boat under way leaves a Kelvin wake behind
 // her, the pattern any ship makes in deep water: inside a wedge 19.5° either side of her track,
@@ -84,6 +85,28 @@ export function kelvin(x, y, U, a0, L, age, out = null) {
   return h;
 }
 
+// The water heaped up round a hull as she goes (the near field of her wake): a bow wave rising
+// from her stem and running back along both sides as two arms, a trough along her sides
+// amidships, and at displacement speeds a stern wave rising behind her transom. u along her
+// (+ towards the bow) and v across, metres from her middle; L her length, B her half-beam, U her
+// speed. Biggest about her hull speed; a planing boat lifts clear of most of it. Inside her own
+// footprint, nothing (she's there). Returns the height (m); foam (optional out) the white water
+// at the foot of a fast boat's bow wave.
+export function hullWave(u, v, L, B, U, out = null) {
+  if (U < 0.5) return 0;
+  const fn = U / Math.sqrt(G * L), av = Math.abs(v);
+  const hb = Math.min((0.35 * U * U) / (2 * G), 0.06 * L) * (1 - 0.6 * smooth(0.9, 2, fn)) * smooth(0.08, 0.3, fn);
+  const r = (2 * u) / L, inside = Math.abs(r) < 1 && av < B * Math.sqrt(Math.max(0, 1 - r * r)) * (r > 0 ? 1 - 0.35 * r : 1);
+  if (inside || hb <= 1e-4) return 0;
+  const ca = Math.cos(0.5), sa = Math.sin(0.5), wu = u - L / 2;
+  const sAlong = -wu * ca + av * sa, e = wu * sa + av * ca, wb = 0.1 * L + 0.15 * Math.max(0, sAlong);
+  const arm = Math.exp(-((e / wb) ** 2)) * Math.exp(-Math.max(0, sAlong) / (0.9 * L)) * smooth(-0.2 * L, 0.1 * L, sAlong);
+  const trough = -0.55 * Math.exp(-((u / (0.35 * L)) ** 2)) * Math.exp(-(((av - B) / (0.4 * B + 0.25)) ** 2));
+  const stern = 0.5 * (1 - smooth(0.7, 1.3, fn)) * Math.exp(-(((u + 0.75 * L) / (0.22 * L)) ** 2)) * Math.exp(-((v / (B + 0.4)) ** 2));
+  if (out) out.foam = smooth(4, 9, U) * smooth(0.04, 0.15, hb) * Math.exp(-((e / (0.6 * wb)) ** 2)) * Math.exp(-Math.max(0, sAlong) / (0.35 * L));
+  return hb * (arm + trough + stern);
+}
+
 // The same, for the ripple field's shader (per pixel of a track's ribbon).
 const KELVIN_GLSL = /* glsl */ `
 float kelvinH(float x, float y, float U, float a0, float L, float age) {
@@ -110,6 +133,21 @@ float kelvinH(float x, float y, float U, float a0, float L, float age) {
   h += aD * cos(kx2 * (x + ay * t2));
   return h;
 }
+// (hullWave: as the JS above.) Returns (height, foam).
+vec2 hullWave(float u, float v, float L, float B, float U) {
+  if (U < 0.5) return vec2(0.0);
+  float fn = U / sqrt(${G} * L), av = abs(v);
+  float hb = min(0.35 * U * U / (2.0 * ${G}), 0.06 * L) * (1.0 - 0.6 * smoothstep(0.9, 2.0, fn)) * smoothstep(0.08, 0.3, fn);
+  float r = 2.0 * u / L;
+  if ((abs(r) < 1.0 && av < B * sqrt(max(0.0, 1.0 - r * r)) * (r > 0.0 ? 1.0 - 0.35 * r : 1.0)) || hb <= 1e-4) return vec2(0.0);
+  float ca = cos(0.5), sa = sin(0.5), wu = u - L * 0.5;
+  float sAlong = -wu * ca + av * sa, e = wu * sa + av * ca, wb = 0.1 * L + 0.15 * max(0.0, sAlong);
+  float arm = exp(-pow(e / wb, 2.0)) * exp(-max(0.0, sAlong) / (0.9 * L)) * smoothstep(-0.2 * L, 0.1 * L, sAlong);
+  float trough = -0.55 * exp(-pow(u / (0.35 * L), 2.0)) * exp(-pow((av - B) / (0.4 * B + 0.25), 2.0));
+  float stern = 0.5 * (1.0 - smoothstep(0.7, 1.3, fn)) * exp(-pow((u + 0.75 * L) / (0.22 * L), 2.0)) * exp(-pow(v / (B + 0.4), 2.0));
+  float foam = smoothstep(4.0, 9.0, U) * smoothstep(0.04, 0.15, hb) * exp(-pow(e / (0.6 * wb), 2.0)) * exp(-max(0.0, sAlong) / (0.35 * L));
+  return vec2(hb * (arm + trough + stern), foam);
+}
 `;
 
 // Each ribbon vertex carries the track point it stands beside (where, and which way she was
@@ -118,15 +156,24 @@ const ribbonVert = /* glsl */ `
 attribute vec4 aTrack; // the track point: x, z, and her heading there (unit x, z)
 attribute vec4 aWake;  // how far she's gone since (m), speed (m/s), scale a0 (m), length (m)
 attribute float aAge;  // seconds since she passed
+attribute vec2 aWash;  // how hard her propeller was churning there (0 … 1), her half-beam (m)
+attribute vec4 aClip;  // a wake mirrored off a quay: the wall's face (normal x, z, offset) and how much comes back
+attribute vec4 aSpan;  // and along it (direction x, z, middle, half its length)
+varying vec4 vClip;
+varying vec4 vSpan;
 varying vec2 vP;
 varying vec4 vTrack;
 varying vec4 vWake;
 varying float vAge;
+varying vec2 vWash;
 void main() {
   vP = position.xy;
   vTrack = aTrack;
   vWake = aWake;
   vAge = aAge;
+  vWash = aWash;
+  vClip = aClip;
+  vSpan = aSpan;
   gl_Position = projectionMatrix * viewMatrix * vec4(position.xy, 0.0, 1.0);
 }
 `;
@@ -135,18 +182,87 @@ varying vec2 vP;
 varying vec4 vTrack;
 varying vec4 vWake;
 varying float vAge;
+varying vec2 vWash;
+varying vec4 vClip;
+varying vec4 vSpan;
 ${KELVIN_GLSL}
 void main() {
+  // (A reflection: only on the water's side of the wall, and only as long as the wall is.)
+  float keep = 1.0;
+  if (vClip.w > 0.0) {
+    keep = vClip.w * step(0.0, dot(vClip.xy, vP) + vClip.z) * (1.0 - smoothstep(vSpan.w, vSpan.w + 3.0, abs(dot(vSpan.xy, vP) - vSpan.z)));
+    if (keep <= 0.0) discard;
+  }
   vec2 t = normalize(vTrack.zw), d = vP - vTrack.xy;
   float along = dot(d, t), across = dot(d, vec2(-t.y, t.x));
   float age = vAge - along / max(vWake.y, 0.1);
-  // (Into the field's second channel: the water shader lifts the sheet by both, but only the
-  // little rings, not the wakes' long smooth waves, catch the light as foam.)
-  gl_FragColor = vec4(0.0, kelvinH(vWake.x - along, across, vWake.y, vWake.z, vWake.w, age), 0.0, 1.0);
+  // The white water her propeller churned up, straight astern, spreading and fading as it settles.
+  float spreadW = vWash.y * (0.55 + 0.28 * max(age, 0.0));
+  float wash = vWash.x * exp(-pow(across / max(spreadW, 0.2), 2.0)) * exp(-max(age, 0.0) / 5.0) * smoothstep(0.0, 1.5, vWake.x - along);
+  // (Into the field's second channel the wake's height, the third its white water: the water
+  // shader lifts the sheet by both channels, but only the little rings, not the wakes' long smooth
+  // waves, catch the light as ripples.)
+  gl_FragColor = vec4(0.0, kelvinH(vWake.x - along, across, vWake.y, vWake.z, vWake.w, age), wash * step(vClip.w, 0.0), 1.0) * keep;
 }
 `;
 
-const MAX_TRACKS = 12;
+// The water round each hull, on a square about her.
+const hullVert = /* glsl */ `
+attribute vec2 aLocal;  // along, across her (m)
+attribute vec3 aHull;   // length, half-beam, speed
+varying vec2 vLocal;
+varying vec3 vHull;
+void main() {
+  vLocal = aLocal;
+  vHull = aHull;
+  gl_Position = projectionMatrix * viewMatrix * vec4(position.xy, 0.0, 1.0);
+}
+`;
+const hullFrag = /* glsl */ `
+varying vec2 vLocal;
+varying vec3 vHull;
+${KELVIN_GLSL}
+void main() {
+  vec2 w = hullWave(vLocal.x, vLocal.y, vHull.x, vHull.y, vHull.z);
+  gl_FragColor = vec4(0.0, w.x, w.y, 1.0);
+}
+`;
+
+const MAX_TRACKS = 16;
+
+// The quay wall nearest a boat that her wake would come back off: a straight face of a pier or
+// quay at least eight metres long, within forty metres, her on its water side. Returns the
+// reflection: the face (outward normal nx, nz; c so that nx·x + nz·z + c > 0 on the water side),
+// and its run (direction ax, az, middle, half-length); or null.
+const REFLECT = 0.45; // how much of a wake comes back off a wall
+const WALL_HOLD = 20;  // seconds a wake keeps coming back off a wall she's passed
+function wallFor(x, z) {
+  let best = null, bd = 40;
+  for (const Q of PIERS) {
+    const faces = [
+      [-1, 0, Q.x0, Q.z0, Q.z1], [1, 0, Q.x1, Q.z0, Q.z1],
+      [0, -1, Q.z0, Q.x0, Q.x1], [0, 1, Q.z1, Q.x0, Q.x1],
+    ];
+    for (const [nx, nz, at, s0, s1] of faces) {
+      if (s1 - s0 < 8) continue;
+      const d = nx ? (x - at) * nx : (z - at) * nz;           // how far out from the face
+      const sAlong = nx ? z : x;
+      if (d <= 0.5 || d >= bd || sAlong < s0 - 15 || sAlong > s1 + 15) continue;
+      bd = d;
+      best = { nx, nz, c: -(nx ? at * nx : at * nz), ax: nx ? 0 : 1, az: nx ? 1 : 0, mid: (s0 + s1) / 2, half: (s1 - s0) / 2 };
+    }
+  }
+  return best;
+}
+// A point mirrored in a wall, and a direction.
+const mirror = (W, x, z) => {
+  const d = W.nx * x + W.nz * z + W.c;
+  return [x - 2 * d * W.nx, z - 2 * d * W.nz];
+};
+const mirrorDir = (W, x, z) => {
+  const d = W.nx * x + W.nz * z;
+  return [x - 2 * d * W.nx, z - 2 * d * W.nz];
+};
 
 export class Wakes {
   constructor() {
@@ -157,12 +273,14 @@ export class Wakes {
 
   // A boat at (x, z), heading along (fx, fz), going U m/s through the water at time t: remember
   // her track. mass (kg), L (m), fine: see wakeScale.
-  trail(boat, x, z, fx, fz, U, t, mass, L, fine) {
+  // (churn: how hard her propeller's working, 0 … 1; B her half-beam.)
+  trail(boat, x, z, fx, fz, U, t, mass, L, fine, churn = 0, B = L * 0.2) {
     let T = this.tracks.get(boat);
-    if (!T) this.tracks.set(boat, (T = { pts: [], L, seen: 0 }));
+    if (!T) this.tracks.set(boat, (T = { pts: [], L, seen: 0, now: { x, z, fx, fz, U: 0, B } }));
     T.seen = ++this.n;
     T.lastT = t;
     T.L = L;
+    Object.assign(T.now, { x, z, fx, fz, U, B });
     const P = T.pts, last = P[P.length - 1];
     // (Moved a long way at once, or the clock turned back: a fresh track.)
     if (last && (Math.hypot(x - last.x, z - last.z) > 8 || t < last.t)) P.length = 0;
@@ -197,12 +315,26 @@ export class Wakes {
         tz = prev.tz;
       }
     }
-    P.push({ x, z, tx, tz, t, U: Math.abs(U), a0: Math.abs(U) < 0.4 ? 0 : a0 });
+    P.push({ x, z, tx, tz, t, U: Math.abs(U), a0: Math.abs(U) < 0.4 ? 0 : a0, c: churn, B });
     if (P.length > MAX_POINTS) P.shift();
   }
 
   forget(boat) {
     this.tracks.delete(boat);
+  }
+
+  // The wall a track's wake comes back off just now (worked out once a moment). (It keeps coming
+  // back off a wall for a while after she's gone on past it.)
+  wall(T, t) {
+    if (T._wt !== t) {
+      T._wt = t;
+      const W = T.now && T.pts.length > 1 ? wallFor(T.now.x, T.now.z) : null;
+      if (W) {
+        T._w = W;
+        T._ws = t;
+      } else if (T._w && !(t - T._ws < WALL_HOLD && t >= T._ws && T.pts.length > 1)) T._w = null;
+    }
+    return T._w;
   }
 
   // The wakes near a boat (other boats' only: her own runs away astern), worked out once a
@@ -232,6 +364,15 @@ export class Wakes {
       if (best < 0) continue;
       const p = P[best];
       const back = p.U * (t - p.t);
+      // (Close beside her: the water heaped round her hull, too.)
+      const nw = T.now;
+      if (Math.hypot(x - nw.x, z - nw.z) < T.L * 1.5 + reach && Math.abs(nw.U) > 0.5) ctx.push({ hull: true, x: nw.x, z: nw.z, fx: nw.fx, fz: nw.fz, U: Math.abs(nw.U), L: T.L, B: nw.B });
+      // (And what comes back off the quay wall beside her, if there is one.)
+      const W = this.wall(T, t);
+      if (W && W.nx * x + W.nz * z + W.c > 0 && Math.abs(W.ax * x + W.az * z - W.mid) < W.half + 3) {
+        const [mx, mz] = mirror(W, p.x, p.z), [mtx, mtz] = mirrorDir(W, p.tx, p.tz);
+        ctx.push({ x: mx, z: mz, tx: mtx, tz: mtz, t: p.t, U: p.U, a0: p.a0 * REFLECT, L: T.L, mirrored: true });
+      }
       if (Math.sqrt(bd) > back * 0.4 + reach + T.L) continue;
       ctx.push({ x: p.x, z: p.z, tx: p.tx, tz: p.tz, t: p.t, U: p.U, a0: p.a0, L: T.L });
     }
@@ -243,6 +384,10 @@ export class Wakes {
     for (let i = 0; i < ctx.length; i++) {
       const c = ctx[i];
       const dx = x - c.x, dz = z - c.z;
+      if (c.hull) {
+        out.h += hullWave(dx * c.fx + dz * c.fz, -dx * c.fz + dz * c.fx, c.L, c.B, c.U);
+        continue;
+      }
       // Ahead of that point along her track (she got there later) and across it.
       const along = dx * c.tx + dz * c.tz, across = dx * -c.tz + dz * c.tx;
       const passed = c.t + along / c.U;
@@ -268,6 +413,12 @@ export class Wakes {
     this.tr = new Float32Array(n * 4);
     this.w1 = new Float32Array(n * 4);
     this.ag = new Float32Array(n);
+    this.wa = new Float32Array(n * 2);
+    this.cl = new Float32Array(n * 4);
+    this.sp = new Float32Array(n * 4);
+    g.setAttribute('aWash', new THREE.BufferAttribute(this.wa, 2).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('aClip', new THREE.BufferAttribute(this.cl, 4).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('aSpan', new THREE.BufferAttribute(this.sp, 4).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute('aTrack', new THREE.BufferAttribute(this.tr, 4).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute('aWake', new THREE.BufferAttribute(this.w1, 4).setUsage(THREE.DynamicDrawUsage));
@@ -293,14 +444,76 @@ export class Wakes {
       side: THREE.DoubleSide,
     }));
     this.mesh.frustumCulled = false;
+    // The squares round each hull.
+    const hg = new THREE.BufferGeometry(), m4 = MAX_TRACKS * 4;
+    this.hp = new Float32Array(m4 * 3);
+    this.hl = new Float32Array(m4 * 2);
+    this.hh = new Float32Array(m4 * 3);
+    hg.setAttribute('position', new THREE.BufferAttribute(this.hp, 3).setUsage(THREE.DynamicDrawUsage));
+    hg.setAttribute('aLocal', new THREE.BufferAttribute(this.hl, 2).setUsage(THREE.DynamicDrawUsage));
+    hg.setAttribute('aHull', new THREE.BufferAttribute(this.hh, 3).setUsage(THREE.DynamicDrawUsage));
+    const hi = [];
+    for (let k = 0; k < MAX_TRACKS; k++) hi.push(k * 4, k * 4 + 1, k * 4 + 2, k * 4, k * 4 + 2, k * 4 + 3);
+    hg.setIndex(hi);
+    this.hulls = new THREE.Mesh(hg, new THREE.ShaderMaterial({
+      vertexShader: hullVert, fragmentShader: hullFrag, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
+      blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, depthTest: false, depthWrite: false, transparent: true, side: THREE.DoubleSide,
+    }));
+    this.hulls.frustumCulled = false;
+    this.mesh.add(this.hulls);
     return this.mesh;
+  }
+
+  // One track's ribbon into slot k (or, W given, its reflection off that wall). Returns k + 1.
+  ribbon(T, P, k, t, W) {
+    const P3 = this.pos, TR = this.tr, W1 = this.w1, AG = this.ag, WA = this.wa, CL = this.cl, SP = this.sp;
+    const base = k * MAX_POINTS * 2;
+    const m = Math.min(P.length, MAX_POINTS);
+    for (let j = 0; j < MAX_POINTS; j++) {
+      // Newest first; past the end, the strip folds up on its last point (no area).
+      const p = P[P.length - 1 - Math.min(j, m - 1)];
+      const age = Math.max(0, t - p.t), back = p.U * age;
+      const half = j < m ? Math.min(FAR * 0.4, back * Math.tan(CUSP) * 1.15 + T.L * 0.6 + 1) : 0;
+      let px = p.x, pz = p.z, tx = p.tx, tz = p.tz;
+      if (W) {
+        [px, pz] = mirror(W, px, pz);
+        [tx, tz] = mirrorDir(W, tx, tz);
+      }
+      // (Square across her heading there, either side.)
+      const nx = -tz, nz = tx;
+      for (let s = 0; s < 2; s++) {
+        const v = base + j * 2 + s, sd = s ? 1 : -1;
+        P3[v * 3] = px + nx * half * sd;
+        P3[v * 3 + 1] = pz + nz * half * sd;
+        P3[v * 3 + 2] = 0;
+        TR[v * 4] = px;
+        TR[v * 4 + 1] = pz;
+        TR[v * 4 + 2] = tx;
+        TR[v * 4 + 3] = tz;
+        W1[v * 4] = back;
+        W1[v * 4 + 1] = p.U;
+        W1[v * 4 + 2] = p.a0;
+        W1[v * 4 + 3] = T.L;
+        AG[v] = age;
+        WA[v * 2] = p.c || 0;
+        WA[v * 2 + 1] = p.B || T.L * 0.2;
+        CL[v * 4] = W ? W.nx : 0;
+        CL[v * 4 + 1] = W ? W.nz : 0;
+        CL[v * 4 + 2] = W ? W.c : 0;
+        CL[v * 4 + 3] = W ? REFLECT : 0;
+        SP[v * 4] = W ? W.ax : 0;
+        SP[v * 4 + 1] = W ? W.az : 0;
+        SP[v * 4 + 2] = W ? W.mid : 0;
+        SP[v * 4 + 3] = W ? W.half : 0;
+      }
+    }
+    return k + 1;
   }
 
   // Lay the ribbons for time t (only tracks within `range` of (cx, cz)). Returns whether any.
   updateMesh(t, cx, cz, range) {
     if (!this.mesh) return false;
-    const P3 = this.pos, TR = this.tr, W1 = this.w1, AG = this.ag;
-    let k = 0;
+    let k = 0, kh = 0;
     for (const [, T] of this.tracks) {
       if (k >= MAX_TRACKS) break;
       if (this.n - T.seen > 400 || !(Math.abs(t - T.lastT) < 2)) continue;
@@ -310,32 +523,27 @@ export class Wakes {
       let near = false;
       for (let i = P.length - 1; i >= 0 && !near; i -= 4) near = Math.abs(P[i].x - cx) < range + 60 && Math.abs(P[i].z - cz) < range + 60;
       if (!near) continue;
-      const base = k * MAX_POINTS * 2;
-      const m = Math.min(P.length, MAX_POINTS);
-      for (let j = 0; j < MAX_POINTS; j++) {
-        // Newest first; past the end, the strip folds up on its last point (no area).
-        const p = P[P.length - 1 - Math.min(j, m - 1)];
-        const age = Math.max(0, t - p.t), back = p.U * age;
-        const half = j < m ? Math.min(FAR * 0.4, back * Math.tan(CUSP) * 1.15 + T.L * 0.6 + 1) : 0;
-        // (Square across her heading there, either side.)
-        const nx = -p.tz, nz = p.tx;
-        for (let s = 0; s < 2; s++) {
-          const v = base + j * 2 + s, sd = s ? 1 : -1;
-          P3[v * 3] = p.x + nx * half * sd;
-          P3[v * 3 + 1] = p.z + nz * half * sd;
-          P3[v * 3 + 2] = 0;
-          TR[v * 4] = p.x;
-          TR[v * 4 + 1] = p.z;
-          TR[v * 4 + 2] = p.tx;
-          TR[v * 4 + 3] = p.tz;
-          W1[v * 4] = back;
-          W1[v * 4 + 1] = p.U;
-          W1[v * 4 + 2] = p.a0;
-          W1[v * 4 + 3] = T.L;
-          AG[v] = age;
+      // The water round her hull, if she's going.
+      const nw = T.now;
+      if (Math.abs(nw.U) > 0.5 && kh < MAX_TRACKS) {
+        const reach = T.L * 1.1 + 2, fwd = T.L * 0.5 + 2;
+        const corners = [[fwd, -reach], [fwd, reach], [-T.L * 1.3, reach], [-T.L * 1.3, -reach]];
+        for (let c = 0; c < 4; c++) {
+          const [u, v] = corners[c], q = kh * 4 + c;
+          this.hp[q * 3] = nw.x + nw.fx * u - nw.fz * v;
+          this.hp[q * 3 + 1] = nw.z + nw.fz * u + nw.fx * v;
+          this.hp[q * 3 + 2] = 0;
+          this.hl[q * 2] = u;
+          this.hl[q * 2 + 1] = v;
+          this.hh[q * 3] = T.L;
+          this.hh[q * 3 + 1] = nw.B;
+          this.hh[q * 3 + 2] = Math.abs(nw.U);
         }
+        kh++;
       }
-      k++;
+      k = this.ribbon(T, P, k, t, null);
+      const W = this.wall(T, t);
+      if (W && k < MAX_TRACKS) k = this.ribbon(T, P, k, t, W);
     }
     const g = this.mesh.geometry;
     g.setDrawRange(0, k * (MAX_POINTS - 1) * 6);
@@ -343,7 +551,13 @@ export class Wakes {
     g.attributes.aTrack.needsUpdate = true;
     g.attributes.aWake.needsUpdate = true;
     g.attributes.aAge.needsUpdate = true;
-    return k > 0;
+    g.attributes.aWash.needsUpdate = true;
+    g.attributes.aClip.needsUpdate = true;
+    g.attributes.aSpan.needsUpdate = true;
+    const hg = this.hulls.geometry;
+    hg.setDrawRange(0, kh * 6);
+    for (const key of ['position', 'aLocal', 'aHull']) hg.attributes[key].needsUpdate = true;
+    return k > 0 || kh > 0;
   }
 }
 const _hctx = [];
