@@ -2760,6 +2760,9 @@ export class Boat {
   // butt in the gimbal between your knees and your feet on the footrest, and the chair swings
   // round to follow the fish.
   standUp(fishing, dt) {
+    // Walking the deck (see walkDeck): you're where your feet have taken you, facing your line if
+    // it's out, the way you're walking if not.
+    if (this.deck) return this.placeOnDeck(fishing, dt);
     const S = this.hull.standing, u = smoothstep(0, 1, fishing), rod = wrapAngle(this.pose.rodYaw);
     if (fishing < 0.02) this.spot = null;
     else if (!this.spot) this.spot = S.bow && Math.abs(rod) < 1.2 ? S.bow : S.aft;
@@ -2792,6 +2795,90 @@ export class Boat {
       setLimb(L.shin, _b, _e, 0.06);
       L.boot.position.set(_e.x + sn * 0.05, _e.y - 0.02, _e.z + c * 0.05);
       L.boot.rotation.set(0, yaw, 0);
+    }
+  }
+
+  // Walking about the deck of a boat you stand in (the RIB, the centre console, the yacht): on
+  // (true) at the wheel, or off. Where you are is in her own space, so you go where she goes.
+  setDeck(on) {
+    if (!this.hull.standing) return false;
+    if (on && !this.deck) {
+      // (From where you stand: at the wheel, or at the rail you've been fishing from.)
+      const [hx, hz] = this.hull.standing.helm, A = this.standAt;
+      this.deck = { x: A ? A.x : hx, z: A ? A.z : hz, yaw: A ? A.yaw : 0, step: 0, moving: 0 };
+    } else if (!on) this.deck = null;
+    return true;
+  }
+
+  // Where on her deck you can stand at z (her own space): inside her sides (the tubes, the
+  // gunwales) and clear of the console or the wheelhouse. Returns the half-width there, or 0
+  // off her ends.
+  deckRoom(z) {
+    const H = this.hull, t = (z + H.L / 2) / H.L;
+    if (t < 0.06 || t > 0.9) return 0;
+    const inside = H.tubes ? hw(H, t) - 0.05 : hw(H, t) - 0.22;
+    return Math.max(0, inside * (t > 0.75 ? 1 - (t - 0.75) * 2.5 : 1));
+  }
+
+  // A step about the deck: (across, ahead) in her own space, metres; the console (or the
+  // wheelhouse round the helm) is walked round, not through. Returns how far you went.
+  walkDeck(across, ahead, dt) {
+    const D = this.deck;
+    if (!D) return 0;
+    const H = this.hull, [hx, hz] = H.standing.helm;
+    let nx = D.x + across, nz = D.z + ahead;
+    // (Her ends and sides.)
+    nz = clamp(nz, -H.L / 2 + H.L * 0.07, -H.L / 2 + H.L * 0.88);
+    const room = this.deckRoom(nz);
+    nx = clamp(nx, -room, room);
+    // (The console, or the yacht's wheelhouse, ahead of the helm: round it, by whichever side is nearer.)
+    const cx0 = hx - 0.42, cx1 = hx + 0.42, cz0 = hz + 0.3, cz1 = hz + (H.cabin || H.passage ? 2.6 : 1.15);
+    if (nx > cx0 && nx < cx1 && nz > cz0 && nz < cz1) {
+      if (D.z <= cz0 || D.z >= cz1) {
+        // (Walking into its front or back: you sidestep along it towards the nearer side, and on round.)
+        const step = Math.max(Math.abs(ahead), Math.abs(across)), edge = D.x < hx ? cx0 - 0.02 : cx1 + 0.02;
+        nz = D.z;
+        nx = clamp(D.x + clamp(edge - D.x, -step, step), -room, room);
+      } else nx = nx < hx ? cx0 : cx1;
+    }
+    const went = Math.hypot(nx - D.x, nz - D.z);
+    if (went > 1e-4) D.yaw = dampAngle(D.yaw, Math.atan2(nx - D.x, nz - D.z), 10, dt);
+    D.x = nx;
+    D.z = nz;
+    D.moving = damp(D.moving, went / Math.max(dt, 1e-3) > 0.2 ? 1 : 0, 8, dt);
+    D.step += went * 5.5;
+    return went;
+  }
+
+  // Back at the wheel? (Near enough to take her again.)
+  get atHelm() {
+    const D = this.deck, S = this.hull.standing;
+    return !D || Math.hypot(D.x - S.helm[0], D.z - S.helm[1]) < 0.5;
+  }
+
+  placeOnDeck(fishing, dt) {
+    const D = this.deck, A = (this.standAt ||= { x: 0, z: 0, y: this.seatY, yaw: 0 });
+    // (With a line out you turn to face it; otherwise the way you've been walking.)
+    const yaw = fishing > 0.3 ? wrapAngle(this.pose.rodYaw) : D.yaw;
+    A.x = D.x;
+    A.z = D.z;
+    A.y = this.seatY;
+    A.yaw = dampAngle(A.yaw, yaw, 8, dt);
+    const T = this.torso;
+    T.rotation.order = 'YXZ';
+    T.position.set(A.x, A.y + Math.abs(Math.sin(D.step)) * 0.025 * D.moving, A.z);
+    T.rotation.y = A.yaw;
+    // Walking: a stride either side; standing: feet a little apart, knees soft.
+    const deck = this.hull.floorY + 0.04 - A.y, c = Math.cos(A.yaw), sn = Math.sin(A.yaw);
+    for (const L of this.legs) {
+      const stride = Math.sin(D.step + (L.s > 0 ? 0 : Math.PI)) * 0.22 * D.moving;
+      this.fromYou(_a, L.s * 0.1, -0.02, 0.02);
+      this.fromYou(_b, L.s * 0.12, deck / 2 + 0.02 + Math.max(0, stride) * 0.15, 0.09 + stride * 0.5);
+      this.fromYou(_e, L.s * 0.14, deck + Math.max(0, stride) * 0.06, 0.02 + stride);
+      setLimb(L.thigh, _a, _b, 0.07);
+      setLimb(L.shin, _b, _e, 0.06);
+      L.boot.position.set(_e.x + sn * 0.05, _e.y - 0.02, _e.z + c * 0.05);
+      L.boot.rotation.set(0, A.yaw, 0);
     }
   }
 
@@ -2964,6 +3051,10 @@ export class Boat {
         // One hand on the tiller, the other on the mainsheet.
         this.rudder.updateMatrix();
         onOar = a.s > 0 ? _b.copy(this.tillerGrip).applyMatrix4(this.rudder.matrix) : _b.set(-0.18, this.seatY + 0.42, 0.42 + this.seatZ);
+      } else if (this.deck && !this.atHelm) {
+        // Away from the wheel, walking the deck: arms at your sides, swinging as you walk.
+        const sw = Math.sin(this.deck.step + (a.s > 0 ? Math.PI : 0)) * 0.12 * this.deck.moving;
+        onOar = this.fromYou(_b, a.s * 0.24, 0.28, 0.04 + sw);
       } else if (this.wheel && this.motor) {
         // Both hands on the wheel.
         this.wheel.updateMatrix();

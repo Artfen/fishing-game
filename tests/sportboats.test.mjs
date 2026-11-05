@@ -309,3 +309,31 @@ test('underway as a real one: the RIB never stands on her tail in a sea, rears o
   assert.ok(R.v < calm - 1, `slower in a sea: ${R.v.toFixed(1)} against ${calm.toFixed(1)} m/s in a calm`);
   conditions.manual = null;
 });
+
+test('walking the deck: off the helm and back, about her inside her sides and round the console, short of her ends; not in the little boats', () => {
+  for (const kind of ['rib', 'console', 'cruiser']) {
+    const b = boatAt(kind);
+    assert.ok(b.setDeck(true) && b.deck && b.atHelm, `${kind}: off the helm at the wheel`);
+    const H = b.hull;
+    // Forward as far as she goes: stops short of her bow, having gone round the console.
+    for (let i = 0; i < 400; i++) b.walkDeck(0.0, 0.03, 1 / 30);
+    for (let i = 0; i < 400; i++) b.walkDeck(0.02, 0.03, 1 / 30);
+    assert.ok(b.deck.z > H.standing.helm[1] + 0.5, `${kind}: walked forward (${b.deck.z.toFixed(2)})`);
+    assert.ok(b.deck.z < H.L / 2, `${kind}: short of her bow`);
+    // Out to either side: never past her sides.
+    for (const sd of [1, -1]) {
+      for (let i = 0; i < 200; i++) b.walkDeck(sd * 0.03, 0, 1 / 30);
+      assert.ok(Math.abs(b.deck.x) <= b.deckRoom(b.deck.z) + 1e-9, `${kind}: inside her sides`);
+    }
+    // Aft to her stern, and back to the wheel.
+    for (let i = 0; i < 400; i++) b.walkDeck(0, -0.03, 1 / 30);
+    assert.ok(b.deck.z > -H.L / 2 && b.deck.z < H.standing.helm[1]);
+    assert.ok(!b.atHelm);
+    b.deck.x = H.standing.helm[0];
+    b.deck.z = H.standing.helm[1];
+    assert.ok(b.atHelm);
+    b.setDeck(false);
+    assert.equal(b.deck, null);
+  }
+  for (const kind of ['row', 'skiff', 'kayak']) assert.equal(boatAt(kind).setDeck(true), false, `${kind}: no walking about`);
+});

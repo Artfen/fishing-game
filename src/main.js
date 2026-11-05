@@ -2193,6 +2193,7 @@ function setFoot(foot, silent = false) {
 }
 
 function stepAshore(spot) {
+  boat.setDeck?.(false);
   // At a jetty or quay you make her fast before you step off (out on a bank she's left as she is:
   // anchored, or pulled up and drifting nowhere).
   let tied = false;
@@ -3357,6 +3358,57 @@ function updateLever() {
     gauges: helmGauges(),
   });
 }
+
+/* ---------------- walking about: with a line out, and on deck ---------------- */
+
+// Walking with a line out (L3, or the jog key, while it's out): along the bank or about the deck,
+// the line paying out behind you or coming in as you walk towards it. Off again the same way, and
+// whenever the line comes in.
+let walkLine = false;
+function toggleWalkLine() {
+  if (!onFoot && !boat.hull.standing) {
+    hud.flash('There’s no room to walk about in this boat: fish from where you sit.', t, 2.4);
+    return;
+  }
+  walkLine = !walkLine;
+  if (walkLine && !onFoot) boat.setDeck(true);
+  hud.flash(walkLine ? `Walking with your line out: ${scheme() === 'pad' ? kbd('L-stick') : MOVE()} to walk, the line pays out as you go · ${scheme() === 'pad' ? 'L3' : K('jog')} to stand and work it again` : 'Standing to fish again: the movement keys work the line', t, 3.4);
+}
+
+// Off the helm to walk her deck, or back to it (a boat you stand in: the RIB, the console, the yacht).
+function takeHelm(on) {
+  if (!boat.hull.standing) return;
+  boat.setDeck(!on);
+  audio.step?.(false, 0, 'wood');
+  if (!on) teach('deck', `Walking the deck: ${scheme() === 'pad' ? kbd('L-stick') : MOVE()} walks you about her. She keeps on as she was (the throttle stays where you left it). Back at the wheel, ${scheme() === 'touch' ? 'the prompt' : K('interact')} takes the helm again.`, 8);
+}
+
+// A step on foot, or about the deck, the way the stick points from where the camera looks.
+function walkWith(ti, si, dt) {
+  const yaw = rig.yaw, fx_ = Math.sin(yaw), fz_ = Math.cos(yaw);
+  const wx = fx_ * ti + fz_ * si, wz = fz_ * ti - fx_ * si;
+  if (onFoot) {
+    // (Slowly with a fish on: following it along the bank, not running.)
+    const k = fishing.state === 'reeling' ? 0.45 : 1;
+    move.x = wx * k;
+    move.z = wz * k;
+    return;
+  }
+  if (!boat.deck) return;
+  // Into her own space: across (her right) and ahead.
+  const hx = Math.sin(boat.heading), hz = Math.cos(boat.heading);
+  const ahead = wx * hx + wz * hz, across = wx * hz - wz * hx;
+  const m = Math.min(1, Math.hypot(ahead, across)), sp = (fishing.state === 'reeling' ? 0.6 : 1.3) * dt;
+  if (m > 0.05) {
+    const went = boat.walkDeck((across / Math.max(m, 1)) * sp * m, (ahead / Math.max(m, 1)) * sp * m, dt);
+    deckStepT -= went;
+    if (deckStepT <= 0) {
+      deckStepT = 0.55;
+      audio.step?.(false, 0, 'wood');
+    }
+  } else boat.walkDeck(0, 0, dt);
+}
+let deckStepT = 0;
 
 /* ---------------- the cabin boat: inside ---------------- */
 
@@ -4815,6 +4867,8 @@ function interaction() {
   }
   if (lostBuoyNear()) return { text: 'Pick up Dougie’s buoy', run: () => pickUpLostBuoy() };
   if (spot) return { text: ashore, run: () => stepAshore(spot) };
+  // A boat you stand in, walking her deck: back at the wheel, take the helm again.
+  if (boat.hull.standing && !fishing.busy && boat.deck && boat.atHelm) return { text: 'Take the helm', run: () => takeHelm(true) };
   const other = boat.speed < 1 ? otherBoat(tow && (tow.lead === boat || tow.towed === boat) ? 9 : 4.5) : null;
   if (other) {
     const towing = tow && ((tow.lead === boat && tow.towed === other) || (tow.towed === boat && tow.lead === other));
@@ -4834,6 +4888,8 @@ function interaction() {
       return { text: P.starter === 'pull' ? 'Pull the starter cord' : 'Start the engine', run: () => engineKey() };
     }
   }
+  // A boat you stand in: off the helm to walk her deck (slow, or held still).
+  if (boat.hull.standing && !fishing.busy && !boat.deck && (boat.speed < 2.5 || boat.anchored || boat.tie)) return { text: 'Leave the helm: walk the deck', run: () => takeHelm(false) };
   // The cabin boat, stopped: its galley and bunk (or over the side for a dive).
   const entry = !fishing.lineOut ? diveEntry() : null;
   if (boat.hull.cabin && !fishing.lineOut && canEnterCabin(boat)) {
@@ -7264,6 +7320,11 @@ function currentHint() {
     if (!state.places.camp && Math.hypot(walker.pos.x - world.camp.firePos.x, walker.pos.z - world.camp.firePos.z) < 60) return 'Follow the path up to camp';
     return '';
   }
+  // Walking the deck: how to walk, and how to take her again.
+  if (!onFoot && boat.deck) {
+    const how = T ? 'the stick walks you about her' : `${P ? kbd('L-stick') : MOVE()} walk`;
+    return boat.atHelm ? `At the wheel · ${T ? 'tap the prompt' : K('interact')} to take the helm · ${how}` : `Walking the deck · ${how} · back at the wheel to take the helm`;
+  }
   if (leverKind()) {
     const kind = leverKind(), lv = boat.lever;
     const dead = kind === 'kayak' ? boat.kflat : boat.trolling ? boat.flat : boat.dry && Math.abs(lv) >= 0.03;
@@ -8559,6 +8620,7 @@ input.on('press', (code, acts) => {
       else toggleSail();
     } else toggleKayakMotor();
   } else if (is('outboard')) toggleOutboard();
+  else if ((is('walkline') || is('jog')) && fishing.lineOut && fishing.state !== 'casting') toggleWalkLine();
   else if (is('photo')) openPhoto();
   else if (is('view')) cycleView();
   else if (is('eye')) toggleFirstPerson();
@@ -8827,6 +8889,7 @@ function tick(now, manual = false) {
   carIn.steer = 0;
   if (started && (!modal || mapAboard())) {
     const ti = input.throttle, si = input.steer;
+    if (walkLine && !fishing.lineOut) walkLine = false;
     if (sitting && (Math.abs(ti) > 0.3 || Math.abs(si) > 0.3)) standUp();
     if (fishing.aiming) {
       // In first person the keys turn your head (and the cast with it); otherwise they swing the cast.
@@ -8834,6 +8897,10 @@ function tick(now, manual = false) {
       else fishing.aimBy(si, dt);
       fishing.depthBy(ti, dt);
       if (leverKind()) throttle = boat.lever;
+    } else if (fishing.lineOut && walkLine && (onFoot || boat.deck)) {
+      // Walking with a line out: along the bank, or about the deck; the line pays out or comes in.
+      walkWith(ti, si, dt);
+      if (!onFoot && leverKind()) throttle = boat.lever;
     } else if (fishing.lineOut) {
       // Expert: the rod in your hands (the right stick, or forward and back), the reel on the trigger.
       if (fishing.expert) {
@@ -8875,6 +8942,16 @@ function tick(now, manual = false) {
       // stays where you leave it), across steers.
       sailInput(ti, dt);
       steer = si;
+    } else if (boat.deck && !boat.atHelm) {
+      // Away from the wheel, walking the deck: the stick walks you; she keeps on as she was.
+      walkWith(ti, si, dt);
+      throttle = boat.lever;
+      steer = 0;
+    } else if (boat.deck) {
+      // At the wheel but off the helm: walk on, or take her (the prompt).
+      walkWith(ti, si, dt);
+      throttle = boat.lever;
+      steer = 0;
     } else if (leverKind()) {
       // At the helm: the throttle lever moves a notch at a time (the keys, or the stick pushed
       // and let go) and stays where you leave it; steering is the stick or keys across.
@@ -9022,7 +9099,7 @@ function tick(now, manual = false) {
   }
   // First person: you face where you look.
   if (rig.mode === 'eye' && onFoot && !(move.x || move.z)) walker.heading = dampAngle(walker.heading, rig.yaw, 10, dt);
-  if (onFoot && !driving && !dive) walker.update(dt, t, move, { jog: input.jogging || (pads.active && pads.jog), locked: fishing.busy, obstacles: solids });
+  if (onFoot && !driving && !dive) walker.update(dt, t, move, { jog: !fishing.busy && (input.jogging || (pads.active && pads.jog)), locked: fishing.busy && !(walkLine && fishing.lineOut), obstacles: solids });
   // The car: driven while you're at the wheel (a menu open puts the brake on); otherwise parked.
   {
     const live = driving && started;

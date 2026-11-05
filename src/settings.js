@@ -65,7 +65,7 @@ export const PAD_HELP = [
     ['helmtrim', 'trimUp', 'trim the outboard out (hold; at rest it tilts right up)'], ['helmtrim', 'trimDown', 'trim the outboard in (hold)'],
     ['troll', 'throttleUp', 'with a line out: throttle up a notch'], ['troll', 'throttleDown', 'with a line out: throttle down a notch'],
   ]],
-  ['A line in the water', [['fish', 'advice', 'why aren’t they biting?'], ['fish', 'feed', 'throw loose bait']]],
+  ['A line in the water', [['fish', 'advice', 'why aren’t they biting?'], ['fish', 'feed', 'throw loose bait'], ['fish', 'walkline', 'walk with the line out (along the bank, or about the deck), or stand to fish again']]],
   ['A fish on', [['fight', 'cast', 'reel (let go when it surges)'], ['fight', 'ease', 'ease the drag off'], ['fight', 'forward', 'tighten or ease the drag']]],
   ['The catch card', [['catch', 'cast', 'let it go'], ['catch', 'keep', 'keep it'], ['catch', 'photo', 'photograph it']]],
   ['Driving', [['drive', 'throttle', 'go'], ['drive', 'brake', 'brake, then reverse'], ['drive', 'left', 'steer'], ['drive', 'interact', 'get out'], ['drive', 'tackle', 'where to?']]],
