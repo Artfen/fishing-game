@@ -759,7 +759,18 @@ function showControls() {
 const rig = new CameraRig(camera);
 rig.solid = pushOut;
 const rodView = new RodView();
-const finder = new FishFinder(eco, habitat, state);
+const finder = new FishFinder(eco, habitat, state, {
+  // The unit's Mark key: a waypoint on your map where the sonar is reading, with what it read.
+  mark: (r) => {
+    if (!r) return hud.toast('Nothing under the sonar to mark yet.', 3);
+    if (state.pins.length >= 60) return hud.toast('Your map is full of marks: clear a few first (the map, or the journal’s Your marks).', 5);
+    const fish = r.fish.length ? ` · fish at ${r.fish.slice(0, 3).map((d) => d.toFixed(1)).join(', ')} m` : '';
+    state.pins.push({ id: `sn-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, x: Math.round(r.x * 10) / 10, z: Math.round(r.z * 10) / 10, title: `Sonar mark · ${r.depth.toFixed(1)} m`, note: `${r.depth.toFixed(1)} m over ${r.type}${r.temp != null ? `, ${r.temp.toFixed(1)}°C` : ''}${fish}${r.ball ? ' · bait below' : ''}.`, fav: false, day: state.day, hour: Math.round(state.hour * 100) / 100 });
+    save();
+    audio.chime?.();
+    hud.toast(`Marked on your map: ${r.depth.toFixed(1)} m over ${r.type}.`, 4);
+  },
+});
 
 // Where each boat is tied up to begin with: the skiff alongside the end of the landing pier
 // in water deep enough for the motor, the kayak on the other side nearer the beach, and the
@@ -7236,6 +7247,14 @@ function updateFirstPerson(dt) {
   fishing.afterView(t);
 }
 
+// The finder button (D-pad down, F, the pill): on the head unit it steps through its pages (2D
+// sonar, the down view, the two split) and then puts it away; otherwise it opens and closes it.
+function finderButton() {
+  const F = state.finder;
+  if (finder.visible && finder.unit && F.page !== 'split') return finder.key('page');
+  if (finder.visible && finder.unit) F.page = 'sonar';
+  toggleFinder();
+}
 function toggleFinder(force) {
   const on = force ?? !finder.visible;
   finder.setVisible(on);
@@ -8638,7 +8657,7 @@ input.on('press', (code, acts) => {
     else if (is('map')) openMap();
     else if (is('settings')) openSettings();
     else if (is('photo')) openPhoto();
-    else if (is('finder')) toggleFinder();
+    else if (is('finder')) finderButton();
     else if (is('hide')) {
       hudOff = !hudOff;
       hud.hidden(hudOff);
@@ -8710,7 +8729,7 @@ input.on('press', (code, acts) => {
   else if (is('view')) cycleView();
   else if (is('eye')) toggleFirstPerson();
   else if (is('reset')) resetView();
-  else if (is('finder')) toggleFinder();
+  else if (is('finder')) finderButton();
   else if (is('map')) openMap();
   else if (is('settings')) openSettings();
   else if (is('call')) {
@@ -8742,7 +8761,7 @@ $('journal-btn').addEventListener('click', () => {
   else if (!modal) openJournal();
 });
 $('view-btn').addEventListener('click', () => { if (started && !modal) cycleView(); });
-$('finder-btn').addEventListener('click', () => { if (started && !modal) toggleFinder(); });
+$('finder-btn').addEventListener('click', () => { if (started && !modal) finderButton(); });
 $('pack-btn').addEventListener('click', () => {
   if (modal === 'pack') closePack();
   else if (started && !modal) openPack();

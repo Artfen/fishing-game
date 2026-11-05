@@ -61,7 +61,7 @@ export const DEFAULT_STATE = {
   caughtOn: {},  // species id -> { tackle id: count }
   log: [],       // every catch: see sanitizeLogEntry
   meals: 0,
-  finder: null,  // { x, y } as fractions of the screen, and { size }
+  finder: null,  // { x, y } as fractions of the screen, { size }, and the head unit's settings (see sonar.js)
   music: true,
   quality: 'auto', // the graphics preset (a copy of settings.graphics.preset, see quality.js)
   difficulty: 'standard', // 'relaxed' | 'standard' | 'realistic'
@@ -325,7 +325,12 @@ export function sanitize(raw) {
   s.meals = int(raw.meals, 0, 0, 1e6);
   if (isObj(raw.finder)) {
     const f = raw.finder;
-    s.finder = { x: f.x == null ? null : num(f.x, null, 0, 1), y: f.y == null ? null : num(f.y, null, 0, 1), size: int(f.size, 1, 0, 2) };
+    s.finder = {
+      x: f.x == null ? null : num(f.x, null, 0, 1), y: f.y == null ? null : num(f.y, null, 0, 1), size: int(f.size, 1, 0, 2),
+      // (The head unit: see sonar.js.)
+      unit: f.unit === true, w: int(f.w, 560, 280, 2000), page: oneOf(f.page, ['sonar', 'down', 'split'], 'sonar'), pal: int(f.pal, 0, 0, 3),
+      gain: int(f.gain, 5, 0, 10), range: [3, 5, 10, 15, 20, 30, 40].includes(f.range) ? f.range : 'auto', zoom: int(f.zoom, 0, 0, 2), symbols: f.symbols !== false,
+    };
   }
   s.music = raw.music !== false;
   s.quality = oneOf(raw.quality, CHOICES, 'auto');

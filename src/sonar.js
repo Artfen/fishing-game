@@ -1,12 +1,13 @@
 import { clamp } from './util.js';
 import { rockTopAt } from './world/divesites.js';
+import { drawUnit, labelFish, PAGES, PAGE_NAMES, PALETTES, ZOOMS } from './sonarUnit.js';
 
 const $ = (id) => document.getElementById(id);
 
 const PING_HZ = 10;
 const HISTORY = 160; // pings of history (16 seconds)
 const CONE = Math.tan((22 * Math.PI) / 180); // the transducer's beam spreads 22° each side
-const RANGES = [3, 5, 10, 15, 20, 30, 40];
+export const RANGES = [3, 5, 10, 15, 20, 30, 40];
 const SIZES = [230, 300, 420];
 const COLORS = {
   screenTop: '#12293a',
@@ -23,17 +24,28 @@ const COLORS = {
   now: 'rgba(233, 244, 240, 0.07)',
 };
 
+// The head unit's settings as the save keeps them (see sonarUnit.js): on or not, its width on
+// screen (px), the page, the palette, the gain (0 … 10), the range ('auto' or metres), the zoom
+// and whether fish show as symbols.
+export const UNIT_DEFAULTS = { unit: false, w: 560, page: 'sonar', pal: 0, gain: 5, range: 'auto', zoom: 0, symbols: true };
+
 // A small sonar. In the boat its transducer looks straight down under the hull; on foot it
 // works like a castable sonar clipped above your rig, reading the water around it once it's in.
 // Every ping reads the real bottom and weeds from the habitat and the real fish in its cone
 // from the ecosystem, but like a real one it only shows echoes: arches whose size hints at the
 // fish, clouds for small fry, some clutter, and never a name.
+//
+// The Unit button turns it into a head unit (see sonarUnit.js): a bezel with keys, the 2D sonar
+// with a flasher, a down view and the two split, depth, temperature and speed, palettes, gain,
+// range and zoom, fish symbols, and a key that marks the spot on your map. Drag it by its bezel,
+// resize it from its corner.
 export class FishFinder {
-  constructor(eco, habitat, state) {
+  constructor(eco, habitat, state, hooks = {}) {
     this.eco = eco;
     this.habitat = habitat;
     this.state = state;
-    state.finder = { x: null, y: null, size: 1, ...(state.finder || {}) };
+    this.hooks = hooks;
+    state.finder = { x: null, y: null, size: 1, ...UNIT_DEFAULTS, ...(state.finder || {}) };
     this.el = $('sonar');
     this.canvas = $('sonar-canvas');
     this.ctx = this.canvas.getContext('2d');
@@ -47,10 +59,112 @@ export class FishFinder {
     this.visible = false;
     this.mode = null;
     this.sample = {};
+    this.read = null;
+    this.seed = 0;
     $('sonar-help').addEventListener('click', () => this.toggleLegend());
     $('sonar-size').addEventListener('click', () => this.cycleSize());
+    $('sonar-unit')?.addEventListener('click', () => this.setUnit(!this.state.finder.unit));
+    for (const b of document.querySelectorAll('#sonar-keys [data-k]')) b.addEventListener('click', () => this.key(b.dataset.k));
     this.setupDrag();
+    this.setupResize();
     this.applySize();
+    this.showKeys();
+  }
+
+  /* ---------- the head unit ---------- */
+
+  get unit() { return !!this.state.finder.unit; }
+
+  setUnit(on) {
+    this.state.finder.unit = on;
+    this.applySize();
+    this.fit();
+    this.showKeys();
+    this.draw();
+  }
+
+  // A key on the unit pressed.
+  key(k) {
+    const F = this.state.finder;
+    if (k === 'page') F.page = PAGES[(PAGES.indexOf(F.page) + 1) % PAGES.length];
+    else if (k === 'deeper' || k === 'shallower') {
+      // (Range: auto, then each scale; past the deepest or the shallowest, back to auto.)
+      const i = F.range === 'auto' ? -1 : RANGES.indexOf(F.range);
+      const j = k === 'deeper' ? (i < 0 ? RANGES.findIndex((r) => r > this.range) : i + 1) : (i < 0 ? RANGES.findIndex((r) => r >= this.range) - 1 : i - 1);
+      F.range = j < 0 || j >= RANGES.length ? 'auto' : RANGES[j];
+    } else if (k === 'zoom') F.zoom = (F.zoom + 1) % ZOOMS.length;
+    else if (k === 'gainUp') F.gain = Math.min(10, F.gain + 1);
+    else if (k === 'gainDown') F.gain = Math.max(0, F.gain - 1);
+    else if (k === 'colour') F.pal = (F.pal + 1) % PALETTES.length;
+    else if (k === 'fish') F.symbols = !F.symbols;
+    else if (k === 'mark') {
+      if (this.read && this.read.depth != null) this.hooks.mark?.(this.read);
+      else this.hooks.mark?.(null);
+    }
+    this.showKeys();
+    if (this.read) this.range = this.rangeFor();
+    this.draw();
+  }
+
+  // What the keys say just now.
+  showKeys() {
+    const F = this.state.finder, set = (k, t) => { const e = document.querySelector(`#sonar-keys [data-k="${k}"] b`); if (e) e.textContent = t; };
+    set('page', PAGE_NAMES[F.page]);
+    set('shallower', 'shallower');
+    set('deeper', F.range === 'auto' ? 'Auto' : `${F.range} m`);
+    set('gainDown', 'less');
+    set('zoom', ZOOMS[F.zoom]);
+    set('gainUp', `${F.gain}`);
+    set('colour', PALETTES[F.pal].name);
+    set('fish', F.symbols ? 'Symbols' : 'Arches');
+    const u = $('sonar-unit');
+    if (u) {
+      u.textContent = F.unit ? 'Simple' : 'Unit';
+      u.setAttribute('aria-pressed', String(!!F.unit));
+      u.setAttribute('aria-label', F.unit ? 'Back to the simple fish finder' : 'Switch to the head unit');
+    }
+    this.el.classList.toggle('unit', !!F.unit);
+    $('sonar-keys').hidden = !F.unit;
+  }
+
+  // The scale: the one you've chosen on the unit, or the shallowest that shows the bottom.
+  rangeFor() {
+    const F = this.state.finder;
+    if (this.unit && F.range !== 'auto') return F.range;
+    let deepest = 0;
+    for (const p of this.pings) deepest = Math.max(deepest, p.bottom);
+    return RANGES.find((r) => r >= deepest + 0.6) || RANGES[RANGES.length - 1];
+  }
+
+  // The unit's corner: drag to make it bigger or smaller.
+  setupResize() {
+    const h = $('sonar-resize');
+    if (!h) return;
+    let drag = null;
+    h.addEventListener('pointerdown', (e) => {
+      const r = this.el.getBoundingClientRect();
+      drag = { id: e.pointerId, x: e.clientX, w: r.width };
+      try { h.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
+      if (!this.el.classList.contains('floating')) this.float(r.left, r.top);
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    h.addEventListener('pointermove', (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      this.state.finder.w = Math.round(drag.w + (e.clientX - drag.x));
+      this.applySize();
+      const r = this.el.getBoundingClientRect();
+      this.float(r.left, r.top);
+    });
+    const end = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      drag = null;
+      const r = this.el.getBoundingClientRect();
+      this.state.finder.x = r.left / innerWidth;
+      this.state.finder.y = r.top / innerHeight;
+    };
+    h.addEventListener('pointerup', end);
+    h.addEventListener('pointercancel', end);
   }
 
   /* ---------- placing it on the screen ---------- */
@@ -127,6 +241,24 @@ export class FishFinder {
     const s = Math.min(this.state.finder.size, roomy);
     this.el.classList.remove('size-0', 'size-1', 'size-2');
     this.el.classList.add(`size-${s}`);
+    // The unit: as wide as you've made it (within the screen), its screen drawn sharp at that size.
+    const c = this.canvas;
+    if (this.unit) {
+      const w = clamp(this.state.finder.w, 280, Math.max(280, Math.min(innerWidth - 12, (innerHeight - 120) / 0.62)));
+      this.state.finder.w = Math.round(w);
+      this.el.style.width = `${Math.round(w)}px`;
+      const dpr = Math.min(2, globalThis.devicePixelRatio || 1), cw = Math.round((w - 28) * dpr), ch = Math.round(cw * 0.62);
+      if (c.width !== cw || c.height !== ch) {
+        c.width = cw;
+        c.height = ch;
+      }
+    } else {
+      this.el.style.width = '';
+      if (c.width !== 600 || c.height !== 330) {
+        c.width = 600;
+        c.height = 330;
+      }
+    }
   }
 
   setVisible(v) {
@@ -166,6 +298,7 @@ export class FishFinder {
     this.timer = 1 / PING_HZ;
     if (src.mode === 'none') {
       this.depthEl.textContent = '–';
+      this.read = null;
       this.draw('Cast your rig: from the shore, the sonar reads the water around it.');
       return;
     }
@@ -180,9 +313,11 @@ export class FishFinder {
     }
     const raw = this.eco.queryCone(x, z, CONE, []);
     // Echoes, not fish: small or off-centre ones are sometimes missed, depths wobble a little.
+    // (The unit's gain: turned up, it picks out fainter echoes, and more clutter with them.)
+    const gain = this.unit ? this.state.finder.gain / 10 : 0.5;
     const echoes = [];
     for (const f of raw) {
-      const detect = clamp(0.3 + f.size * 1.1, 0, 1) * (0.45 + 0.55 * f.strength);
+      const detect = clamp((0.3 + f.size * 1.1) * (0.6 + 0.8 * gain), 0, 1) * (0.45 + 0.55 * f.strength);
       if (Math.random() > detect) continue;
       echoes.push({
         depth: f.depth * (1 + (Math.random() - 0.5) * 0.06),
@@ -198,7 +333,7 @@ export class FishFinder {
     const clutter = [];
     if (Math.random() < 0.08) clutter.push(Math.random() * s.depth);
     const churn = clamp((src.moving || 0) / 3, 0, 1);
-    for (let i = 0; i < 2 + churn * 6; i++) if (Math.random() < 0.5) clutter.push(Math.random() * (0.25 + churn * 0.6));
+    for (let i = 0; i < (2 + churn * 6) * (0.5 + gain); i++) if (Math.random() < 0.5) clutter.push(Math.random() * (0.25 + churn * 0.6));
     let baitDepth = null;
     if (bait.active) {
       const d = -bait.y, r = Math.hypot(bait.x - x, bait.z - z);
@@ -206,13 +341,15 @@ export class FishFinder {
     }
     this.pings.push({
       bottom: s.depth, weed: s.weed, rock: s.rock, fish: echoes, clutter, bait: baitDepth, ball: baitBall,
-      weedH: 0.4 + Math.random() * 0.6,
+      weedH: 0.4 + Math.random() * 0.6, seed: (this.seed = (this.seed + 1) % 100000),
     });
     if (this.pings.length > HISTORY) this.pings.shift();
-    let deepest = 0;
-    for (const p of this.pings) deepest = Math.max(deepest, p.bottom);
-    this.range = RANGES.find((r) => r >= deepest + 0.6) || RANGES[RANGES.length - 1];
+    labelFish(this.pings);
+    this.range = this.rangeFor();
     const type = s.rock > 0.45 ? 'rock' : s.weed > 0.3 ? 'weed' : s.depth < 3 ? 'sand' : 'silt';
+    // (What the unit's readouts show, and what a mark records.)
+    const near = echoes.filter((e) => e.size >= 0.35).map((e) => e.depth).sort((a, b) => a - b);
+    this.read = { depth: s.depth, type, temp: src.temp ?? null, speed: src.mode === 'boat' ? src.moving || 0 : null, ball: baitBall, fish: near, x, z, mode: src.mode };
     // (And the water's temperature at the surface, when the game gives it: see seatemp.js.)
     const temp = src.temp != null ? ` · ${Math.round(src.temp)}°C` : '';
     this.depthEl.textContent = `${s.depth.toFixed(1)} m · ${type}${temp}${baitBall ? ' · bait below' : ''}`;
@@ -222,6 +359,10 @@ export class FishFinder {
   draw(message) {
     const c = this.canvas, ctx = this.ctx;
     const W = c.width, H = c.height;
+    if (this.unit) {
+      drawUnit(ctx, W, H, { pings: this.pings, history: HISTORY, range: this.range, opts: this.state.finder, read: this.read }, message);
+      return;
+    }
     const scaleW = 56, nowW = 34, top = 10;
     const screenW = W - scaleW, histW = screenW - nowW;
     const colW = histW / HISTORY;
