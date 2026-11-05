@@ -1,0 +1,31 @@
+# Runs the whole test suite (node:test, nothing to install) on every pull request and every push
+# to main, and checks that sw.js lists every file the game needs offline.
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Offline file list is current
+        run: |
+          node tools/build-sw.mjs
+          git diff --exit-code sw.js || (echo "::error::sw.js is out of date: run node tools/build-sw.mjs and commit it" && exit 1)
+      - name: Tests
+        run: node --import ./tests/setup.mjs --test --test-concurrency=4 'tests/*.test.mjs'
