@@ -7,8 +7,9 @@ import { DESTS, driveMinutes } from './outing.js';
 //
 //  · You fill up at the pump by the garage at home, the harbour pump on Willowhaven quay (it
 //    reaches the boats alongside and, with a can, the car park), the fuel point on Willowhaven's
-//    pontoon, or the pump on Puerto Brasa quay far to the south. Petrol costs nothing but a few
-//    minutes: this is about planning a trip, not money.
+//    pontoon, or the pump on Puerto Brasa quay far to the south. The farm's pump at home is
+//    free; the harbour's and the quay's are paid for, by the litre, quoted before you buy (see
+//    economy.js: cheap on the gentle setting, and the harbour sees you home when you're broke).
 //  · A 10-litre jerry can goes wherever you take it (the garage, the car's boot, your backpack):
 //    fill it at a pump and pour it into the car or a boat somewhere without one (Longmere, say).
 //  · Running dry never strands you: the car rolls to a stop and someone up the lane lends you a
@@ -65,7 +66,8 @@ export function cleanFuel(raw) {
   const d = defaultFuel();
   if (!isObj(raw)) return d;
   d.car = num(raw.car, TANKS.car, 0, TANKS.car);
-  if (isObj(raw.boats)) for (const k of PETROL) d.boats[k] = num(raw.boats[k], TANKS[k], 0, TANKS[k]);
+  // (Up to a long-range tank's worth: the game trims it to the tank she has. See shipyard.js.)
+  if (isObj(raw.boats)) for (const k of PETROL) d.boats[k] = num(raw.boats[k], TANKS[k], 0, TANKS[k] * MAX_TANK);
   d.battery = num(raw.battery, 1, 0, 1);
   // (A save from before the kayak had a motor: its battery starts full.)
   d.kayak = num(raw.kayak, 1, 0, 1);
@@ -84,6 +86,13 @@ const set = (f, what, v) => {
   else f.boats[what] = v;
 };
 export const isPetrol = (kind) => PETROL.includes(kind);
+// The biggest a tank can be made (a long-range tank: see shipyard.js).
+export const MAX_TANK = 1.5;
+// Litres into (or, negative, out of) a tank, never past full or below empty.
+export function addFuel(f, what, litres) {
+  set(f, what, Math.max(0, Math.min(TANKS[what], level(f, what) + litres)));
+  return level(f, what);
+}
 
 // Litres for a drive that goes by (from and to: 'home' or a destination).
 export const carNeeds = (from, to) => r1(driveMinutes(from || 'home', to) * CAR_PER_MIN);

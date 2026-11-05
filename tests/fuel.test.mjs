@@ -25,11 +25,22 @@ test('a save without fuel starts full, and odd values are made safe', () => {
   assert.deepEqual(d.can, { at: 'home', litres: Fu.CAN });
   const odd = Fu.cleanFuel({ car: -4, boats: { skiff: 999, bass: 'lots', row: 5 }, battery: 7, can: { at: 'moon', litres: 3 } });
   assert.equal(odd.car, 0);
-  assert.equal(odd.boats.skiff, Fu.TANKS.skiff);
+  // (Up to a long-range tank's worth: the game trims it to the tank she has, see shipyard.js.)
+  assert.equal(odd.boats.skiff, Fu.TANKS.skiff * Fu.MAX_TANK);
   assert.equal(odd.boats.bass, Fu.TANKS.bass);
   assert.equal(odd.boats.row, undefined, 'the rowing boat has no tank');
   assert.equal(odd.battery, 1);
   assert.deepEqual(odd.can, { at: 'home', litres: 3 });
+});
+
+test('fuel goes in and out of a tank, never past full or below empty', () => {
+  const f = Fu.cleanFuel(undefined);
+  Fu.addFuel(f, 'rib', -40);
+  assert.equal(Fu.level(f, 'rib'), Fu.TANKS.rib - 40);
+  Fu.addFuel(f, 'rib', 999);
+  assert.equal(Fu.level(f, 'rib'), Fu.TANKS.rib);
+  Fu.addFuel(f, 'rib', -999);
+  assert.equal(Fu.level(f, 'rib'), 0);
 });
 
 test('the fuel keeps with the save', async () => {

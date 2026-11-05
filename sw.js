@@ -10,7 +10,7 @@
 // - It never touches saved games: those live in the browser's local storage, not here.
 
 // <precache> Written by tools/build-sw.mjs: do not edit by hand.
-const VERSION = 'eee9dcdcad56';
+const VERSION = 'ab252d7c9943';
 const FILES = [
   './index.html',
   './style.css',
@@ -40,6 +40,7 @@ const FILES = [
   './src/dive.js',
   './src/diver.js',
   './src/dress.js',
+  './src/economy.js',
   './src/effects.js',
   './src/engine.js',
   './src/fight.js',
@@ -53,6 +54,7 @@ const FILES = [
   './src/gamepad.js',
   './src/gearArt.js',
   './src/gearView.js',
+  './src/goals.js',
   './src/grounds.js',
   './src/guide.js',
   './src/habits.js',
@@ -86,6 +88,7 @@ const FILES = [
   './src/sailui.js',
   './src/save.js',
   './src/settings.js',
+  './src/shipyard.js',
   './src/shop.js',
   './src/siteWorld.js',
   './src/sonar.js',

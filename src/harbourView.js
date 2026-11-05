@@ -5,6 +5,8 @@ import { setupsFor } from './guide.js';
 import { RODS, TACKLE } from './tackle.js';
 import { nextStory, adviceFor, rumoursNow, lower, an } from './innTalk.js';
 import { CHALLENGES } from './daybook.js';
+import { pay as payOut, earn as earnIn } from './economy.js';
+import { PRICES, hirePrice, PAINTS, PAINT_PRICE, NAME_PRICE, NAME_MAX, FITS, fitsFor, owns, hiredToday } from './shipyard.js';
 import { CREELS, ICE, BAIT, creelOf, newShop, onIce, freshBaitToday, wearOf, wearWords, respoolPrice, creelGroups, groupWords, creelWords, kgWords } from './shop.js';
 
 // The harbour's sheet: the fish market on Willowhaven quay (Mags Pennock at her slab), The Lobster
@@ -65,7 +67,7 @@ export class HarbourSheet {
     this.where = where;
     this.said = { advice: null, story: null };
     this.receipt = null;
-    this.tab = tab || (where === 'market' ? 'sell' : where === 'chandlery' ? 'counter' : 'bar');
+    this.tab = tab || (where === 'market' ? 'sell' : where === 'chandlery' ? 'counter' : where === 'works' ? 'boats' : 'bar');
     this.el.hidden = false;
     this.render();
   }
@@ -101,26 +103,26 @@ export class HarbourSheet {
     return [box];
   }
 
-  pay(v) {
-    if (this.state.money < v - 1e-6) {
+  // (Through the one purse: see economy.js.)
+  pay(v, what = 'At the harbour') {
+    if (!payOut(this.state, v, what).ok) {
       this.hooks.toast(`That’s ${money(v)}, and you’ve only ${money(this.state.money)} in your purse. Sell a fish or two at the market first.`, 5);
       return false;
     }
-    this.state.money = Math.round((this.state.money - v) * 100) / 100;
     return true;
   }
-  earn(v) {
-    this.state.money = Math.round((this.state.money + v) * 100) / 100;
+  earn(v, what = 'At the harbour') {
+    earnIn(this.state, v, what);
     this.harbour.earned = Math.round((this.harbour.earned + v) * 100) / 100;
   }
 
   render() {
     if (!this.isOpen) return;
     const W = this.where;
-    $('hb-title').textContent = W === 'market' ? 'The fish market' : W === 'inn' ? 'The Lobster Pot' : W === 'chandlery' ? 'The chandlery' : 'Bar El Muelle';
+    $('hb-title').textContent = W === 'market' ? 'The fish market' : W === 'inn' ? 'The Lobster Pot' : W === 'chandlery' ? 'The chandlery' : W === 'works' ? 'Willowhaven Marine Works' : 'Bar El Muelle';
     $('hb-sub').textContent = `${formatClock(this.state.hour)} · day ${this.state.day} · ${W === 'muelle' ? 'Puerto Brasa' : 'Willowhaven'}`;
     $('hb-purse').textContent = `In your purse: ${money(this.state.money)}`;
-    const tabs = W === 'market' ? [] : W === 'inn' ? [['bar', 'The bar'], ['kitchen', 'The kitchen']] : W === 'chandlery' ? [['counter', 'The counter'], ['mend', 'Mending'], ['ready', 'Ready for a trip']] : [['bar', 'The bar'], ['kitchen', 'The kitchen'], ['sell', 'Sell to Paco']];
+    const tabs = W === 'market' ? [] : W === 'inn' ? [['bar', 'The bar'], ['kitchen', 'The kitchen']] : W === 'chandlery' ? [['counter', 'The counter'], ['mend', 'Mending'], ['ready', 'Ready for a trip']] : W === 'works' ? [['boats', 'Boats'], ['looks', 'Paint & name'], ['fit', 'Fit-out']] : [['bar', 'The bar'], ['kitchen', 'The kitchen'], ['sell', 'Sell to Paco']];
     $('hb-tabs').replaceChildren(...tabs.map(([id, text]) => {
       const b = el('button', id === this.tab ? 'on' : '', text);
       b.type = 'button';
@@ -131,8 +133,84 @@ export class HarbourSheet {
       return b;
     }), ...(W === 'muelle' ? [this.button('Your room upstairs', () => this.hooks.openRoom(), 'quiet hb-room')] : W === 'chandlery' ? [this.button('The tackle store (free)', () => this.hooks.openStore(), 'quiet hb-room')] : []));
     $('hb-tabs').hidden = !tabs.length;
-    const body = this.tab === 'sell' ? this.renderSell() : this.tab === 'kitchen' ? this.renderKitchen() : this.tab === 'counter' ? this.renderCounter() : this.tab === 'mend' ? this.renderMend() : this.tab === 'ready' ? this.renderReady() : this.renderBar();
+    const body = this.tab === 'boats' ? this.renderBoats() : this.tab === 'looks' ? this.renderLooks() : this.tab === 'fit' ? this.renderFit() : this.tab === 'sell' ? this.renderSell() : this.tab === 'kitchen' ? this.renderKitchen() : this.tab === 'counter' ? this.renderCounter() : this.tab === 'mend' ? this.renderMend() : this.tab === 'ready' ? this.renderReady() : this.renderBar();
     $('hb-body').replaceChildren(...body);
+  }
+
+  /* ---- Willowhaven Marine Works (see shipyard.js) ---- */
+
+  // Every boat: yours, on hire today, or for sale (and for hire by the day).
+  renderBoats() {
+    const out = [], Y = this.state.yard, day = this.state.day, H = this.hooks;
+    out.push(el('p', 'hb-say', 'Jory Tregear wipes his hands on a rag among the cradles and the smell of resin. “Buying, hiring, or come to look? A day’s hire is a fair way to find out if she suits you.”'));
+    for (const kind of H.yardKinds()) {
+      const row = el('div', 'cp-row');
+      const name = H.boatName(kind);
+      if (owns(Y, kind)) {
+        row.append(el('p', '', `The ${name}`), el('span', 'cp-soft', 'yours'));
+      } else if (hiredToday(Y, kind, day)) {
+        row.append(el('p', '', `The ${name}`), el('span', 'cp-soft', 'on hire to you today (back at the yard tomorrow)'));
+        row.append(this.button(`Buy her: ${money(PRICES[kind])}`, () => H.yardBuy(kind)));
+      } else {
+        row.append(el('p', '', `The ${name}`), el('span', 'cp-soft', `${money(PRICES[kind])} · or ${money(hirePrice(kind))} for the day`));
+        row.append(this.button(`Hire: ${money(hirePrice(kind))}`, () => H.yardHire(kind), 'quiet'), this.button(`Buy: ${money(PRICES[kind])}`, () => H.yardBuy(kind)));
+      }
+      out.push(row);
+    }
+    out.push(el('p', 'cp-soft', 'A boat you buy is yours for good; one you hire is put in the water for you and goes back to the yard at the end of the day. Money buys range, speed and good looks here: never a better bite.'));
+    return out;
+  }
+
+  // Paint and a name, on your own boats.
+  renderLooks() {
+    const out = [], Y = this.state.yard, H = this.hooks;
+    const mine = H.yardKinds().filter((k) => owns(Y, k));
+    this.lookKind = mine.includes(this.lookKind) ? this.lookKind : mine[0];
+    const k = this.lookKind;
+    out.push(el('p', 'hb-say', `Morwenna in the paint shed, a brush behind her ear: “Your colours, and her name on the bow in proper sign-writer’s letters. ${money(PAINT_PRICE)} a coat, ${money(NAME_PRICE)} for the name.”`));
+    const pick = el('div', 'hb-picks');
+    for (const kind of mine) pick.append(this.button(`The ${H.boatName(kind)}`, () => { this.lookKind = kind; this.render(); }, kind === k ? '' : 'quiet'));
+    out.push(pick);
+    if (!k) return out;
+    const L = Y.looks[k] || {};
+    out.push(el('h3', '', `The ${H.boatName(k)}: ${L.paint ? PAINTS.find((p) => p.id === L.paint).name.toLowerCase() : 'as she came'}${L.name ? `, “${L.name}”` : ''}`));
+    const chart = el('div', 'hb-paints');
+    for (const p of PAINTS) {
+      const b = this.button(p.name, () => H.yardPaint(k, p.id), L.paint === p.id ? '' : 'quiet');
+      b.classList.add('hb-swatch');
+      b.style.setProperty('--sw', p.hex);
+      chart.append(b);
+    }
+    out.push(chart);
+    const row = el('div', 'cp-row');
+    const input = el('input', 'hb-name');
+    input.type = 'text';
+    input.maxLength = NAME_MAX;
+    input.placeholder = 'Her name';
+    input.value = L.name || '';
+    input.addEventListener('keydown', (e) => e.stopPropagation());
+    row.append(input, this.button(`Sign-write it: ${money(NAME_PRICE)}`, () => H.yardName(k, input.value)));
+    out.push(row);
+    return out;
+  }
+
+  // Fittings that buy range and speed.
+  renderFit() {
+    const out = [], Y = this.state.yard, H = this.hooks;
+    out.push(el('p', 'hb-say', 'In the workshop, an outboard hangs on a stand with its cowling off. “Range or speed, then? Either fitted while you wait.”'));
+    const mine = H.yardKinds().filter((k) => owns(Y, k) && fitsFor(k).length);
+    if (!mine.length) out.push(el('p', 'cp-soft', 'None of your boats takes a fitting from the workshop: the motorboats do (the skiff, the bass boat, the cabin boat, the centre console, the RIB, the jet ski).'));
+    for (const k of mine) {
+      out.push(el('h3', '', `The ${H.boatName(k)}`));
+      for (const id of fitsFor(k)) {
+        const F = FITS[id], has = Y.fits[k]?.includes(id);
+        const row = el('div', 'cp-row');
+        row.append(el('p', '', F.name), el('span', 'cp-soft', F.desc));
+        row.append(has ? el('span', 'cp-soft', 'fitted') : this.button(`Fit it: ${money(F.price[k])}`, () => H.yardFit(k, id)));
+        out.push(row);
+      }
+    }
+    return out;
   }
 
   /* ---- the market (and Paco buying from the boats) ---- */

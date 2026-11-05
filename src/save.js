@@ -1,3 +1,5 @@
+import { ECONOMY_IDS, cleanLedger } from './economy.js';
+import { cleanYard } from './shipyard.js';
 import { hasEngine, cleanEngine, engineSave } from './engine.js';
 import { fishById } from './fish.js';
 import { RODS, TACKLE, TERMS, cleanGear } from './tackle.js';
@@ -72,6 +74,10 @@ export const DEFAULT_STATE = {
   shipping: [],    // boats on the supply ship between the harbours: { kind, to ('south' or 'home'), due (game hours) }
   stored: null,    // your boats laid up ashore (kinds; see fleet.js): null until it's been decided
   engines: {},     // each motorboat's engine room: switches, battery and trim (see engine.js)
+  yard: null,      // Willowhaven Marine Works: the boats you own, a day's hire, paint, names, fittings (see shipyard.js)
+  economy: 'gentle', // 'gentle' | 'authentic': what fuel costs (see economy.js)
+  ledger: [],      // the last few payments in and out, as receipts
+  goodwillDay: 0,  // the day the harbour last saw you home on its fuel
   observed: {},    // species you've seen for yourself: id -> { count, day, hour, zone }
   trip: null,      // a fishing trip under way (see trip.js)
   trips: [],       // trips you've finished, with what they brought (the last twenty)
@@ -142,6 +148,7 @@ const fresh = () => {
   s.home = cleanHome(null, s);
   s.guide = cleanGuide(null);
   s.fuel = cleanFuel(null);
+  s.yard = cleanYard(null, VESSELS);
   s.dive = cleanDive(null);
   s.comfort = cleanComfort(null);
   s.today = newToday(s.day);
@@ -321,6 +328,11 @@ export function sanitize(raw) {
   s.music = raw.music !== false;
   s.quality = oneOf(raw.quality, CHOICES, 'auto');
   s.difficulty = oneOf(raw.difficulty, ['relaxed', 'standard', 'realistic'], 'standard');
+  s.economy = oneOf(raw.economy, ECONOMY_IDS, 'gentle');
+  s.ledger = cleanLedger(raw.ledger);
+  s.goodwillDay = Number.isInteger(raw.goodwillDay) ? raw.goodwillDay : 0;
+  // (A game from before the Marine Works owns every boat it had: it already knew where they were.)
+  s.yard = cleanYard(raw.yard, VESSELS, !isObj(raw.yard) && isObj(raw.boats));
   s.behaviour = oneOf(raw.behaviour, BEHAVIOUR_IDS, 'relaxed');
   s.fishView = oneOf(raw.fishView, ['first', 'shoulder'], 'first');
   s.sonar = !!raw.sonar;
