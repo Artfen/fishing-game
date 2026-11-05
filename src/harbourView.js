@@ -6,7 +6,7 @@ import { RODS, TACKLE } from './tackle.js';
 import { nextStory, adviceFor, rumoursNow, lower, an } from './innTalk.js';
 import { CHALLENGES } from './daybook.js';
 import { pay as payOut, earn as earnIn } from './economy.js';
-import { PRICES, hirePrice, PAINTS, PAINT_PRICE, NAME_PRICE, NAME_MAX, FITS, fitsFor, owns, hiredToday } from './shipyard.js';
+import { PRICES, hirePrice, PAINTS, PAINT_PRICE, NAME_PRICE, NAME_MAX, FITS, FIT_CATS, fitsFor, fitEffect, owns, hiredToday } from './shipyard.js';
 import { CREELS, ICE, BAIT, creelOf, newShop, onIce, freshBaitToday, wearOf, wearWords, respoolPrice, creelGroups, groupWords, creelWords, kgWords } from './shop.js';
 
 // The harbour's sheet: the fish market on Willowhaven quay (Mags Pennock at her slab), The Lobster
@@ -74,6 +74,30 @@ export class HarbourSheet {
 
   close() {
     this.el.hidden = true;
+    this.hooks.previewStop?.();
+  }
+
+  // The look at a boat (see boatPreview.js): a canvas the preview draws on, drag to turn her.
+  // try: a paint to try on her (hex), without buying it.
+  previewBlock(kind, tryPaint = null) {
+    const Y = this.state.yard, L = Y.looks[kind] || {};
+    const c = el('canvas', 'hb-preview');
+    c.id = 'hb-preview';
+    c.width = 1040;
+    c.height = 400;
+    c.setAttribute('aria-label', `The ${this.hooks.boatName(kind)}, turning slowly: drag to turn her`);
+    let x = null;
+    c.addEventListener('pointerdown', (e) => { x = e.clientX; c.setPointerCapture?.(e.pointerId); });
+    c.addEventListener('pointermove', (e) => { if (x != null) { this.hooks.previewTurn?.(e.clientX - x); x = e.clientX; } });
+    c.addEventListener('pointerup', () => { x = null; });
+    this.showPreview(kind, tryPaint);
+    return c;
+  }
+
+  showPreview(kind, tryPaint = null) {
+    const Y = this.state.yard, L = Y.looks[kind] || {};
+    const paint = tryPaint || (L.paint ? PAINTS.find((p) => p.id === L.paint)?.hex : null);
+    this.hooks.preview?.({ kind, paint, name: L.name || '', fits: Y.fits[kind] || [] });
   }
 
   button(text, run, cls = '') {
@@ -143,9 +167,13 @@ export class HarbourSheet {
   renderBoats() {
     const out = [], Y = this.state.yard, day = this.state.day, H = this.hooks;
     out.push(el('p', 'hb-say', 'Jory Tregear wipes his hands on a rag among the cradles and the smell of resin. “Buying, hiring, or come to look? A day’s hire is a fair way to find out if she suits you.”'));
-    for (const kind of H.yardKinds()) {
-      const row = el('div', 'cp-row');
+    const kinds = H.yardKinds();
+    this.viewKind = kinds.includes(this.viewKind) ? this.viewKind : kinds.find((k) => !owns(Y, k)) || kinds[0];
+    out.push(this.previewBlock(this.viewKind));
+    for (const kind of kinds) {
+      const row = el('div', `cp-row${kind === this.viewKind ? ' hb-viewing' : ''}`);
       const name = H.boatName(kind);
+      row.append(this.button('Look', () => { this.viewKind = kind; this.render(); }, kind === this.viewKind ? '' : 'quiet'));
       if (owns(Y, kind)) {
         row.append(el('p', '', `The ${name}`), el('span', 'cp-soft', 'yours'));
       } else if (hiredToday(Y, kind, day)) {
@@ -173,12 +201,18 @@ export class HarbourSheet {
     out.push(pick);
     if (!k) return out;
     const L = Y.looks[k] || {};
+    out.push(this.previewBlock(k));
     out.push(el('h3', '', `The ${H.boatName(k)}: ${L.paint ? PAINTS.find((p) => p.id === L.paint).name.toLowerCase() : 'as she came'}${L.name ? `, “${L.name}”` : ''}`));
     const chart = el('div', 'hb-paints');
     for (const p of PAINTS) {
       const b = this.button(p.name, () => H.yardPaint(k, p.id), L.paint === p.id ? '' : 'quiet');
       b.classList.add('hb-swatch');
       b.style.setProperty('--sw', p.hex);
+      // (Point at a colour to see it on her first.)
+      b.addEventListener('pointerenter', () => this.showPreview(k, p.hex));
+      b.addEventListener('focus', () => this.showPreview(k, p.hex));
+      b.addEventListener('pointerleave', () => this.showPreview(k));
+      b.addEventListener('blur', () => this.showPreview(k));
       chart.append(b);
     }
     out.push(chart);
@@ -194,24 +228,45 @@ export class HarbourSheet {
     return out;
   }
 
-  // Fittings that buy range and speed.
+  // Fitting her out (see shipyard.js): one boat at a time, her fittings by kind, each with what it
+  // weighs and draws, and a look at her with them on.
   renderFit() {
     const out = [], Y = this.state.yard, H = this.hooks;
-    out.push(el('p', 'hb-say', 'In the workshop, an outboard hangs on a stand with its cowling off. “Range or speed, then? Either fitted while you wait.”'));
+    out.push(el('p', 'hb-say', 'In the workshop, an outboard hangs on a stand with its cowling off. “What’ll it be: range, speed, electronics, something for the deck? Fitted while you wait.”'));
     const mine = H.yardKinds().filter((k) => owns(Y, k) && fitsFor(k).length);
-    if (!mine.length) out.push(el('p', 'cp-soft', 'None of your boats takes a fitting from the workshop: the motorboats do (the skiff, the bass boat, the cabin boat, the centre console, the RIB, the jet ski).'));
-    for (const k of mine) {
-      out.push(el('h3', '', `The ${H.boatName(k)}`));
-      for (const id of fitsFor(k)) {
-        const F = FITS[id], has = Y.fits[k]?.includes(id);
-        const row = el('div', 'cp-row');
-        row.append(el('p', '', F.name), el('span', 'cp-soft', F.desc));
-        row.append(has ? el('span', 'cp-soft', 'fitted') : this.button(`Fit it: ${money(F.price[k])}`, () => H.yardFit(k, id)));
+    if (!mine.length) {
+      out.push(el('p', 'cp-soft', 'None of your boats takes a fitting from the workshop: the motorboats do (the skiff, the bass boat, the cabin boat, the centre console, the RIB, the yacht, the jet ski), and the sailing boat a few.'));
+      return out;
+    }
+    this.fitKind = mine.includes(this.fitKind) ? this.fitKind : mine[0];
+    const k = this.fitKind;
+    const pick = el('div', 'hb-picks');
+    for (const kind of mine) pick.append(this.button(`The ${H.boatName(kind)}`, () => { this.fitKind = kind; this.render(); }, kind === k ? '' : 'quiet'));
+    out.push(pick, this.previewBlock(k));
+    const e = fitEffect(Y, k), have = Y.fits[k] || [];
+    out.push(el('p', 'hb-fit-sum', have.length
+      ? `Fitted: ${have.length} · carrying ${e.kg} kg more · drawing up to ${e.amps.toFixed(1)} A${e.house ? ' (on her house battery)' : ''}`
+      : 'As she came from the builder: nothing fitted yet.'));
+    for (const [cat, catName] of Object.entries(FIT_CATS)) {
+      const ids = fitsFor(k).filter((id) => FITS[id].cat === cat);
+      if (!ids.length) continue;
+      out.push(el('h4', 'hb-fit-cat', catName));
+      for (const id of ids) {
+        const F = FITS[id], fitted = have.includes(id);
+        const slotted = !fitted && F.slot ? have.find((x) => FITS[x].slot === F.slot) : null;
+        const row = el('div', `cp-row hb-fit${fitted ? ' on' : ''}`);
+        const text = el('div', 'hb-fit-text');
+        text.append(el('p', '', F.name), el('span', 'cp-soft', F.desc), el('span', 'hb-fit-meta', [F.kg ? `${F.kg} kg` : 'no weight to speak of', F.amps ? `draws ${F.amps} A` : null].filter(Boolean).join(' · ')));
+        row.append(text);
+        if (fitted) row.append(el('span', 'cp-soft', 'fitted'), this.button('Take it off', () => H.yardUnfit(k, id), 'quiet'));
+        else row.append(this.button(`${slotted ? `Swap for this` : 'Fit it'}: ${money(F.price[k])}`, () => H.yardFit(k, id)));
         out.push(row);
       }
     }
+    out.push(el('p', 'cp-soft', 'Everything here weighs something (she sits a touch lower and goes a touch slower for it) and the electronics and lights draw on her battery while the engine’s off. Nothing here does a thing for the fish’s appetite.'));
     return out;
   }
+
 
   /* ---- the market (and Paco buying from the boats) ---- */
 

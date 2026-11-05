@@ -2675,6 +2675,16 @@ body.sitting #lever, body.sitting #hint { display: none !important; }
 .hb-paints { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 8px 0 12px; }
 .hb-swatch { display: flex; align-items: center; gap: 8px; text-align: left; }
 .hb-swatch::before { content: ''; flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--sw); box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.18); }
+.hb-preview { display: block; width: 100%; height: auto; aspect-ratio: 1040 / 400; margin: 8px 0 10px; border-radius: 10px; background: #cfe0ea; box-shadow: inset 0 0 0 1px rgba(60, 40, 20, 0.18); cursor: grab; touch-action: none; }
+.hb-preview:active { cursor: grabbing; }
+.hb-viewing { background: rgba(255, 255, 255, 0.35); border-radius: 8px; }
+.hb-fit-sum { margin: 2px 0 6px; font: 700 14px var(--font-ui); color: var(--ink); }
+.hb-fit-cat { margin: 14px 0 4px; font: 800 12px var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); }
+.hb-fit { align-items: flex-start; }
+.hb-fit.on { background: rgba(120, 160, 110, 0.14); border-radius: 8px; }
+.hb-fit-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hb-fit-text p { margin: 0; flex: none; font-weight: 700; }
+.hb-fit-meta { font: 700 12px var(--font-ui); color: #6b5b48; }
 .hb-name { flex: 1; min-width: 0; min-height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(92, 64, 40, 0.4); background: rgba(255, 255, 255, 0.6); font: 600 16px var(--font-ui); color: var(--ink); }
 
 /* The journal's goals (see goals.js). */

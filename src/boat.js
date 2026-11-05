@@ -370,6 +370,8 @@ const CREW = 80; // kg, you
 // centreboard, as a well-set-up dinghy is) about over the board, so she holds her course with the
 // helm amidships and only rounds up a little when she heels.
 const SAIL_CE_Y = 2.1, SAIL_CE_AFT = 1.55;
+// (What an ordinary anchor holds, steadily, as a share of her weight: see holdAnchor.)
+const ANCHOR_HOLD = 0.12;
 // (How hard a sailing boat laid over in a gust gripes up into the wind: N·m per kg of her for each
 // (m/s)² of her speed. See the sail's overpowered.)
 const ROUND_UP = 0.35;
@@ -441,6 +443,8 @@ export class Boat {
     // 0 … 1, just now.)
     this.sheetHelp = true;
     this.overpowered = 0;
+    this.payload = 0;       // kg carried beyond her own weight (fittings, extra fuel: see the game)
+    this.anchorHold = 1;    // how hard her anchor holds (a heavier one: more; see holdAnchor)
     // Out on the crossing (see crossing.js): the sail shortened in a blow (1 full … less, reefed),
     // and the fastest a motor boat can be driven in the ocean's long swell (m/s).
     this.reef = 1;
@@ -1581,6 +1585,81 @@ export class Boat {
   }
 
   // The cabin's light for the hour: night (0 … 1), and whether you're inside.
+  // Her fittings from the Marine Works, to see (see shipyard.js): screens at the helm, a whip
+  // aerial, a battery box, floodlights, a livewell, rod holders on the gunwale, a bimini top, a
+  // heavier anchor on the bow, a bigger outboard. list: the fitting ids.
+  setFits(list = []) {
+    const key = [...list].sort().join(',');
+    if (key === this.fitKey) return;
+    this.fitKey = key;
+    if (this.fitGroup) {
+      this.fitGroup.traverse((o) => o.geometry?.dispose());
+      this.fitGroup.removeFromParent();
+    }
+    const H = this.hull, g = (this.fitGroup = new THREE.Group()), parts = [];
+    const has = (id) => list.includes(id);
+    const y0 = H.floorY ?? 0.1, helm = H.standing?.helm, hx = helm ? helm[0] : 0, hz = helm ? helm[1] : (H.seatZ ?? -H.L * 0.25);
+    const tOf = (z) => clamp((z + H.L / 2) / H.L, 0.02, 0.98);
+    const V = (x, y, z) => new THREE.Vector3(x, y, z);
+    const box = (w, h, d, x, y, z, color, rx = 0) => parts.push({ geo: new THREE.BoxGeometry(w, h, d), matrix: mat(x, y, z, rx, 0, 0), color });
+    // (Screens on a little pod ahead of the helm: the sounder's and the plotter's.)
+    const screen = (x, glow) => {
+      box(0.24, 0.16, 0.04, x, y0 + 1.02, hz + 0.42, '#15181c', -0.5);
+      box(0.2, 0.12, 0.005, x, y0 + 1.03, hz + 0.398, glow, -0.5);
+    };
+    if (has('sonar')) {
+      screen(hx + 0.2, '#1d4f9a');
+      box(0.14, 0.06, 0.2, 0.22, H.keel(0.03) + 0.04, zAt(H, 0.01) + 0.08, '#1b1d20');
+    }
+    if (has('plotter')) screen(hx - 0.2, '#2f7a5a');
+    if (has('vhf')) {
+      const t = tOf(hz) + 0.04, x = -(hw(H, t) - 0.08);
+      parts.push(strut(V(x, sheer(H, t), zAt(H, t)), V(x, sheer(H, t) + 2.3, zAt(H, t) - 0.15), 0.012, 0.005, '#f1efe8'));
+    }
+    if (has('battery')) box(0.36, 0.24, 0.26, 0.28, y0 + 0.13, zAt(H, 0.12), '#24272b');
+    if (has('livewell')) {
+      box(0.62, 0.36, 0.42, -0.26, y0 + 0.19, zAt(H, 0.3), '#f2f0ea');
+      box(0.5, 0.03, 0.32, -0.26, y0 + 0.385, zAt(H, 0.3), '#d9d6cc');
+    }
+    if (has('holders')) {
+      for (const sd of [1, -1]) for (const t of [0.16, 0.3]) {
+        const x = sd * (hw(H, t) - 0.06), y = sheer(H, t), z = zAt(H, t);
+        this.rackRod(parts, V(x, y - 0.12, z), V(sd * 0.35, 1, -0.55), 1.7);
+      }
+    }
+    if (has('bimini')) {
+      const t1 = tOf(hz - 0.55), t2 = tOf(hz + 0.75), top = y0 + 1.95;
+      for (const t of [t1, t2]) for (const sd of [1, -1]) parts.push(strut(V(sd * (hw(H, t) - 0.06), sheer(H, t), zAt(H, t)), V(sd * 0.7 * hw(H, t), top, zAt(H, t)), 0.016, 0.016, '#c9cdd0'));
+      const w = 1.4 * Math.min(hw(H, t1), hw(H, t2)), d = zAt(H, t2) - zAt(H, t1) + 0.2;
+      box(w, 0.05, d, 0, top + 0.02, (zAt(H, t1) + zAt(H, t2)) / 2, '#2f4f63');
+    }
+    if (has('anchor')) box(0.16, 0.12, 0.3, 0, sheer(H, 0.97) + 0.07, zAt(H, 0.965), '#2a2c30');
+    if (has('lights')) {
+      for (const sd of [1, -1]) {
+        box(0.12, 0.08, 0.06, sd * 0.32, y0 + 1.82, hz + 0.1, '#1d2125');
+        box(0.1, 0.06, 0.005, sd * 0.32, y0 + 1.82, hz + 0.135, '#fff6dc');
+      }
+    }
+    if (parts.length) g.add(new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.15 })));
+    // The floods themselves: a light over the deck, off until it's dark (see setDeckLights).
+    this.deckLight = null;
+    if (has('lights')) {
+      const L = (this.deckLight = new THREE.PointLight('#fff4dd', 0, 16, 1.6));
+      L.position.set(0, y0 + 1.75, hz + 0.6);
+      g.add(L);
+    }
+    // (A bigger outboard sits a little bigger on her transom.)
+    if (this.motorGroup) this.motorGroup.scale.setScalar(has('power') ? 1.1 : 1);
+    this.body.add(g);
+  }
+
+  // The deck floodlights on or off (see setFits).
+  setDeckLights(on) {
+    if (!this.deckLight) return;
+    const want = on ? 3.2 : 0;
+    if (this.deckLight.intensity !== want) this.deckLight.intensity = want;
+  }
+
   setCabinLight(night, inside) {
     if (!this.cabinLight) return;
     const on = Math.max(night, inside ? 0.35 : 0);
@@ -2128,7 +2207,12 @@ export class Boat {
   // moment you come near or anything moves her.
   update(dt, t, throttle, steer, lanternLevel, far = false) {
     const fishing = this.pose.fishing > 0.5;
-    const b = this.phys, H = this.hull, m = b.m;
+    const phys = this.phys;
+    // (What she carries beyond her own weight: her fittings, and the fuel in a long-range tank.
+    // She sits lower and goes a little slower for it; her engine is no stronger.)
+    phys.m0 ??= phys.m;
+    phys.m = phys.m0 + (this.payload || 0);
+    const b = phys, H = this.hull, m = b.m;
     if (dt <= 0) return;
     const still = Math.hypot(b.v[0], b.v[2]) < 0.15 && Math.abs(b.w[1]) < 0.05 && !throttle && !steer && !this.shove && !this.air && this.vel.x === this._vx && this.vel.z === this._vz;
     if (far && still && !(this.anchor && this.anchor.phase !== 'set')) {
@@ -2230,7 +2314,7 @@ export class Boat {
       const gov = vf > this.vmax ? Math.exp(-(vf - this.vmax) * 2.5) : 1;
       // (Her momentum under way, see hydro.js surgeShare.)
       b.surge = M && !troll && !dead ? H.surge ?? 1 : 1;
-      const f = thrust * m * gov;
+      const f = thrust * b.m0 * gov;
       // Climbing onto the plane: through the hump (her speed about her own bow wave's, a Froude
       // number near one) her stern settles into the trough behind it and her bow rears up, then
       // she climbs over it and levels out on the plane. (H.hump: how far she rears, as a share of
@@ -2625,6 +2709,23 @@ export class Boat {
       A.z = this.pos.z + ((A.z - this.pos.z) * most) / ad;
     }
     const m = b.m, k = m * 8, c = 2 * Math.sqrt(k * m) * 0.7;
+    // In a real blow the anchor drags: once the steady pull on it (not a wave's snatch, which it
+    // rides) passes what it holds, it ploughs slowly across the bottom after her. An ordinary
+    // anchor holds through a gale, give or take, and drags in a storm; a heavier one on chain
+    // (anchorHold: see the Marine Works) holds more than twice as hard.
+    if (A.phase === 'set' && A.rope) {
+      const pull = A.rope.out.tension || 0;
+      A.steady = (A.steady ?? pull) + (pull - (A.steady ?? pull)) * Math.min(1, dt / 3);
+      const hold = ANCHOR_HOLD * (this.anchorHold || 1) * m * G;
+      const over = (A.steady - hold) / hold;
+      if (over > 0 && ad > 0.5) {
+        const v = Math.min(0.8, 0.5 * over) * dt;
+        A.x += ((this.pos.x - A.x) / ad) * v;
+        A.z += ((this.pos.z - A.z) / ad) * v;
+        if (!A.dragging) this.onAnchor?.('drag', this);
+        A.dragging = true;
+      } else if (over < -0.15) A.dragging = false;
+    }
     const to = (A.to ||= [0, 0, 0]);
     to[0] = A.x; to[1] = A.floor + 0.05; to[2] = A.z;
     const rope = (A.rope ||= { p: [this.fairlead.x, this.fairlead.y, this.fairlead.z], to, len, k, c, out: { tension: 0 } });
