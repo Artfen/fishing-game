@@ -57,6 +57,7 @@ import { wakes } from './world/wakes.js';
 import { Walker } from './walker.js';
 import { Effects } from './effects.js';
 import { sprayPoints, sprayRate, sprayVelocity } from './spray.js';
+import { FoamTracks, FoamTrailView } from './world/foamTrails.js';
 import { buildSeaLife, SEA_LIFE } from './world/sealife.js';
 import { buildWildlife } from './world/wildlife.js';
 import { seeSign, readSign, SIGNS, SEEN_AT, stepColour, colourKey, colourWords, NATURE, noteNature, groundsOf, groundWords } from './grounds.js';
@@ -331,6 +332,22 @@ const drifters = new Drifters(scene, habitat);
 const eco = new Ecosystem(habitat);
 const fishRenderer = new FishRenderer(scene, eco);
 const fx = new Effects(scene);
+// The long white trails boats leave on the sea (see world/foamTrails.js).
+const foamTracks = new FoamTracks(), foamView = new FoamTrailView(scene);
+function updateFoamTrails(t) {
+  const now = t;
+  const lay = (b, churn) => {
+    if (!b.group.visible) return;
+    const H = b.hull;
+    foamTracks.note(b, b.pos.x - b.fwd.x * H.L * 0.5, b.pos.z - b.fwd.z * H.L * 0.5, b.heading, b.speed, H.B * 1.6, H.L, churn, now);
+  };
+  // (Yours in the water, the harbour's out and about, and any friends' or visitors'.)
+  for (const b of boats) if (!isStored(b.kind) && b.kind !== state.trailer?.boat) lay(b, b.motor && !b.dry ? Math.abs(b.power || 0) : 0);
+  for (const b of Object.values(folkView.boats)) lay(b, b.speed > 2 ? 0.6 : 0);
+  for (const b of visitors.boats()) lay(b, b.speed > 2 ? 0.6 : 0);
+  foamTracks.step(now);
+  foamView.update(foamTracks, now, t, camera.position.x, camera.position.z, 0.3 + 0.7 * env.daylight);
+}
 // The water mirrors the world and shows every ripple (both scale with the graphics setting).
 const reflection = new Reflection();
 const ripples = new RippleField();
@@ -9181,6 +9198,7 @@ function tick(now, manual = false) {
   ecoTick(dt);
   handleClues();
   fx.update(dt, t, boat);
+  updateFoamTrails(t);
   // The sea life round you, and (after dark, some nights more than others) the sea glowing
   // wherever it's stirred: fish darting near the surface, a moving lure, a diver's kicks.
   {
