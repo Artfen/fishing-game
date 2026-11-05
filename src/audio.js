@@ -494,6 +494,64 @@ export class AudioScape {
     this.set(e.g.gain, on ? (jet ? 0.03 + level * 0.08 : diesel ? 0.05 + level * 0.08 : 0.035 + level * 0.07) : 0, on ? 0.3 : 0.6);
   }
 
+  // The starter turning her over: a grinding whirr that pulses with each compression (slower and
+  // heavier on a diesel), while on.
+  starter(on, diesel = false) {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    if (!this.st && on) {
+      const t0 = ctx.currentTime;
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = diesel ? 70 : 95;
+      const f = ctx.createBiquadFilter();
+      f.type = 'bandpass';
+      f.frequency.value = 420;
+      f.Q.value = 0.9;
+      const chug = ctx.createGain();
+      chug.gain.value = 0.55;
+      const lfo = ctx.createOscillator();
+      lfo.type = 'square';
+      lfo.frequency.value = diesel ? 5 : 7;
+      const depth = ctx.createGain();
+      depth.gain.value = 0.45;
+      lfo.connect(depth);
+      depth.connect(chug.gain);
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      const hiss = this.bed(this.white, [['bandpass', 1600, 0.7]], chug);
+      hiss.g.gain.value = 0.25;
+      o.connect(f);
+      f.connect(chug);
+      chug.connect(g);
+      g.connect(this.sfx);
+      o.start(t0);
+      lfo.start(t0);
+      this.st = { o, lfo, g };
+    }
+    if (!this.st) return;
+    this.set(this.st.o.frequency, diesel ? 70 : 95, 0.1);
+    this.set(this.st.lfo.frequency, diesel ? 5 : 7, 0.1);
+    this.set(this.st.g.gain, on ? 0.06 : 0, on ? 0.03 : 0.08);
+  }
+
+  // The power trim's electric motor whining while the switch is held.
+  trimWhine(on) {
+    if (!this.ctx) return;
+    if (!this.trimW && on) {
+      const ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'triangle';
+      o.frequency.value = 340;
+      g.gain.value = 0;
+      o.connect(g);
+      g.connect(this.sfx);
+      o.start(ctx.currentTime);
+      this.trimW = { o, g };
+    }
+    if (!this.trimW) return;
+    this.set(this.trimW.g.gain, on ? 0.012 : 0, on ? 0.05 : 0.1);
+  }
+
   // The car: a soft four-cylinder hum that rises with the revs, and gravel under the tyres with
   // the speed. level 0…1 (speed), throttle 0…1 (how hard you're pressing); running: the engine
   // is on (it idles while you sit at the wheel).

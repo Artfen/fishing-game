@@ -1,3 +1,4 @@
+import { hasEngine, cleanEngine, engineSave } from './engine.js';
 import { fishById } from './fish.js';
 import { RODS, TACKLE, TERMS, cleanGear } from './tackle.js';
 import { cleanShop, CREEL_MAX } from './shop.js';
@@ -70,6 +71,7 @@ export const DEFAULT_STATE = {
   seenSouth: '',   // the same for Las Brasas' chart, far to the south
   shipping: [],    // boats on the supply ship between the harbours: { kind, to ('south' or 'home'), due (game hours) }
   stored: null,    // your boats laid up ashore (kinds; see fleet.js): null until it's been decided
+  engines: {},     // each motorboat's engine room: switches, battery and trim (see engine.js)
   observed: {},    // species you've seen for yourself: id -> { count, day, hour, zone }
   trip: null,      // a fishing trip under way (see trip.js)
   trips: [],       // trips you've finished, with what they brought (the last twenty)
@@ -356,6 +358,8 @@ export function sanitize(raw) {
   // (A boat on the trailer is neither in the water nor laid up.)
   s.trailer = cleanTrailer(raw.trailer, VESSELS);
   const fleet = VESSELS.filter((k) => k !== s.trailer.boat);
+  // (Each boat's own, made sensible: see engine.js cleanEngine.)
+  s.engines = Object.fromEntries((isObj(raw.engines) ? Object.entries(raw.engines) : []).filter(([k, v]) => hasEngine(k) && isObj(v)).map(([k, v]) => [k, engineSave(cleanEngine(k, v))]));
   s.stored = cleanStored(raw.stored, fleet, isObj(raw.boats) ? Object.keys(raw.boats).filter((k) => k !== s.trailer.boat) : null);
   s.seenSouth = typeof raw.seenSouth === 'string' && raw.seenSouth.length <= 2000 && /^[A-Za-z0-9+/=]*$/.test(raw.seenSouth) ? raw.seenSouth : '';
   // A crossing under way (an older save has none: nothing to resume), and your crossings so far.

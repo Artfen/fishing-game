@@ -31,6 +31,8 @@ export class LeverUI {
     this.title = el('span', 'lv-title', 'Throttle');
     this.now = el('b', 'lv-now', 'Neutral');
     head.append(this.title, this.now);
+    // (The engine's gauges, in a line: the revs, the trim, anything wrong. See helmGauges.)
+    this.gauges = el('div', 'lv-gauges');
     this.body = el('div', 'lv-body');
     this.track = el('div', 'lv-track');
     this.fill = el('div', 'lv-fill');
@@ -45,7 +47,7 @@ export class LeverUI {
     this.motorBtn = el('button', 'lv-motor', 'Motor');
     this.motorBtn.type = 'button';
     this.keys = el('div', 'lv-keys');
-    root.append(head, this.body, this.stopBtn, this.motorBtn, this.keys);
+    root.append(head, this.gauges, this.body, this.stopBtn, this.motorBtn, this.keys);
     // Buttons press on the way down (no focus left behind, no click lost to a moving finger).
     const press = (b, fn) => b.addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -146,6 +148,8 @@ export class LeverUI {
     this.stopBtn.hidden = !s.kind;
     this.body.hidden = !s.kind;
     if (this.keys.innerHTML !== (s.keys || '')) this.keys.innerHTML = s.keys || '';
+    if (this.gauges.innerHTML !== (s.gauges || '')) this.gauges.innerHTML = s.gauges || '';
+    this.gauges.hidden = !s.gauges;
     if (!s.kind) return;
     const L = levers(s.kind), n = L.length - 1;
     // The handle sits on the chosen notch; the fill shows what the motor is giving, from neutral.

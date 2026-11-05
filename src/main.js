@@ -73,6 +73,8 @@ import { Placement } from './placement.js';
 import { Adventures, ADVENTURE_BY_ID, PAGES, KEEPSAKES } from './adventures.js';
 import { PhotoStore, capture, photoId, albumPage, download } from './photos.js';
 import { Haptics, STRENGTHS, engineFeel, lineFeel, slamFeel, knockFeel } from './haptics.js';
+import { PROFILES as ENGINES, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM } from './engine.js';
+import { HelmUI } from './helm.js';
 import { Memories } from './memories.js';
 import { whatsAbout, birdsWorking, weatherLines, notices, paintBoard } from './harbour.js';
 import { HarbourSheet, paintSlate, paintKitchenBoard } from './harbourView.js';
@@ -99,7 +101,7 @@ import { bendRod } from './props.js';
 import { FishFinder } from './sonar.js';
 import { setupTouch } from './touch.js';
 import { Gamepads, buttonFor, topDialog, focusables } from './gamepad.js';
-import { levers, nearest, step, setIndex, within, capIndex, leverWords, slide, valueAt, positionOf, displayIndex, positionAtIndex, leverPositionWords } from './throttle.js';
+import { levers, nearest, step, setIndex, within, capIndex, leverWords, slide, valueAt, positionOf, displayIndex, positionAtIndex, leverPositionWords, GEAR_IN } from './throttle.js';
 import { LeverUI } from './lever.js';
 import { anchorCheck, berthFor, berthAt, castOffCheck, canTow, towStep, TOW } from './mooring.js';
 import { Rope } from './rope.js';
@@ -560,6 +562,9 @@ for (const m of fishRenderer.meshes) hideFromReflection(m);
 // landing, and the bass boat at the Longmere boathouse. `boat` is whichever you're in (or
 // last used); the others float where you left them.
 const BOATS = Object.fromEntries(BOAT_KINDS.map((k) => [k, new Boat(scene, { kind: k })]));
+// Each motorboat's engine room (see engine.js): its switches, battery and trim, kept in the save.
+const engines = Object.fromEntries(BOAT_KINDS.filter(hasEngine).map((k) => [k, cleanEngine(k, state.engines?.[k])]));
+for (const [k, E] of Object.entries(engines)) BOATS[k].engine = E;
 // The car (see car.js): on the drive at home, or wherever you left it. If the ground where it
 // stood has changed (an update), it waits at its car park instead.
 const car = new Car(scene);
@@ -2846,6 +2851,267 @@ function easeForCast() {
   return true;
 }
 
+/* ---------------- the engine room (see engine.js) ---------------- */
+
+// How much of starting and stopping you do (Settings → Controls → Engine start-up).
+const startMode = () => settings.controls.start;
+// The engine room of the boat whose helm you're at (her engine runs only while you're there).
+const engineHere = () => {
+  const k = leverKind();
+  return k && boat.motor ? engines[k] || null : null;
+};
+const fuelOf = (kind) => (isPetrol(kind) ? fuelLevel(tanks(), kind) : 99);
+let helmKind = null, engineSay = '', engineSayUntil = 0, offWordT = 0, hotBeepT = 0, trimWordT = 0, trimming = false;
+const helmSay = (text, secs = 2.6, flash = true) => {
+  engineSay = text;
+  engineSayUntil = t + 6;
+  if (flash) hud.flash(text, t, secs);
+};
+
+// Something happened in the engine room: heard, felt and (where it matters) said.
+function engineEvent(e, E, kind) {
+  const P = ENGINES[kind], diesel = !!P.diesel;
+  if (e && typeof e === 'object') {
+    // The assisted start, one step at a time.
+    if (e.step === 'neutral') changeLever(0);
+    const words = { battery: 'Battery switch on', cord: 'Kill cord clipped on', neutral: 'Into neutral', key: 'Key on', glow: 'Warming the glow plugs', start: P.starter === 'pull' ? 'Pulling the cord' : 'Starting' };
+    if (e.ok === false && e.why) helmSay(e.why);
+    else if (words[e.step]) helmSay(`${words[e.step]}…`, 1.2, false);
+    return;
+  }
+  switch (e) {
+    case 'switch':
+      audio.tick?.(0.5);
+      haptics.pulse('switch');
+      break;
+    case 'selftest':
+      audio.beep?.();
+      break;
+    case 'glow':
+      audio.tick?.(0.4);
+      break;
+    case 'glowed':
+      audio.beep?.();
+      helmSay('The glow lamp goes out: start her now.', 2.4, startMode() === 'full');
+      break;
+    case 'pull':
+      audio.oar?.(0, 0.8);
+      haptics.pulse({ strong: 0.5, weak: 0.35, ms: 320, shape: 'swell' });
+      break;
+    case 'catch':
+      audio.knock?.(diesel ? 0.5 : 0.35);
+      haptics.pulse('catch');
+      if (startMode() !== 'go') helmSay(P.engines > 1 && !E.engines.every((x) => x.run) ? 'One running…' : 'She’s running.', 1.6, false);
+      if (startMode() === 'full') teach('engineRunning', `She’s running: water from the telltale says the cooling’s working. Into gear gently, then trim the leg out a little (${scheme() === 'pad' ? 'RB' : K('trimUp')}) once she’s up and flying.`, 7);
+      break;
+    case 'stop':
+      audio.knock?.(0.2);
+      haptics.pulse('stall', 0.5);
+      break;
+    case 'cordStop':
+      helmSay('The kill cord is off: the engine stops.');
+      break;
+    case 'stall':
+      haptics.pulse('stall');
+      break;
+    case 'dry':
+      helmSay('She turns over but won’t catch: the tank is dry.');
+      break;
+    case 'click':
+    case 'flat':
+      haptics.pulse('switch');
+      audio.tick?.(0.7);
+      flatBattery(kind);
+      break;
+    case 'hot':
+      haptics.pulse('warn');
+      helmSay(P.cooling === 'telltale' ? 'Overheat alarm! No water through the engine: trim the leg down into the water.' : 'Overheat alarm! Ease off and let her cool.', 4);
+      break;
+    case 'cool':
+      helmSay('The alarm stops: water’s coming through again.');
+      break;
+    case 'refuse':
+      audio.tick?.(0.3);
+      break;
+    default:
+  }
+}
+
+// A flat battery is never the end of a trip: an outboard has its emergency starter rope, the
+// diesels a second battery to switch over to.
+let flatAsked = 0;
+function flatBattery(kind) {
+  const E = engines[kind], P = ENGINES[kind];
+  if (t < flatAsked + 4 || !$('confirm').hidden) return;
+  flatAsked = t;
+  const inboard = P.drive === 'inboard';
+  ask('The battery is flat', inboard
+    ? 'The starter only clicks: the engine battery is flat. The house battery will turn her over: switch across, start her, and the engines will charge both again.'
+    : 'The starter only clicks: the battery is flat. Under the cowling there’s an emergency starter rope: wind it round the flywheel and pull. Once she’s running, she charges the battery again.', [
+    { text: 'Not now', cls: 'quiet' },
+    {
+      text: inboard ? 'Switch to the house battery' : 'Pull the emergency rope',
+      run: () => {
+        if (inboard) {
+          E.charge = Math.max(E.charge, 0.6);
+          engineEvent('switch', E, kind);
+          helmSay('The house battery is on: try her now.');
+        } else {
+          for (const x of E.engines) x.run = true;
+          engineEvent('pull', E, kind);
+          engineEvent('catch', E, kind);
+        }
+      },
+    },
+  ]);
+}
+
+// Something done at the helm (a switch, the key, the starter): done, or why not.
+function engineAct(action, which = null) {
+  const k = leverKind(), E = k ? engines[k] : null;
+  if (!E || !boat.motor) return;
+  const r = engineDo(E, action, { lever: boat.lever, fuel: fuelOf(k) }, which);
+  for (const e of r.events) engineEvent(e, E, k);
+  if (!r.ok && r.why) helmSay(r.why);
+}
+
+// The engine key (U, or L3): the helm panel on the full procedure; on the one-button start, it
+// starts her (the same steps, done for you) or stops her.
+function engineKey() {
+  const k = leverKind(), E = k ? engines[k] : null;
+  if (!E) return;
+  const mode = startMode();
+  if (mode === 'go') {
+    hud.flash('She runs whenever you’re at the helm. (Settings → Controls: Engine start-up, for the key and the switches.)', t, 3.5);
+    return;
+  }
+  if (mode === 'full') {
+    openHelm();
+    return;
+  }
+  if (engineRunning(E) || engineCranking(E) || E.auto) {
+    E.auto = null;
+    engineAct('stop');
+    helmSay('Engine off.', 1.4);
+  } else {
+    engineAssist(E, { lever: boat.lever });
+    engineSay = '';
+  }
+}
+
+const helmUI = new HelmUI($('helm'), {
+  act: (a, w) => { if (modal === 'helm') engineAct(a, w); },
+  assist: () => {
+    const E = engineHere();
+    if (E && modal === 'helm') engineAssist(E, { lever: boat.lever });
+  },
+  trim: (d) => {
+    const E = engineHere();
+    if (!E || modal !== 'helm') return;
+    // (A press: a couple of degrees of trim, or most of the way up or down in the tilt range.)
+    const why = trimBy(E, d, E.trim >= TRIM.max || ENGINES[E.kind].trim === 'tilt' ? 1.2 : 0.35, boat.forwardSpeed);
+    audio.tick?.(0.3);
+    if (why === 'fast') helmSay('Slow down to tilt her right up: under way the trim stops at the top of its range.');
+  },
+  close: () => closeHelm(),
+});
+function openHelm() {
+  const k = leverKind();
+  if (modal || !k || !engines[k]) return;
+  helmUI.open(k, BOATS[k].hull.name || cap(k));
+  modal = 'helm';
+  audio.page?.();
+  teach('helmPanel', 'The helm: the battery switch, the kill cord, neutral, then the key (on, and turned to start). Assisted start does each step for you. B or Esc closes it; the engine key opens it again.', 9);
+}
+function closeHelm() {
+  if (!helmUI.isOpen) return;
+  helmUI.close();
+  if (modal === 'helm') modal = null;
+}
+
+// Once a frame: the engine of the boat whose helm you're at runs (and stops when you leave it),
+// the starter turns her over, the revs follow the throttle, the alarm sounds if she overheats,
+// and you trim the leg.
+function updateEngine(dt) {
+  const k = leverKind(), E = k && boat.motor ? engines[k] : null;
+  const mode = startMode();
+  // Left the helm: her engine stops (switched off as you go).
+  if (helmKind && helmKind !== (E ? k : null)) {
+    const L = engines[helmKind];
+    if (L && (engineRunning(L) || engineCranking(L) || L.auto)) {
+      L.auto = null;
+      engineDo(L, 'stop');
+    }
+    closeHelm();
+  }
+  helmKind = E ? k : null;
+  for (const [kind, B] of Object.entries(BOATS)) if (B.engine) B.trimAuto = mode === 'go' || !ENGINES[kind].trim;
+  audio.starter?.(!!E && engineCranking(E), !!E && !!ENGINES[k].diesel);
+  if (!E) {
+    trimming && audio.trimWhine?.(false);
+    trimming = false;
+    return;
+  }
+  const P = ENGINES[k], fuel = fuelOf(k);
+  // Get in and go (and the sailing boat's little outboard, lowered, on the one-button start):
+  // running as soon as you take the helm.
+  if ((mode === 'go' || (mode === 'simple' && k === 'sail')) && !engineRunning(E) && !engineCranking(E) && fuel > 0) {
+    E.battery = true;
+    E.cord = true;
+    if (P.starter === 'key') E.key = true;
+    E.warm = Math.max(E.warm, 0.6);
+    for (const x of E.engines) if (!x.run) { x.crank = 1e-6; x.need = 0.35; }
+  }
+  const pos = boat.power ? Math.abs(positionOf(k, boat.power)) : 0;
+  const opening = clamp((pos - GEAR_IN) / (1 - GEAR_IN), 0, 1);
+  const ev = stepEngine(E, dt, { lever: boat.lever, power: boat.power, opening, fuel, wet: boat.intakeWet !== false, speed: boat.forwardSpeed });
+  for (const e of ev) engineEvent(e, E, k);
+  if (engineCranking(E)) haptics.hold('crank', P.diesel ? 0.45 : 0.35, 0.3, { buzz: P.diesel ? 5 : 7 });
+  // The overheat alarm, beeping while she's hot.
+  if (engineRunning(E) && E.temp >= 0.6) {
+    hotBeepT -= dt;
+    if (hotBeepT <= 0) {
+      hotBeepT = 1.4;
+      audio.beep?.();
+    }
+  }
+  // Trim: held up or down (the bumpers, or ] and [).
+  const dir = modal ? 0 : (input.holding('trimUp') ? 1 : 0) - (input.holding('trimDown') ? 1 : 0);
+  if (dir && P.trim) {
+    const why = trimBy(E, dir, dt, boat.forwardSpeed);
+    haptics.hold('trim', 0, why ? 0.03 : 0.1);
+    if (why === 'fast' && t > trimWordT) {
+      trimWordT = t + 4;
+      hud.flash('Slow down to tilt her right up: under way the trim stops at the top of its range.', t, 2.6);
+    }
+    if (!trimming) teach('trim', 'Trim: in (down) to get her up onto the plane quickly, then out a little once she’s flying for her best speed. Too far out and the propeller draws air; at rest it tilts the leg right up for the shallows.', 9);
+  }
+  if (!!dir !== trimming) audio.trimWhine?.(!!dir);
+  trimming = !!dir && !!P.trim;
+  // A word when the throttle's pushed with the engine off.
+  if (!engineRunning(E) && !engineCranking(E) && !E.auto && boat.lever && !boat.dry && t > offWordT + 4 && mode !== 'go' && !modal) {
+    offWordT = t;
+    hud.flash(`The engine’s off: ${mode === 'full' ? `${K('motor')} for the helm panel` : `${K('motor')} starts her`}.`, t, 2.4);
+  }
+  if (t > engineSayUntil) engineSay = '';
+  helmUI.update(E, { lever: boat.lever, fuel, gear: boat.lever > 0 ? 'F' : boat.lever < 0 ? 'R' : 'N', message: engineSay });
+}
+
+// The gauges beside the throttle lever: the revs, the trim and anything wrong.
+function helmGauges() {
+  const E = engineHere();
+  if (!E) return '';
+  const P = ENGINES[E.kind], on = engineRunning(E);
+  if (!on && !engineCranking(E)) return `<span class="lv-off">Engine off</span>`;
+  const bits = [`<b>${Math.round(rpmOf(E) / 50) * 50}</b> rpm`];
+  // (Trimming herself, the angle she's at.)
+  const tr = boat.trimAuto ? boat.legAngle || 0 : E.trim;
+  if (P.trim) bits.push(tr > TRIM.max ? 'tilted' : `trim ${Math.round(tr)}°${boat.trimAuto && tr <= TRIM.max ? ' (auto)' : ''}`);
+  if (E.temp >= 0.6) bits.push('<span class="lv-warn">HOT</span>');
+  if (P.engines > 1 && !E.engines.every((x) => x.run)) bits.push('<span class="lv-warn">one engine</span>');
+  return bits.join(' · ');
+}
+
 // A fish takes while you're under way: you knock the motor out of gear.
 let fishWas = 'idle';
 function watchHookup() {
@@ -3056,6 +3322,7 @@ function updateLever() {
     words: !kind ? 'paddling' : boat.anchored ? 'at anchor' : dead ? (kind === 'kayak' ? 'battery flat' : 'motor dead') : cap(smooth ? leverPositionWords(leverPos(kind)) : leverWords(kind, boat.lever)),
     title: kind === 'kayak' ? 'Kayak motor' : kayak ? 'Kayak' : outboard ? 'Outboard' : 'Throttle',
     motor: kayak ? (boat.emotorDown ? 'down' : 'up') : outboard ? 'outboard' : null, keys,
+    gauges: helmGauges(),
   });
 }
 
@@ -4491,6 +4758,15 @@ function interaction() {
   }
   // A dry tank: the jerry can, a tow, or an oar.
   if (isPetrol(boat.kind) && boat.motor && fuelLevel(tanks(), boat.kind) <= 0 && boat.speed < 1) return { text: 'Out of fuel: what now?', run: () => boatChoices() };
+  // At the helm with the engine off: start her (or the helm panel, on the full procedure).
+  {
+    const E = engineHere();
+    if (E && startMode() !== 'go' && !engineRunning(E) && !engineCranking(E) && !E.auto && !fishing.lineOut) {
+      const P = ENGINES[E.kind];
+      if (startMode() === 'full') return { text: 'The helm: start her up', run: () => openHelm() };
+      return { text: P.starter === 'pull' ? 'Pull the starter cord' : 'Start the engine', run: () => engineKey() };
+    }
+  }
   // The cabin boat, stopped: its galley and bunk (or over the side for a dive).
   const entry = !fishing.lineOut ? diveEntry() : null;
   if (boat.hull.cabin && !fishing.lineOut && canEnterCabin(boat)) {
@@ -6733,6 +7009,7 @@ function padContext() {
   if (fishing.state === 'reeling') return 'fight';
   // (A line out from a boat under power: the D-pad works the throttle.)
   if (fishing.busy) return leverKind() ? 'troll' : 'fish';
+  if (!onFoot && !cabinIn && boat.motor && ENGINES[boat.kind]?.trim) return 'helmtrim';
   if (!onFoot && !cabinIn && (boat.motor || boat.hull.emotor || boat.hull.sail || boat.hull.rig)) return 'helm';
   return 'play';
 }
@@ -6846,6 +7123,12 @@ function currentHint() {
     const word = boat.anchored ? 'at anchor' : dead ? (kind === 'kayak' ? 'battery flat' : 'the motor’s dead: an oar, slowly') : smooth ? leverPositionWords(leverPos(kind)) : leverWords(kind, lv);
     const notch = smooth ? 'throttle' : 'a notch';
     const fuel = kind === 'kayak' ? batteryWords(tanks(), 'kayak') : fuelHint(boat.kind);
+    // (The engine off, on the one-button start or the full procedure: how to start her.)
+    const Eo = engineHere();
+    if (Eo && !engineRunning(Eo) && !engineCranking(Eo) && !Eo.auto && startMode() !== 'go' && !boat.dry) {
+      const how = startMode() === 'full' ? 'the helm panel' : ENGINES[Eo.kind].starter === 'pull' ? 'pull the starter cord' : 'start the engine';
+      return T ? `Engine off · tap the prompt to ${how}` : `Engine off · ${K('motor')} ${how} · ${fuel}`;
+    }
     const motor = kind === 'kayak' ? ` · ${T ? 'Raise motor to paddle' : `${K('motor')} raise it and paddle`}` : kind === 'sail' ? ` · ${T ? 'Raise the outboard on the lever' : `${K('outboard')} outboard up`}` : '';
     if (T) return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · the stick: up or down ${smooth ? 'for the throttle' : 'a notch'}, across to steer · Stop on the lever · ${fuel}`;
     if (P) return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · ${kbd('L-stick')} ↕ ${notch}, ↔ steer · ${K('neutral')} stop · ${K('anchor')} anchor${motor} · ${fuel}`;
@@ -7345,6 +7628,7 @@ function save() {
   }
   const kindOf = (b) => Object.keys(BOATS).find((k) => BOATS[k] === b);
   state.tow = tow ? { lead: kindOf(tow.lead), towed: kindOf(tow.towed) } : null;
+  state.engines = Object.fromEntries(Object.entries(engines).map(([k, E]) => [k, engineSave(E)]));
   state.vessel = boat.kind;
   state.mode = onFoot ? 'foot' : 'boat';
   state.walker = onFoot ? { x: walker.pos.x, z: walker.pos.z, heading: walker.heading } : null;
@@ -7997,6 +8281,10 @@ input.on('press', (code, acts) => {
     if (code === 'Escape') closeBench();
     return;
   }
+  if (modal === 'helm') {
+    if (code === 'Escape' || is('motor')) closeHelm();
+    return;
+  }
   if (modal === 'outsheet') {
     if (code === 'Escape' || (is('interact') && outSheet.mode !== 'drive')) closeOut();
     return;
@@ -8112,8 +8400,10 @@ input.on('press', (code, acts) => {
   else if (is('throttleUp') && leverKind()) stepLever(1);
   else if (is('throttleDown') && leverKind()) stepLever(-1);
   else if (is('motor')) {
+    // (At a motorboat's helm: the engine.)
+    if (!onFoot && !driving && !cabinIn && boat.hull.motor && engines[boat.kind]) engineKey();
     // (On a controller, the sailing boat's one button goes round sail, outboard and oars.)
-    if (!onFoot && !driving && !cabinIn && boat.hull.sail) {
+    else if (!onFoot && !driving && !cabinIn && boat.hull.sail) {
       if (pads.active && boat.sailUp) toggleOutboard();
       else if (pads.active && boat.outboardDown) toggleOutboard();
       else toggleSail();
@@ -8482,9 +8772,13 @@ function tick(now, manual = false) {
       boat.setEMotor(false);
       hud.flash('The kayak’s battery is flat: the motor’s up, paddle on. It charges at a jetty, and overnight.', t, 5);
     }
-    if (boat.motor && throttle && !onFoot) {
+    // (Only while her engine runs: a little at idle, more with the throttle. The bass boat's
+    // electric notches run on its battery, engine or no.)
+    const Eb = engines[boat.kind], troll = boat.hull.motor?.troll || 0;
+    const electric = troll && throttle > 0 && throttle <= troll;
+    if (boat.motor && !onFoot && (electric || ((!Eb || engineRunning(Eb)) && (throttle || Eb)))) {
       // (The sailing boat's outboard has no electric notches: it's hull.outboard, not hull.motor.)
-      const ran = burnBoat(f, boat.kind, throttle, dt, boat.hull.motor?.troll || 0);
+      const ran = burnBoat(f, boat.kind, throttle || 0.06, dt, throttle ? troll : 0);
       const what = scheme() === 'touch' ? 'tap the prompt' : K('interact');
       if (ran === 'dry') hud.flash(`The outboard splutters and stops: the tank is dry. An oar moves her along, slowly; stop, then ${what} for the jerry can or a tow.`, t, 6);
       if (ran === 'flat') hud.flash('The electric motor whines down: the battery is flat. It charges at a jetty, and overnight; the outboard still runs.', t, 5);
@@ -8498,6 +8792,7 @@ function tick(now, manual = false) {
       if (driving) watchTank('car');
     }
   }
+  if (started) updateEngine(dt);
   boat.update(dt, t, throttle, steer, env.lantern);
   // (The others: any lying still a long way from you rest; see Boat.update.)
   for (const b of boats) {
@@ -8527,10 +8822,12 @@ function tick(now, manual = false) {
   // almost silent, and doesn't bother them.)
   // (The kayak's motor is electric too: a faint hum.)
   const kayakOn = !onFoot && boat.kind === 'kayak' && boat.emotorDown && !boat.kflat;
-  const motorOn = !onFoot && ((boat.motor && !(boat.trolling ? boat.flat : boat.dry)) || kayakOn);
+  // (With an engine room, only while her engine runs: see engine.js.)
+  const Eh = !onFoot ? engines[boat.kind] : null;
+  const motorOn = !onFoot && ((boat.motor && (boat.trolling ? !boat.flat : !boat.dry && (!Eh || engineRunning(Eh)))) || kayakOn);
   const outboard = motorOn && boat.motor && !boat.trolling;
   const voice = onFoot ? '' : boat.hull.motor?.jet ? 'jet' : boat.hull.motor?.inboard ? 'inboard' : '';
-  audio.engine?.(motorOn ? (outboard ? Math.max(0.12, Math.abs(boat.power) * (boat.tilted ? 0.5 : 1)) : 0.03 + Math.abs(boat.power) * 0.02) : 0, voice);
+  audio.engine?.(motorOn ? (outboard ? Math.max(0.12, Eh ? engineRevs(Eh) : Math.abs(boat.power) * (boat.tilted ? 0.5 : 1)) : 0.03 + Math.abs(boat.power) * 0.02) : 0, voice);
   feelBoat(motorOn, outboard, voice);
   // The windsurf board up on the plane for the first time: a word.
   if (!onFoot && boat.hull.rig && boat.planing > 0.8) teach('planing', 'Planing! The board’s up on the water and flying. Keep the sheet just in, and ease out in the gusts.', 6);
