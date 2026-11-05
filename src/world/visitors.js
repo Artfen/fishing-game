@@ -184,6 +184,46 @@ export class VisitorView {
     } else if (d.float) d.float.visible = false;
   }
 
+  // A friend has just landed a fish: on foot, they hold it up for a few seconds.
+  holdUp(id, kg) {
+    const d = this.drawn.get(id);
+    if (!d) return;
+    d.lift = 5;
+    d.liftKg = kg;
+  }
+
+  // A friend's fish fighting at the end of their line, as they see it: the water boiling where it
+  // runs, a crash as it leaps, spray as it shakes its head at the top, a wake as it charges or
+  // streaks off; nothing at the top while it's deep (diving, sounding, circling below).
+  fishAtEnd(d, P, dt, t, fx) {
+    if (!fx || !P.o || !d.end) {
+      d.mvWas = null;
+      return;
+    }
+    const x = d.end.x, z = d.end.z, mv = P.mv || 'run';
+    if (mv !== d.mvWas) {
+      d.mvWas = mv;
+      if (mv === 'jump') {
+        fx.splash(x, 0.05, z, 18, 2.4, 0.8);
+        fx.ripple(x, z, 1.8, 1.4, 0.6);
+      } else if (mv === 'run' || mv === 'longrun' || mv === 'charge') fx.ripple(x, z, 1.4, 1.2, 0.5);
+    }
+    d.fishT = (d.fishT || 0) - dt;
+    if (d.fishT > 0) return;
+    if (mv === 'shake') {
+      d.fishT = 0.22;
+      fx.splash(x, 0.05, z, 6, 1.5, 0.5);
+    } else if (mv === 'run' || mv === 'longrun' || mv === 'charge') {
+      d.fishT = 0.12;
+      fx.ripple(x, z, 0.5, 0.8, 0.3);
+    } else if (mv === 'jump') {
+      d.fishT = 0.3;
+    } else {
+      d.fishT = 1.2;
+      if (mv !== 'sound' && mv !== 'dive') fx.ripple(x, z, 0.8, 1, 0.3);
+    }
+  }
+
   // Hide (and let go of) someone who has left.
   forget(id) {
     const d = this.drawn.get(id);
@@ -217,13 +257,20 @@ export class VisitorView {
       let tip = null;
       if (onFoot) {
         const f = this.figureFor(d, p.id);
-        const act = P.o ? 'fish' : P.a === 'walk' || (A.v > 0.4 && P.a !== 'sit') ? 'walk' : P.a;
+        // (Just landed one: held up for you to see, a few seconds.)
+        d.lift = Math.max(0, (d.lift || 0) - dt);
+        const act = P.o ? 'fish' : d.lift > 0 && A.v < 0.4 ? 'lift' : P.a === 'walk' || (A.v > 0.4 && P.a !== 'sit') ? 'walk' : P.a;
         f.update(dt, t, { act, pos: A, yaw: A.h }, walkHeight(A.x, A.z));
         // A fish on: the rod up and working, pumping as they play it (bent harder the more load
         // there is on the line).
         if (P.o) {
           f.rod.visible = true;
           f.rod.rotation.x = 2.05 - (P.tn ?? 0.4) * 0.25 + Math.sin(t * 6.5 + d.look.coat.length) * 0.14;
+        }
+        if (act === 'lift') {
+          // (About as big as the fish: its length goes with the cube root of its weight.)
+          const k = clamp(Math.cbrt((d.liftKg || 1) / 0.6), 0.6, 3.2);
+          f.fish.scale.set(0.05 * k, 0.035 * k, 0.16 * k);
         }
         if (act === 'fish') {
           this.rodLook(d, f, P.r);
@@ -238,6 +285,7 @@ export class VisitorView {
         if (P.f || P.o) tip = b.rodTip;
       }
       this.drawLine(d, P, tip, dt, t);
+      this.fishAtEnd(d, P, dt, t, fx);
       // Their other boats in the water, lying where they left them (not the one they're in).
       const keep = new Set();
       for (const F of p.fleet || []) {

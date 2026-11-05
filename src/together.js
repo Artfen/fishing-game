@@ -67,6 +67,9 @@ const LAGS = 40;            // messages (about ten seconds' worth) to judge the 
 const CATCH_UP = 0.05;      // how much faster or slower than real time a friend's replay may run
 const ACTS = ['walk', 'stand', 'fish', 'sit'];
 const LINE_REACH = 250;     // m: the furthest a line's end may be from whoever's fishing it
+// With a fish on, what it's doing just now (see fight.js), so friends can see it at the end of
+// the line: running, leaping, shaking its head, charging, diving, on a long run, sounding, circling.
+export const FISH_MOVES = ['run', 'jump', 'shake', 'charge', 'dive', 'longrun', 'sound', 'circle'];
 
 /* ---------------- names and codes ---------------- */
 
@@ -125,6 +128,7 @@ export function cleanPose(p, kinds = null, gear = null) {
     }
     const tn = out.o ? finite(p.tn, 0, 1.3) : null;
     if (tn != null) out.tn = tn;
+    if (out.o && FISH_MOVES.includes(p.mv)) out.mv = p.mv;
   }
   return out;
 }
@@ -924,6 +928,7 @@ export class Together {
       if (P.i) msg.i = P.i;
       if (P.ex != null && P.ez != null) Object.assign(msg, { ex: r2(P.ex), ez: r2(P.ez) });
       if (P.o && P.tn != null) msg.tn = r2(P.tn);
+      if (P.o && P.mv) msg.mv = P.mv;
     }
     const S = this.sent;
     // (Slowing down or stopping counts too, so nobody's carried on past where you stopped; so does
@@ -931,7 +936,7 @@ export class Together {
     const moved = !S || S.m !== msg.m || S.k !== msg.k || S.a !== msg.a || S.f !== msg.f || S.s !== msg.s || S.n !== msg.n || S.o !== msg.o
       || Math.hypot(S.x - msg.x, S.z - msg.z) > 0.25 || Math.abs(S.h - msg.h) > 0.05 || Math.hypot(S.vx - msg.vx, S.vz - msg.vz) > 0.3
       || S.r !== msg.r || S.i !== msg.i || (S.ex == null) !== (msg.ex == null) || (msg.ex != null && Math.hypot(S.ex - msg.ex, S.ez - msg.ez) > 0.3)
-      || Math.abs((S.tn ?? 0) - (msg.tn ?? 0)) > 0.12;
+      || Math.abs((S.tn ?? 0) - (msg.tn ?? 0)) > 0.12 || S.mv !== msg.mv;
     if (!now && (this.sendT > 0 || (!moved && this.clock - (S?.at ?? -99) < IDLE_EVERY))) return;
     this.rt.send('pose', { id: this.id, n: this.name(), host: this.hosting, t: Math.round(this.now() * 1000) / 1000, p: msg });
     this.sent = { ...msg, at: this.clock };
@@ -1022,7 +1027,7 @@ export class Together {
   /* ---------- every frame ---------- */
 
   // me: where you are now ({ m, x, z, h, k?, f?, s?, n?, a?, o?, and fishing r?, i?, ex?, ez?,
-  // tn? }), or null to send nothing.
+  // tn?, mv? }), or null to send nothing.
   update(dt, me) {
     this.clock += dt;
     this.sendT -= dt;

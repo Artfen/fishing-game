@@ -568,3 +568,50 @@ test('a friend fishing: their rod, what’s on it, where their line meets the wa
   b.leave();
   await until(() => hub.sockets.size === 0);
 });
+
+test('a friend’s fish fights where you can see it, and a catch is held up', async () => {
+  const THREE = await import('three');
+  const { VisitorView } = await import('../src/world/visitors.js');
+  const kinds = ['row', 'skiff'];
+  // What the fish is doing goes across only with a fish on, and only as one of the moves.
+  assert.equal(cleanPose({ m: 'foot', x: 0, z: 0, h: 0, a: 'fish', o: 1, mv: 'jump' }, kinds).mv, 'jump');
+  assert.equal(cleanPose({ m: 'foot', x: 0, z: 0, h: 0, a: 'fish', o: 1, mv: 'teleport' }, kinds).mv, undefined);
+  assert.equal(cleanPose({ m: 'foot', x: 0, z: 0, h: 0, a: 'fish', mv: 'jump' }, kinds).mv, undefined);
+
+  const scene = new THREE.Scene(), view = new VisitorView(scene);
+  const fx = { splashes: 0, ripples: 0, splash() { this.splashes++; }, ripple() { this.ripples++; } };
+  const peer = (pose) => {
+    const p = { id: 'sam', name: 'Sam', pose, view: pose, at: { x: pose.x, z: pose.z, h: pose.h, v: 0 } };
+    return new Map([['sam', p]]);
+  };
+  const play = (pose, secs) => {
+    const peers = peer(pose);
+    for (let i = 0; i < secs * 30; i++) view.update(1 / 30, i / 30, peers, { from: { x: 0, z: 0 }, fx });
+  };
+  // On a pier-like spot at the origin, a line out 15 m with a fish on: a leap is a crash of spray.
+  const base = { m: 'foot', x: 0, z: 0, h: 0, vx: 0, vz: 0, a: 'fish', o: true, r: 'spin', i: 'spinner', ex: 0, ez: 15, tn: 0.6 };
+  play({ ...base, mv: 'run' }, 1);
+  const s0 = fx.splashes;
+  play({ ...base, mv: 'jump' }, 0.5);
+  assert.ok(fx.splashes > s0, 'a leap throws up spray');
+  // Sounding deep, nothing shows at the top.
+  const s1 = fx.splashes, r1 = fx.ripples;
+  play({ ...base, mv: 'sound' }, 3);
+  assert.equal(fx.splashes, s1);
+  assert.ok(fx.ripples - r1 <= 1, `${fx.ripples - r1} ripples while it's deep`);
+  // Their line is drawn while it's on, and gone when they reel in.
+  const d = view.drawn.get('sam');
+  assert.equal(d.line.visible, true);
+  play({ ...base, a: 'stand', o: false, ex: undefined, ez: undefined }, 0.2);
+  assert.equal(d.line.visible, false);
+  // Landed: on foot they hold it up for you, a bigger fish held up bigger.
+  view.holdUp('sam', 4);
+  play({ ...base, a: 'stand', o: false }, 0.5);
+  assert.equal(d.figure.fish.visible, true);
+  const big = d.figure.fish.scale.z;
+  play({ ...base, a: 'stand', o: false }, 6);
+  assert.equal(d.figure.fish.visible, false, 'and puts it away after a few seconds');
+  view.holdUp('sam', 0.3);
+  play({ ...base, a: 'stand', o: false }, 0.5);
+  assert.ok(d.figure.fish.scale.z < big);
+});
