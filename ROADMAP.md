@@ -1,0 +1,141 @@
+# Slow Tide: the road to 1.0
+
+Where the game stands as a product, what it still needs to be a game people pay €9.99 for and
+recommend to their friends, and open-source projects that could help. Written November 2026 as
+an honest assessment; keep it current as things are done.
+
+## Where it stands
+
+As technology and simulation it's an 8–9/10: a real FFT ocean and rigid-body boats, a world that
+actually runs (fish living in real habitats, rumours in the bar that are true, townsfolk with
+their own days), 86 species, 10 rods and 33 baits and lures, 11 boats, two regions, co-op for up
+to eight, offline play, and well over 400 automated tests.
+
+As a product someone pays €9.99 for it's about a 5–6/10 today. What holds it back is not missing
+features but missing direction, progression, feel and product polish. The README alone runs to
+over a thousand lines: the game is very wide, and the next months should go on depth, feel and
+polish rather than new places or boats.
+
+**Worth keeping front and centre** (already 10/10 material):
+
+- The sea and the boats: physically real waves and handling, rare in the genre, and they make
+  great clips.
+- The honest, living world.
+- Co-op: fishing with friends sells (see Webfishing).
+- Robustness: offline play, migrated saves, a big test suite.
+
+## What's missing, most important first
+
+1. **A reason to keep playing (progression).** Tackle is free, all eleven boats are available
+   from the start, and money is "never a grind: nothing in the game needs it". That's kind, but
+   it leaves nothing to want. The loop every loved fishing game has is catch → earn → unlock →
+   new water → harder fish (Dredge: upgrades and a mystery; Stardew and Animal Crossing:
+   collections and money; Webfishing: cosmetics and friends). Stay cosy without grind: boats,
+   rods and regions earned through harbour reputation and money; clear collection goals (all 86
+   species, size records, a legendary fish for each area); a small daily reason to come back
+   (orders, a fish of the day).
+2. **The feel of catching a fish.** The heart of the game, and not yet polished: the
+   first-person line was visibly broken until November 2026 and nobody had noticed. A 10/10
+   bite → hook → fight → land needs a readable bite, a hook-set that feels physical, the fish
+   visibly fighting (thrashing at the surface, jumping, runs you can see), rod bend, controller
+   rumble, good sound, and a proper payoff when it's landed (a big reveal, the weight, a photo
+   moment).
+3. **Sound.** Everything is synthesised in code. For a calm game sound is half the experience:
+   recorded waves, gulls, rigging, a proper reel click and splash, and a memorable soundtrack.
+   The cheapest big jump in perceived quality.
+4. **A consistent look.** The water is now nearly photoreal, the people are built from simple
+   blocks and the fish are generated in code: they pull in different directions. A game sells on
+   its screenshots and trailer, so choose one style and make everything match (probably an
+   artist for the characters, fish and key art).
+5. **The first fifteen minutes.** A new player meets six ways to fish, fuel, hunger, warmth,
+   tides, the harbour office and more. The opening should put a fish on the line within two
+   minutes and reveal the systems one by one as they're earned: hide most of the depth at first
+   and let it be discovered.
+6. **Too much text.** Messages and dialogs are long, lovely sentences, and several overlap on
+   screen. Short prompts, icons and a cleaner HUD; less text also makes translation affordable,
+   and fishing games sell well in Germany, France and Japan.
+7. **A story with an ending.** Six adventures and the favours are a thin spine. Two or three
+   hours of light story would give a direction and a sense of finishing something (the Kittiwake,
+   the lighthouse and Las Brasas are ready-made hooks).
+8. **How it's sold.** A website anyone can open can't easily be sold for €9.99. Realistically: a
+   desktop build for Steam (a packaged app) with achievements, Steam cloud saves and Steam Deck
+   support, and a free browser demo to bring people in. Co-op and cloud saves run on Supabase's
+   free tier, which won't survive real popularity; and the online features need a privacy policy
+   (GDPR).
+9. **Real machines and real players.** Confirm 60 fps on a MacBook Air and a cheap Windows laptop
+   (so far it's only been tested in software rendering on a slow server), and watch 10–20 people
+   play it to see where they get confused or stop.
+10. **Marketing.** Steam games mostly sell through wishlists built over months: a store page early,
+    a trailer (the sea and the boats are ideal clip material), short videos, a demo in a Steam
+    Next Fest, a Discord.
+
+## The order of work
+
+1. Write the pitch in one sentence ("A cosy, physically real fishing adventure on a living
+   Atlantic coast, alone or with friends") and hide everything that doesn't serve it.
+2. Design progression and goals.
+3. Polish the fishing moment until it feels great.
+4. Sound.
+5. Art.
+6. The first hour.
+7. Desktop build and Steam.
+8. Playtests and low-end performance.
+9. Marketing, starting early and running alongside 3–8.
+
+## Open-source projects that could help
+
+Checked for licence and fit, November 2026. A public repository isn't permission to use its
+assets: read each LICENSE before using anything, and nothing paid or any outside service goes in
+without a decision to.
+
+**Selling on Steam**
+- [ceifa/steamworks.js](https://github.com/ceifa/steamworks.js) (MIT): Steamworks for Electron and
+  NW.js: achievements, cloud saves, the overlay. The usual choice; there are reports of thin docs
+  and overlay issues, so check its state first.
+  [steamworks-ffi-node](https://dev.to/arty_prof/steamworks-ffi-node-a-steamworks-sdk-library-for-javascript-game-frameworks-15h1)
+  is an alternative.
+- Electron (or NW.js, as CrossCode shipped on): bundles its own Chromium, so WebGL behaves the
+  same for every player. Tauri is far smaller but uses each system's own webview, riskier for a
+  WebGL game. (Turn off Electron's background throttling, and load only packaged local files.)
+
+**Sound**
+- [goldfire/howler.js](https://github.com/goldfire/howler.js) (MIT): sound sprites, fades and 3D
+  positional audio over Web Audio, if the hand-written audio engine becomes a burden.
+- Recorded sounds: [Kenney](https://kenney.nl/assets/ui-audio) packs (CC0: UI clicks and more; the
+  all-in-one bundle is paid); [Sonniss GameAudioGDC bundles](https://gamefromscratch.com/sonniss-27-5gb-sound-effect-giveaway-at-gdc-2024/)
+  (free, royalty-free, no credit needed, not to be used for AI training: check the file lists for
+  sea, gulls and rigging, and read the current licence).
+
+**Art**
+- [Quaternius](https://quaternius.itch.io/lowpoly-animated-fish) (CC0): low-poly fish with swim,
+  attack and out-of-water animations, rigged for Blender. Useful as reference or a base, though
+  the game's fish are drawn from their real anatomy (the species register), so these would need
+  work to match.
+- [Kenney](https://kenney.itch.io/kenney-game-assets) 3D packs (CC0) for props and UI.
+
+**Look and performance**
+- [pmndrs/postprocessing](https://github.com/pmndrs/postprocessing) (check the LICENSE): a faster,
+  better-managed effects pipeline than three.js's own (bloom, tone mapping, depth of field for the
+  photo moment).
+- [gkjohnson/three-mesh-bvh](https://github.com/gkjohnson/three-mesh-bvh) (MIT): fast raycasts and
+  spatial queries on three.js meshes (picking, the walker on piers and terrain, line-of-sight).
+- [cocopon/tweakpane](https://github.com/cocopon/tweakpane) or
+  [georgealways/lil-gui](https://github.com/georgealways/lil-gui): a debug panel behind `?debug`
+  for tuning the fight, the bite and the boats live.
+
+**Online, analytics and translation**
+- [colyseus/colyseus](https://github.com/colyseus/colyseus) (MIT, self-hosted Node server): if
+  co-op outgrows Supabase Realtime's free tier (it needs a server to run).
+  [alexbarker234/boat-and-bobber](https://awesome.ecosyste.ms/projects/github.com%2Falexbarker234%2Fboat-and-bobber),
+  a three.js multiplayer fishing game, uses it: worth reading for both (licence unchecked).
+- [PostHog/posthog](https://github.com/posthog/posthog) (MIT core; the `ee` folder is under its own
+  licence): playtest telemetry, where players stop or get stuck. Self-hosting suits about 100k
+  events a month; past that it's their cloud.
+- [i18next](https://www.i18next.com) (MIT): translations with proper plural rules, once the text is
+  cut down.
+
+**Fishing games to learn from** (read the code; check licences before borrowing anything)
+- [Boat & Bobber](https://awesome.ecosyste.ms/projects/github.com%2Falexbarker234%2Fboat-and-bobber)
+  (three.js, Rapier, Colyseus).
+- [Mouse Boat](https://cowthing.itch.io/mouse-boat) (Godot): a small, tight cast-hook-reel loop with
+  rarity tiers.
