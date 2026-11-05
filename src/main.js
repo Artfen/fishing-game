@@ -75,6 +75,9 @@ import { PhotoStore, capture, photoId, albumPage, download } from './photos.js';
 import { Haptics, STRENGTHS, engineFeel, lineFeel, slamFeel, knockFeel } from './haptics.js';
 import { PROFILES as ENGINES, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM } from './engine.js';
 import { HelmUI } from './helm.js';
+import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
+import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
+import { PRICES as BOAT_PRICES, PAINTS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, paintBoat, nameBoat, fitBoat, fitEffect } from './shipyard.js';
 import { Memories } from './memories.js';
 import { whatsAbout, birdsWorking, weatherLines, notices, paintBoard } from './harbour.js';
 import { HarbourSheet, paintSlate, paintKitchenBoard } from './harbourView.js';
@@ -105,7 +108,7 @@ import { levers, nearest, step, setIndex, within, capIndex, leverWords, slide, v
 import { LeverUI } from './lever.js';
 import { anchorCheck, berthFor, berthAt, castOffCheck, canTow, towStep, TOW } from './mooring.js';
 import { Rope } from './rope.js';
-import { BOAT_PER_S, isPetrol, PASSAGE_FUEL, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, burnKayak, chargeBattery, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
+import { BOAT_PER_S, TANKS, addFuel, isPetrol, PASSAGE_FUEL, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, burnKayak, chargeBattery, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
 import { STEPS as TRIP_STEPS, stepOf, stepNumber, complete as completeStep, start as startGuide, words as guideWords, isNewGame, placeAt, FISH_SPOTS } from './firstTrip.js';
 import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality } from './quality.js';
 import { Post } from './post.js';
@@ -478,7 +481,7 @@ function finishFavour(R) {
   const rw = completeFavour(state.favours, R.id, state.day) || {};
   const gave = [];
   if (rw.money) {
-    state.money = Math.round((state.money + rw.money) * 100) / 100;
+    earnIn(state, rw.money, 'A favour');
     gave.push(`${money(rw.money)} into your purse`);
   }
   if (rw.keepsake && !state.keepsakes[rw.keepsake]) {
@@ -1664,7 +1667,34 @@ const harbourSheet = new HarbourSheet(state, {
   rods: () => ROD_IDS.filter((id) => state.gear.pack.rods.includes(id) || wearOf(state, id) > 0)
     .map((id) => ({ id, name: RODS[id].name, line: lineInUse(state.gear, RODS[id]) })),
   trip: () => tripChecklist(),
+  // Willowhaven Marine Works (see shipyard.js).
+  yardKinds: () => KINDS.filter((k) => k !== 'row' && k !== 'kayak'),
+  boatName: (kind) => BOATS[kind]?.name || kind,
+  yardBuy: (kind) => yardDo(buyBoat(state, kind), () => {
+    hud.toast(`The ${BOATS[kind].name} is yours. ${BOATS[kind].stowed ? 'She’s laid up at the yard: the harbour office puts her in the water whenever you like.' : ''}`, 6);
+    audio.fanfare?.();
+  }),
+  yardHire: (kind) => yardDo(hireBoat(state, kind), () => {
+    closeHarbour();
+    hud.toast(`The ${BOATS[kind].name} is yours for the day: she goes back to the yard tomorrow.`, 6);
+    if (BOATS[kind].stowed) launchBoat(BOATS[kind]);
+  }),
+  yardPaint: (kind, paint) => yardDo(paintBoat(state, kind, paint), () => hud.toast(`A fresh coat on the ${BOATS[kind].name}.`, 3)),
+  yardName: (kind, name) => yardDo(nameBoat(state, kind, name), () => hud.toast(`“${state.yard.looks[kind].name}”, sign-written on her bow.`, 4)),
+  yardFit: (kind, id) => yardDo(fitBoat(state, kind, id), () => hud.toast('Fitted.', 2)),
 });
+// Something done at the Marine Works: paid for and done, or why not.
+function yardDo(r, then) {
+  if (!r.ok) {
+    hud.toast(r.why, 4);
+    return;
+  }
+  audio.chime?.();
+  applyYard();
+  then?.();
+  save();
+  harbourSheet.render();
+}
 // where: 'market' (Willowhaven's fish market), 'inn' (The Lobster Pot), 'muelle' (Bar El Muelle) or
 // 'chandlery' (its counter: creels, ice, fresh bait, mending, ready for a trip).
 function openHarbour(where, tab = null) {
@@ -1674,6 +1704,7 @@ function openHarbour(where, tab = null) {
   audio.page();
   if (where === 'chandlery') teach('counter', 'The chandlery’s tackle is free to take, as always (The tackle store). At the counter, Old Bert sells a bigger creel, ice to keep your catch fresh and fresh bait, puts new line on a worn rod, and runs through what you need for a trip.', 10);
   else if (where === 'market') teach('market', 'The fish market buys what you keep: the price is by weight, more for the kinds wanted today, and best while the fish is fresh. Money goes on a pint, a hot meal, or a fish cooked for you at the inn.', 9);
+  else if (where === 'works') teach('works', 'Willowhaven Marine Works: buy a boat, or hire one for the day to try her; paint her your colours and have her name sign-written on her bow; fit a long-range tank or a bigger outboard. Money buys range, speed and looks here, never a better bite.', 10);
   else teach('inn', 'The inn: buy a pint and hear a story, ask what’s biting, and catch what’s being said about the sea today. The kitchen asks for particular fish each day, and pays well for them.', 9);
 }
 function closeHarbour() {
@@ -1757,7 +1788,7 @@ function buyIce() {
     hud.toast(`Ice is ${money(ICE.price)}, and your purse has ${money(state.money)}. Sell a fish or two at the market first.`, 5);
     return;
   }
-  state.money = Math.round((state.money - ICE.price) * 100) / 100;
+  payOut(state, ICE.price, 'Ice');
   state.shop.iceUntil = now + ICE.hours;
   hud.toast('Bert shovels crushed ice into a bag and packs it into your creel. Your fish keep fresh for a day.', 5);
   save();
@@ -4116,22 +4147,57 @@ function openPump(id) {
     ask(name, `${lines.join(' ')}${here.length || can ? ' Everything here is full.' : ''}`, [{ text: 'OK' }]);
     return;
   }
-  ask(name, lines.join(' '), [
-    { text: 'Not now', cls: 'quiet' },
-    ...needs.map((w) => ({ text: w === 'can' ? 'Fill the jerry can' : `Fill ${fuelName(w)}`, cls: needs.length > 1 ? 'quiet' : '', run: () => fillUp([w]) })),
-    ...(needs.length > 1 ? [{ text: 'Fill everything', run: () => fillUp(needs) }] : []),
-  ]);
+  // (The pump at home is the farm's: theirs to give. The harbour's and the quay's are paid for.)
+  const free = id === 'home';
+  const each = fuelPrice(state.economy);
+  const room = (w) => (w === 'can' ? 10 - f.can.litres : fuelRoom(f, w));
+  const what = (w) => (w === 'can' ? 'the jerry can' : fuelName(w));
+  const opts = needs.map((w) => {
+    const q = free ? { litres: room(w), price: 0, short: false } : fuelQuote(room(w), state.economy, state.money);
+    const text = free ? `Fill ${what(w)}` : !q.short ? `Fill ${what(w)}: ${litres(q.litres)}, ${money(q.price)}` : q.litres >= 0.5 ? `${money(q.price)} worth in ${what(w)} (${litres(q.litres)})` : null;
+    return text && { text, cls: needs.length > 1 ? 'quiet' : '', run: () => fillUp([w], free) };
+  }).filter(Boolean);
+  const all = needs.reduce((sum, w) => sum + room(w), 0);
+  if (needs.length > 1 && (free || state.money >= all * each - 1e-6)) opts.push({ text: free ? 'Fill everything' : `Fill everything: ${money(all * each)}`, run: () => fillUp(needs, free) });
+  // Broke, and nearly dry: the harbour sees you home (once a day).
+  const dry = here.filter((w) => w !== 'car');
+  if (!free && dry.length && goodwillDue(state, state.economy, Math.min(...dry.map((w) => fuelLevel(f, w))))) {
+    opts.push({ text: `Ask Wenna to see you home (${GOODWILL_L} L, on the harbour)`, run: () => goodwillFuel(dry[0]) });
+  }
+  const price = free ? '' : ` Fuel is ${money(each)} a litre; you’ve ${money(state.money)} in your purse.`;
+  ask(name, `${lines.join(' ')}${price}`, [{ text: 'Not now', cls: 'quiet' }, ...opts]);
 }
 
-function fillUp(list) {
+function fillUp(list, free = false) {
   const f = tanks();
-  let total = 0;
-  for (const w of list) total += fill(f, w);
+  let total = 0, paid = 0;
+  for (const w of list) {
+    const room = w === 'can' ? 10 - f.can.litres : fuelRoom(f, w);
+    const q = free ? { litres: room, price: 0 } : fuelQuote(room, state.economy, state.money);
+    if (q.litres <= 0.05) continue;
+    if (q.price > 0 && !payOut(state, q.price, `Fuel: ${litres(q.litres)}`).ok) continue;
+    if (w === 'can') f.can.litres = Math.min(10, f.can.litres + q.litres);
+    else addFuel(f, w, q.litres);
+    total += q.litres;
+    paid += q.price;
+    if (w !== 'can') fuelWarned[w] = false;
+  }
+  if (!total) return;
   // (A few minutes at the pump, a quarter of an hour for a big fill.)
   passTime(clamp(total / 120, 0.05, 0.25));
   audio.knock?.(0.3);
-  for (const w of list) if (w !== 'can') fuelWarned[w] = false;
-  hud.toast(`${litres(total)} of petrol: ${list.map((w) => (w === 'can' ? 'the jerry can' : fuelName(w))).join(', ').replace(/, ([^,]*)$/, ' and $1')} ${list.length > 1 ? 'are' : 'is'} full.`, 4);
+  hud.toast(`${litres(total)} of fuel${paid ? ` for ${money(paid)}` : ''}: ${list.map((w) => (w === 'can' ? 'the jerry can' : fuelName(w))).join(', ').replace(/, ([^,]*)$/, ' and $1')}.`, 4);
+  save();
+}
+
+// The harbour's goodwill: enough to get home on, once a day, when the purse is empty.
+function goodwillFuel(w) {
+  const f = tanks();
+  addFuel(f, w, Math.min(GOODWILL_L, fuelRoom(f, w)));
+  state.goodwillDay = state.day;
+  fuelWarned[w] = false;
+  audio.knock?.(0.3);
+  hud.toast(`Wenna fills a can and tips it in: “${GOODWILL_L} litres, to see you home. Pay me back in mackerel.”`, 6);
   save();
 }
 
@@ -5744,7 +5810,7 @@ function whereWords(b) {
 }
 const canStore = (b) => !(b === boat && !onFoot) && regionOf(b) === 'home' && !(tow && (tow.lead === b || tow.towed === b)) && !(state.shipping || []).some((s) => s.kind === b.kind);
 function harbourOffice() {
-  const laid = KINDS.filter(isStored).map((k) => BOATS[k]);
+  const laid = KINDS.filter(isStored).filter((k) => usableBoat(state.yard, k, state.day)).map((k) => BOATS[k]);
   const south = boats.some((b) => b.kind !== 'bass' && regionOf(b) === 'south');
   // (Wenna at the hatch in office hours; out of them, the yard's board beside it does as well.)
   const W = town.people.wenna, inOffice = W?.block?.spot === 'office' && W.act === 'inside';
@@ -5754,6 +5820,7 @@ function harbourOffice() {
     ...(laid.length ? [{ text: 'Put a boat in the water…', run: () => chooseLaunch() }] : []),
     ...(boats.length > 1 ? [{ text: 'Lay a boat up…', run: () => chooseStore() }] : []),
     { text: south ? 'Bring one round, or ship one from Las Brasas…' : 'Bring a boat round…', cls: 'quiet', run: () => boatsRound('home') },
+    { text: 'Willowhaven Marine Works: buy, hire, paint, fit out…', run: () => openHarbour('works') },
   ]);
 }
 function chooseStore() {
@@ -5768,12 +5835,47 @@ function chooseStore() {
   ]);
 }
 function chooseLaunch() {
-  const laid = KINDS.filter(isStored).map((k) => BOATS[k]);
+  const laid = KINDS.filter(isStored).filter((k) => usableBoat(state.yard, k, state.day)).map((k) => BOATS[k]);
   ask('Put a boat in the water', boats.length >= MAX_AFLOAT ? `Three of your boats are in the water already, so one of them is laid up in her place.` : 'Which one?', [
     { text: 'Never mind', cls: 'quiet' },
     ...laid.map((b) => ({ text: `The ${b.name}`, run: () => launchBoat(b) })),
   ]);
 }
+// What the Marine Works has done to your boats (see shipyard.js): fittings (a long-range tank, a
+// bigger outboard), paint, and her name on her bow.
+const YARD_BASE = { tanks: { ...TANKS }, burn: { ...BOAT_PER_S }, thrust: Object.fromEntries(KINDS.map((k) => [k, BOATS[k].hull.motor?.thrust])) };
+function applyYard() {
+  const f = tanks();
+  for (const k of KINDS) {
+    const e = fitEffect(state.yard, k), b = BOATS[k];
+    if (YARD_BASE.tanks[k]) TANKS[k] = Math.round(YARD_BASE.tanks[k] * e.tank);
+    if (YARD_BASE.burn[k]) BOAT_PER_S[k] = YARD_BASE.burn[k] * e.burn;
+    const M = b.hull.motor;
+    if (M && YARD_BASE.thrust[k]) M.thrust = YARD_BASE.thrust[k] * e.thrust;
+    if (isPetrol(k) && fuelLevel(f, k) > TANKS[k]) addFuel(f, k, TANKS[k] - fuelLevel(f, k));
+    const L = state.yard.looks[k] || {};
+    b.repaint(L.paint ? PAINTS.find((p) => p.id === L.paint)?.hex : null);
+    if ((L.name || '') !== (b.boatName || '')) b.setName(L.name || '');
+  }
+}
+applyYard();
+
+// A day's hire over: she goes back to the yard (once you're out of her).
+function watchHire() {
+  const H = state.yard.hired;
+  if (!H || H.day === state.day) return;
+  const b = BOATS[H.kind];
+  if (!onFoot && boat === b) return;
+  state.yard.hired = null;
+  if (!b.stowed) {
+    if (boats.length <= 1) launchBoat(BOATS.row, { quiet: true });
+    stow(b);
+    state.stored = [...new Set([...state.stored, b.kind])];
+  }
+  hud.toast(`The ${b.name} has gone back to the Marine Works: your day’s hire is up. Buy her there whenever you like.`, 6);
+  save();
+}
+
 /* ---------- the boat trailer (see trailer.js) ---------- */
 
 // Hitched, or standing by the garage; and a boat on it sits on its bunks wherever it goes.
@@ -6783,6 +6885,13 @@ const settingsUI = new SettingsUI(state, {
   together: () => together,
   setName: (name) => setName(name),
   boatName: (kind) => BOATS[kind]?.name || 'boat',
+  economy: () => state.economy,
+  playStyle: () => styleOf(playStyleNow()),
+  setPlayStyle: (id) => applyStyle(id),
+  setEconomy: (id) => {
+    state.economy = id;
+    save();
+  },
   // (A taste of the new strength, straight away.)
   feltVibration: (id) => {
     const k = STRENGTHS[id] ?? 0;
@@ -6802,6 +6911,36 @@ function setName(name) {
 
 // The first time you play (or the first time since playing together came along): what should
 // friends call you? A name is suggested, so Enter (or the button) is enough.
+// One question instead of six (see playstyle.js): the fight, the fish, casting, the engine, the
+// throttle and the economy set together.
+function playStyleNow() {
+  return { difficulty: state.difficulty, behaviour: state.behaviour, cast: settings.controls.cast, start: settings.controls.start, throttle: settings.controls.throttle, economy: state.economy };
+}
+function applyStyle(id) {
+  const S = STYLES[id]?.set;
+  if (!S) return;
+  setDifficulty(S.difficulty);
+  setBehaviour(S.behaviour);
+  Object.assign(settings.controls, { cast: S.cast, start: S.start, throttle: S.throttle });
+  state.economy = S.economy;
+  applyControls();
+  save();
+}
+function askStyle(then = null, returning = false) {
+  state.tips.style = true;
+  save();
+  setTimeout(() => {
+    if (!$('confirm').hidden) {
+      then?.();
+      return;
+    }
+    ask('How do you like to play?', `${STYLE_IDS.map((id) => `${STYLES[id].name}: ${STYLES[id].desc}`).join('\n\n')}\n\nChange it, or any part of it, whenever you like in Settings → Controls & comfort.`, [
+      ...(returning ? [{ text: 'Keep my settings as they are', cls: 'quiet', run: () => then?.() }] : []),
+      ...STYLE_IDS.map((id) => ({ text: STYLES[id].name, cls: id === 'angler' ? '' : 'quiet', run: () => { applyStyle(id); hud.toast(`${STYLES[id].name}: ${STYLES[id].desc}`, 6); then?.(); } })),
+    ]);
+  }, 1800);
+}
+
 function askName(then) {
   ask('What should we call you?', 'Choose a name to go by. It’s what friends see over you when you play together (Settings → Play together), and you can change it there any time.', [
     {
@@ -7937,7 +8076,9 @@ function begin() {
   // (At Las Brasas: the island, or its harbour.)
   const south = player().pos.z > SOUTH_Z, puerto = south && Math.hypot(player().pos.x - PUERTO_AT.x, player().pos.z - PUERTO_AT.z) < 160;
   setTimeout(() => hud.place(south ? (puerto ? 'Puerto Brasa' : 'Las Brasas') : home ? 'Home' : onFoot ? (names[zone] || 'The west shore') : 'Willow Bay', returning ? 'welcome back' : home ? 'the cottage and the garage' : onFoot ? 'by the camp' : 'home waters'), 900);
-  if (newPlayer) offerGuide();
+  // How do you like to play? Asked once (a new player first, then the guide).
+  if (!state.tips.style) askStyle(newPlayer ? () => offerGuide() : null, !newPlayer);
+  else if (newPlayer) offerGuide();
   rig.settleUntil = t + 2.5;
   if (state.sonar) toggleFinder(true);
   if (cloudStart?.note) setTimeout(() => hud.toast(cloudStart.note, 8), 2600);
@@ -8792,7 +8933,10 @@ function tick(now, manual = false) {
       if (driving) watchTank('car');
     }
   }
-  if (started) updateEngine(dt);
+  if (started) {
+    updateEngine(dt);
+    watchHire();
+  }
   boat.update(dt, t, throttle, steer, env.lantern);
   // (The others: any lying still a long way from you rest; see Boat.update.)
   for (const b of boats) {
@@ -9318,6 +9462,9 @@ window.slowTide = {
   rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed,
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
+  pump: (id = 'haven') => openPump(id),
+  get yard() { return state.yard; },
+  get money() { return state.money; },
   // Set the breeze: strength 0–1, blowing towards dir (radians, like a heading).
   // A steady wind for testing: strength 0 … 1 (1 = a fresh breeze, 12 m/s), blowing towards dir
   // (as atan2(x, z) of its vector). setWind(null) gives it back to the weather and Settings.

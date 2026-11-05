@@ -7,6 +7,8 @@ import { buttonFor } from './gamepad.js';
 import { NEEDS_MODES, NEEDS_IDS } from './comfort.js';
 import { STRENGTH_IDS } from './haptics.js';
 import { START_MODES, START_IDS } from './engine.js';
+import { ECONOMY, ECONOMY_IDS } from './economy.js';
+import { STYLES, STYLE_IDS } from './playstyle.js';
 import { cleanName, cleanCode, validCode, poseWords, NAME_MAX, MAX_PLAYERS } from './together.js';
 
 // Preferences: sound, graphics, weather, controls and comfort, and the name you go by when
@@ -518,6 +520,9 @@ export class SettingsUI {
   controlsPane() {
     const C = this.S.controls;
     const out = [];
+    const ps = this.hooks.playStyle?.();
+    out.push(this.row('Play style', ps ? STYLES[ps].desc : 'Your own mix of the settings below. Choose a style to set them all together.',
+      this.choice(STYLE_IDS.map((id) => [id, STYLES[id].name]), ps, (v) => { this.hooks.setPlayStyle?.(v); this.render(); })));
     out.push(this.row('Casting', CAST_MODES[C.cast].note,
       this.choice(Object.entries(CAST_MODES).map(([k, v]) => [k, v.name]), C.cast, (v) => this.set('controls', 'cast', v))));
     const d = this.hooks.difficulty();
@@ -526,6 +531,9 @@ export class SettingsUI {
     const b = this.hooks.behaviour?.() || 'relaxed';
     out.push(this.row('Fish behaviour', `${BEHAVIOUR[b].desc}`,
       this.choice(BEHAVIOUR_IDS.map((id) => [id, BEHAVIOUR[id].label]), b, (v) => this.hooks.setBehaviour?.(v))));
+    const e = this.hooks.economy?.() || 'gentle';
+    out.push(this.row('Economy', ECONOMY[e].desc,
+      this.choice(ECONOMY_IDS.map((id) => [id, ECONOMY[id].name]), e, (v) => { this.hooks.setEconomy?.(v); this.render(); })));
     out.push(this.row('Camera sensitivity', 'How far the view turns as you drag.', this.slider('controls', 'sensitivity', { min: 0.3, max: 2.5, step: 0.1, pct: false })));
     out.push(this.row('Invert left and right', 'Dragging moves the view the other way across.', this.toggle('controls', 'invertX')));
     out.push(this.row('Invert up and down', 'Dragging up looks down, like a flight stick.', this.toggle('controls', 'invertY')));

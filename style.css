@@ -2605,3 +2605,18 @@ body.sitting #lever, body.sitting #hint { display: none !important; }
 .hm-check { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 3px; font: 13px var(--font-ui); color: rgba(255, 249, 239, 0.7); }
 .hm-check li.ok { color: var(--seaglass); }
 .hm-say { margin: 8px 0 0; min-height: 1.2em; font: 600 13px var(--font-ui); color: var(--lantern); }
+
+/* Willowhaven Marine Works (see harbourView.js): the paint chart and the name. */
+.hb-picks { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
+.hb-paints { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 8px 0 12px; }
+.hb-swatch { display: flex; align-items: center; gap: 8px; text-align: left; }
+.hb-swatch::before { content: ''; flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--sw); box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.18); }
+.hb-name { flex: 1; min-width: 0; min-height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(92, 64, 40, 0.4); background: rgba(255, 255, 255, 0.6); font: 600 16px var(--font-ui); color: var(--ink); }
+
+/* The journal's goals (see goals.js). */
+.j-goals { margin: 14px 0 6px; }
+.j-goal { margin: 3px 0; }
+.j-goal.done { color: #2f6b55; }
+
+/* (Dialog text keeps its paragraphs: the play-style question.) */
+#confirm-text { white-space: pre-line; }

@@ -947,6 +947,9 @@ export class Fishing {
     this.t = 0;
     if (!selfHooked) this.audio.hookSet();
     this.hooks.feel?.(selfHooked ? 'run' : 'hookset');
+    // (The strike: the rod snaps round into its fighting curve, and you feel it in your arms.)
+    this.rodBounce = Math.max(this.rodBounce || 0, 0.85);
+    if (!selfHooked) this.hooks.shake?.(0.16);
     this.fx.splash(this.bob.x, 0.05, this.bob.z, selfHooked ? 6 : 14, 2.2, 0.7);
     this.fx.ripple(this.bob.x, this.bob.z, 1.8, 1.2, 0.6);
     this.setStatus(selfHooked ? 'fishon' : 'hooked');

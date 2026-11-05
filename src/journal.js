@@ -1,3 +1,4 @@
+import { goalsOf } from './goals.js';
 import { FISH, fishById, drawFishSketch, drawLanternSketch, weightOf } from './fish.js';
 import { hasAnatomy } from './anatomy.js';
 import { studio } from './gearView.js';
@@ -171,6 +172,21 @@ export class Journal {
     const days = st.days.slice().reverse();
     $('days-list').replaceChildren(...(days.length ? days.map((p) => page(p)) : [el('p', 'j-faint', 'Each day you go out is written up here when it ends: when you sleep, or at midnight.')]));
     const C = careerOf(st);
+    // What there is to aim for (see goals.js), under the record.
+    {
+      let box = $('rec-goals');
+      if (!box) {
+        box = el('div', 'j-goals');
+        box.id = 'rec-goals';
+        $('rec-totals').after(box);
+      }
+      const G = goalsOf(st, { places: [careerOf(st).places, careerOf(st).placesOf] });
+      box.replaceChildren(el('h3', '', `Goals · ${G.filter((g) => g.done).length} of ${G.length}`), ...G.map((g) => {
+        const r = el('p', `j-goal${g.done ? ' done' : ''}`, `${g.done ? '✓' : '○'} ${g.text}`);
+        if (g.of > 1) r.append(el('span', 'j-faint', ` · ${g.n} of ${g.of}`));
+        return r;
+      }));
+    }
     const dl = $('rec-totals');
     const row = (k, v) => [el('dt', '', k), el('dd', '', v)];
     dl.replaceChildren(

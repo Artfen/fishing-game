@@ -157,7 +157,12 @@ test('a fish too heavy to lift waits alongside for the net; a tap nets it', () =
 
 test('lifting it out on the line instead can tear the hook out (and on Relaxed it’s netted for you)', () => {
   const nat = hooked('natural');
-  nat.step(6, true);
+  nat.step(1, true);
+  assert.equal(nat.F.atNet, true);
+  // (Its last kick alongside comes at a random moment and can tear the hook out first: see the
+  // next test. Here it lies still, so it's the lifting that does it.)
+  nat.F.kickT = 99;
+  nat.step(5, true);
   assert.deepEqual(nat.lost, ['lifted']);
   assert.equal(nat.f.fight, null);
   const easy = hooked('relaxed');
@@ -167,6 +172,20 @@ test('lifting it out on the line instead can tear the hook out (and on Relaxed i
   assert.equal(easy.lost.length, 0, 'nothing lost on Relaxed');
   assert.ok(['landing', 'caught'].includes(easy.f.state), easy.f.state);
   assert.ok(easy.words.some((w) => /Too heavy to lift/.test(w)), 'and told how it’s done');
+});
+
+test('its last kick alongside, wound through on a light hold, tears the hook out; let go and it stays on', () => {
+  const held = hooked('natural');
+  held.step(1, true);
+  assert.equal(held.F.atNet, true);
+  Object.assign(held.F, { hold: 'light', kickT: 0.05 });
+  held.step(0.5, true);
+  assert.deepEqual(held.lost, ['kicked']);
+  const eased = hooked('natural');
+  eased.step(1, true);
+  Object.assign(eased.F, { hold: 'light', kickT: 0.05 });
+  eased.step(0.5, false);
+  assert.equal(eased.lost.length, 0, 'let go as it kicks, and it’s still on');
 });
 
 test('in first person the line runs from the rod in your hands: no thrashing, no loops of spare line', () => {
