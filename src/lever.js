@@ -19,7 +19,7 @@ const el = (tag, cls, text) => {
 };
 
 export class LeverUI {
-  // hooks: { set(index), stop(), motor() }
+  // hooks: { set(index), stop(), motor(), slideTo(index: fractional, for the smooth lever) }
   constructor(root, hooks) {
     this.root = root;
     this.h = hooks;
@@ -87,11 +87,19 @@ export class LeverUI {
     });
   }
 
-  // Where a pointer is on the track, as a notch (top: full ahead).
-  indexAt(y) {
+  // Where a pointer is on the track, as a notch (top: full ahead); for the smooth lever, the
+  // place between notches too.
+  indexAt(y, exact = false) {
     const L = levers(this.kind), r = this.track.getBoundingClientRect();
     const u = Math.min(1, Math.max(0, (y - r.top) / Math.max(1, r.height)));
-    return L.length - 1 - Math.round(u * (L.length - 1));
+    const f = (L.length - 1) * (1 - u);
+    return exact ? f : Math.round(f);
+  }
+
+  // A drag on the track: the notch it's nearest, or (the smooth lever) right where it is.
+  dragTo(y) {
+    if (this.smooth && this.h.slideTo) this.h.slideTo(this.indexAt(y, true));
+    else this.h.set(this.indexAt(y));
   }
 
   dragStart(e) {
@@ -101,13 +109,13 @@ export class LeverUI {
     try { this.track.setPointerCapture(e.pointerId); } catch { /* gone already */ }
     this.drag = e.pointerId;
     this.root.classList.add('lv-dragging');
-    this.h.set(this.indexAt(e.clientY));
+    this.dragTo(e.clientY);
   }
 
   dragMove(e) {
     if (this.drag !== e.pointerId) return;
     e.preventDefault();
-    this.h.set(this.indexAt(e.clientY));
+    this.dragTo(e.clientY);
   }
 
   dragEnd(e) {
@@ -116,8 +124,9 @@ export class LeverUI {
     this.root.classList.remove('lv-dragging');
   }
 
-  // s: { show, kind, index, power (-1 … 1), cap (the highest notch allowed), words, motor
-  //   ('down' | 'up' | null: not a kayak), keys (a line of controls, HTML), title }
+  // s: { show, kind, index (fractional for the smooth lever), power (-1 … 1), cap (the highest
+  //   notch allowed), words, motor ('down' | 'up' | null: not a kayak), keys (a line of controls,
+  //   HTML), title, smooth (the real lever, not notches) }
   update(s) {
     const on = !!s.show;
     if (this.root.hidden === on) this.root.hidden = !on;
@@ -127,6 +136,8 @@ export class LeverUI {
       return;
     }
     if (s.kind !== this.kind) this.build(s.kind);
+    this.smooth = !!s.smooth;
+    this.root.classList.toggle('lv-smooth', this.smooth);
     this.title.textContent = s.title || 'Throttle';
     this.now.textContent = s.words;
     this.motorBtn.hidden = !s.motor;
@@ -152,11 +163,13 @@ export class LeverUI {
     this.fill.style.top = `${Math.min(yN, yP) * 100}%`;
     this.fill.style.height = `${Math.abs(yN - yP) * 100}%`;
     this.fill.classList.toggle('astern', p < 0);
+    // (The smooth lever lights the notch mark it's on, if it's on one.)
+    const mark = Math.abs(s.index - Math.round(s.index)) < 0.08 ? Math.round(s.index) : -1;
     for (const { li, i } of this.items) {
-      li.classList.toggle('on', i === s.index);
+      li.classList.toggle('on', i === mark);
       li.classList.toggle('locked', i > s.cap);
     }
     this.track.setAttribute('aria-valuetext', s.words);
-    this.track.setAttribute('aria-valuenow', String(s.index));
+    this.track.setAttribute('aria-valuenow', String(Math.round(s.index * 100) / 100));
   }
 }

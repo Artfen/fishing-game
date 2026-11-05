@@ -2443,6 +2443,9 @@ body.placing #sonar, body.placing #act-btn, body.placing #cancel-btn { visibilit
   transition: top 0.12s ease;
 }
 #lever.lv-dragging .lv-handle { transition: none; background: var(--lantern); }
+/* The smooth lever: the handle glides (no snapping), and the notches are only marks along it. */
+#lever.lv-smooth .lv-handle { transition: none; background: var(--lantern); }
+#lever.lv-smooth .lv-notches li:not(.on) .lv-notch { opacity: 0.7; }
 .lv-stop, .lv-motor, #sail .lv-motor {
   width: 100%;
   min-height: 34px;

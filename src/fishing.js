@@ -49,6 +49,12 @@ const _w = new THREE.Vector3(), _nh = new THREE.Vector3();
 //   fly    – a fly that drifts with the stream (and drags when the line pulls it), or is stripped back
 // Fish come to the rig on their own (see world/ecosystem.js); this file reports what they do
 // through the float, the line, the rod and the alarm, and plays the fight.
+// What each sign at the bait feels like through the controller: [the feeling, how strongly].
+const STATUS_FEEL = {
+  nibble: ['nibble', 1], rattle: ['nibble', 0.8], touch: ['nibble', 0.6], sip: ['nibble', 0.7], bleep: ['bleep', 1],
+  tap: ['bite', 0.7], take: ['bite', 0.8], bite: ['bite', 1], tip: ['bite', 0.9], grab: ['bite', 0.9], strike: ['strike', 1],
+};
+
 export class Fishing {
   constructor(scene, angler, fx, audio, eco, hooks) {
     this.scene = scene;
@@ -561,6 +567,7 @@ export class Fishing {
     this.flight = this.kind === 'fly' ? 0.75 + this.castDist * 0.04 : 0.5 + this.castDist * 0.03;
     this.audio.cast(this.kind === 'fly' ? 0.5 : 1);
     this.hooks.onCast(this.kind);
+    this.hooks.feel?.('cast');
   }
 
   // A word on how the cast went, and why: always the real reason.
@@ -609,6 +616,7 @@ export class Fishing {
     this.fx.ripple(this.bob.x, this.bob.z, 0.5 + splash * 0.35, 1.4, 0.3 + splash * 0.08);
     this.fx.splash(this.bob.x, 0.05, this.bob.z, Math.round(2 + splash * 3), 0.8 + splash * 0.3, 0.4 + splash * 0.08);
     this.audio.plop(this.kind === 'fly' ? 0.45 : this.kind === 'ledger' || this.kind === 'bottom' ? 1.4 : 1);
+    this.hooks.feel?.('plop', this.kind === 'fly' ? 0.5 : 1);
     // A splash right on top of fish sends them off; a little further away it draws attention.
     this.eco.startle(this.bob.x, -0.4, this.bob.z, splash, 0.8);
     this.r = {};
@@ -737,6 +745,9 @@ export class Fishing {
     this.status = s;
     this.statusT = 0;
     if (s !== 'quiet' && s !== 'set') this.quietT = 0;
+    // Felt as well as seen and heard (a controller's vibration, see haptics.js).
+    const f = STATUS_FEEL[s];
+    if (f) this.hooks.feel?.(f[0], f[1]);
   }
 
   /* ---------- what the fish do ---------- */
@@ -935,6 +946,7 @@ export class Fishing {
     this.state = 'reeling';
     this.t = 0;
     if (!selfHooked) this.audio.hookSet();
+    this.hooks.feel?.(selfHooked ? 'run' : 'hookset');
     this.fx.splash(this.bob.x, 0.05, this.bob.z, selfHooked ? 6 : 14, 2.2, 0.7);
     this.fx.ripple(this.bob.x, this.bob.z, 1.8, 1.2, 0.6);
     this.setStatus(selfHooked ? 'fishon' : 'hooked');
@@ -963,6 +975,7 @@ export class Fishing {
     this.agent = null;
     this.fx.splash(this.fishPos.x, 0.05, this.fishPos.z, 8, 1.8, 0.6);
     this.audio.splashSmall();
+    this.hooks.feel?.('lost');
     this.hooks.fought?.(F, this.rod);
     this.hooks.onSnap(why, F.sp, this.rod);
     this.reelIn();
@@ -976,6 +989,7 @@ export class Fishing {
     this.agent = null;
     this.audio.strain();
     this.hooks.shake(0.35);
+    this.hooks.feel?.('snap');
     this.hooks.fought?.(F, this.rod);
     this.hooks.onSnap(why, F.sp, this.rod);
     this.reelIn();
@@ -995,6 +1009,7 @@ export class Fishing {
     if (!F?.atNet) return;
     F.netted = true;
     this.audio.splashSmall(0.8);
+    this.hooks.feel?.('netted');
     this.fx.splash(this.fishPos.x, 0.05, this.fishPos.z, 10, 1.6, 0.5);
     this.landFish();
   }
@@ -1018,6 +1033,7 @@ export class Fishing {
       this.audio.splashSmall(0.9);
       F.word = 'a last kick';
       F.wordT = 1.2;
+      this.hooks.feel?.('kick');
       if (held && L.pull > 0 && (F.hold === 'light' || Math.random() < 0.25 * L.pull)) {
         this.lose('kicked');
         return;
@@ -1092,6 +1108,7 @@ export class Fishing {
     this.fx.splash(this.fishPos.x, 0.05, this.fishPos.z, 18, 2.6);
     this.fx.ripple(this.fishPos.x, this.fishPos.z, 2.2, 1.6, 0.6);
     this.audio.splashBig();
+    if (!F.netted) this.hooks.feel?.('landed');
     // A squid or cuttlefish comes out squirting ink.
     if (F.sp.creature) {
       this.fx.ink(this.fishPos.x, this.fishPos.z);
@@ -1892,12 +1909,14 @@ export class Fishing {
       this.fx.splash(this.fishPos.x, 0.05, this.fishPos.z, 16, 2.4, 0.7);
       this.audio.splashSmall(1.3);
       say('jumping!', 1.2);
+      this.hooks.feel?.('jump');
       if (this.level.throwHook > 0) this.hooks.flash('It leaps! Keep the line tight: rod up, and wind.', 1.8);
     }
     if (ev === 'turn') {
       // It turns on its run: a swirl where it swings round.
       this.fx.ripple(this.fishPos.x, this.fishPos.z, 0.9, 1.0, 0.4);
       say('it turns', 1);
+      this.hooks.feel?.('turn');
     }
     if (ev === 'tiring') {
       say('tiring', 2.5);
@@ -1914,6 +1933,7 @@ export class Fishing {
       F.creaked = true;
       this.audio.strain();
       this.hooks.shake(0.2);
+      this.hooks.feel?.('creak');
       this.hooks.flash('The line creaks! Ease off: it’s at its limit.', 2.4);
     } else if (F.tension > 0.97) {
       F.strainT = (F.strainT ?? 0) - dt;
