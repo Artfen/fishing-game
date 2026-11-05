@@ -82,6 +82,7 @@ import { Memories } from './memories.js';
 import { whatsAbout, birdsWorking, weatherLines, notices, paintBoard } from './harbour.js';
 import { HarbourSheet, paintSlate, paintKitchenBoard } from './harbourView.js';
 import { Townsfolk, FOLK, sayTo } from './townsfolk.js';
+import { earOf, quayNear, nearestOf } from './earshot.js';
 import { requestById, businessWith, accept as acceptFavour, decline as declineFavour, complete as completeFavour, caught as favourCaught, saw as favourSaw, photographed as favourPhotographed, buoyAt, pickUpBuoy, fishFor, remember, cleanFavours } from './requests.js';
 import { lower } from './innTalk.js';
 import { tideAt, tideWords, turns } from './world/tide.js';
@@ -375,6 +376,43 @@ function folkCtx(dt) {
     folkAbout = whatsAbout(eco).map((a) => ({ id: a.sp.id, name: a.sp.name, act: a.act }));
   }
   return { storm: Math.max(weather.storm, conditions.sea.storm), rain: weather.rain, wind: conditions.wind.speed, about: folkAbout, activity: eco.activity, season: seasonOf(clock.day).name };
+}
+// You, hearing: where you are, facing the way the camera looks (see earshot.js).
+const _earDir = new THREE.Vector3();
+function earFrom(P) {
+  camera.getWorldDirection(_earDir);
+  return earOf(P.x, P.z, _earDir.x, _earDir.z, onFoot ? walker.heading ?? 0 : boat.heading);
+}
+// What's round you that makes a sound of its own, where it is (gathered a few times a second):
+// the water's edge along a quay or a pontoon, the boats lying near (yours and the harbour's), any
+// boat out with her engine running, where the gulls are, and the inn's door with talk inside.
+let aroundT = 0, around = {};
+function aroundEar(P, dt) {
+  aroundT -= dt;
+  if (aroundT > 0) return around;
+  aroundT = 0.2;
+  const mine = boats.filter((b) => (onFoot || b !== boat) && !isStored(b.kind) && b.kind !== state.trailer?.boat && b.speed < 0.6);
+  const lying = [
+    ...mine.map((b) => ({ x: b.pos.x, z: b.pos.z, mast: b.kind === 'sail' })),
+    ...Object.entries(town.boats).filter(([id, b]) => b.present && (b.moored || b.speed < 0.3) && !id.startsWith('kay')).map(([id, b]) => ({ x: b.x, z: b.z, mast: id === 'marigold' || id === 'puffin' })),
+  ];
+  const motors = Object.entries(town.boats)
+    .filter(([id, b]) => b.present && !b.moored && (b.speed > 0.3 || b.hauling) && !id.startsWith('kay') && !(id === 'puffin' && b.sails))
+    .map(([id, b]) => ({ x: b.x, z: b.z, level: clamp(b.speed / 7, 0.08, 1), voice: id === 'halcyon' || id === 'star' ? 'inboard' : '' }));
+  const inn = HAVEN_ROOMS.inn, inside = town.inside('inn');
+  around = {
+    quay: quayNear(PIERS, P.x, P.z, 45),
+    moored: nearestOf(lying, P.x, P.z, 6, 45),
+    motors: nearestOf(motors, P.x, P.z, 1, 160),
+    gulls: [
+      { x: (HAVEN_QUAY.x0 + HAVEN_QUAY.x1) / 2, z: (HAVEN_QUAY.z0 + HAVEN_QUAY.z1) / 2, k: 0.7 },
+      { x: PUERTO_AT.x, z: PUERTO_AT.z, k: 0.7 },
+      { x: STACKS[0].x, z: STACKS[0].z, k: 1 }, { x: SKELLIG.x, z: SKELLIG.z, k: 1 }, { x: SKERRIES[0].x, z: SKERRIES[0].z, k: 1 },
+      ...world.flocks.map((f) => ({ x: f.x, z: f.z, k: 1 })),
+    ],
+    inn: inside > 0 ? { x: inn.doorX, z: inn.front + 0.3, busy: Math.min(1, 0.3 + 0.2 * inside) } : null,
+  };
+  return around;
 }
 // A word with someone you walk up to.
 function talkTo(p) {
@@ -9311,6 +9349,9 @@ function tick(now, manual = false) {
   }));
   const room = onFoot && !driving ? insideHaven(P.x, P.z) : null;
   audio.update(dt, {
+    // (Where the harbour's sounds come from, and you, hearing them: see earshot.js.)
+    ear: earFrom(P),
+    around: aroundEar(P, dt),
     wind: Math.min(1, windHere.speed / FRESH),
     gust: windHere.gust,
     sea: waveHeightHere(P.x, P.z) / 0.6,
@@ -9523,6 +9564,8 @@ window.slowTide = {
   state, walker, fishing, env, weather, renderer, post, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world, explored, stormFx,
   get boat() { return boat; }, // the boat you're in (or last used)
   reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI, pads, sealife, wildlife, crossingLife, glow,
+  // What the harbour's placed sounds come from just now (see earshot.js), and the town's boats.
+  get around() { return around; }, town,
   // The first-trip guide as it stands: the step, its words and where it points.
   guideNow: () => ({ step: stepOf(state.guide), title: $('gd-title').textContent, text: $('gd-text').textContent, target: guideTarget, shown: !$('guide').hidden }),
   firstPerson: (on = true) => rig.setFirstPerson(on, t),
