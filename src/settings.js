@@ -275,7 +275,7 @@ export class SettingsUI {
     })));
     out.push(this.row('Share what you find', 'Places and dive sites you find, what you find on a wreck, and how you caught a new kind of fish go to your friends’ maps as marks with your name on them. You can also send any of your own marks from the map.', this.toggle('player', 'share', 'Share', 'Keep to myself')));
     // A friend code (see giftcodes.js): for friends and testers.
-    out.push(this.row('Friend code', 'Got a code from a friend? Codes give boats at Willowhaven Marine Works, money for your purse, or both (each code once for each game).', this.field('tg-gift', {
+    out.push(this.row('Friend code', 'Got a code from a friend? Codes give boats at Willowhaven Marine Works, money for your purse, or both (most work once for each game; the money code as often as you like).', this.field('tg-gift', {
       value: this.drafts.gift ?? '', placeholder: 'FRIEND-CODE', max: 40, button: 'Redeem', label: 'Friend code',
       draft: (v) => { this.drafts.gift = v; },
       run: async (v) => {

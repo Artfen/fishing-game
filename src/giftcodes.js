@@ -1,21 +1,22 @@
 // Friend codes: typed in Settings → Play together, a good one gives friends and testers boats
-// at Willowhaven Marine Works, money in their purse, or both, each code once for each save.
+// at Willowhaven Marine Works, money in their purse, or both: most codes once for each save, a
+// reusable one (the money code) as often as it's typed.
 //
 // The codes themselves aren't kept here, only a fingerprint of each (SHA-256), so reading the
 // game's files doesn't hand them out. It's a gift between friends, not a lock: a save lives in
 // the player's own browser, so nothing here (or anywhere in a game with no server) can stop a
 // determined player giving themselves money; it simply saves your friends the grind. To make a
-// code: `node tools/gift-code.mjs YOUR-CODE [money] [name]` (add --boats-only or --money-only),
-// and add the line it prints to GIFTS.
+// code: `node tools/gift-code.mjs YOUR-CODE [money] [name]` (add --boats-only or --money-only,
+// and --reusable), and add the line it prints to GIFTS.
 
 import { earn } from './economy.js';
 
 export const GIFTS = [
   // (The first: for friends and testers, every boat and a little money.)
   { hash: 'ef00ab7487ac0e64f96524e0ca0b9094cc7398f9d471d34a10b27216811948e5', money: 100, boats: true, name: 'Friends of Slow Tide' },
-  // (The boats on their own, and the money on its own.)
+  // (The boats on their own, and the money on its own: that one as often as you like.)
   { hash: 'c128e49628115a3037f9ac587a9c2a9cdb4013077e5ecb8b4aae7524299e4b28', money: 0, boats: true, name: 'The fleet' },
-  { hash: 'aaa5afabc9aeb75044a860ae0eeef3d3e835fef5f774f27b78657f78f7e02456', money: 2000, boats: false, name: 'A full purse' },
+  { hash: 'aaa5afabc9aeb75044a860ae0eeef3d3e835fef5f774f27b78657f78f7e02456', money: 2000, boats: false, reusable: true, name: 'A full purse' },
 ];
 
 // What a code gives, in words: "every boat at the Marine Works, and £100".
@@ -36,15 +37,18 @@ export async function giftHash(code) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Redeem a code on this save: { ok, why, gift }. kinds: every boat there is. Each code once.
+// Redeem a code on this save: { ok, why, gift }. kinds: every boat there is. Each code once,
+// unless it's a reusable one.
 export async function redeemGift(state, code, kinds, gifts = GIFTS) {
   if (cleanGift(code).length < 4) return { ok: false, why: 'Type the code your friend gave you.' };
   const hash = await giftHash(code);
   const gift = gifts.find((g) => g.hash === hash);
   if (!gift) return { ok: false, why: 'That code isn’t one the game knows. Check it with whoever gave it you.' };
   state.gifts = Array.isArray(state.gifts) ? state.gifts : [];
-  if (state.gifts.includes(hash)) return { ok: false, why: 'That code’s been used on this game already.' };
-  state.gifts.push(hash);
+  if (!gift.reusable) {
+    if (state.gifts.includes(hash)) return { ok: false, why: 'That code’s been used on this game already.' };
+    state.gifts.push(hash);
+  }
   if (gift.boats && state.yard) {
     for (const k of kinds) if (!state.yard.owned.includes(k)) state.yard.owned.push(k);
     state.yard.hired = null;
