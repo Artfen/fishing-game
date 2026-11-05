@@ -1131,6 +1131,8 @@ slowTide.eco.agents           // every fish in the world, with its species, size
 
 ## Ideas for next steps
 
+**On the desktop, for Steam**: `desktop/` holds an Electron wrapper that runs these same files in a window of its own (served from a private `app://` address, full speed in the background, F11 for full screen), with what Steam still needs listed in [desktop/README.md](desktop/README.md). It hasn't been signed up for Steam or run on real machines yet.
+
 **The road to 1.0** (what the game still needs to be worth €9.99, the agreed plan and its order, and open-source projects that could help) is in [ROADMAP.md](ROADMAP.md).
 
 The journal hints at a softer cushion, a potted fern on the bow, and a little cabin by the lake. Other natural next steps: carrying the brass lantern when you walk at night, tides that cover and uncover the estuary flats (and Shell Strand), a second camping kit, cooking and resting at the far camps as at home, and simple upgrades for the motorboats. For the sea, see the [expansion plan](#expansion-plan).

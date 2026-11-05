@@ -2,3 +2,6 @@
 *.zip
 .claude/
 __pycache__/
+desktop/node_modules/
+desktop/game/
+desktop/dist/

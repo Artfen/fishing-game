@@ -1,0 +1,14 @@
+{
+  "name": "slow-tide-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Slow Tide as a desktop app (for Steam): the same game files, in a window of its own.",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "pack": "node pack.cjs"
+  },
+  "devDependencies": {
+    "electron": "33.2.1"
+  }
+}
