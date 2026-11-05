@@ -26,6 +26,22 @@
 // leap; it tires (shorter runs, then beaten, rolling on its side). The current helps a fish
 // running with it; a soft rod cushions a surge but tires a fish more slowly than a stiff one;
 // and side pressure (the rod swung against the way it's running) turns it and tires it sooner.
+//
+// And each kind has its own signature moves (see SIGNATURES), each with a tell you can see, hear
+// and feel, and a right answer with the rod and the reel:
+// - 'charge':    a trout turns and runs straight at you: wind fast to keep up (the line falls
+//                slack otherwise, and a slack line lets it shake the hook);
+// - 'headshake': a bass or a pike at the top, shaking its head: the rod low and to one side
+//                keeps its head down and the line steady (rod up and winding, the line snatches
+//                at every shake; easing right off, it falls slack between them);
+// - 'dive':      a crash-dive for the rocks or the weed: side strain turns its head;
+// - 'lastdash':  one more dive at your feet, close in, when you thought it was done;
+// - 'longrun':   a tuna's or a wahoo's run that pours line off the reel past where it was
+//                hooked; the spool holds only so much (a drag set too light lets it all go);
+// - 'sound':     straight down and hanging there, a dead weight: winding steadily barely moves
+//                it; pump it up in strokes (lift, then wind down as you lower the rod);
+// - 'circle':    a tired tuna circling below the boat: wind as it comes up on the near side,
+//                hold as it goes round the far side (winding then only loads the line).
 
 // The drag settings: the fraction of the line's breaking strain at which the reel gives line.
 export const DRAG_LEVELS = [0.3, 0.42, 0.55, 0.68, 0.82, 1.05]; // "locked" is past the line's breaking strain
@@ -87,6 +103,45 @@ export const FIGHT_STYLES = {
   shark: { run: 1.5, rest: 1.0, surge: 1.1, tire: 0.7, sway: 2.2, dive: 1.6, splash: false, words: 'It’s boring away deep, shaking its head: heavy and relentless.' },
   // Wahoo: one blistering first run that strips line off the reel, then shorter ones.
   blister: { run: 1.7, rest: 1.15, surge: 1.15, tire: 1.45, sway: 2.0, dive: 0.6, splash: false, words: 'It’s off on a blistering run: let the drag work.' },
+};
+
+// Each kind's signature moves (see the top of this file), by its fight style, and for a few kinds
+// their own: what makes a sea bass, a trout and a tuna three different fights, not one fight of
+// three lengths.
+const STYLE_MOVES = {
+  thrash: ['headshake'],
+  dogged: ['dive', 'lastdash'],
+  deep: ['longrun', 'sound', 'circle'],
+  blister: ['longrun'],
+  billfish: ['longrun'],
+  shark: ['headshake', 'sound'],
+  plate: ['sound'],
+  twist: ['dive'],
+};
+export const SIGNATURES = {
+  trout: ['charge'], grayling: ['charge'], sunperch: ['charge'],
+  seabass: ['headshake', 'dive', 'lastdash'], striped: ['headshake', 'dive', 'lastdash'],
+  barracuda: ['charge', 'headshake'], dorado: ['charge', 'headshake'],
+  amberjack: ['dive', 'sound'], grouper: ['dive'], meagre: ['headshake', 'dive', 'lastdash'],
+};
+export const signatureOf = (sp) => SIGNATURES[sp.id] ?? STYLE_MOVES[sp.fight] ?? [];
+
+// What each move looks like from the rod, and the answer to it (said in the game as it happens).
+export const MOVES = {
+  charge: { name: 'the charge', tell: 'It turns and comes straight at you: the line falls slack.', answer: 'Wind as fast as you can to keep up with it.' },
+  headshake: { name: 'the headshake', tell: 'At the top, its head up, shaking: the rod tip knocks.', answer: 'Rod low and to one side: keep its head down and the line steady.' },
+  dive: { name: 'the dive', tell: 'It bores straight down for the rocks or the weed: the rod pulls down hard.', answer: 'Side strain: swing the rod low against it to turn its head.' },
+  lastdash: { name: 'the last dash', tell: 'Close in, when you thought it was done, one more dive.', answer: 'Let the drag work: don’t wind into it.' },
+  longrun: { name: 'the long run', tell: 'The reel screams and line pours off, far past where it was hooked.', answer: 'Let it run with the rod up. If the spool runs low, a click more drag (or follow it with the boat).' },
+  sound: { name: 'sounding', tell: 'It goes straight down and hangs there, a dead weight.', answer: 'Pump it up: lift, then wind down as you lower the rod; winding steadily barely moves it.' },
+  circle: { name: 'the circles', tell: 'Tired, it circles below the boat: the rod tip rises and falls.', answer: 'Wind as it comes up on the near side; hold as it goes round the far side.' },
+};
+
+// How much line each reel holds (m), from the line's class: the big-game reels most, a fly reel
+// (fly line and backing) least.
+export const spoolFor = (line) => {
+  const kg = line?.kg ?? 4;
+  return kg >= 20 ? 320 : kg >= 8 ? 200 : kg >= 3.5 ? 150 : 110;
 };
 
 // How hard each kind makes for cover (weed, roots, rock) when it runs: 1 an ordinary fish; more,
@@ -176,26 +231,108 @@ export function newFight(sp, size, rod, diff, cover = false, rnd = Math.random, 
     time: 0,
     peak: 0,
     strain: 0, // how close the line is to parting from overload (1 = it parts); eases off slowly
+    // Its signature moves (see SIGNATURES), and the one under way (with its own clock).
+    sig: signatureOf(sp),
+    move: null,
+    moveT: 0,
+    moves: {},     // how many of each so far
+    shakeIn: 0,    // a headshake coming on this run (seconds), one under way, and its clock
+    shakeT: 0,
+    shakeClock: 0,
+    shakeOff: 0,   // (the shake's share of the tension just now)
+    shakeSlack: 0, // (how long the line fell slack in it)
+    chargeV: 0,    // a charge's speed towards you (m/s), and the slack it's left (m)
+    slack: 0,
+    turnHold: 0,   // side strain held against a dive (seconds)
+    sounded: 0,    // line won back since it sounded (progress)
+    circA: 0,      // where it is on its circle (radians), and whether it's coming up
+    coming: false,
+    heldFor: 0,    // how long you've been winding (for a pumping stroke)
+    strokes: 0,
+    // How far off it was hooked (m), the line out past that (a long run), and the reel's capacity.
+    dist: Math.max(3, who.range ?? 30),
+    extra: 0,
+    spool: rod.spool ?? spoolFor(rod.line),
+    spoolWarn: 0,
+    chase: 0,      // the boat closing on it (m/s; set each step)
   };
 }
 
 // Advance the fight by dt seconds. held: the player is winding (holding the reel).
 // Returns what happened this step: null, 'warn' (a flick before a run), 'run', 'turn' (it
-// changed direction), 'jump', 'tiring', 'beaten', or an end: a break 'snap:tension' |
-// 'snap:drag' | 'snap:snag' | 'snap:rock' | 'snap:teeth', or the fish coming off, 'off:thrown' | 'off:pulled'.
+// changed direction), 'jump', 'tiring', 'beaten'; a signature move beginning: 'charge', 'shake'
+// (a headshake), 'dive', 'lastdash', 'longrun', 'sound', 'circle', or answered: 'turned' (side
+// strain turned a dive), 'lifted' (pumped up off the bottom), 'spool' (the spool running low);
+// or an end: a break 'snap:tension' | 'snap:drag' | 'snap:snag' | 'snap:rock' | 'snap:teeth' |
+// 'snap:spool', or the fish coming off, 'off:thrown' | 'off:pulled'.
 export function stepFight(F, held, dt, diff, rnd = Math.random) {
   F.time += dt;
   let event = null;
   F.phaseT -= dt;
   const beaten = F.stage === 'beaten';
+  const sig = F.sig || [];
+  const has = (m) => sig.includes(m);
+  const count = (m) => (F.moves[m] = (F.moves[m] || 0) + 1);
+  const p0 = F.progress;
+  // A pumping stroke: a short spell of winding (the rod lifting), then letting go (lowering it).
+  let stroke = false;
+  if (held) F.heldFor += dt;
+  else {
+    stroke = F.heldFor > 0.2 && F.heldFor < 1.8;
+    F.heldFor = 0;
+  }
+  // (The last headshake's share of the load comes back out here, and goes back in below.)
+  F.tension -= F.shakeOff;
+  F.shakeOff = 0;
+
+  // Close in, when you thought it was done, one more dive (the next run comes at once).
+  if (has('lastdash') && !F.moves.lastdash && F.progress > 0.86 && !F.pulling && F.move !== 'charge') {
+    count('lastdash');
+    F.dash = true;
+    F.move = null;
+    F.phaseT = Math.min(F.phaseT, diff.warn + 0.05);
+  }
   // (A run lasts until a leap in it is back in the water.)
   if (F.phaseT <= 0 && !(F.pulling && (F.jumping > 0 || F.leapIn > 0))) {
     if (F.pulling) {
       F.pulling = false;
       F.warned = false;
       F.leapIn = 0;
+      F.shakeIn = 0;
+      F.shakeT = Math.min(F.shakeT, dt);
       F.phaseT = (1.1 + rnd() * 1.3) * (1 + (1 - F.stamina) * 0.5) * F.style.rest;
+      const was = F.move;
+      F.move = null;
+      F.dashing = false;
+      if (has('sound') && !beaten && (was === 'longrun' || (!has('longrun') && rnd() < 0.4))) {
+        // After a long run it sounds (and some kinds now and then on their own).
+        F.move = 'sound';
+        count('sound');
+        F.sounded = 0;
+        F.phaseT = (4.5 + rnd() * 3.5) * (0.5 + 0.5 * F.stamina) * F.style.rest;
+        event = 'sound';
+      } else if (has('circle') && (F.stage === 'beaten' || (F.stage === 'tiring' && F.extra < 5))) {
+        // Tired, it circles below the boat, with longer between its runs.
+        if (!F.moves.circle) event = 'circle';
+        count('circle');
+        F.move = 'circle';
+        F.phaseT *= 2.4;
+      }
+    } else if (has('charge') && !beaten && !F.afterCharge && F.progress < 0.8 && rnd() < 0.35) {
+      // Instead of running off, it turns and comes straight at you.
+      F.move = 'charge';
+      count('charge');
+      F.chargeV = 2.2 + rnd() * 2 + F.sizeK;
+      F.phaseT = 0.9 + rnd() * 0.8;
+      F.warned = false;
+      F.afterCharge = true;
+      event = 'charge';
     } else {
+      // A charge you didn't keep up with leaves slack, and a fish turning away on a slack line
+      // can shake the hook.
+      if (F.move === 'charge' && F.slack > 2.5 && rnd() < F.level.throwHook * 1.6 * Math.min(1, F.slack / 6)) return 'off:thrown';
+      F.afterCharge = false;
+      F.move = null;
       F.pulling = true;
       F.surgeT = SURGE;
       F.phaseT = (0.7 + rnd() * 0.7 + F.strength * 0.5) * (0.45 + 0.55 * F.stamina) * F.style.run;
@@ -206,6 +343,26 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
       // Some kinds leap or shake their heads at the top a moment into a run (once the surge
       // has passed, so it's time to be winding again).
       if (!beaten && F.jumpy > 0 && rnd() < F.jumpy * 0.55 * (1 - F.progress * 0.5)) F.leapIn = SURGE + 0.15 + rnd() * 0.5;
+      // Its signature move on this run, if any.
+      if (F.dash) {
+        F.dash = false;
+        F.dashing = true;
+        F.move = 'dive';
+        F.turnHold = 0;
+        F.phaseT = Math.max(F.phaseT, 1.4);
+        event = 'lastdash';
+      } else if (has('longrun') && !beaten && (!F.moves.longrun || (F.stage === 'fresh' && rnd() < 0.3))) {
+        F.phaseT *= F.moves.longrun ? 1.5 : 2.1;
+        count('longrun');
+        F.move = 'longrun';
+        event = 'longrun';
+      } else if (has('dive') && !beaten && rnd() < (F.cover ? 0.55 : 0.3)) {
+        count('dive');
+        F.move = 'dive';
+        F.turnHold = 0;
+        event = 'dive';
+      }
+      if (has('headshake') && !beaten && F.move !== 'longrun' && rnd() < 0.6) F.shakeIn = Math.min(SURGE + 0.2 + rnd() * 0.6, F.phaseT - 0.9);
     }
   }
   if (F.leapIn > 0) {
@@ -214,6 +371,16 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
       F.jumping = 0.75;
       F.jumpSlack = false;
       event = event || 'jump';
+    }
+  }
+  if (F.shakeIn > 0) {
+    F.shakeIn -= dt;
+    if (F.shakeIn <= 0 && F.pulling) {
+      F.shakeT = 0.9 + rnd() * 0.7;
+      F.shakeClock = 0;
+      F.shakeSlack = 0;
+      count('headshake');
+      event = event || 'shake';
     }
   }
   if (!F.pulling && !F.warned && F.phaseT < diff.warn) {
@@ -235,9 +402,13 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
 
   const d = DRAG_LEVELS[F.drag];
   // How hard it pulls right now, against the line: tiring as it goes, helped by the current when
-  // it runs with it, half-hearted once beaten.
+  // it runs with it, half-hearted once beaten (but a dive pulls harder, and the last dash as if
+  // it were fresh again).
   const flowK = 1 + 0.5 * Math.max(0, F.flow) * (F.level.current ?? 1);
-  const f = F.ratio * (0.35 + 0.65 * F.stamina) * flowK;
+  const f0 = F.ratio * (0.35 + 0.65 * F.stamina) * flowK;
+  let f = f0;
+  if (F.pulling && F.move === 'dive') f *= 1.3;
+  if (F.dashing) f = Math.max(f, F.ratio * 0.8);
   // Side pressure: the rod swung against the way it's running turns it and shortens the run.
   const against = F.pulling ? clamp(-F.side * F.dir, 0, 1) : 0;
   F.turn = against;
@@ -252,7 +423,8 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
       F.surgeT -= dt;
       const k = clamp((SURGE - F.surgeT) / diff.onset, 0, 1);
       // (A soft rod cushions it; a stiff one passes it straight to the line.)
-      if (held) jolt = (JOLT[0] + JOLT[1] * Math.min(f, 2.2)) * diff.shock * F.style.surge * k * k * (3 - 2 * k) * (0.55 + 0.45 * F.flex) * (F.cushion ?? 1);
+      // (The surge's jolt is the fish's own: a dive's weight comes on after it.)
+      if (held) jolt = (JOLT[0] + JOLT[1] * Math.min(f0, 2.2)) * diff.shock * F.style.surge * k * k * (3 - 2 * k) * (0.55 + 0.45 * F.flex) * (F.cushion ?? 1);
     }
     const hold = held ? 1 : 0.6; // easing off lowers the rod and lets the drag work sooner
     // (Expert: lifting the rod into it loads the line further; see technique.js.)
@@ -263,24 +435,132 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
     // Easing off drops the load at once (the drag slips, the rod straightens); so does the end of a surge.
     F.tension = approach(F.tension, target, jolt ? 7 : 3.5, held ? 2.5 : 5, dt);
     F.slipping = !air && f > d * hold;
+    const long = F.move === 'longrun';
     if (F.slipping) {
-      // The drag gives line: it gains distance, the more so the harder it outpulls the drag.
-      F.progress -= (0.03 + 0.05 * Math.min(f / (d * hold) - 1, 2)) * dt;
+      // The drag gives line: it gains distance, the more so the harder it outpulls the drag (and
+      // on a long run, line simply pours off the reel).
+      F.progress -= (0.03 + 0.05 * Math.min(f / (d * hold) - 1, 2)) * dt * (long ? 2.2 : 1);
     } else if (held) F.progress += F.reel * 0.35 * dt * (1 - 0.35 * Math.max(0, F.flow)); // it can't take line: you gain a little
+    // A dive: side strain held against it turns its head (a firm hand turns it sooner).
+    if (F.move === 'dive') {
+      if (Math.abs(F.side) > 0.4) F.turnHold += dt * (held ? 1.4 : 0.8);
+      if (F.turnHold > 0.9) {
+        F.move = null;
+        F.dashing = false;
+        F.phaseT = Math.min(F.phaseT, 0.25);
+        F.stamina -= 0.03;
+        event = event || 'turned';
+      }
+    }
     // Fighting the drag tires it, the more so under steady pressure, from a stiffer rod, and with
-    // the rod swung against it; a fish in fine fettle lasts longer.
-    F.stamina -= (0.03 + 0.13 * F.tension + 0.05 * against) * diff.tire * F.style.tire * (0.85 + 0.25 * F.flex) / Math.max(0.35, F.strength) / Math.max(0.7, F.endure ?? 1) * dt;
+    // the rod swung against it; a fish in fine fettle lasts longer. (A long run is a fish going
+    // somewhere at its cruising pace: it spends itself more slowly than in a fight at close range.)
+    F.stamina -= (0.03 + 0.13 * F.tension + 0.05 * against) * diff.tire * F.style.tire * (0.85 + 0.25 * F.flex) / Math.max(0.35, F.strength) / Math.max(0.7, F.endure ?? 1) * dt * (long ? 0.7 : 1);
   } else {
     F.slipping = false;
     // (Expert: pumping (lifting the rod while it rests) draws it towards you: see technique.js.)
-    if (F.pump) F.progress += F.pump * dt * (0.6 + 0.6 * (1 - F.stamina));
-    if (held) {
+    if (F.pump && F.move !== 'charge') F.progress += F.pump * dt * (0.6 + 0.6 * (1 - F.stamina)) * (F.move === 'sound' ? 1.6 : 1);
+    const wind = F.reel * (0.75 + 0.6 * (1 - F.stamina)) * dt * (1 - 0.3 * Math.max(0, F.flow));
+    if (F.move === 'charge') {
+      // Coming at you: winding fast keeps up with it (as fast as the reel can take line in);
+      // otherwise the line falls slack.
+      const v = F.chargeV * dt, take = held ? Math.min(v, F.reel * 1.6 * F.dist * dt) : 0;
+      F.progress += take / F.dist;
+      F.slack += v - take;
+      if (take >= v) F.slack = Math.max(0, F.slack - v);
+      F.tension = approach(F.tension, held && take >= v * 0.9 ? 0.22 : 0.02, 3, 6, dt);
+      F.stamina -= 0.01 * diff.tire * dt;
+    } else if (F.move === 'sound') {
+      // Straight down and hanging there, a dead weight: winding steadily barely shifts it, and
+      // loads the line; each pumping stroke lifts it a little.
+      let g = 0;
+      if (held) {
+        F.tension = approach(F.tension, Math.min(0.42 + 0.3 * f, d) + (F.pumpLoad || 0), 2.5, 1.5, dt);
+        g += wind * 0.12;
+      } else F.tension = approach(F.tension, 0.26, 1, 1.4, dt);
+      if (stroke) {
+        g += F.reel * 0.85 * (0.75 + 0.6 * (1 - F.stamina));
+        F.strokes++;
+        F.stamina -= 0.02 * diff.tire;
+      }
+      F.progress += g;
+      F.sounded += g + (F.pump ? F.pump * dt : 0);
+      // (Hanging there unpumped, it gets its breath back.)
+      if (!F.pump) F.stamina += 0.01 * dt;
+      // Lifted off the bottom, it's swimming again.
+      if (F.sounded > 0.2) {
+        F.move = null;
+        event = event || 'lifted';
+      }
+    } else if (F.move === 'circle') {
+      // Round and round below the boat: line comes in as it swims up on the near side; winding
+      // as it goes round the far side only loads the line.
+      F.circA += (dt * 2 * Math.PI) / (6 + 4 * F.sizeK);
+      F.coming = Math.sin(F.circA) > 0;
+      if (held) {
+        if (F.coming) {
+          F.progress += wind * 1.7;
+          F.tension = approach(F.tension, Math.min(0.2 + 0.35 * f, d) + (F.pumpLoad || 0), 2.5, 1.5, dt);
+        } else {
+          // (It drags you round: the drag slips under the handle and it gains a little.)
+          F.progress -= wind * 0.3;
+          F.tension = approach(F.tension, d + 0.06, 2.5, 1.5, dt);
+        }
+        F.stamina -= 0.012 * diff.tire * dt;
+      } else {
+        F.tension = approach(F.tension, F.coming ? 0.12 : 0.2, 1, 1.4, dt);
+        F.stamina += 0.01 * dt;
+      }
+    } else if (held) {
       F.tension = approach(F.tension, Math.min(0.2 + 0.35 * f, d) + (F.pumpLoad || 0), 2.5, 1.5, dt);
-      F.progress += F.reel * (0.75 + 0.6 * (1 - F.stamina)) * dt * (1 - 0.3 * Math.max(0, F.flow));
+      F.progress += wind;
       F.stamina -= 0.012 * diff.tire * dt;
     } else {
       F.tension = approach(F.tension, 0.1, 1, 1.4, dt);
       F.stamina += 0.015 * dt;
+    }
+  }
+  // (The slack a charge left is taken up again as it swims off.)
+  if (F.move !== 'charge') F.slack = Math.max(0, F.slack - 4 * dt);
+  // A headshake: the load snatching up and down several times a second. The rod held low and to
+  // one side keeps its head down and smooths it out; rod up and winding, every shake snatches at
+  // the line; easing right off, it falls slack between the shakes and can throw the hook.
+  if (F.shakeT > 0) {
+    F.shakeT -= dt;
+    F.shakeClock += dt;
+    const A = 0.3 * (1 - 0.75 * Math.min(1, Math.abs(F.side))) * (F.rodHigh ? 1.3 : 1);
+    const osc = Math.sin(F.shakeClock * Math.PI * 2 * 4.5);
+    const T = Math.max(0, F.tension + A * osc + (held ? A * 0.45 * Math.max(0, osc) : 0));
+    F.shakeOff = T - F.tension;
+    F.tension = T;
+    if (T < 0.1) F.shakeSlack += dt;
+    if (F.shakeT <= 0) {
+      F.tension -= F.shakeOff;
+      F.shakeOff = 0;
+      if (F.shakeSlack > 0.12 && rnd() < F.level.throwHook * 1.2 * Math.min(1, F.shakeSlack / 0.4)) return 'off:thrown';
+    }
+  }
+  // A long run takes line past where it was hooked; that has to be won back before it comes any
+  // closer, and the spool holds only so much.
+  if (has('longrun')) {
+    // (The boat closing on it wins that line back as surely as the reel.)
+    if (F.chase > 0 && F.extra > 0) F.extra = Math.max(0, F.extra - F.chase * dt);
+    // (Reckoned at the reel: a run pours off line, and winding gets it back, at the same pace
+    // however far off it was hooked.)
+    const span = Math.max(F.dist, 30);
+    if (F.progress < 0 && F.pulling && F.move === 'longrun') {
+      F.extra += -F.progress * span;
+      F.progress = 0;
+    } else if (F.extra > 0 && F.progress > p0) {
+      const back = Math.min(F.extra, (F.progress - p0) * span);
+      F.extra -= back;
+      F.progress -= back / span;
+    }
+    const out = F.dist * (1 - F.progress) + F.extra;
+    if (out >= F.spool) return 'snap:spool';
+    if (F.spoolWarn < 2 && out > F.spool * (F.spoolWarn ? 0.85 : 0.6)) {
+      F.spoolWarn++;
+      event = event || 'spool';
     }
   }
   F.stamina = clamp(F.stamina, 0, 1);
@@ -310,10 +590,11 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
   } else F.pullT = Math.max(0, F.pullT - dt);
 
   // Out at the far end with line pouring off: near weed, roots or rock, it can reach them (a
-  // fish that makes for cover sooner). Only line that is light for this fish can't turn it in
-  // time; on rock, how the line stands up to it counts as much (braid goes in a moment).
-  const rock = F.coverKind === 'rock', wear = rock ? F.abrade : 1;
-  if (F.cover && F.coverK > 0 && F.slipping && F.progress < 0.1 && F.ratio > diff.light * wear) F.snagT += dt * F.coverK;
+  // fish that makes for cover sooner, and sooner still on a dive for it). Only line that is light
+  // for this fish can't turn it in time; on rock, how the line stands up to it counts as much
+  // (braid goes in a moment).
+  const rock = F.coverKind === 'rock', wear = rock ? F.abrade : 1, diving = F.pulling && F.move === 'dive';
+  if (F.cover && F.coverK > 0 && F.slipping && F.progress < (diving ? 0.3 : 0.1) && F.ratio > diff.light * wear) F.snagT += dt * F.coverK * (diving ? 1.8 : 1);
   else F.snagT = Math.max(0, F.snagT - dt * 0.5);
   if (F.snagT > 3.5 * diff.snag * wear) return rock ? 'snap:rock' : 'snap:snag';
 
@@ -336,6 +617,8 @@ export function breakReason(cause, sp, rod) {
       return `The ${fish}’s teeth cut straight through the ${rod.line.name}. Pike need a wire trace: rig one on the spinning rod.`;
     case 'drag':
       return `The line snapped: the drag was locked tight, so it couldn’t give line when the ${fish} ran. Loosen it (S while the fish is on).`;
+    case 'spool':
+      return `The ${fish} took every metre of line off the reel and broke it at the knot. With the drag that light it ran too far: a click more drag slows a long run, and following it with the boat keeps line on the spool.`;
     case 'lifted':
       return `You tried to lift the ${fish} out on the line, and the hook tore free: a fish that size needs the net. When it’s beaten and alongside, let go of the reel and tap to net it.`;
     case 'kicked':

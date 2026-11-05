@@ -953,6 +953,8 @@ export class Fishing {
     if (this.expert && !selfHooked) this.fight.hold = holdAfterStrike(this.fight.hold, this.strikeQ, Math.random());
     this.fishPos.copy(this.hook);
     this.side = 0;
+    this.rodLoad = null;
+    this.anglerWas = null;
     this.state = 'reeling';
     this.t = 0;
     if (!selfHooked) this.audio.hookSet();
@@ -1341,8 +1343,23 @@ export class Fishing {
         // Swung low to one side for side pressure (a positive yaw swings it to your left).
         rodYaw = turns ? wrapAngle(rodYaw - this.side * 0.75) : clamp(rodYaw - this.side * 0.75, -2.2, 2.2);
         rodPitch -= Math.abs(this.side) * 0.2;
-        // The load bends it (a soft rod further), and it kicks as the fish shakes on a run.
-        bend = (0.25 + F.tension * 0.95) / Math.sqrt(this.rod.flex ?? 1) + (F.pulling ? Math.sin(t * 22) * 0.06 * (0.4 + F.tension) : 0) + this.rodBounce;
+        // Pulled down hard by a fish going deep; lifted in a pumping stroke and lowered as you
+        // wind down; rising and falling with a circling fish.
+        if ((F.pulling && F.move === 'dive') || F.move === 'sound') rodPitch -= 0.18;
+        if (F.move === 'sound' && !this.expert) rodPitch += Math.min(0.45, F.heldFor * 0.6);
+        if (F.move === 'circle') rodPitch += Math.sin(F.circA) * 0.12;
+        // The load bends it (a soft rod further), and it kicks as the fish shakes on a run. The
+        // rod is a spring: a surge slams it down past its curve and it rebounds, and a headshake
+        // knocks the tip.
+        const load = (0.25 + F.tension * 0.95) / Math.sqrt(this.rod.flex ?? 1) + (F.pulling ? Math.sin(t * 22) * 0.06 * (0.4 + F.tension) : 0);
+        if (this.rodLoad == null) {
+          this.rodLoad = load;
+          this.rodLoadV = 0;
+        }
+        this.rodLoadV += ((load - this.rodLoad) * 140 - this.rodLoadV * 15) * dt + (this.rodKick || 0) * 9;
+        this.rodKick = 0;
+        this.rodLoad += this.rodLoadV * dt;
+        bend = Math.max(0.05, this.rodLoad) + this.rodBounce;
         break;
       }
       case 'landing': {
@@ -1955,7 +1972,18 @@ export class Fishing {
       this.side = clamp(this.rodR.yaw, -1, 1);
     } else Object.assign(F, { pump: 0, pumpLoad: 0, cushion: 1 });
     F.side = this.side;
-    const before = F.progress;
+    // (Expert: the rod held high lets a head-shaking fish get its head up.)
+    F.rodHigh = this.expert && this.rodR.pitch > 0.75;
+    // The boat closing on it (m/s): following a long run wins the line back.
+    {
+      const was = this.anglerWas;
+      if (was && this.angler.onBoat) {
+        const fx = this.fishPos.x - b.x, fz = this.fishPos.z - b.z, l = Math.hypot(fx, fz) || 1;
+        F.chase = clamp((((b.x - was.x) * fx + (b.z - was.z) * fz) / l) / Math.max(dt, 1e-3), 0, 6);
+      } else F.chase = 0;
+      (this.anglerWas ??= new THREE.Vector3()).copy(b);
+    }
+    const before = F.progress, outBefore = F.dist * (1 - F.progress) + F.extra, chargeWas = F.coming;
     const ev = stepFight(F, held, dt, diff);
     if (ev && ev.startsWith('snap:')) {
       this.snap(ev.slice(5));
@@ -1971,12 +1999,21 @@ export class Fishing {
       F.wordT = secs;
     };
     F.wordT -= dt;
-    if (ev === 'run' || ev === 'jump') {
+    const surge = ev === 'run' || ev === 'longrun' || ev === 'dive' || ev === 'lastdash';
+    if (surge || ev === 'jump') {
       F.creaked = false;
       this.hooks.cue?.('run');
+      // The surge, seen: the water boils where it turns and goes.
+      if (surge && this.fishPos.y > -2.5) {
+        this.fx.ripple(this.fishPos.x, this.fishPos.z, 1.5 + F.sizeK, 1.3, 0.6);
+        if (this.fishPos.y > -1) this.fx.splash(this.fishPos.x, 0.05, this.fishPos.z, 8, 1.8, 0.6);
+      }
+      // (The rod slammed down into its curve.)
+      if (surge) this.rodKick = (this.rodKick || 0) + 0.25 + 0.35 * Math.min(1, F.ratio);
       if (F.time > 6 && F.sizeK > 0.35 && !F.toldSide) {
         F.toldSide = true;
-        this.hooks.teach('side', `A big fish runs hard. Swing the rod low to the side against its run (${this.hooks.key('left')} or ${this.hooks.key('right')}): side pressure turns it and tires it sooner.`, 7);
+        const L = this.hooks.key('left'), R = this.hooks.key('right');
+        this.hooks.teach('side', `A big fish runs hard. Swing the rod low to the side against its run (${L === R ? L : `${L} or ${R}`}): side pressure turns it and tires it sooner.`, 7);
       }
     }
     // A flick on the surface just before each run, so it can be read in time; the rod tip
@@ -2011,6 +2048,7 @@ export class Fishing {
       say('beaten', 3);
       this.hooks.flash('It’s beaten, rolling on its side. Wind it in gently.', 2.6);
     }
+    this.fightMoves(F, ev, dt, t, held, chargeWas, say);
     if (held) F.pickedUp = true;
     // The line creaks when it's at its limit, and keeps creaking while it strains: easing off
     // now saves it (see fight.js).
@@ -2030,7 +2068,8 @@ export class Fishing {
     // The reel: line going out against the drag on a run (m/s), and coming in as you wind; the
     // handle turns whenever you wind, even into a run (the spool slips under it).
     const R = this.reelFx, gain = ((F.progress - before) * F.dist) / Math.max(dt, 1e-3);
-    R.payout = F.slipping ? Math.max(0.3, -gain) : 0;
+    const paid = (F.dist * (1 - F.progress) + F.extra - outBefore) / Math.max(dt, 1e-3);
+    R.payout = F.slipping ? Math.max(0.3, paid) : 0;
     R.wind = held ? Math.max(0.5, gain) : 0;
     R.load = F.tension;
     R.sing = smoothstep(0.78, 0.98, F.tension);
@@ -2042,7 +2081,21 @@ export class Fishing {
     dz /= dl;
     const e = 1 - Math.pow(1 - F.progress, 1.5);
     const ex = F.end ? F.end.x : b.x + dx * 2.6, ez = F.end ? F.end.z : b.z + dz * 2.6;
-    const cx = lerp(F.start.x, ex, e), cz = lerp(F.start.z, ez, e);
+    // (Further out by the line a long run took; nearer by the slack a charge left.)
+    const reach = Math.hypot(lerp(F.start.x, ex, e) - b.x, lerp(F.start.z, ez, e) - b.z);
+    const off = F.extra - Math.min(F.slack, Math.max(0, reach - 2.5));
+    let cx = lerp(F.start.x, ex, e) + dx * off, cz = lerp(F.start.z, ez, e) + dz * off;
+    // Circling below the boat: round it goes, rising on the near side and sinking on the far.
+    F.circK = damp(F.circK || 0, F.move === 'circle' ? 1 : 0, 1.2, dt);
+    if (F.circK > 0.01) {
+      const r = (2.5 + 4 * (1 - F.progress)) * F.circK;
+      cx += -dz * Math.cos(F.circA) * r - dx * Math.sin(F.circA) * r * 0.5;
+      cz += dx * Math.cos(F.circA) * r - dz * Math.sin(F.circA) * r * 0.5;
+    }
+    // How deep its move takes it: a dive for the bottom, sounding straight down, or up at the top
+    // for a headshake.
+    F.deep = damp(F.deep || 0, F.move === 'sound' ? 7 : F.pulling && F.move === 'dive' ? 2.8 : F.move === 'circle' ? 1.5 * (1 - Math.sin(F.circA)) : 0, 1.1, dt);
+    F.top = damp(F.top || 0, F.shakeT > 0 ? 1 : 0, 6, dt);
     // How it moves on a run depends on how it fights: darting wide, plodding, flat on the
     // bottom, deep and circling, or jetting back in pulses (F.dir +1 is off to your right, as you
     // face it). Side pressure swings it back.
@@ -2056,7 +2109,8 @@ export class Fishing {
       z = cz;
     }
     const floor = solidHeight(x, z) + 0.3, lv = waterLevel(x, z);
-    let y = Math.min(Math.max(lerp(F.start.y, lv - 0.35, e) - (F.pulling ? St.dive * (1 - e * 0.5) : 0), floor), lv - 0.2);
+    let y = Math.min(Math.max(lerp(F.start.y, lv - 0.35, e) - (F.pulling ? St.dive * (1 - e * 0.5) : 0) - F.deep, floor), lv - 0.2);
+    y = lerp(y, lv - 0.12, F.top);
     // In a leap it clears the water, nose up, and falls back in.
     let pitch = 0;
     if (F.leapT > 0) {
@@ -2072,7 +2126,10 @@ export class Fishing {
     }
     this.fishPos.set(x, y, z);
     const away = Math.atan2(x - b.x, z - b.z);
-    this.eco.placeHooked(F.agent, x, y, z, away + (F.pulling ? F.lat * 0.15 : F.dir * 1.6), F.pulling ? 1 : F.stage === 'beaten' ? 0.2 : 0.5);
+    // (Shaking its head: the head thrown side to side; charging: nose on to you.)
+    const shake = F.shakeT > 0 ? Math.sin(F.shakeClock * Math.PI * 9) * 0.55 : 0;
+    const face = F.move === 'charge' ? away + Math.PI : away + (F.pulling ? F.lat * 0.15 : F.dir * 1.6);
+    this.eco.placeHooked(F.agent, x, y, z, face + shake, F.pulling || F.move === 'charge' ? 1 : F.stage === 'beaten' ? 0.2 : 0.5);
     // Beaten, it rolls on its side; in a leap, it's nose up.
     F.roll = damp(F.roll, F.stage === 'beaten' && !F.pulling ? 1.25 : 0, 2, dt);
     F.agent.bank = F.roll;
@@ -2080,6 +2137,14 @@ export class Fishing {
     this.mouthOf(F.agent, this.hook);
     if (this.kind === 'float' || (this.kind === 'fly' && this.item.fly === 'nymph')) this.bob.set(x, waveHeight(x, z, t) - (F.pulling ? 0.16 : 0.06), z);
     else this.bob.set(x, waveHeight(x, z, t), z);
+    // Streaking along just under the top (a charge, a long run): a wake behind it.
+    if ((F.move === 'charge' || (F.pulling && F.move === 'longrun')) && y > lv - 1.2) {
+      F.wakeT = (F.wakeT ?? 0) - dt;
+      if (F.wakeT <= 0) {
+        F.wakeT = 0.09;
+        this.fx.ripple(x, z, 0.45 + 0.4 * F.sizeK, 0.8, 0.32);
+      }
+    }
     if (F.pulling) {
       F.splashT -= dt;
       if (F.splashT <= 0) {
@@ -2100,6 +2165,83 @@ export class Fishing {
       Object.assign(F, { atNet: true, netT: 0, kick: 0, kickT: rand(2.5, 4), liftT: 0 });
       this.hooks.teach('net', `A fish this size needs the net: when it’s beaten and alongside, let go of the reel and tap ${this.hooks.key('cast')}. Don’t wind hard as it kicks.`, 8);
     }
+  }
+
+  // A fish's signature moves (see fight.js): each one seen, heard and felt as it begins, said in a
+  // word or two beside the meter, and the first time, what to do about it.
+  fightMoves(F, ev, dt, t, held, comingWas, say) {
+    const H = this.hooks, p = this.fishPos, K = (k) => H.key(k);
+    // (On a controller one stick does both: say it once.)
+    const LR = K('left') === K('right') ? K('left') : `${K('left')} or ${K('right')}`;
+    const reel = this.expert ? 'the reel' : `${K('cast')}`;
+    switch (ev) {
+      case 'charge':
+        say('coming at you: wind!', 1.8);
+        H.feel?.('turn');
+        this.fx.ripple(p.x, p.z, 1.2, 1.2, 0.5);
+        H.teach('charge', `It’s turned and is coming straight at you! Wind as fast as you can (hold ${reel}) to keep the line tight: on a slack line it can shake the hook.`, 7);
+        break;
+      case 'shake':
+        say(this.side ? 'head-shaking: hold it' : 'head-shaking: rod low!', F.shakeT);
+        H.teach('headshake', `Head-shaking at the top! Swing the rod low to one side (${LR}) to keep its head down and the line steady. Rod up and winding hard, every shake snatches at the line; ease right off and it falls slack.`, 8);
+        break;
+      case 'dive':
+        say(F.cover ? `diving for the ${F.coverKind === 'rock' ? 'rocks' : 'weed'}!` : 'diving deep!', 1.8);
+        H.teach('dive', `It’s diving for the bottom${F.cover ? ` and the ${F.coverKind === 'rock' ? 'rocks' : 'weed'}` : ''}. Swing the rod low against it (${LR}): side strain turns its head.`, 7);
+        break;
+      case 'lastdash':
+        say('one last dive!', 1.8);
+        H.flash('One last dive at your feet! Let the drag work, and turn it with side strain.', 2.4);
+        break;
+      case 'turned':
+        say('turned it!', 1.4);
+        this.fx.ripple(p.x, p.z, 1.1, 1.1, 0.45);
+        H.feel?.('turn');
+        break;
+      case 'longrun':
+        say('a long run: let it go!', 2.4);
+        H.teach('longrun', `A long run: line pours off the reel, far past where it was hooked. Let it go with the rod up, and don’t wind into it. If the spool runs low, a click more drag slows it${this.angler.onBoat ? `, or follow it with the boat (${K('interact')})` : ''}.`, 9);
+        break;
+      case 'spool':
+        H.flash(F.spoolWarn > 1 ? `The spool’s nearly empty! A click more drag${this.angler.onBoat ? `, or follow it with the boat (${K('interact')})` : ''}, now.` : 'Half the line’s gone off the spool.', 2.6);
+        H.feel?.('creak');
+        break;
+      case 'sound':
+        say('sounding: pump it up', 2.6);
+        H.teach('sound', this.expert
+          ? 'It’s sounded: straight down, and hanging there like a dead weight. Pump it up: lift the rod slowly, then wind down as you lower it. Winding steadily barely moves it, and lets it get its breath back.'
+          : `It’s sounded: straight down, and hanging there like a dead weight. Pump it up in strokes: hold ${reel} for a moment (the rod lifts), let go (it drops as you wind down), and again. Winding steadily barely moves it, and lets it get its breath back.`, 9);
+        break;
+      case 'lifted':
+        say('it’s coming up', 1.6);
+        break;
+      case 'circle':
+        H.teach('circle', `Tired now, it’s circling below the boat. Wind as it comes up on the near side (the rod tip rises); hold as it goes round the far side.`, 8);
+        break;
+    }
+    // The circles, in turn: up on the near side, round on the far.
+    if (F.move === 'circle' && F.coming !== comingWas) {
+      say(F.coming ? 'coming up: wind' : 'going round: hold', 2.2);
+      if (F.coming) H.feel?.({ strong: 0.18, weak: 0.22, ms: 520, shape: 'swell' });
+    }
+    // A pumping stroke landing: a heave felt in your arms.
+    if (F.move === 'sound' && F.strokes !== (F.strokesFelt ?? 0)) {
+      F.strokesFelt = F.strokes;
+      H.feel?.({ strong: 0.35, weak: 0.15, ms: 200, shape: 'swell', rt: 0.5 });
+    }
+    // A headshake: every shake knocks the rod and is felt, the water thrown about at the top.
+    if (F.shakeT > 0) {
+      const beat = Math.floor(F.shakeClock * 4.5);
+      if (beat !== F.shakeBeat) {
+        F.shakeBeat = beat;
+        const k = Math.min(1, Math.abs(F.shakeOff) * 3 + 0.3);
+        H.feel?.('headshake', k);
+        if (beat % 2 === 0) {
+          this.fx.splash(p.x, 0.05, p.z, 6, 1.5, 0.5);
+          this.audio.splashSmall(0.5 + 0.3 * k);
+        }
+      }
+    } else F.shakeBeat = -1;
   }
 
   updateVisuals(t, dt, fishMesh) {

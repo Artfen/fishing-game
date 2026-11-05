@@ -132,6 +132,8 @@ export class AudioScape {
     this.whirrBed = this.bed(this.pink, [['bandpass', 650, 1.2]], this.reelBus);
     // Line peeling off an open spool as a cast flies out: a soft, rising hiss.
     this.spoolBed = this.bed(this.white, [['bandpass', 4200, 0.9]], this.reelBus);
+    // A long run: the drag's clicks running together into a scream, higher the faster line goes.
+    this.screamBed = this.bed(this.white, [['bandpass', 3400, 3.2]], this.reelBus);
     this.singOsc = ctx.createOscillator();
     this.singOsc.type = 'triangle';
     this.singOsc.frequency.value = 1500;
@@ -967,11 +969,15 @@ export class AudioScape {
     if (!this.ctx || !this.ratchet) return;
     const now = this.ctx.currentTime;
     const click = r.free ? 0 : r.payout;
-    const rate = Math.min(70, click * 16);
+    const rate = Math.min(110, click * 16);
     const on = rate > 0.5 ? 1 : 0;
     const vol = on * (0.035 + 0.05 * r.load + 0.03 * r.drag) * Math.min(1, click / 0.4);
     this.setClicks(this.ratchet, rate, vol, now);
     this.ratchet.f[0].frequency.setTargetAtTime(2600 + 1400 * r.drag + 600 * r.load, now, 0.05);
+    // Fast enough, the clicks run together into the drag's scream.
+    const scr = r.free ? 0 : Math.min(1, Math.max(0, (click - 2.5) / 6));
+    this.set(this.screamBed.g.gain, 0.06 * scr * (0.6 + 0.4 * r.load), scr > 0 ? 0.04 : 0.18);
+    this.screamBed.f[0].frequency.setTargetAtTime(2800 + 140 * Math.min(click, 14) + 500 * r.drag, now, 0.06);
     // Winding: a fine gear rattle and a soft hum.
     const w = Math.min(r.wind, 6);
     this.setClicks(this.whirr, w > 0.05 ? 22 + w * 26 : 0, w > 0.05 ? (0.012 + 0.02 * r.load) * Math.min(1, w / 0.6) : 0, now);

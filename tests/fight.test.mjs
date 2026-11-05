@@ -17,7 +17,9 @@ const carp = fishById.carp, pike = fishById.pike, trout = fishById.trout;
 const rodOf = (id, drag, line = 0) => ({ line: { ...RODS[id].lines[line], trace: !!TERMS[RODS[id].terms[0]].trace }, power: RODS[id].power, flex: RODS[id].flex, drag: drag ?? RODS[id].drag });
 const sizeAt = (sp, k) => sp.size[0] + (sp.size[1] - sp.size[0]) * k;
 
-// careful: eases off at the flick and through the surge. human: lets go a reaction time after
+// careful: eases off at the flick and through the surge, and answers each signature move as the
+// game says (winds through a charge, side strain for a headshake or a dive, pumps a sounding fish
+// in strokes, winds a circling fish as it comes up). human: lets go a reaction time after
 // the flick (or the run, if that comes first) and holds again a reaction time after the surge.
 // creak: ignores the flick, but eases off a reaction time after the line creaks.
 // holder: never lets go.
@@ -28,10 +30,16 @@ function play(sp, rod, diffId, style, { k = 0.9, cover = false, n = 200, seed = 
   for (let i = 0; i < n; i++) {
     const F = newFight(sp, sizeAt(sp, k), rod, diff, cover, rnd);
     const react = 0.2 + rnd() * 0.25;
-    let held = true, cue = 99, calm = 99, was = false, result = null, creakT = 99;
+    let held = true, cue = 99, calm = 99, was = false, result = null, creakT = 99, pumpT = 0;
     for (let step = 0; step < 9000 && !result; step++) {
       const dt = 1 / 30;
-      if (style === 'careful') held = !(F.surgeT > 0 || (F.warned && !F.pulling));
+      if (style === 'careful') {
+        held = !(F.surgeT > 0 || (F.warned && !F.pulling));
+        F.side = F.shakeT > 0 || (F.pulling && F.move === 'dive') ? -F.dir : 0;
+        if (F.move === 'charge') held = true;
+        if (F.move === 'sound') held = (pumpT += dt) % 1 < 0.6;
+        if (F.move === 'circle' && !F.pulling) held = F.coming;
+      }
       else if (style === 'human') {
         if (cue > react && cue < 50) held = false;
         if (!held && calm > react && calm < 50) { held = true; cue = 99; calm = 99; }
@@ -172,4 +180,129 @@ test('fish of different kinds fight differently: squid jet in short pulses, tuna
     return len / Math.max(1, n);
   };
   assert.ok(runs('squid') < runs('tuna') * 0.5, `squid ${runs('squid')} s vs tuna ${runs('tuna')} s`);
+});
+
+// Signature moves (see the top of fight.js). A player who answers each move: winds through a
+// charge, swings the rod low to the side for a headshake or a dive, pumps a sounding fish in
+// strokes, and winds a circling fish only as it comes up. ignore: any one of those answers left out.
+const natural = { throwHook: 0.12, pull: 0.5 };
+function playMoves(id, rod, { n = 60, seed = 5, ignore = null, level = natural, k = 0.9, cover = false, drag, chase = 0 } = {}) {
+  const sp = fishById[id], rnd = dice(seed), diff = DIFFICULTY.standard;
+  const { prefsFor } = behaviour;
+  const out = { n, landed: 0, time: 0, moves: {}, ends: {}, extra: 0, turned: 0, lifted: 0, shakeSum: 0, shakeN: 0 };
+  for (let i = 0; i < n; i++) {
+    const F = newFight(sp, sizeAt(sp, k), drag != null ? { ...rod, drag } : rod, diff, cover, rnd, { jumpy: prefsFor(id).jumpy, level, range: 35 });
+    let end = null, clock = 0;
+    for (let s = 0; s < 30 * 300 && !end; s++) {
+      const dt = 1 / 30;
+      let held = !(F.surgeT > 0 || (F.warned && !F.pulling));
+      F.side = 0;
+      F.chase = chase;
+      if (F.move === 'charge') held = ignore !== 'charge';
+      if ((F.shakeT > 0 && ignore !== 'headshake') || (F.pulling && F.move === 'dive' && ignore !== 'dive')) F.side = -F.dir;
+      if (F.move === 'sound') held = ignore === 'sound' ? true : (clock += dt) % 1 < 0.6;
+      if (F.move === 'circle' && !F.pulling) held = ignore === 'circle' ? true : F.coming;
+      const ev = stepFight(F, held, dt, diff, rnd);
+      if (F.shakeT > 0) {
+        out.shakeSum += Math.abs(F.shakeOff);
+        out.shakeN++;
+      }
+      if (ev === 'turned') out.turned++;
+      if (ev === 'lifted') out.lifted++;
+      out.extra = Math.max(out.extra, F.extra);
+      if (ev && (ev.startsWith('snap:') || ev.startsWith('off:'))) end = ev;
+      else if (F.progress >= 1) {
+        end = 'landed';
+        out.landed++;
+        out.time += F.time;
+      }
+    }
+    out.ends[end || 'timeout'] = (out.ends[end || 'timeout'] || 0) + 1;
+    for (const [m, c] of Object.entries(F.moves)) out.moves[m] = (out.moves[m] || 0) + c;
+  }
+  out.rate = out.landed / n;
+  out.time = out.landed ? out.time / out.landed : 0;
+  out.shake = out.shakeSum / Math.max(1, out.shakeN);
+  return out;
+}
+const behaviour = await import('../src/behaviour.js');
+const guideRod = async (id) => {
+  const { setupsFor } = await import('../src/guide.js');
+  const s = setupsFor(fishById[id])[0], R = RODS[s.rod];
+  return { line: { ...R.lines.find((l) => l.id === s.line), trace: !!TERMS[s.term].trace }, power: R.power, flex: R.flex, drag: R.drag };
+};
+
+test('a sea bass, a trout and a tuna are three different fights, not one fight of three lengths', async () => {
+  const { signatureOf } = await import('../src/fight.js');
+  assert.deepEqual(signatureOf(fishById.trout), ['charge']);
+  assert.deepEqual(signatureOf(fishById.seabass), ['headshake', 'dive', 'lastdash']);
+  assert.deepEqual(signatureOf(fishById.tuna), ['longrun', 'sound', 'circle']);
+  const trout = playMoves('trout', rodOf('trout')), bass = playMoves('seabass', await guideRod('seabass')), tuna = playMoves('tuna', await guideRod('tuna'));
+  // The trout charges at you; the bass shakes its head, dives and makes a last dash; the tuna runs
+  // far, sounds and circles. None of them does the others' moves.
+  assert.ok(trout.moves.charge > trout.n, JSON.stringify(trout.moves));
+  assert.ok(!trout.moves.longrun && !trout.moves.headshake && !trout.moves.sound, JSON.stringify(trout.moves));
+  assert.ok(bass.moves.headshake > bass.n && bass.moves.dive > bass.n * 0.5 && bass.moves.lastdash > bass.n * 0.5, JSON.stringify(bass.moves));
+  assert.ok(!bass.moves.charge && !bass.moves.longrun && !bass.moves.sound, JSON.stringify(bass.moves));
+  assert.equal(tuna.moves.longrun >= tuna.n && tuna.moves.sound >= tuna.n * 0.9 && tuna.moves.circle >= tuna.n * 0.9, true, JSON.stringify(tuna.moves));
+  assert.ok(!tuna.moves.charge && !tuna.moves.headshake && !tuna.moves.dive, JSON.stringify(tuna.moves));
+  // The tuna's run takes line far past where it was hooked; nothing else does.
+  assert.ok(tuna.extra > 40 && trout.extra === 0 && bass.extra === 0, `${tuna.extra} m`);
+  // Answered, every one of them comes in.
+  for (const r of [trout, bass, tuna]) assert.ok(r.rate >= 0.95, JSON.stringify(r.ends));
+});
+
+test('a charge: wind to keep up and you win line; stop winding and the slack can lose it', () => {
+  const kept = playMoves('trout', rodOf('trout'), { n: 120, seed: 9 }), slack = playMoves('trout', rodOf('trout'), { n: 120, seed: 9, ignore: 'charge' });
+  assert.ok((slack.ends['off:thrown'] || 0) > (kept.ends['off:thrown'] || 0) + 5, `${JSON.stringify(kept.ends)} vs ${JSON.stringify(slack.ends)}`);
+  assert.ok(kept.time < slack.time, `${kept.time} s vs ${slack.time} s`);
+  // On Relaxed no fish ever throws the hook, whatever you do.
+  const relaxed = playMoves('trout', rodOf('trout'), { n: 60, ignore: 'charge', level: { throwHook: 0, pull: 0 } });
+  assert.equal(relaxed.ends['off:thrown'] || 0, 0);
+});
+
+test('a headshake: the rod low to one side keeps the line steady; without it the hook can come out', async () => {
+  const rod = await guideRod('seabass');
+  const low = playMoves('seabass', rod, { n: 120, seed: 4 }), up = playMoves('seabass', rod, { n: 120, seed: 4, ignore: 'headshake' });
+  assert.ok((up.ends['off:thrown'] || 0) > (low.ends['off:thrown'] || 0) + 8, `${JSON.stringify(low.ends)} vs ${JSON.stringify(up.ends)}`);
+  assert.ok(up.shake > low.shake * 2.5, `each shake snatches at the line by ${up.shake.toFixed(2)} without, ${low.shake.toFixed(2)} with`);
+  assert.ok(low.rate >= 0.95, JSON.stringify(low.ends));
+});
+
+test('a dive for the rocks: side strain turns its head', () => {
+  const pollack = fishById.pollack;
+  assert.ok(pollack.fight === 'dogged');
+  const rod = rodOf('sea', 1, 0);
+  const turned = playMoves('pollack', rod, { n: 80, cover: 'rock' }), not = playMoves('pollack', rod, { n: 80, cover: 'rock', ignore: 'dive' });
+  assert.ok(turned.turned > 20 && not.turned === 0, `${turned.turned} turned`);
+  assert.ok(turned.rate > not.rate || (not.ends['snap:rock'] || 0) >= (turned.ends['snap:rock'] || 0), `${JSON.stringify(turned.ends)} vs ${JSON.stringify(not.ends)}`);
+});
+
+test('sounding: pumping it up in strokes lifts it; winding steadily barely moves it', async () => {
+  const rod = await guideRod('tuna');
+  const pump = playMoves('tuna', rod, { n: 60 }), crank = playMoves('tuna', rod, { n: 60, ignore: 'sound' });
+  assert.ok(pump.lifted > crank.lifted * 2 + 10, `lifted ${pump.lifted} times pumping, ${crank.lifted} cranking`);
+  assert.ok(pump.time < crank.time, `${pump.time.toFixed(1)} s vs ${crank.time.toFixed(1)} s`);
+  // A shark sounds too (with no long run first), and pumping beats it sooner.
+  const shark = await guideRod('blueshark');
+  assert.ok(playMoves('blueshark', shark, { n: 40 }).time < playMoves('blueshark', shark, { n: 40, ignore: 'sound' }).time * 0.8);
+});
+
+test('the circles: winding as it comes up beats winding all the way round', async () => {
+  const rod = await guideRod('tuna');
+  const timed = playMoves('tuna', rod, { n: 60, seed: 3 }), always = playMoves('tuna', rod, { n: 60, seed: 3, ignore: 'circle' });
+  assert.ok(timed.time < always.time, `${timed.time.toFixed(1)} s vs ${always.time.toFixed(1)} s`);
+});
+
+test('a long run: line pours off past the hook, a drag far too light empties a small spool, and following it with the boat wins it back', async () => {
+  // A big tuna on the light spinning rod's reel (a small spool) with the drag right off.
+  const light = { ...rodOf('sea'), spool: 120 };
+  const off = playMoves('tuna', light, { n: 30, drag: 0 });
+  assert.ok((off.ends['snap:spool'] || 0) > 5, JSON.stringify(off.ends));
+  assert.match(breakReason('spool', fishById.tuna, light), /every metre of line/);
+  // On its own tackle it never comes near, and following it with the boat brings it back sooner.
+  const rod = await guideRod('tuna');
+  const stay = playMoves('tuna', rod, { n: 40 }), follow = playMoves('tuna', rod, { n: 40, chase: 2 });
+  assert.equal(stay.ends['snap:spool'] || 0, 0);
+  assert.ok(follow.time < stay.time, `${follow.time.toFixed(1)} s following vs ${stay.time.toFixed(1)} s`);
 });
