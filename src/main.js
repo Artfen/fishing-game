@@ -72,6 +72,7 @@ import { CampView, campObstacles } from './campView.js';
 import { Placement } from './placement.js';
 import { Adventures, ADVENTURE_BY_ID, PAGES, KEEPSAKES } from './adventures.js';
 import { PhotoStore, capture, photoId, albumPage, download } from './photos.js';
+import { Haptics, STRENGTHS, engineFeel, lineFeel, slamFeel, knockFeel } from './haptics.js';
 import { Memories } from './memories.js';
 import { whatsAbout, birdsWorking, weatherLines, notices, paintBoard } from './harbour.js';
 import { HarbourSheet, paintSlate, paintKitchenBoard } from './harbourView.js';
@@ -623,6 +624,9 @@ const pads = new Gamepads(input, {
   focusRoot: () => $('title'),
 });
 input.padLabel = (a) => pads.label(a);
+// What you feel through the controller (see haptics.js): the engine, the sea, the fish.
+const haptics = new Haptics((strong, weak, lt, rt, ms) => pads.feel(strong, weak, lt, rt, ms));
+haptics.setStrength(settings.controls.vibration);
 // Which controls the hints describe: 'keys' (keyboard and mouse), 'pad' or 'touch'.
 const scheme = () => input.method;
 // Moving and looking, in the hints: the movement keys and the mouse, or the controller's sticks.
@@ -983,10 +987,12 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   // The flick before a run, and the run itself: felt as well as seen (a buzz on phones that
   // can, a jolt through your hands in first person).
   cue: (kind) => {
-    if (touch.active) navigator.vibrate?.(kind === 'warn' ? 35 : 70);
-    if (settings.controls.rumble) pads.rumble(kind === 'warn' ? 0.2 : 0.55, kind === 'warn' ? 70 : 200);
+    if (touch.active && settings.controls.vibration !== 'off') navigator.vibrate?.(kind === 'warn' ? 35 : 70);
+    haptics.pulse(kind === 'warn' ? 'warn' : 'run');
     if (kind === 'run' && rig.mode === 'eye') shake(0.25);
   },
+  // Every other sign and turn of a catch, felt through the controller (see haptics.js).
+  feel: (name, k) => haptics.pulse(name, k),
   // Casting from a boat under power: the throttle eases back to trolling speed (see easeForCast).
   easeForCast: () => easeForCast(),
   onCast: () => {
@@ -2740,6 +2746,8 @@ function changeLever(v) {
   if (v === boat.lever) return;
   boat.lever = v;
   audio.tick?.(0.35);
+  // (The lever clicking into its notch, and the firmer detent at neutral.)
+  haptics.pulse(v === 0 ? 'detent' : 'notch');
 }
 function leverNeutral(say = false) {
   if (!leverKind()) return;
@@ -3862,6 +3870,7 @@ function watchParking(dt) {
 let bumpWordT = 0;
 function carBumped(b) {
   audio.knock?.(clamp(b.speed / 8, 0.15, 0.6));
+  haptics.pulse({ strong: 0.9, weak: 0.5, ms: 200, shape: 'thump' }, clamp(b.speed / 6, 0.3, 1));
   if (t < bumpWordT) return;
   bumpWordT = t + 3;
   hud.flash(b.kind === 'water' ? 'The car won’t go any nearer the water.' : b.kind === 'steep' ? 'Too steep for the car.' : `The car stops: ${b.name || 'something'} in the way.`, t, 2.2);
@@ -6010,7 +6019,13 @@ BOATS.kayak.onStroke = (p, side) => {
   fx.splash(p.x, 0.05, p.z, 2, 0.7, 0.25);
   audio.oar(side > 0 ? -0.3 : 0.3, 0.35);
 };
-for (const b of boats) b.onBump = (v) => audio.knock(clamp(v / 3, 0.4, 1));
+for (const b of boats) {
+  b.onBump = (v) => {
+    audio.knock(clamp(v / 3, 0.4, 1));
+    // (A knock you're aboard for comes up through your hands.)
+    if (b === boat && !onFoot) haptics.pulse({ strong: 1, weak: 0.55, ms: 220, shape: 'thump' }, knockFeel(v));
+  };
+}
 // Running aground, or dragged up a beach: the hull grinding on the bottom (yours, a few times a second).
 let scrapeT = 0;
 for (const b of boats) b.onScrape = (v, on) => {
@@ -6363,6 +6378,7 @@ function applyControls() {
   rig.reduced = C.reducedMotion;
   document.documentElement.classList.toggle('reduce-motion', !!C.reducedMotion);
   fishing.assist = C.cast === 'assisted';
+  haptics.setStrength(C.vibration);
   input.setBindings(C.keys || defaultBindings());
   labelKeys();
   showControls();
@@ -6417,6 +6433,11 @@ const settingsUI = new SettingsUI(state, {
   together: () => together,
   setName: (name) => setName(name),
   boatName: (kind) => BOATS[kind]?.name || 'boat',
+  // (A taste of the new strength, straight away.)
+  feltVibration: (id) => {
+    const k = STRENGTHS[id] ?? 0;
+    if (k) pads.feel(Math.min(1, 0.9 * k), Math.min(1, 0.5 * k), 0, Math.min(1, 0.7 * k), 260);
+  },
 });
 
 // The name you go by when playing together (kept with the settings, so a new game keeps it).
@@ -8251,6 +8272,7 @@ function tick(now, manual = false) {
   }
   if (!manual) watchFrameRate(rawDt);
   pads.poll(dt);
+  feelFrame(dt);
 
   // (Not in the water: time can't drift by on one breath, or a tank.)
   const wantsRest = started && (!modal || modal === 'camp') && input.resting && !dive;
@@ -8433,6 +8455,7 @@ function tick(now, manual = false) {
   const outboard = motorOn && boat.motor && !boat.trolling;
   const voice = onFoot ? '' : boat.hull.motor?.jet ? 'jet' : boat.hull.motor?.inboard ? 'inboard' : '';
   audio.engine?.(motorOn ? (outboard ? Math.max(0.12, Math.abs(boat.power) * (boat.tilted ? 0.5 : 1)) : 0.03 + Math.abs(boat.power) * 0.02) : 0, voice);
+  feelBoat(motorOn, outboard, voice);
   // The windsurf board up on the plane for the first time: a word.
   if (!onFoot && boat.hull.rig && boat.planing > 0.8) teach('planing', 'Planing! The board’s up on the water and flying. Keep the sheet just in, and ease out in the gusts.', 6);
   // The jet ski's plume: spray thrown up behind it at speed (none while it's in the air).
@@ -8601,7 +8624,7 @@ function tick(now, manual = false) {
     _shadowAt.multiplyScalar(12).add(P);
   }
   // A storm's lightning (and its thunder, arriving later) and the spray off the seas.
-  stormFx.update(dt, t, { storm: Math.max(weather.storm, conditions.sea.storm * 0.8), camera, env, onThunder: (d, loud) => audio.thunder?.(d, loud), flashes: !settings.controls.reducedMotion });
+  stormFx.update(dt, t, { storm: Math.max(weather.storm, conditions.sea.storm * 0.8), camera, env, onThunder: (d, loud) => { audio.thunder?.(d, loud); haptics.pulse('thunder', clamp(loud, 0.15, 1)); }, flashes: !settings.controls.reducedMotion });
   watchStorm(dt);
   env.update(dt, t, sunHour(clock.hour, clock.abs), weather.rain, fpShadow ? _shadowAt : P, camera, renderer, weather.cloud);
   const sub = underwater.updateMedium(t, camera, env, scene, water, weather.rain);
@@ -8769,6 +8792,43 @@ let homeIntroAt = 0; // seconds of play before a new player hears about home (0:
 const carIn = { throttle: 0, steer: 0 };
 let wadeT = 0;
 let motorNoiseT = 0;
+let slamFelt = 0, gearFelt = 0;
+
+// Once a frame: what's felt through the controller goes out (nothing in a menu, or when the
+// controller isn't what you're playing with): a fish's weight on the line and the drag's buzz,
+// the car's engine, and whatever else happened (see haptics.js).
+function feelFrame(dt) {
+  haptics.live = started && !modal && pads.active && !document.hidden;
+  const F = fishing.fight;
+  if (F && !F.atNet) {
+    const f = lineFeel(F.tension, F.slipping, F.pulling ? clamp((F.ratio ?? 1) / Math.max(0.3, DRAG_LEVELS[F.drag] ?? 0.55) - 1, 0, 1) : 0);
+    haptics.hold('line', f.weight.strong, f.weight.weak, { rt: f.weight.rt });
+    if (f.drag) haptics.hold('drag', 0, f.drag.weak, { rt: f.drag.rt, buzz: f.drag.buzz });
+  }
+  if (driving && tanks().car > 0) {
+    const r = clamp(Math.abs(car.speed) / 25 + (carIn.throttle ? 0.15 : 0), 0, 1);
+    haptics.hold('engine', 0.03 + 0.07 * r, 0.04 + 0.08 * r, { rt: carIn.throttle > 0 ? 0.1 * carIn.throttle : 0 });
+  }
+  haptics.update(dt);
+}
+
+// The boat through your hands (see haptics.js): the engine's beat, building with the revs, and a
+// sea slamming under her bow at speed.
+function feelBoat(motorOn, outboard, voice) {
+  if (onFoot || dive || driving) return;
+  // (The clunk of going into gear, ahead or astern.)
+  const g = Math.sign(boat.power);
+  if (motorOn && outboard && g && g !== gearFelt) haptics.pulse('gear');
+  gearFelt = g;
+  if (motorOn) {
+    const e = engineFeel(Math.abs(boat.power), { inboard: voice === 'inboard', jet: voice === 'jet', electric: !outboard, running: true });
+    haptics.hold('engine', e.strong, e.weak);
+  }
+  // (Each slam once, as she comes down into the sea, not all the while she's in it.)
+  const k = slamFeel(boat.slam);
+  if (k > 0.05 && k > slamFelt + 0.15) haptics.pulse({ strong: 1, weak: 0.4, ms: 240, shape: 'thump' }, k);
+  slamFelt = k > slamFelt ? k : Math.max(0, slamFelt - 0.016 * 3);
+}
 
 // The boats bump gently instead of sailing through each other.
 function keepBoatsApart() {

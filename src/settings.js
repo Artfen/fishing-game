@@ -5,6 +5,7 @@ import { BEHAVIOUR, BEHAVIOUR_IDS } from './behaviour.js';
 import { SEA_PRESETS, SEA_IDS, compass } from './world/conditions.js';
 import { buttonFor } from './gamepad.js';
 import { NEEDS_MODES, NEEDS_IDS } from './comfort.js';
+import { STRENGTH_IDS } from './haptics.js';
 import { cleanName, cleanCode, validCode, poseWords, NAME_MAX, MAX_PLAYERS } from './together.js';
 
 // Preferences: sound, graphics, weather, controls and comfort, and the name you go by when
@@ -35,7 +36,7 @@ export const DEFAULT_SETTINGS = {
   weather: { mode: 'auto', rainFx: 1, sea: 'auto', windMode: 'auto', windSpeed: 4, windFrom: 225, currents: 'natural', panel: true, windLines: 'sailing' },
   // sailTrim: the sailing boat's mainsheet by hand, or helped (it trims itself when left alone).
   // needs: how much the angler feels the weather and the day (see comfort.js): off, shown, gentle.
-  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, rumble: true, sailTrim: 'hand', needs: 'gentle' },
+  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, vibration: 'normal', sailTrim: 'hand', needs: 'gentle' },
   // name: what friends see over you when playing together ('' until you've chosen one).
   // share: whether what you find (places, dive sites, a wreck's details, first fish) goes to them.
   player: { name: '', share: true },
@@ -116,7 +117,8 @@ export function cleanSettings(raw, legacy = {}) {
     cast: oneOf(c.cast, Object.keys(CAST_MODES), 'assisted'),
     hints: oneOf(c.hints, ['gentle', 'more', 'off'], 'gentle'),
     keys: c.keys ? cleanBindings(c.keys) : null,
-    rumble: c.rumble !== false,
+    // (Vibration was once only on or off.)
+    vibration: oneOf(c.vibration, STRENGTH_IDS, c.rumble === false ? 'off' : 'normal'),
   };
   const p = isObj(r.player) ? r.player : {};
   const player = { name: cleanName(p.name), share: p.share !== false };
@@ -585,7 +587,8 @@ export class SettingsUI {
     // A controller: what its buttons do (they can't be changed), and whether it buzzes.
     out.push(el('h3', null, 'Controller'));
     out.push(el('p', 'st-note', 'An Xbox controller (or any the browser recognises) works as soon as you press a button on it; the hints follow whichever you used last. In menus: the D-pad or left stick moves, A chooses, B goes back, LB and RB change tabs, the right stick scrolls.'));
-    out.push(this.row('Controller vibration', 'A short buzz when something bites or runs, if your controller and browser can.', this.toggle('controls', 'rumble')));
+    out.push(this.row('Controller vibration', 'Feel the game through your hands: the engine through the hull, a sea slamming under the bow, a knock, the starter, the bite, the hook going in, a fish running and the drag giving line (in the reel trigger too, where the browser can reach it). Best on an Xbox controller in Chrome or Edge.',
+      this.choice([['off', 'Off'], ['light', 'Light'], ['normal', 'Normal'], ['strong', 'Strong']], C.vibration, (v) => { this.set('controls', 'vibration', v); this.hooks.feltVibration?.(v); })));
     const pads = el('div', 'st-keys');
     for (const [group, rows] of PAD_HELP) {
       pads.append(el('h4', null, group));

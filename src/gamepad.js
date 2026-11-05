@@ -224,12 +224,35 @@ export class Gamepads {
     this.input.virtual.steer = 0;
   }
 
-  // A short buzz (a bite, a run), where the controller can; nothing depends on it.
+  // A short buzz, where the controller can; nothing depends on it. (The game's feelings go
+  // through Haptics, see haptics.js, which plays them with feel below.)
   rumble(strength = 0.4, ms = 120) {
-    if (!this.active) return;
+    this.feel(strength, strength * 0.6, 0, 0, ms);
+  }
+
+  // Play the two motors (strong: the heavy one, weak: the light one) and, where the browser can
+  // reach them, the motors in the triggers (lt, rt), for ms; all zero stops. Chrome and Edge
+  // play 'dual-rumble' (and 'trigger-rumble' on Xbox controllers); Firefox has only one strength
+  // to give.
+  feel(strong, weak, lt = 0, rt = 0, ms = 120) {
+    if (!this.active && (strong || weak || lt || rt)) return;
     const gp = this.pad();
+    const act = gp?.vibrationActuator;
     try {
-      gp?.vibrationActuator?.playEffect?.('dual-rumble', { duration: ms, strongMagnitude: strength, weakMagnitude: strength * 0.6 })?.catch?.(() => {});
+      if (act?.playEffect) {
+        const stop = !(strong || weak || lt || rt) || !ms;
+        if (stop && act.reset) {
+          act.reset()?.catch?.(() => {});
+          return;
+        }
+        const effects = act.effects || (act.type ? [act.type] : ['dual-rumble']);
+        const triggers = (lt || rt) && effects.includes?.('trigger-rumble');
+        const params = { startDelay: 0, duration: stop ? 0 : ms, strongMagnitude: strong, weakMagnitude: weak };
+        if (triggers) act.playEffect('trigger-rumble', { ...params, leftTrigger: lt, rightTrigger: rt })?.catch?.(() => {});
+        else act.playEffect('dual-rumble', params)?.catch?.(() => {});
+      } else if (gp?.hapticActuators?.[0]?.pulse) {
+        gp.hapticActuators[0].pulse(Math.max(strong, weak), ms)?.catch?.(() => {});
+      }
     } catch { /* not on this controller */ }
   }
 
