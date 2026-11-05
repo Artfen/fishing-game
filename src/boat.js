@@ -1,3 +1,4 @@
+import { runShare, trimEffect } from './engine.js';
 import * as THREE from 'three';
 import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat, wrapAngle } from './util.js';
 import { waveHeight } from './world/water.js';
@@ -568,6 +569,79 @@ export class Boat {
     }
   }
 
+  // A new coat of paint (a colour from the Marine Works' chart: see shipyard.js), or back to how
+  // she came (null). Every face of her topsides in her paint takes the new colour with its own
+  // shading kept; the stripe, the bottom paint and the fittings stay as they are.
+  repaint(hex) {
+    const to = new THREE.Color(hex || this.hull.paint);
+    const from = this.paintNow || new THREE.Color(this.hull.paint);
+    if (to.equals(from)) return;
+    const f2 = from.r * from.r + from.g * from.g + from.b * from.b || 1e-6;
+    this.group.traverse((o) => {
+      const c = o.userData?.hull && o.geometry?.attributes?.color;
+      if (!c) return;
+      const a = c.array;
+      for (let i = 0; i < a.length; i += 3) {
+        // (Her paint, a little lighter or darker: the same colour scaled.)
+        const k = (a[i] * from.r + a[i + 1] * from.g + a[i + 2] * from.b) / f2;
+        if (k < 0.88 || k > 1.1) continue;
+        const dr = a[i] - k * from.r, dg = a[i + 1] - k * from.g, db = a[i + 2] - k * from.b;
+        if (dr * dr + dg * dg + db * db > 0.0009 * f2) continue;
+        a[i] = to.r * k;
+        a[i + 1] = to.g * k;
+        a[i + 2] = to.b * k;
+      }
+      c.needsUpdate = true;
+    });
+    this.paintNow = to;
+    if (this.boatName) this.setName(this.boatName);
+  }
+
+  // Her name, sign-written on both sides of the bow (or none).
+  setName(name) {
+    for (const m of this.nameBoards || []) {
+      m.parent?.remove(m);
+      m.material.map?.dispose();
+      m.material.dispose();
+      m.geometry.dispose();
+    }
+    this.nameBoards = [];
+    this.boatName = name || '';
+    if (!name || typeof document === 'undefined' || !document.createElement) return;
+    const H = this.hull, c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 96;
+    const ctx = c.getContext('2d');
+    if (!ctx?.fillText) return;
+    const paint = this.paintNow || new THREE.Color(H.paint);
+    const light = paint.r * 0.3 + paint.g * 0.59 + paint.b * 0.11 > 0.5;
+    ctx.clearRect(0, 0, 512, 96);
+    ctx.font = 'italic 700 64px Georgia, "Times New Roman", serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = light ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.45)';
+    ctx.fillStyle = light ? '#1d2a3a' : '#f6efdf';
+    ctx.strokeText(name, 256, 50);
+    ctx.fillText(name, 256, 50);
+    const w = Math.min(1.6, H.L * 0.26), h = w * (96 / 512);
+    const t = 0.76, z = zAt(H, t);
+    const T = H.tubes;
+    const y = T ? tubeCentre(H, t, 1)[1] : sheer(H, t) - h * 0.75 - 0.04;
+    const x = T ? tubeCentre(H, t, 1)[0] + T.r + 0.012 : hw(H, t) + 0.012;
+    // (Following her bow round as it narrows.)
+    const slope = Math.atan2(hw(H, t + 0.04) - hw(H, t - 0.04), H.L * 0.08);
+    for (const sd of [1, -1]) {
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+      m.position.set(sd * x, y, z);
+      m.rotation.y = sd * (Math.PI / 2 + slope);
+      (this.body || this.group).add(m);
+      this.nameBoards.push(m);
+    }
+  }
+
   // Put down in shallow water or on the sand, she sits on the bottom rather than in it: the
   // water level she'd need to float clear here (the highest the ground comes under her keel, plus
   // her draft).
@@ -708,6 +782,7 @@ export class Boat {
     const surf = H.inside === 'wood' ? withSurface(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 'wood', { axis: 'z', seam: 14 })
       : new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: H.inside === 'plastic' ? 0.55 : 0.4, metalness: H.inside === 'carpet' ? 0.15 : 0 });
     const mesh = new THREE.Mesh(geo, surf);
+    mesh.userData.hull = true; // (her topsides: what a repaint repaints; see repaint)
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     this.body.add(mesh);
@@ -2083,21 +2158,32 @@ export class Boat {
       // motor at the bow instead: slow, silent, and happy in shallow water. The kayak's motor is
       // electric too, on its stern.)
       const p = this.pos;
-      const lever = held ? 0 : throttle;
-      const troll = !!M?.troll && lever > 0 && lever <= M.troll;
-      this.spool(dt, lever, troll || !!E);
-      const pw = this.power;
+      const lever0 = held ? 0 : throttle;
+      const troll = !!M?.troll && lever0 > 0 && lever0 <= M.troll;
       // A dead motor (no petrol, or a flat battery for an electric one): an oar, slowly (the
       // kayak's paddle is always there instead: see the game).
       const dead = E ? this.kflat : troll ? this.flat : this.dry;
+      // The engine room (see engine.js): with the engine stopped the lever does nothing (bar the
+      // oar when the tank's dry, and the bass boat's electric motor, which has its own battery);
+      // one of twin engines running gives half her push. Trim tips the push up or down and costs
+      // speed when it's wrong; tilted right up the propeller's out of the water. (No engine room,
+      // as on the townsfolk's boats or in a test: she runs and trims herself, as ever.)
+      const sys = M && !troll && !dead ? this.engine : null;
+      const share = sys ? runShare(sys) : 1;
+      const TE = sys && !M.inboard && !M.jet ? trimEffect(sys, vf, this.trimAuto !== false) : null;
+      this.legAngle = TE ? TE.angle : 0;
+      this.intakeWet = TE ? TE.wet && !this.air : !this.air;
+      const lever = share > 0 ? lever0 : 0;
+      this.spool(dt, lever, troll || !!E);
+      const pw = this.power;
       const depth = -solidHeight(p.x - this.fwd.x * H.L * 0.45, p.z - this.fwd.z * H.L * 0.45);
       const tilted = depth < (E || M).tilt && !troll;
       if (tilted && !this.tilted && lever > 0.05 && this.onShallow && !dead) this.onShallow();
       this.tilted = tilted;
-      b.legDown = !!M && !M.inboard && !M.jet && !tilted;
+      b.legDown = !!M && !M.inboard && !M.jet && !tilted && !TE?.out;
       if (dead) thrust = E ? 0 : pw * (pw > 0 ? 0.6 : 0.8);
       else if (troll) thrust = 0.45 * (pw / M.troll);
-      else thrust = (pw > 0 ? (E || M).thrust * pw : (E || M).astern * pw) * (tilted ? 0.22 : 1);
+      else thrust = (pw > 0 ? (E || M).thrust * pw : (E || M).astern * pw) * (tilted ? 0.22 : 1) * share * (TE ? TE.eff : 1);
       const spin = troll || dead || E ? 0 : pw;
       this.propSpin += dt * (6 + Math.abs(spin) * 60) * Math.sign(spin || 1) * (Math.abs(spin) > 0.02 ? 1 : 0.1);
       if (this.trollProp) this.trollProp.rotation.z += dt * (troll && !dead ? 40 * Math.min(1, pw / 0.05) : 0);
@@ -2145,9 +2231,13 @@ export class Boat {
         // Outboards: the whole motor turns with the tiller (or the wheel), so the push turns her.
         const tw = M.twin ?? 0, legs = tw ? [tw, -tw] : [M.side || 0];
         const slow = M.twin ? 1 - clamp(Math.abs(vf) / 3, 0, 1) : 0;
+        // (Trimmed out of true, the push tips down, lifting her bow; trimmed in, up, pressing it down.)
+        const tip = TE ? (TE.err * Math.PI) / 180 : 0, ct = Math.cos(tip);
         for (const x of legs) {
           const diff = M.twin && !dead ? -Math.sign(x) * helm * slow * m * 1.2 : 0;
-          b.thrusters.push({ p: [x, keel0 - 0.28, stern - 0.18], d: dirAt(b.rudder * 0.7), f: f / legs.length + diff, vent: 0.1 });
+          const d = dirAt(b.rudder * 0.7);
+          if (tip) d.splice(0, 3, d[0] * ct, -Math.sin(tip), d[2] * ct);
+          b.thrusters.push({ p: [x, keel0 - 0.28, stern - 0.18], d, f: f / legs.length + diff, vent: 0.1 });
         }
       }
     } else if (H.rig) {
@@ -2737,7 +2827,9 @@ export class Boat {
       this.props.forEach((p, i) => (p.rotation.z = i ? -this.propSpin : this.propSpin));
       for (const g of this.motorGroups) {
         g.rotation.y = damp(g.rotation.y, -this.omega * 0.35, 6, dt);
-        g.rotation.x = damp(g.rotation.x, this.tilted ? -0.5 : 0, 3, dt);
+        // (Trimmed and tilted: the leg's angle, as the engine room has it; kicked up in the shallows.)
+        const lean = Math.max(this.tilted ? 0.5 : 0, ((this.legAngle || 0) * Math.PI) / 180);
+        g.rotation.x = damp(g.rotation.x, -lean, this.engine ? 5 : 3, dt);
       }
     } else if (this.motorGroup) {
       this.motorGroup.rotation.y = damp(this.motorGroup.rotation.y, 0, 4, dt);

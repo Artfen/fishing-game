@@ -6,6 +6,7 @@ import { SEA_PRESETS, SEA_IDS, compass } from './world/conditions.js';
 import { buttonFor } from './gamepad.js';
 import { NEEDS_MODES, NEEDS_IDS } from './comfort.js';
 import { STRENGTH_IDS } from './haptics.js';
+import { START_MODES, START_IDS } from './engine.js';
 import { cleanName, cleanCode, validCode, poseWords, NAME_MAX, MAX_PLAYERS } from './together.js';
 
 // Preferences: sound, graphics, weather, controls and comfort, and the name you go by when
@@ -36,7 +37,7 @@ export const DEFAULT_SETTINGS = {
   weather: { mode: 'auto', rainFx: 1, sea: 'auto', windMode: 'auto', windSpeed: 4, windFrom: 225, currents: 'natural', panel: true, windLines: 'sailing' },
   // sailTrim: the sailing boat's mainsheet by hand, or helped (it trims itself when left alone).
   // needs: how much the angler feels the weather and the day (see comfort.js): off, shown, gentle.
-  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, vibration: 'normal', throttle: 'notches', sailTrim: 'hand', needs: 'gentle' },
+  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, vibration: 'normal', throttle: 'notches', start: 'go', sailTrim: 'hand', needs: 'gentle' },
   // name: what friends see over you when playing together ('' until you've chosen one).
   // share: whether what you find (places, dive sites, a wreck's details, first fish) goes to them.
   player: { name: '', share: true },
@@ -56,8 +57,9 @@ export const PAD_HELP = [
     ['play', 'journal', 'journal'], ['play', 'finder', 'fish finder'], ['play', 'map', 'map'], ['play', 'settings', 'settings'],
   ]],
   ['At the helm', [
-    ['helm', 'forward', 'throttle a notch up or down (push and let go), and steer'], ['helm', 'neutral', 'stop: the motor to neutral'],
-    ['helm', 'motor', 'kayak: lower or raise the electric motor · sailing boat: the sail, the outboard or the oars'],
+    ['helm', 'forward', 'throttle up or down (a notch, or the smooth lever), and steer'], ['helm', 'neutral', 'stop: the motor to neutral'],
+    ['helm', 'motor', 'the engine: start or stop (or the helm panel) · kayak: the electric motor · sailing boat: the sail'],
+    ['helmtrim', 'trimUp', 'trim the outboard out (hold; at rest it tilts right up)'], ['helmtrim', 'trimDown', 'trim the outboard in (hold)'],
     ['troll', 'throttleUp', 'with a line out: throttle up a notch'], ['troll', 'throttleDown', 'with a line out: throttle down a notch'],
   ]],
   ['A line in the water', [['fish', 'advice', 'why aren’t they biting?'], ['fish', 'feed', 'throw loose bait']]],
@@ -118,6 +120,7 @@ export function cleanSettings(raw, legacy = {}) {
     hints: oneOf(c.hints, ['gentle', 'more', 'off'], 'gentle'),
     keys: c.keys ? cleanBindings(c.keys) : null,
     throttle: oneOf(c.throttle, ['notches', 'lever'], 'notches'),
+    start: oneOf(c.start, START_IDS, 'go'),
     // (Vibration was once only on or off.)
     vibration: oneOf(c.vibration, STRENGTH_IDS, c.rumble === false ? 'off' : 'normal'),
   };
@@ -579,6 +582,8 @@ export class SettingsUI {
       ? 'A real lever: push it forward or pull it back and it stays where you leave it, the revs following smoothly. The first bit of travel puts her into gear at idle; back through neutral it stops there: let go, and push again for astern. The notches are still marked along it, and the D-pad (or + and −) jumps to the next one.'
       : 'Clear notches: astern, neutral, dead slow, slow, trolling, half and full. Forward and back move it a notch at a time and it stays where you leave it; held, it goes on, pausing at neutral.',
       this.choice([['notches', 'Notches'], ['lever', 'Smooth lever']], C.throttle, (v) => this.set('controls', 'throttle', v))));
+    out.push(this.row('Engine start-up', START_MODES[C.start].desc,
+      this.choice(START_IDS.map((id) => [id, START_MODES[id].name]), C.start, (v) => this.set('controls', 'start', v))));
     for (const line of [
       'The throttle: the motor skiff, the bass boat, the cabin boat, the yacht, the centre console and the jet ski have a lever with notches (astern, neutral, dead slow, slow, half, full), and the sailing boat’s outboard a smaller one. Forward and back move it a notch at a time and it stays where you leave it; you can also click or drag the lever on screen (bottom right), or tap a notch. Neutral (or the big Stop under the lever) stops the motor, and the boat coasts on. The motor takes a moment to build up and ease off, and pauses in neutral between ahead and astern.',
       'Fishing under way: you can cast at up to trolling speed, and the boat carries the cast along as it flies. A moving boat tows your line behind it (trolling). With a line out the throttle goes no higher than slow ahead (+ and − move it, or the D-pad on a controller); when a fish takes, the motor goes to neutral.',

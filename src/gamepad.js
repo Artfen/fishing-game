@@ -27,9 +27,13 @@ export const MAPS = {
   // Aiming, or a line in the water: the bumpers ask the field guide why nothing's biting and
   // throw loose bait instead of changing rods.
   fish: { ...PLAY, LB: 'advice', RB: 'feed', L3: null },
-  // At the helm of a motorboat (or in the kayak): the left stick moves the throttle lever a
-  // notch at a time and steers, B knocks it into neutral, L3 lowers or raises the kayak's motor.
+  // At the helm of a motorboat (or in the kayak): the left stick moves the throttle lever (a
+  // notch at a time, or smoothly) and steers, B knocks it into neutral, L3 starts or stops the
+  // engine (or lowers or raises the kayak's motor).
   helm: { ...PLAY, B: 'neutral', L3: 'motor' },
+  // At the helm of a boat with a powered outboard: the bumpers trim the leg in and out (held), and
+  // L3 starts or stops the engine (or opens the helm panel, on the full procedure).
+  helmtrim: { ...PLAY, B: 'neutral', L3: 'motor', LB: 'trimDown', RB: 'trimUp' },
   // A line out from a boat under power: the D-pad moves the throttle a notch (the stick is for
   // the lure).
   troll: { ...PLAY, LB: 'advice', RB: 'feed', L3: null, UP: 'throttleUp', DOWN: 'throttleDown' },
