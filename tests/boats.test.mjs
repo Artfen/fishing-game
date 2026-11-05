@@ -13,6 +13,7 @@ globalThis.innerHeight ??= 800;
 
 const Th = await import('../src/throttle.js');
 const { Boat } = await import('../src/boat.js');
+const Hy = await import('../src/hydro.js');
 const Fu = await import('../src/fuel.js');
 const { CameraRig } = await import('../src/camera.js');
 const { Walker } = await import('../src/walker.js');
@@ -91,7 +92,7 @@ test('the motor answers the lever like a real one: it builds up, eases off, chan
   // Neutral: the motor stops pushing at once, but the boat coasts on and slows gradually.
   run(b, 0, 2);
   assert.equal(b.power, 0);
-  assert.ok(b.forwardSpeed > 1 && b.forwardSpeed < v0 * 0.7, `coasting ${b.forwardSpeed.toFixed(2)} m/s`);
+  assert.ok(b.forwardSpeed > 1 && b.forwardSpeed < v0 - 0.5, `coasting ${b.forwardSpeed.toFixed(2)} m/s (from ${v0.toFixed(2)})`);
   run(b, 0, 15);
   assert.ok(b.forwardSpeed < 0.5);
   // Ahead straight to astern: through neutral, a pause while the gear changes, then astern.
@@ -370,3 +371,47 @@ test('the controls: the throttle, neutral and the kayak motor on the keys and th
   // And every pier still lets a boat alongside (nothing new in the way).
   assert.ok(PIERS.length > 4);
 });
+
+test('boats carry their way as real ones do: a heavy yacht runs on far further than a light skiff, at the same top speeds as ever', () => {
+  // Flat out, then the lever back to neutral: how fast she got there, and how far she runs on.
+  const trial = (kind) => {
+    const b = fresh(kind);
+    let t90 = null, t = 0, top = 0;
+    for (let i = 0; i < 40 * 30; i++) {
+      b.update(1 / 30, (t += 1 / 30), 1, 0, 0);
+      top = Math.max(top, b.forwardSpeed);
+    }
+    const b2 = fresh(kind);
+    for (let i = 0, tt = 0; i < 40 * 30; i++) {
+      b2.update(1 / 30, (tt += 1 / 30), 1, 0, 0);
+      if (t90 == null && b2.forwardSpeed > top * 0.9) t90 = tt;
+    }
+    const x0 = b2.pos.clone();
+    let tt = 0;
+    while (b2.forwardSpeed > 0.5 && tt < 90) b2.update(1 / 30, 40 + (tt += 1 / 30), 0, 0, 0);
+    return { top, t90, run: b2.pos.distanceTo(x0), stop: tt };
+  };
+  const yacht = trial('cruiser'), skiff = trial('skiff'), rib = trial('rib');
+  // The same top speeds as ever (see the yacht's, the skiff's and the RIB's own tests).
+  assert.ok(yacht.top > 9.3 && yacht.top < 11, `yacht ${yacht.top.toFixed(2)} m/s`);
+  assert.ok(rib.top > 17.5, `RIB ${rib.top.toFixed(2)} m/s`);
+  // The nine-tonne yacht takes her time getting up to speed, and runs on a hundred metres or so.
+  assert.ok(yacht.t90 > 10, `yacht to 90% in ${yacht.t90.toFixed(1)} s`);
+  assert.ok(yacht.run > 70 && yacht.stop > 18, `yacht runs on ${yacht.run.toFixed(0)} m in ${yacht.stop.toFixed(0)} s`);
+  // The little skiff is quicker off the mark and stops in a few lengths.
+  assert.ok(skiff.t90 < yacht.t90 * 0.6 && skiff.run < yacht.run * 0.5, `skiff to 90% in ${skiff.t90.toFixed(1)} s, runs on ${skiff.run.toFixed(0)} m`);
+  // The RIB, from 35 knots, coasts the best part of a hundred metres.
+  assert.ok(rib.run > 60, `RIB runs on ${rib.run.toFixed(0)} m`);
+});
+
+test('at a walking pace and slower, a boat answers as she always did (for piers and moorings)', () => {
+  const { surgeShare } = Hy;
+  for (const k of [0.12, 0.3, 0.5]) {
+    assert.equal(surgeShare(k, 0), 1);
+    assert.equal(surgeShare(k, 0.5), 1);
+    assert.ok(Math.abs(surgeShare(k, 4) - k) < 1e-9);
+    assert.ok(surgeShare(k, 1.5) < 1 && surgeShare(k, 1.5) > k);
+  }
+  assert.equal(surgeShare(1, 10), 1);
+});
+

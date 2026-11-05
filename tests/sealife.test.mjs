@@ -55,8 +55,10 @@ test('dolphins come racing to ride the bow of a boat going along briskly, and le
   assert.ok(near >= pod.n - 1, `${near} of ${pod.n} riding the bow wave`);
   assert.ok(pod.members.every((m) => m.mesh.visible));
   assert.equal(seen, 'bottlenose');
-  // The boat stops: a few seconds on, they peel away, and don't come straight back.
-  run(10, 0);
+  // The boat stops (coasting to a halt, as a real one does): a few seconds on, they peel away,
+  // and don't come straight back.
+  for (let i = 0; i < 40 && Math.abs(b.forwardSpeed) > 0.5; i++) run(1, 0);
+  run(8, 0);
   assert.equal(pod.mode, 'roam');
   assert.ok(pod.bored > 60);
   conditions.manual = null;

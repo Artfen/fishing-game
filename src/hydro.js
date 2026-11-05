@@ -22,6 +22,25 @@
 
 export const RHO = 1025;   // sea water, kg/m³
 export const G = 9.81;
+
+// Momentum under way. A hull's resistance curve and the push that drives her against it (see
+// hullForces, boat.js) are each several times a real boat's (they balance at the same speeds, so
+// every boat makes her real top speed, and the hull grips and turns as a real one does); but
+// along her length, that would have her leap up to speed and stop dead when the throttle came
+// off. So once she's moving, everything that pushes her along her way (the propeller, the water's
+// resistance, her rudder and keel, the wind, the seas) moves her that much less, as if she were
+// that much heavier along her track: her surge (H.surge: 1 as she is; less, more of a real boat's
+// momentum: the heavy yacht carries her way for a hundred metres, a light skiff stops sooner).
+// The forces balance where they always did, so each throttle setting still gives the speed it
+// always did: only how quickly she gets there, and how far she runs on after, changes. Nothing
+// else is touched (how she heaves, pitches, rolls, turns and grips the water; the bottom, piers,
+// other boats and ropes, which stop her as hard as ever), and below a walking pace nothing at all
+// changes (manoeuvring, mooring, drifting at anchor).
+export const surgeShare = (surge, v) => {
+  if (surge >= 1) return 1;
+  const u = Math.min(1, Math.max(0, (Math.abs(v) - 0.6) / 1.9));
+  return 1 - (1 - surge) * u * u * (3 - 2 * u);
+};
 const NU = 1.19e-6;        // kinematic viscosity of sea water, m²/s
 const RHO_AIR = 1.2;
 
@@ -507,6 +526,8 @@ export class HydroBody {
     this.windageAt = [0, model.H.D + 0.25, 0];
     this.current = [0, 0];
     this.drag = model.drag;
+    this.surge = 1;       // her momentum under way (see surgeShare): set by the boat
+    this.Fs = [0, 0, 0];  // (this step's forces before the ropes and contacts)
   }
 
   // Float her level at x, z, heading (the water at its height there).
@@ -663,6 +684,9 @@ export class HydroBody {
     }
     for (const fo of this.forces) this.addForce(fo.f[0], fo.f[1], fo.f[2], fo.p[0], fo.p[1], fo.p[2]);
     this.windForce();
+    // (What drives her and holds her back as she goes, before the ropes, the bottom and anything
+    // she bumps into: the part her momentum under way applies to. See surgeShare.)
+    this.Fs[0] = this.F[0]; this.Fs[1] = this.F[1]; this.Fs[2] = this.F[2];
     this.ropeForces(h);
     this.groundForces(env);
     if (env.contact) this.contactForces(env);
@@ -964,7 +988,20 @@ export class HydroBody {
 
   integrate(h) {
     const m = this.m, v = this.v, x = this.x, w = this.w, R = this.R, I = this.I;
-    v[0] += (this.F[0] / m) * h; v[1] += (this.F[1] / m) * h; v[2] += (this.F[2] / m) * h;
+    let fx = this.F[0], fz = this.F[2];
+    // Her momentum under way: what drives her along her track (her bow's way, laid flat) moves
+    // her less once she's moving, as if she were heavier along it. (See surgeShare.)
+    if (this.surge < 1) {
+      const bl = Math.hypot(R[2], R[8]);
+      if (bl > 0.3) {
+        const ux = R[2] / bl, uz = R[8] / bl;
+        const vf = (v[0] - this.current[0]) * ux + (v[2] - this.current[1]) * uz;
+        const k = surgeShare(this.surge, vf), al = this.Fs[0] * ux + this.Fs[2] * uz;
+        fx -= (1 - k) * al * ux;
+        fz -= (1 - k) * al * uz;
+      }
+    }
+    v[0] += (fx / m) * h; v[1] += (this.F[1] / m) * h; v[2] += (fz / m) * h;
     x[0] += v[0] * h; x[1] += v[1] * h; x[2] += v[2] * h;
     // Angular: in her own frame, where the inertia is diagonal.
     const T = this.Tq;
