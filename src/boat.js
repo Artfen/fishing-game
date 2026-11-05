@@ -71,6 +71,7 @@ const HULLS = {
     name: 'motor skiff', mass: 290, L: 3.8, B: 0.8, D: 0.6, draft: 0.2, shallow: 0.35, seatZ: -1.25, seatY: 0.47, floorY: 0.08,
     paint: '#ece6d8', stripe: '#2f4f7a', bottom: '#7c3a2e', inside: 'wood',
     motor: { thrust: 5.4, astern: 2.4, tilt: 0.75, scale: 1, cowl: '#e9e5dc', band: '#2f4f7a' },
+    surge: 0.5,
     thwarts: true, oarlocks: true, lantern: [0.3, 1.25], stow: [-0.42, 0.52, -0.25], noise: 1, steady: 1, hump: 0.18,
     windage: 0.003, ride: 4,
   },
@@ -95,6 +96,7 @@ const HULLS = {
     paint: '#7a2430', stripe: '#d9d4c7', bottom: '#2c2f33', inside: 'carpet',
     decks: [[0.6, 1, 0.07], [0, 0.17, 0.07]], floor: true, pedestals: true, locker: true,
     motor: { thrust: 7.6, astern: 3, tilt: 0.85, scale: 1.3, cowl: '#2b2e33', band: '#b8312f', troll: 0.3 },
+    surge: 0.45,
     lantern: [0.8, -1.95], stow: [-0.72, 0.62, 0.4], noise: 1, steady: 0.45, hump: 0.22,
     windage: 0.0036, ride: 3, // high-sided: the wind pushes it more; broad and heavy: it rides the swell slowly
   },
@@ -121,6 +123,7 @@ const HULLS = {
     name: 'cabin boat', mass: 1500, L: 6.2, B: 1.0, D: 0.9, draft: 0.38, shallow: 0.75, seatZ: -2.3, seatY: 0.55, floorY: 0.12,
     paint: '#f0ece2', stripe: '#1f4e5f', bottom: '#7c3a2e', inside: 'wood',
     motor: { thrust: 3.8, astern: 2.0, tilt: 1.0, scale: 1.25, cowl: '#2b2e33', band: '#1f4e5f' },
+    surge: 0.22,
     cabin: [0.44, 0.88], lantern: [0.55, -1.7], stow: [-0.7, 0.62, -1.3], noise: 1, steady: 0.55,
     windage: 0.0042, ride: 2.6, // long and heavy: it bridges the chop, and the cabin catches the wind
   },
@@ -135,7 +138,7 @@ const HULLS = {
     // Twin inboards: two shafts and propellers under her stern (twin: how far out each side),
     // turning together on the one lever. (tilt: the depth where the propellers touch bottom.)
     motor: { thrust: 9.5, astern: 3.2, tilt: 1.3, inboard: true, twin: 0.46 },
-    drag: [0.3, 0.06], helm: 0.7, fend: 1.45, passage: true,
+    drag: [0.3, 0.06], helm: 0.7, fend: 1.45, passage: true, surge: 0.12,
     cabin: [0.4, 0.86], cabinH: 1.25, cabinRoof: '#e9e5dc', wheel: true, rails: [0.44, 0.57, 0.7, 0.82, 0.92], sportfish: true,
     // You stand: at the wheel (the helm to starboard), or in the cockpit to fish. aft: the middle
     // of where you fish from, how far you go out to the side as you turn, and back to the transom;
@@ -152,7 +155,7 @@ const HULLS = {
     paint: '#eef0ee', stripe: '#3a8fc4', bottom: '#d9dedd', inside: 'plastic',
     floor: [0.03, 0.88], floorColor: '#dcd8cc', decks: [[0.88, 1, 0]],
     motor: { thrust: 13, astern: 3.2, tilt: 0.9, scale: 1.35, cowl: '#1d2125', band: '#3a8fc4', twin: 0.4, spool: 0.32 },
-    hump: 0.22, drag: [0.22, 0.05], side: 3, helm: 0.95, fend: 1.2, rails: [0.62, 0.72, 0.82, 0.92],
+    hump: 0.22, drag: [0.22, 0.05], side: 3, helm: 0.95, fend: 1.2, rails: [0.62, 0.72, 0.82, 0.92], surge: 0.3,
     console: true,
     // At the wheel behind the console; fishing, in the cockpit aft or up in the bow (whichever
     // way you face as you cast), round the console or the leaning post on the way.
@@ -180,7 +183,7 @@ const HULLS = {
     floor: [0.03, 0.87], floorColor: '#4a4f55', decks: [[0.87, 1, 0]],
     tubes: { r: 0.27, out: 0.35, drop: -0.12, t1: 0.94, color: '#5f656b', strake: '#1d2023' },
     motor: { thrust: 22, astern: 3.2, tilt: 0.85, scale: 1.45, cowl: '#1d2125', band: '#9aa1a7', spool: 0.28 },
-    drag: [0.21, 0.05], side: 3, helm: 0.8, fend: 1.35,
+    drag: [0.21, 0.05], side: 3, helm: 0.8, fend: 1.35, surge: 0.3,
     // (Her weight low in her: the deck sits down inside the tubes, so she banks into a turn.)
     hump: 0.25, cgY: 0.45, console: true, rib: true,
     standing: { helm: [0, -0.35], aft: [0, -2.2, 0.55, 0.5], bow: [0, 1.95, 0.3, 0.25], round: 0.7 },
@@ -214,7 +217,7 @@ const HULLS = {
     // The jet: a strong push (about seventeen metres a second, thirty-three knots, flat out); it
     // steers by turning its nozzle, so only under power.
     motor: { thrust: 18, astern: 2.2, tilt: 0.25, scale: 1, jet: true, cowl: '#20262c', band: '#e8b820' },
-    drag: [0.2, 0.05], helm: 1.7, jumps: true,
+    drag: [0.2, 0.05], helm: 1.7, jumps: true, surge: 0.6,
     lantern: [0, -1.2], stow: [0, 0.6, -1],
     noise: 1.2, steady: 0.7, windage: 0.002, ride: 6,
   },
@@ -2225,6 +2228,8 @@ export class Boat {
       b.trimBias = M?.jet ? clamp(-Math.atan((vf * this.omega) / G) * 0.9, -0.5, 0.5) : 0;
       // (Out in the ocean's long swell, a skipper eases her back to what she'll take.)
       const gov = vf > this.vmax ? Math.exp(-(vf - this.vmax) * 2.5) : 1;
+      // (Her momentum under way, see hydro.js surgeShare.)
+      b.surge = M && !troll && !dead ? H.surge ?? 1 : 1;
       const f = thrust * m * gov;
       // Climbing onto the plane: through the hump (her speed about her own bow wave's, a Froude
       // number near one) her stern settles into the trough behind it and her bow rears up, then
