@@ -154,3 +154,133 @@ export const leverWords = (kind, v) => notchOf(kind, v).name;
 // Casting from a moving boat: up to about trolling speed the boat goes on as it is (the lure
 // lands carried a little along with it); faster than that you'd be casting from a speeding boat.
 export const CAST_SPEED = 2.6;
+
+/* ---------------- the real lever ---------------- */
+
+// The other way to drive (Settings → Controls → Throttle): a lever like a real boat's, pushed
+// forward or pulled back and left where it is, the revs following it smoothly instead of clicking
+// from notch to notch. Its travel runs from -1 (full astern) through 0 (neutral) to 1 (full
+// ahead). As on a real outboard's control, the first part of the travel either side of neutral
+// only puts her into gear (at GEAR_IN she's in gear at idle: dead slow); beyond that it opens the
+// throttle, up to full at the end of its travel. The notches are still marked along it, evenly
+// spaced, so trolling speed is where it always was; between them the speed follows smoothly
+// (each step along the travel multiplies the power by the same amount, as the revs build). Coming
+// back through neutral it stops there (the detent): let go, and push again to go on into astern.
+
+export const GEAR_IN = 0.12;
+
+const aheadOf = (kind) => LEVERS[kind].filter((n) => n.v > 0);
+const asternOf = (kind) => LEVERS[kind].find((n) => n.v < 0)?.v ?? 0;
+const IDLE_ASTERN = 0.35; // (in astern at idle: this share of the astern notch)
+
+// Where each notch sits along the travel.
+export function notchPosition(kind, id) {
+  const A = aheadOf(kind), i = A.findIndex((n) => n.id === id);
+  if (id === 'N') return 0;
+  if (i < 0) return LEVERS[kind].some((n) => n.id === id) ? -1 : 0;
+  return A.length > 1 ? GEAR_IN + ((1 - GEAR_IN) * i) / (A.length - 1) : 1;
+}
+
+// The lever value (the share of the motor's push, as the notches give it) at a place along the
+// travel.
+export function valueAt(kind, pos) {
+  const p = Math.max(-1, Math.min(1, pos));
+  if (Math.abs(p) < GEAR_IN) return 0;
+  if (p < 0) {
+    const u = (-p - GEAR_IN) / (1 - GEAR_IN);
+    return asternOf(kind) * (IDLE_ASTERN + (1 - IDLE_ASTERN) * u);
+  }
+  const A = aheadOf(kind);
+  if (A.length === 1) return A[0].v;
+  const f = ((p - GEAR_IN) / (1 - GEAR_IN)) * (A.length - 1);
+  const i = Math.min(A.length - 2, Math.floor(f)), u = f - i;
+  const a = A[i].v, b = A[i + 1].v;
+  return a * Math.pow(b / a, u);
+}
+
+// And back: where along the travel a lever value lies (for a lever set some other way: a notch
+// tapped on screen, neutral knocked in when a fish takes).
+export function positionOf(kind, v) {
+  if (!v) return 0;
+  if (v < 0) {
+    const R = asternOf(kind);
+    const u = R ? Math.max(0, Math.min(1, (v / R - IDLE_ASTERN) / (1 - IDLE_ASTERN))) : 0;
+    return -(GEAR_IN + u * (1 - GEAR_IN));
+  }
+  const A = aheadOf(kind);
+  if (v <= A[0].v || A.length === 1) return GEAR_IN;
+  for (let i = 0; i < A.length - 1; i++) {
+    const a = A[i].v, b = A[i + 1].v;
+    if (v <= b) return GEAR_IN + ((i + Math.log(v / a) / Math.log(b / a)) / (A.length - 1)) * (1 - GEAR_IN);
+  }
+  return 1;
+}
+
+// The furthest forward the lever may go just now (a line out, a fish on: see capIndex).
+export function capPosition(kind, situation = 'free') {
+  return notchPosition(kind, LEVERS[kind][capIndex(kind, situation)].id);
+}
+
+// Moving the lever: push (-1 … 1, the stick or the keys) moves it, faster the further it's pushed,
+// for dt seconds. S: { pos, stopped } (stopped: it came back to neutral while still being pushed,
+// and waits there until it's let go). Returns what happened: { detent, capped }.
+export const LEVER_RATE = 0.9; // (of its travel a second, pushed all the way)
+export function slide(kind, S, push, dt, situation = 'free') {
+  const out = { detent: false, capped: false };
+  const p = Math.abs(push) < 0.12 ? 0 : push;
+  if (!p) {
+    S.stopped = false;
+    return out;
+  }
+  if (S.stopped) return out;
+  const rate = LEVER_RATE * Math.sign(p) * Math.pow(Math.min(1, (Math.abs(p) - 0.12) / 0.88), 1.5);
+  let next = S.pos + rate * dt;
+  // (Out of neutral, she drops straight into gear rather than wandering through the empty part
+  // of the travel; back from either side, the lever stops at neutral.)
+  if (S.pos === 0 && next !== 0) next = Math.sign(next) * Math.max(Math.abs(next), GEAR_IN);
+  else if (S.pos !== 0 && Math.sign(next) !== Math.sign(S.pos)) next = 0;
+  else if (S.pos !== 0 && Math.abs(next) < GEAR_IN && Math.abs(next) < Math.abs(S.pos)) next = 0;
+  if (next === 0 && S.pos !== 0) {
+    S.stopped = true;
+    out.detent = true;
+  }
+  const cap = capPosition(kind, situation);
+  if (next > cap && p > 0) {
+    out.capped = S.pos >= cap - 1e-9;
+    next = Math.min(next, Math.max(cap, 0));
+  }
+  S.pos = Math.max(-1, Math.min(1, next));
+  return out;
+}
+
+// The lever's place in the same steps as the notches on screen (0 at astern, up to the top
+// notch), so a smooth lever's handle sits on the same marks.
+export function displayIndex(kind, pos) {
+  const L = LEVERS[kind], iN = neutralIndex(kind), A = aheadOf(kind);
+  const i0 = L.indexOf(A[0]);
+  if (pos >= GEAR_IN) return i0 + ((pos - GEAR_IN) / (1 - GEAR_IN)) * (A.length - 1);
+  if (pos >= 0) return iN + (pos / GEAR_IN) * (i0 - iN);
+  const iR = L.findIndex((n) => n.v < 0);
+  return iN + pos * (iR < 0 ? 0 : iN - iR);
+}
+
+// And back, for a finger or the mouse dragging the handle.
+export function positionAtIndex(kind, f) {
+  const L = LEVERS[kind], iN = neutralIndex(kind), A = aheadOf(kind);
+  const i0 = L.indexOf(A[0]);
+  if (f >= i0) return Math.min(1, GEAR_IN + ((f - i0) / Math.max(1, A.length - 1)) * (1 - GEAR_IN));
+  if (f >= iN) return f - iN < (i0 - iN) * 0.5 ? 0 : GEAR_IN;
+  const iR = L.findIndex((n) => n.v < 0);
+  return iR < 0 ? 0 : Math.max(-1, -(iN - f) / Math.max(1, iN - iR));
+}
+
+// In words, as the lever's own reading: 'neutral', 'ahead, idle', 'ahead, 40%', 'full ahead',
+// 'astern, idle'.
+export function leverPositionWords(pos) {
+  if (Math.abs(pos) < GEAR_IN) return 'neutral';
+  const open = Math.round(((Math.abs(pos) - GEAR_IN) / (1 - GEAR_IN)) * 100);
+  const way = pos > 0 ? 'ahead' : 'astern';
+  if (open <= 2) return `${way}, idle`;
+  if (open >= 98) return `full ${way}`;
+  return `${way}, ${open}%`;
+}

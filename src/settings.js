@@ -36,7 +36,7 @@ export const DEFAULT_SETTINGS = {
   weather: { mode: 'auto', rainFx: 1, sea: 'auto', windMode: 'auto', windSpeed: 4, windFrom: 225, currents: 'natural', panel: true, windLines: 'sailing' },
   // sailTrim: the sailing boat's mainsheet by hand, or helped (it trims itself when left alone).
   // needs: how much the angler feels the weather and the day (see comfort.js): off, shown, gentle.
-  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, vibration: 'normal', sailTrim: 'hand', needs: 'gentle' },
+  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, vibration: 'normal', throttle: 'notches', sailTrim: 'hand', needs: 'gentle' },
   // name: what friends see over you when playing together ('' until you've chosen one).
   // share: whether what you find (places, dive sites, a wreck's details, first fish) goes to them.
   player: { name: '', share: true },
@@ -117,6 +117,7 @@ export function cleanSettings(raw, legacy = {}) {
     cast: oneOf(c.cast, Object.keys(CAST_MODES), 'assisted'),
     hints: oneOf(c.hints, ['gentle', 'more', 'off'], 'gentle'),
     keys: c.keys ? cleanBindings(c.keys) : null,
+    throttle: oneOf(c.throttle, ['notches', 'lever'], 'notches'),
     // (Vibration was once only on or off.)
     vibration: oneOf(c.vibration, STRENGTH_IDS, c.rumble === false ? 'off' : 'normal'),
   };
@@ -574,6 +575,10 @@ export class SettingsUI {
     out.push(el('p', 'st-note', 'Choose Change, then press the key you want. If another action had that key, it takes this action’s old key. Esc stops waiting. Touch screens use the on-screen controls.'));
     // How the boats, the cabin and the camera work, whatever the controls.
     out.push(el('h3', null, 'Boats, the cabin and the camera'));
+    out.push(this.row('Throttle', C.throttle === 'lever'
+      ? 'A real lever: push it forward or pull it back and it stays where you leave it, the revs following smoothly. The first bit of travel puts her into gear at idle; back through neutral it stops there: let go, and push again for astern. The notches are still marked along it, and the D-pad (or + and −) jumps to the next one.'
+      : 'Clear notches: astern, neutral, dead slow, slow, trolling, half and full. Forward and back move it a notch at a time and it stays where you leave it; held, it goes on, pausing at neutral.',
+      this.choice([['notches', 'Notches'], ['lever', 'Smooth lever']], C.throttle, (v) => this.set('controls', 'throttle', v))));
     for (const line of [
       'The throttle: the motor skiff, the bass boat, the cabin boat, the yacht, the centre console and the jet ski have a lever with notches (astern, neutral, dead slow, slow, half, full), and the sailing boat’s outboard a smaller one. Forward and back move it a notch at a time and it stays where you leave it; you can also click or drag the lever on screen (bottom right), or tap a notch. Neutral (or the big Stop under the lever) stops the motor, and the boat coasts on. The motor takes a moment to build up and ease off, and pauses in neutral between ahead and astern.',
       'Fishing under way: you can cast at up to trolling speed, and the boat carries the cast along as it flies. A moving boat tows your line behind it (trolling). With a line out the throttle goes no higher than slow ahead (+ and − move it, or the D-pad on a controller); when a fish takes, the motor goes to neutral.',

@@ -99,7 +99,7 @@ import { bendRod } from './props.js';
 import { FishFinder } from './sonar.js';
 import { setupTouch } from './touch.js';
 import { Gamepads, buttonFor, topDialog, focusables } from './gamepad.js';
-import { levers, nearest, step, setIndex, within, capIndex, leverWords } from './throttle.js';
+import { levers, nearest, step, setIndex, within, capIndex, leverWords, slide, valueAt, positionOf, displayIndex, positionAtIndex, leverPositionWords } from './throttle.js';
 import { LeverUI } from './lever.js';
 import { anchorCheck, berthFor, berthAt, castOffCheck, canTow, towStep, TOW } from './mooring.js';
 import { Rope } from './rope.js';
@@ -2000,9 +2000,10 @@ function teachBoat() {
   state.tips[tip] = true;
   const T = scheme() === 'touch', S = T || scheme() === 'pad', key = (a) => input.keyLabel(a);
   const stick = T ? 'the stick' : 'the left stick';
-  const lever = T ? 'push the stick up or down to move the throttle lever a notch (it stays where you leave it), or tap and drag the lever itself (bottom right); across steers, and Stop knocks it into neutral.'
-    : S ? `push ${stick} up or down to move the throttle lever a notch (it stays where you leave it), across to steer; ${key('neutral')} stops the motor, ${key('anchor')} drops or raises the anchor.`
-      : `${key('forward')} and ${key('back')} move the throttle lever a notch (it stays where you leave it; you can click and drag the lever on screen too), ${key('left')} and ${key('right')} steer, ${key('neutral')} stops the motor, ${key('anchor')} drops or raises the anchor. The motor takes a moment to build up and ease off.`;
+  const notch = settings.controls.throttle === 'lever' ? '' : ' a notch';
+  const lever = T ? `push the stick up or down to move the throttle lever${notch} (it stays where you leave it), or tap and drag the lever itself (bottom right); across steers, and Stop knocks it into neutral.`
+    : S ? `push ${stick} up or down to move the throttle lever${notch} (it stays where you leave it), across to steer; ${key('neutral')} stops the motor, ${key('anchor')} drops or raises the anchor.`
+      : `${key('forward')} and ${key('back')} move the throttle lever${notch} (it stays where you leave it; you can click and drag the lever on screen too), ${key('left')} and ${key('right')} steer, ${key('neutral')} stops the motor, ${key('anchor')} drops or raises the anchor. The motor takes a moment to build up and ease off.`;
   const text = {
     skiff: `The motor skiff, for the open coast and the islands: ${lever} Near a shore, slow down and ${T ? 'tap the prompt' : `press ${key('interact')}`} to step off. It runs on petrol: the harbour pump is at the root of Willowhaven quay.`,
     kayak: `The kayak: slow, but silent and stable enough to fish from, and it floats in a hand's depth of water. Paddle into the shallows, the saltings and the reeds where the boats can't go: fish hardly notice it. ${S ? `${T ? 'The stick' : 'The left stick'} paddles and steers.` : `${key('forward')}${key('left')}${key('back')}${key('right')} paddle and steer.`} It has a little electric motor on its stern too (${T ? 'the Lower motor button' : S ? key('motor') : key('motor')}): slower than paddling, but quiet and hands-free, for creeping up on fish or trolling a lure. Its battery charges at a jetty and overnight.`,
@@ -2756,11 +2757,18 @@ function leverNeutral(say = false) {
 }
 
 // Held forward or back (the keys, or the stick pushed well over): one notch now, and more
-// while held, pausing at neutral.
+// while held, pausing at neutral. Or, with the smooth lever (Settings → Controls → Throttle),
+// the lever moves as long as it's pushed, faster the further, and stays where it's left.
 let leverHeld = 0, leverRepeat = 0;
 let tieWordT = 0;
-function helmInput(raw, dt) {
-  const dir = Math.abs(raw) > 0.55 ? Math.sign(raw) : 0;
+function helmInput(raw, dt, across = 0) {
+  // (On a controller, the stick pushed mostly sideways steers without touching the throttle.)
+  const up = pads.active && Math.abs(across) > Math.abs(raw) * 1.2 ? 0 : raw;
+  if (settings.controls.throttle === 'lever') {
+    slideLever(up, dt);
+    return;
+  }
+  const dir = Math.abs(up) > 0.55 ? Math.sign(up) : 0;
   if (!dir) {
     leverHeld = 0;
     return;
@@ -2775,6 +2783,52 @@ function helmInput(raw, dt) {
   if (leverRepeat <= 0) {
     leverRepeat = 0.3;
     stepLever(dir, false);
+  }
+}
+
+// The smooth lever's place along its travel (see throttle.js), kept in step with boat.lever
+// (which other things set too: a notch tapped on screen, neutral when a fish takes).
+const leverS = { pos: 0, stopped: false, v: 0, kind: null };
+let leverWordT = 0;
+function leverPos(kind) {
+  if (leverS.kind !== kind || leverS.v !== boat.lever) {
+    leverS.pos = positionOf(kind, boat.lever);
+    leverS.v = boat.lever;
+    leverS.kind = kind;
+  }
+  return leverS.pos;
+}
+function slideLever(push, dt) {
+  const kind = leverKind();
+  if (!kind) return;
+  const pos = leverPos(kind);
+  const p = Math.abs(push) < 0.12 ? 0 : push;
+  if (p && boat.tie) {
+    if (t > leverWordT) {
+      leverWordT = t + 3;
+      hud.flash(`Tied up alongside: cast off first (${scheme() === 'touch' ? 'the Cast off prompt' : K('anchor')})`, t, 2.2);
+    }
+    return;
+  }
+  if (p > 0 && boat.anchored && pos >= 0) {
+    if (t > leverWordT) {
+      leverWordT = t + 3;
+      hud.flash(`The anchor is down: raise it first (${K('anchor')})`, t, 2);
+    }
+    return;
+  }
+  const r = slide(kind, leverS, push, dt, leverSituation());
+  if (r.capped && t > leverWordT) {
+    leverWordT = t + 3;
+    hud.flash(CAP_WORDS[leverSituation()], t, 2.6);
+  }
+  if (r.detent) {
+    audio.tick?.(0.4);
+    haptics.pulse('detent');
+  }
+  if (leverS.pos !== pos) {
+    boat.lever = valueAt(kind, leverS.pos);
+    leverS.v = boat.lever;
   }
 }
 
@@ -2823,7 +2877,8 @@ function toggleKayakMotor() {
     boat.setEMotor(true);
     state.tips.kayakMotor = true;
     audio.knock(0.25);
-    const how = scheme() === 'touch' ? 'the stick up or down (or the lever) moves it a notch' : scheme() === 'pad' ? `${kbd('L-stick')} up or down moves it a notch, ${K('neutral')} stops` : `${K('forward')}${K('back')} move the lever a notch, ${K('neutral')} stops`;
+    const n = settings.controls.throttle === 'lever' ? 'moves the lever' : 'moves it a notch';
+    const how = scheme() === 'touch' ? `the stick up or down (or the lever) ${n}` : scheme() === 'pad' ? `${kbd('L-stick')} up or down ${n}, ${K('neutral')} stops` : `${K('forward')}${K('back')} ${n.replace('moves', 'move')}, ${K('neutral')} stops`;
     hud.flash(`Motor down: quiet and slow, hands free for the rod. ${how}.`, t, 4);
   }
   save();
@@ -2848,7 +2903,8 @@ function toggleOutboard() {
     }
     boat.setOutboard(true);
     audio.knock(0.25);
-    const how = scheme() === 'touch' ? 'the stick up or down (or the lever) moves the throttle a notch' : scheme() === 'pad' ? `${kbd('L-stick')} up or down moves the throttle a notch, ${K('neutral')} stops` : `${K('forward')}${K('back')} move the throttle a notch, ${K('neutral')} stops`;
+    const n = settings.controls.throttle === 'lever' ? 'the throttle' : 'the throttle a notch';
+    const how = scheme() === 'touch' ? `the stick up or down (or the lever) moves ${n}` : scheme() === 'pad' ? `${kbd('L-stick')} up or down moves ${n}, ${K('neutral')} stops` : `${K('forward')}${K('back')} move ${n}, ${K('neutral')} stops`;
     hud.flash(`Outboard down, the sail down: she motors. ${how}. ${fuelHint('sail')}.`, t, 4.5);
   }
   save();
@@ -2957,6 +3013,20 @@ const leverUI = new LeverUI($('lever'), {
   set: (i) => { if (started && !modal) setLever(i); },
   stop: () => { if (started && !modal) leverNeutral(true); },
   motor: () => { if (started && !modal) (boat.hull.outboard ? toggleOutboard() : toggleKayakMotor()); },
+  // (The smooth lever, dragged: right where the finger is, within what's allowed.)
+  slideTo: (f) => {
+    const kind = leverKind();
+    if (!started || modal || !kind) return;
+    let pos = positionAtIndex(kind, f);
+    if (boat.tie || (boat.anchored && pos > 0)) return setLever(nearest(kind, valueAt(kind, pos)));
+    const capV = levers(kind)[capIndex(kind, leverSituation())].v;
+    if (valueAt(kind, pos) > capV) pos = positionOf(kind, capV);
+    leverPos(kind);
+    if (pos === leverS.pos) return;
+    if ((pos === 0) !== (leverS.pos === 0)) haptics.pulse(pos === 0 ? 'detent' : 'gear');
+    leverS.pos = pos;
+    boat.lever = leverS.v = valueAt(kind, pos);
+  },
 });
 
 function updateLever() {
@@ -2971,15 +3041,19 @@ function updateLever() {
   const line = sit !== 'free';
   let keys = '';
   // (With a line out on a controller the D-pad steps it, down through neutral.)
-  if (kind && !T) keys = P ? (line ? `${K('throttleUp')} ${K('throttleDown')} a notch` : `${kbd('L-stick')} ↕ a notch · ${K('neutral')} stop`) : `${line ? `${K('throttleUp')}${K('throttleDown')}` : `${K('forward')}${K('back')}`} a notch · ${K('neutral')} stop`;
+  const smooth = !!kind && settings.controls.throttle === 'lever';
+  if (kind && !T) {
+    if (smooth) keys = P ? (line ? `${K('throttleUp')} ${K('throttleDown')} a notch` : `${kbd('L-stick')} ↕ throttle · ${K('neutral')} stop`) : `${line ? `${K('throttleUp')}${K('throttleDown')}` : `${K('forward')}${K('back')}`} throttle · ${K('neutral')} stop`;
+    else keys = P ? (line ? `${K('throttleUp')} ${K('throttleDown')} a notch` : `${kbd('L-stick')} ↕ a notch · ${K('neutral')} stop`) : `${line ? `${K('throttleUp')}${K('throttleDown')}` : `${K('forward')}${K('back')}`} a notch · ${K('neutral')} stop`;
+  }
   if (kayak && !T) keys += `${keys ? ' · ' : ''}${K('motor')} motor`;
   // (The sailing boat's outboard: its own button raises it again.)
   const outboard = kind === 'sail';
   if (outboard && !T) keys += ` · ${K('outboard')} outboard up`;
   const dead = kind && (kind === 'kayak' ? boat.kflat : boat.trolling ? boat.flat : boat.dry);
   leverUI.update({
-    show: true, kind, index: kind ? nearest(kind, boat.lever) : 0, power: boat.power, cap: kind ? capIndex(kind, sit) : 0,
-    words: !kind ? 'paddling' : boat.anchored ? 'at anchor' : dead ? (kind === 'kayak' ? 'battery flat' : 'motor dead') : cap(leverWords(kind, boat.lever)),
+    show: true, kind, smooth, index: kind ? (smooth ? displayIndex(kind, leverPos(kind)) : nearest(kind, boat.lever)) : 0, power: boat.power, cap: kind ? capIndex(kind, sit) : 0,
+    words: !kind ? 'paddling' : boat.anchored ? 'at anchor' : dead ? (kind === 'kayak' ? 'battery flat' : 'motor dead') : cap(smooth ? leverPositionWords(leverPos(kind)) : leverWords(kind, boat.lever)),
     title: kind === 'kayak' ? 'Kayak motor' : kayak ? 'Kayak' : outboard ? 'Outboard' : 'Throttle',
     motor: kayak ? (boat.emotorDown ? 'down' : 'up') : outboard ? 'outboard' : null, keys,
   });
@@ -6768,12 +6842,14 @@ function currentHint() {
   if (leverKind()) {
     const kind = leverKind(), lv = boat.lever;
     const dead = kind === 'kayak' ? boat.kflat : boat.trolling ? boat.flat : boat.dry && Math.abs(lv) >= 0.03;
-    const word = boat.anchored ? 'at anchor' : dead ? (kind === 'kayak' ? 'battery flat' : 'the motor’s dead: an oar, slowly') : leverWords(kind, lv);
+    const smooth = settings.controls.throttle === 'lever';
+    const word = boat.anchored ? 'at anchor' : dead ? (kind === 'kayak' ? 'battery flat' : 'the motor’s dead: an oar, slowly') : smooth ? leverPositionWords(leverPos(kind)) : leverWords(kind, lv);
+    const notch = smooth ? 'throttle' : 'a notch';
     const fuel = kind === 'kayak' ? batteryWords(tanks(), 'kayak') : fuelHint(boat.kind);
     const motor = kind === 'kayak' ? ` · ${T ? 'Raise motor to paddle' : `${K('motor')} raise it and paddle`}` : kind === 'sail' ? ` · ${T ? 'Raise the outboard on the lever' : `${K('outboard')} outboard up`}` : '';
-    if (T) return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · the stick: up or down a notch, across to steer · Stop on the lever · ${fuel}`;
-    if (P) return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · ${kbd('L-stick')} ↕ a notch, ↔ steer · ${K('neutral')} stop · ${K('anchor')} anchor${motor} · ${fuel}`;
-    return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · ${UD} a notch · ${LR} steer · ${K('neutral')} stop · ${K('anchor')} anchor${motor} · ${fuel}`;
+    if (T) return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · the stick: up or down ${smooth ? 'for the throttle' : 'a notch'}, across to steer · Stop on the lever · ${fuel}`;
+    if (P) return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · ${kbd('L-stick')} ↕ ${notch}, ↔ steer · ${K('neutral')} stop · ${K('anchor')} anchor${motor} · ${fuel}`;
+    return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · ${UD} ${notch} · ${LR} steer · ${K('neutral')} stop · ${K('anchor')} anchor${motor} · ${fuel}`;
   }
   // The windsurf board: the sheet and leaning the rig to steer; ease out in the gusts.
   if (boat.hull.rig) {
@@ -8355,7 +8431,7 @@ function tick(now, manual = false) {
     } else if (leverKind()) {
       // At the helm: the throttle lever moves a notch at a time (the keys, or the stick pushed
       // and let go) and stays where you leave it; steering is the stick or keys across.
-      helmInput(ti, dt);
+      helmInput(ti, dt, si);
       throttle = boat.lever;
       steer = si;
     } else {
