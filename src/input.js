@@ -40,7 +40,7 @@ export const ACTIONS = [
   { id: 'reset', label: 'Reset the camera', keys: ['KeyR'], group: 'Views' },
   { id: 'photo', label: 'Take a photograph (photo mode; on a catch card, a picture of your fish)', keys: ['KeyP'], group: 'Views' },
   { id: 'pack', label: 'Backpack', keys: ['KeyB', 'KeyI'], group: 'Panels' },
-  { id: 'finder', label: 'Fish finder', keys: ['KeyF'], group: 'Panels' },
+  { id: 'finder', label: 'Fish finder (on the head unit: the next page, then away)', keys: ['KeyF'], group: 'Panels' },
   { id: 'conditions', label: 'Wind, current and sea panel', keys: ['KeyN'], group: 'Panels' },
   { id: 'map', label: 'Map', keys: ['KeyM'], group: 'Panels' },
   { id: 'journal', label: 'Journal', keys: ['KeyJ', 'Tab'], group: 'Panels' },

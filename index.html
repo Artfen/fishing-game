@@ -78,10 +78,23 @@
       <span class="s-grip" aria-hidden="true"></span>
       <span class="s-title" id="sonar-title">Fish finder</span>
       <span class="s-depth"><span id="sonar-depth">–</span> <span id="sonar-where">below you</span></span>
+      <button id="sonar-unit" type="button" aria-pressed="false" aria-label="Switch to the head unit">Unit</button>
       <button id="sonar-size" type="button" aria-label="Change the fish finder size">⤢</button>
       <button id="sonar-help" type="button" aria-label="What the fish finder shows">?</button>
     </header>
     <canvas id="sonar-canvas" width="600" height="330"></canvas>
+    <div id="sonar-keys" class="s-keys" hidden>
+      <button type="button" data-k="page"><span>Page</span><b>2D sonar</b></button>
+      <button type="button" data-k="shallower" aria-label="Range: shallower"><span>Range −</span><b></b></button>
+      <button type="button" data-k="deeper" aria-label="Range: deeper"><span>Range +</span><b>Auto</b></button>
+      <button type="button" data-k="zoom"><span>Zoom</span><b>Off</b></button>
+      <button type="button" data-k="gainDown" aria-label="Gain down"><span>Gain −</span><b></b></button>
+      <button type="button" data-k="gainUp" aria-label="Gain up"><span>Gain +</span><b>5</b></button>
+      <button type="button" data-k="colour"><span>Colour</span><b>Classic blue</b></button>
+      <button type="button" data-k="fish"><span>Fish</span><b>Symbols</b></button>
+      <button type="button" data-k="mark" class="s-mark"><span>Mark</span><b>waypoint</b></button>
+      <span id="sonar-resize" title="Drag to resize" aria-hidden="true"></span>
+    </div>
     <div id="sonar-legend" hidden>
       <ul>
         <li><i class="lg-fish"></i>fish echoes (weak → strong)</li>
@@ -89,7 +102,7 @@
         <li><i class="lg-bottom"></i>bottom</li>
         <li><i class="lg-bait"></i>your bait or lure</li>
       </ul>
-      <p>The right edge is the water under you now; older readings slide to the left. Fish show as arches: bigger echoes usually mean bigger fish, but the screen can't tell you what kind. A cloud of tiny dots is a school of small fish. A thick, bright bottom line is hard rock; a soft one is silt or sand. From the shore it reads the water around your rig once it's cast. Drag the title bar to move it.</p>
+      <p>The right edge is the water under you now; older readings slide to the left. Fish show as arches: bigger echoes usually mean bigger fish, but the screen can't tell you what kind. A cloud of tiny dots is a school of small fish. A thick, bright bottom line is hard rock; a soft one is silt or sand. From the shore it reads the water around your rig once it's cast. Drag the title bar to move it. <strong>Unit</strong> turns it into a head unit: Page switches between the 2D sonar (with a flasher strip at the right edge showing the ping going out now), the down view (almost a photograph of the bottom, fish as bright dashes) and the two side by side; Range, Zoom (2× or bottom lock) and Gain set it up as on a real one; Colour changes the palette; Fish shows fish as symbols with their depth or as arches; Mark drops a waypoint on your map with the depth. Drag its corner to resize it.</p>
     </div>
   </section>
   <div id="bait" class="panel" hidden aria-live="polite">
