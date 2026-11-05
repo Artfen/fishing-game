@@ -234,3 +234,39 @@ test('the RIB: tubes round a deep-V hull, one big outboard, about thirty-five kn
   assert.ok(s.stored.includes('rib') && !s.stored.includes('console'));
   conditions.manual = null;
 });
+
+test('the RIB is built like one: tubes half a metre across for her sides, a 2.5 m beam with about 1.5 m inside, a deep-V, the tubes just off the water at the stern, and steadier than the console in a beam sea', async () => {
+  const { HULLS, floatDraft } = await import('../src/boat.js');
+  const { tubeCentre } = await import('../src/hydro.js');
+  const H = HULLS.rib, T = H.tubes;
+  assert.ok(2 * T.r >= 0.5 && 2 * T.r <= 0.56, 'tubes 50–56 cm across');
+  const mid = tubeCentre(H, 0.5, 1), beam = 2 * (mid[0] + T.r), inside = 2 * (mid[0] - T.r);
+  assert.ok(beam > 2.4 && beam < 2.7, `beam ${beam.toFixed(2)} m`);
+  assert.ok(inside > 1.2 && inside < 1.7, `${inside.toFixed(2)} m inside the tubes`);
+  assert.ok(Math.atan(H.vee.rise) > (22 * Math.PI) / 180 && Math.atan(H.vee.rise) < (27 * Math.PI) / 180, 'a deep-V, 22–27° of deadrise');
+  // Lying still, the tubes' undersides at the stern are at the waterline, give or take a few cm,
+  // and well clear of it at the bow; the hull below them is all that's in the water.
+  const r = new Boat(scene, { kind: 'rib' }), draft = floatDraft(r.base);
+  const stern = tubeCentre(H, 0, 1)[1] - T.r, bow = tubeCentre(H, 0.9, 1)[1] - T.r;
+  assert.ok(Math.abs(stern - draft) < 0.12, `tubes ${(stern - draft).toFixed(2)} m off the water at the stern`);
+  assert.ok(bow - draft > 0.25, 'and well up at the bow');
+  // In a beam sea her tubes steady her: less roll than the centre console.
+  conditions.manual = { speed: 11, from: 0 };
+  conditions.wind.speed = conditions.wind.target = 11;
+  const { updateConditions } = await import('../src/world/conditions.js');
+  for (let i = 0; i < 2000; i++) updateConditions(0.1, { rain: 0, cloud: 0.2 });
+  const rms = (kind) => {
+    const b = boatAt(kind, -60, 470, Math.PI / 2 + 0.2);
+    let s = 0, n = 0;
+    for (let i = 0; i < 30 * 30; i++) {
+      clock += 1 / 30;
+      conditions.time = clock;
+      b.update(1 / 30, clock, 0, 0, 0);
+      if (i > 150) { s += b.roll * b.roll; n++; }
+    }
+    return Math.sqrt(s / n);
+  };
+  const rib = rms('rib'), cc = rms('console');
+  assert.ok(rib < cc, `rolling ${rib.toFixed(3)} rad rms against the console's ${cc.toFixed(3)}`);
+  conditions.manual = null;
+});

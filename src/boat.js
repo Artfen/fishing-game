@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat, wrapAngle } from './util.js';
 import { waveHeight } from './world/water.js';
 import { windAt, currentAt, currentScale, conditions, waveSampler, sampleWaves } from './world/conditions.js';
-import { buildHullModel, HydroBody, G, RHO, tubeCentre } from './hydro.js';
+import { buildHullModel, HydroBody, G, RHO, tubeCentre, section } from './hydro.js';
 import { wakes } from './world/wakes.js';
 import { solidHeight, PIERS, SEA, SOUTH_Z, CROSSING } from './world/terrain.js';
 import { SOUTH_RECT } from './world/brasa.js';
@@ -159,24 +159,30 @@ const HULLS = {
     lantern: [0.8, -3.2], stow: null, noise: 1.1, steady: 0.45,
     windage: 0.004, ride: 2.6,
   },
-  // A rigid inflatable boat of about twenty-one feet, the way fishermen like them: a deep-V hull
-  // with grey tubes round her sides and bow (out of the water lying still, they stand her up as
-  // she heels and soften her landings), one big outboard, a small console with a jockey seat
-  // behind it, a stainless A-frame over the stern. Quick (about thirty-five knots), dry and
-  // steady in a sea; driven standing, fished from anywhere, as the centre console.
+  // A rigid inflatable of about twenty-one feet, built the way the aluminium-hulled fishing RIBs
+  // are: a deep-V hull (24° of deadrise to a hard chine) in powder-coated aluminium, and on top of
+  // it, sitting right down on its edge, the tubes: half a metre across, grey Hypalon with a black
+  // rubbing strake, a few centimetres off the water at the stern, sweeping up to a pointed nose,
+  // their ends standing out past the transom as cones. The tubes are her sides: the deck is sunk
+  // inside them (you sit on them), with a bow locker seat, a stand-up console with a stainless
+  // rail round its screen, a jockey seat behind it, and a stainless roll bar over the stern. One
+  // big outboard: quick (about thirty-five knots), dry and steady in a sea; driven standing,
+  // fished from anywhere, as the centre console. (Out of the water lying still, the tubes stand
+  // her up as she heels, bank her into a turn and soften her landings: see hydro.js.)
   rib: {
-    name: 'RIB', mass: 1250, L: 6.5, B: 0.95, D: 0.92, draft: 0.24, shallow: 0.6, seatZ: -0.3, seatY: 1.25, floorY: 0.4,
+    name: 'RIB', mass: 1250, L: 6.5, B: 0.95, D: 0.5, draft: 0.34, shallow: 0.6, seatZ: -0.3, seatY: 1.25, floorY: 0.4,
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.3 + 0.7 * t)), 0.5),
-    sheer: (t) => 0.32 * Math.pow(t, 2.4) + 0.02,
-    keel: (t) => 0.2 * Math.pow(t, 3),
-    paint: '#f2f1ec', stripe: '#c43b2f', bottom: '#30363c', inside: 'plastic',
-    floor: [0.03, 0.87], floorColor: '#3d4248', decks: [[0.87, 1, 0]],
-    tubes: { r: 0.26, out: 0.4, drop: 0.12, t1: 0.93, color: '#5b6168', strake: '#2a2e33' },
-    motor: { thrust: 22, astern: 3.2, tilt: 0.85, scale: 1.45, cowl: '#1d2125', band: '#c43b2f' },
+    sheer: (t) => 0.5 * Math.pow(t, 2.3),
+    keel: (t) => 0.25 * Math.pow(t, 3),
+    vee: { chine: 0.6, wc: 0.9, rise: 0.445 },
+    paint: '#b7bdc2', stripe: '#b7bdc2', bottom: '#9aa1a7', inside: 'plastic',
+    floor: [0.03, 0.87], floorColor: '#4a4f55', decks: [[0.87, 1, 0]],
+    tubes: { r: 0.27, out: 0.35, drop: -0.12, t1: 0.94, color: '#5f656b', strake: '#1d2023' },
+    motor: { thrust: 22, astern: 3.2, tilt: 0.85, scale: 1.45, cowl: '#1d2125', band: '#9aa1a7' },
     drag: [0.21, 0.05], side: 3, helm: 0.8, fend: 1.35,
     // (Her weight low in her: the deck sits down inside the tubes, so she banks into a turn.)
     cgY: 0.45, console: true, rib: true,
-    standing: { helm: [0, -0.35], aft: [0, -2.2, 0.55, 0.5], bow: [0, 1.65, 0.35, 0.3], round: 0.7 },
+    standing: { helm: [0, -0.35], aft: [0, -2.2, 0.55, 0.5], bow: [0, 1.95, 0.3, 0.25], round: 0.7 },
     lantern: [0.7, -2.75], stow: null, noise: 1.1, steady: 0.5,
     windage: 0.0033, ride: 2.8,
   },
@@ -231,9 +237,8 @@ function hullSurface(H, inset, colorFor, split = null) {
     const t = i / NZ, w = Math.max(hw(H, t) - inset, 0), s = sheer(H, t), k = H.keel(t) + inset;
     const row = [];
     for (let j = 0; j <= NP; j++) {
-      const a = -Math.PI / 2 + Math.PI * (j / NP);
-      const sn = Math.sin(a), cs = Math.max(Math.cos(a), 0);
-      row.push([w * Math.sign(sn) * Math.pow(Math.abs(sn), 0.65), k + (s - k) * (1 - Math.pow(cs, 0.55)), zAt(H, t)]);
+      const [x, y] = section(H, w, s, k, -Math.PI / 2 + Math.PI * (j / NP));
+      row.push([x, y, zAt(H, t)]);
     }
     rows.push(row);
   }
@@ -1251,80 +1256,118 @@ export class Boat {
     this.buildWheel(hx, y0 + 1.03, hz + 0.36, -0.6);
   }
 
-  // A RIB's tubes: one grey tube along each side and round the bow (the two meeting at the nose),
-  // their ends standing out past the transom as cones; a dark rubbing strake along the outside
-  // of each, and a grab line looped along the top.
+  // A RIB's tubes: one along each side and round the bow, the two meeting in a pointed nose with a
+  // towing eye; their ends running out past the transom and tapering to rounded cones; a broad
+  // black rubbing strake round the outside, low; a grab line along the top on D-ring patches.
   buildTubes() {
-    const H = this.hull, T = H.tubes, V = (p) => new THREE.Vector3(p[0], p[1], p[2]);
-    const pts = [];
-    for (let t = -0.05; t <= T.t1 + 1e-6; t += 0.035) pts.push(V(tubeCentre(H, t, -1)));
-    // (Round the nose: the two sides meeting a little ahead of where the tubes would cross.)
-    const nose = tubeCentre(H, T.t1, 1), noseZ = zAt(H, 1) + T.r * 0.2;
-    pts.push(new THREE.Vector3(0, nose[1] + T.r * 0.15, noseZ));
-    for (let t = T.t1; t >= -0.05 - 1e-6; t -= 0.035) pts.push(V(tubeCentre(H, t, 1)));
-    const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
-    const parts = [{ geo: new THREE.TubeGeometry(curve, 140, T.r, 14), color: T.color, jitter: 0 }];
-    // (The cones at the stern.)
-    for (const sd of [1, -1]) {
-      const c = tubeCentre(H, -0.05, sd);
-      parts.push({ geo: new THREE.ConeGeometry(T.r, T.r * 1.3, 14).rotateX(-Math.PI / 2), matrix: mat(c[0], c[1], c[2] - T.r * 0.65), color: T.color, jitter: 0 });
-    }
-    // The rubbing strake, low on the outside of each tube, and the grab line along the top.
-    const along = (dx, dy, r, color, t0 = 0.0, t1 = T.t1 - 0.05) => {
-      for (const sd of [1, -1]) {
-        const q = [];
-        for (let t = t0; t <= t1 + 1e-6; t += 0.05) {
-          const c = tubeCentre(H, t, sd);
-          q.push(new THREE.Vector3(c[0] + sd * T.r * dx, c[1] + T.r * dy, c[2]));
-        }
-        parts.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(q), 60, r, 6), color, jitter: 0 });
-      }
+    const H = this.hull, T = H.tubes, r = T.r, V = (p) => new THREE.Vector3(p[0], p[1], p[2]);
+    const t0 = -0.02, nose = tubeCentre(H, T.t1, 1);
+    // The centreline of the tube: port side forward, round the nose, starboard side aft.
+    const side = (sd, from, to, step) => {
+      const q = [];
+      for (let t = from; sd < 0 ? t <= to + 1e-6 : t >= to - 1e-6; t += step) q.push(V(tubeCentre(H, t, sd)));
+      return q;
     };
-    along(0.85, -0.5, 0.045, T.strake);
-    along(0.1, 1.02, 0.012, '#d9d4c4', 0.1, T.t1 - 0.12);
-    const mesh = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75, metalness: 0.02 }));
+    const tip = new THREE.Vector3(0, nose[1] + r * 0.35, zAt(H, 1) + r * 0.55);
+    const pts = [...side(-1, t0, T.t1, 0.03), tip, ...side(1, T.t1, t0, -0.03)];
+    const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
+    const parts = [{ geo: new THREE.TubeGeometry(curve, 200, r, 22), color: T.color, jitter: 0 }];
+    // The cones: the tube running on past the transom, tapering, with a rounded end.
+    const coneLen = r * 1.9;
+    for (const sd of [1, -1]) {
+      const c = tubeCentre(H, t0, sd);
+      const prof = [];
+      for (let i = 0; i <= 10; i++) {
+        const u = i / 10, rr = r * (1 - 0.45 * u * u);
+        prof.push(new THREE.Vector2(rr, -u * coneLen));
+      }
+      for (let i = 1; i <= 6; i++) {
+        const a = (i / 6) * (Math.PI / 2), rr = r * 0.55;
+        prof.push(new THREE.Vector2(rr * Math.cos(a), -coneLen - rr * 0.8 * Math.sin(a)));
+      }
+      const g = new THREE.LatheGeometry(prof, 22).rotateX(Math.PI / 2);
+      parts.push({ geo: g, matrix: mat(c[0], c[1], c[2]), color: T.color, jitter: 0 });
+      // (The strake carries on round the cone a little way.)
+      parts.push({ geo: new THREE.CylinderGeometry(0.055, 0.05, coneLen * 0.7, 6).rotateX(Math.PI / 2), matrix: mat(c[0] + sd * r * 0.82, c[1] - r * 0.45, c[2] - coneLen * 0.35), color: T.strake });
+    }
+    // Along the outside of the tube, round the nose: the rubbing strake low down, the grab line on top.
+    const band = (dx, dy, rad, color, from, to, through = true) => {
+      const q = [...side(-1, from, to, 0.04).map((v) => v.add(new THREE.Vector3(-r * dx, r * dy, 0)))];
+      if (through) q.push(tip.clone().add(new THREE.Vector3(0, r * dy * 0.6, r * dx * 0.9)));
+      q.push(...side(1, to, from, -0.04).map((v) => v.add(new THREE.Vector3(r * dx, r * dy, 0))));
+      parts.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(q, false, 'centripetal'), 140, rad, 6), color, jitter: 0 });
+    };
+    band(0.93, -0.32, 0.06, T.strake, t0, T.t1);
+    // (The grab line, sagging a little between its D-rings; the patches themselves.)
+    for (const sd of [1, -1]) {
+      const q = [];
+      for (let t = 0.12; t <= 0.84 + 1e-6; t += 0.12) {
+        const c = tubeCentre(H, t, sd);
+        q.push(new THREE.Vector3(c[0] + sd * r * 0.28, c[1] + r * 0.98, c[2]));
+        parts.push({ geo: new THREE.BoxGeometry(0.06, 0.02, 0.1), matrix: mat(c[0] + sd * r * 0.28, c[1] + r * 0.97, c[2]), color: T.strake });
+        if (t < 0.84) {
+          const n = tubeCentre(H, t + 0.06, sd);
+          q.push(new THREE.Vector3(n[0] + sd * r * 0.42, n[1] + r * 0.82, n[2]));
+        }
+      }
+      parts.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(q), 80, 0.011, 5), color: '#2b2f33', jitter: 0 });
+    }
+    // The towing eye on the nose, and a keel guard down the bow.
+    parts.push({ geo: new THREE.TorusGeometry(0.05, 0.012, 6, 12), matrix: mat(0, tip.y - r * 0.4, tip.z + 0.02), color: '#c9cdd0' });
+    const k0 = [];
+    for (let t = 0.6; t <= 1.001; t += 0.05) k0.push(new THREE.Vector3(0, H.keel(t) - 0.01, zAt(H, t)));
+    parts.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(k0), 20, 0.025, 5), color: '#2b2f33', jitter: 0 });
+    const mesh = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.02 }));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     this.body.add(mesh);
   }
 
-  // A RIB's console: small and upright, a windscreen and a grab rail round its top, the wheel and
-  // the throttle on its face; a jockey seat behind it to stand against or straddle; a stainless
-  // A-frame over the stern with the navigation light and a whip aerial; rod holders on the frame.
+  // A RIB's deck: the bow locker seat forward (a cushion on its lid), the stand-up console (the
+  // wheel, the throttle and a screen on its face, a tall raked windscreen with a stainless rail
+  // round it), the jockey seat behind it to lean on or straddle, and the stainless roll bar over
+  // the stern with the all-round light, a whip aerial and rods in its holders.
   buildRibConsole() {
     const H = this.hull, y0 = H.floorY, [hx, hz] = H.standing.helm, cz = hz + 0.7;
     const steel = '#c9cdd0', V = (x, y, z) => new THREE.Vector3(x, y, z);
-    const jz = hz - 0.45, az = zAt(H, 0.06), ah = 1.75;
+    const jz = hz - 0.5, az = zAt(H, 0.05), ah = 1.85;
+    const bz0 = zAt(H, 0.66), bz1 = zAt(H, 0.76), bw = Math.min(hw(H, 0.66), hw(H, 0.76)) * 1.25;
     const parts = [
-      { geo: new THREE.BoxGeometry(0.7, 1.0, 0.6), matrix: mat(hx, y0 + 0.5, cz), color: '#ebe9e2' },
-      { geo: new THREE.BoxGeometry(0.66, 0.04, 0.28), matrix: mat(hx, y0 + 0.98, cz - 0.2, -0.5, 0, 0), color: '#2b2e33' },
-      { geo: new THREE.BoxGeometry(0.28, 0.2, 0.03), matrix: mat(hx + 0.14, y0 + 1.1, cz - 0.15, -0.4, 0, 0), color: '#111316' },
-      { geo: new THREE.BoxGeometry(0.74, 0.32, 0.02), matrix: mat(hx, y0 + 1.18, cz - 0.02, -0.35, 0, 0), color: '#9fb4bf' },
-      { geo: new THREE.BoxGeometry(0.1, 0.09, 0.1), matrix: mat(hx - 0.26, y0 + 1.0, cz - 0.24), color: '#2b2e33' },
-      { geo: new THREE.CylinderGeometry(0.012, 0.012, 0.18, 5), matrix: mat(hx - 0.26, y0 + 1.1, cz - 0.24, 0.35, 0, 0), color: steel },
-      { geo: new THREE.BoxGeometry(0.71, 0.05, 0.61), matrix: mat(hx, y0 + 0.82, cz), color: H.stripe },
-      // (The grab rail round the console's top.)
-      ...[1, -1].map((sd) => strut(V(hx + sd * 0.38, y0 + 0.8, cz + 0.3), V(hx + sd * 0.38, y0 + 1.25, cz - 0.05), 0.016, 0.016, steel)),
-      // The jockey seat: a padded saddle on a pedestal, a grab handle on its front, a box under it.
-      { geo: new THREE.BoxGeometry(0.5, 0.5, 0.55), matrix: mat(hx, y0 + 0.25, jz), color: '#e6e2d8' },
-      { geo: new THREE.BoxGeometry(0.44, 0.16, 0.6), matrix: mat(hx, y0 + 0.82, jz), color: '#2a2e33' },
-      strut(V(hx, y0 + 0.5, jz), V(hx, y0 + 0.74, jz), 0.07, 0.07, steel),
-      strut(V(hx - 0.16, y0 + 0.9, jz + 0.3), V(hx + 0.16, y0 + 0.9, jz + 0.3), 0.014, 0.014, steel),
-      // The A-frame over the stern: two legs up from the transom corners to a crossbar.
-      ...[1, -1].map((sd) => strut(V(sd * (hw(H, 0.06) - 0.15), sheer(H, 0.06), az), V(sd * 0.55, y0 + ah, az + 0.25), 0.03, 0.03, steel)),
-      strut(V(-0.58, y0 + ah, az + 0.25), V(0.58, y0 + ah, az + 0.25), 0.032, 0.032, steel),
-      // (The all-round light on top, and a whip aerial.)
-      { geo: new THREE.CylinderGeometry(0.05, 0.05, 0.12, 8), matrix: mat(0, y0 + ah + 0.1, az + 0.25), color: '#eae6da' },
-      strut(V(0.42, y0 + ah, az + 0.25), V(0.48, y0 + ah + 1.4, az + 0.15), 0.008, 0.004, '#1d2125'),
+      // The console: white, a dark face, the screen and the throttle, a tall raked windscreen.
+      { geo: new THREE.BoxGeometry(0.72, 1.02, 0.62), matrix: mat(hx, y0 + 0.51, cz), color: '#eeece6' },
+      { geo: new THREE.BoxGeometry(0.68, 0.04, 0.3), matrix: mat(hx, y0 + 1.0, cz - 0.2, -0.5, 0, 0), color: '#2b2e33' },
+      { geo: new THREE.BoxGeometry(0.3, 0.2, 0.03), matrix: mat(hx + 0.15, y0 + 1.12, cz - 0.16, -0.4, 0, 0), color: '#111316' },
+      { geo: new THREE.BoxGeometry(0.1, 0.09, 0.1), matrix: mat(hx - 0.27, y0 + 1.02, cz - 0.25), color: '#2b2e33' },
+      { geo: new THREE.CylinderGeometry(0.012, 0.012, 0.18, 5), matrix: mat(hx - 0.27, y0 + 1.12, cz - 0.25, 0.35, 0, 0), color: steel },
+      { geo: new THREE.BoxGeometry(0.76, 0.5, 0.02), matrix: mat(hx, y0 + 1.27, cz - 0.02, -0.28, 0, 0), color: '#a9bcc6' },
+      { geo: new THREE.BoxGeometry(0.73, 0.05, 0.63), matrix: mat(hx, y0 + 0.86, cz), color: '#2b2e33' },
+      // The jockey seat: a padded saddle with a back roll on a stainless pedestal, a box under it.
+      { geo: new THREE.BoxGeometry(0.52, 0.42, 0.5), matrix: mat(hx, y0 + 0.21, jz), color: '#e6e2d8' },
+      strut(V(hx, y0 + 0.42, jz), V(hx, y0 + 0.72, jz), 0.06, 0.06, steel),
+      { geo: new THREE.BoxGeometry(0.46, 0.16, 0.66), matrix: mat(hx, y0 + 0.8, jz), color: '#2a2e33' },
+      { geo: new THREE.BoxGeometry(0.46, 0.22, 0.12), matrix: mat(hx, y0 + 0.95, jz - 0.3), color: '#2a2e33' },
+      ...[1, -1].map((sd) => strut(V(hx + sd * 0.25, y0 + 0.82, jz + 0.25), V(hx + sd * 0.25, y0 + 0.98, jz + 0.36), 0.012, 0.012, steel)),
+      // The bow locker seat: a box across the bow with a cushion on its lid.
+      { geo: new THREE.BoxGeometry(bw, 0.38, bz1 - bz0), matrix: mat(0, y0 + 0.19, (bz0 + bz1) / 2), color: '#e6e2d8' },
+      { geo: new THREE.BoxGeometry(bw * 0.96, 0.09, (bz1 - bz0) * 0.96), matrix: mat(0, y0 + 0.43, (bz0 + bz1) / 2), color: '#2a2e33' },
+      // The roll bar over the stern: two legs up from the deck inside the tubes, and the bar.
+      ...[1, -1].map((sd) => strut(V(sd * (hw(H, 0.05) - 0.22), y0, az), V(sd * 0.62, y0 + ah, az + 0.3), 0.032, 0.032, steel)),
+      ...[1, -1].map((sd) => strut(V(sd * (hw(H, 0.05) - 0.22), y0 + 0.9, az + 0.12), V(sd * (hw(H, 0.05) - 0.22), y0 + 0.9, az + 0.75), 0.02, 0.02, steel)),
+      strut(V(-0.65, y0 + ah, az + 0.3), V(0.65, y0 + ah, az + 0.3), 0.034, 0.034, steel),
+      { geo: new THREE.CylinderGeometry(0.05, 0.05, 0.12, 8), matrix: mat(0, y0 + ah + 0.1, az + 0.3), color: '#eae6da' },
+      strut(V(0.45, y0 + ah, az + 0.3), V(0.5, y0 + ah + 1.4, az + 0.2), 0.008, 0.004, '#1d2125'),
     ];
-    // Rods in the holders on the A-frame's crossbar, and two in the gunwale holders forward of it.
-    for (const x of [-0.35, 0.35]) this.rackRod(parts, V(x, y0 + ah + 0.02, az + 0.22), V(x * 0.4, 1, -0.45), 1.8);
-    for (const sd of [1, -1]) this.rackRod(parts, V(sd * (hw(H, 0.2) - 0.08), sheer(H, 0.2) + 0.02, zAt(H, 0.2)), V(sd * 0.35, 1, -0.55), 1.75);
+    // The stainless rail round the windscreen's top and sides.
+    const rail = [V(hx - 0.42, y0 + 0.9, cz + 0.24), V(hx - 0.42, y0 + 1.36, cz - 0.08), V(hx - 0.3, y0 + 1.55, cz - 0.16), V(hx + 0.3, y0 + 1.55, cz - 0.16), V(hx + 0.42, y0 + 1.36, cz - 0.08), V(hx + 0.42, y0 + 0.9, cz + 0.24)];
+    parts.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rail), 40, 0.016, 6), color: steel, jitter: 0 });
+    // Rods in the holders on the roll bar, and two in holders on the console's sides.
+    for (const x of [-0.4, 0.4]) this.rackRod(parts, V(x, y0 + ah + 0.02, az + 0.27), V(x * 0.35, 1, -0.45), 1.8);
+    for (const sd of [1, -1]) this.rackRod(parts, V(hx + sd * 0.38, y0 + 0.7, cz + 0.1), V(sd * 0.2, 1, -0.3), 1.75);
     const mesh = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.12 }));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     this.body.add(mesh);
-    this.buildWheel(hx, y0 + 1.03, hz + 0.33, -0.6);
+    this.buildWheel(hx, y0 + 1.05, hz + 0.33, -0.6);
   }
 
   // The windsurf board's rig: a mast stepped in the board, a wishbone boom round the sail, and the
@@ -2575,7 +2618,8 @@ export class Boat {
       const sx = Math.sign(px * Math.cos(this.heading) - pz * Math.sin(this.heading)) || 1;
       for (const f of this.fenders) {
         const t = f.userData.t;
-        f.visible = true;
+        // (A RIB's tubes are her fenders.)
+        f.visible = !H.tubes;
         f.position.set(sx * (hw(H, t) + 0.06), sheer(H, t) - 0.22, zAt(H, t));
       }
     } else {
