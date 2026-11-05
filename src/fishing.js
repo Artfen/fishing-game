@@ -2098,7 +2098,7 @@ export class Fishing {
       }
       // Beaten and alongside, and too heavy to lift out on the line: the net.
       Object.assign(F, { atNet: true, netT: 0, kick: 0, kickT: rand(2.5, 4), liftT: 0 });
-      this.hooks.teach('net', `A fish this size needs the net: when it’s beaten and alongside, let go of the reel and tap ${this.hooks.key('cast')}. Lifting it out on the line can tear the hook out, and so can winding hard as it kicks.`, 8);
+      this.hooks.teach('net', `A fish this size needs the net: when it’s beaten and alongside, let go of the reel and tap ${this.hooks.key('cast')}. Don’t wind hard as it kicks.`, 8);
     }
   }
 

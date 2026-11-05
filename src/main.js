@@ -1004,6 +1004,8 @@ function windHint() {
 }
 let t = 0;
 let started = false;
+// (No messages over the title or a question waiting for an answer: they wait their turn.)
+hud.quiet = () => !started || !$('confirm').hidden;
 let modal = null; // 'journal' | 'catch' | 'note' | 'pack' | 'camp' | 'sleep' | 'travel'
 let hudOff = false;
 let rowTime = 0;
@@ -1074,7 +1076,7 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
     modal = null;
     const kg = weightOf(sp, size);
     hud.flash(kg > creelKg(state) ? `It fills your creel on its own: ${sp.name.toLowerCase()}, ${kgWords(kg)}. Sell it or cook it before you keep anything else.` : `Into the creel: ${sp.name.toLowerCase()}, ${size} cm (${creelWords(state)}). Cook it at camp, or sell it at the market.`, t, 3.5);
-    teach('kept', 'Fish you keep ride in the creel on your backpack. It holds them by weight: thirty-odd mackerel, or one big tuna. Grill them at camp, or sell them at the market.', 7);
+    teach('kept', 'Fish you keep go in the creel on your backpack (by weight: thirty-odd mackerel, or one big tuna). Grill them at camp, or sell them at the market.', 7);
     save();
   },
   // Every break has a reason you can see and do something about (see fight.js).
@@ -1741,10 +1743,10 @@ function openHarbour(where, tab = null) {
   modal = 'harbour';
   harbourSheet.open(where, tab);
   audio.page();
-  if (where === 'chandlery') teach('counter', 'The chandlery’s tackle is free to take, as always (The tackle store). At the counter, Old Bert sells a bigger creel, ice to keep your catch fresh and fresh bait, puts new line on a worn rod, and runs through what you need for a trip.', 10);
-  else if (where === 'market') teach('market', 'The fish market buys what you keep: the price is by weight, more for the kinds wanted today, and best while the fish is fresh. Money goes on a pint, a hot meal, or a fish cooked for you at the inn.', 9);
-  else if (where === 'works') teach('works', 'Willowhaven Marine Works: buy a boat, or hire one for the day to try her; paint her your colours and have her name sign-written on her bow; fit a long-range tank or a bigger outboard. Money buys range, speed and looks here, never a better bite.', 10);
-  else teach('inn', 'The inn: buy a pint and hear a story, ask what’s biting, and catch what’s being said about the sea today. The kitchen asks for particular fish each day, and pays well for them.', 9);
+  if (where === 'chandlery') teach('counter', 'The chandlery’s tackle is free, as always. At the counter Old Bert sells a bigger creel, ice and fresh bait, and puts new line on a worn rod.', 10);
+  else if (where === 'market') teach('market', 'The fish market buys what you keep, by weight: more for the kinds wanted today, and best while it’s fresh.', 9);
+  else if (where === 'works') teach('works', 'Willowhaven Marine Works: buy or hire a boat, paint her and name her, fit a bigger tank or outboard. Money buys range, speed and looks, never a better bite.', 10);
+  else teach('inn', 'The inn: a pint and a story, what’s biting, and the talk of the sea. The kitchen asks for particular fish each day, and pays well.', 9);
 }
 function closeHarbour() {
   harbourSheet.close();
@@ -2076,22 +2078,23 @@ function teachBoat() {
   const T = scheme() === 'touch', S = T || scheme() === 'pad', key = (a) => input.keyLabel(a);
   const stick = T ? 'the stick' : 'the left stick';
   const notch = settings.controls.throttle === 'lever' ? '' : ' a notch';
-  const lever = T ? `push the stick up or down to move the throttle lever${notch} (it stays where you leave it), or tap and drag the lever itself (bottom right); across steers, and Stop knocks it into neutral.`
-    : S ? `push ${stick} up or down to move the throttle lever${notch} (it stays where you leave it), across to steer; ${key('neutral')} stops the motor, ${key('anchor')} drops or raises the anchor.`
-      : `${key('forward')} and ${key('back')} move the throttle lever${notch} (it stays where you leave it; you can click and drag the lever on screen too), ${key('left')} and ${key('right')} steer, ${key('neutral')} stops the motor, ${key('anchor')} drops or raises the anchor. The motor takes a moment to build up and ease off.`;
+  const lever = T ? `the stick up or down moves the throttle${notch} (it stays where you leave it), across steers; Stop knocks it into neutral.`
+    : S ? `${stick} up or down moves the throttle${notch} (it stays where you leave it), across steers; ${key('neutral')} stops, ${key('anchor')} anchors.`
+      : `${key('forward')} and ${key('back')} move the throttle${notch} (it stays where you leave it), ${key('left')} and ${key('right')} steer, ${key('neutral')} stops, ${key('anchor')} anchors.`;
+  const use = T ? 'tap the prompt' : `press ${key('interact')}`;
   const text = {
-    skiff: `The motor skiff, for the open coast and the islands: ${lever} Near a shore, slow down and ${T ? 'tap the prompt' : `press ${key('interact')}`} to step off. It runs on petrol: the harbour pump is at the root of Willowhaven quay.`,
-    kayak: `The kayak: slow, but silent and stable enough to fish from, and it floats in a hand's depth of water. Paddle into the shallows, the saltings and the reeds where the boats can't go: fish hardly notice it. ${S ? `${T ? 'The stick' : 'The left stick'} paddles and steers.` : `${key('forward')}${key('left')}${key('back')}${key('right')} paddle and steer.`} It has a little electric motor on its stern too (${T ? 'the Lower motor button' : S ? key('motor') : key('motor')}): slower than paddling, but quiet and hands-free, for creeping up on fish or trolling a lure. Its battery charges at a jetty and overnight.`,
-    bass: `The bass boat: ${lever} The first notches of throttle run the quiet electric motor at the bow, for creeping along the weed beds and the reeds without spooking anything; push on for the outboard to cross the lake fast. Its locker holds your tackle box, and it sits steady when you cast. The outboard takes petrol (Longmere has no pump: bring the jerry can), and the electric motor a battery that charges at the jetty and overnight.`,
-    windsurf: `The windsurf board: you sail it standing up. ${T ? 'The stick up sheets the sail in and down eases it out; across steers (you lean the rig)' : S ? `${stick} up and down sheets in and out, across steers (you lean the rig)` : `${key('forward')} sheets in, ${key('back')} eases out, ${key('left')} and ${key('right')} steer (you lean the rig)`}. Like the sailing boat it goes where the wind lets it, and the panel shows how the sail is drawing; in a good breeze (from about 25 km/h) it climbs up onto the plane and flies. Hang on to too much power for too long (hauled in hard in a gust) and you're catapulted in: ease out in the gusts. You climb back on in a moment. Sail trim: Helped (Settings) trims it for you. No fishing from it, and no anchor: tie up at a pontoon or step ashore.`,
-    console: `The centre-console boat: twin outboards, fast (about twenty-seven knots flat out), and open all round. You drive it standing at the console, under the T-top: ${lever} To fish, cast as from any boat: you step back into the cockpit (or up into the bow, if that's the way you're facing) and turn to face your line. It runs on petrol: the fuel point is on Willowhaven's pontoon, by its berth.`,
-    rib: `The RIB, a rigid inflatable: an aluminium deep-V hull with grey tubes for her sides, one big outboard, and quick (about thirty-five knots flat out). You drive her standing at the console, leaning on the jockey seat: ${lever} The tubes stand her up when she heels, bank her into a turn and soften her landings in a sea: a dry, steady ride out to the marks. To fish, cast as from any boat: you step back into the cockpit (or up into the bow, if that's the way you're facing) and turn to face your line. She has a trolling notch, as the console does. She runs on petrol: the fuel point is on Willowhaven's pontoon.`,
-    jetski: `The jet ski: very quick (over thirty knots flat out). ${lever} It steers by its jet, so it only turns with the throttle on. At speed it leaves the wave crests and lands with a smack, throwing a plume of spray behind it: hold on. It runs on petrol (the fuel point is on Willowhaven's pontoon, beside its berth). No fishing from it.`,
-    cruiser: `The sport-fishing yacht: twin diesels, a cabin forward (bunks and a galley), and an open cockpit aft to fish from. You stand at the wheel: ${lever} She's quick once she's going (about twenty knots) but slow to turn at speed, so give her room; slow, her twin screws bring her round handily. To fish, cast as from any boat: you step back into the cockpit and turn to face your line, so you can cast off the stern or either side, and fight a fish wherever it runs. Tie up at a quay or a pontoon, or anchor, then ${T ? 'tap the prompt' : `press ${key('interact')}`} for the cabin: cook, and sleep aboard. She can make the crossing south to Las Brasas, about twenty minutes at the helm across the open sea, or the fast passage (${T ? 'tap the prompt' : key('interact')} out on open water, or beside her at her berth); it takes about ${litres(CROSS_FUEL(BOAT_PER_S.cruiser))} of diesel, and out in the ocean swell she makes about six knots. The fuel point is on Willowhaven's pontoon, by her berth.`,
-    cabin: `The cabin boat: slow and steady, with a little cabin forward: a bunk and a galley stove. ${lever} Anchor (or tie up alongside a quay), then ${T ? 'tap the prompt' : `press ${key('interact')}`} for the cabin: cook what you've kept, and sleep aboard. A camp that floats. It runs on petrol: the harbour pump is right by her berth.`,
-    sail: `The sailing boat: she goes where the wind lets her. ${T ? 'Raise the sail on the panel' : `Raise the sail (${key('motor')})`}, then ${T ? 'the stick up hauls the mainsheet in and down eases it; across steers' : S ? `${stick} up and down hauls the mainsheet in and eases it, across steers` : `${key('forward')} hauls the mainsheet in, ${key('back')} eases it, ${key('left')} and ${key('right')} steer`}. Watch the sail and the panel: if it flaps (luffing), haul in; if she's slow and heeling with the sail in tight across the wind, ease it out. Nothing drives her within about forty degrees of the wind (in irons): to go upwind, zigzag, tacking through the wind with speed on. The white lines in the air show the wind. With the sail down, she rows. She can make the crossing south to Las Brasas too, a volcanic island in the trade wind: about twenty-five minutes at the helm across the open sea, or the fast passage (${T ? 'tap the prompt' : key('interact')} out on open water, or beside her at the quay).`,
+    skiff: `The motor skiff, for the open coast: ${lever} Near a shore, slow down and ${use} to step off.`,
+    kayak: `The kayak: slow, silent, and it floats in a hand’s depth, so you can creep up on fish in the shallows and reeds. ${S ? `${T ? 'The stick' : 'The left stick'} paddles and steers.` : `${key('forward')}${key('left')}${key('back')}${key('right')} paddle and steer.`} Its little electric motor: ${T ? 'the Lower motor button' : key('motor')}.`,
+    bass: `The bass boat: ${lever} The first notches run the quiet electric motor at the bow, for creeping along the weed; push on for the outboard. Longmere has no pump: bring the jerry can.`,
+    windsurf: `The windsurf board: ${T ? 'the stick up sheets in, down eases out, across steers' : S ? `${stick} up and down sheets in and out, across steers` : `${key('forward')} sheets in, ${key('back')} eases out, ${key('left')} and ${key('right')} steer`}. In a good breeze it planes and flies; ease out in the gusts or you’re catapulted in. No fishing, no anchor.`,
+    console: `The centre console: twin outboards, about twenty-seven knots. ${lever} To fish, just cast: you step back into the cockpit to face your line.`,
+    rib: `The RIB: a deep-V hull with tubes for sides, one big outboard, about thirty-five knots. ${lever} Her tubes keep her steady and dry in a sea. To fish, just cast: you step back to face your line.`,
+    jetski: `The jet ski: over thirty knots. ${lever} It steers by its jet, so it only turns with the throttle on. Hold on over the crests. No fishing from it.`,
+    cruiser: `The sport-fishing yacht: twin diesels, a cabin with bunks and a galley, and an open cockpit to fish from. ${lever} About twenty knots, slow to turn at speed. Anchor or tie up, then ${use} for the cabin. She can cross to Las Brasas (${use} out on open water).`,
+    cabin: `The cabin boat: slow and steady, with a bunk and a galley stove. ${lever} Anchor or tie up, then ${use} for the cabin: cook, and sleep aboard.`,
+    sail: `The sailing boat: ${T ? 'raise the sail on the panel' : `raise the sail (${key('motor')})`}, then ${T ? 'the stick up hauls the sheet in, down eases it, across steers' : S ? `${stick} up and down haul the sheet in and ease it, across steers` : `${key('forward')} hauls the sheet in, ${key('back')} eases it, ${key('left')} and ${key('right')} steer`}. Flapping: haul in. Slow and heeling: ease out. Nothing drives her straight into the wind: zigzag upwind. She can cross to Las Brasas (${use} out on open water).`,
   }[k];
-  hud.toast(text, 12);
+  hud.toast(text, 9);
 }
 
 // Drop the anchor (where the water's right for it: the depth under the bow), or haul it in.
@@ -2359,9 +2362,9 @@ function startDive(kit, entry) {
     : P ? `<b>Diving</b> · ${kbd('L-stick')} swim where you look · ${kbd('R-stick')} look · ${K('interact')} up · ${K('tackle')} down`
       : `<b>Diving</b> · ${K('forward')}${K('back')} swim where you look · ${K('left')}${K('right')} turn · drag to look · ${K('interact')} up · ${K('tackle')} down`, 7);
   if (kit === 'free') {
-    teach('freedive', `Freediving: one breath. The gauge shows it running down, and the mark on it is when to turn for the surface. Swim slowly to make it last; ${T ? 'the action button' : K('cast')} fires the speargun. Aim just behind the head. At the surface, breathe up before the next dive.`, 10);
+    teach('freedive', `Freediving: one breath. Turn for the surface at the mark on the gauge, and swim slowly to make it last. ${T ? 'The action button' : K('cast')} fires the speargun: aim just behind the head.`, 10);
   } else {
-    teach('scuba', `Scuba: your air goes faster the deeper you are. Head up at ${SCUBA.reserve} bar, not too fast (the computer warns you), and after a dive below ${SCUBA.stopFrom} m stop for a moment at five metres. ${T ? 'The action button' : K('cast')} takes a photograph.`, 10);
+    teach('scuba', `Scuba: air goes faster the deeper you are. Head up at ${SCUBA.reserve} bar, slowly, with a stop at five metres after a dive below ${SCUBA.stopFrom} m. ${T ? 'The action button' : K('cast')} takes a photo.`, 10);
   }
   save();
 }
@@ -2597,7 +2600,7 @@ function blackout() {
     shot.fish.gone = true;
     eco.lostHooked(shot.fish.agent);
   }
-  hud.toast('You blacked out. In real life that’s how freedivers drown: never dive alone, and always turn for the surface with breath to spare. Here, you come to at the surface, coughing.', 10);
+  hud.toast('You blacked out. That’s how freedivers drown: never dive alone, and turn back with breath to spare. Here, you come to at the surface.', 10);
   save();
 }
 
@@ -3092,7 +3095,7 @@ function openHelm() {
   helmUI.open(k, BOATS[k].hull.name || cap(k));
   modal = 'helm';
   audio.page?.();
-  teach('helmPanel', 'The helm: the battery switch, the kill cord, neutral, then the key (on, and turned to start). Assisted start does each step for you. B or Esc closes it; the engine key opens it again.', 9);
+  teach('helmPanel', 'The helm: battery on, kill cord on, neutral, then the key. Assisted start does it all for you. B or Esc closes it.', 9);
 }
 function closeHelm() {
   if (!helmUI.isOpen) return;
@@ -3155,7 +3158,7 @@ function updateEngine(dt) {
       trimWordT = t + 4;
       hud.flash('Slow down to tilt her right up: under way the trim stops at the top of its range.', t, 2.6);
     }
-    if (!trimming) teach('trim', 'Trim: in (down) to get her up onto the plane quickly, then out a little once she’s flying for her best speed. Too far out and the propeller draws air; at rest it tilts the leg right up for the shallows.', 9);
+    if (!trimming) teach('trim', 'Trim in to get onto the plane, then out a little once she’s flying for her best speed. Too far and the propeller draws air.', 9);
   }
   if (!!dir !== trimming) audio.trimWhine?.(!!dir);
   trimming = !!dir && !!P.trim;
@@ -3292,7 +3295,7 @@ let stormWas = 0, stormWarnT = 0, lastPitch = 0, slamT = 0;
 function watchStorm(dt) {
   const st = conditions.sea.storm;
   if (weather.storm > 0.4 && stormWas <= 0.4 && started) {
-    hud.toast('A storm is coming in off the Atlantic: the wind is rising to a gale and big seas are building outside. The bay and the coves stay calmer: a good place to sit it out.', 8);
+    hud.toast('A storm is coming in: a gale and big seas outside. The bay and the coves stay calmer, a good place to sit it out.', 8);
   }
   stormWas = weather.storm;
   stormWarnT -= dt;
@@ -4309,7 +4312,7 @@ function pourCan(into) {
 function rescueCar() {
   passTime(rescue(tanks(), 'car'));
   fuelWarned.car = true;
-  hud.toast(`You walk up the lane to the nearest farm. An hour later you’re back with a borrowed can: ${litres(tanks().car)} in the tank. The pumps are at home and on Willowhaven quay.`, 7);
+  hud.toast(`An hour’s walk to the nearest farm and back with a borrowed can: ${litres(tanks().car)} in the tank. The pumps are at home and on Willowhaven quay.`, 7);
   save();
 }
 
@@ -4546,8 +4549,8 @@ function offerGuide(wait = 3.2) {
     }
     state.guide.offered = true;
     save();
-    ask('Your first fishing trip', 'This is your home: the cottage, the garage with your rods and tackle, and the car on the drive. Would you like a short guide to your first outing? Plan it at the workbench, drive to the water, cast, and land a fish. You can end it whenever you like, and find it again in the journal.', [
-      { text: 'No thanks', cls: 'quiet', run: () => hud.toast('Explore as you like. The guide is in your journal, under Memories, if you want it later.', 6) },
+    ask('Your first fishing trip', 'This is home: the cottage, the garage with your tackle, and the car. Like a short guide to your first trip? Stop it any time; it’s in the journal.', [
+      { text: 'No thanks', cls: 'quiet', run: () => hud.toast('Explore as you like. The guide is in the journal (Memories) if you want it.', 5) },
       { text: 'Guide me', run: () => beginGuide() },
     ]);
   }, wait * 1000);
@@ -4606,7 +4609,7 @@ function updateGuide(dt) {
   if (guideEnd && started && !modal && !traveling && !sleeping && $('confirm').hidden) {
     guideEnd = false;
     const n = state.log.filter((e) => e.at >= g.since).length;
-    showNote('Your first trip', `${n ? `${n === 1 ? 'One fish' : `${n} fish`} in your journal from it.` : 'Done.'} Anywhere the car or the boats can take you is yours to go now: the workbench plans any outing, and the map shows where. (The guide is in the journal, under Memories, if you’d like it again.)`, 'trip');
+    showNote('Your first trip', `${n ? `${n === 1 ? 'One fish' : `${n} fish`} in your journal from it.` : 'Done.'} Go anywhere the car or the boats can take you: the workbench plans an outing, the map shows where.`, 'trip');
     audio.chime();
   }
   if (!g.on || !started || traveling || sleeping) return;
@@ -5137,7 +5140,7 @@ function meet(ev, B) {
     }
     case 'flyingfish':
       crossingLife.flyingFish(240);
-      hud.toast('Flying fish! They burst out ahead of the bow and glide away over the waves, ten, twenty, thirty metres, before they drop back in. The water is warm and blue now.', 8);
+      hud.toast('Flying fish! They burst out ahead of the bow and glide away over the waves. The water’s warm and blue now.', 8);
       break;
     case 'turtle': {
       if (region !== 'south') break;
@@ -5152,7 +5155,7 @@ function meet(ev, B) {
         weather.timer = rand(60, 110);
         conditions.wind.target = Math.min(18, conditions.wind.target + 4);
         conditions.wind.timer = 80;
-        hud.toast('A squall: a dark line racing over the water, then rain hissing on the sea and the wind gusting hard for a minute or two. Ease the sheet (or the throttle) and let it blow through.', 9);
+        hud.toast('A squall: hard gusts and rain for a minute or two. Ease the sheet (or the throttle) and let it blow through.', 9);
       }
       break;
     case 'boil':
@@ -5190,7 +5193,7 @@ function boilAhead(B, sideWord) {
   if (!best) return;
   Object.assign(best, { x: bait.x + 30, z: bait.z, rest: 0, frenzy: 0, prey: bait, huntT: 4 });
   eco.activity[best.sp.id] = Math.max(eco.activity[best.sp.id] ?? 0, 0.8);
-  hud.toast(`Birds working ahead, off the ${sideWord} bow: ${best.home.south ? 'shearwaters' : 'gannets'} diving and the sea boiling under them. ${lower(best.sp.name).replace(/^./, (c) => c.toUpperCase())} on the bait: troll a lure past the edge of it, or stop short and cast in.`, 9);
+  hud.toast(`Birds working off the ${sideWord} bow: ${best.home.south ? 'shearwaters' : 'gannets'} diving. ${lower(best.sp.name).replace(/^./, (c) => c.toUpperCase())} on the bait: troll past the edge, or stop short and cast in.`, 9);
 }
 
 // The weather turning out on the open sea: shorten sail (or ease her back) and carry on, turn back
@@ -5463,8 +5466,8 @@ const havenDoorNear = () => {
 function goIn(R) {
   walker.place(R.doorX, R.z1 - 0.9, Math.PI);
   audio.door?.(true);
-  if (R.id === 'inn') teach('innIn', 'The Lobster Pot. Ruth’s at the bar (a pint, a story, what’s biting); the kitchen’s board by the pass says what she’s after tonight; and there’s a seat by the fire or the window. The door is behind you.', 9);
-  else teach('chandleryIn', 'The chandlery. Bert’s counter at the back (ice, bait, creels, mending and what you need for a trip), the tackle along the left wall (free, as always), and the dive compressor by the window. The door is behind you.', 9);
+  if (R.id === 'inn') teach('innIn', 'The Lobster Pot: Ruth at the bar (a pint, a story, what’s biting), tonight’s wanted fish on the kitchen board, a seat by the fire.', 9);
+  else teach('chandleryIn', 'The chandlery: Bert’s counter at the back (ice, bait, creels, mending), free tackle along the left wall, and the dive compressor by the window.', 9);
 }
 function goOut(R) {
   walker.place(R.doorX, R.front + 1.0, 0);
@@ -5510,7 +5513,7 @@ function openBoard() {
   $('board').hidden = false;
   audio.page();
   renderBoard();
-  teach('board', 'Everything on the board comes from the water itself: the wind and sea right now, which fish are busy at this hour round the harbour, and where gulls are diving. It changes as the day does.', 8);
+  teach('board', 'The board reads the water itself: the wind and sea, which fish are busy round the harbour, where gulls are diving. It changes through the day.', 8);
 }
 function closeBoard() {
   $('board').hidden = true;
@@ -5993,7 +5996,7 @@ function trailerAct(P) {
   if (!state.trailer.hitched) {
     const close = Math.hypot(car.pos.x - TRAILER_HOME.x, car.pos.z - TRAILER_HOME.z) < 20;
     return close ? { text: 'Hitch the trailer to the car', run: () => hitchTrailer(true) }
-      : { text: 'The boat trailer', run: () => hud.toast('Bring the car round to hitch it up: it carries a small boat (the kayak, the rowing boat, the skiff, the bass boat or the jet ski) to any water the car can get close to.', 6) };
+      : { text: 'The boat trailer', run: () => hud.toast('Bring the car round to hitch it up. It takes a small boat (kayak, rowing boat, skiff, bass boat or jet ski) to any water the car can reach.', 6) };
   }
   const b = state.trailer.boat ? BOATS[state.trailer.boat] : null;
   return { text: b ? `The trailer: the ${b.name}` : 'The trailer', run: () => trailerChoices() };
@@ -6435,20 +6438,20 @@ function checkPlaces(dt) {
     if (pl.id === 'camp') teach('campTip', 'Camp: grill and eat what you catch, swap rods and tackle from the tackle box, and sleep until morning.', 7);
     if (pl.id === 'stream') teach('streamTip', 'Fernbeck’s trout hold in the pools. They’re shy: walk softly, and bring the fly rod from camp.', 7);
     if (pl.id === 'lake') teach('lakeTip', 'Reedmere: perch and pike take lures, carp graze the bottom, rudd sip near the lily pads.', 7);
-    if (pl.id === 'quay') teach('quayTip', 'Wend Quay: a camp with a tackle box. Mullet cruise the estuary, flounder lie on the sand, and sea bass hunt the channel at dawn and dusk. The trail inland leads to Longmere.', 9);
+    if (pl.id === 'quay') teach('quayTip', 'Wend Quay: a camp and a tackle box. Mullet in the estuary, flounder on the sand, bass in the channel at dawn and dusk.', 9);
     if (pl.id === 'boathouse') teach('boathouseTip', 'The Mere Boathouse: a bass boat at the jetty and a tackle box. Largemouth bass lurk by the pads and the drowned oaks; pike lie in the weed.', 8);
     if (pl.id === 'puffin') teach('puffinTip', 'Puffin Cove: a sheltered camp with a tackle box. After dark, squid gather under the lamp light; wrasse live in the kelp by the rocks.', 8);
     if (pl.id === 'deep') teach('deepTip', 'The Blue Water. Watch for seabirds diving and the sea boiling white: tuna chase the sprat shoals out here.', 8);
-    if (pl.id === 'bajon') teach('bajonTip', `El Bajón: lava pinnacles from twenty metres down to three, the shallowest under the yellow buoy. Look down from a boat in this clear water, or dive it (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} over deep water with the boat stopped): sea fans, sponges and orange sun coral, parrotfish and ornate wrasse over the tops, triggerfish, morays in the cracks, a grouper in the cave at its foot, barracuda hanging over it.`, 12);
-    if (pl.dive && pl.id !== 'wreck') teach('diveSiteTip', `${pl.name}: a dive site, under the yellow buoy. Stop the boat close by, drop the anchor and go in (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} with the boat stopped over deep water): on a tank you can stay down and look round, on one breath it’s a quick look. Every site you dive goes on your map with a tick.`, 11);
-    if (pl.id === 'hound') teach('houndTip', 'The Hound: ten metres down at its top, thirty at its foot. Dive it on a tank, at slack water (the tides are on the notice board: high and low water are slack), and watch your air: at thirty metres it goes three times as fast as at the surface.', 11);
-    if (pl.id === 'haven') teach('havenTip', `Willowhaven: read the notice board for what’s about today, find all your tackle in the chandlery, sit on the bench a while, or see to your boats at the harbour office by the head of the quay (${scheme() === 'touch' ? 'tap the prompts' : input.keyLabel('interact')}).`, 10);
+    if (pl.id === 'bajon') teach('bajonTip', `El Bajón: lava pinnacles under the yellow buoy, sea fans, parrotfish, morays and a grouper. Look down from the boat, or dive it (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} with the boat stopped).`, 12);
+    if (pl.dive && pl.id !== 'wreck') teach('diveSiteTip', `${pl.name}: a dive site under the yellow buoy. Stop close by, anchor, and go in (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')}). Each site you dive is ticked on your map.`, 11);
+    if (pl.id === 'hound') teach('houndTip', 'The Hound: ten metres at its top, thirty at its foot. Dive it on a tank at slack water (high or low: see the notice board), and watch your air.', 11);
+    if (pl.id === 'haven') teach('havenTip', `Willowhaven: the notice board, tackle in the chandlery, the bench, and your boats at the harbour office by the quay (${scheme() === 'touch' ? 'tap the prompts' : input.keyLabel('interact')}).`, 10);
     if (pl.id === 'strand') teach('strandTip', 'Shell Strand: bass come into the surf at dusk, and flatfish up the sand after dark. The shelf above the beach is a dry, level place for a tent.', 9);
     if (pl.id === 'head') teach('headTip', 'Cove Head takes the swell: bass and white bream in the wash below the ledges. You can see the Kittiwake’s buoy from the daymark.', 8);
     if (pl.id === 'reach') teach('reachTip', 'The cove channel is sheltered from every wind: a calm place for a float at dusk, and for watching cuttlefish under the water.', 8);
-    if (pl.id === 'calf') teach('calfTip', `The Calf: tie up at the landing in its lee and step ashore. Pollack and wrasse live over the kelp under the cliffs, bass hunt the white water off the Nose, and the watch tower looks out over the whole coast (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} at its door).`, 10);
-    if (pl.id === 'sound') teach('soundTip', 'Calf Sound: the tide pours through here, the fastest water on the coast. Mackerel, garfish and bluefish hunt sandeels in it: cast a metal or a soft sandeel across the current and let it swing round, or drift through with it. It sets a boat east as it goes.', 10);
-    if (pl.id === 'coldfoot') teach('coldfootTip', 'Coldwater Foot: the fingerpost points up the river to the bothy and the top of Hoarfell. The path follows the Coldwater all the way: an hour’s walk to the top, past waterfalls and pools full of trout.', 9);
+    if (pl.id === 'calf') teach('calfTip', `The Calf: tie up at the landing in its lee. Pollack and wrasse under the cliffs, bass off the Nose, and a watch tower over the whole coast (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} at its door).`, 10);
+    if (pl.id === 'sound') teach('soundTip', 'Calf Sound: the fastest tide on the coast. Mackerel, garfish and bluefish hunt sandeels here: cast a metal across the current and let it swing round.', 10);
+    if (pl.id === 'coldfoot') teach('coldfootTip', 'Coldwater Foot: the path follows the river up to the bothy and Hoarfell’s top, past waterfalls and trout pools.', 9);
     if (pl.id === 'bothy') teach('bothyTip', `The bothy: cook, sleep and swap tackle here (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} at the door). Now you’ve walked here, you can come straight back from the map.`, 9);
     if (pl.id === 'tarn') teach('tarnTip', 'Hoar Tarn: small, wild trout rise at dusk in the cold water. Cast a fly or a little spinner along the edge where the shelf drops away.', 8);
     if (pl.id === 'summit') teach('summitTip', `The top of Hoarfell. ${scheme() === 'touch' ? 'Tap the prompt' : `Press ${input.keyLabel('interact')}`} at the cairn to add a stone and look out over the coast.`, 8);
@@ -6634,7 +6637,12 @@ sealife.onSplash = (x, z, len) => {
 };
 // What you've seen goes in the journal; the first time, a word about it.
 const seaLifeSeenAt = {};
+// (Seconds between words about a new sighting.)
+const SIGHTING_GAP = 90;
+let lastSightingWord = -Infinity;
 function seeSeaLife(kind, x, z) {
+  // (Not behind the title: nobody's looking yet.)
+  if (!started) return;
   favoursReady(favourSaw(state.favours, kind));
   noteSeen(state.today, kind);
   const now = performance.now() / 1000;
@@ -6644,7 +6652,13 @@ function seeSeaLife(kind, x, z) {
   if (S[kind]) S[kind].n++;
   else {
     S[kind] = { n: 1, day: state.day, hour: state.hour, where: region === 'south' ? 'off Las Brasas' : placeName(x, z) || '' };
-    hud.toast(`${SEA_LIFE[kind].note} (Your field notes keep the wildlife you’ve seen: Notes, in the journal.)`, 9);
+    // A word the first time (and where the notes are, the very first time): one at a time, so a
+    // busy shore doesn't bury you in birds; the rest go quietly into the notes.
+    if (now - lastSightingWord > SIGHTING_GAP) {
+      lastSightingWord = now;
+      const first = Object.keys(S).length === 1;
+      hud.toast(`${SEA_LIFE[kind].note}${first ? ' (The journal’s Notes keep what you’ve seen.)' : ''}`, 8);
+    }
   }
   save();
 }
@@ -6787,7 +6801,7 @@ function galeWarnings() {
   if (!g) return;
   if (h <= 6 && h > 1.5 && !galeWarned.has(`${g.day}:6`)) {
     galeWarned.add(`${g.day}:6`);
-    hud.toast(`Gale warning: a storm is due about ${formatClock(g.start % 24)}, blowing until about ${formatClock(g.end % 24)}. Plenty of time to finish up and make for shelter: the harbour, the bay, the coves, the estuary or the lakes.`, 10);
+    hud.toast(`Gale warning: a storm about ${formatClock(g.start % 24)} until ${formatClock(g.end % 24)}. Time to finish up and make for shelter.`, 10);
     audio.chime?.();
   }
   if (h <= 1.5 && !galeWarned.has(`${g.day}:1`)) {
@@ -7030,15 +7044,15 @@ function askStyle(then = null, returning = false) {
       then?.();
       return;
     }
-    ask('How do you like to play?', `${STYLE_IDS.map((id) => `${STYLES[id].name}: ${STYLES[id].desc}`).join('\n\n')}\n\nChange it, or any part of it, whenever you like in Settings → Controls & comfort.`, [
+    ask('How do you like to play?', `${STYLE_IDS.map((id) => `${STYLES[id].name}: ${STYLES[id].desc}`).join('\n\n')}\n\nChange any of it later in Settings.`, [
       ...(returning ? [{ text: 'Keep my settings as they are', cls: 'quiet', run: () => then?.() }] : []),
-      ...STYLE_IDS.map((id) => ({ text: STYLES[id].name, cls: id === 'angler' ? '' : 'quiet', run: () => { applyStyle(id); hud.toast(`${STYLES[id].name}: ${STYLES[id].desc}`, 6); then?.(); } })),
+      ...STYLE_IDS.map((id) => ({ text: STYLES[id].name, cls: id === 'angler' ? '' : 'quiet', run: () => { applyStyle(id); hud.toast(`${STYLES[id].name} it is. Change any of it in Settings → Controls & comfort.`, 5); then?.(); } })),
     ]);
   }, 1800);
 }
 
 function askName(then) {
-  ask('What should we call you?', 'Choose a name to go by. It’s what friends see over you when you play together (Settings → Play together), and you can change it there any time.', [
+  ask('What should we call you?', 'Friends see it over you when you play together. You can change it in Settings.', [
     {
       text: 'That’s me', keepOpen: true, run: (v) => {
         const n = cleanName(v);
@@ -8066,6 +8080,8 @@ $('update-now').addEventListener('click', updateNow);
 // A question with buttons; { input } adds a text box (its value goes to the button's run).
 // (list: lines to set out below the words, each { ok, text }: ready, or a warning.)
 function ask(title, text, buttons, { input = null, list = null, placeholder = '', maxLength = 40 } = {}) {
+  // (A message up just now waits until it's answered.)
+  hud.hush();
   $('confirm-title').textContent = title;
   $('confirm-text').textContent = text;
   let ul = $('confirm-list');
@@ -8221,7 +8237,7 @@ function begin() {
     setTimeout(() => {
       if (state.tips.brasaIntro || state.tips.brasa) return;
       state.tips.brasaIntro = true;
-      hud.toast(`New: Las Brasas, a volcanic island across the open sea to the south, with warm clear water and fish you never see at home. Take the sailing boat out of the bay and ${scheme() === 'touch' ? 'tap the prompt' : `press ${input.keyLabel('interact')}`} for the crossing (sail her there yourself, or the fast passage), or stand beside her at Willowhaven quay.`, 13);
+      hud.toast(`New: Las Brasas, a warm volcanic island across the sea to the south. Take the sailing boat out of the bay and ${scheme() === 'touch' ? 'tap the prompt' : `press ${input.keyLabel('interact')}`} for the crossing.`, 10);
       save();
     }, 15000 + campNotes.length * 11000);
   }
@@ -8884,7 +8900,7 @@ function tick(now, manual = false) {
   // (At Las Brasas before El Bajón was there to find: a word about it, once, a moment after you
   // start.)
   if (started && region === 'south' && !modal && !passage && !state.places.bajon && state.tips.brasa && t > 8) {
-    teach('bajonNews', 'New at Las Brasas: El Bajón, a reef of lava pinnacles just west of the harbour mouth, under a yellow buoy. Sea fans, sponges and the island’s own fish: parrotfish, wrasse, triggerfish, morays and a grouper. The water is clear enough to see it from a boat; better still, dive it.', 12);
+    teach('bajonNews', 'New at Las Brasas: El Bajón, a lava reef under a yellow buoy west of the harbour mouth. See it from the boat, or dive it.', 12);
   }
   if (!manual) watchFrameRate(rawDt);
   pads.poll(dt);
