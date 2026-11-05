@@ -181,6 +181,8 @@ export class Haptics {
 
 // The engine through the hull: a faint beat at idle, building with the revs (0–1), heavier on
 // the big inboards, a light buzz from an electric motor.
+// (How heavy an engine feels at a throttle: what the swell as she digs in is made from; see
+// main.js feelBoat. Not held all the while: that was too much.)
 export function engineFeel(rpm, { inboard = false, electric = false, jet = false, running = true } = {}) {
   if (!running) return { strong: 0, weak: 0 };
   const r = clamp(rpm, 0, 1);
