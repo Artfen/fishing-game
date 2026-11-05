@@ -367,6 +367,9 @@ const CREW = 80; // kg, you
 // centreboard, as a well-set-up dinghy is) about over the board, so she holds her course with the
 // helm amidships and only rounds up a little when she heels.
 const SAIL_CE_Y = 2.1, SAIL_CE_AFT = 1.55;
+// (How hard a sailing boat laid over in a gust gripes up into the wind: N·m per kg of her for each
+// (m/s)² of her speed. See the sail's overpowered.)
+const ROUND_UP = 0.35;
 const _w3 = [0, 0, 0], _w4 = [0, 0, 0];
 const _qt = new THREE.Quaternion(), _eu = new THREE.Euler(0, 0, 0, 'YXZ'), _v3 = new THREE.Vector3();
 // A direction in her own frame, turned by an angle (rad) from straight ahead towards port.
@@ -429,6 +432,12 @@ export class Boat {
     // what the wind is doing to the sail just now, the heel, and where the boom lies.
     this.sailUp = false;
     this.sheet = 0.5;
+    // (sheetHelp: a hand on the sheet besides yours, easing it in the gusts and when she won't
+    // answer her helm, as on the Helped sail trim; without it, the sheet is all yours, and held in
+    // too hard in a blow she's overpowered and rounds up into the wind. overpowered: how badly,
+    // 0 … 1, just now.)
+    this.sheetHelp = true;
+    this.overpowered = 0;
     // Out on the crossing (see crossing.js): the sail shortened in a blow (1 full … less, reefed),
     // and the fastest a motor boat can be driven in the ocean's long swell (m/s).
     this.reef = 1;
@@ -2336,7 +2345,10 @@ export class Boat {
       // (Hard pressed, heeling past fifteen degrees or so, you spill wind from the sail in the
       // gusts, easing the sheet a touch and feathering up, rather than let her lie over.)
       // (And with the helm hard over against her griping up, you ease the sheet till she answers.)
-      const spill = (1 - 0.7 * smoothstep(0.26, 0.5, Math.abs(this.roll))) * (1 - 0.6 * smoothstep(0.6, 1, Math.abs(this._holding || 0)));
+      // (Trimming by hand, nobody eases it for you but you: you still sit out and feather her a
+      // little, but the sheet stays where you hold it.)
+      const feather = this.sheetHelp ? 1 : 0.75, ease = this.sheetHelp ? 1 : 0.25;
+      const spill = (1 - 0.7 * feather * smoothstep(0.26, 0.5, Math.abs(this.roll))) * (1 - 0.6 * ease * smoothstep(0.6, 1, Math.abs(this._holding || 0)));
       thrust = held ? 0 : A.drive * this.reef * spill;
       const lateral = held ? 0 : A.lateral * this.reef * spill;
       if (thrust || lateral) {
@@ -2359,7 +2371,21 @@ export class Boat {
       const hold = this.holdCourse(steer, !held && !this._finish && A.state !== 'irons' && A.awa > 0.6 && (thrust > 0.05 || Math.abs(vf) > 0.5));
       this._holding = hold;
       if (hold) tiller = -hold;
-      b.rudder = -this.helmTo(tiller, dt, vf);
+      // Overpowered: laid right over in a gust with the sail still pulling hard, her rudder lifts
+      // and draws air and loses its grip, and her heeled hull (the lee bow dug in, the weather
+      // quarter lifted) and the sail's push, out over the water to leeward, swing her up into
+      // the wind. She rounds up until the sail luffs and she stands up again; ease the sheet and
+      // she won't. (Top speed is had trimmed right and sailed upright, not hauled in and laid over.)
+      // (On the Helped trim, the hand besides yours eases her as she goes over: she barely gripes.)
+      const over = smoothstep(0.48, 0.72, Math.abs(this.roll)) * smoothstep(0.25, 0.6, A.power) * smoothstep(0.8, 2, Math.abs(vf)) * (this.sheetHelp ? 0.25 : 1);
+      this.overpowered = over;
+      b.rudder = -this.helmTo(tiller, dt, vf) * (1 - 0.9 * over);
+      if (over > 0.01 && !held) {
+        // (Towards the wind: where it comes from, across her bow. The heeled hull's turning moment
+        // grows with the square of her speed through the water, as any hull force does.)
+        const wfx = -ax, wfz = -az, cross = this.fwd.z * wfx - this.fwd.x * wfz;
+        if (Math.abs(cross) > 0.02) b.forces.push(...yawCouple(b, Math.sign(cross) * over * m * ROUND_UP * vf * vf));
+      }
       // You sit out on the windward side against the heel, as far as a person can lean. (Once
       // she heels past five degrees or so: your weight, three-quarters of a metre out.)
       b.heelMoment = -Math.sign(this.roll) * smoothstep(0.08, 0.3, Math.abs(this.roll)) * CREW * G * 0.75;

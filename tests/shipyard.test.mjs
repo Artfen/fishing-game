@@ -137,7 +137,7 @@ test('one question instead of six: each play style is a whole, valid set of choi
   const { ECONOMY_IDS } = await import('../src/economy.js');
   for (const id of STYLE_IDS) {
     const S = STYLES[id].set;
-    assert.ok(DIFFICULTY_IDS.includes(S.difficulty) && BEHAVIOUR_IDS.includes(S.behaviour) && CAST_MODES[S.cast] && ['assisted', 'expert'].includes(S.technique) && START_IDS.includes(S.start) && ['notches', 'lever'].includes(S.throttle) && ECONOMY_IDS.includes(S.economy), id);
+    assert.ok(DIFFICULTY_IDS.includes(S.difficulty) && BEHAVIOUR_IDS.includes(S.behaviour) && CAST_MODES[S.cast] && ['assisted', 'expert'].includes(S.technique) && START_IDS.includes(S.start) && ['notches', 'lever'].includes(S.throttle) && ['hand', 'helped'].includes(S.sailTrim) && ECONOMY_IDS.includes(S.economy), id);
     assert.equal(styleOf({ ...S }), id);
   }
   assert.equal(styleOf({ ...STYLES.easy.set, throttle: 'lever' }), null, 'changed on its own: your own mix');

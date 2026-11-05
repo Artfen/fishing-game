@@ -3290,6 +3290,17 @@ function toggleSail() {
 // closer to the wind, out to let the sail breathe. On the helped setting it trims itself towards
 // the best angle whenever you leave it be.
 function sailInput(raw, dt) {
+  // (On the Helped trim, a hand besides yours eases it in the gusts; by hand, it's all yours.)
+  boat.sheetHelp = settings.controls.sailTrim === 'helped';
+  // Laid over and rounding up into the wind: say so, once a while, and feel her gripe.
+  if (boat.overpowered > 0.5 && boat.sailUp) {
+    if (t - overWarnT > 25) {
+      overWarnT = t;
+      hud.flash(state.tips.overpowered ? 'Overpowered: ease the sheet.' : `Overpowered! She’s laid right over and rounding up into the wind. Ease the sheet (${scheme() === 'touch' ? 'the stick down' : scheme() === 'pad' ? 'the stick down' : K('back')}) in the gusts, and she’ll stand up and answer her helm.`, t, state.tips.overpowered ? 2.5 : 6);
+      state.tips.overpowered = true;
+      haptics.pulse('warn', 0.7);
+    }
+  }
   const ui = sailUI.hold;
   const want = ui || (Math.abs(raw) > 0.2 ? -raw : 0);
   if (want) {
@@ -3297,12 +3308,14 @@ function sailInput(raw, dt) {
     sheetTouched = t;
   } else if (settings.controls.sailTrim === 'helped' && boat.sailing && t - sheetTouched > 2.5) {
     let best = bestSheet(boat.sailing.awa);
+    // (Pressed in a gust, laid over: it eases out past its best, spilling it, as a good hand would.)
+    best = Math.min(1, best + smoothstep(0.35, 0.6, Math.abs(boat.roll)) * 0.25);
     // (On a windsurf board in a strong wind it eases out past its best, spilling the gusts.)
     if (boat.hull.rig && boat.sailing.pull > 5.5) best = Math.min(1, best + (boat.sailing.pull - 5.5) * 0.09);
     boat.sheet += clamp(best - boat.sheet, -0.25 * dt, 0.25 * dt);
   }
 }
-let sheetTouched = -10;
+let sheetTouched = -10, overWarnT = -99;
 
 const windLines = new WindLines(scene);
 const stormFx = new Storm(scene);
@@ -3357,7 +3370,7 @@ function updateSailPanel() {
   const fromX = -w.x, fromZ = -w.z, f = boat.fwd, r = boat.right;
   const twa = Math.atan2(fromX * r.x + fromZ * r.z, fromX * f.x + fromZ * f.z);
   const up = boat.sailUp && !!A;
-  const advice = up ? trimAdvice(A) : null;
+  const advice = up ? trimAdvice(A, boat.overpowered) : null;
   sailUI.update({
     show: true, up: boat.sailUp, sheet: boat.sheet, best: up && A.state !== 'irons' ? bestSheet(A.awa) : null, board: !!boat.hull.rig,
     words: !boat.sailUp ? 'sail down' : boat.fallen > 0 ? 'in the water' : boat.anchored ? 'at anchor' : boat.tie ? 'tied up' : `${advice.words}${boat.planing > 0.6 ? ' · planing' : ''}`,
@@ -7042,14 +7055,14 @@ function setName(name) {
 // One question instead of six (see playstyle.js): the fight, the fish, casting, the engine, the
 // throttle and the economy set together.
 function playStyleNow() {
-  return { difficulty: state.difficulty, behaviour: state.behaviour, cast: settings.controls.cast, technique: settings.controls.technique, start: settings.controls.start, throttle: settings.controls.throttle, economy: state.economy };
+  return { difficulty: state.difficulty, behaviour: state.behaviour, cast: settings.controls.cast, technique: settings.controls.technique, start: settings.controls.start, throttle: settings.controls.throttle, sailTrim: settings.controls.sailTrim, economy: state.economy };
 }
 function applyStyle(id) {
   const S = STYLES[id]?.set;
   if (!S) return;
   setDifficulty(S.difficulty);
   setBehaviour(S.behaviour);
-  Object.assign(settings.controls, { cast: S.cast, technique: S.technique, start: S.start, throttle: S.throttle });
+  Object.assign(settings.controls, { cast: S.cast, technique: S.technique, start: S.start, throttle: S.throttle, sailTrim: S.sailTrim });
   state.economy = S.economy;
   applyControls();
   save();
