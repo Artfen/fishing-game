@@ -10,7 +10,7 @@
 // - It never touches saved games: those live in the browser's local storage, not here.
 
 // <precache> Written by tools/build-sw.mjs: do not edit by hand.
-const VERSION = 'f7fe03fd5bec';
+const VERSION = '1ab8f360a807';
 const FILES = [
   './index.html',
   './style.css',
@@ -55,6 +55,7 @@ const FILES = [
   './src/gamepad.js',
   './src/gearArt.js',
   './src/gearView.js',
+  './src/giftcodes.js',
   './src/goals.js',
   './src/grounds.js',
   './src/guide.js',

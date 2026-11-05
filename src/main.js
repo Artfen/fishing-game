@@ -85,6 +85,7 @@ import { whatsAbout, birdsWorking, weatherLines, notices, paintBoard } from './h
 import { HarbourSheet, paintSlate, paintKitchenBoard } from './harbourView.js';
 import { Townsfolk, FOLK, sayTo } from './townsfolk.js';
 import { earOf, quayNear, nearestOf } from './earshot.js';
+import { redeemGift } from './giftcodes.js';
 import { requestById, businessWith, accept as acceptFavour, decline as declineFavour, complete as completeFavour, caught as favourCaught, saw as favourSaw, photographed as favourPhotographed, buoyAt, pickUpBuoy, fishFor, remember, cleanFavours } from './requests.js';
 import { lower } from './innTalk.js';
 import { tideAt, tideWords, turns } from './world/tide.js';
@@ -7036,6 +7037,17 @@ const settingsUI = new SettingsUI(state, {
   following: () => (clock.following ? together.hostLabel : null),
   together: () => together,
   setName: (name) => setName(name),
+  // A friend code: every boat and £100, once per game (see giftcodes.js).
+  redeem: async (code) => {
+    const r = await redeemGift(state, code, KINDS);
+    if (r.ok) {
+      applyYard();
+      save();
+      audio.fanfare?.();
+      hud.toast(`A friend’s gift: every boat at the Marine Works, and £${r.gift.money}.`, 6);
+    }
+    return r;
+  },
   boatName: (kind) => BOATS[kind]?.name || 'boat',
   economy: () => state.economy,
   playStyle: () => styleOf(playStyleNow()),
@@ -9509,7 +9521,7 @@ let homeIntroAt = 0; // seconds of play before a new player hears about home (0:
 const carIn = { throttle: 0, steer: 0 };
 let wadeT = 0;
 let motorNoiseT = 0;
-let slamFelt = 0, gearFelt = 0;
+let slamFelt = 0, gearFelt = 0, powerFelt = 0;
 
 // Once a frame: what's felt through the controller goes out (nothing in a menu, or when the
 // controller isn't what you're playing with): a fish's weight on the line and the drag's buzz,
@@ -9522,25 +9534,35 @@ function feelFrame(dt) {
     haptics.hold('line', f.weight.strong, f.weight.weak, { rt: f.weight.rt });
     if (f.drag) haptics.hold('drag', 0, f.drag.weak, { rt: f.drag.rt, buzz: f.drag.buzz });
   }
+  // The car: a swell as you put your foot down, not a hum all the while you drive.
   if (driving && tanks().car > 0) {
-    const r = clamp(Math.abs(car.speed) / 25 + (carIn.throttle ? 0.15 : 0), 0, 1);
-    haptics.hold('engine', 0.03 + 0.07 * r, 0.04 + 0.08 * r, { rt: carIn.throttle > 0 ? 0.1 * carIn.throttle : 0 });
-  }
+    const th = Math.max(0, carIn.throttle || 0);
+    if (th > carFelt + 0.35) {
+      haptics.pulse({ strong: 0.3, weak: 0.25, ms: 380, shape: 'swell' }, 0.6 + 0.4 * th);
+      carFelt = th;
+    } else if (th < carFelt) carFelt = th;
+  } else carFelt = 0;
   haptics.update(dt);
 }
+let carFelt = 0;
 
-// The boat through your hands (see haptics.js): the engine's beat, building with the revs, and a
-// sea slamming under her bow at speed.
+// The boat through your hands (see haptics.js): not a hum all the while you're aboard, only what
+// you'd notice: the clunk into gear, the engine digging in as you open her up (heavier on the big
+// inboards, next to nothing from an electric motor), and a sea slamming under her bow at speed.
+// (The engine firing as it starts is felt too: see engineEvent.)
 function feelBoat(motorOn, outboard, voice) {
   if (onFoot || dive || driving) return;
   // (The clunk of going into gear, ahead or astern.)
   const g = Math.sign(boat.power);
   if (motorOn && outboard && g && g !== gearFelt) haptics.pulse('gear');
   gearFelt = g;
-  if (motorOn) {
-    const e = engineFeel(Math.abs(boat.power), { inboard: voice === 'inboard', jet: voice === 'jet', electric: !outboard, running: true });
-    haptics.hold('engine', e.strong, e.weak);
-  }
+  // Opening her up: one swell as she digs in, for each push of the lever (by how far it went up).
+  const p = motorOn ? Math.abs(boat.lever || 0) : 0;
+  if (p > powerFelt + 0.2) {
+    const e = engineFeel(p, { inboard: voice === 'inboard', jet: voice === 'jet', electric: !outboard, running: true });
+    haptics.pulse({ strong: 1.6 * e.strong + 0.1, weak: 1.4 * e.weak, ms: 480, shape: 'swell' }, clamp(p - powerFelt, 0.3, 1));
+    powerFelt = p;
+  } else if (p < powerFelt) powerFelt = p;
   // (Each slam once, as she comes down into the sea, not all the while she's in it.)
   const k = slamFeel(boat.slam);
   if (k > 0.05 && k > slamFelt + 0.15) haptics.pulse({ strong: 1, weak: 0.4, ms: 240, shape: 'thump' }, k);
