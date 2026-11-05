@@ -630,6 +630,7 @@ const pads = new Gamepads(input, {
     if (started) hud.toast(`Controller disconnected: ${touch.active ? 'the touch controls are back' : 'the keyboard and mouse carry on'}.`, 4);
   },
   focusRoot: () => $('title'),
+  rodStick: () => fishing.expert && fishing.lineOut && !modal,
 });
 input.padLabel = (a) => pads.label(a);
 // What you feel through the controller (see haptics.js): the engine, the sea, the fish.
@@ -6830,6 +6831,7 @@ function applyControls() {
   rig.reduced = C.reducedMotion;
   document.documentElement.classList.toggle('reduce-motion', !!C.reducedMotion);
   fishing.assist = C.cast === 'assisted';
+  fishing.expert = C.technique === 'expert';
   haptics.setStrength(C.vibration);
   input.setBindings(C.keys || defaultBindings());
   labelKeys();
@@ -6914,14 +6916,14 @@ function setName(name) {
 // One question instead of six (see playstyle.js): the fight, the fish, casting, the engine, the
 // throttle and the economy set together.
 function playStyleNow() {
-  return { difficulty: state.difficulty, behaviour: state.behaviour, cast: settings.controls.cast, start: settings.controls.start, throttle: settings.controls.throttle, economy: state.economy };
+  return { difficulty: state.difficulty, behaviour: state.behaviour, cast: settings.controls.cast, technique: settings.controls.technique, start: settings.controls.start, throttle: settings.controls.throttle, economy: state.economy };
 }
 function applyStyle(id) {
   const S = STYLES[id]?.set;
   if (!S) return;
   setDifficulty(S.difficulty);
   setBehaviour(S.behaviour);
-  Object.assign(settings.controls, { cast: S.cast, start: S.start, throttle: S.throttle });
+  Object.assign(settings.controls, { cast: S.cast, technique: S.technique, start: S.start, throttle: S.throttle });
   state.economy = S.economy;
   applyControls();
   save();
@@ -7198,6 +7200,13 @@ function currentHint() {
         const words = leverWords(leverKind(), boat.lever);
         return T ? `Trolling at ${words}: the lure swims along behind the boat · the lever changes speed · hold the button to reel in`
           : `Trolling at ${words}: the lure swims along behind the boat · ${K('throttleUp')}${K('throttleDown')} speed · ${LR} steer · hold ${space} to reel in`;
+      }
+      // (Expert: the lure's depth and speed, and how to work it, from the rod.)
+      if (fishing.expert && (fishing.kind === 'lure' || fishing.kind === 'jig')) {
+        const d = fishing.baitDepth, v = fishing.relSpeed || 0;
+        const read = `Lure ${d < 0.1 ? 'on the top' : `${d.toFixed(1)} m down`} · ${v.toFixed(1)} m/s${fishing.r?.rhythm > 0.3 ? ` · walking the dog ${'●'.repeat(Math.round(fishing.r.rhythm * 6))}` : ''}`;
+        const how = P ? `${kbd('R-stick')} the rod (up lifts, down drops, across sweeps) · ${kbd('RT')} reel` : `${UD} the rod · hold ${space} to reel`;
+        return `${read} · ${how}`;
       }
       if (fishing.status === 'curious') return 'Something is curious about your bait. Keep still…';
       if (fishing.status === 'nibble') return 'Nibbling… wait for the float to go under';
@@ -8826,8 +8835,15 @@ function tick(now, manual = false) {
       fishing.depthBy(ti, dt);
       if (leverKind()) throttle = boat.lever;
     } else if (fishing.lineOut) {
+      // Expert: the rod in your hands (the right stick, or forward and back), the reel on the trigger.
+      if (fishing.expert) {
+        const vr = input.virtual;
+        fishing.rodInput.up = pads.active ? vr.rodUp || 0 : ti;
+        fishing.rodInput.across = pads.active ? vr.rodAcross || 0 : onFoot ? -si : 0;
+        fishing.reelInput = pads.active ? pads.rt : input.holding('cast') ? 1 : 0;
+      }
       // (On a controller, LT eases the drag off while a fish is on.)
-      fishing.depthBy(pads.active && fishing.state === 'reeling' && pads.lt > 0.4 ? -1 : ti, dt);
+      if (!fishing.expert || pads.active || fishing.state === 'reeling') fishing.depthBy(pads.active && fishing.state === 'reeling' && pads.lt > 0.4 ? -1 : fishing.expert && !pads.active ? 0 : ti, dt);
       // With a fish on, across swings the rod low to that side (side pressure, to turn it);
       // otherwise in a boat it steers.
       // (The steer keys give +1 for left; side pressure counts left as −1.)

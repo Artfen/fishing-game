@@ -6,17 +6,17 @@ export const STYLES = {
   easy: {
     name: 'Easy-going',
     desc: 'Fish give you longer and forgive more, casts land where you aim, the engine’s running when you take the helm, and fuel is cheap. Just fishing.',
-    set: { difficulty: 'relaxed', behaviour: 'relaxed', cast: 'assisted', start: 'go', throttle: 'notches', economy: 'gentle' },
+    set: { difficulty: 'relaxed', behaviour: 'relaxed', cast: 'assisted', technique: 'assisted', start: 'go', throttle: 'notches', economy: 'gentle' },
   },
   angler: {
     name: 'Angler',
     desc: 'The way Slow Tide is meant to be played: fish as they are, a little care to land them, one button to start the engine, and trim the leg yourself.',
-    set: { difficulty: 'standard', behaviour: 'natural', cast: 'assisted', start: 'simple', throttle: 'notches', economy: 'gentle' },
+    set: { difficulty: 'standard', behaviour: 'natural', cast: 'assisted', technique: 'assisted', start: 'simple', throttle: 'notches', economy: 'gentle' },
   },
   salt: {
     name: 'Old salt',
-    desc: 'Everything as it really is: demanding fish, casts you time yourself, the full start-up at the helm, a real throttle lever, and fuel at about real prices.',
-    set: { difficulty: 'realistic', behaviour: 'demanding', cast: 'manual', start: 'full', throttle: 'lever', economy: 'authentic' },
+    desc: 'Everything as it really is: demanding fish, casts you time yourself, the rod in your own hands (Expert technique), the full start-up at the helm, a real throttle lever, and fuel at about real prices.',
+    set: { difficulty: 'realistic', behaviour: 'demanding', cast: 'manual', technique: 'expert', start: 'full', throttle: 'lever', economy: 'authentic' },
   },
 };
 export const STYLE_IDS = Object.keys(STYLES);

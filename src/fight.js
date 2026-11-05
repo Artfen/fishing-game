@@ -252,10 +252,11 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
       F.surgeT -= dt;
       const k = clamp((SURGE - F.surgeT) / diff.onset, 0, 1);
       // (A soft rod cushions it; a stiff one passes it straight to the line.)
-      if (held) jolt = (JOLT[0] + JOLT[1] * Math.min(f, 2.2)) * diff.shock * F.style.surge * k * k * (3 - 2 * k) * (0.55 + 0.45 * F.flex);
+      if (held) jolt = (JOLT[0] + JOLT[1] * Math.min(f, 2.2)) * diff.shock * F.style.surge * k * k * (3 - 2 * k) * (0.55 + 0.45 * F.flex) * (F.cushion ?? 1);
     }
     const hold = held ? 1 : 0.6; // easing off lowers the rod and lets the drag work sooner
-    let target = Math.min(f, d) * hold + jolt + Math.abs(F.side) * 0.05;
+    // (Expert: lifting the rod into it loads the line further; see technique.js.)
+    let target = Math.min(f, d) * hold + jolt + Math.abs(F.side) * 0.05 + (F.pumpLoad || 0);
     // In the air it isn't pulling: the line falls slack unless you keep winding, rod up.
     const air = F.jumping > 0;
     if (air) target = held ? Math.max(0.24, target * 0.6) : 0.04;
@@ -271,8 +272,10 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
     F.stamina -= (0.03 + 0.13 * F.tension + 0.05 * against) * diff.tire * F.style.tire * (0.85 + 0.25 * F.flex) / Math.max(0.35, F.strength) / Math.max(0.7, F.endure ?? 1) * dt;
   } else {
     F.slipping = false;
+    // (Expert: pumping (lifting the rod while it rests) draws it towards you: see technique.js.)
+    if (F.pump) F.progress += F.pump * dt * (0.6 + 0.6 * (1 - F.stamina));
     if (held) {
-      F.tension = approach(F.tension, Math.min(0.2 + 0.35 * f, d), 2.5, 1.5, dt);
+      F.tension = approach(F.tension, Math.min(0.2 + 0.35 * f, d) + (F.pumpLoad || 0), 2.5, 1.5, dt);
       F.progress += F.reel * (0.75 + 0.6 * (1 - F.stamina)) * dt * (1 - 0.3 * Math.max(0, F.flow));
       F.stamina -= 0.012 * diff.tire * dt;
     } else {

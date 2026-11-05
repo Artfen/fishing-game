@@ -9,6 +9,7 @@ import { STRENGTH_IDS } from './haptics.js';
 import { START_MODES, START_IDS } from './engine.js';
 import { ECONOMY, ECONOMY_IDS } from './economy.js';
 import { STYLES, STYLE_IDS } from './playstyle.js';
+import { TECHNIQUES, TECHNIQUE_IDS } from './technique.js';
 import { cleanName, cleanCode, validCode, poseWords, NAME_MAX, MAX_PLAYERS } from './together.js';
 
 // Preferences: sound, graphics, weather, controls and comfort, and the name you go by when
@@ -39,7 +40,7 @@ export const DEFAULT_SETTINGS = {
   weather: { mode: 'auto', rainFx: 1, sea: 'auto', windMode: 'auto', windSpeed: 4, windFrom: 225, currents: 'natural', panel: true, windLines: 'sailing' },
   // sailTrim: the sailing boat's mainsheet by hand, or helped (it trims itself when left alone).
   // needs: how much the angler feels the weather and the day (see comfort.js): off, shown, gentle.
-  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, vibration: 'normal', throttle: 'notches', start: 'go', sailTrim: 'hand', needs: 'gentle' },
+  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, vibration: 'normal', throttle: 'notches', start: 'go', technique: 'assisted', sailTrim: 'hand', needs: 'gentle' },
   // name: what friends see over you when playing together ('' until you've chosen one).
   // share: whether what you find (places, dive sites, a wreck's details, first fish) goes to them.
   player: { name: '', share: true },
@@ -123,6 +124,7 @@ export function cleanSettings(raw, legacy = {}) {
     keys: c.keys ? cleanBindings(c.keys) : null,
     throttle: oneOf(c.throttle, ['notches', 'lever'], 'notches'),
     start: oneOf(c.start, START_IDS, 'go'),
+    technique: oneOf(c.technique, TECHNIQUE_IDS, 'assisted'),
     // (Vibration was once only on or off.)
     vibration: oneOf(c.vibration, STRENGTH_IDS, c.rumble === false ? 'off' : 'normal'),
   };
@@ -523,6 +525,8 @@ export class SettingsUI {
     const ps = this.hooks.playStyle?.();
     out.push(this.row('Play style', ps ? STYLES[ps].desc : 'Your own mix of the settings below. Choose a style to set them all together.',
       this.choice(STYLE_IDS.map((id) => [id, STYLES[id].name]), ps, (v) => { this.hooks.setPlayStyle?.(v); this.render(); })));
+    out.push(this.row('Technique', TECHNIQUES[C.technique].desc,
+      this.choice(TECHNIQUE_IDS.map((id) => [id, TECHNIQUES[id].name]), C.technique, (v) => this.set('controls', 'technique', v))));
     out.push(this.row('Casting', CAST_MODES[C.cast].note,
       this.choice(Object.entries(CAST_MODES).map(([k, v]) => [k, v.name]), C.cast, (v) => this.set('controls', 'cast', v))));
     const d = this.hooks.difficulty();

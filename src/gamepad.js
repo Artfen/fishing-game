@@ -199,8 +199,15 @@ export class Gamepads {
         // The left stick is the same stick the touch controls write; the right one looks round.
         this.input.virtual.throttle = -L.y;
         this.input.virtual.steer = -L.x;
-        this.input.drag.dx += R.x * 520 * dt;
-        this.input.drag.dy += R.y * 380 * dt;
+        // (Expert technique with a line out: the right stick is the rod, not the camera.)
+        if (this.h.rodStick?.()) {
+          this.input.virtual.rodUp = -R.y;
+          this.input.virtual.rodAcross = R.x;
+        } else {
+          this.input.virtual.rodUp = this.input.virtual.rodAcross = 0;
+          this.input.drag.dx += R.x * 520 * dt;
+          this.input.drag.dy += R.y * 380 * dt;
+        }
         // In photo mode the D-pad zooms the lens.
         if (ctx === 'photo') this.input.wheel += ((pressed[BTN.DOWN] ? 1 : 0) - (pressed[BTN.UP] ? 1 : 0)) * 900 * dt;
       }
