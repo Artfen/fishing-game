@@ -1,4 +1,5 @@
 import { rand, clamp } from './util.js';
+import { hear } from './earshot.js';
 
 const midi = (m) => 440 * Math.pow(2, (m - 69) / 12);
 // D major pentatonic, the gentlest scale there is.
@@ -7,6 +8,12 @@ const CHORDS = [[50, 57, 62], [47, 54, 62], [43, 50, 59], [45, 52, 61]];
 
 // Everything you hear is synthesised: filtered noise for water, wind and rain,
 // tiny oscillator gestures for birds, and a slow generative pentatonic tune.
+//
+// Round a harbour the sounds have places (see earshot.js): the sea slapping the quay where it
+// meets the water nearest you, mooring lines creaking and rigging tinkling on the boats lying
+// there, gulls over the harbour and the birds working, a boat's engine going out or coming in, the
+// talk at the inn heard out of its door; each from its own side, quieter and duller further off,
+// and muffled through a wall.
 //
 // Every sound reaches the speakers through one master gain, so muting silences all of it,
 // including sounds that start after you mute. Under the master there are separate volumes
@@ -108,6 +115,9 @@ export class AudioScape {
     // Indoors at the inn: the murmur of talk at the bar (pink noise in the voice band, rising and
     // falling as conversations come and go).
     this.murmurBed = this.bed(this.pink, [['bandpass', 420, 1.6], ['lowpass', 1400, 0.5]]);
+    // The same talk heard from outside, out of the inn's door: muffled, and from the door's side.
+    const doorPan = this.placed();
+    this.doorBed = { ...this.bed(this.pink, [['bandpass', 400, 1.6], ['lowpass', 900, 0.5]], doorPan), p: doorPan };
     // The race in Calf Sound: a deep, restless roar of water going somewhere in a hurry.
     this.raceBed = this.bed(this.pink, [['bandpass', 360, 0.45], ['lowpass', 1500, 0.5]], this.wavesBus);
     // A sail flogging in the wind: a ragged, fluttering rustle of cloth.
@@ -144,7 +154,7 @@ export class AudioScape {
     this.alarmOsc = null;
     this.setVolumes(this.volumes);
 
-    this.next = { lap: 1, bird: 3, gull: 8, cricket: 2, owl: 25, note: 5, chord: 1, drop: 0, crackle: 0.5, frog: 8, bloop: 1, clink: 2, curlew: 12, boom: 4, flap: 2, seal: 6, shear: 4, pub: 3, clock: 1 };
+    this.next = { slap: 1, creak: 3, lap: 1, bird: 3, gull: 8, cricket: 2, owl: 25, note: 5, chord: 1, drop: 0, crackle: 0.5, frog: 8, bloop: 1, clink: 2, curlew: 12, boom: 4, flap: 2, seal: 6, shear: 4, pub: 3, clock: 1 };
     this.lastNote = 5;
     this.chordIdx = 0;
   }
@@ -241,6 +251,14 @@ export class AudioScape {
     return { g, f };
   }
 
+  // A place a steady sound comes from (see earshot.js): a panner on the surroundings' bus. Returns
+  // the panner, with .pan to turn it.
+  placed(dest = this.nature) {
+    const p = this.ctx.createStereoPanner();
+    p.connect(dest);
+    return p;
+  }
+
   // A train of clicks: looped noise through filters, gated by a pulse wave whose frequency is the
   // click rate (0 = silent). duty: how long each click is, as a share of the gap.
   clicker(buffer, filters, duty = 0.14) {
@@ -266,13 +284,26 @@ export class AudioScape {
     param.setTargetAtTime(v, this.ctx.currentTime, tc);
   }
 
+  // A lowpass in front of node (lp Hz), or node itself when lp is 0 or bright enough not to matter.
+  dull(node, lp) {
+    if (!lp || lp >= 15000) return node;
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = lp;
+    f.Q.value = 0.5;
+    f.connect(node);
+    return f;
+  }
+
   envelope(g, t0, gain, attack, dur) {
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(Math.max(gain, 0.0002), t0 + attack);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   }
 
-  burst({ buf = this.white, dur = 0.3, type = 'bandpass', freq = 1000, freqEnd, q = 1, gain = 0.2, attack = 0.01, pan = 0, when = 0, dest = this.sfx }) {
+  // (lp: a lowpass after it, Hz: a sound far off or through a wall, its top taken off: see
+  // earshot.js.)
+  burst({ buf = this.white, dur = 0.3, type = 'bandpass', freq = 1000, freqEnd, q = 1, gain = 0.2, attack = 0.01, pan = 0, when = 0, dest = this.sfx, lp = 0 }) {
     if (!this.ctx) return;
     const ctx = this.ctx, t0 = ctx.currentTime + when;
     const src = ctx.createBufferSource();
@@ -288,13 +319,13 @@ export class AudioScape {
     p.pan.value = clamp(pan, -1, 1);
     src.connect(f);
     f.connect(g);
-    g.connect(p);
+    g.connect(this.dull(p, lp));
     p.connect(dest);
     src.start(t0, Math.random() * Math.max(0, buf.duration - dur - 0.1));
     src.stop(t0 + dur + 0.05);
   }
 
-  tone({ freq = 440, freqEnd, type = 'sine', dur = 0.3, gain = 0.1, attack = 0.005, pan = 0, when = 0, dest = this.sfx, filter, vib = 0 }) {
+  tone({ freq = 440, freqEnd, type = 'sine', dur = 0.3, gain = 0.1, attack = 0.005, pan = 0, when = 0, dest = this.sfx, filter, vib = 0, lp = 0 }) {
     if (!this.ctx) return;
     const ctx = this.ctx, t0 = ctx.currentTime + when;
     const o = ctx.createOscillator();
@@ -325,7 +356,7 @@ export class AudioScape {
       node = f;
     }
     node.connect(g);
-    g.connect(p);
+    g.connect(this.dull(p, lp));
     p.connect(dest);
     o.start(t0);
     o.stop(t0 + dur + 0.05);
@@ -336,6 +367,65 @@ export class AudioScape {
   lap(vol, pan) {
     this.burst({ buf: this.brown, type: 'lowpass', freq: rand(350, 600), q: 0.8, dur: rand(0.5, 0.9), gain: vol, attack: rand(0.1, 0.2), pan, dest: this.wavesBus });
     this.burst({ buf: this.pink, type: 'bandpass', freq: rand(600, 900), q: 1.2, dur: 0.4, gain: vol * 0.25, attack: 0.08, pan, when: 0.1, dest: this.wavesBus });
+  }
+
+  // The sea against a quay wall or under a pontoon: a hollow clop and the slap of it, then the
+  // water sucking back. (lp: how far off, see earshot.js.)
+  slap(vol, pan, lp = 0) {
+    this.burst({ buf: this.brown, type: 'lowpass', freq: rand(260, 420), q: 1.4, dur: rand(0.22, 0.4), gain: vol, attack: 0.012, pan, lp, dest: this.wavesBus });
+    this.burst({ buf: this.pink, type: 'bandpass', freq: rand(900, 1500), q: 2.5, dur: 0.12, gain: vol * 0.45, attack: 0.004, pan, lp, dest: this.wavesBus });
+    this.burst({ buf: this.pink, type: 'bandpass', freq: rand(1800, 2600), freqEnd: 900, q: 1.2, dur: rand(0.4, 0.7), gain: vol * 0.12, attack: 0.08, pan, lp, when: 0.18, dest: this.wavesBus });
+  }
+
+  // A mooring line taking the strain, or a fender squeezed between hull and pontoon: a slow,
+  // rising creak.
+  creak(vol, pan, lp = 0) {
+    const f = rand(120, 210), dur = rand(0.45, 1);
+    this.tone({ type: 'sawtooth', freq: f, freqEnd: f * rand(1.2, 1.5), dur, gain: vol, attack: dur * 0.35, pan, lp, filter: ['bandpass', rand(650, 1100), 4], vib: 3, dest: this.nature });
+    if (Math.random() < 0.4) this.tone({ type: 'sawtooth', freq: f * 1.4, freqEnd: f * 1.1, dur: dur * 0.6, gain: vol * 0.7, attack: dur * 0.2, pan, lp, filter: ['bandpass', 900, 5], vib: 4, when: dur * 0.9, dest: this.nature });
+  }
+
+  // Someone else's engine (a boat going out or coming in): its putter from where she is. level:
+  // her throttle (0 … 1; 0 stops it), vol, pan, lp as heard (see earshot.js).
+  motorAt(level, vol, pan, lp, voice = '') {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    if (!this.farEng) {
+      if (!(level > 0 && vol > 0.001)) return;
+      const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(), lfo = ctx.createOscillator();
+      o1.type = 'sawtooth';
+      o2.type = 'square';
+      const tone = ctx.createBiquadFilter(), far = ctx.createBiquadFilter();
+      tone.type = far.type = 'lowpass';
+      tone.Q.value = 2;
+      far.Q.value = 0.5;
+      const mix2 = ctx.createGain(), putter = ctx.createGain(), depth = ctx.createGain(), g = ctx.createGain(), p = ctx.createStereoPanner();
+      mix2.gain.value = 0.25;
+      putter.gain.value = 0.5;
+      depth.gain.value = 0.45;
+      g.gain.value = 0;
+      lfo.connect(depth);
+      depth.connect(putter.gain);
+      o1.connect(tone);
+      o2.connect(mix2);
+      mix2.connect(tone);
+      tone.connect(putter);
+      putter.connect(far);
+      far.connect(g);
+      g.connect(p);
+      p.connect(this.nature);
+      for (const o of [o1, o2, lfo]) o.start();
+      this.farEng = { o1, o2, lfo, tone, far, g, p };
+    }
+    const e = this.farEng, diesel = voice === 'inboard', on = level > 0 && vol > 0.001;
+    const rpm = diesel ? 24 + level * 38 : 34 + level * 58;
+    this.set(e.o1.frequency, rpm, 0.4);
+    this.set(e.o2.frequency, rpm * (diesel ? 1.006 : 2.02), 0.4);
+    this.set(e.lfo.frequency, rpm / (diesel ? 3 : 2.2), 0.4);
+    this.set(e.tone.frequency, diesel ? 170 + level * 520 : 260 + level * 900, 0.4);
+    this.set(e.far.frequency, lp || 18000, 0.3);
+    this.set(e.p.pan, clamp(pan, -1, 1), 0.15);
+    this.set(e.g.gain, on ? vol * (diesel ? 0.05 + level * 0.07 : 0.035 + level * 0.06) : 0, on ? 0.4 : 0.8);
   }
 
   bird(vol, pan) {
@@ -350,11 +440,11 @@ export class AudioScape {
     }
   }
 
-  gull(vol, pan) {
+  gull(vol, pan, lp = 0) {
     let t = 0;
     const n = 2 + Math.floor(rand(0, 3));
     for (let i = 0; i < n; i++) {
-      this.tone({ type: 'sawtooth', freq: rand(1050, 1250), freqEnd: rand(700, 820), dur: rand(0.28, 0.42), gain: vol, attack: 0.03, pan, when: t, filter: ['bandpass', 1500, 2.5], dest: this.nature });
+      this.tone({ type: 'sawtooth', freq: rand(1050, 1250), freqEnd: rand(700, 820), dur: rand(0.28, 0.42), gain: vol, attack: 0.03, pan, lp, when: t, filter: ['bandpass', 1500, 2.5], dest: this.nature });
       t += rand(0.35, 0.5);
     }
   }
@@ -681,11 +771,11 @@ export class AudioScape {
   }
 
   // Rigging against a mast in the harbour: a bright, thin clink or two.
-  clink(vol, pan) {
+  clink(vol, pan, lp = 0) {
     const f = rand(2500, 3400);
     for (let i = 0; i < 1 + Math.floor(rand(0, 3)); i++) {
-      this.tone({ type: 'triangle', freq: f * rand(0.98, 1.02), dur: 0.35, gain: vol, attack: 0.001, pan, when: i * rand(0.12, 0.3), dest: this.nature });
-      this.tone({ freq: f * 2.76, dur: 0.12, gain: vol * 0.25, attack: 0.001, pan, when: i * 0.2, dest: this.nature });
+      this.tone({ type: 'triangle', freq: f * rand(0.98, 1.02), dur: 0.35, gain: vol, attack: 0.001, pan, lp, when: i * rand(0.12, 0.3), dest: this.nature });
+      this.tone({ freq: f * 2.76, dur: 0.12, gain: vol * 0.25, attack: 0.001, pan, lp, when: i * 0.2, dest: this.nature });
     }
   }
 
@@ -988,8 +1078,38 @@ export class AudioScape {
     this.set(this.flapBed.g.gain, 0.055 * flap * (0.35 + 0.65 * Math.abs(Math.sin(this.t * 21 + Math.sin(this.t * 3.1) * 2))) * above, 0.03);
     this.raceBed.f[0].frequency.setTargetAtTime(320 + Math.sin(this.t * 0.37) * 60 + Math.sin(this.t * 1.3) * 25, now, 0.6);
 
+    // The harbour's sounds from where they are (see earshot.js): ear, where you are and face;
+    // around: { quay (the water's edge nearest), moored (boats lying near, with mast for those
+    // with rigging), motors (other boats' engines running), gulls (where they are), inn (its door) }.
+    const ear = s.ear, A = (ear && s.around) || {};
+    const at = (x, z, near, far) => hear(ear, x, z, { near, far, walls: indoor });
+    {
+      const I = A.inn, h = I && !pub ? at(I.x, I.z, 4, 45) : null;
+      this.set(this.doorBed.g.gain, h ? 0.04 * I.busy * h.vol * (0.7 + 0.3 * Math.sin(this.t * 0.37) * Math.sin(this.t * 0.13 + 1)) : 0, 0.8);
+      if (h) this.set(this.doorBed.p.pan, h.pan, 0.2);
+      const M = A.motors?.[0], m = M ? at(M.x, M.z, 6, 160) : null;
+      this.motorAt(M ? M.level : 0, m ? m.vol : 0, m ? m.pan : 0, m ? m.lp : 0, M?.voice);
+    }
+
     const n = this.next;
     for (const k in n) n[k] -= dt;
+
+    if (n.slap <= 0) {
+      const Q = A.quay;
+      if (Q) {
+        const h = at(Q.x + rand(-3, 3), Q.z + rand(-3, 3), 3, 40);
+        if (h.vol > 0.02) this.slap((0.06 + 0.1 * Math.min(sea, 1.2)) * h.vol * (1 - this.under * 0.7), h.pan, h.lp);
+      }
+      n.slap = rand(0.7, 2.4) / (0.6 + Math.min(sea, 1.5));
+    }
+    if (n.creak <= 0) {
+      const M = A.moored;
+      if (M?.length) {
+        const b = M[Math.floor(Math.random() * M.length)], h = at(b.x, b.z, 5, 40);
+        if (h.vol > 0.02) this.creak(0.03 * h.vol * (0.35 + Math.min(sea, 1) + 0.4 * wind), h.pan, h.lp);
+      }
+      n.creak = rand(1.5, 5) / (0.5 + Math.min(sea, 1.2) + 0.5 * wind);
+    }
 
     if (n.lap <= 0) {
       if (water > 0.08) this.lap((0.1 + 0.08 * Math.min(sea, 1) + Math.min(speed, 5) * 0.02) * water, rand(-0.5, 0.5));
@@ -1004,9 +1124,18 @@ export class AudioScape {
       n.bird = rand(2.5, 8);
     }
     if (n.gull <= 0) {
-      const g = Math.max(gulls, open * 0.4);
-      if (g > 0.1 && day > 0.3) this.gull(0.022 * g * shut, rand(-0.7, 0.7));
-      n.gull = rand(5, 14);
+      // A gull from where the gulls are (one of them, the nearer the likelier), wheeling a little
+      // way off it; out on the open sea, one somewhere about.
+      const G = A.gulls?.map((p) => ({ p, h: at(p.x + rand(-18, 18), p.z + rand(-18, 18), 18, 190) })).filter((q) => q.h.vol * q.p.k > 0.03);
+      if (G?.length && day > 0.3) {
+        let r = Math.random() * G.reduce((a, q) => a + q.h.vol * q.p.k, 0);
+        const q = G.find((q) => (r -= q.h.vol * q.p.k) <= 0) || G[0];
+        this.gull(0.03 * q.p.k * q.h.vol, q.h.pan, q.h.lp);
+      } else {
+        const g = Math.max(A.gulls ? 0 : gulls, open * 0.4);
+        if (g > 0.1 && day > 0.3) this.gull(0.022 * g * shut, rand(-0.7, 0.7));
+      }
+      n.gull = rand(5, 14) / (G?.length > 1 ? 1.4 : 1);
     }
     if (n.cricket <= 0) {
       if (night > 0.4 && land > 0.2 && rain < 0.4 && !indoor) this.cricket(0.007 * land * night, rand(-0.8, 0.8));
@@ -1023,7 +1152,13 @@ export class AudioScape {
     // The cove shore: rigging in the harbour (busier in a breeze), a curlew in the channel at the
     // turn of the light, the swell booming under Cove Head, and your tent's fly in the wind.
     if (n.clink <= 0) {
-      if (harbour > 0.15) this.clink(0.012 * harbour * (0.4 + wind) * shut, rand(-0.7, 0.7));
+      // (A halyard against a mast on a boat lying near, from where she lies; or, with none placed,
+      // somewhere about the harbour.)
+      const R = A.moored?.filter((b) => b.mast);
+      if (R?.length) {
+        const b = R[Math.floor(Math.random() * R.length)], h = at(b.x, b.z, 12, 70);
+        if (h.vol > 0.02) this.clink(0.016 * h.vol * (0.4 + wind), h.pan, h.lp);
+      } else if (harbour > 0.15) this.clink(0.012 * harbour * (0.4 + wind) * shut, rand(-0.7, 0.7));
       n.clink = rand(1.2, 5) / (0.5 + wind);
     }
     if (n.curlew <= 0) {
