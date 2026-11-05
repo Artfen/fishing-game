@@ -1076,4 +1076,6 @@ slowTide.eco.agents           // every fish in the world, with its species, size
 
 ## Ideas for next steps
 
+**The road to 1.0** (what the game still needs to be worth €9.99, in order, and open-source projects that could help) is in [ROADMAP.md](ROADMAP.md).
+
 The journal hints at a softer cushion, a potted fern on the bow, and a little cabin by the lake. Other natural next steps: carrying the brass lantern when you walk at night, tides that cover and uncover the estuary flats (and Shell Strand), a second camping kit, cooking and resting at the far camps as at home, and simple upgrades for the motorboats. For the sea, see the [expansion plan](#expansion-plan).
