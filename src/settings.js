@@ -319,7 +319,7 @@ export class SettingsUI {
       const others = T.others;
       for (const p of others) {
         const li = el('li');
-        li.append(el('strong', null, p.name), el('span', null, `${p.host ? ' (host)' : ''} · ${poseWords(p.pose, this.hooks.boatName)}`));
+        li.append(el('strong', null, p.name), el('span', null, `${p.host ? ' (host)' : ''} · ${poseWords(p.pose, this.hooks.boatName, this.hooks.gearName)}`));
         list.append(li);
       }
       box.append(list);

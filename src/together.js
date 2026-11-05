@@ -66,6 +66,7 @@ const KEEP = 32;            // positions kept per friend
 const LAGS = 40;            // messages (about ten seconds' worth) to judge the quickest delivery by
 const CATCH_UP = 0.05;      // how much faster or slower than real time a friend's replay may run
 const ACTS = ['walk', 'stand', 'fish', 'sit'];
+const LINE_REACH = 250;     // m: the furthest a line's end may be from whoever's fishing it
 
 /* ---------------- names and codes ---------------- */
 
@@ -96,7 +97,8 @@ const r2 = (v) => Math.round(v * 100) / 100;
 
 // Where someone is and what they're doing, as it comes over the wire: anything that isn't a
 // sensible number, mode or boat is dropped (whoever sent it, it's only ever drawn and shown).
-export function cleanPose(p, kinds = null) {
+// gear: { rods, items }, the rods and tackle a pose may name.
+export function cleanPose(p, kinds = null, gear = null) {
   if (!p || typeof p !== 'object') return null;
   const x = finite(p.x, -1e5, 1e5), z = finite(p.z, -1e5, 1e5), h = finite(p.h, -100, 100);
   if (x == null || z == null || h == null) return null;
@@ -111,6 +113,19 @@ export function cleanPose(p, kinds = null) {
   }
   if (m === 'foot') out.a = ACTS.includes(p.a) ? p.a : 'stand';
   if (m === 'foot' || m === 'boat') out.o = !!p.o; // (a fish on: their rod bent, and a word)
+  // Fishing: the rod and what's on it, where their line meets the water (or the fish on it), and
+  // with a fish on, the load on the line.
+  if ((m === 'foot' || m === 'boat') && (out.f || out.a === 'fish' || out.o)) {
+    if (typeof p.r === 'string' && /^[a-z0-9]{1,16}$/.test(p.r) && (!gear?.rods || gear.rods.includes(p.r))) out.r = p.r;
+    if (typeof p.i === 'string' && /^[A-Za-z0-9]{1,24}$/.test(p.i) && (!gear?.items || gear.items.includes(p.i))) out.i = p.i;
+    const ex = finite(p.ex, -1e5, 1e5), ez = finite(p.ez, -1e5, 1e5);
+    if (ex != null && ez != null && Math.hypot(ex - x, ez - z) <= LINE_REACH) {
+      out.ex = ex;
+      out.ez = ez;
+    }
+    const tn = out.o ? finite(p.tn, 0, 1.3) : null;
+    if (tn != null) out.tn = tn;
+  }
   return out;
 }
 
@@ -160,12 +175,14 @@ export function explain(err) {
 }
 
 // The one-line description of where someone is, for the list in Settings.
-export function poseWords(pose, boatName = (k) => k) {
+// gearName(pose): what they're fishing with, in a few words, or ''.
+export function poseWords(pose, boatName = (k) => k, gearName = () => '') {
   if (!pose) return 'on their way';
-  if (pose.m === 'boat') return `in the ${boatName(pose.k)}${pose.f ? ', fishing' : ''}`;
+  const gear = gearName(pose), w = gear ? ` (${gear})` : '';
+  if (pose.m === 'boat') return `in the ${boatName(pose.k)}${pose.o ? ', playing a fish' : pose.f ? ', fishing' : ''}${pose.f || pose.o ? w : ''}`;
   if (pose.m === 'dive') return 'diving';
   if (pose.m === 'car') return 'driving';
-  return pose.a === 'fish' ? 'fishing from the shore' : pose.a === 'sit' ? 'sitting a while' : 'on foot';
+  return pose.o ? `playing a fish from the shore${w}` : pose.a === 'fish' ? `fishing from the shore${w}` : pose.a === 'sit' ? 'sitting a while' : 'on foot';
 }
 
 /* ---------------- a small Supabase Realtime client ---------------- */
@@ -400,10 +417,11 @@ export function glide(p, at, dt) {
 // kinds a pose may name; WS: the WebSocket class; online() → whether the browser is online.
 // (listenMs, retryScale, newCode and now are there for the tests.)
 export class Together {
-  constructor({ config, name, kinds = null, skies = null, WS = globalThis.WebSocket, online = () => globalThis.navigator?.onLine !== false, listenMs = LISTEN_MS, retryScale = 1, newCode = makeCode, now = () => globalThis.performance.now() / 1000, store = undefined }) {
+  constructor({ config, name, kinds = null, skies = null, rods = null, items = null, WS = globalThis.WebSocket, online = () => globalThis.navigator?.onLine !== false, listenMs = LISTEN_MS, retryScale = 1, newCode = makeCode, now = () => globalThis.performance.now() / 1000, store = undefined }) {
     this.config = config;
     this.name = name;
     this.kinds = kinds;
+    this.gear = rods || items ? { rods, items } : null; // (the rods and tackle a pose may name)
     this.WS = WS;
     this.online = online;
     this.listenMs = listenMs;
@@ -816,7 +834,7 @@ export class Together {
     if (!p) return;
     p.seen = this.clock;
     if (kind === 'pose') {
-      const pose = cleanPose(data.p, this.kinds);
+      const pose = cleanPose(data.p, this.kinds, this.gear);
       if (data.n) this.named(p, data.n, !!data.host);
       if (!pose) return;
       // When they sent it, by their clock; and how far their clock is behind ours, plus the
@@ -900,10 +918,20 @@ export class Together {
     if (P.m === 'boat') Object.assign(msg, { k: P.k, f: P.f ? 1 : 0, s: P.s ? 1 : 0, n: P.n ? 1 : 0 });
     if (P.m === 'foot') msg.a = P.a;
     if ((P.m === 'foot' || P.m === 'boat') && P.o) msg.o = 1;
+    // (Fishing: the rod, what's on it, where the line meets the water, the load with a fish on.)
+    if ((P.m === 'foot' || P.m === 'boat') && (P.f || P.a === 'fish' || P.o)) {
+      if (P.r) msg.r = P.r;
+      if (P.i) msg.i = P.i;
+      if (P.ex != null && P.ez != null) Object.assign(msg, { ex: r2(P.ex), ez: r2(P.ez) });
+      if (P.o && P.tn != null) msg.tn = r2(P.tn);
+    }
     const S = this.sent;
-    // (Slowing down or stopping counts too, so nobody's carried on past where you stopped.)
+    // (Slowing down or stopping counts too, so nobody's carried on past where you stopped; so does
+    // a lure coming in, or a fish on the line running.)
     const moved = !S || S.m !== msg.m || S.k !== msg.k || S.a !== msg.a || S.f !== msg.f || S.s !== msg.s || S.n !== msg.n || S.o !== msg.o
-      || Math.hypot(S.x - msg.x, S.z - msg.z) > 0.25 || Math.abs(S.h - msg.h) > 0.05 || Math.hypot(S.vx - msg.vx, S.vz - msg.vz) > 0.3;
+      || Math.hypot(S.x - msg.x, S.z - msg.z) > 0.25 || Math.abs(S.h - msg.h) > 0.05 || Math.hypot(S.vx - msg.vx, S.vz - msg.vz) > 0.3
+      || S.r !== msg.r || S.i !== msg.i || (S.ex == null) !== (msg.ex == null) || (msg.ex != null && Math.hypot(S.ex - msg.ex, S.ez - msg.ez) > 0.3)
+      || Math.abs((S.tn ?? 0) - (msg.tn ?? 0)) > 0.12;
     if (!now && (this.sendT > 0 || (!moved && this.clock - (S?.at ?? -99) < IDLE_EVERY))) return;
     this.rt.send('pose', { id: this.id, n: this.name(), host: this.hosting, t: Math.round(this.now() * 1000) / 1000, p: msg });
     this.sent = { ...msg, at: this.clock };
@@ -993,7 +1021,8 @@ export class Together {
 
   /* ---------- every frame ---------- */
 
-  // me: where you are now ({ m, x, z, h, k?, f?, s?, n?, a? }), or null to send nothing.
+  // me: where you are now ({ m, x, z, h, k?, f?, s?, n?, a?, o?, and fishing r?, i?, ex?, ez?,
+  // tn? }), or null to send nothing.
   update(dt, me) {
     this.clock += dt;
     this.sendT -= dt;

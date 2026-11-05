@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { walkHeight } from './terrain.js';
 import { waveHeight } from './water.js';
 import { Boat, floatDraft, wakeOf } from '../boat.js';
@@ -5,12 +6,20 @@ import { wakes } from './wakes.js';
 import { Figure } from './folk.js';
 import { berthFor } from '../mooring.js';
 import { damp, clamp } from '../util.js';
+import { RODS, LINE_COLORS } from '../tackle.js';
+import { buildFloat } from '../tackleModels.js';
+import { buildRod } from '../props.js';
+
+const LINE_N = 18;  // points along a friend's line
+const _tip = new THREE.Vector3();
 
 // The friends you're playing with (see together.js), drawn where they are: on foot, a figure of
 // their own (walking, standing, fishing or sitting), or in whichever boat they're in, at the helm
 // and riding the swell. Diving or driving, only their name shows (see main.js). Each friend has a
 // look made from their name (coat, hat, the stripe on their boat), so they look the same to
-// everyone, every time.
+// everyone, every time. Fishing, they hold the rod they're really using, and their line runs out
+// from its tip to where it meets the water (their float, if it's a float rod), slack and sagging,
+// or tight and straight to the fish when one's on.
 
 const COATS = ['#b8402f', '#2f6f74', '#d08a2e', '#5b4a8a', '#3d6b3a', '#2b4a7a', '#8a3a5a', '#c9a227', '#4a5a66', '#a8572a'];
 const LEGS = ['#2f3a4a', '#3b3b3b', '#4a4036', '#2a2a2e', '#3b5a8a'];
@@ -109,10 +118,81 @@ export class VisitorView {
   // A friend's own colour (their coat), for the map.
   colourOf(name) { return lookFor(name).coat; }
 
+  // On foot, the rod they're really using in the figure's hand (in place of its plain one).
+  rodLook(d, f, id) {
+    const def = RODS[id];
+    if (!def || d.rodId === id) return;
+    if (d.rodOn) d.rodOn.group.removeFromParent();
+    d.rodId = id;
+    d.rodOn = (d.rods ||= {})[id] ||= buildRod(def.look);
+    // (Held as the figure holds its own: from the hand, out over the water.)
+    d.rodOn.group.position.set(0, 0, 0);
+    d.rodOn.group.rotation.set(0, 0, 0);
+    f.rod.add(d.rodOn.group);
+    f.rod.children[0].visible = false;
+  }
+
+  // A friend's line: from their rod tip out to where it meets the water (with their float on it,
+  // fishing a float), sagging when it's slack, straight and tight to a fish on.
+  drawLine(d, P, tip, dt, t) {
+    const on = !!tip && P.ex != null && P.ez != null;
+    if (!on) {
+      if (d.line) d.line.visible = false;
+      if (d.float) d.float.visible = false;
+      d.end = null;
+      return;
+    }
+    if (!d.line) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(LINE_N * 3), 3));
+      d.line = new THREE.Line(g, new THREE.LineBasicMaterial({ color: '#f5efe2', transparent: true, opacity: 0.75 }));
+      d.line.frustumCulled = false;
+      this.scene.add(d.line);
+    }
+    const kind = RODS[P.r]?.kind || 'float';
+    d.line.material.color.set(LINE_COLORS[kind] || LINE_COLORS.float);
+    d.line.visible = true;
+    // (The end glides between their messages rather than hopping.)
+    if (!d.end || Math.hypot(d.end.x - P.ex, d.end.z - P.ez) > 12) d.end = { x: P.ex, z: P.ez };
+    d.end.x = damp(d.end.x, P.ex, 5, dt);
+    d.end.z = damp(d.end.z, P.ez, 5, dt);
+    tip.getWorldPosition(_tip);
+    const ex = d.end.x, ez = d.end.z, ey = waveHeight(ex, ez, t) + 0.01;
+    const span = Math.hypot(ex - _tip.x, ez - _tip.z);
+    // Slack, it hangs in a curve from the tip and lies on the water; tight, it's nearly straight.
+    const tight = P.o ? clamp(0.35 + (P.tn ?? 0.4), 0, 1) : 0;
+    const sag = span * (0.09 - 0.08 * tight);
+    const a = d.line.geometry.attributes.position.array;
+    for (let i = 0; i < LINE_N; i++) {
+      const u = i / (LINE_N - 1);
+      const x = _tip.x + (ex - _tip.x) * u, z = _tip.z + (ez - _tip.z) * u;
+      let y = _tip.y + (ey - _tip.y) * u - sag * 4 * u * (1 - u);
+      if (i > 0) y = Math.max(y, waveHeight(x, z, t) + 0.01);
+      a[i * 3] = x;
+      a[i * 3 + 1] = y;
+      a[i * 3 + 2] = z;
+    }
+    d.line.geometry.attributes.position.needsUpdate = true;
+    // Their float, riding the swell (and dipping under with a fish on).
+    if (kind === 'float') {
+      if (!d.float) {
+        d.float = buildFloat();
+        this.scene.add(d.float);
+      }
+      d.float.visible = true;
+      d.float.position.set(ex, ey - (P.o ? 0.12 : 0), ez);
+    } else if (d.float) d.float.visible = false;
+  }
+
   // Hide (and let go of) someone who has left.
   forget(id) {
     const d = this.drawn.get(id);
     if (!d) return;
+    if (d.line) {
+      this.scene.remove(d.line);
+      d.line.geometry.dispose();
+    }
+    if (d.float) this.scene.remove(d.float);
     if (d.figure) {
       this.scene.remove(d.figure.group);
       d.figure.group.visible = false;
@@ -134,18 +214,30 @@ export class VisitorView {
       const afloat = P.m === 'boat' && far < 1800;
       if (d.figure) d.figure.group.visible = false;
       for (const [k, b] of Object.entries(d.boats)) if (k !== P.k || !afloat) b.group.visible = false;
+      let tip = null;
       if (onFoot) {
         const f = this.figureFor(d, p.id);
         const act = P.o ? 'fish' : P.a === 'walk' || (A.v > 0.4 && P.a !== 'sit') ? 'walk' : P.a;
         f.update(dt, t, { act, pos: A, yaw: A.h }, walkHeight(A.x, A.z));
-        // A fish on: the rod up and working, pumping as they play it.
+        // A fish on: the rod up and working, pumping as they play it (bent harder the more load
+        // there is on the line).
         if (P.o) {
           f.rod.visible = true;
-          f.rod.rotation.x = 2.05 + Math.sin(t * 6.5 + d.look.coat.length) * 0.14;
+          f.rod.rotation.x = 2.05 - (P.tn ?? 0.4) * 0.25 + Math.sin(t * 6.5 + d.look.coat.length) * 0.14;
+        }
+        if (act === 'fish') {
+          this.rodLook(d, f, P.r);
+          tip = d.rodOn ? d.rodOn.tip : f.rodTip;
+          // (Their real line takes over from the figure's own bit of dangling line.)
+          f.rodTip.children[0].visible = P.ex == null;
         }
       } else if (afloat) {
-        this.drawBoat(d, this.boatFor(d, P.k), P, A, dt, t, { fx, glow, night });
+        const b = this.boatFor(d, P.k);
+        if (P.r) b.setRod(P.r);
+        this.drawBoat(d, b, P, A, dt, t, { fx, glow, night });
+        if (P.f || P.o) tip = b.rodTip;
       }
+      this.drawLine(d, P, tip, dt, t);
       // Their other boats in the water, lying where they left them (not the one they're in).
       const keep = new Set();
       for (const F of p.fleet || []) {

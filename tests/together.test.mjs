@@ -526,3 +526,45 @@ test('your boats in the water go across to your friends, and a guest has a place
   for (const T of [a, b, c]) T.leave();
   await until(() => hub.sockets.size === 0);
 });
+
+test('a friend fishing: their rod, what’s on it, where their line meets the water and the load on it go across, checked', async () => {
+  const gear = { rods: ['float', 'spin', 'sea'], items: ['corn', 'spinner', 'crankS'] };
+  const kinds = ['row', 'skiff'];
+  // Fishing from the shore with a float: the rod, the bait and where the float lies.
+  assert.deepEqual(cleanPose({ m: 'foot', x: 1, z: 2, h: 0, a: 'fish', r: 'float', i: 'corn', ex: 12.5, ez: 20 }, kinds, gear),
+    { m: 'foot', x: 1, z: 2, h: 0, vx: 0, vz: 0, a: 'fish', o: false, r: 'float', i: 'corn', ex: 12.5, ez: 20 });
+  // A fish on from a boat: the load on the line too (and item ids with capitals are fine).
+  const on = cleanPose({ m: 'boat', k: 'skiff', x: 0, z: 0, h: 0, f: 1, o: 1, r: 'spin', i: 'crankS', ex: 30, ez: 5, tn: 0.7 }, kinds, gear);
+  assert.deepEqual([on.r, on.i, on.ex, on.ez, on.tn], ['spin', 'crankS', 30, 5, 0.7]);
+  // Rods and tackle the game doesn't have, a line end far off, markup, and a load with no fish on are dropped.
+  const junk = cleanPose({ m: 'foot', x: 0, z: 0, h: 0, a: 'fish', r: 'bazooka', i: '<b>x</b>', ex: 900, ez: 0, tn: 0.9 }, kinds, gear);
+  assert.deepEqual([junk.r, junk.i, junk.ex, junk.tn], [undefined, undefined, undefined, undefined]);
+  // Not fishing, none of it is kept.
+  const walking = cleanPose({ m: 'foot', x: 0, z: 0, h: 0, a: 'walk', r: 'float', i: 'corn', ex: 5, ez: 5 }, kinds, gear);
+  assert.deepEqual([walking.r, walking.ex], [undefined, undefined]);
+  // Said in Settings with what they're fishing with.
+  const words = (P) => (P.r ? `${P.r} rod, ${P.i}` : '');
+  assert.equal(poseWords(cleanPose({ m: 'foot', x: 0, z: 0, h: 0, a: 'fish', r: 'float', i: 'corn' }, kinds, gear), undefined, words), 'fishing from the shore (float rod, corn)');
+  assert.equal(poseWords(on, () => 'motor skiff', words), 'in the motor skiff, playing a fish (spin rod, crankS)');
+
+  // Over a real session: a lure coming in is sent as it moves, even while you stand still.
+  const hub = new Hub();
+  const a = player(hub, 'Mags', { newCode: () => '5150', ...gear });
+  const b = player(hub, 'Bert', gear);
+  await a.host();
+  await b.join('5150');
+  await until(() => a.others.length === 1 && b.others.length === 1);
+  let lure = 30;
+  const me = () => ({ m: 'foot', x: 0, z: 0, h: 0, a: 'fish', r: 'spin', i: 'spinner', ex: lure, ez: 0 });
+  tick([a, b], (T) => (T === a ? me() : { m: 'foot', x: 5, z: 5, h: 0, a: 'stand' }));
+  await until(() => b.others[0].pose?.ex === 30);
+  assert.deepEqual([b.others[0].pose.r, b.others[0].pose.i], ['spin', 'spinner']);
+  for (let k = 0; k < 8; k++) {
+    lure -= 1.5;
+    tick([a, b], (T) => (T === a ? me() : { m: 'foot', x: 5, z: 5, h: 0, a: 'stand' }));
+  }
+  await until(() => b.others[0].pose?.ex === lure);
+  a.leave();
+  b.leave();
+  await until(() => hub.sockets.size === 0);
+});

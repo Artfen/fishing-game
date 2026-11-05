@@ -384,7 +384,7 @@ const town = new Townsfolk({ obstacles: world.coast.obstacles });
 world.coast.ownerSign(settings.player.name);
 const folkView = new FolkView(scene);
 // Playing together (see together.js): friends in a session, drawn where they are.
-const together = new Together({ config: () => cloud.cfg, name: () => settings.player.name, kinds: BOAT_KINDS, skies: Object.keys(SKIES) });
+const together = new Together({ config: () => cloud.cfg, name: () => settings.player.name, kinds: BOAT_KINDS, skies: Object.keys(SKIES), rods: Object.keys(RODS), items: Object.keys(TACKLE) });
 const visitors = new VisitorView(scene);
 // What the people go by: the weather, and what the fish near the harbour are up to (looked at every
 // few seconds, not every frame).
@@ -7182,6 +7182,7 @@ const settingsUI = new SettingsUI(state, {
     return r;
   },
   boatName: (kind) => BOATS[kind]?.name || 'boat',
+  gearName: (pose) => gearWords(pose),
   economy: () => state.economy,
   playStyle: () => styleOf(playStyleNow()),
   setPlayStyle: (id) => applyStyle(id),
@@ -7822,7 +7823,7 @@ let friendsKey = '';
 function placeFriendMarkers() {
   // (Settings → Play together lists who's where: kept up to date while it's open.)
   if (settingsUI.isOpen && settingsUI.tab === 'together' && together.active) {
-    const key = together.others.map((p) => `${p.name}:${p.pose?.m}:${p.pose?.k}:${p.pose?.f}:${p.pose?.a}`).join('|');
+    const key = together.others.map((p) => `${p.name}:${p.pose?.m}:${p.pose?.k}:${p.pose?.f}:${p.pose?.a}:${p.pose?.o}:${p.pose?.r}:${p.pose?.i}`).join('|');
     if (key !== friendsKey) {
       friendsKey = key;
       settingsUI.render();
@@ -7867,6 +7868,15 @@ function placeFriendMarkers() {
       if (callEl.textContent !== words) callEl.textContent = words;
     }
     el.classList.toggle('calling', !!call);
+    // (Under their name, what they're fishing with.)
+    const gear = P.m === 'foot' || P.m === 'boat' ? gearWords(P) : '';
+    let gearEl = el.querySelector('.m-gear');
+    if (gear && !gearEl) {
+      gearEl = document.createElement('span');
+      gearEl.className = 'm-gear';
+      el.querySelector('.m-label').append(gearEl);
+    }
+    if (gearEl && gearEl.textContent !== gear) gearEl.textContent = gear;
     const y = P.m === 'boat' ? waveHeight(A.x, A.z, t) + 3 : P.m === 'foot' ? walkHeight(A.x, A.z) + 2.4 : P.m === 'car' ? heightAt(A.x, A.z) + 2.6 : 1.2;
     placeMarker(el, A.x, y, A.z, started && !modal);
   }
@@ -7927,9 +7937,21 @@ function whereIAm() {
   if (dive) return { m: 'dive', x: diver.pos.x, z: diver.pos.z, h: diver.heading };
   if (driving) return { m: 'car', x: car.pos.x, z: car.pos.z, h: car.heading };
   const on = fishing.state === 'reeling' || fishing.state === 'landing';
-  if (onFoot) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: sitting ? 'sit' : fishing.lineOut ? 'fish' : walker.speed > 0.4 ? 'walk' : 'stand', o: on };
-  return { m: 'boat', k: boat.kind, x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), o: on };
+  // (Fishing, your friends see your rod, what's on it, and your line out to where it meets the
+  // water, or to the fish.)
+  const gear = fishing.lineOut ? { r: fishing.rod?.id, i: fishing.item?.id } : null;
+  if (gear && fishing.baitInWater) {
+    const e = fishing.state === 'reeling' ? fishing.fishPos : fishing.bob;
+    Object.assign(gear, { ex: e.x, ez: e.z, tn: fishing.fight?.tension });
+  }
+  if (onFoot) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: sitting ? 'sit' : fishing.lineOut ? 'fish' : walker.speed > 0.4 ? 'walk' : 'stand', o: on, ...gear };
+  return { m: 'boat', k: boat.kind, x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), o: on, ...gear };
 }
+// What a friend is fishing with, in a few words: "light rod, spinner".
+const gearWords = (P) => {
+  const R = RODS[P?.r], I = TACKLE[P?.i];
+  return R ? `${R.short.toLowerCase()}${I ? `, ${(I.short || I.name).toLowerCase()}` : ''}` : '';
+};
 
 // Your boats in the water as your friends see them: where each is lying (but the one you're in).
 together.fleetSource = () => boats.filter((b) => !(b === boat && !onFoot)).map((b) => ({ k: b.kind, x: b.pos.x, z: b.pos.z, h: b.heading }));
