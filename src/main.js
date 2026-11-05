@@ -75,6 +75,7 @@ import { PhotoStore, capture, photoId, albumPage, download } from './photos.js';
 import { Haptics, STRENGTHS, engineFeel, lineFeel, slamFeel, knockFeel } from './haptics.js';
 import { PROFILES as ENGINES, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM } from './engine.js';
 import { HelmUI } from './helm.js';
+import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
 import { PRICES as BOAT_PRICES, PAINTS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, paintBoat, nameBoat, fitBoat, fitEffect } from './shipyard.js';
 import { Memories } from './memories.js';
@@ -6885,6 +6886,8 @@ const settingsUI = new SettingsUI(state, {
   setName: (name) => setName(name),
   boatName: (kind) => BOATS[kind]?.name || 'boat',
   economy: () => state.economy,
+  playStyle: () => styleOf(playStyleNow()),
+  setPlayStyle: (id) => applyStyle(id),
   setEconomy: (id) => {
     state.economy = id;
     save();
@@ -6908,6 +6911,36 @@ function setName(name) {
 
 // The first time you play (or the first time since playing together came along): what should
 // friends call you? A name is suggested, so Enter (or the button) is enough.
+// One question instead of six (see playstyle.js): the fight, the fish, casting, the engine, the
+// throttle and the economy set together.
+function playStyleNow() {
+  return { difficulty: state.difficulty, behaviour: state.behaviour, cast: settings.controls.cast, start: settings.controls.start, throttle: settings.controls.throttle, economy: state.economy };
+}
+function applyStyle(id) {
+  const S = STYLES[id]?.set;
+  if (!S) return;
+  setDifficulty(S.difficulty);
+  setBehaviour(S.behaviour);
+  Object.assign(settings.controls, { cast: S.cast, start: S.start, throttle: S.throttle });
+  state.economy = S.economy;
+  applyControls();
+  save();
+}
+function askStyle(then = null, returning = false) {
+  state.tips.style = true;
+  save();
+  setTimeout(() => {
+    if (!$('confirm').hidden) {
+      then?.();
+      return;
+    }
+    ask('How do you like to play?', `${STYLE_IDS.map((id) => `${STYLES[id].name}: ${STYLES[id].desc}`).join('\n\n')}\n\nChange it, or any part of it, whenever you like in Settings → Controls & comfort.`, [
+      ...(returning ? [{ text: 'Keep my settings as they are', cls: 'quiet', run: () => then?.() }] : []),
+      ...STYLE_IDS.map((id) => ({ text: STYLES[id].name, cls: id === 'angler' ? '' : 'quiet', run: () => { applyStyle(id); hud.toast(`${STYLES[id].name}: ${STYLES[id].desc}`, 6); then?.(); } })),
+    ]);
+  }, 1800);
+}
+
 function askName(then) {
   ask('What should we call you?', 'Choose a name to go by. It’s what friends see over you when you play together (Settings → Play together), and you can change it there any time.', [
     {
@@ -8043,7 +8076,9 @@ function begin() {
   // (At Las Brasas: the island, or its harbour.)
   const south = player().pos.z > SOUTH_Z, puerto = south && Math.hypot(player().pos.x - PUERTO_AT.x, player().pos.z - PUERTO_AT.z) < 160;
   setTimeout(() => hud.place(south ? (puerto ? 'Puerto Brasa' : 'Las Brasas') : home ? 'Home' : onFoot ? (names[zone] || 'The west shore') : 'Willow Bay', returning ? 'welcome back' : home ? 'the cottage and the garage' : onFoot ? 'by the camp' : 'home waters'), 900);
-  if (newPlayer) offerGuide();
+  // How do you like to play? Asked once (a new player first, then the guide).
+  if (!state.tips.style) askStyle(newPlayer ? () => offerGuide() : null, !newPlayer);
+  else if (newPlayer) offerGuide();
   rig.settleUntil = t + 2.5;
   if (state.sonar) toggleFinder(true);
   if (cloudStart?.note) setTimeout(() => hud.toast(cloudStart.note, 8), 2600);

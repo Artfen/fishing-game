@@ -2617,3 +2617,6 @@ body.sitting #lever, body.sitting #hint { display: none !important; }
 .j-goals { margin: 14px 0 6px; }
 .j-goal { margin: 3px 0; }
 .j-goal.done { color: #2f6b55; }
+
+/* (Dialog text keeps its paragraphs: the play-style question.) */
+#confirm-text { white-space: pre-line; }

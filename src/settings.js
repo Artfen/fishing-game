@@ -8,6 +8,7 @@ import { NEEDS_MODES, NEEDS_IDS } from './comfort.js';
 import { STRENGTH_IDS } from './haptics.js';
 import { START_MODES, START_IDS } from './engine.js';
 import { ECONOMY, ECONOMY_IDS } from './economy.js';
+import { STYLES, STYLE_IDS } from './playstyle.js';
 import { cleanName, cleanCode, validCode, poseWords, NAME_MAX, MAX_PLAYERS } from './together.js';
 
 // Preferences: sound, graphics, weather, controls and comfort, and the name you go by when
@@ -519,6 +520,9 @@ export class SettingsUI {
   controlsPane() {
     const C = this.S.controls;
     const out = [];
+    const ps = this.hooks.playStyle?.();
+    out.push(this.row('Play style', ps ? STYLES[ps].desc : 'Your own mix of the settings below. Choose a style to set them all together.',
+      this.choice(STYLE_IDS.map((id) => [id, STYLES[id].name]), ps, (v) => { this.hooks.setPlayStyle?.(v); this.render(); })));
     out.push(this.row('Casting', CAST_MODES[C.cast].note,
       this.choice(Object.entries(CAST_MODES).map(([k, v]) => [k, v.name]), C.cast, (v) => this.set('controls', 'cast', v))));
     const d = this.hooks.difficulty();

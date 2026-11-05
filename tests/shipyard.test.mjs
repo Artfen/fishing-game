@@ -127,3 +127,18 @@ test('goals: counted from what the game keeps, done when reached', async () => {
   const k = done.find((g) => g.id === 'kinds');
   assert.equal(k.of, done.find((g) => g.id === 'fresh').of + done.find((g) => g.id === 'salt').of, 'fresh and sea make up every kind');
 });
+
+test('one question instead of six: each play style is a whole, valid set of choices', async () => {
+  const { STYLES, STYLE_IDS, styleOf } = await import('../src/playstyle.js');
+  const { DIFFICULTY_IDS } = await import('../src/fight.js');
+  const { BEHAVIOUR_IDS } = await import('../src/behaviour.js');
+  const { CAST_MODES } = await import('../src/settings.js');
+  const { START_IDS } = await import('../src/engine.js');
+  const { ECONOMY_IDS } = await import('../src/economy.js');
+  for (const id of STYLE_IDS) {
+    const S = STYLES[id].set;
+    assert.ok(DIFFICULTY_IDS.includes(S.difficulty) && BEHAVIOUR_IDS.includes(S.behaviour) && CAST_MODES[S.cast] && START_IDS.includes(S.start) && ['notches', 'lever'].includes(S.throttle) && ECONOMY_IDS.includes(S.economy), id);
+    assert.equal(styleOf({ ...S }), id);
+  }
+  assert.equal(styleOf({ ...STYLES.easy.set, throttle: 'lever' }), null, 'changed on its own: your own mix');
+});
