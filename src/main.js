@@ -86,7 +86,7 @@ import { whatsAbout, birdsWorking, weatherLines, notices, paintBoard } from './h
 import { HarbourSheet, paintSlate, paintKitchenBoard } from './harbourView.js';
 import { Townsfolk, FOLK, sayTo } from './townsfolk.js';
 import { earOf, quayNear, nearestOf } from './earshot.js';
-import { redeemGift } from './giftcodes.js';
+import { redeemGift, giftWords } from './giftcodes.js';
 import { requestById, businessWith, accept as acceptFavour, decline as declineFavour, complete as completeFavour, caught as favourCaught, saw as favourSaw, photographed as favourPhotographed, buoyAt, pickUpBuoy, fishFor, remember, cleanFavours } from './requests.js';
 import { lower } from './innTalk.js';
 import { tideAt, tideWords, turns } from './world/tide.js';
@@ -7170,14 +7170,14 @@ const settingsUI = new SettingsUI(state, {
   following: () => (clock.following ? together.hostLabel : null),
   together: () => together,
   setName: (name) => setName(name),
-  // A friend code: every boat and £100, once per game (see giftcodes.js).
+  // A friend code: boats, money or both, each once per game (see giftcodes.js).
   redeem: async (code) => {
     const r = await redeemGift(state, code, KINDS);
     if (r.ok) {
       applyYard();
       save();
       audio.fanfare?.();
-      hud.toast(`A friend’s gift: every boat at the Marine Works, and £${r.gift.money}.`, 6);
+      hud.toast(`A friend’s gift: ${giftWords(r.gift)}.`, 6);
     }
     return r;
   },

@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { GIFTS, cleanGift, giftHash, redeemGift } from '../src/giftcodes.js';
+import { GIFTS, cleanGift, giftHash, redeemGift, giftWords } from '../src/giftcodes.js';
 import { cleanYard } from '../src/shipyard.js';
 
 const KINDS = ['row', 'skiff', 'kayak', 'bass', 'sail', 'cabin', 'cruiser', 'console', 'rib', 'windsurf', 'jetski'];
@@ -50,4 +50,35 @@ test('the codes used are kept in the save, and junk is dropped', async () => {
   const h = GIFTS[0].hash;
   assert.deepEqual(S.sanitize({ gifts: [h, 'nonsense', 42] }).gifts, [h]);
   assert.deepEqual(S.sanitize({}).gifts, []);
+});
+
+test('a code for the boats alone, once, and one for money alone, again and again, alongside the friends’ code', async () => {
+  // The game has one of each, all different; only the money code can be used again.
+  assert.equal(new Set(GIFTS.map((g) => g.hash)).size, GIFTS.length);
+  assert.ok(GIFTS.some((g) => g.boats && !g.money && !g.reusable), 'a boats-only code, once');
+  assert.ok(GIFTS.some((g) => !g.boats && g.money >= 1000 && g.reusable), 'a money-only code, reusable');
+  assert.ok(GIFTS.filter((g) => g.reusable).every((g) => !g.boats), 'only money comes again');
+  // (Codes made up for the test, so no real one is written here.)
+  const gifts = [
+    { hash: await giftHash('test-fleet-1'), money: 0, boats: true, name: 'The fleet' },
+    { hash: await giftHash('test-purse-1'), money: 2000, boats: false, reusable: true, name: 'A full purse' },
+  ];
+  const s = fresh();
+  const purse = await redeemGift(s, 'TEST PURSE 1', KINDS, gifts);
+  assert.ok(purse.ok, purse.why);
+  assert.equal(s.money, 2012);
+  assert.ok(!s.yard.owned.includes('rib'), 'money alone: no boats');
+  const fleet = await redeemGift(s, 'test-fleet-1', KINDS, gifts);
+  assert.ok(fleet.ok, fleet.why);
+  for (const k of KINDS) assert.ok(s.yard.owned.includes(k), k);
+  assert.equal(s.money, 2012, 'boats alone: no money');
+  // The boats once for each game; the money again and again, each time a receipt.
+  assert.ok(!(await redeemGift(s, 'test fleet 1', KINDS, gifts)).ok);
+  for (let i = 0; i < 3; i++) assert.ok((await redeemGift(s, 'test purse 1', KINDS, gifts)).ok);
+  assert.equal(s.money, 8012);
+  assert.equal(s.ledger.filter((r) => r.v === 2000).length, 4);
+  // Said as what it gives.
+  assert.equal(giftWords(gifts[0]), 'every boat at the Marine Works');
+  assert.equal(giftWords(gifts[1]), '£2,000 in your purse');
+  assert.equal(giftWords(GIFTS[0]), 'every boat at the Marine Works, and £100');
 });
