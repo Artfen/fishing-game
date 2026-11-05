@@ -622,7 +622,19 @@ export class HydroBody {
       const p = this.toWorld(th.p, _p1), d = this.dirWorld(th.d, _p2);
       const depth = this.depthAt(p, env, t);
       const k = th.vent ? Math.min(1, Math.max(0, (depth + 0.02) / th.vent)) : 1;
-      if (k > 0) this.addForce(d[0] * th.f * k, d[1] * th.f * k, d[2] * th.f * k, p[0], p[1], p[2]);
+      // (lever: how much of the propeller's depth below her centre of gravity turns her bow up.
+      // It grips the water where it is, but a push that has to make up for the game's own hull
+      // resistance is bigger than a real propeller's, and would twist her over far harder than a
+      // real one does: so its turning arm is scaled to what a real propeller's would be.)
+      // (Only its push along her and up and down: its sideways push, as it steers, heels her on
+      // its full arm, as it always has.)
+      if (k > 0 && th.lever != null && th.lever !== 1) {
+        const cg = this.model.cg, f = th.f * k;
+        const q = this.toWorld([th.p[0], cg[1] + (th.p[1] - cg[1]) * th.lever, th.p[2]], _p3);
+        const fa = this.dirWorld([0, th.d[1], th.d[2]], _pc), fs = this.dirWorld([th.d[0], 0, 0], _pv);
+        this.addForce(fa[0] * f, fa[1] * f, fa[2] * f, q[0], q[1], q[2]);
+        this.addForce(fs[0] * f, fs[1] * f, fs[2] * f, p[0], p[1], p[2]);
+      } else if (k > 0) this.addForce(d[0] * th.f * k, d[1] * th.f * k, d[2] * th.f * k, p[0], p[1], p[2]);
       // Its slipstream over the leg or the rudder behind it: what steers a boat at idle, before
       // she has way enough on for the hull and the leg to bite on their own.
       if (th.foil && k > 0) {

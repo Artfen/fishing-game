@@ -272,7 +272,9 @@ export function stepEngine(E, dt, ctx = {}, rnd = Math.random) {
           ev.push({ step: s, ok: r.ok, why: r.why }, ...r.events);
           if (!r.ok && s !== 'start') E.auto = null;
         }
-        if (s === 'start') E.auto = null;
+        // (A pull-start: pull again until she goes, as a person would; never more than three.)
+        if (s === 'start' && P.starter === 'pull' && E.auto && !running(E) && E.pulls > 0 && E.pulls < 3) E.auto.steps.unshift('start');
+        else if (s === 'start') E.auto = null;
       }
     }
   }

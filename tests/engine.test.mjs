@@ -233,3 +233,17 @@ test('the Start-up setting: three choices, getting in and going unless chosen ot
   assert.equal(cleanSettings({ controls: { start: 'nope' } }).controls.start, 'go');
   assert.deepEqual(E.START_IDS, ['full', 'simple', 'go']);
 });
+
+test('every boat with an engine has an engine room, and nothing without one does', async () => {
+  const { HULLS } = await import('../src/boat.js');
+  for (const [kind, H] of Object.entries(HULLS)) {
+    const engined = !!(H.motor || H.outboard);
+    assert.equal(E.hasEngine(kind), engined, `${kind}: ${engined ? 'an engine to start' : 'nothing to start'}`);
+    if (!engined) continue;
+    // (And she can be started, the one-button way, from cold.)
+    const en = E.newEngine(kind);
+    E.assist(en, { lever: 0 });
+    for (let i = 0; i < 300; i++) E.stepEngine(en, 1 / 30, { fuel: 50, wet: true, lever: 0 }, () => 0.5);
+    assert.ok(E.allRunning(en), `${kind} starts`);
+  }
+});
