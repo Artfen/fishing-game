@@ -1,3 +1,4 @@
+import { newRod, rodStep, lureFromRod, strikeFrom, holdAfterStrike, fightFromRod } from './technique.js';
 import * as THREE from 'three';
 import { FISH, buildFishMesh, weightOf } from './fish.js';
 import { waveHeight } from './world/water.js';
@@ -101,6 +102,12 @@ export class Fishing {
     this.dip = 0;
     this.twitchT = 0;
     this.rodBounce = 0;
+    // Expert technique (see technique.js): the rod in your hands, the reel on the trigger.
+    this.expert = false;
+    this.rodR = newRod();
+    this.rodInput = { up: 0, across: 0 };
+    this.reelInput = 0;
+    this.strikeQ = 0.5;
     this.status = 'quiet';
     this.statusT = 0;
     this.quietT = 0;
@@ -314,6 +321,7 @@ export class Fishing {
         this.holdT = 0;
         break;
       case 'bite':
+        this.strikeQ = 0.5;
         this.setHook();
         break;
       case 'reeling':
@@ -941,6 +949,8 @@ export class Fishing {
       // a leap under way; what was last said (so a turn or the tiring is named, not shouted).
       dist: Math.max(3, this.tip.distanceTo(this.hook)), leapT: 0, roll: 0, word: '', wordT: 0,
     });
+    // (On Expert, how hard the rod was swept up sets the hook more or less firmly: see technique.js.)
+    if (this.expert && !selfHooked) this.fight.hold = holdAfterStrike(this.fight.hold, this.strikeQ, Math.random());
     this.fishPos.copy(this.hook);
     this.side = 0;
     this.state = 'reeling';
@@ -1162,6 +1172,18 @@ export class Fishing {
     this.frameDt = Math.max(dt, 1e-3);
     this.statusT += dt;
     this.held = held;
+    // Expert: the rod follows your hands; swept up hard as a fish takes, it strikes.
+    if (this.expert) {
+      rodStep(this.rodR, this.rodInput.up, this.rodInput.across, dt);
+      if (this.state === 'bite') {
+        const q = strikeFrom(this.rodR);
+        if (q > 0.25) {
+          this.strikeQ = q;
+          this.setHook();
+          if (this.fight) this.hooks.flash(q > 0.7 ? 'A firm strike: the hook’s well home!' : q > 0.45 ? 'Struck: fish on!' : 'A soft strike: it’s on, but go gently.', 2);
+        }
+      }
+    }
     this.waveT = t;
     const A = this.angler, pose = A.pose;
     const R = this.reelFx;
@@ -1408,6 +1430,11 @@ export class Fishing {
     pose.rodYaw = this.state === 'aiming' ? rodYaw : (turns ? dampAngle : damp)(pose.rodYaw, rodYaw, 6, dt);
     // (A fish on the big-game rod: on the yacht you fight it from the fighting chair.)
     pose.chair = this.state === 'reeling' && !!this.rod?.chair;
+    // (Expert: the rod is where your hands put it, with a line in the water.)
+    if (this.expert && (this.state === 'drifting' || this.state === 'bite' || this.state === 'reeling')) {
+      rodPitch = 0.25 + this.rodR.pitch * 1.05 - (this.fight ? this.fight.tension * 0.15 : 0);
+      rodYaw = clamp(rodYaw - this.rodR.yaw * 0.7, -2.2, 2.2);
+    }
     pose.rodPitch = damp(pose.rodPitch, rodPitch, 16, dt);
     // The blank springs towards the bend the line asks of it, and back as the load comes off,
     // swinging a little past (a soft rod slower and further, a stiff one quick).
@@ -1611,14 +1638,16 @@ export class Fishing {
   updateLure(dt, t) {
     const r = this.r, it = this.item;
     if (this.hold) this.holdT += dt;
-    const reeling = this.hold && this.holdT > TAP;
-    this.reelSpeed = damp(this.reelSpeed, reeling ? this.retrieve : 0, 5, dt);
+    // (On Expert the reel is the trigger, as hard as it's squeezed; or the reel key, at an even pace.)
+    const reeling = this.expert ? this.reelInput > 0.05 : this.hold && this.holdT > TAP;
+    this.reelSpeed = damp(this.reelSpeed, reeling ? (this.expert ? 2.2 * this.reelInput : this.retrieve) : 0, 5, dt);
     const dx = this.tip.x - this.hook.x, dz = this.tip.z - this.hook.z, l = Math.hypot(dx, dz) || 1;
     let move = this.reelSpeed;
     if (this.twitchT > 0) {
       this.twitchT -= dt;
-      move += 1.5 * (this.twitchT / 0.45);
+      if (!this.expert) move += 1.5 * (this.twitchT / 0.45);
     }
+    if (this.expert) move += this.workLure(it.action, dt, dx / l, dz / l);
     if (move > 0.01) {
       if (l < 2.4 || (!this.angler.onBoat && this.bottom < 0.25 && l < 8)) {
         this.reelIn();
@@ -1754,14 +1783,60 @@ export class Fishing {
   // A squid jig: it sinks at its own rate; a tap darts it up a metre, holding reels it slowly
   // back and up, and letting go lets it glide down again. Squid follow the dart and grab the
   // jig as it sinks.
+  // Expert: what the rod does to a lure this frame (see technique.js). Returns extra speed along
+  // the line (m/s); twitches, pops and a stick bait's walk are shown and felt as they happen.
+  workLure(act, dt, ux, uz) {
+    const m = lureFromRod(act, this.rodR, dt), b = this.eco.bait;
+    if (m.twitch) {
+      this.twitchT = Math.max(this.twitchT, 0.35);
+      b.twitch = Math.max(b.twitch || 0, m.twitch);
+      if (this.r.fouled && m.twitch > 0.9 && Math.random() < 0.45) {
+        this.r.fouled = false;
+        this.hooks.flash('You flick the weed off the lure', 2);
+      }
+      if (act === 'crawl') this.r.hop = 0.45;
+    }
+    if (m.pop) {
+      this.fx.splash(this.hook.x, 0.05, this.hook.z, 7, 1.3, 0.5);
+      this.fx.ripple(this.hook.x, this.hook.z, 1.0, 1.0, 0.5);
+      this.audio.splashSmall(0.5);
+      this.hooks.feel?.('plop', 0.8);
+    }
+    if (m.walk) {
+      // (Its head swings the other way: a step across the line, and a little skitter on the top.)
+      this.hook.x += -uz * m.walk * 0.22;
+      this.hook.z += ux * m.walk * 0.22;
+      this.fx.ripple(this.hook.x, this.hook.z, 0.6, 1.0, 0.35);
+      this.fx.splash(this.hook.x, 0.05, this.hook.z, 2, 0.9, 0.3);
+      this.audio.splashSmall(0.22);
+      // (A dog walked in an even rhythm draws them up from a long way down.)
+      b.twitch = Math.max(b.twitch || 0, 0.8 + 0.6 * m.rhythm);
+    }
+    this.r.rhythm = m.rhythm;
+    return m.pull / Math.max(dt, 1e-3);
+  }
+
   updateJig(dt, t) {
     const r = this.r, it = this.item;
     if (this.hold) this.holdT += dt;
-    const reeling = this.hold && this.holdT > TAP;
-    this.reelSpeed = damp(this.reelSpeed, reeling ? 0.55 : 0, 5, dt);
+    const reeling = this.expert ? this.reelInput > 0.05 : this.hold && this.holdT > TAP;
+    this.reelSpeed = damp(this.reelSpeed, reeling ? (this.expert ? 0.9 * this.reelInput : 0.55) : 0, 5, dt);
     const dx = this.tip.x - this.hook.x, dz = this.tip.z - this.hook.z, l = Math.hypot(dx, dz) || 1;
     let move = this.reelSpeed;
-    if (r.lift > 0) move += 1.1;
+    if (this.expert) {
+      // The rod lifts the jig (as far and as fast as you lift it) and lets it fall on a slack line.
+      const m = lureFromRod('jig', this.rodR, dt);
+      if (m.pull > 0.004) {
+        this.baitDepth = Math.max(0.15, this.baitDepth - m.pull * 1.1);
+        move += (m.pull * 0.4) / Math.max(dt, 1e-3);
+        r.sinking = false;
+        r.darted = Math.max(r.darted, 1.5);
+      }
+      if (m.twitch) {
+        this.twitchT = Math.max(this.twitchT, 0.4);
+        this.eco.bait.twitch = Math.max(this.eco.bait.twitch || 0, m.twitch);
+      }
+    } else if (r.lift > 0) move += 1.1;
     if (move > 0.01) {
       if (l < 2.4 || (!this.angler.onBoat && this.bottom < 0.25 && l < 8)) {
         this.reelIn();
@@ -1872,6 +1947,13 @@ export class Fishing {
       const c = currentAt(this.fishPos.x, this.fishPos.z, Math.max(0, waterLevel(this.fishPos.x, this.fishPos.z) - this.fishPos.y));
       F.flow = ((c.x * fx + c.z * fz) / l) * currentScale();
     }
+    // (Expert: the rod plays the fish: pumping gains line, a raised rod cushions a surge, held
+    // right up over a fish close in it takes all the strain. Its sweep is the side pressure.)
+    if (this.expert) {
+      const fr = fightFromRod(this.rodR, { running: F.pulling, near: F.progress > 0.85 });
+      Object.assign(F, { pump: fr.pump, pumpLoad: fr.load + (fr.high ? 0.25 : 0), cushion: fr.cushion });
+      this.side = clamp(this.rodR.yaw, -1, 1);
+    } else Object.assign(F, { pump: 0, pumpLoad: 0, cushion: 1 });
     F.side = this.side;
     const before = F.progress;
     const ev = stepFight(F, held, dt, diff);
