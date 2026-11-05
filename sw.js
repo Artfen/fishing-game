@@ -10,7 +10,7 @@
 // - It never touches saved games: those live in the browser's local storage, not here.
 
 // <precache> Written by tools/build-sw.mjs: do not edit by hand.
-const VERSION = 'a680bb89ba77';
+const VERSION = '49f45d256d40';
 const FILES = [
   './index.html',
   './style.css',
@@ -95,6 +95,7 @@ const FILES = [
   './src/siteWorld.js',
   './src/sonar.js',
   './src/southFish.js',
+  './src/spray.js',
   './src/tackle.js',
   './src/tackleModels.js',
   './src/technique.js',

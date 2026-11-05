@@ -56,6 +56,7 @@ import { Boat, BOAT_KINDS } from './boat.js';
 import { wakes } from './world/wakes.js';
 import { Walker } from './walker.js';
 import { Effects } from './effects.js';
+import { sprayPoints, sprayRate, sprayVelocity } from './spray.js';
 import { buildSeaLife, SEA_LIFE } from './world/sealife.js';
 import { buildWildlife } from './world/wildlife.js';
 import { seeSign, readSign, SIGNS, SEEN_AT, stepColour, colourKey, colourWords, NATURE, noteNature, groundsOf, groundWords } from './grounds.js';
@@ -6606,7 +6607,7 @@ BOATS.jetski.onLand = (b, hit) => {
   audio.knock(clamp(hit / 3, 0.3, 1));
   if (!settings.controls.reducedMotion) rig.shake = Math.max(rig.shake, Math.min(0.22, hit * 0.07));
 };
-let jetSprayT = 0, bowSprayT = 0;
+let jetSprayT = 0;
 
 // Sea life: how loud and from which side a sound from (x, z) is, where you are.
 function heardFrom(x, z, range) {
@@ -9131,18 +9132,17 @@ function tick(now, manual = false) {
       fx.splash(boat.pos.x - boat.fwd.x * 1.8, 0.1, boat.pos.z - boat.fwd.z * 1.8, Math.round(2 + 4 * k), 1.6 + 3 * k, 0.35);
     }
   }
-  // Spray off a fast boat's bow: sheets thrown out from her chines at speed, and a burst when she
-  // drops into a sea.
-  bowSprayT -= dt;
-  if (!onFoot && !dive && boat.motor && boat.kind !== 'jetski' && bowSprayT <= 0) {
-    const v = Math.abs(boat.forwardSpeed), H = boat.hull;
-    const k = clamp((v - 5) / 8, 0, 1), slam = clamp((boat.slam - 1.2) / 2.5, 0, 1);
-    if (k > 0 || slam > 0) {
-      bowSprayT = 0.05;
-      for (const side of [-1, 1]) {
-        const u = H.L * (0.2 - 0.12 * k), x = boat.pos.x + boat.fwd.x * u + boat.right.x * side * H.B * 1.05, z = boat.pos.z + boat.fwd.z * u + boat.right.z * side * H.B * 1.05;
-        const n = Math.round(k * 2.5 + slam * 9 + (Math.random() < k * 0.5 ? 1 : 0));
-        if (n) fx.splash(x, waveHeight(x, z, t) + 0.08, z, n, 1.1 + 1.8 * k + 3 * slam, 0.35 + slam * 0.8);
+  // Spray, where each hull meets the water (see spray.js): off your boat, and your others under way
+  // near you. Sheets off her chines at speed, white water off her shoulders, a burst as she drops
+  // into a sea, the lee side of a heeled sailing boat shouldering through the waves.
+  for (const b of boats) {
+    if (!b._phys?.P || b.speed < 1 || !b.group.visible || b._resting) continue;
+    if (b !== boat && Math.hypot(b.pos.x - camera.position.x, b.pos.z - camera.position.z) > 160) continue;
+    for (const p of sprayPoints(b._phys)) {
+      const n = Math.floor(sprayRate(p) * dt + Math.random());
+      for (let i = 0; i < n; i++) {
+        const v = sprayVelocity(p, b.vel.x, b.vel.z, Math.random(), Math.random());
+        fx.spray(p.x + (Math.random() - 0.5) * 0.2, p.y + 0.04, p.z + (Math.random() - 0.5) * 0.2, v[0], v[1], v[2], p.y - 0.35);
       }
     }
   }

@@ -60,6 +60,24 @@ export function tubeCentre(H, t, sd) {
   return [sd * (hw(H, u) + T.r * T.out), sheer(H, u) - T.r * T.drop, zAt(H, t)];
 }
 
+// Where a sheet of spray running out under her bottom at local z leaves the hull: her hard chine,
+// on a deep-V (where the bottom meets the topside), or the underside of a RIB's tube outside it;
+// null for a round-bilged hull, whose spray leaves where the water meets her. Returns [x (the
+// side's half-width, positive), y] in her local frame.
+export function sheetEdge(H, z) {
+  const t = Math.min(1, Math.max(0, (z + H.L / 2) / H.L));
+  let out = null;
+  if (H.vee) {
+    const w = hw(H, t), s = sheer(H, t), k = H.keel(t), wc = w * H.vee.wc;
+    out = [wc, k + Math.min(H.vee.rise * wc, 0.8 * (s - k))];
+  }
+  if (H.tubes && t <= H.tubes.t1) {
+    const c = tubeCentre(H, t, 1), r = H.tubes.r;
+    out = [c[0] + r * 0.35, c[1] - r * 0.85];
+  }
+  return out;
+}
+
 /* ---------------- the hull model ---------------- */
 
 // Build what the physics needs from a hull spec (boat.js HULLS): a closed mesh (the hull, the
