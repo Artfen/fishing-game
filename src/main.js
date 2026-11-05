@@ -120,7 +120,7 @@ import { Post } from './post.js';
 import { Diver, Shot, buildGun } from './diver.js';
 import { stepComfort, effectsOf, needsOf, dressFor, drink as drinkFrom, refill, eatRoll, packRolls, mealDrink, CLOTHES, CLOTHES_IDS, BOTTLE, ROLLS, feelsLike } from './comfort.js';
 import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance, logSite, logFind } from './dive.js';
-import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick, seeded } from './util.js';
+import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick, seeded, wrapAngle } from './util.js';
 
 const REST_SPEED = 30;   // holding T lets time drift by
 const $ = (id) => document.getElementById(id);
@@ -2823,7 +2823,8 @@ function diveAction() {
 const leverKind = () => (onFoot || driving || cabinIn ? null : boat.motor ? boat.kind : boat.hull.emotor && boat.emotorDown ? 'kayak' : null);
 // What the lever may do just now: a line out (or a cast being aimed) caps it at trolling speed,
 // a fish on at dead slow.
-const leverSituation = () => (fishing.state === 'reeling' || fishing.state === 'landing' ? 'fight' : fishing.busy ? (fitsAboard()?.holders ? 'line+' : 'line') : 'free');
+// (Following a running fish, she may go at a trolling pace: see followAction.)
+const leverSituation = () => (fishing.state === 'reeling' || fishing.state === 'landing' ? (following ? 'line' : 'fight') : fishing.busy ? (fitsAboard()?.holders ? 'line+' : 'line') : 'free');
 // What the boat you're in has fitted (see shipyard.js), or null ashore. (Worked out once a frame.)
 let fitsCache = { t: -1, e: null };
 function fitsAboard() {
@@ -4939,8 +4940,37 @@ const lanternReach = () => !state.items.lantern && (onFoot
   : Math.hypot(boat.pos.x - world.lanternSpot.x, boat.pos.z - world.lanternSpot.z) < 10);
 
 // What E (or tapping the prompt) does right now, if anything.
+// A long run from a boat with her engine running: follow the fish with her at a trolling pace,
+// winning the line back (and stop following again).
+let following = false;
+const motorRunning = () => {
+  if (onFoot || !boat.motor) return false;
+  const Eh = engines[boat.kind];
+  return boat.trolling ? !boat.flat : !boat.dry && (!Eh || engineRunning(Eh));
+};
+function followAction() {
+  const F = fishing.fight;
+  if (onFoot || !F || fishing.state !== 'reeling' || F.atNet || !motorRunning() || !(following || F.extra > 3)) return null;
+  return {
+    text: following ? 'Stop following the fish' : 'Follow the fish with the boat',
+    run: () => {
+      following = !following;
+      if (following && leverKind()) changeLever(levers(leverKind())[capIndex(leverKind(), 'line')]?.v ?? 0);
+      else leverNeutral();
+      hud.flash(following ? 'You put her ahead at a trolling pace and follow the fish: the line comes back onto the reel.' : 'You knock her back into neutral.', t, 2.4);
+    },
+  };
+}
+// (Done following: back into neutral.)
+function stopFollowing() {
+  if (!following) return;
+  following = false;
+  leverNeutral();
+}
+
 function interaction() {
-  if (!started || modal || fishing.busy || placement.isOn) return null;
+  if (!started || modal || placement.isOn) return null;
+  if (fishing.busy) return followAction();
   // In the water: something to climb out onto, at the surface.
   if (dive) return diveExit();
   // Inside the cabin: what's where you stand.
@@ -7523,6 +7553,19 @@ function currentHint() {
       if (F?.surgeT > 0) return T ? 'It’s surging! Let go of the button' : `It’s surging! Let go of ${space}`;
       if (F && !F.pulling && F.warned) return 'A flick on the surface: it’s about to run. Ease off';
       if (F?.jumping > 0) return T ? 'It’s leaping! Keep holding: keep the line tight' : `It’s leaping! Keep holding ${space}: keep the line tight`;
+      // Its signature move (see fight.js): what it's doing, and the answer.
+      const hold = T ? 'Hold the button' : `Hold ${space}`, swing = T ? 'swing the rod low to one side with the stick' : `${LR} swing the rod low to one side`;
+      if (F?.move === 'charge') return `It’s coming straight at you! ${hold}: wind fast to keep the line tight`;
+      if (F?.shakeT > 0) return `Head-shaking at the top! ${swing}: keep its head down and the line steady`;
+      if (F?.pulling && F.move === 'dive') return `It’s diving${F.cover ? ` for the ${F.coverKind === 'rock' ? 'rocks' : 'weed'}` : ' deep'}! ${swing} against it: side strain turns its head · ${drag}`;
+      if (F?.pulling && F.move === 'longrun') {
+        const follow = followAction() && !following ? ` · ${T ? 'tap the prompt' : K('interact')} to follow it with the boat` : '';
+        return `A long run: let it go, rod up, and don’t wind into it${F.extra > 0.5 ? ' · a click more drag slows it' : ''}${follow} · ${drag}`;
+      }
+      if (F?.move === 'sound') return fishing.expert
+        ? 'It’s sounded, a dead weight: pump it up. Lift the rod slowly, then wind down as you lower it'
+        : `It’s sounded, a dead weight: pump it up in strokes. ${hold} a moment, let go, and again`;
+      if (F?.move === 'circle' && !F.pulling) return F.coming ? `Circling below: it’s coming up the near side. ${hold}: wind!` : 'Circling below: it’s going round the far side. Hold off winding';
       // (Side pressure: the rod swung low against its run.)
       const side = T ? '' : ` · ${LR} swing the rod against its run`;
       if (F?.pulling) return `${F.slipping ? 'It’s taking line against the drag.' : F.style?.words || 'It’s pulling.'} ${T ? 'Hold' : `Hold ${space}`} to keep pressure on and tire it${side} · ${drag}`;
@@ -7704,10 +7747,16 @@ function updateHud() {
   else if (fishing.state === 'reeling' && F) {
     // The ring: how near you are to landing it, and the load on the line (red and shaking near
     // breaking). The word: what to do now, and under it what the fish is doing and the line out.
-    const word = F.atNet ? `net it: tap ${K('cast')}` : F.surgeT > 0 ? 'easy!' : easy ? 'flick!' : F.tension > 0.9 ? 'ease off!' : F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel';
+    // (Each signature move has its own answer: see fight.js.)
+    const move = F.move === 'charge' ? 'wind!' : F.shakeT > 0 ? (fishing.side ? 'steady' : 'rod low!') : F.pulling && F.move === 'dive' ? (fishing.side ? 'turn it' : 'side strain!')
+      : F.pulling && F.move === 'longrun' ? 'let it run' : F.move === 'sound' ? 'pump!' : F.move === 'circle' && !F.pulling ? (F.coming ? 'wind' : 'hold') : '';
+    const word = F.atNet ? `net it: tap ${K('cast')}` : F.surgeT > 0 ? 'easy!' : easy ? 'flick!' : F.tension > 0.9 ? 'ease off!' : move || (F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel');
     const doing = F.wordT > 0 ? F.word : fishing.side && F.pulling ? `side strain ${fishing.side < 0 ? '←' : '→'}` : F.stage !== 'fresh' ? F.stage : '';
     const out = Math.round(fishing.tip.distanceTo(fishing.fishPos));
-    hud.meter(true, F.progress, F.tension, F.tension, `<span>${word}</span>${doing ? `<span class="ml-sub">${doing}</span>` : ''}<span class="ml-sub">${out} m out</span>`, DRAG_LEVELS[F.drag], easy, F.tension > 0.86);
+    // (On a long run, how much is left on the spool.)
+    const left = F.extra > 0.5 ? Math.max(0, Math.round(100 * (1 - (F.dist * (1 - F.progress) + F.extra) / F.spool))) : null;
+    const outText = `${out} m out${left != null ? ` · spool ${left}%` : ''}${following ? ' · following' : ''}`;
+    hud.meter(true, F.progress, F.tension, F.tension, `<span>${word}</span>${doing ? `<span class="ml-sub">${doing}</span>` : ''}<span class="ml-sub">${outText}</span>`, DRAG_LEVELS[F.drag], easy, F.tension > 0.86 || (left != null && left < 20));
   }
   else hud.meter(false);
 
@@ -9137,6 +9186,13 @@ function tick(now, manual = false) {
       else if (!onFoot) steer = si;
       // (Under power the motor runs on at its notch while you fish: trolling.)
       if (leverKind()) throttle = boat.lever;
+      // Following a fish: she heads for it at a trolling pace (until the run's line is back).
+      if (following && fishing.state === 'reeling' && !onFoot && motorRunning() && fishing.fight) {
+        const fx = fishing.fishPos.x - boat.pos.x, fz = fishing.fishPos.z - boat.pos.z;
+        steer = clamp(wrapAngle(Math.atan2(fx, fz) - boat.heading) * 2.2, -1, 1);
+        if (fishing.fight.extra <= 0.5) stopFollowing();
+      }
+      if (following && (fishing.state !== 'reeling' || onFoot || !motorRunning())) stopFollowing();
     } else if (dive) {
       // In the water: forward and back swim where you look, across turns you, and the
       // interact and tackle keys (E and Q) swim straight up and down.

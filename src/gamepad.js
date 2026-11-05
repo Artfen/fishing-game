@@ -38,8 +38,8 @@ export const MAPS = {
   // the lure).
   troll: { ...PLAY, LB: 'advice', RB: 'feed', L3: 'walkline', UP: 'throttleUp', DOWN: 'throttleDown' },
   // A fish on: RT reels, LT eases the drag off (the game reads the trigger), the left stick
-  // sets the drag too.
-  fight: { B: 'cancel', RT: 'cast', R3: 'reset', LEFT: 'view', VIEW: 'map', MENU: 'settings' },
+  // sets the drag too; A follows a running fish with the boat.
+  fight: { A: 'interact', B: 'cancel', RT: 'cast', R3: 'reset', LEFT: 'view', VIEW: 'map', MENU: 'settings' },
   catch: { A: 'cast', X: 'keep', Y: 'photo', MENU: 'settings' },
   photo: { A: 'photo', RT: 'photo', B: 'cancel', R3: 'reset' },
   // Choosing where to pitch: walk with the stick, the bumpers turn it.
