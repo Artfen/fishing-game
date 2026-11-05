@@ -40,7 +40,9 @@ const BEFORE_RESET = 'slow-tide-save-before-new-game';
 const LOG_MAX = 1000;
 
 export const DEFAULT_STATE = {
-  hour: 14.5,
+  // (A new game starts in the morning: the whole of the first trip in daylight, an hour of the
+  // game's clock being 40 seconds of yours.)
+  hour: 8,
   day: 1,
   fish: {},      // id -> { count, best, firstDay, firstHour, firstZone, firstRain }
   places: {},    // id -> { day, hour }

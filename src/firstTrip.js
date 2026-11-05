@@ -120,8 +120,8 @@ export function words(g, ctx) {
   switch (id) {
     case 'plan':
       out.text = ctx.at === 'home'
-        ? `An outing starts at the workbench in the garage: choose what you’re going for and where, then pack the rod and tackle for it. Walk up to it and ${use('“The workbench”')}. Or skip it: just get in the car and go.`
-        : 'An outing starts at the workbench in your garage at home (follow the marker, or use the map’s “Home”). Or skip it: go anywhere by car and the guide carries on from there.';
+        ? `At the workbench in the garage, choose what to fish for and where, and pack for it: ${use('“The workbench”')}. Or just get in the car and go.`
+        : 'Outings start at the workbench in your garage at home (follow the marker). Or drive anywhere: the guide carries on from there.';
       out.target = { x: BENCH.x, z: BENCH.z, label: 'Workbench' };
       break;
     case 'drive': {
@@ -131,12 +131,12 @@ export function words(g, ctx) {
       const to = dest ? `${dest.name}${by ? ` (${by.name} is by boat from there)` : ''}` : 'the coast';
       if (ctx.driving) {
         out.text = dest && LANE_WORDS[dest.id]
-          ? `Drive ${LANE_WORDS[dest.id]} to ${to}. Park in the car park at the end, stop, then ${use('“Get out, or go somewhere”')}.${dest.mins >= FAR ? ` (It’s a long way round: stop, choose ${use('“Get out, or go somewhere”')} and let the drive go by if you’d rather.)` : ''}`
-          : `Drive down to the coast lane: west for Willowhaven, south for Shell Strand, east for Cove Head. Stop in a car park, then ${use('“Get out, or go somewhere”')}.`;
+          ? `Drive ${LANE_WORDS[dest.id]} to ${to}. Stop in the car park, then ${use('“Get out, or go somewhere”')}.${dest.mins >= FAR ? ' (A long way round: you can stop and let the drive go by.)' : ''}`
+          : `Down to the coast lane: west for Willowhaven, south for Shell Strand, east for Cove Head. Stop in a car park, then ${use('“Get out, or go somewhere”')}.`;
         out.title = `Drive to ${dest ? dest.name : 'the coast'}`;
         if (dest?.drive) out.target = { x: CAR_PARKS[dest.id].x, z: CAR_PARKS[dest.id].z, label: `${dest.name} car park` };
       } else {
-        out.text = `${ctx.nearCar ? 'The car is right here' : 'Walk to the car'}: ${use('“Get in and drive”')} at the driver’s door, then drive to ${to}${dest && (!dest.drive || dest.mins >= FAR) ? ' (it’s a long way round by road: drive it yourself, or in the car choose “Where to?” and let the drive go by)' : ''}. The boot at the back shows what you’ve packed.`;
+        out.text = `${ctx.nearCar ? 'The car’s right here' : 'Walk to the car'}: ${use('“Get in and drive”')} at the driver’s door, and drive to ${to}${dest && (!dest.drive || dest.mins >= FAR) ? ' (a long way by road: drive it, or choose “Where to?” in the car and let it go by)' : ''}.`;
         out.title = `Drive to ${dest ? dest.name : 'the coast'}`;
         if (ctx.car) out.target = { x: ctx.car.x, z: ctx.car.z, label: 'Car' };
       }
@@ -150,12 +150,12 @@ export function words(g, ctx) {
         const L = DESTS[D.launch], land = LANDINGS[D.id];
         out.title = `Cross to ${D.name}`;
         out.text = ctx.afloat
-          ? `Out of the bay and west along the coast to ${D.name}, the island just off Heron Point (follow the marker). Tie up at the landing on its east side, out of the tide, then step ashore and walk round to ${spot.name}.`
-          : `${D.name} is by boat from ${L.name}. At the head of the quay, ${use('“Have a boat brought round”')}, step down into it, and go out of the bay and west along the coast to the island just off Heron Point: about 600 m. Tie up at the landing in the Calf’s lee.`;
+          ? `West along the coast to ${D.name}, just off Heron Point (follow the marker). Tie up at the landing on its east side and walk round to ${spot.name}.`
+          : `${D.name} is by boat from ${L.name}: at the head of the quay, ${use('“Have a boat brought round”')}, then head west along the coast to the island just off Heron Point, about 600 m. Tie up in its lee.`;
         out.target = { x: land.x, z: land.z, label: 'The Calf’s landing' };
         break;
       }
-      out.text = `${spot ? `Walk down to ${spot.name}, and look out over the water. ` : 'Walk down to the water’s edge, and look out over the water. '}On your line: ${ctx.rig || 'nothing yet (open the backpack to tie something on)'}. ${key('tackle')} changes the bait or lure, ${key('pack')} opens the backpack.`;
+      out.text = `${spot ? `Walk down to ${spot.name}. ` : 'Walk down to the water’s edge. '}On your line: ${ctx.rig || 'nothing yet (tie something on in the backpack)'}. ${key('tackle')} changes the bait or lure, ${key('pack')} opens the backpack.`;
       if (touch) out.text = out.text.replace(`${key('tackle')} changes the bait or lure, ${key('pack')} opens the backpack.`, 'The pack button changes it.');
       if (spot) out.target = { x: spot.x, z: spot.z, label: 'Fish here' };
       break;
@@ -164,28 +164,28 @@ export function words(g, ctx) {
       // (The tip for where you are, if that's one of the places: else where you meant to go.)
       const tip = FISH_SPOTS[ctx.here || g.dest]?.tip;
       out.text = touch
-        ? `Face the water (drag on the right to look). Hold the round button: the ring shows where it will land, further the longer you hold. Let go to cast.${tip ? ` ${tip}` : ''}`
-        : `Face the water (${ctx.pad ? key('look') : 'drag the mouse'} to look). Hold ${key('cast')}: the ring shows where it will land, further the longer you hold. Let go to cast.${tip ? ` ${tip}` : ''} ${key('cancel')} puts it down again.`;
+        ? `Face the water. Hold the round button: the ring shows where it’ll land, further the longer you hold. Let go to cast.${tip ? ` ${tip}` : ''}`
+        : `Face the water (${ctx.pad ? key('look') : 'drag the mouse'} to look). Hold ${key('cast')}: the ring shows where it’ll land, further the longer you hold. Let go to cast.${tip ? ` ${tip}` : ''}`;
       break;
     }
     case 'land': {
       const bite = { float: 'the float bobs, then goes under', lure: 'hold to reel the lure back, and a fish may hit it', ledger: 'the bite alarm sounds', bottom: 'the rod tip pulls round', jig: 'the jig stops sinking', fly: 'the fly is taken' }[ctx.kind] || 'a bite';
       out.text = touch
-        ? `Wait for the bite: ${bite}. Tap the button to strike, then hold it to reel. Let go when the fish surges, or the line can break.`
-        : `Wait for the bite: ${bite}. Then ${key('cast')} strikes; hold it to reel, and let go when the fish surges, or the line can break. Nothing biting for a while? ${key('advice')} asks the field guide why.`;
+        ? `Wait for the bite: ${bite}. Tap to strike, hold to reel, and let go when the fish surges.`
+        : `Wait for the bite: ${bite}. ${key('cast')} strikes; hold it to reel, and let go when the fish surges. Nothing biting? ${key('advice')} asks why.`;
       break;
     }
     case 'record':
       out.text = touch
-        ? 'On the catch card: Let it go, or Keep it for the pot. Either way it’s in your journal now.'
-        : `On the catch card: ${key('cast')} lets it go, ${key('keep')} keeps it for the pot. Either way it’s in your journal now (${key('journal')}).`;
+        ? 'On the catch card: Let it go, or Keep it for the pot. Either way, it’s in your journal.'
+        : `On the catch card: ${key('cast')} lets it go, ${key('keep')} keeps it. Either way, it’s in your journal (${key('journal')}).`;
       break;
     case 'back': {
       // (Camping needs the tent with you: in your backpack, or in the boot of a car close by.)
-      const camp = ctx.tent === 'pack' ? `or pitch a camp and stay the night (the tent is in your backpack${touch ? '' : `, ${key('pack')}`})`
-        : ctx.tent === 'car' ? 'or pitch a camp and stay the night (the tent is in the boot)'
-          : 'or, another time, pack the tent at the workbench and camp out';
-      out.text = `${ctx.caught ? `${ctx.caught === 1 ? 'One fish' : `${ctx.caught} fish`} in your journal from this trip. ` : ''}Fish on as long as you like. When you’re done, drive home (in the car, “Where to?”; or your backpack’s “Head back”), ${camp}.`;
+      const camp = ctx.tent === 'pack' ? `or pitch a camp for the night (the tent’s in your backpack${touch ? '' : `, ${key('pack')}`})`
+        : ctx.tent === 'car' ? 'or pitch a camp for the night (the tent’s in the boot)'
+          : 'or another time, pack the tent and camp out';
+      out.text = `${ctx.caught ? `${ctx.caught === 1 ? 'One fish' : `${ctx.caught} fish`} in your journal from this trip. ` : ''}Fish on as long as you like, then drive home (“Where to?” in the car, or “Head back” in the backpack), ${camp}.`;
       if (ctx.car && ctx.carAt !== 'home') out.target = { x: ctx.car.x, z: ctx.car.z, label: 'Car' };
       break;
     }

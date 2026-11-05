@@ -1,9 +1,18 @@
 const $ = (id) => document.getElementById(id);
 export const kbd = (k) => `<kbd>${k}</kbd>`;
 
+// How long a message stays up, at least, before another may replace it (s).
+export const TOAST_LOOK = 2.5;
+
 // Thin wrapper around the HUD elements in index.html. Only touches the DOM when something changes.
+
 export class HUD {
   constructor() {
+    this.toastQ = [];
+    this.toastUp = null;
+    this.toastWait = 0;
+    // Keep quiet for now (the game says when: the title, a question on screen).
+    this.quiet = () => false;
     this.el = {
       hud: $('hud'),
       hint: $('hint'),
@@ -99,11 +108,69 @@ export class HUD {
     this.placeTimer = setTimeout(() => this.el.place.classList.remove('show'), 5200);
   }
 
+  // A message at the top of the screen. Each waits its turn: none shows while the game says to
+  // keep quiet (the title, or a question waiting for an answer: see quiet), and each one up gets a
+  // fair look (TOAST_LOOK seconds, or all its time if that's shorter) before the next replaces it.
+  // The same words twice just stay up longer. (A few at most wait; the oldest go first.)
   toast(text, secs = 4.5) {
+    const now = performance.now() / 1000, up = this.toastUp;
+    if (up && up.text === text && now < up.until) {
+      up.until = Math.max(up.until, now + secs);
+      this.toastAt(up.until - now);
+      return;
+    }
+    if (this.toastQ.some((q) => q.text === text)) return;
+    if (this.quiet() || (up && now < Math.min(up.until, up.at + TOAST_LOOK))) {
+      this.toastQ.push({ text, secs });
+      if (this.toastQ.length > 3) this.toastQ.shift();
+      this.toastLater();
+      return;
+    }
+    this.toastShow(text, secs, now);
+  }
+
+  toastShow(text, secs, now) {
     this.el.toast.textContent = text;
     this.el.toast.classList.add('show');
+    this.toastUp = { text, at: now, until: now + secs };
+    this.toastAt(secs);
+  }
+
+  toastAt(secs) {
     clearTimeout(this.toastTimer);
-    this.toastTimer = setTimeout(() => this.el.toast.classList.remove('show'), secs * 1000);
+    this.toastTimer = setTimeout(() => {
+      this.el.toast.classList.remove('show');
+      this.toastUp = null;
+      this.toastLater();
+    }, secs * 1000);
+  }
+
+  // Tuck away the message that's up (a question is coming): it comes back, for the rest of its
+  // time (a few seconds at least), once the question's answered.
+  hush() {
+    const up = this.toastUp;
+    if (!up) return;
+    clearTimeout(this.toastTimer);
+    this.el.toast.classList.remove('show');
+    this.toastUp = null;
+    this.toastQ = this.toastQ.filter((q) => q.text !== up.text);
+    this.toastQ.unshift({ text: up.text, secs: Math.max(3, up.until - performance.now() / 1000) });
+    this.toastLater();
+  }
+
+  // The next waiting message, as soon as it may show.
+  toastLater() {
+    if (this.toastWait || !this.toastQ.length) return;
+    const now = performance.now() / 1000, up = this.toastUp;
+    const free = this.quiet() ? 0.5 : up ? Math.max(0.05, Math.min(up.until, up.at + TOAST_LOOK) - now) : 0.05;
+    this.toastWait = setTimeout(() => {
+      this.toastWait = 0;
+      const t = performance.now() / 1000, u = this.toastUp;
+      if (this.quiet() || (u && t < Math.min(u.until, u.at + TOAST_LOOK) - 0.01)) return this.toastLater();
+      const q = this.toastQ.shift();
+      if (q) this.toastShow(q.text, q.secs, t);
+      this.toastLater();
+    }, free * 1000);
   }
 
   clock(time, phase, weather, night) {

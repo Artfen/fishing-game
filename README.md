@@ -627,7 +627,7 @@ You start with £20 in your purse; sold fish show as *Sold* in the catch log. Ev
 
 ### Seasons
 
-The year turns: spring, summer, autumn and winter, a week of days each (a short year, so the seasons come round while you play). A new game starts in mid-spring. The clock shows the season beside the time of day, the notice board gives the day's sunrise and sunset, and a word marks each season's turn.
+The year turns: spring, summer, autumn and winter, a week of days each (a short year, so the seasons come round while you play). A new game starts in mid-spring, at eight in the morning, so your first trip is in daylight. The clock shows the season beside the time of day, the notice board gives the day's sunrise and sunset, and a word marks each season's turn.
 
 - **The light**: at midsummer the sun's up before five and sets near nine; at midwinter it rises about half past eight and is gone by five. The sky, the colours and the lamps follow it, and so do the fish's dawn and dusk; the night passes quicker while it's dark, and you can sleep until dawn or the golden hour whenever they fall.
 - **The warmth**: a few degrees warmer in summer, colder in winter (you feel it: see [How you feel](#how-you-feel-warmth-wet-clothes-thirst-and-hunger)); hardly any winter at Las Brasas.
