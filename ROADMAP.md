@@ -69,18 +69,50 @@ polish rather than new places or boats.
     a trailer (the sea and the boats are ideal clip material), short videos, a demo in a Steam
     Next Fest, a Discord.
 
-## The order of work
+## The agreed plan (November 2026)
 
-1. Write the pitch in one sentence ("A cosy, physically real fishing adventure on a living
-   Atlantic coast, alone or with friends") and hide everything that doesn't serve it.
-2. Design progression and goals.
-3. Polish the fishing moment until it feels great.
-4. Sound.
-5. Art.
-6. The first hour.
-7. Desktop build and Steam.
-8. Playtests and low-end performance.
-9. Marketing, starting early and running alongside 3–8.
+Merged from this assessment and the "Make every trip worth taking" roadmap (edition 2, with its
+26-page audit). Its rules stand: relaxed stays easy to play; existing saves keep their boats,
+money and gear; the ocean physics, the look and offline play stay; no softlocks; every change
+comes with tests.
+
+**Decisions**
+
+- **Played on a controller.** We encourage players to use one, and feel the game through its
+  vibration: the engine's beat through the hull, the starter, a wave slamming under the bow, a
+  knock against a pier, the bite, the hook going in, the fish running and the drag slipping.
+  Keyboard, mouse and touch keep working as ever.
+- **Engines that start like engines,** with a setting for how much of it you do: the full
+  procedure (battery switch, kill cord, neutral, key, idle, trim), a one-button start that runs
+  the same steps for you, or get in and go. Trim and tilt are real in the physics; the gauges show
+  what the simulation is doing.
+- **Two throttle styles:** clear notches (dead slow, slow, trolling, half, full), or a real lever
+  pushed forward and back for revs that stays where you leave it, through neutral to go astern.
+- **Money that buys something:** a ledger with receipts (never negative, nothing paid twice);
+  fuel that costs a little (cheap, and free to start with on the gentle setting); Willowhaven
+  Marine Works for boats, paint, a sign-written name and upgrades that buy capability (range,
+  electronics, comfort, looks), **never a better bite rate**. A new game starts with the camp's
+  three boats and can hire the rest; an existing game owns everything it has.
+- **Goals beyond money:** every species, size records, a legendary fish for each area, Las Brasas
+  as something you earn.
+- **One question at the start** (how do you like to play?) that sets the many difficulty
+  settings together, with the details under Advanced.
+
+**Order**
+
+1. CI and a baseline (the test suite on every pull request).
+2. Controller vibration everywhere it helps.
+3. The two throttle styles.
+4. Engine systems and the three start-up settings.
+5. The money ledger, paid fuel, Willowhaven Marine Works and goals.
+6. The catch moment for everyone, then an optional expert technique layer over the same fish.
+7. Sound (recordings for texture, synthesis for response, everything stored locally), an art
+   bible, the first fifteen minutes, shorter text and a cleaner screen, a story spine.
+8. A desktop build for Steam and a demo; the store page goes up early.
+
+**Needs people, not just code:** an artist for characters, fish and key art; recorded sound
+(each file's licence checked and kept); a Steam account and store page; playtests with real
+players on real machines; a privacy policy for co-op and cloud saves.
 
 ## Open-source projects that could help
 
