@@ -1147,7 +1147,11 @@ export class Fishing {
     const R = this.reelFx;
     R.payout = R.wind = R.load = R.sing = 0;
     R.free = false;
-    A.rodTip.getWorldPosition(this.tip);
+    // (In first person the rod is held in front of the camera, and that's placed after this update
+    // (see afterView): just now the figure's own pose has it somewhere else entirely, metres off.
+    // Go on from where the tip was when it was last drawn in your hands.)
+    if (!(this.viewer && this.tipViewed)) A.rodTip.getWorldPosition(this.tip);
+    this.tipViewed = false;
     this.rodBounce = damp(this.rodBounce, 0, 5, dt);
 
     let rodPitch = this.kind === 'ledger' ? 1.15 : 0.85, bend = 0.05;
@@ -1458,6 +1462,7 @@ export class Fishing {
   afterView(t) {
     const A = this.angler, s = this.state;
     A.rodTip.getWorldPosition(this.tip);
+    this.tipViewed = true;
     const mesh = this.fight ? this.fishMeshes[this.fight.sp.id] : null;
     if (mesh && (s === 'caught' || (s === 'landing' && this.t >= 0.8))) {
       this.holdUp(mesh, t, A.faceYaw ?? A.heading);
@@ -1465,7 +1470,9 @@ export class Fishing {
     }
     if (!this.line.visible) return;
     if (this.holdingLine && mesh) mesh.localToWorld(this.lineEnd.set(0, 0, 0.5));
-    // (Pin it to where the tip is now.)
+    // (Pin it to where the tip is now, as much line out as there should be from there.)
+    const straight = this.tip.distanceTo(this.lineEnd);
+    this.fishLine.length = Math.max(straight * (1 + (this.lineSlack ?? 0.05)) + 0.02, straight);
     this.fishLine.constrain(this.tip, this.lineEnd, 3);
     this.drawLine(t);
   }
@@ -2048,6 +2055,7 @@ export class Fishing {
       else slack = this.reelSpeed > 0.1 ? 0.01 : 0.05;
       this.holdingLine = holdingFish;
       this.lineEnd.copy(end);
+      this.lineSlack = slack;
       const straight = this.tip.distanceTo(end);
       this.fishLine.step(this.tip, end, straight * (1 + slack) + 0.02, dt, this.lineWorld);
       if (tight > 0) this.fishLine.straighten(this.tip, end, 1 - Math.exp(-tight * 18 * dt));

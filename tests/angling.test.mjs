@@ -168,3 +168,54 @@ test('lifting it out on the line instead can tear the hook out (and on Relaxed i
   assert.ok(['landing', 'caught'].includes(easy.f.state), easy.f.state);
   assert.ok(easy.words.some((w) => /Too heavy to lift/.test(w)), 'and told how it’s done');
 });
+
+test('in first person the line runs from the rod in your hands: no thrashing, no loops of spare line', () => {
+  // A skiff with a float out. Each frame, as in the game: the boat (and the figure's own pose for
+  // the rod), the fishing, then the first-person view takes the rod into your hands, a few metres
+  // from where the figure holds it, and the fishing catches the line up with it (afterView).
+  const b = new Boat(scene, { kind: 'skiff' });
+  b.place(60, 120, 0);
+  const eco = new Ecosystem(habitat);
+  const f = new Fishing(scene, b, quiet, quiet, eco, new Proxy({ key: (a) => a, canopyAt: () => false, line: undefined }, { get: (o, k) => (k in o ? o[k] : () => {}) }));
+  f.setRig({ ...RODS.float, line: lineInUse({}, RODS.float) }, TACKLE.worm);
+  const rod = b.rod, held = new THREE.Vector3(), w0 = new THREE.Vector3(), w1 = new THREE.Vector3();
+  let t = 0, worst = 0, slackest = 0, jumpiest = 0, prevMid = null;
+  const frame = (heldDown, fp, watch) => {
+    t += 1 / 30;
+    b.update(1 / 30, t, 0, 0, 0);
+    f.update(1 / 30, t, b.heading, heldDown);
+    if (fp) {
+      // (The rod held out in front of you: its tip four metres nearer the float, and lower, than
+      // where the figure holds it, as the first-person view has it.)
+      held.copy(rod.position);
+      b.rodTip.getWorldPosition(w0);
+      const toward = w1.set(f.bob.x - w0.x, 0, f.bob.z - w0.z);
+      if (toward.lengthSq() > 1e-6) toward.setLength(4);
+      w1.add(w0).add(new THREE.Vector3(0, -1, 0));
+      rod.parent.updateMatrixWorld(true);
+      rod.position.add(rod.parent.worldToLocal(w1.clone()).sub(rod.parent.worldToLocal(w0.clone())));
+      rod.updateMatrixWorld(true);
+      f.afterView(t);
+      rod.position.copy(held);
+      rod.updateMatrixWorld(true);
+    }
+    if (!watch || !f.line.visible) return;
+    const L = f.fishLine, n = L.n, P = L.p, m = (n >> 1) * 3, e = (n - 1) * 3;
+    const straight = Math.hypot(P[e] - P[0], P[e + 1] - P[1], P[e + 2] - P[2]);
+    slackest = Math.max(slackest, L.length / straight);
+    worst = Math.max(worst, L.sag);
+    if (prevMid) jumpiest = Math.max(jumpiest, Math.hypot(P[m] - prevMid[0], P[m + 1] - prevMid[1], P[m + 2] - prevMid[2]));
+    prevMid = [P[m], P[m + 1], P[m + 2]];
+  };
+  f.viewer = new THREE.Vector3(60, 1.5, 120);
+  f.onDown();
+  for (let i = 0; i < 24; i++) frame(true, true, false);
+  f.onUp();
+  for (let i = 0; i < 30 * 5; i++) frame(false, true, false);
+  assert.equal(f.state, 'drifting');
+  for (let i = 0; i < 30 * 3; i++) frame(false, true, true);
+  // The line from the tip you see, as much of it out as from the figure's: a little slack, settled.
+  assert.ok(slackest < 1.12, `at most a little more line out than the distance (×${slackest.toFixed(2)})`);
+  assert.ok(worst < 2.5, `sagging ${worst.toFixed(2)} m at most`);
+  assert.ok(jumpiest < 0.05, `the line still on the water (${jumpiest.toFixed(3)} m a frame at most)`);
+});
