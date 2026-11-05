@@ -36,6 +36,7 @@ const ABOVE = 0.6, BELOW = 0.4;
 const EYE_PITCH = 0.2; // looking a little down at the water when you first raise your eyes
 
 const _f = new THREE.Vector3();
+const _hero = new THREE.Vector3();
 const _rock = { x: 0, y: 0, z: 0 };
 const _look = new THREE.Vector3();
 const _m = new THREE.Matrix4();
@@ -270,7 +271,16 @@ export class CameraRig {
     } else {
       _f.set(baitFocus.x, Math.min(baitFocus.y, -0.6), baitFocus.z);
     }
-    const fr = 1 - Math.exp(-(this.mode === 'bait' ? 5 : this.mode === 'cabin' ? 9 : this.mode === 'dive' ? 8 : 4) * dt);
+    // The catch reveal: a fish out of the water and held up (or alongside), the camera comes round
+    // in front of you and in close for a good look at it, then goes back to the view you had.
+    const heroOn = started && !under && (this.mode === 'boat' || this.mode === 'foot') && !!fishing.revealing && !this.indoor;
+    this.hero = damp(this.hero || 0, heroOn ? 1 : 0, heroOn ? 2.4 : 3, dt);
+    const hero = this.hero > 0.002 ? smoothstep(0, 1, this.hero) : 0;
+    if (hero > 0 && fishing.revealPoint) {
+      fishing.revealPoint(_hero);
+      _f.lerp(_hero, hero);
+    }
+    const fr = 1 - Math.exp(-(this.mode === 'bait' ? 5 : this.mode === 'cabin' ? 9 : this.mode === 'dive' ? 8 : 4 + 3 * hero) * dt);
     this.focus.x += (_f.x - this.focus.x) * fr;
     this.focus.y += (_f.y - this.focus.y) * fr;
     this.focus.z += (_f.z - this.focus.z) * fr;
@@ -281,12 +291,33 @@ export class CameraRig {
     const inside = this.mode === 'foot' && this.indoor;
     // (Fishing from the bank the view stays up where you can see the line, unless you tilt it
     // right down to look beneath the water.)
-    const pitch = started ? (inside ? Math.max(v.pitch, 0.78) : fishingFoot && v.pitch >= 0 ? Math.max(v.pitch, 0.42) : v.pitch) : 0.26;
-    const dist = started ? (inside ? Math.min(v.dist, 6.2) : v.dist + (this.mode === 'boat' && fishing.lineOut ? 3 : fishingFoot ? 3.5 : 0)) : 26;
+    let pitch = started ? (inside ? Math.max(v.pitch, 0.78) : fishingFoot && v.pitch >= 0 ? Math.max(v.pitch, 0.42) : v.pitch) : 0.26;
+    let dist = started ? (inside ? Math.min(v.dist, 6.2) : v.dist + (this.mode === 'boat' && fishing.lineOut ? 3 : fishingFoot ? 3.5 : 0)) : 26;
+    let yaw = v.yaw;
+    if (hero > 0) {
+      // (In front of you and a little to one side, so it shows broadside, drifting slowly round.
+      // In a boat, from outside her, looking back in over the side the fish is on, so her
+      // wheelhouse, T-top and rods aren't in the way.)
+      let front = (fishing.faceYaw ?? yaw) + Math.PI + 0.55;
+      if (this.mode === 'boat' && boat) {
+        // (Abeam, on the side the fish is held over, or the side you're facing: looking in across
+        // her at you side-on, the fish broadside, turned a little towards your front.)
+        const h = boat.heading, rx = -Math.cos(h), rz = Math.sin(h);
+        const ox = _hero.x - boat.pos.x, oz = _hero.z - boat.pos.z, fy = fishing.faceYaw ?? h;
+        let side = ox * rx + oz * rz;
+        if (Math.abs(side) < 0.3) side = Math.sin(fy) * rx + Math.cos(fy) * rz || 1;
+        const sgn = Math.sign(side) || 1, ahead = Math.sign(Math.sin(fy) * Math.sin(h) + Math.cos(fy) * Math.cos(h)) || 1;
+        front = Math.atan2(-sgn * rx, -sgn * rz) - sgn * ahead * 0.4;
+      }
+      front += Math.sin(t * 0.18) * 0.18;
+      yaw += wrapAngle(front - yaw) * hero;
+      pitch = lerp(pitch, this.mode === 'boat' ? 0.26 : 0.16, hero);
+      dist = lerp(dist, (fishing.revealDist ?? 3) + (this.mode === 'boat' && boat ? boat.hull.B * 0.25 + 0.3 : 0), hero);
+    }
     const hd = dist * Math.cos(pitch);
-    let cx = this.focus.x - Math.sin(v.yaw) * hd;
+    let cx = this.focus.x - Math.sin(yaw) * hd;
     let cy = this.focus.y + dist * Math.sin(pitch);
-    let cz = this.focus.z - Math.cos(v.yaw) * hd;
+    let cz = this.focus.z - Math.cos(yaw) * hd;
     // Stay on one side of the waterline or the other, so the view is never half in, half out:
     // tilted down past it, the camera dips under (quickly, as it glides) and you look up at the
     // hull, or at your own legs wading; tilted back up, it comes out again.
@@ -343,7 +374,15 @@ export class CameraRig {
     // Above water, aim a little above the boat so the horizon stays in frame
     // (less on portrait and short screens, so the boat stays clear of the controls). Below it,
     // and inside the cabin, straight at it.
-    if (!under && !this.below && this.mode !== 'cabin') this.look.y += (this.mode === 'foot' || this.mode === 'dive' ? 0.4 + v.dist * 0.05 : this.mode === 'car' ? 0.8 + v.dist * 0.04 : 1.6 + v.dist * 0.06) * clamp(cam.aspect, 0.3, 1) * clamp(innerHeight / 640, 0.55, 1);
+    if (!under && !this.below && this.mode !== 'cabin') this.look.y += (this.mode === 'foot' || this.mode === 'dive' ? 0.4 + v.dist * 0.05 : this.mode === 'car' ? 0.8 + v.dist * 0.04 : 1.6 + v.dist * 0.06) * clamp(cam.aspect, 0.3, 1) * clamp(innerHeight / 640, 0.55, 1) * (1 - hero);
+    // (With the catch card beside it on a wide screen, the fish sits a little left of centre.)
+    this.heroShiftNow = damp(this.heroShiftNow || 0, hero > 0.5 ? this.heroShift || 0 : 0, 3, dt);
+    if (this.heroShiftNow > 0.001) {
+      const yawR = Math.atan2(this.look.x - cam.position.x, this.look.z - cam.position.z);
+      const k = this.heroShiftNow * cam.position.distanceTo(this.look) * 0.3;
+      this.look.x -= Math.cos(yawR) * k;
+      this.look.z += Math.sin(yawR) * k;
+    }
     this.orient(dt, t, this.look, 0);
     // Gliding back out of your eyes, the rod and you come back as the camera leaves your head.
     this.eyeBlend = eye && t - this.eyeChangedAt < 2 ? 1 - smoothstep(0.3, 1.8, this.pos.distanceTo(eye)) : 0;

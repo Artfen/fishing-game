@@ -87,6 +87,7 @@ import { HarbourSheet, paintSlate, paintKitchenBoard } from './harbourView.js';
 import { Townsfolk, FOLK, sayTo } from './townsfolk.js';
 import { earOf, quayNear, nearestOf } from './earshot.js';
 import { redeemGift, giftWords } from './giftcodes.js';
+import { HOLD as REVEAL_HOLD, COUNT as REVEAL_COUNT, needle, verdictOf } from './reveal.js';
 import { requestById, businessWith, accept as acceptFavour, decline as declineFavour, complete as completeFavour, caught as favourCaught, saw as favourSaw, photographed as favourPhotographed, buoyAt, pickUpBuoy, fishFor, remember, cleanFavours } from './requests.js';
 import { lower } from './innTalk.js';
 import { tideAt, tideWords, turns } from './world/tide.js';
@@ -1104,6 +1105,7 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
     notePressure(player().pos.x, player().pos.z);
     state.keep.push({ id: sp.id, size, logId: lastCatchId, at: state.day * 24 + state.hour });
     setOutcome(lastCatchId, 'kept');
+    document.body.classList.remove('reveal');
     $('catch-card').hidden = true;
     modal = null;
     const kg = weightOf(sp, size);
@@ -1303,7 +1305,9 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
 }
 
 function showCatch(sp, size, agent, rigUsed) {
+  const bestBefore = state.fish[sp.id]?.best || 0;
   const { isNew, record } = recordCatch(sp, size, agent, rigUsed);
+  const verdict = verdictOf(sp, size, { isNew, record, count: state.fish[sp.id]?.count || 1, best: record ? bestBefore : state.fish[sp.id]?.best || size });
 
   // The species' own model, as it swims in the water and appears in the field guide.
   const cv = $('cc-canvas');
@@ -1315,13 +1319,22 @@ function showCatch(sp, size, agent, rigUsed) {
     ctx.drawImage(photo, 0, 0, cv.width, cv.height);
   };
   photo.src = studio().thumb({ type: 'fish', id: sp.id }, cv.width, cv.height);
-  $('cc-new').hidden = !isNew;
+  // The stamp: a fish of a lifetime, new in your journal, or your biggest yet (see reveal.js).
+  const stampEl = $('cc-new');
+  stampEl.hidden = !verdict.stamp;
+  stampEl.className = `stamp ${verdict.stamp || ''}`.trim();
+  stampEl.textContent = verdict.stamp === 'lifetime' ? 'A fish of a lifetime!' : verdict.stamp === 'record' ? 'Your biggest yet!' : 'New in your journal';
   $('cc-name').textContent = sp.name;
-  // (Its own weight: a fish in fine condition is heavier for its length than a lean one.)
+  $('cc-tally').textContent = verdict.tally;
+  // (Its own weight: a fish in fine condition is heavier for its length than a lean one.) It comes
+  // up on the spring balance, the needle swinging past and settling.
   const kg = agent?.weight ?? weightOf(sp, size);
-  const wtText = kg < 1 ? `${Math.round(kg * 1000 / 10) * 10} g` : `${kg.toFixed(kg < 10 ? 1 : 0)} kg`;
+  const wtText = (w) => (kg < 1 ? `${Math.round(w * 1000 / 10) * 10} g` : `${w.toFixed(kg < 10 ? 1 : 0)} kg`);
   const build = agent?.condition && !sp.creature ? ` · ${conditionWords(agent.condition)}` : '';
-  $('cc-size').textContent = `${size} cm${sp.creature ? ' mantle' : ''} · about ${wtText}${build}${record ? ' · your biggest yet' : ''}`;
+  const kgEl = document.createElement('span');
+  kgEl.id = 'cc-kg';
+  $('cc-size').replaceChildren(`${size} cm${sp.creature ? ' mantle' : ''} · `, kgEl, build);
+  weighIn(kgEl, kg, wtText, verdict, isNew);
   $('cc-note').textContent = isNew ? sp.note : agent.caught > 0 ? 'This one has met your hook before.' : sp.creature ? pick(['It flushes pale and dark, and squirts a last jet of ink.', 'Its great eyes look you over.', 'It wraps an arm round your finger, then lets go.']) : pick(REPEAT_LINES);
   // (A venomous fish, a weever: unhooked with pliers and a cloth, never a bare hand.)
   if (sp.venom) hud.flash('Careful: venomous spines. Pliers and a wet cloth to unhook it, and keep your fingers clear of that black fin.', t, 4.5);
@@ -1332,14 +1345,41 @@ function showCatch(sp, size, agent, rigUsed) {
   keepBtn.disabled = !room;
   keepBtn.lastChild.textContent = room ? (state.keep.length && creelLoad(state) + weightOf(sp, size) > creelKg(state) * 0.75 ? 'Keep it (the creel’s nearly full)' : 'Keep for the pot') : 'No room in the creel';
   $('catch-card').hidden = false;
+  document.body.classList.add('reveal');
   modal = 'catch';
-  if (isNew) {
-    audio.fanfare();
-    hud.pulseJournal();
-  } else audio.chime();
+  if (isNew) hud.pulseJournal();
+}
+
+// The weight on the balance: the needle swings up past it, back, and settles; as it settles, the
+// news (a fanfare for a first of its kind, a record or a fish of a lifetime, a chime for the rest)
+// and a heave felt in your hands.
+let weighing = 0;
+function weighIn(el, kg, words, verdict, isNew) {
+  const id = ++weighing, start = performance.now();
+  let lastTick = 0;
+  const step = (now) => {
+    if (id !== weighing || $('catch-card').hidden) return;
+    const s = (now - start) / 1000, w = needle(kg, s);
+    el.textContent = `${s >= REVEAL_COUNT ? '' : '~'}${words(Math.max(0, w))}`;
+    if (s < REVEAL_COUNT) {
+      if (s - lastTick > 0.07 && s < REVEAL_COUNT * 0.7) {
+        lastTick = s;
+        audio.tick(0.25);
+      }
+      requestAnimationFrame(step);
+      return;
+    }
+    el.classList.add('settled');
+    if (isNew || verdict.stamp) audio.fanfare();
+    else audio.chime();
+    haptics.pulse('netted', verdict.lifetime ? 1.4 : verdict.stamp ? 1.1 : 0.7);
+  };
+  el.textContent = words(0);
+  requestAnimationFrame(step);
 }
 
 function hideCatch() {
+  document.body.classList.remove('reveal');
   $('catch-card').hidden = true;
   modal = null;
   hud.flash('Back into the water it goes', t, 2.4);
@@ -7370,7 +7410,9 @@ function updateFirstPerson(dt) {
   }
   A.setSelfHidden(fp);
   fishing.viewer = fp ? camera.position : null;
-  fishing.admire = fp ? 1.1 : 0;
+  // (A moment to see it held up before the card comes: in your hands, or the camera coming round
+  // for a look; see reveal.js.)
+  fishing.admire = fp ? 1.1 : REVEAL_HOLD;
   const near = fp ? 0.06 : 0.1;
   if (camera.near !== near) {
     camera.near = near;
@@ -9525,6 +9567,8 @@ function tick(now, manual = false) {
   else eyeY = _eye.y;
   // Indoors (with the roof lifted), the camera comes in closer and looks down a little more.
   rig.indoor = onFoot && !driving && indoorsAt(walker.pos.x, walker.pos.z);
+  // (The catch card beside the fish on a wide screen: the camera keeps the fish clear of it.)
+  rig.heroShift = modal === 'catch' && innerWidth >= 900 ? 1 : 0;
   rig.update(dt, t, { boat, walker, started, fishing, baitFocus: fishing.watchPoint, eye: _eye, roll: onFoot || steadyCam || cabinIn ? 0 : boat.roll * 0.45 });
   updateSitting(dt);
   if (sitting && !modal) sitCamera(dt);

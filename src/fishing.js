@@ -10,6 +10,7 @@ import { clamp, lerp, damp, dampAngle, rand, smoothstep, wrapAngle, glowTexture 
 import { newFight, stepFight, DIFFICULTY, DRAG_LEVELS, DEFAULT_DRAG, swingLimit } from './fight.js';
 import { CAST_SPEED } from './throttle.js';
 import { FishLine } from './fishline.js';
+import { heroDistance } from './reveal.js';
 import { BEHAVIOUR, prefsFor } from './behaviour.js';
 
 // The line as drawn: from the reel up through the rod's guides to its tip (ROD_PTS), then out
@@ -241,6 +242,11 @@ export class Fishing {
   get baitInWater() { return this.state === 'drifting' || this.state === 'bite' || this.state === 'reeling'; }
   get pulling() { return !!(this.fight && this.fight.pulling); }
   get holdingFish() { return this.state === 'caught'; }
+  // The catch reveal (see camera.js and reveal.js): out of the water and held up for a look.
+  get revealing() { return (this.state === 'landing' && this.t > 0.3) || this.state === 'caught'; }
+  // Where it's held up (or drawn alongside), and how far to stand off to see it.
+  revealPoint(out) { return this.showPoint(out); }
+  get revealDist() { return this.fight ? heroDistance(this.fight.size, this.bigCatch()) : 3; }
   get retrieveName() { return this.retrieve < 0.7 ? 'slow' : this.retrieve < 1.4 ? 'steady' : 'fast'; }
   // What the bait-follow camera watches.
   get watchPoint() {
@@ -1205,6 +1211,7 @@ export class Fishing {
     let rodYaw = this.state === 'idle' ? 0 : yawTo(Math.atan2(this.bob.x - A.pos.x, this.bob.z - A.pos.z));
     const fishMesh = this.fight ? this.fishMeshes[this.fight.sp.id] : null;
     const face = A.faceYaw ?? A.facing ?? A.heading; // the way you face to look at a fish in your hands
+    this.faceYaw = face;
 
     switch (this.state) {
       case 'aiming': {
