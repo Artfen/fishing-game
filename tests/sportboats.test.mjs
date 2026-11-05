@@ -270,3 +270,42 @@ test('the RIB is built like one: tubes half a metre across for her sides, a 2.5 
   assert.ok(rib < cc, `rolling ${rib.toFixed(3)} rad rms against the console's ${cc.toFixed(3)}`);
   conditions.manual = null;
 });
+
+test('underway as a real one: the RIB never stands on her tail in a sea, rears onto the plane and levels out, and a sea costs speed', async () => {
+  const { updateConditions } = await import('../src/world/conditions.js');
+  const full = (kind) => LEVERS[kind].at(-1).v;
+  const watch = (kind, secs) => {
+    const b = boatAt(kind);
+    let up = 0, roll = 0, air = 0, v = 0, n = 0;
+    for (let i = 0; i < secs * 30; i++) {
+      clock += 1 / 30;
+      conditions.time = clock;
+      b.update(1 / 30, clock, full(kind), 0, 0);
+      if (i > 15 * 30) { up = Math.max(up, -b.pitch); roll = Math.max(roll, Math.abs(b.roll)); if (b.air) air += 1 / 30; v += b.forwardSpeed; n++; }
+    }
+    return { up, roll, air, v: v / n };
+  };
+  // Climbing onto the plane in a calm: her bow rears up a few degrees through the hump, then she levels out.
+  conditions.manual = { speed: 0, from: 0 };
+  for (let i = 0; i < 400; i++) updateConditions(0.25, { rain: 0, cloud: 0 });
+  const b = boatAt('rib');
+  let hump = 0;
+  for (let i = 0; i < 20 * 30; i++) {
+    clock += 1 / 30;
+    conditions.time = clock;
+    b.update(1 / 30, clock, full('rib'), 0, 0);
+    hump = Math.max(hump, -b.pitch);
+  }
+  assert.ok(hump > 0.05 && hump < 0.2, `reared ${(hump * 57.3).toFixed(1)}° climbing onto the plane`);
+  assert.ok(Math.abs(b.pitch) < 0.05, `and levelled out on the plane: ${(-b.pitch * 57.3).toFixed(1)}°`);
+  const calm = watch('rib', 30).v;
+  // A rough sea, flat out: thrown about and a short hop off a crest at most, never on her tail; slower.
+  conditions.manual = { speed: 11, from: 0 };
+  for (let i = 0; i < 2400; i++) updateConditions(0.25, { rain: 0, cloud: 0.5 });
+  const R = watch('rib', 40);
+  assert.ok(R.up < 0.4, `bow up at most ${(R.up * 57.3).toFixed(0)}° in a rough sea (she stood on her tail at 54°)`);
+  assert.ok(R.roll < 0.45, `rolled at most ${(R.roll * 57.3).toFixed(0)}°`);
+  assert.ok(R.air < 2, `airborne ${R.air.toFixed(1)} s`);
+  assert.ok(R.v < calm - 1, `slower in a sea: ${R.v.toFixed(1)} against ${calm.toFixed(1)} m/s in a calm`);
+  conditions.manual = null;
+});

@@ -2,7 +2,7 @@ import { runShare, trimEffect } from './engine.js';
 import * as THREE from 'three';
 import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat, wrapAngle } from './util.js';
 import { waveHeight } from './world/water.js';
-import { windAt, currentAt, currentScale, conditions, waveSampler, sampleWaves } from './world/conditions.js';
+import { windAt, currentAt, currentScale, conditions, waveSampler, sampleWaves, shelterAt } from './world/conditions.js';
 import { buildHullModel, HydroBody, G, RHO, tubeCentre, section } from './hydro.js';
 import { wakes } from './world/wakes.js';
 import { solidHeight, PIERS, SEA, SOUTH_Z, CROSSING } from './world/terrain.js';
@@ -71,7 +71,7 @@ const HULLS = {
     name: 'motor skiff', mass: 290, L: 3.8, B: 0.8, D: 0.6, draft: 0.2, shallow: 0.35, seatZ: -1.25, seatY: 0.47, floorY: 0.08,
     paint: '#ece6d8', stripe: '#2f4f7a', bottom: '#7c3a2e', inside: 'wood',
     motor: { thrust: 5.4, astern: 2.4, tilt: 0.75, scale: 1, cowl: '#e9e5dc', band: '#2f4f7a' },
-    thwarts: true, oarlocks: true, lantern: [0.3, 1.25], stow: [-0.42, 0.52, -0.25], noise: 1, steady: 1,
+    thwarts: true, oarlocks: true, lantern: [0.3, 1.25], stow: [-0.42, 0.52, -0.25], noise: 1, steady: 1, hump: 0.18,
     windage: 0.003, ride: 4,
   },
   kayak: {
@@ -95,7 +95,7 @@ const HULLS = {
     paint: '#7a2430', stripe: '#d9d4c7', bottom: '#2c2f33', inside: 'carpet',
     decks: [[0.6, 1, 0.07], [0, 0.17, 0.07]], floor: true, pedestals: true, locker: true,
     motor: { thrust: 7.6, astern: 3, tilt: 0.85, scale: 1.3, cowl: '#2b2e33', band: '#b8312f', troll: 0.3 },
-    lantern: [0.8, -1.95], stow: [-0.72, 0.62, 0.4], noise: 1, steady: 0.45,
+    lantern: [0.8, -1.95], stow: [-0.72, 0.62, 0.4], noise: 1, steady: 0.45, hump: 0.22,
     windage: 0.0036, ride: 3, // high-sided: the wind pushes it more; broad and heavy: it rides the swell slowly
   },
   sail: {
@@ -151,8 +151,8 @@ const HULLS = {
     keel: (t) => 0.22 * Math.pow(t, 3),
     paint: '#eef0ee', stripe: '#3a8fc4', bottom: '#d9dedd', inside: 'plastic',
     floor: [0.03, 0.88], floorColor: '#dcd8cc', decks: [[0.88, 1, 0]],
-    motor: { thrust: 13, astern: 3.2, tilt: 0.9, scale: 1.35, cowl: '#1d2125', band: '#3a8fc4', twin: 0.4 },
-    drag: [0.22, 0.05], side: 3, helm: 0.95, fend: 1.2, rails: [0.62, 0.72, 0.82, 0.92],
+    motor: { thrust: 13, astern: 3.2, tilt: 0.9, scale: 1.35, cowl: '#1d2125', band: '#3a8fc4', twin: 0.4, spool: 0.32 },
+    hump: 0.22, drag: [0.22, 0.05], side: 3, helm: 0.95, fend: 1.2, rails: [0.62, 0.72, 0.82, 0.92],
     console: true,
     // At the wheel behind the console; fishing, in the cockpit aft or up in the bow (whichever
     // way you face as you cast), round the console or the leaning post on the way.
@@ -179,10 +179,10 @@ const HULLS = {
     paint: '#b7bdc2', stripe: '#b7bdc2', bottom: '#9aa1a7', inside: 'plastic',
     floor: [0.03, 0.87], floorColor: '#4a4f55', decks: [[0.87, 1, 0]],
     tubes: { r: 0.27, out: 0.35, drop: -0.12, t1: 0.94, color: '#5f656b', strake: '#1d2023' },
-    motor: { thrust: 22, astern: 3.2, tilt: 0.85, scale: 1.45, cowl: '#1d2125', band: '#9aa1a7' },
+    motor: { thrust: 22, astern: 3.2, tilt: 0.85, scale: 1.45, cowl: '#1d2125', band: '#9aa1a7', spool: 0.28 },
     drag: [0.21, 0.05], side: 3, helm: 0.8, fend: 1.35,
     // (Her weight low in her: the deck sits down inside the tubes, so she banks into a turn.)
-    cgY: 0.45, console: true, rib: true,
+    hump: 0.25, cgY: 0.45, console: true, rib: true,
     standing: { helm: [0, -0.35], aft: [0, -2.2, 0.55, 0.5], bow: [0, 1.95, 0.3, 0.25], round: 0.7 },
     lantern: [0.7, -2.75], stow: null, noise: 1.1, steady: 0.5,
     windage: 0.0033, ride: 2.8,
@@ -371,6 +371,15 @@ const _w3 = [0, 0, 0], _w4 = [0, 0, 0];
 const _qt = new THREE.Quaternion(), _eu = new THREE.Euler(0, 0, 0, 'YXZ'), _v3 = new THREE.Vector3();
 // A direction in her own frame, turned by an angle (rad) from straight ahead towards port.
 const dirAt = (a) => [Math.sin(a), 0, Math.cos(a)];
+// How much of an outboard's depth below her centre of gravity turns her bow up as it pushes (see
+// HydroBody.thrusters' lever): the game's push is bigger than a real propeller's (it makes up for
+// the hull resistance the game gives her), so its turning arm is scaled to a real one's. At full
+// lever a fast boat stood on her tail in a sea; at this she runs as a real one does.
+const PROP_LEVER = 0.3;
+// The resistance a seaway adds (per kg, per m/s of speed): as the square of the local wave height
+// (the waves' energy), over her length (the same sea slows a little boat more than a big one; a
+// low swell hardly at all).
+const SEAWAY = 8.3;
 // A pure turning push (N·m about the vertical, + turns her to port): two equal and opposite
 // pushes either side of her middle.
 function yawCouple(b, tq) {
@@ -670,7 +679,10 @@ export class Boat {
       this.shiftT -= dt;
       want = 0;
     }
-    const rate = (electric ? 2.5 : 1) * (Math.abs(want) > Math.abs(this.power) ? 0.6 : 1);
+    // (A big outboard on a light planing hull builds its push over a few seconds, as the hull
+    // climbs over its own bow wave and onto the plane: motor.spool, the rate it opens up at.)
+    const up = electric ? 0.6 : this.hull.motor?.spool ?? 0.6;
+    const rate = (electric ? 2.5 : 1) * (Math.abs(want) > Math.abs(this.power) ? up : 1);
     this.power += clamp(want - this.power, -rate * dt, rate * dt);
     if (Math.abs(this.power) < 1e-5) this.power = 0;
     if (this.power) this.lastGear = Math.sign(this.power);
@@ -1360,7 +1372,9 @@ export class Boat {
         const a = (i / 6) * (Math.PI / 2), rr = r * 0.55;
         prof.push(new THREE.Vector2(rr * Math.cos(a), -coneLen - rr * 0.8 * Math.sin(a)));
       }
-      const g = new THREE.LatheGeometry(prof, 22).rotateX(Math.PI / 2);
+      // (Drawn from its rounded end back to the tube, so the lathe's faces look outward: drawn
+      // the other way they face inward, and the cones vanish from outside.)
+      const g = new THREE.LatheGeometry(prof.reverse(), 22).rotateX(Math.PI / 2);
       parts.push({ geo: g, matrix: mat(c[0], c[1], c[2]), color: T.color, jitter: 0 });
       // (The strake carries on round the cone a little way.)
       parts.push({ geo: new THREE.CylinderGeometry(0.055, 0.05, coneLen * 0.7, 6).rotateX(Math.PI / 2), matrix: mat(c[0] + sd * r * 0.82, c[1] - r * 0.45, c[2] - coneLen * 0.35), color: T.strake });
@@ -2203,6 +2217,26 @@ export class Boat {
       // (Out in the ocean's long swell, a skipper eases her back to what she'll take.)
       const gov = vf > this.vmax ? Math.exp(-(vf - this.vmax) * 2.5) : 1;
       const f = thrust * m * gov;
+      // Climbing onto the plane: through the hump (her speed about her own bow wave's, a Froude
+      // number near one) her stern settles into the trough behind it and her bow rears up, then
+      // she climbs over it and levels out on the plane. (H.hump: how far she rears, as a share of
+      // her weight acting at her length; driven hard through it she rears more.)
+      if (H.hump && !dead && !troll && !E && vf > 0.5) {
+        const fn = vf / Math.sqrt(G * H.L), k = Math.exp(-(((fn - 0.85) / 0.32) ** 2)) * clamp(Math.abs(pw) * 3, 0, 1);
+        if (k > 0.01) {
+          const F = H.hump * m * G * k, cg = b.model.cg;
+          b.forces.push({ f: [0, F, 0], p: b.toWorld([0, cg[1], zAt(H, 0.85)], [0, 0, 0]) }, { f: [0, -F, 0], p: b.toWorld([0, cg[1], zAt(H, 0.15)], [0, 0, 0]) });
+        }
+      }
+      // A seaway slows her: meeting the seas, slamming and the propeller breaking out on the
+      // crests all cost speed, the more the bigger the waves where she is (the bays' shelter
+      // counts). Without it a fast boat would go quicker in a sea than in a calm.
+      if (!dead && !troll && !E && Math.abs(vf) > 3) {
+        const sh = shelterAt(this.pos.x, this.pos.z), Hs = conditions.sea.swell * sh[0] + conditions.sea.chop * sh[1];
+        // (Only once she's going fast enough to slam: trolling and creeping along, waves cost little.)
+        const seaway = SEAWAY * ((Hs * Hs) / H.L) * vf * m * smoothstep(3, 9, Math.abs(vf));
+        if (seaway) b.forces.push({ f: [-this.fwd.x * seaway, 0, -this.fwd.z * seaway], p: b.toWorld(b.model.cg, [0, 0, 0]) });
+      }
       const keel0 = H.keel(0), stern = zAt(H, 0);
       if (dead) {
         // (An oar over the stern: a gentle push, a little steer.)
@@ -2237,7 +2271,7 @@ export class Boat {
           const diff = M.twin && !dead ? -Math.sign(x) * helm * slow * m * 1.2 : 0;
           const d = dirAt(b.rudder * 0.7);
           if (tip) d.splice(0, 3, d[0] * ct, -Math.sin(tip), d[2] * ct);
-          b.thrusters.push({ p: [x, keel0 - 0.28, stern - 0.18], d, f: f / legs.length + diff, vent: 0.1 });
+          b.thrusters.push({ p: [x, keel0 - 0.28, stern - 0.18], d, f: f / legs.length + diff, vent: 0.1, lever: PROP_LEVER });
         }
       }
     } else if (H.rig) {
