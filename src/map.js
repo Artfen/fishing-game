@@ -732,6 +732,26 @@ export class MapSheet {
     for (const P of LANES) trail(P);
 
     ctx.drawImage(this.fog, x0, y0, w, h);
+    // Your track, where a chartplotter has drawn it (see shipyard.js): a fine dotted line, older
+    // stretches fainter.
+    const T = st.track || [];
+    if (T.length > 1) {
+      ctx.save();
+      ctx.lineWidth = 1.8 * s;
+      ctx.setLineDash([2 * s, 3 * s]);
+      ctx.lineCap = 'round';
+      for (let i = 1; i < T.length; i++) {
+        // (A long gap between points: a fresh trip, not a line across the chart.)
+        if (Math.hypot(T[i][0] - T[i - 1][0], T[i][1] - T[i - 1][1]) > 120) continue;
+        const [ax, ay] = this.toPx(T[i - 1][0], T[i - 1][1]), [bx, by] = this.toPx(T[i][0], T[i][1]);
+        ctx.strokeStyle = `rgba(214, 74, 52, ${0.25 + 0.6 * (i / T.length)})`;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
     if (this.highlightImg) {
       ctx.globalAlpha = 0.55;
       ctx.drawImage(this.highlightImg, x0, y0, w, h);

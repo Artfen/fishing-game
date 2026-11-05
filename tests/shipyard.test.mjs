@@ -99,9 +99,10 @@ test('paint, a name and fittings: only on your own boat, each paid once, and fit
   assert.equal(nameBoat(s, 'rib', '  Kittiwake  ').ok, true);
   assert.equal(s.yard.looks.rib.name, 'Kittiwake');
   assert.equal(cleanBoatName('A'.repeat(40)).length, 18);
-  assert.deepEqual(fitsFor('rib').sort(), ['power', 'tank']);
+  assert.ok(['power', 'tank', 'sonar', 'plotter', 'anchor'].every((id) => fitsFor('rib').includes(id)));
   assert.deepEqual(fitsFor('row'), []);
-  assert.deepEqual(fitEffect(s.yard, 'rib'), { tank: 1, thrust: 1, burn: 1 });
+  const none = fitEffect(s.yard, 'rib');
+  assert.ok(none.tank === 1 && none.thrust === 1 && none.burn === 1 && none.kg === 0 && !none.sonar);
   assert.equal(fitBoat(s, 'rib', 'tank').ok, true);
   assert.equal(fitBoat(s, 'rib', 'power').ok, true);
   assert.equal(fitBoat(s, 'rib', 'power').ok, false);
@@ -142,3 +143,39 @@ test('one question instead of six: each play style is a whole, valid set of choi
   }
   assert.equal(styleOf({ ...STYLES.easy.set, throttle: 'lever' }), null, 'changed on its own: your own mix');
 });
+
+test('Shipyard 2.0: every fitting weighs something real and does something real, never to do with bites', async () => {
+  const { FIT_CATS, unfitBoat } = await import('../src/shipyard.js');
+  const KINDS = ['row', 'skiff', 'kayak', 'bass', 'sail', 'cabin', 'cruiser', 'console', 'rib', 'windsurf', 'jetski'];
+  for (const [id, F] of Object.entries(FITS)) {
+    assert.ok(FIT_CATS[F.cat], `${id} has a category`);
+    assert.ok(F.kg >= 0 && F.amps >= 0, `${id} weight and draw`);
+    assert.ok(Object.keys(F.price).length > 0 && Object.keys(F.price).every((k) => KINDS.includes(k)), id);
+    assert.ok(!/bite|catch more|more fish/i.test(F.desc), `${id} says nothing of bites`);
+  }
+  // Each motorboat takes a fair choice; the rowing boat, kayak and board none.
+  for (const k of ['skiff', 'bass', 'cabin', 'console', 'rib', 'cruiser']) assert.ok(fitsFor(k).length >= 6, k);
+  for (const k of ['row', 'kayak', 'windsurf']) assert.equal(fitsFor(k).length, 0, k);
+  const s = { day: 1, hour: 9, money: 5000, ledger: [], yard: cleanYard({ owned: KINDS }, KINDS) };
+  // One engine choice at a time: the economy tune replaces the bigger outboard.
+  assert.ok(fitBoat(s, 'console', 'power').ok);
+  const sw = fitBoat(s, 'console', 'economy');
+  assert.ok(sw.ok && sw.swapped === 'power');
+  assert.deepEqual(s.yard.fits.console, ['economy']);
+  let e = fitEffect(s.yard, 'console');
+  assert.ok(e.burn < 1 && e.thrust < 1);
+  // Weight and draw add up; the flags follow.
+  for (const id of ['sonar', 'lights', 'livewell', 'battery', 'anchor']) assert.ok(fitBoat(s, 'console', id).ok, id);
+  e = fitEffect(s.yard, 'console');
+  assert.equal(e.kg, ['economy', 'sonar', 'lights', 'livewell', 'battery', 'anchor'].reduce((a, id) => a + FITS[id].kg, 0));
+  assert.ok(e.amps >= 7 && e.sonar && e.lights && e.livewell && e.house && e.hold > 2);
+  // Taking one off: free, no refund, the weight gone.
+  const m = s.money;
+  assert.ok(unfitBoat(s, 'console', 'livewell').ok);
+  assert.equal(s.money, m);
+  assert.equal(fitEffect(s.yard, 'console').kg, e.kg - FITS.livewell.kg);
+  // The save keeps one to a slot, and drops what doesn't fit.
+  const back = cleanYard({ owned: KINDS, fits: { rib: ['power', 'economy', 'bimini', 'livewell', 'nonsense'] } }, KINDS);
+  assert.deepEqual(back.fits.rib, ['economy', 'bimini']);
+});
+

@@ -61,6 +61,9 @@ export class FishFinder {
     this.sample = {};
     this.read = null;
     this.seed = 0;
+    // An imaging transducer on the boat you're in (see shipyard.js): the down view and the split,
+    // ranges past 20 m, and the smaller echoes picked out. Without it, the 2D sonar to 20 m.
+    this.imaging = false;
     $('sonar-help').addEventListener('click', () => this.toggleLegend());
     $('sonar-size').addEventListener('click', () => this.cycleSize());
     $('sonar-unit')?.addEventListener('click', () => this.setUnit(!this.state.finder.unit));
@@ -84,14 +87,29 @@ export class FishFinder {
   }
 
   // A key on the unit pressed.
+  // The pages and the scales this boat's transducer can give.
+  get pages() { return this.imaging ? PAGES : ['sonar']; }
+  get ranges() { return this.imaging ? RANGES : RANGES.filter((r) => r <= 20); }
+  // The page showing (the one chosen, if this transducer can give it).
+  get page() { return this.pages.includes(this.state.finder.page) ? this.state.finder.page : 'sonar'; }
+  // The next page after this one, or null at the last (see the game's finder button).
+  get nextPage() {
+    const P = this.pages, i = P.indexOf(this.page);
+    return i < P.length - 1 ? P[i + 1] : null;
+  }
+
   key(k) {
-    const F = this.state.finder;
-    if (k === 'page') F.page = PAGES[(PAGES.indexOf(F.page) + 1) % PAGES.length];
-    else if (k === 'deeper' || k === 'shallower') {
+    const F = this.state.finder, R = this.ranges;
+    if (k === 'page') {
+      if (!this.imaging) this.hooks.say?.('The down view and the split screen need an imaging sonar on the boat: the Marine Works fits one.');
+      const P = this.pages;
+      F.page = P[(P.indexOf(this.page) + 1) % P.length];
+    } else if (k === 'deeper' || k === 'shallower') {
       // (Range: auto, then each scale; past the deepest or the shallowest, back to auto.)
-      const i = F.range === 'auto' ? -1 : RANGES.indexOf(F.range);
-      const j = k === 'deeper' ? (i < 0 ? RANGES.findIndex((r) => r > this.range) : i + 1) : (i < 0 ? RANGES.findIndex((r) => r >= this.range) - 1 : i - 1);
-      F.range = j < 0 || j >= RANGES.length ? 'auto' : RANGES[j];
+      const i = F.range === 'auto' || !R.includes(F.range) ? -1 : R.indexOf(F.range);
+      const j = k === 'deeper' ? (i < 0 ? R.findIndex((r) => r > this.range) : i + 1) : (i < 0 ? R.findIndex((r) => r >= this.range) - 1 : i - 1);
+      F.range = j < 0 || j >= R.length ? 'auto' : R[j];
+      if (k === 'deeper' && F.range === 'auto' && !this.imaging && i === R.length - 1) this.hooks.say?.('Deeper than 20 m wants an imaging sonar on the boat: the Marine Works fits one.');
     } else if (k === 'zoom') F.zoom = (F.zoom + 1) % ZOOMS.length;
     else if (k === 'gainUp') F.gain = Math.min(10, F.gain + 1);
     else if (k === 'gainDown') F.gain = Math.max(0, F.gain - 1);
@@ -109,7 +127,7 @@ export class FishFinder {
   // What the keys say just now.
   showKeys() {
     const F = this.state.finder, set = (k, t) => { const e = document.querySelector(`#sonar-keys [data-k="${k}"] b`); if (e) e.textContent = t; };
-    set('page', PAGE_NAMES[F.page]);
+    set('page', PAGE_NAMES[this.page]);
     set('shallower', 'shallower');
     set('deeper', F.range === 'auto' ? 'Auto' : `${F.range} m`);
     set('gainDown', 'less');
@@ -129,11 +147,11 @@ export class FishFinder {
 
   // The scale: the one you've chosen on the unit, or the shallowest that shows the bottom.
   rangeFor() {
-    const F = this.state.finder;
-    if (this.unit && F.range !== 'auto') return F.range;
+    const F = this.state.finder, R = this.ranges;
+    if (this.unit && F.range !== 'auto' && R.includes(F.range)) return F.range;
     let deepest = 0;
     for (const p of this.pings) deepest = Math.max(deepest, p.bottom);
-    return RANGES.find((r) => r >= deepest + 0.6) || RANGES[RANGES.length - 1];
+    return R.find((r) => r >= deepest + 0.6) || R[R.length - 1];
   }
 
   // The unit's corner: drag to make it bigger or smaller.
@@ -314,7 +332,7 @@ export class FishFinder {
     const raw = this.eco.queryCone(x, z, CONE, []);
     // Echoes, not fish: small or off-centre ones are sometimes missed, depths wobble a little.
     // (The unit's gain: turned up, it picks out fainter echoes, and more clutter with them.)
-    const gain = this.unit ? this.state.finder.gain / 10 : 0.5;
+    const gain = (this.unit ? this.state.finder.gain / 10 : 0.5) + (this.imaging ? 0.15 : 0);
     const echoes = [];
     for (const f of raw) {
       const detect = clamp((0.3 + f.size * 1.1) * (0.6 + 0.8 * gain), 0, 1) * (0.45 + 0.55 * f.strength);
@@ -360,7 +378,7 @@ export class FishFinder {
     const c = this.canvas, ctx = this.ctx;
     const W = c.width, H = c.height;
     if (this.unit) {
-      drawUnit(ctx, W, H, { pings: this.pings, history: HISTORY, range: this.range, opts: this.state.finder, read: this.read }, message);
+      drawUnit(ctx, W, H, { pings: this.pings, history: HISTORY, range: this.range, opts: { ...this.state.finder, page: this.page }, read: this.read }, message);
       return;
     }
     const scaleW = 56, nowW = 34, top = 10;

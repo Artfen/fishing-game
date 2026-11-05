@@ -79,7 +79,8 @@ import { PROFILES as ENGINES, START_MODES, hasEngine, cleanEngine, engineSave, a
 import { HelmUI } from './helm.js';
 import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
-import { PRICES as BOAT_PRICES, PAINTS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, paintBoat, nameBoat, fitBoat, fitEffect } from './shipyard.js';
+import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect } from './shipyard.js';
+import { BoatPreview } from './boatPreview.js';
 import { Memories } from './memories.js';
 import { whatsAbout, birdsWorking, weatherLines, notices, paintBoard } from './harbour.js';
 import { HarbourSheet, paintSlate, paintKitchenBoard } from './harbourView.js';
@@ -761,6 +762,7 @@ const rig = new CameraRig(camera);
 rig.solid = pushOut;
 const rodView = new RodView();
 const finder = new FishFinder(eco, habitat, state, {
+  say: (text) => hud.toast(text, 5),
   // The unit's Mark key: a waypoint on your map where the sonar is reading, with what it read.
   mark: (r) => {
     if (!r) return hud.toast('Nothing under the sonar to mark yet.', 3);
@@ -1752,8 +1754,17 @@ const harbourSheet = new HarbourSheet(state, {
   }),
   yardPaint: (kind, paint) => yardDo(paintBoat(state, kind, paint), () => hud.toast(`A fresh coat on the ${BOATS[kind].name}.`, 3)),
   yardName: (kind, name) => yardDo(nameBoat(state, kind, name), () => hud.toast(`“${state.yard.looks[kind].name}”, sign-written on her bow.`, 4)),
-  yardFit: (kind, id) => yardDo(fitBoat(state, kind, id), () => hud.toast('Fitted.', 2)),
+  yardFit: (kind, id) => {
+    const r = fitBoat(state, kind, id);
+    yardDo(r, () => hud.toast(r.swapped ? `Fitted, in place of the ${FITS[r.swapped].name.toLowerCase()}.` : 'Fitted.', 3));
+  },
+  yardUnfit: (kind, id) => yardDo(unfitBoat(state, kind, id), () => hud.toast('Taken off: back in the store.', 2)),
+  // The look at a boat at the Marine Works (see boatPreview.js).
+  preview: (want) => boatPreview.show(want),
+  previewTurn: (dx) => boatPreview.turn(dx),
+  previewStop: () => boatPreview.stop(),
 });
+const boatPreview = new BoatPreview((scene, kind) => new Boat(scene, { kind }));
 // Something done at the Marine Works: paid for and done, or why not.
 function yardDo(r, then) {
   if (!r.ok) {
@@ -2812,7 +2823,14 @@ function diveAction() {
 const leverKind = () => (onFoot || driving || cabinIn ? null : boat.motor ? boat.kind : boat.hull.emotor && boat.emotorDown ? 'kayak' : null);
 // What the lever may do just now: a line out (or a cast being aimed) caps it at trolling speed,
 // a fish on at dead slow.
-const leverSituation = () => (fishing.state === 'reeling' || fishing.state === 'landing' ? 'fight' : fishing.busy ? 'line' : 'free');
+const leverSituation = () => (fishing.state === 'reeling' || fishing.state === 'landing' ? 'fight' : fishing.busy ? (fitsAboard()?.holders ? 'line+' : 'line') : 'free');
+// What the boat you're in has fitted (see shipyard.js), or null ashore. (Worked out once a frame.)
+let fitsCache = { t: -1, e: null };
+function fitsAboard() {
+  if (fitsCache.t === t) return fitsCache.e;
+  fitsCache = { t, e: !onFoot && !driving && boat ? fitEffect(state.yard, boat.kind) : null };
+  return fitsCache.e;
+}
 const CAP_WORDS = {
   line: 'With a line out she goes no faster than trolling speed: reel in for more.',
   fight: 'A fish on: dead slow at most, so it’s yours to play.',
@@ -2947,7 +2965,7 @@ function slideLever(push, dt) {
 function easeForCast() {
   const kind = leverKind();
   if (!kind) return false;
-  const v = within(kind, boat.lever, 'line');
+  const v = within(kind, boat.lever, fitsAboard()?.holders ? 'line+' : 'line');
   if (v !== boat.lever) {
     changeLever(v);
     hud.flash(`Throttle eased back to ${leverWords(kind, v)} for the cast. ${scheme() === 'touch' ? 'The lever' : K('throttleUp')} opens it up again (to trolling speed while your line’s out).`, t, 4);
@@ -3213,7 +3231,80 @@ function helmGauges() {
   if (P.trim) bits.push(tr > TRIM.max ? 'tilted' : `trim ${Math.round(tr)}°${boat.trimAuto && tr <= TRIM.max ? ' (auto)' : ''}`);
   if (E.temp >= 0.6) bits.push('<span class="lv-warn">HOT</span>');
   if (P.engines > 1 && !E.engines.every((x) => x.run)) bits.push('<span class="lv-warn">one engine</span>');
+  const nav = plotterNav();
+  if (nav) bits.push(nav);
   return bits.join(' · ');
+}
+// Each frame, the fittings of the boat you're in at work (see shipyard.js): the sonar's imaging
+// on the head unit, the deck lights after dark, the chartplotter's track, the radio's chatter,
+// and what they all draw on her starting battery with the engine off.
+let radioT = 90, batteryWarned = false;
+function updateFittings(dt) {
+  const e = fitsAboard();
+  finder.imaging = !!e?.sonar;
+  for (const b of boats) b.setDeckLights?.(!!(e?.lights && b === boat && env.night > 0.35));
+  if (!e) return;
+  // The chartplotter: a point on your track every fifteen metres or so (kept for the chart).
+  if (e.plotter) {
+    const T = (state.track ||= []), P = boat.pos, last = T[T.length - 1];
+    if (!last || Math.hypot(last[0] - P.x, last[1] - P.z) > 15) {
+      T.push([Math.round(P.x), Math.round(P.z)]);
+      if (T.length > TRACK_MAX) T.splice(0, T.length - TRACK_MAX);
+    }
+  }
+  // The radio: now and then, out on the water, what the harbour's saying.
+  if (e.vhf) {
+    radioT -= dt;
+    const P = boat.pos, home = Math.min(Math.hypot(P.x - HAVEN.x, P.z - HAVEN.z), Math.hypot(P.x - PUERTO_AT.x, P.z - PUERTO_AT.z));
+    if (radioT <= 0 && home > 200 && !modal) {
+      radioT = 150 + Math.random() * 120;
+      const line = radioLine();
+      if (line) {
+        hud.toast(`VHF · ${line}`, 7);
+        audio.page?.();
+      }
+    }
+  }
+  // What they draw, engine off (with the engine running, the alternator keeps up; a house
+  // battery takes it all; on Get in and go, nobody's counting).
+  const E = engines[boat.kind];
+  if (E && !e.house && startMode() !== 'go' && !engineRunning(E)) {
+    const amps = (e.sonar && finder.visible ? 1.2 : 0) + (e.plotter ? 1 : 0) + (e.vhf ? 0.5 : 0) + (e.livewell && state.keep.length ? 0.5 : 0) + (e.lights && env.night > 0.35 ? 6 : 0);
+    // (A hundred amp-hours, an hour of the game's clock every forty seconds.)
+    E.charge = Math.max(0, E.charge - amps * 0.00025 * dt);
+    if (amps && E.charge < 0.35 && !batteryWarned) {
+      batteryWarned = true;
+      hud.toast('The starting battery’s running down: the electronics and lights are on with the engine off. Start her for a while, or fit dual batteries at the Marine Works.', 8);
+    }
+  }
+  if (E && E.charge > 0.6) batteryWarned = false;
+}
+const TRACK_MAX = 600;
+// A line on the radio: birds working, what's about, or the forecast.
+function radioLine() {
+  const P = boat.pos, south = region === 'south';
+  const birds = south ? [] : birdsWorking(world.flocks, state.places);
+  const about = whatsAbout(eco, { x: P.x, z: P.z, reach: 600, max: 3, south });
+  const picks = [];
+  if (birds.length) picks.push(`“${birds[0]}”`);
+  if (about.length) picks.push(`“${about[0].sp.name} showing ${about[0].where || 'about'}.”`);
+  const sky = weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : weather.cloud > 0.3 ? 'Some cloud' : 'Clear';
+  if (!south) picks.push(`Harbour office: ${weatherLines(sky, clock.abs)[0]}`);
+  return picks.length ? picks[Math.floor(Math.random() * picks.length)] : '';
+}
+
+// The chartplotter at the helm: the nearest of your marks, its bearing and how far.
+function plotterNav() {
+  if (!fitsAboard()?.plotter || !state.pins.length) return '';
+  const P = boat.pos;
+  let best = null, bd = Infinity;
+  for (const pin of state.pins) {
+    const d = Math.hypot(pin.x - P.x, pin.z - P.z);
+    if (d < bd) { bd = d; best = pin; }
+  }
+  if (!best) return '';
+  const deg = (Math.round((Math.atan2(best.x - P.x, -(best.z - P.z)) * 180) / Math.PI) + 360) % 360;
+  return `⌖ ${bd < 1000 ? `${Math.round(bd / 10) * 10} m` : `${(bd / 1000).toFixed(1)} km`} ${String(deg).padStart(3, '0')}°`;
 }
 
 // A fish takes while you're under way: you knock the motor out of gear.
@@ -3607,10 +3698,12 @@ function comfortEnv() {
   const afloat = !onFoot && !driving;
   const rowing = afloat && !boat.motor && !boat.sailUp && boat.speed > 0.6;
   const spray = afloat ? smoothstep(4, 8, boat.speed) * smoothstep(0.2, 1, waveHeightHere(P.x, P.z)) + weather.storm * 0.4 : 0;
+  // (Under a bimini top: shade from the sun, and most of the rain off you.)
+  const shade = afloat && fitsAboard()?.bimini ? 1 : 0;
   return {
     hour: clock.hour, south: conditions.region === 'south', height: onFoot ? Math.max(0, walker.pos.y) : 0, warmth: seasonWarmth(clock.abs),
-    cloud: weather.cloud, rain: weather.rain, storm: weather.storm,
-    wind: w.speed * (onFoot ? 0.75 : 1), sun: (1 - env.night) * (1 - 0.85 * weather.cloud) * (1 - weather.rain),
+    cloud: weather.cloud, rain: weather.rain * (1 - 0.65 * shade), storm: weather.storm,
+    wind: w.speed * (onFoot ? 0.75 : 1), sun: (1 - env.night) * (1 - 0.85 * weather.cloud) * (1 - weather.rain) * (1 - 0.75 * shade),
     moving: onFoot ? smoothstep(0.4, 4.5, walker.speed) : rowing ? 0.6 : 0,
     shelter: indoors ? 1 : 0, fire, wading: onFoot ? walker.wading : 0, spray: clamp(spray, 0, 1),
   };
@@ -5997,7 +6090,17 @@ function applyYard() {
     const L = state.yard.looks[k] || {};
     b.repaint(L.paint ? PAINTS.find((p) => p.id === L.paint)?.hex : null);
     if ((L.name || '') !== (b.boatName || '')) b.setName(L.name || '');
+    // (What she carries, how hard her anchor holds, and her fittings to see.)
+    b.payload = payloadOf(k, e);
+    b.anchorHold = e.hold;
+    b.setFits?.(e.list);
   }
+}
+// What a boat carries beyond her own weight: her fittings, and fuel past what her standard tank
+// would hold (a long-range tank, full: heavier).
+function payloadOf(k, e = fitEffect(state.yard, k)) {
+  const extra = YARD_BASE.tanks[k] ? Math.max(0, fuelLevel(tanks(), k) - YARD_BASE.tanks[k]) : 0;
+  return e.kg + extra * (ENGINES[k]?.diesel ? 0.84 : 0.74);
 }
 applyYard();
 
@@ -7263,7 +7366,7 @@ function updateFirstPerson(dt) {
 // sonar, the down view, the two split) and then puts it away; otherwise it opens and closes it.
 function finderButton() {
   const F = state.finder;
-  if (finder.visible && finder.unit && F.page !== 'split') return finder.key('page');
+  if (finder.visible && finder.unit && finder.nextPage) return finder.key('page');
   if (finder.visible && finder.unit) F.page = 'sonar';
   toggleFinder();
 }
@@ -9128,7 +9231,8 @@ function tick(now, manual = false) {
     const electric = troll && throttle > 0 && throttle <= troll;
     if (boat.motor && !onFoot && (electric || ((!Eb || engineRunning(Eb)) && (throttle || Eb)))) {
       // (The sailing boat's outboard has no electric notches: it's hull.outboard, not hull.motor.)
-      const ran = burnBoat(f, boat.kind, throttle || 0.06, dt, throttle ? troll : 0);
+      // (The bass boat's trolling battery: a second one fitted, it lasts half as long again.)
+      const ran = burnBoat(f, boat.kind, throttle || 0.06, electric ? dt / (fitsAboard()?.troll || 1) : dt, throttle ? troll : 0);
       const what = scheme() === 'touch' ? 'tap the prompt' : K('interact');
       if (ran === 'dry') hud.flash(`The outboard splutters and stops: the tank is dry. An oar moves her along, slowly; stop, then ${what} for the jerry can or a tow.`, t, 6);
       if (ran === 'flat') hud.flash('The electric motor whines down: the battery is flat. It charges at a jetty, and overnight; the outboard still runs.', t, 5);
@@ -9138,12 +9242,14 @@ function tick(now, manual = false) {
     fuelCheckT -= dt;
     if (fuelCheckT <= 0) {
       fuelCheckT = 1;
+      for (const k of KINDS) BOATS[k].payload = payloadOf(k);
       if (!onFoot && isPetrol(boat.kind) && boat.motor) watchTank(boat.kind);
       if (driving) watchTank('car');
     }
   }
   if (started) {
     updateEngine(dt);
+    updateFittings(dt);
     watchHire();
   }
   boat.update(dt, t, throttle, steer, env.lantern);
@@ -9490,7 +9596,10 @@ function tick(now, manual = false) {
     if (Math.hypot(player().pos.x - HAVEN_ROOMS.inn.doorX, player().pos.z - HAVEN_ROOMS.inn.front) < 40) chalkKitchen();
     // The fish in your creel: on ice, or in a cool-lined creel, their freshness keeps.
     const nowH = state.day * 24 + state.hour;
-    if (chilledTo < nowH) chill(state, chilledTo, nowH);
+    // (Aboard a boat with a livewell, they're alive in it: no older for the market at all.)
+    if (chilledTo < nowH && fitsAboard()?.livewell) {
+      for (const f of state.keep) if (Number.isFinite(f.at) && !f.cooked) f.at = Math.min(nowH, f.at + (nowH - chilledTo));
+    } else if (chilledTo < nowH) chill(state, chilledTo, nowH);
     chilledTo = nowH;
     watchAdventures(dt);
     watchObservations(dt);
@@ -9654,6 +9763,7 @@ window.slowTide = {
   reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI, pads, sealife, wildlife, crossingLife, glow,
   // What the harbour's placed sounds come from just now (see earshot.js), and the town's boats.
   get around() { return around; }, town,
+  openHarbour: (where, tab) => openHarbour(where, tab), fitsAboard: () => fitsAboard(),
   // The first-trip guide as it stands: the step, its words and where it points.
   guideNow: () => ({ step: stepOf(state.guide), title: $('gd-title').textContent, text: $('gd-text').textContent, target: guideTarget, shown: !$('guide').hidden }),
   firstPerson: (on = true) => rig.setFirstPerson(on, t),

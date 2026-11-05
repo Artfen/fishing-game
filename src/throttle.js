@@ -114,12 +114,14 @@ export function nearest(kind, v) {
   return best;
 }
 
-// The highest notch allowed now: 'free' (nothing in the water), 'line' (a line out, or aiming)
-// or 'fight' (a fish on).
+// The highest notch allowed now: 'free' (nothing in the water), 'line' (a line out, or aiming),
+// 'line+' (a line out from proper trolling rod holders: a notch faster, see shipyard.js) or
+// 'fight' (a fish on).
 export function capIndex(kind, situation = 'free') {
   const L = LEVERS[kind];
   if (situation === 'fight') return indexOf(kind, FIGHT_MAX[kind]);
   if (situation === 'line') return indexOf(kind, LINE_MAX[kind]);
+  if (situation === 'line+') return Math.min(L.length - 1, indexOf(kind, LINE_MAX[kind]) + 1);
   return L.length - 1;
 }
 

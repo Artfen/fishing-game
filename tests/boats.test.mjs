@@ -25,6 +25,7 @@ const { waveHeight } = await import('../src/world/water.js');
 const { heightAt, PIERS } = await import('../src/world/terrain.js');
 const { ACTIONS, defaultBindings } = await import('../src/input.js');
 const P = await import('../src/gamepad.js');
+const { conditions } = await import('../src/world/conditions.js');
 
 const scene = new THREE.Scene();
 // Open water well clear of anything (south of the bay, past the shoal's edge).
@@ -415,3 +416,45 @@ test('at a walking pace and slower, a boat answers as she always did (for piers 
   assert.equal(surgeShare(1, 10), 1);
 });
 
+
+test('what a boat carries counts: fittings and fuel make her sit lower and go a little slower', () => {
+  const top = (payload) => {
+    const b = fresh('console');
+    b.payload = payload;
+    for (let i = 0; i < 40 * 30; i++) b.update(1 / 30, i / 30, 1, 0, 0);
+    return { v: b.forwardSpeed, m: b._phys.m };
+  };
+  const light = top(0), laden = top(400);
+  assert.equal(laden.m - light.m, 400);
+  assert.ok(laden.v < light.v - 0.15 && laden.v > light.v * 0.85, `${light.v.toFixed(2)} → ${laden.v.toFixed(2)} m/s with 400 kg aboard`);
+});
+
+test('an anchor drags in a storm, and a heavier one on chain holds', () => {
+  const was = conditions.manual;
+  conditions.manual = { speed: 22, from: Math.PI / 2 };
+  conditions.wind.speed = conditions.wind.target = 22;
+  conditions.wind.from = Math.PI / 2;
+  const drag = (hold) => {
+    const b = fresh('console');
+    b.anchorHold = hold;
+    b.update(1 / 30, 0, 0, 0, 0);
+    b.setAnchor(true, { instant: true });
+    let a0 = null;
+    for (let i = 0; i < 40 * 30; i++) {
+      b.update(1 / 30, i / 30, 0, 0, 0);
+      if (i === 10 * 30) a0 = { x: b.anchor.x, z: b.anchor.z };
+    }
+    return Math.hypot(b.anchor.x - a0.x, b.anchor.z - a0.z);
+  };
+  const ordinary = drag(1), heavy = drag(2.2);
+  conditions.manual = was;
+  conditions.wind.speed = conditions.wind.target = 0;
+  assert.ok(ordinary > 4, `the ordinary anchor dragged ${ordinary.toFixed(1)} m in 30 s`);
+  assert.ok(heavy < 0.5, `the heavy one ${heavy.toFixed(1)} m`);
+});
+
+test('proper rod holders let you troll a notch faster', () => {
+  for (const k of ['skiff', 'console', 'rib', 'cruiser']) {
+    assert.equal(Th.capIndex(k, 'line+'), Th.capIndex(k, 'line') + 1, k);
+  }
+});
