@@ -87,8 +87,10 @@ export function sailForce(ax, az, fx, fz, rx, rz, sheet, out = _out, rig = SAIL)
 }
 
 // What the telltales say, in words, and which way to go on the sheet (−1 haul in, +1 ease).
-export function trimAdvice(f) {
+// (over: how overpowered she is, 0 … 1: laid over in a blow, rounding up. See boat.js.)
+export function trimAdvice(f, over = 0) {
   if (f.state === 'irons') return { words: 'in irons: bear away', sheet: 0 };
+  if (over > 0.3) return { words: 'overpowered: ease out', sheet: 1 };
   if (f.state === 'luffing') return { words: 'luffing: haul in', sheet: -1 };
   if (f.state === 'stalled') return { words: 'stalled: ease out', sheet: 1 };
   if (f.awa > 2.6) return { words: 'running', sheet: 0 };

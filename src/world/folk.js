@@ -492,6 +492,20 @@ export class FolkView {
         fx.ripple(x - fw.x * H.L * 0.5, z - fw.z * H.L * 0.5, 1.2 + Math.abs(speed) * 0.25, 1.8, 0.5);
         glow?.spawn(x - fw.x * H.L * 0.5, z - fw.z * H.L * 0.5, 6, 0.8, 1, t);
       }
+      // (And white water off her shoulders once she's going: the bow wave breaking, a little at
+      // hull speed and more as she's pushed past it, thrown out each side and falling behind.)
+      const fn = Math.abs(speed) / Math.sqrt(9.81 * H.L);
+      const rate = fx.spray ? 50 * Math.max(0, fn - 0.3) * H.B : 0;
+      if (rate > 0 && speed > 0) {
+        const wy = waveHeight(x, z, t);
+        for (const side of [-1, 1]) {
+          for (let n = Math.floor(rate * dt + Math.random()); n > 0; n--) {
+            const ax = x + fw.x * H.L * 0.3 + -fw.z * side * H.B * 0.5, az = z + fw.z * H.L * 0.3 + fw.x * side * H.B * 0.5;
+            const out = speed * (0.12 + 0.15 * Math.random()), up = speed * (0.08 + 0.12 * Math.random());
+            fx.spray(ax, wy + 0.05, az, -fw.z * side * out + fw.x * speed * 0.3, up, fw.x * side * out + fw.z * speed * 0.3, wy - 0.35);
+          }
+        }
+      }
     }
   }
 }

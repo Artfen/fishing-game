@@ -56,6 +56,8 @@ import { Boat, BOAT_KINDS } from './boat.js';
 import { wakes } from './world/wakes.js';
 import { Walker } from './walker.js';
 import { Effects } from './effects.js';
+import { sprayPoints, sprayRate, sprayVelocity } from './spray.js';
+import { FoamTracks, FoamTrailView } from './world/foamTrails.js';
 import { buildSeaLife, SEA_LIFE } from './world/sealife.js';
 import { buildWildlife } from './world/wildlife.js';
 import { seeSign, readSign, SIGNS, SEEN_AT, stepColour, colourKey, colourWords, NATURE, noteNature, groundsOf, groundWords } from './grounds.js';
@@ -330,6 +332,22 @@ const drifters = new Drifters(scene, habitat);
 const eco = new Ecosystem(habitat);
 const fishRenderer = new FishRenderer(scene, eco);
 const fx = new Effects(scene);
+// The long white trails boats leave on the sea (see world/foamTrails.js).
+const foamTracks = new FoamTracks(), foamView = new FoamTrailView(scene);
+function updateFoamTrails(t) {
+  const now = t;
+  const lay = (b, churn) => {
+    if (!b.group.visible) return;
+    const H = b.hull;
+    foamTracks.note(b, b.pos.x - b.fwd.x * H.L * 0.5, b.pos.z - b.fwd.z * H.L * 0.5, b.heading, b.speed, H.B * 1.6, H.L, churn, now);
+  };
+  // (Yours in the water, the harbour's out and about, and any friends' or visitors'.)
+  for (const b of boats) if (!isStored(b.kind) && b.kind !== state.trailer?.boat) lay(b, b.motor && !b.dry ? Math.abs(b.power || 0) : 0);
+  for (const b of Object.values(folkView.boats)) lay(b, b.speed > 2 ? 0.6 : 0);
+  for (const b of visitors.boats()) lay(b, b.speed > 2 ? 0.6 : 0);
+  foamTracks.step(now);
+  foamView.update(foamTracks, now, t, camera.position.x, camera.position.z, 0.3 + 0.7 * env.daylight);
+}
 // The water mirrors the world and shows every ripple (both scale with the graphics setting).
 const reflection = new Reflection();
 const ripples = new RippleField();
@@ -3272,6 +3290,17 @@ function toggleSail() {
 // closer to the wind, out to let the sail breathe. On the helped setting it trims itself towards
 // the best angle whenever you leave it be.
 function sailInput(raw, dt) {
+  // (On the Helped trim, a hand besides yours eases it in the gusts; by hand, it's all yours.)
+  boat.sheetHelp = settings.controls.sailTrim === 'helped';
+  // Laid over and rounding up into the wind: say so, once a while, and feel her gripe.
+  if (boat.overpowered > 0.5 && boat.sailUp) {
+    if (t - overWarnT > 25) {
+      overWarnT = t;
+      hud.flash(state.tips.overpowered ? 'Overpowered: ease the sheet.' : `Overpowered! She’s laid right over and rounding up into the wind. Ease the sheet (${scheme() === 'touch' ? 'the stick down' : scheme() === 'pad' ? 'the stick down' : K('back')}) in the gusts, and she’ll stand up and answer her helm.`, t, state.tips.overpowered ? 2.5 : 6);
+      state.tips.overpowered = true;
+      haptics.pulse('warn', 0.7);
+    }
+  }
   const ui = sailUI.hold;
   const want = ui || (Math.abs(raw) > 0.2 ? -raw : 0);
   if (want) {
@@ -3279,12 +3308,14 @@ function sailInput(raw, dt) {
     sheetTouched = t;
   } else if (settings.controls.sailTrim === 'helped' && boat.sailing && t - sheetTouched > 2.5) {
     let best = bestSheet(boat.sailing.awa);
+    // (Pressed in a gust, laid over: it eases out past its best, spilling it, as a good hand would.)
+    best = Math.min(1, best + smoothstep(0.35, 0.6, Math.abs(boat.roll)) * 0.25);
     // (On a windsurf board in a strong wind it eases out past its best, spilling the gusts.)
     if (boat.hull.rig && boat.sailing.pull > 5.5) best = Math.min(1, best + (boat.sailing.pull - 5.5) * 0.09);
     boat.sheet += clamp(best - boat.sheet, -0.25 * dt, 0.25 * dt);
   }
 }
-let sheetTouched = -10;
+let sheetTouched = -10, overWarnT = -99;
 
 const windLines = new WindLines(scene);
 const stormFx = new Storm(scene);
@@ -3339,7 +3370,7 @@ function updateSailPanel() {
   const fromX = -w.x, fromZ = -w.z, f = boat.fwd, r = boat.right;
   const twa = Math.atan2(fromX * r.x + fromZ * r.z, fromX * f.x + fromZ * f.z);
   const up = boat.sailUp && !!A;
-  const advice = up ? trimAdvice(A) : null;
+  const advice = up ? trimAdvice(A, boat.overpowered) : null;
   sailUI.update({
     show: true, up: boat.sailUp, sheet: boat.sheet, best: up && A.state !== 'irons' ? bestSheet(A.awa) : null, board: !!boat.hull.rig,
     words: !boat.sailUp ? 'sail down' : boat.fallen > 0 ? 'in the water' : boat.anchored ? 'at anchor' : boat.tie ? 'tied up' : `${advice.words}${boat.planing > 0.6 ? ' · planing' : ''}`,
@@ -6606,7 +6637,7 @@ BOATS.jetski.onLand = (b, hit) => {
   audio.knock(clamp(hit / 3, 0.3, 1));
   if (!settings.controls.reducedMotion) rig.shake = Math.max(rig.shake, Math.min(0.22, hit * 0.07));
 };
-let jetSprayT = 0, bowSprayT = 0;
+let jetSprayT = 0;
 
 // Sea life: how loud and from which side a sound from (x, z) is, where you are.
 function heardFrom(x, z, range) {
@@ -7024,14 +7055,14 @@ function setName(name) {
 // One question instead of six (see playstyle.js): the fight, the fish, casting, the engine, the
 // throttle and the economy set together.
 function playStyleNow() {
-  return { difficulty: state.difficulty, behaviour: state.behaviour, cast: settings.controls.cast, technique: settings.controls.technique, start: settings.controls.start, throttle: settings.controls.throttle, economy: state.economy };
+  return { difficulty: state.difficulty, behaviour: state.behaviour, cast: settings.controls.cast, technique: settings.controls.technique, start: settings.controls.start, throttle: settings.controls.throttle, sailTrim: settings.controls.sailTrim, economy: state.economy };
 }
 function applyStyle(id) {
   const S = STYLES[id]?.set;
   if (!S) return;
   setDifficulty(S.difficulty);
   setBehaviour(S.behaviour);
-  Object.assign(settings.controls, { cast: S.cast, technique: S.technique, start: S.start, throttle: S.throttle });
+  Object.assign(settings.controls, { cast: S.cast, technique: S.technique, start: S.start, throttle: S.throttle, sailTrim: S.sailTrim });
   state.economy = S.economy;
   applyControls();
   save();
@@ -9131,18 +9162,17 @@ function tick(now, manual = false) {
       fx.splash(boat.pos.x - boat.fwd.x * 1.8, 0.1, boat.pos.z - boat.fwd.z * 1.8, Math.round(2 + 4 * k), 1.6 + 3 * k, 0.35);
     }
   }
-  // Spray off a fast boat's bow: sheets thrown out from her chines at speed, and a burst when she
-  // drops into a sea.
-  bowSprayT -= dt;
-  if (!onFoot && !dive && boat.motor && boat.kind !== 'jetski' && bowSprayT <= 0) {
-    const v = Math.abs(boat.forwardSpeed), H = boat.hull;
-    const k = clamp((v - 5) / 8, 0, 1), slam = clamp((boat.slam - 1.2) / 2.5, 0, 1);
-    if (k > 0 || slam > 0) {
-      bowSprayT = 0.05;
-      for (const side of [-1, 1]) {
-        const u = H.L * (0.2 - 0.12 * k), x = boat.pos.x + boat.fwd.x * u + boat.right.x * side * H.B * 1.05, z = boat.pos.z + boat.fwd.z * u + boat.right.z * side * H.B * 1.05;
-        const n = Math.round(k * 2.5 + slam * 9 + (Math.random() < k * 0.5 ? 1 : 0));
-        if (n) fx.splash(x, waveHeight(x, z, t) + 0.08, z, n, 1.1 + 1.8 * k + 3 * slam, 0.35 + slam * 0.8);
+  // Spray, where each hull meets the water (see spray.js): off your boat, and your others under way
+  // near you. Sheets off her chines at speed, white water off her shoulders, a burst as she drops
+  // into a sea, the lee side of a heeled sailing boat shouldering through the waves.
+  for (const b of boats) {
+    if (!b._phys?.P || b.speed < 1 || !b.group.visible || b._resting) continue;
+    if (b !== boat && Math.hypot(b.pos.x - camera.position.x, b.pos.z - camera.position.z) > 160) continue;
+    for (const p of sprayPoints(b._phys)) {
+      const n = Math.floor(sprayRate(p) * dt + Math.random());
+      for (let i = 0; i < n; i++) {
+        const v = sprayVelocity(p, b.vel.x, b.vel.z, Math.random(), Math.random());
+        fx.spray(p.x + (Math.random() - 0.5) * 0.2, p.y + 0.04, p.z + (Math.random() - 0.5) * 0.2, v[0], v[1], v[2], p.y - 0.35);
       }
     }
   }
@@ -9181,6 +9211,7 @@ function tick(now, manual = false) {
   ecoTick(dt);
   handleClues();
   fx.update(dt, t, boat);
+  updateFoamTrails(t);
   // The sea life round you, and (after dark, some nights more than others) the sea glowing
   // wherever it's stirred: fish darting near the surface, a moving lure, a diver's kicks.
   {

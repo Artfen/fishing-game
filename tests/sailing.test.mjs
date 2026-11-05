@@ -184,3 +184,77 @@ test('a gybe never stops the game: the camera’s shake is an amount to set, not
   const { readFileSync: read } = await import('node:fs');
   assert.ok(/this\.shake = 0/.test(read('src/camera.js', 'utf8')), 'the camera keeps shake as a number');
 });
+
+// Sailed by hand (no one easing the sheet in the gusts but you): `steps` seconds at the sheet
+// `sheetFn(b)` gives each moment. Returns what happened: how far she rounded up (rad, towards the
+// wind), her heel at its most and at the end, how overpowered at most, her speed at the end.
+function byHand(fromDeg, tws, secs, sheetFn, b = null, help = false) {
+  if (!b) {
+    b = sailing(fromDeg, tws, 0.5);
+    b.sheetHelp = help;
+  }
+  const wf = conditions.manual.from, wfx = Math.sin(wf), wfz = -Math.cos(wf);
+  const toWind = () => Math.acos(Math.max(-1, Math.min(1, b.fwd.x * wfx + b.fwd.z * wfz)));
+  const a0 = b._a0 ?? (b._a0 = toWind());
+  let up = 0, heel = 0, over = 0, told = false;
+  b._t ??= 0;
+  for (let i = 0; i < secs * 60; i++) {
+    b._t += 1 / 60;
+    b.sheet = sheetFn(b);
+    b.update(1 / 60, b._t, 0, 0, 0);
+    up = Math.max(up, a0 - toWind());
+    heel = Math.max(heel, Math.abs(b.roll));
+    over = Math.max(over, b.overpowered);
+    // (What the telltales said while she was overpowered.)
+    if (b.overpowered > 0.3 && b.sailing && S.trimAdvice(b.sailing, b.overpowered).sheet === 1) told = true;
+  }
+  return { b, up, heel, over, told, heelNow: Math.abs(b.roll), v: b.forwardSpeed };
+}
+const best = (b) => (b.sailing ? S.bestSheet(b.sailing.awa) : 0.5);
+
+test('trimmed right in a fresh breeze, by hand, she stands up to it and holds her course', () => {
+  for (const deg of [45, 60, 90]) {
+    const r = byHand(deg, 8, 25, best);
+    assert.ok(r.over < 0.2, `${deg}°: overpowered ${r.over.toFixed(2)}`);
+    assert.ok(r.up < 0.15, `${deg}°: rounded up ${(r.up * 57.3).toFixed(0)}°`);
+    r.b.group.removeFromParent();
+  }
+});
+
+// The wind freshening to tws (a strong gust coming through, that stays a while).
+const freshen = (tws) => {
+  conditions.manual.speed = tws;
+  conditions.wind.speed = conditions.wind.target = tws;
+};
+
+test('a strong gust with the sheet held in, by hand: she’s overpowered and rounds up into the wind; ease the sheet and she stands up again', () => {
+  const r0 = byHand(60, 8, 15, best);
+  assert.ok(r0.over < 0.2);
+  // The gust: the sheet held where it was.
+  const held = r0.b.sheet;
+  freshen(12.5);
+  const r = byHand(60, 12.5, 15, () => held, r0.b);
+  assert.ok(r.over > 0.7, `overpowered ${r.over.toFixed(2)}`);
+  assert.ok(r.heel > 0.6, `laid over ${(r.heel * 57.3).toFixed(0)}°`);
+  assert.ok(r.up > 0.35, `rounded up ${(r.up * 57.3).toFixed(0)}° though the helm holds her`);
+  // The telltales said so: ease out.
+  assert.ok(r.told);
+  // Eased: upright again, and answering her helm.
+  const e = byHand(60, 12.5, 12, (b) => Math.min(1, best(b) + 0.3), r.b);
+  assert.ok(e.heelNow < 0.2, `upright again: ${(e.heelNow * 57.3).toFixed(0)}°`);
+  assert.ok(e.b.overpowered < 0.1);
+  r.b.group.removeFromParent();
+});
+
+test('on the Helped trim a hand besides yours eases her in the gusts: she rounds up far less', () => {
+  const run = (help) => {
+    const r0 = byHand(60, 8, 15, best, null, help);
+    const held = r0.b.sheet;
+    freshen(12.5);
+    const r = byHand(60, 12.5, 15, () => held, r0.b);
+    r.b.group.removeFromParent();
+    return r;
+  };
+  const hand = run(false), helped = run(true);
+  assert.ok(helped.up < hand.up * 0.5 && helped.over < hand.over, `rounded up ${(helped.up * 57.3).toFixed(0)}° helped, ${(hand.up * 57.3).toFixed(0)}° by hand`);
+});

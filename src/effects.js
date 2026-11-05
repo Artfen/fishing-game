@@ -6,7 +6,42 @@ import { hideFromReflection } from './world/waterfx.js';
 const WAKE_POINTS = 70;
 const WAKE_LIFE = 3.6;
 
-// Water effects: ripple rings, splash droplets, the boat's wake, and leaping fish.
+// A pool of N drops drawn as soft points (size m, opacity): each flies, falls and is gone once it
+// drops below the water it came from (pf) or its time is up.
+function dropPool(scene, N, size, opacity) {
+  const pp = new Float32Array(N * 3).fill(-999);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pp, 3));
+  const points = new THREE.Points(g, new THREE.PointsMaterial({ size, map: glowTexture(), transparent: true, depthWrite: false, color: '#f3f7fa', opacity }));
+  points.frustumCulled = false;
+  points.renderOrder = 4;
+  scene.add(points);
+  return { N, pp, pv: new Float32Array(N * 3), pl: new Float32Array(N), pf: new Float32Array(N).fill(-0.15), points, i: 0 };
+}
+// (drag: how fast the air slows them, per second.)
+function stepDrops(D, dt, drag) {
+  const k = drag ? Math.exp(-drag * dt) : 1, { pp, pv, pl, pf } = D;
+  for (let i = 0; i < D.N; i++) {
+    if (pl[i] <= 0) continue;
+    pl[i] -= dt;
+    if (drag) {
+      pv[i * 3] *= k;
+      pv[i * 3 + 1] *= k;
+      pv[i * 3 + 2] *= k;
+    }
+    pv[i * 3 + 1] -= 9.8 * dt;
+    pp[i * 3] += pv[i * 3] * dt;
+    pp[i * 3 + 1] += pv[i * 3 + 1] * dt;
+    pp[i * 3 + 2] += pv[i * 3 + 2] * dt;
+    if (pp[i * 3 + 1] < pf[i] || pl[i] <= 0) {
+      pl[i] = 0;
+      pp[i * 3 + 1] = -999;
+    }
+  }
+  D.points.geometry.attributes.position.needsUpdate = true;
+}
+
+// Water effects: ripple rings, splash droplets, spray, the boat's wake, and leaping fish.
 export class Effects {
   constructor(scene) {
     this.scene = scene;
@@ -23,19 +58,10 @@ export class Effects {
     }
     this.ri = 0;
 
-    this.N = 500;
-    this.pp = new Float32Array(this.N * 3).fill(-999);
-    this.pv = new Float32Array(this.N * 3);
-    this.pl = new Float32Array(this.N);
-    const pg = new THREE.BufferGeometry();
-    pg.setAttribute('position', new THREE.BufferAttribute(this.pp, 3));
-    this.points = new THREE.Points(pg, new THREE.PointsMaterial({
-      size: 0.16, map: glowTexture(), transparent: true, depthWrite: false, color: '#f3f7fa', opacity: 0.9,
-    }));
-    this.points.frustumCulled = false;
-    this.points.renderOrder = 4;
-    scene.add(this.points);
-    this.pi = 0;
+    // Drops: a splash's (bright, quick), and the spray off the hulls under way (see spray.js):
+    // finer, softer drops in sheets and bursts, which the air soon slows.
+    this.drops = dropPool(scene, 600, 0.16, 0.9);
+    this.mist = dropPool(scene, 1400, 0.3, 0.6);
 
     this.buildWake();
     // Flashes: a fish turning just under the surface catches the light for a moment.
@@ -69,7 +95,8 @@ export class Effects {
     this.glow = null;  // the sea glowing at night (see world/seaglow.js): splashes and wakes light it
     for (const r of this.ripples) hideFromReflection(r.m);
     for (const f of this.flashes) hideFromReflection(f.m);
-    hideFromReflection(this.points);
+    hideFromReflection(this.drops.points);
+    hideFromReflection(this.mist.points);
     hideFromReflection(this.wake);
   }
 
@@ -114,17 +141,40 @@ export class Effects {
 
   splash(x, y, z, n = 12, power = 2.2, spread = 1) {
     if (y < 0.6) this.glow?.spawn(x, z, Math.round(n * 0.8), 0.4 + spread * 0.5, 0.6 + power * 0.25);
+    const D = this.drops;
     for (let k = 0; k < n; k++) {
-      const i = this.pi++ % this.N;
-      this.pp[i * 3] = x + rand(-0.15, 0.15) * spread;
-      this.pp[i * 3 + 1] = y;
-      this.pp[i * 3 + 2] = z + rand(-0.15, 0.15) * spread;
+      const i = D.i++ % D.N;
+      D.pp[i * 3] = x + rand(-0.15, 0.15) * spread;
+      D.pp[i * 3 + 1] = y;
+      D.pp[i * 3 + 2] = z + rand(-0.15, 0.15) * spread;
       const a = rand(0, Math.PI * 2), s = rand(0.3, 1) * power * 0.4 * spread;
-      this.pv[i * 3] = Math.cos(a) * s;
-      this.pv[i * 3 + 1] = rand(0.6, 1.2) * power;
-      this.pv[i * 3 + 2] = Math.sin(a) * s;
-      this.pl[i] = 1.6;
+      D.pv[i * 3] = Math.cos(a) * s;
+      D.pv[i * 3 + 1] = rand(0.6, 1.2) * power;
+      D.pv[i * 3 + 2] = Math.sin(a) * s;
+      D.pl[i] = 1.6;
+      D.pf[i] = -0.15;
     }
+  }
+
+  // A drop of spray thrown from (x, y, z) at (vx, vy, vz), gone once it falls back below `floor`
+  // (the water it came off, a little under it).
+  spray(x, y, z, vx, vy, vz, floor = y - 0.3) {
+    const D = this.mist, i = D.i++ % D.N;
+    D.pp[i * 3] = x;
+    D.pp[i * 3 + 1] = y;
+    D.pp[i * 3 + 2] = z;
+    D.pv[i * 3] = vx;
+    D.pv[i * 3 + 1] = vy;
+    D.pv[i * 3 + 2] = vz;
+    D.pl[i] = 1.6;
+    D.pf[i] = floor;
+  }
+
+  // How many drops are in the air just now.
+  get flying() {
+    let n = 0;
+    for (const D of [this.drops, this.mist]) for (let i = 0; i < D.N; i++) if (D.pl[i] > 0) n++;
+    return n;
   }
 
   buildWake() {
@@ -227,19 +277,8 @@ export class Effects {
       if (r.life <= 0) r.m.visible = false;
     }
 
-    for (let i = 0; i < this.N; i++) {
-      if (this.pl[i] <= 0) continue;
-      this.pl[i] -= dt;
-      this.pv[i * 3 + 1] -= 9.8 * dt;
-      this.pp[i * 3] += this.pv[i * 3] * dt;
-      this.pp[i * 3 + 1] += this.pv[i * 3 + 1] * dt;
-      this.pp[i * 3 + 2] += this.pv[i * 3 + 2] * dt;
-      if (this.pp[i * 3 + 1] < -0.15 || this.pl[i] <= 0) {
-        this.pl[i] = 0;
-        this.pp[i * 3 + 1] = -999;
-      }
-    }
-    this.points.geometry.attributes.position.needsUpdate = true;
+    stepDrops(this.drops, dt, 0);
+    stepDrops(this.mist, dt, 1.4);
 
     for (const f of this.flashes) {
       if (f.life <= 0) continue;
