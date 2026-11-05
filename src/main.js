@@ -7852,8 +7852,9 @@ function placeFriendMarkers() {
       friendMarkers.set(p.id, el);
     }
     const P = p.view || p.pose, A = p.at;
-    // (Their latest call shows with their name for a few seconds; a fish on, while it's on.)
-    const call = p.call && together.clock - p.call.at < 7 ? p.call.text : P.o ? 'fish on!' : '';
+    // (Their latest call shows with their name for a few seconds; a fish on, while it's on, with
+    // what it's doing; a catch, what it was, for a few seconds after.)
+    const call = p.call && together.clock - p.call.at < 7 ? p.call.text : P.o ? FISH_MOVE_WORDS[P.mv] || 'fish on!' : p.landed && together.clock - p.landed.at < 8 ? p.landed.text : '';
     const text = P.m === 'dive' ? `${p.name} (diving)` : P.m === 'car' ? `${p.name} (driving)` : p.name;
     const nameEl = el.querySelector('.m-name');
     if (nameEl.textContent !== text) nameEl.textContent = text;
@@ -7941,12 +7942,16 @@ function whereIAm() {
   // water, or to the fish.)
   const gear = fishing.lineOut ? { r: fishing.rod?.id, i: fishing.item?.id } : null;
   if (gear && fishing.baitInWater) {
-    const e = fishing.state === 'reeling' ? fishing.fishPos : fishing.bob;
-    Object.assign(gear, { ex: e.x, ez: e.z, tn: fishing.fight?.tension });
+    const e = fishing.state === 'reeling' ? fishing.fishPos : fishing.bob, F = fishing.fight;
+    Object.assign(gear, { ex: e.x, ez: e.z, tn: F?.tension });
+    // (What the fish is doing, so they can see it at the end of your line.)
+    if (F && !F.atNet) gear.mv = F.jumping > 0 ? 'jump' : F.shakeT > 0 ? 'shake' : F.move === 'charge' ? 'charge' : F.move === 'sound' ? 'sound' : F.move === 'circle' && !F.pulling ? 'circle' : F.pulling ? (F.move === 'dive' || F.move === 'longrun' ? F.move : 'run') : undefined;
   }
   if (onFoot) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: sitting ? 'sit' : fishing.lineOut ? 'fish' : walker.speed > 0.4 ? 'walk' : 'stand', o: on, ...gear };
   return { m: 'boat', k: boat.kind, x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), o: on, ...gear };
 }
+// A friend's fish, as it fights at the end of their line.
+const FISH_MOVE_WORDS = { run: 'fish on! it’s running', jump: 'fish on! it’s leaping', shake: 'fish on! head-shaking', charge: 'fish on! it’s charging', dive: 'fish on! it’s diving', longrun: 'fish on! a long run', sound: 'fish on! it’s sounding', circle: 'fish on! it’s circling' };
 // What a friend is fishing with, in a few words: "light rod, spinner".
 const gearWords = (P) => {
   const R = RODS[P?.r], I = TACKLE[P?.i];
@@ -8042,7 +8047,12 @@ together.onEvent = (kind, p, data) => {
   else if (kind === 'joined') hud.toast(`You’re playing with ${p?.name || 'your friend'}. Look for their name on the screen: it points the way to them.`, 7);
   else if (kind === 'catch') {
     const sp = fishById[data.sp];
-    if (sp) hud.toast(`${p.name} caught ${data.first ? 'their first' : 'a'} ${sp.name.toLowerCase()}, ${kgWords(data.kg)}${data.best ? ': their best yet' : ''}.`, 5);
+    if (sp) {
+      hud.toast(`${p.name} caught ${data.first ? 'their first' : 'a'} ${sp.name.toLowerCase()}, ${kgWords(data.kg)}${data.best ? ': their best yet' : ''}.`, 5);
+      // (Over them for a few seconds; and on foot, they hold it up for you to see.)
+      p.landed = { text: `${sp.name.toLowerCase()}, ${kgWords(data.kg)}!`, at: together.clock };
+      visitors.holdUp(p.id, data.kg);
+    }
   } else if (kind === 'ended') hud.toast(p ? `${p.name} ended the session.` : data?.hostGone ? `${data.name[0].toUpperCase()}${data.name.slice(1)} didn’t come back, so the session has ended. Your own time and weather are back.` : 'The connection to your session was lost, so you’ve left it.', 7);
   else if (kind === 'find') friendFind(p, data);
   else if (kind === 'lost') hud.toast('Lost the connection to your session. Trying again…', 4);
