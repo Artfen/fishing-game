@@ -275,12 +275,12 @@ export class SettingsUI {
     })));
     out.push(this.row('Share what you find', 'Places and dive sites you find, what you find on a wreck, and how you caught a new kind of fish go to your friends’ maps as marks with your name on them. You can also send any of your own marks from the map.', this.toggle('player', 'share', 'Share', 'Keep to myself')));
     // A friend code (see giftcodes.js): for friends and testers.
-    out.push(this.row('Friend code', 'Got a code from a friend? It gives you every boat at Willowhaven Marine Works and £100 in your purse (once for each game).', this.field('tg-gift', {
+    out.push(this.row('Friend code', 'Got a code from a friend? Codes give boats at Willowhaven Marine Works, money for your purse, or both (each code once for each game).', this.field('tg-gift', {
       value: this.drafts.gift ?? '', placeholder: 'FRIEND-CODE', max: 40, button: 'Redeem', label: 'Friend code',
       draft: (v) => { this.drafts.gift = v; },
       run: async (v) => {
         const r = await this.hooks.redeem(v);
-        this.giftNote = r.ok ? `Welcome aboard! Every boat at the Marine Works is yours, and £${r.gift.money} is in your purse.` : r.why;
+        this.giftNote = r.ok ? (r.gift.boats ? `Welcome aboard! Every boat at the Marine Works is yours${r.gift.money ? `, and £${r.gift.money.toLocaleString('en-GB')} is in your purse` : ''}.` : `£${r.gift.money.toLocaleString('en-GB')} is in your purse.`) : r.why;
         if (r.ok) this.drafts.gift = '';
         this.render();
       },
