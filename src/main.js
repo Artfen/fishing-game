@@ -10389,11 +10389,16 @@ function tick(now, manual = false) {
     watchHire();
   }
   boat.update(dt, t, throttle, steer, env.lantern);
-  // (The others: any lying still a long way from you rest; see Boat.update.)
+  // (The others: any lying still a long way from you rest; so do any tied up or at anchor out of
+  // your way, thirty metres from you and from where you're looking (a little nearer before they
+  // wake, so they don't flicker between the two at the edge). See Boat.update.)
+  const me = player().pos;
   for (const b of boats) {
     if (b === boat) continue;
-    const far = Math.hypot(b.pos.x - camera.position.x, b.pos.z - camera.position.z) > 140 && !(tow && (tow.lead === b || tow.towed === b));
-    b.update(dt, t, 0, 0, env.lantern, far);
+    const towed = !!tow && (tow.lead === b || tow.towed === b);
+    const d = Math.hypot(b.pos.x - camera.position.x, b.pos.z - camera.position.z), r = b._resting ? 26 : 30;
+    const aside = !towed && d > r && Math.hypot(b.pos.x - me.x, b.pos.z - me.z) > r;
+    b.update(dt, t, 0, 0, env.lantern, d > 140 && !towed ? true : aside ? 'moored' : false);
   }
   for (const b of strays.values()) b.update(dt, t, 0, 0, env.lantern, !(tow && tow.towed === b) && Math.hypot(b.pos.x - camera.position.x, b.pos.z - camera.position.z) > 140);
   // The wind lines: round the boat while you sail (or wherever you are, if you like them always).

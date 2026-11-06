@@ -172,6 +172,73 @@ test('every jetty and quay has a berth alongside; she lies along it and stays th
   });
 });
 
+test('tied up or anchored out of your way, she rests once settled, still afloat, and wakes when anything moves her', (t) => {
+  // (The clock put back after: the tests after this one meet the sea they always did.)
+  const clock0 = clock;
+  t.after(() => { clock = clock0; });
+  const P = PIERS[0], long = P.x1 - P.x0 >= P.z1 - P.z0;
+  let b = null, B = null;
+  for (const side of [-1, 1]) for (let u = 0.2; u <= 0.8 && !B; u += 0.1) {
+    const x = long ? P.x0 + (P.x1 - P.x0) * u : (side < 0 ? P.x0 - 2.4 : P.x1 + 2.4);
+    const z = long ? (side < 0 ? P.z0 - 2.4 : P.z1 + 2.4) : P.z0 + (P.z1 - P.z0) * u;
+    b = boatAt('skiff', x, z, long ? Math.PI / 2 : 0);
+    if (solidHeight(x, z) > -(b.hull.draft + 0.2)) continue;
+    B = M.berthFor(b, []);
+  }
+  b.tieTo(B);
+  const moored = (secs, boat = b) => {
+    for (let i = 0; i < secs * 30; i++) {
+      clock += 1 / 30;
+      boat.update(1 / 30, clock, 0, 0, 0, 'moored');
+    }
+  };
+  // (Not while she's still easing in to her berth: only once she's lain still a while.)
+  moored(1);
+  assert.ok(!b._resting, 'not yet settled');
+  moored(8);
+  assert.ok(b._resting, 'resting at her berth');
+  // Resting, she still sits on the water and rides it, where she lay.
+  const at = b.pos.clone();
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < 90; i++) {
+    moored(1 / 30);
+    const y = b.group.position.y + b.hull.draft - b.heave;
+    assert.ok(Math.abs(y) < 1e-9);
+    lo = Math.min(lo, b.heave);
+    hi = Math.max(hi, b.heave);
+  }
+  assert.ok(b._resting && b.pos.distanceTo(at) === 0);
+  assert.ok(hi > lo && hi - lo < 0.5, `rising and falling on the swell (${(hi - lo).toFixed(3)} m)`);
+  // A shove (a hand on her gunwale, another boat): she wakes and is worked out again.
+  b.vel.x += 0.3;
+  moored(1 / 30);
+  assert.ok(!b._resting, 'woken by a nudge');
+  // She settles back down and rests again; near you (far false) she's always worked out.
+  moored(8);
+  assert.ok(b._resting);
+  run(b, 1 / 30);
+  assert.ok(!b._resting, 'awake when you come near');
+  // Loose (cast off), out of your way, she's never rested short of the far distance.
+  b.tie = null;
+  moored(8);
+  assert.ok(!b._resting, 'drifting free, she keeps being worked out');
+  // At anchor: not while it's going down, nor while she's sheering about on her rope in a seaway.
+  const at4 = fourMetres(), a = boatAt('row', at4.x, at4.z, 0);
+  a.setAnchor(true);
+  moored(0.5, a);
+  assert.ok(a.anchor.phase === 'drop' && !a._resting, 'the anchor still going down');
+  let swinging = 0, rested = 0;
+  for (let i = 0; i < 30 * 20; i++) {
+    moored(1 / 30, a);
+    if (Math.hypot(a._phys.v[0], a._phys.v[2]) > 0.15) {
+      swinging++;
+      if (a._resting) rested++;
+    }
+  }
+  assert.equal(a.anchor.phase, 'set');
+  assert.ok(swinging > 100 && rested === 0, `worked out all the while she swings (${swinging} frames)`);
+});
+
 test('no berth when she’s too far off or the place is taken, and no casting off into another boat', () => {
   const P = PIERS[5]; // Willowhaven quay
   const far = boatAt('skiff', P.x1 + 12, (P.z0 + P.z1) / 2, 0);
