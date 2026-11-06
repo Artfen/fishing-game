@@ -1,5 +1,6 @@
 import { runShare, trimEffect } from './engine.js';
 import { Dashboard, DASHES } from './dashboard.js';
+import { TROLL_BOATS } from './trolling.js';
 import * as THREE from 'three';
 import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat, wrapAngle } from './util.js';
 import { waveHeight } from './world/water.js';
@@ -1651,6 +1652,42 @@ export class Boat {
   }
 
   // The deck floodlights on or off (see setFits).
+  // The bow trolling motor's model: its mount on the foredeck, the shaft that swings down through
+  // the bow roller into the water, the motor head at its foot with its propeller.
+  buildTroll() {
+    const H = this.hull, tb = 0.5 + (TROLL_BOATS[this.kind] ?? 0.45);
+    const group = new THREE.Group();
+    group.position.set(0, sheer(H, tb) + 0.02, zAt(H, tb));
+    const dark = new THREE.MeshStandardMaterial({ color: '#1d2125', roughness: 0.5, metalness: 0.2 });
+    const steel = new THREE.MeshStandardMaterial({ color: '#b9bec2', roughness: 0.35, metalness: 0.6 });
+    group.add(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.06, 0.34), dark));
+    const swing = new THREE.Group();
+    swing.position.set(0, 0.03, 0.12);
+    group.add(swing);
+    const len = Math.max(0.9, (H.D || 0.6) + 0.75);
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, len, 8), steel);
+    shaft.position.y = -len / 2;
+    swing.add(shaft);
+    const head = new THREE.Group();
+    head.position.y = -len;
+    swing.add(head);
+    head.add(new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.2, 4, 10).rotateX(Math.PI / 2), dark));
+    const prop = new THREE.Group();
+    prop.position.z = -0.16;
+    for (let i = 0; i < 2; i++) {
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.035, 0.01), dark);
+      blade.rotation.z = (i * Math.PI) / 2;
+      prop.add(blade);
+    }
+    head.add(prop);
+    // (The control head on top, where the foot pedal's cable or the remote's receiver goes.)
+    const top = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.07, 0.14), dark);
+    top.position.y = 0.06;
+    swing.add(top);
+    this.body.add(group);
+    this.trollRig = { group, swing, head, prop };
+  }
+
   setDeckLights(on) {
     if (!this.deckLight) return;
     const want = on ? 3.2 : 0;
@@ -2559,6 +2596,12 @@ export class Boat {
       ground: solidHeight,
       contact: null,
     });
+    // A bow trolling motor (see trolling.js): its push under the bow, the way its head points. (It
+    // lifts out in a big sea as her bow does, and pushes nothing while it's out: vent.)
+    if (this.troll?.f > 0 && this.troll.deployed) {
+      const tb = 0.5 + (TROLL_BOATS[this.kind] ?? 0.45);
+      b.thrusters.push({ p: [0, H.keel(tb) - 0.45, zAt(H, tb)], d: dirAt(this.troll.angle), f: this.troll.f, vent: 0.12 });
+    }
     env.t = t - dt;
     this.lastT = t;
     this.lastSeq = ++SEQ.n;
@@ -3063,6 +3106,17 @@ export class Boat {
     }
     // The kayak's motor: up out of the water, down, or kicked up in the shallows; it turns a little
     // with the rudder.
+    // The bow trolling motor: swung down off its mount into the water, its head turning (see trolling.js).
+    if (this.troll && !this.trollRig) this.buildTroll();
+    if (this.trollRig) {
+      const T = this.troll, R = this.trollRig;
+      R.group.visible = !!T;
+      if (T) {
+        R.swing.rotation.x = (1 - T.down) * 1.5;
+        R.head.rotation.y = damp(R.head.rotation.y, T.angle, 8, dt);
+        R.prop.rotation.z += dt * 40 * Math.min(1, T.f / 60);
+      }
+    }
     if (this.emotorGroup) {
       const want = !this.emotorDown ? 1.35 : this.tilted ? 0.55 : 0;
       this.emotorGroup.rotation.x = damp(this.emotorGroup.rotation.x, want, 3.5, dt);

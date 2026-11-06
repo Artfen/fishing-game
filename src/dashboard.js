@@ -13,6 +13,7 @@
 
 import * as THREE from 'three';
 import { PROFILES, TRIM } from './engine.js';
+import { canTroll } from './trolling.js';
 
 const KNOTS = 1.9438;
 // (Controls a little larger to hit than they look.)
@@ -56,7 +57,7 @@ export const DASHES = {
       // (Kept low enough to clear her windscreen.)
       screen: { at: [0.19, 0.05], w: 0.32, h: 0.165, lean: 1.1 },
       gauges: { at: [-0.19, 0.05], w: 0.34, h: 0.145, lean: 1.1 },
-      switches: { battery: [0.32, -0.08], lights: [0.25, -0.08], horn: [0.18, -0.08], glow: [0.11, -0.08], key: [-0.17, -0.08], key0: [-0.14, -0.08], key1: [-0.21, -0.08], cord: [-0.29, -0.08] },
+      switches: { battery: [0.32, -0.08], lights: [0.25, -0.08], horn: [0.18, -0.08], troll: [0.11, -0.08], lock: [0.05, -0.08], key: [-0.17, -0.08], key0: [-0.14, -0.08], key1: [-0.21, -0.08], cord: [-0.29, -0.08] },
       throttle: { at: [hx - 0.47, y0 + 0.93, cz - 0.22] },
       lights: { side: [[0.37, y0 + 0.88, cz + 0.3], [-0.37, y0 + 0.88, cz + 0.3]], stern: [0, y0 + 2.25, hz + 0.2 - 0.85] },
     };
@@ -75,6 +76,8 @@ const CONTROLS = {
   throttle: { name: 'Throttle and gear', kind: 'lever' },
   trimUp: { name: 'Trim up', kind: 'hold' },
   trimDown: { name: 'Trim down', kind: 'hold' },
+  troll: { name: 'Trolling motor', kind: 'tap' },
+  lock: { name: 'Spot-Lock', kind: 'tap' },
 };
 export const CONTROL_NAMES = Object.fromEntries(Object.entries(CONTROLS).map(([k, v]) => [k, v.name]));
 
@@ -92,6 +95,8 @@ export function controlsFor(kind) {
   if (P.diesel) out.push('glow');
   out.push('lights', 'horn', 'screen', 'throttle');
   if (P.trim === 'power') out.push('trimUp', 'trimDown');
+  // (The bow trolling motor's switches, on a boat that can take one: there only once it's fitted.)
+  if (canTroll(kind) && DASHES[kind]) out.push('troll', 'lock');
   return out;
 }
 // What turning the key does (E: the engine room, see engine.js; which: an engine's index on twin
@@ -255,6 +260,10 @@ export class Dashboard {
       g.add(lever);
       g.userData.lever = lever;
       g.userData.lamp = add(new THREE.SphereGeometry(0.004, 8, 6), mat('#0f3a12', { emissive: '#000000' }), 0.012, 0.006, 0.012);
+    } else if (base === 'troll' || base === 'lock') {
+      // The trolling motor's toggle (a blue lamp while it's down) and Spot-Lock's button (green).
+      add(new THREE.CylinderGeometry(0.014, 0.014, 0.008, 14), m.dark, 0, 0.004, 0);
+      g.userData.lamp = add(new THREE.CylinderGeometry(0.009, 0.009, 0.008, 14), mat(base === 'troll' ? '#10243a' : '#0f3a12', { emissive: '#000000' }), 0, 0.011, 0);
     } else if (base === 'horn') {
       // A big black push button.
       add(new THREE.CylinderGeometry(0.017, 0.017, 0.006, 16), m.dark, 0, 0.003, 0);
@@ -357,6 +366,16 @@ export class Dashboard {
       A.lights += ((S.lights ? 1 : 0) - A.lights) * k(18);
       c('lights').lever.rotation.x = 0.5 - A.lights;
       c('lights').lamp.material.emissive.set(S.lights && S.powered ? '#2aff5a' : '#000000');
+    }
+    // The trolling motor's switches: only once one's fitted; lit while it's down, and while it holds.
+    for (const id of ['troll', 'lock']) {
+      const C = this.controls.get(id);
+      if (!C) continue;
+      const shown = !!S.troll?.fitted && (id === 'troll' || S.troll.gps);
+      C.group.visible = shown;
+      C.hidden = !shown;
+      const lit = id === 'troll' ? S.troll?.down : S.troll?.lock;
+      C.group.userData.lamp.material.emissive.set(lit && S.powered ? (id === 'troll' ? '#3a9cff' : '#2aff5a') : '#000000');
     }
     if (c('horn')?.cap) {
       A.horn += ((S.horn ? 1 : 0) - A.horn) * k(30);
@@ -496,10 +515,11 @@ export class Dashboard {
       ['FUEL', S.fuel < 0.12],
       ...(this.P.trim ? [['LEG', S.trim >= TRIM.out && S.running]] : []),
       ...(this.P.diesel ? [['GLOW', S.glow]] : []),
+      ...(S.troll?.gps ? [['LOCK', S.troll.lock]] : []),
     ];
     lamps.forEach(([label, on], i) => {
       const x = 22 + i * 58, y = 222;
-      g.fillStyle = lit && (on || test) ? (label === 'GLOW' ? '#ffae3a' : '#ff4a3a') : '#1d1012';
+      g.fillStyle = lit && (on || test) ? (label === 'GLOW' ? '#ffae3a' : label === 'LOCK' ? '#3aff6a' : '#ff4a3a') : '#1d1012';
       g.beginPath();
       g.arc(x, y, 8, 0, Math.PI * 2);
       g.fill();
@@ -579,14 +599,14 @@ export class Dashboard {
 
   // The control under a ray (a THREE.Raycaster), or null.
   pick(ray) {
-    const hits = ray.intersectObjects([...this.controls.values()].map((c) => c.hit), false);
+    const hits = ray.intersectObjects([...this.controls.values()].filter((c) => !c.hidden).map((c) => c.hit), false);
     return hits.length ? this.controls.get(hits[0].object.userData.control) : null;
   }
 
   // The control next to `id` in a direction ('left', 'right', 'up', 'down': as the helmsman sees
   // them), for moving round with a controller; or the first one.
   neighbour(id, dir) {
-    const list = [...this.controls.values()];
+    const list = [...this.controls.values()].filter((c) => !c.hidden);
     const from = this.controls.get(id);
     if (!from) return list[0] || null;
     // (Port is to the helmsman's left: x grows to the left; z grows away, which is up.)

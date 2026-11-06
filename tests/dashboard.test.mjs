@@ -30,7 +30,7 @@ const settle = (dash, S, secs = 1) => {
 
 test('each console carries exactly the switches its engine room has', () => {
   assert.deepEqual(controlsFor('rib'), ['battery', 'key', 'cord', 'lights', 'horn', 'screen', 'throttle', 'trimUp', 'trimDown']);
-  assert.deepEqual(controlsFor('console'), ['battery', 'key0', 'key1', 'cord', 'lights', 'horn', 'screen', 'throttle', 'trimUp', 'trimDown'], 'twin outboards: a key each');
+  assert.deepEqual(controlsFor('console'), ['battery', 'key0', 'key1', 'cord', 'lights', 'horn', 'screen', 'throttle', 'trimUp', 'trimDown', 'troll', 'lock'], 'twin outboards: a key each; and the trolling motor’s switches (shown once one’s fitted)');
   assert.deepEqual(controlsFor('cruiser'), ['battery', 'key0', 'key1', 'glow', 'lights', 'horn', 'screen', 'throttle'], 'the yacht: twin diesels with glow plugs, no kill cord, no leg to trim');
   for (const k of ['row', 'skiff', 'kayak', 'sail', 'windsurf']) assert.deepEqual(controlsFor(k), [], `${k}: no console`);
   for (const kind of Object.keys(DASHES)) {

@@ -42,7 +42,7 @@ export const NAME_MAX = 18;
 // sonar, a track on your chart, the harbour's radio, light to fish by at night, fish kept alive,
 // a faster troll, shade, an anchor that holds in a blow. A slot holds one: a new engine choice
 // replaces the old.
-export const FIT_CATS = { engine: 'Engine', fuel: 'Fuel', electronics: 'Electronics', power: 'Power', deck: 'Deck', gear: 'Ground tackle' };
+export const FIT_CATS = { engine: 'Engine', fuel: 'Fuel', electronics: 'Electronics', power: 'Power', trolling: 'Trolling motor', deck: 'Deck', gear: 'Ground tackle' };
 export const FITS = {
   power: {
     name: 'Bigger outboard', cat: 'engine', slot: 'engine', kg: 35, amps: 0,
@@ -104,6 +104,27 @@ export const FITS = {
     name: 'Bimini top', cat: 'deck', kg: 9, amps: 0,
     price: { skiff: 90, bass: 120, rib: 160 },
     desc: 'A canvas top on a frame over the helm: shade from the sun and most of the rain off you while you’re aboard.',
+  },
+  // The bow trolling motors (see trolling.js): one at a time, on the boats a bow mount suits.
+  troll: {
+    name: 'Bow trolling motor', cat: 'trolling', slot: 'troll', kg: 22, amps: 0,
+    price: { skiff: 260, bass: 300, cabin: 320, console: 380 },
+    desc: 'An electric motor on the bow, lowered on its mount: creep along a reef or round a shoal in silence with the main engine off, steered by turning its head. Runs on its own battery, charged at a jetty and overnight.',
+  },
+  trollgps: {
+    name: 'GPS trolling motor (Spot-Lock)', cat: 'trolling', slot: 'troll', kg: 25, amps: 0,
+    price: { skiff: 520, bass: 560, cabin: 600, console: 680 },
+    desc: 'The same quiet bow motor with GPS: Spot-Lock holds her on a spot in water too deep to anchor in, pushing back against the wind and the tide as she drifts, and heading hold keeps her bow where you set it. Too much wind or tide and she drags off slowly.',
+  },
+  trollpro: {
+    name: 'High-thrust GPS trolling motor', cat: 'trolling', slot: 'troll', kg: 32, amps: 0,
+    price: { bass: 860, cabin: 900, console: 980 },
+    desc: 'A bigger bow motor with GPS, twice as strong: Spot-Lock that holds a heavier boat in a fresh breeze and a running tide, at the cost of a battery that runs down sooner.',
+  },
+  trollbank: {
+    name: 'Lithium trolling battery', cat: 'power', kg: 12, amps: 0,
+    price: { skiff: 240, bass: 260, cabin: 260, console: 300 },
+    desc: 'A lithium bank for the trolling motor: twice as long on Spot-Lock or creeping about, and lighter than the lead battery it replaces.',
   },
   anchor: {
     name: 'Heavier anchor and chain', cat: 'gear', kg: 14, amps: 0,
@@ -229,7 +250,7 @@ export function unfitBoat(state, kind, id) {
 export function fitEffect(yard, kind) {
   const list = (yard?.fits?.[kind] || []).filter((id) => FITS[id]?.price[kind]);
   const has = (id) => list.includes(id);
-  const e = { tank: 1, thrust: 1, burn: 1, kg: 0, amps: 0, sonar: false, plotter: false, vhf: false, house: false, troll: 1, lights: false, livewell: false, holders: false, bimini: false, hold: 1, list };
+  const e = { tank: 1, thrust: 1, burn: 1, kg: 0, amps: 0, sonar: false, plotter: false, vhf: false, house: false, troll: 1, lights: false, livewell: false, holders: false, bimini: false, hold: 1, trollMotor: null, trollBank: false, list };
   for (const id of list) {
     const F = FITS[id];
     e.kg += F.kg || 0;
@@ -242,5 +263,8 @@ export function fitEffect(yard, kind) {
     if (F.house) e.house = true;
   }
   for (const id of ['sonar', 'plotter', 'vhf', 'lights', 'livewell', 'holders', 'bimini']) e[id] = has(id);
+  // (The bow trolling motor fitted, if any, and its battery bank.)
+  e.trollMotor = ['trollpro', 'trollgps', 'troll'].find(has) || null;
+  e.trollBank = has('trollbank');
   return e;
 }
