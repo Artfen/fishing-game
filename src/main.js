@@ -103,6 +103,8 @@ import { keyStep } from './dashboard.js';
 import { TrollMotor, canTroll } from './trolling.js';
 import * as Con from './contracts.js';
 import { Passengers } from './passengers.js';
+import * as Story from './story.js';
+import { vesselOf } from './vessels.js';
 import { PickupView } from './world/pickups.js';
 import { renderWork } from './contractboard.js';
 import { demandFor, money, ordersFor, ORDERS_BY } from './market.js';
@@ -522,6 +524,7 @@ function updateTide() {
 
 state.favours = cleanFavours(state.favours);
 state.contracts = Con.cleanContracts(state.contracts);
+state.story = Story.cleanStory(state.story, BOAT_KINDS);
 const NAMES = Object.fromEntries(Object.entries(FOLK).map(([id, F]) => [id, F.short]));
 // What someone has for you just now: { title, text, acts } for the dialog (or the harbour's sheet),
 // or null.
@@ -3398,7 +3401,7 @@ let catchShot = false, jobT = 0, jobDt = 0, jobBumps = 0, jobBumpHooked = null;
 // so a boat full of people is heavier, sits lower and is slower.
 function jobWeight() {
   for (const k of KINDS) {
-    const kg = Con.aboardKg(state.contracts, k);
+    const kg = Con.aboardKg(state.contracts, k) + Story.storyKg(state.story, k);
     if ((BOATS[k]._jobKg || 0) === kg) continue;
     BOATS[k]._jobKg = kg;
     BOATS[k].payload = payloadOf(k);
@@ -3406,8 +3409,12 @@ function jobWeight() {
   // (And the charters' people, sat in the boat they're aboard: see passengers.js.)
   const people = (a) => (a.obj.kind === 'charter' && a.progress.aboard ? a.obj.pax : a.obj.kind === 'pickup' && a.obj.what === 'person' && a.progress.picked ? 1 : 0);
   const aboard = state.contracts.active.filter((a) => !a.ready && people(a) && BOATS[a.progress.boat]);
-  const kind = aboard[0]?.progress.boat;
-  passengers.set(kind ? BOATS[kind] : null, aboard.filter((a) => a.progress.boat === kind).map((a) => ({ id: a.id, n: people(a), divers: !!a.obj.divers })));
+  // (Wenna, for the story's last scene, in the boat she's in.)
+  const wenna = !Story.finished(state.story) && state.story.wenna && BOATS[state.story.wenna] ? state.story.wenna : null;
+  const kind = aboard[0]?.progress.boat || wenna;
+  const groups = aboard.filter((a) => a.progress.boat === kind).map((a) => ({ id: a.id, n: people(a), divers: !!a.obj.divers }));
+  if (wenna && wenna === kind) groups.unshift({ id: 'wenna', n: 1, folk: 'wenna' });
+  passengers.set(kind ? BOATS[kind] : null, groups);
   syncStrays();
   // (And what the radio's calls sent you out to, waiting on the water.)
   pickups.sync(state.contracts.active.filter((a) => a.obj.kind === 'pickup' && !a.progress.picked).map((a) => ({ id: a.id, what: a.obj.what, x: a.obj.at.x, z: a.obj.at.z })));
@@ -3456,8 +3463,9 @@ function updateCalls(dt) {
   if ((callT -= dt) > 0) return;
   callT = 5;
   const C = state.contracts;
-  // (Not while the first trip's guide is running: one thing at a time for someone new.)
-  if (onFoot || driving || dive || modal || state.guide?.on || together.guestSlot >= 0 || clock.hour < 7.5 || clock.hour > 19) return;
+  // (Not while the first trip's guide is running: one thing at a time for someone new; nor with
+  // Wenna aboard for the story's last scene.)
+  if (onFoot || driving || dive || modal || state.guide?.on || state.story?.wenna || together.guestSlot >= 0 || clock.hour < 7.5 || clock.hour > 19) return;
   if (Math.max(weather.storm, conditions.sea.storm) > 0.2 || !Con.callDue(C, clock.abs)) return;
   Con.callMade(C, clock.abs);
   const spot = callSpot();
@@ -3656,7 +3664,17 @@ function updateJobs(dt) {
 }
 // The jobs on the map: each one's next mark.
 function jobsOnMap() {
-  return state.contracts.active.map((a) => ({ a, at: jobAt(a) })).filter((j) => j.at && !j.at.board).map((j) => ({ x: j.at.x, z: j.at.z, name: j.at.name, ready: j.a.ready }));
+  const out = state.contracts.active.map((a) => ({ a, at: jobAt(a) })).filter((j) => j.at && !j.at.board).map((j) => ({ x: j.at.x, z: j.at.z, name: j.at.name, ready: j.a.ready }));
+  const s = storyAt();
+  if (s) out.push(s);
+  return out;
+}
+// Where the story wants you next, if it marks it itself (see story.js aim).
+function storyAt() {
+  const A = Story.aim(state.story);
+  if (!A) return null;
+  const P = { light: placeOf('light'), puerto: placeOf('puerto'), office: { x: HARBOUR_OFFICE.x, z: HARBOUR_OFFICE.z }, haven: { x: HAVEN.x, z: HAVEN.z }, buoy: WRECK_BUOY }[A];
+  return P ? { x: P.x, z: P.z, name: `${Story.STORY_TITLE}: ${Story.todo(state.story)}`, story: true } : null;
 }
 // (A job's next place, with "home" put where Willowhaven is.)
 function jobAt(a) {
@@ -3671,7 +3689,9 @@ function jobTarget() {
     const at = jobAt(a);
     if (at && !at.board) return at;
   }
-  return null;
+  // (Then the story's next place: shorter words for the marker.)
+  const s = storyAt();
+  return s ? { ...s, name: Story.STORY_TITLE } : null;
 }
 
 /* ---------- the trolling motor and Spot-Lock (see trolling.js) ---------- */
@@ -6787,7 +6807,7 @@ function applyYard() {
 // would hold (a long-range tank, full: heavier).
 function payloadOf(k, e = fitEffect(state.yard, k)) {
   const extra = YARD_BASE.tanks[k] ? Math.max(0, fuelLevel(tanks(), k) - YARD_BASE.tanks[k]) : 0;
-  return e.kg + extra * (ENGINES[k]?.diesel ? 0.84 : 0.74) + Con.aboardKg(state.contracts, k);
+  return e.kg + extra * (ENGINES[k]?.diesel ? 0.84 : 0.74) + Con.aboardKg(state.contracts, k) + Story.storyKg(state.story, k);
 }
 applyYard();
 jobWeight();
@@ -7156,6 +7176,35 @@ function watchAdventures(dt) {
   advCtx.diving = !!dive;
   advCtx.depth = dive ? diver.depth : 0;
   adventures.check(advCtx);
+  watchStory();
+}
+// The Fifth Name (see story.js): what it reads of the world, and what it says back.
+function watchStory() {
+  const S = state.story;
+  if (Story.finished(S)) return;
+  const P = player().pos, afloat = !onFoot && !driving && !dive;
+  const pu = placeOf('puerto'), lt = placeOf('light'), sun = sunTimes(clock.abs);
+  const r = Story.tick(S, {
+    adv: state.adventures, when: { day: state.day, hour: Math.round(state.hour * 100) / 100 },
+    near: {
+      light: lt ? Math.hypot(P.x - lt.x, P.z - lt.z) : Infinity, puerto: pu ? Math.hypot(P.x - pu.x, P.z - pu.z) : Infinity,
+      office: Math.hypot(P.x - HARBOUR_OFFICE.x, P.z - HARBOUR_OFFICE.z), buoy: Math.hypot(P.x - WRECK_BUOY.x, P.z - WRECK_BUOY.z),
+    },
+    home: afloat && boat.speed < 0.8 && Math.hypot(P.x - HAVEN.x, P.z - HAVEN.z) < 90,
+    boat: afloat ? boat.kind : null, seats: afloat ? vesselOf(boat.kind).seats : 0, slow: afloat && boat.speed < 1.5,
+    dusk: clock.hour >= sun.set - 1 && clock.hour <= sun.set + 1.6,
+  }, t);
+  if (!r) return;
+  if (r.toast) hud.toast(r.toast, 7);
+  if (r.card) {
+    showNote(r.card.title, r.card.text, r.card.kind);
+    if (r.keepsake) {
+      state.keepsakes[r.keepsake] = { day: state.day, hour: Math.round(state.hour * 100) / 100 };
+      hud.toast(`Kept in your journal: ${KEEPSAKES[r.keepsake].name}.`, 5);
+    }
+  }
+  if (r.aboard || r.laid || r.card) jobWeight();
+  save();
 }
 
 // Animals you've seen for yourself: in the underwater view or following your bait, close and in

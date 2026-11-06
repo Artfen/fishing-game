@@ -5,6 +5,7 @@ import { PLACES } from './world/terrain.js';
 import { formatClock } from './world/sky.js';
 import { PHOTO_MAX } from './save.js';
 import { ADVENTURES, KEEPSAKES, PAGES } from './adventures.js';
+import { STORY_TITLE, chapters as storyChapters, todo as storyTodo, begun as storyBegun, finished as storyFinished } from './story.js';
 import { requestById, standing } from './requests.js';
 import { FOLK } from './townsfolk.js';
 import { TENTS } from './campsite.js';
@@ -148,6 +149,17 @@ export class Memories {
   renderAdventures() {
     const adv = this.h.adventures, st = this.state;
     const out = [];
+    // The story, once it's begun: the chapters told, and what to do next.
+    if (st.story && storyBegun(st.story)) {
+      const S = st.story, done = storyFinished(S);
+      const box = el('div', `mem-adv mem-story ${done ? 'done' : ''}`);
+      box.append(el('h4', '', `${STORY_TITLE}${done ? ' ✓' : ''}`));
+      const ul = el('ul', 'mem-steps');
+      for (const { C, done: d, at } of storyChapters(S)) ul.append(el('li', d ? 'on' : '', `${d ? '✓' : '○'} ${C.title}${d && at ? ` (${whenText(at)})` : ''}`));
+      box.append(ul);
+      box.append(el('p', done ? 'mem-end' : 'mem-clue', done ? 'The fifth name is on the stone. The story’s told.' : storyTodo(S)));
+      out.push(box);
+    }
     for (const { A, r } of adv.list()) {
       const box = el('div', `mem-adv ${r.done ? 'done' : ''}`);
       box.append(el('h4', '', `${A.title}${r.done ? ' ✓' : ''}`));

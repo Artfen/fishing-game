@@ -51,7 +51,7 @@ export class Passengers {
 
   // Who's aboard which boat now: boat (a Boat, or null), groups: [{ id, n, divers }] (one per job).
   set(boat, groups = []) {
-    const key = boat ? `${boat.kind}|${groups.map((g) => `${g.id}:${g.n}:${g.divers ? 1 : 0}`).join(',')}` : '';
+    const key = boat ? `${boat.kind}|${groups.map((g) => `${g.id}:${g.n}:${g.divers ? 1 : 0}:${g.folk || ''}`).join(',')}` : '';
     if (key === this.key) return;
     this.clear();
     this.key = key;
@@ -61,8 +61,8 @@ export class Passengers {
     let i = 0;
     for (const g of groups) {
       for (let k = 0; k < g.n && i < spots.length; k++, i++) {
-        const look = { ...lookFor(`${g.id}#${k}`), ...(g.divers ? DIVER : {}) };
-        const figure = new Figure(`passenger:${g.id}:${k}`, look);
+        // (One of the harbour's own people, in their own look; or someone from away.)
+        const figure = g.folk ? new Figure(g.folk) : new Figure(`passenger:${g.id}:${k}`, { ...lookFor(`${g.id}#${k}`), ...(g.divers ? DIVER : {}) });
         boat.body.add(figure.group);
         this.figs.push({ figure, ...spots[i] });
       }
