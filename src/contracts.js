@@ -385,6 +385,18 @@ export const TEMPLATES = {
       };
     },
   },
+  breakdown: {
+    cat: 'rescue', giver: 'wenna', call: true,
+    make(W, r) {
+      if (W.region !== 'home' || W.storm || W.wind > 10 || !W.callSpot) return null;
+      const name = pick(r, ['Mary Ann', 'Sea Pink', 'Kestrel', 'Wren', 'Two Brothers']);
+      return {
+        title: `A tow for the ${name}`, story: `Harbour office: “The ${name}, a little skiff, has a dead engine ${W.callSpot.where} and her owner’s drifting. Can you get a line on her and tow her into Willowhaven?”`,
+        goal: `Take the ${name} in tow ${W.callSpot.where} (alongside slowly, then the mooring key) and bring her into Willowhaven`, obj: { kind: 'tow', at: { x: W.callSpot.x, z: W.callSpot.z }, boat: 'skiff', name },
+        where: { x: W.callSpot.x, z: W.callSpot.z, name: `the ${name}` }, boat: 'a boat big enough to tow a skiff (not the kayak)', difficulty: 2, minutes: 20, pay: 25, rep: 2,
+      };
+    },
+  },
   driftbuoy: {
     cat: 'rescue', giver: 'wenna', call: true,
     make(W, r) {
@@ -545,6 +557,7 @@ function startOf(obj, now) {
   if (obj.kind === 'dive') return { got: 0 };
   if (obj.kind === 'pickup') return { picked: false, boat: null, said: false };
   if (obj.kind === 'stages') return { stage: 0, boat: null, said: false };
+  if (obj.kind === 'tow') return { towing: false, at: null };
   return {};
 }
 
@@ -748,6 +761,19 @@ export function tick(C, x) {
         continue;
       }
       if (x.home && x.boat === P.boat) out.push(finish(a, true));
+    } else if (o.kind === 'tow') {
+      // A boat out there with a dead engine (x.strays: the game's own boats for these jobs, each
+      // { towed: on your line, home: in Willowhaven's harbour and still }): into the harbour, done.
+      const S = x.strays?.[a.id];
+      if (!S) continue;
+      if (S.home) out.push(finish(a, true));
+      else if (S.towed && !P.towing) {
+        P.towing = true;
+        boarded.push(a);
+      } else if (!S.towed && P.towing) {
+        P.towing = false;
+        said.push({ a, text: `${a.title}: she’s off the line, drifting. Come back alongside and take her in tow again.` });
+      }
     } else if (o.kind === 'stages') {
       // One stage at a time, each done the way its own kind of job is.
       const S = o.stages[P.stage];
@@ -803,6 +829,10 @@ export function target(a) {
     if (o.dive) return { x: o.dive.x, z: o.dive.z, name: a.where?.name || a.title };
   }
   if (o.kind === 'deliver' && o.cargo && !a.progress.loaded) return { home: true, name: `${a.title}: load at Willowhaven` };
+  if (o.kind === 'tow') {
+    const p = a.progress.at || o.at;
+    return a.progress.towing ? { home: true, name: `${a.title}: into Willowhaven` } : { x: p.x, z: p.z, name: a.title };
+  }
   if (o.kind === 'pickup') return a.progress.picked ? { home: true, name: `${a.title}: home to Willowhaven` } : { x: o.at.x, z: o.at.z, name: a.title };
   if (o.kind === 'stages') {
     const S = o.stages[a.progress.stage], name = `${a.title}: ${S.say}`;
@@ -828,6 +858,7 @@ export function standing(a) {
   if (o.kind === 'deliver' && o.cargo && !P.loaded) return `${o.cargo} kg waiting on Willowhaven quay: bring a boat that can carry it.`;
   if (o.kind === 'dive') return `${P.got} of ${o.n} new things logged.`;
   if (o.kind === 'pickup') return P.picked ? 'Aboard: home to Willowhaven.' : 'Out there: get alongside, slowly.';
+  if (o.kind === 'tow') return P.towing ? 'On your towline: bring her into Willowhaven.' : 'Out there, engine dead: come alongside slowly and take her in tow.';
   if (o.kind === 'stages') {
     const S = o.stages[P.stage];
     return `Stage ${P.stage + 1} of ${o.stages.length}: ${S.say}.`;
