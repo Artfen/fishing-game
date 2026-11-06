@@ -61,7 +61,7 @@ import { FoamTracks, FoamTrailView } from './world/foamTrails.js';
 import { buildSeaLife, SEA_LIFE } from './world/sealife.js';
 import { buildWildlife } from './world/wildlife.js';
 import { seeSign, readSign, SIGNS, SEEN_AT, stepColour, colourKey, colourWords, NATURE, noteNature, groundsOf, groundWords } from './grounds.js';
-import { newToday, notePlace, noteMove, noteBoat, noteDive, noteSeen, noteSky, noteGale, noteRecord, closeDay, dayLine, checkChallenges, isSheltered, CHALLENGES, challengeById, dayPage, dayText, noteSat, noteCrossing } from './daybook.js';
+import { newToday, notePlace, noteMove, noteBoat, noteDive, noteSeen, noteSky, noteGale, noteRecord, closeDay, dayLine, checkChallenges, isSheltered, CHALLENGES, challengeById, dayPage, dayText, noteSat, noteCrossing, careerOf } from './daybook.js';
 import { SeaGlow, nightGlow } from './world/seaglow.js';
 import { Fishing } from './fishing.js';
 import { drawFishSketch, drawLanternSketch, fishById, weightOf } from './fish.js';
@@ -104,6 +104,7 @@ import { TrollMotor, canTroll } from './trolling.js';
 import * as Con from './contracts.js';
 import { Passengers } from './passengers.js';
 import * as Story from './story.js';
+import { onDesktop, seedSave, mirrorSave, reportAchievements } from './desktop.js';
 import { vesselOf } from './vessels.js';
 import { PickupView } from './world/pickups.js';
 import { renderWork } from './contractboard.js';
@@ -138,6 +139,8 @@ import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick, seeded, wrapAngle
 const REST_SPEED = 30;   // holding T lets time drift by
 const $ = (id) => document.getElementById(id);
 
+// (The desktop build: on a computer with no save of its own, the one Steam Cloud brought.)
+seedSave({ get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => localStorage.setItem(k, v) }, 'slow-tide-save');
 const loaded = loadGame();
 // Optional cloud saves: only when a backend is configured and you've signed in. Startup waits
 // a moment for the cloud (just when signed in, or arriving from a sign-in link), so the game
@@ -9144,6 +9147,12 @@ function save() {
   state.seenSouth = exploredSouth.toString();
   const ok = saveGame(state);
   if (ok) cloud.queue(state, saveStatus.lastSaved);
+  // (The desktop build: the same save to a file, for Steam Cloud; and achievements earned.)
+  if (ok && onDesktop()) {
+    try { mirrorSave(localStorage.getItem('slow-tide-save')); } catch { /* next time */ }
+    const C = careerOf(state);
+    reportAchievements(state, { places: [C.places, C.placesOf] });
+  }
   if (!ok && saveStatus.canSave && !saveWarned && started) {
     saveWarned = true;
     hud.toast('Your progress couldn’t be saved just now (the browser’s storage may be full). The game will keep trying.', 7);
