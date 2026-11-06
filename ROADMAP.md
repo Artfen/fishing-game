@@ -299,9 +299,8 @@ The next brief, worked through in order, each step merged to main once it's test
    - *Verified*: `tests/contracts.test.mjs`, and in a browser: the board's work read and taken
      by clicking, no fourth, the delivery paid on arrival, the course rounded and collected at
      the board, never paid twice, a job given up with nothing paid.
-   - *Next*: diving work (a lost camera, a reef survey), a drifting buoy and a tow in calm
-     weather, a handcrafted multi-stage expedition, and the first session for people who don't
-     fish (phase 6).
+   - *Then*: diving work, a drifting buoy, a handcrafted multi-stage expedition, the bigger
+     boats' purpose (9) and the first session for people who don't fish (10).
 9. **Bigger boats' purpose and a career (phase 5): done** (`src/vessels.js`, `src/passengers.js`,
    charters and freight in `src/contracts.js`):
    - *What each boat is for*: seats, cargo, shelter, comfort in a sea, room for divers, for all
@@ -324,9 +323,35 @@ The next brief, worked through in order, each step merged to main once it's test
      all (save.js keeps a list of what it saves); they are now, with a test.
    - *Verified*: `tests/charters.test.mjs`, and in a browser: two charters taken by clicking,
      eight refused by the RIB, four divers aboard her (+320 kg, four figures seated, slower flat
-     out), anchored on the reef not counting (and said), held there 150 s, home, paid £115 once,
+     out), anchored on the reef not counting (and said), held there for the dive (150 s then, 90 s
+     now), home, paid £115 once,
      eight aboard the yacht, given up with the yacht empty again. (On a gale day the sea built
      past the RIB's comfort and the tip went, as it should: the board offers no charters then.)
+10. **Calls, dive surveys, an expedition; fun for people who don't fish (phases 4b and 6): done**:
+   - *Assistance over the radio*: the harbour office calls now and then (by day, afloat, fair
+     weather, a few hours in and every five to ten game hours after, never during the first-trip
+     guide, one at a time, never on the board): someone carried out on a paddleboard, or a buoy
+     adrift. Said yes to, it's marked and drawn on the water (`src/world/pickups.js`); alongside
+     slowly in a boat with room, they're aboard (sat in her, weighing in her); home, paid there.
+     Said no to, nothing's lost.
+   - *Dive surveys* for the Marine Trust: log a few things at a site you haven't found before; the
+     game's own dive finds (dive.js logFind) finish it.
+   - *The Gannet Isle season*, a Skipper's expedition in five stages (load 300 kg, land it at
+     Puffin Cove, round Gannet Light, sound the Hound with the finder on, home), each stage done
+     the way its own kind of job is; saved part way.
+   - *A first session without fishing*: an easy non-fishing first job tops the board until you've
+     done one (a parcel to The Landing); the first-trip offer has a *Not fishing: boats and work*
+     answer; Willowhaven's first tip and the board's say there's work that isn't fishing.
+   - *Safe*: a pickup only in a boat with room, slowly; paid once; given up with nothing left
+     aboard and the radio carrying on; an expedition's kit only in a boat that takes it, landed
+     only from that boat.
+   - *Verified*: `tests/assistance.test.mjs`, and in a browser: a new player's board with the
+     first job on top, rowed to The Landing and paid; the radio's call, said yes to, seen on the
+     water (a paddleboarder by her pot buoy; a channel marker adrift), picked up alongside (80 kg
+     and a figure in the boat; or 40 kg of buoy), home and paid; a dive survey of the Kittiwake
+     finished by finds logged on a scuba dive.
+   - *Not done*: a tow (taking a broken-down boat in on a line) would need the game's tow rope to
+     take a boat that isn't yours; it's left for later rather than faked.
 
 ## Open-source projects that could help
 
