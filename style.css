@@ -2548,6 +2548,7 @@ body.placing #sonar, body.placing #act-btn, body.placing #cancel-btn { visibilit
 .lv-stop:hover, .lv-motor:hover { filter: brightness(1.15); }
 .lv-motor { font-size: 12.5px; }
 .lv-motor[hidden], .lv-stop[hidden] { display: none; }
+.lv-tilt[aria-pressed='true'] { background: rgba(147, 220, 205, 0.22); border-color: rgba(147, 220, 205, 0.55); }
 .lv-keys { font-size: 11px; line-height: 1.5; opacity: 0.8; text-align: center; }
 .lv-keys:empty { display: none; }
 .lv-keys kbd { font-size: 10.5px; }

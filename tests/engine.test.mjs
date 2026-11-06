@@ -247,3 +247,51 @@ test('every boat with an engine has an engine room, and nothing without one does
     assert.ok(E.allRunning(en), `${kind} starts`);
   }
 });
+
+test('the tilt button: one press right up at rest (not under way), the next back down; the leg travels by itself', () => {
+  for (const kind of ['rib', 'console', 'skiff']) {
+    const en = E.newEngine(kind);
+    assert.deepEqual(E.tiltToggle(en, 4), { why: 'fast' }, `${kind}: not while she's going`);
+    assert.deepEqual(E.tiltToggle(en, 0.5), { to: 'up' });
+    assert.equal(E.tiltedUp(en), true, 'up (on its way)');
+    let secs = 0;
+    while (E.stepTilt(en, 1 / 30)) secs += 1 / 30;
+    assert.equal(en.trim, E.TRIM.up, `${kind}: right up`);
+    assert.ok(secs > 1 && secs < 5, `in ${secs.toFixed(1)} s`);
+    assert.ok(E.trimEffect(en, 0).out, 'the propeller out of the water');
+    // Pressed again (at any speed): back down, to run.
+    assert.deepEqual(E.tiltToggle(en, 4), { to: 'down' });
+    while (E.stepTilt(en, 1 / 30));
+    assert.equal(en.trim, 0);
+    assert.equal(E.tiltedUp(en), false);
+    // Pressed again on its way up: it turns round.
+    E.tiltToggle(en, 0);
+    E.stepTilt(en, 0.5);
+    assert.deepEqual(E.tiltToggle(en, 0), { to: 'down' });
+  }
+  assert.deepEqual(E.tiltToggle(E.newEngine('cruiser'), 0), { why: 'none' }, 'no leg to tilt on the yacht');
+  assert.deepEqual(E.tiltToggle(E.newEngine('jetski'), 0), { why: 'none' });
+});
+
+test('an outboard tilts up and aft, the propeller out behind the transom, not forward into the boat', () => {
+  const scene = new THREE.Scene();
+  for (const kind of ['rib', 'console', 'skiff']) {
+    const b = new Boat(scene, { kind });
+    b.place(150, 330, 0);
+    b.engine = E.newEngine(kind);
+    const propAt = () => {
+      for (let i = 0; i < 60; i++) b.update(1 / 30, i / 30, 0, 0, 0);
+      b.body.updateMatrixWorld(true);
+      return b.props.map((p) => b.body.worldToLocal(p.getWorldPosition(new THREE.Vector3())));
+    };
+    const down = propAt();
+    b.engine.trim = E.TRIM.up;
+    const up = propAt();
+    const stern = Math.min(...b.motorGroups.map((g) => g.position.z));
+    up.forEach((p, i) => {
+      assert.ok(p.z < stern, `${kind}: the propeller behind the transom (${p.z.toFixed(2)} vs ${stern.toFixed(2)})`);
+      assert.ok(p.y > down[i].y + 0.4, `${kind}: and well up (${down[i].y.toFixed(2)} → ${p.y.toFixed(2)})`);
+      assert.ok(p.z < down[i].z, `${kind}: aft, not forward (${down[i].z.toFixed(2)} → ${p.z.toFixed(2)})`);
+    });
+  }
+});

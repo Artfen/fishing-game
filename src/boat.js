@@ -912,7 +912,8 @@ export class Boat {
       const g = new THREE.Group();
       g.position.set(x, sheer(H, 0) - 0.02, zAt(H, 0) - 0.04);
       // (An outboard that's up starts tilted out of the water.)
-      if (!H.motor) g.rotation.x = -1.3;
+      // (Tilting swings the leg up and aft, the propeller out behind the transom: + about x.)
+      if (!H.motor) g.rotation.x = 1.3;
       g.scale.setScalar(M.scale);
       return g;
     };
@@ -3141,13 +3142,14 @@ export class Boat {
       this.props.forEach((p, i) => (p.rotation.z = i ? -this.propSpin : this.propSpin));
       for (const g of this.motorGroups) {
         g.rotation.y = damp(g.rotation.y, -this.omega * 0.35, 6, dt);
-        // (Trimmed and tilted: the leg's angle, as the engine room has it; kicked up in the shallows.)
-        const lean = Math.max(this.tilted ? 0.5 : 0, ((this.legAngle || 0) * Math.PI) / 180);
-        g.rotation.x = damp(g.rotation.x, -lean, this.engine ? 5 : 3, dt);
+        // (Trimmed and tilted: the leg's angle, as the engine room has it, out and up behind the
+        // transom (trimmed in, a little under her); kicked up in the shallows.)
+        const a = ((this.legAngle || 0) * Math.PI) / 180, lean = this.tilted ? Math.max(0.5, a) : a;
+        g.rotation.x = damp(g.rotation.x, lean, this.engine ? 5 : 3, dt);
       }
     } else if (this.motorGroup) {
       this.motorGroup.rotation.y = damp(this.motorGroup.rotation.y, 0, 4, dt);
-      this.motorGroup.rotation.x = damp(this.motorGroup.rotation.x, -1.3, 3, dt);
+      this.motorGroup.rotation.x = damp(this.motorGroup.rotation.x, 1.3, 3, dt);
     }
     // The rig: the boom swings out to leeward as far as the sheet and the wind let it (quickly
     // across in a gybe, more gently through a tack), the sails fill or flap, the flag streams
