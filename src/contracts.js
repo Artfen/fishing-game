@@ -21,8 +21,10 @@
 //
 // Pure: the game passes in what's happening (main.js) and does the paying and the showing.
 
+import { fits, smallestFor, misery, vesselOf, VESSELS, KG_PER_PERSON } from './vessels.js';
+
 export const CONTRACT_MAX = 3;
-export const CATEGORIES = { fishing: 'Fishing', wildlife: 'Wildlife', survey: 'Survey', delivery: 'Delivery', handling: 'Boat handling' };
+export const CATEGORIES = { fishing: 'Fishing', wildlife: 'Wildlife', survey: 'Survey', delivery: 'Delivery', handling: 'Boat handling', charter: 'Charter' };
 // Who offers work (the harbour's people, and the bodies they speak for).
 export const GIVERS = {
   ruth: 'Ruth at The Lobster Pot',
@@ -33,11 +35,38 @@ export const GIVERS = {
   wenna: 'Wenna, the harbour office',
   sailing: 'Willowhaven Sailing Club',
   paco: 'Paco, Bar El Muelle',
+  trips: 'Willow Bay Boat Trips',
+  divers: 'Willow Bay Sub-Aqua Club',
 };
+
+// A career on the water: what you're trusted with grows with the jobs you've done. Carrying paying
+// passengers wants a ticket (as it does for real: a commercial endorsement), and a bigger party or
+// a heavier load a better one. jobs: finished jobs it takes; pax: the most passengers a charter
+// offered to you carries; kg: the heaviest freight.
+export const CAREER = [
+  { id: 'hand', name: 'Odd-job hand', jobs: 0, pax: 0, kg: 300, says: 'fishing, wildlife, surveys, deliveries and boat handling' },
+  { id: 'boatman', name: 'Boatman', jobs: 3, pax: 3, kg: 500, says: 'a passenger ticket: small charters, up to three aboard' },
+  { id: 'skipper', name: 'Skipper', jobs: 8, pax: 6, kg: 800, says: 'charters of up to six, dive parties, heavier freight' },
+  { id: 'master', name: 'Master', jobs: 15, pax: 8, kg: 1500, says: 'the biggest charters and the heaviest freight' },
+];
+// Where you are in it: { rank, next (or null), toGo (jobs to the next) }.
+export function career(C) {
+  let i = 0;
+  while (i + 1 < CAREER.length && C.count >= CAREER[i + 1].jobs) i++;
+  const next = CAREER[i + 1] || null;
+  return { rank: CAREER[i], next, toGo: next ? next.jobs - C.count : 0 };
+}
 
 const rnd = (r, a, b) => a + r() * (b - a);
 const pick = (r, list) => list[Math.floor(r() * list.length) % list.length];
 const round5 = (v) => Math.max(5, Math.round(v / 5) * 5);
+// What boat a job wants, in words: one of yours that will do (W.usable: owned, or hired today), or
+// the smallest there is (W.kinds) to hire for the day. null: no boat in the game would do.
+function boatFor(W, need, what) {
+  const mine = smallestFor(need, W.usable || []), any = smallestFor(need, W.kinds || Object.keys(VESSELS));
+  if (!any) return null;
+  return mine ? `${what} (your ${vesselOf(mine).name} will do)` : `${what} (the ${vesselOf(any).name}: hire her for the day at the Marine Works)`;
+}
 // A day's seed (and the region's): the same board all day, a different one tomorrow.
 export function seeded(n) {
   let s = (n * 2654435761) >>> 0 || 1;
@@ -216,6 +245,85 @@ export const TEMPLATES = {
       };
     },
   },
+  // ---- charters: people (and freight) aboard; the jobs that want a bigger boat ----
+  whalewatch: {
+    cat: 'charter', giver: 'trips',
+    make(W, r) {
+      if (W.region !== 'home') return null;
+      if (!W.whales?.length || W.storm) return null;
+      const can = [3, 4, 6, 8].filter((n) => n <= W.rank.pax);
+      if (!can.length) return null;
+      const pax = pick(r, can), boat = boatFor(W, { pax }, `a boat with ${pax} seats`);
+      if (!boat) return null;
+      return {
+        title: `Whale watching: ${pax} passengers`, story: `${pax} visitors have booked a trip to see the ${W.whales[0].name.toLowerCase()} reported ${W.whales[0].where}. Pick them up at Willowhaven, find it, and bring them home happy (rough water in an open boat and they won’t tip).`,
+        goal: `Take ${pax} passengers out to see a whale surface, and back to Willowhaven`, obj: { kind: 'charter', pax, see: 'whale' },
+        where: W.whales[0].at, boat, difficulty: 2, minutes: 45, pay: round5(25 + pax * 14), rep: 2, coop: true,
+      };
+    },
+  },
+  dolphintrip: {
+    cat: 'charter', giver: 'trips',
+    make(W, r) {
+      if (W.region !== 'home') return null;
+      if (!W.dolphins || W.storm) return null;
+      const can = [2, 3, 5].filter((n) => n <= W.rank.pax);
+      if (!can.length) return null;
+      const pax = pick(r, can), boat = boatFor(W, { pax }, `something quick with ${pax} seats`);
+      if (!boat) return null;
+      return {
+        title: `Dolphins for ${pax}`, story: `A family of ${pax} wants to see the dolphins on the bow. Pick them up at Willowhaven, get the dolphins riding your bow, and bring them home.`,
+        goal: `Take ${pax} passengers out until dolphins ride your bow, and back to Willowhaven`, obj: { kind: 'charter', pax, see: 'dolphins' },
+        boat, difficulty: 1, minutes: 30, pay: round5(20 + pax * 10), rep: 1, coop: true,
+      };
+    },
+  },
+  divecharter: {
+    cat: 'charter', giver: 'divers',
+    make(W, r) {
+      if (W.region !== 'home') return null;
+      if (W.storm || !W.diveSites?.length) return null;
+      const can = [2, 4, 6].filter((n) => n <= W.rank.pax);
+      if (!can.length) return null;
+      const site = pick(r, W.diveSites), pax = pick(r, can), boat = boatFor(W, { pax, divers: true }, `a boat for ${pax} divers and their kit`);
+      if (!boat) return null;
+      return {
+        title: `Divers to ${site.name}`, story: `The Sub-Aqua Club has ${pax} divers booked for ${site.name}${site.noAnchor ? ` (${site.noAnchor}: no anchoring, so hold her on the spot while they’re down)` : ''}. Take them out, stay with them while they dive, and bring them home.`,
+        goal: `Take ${pax} divers to ${site.name}, stay on the site while they’re down, and back to Willowhaven`, obj: { kind: 'charter', pax, divers: true, dive: { x: site.x, z: site.z, r: 45, stay: 150, noAnchor: !!site.noAnchor } },
+        where: site, boat, gear: site.noAnchor ? 'a GPS trolling motor (Spot-Lock), or a steady hand on the helm' : null, difficulty: site.noAnchor ? 3 : 2, minutes: 40, pay: round5(30 + pax * 15 + (site.noAnchor ? 25 : 0)), rep: 2,
+      };
+    },
+  },
+  fishcharter: {
+    cat: 'charter', giver: 'club',
+    make(W, r) {
+      if (W.region !== 'home') return null;
+      if (W.storm) return null;
+      const can = [2, 3, 4].filter((n) => n <= W.rank.pax);
+      if (!can.length) return null;
+      const pax = pick(r, can), n = pax + 1, boat = boatFor(W, { pax }, `a boat with a deck for ${pax} anglers`);
+      if (!boat) return null;
+      return {
+        title: `A fishing charter for ${pax}`, story: `${pax} club members want a day after the sea fish with someone who knows where they are. Take them out, put them on the fish (${n} between you), and bring them home.`,
+        goal: `Take ${pax} anglers out, land ${n} sea fish with them aboard, and back to Willowhaven`, obj: { kind: 'charter', pax, fish: n },
+        boat, difficulty: 2, minutes: 60, pay: round5(30 + pax * 18), rep: 2, coop: true,
+      };
+    },
+  },
+  freight: {
+    cat: 'delivery', giver: 'bert',
+    make(W, r) {
+      if (W.region !== 'home') return null;
+      if (W.storm || !W.places?.puffin) return null;
+      const kg = pick(r, [250, 450, 700, 1200].filter((k) => k <= W.rank.kg)), boat = boatFor(W, { cargo: kg }, `a boat that carries ${kg} kg`);
+      if (!boat) return null;
+      return {
+        title: `${kg} kg for Puffin Cove`, story: `The camp at Puffin Cove is rebuilding its jetty: ${kg} kg of timber and fixings are stacked on Willowhaven quay. Load them (it takes a boat that can carry it) and take them out.`,
+        goal: `Load ${kg} kg at Willowhaven and deliver it to Puffin Cove`, obj: { kind: 'deliver', to: 'puffin', r: 40, cargo: kg }, cargo: `${kg} kg of timber`,
+        where: W.places.puffin, boat, difficulty: kg > 600 ? 2 : 1, minutes: 35, pay: round5(20 + kg * 0.07), rep: 2,
+      };
+    },
+  },
   // ---- boat handling ----
   berthing: {
     cat: 'handling', giver: 'wenna',
@@ -295,6 +403,7 @@ export function offers(C, W) {
     [ids[i], ids[j]] = [ids[j], ids[i]];
   }
   const out = [];
+  W = { ...W, rank: career(C).rank };
   for (const tpl of ids) {
     if (out.length >= 6) break;
     const T = TEMPLATES[tpl], o = T.make(W, r);
@@ -353,6 +462,8 @@ function startOf(obj, now) {
   if (obj.kind === 'catch') return { got: 0, species: [] };
   if (obj.kind === 'visit') return { next: 0, started: null, now };
   if (obj.kind === 'dock') return { bumps: 0 };
+  if (obj.kind === 'charter') return { aboard: false, boat: null, seen: false, told: false, stay: 0, rough: 0, caught: 0, said: false, warned: false };
+  if (obj.kind === 'deliver' && obj.cargo) return { loaded: false, boat: null, said: false };
   return {};
 }
 
@@ -365,6 +476,12 @@ export function caught(C, c) {
   const released = c.phase === 'released';
   for (const a of C.active) {
     const o = a.obj;
+    // (A fishing charter: their fish, landed with them aboard.)
+    if (!a.ready && o.kind === 'charter' && o.fish && a.progress.aboard && !released && c.sea !== false && c.boat === a.progress.boat) {
+      a.progress.caught++;
+      if (a.progress.caught >= o.fish) a.progress.seen = true;
+      continue;
+    }
     if (a.ready || o.kind !== 'catch') continue;
     if (!!o.released !== released) continue;
     if (o.sea && !c.sea) continue;
@@ -403,7 +520,7 @@ export function photographed(C, s) {
 // put back to the start (a course failed: reset), and any that lapsed (too late: missed, struck off
 // with nothing lost but the job).
 export function tick(C, x) {
-  const out = [], reset = [], missed = [];
+  const out = [], reset = [], missed = [], boarded = [], said = [], seen = [];
   for (const a of [...C.active]) {
     const o = a.obj, P = a.progress;
     if (a.ready) continue;
@@ -433,7 +550,64 @@ export function tick(C, x) {
       const d = o.what === 'whale' ? x.whale : x.frenzy;
       if (d != null && d <= o.r) out.push(finish(a));
     } else if (o.kind === 'deliver') {
-      if (x.at === o.to) out.push(finish(a, true));
+      // (Freight: loaded at Willowhaven first, in a boat that can carry it; then there.)
+      if (o.cargo && !P.loaded) {
+        if (x.home && x.boat) {
+          const why = fits(x.boat, { cargo: o.cargo });
+          if (!why) {
+            P.loaded = true;
+            P.boat = x.boat;
+            boarded.push(a);
+          } else if (!P.said) {
+            P.said = true;
+            said.push({ a, text: `${a.title}: it won’t go in her, ${why}.` });
+          }
+        } else if (!x.home) P.said = false;
+        continue;
+      }
+      if (x.at === o.to && (!o.cargo || x.boat === P.boat)) out.push(finish(a, true));
+    } else if (o.kind === 'charter') {
+      // Aboard at Willowhaven (if she has the room), out to whatever they came for, and home.
+      // (Before the trip's begun they'll move to another boat at Willowhaven, if she has the room.)
+      const need = { pax: o.pax, divers: o.divers };
+      if (x.home && x.boat && x.boat !== P.boat && !P.seen && !fits(x.boat, need)) {
+        P.aboard = true;
+        P.boat = x.boat;
+        boarded.push(a);
+        continue;
+      }
+      if (!P.aboard) {
+        if (x.home && x.boat) {
+          const why = fits(x.boat, need);
+          if (!P.said) {
+            P.said = true;
+            said.push({ a, text: `${a.title}: they can’t all come in her, ${why}.` });
+          }
+        } else if (!x.home) P.said = false;
+        continue;
+      }
+      if (x.boat !== P.boat) continue;
+      if (x.sea != null && misery(P.boat, x.sea) > 0.5) P.rough += x.dt || 0.5;
+      if (!P.seen) {
+        if (o.see === 'whale' && x.whale != null && x.whale <= 250) P.seen = true;
+        if (o.see === 'dolphins' && x.bow) P.seen = true;
+        if (o.dive && Math.hypot(x.x - o.dive.x, x.z - o.dive.z) <= o.dive.r && (x.speed ?? 0) < 0.5) {
+          // (On a reef where anchoring's banned, an anchor down doesn't count, and they say so.)
+          if (o.dive.noAnchor && x.anchored) {
+            if (!P.warned) {
+              P.warned = true;
+              said.push({ a, text: `${a.title}: no anchoring here, it tears up the reef. Up anchor and hold her on the spot (Spot-Lock, or by hand).` });
+            }
+          } else {
+            P.stay += x.dt || 0.5;
+            if (P.stay >= o.dive.stay) P.seen = true;
+          }
+        }
+      }
+      if (P.seen && !P.told) {
+        P.told = true;
+        seen.push(a);
+      } else if (P.seen && x.home) out.push(finish(a));
     } else if (o.kind === 'dock') {
       P.bumps += x.bumps || 0;
       if (P.bumps > (o.bumps ?? 0)) {
@@ -443,7 +617,7 @@ export function tick(C, x) {
       if (x.tied === o.pier && P.bumps <= (o.bumps ?? 0)) out.push(finish(a));
     }
   }
-  return { done: out, reset, missed };
+  return { done: out, reset, missed, boarded, said, seen };
 }
 
 function finish(a, onSpot = false) {
@@ -462,6 +636,11 @@ export function target(a) {
     const m = o.marks[a.progress.next];
     return m ? { x: m.x, z: m.z, name: `${a.title}: mark ${a.progress.next + 1} of ${o.marks.length}` } : null;
   }
+  if (o.kind === 'charter') {
+    if (!a.progress.aboard || a.progress.seen) return { home: true, name: a.progress.aboard ? `${a.title}: home to Willowhaven` : `${a.title}: pick them up at Willowhaven` };
+    if (o.dive) return { x: o.dive.x, z: o.dive.z, name: a.where?.name || a.title };
+  }
+  if (o.kind === 'deliver' && o.cargo && !a.progress.loaded) return { home: true, name: `${a.title}: load at Willowhaven` };
   return a.where ? { x: a.where.x, z: a.where.z, name: a.where.name || a.title } : null;
 }
 
@@ -472,10 +651,32 @@ export function standing(a) {
   if (o.kind === 'catch' && o.distinct) return `${P.species.length} of ${o.distinct} kinds so far.`;
   if (o.kind === 'catch' && (o.count || 1) > 1) return `${P.got} of ${o.count} so far.`;
   if (o.kind === 'visit') return `Mark ${Math.min(P.next + 1, o.marks.length)} of ${o.marks.length}${o.limit && P.started != null ? ' (the clock’s running)' : ''}.`;
+  if (o.kind === 'charter') {
+    if (!P.aboard) return `They’re waiting at Willowhaven: bring a boat with room for ${o.pax}${o.divers ? ' divers' : ''}.`;
+    if (!P.seen) return o.dive ? `Divers down: ${Math.floor(P.stay)} of ${o.dive.stay} s on the site.` : o.fish ? `${P.caught} of ${o.fish} fish so far.` : o.see === 'whale' ? 'Find them a whale.' : 'Find them dolphins to ride your bow.';
+    return `Bring them home to Willowhaven${P.rough > 60 ? ' (a rough trip: no tip)' : ''}.`;
+  }
+  if (o.kind === 'deliver' && o.cargo && !P.loaded) return `${o.cargo} kg waiting on Willowhaven quay: bring a boat that can carry it.`;
   return a.goal;
 }
 
 // The pay as it stands, with any bonus (imaging sonar on a survey).
 export function payFor(a, { imaging = false } = {}) {
-  return a.cat === 'survey' && imaging ? Math.round(a.pay * 1.5) : a.pay;
+  if (a.cat === 'survey' && imaging) return Math.round(a.pay * 1.5);
+  // (A charter's passengers tip for a good trip; a rough one in an open boat, they don't.)
+  if (a.obj.kind === 'charter' && a.progress?.rough > 60) return Math.round(a.pay * 0.7);
+  return a.pay;
+}
+
+// What the people and freight of your jobs weigh, aboard boat `kind` (kg): real weight in her.
+export function aboardKg(C, kind) {
+  let kg = 0;
+  for (const a of C.active) {
+    const o = a.obj, P = a.progress;
+    // (Once it's done they've stepped ashore, and the freight's been unloaded.)
+    if (a.ready || P.boat !== kind) continue;
+    if (o.kind === 'charter' && P.aboard) kg += o.pax * KG_PER_PERSON;
+    if (o.kind === 'deliver' && o.cargo && P.loaded) kg += o.cargo;
+  }
+  return kg;
 }

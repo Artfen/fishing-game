@@ -2723,6 +2723,7 @@ body.sitting #lever, body.sitting #hint { display: none !important; }
 
 /* Work on the notice board (see contractboard.js), and a job's marker. */
 .board-work { display: grid; gap: 10px; margin-bottom: 12px; }
+.board-career { margin: 2px 0 4px; padding: 6px 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.05); font-size: 13px; }
 .board-work-h { margin: 6px 0 0; font: 700 13px var(--font-ui); letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.75; }
 .board-job { padding: 10px 12px; border-radius: 10px; background: rgba(60, 42, 20, 0.07); border: 1px solid rgba(60, 42, 20, 0.14); }
 .board-job p { margin: 4px 0; }

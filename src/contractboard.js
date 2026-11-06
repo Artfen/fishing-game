@@ -21,9 +21,15 @@ const button = (text, cls, run) => {
 const dots = (n) => '●'.repeat(n) + '○'.repeat(3 - n);
 
 // root: the element to fill; offers, active: from contracts.js; money(v): how a sum is written;
-// payOf(a): what a finished job pays now (with any bonus).
-export function renderWork(root, { offers, active, money, payOf, hooks }) {
+// payOf(a): what a finished job pays now (with any bonus); career: contracts.js's career(C).
+export function renderWork(root, { offers, active, money, payOf, hooks, career = null, done = 0 }) {
   const out = [];
+  if (career) {
+    const { rank, next, toGo } = career;
+    const p = el('p', 'board-career');
+    p.append(el('b', '', rank.name), el('span', 'j-faint', ` · ${done} job${done === 1 ? '' : 's'} done${next ? ` · ${next.name} after ${toGo} more: ${next.says}` : ': trusted with anything on the board'}`));
+    out.push(p);
+  }
   if (active.length) {
     out.push(el('h4', 'board-work-h', `Your jobs (${active.length} of ${CONTRACT_MAX})`));
     for (const a of active) {

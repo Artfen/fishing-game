@@ -6,7 +6,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as K from '../src/contracts.js';
 
-const PL = { quay: { x: 520, z: -170, name: 'Wend Quay' }, puerto: { x: 0, z: 6300, name: 'Puerto Brasa' }, stream: { x: 0, z: 0, name: 'Fernbeck' }, visitors: { x: 10, z: -90, name: 'the visitors’ pontoon' } };
+const PL = { quay: { x: 520, z: -170, name: 'Wend Quay' }, puerto: { x: 0, z: 6300, name: 'Puerto Brasa' }, stream: { x: 0, z: 0, name: 'Fernbeck' }, puffin: { x: -300, z: 900, name: 'Puffin Cove' }, visitors: { x: 10, z: -90, name: 'the visitors’ pontoon' } };
+const SITES = [{ id: 'reef', name: 'Skerries Reef', x: -128, z: 378, noAnchor: 'a protected reef' }, { id: 'sands', name: 'Anchor Sands', x: 372, z: 604, noAnchor: null }];
+const ALL = ['row', 'skiff', 'kayak', 'bass', 'sail', 'cabin', 'cruiser', 'console', 'rib', 'windsurf', 'jetski'];
 const marks = [{ x: 0, z: 100, name: 'A' }, { x: 60, z: 160, name: 'B' }, { x: 0, z: 220, name: 'C' }];
 // A quiet day at home, with everything there is to offer (and a version of it to change).
 const world = (over = {}) => ({
@@ -14,14 +16,15 @@ const world = (over = {}) => ({
   dolphins: true, whales: [{ kind: 'finwhale', name: 'Fin whale', where: 'out past Gannet Isle', at: { x: 400, z: 1500 } }], birds: true,
   storm: false, forecastStorm: false, wind: 5, summer: true, canCross: true, ownsSail: true, places: PL,
   surveyLines: [{ name: 'the bay mouth', marks }], tempMarks: marks, courses: [{ name: 'the bay', marks, minutes: 8 }],
+  diveSites: SITES, usable: ['row', 'skiff', 'kayak'], kinds: ALL,
   ...over,
 });
 const tpls = (list) => list.map((o) => o.tpl).sort();
 
 test('the board answers the world: no deliveries in a gale, no dolphin pictures without dolphins, the island’s own work there', () => {
   // Every template, given a world that calls for it, makes an offer; over many days all turn up.
-  const seen = new Set();
-  for (let d = 0; d < 60; d++) for (const o of K.offers(K.newContracts(), world({ day: d, beenSouth: true }))) seen.add(o.tpl);
+  const seen = new Set(), master = () => Object.assign(K.newContracts(), { count: 20 });
+  for (let d = 0; d < 60; d++) for (const o of K.offers(master(), world({ day: d, beenSouth: true }))) seen.add(o.tpl);
   // (and on days with a gale coming)
   for (let d = 0; d < 40; d++) for (const o of K.offers(K.newContracts(), world({ day: d, storm: true, abs: d * 24 + 9, galeAt: d * 24 + 14 }))) seen.add(o.tpl);
   for (const t of K.TEMPLATE_IDS) assert.ok(seen.has(t), `${t} turns up`);
