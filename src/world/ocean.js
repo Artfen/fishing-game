@@ -150,6 +150,15 @@ export class Patch {
         this.xi[q] = gauss(r);
       }
     }
+    // (And each wave's direction, a unit vector along its k: the same every moment, so worked
+    // out once here rather than for every wave of every moment.)
+    this.ux = new Float64Array(n);
+    this.uz = new Float64Array(n);
+    for (let q = 0; q < n; q++) {
+      const kx = this.kx[q], kz = this.kz[q], k = Math.hypot(kx, kz) || 1;
+      this.ux[q] = kx / k;
+      this.uz[q] = kz / k;
+    }
     this.key = '';
   }
 
@@ -245,7 +254,7 @@ export class LongSea {
       const e2r = br * c + bi * s, e2i = bi * c - br * s;
       const hr = e1r + e2r, hi = e1i + e2i;              // ĥ
       const tr = w * (e1i - e2i), ti = -w * (e1r - e2r); // ∂ĥ/∂t
-      const kx = P.kx[q], kz = P.kz[q], k = Math.hypot(kx, kz) || 1, ux = kx / k, uz = kz / k;
+      const kx = P.kx[q], kz = P.kz[q], ux = P.ux[q], uz = P.uz[q];
       // Real fields two at a time: transform of A + iB comes out A + iB.
       // F1 = h + i·Dx   (Dx = −i k̂x ĥ)
       const dxr = ux * hi, dxi = -ux * hr, dzr = uz * hi, dzi = -uz * hr;

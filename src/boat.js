@@ -390,6 +390,9 @@ const PROP_LEVER = 0.3;
 // (the waves' energy), over her length (the same sea slows a little boat more than a big one; a
 // low swell hardly at all).
 const SEAWAY = 8.3;
+// How long (s) a boat tied up or at anchor lies still before she can rest out of your way (see
+// update: settled at her berth, done swinging to her lines).
+const SETTLED = 3;
 // A pure turning push (N·m about the vertical, + turns her to port): two equal and opposite
 // pushes either side of her middle.
 function yawCouple(b, tq) {
@@ -2240,7 +2243,8 @@ export class Boat {
 
   // far: a long way from anyone looking (the game says so). A boat lying still out there rests:
   // she rides the waves at her mooring without her whole hull being worked out, and wakes the
-  // moment you come near or anything moves her.
+  // moment you come near or anything moves her. (far 'moored': not so far, but out of your way;
+  // she rests there too if she's tied up or riding to her anchor, and has lain still a while.)
   update(dt, t, throttle, steer, lanternLevel, far = false) {
     const fishing = this.pose.fishing > 0.5;
     const phys = this.phys;
@@ -2251,7 +2255,9 @@ export class Boat {
     const b = phys, H = this.hull, m = b.m;
     if (dt <= 0) return;
     const still = Math.hypot(b.v[0], b.v[2]) < 0.15 && Math.abs(b.w[1]) < 0.05 && !throttle && !steer && !this.shove && !this.air && this.vel.x === this._vx && this.vel.z === this._vz;
-    if (far && still && !(this.anchor && this.anchor.phase !== 'set')) {
+    this._stillT = still ? (this._stillT || 0) + dt : 0;
+    const rests = far === 'moored' ? (!!this.tie || this.anchor?.phase === 'set') && this._stillT > SETTLED : !!far;
+    if (rests && still && !(this.anchor && this.anchor.phase !== 'set')) {
       this.rest(dt, t, lanternLevel);
       return;
     }

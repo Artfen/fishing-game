@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { clamp, lerp, smoothstep, fbm } from '../util.js';
+import { hypot2 } from '../hypot.js';
 import { COLD_BOX, coldwaterHeight, inColdwater, waterLevel, neckSDF, coldInfo, FELL_PATH, FELL_BOX, FELL_PATH_SEGS, fellPathNear, fellPathCandidates, BOTHY, FOOTBRIDGE, SUMMIT_CAIRN, COLDWATER, TARN, tarnSDF } from './coldwater.js';
 export { waterLevel } from './coldwater.js';
 import { SOUTH_Z, brasaHeight, brasaSDF, brasaZone, SOUTH_ZONES, BRASA_PLACES, PUERTO, ISLE, inSouth, QUAY_S, MOLE, DIQUE, SOUTH_RECT, PONTOON_S, FINGERS_S, PONTOON_STEPS, FUEL_S } from './brasa.js';
@@ -294,7 +295,7 @@ export function roadNear(x, z, out = _ro) {
   for (const i of list) {
     const [ax, az] = ROAD_PTS[i], [bx, bz] = ROAD_PTS[i + 1];
     const dx = bx - ax, dz = bz - az, t = clamp(((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz), 0, 1);
-    const px = ax + dx * t, pz = az + dz * t, d = Math.hypot(x - px, z - pz), s = roadCum[i] + t * (roadCum[i + 1] - roadCum[i]);
+    const px = ax + dx * t, pz = az + dz * t, d = hypot2(x - px, z - pz), s = roadCum[i] + t * (roadCum[i + 1] - roadCum[i]);
     if (d < out.d) {
       out.d = d;
       out.px = px;
@@ -350,18 +351,18 @@ function buildRoad() {
   return h;
 }
 
-const sdCircle = (x, z, cx, cz, r) => Math.hypot(x - cx, z - cz) - r;
+const sdCircle = (x, z, cx, cz, r) => hypot2(x - cx, z - cz) - r;
 
 function sdCapsule(x, z, ax, az, bx, bz, r) {
   const pax = x - ax, paz = z - az, bax = bx - ax, baz = bz - az;
   const h = clamp((pax * bax + paz * baz) / (bax * bax + baz * baz), 0, 1);
-  return Math.hypot(pax - bax * h, paz - baz * h) - r;
+  return hypot2(pax - bax * h, paz - baz * h) - r;
 }
 
 function sdEllipse(x, z, cx, cz, rx, rz) {
   const px = x - cx, pz = z - cz;
-  const k0 = Math.hypot(px / rx, pz / rz);
-  const k1 = Math.hypot(px / (rx * rx), pz / (rz * rz));
+  const k0 = hypot2(px / rx, pz / rz);
+  const k1 = hypot2(px / (rx * rx), pz / (rz * rz));
   // (Exactly at the centre the estimate is 0/0: there, it's as deep inside as it gets.)
   if (k1 < 1e-9) return -Math.min(rx, rz);
   return (k0 * (k0 - 1)) / Math.max(k1, 1e-6);
@@ -442,7 +443,7 @@ function baseHeight(x, z) {
     if (Math.abs(sx) < SHOAL.rx * 1.6 && Math.abs(sz) < SHOAL.rx * 1.6) {
       const c = Math.cos(SHOAL.yaw), sn = Math.sin(SHOAL.yaw);
       const u = (sx * c - sz * sn) / SHOAL.rx, v = (sx * sn + sz * c) / SHOAL.rz;
-      const k = smoothstep(1.6, 0.7, Math.hypot(u, v));
+      const k = smoothstep(1.6, 0.7, hypot2(u, v));
       h = lerp(h, Math.max(h, SHOAL.top + fbm(x * 0.07, z * 0.07, 2) * 1.2), k);
     }
     return h;
@@ -453,18 +454,18 @@ function baseHeight(x, z) {
   const n = fbm(x * 0.011 + 3.1, z * 0.011 - 1.7, 4) * 0.5 + 0.5;
   h += hill * (4 + 30 * n * n + 5 * fbm(x * 0.045, z * 0.045, 3));
   // a soft hump in the middle of the jetty island
-  const di = Math.hypot(x - ISLAND.x, z - ISLAND.z);
+  const di = hypot2(x - ISLAND.x, z - ISLAND.z);
   h += 2.2 * smoothstep(ISLAND.r + 2, 0, di);
   // The Calf: sheer to the west and south where the swell hits, a long grassy slope down to the
   // landing on its east side, and a level top round the tower. (Not the skerry: that stays low.)
   if (Math.abs(x - CALF.x) < 40 && Math.abs(z - CALF.z) < 40) {
     const lee = smoothstep(-0.2, 0.9, (x - CALF.x) / CALF.rx);
-    const skerry = smoothstep(CALF_SKERRY.r + 2, CALF_SKERRY.r + 6, Math.hypot(x - CALF_SKERRY.x, z - CALF_SKERRY.z));
+    const skerry = smoothstep(CALF_SKERRY.r + 2, CALF_SKERRY.r + 6, hypot2(x - CALF_SKERRY.x, z - CALF_SKERRY.z));
     h += (7.5 - 3.5 * lee) * smoothstep(1.5, lerp(6.5, 13, lee), inland) * skerry;
     // The skerry: a low, flat-topped rock, just clear of the water.
-    h += 0.7 * smoothstep(CALF_SKERRY.r + 1, CALF_SKERRY.r * 0.4, Math.hypot(x - CALF_SKERRY.x, z - CALF_SKERRY.z));
+    h += 0.7 * smoothstep(CALF_SKERRY.r + 1, CALF_SKERRY.r * 0.4, hypot2(x - CALF_SKERRY.x, z - CALF_SKERRY.z));
     // The way up from the landing (see CALF_LANDING): a cut in the slope, easier on the legs.
-    const px = Math.min(CALF.x + 19, Math.max(CALF.x + 11, x)), pd = Math.hypot(x - px, z - CALF.z - 1);
+    const px = Math.min(CALF.x + 19, Math.max(CALF.x + 11, x)), pd = hypot2(x - px, z - CALF.z - 1);
     const ramp = lerp(1.15, 7, (CALF.x + 19 - px) / 8);
     h = lerp(h, Math.min(h, ramp), smoothstep(2.6, 1.2, pd));
   }
@@ -476,7 +477,7 @@ function baseHeight(x, z) {
 // Signed distance to the lake shore (negative on the water), with a slightly wobbly edge.
 export function lakeSDF(x, z) {
   // Scaled-circle distance: close enough near the shore, and well behaved at the middle.
-  const d = (Math.hypot((x - LAKE.x) / LAKE.rx, (z - LAKE.z) / LAKE.rz) - 1) * LAKE.rz;
+  const d = (hypot2((x - LAKE.x) / LAKE.rx, (z - LAKE.z) / LAKE.rz) - 1) * LAKE.rz;
   if (d > 30) return d;
   return d + fbm(x * 0.07 + 21, z * 0.07 - 8, 2) * 2.6;
 }
@@ -490,7 +491,7 @@ export function streamInfo(x, z, out = _st) {
     const bax = b[0] - a[0], baz = b[1] - a[1];
     const len2 = bax * bax + baz * baz;
     const h = clamp(((x - a[0]) * bax + (z - a[1]) * baz) / len2, 0, 1);
-    const d = Math.hypot(x - a[0] - bax * h, z - a[1] - baz * h);
+    const d = hypot2(x - a[0] - bax * h, z - a[1] - baz * h);
     if (d < out.d) {
       const k = smoothstep(0, 1, h);
       const l = Math.sqrt(len2);
@@ -536,7 +537,7 @@ export function pathInfo(x, z, out = _pi) {
     const a = PATH[i], b = PATH[i + 1];
     const bax = b[0] - a[0], baz = b[1] - a[1];
     const hh = clamp(((x - a[0]) * bax + (z - a[1]) * baz) / (bax * bax + baz * baz), 0, 1);
-    const d = Math.hypot(x - a[0] - bax * hh, z - a[1] - baz * hh);
+    const d = hypot2(x - a[0] - bax * hh, z - a[1] - baz * hh);
     if (d < out.d) {
       out.d = d;
       if (pathH) out.h = lerp(pathH[i], pathH[i + 1], hh);
@@ -574,7 +575,7 @@ function shoreHeight(x, z, h, withPath) {
     h = Math.min(h, c);
   }
   // The camp clearing
-  const dc = Math.hypot(x - CAMP.x, z - CAMP.z);
+  const dc = hypot2(x - CAMP.x, z - CAMP.z);
   if (dc < CAMP.r + 6) h = lerp(campH, h, smoothstep(CAMP.r - 1, CAMP.r + 6, dc));
   if (withPath) {
     const p = pathInfo(x, z);
@@ -606,7 +607,7 @@ function groundAt(x, z) {
       if (p.d < 4) h = lerp(p.h, h, smoothstep(1.2, 4, p.d));
     }
     if (Math.abs(x - GANNET_CAMP.x) < 14 && Math.abs(z - GANNET_CAMP.z) < 14) {
-      h = lerp(gannetCampH, h, smoothstep(GANNET_CAMP.r - 1, GANNET_CAMP.r + 5, Math.hypot(x - GANNET_CAMP.x, z - GANNET_CAMP.z)));
+      h = lerp(gannetCampH, h, smoothstep(GANNET_CAMP.r - 1, GANNET_CAMP.r + 5, hypot2(x - GANNET_CAMP.x, z - GANNET_CAMP.z)));
     }
   }
   if (x > COAST_BOX.x0 && x < COAST_BOX.x1 && z > COAST_BOX.z0 && z < COAST_BOX.z1) h = coastHeight(x, z, h, true);
@@ -616,7 +617,7 @@ function groundAt(x, z) {
     h = coldwaterHeight(x, z, h);
     if (fellH && x > FELL_BOX.x0 && x < FELL_BOX.x1 && z > FELL_BOX.z0 && z < FELL_BOX.z1) h = fellTread(x, z, h);
     // (The bothy's level ground, cut back into the hillside.)
-    if (Math.abs(x - BOTHY.x) < 12 && Math.abs(z - BOTHY.z) < 12) h = lerp(BOTHY.level, h, smoothstep(BOTHY.r, BOTHY.r + 3.5, Math.hypot(x - BOTHY.x, z - BOTHY.z)));
+    if (Math.abs(x - BOTHY.x) < 12 && Math.abs(z - BOTHY.z) < 12) h = lerp(BOTHY.level, h, smoothstep(BOTHY.r, BOTHY.r + 3.5, hypot2(x - BOTHY.x, z - BOTHY.z)));
   }
   return h;
 }
@@ -643,7 +644,7 @@ function fellTread(x, z, h) {
   for (const k of fellPathCandidates(x, z)) {
     const g = FELL_PATH_SEGS[k], bax = g.bx - g.ax, baz = g.bz - g.az;
     const u = clamp(((x - g.ax) * bax + (z - g.az) * baz) / (g.len * g.len), 0, 1);
-    const d = Math.hypot(x - g.ax - bax * u, z - g.az - baz * u);
+    const d = hypot2(x - g.ax - bax * u, z - g.az - baz * u);
     if (d > 10) continue;
     const t = treadAt(k, u), reach = 3.6 + Math.min(Math.abs(t - h), 3) * 0.9;
     const w = 1 - smoothstep(1.3, reach, d);
@@ -681,13 +682,13 @@ function havenHeight(x, z, h) {
   if (h < 0.15) return h;
   if (z <= A.z1) {
     const ax = Math.max(A.x0 - x, 0, x - A.x1), az = Math.max(A.z0 - z, 0);
-    const da = Math.hypot(ax, az);
+    const da = hypot2(ax, az);
     if (da < 7) h = lerp(A.h, h, smoothstep(0, 7, da));
   }
   for (const p of havenPads) {
     const c = Math.cos(p.yaw), s = Math.sin(p.yaw), dx = x - p.x, dz = z - p.z;
     const u = Math.abs(dx * c - dz * s) - p.w / 2 - p.margin, v = Math.abs(dx * s + dz * c) - p.d / 2 - p.margin;
-    const d = Math.hypot(Math.max(u, 0), Math.max(v, 0));
+    const d = hypot2(Math.max(u, 0), Math.max(v, 0));
     if (d < p.blend) h = lerp(p.h, h, smoothstep(0, p.blend, d));
   }
   return h;
@@ -696,7 +697,7 @@ function havenHeight(x, z, h) {
 // Cove Head: a rocky knoll rising from the low point east of the cove's channel. Only the land
 // rises; the shoreline stays where it was, so its seaward sides are steep and rocky.
 function headHeight(x, z, h) {
-  const D = DAYMARK, d = Math.hypot(x - D.x, z - D.z);
+  const D = DAYMARK, d = hypot2(x - D.x, z - D.z);
   if (d > D.r + 8 || h < 0.2) return h;
   const rough = fbm(x * 0.17 + 7, z * 0.17 - 3, 2) * 0.7;
   return h + (D.rise + rough) * smoothstep(D.r + 6, 3, d) * smoothstep(0.2, 1.8, h);
@@ -1133,7 +1134,7 @@ export function walkHeight(x, z) {
 
 export function stackHeight(x, z) {
   let h = -100;
-  for (const s of STACKS) h = Math.max(h, 2.5 - (Math.hypot(x - s.x, z - s.z) - s.r) * 1.1);
+  for (const s of STACKS) h = Math.max(h, 2.5 - (hypot2(x - s.x, z - s.z) - s.r) * 1.1);
   return h;
 }
 

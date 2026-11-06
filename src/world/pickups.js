@@ -53,6 +53,12 @@ export class PickupView {
     for (const [id, it] of this.items) {
       if (want.has(id)) continue;
       this.scene.remove(it.g);
+      // (Everything in it was made for it alone: given back to the graphics card.)
+      it.fig?.dispose();
+      it.g.traverse((o) => {
+        o.geometry?.dispose();
+        o.material?.dispose?.();
+      });
       this.items.delete(id);
     }
     for (const p of list) {

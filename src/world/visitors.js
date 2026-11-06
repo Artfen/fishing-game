@@ -55,6 +55,16 @@ export class VisitorView {
   constructor(scene) {
     this.scene = scene;
     this.drawn = new Map(); // peer id -> { name, figure, boats: { kind: Boat }, roll }
+    // Friends' boats kept from when they left, for when they're back (by name and kind: a name is
+    // a look, and a boat once built stays in the scene, see forget).
+    this.kept = new Map(); // `${name}|${which}|${kind}` -> [Boat]
+  }
+
+  // One of `name`'s boats kept from before (which: 'boats', the one they ride in, or 'moored'),
+  // or null.
+  keptBoat(name, which, kind) {
+    const list = this.kept.get(`${name}|${which}|${kind}`);
+    return list?.pop() || null;
   }
 
   entry(p) {
@@ -73,6 +83,11 @@ export class VisitorView {
 
   boatFor(d, kind) {
     if (d.boats[kind]) return d.boats[kind];
+    const old = this.keptBoat(d.name, 'boats', kind);
+    if (old) {
+      old.group.visible = false;
+      return (d.boats[kind] = old);
+    }
     const b = new Boat(this.scene, { kind, look: { stripe: d.look.coat } });
     const M = b.selfMats, L = d.look;
     M[0].color.set(L.coat);
@@ -90,6 +105,11 @@ export class VisitorView {
   // the one they ride in.
   mooredFor(d, kind) {
     if (d.moored[kind]) return d.moored[kind];
+    const old = this.keptBoat(d.name, 'moored', kind);
+    if (old) {
+      old.group.visible = false;
+      return (d.moored[kind] = old);
+    }
     const b = new Boat(this.scene, { kind, look: { stripe: d.look.coat } });
     b.setRower(false);
     b.group.visible = false;
@@ -247,12 +267,20 @@ export class VisitorView {
       d.line.geometry.dispose();
     }
     if (d.float) this.scene.remove(d.float);
-    if (d.figure) {
-      this.scene.remove(d.figure.group);
-      d.figure.group.visible = false;
+    // (Their figure, made for them alone, is given back to the graphics card: without the rod in
+    // its hand, which isn't its own to give.)
+    d.rodOn?.group.removeFromParent();
+    d.figure?.dispose();
+    // (Boats hold on to their mooring gear in the scene: they're only ever hidden, never rebuilt,
+    // and kept for when they're back.)
+    for (const which of ['boats', 'moored']) {
+      for (const [kind, b] of Object.entries(d[which])) {
+        b.group.visible = false;
+        const key = `${d.name}|${which}|${kind}`;
+        if (!this.kept.has(key)) this.kept.set(key, []);
+        this.kept.get(key).push(b);
+      }
     }
-    // (Boats hold on to their mooring gear in the scene: they're only ever hidden, never rebuilt.)
-    for (const b of [...Object.values(d.boats), ...Object.values(d.moored)]) b.group.visible = false;
     this.drawn.delete(id);
   }
 

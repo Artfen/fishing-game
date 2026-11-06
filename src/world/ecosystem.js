@@ -1235,7 +1235,10 @@ export class Ecosystem {
 
   // Every rig in the water: yours, and (hosting a session) each guest's.
   baitsList() {
-    return this.remoteBaits.size ? [this.bait, ...this.remoteBaits.values()] : [this.bait];
+    if (this.remoteBaits.size) return [this.bait, ...this.remoteBaits.values()];
+    // (Just yours, as on most days: the same list every frame.)
+    if (this._solo?.[0] !== this.bait || this._solo.length !== 1) this._solo = [this.bait];
+    return this._solo;
   }
 
   // A fish free to take notice of a rig: the nearest of them (anyone's, in a session) gets its

@@ -49,14 +49,17 @@ test('in the water: keeping fish from one spot slows their replacements and make
   const calm = eco.envAt(a0).disturb;
   const waits = [], random = Math.random;
   Math.random = () => 0.5; // (the same dice each time: only the pressure differs)
-  for (const a of fish.slice(0, 6)) {
-    a.x = a0.x;
-    a.z = a0.z;
-    a.home = { ...a.home, x: a0.x, z: a0.z };
-    eco.keep(a);
-    waits.push(a.backAt - eco.time);
+  try {
+    for (const a of fish.slice(0, 6)) {
+      a.x = a0.x;
+      a.z = a0.z;
+      a.home = { ...a.home, x: a0.x, z: a0.z };
+      eco.keep(a);
+      waits.push(a.backAt - eco.time);
+    }
+  } finally {
+    Math.random = random;
   }
-  Math.random = random;
   for (let i = 1; i < waits.length; i++) assert.ok(waits[i] >= waits[i - 1] - 1e-6, 'each one slower than the last');
   assert.ok(waits[5] > waits[0] * 1.8, `waits ${waits.map((w) => Math.round(w)).join(', ')}`);
   assert.ok(eco.pressureAt(a0.x, a0.z) >= HEAVY);

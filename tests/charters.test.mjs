@@ -287,3 +287,43 @@ test('every boat has a seat for each person she’s rated to carry, clear of the
     for (let i = 0; i < s.length; i++) for (let j = i + 1; j < s.length; j++) assert.ok(Math.hypot(s[i].x - s[j].x, s[i].z - s[j].z) > 0.5, `${k}: room between`);
   }
 });
+
+test('passengers put ashore and castaways picked up are given back to the graphics card', async () => {
+  const THREE = await import('three');
+  const ctx2d = new Proxy({}, { get: (o, k) => (k === 'createRadialGradient' || k === 'createLinearGradient' ? () => ({ addColorStop() {} }) : k === 'measureText' ? () => ({ width: 10 }) : k === 'getImageData' ? () => ({ data: [] }) : () => {}), set: () => true });
+  globalThis.document ??= { createElement: () => ({ width: 0, height: 0, getContext: () => ctx2d }), fonts: null };
+  const { Boat } = await import('../src/boat.js');
+  const { Passengers } = await import('../src/passengers.js');
+  const { PickupView } = await import('../src/world/pickups.js');
+  const scene = new THREE.Scene();
+  // Everything made for an object: each listens for being given back.
+  const watch = (group) => {
+    const w = { made: 0, given: 0 };
+    group.traverse((o) => {
+      for (const x of [o.geometry, o.material]) {
+        if (!x || x._watched) continue;
+        x._watched = true;
+        w.made++;
+        x.addEventListener('dispose', () => w.given++);
+      }
+    });
+    return w;
+  };
+  const boat = new Boat(scene, { kind: 'cabin' });
+  const P = new Passengers();
+  P.set(boat, [{ id: 'c1', n: 2 }, { id: 'c2', n: 1, divers: true }]);
+  assert.equal(P.count, 3);
+  const ws = P.figs.map((f) => watch(f.figure.group));
+  const parts = boat.body.children.length;
+  P.set(boat, []);
+  assert.equal(P.count, 0);
+  assert.equal(boat.body.children.length, parts - 3, 'out of her');
+  for (const w of ws) assert.ok(w.made > 10 && w.given === w.made, `${w.given} of ${w.made}`);
+  const V = new PickupView(scene);
+  V.sync([{ id: 'p1', what: 'person', x: 10, z: 20 }, { id: 'b1', what: 'buoy', x: 30, z: 20 }]);
+  const wp = watch(V.items.get('p1').g), wb = watch(V.items.get('b1').g);
+  V.sync([{ id: 'b1', what: 'buoy', x: 30, z: 20 }]);
+  assert.ok(wp.made > 10 && wp.given === wp.made && wb.given === 0, 'the castaway, not the buoy');
+  V.sync([]);
+  assert.ok(wb.made > 3 && wb.given === wb.made && V.count === 0);
+});
