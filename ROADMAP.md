@@ -381,6 +381,22 @@ The next brief, worked through in order, each step merged to main once it's test
 5. *Still to do from stage 7*: recorded sound (each file's licence checked and kept: needs people,
    not just code).
 
+## Stage 8: the desktop build (November 2026)
+
+The Electron wrapper (`desktop/`) was already there. Now:
+- **Steam Cloud, ready**: the save mirrored to a file in the app's data folder on every save
+  (written whole, junk refused), for Steam Auto-Cloud to carry; a computer with no save starts from
+  it, one with its own keeps it (`src/desktop.js`, `desktop/main.cjs`).
+- **Achievements, ready to switch on**: twelve, counted from the save (`src/achievements.js`),
+  handed to Steamworks only with the optional binding installed and an app id; otherwise dropped.
+- **Sandboxed**: the page gets three calls through `desktop/preload.cjs`, nothing more.
+- *Verified*: `tests/desktop.test.mjs` (the bridge both ways, the app's save handlers with a
+  stand-in for Electron, no Steam without an id) and in a browser with a stand-in bridge (a fresh
+  computer starting from the mirrored save, saves mirrored, an achievement reported; no bridge, no
+  difference). Not run inside real Electron or Steam here.
+- *Needs a decision and an account*: a Steamworks app id (Steam Direct's fee is yours to decide),
+  then the overlay, a store page and a demo.
+
 ## Open-source projects that could help
 
 Checked for licence and fit, November 2026. A public repository isn't permission to use its

@@ -26,14 +26,26 @@ npx electron-builder # or electron-forge: a Windows installer, a macOS app, a Li
 
 - **A Steamworks partner account and an app id.** Steam Direct charges a fee per game, so this is
   your decision; nothing here has been signed up for.
-- **Steamworks in the app**: [steamworks.js](https://github.com/ceifa/steamworks.js) (MIT) gives
-  the overlay, achievements and Steam Cloud. With the app id, `main.cjs` would call
-  `steamworks.init(APP_ID)` and enable the overlay. Don't put the app id or any keys in the web
-  build.
-- **Achievements**: the journal's goals (`src/goals.js`) map onto them directly (every kind of
-  fish, a fish of a lifetime, boats of your own, every place, Las Brasas).
-- **Steam Cloud**: the save is one JSON document (`src/save.js`), so it can go to Steam Cloud as a
-  file next to the browser's local storage.
+- **Steam Cloud: ready, nothing to build.** The app mirrors the save to a file on every save:
+  `saves/slow-tide-save.json` in its data folder (Windows `%APPDATA%/slow-tide-desktop/saves`,
+  macOS `~/Library/Application Support/slow-tide-desktop/saves`, Linux
+  `~/.config/slow-tide-desktop/saves`). Point Steam **Auto-Cloud** at that folder in Steamworks.
+  On a computer with no save of its own, the game starts from that file (`src/desktop.js`); one
+  that has a save keeps it. The file is written whole and then put in place, and only text that
+  reads as a save is ever written (`tests/desktop.test.mjs`).
+- **Achievements: ready to switch on.** Twelve, in `src/achievements.js` (first fish, ten kinds,
+  every kind, a fish of a lifetime, every place, Las Brasas, a fleet, first job, Skipper, Master,
+  the Kittiwake, The Fifth Name), each with a stable API name, title and line to enter in
+  Steamworks as they are. They're counted from the save, so ones earned before the desktop build
+  existed are reported the first time it's played. The app hands them to Steamworks only when
+  `npm install steamworks.js` has been run (MIT, [ceifa/steamworks.js](https://github.com/ceifa/steamworks.js))
+  **and** the app id is given (`STEAM_APP_ID`, or the `steam_appid.txt` Steam puts beside the
+  app). Without both they're dropped: nothing pretends to be connected. Don't put the app id or
+  any keys in the web build.
+- **The page stays sandboxed**: `preload.cjs` gives it exactly three calls (mirror the save, read
+  the mirrored save, report an achievement) and nothing else; no Node, no file access.
+- **Still to do with an app id**: the overlay (`steamworks.electronEnableSteamOverlay()`), and
+  checking all of this inside a real Steam client.
 - **Steam Deck**: the Linux build runs on it; the game is already controller-first. Check the text
   size at 1280×800 and the frame rate on the Deck itself.
 - **A free demo** on Steam, and the browser version, bring players in.

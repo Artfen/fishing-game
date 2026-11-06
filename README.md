@@ -1153,6 +1153,8 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 | `src/fleet.js` | Your boats: three in the water at most, where each lives and is laid up, which three an older game keeps, and where each lies along your finger of the pontoon |
 | `src/world/skipper.js` | The harbour's boats at the helm: following the clock's route while keeping clear of every other boat, waiting when there's no way through, berthing, being shoved and coming back |
 | `src/adventures.js` | The adventures, Ada's pages and the keepsakes, and how steps are recognised in any order |
+| `src/achievements.js` | The desktop build's achievements: the game's milestones under stable Steamworks names, counted from the save |
+| `src/desktop.js` | The desktop build's bridge from the game's side: the save mirrored to a file for Steam Cloud (and started from it on a new computer), achievements handed over; nothing at all in a browser |
 | `src/story.js` | The Fifth Name: the story's chapters, each finished by something the game already knows, paced a card at a time, the last scene with Wenna aboard at dusk, and its record in the save |
 | `src/photos.js` | Taking photographs, the album's picture store (IndexedDB), and downloads |
 | `src/memories.js` | The journal's Memories pages |
