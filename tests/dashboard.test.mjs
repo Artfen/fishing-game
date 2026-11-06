@@ -141,13 +141,14 @@ test('the outboard stays where it is trimmed or tilted, running, stopped or with
     for (let i = 0; i < secs * 30; i++) b.update(1 / 30, (t += 1 / 30), 0, 0, 0);
   };
   run(3);
-  const lean = -b.motorGroup.rotation.x;
+  // (+ about the boat's x: the leg up and aft, the propeller out behind the transom.)
+  const lean = b.motorGroup.rotation.x;
   assert.ok(Math.abs(lean - (E.TRIM.up * Math.PI) / 180) < 0.05, `tilted right up at rest: ${((lean * 180) / Math.PI).toFixed(0)}°`);
   b.dry = true;
   run(3);
-  assert.ok(Math.abs(-b.motorGroup.rotation.x - lean) < 0.02, 'a dry tank doesn’t drop it');
+  assert.ok(Math.abs(b.motorGroup.rotation.x - lean) < 0.02, 'a dry tank doesn’t drop it');
   b.dry = false;
   b.engine.trim = 4;
   run(3);
-  assert.ok(Math.abs(-b.motorGroup.rotation.x - (4 * Math.PI) / 180) < 0.03, 'trimmed back down to 4°');
+  assert.ok(Math.abs(b.motorGroup.rotation.x - (4 * Math.PI) / 180) < 0.03, 'trimmed back down to 4°');
 });

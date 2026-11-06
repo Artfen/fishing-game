@@ -75,7 +75,7 @@ import { Placement } from './placement.js';
 import { Adventures, ADVENTURE_BY_ID, PAGES, KEEPSAKES } from './adventures.js';
 import { PhotoStore, capture, photoId, albumPage, download } from './photos.js';
 import { Haptics, STRENGTHS, engineFeel, lineFeel, slamFeel, knockFeel } from './haptics.js';
-import { PROFILES as ENGINES, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM } from './engine.js';
+import { PROFILES as ENGINES, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM, tiltToggle, tiltedUp, stepTilt } from './engine.js';
 import { HelmUI } from './helm.js';
 import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
@@ -2987,6 +2987,23 @@ function leverNeutral(say = false) {
   if (boat.lever && say) hud.flash('Neutral: the motor idles, and she coasts on', t, 1.6);
   changeLever(0);
 }
+// The tilt button (\, or the button on the throttle panel): the outboard's leg (both, on twins)
+// right up out of the water at rest or near it, or back down to run; the leg travels by itself
+// (see updateEngine). Tilting up knocks her into neutral: the propeller's coming out of the
+// water. (The sailing boat's little outboard comes up on its bracket, as its own button does.)
+function tiltOutboards() {
+  if (!started || modal || onFoot || driving) return;
+  if (boat.hull.outboard) return toggleOutboard();
+  const k = leverKind(), E = k && boat.motor ? engines[k] : null;
+  if (!E) return;
+  const r = tiltToggle(E, boat.forwardSpeed);
+  if (r.why === 'none') return hud.flash('There’s no outboard leg to tilt on her.', t, 2);
+  if (r.why === 'fast') return hud.flash('Slow down first: under way the leg only trims, it won’t tilt right up.', t, 2.4);
+  if (r.to === 'up' && boat.lever) changeLever(0);
+  const two = ENGINES[E.kind].engines > 1;
+  hud.flash(r.to === 'up' ? `Tilting the ${two ? 'outboards' : 'outboard'} up, the ${two ? 'propellers' : 'propeller'} out of the water` : `Tilting the ${two ? 'outboards' : 'outboard'} down to run`, t, 2);
+  audio.tick?.(0.3);
+}
 
 // Held forward or back (the keys, or the stick pushed well over): one notch now, and more
 // while held, pausing at neutral. Or, with the smooth lever (Settings → Controls → Throttle),
@@ -3872,6 +3889,9 @@ function updateEngine(dt) {
   // Trim: held up or down (the bumpers, or ] and [).
   const dir = modal ? 0 : (input.holding('trimUp') || dashTrim > 0 ? 1 : 0) - (input.holding('trimDown') || dashTrim < 0 ? 1 : 0);
   trimDirNow = dir;
+  // (The tilt button's leg on its way up or down, unless the trim switch is held: that takes over.)
+  if (dir) E.tiltTo = null;
+  const tilting = !dir && stepTilt(E, dt);
   if (dir && P.trim) {
     const why = trimBy(E, dir, dt, boat.forwardSpeed);
     haptics.hold('trim', 0, why ? 0.03 : 0.1);
@@ -3881,8 +3901,8 @@ function updateEngine(dt) {
     }
     if (!trimming) teach('trim', 'Trim in to get onto the plane, then out a little once she’s flying for her best speed. Too far and the propeller draws air.', 9);
   }
-  if (!!dir !== trimming) audio.trimWhine?.(!!dir);
-  trimming = !!dir && !!P.trim;
+  if (!!(dir || tilting) !== trimming) audio.trimWhine?.(!!(dir || tilting));
+  trimming = (!!dir || tilting) && !!P.trim;
   // In gear with the leg tilted right up, the propeller's out of the water and pushes nothing:
   // said once in a while, with how to put it right.
   if (P.trim && engineRunning(E) && boat.lever && (boat.legAngle || 0) >= TRIM.out && t > legWordT) {
@@ -4173,6 +4193,7 @@ const leverUI = new LeverUI($('lever'), {
   set: (i) => { if (started && !modal) setLever(i); },
   stop: () => { if (started && !modal) leverNeutral(true); },
   motor: () => { if (started && !modal) (boat.hull.outboard ? toggleOutboard() : toggleKayakMotor()); },
+  tilt: () => tiltOutboards(),
   // (The smooth lever, dragged: right where the finger is, within what's allowed.)
   slideTo: (f) => {
     const kind = leverKind();
@@ -4213,11 +4234,15 @@ function updateLever() {
   const outboard = kind === 'sail';
   if (outboard && !T) keys += ` · ${K('outboard')} outboard up`;
   const dead = kind && (kind === 'kayak' ? boat.kflat : boat.trolling ? boat.flat : boat.dry);
+  // (An outboard with a leg to tilt: the tilt button, and its key.)
+  const EL = kind && boat.motor ? engines[kind] : null, tiltable = !!EL && !!ENGINES[EL.kind]?.trim;
+  if (tiltable && !T) keys += `${keys ? ' · ' : ''}${K('tilt')} tilt`;
   leverUI.update({
     show: true, kind, smooth, index: kind ? (smooth ? displayIndex(kind, leverPos(kind)) : nearest(kind, boat.lever)) : 0, power: boat.power, cap: kind ? capIndex(kind, sit) : 0,
     words: !kind ? 'paddling' : boat.anchored ? 'at anchor' : dead ? (kind === 'kayak' ? 'battery flat' : 'motor dead') : cap(smooth ? leverPositionWords(leverPos(kind)) : leverWords(kind, boat.lever)),
     title: kind === 'kayak' ? 'Kayak motor' : kayak ? 'Kayak' : outboard ? 'Outboard' : 'Throttle',
     motor: kayak ? (boat.emotorDown ? 'down' : 'up') : outboard ? 'outboard' : null, keys,
+    tilt: tiltable ? (tiltedUp(EL) ? 'up' : 'down') : null, twin: tiltable && ENGINES[EL.kind].engines > 1,
     gauges: helmGauges(),
   });
 }
@@ -10006,6 +10031,7 @@ input.on('press', (code, acts) => {
     save();
   }
   else if (is('anchor')) mooringAction()?.run();
+  else if (is('tilt')) tiltOutboards();
   else if (is('neutral') && leverKind()) leverNeutral(true);
   else if (is('throttleUp') && leverKind()) stepLever(1);
   else if (is('throttleDown') && leverKind()) stepLever(-1);

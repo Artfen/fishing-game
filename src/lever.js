@@ -46,8 +46,12 @@ export class LeverUI {
     this.stopBtn.type = 'button';
     this.motorBtn = el('button', 'lv-motor', 'Motor');
     this.motorBtn.type = 'button';
+    // (The outboard's leg right up out of the water, or back down: one press.)
+    this.tiltBtn = el('button', 'lv-motor lv-tilt', 'Tilt up');
+    this.tiltBtn.type = 'button';
+    this.tiltBtn.hidden = true;
     this.keys = el('div', 'lv-keys');
-    root.append(head, this.gauges, this.body, this.stopBtn, this.motorBtn, this.keys);
+    root.append(head, this.gauges, this.body, this.stopBtn, this.tiltBtn, this.motorBtn, this.keys);
     // Buttons press on the way down (no focus left behind, no click lost to a moving finger).
     const press = (b, fn) => b.addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -56,6 +60,7 @@ export class LeverUI {
     });
     press(this.stopBtn, () => this.h.stop());
     press(this.motorBtn, () => this.h.motor());
+    press(this.tiltBtn, () => this.h.tilt?.());
     this.track.addEventListener('pointerdown', (e) => this.dragStart(e));
     this.track.addEventListener('pointermove', (e) => this.dragMove(e));
     for (const ev of ['pointerup', 'pointercancel']) this.track.addEventListener(ev, (e) => this.dragEnd(e));
@@ -127,7 +132,8 @@ export class LeverUI {
   }
 
   // s: { show, kind, index (fractional for the smooth lever), power (-1 … 1), cap (the highest
-  //   notch allowed), words, motor ('down' | 'up' | null: not a kayak), keys (a line of controls,
+  //   notch allowed), words, motor ('down' | 'up' | null: not a kayak), tilt ('up' | 'down': the
+  //   outboard's leg, for the tilt button; null: no leg to tilt), keys (a line of controls,
   //   HTML), title, smooth (the real lever, not notches) }
   update(s) {
     const on = !!s.show;
@@ -146,6 +152,10 @@ export class LeverUI {
     this.motorBtn.textContent = s.motor === 'outboard' ? 'Outboard up · sail or row' : s.motor === 'down' ? 'Raise motor · paddle' : 'Lower motor';
     this.motorBtn.setAttribute('aria-pressed', s.motor === 'down' || s.motor === 'outboard');
     this.stopBtn.hidden = !s.kind;
+    if (this.tiltBtn.hidden !== !s.tilt) this.tiltBtn.hidden = !s.tilt;
+    const tw = s.tilt === 'up' ? (s.twin ? 'Tilt the outboards down' : 'Tilt the outboard down') : s.twin ? 'Tilt the outboards up' : 'Tilt the outboard up';
+    if (s.tilt && this.tiltBtn.textContent !== tw) this.tiltBtn.textContent = tw;
+    this.tiltBtn.setAttribute('aria-pressed', s.tilt === 'up');
     this.body.hidden = !s.kind;
     if (this.keys.innerHTML !== (s.keys || '')) this.keys.innerHTML = s.keys || '';
     if (this.gauges.innerHTML !== (s.gauges || '')) this.gauges.innerHTML = s.gauges || '';

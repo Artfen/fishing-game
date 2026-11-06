@@ -381,6 +381,39 @@ export function trimBy(E, dir, dt, speed = 0) {
   return null;
 }
 
+// The tilt button: one press brings the leg (both legs, on twins) right up out of the water, at
+// rest or near it (under way the power trim stops at the top of its range); the next press takes
+// it back down to run. The leg travels there by itself (see stepTilt); holding the trim switch
+// takes over again. Returns where it's going ({ to: 'up' | 'down' }) or why not ({ why: 'fast'
+// (moving too quickly to tilt right up) | 'none' (no outboard leg to tilt) }).
+export const TILT_RATE = 22; // degrees a second, as the trim's own tilt range runs
+export function tiltToggle(E, speed = 0) {
+  const P = PROFILES[E?.kind];
+  if (!P?.trim) return { why: 'none' };
+  const up = E.tiltTo != null ? E.tiltTo === TRIM.up : E.trim >= TRIM.out;
+  if (up) {
+    E.tiltTo = 0;
+    return { to: 'down' };
+  }
+  if (Math.abs(speed) >= 2.5) return { why: 'fast' };
+  E.tiltTo = TRIM.up;
+  return { to: 'up' };
+}
+// Whether the leg is up (or on its way up) for the tilt button's words.
+export const tiltedUp = (E) => !!E && (E.tiltTo != null ? E.tiltTo === TRIM.up : E.trim >= TRIM.out);
+// The leg on its way to where the tilt button sent it. Returns true while it moves.
+export function stepTilt(E, dt) {
+  if (!E || E.tiltTo == null) return false;
+  const d = E.tiltTo - E.trim, st = TILT_RATE * dt;
+  if (Math.abs(d) <= st) {
+    E.trim = E.tiltTo;
+    E.tiltTo = null;
+    return false;
+  }
+  E.trim += Math.sign(d) * st;
+  return true;
+}
+
 // How far into the air the propeller is drawing (0–1): trimmed past about 12° at planing speed it
 // starts to slip and race; tilted up into the shallow-water range it's half out.
 export function ventilation(E, speed = 0) {
