@@ -310,7 +310,9 @@ export class SharedWorld {
         a.remoteHook = null;
         a.state = a.school ? 'school' : 'cruise';
       }
-      if (a.state === 'gone' && a.backAt === Infinity) this.eco.restock(a, a.size);
+      // (Fish taken while following come back over the next few minutes, as they would have:
+      // leaving a session and coming back isn't a way to refill fished-out water at once.)
+      if (a.state === 'gone' && a.backAt === Infinity) a.backAt = this.eco.time + 240 + Math.random() * 180;
     }
   }
 

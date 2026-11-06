@@ -895,8 +895,10 @@ export class Together {
     } else if (kind === 'catch') {
       const kg = finite(data.kg, 0, 2000);
       if (typeof data.sp !== 'string' || data.sp.length > 40 || kg == null) return;
-      if (this.clock - (p.caughtT ?? -99) < 4) return; // (one at a time)
-      p.caughtT = this.clock;
+      // (A few at a time: two fish landed close together are both news, a flood of them isn't.)
+      p.caughts = (p.caughts || []).filter((at) => this.clock - at < 20);
+      if (p.caughts.length >= 3) return;
+      p.caughts.push(this.clock);
       this.onEvent('catch', p, { sp: data.sp, kg, best: !!data.best, first: !!data.first });
     } else if (kind === 'find') {
       const F = cleanFind(data.f);

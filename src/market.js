@@ -1,4 +1,5 @@
 import { FISH, fishById, weightOf } from './fish.js';
+import { BIG_GAME } from './bigGame.js';
 import { seasonBoost } from './world/season.js';
 
 // The harbour's trade in fish, kept gentle: a catch you keep can go to the pot (as ever), to the
@@ -44,6 +45,11 @@ export const PRICES = {
 export const MARKET_HOURS = [5, 19];
 export const ORDERS_BY = 22;
 export const MAX_PRICE = 40;
+// (The big ocean fish brought back, a tuna, a wahoo or a dorado of twenty kilos and more, fetch more
+// than a turbot does: a higher limit for them.)
+export const BIG_MAX_PRICE = 120;
+const BIG = new Set(BIG_GAME.map((f) => f.id));
+export const priceCap = (sp) => (BIG.has(sp.id) ? BIG_MAX_PRICE : MAX_PRICE);
 export const MAX_REWARD = 60;
 
 const SOUTH_ZONES = new Set(['harbor', 'lee', 'lava', 'sebadal', 'veril', 'ocean']);
@@ -116,7 +122,7 @@ export function fishValue(f, { day, now, place = 'haven' } = {}) {
   const size = sizePrice(sp, f.size);
   const each = Math.round(PRICES[sp.id] * (demand === 'wanted' ? 1.5 : demand === 'plenty' ? 0.7 : 1) * season * size * 100) / 100;
   const fresh = freshness(f.at, now);
-  return { price: Math.min(MAX_PRICE, Math.max(0.2, Math.round(kg * each * fresh * 20) / 20)), kg, each, fresh, demand, season, prime: size > 1, wanted: true };
+  return { price: Math.min(priceCap(sp), Math.max(0.2, Math.round(kg * each * fresh * 20) / 20)), kg, each, fresh, demand, season, prime: size > 1, wanted: true };
 }
 
 // A line of a sale's receipt: what it was, its weight, the price by the kilo and why, the total.

@@ -55,5 +55,5 @@ test('a boat on hire today counts as one you can take (the board names it)', asy
   assert.equal(usable(yard, 'cruiser', 8), false, 'not tomorrow');
   assert.equal(usable(yard, 'cruiser'), false, 'without the day it can’t know: the board must pass it');
   const src = readFileSync('src/main.js', 'utf8');
-  assert.match(src, /usableBoat\(state\.yard, k, state\.day\)/, 'the board passes the day');
+  assert.match(src, /usableBoat\(state\.yard, k, state\.day, ownAbs\(\)\)/, 'the board passes the day and the time (a hire runs 24 hours)');
 });

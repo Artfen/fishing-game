@@ -339,18 +339,26 @@ export function buildWildlife(scene) {
           o.heading = dampAngle(o.heading, Math.atan2(dx, dz), 4, dt);
         }
       } else if (o.state === 'eat' && o.t <= 0) {
-        Object.assign(o, { state: 'swim', t: rand(10, 25), fish: false });
+        // Eaten: back down the bank and into the water (not there all at once).
         const p = P[o.i];
-        o.x = p.x;
-        o.z = p.z;
-        events.onSplash?.(o.x, o.z, 0.2);
+        Object.assign(o, { state: 'toWater', t: 10, tx: p.x, tz: p.z, fish: false });
+      } else if (o.state === 'toWater') {
+        const dx = o.tx - o.x, dz = o.tz - o.z, l = Math.hypot(dx, dz);
+        if (l < 0.3 || o.t <= 0) {
+          Object.assign(o, { state: 'swim', t: rand(10, 25) });
+          events.onSplash?.(o.x, o.z, 0.2);
+        } else {
+          o.x += (dx / l) * 1.1 * dt;
+          o.z += (dz / l) * 1.1 * dt;
+          o.heading = dampAngle(o.heading, Math.atan2(dx, dz), 4, dt);
+        }
       }
       // Drawn: low in the water swimming, a hump and the tail going under in a dive, up on its
       // haunches on the bank to eat.
       const show = d < 350 && o.state !== 'dive';
       o.g.visible = show;
       if (!show) continue;
-      const onBank = o.state === 'eat' || (o.state === 'toBank' && heightAt(o.x, o.z) > waterLevel(o.x, o.z));
+      const onBank = o.state === 'eat' || ((o.state === 'toBank' || o.state === 'toWater') && heightAt(o.x, o.z) > waterLevel(o.x, o.z));
       const lvl = waterLevel(o.x, o.z);
       o.y = onBank ? heightAt(o.x, o.z) + 0.14 : lvl - 0.06 + Math.sin(t * 2 + o.ph) * 0.01;
       o.g.position.set(o.x, o.y, o.z);
@@ -390,7 +398,8 @@ export function buildWildlife(scene) {
         let to = far.length ? pick(far) : null;
         if (!to) {
           const a = Math.atan2(H.x - ctx.from.x, H.z - ctx.from.z);
-          to = { p: { x: H.x + Math.sin(a) * 140, z: H.z + Math.cos(a) * 140 }, i: -1 };
+          // (Far enough to be out of sight before it's gone: it's drawn out to 500 m.)
+          to = { p: { x: H.x + Math.sin(a) * 520, z: H.z + Math.cos(a) * 520 }, i: -1 };
         }
         H.fly = { fx: H.x, fz: H.z, tx: to.p.x, tz: to.p.z, i: to.i, k: 0, len: Math.hypot(to.p.x - H.x, to.p.z - H.z) };
         H.heading = Math.atan2(to.p.x - H.x, to.p.z - H.z);
@@ -409,13 +418,17 @@ export function buildWildlife(scene) {
           if (F.i >= 0) H.spot = F.i;
         }
       } else if (H.state === 'away') {
-        // (Gone over the hill; back to its shallows once you've moved on.)
-        H.g.visible = false;
+        // (Gone over the hill; back to its shallows once you've moved on, flying in from where it
+        // went rather than appearing there.)
         const home = H.S[H.spot];
         if (H.t <= 0 && Math.hypot(ctx.from.x - home.x, ctx.from.z - home.z) > 70) {
-          Object.assign(H, { x: home.x, z: home.z, state: 'stand', t: rand(8, 20) });
+          H.state = 'stand';
+          H.fly = { fx: H.x, fz: H.z, tx: home.x, tz: home.z, i: H.spot, k: 0, len: Math.hypot(home.x - H.x, home.z - H.z) };
+          H.heading = Math.atan2(home.x - H.x, home.z - H.z);
+        } else {
+          H.g.visible = false;
+          continue;
         }
-        continue;
       } else {
         H.y = Math.max(heightAt(H.x, H.z), waterLevel(H.x, H.z) - 0.35);
         if (H.t <= 0) {
@@ -435,7 +448,7 @@ export function buildWildlife(scene) {
           if (depthAt(nx, nz) < 0.45) {
             H.x = nx;
             H.z = nz;
-          } else H.heading += 1.5;
+          } else H.heading += Math.min(1.5, 2 * dt); // (deep water ahead: it turns, slowly)
         }
       }
       const show = d < 500;
@@ -603,7 +616,10 @@ export function buildWildlife(scene) {
   /* ---------- oystercatchers ---------- */
   const flocks = SHORES.filter((S) => S.length).map((S) => {
     const birds = [];
-    for (let i = 0; i < 6; i++) birds.push({ ...add(oysterModel()), ox: rand(-3, 3), oz: rand(-3, 3), heading: rand(0, 6.28), probe: 0, ph: Math.random() * 10 });
+    for (let i = 0; i < 6; i++) {
+      const ox = rand(-3, 3), oz = rand(-3, 3);
+      birds.push({ ...add(oysterModel()), ox, oz, tx: ox, tz: oz, heading: rand(0, 6.28), probe: 0, ph: Math.random() * 10 });
+    }
     const s = S[0];
     return { S, i: 0, x: s.x, z: s.z, fly: null, birds };
   });
@@ -636,6 +652,11 @@ export function buildWildlife(scene) {
         if (L.k >= 1) {
           F.i = L.i;
           F.fly = null;
+          // (Down in a new scatter, not the same pattern as before: they shuffle into it.)
+          for (const b of F.birds) {
+            b.tx = rand(-3.5, 3.5);
+            b.tz = rand(-3.5, 3.5);
+          }
         }
       }
       const show = d < 400 && ctx.daylight > 0.1;
@@ -646,14 +667,25 @@ export function buildWildlife(scene) {
         const fy = F.fly ? 2 + Math.sin(F.fly.k * Math.PI) * 3 : 0;
         const x = F.x + b.ox, z = F.z + b.oz, gy = Math.max(heightAt(x, z), waterLevel(x, z) - 0.05);
         if (!F.fly) {
-          // A few steps and a probe into the sand.
-          b.probe = Math.max(0, Math.sin(t * 1.7 + b.ph * 3));
-          b.heading = dampAngle(b.heading, b.heading + Math.sin(t * 0.3 + b.ph) * 0.4, 1, dt);
+          // A few steps and a probe into the sand: each bird wanders a little on its own.
+          if (Math.random() < dt * 0.12) {
+            b.tx = clamp(b.ox + rand(-1.2, 1.2), -4, 4);
+            b.tz = clamp(b.oz + rand(-1.2, 1.2), -4, 4);
+          }
+          const wx = b.tx - b.ox, wz = b.tz - b.oz, wl = Math.hypot(wx, wz);
+          if (wl > 0.05) {
+            const st = Math.min(wl, 0.35 * dt);
+            b.ox += (wx / wl) * st;
+            b.oz += (wz / wl) * st;
+          }
+          b.probe = wl > 0.05 ? 0 : Math.max(0, Math.sin(t * 1.7 + b.ph * 3));
+          b.heading = wl > 0.05 ? dampAngle(b.heading, Math.atan2(wx, wz), 3, dt) : dampAngle(b.heading, b.heading + Math.sin(t * 0.3 + b.ph) * 0.4, 1, dt);
           b.g.position.set(x, gy, z);
           b.g.rotation.set(b.probe * 0.6, b.heading, 0);
           b.wl.visible = b.wr.visible = false;
         } else {
-          b.g.position.set(x, gy + fy + b.oz * 0.1, z);
+          // (Not a rigid grid in the air: each keeps its own place loosely.)
+          b.g.position.set(x + Math.sin(t * 1.1 + b.ph) * 0.5, gy + fy + b.oz * 0.1 + Math.sin(t * 2.3 + b.ph) * 0.25, z + Math.cos(t * 0.9 + b.ph) * 0.5);
           b.g.rotation.set(0, heading, 0);
           b.wl.visible = b.wr.visible = true;
           const f = Math.sin(t * 12 + b.ph) * 0.6;

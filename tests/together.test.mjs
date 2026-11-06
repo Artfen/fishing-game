@@ -339,7 +339,8 @@ test('what others send is checked: junk is ignored, and catches don’t flood', 
   assert.equal(r.name, 'RogueName that i');
   assert.equal(r.pose, null, 'a boat that isn’t one is dropped');
   assert.equal(a.peers.has(a.id), false, 'nobody can be you');
-  assert.equal(a.events.filter((e) => e[0] === 'catch').length, 1);
+  // (Junk dropped, and a flood cut short: two or three fish close together are news, five aren't.)
+  assert.equal(a.events.filter((e) => e[0] === 'catch').length, 3);
   assert.equal(a.status, 'hosting');
   rogue.close();
   await until(() => !a.peers.has('rogue'));

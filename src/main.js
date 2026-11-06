@@ -79,7 +79,7 @@ import { PROFILES as ENGINES, START_MODES, hasEngine, cleanEngine, engineSave, a
 import { HelmUI } from './helm.js';
 import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
-import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect } from './shipyard.js';
+import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, hiredToday, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect } from './shipyard.js';
 import { BoatPreview } from './boatPreview.js';
 import { Memories } from './memories.js';
 import { whatsAbout, birdsWorking, weatherLines, notices, paintBoard } from './harbour.js';
@@ -168,7 +168,9 @@ const audio = new AudioScape();
 const settings = state.settings;
 // The world's clock: the time everyone sees (your own, or the host's when playing together); your
 // own clock (state.day, state.hour) keeps time for your own things. See world/clock.js.
-const clock = new WorldClock(() => state.day * 24 + state.hour);
+// (Your own time, in game hours since day 0: see world/clock.js.)
+const ownAbs = () => state.day * 24 + state.hour;
+const clock = new WorldClock(ownAbs);
 audio.musicOn = state.music !== false;
 audio.setVolumes(settings.audio);
 
@@ -438,6 +440,7 @@ function earFrom(P) {
 // the water's edge along a quay or a pontoon, the boats lying near (yours and the harbour's), any
 // boat out with her engine running, where the gulls are, and the inn's door with talk inside.
 let aroundT = 0, around = {};
+const UNPOWERED = new Set(['row', 'kayak', 'sail', 'windsurf']); // (no engine heard: oars, a paddle, a sail)
 function aroundEar(P, dt) {
   aroundT -= dt;
   if (aroundT > 0) return around;
@@ -450,6 +453,13 @@ function aroundEar(P, dt) {
   const motors = Object.entries(town.boats)
     .filter(([id, b]) => b.present && !b.moored && (b.speed > 0.3 || b.hauling) && !id.startsWith('kay') && !(id === 'puffin' && b.sails))
     .map(([id, b]) => ({ x: b.x, z: b.z, level: clamp(b.speed / 7, 0.08, 1), voice: id === 'halcyon' || id === 'star' ? 'inboard' : '' }));
+  // (Friends' boats under power too, playing together: the one you're crewing on among them, so a
+  // planing RIB you're riding in isn't silent.)
+  if (together.active) {
+    for (const b of visitors.boats()) {
+      if (b.speed > 0.3 && !UNPOWERED.has(b.kind)) motors.push({ x: b.pos.x, z: b.pos.z, level: clamp(b.speed / 7, 0.08, 1), voice: b.kind === 'cruiser' || b.kind === 'cabin' ? 'inboard' : '' });
+    }
+  }
   const inn = HAVEN_ROOMS.inn, inside = town.inside('inn');
   around = {
     quay: quayNear(PIERS, P.x, P.z, 45),
@@ -1807,6 +1817,8 @@ const harbourSheet = new HarbourSheet(state, {
   changed: () => save(),
   close: () => closeHarbour(),
   now: () => state.day * 24 + state.hour,
+  // (The market's and the kitchen's hours: the world's, which is the host's playing together.)
+  worldHour: () => clock.hour,
   playerName: () => settings.player.name,
   sold: (logId) => setOutcome(logId, 'sold'),
   eatMeal: (m) => camp.eatMeal(m),
@@ -1835,7 +1847,7 @@ const harbourSheet = new HarbourSheet(state, {
   }),
   yardHire: (kind) => yardDo(hireBoat(state, kind), () => {
     closeHarbour();
-    hud.toast(`The ${BOATS[kind].name} is yours for the day: she goes back to the yard tomorrow.`, 6);
+    hud.toast(`The ${BOATS[kind].name} is yours for a day: she goes back to the yard at ${formatClock((state.yard.hired?.until ?? ownAbs() + 24) % 24)} tomorrow.`, 6);
     if (BOATS[kind].stowed) launchBoat(BOATS[kind]);
     // (The board, written again for a boat you have now: jobs taken or done stay as they are.)
     state.contracts.board = null;
@@ -1978,7 +1990,7 @@ const innNear = () => onFoot && !driving && insideHaven(walker.pos.x, walker.pos
 let kitchenChalk = '';
 function chalkKitchen() {
   const orders = ordersFor(state.day, 'haven').map((o) => ({ name: fishById[o.id].name, min: o.min > fishById[o.id].size[0] ? o.min : 0, done: (state.harbour?.filled || []).includes(o.key) }));
-  const closed = state.hour < 6 || state.hour >= ORDERS_BY, key = JSON.stringify([orders, closed]);
+  const closed = clock.hour < 6 || clock.hour >= ORDERS_BY, key = JSON.stringify([orders, closed]);
   if (key === kitchenChalk) return;
   kitchenChalk = key;
   world.coast.paintKitchen((ctx, w, h) => paintKitchenBoard(ctx, w, h, { orders, closed }));
@@ -3526,7 +3538,7 @@ function jobWorld() {
   const busy = whatsAbout(eco).map((a) => ({ id: a.sp.id, name: a.sp.name, where: a.where, at: null, min: a.sp.size[0], max: a.sp.size[1], sea: a.sp.water !== 'fresh' }));
   const whales = sealife.whales.filter((w) => w.sea === 'home').map((w) => ({ kind: w.kind, name: LIFE_NAME[w.kind] || 'Whale', where: where(w.x, w.z), at: { x: w.x, z: w.z, name: LIFE_NAME[w.kind] || 'Whale' } }));
   const near = (x, z, r) => Math.hypot(x - H.x, z - H.z) < r;
-  const usable = (k) => usableBoat(state.yard, k, state.day);
+  const usable = (k) => usableBoat(state.yard, k, state.day, ownAbs());
   const mo = Math.floor((((clock.abs / 24) % 360) + 360) % 360 / 30);
   return {
     day: state.day, region: 'home', busy, whales,
@@ -3542,10 +3554,12 @@ function jobWorld() {
     birds: world.flocks.length > 0 || (clock.hour > 5 && clock.hour < 8.5) || (clock.hour > 18 && clock.hour < 21),
     // (A gale today keeps the deliveries and the racing off the board, but for the one that has to
     // get there before it; the crossing wants tomorrow clear as well.)
-    storm: weather.storm > 0.25 || !!galeFor(state.day) || !!(galeFor(state.day - 1) && clock.abs < galeFor(state.day - 1).end),
-    forecastStorm: !!galeFor(state.day) || !!galeFor(state.day + 1), wind: conditions.wind.speed, abs: clock.abs,
-    galeAt: galeFor(state.day) && clock.abs < galeFor(state.day).start ? galeFor(state.day).start : null,
-    galeWords: galeFor(state.day) ? formatClock(galeFor(state.day).start % 24) : '',
+    // (The gales and the time to check them against both from the world's clock: the host's,
+    // playing together, so a "before the gale" job neither lapses at once nor never.)
+    storm: weather.storm > 0.25 || !!galeFor(clock.day) || !!(galeFor(clock.day - 1) && clock.abs < galeFor(clock.day - 1).end),
+    forecastStorm: !!galeFor(clock.day) || !!galeFor(clock.day + 1), wind: conditions.wind.speed, abs: clock.abs,
+    galeAt: galeFor(clock.day) && clock.abs < galeFor(clock.day).start ? galeFor(clock.day).start : null,
+    galeWords: galeFor(clock.day) ? formatClock(galeFor(clock.day).start % 24) : '',
     summer: mo >= 4 && mo <= 7, canCross: usable('cruiser') || usable('sail'), ownsSail: usable('sail'), beenSouth: !!state.tips.brasa,
     places: { quay: placeOf('quay'), puerto: placeOf('puerto'), stream: placeOf('stream'), puffin: placeOf('puffin'), landing: placeOf('landing'), light: placeOf('light'), hound: placeOf('hound'), visitors: { x: (VISITOR_FINGERS[0].x0 + VISITOR_FINGERS[0].x1) / 2, z: (VISITOR_FINGERS[0].z0 + VISITOR_FINGERS[0].z1) / 2, name: 'the visitors’ pontoon' } },
     surveyLines: [{ name: 'the bay mouth', marks: [markOf('d', 'mark 1'), markOf('b', 'mark 2'), markOf('a', 'mark 3')] }, { name: 'off the bay', marks: [markOf('c', 'mark 1'), markOf('e', 'mark 2'), markOf('f', 'mark 3')] }],
@@ -6771,7 +6785,7 @@ function whereWords(b) {
 }
 const canStore = (b) => !(b === boat && !onFoot) && regionOf(b) === 'home' && !(tow && (tow.lead === b || tow.towed === b)) && !(state.shipping || []).some((s) => s.kind === b.kind);
 function harbourOffice() {
-  const laid = KINDS.filter(isStored).filter((k) => usableBoat(state.yard, k, state.day)).map((k) => BOATS[k]);
+  const laid = KINDS.filter(isStored).filter((k) => usableBoat(state.yard, k, state.day, ownAbs())).map((k) => BOATS[k]);
   const south = boats.some((b) => b.kind !== 'bass' && regionOf(b) === 'south');
   // (Wenna at the hatch in office hours; out of them, the yard's board beside it does as well.)
   const W = town.people.wenna, inOffice = W?.block?.spot === 'office' && W.act === 'inside';
@@ -6796,7 +6810,7 @@ function chooseStore() {
   ]);
 }
 function chooseLaunch() {
-  const laid = KINDS.filter(isStored).filter((k) => usableBoat(state.yard, k, state.day)).map((k) => BOATS[k]);
+  const laid = KINDS.filter(isStored).filter((k) => usableBoat(state.yard, k, state.day, ownAbs())).map((k) => BOATS[k]);
   ask('Put a boat in the water', boats.length >= MAX_AFLOAT ? `Three of your boats are in the water already, so one of them is laid up in her place.` : 'Which one?', [
     { text: 'Never mind', cls: 'quiet' },
     ...laid.map((b) => ({ text: `The ${b.name}`, run: () => launchBoat(b) })),
@@ -6835,7 +6849,7 @@ jobWeight();
 // A day's hire over: she goes back to the yard (once you're out of her).
 function watchHire() {
   const H = state.yard.hired;
-  if (!H || H.day === state.day) return;
+  if (!H || hiredToday(state.yard, H.kind, state.day, ownAbs())) return;
   const b = BOATS[H.kind];
   if (!onFoot && boat === b) return;
   state.yard.hired = null;
@@ -7079,7 +7093,7 @@ function photoSubjects(extra = null) {
   // The wildlife in the picture (see wildlife.js).
   const life = wildlife.inFrame(_frustum, c);
   // (And the sea's: dolphins, whales, seals and turtles near enough, and a pod on your own bow.)
-  const sea = sealife.inFrame(_frustum, c, together.active ? together.id : 'me');
+  const sea = sealife.inFrame(_frustum, c, together.active ? [together.id, crew.on?.id].filter(Boolean) : 'me');
   return { species: [...species].slice(0, 12), places: places.slice(0, 12), birds, ...(bell ? { bell: true } : {}), ...(life.length ? { life } : {}), ...(sea.life.length ? { sea: sea.life } : {}), ...(sea.bow ? { bow: true } : {}) };
 }
 
@@ -9037,8 +9051,12 @@ together.onEvent = (kind, p, data) => {
     if (t - (fishOnSaid[p.id] ?? -99) > 20) {
       fishOnSaid[p.id] = t;
       hud.toast(`${p.name} has a fish on! ${friendWhere(p)}`, 5);
+      audio.chime?.();
     }
-  } else if (kind === 'call') hud.toast(`${p.name}: “${data.text}” ${friendWhere(p)}`, 5);
+  } else if (kind === 'call') {
+    hud.toast(`${p.name}: “${data.text}” ${friendWhere(p)}`, 5);
+    audio.chime?.();
+  }
   else if (kind === 'joined') hud.toast(`You’re playing with ${p?.name || 'your friend'}. Look for their name on the screen: it points the way to them.`, 7);
   else if (kind === 'catch') {
     const sp = fishById[data.sp];
@@ -9047,6 +9065,12 @@ together.onEvent = (kind, p, data) => {
       // (Over them for a few seconds; and on foot, they hold it up for you to see.)
       p.landed = { text: `${sp.name.toLowerCase()}, ${kgWords(data.kg)}!`, at: together.clock };
       visitors.holdUp(p.id, data.kg);
+      // (Landed by a friend crewing your boat, close aboard: it counts for your fishing charter,
+      // their guests' fish brought in with them aboard. Nothing else of yours: it's their fish.)
+      const Q = p.view || p.pose;
+      if (crew.aboard(p) && !onFoot && !driving && Q && Math.hypot(Q.x - boat.pos.x, Q.z - boat.pos.z) < boat.hull.L + 4) {
+        jobsDone(Con.caught(state.contracts, { sp: sp.id, sea: sp.water !== 'fresh', phase: 'landed', boat: boat.kind, crew: true }));
+      }
     }
   } else if (kind === 'ended') hud.toast(p ? `${p.name} ended the session.` : data?.hostGone ? `${data.name[0].toUpperCase()}${data.name.slice(1)} didn’t come back, so the session has ended. Your own time and weather are back.` : 'The connection to your session was lost, so you’ve left it.', 7);
   else if (kind === 'find') friendFind(p, data);
