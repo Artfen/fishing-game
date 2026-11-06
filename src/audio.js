@@ -1020,6 +1020,28 @@ export class AudioScape {
     [74, 78, 81, 86].forEach((m, i) => this.pluck(m, i * 0.13, 0.07, this.sfx));
   }
 
+  // Paid: two or three coins on the counter.
+  coins() {
+    [96, 100, 98].forEach((m, i) => this.tone({ freq: midi(m), type: 'triangle', dur: 0.32, gain: 0.035, attack: 0.002, when: i * 0.07, dest: this.sfx }));
+  }
+
+  // Fish into the pan: a hiss that settles into the cooking's own (the fire's sizzle bed).
+  sizzleStart() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t0 = ctx.currentTime, src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    src.buffer = this.white;
+    f.type = 'highpass';
+    f.frequency.value = 2600;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(0.05, t0 + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.2);
+    src.connect(f);
+    f.connect(g);
+    g.connect(this.sfx);
+    src.start(t0);
+    src.stop(t0 + 1.3);
+  }
+
   fanfare() {
     [69, 74, 78, 81, 86, 90].forEach((m, i) => this.pluck(m, i * 0.11, 0.065, this.sfx));
     this.pluck(93, 0.8, 0.04, this.sfx);

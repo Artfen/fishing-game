@@ -45,14 +45,14 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 
 | # | Area | Problem | Fix | Risk |
 | --- | --- | --- | --- | --- |
-| 1 | UX | A controller-only player is stuck at the name prompt on a new game (focus snaps back to Begin) | Treat an open question as a menu for the controller | Low |
+| 1 | UX ✅ | A controller-only player is stuck at the name prompt on a new game (focus snaps back to Begin) | Treat an open question as a menu for the controller | Low |
 | 2 | Fishing ✅ | At the net the hint says "Hold Space to reel it in", which tears the hook out | Say "let go and tap to net it" first | Very low |
-| 3 | UX | Esc/B on a question runs no button; on the style question the first-trip guide is lost for good | Esc/B picks the question's cancel; the style question still continues | Low–med |
+| 3 | UX ✅ | Esc/B on a question runs no button; on the style question the first-trip guide is lost for good | Esc/B picks the question's cancel; the style question still continues | Low–med |
 | 4 | Boats | Tying up can put two hulls inside each other; the hull contact then fires them out of the berth (seen: 23 m/s) | Berths check boat length; overlaps ease out instead of firing | Low–med |
 | 5 | Fishing ✅ | One press of Esc/B/right-click lets a hooked fish go | A second press within a moment | Low |
-| 6 | UX | The radio's call can open mid-fight or mid-steer, and replace another open question | Gate on fishing, an open question, speed; count the call only when shown | Low |
-| 7 | Jobs | The board ignores boats you've hired; the survey bonus is judged by the wrong boat | Pass the day; record imaging during the survey | Low |
-| 8 | Audio | Being paid for a job is silent (`audio.coins` doesn't exist); so is the camp sizzle | Add the sounds; a test that every optional audio call exists | None |
+| 6 | UX ✅ | The radio's call can open mid-fight or mid-steer, and replace another open question | Gate on fishing, an open question, speed; count the call only when shown | Low |
+| 7 | Jobs ✅ | The board ignores boats you've hired; the survey bonus is judged by the wrong boat | Pass the day; record imaging during the survey | Low |
+| 8 | Audio ✅ | Being paid for a job is silent (`audio.coins` doesn't exist); so is the camp sizzle | Add the sounds; a test that every optional audio call exists | None |
 | 9 | Camera | First person trails the eye at speed (0.2–0.4 m at 18 m/s), worse at higher frame rates, and judders | Lock to the eye once any glide is over | Low |
 | 10 | Camera | The steady camera / reduced motion lets the eye sink 0.5 m through the console, then snap | Clamp instead of snapping | Low |
 | 11 | Fishing ✅ | On a controller, side pressure on the stick also clicks the drag (to locked: a snapped line) | A firm, mostly vertical push only | Low |
@@ -63,10 +63,10 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | 16 | Fishing ✅ | A snapped line reels the float or lure home intact | The rig goes with the fish | Low |
 | 17 | Fishing ✅ | The weigh-in rumble never plays (the catch card is a modal) | Allow vibration on the catch card | None |
 | 18 | Fishing ✅ | ~33 species with flat/cling/roll styles had no moves of their own | Flatfish and octopus pump up off the bottom; dogfish writhe | Low |
-| 19 | UX | One-time tips play behind full-screen menus and still count as seen | Hold tips until the menu closes; mark seen when shown | Low |
-| 20 | UX | A third of toasts can't be read in their time (up to 46 characters a second) | A minimum reading time | Low |
-| 21 | UX | Discovery cards clash with the catch card; queued cards can stay unseen | Set the catch modal first; drain the card queue when free | Low |
-| 22 | UX | Keyboard: Tab never reaches the journal or dashboard; Space doesn't press question buttons | Find the top dialog correctly | Low |
+| 19 | UX ✅ | One-time tips play behind full-screen menus and still count as seen | Hold tips until the menu closes; mark seen when shown | Low |
+| 20 | UX ✅ | A third of toasts can't be read in their time (up to 46 characters a second) | A minimum reading time | Low |
+| 21 | UX ✅ | Discovery cards clash with the catch card; queued cards can stay unseen | Set the catch modal first; drain the card queue when free | Low |
+| 22 | UX ✅ | Keyboard: Tab never reaches the journal or dashboard; Space doesn't press question buttons | Find the top dialog correctly | Low |
 | 23 | Boats | Docking: the tie-up prompt vanishes above 0.9 m/s with no word why, and flickers in a swell; RIB astern is weak | "Slow down to tie up", smoothed speed, firmer astern | Low |
 | 24 | Boats | Fast boats have no cruise notch between half and full (RIB 4.3 → 18 m/s) | A cruise notch | Low–med |
 | 25 | Boats | The dashboard's throttle lever barely moves until full ahead | Show the lever's travel | Low |
@@ -94,3 +94,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | After | Browser-checked: the hint reads "Beaten and alongside: let go of Space, and tap it to net it"; one Esc shows "Press again to let the fish go" and the fish stays on, a second releases it; a snapped line leaves no float, lure or line flying home |
 | Validation | `tests/fishfeel.test.mjs` (7 tests); existing fight, angling, haptics and big-game tests pass; a browser run of a real fight in the game |
 | Remaining risks | Flatfish/octopus/dogfish fights change slightly in feel (balance); a player used to one-press release now presses twice |
+
+### Messages and menus that don't get in the way (PR B)
+
+| Field | |
+| --- | --- |
+| System | Questions, messages, cards, controller and keyboard focus, the board and sounds (`src/main.js`, `src/ui.js`, `src/input.js`, `src/settings.js`, `src/audio.js`) |
+| Previous issue | Backlog 1, 3, 6–8, 19–22: a controller-only new player was stuck at the name prompt; Esc/B on a question ran nothing, and on "How do you like to play?" lost the first-trip guide for good; the radio's call could open over a fight, while steering, or on top of another question (replacing it); one-time tips played behind full-screen menus; a third of messages couldn't be read in their time; a discovery card could land on the catch card (Space then released the fish under it) and queued cards could stay unseen; Tab and Space didn't reach dialogs; the board ignored hired boats; being paid was silent |
+| Change | An open question counts as a menu for the controller, before the game starts too; Esc/B answers a question with its cancel (explicit, or a plainly harmless answer like "Not now": never an action), the name question takes the name in the box and the style question takes Angler; a question asked while another is open waits its turn; radio calls wait for no line out, no question, no placement or dashboard in hand, and under 2.5 m/s, and are counted only when shown; messages wait while a full-screen menu would hide them (not the map); a message stays up at least as long as it takes to read (14 characters a second, up to 20 s); the catch card claims the screen first and waiting cards come when it's free; dialogs are found correctly for Tab and Space; new settings follow the system's reduce-motion; the board passes the day (hired boats count) and is rewritten after a hire; a survey keeps its imaging bonus from the boat that ran it; `coins()` and `sizzleStart()` exist |
+| Player benefit | A new player can start with a controller or with Esc alone; nothing important appears where it can't be seen or replaces something being read; being paid sounds like it |
+| Before | Pad: focus snapped back to "Begin" behind the name prompt; Esc did nothing before the game began; a call opened mid-fight; 63 of 181 messages ran faster than 15 characters a second; `audio.coins` didn't exist |
+| After | Browser-checked: a new game's name and style questions answered with Esc alone, the game starts and the first-trip guide is offered; the controller's context at the name prompt is `menu`; with a fish on no call appears, after the fight it does, and Esc answers it "Not now" (nothing taken, the next one scheduled); Tab opens the journal |
+| Validation | `tests/messages.test.mjs` (every optional sound exists, reading time, reduce-motion default, hired boats); browser run of a new game and a returning one |
+| Remaining risks | Messages raised inside a menu now appear when it closes rather than (invisibly) behind it; Esc on a question with no clear cancel still just closes it |
