@@ -124,21 +124,25 @@ test('lightning in a storm, and its thunder arriving later the further off it st
   for (let i = 0; i < 1800; i++, t += 1 / 30) S.update(1 / 30, t, { storm: 0, camera, env, onThunder: () => heard.push(t) });
   assert.equal(heard.length, 0);
   assert.equal(env.flash, 0);
-  // Two minutes of storm.
-  const strikes = [];
+  // Two minutes of storm. (Each strike noted as it happens, so each thunder is set against its own
+  // flash: a far strike's thunder can arrive just after a nearer, newer flash.)
+  const strikes = [], seen = new Set();
   for (let i = 0; i < 3600; i++, t += 1 / 30) {
     S.update(1 / 30, t, { storm: 1, camera, env, onThunder: (d) => heard.push({ t, d }) });
-    if (env.flash > 0.05 && !wasLit) {
-      flashes++;
-      strikes.push({ t, d: S.thunders.at(-1)?.dist });
+    for (const T of S.thunders) {
+      if (seen.has(T)) continue;
+      seen.add(T);
+      strikes.push({ t, d: T.dist });
     }
+    if (env.flash > 0.05 && !wasLit) flashes++;
     wasLit = env.flash > 0.05;
   }
   assert.ok(flashes >= 3, `${flashes} strikes`);
   assert.ok(heard.length >= 2);
   for (const h of heard) {
-    const s = strikes.filter((x) => x.t <= h.t).at(-1);
-    if (s) assert.ok(h.t - s.t >= h.d / 343 - 0.6, 'the thunder comes after the flash');
+    const s = strikes.find((x) => x.d === h.d);
+    assert.ok(s, 'every thunder is from a strike');
+    assert.ok(h.t - s.t >= h.d / 343 - 0.6, 'the thunder comes after the flash');
   }
   assert.ok(S.sp.every(Number.isFinite));
 });
