@@ -147,6 +147,7 @@ const LEVEL_NAMES = { auto: 'With the preset', low: 'Low', medium: 'Medium', hig
 
 // hooks: { changed(section, key, value), close(), playAlert(), qualityText(), difficulty(), setDifficulty(id),
 //   behaviour(), setBehaviour(id), keyLabel(code), together() (the Together session), setName(name),
+//   netDiagnostics() (lines about the session's traffic and the shared sea, or null),
 //   boatName(kind), following() (the host's name while their world is followed, or null) }
 export class SettingsUI {
   constructor(state, hooks) {
@@ -332,6 +333,14 @@ export class SettingsUI {
         const kb = Math.round((U.bytesOut + U.bytesIn) / 1024);
         const again = U.reconnects ? `, and the connection was got back ${U.reconnects === 1 ? 'once' : `${U.reconnects} times`}` : '';
         box.append(el('p', 'st-note st-tg-usage', `This session so far: ${U.out.toLocaleString()} messages sent and ${U.in.toLocaleString()} received (about ${kb.toLocaleString()} KB) in ${mins} minute${mins === 1 ? '' : 's'}${again}. Supabase counts messages against its monthly Realtime allowance.`));
+        // The shared sea and the rest, by kind: for anyone checking how the session is doing.
+        const D = this.hooks.netDiagnostics?.();
+        if (D) {
+          const det = el('details', 'st-tg-diag');
+          det.append(el('summary', null, 'Network details'));
+          for (const line of D) det.append(el('p', 'st-note', line));
+          box.append(det);
+        }
       }
       const leave = el('button', 'pk-btn quiet', T.hosting ? 'End the session' : 'Leave the session');
       leave.type = 'button';

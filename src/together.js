@@ -270,7 +270,7 @@ export class Realtime {
     if (this.open) {
       const text = JSON.stringify(msg);
       this.ws.send(text);
-      if (event === 'broadcast' || event === 'presence') this.onTraffic('out', text.length);
+      if (event === 'broadcast' || event === 'presence') this.onTraffic('out', text.length, payload?.event || event);
     }
     return ref;
   }
@@ -309,7 +309,7 @@ export class Realtime {
       try { this.ws.close(); } catch { /* gone */ }
       return;
     }
-    if (msg.event === 'broadcast' || msg.event === 'presence_diff' || msg.event === 'presence_state') this.onTraffic('in', String(data).length);
+    if (msg.event === 'broadcast' || msg.event === 'presence_diff' || msg.event === 'presence_state') this.onTraffic('in', String(data).length, msg.payload?.event || msg.event);
     this.onMessage(msg.event, msg.payload);
   }
 
@@ -469,14 +469,20 @@ export class Together {
 
   // What a session has sent and received (the messages Supabase counts against its allowance), and
   // how often the connection had to be got back: shown in Settings, nothing sent anywhere.
-  static freshStats() { return { out: 0, in: 0, bytesOut: 0, bytesIn: 0, reconnects: 0, since: Date.now() }; }
-  traffic(dir, bytes) {
+  static freshStats() { return { out: 0, in: 0, bytesOut: 0, bytesIn: 0, reconnects: 0, since: Date.now(), kinds: {} }; }
+  // (Counted by kind too, for the diagnostics: where position, the shared sea and the rest go.)
+  traffic(dir, bytes, kind = 'other') {
+    const K = (this.stats.kinds[kind] ||= { in: 0, out: 0, bytesIn: 0, bytesOut: 0 });
     if (dir === 'out') {
       this.stats.out++;
       this.stats.bytesOut += bytes;
+      K.out++;
+      K.bytesOut += bytes;
     } else {
       this.stats.in++;
       this.stats.bytesIn += bytes;
+      K.in++;
+      K.bytesIn += bytes;
     }
   }
 
@@ -522,6 +528,9 @@ export class Together {
         if (alone || resume) {
           this.status = 'hosting';
           this.hostId = this.id;
+          // (A new epoch for the shared sea each time the host's game starts one: what it sends
+          // from now on is a fresh account of it; see sharedworld.js.)
+          this.epoch = newId().replace(/-/g, '').slice(0, 12);
           this.rt.track(this.meta());
           this.changed(resume ? `Back in your session, ${code}.` : `Your session is open. Give your friend the code ${code}.`);
           this.sendWorld();
@@ -592,7 +601,7 @@ export class Together {
     const cfg = this.config();
     const rt = (this.rt = new Realtime({ url: cfg.url, key: cfg.anonKey, WS: this.WS }));
     rt.onMessage = (event, payload) => this.receive(event, payload);
-    rt.onTraffic = (dir, bytes) => this.traffic(dir, bytes);
+    rt.onTraffic = (dir, bytes, kind) => this.traffic(dir, bytes, kind);
     rt.onClose = () => this.lost();
     this.code = code;
     await rt.connect();
@@ -693,7 +702,7 @@ export class Together {
       // (Until it's back, a failure here is this attempt's to handle, not onClose's.)
       const rt = (this.rt = new Realtime({ url: cfg.url, key: cfg.anonKey, WS: this.WS }));
       rt.onMessage = (event, payload) => this.receive(event, payload);
-    rt.onTraffic = (dir, bytes) => this.traffic(dir, bytes);
+    rt.onTraffic = (dir, bytes, kind) => this.traffic(dir, bytes, kind);
       try {
         await rt.connect();
         await rt.join(topicFor(this.code), this.id);
@@ -883,6 +892,13 @@ export class Together {
       p.callT = this.clock;
       p.call = { text: CALLS[c], at: this.clock };
       this.onEvent('call', p, { text: CALLS[c] });
+    } else if (kind === 'eco') {
+      // The shared sea: only the host's counts.
+      if (this.hosting || p.id !== this.hostId) return;
+      this.onShared?.(data, p);
+    } else if (kind === 'ask') {
+      if (!this.hosting || typeof data.a !== 'string') return;
+      this.onAsk?.(data, p);
     } else if (kind === 'world') {
       // Only the host's world counts (whoever else might send one).
       if (this.hosting || (p.id !== this.hostId && !p.host)) return;
@@ -913,6 +929,24 @@ export class Together {
   }
 
   /* ---------- what goes out ---------- */
+
+  // Host: something for everyone in the session (the shared sea: see sharedworld.js).
+  broadcast(kind, payload) {
+    if (!this.hosting || !this.rt?.open || this.reconnecting) return false;
+    this.rt.send(kind, { id: this.id, ...payload });
+    return true;
+  }
+
+  // A guest: something asked of the host (a crossing's sea life to bring up, a fish to take the
+  // lure: see sharedworld.js), each kind at most every `gap` seconds.
+  ask(kind, payload, gap = 1) {
+    if (this.status !== 'joined' || !this.rt?.open || this.reconnecting) return false;
+    this.askedT ||= {};
+    if (this.clock - (this.askedT[kind] ?? -99) < gap) return false;
+    this.askedT[kind] = this.clock;
+    this.rt.send('ask', { id: this.id, a: kind, ...payload });
+    return true;
+  }
 
   sendPose(now = false) {
     if (!this.me || !this.rt?.open || this.reconnecting) return;

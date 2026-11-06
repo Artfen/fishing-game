@@ -115,6 +115,14 @@ export class VisitorView {
     return null;
   }
 
+  // The boat a friend is aboard, as drawn here (for the shared sea: a pod rides the bow you see).
+  boatOf(id) {
+    const d = this.drawn.get(id);
+    if (!d) return null;
+    for (const b of Object.values(d.boats)) if (b.group.visible) return b;
+    return null;
+  }
+
   // A friend's own colour (their coat), for the map.
   colourOf(name) { return lookFor(name).coat; }
 

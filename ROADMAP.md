@@ -114,6 +114,54 @@ comes with tests.
 (each file's licence checked and kept); a Steam account and store page; playtests with real
 players on real machines; a privacy policy for co-op and cloud saves.
 
+## Shared world, helm, spot-lock and careers (brief, November 2026)
+
+The next brief, worked through in order, each step merged to main once it's tested:
+
+1. **Stabilisation.** All tests green. The dolphin bow-riding test was failing when boats gained
+   momentum (a boat now coasts on after the throttle is cut); it now waits until the boat has
+   really stopped before checking the pod leaves, with its expectations unchanged. Baselines
+   (node, one core): the fish 1.9 ms a frame for one player, 5.5 ms with eight far apart; sea life
+   about 1 ms; a shared-sea snapshot 0.2-0.5 ms to make.
+2. **Shared wildlife and bait balls: done** (`src/sharedworld.js`). One sea for everyone in a
+   session: whales, dolphins, seals, turtles, gannets and shearwaters, shoals, bait balls and the
+   hunters on them. Architecture:
+   - *Same identity everywhere*: sea life is built from one seed and the fish from their seeds, so
+     every screen has the same animals and shoals under the same ids.
+   - *Host-authoritative*: the session host's game decides, keeping the sea going round every
+     player (a friend in another bay or at Las Brasas has their water alive) and answering to all
+     of them (a pod rides whichever boat drew it; birds come down on a shoal near anyone).
+   - *Snapshots, not every fish*: twice a second, every pod (with each animal's breath), whale,
+     seal in the water, turtle and the birds' feeding, plus the shoals within 260 m of someone
+     (those beyond 130 m, and still ones, every fourth snapshot). Followers ease each animal and
+     shoal onto the host's position, extrapolated for the delay; a pod on a bow or a seal following
+     a boat is placed from that boat on each screen.
+   - *Recovery*: an epoch per hosted session and a sequence number per snapshot drop old or
+     repeated ones; a snapshot is the whole account of what it covers, so a late join, a reconnect
+     or a host reload never doubles anything.
+   - *Validation*: shape, every number, every count against the local sea, and size (60 KB).
+     Guests can only *ask* the host for things (a crossing's encounter), which it checks.
+   - *Budget, measured*: 1-5 KB per snapshot with friends close together, about 9 KB with eight
+     far apart (then once a second instead of twice). Messages: about 4 a second per moving player
+     for positions plus 2 a second from the host for the sea; Supabase counts each one delivered,
+     so an eight-player session runs to roughly 240 messages a second (about 0.9 million an hour):
+     fine on the Pro plan's allowance, not on the free one for long sessions.
+   - *Verified*: unit tests over a stand-in for Realtime, and two real browser clients through
+     `tools/local-realtime.mjs`: whales within 0.2 m and in the same breathing states, the same
+     breaths at the same places and moments, every nearby shoal within about 1.5 m, a late joiner
+     and a reconnect in step at once with nothing doubled.
+   - *If it outgrows the host*: the snapshot format doesn't depend on who makes it, so a small
+     simulation server (the same modules under Node, one per session) could take the host's place
+     without changing the followers. Worth it only if host frame time or upload becomes the limit
+     (eight players spread far apart is the worst case measured, and it's within budget).
+3. **Shared catchable fish** (next): the fish that take lures decided by the host, several
+   players' rigs at once, a hooked fish owned by one player and gone for the others, friends
+   watching the real fight.
+4. **Multiplayer help**: crewing, netting a friend's fish, marks on a shoal, cooperative contracts.
+5. **First-person dashboard** (RIB first), with visible trim and tilt.
+6. **Electric trolling motors and GPS spot-lock.**
+7. **Contracts and careers; a purpose for bigger boats; fun for people who don't fish.**
+
 ## Open-source projects that could help
 
 Checked for licence and fit, November 2026. A public repository isn't permission to use its
