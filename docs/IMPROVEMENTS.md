@@ -134,3 +134,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | Validation | `tests/livingworld.test.mjs` (7 tests); `tests/together.test.mjs` (a flood of five catches: three shown), `tests/wildlife.test.mjs` (a heron gone over the hill is gone only beyond 500 m), `tests/messages.test.mjs` (the board passes the day and the time); shared world, shared fish, sea life, crew, market, economy, shipyard, contracts, charters and harbour tests pass |
 | Remaining risks | Not played with two real people over a real connection (the co-op parts are tested through the stand-in for Supabase Realtime and by hand-built states); the sounds were not listened to (no audio on the test server); a heron flushed with nowhere far to go is out of sight for longer; terns still fly perfect circles; mooring fees and fuel balance on Gentle (from the audit) are left for a balance pass |
 
+
+### Both outboards the same size (fix, reported in play)
+
+| Field | |
+| --- | --- |
+| System | The outboards' models with fittings (`src/boat.js`, `setFits`) |
+| Previous issue | On the centre console the starboard outboard was visibly smaller than the port one. Since the Marine Works' fittings (e7db8d6), applying a boat's fittings set the first outboard's size to 1 (or 1.1 with the bigger outboard fitted), throwing away the size built for that boat and leaving a second outboard alone. Every boat has its fittings applied when the game loads, so it showed on every console. The single outboards were also the wrong size: the RIB's, bass boat's and cabin boat's too small, the sailing boat's too big |
+| Change | Fittings scale every outboard from the boat's own size: a tenth bigger with the bigger outboard, both of a pair alike |
+| Player benefit | The console's twin outboards match, and every outboard is the size it was drawn |
+| Before | Console 1.00 / 1.35 (1.10 / 1.35 with the bigger outboard); RIB 1.00 (built 1.45); bass 1.00 (1.30); cabin 1.00 (1.25); sailing boat 1.00 (0.68) |
+| After | Console 1.35 / 1.35 (1.49 / 1.49 with the bigger outboard); each other boat at its own size, a tenth bigger with the bigger outboard. Browser-checked: the console's pair the same size on screen |
+| Validation | `tests/sportboats.test.mjs` (outboards keep their size with fittings on; it fails on the old code: "console as she came: 1.00 (her own 1.35)"); boat, shipyard, engine, dashboard and trolling tests pass |
+| Remaining risks | None known: the models only (thrust and handling never read this size) |

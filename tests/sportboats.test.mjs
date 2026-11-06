@@ -353,3 +353,17 @@ test('the RIB and the centre console have a cruising notch: on the plane, betwee
   }
   conditions.manual = null;
 });
+
+test('her outboards keep their size with fittings on: both of the console’s pair alike, a bigger one a tenth bigger', () => {
+  for (const kind of ['console', 'rib', 'bass', 'cabin', 'sail', 'skiff']) {
+    const b = boatAt(kind), M = b.hull.motor || b.hull.outboard;
+    for (const [fits, k] of [[[], 1], [['power'], 1.1]]) {
+      b.setFits(fits);
+      for (const g of b.motorGroups) assert.ok(Math.abs(g.scale.x - M.scale * k) < 1e-9, `${kind} ${fits.join(',') || 'as she came'}: ${g.scale.x.toFixed(2)} (her own ${M.scale})`);
+    }
+  }
+  const c = boatAt('console');
+  c.setFits([]);
+  assert.equal(c.motorGroups.length, 2);
+  assert.equal(c.motorGroups[0].scale.x, c.motorGroups[1].scale.x, 'the pair the same size');
+});

@@ -1646,8 +1646,10 @@ export class Boat {
       L.position.set(0, y0 + 1.75, hz + 0.6);
       g.add(L);
     }
-    // (A bigger outboard sits a little bigger on her transom.)
-    if (this.motorGroup) this.motorGroup.scale.setScalar(has('power') ? 1.1 : 1);
+    // (A bigger outboard sits a little bigger on her transom: a tenth bigger than her own, and both
+    // of a pair alike.)
+    const M = this.hull.motor || this.hull.outboard;
+    for (const mg of this.motorGroups || []) mg.scale.setScalar((M?.scale ?? 1) * (has('power') ? 1.1 : 1));
     this.body.add(g);
   }
 
