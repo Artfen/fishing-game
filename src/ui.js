@@ -82,8 +82,10 @@ export class HUD {
     this.flashUntil = now + secs;
   }
 
-  hint(html, now) {
-    const text = now < this.flashUntil ? this.flashText : html;
+  // urgent: what the live hint says matters more just now than any message (a fish surging, the
+  // line about to go, a fish at the net): it shows over the message.
+  hint(html, now, urgent = false) {
+    const text = now < this.flashUntil && !(urgent && html) ? this.flashText : html;
     this.setHTML('hint', this.el.hint, text);
     this.el.hint.classList.toggle('show', !!text);
   }
