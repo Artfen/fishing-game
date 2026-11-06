@@ -12,6 +12,7 @@ import { buildRod } from '../props.js';
 
 const LINE_N = 18;  // points along a friend's line
 const _tip = new THREE.Vector3();
+const _crew = new THREE.Vector3();
 
 // The friends you're playing with (see together.js), drawn where they are: on foot, a figure of
 // their own (walking, standing, fishing or sitting), or in whichever boat they're in, at the helm
@@ -255,8 +256,20 @@ export class VisitorView {
     this.drawn.delete(id);
   }
 
-  // peers: from Together; from: where you are (those far off aren't drawn).
-  update(dt, t, peers, { from, fx = null, glow = null, night = 0 } = {}) {
+  // Where a friend crewing in a boat stands, as it's drawn here (see crew.js): in a friend's boat,
+  // or (me: your id, mine: your boat) in yours. { x, y, z, h } or null.
+  crewAt(P, me = null, mine = null) {
+    if (!P?.cr) return null;
+    const B = P.cr === me ? mine : this.boatOf(P.cr);
+    if (!B?.body || B.group?.visible === false) return null;
+    _crew.set(P.cx, B.hull.floorY ?? 0.1, P.cz);
+    B.body.localToWorld(_crew);
+    return { x: _crew.x, y: _crew.y, z: _crew.z, h: B.heading };
+  }
+
+  // peers: from Together; from: where you are (those far off aren't drawn); me and mine: your id
+  // and the boat you're in, for a friend crewing in her.
+  update(dt, t, peers, { from, fx = null, glow = null, night = 0, me = null, mine = null } = {}) {
     for (const id of [...this.drawn.keys()]) if (!peers.has(id)) this.forget(id);
     for (const p of peers.values()) {
       if (!p.name || !p.pose || !p.at) continue;
@@ -272,8 +285,11 @@ export class VisitorView {
         const f = this.figureFor(d, p.id);
         // (Just landed one: held up for you to see, a few seconds.)
         d.lift = Math.max(0, (d.lift || 0) - dt);
-        const act = P.o ? 'fish' : d.lift > 0 && A.v < 0.4 ? 'lift' : P.a === 'walk' || (A.v > 0.4 && P.a !== 'sit') ? 'walk' : P.a;
-        f.update(dt, t, { act, pos: A, yaw: A.h }, walkHeight(A.x, A.z));
+        // (Crewing in a boat: stood in her where they are, going with her, not walking on the water.)
+        const C = this.crewAt(P, me, mine);
+        const act = P.o ? 'fish' : d.lift > 0 && A.v < 0.4 ? 'lift' : P.a === 'walk' || (!C && A.v > 0.4 && P.a !== 'sit') ? 'walk' : P.a;
+        if (C) f.update(dt, t, { act, pos: C, yaw: A.h }, C.y);
+        else f.update(dt, t, { act, pos: A, yaw: A.h }, walkHeight(A.x, A.z));
         // A fish on: the rod up and working, pumping as they play it (bent harder the more load
         // there is on the line).
         if (P.o) {

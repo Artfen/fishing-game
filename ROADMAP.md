@@ -186,9 +186,19 @@ The next brief, worked through in order, each step merged to main once it's test
    - *Marking a feeding shoal: done.* From the quick calls; shoals are the host's and the same on
      every screen, so the mark follows that very shoal, for ten minutes or until it's fished out.
      At most one every four seconds each.
-   - *Crewing* (next): riding in a friend's boat, taking the helm while they fish or to follow a
-     running fish (their game stays the boat's physics; your wheel and lever go to it), watching
-     the sonar.
+   - *Crewing: done* (`src/crew.js`). Step aboard a friend's stopped boat from the shore or from
+     your own alongside. In your game you're on foot, carried at a spot in their boat as it's drawn
+     here (walk about her, fish, watch the sonar, net their fish); your pose names the boat and
+     your spot in her, so every screen draws you in that boat rather than a moment behind it.
+     *The helm*: asked of the skipper; their game hands it over (not under sail, not from the
+     cabin), then takes your wheel and lever a few times a second and steers their boat with them,
+     physics and all in their game. A touch at their controls takes it back; your word stopping
+     leaves the wheel slack. Answers are never rate-limited away (a real bug the tests found: a
+     re-grant straight after a take-back went missing). A save while crewing puts you back where
+     you stepped aboard from; losing the boat or the session puts you back in your own boat.
+     *Verified* with two real browser clients: stepping across, seen standing in her on both
+     screens, the save, the helm handed over and her boat rowed 26 m from the crew's keys in the
+     skipper's game, taken back at a touch, and back into his own boat.
    - *Cooperative contracts* come with the contracts themselves (step 7).
 5. **First-person dashboard** (RIB first), with visible trim and tilt.
 6. **Electric trolling motors and GPS spot-lock.**

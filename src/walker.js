@@ -193,6 +193,24 @@ export class Walker {
     this.group.visible = v;
   }
 
+  // Carried (crewing in a friend's boat, see crew.js): stood at (pos) on her floor, facing heading,
+  // going with her at vel; moving: walking about her.
+  ride(dt, t, pos, heading, vel, moving = false) {
+    this.pos.copy(pos);
+    this.ground = pos.y;
+    this.vel.set(vel.x, 0, vel.z);
+    this.heading = dampAngle(this.heading, heading, 6, dt);
+    this.fwd.set(Math.sin(this.heading), 0, Math.cos(this.heading));
+    this.right.set(-Math.cos(this.heading), 0, Math.sin(this.heading));
+    this.wading = 0;
+    this.jogging = false;
+    this.moving = moving;
+    this.animate(dt, t);
+    this.group.position.copy(this.pos);
+    this.group.rotation.y = this.heading;
+    this.group.updateMatrixWorld(true);
+  }
+
   place(x, z, heading) {
     this.pos.set(x, walkHeight(x, z), z);
     this.ground = this.pos.y;
