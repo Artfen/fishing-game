@@ -990,6 +990,28 @@ export class MapSheet {
       ctx.stroke();
       ctx.restore();
     }
+    // Jobs you've taken (see contracts.js): each one's next mark, an amber diamond and its name.
+    for (const j of this.where?.jobs?.() || []) {
+      const [x, y] = this.toPx(j.x, j.z);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = j.ready ? '#3f9b5a' : '#e0a12f';
+      ctx.strokeStyle = '#f6efe2';
+      ctx.lineWidth = 1.6 * s;
+      ctx.beginPath();
+      ctx.moveTo(0, -8 * s);
+      ctx.lineTo(7 * s, 0);
+      ctx.lineTo(0, 8 * s);
+      ctx.lineTo(-7 * s, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.font = `600 ${Math.round(11 * s)}px sans-serif`;
+      ctx.fillStyle = INK;
+      ctx.textAlign = 'left';
+      ctx.fillText(j.name, 11 * s, 4 * s);
+      ctx.restore();
+    }
     // Friends you're playing with: a boat arrow (or a dot, ashore) in their own colour, and their name.
     for (const f of this.where?.friends?.() || []) {
       const [x, y] = this.toPx(f.x, f.z);

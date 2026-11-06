@@ -92,7 +92,7 @@ import { requestById, businessWith, accept as acceptFavour, decline as declineFa
 import { lower } from './innTalk.js';
 import { tideAt, tideWords, turns } from './world/tide.js';
 import { seasonOf, seasonWords, sunTimes, sunHour, seasonWarmth, riverFlow, leafTint, seasonLine } from './world/season.js';
-import { galeSky, galeNear, hoursToGale, outlook } from './world/forecast.js';
+import { galeSky, galeNear, hoursToGale, outlook, galeFor } from './world/forecast.js';
 import { FolkView } from './world/folk.js';
 import { VisitorView } from './world/visitors.js';
 import { SharedWorld } from './sharedworld.js';
@@ -101,6 +101,8 @@ import { Crew, CREW_REACH, CREW_SLOW } from './crew.js';
 import { DashControl } from './dashcontrol.js';
 import { keyStep } from './dashboard.js';
 import { TrollMotor, canTroll } from './trolling.js';
+import * as Con from './contracts.js';
+import { renderWork } from './contractboard.js';
 import { demandFor, money, ordersFor, ORDERS_BY } from './market.js';
 import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
 import { PHOTO_MAX } from './save.js';
@@ -517,6 +519,7 @@ function updateTide() {
 /* ---- the favours the harbour's people ask of you (see requests.js) ---- */
 
 state.favours = cleanFavours(state.favours);
+state.contracts = Con.cleanContracts(state.contracts);
 const NAMES = Object.fromEntries(Object.entries(FOLK).map(([id, F]) => [id, F.short]));
 // What someone has for you just now: { title, text, acts } for the dialog (or the harbour's sheet),
 // or null.
@@ -1322,6 +1325,8 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
   }
   adventures.caught(sp.id, agent.x, agent.z, world.flocks);
   favoursReady(favourCaught(state.favours, { id: sp.id, size, night: clock.hour >= 20.5 || clock.hour < 5, shore: onFoot }));
+  catchShot = false;
+  jobsDone(Con.caught(state.contracts, { sp: sp.id, size, method: rigUsed?.kind || fishing.kind, sea: sp.water !== 'fresh', phase: 'landed' }));
   markObserved(sp.id, agent);
   state.tips.caught = true;
   // (Checked once the catch card's closed, when you've kept it or let it go.)
@@ -1408,6 +1413,9 @@ function hideCatch() {
   document.body.classList.remove('reveal');
   $('catch-card').hidden = true;
   modal = null;
+  // (Let go: a job wanting a fish photographed and released counts it now.)
+  const e = state.log[state.log.length - 1], sp = fishById[e?.sp];
+  if (sp) jobsDone(Con.caught(state.contracts, { sp: sp.id, size: e.size, sea: sp.water !== 'fresh', phase: 'released', photo: catchShot }));
   hud.flash('Back into the water it goes', t, 2.4);
   save();
 }
@@ -3379,6 +3387,140 @@ function updateDash(dt) {
   // (The navigation lights draw on the battery with the engine stopped.)
   if (boat.navLights && E && !engineRunning(E) && S.powered) E.charge = Math.max(0, E.charge - dt * 0.0004);
 }
+/* ---------- work on the water: contracts (see contracts.js) ---------- */
+// Posted on Willowhaven's notice board, chosen from the world as it is today; done out there; paid
+// back at the board (a delivery, on arrival). One job's next mark has a marker; all are on the map.
+let catchShot = false, jobT = 0, jobBumps = 0, jobBumpHooked = null;
+// The water points the Trust's surveys and the Sailing Club's course use (open water in the bay).
+const JOB_WATER = { a: { x: 60, z: 140 }, b: { x: -20, z: 230 }, c: { x: 150, z: 200 }, d: { x: -60, z: 180 }, e: { x: 150, z: 330 }, f: { x: 60, z: 400 } };
+const markOf = (k, name) => ({ ...JOB_WATER[k], name });
+const placeOf = (id) => {
+  const p = PLACES.find((q) => q.id === id);
+  return p ? { x: p.x, z: p.z, name: p.name } : null;
+};
+const LIFE_NAME = { finwhale: 'Fin whale', minkewhale: 'Minke whale', spermwhale: 'Sperm whale', pilotwhale: 'Pilot whales' };
+// The world as the board reads it.
+function jobWorld() {
+  const H = { x: HARBOUR_OFFICE.x, z: HARBOUR_OFFICE.z };
+  const where = (x, z) => `${Math.round(Math.hypot(x - H.x, z - H.z) / 100) / 10} km ${compass(bearingOf(x - H.x, z - H.z))} of the harbour`;
+  const busy = whatsAbout(eco).map((a) => ({ id: a.sp.id, name: a.sp.name, where: a.where, at: null, min: a.sp.size[0], max: a.sp.size[1], sea: a.sp.water !== 'fresh' }));
+  const whales = sealife.whales.filter((w) => w.sea === 'home').map((w) => ({ kind: w.kind, name: LIFE_NAME[w.kind] || 'Whale', where: where(w.x, w.z), at: { x: w.x, z: w.z, name: LIFE_NAME[w.kind] || 'Whale' } }));
+  const near = (x, z, r) => Math.hypot(x - H.x, z - H.z) < r;
+  const usable = (k) => usableBoat(state.yard, k);
+  const mo = Math.floor((((clock.abs / 24) % 360) + 360) % 360 / 30);
+  return {
+    day: state.day, region: 'home', busy, whales,
+    dolphins: sealife.pods.some((p) => p.sea === 'home' && p.bow && near(p.x, p.z, 1600)),
+    birds: world.flocks.length > 0 || (clock.hour > 5 && clock.hour < 8.5) || (clock.hour > 18 && clock.hour < 21),
+    // (A gale today keeps the deliveries and the racing off the board, but for the one that has to
+    // get there before it; the crossing wants tomorrow clear as well.)
+    storm: weather.storm > 0.25 || !!galeFor(state.day) || !!(galeFor(state.day - 1) && clock.abs < galeFor(state.day - 1).end),
+    forecastStorm: !!galeFor(state.day) || !!galeFor(state.day + 1), wind: conditions.wind.speed, abs: clock.abs,
+    galeAt: galeFor(state.day) && clock.abs < galeFor(state.day).start ? galeFor(state.day).start : null,
+    galeWords: galeFor(state.day) ? formatClock(galeFor(state.day).start % 24) : '',
+    summer: mo >= 4 && mo <= 7, canCross: usable('cruiser') || usable('sail'), ownsSail: usable('sail'), beenSouth: !!state.tips.brasa,
+    places: { quay: placeOf('quay'), puerto: placeOf('puerto'), stream: placeOf('stream'), visitors: { x: (VISITOR_FINGERS[0].x0 + VISITOR_FINGERS[0].x1) / 2, z: (VISITOR_FINGERS[0].z0 + VISITOR_FINGERS[0].z1) / 2, name: 'the visitors’ pontoon' } },
+    surveyLines: [{ name: 'the bay mouth', marks: [markOf('d', 'mark 1'), markOf('b', 'mark 2'), markOf('a', 'mark 3')] }, { name: 'off the bay', marks: [markOf('c', 'mark 1'), markOf('e', 'mark 2'), markOf('f', 'mark 3')] }],
+    tempMarks: [markOf('a', 'buoy A'), markOf('e', 'buoy B'), markOf('f', 'buoy C'), markOf('b', 'buoy D')],
+    courses: [{ name: 'the bay', marks: [markOf('a', 'mark 1'), markOf('c', 'mark 2'), markOf('b', 'mark 3'), markOf('d', 'mark 4')], minutes: 8 }],
+  };
+}
+// Jobs just finished: a word, and a delivery paid there and then.
+function jobsDone(list) {
+  for (const a of list || []) {
+    if (a.onSpot) payJob(a.id, true);
+    else {
+      hud.toast(`Job done: ${a.title}. Back to the notice board at Willowhaven to be paid.`, 6);
+      audio.chime?.();
+    }
+  }
+  if (list?.length) save();
+}
+function payJob(id, onSpot = false) {
+  const r = Con.claim(state.contracts, id, state.day, { imaging: !!fitsAboard()?.sonar || !!fitEffect(state.yard, boat.kind)?.sonar });
+  if (!r) return false;
+  earnIn(state, r.pay, `${r.contract.title} (${Con.GIVERS[r.contract.giver]})`);
+  hud.toast(`${onSpot ? `${r.contract.title}: delivered. ` : ''}Paid ${money(r.pay)} for ${r.contract.title.toLowerCase()}.${r.rep ? ` ${Con.GIVERS[r.contract.giver].split(',')[0]} will remember it.` : ''}`, 6);
+  audio.coins?.();
+  save();
+  return true;
+}
+function renderJobs() {
+  const el = $('board-work');
+  if (!el) return;
+  Con.prune(state.contracts, state.day);
+  renderWork(el, {
+    offers: Con.offers(state.contracts, jobWorld()), active: state.contracts.active, money,
+    payOf: (a) => Con.payFor(a, { imaging: !!fitEffect(state.yard, boat.kind)?.sonar }),
+    hooks: {
+      take: (id) => {
+        const r = Con.accept(state.contracts, id, t);
+        if (r.why) hud.flash(r.why, t, 2.6);
+        else hud.toast(`Taken: ${r.contract.title}. It’s on your map, and in the journal (Memories).`, 5);
+        save();
+        renderJobs();
+      },
+      drop: (id) => ask('Give it up?', 'Nothing’s lost but the job: you can always take another.', [
+        { text: 'Keep it', cls: 'quiet', run: () => {} },
+        { text: 'Give it up', run: () => { Con.abandon(state.contracts, id); save(); renderJobs(); } },
+      ]),
+      claim: (id) => {
+        payJob(id);
+        renderJobs();
+      },
+    },
+  });
+}
+// Twice a second: what you're doing out there, for the jobs you've taken.
+function updateJobs(dt) {
+  if (!state.contracts.active.length) return;
+  if (jobBumpHooked !== boat) {
+    if (jobBumpHooked) jobBumpHooked.onBump = jobBumpHooked._jobBumpWas || null;
+    boat._jobBumpWas = boat.onBump;
+    boat.onBump = (impact) => {
+      boat._jobBumpWas?.(impact);
+      if (impact > 0.4) jobBumps++;
+    };
+    jobBumpHooked = boat;
+  }
+  jobT -= dt;
+  if (jobT > 0) return;
+  jobT = 0.5;
+  const P = player().pos, afloat = !onFoot && !driving && !dive;
+  // A whale at the surface just now, and birds working, how far off.
+  let whale = null, frenzy = null;
+  for (const w of sealife.whales) if (w.state === 'breathe' && w.y > -3) whale = Math.min(whale ?? Infinity, Math.hypot(w.x - P.x, w.z - P.z));
+  for (const f of world.flocks) if (f.t >= 1) frenzy = Math.min(frenzy ?? Infinity, Math.hypot(f.x - P.x, f.z - P.z));
+  // A place you're at and stopped (for a delivery).
+  let at = null;
+  if (afloat ? boat.speed < 0.8 : true) for (const id of ['quay', 'puerto']) {
+    const p = PLACES.find((q) => q.id === id);
+    if (p && Math.hypot(P.x - p.x, P.z - p.z) < 40) at = id;
+  }
+  const tied = afloat && boat.tie ? (VISITOR_FINGERS.includes(PIERS[boat.tie.pier]) ? 'visitors' : 'other') : null;
+  const r = Con.tick(state.contracts, {
+    x: P.x, z: P.z, now: t, abs: clock.abs, night: env.night > 0.5, sonar: afloat && finder.visible,
+    sailing: afloat && !!boat.sailUp && !motorRunning(), whale, frenzy, at, tied, bumps: afloat ? jobBumps : 0,
+  });
+  jobBumps = 0;
+  for (const a of r.missed) hud.toast(`${a.title}: too late, the job’s gone. Nothing lost but the job.`, 5);
+  if (r.missed.length) save();
+  for (const a of r.reset) hud.flash(a.obj.kind === 'dock' ? `${a.title}: a bump. Come in again, gently.` : `${a.title}: out of time. Back to the first mark to try again.`, t, 3);
+  jobsDone(r.done);
+}
+// The jobs on the map: each one's next mark.
+function jobsOnMap() {
+  return state.contracts.active.map((a) => ({ a, at: Con.target(a) })).filter((j) => j.at && !j.at.board).map((j) => ({ x: j.at.x, z: j.at.z, name: j.at.name, ready: j.a.ready }));
+}
+// (For the marker: the first job with somewhere to go.)
+function jobTarget() {
+  for (const a of state.contracts.active) {
+    const at = Con.target(a);
+    if (at && !at.board) return at;
+  }
+  return null;
+}
+
 /* ---------- the trolling motor and Spot-Lock (see trolling.js) ---------- */
 // Each boat with a bow trolling motor fitted (Willowhaven Marine Works) has it on her bow: lowered
 // with , (and stowed again), worked with the keys while the main engine's in neutral, and on the
@@ -3624,6 +3766,11 @@ function radioLine() {
   if (about.length) picks.push(`“${about[0].sp.name} showing ${about[0].where || 'about'}.”`);
   const sky = weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : weather.cloud > 0.3 ? 'Some cloud' : 'Clear';
   if (!south) picks.push(`Harbour office: ${weatherLines(sky, clock.abs)[0]}`);
+  // (Work going: the board at Willowhaven has a job worth the trip; see contracts.js.)
+  if (!south) {
+    const o = Con.offers(state.contracts, jobWorld())[0];
+    if (o) picks.push(`Harbour office: “${Con.GIVERS[o.giver].split(',')[0]} has work on the board at Willowhaven: ${o.title.toLowerCase()}, ${money(o.pay)}.”`);
+  }
   return picks.length ? picks[Math.floor(Math.random() * picks.length)] : '';
 }
 
@@ -6034,6 +6181,7 @@ function closeBoard() {
 function renderBoard() {
   const sky = weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : weather.cloud > 0.3 ? 'Some cloud' : 'Clear';
   $('board-sub').textContent = `${formatClock(clock.hour)} · day ${state.day}`;
+  renderJobs();
   const p = (text, cls = '') => {
     const e = document.createElement('p');
     if (cls) e.className = cls;
@@ -6726,7 +6874,9 @@ function photoSubjects(extra = null) {
   const bell = under && Math.hypot(WRECK_BELL.x - c.x, by - c.y, WRECK_BELL.z - c.z) < 7 && _frustum.containsPoint(_pv.set(WRECK_BELL.x, by, WRECK_BELL.z));
   // The wildlife in the picture (see wildlife.js).
   const life = wildlife.inFrame(_frustum, c);
-  return { species: [...species].slice(0, 12), places: places.slice(0, 12), birds, ...(bell ? { bell: true } : {}), ...(life.length ? { life } : {}) };
+  // (And the sea's: dolphins, whales, seals and turtles near enough, and a pod on your own bow.)
+  const sea = sealife.inFrame(_frustum, c, together.active ? together.id : 'me');
+  return { species: [...species].slice(0, 12), places: places.slice(0, 12), birds, ...(bell ? { bell: true } : {}), ...(life.length ? { life } : {}), ...(sea.life.length ? { sea: sea.life } : {}), ...(sea.bow ? { bow: true } : {}) };
 }
 
 function openPhoto() {
@@ -6788,6 +6938,7 @@ async function keepPhoto() {
   state.photos.push(meta);
   adventures.photographed(meta);
   favoursReady(favourPhotographed(state.favours, meta.subjects));
+  jobsDone(Con.photographed(state.contracts, { life: meta.subjects?.sea || [], bow: !!meta.subjects?.bow }));
   save();
   hud.toast(`Kept in your album (${state.photos.length} of ${PHOTO_MAX}).${photos.persistent ? '' : ' This browser won’t keep it after you close the tab: download it from the journal.'}`, 4);
 }
@@ -8171,6 +8322,10 @@ function updateHud() {
   if (crossAim && $('cross-name').textContent !== crossAim.name) $('cross-name').textContent = crossAim.name;
   placeMarker($('cross-marker'), crossAim?.x ?? 0, 6, crossAim?.z ?? 0, !!crossAim && started && !modal && !dive);
   placeMarker($('trip-marker'), trip?.x ?? 0, 1.2, trip?.z ?? 0, !!trip && started && !modal && Math.hypot((trip?.x ?? 0) - player().pos.x, (trip?.z ?? 0) - player().pos.z) > (trip?.r ?? 0));
+  // The next mark of a job you've taken (one marker, not one for each).
+  const job = jobTarget();
+  if (job && $('job-name').textContent !== job.name) $('job-name').textContent = job.name;
+  placeMarker($('job-marker'), job?.x ?? 0, 1.5, job?.z ?? 0, !!job && started && !modal && !dive && Math.hypot((job?.x ?? 0) - player().pos.x, (job?.z ?? 0) - player().pos.z) > 15);
   placeFriendMarkers();
   placeShoalMarkers();
 }
@@ -9212,6 +9367,7 @@ async function photographCatch() {
     await new Promise((r) => setTimeout(r, 900));
   }
   await takePhoto(sp ? { species: [sp.id] } : null, sp ? `${sp.name}, ${e.size} cm` : '');
+  catchShot = true;
   if (!was) rig.setFirstPerson(false, t);
 }
 
@@ -9219,7 +9375,7 @@ function openMap(highlight = null) {
   if (modal) return;
   if (fishing.aiming) fishing.cancel();
   const p = player();
-  mapSheet.open({ player: { x: p.pos.x, z: p.pos.z, heading: p.heading }, onFoot, boats, boat, friends: friendsOnMap }, typeof highlight === 'string' ? highlight : null);
+  mapSheet.open({ player: { x: p.pos.x, z: p.pos.z, heading: p.heading }, onFoot, boats, boat, friends: friendsOnMap, jobs: jobsOnMap }, typeof highlight === 'string' ? highlight : null);
   modal = 'map';
   audio.page();
   teach('map', 'The map fills in as you explore. Camps you’ve found are listed beside it: you can head straight to any of them.', 6);
@@ -9992,6 +10148,7 @@ function tick(now, manual = false) {
     }
   }
   if (started) {
+    updateJobs(dt);
     updateEngine(dt);
     updateTroll(dt);
     updateDash(dt);
@@ -10546,7 +10703,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared, teamwork, crew, interaction: () => interaction(), engineHere: () => engineHere(), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
+  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared, teamwork, crew, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
   pump: (id = 'haven') => openPump(id),

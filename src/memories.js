@@ -1,3 +1,4 @@
+import { GIVERS, standing as jobStanding } from './contracts.js';
 import { fishById } from './fish.js';
 import { TACKLE } from './tackle.js';
 import { PLACES } from './world/terrain.js';
@@ -246,6 +247,13 @@ export class Memories {
   // Favours for the harbour's people: the ones you're doing, and the ones you've done.
   renderFavours() {
     const F = this.state.favours || { active: [], done: {} }, out = [];
+    // The jobs from the notice board you're doing (see contracts.js).
+    for (const a of this.state.contracts?.active || []) {
+      const d = el('div', `mem-place${a.ready ? ' done' : ''}`);
+      d.append(el('b', '', `${a.title}${a.ready ? ' ✓' : ''}`), el('span', 'j-faint', ` · a job for ${GIVERS[a.giver]}`));
+      d.append(el('p', '', jobStanding(a)));
+      out.push(d);
+    }
     const names = Object.fromEntries(Object.entries(FOLK).map(([id, f]) => [id, f.short]));
     for (const a of F.active) {
       const R = requestById[a.id];

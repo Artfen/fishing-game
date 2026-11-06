@@ -1098,6 +1098,25 @@ export function buildSeaLife(scene, { glow = null, seed = 20261106 } = {}) {
   return {
     ...events,
     pods, whales, ashore, visitors, colony, feeders, haulouts, shears, turtles,
+    // What's in a photograph (frustum: the camera's; cam: where it is): the kinds of sea life near
+    // enough and up at the surface to make out, and whether a pod in it is riding your bow (me: your
+    // id as the sea knows it: 'me' alone, your session id playing together).
+    inFrame(frustum, cam, me = 'me') {
+      const life = new Set(), p = new THREE.Vector3();
+      let bow = false;
+      const see = (x, y, z, far) => Math.hypot(x - cam.x, z - cam.z) <= far && frustum.containsPoint(p.set(x, y, z));
+      for (const pod of pods) {
+        for (const m of pod.members) {
+          if (!m.mesh?.visible || m.y < -2.5 || !see(m.x, m.y, m.z, pod.whale ? 160 : 90)) continue;
+          life.add(pod.kind);
+          if (pod.mode === 'bow' && (pod.owner == null || pod.owner === me)) bow = true;
+        }
+      }
+      for (const w of whales) if (w.mesh?.visible && w.y > -3 && see(w.x, w.y, w.z, 320)) life.add(w.kind);
+      for (const s of visitors) if (!s.down && see(s.x, 0, s.z, 60)) life.add(s.kind || 'seal');
+      for (const t of turtles) if (t.y > -1.6 && see(t.x, t.y, t.z, 45)) life.add(t.kind || 'turtle');
+      return { life: [...life], bow };
+    },
     // Following the host's sea (playing together, not hosting): see sharedworld.js.
     get follower() { return life.follower; },
     set follower(v) { life.follower = !!v; },

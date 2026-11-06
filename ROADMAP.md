@@ -275,7 +275,34 @@ The next brief, worked through in order, each step merged to main once it's test
      stops when the main engine goes into gear, when it's stowed, the anchor's dropped or she's
      tied up, and says why; the hint and the gauges show Spot-Lock's distance off and the battery;
      on the centre console's dashboard, its switch, Spot-Lock button and a LOCK lamp.
-8. **Contracts and careers; a purpose for bigger boats; fun for people who don't fish.**
+8. **Contracts and careers** (`src/contracts.js`, `src/contractboard.js`), first part done:
+   - *The board*: Work on Willowhaven's notice board, beside the favours, adventures and badges
+     (not instead of them). Sixteen kinds of job across five categories: fishing (a species at a
+     size for the specials board, a mixed bag on one trip, a trout on the fly, a trophy
+     photographed and released), wildlife (dolphins photographed on your bow, a whale found as it
+     surfaces, a feeding frenzy watched, a turtle at Las Brasas), survey (a sonar transect,
+     temperatures at marks, some by night, with a bonus for imaging sonar), deliveries (ice to
+     Wend Quay, tarpaulins there before a gale, spares across the ocean in fair weather) and boat
+     handling (berthing without a bump, a timed course, the same under sail).
+   - *A living board*: chosen each day from the world as it is: the fish that are busy, dolphins
+     and whales about, birds working, the forecast (a gale clears off the deliveries and the
+     racing, but brings the one job that has to beat it), what boats you have, whether you've
+     been to the island. The same board all day, a new one tomorrow.
+   - *Done for real*: each job finished by the game's own systems (the catch and how, the
+     catch card's photograph and the release, the photograph's sea life and a pod on your own bow,
+     the fish finder on, the sail up and the engine off, a whale at the surface, birds working, a
+     place reached, a berth made fast without a bump); photographs now see dolphins, whales,
+     seals and turtles.
+   - *Safe*: three at a time; paid once (a finished job's id is spent); given up with nothing lost
+     but the job; a course failed or a bump starts again; a deadline passed lapses harmlessly; the
+     record cleaned on load. Tracked with one marker and on the map, and in the journal.
+   - *Verified*: `tests/contracts.test.mjs`, and in a browser: the board's work read and taken
+     by clicking, no fourth, the delivery paid on arrival, the course rounded and collected at
+     the board, never paid twice, a job given up with nothing paid.
+   - *Next*: diving work (a lost camera, a reef survey), a drifting buoy and a tow in calm
+     weather, a handcrafted multi-stage expedition, and charters with passengers: the jobs that
+     give the bigger boats their purpose (phase 5), and the first session for people who don't
+     fish (phase 6).
 
 ## Open-source projects that could help
 
