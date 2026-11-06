@@ -120,8 +120,12 @@ export class Input {
     const typing = (e) => e.target instanceof Element && e.target.closest('input, textarea, select') && e.code !== 'Escape';
     // In an open panel, the keys that move focus and press buttons belong to the panel (so Space
     // presses a button there instead of casting, and Tab and the arrows move between things).
-    const inPanel = (e) => UI_KEYS.has(e.code) && ((e.target instanceof Element && e.target.closest('[role="dialog"]'))
-      || (e.code === 'Tab' && document.querySelector('[role="dialog"]:not([hidden])')));
+    // (A dialog counts only if it's really showing: one inside a hidden parent, as the journal's
+    // book is, doesn't; and questions are alertdialogs.)
+    const DIALOGS = '[role="dialog"], [role="alertdialog"]';
+    const openDialog = () => [...document.querySelectorAll(DIALOGS)].some((d) => !d.hidden && !d.closest('[hidden]'));
+    const inPanel = (e) => UI_KEYS.has(e.code) && ((e.target instanceof Element && e.target.closest(DIALOGS))
+      || (e.code === 'Tab' && openDialog()));
     addEventListener('keydown', (e) => {
       // (The arrow keys a controller sends round a menu are for the menu, not the game.)
       if (e.fromPad) return;

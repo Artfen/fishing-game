@@ -115,6 +115,8 @@ export class HUD {
   // fair look (TOAST_LOOK seconds, or all its time if that's shorter) before the next replaces it.
   // The same words twice just stay up longer. (A few at most wait; the oldest go first.)
   toast(text, secs = 4.5) {
+    // (Time to read it: about fourteen characters a second, in the hand it's written in.)
+    secs = Math.max(secs, Math.min(20, String(text).replace(/<[^>]+>/g, '').length / 14));
     const now = performance.now() / 1000, up = this.toastUp;
     if (up && up.text === text && now < up.until) {
       up.until = Math.max(up.until, now + secs);
@@ -124,7 +126,7 @@ export class HUD {
     if (this.toastQ.some((q) => q.text === text)) return;
     if (this.quiet() || (up && now < Math.min(up.until, up.at + TOAST_LOOK))) {
       this.toastQ.push({ text, secs });
-      if (this.toastQ.length > 3) this.toastQ.shift();
+      if (this.toastQ.length > 6) this.toastQ.shift();
       this.toastLater();
       return;
     }

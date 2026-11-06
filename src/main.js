@@ -1070,7 +1070,9 @@ function windHint() {
 let t = 0;
 let started = false;
 // (No messages over the title or a question waiting for an answer: they wait their turn.)
-hud.quiet = () => !started || !$('confirm').hidden;
+// (Messages wait while a question or a full-screen menu would hide them: they come when it closes.
+// The map is left out: you can steer with it open.)
+hud.quiet = () => !started || !$('confirm').hidden || (!!modal && modal !== 'map');
 let modal = null; // 'journal' | 'catch' | 'note' | 'pack' | 'camp' | 'sleep' | 'travel'
 let hudOff = false;
 let rowTime = 0;
@@ -1344,6 +1346,8 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
 }
 
 function showCatch(sp, size, agent, rigUsed) {
+  // (The catch card's moment first: a discovery card this catch brings waits until it's done.)
+  modal = 'catch';
   const bestBefore = state.fish[sp.id]?.best || 0;
   const { isNew, record } = recordCatch(sp, size, agent, rigUsed);
   const verdict = verdictOf(sp, size, { isNew, record, count: state.fish[sp.id]?.count || 1, best: record ? bestBefore : state.fish[sp.id]?.best || size });
@@ -1833,6 +1837,8 @@ const harbourSheet = new HarbourSheet(state, {
     closeHarbour();
     hud.toast(`The ${BOATS[kind].name} is yours for the day: she goes back to the yard tomorrow.`, 6);
     if (BOATS[kind].stowed) launchBoat(BOATS[kind]);
+    // (The board, written again for a boat you have now: jobs taken or done stay as they are.)
+    state.contracts.board = null;
   }),
   yardPaint: (kind, paint) => yardDo(paintBoat(state, kind, paint), () => hud.toast(`A fresh coat on the ${BOATS[kind].name}.`, 3)),
   yardName: (kind, name) => yardDo(nameBoat(state, kind, name), () => hud.toast(`“${state.yard.looks[kind].name}”, sign-written on her bow.`, 4)),
@@ -3469,10 +3475,13 @@ function updateCalls(dt) {
   // (Not while the first trip's guide is running: one thing at a time for someone new; nor with
   // Wenna aboard for the story's last scene.)
   if (onFoot || driving || dive || modal || state.guide?.on || state.story?.wenna || together.guestSlot >= 0 || clock.hour < 7.5 || clock.hour > 19) return;
+  // (Nor with a line out or a fish on, another question open, a placement or the dashboard in
+  // hand, or under way: it waits for a quiet moment.)
+  if (fishing.busy || !$('confirm').hidden || placement.isOn || dashCtl.focused || boat.speed > 2.5) return;
   if (Math.max(weather.storm, conditions.sea.storm) > 0.2 || !Con.callDue(C, clock.abs)) return;
-  Con.callMade(C, clock.abs);
   const spot = callSpot();
   const o = spot && Con.callFor(C, { ...jobWorld(), callSpot: spot });
+  Con.callMade(C, clock.abs);
   if (!o) return;
   audio.chime?.();
   ask(o.cat === 'rescue' ? 'The harbour office, on the radio' : o.title, `${o.story} (${o.goal}: pays ${money(o.pay)}.)`, [
@@ -3514,7 +3523,7 @@ function jobWorld() {
   const busy = whatsAbout(eco).map((a) => ({ id: a.sp.id, name: a.sp.name, where: a.where, at: null, min: a.sp.size[0], max: a.sp.size[1], sea: a.sp.water !== 'fresh' }));
   const whales = sealife.whales.filter((w) => w.sea === 'home').map((w) => ({ kind: w.kind, name: LIFE_NAME[w.kind] || 'Whale', where: where(w.x, w.z), at: { x: w.x, z: w.z, name: LIFE_NAME[w.kind] || 'Whale' } }));
   const near = (x, z, r) => Math.hypot(x - H.x, z - H.z) < r;
-  const usable = (k) => usableBoat(state.yard, k);
+  const usable = (k) => usableBoat(state.yard, k, state.day);
   const mo = Math.floor((((clock.abs / 24) % 360) + 360) % 360 / 30);
   return {
     day: state.day, region: 'home', busy, whales,
@@ -3554,7 +3563,8 @@ function jobsDone(list) {
 }
 function payJob(id, onSpot = false) {
   const was = Con.career(state.contracts).rank;
-  const r = Con.claim(state.contracts, id, state.day, { imaging: !!fitsAboard()?.sonar || !!fitEffect(state.yard, boat.kind)?.sonar });
+  const job = state.contracts.active.find((a) => a.id === id);
+  const r = Con.claim(state.contracts, id, state.day, { imaging: !!job?.progress?.imaging || !!fitsAboard()?.sonar || !!fitEffect(state.yard, boat.kind)?.sonar });
   if (!r) return false;
   const now = Con.career(state.contracts).rank;
   // (A step up: a new kind of work on the board from tomorrow.)
@@ -3572,7 +3582,7 @@ function renderJobs() {
   Con.prune(state.contracts, state.day);
   renderWork(el, {
     offers: Con.offers(state.contracts, jobWorld()), active: state.contracts.active, money, career: Con.career(state.contracts), done: state.contracts.count,
-    payOf: (a) => Con.payFor(a, { imaging: !!fitEffect(state.yard, boat.kind)?.sonar }),
+    payOf: (a) => Con.payFor(a, { imaging: !!a.progress?.imaging || !!fitEffect(state.yard, boat.kind)?.sonar }),
     hooks: {
       take: (id) => {
         const r = Con.accept(state.contracts, id, t);
@@ -3647,6 +3657,8 @@ function updateJobs(dt) {
         : `${a.title}: loaded, ${o.cargo} kg. She sits lower for it: take her to ${a.where?.name || 'it'}.`, 6);
     audio.chime?.();
   }
+  // (A survey run with imaging sonar aboard keeps its bonus, whatever boat you're in to be paid.)
+  if (afloat && fitEffect(state.yard, boat.kind)?.sonar) for (const a of state.contracts.active) if (a.cat === 'survey' && !a.ready) a.progress.imaging = true;
   for (const a of r.stepped) {
     hud.toast(`${a.title}: done. ${Con.standing(a)}`, 6);
     audio.chime?.();
@@ -7949,7 +7961,7 @@ function askStyle(then = null, returning = false) {
     }
     ask('How do you like to play?', `${STYLE_IDS.map((id) => `${STYLES[id].name}: ${STYLES[id].desc}`).join('\n\n')}\n\nChange any of it later in Settings.`, [
       ...(returning ? [{ text: 'Keep my settings as they are', cls: 'quiet', run: () => then?.() }] : []),
-      ...STYLE_IDS.map((id) => ({ text: STYLES[id].name, cls: id === 'angler' ? '' : 'quiet', run: () => { applyStyle(id); hud.toast(`${STYLES[id].name} it is. Change any of it in Settings → Controls & comfort.`, 5); then?.(); } })),
+      ...STYLE_IDS.map((id) => ({ text: STYLES[id].name, cls: id === 'angler' ? '' : 'quiet', cancel: id === 'angler', run: () => { applyStyle(id); hud.toast(`${STYLES[id].name} it is. Change any of it in Settings → Controls & comfort.`, 5); then?.(); } })),
     ]);
   }, 1800);
 }
@@ -7957,7 +7969,7 @@ function askStyle(then = null, returning = false) {
 function askName(then) {
   ask('What should we call you?', 'Friends see it over you when you play together. You can change it in Settings.', [
     {
-      text: 'That’s me', keepOpen: true, run: (v) => {
+      text: 'That’s me', keepOpen: true, cancel: true, run: (v) => {
         const n = cleanName(v);
         if (!n) {
           $('confirm-input').focus();
@@ -8159,7 +8171,9 @@ const STATUS_TEXT = {
 
 // What the controller's buttons do just now (see gamepad.js).
 function padContext() {
-  if (!started) return settingsUI.isOpen ? 'menu' : 'title';
+  // (A question open before the game's begun, the name or how you like to play: the controller
+  // answers it, rather than being pulled back to the title's buttons.)
+  if (!started) return settingsUI.isOpen || !$('confirm').hidden ? 'menu' : 'title';
   if (modal === 'sleep' || modal === 'travel') return 'off';
   if (!$('confirm').hidden || !$('photo-card').hidden) return 'menu';
   if (modal === 'catch') return 'catch';
@@ -9321,7 +9335,34 @@ $('update-now').addEventListener('click', updateNow);
 // A small "are you sure?" with any buttons we need.
 // A question with buttons; { input } adds a text box (its value goes to the button's run).
 // (list: lines to set out below the words, each { ok, text }: ready, or a warning.)
-function ask(title, text, buttons, { input = null, list = null, placeholder = '', maxLength = 40 } = {}) {
+// What Esc or B answers on an open question: its button marked cancel, or one that plainly does
+// nothing (never an action: "Go diving" and "Take her in tow" are quiet buttons too). None: Esc just
+// closes it, as before.
+const SAFE_CANCEL = /^(Never mind|Not now|Not yet|No thanks|Later|Cancel|Keep it|Keep playing|Stay in)$/;
+let confirmCancel = null;
+const confirmQueue = [];
+// (A question asked while another is open waits its turn, rather than replacing it and losing its
+// answers.)
+function confirmClosed() {
+  if ($('confirm').hidden && confirmQueue.length) setTimeout(() => { if ($('confirm').hidden) ask(...confirmQueue.shift()); }, 200);
+}
+function cancelConfirm() {
+  const c = confirmCancel, v = $('confirm-input').value;
+  confirmCancel = null;
+  if (c?.keepOpen) c.run?.(v);
+  else {
+    $('confirm').hidden = true;
+    c?.run?.(v);
+  }
+  confirmClosed();
+}
+function ask(title, text, buttons, opts = {}) {
+  if (!$('confirm').hidden) {
+    confirmQueue.push([title, text, buttons, opts]);
+    return;
+  }
+  const { input = null, list = null, placeholder = '', maxLength = 40 } = opts;
+  confirmCancel = buttons.find((b) => b.cancel) || buttons.find((b) => SAFE_CANCEL.test(b.text)) || null;
   // (A message up just now waits until it's answered.)
   hud.hush();
   $('confirm-title').textContent = title;
@@ -9354,6 +9395,7 @@ function ask(title, text, buttons, { input = null, list = null, placeholder = ''
     el.addEventListener('click', () => {
       if (!b.keepOpen) $('confirm').hidden = true;
       b.run?.(box.value);
+      confirmClosed();
     });
     return el;
   }));
@@ -9723,6 +9765,11 @@ function closeJournal() {
 input.on('press', (code, acts) => {
   const is = (a) => acts.includes(a);
   if (!started) {
+    // (The opening questions, the name and how you like to play: Esc or B answers them.)
+    if (!$('confirm').hidden) {
+      if (code === 'Escape') cancelConfirm();
+      return;
+    }
     if (settingsUI.isOpen) {
       if (code === 'Escape' || is('settings')) closeSettings();
     } else if (is('settings')) openSettings();
@@ -9749,7 +9796,7 @@ input.on('press', (code, acts) => {
     return;
   }
   if (!$('confirm').hidden) {
-    if (code === 'Escape') $('confirm').hidden = true;
+    if (code === 'Escape') cancelConfirm();
     return;
   }
   // A photograph waiting to be kept (over the catch card, or after photo mode).
@@ -10382,6 +10429,8 @@ function tick(now, manual = false) {
     }
   }
   if (started) {
+    // (A card that waited behind a menu or the catch card: now, once the screen's free.)
+    if (noteQueue.length && !modal && $('confirm').hidden) showNote(...noteQueue.shift());
     updateJobs(dt);
     updateCalls(dt);
     passengers.update(dt, t);
@@ -10942,7 +10991,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared, teamwork, crew, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pickupsShown() { return pickups.count; }, jobsChanged: () => jobWeight(), strays, get towing() { return tow ? { lead: tow.lead.kind, towed: tow.towed.boatName || tow.towed.name, tight: tow.tight } : null; }, seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
+  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared, teamwork, crew, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pickupsShown() { return pickups.count; }, padContext: () => padContext(), jobsChanged: () => jobWeight(), strays, get towing() { return tow ? { lead: tow.lead.kind, towed: tow.towed.boatName || tow.towed.name, tight: tow.tight } : null; }, seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
   pump: (id = 'haven') => openPump(id),

@@ -116,7 +116,8 @@ export function cleanSettings(raw, legacy = {}) {
     sensitivity: num(c.sensitivity, 1, 0.3, 2.5),
     invertX: !!c.invertX,
     invertY: !!c.invertY,
-    reducedMotion: !!c.reducedMotion,
+    // (New settings follow the system's own "reduce motion"; a choice made here stands.)
+    reducedMotion: c.reducedMotion == null ? typeof matchMedia === 'function' && !!matchMedia('(prefers-reduced-motion: reduce)').matches : !!c.reducedMotion,
     boatCam: oneOf(c.boatCam, ['swell', 'steady'], 'swell'),
     sailTrim: oneOf(c.sailTrim, ['hand', 'helped'], 'hand'),
     needs: oneOf(c.needs, NEEDS_IDS, 'gentle'),
