@@ -615,3 +615,35 @@ test('a friend’s fish fights where you can see it, and a catch is held up', as
   play({ ...base, a: 'stand', o: false }, 0.5);
   assert.ok(d.figure.fish.scale.z < big);
 });
+
+test('a friend who leaves and comes back has the same boats, and their figure is given back', async () => {
+  const THREE = await import('three');
+  const ctx2d = new Proxy({}, { get: (o, k) => (k === 'createRadialGradient' || k === 'createLinearGradient' ? () => ({ addColorStop() {} }) : k === 'measureText' ? () => ({ width: 10 }) : k === 'getImageData' ? () => ({ data: [] }) : () => {}), set: () => true });
+  globalThis.document ??= { createElement: () => ({ width: 0, height: 0, getContext: () => ctx2d }), fonts: null };
+  const { VisitorView } = await import('../src/world/visitors.js');
+  const scene = new THREE.Scene(), view = new VisitorView(scene);
+  const at = (pose, fleet = []) => new Map([['sam', { id: 'sam', name: 'Sam', pose, view: pose, at: { x: pose.x, z: pose.z, h: pose.h, v: 0 }, fleet }]]);
+  const play = (peers, secs) => {
+    for (let i = 0; i < secs * 30; i++) view.update(1 / 30, i / 30, peers, { from: { x: 0, z: 0 } });
+  };
+  const afloat = at({ m: 'boat', k: 'skiff', x: 150, z: 330, h: 0, vx: 0, vz: 0, a: 'sit' }, [{ k: 'row', x: 160, z: 340, h: 1 }]);
+  // On foot first: a figure, its own shapes and colours.
+  play(at({ m: 'foot', x: 0, z: 0, h: 0, vx: 0, vz: 0, a: 'stand' }), 0.2);
+  let given = 0, made = 0;
+  view.drawn.get('sam').figure.group.traverse((o) => {
+    for (const x of [o.geometry, o.material]) if (x) { made++; x.addEventListener('dispose', () => given++); }
+  });
+  play(afloat, 0.2);
+  const d = view.drawn.get('sam'), skiff = d.boats.skiff, row = d.moored.row;
+  assert.ok(skiff?.group.visible && row?.group.visible);
+  const n = scene.children.length;
+  // Gone: hidden, their figure given back; back again: the same boats, nothing new in the scene.
+  play(new Map(), 0.1);
+  assert.ok(!view.drawn.has('sam') && !skiff.group.visible && !row.group.visible);
+  assert.ok(made > 10 && given >= made - 2, `${given} of ${made} given back`);
+  play(afloat, 0.2);
+  assert.equal(view.drawn.get('sam').boats.skiff, skiff);
+  assert.equal(view.drawn.get('sam').moored.row, row);
+  assert.ok(skiff.group.visible && row.group.visible);
+  assert.ok(scene.children.length <= n, `${scene.children.length} in the scene, ${n} before`);
+});
