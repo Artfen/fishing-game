@@ -205,3 +205,40 @@ test('the swell grows and steepens running into shallow water, then breaks and i
   assert.ok(C.shoalGrow(0.8) < 1.05, 'spent once it has broken');
   assert.ok(C.shoalPeak(2) > 1 && C.shoalPeak(8) === 0, 'and steeper');
 });
+
+test('the sea’s height comes out just as it always did, reading the ground and the fresh water once', async () => {
+  const T = await import('../src/world/terrain.js');
+  const { waterLevel } = await import('../src/world/coldwater.js');
+  const { SWELL } = C.WAVE_PARTS;
+  // (waveHeight as it was: the ground and the freshness read again by the shore's fade, the
+  // shelter's texture read through a little function for each corner.)
+  const shelter = (x, z) => [...C.shelterAt(x, z, [0, 0])];
+  const { smoothstep } = await import('../src/util.js');
+  const fadeOld = (x, z) => smoothstep(0.05, 0.9 + 3.5 * C.conditions.sea.storm, -T.solidHeight(x, z)) * (1 - 0.85 * T.freshness(x, z));
+  const old = (x, z, t) => {
+    const lvl = waterLevel(x, z);
+    if (lvl > 0.05) return null;
+    const Cn = C.conditions, sh = shelter(x, z), depth = Math.max(0, -T.solidHeight(x, z));
+    let hs = 0;
+    const peak = Math.min(Cn.sea.peak + C.shoalPeak(depth), 3.6), grow = C.shoalGrow(depth);
+    for (let i = 0; i < SWELL.length; i++) {
+      const w = SWELL[i], a = Cn.swellAmps[i] * sh[0] * grow;
+      if (a < 1e-5) continue;
+      hs += C.swellShape(a, w.k, w.k * (w.dx * x + w.dz * z - w.c * t), peak);
+    }
+    const fade = fadeOld(x, z);
+    const o = { h: 0, vy: 0, vx: 0, vz: 0 };
+    const hc = O.longSea.add(x, z, t, (0.15 + 0.85 * sh[1]) * fade, o).h;
+    return C.TIDE.level * (1 - T.freshness(x, z)) + hs * fade + hc;
+  };
+  let n = 0;
+  for (let x = -600; x <= 700; x += 13.7) {
+    for (let z = -500; z <= 1300; z += 11.3) {
+      const want = old(x, z, 50.25);
+      if (want == null) continue;
+      assert.equal(C.waveHeight(x, z, 50.25), want, `at ${x}, ${z}`);
+      n++;
+    }
+  }
+  assert.ok(n > 10000, `${n} points`);
+});

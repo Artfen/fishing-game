@@ -157,8 +157,8 @@ export function shelterAt(x, z, out = _sh) {
   const i = clamp(Math.floor(u), 0, w - 2), j = clamp(Math.floor(v), 0, h - 2);
   const fu = clamp(u - i, 0, 1), fv = clamp(v - j, 0, 1);
   for (let c = 0; c < 2; c++) {
-    const at = (ii, jj) => shelterData[(jj * w + ii) * 2 + c];
-    out[c] = lerp(lerp(at(i, j), at(i + 1, j), fu), lerp(at(i, j + 1), at(i + 1, j + 1), fu), fv);
+    const a = (j * w + i) * 2 + c, b = ((j + 1) * w + i) * 2 + c;
+    out[c] = lerp(lerp(shelterData[a], shelterData[a + 2], fu), lerp(shelterData[b], shelterData[b + 2], fu), fv);
   }
   return out;
 }
@@ -362,7 +362,9 @@ export function windAt(x, z, t = conditions.time, out = _w) {
 export function waveHeight(x, z, t = conditions.time) {
   const lvl = waterLevel(x, z);
   if (lvl > 0.05) return lvl + 0.012 * Math.sin(x * 1.7 + t * 2.1) * Math.sin(z * 1.3 - t * 1.6) * smoothstep(0.05, 0.6, lvl - solidHeight(x, z));
-  const C = conditions, sh = shelterAt(x, z), depth = Math.max(0, -solidHeight(x, z));
+  // (The ground and the water's freshness here, read once for all that needs them.)
+  const ground = solidHeight(x, z), fresh = freshness(x, z);
+  const C = conditions, sh = shelterAt(x, z), depth = Math.max(0, -ground);
   let hs = 0, hc = 0;
   // (Sheltered, each wave is smaller there before it peaks, as the shader does it; running into
   // shallow water the swell grows and steepens.)
@@ -372,10 +374,10 @@ export function waveHeight(x, z, t = conditions.time) {
     if (a < 1e-5) continue;
     hs += swellShape(a, w.k, w.k * (w.dx * x + w.dz * z - w.c * t), peak);
   }
-  const fade = shoreFade(x, z);
+  const fade = shoreFadeOf(ground, fresh);
   _wh.h = 0;
   hc = longSea.add(x, z, t, (0.15 + 0.85 * sh[1]) * fade, _wh).h;
-  return TIDE.level * (1 - freshness(x, z)) + hs * fade + hc;
+  return TIDE.level * (1 - fresh) + hs * fade + hc;
 }
 // The waves around one place, for a boat's hull (see hydro.js): everything that changes slowly
 // across a boat's length (shelter, shoaling, the shore's fade, fresh water, the tide) is read once
@@ -395,10 +397,11 @@ export function waveSampler(x, z, S = { n: 0, kx: null, kz: null, w: null, a: nu
     S.level = lvl;
     return S;
   }
-  const C = conditions, sh = shelterAt(x, z), depth = Math.max(0, -solidHeight(x, z));
-  const fade = shoreFade(x, z);
+  const ground = solidHeight(x, z), fresh = freshness(x, z);
+  const C = conditions, sh = shelterAt(x, z), depth = Math.max(0, -ground);
+  const fade = shoreFadeOf(ground, fresh);
   const peak = Math.min(C.sea.peak + shoalPeak(depth), MAX_PEAK), grow = shoalGrow(depth);
-  S.level = TIDE.level * (1 - freshness(x, z));
+  S.level = TIDE.level * (1 - fresh);
   // (Each wave's crest is shaped at its own height, then scaled by the shore's fade and, for
   // the wind sea, its shelter: term for term as waveHeight.)
   const add = (w, a, pk, scale) => {
@@ -448,7 +451,11 @@ export function tidalTexture(region = 'home') {
 // fresh water (only the faintest wind ripple reaches the lake). A storm's big seas feel the bottom
 // sooner: they've broken and spent themselves by the time the water's a few metres deep.
 function shoreFade(x, z) {
-  return smoothstep(0.05, 0.9 + 3.5 * conditions.sea.storm, -solidHeight(x, z)) * (1 - 0.85 * freshness(x, z));
+  return shoreFadeOf(solidHeight(x, z), freshness(x, z));
+}
+// (The same, from the ground's height and the water's freshness there, already read.)
+function shoreFadeOf(ground, fresh) {
+  return smoothstep(0.05, 0.9 + 3.5 * conditions.sea.storm, -ground) * (1 - 0.85 * fresh);
 }
 
 // The current (m/s) at a point and depth below the surface: where the water is going.
