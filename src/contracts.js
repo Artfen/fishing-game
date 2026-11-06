@@ -576,6 +576,8 @@ export function caught(C, c) {
       if (a.progress.caught >= o.fish) a.progress.seen = true;
       continue;
     }
+    // (A fish a friend crewing for you landed counts for a charter only: see main.js.)
+    if (c.crew) continue;
     if (a.ready || o.kind !== 'catch') continue;
     if (!!o.released !== released) continue;
     if (o.sea && !c.sea) continue;

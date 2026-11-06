@@ -57,9 +57,12 @@ export class HarbourSheet {
     this.state.harbour ??= { heard: { haven: [], muelle: [] }, filled: [], earned: 0, sold: 0, served: 0 };
     return this.state.harbour;
   }
+  // The hour everyone sees (the host's, playing together; your own otherwise): the market, the
+  // kitchen and the townsfolk keep it, so Mags at her slab in daylight is open for you too.
+  get hour() { return this.hooks.worldHour?.() ?? this.state.hour; }
   get marketOpen() {
     if (this.where === 'muelle') return true;
-    return this.state.hour >= MARKET_HOURS[0] && this.state.hour < MARKET_HOURS[1];
+    return this.hour >= MARKET_HOURS[0] && this.hour < MARKET_HOURS[1];
   }
 
   // (tab: which to open at, if not the first: 'kitchen' from the pass, 'ready' and so on.)
@@ -144,7 +147,7 @@ export class HarbourSheet {
     if (!this.isOpen) return;
     const W = this.where;
     $('hb-title').textContent = W === 'market' ? 'The fish market' : W === 'inn' ? 'The Lobster Pot' : W === 'chandlery' ? 'The chandlery' : W === 'works' ? 'Willowhaven Marine Works' : 'Bar El Muelle';
-    $('hb-sub').textContent = `${formatClock(this.state.hour)} · day ${this.state.day} · ${W === 'muelle' ? 'Puerto Brasa' : 'Willowhaven'}`;
+    $('hb-sub').textContent = `${formatClock(this.hour)} · day ${this.state.day} · ${W === 'muelle' ? 'Puerto Brasa' : 'Willowhaven'}`;
     $('hb-purse').textContent = `In your purse: ${money(this.state.money)}`;
     const tabs = W === 'market' ? [] : W === 'inn' ? [['bar', 'The bar'], ['kitchen', 'The kitchen']] : W === 'chandlery' ? [['counter', 'The counter'], ['mend', 'Mending'], ['ready', 'Ready for a trip']] : W === 'works' ? [['boats', 'Boats'], ['looks', 'Paint & name'], ['fit', 'Fit-out']] : [['bar', 'The bar'], ['kitchen', 'The kitchen'], ['sell', 'Sell to Paco']];
     $('hb-tabs').replaceChildren(...tabs.map(([id, text]) => {
@@ -176,16 +179,17 @@ export class HarbourSheet {
       row.append(this.button('Look', () => { this.viewKind = kind; this.render(); }, kind === this.viewKind ? '' : 'quiet'));
       if (owns(Y, kind)) {
         row.append(el('p', '', `The ${name}`), el('span', 'cp-soft', 'yours'));
-      } else if (hiredToday(Y, kind, day)) {
-        row.append(el('p', '', `The ${name}`), el('span', 'cp-soft', 'on hire to you today (back at the yard tomorrow)'));
+      } else if (hiredToday(Y, kind, day, this.state.day * 24 + this.state.hour)) {
+        const until = Y.hired.until;
+        row.append(el('p', '', `The ${name}`), el('span', 'cp-soft', Number.isFinite(until) ? `on hire to you until ${formatClock(until % 24)} ${Math.floor(until / 24) > day ? 'tomorrow' : 'today'}` : 'on hire to you today (back at the yard tomorrow)'));
         row.append(this.button(`Buy her: ${money(PRICES[kind])}`, () => H.yardBuy(kind)));
       } else {
-        row.append(el('p', '', `The ${name}`), el('span', 'cp-soft', `${money(PRICES[kind])} · or ${money(hirePrice(kind))} for the day`));
+        row.append(el('p', '', `The ${name}`), el('span', 'cp-soft', `${money(PRICES[kind])} · or ${money(hirePrice(kind))} for a day`));
         row.append(this.button(`Hire: ${money(hirePrice(kind))}`, () => H.yardHire(kind), 'quiet'), this.button(`Buy: ${money(PRICES[kind])}`, () => H.yardBuy(kind)));
       }
       out.push(row);
     }
-    out.push(el('p', 'cp-soft', 'A boat you buy is yours for good; one you hire is put in the water for you and goes back to the yard at the end of the day. Money buys range, speed and good looks here: never a better bite.'));
+    out.push(el('p', 'cp-soft', 'A boat you buy is yours for good; one you hire is put in the water for you and goes back to the yard a day (24 hours) later. Money buys range, speed and good looks here: never a better bite.'));
     return out;
   }
 
@@ -406,7 +410,7 @@ export class HarbourSheet {
   renderKitchen() {
     const out = [];
     const place = this.place, host = HOST[place];
-    const early = this.state.hour < 6, late = this.state.hour >= ORDERS_BY;
+    const early = this.hour < 6, late = this.hour >= ORDERS_BY;
     out.push(el('p', 'hb-say', place === 'haven'
       ? 'Ruth Alder runs the kitchen as well as the bar. She buys her fish from whoever brings in the best of it, and she pays well for what she’s after.'
       : 'Paco’s mother cooks, in a kitchen the size of a cupboard. What goes on the menu depends on what the boats bring in.'));

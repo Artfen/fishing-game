@@ -78,8 +78,10 @@ test('herons and oystercatchers go up when you come too close, and settle furthe
     const r = watch(w, 1, ctxAt(H.x + 15, H.z, { speed: 1.2 }));
     assert.ok(H.fly, 'up it goes');
     assert.equal(r.calls.heron, 1, 'with a croak');
-    watch(w, 40, ctxAt(x0 + 15, z0));
+    // (Over the hill it flies right out of sight, half a kilometre, before it's gone.)
+    watch(w, 120, ctxAt(x0 + 15, z0));
     assert.ok(!H.fly && (H.state === 'away' || Math.hypot(H.x - (x0 + 15), H.z - z0) > 45), 'settled again well away from you (or gone over the hill)');
+    if (H.state === 'away') assert.ok(Math.hypot(H.x - (x0 + 15), H.z - z0) > 500, 'gone only once it’s out of sight');
     // Far off and quiet, they stay put.
     const H2 = w.herons[1];
     watch(w, 20, ctxAt(H2.x + 200, H2.z));

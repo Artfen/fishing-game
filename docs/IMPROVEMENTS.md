@@ -71,12 +71,12 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | 24 | Boats ✅ | Fast boats have no cruise notch between half and full (RIB 4.3 → 18 m/s) | A cruise notch | Low–med |
 | 25 | Boats ✅ | The dashboard's throttle lever barely moves until full ahead | Show the lever's travel | Low |
 | 26 | Perf | Hull physics allocates thousands of objects a frame; idle moored boats run full physics; foam trails, effects and the HUD do constant work; figures and friends' boats leak | Pools and scratch objects, rest for still moored boats, change-only DOM writes, disposal | Low–med |
-| 27 | Co-op | A guest's market and kitchen run on the guest's own clock, not the shared one | Use the world's hour | Low |
-| 28 | Co-op | "Friends can help" does nothing: crew can't finish co-op jobs | Count crew photographs and catches for the skipper's jobs | Low |
-| 29 | Audio | Friends' boats are silent; crewing a planing RIB is silent; calls make no sound | Friends' engines in the soundscape; a chime | Low |
-| 30 | World | Leaving a session restocks fished-out water at once; a second catch message within 4 s is dropped | Stagger the restock; queue the news | Low |
-| 31 | Wildlife | Herons pop in and out in view; oystercatchers move as a rigid grid; an otter teleports | Hide only beyond view; vary the flock; a swim back | Low |
-| 32 | Economy | Hiring at 20:00 buys three real minutes; big game is capped at the same price as a turbot | Hire for 24 hours; a higher cap for the big ocean fish | Low |
+| 27 | Co-op ✅ | A guest's market and kitchen run on the guest's own clock, not the shared one | Use the world's hour | Low |
+| 28 | Co-op ✅ | "Friends can help" does nothing: crew can't finish co-op jobs | Count crew photographs and catches for the skipper's jobs | Low |
+| 29 | Audio ✅ | Friends' boats are silent; crewing a planing RIB is silent; calls make no sound | Friends' engines in the soundscape; a chime | Low |
+| 30 | World ✅ | Leaving a session restocks fished-out water at once; a second catch message within 4 s is dropped | Stagger the restock; queue the news | Low |
+| 31 | Wildlife ✅ | Herons pop in and out in view; oystercatchers move as a rigid grid; an otter teleports | Hide only beyond view; vary the flock; a swim back | Low |
+| 32 | Economy ✅ | Hiring at 20:00 buys three real minutes; big game is capped at the same price as a turbot | Hire for 24 hours; a higher cap for the big ocean fish | Low |
 | 33 | Perf | Underwater, the worst 1% of simulation frames take 75 ms (mean 13.7): a stutter while diving | Find the spike (profile) and spread or cache the work | ? |
 | 34 | Perf | First person at the RIB's helm: 587 draw calls (the dashboard's many small parts) | Merge static dashboard parts; share materials | Low–med |
 
@@ -121,3 +121,29 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | Validation | `tests/mooring.test.mjs` (a berth clears a moored boat's whole hull; tied there nobody is thrown out), `tests/camera.test.mjs` (first person keeps up at 30/60/144 fps; it fails on the old code with 0.215 m), `tests/sportboats.test.mjs` (the cruising notch is on the plane between half and full); boats, dashboard, throttle, engine, watersports, big-game, harbour and trolling tests pass |
 | Remaining risks | Contacts bounce less: a boat that hits a pier or another boat hard parts at up to about half a metre a second rather than springing off (the existing collision, pier and beaching tests pass); one more notch to step through on the RIB and console between half and full; the RIB's and jet ski's astern is stronger, so backing off a berth is quicker |
 
+### A living world, together (PR E)
+
+| Field | |
+| --- | --- |
+| System | Co-op, the harbour's trade, sound and the animals (`src/harbourView.js`, `src/contracts.js`, `src/world/sealife.js`, `src/sharedworld.js`, `src/together.js`, `src/shipyard.js`, `src/market.js`, `src/world/wildlife.js`, `src/main.js`) |
+| Previous issue | Backlog 27–32: a guest's market and kitchen opened by the guest's own clock while the scene showed the host's (Mags at her slab in daylight: "The market's shut"), and "before the gale" jobs mixed the two clocks; "friends can help" did nothing (a crew's photo of dolphins on the skipper's bow didn't count, nor a crew's fish for the skipper's charter); friends' boats were silent, so was riding in one, and a friend's call or fish-on made no sound; leaving a session refilled every fished-out spot at once, and a friend's second catch within 4 s was dropped; a hire taken at 20:00 lasted until midnight (about three real minutes); a 27 kg yellowfin fetched the same £40 as a turbot; a heron gone "over the hill" vanished in plain view 140 m off and reappeared at its shallows while you watched, a heron turned 86° in a frame, oystercatchers kept one rigid pattern for ever, and an otter jumped from the bank into the water |
+| Change | The market's and kitchen's hours, and the sheet's clock, use the world's hour (the host's together, your own alone); the board's gale checks take the day and the time from the same clock. A crew's photograph counts a pod on the skipper's bow; a fish landed by a friend crewing your boat, close aboard, counts for your fishing charter (and nothing else of yours). Friends' boats under power are in the soundscape (the one you're riding in among them); a soft chime for a friend's call and fish-on. Fish taken while following come back over 4–7 minutes after you leave; a friend's catches are news up to three in 20 s (a flood is still cut short). A hire runs 24 hours from when you took her (an older save's hire still ends with its day; the yard says until when). The big ocean fish (tuna, wahoo, dorado, albacore) can fetch up to £120. A heron flying off over the hill goes 520 m, out of sight, before it's gone, and flies back in to its shallows; it turns gradually; oystercatchers wander while they feed, land in a new scatter, and fly loosely; an otter walks back down the bank into the water |
+| Player benefit | Playing together, the shared world agrees with itself and helping a friend counts; the harbour's trade and the hire are fair; the animals behave like animals when you're watching them |
+| Before | Host 12:00, guest's own clock 21:00: the guest's market shut. A crew's bow photo: not counted. A hire at 20:00: gone at 0:00. Yellowfin at the top of its size: £40. An otter's last step from the bank: several metres in one frame |
+| After | The same guest's market is open (tested); the crew's photo counts the skipper's bow and the crew's fish the skipper's charter (tested); a hire at day 6 20:00 is still yours at day 7 19:30 and back at the yard at 20:30 (tested; an old save's hire ends with its day); the yellowfin fetches over £40 and at most £120 (tested); the otter never moves more than 0.2 m in a tenth of a second and the heron starts home from 520 m out (tested); after leaving a session no fish is restocked at once and each comes back in 240–420 s (tested) |
+| Validation | `tests/livingworld.test.mjs` (7 tests); `tests/together.test.mjs` (a flood of five catches: three shown), `tests/wildlife.test.mjs` (a heron gone over the hill is gone only beyond 500 m), `tests/messages.test.mjs` (the board passes the day and the time); shared world, shared fish, sea life, crew, market, economy, shipyard, contracts, charters and harbour tests pass |
+| Remaining risks | Not played with two real people over a real connection (the co-op parts are tested through the stand-in for Supabase Realtime and by hand-built states); the sounds were not listened to (no audio on the test server); a heron flushed with nowhere far to go is out of sight for longer; terns still fly perfect circles; mooring fees and fuel balance on Gentle (from the audit) are left for a balance pass |
+
+
+### Both outboards the same size (fix, reported in play)
+
+| Field | |
+| --- | --- |
+| System | The outboards' models with fittings (`src/boat.js`, `setFits`) |
+| Previous issue | On the centre console the starboard outboard was visibly smaller than the port one. Since the Marine Works' fittings (e7db8d6), applying a boat's fittings set the first outboard's size to 1 (or 1.1 with the bigger outboard fitted), throwing away the size built for that boat and leaving a second outboard alone. Every boat has its fittings applied when the game loads, so it showed on every console. The single outboards were also the wrong size: the RIB's, bass boat's and cabin boat's too small, the sailing boat's too big |
+| Change | Fittings scale every outboard from the boat's own size: a tenth bigger with the bigger outboard, both of a pair alike |
+| Player benefit | The console's twin outboards match, and every outboard is the size it was drawn |
+| Before | Console 1.00 / 1.35 (1.10 / 1.35 with the bigger outboard); RIB 1.00 (built 1.45); bass 1.00 (1.30); cabin 1.00 (1.25); sailing boat 1.00 (0.68) |
+| After | Console 1.35 / 1.35 (1.49 / 1.49 with the bigger outboard); each other boat at its own size, a tenth bigger with the bigger outboard. Browser-checked: the console's pair the same size on screen |
+| Validation | `tests/sportboats.test.mjs` (outboards keep their size with fittings on; it fails on the old code: "console as she came: 1.00 (her own 1.35)"); boat, shipyard, engine, dashboard and trolling tests pass |
+| Remaining risks | None known: the models only (thrust and handling never read this size) |

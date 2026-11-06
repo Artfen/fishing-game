@@ -145,7 +145,8 @@ export function cleanYard(raw, kinds, legacy = false) {
   const r = isObj(raw) ? raw : {};
   let owned = Array.isArray(r.owned) ? [...new Set(r.owned.filter((k) => kinds.includes(k)))] : legacy ? [...kinds] : [...STARTER];
   for (const k of STARTER) if (kinds.includes(k) && !owned.includes(k)) owned.push(k);
-  const hired = isObj(r.hired) && kinds.includes(r.hired.kind) && !owned.includes(r.hired.kind) && Number.isFinite(r.hired.day) ? { kind: r.hired.kind, day: r.hired.day } : null;
+  const hired = isObj(r.hired) && kinds.includes(r.hired.kind) && !owned.includes(r.hired.kind) && Number.isFinite(r.hired.day)
+    ? { kind: r.hired.kind, day: r.hired.day, ...(Number.isFinite(r.hired.until) ? { until: r.hired.until } : {}) } : null;
   const looks = {};
   for (const [k, v] of Object.entries(isObj(r.looks) ? r.looks : {})) {
     if (!kinds.includes(k) || !isObj(v)) continue;
@@ -168,10 +169,20 @@ export function cleanYard(raw, kinds, legacy = false) {
   return { owned, hired, looks, fits };
 }
 
-// Can you take her out: yours, or hired for today.
+// Can you take her out: yours, or on hire to you now. A hire runs 24 hours from when you took her
+// (until: your own clock, in game hours since day 0); one from an older game, with no until, runs
+// to the end of the day it was taken (day). abs: the time now on your own clock; without it (or
+// for an old hire) the day decides.
 export const owns = (yard, kind) => yard.owned.includes(kind);
-export const hiredToday = (yard, kind, day) => yard.hired?.kind === kind && yard.hired.day === day;
-export const usable = (yard, kind, day) => owns(yard, kind) || hiredToday(yard, kind, day);
+export const hiredToday = (yard, kind, day, abs) => {
+  const H = yard.hired;
+  if (H?.kind !== kind) return false;
+  return Number.isFinite(H.until) && Number.isFinite(abs) ? abs < H.until : H.day === day;
+};
+export const usable = (yard, kind, day, abs) => owns(yard, kind) || hiredToday(yard, kind, day, abs);
+// The time now on a state's own clock (null for a state without one).
+const nowOf = (state) => (Number.isFinite(state.hour) ? state.day * 24 + state.hour : undefined);
+export const HIRE_HOURS = 24;
 
 // Buy her. Returns { ok, why }.
 export function buyBoat(state, kind) {
@@ -185,16 +196,16 @@ export function buyBoat(state, kind) {
   return { ok: true };
 }
 
-// Hire her until the end of today (one boat at a time). Returns { ok, why }.
+// Hire her for a day: 24 hours from now (one boat at a time). Returns { ok, why }.
 export function hireBoat(state, kind) {
-  const Y = state.yard;
+  const Y = state.yard, abs = nowOf(state);
   if (owns(Y, kind)) return { ok: false, why: 'She’s yours: no need to hire her.' };
   if (!PRICES[kind]) return { ok: false, why: 'She isn’t for hire.' };
-  if (Y.hired && Y.hired.day === state.day && Y.hired.kind !== kind) return { ok: false, why: `You’ve the ${Y.hired.kind} on hire today already.` };
-  if (hiredToday(Y, kind, state.day)) return { ok: false, why: 'She’s yours for the day already.' };
+  if (Y.hired && Y.hired.kind !== kind && hiredToday(Y, Y.hired.kind, state.day, abs)) return { ok: false, why: `You’ve the ${Y.hired.kind} on hire already.` };
+  if (hiredToday(Y, kind, state.day, abs)) return { ok: false, why: 'She’s on hire to you already.' };
   const r = pay(state, hirePrice(kind), `A day’s hire of the ${kind}`);
   if (!r.ok) return r;
-  Y.hired = { kind, day: state.day };
+  Y.hired = { kind, day: state.day, ...(abs != null ? { until: abs + HIRE_HOURS } : {}) };
   return { ok: true };
 }
 
