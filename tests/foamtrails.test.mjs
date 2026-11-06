@@ -68,3 +68,83 @@ test('a boat moved far in a moment starts a fresh trail, not a line across the c
   const T = F.tracks.get('rib');
   assert.ok(T.pts.every((p) => Math.abs(p.x - (end.x + 500)) < 1));
 });
+
+// The drawing: rewritten to make no garbage each frame and to send the graphics card nothing when
+// nothing's changed. It draws exactly what it always did.
+test('the trails are drawn exactly as before, and nothing is sent when there are none', async () => {
+  globalThis.document ??= { createElement: () => ({ width: 0, height: 0, getContext: () => null }) };
+  const THREE = await import('three');
+  const { FoamTrailView } = await import('../src/world/foamTrails.js');
+  const { waveHeight } = await import('../src/world/water.js');
+  // The drawing as it was, for comparison.
+  function oldUpdate(tracks, now, t, cx, cz, light = 1) {
+    const o = this.o, nP = this.nP, P = this.pos, C = this.col, UV = this.uv;
+    this.frame++;
+    this.mat.color.setRGB(light, light, Math.min(1, light * 1.03));
+    const near = [...tracks.tracks.values()]
+      .map((T) => ({ T, d: T.head ? Math.hypot(T.head.x - cx, T.head.z - cz) : T.pts.length ? Math.hypot(T.pts[T.pts.length - 1].x - cx, T.pts[T.pts.length - 1].z - cz) : 1e9 }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, o.tracks);
+    for (let ti = 0; ti < o.tracks; ti++) {
+      const T = near[ti]?.T;
+      const pts = T ? (T.head ? [...T.pts, T.head] : T.pts) : [];
+      const n = Math.min(pts.length, nP), off = pts.length - n;
+      for (let k = 0; k < nP; k++) {
+        const vi = (ti * nP + k) * 2;
+        if (k >= n) {
+          C[vi * 4 + 3] = C[vi * 4 + 7] = 0;
+          P[vi * 3 + 1] = P[vi * 3 + 4] = -999;
+          continue;
+        }
+        const p = pts[off + k], L = tracks.look(p, now);
+        const a = pts[Math.max(off, off + k - 1)], b = pts[Math.min(pts.length - 1, off + k + 1)];
+        let dx = b.x - a.x, dz = b.z - a.z;
+        const dl = Math.hypot(dx, dz);
+        if (dl > 1e-4) { dx /= dl; dz /= dl; } else { dx = p.fx; dz = p.fz; }
+        const rx = -dz, rz = dx, hw = L.w * 0.5;
+        const hi = ti * nP + k, far = Math.hypot(p.x - cx, p.z - cz) > 90;
+        if (!far || (this.frame + k) % 4 === 0 || this.h[hi] === 0) this.h[hi] = waveHeight(p.x, p.z, t) + 0.05;
+        const y = this.h[hi];
+        P[vi * 3] = p.x - rx * hw; P[vi * 3 + 1] = y; P[vi * 3 + 2] = p.z - rz * hw;
+        P[vi * 3 + 3] = p.x + rx * hw; P[vi * 3 + 4] = y; P[vi * 3 + 5] = p.z + rz * hw;
+        UV[vi * 2] = 0; UV[vi * 2 + 1] = p.d / o.tile;
+        UV[vi * 2 + 2] = 1; UV[vi * 2 + 3] = p.d / o.tile;
+        const alpha = L.a * 0.85;
+        for (let q = 0; q < 2; q++) {
+          C[(vi + q) * 4] = C[(vi + q) * 4 + 1] = C[(vi + q) * 4 + 2] = 1;
+          C[(vi + q) * 4 + 3] = alpha;
+        }
+      }
+    }
+  }
+  const scene = new THREE.Scene();
+  const F = new FoamTracks(), A = new FoamTrailView(scene), B = new FoamTrailView(scene);
+  // A dozen boats (more than are drawn) going round at different speeds; some stop, then all go.
+  const boats = Array.from({ length: 12 }, (_, i) => ({ key: `b${i}`, x: i * 40 - 200, z: (i % 3) * 60, heading: i, speed: 4 + i * 1.3, rate: (i % 5) * 0.06 - 0.1 }));
+  let t = 0;
+  const same = () => {
+    for (const k of ['pos', 'col', 'uv', 'h']) assert.deepEqual(A[k], B[k], k);
+  };
+  for (let f = 0; f < 30 * 130; f++) {
+    t += 1 / 30;
+    for (const b of boats) {
+      if (f > 30 * 20 && b.key < 'b4') b.speed = 0;
+      if (f > 30 * 40) continue; // (gone home)
+      b.heading += b.rate / 30;
+      b.x += Math.sin(b.heading) * b.speed / 30;
+      b.z += Math.cos(b.heading) * b.speed / 30;
+      F.note(b.key, b.x, b.z, b.heading, b.speed, 2, 6.5, b.speed > 6 ? 0.8 : 0, t);
+    }
+    F.step(t);
+    const cx = Math.sin(t * 0.1) * 150, cz = 40;
+    A.update(F, t, t, cx, cz, 0.9);
+    oldUpdate.call(B, F, t, t, cx, cz, 0.9);
+    if (f % 15 === 0) same();
+  }
+  same();
+  // Long after, no trails: nothing more is sent.
+  assert.equal(F.tracks.size, 0);
+  const g = A.mesh.geometry.attributes, v = [g.position.version, g.color.version, g.uv.version];
+  for (let i = 0; i < 10; i++) A.update(F, t + i, t + i, 0, 0, 1);
+  assert.deepEqual([g.position.version, g.color.version, g.uv.version], v);
+});

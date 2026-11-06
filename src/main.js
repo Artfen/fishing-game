@@ -8381,7 +8381,7 @@ const _q = new THREE.Vector3();
 // A label over a point in the world, or pinned to the screen edge pointing towards it.
 function placeMarker(el, x, y, z, show) {
   if (!show || hudOff) {
-    el.hidden = true;
+    if (!el.hidden) el.hidden = true;
     return;
   }
   const dist = Math.hypot(x - player().pos.x, z - player().pos.z);
@@ -8398,7 +8398,7 @@ function placeMarker(el, x, y, z, show) {
   // (Kept clear of the prompt along the bottom while one is showing.)
   const bottom = H - m - 40 - (hud.el.prompt.hidden ? 0 : 52);
   // (A longer label keeps clear of the screen's edges by its own half-width.)
-  const mx = Math.max(m, (el.offsetWidth || 0) / 2 + 10);
+  const mx = Math.max(m, markerWidth(el) / 2 + 10);
   const onScreen = !behind && sx > mx && sx < W - mx && sy > m + 50 && sy < bottom;
   let angle = 0;
   if (!onScreen) {
@@ -8412,6 +8412,21 @@ function placeMarker(el, x, y, z, show) {
   hud.marker(el, sx, sy, onScreen, angle, dist, dist < 12);
 }
 const placed = [];
+// A marker's width, measured again only when what it says (or how it's styled) has changed, or
+// the fonts or the window have: reading it makes the browser lay the page out there and then,
+// after this frame's moving of the other markers. (Hidden, it has none.)
+let markerLayout = 0;
+document.fonts?.addEventListener?.('loadingdone', () => markerLayout++);
+addEventListener('resize', () => markerLayout++);
+function markerWidth(el) {
+  if (el.hidden) return 0;
+  const key = `${markerLayout}|${el.className}|${el.textContent}`;
+  if (el._wKey !== key) {
+    el._w = el.offsetWidth || 0;
+    el._wKey = key;
+  }
+  return el._w;
+}
 
 // The conditions panel: the wind and sea where you are, and the current at your rig if it's in
 // the water (or under you). Directions are arrows as you see them, with the compass in words.
@@ -8538,7 +8553,8 @@ function updateHud() {
       hud.flash(`You’re on the trip’s water: ${trip.name}. Good luck with the ${fishById[trip.sp].name.toLowerCase()}.`, t, 4);
       save();
     }
-    $('trip-name').textContent = fishById[trip.sp].name;
+    const tn = fishById[trip.sp].name;
+    if ($('trip-name').textContent !== tn) $('trip-name').textContent = tn;
   }
   // The crossing: where to steer for now (across, round the point, into the harbour).
   if (crossAim && $('cross-name').textContent !== crossAim.name) $('cross-name').textContent = crossAim.name;
@@ -10535,7 +10551,8 @@ function tick(now, manual = false) {
       }
       b.group.visible = !(together.active && b.speed < 0.3 && visitors.boatNear(b.pos.x, b.pos.z, b.hull.L * 0.35));
     }
-    $('call-btn').hidden = !(started && together.active);
+    const callBtn = $('call-btn'), noCall = !(started && together.active);
+    if (callBtn.hidden !== noCall) callBtn.hidden = noCall;
     if (!together.active && callsOpen()) closeCalls();
     if (modal === 'map' && together.active && (friendMapT -= dt) <= 0) {
       friendMapT = 0.5;

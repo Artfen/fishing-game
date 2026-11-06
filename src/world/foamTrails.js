@@ -56,7 +56,9 @@ export class FoamTracks {
       this.tracks.set(key, T);
     }
     const fx = Math.sin(heading), fz = Math.cos(heading);
-    T.head = { x, z, fx, fz, t0: now, k, w0: beam, d: T.d };
+    // (Her transom as it is now: the same object each frame, filled in afresh.)
+    const hd = (T.head ||= { x: 0, z: 0, fx: 0, fz: 0, t0: 0, k: 0, w0: 0, d: 0 });
+    hd.x = x; hd.z = z; hd.fx = fx; hd.fz = fz; hd.t0 = now; hd.k = k; hd.w0 = beam; hd.d = T.d;
     const last = T.pts[T.pts.length - 1];
     if (last) {
       const gap = Math.hypot(x - last.x, z - last.z);
@@ -81,11 +83,12 @@ export class FoamTracks {
     }
   }
 
-  // How white and how wide a point is at time now: { a (0 … 1), w (m) }.
-  look(p, now) {
+  // How white and how wide a point is at time now: { a (0 … 1), w (m) } (into out, if given).
+  look(p, now, out = { a: 0, w: 0 }) {
     const age = now - p.t0, o = this.o;
-    const a = p.k * smooth(0, 0.8, age) * Math.exp(-age / o.fade) * (1 - smooth(o.life * 0.7, o.life, age));
-    return { a, w: p.w0 * (1 + Math.min(3.2, age * o.spread)) };
+    out.a = p.k * smooth(0, 0.8, age) * Math.exp(-age / o.fade) * (1 - smooth(o.life * 0.7, o.life, age));
+    out.w = p.w0 * (1 + Math.min(3.2, age * o.spread));
+    return out;
   }
 }
 
@@ -163,6 +166,12 @@ export class FoamTrailView {
     scene.add(this.mesh);
     hideFromReflection(this.mesh);
     this.frame = 0;
+    // (Kept from frame to frame: the nearest tracks and how far off each is, how many points of
+    // each slot were drawn last frame, and the point being looked at.)
+    this._near = new Array(nT).fill(null);
+    this._nearD = new Float64Array(nT);
+    this._drawn = new Int32Array(nT).fill(nP);
+    this._look = { a: 0, w: 0 };
   }
 
   // Draw the tracks (FoamTracks) at time now (s) and t (the waves' time), seen from (cx, cz); light:
@@ -171,25 +180,47 @@ export class FoamTrailView {
     const o = this.o, nP = this.nP, P = this.pos, C = this.col, UV = this.uv;
     this.frame++;
     this.mat.color.setRGB(light, light, Math.min(1, light * 1.03));
-    // (The nearest few tracks.)
-    const near = [...tracks.tracks.values()]
-      .map((T) => ({ T, d: T.head ? Math.hypot(T.head.x - cx, T.head.z - cz) : T.pts.length ? Math.hypot(T.pts[T.pts.length - 1].x - cx, T.pts[T.pts.length - 1].z - cz) : 1e9 }))
-      .sort((a, b) => a.d - b.d)
-      .slice(0, o.tracks);
-    for (let ti = 0; ti < o.tracks; ti++) {
-      const T = near[ti]?.T;
-      const pts = T ? (T.head ? [...T.pts, T.head] : T.pts) : [];
-      const n = Math.min(pts.length, nP), off = pts.length - n;
+    // (The nearest few tracks, nearest first; tracks as far off as each other in the order they
+    // came.)
+    const near = this._near, nearD = this._nearD, nT = o.tracks;
+    let count = 0;
+    for (const T of tracks.tracks.values()) {
+      const e = T.head || T.pts[T.pts.length - 1];
+      const d = e ? Math.hypot(e.x - cx, e.z - cz) : 1e9;
+      let i = Math.min(count, nT);
+      while (i > 0 && nearD[i - 1] > d) i--;
+      if (i >= nT) continue;
+      for (let j = Math.min(count, nT - 1); j > i; j--) {
+        near[j] = near[j - 1];
+        nearD[j] = nearD[j - 1];
+      }
+      near[i] = T;
+      nearD[i] = d;
+      count++;
+    }
+    let moved = false, uvMoved = false;
+    for (let ti = 0; ti < nT; ti++) {
+      const T = ti < count ? near[ti] : null;
+      near[ti] = null;
+      // (Her points, and her transom after them: pts[i], or the head past the end.)
+      const pts = T ? T.pts : null, np = pts ? pts.length : 0, len = np + (T?.head ? 1 : 0);
+      const n = Math.min(len, nP), off = len - n;
+      // (Slots drawn last frame and empty now are hidden; ones already hidden are left be.)
+      const was = this._drawn[ti];
+      this._drawn[ti] = n;
+      if (n || was) moved = true;
       for (let k = 0; k < nP; k++) {
         const vi = (ti * nP + k) * 2;
         if (k >= n) {
+          if (k >= was) break;
           C[vi * 4 + 3] = C[vi * 4 + 7] = 0;
           P[vi * 3 + 1] = P[vi * 3 + 4] = -999;
           continue;
         }
-        const p = pts[off + k], L = tracks.look(p, now);
+        const ip = off + k, p = ip < np ? pts[ip] : T.head, L = tracks.look(p, now, this._look);
         // The way the trail runs here (between its neighbours), and across it.
-        const a = pts[Math.max(off, off + k - 1)], b = pts[Math.min(pts.length - 1, off + k + 1)];
+        const ia = Math.max(off, ip - 1), ib = Math.min(len - 1, ip + 1);
+        const a = ia < np ? pts[ia] : T.head, b = ib < np ? pts[ib] : T.head;
         let dx = b.x - a.x, dz = b.z - a.z;
         const dl = Math.hypot(dx, dz);
         if (dl > 1e-4) { dx /= dl; dz /= dl; } else { dx = p.fx; dz = p.fz; }
@@ -200,8 +231,14 @@ export class FoamTrailView {
         const y = this.h[hi];
         P[vi * 3] = p.x - rx * hw; P[vi * 3 + 1] = y; P[vi * 3 + 2] = p.z - rz * hw;
         P[vi * 3 + 3] = p.x + rx * hw; P[vi * 3 + 4] = y; P[vi * 3 + 5] = p.z + rz * hw;
-        UV[vi * 2] = 0; UV[vi * 2 + 1] = p.d / o.tile;
-        UV[vi * 2 + 2] = 1; UV[vi * 2 + 3] = p.d / o.tile;
+        // (Along the trail, the foam's pattern stays put on the water: it changes only as the
+        // points do.)
+        const v = p.d / o.tile;
+        if (UV[vi * 2] !== 0 || UV[vi * 2 + 1] !== v || UV[vi * 2 + 2] !== 1 || UV[vi * 2 + 3] !== v) {
+          UV[vi * 2] = 0; UV[vi * 2 + 1] = v;
+          UV[vi * 2 + 2] = 1; UV[vi * 2 + 3] = v;
+          uvMoved = true;
+        }
         // (The newest point, at her transom, starts it softly: the churn right behind her is the
         // water's own, see waterfx.js.)
         const alpha = L.a * 0.85;
@@ -211,9 +248,13 @@ export class FoamTrailView {
         }
       }
     }
+    // (Sent to the graphics card only when something's changed: nothing at all, with no trails
+    // about.)
     const g = this.mesh.geometry;
-    g.attributes.position.needsUpdate = true;
-    g.attributes.color.needsUpdate = true;
-    g.attributes.uv.needsUpdate = true;
+    if (moved) {
+      g.attributes.position.needsUpdate = true;
+      g.attributes.color.needsUpdate = true;
+    }
+    if (uvMoved) g.attributes.uv.needsUpdate = true;
   }
 }

@@ -270,11 +270,14 @@ export class HUD {
   // A label that follows a point in the world, or sits on the screen edge pointing at it.
   marker(el, sx, sy, onScreen, angle, dist, near) {
     if (!el._label) el._label = el.querySelector('b');
-    el.hidden = false;
-    el.style.transform = `translate(${sx.toFixed(0)}px, ${sy.toFixed(0)}px) translate(-50%, -50%)`;
+    // (Only what's changed is written: each write has the browser work out the page's style again.)
+    if (el.hidden) el.hidden = false;
+    const tf = `translate(${sx.toFixed(0)}px, ${sy.toFixed(0)}px) translate(-50%, -50%)`;
+    if (el._tf !== tf) el.style.transform = el._tf = tf;
     el.classList.toggle('near', near);
     const arrow = el.firstElementChild;
-    arrow.style.transform = onScreen ? 'rotate(180deg)' : `rotate(${angle.toFixed(2)}rad)`;
+    const at = onScreen ? 'rotate(180deg)' : `rotate(${angle.toFixed(2)}rad)`;
+    if (arrow._tf !== at) arrow.style.transform = arrow._tf = at;
     // (A marker for somewhere far off, the crossing's, says how far in kilometres once it's that far;
     // a friend's, to the metre until then.)
     const d = el.dataset.km ? (dist >= 1000 ? `${(dist / 1000).toFixed(1)} km` : `${el.dataset.km === 'exact' ? Math.round(dist) : Math.round(dist / 10) * 10} m`) : String(Math.round(dist));

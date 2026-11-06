@@ -16,10 +16,19 @@ function dropPool(scene, N, size, opacity) {
   points.frustumCulled = false;
   points.renderOrder = 4;
   scene.add(points);
-  return { N, pp, pv: new Float32Array(N * 3), pl: new Float32Array(N), pf: new Float32Array(N).fill(-0.15), points, i: 0 };
+  return { N, pp, pv: new Float32Array(N * 3), pl: new Float32Array(N), pf: new Float32Array(N).fill(-0.15), points, i: 0, live: 0 };
+}
+// (A drop starting in slot i: one more in the air, unless it takes the place of one still going;
+// drawn where it starts even if it's thrown after this frame's step.)
+function launch(D, i) {
+  if (!(D.pl[i] > 0)) D.live++;
+  D.pl[i] = 1.6;
+  D.points.geometry.attributes.position.needsUpdate = true;
 }
 // (drag: how fast the air slows them, per second.)
 function stepDrops(D, dt, drag) {
+  // (None in the air: nothing to move, and nothing new to send the graphics card.)
+  if (!D.live) return;
   const k = drag ? Math.exp(-drag * dt) : 1, { pp, pv, pl, pf } = D;
   for (let i = 0; i < D.N; i++) {
     if (pl[i] <= 0) continue;
@@ -36,6 +45,7 @@ function stepDrops(D, dt, drag) {
     if (pp[i * 3 + 1] < pf[i] || pl[i] <= 0) {
       pl[i] = 0;
       pp[i * 3 + 1] = -999;
+      D.live--;
     }
   }
   D.points.geometry.attributes.position.needsUpdate = true;
@@ -151,7 +161,7 @@ export class Effects {
       D.pv[i * 3] = Math.cos(a) * s;
       D.pv[i * 3 + 1] = rand(0.6, 1.2) * power;
       D.pv[i * 3 + 2] = Math.sin(a) * s;
-      D.pl[i] = 1.6;
+      launch(D, i);
       D.pf[i] = -0.15;
     }
   }
@@ -166,7 +176,7 @@ export class Effects {
     D.pv[i * 3] = vx;
     D.pv[i * 3 + 1] = vy;
     D.pv[i * 3 + 2] = vz;
-    D.pl[i] = 1.6;
+    launch(D, i);
     D.pf[i] = floor;
   }
 
