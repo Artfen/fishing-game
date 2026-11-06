@@ -8213,6 +8213,10 @@ function netDiagnostics() {
   const lines = kinds.map(([k, v]) => `${NAMES[k] || k}: ${((v.in + v.out) / secs * 60).toFixed(0)} messages a minute, ${((v.bytesIn + v.bytesOut) / secs / 1024).toFixed(1)} KB/s`);
   if (shared.role === 'host') lines.push(`The shared sea: you’re keeping it for everyone. ${S.sent} snapshots sent, the last covering ${S.animals} groups of sea life and ${S.schools} shoals near someone; ${S.rigs ? `${S.rigs} of your friends’ rigs in your water, ` : ''}${S.fish} fish going for a rig or hooked.`);
   else if (shared.role === 'follower') lines.push(`The shared sea: following the host’s. ${S.got} snapshots heard${S.heardAt != null ? `, the last ${Math.max(0, together.now() - S.heardAt).toFixed(1)} s ago, ${S.delay.toFixed(2)} s on the way` : ''}; ${S.schools} shoals, ${S.animals} groups of sea life and ${S.fish} fish being fished for in it${S.rejected ? `; ${S.rejected} turned away` : ''}${S.stale ? `, ${S.stale} out of date` : ''}.`);
+  // Supabase counts every message sent from or delivered to each player, a second at a time, against
+  // the project's plan (100 a second on the Free plan, 500 on Pro): the whole session's, about.
+  const players = together.others.length + 1, mine = (U.in + U.out) / secs;
+  lines.push(`The whole session: about ${Math.round(mine * players)} messages a second sent and delivered across all ${players} of you (Supabase allows 100 a second on the Free plan, 500 on Pro).`);
   return lines;
 }
 
