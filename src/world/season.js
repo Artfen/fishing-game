@@ -85,12 +85,22 @@ export const SEASON_FISH = {
   trout: [1.0, 0.8, 1.1, 0.35], grayling: [0.8, 0.9, 1.2, 1.1], perch: [1.0, 1.0, 1.1, 0.8], pike: [0.8, 0.7, 1.3, 1.1],
   carp: [0.8, 1.2, 1.0, 0.25], tench: [0.8, 1.2, 0.9, 0.2], roach: [0.9, 1.1, 1.0, 0.6], rudd: [0.8, 1.2, 1.0, 0.4],
 };
+// (The ecosystem asks for every kind every frame: worked out without making anything.)
+const SOUTH_ZONES = ['harbor', 'lee', 'lava', 'sebadal', 'veril', 'ocean'];
+const southern = new WeakMap(); // sp -> { zones, groups, is }: whether it keeps to the south
 export function seasonBoost(sp, abs) {
   const row = SEASON_FISH[sp.id];
   if (!row || abs == null) return 1;
   // (Las Brasas' fish, in the warm south: the year barely touches them.)
-  if (sp.life?.southGroups && !sp.life?.zones?.some((z) => !['harbor', 'lee', 'lava', 'sebadal', 'veril', 'ocean'].includes(z))) return 1;
-  return blend(row.map((v) => [v]), abs)[0];
+  const L = sp.life, groups = L?.southGroups, zones = L?.zones;
+  let s = southern.get(sp);
+  if (!s || s.zones !== zones || s.groups !== groups) southern.set(sp, (s = { zones, groups, is: !!groups && !zones?.some((z) => !SOUTH_ZONES.includes(z)) }));
+  if (s.is) return 1;
+  // (As blend() does it, for the one value.)
+  const x = yearPhase(abs) * 4 - 0.5, i = Math.floor(x), f = x - i;
+  const a = row[((i % 4) + 4) % 4], b = row[(((i + 1) % 4) + 4) % 4];
+  const k = f * f * (3 - 2 * f);
+  return a + (b - a) * k;
 }
 
 // For the notice board: "Late spring: sunrise 5:10, sunset 8:30 pm."
