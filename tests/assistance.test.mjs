@@ -131,6 +131,38 @@ test('a buoy adrift: aboard in a boat that takes its weight; given up with nothi
   assert.equal(K.callDue(C, 50), true);
 });
 
+test('a tow: she’s on your line, off it, and into the harbour; paid there, once', () => {
+  const C = rec(2), W = world({ abs: 9, callSpot: { x: 300, z: 300, where: 'off Shell Strand' } });
+  const ids = K.TEMPLATE_IDS.filter((k) => K.TEMPLATES[k].call);
+  const o = K.callFor(C, W, () => (ids.indexOf('breakdown') + 0.5) / ids.length);
+  assert.equal(o.tpl, 'breakdown');
+  const a = K.acceptCall(C, o, 0);
+  assert.deepEqual(K.target(a), { x: 300, z: 300, name: a.title });
+  // (The game's boat for it, as the game reports it.)
+  const S = (s) => at({ strays: { [a.id]: s } });
+  assert.equal(K.tick(C, S({ towed: false, home: false })).boarded.length, 0);
+  assert.equal(K.tick(C, S({ towed: true, home: false })).boarded.length, 1);
+  assert.match(K.standing(a), /towline/);
+  assert.equal(K.target(a).home, true);
+  // Off the line, drifting: said, and she wants taking in tow again.
+  assert.match(K.tick(C, S({ towed: false, home: false })).said[0].text, /off the line/);
+  assert.equal(a.progress.towing, false);
+  K.tick(C, S({ towed: true, home: false }));
+  // Into the harbour and still: done, paid on the spot, once.
+  const r = K.tick(C, S({ towed: true, home: true }));
+  assert.equal(r.done.length, 1);
+  assert.ok(a.onSpot);
+  assert.equal(K.claim(C, a.id, 4).pay, 25);
+  assert.equal(K.claim(C, a.id, 4), null);
+  // In a strong wind, no tow call.
+  assert.equal(K.TEMPLATES.breakdown.make({ ...W, wind: 12, rank: K.CAREER[0] }, () => 0), null);
+  // Where she was left is kept with the job (saved), and she's found there again.
+  const D = rec(2), b = K.acceptCall(D, K.callFor(D, W, () => (ids.indexOf('breakdown') + 0.5) / ids.length), 0);
+  b.progress.at = { x: 340, z: 280 };
+  const back = K.cleanContracts(JSON.parse(JSON.stringify(D)));
+  assert.deepEqual(K.target(back.active[0]), { x: 340, z: 280, name: b.title });
+});
+
 test('the Gannet Isle expedition: a Skipper’s, in stages, each done for real, paid once', () => {
   // Not offered to a Boatman.
   for (let d = 0; d < 80; d++) assert.ok(!K.offers(rec(3), world({ day: d })).some((o) => o.tpl === 'gannetkit'));

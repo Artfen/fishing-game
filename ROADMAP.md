@@ -331,9 +331,12 @@ The next brief, worked through in order, each step merged to main once it's test
    - *Assistance over the radio*: the harbour office calls now and then (by day, afloat, fair
      weather, a few hours in and every five to ten game hours after, never during the first-trip
      guide, one at a time, never on the board): someone carried out on a paddleboard, or a buoy
-     adrift. Said yes to, it's marked and drawn on the water (`src/world/pickups.js`); alongside
-     slowly in a boat with room, they're aboard (sat in her, weighing in her); home, paid there.
-     Said no to, nothing's lost.
+     adrift, or a skiff with a dead engine to tow in. Said yes to, it's marked and drawn on the
+     water (`src/world/pickups.js`; the skiff is a real hull); alongside slowly in a boat with
+     room, they're aboard (sat in her, weighing in her), or she's taken in tow on the game's own
+     towline (towStep pulls her like any boat; never saved as one of yours, never stepped into,
+     left where you let her go, and found there after a reload); home, paid there. Said no to,
+     nothing's lost.
    - *Dive surveys* for the Marine Trust: log a few things at a site you haven't found before; the
      game's own dive finds (dive.js logFind) finish it.
    - *The Gannet Isle season*, a Skipper's expedition in five stages (load 300 kg, land it at
@@ -349,9 +352,9 @@ The next brief, worked through in order, each step merged to main once it's test
      first job on top, rowed to The Landing and paid; the radio's call, said yes to, seen on the
      water (a paddleboarder by her pot buoy; a channel marker adrift), picked up alongside (80 kg
      and a figure in the boat; or 40 kg of buoy), home and paid; a dive survey of the Kittiwake
-     finished by finds logged on a scuba dive.
-   - *Not done*: a tow (taking a broken-down boat in on a line) would need the game's tow rope to
-     take a boat that isn't yours; it's left for later rather than faked.
+     finished by finds logged on a scuba dive; the skiff with the dead engine taken in tow from
+     alongside (the prompt), following 176 m on the line behind the RIB at 9 m/s, into the
+     harbour, paid £25 and gone.
 
 ## Open-source projects that could help
 

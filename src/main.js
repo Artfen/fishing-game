@@ -3408,11 +3408,45 @@ function jobWeight() {
   const aboard = state.contracts.active.filter((a) => !a.ready && people(a) && BOATS[a.progress.boat]);
   const kind = aboard[0]?.progress.boat;
   passengers.set(kind ? BOATS[kind] : null, aboard.filter((a) => a.progress.boat === kind).map((a) => ({ id: a.id, n: people(a), divers: !!a.obj.divers })));
+  syncStrays();
   // (And what the radio's calls sent you out to, waiting on the water.)
   pickups.sync(state.contracts.active.filter((a) => a.obj.kind === 'pickup' && !a.progress.picked).map((a) => ({ id: a.id, what: a.obj.what, x: a.obj.at.x, z: a.obj.at.z })));
 }
 const passengers = new Passengers();
 const pickups = new PickupView(scene);
+// The boats the radio's tow jobs send you to (one for each, a real hull on the water: towStep pulls
+// her like any boat), with nobody at her helm and her engine dead. Not one of your fleet: never
+// saved as a boat, never stepped into; she lies where you left her (kept in the job's progress).
+const strays = new Map(); // job id -> Boat
+const strayCache = {};
+function syncStrays() {
+  const want = new Map(state.contracts.active.filter((a) => a.obj.kind === 'tow' && !a.ready).map((a) => [a.id, a]));
+  for (const [id, b] of strays) {
+    if (want.has(id)) continue;
+    if (tow && tow.towed === b) letGoTow(true);
+    b.group.visible = false;
+    strays.delete(id);
+  }
+  for (const [id, a] of want) {
+    if (strays.has(id)) continue;
+    const k = `${a.obj.boat}:${a.obj.name}`;
+    const b = (strayCache[k] ||= new Boat(scene, { kind: a.obj.boat, look: { name: a.obj.name, paint: '#efe9dc', stripe: '#7a2430', bottom: '#3a4a5a' } }));
+    b.setRower(false);
+    const p = a.progress.at || a.obj.at;
+    b.place(p.x, p.z, b.heading || 0);
+    b.group.visible = true;
+    strays.set(id, b);
+  }
+}
+// (A stray within reach of you, slow, for the mooring prompt.)
+function strayNear(reach = 4.5) {
+  let best = null;
+  for (const b of strays.values()) {
+    const d = Math.hypot(b.pos.x - boat.pos.x, b.pos.z - boat.pos.z);
+    if (d < reach && b.speed < 1.2) { reach = d; best = b; }
+  }
+  return best;
+}
 
 // The harbour office on the radio, now and then: someone to pick up, a buoy adrift (see
 // contracts.js callDue/callFor). By day, afloat, in fair weather, with room for another job; said
@@ -3580,17 +3614,24 @@ function updateJobs(dt) {
   const haven = PLACES.find((q) => q.id === 'haven');
   const home = afloat && boat.speed < 0.8 && Math.hypot(P.x - haven.x, P.z - haven.z) < 90;
   const me = together.active ? together.id : 'me';
+  const strayInfo = {};
+  for (const [id, b] of strays) {
+    const a = state.contracts.active.find((c) => c.id === id);
+    if (a) a.progress.at = { x: Math.round(b.pos.x * 10) / 10, z: Math.round(b.pos.z * 10) / 10 };
+    strayInfo[id] = { towed: !!tow && tow.towed === b, home: Math.hypot(b.pos.x - haven.x, b.pos.z - haven.z) < 90 && b.speed < 1 };
+  }
   const tied = afloat && boat.tie ? (VISITOR_FINGERS.includes(PIERS[boat.tie.pier]) ? 'visitors' : 'other') : null;
   const r = Con.tick(state.contracts, {
     x: P.x, z: P.z, now: t, abs: clock.abs, night: env.night > 0.5, sonar: afloat && finder.visible,
     sailing: afloat && !!boat.sailUp && !motorRunning(), whale, frenzy, at, tied, bumps: afloat ? jobBumps : 0,
     home, boat: afloat ? boat.kind : null, dt: step, speed: afloat ? boat.speed : 0, anchored: afloat && !!boat.anchored,
-    sea: afloat ? waveHeightHere(P.x, P.z) : null, bow: afloat && sealife.pods.some((p) => p.mode === 'bow' && (p.owner == null || p.owner === me)),
+    strays: strayInfo, sea: afloat ? waveHeightHere(P.x, P.z) : null, bow: afloat && sealife.pods.some((p) => p.mode === 'bow' && (p.owner == null || p.owner === me)),
   });
   jobBumps = 0;
   for (const a of r.boarded) {
     const o = a.obj;
     hud.toast(o.kind === 'charter' ? `${a.title}: ${o.pax} aboard${o.divers ? ' with their kit' : ''}. ${Con.standing(a)}`
+      : o.kind === 'tow' ? `${a.title}: she’s on your line. Gently now: into Willowhaven.`
       : o.kind === 'pickup' ? (o.what === 'person' ? `${a.title}: aboard, cold and grateful. Home to Willowhaven.` : `${a.title}: hauled aboard. Home to Willowhaven with it.`)
         : `${a.title}: loaded, ${o.cargo} kg. She sits lower for it: take her to ${a.where?.name || 'it'}.`, 6);
     audio.chime?.();
@@ -5681,6 +5722,14 @@ function interaction() {
   }
   if (lostBuoyNear()) return { text: 'Pick up Dougie’s buoy', run: () => pickUpLostBuoy() };
   if (spot) return { text: ashore, run: () => stepAshore(spot) };
+  // A boat out there with a dead engine (a tow job): take her in tow, or let her go.
+  {
+    const S = !onFoot && boat.speed < 1.2 ? strayNear(tow && tow.lead === boat ? 9 : 5) : null;
+    if (S) {
+      const towing = tow && tow.lead === boat && tow.towed === S;
+      return { text: towing ? `Let go the ${S.name}` : `Take the ${S.boatName || S.name} in tow`, run: () => (towing ? letGoTow() : takeInTow(S)) };
+    }
+  }
   // A boat you stand in, walking her deck: back at the wheel, take the helm again.
   if (boat.hull.standing && !fishing.busy && boat.deck && boat.atHelm) return { text: 'Take the helm', run: () => takeHelm(true) };
   const other = boat.speed < 1 ? otherBoat(tow && (tow.lead === boat || tow.towed === boat) ? 9 : 4.5) : null;
@@ -10280,6 +10329,7 @@ function tick(now, manual = false) {
     const far = Math.hypot(b.pos.x - camera.position.x, b.pos.z - camera.position.z) > 140 && !(tow && (tow.lead === b || tow.towed === b));
     b.update(dt, t, 0, 0, env.lantern, far);
   }
+  for (const b of strays.values()) b.update(dt, t, 0, 0, env.lantern, !(tow && tow.towed === b) && Math.hypot(b.pos.x - camera.position.x, b.pos.z - camera.position.z) > 140);
   // The wind lines: round the boat while you sail (or wherever you are, if you like them always).
   {
     const L = settings.weather.windLines, sailing = !onFoot && !driving && !dive && (boat.hull.sail || boat.hull.rig) && boat.sailUp;
@@ -10708,9 +10758,10 @@ function feelBoat(motorOn, outboard, voice) {
 
 // The boats bump gently instead of sailing through each other.
 function keepBoatsApart() {
-  for (let i = 0; i < boats.length; i++) {
-    for (let j = i + 1; j < boats.length; j++) {
-      const A = boats[i], B = boats[j], a = A.pos, b = B.pos;
+  const all = strays.size ? [...boats, ...strays.values()] : boats;
+  for (let i = 0; i < all.length; i++) {
+    for (let j = i + 1; j < all.length; j++) {
+      const A = all[i], B = all[j], a = A.pos, b = B.pos;
       const gap = (A.hull.B + B.hull.B) * 1.35;
       const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz);
       if (d >= gap || d < 1e-4) continue;
@@ -10821,7 +10872,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared, teamwork, crew, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pickupsShown() { return pickups.count; }, seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
+  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared, teamwork, crew, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pickupsShown() { return pickups.count; }, jobsChanged: () => jobWeight(), strays, get towing() { return tow ? { lead: tow.lead.kind, towed: tow.towed.boatName || tow.towed.name, tight: tow.tight } : null; }, seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
   pump: (id = 'haven') => openPump(id),
