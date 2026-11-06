@@ -391,6 +391,7 @@ const visitors = new VisitorView(scene);
 // One sea for everyone in a session: the host's sea life and shoals go across, everyone else's
 // follow (see sharedworld.js). Alone, nothing changes.
 const shared = new SharedWorld({ together, sealife, eco });
+shared.items = Object.keys(TACKLE);
 // (Everyone the sea answers to this frame, and friends' boats too far off to be drawn: see viewersNow.)
 let seaViewers = null;
 const _vb = new Map();
@@ -1067,6 +1068,7 @@ function teach(key, text, secs = 5) {
   save();
 }
 
+// (Followed by the shared sea's fish: see placeFriendsFish and shared.onNoHook below.)
 const fishing = new Fishing(scene, boat, fx, audio, eco, {
   flash: (text, secs) => hud.flash(text, t, secs),
   key: (a) => K(a),
@@ -1123,7 +1125,7 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   // Every break has a reason you can see and do something about (see fight.js).
   // A fish thrown or pulled free has the line whole: it says so.
   onSnap: (why, sp, rod) => {
-    hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : why === 'rock' ? 'Cut on the rocks!' : why === 'thrown' ? 'It threw the hook!' : why === 'pulled' || why === 'lifted' ? 'The hook pulled free.' : why === 'kicked' ? 'It kicked free at the net!' : 'Snap! The line broke.', t, 3);
+    hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : why === 'rock' ? 'Cut on the rocks!' : why === 'thrown' ? 'It threw the hook!' : why === 'pulled' || why === 'lifted' ? 'The hook pulled free.' : why === 'kicked' ? 'It kicked free at the net!' : why === 'spat' ? 'It let go!' : 'Snap! The line broke.', t, 3);
     hud.toast(breakReason(why, sp, rod), 9);
   },
   // The line as it is (worn by hard fights, see shop.js); and the wear a fight just ended leaves.
@@ -1152,6 +1154,10 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
     }
   },
 });
+// The host says the fish you struck had already let go: the hook comes back empty.
+shared.onNoHook = (id) => {
+  if (fishing.fight?.agent?.id === id) fishing.lose('spat');
+};
 
 // Why aren't they biting? What the simulation makes of the rig (advice.js): the most telling
 // reason, then the next one each time you ask again during the same cast.
@@ -7990,14 +7996,35 @@ addEventListener('pointerdown', (e) => {
 // bow is on the bow you see), and which sea they're in.
 // What the session's doing on the wire, for Settings: each kind of message's rate and size, the
 // shared sea's delay and what it covers.
+// A friend's fish, fighting at the end of their line: the very fish from the shared sea, on every
+// screen (the host's water says whose it is: see sharedworld.js), where their line meets the water,
+// deep while it dives or sounds, out of the water as it leaps.
+function placeFriendsFish(t) {
+  if (shared.role === 'off') return;
+  for (const p of together.peers.values()) {
+    const P = p.view || p.pose;
+    if (!P?.o || P.hk == null || !p.at) continue;
+    const a = eco.agents[P.hk];
+    if (!a || a === fishing.fight?.agent || a.state !== 'hooked') continue;
+    // (Theirs if the host's water says so: hosting, a strike you've checked; following, the host's word.)
+    if (shared.role === 'host' ? a.hookedBy !== p.id : a.remoteHook !== (p.id === together.hostId ? 'host' : p.id)) continue;
+    const e = visitors.lineEnd(p.id) || (P.ex != null ? { x: P.ex, z: P.ez } : null);
+    if (!e) continue;
+    const mv = P.mv || 'run', lv = waveHeight(e.x, e.z, t);
+    const y = mv === 'jump' ? lv + 0.35 + Math.abs(Math.sin(t * 3.1)) * 0.5 : mv === 'dive' || mv === 'sound' ? lv - 2.5 : mv === 'circle' ? lv - 1.6 : lv - 0.35;
+    const away = Math.atan2(e.x - p.at.x, e.z - p.at.z);
+    eco.placeHooked(a, e.x, y, e.z, away + Math.sin(t * (mv === 'shake' ? 14 : 2.2)) * (mv === 'shake' ? 0.5 : 0.25), mv === 'run' || mv === 'longrun' || mv === 'charge' ? 1 : 0.5);
+  }
+}
+
 function netDiagnostics() {
   if (!together.active) return null;
   const U = together.stats, secs = Math.max(1, (Date.now() - U.since) / 1000), S = shared.stats;
-  const NAMES = { pose: 'where everyone is', eco: 'the shared sea', world: 'time and weather', fleet: 'boats in the water', presence_diff: 'joining and leaving', presence_state: 'who’s here' };
+  const NAMES = { pose: 'where everyone is', eco: 'the shared sea', world: 'time and weather', fleet: 'boats in the water', presence_diff: 'joining and leaving', presence_state: 'who’s here', ask: 'asked of the host', fish: 'fish news to a guest' };
   const kinds = Object.entries(U.kinds || {}).filter(([, k]) => k.in + k.out > 0).sort((a, b) => (b[1].bytesIn + b[1].bytesOut) - (a[1].bytesIn + a[1].bytesOut)).slice(0, 6);
   const lines = kinds.map(([k, v]) => `${NAMES[k] || k}: ${((v.in + v.out) / secs * 60).toFixed(0)} messages a minute, ${((v.bytesIn + v.bytesOut) / secs / 1024).toFixed(1)} KB/s`);
-  if (shared.role === 'host') lines.push(`The shared sea: you’re keeping it for everyone. ${S.sent} snapshots sent, the last covering ${S.animals} groups of sea life and ${S.schools} shoals near someone.`);
-  else if (shared.role === 'follower') lines.push(`The shared sea: following the host’s. ${S.got} snapshots heard${S.heardAt != null ? `, the last ${Math.max(0, together.now() - S.heardAt).toFixed(1)} s ago, ${S.delay.toFixed(2)} s on the way` : ''}; ${S.schools} shoals and ${S.animals} groups of sea life in it${S.rejected ? `; ${S.rejected} turned away` : ''}${S.stale ? `, ${S.stale} out of date` : ''}.`);
+  if (shared.role === 'host') lines.push(`The shared sea: you’re keeping it for everyone. ${S.sent} snapshots sent, the last covering ${S.animals} groups of sea life and ${S.schools} shoals near someone; ${S.rigs ? `${S.rigs} of your friends’ rigs in your water, ` : ''}${S.fish} fish going for a rig or hooked.`);
+  else if (shared.role === 'follower') lines.push(`The shared sea: following the host’s. ${S.got} snapshots heard${S.heardAt != null ? `, the last ${Math.max(0, together.now() - S.heardAt).toFixed(1)} s ago, ${S.delay.toFixed(2)} s on the way` : ''}; ${S.schools} shoals, ${S.animals} groups of sea life and ${S.fish} fish being fished for in it${S.rejected ? `; ${S.rejected} turned away` : ''}${S.stale ? `, ${S.stale} out of date` : ''}.`);
   return lines;
 }
 
@@ -8039,7 +8066,7 @@ function whereIAm() {
   const gear = fishing.lineOut ? { r: fishing.rod?.id, i: fishing.item?.id } : null;
   if (gear && fishing.baitInWater) {
     const e = fishing.state === 'reeling' ? fishing.fishPos : fishing.bob, F = fishing.fight;
-    Object.assign(gear, { ex: e.x, ez: e.z, tn: F?.tension });
+    Object.assign(gear, { ex: e.x, ez: e.z, tn: F?.tension, hk: F?.agent?.id });
     // (What the fish is doing, so they can see it at the end of your line.)
     if (F && !F.atNet) gear.mv = F.jumping > 0 ? 'jump' : F.shakeT > 0 ? 'shake' : F.move === 'charge' ? 'charge' : F.move === 'sound' ? 'sound' : F.move === 'circle' && !F.pulling ? 'circle' : F.pulling ? (F.move === 'dive' || F.move === 'longrun' ? F.move : 'run') : undefined;
   }
@@ -9570,6 +9597,7 @@ function tick(now, manual = false) {
       }
     }
     visitors.update(dt, t, together.peers, { from: P, fx, glow, night: env.lantern });
+    placeFriendsFish(t);
     // A boat of yours lying where a friend's boat is (boats from the same jetty start in the same
     // spot) steps out of sight while theirs is there, rather than two hulls drawn in one.
     for (const b of boats) {

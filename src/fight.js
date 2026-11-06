@@ -613,6 +613,8 @@ export function breakReason(cause, sp, rod) {
       return `The ${fish} leapt and shook its head while the line hung slack, and threw the hook. Keep the rod up and the line tight when it jumps: wind down to it.`;
     case 'pulled':
       return `The hook pulled out: it only had a light hold in the ${fish}’s lip, and the pressure stayed too heavy for too long. A lighter drag and a softer touch keep a lightly hooked fish on.`;
+    case 'spat':
+      return `The ${fish} let go just as you struck, and the hook came back empty. Strike as the float goes under or the line draws tight, not a moment after.`;
     case 'teeth':
       return `The ${fish}’s teeth cut straight through the ${rod.line.name}. Pike need a wire trace: rig one on the spinning rod.`;
     case 'drag':
