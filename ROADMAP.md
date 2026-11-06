@@ -368,8 +368,18 @@ The next brief, worked through in order, each step merged to main once it's test
    browser run of the whole story (from a save with three adventures done, through the keeper's
    log, Puerto Brasa, the letter home, Wenna aboard at dusk, the flowers, the end, the journal,
    and a reload). The radio's calls now hold off while she's aboard.
-2. *Still to do from stage 7*: an art bible (one look for everything), a cleaner screen, and
-   recorded sound (each file's licence checked and kept: needs people, not just code).
+2. **An art bible: done** (`docs/ART.md`). "A real sea in a hand-made world": each layer's rule
+   (the sea real in motion and light, simplified in colour; land low-poly and flat-shaded; boats
+   true to shape; people as figures; fish true in silhouette and pattern; paper and ink for what
+   you read), the palette, light through the day, scale, the screen's rules (one-line prompts,
+   two-line toasts, four-sentence cards), what an artist is most wanted for, and the licence rule.
+3. **A cleaner screen: done** (Settings, Graphics, Screen: Full or Clean). Clean: icons and keys
+   along the top, the weather panel only while you're fishing or sailing, the rod pill away while
+   you're under way. Browser-checked both ways. Full stays the default for now; Clean could become
+   the default for new players once it's had some play.
+4. The story's next place on the marker now says *Story*, not *Job*.
+5. *Still to do from stage 7*: recorded sound (each file's licence checked and kept: needs people,
+   not just code).
 
 ## Open-source projects that could help
 

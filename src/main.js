@@ -8415,7 +8415,13 @@ const placed = [];
 let condT = 0;
 function updateConditionsPanel(dt) {
   const el = $('conditions');
-  const show = started && !hudOff && !modal && settings.weather.panel;
+  // The clean screen (Settings, Graphics): the panel while it matters (a line out, the sail up);
+  // the rod pill out of the way while you're going somewhere.
+  const clean = settings.graphics.screen === 'clean', afloat = !onFoot && !driving && !dive;
+  const busy = fishing.state !== 'idle' || (afloat && !!boat.sailUp);
+  document.body.classList.toggle('screen-clean', clean);
+  document.body.classList.toggle('underway', clean && ((afloat && boat.speed > 2 && fishing.state === 'idle') || driving));
+  const show = started && !hudOff && !modal && settings.weather.panel && (!clean || busy);
   el.hidden = !show;
   if (!show || (condT -= dt) > 0) return;
   condT = 0.3;
@@ -8538,6 +8544,8 @@ function updateHud() {
   // The next mark of a job you've taken (one marker, not one for each).
   const job = jobTarget();
   if (job && $('job-name').textContent !== job.name) $('job-name').textContent = job.name;
+  // (The story's next place says so, not "Job".)
+  if (job && $('job-kind').textContent !== (job.story ? 'Story' : 'Job')) $('job-kind').textContent = job.story ? 'Story' : 'Job';
   placeMarker($('job-marker'), job?.x ?? 0, 1.5, job?.z ?? 0, !!job && started && !modal && !dive && Math.hypot((job?.x ?? 0) - player().pos.x, (job?.z ?? 0) - player().pos.z) > 15);
   placeFriendMarkers();
   placeShoalMarkers();
