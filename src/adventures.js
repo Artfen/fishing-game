@@ -17,6 +17,8 @@ export const KEEPSAKES = {
   sandeel: { name: 'Hettie’s sandeel', text: 'A soft sandeel lure, faded and nicked, that rode on Hettie Moss’s hat for years: “more bass than I’ve had hot dinners”. Hers, until your big bass.' },
   drawing: { name: 'Kit’s drawing', text: 'A crayon drawing by Kit: you, a very small boat, and a very large whale, blowing. “TO MY FREND” across the top.' },
   hook: { name: 'Chano’s hook', text: 'A big old hand-forged hook from Chano’s tin, his father’s, given for luck after you photographed the grouper still living in El Bajón’s cave.' },
+  letter: { name: 'José’s letter', text: 'An envelope from Puerto Brasa, never posted, to a Miss Penhallow, Willowhaven, in a careful schoolboy hand: Joe Penhallow, the Kittiwake’s cook’s boy, who lived. Delivered at last.' },
+  stone: { name: 'A rubbing of the fifth name', text: 'Charcoal on thin paper, from the stone by the harbour office: JOSEPH PENHALLOW · 1917–1989 · CAME HOME. Under the other four, where there was always a space.' },
   slate: { name: 'Tam’s slate', text: 'A roofing slate from the watch tower on the Calf, scratched with forty years of tally marks: the seals on the skerry, counted every morning. In one corner, “bass off the Nose at the top of the tide; mackerel in the race when the terns are working”.' },
 };
 

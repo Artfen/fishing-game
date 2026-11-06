@@ -356,6 +356,21 @@ The next brief, worked through in order, each step merged to main once it's test
      alongside (the prompt), following 176 m on the line behind the RIB at 9 m/s, into the
      harbour, paid £25 and gone.
 
+## Stage 7 of the agreed plan, continued (November 2026)
+
+1. **A story with an ending: done** (`src/story.js`, *The Fifth Name*). Seven chapters threaded
+   through what the game already has (the Kittiwake, her bell, Tam's slate on the Calf, Gannet
+   Light, Chano at Puerto Brasa across the ocean, Wenna at the harbour office) and an ending: Wenna
+   taken out to the wreck's buoy at dusk in your boat (seated, weighing in her), flowers on the
+   water, and the fifth name cut on the stone. Told in order; what you'd already done counts in
+   its turn, a card at a time; the marker and map show the next place where the adventures don't;
+   the journal tells it; two keepsakes; kept in the save. Verified by `tests/story.test.mjs` and a
+   browser run of the whole story (from a save with three adventures done, through the keeper's
+   log, Puerto Brasa, the letter home, Wenna aboard at dusk, the flowers, the end, the journal,
+   and a reload). The radio's calls now hold off while she's aboard.
+2. *Still to do from stage 7*: an art bible (one look for everything), a cleaner screen, and
+   recorded sound (each file's licence checked and kept: needs people, not just code).
+
 ## Open-source projects that could help
 
 Checked for licence and fit, November 2026. A public repository isn't permission to use its
