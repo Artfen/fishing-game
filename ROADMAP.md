@@ -300,9 +300,33 @@ The next brief, worked through in order, each step merged to main once it's test
      by clicking, no fourth, the delivery paid on arrival, the course rounded and collected at
      the board, never paid twice, a job given up with nothing paid.
    - *Next*: diving work (a lost camera, a reef survey), a drifting buoy and a tow in calm
-     weather, a handcrafted multi-stage expedition, and charters with passengers: the jobs that
-     give the bigger boats their purpose (phase 5), and the first session for people who don't
+     weather, a handcrafted multi-stage expedition, and the first session for people who don't
      fish (phase 6).
+9. **Bigger boats' purpose and a career (phase 5): done** (`src/vessels.js`, `src/passengers.js`,
+   charters and freight in `src/contracts.js`):
+   - *What each boat is for*: seats, cargo, shelter, comfort in a sea, room for divers, for all
+     eleven. A load she can't take is refused with the reason (eight won't go in the RIB, divers
+     not in the cabin boat, a tonne only in the yacht; nine passengers in nothing).
+   - *Work that wants the bigger boats*: whale watching (up to eight), dolphins on the bow, divers
+     to the dive sites (no anchoring on the protected reef, wreck and sea fans: Spot-Lock earns its
+     keep), a fishing charter, freight for Puffin Cove (up to 1.2 t). Offers name a boat of yours
+     that will do, or the smallest one to hire.
+   - *Real weight*: passengers (80 kg each) and freight go into her payload while aboard, so she
+     sits lower and is slower (measured in the game: the RIB 18.0 → 15.8 m/s flat out with four
+     divers); seated figures show them. A rough trip in an open boat (the sea over her comfort)
+     costs the tip; a sheltered one doesn't.
+   - *A career*: Odd-job hand, Boatman (3 jobs: a passenger ticket, up to three aboard), Skipper
+     (8: up to six, heavier freight), Master (15: everything); the board offers only what you're
+     trusted with, and says where you stand.
+   - *Safe*: boarding only at Willowhaven in a boat with room (they move over to another before
+     the trip); progress only in the boat they're in; paid once; given up mid-trip with nothing
+     left aboard; kept in the save. A bug found on the way: contracts weren't kept in the save at
+     all (save.js keeps a list of what it saves); they are now, with a test.
+   - *Verified*: `tests/charters.test.mjs`, and in a browser: two charters taken by clicking,
+     eight refused by the RIB, four divers aboard her (+320 kg, four figures seated, slower flat
+     out), anchored on the reef not counting (and said), held there 150 s, home, paid £115 once,
+     eight aboard the yacht, given up with the yacht empty again. (On a gale day the sea built
+     past the RIB's comfort and the tip went, as it should: the board offers no charters then.)
 
 ## Open-source projects that could help
 

@@ -102,6 +102,7 @@ import { DashControl } from './dashcontrol.js';
 import { keyStep } from './dashboard.js';
 import { TrollMotor, canTroll } from './trolling.js';
 import * as Con from './contracts.js';
+import { Passengers } from './passengers.js';
 import { renderWork } from './contractboard.js';
 import { demandFor, money, ordersFor, ORDERS_BY } from './market.js';
 import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
@@ -1326,7 +1327,7 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
   adventures.caught(sp.id, agent.x, agent.z, world.flocks);
   favoursReady(favourCaught(state.favours, { id: sp.id, size, night: clock.hour >= 20.5 || clock.hour < 5, shore: onFoot }));
   catchShot = false;
-  jobsDone(Con.caught(state.contracts, { sp: sp.id, size, method: rigUsed?.kind || fishing.kind, sea: sp.water !== 'fresh', phase: 'landed' }));
+  jobsDone(Con.caught(state.contracts, { sp: sp.id, size, method: rigUsed?.kind || fishing.kind, sea: sp.water !== 'fresh', phase: 'landed', boat: !onFoot && !driving ? boat.kind : null }));
   markObserved(sp.id, agent);
   state.tips.caught = true;
   // (Checked once the catch card's closed, when you've kept it or let it go.)
@@ -3390,7 +3391,22 @@ function updateDash(dt) {
 /* ---------- work on the water: contracts (see contracts.js) ---------- */
 // Posted on Willowhaven's notice board, chosen from the world as it is today; done out there; paid
 // back at the board (a delivery, on arrival). One job's next mark has a marker; all are on the map.
-let catchShot = false, jobT = 0, jobBumps = 0, jobBumpHooked = null;
+let catchShot = false, jobT = 0, jobDt = 0, jobBumps = 0, jobBumpHooked = null;
+// What the people and freight of your jobs weigh in each boat (see Con.aboardKg): into her payload,
+// so a boat full of people is heavier, sits lower and is slower.
+function jobWeight() {
+  for (const k of KINDS) {
+    const kg = Con.aboardKg(state.contracts, k);
+    if ((BOATS[k]._jobKg || 0) === kg) continue;
+    BOATS[k]._jobKg = kg;
+    BOATS[k].payload = payloadOf(k);
+  }
+  // (And the charters' people, sat in the boat they're aboard: see passengers.js.)
+  const aboard = state.contracts.active.filter((a) => a.obj.kind === 'charter' && a.progress.aboard && !a.ready && BOATS[a.progress.boat]);
+  const kind = aboard[0]?.progress.boat;
+  passengers.set(kind ? BOATS[kind] : null, aboard.filter((a) => a.progress.boat === kind).map((a) => ({ id: a.id, n: a.obj.pax, divers: !!a.obj.divers })));
+}
+const passengers = new Passengers();
 // The water points the Trust's surveys and the Sailing Club's course use (open water in the bay).
 const JOB_WATER = { a: { x: 60, z: 140 }, b: { x: -20, z: 230 }, c: { x: 150, z: 200 }, d: { x: -60, z: 180 }, e: { x: 150, z: 330 }, f: { x: 60, z: 400 } };
 const markOf = (k, name) => ({ ...JOB_WATER[k], name });
@@ -3398,6 +3414,8 @@ const placeOf = (id) => {
   const p = PLACES.find((q) => q.id === id);
   return p ? { x: p.x, z: p.z, name: p.name } : null;
 };
+// The dive sites where the club won't have an anchor down (a charter there holds her on the spot).
+const DIVE_RULES = { reef: 'a protected reef', wreck: 'a protected wreck', hound: 'its sea fans are protected' };
 const LIFE_NAME = { finwhale: 'Fin whale', minkewhale: 'Minke whale', spermwhale: 'Sperm whale', pilotwhale: 'Pilot whales' };
 // The world as the board reads it.
 function jobWorld() {
@@ -3410,6 +3428,9 @@ function jobWorld() {
   const mo = Math.floor((((clock.abs / 24) % 360) + 360) % 360 / 30);
   return {
     day: state.day, region: 'home', busy, whales,
+    // (The boats you can take out today, and the ones there are to hire, for a charter's "take".)
+    usable: KINDS.filter(usable), kinds: KINDS.filter((k) => usable(k) || BOAT_PRICES[k]),
+    diveSites: PLACES.filter((p) => p.dive).map((p) => ({ id: p.id, name: p.name, x: p.x, z: p.z, noAnchor: DIVE_RULES[p.id] || null })),
     dolphins: sealife.pods.some((p) => p.sea === 'home' && p.bow && near(p.x, p.z, 1600)),
     birds: world.flocks.length > 0 || (clock.hour > 5 && clock.hour < 8.5) || (clock.hour > 18 && clock.hour < 21),
     // (A gale today keeps the deliveries and the racing off the board, but for the one that has to
@@ -3419,7 +3440,7 @@ function jobWorld() {
     galeAt: galeFor(state.day) && clock.abs < galeFor(state.day).start ? galeFor(state.day).start : null,
     galeWords: galeFor(state.day) ? formatClock(galeFor(state.day).start % 24) : '',
     summer: mo >= 4 && mo <= 7, canCross: usable('cruiser') || usable('sail'), ownsSail: usable('sail'), beenSouth: !!state.tips.brasa,
-    places: { quay: placeOf('quay'), puerto: placeOf('puerto'), stream: placeOf('stream'), visitors: { x: (VISITOR_FINGERS[0].x0 + VISITOR_FINGERS[0].x1) / 2, z: (VISITOR_FINGERS[0].z0 + VISITOR_FINGERS[0].z1) / 2, name: 'the visitors’ pontoon' } },
+    places: { quay: placeOf('quay'), puerto: placeOf('puerto'), stream: placeOf('stream'), puffin: placeOf('puffin'), visitors: { x: (VISITOR_FINGERS[0].x0 + VISITOR_FINGERS[0].x1) / 2, z: (VISITOR_FINGERS[0].z0 + VISITOR_FINGERS[0].z1) / 2, name: 'the visitors’ pontoon' } },
     surveyLines: [{ name: 'the bay mouth', marks: [markOf('d', 'mark 1'), markOf('b', 'mark 2'), markOf('a', 'mark 3')] }, { name: 'off the bay', marks: [markOf('c', 'mark 1'), markOf('e', 'mark 2'), markOf('f', 'mark 3')] }],
     tempMarks: [markOf('a', 'buoy A'), markOf('e', 'buoy B'), markOf('f', 'buoy C'), markOf('b', 'buoy D')],
     courses: [{ name: 'the bay', marks: [markOf('a', 'mark 1'), markOf('c', 'mark 2'), markOf('b', 'mark 3'), markOf('d', 'mark 4')], minutes: 8 }],
@@ -3437,10 +3458,15 @@ function jobsDone(list) {
   if (list?.length) save();
 }
 function payJob(id, onSpot = false) {
+  const was = Con.career(state.contracts).rank;
   const r = Con.claim(state.contracts, id, state.day, { imaging: !!fitsAboard()?.sonar || !!fitEffect(state.yard, boat.kind)?.sonar });
   if (!r) return false;
+  const now = Con.career(state.contracts).rank;
+  // (A step up: a new kind of work on the board from tomorrow.)
+  if (now !== was) setTimeout(() => hud.toast(`You’re a ${now.name} now: ${now.says}. Tomorrow’s board will have the work for it.`, 8), 6500);
   earnIn(state, r.pay, `${r.contract.title} (${Con.GIVERS[r.contract.giver]})`);
-  hud.toast(`${onSpot ? `${r.contract.title}: delivered. ` : ''}Paid ${money(r.pay)} for ${r.contract.title.toLowerCase()}.${r.rep ? ` ${Con.GIVERS[r.contract.giver].split(',')[0]} will remember it.` : ''}`, 6);
+  const rough = r.contract.obj.kind === 'charter' && r.pay < r.contract.pay ? ' A rough trip in an open boat: they didn’t tip.' : '';
+  hud.toast(`${onSpot ? `${r.contract.title}: delivered. ` : ''}Paid ${money(r.pay)} for ${r.contract.title.toLowerCase()}.${rough}${r.rep ? ` ${Con.GIVERS[r.contract.giver].split(',')[0]} will remember it.` : ''}`, 6);
   audio.coins?.();
   save();
   return true;
@@ -3450,7 +3476,7 @@ function renderJobs() {
   if (!el) return;
   Con.prune(state.contracts, state.day);
   renderWork(el, {
-    offers: Con.offers(state.contracts, jobWorld()), active: state.contracts.active, money,
+    offers: Con.offers(state.contracts, jobWorld()), active: state.contracts.active, money, career: Con.career(state.contracts), done: state.contracts.count,
     payOf: (a) => Con.payFor(a, { imaging: !!fitEffect(state.yard, boat.kind)?.sonar }),
     hooks: {
       take: (id) => {
@@ -3462,7 +3488,7 @@ function renderJobs() {
       },
       drop: (id) => ask('Give it up?', 'Nothing’s lost but the job: you can always take another.', [
         { text: 'Keep it', cls: 'quiet', run: () => {} },
-        { text: 'Give it up', run: () => { Con.abandon(state.contracts, id); save(); renderJobs(); } },
+        { text: 'Give it up', run: () => { Con.abandon(state.contracts, id); jobWeight(); save(); renderJobs(); } },
       ]),
       claim: (id) => {
         payJob(id);
@@ -3484,8 +3510,11 @@ function updateJobs(dt) {
     jobBumpHooked = boat;
   }
   jobT -= dt;
+  jobDt += dt;
   if (jobT > 0) return;
   jobT = 0.5;
+  const step = Math.min(2, jobDt);
+  jobDt = 0;
   const P = player().pos, afloat = !onFoot && !driving && !dive;
   // A whale at the surface just now, and birds working, how far off.
   let whale = null, frenzy = null;
@@ -3493,29 +3522,52 @@ function updateJobs(dt) {
   for (const f of world.flocks) if (f.t >= 1) frenzy = Math.min(frenzy ?? Infinity, Math.hypot(f.x - P.x, f.z - P.z));
   // A place you're at and stopped (for a delivery).
   let at = null;
-  if (afloat ? boat.speed < 0.8 : true) for (const id of ['quay', 'puerto']) {
+  if (afloat ? boat.speed < 0.8 : true) for (const id of ['quay', 'puerto', 'puffin']) {
     const p = PLACES.find((q) => q.id === id);
     if (p && Math.hypot(P.x - p.x, P.z - p.z) < 40) at = id;
   }
+  // Home: afloat and stopped in Willowhaven's harbour (for charters' passengers and freight).
+  const haven = PLACES.find((q) => q.id === 'haven');
+  const home = afloat && boat.speed < 0.8 && Math.hypot(P.x - haven.x, P.z - haven.z) < 90;
+  const me = together.active ? together.id : 'me';
   const tied = afloat && boat.tie ? (VISITOR_FINGERS.includes(PIERS[boat.tie.pier]) ? 'visitors' : 'other') : null;
   const r = Con.tick(state.contracts, {
     x: P.x, z: P.z, now: t, abs: clock.abs, night: env.night > 0.5, sonar: afloat && finder.visible,
     sailing: afloat && !!boat.sailUp && !motorRunning(), whale, frenzy, at, tied, bumps: afloat ? jobBumps : 0,
+    home, boat: afloat ? boat.kind : null, dt: step, speed: afloat ? boat.speed : 0, anchored: afloat && !!boat.anchored,
+    sea: afloat ? waveHeightHere(P.x, P.z) : null, bow: afloat && sealife.pods.some((p) => p.mode === 'bow' && (p.owner == null || p.owner === me)),
   });
   jobBumps = 0;
+  for (const a of r.boarded) hud.toast(a.obj.kind === 'charter' ? `${a.title}: ${a.obj.pax} aboard${a.obj.divers ? ' with their kit' : ''}. ${Con.standing(a)}` : `${a.title}: loaded, ${a.obj.cargo} kg. She sits lower for it: take her to ${a.where?.name || 'it'}.`, 6);
+  for (const s of r.said) hud.toast(s.text, 6);
+  for (const a of r.seen) {
+    hud.toast(`${a.title}: ${a.obj.dive ? 'all back aboard, and happy.' : a.obj.fish ? 'that’s their fish.' : 'they saw it, and loved it.'} Home to Willowhaven.`, 6);
+    audio.chime?.();
+  }
+  if (r.boarded.length || r.done.length) jobWeight();
   for (const a of r.missed) hud.toast(`${a.title}: too late, the job’s gone. Nothing lost but the job.`, 5);
-  if (r.missed.length) save();
+  if (r.missed.length) {
+    jobWeight();
+    save();
+  }
   for (const a of r.reset) hud.flash(a.obj.kind === 'dock' ? `${a.title}: a bump. Come in again, gently.` : `${a.title}: out of time. Back to the first mark to try again.`, t, 3);
   jobsDone(r.done);
 }
 // The jobs on the map: each one's next mark.
 function jobsOnMap() {
-  return state.contracts.active.map((a) => ({ a, at: Con.target(a) })).filter((j) => j.at && !j.at.board).map((j) => ({ x: j.at.x, z: j.at.z, name: j.at.name, ready: j.a.ready }));
+  return state.contracts.active.map((a) => ({ a, at: jobAt(a) })).filter((j) => j.at && !j.at.board).map((j) => ({ x: j.at.x, z: j.at.z, name: j.at.name, ready: j.a.ready }));
+}
+// (A job's next place, with "home" put where Willowhaven is.)
+function jobAt(a) {
+  const at = Con.target(a);
+  if (!at?.home) return at;
+  const h = PLACES.find((q) => q.id === 'haven');
+  return { x: h.x, z: h.z, name: at.name };
 }
 // (For the marker: the first job with somewhere to go.)
 function jobTarget() {
   for (const a of state.contracts.active) {
-    const at = Con.target(a);
+    const at = jobAt(a);
     if (at && !at.board) return at;
   }
   return null;
@@ -6624,9 +6676,10 @@ function applyYard() {
 // would hold (a long-range tank, full: heavier).
 function payloadOf(k, e = fitEffect(state.yard, k)) {
   const extra = YARD_BASE.tanks[k] ? Math.max(0, fuelLevel(tanks(), k) - YARD_BASE.tanks[k]) : 0;
-  return e.kg + extra * (ENGINES[k]?.diesel ? 0.84 : 0.74);
+  return e.kg + extra * (ENGINES[k]?.diesel ? 0.84 : 0.74) + Con.aboardKg(state.contracts, k);
 }
 applyYard();
+jobWeight();
 
 // A day's hire over: she goes back to the yard (once you're out of her).
 function watchHire() {
@@ -10149,6 +10202,7 @@ function tick(now, manual = false) {
   }
   if (started) {
     updateJobs(dt);
+    passengers.update(dt, t);
     updateEngine(dt);
     updateTroll(dt);
     updateDash(dt);
@@ -10703,7 +10757,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared, teamwork, crew, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
+  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared, teamwork, crew, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
   pump: (id = 'haven') => openPump(id),

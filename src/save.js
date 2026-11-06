@@ -5,6 +5,7 @@ import { fishById } from './fish.js';
 import { RODS, TACKLE, TERMS, cleanGear } from './tackle.js';
 import { cleanShop, CREEL_MAX } from './shop.js';
 import { cleanFavours } from './requests.js';
+import { cleanContracts } from './contracts.js';
 import { cleanSettings } from './settings.js';
 import { cleanCamps } from './campsite.js';
 import { cleanEquip, cleanCar, cleanOuting, defaultEquip } from './outing.js';
@@ -113,6 +114,7 @@ export const DEFAULT_STATE = {
   harbour: null,   // { heard: { haven, muelle: [story ids] }, filled: [order keys], earned, sold, served }
   shop: null,      // the chandlery's counter (see shop.js): { creel, iceUntil, baitDay, wear: { rod: 0 … 1 } }
   favours: null,   // what the harbour's people have asked of you (see requests.js): { active, done, last, declined }
+  contracts: null, // work from the notice board (see contracts.js): { board, active, done, rep, earned, count }
   // The day book (see daybook.js): today as it goes, the pages of the days before, and the badges
   // from the harbour's challenges ({ id: { day, hour } }).
   today: null,
@@ -440,6 +442,7 @@ export function sanitize(raw) {
   s.harbour = cleanHarbour(raw.harbour);
   s.shop = cleanShop(raw.shop, Object.keys(RODS));
   s.favours = cleanFavours(raw.favours);
+  s.contracts = cleanContracts(raw.contracts);
   s.today = cleanToday(raw.today, s.day);
   s.days = cleanDays(raw.days);
   s.badges = cleanBadges(raw.badges);
