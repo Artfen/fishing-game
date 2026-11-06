@@ -98,6 +98,8 @@ import { VisitorView } from './world/visitors.js';
 import { SharedWorld } from './sharedworld.js';
 import { Teamwork } from './teamwork.js';
 import { Crew, CREW_REACH, CREW_SLOW } from './crew.js';
+import { DashControl } from './dashcontrol.js';
+import { keyStep } from './dashboard.js';
 import { demandFor, money, ordersFor, ORDERS_BY } from './market.js';
 import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
 import { PHOTO_MAX } from './save.js';
@@ -3047,7 +3049,7 @@ const engineHere = () => {
   return k && boat.motor ? engines[k] || null : null;
 };
 const fuelOf = (kind) => (isPetrol(kind) ? fuelLevel(tanks(), kind) : 99);
-let helmKind = null, engineSay = '', engineSayUntil = 0, offWordT = 0, hotBeepT = 0, trimWordT = 0, trimming = false;
+let helmKind = null, engineSay = '', engineSayUntil = 0, offWordT = 0, hotBeepT = 0, trimWordT = 0, trimming = false, legWordT = 0;
 const helmSay = (text, secs = 2.6, flash = true) => {
   engineSay = text;
   engineSayUntil = t + 6;
@@ -3215,6 +3217,160 @@ function closeHelm() {
   if (modal === 'helm') modal = null;
 }
 
+/* ---------- the dashboard (see dashboard.js and dashcontrol.js) ---------- */
+// In first person at the helm of a boat with a dashboard (the RIB, the centre console), her
+// switches, key, throttle and trim rocker are worked where they are, and her gauges and screen
+// show the engine room as it is. The helm panel does the same from anywhere (U in third person,
+// or Settings → Controls: Helm, the panel).
+let dashTrim = 0, dashHorn = 0, dashKeyWas = false, keySelftest = 0, trimDirNow = 0, dashEase = 0, dashLean = 0;
+const _dashAt = new THREE.Vector3();
+const DASH_PITCH = 0.95;
+function dashHere() {
+  if (!started || modal || onFoot || cabinIn || !boat.dash || rig.mode !== 'eye' || settings.controls.helm === 'panel') return null;
+  if (boat.deck && !boat.atHelm) return null;
+  return boat.dash;
+}
+const dashCtl = new DashControl({ canvas: renderer.domElement, camera, input, hooks: {
+  dash: () => dashHere(),
+  act: (c, phase) => dashAct(c, phase),
+  lever: (n) => {
+    for (let i = 0; i < Math.abs(n); i++) stepLever(Math.sign(n));
+    audio.tick?.(0.25);
+  },
+  state: (c) => dashWords(c),
+} });
+function dashAct(c, phase) {
+  const down = phase === 'down';
+  switch (c.base) {
+    case 'battery':
+    case 'cord':
+    case 'glow':
+      if (down) {
+        engineAct(c.base);
+        audio.tick?.(0.5);
+        haptics.pulse?.(0.15, 0.06);
+      }
+      return;
+    case 'key':
+      if (down) dashKey(c.which);
+      return;
+    case 'lights':
+      if (down) {
+        boat.navLights = !boat.navLights;
+        audio.tick?.(0.4);
+      }
+      return;
+    case 'horn':
+      dashHorn = down ? 1 : 0;
+      if (down) audio.horn?.(0.9);
+      return;
+    case 'screen':
+      if (down) {
+        toggleFinder();
+        audio.tick?.(0.3);
+      }
+      return;
+    case 'trimUp':
+      dashTrim = down ? 1 : 0;
+      return;
+    case 'trimDown':
+      dashTrim = down ? -1 : 0;
+      return;
+    default:
+  }
+}
+// The key: on the full procedure, on (the gauges wake and test their lamps), then turned again to
+// start, and once she runs, off; otherwise the one-button start (or a word, if she runs herself).
+function dashKey(which) {
+  const E = engineHere();
+  if (!E) return;
+  const step = keyStep(E, which, startMode());
+  if (step === 'go' || step === 'assist' || (step === 'stop' && startMode() === 'simple')) return engineKey();
+  audio.tick?.(0.5);
+  engineAct(step, which);
+}
+function dashWords(c) {
+  const E = engineHere();
+  if (!E) return '';
+  const on = (b) => (b ? 'on' : 'off'), mode = startMode();
+  switch (c.base) {
+    case 'battery': return on(E.battery);
+    case 'cord': return E.cord ? 'clipped on' : 'off: she won’t start';
+    case 'key': {
+      if (mode === 'go') return 'she runs whenever you’re at the helm';
+      const e = c.which == null ? null : E.engines[c.which];
+      const run = e ? e.run : engineRunning(E), crank = e ? e.crank > 0 : engineCranking(E);
+      if (mode === 'simple') return run ? 'running: press to stop' : crank || E.auto ? 'starting…' : 'press to start';
+      return run ? 'running: turn off to stop' : crank ? 'starting…' : E.key ? 'on: turn again to start' : 'off';
+    }
+    case 'glow': return E.glowing > 0 ? 'warming' : E.glow >= 1 ? 'ready' : 'cold';
+    case 'lights': return on(boat.navLights);
+    case 'horn': return 'press to sound';
+    case 'screen': return finder.visible ? 'fish finder: tap for the chart' : 'chart: tap for the fish finder';
+    case 'throttle': return `${leverWords(leverKind(), boat.lever)} · drag it, or scroll`;
+    case 'trimUp':
+    case 'trimDown': {
+      const a = boat.trimAuto ? boat.legAngle || 0 : E.trim;
+      return a > TRIM.max ? (a >= TRIM.out ? 'leg up, clear of the water' : 'tilted for the shallows') : `trim ${Math.round(a)}°${boat.trimAuto ? ' (she trims herself)' : ''}`;
+    }
+    default: return '';
+  }
+}
+// What the dashboard shows: the engine room and the boat as they are.
+function dashState() {
+  const k = leverKind(), E = k ? engines[k] : null, P = E && ENGINES[k];
+  if (!E || !P) return null;
+  if (E.key && !dashKeyWas) keySelftest = 1.4;
+  dashKeyWas = E.key;
+  const run = engineRunning(E), cap = TANKS[k] || 1;
+  const T = state.track || [], P0 = boat.pos;
+  return {
+    powered: E.battery || !P.battery, battery: E.battery, key: E.key || P.starter !== 'key', cord: E.cord, hasCord: P.cord,
+    glow: E.glowing > 0, glowReady: E.glow >= 1, crank: E.engines.map((e) => e.crank > 0), running: run, rpm: E.engines.map((e) => e.rpm),
+    knots: Math.abs(boat.forwardSpeed || 0) * 1.9438, fuel: isPetrol(k) ? clamp(fuelOf(k) / cap, 0, 1) : 1,
+    volts: 11.3 + E.charge * 1.5 + (run ? 1.5 : 0), temp: E.temp,
+    trim: boat.trimAuto ? boat.legAngle || 0 : E.trim, trimDir: trimDirNow, lever: clamp(boat.lever || 0, -1, 1),
+    lights: !!boat.navLights, horn: dashHorn > 0, selftest: keySelftest, night: env.night,
+    heading: boat.heading, depth: habitat.depth(P0.x, P0.z), track: T.slice(-60).map((p) => [p[0] - P0.x, p[1] - P0.z]),
+    page: finder.visible ? 'sonar' : 'chart', sonar: finder.canvas,
+  };
+}
+// Once a frame: the dashboard of the boat you're in, and working it.
+function updateDash(dt) {
+  keySelftest = Math.max(0, keySelftest - dt);
+  const tip = dashCtl.update();
+  const el = $('dash-tip');
+  if (el) {
+    const text = tip ? `${tip.name}${tip.state ? ` · ${tip.state}` : ''}` : '';
+    if (el.textContent !== text) el.textContent = text;
+    el.hidden = !text || hudOff;
+  }
+  if (dashCtl.focused && !dashHere()) dashCtl.focus(false);
+  // (Looking down at the dashboard: the eyes ease onto it for a moment, then they're yours.)
+  if (dashEase > 0 && dashCtl.focused) {
+    dashEase -= dt;
+    const v = rig.views.eye, k = 1 - Math.exp(-7 * dt);
+    v.yaw += wrapAngle(boat.heading - v.yaw) * k;
+    v.pitch += (DASH_PITCH - v.pitch) * k;
+  }
+  if (onFoot || !boat.dash) return;
+  const S = dashState();
+  if (!S) return;
+  // (The one-button start, guided: the ring goes to each step as it's done, then to the key.)
+  const E = engineHere();
+  boat.dash.guide = startMode() === 'simple' && E && !engineRunning(E) ? (E.auto?.steps?.[0] && boat.dash.controls.has(E.auto.steps[0]) ? E.auto.steps[0] : boat.dash.controls.has('key') ? 'key' : 'key0') : null;
+  boat.dash.update(dt, S, t);
+  // (The navigation lights draw on the battery with the engine stopped.)
+  if (boat.navLights && E && !engineRunning(E) && S.powered) E.charge = Math.max(0, E.charge - dt * 0.0004);
+}
+function toggleDashFocus() {
+  const on = !dashCtl.focused && dashCtl.focus(true);
+  if (!on) dashCtl.focus(false);
+  dashEase = on ? 0.7 : 0;
+  if (on) teach('dash', `The dashboard: ${scheme() === 'pad' ? 'the D-pad moves round it, A works a switch (hold it for the key, the trim and the horn), B looks up again' : 'point and click (hold for the key, the trim rocker and the horn), drag or scroll the throttle; Tab moves round it, Enter works it, Esc looks up again'}.`, 9);
+  return on;
+}
+
 // Once a frame: the engine of the boat whose helm you're at runs (and stops when you leave it),
 // the starter turns her over, the revs follow the throttle, the alarm sounds if she overheats,
 // and you trim the leg.
@@ -3262,7 +3418,8 @@ function updateEngine(dt) {
     }
   }
   // Trim: held up or down (the bumpers, or ] and [).
-  const dir = modal ? 0 : (input.holding('trimUp') ? 1 : 0) - (input.holding('trimDown') ? 1 : 0);
+  const dir = modal ? 0 : (input.holding('trimUp') || dashTrim > 0 ? 1 : 0) - (input.holding('trimDown') || dashTrim < 0 ? 1 : 0);
+  trimDirNow = dir;
   if (dir && P.trim) {
     const why = trimBy(E, dir, dt, boat.forwardSpeed);
     haptics.hold('trim', 0, why ? 0.03 : 0.1);
@@ -3274,6 +3431,12 @@ function updateEngine(dt) {
   }
   if (!!dir !== trimming) audio.trimWhine?.(!!dir);
   trimming = !!dir && !!P.trim;
+  // In gear with the leg tilted right up, the propeller's out of the water and pushes nothing:
+  // said once in a while, with how to put it right.
+  if (P.trim && engineRunning(E) && boat.lever && (boat.legAngle || 0) >= TRIM.out && t > legWordT) {
+    legWordT = t + 6;
+    hud.flash(`The leg’s tilted right up: the propeller’s out of the water. Trim it down (${scheme() === 'pad' ? 'LB' : K('trimDown')}, or the rocker on the throttle) to get going.`, t, 3.2);
+  }
   // A word when the throttle's pushed with the engine off.
   if (!engineRunning(E) && !engineCranking(E) && !E.auto && boat.lever && !boat.dry && t > offWordT + 4 && mode !== 'go' && !modal) {
     offWordT = t;
@@ -7534,6 +7697,7 @@ function padContext() {
   if (fishing.state === 'reeling') return 'fight';
   // (A line out from a boat under power: the D-pad works the throttle.)
   if (fishing.busy) return leverKind() ? 'troll' : 'fish';
+  if (dashCtl.focused) return 'dash';
   if (!onFoot && !cabinIn && boat.motor && ENGINES[boat.kind]?.trim) return 'helmtrim';
   if (!onFoot && !cabinIn && (boat.motor || boat.hull.emotor || boat.hull.sail || boat.hull.rig)) return 'helm';
   return 'play';
@@ -9064,6 +9228,15 @@ input.on('press', (code, acts) => {
   }
   audio.start();
   if (modal === 'sleep' || modal === 'travel') return;
+  // Looking down at the dashboard: Tab (or the D-pad) moves round it, Enter or Space (or A) works
+  // the ringed control, Esc (or B) looks up again (see dashcontrol.js).
+  if (dashCtl.focused) {
+    const dir = is('dashUp') ? 'up' : is('dashDown') ? 'down' : is('dashLeft') ? 'left' : is('dashRight') ? 'right' : null;
+    if (dir) return dashCtl.step(dir);
+    if (code === 'Tab') return dashCtl.step(input.codes.has('ShiftLeft') || input.codes.has('ShiftRight') ? 'left' : 'right');
+    if (is('dashPress') || code === 'NumpadEnter' || code === 'Space') return dashCtl.press();
+    if (code === 'Escape') return toggleDashFocus();
+  }
   // The quick calls: their numbers send them, Esc (or the key again) closes.
   if (callsOpen()) {
     const n = /^(Digit|Numpad)([1-9])$/.exec(code);
@@ -9243,7 +9416,10 @@ input.on('press', (code, acts) => {
   else if (is('throttleDown') && leverKind()) stepLever(-1);
   else if (is('motor')) {
     // (At a motorboat's helm: the engine.)
-    if (!onFoot && !driving && !cabinIn && boat.hull.motor && engines[boat.kind]) engineKey();
+    if (!onFoot && !driving && !cabinIn && boat.hull.motor && engines[boat.kind]) {
+      if (dashCtl.focused || (rig.mode === 'eye' && dashHere())) toggleDashFocus();
+      else engineKey();
+    }
     // (On a controller, the sailing boat's one button goes round sail, outboard and oars.)
     else if (!onFoot && !driving && !cabinIn && boat.hull.sail) {
       if (pads.active && boat.sailUp) toggleOutboard();
@@ -9270,6 +9446,7 @@ input.on('press', (code, acts) => {
   }
 });
 input.on('release', (code, acts) => {
+  if (dashCtl.focused && (acts.includes('dashPress') || code === 'NumpadEnter' || code === 'Space')) return dashCtl.release();
   if (acts.includes('cast') && !dive) fishing.onUp();
 });
 input.on('pointer', () => {
@@ -9689,6 +9866,7 @@ function tick(now, manual = false) {
   }
   if (started) {
     updateEngine(dt);
+    updateDash(dt);
     updateFittings(dt);
     watchHire();
   }
@@ -9877,6 +10055,9 @@ function tick(now, manual = false) {
   else boat.eyePoint(_eye, steadyCam);
   if (!onFoot && steadyCam) _eye.y = eyeY = Math.abs(eyeY - _eye.y) > 1 ? _eye.y : damp(eyeY, _eye.y, 0.3, dt);
   else eyeY = _eye.y;
+  // Looking down at the dashboard, you lean in over it.
+  dashLean = damp(dashLean, dashCtl.focused ? 1 : 0, 5, dt);
+  if (dashLean > 0.01 && !onFoot && boat.dash && rig.mode === 'eye') _eye.lerp(boat.dash.centre(_dashAt), dashLean * 0.3);
   // Indoors (with the roof lifted), the camera comes in closer and looks down a little more.
   rig.indoor = onFoot && !driving && indoorsAt(walker.pos.x, walker.pos.z);
   // (The catch card beside the fish on a wide screen: the camera keeps the fish clear of it.)
@@ -10237,7 +10418,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared, teamwork, crew, interaction: () => interaction(), save: () => save(), get crewFrom() { return crewFrom; },
+  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared, teamwork, crew, interaction: () => interaction(), engineHere: () => engineHere(), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
   pump: (id = 'haven') => openPump(id),

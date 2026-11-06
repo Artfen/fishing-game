@@ -2717,3 +2717,6 @@ body.sitting #lever, body.sitting #hint { display: none !important; }
 
 /* (Dialog text keeps its paragraphs: the play-style question.) */
 #confirm-text { white-space: pre-line; }
+
+/* The dashboard's label: the control under the pointer (or ringed), and what it's doing. */
+.dash-tip { position: fixed; left: 50%; bottom: 128px; transform: translateX(-50%); padding: 6px 12px; border-radius: 10px; background: rgba(12, 18, 24, 0.72); color: #f3eee4; font: 600 14px var(--font-ui); pointer-events: none; z-index: 30; white-space: nowrap; max-width: calc(100vw - 32px); overflow: hidden; text-overflow: ellipsis; }

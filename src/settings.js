@@ -124,6 +124,7 @@ export function cleanSettings(raw, legacy = {}) {
     keys: c.keys ? cleanBindings(c.keys) : null,
     throttle: oneOf(c.throttle, ['notches', 'lever'], 'notches'),
     start: oneOf(c.start, START_IDS, 'go'),
+    helm: oneOf(c.helm, ['dash', 'panel'], 'dash'),
     technique: oneOf(c.technique, TECHNIQUE_IDS, 'assisted'),
     // (Vibration was once only on or off.)
     vibration: oneOf(c.vibration, STRENGTH_IDS, c.rumble === false ? 'off' : 'normal'),
@@ -617,6 +618,10 @@ export class SettingsUI {
       this.choice([['notches', 'Notches'], ['lever', 'Smooth lever']], C.throttle, (v) => this.set('controls', 'throttle', v))));
     out.push(this.row('Engine start-up', START_MODES[C.start].desc,
       this.choice(START_IDS.map((id) => [id, START_MODES[id].name]), C.start, (v) => this.set('controls', 'start', v))));
+    out.push(this.row('Helm', C.helm === 'dash'
+      ? 'The dashboard: in first person at the helm of the RIB or the centre console, the switches, key, throttle and trim are on the console itself. Point and click (or tap); with a controller or the keyboard, the engine key looks down at it to move round it. In third person the engine key opens the helm panel.'
+      : 'The helm panel: the engine key opens a panel with every switch, gauge and the start-up checklist, wherever you look from.',
+      this.choice([['dash', 'Dashboard'], ['panel', 'Panel']], C.helm, (v) => this.set('controls', 'helm', v))));
     for (const line of [
       'The throttle: the motor skiff, the bass boat, the cabin boat, the yacht, the centre console and the jet ski have a lever with notches (astern, neutral, dead slow, slow, half, full), and the sailing boat’s outboard a smaller one. Forward and back move it a notch at a time and it stays where you leave it; you can also click or drag the lever on screen (bottom right), or tap a notch. Neutral (or the big Stop under the lever) stops the motor, and the boat coasts on. The motor takes a moment to build up and ease off, and pauses in neutral between ahead and astern.',
       'Fishing under way: you can cast at up to trolling speed, and the boat carries the cast along as it flies. A moving boat tows your line behind it (trolling). With a line out the throttle goes no higher than slow ahead (+ and − move it, or the D-pad on a controller); when a fish takes, the motor goes to neutral.',
