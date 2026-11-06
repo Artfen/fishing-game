@@ -33,7 +33,7 @@ export const CAST_MODES = {
 
 export const DEFAULT_SETTINGS = {
   audio: { master: 1, mute: false, music: 0.8, ambient: 1, wind: 0.8, waves: 0.9, rain: 0.8, effects: 1, reel: 0.9, alerts: 0.8 },
-  graphics: { preset: 'auto', scale: 1, shadows: 'auto', ocean: 'auto', water: 'auto', plants: 'auto', particles: 'auto', underwater: 'auto', life: 'auto', fps: 0 },
+  graphics: { preset: 'auto', scale: 1, shadows: 'auto', ocean: 'auto', water: 'auto', plants: 'auto', particles: 'auto', underwater: 'auto', life: 'auto', fps: 0, screen: 'full' },
   // sea: 'auto' (with the weather) or a SEA_PRESETS id; wind 'auto' or 'manual' (windSpeed m/s,
   // windFrom compass degrees); currents: natural, gentle or still (on your rig and boat).
   // windLines: the white wind lines in the air (when sailing, always, or never).
@@ -100,6 +100,7 @@ export function cleanSettings(raw, legacy = {}) {
     shadows: oneOf(g.shadows, ['auto', 'on', 'off'], 'auto'),
     ocean: oneOf(g.ocean, ['auto', 'full', 'simple'], 'auto'),
     fps: oneOf(g.fps, [0, 30, 60], 0),
+    screen: oneOf(g.screen, ['full', 'clean'], 'full'),
   };
   for (const k of Object.keys(GROUPS)) graphics[k] = oneOf(g[k], ['auto', ...LEVELS], 'auto');
   const w = isObj(r.weather) ? r.weather : {};
@@ -452,6 +453,10 @@ export class SettingsUI {
   graphicsPane() {
     const G = this.S.graphics;
     const out = [];
+    out.push(this.row('Screen', G.screen === 'clean'
+      ? 'Clean: the buttons along the top show just their icons (and keys), the weather panel comes up while you’re fishing or sailing, and the rod pill tucks away while you’re under way. More sea, less screen.'
+      : 'Full: every button labelled, the weather panel and your rod always on screen.',
+    this.choice([['full', 'Full'], ['clean', 'Clean']], G.screen, (v) => this.set('graphics', 'screen', v))));
     out.push(this.row('Preset', `${this.hooks.qualityText()}. Auto starts at High on computers and Medium on phones, and steps down by itself if the game runs slowly; it never picks Ultra or Cinematic for you. Ultra is the best that still plays smoothly on a computer with a good graphics card.`,
       this.choice(CHOICES.map((c) => [c, c === 'auto' ? 'Auto' : PRESETS[c].label]), G.preset, (v) => this.set('graphics', 'preset', v))));
     if (G.preset === 'cinematic') {

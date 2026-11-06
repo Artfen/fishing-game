@@ -2732,3 +2732,12 @@ body.sitting #lever, body.sitting #hint { display: none !important; }
 .board-job.ready { border-color: rgba(40, 140, 70, 0.6); background: rgba(40, 140, 70, 0.08); }
 .marker.job { border-color: rgba(255, 196, 92, 0.9); background: rgba(48, 34, 12, 0.62); }
 .marker.job .m-arrow { border-bottom-color: #ffc45c; }
+
+/* The clean screen (Settings, Graphics, Screen: Clean): icons and keys along the top, the label
+   back on hover or focus; the rod pill out of the way while you're going somewhere. */
+body.screen-clean #corner .pill .label { display: none; }
+body.screen-clean #corner .pill:hover .label,
+body.screen-clean #corner .pill:focus-visible .label { display: inline; }
+body.screen-clean #corner .pill { padding-left: 9px; padding-right: 9px; }
+#gear { transition: opacity 0.6s ease; }
+body.screen-clean.underway #gear { opacity: 0; pointer-events: none; }
