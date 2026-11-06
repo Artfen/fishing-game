@@ -96,6 +96,7 @@ import { galeSky, galeNear, hoursToGale, outlook } from './world/forecast.js';
 import { FolkView } from './world/folk.js';
 import { VisitorView } from './world/visitors.js';
 import { SharedWorld } from './sharedworld.js';
+import { Teamwork } from './teamwork.js';
 import { demandFor, money, ordersFor, ORDERS_BY } from './market.js';
 import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
 import { PHOTO_MAX } from './save.js';
@@ -392,6 +393,9 @@ const visitors = new VisitorView(scene);
 // follow (see sharedworld.js). Alone, nothing changes.
 const shared = new SharedWorld({ together, sealife, eco });
 shared.items = Object.keys(TACKLE);
+// Helping each other: netting a friend's fish, marking a shoal (see teamwork.js).
+const teamwork = new Teamwork({ together, eco, lineEnd: (id) => visitors.lineEnd(id) });
+const shoalMarkers = new Map();
 // (Everyone the sea answers to this frame, and friends' boats too far off to be drawn: see viewersNow.)
 let seaViewers = null;
 const _vb = new Map();
@@ -5023,6 +5027,9 @@ function stopFollowing() {
 
 function interaction() {
   if (!started || modal || placement.isOn) return null;
+  // A friend's fish beaten and lying alongside, within reach: net it for them (see teamwork.js).
+  const helpNet = together.active && !fishing.fight && !dive && !driving ? teamwork.netTarget(player().pos, onFoot ? 0 : boat.hull.L * 0.5) : null;
+  if (helpNet) return { text: `Net ${helpNet.p.name}’s fish`, run: () => { if (teamwork.net(helpNet)) hud.flash(`You reach out with the net for ${helpNet.p.name}’s fish…`, t, 2); } };
   if (fishing.busy) return followAction();
   // In the water: something to climb out onto, at the surface.
   if (dive) return diveExit();
@@ -7871,6 +7878,7 @@ function updateHud() {
   placeMarker($('cross-marker'), crossAim?.x ?? 0, 6, crossAim?.z ?? 0, !!crossAim && started && !modal && !dive);
   placeMarker($('trip-marker'), trip?.x ?? 0, 1.2, trip?.z ?? 0, !!trip && started && !modal && Math.hypot((trip?.x ?? 0) - player().pos.x, (trip?.z ?? 0) - player().pos.z) > (trip?.r ?? 0));
   placeFriendMarkers();
+  placeShoalMarkers();
 }
 
 // Friends you're playing with: their name over them, or pinned to the edge of the screen pointing
@@ -7960,15 +7968,68 @@ function friendWhere(p) {
 /* ---------- quick calls ---------- */
 
 function renderCalls() {
-  $('calls-list').replaceChildren(...CALLS.map((text, i) => {
+  const button = (key, text, run) => {
     const b = document.createElement('button');
     b.type = 'button';
     const k = document.createElement('kbd');
-    k.textContent = String(i + 1);
+    k.textContent = key;
     b.append(k, text);
-    b.addEventListener('click', () => sendCall(i));
+    b.addEventListener('click', run);
     return b;
-  }));
+  };
+  const list = CALLS.map((text, i) => button(String(i + 1), text, () => sendCall(i)));
+  // A shoal near you: mark it, and your friends' screens follow it (see teamwork.js).
+  const s = teamwork.shoalNear(player().pos);
+  if (s) list.push(button(String(CALLS.length + 1), `Mark this shoal (${s.sp.name.toLowerCase()})`, () => markShoal()));
+  $('calls-list').replaceChildren(...list);
+}
+function markShoal() {
+  closeCalls();
+  const s = teamwork.shoalNear(player().pos);
+  if (!s) return hud.flash('No shoal near enough to mark.', t, 2);
+  if (teamwork.mark(s)) hud.toast(`You mark the shoal of ${s.sp.name.toLowerCase()} for your friends: the mark goes with it.`, 4);
+  else hud.flash('A moment between marks.', t, 2);
+}
+// Marked shoals, each a label over where its shoal is now (the same shoal on every screen).
+function placeShoalMarkers() {
+  const live = together.active ? teamwork.live() : [];
+  const keep = new Set();
+  for (const m of live) {
+    keep.add(m.key);
+    let el = shoalMarkers.get(m.key);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'marker shoal';
+      el.dataset.km = 'round';
+      el.setAttribute('aria-hidden', 'true');
+      const arrow = document.createElement('span'), label = document.createElement('span');
+      arrow.className = 'm-arrow';
+      label.className = 'm-label';
+      label.append(document.createElement('span'), ' · ', document.createElement('b'));
+      el.append(arrow, label);
+      $('boat-marker').before(el);
+      shoalMarkers.set(m.key, el);
+    }
+    const words = `${m.name} shoal: ${m.sp.toLowerCase()}`, name = el.querySelector('.m-label span');
+    if (name.textContent !== words) name.textContent = words;
+    placeMarker(el, m.x, waveHeight(m.x, m.z, t) + 1.5, m.z, started && !modal);
+  }
+  for (const [key, el] of shoalMarkers) {
+    if (keep.has(key)) continue;
+    el.remove();
+    shoalMarkers.delete(key);
+  }
+}
+// A friend netting your fish for you, or thanking you for netting theirs.
+function friendHelp(p, d) {
+  if (d.e === 'net') {
+    const F = fishing.fight;
+    if (!teamwork.mayNet(p, d.f, F, fishing.fishPos)) return;
+    const kg = F.agent?.weight ?? weightOf(F.sp, F.size);
+    fishing.netFish();
+    hud.flash(`${p.name} nets it for you!`, t, 3);
+    teamwork.thank(p, d.f, F.sp.name, kg);
+  } else if (d.e === 'thanks') hud.toast(`You netted ${p.name}’s ${d.sp ? d.sp.toLowerCase() : 'fish'}${d.kg ? `, ${kgWords(d.kg)}` : ''}. Nice work.`, 5);
 }
 function openCalls() {
   if (!together.active) return;
@@ -8066,7 +8127,7 @@ function whereIAm() {
   const gear = fishing.lineOut ? { r: fishing.rod?.id, i: fishing.item?.id } : null;
   if (gear && fishing.baitInWater) {
     const e = fishing.state === 'reeling' ? fishing.fishPos : fishing.bob, F = fishing.fight;
-    Object.assign(gear, { ex: e.x, ez: e.z, tn: F?.tension, hk: F?.agent?.id });
+    Object.assign(gear, { ex: e.x, ez: e.z, tn: F?.tension, hk: F?.agent?.id, nt: F?.atNet ? 1 : 0 });
     // (What the fish is doing, so they can see it at the end of your line.)
     if (F && !F.atNet) gear.mv = F.jumping > 0 ? 'jump' : F.shakeT > 0 ? 'shake' : F.move === 'charge' ? 'charge' : F.move === 'sound' ? 'sound' : F.move === 'circle' && !F.pulling ? 'circle' : F.pulling ? (F.move === 'dive' || F.move === 'longrun' ? F.move : 'run') : undefined;
   }
@@ -8178,6 +8239,11 @@ together.onEvent = (kind, p, data) => {
     }
   } else if (kind === 'ended') hud.toast(p ? `${p.name} ended the session.` : data?.hostGone ? `${data.name[0].toUpperCase()}${data.name.slice(1)} didn’t come back, so the session has ended. Your own time and weather are back.` : 'The connection to your session was lost, so you’ve left it.', 7);
   else if (kind === 'find') friendFind(p, data);
+  else if (kind === 'help') friendHelp(p, data);
+  else if (kind === 'shoal') {
+    const s = teamwork.heard(p, data);
+    if (s) hud.toast(`${p.name} marked a shoal of ${s.sp.name.toLowerCase()} ${friendWhere(p)}: the mark goes with it.`, 6);
+  }
   else if (kind === 'lost') hud.toast('Lost the connection to your session. Trying again…', 4);
   else if (kind === 'back') hud.toast('Back in your session.', 3);
 };
@@ -8861,6 +8927,7 @@ input.on('press', (code, acts) => {
   if (callsOpen()) {
     const n = /^(Digit|Numpad)([1-9])$/.exec(code);
     if (n && Number(n[2]) <= CALLS.length) sendCall(Number(n[2]) - 1);
+    else if (n && Number(n[2]) === CALLS.length + 1 && teamwork.shoalNear(player().pos)) markShoal();
     else if (code === 'Escape' || is('call')) closeCalls();
     return;
   }
@@ -10011,7 +10078,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared,
+  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared, teamwork, interaction: () => interaction(),
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
   pump: (id = 'haven') => openPump(id),

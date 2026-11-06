@@ -178,7 +178,18 @@ The next brief, worked through in order, each step merged to main once it's test
    - *Verified*: unit tests over the Realtime stand-in (two rigs at one shoal, a third player
      watching a guest's fight, a forged strike, two strikes at once, a guest leaving mid-fight), and
      two real browser clients: see the pull request for the run.
-4. **Multiplayer help**: crewing, netting a friend's fish, marks on a shoal, cooperative contracts.
+4. **Multiplayer help** (`src/teamwork.js`), the real fight first:
+   - *Netting a friend's fish: done.* Their pose says when it's beaten alongside; a friend within
+     reach (a boat's half-length more, afloat) gets the prompt; the word goes to the angler alone,
+     whose game checks it's that fish, still waiting for the net, and the helper really by it, then
+     nets it. The catch stays the angler's; thanks (with what it was) go back.
+   - *Marking a feeding shoal: done.* From the quick calls; shoals are the host's and the same on
+     every screen, so the mark follows that very shoal, for ten minutes or until it's fished out.
+     At most one every four seconds each.
+   - *Crewing* (next): riding in a friend's boat, taking the helm while they fish or to follow a
+     running fish (their game stays the boat's physics; your wheel and lever go to it), watching
+     the sonar.
+   - *Cooperative contracts* come with the contracts themselves (step 7).
 5. **First-person dashboard** (RIB first), with visible trim and tilt.
 6. **Electric trolling motors and GPS spot-lock.**
 7. **Contracts and careers; a purpose for bigger boats; fun for people who don't fish.**

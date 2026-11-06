@@ -709,6 +709,8 @@ body.pad .keys-only { display: none !important; }
 .marker.friend.calling { border-color: #ffd68c; }
 /* (Under the name, what they're fishing with.) */
 .marker.friend .m-gear { display: block; font-weight: 600; font-size: 11px; opacity: 0.82; text-align: center; }
+.marker.shoal { border-color: rgba(140, 230, 200, 0.85); background: rgba(14, 44, 40, 0.62); }
+.marker.shoal .m-arrow { border-bottom-color: #8ce6c8; }
 .marker.friend:has(.m-gear) { border-radius: 14px; }
 
 /* The first-trip guide: a small card under the corner buttons, one step at a time. */

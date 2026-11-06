@@ -41,6 +41,10 @@ const CALL_GAP = 1.5;       // seconds between calls, each way
 // from your map. Each arrives as a mark on their map, with your name on it.
 export const FIND_KINDS = ['place', 'site', 'detail', 'fish', 'mark'];
 const FIND_BURST = 6, FIND_WINDOW = 30; // at most six in any half-minute, each way
+// Helping each other (see teamwork.js): a friend's fish netted for them, and their thanks; a shoal
+// marked for everyone, at most every few seconds each.
+export const HELPS = ['net', 'thanks'];
+const HELP_GAP = 0.5, SHOAL_GAP = 4;
 const ASK_BURST = 12;     // asks a guest may make of the host in any second (rigs come up to four a second)
 // Plain words only (nothing that could be read as markup), trimmed to fit.
 const plain = (v, max) => (typeof v === 'string' ? v.replace(/[<>\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '');
@@ -132,6 +136,8 @@ export function cleanPose(p, kinds = null, gear = null) {
     if (out.o && FISH_MOVES.includes(p.mv)) out.mv = p.mv;
     // (Which of the shared sea's fish it is: see sharedworld.js.)
     if (out.o && Number.isInteger(p.hk) && p.hk >= 0 && p.hk < 1e5) out.hk = p.hk;
+    // (Beaten and alongside, waiting for the net: a friend by it can net it for them.)
+    if (out.o && p.nt) out.nt = true;
   }
   return out;
 }
@@ -895,6 +901,19 @@ export class Together {
       p.callT = this.clock;
       p.call = { text: CALLS[c], at: this.clock };
       this.onEvent('call', p, { text: CALLS[c] });
+    } else if (kind === 'help') {
+      // A friend helping with your fish (or thanking you for it): only words meant for you.
+      if (!p.name || data.to !== this.id || !HELPS.includes(data.e) || !Number.isInteger(data.f) || data.f < 0 || data.f >= 1e5) return;
+      if (this.clock - (p.helpT ?? -99) < HELP_GAP) return;
+      p.helpT = this.clock;
+      this.onEvent('help', p, { e: data.e, f: data.f, sp: plain(data.sp, 40), kg: finite(data.kg, 0, 2000) });
+    } else if (kind === 'shoal') {
+      // A shoal marked by a friend (teamwork.js checks it's one there is).
+      const x = finite(data.x, -3000, 3000), z = finite(data.z, -3000, 8000);
+      if (!p.name || !Number.isInteger(data.s) || data.s < 0 || data.s >= 1e5 || x == null || z == null) return;
+      if (this.clock - (p.shoalT ?? -99) < SHOAL_GAP) return;
+      p.shoalT = this.clock;
+      this.onEvent('shoal', p, { s: data.s, x, z });
     } else if (kind === 'eco') {
       // The shared sea: only the host's counts.
       if (this.hosting || p.id !== this.hostId) return;
@@ -980,6 +999,7 @@ export class Together {
       if (P.o && P.tn != null) msg.tn = r2(P.tn);
       if (P.o && P.mv) msg.mv = P.mv;
       if (P.o && P.hk != null) msg.hk = P.hk;
+      if (P.o && P.nt) msg.nt = 1;
     }
     const S = this.sent;
     // (Slowing down or stopping counts too, so nobody's carried on past where you stopped; so does
@@ -987,7 +1007,7 @@ export class Together {
     const moved = !S || S.m !== msg.m || S.k !== msg.k || S.a !== msg.a || S.f !== msg.f || S.s !== msg.s || S.n !== msg.n || S.o !== msg.o
       || Math.hypot(S.x - msg.x, S.z - msg.z) > 0.25 || Math.abs(S.h - msg.h) > 0.05 || Math.hypot(S.vx - msg.vx, S.vz - msg.vz) > 0.3
       || S.r !== msg.r || S.i !== msg.i || (S.ex == null) !== (msg.ex == null) || (msg.ex != null && Math.hypot(S.ex - msg.ex, S.ez - msg.ez) > 0.3)
-      || Math.abs((S.tn ?? 0) - (msg.tn ?? 0)) > 0.12 || S.mv !== msg.mv || S.hk !== msg.hk;
+      || Math.abs((S.tn ?? 0) - (msg.tn ?? 0)) > 0.12 || S.mv !== msg.mv || S.hk !== msg.hk || S.nt !== msg.nt;
     if (!now && (this.sendT > 0 || (!moved && this.clock - (S?.at ?? -99) < IDLE_EVERY))) return;
     this.rt.send('pose', { id: this.id, n: this.name(), host: this.hosting, t: Math.round(this.now() * 1000) / 1000, p: msg });
     this.sent = { ...msg, at: this.clock };
@@ -1056,6 +1076,25 @@ export class Together {
     if (this.clock - this.calledT < CALL_GAP) return false;
     this.calledT = this.clock;
     this.rt.send('call', { id: this.id, c: i });
+    return true;
+  }
+
+  // Helping a friend with their fish (see teamwork.js): to: their id; e: one of HELPS; f: the fish.
+  help(to, e, f, extra = {}) {
+    if (!this.active || !this.rt?.open || this.reconnecting || !HELPS.includes(e) || !this.peers.has(to)) return false;
+    if (this.clock - (this.helpedT ?? -99) < HELP_GAP) return false;
+    this.helpedT = this.clock;
+    const kg = finite(extra.kg, 0, 2000);
+    this.rt.send('help', { id: this.id, to, e, f, ...(extra.sp ? { sp: plain(extra.sp, 40) } : {}), ...(kg != null ? { kg: Math.round(kg * 100) / 100 } : {}) });
+    return true;
+  }
+
+  // A shoal marked for everyone (s: its id in the shared sea; x, z: where it is now).
+  markShoal(s, x, z) {
+    if (!this.active || !this.rt?.open || this.reconnecting || !Number.isInteger(s)) return false;
+    if (this.clock - (this.markedT ?? -99) < SHOAL_GAP) return false;
+    this.markedT = this.clock;
+    this.rt.send('shoal', { id: this.id, s, x: Math.round(x), z: Math.round(z) });
     return true;
   }
 
