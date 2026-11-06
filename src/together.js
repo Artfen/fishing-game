@@ -41,6 +41,7 @@ const CALL_GAP = 1.5;       // seconds between calls, each way
 // from your map. Each arrives as a mark on their map, with your name on it.
 export const FIND_KINDS = ['place', 'site', 'detail', 'fish', 'mark'];
 const FIND_BURST = 6, FIND_WINDOW = 30; // at most six in any half-minute, each way
+const ASK_BURST = 12;     // asks a guest may make of the host in any second (rigs come up to four a second)
 // Plain words only (nothing that could be read as markup), trimmed to fit.
 const plain = (v, max) => (typeof v === 'string' ? v.replace(/[<>\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '');
 export function cleanFind(f) {
@@ -129,6 +130,8 @@ export function cleanPose(p, kinds = null, gear = null) {
     const tn = out.o ? finite(p.tn, 0, 1.3) : null;
     if (tn != null) out.tn = tn;
     if (out.o && FISH_MOVES.includes(p.mv)) out.mv = p.mv;
+    // (Which of the shared sea's fish it is: see sharedworld.js.)
+    if (out.o && Number.isInteger(p.hk) && p.hk >= 0 && p.hk < 1e5) out.hk = p.hk;
   }
   return out;
 }
@@ -896,8 +899,21 @@ export class Together {
       // The shared sea: only the host's counts.
       if (this.hosting || p.id !== this.hostId) return;
       this.onShared?.(data, p);
+    } else if (kind === 'fish') {
+      // A word about a fish and a guest's rig: only the host's counts (sharedworld.js checks whose).
+      if (this.hosting || p.id !== this.hostId) return;
+      this.onFish?.(data, p);
     } else if (kind === 'ask') {
       if (!this.hosting || typeof data.a !== 'string') return;
+      // (However a guest's game behaves, a few asks a second is all it gets.)
+      if (this.clock - (p.askT ?? -99) >= 1) {
+        p.askT = this.clock;
+        p.askN = 0;
+      }
+      if (++p.askN > ASK_BURST) {
+        this.traffic('drop', 0, 'ask');
+        return;
+      }
       this.onAsk?.(data, p);
     } else if (kind === 'world') {
       // Only the host's world counts (whoever else might send one).
@@ -933,7 +949,7 @@ export class Together {
   // Host: something for everyone in the session (the shared sea: see sharedworld.js).
   broadcast(kind, payload) {
     if (!this.hosting || !this.rt?.open || this.reconnecting) return false;
-    this.rt.send(kind, { id: this.id, ...payload });
+    this.rt.send(kind, { ...payload, id: this.id }); // (whoever it's from is always who sent it)
     return true;
   }
 
@@ -944,7 +960,7 @@ export class Together {
     this.askedT ||= {};
     if (this.clock - (this.askedT[kind] ?? -99) < gap) return false;
     this.askedT[kind] = this.clock;
-    this.rt.send('ask', { id: this.id, a: kind, ...payload });
+    this.rt.send('ask', { ...payload, id: this.id, a: kind });
     return true;
   }
 
@@ -963,6 +979,7 @@ export class Together {
       if (P.ex != null && P.ez != null) Object.assign(msg, { ex: r2(P.ex), ez: r2(P.ez) });
       if (P.o && P.tn != null) msg.tn = r2(P.tn);
       if (P.o && P.mv) msg.mv = P.mv;
+      if (P.o && P.hk != null) msg.hk = P.hk;
     }
     const S = this.sent;
     // (Slowing down or stopping counts too, so nobody's carried on past where you stopped; so does
@@ -970,7 +987,7 @@ export class Together {
     const moved = !S || S.m !== msg.m || S.k !== msg.k || S.a !== msg.a || S.f !== msg.f || S.s !== msg.s || S.n !== msg.n || S.o !== msg.o
       || Math.hypot(S.x - msg.x, S.z - msg.z) > 0.25 || Math.abs(S.h - msg.h) > 0.05 || Math.hypot(S.vx - msg.vx, S.vz - msg.vz) > 0.3
       || S.r !== msg.r || S.i !== msg.i || (S.ex == null) !== (msg.ex == null) || (msg.ex != null && Math.hypot(S.ex - msg.ex, S.ez - msg.ez) > 0.3)
-      || Math.abs((S.tn ?? 0) - (msg.tn ?? 0)) > 0.12 || S.mv !== msg.mv;
+      || Math.abs((S.tn ?? 0) - (msg.tn ?? 0)) > 0.12 || S.mv !== msg.mv || S.hk !== msg.hk;
     if (!now && (this.sendT > 0 || (!moved && this.clock - (S?.at ?? -99) < IDLE_EVERY))) return;
     this.rt.send('pose', { id: this.id, n: this.name(), host: this.hosting, t: Math.round(this.now() * 1000) / 1000, p: msg });
     this.sent = { ...msg, at: this.clock };

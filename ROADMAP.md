@@ -154,9 +154,30 @@ The next brief, worked through in order, each step merged to main once it's test
      simulation server (the same modules under Node, one per session) could take the host's place
      without changing the followers. Worth it only if host frame time or upload becomes the limit
      (eight players spread far apart is the worst case measured, and it's within budget).
-3. **Shared catchable fish** (next): the fish that take lures decided by the host, several
-   players' rigs at once, a hooked fish owned by one player and gone for the others, friends
-   watching the real fight.
+3. **Shared catchable fish: done** (`src/sharedworld.js`, `src/world/ecosystem.js`).
+   - *Every rig in the host's water*: a guest sends their rig (where it is, what's on it, how it's
+     worked) whenever it's changed, at most four times a second (the host carries it on at its
+     speed in between), and once a second anyway while it's in the water; the host's ecosystem holds everyone's,
+     and a fish free to notice one goes for the nearest. One fish to a rig, one rig to a fish.
+   - *The host's word, the guest's screen*: what the host's fish do about a guest's rig (noticed
+     it, took it, gave up) goes to that guest alone, and their own water shows that fish coming
+     and taking, smoothly, without waiting on every flick of its tail.
+   - *Ownership*: a strike is a claim; the host grants it only if that fish was taking that guest's
+     rig at that moment (else "it let go"). Hooked, it's that player's: no other rig can have it,
+     and only they can say it was caught, kept, released or lost. A guest whose rig stops arriving
+     (gone, or reeled in without a word) loses the fish.
+   - *Everyone agrees*: snapshots carry the fish going for a rig or hooked near anyone, every fish
+     out of the water, and each newcomer's size and build; a friend's pose names the fish on their
+     line, and every screen places that very fish at the end of it.
+   - *Validation*: rigs checked (kinds, tackle the game has, numbers, near the guest, no rig more
+     tempting than the host's own could be), fish words and snapshot rows checked, guests' asks
+     capped at twelve a second, and a sender's id can't be overwritten by what they send.
+   - *Budget*: a float sitting still costs one small message a second, a lure being worked up to
+     four (each counted once per player in the session); fish words are a few per bite; snapshots
+     grow by a row per fish going for a rig.
+   - *Verified*: unit tests over the Realtime stand-in (two rigs at one shoal, a third player
+     watching a guest's fight, a forged strike, two strikes at once, a guest leaving mid-fight), and
+     two real browser clients: see the pull request for the run.
 4. **Multiplayer help**: crewing, netting a friend's fish, marks on a shoal, cooperative contracts.
 5. **First-person dashboard** (RIB first), with visible trim and tilt.
 6. **Electric trolling motors and GPS spot-lock.**

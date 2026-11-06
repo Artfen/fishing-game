@@ -26,6 +26,8 @@ const FAR_EVERY = 6; // fish beyond the active radius update at 5 Hz
 const FAR_RADIUS = 240;
 const BITE_WINDOW = 2.6; // seconds you have to set the hook once a fish takes the bait
 const ENGAGEABLE = new Set(['cruise', 'rest', 'feed', 'school']);
+// (The states a fish can be in, as numbers, for playing together: see captureAgents.)
+export const AGENT_STATES = ['cruise', 'rest', 'feed', 'school', 'approach', 'investigate', 'nibble', 'bite', 'follow', 'lunge', 'inspect', 'sip', 'escort', 'flee', 'hooked', 'caught', 'gone', 'jump', 'rise'];
 const BAIT_STATES = new Set(['approach', 'investigate', 'nibble', 'bite', 'follow', 'lunge', 'inspect', 'sip']);
 // How long you have to strike, by how the fish took it.
 const WINDOWS = { strike: 1.15, sip: 1.0, take: 1.35, run: 4.2, tap: 0.7 };
@@ -85,6 +87,14 @@ export class Ecosystem {
       towed: false, // trolled behind a moving boat (it raises the big game from far off)
     };
     this.listener = {};
+    // Playing together, the host's water holds everyone's rigs: each guest's as they send it
+    // (owner id -> a bait like this.bait, with remote set), and onRemote(event, fish, bait, ...)
+    // hears what the fish do about them (see sharedworld.js). A guest's own rig waits for the
+    // host's word on which fish goes for it (allowBite, allowLeave: see takeFor and leaveFor).
+    this.remoteBaits = new Map();
+    this.onRemote = null;
+    this.allowBite = false;
+    this.allowLeave = false;
     // Solid rock besides the seabed, for the dive sites' fish to keep out of (the Hound, the arch
     // on Skerries Reef, the boulders): (point, pad) => true if it pushed the point out.
     this.solid = pushOut;
@@ -367,9 +377,15 @@ export class Ecosystem {
     // (The sea's fish feed best on a running tide, some on the flood: see tide.js; each kind has
     // its seasons: see season.js; and coloured water suits some and not others: see grounds.js.)
     for (const sp of FISH) this.activity[sp.id] = Math.min(1, sp.life.activity(this.ctx) * tideBoost(sp, this.ctx.tide) * seasonBoost(sp, this.ctx.abs) * colourFactor(sp, this.ctx.colour));
-    const b = this.bait;
-    if (b.fresh > 0) b.fresh -= dt;
-    if (b.twitch > 0) b.twitch -= dt;
+    for (const b of this.baitsList()) {
+      if (b.fresh > 0) b.fresh -= dt;
+      if (b.twitch > 0) b.twitch -= dt;
+      // (A guest's rig carries on the way it was going between their words, for a second or so.)
+      if (b.remote && this.netT - b.heard < 1.2) {
+        b.x += b.vx * dt;
+        b.z += b.vz * dt;
+      }
+    }
 
     this.acc += Math.min(dt, 0.2);
     let n = 0;
@@ -417,13 +433,19 @@ export class Ecosystem {
       if (a.state === 'gone') {
         // A fish taken from the population is replaced in time, but never out of thin air
         // in front of you: while you're near its home, the newcomer waits.
-        if (this.time > a.backAt) {
+        // (Following the host, a newcomer turns up when the host's does: see applyAgents.)
+        if (!this.follower && this.time > a.backAt) {
           if (this.d2near(a.home.x, a.home.z) < 45 * 45) a.backAt = this.time + 30;
           else this.restock(a);
         }
         continue;
       }
       if (!a.active || a.state === 'caught' || a.state === 'hooked') continue;
+      // (Following the host: a fish going for someone else's rig is where the host has it.)
+      if (a.net) {
+        this.stepAgentNet(a, h);
+        continue;
+      }
       const d2 = this.d2near(a.x, a.z);
       if (d2 < near2) this.stepAgent(a, h, false);
       else if (d2 < far2 && (this.tick + a.id) % FAR_EVERY === 0) this.stepAgent(a, h * FAR_EVERY, true);
@@ -861,6 +883,162 @@ export class Ecosystem {
     return out;
   }
 
+  /* ---------- the fish everyone's fishing for (playing together) ---------- */
+
+  // Hosting: a guest's rig as they send it (see sharedworld.js), or null when it's out of the water.
+  setRemoteBait(id, r) {
+    let b = this.remoteBaits.get(id);
+    if (!r) {
+      if (!b) return;
+      b.active = false;
+      if (b.owner && BAIT_STATES.has(b.owner.state)) this.disengage(b.owner, 'gone', 4);
+      // (A rig out of the water with a fish still on it: the guest's gone, or reeled in without a
+      // word. Either way the fish is off.)
+      if (b.owner?.state === 'hooked') this.lostHooked(b.owner);
+      this.remoteBaits.delete(id);
+      return;
+    }
+    if (!b) {
+      b = { ...this.bait, remote: true, ownerId: id, owner: null, held: false, vx: 0, vz: 0 };
+      this.remoteBaits.set(id, b);
+    }
+    Object.assign(b, r, { active: true, heard: this.netT });
+  }
+
+  // Hosting: rigs not heard of for a few seconds are taken as out of the water.
+  dropStaleBaits(age = 3) {
+    for (const [id, b] of this.remoteBaits) if (this.netT - (b.heard ?? 0) > age) this.setRemoteBait(id, null);
+  }
+
+  // Following: the host says this fish has noticed your rig (and how it goes about it): it comes
+  // to your rig here too, doing what fish do round a rig, until the host says it takes or leaves.
+  engageFor(a, style, state) {
+    const b = this.bait;
+    if (!b.active || (b.owner && b.owner !== a) || !a.active || a.state === 'gone' || a.state === 'caught' || a.state === 'hooked') return false;
+    a.net = null;
+    if (b.owner !== a) this.engage(a, b);
+    if (style) a.style = style;
+    if (state && BAIT_STATES.has(state)) a.state = state;
+    return true;
+  }
+
+  // Following: the host says it takes your rig.
+  takeFor(a, kind) {
+    if (this.bait.owner !== a && !this.engageFor(a, null, 'nibble')) return false;
+    this.allowBite = true;
+    this.startBite(a, kind);
+    this.allowBite = false;
+    return a.state === 'bite';
+  }
+
+  // Following: the host says it's given up on your rig.
+  leaveFor(a, reason = 'lost') {
+    if (a.bait !== this.bait || !BAIT_STATES.has(a.state)) return;
+    this.allowLeave = true;
+    this.disengage(a, reason, reason === 'spat' ? 12 : 6);
+    this.allowLeave = false;
+  }
+
+  // Following: a fish where the host has it (going for someone else's rig), eased there.
+  stepAgentNet(a, h) {
+    const n = a.net, k = 1 - Math.exp(-4 * h);
+    a.x += (n.x - a.x) * k;
+    a.y += (n.y - a.y) * k;
+    a.z += (n.z - a.z) * k;
+    a.yaw += wrapAngle(n.yaw - a.yaw) * k;
+    a.speed = damp(a.speed, Math.min(2, Math.hypot(n.x - a.x, n.z - a.z) * 2), 3, h);
+    a.beat = damp(a.beat, 0.6, 3, h);
+  }
+
+  // Hosting: the fish everyone needs to agree on, near any of foci: those going for a rig and
+  // those hooked ([id, x, y, z, yaw, state, whose rig: '' the host's]), every fish gone from the
+  // water (caught or kept), and (all) every newcomer since the session began ([id, size]).
+  captureAgents(foci, R = 260, all = true) {
+    const R2 = R * R, rows = [], gone = [], sizes = [];
+    const q = (v) => Math.round(v * 10) / 10, c = (v) => Math.round(v * 100) / 100;
+    for (const a of this.agents) {
+      if (a.state === 'gone' || a.state === 'caught') {
+        gone.push(a.id);
+        continue;
+      }
+      const engaged = BAIT_STATES.has(a.state) || a.state === 'bite';
+      if (!engaged && a.state !== 'hooked') continue;
+      let m = Infinity;
+      for (const f of foci) m = Math.min(m, (a.x - f.x) ** 2 + (a.z - f.z) ** 2);
+      if (m > R2) continue;
+      const who = a.state === 'hooked' ? a.hookedBy || '' : a.bait?.ownerId || '';
+      rows.push([a.id, q(a.x), q(a.y), q(a.z), c(a.yaw), AGENT_STATES.indexOf(a.state), who]);
+    }
+    // (Newcomers near anyone, all of them now and then and the newest every time: [id, size, build].)
+    for (const [id, [size, gen, t]] of this.restocked || []) {
+      const a = this.agents[id];
+      if (!all && this.time - t > 6) continue;
+      let m = Infinity;
+      for (const f of foci) m = Math.min(m, (a.x - f.x) ** 2 + (a.z - f.z) ** 2);
+      if (m <= R2) sizes.push([id, size, gen]);
+    }
+    return { rows, gone, sizes };
+  }
+
+  // Following: the host's word on its fish. me: this screen's id in the session (a fish going for
+  // your own rig, or hooked by you, is yours to show).
+  applyAgents(A, me) {
+    const goneNow = new Set(A.gone);
+    for (const [id, size, gen] of A.sizes || []) {
+      const a = this.agents[id];
+      if (a && (a.size !== size || (a.gen || 0) !== gen) && !goneNow.has(id) && a.state !== 'hooked') {
+        // (A newcomer the host's water has had, the same one here.)
+        this.restock(a, size, gen);
+      }
+    }
+    const quiet = (a) => a.quiet > this.netT;
+    for (const id of goneNow) {
+      const a = this.agents[id];
+      if (!a || a.state === 'gone' || (a.state === 'hooked' && a.bait === this.bait) || quiet(a)) continue;
+      a.state = 'gone';
+      a.net = null;
+      a.backAt = Infinity;
+    }
+    // A fish the host had gone that's back: a newcomer at its home.
+    for (const a of this.agents) {
+      if (a.state === 'gone' && !goneNow.has(a.id) && a.backAt === Infinity && a.bait !== this.bait && !quiet(a)) this.restock(a, a.size);
+    }
+    const seen = new Set();
+    for (const [id, x, y, z, yaw, st, who] of A.rows) {
+      const a = this.agents[id];
+      if (!a) continue;
+      seen.add(a);
+      // (Your own rig's fish and your own fight are yours to show.)
+      if (who === me || quiet(a)) continue;
+      const state = AGENT_STATES[st] ?? 'cruise';
+      if (a.bait === this.bait && this.bait.owner === a) this.leaveFor(a, 'gone');
+      if (state === 'hooked') {
+        a.state = 'hooked';
+        a.remoteHook = who || 'host';
+        a.net = null;
+        a.x = x;
+        a.y = y;
+        a.z = z;
+        continue;
+      }
+      a.net = { x, y, z, yaw };
+      if (!BAIT_STATES.has(a.state)) a.state = state;
+    }
+    // Fish the host no longer has round a rig, or hooked by someone, go back to their own ways.
+    for (const a of this.agents) {
+      if (seen.has(a)) continue;
+      if (a.net) {
+        a.net = null;
+        if (a.school) a.state = 'school';
+        else this.startState(a, 'cruise');
+      } else if (a.remoteHook && a.state === 'hooked') {
+        a.remoteHook = null;
+        if (a.school) a.state = 'school';
+        else this.startState(a, 'flee', 3);
+      }
+    }
+  }
+
   // The host's word on its shoals (checked first: see sharedworld.js), lag seconds old.
   applySchools(list, lag = 0) {
     const t0 = this.netT;
@@ -927,8 +1105,9 @@ export class Ecosystem {
     const dy = a.ty - a.y;
     const dh = Math.hypot(dx, dz);
     if (a.faceBait) {
-      dx = this.bait.x - a.x;
-      dz = this.bait.z - a.z;
+      const fb = a.bait || this.bait;
+      dx = fb.x - a.x;
+      dz = fb.z - a.z;
     }
     // Look ahead: if the water ahead is too shallow for this fish, turn towards deeper water.
     const fx = Math.sin(a.yaw), fz = Math.cos(a.yaw);
@@ -1054,8 +1233,30 @@ export class Ecosystem {
     return clamp(s, 0, 1);
   }
 
+  // Every rig in the water: yours, and (hosting a session) each guest's.
+  baitsList() {
+    return this.remoteBaits.size ? [this.bait, ...this.remoteBaits.values()] : [this.bait];
+  }
+
+  // A fish free to take notice of a rig: the nearest of them (anyone's, in a session) gets its
+  // look. (Following the host, which fish goes for whose rig is the host's to say.)
   considerBait(a) {
-    const b = this.bait;
+    if (this.follower) return;
+    if (!this.remoteBaits.size) return this.considerOne(a, this.bait);
+    let best = null, bd = Infinity;
+    for (const b of this.baitsList()) {
+      if (!b.active || b.owner || b.held) continue;
+      const d = (b.x - a.x) ** 2 + (b.z - a.z) ** 2;
+      if (d < bd) {
+        bd = d;
+        best = b;
+      }
+    }
+    if (best) this.considerOne(a, best);
+  }
+
+  // What the fish makes of the rig, and whether it goes for it.
+  considerOne(a, b) {
     if (!b.active || b.owner || b.held || a.wary > 0) return;
     const L = a.L;
     if (L.observe) return; // protected: to watch, not to catch
@@ -1102,7 +1303,15 @@ export class Ecosystem {
     // A gale, and the coloured water after it: sheltered water fishes, the open sea doesn't.
     if (this.ctx.storming || this.ctx.after) p *= blowFactor(a.home.zone, this.ctx.storming, this.ctx.after);
     if (L.grazer && this.feedSpots.some((f) => f.amount > 0.05 && Math.hypot(f.x - b.x, f.z - b.z) < 6)) p *= 2;
-    if (Math.random() < p) this.engage(a);
+    if (Math.random() < p) this.engage(a, b);
+  }
+
+  // A fish's doings about a rig: heard by your fishing for your own rig, or (hosting) sent on to
+  // the guest whose rig it is.
+  tell(evt, a, ...args) {
+    const b = a.bait;
+    if (!b || b === this.bait) this.listener[evt]?.(a, ...args);
+    else this.onRemote?.(evt, a, b, ...args);
   }
 
   // The way a fish goes about taking this particular rig.
@@ -1120,9 +1329,9 @@ export class Ecosystem {
     return s.float || 'nibble';
   }
 
-  engage(a) {
-    const b = this.bait;
+  engage(a, b = this.bait) {
     b.owner = a;
+    a.bait = b;
     a.style = this.styleFor(a, b);
     a.t = 0;
     a.invT = 0;
@@ -1135,23 +1344,23 @@ export class Ecosystem {
       // from cover until it does.
       const d = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
       a.state = d < 3 ? 'lunge' : 'follow';
-      if (a.state === 'follow') this.listener.onFollow?.(a);
+      if (a.state === 'follow') this.tell('onFollow', a);
       return;
     }
     if (a.style === 'chase') {
       a.state = 'follow';
-      this.listener.onFollow?.(a);
+      this.tell('onFollow', a);
       if (a.L.pack) this.callPack(a);
       return;
     }
     if (a.style === 'rise') {
       a.state = 'inspect';
       a.dur = rand(1.4, 3) * a.L.caution;
-      this.listener.onCurious?.(a);
+      this.tell('onCurious', a);
       return;
     }
     a.state = 'approach';
-    this.listener.onCurious?.(a);
+    this.tell('onCurious', a);
   }
 
   // Perch hunt in packs: when one follows a lure, its friends tag along for a look.
@@ -1163,11 +1372,12 @@ export class Ecosystem {
       o.t = 0;
       o.dur = rand(2.5, 6);
       o.slotSide = Math.random() < 0.5 ? -1 : 1;
+      o.bait = a.bait;
     }
   }
 
   escort(a) {
-    const b = this.bait;
+    const b = a.bait || this.bait;
     if (!b.active || a.t > a.dur || (b.kind !== 'lure' && b.kind !== 'jig')) return this.startState(a, 'cruise');
     const dx = b.anglerX - b.x, dz = b.anglerZ - b.z, l = Math.hypot(dx, dz) || 1;
     a.tx = b.x - (dx / l) * 1.4 - (dz / l) * a.slotSide * 0.7;
@@ -1178,7 +1388,7 @@ export class Ecosystem {
   }
 
   baitBehaviour(a, h) {
-    const b = this.bait, L = a.L;
+    const b = a.bait || this.bait, L = a.L;
     if (!b.active || b.owner !== a) return this.disengage(a, 'gone', 4);
     const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
     const d = Math.hypot(dx, dy, dz);
@@ -1231,7 +1441,7 @@ export class Ecosystem {
         if (!a.nibbled && (d < 0.4 || a.t > 0.3)) {
           a.nibbled = true;
           a.nibbles++;
-          this.listener.onNibble?.(a);
+          this.tell('onNibble', a);
         }
         if (a.t > 0.55) {
           a.state = 'investigate';
@@ -1329,7 +1539,9 @@ export class Ecosystem {
   }
 
   startBite(a, kind = 'float') {
-    const b = this.bait;
+    // (Following the host, a fish takes your rig when the host says it does: see takeFor.)
+    if (this.follower && !this.allowBite) return;
+    const b = a.bait || this.bait;
     a.state = 'bite';
     a.t = 0;
     a.biteKind = kind;
@@ -1341,11 +1553,13 @@ export class Ecosystem {
     a.biteZ = b.z + (dz / l) * go;
     a.biteY = Math.max(b.y - 0.3, -this.habitat.depth(a.biteX, a.biteZ) + 0.4);
     b.held = true;
-    this.listener.onBite?.(a, kind);
+    this.tell('onBite', a, kind);
   }
 
   disengage(a, reason, wary) {
-    const b = this.bait;
+    const b = a.bait || this.bait;
+    // (Following the host, a fish leaves your rig when the host says, or when the rig's gone.)
+    if (this.follower && b === this.bait && reason !== 'gone' && !this.allowLeave && b.owner === a) return;
     // Why it gave up on the rig, in a sentence you can act on (see behaviour.js).
     let why = null;
     if (b.owner === a && b.active && ['lost', 'refused', 'turned', 'startled', 'spooked'].includes(reason)) {
@@ -1368,14 +1582,16 @@ export class Ecosystem {
     a.faceBait = false;
     if (a.school) a.state = 'school';
     else this.startState(a, 'cruise');
-    this.listener.onLeave?.(a, reason, why);
+    this.tell('onLeave', a, reason, why);
+    a.bait = null;
   }
 
   // Called by fishing: the player set the hook.
   hook(a) {
     a.state = 'hooked';
     a.faceBait = false;
-    this.bait.held = true;
+    (a.bait || this.bait).held = true;
+    this.onLocal?.('hook', a);
     this.startle(a.x, a.y, a.z, 5, 0.8);
   }
 
@@ -1393,11 +1609,13 @@ export class Ecosystem {
 
   catchAgent(a) {
     a.state = 'caught';
-    const b = this.bait;
+    const b = a.bait || this.bait;
     if (b.owner === a) {
       b.owner = null;
       b.held = false;
     }
+    a.bait = null;
+    this.onLocal?.('caught', a);
   }
 
   // Kept for the pot: gone for a while, then another fish of its kind turns up at its home (later
@@ -1406,7 +1624,10 @@ export class Ecosystem {
     const abs = this.ctx.abs ?? this.time / 40;
     const level = this.pressure.add(a.x, a.z, abs);
     a.state = 'gone';
-    a.backAt = this.time + rand(240, 420) * restockFactor(this.pressure.level(a.home.x, a.home.z, abs));
+    a.hookedBy = null;
+    this.onLocal?.('kept', a);
+    // (Following the host, its newcomer turns up when the host's does: see applyAgents.)
+    a.backAt = this.follower ? Infinity : this.time + rand(240, 420) * restockFactor(this.pressure.level(a.home.x, a.home.z, abs));
     return level;
   }
 
@@ -1415,12 +1636,18 @@ export class Ecosystem {
     return this.pressure.level(x, z, this.ctx.abs ?? this.time / 40);
   }
 
-  restock(a) {
+  // (size and gen: the host's newcomer, the same one here.)
+  restock(a, size = null, gen = null) {
     const sp = a.sp;
-    a.size = Math.round(lerp(sp.size[0], sp.size[1], Math.pow(Math.random(), 1.7)));
+    a.size = size ?? Math.round(lerp(sp.size[0], sp.size[1], Math.pow(Math.random(), 1.7)));
     a.scale = (a.size / 100) * sp.visual;
     // (A newcomer: a build of its own.)
-    a.gen = (a.gen || 0) + 1;
+    a.gen = gen ?? (a.gen || 0) + 1;
+    a.hookedBy = null;
+    a.remoteHook = null;
+    a.net = null;
+    // (Hosting a session, the newcomers are sent on, so everyone's fish are the same fish.)
+    this.restocked?.set(a.id, [a.size, a.gen, this.time]);
     Object.assign(a, traits(sp, a.size, a.id + a.gen * 7919));
     a.caught = 0;
     a.wary = 0;
@@ -1433,6 +1660,8 @@ export class Ecosystem {
 
   // Back into the water: the same fish, a little wiser for a while.
   release(a, x, z) {
+    this.onLocal?.('released', a, x, z);
+    a.hookedBy = null;
     a.x = a.px = x;
     a.z = a.pz = z;
     a.y = a.py = -0.5;
@@ -1452,10 +1681,14 @@ export class Ecosystem {
   }
 
   lostHooked(a) {
-    if (this.bait.owner === a) {
-      this.bait.owner = null;
-      this.bait.held = false;
+    const b = a.bait || this.bait;
+    if (b.owner === a) {
+      b.owner = null;
+      b.held = false;
     }
+    a.bait = null;
+    a.hookedBy = null;
+    this.onLocal?.('lost', a);
     a.state = 'flee';
     a.t = 0;
     a.dur = 3;
@@ -1597,10 +1830,12 @@ export class Ecosystem {
 
   // A speared fish: off the sim, on the shaft (the game places it).
   spear(a) {
-    if (this.bait.owner === a) {
-      this.bait.owner = null;
-      this.bait.held = false;
+    const b = a.bait || this.bait;
+    if (b.owner === a) {
+      b.owner = null;
+      b.held = false;
     }
+    a.bait = null;
     a.state = 'hooked';
     a.faceBait = false;
     a.curiousT = 0;

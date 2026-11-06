@@ -192,6 +192,11 @@ export class VisitorView {
     } else if (d.float) d.float.visible = false;
   }
 
+  // Where a friend's line meets the water (or the fish on it) as it's drawn here, or null.
+  lineEnd(id) {
+    return this.drawn.get(id)?.end || null;
+  }
+
   // A friend has just landed a fish: on foot, they hold it up for a few seconds.
   holdUp(id, kg) {
     const d = this.drawn.get(id);
