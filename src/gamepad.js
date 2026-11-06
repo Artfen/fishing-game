@@ -37,6 +37,10 @@ export const MAPS = {
   // A line out from a boat under power: the D-pad moves the throttle a notch (the stick is for
   // the lure).
   troll: { ...PLAY, LB: 'advice', RB: 'feed', L3: 'walkline', UP: 'throttleUp', DOWN: 'throttleDown' },
+  // Looking down at the dashboard (see dashcontrol.js): the D-pad moves the ring round it, A works
+  // what's ringed (held, for the key, the trim and the horn), B (or L3 again) looks up; the stick
+  // still steers and works the throttle, and the bumpers still trim.
+  dash: { A: 'dashPress', B: 'cancel', L3: 'motor', LB: 'trimDown', RB: 'trimUp', UP: 'dashUp', DOWN: 'dashDown', LEFT: 'dashLeft', RIGHT: 'dashRight', VIEW: 'map', MENU: 'settings' },
   // A fish on: RT reels, LT eases the drag off (the game reads the trigger), the left stick
   // sets the drag too; A follows a running fish with the boat.
   fight: { A: 'interact', B: 'cancel', RT: 'cast', R3: 'reset', LEFT: 'view', VIEW: 'map', MENU: 'settings' },

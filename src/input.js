@@ -46,6 +46,12 @@ export const ACTIONS = [
   { id: 'journal', label: 'Journal', keys: ['KeyJ', 'Tab'], group: 'Panels' },
   { id: 'settings', label: 'Settings', keys: ['KeyO'], group: 'Panels' },
   { id: 'hide', label: 'Hide the interface', keys: ['KeyH'], group: 'Panels' },
+  // Looking down at the dashboard (see dashcontrol.js): Tab moves round it too.
+  { id: 'dashPress', label: 'Dashboard: work the ringed switch (held, for the key, the trim and the horn)', keys: ['Enter'], group: 'Dashboard', fixed: true },
+  { id: 'dashUp', label: 'Dashboard: ring up', keys: [], group: 'Dashboard' },
+  { id: 'dashDown', label: 'Dashboard: ring down', keys: [], group: 'Dashboard' },
+  { id: 'dashLeft', label: 'Dashboard: ring left', keys: [], group: 'Dashboard' },
+  { id: 'dashRight', label: 'Dashboard: ring right', keys: [], group: 'Dashboard' },
 ];
 export const ACTION_BY_ID = Object.fromEntries(ACTIONS.map((a) => [a.id, a]));
 export const defaultBindings = () => Object.fromEntries(ACTIONS.map((a) => [a.id, [...a.keys]]));

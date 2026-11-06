@@ -1,4 +1,5 @@
 import { runShare, trimEffect } from './engine.js';
+import { Dashboard, DASHES } from './dashboard.js';
 import * as THREE from 'three';
 import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat, wrapAngle } from './util.js';
 import { waveHeight } from './world/water.js';
@@ -1325,11 +1326,8 @@ export class Boat {
     const parts = [
       { geo: new THREE.BoxGeometry(0.8, 1.0, 0.66), matrix: mat(hx, y0 + 0.5, cz), color: H.paint },
       { geo: new THREE.BoxGeometry(0.76, 0.04, 0.3), matrix: mat(hx, y0 + 0.98, cz - 0.22, -0.5, 0, 0), color: '#2b2e33' },
-      { geo: new THREE.BoxGeometry(0.3, 0.2, 0.03), matrix: mat(hx + 0.16, y0 + 1.1, cz - 0.16, -0.4, 0, 0), color: '#111316' },
-      { geo: new THREE.SphereGeometry(0.06, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), matrix: mat(hx - 0.12, y0 + 1.03, cz - 0.12), color: '#1d1f22' },
+      // (The screen, the gauges, the switches and the throttle are the dashboard's: see dashboard.js.)
       { geo: new THREE.BoxGeometry(0.86, 0.36, 0.02), matrix: mat(hx, y0 + 1.2, cz - 0.02, -0.35, 0, 0), color: '#9fb4bf' },
-      { geo: new THREE.BoxGeometry(0.1, 0.09, 0.1), matrix: mat(hx - 0.3, y0 + 1.0, cz - 0.26), color: '#2b2e33' },
-      ...[-0.025, 0.025].map((dx) => ({ geo: new THREE.CylinderGeometry(0.012, 0.012, 0.18, 5), matrix: mat(hx - 0.3 + dx, y0 + 1.1, cz - 0.26, 0.35, 0, 0), color: steel })),
       // The seat on the console's front, and the stripe round it.
       { geo: new THREE.BoxGeometry(0.72, 0.12, 0.4), matrix: mat(hx, y0 + 0.45, cz + 0.53), color: '#1f3b56' },
       { geo: new THREE.BoxGeometry(0.72, 0.4, 0.07), matrix: mat(hx, y0 + 0.76, cz + 0.36), color: '#1f3b56' },
@@ -1357,6 +1355,7 @@ export class Boat {
     mesh.receiveShadow = true;
     this.body.add(mesh);
     this.buildWheel(hx, y0 + 1.03, hz + 0.36, -0.6);
+    if (DASHES[this.kind]) this.dash = new Dashboard(this);
   }
 
   // A RIB's tubes: one along each side and round the bow, the two meeting in a pointed nose with a
@@ -1441,9 +1440,7 @@ export class Boat {
       // The console: white, a dark face, the screen and the throttle, a tall raked windscreen.
       { geo: new THREE.BoxGeometry(0.72, 1.02, 0.62), matrix: mat(hx, y0 + 0.51, cz), color: '#eeece6' },
       { geo: new THREE.BoxGeometry(0.68, 0.04, 0.3), matrix: mat(hx, y0 + 1.0, cz - 0.2, -0.5, 0, 0), color: '#2b2e33' },
-      { geo: new THREE.BoxGeometry(0.3, 0.2, 0.03), matrix: mat(hx + 0.15, y0 + 1.12, cz - 0.16, -0.4, 0, 0), color: '#111316' },
-      { geo: new THREE.BoxGeometry(0.1, 0.09, 0.1), matrix: mat(hx - 0.27, y0 + 1.02, cz - 0.25), color: '#2b2e33' },
-      { geo: new THREE.CylinderGeometry(0.012, 0.012, 0.18, 5), matrix: mat(hx - 0.27, y0 + 1.12, cz - 0.25, 0.35, 0, 0), color: steel },
+      // (The screen, the gauges, the switches and the throttle are the dashboard's: see dashboard.js.)
       { geo: new THREE.BoxGeometry(0.76, 0.5, 0.02), matrix: mat(hx, y0 + 1.27, cz - 0.02, -0.28, 0, 0), color: '#a9bcc6' },
       { geo: new THREE.BoxGeometry(0.73, 0.05, 0.63), matrix: mat(hx, y0 + 0.86, cz), color: '#2b2e33' },
       // The jockey seat: a padded saddle with a back roll on a stainless pedestal, a box under it.
@@ -1473,6 +1470,7 @@ export class Boat {
     mesh.receiveShadow = true;
     this.body.add(mesh);
     this.buildWheel(hx, y0 + 1.05, hz + 0.33, -0.6);
+    if (DASHES[this.kind]) this.dash = new Dashboard(this);
   }
 
   // The windsurf board's rig: a mast stepped in the board, a wishbone boom round the sail, and the
@@ -2281,7 +2279,9 @@ export class Boat {
       const sys = M && !troll && !dead ? this.engine : null;
       const share = sys ? runShare(sys) : 1;
       const TE = sys && !M.inboard && !M.jet ? trimEffect(sys, vf, this.trimAuto !== false) : null;
-      this.legAngle = TE ? TE.angle : 0;
+      // (The leg stays where it's trimmed or tilted, running or not: a dry tank doesn't drop it.)
+      const legOf = M && !troll && this.engine && !M.inboard && !M.jet ? (TE || trimEffect(this.engine, vf, this.trimAuto !== false)) : null;
+      this.legAngle = legOf ? legOf.angle : 0;
       this.intakeWet = TE ? TE.wet && !this.air : !this.air;
       const lever = share > 0 ? lever0 : 0;
       this.spool(dt, lever, troll || !!E);
