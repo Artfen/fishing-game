@@ -241,3 +241,83 @@ test('at speed the helm is gentle: a tap turns her a little, held over she comes
   }
   C.conditions.manual = null;
 });
+
+// The hull's waterline clipper and the hypot it uses, rewritten to run without garbage (see
+// hydro.js clipTriangle, hypot.js): the very same answers as the versions they replaced.
+test('the hypot helpers give Math.hypot’s own answers', async () => {
+  const { hypot2, hypot3, hypot4 } = await import('../src/hypot.js');
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const val = () => {
+    const r = rnd();
+    if (r < 0.05) return 0;
+    if (r < 0.08) return -0;
+    return (rnd() - 0.5) * 10 ** (rnd() * 12 - 6);
+  };
+  for (let i = 0; i < 200000; i++) {
+    const a = val(), b = val(), c = val(), d = val();
+    assert.equal(hypot2(a, b), Math.hypot(a, b));
+    assert.equal(hypot3(a, b, c), Math.hypot(a, b, c));
+    assert.equal(hypot4(a, b, c, d), Math.hypot(a, b, c, d));
+  }
+  for (const [a, b, c] of [[Infinity, NaN, 1], [NaN, 2, 3], [-Infinity, 0, 0], [0, -0, 0], [1e300, 1e300, 1e300], [1e-300, 3e-310, 0]]) {
+    assert.deepEqual([hypot2(a, b), hypot3(a, b, c), hypot4(a, b, c, a)], [Math.hypot(a, b), Math.hypot(a, b, c), Math.hypot(a, b, c, a)]);
+  }
+});
+
+test('the waterline clipper cuts triangles exactly as the old one did', async () => {
+  const { clipTriangle, CLIP } = await import('../src/hydro.js');
+  // The clipper as it was (objects, closures and a sort), for comparison.
+  const oldClip = (V, T, k, h, out) => {
+    const ia = T[k * 3], ib = T[k * 3 + 1], ic = T[k * 3 + 2];
+    const px = (i) => V[i * 3], py = (i) => V[i * 3 + 1], pz = (i) => V[i * 3 + 2];
+    const ids = [ia, ib, ic];
+    const below = (h[0] < 0) + (h[1] < 0) + (h[2] < 0);
+    if (below === 0) return;
+    const push = (ax, ay, az, ha, bx, by, bz, hb, cx, cy, cz, hcn) => {
+      const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az;
+      const area = 0.5 * Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
+      if (area < 1e-10) return;
+      out.push({ area, cx: (ax + bx + cx) / 3, cy: (ay + by + cy) / 3, cz: (az + bz + cz) / 3, hc: (ha + hb + hcn) / 3 });
+    };
+    if (below === 3) return push(px(ia), py(ia), pz(ia), h[0], px(ib), py(ib), pz(ib), h[1], px(ic), py(ic), pz(ic), h[2]);
+    const o = [0, 1, 2].sort((a, b) => h[a] - h[b]);
+    const L = ids[o[0]], M = ids[o[1]], Hh = ids[o[2]];
+    const hL = h[o[0]], hM = h[o[1]], hH = h[o[2]];
+    const lerpP = (a, b, ha, hb) => {
+      const t = ha / (ha - hb);
+      return [px(a) + (px(b) - px(a)) * t, py(a) + (py(b) - py(a)) * t, pz(a) + (pz(b) - pz(a)) * t];
+    };
+    if (below === 1) {
+      const iM = lerpP(L, M, hL, hM), iH = lerpP(L, Hh, hL, hH);
+      push(px(L), py(L), pz(L), hL, iM[0], iM[1], iM[2], 0, iH[0], iH[1], iH[2], 0);
+    } else {
+      const iMH = lerpP(M, Hh, hM, hH), iLH = lerpP(L, Hh, hL, hH);
+      push(px(L), py(L), pz(L), hL, px(M), py(M), pz(M), hM, iMH[0], iMH[1], iMH[2], 0);
+      push(px(L), py(L), pz(L), hL, iMH[0], iMH[1], iMH[2], 0, iLH[0], iLH[1], iLH[2], 0);
+    }
+  };
+  let seed = 11;
+  const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const V = new Float64Array(9 * 3), Hv = new Float64Array(9), T = new Uint16Array([0, 1, 2, 3, 4, 5, 6, 7, 8]);
+  const out = new Float64Array(2 * CLIP);
+  let cut = 0, pieces = 0;
+  for (let i = 0; i < 100000; i++) {
+    for (let j = 0; j < V.length; j++) V[j] = (rnd() - 0.5) * 6;
+    // (Heights from a few levels too, so corners tie and some sit right on the waterline.)
+    for (let j = 0; j < 9; j++) Hv[j] = rnd() < 0.3 ? [-1, -0.5, 0, 0.5][Math.floor(rnd() * 4)] : (rnd() - 0.55) * 2;
+    for (let k = 0; k < 3; k++) {
+      const want = [];
+      oldClip(V, T, k, [Hv[k * 3], Hv[k * 3 + 1], Hv[k * 3 + 2]], want);
+      const n = clipTriangle(V, Hv, T, k, out);
+      assert.equal(n, want.length);
+      for (let s = 0; s < n; s++) {
+        const w = want[s];
+        assert.deepEqual([...out.subarray(s * CLIP, (s + 1) * CLIP)], [w.area, w.cx, w.cy, w.cz, w.hc]);
+      }
+      if (n && n < 3) cut++;
+      pieces += n;
+    }
+  }
+  assert.ok(cut > 100000 && pieces > cut, `${cut} triangles cut, ${pieces} pieces`);
+});

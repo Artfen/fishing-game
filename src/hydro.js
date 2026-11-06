@@ -20,6 +20,8 @@
 // bow, +y up from the keel, +x to port (left); the water stands at local y = H.draft when she
 // floats level at her design weight.
 
+import { hypot2, hypot3, hypot4 } from './hypot.js';
+
 export const RHO = 1025;   // sea water, kg/m³
 export const G = 9.81;
 
@@ -287,27 +289,31 @@ export function buildHullModel(H) {
   return model;
 }
 
+// Each of the hull's vertices' heights (V: local, x, y, z each) above a level waterline at draft.
+function levelHeights(V, draft) {
+  const n = V.length / 3, Hv = new Float64Array(n);
+  for (let i = 0; i < n; i++) Hv[i] = V[i * 3 + 1] - draft;
+  return Hv;
+}
+
 // What the water does to her floating still and level at a draft: the displaced volume, its
 // centre (the centre of buoyancy), the wetted area and the waterplane's area.
 export function hydrostatics(model, draft) {
   const { V, T, N, A, nt } = model;
   let fy = 0, mx = 0, mz = 0, my = 0, wet = 0;
-  const h = [0, 0, 0];
-  const sub = [];
+  const sub = _clip, Hv = levelHeights(V, draft);
   for (let k = 0; k < nt; k++) {
-    for (let q = 0; q < 3; q++) h[q] = V[T[k * 3 + q] * 3 + 1] - draft;
-    clipTriangle(V, T, k, h, sub);
-    for (const s of sub) {
-      const area = s.area, d = -s.hc;
+    const ns = clipTriangle(V, Hv, T, k, sub);
+    for (let i = 0; i < ns; i++) {
+      const o = i * CLIP, area = sub[o], d = -sub[o + 4];
       const p = RHO * G * d * area;
       const fyk = -p * N[k * 3 + 1];
       fy += fyk;
-      mx += fyk * s.cx;
-      mz += fyk * s.cz;
-      my += fyk * s.cy;
+      mx += fyk * sub[o + 1];
+      mz += fyk * sub[o + 3];
+      my += fyk * sub[o + 2];
       wet += area;
     }
-    sub.length = 0;
   }
   const volume = fy / (RHO * G);
   // (The waterplane, roughly: the footprint where the hull crosses the draft.)
@@ -336,43 +342,76 @@ function halfBeamAt(model, t, y) {
   return prev[0];
 }
 
-// Cut triangle k at the waterline (h: each corner's height above the water) and push the
-// submerged parts (one or two triangles) into out: { area, cx, cy, cz (local centroid), hc (the
-// centroid's height above the water, negative under it) }.
-function clipTriangle(V, T, k, h, out, P = null) {
-  const ia = T[k * 3], ib = T[k * 3 + 1], ic = T[k * 3 + 2];
-  const pt = P || V;
-  const px = (i) => pt[i * 3], py = (i) => pt[i * 3 + 1], pz = (i) => pt[i * 3 + 2];
-  const ids = [ia, ib, ic];
-  const below = (h[0] < 0) + (h[1] < 0) + (h[2] < 0);
-  if (below === 0) return;
-  const push = (ax, ay, az, ha, bx, by, bz, hb, cx, cy, cz, hcn) => {
-    const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az;
-    const area = 0.5 * Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
-    if (area < 1e-10) return;
-    out.push({ area, cx: (ax + bx + cx) / 3, cy: (ay + by + cy) / 3, cz: (az + bz + cz) / 3, hc: (ha + hb + hcn) / 3 });
-  };
+// Cut triangle k (its corners' indices in T; their points in P, x, y, z each, and their heights
+// above the water in Hv, one each) at the waterline and write the submerged parts (none, one or
+// two triangles) into out, CLIP numbers each: area, the centroid cx, cy, cz (in P's frame), and
+// hc (the centroid's height above the water, negative under it). Returns how many. (Plain
+// numbers into buffers, and no calls: it runs for every wet panel of every hull, hundreds of
+// times a frame.)
+export const CLIP = 5;
+export function clipTriangle(P, Hv, T, k, out) {
+  const a = T[k * 3], b = T[k * 3 + 1], c = T[k * 3 + 2];
+  const h0 = Hv[a], h1 = Hv[b], h2 = Hv[c];
+  const below = (h0 < 0) + (h1 < 0) + (h2 < 0);
+  if (below === 0) return 0;
+  // The submerged triangles' corners (x, y, z and height, each), into C.
+  const C = _tri, ia = a * 3, ib = b * 3, ic = c * 3;
+  let nt = 1;
   if (below === 3) {
-    push(px(ia), py(ia), pz(ia), h[0], px(ib), py(ib), pz(ib), h[1], px(ic), py(ic), pz(ic), h[2]);
-    return;
-  }
-  // Order the corners by height: L lowest … H highest.
-  let o = [0, 1, 2].sort((a, b) => h[a] - h[b]);
-  const L = ids[o[0]], M = ids[o[1]], Hh = ids[o[2]];
-  const hL = h[o[0]], hM = h[o[1]], hH = h[o[2]];
-  const lerpP = (a, b, ha, hb) => {
-    const t = ha / (ha - hb);
-    return [px(a) + (px(b) - px(a)) * t, py(a) + (py(b) - py(a)) * t, pz(a) + (pz(b) - pz(a)) * t];
-  };
-  if (below === 1) {
-    const iM = lerpP(L, M, hL, hM), iH = lerpP(L, Hh, hL, hH);
-    push(px(L), py(L), pz(L), hL, iM[0], iM[1], iM[2], 0, iH[0], iH[1], iH[2], 0);
+    C[0] = P[ia]; C[1] = P[ia + 1]; C[2] = P[ia + 2]; C[3] = h0;
+    C[4] = P[ib]; C[5] = P[ib + 1]; C[6] = P[ib + 2]; C[7] = h1;
+    C[8] = P[ic]; C[9] = P[ic + 1]; C[10] = P[ic + 2]; C[11] = h2;
   } else {
-    const iMH = lerpP(M, Hh, hM, hH), iLH = lerpP(L, Hh, hL, hH);
-    push(px(L), py(L), pz(L), hL, px(M), py(M), pz(M), hM, iMH[0], iMH[1], iMH[2], 0);
-    push(px(L), py(L), pz(L), hL, iMH[0], iMH[1], iMH[2], 0, iLH[0], iLH[1], iLH[2], 0);
+    // Order the corners by height, L lowest … H highest (corners at the same height keep their
+    // order, as a stable sort leaves them).
+    let L = ia, M = ib, Hi = ic, hL = h0, hM = h1, hH = h2, q;
+    if (hM < hL) { q = L; L = M; M = q; q = hL; hL = hM; hM = q; }
+    if (hH < hM) {
+      q = M; M = Hi; Hi = q; q = hM; hM = hH; hH = q;
+      if (hM < hL) { q = L; L = M; M = q; q = hL; hL = hM; hM = q; }
+    }
+    const lx = P[L], ly = P[L + 1], lz = P[L + 2], ux = P[Hi], uy = P[Hi + 1], uz = P[Hi + 2];
+    // (Where the edge from L to the highest corner crosses the waterline.)
+    const tLH = hL / (hL - hH);
+    const bx = lx + (ux - lx) * tLH, by = ly + (uy - ly) * tLH, bz = lz + (uz - lz) * tLH;
+    C[0] = lx; C[1] = ly; C[2] = lz; C[3] = hL;
+    if (below === 1) {
+      // Only L is under: the triangle from it to where its two edges cross.
+      const tM = hL / (hL - hM);
+      C[4] = lx + (P[M] - lx) * tM; C[5] = ly + (P[M + 1] - ly) * tM; C[6] = lz + (P[M + 2] - lz) * tM; C[7] = 0;
+      C[8] = bx; C[9] = by; C[10] = bz; C[11] = 0;
+    } else {
+      // L and M under: the quadrilateral up to the crossings, as two triangles.
+      const mx = P[M], my = P[M + 1], mz = P[M + 2];
+      const tMH = hM / (hM - hH);
+      const ax = mx + (ux - mx) * tMH, ay = my + (uy - my) * tMH, az = mz + (uz - mz) * tMH;
+      C[4] = mx; C[5] = my; C[6] = mz; C[7] = hM;
+      C[8] = ax; C[9] = ay; C[10] = az; C[11] = 0;
+      C[12] = lx; C[13] = ly; C[14] = lz; C[15] = hL;
+      C[16] = ax; C[17] = ay; C[18] = az; C[19] = 0;
+      C[20] = bx; C[21] = by; C[22] = bz; C[23] = 0;
+      nt = 2;
+    }
   }
+  // Each one's area and centroid (none for a sliver).
+  let n = 0;
+  for (let i = 0; i < nt; i++) {
+    const j = i * 12;
+    const ax = C[j], ay = C[j + 1], az = C[j + 2], bx = C[j + 4], by = C[j + 5], bz = C[j + 6], cx = C[j + 8], cy = C[j + 9], cz = C[j + 10];
+    const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az;
+    const area = 0.5 * hypot3(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
+    if (area < 1e-10) continue;
+    const o = n * CLIP;
+    out[o] = area;
+    out[o + 1] = (ax + bx + cx) / 3;
+    out[o + 2] = (ay + by + cy) / 3;
+    out[o + 3] = (az + bz + cz) / 3;
+    out[o + 4] = (C[j + 3] + C[j + 7] + C[j + 11]) / 3;
+    n++;
+  }
+  return n;
 }
+const _tri = new Float64Array(24), _clip = new Float64Array(2 * CLIP);
 
 // The foils each hull carries. Each: where its centre of pressure is (local), the way its face
 // points (local, across the flow), its area and aspect ratio, how deep it reaches (for the bottom
@@ -466,13 +505,11 @@ function panelResistance(model, v, c1, c2, axis = 2) {
   const { V, T, N, nt } = model;
   const draft = model.H.draft;
   let f = 0;
-  const h = [0, 0, 0], sub = [];
+  const sub = _clip, Hv = levelHeights(V, draft);
   for (let k = 0; k < nt; k++) {
-    for (let q = 0; q < 3; q++) h[q] = V[T[k * 3 + q] * 3 + 1] - draft;
-    clipTriangle(V, T, k, h, sub);
+    const ns = clipTriangle(V, Hv, T, k, sub);
     let area = 0;
-    for (const s of sub) area += s.area;
-    sub.length = 0;
+    for (let i = 0; i < ns; i++) area += sub[i * CLIP];
     if (!area) continue;
     const cos = N[k * 3 + axis];
     const mag = (c1 * v + c2 * v * v) * area * Math.sqrt(Math.abs(cos));
@@ -546,7 +583,7 @@ export class HydroBody {
   }
 
   updateR() {
-    const [x, y, z, w] = this.q, R = this.R;
+    const q = this.q, x = q[0], y = q[1], z = q[2], w = q[3], R = this.R;
     R[0] = 1 - 2 * (y * y + z * z); R[1] = 2 * (x * y - z * w); R[2] = 2 * (x * z + y * w);
     R[3] = 2 * (x * y + z * w); R[4] = 1 - 2 * (x * x + z * z); R[5] = 2 * (y * z - x * w);
     R[6] = 2 * (x * z - y * w); R[7] = 2 * (y * z + x * w); R[8] = 1 - 2 * (x * x + y * y);
@@ -669,8 +706,11 @@ export class HydroBody {
       // its full arm, as it always has.)
       if (k > 0 && th.lever != null && th.lever !== 1) {
         const cg = this.model.cg, f = th.f * k;
-        const q = this.toWorld([th.p[0], cg[1] + (th.p[1] - cg[1]) * th.lever, th.p[2]], _p3);
-        const fa = this.dirWorld([0, th.d[1], th.d[2]], _pc), fs = this.dirWorld([th.d[0], 0, 0], _pv);
+        _l1[0] = th.p[0]; _l1[1] = cg[1] + (th.p[1] - cg[1]) * th.lever; _l1[2] = th.p[2];
+        _l2[0] = 0; _l2[1] = th.d[1]; _l2[2] = th.d[2];
+        _l3[0] = th.d[0]; _l3[1] = 0; _l3[2] = 0;
+        const q = this.toWorld(_l1, _p3);
+        const fa = this.dirWorld(_l2, _pc), fs = this.dirWorld(_l3, _pv);
         this.addForce(fa[0] * f, fa[1] * f, fa[2] * f, q[0], q[1], q[2]);
         this.addForce(fs[0] * f, fs[1] * f, fs[2] * f, p[0], p[1], p[2]);
       } else if (k > 0) this.addForce(d[0] * th.f * k, d[1] * th.f * k, d[2] * th.f * k, p[0], p[1], p[2]);
@@ -679,7 +719,8 @@ export class HydroBody {
       if (th.foil && k > 0) {
         const wash = Math.sign(th.f) * Math.sqrt((2 * Math.abs(th.f) * k) / (RHO * th.foil.disk));
         const fd = th.foil.d || th.d;
-        this.foil(th.foil.p || th.p, [fd[2], 0, -fd[0]], th.foil.area * k, th.foil.ar ?? 1.5, th.foil.stall ?? 0.35, 2 * Math.PI, wash, fd);
+        _l1[0] = fd[2]; _l1[1] = 0; _l1[2] = -fd[0];
+        this.foil(th.foil.p || th.p, _l1, th.foil.area * k, th.foil.ar ?? 1.5, th.foil.stall ?? 0.35, 2 * Math.PI, wash, fd);
       }
     }
     for (const fo of this.forces) this.addForce(fo.f[0], fo.f[1], fo.f[2], fo.p[0], fo.p[1], fo.p[2]);
@@ -701,12 +742,12 @@ export class HydroBody {
   }
 
   hullForces(h) {
-    const M = this.model, { T, N, A, nt } = M, P = this.P, Hh = this.Hh, WV = this.WV;
+    const M = this.model, { T, N, nt } = M, P = this.P, Hh = this.Hh, WV = this.WV;
     const R = this.R, c1 = this.drag.c1, c2 = this.drag.c2;
-    const hh = [0, 0, 0], sub = _sub;
+    const sub = _clip, X = this.x, Vb = this.v, Wb = this.w;
     let wet = 0, along = 0, wx = 0, wy = 0, wz = 0, ux0 = 0, uz0 = 0;
     const bx = R[2], by = R[5], bz = R[8];
-    const speed = Math.hypot(this.v[0] - this.current[0], this.v[2] - this.current[1]);
+    const speed = hypot2(this.v[0] - this.current[0], this.v[2] - this.current[1]);
     const re = Math.max(1e5, (speed * M.H.L) / NU);
     const cf = 0.075 / (Math.log10(re) - 2) ** 2;
     // (How much the faces leaving the water still pull: all of it slow, a quarter on the plane.)
@@ -714,26 +755,26 @@ export class HydroBody {
     const suck = 1 - 0.75 * Math.min(1, Math.max(0, (fn - 0.6) / 0.8)) ** 2;
     for (let k = 0; k < nt; k++) {
       const a = T[k * 3], b = T[k * 3 + 1], c = T[k * 3 + 2];
-      hh[0] = Hh[a]; hh[1] = Hh[b]; hh[2] = Hh[c];
-      if (hh[0] >= 0 && hh[1] >= 0 && hh[2] >= 0) continue;
-      clipTriangle(null, T, k, hh, sub, P);
-      if (!sub.length) continue;
+      const ha = Hh[a], hb = Hh[b], hc = Hh[c];
+      if (ha >= 0 && hb >= 0 && hc >= 0) continue;
+      const ns = clipTriangle(P, Hh, T, k, sub);
+      if (!ns) continue;
       // The panel's outward normal in the world.
       const ln0 = N[k * 3], ln1 = N[k * 3 + 1], ln2 = N[k * 3 + 2];
       const nx = R[0] * ln0 + R[1] * ln1 + R[2] * ln2, ny = R[3] * ln0 + R[4] * ln1 + R[5] * ln2, nz = R[6] * ln0 + R[7] * ln1 + R[8] * ln2;
       // The water's motion here (the panel's corners averaged).
       const wvx = (WV[a * 3] + WV[b * 3] + WV[c * 3]) / 3, wvy = (WV[a * 3 + 1] + WV[b * 3 + 1] + WV[c * 3 + 1]) / 3, wvz = (WV[a * 3 + 2] + WV[b * 3 + 2] + WV[c * 3 + 2]) / 3;
-      for (const s of sub) {
-        const area = s.area;
+      for (let i = 0; i < ns; i++) {
+        const o = i * CLIP, area = sub[o], scx = sub[o + 1], scy = sub[o + 2], scz = sub[o + 3];
         wet += area;
         // Pressure, by depth.
-        const p = RHO * G * -s.hc * area;
+        const p = RHO * G * -sub[o + 4] * area;
         let fx = -p * nx, fy = -p * ny, fz = -p * nz;
-        // Drag: the panel's own velocity through the moving water.
-        _pc[0] = s.cx; _pc[1] = s.cy; _pc[2] = s.cz;
-        this.pointVel(_pc, _pv);
-        const ux = _pv[0] - wvx, uy = _pv[1] - wvy, uz = _pv[2] - wvz;
-        const u = Math.hypot(ux, uy, uz);
+        // Drag: the panel's own velocity through the moving water. (Its velocity as a point
+        // fixed to the hull, as pointVel works it out.)
+        const rx = scx - X[0], ry = scy - X[1], rz = scz - X[2];
+        const ux = Vb[0] + Wb[1] * rz - Wb[2] * ry - wvx, uy = Vb[1] + Wb[2] * rx - Wb[0] * rz - wvy, uz = Vb[2] + Wb[0] * ry - Wb[1] * rx - wvz;
+        const u = hypot3(ux, uy, uz);
         if (u > 1e-4) {
           const cos = (ux * nx + uy * ny + uz * nz) / u;
           // (The slow, linear part is the waves she sends out heaving, pitching and rolling: it's
@@ -750,17 +791,16 @@ export class HydroBody {
           fx += sgn * f * nx; fy += sgn * f * ny; fz += sgn * f * nz;
           // Skin friction, along the panel.
           const un = ux * nx + uy * ny + uz * nz;
-          const tx = ux - un * nx, ty = uy - un * ny, tz = uz - un * nz, tl = Math.hypot(tx, ty, tz);
+          const tx = ux - un * nx, ty = uy - un * ny, tz = uz - un * nz, tl = hypot3(tx, ty, tz);
           const fr = 0.5 * RHO * cf * area * tl;
           fx -= fr * tx; fy -= fr * ty; fz -= fr * tz;
           // (What the drag does along her bow axis, to be put right below.)
           along += (sgn * f * nx - fr * tx) * bx + (sgn * f * ny - fr * ty) * by + (sgn * f * nz - fr * tz) * bz;
         }
-        wx += s.cx * area; wy += s.cy * area; wz += s.cz * area;
+        wx += scx * area; wy += scy * area; wz += scz * area;
         ux0 += wvx * area; uz0 += wvz * area;
-        this.addForce(fx, fy, fz, s.cx, s.cy, s.cz);
+        this.addForce(fx, fy, fz, scx, scy, scz);
       }
-      sub.length = 0;
     }
     this.submerged = wet;
     if (wet < 1e-3) this.dryT += h;
@@ -769,7 +809,7 @@ export class HydroBody {
     // Ahead and astern she meets her own resistance (the waves she makes and the water along
     // her), in proportion to how much of her is in the water: lifted clear on a crest she
     // runs free; buried in a sea she's slowed. It acts low down, where the water is.
-    const hl = Math.hypot(bx, bz) || 1;
+    const hl = hypot2(bx, bz) || 1;
     // (Her speed through the water round her: the current and the waves' own to-and-fro.)
     const wux = ux0 / wet, wuz = uz0 / wet;
     const vf = ((this.v[0] - wux) * bx + (this.v[2] - wuz) * bz) / hl;
@@ -809,7 +849,8 @@ export class HydroBody {
       let n = f.n;
       if (f.steer || f.kayak) {
         const d = this.rudder * (f.steer || 0.5);
-        n = [Math.cos(d), 0, -Math.sin(d)];
+        n = _l1;
+        n[0] = Math.cos(d); n[1] = 0; n[2] = -Math.sin(d);
       }
       this.foil(f.p, n, f.area * wetK, f.ar, f.stall, f.cl, 0, null);
     }
@@ -826,7 +867,7 @@ export class HydroBody {
       this.dirWorld(wd, _p3);
       ux += _p3[0] * wash; uy += _p3[1] * wash; uz += _p3[2] * wash;
     }
-    const u = Math.hypot(ux, uy, uz);
+    const u = hypot3(ux, uy, uz);
     if (u < 0.02) return;
     this.dirWorld(n, _p2);
     const nx = _p2[0], ny = _p2[1], nz = _p2[2];
@@ -840,7 +881,7 @@ export class HydroBody {
     const q = 0.5 * RHO * area * u * u;
     // Lift: across the flow, against the side the water comes from.
     const lx = nx - (sa * ux) / u, ly = ny - (sa * uy) / u, lz = nz - (sa * uz) / u;
-    const ll = Math.hypot(lx, ly, lz) || 1;
+    const ll = hypot3(lx, ly, lz) || 1;
     const L = (q * cl * (alpha > 0 ? -1 : 1)) / ll, D = (-q * cd) / u;
     this.addForce(lx * L + ux * D, ly * L + uy * D, lz * L + uz * D, p[0], p[1], p[2]);
   }
@@ -859,7 +900,7 @@ export class HydroBody {
   // The wind on the topsides: it blows her along and, pushing high on her, heels her a little.
   windForce() {
     const ax = this.wind[0] - this.v[0], az = this.wind[1] - this.v[2];
-    const a = Math.hypot(ax, az);
+    const a = hypot2(ax, az);
     if (a < 0.05) return;
     const k = this.windage * this.m * a;
     const p = this.toWorld(this.windageAt, _p1);
@@ -871,7 +912,7 @@ export class HydroBody {
       const p = this.toWorld(r.p, _p1);
       const to = typeof r.to === 'function' ? r.to() : r.to;
       const dx = to[0] - p[0], dy = to[1] - p[1], dz = to[2] - p[2];
-      const d = Math.hypot(dx, dy, dz) || 1e-6;
+      const d = hypot3(dx, dy, dz) || 1e-6;
       const stretch = d - r.len;
       r.out.tension = 0;
       if (stretch <= 0) continue;
@@ -904,7 +945,7 @@ export class HydroBody {
       const e = 0.4;
       const gx = (env.ground(p[0] + e, p[2]) - env.ground(p[0] - e, p[2])) / (2 * e);
       const gz = (env.ground(p[0], p[2] + e) - env.ground(p[0], p[2] - e)) / (2 * e);
-      const nl = Math.hypot(gx, 1, gz);
+      const nl = hypot3(gx, 1, gz);
       const nx = -gx / nl, ny = 1 / nl, nz = -gz / nl;
       this.pointVel(p, _pv);
       const vn = _pv[0] * nx + _pv[1] * ny + _pv[2] * nz;
@@ -912,7 +953,7 @@ export class HydroBody {
       // (The spring saturates: put down deep in the sand she's eased out, never fired out.)
       const fn = Math.max(0, k * Math.min(pen, 0.08) - c * vn);
       // Friction: wet sand, stones, weed.
-      const tx = _pv[0] - vn * nx, ty = _pv[1] - vn * ny, tz = _pv[2] - vn * nz, tl = Math.hypot(tx, ty, tz);
+      const tx = _pv[0] - vn * nx, ty = _pv[1] - vn * ny, tz = _pv[2] - vn * nz, tl = hypot3(tx, ty, tz);
       const mu = 0.45, fr = tl > 1e-4 ? (mu * fn) / Math.max(tl, 0.08) : 0;
       slide = Math.max(slide, tl);
       this.addForce(nx * fn - tx * fr, ny * fn - ty * fr, nz * fn - tz * fr, p[0], p[1], p[2]);
@@ -940,7 +981,7 @@ export class HydroBody {
       // (Already parting faster than half a metre a second: the spring lets go, so hulls that find
       // themselves inside each other ease apart instead of firing off at many metres a second.)
       const fn = vn > 0.5 ? 0 : Math.max(0, k * Math.min(f.pen, 0.1) - c * vn);
-      const tx = _pv[0] - vn * f.nx, ty = _pv[1] - vn * f.ny, tz = _pv[2] - vn * f.nz, tl = Math.hypot(tx, ty, tz);
+      const tx = _pv[0] - vn * f.nx, ty = _pv[1] - vn * f.ny, tz = _pv[2] - vn * f.nz, tl = hypot3(tx, ty, tz);
       const fr = tl > 1e-4 ? ((f.mu ?? 0.3) * fn) / Math.max(tl, 0.1) : 0;
       this.addForce(f.nx * fn - tx * fr, f.ny * fn - ty * fr, f.nz * fn - tz * fr, p[0], p[1], p[2]);
     }
@@ -994,7 +1035,7 @@ export class HydroBody {
     // Her momentum under way: what drives her along her track (her bow's way, laid flat) moves
     // her less once she's moving, as if she were heavier along it. (See surgeShare.)
     if (this.surge < 1) {
-      const bl = Math.hypot(R[2], R[8]);
+      const bl = hypot2(R[2], R[8]);
       if (bl > 0.3) {
         const ux = R[2] / bl, uz = R[8] / bl;
         const vf = (v[0] - this.current[0]) * ux + (v[2] - this.current[1]) * uz;
@@ -1025,10 +1066,11 @@ export class HydroBody {
     q[1] += 0.5 * h * (w[1] * qw + w[2] * qx - w[0] * qz);
     q[2] += 0.5 * h * (w[2] * qw + w[0] * qy - w[1] * qx);
     q[3] += 0.5 * h * (-w[0] * qx - w[1] * qy - w[2] * qz);
-    const ql = Math.hypot(q[0], q[1], q[2], q[3]);
+    const ql = hypot4(q[0], q[1], q[2], q[3]);
     q[0] /= ql; q[1] /= ql; q[2] /= ql; q[3] /= ql;
   }
 }
 
-const _sub = [];
+// (Scratch for local points and directions built on the fly.)
+const _l1 = [0, 0, 0], _l2 = [0, 0, 0], _l3 = [0, 0, 0];
 const _p1 = [0, 0, 0], _p2 = [0, 0, 0], _p3 = [0, 0, 0], _pc = [0, 0, 0], _pv = [0, 0, 0];

@@ -81,3 +81,37 @@ test('a hull dropping into the sea throws a burst', () => {
   }
   assert.ok(most > 150, `${most.toFixed(0)} drops a second as she lands`);
 });
+
+test('drops fly and fall as ever, and with none in the air nothing is worked out or sent', async () => {
+  const { Effects } = await import('../src/effects.js');
+  const fx = new Effects(new THREE.Scene());
+  const boat = { pos: new THREE.Vector3(0, 0, 0), fwd: new THREE.Vector3(0, 0, 1), right: new THREE.Vector3(-1, 0, 0), speed: 3, heading: 0 };
+  const live = () => fx.drops.live + fx.mist.live;
+  const pos = (D) => D.points.geometry.attributes.position;
+  let t = 0, most = 0;
+  const step = (frames) => {
+    for (let f = 0; f < frames; f++) {
+      t += 1 / 30;
+      fx.update(1 / 30, t, boat);
+    }
+  };
+  for (let f = 0; f < 30 * 4; f++) {
+    if (f < 30 && f % 3 === 0) fx.splash(5, 0.2, 5, 12, 2.2, 1);
+    if (f < 45) for (let k = 0; k < 20; k++) fx.spray(0, 0.3, 0, (k - 10) * 0.2, 2 + k * 0.05, 1, -0.1);
+    step(1);
+    assert.equal(live(), fx.flying, 'counted as they go');
+    most = Math.max(most, live());
+  }
+  assert.ok(most > 300, `${most} in the air at once`);
+  assert.equal(fx.flying, 0, 'all fallen back');
+  // (The pool wraps round: a drop thrown into a slot still in use takes its place.)
+  for (let k = 0; k < 2000; k++) fx.spray(0, 0.3, 0, 0, 3, 0, -0.1);
+  assert.equal(fx.mist.live, fx.mist.N);
+  step(60);
+  assert.equal(live(), 0);
+  const v = [pos(fx.drops).version, pos(fx.mist).version];
+  step(10);
+  assert.deepEqual([pos(fx.drops).version, pos(fx.mist).version], v, 'nothing sent with none flying');
+  fx.splash(1, 0.2, 1);
+  assert.ok(pos(fx.drops).version > v[0], 'a new splash is sent');
+});

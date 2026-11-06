@@ -70,7 +70,7 @@ export class Passengers {
   }
 
   clear() {
-    for (const f of this.figs) f.figure.group.removeFromParent();
+    for (const f of this.figs) f.figure.dispose();
     this.figs = [];
     this.boat = null;
     this.key = '';

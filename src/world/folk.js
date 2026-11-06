@@ -200,6 +200,21 @@ export class Figure {
     return g;
   }
 
+  // Gone for good (a passenger ashore, a castaway picked up): out of the scene, and the shapes and
+  // colours made for them alone given back to the graphics card.
+  dispose() {
+    this.group.removeFromParent();
+    const done = new Set();
+    this.group.traverse((o) => {
+      for (const x of [o.geometry, ...(Array.isArray(o.material) ? o.material : [o.material])]) {
+        if (x && !done.has(x)) {
+          done.add(x);
+          x.dispose();
+        }
+      }
+    });
+  }
+
   // Pose for what they're doing (see townsfolk.js), and where.
   update(dt, t, p, y) {
     const act = p.act;

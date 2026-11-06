@@ -95,3 +95,29 @@ test('the catch log keeps the season', () => {
   assert.equal(s.log[0].season, 'summer');
   assert.ok(!('season' in s.log[1]));
 });
+
+test('each kind’s seasonal activity is just what it was, worked out without garbage', async () => {
+  const { FISH } = await import('../src/fish.js');
+  // (As it was: blending one-element rows, and the south checked afresh each time.)
+  const blend = (P, abs) => {
+    const x = S.yearPhase(abs) * 4 - 0.5, i = Math.floor(x), f = x - i;
+    const a = P[((i % 4) + 4) % 4], b = P[(((i + 1) % 4) + 4) % 4];
+    const k = f * f * (3 - 2 * f);
+    return a.map((v, j) => v + (b[j] - v) * k);
+  };
+  const old = (sp, abs) => {
+    const row = S.SEASON_FISH[sp.id];
+    if (!row || abs == null) return 1;
+    if (sp.life?.southGroups && !sp.life?.zones?.some((z) => !['harbor', 'lee', 'lava', 'sebadal', 'veril', 'ocean'].includes(z))) return 1;
+    return blend(row.map((v) => [v]), abs)[0];
+  };
+  let n = 0;
+  for (let abs = -50; abs < 24 * 70; abs += 0.37) {
+    for (const sp of FISH) {
+      assert.equal(S.seasonBoost(sp, abs), old(sp, abs), `${sp.id} at ${abs}`);
+      n++;
+    }
+  }
+  for (const sp of FISH) assert.equal(S.seasonBoost(sp, null), 1);
+  assert.ok(n > 300000);
+});

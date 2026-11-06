@@ -12,7 +12,9 @@
 // computer's: compare runs on the same machine only. The simulation numbers are CPU work and carry
 // over better.
 
-const { chromium } = await import(process.env.PLAYWRIGHT || 'playwright');
+// (Playwright's CommonJS entry, imported from here, may put everything under default.)
+const PW = await import(process.env.PLAYWRIGHT || 'playwright');
+const { chromium } = PW.chromium ? PW : PW.default;
 const args = process.argv.slice(2);
 const URL = args.find((a) => a.startsWith('http')) || 'http://127.0.0.1:8642/';
 const only = args.filter((a) => !a.startsWith('http'));

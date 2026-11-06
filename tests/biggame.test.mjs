@@ -55,7 +55,9 @@ test('ten big fish of the open ocean, every one trolled for on the big-game rod'
   assert.ok(TACKLE.skirt.size > TACKLE.ballyhoo.size);
 });
 
-test('where they live: the billfish only off Las Brasas; the blue shark, mako and albacore in both seas, all in deep blue water', () => {
+test('where they live: the billfish only off Las Brasas; the blue shark, mako and albacore in both seas, all in deep blue water', (t) => {
+  const random = Math.random;
+  t.after(() => { Math.random = random; });
   Math.random = seeded(5);
   const eco = new Ecosystem(habitat);
   for (const sp of BIG_GAME) {
@@ -108,7 +110,9 @@ function troll(eco, a, speed, secs = 90) {
   return met;
 }
 
-test('a lure trolled behind a boat raises the big game from far off; a slow bait there doesn’t', () => {
+test('a lure trolled behind a boat raises the big game from far off; a slow bait there doesn’t', (t) => {
+  const random = Math.random;
+  t.after(() => { Math.random = random; });
   Math.random = seeded(11);
   const eco = new Ecosystem(habitat);
   const marlin = eco.bySpecies.bluemarlin[0];
