@@ -103,6 +103,7 @@ import { keyStep } from './dashboard.js';
 import { TrollMotor, canTroll } from './trolling.js';
 import * as Con from './contracts.js';
 import { Passengers } from './passengers.js';
+import { PickupView } from './world/pickups.js';
 import { renderWork } from './contractboard.js';
 import { demandFor, money, ordersFor, ORDERS_BY } from './market.js';
 import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
@@ -2642,6 +2643,7 @@ function findStep(dt) {
   _ff.setFromProjectionMatrix(_fm);
   const F = near.find((d) => _ff.containsPoint(_fv.set(d.x, d.y, d.z)));
   if (!F || !logFind(state.dive, S.id, F.id, state.day)) return;
+  jobsDone(Con.found(state.contracts, S.id));
   const all = SITE_DETAILS[S.id], n = state.dive.sites[S.id].found.filter((id) => all.some((d) => d.id === id)).length;
   audio.chime();
   laterT = Math.max(laterT, 9); // (the field notes can wait their turn)
@@ -3402,11 +3404,54 @@ function jobWeight() {
     BOATS[k].payload = payloadOf(k);
   }
   // (And the charters' people, sat in the boat they're aboard: see passengers.js.)
-  const aboard = state.contracts.active.filter((a) => a.obj.kind === 'charter' && a.progress.aboard && !a.ready && BOATS[a.progress.boat]);
+  const people = (a) => (a.obj.kind === 'charter' && a.progress.aboard ? a.obj.pax : a.obj.kind === 'pickup' && a.obj.what === 'person' && a.progress.picked ? 1 : 0);
+  const aboard = state.contracts.active.filter((a) => !a.ready && people(a) && BOATS[a.progress.boat]);
   const kind = aboard[0]?.progress.boat;
-  passengers.set(kind ? BOATS[kind] : null, aboard.filter((a) => a.progress.boat === kind).map((a) => ({ id: a.id, n: a.obj.pax, divers: !!a.obj.divers })));
+  passengers.set(kind ? BOATS[kind] : null, aboard.filter((a) => a.progress.boat === kind).map((a) => ({ id: a.id, n: people(a), divers: !!a.obj.divers })));
+  // (And what the radio's calls sent you out to, waiting on the water.)
+  pickups.sync(state.contracts.active.filter((a) => a.obj.kind === 'pickup' && !a.progress.picked).map((a) => ({ id: a.id, what: a.obj.what, x: a.obj.at.x, z: a.obj.at.z })));
 }
 const passengers = new Passengers();
+const pickups = new PickupView(scene);
+
+// The harbour office on the radio, now and then: someone to pick up, a buoy adrift (see
+// contracts.js callDue/callFor). By day, afloat, in fair weather, with room for another job; said
+// yes to, it's on your list (and marked); said no to, nothing's lost.
+let callT = 0;
+function updateCalls(dt) {
+  if ((callT -= dt) > 0) return;
+  callT = 5;
+  const C = state.contracts;
+  // (Not while the first trip's guide is running: one thing at a time for someone new.)
+  if (onFoot || driving || dive || modal || state.guide?.on || together.guestSlot >= 0 || clock.hour < 7.5 || clock.hour > 19) return;
+  if (Math.max(weather.storm, conditions.sea.storm) > 0.2 || !Con.callDue(C, clock.abs)) return;
+  Con.callMade(C, clock.abs);
+  const spot = callSpot();
+  const o = spot && Con.callFor(C, { ...jobWorld(), callSpot: spot });
+  if (!o) return;
+  audio.chime?.();
+  ask(o.cat === 'rescue' ? 'The harbour office, on the radio' : o.title, `${o.story} (${o.goal}: pays ${money(o.pay)}.)`, [
+    { text: 'Not now', cls: 'quiet', run: () => { hud.toast('“No bother: someone else will go.”', 4); save(); } },
+    { text: 'On my way', run: () => {
+      if (Con.acceptCall(C, o, t)) hud.toast(`${o.title}: it’s marked, and on your map.`, 5);
+      jobWeight();
+      save();
+    } },
+  ]);
+}
+// Somewhere out on the water a few hundred metres off (deep enough, at home), in words.
+function callSpot() {
+  const P = boat.pos;
+  for (let i = 0; i < 24; i++) {
+    const a = Math.random() * Math.PI * 2, d = 220 + Math.random() * 480;
+    const x = P.x + Math.sin(a) * d, z = P.z + Math.cos(a) * d;
+    if (z > 2600 || solidHeight(x, z) > -2.5 || solidHeight(x + 8, z) > -2 || solidHeight(x, z + 8) > -2) continue;
+    const near = placeName(x, z) || PLACES.find((p) => !p.area && Math.hypot(p.x - x, p.z - z) < 160)?.name;
+    const H = HARBOUR_OFFICE, km = Math.round(Math.hypot(x - H.x, z - H.z) / 100) / 10;
+    return { x, z, where: near ? `off ${near}` : `${km} km ${compass(bearingOf(x - H.x, z - H.z))} of the harbour` };
+  }
+  return null;
+}
 // The water points the Trust's surveys and the Sailing Club's course use (open water in the bay).
 const JOB_WATER = { a: { x: 60, z: 140 }, b: { x: -20, z: 230 }, c: { x: 150, z: 200 }, d: { x: -60, z: 180 }, e: { x: 150, z: 330 }, f: { x: 60, z: 400 } };
 const markOf = (k, name) => ({ ...JOB_WATER[k], name });
@@ -3431,6 +3476,11 @@ function jobWorld() {
     // (The boats you can take out today, and the ones there are to hire, for a charter's "take".)
     usable: KINDS.filter(usable), kinds: KINDS.filter((k) => usable(k) || BOAT_PRICES[k]),
     diveSites: PLACES.filter((p) => p.dive).map((p) => ({ id: p.id, name: p.name, x: p.x, z: p.z, noAnchor: DIVE_RULES[p.id] || null })),
+    // (What's left to find at each dive site, for the Trust's surveys.)
+    diveUnfound: PLACES.filter((p) => p.dive && SITE_DETAILS[p.id]).map((p) => {
+      const got = state.dive.sites[p.id]?.found || [];
+      return { id: p.id, name: p.name, x: p.x, z: p.z, deep: p.id === 'hound' || p.id === 'sands', left: SITE_DETAILS[p.id].filter((d) => !got.includes(d.id)).length };
+    }),
     dolphins: sealife.pods.some((p) => p.sea === 'home' && p.bow && near(p.x, p.z, 1600)),
     birds: world.flocks.length > 0 || (clock.hour > 5 && clock.hour < 8.5) || (clock.hour > 18 && clock.hour < 21),
     // (A gale today keeps the deliveries and the racing off the board, but for the one that has to
@@ -3440,7 +3490,7 @@ function jobWorld() {
     galeAt: galeFor(state.day) && clock.abs < galeFor(state.day).start ? galeFor(state.day).start : null,
     galeWords: galeFor(state.day) ? formatClock(galeFor(state.day).start % 24) : '',
     summer: mo >= 4 && mo <= 7, canCross: usable('cruiser') || usable('sail'), ownsSail: usable('sail'), beenSouth: !!state.tips.brasa,
-    places: { quay: placeOf('quay'), puerto: placeOf('puerto'), stream: placeOf('stream'), puffin: placeOf('puffin'), visitors: { x: (VISITOR_FINGERS[0].x0 + VISITOR_FINGERS[0].x1) / 2, z: (VISITOR_FINGERS[0].z0 + VISITOR_FINGERS[0].z1) / 2, name: 'the visitors’ pontoon' } },
+    places: { quay: placeOf('quay'), puerto: placeOf('puerto'), stream: placeOf('stream'), puffin: placeOf('puffin'), landing: placeOf('landing'), light: placeOf('light'), hound: placeOf('hound'), visitors: { x: (VISITOR_FINGERS[0].x0 + VISITOR_FINGERS[0].x1) / 2, z: (VISITOR_FINGERS[0].z0 + VISITOR_FINGERS[0].z1) / 2, name: 'the visitors’ pontoon' } },
     surveyLines: [{ name: 'the bay mouth', marks: [markOf('d', 'mark 1'), markOf('b', 'mark 2'), markOf('a', 'mark 3')] }, { name: 'off the bay', marks: [markOf('c', 'mark 1'), markOf('e', 'mark 2'), markOf('f', 'mark 3')] }],
     tempMarks: [markOf('a', 'buoy A'), markOf('e', 'buoy B'), markOf('f', 'buoy C'), markOf('b', 'buoy D')],
     courses: [{ name: 'the bay', marks: [markOf('a', 'mark 1'), markOf('c', 'mark 2'), markOf('b', 'mark 3'), markOf('d', 'mark 4')], minutes: 8 }],
@@ -3466,7 +3516,7 @@ function payJob(id, onSpot = false) {
   if (now !== was) setTimeout(() => hud.toast(`You’re a ${now.name} now: ${now.says}. Tomorrow’s board will have the work for it.`, 8), 6500);
   earnIn(state, r.pay, `${r.contract.title} (${Con.GIVERS[r.contract.giver]})`);
   const rough = r.contract.obj.kind === 'charter' && r.pay < r.contract.pay ? ' A rough trip in an open boat: they didn’t tip.' : '';
-  hud.toast(`${onSpot ? `${r.contract.title}: delivered. ` : ''}Paid ${money(r.pay)} for ${r.contract.title.toLowerCase()}.${rough}${r.rep ? ` ${Con.GIVERS[r.contract.giver].split(',')[0]} will remember it.` : ''}`, 6);
+  hud.toast(`${onSpot ? `${r.contract.title}: ${r.contract.cat === 'rescue' ? 'safely in' : 'delivered'}. ` : ''}Paid ${money(r.pay)} for ${r.contract.title.toLowerCase()}.${rough}${r.rep ? ` ${Con.GIVERS[r.contract.giver].split(',')[0]} will remember it.` : ''}`, 6);
   audio.coins?.();
   save();
   return true;
@@ -3522,7 +3572,7 @@ function updateJobs(dt) {
   for (const f of world.flocks) if (f.t >= 1) frenzy = Math.min(frenzy ?? Infinity, Math.hypot(f.x - P.x, f.z - P.z));
   // A place you're at and stopped (for a delivery).
   let at = null;
-  if (afloat ? boat.speed < 0.8 : true) for (const id of ['quay', 'puerto', 'puffin']) {
+  if (afloat ? boat.speed < 0.8 : true) for (const id of ['quay', 'puerto', 'puffin', 'landing']) {
     const p = PLACES.find((q) => q.id === id);
     if (p && Math.hypot(P.x - p.x, P.z - p.z) < 40) at = id;
   }
@@ -3538,13 +3588,23 @@ function updateJobs(dt) {
     sea: afloat ? waveHeightHere(P.x, P.z) : null, bow: afloat && sealife.pods.some((p) => p.mode === 'bow' && (p.owner == null || p.owner === me)),
   });
   jobBumps = 0;
-  for (const a of r.boarded) hud.toast(a.obj.kind === 'charter' ? `${a.title}: ${a.obj.pax} aboard${a.obj.divers ? ' with their kit' : ''}. ${Con.standing(a)}` : `${a.title}: loaded, ${a.obj.cargo} kg. She sits lower for it: take her to ${a.where?.name || 'it'}.`, 6);
+  for (const a of r.boarded) {
+    const o = a.obj;
+    hud.toast(o.kind === 'charter' ? `${a.title}: ${o.pax} aboard${o.divers ? ' with their kit' : ''}. ${Con.standing(a)}`
+      : o.kind === 'pickup' ? (o.what === 'person' ? `${a.title}: aboard, cold and grateful. Home to Willowhaven.` : `${a.title}: hauled aboard. Home to Willowhaven with it.`)
+        : `${a.title}: loaded, ${o.cargo} kg. She sits lower for it: take her to ${a.where?.name || 'it'}.`, 6);
+    audio.chime?.();
+  }
+  for (const a of r.stepped) {
+    hud.toast(`${a.title}: done. ${Con.standing(a)}`, 6);
+    audio.chime?.();
+  }
   for (const s of r.said) hud.toast(s.text, 6);
   for (const a of r.seen) {
     hud.toast(`${a.title}: ${a.obj.dive ? 'all back aboard, and happy.' : a.obj.fish ? 'that’s their fish.' : 'they saw it, and loved it.'} Home to Willowhaven.`, 6);
     audio.chime?.();
   }
-  if (r.boarded.length || r.done.length) jobWeight();
+  if (r.boarded.length || r.done.length || r.stepped.length) jobWeight();
   for (const a of r.missed) hud.toast(`${a.title}: too late, the job’s gone. Nothing lost but the job.`, 5);
   if (r.missed.length) {
     jobWeight();
@@ -5220,6 +5280,8 @@ function offerGuide(wait = 3.2) {
     save();
     ask('Your first fishing trip', 'This is home: the cottage, the garage with your tackle, and the car. Like a short guide to your first trip? Stop it any time; it’s in the journal.', [
       { text: 'No thanks', cls: 'quiet', run: () => hud.toast('Explore as you like. The guide is in the journal (Memories) if you want it.', 5) },
+      // (For someone who'd rather be on the water than fish: where the work is.)
+      { text: 'Not fishing: boats and work', cls: 'quiet', run: () => hud.toast('Then Willowhaven’s notice board is for you: paid work on the water, a new board each day (a parcel to deliver, dolphins to find, a course to sail, people to take out later on), and the harbour office calls on the radio when someone needs a hand. Drive to the harbour: the first job’s an easy one.', 12) },
       { text: 'Guide me', run: () => beginGuide() },
     ]);
   }, wait * 1000);
@@ -6224,7 +6286,7 @@ function openBoard() {
   $('board').hidden = false;
   audio.page();
   renderBoard();
-  teach('board', 'The board reads the water itself: the wind and sea, which fish are busy round the harbour, where gulls are diving. It changes through the day.', 8);
+  teach('board', 'The board reads the water itself: the wind and sea, which fish are busy round the harbour, where gulls are diving. Under it, Work: jobs for the harbour’s people, a new board each day, and plenty that isn’t fishing.', 9);
 }
 function closeBoard() {
   $('board').hidden = true;
@@ -7171,7 +7233,7 @@ function checkPlaces(dt) {
     if (pl.id === 'bajon') teach('bajonTip', `El Bajón: lava pinnacles under the yellow buoy, sea fans, parrotfish, morays and a grouper. Look down from the boat, or dive it (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')} with the boat stopped).`, 12);
     if (pl.dive && pl.id !== 'wreck') teach('diveSiteTip', `${pl.name}: a dive site under the yellow buoy. Stop close by, anchor, and go in (${scheme() === 'touch' ? 'tap the prompt' : input.keyLabel('interact')}). Each site you dive is ticked on your map.`, 11);
     if (pl.id === 'hound') teach('houndTip', 'The Hound: ten metres at its top, thirty at its foot. Dive it on a tank at slack water (high or low: see the notice board), and watch your air.', 11);
-    if (pl.id === 'haven') teach('havenTip', `Willowhaven: the notice board, tackle in the chandlery, the bench, and your boats at the harbour office by the quay (${scheme() === 'touch' ? 'tap the prompts' : input.keyLabel('interact')}).`, 10);
+    if (pl.id === 'haven') teach('havenTip', `Willowhaven: the notice board (paid work on the water, and not all of it fishing), tackle in the chandlery, the bench, and your boats at the harbour office by the quay (${scheme() === 'touch' ? 'tap the prompts' : input.keyLabel('interact')}).`, 10);
     if (pl.id === 'strand') teach('strandTip', 'Shell Strand: bass come into the surf at dusk, and flatfish up the sand after dark. The shelf above the beach is a dry, level place for a tent.', 9);
     if (pl.id === 'head') teach('headTip', 'Cove Head takes the swell: bass and white bream in the wash below the ledges. You can see the Kittiwake’s buoy from the daymark.', 8);
     if (pl.id === 'reach') teach('reachTip', 'The cove channel is sheltered from every wind: a calm place for a float at dusk, and for watching cuttlefish under the water.', 8);
@@ -10202,7 +10264,9 @@ function tick(now, manual = false) {
   }
   if (started) {
     updateJobs(dt);
+    updateCalls(dt);
     passengers.update(dt, t);
+    pickups.update(dt, t);
     updateEngine(dt);
     updateTroll(dt);
     updateDash(dt);
@@ -10757,7 +10821,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared, teamwork, crew, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
+  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared, teamwork, crew, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pickupsShown() { return pickups.count; }, seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
   pump: (id = 'haven') => openPump(id),
