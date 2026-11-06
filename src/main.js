@@ -2340,13 +2340,16 @@ function mooringAction() {
   if (!started || modal || onFoot || driving || cabinIn || placement.isOn) return null;
   if (boat.tie) return { text: 'Cast off', run: castOff };
   if (fishing.state === 'reeling' || fishing.state === 'landing') return null;
-  if (!boat.anchored && boat.speed < 0.9) {
+  const sp = boat._avgSpeed ?? boat.speed;
+  if (!boat.anchored && sp < 3) {
     const B = berthFor(boat, boats);
-    if (B) return { text: 'Tie up alongside', run: () => tieUp(B) };
+    // (Beside a berth but still moving: say so, rather than the prompt simply not being there.)
+    if (B && sp < 0.9) return { text: 'Tie up alongside', run: () => tieUp(B) };
+    if (B) return { text: `Slow down to tie up (${sp.toFixed(1)} m/s)`, run: () => {}, busy: true };
   }
   if (tow && (tow.lead === boat || tow.towed === boat)) return { text: `Let go the tow (the ${tow.lead === boat ? tow.towed.name : tow.lead.name})`, run: () => letGoTow() };
   if (boat.anchored) return boat.anchor?.phase === 'haul' ? { text: 'Hauling in the anchor…', run: () => {}, busy: true } : { text: 'Raise the anchor', run: toggleAnchor };
-  if (boat.speed < 1) return { text: 'Drop the anchor', run: toggleAnchor };
+  if (sp < 1) return { text: 'Drop the anchor', run: toggleAnchor };
   return null;
 }
 
@@ -3367,7 +3370,7 @@ function dashState() {
     glow: E.glowing > 0, glowReady: E.glow >= 1, crank: E.engines.map((e) => e.crank > 0), running: run, rpm: E.engines.map((e) => e.rpm),
     knots: Math.abs(boat.forwardSpeed || 0) * 1.9438, fuel: isPetrol(k) ? clamp(fuelOf(k) / cap, 0, 1) : 1,
     volts: 11.3 + E.charge * 1.5 + (run ? 1.5 : 0), temp: E.temp,
-    trim: boat.trimAuto ? boat.legAngle || 0 : E.trim, trimDir: trimDirNow, lever: clamp(boat.lever || 0, -1, 1),
+    trim: boat.trimAuto ? boat.legAngle || 0 : E.trim, trimDir: trimDirNow, lever: positionOf(boat.kind, boat.lever || 0),
     lights: !!boat.navLights, horn: dashHorn > 0, selftest: keySelftest, night: env.night,
     heading: boat.heading, depth: habitat.depth(P0.x, P0.z), track: T.slice(-60).map((p) => [p[0] - P0.x, p[1] - P0.z]),
     page: finder.visible ? 'sonar' : 'chart', sonar: finder.canvas,
@@ -4189,6 +4192,8 @@ function updateLever() {
     if (smooth) keys = P ? (line ? `${K('throttleUp')} ${K('throttleDown')} a notch` : `${kbd('L-stick')} ↕ throttle · ${K('neutral')} stop`) : `${line ? `${K('throttleUp')}${K('throttleDown')}` : `${K('forward')}${K('back')}`} throttle · ${K('neutral')} stop`;
     else keys = P ? (line ? `${K('throttleUp')} ${K('throttleDown')} a notch` : `${kbd('L-stick')} ↕ a notch · ${K('neutral')} stop`) : `${line ? `${K('throttleUp')}${K('throttleDown')}` : `${K('forward')}${K('back')}`} a notch · ${K('neutral')} stop`;
   }
+  // (The trolling motor down and the engine in neutral: the movement keys drive it instead.)
+  if (kind && !T && boat.troll?.deployed && boat.troll.mode !== 'lock' && !boat.lever) keys = `${P ? kbd('L-stick') : `${K('forward')}${K('back')}`} trolling motor · ${P ? `${K('throttleUp')} ${K('throttleDown')}` : `${K('throttleUp')}${K('throttleDown')}`} engine`;
   if (kayak && !T) keys += `${keys ? ' · ' : ''}${K('motor')} motor`;
   // (The sailing boat's outboard: its own button raises it again.)
   const outboard = kind === 'sail';
@@ -10442,6 +10447,9 @@ function tick(now, manual = false) {
     watchHire();
   }
   boat.update(dt, t, throttle, steer, env.lantern);
+  // (Her speed over a second or so: the waves' own to-and-fro averaged out, so the tie-up and
+  // anchor prompts don't flicker in a swell.)
+  boat._avgSpeed = damp(boat._avgSpeed ?? boat.speed, boat.speed, 1.5, dt);
   // (The others: any lying still a long way from you rest; see Boat.update.)
   for (const b of boats) {
     if (b === boat) continue;
@@ -10625,7 +10633,9 @@ function tick(now, manual = false) {
   else if (dive) diver.eyePoint(_eye);
   else if (onFoot || cabinIn) walker.eyePoint(_eye);
   else boat.eyePoint(_eye, steadyCam);
-  if (!onFoot && steadyCam) _eye.y = eyeY = Math.abs(eyeY - _eye.y) > 1 ? _eye.y : damp(eyeY, _eye.y, 0.3, dt);
+  // (The steady camera: the eye eased against the boat's rise and fall, but never more than 15 cm
+  // from where it is in her: no sinking through the console, no snap back.)
+  if (!onFoot && steadyCam) _eye.y = eyeY = clamp(damp(eyeY, _eye.y, 0.6, dt), _eye.y - 0.15, _eye.y + 0.15);
   else eyeY = _eye.y;
   // Looking down at the dashboard, you lean in over it.
   dashLean = damp(dashLean, dashCtl.focused ? 1 : 0, 5, dt);

@@ -261,3 +261,35 @@ test('the save keeps where the anchor lies, the berth she’s tied up at, and a 
   const again = M.berthAt(b, 5, 1, -88, 0);
   assert.deepEqual(B, again);
 });
+
+test('a berth beside a moored boat clears her whole hull, bow to stern; tied up, neither is thrown out', async () => {
+  const { CONSOLE_BERTH } = await import('../src/world/terrain.js');
+  // The centre console tied at her own berth, as the game keeps her.
+  const con = boatAt('console', CONSOLE_BERTH.x, CONSOLE_BERTH.z, CONSOLE_BERTH.heading);
+  const Bc = M.berthFor(con, [con]);
+  assert.ok(Bc, 'her own berth');
+  con.tieTo(Bc);
+  run(con, 2);
+  // A bass boat coming alongside close by (where the audit found a berth inside the console's hull).
+  const bass = boatAt('bass', 20.3, -60.4, Math.PI / 2);
+  const B = M.berthFor(bass, [con, bass]);
+  if (B) assert.equal(M.hullsOverlap(bass, B, con), false, 'no berth inside the other boat');
+  // The old check alone (beam circles) would have allowed an overlap here:
+  const inside = { x: con.pos.x + Math.sin(con.heading) * (con.hull.L * 0.5 + 0.5), z: con.pos.z + Math.cos(con.heading) * (con.hull.L * 0.5 + 0.5), heading: con.heading };
+  assert.equal(M.hullsOverlap(bass, inside, con), true, 'bow into her stern quarter: an overlap');
+  // Tied where offered (lying on the berth it gives): both stay put (no boat fired out of
+  // her berth). (The old berth here lay inside the console: tied up, the bass was thrown 6 m.)
+  if (B) {
+    bass.place(B.x, B.z, B.heading);
+    bass.update(1 / 30, clock, 0, 0, 0);
+    bass.tieTo(B);
+    let peak = 0;
+    for (let i = 0; i < 6 * 30; i++) {
+      clock += 1 / 30;
+      con.update(1 / 30, clock, 0, 0, 0);
+      bass.update(1 / 30, clock, 0, 0, 0);
+      peak = Math.max(peak, bass.speed, con.speed);
+    }
+    assert.ok(peak < 1, `peak speed ${peak.toFixed(2)} m/s`);
+  }
+});
