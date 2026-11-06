@@ -4,7 +4,7 @@ import { waveHeight } from './water.js';
 import { depthAt, heightAt, GANNET, SKERRIES } from './terrain.js';
 import { ARCO, PICO } from './brasa.js';
 import { sealParts } from './calf.js';
-import { clamp, lerp, damp, dampAngle, smoothstep, wrapAngle, glowTexture, mergeParts, mat } from '../util.js';
+import { clamp, lerp, damp, dampAngle, smoothstep, wrapAngle, glowTexture, mergeParts, mat, seeded } from '../util.js';
 
 // Sea life you don't catch: the whales, dolphins, seals and seabirds of both seas, there to be
 // watched (and listened to), never fished for.
@@ -37,6 +37,19 @@ import { clamp, lerp, damp, dampAngle, smoothstep, wrapAngle, glowTexture, merge
 //
 // The game hears what you see (onSighting) for its record of sea life, and the blows, whistles and
 // splashes for their sounds. Only the sea you're in is alive at a time.
+//
+// Playing together (see sharedworld.js), everyone shares one sea: it's all built from one seed, so
+// every screen has the same pods, whales, seals, birds and turtles, and the host decides what they
+// do (with everyone in the session in mind: a pod rides whichever boat draws it, a seal follows
+// whoever's going slowly near its rocks), sending it twice a second (capture). Everyone else's sea
+// follows the host's word (apply, with follower set) instead of deciding for itself; a pod riding a
+// bow, or a seal following a boat, is placed from that boat on each screen, so it stays on it.
+// ctx.viewers lists everyone the host's sea must answer to (one, alone).
+
+// (The states that go across, as numbers.)
+const POD_MODES = ['roam', 'bow'];
+const WHALE_STATES = ['down', 'breathe', 'sound'];
+const SEAL_MODES = ['idle', 'visit', 'follow'];
 
 // What each is called, for the record and the words when you first see one.
 export const SEA_LIFE = {
@@ -233,14 +246,18 @@ class Blows {
   }
 }
 
-export function buildSeaLife(scene, { glow = null } = {}) {
+export function buildSeaLife(scene, { glow = null, seed = 20261106 } = {}) {
   const blows = new Blows(scene);
+  // (Everything built from one seed: the same on every screen. What they do from then on is
+  // Math.random's, on the host's screen or alone.)
+  const B = seeded(seed), brand = (a, b) => a + B() * (b - a);
+  const life = { follower: false };
   const events = { onSighting: null, onBlow: null, onWhistle: null, onPlunge: null, onSplash: null, onMoment: null, onSnort: null };
   const surface = (x, z, t) => waveHeight(x, z, t);
   // A spot in this area deep enough, reachable from (fx, fz) without crossing land.
-  const pickTarget = (A, minDepth, fx, fz) => {
+  const pickTarget = (A, minDepth, fx, fz, r = Math.random) => {
     for (let k = 0; k < 30; k++) {
-      const x = rand(A[0], A[1]), z = rand(A[2], A[3]);
+      const x = A[0] + r() * (A[1] - A[0]), z = A[2] + r() * (A[3] - A[2]);
       if (depthAt(x, z) < minDepth) continue;
       if (fx != null) {
         let ok = true;
@@ -253,35 +270,73 @@ export function buildSeaLife(scene, { glow = null } = {}) {
   };
 
   /* ---------- dolphins (and the pilot whales) ---------- */
-  const pods = PODS.map((P) => {
-    const at = pickTarget(P.area, P.minDepth);
+  const pods = PODS.map((P, id) => {
+    const at = pickTarget(P.area, P.minDepth, undefined, undefined, B);
     const pod = {
-      ...P, x: at.x, z: at.z, heading: Math.random() * Math.PI * 2, vx: 0, vz: 0, target: pickTarget(P.area, P.minDepth, at.x, at.z),
-      mode: 'roam', modeT: 0, bored: 0, slowT: 0, whistleT: 2, seenT: 0, glowT: 0, members: [],
+      ...P, id, x: at.x, z: at.z, heading: B() * Math.PI * 2, vx: 0, vz: 0, target: pickTarget(P.area, P.minDepth, at.x, at.z, B),
+      mode: 'roam', modeT: 0, bored: 0, slowT: 0, whistleT: 2, seenT: 0, glowT: 0, members: [], owner: null, net: null,
     };
     for (let i = 0; i < P.n; i++) {
-      const len = rand(P.len[0], P.len[1]);
+      const len = brand(P.len[0], P.len[1]);
       const body = cetacean(scene, P.kind, len);
       const side = i % 2 ? 1 : -1;
       pod.members.push({
         ...body, len, x: at.x, y: -3, z: at.z, yaw: pod.heading, pitch: 0,
         // Its place in the pod (across, along), and alongside a bow (across, ahead, how deep).
-        slot: { across: (Math.random() - 0.5) * (P.whale ? 16 : 12), along: (Math.random() - 0.5) * (P.whale ? 14 : 10) },
-        bowSlot: { across: side * rand(0.7, 2.2), ahead: rand(0.4, 3.8), deep: rand(0.5, 1.0) },
-        cyc: Math.random() * 8, period: rand(P.period[0], P.period[1]), leap: false, blew: false, landed: true, phase: Math.random() * 10,
+        slot: { across: (B() - 0.5) * (P.whale ? 16 : 12), along: (B() - 0.5) * (P.whale ? 14 : 10) },
+        bowSlot: { across: side * brand(0.7, 2.2), ahead: brand(0.4, 3.8), deep: brand(0.5, 1.0) },
+        cyc: B() * 8, period: brand(P.period[0], P.period[1]), leap: false, blew: false, landed: true, phase: B() * 10,
       });
     }
     return pod;
   });
+  // The viewer whose boat it is (a pod riding it, a seal following it), if their boat's here.
+  const boatFor = (V, id) => (id == null ? null : V.find((v) => v.id === id && v.boat) || null);
+  // How far the nearest of everyone is from (x, z).
+  const nearestViewer = (V, x, z) => V.reduce((m, v) => Math.min(m, Math.hypot(v.from.x - x, v.from.z - z)), Infinity);
+  // Following the host: how old its word is now (seconds), and easing something onto where the
+  // host has it (where it was when they said, carried on at its pace since); too far out, it's
+  // simply put there.
+  life.netT = 0;
+  const ageOf = (n) => life.netT - n.t0 + n.lag;
+  const follow = (e, n, dt, snap) => {
+    const age = ageOf(n), ex = n.x + (n.vx || 0) * age, ez = n.z + (n.vz || 0) * age;
+    const dx = ex - e.x, dz = ez - e.z;
+    if (dx * dx + dz * dz > snap * snap) {
+      e.x = ex;
+      e.z = ez;
+      if (n.heading != null) e.heading = n.heading;
+      return;
+    }
+    const k = 1 - Math.exp(-1.6 * dt);
+    e.x += dx * k;
+    e.z += dz * k;
+    if (n.heading != null && e.heading != null) e.heading = dampAngle(e.heading, n.heading, 0.8, dt);
+  };
 
   const stepPod = (pod, dt, t, ctx, near) => {
-    const boat = ctx.boat, sp = ctx.boatSpeed || 0;
+    const V = ctx.V;
     pod.bored = Math.max(0, pod.bored - dt);
     pod.seenT = Math.max(0, pod.seenT - dt);
+    // The boat it's riding, or (roaming) the nearest one that could draw it in.
+    let rider = pod.mode === 'bow' ? boatFor(V, pod.owner) : null;
+    if (!rider && pod.mode === 'roam' && !life.follower) {
+      let bd = Infinity;
+      for (const v of V) {
+        if (!v.boat) continue;
+        const d = Math.hypot(v.boat.pos.x - pod.x, v.boat.pos.z - pod.z);
+        if (d < bd && v.boatSpeed > 3 && v.boatSpeed < 11) {
+          bd = d;
+          rider = v;
+        }
+      }
+    }
+    const boat = rider?.boat ?? null, sp = rider?.boatSpeed || 0;
     // A boat going along at a good clip draws a pod in to ride its bow.
     const dBoat = boat ? Math.hypot(boat.pos.x - pod.x, boat.pos.z - pod.z) : Infinity;
-    if (pod.bow && pod.mode === 'roam' && boat && sp > 3 && sp < 11 && dBoat < (pod.reach ?? 160) && !pod.bored) {
+    if (!life.follower && pod.bow && pod.mode === 'roam' && boat && sp > 3 && sp < 11 && dBoat < (pod.reach ?? 160) && !pod.bored) {
       pod.mode = 'bow';
+      pod.owner = rider.id;
       pod.modeT = rand(45, 90);
       pod.slowT = 0;
     }
@@ -289,10 +344,18 @@ export function buildSeaLife(scene, { glow = null } = {}) {
     if (pod.mode === 'bow') {
       pod.modeT -= dt;
       pod.slowT = sp < 2 || sp > 12 ? pod.slowT + dt : 0;
-      if (!boat || pod.modeT <= 0 || pod.slowT > 4 || dBoat > Math.max(260, (pod.reach ?? 160) + 100)) {
+      if (!life.follower && (!boat || pod.modeT <= 0 || pod.slowT > 4 || dBoat > Math.max(260, (pod.reach ?? 160) + 100))) {
         pod.mode = 'roam';
+        pod.owner = null;
         pod.bored = rand(150, 240);
         pod.target = pickTarget(pod.area, pod.minDepth, pod.x, pod.z);
+      } else if (!boat) {
+        // (Following the host, riding a boat this screen isn't drawing: where the host has it.)
+        const n = pod.net, age = n ? ageOf(n) : 0;
+        wantX = n ? n.x + n.vx * age : pod.x;
+        wantZ = n ? n.z + n.vz * age : pod.z;
+        wantSpeed = n ? Math.hypot(n.vx, n.vz) + 0.5 : pod.speed;
+        frame = { fx: Math.sin(pod.heading), fz: Math.cos(pod.heading), rx: -Math.cos(pod.heading), rz: Math.sin(pod.heading) };
       } else {
         const bow = (boat.hull?.L ?? 3.6) * 0.5;
         wantX = boat.pos.x + boat.fwd.x * bow;
@@ -302,7 +365,7 @@ export function buildSeaLife(scene, { glow = null } = {}) {
       }
     }
     if (pod.mode === 'roam') {
-      if (Math.hypot(pod.target.x - pod.x, pod.target.z - pod.z) < 30) pod.target = pickTarget(pod.area, pod.minDepth, pod.x, pod.z);
+      if (!life.follower && Math.hypot(pod.target.x - pod.x, pod.target.z - pod.z) < 30) pod.target = pickTarget(pod.area, pod.minDepth, pod.x, pod.z);
       wantX = pod.target.x;
       wantZ = pod.target.z;
       wantSpeed = pod.speed;
@@ -322,6 +385,9 @@ export function buildSeaLife(scene, { glow = null } = {}) {
     }
     pod.x += pod.vx * dt;
     pod.z += pod.vz * dt;
+    // (Following the host: eased onto where its pod is, roaming; riding a bow, it's placed from
+    // that boat on this screen, so it stays on it.)
+    if (life.follower && pod.net && (pod.mode === 'roam' || !boat)) follow(pod, pod.net, dt, 40);
     if (!near) {
       for (const m of pod.members) m.mesh.visible = false;
       return;
@@ -348,9 +414,21 @@ export function buildSeaLife(scene, { glow = null } = {}) {
       // Up to breathe now and then (often, riding a bow), now and then clear of the water.
       m.cyc += dt;
       const period = bowing ? m.period * 0.4 : m.period;
+      if (m.net) {
+        // (The host's breath for it: in step with theirs, and a leap when theirs leaps.)
+        const want = m.net.cyc + ageOf(m.net);
+        if (Math.abs(want - m.cyc) > 0.6 && want < period) {
+          if (want < m.cyc) {
+            m.blew = false;
+            m.landed = false;
+          }
+          m.cyc = want;
+          m.leap = m.net.leap;
+        }
+      }
       if (m.cyc > period) {
         m.cyc = 0;
-        m.leap = !pod.whale && Math.random() < (bowing ? 0.2 : speed > 3 ? 0.08 : 0.03);
+        m.leap = life.follower ? !!m.net?.leap && m.net.cyc + ageOf(m.net) < 1 : !pod.whale && Math.random() < (bowing ? 0.2 : speed > 3 ? 0.08 : 0.03);
         m.blew = false;
         m.landed = false;
       }
@@ -406,31 +484,35 @@ export function buildSeaLife(scene, { glow = null } = {}) {
   };
 
   /* ---------- the great whales ---------- */
-  const whales = WHALES.map((W) => {
-    const at = pickTarget(W.area, W.minDepth);
+  const whales = WHALES.map((W, id) => {
+    const at = pickTarget(W.area, W.minDepth, undefined, undefined, B);
     const body = cetacean(scene, W.kind, W.len);
     return {
-      ...W, ...body, x: at.x, z: at.z, y: -30, heading: Math.random() * Math.PI * 2, pitch: 0, target: pickTarget(W.area, W.minDepth, at.x, at.z),
-      state: 'down', t: rand(10, 60), breathsLeft: 0, phase: 0, seenT: 0, blew: false,
+      ...W, ...body, id, x: at.x, z: at.z, y: -30, heading: B() * Math.PI * 2, pitch: 0, target: pickTarget(W.area, W.minDepth, at.x, at.z, B),
+      state: 'down', t: brand(10, 60), breathsLeft: 0, breathN: 0, phase: 0, seenT: 0, blew: false, net: null,
     };
   });
   const stepWhale = (w, dt, t, ctx, near) => {
     w.seenT = Math.max(0, w.seenT - dt);
-    if (Math.hypot(w.target.x - w.x, w.target.z - w.z) < 60) w.target = pickTarget(w.area, w.minDepth, w.x, w.z);
+    if (!life.follower && Math.hypot(w.target.x - w.x, w.target.z - w.z) < 60) w.target = pickTarget(w.area, w.minDepth, w.x, w.z);
     const resting = w.rests && w.state !== 'down';
     w.heading = dampAngle(w.heading, Math.atan2(w.target.x - w.x, w.target.z - w.z), 0.08, dt);
     const v = w.speed * (resting ? 0.3 : 1);
     w.x += Math.sin(w.heading) * v * dt;
     w.z += Math.cos(w.heading) * v * dt;
+    if (life.follower && w.net) follow(w, w.net, dt, 60);
     const s = surface(w.x, w.z, t), half = w.len * 0.06;
     let y = s - 30, pitch = 0;
     // Down deep, travelling; then up to breathe a few times, a dip under between breaths (the
     // sperm whale lies at the surface, breathing); then down again, arching (or flukes up).
     if (w.state === 'down') {
       w.t -= dt;
-      if (w.t <= 0) {
+      // (How many breaths is the host's to say: following it, it waits for the word.)
+      if (w.t <= 0 && life.follower) w.t = 0;
+      else if (w.t <= 0) {
         w.state = 'breathe';
         w.breathsLeft = Math.round(rand(w.breaths[0], w.breaths[1]));
+        w.breathN++;
         w.t = 0;
         w.blew = false;
       }
@@ -456,6 +538,7 @@ export function buildSeaLife(scene, { glow = null } = {}) {
         w.breathsLeft--;
         w.t = 0;
         w.blew = false;
+        w.breathN++;
         if (w.breathsLeft <= 0) {
           w.state = 'sound';
           w.t = 0;
@@ -474,7 +557,7 @@ export function buildSeaLife(scene, { glow = null } = {}) {
       }
       if (u >= 1) {
         w.state = 'down';
-        w.t = rand(w.down[0], w.down[1]);
+        w.t = life.follower ? 9999 : rand(w.down[0], w.down[1]);
       }
     }
     w.y = y;
@@ -493,7 +576,7 @@ export function buildSeaLife(scene, { glow = null } = {}) {
 
   /* ---------- grey seals ---------- */
   const sealMat = new THREE.MeshLambertMaterial({ vertexColors: true });
-  const { bodyGeo, headGeo } = sealParts(Math.random);
+  const { bodyGeo, headGeo } = sealParts(B);
   const makeSeal = () => {
     const g = new THREE.Group();
     const body = new THREE.Mesh(bodyGeo, sealMat);
@@ -530,17 +613,17 @@ export function buildSeaLife(scene, { glow = null } = {}) {
   for (const H of haulouts) {
     for (const p of H.spots) {
       const s = makeSeal();
-      s.g.scale.setScalar(rand(0.8, 1.1));
+      s.g.scale.setScalar(brand(0.8, 1.1));
       s.g.position.set(p.x, Math.max(0.1, heightAt(p.x, p.z)) + 0.02, p.z);
-      s.g.rotation.y = Math.random() * Math.PI * 2;
-      ashore.push({ ...s, H, ph: Math.random() * 20, lift: 0, look: 0 });
+      s.g.rotation.y = B() * Math.PI * 2;
+      ashore.push({ ...s, H, ph: B() * 20, lift: 0, look: 0 });
     }
     for (let i = 0; i < 2; i++) {
       const s = makeSeal();
       s.body.visible = false;
       s.neck.position.set(0, 0, 0);
       s.head.rotation.x = -0.35;
-      visitors.push({ ...s, H, x: H.x, z: H.z, a: Math.random() * 6.28, r: rand(14, 30), depth: 1, down: true, t: rand(5, 30), look: 0, mode: 'idle', visits: 0, cool: rand(20, 60), followCool: rand(60, 200) });
+      visitors.push({ ...s, id: visitors.length, H, x: H.x, z: H.z, a: B() * 6.28, r: brand(14, 30), depth: 1, down: true, t: brand(5, 30), look: 0, mode: 'idle', visits: 0, cool: brand(20, 60), followCool: brand(60, 200), owner: null, net: null });
     }
   }
   const stepSeals = (dt, t, ctx, near) => {
@@ -559,64 +642,67 @@ export function buildSeaLife(scene, { glow = null } = {}) {
       if (d < 120) events.onSighting?.('seal', s.g.position.x, s.g.position.z);
     }
     // Heads in the water: drifting off the haul-out, sinking and coming up again; and, near a quiet
-    // boat (or a diver), coming over to have a look at you from a few boat-lengths off.
-    const quiet = (ctx.boat && (ctx.boatSpeed ?? 0) < 1.5) || ctx.diving;
+    // boat (or a diver), coming over to have a look at you from a few boat-lengths off. (Anyone in
+    // the session: a seal comes to whoever's quiet near its rocks, follows whoever's going slowly.)
+    const V = ctx.V;
+    const quietOf = (v) => (v.boat && (v.boatSpeed ?? 0) < 1.5) || v.diving;
     // (Going along slowly: rowing, dead slow under power, trolling.)
-    const slow = ctx.boat && (ctx.boatSpeed ?? 0) > 0.6 && (ctx.boatSpeed ?? 0) < 4.5;
+    const slowOf = (v) => v.boat && (v.boatSpeed ?? 0) > 0.6 && (v.boatSpeed ?? 0) < 4.5;
     const following = visitors.some((v) => v.mode === 'follow');
     for (const s of visitors) {
-      const H = s.H, dH = Math.hypot(ctx.from.x - H.x, ctx.from.z - H.z);
+      const H = s.H;
       s.t -= dt;
       s.cool = Math.max(0, s.cool - dt);
       s.followCool = Math.max(0, s.followCool - dt);
-      // Taking to following you: near its rocks, the boat going along slowly.
-      if (s.mode === 'idle' && slow && !following && dH < 700 && !s.followCool && s.down && Math.random() < dt * 0.02) {
-        s.mode = 'follow';
-        s.down = true;
-        s.t = rand(3, 6);
-        s.left = rand(90, 200);
-        s.fx = 0;
+      // Taking to following someone: near its rocks, their boat going along slowly.
+      if (!life.follower && s.mode === 'idle' && !following && !s.followCool && s.down && Math.random() < dt * 0.02) {
+        const v = V.find((q) => slowOf(q) && Math.hypot(q.from.x - H.x, q.from.z - H.z) < 700);
+        if (v) {
+          s.mode = 'follow';
+          s.owner = v.id;
+          s.down = true;
+          s.t = rand(3, 6);
+          s.left = rand(90, 200);
+          s.fx = 0;
+        }
       }
       if (s.mode === 'follow') {
-        const B = ctx.boat;
-        s.left -= dt;
-        if (!B || (ctx.boatSpeed ?? 0) > 5.5 || s.left <= 0 || dH > 1600) {
+        const v = boatFor(V, s.owner), Bt = v?.boat, bs = v?.boatSpeed ?? 0;
+        s.left = (s.left ?? 0) - dt;
+        if (!life.follower && (!Bt || bs > 5.5 || s.left <= 0 || Math.hypot(v.from.x - H.x, v.from.z - H.z) > 1600)) {
           // Lost interest (or left behind): under, and home.
           s.mode = 'idle';
+          s.owner = null;
           s.down = true;
           s.followCool = rand(240, 480);
           s.t = rand(8, 16);
-        } else {
+        } else if (Bt) {
           // Astern, a few boat-lengths back, a little to one side; up for a look, under, up again.
-          const fx = B.fwd?.x ?? Math.sin(B.heading), fz = B.fwd?.z ?? Math.cos(B.heading), back = 11 + Math.sin(t * 0.3) * 3, side = Math.sin(t * 0.13 + s.a) * 4;
-          const tx = B.pos.x - fx * back + fz * side, tz = B.pos.z - fz * back - fx * side;
+          const fx = Bt.fwd?.x ?? Math.sin(Bt.heading), fz = Bt.fwd?.z ?? Math.cos(Bt.heading), back = 11 + Math.sin(t * 0.3) * 3, side = Math.sin(t * 0.13 + s.a) * 4;
+          const tx = Bt.pos.x - fx * back + fz * side, tz = Bt.pos.z - fz * back - fx * side;
           if (depthAt(tx, tz) > 1.2) {
             s.x = damp(s.x, tx, s.down ? 3 : 1.2, dt);
             s.z = damp(s.z, tz, s.down ? 3 : 1.2, dt);
           }
-          if (s.t <= 0) {
+          if (!life.follower && s.t <= 0) {
             s.down = !s.down;
             s.t = s.down ? rand(4, 9) : rand(7, 14);
-            if (!s.down) {
-              events.onSnort?.(s.x, s.z);
-              if (!s.fx) {
-                s.fx = 1;
-                events.onMoment?.('sealFollow', 'A grey seal has come up in your wake, a few lengths astern, and it’s following you: up for a look, a snort, under, and up again behind you. Fishing boats are worth following, to a seal.');
-              }
-            }
           }
         }
       }
-      if (s.mode === 'idle' && quiet && dH < 240 && !s.cool && s.down) {
-        // Off to look: it comes up a little way off you, to one side.
-        s.mode = 'visit';
-        const a = Math.random() * Math.PI * 2, r = rand(9, 16);
-        s.x = ctx.from.x + Math.sin(a) * r;
-        s.z = ctx.from.z + Math.cos(a) * r;
-        if (depthAt(s.x, s.z) < 1.2) s.mode = 'idle';
-        else {
-          s.down = false;
-          s.t = rand(12, 25);
+      if (!life.follower && s.mode === 'idle' && s.down && !s.cool) {
+        // Off to look: it comes up a little way off whoever's quiet nearby, to one side.
+        const v = V.find((q) => quietOf(q) && Math.hypot(q.from.x - H.x, q.from.z - H.z) < 240);
+        if (v) {
+          s.mode = 'visit';
+          const a = Math.random() * Math.PI * 2, r = rand(9, 16);
+          s.x = v.from.x + Math.sin(a) * r;
+          s.z = v.from.z + Math.cos(a) * r;
+          if (depthAt(s.x, s.z) < 1.2) s.mode = 'idle';
+          else {
+            s.down = false;
+            s.t = rand(12, 25);
+          }
         }
       }
       if (s.mode === 'follow') {
@@ -625,7 +711,7 @@ export function buildSeaLife(scene, { glow = null } = {}) {
         s.a += 0.03 * dt;
         s.x = H.x + Math.sin(s.a) * s.r;
         s.z = H.z + Math.cos(s.a) * s.r;
-        if (s.t <= 0) {
+        if (!life.follower && s.t <= 0) {
           s.down = !s.down;
           s.t = s.down ? rand(8, 20) : rand(15, 35);
           if (s.down) {
@@ -633,13 +719,22 @@ export function buildSeaLife(scene, { glow = null } = {}) {
             s.r = rand(12, 30);
           }
         }
-      } else if (s.t <= 0 || (ctx.boatSpeed ?? 0) > 3) {
+      } else if (!life.follower && (s.t <= 0 || V.some((q) => q.boat && (q.boatSpeed ?? 0) > 3 && Math.hypot(q.from.x - s.x, q.from.z - s.z) < 120))) {
         // Seen enough: under again, and back to the rocks for a while.
         s.down = true;
         s.mode = 'idle';
         s.cool = rand(40, 80);
         s.t = rand(8, 16);
       }
+      // Up in someone's wake: a snort; and the first time, for whoever it's following, a word.
+      if (s.wasDown && !s.down && s.mode === 'follow') {
+        events.onSnort?.(s.x, s.z);
+        if (!s.fx && s.owner === V[0].id) {
+          s.fx = 1;
+          events.onMoment?.('sealFollow', 'A grey seal has come up in your wake, a few lengths astern, and it’s following you: up for a look, a snort, under, and up again behind you. Fishing boats are worth following, to a seal.');
+        }
+      }
+      s.wasDown = s.down;
       s.depth = damp(s.depth, s.down ? 1 : 0, 1.4, dt);
       const d = Math.hypot(ctx.from.x - s.x, ctx.from.z - s.z);
       s.g.visible = near && s.depth < 0.95 && d < 600;
@@ -658,13 +753,13 @@ export function buildSeaLife(scene, { glow = null } = {}) {
     const b = buildGannet();
     b.g.visible = false;
     scene.add(b.g);
-    colony.push({ ...b, a: Math.random() * 6.28, r: rand(55, 110), y: rand(14, 38), sp: (Math.random() < 0.5 ? -1 : 1) * rand(9, 12), ph: Math.random() * 10 });
+    colony.push({ ...b, a: B() * 6.28, r: brand(55, 110), y: brand(14, 38), sp: (B() < 0.5 ? -1 : 1) * brand(9, 12), ph: B() * 10 });
   }
   for (let i = 0; i < 8; i++) {
     const b = buildGannet();
     b.g.visible = false;
     scene.add(b.g);
-    feeders.push({ ...b, state: 'off', a: Math.random() * 6.28, r: rand(8, 18), y0: rand(18, 30), sp: (Math.random() < 0.5 ? -1 : 1) * rand(9, 12), ph: Math.random() * 10, t: 0, x: 0, y: 0, z: 0, tx: 0, tz: 0 });
+    feeders.push({ ...b, state: 'off', a: B() * 6.28, r: brand(8, 18), y0: brand(18, 30), sp: (B() < 0.5 ? -1 : 1) * brand(9, 12), ph: B() * 10, t: 0, x: 0, y: 0, z: 0, tx: 0, tz: 0 });
   }
   let feeding = null, lookT = 2;
   const flap = (b, t, k = 1) => {
@@ -684,40 +779,53 @@ export function buildSeaLife(scene, { glow = null } = {}) {
     const b = buildShearwater();
     b.g.visible = false;
     scene.add(b.g);
-    shears.push({ ...b, state: 'off', a: Math.random() * 6.28, r: rand(9, 22), y0: rand(2.5, 6), sp: (Math.random() < 0.5 ? -1 : 1) * rand(8, 11), ph: Math.random() * 10, t: 0, x: 0, y: 0, z: 0, ox: rand(-14, 14), oz: rand(-10, 10) });
+    shears.push({ ...b, state: 'off', a: B() * 6.28, r: brand(9, 22), y0: brand(2.5, 6), sp: (B() < 0.5 ? -1 : 1) * brand(8, 11), ph: B() * 10, t: 0, x: 0, y: 0, z: 0, ox: brand(-14, 14), oz: brand(-10, 10) });
   }
   let shearFeed = null, shearLook = 1;
-  const stepShears = (dt, t, ctx, near) => {
+  const startShears = (best, F) => {
+    shearFeed = F;
+    // (In from far off, low over the sea.)
+    for (const b of shears) {
+      b.state = 'circle';
+      b.t = rand(4, 12);
+      b.a = Math.random() * 6.28;
+      b.x = best.x + Math.cos(b.a) * 160;
+      b.z = best.z + Math.sin(b.a) * 160;
+      b.y = b.y0 + 2;
+    }
+  };
+  const stepShears = (dt, t, ctx, near, live) => {
     const day = ctx.daylight > 0.3;
     if (!near) {
-      if (shears[0].g.visible || shearFeed) for (const b of shears) b.g.visible = false;
-      shearFeed = null;
-      return;
+      if (shears[0].g.visible) for (const b of shears) b.g.visible = false;
+      if (!live) {
+        shearFeed = null;
+        return;
+      }
     }
     shearLook -= dt;
-    if (!shearFeed && shearLook <= 0 && day && ctx.eco) {
+    if (!life.follower && !shearFeed && shearLook <= 0 && day && ctx.eco) {
       shearLook = 2.5;
       let best = null, bd = 520;
       for (const S of ctx.eco.schools) {
         if (!BAIT_S.has(S.sp.id) || !S.home?.south || S.y < -3) continue;
-        const d = Math.hypot(S.x - ctx.from.x, S.z - ctx.from.z);
+        const d = nearestViewer(ctx.V, S.x, S.z);
         if (d < bd && depthAt(S.x, S.z) > 3) {
           bd = d;
           best = S;
         }
       }
-      if (best) {
-        shearFeed = { school: best, t: 0, life: rand(55, 95) };
-        // (In from far off, low over the sea.)
-        for (const b of shears) {
-          b.state = 'circle';
-          b.t = rand(4, 12);
-          b.a = Math.random() * 6.28;
-          b.x = best.x + Math.cos(b.a) * 160;
-          b.z = best.z + Math.sin(b.a) * 160;
-          b.y = b.y0 + 2;
+      if (best) startShears(best, { school: best, t: 0, life: rand(55, 95) });
+    }
+    if (!near) {
+      if (shearFeed) {
+        shearFeed.t += dt;
+        if (!life.follower && (shearFeed.t > shearFeed.life || !day)) {
+          shearFeed = null;
+          for (const b of shears) b.state = 'off';
         }
       }
+      return;
     }
     const hour = ctx.hour ?? 12;
     // The evening raft (an hour or so either side of sunset), when they're not feeding.
@@ -726,7 +834,7 @@ export function buildSeaLife(scene, { glow = null } = {}) {
       const F = shearFeed;
       F.t += dt;
       const S = F.school, cx = S.x, cz = S.z;
-      const done = F.t > F.life || S.y < -4.5 || !day;
+      const done = F.over || (!life.follower && (F.t > F.life || S.y < -4.5 || !day));
       if (done && shears.every((b) => b.state === 'circle')) {
         shearFeed = null;
         for (const b of shears) b.state = 'off';
@@ -812,35 +920,45 @@ export function buildSeaLife(scene, { glow = null } = {}) {
 
   /* ---------- loggerhead turtles, round Las Brasas ---------- */
   const TURTLE_AREA = [-300, 700, 6330, 6700];
-  const turtles = [0, 1, 2].map(() => {
-    const at = pickTarget(TURTLE_AREA, 5);
+  const turtles = [0, 1, 2].map((i) => {
+    const at = pickTarget(TURTLE_AREA, 5, undefined, undefined, B);
     const b = buildTurtle();
     b.g.visible = false;
-    b.g.scale.setScalar(rand(0.85, 1.25));
+    b.g.scale.setScalar(brand(0.85, 1.25));
     scene.add(b.g);
-    return { ...b, x: at.x, z: at.z, y: -2, heading: Math.random() * 6.28, target: pickTarget(TURTLE_AREA, 5, at.x, at.z), breathT: rand(20, 70), upT: 0, stroke: Math.random() * 6, deep: rand(1.5, 4), shyT: 0, seenT: 0 };
+    return { ...b, id: i, x: at.x, z: at.z, y: -2, heading: B() * 6.28, target: pickTarget(TURTLE_AREA, 5, at.x, at.z, B), breathT: brand(20, 70), upT: 0, stroke: B() * 6, deep: brand(1.5, 4), shyT: 0, seenT: 0, net: null };
   });
-  const stepTurtles = (dt, t, ctx, near) => {
+  const stepTurtles = (dt, t, ctx, near, live) => {
     for (const T of turtles) {
       if (!near) {
         T.g.visible = false;
-        continue;
+        if (!live) continue;
       }
       T.seenT = Math.max(0, T.seenT - dt);
       const dYou = Math.hypot(T.x - ctx.from.x, T.z - ctx.from.z);
-      // A boat coming on fast close by: it goes down and away. A still diver: it comes to look.
-      if (ctx.boat && (ctx.boatSpeed ?? 0) > 4 && dYou < 18) T.shyT = 25;
+      // A boat coming on fast close by (anyone's): it goes down and away. A still diver: it comes
+      // to look.
+      let diver = null, dd = 12;
+      for (const v of ctx.V) {
+        const d = Math.hypot(T.x - v.from.x, T.z - v.from.z);
+        if (!life.follower && v.boat && (v.boatSpeed ?? 0) > 4 && d < 18) T.shyT = 25;
+        if (v.diving && d < dd) {
+          dd = d;
+          diver = v;
+        }
+      }
       T.shyT = Math.max(0, T.shyT - dt);
-      if (Math.hypot(T.target.x - T.x, T.target.z - T.z) < 12) T.target = pickTarget(TURTLE_AREA, 5, T.x, T.z);
-      const curious = ctx.diving && dYou < 12 && !T.shyT;
-      const want = curious ? Math.atan2(ctx.from.x - T.x, ctx.from.z - T.z) : Math.atan2(T.target.x - T.x, T.target.z - T.z);
+      if (!life.follower && Math.hypot(T.target.x - T.x, T.target.z - T.z) < 12) T.target = pickTarget(TURTLE_AREA, 5, T.x, T.z);
+      const curious = !!diver && !T.shyT;
+      const want = curious ? Math.atan2(diver.from.x - T.x, diver.from.z - T.z) : Math.atan2(T.target.x - T.x, T.target.z - T.z);
       T.heading = dampAngle(T.heading, want, 0.4, dt);
-      const v = T.shyT ? 1.1 : curious ? (dYou > 3 ? 0.25 : 0) : 0.35;
+      const v = T.shyT ? 1.1 : curious ? (dd > 3 ? 0.25 : 0) : 0.35;
       T.x += Math.sin(T.heading) * v * dt;
       T.z += Math.cos(T.heading) * v * dt;
+      if (life.follower && T.net) follow(T, T.net, dt, 20);
       // Up for a breath now and then, its head out for a few seconds.
       T.breathT -= dt;
-      if (T.breathT <= 0 && !T.shyT) {
+      if (!life.follower && T.breathT <= 0 && !T.shyT) {
         T.upT = rand(4, 7);
         T.breathT = rand(45, 110);
       }
@@ -856,7 +974,7 @@ export function buildSeaLife(scene, { glow = null } = {}) {
       T.br.rotation.y = -0.3 * k;
       T.g.position.set(T.x, T.y, T.z);
       T.g.rotation.set(T.upT > 0 ? -0.2 : 0, T.heading, Math.sin(t * 0.6 + T.stroke * 0.2) * 0.05);
-      T.g.visible = dYou < 160;
+      T.g.visible = near && dYou < 160;
       const seen = (T.y > s - 1.2 && dYou < 70) || (ctx.diving && dYou < 16);
       if (seen && !T.seenT) {
         T.seenT = 300;
@@ -864,7 +982,16 @@ export function buildSeaLife(scene, { glow = null } = {}) {
       }
     }
   };
-  const stepGannets = (dt, t, ctx, near) => {
+  const startGannets = (F) => {
+    feeding = F;
+    for (const b of feeders) {
+      b.state = 'circle';
+      b.t = rand(3, 12);
+      b.a = Math.random() * 6.28;
+      b.y = b.y0 + 30;
+    }
+  };
+  const stepGannets = (dt, t, ctx, near, live = near) => {
     const day = ctx.daylight > 0.3;
     // The colony, wheeling round Gannet Isle by day.
     for (const b of colony) {
@@ -879,31 +1006,23 @@ export function buildSeaLife(scene, { glow = null } = {}) {
     if (near && day && Math.hypot(ctx.from.x - GANNET.x, ctx.from.z - GANNET.z) < 250) events.onSighting?.('gannet', GANNET.x, GANNET.z);
     // A shoal up near the surface within sight brings a flock down onto it.
     lookT -= dt;
-    if (!feeding && lookT <= 0 && near && day && ctx.eco) {
+    if (!life.follower && !feeding && lookT <= 0 && live && day && ctx.eco) {
       lookT = 3;
       let best = null, bd = 450;
       for (const s of ctx.eco.schools) {
         if (!BAIT.has(s.sp.id) || s.y < -3.5 || s.home?.south) continue;
-        const d = Math.hypot(s.x - ctx.from.x, s.z - ctx.from.z);
+        const d = nearestViewer(ctx.V, s.x, s.z);
         if (d < bd && depthAt(s.x, s.z) > 3) {
           bd = d;
           best = s;
         }
       }
-      if (best) {
-        feeding = { school: best, t: 0, life: rand(45, 75) };
-        for (const b of feeders) {
-          b.state = 'circle';
-          b.t = rand(3, 12);
-          b.a = Math.random() * 6.28;
-          b.y = b.y0 + 30;
-        }
-      }
+      if (best) startGannets({ school: best, t: 0, life: rand(45, 75) });
     }
     if (feeding) {
       feeding.t += dt;
       const S = feeding.school;
-      const done = feeding.t > feeding.life || S.y < -5 || !day;
+      const done = feeding.over || (!life.follower && (feeding.t > feeding.life || S.y < -5 || !day));
       if (done && feeders.every((b) => b.state === 'off' || b.state === 'circle')) {
         feeding = null;
         for (const b of feeders) {
@@ -979,6 +1098,106 @@ export function buildSeaLife(scene, { glow = null } = {}) {
   return {
     ...events,
     pods, whales, ashore, visitors, colony, feeders, haulouts, shears, turtles,
+    // Following the host's sea (playing together, not hosting): see sharedworld.js.
+    get follower() { return life.follower; },
+    set follower(v) { life.follower = !!v; },
+    // The host's sea as it goes across: every pod (with each member's breath), whale, seal in the
+    // water, turtle and the birds' feeding, in plain numbers. (A few hundred numbers in all.)
+    capture() {
+      const q = (v) => Math.round(v * 10) / 10, a2 = (v) => Math.round(v * 100) / 100;
+      return {
+        p: pods.map((P) => [q(P.x), q(P.z), a2(P.heading), q(P.vx), q(P.vz), POD_MODES.indexOf(P.mode), P.owner ?? '', q(P.target.x), q(P.target.z), P.members.map((m) => [q(m.cyc), m.leap ? 1 : 0])]),
+        w: whales.map((W) => [q(W.x), q(W.z), a2(W.heading), WHALE_STATES.indexOf(W.state), q(Math.min(W.t, 999)), W.breathsLeft, W.breathN, q(W.target.x), q(W.target.z)]),
+        s: visitors.map((S) => [q(S.x), q(S.z), SEAL_MODES.indexOf(S.mode), S.down ? 1 : 0, q(S.t), a2(S.a), q(S.r), S.owner ?? '']),
+        u: turtles.map((T) => [q(T.x), q(T.z), a2(T.heading), q(T.upT), q(T.shyT), q(T.target.x), q(T.target.z)]),
+        g: feeding && !feeding.over ? [feeding.school.id, q(feeding.t), q(feeding.life)] : null,
+        h: shearFeed && !shearFeed.over ? [shearFeed.school.id, q(shearFeed.t), q(shearFeed.life)] : null,
+      };
+    },
+    // The host's word, as captured (checked first: see sharedworld.js), lag seconds old; eco: this
+    // screen's fish, for the schools the birds are working.
+    apply(S, lag = 0, eco = null) {
+      const t0 = life.netT;
+      S.p.forEach((r, i) => {
+        const P = pods[i];
+        if (!P) return;
+        const [x, z, heading, vx, vz, mode, owner, tx, tz, mem] = r;
+        P.net = { x, z, vx, vz, heading, t0, lag };
+        P.mode = POD_MODES[mode] ?? 'roam';
+        P.owner = owner || null;
+        P.target = { x: tx, z: tz };
+        mem.forEach(([cyc, leap], k) => {
+          if (P.members[k]) P.members[k].net = { cyc, leap: !!leap, t0, lag };
+        });
+        if (!P.synced) {
+          P.synced = true;
+          Object.assign(P, { x, z, heading });
+          for (const m of P.members) Object.assign(m, { x, z });
+        }
+      });
+      S.w.forEach((r, i) => {
+        const W = whales[i];
+        if (!W) return;
+        const [x, z, heading, st, tt, left, n, tx, tz] = r;
+        const state = WHALE_STATES[st] ?? 'down', v = W.speed * (W.rests && state !== 'down' ? 0.3 : 1);
+        W.net = { x, z, vx: Math.sin(heading) * v, vz: Math.cos(heading) * v, heading, t0, lag };
+        W.target = { x: tx, z: tz };
+        const gap = (W.gap[0] + W.gap[1]) / 2, now = state === 'down' ? Math.max(0, tt - lag) : tt + lag;
+        // (A new breath: blown already if the host's is past its blow, else still to come here.)
+        if (n !== W.breathN) {
+          W.breathN = n;
+          W.blew = state === 'breathe' && now / gap > 0.12;
+        }
+        if (state !== W.state || Math.abs(W.t - now) > 0.5) {
+          W.state = state;
+          W.t = now;
+        }
+        W.breathsLeft = left;
+        if (!W.synced) {
+          W.synced = true;
+          Object.assign(W, { x, z, heading });
+        }
+      });
+      S.s.forEach((r, i) => {
+        const V = visitors[i];
+        if (!V) return;
+        const [x, z, mode, down, tt, a, rr, owner] = r;
+        V.mode = SEAL_MODES[mode] ?? 'idle';
+        V.owner = owner || null;
+        V.down = !!down;
+        V.t = tt;
+        V.a = a;
+        V.r = rr;
+        if (V.mode === 'visit' || !V.synced) Object.assign(V, { x, z });
+        V.synced = true;
+      });
+      S.u.forEach((r, i) => {
+        const T = turtles[i];
+        if (!T) return;
+        const [x, z, heading, upT, shyT, tx, tz] = r, v = shyT > 0 ? 1.1 : 0.35;
+        T.net = { x, z, vx: Math.sin(heading) * v, vz: Math.cos(heading) * v, heading, t0, lag };
+        T.upT = upT;
+        T.shyT = shyT;
+        T.target = { x: tx, z: tz };
+        if (!T.synced) {
+          T.synced = true;
+          Object.assign(T, { x, z, heading });
+        }
+      });
+      // The birds: down on the same shoal as the host's, for as long as theirs are.
+      const birds = (G, cur, start) => {
+        if (!G) {
+          if (cur) cur.over = true;
+          return;
+        }
+        const school = eco?.schools?.[G[0]];
+        if (!school) return;
+        if (!cur || cur.school !== school || cur.over) start({ school, t: G[1] + lag, life: G[2] });
+        else cur.t = G[1] + lag;
+      };
+      birds(S.g, feeding, (F) => startGannets(F));
+      birds(S.h, shearFeed, (F) => startShears(F.school, F));
+    },
     get feeding() { return feeding; },
     get shearFeed() { return shearFeed; },
     // Met on the crossing (see crossing.js): a kind brought to (x, z), about to show itself (a pod
@@ -1007,24 +1226,31 @@ export function buildSeaLife(scene, { glow = null } = {}) {
     },
     // ctx: { from (where you are), boat (the boat you're aboard, under way on the surface, or
     // null), boatSpeed, daylight, region ('home' or 'south'), eco, diving }
+    // ctx.viewers: everyone the sea answers to, [{ id, from, boat, boatSpeed, diving, region,
+    // crossing }] (playing together, the host's whole session; alone, just you, from ctx itself).
     update(dt, t, ctx) {
       for (const k of Object.keys(events)) events[k] = this[k];
+      life.netT += dt;
+      const V = ctx.viewers?.length ? ctx.viewers : [{ id: 'me', from: ctx.from, boat: ctx.boat, boatSpeed: ctx.boatSpeed ?? 0, diving: !!ctx.diving, region: ctx.region, crossing: !!ctx.crossing }];
+      ctx.V = V;
       const home = ctx.region !== 'south';
-      // (Each sea's own where you are; the crossing's only while you're out on it.)
+      // (Each sea's own where you are; the crossing's only while you're out on it. What's seen is
+      // yours; what's alive is wherever anyone in the session is.)
       const here = (sea) => (sea === 'crossing' ? !!ctx.crossing : (sea === 'home') === home);
+      const someone = (sea) => V.some((v) => (sea === 'crossing' ? !!v.crossing : (sea === 'home') === (v.region !== 'south')));
       for (const p of pods) stepPod(p, dt, t, ctx, here(p.sea) && Math.hypot(p.x - ctx.from.x, p.z - ctx.from.z) < 1200);
       for (const w of whales) {
-        // (The crossing's lie dormant till you're out there: no blows from the open sea at home.)
-        if (w.sea === 'crossing' && !ctx.crossing) {
+        // (The crossing's lie dormant till someone's out there: no blows from the open sea at home.)
+        if (w.sea === 'crossing' && !someone('crossing')) {
           w.mesh.visible = false;
           continue;
         }
         stepWhale(w, dt, t, ctx, here(w.sea) && Math.hypot(w.x - ctx.from.x, w.z - ctx.from.z) < 2000);
       }
       stepSeals(dt, t, ctx, home);
-      stepGannets(dt, t, ctx, home);
-      stepShears(dt, t, ctx, !home);
-      stepTurtles(dt, t, ctx, !home);
+      stepGannets(dt, t, ctx, home, someone('home'));
+      stepShears(dt, t, ctx, !home, someone('south'));
+      stepTurtles(dt, t, ctx, !home, someone('south'));
       blows.update(dt, t);
     },
   };

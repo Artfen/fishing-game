@@ -95,6 +95,7 @@ import { seasonOf, seasonWords, sunTimes, sunHour, seasonWarmth, riverFlow, leaf
 import { galeSky, galeNear, hoursToGale, outlook } from './world/forecast.js';
 import { FolkView } from './world/folk.js';
 import { VisitorView } from './world/visitors.js';
+import { SharedWorld } from './sharedworld.js';
 import { demandFor, money, ordersFor, ORDERS_BY } from './market.js';
 import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
 import { PHOTO_MAX } from './save.js';
@@ -387,6 +388,12 @@ const folkView = new FolkView(scene);
 // Playing together (see together.js): friends in a session, drawn where they are.
 const together = new Together({ config: () => cloud.cfg, name: () => settings.player.name, kinds: BOAT_KINDS, skies: Object.keys(SKIES), rods: Object.keys(RODS), items: Object.keys(TACKLE) });
 const visitors = new VisitorView(scene);
+// One sea for everyone in a session: the host's sea life and shoals go across, everyone else's
+// follow (see sharedworld.js). Alone, nothing changes.
+const shared = new SharedWorld({ together, sealife, eco });
+// (Everyone the sea answers to this frame, and friends' boats too far off to be drawn: see viewersNow.)
+let seaViewers = null;
+const _vb = new Map();
 // What the people go by: the weather, and what the fish near the harbour are up to (looked at every
 // few seconds, not every frame).
 let folkAbout = [], folkAboutT = 0;
@@ -5334,13 +5341,13 @@ function meet(ev, B) {
   switch (ev.kind) {
     case 'dolphins': {
       const q = at(260, 170);
-      sealife.summon('commondolphin', q.x, q.z, Math.atan2(B.pos.x - q.x, B.pos.z - q.z));
+      shared.summon('commondolphin', q.x, q.z, Math.atan2(B.pos.x - q.x, B.pos.z - q.z));
       hud.toast(`Dolphins! A big pod of common dolphins racing in from off the ${sideWord} bow, leaping as they come. Keep her going and they'll ride the bow.`, 8);
       break;
     }
     case 'whale': {
       const q = at(380, 260), kind = B.pos.z > SOUTH_Z ? 'spermwhale' : 'finwhale';
-      sealife.summon(kind, q.x, q.z, heading + side * 0.6);
+      shared.summon(kind, q.x, q.z, heading + side * 0.6);
       hud.toast(kind === 'finwhale' ? `A blow, tall and narrow, off the ${sideWord} bow: a fin whale, travelling. Watch for it to come up again.` : `A bushy blow slanting forward off the ${sideWord} bow: a sperm whale, lying at the surface, breathing. It'll lift its flukes when it dives.`, 9);
       break;
     }
@@ -5351,7 +5358,7 @@ function meet(ev, B) {
     case 'turtle': {
       if (region !== 'south') break;
       const q = at(70, 22);
-      sealife.summon('turtle', q.x, q.z);
+      shared.summon('turtle', q.x, q.z);
       hud.toast(`A loggerhead turtle at the surface off the ${sideWord} bow, its head up for a breath. Ease her down and you'll see it close.`, 8);
       break;
     }
@@ -7209,6 +7216,8 @@ const settingsUI = new SettingsUI(state, {
   keyLabel: (code) => input.label(code),
   following: () => (clock.following ? together.hostLabel : null),
   together: () => together,
+  // (Settings → Play together → Network details: see sharedworld.js.)
+  netDiagnostics: () => netDiagnostics(),
   setName: (name) => setName(name),
   // A friend code: boats, money or both, each once per game (see giftcodes.js).
   redeem: async (code) => {
@@ -7976,6 +7985,51 @@ addEventListener('pointerdown', (e) => {
 });
 
 // Where you are and what you're doing, for the friends you're playing with.
+// Everyone the sea answers to (see sharedworld.js and sealife.js): you first, then (in a session)
+// each friend, where they are, their boat if they're afloat (the one drawn here, so a pod on its
+// bow is on the bow you see), and which sea they're in.
+// What the session's doing on the wire, for Settings: each kind of message's rate and size, the
+// shared sea's delay and what it covers.
+function netDiagnostics() {
+  if (!together.active) return null;
+  const U = together.stats, secs = Math.max(1, (Date.now() - U.since) / 1000), S = shared.stats;
+  const NAMES = { pose: 'where everyone is', eco: 'the shared sea', world: 'time and weather', fleet: 'boats in the water', presence_diff: 'joining and leaving', presence_state: 'who’s here' };
+  const kinds = Object.entries(U.kinds || {}).filter(([, k]) => k.in + k.out > 0).sort((a, b) => (b[1].bytesIn + b[1].bytesOut) - (a[1].bytesIn + a[1].bytesOut)).slice(0, 6);
+  const lines = kinds.map(([k, v]) => `${NAMES[k] || k}: ${((v.in + v.out) / secs * 60).toFixed(0)} messages a minute, ${((v.bytesIn + v.bytesOut) / secs / 1024).toFixed(1)} KB/s`);
+  if (shared.role === 'host') lines.push(`The shared sea: you’re keeping it for everyone. ${S.sent} snapshots sent, the last covering ${S.animals} groups of sea life and ${S.schools} shoals near someone.`);
+  else if (shared.role === 'follower') lines.push(`The shared sea: following the host’s. ${S.got} snapshots heard${S.heardAt != null ? `, the last ${Math.max(0, together.now() - S.heardAt).toFixed(1)} s ago, ${S.delay.toFixed(2)} s on the way` : ''}; ${S.schools} shoals and ${S.animals} groups of sea life in it${S.rejected ? `; ${S.rejected} turned away` : ''}${S.stale ? `, ${S.stale} out of date` : ''}.`);
+  return lines;
+}
+
+function viewersNow() {
+  const P = player().pos, aboard = !onFoot && !driving && !dive && !cabinIn;
+  const out = [{ id: together.active ? together.id : 'me', from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, diving: !!dive, region, crossing: !!state.crossing || inOcean(P.x, P.z) }];
+  if (!together.active) return out;
+  for (const p of together.peers.values()) {
+    if (!p.at || !p.pose || !p.name) continue;
+    const Q = p.view || p.pose, A = p.at;
+    let b = null;
+    if (Q.m === 'boat') {
+      b = visitors.boatOf(p.id);
+      if (!b) {
+        // (Too far off to be drawn here: where their pose says, as much of a boat as the sea needs.)
+        b = _vb.get(p.id) || { pos: { x: 0, z: 0 }, fwd: { x: 0, z: 1 }, right: { x: -1, z: 0 }, heading: 0, hull: { L: 4 } };
+        _vb.set(p.id, b);
+        b.pos.x = A.x;
+        b.pos.z = A.z;
+        b.heading = A.h;
+        b.fwd.x = Math.sin(A.h);
+        b.fwd.z = Math.cos(A.h);
+        b.right.x = -Math.cos(A.h);
+        b.right.z = Math.sin(A.h);
+        b.hull.L = BOATS[Q.k]?.hull?.L ?? 4;
+      }
+    }
+    out.push({ id: p.id, from: { x: A.x, z: A.z }, boat: b, boatSpeed: b ? A.v || 0 : 0, diving: Q.m === 'dive', region: A.z > SOUTH_Z ? 'south' : 'home', crossing: inOcean(A.x, A.z) });
+  }
+  return out;
+}
+
 function whereIAm() {
   if (dive) return { m: 'dive', x: diver.pos.x, z: diver.pos.z, h: diver.heading };
   if (driving) return { m: 'car', x: car.pos.x, z: car.pos.z, h: car.heading };
@@ -9174,6 +9228,10 @@ function ecoTick(dt) {
   ecoCtx.walker = onFoot && !dive ? walkerCtx : null;
   ecoCtx.diver = dive ? diverCtx : null;
   ecoCtx.lantern = lanternLit ? ecoCtx.boat : null;
+  // (In a session, the shared sea: the host keeps the fish going round everyone; see sharedworld.js.)
+  seaViewers = viewersNow();
+  shared.update(dt, seaViewers);
+  ecoCtx.foci = shared.role === 'host' ? seaViewers.map((v) => v.from) : null;
   eco.update(dt, ecoCtx);
 }
 
@@ -9484,7 +9542,7 @@ function tick(now, manual = false) {
   {
     const P = player().pos, aboard = !onFoot && !driving && !dive && !cabinIn;
     const crossingNow = !!state.crossing || inOcean(P.x, P.z);
-    sealife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, daylight: env.daylight, hour: clock.hour, region, eco, diving: !!dive, crossing: crossingNow });
+    sealife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, daylight: env.daylight, hour: clock.hour, region, eco, diving: !!dive, crossing: crossingNow, viewers: seaViewers });
     crossingLife.update(dt, t, { from: P, boat: aboard ? boat : null, boatSpeed: aboard ? Math.abs(boat.forwardSpeed) : 0, crossing: crossingNow, night: env.night });
     // (How fast you're coming: walking, the boat, swimming; sitting still is stillest of all.)
     const pace = sitting ? 0 : dive ? diver.speed : onFoot ? walker.speed : driving ? 10 : Math.abs(boat.forwardSpeed) + (boat.motor && boat.lever > 0 ? 1 : 0);
@@ -9925,7 +9983,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed,
+  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared,
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
   pump: (id = 'haven') => openPump(id),

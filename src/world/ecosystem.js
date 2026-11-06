@@ -14,6 +14,12 @@ import { spookRadius, curiosity } from '../dive.js';
 // Every fish in the world lives here. The renderer draws these fish, the fish finder
 // pings these fish, surface clues come from these fish, and the fish that takes your
 // bait is one of these fish. Movement runs on a fixed 30 Hz step, independent of frame rate.
+//
+// Playing together (see sharedworld.js): every screen builds the same fish from the same seeds;
+// the host keeps them going round everyone in the session (foci), and sends where the shoals near
+// anyone are and what they're doing (captureSchools): the bait balls, the hunters driving them up,
+// a shoal scattering. Everyone else's shoals follow that (applySchools, with follower set) instead
+// of deciding for themselves, so friends see the same shoals and the same frenzies.
 
 const STEP = 1 / 30;
 const FAR_EVERY = 6; // fish beyond the active radius update at 5 Hz
@@ -52,6 +58,12 @@ export class Ecosystem {
     this.simRadius = 110;
     this.ctx = { hour: 12, rain: 0, daylight: 1, night: 0, lanternNear: false, hatch: 0.5 };
     this.focus = { x: 0, z: 0 };
+    // Everyone the fish are kept going round (the host's whole session: [{ x, z }]); alone, the focus.
+    this.foci = null;
+    // Following the host's shoals (playing together, not hosting), and the clock their word is
+    // timed by.
+    this.follower = false;
+    this.netT = 0;
     this.boat = { x: 0, z: 0, speed: 0 };
     this.walker = null;
     this.walkT = 0;
@@ -343,6 +355,8 @@ export class Ecosystem {
   update(dt, ctx) {
     Object.assign(this.ctx, ctx.env);
     this.focus = ctx.focus;
+    this.foci = ctx.foci?.length ? ctx.foci : null;
+    this.netT += dt;
     this.boat = ctx.boat;
     this.walker = ctx.walker;
     this.diver = ctx.diver || null;
@@ -368,13 +382,30 @@ export class Ecosystem {
     this.alpha = this.acc / STEP;
   }
 
+  // How near (squared, m²) the nearest of everyone the fish are kept going round is to (x, z).
+  d2near(x, z) {
+    const F = this.foci;
+    if (!F) return (x - this.focus.x) ** 2 + (z - this.focus.z) ** 2;
+    let m = Infinity;
+    for (let i = 0; i < F.length; i++) {
+      const d2 = (x - F[i].x) ** 2 + (z - F[i].z) ** 2;
+      if (d2 < m) m = d2;
+    }
+    return m;
+  }
+
   stepWorld(h) {
     this.tick++;
     this.time += h;
-    const fx = this.focus.x, fz = this.focus.z;
     const near2 = this.simRadius * this.simRadius, far2 = FAR_RADIUS * FAR_RADIUS;
     for (const s of this.schools) {
-      const d2 = (s.x - fx) ** 2 + (s.z - fz) ** 2;
+      // (Following the host: a shoal goes where the host's goes; one the host hasn't spoken of
+      // lately is out of everyone's way, and waits.)
+      if (this.follower) {
+        if (s.net) this.stepSchoolNet(s, h);
+        continue;
+      }
+      const d2 = this.d2near(s.x, s.z);
       if (d2 < near2) this.stepSchool(s, h, false);
       else if (d2 < far2 && (this.tick + s.id) % FAR_EVERY === 0) this.stepSchool(s, h * FAR_EVERY, true);
     }
@@ -387,13 +418,13 @@ export class Ecosystem {
         // A fish taken from the population is replaced in time, but never out of thin air
         // in front of you: while you're near its home, the newcomer waits.
         if (this.time > a.backAt) {
-          if ((a.home.x - fx) ** 2 + (a.home.z - fz) ** 2 < 45 * 45) a.backAt = this.time + 30;
+          if (this.d2near(a.home.x, a.home.z) < 45 * 45) a.backAt = this.time + 30;
           else this.restock(a);
         }
         continue;
       }
       if (!a.active || a.state === 'caught' || a.state === 'hooked') continue;
-      const d2 = (a.x - fx) ** 2 + (a.z - fz) ** 2;
+      const d2 = this.d2near(a.x, a.z);
       if (d2 < near2) this.stepAgent(a, h, false);
       else if (d2 < far2 && (this.tick + a.id) % FAR_EVERY === 0) this.stepAgent(a, h * FAR_EVERY, true);
     }
@@ -674,6 +705,11 @@ export class Ecosystem {
     }
     this.steer(s, h);
     this.integrate(s, h);
+    this.schoolClues(s, coarse, act);
+  }
+
+  // What a shoal shows at the top: gulls over it, nervous water, a flash of silver sides.
+  schoolClues(s, coarse, act) {
     // Shoals feeding near the top in daylight draw the gulls (mackerel, and the tuna's prey).
     if (!coarse && s.L.birds && s.y > -2.5 && this.ctx.daylight > 0.3 && act > 0.5 && s.birdCD <= 0) {
       s.birdCD = rand(8, 16);
@@ -745,17 +781,111 @@ export class Ecosystem {
       p.sx = s.x;
       p.sy = s.y;
       p.sz = s.z;
-      if (!coarse && s.clueCD <= 0) {
-        s.clueCD = rand(0.4, 1.1);
-        const m = s.members[Math.floor(Math.random() * s.members.length)];
-        if (m) this.clue('boil', m);
-      }
-      if (!coarse && s.birdCD <= 0) {
-        s.birdCD = rand(6, 12);
-        this.clue('birds', p.members[0] || s.members[0]);
-      }
+      this.huntClues(s, p, coarse);
     }
     return true;
+  }
+
+  // The frenzy, seen from above: the sea boiling where the hunters crash through, the birds over it.
+  huntClues(s, p, coarse) {
+    if (!coarse && s.clueCD <= 0) {
+      s.clueCD = rand(0.4, 1.1);
+      const m = s.members[Math.floor(Math.random() * s.members.length)];
+      if (m) this.clue('boil', m);
+    }
+    if (!coarse && s.birdCD <= 0) {
+      s.birdCD = rand(6, 12);
+      this.clue('birds', p.members[0] || s.members[0]);
+    }
+  }
+
+  // Following the host: the shoal steers for the host's mark at the host's pace (the bait ball
+  // held balled up, the hunters circling through it), eased onto where the host has it, and shows
+  // at the top what the host's does.
+  stepSchoolNet(s, h) {
+    const n = s.net;
+    s.t += h;
+    s.clueCD -= h;
+    s.flashCD -= h;
+    s.birdCD = (s.birdCD ?? rand(2, 8)) - h;
+    if (s.scatterT > 0) s.scatterT -= h;
+    if (s.frenzy > 0) s.frenzy = Math.max(0, s.frenzy - h);
+    s.tx = n.tx;
+    s.ty = n.ty;
+    s.tz = n.tz;
+    s.wantSpeed = n.wantSpeed;
+    s.spread = n.spread;
+    this.steer(s, h);
+    this.integrate(s, h);
+    const age = this.netT - n.t0 + n.lag, ex = n.x + Math.sin(n.yaw) * n.speed * age, ez = n.z + Math.cos(n.yaw) * n.speed * age;
+    const dx = ex - s.x, dz = ez - s.z;
+    if (dx * dx + dz * dz > 25 * 25) {
+      s.x = ex;
+      s.z = ez;
+      s.y = n.y;
+      s.yaw = n.yaw;
+    } else {
+      const k = 1 - Math.exp(-2 * h);
+      s.x += dx * k;
+      s.z += dz * k;
+      s.y += (n.y - s.y) * k;
+    }
+    const act = this.activity[s.sp.id] ?? 1;
+    const p = s.prey;
+    if (p && s.frenzy > 0 && Math.hypot(p.x - s.x, p.z - s.z) < 22) this.huntClues(s, p, false);
+    else this.schoolClues(s, false, act);
+  }
+
+  // The host's shoals near anyone, and the shoals they're hunting, as they go across: those within
+  // near of one of foci every time, those out to R only when all is true (a fuller word, every few
+  // times: they're beyond where anyone sees them closely). Each: [id, x, y, z, yaw, speed, tx, ty,
+  // tz, wantSpeed, spread] and, if it's scattering or hunting or resting from a hunt, [scatterT,
+  // sx, sz, prey id or -1, frenzy, rest] after that.
+  captureSchools(foci, R = 260, near = 130, all = true) {
+    const R2 = R * R, N2 = near * near, want = new Set();
+    for (const s of this.schools) {
+      let m = Infinity;
+      for (const f of foci) m = Math.min(m, (s.x - f.x) ** 2 + (s.z - f.z) ** 2);
+      // (A shoal lying still where it means to be needs no word between the fuller ones.)
+      const still = !all && s.speed < 0.05 && Math.abs(s.tx - s.x) + Math.abs(s.tz - s.z) < 0.5 && !s.prey && !(s.scatterT > 0);
+      if ((m < N2 && !still) || (all && m < R2)) want.add(s);
+    }
+    for (const s of [...want]) if (s.prey) want.add(s.prey);
+    const q = (v) => Math.round(v * 10) / 10, c = (v) => Math.round(v * 100) / 100;
+    const out = [];
+    for (const s of want) {
+      const row = [s.id, q(s.x), q(s.y), q(s.z), c(s.yaw), c(s.speed), q(s.tx), q(s.ty), q(s.tz), c(s.wantSpeed), c(s.spread)];
+      if (s.scatterT > 0 || s.prey || s.frenzy > 0 || s.rest > 0) row.push(c(Math.max(0, s.scatterT)), q(s.sx), q(s.sz), s.prey ? s.prey.id : -1, q(s.frenzy || 0), q(s.rest || 0));
+      out.push(row);
+    }
+    return out;
+  }
+
+  // The host's word on its shoals (checked first: see sharedworld.js), lag seconds old.
+  applySchools(list, lag = 0) {
+    const t0 = this.netT;
+    for (const r of list) {
+      const s = this.schools[r[0]];
+      if (!s) continue;
+      const [, x, y, z, yaw, speed, tx, ty, tz, wantSpeed, spread, scatterT = 0, sx = 0, sz = 0, prey = -1, frenzy = 0, rest = 0] = r;
+      s.net = { x, y, z, yaw, speed, tx, ty, tz, wantSpeed, spread, t0, lag };
+      s.scatterT = Math.max(0, scatterT - lag);
+      s.sx = sx;
+      s.sz = sz;
+      s.sy = y;
+      s.prey = prey >= 0 ? this.schools[prey] || null : null;
+      s.frenzy = Math.max(0, frenzy - lag);
+      s.rest = rest;
+      if (!s.synced) {
+        s.synced = true;
+        Object.assign(s, { x, y, z, yaw, speed });
+        for (const m of s.members) {
+          m.x = m.px = x + (m.slot?.x || 0);
+          m.z = m.pz = z + (m.slot?.z || 0);
+          m.y = m.py = y;
+        }
+      }
+    }
   }
 
   followSchool(a) {

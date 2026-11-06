@@ -10,7 +10,7 @@
 // - It never touches saved games: those live in the browser's local storage, not here.
 
 // <precache> Written by tools/build-sw.mjs: do not edit by hand.
-const VERSION = '3d4ebd06329a';
+const VERSION = '97e58e65930c';
 const FILES = [
   './index.html',
   './style.css',
@@ -93,6 +93,7 @@ const FILES = [
   './src/sailui.js',
   './src/save.js',
   './src/settings.js',
+  './src/sharedworld.js',
   './src/shipyard.js',
   './src/shop.js',
   './src/siteWorld.js',
