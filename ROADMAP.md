@@ -186,13 +186,61 @@ The next brief, worked through in order, each step merged to main once it's test
    - *Marking a feeding shoal: done.* From the quick calls; shoals are the host's and the same on
      every screen, so the mark follows that very shoal, for ten minutes or until it's fished out.
      At most one every four seconds each.
-   - *Crewing* (next): riding in a friend's boat, taking the helm while they fish or to follow a
-     running fish (their game stays the boat's physics; your wheel and lever go to it), watching
-     the sonar.
-   - *Cooperative contracts* come with the contracts themselves (step 7).
-5. **First-person dashboard** (RIB first), with visible trim and tilt.
-6. **Electric trolling motors and GPS spot-lock.**
-7. **Contracts and careers; a purpose for bigger boats; fun for people who don't fish.**
+   - *Crewing: done* (`src/crew.js`). Step aboard a friend's stopped boat from the shore or from
+     your own alongside. In your game you're on foot, carried at a spot in their boat as it's drawn
+     here (walk about her, fish, watch the sonar, net their fish); your pose names the boat and
+     your spot in her, so every screen draws you in that boat rather than a moment behind it.
+     *The helm*: asked of the skipper; their game hands it over (not under sail, not from the
+     cabin), then takes your wheel and lever a few times a second and steers their boat with them,
+     physics and all in their game. A touch at their controls takes it back; your word stopping
+     leaves the wheel slack. Answers are never rate-limited away (a real bug the tests found: a
+     re-grant straight after a take-back went missing). A save while crewing puts you back where
+     you stepped aboard from; losing the boat or the session puts you back in your own boat.
+     *Verified* with two real browser clients: stepping across, seen standing in her on both
+     screens, the save, the helm handed over and her boat rowed 26 m from the crew's keys in the
+     skipper's game, taken back at a touch, and back into his own boat.
+   - *Cooperative contracts* come with the contracts themselves (step 8).
+5. **Budget, diagnostics and the acceptance tests: done.**
+   - *Measured* with `tools/netbudget.mjs`: a whole session through the Realtime stand-in, the
+     host's real sea and fish, everyone under way, half the guests fishing (floats and worked
+     lures), one crewing at the host's helm. Supabase counts each message sent and each delivered.
+
+     | players | sent/s | delivered/s | together | snapshot avg / max | host sim (node, 1 core) |
+     |---|---|---|---|---|---|
+     | 2 | 8 | 8 | 16 | 2.0 / 3.8 KB | 2.2 ms a frame |
+     | 3 | 16 | 31 | 47 | 3.1 / 5.9 KB | 2.9 ms |
+     | 4 | 19 | 56 | 75 | 4.6 / 7.6 KB | 3.6 ms |
+     | 5 | 23 | 90 | 113 | 5.1 / 8.6 KB | 3.6 ms |
+     | 8, far apart | 32 | 224 | 256 | 5.6 / 9.8 KB | 4.0 ms |
+     | 8, one bay | 32 | 226 | 258 | 3.3 / 6.0 KB | 3.0 ms |
+
+     Of eight players' 224 deliveries a second, positions are 157, the crew's wheel 29, rigs 28 and
+     the shared sea 11 (but the sea is 52 of the 122 KB/s delivered; about 15 KB/s each player
+     downloads, and the host uploads about 8 KB/s of sea). Supabase's per-second limits are 100 on
+     the Free plan and 500 on Pro: four players fit the Free plan with room, eight need Pro (or a
+     plan with more). No amount of trimming gets eight under 100 a second with broadcast fan-out:
+     every player's movement counts once for each of the others. Network details in the game shows
+     each kind's rate, the bytes, the sea's delay and what it covers, and the whole session's rate
+     against both limits.
+   - *Acceptance tests* (brief 1.7), each with where it's shown:
+     1. Same whale surfacing, blowing and diving: `tests/sharedworld.test.mjs`; two browsers (the
+        same blows at the same places and moments).
+     2. Same bait ball and predators: `tests/sharedworld.test.mjs`.
+     3. A catch gone for everyone: `tests/sharedfish.test.mjs`; two browsers.
+     4. Two casts at one shoal, no double ownership or broken fights: `tests/sharedfish.test.mjs`
+        (two rigs at one shoal; two strikes at once).
+     5. A late joiner sees the whale or shoal where it is: `tests/sharedworld.test.mjs`; two browsers.
+     6. A reconnect duplicates nothing: `tests/sharedworld.test.mjs`; two browsers.
+     7. Players in different regions each have their wildlife: `tests/sharedworld.test.mjs` (a friend
+        at Las Brasas).
+     8. Watching a friend fight and land a fish: `tests/sharedfish.test.mjs` (a third player); two
+        browsers (the very fish at the end of the friend's line).
+     9. Single player unchanged: with no session the shared world is off and every rig is your own
+        (the ecosystem's single-rig path is the same code as before); the whole suite runs that way.
+     10. Eight players within a measured budget: the table above.
+6. **First-person dashboard** (RIB first), with visible trim and tilt.
+7. **Electric trolling motors and GPS spot-lock.**
+8. **Contracts and careers; a purpose for bigger boats; fun for people who don't fish.**
 
 ## Open-source projects that could help
 

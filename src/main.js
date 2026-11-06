@@ -97,6 +97,7 @@ import { FolkView } from './world/folk.js';
 import { VisitorView } from './world/visitors.js';
 import { SharedWorld } from './sharedworld.js';
 import { Teamwork } from './teamwork.js';
+import { Crew, CREW_REACH, CREW_SLOW } from './crew.js';
 import { demandFor, money, ordersFor, ORDERS_BY } from './market.js';
 import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
 import { PHOTO_MAX } from './save.js';
@@ -396,6 +397,11 @@ shared.items = Object.keys(TACKLE);
 // Helping each other: netting a friend's fish, marking a shoal (see teamwork.js).
 const teamwork = new Teamwork({ together, eco, lineEnd: (id) => visitors.lineEnd(id) });
 const shoalMarkers = new Map();
+// Crewing in a friend's boat, and a friend at your helm (see crew.js); and where you stepped
+// aboard from (your boat, or a spot ashore), where a save puts you back.
+const crew = new Crew({ together });
+let crewFrom = null;
+const _crewAt = new THREE.Vector3();
 // (Everyone the sea answers to this frame, and friends' boats too far off to be drawn: see viewersNow.)
 let seaViewers = null;
 const _vb = new Map();
@@ -2095,8 +2101,8 @@ function updateSleep(dt) {
 
 // Somewhere to step ashore near the boat: a pier or jetty alongside first, else any
 // reachable bank.
-function shoreSpot() {
-  const b = boat.pos;
+// (b: where from; your boat, unless you're crewing in a friend's: see crew.js.)
+function shoreSpot(b = boat.pos) {
   for (const P of PIERS) {
     const qx = clamp(b.x, P.x0, P.x1), qz = clamp(b.z, P.z0, P.z1);
     if (Math.hypot(b.x - qx, b.z - qz) > 3.4) continue;
@@ -5031,6 +5037,8 @@ function interaction() {
   const helpNet = together.active && !fishing.fight && !dive && !driving ? teamwork.netTarget(player().pos, onFoot ? 0 : boat.hull.L * 0.5) : null;
   if (helpNet) return { text: `Net ${helpNet.p.name}’s fish`, run: () => { if (teamwork.net(helpNet)) hud.flash(`You reach out with the net for ${helpNet.p.name}’s fish…`, t, 2); } };
   if (fishing.busy) return followAction();
+  // Crewing in a friend's boat: the helm, or stepping off (see crew.js).
+  if (crew.on) return { text: crew.on.helm ? 'At the helm: hand it back, or step off' : 'Crewing: take the helm, or step off', run: () => crewChoices() };
   // In the water: something to climb out onto, at the surface.
   if (dive) return diveExit();
   // Inside the cabin: what's where you stand.
@@ -5092,6 +5100,9 @@ function interaction() {
       ]) };
     }
     if (near) return { text: `Get in the ${near.name}`, run: () => board(near) };
+    // A friend's boat alongside, stopped: step aboard and crew for them.
+    const fb = crewBoatNear();
+    if (fb) return { text: `Step aboard ${fb.p.name}’s ${fb.b.hull.name}`, run: () => stepAboard(fb) };
     const own = ownCampNear();
     if (own) return { text: `${own.name}: rest, cook, cool box and tackle`, run: () => openCamp('cook', own) };
     if (nearCamp()) return { text: 'Camp: fire, food, sleep and tackle box', run: () => openCamp() };
@@ -5125,6 +5136,11 @@ function interaction() {
   }
   const spot = cachedShoreSpot();
   const ashore = spot && (spot.landing ? 'Step ashore at the landing' : spot.quay ? 'Step up onto the quay' : spot.pier ? 'Step onto the jetty' : 'Step ashore');
+  // Lying alongside a friend's boat, both stopped (yours anchored, tied up or still): step across.
+  if (!fishing.busy && (boat.anchored || boat.tie || boat.speed < 0.3)) {
+    const fb = crewBoatNear(boat.hull.L * 0.5);
+    if (fb) return { text: `Step across to ${fb.p.name}’s ${fb.b.hull.name}`, run: () => stepAboard(fb) };
+  }
   // The cabin boat, anchored or tied up by the shore: the cabin, or ashore.
   if (spot && boat.hull.cabin && canEnterCabin(boat) && !fishing.lineOut) {
     return { text: 'Into the cabin, or ashore', run: () => ask(boatTitle(boat), 'Tied up here. Into the cabin (the galley and the bunk), or ashore?', [
@@ -7943,8 +7959,10 @@ function placeFriendMarkers() {
       el.querySelector('.m-label').append(gearEl);
     }
     if (gearEl && gearEl.textContent !== gear) gearEl.textContent = gear;
-    const y = P.m === 'boat' ? waveHeight(A.x, A.z, t) + 3 : P.m === 'foot' ? walkHeight(A.x, A.z) + 2.4 : P.m === 'car' ? heightAt(A.x, A.z) + 2.6 : 1.2;
-    placeMarker(el, A.x, y, A.z, started && !modal);
+    // (Crewing in a boat: over them where they stand in her.)
+    const C = P.cr ? visitors.crewAt(P, together.id, onFoot ? null : boat) : null;
+    const y = C ? C.y + 2.2 : P.m === 'boat' ? waveHeight(A.x, A.z, t) + 3 : P.m === 'foot' ? walkHeight(A.x, A.z) + 2.4 : P.m === 'car' ? heightAt(A.x, A.z) + 2.6 : 1.2;
+    placeMarker(el, C ? C.x : A.x, y, C ? C.z : A.z, started && !modal);
   }
 }
 
@@ -8020,6 +8038,115 @@ function placeShoalMarkers() {
     shoalMarkers.delete(key);
   }
 }
+/* ---------- crewing (see crew.js) ---------- */
+
+// A friend's boat you could step aboard from where you are (extra: half your own boat's length,
+// stepping across from her): drawn here, stopped, within reach. { p, b } or null.
+function crewBoatNear(extra = 0) {
+  if (!together.active || crew.on || dive || driving || sitting) return null;
+  const P = player().pos;
+  let best = null, bd = Infinity;
+  for (const p of together.peers.values()) {
+    const Q = p.view || p.pose;
+    if (!p.name || Q?.m !== 'boat' || !p.at || (p.at.v || 0) > CREW_SLOW) continue;
+    const b = visitors.boatOf(p.id);
+    if (!b) continue;
+    const d = Math.hypot(b.pos.x - P.x, b.pos.z - P.z);
+    if (d < b.hull.L * 0.5 + CREW_REACH + extra && d < bd) {
+      bd = d;
+      best = { p, b };
+    }
+  }
+  return best;
+}
+
+function stepAboard({ p, b }) {
+  if (fishing.busy) fishing.cancel();
+  crewFrom = onFoot ? { spot: { x: walker.pos.x, z: walker.pos.z, heading: walker.heading } } : { boat };
+  if (!onFoot) {
+    boat.setDeck?.(false);
+    walker.place(b.pos.x, b.pos.z, b.heading);
+    setFoot(true, true);
+  }
+  crew.board(p.id, b.hull);
+  audio.knock(0.4);
+  hud.toast(`You step aboard ${p.name}’s ${b.hull.name}. Walk about her, fish from her, net their fish for them; ${scheme() === 'touch' ? 'the prompt' : K('interact')} to take the helm while they fish, or to step off.`, 8);
+}
+
+// Each frame while crewing: stood in her where you are, going with her; the keys walk you about her.
+function rideCrew(dt) {
+  const O = crew.on, p = together.peers.get(O.id), b = visitors.boatOf(O.id), Q = p && (p.view || p.pose);
+  if (!together.active || !p || !b || Q?.m !== 'boat' || !onFoot || dive || driving) return crewLost(p);
+  // (The keys are camera-relative: turned into her own across, and fore and aft.)
+  const moving = !O.helm && (move.x || move.z);
+  if (moving) crew.walk(-(move.x * b.right.x + move.z * b.right.z), move.x * b.fwd.x + move.z * b.fwd.z, b.hull, dt);
+  const C = visitors.crewAt({ cr: O.id, cx: O.x, cz: O.z });
+  if (!C) return crewLost(p);
+  _crewAt.set(C.x, C.y, C.z);
+  walker.ride(dt, t, _crewAt, moving ? Math.atan2(move.x, move.z) : walker.heading, b.vel, !!moving);
+}
+
+// Off a friend's boat: back where you came from if you can, or straight into your own boat.
+function leaveCrew(to = null) {
+  crew.leave();
+  const from = crewFrom;
+  crewFrom = null;
+  if (to?.boat || (!to && from?.boat)) {
+    const B = to?.boat || from.boat;
+    walker.place(B.pos.x, B.pos.z, B.heading);
+    board(B);
+  } else {
+    const S = to?.spot || from?.spot;
+    if (S) walker.place(S.x, S.z, S.heading);
+    save();
+  }
+}
+
+// The boat you were crewing in has gone (your friend left, went ashore, or the session ended).
+function crewLost(p) {
+  const name = p?.name || 'your friend';
+  const from = crewFrom;
+  leaveCrew(from?.boat ? { boat: from.boat } : null);
+  hud.toast(from?.boat ? `${name}’s boat has gone: you’re back in your own.` : `${name}’s boat has gone: you’re back where you stepped aboard.`, 6);
+}
+
+// What you can do from here: the helm, or step off (onto your own boat alongside, or ashore).
+function crewChoices() {
+  const O = crew.on, p = together.peers.get(O.id), name = p?.name || 'your friend';
+  const opts = [];
+  if (O.helm) opts.push({ text: 'Hand back the helm', run: () => { crew.handBack(); hud.flash(`You hand the helm back to ${name}.`, t, 2); } });
+  else opts.push({ text: 'Take the helm', run: () => { if (crew.askHelm()) hud.flash(`You ask ${name} for the helm…`, t, 2); } });
+  const P = walker.pos;
+  const mine = boats.find((B) => Math.hypot(B.pos.x - P.x, B.pos.z - P.z) < B.hull.L * 0.5 + 4);
+  if (mine) opts.push({ text: `Step back into your ${mine.name}`, cls: 'quiet', run: () => leaveCrew({ boat: mine }) });
+  const spot = (p?.at?.v || 0) < CREW_SLOW ? shoreSpot(P) : null;
+  if (spot) opts.push({ text: spot.pier ? 'Step onto the jetty' : 'Step ashore', cls: 'quiet', run: () => leaveCrew({ spot }) });
+  if (!mine && !spot) opts.push({ text: 'Back to your own boat (off the session’s map)', cls: 'quiet', run: () => leaveCrew(crewFrom?.boat ? { boat: crewFrom.boat } : null) });
+  ask(`${name}’s boat`, O.helm ? 'You have the helm: the keys steer her and work her throttle.' : 'Crewing for them: fish, watch the sonar, net their fish.', opts);
+}
+
+// Why you won't hand over your helm just now, or null.
+function helmRefusal() {
+  if (onFoot) return 'they’re not aboard';
+  if (boat.sailUp && (boat.hull.sail || boat.hull.rig)) return 'she’s under sail';
+  if (cabinIn) return 'they’re in the cabin';
+  return null;
+}
+
+// A crew word from a friend: your helm asked for, given, handed back or taken back.
+function crewWord(p, d) {
+  const r = crew.heard(p, d);
+  if (r === 'granted') hud.toast(`${p.name} hands you the helm: steer and work her throttle as if she were yours. ${scheme() === 'touch' ? 'The prompt' : K('interact')} to hand it back.`, 6);
+  else if (r === 'refused') hud.toast(`${p.name} keeps the helm${d.w ? `: ${d.w}` : ''}.`, 4);
+  else if (r === 'returned') hud.flash(`${p.name} has the helm back.`, t, 3);
+  else if (r === 'handed') hud.flash(`${p.name} hands the helm back to you.`, t, 3);
+  else if (r === 'asked') {
+    const why = helmRefusal() || (crew.given && crew.given.id !== p.id ? 'someone else has it' : null);
+    if (why) crew.deny(p, why);
+    else if (crew.grant(p)) hud.toast(`${p.name} has the helm. Touch the controls at the wheel to take it back.`, 6);
+  }
+}
+
 // A friend netting your fish for you, or thanking you for netting theirs.
 function friendHelp(p, d) {
   if (d.e === 'net') {
@@ -8081,11 +8208,15 @@ function placeFriendsFish(t) {
 function netDiagnostics() {
   if (!together.active) return null;
   const U = together.stats, secs = Math.max(1, (Date.now() - U.since) / 1000), S = shared.stats;
-  const NAMES = { pose: 'where everyone is', eco: 'the shared sea', world: 'time and weather', fleet: 'boats in the water', presence_diff: 'joining and leaving', presence_state: 'who’s here', ask: 'asked of the host', fish: 'fish news to a guest' };
+  const NAMES = { pose: 'where everyone is', eco: 'the shared sea', world: 'time and weather', fleet: 'boats in the water', presence_diff: 'joining and leaving', presence_state: 'who’s here', ask: 'asked of the host', fish: 'fish news to a guest', crew: 'crewing and the helm', help: 'netting for a friend', shoal: 'marked shoals' };
   const kinds = Object.entries(U.kinds || {}).filter(([, k]) => k.in + k.out > 0).sort((a, b) => (b[1].bytesIn + b[1].bytesOut) - (a[1].bytesIn + a[1].bytesOut)).slice(0, 6);
   const lines = kinds.map(([k, v]) => `${NAMES[k] || k}: ${((v.in + v.out) / secs * 60).toFixed(0)} messages a minute, ${((v.bytesIn + v.bytesOut) / secs / 1024).toFixed(1)} KB/s`);
   if (shared.role === 'host') lines.push(`The shared sea: you’re keeping it for everyone. ${S.sent} snapshots sent, the last covering ${S.animals} groups of sea life and ${S.schools} shoals near someone; ${S.rigs ? `${S.rigs} of your friends’ rigs in your water, ` : ''}${S.fish} fish going for a rig or hooked.`);
   else if (shared.role === 'follower') lines.push(`The shared sea: following the host’s. ${S.got} snapshots heard${S.heardAt != null ? `, the last ${Math.max(0, together.now() - S.heardAt).toFixed(1)} s ago, ${S.delay.toFixed(2)} s on the way` : ''}; ${S.schools} shoals, ${S.animals} groups of sea life and ${S.fish} fish being fished for in it${S.rejected ? `; ${S.rejected} turned away` : ''}${S.stale ? `, ${S.stale} out of date` : ''}.`);
+  // Supabase counts every message sent from or delivered to each player, a second at a time, against
+  // the project's plan (100 a second on the Free plan, 500 on Pro): the whole session's, about.
+  const players = together.others.length + 1, mine = (U.in + U.out) / secs;
+  lines.push(`The whole session: about ${Math.round(mine * players)} messages a second sent and delivered across all ${players} of you (Supabase allows 100 a second on the Free plan, 500 on Pro).`);
   return lines;
 }
 
@@ -8131,6 +8262,7 @@ function whereIAm() {
     // (What the fish is doing, so they can see it at the end of your line.)
     if (F && !F.atNet) gear.mv = F.jumping > 0 ? 'jump' : F.shakeT > 0 ? 'shake' : F.move === 'charge' ? 'charge' : F.move === 'sound' ? 'sound' : F.move === 'circle' && !F.pulling ? 'circle' : F.pulling ? (F.move === 'dive' || F.move === 'longrun' ? F.move : 'run') : undefined;
   }
+  if (onFoot && crew.on) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: fishing.lineOut ? 'fish' : walker.moving ? 'walk' : 'stand', o: on, cr: crew.on.id, cx: crew.on.x, cz: crew.on.z, ...gear };
   if (onFoot) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: sitting ? 'sit' : fishing.lineOut ? 'fish' : walker.speed > 0.4 ? 'walk' : 'stand', o: on, ...gear };
   return { m: 'boat', k: boat.kind, x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), o: on, ...gear };
 }
@@ -8240,6 +8372,7 @@ together.onEvent = (kind, p, data) => {
   } else if (kind === 'ended') hud.toast(p ? `${p.name} ended the session.` : data?.hostGone ? `${data.name[0].toUpperCase()}${data.name.slice(1)} didn’t come back, so the session has ended. Your own time and weather are back.` : 'The connection to your session was lost, so you’ve left it.', 7);
   else if (kind === 'find') friendFind(p, data);
   else if (kind === 'help') friendHelp(p, data);
+  else if (kind === 'crew') crewWord(p, data);
   else if (kind === 'shoal') {
     const s = teamwork.heard(p, data);
     if (s) hud.toast(`${p.name} marked a shoal of ${s.sp.name.toLowerCase()} ${friendWhere(p)}: the mark goes with it.`, 6);
@@ -8328,6 +8461,14 @@ function save() {
   state.vessel = boat.kind;
   state.mode = onFoot ? 'foot' : 'boat';
   state.walker = onFoot ? { x: walker.pos.x, z: walker.pos.z, heading: walker.heading } : null;
+  // Crewing in a friend's boat, you're saved where you stepped aboard from (never on the sea).
+  if (crew.on && crewFrom) {
+    if (crewFrom.boat) {
+      state.mode = 'boat';
+      state.vessel = crewFrom.boat.kind;
+      state.walker = null;
+    } else state.walker = { ...crewFrom.spot };
+  }
   // In the water, you're saved where you went in: aboard, or on the bank.
   if (dive) {
     if (dive.boat) {
@@ -9430,6 +9571,9 @@ function tick(now, manual = false) {
       // On a controller the triggers drive: RT to go, LT to brake and then reverse.
       carIn.throttle = pads.active ? pads.rt - pads.lt : ti;
       carIn.steer = si;
+    } else if (crew.on?.helm) {
+      // Crewing at a friend's helm: the keys are their wheel and lever (see crew.js).
+      crew.sendWheel(dt, ti, si);
     } else if (onFoot) {
       // Camera-relative: W walks away from the camera, A/D to the sides.
       const yaw = rig.yaw, fx_ = Math.sin(yaw), fz_ = Math.cos(yaw);
@@ -9468,6 +9612,20 @@ function tick(now, manual = false) {
         hud.flash(`Tied up alongside: cast off first (${scheme() === 'touch' ? 'the Cast off prompt' : K('anchor')})`, t, 2.4);
       }
     }
+  }
+  // A friend crewing has your helm (see crew.js): touching the controls at the wheel takes it back;
+  // otherwise their wheel and lever steer her, while you fish or walk her deck.
+  if (crew.given && started && !onFoot && !modal && !fishing.lineOut && !(boat.deck && !boat.atHelm) && (Math.abs(input.throttle) > 0.3 || Math.abs(input.steer) > 0.3)) {
+    crew.takeBack();
+    hud.flash('You take the helm back.', t, 2);
+  }
+  const cw = !onFoot && !cabinIn && !(boat.sailUp && (boat.hull.sail || boat.hull.rig)) ? crew.wheel() : null;
+  if (cw) {
+    if (leverKind()) {
+      helmInput(cw.ti, dt, cw.si);
+      throttle = boat.lever;
+    } else throttle = cw.ti;
+    if (!(following && fishing.state === 'reeling')) steer = cw.si;
   }
   if (boat.motor && (onFoot || (modal && !mapAboard()) || cabinIn)) throttle = 0;
   // What's allowed with a line out or a fish on (a lever left higher comes back).
@@ -9602,7 +9760,8 @@ function tick(now, manual = false) {
   }
   // First person: you face where you look.
   if (rig.mode === 'eye' && onFoot && !(move.x || move.z)) walker.heading = dampAngle(walker.heading, rig.yaw, 10, dt);
-  if (onFoot && !driving && !dive) walker.update(dt, t, move, { jog: !fishing.busy && (input.jogging || (pads.active && pads.jog)), locked: fishing.busy && !(walkLine && fishing.lineOut), obstacles: solids });
+  if (crew.on) rideCrew(dt);
+  else if (onFoot && !driving && !dive) walker.update(dt, t, move, { jog: !fishing.busy && (input.jogging || (pads.active && pads.jog)), locked: fishing.busy && !(walkLine && fishing.lineOut), obstacles: solids });
   // The car: driven while you're at the wheel (a menu open puts the brake on); otherwise parked.
   {
     const live = driving && started;
@@ -9663,7 +9822,7 @@ function tick(now, manual = false) {
         world.coast.ownerSign(plate);
       }
     }
-    visitors.update(dt, t, together.peers, { from: P, fx, glow, night: env.lantern });
+    visitors.update(dt, t, together.peers, { from: P, fx, glow, night: env.lantern, me: together.id, mine: onFoot ? null : boat });
     placeFriendsFish(t);
     // A boat of yours lying where a friend's boat is (boats from the same jetty start in the same
     // spot) steps out of sight while theirs is there, rather than two hulls drawn in one.
@@ -10078,7 +10237,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared, teamwork, interaction: () => interaction(),
+  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared, teamwork, crew, interaction: () => interaction(), save: () => save(), get crewFrom() { return crewFrom; },
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
   pump: (id = 'haven') => openPump(id),

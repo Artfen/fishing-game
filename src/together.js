@@ -45,6 +45,12 @@ const FIND_BURST = 6, FIND_WINDOW = 30; // at most six in any half-minute, each 
 // marked for everyone, at most every few seconds each.
 export const HELPS = ['net', 'thanks'];
 const HELP_GAP = 0.5, SHOAL_GAP = 4;
+// Crewing (see crew.js): asking for the helm and its answers, and the wheel from the one at it.
+// (Asking is limited; answers always go, a flood of them aside.)
+const CREW_WORDS = ['helm', 'yes', 'no', 'back', 'wheel'];
+const CREW_GAP = 0.3, WHEEL_GAP = 0.1, ANSWER_GAP = 0.05;
+const crewGap = (e) => (e === 'helm' ? CREW_GAP : e === 'wheel' ? WHEEL_GAP : ANSWER_GAP);
+const crewKey = (e) => `crew_${e}_T`;
 const ASK_BURST = 12;     // asks a guest may make of the host in any second (rigs come up to four a second)
 // Plain words only (nothing that could be read as markup), trimmed to fit.
 const plain = (v, max) => (typeof v === 'string' ? v.replace(/[<>\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '');
@@ -120,6 +126,11 @@ export function cleanPose(p, kinds = null, gear = null) {
     out.n = !!p.n;   // at anchor or tied up
   }
   if (m === 'foot') out.a = ACTS.includes(p.a) ? p.a : 'stand';
+  // Crewing in a friend's boat (see crew.js): whose, and where in her.
+  if (m === 'foot' && typeof p.cr === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(p.cr)) {
+    const cx = finite(p.cx, -3, 3), cz = finite(p.cz, -8, 8);
+    if (cx != null && cz != null) Object.assign(out, { cr: p.cr, cx, cz });
+  }
   if (m === 'foot' || m === 'boat') out.o = !!p.o; // (a fish on: their rod bent, and a word)
   // Fishing: the rod and what's on it, where their line meets the water (or the fish on it), and
   // with a fish on, the load on the line.
@@ -907,6 +918,19 @@ export class Together {
       if (this.clock - (p.helpT ?? -99) < HELP_GAP) return;
       p.helpT = this.clock;
       this.onEvent('help', p, { e: data.e, f: data.f, sp: plain(data.sp, 40), kg: finite(data.kg, 0, 2000) });
+    } else if (kind === 'crew') {
+      // Crewing: words between a boat's skipper and their crew (crew.js checks who's aboard).
+      if (!p.name || data.to !== this.id || !CREW_WORDS.includes(data.e)) return;
+      const wheel = data.e === 'wheel', key = crewKey(data.e);
+      if (this.clock - (p[key] ?? -99) < crewGap(data.e) * 0.7) return;
+      p[key] = this.clock;
+      const d = { e: data.e, w: plain(data.w, 160) };
+      if (wheel) {
+        const ti = finite(data.ti, -1, 1), si = finite(data.si, -1, 1);
+        if (ti == null || si == null) return;
+        Object.assign(d, { ti, si });
+      }
+      this.onEvent('crew', p, d);
     } else if (kind === 'shoal') {
       // A shoal marked by a friend (teamwork.js checks it's one there is).
       const x = finite(data.x, -3000, 3000), z = finite(data.z, -3000, 8000);
@@ -990,6 +1014,7 @@ export class Together {
     const msg = { m: P.m, x: r2(P.x), z: r2(P.z), h: r2(P.h), vx: slow ? 0 : r2(P.vx), vz: slow ? 0 : r2(P.vz) };
     if (P.m === 'boat') Object.assign(msg, { k: P.k, f: P.f ? 1 : 0, s: P.s ? 1 : 0, n: P.n ? 1 : 0 });
     if (P.m === 'foot') msg.a = P.a;
+    if (P.m === 'foot' && P.cr) Object.assign(msg, { cr: P.cr, cx: r2(P.cx), cz: r2(P.cz) });
     if ((P.m === 'foot' || P.m === 'boat') && P.o) msg.o = 1;
     // (Fishing: the rod, what's on it, where the line meets the water, the load with a fish on.)
     if ((P.m === 'foot' || P.m === 'boat') && (P.f || P.a === 'fish' || P.o)) {
@@ -1007,7 +1032,8 @@ export class Together {
     const moved = !S || S.m !== msg.m || S.k !== msg.k || S.a !== msg.a || S.f !== msg.f || S.s !== msg.s || S.n !== msg.n || S.o !== msg.o
       || Math.hypot(S.x - msg.x, S.z - msg.z) > 0.25 || Math.abs(S.h - msg.h) > 0.05 || Math.hypot(S.vx - msg.vx, S.vz - msg.vz) > 0.3
       || S.r !== msg.r || S.i !== msg.i || (S.ex == null) !== (msg.ex == null) || (msg.ex != null && Math.hypot(S.ex - msg.ex, S.ez - msg.ez) > 0.3)
-      || Math.abs((S.tn ?? 0) - (msg.tn ?? 0)) > 0.12 || S.mv !== msg.mv || S.hk !== msg.hk || S.nt !== msg.nt;
+      || Math.abs((S.tn ?? 0) - (msg.tn ?? 0)) > 0.12 || S.mv !== msg.mv || S.hk !== msg.hk || S.nt !== msg.nt
+      || S.cr !== msg.cr || (msg.cr && Math.hypot(S.cx - msg.cx, S.cz - msg.cz) > 0.15);
     if (!now && (this.sendT > 0 || (!moved && this.clock - (S?.at ?? -99) < IDLE_EVERY))) return;
     this.rt.send('pose', { id: this.id, n: this.name(), host: this.hosting, t: Math.round(this.now() * 1000) / 1000, p: msg });
     this.sent = { ...msg, at: this.clock };
@@ -1089,6 +1115,20 @@ export class Together {
     return true;
   }
 
+  // Crewing (see crew.js): a word to the skipper or their crew (to: their id; e: one of CREW_WORDS;
+  // the wheel's ti and si, or w: why not).
+  crewWord(to, e, extra = {}) {
+    if (!this.active || !this.rt?.open || this.reconnecting || !CREW_WORDS.includes(e) || !this.peers.has(to)) return false;
+    const wheel = e === 'wheel', key = `${crewKey(e)}Sent`;
+    if (this.clock - (this[key] ?? -99) < crewGap(e)) return false;
+    this[key] = this.clock;
+    const msg = { id: this.id, to, e };
+    if (wheel) Object.assign(msg, { ti: finite(extra.ti, -1, 1) ?? 0, si: finite(extra.si, -1, 1) ?? 0 });
+    if (extra.w) msg.w = plain(extra.w, 160);
+    this.rt.send('crew', msg);
+    return true;
+  }
+
   // A shoal marked for everyone (s: its id in the shared sea; x, z: where it is now).
   markShoal(s, x, z) {
     if (!this.active || !this.rt?.open || this.reconnecting || !Number.isInteger(s)) return false;
@@ -1128,7 +1168,7 @@ export class Together {
       me.vx = me.vz = 0;
       if (was && dt > 0 && was.m === me.m) {
         const vx = (me.x - was.x) / dt, vz = (me.z - was.z) / dt;
-        if (Math.hypot(vx, vz) <= TOP_SPEED[me.m]) {
+        if (Math.hypot(vx, vz) <= TOP_SPEED[me.cr ? 'boat' : me.m]) {
           const k = 1 - Math.exp(-6 * dt);
           me.vx = (was.vx || 0) + (vx - (was.vx || 0)) * k;
           me.vz = (was.vz || 0) + (vz - (was.vz || 0)) * k;
