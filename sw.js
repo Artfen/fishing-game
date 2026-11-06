@@ -10,7 +10,7 @@
 // - It never touches saved games: those live in the browser's local storage, not here.
 
 // <precache> Written by tools/build-sw.mjs: do not edit by hand.
-const VERSION = 'af4a58eee8e3';
+const VERSION = '4772a9357e6f';
 const FILES = [
   './index.html',
   './style.css',
@@ -114,6 +114,7 @@ const FILES = [
   './src/townsfolk.js',
   './src/trailer.js',
   './src/trip.js',
+  './src/trolling.js',
   './src/ui.js',
   './src/util.js',
   './src/walker.js',

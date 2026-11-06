@@ -100,6 +100,7 @@ import { Teamwork } from './teamwork.js';
 import { Crew, CREW_REACH, CREW_SLOW } from './crew.js';
 import { DashControl } from './dashcontrol.js';
 import { keyStep } from './dashboard.js';
+import { TrollMotor, canTroll } from './trolling.js';
 import { demandFor, money, ordersFor, ORDERS_BY } from './market.js';
 import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
 import { PHOTO_MAX } from './save.js';
@@ -119,7 +120,7 @@ import { levers, nearest, step, setIndex, within, capIndex, leverWords, slide, v
 import { LeverUI } from './lever.js';
 import { anchorCheck, berthFor, berthAt, castOffCheck, canTow, towStep, TOW } from './mooring.js';
 import { Rope } from './rope.js';
-import { BOAT_PER_S, TANKS, addFuel, isPetrol, PASSAGE_FUEL, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, burnKayak, chargeBattery, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
+import { BOAT_PER_S, TANKS, addFuel, isPetrol, PASSAGE_FUEL, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, burnKayak, chargeBattery, BATTERY_PER_HOUR, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
 import { STEPS as TRIP_STEPS, stepOf, stepNumber, complete as completeStep, start as startGuide, words as guideWords, isNewGame, placeAt, FISH_SPOTS } from './firstTrip.js';
 import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality } from './quality.js';
 import { Post } from './post.js';
@@ -3276,6 +3277,12 @@ function dashAct(c, phase) {
     case 'trimDown':
       dashTrim = down ? -1 : 0;
       return;
+    case 'troll':
+      if (down) trollDeploy();
+      return;
+    case 'lock':
+      if (down) trollLock();
+      return;
     default:
   }
 }
@@ -3308,6 +3315,14 @@ function dashWords(c) {
     case 'horn': return 'press to sound';
     case 'screen': return finder.visible ? 'fish finder: tap for the chart' : 'chart: tap for the fish finder';
     case 'throttle': return `${leverWords(leverKind(), boat.lever)} · drag it, or scroll`;
+    case 'troll': {
+      const M = boat.troll;
+      return !M ? 'none fitted' : M.deployed ? `down · battery ${Math.round((tanks().troll[boat.kind] ?? 1) * 100)}%` : M.want ? 'going down…' : 'stowed';
+    }
+    case 'lock': {
+      const M = boat.troll;
+      return M?.mode === 'lock' ? `holding · ${M.off.toFixed(1)} m off` : M?.mode === 'heading' ? 'holding a heading' : M?.deployed ? 'press to hold her here' : 'lower the motor first';
+    }
     case 'trimUp':
     case 'trimDown': {
       const a = boat.trimAuto ? boat.legAngle || 0 : E.trim;
@@ -3333,6 +3348,7 @@ function dashState() {
     lights: !!boat.navLights, horn: dashHorn > 0, selftest: keySelftest, night: env.night,
     heading: boat.heading, depth: habitat.depth(P0.x, P0.z), track: T.slice(-60).map((p) => [p[0] - P0.x, p[1] - P0.z]),
     page: finder.visible ? 'sonar' : 'chart', sonar: finder.canvas,
+    troll: boat.troll ? { fitted: true, gps: boat.troll.gps, down: boat.troll.deployed, lock: boat.troll.mode === 'lock' || boat.troll.mode === 'heading' } : null,
   };
 }
 // Once a frame: the dashboard of the boat you're in, and working it.
@@ -3363,6 +3379,95 @@ function updateDash(dt) {
   // (The navigation lights draw on the battery with the engine stopped.)
   if (boat.navLights && E && !engineRunning(E) && S.powered) E.charge = Math.max(0, E.charge - dt * 0.0004);
 }
+/* ---------- the trolling motor and Spot-Lock (see trolling.js) ---------- */
+// Each boat with a bow trolling motor fitted (Willowhaven Marine Works) has it on her bow: lowered
+// with , (and stowed again), worked with the keys while the main engine's in neutral, and on the
+// GPS motors, . holds her on a spot (or, creeping along under its push, on a heading).
+let trollPush = 0, trollShortT = 0, trollWas = null;
+const trollMotors = {};
+// The boat's trolling motor, as fitted now (a new one when the fitting changes), or none.
+function trollOf(b) {
+  const e = fitEffect(state.yard, b.kind), tier = canTroll(b.kind) ? e.trollMotor : null;
+  if (!tier) {
+    if (b.troll) b.troll = null;
+    delete trollMotors[b.kind];
+    return null;
+  }
+  const M = trollMotors[b.kind];
+  if (!M || M.tier !== tier || M.wh !== (e.trollBank ? 2400 : 1200)) trollMotors[b.kind] = new TrollMotor(tier, { bank: e.trollBank });
+  b.troll = trollMotors[b.kind];
+  return b.troll;
+}
+function trollDeploy() {
+  if (onFoot || driving || dive) return;
+  const M = trollOf(boat);
+  if (!M) return hud.flash(canTroll(boat.kind) ? 'No trolling motor on her: Willowhaven Marine Works fits one on her bow (the GPS model has Spot-Lock).' : `The ${boat.hull.name} won’t take a bow trolling motor.`, t, 3.5);
+  const on = M.deploy();
+  trollPush = 0;
+  audio.trimWhine?.(true);
+  setTimeout(() => audio.trimWhine?.(false), 900);
+  hud.flash(on ? `The trolling motor swings down into the water. ${scheme() === 'pad' ? 'The stick' : `${K('forward')}${K('back')}`} push, ${scheme() === 'pad' ? 'across' : `${K('left')}${K('right')}`} steer, with the engine in neutral${M.gps ? `; ${K('spotlock')} holds her here (Spot-Lock)` : ''}.` : 'The trolling motor comes up onto its mount.', t, 4);
+  teach('trolling', `The trolling motor: quiet, slow, on its own battery (it charges at a jetty and overnight). ${M.gps ? 'Spot-Lock holds her on a spot in deep water, pushing back against the wind and tide; too strong a drift and she drags. ' : ''}Putting the main engine in gear stops it.`, 9);
+}
+function trollLock() {
+  if (onFoot || driving || dive) return;
+  const M = trollOf(boat);
+  if (!M) return trollDeploy();
+  if (!M.gps) return hud.flash('This trolling motor has no GPS: the GPS model has Spot-Lock and heading hold.', t, 3);
+  if (M.mode === 'lock' || M.mode === 'heading') {
+    M.stop();
+    trollPush = 0;
+    return hud.flash(M.mode === 'lock' ? 'Spot-Lock off.' : 'Hold off: she’s yours again.', t, 2);
+  }
+  if (boat.anchored || boat.tie) return hud.flash(boat.tie ? 'She’s tied up.' : `The anchor’s down: raise it first (${K('anchor')}) to hold her on the motor instead.`, t, 2.6);
+  if (!M.deployed) return hud.flash(`Lower the trolling motor first (${K('trolling')}).`, t, 2.4);
+  // (Creeping along under its push: hold this heading. Otherwise: hold this spot.)
+  if (Math.abs(trollPush) > 0.05) {
+    M.holdHeading(true, boat.heading);
+    return hud.flash(`Heading hold: she keeps her bow on ${Math.round((((boat.heading * 180) / Math.PI) % 360 + 360) % 360)}° at this push. ${K('spotlock')} again to let go.`, t, 3);
+  }
+  M.spotLock(true, boat.pos);
+  hud.flash(`Spot-Lock on: she holds here, the motor pushing back against the wind and tide. ${K('spotlock')} again to let go.`, t, 3.4);
+}
+// Once a frame: the motor of the boat you're aboard at work, on its battery.
+function updateTroll(dt) {
+  for (const b of boats) if (b !== boat || onFoot) b.troll?.mode !== 'off' && b.troll?.stop();
+  if (onFoot || driving || dive) return;
+  const M = trollOf(boat);
+  if (!M) return;
+  const f = tanks(), k = boat.kind;
+  if (f.troll[k] == null) f.troll[k] = 1;
+  if (M.mode !== 'off' && (boat.anchored || boat.tie)) {
+    M.stop();
+    hud.flash(boat.tie ? 'Tied up: the trolling motor stops.' : 'The anchor’s down: Spot-Lock off.', t, 2.4);
+  }
+  const r = M.step(dt, { boat: { x: boat.pos.x, z: boat.pos.z, vx: boat.vel.x, vz: boat.vel.z, heading: boat.heading, mass: boat._phys?.m || 1000 }, battery: f.troll[k], sea: waveHeightHere(boat.pos.x, boat.pos.z), lever: leverKind() ? boat.lever : 0 });
+  f.troll[k] = Math.max(0, f.troll[k] - r.drawn);
+  if (r.why === 'gear') {
+    trollPush = 0;
+    hud.flash('Into gear: the trolling motor stops.', t, 2.2);
+  } else if (r.why === 'flat') hud.flash('The trolling motor’s battery is flat: it charges at a jetty, and overnight.', t, 4);
+  // Spot-Lock losing the fight: said once in a while.
+  trollShortT = M.mode === 'lock' && M.short > 0.5 && M.off > 4 ? trollShortT + dt : 0;
+  if (trollShortT > 6) {
+    trollShortT = -20;
+    hud.flash(`Spot-Lock can’t hold her in this: she’s ${Math.round(M.off)} m off her spot and dragging. Anchor if it’s shallow enough, or motor back.`, t, 4.5);
+  }
+  // (The motor's hum while it pushes.)
+  const on = M.f > 20;
+  if (on !== trollWas) {
+    trollWas = on;
+    audio.trimWhine?.(false);
+  }
+}
+// A few words for the gauges by the lever.
+function trollWords() {
+  const M = boat.troll;
+  if (!M || !M.deployed || onFoot) return '';
+  const pc = Math.round((tanks().troll[boat.kind] ?? 1) * 100);
+  return M.mode === 'lock' ? `Spot-Lock ${M.off.toFixed(1)} m · ${pc}%` : M.mode === 'heading' ? `heading hold · ${pc}%` : `trolling motor ${pc}%`;
+}
+
 function toggleDashFocus() {
   const on = !dashCtl.focused && dashCtl.focus(true);
   if (!on) dashCtl.focus(false);
@@ -3460,6 +3565,8 @@ function helmGauges() {
   if (P.engines > 1 && !E.engines.every((x) => x.run)) bits.push('<span class="lv-warn">one engine</span>');
   const nav = plotterNav();
   if (nav) bits.push(nav);
+  const tw = trollWords();
+  if (tw) bits.push(tw);
   return bits.join(' · ');
 }
 // Each frame, the fittings of the boat you're in at work (see shipyard.js): the sonar's imaging
@@ -7830,6 +7937,13 @@ function currentHint() {
     const how = T ? 'the stick walks you about her' : `${P ? kbd('L-stick') : MOVE()} walk`;
     return boat.atHelm ? `At the wheel · ${T ? 'tap the prompt' : K('interact')} to take the helm · ${how}` : `Walking the deck · ${how} · back at the wheel to take the helm`;
   }
+  // The trolling motor down (see trolling.js): the keys are its push and its head.
+  if (leverKind() && boat.troll?.deployed && !boat.lever) {
+    const M = boat.troll, pc = Math.round((tanks().troll[boat.kind] ?? 1) * 100);
+    if (M.mode === 'lock') return `Spot-Lock: holding her, ${M.off.toFixed(1)} m off her spot · ${K('spotlock')} let go · ${K('trolling')} stow the motor · battery ${pc}%`;
+    if (T) return `Trolling motor: the stick up or down for its push, across to turn its head · battery ${pc}%`;
+    return `Trolling motor: ${P ? `${kbd('L-stick')} ↕` : UD} push · ${P ? '↔' : LR} turn its head${M.gps ? ` · ${K('spotlock')} ${Math.abs(trollPush) > 0.05 ? 'hold this heading' : 'Spot-Lock'}` : ''} · ${K('trolling')} stow · ${K('throttleUp')} main engine (stops it) · battery ${pc}%`;
+  }
   if (leverKind()) {
     const kind = leverKind(), lv = boat.lever;
     const dead = kind === 'kayak' ? boat.kflat : boat.trolling ? boat.flat : boat.dry && Math.abs(lv) >= 0.03;
@@ -9414,6 +9528,8 @@ input.on('press', (code, acts) => {
   else if (is('neutral') && leverKind()) leverNeutral(true);
   else if (is('throttleUp') && leverKind()) stepLever(1);
   else if (is('throttleDown') && leverKind()) stepLever(-1);
+  else if (is('trolling')) trollDeploy();
+  else if (is('spotlock')) trollLock();
   else if (is('motor')) {
     // (At a motorboat's helm: the engine.)
     if (!onFoot && !driving && !cabinIn && boat.hull.motor && engines[boat.kind]) {
@@ -9774,6 +9890,15 @@ function tick(now, manual = false) {
       walkWith(ti, si, dt);
       throttle = boat.lever;
       steer = 0;
+    } else if (leverKind() && boat.troll?.deployed && boat.troll.mode !== 'lock' && !boat.lever) {
+      // The trolling motor down and the main engine in neutral: the keys are its push (it stays
+      // where you leave it, like a lever) and its head (back to straight when you let go). The
+      // main throttle's still on its own keys (+ and −), and putting her in gear stops the motor.
+      trollPush = clamp(trollPush + ti * dt * 0.9, -1, 1);
+      if (Math.abs(trollPush) < 0.04 && !ti) trollPush = 0;
+      boat.troll.drive(trollPush, si);
+      throttle = 0;
+      steer = 0;
     } else if (leverKind()) {
       // At the helm: the throttle lever moves a notch at a time (the keys, or the stick pushed
       // and let go) and stays where you leave it; steering is the stick or keys across.
@@ -9855,6 +9980,8 @@ function tick(now, manual = false) {
       if (ran === 'flat') hud.flash('The electric motor whines down: the battery is flat. It charges at a jetty, and overnight; the outboard still runs.', t, 5);
     }
     if (hours && moored(BOATS.bass)) chargeBattery(f, hours);
+    // (Each trolling motor's battery charges at a jetty, and overnight, the same way.)
+    if (hours) for (const k of Object.keys(f.troll || {})) if (BOATS[k] && moored(BOATS[k])) f.troll[k] = Math.min(1, f.troll[k] + hours * BATTERY_PER_HOUR);
     if (hours && moored(BOATS.kayak)) chargeBattery(f, hours, 'kayak');
     fuelCheckT -= dt;
     if (fuelCheckT <= 0) {
@@ -9866,6 +9993,7 @@ function tick(now, manual = false) {
   }
   if (started) {
     updateEngine(dt);
+    updateTroll(dt);
     updateDash(dt);
     updateFittings(dt);
     watchHire();

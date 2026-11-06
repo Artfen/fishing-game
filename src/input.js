@@ -27,6 +27,8 @@ export const ACTIONS = [
   { id: 'rest', label: 'Let time drift (hold)', keys: ['KeyT'], group: 'Around' },
   { id: 'anchor', label: 'Mooring: drop or raise the anchor · tie up alongside · cast off · let go a tow (as the prompt says)', keys: ['KeyZ'], group: 'Boats' },
   { id: 'neutral', label: 'Motor to neutral (stop)', keys: ['KeyX'], group: 'Boats' },
+  { id: 'trolling', label: 'The bow trolling motor: lower it, or stow it', keys: ['Comma'], group: 'Boats' },
+  { id: 'spotlock', label: 'Spot-Lock: hold her here (creeping along on the trolling motor: hold this heading)', keys: ['Period'], group: 'Boats' },
   { id: 'throttleUp', label: 'Throttle up a notch (also with a line out)', keys: ['Equal', 'NumpadAdd'], group: 'Boats' },
   { id: 'throttleDown', label: 'Throttle down a notch (also with a line out)', keys: ['Minus', 'NumpadSubtract'], group: 'Boats' },
   { id: 'motor', label: 'The engine: start or stop it (or the helm panel, on the full procedure) · kayak motor down or up · sailing boat: sail up or down', keys: ['KeyU'], group: 'Boats' },

@@ -58,7 +58,7 @@ const num = (v, d, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Mat
 const r1 = (v) => Math.round(v * 10) / 10;
 
 export function defaultFuel() {
-  return { car: TANKS.car, boats: Object.fromEntries(PETROL.map((k) => [k, TANKS[k]])), battery: 1, kayak: 1, can: { at: 'home', litres: CAN } };
+  return { car: TANKS.car, boats: Object.fromEntries(PETROL.map((k) => [k, TANKS[k]])), battery: 1, kayak: 1, troll: {}, can: { at: 'home', litres: CAN } };
 }
 
 // A saved record made safe (and a save from before fuel: everything full).
@@ -69,6 +69,9 @@ export function cleanFuel(raw) {
   // (Up to a long-range tank's worth: the game trims it to the tank she has. See shipyard.js.)
   if (isObj(raw.boats)) for (const k of PETROL) d.boats[k] = num(raw.boats[k], TANKS[k], 0, TANKS[k] * MAX_TANK);
   d.battery = num(raw.battery, 1, 0, 1);
+  // (Each boat's trolling-motor battery, 0 … 1: a save from before them has them full.)
+  d.troll = {};
+  if (raw.troll && typeof raw.troll === 'object') for (const k of PETROL) if (Number.isFinite(raw.troll[k])) d.troll[k] = num(raw.troll[k], 1, 0, 1);
   // (A save from before the kayak had a motor: its battery starts full.)
   d.kayak = num(raw.kayak, 1, 0, 1);
   if (isObj(raw.can)) {

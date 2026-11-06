@@ -255,7 +255,26 @@ The next brief, worked through in order, each step merged to main once it's test
    glow-plug button and lamp, no kill cord and no leg, the levers to port. *Left on the panel*:
    the bass boat and the cabin boat (steered from a seat or the cabin's aft wall, with no console
    in their models) and the tiller boats; a console for them is model work first.
-7. **Electric trolling motors and GPS spot-lock.**
+7. **Electric trolling motors and GPS Spot-Lock: done** (`src/trolling.js`).
+   - *Hardware*: three bow motors at the Marine Works (basic; GPS with Spot-Lock and heading hold;
+     high-thrust GPS), one at a time, and a lithium bank doubling the battery. They suit the
+     skiff, the bass boat, the cabin boat and the centre console; not the RIB (her tubes meet in
+     the nose), nor the yacht (too big for a bow motor: dynamic positioning on her own engines
+     would be a different kind of thing, not built yet).
+   - *Physics*: the motor is a thruster under the bow (the hull's own physics does the rest).
+     Spot-Lock is a controller: an acceleration of her mass from how far she's drifted and how
+     fast (with a soft zone of under a metre so it holds rather than hunts), capped at what the
+     motor can give on its battery in the sea that's running, the head turning to push along it.
+     No frozen coordinates, no invisible rope, no free electricity.
+   - *Measured* (node, the real hulls): the centre console in a 7 m/s breeze drifts 31 m in a
+     minute free, and Spot-Lock (high-thrust) holds her within 1.1 m; in the game, with the tide
+     running as well, within about 2 m at 660 of its 700 N. The bass boat in a 19 m/s gale drags
+     72 m in 45 s, the motor 97% short. Full push ahead: 1.3 m/s (2.5 kn), quiet. Heading hold
+     settles within 0.01 rad. A battery lasts close to three hours flat out.
+   - *Integration*: its own battery per boat (charged at a jetty and overnight, in the save); it
+     stops when the main engine goes into gear, when it's stowed, the anchor's dropped or she's
+     tied up, and says why; the hint and the gauges show Spot-Lock's distance off and the battery;
+     on the centre console's dashboard, its switch, Spot-Lock button and a LOCK lamp.
 8. **Contracts and careers; a purpose for bigger boats; fun for people who don't fish.**
 
 ## Open-source projects that could help
