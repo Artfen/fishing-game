@@ -1242,10 +1242,8 @@ export class Boat {
     const parts = [
       { geo: new THREE.BoxGeometry(0.78, 1.0, 0.5), matrix: mat(hx, y0 + 0.5, cz), color: H.paint },
       { geo: new THREE.BoxGeometry(0.74, 0.04, 0.36), matrix: mat(hx, y0 + 0.98, cz - 0.17, -0.45, 0, 0), color: '#2b2e33' },
-      { geo: new THREE.SphereGeometry(0.07, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), matrix: mat(hx - 0.2, y0 + 1.03, cz - 0.12), color: '#1d1f22' },
+      // (The gauges, the screen, the switches and the throttles are the dashboard's: see dashboard.js.)
       { geo: new THREE.BoxGeometry(0.8, 0.32, 0.02), matrix: mat(hx, y0 + 1.18, cz + 0.2, -0.3, 0, 0), color: '#9fb4bf' },
-      { geo: new THREE.BoxGeometry(0.12, 0.1, 0.12), matrix: mat(hx + 0.28, y0 + 1.0, cz - 0.1), color: '#2b2e33' },
-      ...[-0.03, 0.03].map((dx) => ({ geo: new THREE.CylinderGeometry(0.013, 0.013, 0.2, 5), matrix: mat(hx + 0.28 + dx, y0 + 1.12, cz - 0.1, 0.35, 0, 0), color: steel })),
     ];
     this.buildWheel(hx, y0 + 1.06, hz + 0.42);
     // The hardtop, on from the cabin roof over the helm, on two posts aft; the rods racked along
@@ -1298,6 +1296,7 @@ export class Boat {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     this.body.add(mesh);
+    if (DASHES[this.kind]) this.dash = new Dashboard(this);
     if (this.cabinRoof) {
       // On the roof (so it lifts away with it when you look down inside).
       const [t0, t1] = H.cabin, ry2 = this.cabinRoofY + 0.07, zm = zAt(H, t0 + (t1 - t0) * 0.35);
