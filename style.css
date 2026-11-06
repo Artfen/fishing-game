@@ -957,6 +957,20 @@ p.cp-soft { margin: 6px 0; }
 .card-act button:hover { background: rgba(255, 255, 255, 0.7); }
 .card-act button[hidden] { display: none; }
 #cc-rig { font: 600 12px var(--font-ui) !important; color: var(--ink-soft); margin-top: 6px !important; }
+/* The catch reveal: its place in your tally, the weight coming up on the balance, and a stamp for
+   a record or a fish of a lifetime. On a wide screen the card comes in beside the fish (held up in
+   the middle of the view) rather than over it. */
+#cc-tally { font: 600 12.5px var(--font-ui); color: var(--ink-soft); margin-top: 4px; }
+#cc-kg { display: inline-block; min-width: 5.2ch; text-align: left; font-variant-numeric: tabular-nums; }
+#cc-kg.settled { color: var(--ink); }
+.stamp.record { color: #2f6f74; }
+.stamp.lifetime { color: #b8862a; font-size: 26px; text-shadow: 0 0 10px rgba(255, 214, 120, 0.55); }
+#catch-card:not([hidden]) { animation: cc-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; }
+@keyframes cc-in { from { opacity: 0; margin-top: 24px; } to { opacity: 1; margin-top: 0; } }
+@media (min-width: 900px) {
+  body.reveal #catch-card { left: auto; right: max(24px, 5vw); transform: translateY(-50%) rotate(1deg); }
+}
+@media (prefers-reduced-motion: reduce) { #catch-card:not([hidden]) { animation: none; } }
 .card kbd { background: var(--ink); color: var(--paper); box-shadow: none; }
 .stamp {
   display: inline-block;
