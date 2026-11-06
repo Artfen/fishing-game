@@ -31,13 +31,14 @@ const settle = (dash, S, secs = 1) => {
 test('each console carries exactly the switches its engine room has', () => {
   assert.deepEqual(controlsFor('rib'), ['battery', 'key', 'cord', 'lights', 'horn', 'screen', 'throttle', 'trimUp', 'trimDown']);
   assert.deepEqual(controlsFor('console'), ['battery', 'key0', 'key1', 'cord', 'lights', 'horn', 'screen', 'throttle', 'trimUp', 'trimDown'], 'twin outboards: a key each');
+  assert.deepEqual(controlsFor('cruiser'), ['battery', 'key0', 'key1', 'glow', 'lights', 'horn', 'screen', 'throttle'], 'the yacht: twin diesels with glow plugs, no kill cord, no leg to trim');
   for (const k of ['row', 'skiff', 'kayak', 'sail', 'windsurf']) assert.deepEqual(controlsFor(k), [], `${k}: no console`);
   for (const kind of Object.keys(DASHES)) {
     const b = new Boat(scene, { kind });
     assert.ok(b.dash, `${kind} has its dashboard`);
     assert.deepEqual([...b.dash.controls.keys()].sort(), controlsFor(kind).slice().sort());
   }
-  for (const kind of ['row', 'skiff', 'bass', 'cabin', 'cruiser']) assert.equal(new Boat(scene, { kind }).dash, undefined, `${kind}: not yet`);
+  for (const kind of ['row', 'skiff', 'bass', 'cabin']) assert.equal(new Boat(scene, { kind }).dash, undefined, `${kind}: no console in her model (the helm panel)`);
 });
 
 test('the key does what the start-up setting says: the full procedure, the one button, or nothing to do', () => {

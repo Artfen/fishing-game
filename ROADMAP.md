@@ -238,7 +238,7 @@ The next brief, worked through in order, each step merged to main once it's test
      9. Single player unchanged: with no session the shared world is off and every rig is your own
         (the ecosystem's single-rig path is the same code as before); the whole suite runs that way.
      10. Eight players within a measured budget: the table above.
-6. **First-person dashboard: the RIB and the centre console done** (`src/dashboard.js`,
+6. **First-person dashboard: the RIB, the centre console and the yacht done** (`src/dashboard.js`,
    `src/dashcontrol.js`). The console is the helm panel in first person: battery rotary, key (one
    per engine), kill cord and lanyard, navigation lights (real sidelights and stern light, drawing
    on the battery), horn, the chartplotter and gauge screens, and the throttle with its trim
@@ -251,8 +251,10 @@ The next brief, worked through in order, each step merged to main once it's test
    says so and the LEG lamp lights. Verified in a browser with real mouse clicks: the full
    procedure from cold (battery, cord, key on with the lamp test, key to start), the throttle
    dragged ahead, the rocker held to tilt the leg to 34° and the outboard on the model at the
-   same 34°. *Next*: the bass boat, the cabin boat and the yacht (twin diesels with glow plugs)
-   get their own consoles in the same layout.
+   same 34°. The yacht's console carries the same architecture to inboard diesels: two keys, the
+   glow-plug button and lamp, no kill cord and no leg, the levers to port. *Left on the panel*:
+   the bass boat and the cabin boat (steered from a seat or the cabin's aft wall, with no console
+   in their models) and the tiller boats; a console for them is model work first.
 7. **Electric trolling motors and GPS spot-lock.**
 8. **Contracts and careers; a purpose for bigger boats; fun for people who don't fish.**
 

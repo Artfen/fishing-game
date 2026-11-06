@@ -37,6 +37,18 @@ export const DASHES = {
       lights: { side: [[0.33, y0 + 0.92, cz + 0.28], [-0.33, y0 + 0.92, cz + 0.28]], stern: [0, y0 + 2.0, -H.L / 2 + 0.6] },
     };
   },
+  // The yacht: twin diesels on the one pair of levers to port, glow plugs, no kill cord, no leg.
+  cruiser: (H) => {
+    const y0 = H.floorY, [hx, hz] = H.standing.helm, cz = hz + 0.72;
+    return {
+      face: { at: [hx, y0 + 1.06, cz - 0.17], tilt: -0.45, w: 0.76, d: 0.34 },
+      screen: { at: [-0.19, 0.08], w: 0.3, h: 0.17, lean: 1.0 },
+      gauges: { at: [0.08, 0.08], w: 0.26, h: 0.15, lean: 1.0 },
+      switches: { battery: [0.12, -0.1], lights: [0.05, -0.1], horn: [-0.02, -0.1], glow: [-0.09, -0.1], key0: [-0.18, -0.1], key1: [-0.25, -0.1] },
+      throttle: { at: [hx + 0.29, y0 + 1.04, cz - 0.11] },
+      lights: { side: [[H.B - 0.15, y0 + 1.75, cz + 0.6], [-(H.B - 0.15), y0 + 1.75, cz + 0.6]], stern: [0, y0 + 2.3, -H.L / 2 + 0.5] },
+    };
+  },
   console: (H) => {
     const y0 = H.floorY, [hx, hz] = H.standing.helm, cz = hz + 0.75;
     return {
@@ -476,12 +488,13 @@ export class Dashboard {
       bar(bx, 162, 'TRIM', tf, S.trim > TRIM.max ? (S.trim >= TRIM.out ? 'UP' : 'TILT') : `${Math.round(S.trim)}°`, S.trim >= TRIM.out && S.running);
     }
     // The warning lamps along the bottom: each lit while it's true (all of them in the self-test).
+    // (Only the lamps this engine room has: no kill cord or leg on the yacht, glow plugs only on diesels.)
     const lamps = [
       ['BATT', S.volts < 12.0 && S.powered],
       ['HOT', S.temp >= 0.6],
-      ['CORD', S.hasCord && !S.cord],
+      ...(this.P.cord ? [['CORD', !S.cord]] : []),
       ['FUEL', S.fuel < 0.12],
-      ['LEG', S.trim >= TRIM.out && S.running],
+      ...(this.P.trim ? [['LEG', S.trim >= TRIM.out && S.running]] : []),
       ...(this.P.diesel ? [['GLOW', S.glow]] : []),
     ];
     lamps.forEach(([label, on], i) => {
