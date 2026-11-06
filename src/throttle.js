@@ -10,6 +10,8 @@
 //   slow       about 2 m/s    trolling a lure, and the most you can motor with a line out
 //   half       about 4–5 m/s  getting somewhere
 //   full                      flat out
+// The centre console and the RIB also have a cruising notch (C: on the plane, about 19 and 22 knots,
+// easier on the fuel and the crew than flat out), between half (still off the plane) and full.
 // The yacht, the centre console and the RIB also have a trolling notch (T, about 3.6 m/s, seven knots)
 // between slow and half: the speed the big ocean fish are trolled for, allowed with a line out.
 // On the bass boat the first two notches run its quiet electric motor; on the kayak the whole
@@ -50,21 +52,23 @@ export const LEVERS = {
     { v: 0.05, id: '2', name: 'slow ahead' },
     { v: 0.111, id: 'T', name: 'trolling' },
     { v: 0.155, id: '3', name: 'half ahead' },
+    { v: 0.6, id: 'C', name: 'cruising' },
     { v: 1, id: 'F', name: 'full ahead' },
   ],
   // The RIB: light, with a big outboard.
   rib: [
-    { v: -0.15, id: 'R', name: 'astern' },
+    { v: -0.3, id: 'R', name: 'astern' },
     { v: 0, id: 'N', name: 'neutral' },
     { v: 0.011, id: '1', name: 'dead slow' },
     { v: 0.027, id: '2', name: 'slow ahead' },
     { v: 0.066, id: 'T', name: 'trolling' },
     { v: 0.095, id: '3', name: 'half ahead' },
+    { v: 0.45, id: 'C', name: 'cruising' },
     { v: 1, id: 'F', name: 'full ahead' },
   ],
   // The jet ski: a light touch goes a long way.
   jetski: [
-    { v: -0.15, id: 'R', name: 'astern' },
+    { v: -0.3, id: 'R', name: 'astern' },
     { v: 0, id: 'N', name: 'neutral' },
     { v: 0.015, id: '1', name: 'dead slow' },
     { v: 0.035, id: '2', name: 'slow ahead' },

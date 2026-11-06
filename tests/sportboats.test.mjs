@@ -337,3 +337,19 @@ test('walking the deck: off the helm and back, about her inside her sides and ro
   }
   for (const kind of ['row', 'skiff', 'kayak']) assert.equal(boatAt(kind).setDeck(true), false, `${kind}: no walking about`);
 });
+
+test('the RIB and the centre console have a cruising notch: on the plane, between half and full', async () => {
+  // (A flat calm: the sea left by the rough-water tests settled first.)
+  const { updateConditions } = await import('../src/world/conditions.js');
+  calm();
+  for (let i = 0; i < 400; i++) updateConditions(0.25, { rain: 0, cloud: 0 });
+  for (const kind of ['rib', 'console']) {
+    const L = LEVERS[kind], at = (id) => L.find((n) => n.id === id).v;
+    assert.ok(at('3') < at('C') && at('C') < at('F'), `${kind}: C between half and full`);
+    const speed = (v) => run(boatAt(kind), 40, v).speed;
+    const half = speed(at('3')), cruise = speed(at('C')), full = speed(at('F'));
+    assert.ok(cruise > half + 4 && cruise < full - 2.5, `${kind}: half ${half.toFixed(1)}, cruising ${cruise.toFixed(1)}, full ${full.toFixed(1)} m/s`);
+    assert.ok(cruise > 9, `${kind}: on the plane (${cruise.toFixed(1)} m/s)`);
+  }
+  conditions.manual = null;
+});

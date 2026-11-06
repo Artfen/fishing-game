@@ -327,7 +327,10 @@ export class CameraRig {
     const surface = waveHeight(cx, cz, t), ground = heightAt(cx, cz);
     if (under) cy = Math.min(cy, surface - 0.45);
     else if (this.mode !== 'cabin') {
-      if (cy >= surface + 0.1) cy = Math.max(cy, surface + ABOVE);
+      // (Above or below the water by a margin: a crest passing under a low camera mustn't flip it
+      // under and back.)
+      this._above = this._above === false ? cy >= surface + 0.3 : cy >= surface - 0.2;
+      if (this._above) cy = Math.max(cy, surface + ABOVE);
       else if (ground < surface - BELOW - 0.5) cy = Math.min(cy, surface - BELOW);
       else cy = Math.max(surface + ABOVE, ground + 0.5);
     }
@@ -400,9 +403,12 @@ export class CameraRig {
       const over = Math.abs(off) - 0.6;
       if (over > 0) v.yaw += Math.sign(off) * over * (1 - Math.exp(-1.6 * dt));
     }
+    // (Gliding from one eye to another, after a change of place: eased. Otherwise exactly at the
+    // eye: a lag here trails the eye at speed, more at a higher frame rate, and makes the helm and
+    // dashboard half a metre away judder.)
     const gliding = t - this.eyeChangedAt < 1.4;
-    const k = 1 - Math.exp(-(gliding ? 6 : 40) * dt);
-    this.pos.lerp(eye, k);
+    if (gliding) this.pos.lerp(eye, 1 - Math.exp(-6 * dt));
+    else this.pos.copy(eye);
     this.focus.copy(this.pos);
     const cam = this.camera;
     cam.position.copy(this.pos);

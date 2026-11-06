@@ -937,7 +937,9 @@ export class HydroBody {
       const vn = _pv[0] * f.nx + _pv[1] * f.ny + _pv[2] * f.nz - (f.vn || 0);
       if (vn < -0.4) this.impact = Math.max(this.impact, -vn);
       const k = f.k ?? (this.m * 120), c = f.c ?? 2 * Math.sqrt(k * this.m) * 0.25;
-      const fn = Math.max(0, k * Math.min(f.pen, 0.1) - c * vn);
+      // (Already parting faster than half a metre a second: the spring lets go, so hulls that find
+      // themselves inside each other ease apart instead of firing off at many metres a second.)
+      const fn = vn > 0.5 ? 0 : Math.max(0, k * Math.min(f.pen, 0.1) - c * vn);
       const tx = _pv[0] - vn * f.nx, ty = _pv[1] - vn * f.ny, tz = _pv[2] - vn * f.nz, tl = Math.hypot(tx, ty, tz);
       const fr = tl > 1e-4 ? ((f.mu ?? 0.3) * fn) / Math.max(tl, 0.1) : 0;
       this.addForce(f.nx * fn - tx * fr, f.ny * fn - ty * fr, f.nz * fn - tz * fr, p[0], p[1], p[2]);

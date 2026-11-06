@@ -71,7 +71,18 @@ function berthFits(b, B, others) {
     if (Math.abs(k) <= 0.85 && solidHeight(x, z) > -(b.hull.draft + 0.25)) return false;
     if (PIERS.some((Q, j) => j !== B.pier && x > Q.x0 - 0.3 && x < Q.x1 + 0.3 && z > Q.z0 - 0.3 && z < Q.z1 + 0.3)) return false;
   }
-  return !others.some((o) => o !== b && Math.hypot(o.pos.x - B.x, o.pos.z - B.z) < (o.hull.B + b.hull.B) * BOAT_GAP);
+  return !others.some((o) => o !== b && (Math.hypot(o.pos.x - B.x, o.pos.z - B.z) < (o.hull.B + b.hull.B) * BOAT_GAP || hullsOverlap(b, B, o)));
+}
+// Would boat b lying at berth B overlap boat o, hull for hull (her length and beam, and o's, as o
+// lies)? A clear 0.3 m all round, so a long boat isn't offered a berth whose middle is clear but
+// whose bow or stern would sit inside the next boat (the hulls' contact then fires them apart).
+export function hullsOverlap(b, B, o, gap = 0.3) {
+  const fx = Math.sin(B.heading), fz = Math.cos(B.heading);
+  const dx = o.pos.x - B.x, dz = o.pos.z - B.z;
+  const along = dx * fx + dz * fz, across = dx * fz - dz * fx;
+  const dh = (o.heading ?? 0) - B.heading, c = Math.abs(Math.cos(dh)), s = Math.abs(Math.sin(dh));
+  const oLen = c * o.hull.L * 0.5 + s * o.hull.B, oWid = s * o.hull.L * 0.5 + c * o.hull.B;
+  return Math.abs(along) < b.hull.L * 0.5 + oLen + gap && Math.abs(across) < b.hull.B + oWid + gap;
 }
 
 // A berth for this boat alongside the nearest pier within reach, on the side she's on, as close
