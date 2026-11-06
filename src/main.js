@@ -1148,9 +1148,9 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   },
   // Every break has a reason you can see and do something about (see fight.js).
   // A fish thrown or pulled free has the line whole: it says so.
-  onSnap: (why, sp, rod) => {
+  onSnap: (why, sp, rod, F = null) => {
     hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : why === 'rock' ? 'Cut on the rocks!' : why === 'thrown' ? 'It threw the hook!' : why === 'pulled' || why === 'lifted' ? 'The hook pulled free.' : why === 'kicked' ? 'It kicked free at the net!' : why === 'spat' ? 'It let go!' : 'Snap! The line broke.', t, 3);
-    hud.toast(breakReason(why, sp, rod), 9);
+    hud.toast(breakReason(why, sp, rod, { by: F?.thrownBy, loosen: pads.active ? 'LT' : scheme() === 'touch' ? 'the stick down' : 'S' }), 9);
   },
   // The line as it is (worn by hard fights, see shop.js); and the wear a fight just ended leaves.
   line: (rod) => wornLine(rod.line, wearOf(state, rod.id)),
@@ -8268,6 +8268,8 @@ function currentHint() {
       const F = fishing.fight;
       const drag = `${T ? 'stick up/down' : UD} drag: ${DRAG_NAMES[F?.drag ?? 2]}${P ? ` (${kbd('LT')} eases it)` : ''}`;
       if (F?.selfHooked && !F.pickedUp) return T ? 'Fish on! It hooked itself on the rig. Hold the button to pick up the rod and play it' : `Fish on! It hooked itself on the rig. Hold ${space} to pick up the rod and play it`;
+      // (Beaten and alongside: winding now tears the hook out. The one thing to do is net it.)
+      if (F?.atNet) return T ? 'Beaten and alongside: let go, and tap the button to net it' : `Beaten and alongside: let go of ${space}, and tap it to net it`;
       if (F && F.tension > 0.97) return T ? 'The line is straining! Let go of the button' : `The line is straining! Let go of ${space}`;
       if (F?.surgeT > 0) return T ? 'It’s surging! Let go of the button' : `It’s surging! Let go of ${space}`;
       if (F && !F.pulling && F.warned) return 'A flick on the surface: it’s about to run. Ease off';
@@ -8452,7 +8454,8 @@ function updateHud() {
   const words = needs.slice(0, 2).map((n) => n.word);
   if (camp.wellFed && !needs.some((n) => n.id === 'hungry' || n.id === 'peckish')) words.push('Well fed');
   hud.food(words.join(' · '), needs.some((n) => n.low) ? 'hungry' : camp.wellFed ? 'fed' : '');
-  hud.hint(currentHint(), t);
+  const FF = fishing.state === 'reeling' ? fishing.fight : null;
+  hud.hint(currentHint(), t, !!FF && (FF.tension > 0.9 || FF.surgeT > 0 || FF.atNet || FF.move === 'charge' || FF.shakeT > 0 || (FF.jumping ?? 0) > 0));
   updateLever();
   updateSailPanel();
   const act = interaction();
@@ -9944,7 +9947,7 @@ input.on('press', (code, acts) => {
     hudOff = !hudOff;
     hud.hidden(hudOff);
   } else if (code === 'Escape') {
-    if (!fishing.cancel() && rig.mode !== rig.third) resetView();
+    if (!fishing.playerCancel() && rig.mode !== rig.third) resetView();
   }
 });
 input.on('release', (code, acts) => {
@@ -9958,7 +9961,7 @@ input.on('pointer', () => {
 });
 input.on('cancel', () => {
   if (started && !modal && placement.isOn) placement.cancel();
-  else if (started && !modal) fishing.cancel();
+  else if (started && !modal) fishing.playerCancel();
 });
 
 $('start-btn').addEventListener('click', begin);
@@ -9973,7 +9976,7 @@ $('pack-btn').addEventListener('click', () => {
   else if (started && !modal) openPack();
 });
 $('gear').addEventListener('click', () => { if (started && !modal) openPack(); });
-$('cancel-btn').addEventListener('click', () => fishing.cancel());
+$('cancel-btn').addEventListener('click', () => fishing.playerCancel());
 $('j-close').addEventListener('click', closeJournal);
 $('journal').addEventListener('click', (e) => { if (e.target === $('journal')) closeJournal(); });
 $('catch-card').addEventListener('click', () => { if (modal === 'catch') fishing.onDown(); });
@@ -10220,11 +10223,12 @@ function tick(now, manual = false) {
       if (fishing.expert) {
         const vr = input.virtual;
         fishing.rodInput.up = pads.active ? vr.rodUp || 0 : ti;
-        fishing.rodInput.across = pads.active ? vr.rodAcross || 0 : onFoot ? -si : 0;
+        fishing.rodInput.across = pads.active ? vr.rodAcross || 0 : onFoot || fishing.state === 'reeling' ? -si : 0;
         fishing.reelInput = pads.active ? pads.rt : input.holding('cast') ? 1 : 0;
       }
       // (On a controller, LT eases the drag off while a fish is on.)
-      if (!fishing.expert || pads.active || fishing.state === 'reeling') fishing.depthBy(pads.active && fishing.state === 'reeling' && pads.lt > 0.4 ? -1 : fishing.expert && !pads.active ? 0 : ti, dt);
+      const dragTi = pads.active && fishing.state === 'reeling' && Math.abs(ti) < 1.5 * Math.abs(si) ? 0 : ti;
+      if (!fishing.expert || pads.active || fishing.state === 'reeling') fishing.depthBy(pads.active && fishing.state === 'reeling' && pads.lt > 0.4 ? -1 : fishing.expert && !pads.active ? 0 : dragTi, dt);
       // With a fish on, across swings the rod low to that side (side pressure, to turn it);
       // otherwise in a boat it steers.
       // (The steer keys give +1 for left; side pressure counts left as −1.)
@@ -10780,7 +10784,7 @@ let slamFelt = 0, gearFelt = 0, powerFelt = 0;
 // controller isn't what you're playing with): a fish's weight on the line and the drag's buzz,
 // the car's engine, and whatever else happened (see haptics.js).
 function feelFrame(dt) {
-  haptics.live = started && !modal && pads.active && !document.hidden;
+  haptics.live = started && (!modal || modal === 'catch') && pads.active && !document.hidden;
   const F = fishing.fight;
   if (F && !F.atNet) {
     const f = lineFeel(F.tension, F.slipping, F.pulling ? clamp((F.ratio ?? 1) / Math.max(0.3, DRAG_LEVELS[F.drag] ?? 0.55) - 1, 0, 1) : 0);

@@ -346,7 +346,28 @@ export class Fishing {
       if (this.kind === 'fly') this.releaseFly();
       else this.cast();
     } else if (this.state === 'drifting' && this.hold && this.holdT < TAP) this.twitch();
+    else if (this.state === 'bite' && this.biteHeld) {
+      this.biteHeld = false;
+      this.strikeQ = 0.45;
+      this.setHook();
+    }
     this.hold = false;
+  }
+
+  // Esc, B, right-click or the cancel button, pressed by the player: as cancel(), but with a fish
+  // on it takes a second press within a moment (one reflex press of "back" mustn't lose a fish
+  // you've played for twenty minutes).
+  playerCancel() {
+    if (this.state === 'reeling' && this.fight) {
+      if (this.letGoT > 0) {
+        this.letGoT = 0;
+        return this.cancel();
+      }
+      this.letGoT = 1.6;
+      this.hooks.flash('Press again to let the fish go', 1.6);
+      return true;
+    }
+    return this.cancel();
   }
 
   // Esc or right-click: put the cast down, or bring the line home.
@@ -382,7 +403,9 @@ export class Fishing {
 
   // While a fish is on, up/down tightens or loosens the reel's drag, a click at a time.
   dragBy(dir, dt) {
-    if (!dir) {
+    // (A firm push only: a stick held a little off the horizontal, for side pressure, mustn't
+    // click the drag round to nothing or to locked.)
+    if (Math.abs(dir) < 0.6) {
       this.dragStep = 0;
       return;
     }
@@ -716,6 +739,7 @@ export class Fishing {
 
   reelIn() {
     this.state = 'retrieving';
+    this.parted = false;
     this.t = 0;
     this.from.copy(this.kind === 'float' ? this.bob : this.hook);
     this.from.y = Math.max(this.from.y, waveHeight(this.from.x, this.from.z));
@@ -824,6 +848,8 @@ export class Fishing {
     this.t = 0;
     this.agent = a;
     this.biteKind = kind;
+    // (Already holding the button as it bites: letting go strikes, as lifting into it would.)
+    this.biteHeld = this.hold;
     const shallow = this.hook.y - waterLevel(this.hook.x, this.hook.z) > -1.3;
     // Sea bottom rigs and squid jigs need a strike too: the rod tip pulls round, or the jig
     // stops sinking under a squid's weight. One gentle ring.
@@ -998,7 +1024,7 @@ export class Fishing {
     this.audio.splashSmall();
     this.hooks.feel?.('lost');
     this.hooks.fought?.(F, this.rod);
-    this.hooks.onSnap(why, F.sp, this.rod);
+    this.hooks.onSnap(why, F.sp, this.rod, F);
     this.reelIn();
   }
 
@@ -1012,8 +1038,10 @@ export class Fishing {
     this.hooks.shake(0.35);
     this.hooks.feel?.('snap');
     this.hooks.fought?.(F, this.rod);
-    this.hooks.onSnap(why, F.sp, this.rod);
+    this.hooks.onSnap(why, F.sp, this.rod, F);
     this.reelIn();
+    // (The line's parted: the float or lure went with the fish, and nothing flies back.)
+    this.parted = true;
   }
 
   // Beaten and alongside: does it need the net? Too heavy to swing in on this line (see fight.js
@@ -1180,6 +1208,7 @@ export class Fishing {
     this.frameDt = Math.max(dt, 1e-3);
     this.statusT += dt;
     this.held = held;
+    if (this.letGoT > 0) this.letGoT = Math.max(0, this.letGoT - dt);
     // Expert: the rod follows your hands; swept up hard as a fish takes, it strikes.
     if (this.expert) {
       rodStep(this.rodR, this.rodInput.up, this.rodInput.across, dt);
@@ -2169,7 +2198,7 @@ export class Fishing {
         return;
       }
       // Beaten and alongside, and too heavy to lift out on the line: the net.
-      Object.assign(F, { atNet: true, netT: 0, kick: 0, kickT: rand(2.5, 4), liftT: 0 });
+      Object.assign(F, { atNet: true, netT: 0, kick: 0, kickT: rand(2.5, 4), liftT: 0, warned: false, surgeT: 0 });
       this.hooks.teach('net', `A fish this size needs the net: when it’s beaten and alongside, let go of the reel and tap ${this.hooks.key('cast')}. Don’t wind hard as it kicks.`, 8);
     }
   }
@@ -2254,7 +2283,7 @@ export class Fishing {
   updateVisuals(t, dt, fishMesh) {
     const s = this.state, kind = this.kind, it = this.item;
     const holdingFish = s === 'landing' || s === 'caught' || s === 'keeping';
-    const lineVisible = s !== 'idle' && s !== 'releasing' && s !== 'keeping';
+    const lineVisible = s !== 'idle' && s !== 'releasing' && s !== 'keeping' && !(s === 'retrieving' && this.parted);
     const inWater = this.baitInWater;
     const flying = s === 'aiming' || s === 'casting' || s === 'retrieving';
 

@@ -117,6 +117,10 @@ const STYLE_MOVES = {
   shark: ['headshake', 'sound'],
   plate: ['sound'],
   twist: ['dive'],
+  // (Flatfish and octopus clamp to the bottom: a dead weight to pump up. Dogfish writhe and roll.)
+  flat: ['sound'],
+  cling: ['sound'],
+  roll: ['headshake'],
 };
 export const SIGNATURES = {
   trout: ['charge'], grayling: ['charge'], sunperch: ['charge'],
@@ -330,7 +334,10 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
     } else {
       // A charge you didn't keep up with leaves slack, and a fish turning away on a slack line
       // can shake the hook.
-      if (F.move === 'charge' && F.slack > 2.5 && rnd() < F.level.throwHook * 1.6 * Math.min(1, F.slack / 6)) return 'off:thrown';
+      if (F.move === 'charge' && F.slack > 2.5 && rnd() < F.level.throwHook * 1.6 * Math.min(1, F.slack / 6)) {
+        F.thrownBy = 'charge';
+        return 'off:thrown';
+      }
       F.afterCharge = false;
       F.move = null;
       F.pulling = true;
@@ -537,7 +544,10 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
     if (F.shakeT <= 0) {
       F.tension -= F.shakeOff;
       F.shakeOff = 0;
-      if (F.shakeSlack > 0.12 && rnd() < F.level.throwHook * 1.2 * Math.min(1, F.shakeSlack / 0.4)) return 'off:thrown';
+      if (F.shakeSlack > 0.12 && rnd() < F.level.throwHook * 1.2 * Math.min(1, F.shakeSlack / 0.4)) {
+        F.thrownBy = 'shake';
+        return 'off:thrown';
+      }
     }
   }
   // A long run takes line past where it was hooked; that has to be won back before it comes any
@@ -580,7 +590,10 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
   if (F.jumping > 0) {
     F.jumping -= dt;
     if (F.tension < 0.16) F.jumpSlack = true;
-    if (F.jumping <= 0 && F.jumpSlack && rnd() < F.level.throwHook * 2.2) return 'off:thrown';
+    if (F.jumping <= 0 && F.jumpSlack && rnd() < F.level.throwHook * 2.2) {
+      F.thrownBy = 'leap';
+      return 'off:thrown';
+    }
   }
   // A light hold tears free under heavy pressure held too long (a drag set tight, or a heavy hand);
   // sooner on braid, which has no stretch to cushion it.
@@ -605,11 +618,14 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
   return event;
 }
 
-// Advice after a break (or a fish lost), in words.
-export function breakReason(cause, sp, rod) {
+// Advice after a break (or a fish lost), in words. extra: { by (what threw the hook: 'charge',
+// 'shake' or 'leap'), loosen (the control that loosens the drag, as the player has it) }.
+export function breakReason(cause, sp, rod, extra = {}) {
   const fish = sp.name.toLowerCase();
   switch (cause) {
     case 'thrown':
+      if (extra.by === 'charge') return `The ${fish} came straight at you faster than you wound, and on the slack line it turned and threw the hook. When it charges, wind fast to keep the line tight.`;
+      if (extra.by === 'shake') return `The ${fish} shook its head at the top while the line went slack, and threw the hook. Keep the rod low and to the side and the line steady when it head-shakes.`;
       return `The ${fish} leapt and shook its head while the line hung slack, and threw the hook. Keep the rod up and the line tight when it jumps: wind down to it.`;
     case 'pulled':
       return `The hook pulled out: it only had a light hold in the ${fish}’s lip, and the pressure stayed too heavy for too long. A lighter drag and a softer touch keep a lightly hooked fish on.`;
@@ -618,7 +634,7 @@ export function breakReason(cause, sp, rod) {
     case 'teeth':
       return `The ${fish}’s teeth cut straight through the ${rod.line.name}. Pike need a wire trace: rig one on the spinning rod.`;
     case 'drag':
-      return `The line snapped: the drag was locked tight, so it couldn’t give line when the ${fish} ran. Loosen it (S while the fish is on).`;
+      return `The line snapped: the drag was locked tight, so it couldn’t give line when the ${fish} ran. Loosen it (${extra.loosen || 'S'} while the fish is on).`;
     case 'spool':
       return `The ${fish} took every metre of line off the reel and broke it at the knot. With the drag that light it ran too far: a click more drag slows a long run, and following it with the boat keeps line on the spool.`;
     case 'lifted':
