@@ -13,6 +13,10 @@ import { FishLine } from './fishline.js';
 import { heroDistance } from './reveal.js';
 import { BEHAVIOUR, prefsFor } from './behaviour.js';
 
+// Which kind of drag a rod's reel has, for how it sounds (see audio.js reel()): a fixed-spool
+// reel's fine clicker, a fly reel's click-pawl ratchet (and a centrepin's), a multiplier's lever drag.
+const reelSound = (rod) => (/fly|centrepin/.test(rod?.reel || '') ? 'fly' : /multiplier/.test(rod?.reel || '') ? 'multi' : 'spin');
+
 // The line as drawn: from the reel up through the rod's guides to its tip (ROD_PTS), then out
 // to the float, lure or fish as a light string that hangs, blows and floats (LINE_PTS, see
 // fishline.js).
@@ -164,7 +168,7 @@ export class Fishing {
     // What the reel and line are doing, for the sound and the turning spool: line going out
     // against the drag (m/s), line being wound in (m/s), the load (0 … 1 of the breaking strain),
     // the drag setting (0 … 1), and the line singing as it nears breaking (0 … 1).
-    this.reelFx = { payout: 0, wind: 0, load: 0, drag: 0, sing: 0, free: false };
+    this.reelFx = { payout: 0, wind: 0, load: 0, drag: 0, sing: 0, free: false, fill: 1, reel: 'spin' };
 
     this.bobber = buildFloat();
     this.bobber.visible = false;
@@ -1226,6 +1230,7 @@ export class Fishing {
     const R = this.reelFx;
     R.payout = R.wind = R.load = R.sing = 0;
     R.free = false;
+    R.fill = 1;
     // (In first person the rod is held in front of the camera, and that's placed after this update
     // (see afterView): just now the figure's own pose has it somewhere else entirely, metres off.
     // Go on from where the tip was when it was last drawn in your hands.)
@@ -1508,6 +1513,7 @@ export class Fishing {
       R.load = this.kind === 'lure' || this.kind === 'jig' ? 0.15 : 0.08;
     }
     R.drag = this.dragLevel / (DRAG_LEVELS.length - 1);
+    R.reel = reelSound(this.rod);
     if (this.state === 'casting') {
       // (Line pouring off the reel as the cast flies out: the bail's open, so no clicks.)
       R.payout = Math.min(14, this.castDist / Math.max(0.3, this.flight));
@@ -1517,6 +1523,18 @@ export class Fishing {
     this.placeNet(fishMesh, t);
     this.turnReel(dt);
     this.audio.reel?.(R);
+  }
+
+  // How far a hooked fish could run on past where it was hooked, straight away from you, before a
+  // bank or the shallows (m; Infinity in open water): out to the spool's length, in 2 m steps.
+  roomBeyond(F, from) {
+    let dx = F.start.x - from.x, dz = F.start.z - from.z;
+    const l = Math.hypot(dx, dz);
+    if (l < 1e-3) return Infinity;
+    dx /= l;
+    dz /= l;
+    for (let s = 2; s <= F.spool; s += 2) if (depthAt(F.start.x + dx * s, F.start.z + dz * s) < 0.6) return s - 2;
+    return Infinity;
   }
 
   // The reel's spool turns as line goes out (and on a centrepin or fly reel as you wind it back,
@@ -2019,6 +2037,13 @@ export class Fishing {
       } else F.chase = 0;
       (this.anglerWas ??= new THREE.Vector3()).copy(b);
     }
+    // The water it has to run in past where it was hooked, straight on away from you: a bank or
+    // the shallows turns it (looked at twice a second).
+    F.roomT = (F.roomT ?? 0) - dt;
+    if (F.roomT <= 0) {
+      F.roomT = 0.5;
+      F.room = this.roomBeyond(F, b);
+    }
     const before = F.progress, outBefore = F.dist * (1 - F.progress) + F.extra, chargeWas = F.coming;
     const ev = stepFight(F, held, dt, diff);
     if (ev && ev.startsWith('snap:')) {
@@ -2085,6 +2110,12 @@ export class Fishing {
       this.hooks.flash('It’s beaten, rolling on its side. Wind it in gently.', 2.6);
     }
     this.fightMoves(F, ev, dt, t, held, chargeWas, say);
+    // Taking line well past where it was hooked (not on a long run, which is its way): the drag is
+    // too light to check it. Said once a fight.
+    if (!F.toldLine && F.extra > 8 && F.move !== 'longrun') {
+      F.toldLine = true;
+      this.hooks.teach('lineout', `It’s taking line past where it was hooked: the drag’s too light to stop its runs. A click more drag (${this.hooks.key('forward')}) checks it, and winding against a drag that light only slips the spool.`, 7);
+    }
     if (held) F.pickedUp = true;
     // The line creaks when it's at its limit, and keeps creaking while it strains: easing off
     // now saves it (see fight.js).
@@ -2104,8 +2135,11 @@ export class Fishing {
     // The reel: line going out against the drag on a run (m/s), and coming in as you wind; the
     // handle turns whenever you wind, even into a run (the spool slips under it).
     const R = this.reelFx, gain = ((F.progress - before) * F.dist) / Math.max(dt, 1e-3);
-    const paid = (F.dist * (1 - F.progress) + F.extra - outBefore) / Math.max(dt, 1e-3);
-    R.payout = F.slipping ? Math.max(0.3, paid) : 0;
+    const outNow = F.dist * (1 - F.progress) + F.extra, paid = (outNow - outBefore) / Math.max(dt, 1e-3);
+    // (Winding against a drag set far too light, the spool slips back under the handle: the
+    // drag ticks over slowly as you wind and gain nothing.)
+    R.payout = F.slipping ? Math.max(0.3, paid) : F.windSlip > 0.05 ? F.windSlip : 0;
+    R.fill = clamp(1 - outNow / F.spool, 0, 1);
     R.wind = held ? Math.max(0.5, gain) : 0;
     R.load = F.tension;
     R.sing = smoothstep(0.78, 0.98, F.tension);
@@ -2228,6 +2262,13 @@ export class Fishing {
       case 'lastdash':
         say('one last dive!', 1.8);
         H.flash('One last dive at your feet! Let the drag work, and turn it with side strain.', 2.4);
+        break;
+      case 'edge':
+        // Out of water at the far end (a bank, the shallows): it swirls round and turns.
+        say('it turns at the edge', 1.6);
+        this.fx.ripple(p.x, p.z, 1.4, 1.2, 0.5);
+        if (p.y > -1.2) this.fx.splash(p.x, 0.05, p.z, 8, 1.6, 0.5);
+        H.feel?.('turn');
         break;
       case 'turned':
         say('turned it!', 1.4);

@@ -20,6 +20,88 @@ const CHORDS = [[50, 57, 62], [47, 54, 62], [43, 50, 59], [45, 52, 61]];
 // for the surroundings (water, wind, birds), rain, fishing effects, the reel and line, bite
 // alerts and music.
 export const VOLUME_KEYS = ['master', 'music', 'ambient', 'wind', 'waves', 'rain', 'effects', 'reel', 'alerts'];
+
+// The reel's drag, by kind: clicks for each metre of line off a full spool (the clicker's teeth
+// over the spool's turn: a fixed-spool reel's fine gear on a small spool, a fly reel's coarse
+// click-pawl on a wide one, a multiplier's in between), and its voice (the ring's centre, Hz, and
+// its lift, dB; how bright, Hz; how loud).
+export const REEL_DRAGS = {
+  spin: { perM: 55, tone: 3100, boost: 3, lp: 9000, vol: 1 },
+  fly: { perM: 24, tone: 1900, boost: 6, lp: 5500, vol: 1.3 },
+  multi: { perM: 36, tone: 2500, boost: 2, lp: 7000, vol: 0.85 },
+};
+// Clicks a second for line going out at payout m/s off a spool fill full (0 … 1): an emptier spool
+// is a smaller one, turning faster for the same line (its core about half the full spool's width).
+export const dragRate = (payout, reel = 'spin', fill = 1) => Math.max(0, payout) * (REEL_DRAGS[reel] || REEL_DRAGS.spin).perM / Math.sqrt(0.3 + 0.7 * Math.min(1, Math.max(0, fill)));
+// The drag's clicker, made sample by sample on the audio thread: struck at exactly the rate the
+// spool turns its teeth past (rate, a second), each strike ringing three fixed modes of the pawl
+// and the gear around ring Hz, with the tick of the strike; a touch uneven in time and strength,
+// and the twelve teeth of the gear each a little different, as on a real reel. Slow, it ticks;
+// faster, it rattles; fast, the clicks run together into a buzz, then a scream, its pitch the
+// click rate, while the ring stays where it is.
+export const DRAG_WORKLET = `
+class DragClicker extends AudioWorkletProcessor {
+  static get parameterDescriptors() {
+    return [
+      { name: 'rate', defaultValue: 0, minValue: 0, maxValue: 3000, automationRate: 'k-rate' },
+      { name: 'level', defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+      { name: 'ring', defaultValue: 3000, minValue: 300, maxValue: 9000, automationRate: 'k-rate' },
+    ];
+  }
+  constructor() {
+    super();
+    this.ph = Math.random();
+    this.gap = 1;
+    this.tooth = 0;
+    this.teeth = Array.from({ length: 12 }, () => 0.72 + Math.random() * 0.28);
+    this.y = new Float32Array(6);
+    this.hit = 0;
+    this.tick = 0;
+    this.f = 0;
+  }
+  process(inputs, outputs, P) {
+    const out = outputs[0] && outputs[0][0];
+    if (!out) return true;
+    const rate = P.rate[0], level = P.level[0], ring = P.ring[0];
+    if (ring !== this.f) {
+      this.f = ring;
+      this.c = [[1, 0.0022, 1], [1.62, 0.0013, 0.55], [2.52, 0.0007, 0.3]].map(([m, tau, a]) => {
+        const r = Math.exp(-1 / (tau * sampleRate)), w = (2 * Math.PI * Math.min(ring * m, sampleRate * 0.45)) / sampleRate;
+        return [2 * r * Math.cos(w), -r * r, a * Math.sin(w)];
+      });
+    }
+    const step = rate / sampleRate, ticks = Math.max(2, Math.round(sampleRate * 0.0003)), y = this.y, c = this.c;
+    for (let i = 0; i < out.length; i++) {
+      let x = 0;
+      if (rate > 0.3) {
+        this.ph += step / this.gap;
+        if (this.ph >= 1) {
+          this.ph -= Math.floor(this.ph);
+          this.gap = 1 + (Math.random() - 0.5) * 0.18;
+          this.tooth = (this.tooth + 1) % 12;
+          x = this.teeth[this.tooth] * (0.85 + Math.random() * 0.15);
+          this.hit = x;
+          this.tick = ticks;
+        }
+      }
+      let s = 0;
+      for (let m = 0; m < 3; m++) {
+        const k = c[m], v = k[0] * y[m * 2] + k[1] * y[m * 2 + 1] + k[2] * x;
+        y[m * 2 + 1] = y[m * 2];
+        y[m * 2] = v;
+        s += v;
+      }
+      if (this.tick > 0) {
+        s += (Math.random() * 2 - 1) * 0.5 * this.hit * (this.tick / ticks);
+        this.tick--;
+      }
+      out[i] = s * level;
+    }
+    return true;
+  }
+}
+registerProcessor('drag-clicker', DragClicker);
+`;
 export class AudioScape {
   constructor() {
     this.ctx = null;
@@ -124,16 +206,20 @@ export class AudioScape {
     this.flapBed = this.bed(this.white, [['bandpass', 950, 0.7], ['highpass', 280, 0.5]]);
     // A gale: the wind howling, whistling in rigging and round rocks.
     this.howlBed = this.bed(this.pink, [['bandpass', 640, 7], ['lowpass', 2400, 0.5]], this.windBus);
-    // The reel and the line (see reel()): the drag's ratchet clicking as a fish takes line, the
-    // gears whirring as you wind, and the line singing taut near its breaking strain. Each click
-    // train is noise gated by a train of short pulses, so its rate can follow the line smoothly.
-    this.ratchet = this.clicker(this.white, [['bandpass', 3200, 1.4]]);
+    // The reel and the line (see reel()): the drag clicking as a fish takes line, the gears
+    // whirring as you wind, and the line singing taut near its breaking strain.
+    // The drag: each click is the clicker's little pawl snapping over a tooth of the spool's gear,
+    // a short metallic ring. Loops of real-sounding clicks at a ladder of rates, each a little
+    // uneven as a real reel is, are played faster or slower and cross-faded, so the clicks follow
+    // the spool exactly: a slow tick … tick as a fish leans on the drag, a rattle, then a buzz and a
+    // scream rising in pitch as they run together on a fast run.
+    this.drag = this.dragVoice();
+    // (Winding: a gear rattle, noise gated by a train of short pulses.)
     this.whirr = this.clicker(this.pink, [['bandpass', 1500, 1.1]], 0.3);
     this.whirrBed = this.bed(this.pink, [['bandpass', 650, 1.2]], this.reelBus);
-    // Line peeling off an open spool as a cast flies out: a soft, rising hiss.
+    // Line peeling off the spool: a soft hiss as a cast flies out, or as a fish tears line off,
+    // through the rod's rings and cutting the water.
     this.spoolBed = this.bed(this.white, [['bandpass', 4200, 0.9]], this.reelBus);
-    // A long run: the drag's clicks running together into a scream, higher the faster line goes.
-    this.screamBed = this.bed(this.white, [['bandpass', 3400, 3.2]], this.reelBus);
     this.singOsc = ctx.createOscillator();
     this.singOsc.type = 'triangle';
     this.singOsc.frequency.value = 1500;
@@ -259,6 +345,40 @@ export class AudioScape {
     const p = this.ctx.createStereoPanner();
     p.connect(dest);
     return p;
+  }
+
+  // The drag's voice: the clicker (DRAG_WORKLET) into a tone filter (set for the kind of reel) and
+  // on to the reel's bus. Until the clicker has loaded (or where a browser can't run one), the old
+  // pulse-gated noise stands in. dragReady: settles once it's there (or isn't coming).
+  dragVoice() {
+    const ctx = this.ctx;
+    const tone = ctx.createBiquadFilter();
+    tone.type = 'peaking';
+    tone.frequency.value = 3100;
+    tone.Q.value = 0.9;
+    tone.gain.value = 0;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 9000;
+    lp.Q.value = 0.5;
+    tone.connect(lp);
+    lp.connect(this.reelBus);
+    const D = { tone, lp, node: null, fallback: this.clicker(this.white, [['bandpass', 3200, 1.4]]) };
+    this.dragReady = (async () => {
+      try {
+        if (!ctx.audioWorklet || typeof AudioWorkletNode === 'undefined') return;
+        const url = URL.createObjectURL(new Blob([DRAG_WORKLET], { type: 'application/javascript' }));
+        await ctx.audioWorklet.addModule(url);
+        URL.revokeObjectURL(url);
+        const node = new AudioWorkletNode(ctx, 'drag-clicker', { numberOfInputs: 0, outputChannelCount: [1] });
+        node.connect(tone);
+        D.node = node;
+        this.setClicks(D.fallback, 0, 0, ctx.currentTime);
+      } catch (e) {
+        // (No clicker: the stand-in carries on.)
+      }
+    })();
+    return D;
   }
 
   // A train of clicks: looped noise through filters, gated by a pulse wave whose frequency is the
@@ -1047,35 +1167,51 @@ export class AudioScape {
   // The reel and the line, each frame while there's line out. r: { payout: line going out
   // against the drag (m/s), wind: line wound in (m/s), load: 0 … 1 of the breaking strain,
   // drag: the drag setting 0 … 1, sing: the line singing near breaking 0 … 1, free: line
-  // pouring off an open bail (no clicks) }.
-  //  · The drag's ratchet clicks faster the faster line goes, from a slow tick-tick as a fish
-  //    leans on it to a scream on a long run; brighter and louder with the drag set tighter and
-  //    the load heavier.
+  // pouring off an open bail (no clicks), fill: how full the spool is 0 … 1, reel: the kind of
+  // drag ('spin', 'fly' or 'multi', see REEL_DRAGS) }.
+  //  · The drag clicks once for each tooth of the spool's gear that goes past, so as fast as the
+  //    spool turns: a slow tick … tick as a fish leans on it, a buzz, then a scream on a run, its
+  //    pitch the click rate. As the spool empties it turns faster for the same line, and the
+  //    scream climbs. Brighter and louder with the drag set tighter and the load heavier; a fly
+  //    reel's ratchet coarser and louder, a multiplier's smoother.
+  //  · A fast run hisses as the line tears off through the rings.
   //  · The gears whirr as you wind, lower and grinding under load.
   //  · Near breaking the line sings: a thin, rising whine you can't mistake.
   reel(r) {
-    if (!this.ctx || !this.ratchet) return;
+    if (!this.ctx || !this.drag) return;
     const now = this.ctx.currentTime;
+    const D = REEL_DRAGS[r.reel] || REEL_DRAGS.spin;
     const click = r.free ? 0 : r.payout;
-    const rate = Math.min(110, click * 16);
-    const on = rate > 0.5 ? 1 : 0;
-    const vol = on * (0.035 + 0.05 * r.load + 0.03 * r.drag) * Math.min(1, click / 0.4);
-    this.setClicks(this.ratchet, rate, vol, now);
-    this.ratchet.f[0].frequency.setTargetAtTime(2600 + 1400 * r.drag + 600 * r.load, now, 0.05);
-    // Fast enough, the clicks run together into the drag's scream.
-    const scr = r.free ? 0 : Math.min(1, Math.max(0, (click - 2.5) / 6));
-    this.set(this.screamBed.g.gain, 0.06 * scr * (0.6 + 0.4 * r.load), scr > 0 ? 0.04 : 0.18);
-    this.screamBed.f[0].frequency.setTargetAtTime(2800 + 140 * Math.min(click, 14) + 500 * r.drag, now, 0.06);
+    const rate = dragRate(click, r.reel, r.fill ?? 1);
+    // (Each slow tick as clear as the clicks of a run; a run a little louder as it speeds up.)
+    const vol = click > 0.02 ? (0.03 + 0.045 * r.load + 0.025 * r.drag) * D.vol * Math.min(1, 0.45 + click / 0.25) * (0.85 + 0.15 * Math.min(1, click / 4)) : 0;
+    const ring = D.tone * (1 + 0.1 * r.drag + 0.05 * r.load);
+    const G = this.drag;
+    if (G.node) {
+      const P = G.node.parameters;
+      P.get('rate').setTargetAtTime(rate, now, 0.03);
+      P.get('level').setTargetAtTime(vol * 0.4, now, 0.025);
+      P.get('ring').setTargetAtTime(ring, now, 0.1);
+    } else {
+      // (The stand-in: noise gated by a pulse train, a click a pulse.)
+      this.setClicks(G.fallback, Math.min(160, rate), vol, now);
+      G.fallback.f[0].frequency.setTargetAtTime(ring, now, 0.05);
+    }
+    G.tone.frequency.setTargetAtTime(ring, now, 0.1);
+    G.tone.gain.setTargetAtTime(D.boost + 3 * r.load, now, 0.1);
+    G.lp.frequency.setTargetAtTime(D.lp, now, 0.1);
     // Winding: a fine gear rattle and a soft hum.
     const w = Math.min(r.wind, 6);
     this.setClicks(this.whirr, w > 0.05 ? 22 + w * 26 : 0, w > 0.05 ? (0.012 + 0.02 * r.load) * Math.min(1, w / 0.6) : 0, now);
     this.whirr.f[0].frequency.setTargetAtTime(1700 - 700 * r.load, now, 0.08);
     this.set(this.whirrBed.g.gain, w > 0.05 ? (0.008 + 0.025 * r.load) * Math.min(1, w / 0.6) : 0, 0.06);
     this.whirrBed.f[0].frequency.setTargetAtTime(520 + w * 60 - 200 * r.load, now, 0.1);
-    // A cast flying out: line hissing off the open spool, higher the faster it goes.
+    // A cast flying out: line hissing off the open spool, higher the faster it goes; or a fish
+    // tearing line off against the drag, through the rings and cutting the water.
     const pour = r.free ? Math.min(1, r.payout / 12) : 0;
-    this.set(this.spoolBed.g.gain, 0.03 * pour, pour > 0 ? 0.03 : 0.12);
-    this.spoolBed.f[0].frequency.setTargetAtTime(3200 + 2600 * pour, now, 0.05);
+    const tear = r.free ? 0 : Math.min(1, Math.max(0, (click - 1.5) / 7));
+    this.set(this.spoolBed.g.gain, 0.03 * pour + 0.016 * tear * tear * (0.6 + 0.4 * r.load), pour + tear > 0 ? 0.03 : 0.12);
+    this.spoolBed.f[0].frequency.setTargetAtTime(r.free ? 3200 + 2600 * pour : 3600 + 2200 * tear, now, 0.05);
     // The line singing.
     this.set(this.singGain.gain, 0.03 * r.sing * r.sing, 0.05);
     this.singOsc.frequency.setTargetAtTime(1250 + 900 * r.sing, now, 0.08);
