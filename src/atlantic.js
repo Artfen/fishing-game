@@ -400,7 +400,7 @@ export const ATLANTIC = [
     where: 'Holes in the rocks: Driftwood Cove, the coast, Willow Bay, the quay and the deep rocks; it comes out at night',
     hint: 'A great grey eel lives in a hole in the rocks and slides out after dark to hunt. A fish strip on a running ledger, left still beside the rocks at night. When it takes, keep it coming: give it slack and it backs into its hole.',
     note: 'A huge, scaleless eel, grey to black with a paler belly, thick-lipped and large-eyed, whose dorsal, tail and anal fins form one black-edged fin starting just behind the pectoral fins (a true eel’s starts far further back). It hides in rocks, wrecks and harbour walls by day and hunts fish and squid at night.',
-    keep: 'Too big and too strong to bring aboard. You lower it back to its rocks.',
+    meal: { name: 'Conger steaks braised with peas and parsley', fill: 55 },
     food: { strip: 1.7, crab: 0.9, prawn: 0.8, lug: 0.4 },
     life: {
       group: [1, 1], groups: 8, spacing: 30, groupsIn: { coast: 3, cove: 2, bay: 2, estuary: 1 }, favour: ['wreck'],
@@ -646,7 +646,7 @@ export const ATLANTIC = [
     where: 'Shoals in the open water, the tide along the coast and the mouth of the Wend estuary',
     hint: 'Tiny slender fish in packed shoals, deep by day and nearer the top at night; the young come into the estuary. A string of sabiki feathers let down to them and lifted gently, best after dark.',
     note: 'Slender and small, with a pointed snout overhanging an enormous mouth that reaches back past the eye, a blue-green back and a bright silver band along the flank. Filter-feeds on plankton in vast shoals.',
-    keep: 'Too small to keep one by one. You drop it back to its shoal.',
+    meal: { name: 'Fresh anchovies fried crisp with a squeeze of lemon', fill: 8 },
     food: { sabiki: 1.6, bread: 0.3 },
     life: {
       school: true, schools: 6, members: [20, 32], spacing: 60, range: 2.2, bait: true, groupsIn: { open: 3, coast: 2, estuary: 1 }, midwater: true,
@@ -705,7 +705,7 @@ export const ATLANTIC = [
     where: 'Schools over shallow sand and weed in Willow Bay and Driftwood Cove, by day',
     hint: 'Little translucent fish with a silver stripe school over the shallow sand and weed edges. A pinch of bread or a scrap of ragworm under a float, kept shallow and still.',
     note: 'Slender and almost transparent, with a bright silver stripe along each side, a large eye and two well-separated dorsal fins. Always in schools in shallow water, food for every bass and bird in the bay.',
-    keep: 'Far too small to keep. Back it goes, to find its school.',
+    meal: { name: 'Sand smelt dusted in flour and fried, eaten whole', fill: 8 },
     food: { bread: 1.3, rag: 0.8, sabiki: 1.0, worm: 0.6 },
     life: {
       school: true, schools: 12, members: [12, 20], midwater: true,
@@ -1014,7 +1014,7 @@ export const DEPTHS = [
     where: 'Sand and mud on the coast, Long Shoal and the outer bay; up into the estuary’s mouth in spring',
     hint: 'A broad flat kite of a fish with thorny bumps on its back lies on the sand and noses out crabs and sandeels. A fish strip or a crab on the bottom, left quite still, after dark or in coloured water. It settles over a bait before it takes: let the rod tip nod a while, then wait for the steady pull.',
     note: 'A ray: its body a broad diamond of wings, its tail long and thorny, mottled brown with pale spots and studded with thorny bucklers down its back. It lies on the bottom by day and hunts crabs, shrimps and small fish by night, finding them by smell and by the electric fields of their muscles. Hooked, it spreads its wings and kites across the tide, or clamps itself flat on the sand.',
-    keep: 'Near threatened: rays grow slowly and have few young. You slip it back over the side, belly down, and it glides off over the sand.',
+    meal: { name: 'Skate wing with black butter and capers', fill: 40 },
     food: { strip: 1.6, crab: 1.4, sandeel: 1.0, lug: 0.8, prawn: 0.8, rag: 0.5 },
     life: {
       group: [1, 2], groups: 7, spacing: 34, flat: true, groupsIn: { coast: 4, bay: 2, estuary: 1 },
@@ -1075,7 +1075,7 @@ export const DEPTHS = [
     where: 'Shallow sandy beaches and the surf: Shell Strand and the bay’s sands, in summer',
     hint: 'Buried in the sand of the shallows with only its eyes and a black fin showing, it snaps at small baits and tiny lures. Mind its spines: they’re venomous. You unhook it with pliers and a wet cloth, and never wade barefoot where they are.',
     note: 'A small sandy fish with an upturned mouth and eyes on top of its head, which lies buried in the shallow sand waiting for shrimps and tiny fish. The spines of its black first dorsal fin and on its gill covers carry venom: tread on one and you’ll know about it for hours. Hot water eases the pain.',
-    keep: 'Venomous spines, and too small to eat: you shake it off the hook into the water without touching it.',
+    meal: { name: 'Weever in a fisherman’s soup (its spines snipped off first, with care)', fill: 12 },
     food: { rag: 1.3, lug: 1.1, prawn: 0.9, sandeel: 0.6, tspin: 0.6, metal: 0.4 },
     life: {
       group: [2, 4], groups: 12, spacing: 16, groupsIn: { bay: 9, cove: 3 },

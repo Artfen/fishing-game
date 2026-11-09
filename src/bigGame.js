@@ -9,8 +9,12 @@ import { isDay, isTwilight } from './habits.js';
 //    wahoo, dorado, yellowfin tuna and smooth hammerhead. Like the island's other fish outside
 //    the register, they carry their own scientific names (see MACARONESIA in register.js).
 //
-// Every billfish and every shark goes back (a keep sentence, no meal): they're released, as
-// big-game anglers release them; the wahoo, the dorado and the albacore make a fine supper.
+// The shortfin mako and the smooth hammerhead go back (a keep sentence, no meal): no boat may land
+// either in these waters (the mako endangered, both protected under the Atlantic tuna
+// commission's rules). The rest can be kept for the table or sold: the marlin, the sailfish and
+// the spearfish as steaks or sashimi, the blue shark as the Spanish markets take it, and the
+// wahoo, the dorado and the albacore a fine supper. (Most big-game anglers release their billfish;
+// whether you do is up to you.)
 // big: a long fight (see fight.js), fought from the chair on the yacht. They hunt by sight in the
 // upper water by day, mostly alone or in small groups, roaming far over the blue; a lure trolled
 // fast (a skirted lure) or a rigged ballyhoo trolled slowly is what they come to.
@@ -37,7 +41,7 @@ export const BIG_GAME = [
     where: 'The Blue Water far offshore, cruising near the surface',
     hint: 'Slim blue sharks cruise the top of the open sea far offshore, following any scent. Troll a rigged ballyhoo slowly (dead slow) on the big-game rod, with a wire trace: their teeth cut anything else.',
     note: 'A long, slender shark with a pointed snout, big eyes and very long, sickle-shaped pectoral fins; vivid indigo-blue above, bright blue along the flanks and white beneath. It roams the open ocean, crossing whole seas, and comes close inshore only where deep water runs near the coast.',
-    keep: 'Near threatened, and no fish for the table: every blue shark goes back. You hold it alongside a moment, cut the wire close to the hook, and it glides off into the blue.',
+    meal: { name: 'Blue shark marinated in adobo and fried', fill: 55 },
     noSpear: 'Sharks aren’t speared here: keep your distance and let it pass.',
     food: { ballyhoo: 1.6, strip: 1.2, skirt: 0.6 },
     life: {
@@ -132,7 +136,7 @@ export const BIG_GAME = [
     where: 'The deep blue water well off the island, past El Veril, by day',
     hint: 'Far out past the drop-off, where flying fish skip and birds work over the tuna, the great billfish hunt alone. Troll a skirted lure at seven knots (the trolling notch) on the big-game rod, a long way back in the wake. When the reel screams, hold on: it runs, and it leaps.',
     note: 'The great billfish of the Atlantic: a long, round spear of a bill, a tall pointed first dorsal fin that folds down into a groove, a high stiff crescent tail with two keels on the tail stalk, and a cobalt-blue back over silvery flanks barred with pale blue. The females grow far larger than the males, past four metres and half a tonne. Round the Canaries it comes in summer, hunting tuna and dorado in the blue water off the islands.',
-    keep: 'Every marlin goes back. You bring it alongside, hold the bill a moment while the boat idles ahead and water runs through its gills, and it kicks off back down into the blue: a photograph and a story, never a meal.',
+    meal: { name: 'Marlin steaks grilled over the coals with lime', fill: 75 },
     noSpear: 'Billfish are never speared: watch it go by, and count yourself lucky.',
     food: { skirt: 1.7, ballyhoo: 1.3, stickbait: 0.7 },
     life: {
@@ -164,7 +168,7 @@ export const BIG_GAME = [
     where: 'The blue water off the island’s south and east, in small groups, in summer',
     hint: 'Small groups of sailfish herd sardines into balls in the warm blue water off the island. Slow-troll a rigged ballyhoo on the big-game rod (slow ahead); it raises its great sail as it comes.',
     note: 'Slim and silver-blue, with a short slender bill and a huge sail of a first dorsal fin, cobalt with dark spots, that it raises to herd sardines and folds flat to swim fast; rows of pale bars and spots down its flanks, and very long pelvic fins. The fastest fish in the sea over a short burst, and the most acrobatic on a line. More a fish of the warm African coast, it reaches the islands in summer.',
-    keep: 'Every sailfish goes back: you hold it by the bill alongside a moment, and its colours flash once more as it swims away.',
+    meal: { name: 'Sailfish loin seared with lime and salt', fill: 65 },
     noSpear: 'Billfish are never speared: watch it go by, and count yourself lucky.',
     food: { ballyhoo: 1.7, skirt: 1.2, stickbait: 0.9 },
     life: {
@@ -196,7 +200,7 @@ export const BIG_GAME = [
     where: 'The open ocean far off the island, alone',
     hint: 'A rare, slim billfish of the open ocean: the Canaries are one of the few places it turns up at all. Troll a rigged ballyhoo or a small skirted lure far offshore on the big-game rod, and be lucky.',
     note: 'The slimmest of the marlins’ kin: a long, slender, flattened body, a bill only a little longer than its lower jaw, and a long first dorsal fin, high in front, running back almost to the second; dark blue above, silvery below, with no bars. Few anglers ever see one; the waters round the Canaries are among the places it turns up most.',
-    keep: 'Every spearfish goes back. A rare fish: a photograph alongside, and away it goes.',
+    meal: { name: 'Spearfish loin seared with lime', fill: 60 },
     noSpear: 'Billfish are never speared: watch it go by, and count yourself lucky.',
     food: { ballyhoo: 1.6, skirt: 1.0 },
     life: {

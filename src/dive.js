@@ -91,8 +91,8 @@ export function curiosity(sp) {
 export const SPEAR = { range: 4.6, sure: 3.2, speed: 16, retrieve: 1.1, load: 1.8 };
 
 // Taken with a speargun, or not: never in fresh water (banned), never a fish with a reason of its
-// own (noSpear: the dusky grouper, vulnerable, every one goes back; the trumpetfish, one to
-// watch), never a protected fish (the eel, the angelshark), never bluefin tuna (strict quotas),
+// own (noSpear: the dusky grouper, vulnerable, and spearing it is banned through much of its
+// range; the trumpetfish, one to watch), never a protected fish (the eel, the angelshark), never bluefin tuna (strict quotas),
 // and a fish too small is let grow.
 export function canSpear(sp, size, water) {
   if (water === 'fresh') return { ok: false, why: 'Spearfishing isn’t allowed in fresh water.' };

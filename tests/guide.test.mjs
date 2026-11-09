@@ -150,10 +150,10 @@ test('the register is sourced, and honest about what is in the game', () => {
   // The eel is in the water to be watched only: it ignores every bait.
   assert.equal(registerFor('eel').status, 'observation');
   assert.ok(fishById.eel.life.observe && !Object.keys(fishById.eel.food).length);
-  // The dusky grouper (Las Brasas) is caught and released, never kept; the angelshark and the
-  // trumpetfish are only watched.
+  // The dusky grouper (Las Brasas) can be kept on a line, and is never speared; the angelshark and
+  // the trumpetfish are only watched.
   assert.equal(registerFor('grouper').status, 'catchable');
-  assert.ok(!fishById.grouper.meal && fishById.grouper.keep);
+  assert.ok(fishById.grouper.meal && fishById.grouper.noSpear);
   for (const id of ['angelshark', 'trumpetfish']) assert.ok(fishById[id].life.observe && !Object.keys(fishById[id].food).length, id);
   // And src/registerData.js is what the research compiles to.
   assert.doesNotThrow(() => execFileSync(process.execPath, [fileURLToPath(new URL('../tools/build-register.mjs', import.meta.url)), '--check'], { stdio: 'pipe' }));

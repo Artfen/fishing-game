@@ -1883,8 +1883,9 @@ function yardDo(r, then) {
   save();
   harbourSheet.render();
 }
-// where: 'market' (Willowhaven's fish market), 'inn' (The Lobster Pot), 'muelle' (Bar El Muelle) or
-// 'chandlery' (its counter: creels, ice, fresh bait, mending, ready for a trip).
+// where: 'market' (Willowhaven's fish market), 'inn' (The Lobster Pot), 'muelle' (Bar El Muelle),
+// 'chandlery' (its counter: creels, ice, fresh bait, mending, ready for a trip) or 'kaigan' (the
+// Nikkei kitchen's door, buying fish fit to eat raw: see kaigan.js).
 function openHarbour(where, tab = null) {
   if (modal) return;
   modal = 'harbour';
@@ -1892,6 +1893,7 @@ function openHarbour(where, tab = null) {
   audio.page();
   if (where === 'chandlery') teach('counter', 'The chandlery’s tackle is free, as always. At the counter Old Bert sells a bigger creel, ice and fresh bait, and puts new line on a worn rod.', 10);
   else if (where === 'market') teach('market', 'The fish market buys what you keep, by weight: more for the kinds wanted today, and best while it’s fresh.', 9);
+  else if (where === 'kaigan') teach('kaigan', 'Kaigan pays well over the market for sea fish fit to eat raw: caught within twelve hours (ice stops the clock). A whole bluefin is the best price on the coast.', 10);
   else if (where === 'works') teach('works', 'Willowhaven Marine Works: buy or hire a boat, paint her and name her, fit a bigger tank or outboard. Money buys range, speed and looks, never a better bite.', 10);
   else teach('inn', 'The inn: a pint and a story, what’s biting, and the talk of the sea. The kitchen asks for particular fish each day, and pays well.', 9);
 }
@@ -5912,6 +5914,7 @@ function interaction() {
     if (page) return { text: PAGES[page].where.startsWith('tucked') ? 'Look at the paper tucked under the seat' : PAGES[page].where.startsWith('folded') ? 'Look at the paper in the crack' : 'Look at the paper in the driftwood', run: () => readPage(page) };
     if (coastSpot('board')) return { text: 'Read the notice board', run: () => openBoard() };
     if (coastSpot('market')) return { text: 'The fish market: sell your catch', run: () => openHarbour('market') };
+    if (coastSpot('kaigan')) return { text: 'Kaigan’s kitchen door: fish for sushi, sashimi and ceviche', run: () => openHarbour('kaigan') };
     if (coastSpot('tower')) return { text: 'The watch tower', run: () => climbTower() };
     // Someone to talk to: the harbour's people (and Paco).
     const folk = town.near(walker.pos.x, walker.pos.z, 1.9);

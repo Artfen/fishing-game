@@ -5,8 +5,9 @@ import { withSurface } from './surface.js';
 
 // Willowhaven's buildings, one by one and each its own: the chandlery (green weatherboard, a shop
 // window, buoys on the wall), The Lobster Pot (whitewashed, a black plinth, sash windows, its sign,
-// lanterns and hanging baskets, benches out front), the net store (tarred black boards, red double
-// doors, nets drying), and three cottages up the slope (colour-washed, shutters, window boxes,
+// lanterns and hanging baskets, benches out front), the old net store, now Kaigan (tarred black
+// boards still, a window either side of the door, an indigo noren over it, red paper lanterns, the
+// nets still drying beside it: see kaigan.js), and three cottages up the slope (colour-washed, shutters, window boxes,
 // a porch hood over the door). Every face you can see has its windows; every building stands on a
 // stone plinth, with quoins at the corners, a roof with real thickness, fascias and a ridge, and
 // chimneys with pots. The ones that stand at the harbour's level are cut into the bank behind
@@ -331,10 +332,12 @@ function styleOf(b) {
     };
   }
   if (b.kind === 'store') {
+    // (Kaigan now: the net store's tarred boards kept, its double doors made one, with a window
+    // either side for the warm light of the counter.)
     return {
-      wallH: 2.7, rise: 1.25, wall: '#2b2724', trim: '#3a3330', plinth: '#55504a', roof: '#3a3a38', door: '#7a3a2a', clad: '#1f1c1a',
+      wallH: 2.7, rise: 1.25, wall: '#2b2724', trim: '#b89a70', plinth: '#55504a', roof: '#3a3a38', door: '#4a3426', clad: '#1f1c1a',
       open: {
-        front: [{ a: -1.1, b: 1.1, bottom: 0, top: 2.2, door: true, double: true }],
+        front: [{ a: -0.6, b: 0.6, bottom: 0, top: 2.1, door: true }, { a: -2.15, b: -1.05, bottom: 0.85, top: 1.95 }, { a: 1.05, b: 2.15, bottom: 0.85, top: 1.95 }],
         left: [{ a: -0.3, b: 0.5, bottom: 1.2, top: 1.9 }],
         right: [{ a: -0.4, b: 0.4, bottom: 1.2, top: 1.9 }],
         back: [],
@@ -372,6 +375,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
   };
   const lanterns = [];
   const lanternMat = new THREE.MeshBasicMaterial({ color: '#8a7a60' });
+  const chochinMat = new THREE.MeshBasicMaterial({ color: '#5a0a08' }); // Kaigan's red paper lanterns
   const rooms = {};
   const signs = {};
 
@@ -423,11 +427,13 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
       for (let lx = -b.w / 2 + 0.9; lx <= b.w / 2 - 0.9 + 0.01; lx += Math.max(1.2, (b.w - 1.8) / Math.max(1, Math.round((b.w - 1.8) / 1.6)))) {
         for (let lz = -b.d / 2 + 0.9; lz <= b.d / 2 - 0.9 + 0.01; lz += Math.max(1.2, (b.d - 1.8) / Math.max(1, Math.round((b.d - 1.8) / 1.6)))) {
           const p = F.world(lx, lz);
-          obstacles.push({ x: p.x, z: p.z, r: 1.3, top: y + S.wallH + S.rise, kind: 'building', name: b.kind === 'cottage' ? 'a cottage' : 'the net store' });
+          obstacles.push({ x: p.x, z: p.z, r: 1.3, top: y + S.wallH + S.rise, kind: 'building', name: b.kind === 'cottage' ? 'a cottage' : 'Kaigan' });
         }
       }
       const door = F.world(0, b.d / 2 + 1.2);
-      spots.push({ kind: 'door', name: b.kind === 'cottage' ? 'a cottage door' : 'the net store door', x: door.x, z: door.z, r: 2.4, id: b.id });
+      // (Kaigan's door: Kenji buys from the boats there. A cottage's door is only a door.)
+      if (b.kind === 'store') spots.push({ kind: 'kaigan', name: 'Kaigan', x: door.x, z: door.z, r: 2.4, id: b.id });
+      else spots.push({ kind: 'door', name: 'a cottage door', x: door.x, z: door.z, r: 2.4, id: b.id });
     } else {
       // Each side a mesh of its own; the upper storey, the gables, the roof and the chimneys
       // together (they all lift away while you're inside).
@@ -503,8 +509,8 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
       for (const s of [-1, 1]) woodParts.push({ geo: box(0.6, 0.9, 0.04), matrix: mat(sb.x, y + 0.45, sb.z, s * 0.22, b.yaw, 0), color: '#2b2f2e' });
       obstacles.push({ x: sb.x, z: sb.z, r: 0.35, kind: 'harbour', name: 'the sandwich board' });
     } else if (b.kind === 'store') {
-      // Nets hung to dry on poles beside the store (on the level ground by its west end), floats
-      // along the top line.
+      // Nets hung to dry on poles beside it (on the level ground by its west end), floats along the
+      // top line: the old net store's, kept for the look of the place.
       for (const lx of [-b.w / 2 - 0.8, -b.w / 2 - 3.0]) {
         const p = F.world(lx, 1.2);
         woodParts.push({ geo: cyl(0.05, 0.06, 2.4, 6), matrix: mat(p.x, y + 1.2, p.z), color: '#6a503b' });
@@ -513,12 +519,77 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
       const p = F.world(-b.w / 2 - 1.9, 1.2), py = y;
       darkParts.push({ geo: new THREE.PlaneGeometry(2.2, 1.6, 6, 4), matrix: mat(p.x, py + 1.3, p.z, 0, b.yaw, 0), color: '#4f6a5a', jitter: 0.15 });
       for (let k = 0; k < 5; k++) darkParts.push({ geo: new THREE.SphereGeometry(0.06, 6, 4), matrix: mat(p.x - 0.9 + k * 0.45, py + 2.08, p.z), color: '#c9a65a' });
-      const sign = textTexture(256, 64, signPainter('#1f1c1a', '#8a7a5e', '#d8cbb0', 'NET STORE', '', 34));
-      const sm = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.35), new THREE.MeshLambertMaterial({ map: sign.tex }));
-      const q = F.world(0, front + 0.03);
-      sm.position.set(q.x, y + 2.45, q.z);
+      // A slim board of pale cedar over the door, under the low eaves: what the kitchen serves.
+      const sign = textTexture(512, 64, (ctx, w, h) => {
+        ctx.fillStyle = '#c9ad84';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = '#6b5236';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(4, 4, w - 8, h - 8);
+        ctx.fillStyle = '#1d1a18';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = '700 25px Kalam, Caveat, cursive';
+        ctx.fillText('Nikkei kitchen · sushi · sashimi · ceviche', w / 2, h * 0.54);
+      });
+      const sm = new THREE.Mesh(new THREE.PlaneGeometry(1.92, 0.24), new THREE.MeshLambertMaterial({ map: sign.tex }));
+      const q = F.world(0, front + 0.04);
+      sm.position.set(q.x, y + 2.23, q.z);
       sm.rotation.y = b.yaw;
       group.add(sm);
+      signs.kaigan = sign;
+      // The noren: three panels of indigo cloth hung from a rod across the top of the door, a pale
+      // wave in a circle and the kitchen's name across them, parted to walk under.
+      const noren = textTexture(256, 128, (ctx, w, h) => {
+        ctx.fillStyle = '#23345a';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = '#e8e2d2';
+        ctx.lineWidth = 5;
+        const cy = h * 0.34, r = h * 0.2;
+        ctx.beginPath();
+        ctx.arc(w / 2, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.lineWidth = 4;
+        for (let k = 0; k < 3; k++) {
+          ctx.beginPath();
+          for (let i = 0; i <= 20; i++) {
+            const u = i / 20, x = w / 2 - r * 0.8 + u * r * 1.6, yy = cy - r * 0.4 + k * r * 0.4 + Math.sin(u * Math.PI * 2) * 3;
+            if (i) ctx.lineTo(x, yy); else ctx.moveTo(x, yy);
+          }
+          ctx.stroke();
+        }
+        ctx.fillStyle = '#e8e2d2';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = '700 34px Kalam, Caveat, cursive';
+        ctx.fillText('KAIGAN', w / 2, h * 0.78);
+        // (The slits between the panels.)
+        ctx.fillStyle = '#141a2a';
+        for (const k of [1, 2]) ctx.fillRect((w * k) / 3 - 2, h * 0.12, 4, h);
+      });
+      const nm = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.6), new THREE.MeshLambertMaterial({ map: noren.tex, side: THREE.DoubleSide }));
+      const nq = F.world(0, front + 0.12);
+      nm.position.set(nq.x, y + 1.78, nq.z);
+      nm.rotation.y = b.yaw;
+      group.add(nm);
+      signs.noren = noren;
+      darkParts.push({ geo: cyl(0.02, 0.02, 1.34, 6), matrix: F.at(0, 2.09, front + 0.12, 0, 0, Math.PI / 2), color: '#6b5236' });
+      // Red paper lanterns either side of the door (lit at night), on brackets.
+      for (const s2 of [-1, 1]) {
+        darkParts.push({ geo: box(0.04, 0.04, 0.34), matrix: F.at(s2 * 0.85, 2.1, front + 0.17), color: '#2a2d30' });
+        const p = F.world(s2 * 0.85, front + 0.32);
+        const ch = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8), chochinMat);
+        ch.scale.set(1, 1.35, 1);
+        ch.position.set(p.x, y + 1.84, p.z);
+        group.add(ch);
+        for (const dy of [0.2, -0.2]) darkParts.push({ geo: cyl(0.09, 0.09, 0.03, 10), matrix: mat(p.x, y + 1.84 + dy, p.z), color: '#1d1a18' });
+        addGlow(p.x, y + 1.84, p.z, 1.1);
+      }
+      // A menu board on the setts by the door.
+      const mb = F.world(1.75, front + 0.55);
+      woodParts.push({ geo: box(0.55, 0.85, 0.04), matrix: mat(mb.x, y + 0.5, mb.z, -0.18, b.yaw - 0.25, 0), color: '#2b2f2e' });
+      woodParts.push({ geo: box(0.6, 0.9, 0.03), matrix: mat(mb.x, y + 0.5, mb.z, -0.18, b.yaw - 0.25, 0), color: '#b89a70' });
+      obstacles.push({ x: mb.x, z: mb.z, r: 0.35, kind: 'harbour', name: 'Kaigan’s menu board' });
     } else {
       // A cottage: a porch hood over the door on brackets, window boxes of flowers, a pot by
       // the step.
@@ -744,6 +815,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
     update(dt, t, { night = 0, from = null, cam = null, cutaway = true, onDoor = null } = {}) {
       lampMat.color.setRGB(0.18 + night * 1.02, 0.24 + night * 0.44, 0.28 + night * 0.02);
       lanternMat.color.setRGB(0.54 + night * 0.46, 0.48 + night * 0.36, 0.38 + night * 0.12);
+      chochinMat.color.setRGB(0.32 + night * 0.68, 0.025 + night * 0.17, 0.02 + night * 0.05);
       for (const g of glowSprites) if (g !== fireGlow) g.material.opacity = 0.7 * night;
       if (!from) return;
       const room = insideHaven(from.x, from.z);
