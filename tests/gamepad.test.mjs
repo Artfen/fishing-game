@@ -71,6 +71,30 @@ test('a controller already plugged in shows up when you press a button, and take
   assert.deepEqual(log, ['press:interact', 'release:interact']);
 });
 
+test('two controllers (Steam’s virtual one besides the real one): the game goes with the one actually being used', () => {
+  const { pad, pads, input, log } = rig('play');
+  // The first to connect is silent (Steam has taken it); the second is the one sending.
+  const other = { index: 1, id: 'Steam virtual pad', connected: true, mapping: 'standard', buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })), axes: [0, 0, 0, 0] };
+  Object.defineProperty(globalThis, 'navigator', { value: { getGamepads: () => [pad, other] }, configurable: true });
+  pads.connect(pad);
+  assert.equal(pads.index, 0);
+  // The stick pushed on the other: it's taken over, and walking follows it.
+  other.axes[1] = -1;
+  pads.poll(1 / 60);
+  assert.equal(pads.index, 1);
+  assert.equal(input.method, 'pad');
+  assert.ok(input.virtual.throttle > 0.5, `throttle ${input.virtual.throttle}`);
+  // And its A press counts.
+  other.axes[1] = 0;
+  other.buttons[P.BTN.A] = { pressed: true, value: 1 };
+  pads.poll(1 / 60);
+  assert.ok(log.includes('press:interact'));
+  // The first one waking up while the second is still in use changes nothing.
+  pad.buttons[P.BTN.B] = { pressed: true, value: 1 };
+  pads.poll(1 / 60);
+  assert.equal(pads.index, 1);
+});
+
 test('RT held from aiming the cast on into reeling stays held; a menu lets go of it', () => {
   const { pads, input, log, now, press } = rig('play');
   press('RT', true);

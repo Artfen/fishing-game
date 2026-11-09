@@ -8102,6 +8102,8 @@ const settingsUI = new SettingsUI(state, {
     audio.start();
     audio.biteAlert('strike');
   },
+  restartSound: () => audio.restart(),
+  soundStatus: () => audio.status(),
   qualityText,
   oceanText,
   difficulty: () => state.difficulty,
@@ -10352,6 +10354,12 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight, false);
   fitCamera();
   finder.fit();
+});
+
+// The computer's speakers or headphones change (plugged in, unplugged, Bluetooth ones switching
+// mode for a call): connect the sound to them afresh, as the Restart sound button does.
+navigator.mediaDevices?.addEventListener?.('devicechange', () => {
+  if (!document.hidden) audio.restart();
 });
 
 // Phones may freeze or discard a background tab: save, and stop the sound until it's back.

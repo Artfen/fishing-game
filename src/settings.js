@@ -148,7 +148,7 @@ const el = (tag, cls, text) => {
 const TABS = [['audio', 'Sound'], ['graphics', 'Graphics'], ['weather', 'Weather & sea'], ['controls', 'Controls & comfort'], ['together', 'Play together']];
 const LEVEL_NAMES = { auto: 'With the preset', low: 'Low', medium: 'Medium', high: 'High', ultra: 'Ultra' };
 
-// hooks: { changed(section, key, value), close(), playAlert(), qualityText(), difficulty(), setDifficulty(id),
+// hooks: { changed(section, key, value), close(), playAlert(), restartSound() → status, soundStatus(), qualityText(), difficulty(), setDifficulty(id),
 //   behaviour(), setBehaviour(id), keyLabel(code), together() (the Together session), setName(name),
 //   netDiagnostics() (lines about the session's traffic and the shared sea, or null),
 //   boatName(kind), following() (the host's name while their world is followed, or null) }
@@ -448,7 +448,25 @@ export class SettingsUI {
     const alerts = el('div', 'st-stack');
     alerts.append(this.slider('audio', 'alerts'), test);
     out.push(this.row('Bite alerts', 'A short, gentle ring when a fish takes a float bait or runs off with a carp rig. It rings once, never on and on.', alerts));
+    // If the sound cuts out or comes and goes: connect it to the speakers afresh.
+    const fix = el('div', 'st-stack');
+    const note = el('p', 'st-note', this.soundWords(this.hooks.soundStatus?.()));
+    const again = el('button', 'pk-btn quiet', 'Restart sound');
+    again.type = 'button';
+    again.addEventListener('click', async () => {
+      note.textContent = 'Reconnecting…';
+      note.textContent = this.soundWords(await this.hooks.restartSound?.());
+    });
+    fix.append(again, note);
+    out.push(this.row('Sound cutting out?', 'If the sound drops out, comes and goes or stutters (often headphones, Bluetooth or a voice call taking the speakers), this connects it to your speakers again. The game also does it by itself when your speakers or headphones change.', fix));
     return out;
+  }
+
+  // The sound as it is, in words.
+  soundWords(st) {
+    if (!st || st.state === 'off') return 'The sound starts with your first click or key press.';
+    if (st.state === 'running') return `Sound on${st.ms ? `, running about ${st.ms} ms behind (a roomy buffer, so it doesn’t break up)` : ''}.`;
+    return 'The sound is paused: click anywhere in the game, or press a key, to start it.';
   }
 
   graphicsPane() {
