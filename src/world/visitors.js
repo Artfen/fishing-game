@@ -6,6 +6,7 @@ import { wakes } from './wakes.js';
 import { Figure } from './folk.js';
 import { berthFor } from '../mooring.js';
 import { damp, clamp } from '../util.js';
+import { cleanTrollWire } from '../trollmount.js';
 import { RODS, LINE_COLORS } from '../tackle.js';
 import { buildFloat } from '../tackleModels.js';
 import { buildRod } from '../props.js';
@@ -420,6 +421,8 @@ export class VisitorView {
       b.sailing = P.s ? { boom: 0.55, awa: 1.3, alpha: 0.14, speed: 3.5, pull: 3 } : null;
       b.setLantern?.(P.n && night > 0.3);
     }
+    // (Their bow trolling motor, where theirs is: stowed, swinging down, at depth, its head turned.)
+    b.trollView = P.tr ? cleanTrollWire(P.tr, b.trollMount) : null;
     b.animate(dt, t, speed > 0.3 && !H.sail ? 0.7 : 0, 0, P.n ? night : 0);
     b.group.updateMatrixWorld(true);
     // (Solid to your boats: you bump off a friend's boat as off any other.)

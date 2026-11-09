@@ -237,7 +237,7 @@ export class HarbourSheet {
   renderFit() {
     const out = [], Y = this.state.yard, H = this.hooks;
     out.push(el('p', 'hb-say', 'In the workshop, an outboard hangs on a stand with its cowling off. “What’ll it be: range, speed, electronics, something for the deck? Fitted while you wait.”'));
-    const mine = H.yardKinds().filter((k) => owns(Y, k) && fitsFor(k).length);
+    const mine = H.yardKinds().filter((k) => owns(Y, k) && fitsFor(k, Y.fits[k] || []).length);
     if (!mine.length) {
       out.push(el('p', 'cp-soft', 'None of your boats takes a fitting from the workshop: the motorboats do (the skiff, the bass boat, the cabin boat, the centre console, the RIB, the yacht, the jet ski), and the sailing boat a few.'));
       return out;
@@ -252,7 +252,7 @@ export class HarbourSheet {
       ? `Fitted: ${have.length} · carrying ${e.kg} kg more · drawing up to ${e.amps.toFixed(1)} A${e.house ? ' (on her house battery)' : ''}`
       : 'As she came from the builder: nothing fitted yet.'));
     for (const [cat, catName] of Object.entries(FIT_CATS)) {
-      const ids = fitsFor(k).filter((id) => FITS[id].cat === cat);
+      const ids = fitsFor(k, Y.fits[k] || []).filter((id) => FITS[id].cat === cat);
       if (!ids.length) continue;
       out.push(el('h4', 'hb-fit-cat', catName));
       for (const id of ids) {

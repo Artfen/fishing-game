@@ -101,6 +101,7 @@ import { Crew, CREW_REACH, CREW_SLOW } from './crew.js';
 import { DashControl } from './dashcontrol.js';
 import { keyStep } from './dashboard.js';
 import { TrollMotor, canTroll } from './trolling.js';
+import { trollWire } from './trollmount.js';
 import * as Con from './contracts.js';
 import { Passengers } from './passengers.js';
 import * as Story from './story.js';
@@ -3372,7 +3373,7 @@ function dashWords(c) {
     case 'throttle': return `${leverWords(leverKind(), boat.lever)} · drag it, or scroll`;
     case 'troll': {
       const M = boat.troll;
-      return !M ? 'none fitted' : M.deployed ? `down · battery ${Math.round((tanks().troll[boat.kind] ?? 1) * 100)}%` : M.want ? 'going down…' : 'stowed';
+      return !M ? 'none fitted' : M.deployed ? `down · ${M.depthId} · battery ${Math.round((tanks().troll[boat.kind] ?? 1) * 100)}%` : M.want ? 'going down…' : !M.mech.stowed ? 'stowing…' : M.powered || startMode() !== 'full' ? 'stowed · press to deploy' : 'stowed · deployed by hand at the bow';
     }
     case 'lock': {
       const M = boat.troll;
@@ -3743,11 +3744,15 @@ function jobTarget() {
   return s ? { ...s, name: Story.STORY_TITLE } : null;
 }
 
-/* ---------- the trolling motor and Spot-Lock (see trolling.js) ---------- */
-// Each boat with a bow trolling motor fitted (Willowhaven Marine Works) has it on her bow: lowered
-// with , (and stowed again), worked with the keys while the main engine's in neutral, and on the
-// GPS motors, . holds her on a spot (or, creeping along under its push, on a heading).
-let trollPush = 0, trollShortT = 0, trollWas = null;
+/* ---------- the trolling motor and Spot-Lock (see trolling.js, trollmount.js) ---------- */
+// Each boat with a bow trolling motor (Willowhaven Marine Works fits one; the bass boat has her
+// own) carries it on her bow mount, stowed or deployed. The basic and GPS motors are worked by
+// hand at the bow (, deploys or stows, / sets the depth: go forward to it on the boats you can walk
+// about; in the small boats it's within reach); the high-thrust motor stows, deploys and trims
+// itself from its remote or the dashboard, anywhere aboard. On the simpler start-up settings any of
+// them can be worked from anywhere. Deployed, the keys work it while the main engine's in neutral,
+// and on the GPS motors . holds her on a spot (or, creeping along under its push, on a heading).
+let trollPush = 0, trollShortT = 0, trollWas = null, trollBowSaid = 0, trollActOn = false;
 const trollMotors = {};
 // The boat's trolling motor, as fitted now (a new one when the fitting changes), or none.
 function trollOf(b) {
@@ -3758,20 +3763,71 @@ function trollOf(b) {
     return null;
   }
   const M = trollMotors[b.kind];
-  if (!M || M.tier !== tier || M.wh !== (e.trollBank ? 2400 : 1200)) trollMotors[b.kind] = new TrollMotor(tier, { bank: e.trollBank });
+  if (!M || M.tier !== tier || M.wh !== (e.trollBank ? 2400 : 1200)) {
+    const m = new TrollMotor(tier, { bank: e.trollBank, mount: b.trollMount });
+    // (The bass boat's own bow motor starts down, where it's always been; one newly fitted, stowed.)
+    if (e.trollStandard && !M) m.down = 1;
+    trollMotors[b.kind] = m;
+  }
   b.troll = trollMotors[b.kind];
   return b.troll;
 }
+// Standing by the motor on her bow (walking her deck), within reach of its bracket.
+function nearTroll(b = boat) {
+  const M = b.trollMount;
+  if (!M || !b.deck) return false;
+  return Math.hypot(b.deck.x - M.hinge[0], b.deck.z - M.hinge[2]) < 1.5;
+}
+// Whether it can be worked from where you are (see above).
+function trollReach(M) {
+  if (M.powered || startMode() !== 'full' || !boat.hull.standing) return true;
+  return nearTroll();
+}
+const trollHow = (M) => (M.powered ? 'from its remote' : nearTroll() || !boat.hull.standing ? 'by hand' : 'by hand (the game walks you to it)');
 function trollDeploy() {
   if (onFoot || driving || dive) return;
   const M = trollOf(boat);
   if (!M) return hud.flash(canTroll(boat.kind) ? 'No trolling motor on her: Willowhaven Marine Works fits one on her bow (the GPS model has Spot-Lock).' : `The ${boat.hull.name} won’t take a bow trolling motor.`, t, 3.5);
-  const on = M.deploy();
+  const down = !M.want;
+  if (!trollReach(M)) return hud.flash(`This motor’s worked by hand at the bow: go forward to it (${K('interact')} leaves the helm to walk the deck) and ${down ? 'swing it down' : 'stow it'} there. (On the Simple start-up setting, it’s done from the helm.)`, t, 4);
+  if (down && Math.abs(boat.forwardSpeed) > 1.6) return hud.flash('Slow down first: it only goes down with her barely moving.', t, 2.4);
+  const flat = (tanks().troll[boat.kind] ?? 1) <= 0.03;
+  if (M.powered && flat) {
+    if (!down && (nearTroll() || !boat.hull.standing || startMode() !== 'full')) {
+      M.handStow();
+      return hud.flash('The trolling battery’s flat, so the actuator won’t stow it: you lift it out and swing it up onto the mount by hand.', t, 3.5);
+    }
+    return hud.flash(down ? 'The trolling battery’s flat: the actuator can’t deploy it. Charge it at a jetty.' : `The trolling battery’s flat: stow it by hand at the bow.`, t, 3.2);
+  }
+  M.deploy(down);
   trollPush = 0;
-  audio.trimWhine?.(true);
-  setTimeout(() => audio.trimWhine?.(false), 900);
-  hud.flash(on ? `The trolling motor swings down into the water. ${scheme() === 'pad' ? 'The stick' : `${K('forward')}${K('back')}`} push, ${scheme() === 'pad' ? 'across' : `${K('left')}${K('right')}`} steer, with the engine in neutral${M.gps ? `; ${K('spotlock')} holds her here (Spot-Lock)` : ''}.` : 'The trolling motor comes up onto its mount.', t, 4);
-  teach('trolling', `The trolling motor: quiet, slow, on its own battery (it charges at a jetty and overnight). ${M.gps ? 'Spot-Lock holds her on a spot in deep water, pushing back against the wind and tide; too strong a drift and she drags. ' : ''}Putting the main engine in gear stops it.`, 9);
+  hud.flash(down
+    ? (M.powered ? 'The trolling motor deploys itself: the latch lets go, it swings out over the bow and down, locks, and trims down to depth.' : `You release the latch, slide the motor forward off its ramps and swing it down over the bow until it locks${M.spec.deploy === 'assist' ? ' (the lift-assist taking its weight)' : ''}, then set it to depth.`)
+    : (M.powered ? 'The trolling motor stows itself: up out of the water, the lower unit turned, swung up onto its ramps and latched.' : 'You turn the lower unit, lift it out, unlock it and swing it up onto the mount, back onto its ramps, and latch it.'), t, 4);
+  teach('trolling', `The trolling motor: quiet, slow, on its own battery (it charges at a jetty and overnight). It pushes only once it’s down, locked and at depth; ${K('trollDepth')} sets the depth (shallow, normal, deep). ${M.gps ? 'Spot-Lock holds her on a spot in deep water, pushing back against the wind and tide; too strong a drift and she drags. ' : ''}Putting the main engine in gear stops it.`, 10);
+}
+// Its depth: shallow, normal, deep (by hand on its collar, the prop stopped while it's moved; or
+// the high-thrust motor's power trim, from anywhere).
+function trollDepth() {
+  if (onFoot || driving || dive) return;
+  const M = trollOf(boat);
+  if (!M) return trollDeploy();
+  if (!trollReach(M)) return hud.flash(`Its depth’s set by hand on its collar: go forward to it on the bow.`, t, 3);
+  const order = ['shallow', 'normal', 'deep'], next = order[(order.indexOf(M.depthId) + 1) % order.length];
+  M.setDepth(next);
+  const under = { shallow: '30 cm', normal: 'half a metre', deep: '75 cm' }[next];
+  hud.flash(`Trolling motor depth: ${next}, the propeller about ${under} down${M.want ? (M.spec.trim === 'powered' ? ' (power trim)' : ' (loosening the collar, sliding the shaft, tightening it again)') : ': it goes down to that when it’s deployed'}.`, t, 3);
+}
+// Standing by it at the bow: what to do with it.
+function trollAtBow() {
+  const M = trollOf(boat);
+  if (!M) return;
+  const opts = [{ text: 'Not now', cls: 'quiet', cancel: true }];
+  if (M.want) opts.push({ text: 'Shallower / deeper', cls: 'quiet', run: () => trollDepth() }, { text: 'Stow it', run: () => trollDeploy() });
+  else opts.push({ text: 'Deploy it', run: () => trollDeploy() });
+  ask('The trolling motor', M.want
+    ? `${M.deployed ? `Down and locked, its depth ${M.depthId}.` : 'On its way down.'} Stow it (lifted out, turned, swung up onto its ramps and latched), or set its depth?`
+    : `Stowed on its mount, the lower unit lying across its ramps. ${M.powered ? 'It deploys itself' : 'Release the latch, slide it forward and swing it down over the bow until it locks'}?`, opts);
 }
 function trollLock() {
   if (onFoot || driving || dive) return;
@@ -3784,7 +3840,7 @@ function trollLock() {
     return hud.flash(M.mode === 'lock' ? 'Spot-Lock off.' : 'Hold off: she’s yours again.', t, 2);
   }
   if (boat.anchored || boat.tie) return hud.flash(boat.tie ? 'She’s tied up.' : `The anchor’s down: raise it first (${K('anchor')}) to hold her on the motor instead.`, t, 2.6);
-  if (!M.deployed) return hud.flash(`Lower the trolling motor first (${K('trolling')}).`, t, 2.4);
+  if (!M.deployed) return hud.flash(M.want ? 'Not yet: it’s still going down. Spot-Lock once it’s locked at depth.' : `Deploy the trolling motor first (${K('trolling')}).`, t, 2.4);
   // (Creeping along under its push: hold this heading. Otherwise: hold this spot.)
   if (Math.abs(trollPush) > 0.05) {
     M.holdHeading(true, boat.heading);
@@ -3793,10 +3849,45 @@ function trollLock() {
   M.spotLock(true, boat.pos);
   hud.flash(`Spot-Lock on: she holds here, the motor pushing back against the wind and tide. ${K('spotlock')} again to let go.`, t, 3.4);
 }
-// Once a frame: the motor of the boat you're aboard at work, on its battery.
+// What its mechanism did this frame, heard (and the moments said).
+function trollHeard(M, ev) {
+  for (const e of ev) {
+    if (e.type === 'start') {
+      if (M.powered && !M.byHand) continue;
+      if (e.step === 'latch') audio.trollLatch?.(false);
+      else if (e.step === 'slide' || e.step === 'ext') audio.trollSlide?.(e.step === 'ext' ? 0.6 : 0.3);
+      else if (e.step === 'pivot') audio.trollSwing?.(M.spec.deploy === 'assist');
+      else if (e.step === 'turn') audio.tick?.(0.4);
+    } else if (e.type === 'unlatched' && M.powered && !M.byHand) audio.trollLatch?.(false);
+    else if (e.type === 'locked' || e.type === 'onRamps') audio.trollLock?.();
+    else if (e.type === 'latched') {
+      audio.trollLatch?.(true);
+      hud.flash('The trolling motor’s stowed and latched.', t, 2);
+    } else if (e.type === 'straight') hud.flash(`The trolling motor’s down and locked at depth (${M.depthId}): it’ll push now.`, t, 2.4);
+    else if (e.type === 'depth') audio.trollLock?.();
+  }
+  // (The high-thrust motor's actuator, whining while it works.)
+  const act = M.powered && !M.byHand && M.mech.moving;
+  if (act !== trollActOn) {
+    trollActOn = act;
+    audio.trollActuator?.(act);
+  }
+}
+// Once a frame: the motor of the boat you're aboard at work, on its battery (and the others'
+// mechanisms finishing what they were doing).
 function updateTroll(dt) {
-  for (const b of boats) if (b !== boat || onFoot) b.troll?.mode !== 'off' && b.troll?.stop();
-  if (onFoot || driving || dive) return;
+  for (const b of boats) {
+    if (b === boat && !onFoot) continue;
+    const T = b.troll;
+    if (!T) continue;
+    if (T.mode !== 'off') T.stop();
+    if (T.mech.moving || (T.want ? !T.deployed : !T.mech.stowed)) T.mech.step(dt, { aligned: true });
+  }
+  if (onFoot || driving || dive) {
+    if (trollActOn) audio.trollActuator?.((trollActOn = false));
+    audio.trollHum?.(0);
+    return;
+  }
   const M = trollOf(boat);
   if (!M) return;
   const f = tanks(), k = boat.kind;
@@ -3805,29 +3896,46 @@ function updateTroll(dt) {
     M.stop();
     hud.flash(boat.tie ? 'Tied up: the trolling motor stops.' : 'The anchor’s down: Spot-Lock off.', t, 2.4);
   }
+  // The bass boat's first notches run her bow motor: it has to be down. (On the simpler start-up
+  // settings it goes down by itself; otherwise, a word.)
+  const mo = boat.hull.motor, notch = mo?.troll && leverKind() && boat.lever > 0 && boat.lever <= mo.troll;
+  if (notch && !M.want) {
+    if (startMode() !== 'full') {
+      M.deploy(true);
+      hud.flash('The bow motor goes down for the electric notches.', t, 2.2);
+    } else if (t > trollBowSaid) {
+      trollBowSaid = t + 6;
+      hud.flash(`The bow motor’s stowed: deploy it (${K('trolling')}) to run on the electric notches.`, t, 3);
+    }
+  }
   const r = M.step(dt, { boat: { x: boat.pos.x, z: boat.pos.z, vx: boat.vel.x, vz: boat.vel.z, heading: boat.heading, mass: boat._phys?.m || 1000 }, battery: f.troll[k], sea: waveHeightHere(boat.pos.x, boat.pos.z), lever: leverKind() ? boat.lever : 0 });
   f.troll[k] = Math.max(0, f.troll[k] - r.drawn);
+  trollHeard(M, r.ev);
   if (r.why === 'gear') {
     trollPush = 0;
     hud.flash('Into gear: the trolling motor stops.', t, 2.2);
   } else if (r.why === 'flat') hud.flash('The trolling motor’s battery is flat: it charges at a jetty, and overnight.', t, 4);
+  else if (r.why === 'noPower' && t > trollBowSaid) {
+    trollBowSaid = t + 6;
+    hud.flash('The trolling battery’s too flat for the actuator: stow it by hand at the bow.', t, 3.4);
+  }
   // Spot-Lock losing the fight: said once in a while.
   trollShortT = M.mode === 'lock' && M.short > 0.5 && M.off > 4 ? trollShortT + dt : 0;
   if (trollShortT > 6) {
     trollShortT = -20;
     hud.flash(`Spot-Lock can’t hold her in this: she’s ${Math.round(M.off)} m off her spot and dragging. Anchor if it’s shallow enough, or motor back.`, t, 4.5);
   }
-  // (The motor's hum while it pushes.)
-  const on = M.f > 20;
-  if (on !== trollWas) {
-    trollWas = on;
-    audio.trimWhine?.(false);
-  }
+  // (Its hum under the water while it pushes, the lever's electric notches on the bass boat too.)
+  const push = Math.max(M.f / M.spec.push, boat.bowNotch && M.deployed ? boat.bowNotch * 0.5 : 0);
+  const on = push > 0.05;
+  if (on !== trollWas) trollWas = on;
+  audio.trollHum?.(push);
 }
 // A few words for the gauges by the lever.
 function trollWords() {
   const M = boat.troll;
-  if (!M || !M.deployed || onFoot) return '';
+  if (!M || onFoot) return '';
+  if (!M.deployed) return M.want ? 'trolling motor going down…' : M.mech.stowed ? '' : 'trolling motor stowing…';
   const pc = Math.round((tanks().troll[boat.kind] ?? 1) * 100);
   return M.mode === 'lock' ? `Spot-Lock ${M.off.toFixed(1)} m · ${pc}%` : M.mode === 'heading' ? `heading hold · ${pc}%` : `trolling motor ${pc}%`;
 }
@@ -5811,6 +5919,8 @@ function interaction() {
   }
   // A boat you stand in, walking her deck: back at the wheel, take the helm again.
   if (boat.hull.standing && !fishing.busy && boat.deck && boat.atHelm) return { text: 'Take the helm', run: () => takeHelm(true) };
+  // By the trolling motor on her bow: deploy it, stow it, set its depth.
+  if (boat.deck && boat.troll && nearTroll() && !fishing.busy) return { text: boat.troll.want ? 'The trolling motor: stow it, or its depth' : 'Deploy the trolling motor', run: () => trollAtBow() };
   const other = boat.speed < 1 ? otherBoat(tow && (tow.lead === boat || tow.towed === boat) ? 9 : 4.5) : null;
   if (other) {
     const towing = tow && ((tow.lead === boat && tow.towed === other) || (tow.towed === boat && tow.lead === other));
@@ -5826,6 +5936,13 @@ function interaction() {
     const E = engineHere();
     if (E && startMode() !== 'go' && !engineRunning(E) && !engineCranking(E) && !E.auto && !fishing.lineOut) {
       const P = ENGINES[E.kind];
+      // (With a controller, the trolling motor's menu from here too: L3 starts her, and the motor's
+      // for quiet work with the engine off.)
+      if (scheme() === 'pad' && boat.troll) return { text: 'The helm, or the trolling motor…', run: () => ask(boatTitle(boat), 'The helm panel (to start her up), or the trolling motor?', [
+        { text: 'Not now', cls: 'quiet', cancel: true },
+        { text: 'The trolling motor…', cls: 'quiet', run: () => trollMenu() },
+        { text: 'The helm', run: () => (startMode() === 'full' ? openHelm() : engineKey()) },
+      ]) };
       if (startMode() === 'full') return { text: 'The helm: start her up', run: () => openHelm() };
       return { text: P.starter === 'pull' ? 'Pull the starter cord' : 'Start the engine', run: () => engineKey() };
     }
@@ -5865,8 +5982,22 @@ function interaction() {
     const to = boat.pos.z > SOUTH_Z ? 'home' : 'south';
     return { text: to === 'south' ? 'The crossing to Las Brasas' : 'The crossing home', run: () => offerPassage(to) };
   }
+  // At the helm with a bow trolling motor and nothing else to do: its menu (deploy or stow it, its
+  // depth, Spot-Lock), so it can be worked with a controller from any boat, dashboard or not.
+  if (!onFoot && !boat.deck && boat.troll && !fishing.busy && leverKind()) return { text: 'The trolling motor…', run: () => trollMenu() };
 
   return null;
+}
+// The trolling motor's menu (see above): what can be done with it from here.
+function trollMenu() {
+  const M = trollOf(boat);
+  if (!M) return;
+  const opts = [{ text: 'Not now', cls: 'quiet', cancel: true }];
+  if (M.want) opts.push({ text: `Depth (${M.depthId})`, cls: 'quiet', run: () => trollDepth() });
+  if (M.gps && M.deployed) opts.push({ text: M.mode === 'lock' || M.mode === 'heading' ? 'Let go (Spot-Lock off)' : 'Spot-Lock: hold her here', cls: 'quiet', run: () => trollLock() });
+  opts.push({ text: M.want ? 'Stow it' : 'Deploy it', run: () => trollDeploy() });
+  const where = M.deployed ? `down at depth (${M.depthId})${M.mode === 'lock' ? ', holding her on Spot-Lock' : ''}` : M.want ? 'on its way down' : M.mech.stowed ? 'stowed on its mount' : 'on its way up';
+  ask('The trolling motor', `The ${M.spec.name.toLowerCase()} is ${where}. ${M.powered ? 'It stows and deploys itself from its remote.' : trollReach(M) ? 'It’s worked by hand: within reach.' : 'It’s worked by hand at the bow: go forward to it.'}`, opts);
 }
 // Open water to set out from: out of the bays and the harbour (at home, the open sea and the coast;
 // at Las Brasas, anywhere outside Puerto Brasa's basin).
@@ -6860,6 +6991,7 @@ function applyYard() {
     b.payload = payloadOf(k, e);
     b.anchorHold = e.hold;
     b.setFits?.(e.list);
+    trollOf(b);
   }
 }
 // What a boat carries beyond her own weight: her fittings, and fuel past what her standard tank
@@ -8369,7 +8501,7 @@ function currentHint() {
     const M = boat.troll, pc = Math.round((tanks().troll[boat.kind] ?? 1) * 100);
     if (M.mode === 'lock') return `Spot-Lock: holding her, ${M.off.toFixed(1)} m off her spot · ${K('spotlock')} let go · ${K('trolling')} stow the motor · battery ${pc}%`;
     if (T) return `Trolling motor: the stick up or down for its push, across to turn its head · battery ${pc}%`;
-    return `Trolling motor: ${P ? `${kbd('L-stick')} ↕` : UD} push · ${P ? '↔' : LR} turn its head${M.gps ? ` · ${K('spotlock')} ${Math.abs(trollPush) > 0.05 ? 'hold this heading' : 'Spot-Lock'}` : ''} · ${K('trolling')} stow · ${K('throttleUp')} main engine (stops it) · battery ${pc}%`;
+    return `Trolling motor: ${P ? `${kbd('L-stick')} ↕` : UD} push · ${P ? '↔' : LR} turn its head${M.gps ? ` · ${K('spotlock')} ${Math.abs(trollPush) > 0.05 ? 'hold this heading' : 'Spot-Lock'}` : ''} · ${K('trollDepth')} depth · ${K('trolling')} stow · ${K('throttleUp')} main engine (stops it) · battery ${pc}%`;
   }
   if (leverKind()) {
     const kind = leverKind(), lv = boat.lever;
@@ -8998,7 +9130,9 @@ function whereIAm() {
   }
   if (onFoot && crew.on) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: fishing.lineOut ? 'fish' : walker.moving ? 'walk' : 'stand', o: on, cr: crew.on.id, cx: crew.on.x, cz: crew.on.z, ...gear };
   if (onFoot) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: sitting ? 'sit' : fishing.lineOut ? 'fish' : walker.speed > 0.4 ? 'walk' : 'stand', o: on, ...gear };
-  return { m: 'boat', k: boat.kind, x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), o: on, ...gear };
+  // (Her bow trolling motor, where it is: friends see it stowed, swinging down, or at work.)
+  const T = boat.troll, tr = T ? trollWire(T.tier, T.mech, T.angle, T.f > 20 || (boat.bowNotch > 0 && T.deployed)) : undefined;
+  return { m: 'boat', k: boat.kind, x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), o: on, ...(tr ? { tr } : {}), ...gear };
 }
 // A friend's fish, as it fights at the end of their line.
 const FISH_MOVE_WORDS = { run: 'fish on! it’s running', jump: 'fish on! it’s leaping', shake: 'fish on! head-shaking', charge: 'fish on! it’s charging', dive: 'fish on! it’s diving', longrun: 'fish on! a long run', sound: 'fish on! it’s sounding', circle: 'fish on! it’s circling' };
@@ -10037,6 +10171,7 @@ input.on('press', (code, acts) => {
   else if (is('throttleDown') && leverKind()) stepLever(-1);
   else if (is('trolling')) trollDeploy();
   else if (is('spotlock')) trollLock();
+  else if (is('trollDepth')) trollDepth();
   else if (is('motor')) {
     // (At a motorboat's helm: the engine.)
     if (!onFoot && !driving && !cabinIn && boat.hull.motor && engines[boat.kind]) {
