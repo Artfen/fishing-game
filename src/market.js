@@ -36,6 +36,11 @@ export const PRICES = {
   acedia: 10, turbot: 20, gurnard: 6, sardine: 4, horsemackerel: 3, bogue: 2, salema: 2, garfish: 3, bonito: 8,
   bullet: 5, pompano: 8, octopus: 11, albacore: 10,
   catshark: 4, hake: 13, johndory: 22,
+  // Kept now (they used to go back): small fry by the kilo, the soup fish, the conger and the
+  // skate wing, and the bluefin, dear by the kilo.
+  wrasse: 3, sprat: 3, anchovy: 5, sandsmelt: 4, weever: 4, conger: 6, thornback: 8, tuna: 16,
+  // And from the open ocean and Las Brasas.
+  blueshark: 3, bluemarlin: 8, sailfish: 6, spearfish: 6, grouper: 18, amberjack: 9, ornatewrasse: 2,
   // Las Brasas.
   parrotfish: 16, triggerfish: 9, moray: 6, barracuda: 7, chubmackerel: 3, wahoo: 12, dorado: 12, yellowfin: 14, littletunny: 6, comber: 8,
 };
@@ -46,9 +51,10 @@ export const MARKET_HOURS = [5, 19];
 export const ORDERS_BY = 22;
 export const MAX_PRICE = 40;
 // (The big ocean fish brought back, a tuna, a wahoo or a dorado of twenty kilos and more, fetch more
-// than a turbot does: a higher limit for them.)
+// than a turbot does: a higher limit for them. A whole bluefin is worth far more again to a sushi
+// kitchen than Mags can give for it: see kaigan.js.)
 export const BIG_MAX_PRICE = 120;
-const BIG = new Set(BIG_GAME.map((f) => f.id));
+const BIG = new Set([...BIG_GAME.map((f) => f.id), 'tuna']);
 export const priceCap = (sp) => (BIG.has(sp.id) ? BIG_MAX_PRICE : MAX_PRICE);
 export const MAX_REWARD = 60;
 

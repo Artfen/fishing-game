@@ -88,9 +88,11 @@ test('while you’re inside, the roof lifts away and the wall facing the camera 
 });
 
 test('every building has a door, and stands clear of the quay’s paths', () => {
-  for (const b of T.HAVEN_HOUSES) assert.ok(coast.spots.some((q) => q.kind === 'door' && q.id === b.id), `${b.id}: a door`);
-  // The places you're sent: the market, the board, the bench, the fuel pump; none inside a wall.
-  for (const q of coast.spots.filter((s) => ['market', 'board', 'bench'].includes(s.kind))) {
+  // (The old net store's door is Kaigan's kitchen door now.)
+  for (const b of T.HAVEN_HOUSES) assert.ok(coast.spots.some((q) => (q.kind === 'door' || q.kind === 'kaigan') && q.id === b.id), `${b.id}: a door`);
+  assert.equal(coast.spots.find((q) => q.id === 'store')?.kind, 'kaigan');
+  // The places you're sent: the market, Kaigan, the board, the bench, the fuel pump; none inside a wall.
+  for (const q of coast.spots.filter((s) => ['market', 'kaigan', 'board', 'bench'].includes(s.kind))) {
     assert.ok(!coast.obstacles.some((o) => o.kind === 'building' && Math.hypot(q.x - o.x, q.z - o.z) < o.r), q.kind);
   }
 });

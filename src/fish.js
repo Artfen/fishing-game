@@ -516,7 +516,7 @@ export const FISH = [
     where: 'The outer coast: reefs and kelp round Gannet Isle and the Skerries',
     hint: 'Among the kelp on the reefs out at sea, big-lipped fish pick crabs off the rocks. A crab or ragworm on the bottom by the rocks; hold on when it dives.',
     note: 'Green and orange, speckled like a bird’s egg, with thick lips for crunching crabs. Hooked, it dives straight for its hole in the kelp.',
-    keep: 'Better to let a wrasse go home to its reef. Back into the kelp it goes.',
+    meal: { name: 'Ballan wrasse in a saffron fish soup', fill: 30 },
     food: { crab: 1.6, rag: 1.2, prawn: 1.1, strip: 0.6, shad: 0.6, sandeel: 0.5, worm: 0.7 },
     life: {
       group: [1, 2], groups: 14, spacing: 14,
@@ -636,7 +636,7 @@ export const FISH = [
     where: 'Out to sea: dense shoals in the open water',
     hint: 'Far out, the sea sometimes fizzes with tiny silver fish crammed into a ball. Bigger hunters are never far behind. Sabiki feathers on the coastal rod, let down into the shoal and lifted gently, take them.',
     note: 'A little silver fish that lives in vast shoals. Mackerel, birds and tuna all feed on them; where the sprats are, the hunters come.',
-    keep: 'Far too small to keep. You drop it back to its shoal.',
+    meal: { name: 'A handful of sprats, floured and fried crisp, eaten whole', fill: 8 },
     food: { sabiki: 1.5, bread: 0.6, rag: 0.5 },
     life: {
       school: true, schools: 8, members: [26, 40], spacing: 70, range: 2.2, bait: true, midwater: true,
@@ -667,7 +667,7 @@ export const FISH = [
     where: 'The Blue Water: roaming far offshore after the bait shoals',
     hint: 'Far past the shelf, birds dive and the sea erupts as something huge drives sprats to the surface. Cast a big stickbait into the boil, on the offshore rod.',
     note: 'Steel-blue and torpedo-shaped, with a sickle tail and a row of yellow finlets. It roams the open sea at the speed of a boat and fights for a long, long time.',
-    keep: 'Every bluefin goes back in these waters: anglers may only catch and release them, to let the stock that has come back keep coming back. You hold it alongside a moment, then let it swim free.',
+    meal: { name: 'Bluefin steaks seared hard outside and pink within', fill: 85 },
     food: { stickbait: 1.6, mjig: 1.4, popper: 0.9, metal: 0.6, strip: 0.5, sandeel: 0.6 },
     life: {
       school: true, schools: 3, members: [4, 6], spacing: 140, range: 3.2, hunter: 'sprat',

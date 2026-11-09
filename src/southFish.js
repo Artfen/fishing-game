@@ -45,7 +45,7 @@ export const AT_BRASAS = {
 // live only round Las Brasas (south zones only). The dusky grouper and the chub mackerel come
 // from the Atlantic register, which gives them their names; the rest are fish of the warm
 // eastern Atlantic islands outside it (see MACARONESIA in register.js), so they carry their own
-// name and scientific name. Every grouper goes back (no meal: a keep sentence instead); the
+// name and scientific name. The grouper can be kept on a line (never speared: see dive.js); the
 // angelshark and the trumpetfish are only watched (life.observe, and a `watch` sentence saying
 // why, for the field guide). noSpear: why the speargun is refused it (see dive.js).
 
@@ -104,7 +104,7 @@ export const SOUTH = [
     where: 'Everywhere on the shallow rocks and weed: El Bajón, Las Coladas, the lee and the harbour, by day',
     hint: 'Little green wrasse, banded blue and red about the head, swarm over every shallow rock by day and strip a bait off the hook in seconds. A ragworm on a small hook, on the bottom or under a float, and strike quickly.',
     note: 'Slim and bright: green, with turquoise and orange-red bands over the head. The big males have a dark blue band behind the gill cover and long points to the tail; the females are paler, with a dark spot on the back under the dorsal fin. Bold and endlessly curious, it follows divers about, and at night it buries itself in the sand.',
-    keep: 'Too small and too bony to keep. Back it goes to its rock.',
+    meal: { name: 'Ornate wrasse simmered in a little fish broth', fill: 10 },
     food: { rag: 1.4, worm: 1.0, prawn: 0.8 },
     life: {
       group: [3, 6], southGroups: 16, spacing: 22, favour: ['bajon'],
@@ -198,7 +198,7 @@ export const SOUTH = [
     where: 'The cave at the foot of El Bajón, caves in the wall of El Veril, and the arches off Roque del Arco',
     hint: 'A heavy brown fish blotched with pale watches from the mouth of a cave in the wall or under the arches. A fish strip or a crab on the bottom right by its cave; it takes and turns for home at once, so keep it coming. Every one goes back.',
     note: 'Massive and oval, with a big head, a wide mouth with a jutting lower jaw, and a rounded tail edged with white. Dark brown with irregular pale blotches; the old ones turn almost uniformly brown. Each lives alone in its own cave and eats mostly crabs and octopus. It can live fifty years or more, and starts life as a female, becoming a male only later.',
-    keep: 'Every dusky grouper goes back: slow-growing, long-lived, vulnerable, and protected in many places. You hold it in the water a moment, then let it swim back down to its cave.',
+    meal: { name: 'Grouper baked with potatoes and green mojo', fill: 60 },
     noSpear: 'The dusky grouper is vulnerable and protected in many places: never with a speargun here.',
     food: { strip: 1.6, crab: 1.4, prawn: 0.7, shad: 1.0, sandeel: 0.7 },
     life: {
@@ -261,7 +261,7 @@ export const SOUTH = [
     where: 'Along the edge of El Veril and out over the blue water, in small groups',
     hint: 'Big, olive-backed fish in small groups patrol the drop-off and come up from the deep to chase small fish, keenest at dawn and dusk. A metal jig on the offshore rod, dropped and lifted, or a big lure worked fast; then hold on, for it heads straight back down.',
     note: 'A big jack: long, powerful and a little flattened, olive-brown to blue-grey above and silver below, with a faint amber stripe along the flank and a dark band slanting from the snout up through the eye to the first dorsal fin. The first dorsal is small and low, the second long; the tail is deeply forked. It patrols reef edges in small groups, and often comes to look at a diver.',
-    keep: 'Too big for the creel, and in warm water like this the biggest amberjack can carry ciguatera, a reef toxin that cooking doesn’t destroy. You let it go.',
+    meal: { name: 'Amberjack steaks grilled with garlic and parsley', fill: 60 },
     food: { mjig: 1.6, metal: 1.3, stickbait: 1.0, popper: 1.0, shad: 1.0, sandeel: 0.9, strip: 1.0 },
     life: {
       school: true, members: [3, 6], southGroups: 3, spacing: 250, range: 2.4, hunter: ['bogue', 'chubmackerel', 'horsemackerel', 'sardine'],

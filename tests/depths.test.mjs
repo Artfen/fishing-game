@@ -32,14 +32,13 @@ test('five new kinds, joined after every other fish, with real names and models 
   }
 });
 
-test('the ray goes back (near threatened) and the weever too (venomous and tiny); the rest are good eating', () => {
+test('the ray and the weever can be kept now (a skate wing; the weever for the soup pot, spines snipped off), and the rest are good eating', () => {
   for (const id of ['thornback', 'weever']) {
-    assert.equal(fishById[id].meal, undefined, `${id}: no Keep`);
-    assert.ok(fishById[id].keep.length > 40);
-    assert.equal(PRICES[id], undefined, `${id} isn't sold`);
+    assert.ok(fishById[id].meal?.name, `${id}: Keep`);
+    assert.ok(PRICES[id] > 0, `${id} is sold`);
   }
   assert.equal(fishById.weever.venom, true);
-  assert.match(fishById.thornback.keep, /threatened/);
+  assert.match(fishById.weever.meal.name, /spines/);
   for (const id of ['catshark', 'hake', 'johndory']) {
     assert.ok(fishById[id].meal?.name, `${id} has a meal`);
     assert.ok(PRICES[id] > 0, `${id} has a price`);

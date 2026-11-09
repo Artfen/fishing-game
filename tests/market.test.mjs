@@ -183,10 +183,10 @@ test('saves keep your purse, the harbour’s record and when each fish was caugh
   const wrap = (data) => JSON.stringify({ game: 'slow-tide', version: SAVE_VERSION, savedAt: 1, data: { day: 3, ...data } });
   const old = parseSave(wrap({})).state;
   assert.equal(old.money, 20);
-  assert.deepEqual(old.harbour, { heard: { haven: [], muelle: [] }, filled: [], earned: 0, sold: 0, served: 0 });
+  assert.deepEqual(old.harbour, { heard: { haven: [], muelle: [] }, filled: [], earned: 0, sold: 0, served: 0, kaigan: { sold: 0, bluefin: 0, earned: 0 } });
   const s = parseSave(wrap({
     money: 57.456,
-    harbour: { heard: { haven: ['kittiwake', 'x y', 7], muelle: ['vieja'] }, filled: ['3-haven-0'], earned: 61, sold: 4, served: 1, junk: 1 },
+    harbour: { heard: { haven: ['kittiwake', 'x y', 7], muelle: ['vieja'] }, filled: ['3-haven-0'], earned: 61, sold: 4, served: 1, junk: 1, kaigan: { sold: 3, bluefin: 1, earned: 412.5, junk: 'x' } },
     keep: [{ id: 'seabass', size: 44, logId: 'c1', at: 70.5 }, { id: 'mackerel', size: 30, logId: 'c2' }],
     log: [{ id: 'c1', sp: 'seabass', size: 44, day: 3, hour: 1, outcome: 'sold' }],
   })).state;
@@ -194,6 +194,7 @@ test('saves keep your purse, the harbour’s record and when each fish was caugh
   assert.deepEqual(s.harbour.heard, { haven: ['kittiwake'], muelle: ['vieja'] });
   assert.deepEqual(s.harbour.filled, ['3-haven-0']);
   assert.equal(s.harbour.sold, 4);
+  assert.deepEqual(s.harbour.kaigan, { sold: 3, bluefin: 1, earned: 412.5 });
   assert.equal(s.keep[0].at, 70.5);
   assert.ok(!('at' in s.keep[1]));
   assert.equal(s.log[0].outcome, 'sold');

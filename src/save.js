@@ -112,7 +112,7 @@ export const DEFAULT_STATE = {
   // The harbour (see market.js and innTalk.js): your purse, in pounds, from fish sold at the market
   // and orders for the inns' kitchens, and what's been heard and done at the inns.
   money: 20,
-  harbour: null,   // { heard: { haven, muelle: [story ids] }, filled: [order keys], earned, sold, served }
+  harbour: null,   // { heard: { haven, muelle: [story ids] }, filled: [order keys], earned, sold, served, kaigan: { sold, bluefin, earned } }
   shop: null,      // the chandlery's counter (see shop.js): { creel, iceUntil, baitDay, wear: { rod: 0 … 1 } }
   favours: null,   // what the harbour's people have asked of you (see requests.js): { active, done, last, declined }
   contracts: null, // work from the notice board (see contracts.js): { board, active, done, rep, earned, count }
@@ -181,6 +181,8 @@ function cleanHarbour(raw) {
     earned: num(r.earned, 0, 0, 1e7),
     sold: int(r.sold, 0, 0, 1e6),
     served: int(r.served, 0, 0, 1e6),
+    // Kaigan's kitchen door (see kaigan.js): fish sold there, bluefin among them, and what they paid.
+    kaigan: { sold: int(r.kaigan?.sold, 0, 0, 1e6), bluefin: int(r.kaigan?.bluefin, 0, 0, 1e6), earned: num(r.kaigan?.earned, 0, 0, 1e7) },
   };
 }
 function cleanSeaLife(raw) {

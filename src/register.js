@@ -41,7 +41,7 @@ const GAME_TO_REGISTER = { squid: 'squid' };
 // in the headless ecosystem (tests/guide.test.mjs), can be landed with it (tests/fight.test.mjs)
 // and is logged in the journal. The European eel is in the water to be seen only: it is
 // critically endangered and protected. The dusky grouper lives only round Las Brasas, far to
-// the south, and is catch-and-release: every one goes back (it has no meal in the game).
+// the south (kept on a line, never speared: see dive.js).
 const CATCHABLE = [
   // the first species and the reference models
   'seabass', 'meagre', 'gilthead', 'sole', 'mackerel', 'cuttlefish', 'mullet', 'wrasse', 'flounder', 'plaice', 'sprat', 'tuna', 'squid',
@@ -75,7 +75,8 @@ const BATCH = {
 // How a planned species should come into the game where catching it isn't the whole story:
 // protected species only to be seen, vulnerable ones to be released (see each entry's
 // conservation notes and sources). (The dusky grouper came in this way, as catch-and-release:
-// vulnerable, slow-growing and protected in parts of its range.)
+// vulnerable, slow-growing and protected in parts of its range; it may be kept on a line now,
+// and is still never speared.)
 export const PLAN_AS = {
   sturgeon: { as: 'observation', why: 'Fully protected (fishing banned in France since 1982; critically endangered).' },
   allisshad: { as: 'observation', why: 'All fishing for it in the Gironde basin has been under a moratorium since 2008.' },

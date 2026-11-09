@@ -10,7 +10,7 @@
 // - It never touches saved games: those live in the browser's local storage, not here.
 
 // <precache> Written by tools/build-sw.mjs: do not edit by hand.
-const VERSION = 'bcbb3ea8859e';
+const VERSION = 'df08a8c55129';
 const FILES = [
   './index.html',
   './style.css',
@@ -78,6 +78,7 @@ const FILES = [
   './src/innTalk.js',
   './src/input.js',
   './src/journal.js',
+  './src/kaigan.js',
   './src/lever.js',
   './src/main.js',
   './src/map.js',

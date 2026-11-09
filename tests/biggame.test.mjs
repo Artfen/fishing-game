@@ -1,6 +1,6 @@
 // The big game: the great fish of the open ocean (bigGame.js), trolled for on the big-game rod
 // from a moving boat, raised by the wake from far off, fought for a long time (on the yacht from
-// the fighting chair) and, the billfish and the sharks, released alongside. Run with
+// the fighting chair) and, the mako and the hammerhead, released alongside. Run with
 // `node --import ./tests/setup.mjs --test tests/`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -42,12 +42,11 @@ test('ten big fish of the open ocean, every one trolled for on the big-game rod'
     // Never a light rod for a big fish.
     assert.ok(setupsFor(sp).every((x) => RODS[x.rod].lines.some((l) => l.kg >= sp.pull * 0.4)), `${sp.id}: a rod that can stand up to it`);
   }
-  // The billfish and the sharks go back; the wahoo, the dorado and the albacore make a meal.
-  for (const id of [...BILLFISH, ...SHARKS]) {
-    assert.ok(!fishById[id].meal && fishById[id].keep, `${id}: released`);
-    assert.ok(fishById[id].noSpear, `${id}: never speared`);
-  }
-  for (const id of ['wahoo', 'dorado', 'albacore']) assert.ok(fishById[id].meal, `${id}: supper`);
+  // The mako and the hammerhead go back (no boat may land either); the billfish, the blue shark,
+  // the wahoo, the dorado and the albacore can be kept. None of them is ever speared.
+  for (const id of [...BILLFISH, ...SHARKS]) assert.ok(fishById[id].noSpear, `${id}: never speared`);
+  for (const id of ['mako', 'hammerhead']) assert.ok(!fishById[id].meal && /every/.test(fishById[id].keep), `${id}: released`);
+  for (const id of ['bluemarlin', 'sailfish', 'spearfish', 'blueshark', 'wahoo', 'dorado', 'albacore']) assert.ok(fishById[id].meal, `${id}: can be kept`);
   // The fast lure for the fast fish, the slow bait for the sailfish and the sharks.
   assert.equal(setupsFor(fishById.bluemarlin)[0].item, 'skirt');
   assert.equal(setupsFor(fishById.sailfish)[0].item, 'ballyhoo');

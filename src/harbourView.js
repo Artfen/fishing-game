@@ -8,11 +8,13 @@ import { CHALLENGES } from './daybook.js';
 import { pay as payOut, earn as earnIn } from './economy.js';
 import { PRICES, hirePrice, PAINTS, PAINT_PRICE, NAME_PRICE, NAME_MAX, FITS, FIT_CATS, fitsFor, fitEffect, owns, hiredToday } from './shipyard.js';
 import { CREELS, ICE, BAIT, creelOf, newShop, onIce, freshBaitToday, wearOf, wearWords, respoolPrice, creelGroups, groupWords, creelWords, kgWords } from './shop.js';
+import { KAIGAN_HOURS, RAW_HOURS, kaiganValue, kaiganLine, specialsFor, gradeWords, DISHES } from './kaigan.js';
 
 // The harbour's sheet: the fish market on Willowhaven quay (Mags Pennock at her slab), The Lobster
 // Pot (Ruth Alder behind the bar, and her kitchen), Bar El Muelle at Puerto Brasa (Paco: his bar,
 // his kitchen, the fish he buys from the boats, and your room upstairs), and the chandlery's
-// counter (Old Bert Hale: creels, ice, fresh bait, fresh line, and getting ready for a trip).
+// counter (Old Bert Hale: creels, ice, fresh bait, fresh line, and getting ready for a trip), and
+// Kaigan's kitchen door (Kenji Higa, buying fish fit for sushi, sashimi and ceviche: kaigan.js).
 //
 // hooks: { toast(text, secs), chime(), changed(), close(), now() (game hours), sold(logId),
 // eatMeal({ id, size, logId }), eatDish(text, fill), drink(), openRoom(), talk(place) → { advice,
@@ -43,7 +45,7 @@ export class HarbourSheet {
     this.state = state;
     this.hooks = hooks;
     this.el = $('harbour');
-    this.where = null;  // 'market' | 'inn' | 'muelle'
+    this.where = null;  // 'market' | 'inn' | 'muelle' | 'chandlery' | 'works' | 'kaigan'
     this.tab = 'sell';
     this.said = { advice: null, story: null };
     this.receipt = null; // the last sale's receipt: { lines, total }, shown until you leave
@@ -62,6 +64,7 @@ export class HarbourSheet {
   get hour() { return this.hooks.worldHour?.() ?? this.state.hour; }
   get marketOpen() {
     if (this.where === 'muelle') return true;
+    if (this.where === 'kaigan') return this.hour >= KAIGAN_HOURS[0] && this.hour < KAIGAN_HOURS[1];
     return this.hour >= MARKET_HOURS[0] && this.hour < MARKET_HOURS[1];
   }
 
@@ -70,7 +73,7 @@ export class HarbourSheet {
     this.where = where;
     this.said = { advice: null, story: null };
     this.receipt = null;
-    this.tab = tab || (where === 'market' ? 'sell' : where === 'chandlery' ? 'counter' : where === 'works' ? 'boats' : 'bar');
+    this.tab = tab || (where === 'market' ? 'sell' : where === 'kaigan' ? 'kaigan' : where === 'chandlery' ? 'counter' : where === 'works' ? 'boats' : 'bar');
     this.el.hidden = false;
     this.render();
   }
@@ -146,10 +149,10 @@ export class HarbourSheet {
   render() {
     if (!this.isOpen) return;
     const W = this.where;
-    $('hb-title').textContent = W === 'market' ? 'The fish market' : W === 'inn' ? 'The Lobster Pot' : W === 'chandlery' ? 'The chandlery' : W === 'works' ? 'Willowhaven Marine Works' : 'Bar El Muelle';
+    $('hb-title').textContent = W === 'market' ? 'The fish market' : W === 'kaigan' ? 'Kaigan' : W === 'inn' ? 'The Lobster Pot' : W === 'chandlery' ? 'The chandlery' : W === 'works' ? 'Willowhaven Marine Works' : 'Bar El Muelle';
     $('hb-sub').textContent = `${formatClock(this.hour)} · day ${this.state.day} · ${W === 'muelle' ? 'Puerto Brasa' : 'Willowhaven'}`;
     $('hb-purse').textContent = `In your purse: ${money(this.state.money)}`;
-    const tabs = W === 'market' ? [] : W === 'inn' ? [['bar', 'The bar'], ['kitchen', 'The kitchen']] : W === 'chandlery' ? [['counter', 'The counter'], ['mend', 'Mending'], ['ready', 'Ready for a trip']] : W === 'works' ? [['boats', 'Boats'], ['looks', 'Paint & name'], ['fit', 'Fit-out']] : [['bar', 'The bar'], ['kitchen', 'The kitchen'], ['sell', 'Sell to Paco']];
+    const tabs = W === 'market' || W === 'kaigan' ? [] : W === 'inn' ? [['bar', 'The bar'], ['kitchen', 'The kitchen']] : W === 'chandlery' ? [['counter', 'The counter'], ['mend', 'Mending'], ['ready', 'Ready for a trip']] : W === 'works' ? [['boats', 'Boats'], ['looks', 'Paint & name'], ['fit', 'Fit-out']] : [['bar', 'The bar'], ['kitchen', 'The kitchen'], ['sell', 'Sell to Paco']];
     $('hb-tabs').replaceChildren(...tabs.map(([id, text]) => {
       const b = el('button', id === this.tab ? 'on' : '', text);
       b.type = 'button';
@@ -160,7 +163,7 @@ export class HarbourSheet {
       return b;
     }), ...(W === 'muelle' ? [this.button('Your room upstairs', () => this.hooks.openRoom(), 'quiet hb-room')] : W === 'chandlery' ? [this.button('The tackle store (free)', () => this.hooks.openStore(), 'quiet hb-room')] : []));
     $('hb-tabs').hidden = !tabs.length;
-    const body = this.tab === 'boats' ? this.renderBoats() : this.tab === 'looks' ? this.renderLooks() : this.tab === 'fit' ? this.renderFit() : this.tab === 'sell' ? this.renderSell() : this.tab === 'kitchen' ? this.renderKitchen() : this.tab === 'counter' ? this.renderCounter() : this.tab === 'mend' ? this.renderMend() : this.tab === 'ready' ? this.renderReady() : this.renderBar();
+    const body = this.tab === 'kaigan' ? this.renderKaigan() : this.tab === 'boats' ? this.renderBoats() : this.tab === 'looks' ? this.renderLooks() : this.tab === 'fit' ? this.renderFit() : this.tab === 'sell' ? this.renderSell() : this.tab === 'kitchen' ? this.renderKitchen() : this.tab === 'counter' ? this.renderCounter() : this.tab === 'mend' ? this.renderMend() : this.tab === 'ready' ? this.renderReady() : this.renderBar();
     $('hb-body').replaceChildren(...body);
   }
 
@@ -313,6 +316,11 @@ export class HarbourSheet {
         row.append(el('p', '', groupWords(sp.name, g)), el('span', 'cp-soft', tags));
         const order = orders.find((o) => o.id === g.id && g.max >= o.min);
         if (order) row.append(el('span', 'cp-soft hb-hint', `${place === 'haven' ? 'Ruth at The Lobster Pot' : 'Paco’s kitchen'} wants ${g.n > 1 ? 'one of these' : 'this one'}: ${money(order.reward)}`));
+        // (Mags is straight with you: Kenji pays more for a fish fit to eat raw.)
+        if (place === 'haven') {
+          const kv = g.idx.reduce((t, i) => t + kaiganValue(this.state.keep[i], { day, now }).price, 0);
+          if (kv > sum * 1.15 + 1) row.append(el('span', 'cp-soft hb-hint', `Kenji at Kaigan, across the apron, would give ${money(kv)} for ${g.n > 1 ? 'these' : 'it'}${g.id === 'tuna' ? ': “Take it to him, love. I can’t do a bluefin justice.”' : ''}`));
+        }
         const b = this.button(g.n > 1 ? `Sell all ${g.n}: ${money(sum)}` : `Sell: ${money(sum)}`, () => (g.n > 1 ? this.sellKind(g.id) : this.sell(g.first)));
         b.disabled = !this.marketOpen;
         row.append(b);
@@ -334,7 +342,7 @@ export class HarbourSheet {
   // The last sale, line by line: what, how heavy, the price by the kilo and why, and the total.
   renderReceipt() {
     const R = this.receipt, box = el('div', 'hb-receipt');
-    box.append(el('h3', '', `${this.place === 'haven' ? 'Mags’s' : 'Paco’s'} receipt`));
+    box.append(el('h3', '', `${this.where === 'kaigan' ? 'Kenji’s' : this.place === 'haven' ? 'Mags’s' : 'Paco’s'} receipt`));
     for (const L of R.lines) {
       const row = el('div', 'hb-rline');
       row.append(el('span', '', `${L.name}, ${L.size} cm · ${kgWords(L.kg)} at ${money(L.each)}/kg${L.why.length ? ` (${L.why.join(', ')})` : ''}`), el('strong', '', money(L.price)));
@@ -401,6 +409,120 @@ export class HarbourSheet {
     if (!n) return;
     this.hooks.chime();
     this.hooks.toast(`${n} fish weighed and paid for: ${money(sum)} into your purse.`, 4);
+    this.hooks.changed();
+    this.render();
+  }
+
+  /* ---- Kaigan: Kenji Higa at the kitchen door, buying for the counter (see kaigan.js) ---- */
+  get kaigan() {
+    this.harbour.kaigan ??= { sold: 0, bluefin: 0, earned: 0 };
+    return this.harbour.kaigan;
+  }
+
+  renderKaigan() {
+    const out = [], day = this.state.day, now = this.hooks.now(), open = this.marketOpen;
+    out.push(el('p', 'hb-say', open
+      ? 'Kenji Higa comes to the kitchen door in his whites, a cloth knotted round his head, wiping his hands. Lima taught him ceviche; his Okinawan grandmother taught him the knife. “Fresh? Show me the eyes.”'
+      : `The kitchen door is shut, the noren taken in. Kenji buys from the boats from ${formatClock(KAIGAN_HOURS[0])} till ${formatClock(KAIGAN_HOURS[1])}, before service ends.`));
+    if (this.receipt) out.push(this.renderReceipt());
+    const board = el('div', 'hb-slate');
+    board.append(el('h3', '', 'On the board tonight'));
+    board.append(el('p', '', `Specials: ${specialsFor(day).map((id) => `${fishById[id].name} (${DISHES[id].dish})`).join('; ')}: half as much again`));
+    board.append(el('p', '', 'A whole bluefin, whenever one comes in: he breaks it down at the counter himself.'));
+    out.push(board);
+    out.push(el('h3', '', `Your creel (${this.state.keep.length} fish, ${creelWords(this.state)})`));
+    let any = 0, total = 0;
+    for (const g of creelGroups(this.state.keep)) {
+      const sp = fishById[g.id];
+      const row = el('div', 'cp-row');
+      const vs = g.idx.map((i) => kaiganValue(this.state.keep[i], { day, now }));
+      const v = vs[0];
+      if (g.cooked) {
+        row.append(el('p', '', groupWords(sp.meal.name, g)), el('span', 'cp-soft', 'cooked: for eating, not for his counter'));
+      } else if (!v.wanted) {
+        row.append(el('p', '', groupWords(sp.name, g)), el('span', 'cp-soft', sp.water === 'fresh' ? '“Never a fresh water fish raw.” Mags takes it.' : 'not one for his counter: Mags takes most fish'));
+      } else {
+        const sum = vs.reduce((s, x) => s + x.price, 0);
+        const worst = vs.some((x) => x.grade === 'old') ? 'old' : vs.some((x) => x.grade === 'kitchen') ? 'kitchen' : 'raw';
+        const tags = [kgWords(g.kg), v.dish, gradeWords(worst), v.special && g.id !== 'tuna' ? 'tonight’s special' : '', vs.some((x) => x.prime) ? (g.n > 1 ? 'prime ones among them' : 'a prime fish') : ''].filter(Boolean).join(' · ');
+        row.append(el('p', '', groupWords(sp.name, g)), el('span', 'cp-soft', tags));
+        if (sum > 0) {
+          const b = this.button(g.n > 1 ? `Sell all ${g.n}: ${money(sum)}` : `Sell: ${money(sum)}`, () => (g.n > 1 ? this.sellKaiganKind(g.id) : this.sellKaigan(g.first)));
+          b.disabled = !open;
+          row.append(b);
+          any += vs.filter((x) => x.price > 0).length;
+          total += sum;
+        }
+      }
+      out.push(row);
+    }
+    if (!this.state.keep.length) out.push(el('p', 'cp-soft', 'Nothing in your creel. Kenji wants sea fish caught today: tuna and amberjack, bass and bream, sole and turbot, mackerel, squid and octopus.'));
+    if (any > 1 && open) {
+      const row = el('div', 'cp-row cp-acts');
+      row.append(this.button(`Sell him all ${any}: ${money(total)}`, () => this.sellKaiganAll()));
+      out.push(row);
+    }
+    out.push(el('p', 'cp-soft', `He pays well over the market for fish fit to eat raw: caught within ${RAW_HOURS} hours (time on ice doesn’t count, so a bag of ice from Bert keeps the clock stopped). A day-old fish he takes for the hot kitchen at little over half the price; older, not at all. A prime fish of its kind fetches more by the kilo.`));
+    return out;
+  }
+
+  sellKaigan(i, quiet = false) {
+    const f = this.state.keep[i];
+    if (!f || f.cooked || !this.marketOpen) return 0;
+    const v = kaiganValue(f, { day: this.state.day, now: this.hooks.now() });
+    if (!v.wanted || v.price <= 0) return 0;
+    this.state.keep.splice(i, 1);
+    if (!quiet || !this.receipt?.open) this.receipt = { lines: [], total: 0, open: quiet };
+    this.receipt.lines.push(kaiganLine(f, v));
+    this.receipt.total = Math.round((this.receipt.total + v.price) * 100) / 100;
+    this.earn(v.price, 'Kaigan');
+    this.harbour.sold++;
+    this.kaigan.sold++;
+    this.kaigan.earned = Math.round((this.kaigan.earned + v.price) * 100) / 100;
+    const first = f.id === 'tuna' && !this.kaigan.bluefin++;
+    this.hooks.sold(f.logId);
+    // (A bluefin is an occasion, even among several: the words are kept for the toast after.)
+    const sp = fishById[f.id];
+    const say = f.id === 'tuna'
+      ? `${first ? 'The whole kitchen comes out to see it. ' : ''}Kenji runs a hand down the bluefin, ${v.kg.toFixed(0)} kg of it, and smiles for the first time today. “Ōtoro tonight.” ${money(v.price)} into your purse.`
+      : `Kenji lifts the ${lower(sp.name)}, looks it in the eye, presses its flank: ${v.grade === 'raw' ? `“Good. ${v.dish[0].toUpperCase()}${v.dish.slice(1)}.”` : '“For the grill, then.”'} ${money(v.price)} into your purse.`;
+    if (quiet) {
+      if (f.id === 'tuna') this.bigSay = say;
+    } else {
+      this.hooks.chime();
+      this.hooks.toast(say, f.id === 'tuna' ? 8 : 5);
+      this.hooks.changed();
+      this.render();
+    }
+    return v.price;
+  }
+
+  sellKaiganKind(id) {
+    let n = 0, sum = 0;
+    for (let i = this.state.keep.length - 1; i >= 0; i--) {
+      if (this.state.keep[i].id !== id || this.state.keep[i].cooked) continue;
+      const p = this.sellKaigan(i, true);
+      if (p > 0) { n++; sum += p; }
+    }
+    this.afterKaigan(n, sum, `${n} ${lower(fishById[id].name)}`);
+  }
+
+  sellKaiganAll() {
+    let n = 0, sum = 0;
+    for (let i = this.state.keep.length - 1; i >= 0; i--) {
+      const p = this.sellKaigan(i, true);
+      if (p > 0) { n++; sum += p; }
+    }
+    this.afterKaigan(n, sum, `${n} fish`);
+  }
+
+  afterKaigan(n, sum, what) {
+    if (this.receipt) this.receipt.open = false;
+    const big = this.bigSay;
+    this.bigSay = null;
+    if (!n) return;
+    this.hooks.chime();
+    this.hooks.toast(`${big ? `${big} ` : ''}Kenji weighs ${big ? 'the rest' : 'them'} on the kitchen scales: ${what}, ${money(sum)} in all.`, big ? 9 : 4);
     this.hooks.changed();
     this.render();
   }
