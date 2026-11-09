@@ -1233,6 +1233,7 @@ p.cp-soft { margin: 6px 0; }
 }
 .t-offline { margin: 8px 0 0; font: 600 12px/1.4 var(--font-ui); color: rgba(255, 249, 239, 0.7); animation: rise 1.6s 0.9s ease both; }
 .t-offline.ok::before { content: '✓ '; color: #9fd8a8; }
+.t-version { margin: 10px 0 0; font: 500 11px/1.4 var(--font-ui); letter-spacing: 0.02em; color: rgba(255, 249, 239, 0.5); animation: rise 1.6s 1s ease both; user-select: all; }
 #clock-net { color: #ffd59a; opacity: 1; }
 .t-note { margin-top: 14px; font-size: 13px; animation: rise 1.6s 0.7s ease both; color: rgba(255, 249, 239, 0.75); }
 .t-quality {

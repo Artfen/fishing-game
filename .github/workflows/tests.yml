@@ -26,6 +26,6 @@ jobs:
       - name: Offline file list is current
         run: |
           node tools/build-sw.mjs
-          git diff --exit-code sw.js || (echo "::error::sw.js is out of date: run node tools/build-sw.mjs and commit it" && exit 1)
+          git diff --exit-code sw.js src/version.js || (echo "::error::sw.js or src/version.js is out of date: run node tools/build-sw.mjs and commit it" && exit 1)
       - name: Tests
         run: node --import ./tests/setup.mjs --test --test-concurrency=4 'tests/*.test.mjs'

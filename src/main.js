@@ -5,6 +5,7 @@ import { loadGame, saveGame, newGame, saveStatus, parseSave, importSave, exportT
 import { Cloud } from './cloud.js';
 import { Together, cleanName, suggestName, NAME_MAX, CALLS } from './together.js';
 import { setupOffline, offline, applyUpdate } from './offline.js';
+import { RELEASE, BUILD, BUILT } from './version.js';
 import { DIFFICULTY, DIFFICULTY_IDS, DRAG_LEVELS, DRAG_NAMES, breakReason } from './fight.js';
 import { BEHAVIOUR, conditionWords } from './behaviour.js';
 import { HUD, kbd } from './ui.js';
@@ -9542,6 +9543,14 @@ function renderOffline() {
   t.hidden = !offline.enabled || (!offline.ready && !offline.error);
   t.classList.toggle('ok', offline.ready);
   t.textContent = offline.ready ? 'Ready to play offline' : offline.error;
+}
+
+// Which version this is, on the title screen: the release, the build (the same as the offline
+// copy's, so two copies showing the same build are the same game) and the day it was built.
+{
+  const d = BUILT ? new Date(`${BUILT}T12:00:00Z`) : null;
+  const day = d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '';
+  $('title-version').textContent = `Version ${RELEASE}${BUILD ? ` · build ${BUILD.slice(0, 8)}` : ''}${day ? ` · ${day}` : ''}`;
 }
 
 function updateNow() {
