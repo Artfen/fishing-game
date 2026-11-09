@@ -628,6 +628,94 @@ export class AudioScape {
   }
 
   // The power trim's electric motor whining while the switch is held.
+  // The bow trolling motor (see trollmount.js). The stow/deploy lever letting the latch go, a
+  // spring-loaded clack (home: latching again, firmer and lower).
+  trollLatch(home = false) {
+    if (!this.ctx) return;
+    this.burst({ type: 'bandpass', freq: home ? 1700 : 2500, q: 3, dur: 0.03, gain: 0.07, attack: 0.001 });
+    this.burst({ type: 'bandpass', freq: home ? 850 : 1250, q: 2, dur: 0.07, gain: 0.045, attack: 0.002, when: 0.02 });
+    this.tone({ freq: home ? 520 : 760, freqEnd: home ? 360 : 520, type: 'triangle', dur: 0.09, gain: 0.018, when: 0.01 });
+  }
+  // The shaft sliding through its collar: a dry rasp (a longer one down to depth, or set by hand).
+  trollSlide(dur = 0.35) {
+    if (!this.ctx) return;
+    this.burst({ type: 'bandpass', freq: 1500, freqEnd: 1100, q: 1.3, dur, gain: 0.028, attack: 0.04 });
+  }
+  // Swung on its hinge by hand: the pivot's creak and the weight of it coming over (with the
+  // lift-assist spring's hiss on the GPS motor).
+  trollSwing(assist = false) {
+    if (!this.ctx) return;
+    this.burst({ type: 'bandpass', freq: 430, freqEnd: 330, q: 6, dur: 0.55, gain: 0.03, attack: 0.08 });
+    this.tone({ freq: 210, freqEnd: 150, type: 'sawtooth', dur: 0.5, gain: 0.007, filter: ['lowpass', 600, 1], when: 0.05 });
+    if (assist) this.burst({ type: 'highpass', freq: 4200, q: 0.5, dur: 0.8, gain: 0.016, attack: 0.12 });
+  }
+  // The high-thrust motor's own actuator, stowing and deploying it (and its power trim): a geared
+  // electric whine while it runs.
+  trollActuator(on) {
+    if (!this.ctx) return;
+    if (!this.trollAct && on) {
+      const ctx = this.ctx, o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'sawtooth';
+      o.frequency.value = 185;
+      f.type = 'bandpass';
+      f.frequency.value = 900;
+      f.Q.value = 1.4;
+      g.gain.value = 0;
+      o.connect(f);
+      f.connect(g);
+      g.connect(this.sfx);
+      o.start(ctx.currentTime);
+      this.trollAct = { o, g };
+    }
+    if (!this.trollAct) return;
+    this.set(this.trollAct.g.gain, on ? 0.016 : 0, on ? 0.06 : 0.12);
+    this.set(this.trollAct.o.frequency, on ? 200 : 150, 0.3);
+  }
+  // Locked: the bracket's pin clunking home at the vertical, or the lower unit seating on the
+  // ramps stowed.
+  trollLock() {
+    if (!this.ctx) return;
+    this.burst({ type: 'lowpass', freq: 650, q: 1, dur: 0.08, gain: 0.09, attack: 0.002 });
+    this.burst({ type: 'bandpass', freq: 2100, q: 4, dur: 0.025, gain: 0.035, attack: 0.001, when: 0.012 });
+  }
+  // The motor pushing under the water: a muffled electric hum and the propeller's churn, louder
+  // and a little higher with the push (level 0 … 1; 0 stops it).
+  trollHum(level) {
+    if (!this.ctx) return;
+    const on = level > 0.02;
+    if (!this.trollH && on) {
+      const ctx = this.ctx, o = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'triangle';
+      o.frequency.value = 110;
+      lp.type = 'lowpass';
+      lp.frequency.value = 520;
+      g.gain.value = 0;
+      o.connect(lp);
+      lp.connect(g);
+      g.connect(this.sfx);
+      o.start(ctx.currentTime);
+      // (The churn: brown noise, low and soft.)
+      const n = ctx.createBufferSource();
+      n.buffer = this.noise(2, 'brown');
+      n.loop = true;
+      const nf = ctx.createBiquadFilter();
+      nf.type = 'lowpass';
+      nf.frequency.value = 380;
+      const ng = ctx.createGain();
+      ng.gain.value = 0;
+      n.connect(nf);
+      nf.connect(ng);
+      ng.connect(this.sfx);
+      n.start(ctx.currentTime);
+      this.trollH = { o, g, ng };
+    }
+    if (!this.trollH) return;
+    const k = Math.min(1, Math.max(0, level));
+    this.set(this.trollH.g.gain, on ? 0.006 + 0.012 * k : 0, 0.2);
+    this.set(this.trollH.ng.gain, on ? 0.02 + 0.05 * k : 0, 0.25);
+    this.set(this.trollH.o.frequency, 95 + 55 * k, 0.4);
+  }
+
   trimWhine(on) {
     if (!this.ctx) return;
     if (!this.trimW && on) {

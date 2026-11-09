@@ -53,8 +53,8 @@ function sim(kind, tier, secs, setup = () => {}, each = null) {
 const from = (track, p) => track.map((q) => Math.hypot(q.x - p.x, q.z - p.z));
 
 test('which boats a bow motor suits, and the tiers', () => {
-  for (const k of ['skiff', 'bass', 'cabin', 'console']) assert.ok(canTroll(k), k);
-  for (const k of ['rib', 'cruiser', 'sail', 'jetski', 'windsurf', 'kayak', 'row']) assert.equal(canTroll(k), false, k);
+  for (const k of ['skiff', 'bass', 'cabin', 'console', 'rib']) assert.ok(canTroll(k), k);
+  for (const k of ['cruiser', 'sail', 'jetski', 'windsurf', 'kayak', 'row']) assert.equal(canTroll(k), false, k);
   assert.equal(TROLL_TIERS.troll.gps, false, 'the basic motor: manual only');
   assert.ok(TROLL_TIERS.trollgps.gps && TROLL_TIERS.trollpro.gps);
   assert.ok(TROLL_TIERS.trollpro.push > TROLL_TIERS.trollgps.push, 'the high-thrust motor pushes harder');
@@ -149,8 +149,11 @@ test('the battery runs down at full push, and flat it stops the motor; gear or s
   m.spotLock(true, { x: 0, z: 0 });
   m.deploy(false);
   assert.equal(m.mode, 'off');
-  for (let i = 0; i < 90; i++) m.step(1 / 30, { boat, battery: 1 });
+  // (Stowing takes its time: the head straightened, the lower unit turned, up, unlocked, swung up,
+  // back onto the ramps, latched.)
+  for (let i = 0; i < 300; i++) m.step(1 / 30, { boat, battery: 1 });
   assert.equal(m.down, 0);
+  assert.ok(m.mech.stowed);
   assert.equal(m.spotLock(true, { x: 0, z: 0 }), 'stowed');
   // A big sea: much less push to give.
   const big = new TrollMotor('trollgps');
@@ -165,7 +168,7 @@ test('bought at the Marine Works: one motor at a time, on the boats it suits; th
   for (const id of ['troll', 'trollgps', 'trollpro']) {
     assert.equal(FITS[id].slot, 'troll', `${id}: one trolling motor at a time`);
     for (const k of Object.keys(FITS[id].price)) assert.ok(canTroll(k), `${id} is only sold for boats a bow mount suits (${k})`);
-    assert.equal(FITS[id].price.rib, undefined);
+    assert.ok(FITS[id].price.rib > FITS[id].price.console, `${id}: the RIB takes one, on its platform (a little dearer fitted)`);
     assert.equal(FITS[id].price.cruiser, undefined);
   }
   const state = { money: 10000, yard: { owned: ['bass'], fits: {}, looks: {}, hired: null }, ledger: [] };

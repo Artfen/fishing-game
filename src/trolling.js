@@ -18,19 +18,29 @@
 // The yacht is too big for a bow motor; her equivalent is a different kind of thing (dynamic
 // positioning on her own engines) and isn't here yet.
 
+import { TrollMech, MOUNT_SPECS, genericMount, DEPLOY } from './trollmount.js';
+
 // The motors (shipyard.js sells them): push in newtons as the game's hulls feel it, what it draws
-// at full push (W), whether it has GPS (heading hold and Spot-Lock).
+// at full push (W), whether it has GPS (heading hold and Spot-Lock), and how it's stowed and
+// deployed and its depth set (see trollmount.js):
+//  · the basic motor: by hand, its depth set by hand on its collar, steered from where you are;
+//  · the GPS motor: by hand with a lift-assist spring (as a Riptide Terrova), depth by hand,
+//    Spot-Lock and heading hold from its remote anywhere aboard;
+//  · the high-thrust GPS motor: stows and deploys itself at the press of a button, from the remote
+//    or the dashboard, its depth by power trim (as a Riptide Instinct QUEST); on a 36-volt supply,
+//    and the actuator needs some charge to work (flat, it's stowed by hand at the bow).
 export const TROLL_TIERS = {
-  troll: { name: 'Bow trolling motor', push: 320, watts: 650, gps: false },
-  trollgps: { name: 'GPS trolling motor', push: 320, watts: 650, gps: true },
-  trollpro: { name: 'High-thrust GPS trolling motor', push: 700, watts: 1300, gps: true },
+  troll: { name: 'Bow trolling motor', push: 320, watts: 650, gps: false, deploy: 'manual', trim: 'manual', remote: false },
+  trollgps: { name: 'GPS trolling motor', push: 320, watts: 650, gps: true, deploy: 'assist', trim: 'manual', remote: true },
+  trollpro: { name: 'High-thrust GPS trolling motor', push: 700, watts: 1300, gps: true, deploy: 'powered', trim: 'powered', remote: true, volts: 36 },
 };
 export const TROLL_IDS = Object.keys(TROLL_TIERS);
-// The boats a bow mount suits (and how far forward of her middle it sits, as a share of her
-// length): not the RIB (her tubes meet in the nose), the yacht (too big), the sailing boat, the
-// jet ski, the board or the kayak (which has its own little motor).
-export const TROLL_BOATS = { skiff: 0.45, bass: 0.46, cabin: 0.45, console: 0.46 };
-export const canTroll = (kind) => kind in TROLL_BOATS;
+// The boats a bow mount suits, each with an installation of her own (see trollmount.js): the RIB
+// (on a raised platform over her tube nose), the bass boat, the centre console, the skiff and the
+// cabin boat. Not the yacht (too big), the sailing boat, the jet ski, the board or the kayak (which
+// has its own little motor).
+export const TROLL_BOATS = Object.fromEntries(Object.keys(MOUNT_SPECS).map((k) => [k, true]));
+export const canTroll = (kind) => kind in MOUNT_SPECS;
 // The battery for it: watt-hours (a big deep-cycle battery; the bank fitting doubles it).
 export const TROLL_WH = 1200;
 
@@ -38,7 +48,8 @@ const LOCK_KP = 0.16;     // 1/s²: how hard Spot-Lock pulls per metre off (as a
 const LOCK_KD = 0.85;     // 1/s: how much it damps her drifting speed
 const LOCK_EASY = 0.8;    // m: inside this it barely pushes (a real one hunts less than it holds)
 const HEAD_RATE = 2.4;    // rad/s the head turns
-const DEPLOY_T = 2.2;     // s to swing it down off its mount (and up again)
+const ACTUATOR_W = 150;   // W the high-thrust motor's stow actuator and power trim draw while they run
+const ACTUATOR_MIN = 0.03; // the charge below which they won't run
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const wrap = (a) => {
   while (a > Math.PI) a -= Math.PI * 2;
@@ -47,13 +58,15 @@ const wrap = (a) => {
 };
 
 export class TrollMotor {
-  // tier: one of TROLL_IDS; bank: the battery bank fitted (twice the watt-hours).
-  constructor(tier, { bank = false } = {}) {
+  // tier: one of TROLL_IDS; bank: the battery bank fitted (twice the watt-hours); mount: her
+  // installation (trollmount.js's mountFor; a plain one if none).
+  constructor(tier, { bank = false, mount = null } = {}) {
     this.tier = tier;
     this.spec = TROLL_TIERS[tier];
     this.wh = TROLL_WH * (bank ? 2 : 1);
-    this.down = 0;          // 0 stowed … 1 deployed
-    this.want = false;      // deployed, or on its way
+    // The mechanism: stowed on its mount, swinging down, locked, at depth (see trollmount.js).
+    this.mech = new TrollMech(this.spec.deploy, mount || genericMount());
+    this.byHand = false;    // being stowed by hand (the high-thrust motor, its battery flat)
     this.mode = 'off';      // 'off', 'manual', 'heading', 'lock'
     this.power = 0;         // manual and heading: the push asked for, -1 … 1 (astern is the head turned round)
     this.steer = 0;         // manual: the head turned (rad, + to port)
@@ -65,12 +78,44 @@ export class TrollMotor {
   }
 
   get gps() { return this.spec.gps; }
-  get deployed() { return this.down >= 1; }
+  // Down, locked, straight and at a depth it can push from (the propeller live only then).
+  get deployed() { return this.mech.ready; }
+  // Deployed, or on its way.
+  get want() { return this.mech.want; }
+  set want(v) { this.mech.deploy(v); }
+  // 0 stowed … 1 deployed (setting it puts it straight there: a game loaded with it down, a test).
+  get down() { return this.mech.progress; }
+  set down(v) { this.mech.snap(v >= 1); }
+  get powered() { return this.spec.deploy === 'powered'; }
 
   deploy(on = !this.want) {
-    this.want = !!on;
+    // (Deployed again with power: the actuator does it, not your hands.)
+    if (on && this.byHand) {
+      this.byHand = false;
+      this.mech.R = DEPLOY[this.spec.deploy];
+    }
+    this.mech.deploy(on);
     if (!on) this.stop();
     return this.want;
+  }
+
+  // Stowed by hand: the high-thrust motor with its battery flat (its actuator can't), lifted out
+  // and swung up onto its mount as the others are.
+  handStow() {
+    this.byHand = true;
+    this.mech.R = DEPLOY.manual;
+    this.deploy(false);
+  }
+
+  // The depth: 'shallow', 'normal' or 'deep'.
+  setDepth(id) { return this.mech.setDepth(id); }
+  get depthId() { return this.mech.depthId; }
+
+  // On a boat now (her own mount): down already, it goes down to her depths.
+  setMount(mount) {
+    const down = this.mech.ready;
+    this.mech.mount = mount;
+    if (down) this.mech.snap(true);
   }
 
   stop() {
@@ -118,13 +163,25 @@ export class TrollMotor {
   // height where she is (m); lever: the main engine's throttle (anything but neutral turns it off).
   // Returns { f (N), angle (rad, + to port), drawn (charge used, 0 … 1), why (anything it said) }.
   step(dt, { boat, battery = 1, sea = 0, lever = 0 }) {
-    let why = null;
-    // Down off its mount, or up onto it.
-    this.down = clamp(this.down + (this.want ? 1 : -1) * dt / DEPLOY_T, 0, 1);
+    let why = null, drawn = 0;
+    // Stowing: the head turned straight first (the lower unit has to come up straight to turn
+    // sideways onto the ramps), then the mechanism; deploying, the mechanism.
+    if (!this.want && Math.abs(this.angle) > 1e-3 && this.mech.v.lock === 1) {
+      this.angle = wrap(this.angle - clamp(this.angle, -HEAD_RATE * dt, HEAD_RATE * dt));
+      if (Math.abs(this.angle) < 1e-3) this.angle = 0;
+    }
+    // (The high-thrust motor's actuator runs on the battery, and won't on a flat one.)
+    const settled = this.mech.want ? this.mech.ready && !this.mech.moving : this.mech.stowed;
+    let ev = [];
+    if (this.powered && !this.byHand && !settled && battery <= ACTUATOR_MIN) why = 'noPower';
+    else {
+      ev = this.mech.step(dt, { aligned: Math.abs(this.angle) < 1e-3 });
+      if (this.powered && !this.byHand && this.mech.moving) drawn += (ACTUATOR_W * dt) / 3600 / this.wh;
+    }
     if (!this.deployed) {
       if (this.mode !== 'off') this.stop();
       this.f = 0;
-      return { f: 0, angle: this.angle, drawn: 0, why };
+      return { f: 0, angle: this.angle, drawn, why, ev };
     }
     if (lever && this.mode !== 'off') {
       this.stop();
@@ -165,7 +222,7 @@ export class TrollMotor {
     this.f = want * lined;
     // The battery: watt-hours at the push asked (propellers draw more than in proportion).
     const share = this.spec.push > 0 ? this.f / this.spec.push : 0;
-    const drawn = (this.spec.watts * Math.pow(share, 1.4) * dt) / 3600 / this.wh;
-    return { f: this.f, angle: this.angle, drawn, why };
+    drawn += (this.spec.watts * Math.pow(share, 1.4) * dt) / 3600 / this.wh;
+    return { f: this.f, angle: this.angle, drawn, why, ev };
   }
 }

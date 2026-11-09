@@ -124,6 +124,8 @@ export function cleanPose(p, kinds = null, gear = null) {
     out.f = !!p.f;   // a line out
     out.s = !!p.s;   // under sail
     out.n = !!p.n;   // at anchor or tied up
+    // Their bow trolling motor's state (see trollmount.js: ten small numbers), if they have one.
+    if (Array.isArray(p.tr) && p.tr.length === 10 && p.tr.every((v) => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) < 20)) out.tr = p.tr.map(r2);
   }
   if (m === 'foot') out.a = ACTS.includes(p.a) ? p.a : 'stand';
   // Crewing in a friend's boat (see crew.js): whose, and where in her.
@@ -1015,6 +1017,7 @@ export class Together {
     const slow = Math.hypot(P.vx || 0, P.vz || 0) < 0.15; // (keeping still is keeping still)
     const msg = { m: P.m, x: r2(P.x), z: r2(P.z), h: r2(P.h), vx: slow ? 0 : r2(P.vx), vz: slow ? 0 : r2(P.vz) };
     if (P.m === 'boat') Object.assign(msg, { k: P.k, f: P.f ? 1 : 0, s: P.s ? 1 : 0, n: P.n ? 1 : 0 });
+    if (P.m === 'boat' && Array.isArray(P.tr)) msg.tr = P.tr;
     if (P.m === 'foot') msg.a = P.a;
     if (P.m === 'foot' && P.cr) Object.assign(msg, { cr: P.cr, cx: r2(P.cx), cz: r2(P.cz) });
     if ((P.m === 'foot' || P.m === 'boat') && P.o) msg.o = 1;
@@ -1035,7 +1038,8 @@ export class Together {
       || Math.hypot(S.x - msg.x, S.z - msg.z) > 0.25 || Math.abs(S.h - msg.h) > 0.05 || Math.hypot(S.vx - msg.vx, S.vz - msg.vz) > 0.3
       || S.r !== msg.r || S.i !== msg.i || (S.ex == null) !== (msg.ex == null) || (msg.ex != null && Math.hypot(S.ex - msg.ex, S.ez - msg.ez) > 0.3)
       || Math.abs((S.tn ?? 0) - (msg.tn ?? 0)) > 0.12 || S.mv !== msg.mv || S.hk !== msg.hk || S.nt !== msg.nt
-      || S.cr !== msg.cr || (msg.cr && Math.hypot(S.cx - msg.cx, S.cz - msg.cz) > 0.15);
+      || S.cr !== msg.cr || (msg.cr && Math.hypot(S.cx - msg.cx, S.cz - msg.cz) > 0.15)
+      || String(S.tr) !== String(msg.tr);
     if (!now && (this.sendT > 0 || (!moved && this.clock - (S?.at ?? -99) < IDLE_EVERY))) return;
     this.rt.send('pose', { id: this.id, n: this.name(), host: this.hosting, t: Math.round(this.now() * 1000) / 1000, p: msg });
     this.sent = { ...msg, at: this.clock };

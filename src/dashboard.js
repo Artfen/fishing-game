@@ -32,7 +32,8 @@ export const DASHES = {
       screen: { at: [0.17, 0.08], w: 0.3, h: 0.18, lean: 1.0 },
       gauges: { at: [-0.17, 0.08], w: 0.3, h: 0.15, lean: 1.0 },
       // On the near half, clear of the wheel: the switches to port, the ignition to starboard.
-      switches: { battery: [0.28, -0.08], lights: [0.21, -0.08], horn: [0.14, -0.08], glow: [0.07, -0.08], key: [-0.15, -0.08], key0: [-0.12, -0.08], key1: [-0.19, -0.08], cord: [-0.25, -0.08] },
+      // (The trolling motor's toggle and Spot-Lock's button, once one's fitted on her bow platform.)
+      switches: { battery: [0.28, -0.08], lights: [0.21, -0.08], horn: [0.14, -0.08], glow: [0.07, -0.08], troll: [0.07, -0.08], lock: [0.005, -0.08], key: [-0.15, -0.08], key0: [-0.12, -0.08], key1: [-0.19, -0.08], cord: [-0.25, -0.08] },
       // The throttle on its bracket on the console's starboard side.
       throttle: { at: [hx - 0.43, y0 + 0.95, cz - 0.2] },
       lights: { side: [[0.33, y0 + 0.92, cz + 0.28], [-0.33, y0 + 0.92, cz + 0.28]], stern: [0, y0 + 2.0, -H.L / 2 + 0.6] },

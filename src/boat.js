@@ -1,6 +1,6 @@
 import { runShare, trimEffect } from './engine.js';
 import { Dashboard, DASHES } from './dashboard.js';
-import { TROLL_BOATS } from './trolling.js';
+import { canMount, mountFor, rigPose, propAt } from './trollmount.js';
 import * as THREE from 'three';
 import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat, wrapAngle } from './util.js';
 import { waveHeight } from './world/water.js';
@@ -379,6 +379,23 @@ const ANCHOR_HOLD = 0.12;
 const ROUND_UP = 0.35;
 const _w3 = [0, 0, 0], _w4 = [0, 0, 0];
 const _qt = new THREE.Quaternion(), _eu = new THREE.Euler(0, 0, 0, 'YXZ'), _v3 = new THREE.Vector3();
+const _tx = new THREE.Vector3(), _ty = new THREE.Vector3(), _tz = new THREE.Vector3(), _m4 = new THREE.Matrix4();
+const _ta = new THREE.Vector3(), _tb = new THREE.Vector3(), _tc = new THREE.Vector3();
+// The bow trolling motors' looks, by kind: the basic one (and the bass boat's own) in black
+// composite; the GPS one in saltwater white with its lift-assist strut; the high-thrust one white,
+// a size up, with the actuator that stows and deploys it.
+const TROLL_LOOKS = {
+  troll: { shaft: '#1d2125', pod: '#26292d', head: '#3a3f45', trim: '#b8312f', housing: '#2b2f33', big: 1 },
+  trollgps: { shaft: '#d6d9d5', pod: '#e8ebe7', head: '#eef0ec', trim: '#2c6fb0', housing: '#5d646b', big: 1.05, strut: true },
+  trollpro: { shaft: '#d6d9d5', pod: '#e8ebe7', head: '#eef0ec', trim: '#1d2125', housing: '#3a3f45', big: 1.18, actuator: true },
+};
+// One colour all over a geometry, for a mesh on a vertex-coloured material.
+function paint(geo, color) {
+  const c = new THREE.Color(color), n = geo.attributes.position.count, a = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) a.set([c.r, c.g, c.b], i * 3);
+  geo.setAttribute('color', new THREE.BufferAttribute(a, 3));
+  return geo;
+}
 // A direction in her own frame, turned by an angle (rad) from straight ahead towards port.
 const dirAt = (a) => [Math.sin(a), 0, Math.cos(a)];
 // How much of an outboard's depth below her centre of gravity turns her bow up as it pushes (see
@@ -978,29 +995,8 @@ export class Boat {
       this.props.push(fit(g2));
       this.motorGroups.push(g2);
     }
-    if (M.troll) {
-      // The electric trolling motor, clamped to the bow: a shaft down into the water and a
-      // little torpedo with a propeller.
-      const t = new THREE.Group();
-      t.position.set(0.32, sheer(H, 0.97) - 0.02, zAt(H, 0.97) + 0.05);
-      const tParts = [
-        { geo: new THREE.BoxGeometry(0.14, 0.08, 0.2), matrix: mat(0, 0.04, -0.05), color: '#2b2e33' },
-        { geo: new THREE.CylinderGeometry(0.018, 0.018, 1.05, 6), matrix: mat(0, -0.4, 0), color: '#2b2e33' },
-        { geo: new THREE.CylinderGeometry(0.045, 0.04, 0.3, 8), matrix: mat(0, -0.9, 0, Math.PI / 2, 0, 0), color: '#2b2e33' },
-        { geo: new THREE.BoxGeometry(0.1, 0.12, 0.02), matrix: mat(0, 0.16, -0.12), color: '#b8312f' },
-      ];
-      const tm = new THREE.Mesh(mergeParts(tParts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45 }));
-      t.add(tm);
-      this.trollProp = new THREE.Group();
-      this.trollProp.position.set(0, -0.9, -0.17);
-      for (let i = 0; i < 2; i++) {
-        const b = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.13, 0.01), new THREE.MeshStandardMaterial({ color: '#9aa1a8', metalness: 0.5 }));
-        b.rotation.z = i * Math.PI / 2;
-        this.trollProp.add(b);
-      }
-      t.add(this.trollProp);
-      this.body.add(t);
-    }
+    // (The bass boat's electric bow motor, that her first notches run, is her bow trolling motor's
+    // rig: see buildTroll, and main.js, which gives her one.)
   }
 
   // The yacht's twin inboards, as you'd see them from the water: a shaft each side angling down
@@ -1197,7 +1193,9 @@ export class Boat {
 
   // Stainless rails round the bow: posts up from the gunwale at each t of ts, a rail along their
   // tops either side meeting at the stem.
-  bowRails(parts, ts, h = 0.62) {
+  // (bay: if given, the starboard rail's forward bay goes in it instead, so it can be left off: a
+  // trolling-motor rail, open there when one's fitted for its shaft to swing through.)
+  bowRails(parts, ts, h = 0.62, bay = null) {
     const H = this.hull, steel = '#c9cdd0';
     for (const sd of [1, -1]) {
       const pts = [];
@@ -1207,7 +1205,10 @@ export class Boat {
         pts.push(new THREE.Vector3(x, y + h, zz));
       }
       pts.push(new THREE.Vector3(sd * 0.12, sheer(H, 0.99) + h, zAt(H, 0.985)));
-      parts.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.02, 5), color: steel });
+      if (bay && sd === 1) {
+        parts.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.slice(0, -1)), 20, 0.02, 5), color: steel });
+        bay.push({ geo: new THREE.TubeGeometry(new THREE.LineCurve3(pts.at(-2), pts.at(-1)), 4, 0.02, 5), color: steel });
+      } else parts.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.02, 5), color: steel });
     }
     parts.push({ geo: new THREE.CylinderGeometry(0.02, 0.02, h, 5), matrix: mat(0, sheer(H, 0.995) + h / 2, zAt(H, 0.99)), color: steel });
   }
@@ -1353,7 +1354,12 @@ export class Boat {
     ];
     for (const x of [-0.6, -0.2, 0.2, 0.6]) this.rackRod(parts, V(hx + x, ty + 0.05, hz + 0.2 - 0.85), V(0, 1, -0.38));
     for (const t of [0.1, 0.24]) for (const sd of [1, -1]) this.rackRod(parts, V(sd * (hw(H, t) - 0.1), sheer(H, t) + 0.02, zAt(H, t)), V(sd * 0.35, 1, -0.55), 1.75);
-    this.bowRails(parts, H.rails, 0.55);
+    const bay = this.trollMount?.railGap ? [] : null;
+    this.bowRails(parts, H.rails, 0.55, bay);
+    if (bay?.length) {
+      this.railBay = new THREE.Mesh(mergeParts(bay), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.12 }));
+      this.body.add(this.railBay);
+    }
     const mesh = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.12 }));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
@@ -1658,40 +1664,241 @@ export class Boat {
   }
 
   // The deck floodlights on or off (see setFits).
-  // The bow trolling motor's model: its mount on the foredeck, the shaft that swings down through
-  // the bow roller into the water, the motor head at its foot with its propeller.
-  buildTroll() {
-    const H = this.hull, tb = 0.5 + (TROLL_BOATS[this.kind] ?? 0.45);
-    const group = new THREE.Group();
-    group.position.set(0, sheer(H, tb) + 0.02, zAt(H, tb));
-    const dark = new THREE.MeshStandardMaterial({ color: '#1d2125', roughness: 0.5, metalness: 0.2 });
-    const steel = new THREE.MeshStandardMaterial({ color: '#b9bec2', roughness: 0.35, metalness: 0.6 });
-    group.add(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.06, 0.34), dark));
-    const swing = new THREE.Group();
-    swing.position.set(0, 0.03, 0.12);
-    group.add(swing);
-    const len = Math.max(0.9, (H.D || 0.6) + 0.75);
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, len, 8), steel);
-    shaft.position.y = -len / 2;
-    swing.add(shaft);
-    const head = new THREE.Group();
-    head.position.y = -len;
-    swing.add(head);
-    head.add(new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.2, 4, 10).rotateX(Math.PI / 2), dark));
-    const prop = new THREE.Group();
-    prop.position.z = -0.16;
-    for (let i = 0; i < 2; i++) {
-      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.035, 0.01), dark);
-      blade.rotation.z = (i * Math.PI) / 2;
-      prop.add(blade);
+  // The bow trolling motor's mount for her (see trollmount.js), worked out once; null if she
+  // can't take one.
+  get trollMount() {
+    if (this._trollMount === undefined) this._trollMount = canMount(this.kind) ? mountFor(this.kind, this.hull, floatDraft(this.base)) : null;
+    return this._trollMount;
+  }
+
+  // The bow trolling motor's model, for her mount and the motor's kind (look: 'troll', 'trollgps'
+  // or 'trollpro'). The parts that stay put: the mount plate (on the RIB, a raised platform on legs
+  // over her tube nose), the bracket's cheeks and hinge, the shaft's rest, the power cable into the
+  // deck. The parts that move (see updateTrollRig): the fall-away ramps and the stow/deploy lever;
+  // the arm swinging on the hinge with the steering housing and the lock pin; the shaft sliding and
+  // turning through the housing, with the lower unit (its fin, the transducer, the propeller) at
+  // its foot and the control head on top, the depth collar on it and the coil cord down from the
+  // head; on the GPS motor its lift-assist strut, on the high-thrust one its stow actuator.
+  buildTroll(look = 'troll') {
+    this.disposeTroll();
+    const M = this.trollMount;
+    if (!M) return;
+    const L = TROLL_LOOKS[look] || TROLL_LOOKS.troll, big = L.big;
+    const V3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
+    const mt = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.3 });
+    const root = new THREE.Group();
+    root.name = 'trolling motor';
+    const C = V3(M.hinge), d0 = V3(M.d0), k = V3(M.k);
+    const aft = new THREE.Vector3(d0.x, 0, d0.z).normalize();
+    const yaw = Math.atan2(aft.x, aft.z);
+    const st = [], metal = '#3b4046', steel = '#c9cdd0', by = M.base.y;
+    // The mount plate, along the stowed shaft, its front at the hinge; the bracket's two cheeks up
+    // to the hinge pin.
+    const plateLen = M.platform === 'riser' ? M.base.len : 0.46, plateW = M.platform === 'riser' ? 0.34 : 0.26;
+    const pc = C.clone().addScaledVector(aft, plateLen / 2 - 0.04).setY(by - 0.0125);
+    st.push({ geo: new THREE.BoxGeometry(plateW, 0.025, plateLen), matrix: mat(pc.x, pc.y, pc.z, 0, yaw, 0), color: M.platform === 'riser' ? '#9aa1a7' : metal });
+    for (const sd of [-1, 1]) {
+      const c = C.clone().addScaledVector(k, sd * 0.07);
+      st.push({ geo: new THREE.BoxGeometry(0.014, C.y - by + 0.04, 0.15), matrix: mat(c.x, (C.y + by) / 2, c.z + aft.z * 0.03, 0, yaw, 0), color: metal });
     }
-    head.add(prop);
-    // (The control head on top, where the foot pedal's cable or the remote's receiver goes.)
-    const top = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.07, 0.14), dark);
-    top.position.y = 0.06;
-    swing.add(top);
-    this.body.add(group);
-    this.trollRig = { group, swing, head, prop };
+    st.push(strut(C.clone().addScaledVector(k, -0.085), C.clone().addScaledVector(k, 0.085), 0.016, 0.016, steel));
+    if (M.platform === 'riser') {
+      // The RIB's platform: two legs on its inboard side down to her foredeck inside the tubes,
+      // braced to each other and out under the plate (its outboard edge overhangs the tube, its
+      // front stands out beyond the tube's nose).
+      const L2 = M.base.legsTo.map((l) => ({ top: V3(l.top), foot: V3(l.foot) }));
+      for (const l of L2) {
+        st.push(strut(l.foot, l.top, 0.022, 0.02, steel));
+        st.push({ geo: new THREE.CylinderGeometry(0.045, 0.045, 0.012, 10), matrix: mat(l.foot.x, l.foot.y + 0.006, l.foot.z), color: metal });
+        // (A knee out under the plate's middle.)
+        st.push(strut(l.top.clone().lerp(l.foot, 0.4), l.top.clone().addScaledVector(k, 0.15), 0.012, 0.012, steel));
+      }
+      st.push(strut(L2[0].top.clone().lerp(L2[0].foot, 0.55), L2[1].top.clone().lerp(L2[1].foot, 0.55), 0.012, 0.012, steel));
+      st.push(strut(L2[0].top, L2[1].top, 0.016, 0.016, steel));
+    }
+    if (M.rest) {
+      // The rest the stowed shaft lies in: a rubber-lined cradle on a short post.
+      const top = V3(M.rest.at), foot = M.rest.foot;
+      st.push(strut(new THREE.Vector3(top.x, foot, top.z), new THREE.Vector3(top.x, top.y - 0.035, top.z), 0.02, 0.016, steel));
+      st.push({ geo: new THREE.BoxGeometry(0.09, 0.03, 0.06), matrix: mat(top.x, top.y - 0.035, top.z, 0, yaw, 0), color: '#1d2125' });
+      for (const sd of [-1, 1]) st.push({ geo: new THREE.BoxGeometry(0.012, 0.05, 0.06), matrix: mat(top.x + k.x * sd * 0.04, top.y - 0.01, top.z + k.z * sd * 0.04, 0, yaw, 0), color: '#1d2125' });
+    }
+    // The power cable from the bracket, along the plate and down into the deck.
+    {
+      const a = C.clone().addScaledVector(aft, 0.12).setY(by + 0.01), b = C.clone().addScaledVector(aft, 0.32).setY(by + 0.008);
+      const c = b.clone().addScaledVector(aft, 0.08).addScaledVector(k, -0.06).setY(by - 0.02);
+      st.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3([a, b, c]), 10, 0.009, 5), color: '#16181b', jitter: 0 });
+    }
+    if (L.actuator) {
+      // The stow-and-deploy actuator: its motor housing on the mount, beside the hinge.
+      const a = C.clone().addScaledVector(k, -0.12).addScaledVector(aft, 0.12);
+      st.push({ geo: new THREE.BoxGeometry(0.09, 0.08, 0.2), matrix: mat(a.x, by + 0.04, a.z, 0, yaw, 0), color: '#2b2f33' });
+    }
+    const fixed = new THREE.Mesh(mergeParts(st), mt);
+    fixed.castShadow = true;
+    root.add(fixed);
+    // The fall-away ramps: two plates the lower unit lies across stowed, hinged along their outer
+    // edges, falling away as the latch lets go.
+    const low0 = C.clone().addScaledVector(d0, -M.uStow);
+    const ramps = [];
+    const rampBasis = new THREE.Matrix4().makeBasis(aft, new THREE.Vector3(0, 1, 0), new THREE.Vector3().crossVectors(aft, new THREE.Vector3(0, 1, 0)));
+    for (const sd of [-1, 1]) {
+      const g = new THREE.Group();
+      g.position.copy(low0).addScaledVector(k, sd * 0.12).setY(by + 0.005);
+      g.quaternion.setFromRotationMatrix(rampBasis);
+      const plate = new THREE.Group();
+      plate.add(new THREE.Mesh(mergeParts([
+        { geo: new THREE.BoxGeometry(0.14, 0.012, 0.07), matrix: mat(0, 0.04, -sd * 0.03, sd * 0.55, 0, 0), color: '#1d2125' },
+        { geo: new THREE.BoxGeometry(0.03, 0.05, 0.02), matrix: mat(0.08, 0.02, 0, 0, 0, 0), color: metal },
+      ]), mt));
+      g.add(plate);
+      root.add(g);
+      ramps.push({ plate, sd });
+    }
+    // The stow/deploy lever, on the outboard cheek.
+    const lever = new THREE.Group();
+    lever.position.copy(C).addScaledVector(k, 0.085);
+    lever.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(k, new THREE.Vector3(0, 1, 0), new THREE.Vector3().crossVectors(k, new THREE.Vector3(0, 1, 0))));
+    lever.add(new THREE.Mesh(mergeParts([
+      { geo: new THREE.BoxGeometry(0.012, 0.012, 0.14), matrix: mat(0.008, 0.02, 0.06), color: metal },
+      { geo: new THREE.BoxGeometry(0.03, 0.025, 0.04), matrix: mat(0.008, 0.02, 0.13), color: L.trim },
+    ]), mt));
+    root.add(lever);
+    // The arm on the hinge: x along the pin, y up the shaft, z the lower unit's straight-ahead.
+    const arm = new THREE.Group();
+    arm.position.copy(C);
+    root.add(arm);
+    arm.add(new THREE.Mesh(mergeParts([
+      // The steering housing round the shaft, its motor to one side.
+      { geo: new THREE.CylinderGeometry(0.052 * big, 0.052 * big, 0.12, 14), matrix: mat(0, 0.02, 0), color: L.housing },
+      { geo: new THREE.BoxGeometry(0.07 * big, 0.08, 0.09), matrix: mat(0, 0.02, -0.07), color: L.housing },
+      // The swing plates from the pin to the housing.
+      ...[1, -1].map((sd) => ({ geo: new THREE.BoxGeometry(0.01, 0.1, 0.08), matrix: mat(sd * 0.06, 0.01, 0), color: metal })),
+    ]), mt));
+    const lockPin = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.06, 6).rotateZ(Math.PI / 2), mt);
+    paint(lockPin.geometry, steel);
+    lockPin.position.set(0, 0.06, 0.055);
+    arm.add(lockPin);
+    // The shaft and all that's on it: slides along the arm's y, turns about it.
+    const slider = new THREE.Group();
+    arm.add(slider);
+    const spinner = new THREE.Group();
+    slider.add(spinner);
+    const S = M.shaft, pod = 0.062 * big;
+    spinner.add(new THREE.Mesh(mergeParts([
+      { geo: new THREE.CylinderGeometry(0.017, 0.017, S - 0.05, 10), matrix: mat(0, (S + 0.05) / 2, 0), color: L.shaft },
+      // The lower unit: the motor pod, its nose cone, the fin under it and the transducer's bump.
+      { geo: new THREE.CapsuleGeometry(pod, 0.24 * big, 6, 14).rotateX(Math.PI / 2), matrix: mat(0, 0, 0.0), color: L.pod },
+      { geo: new THREE.ConeGeometry(pod * 0.9, 0.08, 14).rotateX(Math.PI / 2), matrix: mat(0, 0, 0.19 * big), color: L.pod },
+      { geo: new THREE.BoxGeometry(0.012, 0.1, 0.12), matrix: mat(0, -0.09, -0.03), color: L.pod },
+      { geo: new THREE.SphereGeometry(0.03, 10, 8), matrix: mat(0, -pod * 0.75, 0.08, 0, 0, 0, 1, 0.6, 1.3), color: '#2b2f33' },
+      { geo: new THREE.CylinderGeometry(0.024, 0.03, 0.06, 10), matrix: mat(0, 0.06, 0), color: L.pod },
+      // The control head on top: its body, the sloped cover, a coloured band.
+      { geo: new THREE.BoxGeometry(0.13 * big, 0.11, 0.2 * big), matrix: mat(0, S + 0.04, 0.02), color: L.head },
+      { geo: new THREE.BoxGeometry(0.125 * big, 0.04, 0.17 * big), matrix: mat(0, S + 0.105, 0.0, -0.22, 0, 0), color: L.head },
+      { geo: new THREE.BoxGeometry(0.135 * big, 0.018, 0.205 * big), matrix: mat(0, S + 0.0, 0.02), color: L.trim },
+    ]), mt));
+    // The depth collar, where it rests on the housing at the depth set (moved when the depth is).
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.035, 12), mt);
+    paint(collar.geometry, L.trim);
+    spinner.add(collar);
+    // The propeller, aft of the pod: two weedless blades and a hub nut.
+    const prop = new THREE.Group();
+    prop.position.set(0, 0, -0.205 * big);
+    prop.add(new THREE.Mesh(mergeParts([
+      { geo: new THREE.BoxGeometry(0.2 * big, 0.04, 0.012), matrix: mat(0, 0, 0, 0, 0.35, 0.25), color: '#2b2f33' },
+      { geo: new THREE.BoxGeometry(0.04, 0.2 * big, 0.012), matrix: mat(0, 0, 0, 0.35, 0, -0.25), color: '#2b2f33' },
+      { geo: new THREE.ConeGeometry(0.02, 0.05, 8).rotateX(-Math.PI / 2), matrix: mat(0, 0, -0.03), color: '#9aa1a8' },
+    ]), mt));
+    spinner.add(prop);
+    // The coil cord, from the head down to the housing: a spring of cable round the shaft, stretched
+    // to fit as the shaft slides.
+    // (A slim coiled cable hanging just aft of the shaft, not wound round it.)
+    const helix = [];
+    for (let i = 0; i <= 240; i++) {
+      const a = (i / 240) * Math.PI * 2 * 26;
+      helix.push(new THREE.Vector3(0.03 + Math.cos(a) * 0.011, i / 240, -0.032 + Math.sin(a) * 0.011));
+    }
+    const coil = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(helix), 480, 0.0035, 4), mt);
+    paint(coil.geometry, '#16181b');
+    slider.add(coil);
+    // The lift-assist strut, from the mount to the arm (the GPS motor's).
+    let assist = null;
+    if (L.strut) {
+      assist = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.016, 1, 8), mt);
+      paint(assist.geometry, '#9aa1a8');
+      root.add(assist);
+    }
+    for (const m of [fixed, lockPin, collar, coil, ...arm.children, ...spinner.children]) if (m.isMesh) m.castShadow = true;
+    this.body.add(root);
+    this.trollRig = { root, look, M, mt, ramps, lever, arm, slider, spinner, prop, collar, coil, assist, lockPin, aft, k, C };
+  }
+
+  // Her trolling motor, on her own mount (a motor handed to her with a plain one takes hers).
+  trollHere() {
+    const T = this.troll;
+    if (T && this.trollMount && T.mech.mount !== this.trollMount) T.setMount(this.trollMount);
+    return T;
+  }
+
+  disposeTroll() {
+    const R = this.trollRig;
+    if (!R) return;
+    R.root.removeFromParent();
+    R.root.traverse((o) => o.geometry?.dispose());
+    R.mt.dispose();
+    this.trollRig = null;
+  }
+
+  // The trolling motor's model, posed: your own motor's state (this.troll), or the state a
+  // friend's game sends for theirs (this.trollView: { look, v, theta, steer, f, depthU }).
+  updateTrollRig(dt) {
+    const T = this.trollHere();
+    // (On the bass boat, her first notches drive it too: then it's the lever's push and the helm's
+    // steer that show.)
+    const notch = T && this.bowNotch > 0 && T.deployed && T.mode === 'off';
+    const view = T ? { look: T.tier, v: T.mech.v, theta: T.mech.angle(), steer: notch ? this.bowSteer || 0 : T.angle, f: notch ? 60 * this.bowNotch : T.f, depthU: T.mech.mount.uPivot + T.mech.depthWant } : this.trollView;
+    if (this.railBay) this.railBay.visible = !(view && this.trollMount?.railGap);
+    if (!view || !this.trollMount) {
+      if (this.trollRig) this.trollRig.root.visible = false;
+      return;
+    }
+    if (!this.trollRig || this.trollRig.look !== view.look) this.buildTroll(view.look);
+    const R = this.trollRig;
+    if (!R) return;
+    R.root.visible = true;
+    // (The head's turn, eased: a new steer from the helm, or a friend's over the network, swings it
+    // round rather than snapping it.)
+    R.steer = R.steer == null ? view.steer : dampAngle(R.steer, view.steer, 10, dt);
+    const P = rigPose(R.M, view.v, view.theta, R.steer);
+    _tx.set(P.k[0], P.k[1], P.k[2]);
+    _ty.set(P.d[0], P.d[1], P.d[2]);
+    _tz.crossVectors(_tx, _ty);
+    _m4.makeBasis(_tx, _ty, _tz);
+    R.arm.quaternion.setFromRotationMatrix(_m4);
+    R.slider.position.y = -P.u;
+    R.spinner.rotation.y = P.spin;
+    R.lockPin.position.x = 0.05 * (1 - view.v.lock);
+    for (const r of R.ramps) r.plate.rotation.x = r.sd * view.v.latch * 1.1;
+    R.lever.rotation.x = -view.v.latch * 0.9;
+    // (The depth collar sits on the housing when she's at the depth set: on the shaft, that's
+    // where the housing is then.)
+    R.collar.position.y = (view.depthU ?? P.u) + 0.08;
+    const coilFrom = P.u + 0.08, coilTo = R.M.shaft - 0.04;
+    R.coil.visible = coilTo - coilFrom > 0.05;
+    R.coil.position.y = coilFrom;
+    R.coil.scale.y = Math.max(0.05, coilTo - coilFrom);
+    R.prop.rotation.z += dt * 38 * Math.min(1, (view.f || 0) / 60);
+    if (R.assist) {
+      // From a lug on the plate behind the hinge to one on the arm below the housing.
+      _ta.copy(R.C).addScaledVector(R.aft, 0.3).setY(R.M.base.y + 0.02);
+      _tb.set(P.C[0], P.C[1], P.C[2]).addScaledVector(_ty, -0.02).addScaledVector(_tz, -0.09);
+      _tc.subVectors(_tb, _ta);
+      const len = _tc.length();
+      R.assist.position.copy(_ta).addScaledVector(_tc, 0.5);
+      R.assist.quaternion.setFromUnitVectors(UP, _tc.normalize());
+      R.assist.scale.set(1, len, 1);
+    }
   }
 
   setDeckLights(on) {
@@ -2337,11 +2544,13 @@ export class Boat {
       this.tilted = tilted;
       b.legDown = !!M && !M.inboard && !M.jet && !tilted && !TE?.out;
       if (dead) thrust = E ? 0 : pw * (pw > 0 ? 0.6 : 0.8);
-      else if (troll) thrust = 0.45 * (pw / M.troll);
+      // (Her electric bow motor has to be down to push: see trollmount.js. A boat with no rig, the
+      // townsfolk's or a test's, runs it as ever.)
+      else if (troll) thrust = this.troll && this.trollMount && !this.troll.deployed ? 0 : 0.45 * (pw / M.troll);
       else thrust = (pw > 0 ? (E || M).thrust * pw : (E || M).astern * pw) * (tilted ? 0.22 : 1) * share * (TE ? TE.eff : 1);
       const spin = troll || dead || E ? 0 : pw;
       this.propSpin += dt * (6 + Math.abs(spin) * 60) * Math.sign(spin || 1) * (Math.abs(spin) > 0.02 ? 1 : 0.1);
-      if (this.trollProp) this.trollProp.rotation.z += dt * (troll && !dead ? 40 * Math.min(1, pw / 0.05) : 0);
+      this.bowNotch = troll && !dead ? Math.min(1, pw / 0.05) : 0;
       if (this.kayakProp) this.kayakProp.rotation.z += dt * (E && !dead ? 34 * pw : 0);
       // (Hands off the helm under way, the course held.) The helm itself goes over at a hand's
       // pace, and only a little way at speed: see helmTo.
@@ -2385,8 +2594,11 @@ export class Boat {
         // (An oar over the stern: a gentle push, a little steer.)
         b.thrusters.push({ p: [0, H.draft, stern + 0.2], d: dirAt(b.rudder * 0.5), f, vent: 0 });
       } else if (troll) {
-        // The bow's electric motor pulls her along and swings her bow round on the spot.
-        b.thrusters.push({ p: [0, H.keel(1) - 0.35, zAt(H, 0.97)], d: dirAt(-b.rudder * 0.9), f, vent: 0.08 });
+        // The bow's electric motor pulls her along and swings her bow round on the spot: from its
+        // propeller, where its rig has it, steered by turning its head.
+        this.bowSteer = -b.rudder * 0.9;
+        const R = this.troll && this.trollMount ? propAt(rigPose(this.trollMount, this.troll.mech.v, this.troll.mech.angle(), this.bowSteer)) : [0, H.keel(1) - 0.35, zAt(H, 0.97)];
+        b.thrusters.push({ p: R, d: dirAt(this.bowSteer), f, vent: 0.08 });
       } else if (E) {
         // The kayak's: a fixed push from its stern; its little rudder steers (once she has way on).
         b.thrusters.push({ p: [0, H.keel(0.02) - 0.18, zAt(H, 0.02)], d: [0, 0, 1], f, vent: 0.05 });
@@ -2607,9 +2819,10 @@ export class Boat {
     });
     // A bow trolling motor (see trolling.js): its push under the bow, the way its head points. (It
     // lifts out in a big sea as her bow does, and pushes nothing while it's out: vent.)
-    if (this.troll?.f > 0 && this.troll.deployed) {
-      const tb = 0.5 + (TROLL_BOATS[this.kind] ?? 0.45);
-      b.thrusters.push({ p: [0, H.keel(tb) - 0.45, zAt(H, tb)], d: dirAt(this.troll.angle), f: this.troll.f, vent: 0.12 });
+    // (At its propeller, wherever her mount puts it: off to starboard, forward of her bow.)
+    if (this.trollHere()?.f > 0 && this.troll.deployed && this.trollMount) {
+      const T = this.troll, P = rigPose(this.trollMount, T.mech.v, T.mech.angle(), T.angle);
+      b.thrusters.push({ p: propAt(P), d: dirAt(T.angle), f: T.f, vent: 0.12 });
     }
     env.t = t - dt;
     this.lastT = t;
@@ -3115,17 +3328,9 @@ export class Boat {
     }
     // The kayak's motor: up out of the water, down, or kicked up in the shallows; it turns a little
     // with the rudder.
-    // The bow trolling motor: swung down off its mount into the water, its head turning (see trolling.js).
-    if (this.troll && !this.trollRig) this.buildTroll();
-    if (this.trollRig) {
-      const T = this.troll, R = this.trollRig;
-      R.group.visible = !!T;
-      if (T) {
-        R.swing.rotation.x = (1 - T.down) * 1.5;
-        R.head.rotation.y = damp(R.head.rotation.y, T.angle, 8, dt);
-        R.prop.rotation.z += dt * 40 * Math.min(1, T.f / 60);
-      }
-    }
+    // The bow trolling motor: on its mount, swinging down into the water or up again, its head
+    // turning (see trollmount.js, trolling.js).
+    if (this.troll || this.trollView || this.trollRig) this.updateTrollRig(dt);
     if (this.emotorGroup) {
       const want = !this.emotorDown ? 1.35 : this.tilted ? 0.55 : 0;
       this.emotorGroup.rotation.x = damp(this.emotorGroup.rotation.x, want, 3.5, dt);
