@@ -131,6 +131,20 @@ export class Gamepads {
         this.was = NAMES.map(() => false);
       }
     }
+    // Two controllers, and the one we're reading is silent while another is being used: Steam,
+    // running, takes the real one for itself and hands the browser a virtual one besides. Go with
+    // the one that's actually sending (its press counts).
+    const busy = (g) => !!g && g.connected !== false && (g.buttons.some((b) => b?.pressed) || g.axes.some((a) => Math.abs(a) > 0.5));
+    const cur = this.index !== null ? list[this.index] : null;
+    if (this.index !== null && !busy(cur)) {
+      const other = list.find((g) => g && g.index !== this.index && busy(g));
+      if (other) {
+        this.releaseAll();
+        this.index = null;
+        this.connect(other);
+        this.was = NAMES.map(() => false);
+      }
+    }
     const gp = this.index !== null ? list[this.index] : null;
     return gp && gp.connected !== false ? gp : null;
   }

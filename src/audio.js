@@ -118,7 +118,16 @@ export class AudioScape {
     }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
-    const ctx = (this.ctx = new AC());
+    // (A roomy buffer: the browser makes the sound in chunks, and on a busy computer (the game
+    // drawing, a session going) small ones can come late and break the sound up into dropouts.
+    // A few hundredths of a second's delay is nothing to the sea and the wind; a stutter is.)
+    let ctx;
+    try {
+      ctx = new AC({ latencyHint: 'playback' });
+    } catch {
+      ctx = new AC();
+    }
+    this.ctx = ctx;
     const now = ctx.currentTime;
 
     this.out = ctx.createGain();
@@ -283,6 +292,28 @@ export class AudioScape {
 
   resume() {
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+  }
+
+  // Connect the sound to the speakers afresh (Settings → Sound, and whenever the computer's audio
+  // devices change: headphones plugged in, Bluetooth ones changing mode for a call). Pausing and
+  // restarting the sound makes the browser open its way to the speakers again, which is what
+  // minimising the window and bringing it back does. Never starts sound that hasn't started.
+  async restart() {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state === 'closed') return this.status();
+    try {
+      if (ctx.state === 'running') await ctx.suspend();
+      await ctx.resume();
+    } catch { /* (it'll come back on the next click) */ }
+    return this.status();
+  }
+
+  // How the sound is: { on (playing), state, ms (about how far behind the sound runs) }.
+  status() {
+    const ctx = this.ctx;
+    if (!ctx) return { on: false, state: 'off', ms: 0 };
+    const ms = Math.round(((ctx.baseLatency || 0) + (ctx.outputLatency || 0)) * 1000);
+    return { on: ctx.state === 'running', state: ctx.state, ms };
   }
 
   noise(sec, type) {
