@@ -10,9 +10,15 @@ const { Pressure, restockFactor, pressureWariness, HEAVY, CELL } = await import(
 const { seaTemp } = await import('../src/world/seatemp.js');
 const { createHabitat } = await import('../src/world/habitat.js');
 const { Ecosystem } = await import('../src/world/ecosystem.js');
-const { Drifters, jellyChance } = await import('../src/world/drifters.js');
+// (The reef's fish wear the fish's own skins, painted on a canvas.)
+{
+  const ctx2d = new Proxy({}, { get: (o, k) => (k === 'createRadialGradient' || k === 'createLinearGradient' ? () => ({ addColorStop() {} }) : k === 'measureText' ? () => ({ width: 10 }) : k === 'getImageData' ? () => ({ data: [] }) : k === 'createImageData' ? (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }) : () => {}), set: () => true });
+  globalThis.document ??= { createElement: () => ({ width: 0, height: 0, getContext: () => ctx2d }), fonts: null };
+}
+const { Drifters, jellyChance, REEF } = await import('../src/world/drifters.js');
 const { Seabed, seabedKindSouth } = await import('../src/world/seabed.js');
 const { NATURE } = await import('../src/grounds.js');
+const { siteById, PINNACLES, pinnacleRadius } = await import('../src/world/divesites.js');
 const { BAJON } = await import('../src/world/brasa.js');
 const habitat = createHabitat();
 
@@ -168,6 +174,90 @@ test('down in the water there’s life away from the fish: jellies in summer, sh
   // Out of the water, it's all put away.
   D.update(1 / 60, 2, cam, 0, 10 * 24 + 12);
   assert.equal(D.fryMesh.visible, false);
+});
+
+// A spot at home by what's below it (the first found, scanning the bay).
+function spotWhere(ok) {
+  const s = {};
+  for (let z = -300; z < 400; z += 5) for (let x = -300; x < 400; x += 5) if (ok(habitat.sample(x, z, s))) return { x, z };
+  throw new Error('no such spot');
+}
+const reefAt = (p, { density = 1, abs = 10 * 24 + 12 } = {}) => {
+  const D = new Drifters(new THREE.Scene(), habitat);
+  D.density = density;
+  D.update(1 / 60, 1, { position: new THREE.Vector3(p.x, -3, p.z) }, 1, abs);
+  return D;
+};
+
+test('the reef has its own small fish, by what’s below: wrasse and bream over the rocks, shoals out over the open sand', () => {
+  const rocks = spotWhere((s) => s.rock > 0.85 && s.depth > 4 && s.depth < 9);
+  const sand = spotWhere((s) => s.rock < 0.02 && s.weed < 0.02 && s.depth > 14);
+  const R = reefAt(rocks), S = reefAt(sand);
+  assert.ok(R.reefCount > 60, `over the rocks: ${R.reefCount}`);
+  assert.ok(R.reef.filter((G) => Math.hypot(G.x - rocks.x, G.z - rocks.z) < 9).length >= 3, 'some right by you');
+  assert.ok(S.reefCount < R.reefCount, `over deep sand: ${S.reefCount} (rocks ${R.reefCount})`);
+  const kinds = new Set(R.reef.map((G) => G.sp)), sandKinds = new Set(S.reef.map((G) => G.sp));
+  for (const k of ['wrasse', 'twobanded']) assert.ok(kinds.has(k), k);
+  // Out over the sand, only what lives out there: shoals in the open water, a gurnard on the bottom;
+  // never the rocks' wrasse and bream, nor the weed's salema.
+  assert.ok(S.reefCount > 0, 'but never empty');
+  for (const k of ['wrasse', 'twobanded', 'pollack', 'salema', 'blackbream']) assert.ok(!sandKinds.has(k), k);
+  assert.ok(S.reef.every((G) => G.mode === 'mid' || G.sp === 'gurnard'));
+  for (const G of R.reef) assert.ok(REEF.home.some((r) => r.sp === G.sp), G.sp);
+  // The dive sites' own rock and kelp count (they're not in the habitat's map): Skerries Reef has
+  // its wrasse and bream, the Kelp Forest its salema, and on the Hound they keep to the walls, up
+  // off the sand thirty metres down and just clear of the rock.
+  const kindsAt = (id) => new Set(reefAt(siteById[id]).reef.filter((G) => Math.hypot(G.x - siteById[id].x, G.z - siteById[id].z) < siteById[id].r).map((G) => G.sp));
+  for (const k of ['wrasse', 'twobanded']) assert.ok(kindsAt('reef').has(k), `Skerries Reef: ${k}`);
+  assert.ok(kindsAt('kelp').has('salema'), 'the Kelp Forest: salema');
+  const H = reefAt(siteById.hound), P = PINNACLES[0];
+  const onWall = H.reef.filter((G) => G.mode !== 'mid' && Math.hypot(G.x - P.x, G.z - P.z) < P.base * 1.6);
+  assert.ok(onWall.length >= 6, `${onWall.length} on the Hound`);
+  for (const G of onWall) {
+    assert.ok(G.y > P.bed + 0.9, 'up the wall');
+    assert.ok(Math.hypot(G.x - P.x, G.z - P.z) > pinnacleRadius(P, G.y - P.bed, Math.atan2(G.z - P.z, G.x - P.x)) + 1, 'clear of the rock');
+  }
+  // The same for the same week (nothing to do with the dice of the moment); another week, another lot.
+  const sig = (D) => D.reef.map((G) => `${G.sp}:${G.x.toFixed(2)}:${G.z.toFixed(2)}:${G.fish.length}`).sort().join('|');
+  assert.equal(sig(reefAt(rocks)), sig(R));
+  assert.notEqual(sig(reefAt(rocks, { abs: 17 * 24 + 12 })), sig(R));
+  // Fewer on lower graphics.
+  assert.ok(reefAt(rocks, { density: 0.35 }).reefCount < R.reefCount * 0.7);
+  // Drawn: in the water (off the bottom, under the top), each kind in its own mesh.
+  for (let i = 0; i < 30; i++) R.animate(1 / 30, i / 30, new THREE.Vector3(rocks.x, -3, rocks.z));
+  const m = new THREE.Matrix4(), p = new THREE.Vector3();
+  let drawn = 0;
+  for (const { m: mesh } of Object.values(R.reefMesh).filter(Boolean)) {
+    assert.ok(mesh.visible || mesh.count === 0);
+    for (let k = 0; k < mesh.count; k++, drawn++) {
+      mesh.getMatrixAt(k, m);
+      p.setFromMatrixPosition(m);
+      const floor = Math.min(...R.reef.map((G) => G.low));
+      assert.ok(p.y <= -0.6 + 1e-6 && p.y >= floor - 1e-6, `y ${p.y}`);
+    }
+  }
+  assert.equal(drawn, R.reefCount);
+});
+
+test('the reef’s fish move off from a diver who comes at them, and the curious ones come to look at one who keeps still', () => {
+  const rocks = spotWhere((s) => s.rock > 0.85 && s.depth > 4 && s.depth < 9);
+  // Swim at a group: it moves off.
+  const D = reefAt(rocks);
+  const G = D.reef.find((g) => g.mode !== 'mid');
+  const at = new THREE.Vector3(G.cx - 1.2, G.y, G.cz);
+  for (let i = 0; i < 60; i++) D.animate(1 / 30, i / 30, at);
+  assert.ok(Math.hypot(G.cx - at.x, G.cz - at.z) > 3, 'shy');
+  // Hang still a little way off a curious one: it comes over (and stops a few metres short).
+  const C = reefAt(rocks);
+  const W = C.reef.find((g) => g.curious);
+  const still = new THREE.Vector3(W.x + 8, W.y + 1, W.z);
+  const d0 = Math.hypot(W.cx - still.x, W.cz - still.z);
+  for (let i = 0; i < 30 * 10; i++) C.animate(1 / 30, i / 30, still);
+  const d1 = Math.hypot(W.cx - still.x, W.cz - still.z);
+  assert.ok(d1 < d0 - 3 && d1 > 1.5, `from ${d0.toFixed(1)} m to ${d1.toFixed(1)} m`);
+  // Out of the water: put away.
+  C.update(1 / 60, 2, { position: new THREE.Vector3(rocks.x, 2, rocks.z) }, 0, 10 * 24 + 12);
+  for (const R of Object.values(C.reefMesh)) if (R) assert.equal(R.m.visible, false);
 });
 
 test('Las Brasas has a seabed of its own: urchins on the black rock, cucumbers and garden eels on the sand', () => {
