@@ -572,6 +572,9 @@ test('a friend fishing: their rod, what’s on it, where their line meets the wa
 
 test('a friend’s fish fights where you can see it, and a catch is held up', async () => {
   const THREE = await import('three');
+  // (The fish itself, drawn in a leap, is painted on a canvas.)
+  const ctx2d = new Proxy({}, { get: (o, k) => (k === 'createRadialGradient' || k === 'createLinearGradient' ? () => ({ addColorStop() {} }) : k === 'measureText' ? () => ({ width: 10 }) : k === 'getImageData' ? () => ({ data: [] }) : k === 'createImageData' ? (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }) : () => {}), set: () => true });
+  globalThis.document ??= { createElement: () => ({ width: 0, height: 0, getContext: () => ctx2d }), fonts: null };
   const { VisitorView } = await import('../src/world/visitors.js');
   const kinds = ['row', 'skiff'];
   // What the fish is doing goes across only with a fish on, and only as one of the moves.
@@ -580,7 +583,7 @@ test('a friend’s fish fights where you can see it, and a catch is held up', as
   assert.equal(cleanPose({ m: 'foot', x: 0, z: 0, h: 0, a: 'fish', mv: 'jump' }, kinds).mv, undefined);
 
   const scene = new THREE.Scene(), view = new VisitorView(scene);
-  const fx = { splashes: 0, ripples: 0, splash() { this.splashes++; }, ripple() { this.ripples++; } };
+  const fx = { splashes: 0, ripples: 0, splash() { this.splashes++; }, ripple() { this.ripples++; }, spray() {}, flash() {}, field: { on: false } };
   const peer = (pose) => {
     const p = { id: 'sam', name: 'Sam', pose, view: pose, at: { x: pose.x, z: pose.z, h: pose.h, v: 0 } };
     return new Map([['sam', p]]);
@@ -593,7 +596,8 @@ test('a friend’s fish fights where you can see it, and a catch is held up', as
   const base = { m: 'foot', x: 0, z: 0, h: 0, vx: 0, vz: 0, a: 'fish', o: true, r: 'spin', i: 'spinner', ex: 0, ez: 15, tn: 0.6 };
   play({ ...base, mv: 'run' }, 1);
   const s0 = fx.splashes;
-  play({ ...base, mv: 'jump' }, 0.5);
+  // (A leap as they send it: the whole of it, three-quarters of a second.)
+  play({ ...base, mv: 'jump' }, 0.8);
   assert.ok(fx.splashes > s0, 'a leap throws up spray');
   // Sounding deep, nothing shows at the top.
   const s1 = fx.splashes, r1 = fx.ripples;
@@ -647,4 +651,23 @@ test('a friend who leaves and comes back has the same boats, and their figure is
   assert.equal(view.drawn.get('sam').moored.row, row);
   assert.ok(skiff.group.visible && row.group.visible);
   assert.ok(scene.children.length <= n, `${scene.children.length} in the scene, ${n} before`);
+});
+
+test('a fish on: what it is, how big, and what it’s doing go across to friends (so they see it leap as itself)', async () => {
+  const hub = new Hub();
+  const a = player(hub, 'Mags', { newCode: () => '7711' });
+  const b = player(hub, 'Bert');
+  await a.host();
+  await b.join('7711');
+  await until(() => a.others.length === 1 && b.others.length === 1);
+  const fighting = { m: 'boat', k: 'skiff', x: 10, z: 20, h: 1, f: true, o: true, r: 'spin', i: 'spinner', ex: 30, ez: 25, tn: 0.6, mv: 'jump', sp: 'seabass', sz: 71 };
+  tick([a, b], (T) => (T === a ? fighting : { m: 'foot', x: -5, z: 3, h: 0.2, a: 'stand' }));
+  await until(() => b.others[0].pose?.sp);
+  const P = b.others[0].pose;
+  assert.deepEqual([P.sp, P.sz, P.mv, P.o], ['seabass', 71, 'jump', true]);
+  // Landed: that goes across too.
+  tick([a, b], (T) => (T === a ? { ...fighting, mv: 'land' } : { m: 'foot', x: -5, z: 3, h: 0.2, a: 'stand' }));
+  await until(() => b.others[0].pose?.mv === 'land');
+  b.leave();
+  a.leave();
 });

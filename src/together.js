@@ -77,10 +77,11 @@ const KEEP = 32;            // positions kept per friend
 const LAGS = 40;            // messages (about ten seconds' worth) to judge the quickest delivery by
 const CATCH_UP = 0.05;      // how much faster or slower than real time a friend's replay may run
 const ACTS = ['walk', 'stand', 'fish', 'sit'];
-const LINE_REACH = 250;     // m: the furthest a line's end may be from whoever's fishing it
+const LINE_REACH = 700;     // m: the furthest a line's end may be from whoever's fishing it (a marlin's run)
 // With a fish on, what it's doing just now (see fight.js), so friends can see it at the end of
-// the line: running, leaping, shaking its head, charging, diving, on a long run, sounding, circling.
-export const FISH_MOVES = ['run', 'jump', 'shake', 'charge', 'dive', 'longrun', 'sound', 'circle'];
+// the line: running, leaping, shaking its head, charging, diving, on a long run, sounding, circling,
+// and coming out of the water as it's landed.
+export const FISH_MOVES = ['run', 'jump', 'shake', 'charge', 'dive', 'longrun', 'sound', 'circle', 'land'];
 
 /* ---------------- names and codes ---------------- */
 
@@ -147,6 +148,11 @@ export function cleanPose(p, kinds = null, gear = null) {
     const tn = out.o ? finite(p.tn, 0, 1.3) : null;
     if (tn != null) out.tn = tn;
     if (out.o && FISH_MOVES.includes(p.mv)) out.mv = p.mv;
+    // (What it is and how big, so friends see it leap and crash back in as the fish it is: see
+    // fightshow.js.)
+    if (out.o && typeof p.sp === 'string' && /^[a-z0-9]{1,24}$/.test(p.sp)) out.sp = p.sp;
+    // (A size no fish is is thrown out, not taken for the biggest there could be.)
+    if (out.o && Number.isFinite(p.sz) && p.sz >= 3 && p.sz <= 700) out.sz = Math.round(p.sz);
     // (Which of the shared sea's fish it is: see sharedworld.js.)
     if (out.o && Number.isInteger(p.hk) && p.hk >= 0 && p.hk < 1e5) out.hk = p.hk;
     // (Beaten and alongside, waiting for the net: a friend by it can net it for them.)
@@ -1030,6 +1036,9 @@ export class Together {
       if (P.o && P.mv) msg.mv = P.mv;
       if (P.o && P.hk != null) msg.hk = P.hk;
       if (P.o && P.nt) msg.nt = 1;
+      // (What the fish is, and how big: friends see it leap as itself. See fightshow.js.)
+      if (P.o && P.sp) msg.sp = P.sp;
+      if (P.o && P.sz) msg.sz = Math.round(P.sz);
     }
     const S = this.sent;
     // (Slowing down or stopping counts too, so nobody's carried on past where you stopped; so does
@@ -1037,7 +1046,7 @@ export class Together {
     const moved = !S || S.m !== msg.m || S.k !== msg.k || S.a !== msg.a || S.f !== msg.f || S.s !== msg.s || S.n !== msg.n || S.o !== msg.o
       || Math.hypot(S.x - msg.x, S.z - msg.z) > 0.25 || Math.abs(S.h - msg.h) > 0.05 || Math.hypot(S.vx - msg.vx, S.vz - msg.vz) > 0.3
       || S.r !== msg.r || S.i !== msg.i || (S.ex == null) !== (msg.ex == null) || (msg.ex != null && Math.hypot(S.ex - msg.ex, S.ez - msg.ez) > 0.3)
-      || Math.abs((S.tn ?? 0) - (msg.tn ?? 0)) > 0.12 || S.mv !== msg.mv || S.hk !== msg.hk || S.nt !== msg.nt
+      || Math.abs((S.tn ?? 0) - (msg.tn ?? 0)) > 0.12 || S.mv !== msg.mv || S.hk !== msg.hk || S.nt !== msg.nt || S.sp !== msg.sp
       || S.cr !== msg.cr || (msg.cr && Math.hypot(S.cx - msg.cx, S.cz - msg.cz) > 0.15)
       || String(S.tr) !== String(msg.tr);
     if (!now && (this.sendT > 0 || (!moved && this.clock - (S?.at ?? -99) < IDLE_EVERY))) return;

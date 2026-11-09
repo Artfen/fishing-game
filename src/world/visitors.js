@@ -10,6 +10,8 @@ import { cleanTrollWire } from '../trollmount.js';
 import { RODS, LINE_COLORS } from '../tackle.js';
 import { buildFloat } from '../tackleModels.js';
 import { buildRod } from '../props.js';
+import { FightShow } from '../fightshow.js';
+import { fishById, buildFishMesh } from '../fish.js';
 
 const LINE_N = 18;  // points along a friend's line
 const _tip = new THREE.Vector3();
@@ -227,36 +229,103 @@ export class VisitorView {
     d.liftKg = kg;
   }
 
-  // A friend's fish fighting at the end of their line, as they see it: the water boiling where it
-  // runs, a crash as it leaps, spray as it shakes its head at the top, a wake as it charges or
-  // streaks off; nothing at the top while it's deep (diving, sounding, circling below).
-  fishAtEnd(d, P, dt, t, fx) {
+  // A friend's fish fighting at the end of their line, as they see it, and as big as it is (see
+  // fightshow.js; they send what it is and how big): the take, a leap clear of the water with the
+  // fish itself in the air, the sea streaming off it and its head shaking, the crash back in (a
+  // billfish walking on its tail and greyhounding on); a run along the top, the line cutting the
+  // water, a swirl where it turns, spray as it shakes its head at the top, thrashing at the end and
+  // the splash as it's landed; nothing at the top while it's deep (diving, sounding, circling). You
+  // hear the splashes if you're near enough.
+  fishAtEnd(d, P, dt, t, fx, from = null) {
+    const S = d.show;
     if (!fx || !P.o || !d.end) {
       d.mvWas = null;
+      d.showF = null;
+      if (d.fishMesh) d.fishMesh.visible = false;
+      d.onWas = P.o && !d.end ? d.onWas : !!P.o;
+      S?.update(dt);
       return;
     }
-    const x = d.end.x, z = d.end.z, mv = P.mv || 'run';
+    const x = d.end.x, z = d.end.z, mv = P.mv || 'run', lv = waveHeight(x, z, t);
+    // (Your ears: their fish's splashes, quieter the further off, none beyond sixty metres.)
+    d.hearK = from ? clamp(1 - Math.hypot(x - from.x, z - from.z) / 60, 0, 1) : 0;
+    if (!S) {
+      const audio = this.audio, near = () => d.hearK;
+      d.show = new FightShow(fx, {
+        splashBig: () => near() > 0.35 && audio?.splashBig?.(),
+        splashSmall: (v = 1) => near() > 0.05 && audio?.splashSmall?.(v * near()),
+      });
+    }
+    const show = d.show;
+    // What it is: the species and size they sent (a middling fish if they didn't).
+    const sp = fishById[P.sp] || fishById.seabass, size = P.sz || Math.round((sp.size[0] + sp.size[1]) / 2);
+    const fresh = !d.showF || d.showF.sp !== sp;
+    if (fresh) {
+      d.showF = { sp, size, sizeK: clamp((size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]), 0, 1), tension: 0.4, pulling: true, stage: 'fresh', leapT: 0 };
+      show.begin();
+      // (Just hooked, while you watched: the take. Not when you only now came by, mid-fight.)
+      if (d.onWas === false) {
+        const kind = RODS[P.r]?.kind;
+        show.strike(d.showF, { x, y: lv - 0.5, z }, lv, kind === 'lure' || kind === 'fly' || kind === 'jig');
+      }
+    }
+    d.onWas = true;
+    const F = d.showF;
+    F.size = size;
+    F.tension = P.tn ?? 0.4;
+    F.pulling = mv === 'run' || mv === 'longrun' || mv === 'charge' || mv === 'dive' || mv === 'shake' || mv === 'jump';
+    F.shakeT = mv === 'shake' ? 1 : 0;
+    F.atNet = !!P.nt;
+    F.stage = P.nt || mv === 'land' ? 'beaten' : 'fresh';
+    // How deep it is, by what it's doing.
+    const deep = { sound: 6, dive: 2.5, circle: 1.5, shake: 0.08, run: 0.35, longrun: 0.35, charge: 0.25, jump: 0.3, land: 0.1 }[mv] ?? 0.8;
+    d.fishY = d.fishY == null ? lv - deep : damp(d.fishY, lv - deep, 2.5, dt);
+    let ev = null;
     if (mv !== d.mvWas) {
-      d.mvWas = mv;
       if (mv === 'jump') {
-        fx.splash(x, 0.05, z, 18, 2.4, 0.8);
-        fx.ripple(x, z, 1.8, 1.4, 0.6);
-      } else if (mv === 'run' || mv === 'longrun' || mv === 'charge') fx.ripple(x, z, 1.4, 1.2, 0.5);
+        F.leapT = 0.75;
+        show.takeOff(F, { x, y: lv, z }, lv);
+      } else if (mv === 'run' || mv === 'longrun' || mv === 'dive' || mv === 'charge') ev = 'run';
+      else if (mv === 'land' && d.mvWas) show.landed(F, { x, y: lv, z }, lv, !!d.netWas, null);
+      d.mvWas = mv;
     }
+    d.netWas = !!P.nt;
+    const leap = show.leap(F, dt, t, x, d.fishY, z, lv);
+    const away = from ? Math.atan2(x - (P.x ?? from.x), z - (P.z ?? from.z)) : 0;
+    show.frame(F, dt, t, { x, y: leap.y, z }, lv, {
+      ev,
+      line: d.line?.visible ? d.line.geometry.attributes.position.array : null,
+      n: LINE_N,
+      waterAt: (wx, wz) => waveHeight(wx, wz, t),
+      near: P.x != null ? Math.hypot(x - P.x, z - P.z) : 99,
+    });
+    // Shaking its head at the top: spray.
     d.fishT = (d.fishT || 0) - dt;
-    if (d.fishT > 0) return;
-    if (mv === 'shake') {
+    if (mv === 'shake' && d.fishT <= 0) {
       d.fishT = 0.22;
-      fx.splash(x, 0.05, z, 6, 1.5, 0.5);
-    } else if (mv === 'run' || mv === 'longrun' || mv === 'charge') {
-      d.fishT = 0.12;
-      fx.ripple(x, z, 0.5, 0.8, 0.3);
-    } else if (mv === 'jump') {
-      d.fishT = 0.3;
-    } else {
+      const k = clamp(size / 60, 0.4, 4);
+      fx.splash(x, lv + 0.05, z, Math.round(5 + 4 * k), 1.4 + 0.3 * k, 0.5);
+    } else if ((mv === 'circle' || mv === 'run') && d.fishT <= 0) {
       d.fishT = 1.2;
-      if (mv !== 'sound' && mv !== 'dive') fx.ripple(x, z, 0.8, 1, 0.3);
+      if (mv === 'circle') fx.ripple(x, z, 0.8, 1, 0.3);
     }
+    // The fish itself, when it's out of the water (a leap) or thrashing at the top.
+    const showFish = leap.airborne || mv === 'shake';
+    if (showFish) {
+      if (!d.fishMesh || d.fishMesh.userData.sp !== sp.id) {
+        if (d.fishMesh) this.scene.remove(d.fishMesh);
+        d.fishMesh = buildFishMesh(sp);
+        d.fishMesh.userData.sp = sp.id;
+        this.scene.add(d.fishMesh);
+      }
+      const m = d.fishMesh;
+      m.visible = true;
+      m.scale.setScalar((size / 100) * (sp.visual ?? 1));
+      const shake = mv === 'shake' ? Math.sin(t * 28) * 0.5 : 0;
+      m.position.set(x, leap.airborne ? leap.y : lv - 0.06, z);
+      m.rotation.set(-leap.pitch, away + Math.PI / 2 + leap.yaw + shake, leap.roll, 'YXZ');
+    } else if (d.fishMesh) d.fishMesh.visible = false;
+    show.update(dt);
   }
 
   // Hide (and let go of) someone who has left.
@@ -268,6 +337,7 @@ export class VisitorView {
       d.line.geometry.dispose();
     }
     if (d.float) this.scene.remove(d.float);
+    if (d.fishMesh) this.scene.remove(d.fishMesh);
     // (Their figure, made for them alone, is given back to the graphics card: without the rod in
     // its hand, which isn't its own to give.)
     d.rodOn?.group.removeFromParent();
@@ -343,7 +413,7 @@ export class VisitorView {
         if (P.f || P.o) tip = b.rodTip;
       }
       this.drawLine(d, P, tip, dt, t);
-      this.fishAtEnd(d, P, dt, t, fx);
+      this.fishAtEnd(d, P, dt, t, fx, from);
       // Their other boats in the water, lying where they left them (not the one they're in).
       const keep = new Set();
       for (const F of p.fleet || []) {

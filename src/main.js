@@ -409,6 +409,7 @@ const passersby = new Passersby(scene, town.paths);
 // Playing together (see together.js): friends in a session, drawn where they are.
 const together = new Together({ config: () => cloud.cfg, name: () => settings.player.name, kinds: BOAT_KINDS, skies: Object.keys(SKIES), rods: Object.keys(RODS), items: Object.keys(TACKLE) });
 const visitors = new VisitorView(scene);
+visitors.audio = audio; // (a friend's fish splashing near you: see fishAtEnd)
 // One sea for everyone in a session: the host's sea life and shoals go across, everyone else's
 // follow (see sharedworld.js). Alone, nothing changes.
 const shared = new SharedWorld({ together, sealife, eco });
@@ -9154,12 +9155,16 @@ function whereIAm() {
   const on = fishing.state === 'reeling' || fishing.state === 'landing';
   // (Fishing, your friends see your rod, what's on it, and your line out to where it meets the
   // water, or to the fish.)
-  const gear = fishing.lineOut ? { r: fishing.rod?.id, i: fishing.item?.id } : null;
-  if (gear && fishing.baitInWater) {
-    const e = fishing.state === 'reeling' ? fishing.fishPos : fishing.bob, F = fishing.fight;
+  const landing = fishing.state === 'landing' && !!fishing.fight;
+  const gear = fishing.lineOut || landing ? { r: fishing.rod?.id, i: fishing.item?.id } : null;
+  if (gear && (fishing.baitInWater || landing)) {
+    const e = fishing.state === 'reeling' || landing ? fishing.fishPos : fishing.bob, F = fishing.fight;
     Object.assign(gear, { ex: e.x, ez: e.z, tn: F?.tension, hk: F?.agent?.id, nt: F?.atNet ? 1 : 0 });
-    // (What the fish is doing, so they can see it at the end of your line.)
-    if (F && !F.atNet) gear.mv = F.jumping > 0 ? 'jump' : F.shakeT > 0 ? 'shake' : F.move === 'charge' ? 'charge' : F.move === 'sound' ? 'sound' : F.move === 'circle' && !F.pulling ? 'circle' : F.pulling ? (F.move === 'dive' || F.move === 'longrun' ? F.move : 'run') : undefined;
+    // (What the fish is doing, so they can see it at the end of your line; what it is, and how
+    // big, so they see it leap and crash back in as itself.)
+    if (F && landing) gear.mv = 'land';
+    else if (F && !F.atNet) gear.mv = F.jumping > 0 ? 'jump' : F.shakeT > 0 ? 'shake' : F.move === 'charge' ? 'charge' : F.move === 'sound' ? 'sound' : F.move === 'circle' && !F.pulling ? 'circle' : F.pulling ? (F.move === 'dive' || F.move === 'longrun' ? F.move : 'run') : undefined;
+    if (F) Object.assign(gear, { sp: F.sp.id, sz: Math.round(F.size) });
   }
   if (onFoot && crew.on) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: fishing.lineOut ? 'fish' : walker.moving ? 'walk' : 'stand', o: on, cr: crew.on.id, cx: crew.on.x, cz: crew.on.z, ...gear };
   if (onFoot) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: sitting ? 'sit' : fishing.lineOut ? 'fish' : walker.speed > 0.4 ? 'walk' : 'stand', o: on, ...gear };
