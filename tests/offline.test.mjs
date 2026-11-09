@@ -18,3 +18,11 @@ test('every game module is in the offline file list', () => {
 test('sw.js is up to date with the files (run node tools/build-sw.mjs if not)', () => {
   assert.doesNotThrow(() => execFileSync(process.execPath, [join(root, 'tools/build-sw.mjs'), '--check'], { stdio: 'pipe' }));
 });
+
+test('the title screen’s version: the same build as the offline copy, and a release number', async () => {
+  const sw = readFileSync(join(root, 'sw.js'), 'utf8');
+  const { RELEASE, BUILD, BUILT } = await import('../src/version.js');
+  assert.equal(sw.match(/const VERSION = '([0-9a-f]+)'/)[1], BUILD);
+  assert.ok(Number.isInteger(RELEASE) && RELEASE > 0);
+  assert.match(BUILT, /^\d{4}-\d{2}-\d{2}$/);
+});
