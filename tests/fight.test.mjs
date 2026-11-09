@@ -3,7 +3,7 @@
 // reasons the game says? Run with `node --import ./tests/setup.mjs --test tests/`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newFight, stepFight, breakReason, DIFFICULTY } from '../src/fight.js';
+import { newFight, stepFight, breakReason, DIFFICULTY, spoolFor } from '../src/fight.js';
 import { RODS, TERMS } from '../src/tackle.js';
 import { fishById } from '../src/fish.js';
 
@@ -246,8 +246,9 @@ test('a sea bass, a trout and a tuna are three different fights, not one fight o
   assert.ok(!bass.moves.charge && !bass.moves.longrun && !bass.moves.sound, JSON.stringify(bass.moves));
   assert.equal(tuna.moves.longrun >= tuna.n && tuna.moves.sound >= tuna.n * 0.9 && tuna.moves.circle >= tuna.n * 0.9, true, JSON.stringify(tuna.moves));
   assert.ok(!tuna.moves.charge && !tuna.moves.headshake && !tuna.moves.dive, JSON.stringify(tuna.moves));
-  // The tuna's run takes line far past where it was hooked; nothing else does.
-  assert.ok(tuna.extra > 40 && trout.extra === 0 && bass.extra === 0, `${tuna.extra} m`);
+  // The tuna's run takes line far past where it was hooked; a trout or a bass on a sensible drag
+  // takes a few metres past it at most.
+  assert.ok(tuna.extra > 40 && trout.extra < 8 && bass.extra < 8, `tuna ${tuna.extra} m, trout ${trout.extra} m, bass ${bass.extra} m`);
   // Answered, every one of them comes in.
   for (const r of [trout, bass, tuna]) assert.ok(r.rate >= 0.95, JSON.stringify(r.ends));
 });
@@ -305,4 +306,96 @@ test('a long run: line pours off past the hook, a drag far too light empties a s
   const stay = playMoves('tuna', rod, { n: 40 }), follow = playMoves('tuna', rod, { n: 40, chase: 2 });
   assert.equal(stay.ends['snap:spool'] || 0, 0);
   assert.ok(follow.time < stay.time, `${follow.time.toFixed(1)} s following vs ${stay.time.toFixed(1)} s`);
+});
+
+// Line off the reel: any fish that outpulls the drag swims off with line, past where it was hooked
+// if it keeps going; how far and how fast is down to the drag, the fish and the water it has.
+// (Played carefully, each move answered, with no hook ever thrown: this is about the line. firstRun:
+// stop when its first run ends, to time a fresh fish's run.)
+function lineTaken(id, rod, { drag, n = 40, seed = 13, room = Infinity, k = 0.9, firstRun = false } = {}) {
+  const sp = fishById[id], rnd = dice(seed), diff = DIFFICULTY.standard;
+  const out = { n, landed: 0, time: 0, ends: {}, extra: 0, speed: 0, slips: 0, edges: 0, windSlip: 0 };
+  for (let i = 0; i < n; i++) {
+    const F = newFight(sp, sizeAt(sp, k), { ...rod, drag: drag ?? rod.drag }, diff, false, rnd, { level: { throwHook: 0, pull: 0 }, range: 30 });
+    F.room = room;
+    let end = null, clock = 0, ran = false;
+    for (let s = 0; s < 30 * 400 && !end; s++) {
+      const dt = 1 / 30;
+      let held = !(F.surgeT > 0 || (F.warned && !F.pulling));
+      F.side = F.shakeT > 0 || (F.pulling && F.move === 'dive') ? -F.dir : 0;
+      if (F.move === 'charge') held = true;
+      if (F.move === 'sound') held = (clock += dt) % 1 < 0.6;
+      if (F.move === 'circle' && !F.pulling) held = F.coming;
+      const o0 = F.dist * (1 - F.progress) + F.extra;
+      const ev = stepFight(F, held, dt, diff, rnd);
+      const o1 = F.dist * (1 - F.progress) + F.extra;
+      if (F.pulling) ran = true;
+      else if (firstRun && ran) end = 'first run';
+      if (F.slipping && F.extra > 0 && o1 > o0) {
+        out.speed += (o1 - o0) / dt;
+        out.slips++;
+      }
+      if (ev === 'edge') out.edges++;
+      out.windSlip = Math.max(out.windSlip, F.windSlip);
+      out.extra = Math.max(out.extra, F.extra);
+      if (ev && (ev.startsWith('snap:') || ev.startsWith('off:'))) end = ev;
+      else if (F.progress >= 1) {
+        end = 'landed';
+        out.landed++;
+        out.time += F.time;
+      }
+    }
+    out.ends[end || 'timeout'] = (out.ends[end || 'timeout'] || 0) + 1;
+  }
+  out.rate = out.landed / n;
+  out.time = out.landed ? out.time / out.landed : 0;
+  out.speed = out.slips ? out.speed / out.slips : 0;
+  return out;
+}
+
+test('on a drag far too light any fish takes line past where it was hooked; the right drag keeps it close', () => {
+  // (Before, only the long-running kinds could: a carp or a pike never got further off than where
+  // it took the bait, however light the drag.)
+  for (const [id, rod] of [['carp', rodOf('carp')], ['pike', rodOf('spin')], ['trout', rodOf('trout')]]) {
+    const off = lineTaken(id, rod, { drag: 0 }), set = lineTaken(id, rod), firm = lineTaken(id, rod, { drag: 4 });
+    assert.ok(off.extra > 5 && off.extra > set.extra * 1.5 && set.extra >= firm.extra, `${id}: ${off.extra.toFixed(1)} m off, ${set.extra.toFixed(1)} m set, ${firm.extra.toFixed(1)} m firm`);
+    // And it still comes in, slower: the drag that light doesn't tire it or stop its runs.
+    assert.ok(off.rate >= 0.95 && off.time > set.time, `${id}: ${JSON.stringify(off.ends)} ${off.time.toFixed(1)} s vs ${set.time.toFixed(1)} s`);
+  }
+  // A big carp on a float rod's light line with the drag right off: tens of metres.
+  assert.ok(lineTaken('carp', rodOf('float'), { drag: 0 }).extra > 30);
+});
+
+test('line goes out as fast as the fish can swim against the drag: faster on a lighter drag, and a tuna faster than a carp', async () => {
+  // (A fresh fish's first run, timed on each drag.)
+  const carp0 = lineTaken('carp', rodOf('carp'), { drag: 0, firstRun: true }), carp2 = lineTaken('carp', rodOf('carp'), { drag: 2, firstRun: true });
+  assert.ok(carp0.speed > carp2.speed * 1.1, `${carp0.speed.toFixed(2)} vs ${carp2.speed.toFixed(2)} m/s`);
+  const tuna = lineTaken('tuna', await guideRod('tuna'), { firstRun: true });
+  assert.ok(tuna.speed > carp0.speed * 1.5, `tuna ${tuna.speed.toFixed(2)} m/s, carp ${carp0.speed.toFixed(2)} m/s`);
+  // (Within reason: a carp's run a couple of metres a second, a tuna's several.)
+  assert.ok(carp0.speed > 1 && carp0.speed < 4 && tuna.speed < 12, `${carp0.speed} ${tuna.speed}`);
+});
+
+test('a drag far too light: winding against a resting fish only slips the spool, but a beaten one comes in', async () => {
+  const { slipK } = await import('../src/fight.js');
+  // Far lighter than drawing it in takes: most of what you wind slips; a sensible drag, none.
+  assert.ok(slipK(0.3, 1.4) < 0.5 && slipK(0.55, 1.0) === 1 && slipK(0.42, 0.6) === 1);
+  const off = lineTaken('carp', rodOf('carp'), { drag: 0 });
+  assert.ok(off.windSlip > 0.2, `${off.windSlip} m/s slipped`);
+  assert.equal(lineTaken('carp', rodOf('carp')).windSlip, 0);
+  // A drag right off on a fish far too strong for the line: it still comes in once it's beaten.
+  assert.ok(lineTaken('carp', rodOf('float'), { drag: 0, n: 20 }).rate >= 0.95);
+});
+
+test('a bank or the shallows stops a run: it turns, and takes no more line than the water allows', () => {
+  const r = lineTaken('carp', rodOf('carp'), { drag: 0, room: 6 });
+  assert.ok(r.extra <= 6 + 1e-9 && r.edges > 10, `${r.extra} m, turned ${r.edges} times`);
+  assert.ok(r.rate >= 0.95);
+});
+
+test('any fish can empty a spool that small on a drag that light', () => {
+  const r = lineTaken('carp', { ...rodOf('carp'), spool: 45 }, { drag: 0 });
+  assert.ok((r.ends['snap:spool'] || 0) > 5, JSON.stringify(r.ends));
+  // The big-game reels hold far more: a marlin on its own tackle never comes near.
+  assert.ok(spoolFor({ kg: 36 }) >= 600 && spoolFor({ kg: 23 }) >= 400 && spoolFor({ kg: 2 }) >= 100);
 });

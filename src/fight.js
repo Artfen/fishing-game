@@ -37,7 +37,9 @@
 // - 'dive':      a crash-dive for the rocks or the weed: side strain turns its head;
 // - 'lastdash':  one more dive at your feet, close in, when you thought it was done;
 // - 'longrun':   a tuna's or a wahoo's run that pours line off the reel past where it was
-//                hooked; the spool holds only so much (a drag set too light lets it all go);
+//                hooked (any fish can take line past where it was hooked when it outpulls the
+//                drag, but these go far); the spool holds only so much (a drag set too light
+//                lets it all go);
 // - 'sound':     straight down and hanging there, a dead weight: winding steadily barely moves
 //                it; pump it up in strokes (lift, then wind down as you lower the rod);
 // - 'circle':    a tired tuna circling below the boat: wind as it comes up on the near side,
@@ -141,11 +143,32 @@ export const MOVES = {
   circle: { name: 'the circles', tell: 'Tired, it circles below the boat: the rod tip rises and falls.', answer: 'Wind as it comes up on the near side; hold as it goes round the far side.' },
 };
 
-// How much line each reel holds (m), from the line's class: the big-game reels most, a fly reel
-// (fly line and backing) least.
+// Line off the reel. When a running fish pulls harder than the drag, the drag slips and the fish
+// swims off with line: as fast as it can swim against the drag's pull (a fish nearly free on a
+// drag set far too light, a slow creep against one that nearly holds it), out past where it was
+// hooked if it keeps going, until it tires, turns, runs out of water or empties the spool. A run
+// that nothing much is stopping lasts longer, and winding against a resting fish on a drag that
+// light only slips the spool. So the drag is the lever: light enough to give line on a surge,
+// firm enough to stop a run.
+//
+// How fast each kind can run (m/s at the reel, for a fish of its size, fresh), by fight style:
+// a wahoo or a billfish fastest, a tuna, then the darting and head-shaking kinds; clinging and
+// twisting kinds hardly run at all.
+const STYLE_SPEED = {
+  steady: 1, dogged: 0.9, dash: 1.15, thrash: 1.05, flat: 0.6, jet: 0.8, deep: 1.15, cling: 0.4,
+  twist: 0.7, plate: 0.85, roll: 0.75, leap: 1.15, billfish: 0.6, shark: 0.9, blister: 1.5,
+};
+export const runSpeed = (sp, size) => (1.6 + (2.6 * size) / 100) * (STYLE_SPEED[sp.fight || 'steady'] ?? 1);
+// The drag holding less than this share of a running fish's pull barely checks it: its run goes
+// on longer (up to RUN_FREE times as long, held by nothing).
+const CHECK = 0.3, RUN_FREE = 2.4;
+
+// How much line each reel holds (m), from the line's class: the big-game reels most (an 80 lb
+// class lever-drag reel holds the best part of 700 m of its line, a 50 lb one over 400 m), a fly
+// reel (fly line and backing) least.
 export const spoolFor = (line) => {
   const kg = line?.kg ?? 4;
-  return kg >= 20 ? 320 : kg >= 8 ? 200 : kg >= 3.5 ? 150 : 110;
+  return kg >= 30 ? 650 : kg >= 20 ? 420 : kg >= 8 ? 200 : kg >= 3.5 ? 150 : 110;
 };
 
 // How hard each kind makes for cover (weed, roots, rock) when it runs: 1 an ordinary fish; more,
@@ -168,6 +191,12 @@ export const coverPull = (sp) => COVER[sp.id] ?? STYLE_COVER[sp.fight || 'steady
 export const swingLimit = (line) => Math.min(2, Math.max(0.4, (line?.kg ?? 2) * 0.25));
 
 const SURGE = 0.5;  // seconds
+// The fight's metres are reckoned at the reel: a fraction of the fight is this many metres at
+// least, so line goes out and comes back at the same pace however close it was hooked.
+const SPAN = 30;
+// Winding a resting fish in loads the line by about this much (of its breaking strain); a drag set
+// well under it slips under the handle, and you gain only this share of what you wind.
+export const slipK = (d, f) => clamp((d / (0.2 + 0.35 * f) - 0.3) / 0.3, 0.35, 1);
 export const JOLT = [0.2, 0.55]; // the extra load (over the drag) of winding into a surge: base, and per unit of pull
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const approach = (v, target, up, down, dt) => (v < target ? Math.min(target, v + up * dt) : Math.max(target, v - down * dt));
@@ -253,11 +282,18 @@ export function newFight(sp, size, rod, diff, cover = false, rnd = Math.random, 
     coming: false,
     heldFor: 0,    // how long you've been winding (for a pumping stroke)
     strokes: 0,
-    // How far off it was hooked (m), the line out past that (a long run), and the reel's capacity.
+    // How far off it was hooked (m), the line out past that (a run that took line past where it
+    // was hooked), the reel's capacity, and how fast it can run (m/s).
     dist: Math.max(3, who.range ?? 30),
     extra: 0,
     spool: rod.spool ?? spoolFor(rod.line),
     spoolWarn: 0,
+    speed: runSpeed(sp, size),
+    // The water it has to run in past where it was hooked (m; set each step by the game: a bank
+    // or the shallows turns it), and whether it turned there this run.
+    room: Infinity,
+    edged: false,
+    windSlip: 0,   // line the spool slipped back as you wound against a drag too light (m/s)
     chase: 0,      // the boat closing on it (m/s; set each step)
   };
 }
@@ -266,13 +302,15 @@ export function newFight(sp, size, rod, diff, cover = false, rnd = Math.random, 
 // Returns what happened this step: null, 'warn' (a flick before a run), 'run', 'turn' (it
 // changed direction), 'jump', 'tiring', 'beaten'; a signature move beginning: 'charge', 'shake'
 // (a headshake), 'dive', 'lastdash', 'longrun', 'sound', 'circle', or answered: 'turned' (side
-// strain turned a dive), 'lifted' (pumped up off the bottom), 'spool' (the spool running low);
+// strain turned a dive), 'lifted' (pumped up off the bottom), 'spool' (the spool running low),
+// 'edge' (a run stopped by a bank or the shallows: it turns);
 // or an end: a break 'snap:tension' | 'snap:drag' | 'snap:snag' | 'snap:rock' | 'snap:teeth' |
 // 'snap:spool', or the fish coming off, 'off:thrown' | 'off:pulled'.
 export function stepFight(F, held, dt, diff, rnd = Math.random) {
   F.time += dt;
   let event = null;
   F.phaseT -= dt;
+  F.windSlip = 0;
   const beaten = F.stage === 'beaten';
   const sig = F.sig || [];
   const has = (m) => sig.includes(m);
@@ -341,6 +379,7 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
       F.afterCharge = false;
       F.move = null;
       F.pulling = true;
+      F.edged = false;
       F.surgeT = SURGE;
       F.phaseT = (0.7 + rnd() * 0.7 + F.strength * 0.5) * (0.45 + 0.55 * F.stamina) * F.style.run;
       F.dir = rnd() < 0.5 ? -1 : 1;
@@ -444,9 +483,16 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
     F.slipping = !air && f > d * hold;
     const long = F.move === 'longrun';
     if (F.slipping) {
-      // The drag gives line: it gains distance, the more so the harder it outpulls the drag (and
-      // on a long run, line simply pours off the reel).
-      F.progress -= (0.03 + 0.05 * Math.min(f / (d * hold) - 1, 2)) * dt * (long ? 2.2 : 1);
+      // The drag gives line: it swims off as fast as it can against the drag's pull (nearly its
+      // full speed on a drag far too light, a creep against one that nearly holds it), tiring;
+      // on a long run, line simply pours off the reel. (Reckoned at the reel: see SPAN.)
+      const free = Math.sqrt(clamp(1 - (d * hold) / f, 0, 1));
+      const v = F.speed * (0.4 + 0.6 * F.stamina) * free * (long ? 1.4 : 1) * (F.dashing ? 1.2 : 1);
+      F.progress -= (v * dt) / Math.max(F.dist, SPAN);
+      // A drag holding back only a small share of its pull hardly checks it: the run goes on
+      // (not a beaten fish's: its runs are half-hearted, short whatever the drag).
+      const check = (d * hold) / f;
+      if (check < CHECK && !F.edged && !beaten) F.phaseT += dt * (1 - Math.max(1 / RUN_FREE, check / CHECK));
     } else if (held) F.progress += F.reel * 0.35 * dt * (1 - 0.35 * Math.max(0, F.flow)); // it can't take line: you gain a little
     // A dive: side strain held against it turns its head (a firm hand turns it sooner).
     if (F.move === 'dive') {
@@ -520,7 +566,11 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
       }
     } else if (held) {
       F.tension = approach(F.tension, Math.min(0.2 + 0.35 * f, d) + (F.pumpLoad || 0), 2.5, 1.5, dt);
-      F.progress += wind;
+      // (On a drag set far lighter than it takes to draw it in, the spool slips under the handle:
+      // you wind, and hardly gain. Beaten, rolling on its side, it comes in on any drag.)
+      const k = beaten ? 1 : slipK(d, f);
+      F.progress += wind * k;
+      F.windSlip = k < 1 ? (wind * (1 - k) * Math.max(F.dist, SPAN)) / dt : 0;
       F.stamina -= 0.012 * diff.tire * dt;
     } else {
       F.tension = approach(F.tension, 0.1, 1, 1.4, dt);
@@ -550,21 +600,31 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
       }
     }
   }
-  // A long run takes line past where it was hooked; that has to be won back before it comes any
-  // closer, and the spool holds only so much.
-  if (has('longrun')) {
+  // A fish that keeps running against the drag takes line past where it was hooked; that has to
+  // be won back before it comes any closer, and the spool holds only so much.
+  {
     // (The boat closing on it wins that line back as surely as the reel.)
     if (F.chase > 0 && F.extra > 0) F.extra = Math.max(0, F.extra - F.chase * dt);
     // (Reckoned at the reel: a run pours off line, and winding gets it back, at the same pace
     // however far off it was hooked.)
-    const span = Math.max(F.dist, 30);
-    if (F.progress < 0 && F.pulling && F.move === 'longrun') {
+    const span = Math.max(F.dist, SPAN);
+    if (F.progress < 0) {
       F.extra += -F.progress * span;
       F.progress = 0;
     } else if (F.extra > 0 && F.progress > p0) {
       const back = Math.min(F.extra, (F.progress - p0) * span);
       F.extra -= back;
       F.progress -= back / span;
+    }
+    // Out of water to run in (a bank, the shallows): it can go no further, and turns.
+    if (F.extra > F.room) {
+      F.extra = Math.max(0, F.room);
+      if (F.pulling && !F.edged) {
+        F.edged = true;
+        F.dir = -F.dir;
+        F.phaseT = Math.min(F.phaseT, 0.35);
+        event = event || 'edge';
+      }
     }
     const out = F.dist * (1 - F.progress) + F.extra;
     if (out >= F.spool) return 'snap:spool';
