@@ -12,6 +12,7 @@ import { CAST_SPEED } from './throttle.js';
 import { FishLine } from './fishline.js';
 import { heroDistance } from './reveal.js';
 import { BEHAVIOUR, prefsFor } from './behaviour.js';
+import { FightShow, bigness } from './fightshow.js';
 
 // Which kind of drag a rod's reel has, for how it sounds (see audio.js reel()): a fixed-spool
 // reel's fine clicker, a fly reel's click-pawl ratchet (and a centrepin's), a multiplier's lever drag.
@@ -72,6 +73,8 @@ export class Fishing {
     this.audio = audio;
     this.eco = eco;
     this.hooks = hooks;
+    // How a fight looks on the water: strikes, leaps, runs, the line, the landing (see fightshow.js).
+    this.show = new FightShow(fx, audio, hooks);
     this.state = 'idle';
     this.t = 0;
     this.power = 0;
@@ -998,8 +1001,12 @@ export class Fishing {
     // (The strike: the rod snaps round into its fighting curve, and you feel it in your arms.)
     this.rodBounce = Math.max(this.rodBounce || 0, 0.85);
     if (!selfHooked) this.hooks.shake?.(0.16);
-    this.fx.splash(this.bob.x, 0.05, this.bob.z, selfHooked ? 6 : 14, 2.2, 0.7);
-    this.fx.ripple(this.bob.x, this.bob.z, 1.8, 1.2, 0.6);
+    // The take, seen: the water erupting at the top, or a swirl as it turns away with it down deep.
+    {
+      const lv = waterLevel(this.hook.x, this.hook.z), top = this.hook.y > lv - 1.2 || this.kind === 'lure' || this.kind === 'fly';
+      this.show.begin();
+      this.show.strike(this.fight, this.hook, lv, top && !selfHooked);
+    }
     this.setStatus(selfHooked ? 'fishon' : 'hooked');
     if (selfHooked) this.hooks.flash('Fish on! It hooked itself on the rig. Pick up the rod: hold to play it.', 3.5);
     this.hooks.onHook(this.fight);
@@ -1082,7 +1089,12 @@ export class Fishing {
     if (F.kickT <= 0) {
       F.kickT = rand(3.5, 6);
       F.kick = 1;
-      this.fx.splash(this.fishPos.x, 0.05, this.fishPos.z, 12, 2, 0.6);
+      {
+        // (A last kick alongside: the bigger the fish, the bigger the splash.)
+        const S = bigness(F.size), lv = waterLevel(this.fishPos.x, this.fishPos.z);
+        this.fx.splash(this.fishPos.x, lv + 0.05, this.fishPos.z, Math.round(10 + 12 * S), 1.8 + 0.5 * S, 0.6 + 0.25 * S);
+        this.fx.ripple(this.fishPos.x, this.fishPos.z, 1.0 + 0.5 * S, 1.1, 0.5);
+      }
       this.audio.splashSmall(0.9);
       F.word = 'a last kick';
       F.wordT = 1.2;
@@ -1158,8 +1170,11 @@ export class Fishing {
     this.from.copy(this.fishPos);
     mesh.visible = true;
     mesh.scale.setScalar(F.agent.scale);
-    this.fx.splash(this.fishPos.x, 0.05, this.fishPos.z, 18, 2.6);
-    this.fx.ripple(this.fishPos.x, this.fishPos.z, 2.2, 1.6, 0.6);
+    // Out with a splash, the water pouring off the net (or off the fish, lifted out on the line).
+    {
+      const lv = waterLevel(this.fishPos.x, this.fishPos.z), net = this.net;
+      this.show.landed(F, this.fishPos, lv, this.netted, this.netted ? () => (net.visible ? net.position : null) : () => (this.state === 'landing' ? mesh.position : null));
+    }
     this.audio.splashBig();
     if (!F.netted) this.hooks.feel?.('landed');
     // A squid or cuttlefish comes out squirting ink.
@@ -1521,6 +1536,7 @@ export class Fishing {
     }
     this.updateVisuals(t, dt, fishMesh);
     this.placeNet(fishMesh, t);
+    this.show.update(dt);
     this.turnReel(dt);
     this.audio.reel?.(R);
   }
@@ -2089,7 +2105,7 @@ export class Fishing {
     // A leap: out of the water and back with a crash. Slack line now can lose it.
     if (ev === 'jump') {
       F.leapT = 0.75;
-      this.fx.splash(this.fishPos.x, 0.05, this.fishPos.z, 16, 2.4, 0.7);
+      this.show.takeOff(F, this.fishPos, waterLevel(this.fishPos.x, this.fishPos.z));
       this.audio.splashSmall(1.3);
       say('jumping!', 1.2);
       this.hooks.feel?.('jump');
@@ -2181,29 +2197,25 @@ export class Fishing {
     const floor = solidHeight(x, z) + 0.3, lv = waterLevel(x, z);
     let y = Math.min(Math.max(lerp(F.start.y, lv - 0.35, e) - (F.pulling ? St.dive * (1 - e * 0.5) : 0) - F.deep, floor), lv - 0.2);
     y = lerp(y, lv - 0.12, F.top);
-    // In a leap it clears the water, nose up, and falls back in.
-    let pitch = 0;
-    if (F.leapT > 0) {
-      F.leapT -= dt;
-      const u = 1 - clamp(F.leapT / 0.75, 0, 1);
-      y = Math.max(y, lv + Math.sin(u * Math.PI) * (0.35 + F.sizeK * 0.6) - 0.15);
-      pitch = lerp(0.9, -0.9, u);
-      if (F.leapT <= 0) {
-        this.fx.splash(x, 0.05, z, 18, 2.2, 0.8);
-        this.fx.ripple(x, z, 1.8, 1.4, 0.6);
-        this.audio.splashSmall(1.2);
-      }
-    }
+    // In a leap it clears the water (as far as a fish its size and kind does), nose up, the sea
+    // streaming off it, shaking its head, and crashes back in; a billfish walks on its tail and
+    // greyhounds on (see fightshow.js).
+    const leap = this.show.leap(F, dt, t, x, y, z, lv);
+    y = leap.y;
+    const pitch = leap.pitch;
     this.fishPos.set(x, y, z);
     const away = Math.atan2(x - b.x, z - b.z);
     // (Shaking its head: the head thrown side to side; charging: nose on to you.)
     const shake = F.shakeT > 0 ? Math.sin(F.shakeClock * Math.PI * 9) * 0.55 : 0;
     const face = F.move === 'charge' ? away + Math.PI : away + (F.pulling ? F.lat * 0.15 : F.dir * 1.6);
-    this.eco.placeHooked(F.agent, x, y, z, face + shake, F.pulling || F.move === 'charge' ? 1 : F.stage === 'beaten' ? 0.2 : 0.5);
+    this.eco.placeHooked(F.agent, x, y, z, face + shake + leap.yaw, F.pulling || F.move === 'charge' ? 1 : F.stage === 'beaten' ? 0.2 : 0.5);
     // Beaten, it rolls on its side; in a leap, it's nose up.
     F.roll = damp(F.roll, F.stage === 'beaten' && !F.pulling ? 1.25 : 0, 2, dt);
-    F.agent.bank = F.roll;
+    F.agent.bank = F.roll + leap.roll;
     F.agent.pitch = pitch;
+    // The water round it: a run along the top, a swirl as it turns, the line cutting through, the
+    // thrash alongside at the end.
+    this.show.frame(F, dt, t, this.fishPos, lv, { ev, line: this.fishLine.p, n: this.fishLine.n, waterAt: (wx, wz) => waveHeight(wx, wz, t), near: Math.hypot(x - b.x, z - b.z) });
     this.mouthOf(F.agent, this.hook);
     if (this.kind === 'float' || (this.kind === 'fly' && this.item.fly === 'nymph')) this.bob.set(x, waveHeight(x, z, t) - (F.pulling ? 0.16 : 0.06), z);
     else this.bob.set(x, waveHeight(x, z, t), z);
