@@ -3,7 +3,7 @@ import { walkHeight, waterLevel } from './world/terrain.js';
 import { waveHeight } from './world/water.js';
 import { buildRod, bendRod } from './props.js';
 import { RODS } from './tackle.js';
-import { lerp, damp, dampAngle, smoothstep } from './util.js';
+import { lerp, damp, dampAngle, smoothstep, clamp } from './util.js';
 import { Dress } from './dress.js';
 
 const WALK = 3.0;      // metres per second
@@ -14,7 +14,7 @@ const STEEP = 1.15;    // rise per metre that is too steep to climb
 const UP = new THREE.Vector3(0, 1, 0);
 const HOLD = new THREE.Vector3(0.08, 1.02, 0.28); // where the figure holds the rod
 const EYE = 1.6;      // eye height in first person
-const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3();
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3(), _pl = new THREE.Vector3();
 const _p = { x: 0, z: 0 };
 
 function setLimb(mesh, a, b, r) {
@@ -23,6 +23,31 @@ function setLimb(mesh, a, b, r) {
   mesh.position.copy(a).addScaledVector(_d, 0.5);
   mesh.quaternion.setFromUnitVectors(UP, _d.divideScalar(len));
   mesh.scale.set(r, len, r);
+}
+
+// The elbow for a hand at T from a shoulder at S (an upper arm UPPER long, a forearm FORE): where the
+// two bones meet, bent towards pole (out and down and back, for an arm), the hand held to the arm's
+// reach. Writes the elbow into out, and the hand (if it had to be pulled in) into T.
+export const UPPER = 0.3, FORE = 0.29;
+const _ik = new THREE.Vector3(), _pole = new THREE.Vector3();
+export function reach(S, T, pole, out) {
+  _ik.subVectors(T, S);
+  let d = _ik.length();
+  const max = UPPER + FORE - 0.005, min = Math.abs(UPPER - FORE) + 0.02;
+  if (d < 1e-5) {
+    _ik.set(0, -1, 0);
+    d = min;
+  } else _ik.divideScalar(d);
+  if (d > max) {
+    T.copy(S).addScaledVector(_ik, max);
+    d = max;
+  } else if (d < min) d = min;
+  const along = (UPPER * UPPER - FORE * FORE + d * d) / (2 * d), h = Math.sqrt(Math.max(0, UPPER * UPPER - along * along));
+  // (The pole, made square to the arm's line.)
+  _pole.copy(pole).addScaledVector(_ik, -pole.dot(_ik));
+  if (_pole.lengthSq() < 1e-8) _pole.set(0, -1, 0).addScaledVector(_ik, _ik.y);
+  _pole.normalize();
+  return out.copy(S).addScaledVector(_ik, along).addScaledVector(_pole, h);
 }
 
 // You, on foot: the same yellow coat and teal hat as in the boat (or whatever you've put on: see
@@ -155,11 +180,14 @@ export class Walker {
       return { s, hip, knee };
     });
 
+    // Arms: an upper arm and a forearm, the elbow worked out from where the hand has to be (see
+    // reach), bending out and down the way an elbow does.
     this.arms = [1, -1].map((s) => {
       const arm = cast(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 7), coat));
+      const fore = cast(new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 7), coat));
       const hand = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), skin);
-      this.body.add(arm, hand);
-      return { s, arm, hand, shoulder: new THREE.Vector3(s * 0.22, 0.44, 0), target: new THREE.Vector3() };
+      this.body.add(arm, fore, hand);
+      return { s, arm, fore, hand, shoulder: new THREE.Vector3(s * 0.22, 0.44, 0), target: new THREE.Vector3(), elbow: new THREE.Vector3() };
     });
     // The water bottle, in your hand while you drink.
     const bottleMat = new THREE.MeshLambertMaterial({ color: '#4f7c95' });
@@ -254,8 +282,43 @@ export class Walker {
     return step / run < STEEP || step < (this.wading > 0.2 ? 0.45 : 0.3);
   }
 
+  // A step aboard a boat, or off one onto the bank: from (a world point; where you are, if not
+  // given) to target() (asked each frame, so a boat that moves on the swell is followed), over
+  // dur seconds, up and over her side (lift: how high above the higher end), facing the way you
+  // go; done() when you're there. Until then the keys do nothing.
+  stepTo(target, { from = null, dur = 0.8, lift = 0.3 } = {}, done = null) {
+    const f = from ? from.clone() : this.pos.clone();
+    this.stepping = { from: f, target, t: 0, dur, lift, done, last: f.clone() };
+    this.pos.copy(f);
+  }
+
+  stepUpdate(dt, t) {
+    const S = this.stepping;
+    S.t = Math.min(S.dur, S.t + dt);
+    const k = S.t / S.dur, e = smoothstep(0, 1, k), to = S.target();
+    const nx = lerp(S.from.x, to.x, e), nz = lerp(S.from.z, to.z, e);
+    const ny = lerp(S.from.y, to.y, e) + Math.sin(Math.PI * k) * S.lift;
+    if (Math.hypot(to.x - S.from.x, to.z - S.from.z) > 0.2) this.heading = dampAngle(this.heading, Math.atan2(to.x - S.from.x, to.z - S.from.z), 10, dt);
+    this.vel.set((nx - S.last.x) / Math.max(dt, 1e-3), 0, (nz - S.last.z) / Math.max(dt, 1e-3));
+    this.pos.set(nx, ny, nz);
+    S.last.copy(this.pos);
+    this.ground = ny;
+    this.wading = 0;
+    this.moving = true;
+    this.animate(dt, t);
+    this.group.position.copy(this.pos);
+    this.group.rotation.y = this.heading;
+    this.group.updateMatrixWorld(true);
+    if (k >= 1) {
+      this.stepping = null;
+      this.vel.set(0, 0, 0);
+      S.done?.();
+    }
+  }
+
   // move: a world-space direction (length 0..1) from the camera-relative keys or stick.
   update(dt, t, move, { jog = false, locked = false, obstacles = null } = {}) {
+    if (this.stepping) return this.stepUpdate(dt, t);
     this.fwd.set(Math.sin(this.heading), 0, Math.cos(this.heading));
     this.right.set(-Math.cos(this.heading), 0, Math.sin(this.heading));
     const mag = locked ? 0 : Math.min(1, Math.hypot(move.x, move.z));
@@ -309,6 +372,15 @@ export class Walker {
       L.hip.rotation.x = -Math.sin(ph) * swing;
       L.knee.rotation.x = Math.max(0, Math.cos(ph)) * swing * 1.3 + (1 - amt) * 0.02;
     }
+    // (Stepping up over a boat's side: the leading knee comes up high, then the other follows.)
+    if (this.stepping) {
+      const k = this.stepping.t / this.stepping.dur, up = Math.sin(Math.PI * clamp(k * 1.6, 0, 1)), up2 = Math.sin(Math.PI * clamp(k * 1.6 - 0.6, 0, 1));
+      const [L0, L1] = this.legs;
+      L0.hip.rotation.x -= up * 0.9;
+      L0.knee.rotation.x += up * 1.2;
+      L1.hip.rotation.x -= up2 * 0.7;
+      L1.knee.rotation.x += up2 * 1.0;
+    }
     const bob = Math.abs(Math.sin(this.phase)) * 0.045 * amt * (this.jogging ? 1.6 : 1);
     this.body.position.y = bob - (1 - amt) * Math.sin(t * 1.6) * 0.004;
     // Sat down: thighs forward, shins down, the hips on the seat.
@@ -328,9 +400,15 @@ export class Walker {
     const hug = smoothstep(0.3, 0.8, C.shiver) * idle * (1 - sip);
     this.wipeT = C.sweat > 0.5 && idle > 0.8 && !sip ? this.wipeT + dt : 0;
     const wipe = smoothstep(0, 0.3, this.wipeT % 9) * smoothstep(1.4, 1.0, this.wipeT % 9) * (this.wipeT > 2 ? 1 : 0);
-    this.torso.rotation.x = lerp(amt * (this.jogging ? 0.18 : 0.06) + fishing * 0.05, this.warmHands ? 0.22 : 0.1, st);
-    this.torso.rotation.z = Math.sin(t * 38) * 0.018 * C.shiver * (1 - amt);
-    this.torso.rotation.y = damp(this.torso.rotation.y, this.pose.rodYaw * 0.35 * fishing, 4, dt);
+    // Leaning into a cast: back as the rod goes back over your shoulder, forward as it comes
+    // through (from where the rod is: rodPitch 0.85 is fishing, below that it's going back).
+    const cast = fishing * clamp(0.85 - this.pose.rodPitch, -0.5, 1.4);
+    this.torso.rotation.x = lerp(amt * (this.jogging ? 0.18 : 0.06) + fishing * 0.05 - cast * 0.12, this.warmHands ? 0.22 : 0.1, st);
+    // Walking, the hips sway to the foot that's down and the shoulders turn against them.
+    this.body.rotation.z = Math.cos(this.phase) * 0.03 * amt * (1 - st);
+    this.body.rotation.y = -Math.sin(this.phase) * 0.07 * amt * (1 - st) * (1 - fishing);
+    this.torso.rotation.z = Math.sin(t * 38) * 0.018 * C.shiver * (1 - amt) - Math.cos(this.phase) * 0.02 * amt;
+    this.torso.rotation.y = damp(this.torso.rotation.y, this.pose.rodYaw * 0.35 * fishing + cast * 0.22 + Math.sin(this.phase) * 0.15 * amt * (1 - fishing), 6, dt);
     this.head.rotation.y = damp(this.head.rotation.y, fishing ? this.pose.rodYaw * 0.45 : Math.sin(t * 0.17) * 0.3 * (1 - amt) * (1 - sip), 2, dt);
     this.head.rotation.x = fishing ? 0.12 : -0.35 * sip + 0.1 * hug;
 
@@ -359,7 +437,10 @@ export class Walker {
       if (st) free.lerp(this.warmHands ? _d.set(a.s * 0.12, 0.2, 0.46).applyMatrix4(this.torso.matrix) : _d.set(a.s * 0.15, -0.3, 0.34).applyMatrix4(this.torso.matrix), st);
       const onRod = _d.set(0, a.s > 0 ? 0.06 : 0.32, 0).applyMatrix4(this.rod.matrix);
       a.target.lerpVectors(free, onRod, smoothstep(0, 1, fishing));
-      setLimb(a.arm, shoulder, a.target, 0.055);
+      // (The elbow out to the side and down, a little back: further out holding the rod.)
+      reach(shoulder, a.target, _pl.set(a.s * (0.55 + 0.35 * fishing), -0.75, -0.35), a.elbow);
+      setLimb(a.arm, shoulder, a.elbow, 0.056);
+      setLimb(a.fore, a.elbow, a.target, 0.049);
       a.hand.position.copy(a.target);
       if (a.s > 0) {
         this.bottle.visible = sip > 0.05;

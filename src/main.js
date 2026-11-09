@@ -94,6 +94,7 @@ import { tideAt, tideWords, turns } from './world/tide.js';
 import { seasonOf, seasonWords, sunTimes, sunHour, seasonWarmth, riverFlow, leafTint, seasonLine } from './world/season.js';
 import { galeSky, galeNear, hoursToGale, outlook, galeFor } from './world/forecast.js';
 import { FolkView } from './world/folk.js';
+import { Passersby } from './world/passersby.js';
 import { VisitorView } from './world/visitors.js';
 import { SharedWorld } from './sharedworld.js';
 import { Teamwork } from './teamwork.js';
@@ -101,7 +102,7 @@ import { Crew, CREW_REACH, CREW_SLOW } from './crew.js';
 import { DashControl } from './dashcontrol.js';
 import { keyStep } from './dashboard.js';
 import { TrollMotor, canTroll } from './trolling.js';
-import { trollWire } from './trollmount.js';
+import { trollWire, deckY } from './trollmount.js';
 import * as Con from './contracts.js';
 import { Passengers } from './passengers.js';
 import * as Story from './story.js';
@@ -402,6 +403,8 @@ const town = new Townsfolk({ obstacles: world.coast.obstacles });
 // (Your name on the plate at the root of your finger of Willowhaven's pontoon.)
 world.coast.ownerSign(settings.player.name);
 const folkView = new FolkView(scene);
+// Willowhaven's other people, out and about of a fine day (see world/passersby.js).
+const passersby = new Passersby(scene, town.paths);
 // Playing together (see together.js): friends in a session, drawn where they are.
 const together = new Together({ config: () => cloud.cfg, name: () => settings.player.name, kinds: BOAT_KINDS, skies: Object.keys(SKIES), rods: Object.keys(RODS), items: Object.keys(TACKLE) });
 const visitors = new VisitorView(scene);
@@ -2402,6 +2405,35 @@ function stepAshore(spot) {
     state.tips.ashore = true;
     hud.toast(spot.landing ? 'You step onto the landing. Camp is just up the path, with the lake beyond it and the stream further on.' : 'You step ashore. The boat waits where you left it: follow the marker to find it again.', 7);
   }
+}
+
+// Stepping aboard from the bank or a jetty, or ashore from her, when you choose to: a moment's step
+// up and over her side (see walker.stepTo), the keys doing nothing till you're there. (Anything
+// else that puts you in a boat or ashore, a crossing, a dive, crewing, does it at once.)
+const _stepV = new THREE.Vector3();
+// A place on her deck (her own space) near a point in the world: inside her sides, clear of her ends.
+function deckNear(b, from) {
+  const H = b.hull, L = b.body.worldToLocal(_stepV.copy(from));
+  const z = clamp(L.z, -H.L / 2 + H.L * 0.18, H.L / 2 - H.L * 0.22);
+  const half = H.B * H.hw((z + H.L / 2) / H.L);
+  return { x: clamp(L.x, -half * 0.4, half * 0.4), y: deckY(H, z) + 0.02, z };
+}
+function climbAboard(b) {
+  if (!onFoot || walker.stepping || driving || dive || Math.hypot(walker.pos.x - b.pos.x, walker.pos.z - b.pos.z) > b.hull.L + 3) return board(b);
+  const D = deckNear(b, walker.pos), v = new THREE.Vector3();
+  const target = () => b.body.localToWorld(v.set(D.x, D.y, D.z));
+  const p1 = target().clone(), far = Math.hypot(p1.x - walker.pos.x, p1.z - walker.pos.z);
+  audio.step(false);
+  walker.stepTo(target, { dur: clamp(far / 1.5, 0.55, 1.1), lift: 0.22 + Math.max(0, p1.y - walker.pos.y) * 0.35 }, () => board(b));
+}
+function climbOff(spot) {
+  if (onFoot || walker.stepping) return stepAshore(spot);
+  const b = boat, H = b.hull, at = b.fromYou(new THREE.Vector3(), 0, 0, 0);
+  const from = b.body.localToWorld(new THREE.Vector3(at.x, deckY(H, at.z) + 0.02, at.z));
+  stepAshore(spot);
+  const end = new THREE.Vector3(spot.x, walkHeight(spot.x, spot.z), spot.z), far = Math.hypot(end.x - from.x, end.z - from.z);
+  walker.heading = Math.atan2(end.x - from.x, end.z - from.z);
+  walker.stepTo(() => end, { from, dur: clamp(far / 1.5, 0.55, 1.2), lift: 0.22 + Math.max(0, end.y - from.y) * 0.35 }, () => audio.step(false));
 }
 
 function board(target = boatNear() || boat) {
@@ -5791,7 +5823,7 @@ function stopFollowing() {
 }
 
 function interaction() {
-  if (!started || modal || placement.isOn) return null;
+  if (!started || modal || placement.isOn || walker.stepping) return null;
   // A friend's fish beaten and lying alongside, within reach: net it for them (see teamwork.js).
   const helpNet = together.active && !fishing.fight && !dive && !driving ? teamwork.netTarget(player().pos, onFoot ? 0 : boat.hull.L * 0.5) : null;
   if (helpNet) return { text: `Net ${helpNet.p.name}’s fish`, run: () => { if (teamwork.net(helpNet)) hud.flash(`You reach out with the net for ${helpNet.p.name}’s fish…`, t, 2); } };
@@ -5846,7 +5878,7 @@ function interaction() {
         ? `She’s made fast here. Take the helm, go into the cabin (the galley and the bunks), or set out on the crossing ${to === 'south' ? 'south to Las Brasas' : 'home to Willow Bay'} (at the helm, or the fast passage)?`
         : 'She’s made fast here. Take the helm, or go straight into the cabin (the galley and the bunk)?', [
         ...(long ? [{ text: to === 'south' ? 'The crossing south' : 'The crossing home', cls: 'quiet', run: () => offerPassage(to, near) }] : []),
-        { text: 'The helm', cls: 'quiet', run: () => board(near) },
+        { text: 'The helm', cls: 'quiet', run: () => climbAboard(near) },
         { text: 'Into the cabin', run: () => enterCabin(near) },
       ]) };
     }
@@ -5855,10 +5887,10 @@ function interaction() {
       const to = walker.pos.z > SOUTH_Z ? 'home' : 'south';
       return { text: `The ${near.name}: get in, or the crossing ${to}`, run: () => ask(boatTitle(near), to === 'south' ? 'Get in and sail her here, or set out on the crossing south to Las Brasas (at the helm, or the fast passage)?' : 'Get in and sail her here, or set out on the crossing home to Willow Bay (at the helm, or the fast passage)?', [
         { text: to === 'south' ? 'The crossing south' : 'The crossing home', cls: 'quiet', run: () => offerPassage(to, near) },
-        { text: 'Get in', run: () => board(near) },
+        { text: 'Get in', run: () => climbAboard(near) },
       ]) };
     }
-    if (near) return { text: `Get in the ${near.name}`, run: () => board(near) };
+    if (near) return { text: `Get in the ${near.name}`, run: () => climbAboard(near) };
     // A friend's boat alongside, stopped: step aboard and crew for them.
     const fb = crewBoatNear();
     if (fb) return { text: `Step aboard ${fb.p.name}’s ${fb.b.hull.name}`, run: () => stepAboard(fb) };
@@ -5903,12 +5935,12 @@ function interaction() {
   // The cabin boat, anchored or tied up by the shore: the cabin, or ashore.
   if (spot && boat.hull.cabin && canEnterCabin(boat) && !fishing.lineOut) {
     return { text: 'Into the cabin, or ashore', run: () => ask(boatTitle(boat), 'Tied up here. Into the cabin (the galley and the bunk), or ashore?', [
-      { text: ashore, cls: 'quiet', run: () => stepAshore(spot) },
+      { text: ashore, cls: 'quiet', run: () => climbOff(spot) },
       { text: 'Into the cabin', run: () => enterCabin() },
     ]) };
   }
   if (lostBuoyNear()) return { text: 'Pick up Dougie’s buoy', run: () => pickUpLostBuoy() };
-  if (spot) return { text: ashore, run: () => stepAshore(spot) };
+  if (spot) return { text: ashore, run: () => climbOff(spot) };
   // A boat out there with a dead engine (a tow job): take her in tow, or let her go.
   {
     const S = !onFoot && boat.speed < 1.2 ? strayNear(tow && tow.lead === boat ? 9 : 5) : null;
@@ -10775,6 +10807,10 @@ function tick(now, manual = false) {
       }
     }
     folkView.update(dt, t, town, { from: P, south: region === 'south', fx, glow, night: env.lantern, boats, more: visitors.boats() });
+    {
+      const W = folkCtx(0);
+      passersby.update(dt, t, { day: clock.day, hour: clock.hour, season: W.season, rain: W.rain, storm: W.storm, wind: W.wind, from: P, home: region === 'home' });
+    }
     // Friends you're playing with: where you are goes to them, and they're drawn where they are.
     together.update(dt, started ? whereIAm() : null);
     // (A guest in a friend's harbour, or back from one: your Willowhaven boats to where yours lie.)
@@ -11208,7 +11244,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView, together, visitors, clock, drifters, seabed, shared, teamwork, crew, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pickupsShown() { return pickups.count; }, padContext: () => padContext(), jobsChanged: () => jobWeight(), strays, get towing() { return tow ? { lead: tow.lead.kind, towed: tow.towed.boatName || tow.towed.name, tight: tow.tight } : null; }, seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
+  rowboat, skiff, boats: BOATS, wind, town, folkView, passersby, together, visitors, clock, drifters, seabed, shared, teamwork, crew, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pickupsShown() { return pickups.count; }, padContext: () => padContext(), jobsChanged: () => jobWeight(), strays, get towing() { return tow ? { lead: tow.lead.kind, towed: tow.towed.boatName || tow.towed.name, tight: tow.tight } : null; }, seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
   pump: (id = 'haven') => openPump(id),
