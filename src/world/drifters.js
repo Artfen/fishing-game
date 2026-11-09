@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { heightAt, zoneAt, waterOf, SOUTH_Z } from './terrain.js';
 import { yearPhase } from './season.js';
 import { mergeParts, mat, hash2, seeded, clamp } from '../util.js';
+import { FISH, buildFishGeometry, fishMaterial } from '../fish.js';
+import { siteById, PINNACLES, pinnacleRadius } from './divesites.js';
 
 // The life of the open water between the fish's haunts, so the water's never empty when you're
 // down in it: jellyfish drifting and pulsing (moon jellies and compass jellies at home in the
@@ -11,11 +13,20 @@ import { mergeParts, mat, hash2, seeded, clamp } from '../util.js';
 // it's under the water, the same in the same places for the same week, and gathered up again as
 // you swim on. Nothing here bites: it's the sea's own life, for the eye (and the naturalist's
 // notes, see grounds.js).
+//
+// And the reef's small fish: the everyday life a diver swims among, which nobody fishes for here
+// (the fish you catch are the ecosystem's, a different matter: see ecosystem.js). By what's
+// below: wrasse hanging over the rocks, two-banded bream and young pollack round them, salema
+// grazing over the weed, a shoal of bogue in the open water, horse mackerel passing over deeper
+// ground, grey mullet over the shallow sand; at Las Brasas, clouds of chromis over the reef,
+// ornate wrasse and parrotfish. Drawn with the fish's own shapes and colours (fish.js), each
+// shoal milling about its patch, shy of you (come close and it moves off, then drifts back),
+// laid out the same in the same places for the week, more of them on higher graphics.
 
 const CELL = 14;        // metres
 const REACH = 42;       // round the camera
 const MAX_JELLY = 40;
-const SHOALS = 6;       // shoals of fry at once
+const SHOALS = 10;      // shoals of fry at once
 const FRY = 28;         // in each
 
 // How likely a jellyfish in a cell is, by the time of year (0 … 1 through it; see season.js).
@@ -48,6 +59,60 @@ function fryGeometry() {
   ]);
 }
 
+// The reef's fish, by sea: which kind, how likely a patch of seabed (CELL square) has a group of
+// them (from what's there: rock, weed, depth), how many in it, how they move (hover: each alone,
+// near the bottom by the rocks; shoal: together round a centre a little above it; mid: a shoal in
+// the open water), how big (a share of the kind's size range), and whether it comes to look at a
+// diver who keeps still (curious: wrasse and bream do).
+export const REEF = {
+  home: [
+    { sp: 'wrasse', chance: (s) => 0.85 * s.rock, n: [1, 3], mode: 'hover', size: [0.3, 0.8], curious: true },
+    { sp: 'twobanded', chance: (s) => 0.7 * s.rock, n: [4, 9], mode: 'shoal', size: [0.2, 0.7], curious: true },
+    { sp: 'pollack', chance: (s) => (s.depth > 4 ? 0.45 * s.rock : 0), n: [3, 6], mode: 'shoal', size: [0.1, 0.4] },
+    { sp: 'salema', chance: (s) => 0.8 * s.weed, n: [6, 16], mode: 'shoal', size: [0.2, 0.7] },
+    { sp: 'blackbream', chance: (s) => 0.35 * Math.max(s.rock, s.weed), n: [3, 8], mode: 'shoal', size: [0.2, 0.7], curious: true },
+    { sp: 'bogue', chance: (s) => (s.depth > 3 ? 0.22 : 0.06), n: [8, 20], mode: 'mid', size: [0.2, 0.8] },
+    { sp: 'mullet', chance: (s) => (s.depth < 6 ? 0.25 * (1 - s.rock) : 0), n: [3, 6], mode: 'shoal', size: [0.2, 0.7] },
+    { sp: 'horsemackerel', chance: (s) => (s.depth > 6 ? 0.07 : 0), n: [12, 26], mode: 'mid', size: [0, 0.4] },
+    { sp: 'sandsmelt', chance: (s) => (s.depth < 10 ? 0.3 * (1 - s.rock) : 0.05), n: [14, 30], mode: 'mid', size: [0.2, 1] },
+    { sp: 'gurnard', chance: (s) => 0.12 * (1 - s.rock) * (1 - s.weed), n: [1, 2], mode: 'hover', size: [0.1, 0.5] },
+  ],
+  south: [
+    { sp: 'chromis', chance: (s) => 0.9 * s.rock, n: [10, 24], mode: 'shoal', size: [0.3, 1], curious: true },
+    { sp: 'ornatewrasse', chance: (s) => 0.8 * s.rock, n: [1, 3], mode: 'hover', size: [0.3, 0.9], curious: true },
+    { sp: 'parrotfish', chance: (s) => 0.45 * s.rock, n: [2, 4], mode: 'hover', size: [0.3, 0.8] },
+    { sp: 'salema', chance: (s) => 0.7 * s.weed, n: [6, 16], mode: 'shoal', size: [0.2, 0.7] },
+    { sp: 'twobanded', chance: (s) => 0.45 * s.rock, n: [4, 9], mode: 'shoal', size: [0.2, 0.7], curious: true },
+    { sp: 'bogue', chance: (s) => (s.depth > 3 ? 0.2 : 0.05), n: [8, 20], mode: 'mid', size: [0.2, 0.8] },
+  ],
+};
+const REEF_CELL = 7;     // metres: the reef's fish are laid out finer, and nearer,
+const REEF_REACH = 24;   // than the jellies (you only see so far down there)
+const REEF_GROUPS = 64;  // the nearest this many groups are kept (they're the ones you'd see)
+const REEF_MAX = 160;    // of any one kind at once
+
+// What the dive sites are, for their fish: their rock and kelp are their own (divesiteWorld.js),
+// not in the habitat's map, so Skerries Reef reads as rock, the Kelp Forest as weed with boulders
+// under it, the Kittiwake as rock (fish hang over a wreck as over a reef) and the Hound as rock,
+// fading out over the last few metres of each.
+const SITE_LIFE = [
+  { id: 'reef', rock: 0.95, weed: 0.35 },
+  { id: 'kelp', rock: 0.3, weed: 0.95 },
+  { id: 'wreck', rock: 0.9, weed: 0 },
+  { id: 'hound', rock: 0.9, weed: 0.1 },
+];
+export function siteLife(x, z, s) {
+  for (const L of SITE_LIFE) {
+    const S = siteById[L.id];
+    if (!S) continue;
+    const f = clamp((S.r + 4 - Math.hypot(x - S.x, z - S.z)) / 8, 0, 1);
+    if (f <= 0) continue;
+    s.rock = Math.max(s.rock, L.rock * f);
+    s.weed = Math.max(s.weed, L.weed * f);
+  }
+  return s;
+}
+
 const JELLIES = {
   moonjelly: { colour: '#d8e8f4', rings: true, size: [0.8, 1.4] },
   compass: { colour: '#f0dcc4', rings: false, size: [0.9, 1.5] },
@@ -71,6 +136,12 @@ export class Drifters {
     this.fryMesh = mk(fryGeometry(), SHOALS * FRY, 0.95);
     this.fryMesh.material.transparent = false;
     this.fryMesh.material.depthWrite = true;
+    // The reef's fish: an instanced mesh for each kind, swimming with the fish's own tail beat
+    // (each made the first time that kind is wanted, down in the water).
+    this.scene = scene;
+    this.reefMesh = {};
+    this.reef = [];     // groups: { sp, mode, x, z, floor, top, y, fish: [...], cx, cz, shy, seed }
+    this.density = 1;   // (the graphics setting's: fewer fish on lower settings)
     this.jellies = [];  // { kind, x, y, z, size, phase, spin }
     this.shoals = [];   // { kind, x, y, z, r, fry: [{ a, h, rr, sp }], fleeX, fleeZ, scare }
     this.cx = Infinity;
@@ -89,6 +160,7 @@ export class Drifters {
     if (on !== this.on) {
       this.on = on;
       for (const m of [...Object.values(this.jellyMesh), this.fryMesh]) m.visible = on;
+      if (!on) for (const R of Object.values(this.reefMesh)) if (R) R.m.visible = false;
     }
     if (!on) {
       this.cx = Infinity;
@@ -108,7 +180,7 @@ export class Drifters {
     const south = pz > SOUTH_Z, phase = yearPhase(abs), wk = this.week;
     const s = {};
     this.jellies = [];
-    const shoals = [];
+    const shoals = [], reef = [];
     const i0 = Math.floor((px - REACH) / CELL), i1 = Math.floor((px + REACH) / CELL);
     const j0 = Math.floor((pz - REACH) / CELL), j1 = Math.floor((pz + REACH) / CELL);
     for (let j = j0; j <= j1; j++) {
@@ -128,11 +200,29 @@ export class Drifters {
           break;
         }
         // Fry: over the shallows (sand and weed at home, the reef's edge at Las Brasas).
-        const fryHere = south ? s.depth < 14 && (s.rock > 0.2 || s.weed > 0.2) : s.depth < 7 && s.rock < 0.4;
-        const fryChance = south ? 0.18 : 0.12 * (0.35 + 0.65 * Math.max(0, Math.cos(Math.PI * 2 * (phase - 0.4))));
+        const fryHere = south ? s.depth < 14 && (s.rock > 0.2 || s.weed > 0.2) : s.depth < 9 && s.rock < 0.75;
+        const fryChance = south ? 0.3 : 0.32 * (0.5 + 0.5 * Math.max(0, Math.cos(Math.PI * 2 * (phase - 0.4))));
         if (fryHere && v < fryChance) shoals.push({ kind: 'fry', x, z, y: -Math.min(s.depth * 0.55, 3), floor: heightAt(x, z), d: Math.hypot(x - px, z - pz), seed: i * 31 + j * 17 });
       }
     }
+    // The reef's fish: on a finer grid nearer you, each kind that suits each patch, by its dice.
+    const ri0 = Math.floor((px - REEF_REACH) / REEF_CELL), ri1 = Math.floor((px + REEF_REACH) / REEF_CELL);
+    const rj0 = Math.floor((pz - REEF_REACH) / REEF_CELL), rj1 = Math.floor((pz + REEF_REACH) / REEF_CELL);
+    for (let j = rj0; j <= rj1; j++) {
+      for (let i = ri0; i <= ri1; i++) {
+        const x = (i + 0.5) * REEF_CELL, z = (j + 0.5) * REEF_CELL;
+        if (Math.hypot(x - px, z - pz) > REEF_REACH) continue;
+        if (!south && waterOf(zoneAt(x, z)) === 'fresh') continue;
+        this.habitat.sample(x, z, s);
+        if (s.depth < 1.5) continue;
+        if (!south) siteLife(x, z, s);
+        (south ? REEF.south : REEF.home).forEach((R, k) => {
+          const w = hash2(i * 19 + k * 7 + wk * 13, j * 23 - k * 5 + wk * 29);
+          if (w < R.chance(s) * this.density) reef.push({ R, x: x + (hash2(i + k, j - k) - 0.5) * REEF_CELL * 0.8, z: z + (hash2(i - k, j + k) - 0.5) * REEF_CELL * 0.8, depth: s.depth, d: Math.hypot(x - px, z - pz), seed: (i * 73856093) ^ (j * 19349663) ^ (k * 83492791) });
+        });
+      }
+    }
+    this.layReef(reef);
     // The nearest few shoals (they're the ones you'd see).
     shoals.sort((a, b) => a.d - b.d);
     const keep = new Map(this.shoals.map((S) => [S.seed, S]));
@@ -151,7 +241,143 @@ export class Drifters {
     for (const S of this.shoals) (this.at.fry ||= []).push(S.x, S.y, S.z);
   }
 
+  // A kind's mesh (made the first time it's wanted), or null if the game has no such fish.
+  reefMeshFor(id) {
+    if (id in this.reefMesh) return this.reefMesh[id];
+    const sp = FISH.find((f) => f.id === id && !f.retired);
+    if (!sp) return (this.reefMesh[id] = null);
+    const geo = buildFishGeometry(sp, false).clone();
+    const swim = new THREE.InstancedBufferAttribute(new Float32Array(REEF_MAX * 2), 2);
+    swim.setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('aSwim', swim);
+    const m = new THREE.InstancedMesh(geo, fishMaterial(sp, true), REEF_MAX);
+    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    m.count = 0;
+    m.frustumCulled = false;
+    m.visible = false;
+    this.scene.add(m);
+    return (this.reefMesh[id] = { m, swim, sp });
+  }
+
+  // The reef's groups: the nearest kept (those already about stay as they are), each given its
+  // fish.
+  layReef(found) {
+    found.sort((a, b) => a.d - b.d);
+    const keep = new Map(this.reef.map((G) => [G.seed, G]));
+    this.reef = found.slice(0, REEF_GROUPS).map((F) => {
+      const old = keep.get(F.seed);
+      if (old) return old;
+      const R = F.R, r = seeded((F.seed >>> 0) + 11), floor = heightAt(F.x, F.z);
+      // (Its patch, where it actually is, has to have water enough over it.)
+      if (floor > -1.4) return null;
+      const sp = this.reefMeshFor(R.sp)?.sp;
+      if (!sp) return null;
+      const n = R.n[0] + Math.floor(r() * (R.n[1] - R.n[0] + 1));
+      // How high: hovering just off the bottom, a shoal a little above it, or out in the open water.
+      const top = -0.6, low = floor + 0.35;
+      // (Out in the open water a shoal may be anywhere between the bottom and the top: some up near
+      // you as you swim along the surface.)
+      let y = R.mode === 'hover' ? low + 0.4 : R.mode === 'shoal' ? Math.min(top, floor + 1 + r() * 1.6) : Math.min(top, floor + 1.5 + r() * Math.max(0, -floor - 2.3));
+      let x = F.x, z = F.z, ground = low, wall = false;
+      // By the Hound or its Pup, the rock's fish keep to the walls, at any height up them (on the
+      // ledges and in the cracks, not down on the sand thirty metres under), just off the rock.
+      if (R.mode !== 'mid') {
+        for (const P of PINNACLES) {
+          const a = Math.atan2(F.z - P.z, F.x - P.x);
+          if (Math.hypot(F.x - P.x, F.z - P.z) > P.base * 1.5) continue;
+          const h = 1 + r() * Math.max(0, Math.min(P.top, -P.bed - 2.5) - 1);
+          // (Far enough off that their circling doesn't take them into it, and staying put.)
+          const w = pinnacleRadius(P, h, a) + 3.2;
+          x = P.x + Math.cos(a) * w;
+          z = P.z + Math.sin(a) * w;
+          y = Math.min(top, P.bed + h);
+          ground = Math.min(y, P.bed + h - 1.2);
+          wall = true;
+          break;
+        }
+      }
+      const range = (u) => sp.size[0] + (sp.size[1] - sp.size[0]) * (R.size[0] + (R.size[1] - R.size[0]) * u);
+      return {
+        sp: R.sp, mode: R.mode, curious: !!R.curious, x, z, floor, low: ground, top, y, cx: x, cz: z, shy: 0, look: 0, seed: F.seed,
+        wander: wall ? 0.6 : 1.5 + r() * (R.mode === 'mid' ? 5 : 2.5), w1: 0.04 + r() * 0.05, w2: 0.03 + r() * 0.05, p1: r() * 6.3, p2: r() * 6.3,
+        fish: Array.from({ length: n }, () => ({
+          a: r() * Math.PI * 2, rr: (R.mode === 'hover' ? 0.8 : 0.5) + r() * (R.mode === 'hover' ? 2.2 : 1.6), h: (r() - 0.5) * (R.mode === 'hover' ? 0.6 : 1.2),
+          sp: (0.15 + r() * 0.25) * (r() < 0.5 ? -1 : 1), phase: r() * 20, beat: 0.25 + r() * 0.3, scale: (range(r()) / 100) * (sp.visual ?? 1),
+          wob: r() * 6.3,
+        })),
+      };
+    }).filter(Boolean);
+  }
+
+  // The reef's fish swimming: each shoal milling about its patch (a slow wander), each fish going
+  // round its place in it, turned the way it's going, tail beating; shy of you within a few metres.
+  animateReef(dt, t, cp) {
+    const o = this._o, counts = {};
+    // (How still you are: a diver hanging quietly in the water gets visited.)
+    if (this.was && dt > 0) this.still = Math.hypot(cp.x - this.was.x, cp.y - this.was.y, cp.z - this.was.z) / dt < 0.35 ? (this.still || 0) + dt : 0;
+    this.was = { x: cp.x, y: cp.y, z: cp.z };
+    const still = this.still > 2;
+    for (const G of this.reef) {
+      // (Its patch, wandering a little.)
+      let gx = G.x + Math.sin(t * G.w1 + G.p1) * G.wander, gz = G.z + Math.cos(t * G.w2 + G.p2) * G.wander;
+      const dx = G.cx - cp.x, dz = G.cz - cp.z, d = Math.hypot(dx, dz);
+      // Curious kinds come to look at a diver keeping still, near enough (to a few metres off), and
+      // drift back to their patch when you move on.
+      const near = Math.hypot(G.x - cp.x, G.z - cp.z) < 12 && Math.abs(G.y - cp.y) < 6;
+      G.look = Math.max(0, Math.min(1, G.look + dt * (G.curious && still && near && G.shy < 0.1 ? 0.25 : -0.4)));
+      if (G.look > 0 && d > 0.01) {
+        const stand = 2.6 + (G.seed & 3) * 0.4;
+        gx = gx * (1 - G.look) + (cp.x + (dx / d) * stand) * G.look;
+        gz = gz * (1 - G.look) + (cp.z + (dz / d) * stand) * G.look;
+      }
+      if (d < 3.5 && Math.abs(G.y - cp.y) < 3) G.shy = Math.min(1, G.shy + dt * 2);
+      else G.shy = Math.max(0, G.shy - dt * 0.2);
+      if (G.shy > 0 && d > 0.01) {
+        gx += (dx / d) * G.shy * 4;
+        gz += (dz / d) * G.shy * 4;
+      }
+      G.cx += (gx - G.cx) * clamp(dt * (0.6 + G.shy * 2), 0, 1);
+      G.cz += (gz - G.cz) * clamp(dt * (0.6 + G.shy * 2), 0, 1);
+      const R = this.reefMesh[G.sp];
+      if (!R) continue;
+      for (const f of G.fish) {
+        const k = counts[G.sp] || 0;
+        if (k >= REEF_MAX) break;
+        counts[G.sp] = k + 1;
+        const a = f.a + t * f.sp * (1 + G.shy * 1.5);
+        const r = f.rr * (1 - 0.3 * G.shy);
+        const x = G.cx + Math.cos(a) * r, z = G.cz + Math.sin(a) * r;
+        const y = clamp(G.y + (cp.y - G.y) * 0.6 * G.look + f.h + Math.sin(t * 0.5 + f.wob) * 0.15, G.low, G.top);
+        // (Going round: facing along the circle, the way it turns; yaw 0 faces +z, as the
+        // ecosystem's fish do.)
+        const yaw = Math.atan2(-Math.sin(a) * Math.sign(f.sp), Math.cos(a) * Math.sign(f.sp));
+        o.position.set(x, y, z);
+        o.rotation.set(Math.sin(t * 0.7 + f.wob) * 0.08, yaw, 0, 'YXZ');
+        o.scale.setScalar(f.scale);
+        o.updateMatrix();
+        R.m.setMatrixAt(k, o.matrix);
+        f.phase += dt * (3 + f.beat * 11) * (1 + G.shy);
+        R.swim.setXY(k, f.phase, f.beat);
+      }
+    }
+    for (const [id, R] of Object.entries(this.reefMesh)) {
+      if (!R) continue;
+      R.m.count = counts[id] || 0;
+      R.m.visible = R.m.count > 0;
+      R.m.instanceMatrix.needsUpdate = true;
+      R.swim.needsUpdate = true;
+    }
+  }
+
+  // How many of the reef's fish are about just now (for the notes, and the tests).
+  get reefCount() {
+    let n = 0;
+    for (const G of this.reef) n += G.fish.length;
+    return n;
+  }
+
   animate(dt, t, cp) {
+    this.animateReef(dt, t, cp);
     const o = this._o, c = this._c;
     // Jellyfish: pulsing slowly, drifting a little, turning.
     const counts = { moonjelly: 0, compass: 0, stinger: 0 };

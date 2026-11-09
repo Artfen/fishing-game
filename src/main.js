@@ -7997,6 +7997,10 @@ function applyQuality() {
   // Fewer distant fish are drawn on lower settings, but every one of them is still there:
   // simulated, able to bite, and on the fish finder.
   fishRenderer.density = q.fishDensity;
+  // (The reef's small fish are cheap, one draw a kind, so lower settings thin them less; laid out
+  // again at once.)
+  drifters.density = 0.4 + 0.6 * q.fishDensity;
+  drifters.cx = Infinity;
   fishRenderer.near = q.fishNear;
   eco.simRadius = q.simRadius;
   underwater.setQuality(q);
