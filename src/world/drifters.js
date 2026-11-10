@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { heightAt, zoneAt, waterOf, SOUTH_Z } from './terrain.js';
 import { yearPhase } from './season.js';
-import { mergeParts, mat, hash2, seeded, clamp } from '../util.js';
+import { mergeParts, mat, hash2, seeded, clamp, dampAngle, wrapAngle, damp } from '../util.js';
 import { FISH, buildFishGeometry, fishMaterial } from '../fish.js';
 import { siteById, PINNACLES, pinnacleRadius } from './divesites.js';
 
@@ -91,6 +91,20 @@ const REEF_REACH = 24;   // than the jellies (you only see so far down there)
 const REEF_GROUPS = 64;  // the nearest this many groups are kept (they're the ones you'd see)
 const REEF_MAX = 160;    // of any one kind at once
 
+// Turning a fish (or a whole shoal, o.heading) towards a heading: easing in at `rate`, never faster
+// than `most` rad/s. o.wind keeps how far round it has come since it last settled; with `unwind`, a
+// turn that would carry it on past half a turn the same way goes back round the way it came instead,
+// so a fish that turned away from you and comes back to what it was doing never makes a full circle
+// of it. (Settled, facing where it wants to within a few degrees, it starts counting afresh.)
+function turnTo(o, key, to, rate, most, dt, unwind = false) {
+  let d = wrapAngle(to - o[key]);
+  const w = o.wind || 0;
+  if (unwind && Math.sign(d) === Math.sign(w) && Math.abs(w + d) > Math.PI) d -= Math.sign(d) * Math.PI * 2;
+  const step = clamp(d * (1 - Math.exp(-rate * dt)), -most * dt, most * dt);
+  o[key] = wrapAngle(o[key] + step);
+  o.wind = Math.abs(d) < 0.15 ? 0 : clamp(w + step, -Math.PI * 2, Math.PI * 2);
+}
+
 // What the dive sites are, for their fish: their rock and kelp are their own (divesiteWorld.js),
 // not in the habitat's map, so Skerries Reef reads as rock, the Kelp Forest as weed with boulders
 // under it, the Kittiwake as rock (fish hang over a wreck as over a reef) and the Hound as rock,
@@ -153,8 +167,10 @@ export class Drifters {
     this._c = new THREE.Color();
   }
 
-  // Each frame. sub: how far under the water the camera is (0 … 1); abs: the world's time.
-  update(dt, t, camera, sub, abs) {
+  // Each frame. sub: how far under the water the camera is (0 … 1); abs: the world's time; diver:
+  // where the diver is, when you're diving (it's the diver the fish are shy of, and come to look at,
+  // not the camera following a few metres behind).
+  update(dt, t, camera, sub, abs, diver = null) {
     const cp = camera.position;
     const on = sub > 0.02;
     if (on !== this.on) {
@@ -173,7 +189,7 @@ export class Drifters {
       this.week = week;
       this.layOut(cp.x, cp.z, abs);
     }
-    this.animate(dt, t, cp);
+    this.animate(dt, t, diver || cp);
   }
 
   layOut(px, pz, abs) {
@@ -231,8 +247,8 @@ export class Drifters {
       if (old) return old;
       const r = seeded(S.seed + 7);
       return {
-        ...S, cx: S.x, cz: S.z, scare: 0,
-        fry: Array.from({ length: FRY }, () => ({ a: r() * Math.PI * 2, h: (r() - 0.5) * 0.8, rr: 0.35 + r() * 0.9, sp: 0.6 + r() * 0.6 })),
+        ...S, cx: S.x, cz: S.z, scare: 0, heading: r() * Math.PI * 2, ph: r() * Math.PI * 2,
+        fry: Array.from({ length: FRY }, () => ({ a: r() * Math.PI * 2, h: (r() - 0.5) * 0.8, rr: 0.35 + r() * 0.9, sp: 0.6 + r() * 0.6, yaw: 0 })),
       };
     });
     // Where they are, for the naturalist's notes.
@@ -247,7 +263,8 @@ export class Drifters {
     const sp = FISH.find((f) => f.id === id && !f.retired);
     if (!sp) return (this.reefMesh[id] = null);
     const geo = buildFishGeometry(sp, false).clone();
-    const swim = new THREE.InstancedBufferAttribute(new Float32Array(REEF_MAX * 2), 2);
+    // (Phase, effort and bend: see fishRender.js.)
+    const swim = new THREE.InstancedBufferAttribute(new Float32Array(REEF_MAX * 3), 3);
     swim.setUsage(THREE.DynamicDrawUsage);
     geo.setAttribute('aSwim', swim);
     const m = new THREE.InstancedMesh(geo, fishMaterial(sp, true), REEF_MAX);
@@ -309,8 +326,10 @@ export class Drifters {
     }).filter(Boolean);
   }
 
-  // The reef's fish swimming: each shoal milling about its patch (a slow wander), each fish going
-  // round its place in it, turned the way it's going, tail beating; shy of you within a few metres.
+  // The reef's fish swimming: each shoal drifting slowly about its patch, all its fish facing the
+  // way it's going, each keeping its place in it, tail beating; a fish hovering by the rock faces
+  // its own way. Shy of you within a few metres: they turn away together and move off. (They used
+  // to go round and round their places, and spun on the spot when a diver came through.)
   animateReef(dt, t, cp) {
     const o = this._o, counts = {};
     // (How still you are: a diver hanging quietly in the water gets visited.)
@@ -340,24 +359,57 @@ export class Drifters {
       G.cz += (gz - G.cz) * clamp(dt * (0.6 + G.shy * 2), 0, 1);
       const R = this.reefMesh[G.sp];
       if (!R) continue;
+      // Which way the group faces: away from you when you come too close; towards you when
+      // they've come to look; otherwise the way its patch is drifting (the patch's own slow path,
+      // not the jitter of its centre), holding its heading while the drift is too slow to show, and
+      // never coming round faster than a slow swing: a calm shoal doesn't wheel. (yaw 0 faces +z,
+      // as the ecosystem's fish do.)
+      const away = Math.atan2(G.cx - cp.x, G.cz - cp.z);
+      const vx = Math.cos(t * G.w1 + G.p1) * G.w1 * G.wander, vz = -Math.sin(t * G.w2 + G.p2) * G.w2 * G.wander;
+      G.heading ??= Math.hypot(vx, vz) > 0.02 ? Math.atan2(vx, vz) : G.p1;
+      if (G.shy > 0.3) {
+        // (Turned away once, and kept that way while you're behind them; only turning again if you
+        // get round in front of them: a diver passing alongside doesn't swing them round with it.)
+        if (G.flee == null || Math.abs(wrapAngle(away - G.flee)) > Math.PI / 2) G.flee = away;
+        turnTo(G, 'heading', G.flee, 4, 3, dt);
+      } else if (G.look > 0.4) {
+        G.flee = null;
+        turnTo(G, 'heading', away + Math.PI, 1.2, 0.8, dt);
+        G.wind = 0;
+      } else {
+        G.flee = null;
+        turnTo(G, 'heading', Math.hypot(vx, vz) > 0.08 ? Math.atan2(vx, vz) : G.heading, 0.5, 0.3, dt, true);
+      }
+      const sh = Math.sin(G.heading), ch = Math.cos(G.heading), tight = 1 - 0.3 * G.shy;
       for (const f of G.fish) {
         const k = counts[G.sp] || 0;
         if (k >= REEF_MAX) break;
         counts[G.sp] = k + 1;
-        const a = f.a + t * f.sp * (1 + G.shy * 1.5);
-        const r = f.rr * (1 - 0.3 * G.shy);
-        const x = G.cx + Math.cos(a) * r, z = G.cz + Math.sin(a) * r;
+        // Each in its own place in the group, drifting about it a little. A shoal faces the way the
+        // group does; a fish hovering by the rock faces its own way, swinging slowly round and
+        // back, until you come close or it comes to look.
+        const along = Math.sin(f.a) * f.rr * tight + Math.sin(t * 0.3 + f.wob) * 0.25;
+        const across = Math.cos(f.a) * f.rr * tight + Math.cos(t * 0.23 + f.wob * 2) * 0.2;
+        const x = G.cx + sh * along + ch * across, z = G.cz + ch * along - sh * across;
         const y = clamp(G.y + (cp.y - G.y) * 0.6 * G.look + f.h + Math.sin(t * 0.5 + f.wob) * 0.15, G.low, G.top);
-        // (Going round: facing along the circle, the way it turns; yaw 0 faces +z, as the
-        // ecosystem's fish do.)
-        const yaw = Math.atan2(-Math.sin(a) * Math.sign(f.sp), Math.cos(a) * Math.sign(f.sp));
+        const own = G.mode === 'hover' && G.shy < 0.3 && G.look < 0.4;
+        const aim = own ? f.a + Math.sin(t * 0.05 * (1 + Math.abs(f.sp)) + f.wob) * 1.1 : G.heading + Math.sin(t * 0.6 + f.wob) * 0.12;
+        const was = (f.yaw ??= aim);
+        // (A fish hovering on its own goes back to facing its own way slowly, the way it came round.)
+        if (own) turnTo(f, 'yaw', aim, 1, 0.6, dt, true);
+        else {
+          f.yaw = dampAngle(was, aim, 3, dt);
+          f.wind = clamp((f.wind || 0) + wrapAngle(f.yaw - was), -Math.PI * 2, Math.PI * 2);
+        }
+        // (Turning, its body curves into the turn, as the ecosystem's fish do: see fishRender.js.)
+        f.bend = damp(f.bend || 0, clamp((wrapAngle(f.yaw - was) / Math.max(dt, 1e-3)) * 0.14, -0.45, 0.45), 8, dt);
         o.position.set(x, y, z);
-        o.rotation.set(Math.sin(t * 0.7 + f.wob) * 0.08, yaw, 0, 'YXZ');
+        o.rotation.set(Math.sin(t * 0.7 + f.wob) * 0.08, f.yaw, 0, 'YXZ');
         o.scale.setScalar(f.scale);
         o.updateMatrix();
         R.m.setMatrixAt(k, o.matrix);
         f.phase += dt * (3 + f.beat * 11) * (1 + G.shy);
-        R.swim.setXY(k, f.phase, f.beat);
+        R.swim.setXYZ(k, f.phase, f.beat * (1 + G.shy), f.bend);
       }
     }
     for (const [id, R] of Object.entries(this.reefMesh)) {
@@ -398,27 +450,31 @@ export class Drifters {
       m.instanceMatrix.needsUpdate = true;
       if (m.instanceColor) m.instanceColor.needsUpdate = true;
     }
-    // Fry: each shoal wheels round its centre; come within a few metres and it bolts away from you,
-    // then drifts back.
+    // Fry: each shoal swims as one, all facing the same way, milling on a slow, wide loop round its
+    // home; come within a few metres and it turns away from you together and darts off, packed
+    // tighter, then drifts back. (They used to go round and round their centre, and spun on the
+    // spot when you came close.)
     let n = 0;
     for (const S of this.shoals) {
       const dx = S.cx - cp.x, dz = S.cz - cp.z, d = Math.hypot(dx, dz);
       if (d < 4 && Math.abs(S.y - cp.y) < 3) S.scare = 1;
       S.scare = Math.max(0, S.scare - dt * 0.25);
-      if (S.scare > 0.5 && d > 0.01) {
-        S.cx += (dx / d) * dt * 2.5;
-        S.cz += (dz / d) * dt * 2.5;
-      } else {
-        S.cx += (S.x - S.cx) * clamp(dt * 0.15, 0, 1);
-        S.cz += (S.z - S.cz) * clamp(dt * 0.15, 0, 1);
-      }
-      const tight = 1 - 0.45 * S.scare;
+      const fleeing = S.scare > 0.5 && d > 0.01;
+      const loop = t * 0.1 + (S.ph || 0), tx = S.x + Math.cos(loop) * 3, tz = S.z + Math.sin(loop) * 3;
+      const want = fleeing ? Math.atan2(dx, dz) : Math.atan2(tx - S.cx, tz - S.cz);
+      S.heading = dampAngle(S.heading ?? want, want, fleeing ? 5 : 0.6, dt);
+      const speed = fleeing ? 2.5 : 0.3 * clamp(Math.hypot(tx - S.cx, tz - S.cz) / 2, 0.15, 1);
+      S.cx += Math.sin(S.heading) * speed * dt;
+      S.cz += Math.cos(S.heading) * speed * dt;
+      const tight = 1 - 0.45 * S.scare, sh = Math.sin(S.heading), ch = Math.cos(S.heading);
       for (const f of S.fry) {
         if (n >= SHOALS * FRY) break;
-        const a = f.a + t * f.sp * (1 + S.scare * 2);
-        const r = f.rr * tight;
-        o.position.set(S.cx + Math.cos(a) * r * 1.4, Math.max(S.floor + 0.3, S.y + f.h * tight + Math.sin(t * 0.9 + f.a) * 0.08), S.cz + Math.sin(a) * r);
-        o.rotation.set(0, -a, 0);
+        // (Each in its place in the shoal, which is longer than it's wide, with a little wobble.)
+        const along = Math.sin(f.a) * f.rr * 1.4 * tight + Math.sin(t * f.sp + f.a) * 0.1;
+        const across = Math.cos(f.a) * f.rr * tight + Math.cos(t * f.sp * 0.8 + f.a * 2) * 0.08;
+        f.yaw = S.heading + Math.sin(t * f.sp * 0.7 + f.a) * 0.12;
+        o.position.set(S.cx + sh * along + ch * across, Math.max(S.floor + 0.3, S.y + f.h * tight + Math.sin(t * 0.9 + f.a) * 0.08), S.cz + ch * along - sh * across);
+        o.rotation.set(0, f.yaw, 0);
         o.scale.setScalar(1);
         o.updateMatrix();
         this.fryMesh.setMatrixAt(n, o.matrix);

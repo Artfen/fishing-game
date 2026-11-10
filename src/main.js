@@ -11204,7 +11204,7 @@ function tick(now, manual = false) {
   audio.setUnderwater(sub);
   underwater.update(dt, t, camera, env, weather.rain);
   seabed.update(camera, sub);
-  drifters.update(dt, t, camera, sub, clock.abs);
+  drifters.update(dt, t, camera, sub, clock.abs, dive ? diver.pos : null);
   fishRenderer.update(dt, camera, env.night, sub > 0.5);
   updateWind(dt * Math.min(speed, 10));
   world.update(dt, t, env, { fireLevel: camp.fireLevel, hatchLevel: hatchLevel(), hour: clock.hour, wind: 0.5 + Math.min(1, windAt(camera.position.x, camera.position.z).speed / FRESH) * 1.3, camera, fog: scene.fog.color, hurry: !!(traveling || sleeping), haven: { from: started ? player().pos : null, cam: camera.position, cutaway: rig.mode !== 'eye', onDoor: (open) => audio.door?.(open) } });
