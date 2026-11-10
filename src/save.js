@@ -21,6 +21,7 @@ import { cleanGrounds, newGrounds } from './grounds.js';
 import { cleanComfort } from './comfort.js';
 import { cleanCrossing, cleanPassages } from './crossing.js';
 import { BEHAVIOUR_IDS } from './behaviour.js';
+import { BIRD_KINDS } from './birdData.js';
 
 // Saving your progress in this browser, with nobody to sign in to.
 //
@@ -170,7 +171,7 @@ const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 // The sea life you can see (the same kinds as world/sealife.js's SEA_LIFE).
 // (The wildlife a photograph can have in it: see world/wildlife.js.)
 const LIFE_KINDS = ['otter', 'heron', 'cormorant', 'tern', 'oystercatcher', 'shearwater', 'turtle', 'flyingfish'];
-export const SEA_LIFE_KINDS = ['bottlenose', 'commondolphin', 'spotteddolphin', 'seal', 'gannet', 'finwhale', 'minkewhale', 'pilotwhale', 'spermwhale', 'glow', 'otter', 'heron', 'cormorant', 'tern', 'oystercatcher', 'shearwater', 'turtle', 'flyingfish', 'herringgull', 'curlew', 'tawnyowl', 'commonfrog'];
+export const SEA_LIFE_KINDS = ['bottlenose', 'commondolphin', 'spotteddolphin', 'seal', 'gannet', 'finwhale', 'minkewhale', 'pilotwhale', 'spermwhale', 'glow', 'otter', 'heron', 'cormorant', 'tern', 'oystercatcher', 'shearwater', 'turtle', 'flyingfish', 'herringgull', 'curlew', 'tawnyowl', 'commonfrog', ...BIRD_KINDS];
 // The harbour: stories heard at each inn, the kitchens' orders you've filled, and a tally.
 function cleanHarbour(raw) {
   const r = isObj(raw) ? raw : {};

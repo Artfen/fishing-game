@@ -43,6 +43,7 @@ export const ACTIONS = [
   { id: 'eye', label: 'First person on or off', keys: ['KeyV'], group: 'Views' },
   { id: 'reset', label: 'Reset the camera', keys: ['KeyR'], group: 'Views' },
   { id: 'photo', label: 'Take a photograph (photo mode; on a catch card, a picture of your fish)', keys: ['KeyP'], group: 'Views' },
+  { id: 'binoculars', label: 'Binoculars: raise them to watch the birds and the sea life far off, and name what you’re looking at', keys: ['Digit5'], group: 'Views' },
   { id: 'pack', label: 'Backpack', keys: ['KeyB', 'KeyI'], group: 'Panels' },
   { id: 'finder', label: 'Fish finder (on the head unit: the next page, then away)', keys: ['KeyF'], group: 'Panels' },
   { id: 'conditions', label: 'Wind, current and sea panel', keys: ['KeyN'], group: 'Panels' },

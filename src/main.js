@@ -60,6 +60,8 @@ import { Effects } from './effects.js';
 import { sprayPoints, sprayRate, sprayVelocity } from './spray.js';
 import { FoamTracks, FoamTrailView } from './world/foamTrails.js';
 import { buildSeaLife, SEA_LIFE } from './world/sealife.js';
+import { buildBirds } from './world/birds.js';
+import { species as allSpecies } from './taxonomy.js';
 import { buildWildlife } from './world/wildlife.js';
 import { seeSign, readSign, SIGNS, SEEN_AT, stepColour, colourKey, colourWords, NATURE, noteNature, groundsOf, groundWords } from './grounds.js';
 import { newToday, notePlace, noteMove, noteBoat, noteDive, noteSeen, noteSky, noteGale, noteRecord, closeDay, dayLine, checkChallenges, isSheltered, CHALLENGES, challengeById, dayPage, dayText, noteSat, noteCrossing, careerOf } from './daybook.js';
@@ -397,6 +399,8 @@ hideFromReflection(glow.points);
 const sealife = buildSeaLife(scene, { glow });
 // The quieter wildlife at home: otters, herons, cormorants, terns, oystercatchers (wildlife.js).
 const wildlife = buildWildlife(scene);
+// The birds of the coast (see world/birds.js): to watch, up close or through the binoculars.
+const birds = buildBirds(scene);
 // Out on the crossing to Las Brasas: the weed rafts and the flying fish (see crossing.js).
 const crossingLife = buildCrossingLife(scene);
 // The harbour's people (Mags, Bert, Ruth, Dougie and his boat, Hettie, Kit; Paco at Las Brasas).
@@ -7291,7 +7295,7 @@ function photoSubjects(extra = null) {
   const by = heightAt(WRECK_BELL.x, WRECK_BELL.z) + 0.2;
   const bell = under && Math.hypot(WRECK_BELL.x - c.x, by - c.y, WRECK_BELL.z - c.z) < 7 && _frustum.containsPoint(_pv.set(WRECK_BELL.x, by, WRECK_BELL.z));
   // The wildlife in the picture (see wildlife.js).
-  const life = wildlife.inFrame(_frustum, c);
+  const life = [...wildlife.inFrame(_frustum, c), ...birds.inFrame(_frustum, c)];
   // (And the sea's: dolphins, whales, seals and turtles near enough, and a pod on your own bow.)
   const sea = sealife.inFrame(_frustum, c, together.active ? [together.id, crew.on?.id].filter(Boolean) : 'me');
   return { species: [...species].slice(0, 12), places: places.slice(0, 12), birds, ...(bell ? { bell: true } : {}), ...(life.length ? { life } : {}), ...(sea.life.length ? { sea: sea.life } : {}), ...(sea.bow ? { bow: true } : {}) };
@@ -7304,8 +7308,8 @@ function openPhoto() {
   photoFov = camera.fov;
   hud.hidden(true);
   $('photo-frame').hidden = false;
-  $('pf-hint').textContent = { touch: 'Drag to look, pinch to zoom', pad: 'R-stick to look · D-pad ↑ ↓ to zoom · A takes it · B puts the camera away' }[scheme()]
-    || `Drag to look · mouse wheel to zoom · ${input.keyLabel('cast')} or ${input.keyLabel('photo')} takes it · Esc puts the camera away`;
+  $('pf-hint').textContent = { touch: 'Drag to look, pinch to zoom', pad: 'R-stick to look · D-pad ↑ ↓ to zoom · A takes it · Y binoculars · B puts the camera away' }[scheme()]
+    || `Drag to look · mouse wheel to zoom · ${input.keyLabel('cast')} or ${input.keyLabel('photo')} takes it · ${input.keyLabel('binoculars')} binoculars · Esc puts the camera away`;
   teach('photoMode', `Photo mode: frame your picture and take it. Under the water (${scheme() === 'touch' ? 'the eye button, from a boat' : input.keyLabel('view')}) you can photograph the fish themselves. Your album is in the journal, under Memories.`, 8);
 }
 function closePhoto() {
@@ -7315,6 +7319,91 @@ function closePhoto() {
   hud.hidden(hudOff);
   if (modal === 'photo') modal = null;
 }
+// The binoculars (U, or from photo mode): a narrow view through your own eyes, two circles, and
+// whatever bird or animal you hold steady in the middle named, and noted.
+let binocs = null;
+const SPECIES = new Map(allSpecies().map((e) => [e.key, e]));
+function openBinoculars() {
+  if (modal === 'photo') closePhoto();
+  if (modal || !started || dive || driving) return;
+  if (fishing.aiming) fishing.cancel();
+  modal = 'binocs';
+  binocs = { fov: camera.fov, zoom: 7, first: rig.mode === 'eye', on: null, held: 0, shown: null, t: 0, idT: 0 };
+  if (!binocs.first) rig.setFirstPerson(true, t);
+  rig.binocs = true; // (you can look right up, for the birds overhead)
+  hud.hidden(true);
+  $('binocs').hidden = false;
+  $('bn-name').textContent = $('bn-sci').textContent = $('bn-new').textContent = '';
+  $('binocs').classList.remove('named');
+  $('bn-hint').textContent = { touch: 'Drag to look · pinch to focus further · hold something steady in the middle to name it', pad: 'R-stick to look · Y or B to lower them · hold a bird steady in the middle to name it' }[scheme()]
+    || `Drag or ${input.keyLabel('forward')}${input.keyLabel('left')}${input.keyLabel('back')}${input.keyLabel('right')} to look · mouse wheel to focus further · hold a bird steady in the middle to name it · ${input.keyLabel('binoculars')} or Esc to lower them`;
+  teach('binoculars', 'Binoculars: hold a bird (or a whale, a dolphin, a seal) steady in the middle and it’s named, and goes in the journal’s Species pages.', 7);
+}
+function closeBinoculars() {
+  $('binocs').hidden = true;
+  if (binocs) {
+    camera.fov = binocs.fov;
+    camera.updateProjectionMatrix();
+    if (!binocs.first) rig.setFirstPerson(false, t);
+  }
+  rig.binocs = false;
+  binocs = null;
+  hud.hidden(hudOff);
+  if (modal === 'binocs') modal = null;
+}
+function binocularsLook(dt, drag, wheel) {
+  const k = camera.fov / Math.max(1, binocs.fov);
+  rig.input({ x: drag.x * k, y: drag.y * k }, 0, t);
+  // (The keys look too: across, and up and down.)
+  if (input.steer) rig.turn(input.steer * k * 0.9, dt, t);
+  const v = rig.views.eye;
+  if (input.throttle && v) v.pitch = clamp(v.pitch - input.throttle * 0.9 * k * dt, -1.2, 1.2);
+  // (Wheel up, or pinch out: further in.)
+  if (wheel) binocs.zoom = clamp(binocs.zoom - wheel * 0.004, 4, 14);
+}
+const _bnDir = new THREE.Vector3();
+function binocularsStep(dt) {
+  const B = binocs;
+  // (Steady at their own magnification, whatever the window does.)
+  const fov = clamp(binocs.fov / B.zoom, 3.5, 14);
+  if (Math.abs(camera.fov - fov) > 0.01) {
+    camera.fov = fov;
+    camera.updateProjectionMatrix();
+  }
+  if ((B.t -= dt) > 0) return;
+  B.t = 0.12;
+  camera.getWorldDirection(_bnDir);
+  const c = camera.position;
+  const best = [birds.spot(c, _bnDir), sealife.spot?.(c, _bnDir), wildlife.spot?.(c, _bnDir), world.gullSpot?.(c, _bnDir)].filter(Boolean).sort((a, b) => a.off / (a.tol || 1) - b.off / (b.tol || 1))[0] || null;
+  const kind = best?.kind || null;
+  if (kind && kind === B.on) B.held += 0.12;
+  else {
+    B.on = kind;
+    B.held = 0;
+  }
+  $('binocs').classList.toggle('focus', !!kind);
+  // Held steady half a second: named, and noted.
+  if (kind && B.held >= 0.45 && B.shown !== kind) {
+    B.shown = kind;
+    B.idT = 3;
+    const e = SPECIES.get(`sea:${kind}`), fresh = !state.seaLife?.[kind] || state.seaLife[kind].heard;
+    $('bn-name').textContent = e?.name || SEA_LIFE[kind]?.name || kind;
+    $('bn-sci').textContent = e?.sci || '';
+    $('bn-new').textContent = fresh ? 'New to your journal' : `${Math.round(best.d)} m off`;
+    $('binocs').classList.add('named');
+    seeSeaLife(kind, c.x + _bnDir.x * best.d, c.z + _bnDir.z * best.d);
+    if (fresh) audio.chime?.();
+  }
+  // (The name stays a moment after it's gone from the middle.)
+  if (!kind) {
+    B.idT -= 0.12;
+    if (B.idT <= 0 && B.shown) {
+      B.shown = null;
+      $('binocs').classList.remove('named');
+    }
+  }
+}
+
 let capturing = false;
 async function takePhoto(extra = null, title = '') {
   if (capturing) return;
@@ -7366,6 +7455,8 @@ function discardPhoto() {
   if (modal === 'photocard') modal = null;
 }
 $('pf-take').addEventListener('click', () => takePhoto());
+$('pf-binocs').addEventListener('click', () => openBinoculars());
+$('bn-close').addEventListener('click', () => closeBinoculars());
 $('pf-leave').addEventListener('click', () => closePhoto());
 $('pc-keep').addEventListener('click', (e) => {
   e.stopPropagation();
@@ -7810,9 +7901,14 @@ let gullT = 0;
 function lookForGulls(dt) {
   if ((gullT -= dt) > 0) return;
   gullT = 1.5;
-  if (!started || modal || dive || region !== 'home' || env.daylight < 0.25) return;
+  if (!started || modal || dive) return;
   const P = player().pos;
-  if (world.gullNear(camera.position, 70)) seeSeaLife('herringgull', P.x, P.z);
+  if (region === 'home' && env.daylight > 0.25 && world.gullNear(camera.position, 70)) seeSeaLife('herringgull', P.x, P.z);
+  // (And the coast's other birds, up close and in view: see world/birds.js.)
+  camera.updateMatrixWorld();
+  _pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  _frustum.setFromProjectionMatrix(_pm);
+  for (const k of birds.seenNear(_frustum, camera.position)) seeSeaLife(k, P.x, P.z);
 }
 crossingLife.events.onSighting = seeSeaLife;
 // The ship's horn (a long blast, heard a long way off), and the white water at her bow and stern.
@@ -8434,6 +8530,7 @@ function padContext() {
   if (!$('confirm').hidden || !$('photo-card').hidden) return 'menu';
   if (modal === 'catch') return 'catch';
   if (modal === 'photo') return 'photo';
+  if (modal === 'binocs') return 'binocs';
   if (modal) return 'menu';
   if (dive) return 'dive';
   if (placement.isOn) return 'place';
@@ -10188,7 +10285,19 @@ input.on('press', (code, acts) => {
   }
   if (modal === 'photo') {
     if (code === 'Escape') closePhoto();
+    else if (is('binoculars')) openBinoculars();
     else if (is('cast') || is('photo')) takePhoto();
+    return;
+  }
+  if (modal === 'binocs') {
+    if (code === 'Escape' || is('binoculars') || is('cancel')) closeBinoculars();
+    else if (is('photo')) {
+      // (A photograph through them: photo mode, the lens as far out as it goes.)
+      closeBinoculars();
+      openPhoto();
+      camera.fov = 18;
+      camera.updateProjectionMatrix();
+    }
     return;
   }
   if (modal === 'photocard') {
@@ -10345,6 +10454,7 @@ input.on('press', (code, acts) => {
   } else if (is('outboard')) toggleOutboard();
   else if ((is('walkline') || is('jog')) && fishing.lineOut && fishing.state !== 'casting') toggleWalkLine();
   else if (is('photo')) openPhoto();
+  else if (is('binoculars')) openBinoculars();
   else if (is('view')) cycleView();
   else if (is('eye')) toggleFirstPerson();
   else if (is('reset')) resetView();
@@ -10934,6 +11044,7 @@ function tick(now, manual = false) {
     // (How fast you're coming: walking, the boat, swimming; sitting still is stillest of all.)
     const pace = sitting ? 0 : dive ? diver.speed : onFoot ? walker.speed : driving ? 10 : Math.abs(boat.forwardSpeed) + (boat.motor && boat.lever > 0 ? 1 : 0);
     wildlife.update(dt, t, { from: P, onFoot: onFoot && !dive && !driving, speed: pace, daylight: env.daylight, hour: clock.hour, season: seasonOf(clock.day).name, tideLevel: tideNow.level, region });
+    birds.update(dt, t, { from: P, daylight: env.daylight, season: seasonOf(clock.day).name, region, near: !dive });
     // The harbour's people going about their day, and Dougie's boat.
     town.update(clock.abs, folkCtx(dt));
     {
@@ -11003,6 +11114,8 @@ function tick(now, manual = false) {
   const wheel = input.takeWheel();
   // (While pitching a camp the wheel brings it nearer or pushes it further, instead of zooming.)
   if (started && !modal) rig.input(drag, placement.isOn ? 0 : wheel, t);
+  // The binoculars: look about slowly (the narrower the view, the slower), and focus further.
+  if (modal === 'binocs') binocularsLook(dt, drag, wheel);
   // Photo mode: look about, and zoom the lens rather than the camera's distance.
   if (modal === 'photo') {
     rig.input(drag, 0, t);
@@ -11031,6 +11144,7 @@ function tick(now, manual = false) {
   // (The catch card beside the fish on a wide screen: the camera keeps the fish clear of it.)
   rig.heroShift = modal === 'catch' && innerWidth >= 900 ? 1 : 0;
   rig.update(dt, t, { boat, walker, started, fishing, baitFocus: fishing.watchPoint, eye: _eye, roll: onFoot || steadyCam || cabinIn ? 0 : boat.roll * 0.45 });
+  if (modal === 'binocs') binocularsStep(dt);
   updateSitting(dt);
   if (sitting && !modal) sitCamera(dt);
   // The first time the view dips under the water by itself: a word on how it works.
@@ -11387,7 +11501,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView, passersby, together, visitors, clock, drifters, seabed, shared, teamwork, crew, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pickupsShown() { return pickups.count; }, padContext: () => padContext(), jobsChanged: () => jobWeight(), strays, get towing() { return tow ? { lead: tow.lead.kind, towed: tow.towed.boatName || tow.towed.name, tight: tow.tight } : null; }, seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
+  rowboat, skiff, boats: BOATS, wind, town, folkView, passersby, together, visitors, clock, drifters, seabed, shared, teamwork, crew, birds, binoculars: { open: () => openBinoculars(), close: () => closeBinoculars() }, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pickupsShown() { return pickups.count; }, padContext: () => padContext(), jobsChanged: () => jobWeight(), strays, get towing() { return tow ? { lead: tow.lead.kind, towed: tow.towed.boatName || tow.towed.name, tight: tow.tight } : null; }, seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
   pump: (id = 'haven') => openPump(id),
