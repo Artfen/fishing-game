@@ -248,7 +248,7 @@ export class Memories {
       const r = S[id];
       if (!r) continue;
       const d = el('div', 'mem-place');
-      d.append(el('b', '', info.name), el('span', 'j-faint', ` · first seen ${whenText(r)}${r.where ? `, ${r.where}` : ''}${r.n > 1 ? ` · ${r.n} times` : ''}`));
+      d.append(el('b', '', info.name), el('span', 'j-faint', ` · ${r.heard ? 'heard' : 'first seen'} ${whenText(r)}${r.where ? `, ${r.where}` : ''}${r.n > 1 ? ` · ${r.n} times` : ''}`));
       d.append(el('p', '', info.note));
       out.push(d);
     }

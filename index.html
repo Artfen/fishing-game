@@ -449,7 +449,17 @@
       <button type="button" data-view="memories">Memories</button>
       <button type="button" data-view="days" aria-label="Days and your record">Days</button>
       <button type="button" data-view="notes" aria-label="Notes: the grounds and the field notes">Notes</button>
+      <button type="button" data-view="species" aria-label="Species: every living thing on the coast, by animal group">Species</button>
     </nav>
+    <section class="page left j-species-view" aria-label="The tree of life: every living thing on the coast" hidden>
+      <h2>The tree of life <span class="count" id="sp-count"></span></h2>
+      <p class="j-faint">Every living thing on this coast, sorted as a zoologist would: kingdom, phylum, class, order, family. Choose a group to see who’s in it, what you’ve recorded, and where to look for the rest.</p>
+      <div id="sp-tree"></div>
+      <p class="j-faint sp-sources">Names and ranks follow WoRMS, the World Register of Marine Species. Fish orders follow Eschmeyer’s Catalog of Fishes, which leaves the perch-like branch’s orders open while DNA redraws them. Status is the IUCN Red List’s, worldwide: LC least concern, NT near threatened, VU vulnerable, EN endangered, CR critically endangered, DD data deficient.</p>
+    </section>
+    <section class="page right j-species-view" aria-label="The species in a group" hidden>
+      <div id="sp-group"></div>
+    </section>
     <section class="page left j-mem-view" aria-label="Memories: photographs and adventures" hidden>
       <h2>Photographs <span class="count" id="mem-photo-count"></span></h2>
       <p id="mem-photo-note" class="j-faint"></p>

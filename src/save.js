@@ -170,7 +170,7 @@ const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 // The sea life you can see (the same kinds as world/sealife.js's SEA_LIFE).
 // (The wildlife a photograph can have in it: see world/wildlife.js.)
 const LIFE_KINDS = ['otter', 'heron', 'cormorant', 'tern', 'oystercatcher', 'shearwater', 'turtle', 'flyingfish'];
-export const SEA_LIFE_KINDS = ['bottlenose', 'commondolphin', 'spotteddolphin', 'seal', 'gannet', 'finwhale', 'minkewhale', 'pilotwhale', 'spermwhale', 'glow', 'otter', 'heron', 'cormorant', 'tern', 'oystercatcher', 'shearwater', 'turtle', 'flyingfish'];
+export const SEA_LIFE_KINDS = ['bottlenose', 'commondolphin', 'spotteddolphin', 'seal', 'gannet', 'finwhale', 'minkewhale', 'pilotwhale', 'spermwhale', 'glow', 'otter', 'heron', 'cormorant', 'tern', 'oystercatcher', 'shearwater', 'turtle', 'flyingfish', 'herringgull', 'curlew', 'tawnyowl', 'commonfrog'];
 // The harbour: stories heard at each inn, the kitchens' orders you've filled, and a tally.
 function cleanHarbour(raw) {
   const r = isObj(raw) ? raw : {};
@@ -192,6 +192,7 @@ function cleanSeaLife(raw) {
     const r = raw[k];
     if (!isObj(r) || !Number.isFinite(r.n) || r.n < 1) continue;
     out[k] = { n: Math.min(9999, Math.floor(r.n)), day: Number.isFinite(r.day) ? r.day : 1, hour: Number.isFinite(r.hour) ? r.hour : 12, where: typeof r.where === 'string' ? r.where.slice(0, 60) : '' };
+    if (r.heard === true) out[k].heard = true; // (heard, not seen yet)
   }
   return out;
 }

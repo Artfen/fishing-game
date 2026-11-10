@@ -1223,6 +1223,11 @@ export function buildWorld(scene, renderer, habitat) {
     calf,
     fell,
     dives,
+    // Whether a gull is within r of p (for the naturalist's notes: you've seen herring gulls).
+    gullNear(p, r) {
+      const near = (g) => g.visible && g.position.distanceToSquared(p) < r * r;
+      return gulls.some((b) => near(b.g)) || flockBirds.some((b) => b.flock && near(b.g));
+    },
     // Birds over feeding fish: a flock gathers over (x, z) for a while (or freshens if one is there).
     birdsAt(x, z) {
       const near = flocks.find((f) => Math.hypot(f.x - x, f.z - z) < 40);
