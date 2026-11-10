@@ -45,7 +45,9 @@ export const MAPS = {
   // sets the drag too; A follows a running fish with the boat.
   fight: { A: 'interact', B: 'cancel', RT: 'cast', R3: 'reset', LEFT: 'view', VIEW: 'map', MENU: 'settings' },
   catch: { A: 'cast', X: 'keep', Y: 'photo', MENU: 'settings' },
-  photo: { A: 'photo', RT: 'photo', B: 'cancel', R3: 'reset' },
+  // (Y raises the binoculars from photo mode; in them, Y or B lowers them again.)
+  photo: { A: 'photo', RT: 'photo', B: 'cancel', R3: 'reset', Y: 'binoculars' },
+  binocs: { B: 'cancel', Y: 'binoculars', A: 'binoculars', R3: 'reset' },
   // Choosing where to pitch: walk with the stick, the bumpers turn it.
   place: { A: 'cast', RT: 'cast', B: 'cancel', LB: 'tackle', RB: 'interact', MENU: 'settings' },
   // At the wheel: RT accelerates and LT brakes (both read as triggers by the game), the left

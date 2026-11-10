@@ -702,6 +702,21 @@ export function buildWildlife(scene) {
   return {
     ...events, otters, herons, cormorants, terns, flocks,
     // The kinds in a photograph: in frame, and near enough to make out.
+    // What's in the middle of the binoculars (see main.js): { kind, d, off, tol } or null.
+    spot(cam, dir) {
+      let best = null;
+      const SIZE = { otter: 1.1, heron: 1.8, cormorant: 1.3, tern: 0.9, oystercatcher: 0.8 };
+      for (const A of all()) {
+        if (!A.g.visible) continue;
+        A.g.getWorldPosition(_f);
+        _f.sub(cam);
+        const d = _f.length();
+        if (d > 600 || d < 1) continue;
+        const off = Math.acos(clamp(_f.dot(dir) / d, -1, 1)), tol = Math.max(0.012, Math.atan2((SIZE[A.kind] || 1) * 0.6, d));
+        if (off < tol && (!best || off / tol < best.off / best.tol)) best = { kind: A.kind, d, off, tol };
+      }
+      return best;
+    },
     inFrame(frustum, cam) {
       const out = new Set();
       for (const A of all()) {

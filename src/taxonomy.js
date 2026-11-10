@@ -2,6 +2,7 @@ import { FISH, fishById } from './fish.js';
 import { registerFor, MACARONESIA, FRESHWATER, LEGACY } from './register.js';
 import { NATURE } from './grounds.js';
 import { SEA_LIFE } from './world/sealife.js';
+import { BIRDS } from './birdData.js';
 
 // The tree of life on this coast: every living thing in the game (the fish you catch and see, the
 // whales, dolphins, seals and otters, the seabirds and the birds you hear, the turtle, and the
@@ -61,12 +62,18 @@ export const ORDERS = {
   // Mammals
   artiodactyla: { sci: 'Artiodactyla', name: 'Even-toed hoofed mammals: here the whales and dolphins (Cetacea), cousins of the hippos' },
   carnivora: { sci: 'Carnivora', name: 'Carnivores' },
-  // Birds
-  suliformes: { sci: 'Suliformes', name: 'Gannets and cormorants' },
-  pelecaniformes: { sci: 'Pelecaniformes', name: 'Herons, egrets, ibises and pelicans' },
+  // Birds (roughly as the checklists run, from the ducks to the songbirds)
+  anseriformes: { sci: 'Anseriformes', name: 'Ducks, geese and swans' },
+  apodiformes: { sci: 'Apodiformes', name: 'Swifts and hummingbirds' },
   charadriiformes: { sci: 'Charadriiformes', name: 'Waders, gulls, terns and auks' },
   procellariiformes: { sci: 'Procellariiformes', name: 'Tubenoses: shearwaters, petrels and albatrosses' },
+  suliformes: { sci: 'Suliformes', name: 'Gannets and cormorants' },
+  pelecaniformes: { sci: 'Pelecaniformes', name: 'Herons, egrets, ibises and pelicans' },
+  accipitriformes: { sci: 'Accipitriformes', name: 'Hawks, eagles and the osprey' },
   strigiformes: { sci: 'Strigiformes', name: 'Owls' },
+  coraciiformes: { sci: 'Coraciiformes', name: 'Kingfishers, bee-eaters and rollers' },
+  falconiformes: { sci: 'Falconiformes', name: 'Falcons' },
+  passeriformes: { sci: 'Passeriformes', name: 'Perching birds: the songbirds and the crows' },
   // Reptiles and amphibians
   testudines: { sci: 'Testudines', name: 'Turtles and tortoises' },
   anura: { sci: 'Anura', name: 'Frogs and toads' },
@@ -128,6 +135,9 @@ export const FAMILIES = {
   Sulidae: ['suliformes', 'Gannets and boobies'], Phalacrocoracidae: ['suliformes', 'Cormorants and shags'], Ardeidae: ['pelecaniformes', 'Herons, egrets and bitterns'],
   Laridae: ['charadriiformes', 'Gulls, terns and skimmers'], Haematopodidae: ['charadriiformes', 'Oystercatchers'], Scolopacidae: ['charadriiformes', 'Sandpipers, curlews and snipes'],
   Procellariidae: ['procellariiformes', 'Shearwaters and petrels'], Strigidae: ['strigiformes', 'Typical owls'],
+  Alcidae: ['charadriiformes', 'Auks'], Anatidae: ['anseriformes', 'Ducks, geese and swans'], Apodidae: ['apodiformes', 'Swifts'],
+  Pandionidae: ['accipitriformes', 'Ospreys'], Alcedinidae: ['coraciiformes', 'Kingfishers'], Falconidae: ['falconiformes', 'Falcons and caracaras'],
+  Corvidae: ['passeriformes', 'Crows, ravens and choughs'], Cinclidae: ['passeriformes', 'Dippers'], Motacillidae: ['passeriformes', 'Pipits and wagtails'], Fringillidae: ['passeriformes', 'Finches'],
   // Reptiles and amphibians
   Cheloniidae: ['testudines', 'Sea turtles'], Ranidae: ['anura', 'True frogs'],
   // Ray-finned fishes
@@ -217,7 +227,7 @@ export const LIFE = {
   tern: { src: 'sea', name: 'Common tern', cls: 'aves', family: 'Laridae', sci: 'Sterna hirundo', iucn: 'LC', look: 'In summer, hovering over the shallows and plunging after sand smelt.' },
   herringgull: { src: 'sea', name: 'European herring gull', cls: 'aves', family: 'Laridae', sci: 'Larus argentatus', iucn: 'LC', look: 'Round Gull Rock past the bay mouth, and over the bay by day; over any shoal the fish drive up.' },
   oystercatcher: { src: 'sea', name: 'Eurasian oystercatcher', cls: 'aves', family: 'Haematopodidae', sci: 'Haematopus ostralegus', iucn: 'NT', look: 'On the sand and mud at low water. They go off piping if you come too close.' },
-  curlew: { src: 'sea', name: 'Eurasian curlew', cls: 'aves', family: 'Scolopacidae', sci: 'Numenius arquata', iucn: 'NT', look: 'Listen in the cove’s channel and the salt inlets, best at dawn and dusk.' },
+  curlew: { src: 'sea', name: 'Eurasian curlew', cls: 'aves', family: 'Scolopacidae', sci: 'Numenius arquata', iucn: 'NT', look: 'Wading on the mud of the Saltings, or listen in the cove’s channel and the salt inlets, best at dawn and dusk.' },
   tawnyowl: { src: 'sea', name: 'Tawny owl', cls: 'aves', family: 'Strigidae', sci: 'Strix aluco', iucn: 'LC', look: 'Listen ashore at night, away from the sea’s noise.' },
   // A reptile and an amphibian
   turtle: { src: 'sea', name: 'Loggerhead turtle', cls: 'reptilia', family: 'Cheloniidae', sci: 'Caretta caretta', iucn: 'VU', look: 'In the warm blue water round Las Brasas and on the crossing, drifting near the surface. Keep your boat slow near it.' },
@@ -253,6 +263,8 @@ export const LIFE = {
   red: { src: 'nature', name: 'Red seaweeds', phylum: 'rhodophyta', sci: 'Rhodophyta', rank: 'phylum', look: 'Under the kelp at Skerries Reef.' },
   glow: { src: 'sea', name: 'Sea sparkle', cls: 'dinophyceae', family: 'Noctilucaceae', sci: 'Noctiluca scintillans', look: 'At night, in a boat’s wake or under the oars: brighter some nights than others.' },
 };
+// The birds of the coast (birdData.js): seen from the shore or the boat, or through the binoculars.
+for (const [id, B] of Object.entries(BIRDS)) LIFE[id] = { src: 'sea', name: B.one, cls: 'aves', family: B.family, sci: B.sci, iucn: B.iucn, look: B.look };
 // (The sand smelt the divers meet in shoals is the sand smelt you catch: one species, one entry.)
 const SAME = { fry: 'sandsmelt' };
 

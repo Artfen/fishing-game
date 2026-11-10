@@ -1223,6 +1223,20 @@ export function buildWorld(scene, renderer, habitat) {
     calf,
     fell,
     dives,
+    // A gull in the middle of the binoculars (see main.js): { kind, d, off, tol } or null.
+    gullSpot(cam, dir) {
+      let best = null;
+      const v = new THREE.Vector3();
+      for (const g of [...gulls.map((b) => b.g), ...flockBirds.filter((b) => b.flock).map((b) => b.g)]) {
+        if (!g.visible) continue;
+        v.subVectors(g.position, cam);
+        const d = v.length();
+        if (d > 700 || d < 1) continue;
+        const off = Math.acos(Math.max(-1, Math.min(1, v.dot(dir) / d))), tol = Math.max(0.012, Math.atan2(0.8, d));
+        if (off < tol && (!best || off / tol < best.off / best.tol)) best = { kind: 'herringgull', d, off, tol };
+      }
+      return best;
+    },
     // Whether a gull is within r of p (for the naturalist's notes: you've seen herring gulls).
     gullNear(p, r) {
       const near = (g) => g.visible && g.position.distanceToSquared(p) < r * r;

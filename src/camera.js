@@ -178,7 +178,7 @@ export class CameraRig {
   }
 
   input(drag, wheel, t) {
-    const v = this.views[this.mode], lim = this.diver && this.mode === 'eye' ? MASK : LIMITS[this.mode];
+    const v = this.views[this.mode], lim = (this.diver || this.binocs) && this.mode === 'eye' ? MASK : LIMITS[this.mode];
     const eye = this.mode === 'eye';
     if (drag.x || drag.y) {
       if (!this.looking) this.lookBack = null;

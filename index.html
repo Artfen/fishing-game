@@ -294,8 +294,16 @@
   <p class="pf-hint" id="pf-hint"></p>
   <div class="pf-acts">
     <button id="pf-take" class="pk-btn" type="button">Take the photograph</button>
+    <button id="pf-binocs" class="pk-btn quiet" type="button">Binoculars</button>
     <button id="pf-leave" class="pk-btn quiet" type="button">Put the camera away</button>
   </div>
+</div>
+<div id="binocs" class="binocs" hidden>
+  <div class="bn-view" aria-hidden="true"></div>
+  <div class="bn-focus" aria-hidden="true"></div>
+  <p class="bn-hint" id="bn-hint"></p>
+  <div class="bn-id" aria-live="polite"><b id="bn-name"></b> <i id="bn-sci"></i><span id="bn-new"></span></div>
+  <div class="bn-acts"><button id="bn-close" class="pk-btn quiet" type="button">Lower the binoculars</button></div>
 </div>
 
 <div id="photo-card" class="card photo-card" role="dialog" aria-label="Your photograph" hidden>

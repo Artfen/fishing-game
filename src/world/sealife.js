@@ -5,6 +5,7 @@ import { depthAt, heightAt, GANNET, SKERRIES } from './terrain.js';
 import { ARCO, PICO } from './brasa.js';
 import { sealParts } from './calf.js';
 import { clamp, lerp, damp, dampAngle, smoothstep, wrapAngle, glowTexture, mergeParts, mat, seeded } from '../util.js';
+import { BIRDS } from '../birdData.js';
 
 // Sea life you don't catch: the whales, dolphins, seals and seabirds of both seas, there to be
 // watched (and listened to), never fished for.
@@ -78,6 +79,9 @@ export const SEA_LIFE = {
   tawnyowl: { name: 'Tawny owls', note: 'Tawny owls: round brown owls with dark eyes that hunt mice and voles by ear in the dark. A pair keeps the same patch of wood for life; the female’s sharp “ke-wick” and the male’s quavering hoot together make the “twit-twoo” of the stories.', heard: 'You hear a tawny owl hooting in the dark: a long, quavering “hoo… hoo”. Somewhere in the trees it’s listening for mice.' },
   commonfrog: { name: 'Common frogs', note: 'Common frogs: olive to brown, a dark patch behind each eye. They breathe through their skin as well as their lungs, and spend the winter under logs or in the mud at the bottom of the pond.', heard: 'You hear frogs croaking softly at the water’s edge: common frogs, out on a damp night.' },
 };
+// (And the birds of the coast, watched from the shore or the boat, or through the binoculars:
+// see birdData.js and birds.js.)
+for (const [k, B] of Object.entries(BIRDS)) SEA_LIFE[k] = { name: B.name, note: B.note };
 
 // The pods, where they roam (an area, kept to water at least minDepth deep), how fast they go,
 // how long between breaths, and whether they ride a bow.
@@ -1108,6 +1112,27 @@ export function buildSeaLife(scene, { glow = null, seed = 20261106 } = {}) {
     // enough and up at the surface to make out, and whether a pod in it is riding your bow (me: your
     // id as the sea knows it: 'me' alone, your session id playing together; or a list of ids, yours
     // and the skipper's when you're crewing, since their bow is the one you're on).
+    // What's in the middle of the binoculars (see main.js): the animal nearest the line of sight,
+    // within about how wide it looks: { kind, d, off, tol } or null.
+    spot(cam, dir) {
+      let best = null;
+      const p = new THREE.Vector3();
+      const look = (kind, x, y, z, size, far) => {
+        p.set(x - cam.x, y - cam.y, z - cam.z);
+        const d = p.length();
+        if (d > far || d < 1) return;
+        const off = Math.acos(clamp(p.dot(dir) / d, -1, 1)), tol = Math.max(0.012, Math.atan2(size * 0.6, d));
+        if (off < tol && (!best || off / tol < best.off / best.tol)) best = { kind, d, off, tol };
+      };
+      for (const pod of pods) for (const m of pod.members) if (m.mesh?.visible && m.y > -2.5) look(pod.kind, m.x, m.y, m.z, pod.whale ? 5 : 2.6, pod.whale ? 1500 : 900);
+      for (const w of whales) if (w.mesh?.visible && w.y > -3) look(w.kind, w.x, w.y, w.z, w.len, 2000);
+      for (const s of ashore) if (s.g.visible) look('seal', s.g.position.x, s.g.position.y + 0.3, s.g.position.z, 2, 600);
+      for (const s of visitors) if (!s.down) look(s.kind || 'seal', s.x, 0.2, s.z, 1.5, 400);
+      for (const T of turtles) if (T.g.visible && T.y > -1.6) look(T.kind || 'turtle', T.x, T.y, T.z, 1.2, 250);
+      for (const b of [...colony, ...feeders]) if (b.g.visible) look('gannet', b.g.position.x, b.g.position.y, b.g.position.z, 1.8, 900);
+      for (const b of shears) if (b.g.visible) look('shearwater', b.g.position.x, b.g.position.y, b.g.position.z, 1.2, 700);
+      return best;
+    },
     inFrame(frustum, cam, me = 'me') {
       const mine = Array.isArray(me) ? (id) => me.includes(id) : (id) => id === me;
       const life = new Set(), p = new THREE.Vector3();
