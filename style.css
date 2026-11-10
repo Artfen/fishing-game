@@ -1133,6 +1133,7 @@ p.cp-soft { margin: 6px 0; }
 /* Journal tabs: a pair of bookmarks along the top edge. */
 .j-tabs { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 2; display: flex; gap: 6px; }
 .j-tabs button {
+  white-space: nowrap;
   padding: 5px 14px;
   border: 1.5px solid var(--ink-faint);
   border-radius: 999px;
@@ -1145,7 +1146,9 @@ p.cp-soft { margin: 6px 0; }
 .book .page { padding-top: 46px; }
 /* On a phone the tabs sit on one line, left of the close button (short names on the narrowest). */
 @media (max-width: 760px) {
-  .j-tabs { left: 14px; transform: none; gap: 4px; }
+  .j-tabs { left: 14px; right: 54px; transform: none; gap: 4px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .j-tabs::-webkit-scrollbar { display: none; }
+  .j-tabs button { flex: none; }
   .j-tabs button { padding: 5px 9px; font-size: 12px; white-space: nowrap; }
 }
 @media (max-width: 440px) {
@@ -2338,6 +2341,45 @@ body.placing #sonar, body.placing #act-btn, body.placing #cancel-btn { visibilit
 .n-life b { font: 700 15px var(--font-ui); }
 .n-life i { font: italic 13px var(--font-ui); color: var(--ink-soft); }
 .n-life p { margin: 2px 0 0; font: 13px/1.4 var(--font-ui); }
+/* Species: the tree of life on the coast (see taxonomy.js). */
+.page h3.sp-kingdom { margin: 14px 0 4px; font: 700 24px/1.1 var(--font-display); }
+.sp-kingdom i { font: italic 15px var(--font-ui); color: var(--ink-soft); margin-left: 4px; }
+.sp-kingdom .count { font: 700 12px var(--font-ui); color: var(--ink-soft); margin-left: 8px; letter-spacing: 0.04em; }
+.sp-note { margin: 2px 0 6px; font: 12.5px/1.4 var(--font-ui); color: var(--ink-soft); }
+.sp-phylum { margin: 6px 0 12px; padding-left: 10px; border-left: 3px solid var(--ink-faint); }
+.sp-phead b { font: 700 15px var(--font-ui); }
+.sp-phead i { font: italic 13px var(--font-ui); color: var(--ink-soft); }
+.sp-class { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 0 8px; width: 100%; margin: 4px 0; padding: 6px 10px 7px; border: 1.5px solid var(--ink-faint); border-radius: 8px; background: rgba(255, 255, 255, 0.4); color: var(--ink); text-align: left; cursor: pointer; font: 14px var(--font-ui); }
+.sp-class:hover { background: rgba(255, 255, 255, 0.65); }
+.sp-class.on { border-color: #2f6f74; background: rgba(47, 111, 116, 0.12); }
+.sp-cname { font-weight: 700; }
+.sp-class .sp-sci { grid-column: 1; font: italic 12.5px var(--font-ui); color: var(--ink-soft); }
+.sp-n { grid-column: 2; grid-row: 1; font: 700 12px var(--font-ui); color: var(--ink-soft); }
+.sp-bar { grid-column: 1 / -1; height: 4px; margin-top: 4px; border-radius: 2px; background: var(--ink-faint); overflow: hidden; }
+.sp-fill { display: block; height: 100%; background: #2f6f74; }
+.page h2 .sp-sci { font: italic 15px var(--font-ui); color: var(--ink-soft); margin-left: 2px; }
+.page h3.sp-order { margin: 16px 0 2px; font: 700 15px/1.35 var(--font-ui); }
+.sp-order i, .sp-family i { font-style: italic; }
+.page h4.sp-family { margin: 8px 0 2px; font: 700 13px/1.35 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--ink-soft); }
+.sp-rank { font: 400 12px var(--font-ui); color: var(--ink-soft); }
+.sp-what { font-weight: 400; color: var(--ink-soft); }
+.sp-card { margin: 4px 0 8px; padding: 4px 0 4px 10px; border-left: 3px solid #6f9a63; }
+.sp-card.faint { border-left-color: var(--ink-faint); }
+.sp-card.faint .sp-top b, .sp-card.faint .sp-top i { opacity: 0.6; }
+.sp-top b { font: 700 15px var(--font-ui); }
+.sp-top i { font: italic 13px var(--font-ui); color: var(--ink-soft); }
+.sp-text { margin: 2px 0 0; font: 13px/1.4 var(--font-ui); }
+.sp-card.faint .sp-text { color: var(--ink-soft); }
+.sp-guide { margin-top: 4px; padding: 2px 10px; border: 1.5px solid var(--ink-faint); border-radius: 999px; background: rgba(255, 255, 255, 0.5); color: var(--ink); font: 700 12px var(--font-ui); cursor: pointer; }
+.iucn { display: inline-block; margin-left: 8px; padding: 0 5px; border-radius: 4px; font: 700 10.5px/1.6 var(--font-ui); letter-spacing: 0.05em; vertical-align: 2px; color: #fff; }
+.iucn-LC { background: #4f8a5b; }
+.iucn-NT { background: #8a8f3a; }
+.iucn-VU { background: #c08a1e; }
+.iucn-EN { background: #c4602a; }
+.iucn-CR { background: #b0322e; }
+.iucn-DD, .iucn-NE { background: #8a8580; }
+.sp-sources { margin-top: 16px; font-size: 12px; }
+
 /* The day book: a page for each day out, your record, the harbour's challenges. */
 .j-day { margin: 6px 0 14px; padding: 6px 12px 8px; border-left: 3px solid var(--ink-faint); }
 .j-day strong { display: block; font: 700 20px var(--font-display); }

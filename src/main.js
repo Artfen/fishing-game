@@ -7769,8 +7769,10 @@ function seeSeaLife(kind, x, z) {
   if (seaLifeSeenAt[kind] && now - seaLifeSeenAt[kind] < 600) return;
   seaLifeSeenAt[kind] = now;
   const S = (state.seaLife ||= {});
-  if (S[kind]) S[kind].n++;
-  else {
+  if (S[kind]) {
+    S[kind].n++;
+    delete S[kind].heard; // (heard before, seen now)
+  } else {
     S[kind] = { n: 1, day: state.day, hour: state.hour, where: region === 'south' ? 'off Las Brasas' : placeName(x, z) || '' };
     // A word the first time (and where the notes are, the very first time): one at a time, so a
     // busy shore doesn't bury you in birds; the rest go quietly into the notes.
@@ -7783,6 +7785,35 @@ function seeSeaLife(kind, x, z) {
   save();
 }
 sealife.onSighting = seeSeaLife;
+// Heard, not seen: a curlew, an owl, frogs (see audio.js), into the notes as heard (only with the
+// sound on, of course).
+audio.onHeard = (kind) => hearLife(kind);
+function hearLife(kind) {
+  const A = settings.audio;
+  if (!started || !SEA_LIFE[kind]?.heard || A.mute || !(A.master > 0) || !(A.ambient > 0)) return;
+  const now = performance.now() / 1000;
+  if (seaLifeSeenAt[kind] && now - seaLifeSeenAt[kind] < 600) return;
+  seaLifeSeenAt[kind] = now;
+  const S = (state.seaLife ||= {}), P = player().pos;
+  if (S[kind]) S[kind].n++;
+  else {
+    S[kind] = { n: 1, day: state.day, hour: state.hour, where: region === 'south' ? 'off Las Brasas' : placeName(P.x, P.z) || '', heard: true };
+    if (now - lastSightingWord > SIGHTING_GAP) {
+      lastSightingWord = now;
+      hud.toast(SEA_LIFE[kind].heard, 8);
+    }
+  }
+  save();
+}
+// The gulls round Gull Rock and over the bay, by day: close enough to know them for herring gulls.
+let gullT = 0;
+function lookForGulls(dt) {
+  if ((gullT -= dt) > 0) return;
+  gullT = 1.5;
+  if (!started || modal || dive || region !== 'home' || env.daylight < 0.25) return;
+  const P = player().pos;
+  if (world.gullNear(camera.position, 70)) seeSeaLife('herringgull', P.x, P.z);
+}
 crossingLife.events.onSighting = seeSeaLife;
 // The ship's horn (a long blast, heard a long way off), and the white water at her bow and stern.
 crossingLife.events.onHorn = (x, z) => {
@@ -10922,6 +10953,7 @@ function tick(now, manual = false) {
     together.update(dt, started ? whereIAm() : null);
     flushSale();
     watchCrew();
+    lookForGulls(dt);
     // (Under water the right mouse button, held, looks about: see input.js.)
     input.rightLooks = !!dive;
     // (A guest in a friend's harbour, or back from one: your Willowhaven boats to where yours lie.)

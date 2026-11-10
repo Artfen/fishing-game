@@ -689,6 +689,7 @@ export class AudioScape {
   }
 
   owl(vol, pan) {
+    this.onHeard?.('tawnyowl', vol); // (for the naturalist's notes: see main.js)
     this.tone({ freq: 400, freqEnd: 370, dur: 0.5, gain: vol, attack: 0.09, pan, dest: this.nature });
     this.tone({ freq: 390, freqEnd: 355, dur: 0.7, gain: vol * 0.9, attack: 0.1, pan, when: 0.7, dest: this.nature });
   }
@@ -1103,6 +1104,7 @@ export class AudioScape {
 
   // A curlew over the cove channel: a rising, bubbling "cur-lee".
   curlew(vol, pan) {
+    this.onHeard?.('curlew', vol); // (for the naturalist's notes: see main.js)
     let t = 0;
     for (let i = 0; i < 2 + Math.floor(rand(0, 3)); i++) {
       this.tone({ freq: rand(1500, 1700), freqEnd: rand(2300, 2600), dur: 0.42, gain: vol, attack: 0.06, pan, when: t, vib: 6, dest: this.nature });
@@ -1209,6 +1211,7 @@ export class AudioScape {
   }
 
   frog(vol, pan) {
+    this.onHeard?.('commonfrog', vol); // (for the naturalist's notes: see main.js)
     const f = rand(160, 230);
     for (let k = 0; k < 2 + Math.floor(rand(0, 2)); k++) {
       this.tone({ type: 'sawtooth', freq: f, freqEnd: f * 0.85, dur: 0.11, gain: vol, attack: 0.01, pan, when: k * 0.17, filter: ['bandpass', 600, 2], dest: this.nature });

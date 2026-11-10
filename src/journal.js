@@ -9,6 +9,7 @@ import { dayPage, dayText, careerOf, CHALLENGES } from './daybook.js';
 import { groundsOf, groundWords, SIGNS, NATURE, NATURE_IDS } from './grounds.js';
 import { SEA_LIFE } from './world/sealife.js';
 import { SITE_DETAILS, foundWords } from './world/divesites.js';
+import { treeOf, byOrder, recordOf, IUCN, KINGDOMS } from './taxonomy.js';
 
 const $ = (id) => document.getElementById(id);
 const ZONE_WORDS = {
@@ -125,11 +126,15 @@ export class Journal {
     this.el.querySelectorAll('.j-mem-view').forEach((e) => { e.hidden = view !== 'memories'; });
     this.el.querySelectorAll('.j-days-view').forEach((e) => { e.hidden = view !== 'days'; });
     this.el.querySelectorAll('.j-notes-view').forEach((e) => { e.hidden = view !== 'notes'; });
+    this.el.querySelectorAll('.j-species-view').forEach((e) => { e.hidden = view !== 'species'; });
     this.el.querySelector('.book').dataset.view = view;
+    // (On a phone the tabs scroll sideways: keep the one you're on in sight.)
+    this.el.querySelector('.j-tabs button.on')?.scrollIntoView?.({ inline: 'nearest', block: 'nearest' });
     if (view === 'log') this.renderLog();
     if (view === 'memories') this.memories?.render();
     if (view === 'days') this.renderDays();
     if (view === 'notes') this.renderNotes();
+    if (view === 'species') this.renderSpecies();
     if (view === 'guide') this.guide?.render();
     else this.guide?.close();
     this.el.querySelectorAll('.page').forEach((p) => { p.scrollTop = 0; });
@@ -219,6 +224,114 @@ export class Journal {
     }));
   }
 
+  // The tree of life (see taxonomy.js): every living thing on the coast by kingdom, phylum and
+  // class on the left; the chosen group by order and family on the right, each with what you've
+  // recorded of it (caught, seen, met on a dive, or heard) or where to look.
+  renderSpecies() {
+    const st = this.state, tree = treeOf(st);
+    const total = tree.reduce((s, k) => s + k.of, 0), got = tree.reduce((s, k) => s + k.n, 0);
+    $('sp-count').textContent = `${got} of ${total} recorded`;
+    // (The group shown: the one chosen, or the first with something recorded in it.)
+    const groups = tree.flatMap((K) => K.phyla.flatMap((P) => [...P.classes.map((C) => ({ key: `cls:${C.id}`, ...C })), ...(P.loose.length ? [{ key: `phy:${P.id}`, ...P, entries: P.loose, of: P.loose.length, n: P.loose.filter((e) => recordOf(st, e)).length }] : [])]));
+    if (!groups.some((g) => g.key === this.spSel)) this.spSel = (groups.find((g) => g.n) || groups.find((g) => g.id === 'mammalia') || groups[0]).key;
+    const bar = (n, of) => {
+      const b = el('span', 'sp-bar');
+      const f = el('span', 'sp-fill');
+      f.style.width = `${Math.round((100 * n) / Math.max(1, of))}%`;
+      b.append(f);
+      return b;
+    };
+    const pick = (g) => {
+      const b = el('button', `sp-class${g.key === this.spSel ? ' on' : ''}`);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', g.key === this.spSel);
+      b.append(el('span', 'sp-cname', g.name), el('i', 'sp-sci', g.sci), el('span', 'sp-n', `${g.n} of ${g.of}`), bar(g.n, g.of));
+      b.addEventListener('click', () => {
+        this.spSel = g.key;
+        this.renderSpecies();
+        // (Side by side, the right page back to its top; on a phone, where the pages stack, down to it.)
+        const page = $('sp-group').closest?.('.page');
+        if (globalThis.innerWidth <= 760) $('sp-group').scrollIntoView?.({ block: 'start' });
+        else if (page) page.scrollTop = 0;
+      });
+      return b;
+    };
+    const out = [];
+    for (const K of tree) {
+      const head = el('h3', 'sp-kingdom', `${K.name} `);
+      head.append(el('i', '', K.sci), el('span', 'count', `${K.n} of ${K.of}`));
+      out.push(head);
+      if (KINGDOMS[K.id].note) out.push(el('p', 'sp-note', KINGDOMS[K.id].note));
+      for (const P of K.phyla) {
+        const box = el('div', 'sp-phylum');
+        const ph = el('div', 'sp-phead');
+        ph.append(el('b', '', P.name), document.createTextNode(' '), el('i', '', P.sci));
+        box.append(ph);
+        if (P.note) box.append(el('p', 'sp-note', P.note));
+        for (const g of groups.filter((g) => (g.key.startsWith('cls:') && g.phylum === P.id) || g.key === `phy:${P.id}`)) box.append(pick(g));
+        out.push(box);
+      }
+    }
+    $('sp-tree').replaceChildren(...out);
+    $('sp-group').replaceChildren(...this.speciesGroup(groups.find((g) => g.key === this.spSel)));
+  }
+
+  speciesGroup(g) {
+    const st = this.state, out = [];
+    const h = el('h2', '', `${g.name} `);
+    h.append(el('i', 'sp-sci', g.sci), el('span', 'count', `${g.n} of ${g.of}`));
+    out.push(h);
+    if (g.note) out.push(el('p', 'j-faint', g.note));
+    for (const O of byOrder(g.entries)) {
+      if (O.info) {
+        const oh = el('h3', 'sp-order');
+        oh.append(el('span', 'sp-rank', O.info.open ? '' : 'Order '), el('i', '', O.info.sci), el('span', 'sp-what', ` · ${O.info.name}`));
+        out.push(oh);
+      }
+      for (const F of O.families) {
+        if (F.family) {
+          const fh = el('h4', 'sp-family');
+          fh.append(el('span', 'sp-rank', 'Family '), el('i', '', F.family), el('span', 'sp-what', F.name ? ` · ${F.name}` : ''));
+          out.push(fh);
+        }
+        for (const e of F.entries) out.push(this.speciesCard(e, recordOf(st, e)));
+      }
+    }
+    return out;
+  }
+
+  speciesCard(e, R) {
+    const card = el('article', `sp-card${R ? '' : ' faint'}`);
+    const top = el('div', 'sp-top');
+    top.append(el('b', '', e.name), document.createTextNode(' '), el('i', '', e.sci || ''));
+    if (e.rank !== 'species') top.append(el('span', 'sp-rank', ` (${e.rank === 'genus' ? 'a genus: several species' : e.rank === 'family' ? 'a family: several species' : 'a whole phylum'})`));
+    if (e.iucn && IUCN[e.iucn]) {
+      const b = el('span', `iucn iucn-${e.iucn}`, e.iucn);
+      b.title = `IUCN Red List: ${IUCN[e.iucn]}`;
+      b.setAttribute('aria-label', `IUCN Red List: ${IUCN[e.iucn]}`);
+      top.append(b);
+    }
+    card.append(top);
+    if (R) {
+      const n = R.n === 1 ? 'once' : `${R.n} times`;
+      const first = R.day ? ` · first on day ${R.day}${R.where ? `, ${R.where}` : ''}` : '';
+      const line = R.how === 'caught' ? `Caught ${R.n === 1 ? 'one' : R.n}${R.best ? ` · best ${R.best} cm` : ''}`
+        : R.how === 'heard' ? `Heard ${n}${first}, not yet seen`
+          : R.how === 'met' ? `Met on ${R.n === 1 ? 'a dive' : `${R.n} dives`}${first}` : `Seen ${n}${first}`;
+      card.append(el('p', 'j-seen', line), el('p', 'sp-text', e.note || ''));
+    } else card.append(el('p', 'sp-text', e.look ? `Where to look: ${e.look}` : 'Not recorded yet.'));
+    if (e.kind === 'fish' && this.guide) {
+      const b = el('button', 'sp-guide', 'In the field guide');
+      b.type = 'button';
+      b.addEventListener('click', () => {
+        this.guide.show(e.id);
+        this.show('guide');
+      });
+      card.append(b);
+    }
+    return card;
+  }
+
   // Notes (see grounds.js): the grounds as your catches tell them, the signs you've read, and the
   // naturalist's field notes.
   renderNotes() {
@@ -249,7 +362,7 @@ export class Journal {
     const sea = Object.entries(st.seaLife || {}).filter(([k]) => SEA_LIFE[k]);
     $('notes-sea').replaceChildren(...(sea.length ? sea.map(([k, R]) => {
       const d = el('div', 'n-life');
-      d.append(el('b', '', SEA_LIFE[k].name), el('p', '', SEA_LIFE[k].note), el('p', 'j-seen', `First seen day ${R.day}${R.where ? `, ${R.where}` : ''}; seen ${R.n === 1 ? 'once' : `${R.n} times`}.`));
+      d.append(el('b', '', SEA_LIFE[k].name), el('p', '', SEA_LIFE[k].note), el('p', 'j-seen', `First ${R.heard ? 'heard' : 'seen'} day ${R.day}${R.where ? `, ${R.where}` : ''}; ${R.heard ? 'heard' : 'seen'} ${R.n === 1 ? 'once' : `${R.n} times`}.`));
       return d;
     }) : [el('p', 'j-faint', 'Dolphins, seals, whales and the gannets: watch from the boat.')]));
   }
