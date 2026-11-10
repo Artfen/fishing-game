@@ -62,6 +62,7 @@ import { FoamTracks, FoamTrailView } from './world/foamTrails.js';
 import { buildSeaLife, SEA_LIFE } from './world/sealife.js';
 import { buildBirds } from './world/birds.js';
 import { species as allSpecies } from './taxonomy.js';
+import { CatchInspector } from './inspect.js';
 import { buildWildlife } from './world/wildlife.js';
 import { seeSign, readSign, SIGNS, SEEN_AT, stepColour, colourKey, colourWords, NATURE, noteNature, groundsOf, groundWords } from './grounds.js';
 import { newToday, notePlace, noteMove, noteBoat, noteDive, noteSeen, noteSky, noteGale, noteRecord, closeDay, dayLine, checkChallenges, isSheltered, CHALLENGES, challengeById, dayPage, dayText, noteSat, noteCrossing, careerOf } from './daybook.js';
@@ -1410,7 +1411,24 @@ function showCatch(sp, size, agent, rigUsed) {
   $('catch-card').hidden = false;
   document.body.classList.add('reveal');
   modal = 'catch';
+  lastCatch = { sp, size, kg, best: bestBefore, condition: agent?.condition && !sp.creature ? conditionWords(agent.condition) : '' };
   if (isNew) hud.pulseJournal();
+}
+
+// Looking closer at the catch (see inspect.js): the card steps aside, and back.
+let lastCatch = null;
+const inspector = new CatchInspector({ onClose: () => closeInspect() });
+function openInspect() {
+  if (modal !== 'catch' || !lastCatch) return;
+  $('catch-card').hidden = true;
+  modal = 'inspect';
+  inspector.open(lastCatch.sp, lastCatch.size, lastCatch);
+}
+function closeInspect() {
+  inspector.close();
+  if (modal !== 'inspect') return;
+  $('catch-card').hidden = false;
+  modal = 'catch';
 }
 
 // The weight on the balance: the needle swings up past it, back, and settles; as it settles, the
@@ -8531,6 +8549,7 @@ function padContext() {
   if (modal === 'catch') return 'catch';
   if (modal === 'photo') return 'photo';
   if (modal === 'binocs') return 'binocs';
+  if (modal === 'inspect') return 'inspect';
   if (modal) return 'menu';
   if (dive) return 'dive';
   if (placement.isOn) return 'place';
@@ -10289,6 +10308,10 @@ input.on('press', (code, acts) => {
     else if (is('cast') || is('photo')) takePhoto();
     return;
   }
+  if (modal === 'inspect') {
+    if (code === 'Escape' || is('cancel') || is('interact')) closeInspect();
+    return;
+  }
   if (modal === 'binocs') {
     if (code === 'Escape' || is('binoculars') || is('cancel')) closeBinoculars();
     else if (is('photo')) {
@@ -10414,6 +10437,7 @@ input.on('press', (code, acts) => {
   if (modal === 'catch') {
     if (is('keep')) fishing.keep();
     else if (is('photo') && $('photo-card').hidden) photographCatch();
+    else if (is('interact') && $('photo-card').hidden) openInspect();
     return;
   }
   if (modal) return;
@@ -10510,6 +10534,10 @@ $('cc-keep').addEventListener('click', (e) => {
   if (modal === 'catch') fishing.keep();
 });
 $('note-card').addEventListener('click', closeNote);
+$('cc-look').addEventListener('click', (e) => {
+  e.stopPropagation();
+  openInspect();
+});
 $('cc-photo').addEventListener('click', (e) => {
   e.stopPropagation();
   if (modal === 'catch' && $('photo-card').hidden) photographCatch();
@@ -11116,6 +11144,11 @@ function tick(now, manual = false) {
   if (started && !modal) rig.input(drag, placement.isOn ? 0 : wheel, t);
   // The binoculars: look about slowly (the narrower the view, the slower), and focus further.
   if (modal === 'binocs') binocularsLook(dt, drag, wheel);
+  if (modal === 'inspect') {
+    if (drag.x || drag.y) inspector.turn(drag.x, drag.y);
+    if (input.steer || input.throttle) inspector.turn(-input.steer * 150 * dt, -input.throttle * 150 * dt);
+    if (wheel) inspector.zoomBy(Math.exp(-wheel * 0.0015));
+  }
   // Photo mode: look about, and zoom the lens rather than the camera's distance.
   if (modal === 'photo') {
     rig.input(drag, 0, t);
@@ -11501,7 +11534,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView, passersby, together, visitors, clock, drifters, seabed, shared, teamwork, crew, birds, binoculars: { open: () => openBinoculars(), close: () => closeBinoculars() }, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pickupsShown() { return pickups.count; }, padContext: () => padContext(), jobsChanged: () => jobWeight(), strays, get towing() { return tow ? { lead: tow.lead.kind, towed: tow.towed.boatName || tow.towed.name, tight: tow.tight } : null; }, seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
+  rowboat, skiff, boats: BOATS, wind, town, folkView, passersby, together, visitors, clock, drifters, seabed, shared, teamwork, crew, birds, binoculars: { open: () => openBinoculars(), close: () => closeBinoculars() }, catchCard: (id, size) => showCatch(fishById[id], size, eco.bySpecies[id]?.[0] || { x: 0, z: 0, caught: 0 }, null), inspect: { open: () => openInspect(), close: () => closeInspect(), get on() { return inspector.isOpen; } }, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pickupsShown() { return pickups.count; }, padContext: () => padContext(), jobsChanged: () => jobWeight(), strays, get towing() { return tow ? { lead: tow.lead.kind, towed: tow.towed.boatName || tow.towed.name, tight: tow.tight } : null; }, seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
   pump: (id = 'haven') => openPump(id),

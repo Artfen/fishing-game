@@ -1099,7 +1099,9 @@ export const ANATOMY = {
 
 /* ---------------- materials and the swim ---------------- */
 
-// How each body plan swims (in model space, z along the body):
+// How each body plan swims (in model space, z along the body; sw: the swim phase, the effort,
+// and the bend: turning, a fright or a fight curves a fish's whole body into an arc, head and tail
+// both towards the inside, as a real fish's does):
 //  0 fish: a travelling wave down the body, growing towards the tail
 //  1 flatfish: an up-and-down ripple, with the fin fringe fluttering
 //  2 eel: a long wave along the whole body, head included
@@ -1112,9 +1114,11 @@ const SWIM = {
   7: `float bend = smoothstep(-0.05, -0.55, position.z);
       transformed.y += sin(sw.x - position.z * 3.5) * bend * bend * (0.03 + sw.y * 0.1);`,
   2: `float bend = 0.35 + 0.65 * smoothstep(0.45, -0.5, position.z);
-      transformed.x += sin(sw.x - position.z * 13.0) * bend * (0.02 + sw.y * 0.045);`,
+      transformed.x += sin(sw.x - position.z * 13.0) * bend * (0.02 + sw.y * 0.045);
+      transformed.x += sw.z * position.z * position.z;`,
   4: `float bend = smoothstep(-0.02, -0.55, position.z);
-      transformed.x += sin(sw.x - position.z * 4.0) * bend * bend * (0.03 + sw.y * 0.12);`,
+      transformed.x += sin(sw.x - position.z * 4.0) * bend * bend * (0.03 + sw.y * 0.12);
+      transformed.x += sw.z * position.z * position.z * 0.6;`,
   5: `float fin = smoothstep(0.03, 0.06, abs(position.x)) * step(position.z, 0.05);
       transformed.y += sin(sw.x * 1.4 + position.z * 18.0) * fin * (0.01 + sw.y * 0.03);
       float arm = smoothstep(0.26, 0.4, position.z);
@@ -1128,7 +1132,8 @@ const SWIM = {
       float bag = smoothstep(0.03, 0.07, position.y);
       transformed *= 1.0 + bag * sin(sw.x * 0.45) * 0.03;`,
   0: `float bend = smoothstep(0.32, -0.6, position.z);
-      transformed.x += sin(sw.x - position.z * 5.5) * bend * (0.025 + sw.y * 0.09);`,
+      transformed.x += sin(sw.x - position.z * 5.5) * bend * (0.025 + sw.y * 0.09);
+      transformed.x += sw.z * position.z * position.z;`,
   1: `float bend = smoothstep(0.35, -0.5, position.z);
       transformed.y += sin(sw.x - position.z * 5.0) * bend * (0.02 + sw.y * 0.05);
       transformed.y += sin(sw.x * 1.3 + position.z * 11.0) * 0.012 * smoothstep(0.11, 0.17, abs(position.x));`,
@@ -1139,16 +1144,18 @@ const SWIM = {
       transformed.y += cos(sw.x * 0.7 + position.z * 7.0) * arm * 0.01;`,
 };
 
-function patch(m, mode, instanced, sheen, key, swim) {
+function patch(m, mode, instanced, sheen, key, swim, bend = { value: 0 }) {
   m.userData.swim = swim;
+  m.userData.bend = bend;
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uSwimU = m.userData.swim;
+    shader.uniforms.uBendU = m.userData.bend;
     shader.uniforms.uSheen = { value: sheen };
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
-        ${instanced ? 'attribute vec2 aSwim;' : 'uniform vec2 uSwimU;'}`)
+        ${instanced ? 'attribute vec3 aSwim;' : 'uniform vec2 uSwimU;\nuniform float uBendU;'}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-        vec2 sw = ${instanced ? 'aSwim' : 'uSwimU'};
+        vec3 sw = ${instanced ? 'aSwim' : 'vec3(uSwimU, uBendU)'};
         ${SWIM[mode]}`);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nuniform float uSheen;')
@@ -1184,8 +1191,8 @@ export function anatomyMaterials(id, instanced) {
   });
   const eyes = new THREE.MeshStandardMaterial({ map: eyeTexture(A.eye?.iris || '#c9b37a', A.eye?.pupil), roughness: 0.08, metalness: 0.15 });
   // One swim phase for all three, so fins and eyes move with the body.
-  const swim = { value: new THREE.Vector2(0, 0.3) };
-  return [patch(body, A.mode, instanced, A.sheen ?? 0.35, `${id}-b`, swim), patch(fins, A.mode, instanced, 0.1, 'f', swim), patch(eyes, A.mode, instanced, 0.2, 'e', swim)];
+  const swim = { value: new THREE.Vector2(0, 0.3) }, bend = { value: 0 };
+  return [patch(body, A.mode, instanced, A.sheen ?? 0.35, `${id}-b`, swim, bend), patch(fins, A.mode, instanced, 0.1, 'f', swim, bend), patch(eyes, A.mode, instanced, 0.2, 'e', swim, bend)];
 }
 
 const GEOS = new Map();

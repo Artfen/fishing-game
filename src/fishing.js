@@ -1432,6 +1432,8 @@ export class Fishing {
             fishMesh.rotation.set(-1.25 + Math.sin(t * 14) * 0.15, face + Math.PI / 2, 0, 'YXZ');
           }
           fishMesh.userData.swim.set(t * 18, 1);
+          // (Coming out of the water it kicks: the whole body flexing, side to side.)
+          if (fishMesh.userData.bend) fishMesh.userData.bend.value = Math.sin(t * 9) * 0.35;
         } else this.holdUp(fishMesh, t, face);
         rodPitch = 1.1;
         bend = 0.7;
@@ -1589,6 +1591,8 @@ export class Fishing {
     if (this.bigCatch()) fishMesh.rotation.set(wig * 0.05, face + Math.PI / 2, 0.35, 'YXZ');
     else fishMesh.rotation.set(-1.2 + wig * 0.3, face + Math.PI / 2 + wig, 0, 'YXZ');
     fishMesh.userData.swim.set(t * 10, 0.4 * Math.max(0.2, Math.sin(t * 1.3)));
+    // (Held up, now and then a flex of the whole body.)
+    if (fishMesh.userData.bend) fishMesh.userData.bend.value = wig * 0.6;
   }
 
   // In first person the rod moves with the camera, which settles after this update: catch the
