@@ -210,6 +210,33 @@
     <button id="cc-release" type="button"><span class="desk-only"><kbd data-key="cast" data-ctx="catch">Space</kbd> </span>Let it go</button>
     <button id="cc-keep" type="button"><span class="desk-only"><kbd data-key="keep" data-ctx="catch">K</kbd> </span>Keep for the pot</button>
     <button id="cc-photo" type="button"><span class="desk-only"><kbd data-key="photo" data-ctx="catch">P</kbd> </span>Photograph</button>
+    <button id="cc-look" type="button"><span class="desk-only"><kbd data-key="interact" data-ctx="catch">E</kbd> </span>Look closer</button>
+  </div>
+</div>
+
+<div id="inspect" class="inspect" role="dialog" aria-modal="true" aria-labelledby="in-name" hidden>
+  <div class="in-inner">
+    <button id="in-close" class="in-close" type="button" aria-label="Back to the catch (Esc)">×</button>
+    <div class="in-stage">
+      <canvas id="in-canvas" role="img" aria-label="Your fish, to turn and look over"></canvas>
+      <div class="in-tools">
+        <button id="in-zin" type="button" aria-label="Closer">+</button>
+        <button id="in-zout" type="button" aria-label="Further">−</button>
+        <button id="in-reset" type="button" aria-label="As it was">↺</button>
+      </div>
+      <p class="in-hint">Drag to turn it over · the wheel or + − to look closer</p>
+    </div>
+    <div class="in-text">
+      <h2 id="in-name"></h2>
+      <p id="in-sci" class="in-sci"></p>
+      <p id="in-tax" class="in-tax"></p>
+      <div id="in-size"></div>
+      <h3>How to tell it</h3>
+      <ul id="in-marks" class="in-list"></ul>
+      <h3 id="in-similar-h">Not to be confused with</h3>
+      <ul id="in-similar" class="in-list"></ul>
+      <p><button id="in-back" class="pk-btn" type="button">Back to the catch</button></p>
+    </div>
   </div>
 </div>
 

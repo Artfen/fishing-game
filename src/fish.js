@@ -994,21 +994,24 @@ export function fishMaterial(f, instanced) {
         transformed.y += sin(sw.x - position.z * 5.0) * bend * (0.02 + sw.y * 0.05);
         transformed.y += sin(sw.x * 1.3 + position.z * 9.0) * 0.012 * smoothstep(0.25, 0.4, abs(position.x));`
       : `float bend = smoothstep(0.3, -0.8, position.z);
-        transformed.x += sin(sw.x - position.z * 4.0) * bend * (0.03 + sw.y * 0.1);`;
+        transformed.x += sin(sw.x - position.z * 4.0) * bend * (0.03 + sw.y * 0.1);
+        transformed.x += sw.z * position.z * position.z * 0.8;`;
   const glow = new THREE.Color(f.sketch.glow ? f.colors.fin : '#000000');
   m.userData.swim = { value: new THREE.Vector2(0, 0.3) };
+  m.userData.bend = { value: 0 }; // (a single fish's whole-body bend: see anatomy.js)
   m.userData.glow = { value: f.sketch.glow ? 1 : 0 };
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uGlowColor = { value: glow };
     shader.uniforms.uGlow = m.userData.glow;
     shader.uniforms.uSwimU = m.userData.swim;
+    shader.uniforms.uBendU = m.userData.bend;
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
         attribute float aGlow;
         varying float vGlow;
-        ${instanced ? 'attribute vec2 aSwim;' : 'uniform vec2 uSwimU;'}`)
+        ${instanced ? 'attribute vec3 aSwim;' : 'uniform vec2 uSwimU;\nuniform float uBendU;'}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-        vec2 sw = ${instanced ? 'aSwim' : 'uSwimU'};
+        vec3 sw = ${instanced ? 'aSwim' : 'vec3(uSwimU, uBendU)'};
         ${bendCode}
         vGlow = aGlow;`);
     shader.fragmentShader = shader.fragmentShader
@@ -1118,6 +1121,7 @@ export function buildFishMesh(f) {
   mesh.castShadow = true;
   mesh.visible = false;
   mesh.userData.swim = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material).userData.swim.value;
+  mesh.userData.bend = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material).userData.bend;
   return mesh;
 }
 

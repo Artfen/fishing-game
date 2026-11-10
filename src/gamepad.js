@@ -44,7 +44,9 @@ export const MAPS = {
   // A fish on: RT reels, LT eases the drag off (the game reads the trigger), the left stick
   // sets the drag too; A follows a running fish with the boat.
   fight: { A: 'interact', B: 'cancel', RT: 'cast', R3: 'reset', LEFT: 'view', VIEW: 'map', MENU: 'settings' },
-  catch: { A: 'cast', X: 'keep', Y: 'photo', MENU: 'settings' },
+  // (RB looks closer at it: see inspect.js; there the right stick turns it over, B goes back.)
+  catch: { A: 'cast', X: 'keep', Y: 'photo', RB: 'interact', MENU: 'settings' },
+  inspect: { B: 'cancel', A: 'interact', RB: 'interact' },
   // (Y raises the binoculars from photo mode; in them, Y or B lowers them again.)
   photo: { A: 'photo', RT: 'photo', B: 'cancel', R3: 'reset', Y: 'binoculars' },
   binocs: { B: 'cancel', Y: 'binoculars', A: 'binoculars', R3: 'reset' },
