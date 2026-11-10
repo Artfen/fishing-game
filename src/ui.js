@@ -30,6 +30,9 @@ export class HUD {
       meterOuter: $('m-outer'),
       meterInner: $('m-inner'),
       meterLabel: $('meter-label'),
+      coach: $('fight-coach'),
+      coachWord: $('fc-word'),
+      coachSub: $('fc-sub'),
       bite: $('bite-mark'),
       journalBtn: $('journal-btn'),
       veil: $('rest-veil'),
@@ -185,6 +188,25 @@ export class HUD {
     this.el.clockWeather.textContent = weather;
     this.el.clockWeather.hidden = !weather;
     this.el.clockDot.classList.toggle('moon', night);
+  }
+
+  // The fight's word at the top of the screen, where the eye is while a fish is on: what to do
+  // now, big (wind! pump! ease off!), and under it what the fish is doing. word '' hides it.
+  // alert: the flick before a run and a surge; danger: the line near breaking.
+  coach(word, sub = '', alert = false, danger = false) {
+    const el = this.el.coach;
+    if (!el) return;
+    const key = `${word}|${sub}|${alert}|${danger}`;
+    if (this.cache.coach === key) return;
+    this.cache.coach = key;
+    el.hidden = !word;
+    document.body.classList.toggle('fighting', !!word);
+    if (!word) return;
+    this.el.coachWord.textContent = word;
+    this.el.coachSub.textContent = sub;
+    this.el.coachSub.hidden = !sub;
+    el.classList.toggle('alert', alert);
+    el.classList.toggle('danger', danger);
   }
 
   // drag: where the reel's drag gives line, as a fraction of the line's breaking strain (-1: none).

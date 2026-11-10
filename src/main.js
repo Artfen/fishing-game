@@ -8739,9 +8739,14 @@ function updateHud() {
     // (On a long run, how much is left on the spool.)
     const left = F.extra > 0.5 ? Math.max(0, Math.round(100 * (1 - (F.dist * (1 - F.progress) + F.extra) / F.spool))) : null;
     const outText = `${out} m out${left != null ? ` · spool ${left}%` : ''}${following ? ' · following' : ''}`;
-    hud.meter(true, F.progress, F.tension, F.tension, `<span>${word}</span>${doing ? `<span class="ml-sub">${doing}</span>` : ''}<span class="ml-sub">${outText}</span>`, DRAG_LEVELS[F.drag], easy, F.tension > 0.86 || (left != null && left < 20));
+    // (The word itself goes at the top of the screen, where you're looking while a fish is on: the
+    // ring keeps the line out and the spool.)
+    const danger = F.tension > 0.86 || (left != null && left < 20);
+    hud.meter(true, F.progress, F.tension, F.tension, `<span class="ml-sub">${outText}</span>`, DRAG_LEVELS[F.drag], easy, danger);
+    hud.coach(word, doing, easy, danger);
   }
   else hud.meter(false);
+  if (!(fishing.state === 'reeling' && F)) hud.coach('');
 
   if (started && !modal && fishing.baitInWater) {
     const info = fishing.info;
@@ -9805,6 +9810,7 @@ const mapSheet = new MapSheet(state, explored, { data: heightTex.image.data, wid
   travelInfo: () => travelInfo(),
   close: () => closeMap(),
   changed: () => save(),
+  showAll: () => settings.controls.map !== 'explore',
   // Playing together: send a mark to your friends.
   canShare: () => together.active && together.others.length > 0,
   sharePin: (p) => {

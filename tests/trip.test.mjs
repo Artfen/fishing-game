@@ -50,3 +50,19 @@ test('a trip counts what it brought, and goes into the record when it ends', () 
   assert.match(summaryText('whitebream', sum), /^2 hours out: 2 white seabream \(best 31 cm\), and 1 ballan wrasse\.$/);
   assert.match(summaryText('whitebream', { ...sum, hours: 1 / 60, target: 0, others: {} }), /^1 minute out: no white seabream yet\.$/);
 });
+
+test('the map shows the whole chart from the start (every shore, path and place), unless you choose to explore it yourself', async () => {
+  const { cleanSettings, DEFAULT_SETTINGS } = await import('../src/settings.js');
+  // A new player, and an older save from before the choice: the whole chart.
+  assert.equal(DEFAULT_SETTINGS.controls.map, 'all');
+  assert.equal(cleanSettings({}).controls.map, 'all');
+  assert.equal(cleanSettings({ controls: { map: 'explore' } }).controls.map, 'explore');
+  assert.equal(cleanSettings({ controls: { map: 'nonsense' } }).controls.map, 'all');
+  // The sheet follows the choice (and shows it all if nobody says otherwise).
+  const sheet = Object.create(MapSheet.prototype);
+  assert.equal(sheet.showAll, true);
+  sheet.hooks = { showAll: () => true };
+  assert.equal(sheet.showAll, true);
+  sheet.hooks = { showAll: () => false };
+  assert.equal(sheet.showAll, false);
+});

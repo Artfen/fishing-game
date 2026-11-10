@@ -7,9 +7,12 @@ import { habitsOf } from './guide.js';
 import { TENTS } from './campsite.js';
 import { ENDS, CROSS_M } from './crossing.js';
 
-// The map (M): the whole coast as you've seen it. Water you've crossed and shores you've
-// walked are drawn in; the rest stays blank paper until you go there. Places you've found are
-// marked, with the camps you can head to, where your boats are, and where your best fish came from.
+// The map (M): the whole coast, every shore, path and place from the start (places you haven't
+// been yet in fainter ink), or, if you'd rather explore it (Settings), as you've seen it: water
+// you've crossed and shores you've walked drawn in, the rest blank paper until you go there. Places
+// you've found are marked, with the camps you can head to, where your boats are, and where your
+// best fish came from. (What you've explored is remembered either way: the count of it, and of
+// places found, stays.)
 
 const $ = (id) => document.getElementById(id);
 
@@ -114,7 +117,10 @@ const half = THREE.DataUtils.fromHalfFloat;
 
 export class MapSheet {
   // height: { data, width, height, rect } from the baked terrain texture (half floats, RGBA:
-  // height and freshness first). hooks: travel(dest), travelInfo(), close().
+  // height and freshness first). hooks: travel(dest), travelInfo(), close(), showAll() (the whole
+  // chart, or only what you've explored: Settings → The map).
+  get showAll() { return this.hooks?.showAll ? this.hooks.showAll() !== false : true; }
+
   constructor(state, explored, height, hooks) {
     this.state = state;
     this.hooks = hooks;
@@ -316,7 +322,7 @@ export class MapSheet {
     if (cv.height !== h) cv.height = h;
     const ctx = cv.getContext('2d');
     ctx.drawImage(this.base, 0, 0, cv.width, cv.height);
-    ctx.drawImage(this.fog, 0, 0, cv.width, cv.height);
+    if (!this.showAll) ctx.drawImage(this.fog, 0, 0, cv.width, cv.height);
     ctx.globalAlpha = 0.6;
     ctx.drawImage(this.overlay(id), 0, 0, cv.width, cv.height);
     ctx.globalAlpha = 1;
@@ -723,15 +729,16 @@ export class MapSheet {
       ctx.stroke();
       ctx.restore();
     };
-    if (st.places.camp) trail(PATH);
-    if (st.places.quay || st.places.boathouse) trail(WEND_TRAIL);
-    if (st.places.haven || st.places.landing) for (const P of COAST_PATHS) trail(P);
+    const all = this.showAll;
+    if (all || st.places.camp) trail(PATH);
+    if (all || st.places.quay || st.places.boathouse) trail(WEND_TRAIL);
+    if (all || st.places.haven || st.places.landing) for (const P of COAST_PATHS) trail(P);
     // The path up the Coldwater to the top of Hoarfell, once you've found its foot or the bothy.
-    if (st.places.coldfoot || st.places.bothy || st.places.summit) trail(FELL_PATH);
+    if (all || st.places.coldfoot || st.places.bothy || st.places.summit) trail(FELL_PATH);
     // The lanes from home (under the fog where you haven't been).
     for (const P of LANES) trail(P);
 
-    ctx.drawImage(this.fog, x0, y0, w, h);
+    if (!all) ctx.drawImage(this.fog, x0, y0, w, h);
     // Your track, where a chartplotter has drawn it (see shipyard.js): a fine dotted line, older
     // stretches fainter.
     const T = st.track || [];
@@ -782,10 +789,10 @@ export class MapSheet {
 
     // Big waters: their names written across them.
     for (const p of PLACES) {
-      if (!p.area || !st.places[p.id]) continue;
+      if (!p.area || (!st.places[p.id] && !all)) continue;
       const [x, y] = this.toPx(p.x, p.z);
       ctx.save();
-      ctx.globalAlpha = 0.5;
+      ctx.globalAlpha = st.places[p.id] ? 0.5 : 0.28;
       ctx.fillStyle = INK;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -814,6 +821,23 @@ export class MapSheet {
     }
 
     // Places: camps as tents, landings as little piers, the rest as a cross.
+    // (On the whole chart, the places you haven't been yet: a faint ring and their name, to go and
+    // find.)
+    if (all) {
+      for (const p of PLACES) {
+        if (p.area || st.places[p.id] || p.x < this.S.x || p.x > this.S.x + this.S.w || p.z < this.S.z || p.z > this.S.z + this.S.h) continue;
+        const [x, y] = this.toPx(p.x, p.z);
+        ctx.save();
+        ctx.globalAlpha = 0.45;
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 1.5 * s;
+        ctx.beginPath();
+        ctx.arc(x, y, 4 * s, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+        if (this.view.zoom > this.fitZoom * 1.6) this.label(ctx, p.name, x + 7 * s, y + 4 * s, 12, INK, 0.5);
+      }
+    }
     const order = PLACES.filter((p) => !p.area && st.places[p.id]).sort((a, b) => (b.camp ? 2 : b.dock ? 1 : 0) - (a.camp ? 2 : a.dock ? 1 : 0));
     for (const p of order) {
       const [x, y] = this.toPx(p.x, p.z);

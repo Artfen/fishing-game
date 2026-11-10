@@ -289,3 +289,25 @@ test('the catch log keeps the water’s temperature (and older entries without o
   assert.equal(back[0].temp, 16.4);
   assert.equal(back[1].temp, undefined);
 });
+
+test('a slow school’s fish keep their places swimming with it, not spinning on the spot round them', () => {
+  const eco = new Ecosystem(habitat);
+  eco.ctx.abs = 120 * 24 + 11;
+  const schools = eco.schools.slice(0, 24);
+  for (const s of schools) for (const m of s.members) m.active = true;
+  let n = 0, hard = 0, sum = 0;
+  const H = 1 / 30;
+  eco.time = 0;
+  for (let i = 0; i < 30 * 40; i++) {
+    eco.time += H;
+    for (const s of schools) {
+      eco.stepSchool(s, H, false);
+      for (const m of s.members) { eco.followSchool(m); eco.steer(m, H); eco.integrate(m, H); }
+      if (i > 30 * 5 && s.speed < 0.35) for (const m of s.members) { n++; const r = Math.abs(m.turnRate || 0); sum += r; if (r > 2) hard++; }
+    }
+  }
+  assert.ok(n > 1000, `${n} samples of slow schools`);
+  // (Before: turning hard, over 2 rad/s, two-fifths of the time, round and round their places.)
+  assert.ok(hard / n < 0.18, `turning hard ${(100 * hard / n).toFixed(1)}% of the time`);
+  assert.ok(sum / n < 0.8, `turning ${(sum / n).toFixed(2)} rad/s on average`);
+});
