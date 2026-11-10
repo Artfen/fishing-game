@@ -98,7 +98,7 @@ const HULLS = {
     paint: '#7a2430', stripe: '#d9d4c7', bottom: '#2c2f33', inside: 'carpet',
     decks: [[0.6, 1, 0.07], [0, 0.17, 0.07]], floor: true, pedestals: true, locker: true,
     motor: { thrust: 7.6, astern: 3, tilt: 0.85, scale: 1.3, cowl: '#2b2e33', band: '#b8312f', troll: 0.3 },
-    surge: 0.45,
+    surge: 0.45, carve: 0.3, // (a planing V: she banks into a turn at speed: see carve in update)
     lantern: [0.8, -1.95], stow: [-0.72, 0.62, 0.4], noise: 1, steady: 0.45, hump: 0.22,
     windage: 0.0036, ride: 3, // high-sided: the wind pushes it more; broad and heavy: it rides the swell slowly
   },
@@ -151,6 +151,7 @@ const HULLS = {
   },
   console: {
     name: 'centre-console boat', mass: 2400, L: 7.4, B: 1.25, D: 1.15, draft: 0.42, shallow: 0.7, seatZ: -0.62, seatY: 1.38, floorY: 0.5,
+    carve: 0.4, // (a deep V: she banks into a hard turn at speed, on the inside of her V: see carve in update)
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.32 + 0.68 * t)), 0.45),
     sheer: (t) => 0.36 * Math.pow(t, 2.2) + 0.02,
     keel: (t) => 0.22 * Math.pow(t, 3),
@@ -177,6 +178,7 @@ const HULLS = {
   // her up as she heels, bank her into a turn and soften her landings: see hydro.js.)
   rib: {
     name: 'RIB', mass: 1250, L: 6.5, B: 0.95, D: 0.5, draft: 0.34, shallow: 0.6, seatZ: -0.3, seatY: 1.25, floorY: 0.4,
+    carve: 0.45, // (a deep V: she banks into a hard turn at speed, on the inside of her V: see carve in update)
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.3 + 0.7 * t)), 0.5),
     sheer: (t) => 0.5 * Math.pow(t, 2.3),
     keel: (t) => 0.25 * Math.pow(t, 3),
@@ -219,7 +221,7 @@ const HULLS = {
     // The jet: a strong push (about seventeen metres a second, thirty-three knots, flat out); it
     // steers by turning its nozzle, so only under power.
     motor: { thrust: 18, astern: 2.2, tilt: 0.25, scale: 1, jet: true, cowl: '#20262c', band: '#e8b820' },
-    drag: [0.2, 0.05], helm: 1.7, jumps: true, surge: 0.6,
+    drag: [0.2, 0.05], helm: 1.7, jumps: true, surge: 0.6, carve: 0.6,
     lantern: [0, -1.2], stow: [0, 0.6, -1],
     noise: 1.2, steady: 0.7, windage: 0.002, ride: 6,
   },
@@ -2564,6 +2566,20 @@ export class Boat {
       // (And on a jet ski you lean into a turn, as on a motorbike, so her V carves round it
       // instead of skidding: as far over as the turn wants, up to thirty degrees or so.)
       b.trimBias = M?.jet ? clamp(-Math.atan((vf * this.omega) / G) * 0.9, -0.5, 0.5) : 0;
+      // A planing V-hull at speed carves into a turn: she banks onto the inside of her V (the outer
+      // side lifts, the inner digs in), rather than being shoved over outward the way a slow,
+      // round-bilged boat is. carve: what share of a fully banked turn's angle (the one a motorbike
+      // leans to, atan(v·ω / g)) she settles at, at full planing speed; held there as firmly as
+      // the water holds her, which grows with her speed squared. (The slower boats lean as their
+      // hulls and propellers take them.)
+      if (H.carve && M && !M.jet && !dead) {
+        const k = smoothstep(4.5, 10, Math.abs(vf));
+        if (k > 0) {
+          const bank = clamp(-Math.atan((vf * this.omega) / G) * H.carve, -0.3, 0.3) * k;
+          b.trimBias = bank;
+          b.balance = Math.max(b.balance, k * (0.6 + 0.012 * vf * vf));
+        }
+      } else if (M?.jet) b.balance = 0.8 + 0.01 * vf * vf;
       // (Out in the ocean's long swell, a skipper eases her back to what she'll take.)
       const gov = vf > this.vmax ? Math.exp(-(vf - this.vmax) * 2.5) : 1;
       // (Her momentum under way, see hydro.js surgeShare.)

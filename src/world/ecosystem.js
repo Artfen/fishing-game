@@ -725,6 +725,9 @@ export class Ecosystem {
       s.wantSpeed = mode === 'cruise' ? s.L.speed * 0.8 : 0.18;
       s.spread = act < 0.3 ? 0.75 : rand(1.3, 2.2);
     }
+    // (A shoal that's dawdling wheels round slowly: a whole school turning on the spot swings
+    // every fish's place round with it.)
+    s.turnScale = clamp((s.speed ?? 0) / 0.6, 0.25, 1);
     this.steer(s, h);
     this.integrate(s, h);
     this.schoolClues(s, coarse, act);
@@ -1081,11 +1084,23 @@ export class Ecosystem {
     const ox = (o.x + Math.sin(w) * 0.3) * s.spread, oz = (o.z + Math.cos(w * 0.8) * 0.3) * s.spread;
     const cy = Math.cos(s.yaw), sy = Math.sin(s.yaw);
     const sx = s.x + ox * cy + oz * sy, sz = s.z - ox * sy + oz * cy;
-    a.tx = sx + sy * s.speed * 0.5;
-    a.tz = sz + cy * s.speed * 0.5;
     a.ty = s.y + o.y * s.spread * 0.4;
-    const d = Math.hypot(sx - a.x, sz - a.z);
-    a.wantSpeed = clamp(s.speed + d * 0.9, 0.05, a.L.speed * 2.4);
+    const ex = a.x - sx, ez = a.z - sz, d = Math.hypot(ex, ez);
+    if (d < 3) {
+      // Near its place: swim with the school, aimed well ahead along its heading (a point it can
+      // never reach, so never circles), and keep its place by pace: faster when behind it, slower
+      // when ahead. (Aiming at the place itself, a few centimetres off when the school dawdles,
+      // had it turning on the spot round it, the spinning.)
+      const look = Math.max(1.5, s.speed * 1.5);
+      a.tx = sx + sy * look;
+      a.tz = sz + cy * look;
+      const along = ex * sy + ez * cy, side = Math.abs(ex * cy - ez * sy);
+      a.wantSpeed = clamp(s.speed - along * 0.8 + side * 0.3, 0.03, a.L.speed * 2.4);
+    } else {
+      a.tx = sx + sy * s.speed * 0.5;
+      a.tz = sz + cy * s.speed * 0.5;
+      a.wantSpeed = clamp(s.speed + d * 0.9, 0.05, a.L.speed * 2.4);
+    }
     const m = s.members;
     for (let k = 1; k <= 3; k++) {
       const n = m[(o.idx + k * 5) % m.length];
@@ -1128,7 +1143,7 @@ export class Ecosystem {
       else currentFast(a.x, a.z, _f);
       if (Math.abs(_f.x) + Math.abs(_f.z) > (a.L.stream ? 0.08 : 0.12)) want = Math.atan2(-_f.x, -_f.z);
     }
-    const maxTurn = a.L.turn * h;
+    const maxTurn = a.L.turn * h * (a.turnScale ?? 1);
     const turn = clamp(wrapAngle(want - a.yaw), -maxTurn, maxTurn);
     a.yaw += turn;
     a.turnRate = turn / h;

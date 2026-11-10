@@ -40,7 +40,8 @@ export const DEFAULT_SETTINGS = {
   weather: { mode: 'auto', rainFx: 1, sea: 'auto', windMode: 'auto', windSpeed: 4, windFrom: 225, currents: 'natural', panel: true, windLines: 'sailing' },
   // sailTrim: the sailing boat's mainsheet by hand, or helped (it trims itself when left alone).
   // needs: how much the angler feels the weather and the day (see comfort.js): off, shown, gentle.
-  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, vibration: 'normal', throttle: 'notches', start: 'go', technique: 'assisted', sailTrim: 'hand', needs: 'gentle' },
+  // map: the whole chart from the start ('all'), or blank paper until you've been there ('explore').
+  controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, vibration: 'normal', throttle: 'notches', start: 'go', technique: 'assisted', sailTrim: 'hand', needs: 'gentle', map: 'all' },
   // name: what friends see over you when playing together ('' until you've chosen one).
   // share: whether what you find (places, dive sites, a wreck's details, first fish) goes to them.
   player: { name: '', share: true },
@@ -122,6 +123,7 @@ export function cleanSettings(raw, legacy = {}) {
     boatCam: oneOf(c.boatCam, ['swell', 'steady'], 'swell'),
     sailTrim: oneOf(c.sailTrim, ['hand', 'helped'], 'hand'),
     needs: oneOf(c.needs, NEEDS_IDS, 'gentle'),
+    map: oneOf(c.map, ['all', 'explore'], 'all'),
     cast: oneOf(c.cast, Object.keys(CAST_MODES), 'assisted'),
     hints: oneOf(c.hints, ['gentle', 'more', 'off'], 'gentle'),
     keys: c.keys ? cleanBindings(c.keys) : null,
@@ -597,6 +599,8 @@ export class SettingsUI {
       this.choice([['hand', 'By hand'], ['helped', 'Helped']], C.sailTrim, (v) => this.set('controls', 'sailTrim', v))));
     out.push(this.row('Character needs', `${NEEDS_MODES[C.needs].desc} Warmth, wet clothes, thirst and hunger.`,
       this.choice(NEEDS_IDS.map((id) => [id, NEEDS_MODES[id].label]), C.needs, (v) => this.set('controls', 'needs', v))));
+    out.push(this.row('The map', 'The whole chart: every shore, path and place name from the start (places you haven’t been yet in fainter ink). Explore it yourself: blank paper until you’ve been there, and places named once you find them.',
+      this.choice([['all', 'The whole chart'], ['explore', 'Explore it yourself']], C.map || 'all', (v) => this.set('controls', 'map', v))));
     out.push(this.row('Fishing hints', { gentle: 'When nothing has come for a while, one word from the field guide on what the fish make of your rig.', more: 'A word whenever a cast stays quiet, and again if it stays quiet.', off: 'No hints by themselves. You can still ask (the key for “Why aren’t they biting?”).' }[C.hints],
       this.choice([['gentle', 'Gentle'], ['more', 'More'], ['off', 'Off']], C.hints, (v) => this.set('controls', 'hints', v))));
     // Key bindings

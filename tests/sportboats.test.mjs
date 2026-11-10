@@ -367,3 +367,24 @@ test('her outboards keep their size with fittings on: both of the console’s pa
   assert.equal(c.motorGroups.length, 2);
   assert.equal(c.motorGroups[0].scale.x, c.motorGroups[1].scale.x, 'the pair the same size');
 });
+
+test('held hard over at speed, the planing boats bank INTO the turn (the RIB, the console, the jet ski, the bass boat), never out of it', () => {
+  conditions.manual = { speed: 0, from: 0 };
+  conditions.wind.speed = conditions.wind.target = 0;
+  for (const [kind, least] of [['rib', 0.12], ['console', 0.08], ['jetski', 0.15], ['bass', 0.03]]) {
+    for (const steer of [1, -1]) {
+      const b = run(boatAt(kind), 30, 1);
+      let into = 0, n = 0;
+      for (let i = 0; i < 30 * 4; i++) {
+        run(b, 1 / 30, 1, steer);
+        // (Into the turn: the side towards its middle goes down, so roll and the rate of turn have
+        // opposite signs here.)
+        if (i > 45 && Math.abs(b.omega) > 0.1) { into += -b.roll * Math.sign(b.omega); n++; }
+      }
+      const avg = into / Math.max(1, n);
+      assert.ok(avg > least, `${kind}, steering ${steer}: banked ${(avg * 57.3).toFixed(1)}° into the turn`);
+      assert.ok(avg < 0.45, `${kind}: never laid over (${(avg * 57.3).toFixed(1)}°)`);
+    }
+  }
+  conditions.manual = null;
+});

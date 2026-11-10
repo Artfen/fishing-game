@@ -339,6 +339,48 @@ kbd {
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
 }
 
+/* The fight's word, top and centre while a fish is on: what to do now, and what the fish is doing. */
+#fight-coach {
+  position: absolute;
+  top: calc(64px + env(safe-area-inset-top, 0px));
+  left: 0;
+  right: 0;
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 22px 8px;
+  border-radius: 16px;
+  background: var(--hud-veil);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--hud-line);
+  pointer-events: none;
+  text-align: center;
+  z-index: 4;
+}
+#fc-word { font: 700 30px/1.05 var(--font-display); text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4); }
+#fc-sub { font: 600 15px var(--font-hand); opacity: 0.9; }
+#fight-coach.alert #fc-word { color: #ffd59a; }
+#fight-coach.danger #fc-word { color: #ffb3a1; animation: coachDanger 0.32s ease-in-out infinite alternate; }
+@keyframes coachDanger { from { transform: scale(1); } to { transform: scale(1.07); } }
+.reduce-motion #fight-coach.danger #fc-word { animation: none; }
+/* While a fish is on, the game's notes about the fight come top and centre too, under the word. */
+body.fighting:not(.touch) #toast {
+  top: calc(140px + env(safe-area-inset-top, 0px));
+  right: 0;
+  left: 0;
+  margin-inline: auto;
+  width: fit-content;
+  max-width: min(520px, calc(100vw - 32px));
+  text-align: center;
+}
+body.touch #fight-coach { top: calc(56px + env(safe-area-inset-top, 0px)); }
+body.touch #fc-word { font-size: 24px; }
+
 #bite-mark {
   position: absolute;
   left: -19px;
