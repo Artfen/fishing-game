@@ -12,14 +12,18 @@ import { buildFloat } from '../tackleModels.js';
 import { buildRod } from '../props.js';
 import { FightShow } from '../fightshow.js';
 import { fishById, buildFishMesh } from '../fish.js';
+import { Diver } from '../diver.js';
 
 const LINE_N = 18;  // points along a friend's line
+const DIVER_SEEN = 160; // how near a friend diving is drawn (m)
 const _tip = new THREE.Vector3();
 const _crew = new THREE.Vector3();
 
 // The friends you're playing with (see together.js), drawn where they are: on foot, a figure of
 // their own (walking, standing, fishing or sitting), or in whichever boat they're in, at the helm
-// and riding the swell. Diving or driving, only their name shows (see main.js). Each friend has a
+// and riding the swell. Diving, a diver in their kit (scuba, or breath-hold with a speargun),
+// swimming as they swim, the stripe on their suit their coat's colour; driving, only their name
+// shows (see main.js). Each friend has a
 // look made from their name (coat, hat, the stripe on their boat), so they look the same to
 // everyone, every time. Fishing, they hold the rod they're really using, and their line runs out
 // from its tip to where it meets the water (their float, if it's a float rod), slack and sagging,
@@ -338,6 +342,14 @@ export class VisitorView {
     }
     if (d.float) this.scene.remove(d.float);
     if (d.fishMesh) this.scene.remove(d.fishMesh);
+    // (Their diver, made for them alone, likewise.)
+    if (d.diver) {
+      this.scene.remove(d.diver.group);
+      d.diver.group.traverse((o) => {
+        o.geometry?.dispose();
+        o.material?.dispose?.();
+      });
+    }
     // (Their figure, made for them alone, is given back to the graphics card: without the rod in
     // its hand, which isn't its own to give.)
     d.rodOn?.group.removeFromParent();
@@ -377,7 +389,10 @@ export class VisitorView {
       const far = Math.hypot(A.x - from.x, A.z - from.z);
       const onFoot = P.m === 'foot' && far < 400;
       const afloat = P.m === 'boat' && far < 1800;
+      // (Under water you can't see far: a diver's drawn near enough to be seen.)
+      const diving = P.m === 'dive' && far < DIVER_SEEN;
       if (d.figure) d.figure.group.visible = false;
+      if (d.diver && !diving) d.diver.group.visible = false;
       for (const [k, b] of Object.entries(d.boats)) if (k !== P.k || !afloat) b.group.visible = false;
       let tip = null;
       if (onFoot) {
@@ -411,7 +426,7 @@ export class VisitorView {
         if (P.r) b.setRod(P.r);
         this.drawBoat(d, b, P, A, dt, t, { fx, glow, night });
         if (P.f || P.o) tip = b.rodTip;
-      }
+      } else if (diving) this.drawDiver(d, P, A, dt, t);
       this.drawLine(d, P, tip, dt, t);
       this.fishAtEnd(d, P, dt, t, fx, from);
       // Their other boats in the water, lying where they left them (not the one they're in).
@@ -423,6 +438,32 @@ export class VisitorView {
       }
       for (const [k, b] of Object.entries(d.moored)) if (!keep.has(k)) b.group.visible = false;
     }
+  }
+
+  // A friend diving: their diver, where they are and as deep, head up or down as they swim, the
+  // fins going as fast as they're going (harder when they kick), in the kit they're wearing.
+  drawDiver(d, P, A, dt, t) {
+    const kit = P.kt === 's' ? 'scuba' : 'free';
+    const D = (d.diver ??= new Diver(this.scene));
+    if (D.kit !== kit || !D.group.visible) {
+      D.enter(kit, A.x, P.y, A.z, A.h);
+      D.panelMat.color.set(d.look.coat);
+      d.diveY = P.y;
+    }
+    d.diveY = damp(d.diveY ?? P.y, P.y, 5, dt);
+    D.pos.set(A.x, d.diveY, A.z);
+    D.heading = A.h;
+    D.bodyPitch = damp(D.bodyPitch, P.pt ?? 0, 6, dt);
+    D.speed = A.v || 0;
+    D.kicking = !!P.kk;
+    D.phase += dt * (1.5 + D.speed * 4.5) * (D.kicking ? 1.3 : 1);
+    D.pose(t);
+  }
+
+  // Where a friend's diver is drawn, or null (for their name over them: see main.js).
+  diverAt(id) {
+    const D = this.drawn.get(id)?.diver;
+    return D?.group.visible ? D.pos : null;
   }
 
   // A friend's boat lying where they left her: riding the swell, her lines out if she's alongside,

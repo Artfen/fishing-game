@@ -3,7 +3,7 @@ import { Input, defaultBindings } from './input.js';
 import { SettingsUI, WEATHER_MODES } from './settings.js';
 import { loadGame, saveGame, newGame, saveStatus, parseSave, importSave, exportText, stopSaving, SAVE_KEY, adoptJournal } from './save.js';
 import { Cloud } from './cloud.js';
-import { Together, cleanName, suggestName, NAME_MAX, CALLS } from './together.js';
+import { Together, cleanName, suggestName, NAME_MAX, CALLS, PAID_MAX } from './together.js';
 import { setupOffline, offline, applyUpdate } from './offline.js';
 import { RELEASE, BUILD, BUILT } from './version.js';
 import { DIFFICULTY, DIFFICULTY_IDS, DRAG_LEVELS, DRAG_NAMES, breakReason } from './fight.js';
@@ -1513,7 +1513,9 @@ const packUI = new PackUI(state, {
 // The tackle boxes at the camps beyond the bay (Wend Quay, the boathouse, Puffin Cove).
 const regionBox = (reach = 4) => (onFoot ? world.boxes.find((b) => Math.hypot(walker.pos.x - b.x, walker.pos.z - b.z) < reach) : null);
 // A tackle box within reach: one at a camp, or the locker in a motorboat.
-const tackleBox = () => (nearCamp() || regionBox() || ownCampNear(4.5) ? 'tackle box' : chandleryNear() ? 'chandlery' : inGarage() ? 'tackle wall' : !onFoot && boat.motor ? 'boat locker' : false);
+// (Crewing in a friend's motorboat, her locker's yours to use too.)
+const tackleBox = () => (nearCamp() || regionBox() || ownCampNear(4.5) ? 'tackle box' : chandleryNear() ? 'chandlery' : inGarage() ? 'tackle wall' : (!onFoot && boat.motor) || crewLocker() ? 'boat locker' : false);
+const crewLocker = () => !!(crew.on && onFoot && visitors.boatOf(crew.on.id)?.hull.motor);
 const inGarage = () => onFoot && !driving && insideHome(walker.pos.x, walker.pos.z) === 'garage';
 
 function openPack(box = tackleBox()) {
@@ -1827,6 +1829,8 @@ const harbourSheet = new HarbourSheet(state, {
   worldHour: () => clock.hour,
   playerName: () => settings.player.name,
   sold: (logId) => setOutcome(logId, 'sold'),
+  // (Playing together, friends are paid the same for the fish you sell, if you've chosen it.)
+  shared: (v, kind) => shareSale(v, kind),
   eatMeal: (m) => camp.eatMeal(m),
   eatDish: (text, fill) => camp.eatDish(text, fill),
   drink: () => { if (state.comfort) mealDrink(state.comfort); },
@@ -2463,6 +2467,7 @@ fpGun.visible = false;
 scene.add(fpGun);
 const diveIn = { fwd: 0, up: 0, kick: false, dir: new THREE.Vector3(0, 0, 1) };
 const diverCtx = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, speed: 0, kicking: false, still: 0 };
+const UP_Y = new THREE.Vector3(0, 1, 0);
 const _dFrom = new THREE.Vector3(), _dDir = new THREE.Vector3(), _dAim = new THREE.Vector3(), _dMuz = new THREE.Vector3(), _dEye = new THREE.Vector3();
 const diveVeil = $('dive-veil');
 let aim = null; // what's in the sights: { sp, size, dist, ok, why, known }
@@ -2540,8 +2545,8 @@ function startDive(kit, entry) {
   const T = scheme() === 'touch', P = scheme() === 'pad';
   hud.chip(T
     ? '<b>Diving</b> · the stick swims where you look · drag to look · ▲ ▼ up and down'
-    : P ? `<b>Diving</b> · ${kbd('L-stick')} swim where you look · ${kbd('R-stick')} look · ${K('interact')} up · ${K('tackle')} down`
-      : `<b>Diving</b> · ${K('forward')}${K('back')} swim where you look · ${K('left')}${K('right')} turn · drag to look · ${K('interact')} up · ${K('tackle')} down`, 7);
+    : P ? `<b>Diving</b> · ${kbd('L-stick')} swim where you look · ${kbd('R-stick')} look · hold ${kbd('LT')} to look about · ${K('interact')} up · ${K('tackle')} down`
+      : `<b>Diving</b> · ${K('forward')}${K('back')} swim where you look · ${K('left')}${K('right')} turn · drag to look · hold the right mouse button to look about · ${K('interact')} up · ${K('tackle')} down`, 7);
   if (kit === 'free') {
     teach('freedive', `Freediving: one breath. Turn for the surface at the mark on the gauge, and swim slowly to make it last. ${T ? 'The action button' : K('cast')} fires the speargun: aim just behind the head.`, 10);
   } else {
@@ -2626,7 +2631,8 @@ function updateDive(dt) {
     diveIn.up = 1;
     diveIn.kick = false;
   }
-  camera.getWorldDirection(diveIn.dir);
+  // (Looking about, the right mouse button or LT held: you swim on the way you were going.)
+  if (!rig.looking) camera.getWorldDirection(diveIn.dir);
   // (Out of air: up you go, steadily.)
   if (d.kit === 'scuba' && state.dive.tank <= 0 && !D.atSurface(t)) diveIn.up = Math.max(diveIn.up, 0.8);
   D.update(dt, t, diveIn, boats);
@@ -8426,8 +8432,8 @@ function currentHint() {
   if (dive) {
     const tool = dive.kit === 'free' ? 'shoot' : 'photograph';
     if (T) return `The stick swims where you look · drag to look · ▲ ▼ up and down · the button to ${tool}`;
-    if (P) return `${kbd('L-stick')} swim where you look · ${kbd('R-stick')} look · ${K('interact')} up · ${K('tackle')} down · ${K('jog')} kick hard · ${K('cast')} ${tool}`;
-    return `${UD} swim where you look · ${LR} turn · drag to look · ${K('interact')} up · ${K('tackle')} down · hold ${K('jog')} to kick hard · ${K('cast')} ${tool} · ${K('view')} view`;
+    if (P) return `${kbd('L-stick')} swim where you look · ${kbd('R-stick')} look · hold ${kbd('LT')} look about · ${K('interact')} up · ${K('tackle')} down · ${K('jog')} kick hard · ${K('cast')} ${tool}`;
+    return `${UD} swim where you look · ${LR} turn · drag to look · hold right mouse to look about · ${K('interact')} up · ${K('tackle')} down · hold ${K('jog')} to kick hard · ${K('cast')} ${tool} · ${K('view')} view`;
   }
   if (cabinIn) {
     return T ? 'In the cabin · the stick walks between the galley and the bunk · tap the prompt to use them'
@@ -8875,7 +8881,9 @@ function placeFriendMarkers() {
     if (gearEl && gearEl.textContent !== gear) gearEl.textContent = gear;
     // (Crewing in a boat: over them where they stand in her.)
     const C = P.cr ? visitors.crewAt(P, together.id, onFoot ? null : boat) : null;
-    const y = C ? C.y + 2.2 : P.m === 'boat' ? waveHeight(A.x, A.z, t) + 3 : P.m === 'foot' ? walkHeight(A.x, A.z) + 2.4 : P.m === 'car' ? heightAt(A.x, A.z) + 2.6 : 1.2;
+    // (Diving: over their diver, under the water with them.)
+    const Dv = P.m === 'dive' ? visitors.diverAt(p.id) : null;
+    const y = C ? C.y + 2.2 : Dv ? Dv.y + 0.8 : P.m === 'boat' ? waveHeight(A.x, A.z, t) + 3 : P.m === 'foot' ? walkHeight(A.x, A.z) + 2.4 : P.m === 'car' ? heightAt(A.x, A.z) + 2.6 : 1.2;
     placeMarker(el, C ? C.x : A.x, y, C ? C.z : A.z, started && !modal);
   }
 }
@@ -8982,7 +8990,13 @@ function stepAboard({ p, b }) {
     walker.place(b.pos.x, b.pos.z, b.heading);
     setFoot(true, true);
   }
-  crew.board(p.id, b.hull);
+  // (Clear of the skipper at the helm and anyone crewing in her already.)
+  const others = [{ x: b.hull.seatX ?? 0, z: b.hull.seatZ ?? 0 }];
+  for (const q of together.peers.values()) {
+    const Q = q.view || q.pose;
+    if (q.id !== p.id && Q?.cr === p.id) others.push({ x: Q.cx, z: Q.cz });
+  }
+  crew.board(p.id, b.hull, others);
   audio.knock(0.4);
   hud.toast(`You step aboard ${p.name}’s ${b.hull.name}. Walk about her, fish from her, net their fish for them; ${scheme() === 'touch' ? 'the prompt' : K('interact')} to take the helm while they fish, or to step off.`, 8);
 }
@@ -9164,7 +9178,7 @@ function viewersNow() {
 }
 
 function whereIAm() {
-  if (dive) return { m: 'dive', x: diver.pos.x, z: diver.pos.z, h: diver.heading };
+  if (dive) return { m: 'dive', x: diver.pos.x, z: diver.pos.z, h: diver.heading, y: diver.pos.y, pt: diver.bodyPitch, kt: diver.kit === 'scuba' ? 's' : 'f', kk: diver.kicking };
   if (driving) return { m: 'car', x: car.pos.x, z: car.pos.z, h: car.heading };
   const on = fishing.state === 'reeling' || fishing.state === 'landing';
   // (Fishing, your friends see your rod, what's on it, and your line out to where it meets the
@@ -9239,6 +9253,57 @@ function tipWords(e) {
   const bits = [e.place, on, when, e.water === 'fresh' ? null : tide, e.depth >= 1 ? `${Math.round(e.depth)} m down` : null].filter(Boolean);
   return `${bits.join(', ')}.`.replace(/^./, (c) => c.toUpperCase());
 }
+// Your fish sold, playing together: friends paid the same (Settings → Play together, "Fish you
+// sell"), gathered for a moment so a creel sold in one go goes as one word.
+let saleBuf = null;
+function shareSale(v, w) {
+  if (!together.active || settings.player.paid === false || !(v > 0)) return;
+  if (saleBuf && saleBuf.w !== w) flushSale(true);
+  saleBuf ??= { a: 0, n: 0, w, at: 0 };
+  saleBuf.a += v;
+  saleBuf.n++;
+  saleBuf.at = performance.now() / 1000;
+}
+function flushSale(now = false) {
+  const B = saleBuf;
+  if (!B || (!now && performance.now() / 1000 - B.at < 0.6)) return;
+  saleBuf = null;
+  const a = Math.min(PAID_MAX, Math.round(B.a * 100) / 100);
+  if (!together.paid(a, B.w, Math.min(99, B.n))) return;
+  const names = [...together.peers.values()].filter((p) => p.name).map((p) => p.name);
+  const who = names.length === 1 ? names[0] : names.length === 2 ? `${names[0]} and ${names[1]}` : `Your ${names.length} friends`;
+  hud.toast(`${who} ${names.length === 1 ? 'is' : 'are'} paid ${money(a)} too: you’re out together.`, 4);
+}
+// A friend's fish sold, playing together: paid the same (their choice), into your purse.
+function friendPaid(p, d) {
+  earnIn(state, d.a, `Shared by ${p.name}`);
+  const where = d.w === 'kaigan' ? 'to Kaigan' : d.w === 'kitchen' ? 'to a kitchen' : 'at the market';
+  hud.toast(`${p.name} sold ${d.n === 1 ? 'a fish' : `${d.n} fish`} ${where}: ${money(d.a)} into your purse too.`, 5);
+  audio.chime?.();
+  save();
+}
+
+// Your boat, friends crewing her: you're told as each steps aboard, and off.
+let crewAboard = new Set();
+function watchCrew() {
+  if (!together.active || onFoot || driving || dive) {
+    crewAboard.clear();
+    return;
+  }
+  const now = new Set();
+  for (const p of together.peers.values()) if (p.name && crew.aboard(p)) now.add(p.id);
+  for (const id of now) {
+    if (crewAboard.has(id)) continue;
+    const p = together.peers.get(id);
+    hud.toast(`${p.name} steps aboard. They can fish from her${boat.hull.motor ? ', use her locker' : ''} and net your fish, and take the helm while you’re away from it.`, 6);
+  }
+  for (const id of crewAboard) {
+    const p = together.peers.get(id);
+    if (!now.has(id) && p?.name) hud.toast(`${p.name} steps off.`, 3);
+  }
+  crewAboard = now;
+}
+
 // A friend's find, onto your map: once (found again, it's brought up to date), and not for a place
 // you know already (just the news). If your map's full of marks, just the news.
 function friendFind(p, F) {
@@ -9301,6 +9366,7 @@ together.onEvent = (kind, p, data) => {
     }
   } else if (kind === 'ended') hud.toast(p ? `${p.name} ended the session.` : data?.hostGone ? `${data.name[0].toUpperCase()}${data.name.slice(1)} didn’t come back, so the session has ended. Your own time and weather are back.` : 'The connection to your session was lost, so you’ve left it.', 7);
   else if (kind === 'find') friendFind(p, data);
+  else if (kind === 'paid') friendPaid(p, data);
   else if (kind === 'help') friendHelp(p, data);
   else if (kind === 'crew') crewWord(p, data);
   else if (kind === 'shoal') {
@@ -10569,7 +10635,13 @@ function tick(now, manual = false) {
       diveIn.fwd = ti;
       diveIn.up = (input.holding('interact') ? 1 : 0) - (input.holding('tackle') ? 1 : 0);
       diveIn.kick = input.jogging || (pads.active && pads.jog);
-      if (si) rig.turn(si, dt, t);
+      // Holding the right mouse button (or LT) looks about without turning you; let go and the
+      // view swings back behind you. The turn keys still turn the way you swim.
+      rig.holdLook(input.lookHeld || (pads.active && pads.lt > 0.35));
+      if (si) {
+        const a = rig.turn(si, dt, t);
+        if (rig.looking && a) diveIn.dir.applyAxisAngle(UP_Y, a);
+      }
     } else if (driving) {
       // On a controller the triggers drive: RT to go, LT to brake and then reverse.
       carIn.throttle = pads.active ? pads.rt - pads.lt : ti;
@@ -10848,6 +10920,10 @@ function tick(now, manual = false) {
     }
     // Friends you're playing with: where you are goes to them, and they're drawn where they are.
     together.update(dt, started ? whereIAm() : null);
+    flushSale();
+    watchCrew();
+    // (Under water the right mouse button, held, looks about: see input.js.)
+    input.rightLooks = !!dive;
     // (A guest in a friend's harbour, or back from one: your Willowhaven boats to where yours lie.)
     if (together.guestSlot !== homeSlot) rehome();
     {

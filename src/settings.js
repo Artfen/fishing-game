@@ -44,7 +44,8 @@ export const DEFAULT_SETTINGS = {
   controls: { sensitivity: 1, invertX: false, invertY: false, reducedMotion: false, boatCam: 'swell', cast: 'assisted', hints: 'gentle', keys: null, vibration: 'normal', throttle: 'notches', start: 'go', technique: 'assisted', sailTrim: 'hand', needs: 'gentle', map: 'all' },
   // name: what friends see over you when playing together ('' until you've chosen one).
   // share: whether what you find (places, dive sites, a wreck's details, first fish) goes to them.
-  player: { name: '', share: true },
+  // paid: whether friends in the session are paid the same as you for the fish you sell.
+  player: { name: '', share: true, paid: true },
 };
 
 // The controller's buttons, as Settings lists them: [where, action, what it does]. The buttons
@@ -135,7 +136,7 @@ export function cleanSettings(raw, legacy = {}) {
     vibration: oneOf(c.vibration, STRENGTH_IDS, c.rumble === false ? 'off' : 'normal'),
   };
   const p = isObj(r.player) ? r.player : {};
-  const player = { name: cleanName(p.name), share: p.share !== false };
+  const player = { name: cleanName(p.name), share: p.share !== false, paid: p.paid !== false };
   return { audio, graphics, weather, controls, player };
 }
 
@@ -281,6 +282,7 @@ export class SettingsUI {
       },
     })));
     out.push(this.row('Share what you find', 'Places and dive sites you find, what you find on a wreck, and how you caught a new kind of fish go to your friends’ maps as marks with your name on them. You can also send any of your own marks from the map.', this.toggle('player', 'share', 'Share', 'Keep to myself')));
+    out.push(this.row('Fish you sell', 'Sell fish at the market, at Kaigan or to a kitchen while you’re playing together, and everyone in the session is paid the same as you, so you all earn from a good day out. Theirs pay you too, whichever way they’ve chosen this.', this.toggle('player', 'paid', 'Everyone’s paid', 'Keep it to myself')));
     // A friend code (see giftcodes.js): for friends and testers.
     out.push(this.row('Friend code', 'Got a code from a friend? Codes give boats at Willowhaven Marine Works, money for your purse, or both (most work once for each game; the money code as often as you like).', this.field('tg-gift', {
       value: this.drafts.gift ?? '', placeholder: 'FRIEND-CODE', max: 40, button: 'Redeem', label: 'Friend code',
