@@ -108,7 +108,7 @@ export class AudioScape {
     this.musicOn = true;
     this.t = 0;
     this.under = 0;
-    this.volumes = { master: 1, mute: false, music: 0.8, ambient: 1, wind: 0.8, waves: 0.9, rain: 1, effects: 1, reel: 0.9, alerts: 0.8 };
+    this.volumes = { master: 1, mute: false, music: 0.8, ambient: 1, wind: 0.8, waves: 0.9, rain: 1, effects: 1, reel: 0.9, alerts: 0.8, light: false };
   }
 
   start() {
@@ -121,12 +121,17 @@ export class AudioScape {
     // (A roomy buffer: the browser makes the sound in chunks, and on a busy computer (the game
     // drawing, a session going) small ones can come late and break the sound up into dropouts.
     // A few hundredths of a second's delay is nothing to the sea and the wind; a stutter is.)
-    let ctx;
-    try {
-      ctx = new AC({ latencyHint: 'playback' });
-    } catch {
-      ctx = new AC();
+    // (And always at 48,000 a second, whatever the sound card is set to: a card set to 96 or
+    // 192 kHz would otherwise have every sound made two or four times over, for nothing anyone
+    // can hear. The browser converts for the card on the way out, cheaply.)
+    let ctx = null;
+    for (const opts of [{ latencyHint: 'playback', sampleRate: 48000 }, { latencyHint: 'playback' }, null]) {
+      try {
+        ctx = opts ? new AC(opts) : new AC();
+        break;
+      } catch { /* the next, plainer request */ }
     }
+    if (!ctx) return;
     this.ctx = ctx;
     const now = ctx.currentTime;
 
@@ -145,7 +150,16 @@ export class AudioScape {
     this.out.connect(this.master);
     this.master.connect(this.muffle);
     this.muffle.connect(comp);
-    comp.connect(ctx.destination);
+    // A limiter last of all: however much happens at once (a big splash over the engine and the
+    // rain), the sound never goes past full scale, which would crackle.
+    const lim = ctx.createDynamicsCompressor();
+    lim.threshold.value = -2;
+    lim.knee.value = 0;
+    lim.ratio.value = 20;
+    lim.attack.value = 0.002;
+    lim.release.value = 0.12;
+    comp.connect(lim);
+    lim.connect(ctx.destination);
     // Separate volume buses: surroundings, rain, fishing effects, bite alerts and music.
     const bus = () => {
       const g = ctx.createGain();
@@ -161,12 +175,37 @@ export class AudioScape {
     this.effects = bus();
     this.reelBus = bus();
 
+    // The echo: everything sent to it goes in at verbIn. Full: a convolution with a long recorded
+    // tail (rich, and the heaviest thing in the sound: much of it worked out on a helper thread that
+    // a busy computer can starve, and then the sound crackles). Light: a couple of delays feeding
+    // back through a soft filter, a fraction of the work (Settings → Sound; see setLight).
+    this.verbIn = ctx.createGain();
     this.reverb = ctx.createConvolver();
     this.reverb.buffer = this.impulse(3.4, 2.4);
-    const rv = ctx.createGain();
+    const rv = (this.rv = ctx.createGain());
     rv.gain.value = 0.55;
-    this.reverb.connect(rv);
     rv.connect(this.out);
+    this.echo = ctx.createGain();
+    {
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 2600;
+      const d1 = ctx.createDelay(1), d2 = ctx.createDelay(1), fb = ctx.createGain(), mix = ctx.createGain();
+      d1.delayTime.value = 0.061;
+      d2.delayTime.value = 0.113;
+      fb.gain.value = 0.42;
+      mix.gain.value = 0.9;
+      this.echo.connect(lp);
+      lp.connect(d1);
+      d1.connect(d2);
+      d2.connect(fb);
+      fb.connect(lp);
+      d1.connect(mix);
+      d2.connect(mix);
+      mix.connect(rv);
+    }
+    this.lightOn = null;
+    this.setLight(!!this.volumes.light);
 
     this.sfx = ctx.createGain();
     this.sfx.connect(this.effects);
@@ -174,7 +213,7 @@ export class AudioScape {
     sfxSend.gain.value = 0.15;
     // The reverb sends are taken after each bus's volume, so turning a bus down quietens its echo too.
     this.effects.connect(sfxSend);
-    sfxSend.connect(this.reverb);
+    sfxSend.connect(this.verbIn);
 
     this.music = ctx.createGain();
     this.music.gain.value = 0;
@@ -182,7 +221,7 @@ export class AudioScape {
     const musicSend = ctx.createGain();
     musicSend.gain.value = 0.8;
     this.musicVol.connect(musicSend);
-    musicSend.connect(this.reverb);
+    musicSend.connect(this.verbIn);
 
     this.white = this.noise(3, 'white');
     this.brown = this.noise(5, 'brown');
@@ -273,6 +312,7 @@ export class AudioScape {
     this.reelBus.gain.setTargetAtTime(V.reel ?? 0.9, now, 0.05);
     this.alerts.gain.setTargetAtTime(V.alerts, now, 0.05);
     this.musicVol.gain.setTargetAtTime(V.music, now, 0.05);
+    this.setLight(!!V.light);
   }
 
   get muted() { return !!this.volumes.mute; }
@@ -367,7 +407,47 @@ export class AudioScape {
     node.connect(g);
     g.connect(dest);
     src.start(0, Math.random() * buffer.duration);
+    // (Kept, so a layer that's silent can be switched off and on again: see parkBeds.)
+    (this.beds ||= []).push({ src, first: f[0] || g, g, parked: false, quietSince: null });
     return { g, f };
+  }
+
+  // The sound's layers (the stream, the fire, the pub's murmur, the race in Calf Sound…) each run
+  // all the time, and the browser works on every one even at no volume. One that's been silent a
+  // couple of seconds is unplugged from its filters (so none of it is worked on at all), and
+  // plugged back in the moment it's wanted; it's silent either way, so nothing is heard.
+  // (Timed by the sound's own clock, which keeps real time however slowly the game is drawn.)
+  parkBeds(now = this.ctx?.currentTime ?? 0) {
+    for (const b of this.beds || []) {
+      const want = Math.max(b.g.gain.__target ?? 0, b.g.gain.value);
+      if (want > 1e-4) {
+        b.quietSince = null;
+        if (b.parked) {
+          b.src.connect(b.first);
+          b.parked = false;
+        }
+      } else if (!b.parked) {
+        b.quietSince ??= now;
+        if (now - b.quietSince > 2) {
+          b.src.disconnect();
+          b.parked = true;
+        }
+      }
+    }
+  }
+
+  // Full or light sound (Settings → Sound): the long convolution echo, or the cheap delays in its
+  // place, with the other taken out of the sound altogether so it costs nothing.
+  setLight(on) {
+    if (!this.ctx || this.lightOn === !!on) return;
+    this.lightOn = !!on;
+    this.verbIn.disconnect();
+    this.reverb.disconnect();
+    if (on) this.verbIn.connect(this.echo);
+    else {
+      this.verbIn.connect(this.reverb);
+      this.reverb.connect(this.rv);
+    }
   }
 
   // A place a steady sound comes from (see earshot.js): a panner on the surroundings' bus. Returns
@@ -435,6 +515,7 @@ export class AudioScape {
 
   set(param, v, tc = 0.5) {
     param.setTargetAtTime(v, this.ctx.currentTime, tc);
+    param.__target = v; // (what it's heading for, for parkBeds)
   }
 
   // A lowpass in front of node (lp Hz), or node itself when lp is 0 or bright enough not to matter.
@@ -1333,6 +1414,7 @@ export class AudioScape {
     if (!this.ctx) return;
     this.t += dt;
     const now = this.ctx.currentTime;
+    this.parkBeds(now);
     const { speed, rain, day, night, land, open, cove, gulls, stream = 0, fire = 0, sizzle = 0, lake = 0, water = 1, wind = 0.3, gust = 1, sea = 0.2, stove = 0, harbour = 0, inlet = 0, head = 0, tent = 0, race = 0, seals = 0, flap = 0, gale = 0, shearwaters = 0, indoor = 0, pub = 0 } = s;
     // Indoors (home, the chandlery, the inn) the outside is muffled: the walls between you and it.
     const shut = 1 - 0.65 * indoor;

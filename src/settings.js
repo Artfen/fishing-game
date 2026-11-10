@@ -32,7 +32,7 @@ export const CAST_MODES = {
 };
 
 export const DEFAULT_SETTINGS = {
-  audio: { master: 1, mute: false, music: 0.8, ambient: 1, wind: 0.8, waves: 0.9, rain: 0.8, effects: 1, reel: 0.9, alerts: 0.8 },
+  audio: { master: 1, mute: false, music: 0.8, ambient: 1, wind: 0.8, waves: 0.9, rain: 0.8, effects: 1, reel: 0.9, alerts: 0.8, light: false },
   graphics: { preset: 'auto', scale: 1, shadows: 'auto', ocean: 'auto', water: 'auto', plants: 'auto', particles: 'auto', underwater: 'auto', life: 'auto', fps: 0, screen: 'full' },
   // sea: 'auto' (with the weather) or a SEA_PRESETS id; wind 'auto' or 'manual' (windSpeed m/s,
   // windFrom compass degrees); currents: natural, gentle or still (on your rig and boat).
@@ -92,6 +92,7 @@ export function cleanSettings(raw, legacy = {}) {
     effects: num(a.effects, num(lv.nature, d.audio.effects, 0, 1), 0, 1),
     reel: num(a.reel, d.audio.reel, 0, 1),
     alerts: num(a.alerts, d.audio.alerts, 0, 1),
+    light: a.light === true,
   };
   const g = isObj(r.graphics) ? r.graphics : {};
   const graphics = {
@@ -458,6 +459,8 @@ export class SettingsUI {
       note.textContent = this.soundWords(await this.hooks.restartSound?.());
     });
     fix.append(again, note);
+    out.push(this.row('Sound quality', 'Light swaps the long, rich echo for a simple one: a fraction of the work for the computer. Choose it if the sound crackles, hisses or breaks up (it happens on some computers while the game is busy drawing); few people can hear the difference.',
+      this.choice([[false, 'Full'], [true, 'Light']], !!A.light, (v) => this.set('audio', 'light', v))));
     out.push(this.row('Sound cutting out?', 'If the sound drops out, comes and goes or stutters (often headphones, Bluetooth or a voice call taking the speakers), this connects it to your speakers again. The game also does it by itself when your speakers or headphones change.', fix));
     return out;
   }
