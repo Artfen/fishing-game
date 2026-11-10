@@ -311,3 +311,59 @@ test('a slow school’s fish keep their places swimming with it, not spinning on
   assert.ok(hard / n < 0.18, `turning hard ${(100 * hard / n).toFixed(1)}% of the time`);
   assert.ok(sum / n < 0.8, `turning ${(sum / n).toFixed(2)} rad/s on average`);
 });
+
+test('swim through the reef’s fish and a shoal of fry: they turn away together, and none of them spin round', async () => {
+  const { wrapAngle } = await import('../src/util.js');
+  const S = siteById.reef, H = 1 / 30, abs = 140 * 24 + 12;
+  const D = new Drifters(new THREE.Scene(), habitat);
+  const cam = { position: new THREE.Vector3(S.x, -3.5, S.z) };
+  D.update(H, 0, cam, 1, abs);
+  assert.ok(D.reef.length > 20, `${D.reef.length} groups`);
+  // (A shoal of fry to swim through as well: summer's here, so there are some; one moved to where you'll pass.)
+  assert.ok(D.shoals.length > 0, 'fry about');
+  Object.assign(D.shoals[0], { x: S.x, cx: S.x, z: S.z + 2, cz: S.z + 2 });
+  const fishOf = () => [...D.reef.flatMap((G) => G.fish.map((f) => ({ f, x: G.cx, z: G.cz }))), ...D.shoals.flatMap((Sh) => Sh.fry.map((f) => ({ f, x: Sh.cx, z: Sh.cz })))];
+  const last = new Map(), hist = new Map();
+  let n = 0, spins = 0;
+  for (let i = 0; i < 30 * 30; i++) {
+    const t = i * H, ph = (t % 20) / 20;
+    // Back and forth through the reef at about 1.5 m/s, weaving a little.
+    cam.position.set(S.x - 15 + (ph < 0.5 ? ph * 2 : (1 - ph) * 2) * 30, -3.5, S.z + Math.sin(t * 0.3) * 4);
+    D.animate(H, t, cam.position);
+    for (const { f, x, z } of fishOf()) {
+      if (f.yaw == null) continue;
+      const p = last.get(f);
+      last.set(f, f.yaw);
+      if (p == null || Math.hypot(x - cam.position.x, z - cam.position.z) > 15) continue;
+      n++;
+      // (How far round it has come in the last ten seconds.)
+      const h = hist.get(f) || { sum: 0, q: [] };
+      const dy = wrapAngle(f.yaw - p);
+      h.q.push(dy);
+      h.sum += dy;
+      if (h.q.length > 300) h.sum -= h.q.shift();
+      if (Math.abs(h.sum) > Math.PI * 2) { spins++; h.q = []; h.sum = 0; }
+      hist.set(f, h);
+    }
+  }
+  assert.ok(n > 20000, `${n} looks at fish near you`);
+  // (Before: 275 full turns in a minute of this, each fish going round its place in the shoal.)
+  assert.equal(spins, 0, `${spins} fish came all the way round within ten seconds`);
+  // Come right at a group: it faces away from you, all of it.
+  const G = D.reef.find((g) => g.mode === 'shoal' || g.mode === 'mid');
+  const at = new THREE.Vector3(G.cx - 1.5, G.y, G.cz + 0.5);
+  for (let i = 0; i < 45; i++) D.animate(H, 40 + i * H, at);
+  const away = Math.atan2(G.cx - at.x, G.cz - at.z);
+  assert.ok(G.shy > 0.3, 'shy of you');
+  assert.ok(Math.abs(wrapAngle(G.heading - away)) < 0.5, `facing ${G.heading.toFixed(2)}, away is ${away.toFixed(2)}`);
+  for (const f of G.fish) assert.ok(Math.abs(wrapAngle(f.yaw - G.heading)) < 0.6, 'each fish with it');
+  // And it's the diver they're shy of, not the camera following a few metres behind.
+  const E = new Drifters(new THREE.Scene(), habitat);
+  const behind = { position: new THREE.Vector3(S.x - 4, -3, S.z) };
+  E.update(H, 0, behind, 1, abs);
+  const K = E.reef.filter((g) => g.mode !== 'hover').sort((a, b) => Math.hypot(a.cx - S.x, a.cz - S.z) - Math.hypot(b.cx - S.x, b.cz - S.z))[0];
+  behind.position.set(K.cx - 5, K.y + 1, K.cz);
+  const diver = new THREE.Vector3(K.cx - 1, K.y, K.cz);
+  for (let i = 0; i < 30; i++) E.update(H, 1 + i * H, behind, 1, abs, diver);
+  assert.ok(E.reef.includes(K) && K.shy > 0.3, `shy of the diver: ${K.shy.toFixed(2)}`);
+});
