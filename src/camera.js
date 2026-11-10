@@ -181,6 +181,7 @@ export class CameraRig {
     const v = this.views[this.mode], lim = this.diver && this.mode === 'eye' ? MASK : LIMITS[this.mode];
     const eye = this.mode === 'eye';
     if (drag.x || drag.y) {
+      if (!this.looking) this.lookBack = null;
       const k = this.sensitivity;
       v.yaw -= drag.x * (eye ? 0.0045 : 0.0055) * k * (this.invertX ? -1 : 1);
       v.pitch = clamp(v.pitch + drag.y * (eye ? 0.0035 : 0.004) * k * (this.invertY ? -1 : 1), lim.pitch[0], lim.pitch[1]);
@@ -189,11 +190,33 @@ export class CameraRig {
     if (wheel && !eye) v.dist = clamp(v.dist * Math.exp(wheel * 0.0012), lim.dist[0], lim.dist[1]);
   }
 
+  // Looking about under water (the right mouse button or LT held): the view goes where you drag
+  // it while you swim on the way you were going; let go, and it swings back round behind you.
+  holdLook(on) {
+    const v = this.views[this.mode];
+    if (!v || (this.mode !== 'dive' && !(this.mode === 'eye' && this.diver))) {
+      this.looking = null;
+      this.lookBack = null;
+      return;
+    }
+    if (on && !this.looking) {
+      this.looking = { mode: this.mode, yaw: v.yaw, pitch: v.pitch };
+      this.lookBack = null;
+    } else if (!on && this.looking) {
+      if (this.looking.mode === this.mode) this.lookBack = this.looking;
+      this.looking = null;
+    }
+  }
+
   // Turn your head (first person): the keys swing the view while you aim a cast.
+  // (Returns how far it turned. Looking about under water, the way you swim turns with it.)
   turn(dir, dt, t) {
-    if ((this.mode !== 'eye' && this.mode !== 'dive') || !dir) return;
-    this.views[this.mode].yaw += dir * (this.mode === 'dive' ? 1.6 : 1.3) * dt;
+    if ((this.mode !== 'eye' && this.mode !== 'dive') || !dir) return 0;
+    const a = dir * (this.mode === 'dive' ? 1.6 : 1.3) * dt;
+    this.views[this.mode].yaw += a;
+    if (this.looking) this.looking.yaw += a;
     this.lastManual = t;
+    return a;
   }
 
   // eye: where your eyes are (first person); roll: how much of the boat's roll you feel.
@@ -211,6 +234,20 @@ export class CameraRig {
     if (this.mode === 'cabin' && !this.inCabin) this.setMode(this.third, t);
     if (this.mode === 'dive' && !this.diver) this.setMode(this.third, t);
     const v = this.views[this.mode];
+    // (Let go of looking about: back round to the way you're swimming.)
+    const B = this.lookBack;
+    if (!this.diver) this.looking = null;
+    if (B && (B.mode !== this.mode || !this.diver)) this.lookBack = null;
+    else if (B) {
+      const k = 1 - Math.exp(-7 * dt), dy = Math.atan2(Math.sin(B.yaw - v.yaw), Math.cos(B.yaw - v.yaw));
+      v.yaw += dy * k;
+      v.pitch += (B.pitch - v.pitch) * k;
+      if (Math.abs(dy) < 0.004 && Math.abs(B.pitch - v.pitch) < 0.004) {
+        v.yaw = B.yaw;
+        v.pitch = B.pitch;
+        this.lookBack = null;
+      }
+    }
     const under = this.underwaterView;
     // In a boat (or the car) your view turns with it (not when you step across into the other one).
     const ride = this.car || (!this.onFoot ? boat : null);

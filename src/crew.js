@@ -30,6 +30,33 @@ export function crewSpot(hull) {
   return { x: Math.min(0.3, Math.max(0, hull.B - 0.45)), z };
 }
 
+// Every place crew might stand in her, the best first: aft of the helm, either side; beside the
+// helm; forward; right aft. Kept inside her, as walking about her is.
+export function crewSpots(hull) {
+  const s = crewSpot(hull), seat = hull.seatZ ?? 0;
+  const xs = Math.max(0.05, hull.B - 0.35), zs = Math.max(0.2, hull.L / 2 - 0.5);
+  const at = (x, z) => ({ x: Math.max(-xs, Math.min(xs, x)), z: Math.max(-zs, Math.min(zs, z)) });
+  const side = xs * 0.75;
+  return [s, at(-side, s.z), at(side, s.z), at(xs * 0.7, seat), at(-xs * 0.7, seat), at(0, zs * 0.8), at(side, zs * 0.4), at(-side, zs * 0.4), at(0, -zs * 0.85), at(side, -zs * 0.6), at(-side, -zs * 0.6)];
+}
+
+export const CREW_ROOM = 0.9; // m: as near as crew stand to each other, stepping aboard
+
+// Where to stand stepping aboard, with others already in her (boat-local { x, z }: the skipper at
+// the helm, other crew): the first place clear of everyone, or if she's crowded the roomiest.
+export function freeSpot(hull, others = []) {
+  let best = null, room = -1;
+  for (const s of crewSpots(hull)) {
+    const d = others.reduce((m, o) => Math.min(m, Math.hypot(o.x - s.x, o.z - s.z)), Infinity);
+    if (d >= CREW_ROOM) return s;
+    if (d > room) {
+      room = d;
+      best = s;
+    }
+  }
+  return best;
+}
+
 export class Crew {
   constructor({ together }) {
     this.together = together;
@@ -42,9 +69,10 @@ export class Crew {
 
   /* ---------- crewing ---------- */
 
-  // Step aboard friend `id`'s boat (hull: hers), at the crew's spot.
-  board(id, hull) {
-    const s = crewSpot(hull);
+  // Step aboard friend `id`'s boat (hull: hers), at the crew's spot, or (others: where those
+  // already aboard are standing, boat-local) the first place clear of them.
+  board(id, hull, others = []) {
+    const s = freeSpot(hull, others);
     this.on = { id, x: s.x, z: s.z, helm: false };
   }
 

@@ -141,8 +141,10 @@ export class HarbourSheet {
     }
     return true;
   }
-  earn(v, what = 'At the harbour') {
+  // (kind: 'market' | 'kaigan' | 'kitchen', for friends paid the same playing together: see main.js.)
+  earn(v, what = 'At the harbour', kind = 'market') {
     earnIn(this.state, v, what);
+    this.hooks.shared?.(v, kind);
     this.harbour.earned = Math.round((this.harbour.earned + v) * 100) / 100;
   }
 
@@ -475,7 +477,7 @@ export class HarbourSheet {
     if (!quiet || !this.receipt?.open) this.receipt = { lines: [], total: 0, open: quiet };
     this.receipt.lines.push(kaiganLine(f, v));
     this.receipt.total = Math.round((this.receipt.total + v.price) * 100) / 100;
-    this.earn(v.price, 'Kaigan');
+    this.earn(v.price, 'Kaigan', 'kaigan');
     this.harbour.sold++;
     this.kaigan.sold++;
     this.kaigan.earned = Math.round((this.kaigan.earned + v.price) * 100) / 100;
@@ -601,7 +603,7 @@ export class HarbourSheet {
     const was = standingOf(this.harbour.served);
     this.harbour.served++;
     const now = standingOf(this.harbour.served);
-    this.earn(P.pay);
+    this.earn(P.pay, 'At the harbour', 'kitchen');
     this.hooks.sold(f.logId);
     this.hooks.chime();
     const sp = fishById[f.id], name = this.hooks.playerName?.() || '';

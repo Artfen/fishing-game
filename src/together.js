@@ -45,6 +45,20 @@ const FIND_BURST = 6, FIND_WINDOW = 30; // at most six in any half-minute, each 
 // marked for everyone, at most every few seconds each.
 export const HELPS = ['net', 'thanks'];
 const HELP_GAP = 0.5, SHOAL_GAP = 4;
+// Fish sold, shared (Settings → Play together): what you're paid for your fish, friends in the
+// session are paid the same; where it was sold, and how many fish. Capped, and only so much
+// heard from any one friend in a while, whatever they send.
+export const PAID_WHERE = ['market', 'kaigan', 'kitchen'];
+export const PAID_MAX = 2000;                         // £ in any one word (a creel sold in one go)
+const PAID_BURST = 8, PAID_WINDOW = 60;               // words in any minute, each way
+export const PAID_TEN = 6000, PAID_TEN_S = 600;       // £ heard from one friend in ten minutes
+export function cleanPaid(d) {
+  if (!d || typeof d !== 'object' || !PAID_WHERE.includes(d.w)) return null;
+  const a = finite(d.a, 0, PAID_MAX);
+  if (a == null || !(a >= 0.01)) return null;
+  const n = Number.isInteger(d.n) && d.n >= 1 && d.n <= 99 ? d.n : 1;
+  return { a: Math.round(a * 100) / 100, w: d.w, n };
+}
 // Crewing (see crew.js): asking for the helm and its answers, and the wheel from the one at it.
 // (Asking is limited; answers always go, a flood of them aside.)
 const CREW_WORDS = ['helm', 'yes', 'no', 'back', 'wheel'];
@@ -129,6 +143,14 @@ export function cleanPose(p, kinds = null, gear = null) {
     if (Array.isArray(p.tr) && p.tr.length === 10 && p.tr.every((v) => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) < 20)) out.tr = p.tr.map(r2);
   }
   if (m === 'foot') out.a = ACTS.includes(p.a) ? p.a : 'stand';
+  // Diving: how deep, head up or down, kicking or not, and the kit (scuba, or breath-hold with a
+  // speargun), so friends in the water see them swimming as they are (see visitors.js).
+  if (m === 'dive') {
+    out.y = finite(p.y, -150, 5) ?? 0;
+    out.pt = finite(p.pt, -1.6, 1.6) ?? 0;
+    out.kt = p.kt === 's' ? 's' : 'f';
+    out.kk = !!p.kk;
+  }
   // Crewing in a friend's boat (see crew.js): whose, and where in her.
   if (m === 'foot' && typeof p.cr === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(p.cr)) {
     const cx = finite(p.cx, -3, 3), cz = finite(p.cz, -8, 8);
@@ -492,7 +514,7 @@ export class Together {
     this.reconnecting = false;
     this.attempt = 0;     // bumped by each start or leave, so a stale attempt stops itself
     this.onChange = () => {};
-    this.onEvent = () => {}; // (kind: 'joined' | 'join' | 'leave' | 'catch' | 'call' | 'fishOn' | 'find' | 'ended' | 'lost' | 'back', peer, data)
+    this.onEvent = () => {}; // (kind: 'joined' | 'join' | 'leave' | 'catch' | 'call' | 'fishOn' | 'find' | 'paid' | 'ended' | 'lost' | 'back', peer, data)
   }
 
   // What a session has sent and received (the messages Supabase counts against its allowance), and
@@ -915,6 +937,17 @@ export class Together {
       if (p.finds.length >= FIND_BURST) return;
       p.finds.push(this.clock);
       this.onEvent('find', p, F);
+    } else if (kind === 'paid') {
+      // A friend's fish sold, shared: a few at a time, and only so much in ten minutes.
+      const P = cleanPaid(data);
+      if (!P || !p.name) return;
+      p.paids = (p.paids || []).filter((e) => this.clock - e.at < PAID_TEN_S);
+      if (p.paids.filter((e) => this.clock - e.at < PAID_WINDOW).length >= PAID_BURST) return;
+      const room = Math.round((PAID_TEN - p.paids.reduce((s, e) => s + e.a, 0)) * 100) / 100;
+      if (room < 0.01) return;
+      P.a = Math.min(P.a, room);
+      p.paids.push({ at: this.clock, a: P.a });
+      this.onEvent('paid', p, P);
     } else if (kind === 'call') {
       const c = data.c;
       if (!Number.isInteger(c) || c < 0 || c >= CALLS.length || !p.name) return;
@@ -1025,6 +1058,7 @@ export class Together {
     if (P.m === 'boat') Object.assign(msg, { k: P.k, f: P.f ? 1 : 0, s: P.s ? 1 : 0, n: P.n ? 1 : 0 });
     if (P.m === 'boat' && Array.isArray(P.tr)) msg.tr = P.tr;
     if (P.m === 'foot') msg.a = P.a;
+    if (P.m === 'dive') Object.assign(msg, { y: r2(P.y ?? 0), pt: r2(P.pt ?? 0), kt: P.kt === 's' ? 's' : 'f', kk: P.kk ? 1 : 0 });
     if (P.m === 'foot' && P.cr) Object.assign(msg, { cr: P.cr, cx: r2(P.cx), cz: r2(P.cz) });
     if ((P.m === 'foot' || P.m === 'boat') && P.o) msg.o = 1;
     // (Fishing: the rod, what's on it, where the line meets the water, the load with a fish on.)
@@ -1048,7 +1082,8 @@ export class Together {
       || S.r !== msg.r || S.i !== msg.i || (S.ex == null) !== (msg.ex == null) || (msg.ex != null && Math.hypot(S.ex - msg.ex, S.ez - msg.ez) > 0.3)
       || Math.abs((S.tn ?? 0) - (msg.tn ?? 0)) > 0.12 || S.mv !== msg.mv || S.hk !== msg.hk || S.nt !== msg.nt || S.sp !== msg.sp
       || S.cr !== msg.cr || (msg.cr && Math.hypot(S.cx - msg.cx, S.cz - msg.cz) > 0.15)
-      || String(S.tr) !== String(msg.tr);
+      || String(S.tr) !== String(msg.tr)
+      || S.kt !== msg.kt || S.kk !== msg.kk || Math.abs((S.y ?? 0) - (msg.y ?? 0)) > 0.25 || Math.abs((S.pt ?? 0) - (msg.pt ?? 0)) > 0.1;
     if (!now && (this.sendT > 0 || (!moved && this.clock - (S?.at ?? -99) < IDLE_EVERY))) return;
     this.rt.send('pose', { id: this.id, n: this.name(), host: this.hosting, t: Math.round(this.now() * 1000) / 1000, p: msg });
     this.sent = { ...msg, at: this.clock };
@@ -1166,6 +1201,18 @@ export class Together {
     if (this.shared.length >= FIND_BURST) return false;
     this.shared.push(this.clock);
     this.rt.send('find', { id: this.id, f: F });
+    return true;
+  }
+
+  // Your fish sold (a: £, w: where, n: how many): friends in the session paid the same. At most
+  // PAID_BURST a minute (a creel sold fish by fish is gathered into one first: see main.js).
+  paid(a, w, n = 1) {
+    const P = cleanPaid({ a, w, n });
+    if (!P || !this.active || !this.rt?.open || this.reconnecting || ![...this.peers.values()].some((p) => p.name)) return false;
+    this.paidSent = (this.paidSent || []).filter((at) => this.clock - at < PAID_WINDOW);
+    if (this.paidSent.length >= PAID_BURST) return false;
+    this.paidSent.push(this.clock);
+    this.rt.send('paid', { id: this.id, ...P });
     return true;
   }
 

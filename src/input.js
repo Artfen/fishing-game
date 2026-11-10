@@ -103,6 +103,8 @@ export class Input {
     this.codes = new Set();
     this.handlers = { press: [], release: [], pointer: [], cancel: [] };
     this.drag = { dx: 0, dy: 0 };
+    this.rightLooks = false; // the right mouse button looks about while held (under water)
+    this.lookHeld = false;   // and it's held down
     this.wheel = 0;
     this.pointers = new Map();
     this.pinch = 0;
@@ -146,13 +148,19 @@ export class Input {
     addEventListener('blur', () => this.releaseAll());
 
     // One pointer drags the view; two pointers pinch to zoom. The right mouse button
-    // never drags: it cancels (a cast being aimed, or the line in the water).
+    // cancels (a cast being aimed, or the line in the water); under water (rightLooks), held down,
+    // it looks about too, dragging the view without changing the way you swim (lookHeld).
     // (Any touch anywhere means touch; the mouse, on the scene, means keyboard and mouse.)
     addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') this.use('touch'); }, { capture: true, passive: true });
     canvas.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse') this.use('keys');
       if (e.pointerType === 'mouse' && e.button === 2) {
         this.emit('cancel', '', []);
+        if (!this.rightLooks) return;
+        try { canvas.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
+        this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, look: true });
+        this.lookHeld = true;
+        canvas.classList.add('dragging');
         return;
       }
       if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -178,6 +186,7 @@ export class Input {
       }
     });
     const end = (e) => {
+      if (this.pointers.get(e.pointerId)?.look) this.lookHeld = false;
       this.pointers.delete(e.pointerId);
       this.pinch = this.pinchDistance();
       if (!this.pointers.size) canvas.classList.remove('dragging');
@@ -222,6 +231,7 @@ export class Input {
   }
 
   releaseAll() {
+    this.lookHeld = false;
     for (const c of this.codes) this.emit('release', c, /^(Touch|Pad):/.test(c) ? [c.slice(c.indexOf(':') + 1)] : this.actionsOf(c));
     this.codes.clear();
   }
