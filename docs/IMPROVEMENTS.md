@@ -426,3 +426,17 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | After | In the browser, photo mode on the Willowhaven quay: the photo card comes up ("Willow Bay, Willowhaven."), no page errors |
 | Validation | A test in `tests/birds.test.mjs` that nothing in photoSubjects is called `birds` but the birds of the coast; full suite in CI |
 
+
+### World depth A2a: rockpools at low water
+
+| Field | |
+| --- | --- |
+| System | `src/world/rockpools.js` (new: sites, pools, their life, drawing); the rockpool view in `src/main.js` (prompt, camera, turning stones, the net, photographs, notes); `index.html`, `style.css`, `src/gamepad.js`; the notes (`grounds.js` NATURE) and the journal's tree (`taxonomy.js`: snails and limpets, periwinkles, cushion stars, prawns, shore crabs) |
+| Previous issue | From the brief: "Introduce rockpooling … connect rockpool accessibility and water levels to the existing tide simulation". The tide moved the sea, but nothing on the shore changed with it, and there was nothing to find at low water |
+| Change | 18 rockpools on three stretches of rocky shore (east of Willowhaven, Willow Bay, Puffin Cove), each a basin on level ground between the tide marks, with its own water, rocks round it and three loose stones. Uncovered while the sea is below its rim, covered when it rises past: the high pools out most of the day, the low ones only near the bottom of the tide. Their life, laid out the same every game and richer the lower the pool: beadlet and snakelocks anemones, common limpets, periwinkles, rock pool prawns (moving about the weed), shore crabs, cushion stars, and the micro-fishing release's rock gobies and shannies (darting about the bottom), the shy ones under stones. At a pool at low water: Look in the rockpool. The view crouches over it; what you see goes in your notes (fish as seen); turn a stone over (and put it back as you leave); sweep the hand net (a fish in it gets the close look of the catch card, then goes back; whatever you net shelters for a few hours); photograph it (the card names the life in the picture, and you're back at the pool after). Covered: the prompt says when the tide will be out |
+| Player benefit | A reason to walk the shore at low water, with something new under every stone; the journal's invertebrates fill without a dive |
+| Before | Nothing between the tide marks |
+| After | In the browser, at a spring low in Willow Bay: the prompt "Look in the rockpool"; inside, limpets and periwinkles noted; three stones turned: "Under the stone: green shore crab, shanny"; the net brought up prawns, a crab and a 10 cm shanny (its close look, then back in); a photograph read "In the picture: Rock goby, Shanny. Wildlife: common limpet, common periwinkle, green shore crab"; back at the pool after it; Esc closed it. No page errors |
+| Validation | Full suite (see the PR); new `tests/rockpools.test.mjs` (5): the pools between the tide marks and holding water, the same every game; covered and uncovered with the tide; their life (richer low down, the shy ones under stones, every kind in the notes and the tree, saved); turning stones and putting them back, the net, sheltering and coming back; drawing near you, and what's in a photograph |
+| Remaining risks | The pools are drawn on the shore's existing ground (rocks round a basin of their own water), not cut into it; you can walk across their rims. Nothing taken home yet: keeping prawns and small fish alive as bait (a bucket, the livewell) is the next step, A2b |
+

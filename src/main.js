@@ -95,6 +95,7 @@ import { HOLD as REVEAL_HOLD, COUNT as REVEAL_COUNT, needle, verdictOf } from '.
 import { requestById, businessWith, accept as acceptFavour, decline as declineFavour, complete as completeFavour, caught as favourCaught, saw as favourSaw, photographed as favourPhotographed, buoyAt, pickUpBuoy, fishFor, remember, cleanFavours } from './requests.js';
 import { lower } from './innTalk.js';
 import { tideAt, tideWords, turns } from './world/tide.js';
+import { Rockpools, poolNear, poolOpen, visibleLife, turnStone, settle, netIn, letGo, POOL_LIFE, POOL_SITES } from './world/rockpools.js';
 import { seasonOf, seasonWords, sunTimes, sunHour, seasonWarmth, riverFlow, leafTint, seasonLine } from './world/season.js';
 import { galeSky, galeNear, hoursToGale, outlook, galeFor } from './world/forecast.js';
 import { FolkView } from './world/folk.js';
@@ -355,6 +356,8 @@ const underwater = new Underwater(scene, habitat, $('underwater-tint'));
 const seabed = new Seabed(scene, habitat);
 // The open water's own life: jellyfish and shoals of fry (see world/drifters.js).
 const drifters = new Drifters(scene, habitat);
+// The rockpools on the shore, uncovered at low water (see world/rockpools.js and the rockpool view).
+const rockpools = new Rockpools(scene);
 const eco = new Ecosystem(habitat);
 const fishRenderer = new FishRenderer(scene, eco);
 const fx = new Effects(scene);
@@ -1427,9 +1430,16 @@ function openInspect() {
 function closeInspect() {
   inspector.close();
   if (modal !== 'inspect') return;
+  if (inspectFrom === 'rockpool') {
+    inspectFrom = null;
+    $('rockpool').hidden = false;
+    modal = 'rockpool';
+    return;
+  }
   $('catch-card').hidden = false;
   modal = 'catch';
 }
+let inspectFrom = null;
 
 // The weight on the balance: the needle swings up past it, back, and settles; as it settles, the
 // news (a fanfare for a first of its kind, a record or a fish of a lifetime, a chime for the rest)
@@ -5953,6 +5963,10 @@ function interaction() {
     // Clear running water beside you, and room in your bottle.
     if (needsMode() !== 'off' && state.comfort.bottle < BOTTLE && streamHere()) return { text: 'Fill your water bottle', run: () => fillBottle() };
     if (stuckT > 2.5) return { text: 'Stuck? Head back to camp or the boat', run: () => openPack() };
+    // A rockpool at your feet, the tide out: look in. (Under the tide: when it'll be out again.)
+    const pool = poolNear(walker.pos.x, walker.pos.z, TIDE.level, { open: false });
+    if (pool && poolOpen(pool, TIDE.level)) return { text: 'Look in the rockpool', run: () => openPool(pool) };
+    if (pool) return { text: 'A rockpool, under the tide', run: () => hud.flash(`The tide’s over this pool: ${tideWords(clock.abs)}. The lowest pools come out only at the bottom of the ebb, and at springs.`, t, 4) };
     // Deep water a stride away: in you go.
     const entry = diveEntry();
     if (entry) return { text: 'Go diving', run: () => chooseDive(entry) };
@@ -7317,7 +7331,11 @@ function photoSubjects(extra = null) {
   const life = [...wildlife.inFrame(_frustum, c), ...birds.inFrame(_frustum, c)];
   // (And the sea's: dolphins, whales, seals and turtles near enough, and a pod on your own bow.)
   const sea = sealife.inFrame(_frustum, c, together.active ? [together.id, crew.on?.id].filter(Boolean) : 'me');
-  return { species: [...species].slice(0, 12), places: places.slice(0, 12), birds: gulls, ...(bell ? { bell: true } : {}), ...(life.length ? { life } : {}), ...(sea.life.length ? { sea: sea.life } : {}), ...(sea.bow ? { bow: true } : {}) };
+  // (The rockpools' life, in a picture of one: the naturalist's notes' kinds.)
+  const pooled = rockpools.inFrame(_frustum, c, clock.abs);
+  for (const id of pooled.fish) species.add(id);
+  const nature = [...new Set([...(extra?.nature || []), ...pooled.nature])].slice(0, 12);
+  return { species: [...species].slice(0, 12), places: places.slice(0, 12), birds: gulls, ...(nature.length ? { nature } : {}), ...(bell ? { bell: true } : {}), ...(life.length ? { life } : {}), ...(sea.life.length ? { sea: sea.life } : {}), ...(sea.bow ? { bow: true } : {}) };
 }
 
 function openPhoto() {
@@ -7447,17 +7465,28 @@ async function takePhoto(extra = null, title = '') {
   $('pc-title').value = title;
   const sp = subjects.species.map((id) => fishById[id]?.name).filter(Boolean);
   const pl = subjects.places.map((id) => PLACES.find((q) => q.id === id)?.name).filter(Boolean);
-  const life = (subjects.life || []).map((k) => SEA_LIFE[k]?.name.toLowerCase()).filter(Boolean);
+  const life = [...(subjects.life || []).map((k) => SEA_LIFE[k]?.name.toLowerCase()), ...(subjects.nature || []).map((k) => NATURE[k]?.name.toLowerCase())].filter(Boolean);
   $('pc-text').textContent = [subjects.bell ? 'The Kittiwake’s bell, where it lies.' : '', sp.length ? `In the picture: ${sp.join(', ')}.` : '', life.length ? `Wildlife: ${life.join(', ')}.` : '', pl.length ? `${pl.slice(0, 4).join(', ')}.` : '', subjects.birds ? 'Gulls diving.' : ''].filter(Boolean).join(' ') || 'A quiet moment.';
+  photoReturn = from === 'rockpool' ? 'rockpool' : null;
   if (from !== 'catch') modal = 'photocard';
   $('photo-card').hidden = false;
+}
+// (A photograph of a rockpool: back to the pool after.)
+let photoReturn = null;
+function afterPhotoCard() {
+  if (modal === 'photocard') modal = photoReturn;
+  if (photoReturn === 'rockpool' && poolOpenNow) {
+    $('rockpool').hidden = false;
+    renderPool();
+  }
+  photoReturn = null;
 }
 async function keepPhoto() {
   const pp = pendingPhoto;
   if (!pp) return;
   pendingPhoto = null;
   $('photo-card').hidden = true;
-  if (modal === 'photocard') modal = null;
+  afterPhotoCard();
   const id = photoId();
   await photos.put(id, pp.shot.blob, pp.shot.thumb);
   const meta = { id, title: $('pc-title').value.replace(/[<>]/g, '').trim().slice(0, 60), at: Date.now(), day: state.day, hour: Math.round(state.hour * 100) / 100, ...pp.meta, sky: weather.state, subjects: pp.subjects };
@@ -7471,9 +7500,13 @@ async function keepPhoto() {
 function discardPhoto() {
   pendingPhoto = null;
   $('photo-card').hidden = true;
-  if (modal === 'photocard') modal = null;
+  afterPhotoCard();
 }
 $('pf-take').addEventListener('click', () => takePhoto());
+$('rp-turn').addEventListener('click', () => poolTurn());
+$('rp-net').addEventListener('click', () => poolNet());
+$('rp-photo').addEventListener('click', () => poolPhoto());
+$('rp-leave').addEventListener('click', () => closePool());
 $('pf-binocs').addEventListener('click', () => openBinoculars());
 $('bn-close').addEventListener('click', () => closeBinoculars());
 $('pf-leave').addEventListener('click', () => closePhoto());
@@ -7563,6 +7596,139 @@ function markObserved(id, agent) {
   const rec = obs[id];
   if (rec) rec.count++;
   else obs[id] = { count: 1, day: state.day, hour: Math.round(state.hour * 100) / 100, zone: zoneAt(at.x, at.z) };
+}
+
+/* ---------------- the rockpools (see world/rockpools.js) ---------------- */
+
+// Crouched over a rockpool at low water: what's in it, named in your notes as you see it; turn
+// a stone over (and put it back) for what hides under it; sweep the hand net for a prawn, a crab
+// or a fish, look it over and let it go; photograph the pool. The camera looks down into it.
+let poolOpenNow = null;
+const _poolAt = new THREE.Vector3(), _poolLook = new THREE.Vector3(), _poolAim = new THREE.Vector3();
+const poolSite = (p) => POOL_SITES.find((s) => s.id === p.site);
+const poolName = (k) => (POOL_LIFE[k].fish ? fishById[k].name.charAt(0) + fishById[k].name.slice(1).toLowerCase() : NATURE[k].name);
+function openPool(p) {
+  if (modal || !started) return;
+  if (fishing.aiming) fishing.cancel();
+  poolOpenNow = { p, said: '', met: new Set() };
+  modal = 'rockpool';
+  hud.hidden(true);
+  $('rockpool').hidden = false;
+  // (The camera starts where it is and drops down over the pool.)
+  _poolAt.copy(camera.position);
+  _poolLook.set(p.x, p.ground, p.z);
+  notePool();
+  renderPool();
+  teach('rockpool', 'A rockpool: look in, turn a stone over (and put it back as you found it), and sweep the net for a prawn, a crab or a fish to look at before you let it go. The tide comes back over it: watch the time.', 8);
+}
+function closePool() {
+  if (!poolOpenNow) return;
+  settle(poolOpenNow.p);
+  poolOpenNow = null;
+  $('rockpool').hidden = true;
+  if (modal === 'rockpool') modal = null;
+  hud.hidden(hudOff);
+}
+// Everything you can see in the pool that you haven't yet noted this visit: into your notes (the
+// fish as seen, the rest in the naturalist's notes), and a word on the first of each.
+function notePool() {
+  const V = poolOpenNow, p = V.p, where = poolSite(p)?.name.replace(/^the /, 'The ') || '';
+  const fresh = [];
+  for (const c of visibleLife(p, clock.abs)) {
+    const key = `${c.kind}`;
+    if (V.met.has(key)) continue;
+    V.met.add(key);
+    if (POOL_LIFE[c.kind].fish) {
+      const before = !!state.observed?.[c.kind] || !!state.fish[c.kind];
+      markObserved(c.kind, { id: `pool-${p.id}-${p.life.indexOf(c)}`, x: c.x, z: c.z });
+      if (!before) fresh.push(c.kind);
+    } else if (noteNature(state.grounds, c.kind, { day: state.day, hour: state.hour, where })) fresh.push(c.kind);
+  }
+  if (!fresh.length) return;
+  const names = fresh.map((k) => `the ${poolName(k).toLowerCase()}`);
+  V.said = fresh.length === 1
+    ? `New in your notes: ${names[0]}. ${POOL_LIFE[fresh[0]].fish ? fishById[fresh[0]].note : NATURE[fresh[0]].note}`
+    : `New in your notes: ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}.`;
+  hud.pulseJournal();
+  save();
+}
+function renderPool() {
+  const V = poolOpenNow;
+  if (!V) return;
+  const p = V.p, site = poolSite(p);
+  $('rp-title').textContent = `A rockpool · ${site ? site.name.replace(/^the /, 'The ') : ''}`;
+  const out = turns(clock.abs, 2).find((x) => x.kind === 'high');
+  const covered = poolOpen(p, TIDE.level) ? '' : ' The sea’s coming over it now.';
+  $('rp-tide').textContent = `${p.low > 0.6 ? 'A low pool, out only at the bottom of the tide.' : p.low > 0.3 ? 'A pool halfway down the shore.' : 'A pool high on the shore.'} High water ${out ? formatClock(out.at % 24) : ''}.${covered}`;
+  $('rp-say').textContent = V.said || 'You crouch at the edge and look in. Things move when you keep still.';
+  const seen = {};
+  for (const c of visibleLife(p, clock.abs)) seen[c.kind] = (seen[c.kind] || 0) + 1;
+  $('rp-list').replaceChildren(...Object.entries(seen).map(([k, n]) => {
+    const li = document.createElement('li');
+    li.textContent = `${poolName(k)}${n > 1 ? ` × ${n}` : ''}`;
+    return li;
+  }));
+  const left = p.stones.filter((s) => !s.turned).length;
+  $('rp-turn').disabled = !left;
+  $('rp-turn').lastChild.textContent = left ? ` Turn a stone (${left} left)` : ' Every stone turned';
+  $('rp-net').disabled = !visibleLife(p, clock.abs).some((c) => POOL_LIFE[c.kind].net);
+}
+function poolTurn() {
+  const V = poolOpenNow;
+  if (!V) return;
+  const r = turnStone(V.p);
+  if (!r) return;
+  audio.tick?.(0.4);
+  const what = r.found.map((c) => poolName(c.kind).toLowerCase());
+  V.said = what.length ? `Under the stone: ${[...new Set(what)].join(', ')}. (You’ll put it back as you found it.)` : 'Nothing under this one but a few sand-hoppers, gone in a flash.';
+  notePool();
+  renderPool();
+}
+function poolNet() {
+  const V = poolOpenNow;
+  if (!V) return;
+  const r = netIn(V.p, clock.abs);
+  if (!r.creature) return;
+  const c = r.creature, name = poolName(c.kind).toLowerCase();
+  if (!r.ok) {
+    V.said = `A sweep of the net, and the ${name} is away${c.kind === 'prawn' ? ', flicking backwards into the weed' : c.kind === 'shorecrab' ? ', sideways under the rock' : ' into a crack'}.`;
+    renderPool();
+    return;
+  }
+  letGo(c, clock.abs);
+  if (POOL_LIFE[c.kind].fish) {
+    // A fish in the net: a close look (see inspect.js), then back in the pool.
+    const sp = fishById[c.kind];
+    V.said = `In the net: a ${c.size} cm ${sp.name.toLowerCase()}. You looked it over and let it slip back in.`;
+    $('rockpool').hidden = true;
+    inspectFrom = 'rockpool';
+    modal = 'inspect';
+    inspector.open(sp, c.size, { condition: 'in the net, about to go back' });
+  } else V.said = `In the net: a ${name}. ${c.kind === 'prawn' ? 'See-through, its insides showing; you tip it back.' : 'It waves its claws at you; you tip it back by its stone.'}`;
+  renderPool();
+}
+function poolPhoto() {
+  const V = poolOpenNow;
+  if (!V) return;
+  const seen = visibleLife(V.p, clock.abs);
+  $('rockpool').hidden = true;
+  takePhoto({ species: [...new Set(seen.filter((c) => POOL_LIFE[c.kind].fish).map((c) => c.kind))], nature: [...new Set(seen.filter((c) => !POOL_LIFE[c.kind].fish).map((c) => c.kind))] }, `A rockpool, ${poolSite(V.p)?.name.replace(/^the rocks /, '') || ''}`);
+}
+// The camera crouched at the pool's edge on your side, looking down into it.
+function poolCamera(dt) {
+  const V = poolOpenNow;
+  if (!V) return;
+  const p = V.p, P = walker.pos;
+  let dx = P.x - p.x, dz = P.z - p.z;
+  const d = Math.hypot(dx, dz) || 1;
+  dx /= d;
+  dz /= d;
+  const k = 1 - Math.exp(-3 * dt);
+  // (Close, as you'd crouch: a goby or a cushion star a few centimetres long is plain to see.)
+  _poolAt.lerp(_poolAim.set(p.x + dx * (p.r + 0.25), p.rim + 0.8, p.z + dz * (p.r + 0.25)), k);
+  _poolLook.lerp(_poolAim.set(p.x - dx * p.r * 0.2, p.ground, p.z - dz * p.r * 0.2), k);
+  camera.position.copy(_poolAt);
+  camera.lookAt(_poolLook);
 }
 let observeT = 0;
 const _fwd = new THREE.Vector3();
@@ -8551,6 +8717,7 @@ function padContext() {
   if (modal === 'photo') return 'photo';
   if (modal === 'binocs') return 'binocs';
   if (modal === 'inspect') return 'inspect';
+  if (modal === 'rockpool') return 'pool';
   if (modal) return 'menu';
   if (dive) return 'dive';
   if (placement.isOn) return 'place';
@@ -10357,6 +10524,13 @@ input.on('press', (code, acts) => {
     if (code === 'Escape' || is('cancel') || is('interact')) closeInspect();
     return;
   }
+  if (modal === 'rockpool') {
+    if (code === 'Escape' || is('cancel')) closePool();
+    else if (is('interact')) poolTurn();
+    else if (is('cast') || is('keep')) poolNet();
+    else if (is('photo')) poolPhoto();
+    return;
+  }
   if (modal === 'binocs') {
     if (code === 'Escape' || is('binoculars') || is('cancel')) closeBinoculars();
     else if (is('photo')) {
@@ -11225,6 +11399,7 @@ function tick(now, manual = false) {
   if (modal === 'binocs') binocularsStep(dt);
   updateSitting(dt);
   if (sitting && !modal) sitCamera(dt);
+  if (modal === 'rockpool' || (modal === 'inspect' && inspectFrom === 'rockpool') || (modal === 'photocard' && photoReturn === 'rockpool')) poolCamera(dt);
   // The first time the view dips under the water by itself: a word on how it works.
   if (rig.below && started && !state.tips.under) {
     state.tips.under = true;
@@ -11250,6 +11425,7 @@ function tick(now, manual = false) {
   underwater.update(dt, t, camera, env, weather.rain);
   seabed.update(camera, sub);
   drifters.update(dt, t, camera, sub, clock.abs, dive ? diver.pos : null);
+  rockpools.update(dt, t, player().pos, TIDE.level, clock.abs);
   fishRenderer.update(dt, camera, env.night, sub > 0.5);
   updateWind(dt * Math.min(speed, 10));
   world.update(dt, t, env, { fireLevel: camp.fireLevel, hatchLevel: hatchLevel(), hour: clock.hour, wind: 0.5 + Math.min(1, windAt(camera.position.x, camera.position.z).speed / FRESH) * 1.3, camera, fog: scene.fog.color, hurry: !!(traveling || sleeping), haven: { from: started ? player().pos : null, cam: camera.position, cutaway: rig.mode !== 'eye', onDoor: (open) => audio.door?.(open) } });
