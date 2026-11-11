@@ -3,6 +3,7 @@ import {
   heightAt, riverSDF, mereSDF, WEND_CAMP, QUAY, BOATHOUSE, BOATHOUSE_PIER, COVE_PIER, GANNET_CAMP, LIGHT,
   TIMBER, MERE_BAYS, SKERRIES, SKELLIG, MARSH, RIVER, SHOAL, PUFFIN_COVE,
 } from './terrain.js';
+import { BUOYS } from '../chartMarks.js';
 import { mergeParts, mat, fbm, pick, jitterGeo, glowTexture, clamp } from '../util.js';
 import { swayMaterial, tentGeometry, reedClump, lilyGeometry } from './shore.js';
 import { withSurface } from './surface.js';
@@ -209,13 +210,9 @@ export function buildRegions(scene, rnd) {
   /* ---------- buoys to steer by ---------- */
   const buoys = [];
   {
-    const mouth = RIVER[RIVER.length - 1];
-    const marks = [
-      { x: mouth[0] - 70, z: mouth[1] - 10, color: '#c23b2e', top: 'can' },
-      { x: mouth[0] + 60, z: mouth[1] - 30, color: '#2f8a4a', top: 'cone' },
-      { x: SHOAL.x, z: SHOAL.z - SHOAL.rz - 12, color: '#e0c23a', top: 'cross' },
-      { x: PUFFIN_COVE.x + 10, z: PUFFIN_COVE.z - 70, color: '#c23b2e', top: 'can' },
-    ];
+    // (Where they are is the chart's: see chartMarks.js.)
+    const LOOK = { port: { color: '#c23b2e', top: 'can' }, starboard: { color: '#2f8a4a', top: 'cone' }, special: { color: '#e0c23a', top: 'cross' } };
+    const marks = BUOYS.map((b) => ({ x: b.x, z: b.z, ...LOOK[b.kind] }));
     for (const m of marks) {
       const g = new THREE.Group();
       const parts = [

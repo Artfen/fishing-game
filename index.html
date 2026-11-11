@@ -482,6 +482,17 @@
           <div class="mp-acts"><button class="pk-btn" type="submit">Save</button><button id="mp-send" class="pk-btn quiet" type="button" hidden>Send to friends</button><button id="mp-delete" class="pk-btn quiet" type="button">Delete</button><button id="mp-cancel" class="pk-btn quiet" type="button">Cancel</button></div>
         </form>
         <ul id="map-pins" class="map-list"></ul>
+        <h3>On the chart</h3>
+        <div class="map-mark-tools">
+          <button id="map-lay-marks" class="pk-btn quiet" type="button" aria-pressed="true">Buoys &amp; harbours</button>
+          <button id="map-lay-catch" class="pk-btn quiet" type="button" aria-pressed="false">Your catches</button>
+        </div>
+        <h3>Routes</h3>
+        <div class="map-mark-tools">
+          <button id="map-route" class="pk-btn quiet" type="button" aria-pressed="false">Plan a route</button>
+        </div>
+        <div id="map-plan" class="map-plan" hidden></div>
+        <ul id="map-routes" class="map-list"></ul>
         <h3>Places</h3>
         <ul id="map-places" class="map-list"></ul>
         <p class="map-key"><span class="mk-tent"></span> camp <span class="mk-dock"></span> landing <span class="mk-x">×</span> landmark <span class="mk-fish"></span> your best fish <span class="mk-you"></span> you</p>

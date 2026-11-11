@@ -86,6 +86,8 @@ import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
 import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, hiredToday, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect, engineOf, repowerBoat, repropBoat, trimBoat } from './shipyard.js';
 import { flagById, logLine, addRun, addFish } from './papers.js';
+import { follow as followLeg, courseWords, rangeWords } from './routes.js';
+import { TRIALS as ENGINE_TRIALS } from './engineTrials.js';
 import { engineSpec, hasCatalogue, MODELS, CATALOGUE as ENGINE_BOATS, propName, fittedName } from './engines.js';
 const CATALOGUE_COUNT = (kind) => ENGINE_BOATS[kind]?.count || 1;
 import { BoatPreview } from './boatPreview.js';
@@ -4269,6 +4271,9 @@ function radioLine() {
 
 // The chartplotter at the helm: the nearest of your marks, its bearing and how far.
 function plotterNav() {
+  // (Following a route: the next mark, its course and how far.)
+  const F = routeNow;
+  if (F && fitsAboard()?.plotter) return `⌖ mark ${F.leg + 1} of ${F.R.pts.length}: ${courseWords(F.course)} ${rangeWords(F.m)}`;
   if (!fitsAboard()?.plotter || !state.pins.length) return '';
   const P = boat.pos;
   let best = null, bd = Infinity;
@@ -7836,6 +7841,7 @@ function bucketWords() {
 // The hours go by (however they went: fishing, sleeping, travelling) and the bucket's water with
 // them; in stale water the bait starts to die.
 let bucketAt = null;
+let routeNow = null;
 let burnedNow = 0;
 function bucketTick() {
   const B = state.gear.bucket, now = ownAbs();
@@ -10424,7 +10430,60 @@ const mapSheet = new MapSheet(state, explored, { data: heightTex.image.data, wid
     const abs = clock.abs;
     return birdSightings.map((b) => ({ x: b.x, z: b.z, age: (abs - b.at) / 1.5 }));
   },
+  // Routes (see routes.js): the boat you'd take (the one you're in or last used) and what she does
+  // at her cruise; following one, and stopping.
+  routeBoat: () => routeBoat(),
+  followRoute: (id) => {
+    state.route = { id, leg: 1 };
+    routeSaid = null;
+    const R = state.routes.find((r) => r.id === id);
+    hud.toast(!onFoot && fitsAboard()?.plotter ? `Following ${R.name}: the plotter gives the course and distance to each mark, and moves on as you round it.` : `Following ${R.name}: a chartplotter (the Marine Works fits them) steers you round it; without one, steer by the chart.`, 6);
+    save();
+  },
+  stopRoute: () => {
+    state.route = null;
+    save();
+  },
 });
+
+// The boat a route's figures are for: the one you're in, or the one you last used. Her cruise and
+// what she burns there come from the yard's trials (engineTrials.js) for her engine; a boat with
+// no engine choice is quoted at an easy pace of her own.
+const EASY_KN = { row: 2.5, kayak: 3, sail: 5, windsurf: 8, jetski: 25 };
+function routeBoat() {
+  const b = !onFoot ? boat : BOATS[state.vessel] || boat;
+  if (!b) return null;
+  const k = b.kind, C = ENGINE_BOATS[k], at = !onFoot ? b.pos : walker.pos;
+  if (C) {
+    const e = engineOf(state.yard, k), T = ENGINE_TRIALS[k]?.[`${e.model}/${e.prop}`];
+    return { name: b.name, knots: C.cruise, lph: T?.lph || 0, tank: TANKS[k] || 0, at };
+  }
+  return { name: b.name, knots: EASY_KN[k] ?? 4, lph: 0, tank: TANKS[k] || 0, at };
+}
+// Following a route at the helm: on to the next mark as each is rounded (see routes.js).
+let routeSaid = null;
+function routeTick() {
+  if (!state.route || onFoot || !boat) return null;
+  const R = state.routes.find((r) => r.id === state.route.id);
+  if (!R) {
+    state.route = null;
+    return null;
+  }
+  const f = followLeg(R, state.route.leg, boat.pos.x, boat.pos.z);
+  if (f.done) {
+    hud.flash(`${R.name}: the last mark. Route complete.`, t, 4);
+    audio.chime?.();
+    state.route = null;
+    save();
+    return null;
+  }
+  if (f.rounded || f.leg !== state.route.leg) {
+    state.route.leg = f.leg;
+    hud.flash(`Mark ${f.leg} rounded: steer ${courseWords(f.course)} for mark ${f.leg + 1}, ${rangeWords(f.m)} off.`, t, 3.5);
+    save();
+  }
+  return { R, ...f };
+}
 
 // Las Brasas' chart: its heights from the island's own water map, baked when first needed.
 mapSheet.addSheet('south', SOUTH_MAP, exploredSouth, () => {
@@ -11343,6 +11402,8 @@ function tick(now, manual = false) {
     if (hours) for (const k of Object.keys(f.troll || {})) if (BOATS[k] && moored(BOATS[k])) f.troll[k] = Math.min(1, f.troll[k] + hours * BATTERY_PER_HOUR);
     if (hours && moored(BOATS.kayak)) chargeBattery(f, hours, 'kayak');
     bucketTick();
+    // (A route you're following: on round its marks, see routes.js.)
+    routeNow = routeTick();
     // (Her papers: what she's done, see papers.js.)
     vesselRun(dt, hours, burnedNow);
     burnedNow = 0;
@@ -11919,7 +11980,7 @@ requestAnimationFrame((now) => {
 window.slowTide = {
   car, travel: (d) => travel(d), driveTo: (d, how) => driveTo(d, how), enterCar: () => enterCar(), exitCar: () => exitCar(),
   openBench: (st) => openBench(st), get driving() { return driving; }, get modalName() { return modal; },
-  state, walker, fishing, env, weather, renderer, post, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world, explored, stormFx,
+  state, walker, fishing, env, weather, renderer, post, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world, explored, stormFx, mapSheet,
   get boat() { return boat; }, // the boat you're in (or last used)
   reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI, pads, sealife, wildlife, crossingLife, glow,
   // What the harbour's placed sounds come from just now (see earshot.js), and the town's boats.
