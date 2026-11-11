@@ -4,7 +4,7 @@ import { SettingsUI, WEATHER_MODES } from './settings.js';
 import { loadGame, saveGame, newGame, saveStatus, parseSave, importSave, exportText, stopSaving, SAVE_KEY, adoptJournal } from './save.js';
 import { Cloud } from './cloud.js';
 import { Together, cleanName, suggestName, NAME_MAX, CALLS, PAID_MAX } from './together.js';
-import { setupOffline, offline, applyUpdate } from './offline.js';
+import { setupOffline, offline, applyUpdate, checkForUpdate } from './offline.js';
 import { RELEASE, BUILD, BUILT } from './version.js';
 import { DIFFICULTY, DIFFICULTY_IDS, DRAG_LEVELS, DRAG_NAMES, breakReason } from './fight.js';
 import { BEHAVIOUR, conditionWords } from './behaviour.js';
@@ -9769,7 +9769,7 @@ function renderOffline() {
   else if (offline.error) store = offline.error;
   else store = offline.total ? `Getting ready to play offline (${offline.cached} of ${offline.total} files)…` : 'Getting ready to play offline…';
   el.textContent = `${net}${sync} ${store}`;
-  $('update-now').hidden = !offline.updateReady;
+  renderUpdate();
   $('clock-net').hidden = offline.online;
   const t = $('title-offline');
   t.hidden = !offline.enabled || (!offline.ready && !offline.error);
@@ -9790,13 +9790,53 @@ function updateNow() {
   if (!applyUpdate()) location.reload();
 }
 
+// The Update button, on the title screen and in the journal: looks for a new version there and
+// then, shows it coming down and switches over by itself when it's all here (or says this is the
+// newest), so nobody needs to refresh again and again. What it's doing is said beside it.
+let updateNote = '', checkingUpdate = false;
+function renderUpdate() {
+  const dl = offline.downloading;
+  const busy = checkingUpdate || !!dl || !!offline.updating;
+  const pct = dl?.total ? Math.min(100, Math.round((100 * dl.cached) / dl.total)) : null;
+  const note = offline.updating ? 'Switching to the new version…'
+    : dl ? `Downloading the new version${pct != null ? ` (${pct}%)` : '…'} It switches over by itself.`
+    : updateNote;
+  $('title-update').disabled = $('update-now').disabled = busy;
+  $('title-update').textContent = busy ? 'Updating…' : 'Update';
+  $('update-now').textContent = offline.updateReady && !busy ? 'Update to the new version' : busy ? 'Updating…' : 'Check for updates';
+  $('title-update-note').textContent = note;
+  $('update-note').textContent = note;
+  $('update-note').hidden = !note;
+}
+
+async function runUpdate() {
+  if (checkingUpdate || offline.updating) return;
+  if (started) save();
+  checkingUpdate = true;
+  updateNote = 'Looking for a new version…';
+  renderUpdate();
+  let found = 'error';
+  try {
+    found = await checkForUpdate();
+  } catch { /* said below */ }
+  checkingUpdate = false;
+  updateNote = {
+    latest: `You have the newest version (Version ${RELEASE}).`,
+    offline: 'You’re offline: connect to the internet to update.',
+    updating: 'Switching to the new version…',
+    fresh: 'Fetching a fresh copy of the game…',
+  }[found] || 'Couldn’t check just now. Try again in a moment.';
+  renderUpdate();
+}
+
 setupOffline((event) => {
   renderOffline();
   if (event === 'ready') hud.toast('Ready to play offline: the whole game is stored on this device, so it starts and plays even without a connection.', 7);
   if (event === 'update') {
     // On the title screen, take the new version straight away; mid-game, ask first.
+    // (Not when it was the Update button that asked for it: that switches over by itself.)
     if (!started) updateNow();
-    else hud.toast('A new version of Slow Tide is ready. Open the journal (J) and choose Update; your progress is kept.', 8);
+    else if (!checkingUpdate) hud.toast('A new version of Slow Tide is ready. Open the journal (J) and choose Update; your progress is kept.', 8);
   }
   if (event === 'offline') hud.toast(`You’re offline. Everything keeps working and saving on this device.${cloud.signedIn ? ' Cloud sync is paused until you’re back online.' : ''}`, 6);
   if (event === 'online') {
@@ -9807,7 +9847,11 @@ setupOffline((event) => {
   if (modal === 'journal') renderCloud();
 });
 renderOffline();
-$('update-now').addEventListener('click', updateNow);
+$('update-now').addEventListener('click', () => (offline.updateReady ? updateNow() : runUpdate()));
+$('title-update').addEventListener('click', (e) => {
+  e.stopPropagation();
+  runUpdate();
+});
 
 // A small "are you sure?" with any buttons we need.
 // A question with buttons; { input } adds a text box (its value goes to the button's run).

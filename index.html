@@ -602,7 +602,8 @@
       <div class="j-settings j-save">
         <p id="save-status" class="j-save-status">Saved in this browser.</p>
         <p id="offline-status" class="j-save-status"></p>
-        <button id="update-now" type="button" hidden>Update to the new version</button>
+        <p id="update-note" class="j-save-status" role="status" hidden></p>
+        <button id="update-now" type="button">Check for updates</button>
         <button id="save-download" type="button">Download a copy</button>
         <button id="save-load" type="button">Load a saved copy…</button>
         <input id="save-file" type="file" accept=".json,application/json" hidden>
@@ -640,6 +641,7 @@
     <p id="t-pad" class="t-pad"></p>
     <p class="t-note">Best with sound on. <button id="title-settings" class="t-quality" type="button">Settings</button> · <button id="title-quality" class="t-quality" type="button">Graphics: Auto</button> · <button id="title-difficulty" class="t-quality" type="button">Difficulty: Standard</button></p>
     <p id="title-offline" class="t-offline" hidden></p>
+    <p class="t-update"><button id="title-update" class="t-quality" type="button">Update</button><span id="title-update-note" class="t-update-note" role="status"></span></p>
     <p id="title-version" class="t-version"></p>
   </div>
 </div>
