@@ -99,9 +99,12 @@ test('each site has fish of its own, and nothing anywhere else moved for them', 
   for (const a of hound) assert.ok(!D.pushOut({ x: a.x, y: a.y, z: a.z }, 0.2), `${a.sp.id} clear of the rock`);
   // Their homes come after everyone else's (but for the crossing's, out on the open sea, after
   // even theirs).
-  const spots = eco.habitat.spots.filter((s) => !s.crossing), first = spots.findIndex((s) => s.site);
+  // (And the small fish's, for micro-fishing, after even the crossing's: last of all.)
+  const all = eco.habitat.spots.filter((s) => !s.small);
+  const spots = all.filter((s) => !s.crossing), first = spots.findIndex((s) => s.site);
   assert.ok(first > 0 && spots.slice(first).every((s) => s.site), 'the dive sites’ homes come last');
-  assert.ok(eco.habitat.spots.slice(eco.habitat.spots.findIndex((s) => s.crossing)).every((s) => s.crossing), 'the crossing’s after them');
+  assert.ok(all.slice(all.findIndex((s) => s.crossing)).every((s) => s.crossing), 'the crossing’s after them');
+  assert.ok(eco.habitat.spots.slice(eco.habitat.spots.findIndex((s) => s.small)).every((s) => s.small), 'the small fish’s last of all');
 });
 
 test('the tide runs hard over the Hound, and not at slack water', () => {

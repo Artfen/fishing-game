@@ -153,14 +153,15 @@ test('more fish, but not absurdly many; Fernbeck’s pools all hold fish', () =>
   const eco = new Ecosystem(createHabitat());
   // (At home: Las Brasas, far to the south, has its own, see tests/brasas.test.mjs; so do the
   // dive sites, see tests/divesites.test.mjs.)
-  const n = eco.agents.filter((a) => !a.home.south && !a.home.site && !a.home.crossing).length;
+  // (The small fish for micro-fishing have homes of their own, see tests/microfishing.test.mjs.)
+  const n = eco.agents.filter((a) => !a.home.south && !a.home.site && !a.home.crossing && !a.home.small).length;
   // (The angling depth release added five kinds to the home coast: a ray, a catshark, the weever,
   // hake and the John Dory, a hundred-odd fish between them.)
   assert.ok(n > 2300 && n < 2560, `${n} fish in all`);
-  const stream = eco.agents.filter((a) => a.home.zone === 'stream');
+  const stream = eco.agents.filter((a) => a.home.zone === 'stream' && !a.home.small);
   assert.ok(stream.length >= 18, `${stream.length} in the stream`);
   const pools = new Set(stream.map((a) => a.home));
-  const all = eco.habitat.spots.filter((s) => s.type === 'pool' && s.zone === 'stream');
+  const all = eco.habitat.spots.filter((s) => s.type === 'pool' && s.zone === 'stream' && !s.small);
   assert.equal(pools.size, all.length, 'a fish in every pool');
   assert.ok(stream.some((a) => a.sp.id === 'trout') && stream.some((a) => a.sp.id === 'grayling'));
   // Never a crowd: no more than a handful in one small pool.
