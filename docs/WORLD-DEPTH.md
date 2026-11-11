@@ -59,7 +59,7 @@ Trust assignments.
 - [x] A3 showcase reef and kelp (Version 84): fish round the rock of the dive sites; Skerries Reef's crabs, lobsters, barnacles and mussels; the light under the kelp
 - [x] A2b live bait (Version 86): small fish and netted prawns into a bait bucket (six) or a livewell (twelve); water that goes stale and is changed; the least hardy die first; a live fish or prawn the hunters' first choice; used up when taken
 - [x] B1 engine catalogue, the RIB (Version 85): the Fulmar 115 and 150, the Skua 200 and 225; three propellers; push from power and pitch, calibrated on her own engine; weight, fuel, sound, revs and the outboard drawn; the Marine Works' comparison measured on the boat; old saves' engine fittings carried over
-- [ ] B2 engines for the other boats
+- [x] B2 engines for the other boats (Version 87): Petrel portables for the skiff, Tern threes for the bass and cabin boats, twin outboards for the console, twin Shearwater diesels for the yacht; the old engine fittings retired and carried over. (Still to come: an electric outboard for the skiff, and the jet ski's)
 - [ ] B3 vessels and customization
 - [ ] C chart layers and routes
 - [ ] D character and research

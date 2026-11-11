@@ -12,7 +12,7 @@
 // your colours and your boat's name. Each fitting weighs something and some draw on her batteries.
 
 import { pay } from './economy.js';
-import { CATALOGUE, OUTBOARDS, PROPS, cleanChoice } from './engines.js';
+import { CATALOGUE, MODELS, PROPS, cleanChoice } from './engines.js';
 
 export const STARTER = ['row', 'skiff', 'kayak'];
 // What each boat costs (pounds): from a couple of good days' fishing to a summer's.
@@ -42,24 +42,10 @@ export const NAME_MAX = 18;
 // on her batteries (amps, while it's on), and does something real: more range or speed, a better
 // sonar, a track on your chart, the harbour's radio, light to fish by at night, fish kept alive,
 // a faster troll, shade, an anchor that holds in a blow. A slot holds one: a new engine choice
-// replaces the old. (A boat with an engine catalogue, the RIB, chooses her engine and propeller
-// from it instead: see engines.js and repowerBoat.)
-export const FIT_CATS = { engine: 'Engine', fuel: 'Fuel', electronics: 'Electronics', power: 'Power', trolling: 'Trolling motor', deck: 'Deck', gear: 'Ground tackle' };
+// replaces the old. (Each motorboat's engine and propeller come from the engine catalogue
+// instead: see engines.js and repowerBoat.)
+export const FIT_CATS = { fuel: 'Fuel', electronics: 'Electronics', power: 'Power', trolling: 'Trolling motor', deck: 'Deck', gear: 'Ground tackle' };
 export const FITS = {
-  power: {
-    name: 'Bigger outboard', cat: 'engine', slot: 'engine', kg: 35, amps: 0,
-    price: { skiff: 140, bass: 220, cabin: 260, console: 520 },
-    desc: 'More horsepower on the transom: quicker onto the plane and a few knots more flat out, for a little more fuel. Heavier.',
-    thrust: { skiff: 1.25, bass: 1.12, cabin: 1.15, console: 1.1 },
-    burn: 1.15,
-  },
-  economy: {
-    name: 'Economy tune and prop', cat: 'engine', slot: 'engine', kg: 0, amps: 0,
-    price: { skiff: 70, bass: 110, cabin: 120, console: 220 },
-    desc: 'A finer-pitched propeller and the engine tuned for its middle range: a fifth less fuel for every mile, a knot or two off flat out.',
-    thrust: { skiff: 0.94, bass: 0.94, cabin: 0.95, console: 0.94 },
-    burn: 0.8,
-  },
   tank: {
     name: 'Long-range tank', cat: 'fuel', kg: 8, amps: 0,
     price: { skiff: 60, bass: 90, cabin: 110, console: 300, rib: 220, jetski: 90 },
@@ -173,16 +159,17 @@ export function cleanYard(raw, kinds, legacy = false) {
     }
     if (ok.length) fits[k] = ok;
   }
-  // The engine on her transom, for a boat with a catalogue (see engines.js), kept only where it
-  // isn't the one she came with on its matched propeller. A game from before the catalogue keeps
-  // what it paid for: her "Bigger outboard" is the V6 that replaced it (the Skua 200), and her
-  // "Economy tune and prop" the light, frugal Fulmar 115.
+  // The engine on her transom (or in her engine room), for a boat with a catalogue (see
+  // engines.js), kept only where it isn't the one she came with on its matched propeller. A game
+  // from before the catalogue keeps what it paid for: her "Bigger outboard" is the bigger engine
+  // that replaced it, and her "Economy tune and prop" the lighter, more frugal one (CATALOGUE
+  // legacy: the RIB's Skua 200 and Fulmar 115, say).
   const engines = {};
   for (const k of kinds) {
     if (!CATALOGUE[k]) continue;
     const v = isObj(r.engines) && isObj(r.engines[k]) ? r.engines[k] : null;
     const old = !v && isObj(r.fits) && Array.isArray(r.fits[k]) ? r.fits[k].filter((id) => id === 'power' || id === 'economy').pop() : null;
-    const c = cleanChoice(k, v || (old === 'power' ? { model: 's200' } : old === 'economy' ? { model: 'f115' } : null));
+    const c = cleanChoice(k, v || (old ? { model: CATALOGUE[k].legacy?.[old] } : null));
     if (c.model !== CATALOGUE[k].stock || c.prop !== 'matched') engines[k] = c;
   }
   return { owned, hired, looks, fits, engines };
@@ -279,7 +266,7 @@ export function repowerBoat(state, kind, model) {
   if (!C?.models.includes(model)) return { ok: false, why: 'That engine doesn’t go on her.' };
   const now = engineOf(Y, kind);
   if (now.model === model) return { ok: false, why: 'She has that engine already.' };
-  const r = pay(state, OUTBOARDS[model].price, `${OUTBOARDS[model].name} for the ${kind}`);
+  const r = pay(state, MODELS[model].price * (C.count || 1), `${MODELS[model].name} for the ${kind}`);
   if (!r.ok) return r;
   setEngine(Y, kind, { ...now, model });
   return { ok: true };
@@ -287,10 +274,10 @@ export function repowerBoat(state, kind, model) {
 export function repropBoat(state, kind, prop) {
   const Y = state.yard;
   if (!owns(Y, kind)) return { ok: false, why: 'Only your own boat.' };
-  if (!CATALOGUE[kind] || !PROPS[prop]) return { ok: false, why: 'That propeller doesn’t fit her.' };
+  if (!CATALOGUE[kind]?.props.includes(prop)) return { ok: false, why: 'That propeller doesn’t fit her.' };
   const now = engineOf(Y, kind);
   if (now.prop === prop) return { ok: false, why: 'She has that propeller already.' };
-  const r = pay(state, PROPS[prop].price, `A propeller for the ${kind}`);
+  const r = pay(state, PROPS[prop].price * (CATALOGUE[kind].count || 1), `A propeller for the ${kind}`);
   if (!r.ok) return r;
   setEngine(Y, kind, { ...now, prop });
   return { ok: true };

@@ -7,7 +7,7 @@ import { nextStory, adviceFor, rumoursNow, lower, an } from './innTalk.js';
 import { CHALLENGES } from './daybook.js';
 import { pay as payOut, earn as earnIn } from './economy.js';
 import { PRICES, hirePrice, PAINTS, PAINT_PRICE, NAME_PRICE, NAME_MAX, FITS, FIT_CATS, fitsFor, fitEffect, owns, hiredToday } from './shipyard.js';
-import { CATALOGUE, OUTBOARDS, PROPS, PROP_IDS, hasCatalogue, KN, rangeAt, CRUISE_KN } from './engines.js';
+import { CATALOGUE, MODELS, PROPS, hasCatalogue, KN, rangeAt, propName, fittedName } from './engines.js';
 import { TRIALS } from './engineTrials.js';
 import { CREELS, ICE, BAIT, creelOf, newShop, onIce, freshBaitToday, wearOf, wearWords, respoolPrice, creelGroups, groupWords, creelWords, kgWords } from './shop.js';
 import { KAIGAN_HOURS, RAW_HOURS, kaiganValue, kaiganLine, specialsFor, gradeWords, DISHES } from './kaigan.js';
@@ -279,55 +279,57 @@ export class HarbourSheet {
     return out;
   }
 
-  // Her engine and propeller (see engines.js): what's on her now, then every engine her transom
-  // takes and every propeller for the one she has, each with what she did when the yard ran her
-  // with it (engineTrials.js: measured on the boat herself, in open water on a calm day), and
-  // how it compares with what she has now.
+  // Her engine and propeller (see engines.js): what's on her now, then every engine she takes and
+  // every propeller for the one she has, each with what she did when the yard ran her with it
+  // (engineTrials.js: measured on the boat herself, in open water on a calm day), and how it
+  // compares with what she has now.
   engineBlock(k) {
     const H = this.hooks, C = CATALOGUE[k], now = H.yardEngine(k), T = TRIALS[k] || {}, tank = H.tankOf(k);
-    const cur = T[`${now.model}/${now.prop}`], spec = H.engineSpecFor(k, now), O = OUTBOARDS[now.model];
+    const cur = T[`${now.model}/${now.prop}`], spec = H.engineSpecFor(k, now), O = MODELS[now.model], n = C.count || 1;
+    const inboard = !!O.inboard, where = inboard ? 'In her engine room' : 'On her transom';
     const kn = (v) => `${(v * KN).toFixed(1)} kn`;
     // (How one compares with what she has now: + or −, or nothing if it's the same.)
     const diff = (a, b, unit, d = 1) => {
       const x = Math.round((a - b) * 10 ** d) / 10 ** d;
       return x ? ` (${x > 0 ? '+' : '−'}${Math.abs(x).toFixed(d)}${unit})` : '';
     };
-    const figures = (t, extra = []) => {
+    const figures = (t, extra = () => []) => {
       if (!t || !cur) return '';
       const top = `${kn(t.top)} flat out${diff(t.top * KN, cur.top * KN, ' kn')}`;
-      const go = t.t20 != null ? `0–20 kn in ${t.t20.toFixed(1)} s${diff(t.t20, cur.t20, ' s')}` : null;
+      const go = t.t20 != null ? `0–${C.go} kn in ${t.t20.toFixed(1)} s${cur.t20 != null ? diff(t.t20, cur.t20, ' s') : ''}` : `never quite ${C.go} kn`;
       return [top, go, ...extra(t)].filter(Boolean).join(' · ');
     };
-    const out = [el('h4', 'hb-fit-cat', 'Engine and propeller')];
-    out.push(el('p', 'hb-fit-sum', `On her transom: the ${O.name} (${O.hp} hp ${O.layout}, ${O.kg} kg), on a ${PROPS[now.prop].blades === 4 ? 'four-bladed stainless' : 'three-bladed'} ${spec.pitch}-inch propeller.${cur ? ` She does ${kn(cur.top)} flat out, and ${Math.round(rangeAt(cur, tank))} nautical miles on a full tank at ${CRUISE_KN} knots.` : ''}`));
+    const out = [el('h4', 'hb-fit-cat', inboard ? 'Engines and propellers' : n > 1 ? 'Engines and propellers' : 'Engine and propeller')];
+    const blades = spec.blades === 4 ? (spec.steel ? 'four-bladed stainless' : 'four-bladed') : 'three-bladed';
+    out.push(el('p', 'hb-fit-sum', `${where}: ${n > 1 ? 'a pair of ' : 'the '}${O.name}${n > 1 ? 's' : ''} (${n > 1 ? `2 × ${O.hp}` : O.hp} hp ${O.layout}, ${O.kg * n} kg), on ${n > 1 ? `${blades} ${spec.pitch}-inch propellers` : `a ${blades} ${spec.pitch}-inch propeller`}.${cur ? ` She does ${kn(cur.top)} flat out, and ${Math.round(rangeAt(cur, tank, k))} nautical miles on a full tank at ${C.cruise} knots.` : ''}`));
     for (const model of C.models) {
-      const E = OUTBOARDS[model], on = model === now.model, t = T[`${model}/${now.prop}`];
+      const E = MODELS[model], on = model === now.model, t = T[`${model}/${now.prop}`];
       const row = el('div', `cp-row hb-fit${on ? ' on' : ''}`);
       const text = el('div', 'hb-fit-text');
       const range = (x) => {
-        const nm = Math.round(rangeAt(x, tank)), was = Math.round(rangeAt(cur, tank));
-        return [`${nm} nm at ${CRUISE_KN} kn${nm !== was ? ` (${nm > was ? '+' : '−'}${Math.abs(nm - was)})` : ''}`];
+        const nm = Math.round(rangeAt(x, tank, k)), was = Math.round(rangeAt(cur, tank, k));
+        return [`${nm} nm at ${C.cruise} kn${nm !== was ? ` (${nm > was ? '+' : '−'}${Math.abs(nm - was)})` : ''}`];
       };
-      text.append(el('p', '', `${E.name}: ${E.hp} hp`), el('span', 'cp-soft', E.desc),
-        el('span', 'hb-fit-meta', `${E.layout} · ${E.kg} kg${diff(E.kg, O.kg, ' kg', 0)}`), el('span', 'hb-fit-meta', figures(t, range)));
+      text.append(el('p', '', `${n > 1 ? 'Twin ' : ''}${E.name}${n > 1 ? 's' : ''}: ${n > 1 ? `2 × ${E.hp}` : E.hp} hp${model === C.stock ? ' (as she came)' : ''}`), el('span', 'cp-soft', E.desc),
+        el('span', 'hb-fit-meta', `${E.layout} · ${E.kg * n} kg${diff(E.kg * n, O.kg * n, ' kg', 0)}`), el('span', 'hb-fit-meta', figures(t, range)));
       row.append(text);
       if (on) row.append(el('span', 'cp-soft', 'on her now'));
-      else row.append(this.button(`Fit it: ${money(E.price)}`, () => H.yardRepower(k, model)));
+      else row.append(this.button(`Fit ${n > 1 ? 'them' : 'it'}: ${money(E.price * n)}`, () => H.yardRepower(k, model)));
       out.push(row);
     }
-    out.push(el('p', 'cp-soft', `Propellers for the ${O.name}:`));
-    for (const prop of PROP_IDS) {
+    out.push(el('p', 'cp-soft', `Propellers for the ${fittedName(k, now.model)}:`));
+    for (const prop of C.props) {
       const P = PROPS[prop], on = prop === now.prop, t = T[`${now.model}/${prop}`], pitch = H.engineSpecFor(k, { model: now.model, prop }).pitch;
       const row = el('div', `cp-row hb-fit${on ? ' on' : ''}`);
       const text = el('div', 'hb-fit-text');
-      const laden = (x) => [`${kn(x.laden)} with four aboard${diff(x.laden * KN, cur.laden * KN, ' kn')}`];
-      text.append(el('p', '', `${P.name}: ${pitch}-inch`), el('span', 'cp-soft', P.desc), el('span', 'hb-fit-meta', figures(t, laden)));
+      const laden = (x) => [`${kn(x.laden)} with ${C.crew}${diff(x.laden * KN, cur.laden * KN, ' kn')}`];
+      text.append(el('p', '', `${propName(k, prop)}: ${pitch}-inch`), el('span', 'cp-soft', P.desc), el('span', 'hb-fit-meta', figures(t, laden)));
       row.append(text);
       if (on) row.append(el('span', 'cp-soft', 'on her now'));
-      else row.append(this.button(`Fit it: ${money(P.price)}`, () => H.yardReprop(k, prop)));
+      else row.append(this.button(`Fit ${n > 1 ? 'them' : 'it'}: ${money(P.price * n)}`, () => H.yardReprop(k, prop)));
       out.push(row);
     }
-    out.push(el('p', 'cp-soft', `The yard ran her with each, out past the bay on a calm day: what she did then is what you’ll get. Her plate allows ${C.plate} hp. Your old engine or propeller is taken in part exchange; a new engine comes with your kind of propeller, pitched for it. More weight aboard, a sea or a foul bottom all cost speed, whatever’s on her transom.`));
+    out.push(el('p', 'cp-soft', `The yard ran her with each, out past the bay on a calm day: what she did then is what you’ll get.${C.plate ? ` Her plate allows ${n > 1 ? `${C.plate} hp each` : `${C.plate} hp`}.` : ''} The old is taken in part exchange; new engines come with your kind of propeller, pitched for them. More weight aboard, a sea or a foul bottom all cost speed, whatever’s fitted.`));
     return out;
   }
 
