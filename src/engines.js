@@ -31,6 +31,18 @@
 // (note: its pitch, against a big four's; smooth: how even its beat, a V6 more than a four), and
 // what the Marine Works charges to fit it (price, with the old one taken in part exchange).
 export const MODELS = {
+  // The Eider, electric, for a tiller: a 3 kW motor in the leg (about 3.5 hp at the shaft, turning
+  // a big, slow propeller directly) and its own lithium battery aboard (3 kWh, the weight of the
+  // two together). No petrol: it runs on its battery (fuel.js elec), charged at a jetty and
+  // overnight; endure: the seconds it lasts flat out on a full one as the game's clock runs (as
+  // the skiff's tank lasts about a thousand: far longer at the speeds you fish at). Silent until
+  // the throttle's opened, a whine as it is.
+  e3: {
+    name: 'Eider 3', hp: 3.5, kg: 41, lph: 0, layout: 'electric: a brushless motor in the leg, and its own 3 kWh battery', gear: 1, rpm: 1300,
+    look: { cowl: '#dfe6e8', band: '#2c7c7a', tall: 0.78 }, note: 1, smooth: 1, price: 260,
+    electric: true, kw: 3, wh: 3000, endure: 480, cruise: 5, props: ['matched'],
+    desc: 'Electric: silent, no petrol and no fumes, charged free at a jetty. Slower, and its battery runs down quickly flat out; at an easy pace it lasts.',
+  },
   // The Petrel portables, for a tiller: light enough to carry.
   p6: {
     name: 'Petrel 6', hp: 6, kg: 27, lph: 2.3, layout: 'four-stroke, single cylinder, 0.14 litres', gear: 1.92, rpm: 5500,
@@ -153,7 +165,7 @@ export const PROP_IDS = Object.keys(PROPS);
 // to time her to (go, knots), the speed to quote her range at (cruise, knots), and a load
 // (laden kg; crew: the words for it).
 export const CATALOGUE = {
-  skiff: { slip: 0.3, stock: 'p10', models: ['p6', 'p10', 'p15', 'p20'], plate: 20, props: ['matched', 'low', 'four'], drag: 1.1689, tops: { p6: 5.783, p10: 7.101, p15: 8.358, p20: 9.297 },
+  skiff: { slip: 0.3, stock: 'p10', models: ['e3', 'p6', 'p10', 'p15', 'p20'], plate: 20, props: ['matched', 'low', 'four'], drag: 1.1689, tops: { e3: 4.554, p6: 5.783, p10: 7.101, p15: 8.358, p20: 9.297 },
     legacy: { power: 'p15', economy: 'p6' }, go: 10, cruise: 10, laden: 150, crew: 'two aboard' },
   bass: { slip: 0.2, stock: 't60', models: ['t40', 't60', 't90'], plate: 90, props: ['matched', 'low', 'four'], drag: 1.1013, tops: { t40: 7.818, t60: 9.085, t90: 10.314 },
     legacy: { power: 't90', economy: 't40' }, go: 12, cruise: 12, laden: 150, crew: 'two aboard' },
@@ -182,14 +194,20 @@ function solve(f, lo = 0.1, hi = 60) {
   return (lo + hi) / 2;
 }
 
+// The propellers an engine takes on a boat (an electric outboard only its own, matched to it).
+export const propsFor = (kind, model) => (MODELS[model]?.props || CATALOGUE[kind]?.props || []).filter((p) => CATALOGUE[kind]?.props.includes(p));
+
 // A choice made sensible for a boat: { model, prop } (her own engine on its matched propeller if
 // there's nothing to go by).
 export function cleanChoice(kind, raw) {
   const C = CATALOGUE[kind];
   if (!C) return null;
   const r = raw && typeof raw === 'object' ? raw : {};
-  return { model: C.models.includes(r.model) ? r.model : C.stock, prop: C.props.includes(r.prop) ? r.prop : 'matched' };
+  const model = C.models.includes(r.model) ? r.model : C.stock;
+  return { model, prop: propsFor(kind, model).includes(r.prop) ? r.prop : 'matched' };
 }
+// An electric outboard (its battery for fuel: see fuel.js elec).
+export const isElectric = (model) => !!MODELS[model]?.electric;
 export const isStock = (kind, choice) => {
   const C = CATALOGUE[kind], c = cleanChoice(kind, choice);
   return !C || (c.model === C.stock && c.prop === 'matched');
@@ -215,7 +233,9 @@ export const fittedName = (kind, model) => (CATALOGUE[kind]?.count > 1 ? `twin $
 //   kg      the engines' weight over her own engines' (carried in her);
 //   grip    how much less speed a seaway costs her (0 … 1);
 //   rpm     the revs flat out; pitch (inches); scale (the outboard drawn); look, blades, steel
-//           and voice (how it's drawn and heard: null, as she came); name, hp, and the ids.
+//           and voice (how it's drawn and heard: null, as she came); name, hp, and the ids;
+//   electric (an electric outboard: no petrol; kw, wh, its battery, and endure, the seconds it
+//           lasts flat out on a full one: see fuel.js elec).
 export function engineSpec(kind, hull, choice) {
   const C = CATALOGUE[kind], M = hull?.motor;
   if (!C || !M) return null;
@@ -239,9 +259,12 @@ export function engineSpec(kind, hull, choice) {
     kind, model, prop, name: fittedName(kind, model), hp: O.hp, count: n, propName: propName(kind, prop), pitch: Math.round(pitch * k),
     thrust: Tm / k, vd: vm * k, astern: stock ? M.astern : (M.astern * Tm) / M.thrust,
     effort: 1 / k, burn: O.lph / S.lph, kg: dkg, grip: P.grip, rpm: Math.round(O.rpm * P.rpmK),
-    scale: (M.scale ?? 1) * Math.cbrt(O.kg / S.kg), look: stock ? null : O.look,
+    // (An electric's leg and pod are slimmer than a petrol engine of its weight: its battery's
+    // the heavy part, and that sits in the boat.)
+    scale: (M.scale ?? 1) * Math.cbrt((O.electric ? O.kg * 0.42 : O.kg) / S.kg), look: stock ? null : O.look,
     blades: O.inboard ? 4 : P.blades, steel: P.steel,
-    voice: stock ? null : { pitch: O.note / S.note, smooth: Math.max(0, O.smooth - S.smooth) },
+    voice: stock ? null : { pitch: O.note / S.note, smooth: Math.max(0, O.smooth - S.smooth), electric: !!O.electric },
+    electric: !!O.electric, kw: O.kw || 0, wh: O.wh || 0, endure: O.endure || 0,
   };
 }
 
@@ -257,6 +280,7 @@ export function pushAt(S, v) {
 export const KN = 1 / 0.514444;
 
 // How far a tank goes at her cruise (nautical miles; trial from engineTrials.js, litres in her
-// tank, the boat's kind for the speed the yard quotes).
+// tank, the boat's kind for the speed the yard quotes). An electric's trial is at its own easy
+// pace (kn) with what it takes of the battery an hour there (bph): how far a full one goes.
 export const cruiseOf = (kind) => CATALOGUE[kind]?.cruise ?? 25;
-export const rangeAt = (trial, litres, kind = 'rib') => (trial?.lph > 0 ? (litres / trial.lph) * cruiseOf(kind) : 0);
+export const rangeAt = (trial, litres, kind = 'rib') => (trial?.bph > 0 ? trial.kn / trial.bph : trial?.lph > 0 ? (litres / trial.lph) * cruiseOf(kind) : 0);

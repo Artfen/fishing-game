@@ -47,7 +47,19 @@ export const PROFILES = {
   cruiser: { drive: 'inboard', engines: 2, starter: 'key', battery: true, cord: false, trim: null, diesel: true, idle: 650, max: 3200, cooling: 'alarm', name: 'diesels' },
   jetski: { drive: 'jet', engines: 1, starter: 'button', battery: false, cord: true, trim: null, idle: 1600, max: 7500, cooling: null, name: 'engine' },
 };
+// (Each boat's as she came: an electric outboard fitted changes hers, see setElectric.)
+const BASE = { ...PROFILES };
 export const profileOf = (kind) => PROFILES[kind] || null;
+
+// An electric outboard fitted (engines.js: the Eider) or taken off again (rpm: its revs flat out,
+// or 0). Nothing to pull or warm: a button wakes it (the kill cord still clipped on), it makes
+// no revs until the throttle's opened, no cooling water to watch, and it runs on its own battery
+// (fuel.js elec): flat, it won't go at all. The helm, the dashboard and the words follow.
+export function setElectric(kind, rpm = 0) {
+  if (!BASE[kind]) return;
+  PROFILES[kind] = rpm > 0 ? { ...BASE[kind], starter: 'button', battery: false, idle: 0, max: rpm, cooling: null, electric: true, name: 'electric outboard' } : BASE[kind];
+}
+export const isElectricNow = (kind) => !!PROFILES[kind]?.electric;
 export const hasEngine = (kind) => !!PROFILES[kind];
 
 // Trim and tilt, as the leg's angle (degrees): in to TRIM.min (bow down, onto the plane sooner),
@@ -120,6 +132,7 @@ export function blocker(E, ctx = {}) {
   if (P.cord && !E.cord) return { id: 'cord', text: 'The kill cord isn’t clipped on' };
   if (ctx.lever) return { id: 'neutral', text: 'She’s in gear: the starter only turns in neutral' };
   if (P.starter === 'key' && !E.key) return { id: 'key', text: 'The key is off' };
+  if (P.electric) return ctx.fuel <= 0 ? { id: 'flat', text: 'Its battery is flat: it charges at a jetty, and overnight' } : null;
   if (P.starter !== 'pull' && E.charge < 0.12) return { id: 'flat', text: 'The battery is flat: the starter only clicks' };
   return null;
 }
@@ -237,6 +250,7 @@ function stopOne(e) {
 // longer cold, and a cold diesel without its preheat takes a good while.
 function catchTime(E, ctx, rnd) {
   const P = PROFILES[E.kind];
+  if (P.electric) return 0.15;
   let t = E.warm > 0.4 ? 0.45 : 0.9;
   if (P.diesel && E.glow < 1 && E.warm <= 0.5) t += 2.2;
   return t + rnd() * 0.5;
@@ -299,8 +313,9 @@ export function stepEngine(E, dt, ctx = {}, rnd = Math.random) {
   for (const e of E.engines) {
     if (e.crank > 0) {
       e.crank += dt;
-      E.charge = Math.max(0, E.charge - 0.035 * dt);
-      if (E.charge < 0.08) {
+      // (An electric has no starter motor to turn: it wakes on its own battery.)
+      if (!P.electric) E.charge = Math.max(0, E.charge - 0.035 * dt);
+      if (!P.electric && E.charge < 0.08) {
         e.crank = 0;
         ev.push('flat');
       } else if (ctx.fuel <= 0 && e.crank > 2.5) {

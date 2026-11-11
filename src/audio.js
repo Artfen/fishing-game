@@ -774,7 +774,9 @@ export class AudioScape {
   // throttle. level 0 is off. (voice: 'jet' the jet ski's, a higher, harder whine that climbs
   // further; 'inboard' the yacht's two diesels, a deeper, slower throb beating gently together.
   // tone: an outboard of its own, from the engine catalogue (see engines.js): { pitch, its note
-  // against her own engine's; smooth, how much less it putters, a V6 more even than a four }.)
+  // against her own engine's; smooth, how much less it putters, a V6 more even than a four;
+  // electric, an electric outboard's: no putter at all, a thin whine that climbs with the
+  // throttle, far quieter, and nothing at all at rest }.)
   engine(level, voice = '', tone = null) {
     const jet = voice === 'jet' || voice === true, diesel = voice === 'inboard';
     if (!this.ctx) return;
@@ -813,6 +815,15 @@ export class AudioScape {
     }
     if (!this.eng) return;
     const e = this.eng, on = level > 0.001;
+    if (tone?.electric) {
+      this.set(e.o1.frequency, 220 + level * 760, 0.25);
+      this.set(e.o2.frequency, (220 + level * 760) * 3.01, 0.25);
+      this.set(e.lfo.frequency, 7, 0.25);
+      this.set(e.lfoDepth.gain, 0.04, 0.3);
+      this.set(e.f.frequency, 900 + level * 2600, 0.3);
+      this.set(e.g.gain, level > 0.02 ? 0.006 + level * 0.022 : 0, level > 0.02 ? 0.3 : 0.5);
+      return;
+    }
     const pitch = tone?.pitch ?? 1, smooth = tone?.smooth ?? 0;
     const rpm = (jet ? 55 + level * 165 : diesel ? 24 + level * 38 : 34 + level * 58) * pitch;
     this.set(e.o1.frequency, rpm, 0.25);

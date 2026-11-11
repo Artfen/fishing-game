@@ -1315,7 +1315,7 @@ export class MapSheet {
         const P = passage(this.plan, B);
         const t = document.createElement('p');
         t.className = 'map-note';
-        t.textContent = `${P.nm.toFixed(1)} nm: about ${timeWords(P.hours)} at the ${B.name}'s ${B.knots} knots${B.lph ? `, some ${Math.max(1, Math.round(P.litres))} litre${Math.max(1, Math.round(P.litres)) === 1 ? '' : 's'} of her ${Math.round(B.tank)}${P.spare < 0 ? ': more than she carries' : P.fine ? ': cutting it fine' : ''}` : ''}.`;
+        t.textContent = `${P.nm.toFixed(1)} nm: about ${timeWords(P.hours)} at the ${B.name}'s ${B.knots} knots${B.lph ? `, ${B.battery ? `about ${Math.max(1, Math.round(P.litres))}% of her battery` : `some ${Math.max(1, Math.round(P.litres))} litre${Math.max(1, Math.round(P.litres)) === 1 ? '' : 's'} of her ${Math.round(B.tank)}`}${P.spare < 0 ? (B.battery ? ': more than it holds' : ': more than she carries') : P.fine ? ': cutting it fine' : ''}` : ''}.`;
         out.push(t);
       }
     }

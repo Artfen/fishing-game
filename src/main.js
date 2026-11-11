@@ -80,7 +80,7 @@ import { Placement } from './placement.js';
 import { Adventures, ADVENTURE_BY_ID, PAGES, KEEPSAKES } from './adventures.js';
 import { PhotoStore, capture, photoId, albumPage, download } from './photos.js';
 import { Haptics, STRENGTHS, engineFeel, lineFeel, slamFeel, knockFeel } from './haptics.js';
-import { PROFILES as ENGINES, WOT, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM, tiltToggle, tiltedUp, stepTilt } from './engine.js';
+import { PROFILES as ENGINES, WOT, setElectric, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM, tiltToggle, tiltedUp, stepTilt } from './engine.js';
 import { HelmUI } from './helm.js';
 import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
@@ -143,7 +143,7 @@ import { levers, nearest, step, setIndex, within, capIndex, leverWords, slide, v
 import { LeverUI } from './lever.js';
 import { anchorCheck, berthFor, berthAt, castOffCheck, canTow, towStep, TOW } from './mooring.js';
 import { Rope } from './rope.js';
-import { BOAT_PER_S, TANKS, addFuel, isPetrol, PASSAGE_FUEL, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, burnKayak, chargeBattery, BATTERY_PER_HOUR, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
+import { BOAT_PER_S, TANKS, addFuel, isPetrol, PASSAGE_FUEL, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, burnKayak, burnElec, chargeElec, elecLevel, elecWords, chargeBattery, BATTERY_PER_HOUR, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
 import { STEPS as TRIP_STEPS, stepOf, stepNumber, complete as completeStep, start as startGuide, words as guideWords, isNewGame, placeAt, FISH_SPOTS } from './firstTrip.js';
 import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality } from './quality.js';
 import { Post } from './post.js';
@@ -151,6 +151,10 @@ import { Diver, Shot, buildGun } from './diver.js';
 import { stepComfort, effectsOf, needsOf, dressFor, drink as drinkFrom, refill, eatRoll, packRolls, mealDrink, CLOTHES, CLOTHES_IDS, BOTTLE, ROLLS, feelsLike } from './comfort.js';
 import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance, logSite, logFind } from './dive.js';
 import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick, seeded, wrapAngle } from './util.js';
+
+// The boats with an electric outboard fitted (applyYard): kind -> the seconds its battery lasts
+// flat out (engines.js endure; fuel.js elec).
+const ELEC = {};
 
 const REST_SPEED = 30;   // holding T lets time drift by
 const $ = (id) => document.getElementById(id);
@@ -2081,7 +2085,11 @@ function tripChecklist() {
   const worn = state.gear.pack.rods.filter((id) => wearOf(state, id) >= 0.6);
   out.push(worn.length ? { ok: false, text: `Frayed line on your ${worn.map((id) => RODS[id].short.toLowerCase()).join(' and ')}.`, act: { label: 'Mending', run: () => { harbourSheet.tab = 'mend'; } } } : { ok: true, text: 'Your lines are sound.' });
   const v = state.vessel;
-  if (isPetrol(v) && BOATS[v]) {
+  // (An electric outboard: its battery, charged at a jetty and overnight.)
+  if (ELEC[v] && BOATS[v]) {
+    const low = elecLevel(tanks(), v) < 0.4;
+    out.push({ ok: !low, text: `${boatTitle(BOATS[v])}: ${elecWords(tanks(), v)}${low ? '. Leave her tied up at a jetty or the pontoon a while and it charges.' : '.'}` });
+  } else if (isPetrol(v) && BOATS[v]) {
     const low = fuelLow(tanks(), v);
     out.push({ ok: !low, text: `${boatTitle(BOATS[v])}: ${tankWords(tanks(), v)}${low ? '. Fill up at the fuel point on the pontoon, or the pump by the quay.' : '.'}` });
   }
@@ -2187,9 +2195,10 @@ function passTheNight() {
   for (let i = 0; i < 90; i++) eco.update(1 / 30, ecoCtx);
   sleeping.rain = rain;
   // You wake at the tent's door, on firm ground (whatever the night did, you're never left in the water).
-  // (Overnight, the bass boat's battery charges wherever you sleep.)
+  // (Overnight, the bass boat's battery charges wherever you sleep, and an electric outboard's.)
   tanks().battery = 1;
   tanks().kayak = 1;
+  for (const k of Object.keys(ELEC)) if (ELEC[k]) chargeElec(tanks(), k, 24);
   const door = sleeping.site === 'house' ? { x: 113.6, z: -78.6 } : sleeping.site === 'bothy' ? BOTHY_DOOR : sleeping.site === 'posada' ? { x: POSADA.x - 2, z: POSADA.z + 5 } : sleeping.site && sleeping.site !== 'cabin' ? toWorld(sleeping.site.x, sleeping.site.z, sleeping.site.yaw, 0.6, 1.6) : null;
   const spot = door ? standNear(door.x, door.z, 0.3) : onFoot && walkHeight(walker.pos.x, walker.pos.z) < 0.1 ? campSpot() : null;
   if (spot && onFoot) {
@@ -3270,7 +3279,7 @@ const engineHere = () => {
   const k = leverKind();
   return k && boat.motor ? engines[k] || null : null;
 };
-const fuelOf = (kind) => (isPetrol(kind) ? fuelLevel(tanks(), kind) : 99);
+const fuelOf = (kind) => (ELEC[kind] ? elecLevel(tanks(), kind) : isPetrol(kind) ? fuelLevel(tanks(), kind) : 99);
 let helmKind = null, engineSay = '', engineSayUntil = 0, offWordT = 0, hotBeepT = 0, trimWordT = 0, trimming = false, legWordT = 0;
 const helmSay = (text, secs = 2.6, flash = true) => {
   engineSay = text;
@@ -3284,7 +3293,7 @@ function engineEvent(e, E, kind) {
   if (e && typeof e === 'object') {
     // The assisted start, one step at a time.
     if (e.step === 'neutral') changeLever(0);
-    const words = { battery: 'Battery switch on', cord: 'Kill cord clipped on', neutral: 'Into neutral', key: 'Key on', glow: 'Warming the glow plugs', start: P.starter === 'pull' ? 'Pulling the cord' : 'Starting' };
+    const words = { battery: 'Battery switch on', cord: 'Kill cord clipped on', neutral: 'Into neutral', key: 'Key on', glow: 'Warming the glow plugs', start: P.starter === 'pull' ? 'Pulling the cord' : P.electric ? 'Switching on' : 'Starting' };
     if (e.ok === false && e.why) helmSay(e.why);
     else if (words[e.step]) helmSay(`${words[e.step]}…`, 1.2, false);
     return;
@@ -3309,6 +3318,13 @@ function engineEvent(e, E, kind) {
       haptics.pulse({ strong: 0.5, weak: 0.35, ms: 320, shape: 'swell' });
       break;
     case 'catch':
+      // (An electric wakes with a beep, and stays silent until the throttle's opened.)
+      if (P.electric) {
+        audio.beep?.();
+        haptics.pulse('switch');
+        if (startMode() !== 'go') helmSay('The motor’s on: silent until you open the throttle.', 2, false);
+        break;
+      }
       audio.knock?.(diesel ? 0.5 : 0.35);
       haptics.pulse('catch');
       if (startMode() !== 'go') helmSay(P.engines > 1 && !E.engines.every((x) => x.run) ? 'One running…' : 'She’s running.', 1.6, false);
@@ -3354,6 +3370,11 @@ function flatBattery(kind) {
   const E = engines[kind], P = ENGINES[kind];
   if (t < flatAsked + 4 || !$('confirm').hidden) return;
   flatAsked = t;
+  // (An electric outboard's battery is what drives her: flat, the oars, or a tow.)
+  if (P.electric) {
+    helmSay('Its battery is flat: it charges at a jetty or a quay, and overnight. The oars for now, or a tow.', 4);
+    return;
+  }
   const inboard = P.drive === 'inboard';
   ask('The battery is flat', inboard
     ? 'The starter only clicks: the engine battery is flat. The house battery will turn her over: switch across, start her, and the engines will charge both again.'
@@ -3563,7 +3584,7 @@ function dashState() {
   return {
     powered: E.battery || !P.battery, battery: E.battery, key: E.key || P.starter !== 'key', cord: E.cord, hasCord: P.cord,
     glow: E.glowing > 0, glowReady: E.glow >= 1, crank: E.engines.map((e) => e.crank > 0), running: run, rpm: E.engines.map((e) => e.rpm),
-    knots: Math.abs(boat.forwardSpeed || 0) * 1.9438, fuel: isPetrol(k) ? clamp(fuelOf(k) / cap, 0, 1) : 1,
+    knots: Math.abs(boat.forwardSpeed || 0) * 1.9438, fuel: ELEC[k] ? fuelOf(k) : isPetrol(k) ? clamp(fuelOf(k) / cap, 0, 1) : 1,
     volts: 11.3 + E.charge * 1.5 + (run ? 1.5 : 0), temp: E.temp,
     trim: boat.trimAuto ? boat.legAngle || 0 : E.trim, trimDir: trimDirNow, lever: positionOf(boat.kind, boat.lever || 0),
     lights: !!boat.navLights, horn: dashHorn > 0, selftest: keySelftest, night: env.night,
@@ -4132,7 +4153,7 @@ function updateEngine(dt) {
   }
   helmKind = E ? k : null;
   for (const [kind, B] of Object.entries(BOATS)) if (B.engine) B.trimAuto = mode === 'go' || !ENGINES[kind].trim;
-  audio.starter?.(!!E && engineCranking(E), !!E && !!ENGINES[k].diesel);
+  audio.starter?.(!!E && engineCranking(E) && !ENGINES[k].electric, !!E && !!ENGINES[k].diesel);
   if (!E) {
     trimming && audio.trimWhine?.(false);
     trimming = false;
@@ -4185,7 +4206,8 @@ function updateEngine(dt) {
     hud.flash(`The leg’s tilted right up: the propeller’s out of the water. Trim it down (${scheme() === 'pad' ? 'LB' : K('trimDown')}, or the rocker on the throttle) to get going.`, t, 3.2);
   }
   // A word when the throttle's pushed with the engine off.
-  if (!engineRunning(E) && !engineCranking(E) && !E.auto && boat.lever && !boat.dry && t > offWordT + 4 && mode !== 'go' && !modal) {
+  // (Not when she's stopped for want of fuel or charge: that's said where it runs out.)
+  if (!engineRunning(E) && !engineCranking(E) && !E.auto && boat.lever && !boat.dry && fuelOf(k) > 0 && t > offWordT + 4 && mode !== 'go' && !modal) {
     offWordT = t;
     hud.flash(`The engine’s off: ${mode === 'full' ? `${K('motor')} for the helm panel` : `${K('motor')} starts her`}.`, t, 2.4);
   }
@@ -5337,6 +5359,7 @@ const canHere = (reach = 8) => tanks().can.at === 'pack' || (tanks().can.at === 
 // What a tank says, for the hints: "fuel 31 of 45 L" (and the bass boat's battery).
 function fuelHint(what) {
   const f = tanks();
+  if (ELEC[what]) return elecLevel(f, what) <= 0 ? 'battery flat' : elecWords(f, what);
   const fuel = fuelLevel(f, what) <= 0 ? 'out of fuel' : `fuel ${tankWords(f, what)}`;
   return what === 'bass' ? `${fuel} · ${f.battery <= 0 ? 'battery flat' : batteryWords(f)}` : fuel;
 }
@@ -5344,6 +5367,13 @@ function fuelHint(what) {
 // A word as a tank passes a fifth (once, until it's filled again).
 const fuelWarned = {};
 function watchTank(what) {
+  // (An electric outboard's battery: a word at a fifth, once until it's charged again.)
+  if (ELEC[what]) {
+    const v = elecLevel(tanks(), what), lowNow = v < 0.2 && v > 0;
+    if (lowNow && !fuelWarned[what]) hud.toast(`${cap(fuelName(what))}’s battery is low: ${elecWords(tanks(), what)}. Ease back and it lasts far longer; it charges at a jetty or a quay, and overnight.`, 6);
+    fuelWarned[what] = lowNow || v <= 0;
+    return;
+  }
   const lowNow = fuelLow(tanks(), what) && fuelLevel(tanks(), what) > 0;
   if (lowNow && !fuelWarned[what]) {
     hud.toast(`${cap(fuelName(what))} is low on fuel: ${tankWords(tanks(), what)}. ${what === 'car' ? 'The pump by the garage fills it (or the jerry can).' : what === 'bass' ? 'Longmere has no pump: the jerry can fills it.' : player().pos.z > SOUTH_Z ? 'The pump on Puerto Brasa quay fills it.' : 'The harbour pump on Willowhaven quay fills it.'}`, 6);
@@ -5357,7 +5387,7 @@ const PUMP_REACH = 25;
 function openPump(id) {
   const P = FUEL_PUMPS[id], f = tanks(), here = [];
   if (Math.hypot(car.pos.x - P.x, car.pos.z - P.z) < (id === 'home' ? 12 : 32)) here.push('car');
-  if (id !== 'home') for (const b of boats) if (isPetrol(b.kind) && Math.hypot(b.pos.x - P.x, b.pos.z - P.z) < PUMP_REACH) here.push(b.kind);
+  if (id !== 'home') for (const b of boats) if (isPetrol(b.kind) && !ELEC[b.kind] && Math.hypot(b.pos.x - P.x, b.pos.z - P.z) < PUMP_REACH) here.push(b.kind);
   const can = f.can.at === 'pack' || (f.can.at === 'car' && here.includes('car')) || (id === 'home' && f.can.at === 'home');
   const lines = here.map((w) => `${cap(fuelName(w))}: ${tankWords(f, w)}.`);
   if (can) lines.push(`The jerry can: ${canWords(f)}.`);
@@ -5447,6 +5477,12 @@ function rescueCar() {
 function boatChoices() {
   const f = tanks(), kind = boat.kind;
   const acts = [{ text: 'Paddle on with the oar', cls: 'quiet', run: () => {} }];
+  // (An electric outboard's battery flat: no can will help, a tow will.)
+  if (ELEC[kind]) {
+    acts.push({ text: boat.pos.z > SOUTH_Z ? 'A tow in to Puerto Brasa (about an hour)' : 'A tow to Willowhaven quay (about an hour)', run: () => towBoat() });
+    ask(`The ${boat.name}: battery flat`, 'The motor’s battery is flat. An oar moves her along, slowly; tied up at a jetty or a quay it charges again (half an hour’s worth an hour), and overnight.', acts);
+    return;
+  }
   if (f.can.at === 'pack' && f.can.litres >= 0.5) acts.push({ text: `Pour in the jerry can (${litres(f.can.litres)})`, cls: 'quiet', run: () => pourCan(kind) });
   acts.push({ text: kind === 'bass' ? 'A tow to the boathouse (about an hour)' : boat.pos.z > SOUTH_Z ? 'A tow in to Puerto Brasa (about an hour)' : 'A tow to Willowhaven quay (about an hour)', run: () => towBoat() });
   ask(`The ${boat.name}: out of fuel`, `The tank is dry. An oar moves her along, slowly${kind === 'bass' && f.battery > 0 ? ', and the electric motor still runs on its battery' : ''}.${f.can.at === 'pack' ? '' : ' (The jerry can isn’t with you.)'}`, acts);
@@ -5463,6 +5499,13 @@ function towBoat() {
   passTime(rescue(tanks(), boat.kind));
   rig.reset(boat, t);
   audio.knock?.(0.4);
+  // (An electric: tied up the while, its battery's had an hour's charge.)
+  if (ELEC[boat.kind]) {
+    chargeElec(tanks(), boat.kind, 1);
+    hud.toast(`${south ? 'A fishing boat tows you in to Puerto Brasa' : 'A boat from the harbour tows you in to Willowhaven quay'}, an hour gone, and the motor’s battery has had an hour on charge: ${elecWords(tanks(), boat.kind)}.`, 8);
+    save();
+    return;
+  }
   hud.toast(boat.kind === 'bass'
     ? `The boathouse keeper tows you back to the jetty, an hour gone, and leaves you ${litres(fuelLevel(tanks(), 'bass'))} to potter with. The jerry can fills at home or at Willowhaven.`
     : south ? `A fishing boat tows you in to Puerto Brasa, an hour gone, and they leave you ${litres(fuelLevel(tanks(), boat.kind))}. The pump is on the quay.`
@@ -6108,7 +6151,8 @@ function interaction() {
     ]) };
   }
   // A dry tank: the jerry can, a tow, or an oar.
-  if (isPetrol(boat.kind) && boat.motor && fuelLevel(tanks(), boat.kind) <= 0 && boat.speed < 1) return { text: 'Out of fuel: what now?', run: () => boatChoices() };
+  if (ELEC[boat.kind] && boat.motor && elecLevel(tanks(), boat.kind) <= 0 && boat.speed < 1) return { text: 'Battery flat: what now?', run: () => boatChoices() };
+  if (isPetrol(boat.kind) && !ELEC[boat.kind] && boat.motor && fuelLevel(tanks(), boat.kind) <= 0 && boat.speed < 1) return { text: 'Out of fuel: what now?', run: () => boatChoices() };
   // At the helm with the engine off: start her (or the helm panel, on the full procedure).
   {
     const E = engineHere();
@@ -7177,6 +7221,10 @@ function applyYard() {
       b.setMotor(S);
       BOAT_PER_S[k] = YARD_BASE.burn[k] * e.burn * S.burn;
       WOT[k] = S.rpm;
+      // (An electric outboard: a button to start it, its own battery for fuel. See engine.js and
+      // fuel.js elec.)
+      setElectric(k, S.electric ? S.rpm : 0);
+      ELEC[k] = S.electric ? S.endure : 0;
     }
     if (isPetrol(k) && fuelLevel(f, k) > TANKS[k]) addFuel(f, k, TANKS[k] - fuelLevel(f, k));
     const L = state.yard.looks[k] || {}, hex = (id) => (id ? PAINTS.find((p) => p.id === id)?.hex : null);
@@ -10481,6 +10529,8 @@ function routeBoat() {
   const k = b.kind, C = ENGINE_BOATS[k], at = !onFoot ? b.pos : walker.pos;
   if (C) {
     const e = engineOf(state.yard, k), T = ENGINE_TRIALS[k]?.[`${e.model}/${e.prop}`];
+    // (An electric outboard: at its own easy pace, in hundredths of its battery.)
+    if (MODELS[e.model]?.electric) return { name: b.name, knots: T?.kn || MODELS[e.model].cruise, lph: (T?.bph || 0) * 100, tank: 100, battery: true, at };
     return { name: b.name, knots: C.cruise, lph: T?.lph || 0, tank: TANKS[k] || 0, at };
   }
   return { name: b.name, knots: EASY_KN[k] ?? 4, lph: 0, tank: TANKS[k] || 0, at };
@@ -11397,7 +11447,7 @@ function tick(now, manual = false) {
   {
     const f = tanks();
     for (const b of boats) {
-      b.dry = isPetrol(b.kind) && fuelLevel(f, b.kind) <= 0;
+      b.dry = ELEC[b.kind] ? elecLevel(f, b.kind) <= 0 : isPetrol(b.kind) && fuelLevel(f, b.kind) <= 0;
       b.flat = b.kind === 'bass' && f.battery <= 0;
     }
     BOATS.kayak.kflat = f.kayak <= 0;
@@ -11416,16 +11466,20 @@ function tick(now, manual = false) {
       // (An engine from the catalogue works as hard as its propeller makes it: see engines.js.)
       const work = !electric && boat.motorSpec ? boat.motorSpec.effort : 1;
       const had = fuelLevel(f, boat.kind);
-      const ran = burnBoat(f, boat.kind, (throttle || 0.06) * work, electric ? dt / (fitsAboard()?.troll || 1) : dt, throttle ? troll : 0);
+      // (An electric outboard: its own battery, nothing at all in neutral. See fuel.js burnElec.)
+      const ran = ELEC[boat.kind] ? burnElec(f, boat.kind, throttle * work, dt, ELEC[boat.kind]) : burnBoat(f, boat.kind, (throttle || 0.06) * work, electric ? dt / (fitsAboard()?.troll || 1) : dt, throttle ? troll : 0);
       burnedNow = Math.max(0, had - fuelLevel(f, boat.kind));
       const what = scheme() === 'touch' ? 'tap the prompt' : K('interact');
-      if (ran === 'dry') hud.flash(`The outboard splutters and stops: the tank is dry. An oar moves her along, slowly; stop, then ${what} for the jerry can or a tow.`, t, 6);
-      if (ran === 'flat') hud.flash('The electric motor whines down: the battery is flat. It charges at a jetty, and overnight; the outboard still runs.', t, 5);
+      if (ran === 'flat' && ELEC[boat.kind]) hud.flash(`The motor whines down and stops: its battery is flat. The oars move her along; stop, then ${what} for a tow. It charges at a jetty or a quay, and overnight.`, t, 6);
+      else if (ran === 'dry') hud.flash(`The outboard splutters and stops: the tank is dry. An oar moves her along, slowly; stop, then ${what} for the jerry can or a tow.`, t, 6);
+      if (ran === 'flat' && !ELEC[boat.kind]) hud.flash('The electric motor whines down: the battery is flat. It charges at a jetty, and overnight; the outboard still runs.', t, 5);
     }
     if (hours && moored(BOATS.bass)) chargeBattery(f, hours);
     // (Each trolling motor's battery charges at a jetty, and overnight, the same way.)
     if (hours) for (const k of Object.keys(f.troll || {})) if (BOATS[k] && moored(BOATS[k])) f.troll[k] = Math.min(1, f.troll[k] + hours * BATTERY_PER_HOUR);
     if (hours && moored(BOATS.kayak)) chargeBattery(f, hours, 'kayak');
+    // (An electric outboard's battery too.)
+    if (hours) for (const k of Object.keys(ELEC)) if (ELEC[k] && BOATS[k] && moored(BOATS[k])) chargeElec(f, k, hours);
     bucketTick();
     // (A route you're following: on round its marks, see routes.js.)
     routeNow = routeTick();
@@ -11436,7 +11490,7 @@ function tick(now, manual = false) {
     if (fuelCheckT <= 0) {
       fuelCheckT = 1;
       for (const k of KINDS) BOATS[k].payload = payloadOf(k);
-      if (!onFoot && isPetrol(boat.kind) && boat.motor) watchTank(boat.kind);
+      if (!onFoot && (isPetrol(boat.kind) || ELEC[boat.kind]) && boat.motor) watchTank(boat.kind);
       if (driving) watchTank('car');
     }
   }
@@ -11497,7 +11551,7 @@ function tick(now, manual = false) {
   const outboard = motorOn && boat.motor && !boat.trolling;
   const voice = onFoot ? '' : boat.hull.motor?.jet ? 'jet' : boat.hull.motor?.inboard ? 'inboard' : '';
   // (An engine from the catalogue has its own note: a V6 deeper and smoother than a four.)
-  audio.engine?.(motorOn ? (outboard ? Math.max(0.12, Eh ? engineRevs(Eh) : Math.abs(boat.power) * (boat.tilted ? 0.5 : 1)) : 0.03 + Math.abs(boat.power) * 0.02) : 0, voice, !onFoot && outboard ? boat.motorSpec?.voice : null);
+  audio.engine?.(motorOn ? (outboard ? Math.max(boat.motorSpec?.electric ? 0 : 0.12, Eh ? engineRevs(Eh) : Math.abs(boat.power) * (boat.tilted ? 0.5 : 1)) : 0.03 + Math.abs(boat.power) * 0.02) : 0, voice, !onFoot && outboard ? boat.motorSpec?.voice : null);
   feelBoat(motorOn, outboard, voice);
   // The windsurf board up on the plane for the first time: a word.
   if (!onFoot && boat.hull.rig && boat.planing > 0.8) teach('planing', 'Planing! The board’s up on the water and flying. Keep the sheet just in, and ease out in the gusts.', 6);
