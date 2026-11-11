@@ -130,7 +130,9 @@ export function burnBoat(f, kind, lever, dt, troll = 0) {
   }
   const v = f.boats[kind];
   if (v <= 0) return null;
-  f.boats[kind] = Math.max(0, v - BOAT_PER_S[kind] * Math.pow(Math.abs(lever), 1.5) * dt);
+  // (lever: how hard the engine's working. A propeller of lower pitch works it a little harder for
+  // the same lever, up to its limiter: see engines.js effort.)
+  f.boats[kind] = Math.max(0, v - BOAT_PER_S[kind] * Math.pow(Math.min(1.05, Math.abs(lever)), 1.5) * dt);
   return f.boats[kind] === 0 ? 'dry' : null;
 }
 

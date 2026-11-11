@@ -63,6 +63,10 @@ const smooth = (a, b, x) => {
 };
 
 // A fresh engine room, everything off and cold.
+// The revs flat out where a boat's propeller sets them (kind -> rpm; see engines.js: a lower
+// pitch lets the engine run up to its limiter). Otherwise her profile's max.
+export const WOT = {};
+
 export function newEngine(kind) {
   const P = PROFILES[kind];
   if (!P) return null;
@@ -324,8 +328,10 @@ export function stepEngine(E, dt, ctx = {}, rnd = Math.random) {
       // far out at speed, or the leg up) races.
       const vent = ventilation(E, ctx.speed || 0);
       const open = clamp(ctx.opening ?? Math.abs(ctx.power || 0), 0, 1);
-      const want = P.idle + (P.max - P.idle) * Math.pow(open, 0.85) * (1 + 0.12 * vent) * (E.temp >= 1 ? 0.55 : 1);
-      e.rpm += (Math.min(P.max * 1.08, want) - e.rpm) * Math.min(1, dt * 2.5);
+      // (Flat out, the revs her propeller lets the engine reach: see engines.js and WOT.)
+      const top = WOT[E.kind] || P.max;
+      const want = P.idle + (top - P.idle) * Math.pow(open, 0.85) * (1 + 0.12 * vent) * (E.temp >= 1 ? 0.55 : 1);
+      e.rpm += (Math.min(top * 1.08, want) - e.rpm) * Math.min(1, dt * 2.5);
     } else e.rpm += (0 - e.rpm) * Math.min(1, dt * 4);
   }
   const on = running(E);
