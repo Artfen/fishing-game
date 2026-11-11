@@ -45,7 +45,7 @@ export class BoatPreview {
   }
 
   // Show this boat as she'd be: { kind, paint (hex or null), name, fits (ids), motor (her engine's
-  // spec from engines.js, or none) }.
+  // spec from engines.js, or none), stripe and tubes (hex or null), flag (papers.js FLAGS) }.
   show(want) {
     this.want = want;
     if (!this.init()) return;
@@ -57,6 +57,10 @@ export class BoatPreview {
     const B = this.boats[want.kind];
     for (const [k, b] of Object.entries(this.boats)) b.group.visible = k === want.kind;
     B.repaint?.(want.paint || null);
+    // (Her stripe or tubes and her flag: see papers.js.)
+    B.restripe?.(want.stripe || null);
+    B.retube?.(want.tubes || null);
+    if ((B.flagId || null) !== (want.flag?.id || null)) B.setFlag?.(want.flag || null, { paint: want.paint, stripe: want.stripe });
     if ((want.name || '') !== (B.boatName || '')) B.setName?.(want.name || '');
     // (Her engine as it is on her, from the catalogue: see engines.js.)
     B.setMotor?.(want.motor || null);

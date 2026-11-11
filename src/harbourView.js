@@ -7,6 +7,8 @@ import { nextStory, adviceFor, rumoursNow, lower, an } from './innTalk.js';
 import { CHALLENGES } from './daybook.js';
 import { pay as payOut, earn as earnIn } from './economy.js';
 import { PRICES, hirePrice, PAINTS, PAINT_PRICE, NAME_PRICE, NAME_MAX, FITS, FIT_CATS, fitsFor, fitEffect, owns, hiredToday } from './shipyard.js';
+import { FLAGS, flagById, STRIPE_PRICE, TUBES_PRICE } from './papers.js';
+import { MODELS as ENGINE_MODELS } from './engines.js';
 import { CATALOGUE, MODELS, PROPS, hasCatalogue, KN, rangeAt, propName, fittedName } from './engines.js';
 import { TRIALS } from './engineTrials.js';
 import { CREELS, ICE, BAIT, creelOf, newShop, onIce, freshBaitToday, wearOf, wearWords, respoolPrice, creelGroups, groupWords, creelWords, kgWords } from './shop.js';
@@ -102,10 +104,14 @@ export class HarbourSheet {
     return c;
   }
 
-  showPreview(kind, tryPaint = null) {
+  showPreview(kind, tryPaint = null, tryTrim = {}) {
     const Y = this.state.yard, L = Y.looks[kind] || {};
-    const paint = tryPaint || (L.paint ? PAINTS.find((p) => p.id === L.paint)?.hex : null);
-    this.hooks.preview?.({ kind, paint, name: L.name || '', fits: Y.fits[kind] || [] });
+    const hex = (id) => (id ? PAINTS.find((p) => p.id === id)?.hex : null);
+    const paint = tryPaint || hex(L.paint);
+    this.hooks.preview?.({
+      kind, paint, name: L.name || '', fits: Y.fits[kind] || [],
+      stripe: tryTrim.stripe || hex(L.stripe), tubes: tryTrim.tubes || hex(L.tubes), flag: tryTrim.flag || flagById[L.flag] || null,
+    });
   }
 
   button(text, run, cls = '') {
@@ -236,6 +242,51 @@ export class HarbourSheet {
     input.addEventListener('keydown', (e) => e.stopPropagation());
     row.append(input, this.button(`Sign-write it: ${money(NAME_PRICE)}`, () => H.yardName(k, input.value)));
     out.push(row);
+    // Her second colour (a stripe, or on a RIB her tubes) and a flag at her stern (see papers.js).
+    const trim = H.trimOf(k);
+    if (trim.stripes || trim.tubes) {
+      const what = trim.tubes ? 'tubes' : 'stripe';
+      out.push(el('h4', 'hb-fit-cat', trim.tubes ? `Her tubes: ${money(TUBES_PRICE)} for new covers` : `Her stripe: ${money(STRIPE_PRICE)}`));
+      const chart2 = el('div', 'hb-paints');
+      for (const p of PAINTS) {
+        const b = this.button(p.name, () => H.yardTrim(k, what, p.id), L[what] === p.id ? '' : 'quiet');
+        b.classList.add('hb-swatch');
+        b.style.setProperty('--sw', p.hex);
+        b.addEventListener('pointerenter', () => this.showPreview(k, null, { [what]: p.hex }));
+        b.addEventListener('focus', () => this.showPreview(k, null, { [what]: p.hex }));
+        b.addEventListener('pointerleave', () => this.showPreview(k));
+        b.addEventListener('blur', () => this.showPreview(k));
+        chart2.append(b);
+      }
+      out.push(chart2);
+    }
+    out.push(el('h4', 'hb-fit-cat', 'A flag at her stern'));
+    const flags = el('div', 'hb-picks');
+    for (const F of FLAGS) {
+      const b = this.button(`${F.name}${L.flag === F.id ? '' : `: ${money(F.price)}`}`, () => H.yardTrim(k, 'flag', F.id), L.flag === F.id ? '' : 'quiet');
+      b.addEventListener('pointerenter', () => this.showPreview(k, null, { flag: F }));
+      b.addEventListener('pointerleave', () => this.showPreview(k));
+      flags.append(b);
+    }
+    if (L.flag) flags.append(this.button('Take it down', () => H.yardTrim(k, 'flag', null), 'quiet'));
+    out.push(flags);
+    out.push(...this.papersBlock(k));
+    return out;
+  }
+
+  // Her papers (see papers.js): her registration, since when she's been yours, what she's done
+  // and her log, newest first.
+  papersBlock(k) {
+    const V = this.state.yard.vessels?.[k], H = this.hooks;
+    if (!V) return [];
+    const out = [el('h4', 'hb-fit-cat', `Her papers: ${V.reg}`)];
+    const best = V.best ? `; the best fish aboard a ${V.best.size} cm ${H.fishName(V.best.id)} (${V.best.kg < 1 ? `${Math.round(V.best.kg * 1000)} g` : `${V.best.kg.toFixed(1)} kg`}, day ${V.best.day})` : '';
+    const engine = H.yardEngine(k);
+    const run = [V.hours >= 0.05 ? `${V.hours.toFixed(1)} engine hours` : null, `${V.nm.toFixed(1)} sea miles`, V.litres >= 0.05 ? `${V.litres.toFixed(0)} litres burned` : null, `${V.fish} fish aboard`].filter(Boolean).join(' · ');
+    out.push(el('p', 'hb-fit-sum', `Registered at Willowhaven, ${V.reg}. Yours since day ${V.since}${engine ? `, her engine the ${ENGINE_MODELS[engine.model]?.name}` : ''}. ${run}${best}.`));
+    const log = el('ul', 'hb-log');
+    for (const e of V.log.slice(-8).reverse()) log.append(el('li', 'cp-soft', `Day ${e.day}: ${e.text}`));
+    out.push(log);
     return out;
   }
 
