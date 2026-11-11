@@ -470,6 +470,64 @@ function regionSpots(habitat, rnd) {
   diveSpots(habitat, spots);
   southDiveSpots(habitat, spots);
   crossingSpots(habitat, spots);
+  smallFishSpots(habitat, spots);
+}
+
+// The small fish's homes, for micro-fishing (smallFish.js): marked small, and filled after every
+// other fish (see ecosystem.js populate), so nothing already in the water moves. Where you'd look
+// for them with a size 18 hook: a pace off the stones of the harbour walls (rock gobies, shannies
+// and corkwing at Willowhaven; shannies and black gobies at Wend Quay, in the estuary), the
+// shallow weedy rocks round the Skerries, the Calf and the cove and in the bay, the estuary's
+// eelgrass (black gobies), and the stream pools (minnow shoals, in the Fernbeck and the
+// Coldwater's dale, with the trout).
+function smallFishSpots(habitat, spots) {
+  const put = (type, x, z, r, tag, hosts, min = 0.6) => {
+    const d = habitat.depth(x, z);
+    if (d > min) spots.push({ type, x, z, depth: d, zone: zoneAt(x, z), r, tag, hosts, small: true, level: waterLevel(x, z) });
+  };
+  const took = [];
+  const clear = (x, z, gap) => took.every((p) => Math.hypot(p.x - x, p.z - z) > gap) && took.push({ x, z });
+  // The harbour walls: both sides, every five metres out from the root, a pace off the stones.
+  const WALL = [['rockgoby', 'shanny'], ['corkwing', 'rockgoby'], ['shanny', 'corkwing']];
+  for (const [Q, tag, sets] of [[HAVEN_QUAY, 'haven', WALL], [QUAY, 'wend', [['shanny', 'blackgoby'], ['blackgoby', 'rockgoby']]]]) {
+    const alongX = !!Q.dir.x, lo = alongX ? Q.x0 : Q.z0, hi = alongX ? Q.x1 : Q.z1;
+    let k = 0;
+    for (let u = lo + 3; u <= hi + 1; u += 5) {
+      for (const side of [-1, 1]) {
+        const x = alongX ? u : side < 0 ? Q.x0 - 1.2 : Q.x1 + 1.2, z = alongX ? (side < 0 ? Q.z0 - 1.2 : Q.z1 + 1.2) : u;
+        if (habitat.depth(x, z) > 1.2) put('quay', x, z, 3, tag, sets[k++ % sets.length]);
+      }
+    }
+  }
+  // The shallow rocks: weedy ledges out of the swell's worst, under five metres or so.
+  const ROCKS = { reef: 4, calf: 3, cove: 2, channel: 2, rock: 2 };
+  const SETS = [['rockgoby', 'corkwing'], ['corkwing', 'shanny'], ['rockgoby', 'shanny'], ['corkwing']];
+  let n = 0;
+  for (const c of habitat.clusters) {
+    const tag = c.tag || 'rock', zone = zoneAt(c.x, c.z);
+    if (!(tag in ROCKS) || ROCKS[tag] <= 0 || c.depth < 1 || c.depth > 5.6 || !['coast', 'cove', 'bay'].includes(zone)) continue;
+    if (!clear(c.x, c.z, 10)) continue;
+    ROCKS[tag]--;
+    put('rock', c.x, c.z, Math.min(5, c.r || 5), `small-${tag}`, c.depth > 4.5 ? ['corkwing'] : SETS[n++ % SETS.length]);
+  }
+  // The estuary's eelgrass, on muddy sand a metre or more down: black gobies.
+  const S = {};
+  let grass = 0;
+  for (let z = -240; z <= 60 && grass < 6; z += 5) {
+    for (let x = 480; x <= 660 && grass < 6; x += 5) {
+      if (zoneAt(x, z) !== 'estuary') continue;
+      habitat.sample(x, z, S);
+      if (S.weed > 0.4 && S.depth > 1 && S.depth < 4 && clear(x, z, 30)) {
+        put('weed', x, z, 5, 'eelgrass', ['blackgoby']);
+        grass++;
+      }
+    }
+  }
+  // The stream pools: minnow shoals in every other pool of the Fernbeck and the Coldwater's dale.
+  const pools = spots.filter((p) => p.type === 'pool' && !p.small && (p.zone === 'stream' || p.tag === 'dale'));
+  pools.forEach((p, i) => {
+    if (i % 2 === 0) put('pool', p.x, p.z, 2.5, 'minnow', ['minnow'], 0.5);
+  });
 }
 
 // Out on the crossing (see crossing.js): every half kilometre or so along the way, something

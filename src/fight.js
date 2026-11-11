@@ -129,6 +129,8 @@ export const SIGNATURES = {
   seabass: ['headshake', 'dive', 'lastdash'], striped: ['headshake', 'dive', 'lastdash'],
   barracuda: ['charge', 'headshake'], dorado: ['charge', 'headshake'],
   amberjack: ['dive', 'sound'], grouper: ['dive'], meagre: ['headshake', 'dive', 'lastdash'],
+  // (The small fish of the rocks and streams wriggle and dart, but nothing worth naming.)
+  rockgoby: [], shanny: [], corkwing: [], blackgoby: [], minnow: [],
 };
 export const signatureOf = (sp) => SIGNATURES[sp.id] ?? STYLE_MOVES[sp.fight] ?? [];
 
@@ -183,6 +185,8 @@ export const COVER = {
   perch: 1.3, trout: 1.1, seabass: 1, eel: 2, pollack: 2.2, wrasse: 2, tench: 1.9, carp: 1.6, lmbass: 1.6, pike: 1.3,
   comber: 1.7, triggerfish: 1.9, grouper: 2.6, mackerel: 0.1, horsemackerel: 0.15, sardine: 0.05, anchovy: 0.05,
   chubmackerel: 0.1, bogue: 0.3, mullet: 0.7, dorado: 0.1, barracuda: 0.3, hake: 0.3, sprat: 0.05,
+  // (The small fish of the rocks dart straight for their crevice; a minnow just flits about.)
+  rockgoby: 2.4, shanny: 2.6, corkwing: 2, blackgoby: 1.6, minnow: 0.4,
 };
 export const coverPull = (sp) => COVER[sp.id] ?? STYLE_COVER[sp.fight || 'steady'] ?? 1;
 

@@ -6,6 +6,7 @@ import { isDay, isEvening, isTwilight, clamp01 } from './habits.js';
 import { ATLANTIC, DEPTHS } from './atlantic.js';
 import { SOUTH, AT_BRASAS, SOUTH_REEF } from './southFish.js';
 import { BIG_GAME } from './bigGame.js';
+import { SMALL } from './smallFish.js';
 
 // Every species lives in the shared underwater world (see world/ecosystem.js).
 // `life` describes where it lives and how it behaves; there is no separate catch roll:
@@ -844,6 +845,8 @@ FISH.push(...SOUTH_REEF);
 // The angling depth release (atlantic.js): the ray, the catshark, the weever, hake and the John
 // Dory, after everything else for the same reason.
 FISH.push(...DEPTHS);
+// The coast's small fish, for micro-fishing (smallFish.js): last of all, the same way.
+FISH.push(...SMALL);
 // Fish of the home coast that live round Las Brasas too, in its waters and on its homes.
 for (const [id, R] of Object.entries(AT_BRASAS)) {
   const f = FISH.find((x) => x.id === id);

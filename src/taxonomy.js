@@ -83,6 +83,8 @@ export const ORDERS = {
   scombriformes: { sci: 'Scombriformes', name: 'Mackerels, tunas and their kin' },
   istiophoriformes: { sci: 'Istiophoriformes', name: 'Billfishes' },
   mugiliformes: { sci: 'Mugiliformes', name: 'Grey mullets' },
+  gobiiformes: { sci: 'Gobiiformes', name: 'Gobies and sleepers' },
+  blenniiformes: { sci: 'Blenniiformes', name: 'Blennies' },
   atheriniformes: { sci: 'Atheriniformes', name: 'Silversides' },
   beloniformes: { sci: 'Beloniformes', name: 'Needlefishes and flying fishes' },
   syngnathiformes: { sci: 'Syngnathiformes', name: 'Pipefishes, seahorses and trumpetfishes' },
@@ -146,7 +148,7 @@ export const FAMILIES = {
   Pomacentridae: ['percomorpha', 'Damselfishes'], Carangidae: ['percomorpha', 'Jacks and pompanos'], Pomatomidae: ['percomorpha', 'Bluefish'], Trachinidae: ['percomorpha', 'Weevers'],
   Triglidae: ['percomorpha', 'Gurnards'], Centrarchidae: ['percomorpha', 'Sunfishes and black basses'], Sphyraenidae: ['percomorpha', 'Barracudas'], Coryphaenidae: ['percomorpha', 'Dolphinfishes'],
   Percidae: ['perciformes', 'Perches'], Scombridae: ['scombriformes', 'Mackerels and tunas'], Istiophoridae: ['istiophoriformes', 'Marlins and sailfishes'],
-  Mugilidae: ['mugiliformes', 'Grey mullets'], Atherinidae: ['atheriniformes', 'Silversides'], Belonidae: ['beloniformes', 'Needlefishes'], Exocoetidae: ['beloniformes', 'Flying fishes'],
+  Mugilidae: ['mugiliformes', 'Grey mullets'], Gobiidae: ['gobiiformes', 'Gobies'], Blenniidae: ['blenniiformes', 'Combtooth blennies'], Atherinidae: ['atheriniformes', 'Silversides'], Belonidae: ['beloniformes', 'Needlefishes'], Exocoetidae: ['beloniformes', 'Flying fishes'],
   Aulostomidae: ['syngnathiformes', 'Trumpetfishes'], Balistidae: ['tetraodontiformes', 'Triggerfishes'], Zeidae: ['zeiformes', 'Dories'],
   Gadidae: ['gadiformes', 'Cods'], Merlucciidae: ['gadiformes', 'Hakes'],
   Pleuronectidae: ['pleuronectiformes', 'Righteye flounders'], Soleidae: ['pleuronectiformes', 'True soles'], Scophthalmidae: ['pleuronectiformes', 'Turbots'],
@@ -174,7 +176,7 @@ export const FAMILIES = {
   // Not animals
   Laminariaceae: ['laminariales', 'Kelps'], Noctilucaceae: ['noctilucales', 'Sea sparkle'],
 };
-const FISH_ORDERS = new Set(['percomorpha', 'perciformes', 'scombriformes', 'istiophoriformes', 'mugiliformes', 'atheriniformes', 'beloniformes', 'syngnathiformes', 'tetraodontiformes', 'zeiformes', 'gadiformes', 'pleuronectiformes', 'clupeiformes', 'anguilliformes', 'esociformes', 'salmoniformes', 'cypriniformes']);
+const FISH_ORDERS = new Set(['percomorpha', 'perciformes', 'scombriformes', 'istiophoriformes', 'mugiliformes', 'gobiiformes', 'blenniiformes', 'atheriniformes', 'beloniformes', 'syngnathiformes', 'tetraodontiformes', 'zeiformes', 'gadiformes', 'pleuronectiformes', 'clupeiformes', 'anguilliformes', 'esociformes', 'salmoniformes', 'cypriniformes']);
 const SHARK_ORDERS = new Set(['carcharhiniformes', 'lamniformes', 'squatiniformes', 'rajiformes']);
 
 // The fish families the register doesn't give (the fresh water fish, Las Brasas' own, and a few).
@@ -183,11 +185,13 @@ const FISH_FAMILY = {
   parrotfish: 'Scaridae', ornatewrasse: 'Labridae', triggerfish: 'Balistidae', moray: 'Muraenidae', barracuda: 'Sphyraenidae', amberjack: 'Carangidae',
   angelshark: 'Squatinidae', trumpetfish: 'Aulostomidae', bluemarlin: 'Istiophoridae', sailfish: 'Istiophoridae', spearfish: 'Istiophoridae', wahoo: 'Scombridae',
   dorado: 'Coryphaenidae', yellowfin: 'Scombridae', hammerhead: 'Sphyrnidae', chromis: 'Pomacentridae', comber: 'Serranidae',
+  minnow: 'Leuciscidae',
 };
 // Their statuses (IUCN, worldwide), where the register doesn't give one and the listing is clear.
 const FISH_IUCN = {
   perch: 'LC', pike: 'LC', carp: 'VU', rudd: 'LC', trout: 'LC', grayling: 'LC', tench: 'LC', roach: 'LC', lmbass: 'LC',
   angelshark: 'CR', bluemarlin: 'VU', hammerhead: 'VU', yellowfin: 'LC', dorado: 'LC', wahoo: 'LC', amberjack: 'LC', moray: 'LC', ornatewrasse: 'LC',
+  minnow: 'LC',
 };
 
 export const IUCN = {

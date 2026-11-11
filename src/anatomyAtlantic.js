@@ -1115,4 +1115,108 @@ export const ATLANTIC_ANATOMY = {
       P.blob(0.42, 0.52, 0.03, 0.09, '#1a1a16', 0.95, 0.4);  // St Peter's thumbprint
     },
   },
+
+  /* ---------------- the small fish of the rocks and the estuary (smallFish.js) ---------------- */
+  // Rock goby: a big rounded head with thick lips and high-set eyes, two separate dorsal fins (the
+  // first with six spines and a pale band along its top), a rounded tail, big fan pectorals, and
+  // the pelvic fins joined into a sucker under the chest.
+  rockgoby: {
+    plan: 'fish', bodyLen: 0.82, round: 2.4, mode: 0, lod: 0.5,
+    top: [[0, 0.01], [0.04, 0.042], [0.12, 0.074], [0.24, 0.082], [0.45, 0.07], [0.7, 0.05], [0.88, 0.034], [1, 0.03]],
+    bottom: [[0, -0.018], [0.05, -0.05], [0.14, -0.07], [0.3, -0.072], [0.5, -0.06], [0.75, -0.042], [1, -0.028]],
+    width: [[0, 0.01], [0.06, 0.05], [0.2, 0.064], [0.4, 0.05], [0.7, 0.03], [0.9, 0.016], [1, 0.01]],
+    mouth: { len: 0.075, y: -0.004, slope: 0.12, gape: 0.012, lips: 0.5 }, gill: { t: 0.2, curve: 0.04 },
+    eye: { t: 0.085, y: 0.05, r: 0.016, iris: '#c8a050', up: 0.85 },
+    fins: [
+      { kind: 'dorsal', shape: 'spiny', t0: 0.3, t1: 0.44, h: 0.07, spines: 6, profile: [[0, 0.8], [0.4, 1], [1, 0.7]], color: '#5a4a32' },
+      { kind: 'dorsal', t0: 0.5, t1: 0.84, h: 0.06, profile: [[0, 0.8], [0.3, 1], [1, 0.8]], rays: 14 },
+      { kind: 'anal', t0: 0.55, t1: 0.84, h: 0.05, profile: [[0, 0.8], [0.3, 1], [1, 0.8]], rays: 12 },
+      { kind: 'pectoral', t: 0.22, a: 0.02, len: 0.12, w: 0.08, splay: 0.6, droop: 0.2, rays: 18, profile: [[0, 0.6], [0.5, 1], [1, 0.8]] },
+      { kind: 'pelvic', t: 0.24, a: 0.0, len: 0.07, splay: 0.08, droop: 0.85 }, // the sucker disc
+      { kind: 'caudal', shape: 'rounded', h: 0.075, rays: 14 },
+    ],
+    colors: { back: '#3e3424', flank: '#6e5c3e', belly: '#c9b48a', fin: '#5a4a30', split: 0.45 },
+    scaleRows: [52, 12], metal: 0.05, sheen: 0.25,
+    paint: (P) => {
+      P.noise(401, 70, '#2a2216', 0.55, 0.02, 0.06, 0.25, 1); // dark mottling
+      P.noise(403, 120, '#a08a5a', 0.4, 0.006, 0.014, 0.2, 0.95);
+      P.line([[0.3, 0.985], [0.44, 0.985]], 3, '#ead27a', 0.9); // the pale band at the first dorsal's base
+    },
+  },
+  // Black goby: the same plan, darker, with a black spot at the front of the first dorsal fin.
+  blackgoby: {
+    plan: 'fish', bodyLen: 0.84, round: 2.4, mode: 0, lod: 0.5,
+    top: [[0, 0.01], [0.04, 0.04], [0.12, 0.068], [0.24, 0.076], [0.45, 0.066], [0.7, 0.048], [0.88, 0.032], [1, 0.028]],
+    bottom: [[0, -0.016], [0.05, -0.046], [0.14, -0.064], [0.3, -0.066], [0.5, -0.056], [0.75, -0.04], [1, -0.026]],
+    width: [[0, 0.01], [0.06, 0.046], [0.2, 0.06], [0.4, 0.048], [0.7, 0.028], [0.9, 0.015], [1, 0.01]],
+    mouth: { len: 0.07, y: -0.004, slope: 0.12, gape: 0.011, lips: 0.4 }, gill: { t: 0.2, curve: 0.04 },
+    eye: { t: 0.085, y: 0.046, r: 0.015, iris: '#9a8a60', up: 0.85 },
+    fins: [
+      { kind: 'dorsal', shape: 'spiny', t0: 0.3, t1: 0.44, h: 0.09, spines: 6, profile: [[0, 1], [0.5, 1], [1, 0.75]], color: '#2a2820' },
+      { kind: 'dorsal', t0: 0.5, t1: 0.85, h: 0.065, profile: [[0, 0.9], [0.3, 1], [1, 0.8]], rays: 14 },
+      { kind: 'anal', t0: 0.55, t1: 0.85, h: 0.05, profile: [[0, 0.8], [0.3, 1], [1, 0.8]], rays: 12 },
+      { kind: 'pectoral', t: 0.22, a: 0.02, len: 0.12, w: 0.08, splay: 0.6, droop: 0.2, rays: 18, profile: [[0, 0.6], [0.5, 1], [1, 0.8]] },
+      { kind: 'pelvic', t: 0.24, a: 0.0, len: 0.07, splay: 0.08, droop: 0.85 },
+      { kind: 'caudal', shape: 'rounded', h: 0.07, rays: 14 },
+    ],
+    colors: { back: '#2a2a22', flank: '#4e4a3a', belly: '#9e967a', fin: '#38362a', split: 0.45 },
+    scaleRows: [50, 12], metal: 0.05, sheen: 0.25,
+    paint: (P) => {
+      P.noise(411, 80, '#141410', 0.6, 0.02, 0.06, 0.2, 1);
+      P.blob(0.31, 0.97, 0.025, 0.05, '#0a0a08', 0.95, 0.3); // the black spot at the first dorsal's front
+    },
+  },
+  // Shanny: a blenny, smooth and scaleless, the head blunt and rounded with no tentacles; one long
+  // dorsal fin notched in the middle, a dark spot at its front; a long anal fin; little pelvic fins
+  // right under the throat, ahead of the big pectorals.
+  shanny: {
+    plan: 'fish', bodyLen: 0.84, round: 2.5, mode: 0, lod: 0.5,
+    top: [[0, 0.02], [0.03, 0.05], [0.1, 0.072], [0.22, 0.074], [0.45, 0.064], [0.7, 0.048], [0.88, 0.034], [1, 0.03]],
+    bottom: [[0, -0.016], [0.05, -0.046], [0.14, -0.06], [0.3, -0.06], [0.5, -0.052], [0.75, -0.038], [1, -0.026]],
+    width: [[0, 0.012], [0.06, 0.044], [0.2, 0.05], [0.45, 0.04], [0.7, 0.026], [0.9, 0.014], [1, 0.01]],
+    mouth: { len: 0.05, y: -0.008, slope: 0.05, gape: 0.008 }, gill: { t: 0.18, curve: 0.03 },
+    eye: { t: 0.07, y: 0.048, r: 0.015, iris: '#c87a3a', up: 0.7 },
+    fins: [
+      { kind: 'dorsal', shape: 'spiny', t0: 0.2, t1: 0.52, h: 0.05, spines: 12, profile: [[0, 0.9], [0.5, 1], [1, 0.55]] },
+      { kind: 'dorsal', t0: 0.52, t1: 0.92, h: 0.058, profile: [[0, 0.75], [0.3, 1], [1, 0.8]], rays: 19 },
+      { kind: 'anal', t0: 0.42, t1: 0.92, h: 0.045, profile: [[0, 0.8], [0.3, 1], [1, 0.8]], rays: 19 },
+      { kind: 'pectoral', t: 0.2, a: 0.0, len: 0.11, w: 0.08, splay: 0.6, droop: 0.3, rays: 13, profile: [[0, 0.6], [0.5, 1], [1, 0.7]] },
+      { kind: 'pelvic', t: 0.15, a: 0.0, len: 0.05, splay: 0.15, droop: 0.9 },
+      { kind: 'caudal', shape: 'rounded', h: 0.07, rays: 12 },
+    ],
+    colors: { back: '#4a4a2e', flank: '#7a7448', belly: '#c8be8e', fin: '#6a6440', split: 0.45 },
+    metal: 0.02, sheen: 0.45, // (scaleless: no scale rows)
+    paint: (P) => {
+      P.noise(421, 60, '#2e2e1c', 0.5, 0.03, 0.07, 0.3, 1); // mottled olive and brown
+      for (let k = 0; k < 6; k++) P.blob(0.28 + k * 0.11, 0.7, 0.025, 0.2, '#3a3820', 0.3, 0.5); // faint dark bands
+      P.blob(0.23, 0.98, 0.02, 0.04, '#141410', 0.9, 0.3); // the dark spot at the front of the dorsal fin
+    },
+  },
+  // Corkwing wrasse: a small, deep-bodied wrasse with thick lips; the dark comma just behind the
+  // eye and the dark spot on the wrist of the tail.
+  corkwing: {
+    plan: 'fish', bodyLen: 0.8, round: 2.2, mode: 0, lod: 0.5,
+    top: [[0, -0.002], [0.04, 0.034], [0.12, 0.08], [0.26, 0.11], [0.45, 0.112], [0.65, 0.092], [0.85, 0.054], [1, 0.044]],
+    bottom: [[0, -0.018], [0.05, -0.046], [0.14, -0.074], [0.3, -0.092], [0.5, -0.09], [0.7, -0.07], [0.86, -0.048], [1, -0.042]],
+    width: [[0, 0.006], [0.08, 0.032], [0.25, 0.046], [0.45, 0.046], [0.7, 0.032], [0.9, 0.018], [1, 0.012]],
+    mouth: { len: 0.06, y: -0.012, slope: -0.04, gape: 0.009, lips: 0.45 }, gill: { t: 0.24, curve: 0.035 },
+    eye: { t: 0.09, y: 0.032, r: 0.016, iris: '#c8a050' },
+    fins: [
+      { kind: 'dorsal', shape: 'spiny', t0: 0.26, t1: 0.64, h: 0.05, spines: 15, profile: [[0, 0.8], [0.2, 1], [1, 0.9]] },
+      { kind: 'dorsal', t0: 0.64, t1: 0.88, h: 0.06, profile: [[0, 0.9], [0.4, 1], [1, 0.5]], rays: 9 },
+      { kind: 'anal', t0: 0.64, t1: 0.88, h: 0.055, profile: [[0, 0.9], [0.4, 1], [1, 0.5]], rays: 9 },
+      { kind: 'pectoral', t: 0.27, a: 0.16, len: 0.1, splay: 0.5, droop: 0.15, profile: [[0, 0.4], [0.4, 1], [1, 0.5]] },
+      { kind: 'pelvic', t: 0.31, a: 0.04, len: 0.06, splay: 0.3, droop: 0.5 },
+      { kind: 'caudal', shape: 'rounded', h: 0.09, rays: 14 },
+    ],
+    colors: { back: '#3a5a3a', flank: '#7a8a52', belly: '#d8c08a', fin: '#5a7a4a', split: 0.42 },
+    scaleRows: [36, 12], metal: 0.12, sheen: 0.35,
+    paint: (P) => {
+      P.noise(431, 90, '#a8783a', 0.35, 0.02, 0.05, 0.2, 0.9); // brown-orange mottling
+      P.noise(433, 40, '#2a3a26', 0.3, 0.03, 0.07, 0.5, 1);
+      P.line([[0.13, 0.66], [0.15, 0.6], [0.14, 0.52]], 5, '#141810', 0.85); // the comma behind the eye
+      P.blob(0.95, 0.55, 0.025, 0.12, '#141810', 0.9, 0.35); // the spot on the wrist of the tail
+      for (let k = 0; k < 3; k++) P.line([[0.02, 0.5 + k * 0.08], [0.1, 0.56 + k * 0.08]], 1.5, '#5ab0d0', 0.45); // blue lines on the head
+    },
+  },
 };

@@ -406,7 +406,7 @@ function labelledSpool({ big, small, kind, lineColor: lc, key, R = 0.05, W = 0.0
 
 /* ---------------- floats, rigs and leaders ---------------- */
 
-const FLOAT_TIP = { stick: '#e8402a', waggler: '#ff7a1a', margin: '#f2d21a' };
+const FLOAT_TIP = { stick: '#e8402a', waggler: '#ff7a1a', margin: '#f2d21a', micro: '#ff2f6a' };
 
 // A float with its tip colour, the shot pinched on the line below it, and the hook.
 function floatRig(id) {
@@ -418,6 +418,11 @@ function floatRig(id) {
     g.add(lathe([[0.0022, 0.05], [0.0022, 0.07], [0.0001, 0.072]], glossy(tip)));
     g.add(lathe([[0.0016, -0.1], [0.0016, -0.07]], soft('#c9b183')));
     for (const y of [-0.05, 0.03]) g.add(alongX(0.0032, 0.0032, -0.004, 0.004, std('#2a2a2a', 0.5), y, 0).rotateZ(Math.PI / 2));
+  } else if (id === 'micro') {
+    // A tiny pencil float: a slim body, a long fine bristle of a tip, and a wire stem below.
+    g.add(lathe([[0.0003, -0.035], [0.0018, -0.028], [0.0032, -0.01], [0.0032, 0.004], [0.0016, 0.016]], body));
+    g.add(lathe([[0.0008, 0.016], [0.0008, 0.04], [0.0001, 0.041]], glossy(tip)));
+    g.add(lathe([[0.0005, -0.055], [0.0005, -0.035]], soft('#9aa0a6')));
   } else if (id === 'waggler') {
     g.add(lathe([[0.0035, -0.11], [0.0045, -0.105], [0.0045, 0.06], [0.0028, 0.07]], body));
     g.add(lathe([[0.0024, 0.07], [0.0024, 0.1], [0.0001, 0.102]], glossy(tip)));
@@ -427,11 +432,12 @@ function floatRig(id) {
     g.add(lathe([[0.004, 0.025], [0.0045, 0.045], [0.0001, 0.047]], glossy(tip)));
     g.add(lathe([[0.0016, -0.05], [0.0016, -0.035]], soft('#c9b183')));
   }
-  const base = id === 'waggler' ? -0.125 : id === 'stick' ? -0.1 : -0.05;
+  const base = id === 'waggler' ? -0.125 : id === 'stick' ? -0.1 : id === 'micro' ? -0.055 : -0.05;
   g.add(lineBetween([0, base, 0], [0, base - 0.12, 0], lc));
-  const shot = id === 'stick' ? [0.03, 0.06, 0.09, 0.11] : id === 'waggler' ? [0.005, 0.012, 0.1] : [0.09];
-  for (const d of shot) g.add(mesh(new THREE.SphereGeometry(id === 'margin' ? 0.0042 : 0.0028, 12, 10), LEAD(), 0, base - d, 0));
-  const hs = id === 'stick' ? 0.009 : id === 'waggler' ? 0.013 : 0.019;
+  // (The micro float's shot: a few dust-fine pellets, strung down the line.)
+  const shot = id === 'stick' ? [0.03, 0.06, 0.09, 0.11] : id === 'waggler' ? [0.005, 0.012, 0.1] : id === 'micro' ? [0.04, 0.07, 0.1] : [0.09];
+  for (const d of shot) g.add(mesh(new THREE.SphereGeometry(id === 'margin' ? 0.0042 : id === 'micro' ? 0.0014 : 0.0028, 12, 10), LEAD(), 0, base - d, 0));
+  const hs = id === 'stick' ? 0.009 : id === 'waggler' ? 0.013 : id === 'micro' ? 0.006 : 0.019;
   const h = hook(hs);
   h.position.set(0, base - 0.12, 0);
   g.add(h);
@@ -608,6 +614,12 @@ function bait(id) {
     case 'worm': {
       g.add(worm('#c8656a', '#e58a8a', 0.09, 0.0034, 1.2));
       H(0.022, -0.012, 0.022, 0.2);
+      break;
+    }
+    case 'wormpiece': {
+      // A pinch of worm, a centimetre or two, on a size 18 hook.
+      g.add(worm('#c8656a', '#e58a8a', 0.022, 0.0026, 0.5));
+      H(0.008, -0.004, 0.008, 0.2);
       break;
     }
     case 'rag': {
@@ -853,6 +865,16 @@ function lure(id) {
   switch (id) {
     case 'spinner': return spinnerLure(false);
     case 'tspin': return spinnerLure(true);
+    case 'microjig': {
+      // A 1 g round jig head, painted, with a tiny eye, and a 4 cm soft worm threaded on its hook.
+      g.add(mesh(new THREE.SphereGeometry(0.0034, 14, 12), std('#d8d8d0', 0.35, 0.5), -0.012, 0, 0));
+      g.add(mesh(new THREE.SphereGeometry(0.0011, 8, 6), std('#1a1a1a', 0.3), -0.0145, 0.0016, 0.0022));
+      g.add(mesh(new THREE.TorusGeometry(0.0016, 0.0003, 6, 10), STEEL(), -0.0128, 0.0038, 0, 0, Math.PI / 2, 0));
+      const w = worm('#e6d84a', null, 0.04, 0.0018, 1.6);
+      w.position.set(0.008, -0.001, 0);
+      g.add(w);
+      return g;
+    }
     case 'spoon': {
       // A teardrop of curved chrome, its hollow face up, with a red stripe and a treble.
       const shape = new THREE.Shape();
