@@ -79,11 +79,12 @@ import { Placement } from './placement.js';
 import { Adventures, ADVENTURE_BY_ID, PAGES, KEEPSAKES } from './adventures.js';
 import { PhotoStore, capture, photoId, albumPage, download } from './photos.js';
 import { Haptics, STRENGTHS, engineFeel, lineFeel, slamFeel, knockFeel } from './haptics.js';
-import { PROFILES as ENGINES, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM, tiltToggle, tiltedUp, stepTilt } from './engine.js';
+import { PROFILES as ENGINES, WOT, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM, tiltToggle, tiltedUp, stepTilt } from './engine.js';
 import { HelmUI } from './helm.js';
 import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
-import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, hiredToday, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect } from './shipyard.js';
+import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, hiredToday, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect, engineOf, repowerBoat, repropBoat } from './shipyard.js';
+import { engineSpec, hasCatalogue, OUTBOARDS, PROPS } from './engines.js';
 import { BoatPreview } from './boatPreview.js';
 import { Memories } from './memories.js';
 import { whatsAbout, birdsWorking, weatherLines, notices, paintBoard } from './harbour.js';
@@ -1901,8 +1902,15 @@ const harbourSheet = new HarbourSheet(state, {
     yardDo(r, () => hud.toast(r.swapped ? `Fitted, in place of the ${FITS[r.swapped].name.toLowerCase()}.` : 'Fitted.', 3));
   },
   yardUnfit: (kind, id) => yardDo(unfitBoat(state, kind, id), () => hud.toast('Taken off: back in the store.', 2)),
+  // Her engine and propeller (see engines.js): what's on her, a new one fitted while you wait,
+  // and what's in her tank's worth of range.
+  yardEngine: (kind) => engineOf(state.yard, kind),
+  yardRepower: (kind, model) => yardDo(repowerBoat(state, kind, model), () => hud.toast(`The ${OUTBOARDS[model].name} is on her transom, her old engine taken in.`, 4)),
+  yardReprop: (kind, prop) => yardDo(repropBoat(state, kind, prop), () => hud.toast(`New propeller on: ${PROPS[prop].name.toLowerCase()}.`, 3)),
+  tankOf: (kind) => TANKS[kind] || 0,
+  engineSpecFor: (kind, choice) => engineSpec(kind, BOATS[kind].hull, choice),
   // The look at a boat at the Marine Works (see boatPreview.js).
-  preview: (want) => boatPreview.show(want),
+  preview: (want) => boatPreview.show({ ...want, motor: BOATS[want.kind]?.motorSpec || null }),
   previewTurn: (dx) => boatPreview.turn(dx),
   previewStop: () => boatPreview.stop(),
 });
@@ -2273,7 +2281,7 @@ function teachBoat() {
     bass: `The bass boat: ${lever} The first notches run the quiet electric motor at the bow, for creeping along the weed; push on for the outboard. Longmere has no pump: bring the jerry can.`,
     windsurf: `The windsurf board: ${T ? 'the stick up sheets in, down eases out, across steers' : S ? `${stick} up and down sheets in and out, across steers` : `${key('forward')} sheets in, ${key('back')} eases out, ${key('left')} and ${key('right')} steer`}. In a good breeze it planes and flies; ease out in the gusts or you’re catapulted in. No fishing, no anchor.`,
     console: `The centre console: twin outboards, about twenty-seven knots. ${lever} To fish, just cast: you step back into the cockpit to face your line.`,
-    rib: `The RIB: a deep-V hull with tubes for sides, one big outboard, about thirty-five knots. ${lever} Her tubes keep her steady and dry in a sea. To fish, just cast: you step back to face your line.`,
+    rib: `The RIB: a deep-V hull with tubes for sides, one big outboard, about thirty-five knots on the engine she came with (the Marine Works has others). ${lever} Her tubes keep her steady and dry in a sea. To fish, just cast: you step back to face your line.`,
     jetski: `The jet ski: over thirty knots. ${lever} It steers by its jet, so it only turns with the throttle on. Hold on over the crests. No fishing from it.`,
     cruiser: `The sport-fishing yacht: twin diesels, a cabin with bunks and a galley, and an open cockpit to fish from. ${lever} About twenty knots, slow to turn at speed. Anchor or tie up, then ${use} for the cabin. She can cross to Las Brasas (${use} out on open water).`,
     cabin: `The cabin boat: slow and steady, with a bunk and a galley stove. ${lever} Anchor or tie up, then ${use} for the cabin: cook, and sleep aboard.`,
@@ -7062,6 +7070,14 @@ function applyYard() {
     if (YARD_BASE.burn[k]) BOAT_PER_S[k] = YARD_BASE.burn[k] * e.burn;
     const M = b.hull.motor;
     if (M && YARD_BASE.thrust[k]) M.thrust = YARD_BASE.thrust[k] * e.thrust;
+    // (A boat with an engine catalogue, the RIB: the engine and propeller chosen for her, on her
+    // alone: her push, the outboard drawn, its revs, its sound and its fuel. See engines.js.)
+    if (hasCatalogue(k)) {
+      const S = engineSpec(k, b.hull, engineOf(state.yard, k));
+      b.setMotor(S);
+      BOAT_PER_S[k] = YARD_BASE.burn[k] * e.burn * S.burn;
+      WOT[k] = S.rpm;
+    }
     if (isPetrol(k) && fuelLevel(f, k) > TANKS[k]) addFuel(f, k, TANKS[k] - fuelLevel(f, k));
     const L = state.yard.looks[k] || {};
     b.repaint(L.paint ? PAINTS.find((p) => p.id === L.paint)?.hex : null);
@@ -7077,7 +7093,8 @@ function applyYard() {
 // would hold (a long-range tank, full: heavier).
 function payloadOf(k, e = fitEffect(state.yard, k)) {
   const extra = YARD_BASE.tanks[k] ? Math.max(0, fuelLevel(tanks(), k) - YARD_BASE.tanks[k]) : 0;
-  return e.kg + extra * (ENGINES[k]?.diesel ? 0.84 : 0.74) + Con.aboardKg(state.contracts, k) + Story.storyKg(state.story, k);
+  // (An engine from the catalogue weighs what it weighs: lighter or heavier than her own.)
+  return e.kg + (BOATS[k].motorSpec?.kg || 0) + extra * (ENGINES[k]?.diesel ? 0.84 : 0.74) + Con.aboardKg(state.contracts, k) + Story.storyKg(state.story, k);
 }
 applyYard();
 jobWeight();
@@ -11144,7 +11161,9 @@ function tick(now, manual = false) {
     if (boat.motor && !onFoot && (electric || ((!Eb || engineRunning(Eb)) && (throttle || Eb)))) {
       // (The sailing boat's outboard has no electric notches: it's hull.outboard, not hull.motor.)
       // (The bass boat's trolling battery: a second one fitted, it lasts half as long again.)
-      const ran = burnBoat(f, boat.kind, throttle || 0.06, electric ? dt / (fitsAboard()?.troll || 1) : dt, throttle ? troll : 0);
+      // (An engine from the catalogue works as hard as its propeller makes it: see engines.js.)
+      const work = !electric && boat.motorSpec ? boat.motorSpec.effort : 1;
+      const ran = burnBoat(f, boat.kind, (throttle || 0.06) * work, electric ? dt / (fitsAboard()?.troll || 1) : dt, throttle ? troll : 0);
       const what = scheme() === 'touch' ? 'tap the prompt' : K('interact');
       if (ran === 'dry') hud.flash(`The outboard splutters and stops: the tank is dry. An oar moves her along, slowly; stop, then ${what} for the jerry can or a tow.`, t, 6);
       if (ran === 'flat') hud.flash('The electric motor whines down: the battery is flat. It charges at a jetty, and overnight; the outboard still runs.', t, 5);
@@ -11217,7 +11236,8 @@ function tick(now, manual = false) {
   const motorOn = !onFoot && ((boat.motor && (boat.trolling ? !boat.flat : !boat.dry && (!Eh || engineRunning(Eh)))) || kayakOn);
   const outboard = motorOn && boat.motor && !boat.trolling;
   const voice = onFoot ? '' : boat.hull.motor?.jet ? 'jet' : boat.hull.motor?.inboard ? 'inboard' : '';
-  audio.engine?.(motorOn ? (outboard ? Math.max(0.12, Eh ? engineRevs(Eh) : Math.abs(boat.power) * (boat.tilted ? 0.5 : 1)) : 0.03 + Math.abs(boat.power) * 0.02) : 0, voice);
+  // (An engine from the catalogue has its own note: a V6 deeper and smoother than a four.)
+  audio.engine?.(motorOn ? (outboard ? Math.max(0.12, Eh ? engineRevs(Eh) : Math.abs(boat.power) * (boat.tilted ? 0.5 : 1)) : 0.03 + Math.abs(boat.power) * 0.02) : 0, voice, !onFoot && outboard ? boat.motorSpec?.voice : null);
   feelBoat(motorOn, outboard, voice);
   // The windsurf board up on the plane for the first time: a word.
   if (!onFoot && boat.hull.rig && boat.planing > 0.8) teach('planing', 'Planing! The board’s up on the water and flying. Keep the sheet just in, and ease out in the gusts.', 6);

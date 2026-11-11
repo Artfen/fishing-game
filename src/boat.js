@@ -1,4 +1,5 @@
 import { runShare, trimEffect } from './engine.js';
+import { pushAt } from './engines.js';
 import { Dashboard, DASHES } from './dashboard.js';
 import { canMount, mountFor, rigPose, propAt } from './trollmount.js';
 import * as THREE from 'three';
@@ -409,6 +410,8 @@ const PROP_LEVER = 0.3;
 // (the waves' energy), over her length (the same sea slows a little boat more than a big one; a
 // low swell hardly at all).
 const SEAWAY = 8.3;
+// (A propeller blade: see setBlades.)
+const BLADE = new THREE.BoxGeometry(0.03, 0.17, 0.012);
 // How long (s) a boat tied up or at anchor lies still before she can rest out of your way (see
 // update: settled at her berth, done swinging to her lines).
 const SETTLED = 3;
@@ -468,6 +471,9 @@ export class Boat {
     this.sheetHelp = true;
     this.overpowered = 0;
     this.payload = 0;       // kg carried beyond her own weight (fittings, extra fuel: see the game)
+    // The engine on her transom and its propeller, where she has a choice of them (see
+    // engines.js and setMotor): null, her motor as the hull has it.
+    this.motorSpec = null;
     this.anchorHold = 1;    // how hard her anchor holds (a heavier one: more; see holdAnchor)
     // Out on the crossing (see crossing.js): the sail shortened in a blow (1 full … less, reefed),
     // and the fastest a motor boat can be driven in the ocean's long swell (m/s).
@@ -951,37 +957,18 @@ export class Boat {
       this.body.add(g);
       return;
     }
-    const parts = [
-      { geo: new THREE.BoxGeometry(0.16, 0.14, 0.12), matrix: mat(0, 0, 0.02), color: '#3a3d42' },
-      { geo: new THREE.BoxGeometry(0.3, 0.3, 0.42), matrix: mat(0, 0.24, -0.12), color: M.cowl },
-      { geo: new THREE.BoxGeometry(0.31, 0.06, 0.43), matrix: mat(0, 0.11, -0.12), color: M.band },
-      { geo: new THREE.BoxGeometry(0.09, 0.95, 0.11), matrix: mat(0, -0.42, -0.14), color: '#3a3d42' },
-      { geo: new THREE.CylinderGeometry(0.06, 0.05, 0.3, 8), matrix: mat(0, -0.86, -0.16, Math.PI / 2, 0, 0), color: '#3a3d42' },
-      { geo: new THREE.BoxGeometry(0.02, 0.14, 0.12), matrix: mat(0, -0.95, -0.1), color: '#3a3d42' },
-      // (The tiller: none on a boat steered by a wheel.)
-      ...(H.console ? [] : [
-        { geo: new THREE.CylinderGeometry(0.018, 0.022, 0.62, 6), matrix: mat(0.04, 0.17, 0.26, Math.PI / 2 - 0.12, 0, 0), color: '#2b2b2b' },
-        { geo: new THREE.CylinderGeometry(0.03, 0.03, 0.14, 8), matrix: mat(0.04, 0.2, 0.55, Math.PI / 2 - 0.12, 0, 0), color: '#c0392b' },
-      ]),
-    ];
-    const geo = mergeParts(parts), shell = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.1 });
+    const geo = this.outboardGeo(), shell = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.1 });
     const bladeMat = new THREE.MeshStandardMaterial({ color: '#9aa1a8', metalness: 0.6, roughness: 0.35 });
-    const blade = new THREE.BoxGeometry(0.03, 0.17, 0.012);
+    this.motorMeshes = [];
+    this.bladeMats = { alloy: bladeMat, steel: new THREE.MeshStandardMaterial({ color: '#c9ced3', metalness: 0.9, roughness: 0.18 }) };
     const fit = (grp) => {
       const mesh = new THREE.Mesh(geo, shell);
       mesh.castShadow = true;
       grp.add(mesh);
+      this.motorMeshes.push(mesh);
       const prop = new THREE.Group();
       prop.position.set(0, -0.86, -0.33);
-      for (let i = 0; i < 3; i++) {
-        const b = new THREE.Mesh(blade, bladeMat);
-        b.position.y = 0.07;
-        const arm = new THREE.Group();
-        arm.rotation.z = (i / 3) * Math.PI * 2;
-        b.rotation.y = 0.5;
-        arm.add(b);
-        prop.add(arm);
-      }
+      this.setBlades(prop, 3, bladeMat);
       grp.add(prop);
       this.body.add(grp);
       return prop;
@@ -999,6 +986,61 @@ export class Boat {
     }
     // (The bass boat's electric bow motor, that her first notches run, is her bow trolling motor's
     // rig: see buildTroll, and main.js, which gives her one.)
+  }
+
+  // The outboard's shell, in one piece: its cowling and band (look: { cowl, band, tall }, the
+  // hull's own colours if none; tall: a V6's taller cowling), leg, gearcase and tiller.
+  outboardGeo(look = null) {
+    const H = this.hull, M = H.motor || H.outboard, tall = look?.tall ?? 1, ch = 0.3 * tall;
+    const parts = [
+      { geo: new THREE.BoxGeometry(0.16, 0.14, 0.12), matrix: mat(0, 0, 0.02), color: '#3a3d42' },
+      { geo: new THREE.BoxGeometry(0.3, ch, 0.42), matrix: mat(0, 0.09 + ch / 2, -0.12), color: look?.cowl ?? M.cowl },
+      { geo: new THREE.BoxGeometry(0.31, 0.06, 0.43), matrix: mat(0, 0.11, -0.12), color: look?.band ?? M.band },
+      { geo: new THREE.BoxGeometry(0.09, 0.95, 0.11), matrix: mat(0, -0.42, -0.14), color: '#3a3d42' },
+      { geo: new THREE.CylinderGeometry(0.06, 0.05, 0.3, 8), matrix: mat(0, -0.86, -0.16, Math.PI / 2, 0, 0), color: '#3a3d42' },
+      { geo: new THREE.BoxGeometry(0.02, 0.14, 0.12), matrix: mat(0, -0.95, -0.1), color: '#3a3d42' },
+      // (The tiller: none on a boat steered by a wheel.)
+      ...(H.console ? [] : [
+        { geo: new THREE.CylinderGeometry(0.018, 0.022, 0.62, 6), matrix: mat(0.04, 0.17, 0.26, Math.PI / 2 - 0.12, 0, 0), color: '#2b2b2b' },
+        { geo: new THREE.CylinderGeometry(0.03, 0.03, 0.14, 8), matrix: mat(0.04, 0.2, 0.55, Math.PI / 2 - 0.12, 0, 0), color: '#c0392b' },
+      ]),
+    ];
+    return mergeParts(parts);
+  }
+
+  // A propeller's blades (n of them, evenly round its hub), in place of any it had.
+  setBlades(prop, n, material) {
+    for (const c of [...prop.children]) prop.remove(c);
+    for (let i = 0; i < n; i++) {
+      const b = new THREE.Mesh(BLADE, material);
+      b.position.y = 0.07;
+      const arm = new THREE.Group();
+      arm.rotation.z = (i / n) * Math.PI * 2;
+      b.rotation.y = 0.5;
+      arm.add(b);
+      prop.add(arm);
+    }
+  }
+
+  // Her engine and propeller from the catalogue (see engines.js engineSpec; null: as the hull has
+  // it): what pushes her (see update), and the outboard drawn as it is: its size, its cowling and
+  // colours, and the propeller's blades.
+  setMotor(spec) {
+    const was = this.motorSpec;
+    this.motorSpec = spec || null;
+    if (!this.motorMeshes?.length) return;
+    const look = spec?.look || null;
+    if ((was?.look || null) !== look) {
+      const geo = this.outboardGeo(look);
+      for (const mesh of this.motorMeshes) {
+        mesh.geometry.dispose();
+        mesh.geometry = geo;
+      }
+    }
+    const n = spec?.blades ?? 3, steel = !!spec?.steel;
+    if ((was?.blades ?? 3) !== n || !!was?.steel !== steel) for (const p of this.props) this.setBlades(p, n, steel ? this.bladeMats.steel : this.bladeMats.alloy);
+    const M = this.hull.motor || this.hull.outboard;
+    for (const mg of this.motorGroups) mg.scale.setScalar(spec?.scale ?? M?.scale ?? 1);
   }
 
   // The yacht's twin inboards, as you'd see them from the water: a shaft each side angling down
@@ -1659,9 +1701,9 @@ export class Boat {
       g.add(L);
     }
     // (A bigger outboard sits a little bigger on her transom: a tenth bigger than her own, and both
-    // of a pair alike.)
+    // of a pair alike. One from the engine catalogue, as big as it is: see setMotor.)
     const M = this.hull.motor || this.hull.outboard;
-    for (const mg of this.motorGroups || []) mg.scale.setScalar((M?.scale ?? 1) * (has('power') ? 1.1 : 1));
+    for (const mg of this.motorGroups || []) mg.scale.setScalar(this.motorSpec?.scale ?? (M?.scale ?? 1) * (has('power') ? 1.1 : 1));
     this.body.add(g);
   }
 
@@ -2549,7 +2591,12 @@ export class Boat {
       // (Her electric bow motor has to be down to push: see trollmount.js. A boat with no rig, the
       // townsfolk's or a test's, runs it as ever.)
       else if (troll) thrust = this.troll && this.trollMount && !this.troll.deployed ? 0 : 0.45 * (pw / M.troll);
-      else thrust = (pw > 0 ? (E || M).thrust * pw : (E || M).astern * pw) * (tilted ? 0.22 : 1) * share * (TE ? TE.eff : 1);
+      // (Her engine from the catalogue, if she has one: its push falls away at its limiter, past
+      // the speed its propeller's pitched for. See engines.js.)
+      else {
+        const S = !E && this.motorSpec;
+        thrust = (pw > 0 ? (S ? pushAt(S, vf) : (E || M).thrust) * pw : (S ? S.astern : (E || M).astern) * pw) * (tilted ? 0.22 : 1) * share * (TE ? TE.eff : 1);
+      }
       const spin = troll || dead || E ? 0 : pw;
       this.propSpin += dt * (6 + Math.abs(spin) * 60) * Math.sign(spin || 1) * (Math.abs(spin) > 0.02 ? 1 : 0.1);
       this.bowNotch = troll && !dead ? Math.min(1, pw / 0.05) : 0;
@@ -2602,7 +2649,8 @@ export class Boat {
       if (!dead && !troll && !E && Math.abs(vf) > 3) {
         const sh = shelterAt(this.pos.x, this.pos.z), Hs = conditions.sea.swell * sh[0] + conditions.sea.chop * sh[1];
         // (Only once she's going fast enough to slam: trolling and creeping along, waves cost little.)
-        const seaway = SEAWAY * ((Hs * Hs) / H.L) * vf * m * smoothstep(3, 9, Math.abs(vf));
+        // (A four-bladed propeller grips better as she pitches through it: see engines.js.)
+        const seaway = SEAWAY * ((Hs * Hs) / H.L) * vf * m * smoothstep(3, 9, Math.abs(vf)) * (1 - (this.motorSpec?.grip || 0));
         if (seaway) b.forces.push({ f: [-this.fwd.x * seaway, 0, -this.fwd.z * seaway], p: b.toWorld(b.model.cg, [0, 0, 0]) });
       }
       const keel0 = H.keel(0), stern = zAt(H, 0);

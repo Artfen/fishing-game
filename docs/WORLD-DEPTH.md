@@ -37,8 +37,8 @@ green.
 3. Skerries Reef and the Kelp Forest as showcase habitats; fish that steer round rock.
 
 **Phase B: engines and vessels**
-1. The engine catalogue and power-based thrust, the RIB first: outboards from 115 to 300 hp,
-   propellers, models, sound and the shipyard comparison.
+1. The engine catalogue and power-based thrust, the RIB first: outboards from 115 to 225 hp (her
+   capacity plate's limit), propellers, models, sound and the shipyard comparison.
 2. The other boats' engines (portable and electric for the skiff, diesels for the yacht, twins
    for the console).
 3. Individual vessels and the save migration; exterior customization and configurations.
@@ -58,7 +58,7 @@ Trust assignments.
 - [x] A2a rockpools (Version 83): 18 pools on three shores, with the tide; anemones, limpets, periwinkles, prawns, shore crabs, cushion stars, gobies and shannies; turn a stone, the net, photographs, notes
 - [x] A3 showcase reef and kelp (Version 84): fish round the rock of the dive sites; Skerries Reef's crabs, lobsters, barnacles and mussels; the light under the kelp
 - [ ] A2b live bait (a bucket, the livewell): after B1, which the brief calls a major priority
-- [ ] B1 engine catalogue (RIB)
+- [x] B1 engine catalogue, the RIB (Version 85): the Fulmar 115 and 150, the Skua 200 and 225; three propellers; push from power and pitch, calibrated on her own engine; weight, fuel, sound, revs and the outboard drawn; the Marine Works' comparison measured on the boat; old saves' engine fittings carried over
 - [ ] B2 engines for the other boats
 - [ ] B3 vessels and customization
 - [ ] C chart layers and routes

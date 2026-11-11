@@ -99,15 +99,18 @@ test('paint, a name and fittings: only on your own boat, each paid once, and fit
   assert.equal(nameBoat(s, 'rib', '  Kittiwake  ').ok, true);
   assert.equal(s.yard.looks.rib.name, 'Kittiwake');
   assert.equal(cleanBoatName('A'.repeat(40)).length, 18);
-  assert.ok(['power', 'tank', 'sonar', 'plotter', 'anchor'].every((id) => fitsFor('rib').includes(id)));
+  assert.ok(['tank', 'sonar', 'plotter', 'anchor'].every((id) => fitsFor('rib').includes(id)));
+  // (The RIB chooses her engine and propeller from the engine catalogue instead: see engines.test.mjs.)
+  assert.ok(!fitsFor('rib').includes('power') && !fitsFor('rib').includes('economy'));
+  assert.ok(fitsFor('console').includes('power') && fitsFor('console').includes('economy'));
   assert.deepEqual(fitsFor('row'), []);
   const none = fitEffect(s.yard, 'rib');
   assert.ok(none.tank === 1 && none.thrust === 1 && none.burn === 1 && none.kg === 0 && !none.sonar);
   assert.equal(fitBoat(s, 'rib', 'tank').ok, true);
-  assert.equal(fitBoat(s, 'rib', 'power').ok, true);
-  assert.equal(fitBoat(s, 'rib', 'power').ok, false);
+  assert.equal(fitBoat(s, 'rib', 'tank').ok, false, 'not twice');
+  assert.equal(fitBoat(s, 'rib', 'power').ok, false, 'her engine comes from the catalogue');
   const e = fitEffect(s.yard, 'rib');
-  assert.ok(e.tank > 1 && e.thrust > 1 && e.burn > 1);
+  assert.ok(e.tank > 1 && e.thrust === 1 && e.burn === 1);
   assert.equal(fitBoat(s, 'row', 'power').ok, false);
   assert.ok(PAINTS.length >= 8 && Object.values(FITS).every((f) => f.desc && f.name));
   // Nothing here touches the fish: no fitting has anything to do with bites.
@@ -159,6 +162,8 @@ test('Shipyard 2.0: every fitting weighs something real and does something real,
   const s = { day: 1, hour: 9, money: 5000, ledger: [], yard: cleanYard({ owned: KINDS }, KINDS) };
   // One engine choice at a time: the economy tune replaces the bigger outboard.
   assert.ok(fitBoat(s, 'console', 'power').ok);
+  const big = fitEffect(s.yard, 'console');
+  assert.ok(big.thrust > 1 && big.burn > 1);
   const sw = fitBoat(s, 'console', 'economy');
   assert.ok(sw.ok && sw.swapped === 'power');
   assert.deepEqual(s.yard.fits.console, ['economy']);
@@ -175,7 +180,7 @@ test('Shipyard 2.0: every fitting weighs something real and does something real,
   assert.equal(s.money, m);
   assert.equal(fitEffect(s.yard, 'console').kg, e.kg - FITS.livewell.kg);
   // The save keeps one to a slot, and drops what doesn't fit.
-  const back = cleanYard({ owned: KINDS, fits: { rib: ['power', 'economy', 'bimini', 'livewell', 'nonsense'] } }, KINDS);
-  assert.deepEqual(back.fits.rib, ['economy', 'bimini']);
+  const back = cleanYard({ owned: KINDS, fits: { console: ['power', 'economy', 'bimini', 'livewell', 'nonsense'] } }, KINDS);
+  assert.deepEqual(back.fits.console, ['economy', 'livewell']);
 });
 
