@@ -811,11 +811,19 @@ The places you fish from most have fish of their own, of the kinds that really h
 
 Slow Tide is a Progressive Web App. The first time you open it online, it quietly stores the whole game on your device (scripts, styles, fonts, icons; the sounds and shaders are made by the code) and the title screen says **Ready to play offline**. After that it starts and plays with no connection at all: fishing, the journal and catch log, saving, and every place you've found. To add it to your home screen: on iPhone or iPad, Share → *Add to Home Screen*; on Android Chrome, ⋮ → *Install app*; on a computer, the install icon in the address bar.
 
-**Which version you have** is on the title screen, under the buttons: *Version 67 · build 76580692 · 9 Nov 2026*. The version goes up with each change shipped (it's the number of the pull request that shipped it); the build is made from the game's own files (`src/version.js`, written by `tools/build-sw.mjs`, the same as the offline copy's version in `sw.js`), so two copies showing the same build are the same game. If yours is older than the latest, the new version downloads in the background and takes over the next time you're on the title screen (or choose Update in the journal).
+**Which version you have** is on the title screen, under the buttons: *Version 67 · build 76580692 · 9 Nov 2026*. The version goes up with each change shipped (it's the number of the pull request that shipped it); the build is made from the game's own files (`src/version.js`, written by `tools/build-sw.mjs`, the same as the offline copy's version in `sw.js`), so two copies showing the same build are the same game.
+
+**Getting the newest version: press Update** on the title screen, just above the version (or *Check for updates* in the journal, under Your progress). No need to refresh the page over and over:
+- **If there's a new version**, it says *Downloading the new version (40%)…* as it comes down, then switches over by itself and the title shows the new number.
+- **If you already have it**, it says *You have the newest version (Version 80)*.
+- **If you're offline**, it says to connect first; your offline copy stays as it is.
+- **If an update can't be stored** (the connection dropped, or the copy on this device is stuck), it fetches a clean copy of the game from the site instead. Your saved game, settings and photos are kept: they live in the browser's storage, not in the offline copy.
+
+A new version found when you open the game downloads in the background too, and the title screen shows it coming down.
 
 While you're offline, *Offline* appears next to the clock, and the journal explains that everything keeps working and saving on this device. If you've switched on cloud saves and signed in, syncing pauses; your progress waits in the browser and goes up when the connection is back, combined with anything newer from your other devices (catches are matched by id, so nothing is counted twice).
 
-New versions arrive safely. When a new version is deployed, the game downloads it in the background and keeps running the old one. On the title screen it switches straight away; during play it offers *Update to the new version* in the journal, and keeps your progress either way. Saves live in the browser's local storage, which updates never touch.
+New versions arrive safely. When a new version is deployed, the game downloads it in the background and keeps running the old one. On the title screen it switches straight away once it's all down; during play it offers *Update to the new version* in the journal (it never reloads under you mid-game), and keeps your progress either way. Saves live in the browser's local storage, which updates never touch.
 
 ### Saving your progress
 

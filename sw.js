@@ -6,11 +6,12 @@
 // - A new deployment changes VERSION (tools/build-sw.mjs works it out from the files), so
 //   the browser installs the new version alongside the old one. The old version keeps
 //   running until the player updates (or closes every Slow Tide tab); then the new one
-//   takes over and the old cache is removed.
+//   takes over and the old cache is removed. (The game's Update button asks for the new
+//   version straight away, shows how far it's got, and switches over when it's all here.)
 // - It never touches saved games: those live in the browser's local storage, not here.
 
 // <precache> Written by tools/build-sw.mjs: do not edit by hand.
-const VERSION = '21025f10632d';
+const VERSION = 'f0b80b1e5cd4';
 const FILES = [
   './index.html',
   './style.css',
@@ -204,11 +205,19 @@ const RUNTIME = 'slow-tide-runtime'; // small extras, such as the cloud save set
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
+    // How far it's got, for the game's Update button (every few files, and at the end).
+    let done = 0, told = 0;
+    const tell = async () => {
+      told = done;
+      for (const c of await self.clients.matchAll({ includeUncontrolled: true })) c.postMessage({ type: 'progress', version: VERSION, cached: done, total: FILES.length });
+    };
     // Straight from the network, not the browser's ordinary cache, so every file is this version.
     await Promise.all(FILES.map(async (file) => {
       const res = await fetch(new Request(file, { cache: 'reload' }));
       if (!res.ok) throw new Error(`${file}: ${res.status}`);
       await cache.put(file, res);
+      done++;
+      if (done - told >= 6 || done === FILES.length) tell().catch(() => {});
     }));
   })());
 });
@@ -237,6 +246,7 @@ self.addEventListener('message', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
+  if (req.cache === 'no-store') return; // the game asking the site itself (which version is out): straight to the network
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // other sites (a cloud save backend) go straight to the network
 
