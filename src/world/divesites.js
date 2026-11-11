@@ -186,6 +186,24 @@ const BOX = (() => {
   }
   return b;
 })();
+// (The boulders by 12 m cells, so a point only tries the few near it: fish ask this every frame.)
+const CELL_R = 12;
+const ROCK_CELLS = (() => {
+  const m = new Map();
+  for (const o of ROCKS) {
+    const R = o.r + 1.5;
+    for (let i = Math.floor((o.x - R) / CELL_R); i <= Math.floor((o.x + R) / CELL_R); i++) {
+      for (let j = Math.floor((o.z - R) / CELL_R); j <= Math.floor((o.z + R) / CELL_R); j++) {
+        const k = `${i},${j}`;
+        if (!m.has(k)) m.set(k, []);
+        m.get(k).push(o);
+      }
+    }
+  }
+  return m;
+})();
+const NONE = [];
+const rocksAt = (x, z) => ROCK_CELLS.get(`${Math.floor(x / CELL_R)},${Math.floor(z / CELL_R)}`) || NONE;
 // Push a point out of the rock: the boulders and the arch's stones, the Hound and its Pup.
 // p: { x, y, z } (changed in place); pad: how far to keep from it. Returns true if it moved.
 export function pushOut(p, pad = 0.4) {
@@ -207,17 +225,23 @@ export function pushOut(p, pad = 0.4) {
     }
     moved = true;
   }
-  for (const o of ROCKS) {
-    const dx = p.x - o.x, dy = p.y - o.y, dz = p.z - o.z;
-    const R = o.r * 0.92 + pad;
-    if (Math.abs(dx) > R || Math.abs(dz) > R || Math.abs(dy) > R) continue;
-    const d = Math.hypot(dx, dy, dz);
-    if (d >= R) continue;
-    const k = R / Math.max(d, 1e-3);
-    p.x = o.x + dx * k;
-    p.y = o.y + dy * k;
-    p.z = o.z + dz * k;
-    moved = true;
+  // (Where boulders lean on one another, out of one can be into the next: a few passes, until
+  // nothing moves.)
+  for (let pass = 0; pass < 4; pass++) {
+    let again = false;
+    for (const o of rocksAt(p.x, p.z)) {
+      const dx = p.x - o.x, dy = p.y - o.y, dz = p.z - o.z;
+      const R = o.r * 0.92 + pad;
+      if (Math.abs(dx) > R || Math.abs(dz) > R || Math.abs(dy) > R) continue;
+      const d = Math.hypot(dx, dy, dz);
+      if (d >= R) continue;
+      const k = R / Math.max(d, 1e-3);
+      p.x = o.x + dx * k;
+      p.y = o.y + dy * k;
+      p.z = o.z + dz * k;
+      moved = again = true;
+    }
+    if (!again) break;
   }
   return moved;
 }

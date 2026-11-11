@@ -56,8 +56,8 @@ Trust assignments.
 
 - [x] A1 micro-fishing (Version 81): rock goby, shanny, corkwing wrasse, black goby, minnow; the micro float rod, micro float, worm pieces, micro jig
 - [x] A2a rockpools (Version 83): 18 pools on three shores, with the tide; anemones, limpets, periwinkles, prawns, shore crabs, cushion stars, gobies and shannies; turn a stone, the net, photographs, notes
-- [ ] A2b live bait (a bucket, the livewell)
-- [ ] A3 showcase reef and kelp
+- [x] A3 showcase reef and kelp (Version 84): fish round the rock of the dive sites; Skerries Reef's crabs, lobsters, barnacles and mussels; the light under the kelp
+- [ ] A2b live bait (a bucket, the livewell): after B1, which the brief calls a major priority
 - [ ] B1 engine catalogue (RIB)
 - [ ] B2 engines for the other boats
 - [ ] B3 vessels and customization

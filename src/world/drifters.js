@@ -3,7 +3,7 @@ import { heightAt, zoneAt, waterOf, SOUTH_Z } from './terrain.js';
 import { yearPhase } from './season.js';
 import { mergeParts, mat, hash2, seeded, clamp, dampAngle, wrapAngle, damp } from '../util.js';
 import { FISH, buildFishGeometry, fishMaterial } from '../fish.js';
-import { siteById, PINNACLES, pinnacleRadius } from './divesites.js';
+import { siteById, PINNACLES, pinnacleRadius, pushOut } from './divesites.js';
 
 // The life of the open water between the fish's haunts, so the water's never empty when you're
 // down in it: jellyfish drifting and pulsing (moon jellies and compass jellies at home in the
@@ -90,6 +90,7 @@ const REEF_CELL = 7;     // metres: the reef's fish are laid out finer, and near
 const REEF_REACH = 24;   // than the jellies (you only see so far down there)
 const REEF_GROUPS = 64;  // the nearest this many groups are kept (they're the ones you'd see)
 const REEF_MAX = 160;    // of any one kind at once
+const _rk = { x: 0, y: 0, z: 0 };
 
 // Turning a fish (or a whole shoal, o.heading) towards a heading: easing in at `rate`, never faster
 // than `most` rad/s. o.wind keeps how far round it has come since it last settled; with `unwind`, a
@@ -390,8 +391,17 @@ export class Drifters {
         // back, until you come close or it comes to look.
         const along = Math.sin(f.a) * f.rr * tight + Math.sin(t * 0.3 + f.wob) * 0.25;
         const across = Math.cos(f.a) * f.rr * tight + Math.cos(t * 0.23 + f.wob * 2) * 0.2;
-        const x = G.cx + sh * along + ch * across, z = G.cz + ch * along - sh * across;
-        const y = clamp(G.y + (cp.y - G.y) * 0.6 * G.look + f.h + Math.sin(t * 0.5 + f.wob) * 0.15, G.low, G.top);
+        let x = G.cx + sh * along + ch * across, z = G.cz + ch * along - sh * across;
+        let y = clamp(G.y + (cp.y - G.y) * 0.6 * G.look + f.h + Math.sin(t * 0.5 + f.wob) * 0.15, G.low, G.top);
+        // (Round a dive site's boulders and arches, not through them: held at the rock's face.)
+        _rk.x = x;
+        _rk.y = y;
+        _rk.z = z;
+        if (pushOut(_rk, 0.12 + f.scale * 0.35)) {
+          x = _rk.x;
+          y = Math.min(_rk.y, G.top);
+          z = _rk.z;
+        }
         const own = G.mode === 'hover' && G.shy < 0.3 && G.look < 0.4;
         const aim = own ? f.a + Math.sin(t * 0.05 * (1 + Math.abs(f.sp)) + f.wob) * 1.1 : G.heading + Math.sin(t * 0.6 + f.wob) * 0.12;
         const was = (f.yaw ??= aim);

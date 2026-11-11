@@ -154,6 +154,53 @@ function lobsterGeometry() {
   }
   return mergeParts(parts);
 }
+// An edible crab: a broad oval shell edged like a pie crust, red-brown, and two heavy claws with
+// black tips. (Hides in the crevices by day; about 15 cm across the shell here.)
+function edibleCrabGeometry() {
+  const shell = '#9a5a3a', dark = '#6a3a28', tip = '#141414';
+  const parts = [{ geo: new THREE.SphereGeometry(0.075, 14, 8), matrix: mat(0, 0.03, 0, 0, 0, 0, 1.35, 0.42, 1), color: shell }];
+  for (let k = 0; k < 9; k++) {
+    const a = -1.2 + k * 0.3;
+    parts.push({ geo: new THREE.SphereGeometry(0.012, 5, 4), matrix: mat(Math.sin(a) * 0.1, 0.03, Math.cos(a) * 0.072), color: dark });
+  }
+  for (const s of [-1, 1]) {
+    parts.push({ geo: new THREE.CapsuleGeometry(0.022, 0.05, 3, 7), matrix: mat(s * 0.06, 0.03, 0.09, Math.PI / 2, 0, s * 0.5), color: shell });
+    parts.push({ geo: new THREE.ConeGeometry(0.014, 0.035, 6), matrix: mat(s * 0.08, 0.03, 0.135, Math.PI / 2, 0, 0), color: tip });
+    for (let k = 0; k < 4; k++) parts.push({ geo: new THREE.CylinderGeometry(0.006, 0.005, 0.08, 4), matrix: mat(s * 0.1, 0.015, 0.02 - k * 0.025, 0, 0, s * 1.15), color: dark });
+  }
+  return mergeParts(parts);
+}
+// A velvet swimming crab: a flatter, velvety brown shell, legs lined with electric blue, red eyes,
+// and its back legs flattened into paddles. (Fierce: it rears up, claws open, when you come close.)
+function velvetCrabGeometry() {
+  const shell = '#5a4a38', blue = '#2a5ab8', red = '#d0281e';
+  const parts = [{ geo: new THREE.SphereGeometry(0.05, 12, 7), matrix: mat(0, 0.022, 0, 0, 0, 0, 1.3, 0.35, 1), color: shell }];
+  for (const s of [-1, 1]) {
+    parts.push({ geo: new THREE.SphereGeometry(0.006, 5, 4), matrix: mat(s * 0.018, 0.04, 0.05), color: red });
+    parts.push({ geo: new THREE.CapsuleGeometry(0.012, 0.04, 3, 6), matrix: mat(s * 0.05, 0.022, 0.06, Math.PI / 2, 0, s * 0.6), color: blue });
+    for (let k = 0; k < 3; k++) parts.push({ geo: new THREE.CylinderGeometry(0.005, 0.004, 0.065, 4), matrix: mat(s * 0.072, 0.012, 0.015 - k * 0.022, 0, 0, s * 1.15), color: k % 2 ? blue : shell });
+    parts.push({ geo: new THREE.BoxGeometry(0.03, 0.004, 0.022), matrix: mat(s * 0.07, 0.012, -0.05, 0, s * 0.5, 0), color: blue });
+  }
+  return mergeParts(parts);
+}
+// Acorn barnacles: a crust of little white volcanoes on the rock.
+function barnacleGeometry(rnd) {
+  const parts = [];
+  for (let k = 0; k < 14; k++) {
+    const a = rnd() * Math.PI * 2, r = Math.sqrt(rnd()) * 0.07, s = 0.6 + rnd() * 0.6;
+    parts.push({ geo: new THREE.CylinderGeometry(0.003 * s, 0.008 * s, 0.008 * s, 6), matrix: mat(Math.cos(a) * r, 0.004 * s, Math.sin(a) * r), color: '#e4ddc8', jitter: 0.12 });
+  }
+  return mergeParts(parts, rnd);
+}
+// Blue mussels: a clump of blue-black shells, packed tight and tipped every way.
+function musselGeometry(rnd) {
+  const parts = [];
+  for (let k = 0; k < 9; k++) {
+    const a = rnd() * Math.PI * 2, r = Math.sqrt(rnd()) * 0.06;
+    parts.push({ geo: new THREE.SphereGeometry(0.016, 7, 5), matrix: mat(Math.cos(a) * r, 0.012, Math.sin(a) * r, rnd() * 1.2 - 0.6, rnd() * 6.3, rnd() * 0.8, 0.55, 0.5, 1.5), color: '#1e2433', jitter: 0.1 });
+  }
+  return mergeParts(parts, rnd);
+}
 // A lobster pot, lost: a slatted base, three hoops and the ropes, gone green.
 function potGeometry() {
   const frame = '#3b3a2f', rope = '#9a9068';
@@ -277,7 +324,7 @@ export function buildDiveSites(scene, rnd) {
   const group = new THREE.Group();
   group.name = 'divesites';
   // What grows at each site, kind by kind (each site's drawn only when you're near it).
-  const KINDS = ['jewel', 'fingers', 'plumose', 'dahlia', 'urchin', 'star', 'sponge', 'kelp', 'red', 'fan', 'lobster', 'ceri', 'pen', 'link'];
+  const KINDS = ['jewel', 'fingers', 'plumose', 'dahlia', 'urchin', 'star', 'sponge', 'kelp', 'red', 'fan', 'lobster', 'ceri', 'pen', 'link', 'ediblecrab', 'velvetcrab', 'barnacle', 'bluemussel'];
   const bySite = Object.fromEntries(DIVE_SITES.map((S) => [S.id, Object.fromEntries(KINDS.map((k) => [k, []]))]));
   let L = bySite.reef;
   const JEWEL = ['#ef6fa4', '#ef6fa4', '#7fd59a', '#f2a04e', '#b98ae6', '#f4e6c8', '#e8505a'];
@@ -341,6 +388,35 @@ export function buildDiveSites(scene, rnd) {
     if (r < 0.6) L.red.push({ ...p, s: 0.35 + rnd() * 0.4, color: pick(['#ffffff', '#f0d0d0'], rnd) });
     else if (r < 0.8) L.urchin.push({ ...p, s: 0.8 + rnd() * 0.5, color: pick(['#c46f8a', '#b45e86'], rnd) });
     else L.star.push({ ...p, s: 0.9 + rnd() * 0.5, color: pick(['#e0782e', '#d8672e'], rnd) });
+  }
+  {
+    // The reef's crevices: at the foot of the boulders, in the shade under their bulge, the crabs
+    // that hide there by day (edible crabs, velvet swimming crabs) and, under the bigger ones, a
+    // lobster's hole; on the shallow rock tops, barnacles and mussels where the swell keeps the water
+    // moving. Richest in the arch's shelter; some of the boulders out on the exposed edge bare.
+    const arch = ROCKS.find((o) => o.arch);
+    for (const o of ROCKS) {
+      if (!near(A, o)) continue;
+      const shelter = clamp(1 - Math.hypot(o.x - arch.x, o.z - arch.z) / (A.r * 1.3), 0.15, 1);
+      if (rnd() > 0.3 + shelter * 0.65) continue;
+      const foot = () => {
+        const a = rnd() * Math.PI * 2, x = o.x + Math.cos(a) * o.r * 0.96, z = o.z + Math.sin(a) * o.r * 0.96;
+        return { x, y: bed(x, z) + 0.02, z, a };
+      };
+      const nc = Math.round(rnd() * 2.2 * shelter + (o.r > 2 ? 1 : 0));
+      for (let k = 0; k < nc; k++) {
+        const f = foot();
+        (rnd() < 0.55 ? L.ediblecrab : L.velvetcrab).push({ x: f.x, y: f.y, z: f.z, s: 0.8 + rnd() * 0.5, spin: -f.a + Math.PI / 2 + (rnd() - 0.5) * 0.7, color: '#ffffff' });
+      }
+      if (o.r > 2.2 && rnd() < 0.45 * shelter) {
+        const f = foot();
+        L.lobster.push({ x: f.x, y: f.y, z: f.z, s: 0.9 + rnd() * 0.3, spin: -f.a + Math.PI / 2, color: '#ffffff' });
+      }
+      if (o.y + o.r * 0.86 > -5) {
+        const nb = Math.round(o.r * 4 * (0.4 + shelter * 0.6));
+        for (let k = 0; k < nb; k++) (rnd() < 0.55 ? L.barnacle : L.bluemussel).push({ ...onRock(o, 0.72), s: 0.8 + rnd() * 0.7, color: '#ffffff' });
+      }
+    }
   }
   {
     // A lobster at the foot of the arch's western pier.
@@ -532,6 +608,10 @@ export function buildDiveSites(scene, rnd) {
     ceri: [cerianthusGeometry(), mats.soft],
     pen: [seaPenGeometry(), mats.plain],
     link: [linkGeometry(), mats.plain, { tint: 0.15 }],
+    ediblecrab: [edibleCrabGeometry(), mats.plain, { tint: 0.1 }],
+    velvetcrab: [velvetCrabGeometry(), mats.plain, { tint: 0.08 }],
+    barnacle: [barnacleGeometry(rnd), mats.plain, { tint: 0.1 }],
+    bluemussel: [musselGeometry(rnd), mats.plain, { tint: 0.1 }],
   };
   const life = [];
   const siteParts = DIVE_SITES.map((S) => {
