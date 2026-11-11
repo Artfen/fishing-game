@@ -155,3 +155,13 @@ test('the birds are in the journal’s tree and the save', () => {
   const raw = JSON.stringify({ game: 'slow-tide', version: SAVE_VERSION, savedAt: 1, data: { seaLife: { puffin: { n: 3, day: 8, hour: 11, where: 'Gannet Isle' } } } });
   assert.equal(parseSave(raw).state.seaLife.puffin.n, 3);
 });
+
+test('a photograph names the birds in it (nothing in photoSubjects hides the birds of the coast)', async () => {
+  // (A local "birds" there once shadowed the birds of the coast: every photograph then failed with
+  // "birds.inFrame is not a function". main.js is the browser's, so this reads its source.)
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const body = src.slice(src.indexOf('function photoSubjects('), src.indexOf('\nfunction ', src.indexOf('function photoSubjects(') + 10));
+  assert.ok(body.includes('birds.inFrame('), 'the birds of the coast are asked what is in the picture');
+  assert.ok(!/\b(const|let|var)\s+birds\b/.test(body), 'and nothing in it is called birds besides them');
+});
