@@ -276,9 +276,10 @@ export class HUD {
   }
 
   // The rod in hand and what's tied on.
-  gear(rod, item) {
+  // (note: after the bait's name, as how many live ones are left in the bucket.)
+  gear(rod, item, note = '') {
     this.setHTML('gearRod', this.el.gearRod, rod.short);
-    this.setHTML('gearItem', this.el.gearItem, item ? item.short : 'nothing tied on');
+    this.setHTML('gearItem', this.el.gearItem, item ? item.short + note : 'nothing tied on');
     const b = this.el.gear;
     b.classList.remove('flash');
     void b.offsetWidth;

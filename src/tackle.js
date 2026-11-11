@@ -1,3 +1,4 @@
+import { LIVE_BAITS, liveCount, cleanBucket, newBucket } from './livebait.js';
 import { clamp, smoothstep } from './util.js';
 
 // Rods, reels and line, the terminal tackle at the end (floats, leads, leaders and tippets),
@@ -227,6 +228,12 @@ export const TACKLE = {
     desc: 'An oily strip that flutters in the tide. Bigger flatfish, bass and the old mossback.' },
   wormpiece: { id: 'wormpiece', on: 'a scrap of worm', type: 'bait', name: 'Worm pieces', short: 'Worm piece', size: 0.5, weight: 0.5, water: 'both', as: ['worm', 'rag', 'maggot'],
     desc: 'A pinch of worm on a tiny hook: gobies, blennies, small wrasse and minnows. Bigger fish mostly leave a scrap that small alone.' },
+  // (Live baits: from your bait bucket, never packed or bought: see livebait.js. Each one taken by
+  // a fish is gone from the bucket.)
+  liveprawn: { id: 'liveprawn', on: 'a live prawn', type: 'bait', name: 'Live prawn', short: 'Live prawn', size: 2, weight: 4, water: 'salt', live: true, as: ['prawn'],
+    desc: 'A prawn from a rockpool, hooked lightly through the tail so it kicks: anything that hunts along the rocks takes it before a dead one.' },
+  livefish: { id: 'livefish', on: 'a live fish', type: 'bait', name: 'Live fish', short: 'Live fish', size: 2.5, weight: 12, water: 'both', live: true,
+    desc: 'A small fish from your bait bucket, lip-hooked so it swims: a sand smelt or a joey mackerel for a bass or a pollack, a minnow or a small roach for a pike or a perch. The hunters can’t leave it.' },
   // --- lures: spinners, spoons, plugs, soft plastics, metals and surface lures ---
   tspin: { id: 'tspin', on: 'a little trout spinner', type: 'lure', name: 'Trout spinner (size 0)', short: 'Trout spinner', size: 1, weight: 3,
     action: 'flash', sink: 0.4, lift: 0.95, water: 'fresh',
@@ -303,7 +310,8 @@ export const TACKLE = {
 export const LINE_COLORS = { float: '#f5efe2', lure: '#c3dc98', ledger: '#e9f0e6', bottom: '#e9f0e6', fly: '#f0dc7a', jig: '#e7d6f2' };
 
 export const ROD_IDS = Object.keys(RODS);
-export const ITEM_IDS = Object.keys(TACKLE);
+// (What can be packed or bought: everything but the live baits, which come from your bucket.)
+export const ITEM_IDS = Object.keys(TACKLE).filter((i) => !TACKLE[i].live);
 export const TERM_IDS = Object.keys(TERMS);
 export const PACK = { rods: 2, items: 8, saved: 6 }; // (the creel holds fish by weight: see shop.js)
 export const TYPE_NAMES = { bait: 'Baits', lure: 'Lures', fly: 'Flies', jig: 'Squid jigs' };
@@ -362,6 +370,7 @@ export function defaultGear() {
     term: {},  // rod id -> terminal tackle id (defaults to the rod's first)
     drag: {},
     saved: [], // setups you saved yourself: { name, rods, items, rod, rig, line, term }
+    bucket: newBucket(), // the bait bucket: live bait (see livebait.js)
   };
 }
 
@@ -372,7 +381,7 @@ function cleanSetup(s) {
   if (!s || typeof s !== 'object') return null;
   const rods = (Array.isArray(s.rods) ? s.rods : []).filter((r) => RODS[r]).slice(0, PACK.rods);
   if (!rods.length) return null;
-  const items = (Array.isArray(s.items) ? s.items : []).filter((i) => TACKLE[i]).slice(0, PACK.items);
+  const items = (Array.isArray(s.items) ? s.items : []).filter((i) => TACKLE[i] && !TACKLE[i].live).slice(0, PACK.items);
   const out = { name: typeof s.name === 'string' ? s.name.slice(0, 30) : 'My setup', rods: [...new Set(rods)], items: [...new Set(items)], rod: rods.includes(s.rod) ? s.rod : rods[0], rig: {}, line: {}, term: {} };
   for (const r of out.rods) {
     if (TACKLE[s.rig?.[r]]) out.rig[r] = s.rig[r];
@@ -387,8 +396,8 @@ export function cleanGear(g) {
   const d = defaultGear();
   if (!g || !g.pack) return d;
   const rods = (g.pack.rods || []).filter((r) => RODS[r]).slice(0, PACK.rods);
-  const items = (g.pack.items || []).filter((i) => TACKLE[i]).slice(0, PACK.items);
-  const out = { pack: { rods: [...new Set(rods)], items: [...new Set(items)] }, rod: g.rod, rig: { ...d.rig }, line: {}, term: {}, drag: {}, saved: [] };
+  const items = (g.pack.items || []).filter((i) => TACKLE[i] && !TACKLE[i].live).slice(0, PACK.items);
+  const out = { pack: { rods: [...new Set(rods)], items: [...new Set(items)] }, rod: g.rod, rig: { ...d.rig }, line: {}, term: {}, drag: {}, saved: [], bucket: cleanBucket(g.bucket) };
   for (const [r, i] of Object.entries(g.rig || {})) if (RODS[r] && TACKLE[i]) out.rig[r] = i;
   for (const [r, id] of Object.entries(g.line || {})) if (RODS[r] && lineOk(RODS[r], id)) out.line[r] = id;
   for (const [r, id] of Object.entries(g.term || {})) if (RODS[r] && termOk(RODS[r], id)) out.term[r] = id;
@@ -437,10 +446,15 @@ export function currentRig(gear) {
   const rod = RODS[gear.rod];
   if (!rod) return { rod: null, item: null };
   const chosen = TACKLE[gear.rig[rod.id]];
-  if (chosen && fits(rod, chosen) && gear.pack.items.includes(chosen.id)) return { rod, item: chosen };
+  if (chosen && fits(rod, chosen) && carries(gear, chosen.id)) return { rod, item: chosen };
   const first = gear.pack.items.map((i) => TACKLE[i]).find((t) => fits(rod, t));
   return { rod, item: first || null };
 }
+
+// What you have to tie on: what's in your backpack, and a live bait while there's one in your
+// bucket (see livebait.js).
+export const carries = (gear, id) => gear.pack.items.includes(id) || (!!TACKLE[id]?.live && liveCount(gear.bucket, id) > 0);
+export const carriedItems = (gear) => [...gear.pack.items, ...LIVE_BAITS.filter((id) => liveCount(gear.bucket, id) > 0)];
 
 // How much the cast carries: the lure, or the float or lead plus the bait.
 export function castWeight(rod, item, term) {

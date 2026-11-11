@@ -62,11 +62,11 @@ const smooth = (a, b, x) => {
   return u * u * (3 - 2 * u);
 };
 
-// A fresh engine room, everything off and cold.
 // The revs flat out where a boat's propeller sets them (kind -> rpm; see engines.js: a lower
 // pitch lets the engine run up to its limiter). Otherwise her profile's max.
 export const WOT = {};
 
+// A fresh engine room, everything off and cold.
 export function newEngine(kind) {
   const P = PROFILES[kind];
   if (!P) return null;

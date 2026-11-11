@@ -11,7 +11,7 @@
 // - It never touches saved games: those live in the browser's local storage, not here.
 
 // <precache> Written by tools/build-sw.mjs: do not edit by hand.
-const VERSION = '15ece359b94b';
+const VERSION = '097f590715dd';
 const FILES = [
   './index.html',
   './style.css',
@@ -85,6 +85,7 @@ const FILES = [
   './src/journal.js',
   './src/kaigan.js',
   './src/lever.js',
+  './src/livebait.js',
   './src/main.js',
   './src/map.js',
   './src/market.js',

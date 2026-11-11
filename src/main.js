@@ -69,7 +69,8 @@ import { newToday, notePlace, noteMove, noteBoat, noteDive, noteSeen, noteSky, n
 import { SeaGlow, nightGlow } from './world/seaglow.js';
 import { Fishing } from './fishing.js';
 import { drawFishSketch, drawLanternSketch, fishById, weightOf } from './fish.js';
-import { RODS, TACKLE, ROD_IDS, PACK, cleanGear, currentRig, fits, termOf, lineInUse } from './tackle.js';
+import { RODS, TACKLE, ROD_IDS, PACK, cleanGear, currentRig, carriedItems, fits, termOf, lineInUse } from './tackle.js';
+import { LIVE, isLiveBait, addLive, takeLive, liveCount, stepBucket, freshen, waterWords, capOf, STALE } from './livebait.js';
 import { PackUI } from './pack.js';
 import { Camp, WAKE_TIMES } from './camp.js';
 import { kitsFree, newCamp, moveCamp, packUp, checkSite, nearestSite, defaultName, toWorld, LAYOUT } from './campsite.js';
@@ -1152,7 +1153,15 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
     hud.flash(text, t, good ? 2.2 : 3.6);
     if (good) audio.chime?.();
   },
-  onHook: () => {},
+  // (A live bait taken by the fish: gone from the bucket. See livebait.js.)
+  onHook: () => {
+    const it = fishing.item;
+    if (!it?.live) return;
+    takeLive(state.gear.bucket, it.id);
+    if (!liveCount(state.gear.bucket, it.id)) applyGear(`That was your last ${it.short.toLowerCase()}: something else goes on next`);
+    gearChip(fishing.rod, it);
+    save();
+  },
   onCatch: showCatch,
   onRelease: hideCatch,
   canKeep: () => {
@@ -1171,6 +1180,23 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
     const kg = weightOf(sp, size);
     hud.flash(kg > creelKg(state) ? `It fills your creel on its own: ${sp.name.toLowerCase()}, ${kgWords(kg)}. Sell it or cook it before you keep anything else.` : `Into the creel: ${sp.name.toLowerCase()}, ${size} cm (${creelWords(state)}). Cook it at camp, or sell it at the market.`, t, 3.5);
     teach('kept', 'Fish you keep go in the creel on your backpack (by weight: thirty-odd mackerel, or one big tuna). Grill them at camp, or sell them at the market.', 7);
+    save();
+  },
+  // Into the bait bucket (see livebait.js): a small fish, alive, for bait.
+  canBait: (sp, size) => {
+    const r = baitRoom(sp.id, size);
+    if (!r.ok) hud.flash(r.why, t, 3);
+    return r.ok;
+  },
+  onBait: (sp, size) => {
+    addLive(state.gear.bucket, sp.id, size, livewellHere());
+    setOutcome(lastCatchId, 'bait');
+    document.body.classList.remove('reveal');
+    $('catch-card').hidden = true;
+    modal = null;
+    hud.flash(`Into the ${livewellHere() ? 'livewell' : 'bait bucket'}: ${sp.name.toLowerCase()}, ${size} cm (${bucketWords()}).`, t, 3.5);
+    teach('livebait', `Live bait: ${K('tackle')} puts it on the hook (the live fish comes round with your baits), on a float or bottom rig. Bass, pollack, pike and perch can’t leave a live one. Change the bucket’s water now and then at the water’s edge, or the bait dies; a boat’s livewell keeps them lively.`, 10);
+    gearChip();
     save();
   },
   // Every break has a reason you can see and do something about (see fight.js).
@@ -1412,6 +1438,11 @@ function showCatch(sp, size, agent, rigUsed) {
   const room = creelFits(state, weightOf(sp, size));
   keepBtn.disabled = !room;
   keepBtn.lastChild.textContent = room ? (state.keep.length && creelLoad(state) + weightOf(sp, size) > creelKg(state) * 0.75 ? 'Keep it (the creel’s nearly full)' : 'Keep for the pot') : 'No room in the creel';
+  // (A small fish that makes a live bait: into the bait bucket, see livebait.js.)
+  const baitBtn = $('cc-bait'), baitOk = baitRoom(sp.id, size);
+  baitBtn.hidden = !isLiveBait(sp.id, size);
+  baitBtn.disabled = !baitOk.ok;
+  baitBtn.lastChild.textContent = baitOk.ok ? `Into the ${livewellHere() ? 'livewell' : 'bait bucket'}` : `The ${livewellHere() ? 'livewell' : 'bait bucket'} is full`;
   $('catch-card').hidden = false;
   document.body.classList.add('reveal');
   modal = 'catch';
@@ -1497,15 +1528,21 @@ function applyGear(msg) {
   fishing.setRig({ ...rod, line: lineInUse(state.gear, rod) }, item, termOf(state.gear, rod));
   for (const b of boats) b.setRod(rod.id);
   walker.setRod(rod.id);
-  hud.gear(rod, item);
+  gearChip(rod, item);
   world.camp.setRackRods(ROD_IDS.filter((r) => !state.gear.pack.rods.includes(r)));
   save();
+}
+
+// The gear chip: the rod in hand and what's on it (a live bait with how many are left).
+function gearChip(rod = RODS[state.gear.rod], item = currentRig(state.gear).item) {
+  if (rod) hud.gear(rod, item, item?.live ? ` (${liveCount(state.gear.bucket, item.id)} left)` : '');
 }
 
 // Q: the next bait, lure or fly in your backpack that suits the rod in hand.
 function nextTackle() {
   const g = state.gear, rod = RODS[g.rod];
-  const options = g.pack.items.filter((i) => fits(rod, TACKLE[i]));
+  // (Live bait too, while there's some in the bucket: see livebait.js.)
+  const options = carriedItems(g).filter((i) => fits(rod, TACKLE[i]));
   if (!options.length) {
     hud.flash(`Nothing in your backpack for the ${rod.short.toLowerCase()}. Pack some at camp.`, t, 3);
     return;
@@ -1902,8 +1939,8 @@ const harbourSheet = new HarbourSheet(state, {
     yardDo(r, () => hud.toast(r.swapped ? `Fitted, in place of the ${FITS[r.swapped].name.toLowerCase()}.` : 'Fitted.', 3));
   },
   yardUnfit: (kind, id) => yardDo(unfitBoat(state, kind, id), () => hud.toast('Taken off: back in the store.', 2)),
-  // Her engine and propeller (see engines.js): what's on her, a new one fitted while you wait,
-  // and what's in her tank's worth of range.
+  // Her engine and propeller (see engines.js): what's on her, and a new one fitted while you
+  // wait; her tank and the spec of any choice, for the comparison's figures.
   yardEngine: (kind) => engineOf(state.yard, kind),
   yardRepower: (kind, model) => yardDo(repowerBoat(state, kind, model), () => hud.toast(`The ${OUTBOARDS[model].name} is on her transom, her old engine taken in.`, 4)),
   yardReprop: (kind, prop) => yardDo(repropBoat(state, kind, prop), () => hud.toast(`New propeller on: ${PROPS[prop].name.toLowerCase()}.`, 3)),
@@ -5975,6 +6012,9 @@ function interaction() {
     const pool = poolNear(walker.pos.x, walker.pos.z, TIDE.level, { open: false });
     if (pool && poolOpen(pool, TIDE.level)) return { text: 'Look in the rockpool', run: () => openPool(pool) };
     if (pool) return { text: 'A rockpool, under the tide', run: () => hud.flash(`The tide’s over this pool: ${tideWords(clock.abs)}. The lowest pools come out only at the bottom of the ebb, and at springs.`, t, 4) };
+    // The bait bucket's water going stale, and the water at your feet: change it.
+    const fresh = bucketAction();
+    if (fresh) return fresh;
     // Deep water a stride away: in you go.
     const entry = diveEntry();
     if (entry) return { text: 'Go diving', run: () => chooseDive(entry) };
@@ -6072,8 +6112,17 @@ function interaction() {
   // At the helm with a bow trolling motor and nothing else to do: its menu (deploy or stow it, its
   // depth, Spot-Lock), so it can be worked with a controller from any boat, dashboard or not.
   if (!onFoot && !boat.deck && boat.troll && !fishing.busy && leverKind()) return { text: 'The trolling motor…', run: () => trollMenu() };
-
-  return null;
+  return bucketAction();
+}
+// Live bait in a bucket whose water is going stale, and water to hand: change it (see livebait.js).
+function bucketAction() {
+  const B = state.gear.bucket;
+  if (!B.fish.length || B.water > 0.7 || livewellHere() || !bucketWater()) return null;
+  return { text: `Change the bait bucket’s water (${waterWords(B)})`, run: () => {
+    freshen(B);
+    hud.flash(`Fresh water in the bait bucket: ${B.fish.length} live bait${B.fish.length > 1 ? 's' : ''}, lively again.`, t, 3);
+    save();
+  } };
 }
 // The trolling motor's menu (see above): what can be done with it from here.
 function trollMenu() {
@@ -7689,6 +7738,7 @@ function renderPool() {
   $('rp-turn').disabled = !left;
   $('rp-turn').lastChild.textContent = left ? ` Turn a stone (${left} left)` : ' Every stone turned';
   $('rp-net').disabled = !visibleLife(p, clock.abs).some((c) => POOL_LIFE[c.kind].net);
+  $('rp-bait').hidden = !V.bait;
 }
 function poolTurn() {
   const V = poolOpenNow;
@@ -7713,6 +7763,8 @@ function poolNet() {
     return;
   }
   letGo(c, clock.abs);
+  // (A prawn can go in the bait bucket: see poolBait.)
+  V.bait = isLiveBait(c.kind, c.size ?? 5) ? { kind: c.kind, size: c.size ?? 5 } : null;
   if (POOL_LIFE[c.kind].fish) {
     // A fish in the net: a close look (see inspect.js), then back in the pool.
     const sp = fishById[c.kind];
@@ -7722,6 +7774,69 @@ function poolNet() {
     modal = 'inspect';
     inspector.open(sp, c.size, { condition: 'in the net, about to go back' });
   } else V.said = `In the net: a ${name}. ${c.kind === 'prawn' ? 'See-through, its insides showing; you tip it back.' : 'It waves its claws at you; you tip it back by its stone.'}`;
+  renderPool();
+}
+// The bait bucket (see livebait.js). Aboard a boat with a livewell, that holds them instead: more
+// room, and its pump keeps the water sweet.
+const livewellHere = () => !onFoot && !!fitsAboard()?.livewell;
+function baitRoom(id, size) {
+  if (!isLiveBait(id, size)) return { ok: false, why: 'Too big for a bait: let it go.' };
+  if (state.gear.bucket.fish.length >= capOf(livewellHere())) return { ok: false, why: livewellHere() ? 'The livewell is full.' : 'The bait bucket is full: six is plenty, any more and they use the water up.' };
+  return { ok: true };
+}
+function bucketWords() {
+  const B = state.gear.bucket, n = B.fish.length;
+  return `${n} in the ${livewellHere() ? 'livewell' : 'bucket'}, the water ${waterWords(B)}`;
+}
+// The hours go by (however they went: fishing, sleeping, travelling) and the bucket's water with
+// them; in stale water the bait starts to die.
+let bucketAt = null;
+function bucketTick() {
+  const B = state.gear.bucket, now = ownAbs();
+  if (bucketAt == null || !B.fish.length) {
+    bucketAt = now;
+    if (!B.fish.length) B.water = 1;
+    return;
+  }
+  const h = Math.min(48, Math.max(0, now - bucketAt));
+  if (h < 0.05) return;
+  bucketAt = now;
+  const was = B.water;
+  const warm = { summer: 1, spring: 0.4, autumn: 0.4, winter: 0 }[seasonOf(clock.day).name] ?? 0.4;
+  const dead = stepBucket(B, h, { aerated: livewellHere(), warm });
+  if (dead.length) {
+    const names = [...new Set(dead.map((f) => LIVE[f.id].name || fishById[f.id]?.name.toLowerCase() || f.id))].join(' and ');
+    hud.flash(`${dead.length > 1 ? `${dead.length} of your live baits have` : `Your live ${names} has`} died: the bucket’s water is stale. Change it at the water’s edge.`, t, 5);
+    gearChip();
+    if (TACKLE[state.gear.rig[state.gear.rod]]?.live && !liveCount(B, state.gear.rig[state.gear.rod])) applyGear();
+    save();
+  } else if (was >= 0.6 && B.water < 0.6) hud.flash('The bait bucket’s water is going stale: change it at the water’s edge, or aboard.', t, 4);
+}
+// Somewhere to change the bucket's water: aboard, or standing by the water.
+function bucketWater() {
+  if (!onFoot) return !boat.hull.cabin || !cabinIn;
+  const P = walker.pos;
+  for (let a = 0; a < 8; a++) {
+    const x = P.x + Math.sin(a * 0.785) * 2.5, z = P.z + Math.cos(a * 0.785) * 2.5;
+    if (depthAt(x, z) > 0.15) return true;
+  }
+  return false;
+}
+// A netted prawn (or a small fish) into the bait bucket, for live bait, instead of back in the pool.
+function poolBait() {
+  const V = poolOpenNow;
+  if (!V?.bait) return;
+  const r = baitRoom(V.bait.kind, V.bait.size);
+  if (!r.ok) {
+    V.said = r.why;
+  } else {
+    addLive(state.gear.bucket, V.bait.kind, V.bait.size, livewellHere());
+    const name = LIVE[V.bait.kind].name || fishById[V.bait.kind]?.name.toLowerCase() || V.bait.kind;
+    V.said = `Into the bait bucket: a ${name} (${bucketWords()}). Hooked lightly through the tail, a live prawn is the best bait on the rocks.`;
+    gearChip();
+    save();
+  }
+  V.bait = null;
   renderPool();
 }
 function poolPhoto() {
@@ -10545,6 +10660,7 @@ input.on('press', (code, acts) => {
     if (code === 'Escape' || is('cancel')) closePool();
     else if (is('interact')) poolTurn();
     else if (is('cast') || is('keep')) poolNet();
+    else if (is('tackle')) poolBait();
     else if (is('photo')) poolPhoto();
     return;
   }
@@ -10672,6 +10788,7 @@ input.on('press', (code, acts) => {
   }
   if (modal === 'catch') {
     if (is('keep')) fishing.keep();
+    else if (is('tackle') && !$('cc-bait').hidden) fishing.keepForBait();
     else if (is('photo') && $('photo-card').hidden) photographCatch();
     else if (is('interact') && $('photo-card').hidden) openInspect();
     return;
@@ -10769,6 +10886,11 @@ $('cc-keep').addEventListener('click', (e) => {
   e.stopPropagation();
   if (modal === 'catch') fishing.keep();
 });
+$('cc-bait').addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (modal === 'catch') fishing.keepForBait();
+});
+$('rp-bait').addEventListener('click', () => poolBait());
 $('note-card').addEventListener('click', closeNote);
 $('cc-look').addEventListener('click', (e) => {
   e.stopPropagation();
@@ -11172,6 +11294,7 @@ function tick(now, manual = false) {
     // (Each trolling motor's battery charges at a jetty, and overnight, the same way.)
     if (hours) for (const k of Object.keys(f.troll || {})) if (BOATS[k] && moored(BOATS[k])) f.troll[k] = Math.min(1, f.troll[k] + hours * BATTERY_PER_HOUR);
     if (hours && moored(BOATS.kayak)) chargeBattery(f, hours, 'kayak');
+    bucketTick();
     fuelCheckT -= dt;
     if (fuelCheckT <= 0) {
       fuelCheckT = 1;
