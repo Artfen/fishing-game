@@ -50,6 +50,26 @@ test('the shared fish go round the rock at Skerries Reef, not through it', () =>
   assert.ok(n > 5000 && inside / n < 0.002, `${inside} of ${n} looks inside the rock`);
 });
 
+test('every fish is looked at against the rock every third of its own steps, however many there are', () => {
+  // Fish put inside the biggest boulder of Skerries Reef, held still, stepped on their own (as
+  // many fish as there are, a multiple of three among them): each is out of the rock within three
+  // of its own steps. (A count shared by all the fish, as it was, looked at only one in three of
+  // them whenever there were a multiple of three: the rest swam through the rock.)
+  const eco = new Ecosystem(habitat);
+  const S = D.siteById.reef;
+  const o = D.ROCKS.filter((r) => Math.hypot(r.x - S.x, r.z - S.z) < 60).sort((a, b) => b.r - a.r)[0];
+  const free = eco.agents.filter((a) => !a.L?.flat && !a.L?.benthic && !a.school);
+  for (const many of [3, 4, 5, 6]) {
+    const fish = free.slice(0, many);
+    // (Off its centre, where there's a way out, as at the start of this file.)
+    for (const a of fish) Object.assign(a, { x: o.x + o.r * 0.4, y: o.y, z: o.z, ty: o.y, speed: 0, pitch: 0, rockT: 0 });
+    assert.ok(fish.every((a) => D.pushOut({ x: a.x, y: a.y, z: a.z }, 0)), 'inside to begin with');
+    for (let step = 0; step < 3; step++) for (const a of fish) eco.integrate(a, 1 / 30);
+    const still = fish.filter((a) => D.pushOut({ x: a.x, y: a.y, z: a.z }, 0)).length;
+    assert.equal(still, 0, `${still} of ${many} still inside after three steps`);
+  }
+});
+
 test('the reef’s own small fish go round the boulders too (and the arch, and the Hound)', () => {
   let inside = 0, n = 0;
   const m = new THREE.Matrix4(), p = new THREE.Vector3();

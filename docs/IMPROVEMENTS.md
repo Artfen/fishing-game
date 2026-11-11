@@ -455,6 +455,19 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | Remaining risks | The rock fish steer round is the dive sites' (boulders, the arch, the pinnacles); the scattered boulders of the habitat and Las Brasas' lava have no solid form yet. The shade is the Kelp Forest's own; the kelp patches elsewhere don't darken the water |
 
 
+### A fix to A3: fish through the reef's rock, now and then
+
+| Field | |
+| --- | --- |
+| System | The shared fish's rock check (`world/ecosystem.js` integrate) |
+| Previous issue | CI on PR #89 failed `tests/reefs.test.mjs` ("51 of 9371 looks inside the rock"), a test from A3 that had passed before; locally it failed one run in six. The check, meant for every third step of each fish, counted with one counter shared by all the fish, advanced once per fish: whenever there happened to be a multiple of three of them stepping, two in three were never looked at, and swam through the boulders. The fish come and go, so it came and went |
+| Change | Each fish counts its own steps (every third), and for a second and a half after it has met the rock it's looked at every step: a wrasse hugging a boulder, or a school whose places in the ball pass through one, presses into it again |
+| Player benefit | Diving Skerries Reef, no mackerel or anchovies swimming through the boulders as a school goes over |
+| Before | Over 140 runs of the test's own measurement: 6 over 0.1% of looks inside the rock, 3 over its 0.2% limit (worst 0.27% here, 0.54% on CI); schools of anchovy and mackerel, and a wrasse |
+| After | The same 140 runs: none over 0.1% |
+| Validation | New test in `tests/reefs.test.mjs`: fish put inside a boulder, 3, 4, 5 and 6 of them stepped on their own, all out within three steps (with the shared counter, 2 of 3 stayed inside) |
+| Remaining risks | Between looks a fast fish can still be a few centimetres into the rock for a frame or two |
+
 ### World depth B1: the engine catalogue, the RIB first
 
 | Field | |
@@ -506,3 +519,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | After | In the browser: an old save got papers for its four boats (WH 101, 104, 109, 171), beginning on its day; the RIB's tubes recovered navy; the skiff's stripe red and a burgee at her stern, both in her log; her papers on the Paint & name tab; 30 s flat out in the skiff added 0.8 engine hours, 0.10 sea miles and 0.6 litres to them; no page errors |
 | Validation | Full suite (see the PR); new `tests/papers.test.mjs` (4): registrations and records; kept in the save, made out for an old game, nonsense dropped; stripes, tubes and flags paid for and only on your own boat; drawn on her (the stripe's and the tubes' colours changed and only theirs, a flag up and down, the console's on her centreline) |
 | Remaining risks | Still one boat of each kind: two RIBs would need the harbour to hold two, and every place that finds a boat by its kind to find it by its papers. Friends see your paint and name but not yet your stripe or flag |
+
+### World depth C: the chart's marks, layers and routes
+
+| Field | |
+| --- | --- |
+| System | The chart's marks (`src/chartMarks.js`: the buoys, laid in the water from here by `world/regions.js`; the dive sites' buoys; harbours and anchorages) and layers (`map.js`: buoys and harbours, your catches); routes (`src/routes.js`: legs, courses, distances, the passage's time and fuel; following one; kept in the save, `save.js`); planning, saving and following on the chart (`map.js`, `index.html`); the helm's plotter and the rounding of marks (`main.js` routeTick, plotterNav) |
+| Previous issue | From the brief: "layers (nautical, habitat, fishing and wildlife records, exploration); buoys, harbours and anchorages charted; multi-waypoint routes with distance, time and fuel from the boat's real speed and burn; the plotter following the route". The buoys in the water weren't on the chart; the plotter only gave the bearing to the nearest mark |
+| Change | The chart shows the buoys a skipper steers by (red cans, a green cone, yellow special marks), the dive sites' buoys, the harbours and anchorages, named when zoomed in; and, as a layer you can turn on, where each fish in your log was landed. Plan a route by clicking the chart mark by mark: each leg's course and distance, the passage's time and fuel for your boat at her cruise (from the yard's trials of her engine), a warning when it's beyond her tank or cutting it fine. Save routes, see them, follow one: the plotter gives the next mark's course and distance at the helm, and moves on as each mark is rounded |
+| Player benefit | Plan a trip on the chart, then follow it |
+| Before | Pins and a track; the plotter's bearing to the nearest pin |
+| After | In the browser: the chart opened with its buoys and harbours; a route clicked out from the RIB (east 300 m, then north 300 m): "090° for 300 m, 000° for 300 m; 0.3 nm, about 1 min at the RIB's 25 knots, some 1 litre of her 150"; saved, followed; brought to the first mark, the route moved on to the next; no page errors |
+| Validation | Full suite (see the PR); new `tests/routes.test.mjs` (4): courses and distances, the passage's time and fuel from the RIB's trials, cutting it fine; following and rounding marks; routes and the one followed kept in the save, nonsense dropped; every charted buoy and anchorage over water |
+| Remaining risks | The chart's habitat layer is still the field guide's (per species); routes are home waters' and the open sea's, not drawn on Las Brasas' sheet. A route's time is at her cruise in calm water |

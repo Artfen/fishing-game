@@ -1,5 +1,6 @@
 import { ECONOMY_IDS, cleanLedger } from './economy.js';
 import { cleanYard } from './shipyard.js';
+import { cleanRoutes, cleanActive } from './routes.js';
 import { hasEngine, cleanEngine, engineSave } from './engine.js';
 import { fishById } from './fish.js';
 import { RODS, TACKLE, TERMS, cleanGear } from './tackle.js';
@@ -85,6 +86,9 @@ export const DEFAULT_STATE = {
   goodwillDay: 0,  // the day the harbour last saw you home on its fuel
   gifts: [],       // friend codes used on this game (their fingerprints: see giftcodes.js)
   track: [],       // the chartplotter's track: [x, z] every fifteen metres or so (see shipyard.js)
+  routes: [],      // routes planned on the chart: [{ id, name, pts }] (see routes.js)
+  route: null,     // the one you're following: { id, leg }
+  chart: null,     // the chart's layers: { marks, catches }
   observed: {},    // species you've seen for yourself: id -> { count, day, hour, zone }
   trip: null,      // a fishing trip under way (see trip.js)
   trips: [],       // trips you've finished, with what they brought (the last twenty)
@@ -349,6 +353,9 @@ export function sanitize(raw) {
   s.ledger = cleanLedger(raw.ledger);
   s.goodwillDay = Number.isInteger(raw.goodwillDay) ? raw.goodwillDay : 0;
   s.gifts = (Array.isArray(raw.gifts) ? raw.gifts : []).filter((h) => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h)).slice(0, 20);
+  s.routes = cleanRoutes(raw.routes);
+  s.route = cleanActive(raw.route, s.routes);
+  s.chart = { marks: raw.chart?.marks !== false, catches: raw.chart?.catches === true };
   s.track = (Array.isArray(raw.track) ? raw.track : []).filter((p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1])).slice(-600).map((p) => [Math.round(p[0]), Math.round(p[1])]);
   // (A game from before the Marine Works owns every boat it had: it already knew where they were.)
   s.yard = cleanYard(raw.yard, VESSELS, !isObj(raw.yard) && isObj(raw.boats), s.day);

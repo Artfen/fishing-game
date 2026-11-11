@@ -6,6 +6,8 @@ import { fishById } from './fish.js';
 import { habitsOf } from './guide.js';
 import { TENTS } from './campsite.js';
 import { ENDS, CROSS_M } from './crossing.js';
+import { MARKS } from './chartMarks.js';
+import { legsOf, passage, rangeWords, courseWords, timeWords, ROUTES_MAX, POINTS_MAX } from './routes.js';
 
 // The map (M): the whole coast, every shore, path and place from the start (places you haven't
 // been yet in fainter ink), or, if you'd rather explore it (Settings), as you've seen it: water
@@ -145,6 +147,13 @@ export class MapSheet {
     this.marking = false;
     this.editing = null;
     $('map-mark').addEventListener('click', () => this.setMarking(!this.marking));
+    // The chart's layers (buoys and harbours, your catches), and routes planned mark by mark.
+    $('map-lay-marks').addEventListener('click', () => this.setLayer('marks'));
+    $('map-lay-catch').addEventListener('click', () => this.setLayer('catches'));
+    $('map-route').addEventListener('click', () => this.setPlanning(!this.planning));
+    this.planning = false;
+    this.plan = [];
+    this.showRoute = null;
     $('map-mark-here').addEventListener('click', () => {
       const p = this.where?.player;
       if (p) this.addPin(p.x, p.z);
@@ -677,7 +686,11 @@ export class MapSheet {
         const [x, y] = this.toPx(p.x, p.z);
         return Math.hypot(x - px, y - py) < 14 * this.dpr;
       });
-      if (hit) this.editPin(hit);
+      if (this.planning) {
+        if (this.plan.length < POINTS_MAX) this.plan.push(this.toWorld(px, py).map(Math.round));
+        this.renderPlan();
+        this.draw();
+      } else if (hit) this.editPin(hit);
       else if (this.marking) {
         const [x, z] = this.toWorld(px, py);
         this.addPin(x, z);
@@ -943,6 +956,96 @@ export class MapSheet {
       ctx.restore();
       this.label(ctx, c.name, x + 16 * s, y + 4 * s, 18, INK, 1);
     }
+    // The chart's marks: buoys (a red can, a green cone, a yellow cross), harbours (an anchor in a
+    // circle) and anchorages (an anchor). See chartMarks.js.
+    if (st.chart?.marks !== false) {
+      for (const m of MARKS) {
+        const [x, y] = this.toPx(m.x, m.z);
+        if (x < -20 || y < -20 || x > cv.width + 20 || y > cv.height + 20) continue;
+        ctx.save();
+        ctx.lineWidth = 1.2 * s;
+        ctx.strokeStyle = INK;
+        if (m.kind === 'port' || m.kind === 'starboard' || m.kind === 'special') {
+          ctx.fillStyle = m.kind === 'port' ? '#c23b2e' : m.kind === 'starboard' ? '#2f8a4a' : '#e0c23a';
+          ctx.beginPath();
+          if (m.kind === 'starboard') { ctx.moveTo(x, y - 6 * s); ctx.lineTo(x + 4.5 * s, y + 3 * s); ctx.lineTo(x - 4.5 * s, y + 3 * s); ctx.closePath(); }
+          else if (m.kind === 'port') ctx.rect(x - 3.5 * s, y - 5 * s, 7 * s, 8 * s);
+          else { ctx.arc(x, y, 4 * s, 0, Math.PI * 2); }
+          ctx.fill();
+          ctx.stroke();
+          if (m.kind === 'special') {
+            ctx.beginPath();
+            ctx.moveTo(x - 3 * s, y - 9 * s); ctx.lineTo(x + 3 * s, y - 5 * s);
+            ctx.moveTo(x + 3 * s, y - 9 * s); ctx.lineTo(x - 3 * s, y - 5 * s);
+            ctx.stroke();
+          }
+        } else {
+          // (An anchor: a ring, a shank, a crown.)
+          ctx.strokeStyle = m.kind === 'harbour' ? '#1f4e5f' : '#2f6d5a';
+          ctx.lineWidth = 1.6 * s;
+          if (m.kind === 'harbour') { ctx.beginPath(); ctx.arc(x, y, 8 * s, 0, Math.PI * 2); ctx.stroke(); }
+          ctx.beginPath();
+          ctx.arc(x, y - 4 * s, 1.6 * s, 0, Math.PI * 2);
+          ctx.moveTo(x, y - 2.4 * s); ctx.lineTo(x, y + 4 * s);
+          ctx.moveTo(x - 3 * s, y - 0.5 * s); ctx.lineTo(x + 3 * s, y - 0.5 * s);
+          ctx.moveTo(x - 4 * s, y + 1.5 * s); ctx.quadraticCurveTo(x, y + 6.5 * s, x + 4 * s, y + 1.5 * s);
+          ctx.stroke();
+        }
+        ctx.restore();
+        if (this.view.zoom > this.fitZoom * 1.6) this.label(ctx, m.name, x + 8 * s, y + 3 * s, 11, INK, 0.75);
+      }
+    }
+    // Your catches, where each was landed (the catch log): a dot each, the colour of its kind's
+    // water (sea blue, fresh green).
+    if (st.chart?.catches) {
+      for (const e of (st.log || []).slice(-400)) {
+        if (!Number.isFinite(e.x) || !Number.isFinite(e.z)) continue;
+        const [x, y] = this.toPx(e.x, e.z);
+        if (x < -10 || y < -10 || x > cv.width + 10 || y > cv.height + 10) continue;
+        ctx.save();
+        ctx.fillStyle = e.water === 'fresh' ? 'rgba(60,120,60,0.75)' : 'rgba(40,80,140,0.75)';
+        ctx.beginPath();
+        ctx.arc(x, y, 2.6 * s, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+    // Routes: the one being planned (dashed, its marks numbered), the one you're following (solid),
+    // and one you've asked to see.
+    const drawRoute = (pts, colour, dashed, active) => {
+      if (pts.length < 1) return;
+      ctx.save();
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = 2.2 * s;
+      ctx.setLineDash(dashed ? [7 * s, 5 * s] : []);
+      ctx.beginPath();
+      pts.forEach((p, i) => {
+        const [x, y] = this.toPx(p[0], p[1]);
+        if (i) ctx.lineTo(x, y);
+        else ctx.moveTo(x, y);
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+      pts.forEach((p, i) => {
+        const [x, y] = this.toPx(p[0], p[1]);
+        ctx.fillStyle = active && i === active.leg ? '#e8b440' : '#f6efdc';
+        ctx.beginPath();
+        ctx.arc(x, y, 6 * s, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = INK;
+        ctx.font = `${10 * s}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(i + 1), x, y + 0.5 * s);
+      });
+      ctx.restore();
+    };
+    const active = st.route ? (st.routes || []).find((r) => r.id === st.route.id) : null;
+    if (active) drawRoute(active.pts, '#1f4e5f', false, st.route);
+    const shown = this.showRoute && this.showRoute !== active?.id ? (st.routes || []).find((r) => r.id === this.showRoute) : null;
+    if (shown) drawRoute(shown.pts, '#6b5b8a', false, null);
+    if (this.planning && this.plan.length) drawRoute(this.plan, '#b5532f', true, null);
     // Your marks: a star for a favourite spot, a flag for anything else.
     for (const p of st.pins || []) {
       const [x, y] = this.toPx(p.x, p.z);
@@ -1159,6 +1262,139 @@ export class MapSheet {
 
   /* ---------------- your marks ---------------- */
 
+  // A layer of the chart on or off (marks: buoys and harbours; catches: where you've landed fish).
+  setLayer(id) {
+    const st = this.state;
+    st.chart = { marks: st.chart?.marks !== false, catches: !!st.chart?.catches };
+    st.chart[id] = !st.chart[id];
+    this.hooks.changed?.();
+    this.renderLayers();
+    this.draw();
+  }
+  renderLayers() {
+    $('map-lay-marks').setAttribute('aria-pressed', String(this.state.chart?.marks !== false));
+    $('map-lay-catch').setAttribute('aria-pressed', String(!!this.state.chart?.catches));
+  }
+
+  // Planning a route: each click on the chart a mark, in order (see routes.js).
+  setPlanning(on) {
+    this.planning = on;
+    if (on) {
+      this.setMarking(false);
+      this.plan = [];
+      const B = this.hooks.routeBoat?.();
+      if (B?.at) this.plan.push([Math.round(B.at.x), Math.round(B.at.z)]);
+    }
+    $('map-route').setAttribute('aria-pressed', String(on));
+    $('map-route').textContent = on ? 'Planning: click the chart for each mark' : 'Plan a route';
+    this.renderPlan();
+    this.draw();
+  }
+  // The route being planned: each leg's course and distance, and the whole of it for the boat
+  // you'll take (her cruise and what she burns there).
+  renderPlan() {
+    const el = $('map-plan');
+    el.hidden = !this.planning;
+    if (!this.planning) return;
+    const B = this.hooks.routeBoat?.(), out = [];
+    const { legs } = legsOf(this.plan);
+    const p = document.createElement('p');
+    p.className = 'map-note';
+    p.textContent = this.plan.length < 2 ? 'Click the chart for each mark of your route, in order (it starts where you are).' : `${legs.length} leg${legs.length > 1 ? 's' : ''}:`;
+    out.push(p);
+    if (legs.length) {
+      const ol = document.createElement('ol');
+      ol.className = 'map-legs';
+      for (const L of legs) {
+        const li = document.createElement('li');
+        li.textContent = `${courseWords(L.course)} for ${rangeWords(L.m)}`;
+        ol.append(li);
+      }
+      out.push(ol);
+      if (B) {
+        const P = passage(this.plan, B);
+        const t = document.createElement('p');
+        t.className = 'map-note';
+        t.textContent = `${P.nm.toFixed(1)} nm: about ${timeWords(P.hours)} at the ${B.name}'s ${B.knots} knots${B.lph ? `, some ${Math.max(1, Math.round(P.litres))} litre${Math.max(1, Math.round(P.litres)) === 1 ? '' : 's'} of her ${Math.round(B.tank)}${P.spare < 0 ? ': more than she carries' : P.fine ? ': cutting it fine' : ''}` : ''}.`;
+        out.push(t);
+      }
+    }
+    const acts = document.createElement('div');
+    acts.className = 'mp-acts';
+    const btn = (label, run, quiet = true) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = `pk-btn${quiet ? ' quiet' : ''}`;
+      b.textContent = label;
+      b.addEventListener('click', run);
+      acts.append(b);
+      return b;
+    };
+    const save = btn('Save it', () => this.saveRoute(), false);
+    save.disabled = this.plan.length < 2 || (this.state.routes || []).length >= ROUTES_MAX;
+    btn('Back a mark', () => { this.plan.pop(); this.renderPlan(); this.draw(); }).disabled = !this.plan.length;
+    btn('Cancel', () => this.setPlanning(false));
+    out.push(acts);
+    el.replaceChildren(...out);
+  }
+  saveRoute() {
+    const st = this.state;
+    st.routes ??= [];
+    if (this.plan.length < 2 || st.routes.length >= ROUTES_MAX) return;
+    const id = `r${Date.now().toString(36).slice(-6)}`;
+    st.routes.push({ id, name: `Route ${st.routes.length + 1}`, pts: this.plan.map((p) => [...p]) });
+    this.showRoute = id;
+    this.setPlanning(false);
+    this.hooks.changed?.();
+    this.renderRoutes();
+  }
+  // Your routes: each with its length, to follow, see on the chart, or throw away.
+  renderRoutes() {
+    const st = this.state, B = this.hooks.routeBoat?.();
+    const rows = (st.routes || []).map((r) => {
+      const li = document.createElement('li');
+      const name = document.createElement('button');
+      name.type = 'button';
+      name.className = 'map-name';
+      name.textContent = r.name;
+      name.addEventListener('click', () => { this.showRoute = r.id; this.centre({ x: r.pts[0][0], z: r.pts[0][1] }); this.draw(); });
+      const sub = document.createElement('span');
+      const P = B ? passage(r.pts, B) : null;
+      sub.textContent = `${r.pts.length} marks · ${(legsOf(r.pts).m / 1852).toFixed(1)} nm${P ? ` · ${timeWords(P.hours)} in the ${B.name}` : ''}`;
+      const following = st.route?.id === r.id;
+      const go = document.createElement('button');
+      go.type = 'button';
+      go.className = 'pk-btn';
+      go.textContent = following ? 'Stop following' : 'Follow';
+      go.addEventListener('click', () => {
+        if (following) this.hooks.stopRoute?.();
+        else this.hooks.followRoute?.(r.id);
+        this.renderRoutes();
+        this.draw();
+      });
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'pk-btn quiet';
+      del.textContent = 'Delete';
+      del.addEventListener('click', () => {
+        if (st.route?.id === r.id) this.hooks.stopRoute?.();
+        st.routes = st.routes.filter((x) => x.id !== r.id);
+        this.hooks.changed?.();
+        this.renderRoutes();
+        this.draw();
+      });
+      li.append(name, sub, go, del);
+      return li;
+    });
+    if (!rows.length) {
+      const li = document.createElement('li');
+      li.className = 'faint';
+      li.textContent = 'None yet: plan one mark by mark, and a chartplotter steers you round it.';
+      rows.push(li);
+    }
+    $('map-routes').replaceChildren(...rows);
+  }
+
   setMarking(on) {
     this.marking = on;
     $('map-mark').setAttribute('aria-pressed', on);
@@ -1300,6 +1536,9 @@ export class MapSheet {
     $('map-camps').replaceChildren(...extra, ...rows, boatRow);
     $('map-note').textContent = info.note || '';
     this.renderPins();
+    this.renderLayers();
+    this.renderRoutes();
+    this.renderPlan();
 
     const others = found.filter((p) => !p.camp);
     // (What you've had at each, from your own catches: see grounds.js.)

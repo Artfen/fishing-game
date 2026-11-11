@@ -100,7 +100,6 @@ export class Ecosystem {
     // Solid rock besides the seabed, for the dive sites' fish to keep out of (the Hound, the arch
     // on Skerries Reef, the boulders): (point, pad) => true if it pushed the point out.
     this.solid = pushOut;
-    this.rockStep = 0;
     this.populate();
   }
 
@@ -1192,9 +1191,15 @@ export class Ecosystem {
     const floor = -depth + (a.L?.flat ? 0.04 : 0.18 + a.scale * 0.15);
     if (a.y < floor) a.y = floor;
     // Round the rock of a dive site (its boulders, the arch, the pinnacles), never through it: out
-    // to its surface and turned away along it. (Every third step for each fish: plenty, at the
-    // speeds they swim; and only near a site does it cost anything, see divesites.js pushOut.)
-    if (this.solid && (a.id + (this.rockStep = (this.rockStep + 1) % 3)) % 3 === 0) {
+    // to its surface and turned away along it. Every third of each fish's own steps is plenty at
+    // the speeds they swim; and every step for a while after one has met the rock, since it will
+    // again while it hugs it, or while its school's place in the ball is inside it. (Only near a
+    // site does it cost anything, see divesites.js pushOut. Each fish counts its own steps: a
+    // count shared by them all, as it was, left two in three never looked at whenever there
+    // happened to be a multiple of three of them.)
+    if (a.rockT > 0) a.rockT -= h;
+    a.rockN = ((a.rockN ?? a.id) + 1) % 3;
+    if (this.solid && (a.rockN === 0 || a.rockT > 0)) {
       _rp.x = a.x;
       _rp.y = a.y;
       _rp.z = a.z;
@@ -1204,6 +1209,7 @@ export class Ecosystem {
         a.y = Math.min(_rp.y, -0.2);
         a.z = _rp.z;
         if (px || pz) a.yaw += wrapAngle(Math.atan2(px, pz) - a.yaw) * Math.min(1, h * 6);
+        a.rockT = 1.5;
         this.rockTurns = (this.rockTurns || 0) + 1;
       }
     }
