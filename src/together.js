@@ -15,6 +15,8 @@
 // The Realtime connection is a plain WebSocket speaking the Phoenix channel protocol (JSON, vsn
 // 1.0.0), so no SDK is needed: see Realtime below.
 
+import { cleanLook } from './looks.js';
+
 export const NAME_MAX = 16;
 export const MAX_PLAYERS = 8;
 const SEND_EVERY = 0.25;    // seconds between position messages while you move
@@ -471,9 +473,10 @@ export function glide(p, at, dt) {
 // kinds a pose may name; WS: the WebSocket class; online() → whether the browser is online.
 // (listenMs, retryScale, newCode and now are there for the tests.)
 export class Together {
-  constructor({ config, name, kinds = null, skies = null, rods = null, items = null, WS = globalThis.WebSocket, online = () => globalThis.navigator?.onLine !== false, listenMs = LISTEN_MS, retryScale = 1, newCode = makeCode, now = () => globalThis.performance.now() / 1000, store = undefined }) {
+  constructor({ config, name, look = () => null, kinds = null, skies = null, rods = null, items = null, WS = globalThis.WebSocket, online = () => globalThis.navigator?.onLine !== false, listenMs = LISTEN_MS, retryScale = 1, newCode = makeCode, now = () => globalThis.performance.now() / 1000, store = undefined }) {
     this.config = config;
     this.name = name;
+    this.look = look; // (how you look, see looks.js: sent with your name)
     this.kinds = kinds;
     this.gear = rods || items ? { rods, items } : null; // (the rods and tackle a pose may name)
     this.WS = WS;
@@ -554,7 +557,7 @@ export class Together {
   }
 
   meta() {
-    return { id: this.id, name: this.name() || 'Someone', host: this.hosting };
+    return { id: this.id, name: this.name() || 'Someone', host: this.hosting, ...(this.look() ? { look: this.look() } : {}) };
   }
 
   // Start a session of your own: a fresh code nobody else is using (or, given one, take back your
@@ -659,7 +662,7 @@ export class Together {
     await rt.join(topicFor(code), this.id);
     if (attempt !== this.attempt) return false;
     // (Whoever's there answers a hello with where they are, presence or not.)
-    if (ask) rt.send('hello', { id: this.id, name: this.name() });
+    if (ask) rt.send('hello', { id: this.id, name: this.name(), ...(this.look() ? { look: this.look() } : {}) });
     else rt.send('hello', { id: this.id, probe: true });
     await new Promise((r) => setTimeout(r, this.listenMs));
     if (!rt.open) throw new Error('the connection closed');
@@ -759,7 +762,7 @@ export class Together {
         if (attempt !== this.attempt) return;
         rt.onClose = () => this.lost();
         rt.track(this.meta());
-        rt.send('hello', { id: this.id, name: this.name() });
+        rt.send('hello', { id: this.id, name: this.name(), ...(this.look() ? { look: this.look() } : {}) });
         this.sent = null;
         this.reconnecting = false;
         this.retry = 0;
@@ -806,10 +809,12 @@ export class Together {
     return p;
   }
 
-  named(p, raw, host) {
+  named(p, raw, host, look = undefined) {
     const fresh = !p.name;
     const n = cleanName(raw);
     if (n) p.name = n;
+    // (How they look, as they made themselves: see looks.js. Anything odd is their default look.)
+    if (look && typeof look === 'object') p.look = cleanLook(look);
     if (host) {
       // (A new host, or the host back after a reload: what the last one said no longer holds.)
       if (p.id !== this.hostId) this.world = null;
@@ -846,7 +851,7 @@ export class Together {
         const p = this.peer(key);
         if (p) {
           p.present = true;
-          this.named(p, meta.name, !!meta.host);
+          this.named(p, meta.name, !!meta.host, meta.look);
         }
       });
       return;
@@ -856,7 +861,7 @@ export class Together {
         const p = this.peer(key);
         if (p) {
           p.present = true;
-          this.named(p, meta.name, !!meta.host);
+          this.named(p, meta.name, !!meta.host, meta.look);
         }
       });
       this.presenceList(payload?.leaves, (key) => {
@@ -878,7 +883,7 @@ export class Together {
       const p = data.probe ? null : this.peer(data.id);
       if (p) {
         p.seen = this.clock;
-        this.named(p, data.name, false);
+        this.named(p, data.name, false, data.look);
       }
       if (this.active || this.status === 'connecting') {
         this.sent = null;

@@ -10,7 +10,9 @@
 //              photographed and let go;
 //  · wildlife  dolphins on your bow (photographed), a whale's position logged, a feeding frenzy
 //              watched, a turtle photographed;
-//  · survey    a sonar transect, the water's temperature at marks (some by night);
+//  · survey    a sonar transect, the water's temperature at marks (some by night); and the Marine
+//              Trust's research: a rockpool count, a seabird count through the binoculars, a
+//              photograph of a named species for its field guide;
 //  · delivery  a box to Wend Quay, spares across the ocean to Puerto Brasa (fair weather only);
 //  · handling  berthing alongside without a bump, a course round the marks, the same under sail.
 //
@@ -24,6 +26,18 @@
 import { fits, smallestFor, misery, vesselOf, VESSELS, KG_PER_PERSON } from './vessels.js';
 
 export const CONTRACT_MAX = 3;
+
+// What the Trust's field guide wants photographed (specimen): a fish, a rockpool creature, a reef
+// creature or a seabird (ids as the photograph names them: fish.js, grounds.js NATURE, birds).
+const SPECIMENS = [
+  { id: 'snakelocks', name: 'a snakelocks anemone', an: 'a snakelocks anemone', hint: 'in the rockpools at low water, its green arms waving.', at: 'pools' },
+  { id: 'beadlet', name: 'a beadlet anemone', an: 'a beadlet anemone', hint: 'a red blob on the rock of a pool, open under the water.', at: 'pools' },
+  { id: 'ediblecrab', name: 'an edible crab', an: 'an edible crab', hint: 'tucked in at the foot of the boulders on Skerries Reef: a dive.', at: 'reef', hard: true },
+  { id: 'velvetcrab', name: 'a velvet swimming crab', an: 'a velvet swimming crab', hint: 'red eyes and blue legs, among Skerries Reef’s boulders: a dive.', at: 'reef', hard: true },
+  { id: 'corkwing', name: 'a corkwing wrasse', an: 'a corkwing wrasse', hint: 'on the weedy rocks and harbour walls: catch one and photograph it on the catch card, or find one on a dive.', at: null },
+  { id: 'rockgoby', name: 'a rock goby', an: 'a rock goby', hint: 'under the stones of a rockpool, or at the foot of the Willowhaven quay.', at: 'pools' },
+  { id: 'kittiwake', name: 'a kittiwake', an: 'a kittiwake', hint: 'on the cliffs of Gannet Isle in spring and summer.', at: 'light', hard: true },
+];
 export const CATEGORIES = { fishing: 'Fishing', wildlife: 'Wildlife', survey: 'Survey', delivery: 'Delivery', handling: 'Boat handling', charter: 'Charter', rescue: 'Assistance', expedition: 'Expedition' };
 // Who offers work (the harbour's people, and the bodies they speak for).
 export const GIVERS = {
@@ -336,6 +350,43 @@ export const TEMPLATES = {
       };
     },
   },
+  // ---- research for the Marine Trust: counts and photographs for its records ----
+  poolcount: {
+    cat: 'survey', giver: 'trust',
+    make(W, r) {
+      if (W.region !== 'home') return null;
+      const n = 4 + Math.floor(r() * 3);
+      return {
+        title: 'A rockpool count', story: 'The Marine Trust counts what lives in the pools on our rocky shores every season. Go down at low water, look in the pools, turn a stone or two, and record what you find there: the anemones, the limpets, the prawns, the crabs, the fish.',
+        goal: `Record ${n} different kinds in the rockpools`, obj: { kind: 'notes', where: 'pool', n },
+        where: W.places?.pools || null, boat: 'none: walk out at low water', difficulty: 1, minutes: 20, pay: round5(10 + n * 4), rep: 2,
+      };
+    },
+  },
+  seabirds: {
+    cat: 'survey', giver: 'trust',
+    make(W, r) {
+      if (W.region !== 'home' || W.storm) return null;
+      const n = 3 + Math.floor(r() * 2);
+      return {
+        title: 'A seabird count', story: 'The Trust counts the seabirds that nest and feed along this coast. Take your binoculars along the cliffs or out to sea, hold them steady on a bird until you know it, and name each kind you see.',
+        goal: `Name ${n} different seabirds through your binoculars`, obj: { kind: 'notes', where: 'binoculars', n, birds: true },
+        where: W.places?.light || null, boat: 'none needed (Gannet Isle’s cliffs are best)', difficulty: 1, minutes: 25, pay: round5(10 + n * 5), rep: 2,
+      };
+    },
+  },
+  specimen: {
+    cat: 'survey', giver: 'trust',
+    make(W, r) {
+      if (W.region !== 'home') return null;
+      const T = pick(r, SPECIMENS);
+      return {
+        title: `A photograph for the guide: ${T.name}`, story: `The Trust’s field guide wants a good photograph of ${T.an} for its page: ${T.hint}`,
+        goal: `Photograph ${T.an}`, obj: { kind: 'photo', subjects: [T.id] },
+        where: T.at ? W.places?.[T.at] || null : null, difficulty: T.hard ? 2 : 1, minutes: 25, pay: T.hard ? 35 : 25, rep: 2,
+      };
+    },
+  },
   // ---- diving for the record ----
   divesurvey: {
     cat: 'survey', giver: 'trust',
@@ -555,6 +606,7 @@ function startOf(obj, now) {
   if (obj.kind === 'charter') return { aboard: false, boat: null, seen: false, told: false, stay: 0, rough: 0, caught: 0, said: false, warned: false };
   if (obj.kind === 'deliver' && obj.cargo) return { loaded: false, boat: null, said: false };
   if (obj.kind === 'dive') return { got: 0 };
+  if (obj.kind === 'notes') return { seen: [] };
   if (obj.kind === 'pickup') return { picked: false, boat: null, said: false };
   if (obj.kind === 'stages') return { stage: 0, boat: null, said: false };
   if (obj.kind === 'tow') return { towing: false, at: null };
@@ -596,7 +648,8 @@ export function caught(C, c) {
   return out;
 }
 
-// A photograph kept. s: { life: [kinds of sea life in it], bow: a pod on your bow in it, species }.
+// A photograph kept. s: { life: [kinds of sea life in it], bow: a pod on your bow in it, species
+// (fish), nature (the naturalist's notes' kinds), wild (the coast's wildlife and birds) }.
 export function photographed(C, s) {
   const out = [];
   for (const a of C.active) {
@@ -604,7 +657,24 @@ export function photographed(C, s) {
     if (a.ready || o.kind !== 'photo') continue;
     if (o.life && !o.life.some((k) => (s.life || []).includes(k))) continue;
     if (o.bow && !s.bow) continue;
+    if (o.subjects && !o.subjects.some((k) => [...(s.species || []), ...(s.nature || []), ...(s.wild || []), ...(s.life || [])].includes(k))) continue;
     out.push(finish(a));
+  }
+  return out;
+}
+
+// Something recorded for a count (the Trust's research): where 'pool' (seen in a rockpool) or
+// 'binoculars' (named through them; bird: a bird). Each kind counts once a job. Returns the
+// contracts it finished.
+export function noted(C, where, kind, bird = false) {
+  const out = [];
+  for (const a of C.active) {
+    const o = a.obj;
+    if (a.ready || o.kind !== 'notes' || o.where !== where || (o.birds && !bird)) continue;
+    a.progress.seen ??= [];
+    if (a.progress.seen.includes(kind)) continue;
+    a.progress.seen.push(kind);
+    if (a.progress.seen.length >= o.n) out.push(finish(a));
   }
   return out;
 }
@@ -859,6 +929,7 @@ export function standing(a) {
   }
   if (o.kind === 'deliver' && o.cargo && !P.loaded) return `${o.cargo} kg waiting on Willowhaven quay: bring a boat that can carry it.`;
   if (o.kind === 'dive') return `${P.got} of ${o.n} new things logged.`;
+  if (o.kind === 'notes') return `${(P.seen || []).length} of ${o.n} recorded.`;
   if (o.kind === 'pickup') return P.picked ? 'Aboard: home to Willowhaven.' : 'Out there: get alongside, slowly.';
   if (o.kind === 'tow') return P.towing ? 'On your towline: bring her into Willowhaven.' : 'Out there, engine dead: come alongside slowly and take her in tow.';
   if (o.kind === 'stages') {
