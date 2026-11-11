@@ -455,6 +455,19 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | Remaining risks | The rock fish steer round is the dive sites' (boulders, the arch, the pinnacles); the scattered boulders of the habitat and Las Brasas' lava have no solid form yet. The shade is the Kelp Forest's own; the kelp patches elsewhere don't darken the water |
 
 
+### A fix to A3: fish through the reef's rock, now and then
+
+| Field | |
+| --- | --- |
+| System | The shared fish's rock check (`world/ecosystem.js` integrate) |
+| Previous issue | CI on PR #89 failed `tests/reefs.test.mjs` ("51 of 9371 looks inside the rock"), a test from A3 that had passed before; locally it failed one run in six. The check, meant for every third step of each fish, counted with one counter shared by all the fish, advanced once per fish: whenever there happened to be a multiple of three of them stepping, two in three were never looked at, and swam through the boulders. The fish come and go, so it came and went |
+| Change | Each fish counts its own steps (every third), and for a second and a half after it has met the rock it's looked at every step: a wrasse hugging a boulder, or a school whose places in the ball pass through one, presses into it again |
+| Player benefit | Diving Skerries Reef, no mackerel or anchovies swimming through the boulders as a school goes over |
+| Before | Over 140 runs of the test's own measurement: 6 over 0.1% of looks inside the rock, 3 over its 0.2% limit (worst 0.27% here, 0.54% on CI); schools of anchovy and mackerel, and a wrasse |
+| After | The same 140 runs: none over 0.1% |
+| Validation | New test in `tests/reefs.test.mjs`: fish put inside a boulder, 3, 4, 5 and 6 of them stepped on their own, all out within three steps (with the shared counter, 2 of 3 stayed inside) |
+| Remaining risks | Between looks a fast fish can still be a few centimetres into the rock for a frame or two |
+
 ### World depth B1: the engine catalogue, the RIB first
 
 | Field | |
