@@ -44,6 +44,7 @@ export const CLASSES = {
   chondrichthyes: { phylum: 'chordata', name: 'Sharks, skates and rays', sci: 'Chondrichthyes', note: 'Skeletons of cartilage, not bone; skin like sandpaper, rough with tiny teeth.' },
   cephalopoda: { phylum: 'mollusca', name: 'Cephalopods', sci: 'Cephalopoda', note: 'Molluscs whose foot became arms round the head: three hearts, blue blood, skin that changes colour in a blink.' },
   bivalvia: { phylum: 'mollusca', name: 'Bivalves', sci: 'Bivalvia', note: 'Two shells hinged together, and a life spent filtering the water.' },
+  gastropoda: { phylum: 'mollusca', name: 'Snails, slugs and limpets', sci: 'Gastropoda', note: 'Molluscs that crawl on one big foot, most under a single coiled shell: a rasping tongue scrapes their food off the rock.' },
   malacostraca: { phylum: 'arthropoda', name: 'Crabs, lobsters and shrimps', sci: 'Malacostraca' },
   polychaeta: { phylum: 'annelida', name: 'Bristle worms', sci: 'Polychaeta' },
   asteroidea: { phylum: 'echinodermata', name: 'Starfish', sci: 'Asteroidea' },
@@ -109,6 +110,9 @@ export const ORDERS = {
   unionida: { sci: 'Unionida', name: 'Freshwater mussels' },
   // Arthropods
   decapoda: { sci: 'Decapoda', name: 'Ten-legged crustaceans: crabs, lobsters, shrimps' },
+  patellogastropoda: { sci: 'Patellogastropoda', name: 'True limpets' },
+  littorinimorpha: { sci: 'Littorinimorpha', name: 'Periwinkles, cowries and their kin' },
+  valvatida: { sci: 'Valvatida', name: 'Cushion stars and their kin' },
   // Echinoderms
   forcipulatida: { sci: 'Forcipulatida', name: 'Sea stars with tiny pincers on their skin' },
   spinulosida: { sci: 'Spinulosida', name: 'Spiny sea stars' },
@@ -163,7 +167,8 @@ export const FAMILIES = {
   Octopodidae: ['octopoda', 'Octopuses'], Sepiidae: ['sepiida', 'Cuttlefishes'], Loliginidae: ['myopsida', 'Inshore squids'],
   Pectinidae: ['pectinida', 'Scallops'], Unionidae: ['unionida', 'River mussels'],
   // Arthropods
-  Paguridae: ['decapoda', 'Hermit crabs'], Nephropidae: ['decapoda', 'Clawed lobsters'],
+  Paguridae: ['decapoda', 'Hermit crabs'], Nephropidae: ['decapoda', 'Clawed lobsters'], Carcinidae: ['decapoda', 'Shore crabs'], Palaemonidae: ['decapoda', 'Prawns'],
+  Patellidae: ['patellogastropoda', 'Limpets'], Littorinidae: ['littorinimorpha', 'Periwinkles'], Asterinidae: ['valvatida', 'Cushion stars'],
   // Annelids (no order: the bristle worms' orders are unsettled)
   Arenicolidae: [null, 'Lugworms'],
   // Echinoderms
@@ -252,6 +257,14 @@ export const LIFE = {
   diadema: { src: 'nature', cls: 'echinoidea', family: 'Diadematidae', sci: 'Diadema africanum', look: 'In herds on the black rock at Las Brasas.' },
   cucumber: { src: 'nature', cls: 'holothuroidea', family: 'Holothuriidae', sci: 'Holothuria sanctori', look: 'On the sand and in the weed at Las Brasas.' },
   dahlia: { src: 'nature', cls: 'anthozoa', family: 'Actiniidae', sci: 'Urticina felina', look: 'On rock: Skerries Reef.' },
+  // The rockpools at low water (world/rockpools.js)
+  beadlet: { src: 'nature', cls: 'anthozoa', family: 'Actiniidae', sci: 'Actinia equina', look: 'On the sides of the rockpools at low water: east of Willowhaven, in Willow Bay, at Puffin Cove.' },
+  snakelocks: { src: 'nature', cls: 'anthozoa', family: 'Actiniidae', sci: 'Anemonia viridis', look: 'In the sunnier, lower rockpools at low water.' },
+  limpet: { src: 'nature', cls: 'gastropoda', family: 'Patellidae', sci: 'Patella vulgata', look: 'On the rock round every rockpool.' },
+  periwinkle: { src: 'nature', cls: 'gastropoda', family: 'Littorinidae', sci: 'Littorina littorea', look: 'On the bottom of the rockpools, grazing.' },
+  cushionstar: { src: 'nature', cls: 'asteroidea', family: 'Asterinidae', sci: 'Asterina gibbosa', look: 'Under the stones in the lowest rockpools: turn one over (and put it back).' },
+  prawn: { src: 'nature', name: 'Rock pool prawn', cls: 'malacostraca', family: 'Palaemonidae', sci: 'Palaemon elegans', look: 'Flicking about the weed in the rockpools at low water: a hand net catches them.' },
+  shorecrab: { src: 'nature', cls: 'malacostraca', family: 'Carcinidae', sci: 'Carcinus maenas', look: 'Under the stones in the rockpools at low water.' },
   plumose: { src: 'nature', cls: 'anthozoa', family: 'Metridiidae', sci: 'Metridium dianthus', look: 'On the Kittiwake and the Hound, where the tide runs hard.' },
   jewel: { src: 'nature', cls: 'anthozoa', family: 'Corallimorphidae', sci: 'Corynactis viridis', look: 'On rock deeper than about five metres: sheets of them on the Hound’s walls.' },
   ceri: { src: 'nature', cls: 'anthozoa', family: 'Cerianthidae', sci: 'Cerianthus lloydii', look: 'Sand deeper than about eight metres: Anchor Sands.' },

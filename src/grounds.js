@@ -181,6 +181,14 @@ export const NATURE = {
   compass: { name: 'Compass jellyfish', latin: 'Chrysaora hysoscella', note: 'A white bell marked with brown Vs like the points of a compass, and long trailing tentacles that do sting. Late summer, in the warmer water.' },
   stinger: { name: 'Mauve stinger', latin: 'Pelagia noctiluca', note: 'A small pinkish-mauve jellyfish of the open ocean, warty and stinging, that glows when disturbed at night. Swept in by the trade wind now and then.' },
   fry: { name: 'Sand smelt', latin: 'Atherina presbyter', note: 'Shoals of small silver fish with a bright stripe along the side, hanging over sand and weed in the shallows: food for bass, mackerel and terns.' },
+  // The rockpools at low water (see world/rockpools.js).
+  beadlet: { name: 'Beadlet anemone', latin: 'Actinia equina', note: 'A glossy red (sometimes green) anemone with a ring of bright blue beads round the top of its column. Out of the water at low tide it pulls its tentacles in and sits like a blob of red jelly, holding water inside.' },
+  snakelocks: { name: 'Snakelocks anemone', latin: 'Anemonia viridis', note: 'A tangle of long green tentacles tipped with purple, which it can’t pull in. Its green comes from algae living in its tissues, so it likes sunny, shallow pools.' },
+  limpet: { name: 'Common limpet', latin: 'Patella vulgata', note: 'A ribbed cone of shell clamped to the rock. At high tide it wanders off grazing the film of algae, and comes back to the same spot, its home scar, where its shell fits the rock exactly.' },
+  periwinkle: { name: 'Common periwinkle', latin: 'Littorina littorea', note: 'A dark, rounded sea snail grazing the weed and the rock. It closes its shell with a little horny door when the tide leaves it.' },
+  cushionstar: { name: 'Cushion star', latin: 'Asterina gibbosa', note: 'A small, plump, five-sided starfish, olive or orange, hiding under stones in the lower pools. It starts life male and becomes female as it grows.' },
+  prawn: { name: 'Rock pool prawn', latin: 'Palaemon elegans', note: 'Almost see-through, banded with fine dark lines and flecked with yellow and blue, with long feelers. It picks over the weed and flicks backwards in a blink when your shadow falls on the pool.' },
+  shorecrab: { name: 'Green shore crab', latin: 'Carcinus maenas', note: 'The commonest crab of the shore: green to brown, five teeth on each side of its shell. It hides under a stone or in the weed at low tide and runs sideways for cover, claws up, when you turn its stone.' },
   mussel: { name: 'Swan mussel', latin: 'Anodonta cygnea', note: 'A big thin-shelled mussel half buried in the lake mud, filtering the water. Its young ride on the gills of fish.' },
 };
 export const NATURE_IDS = Object.keys(NATURE);

@@ -47,6 +47,8 @@ export const MAPS = {
   // (RB looks closer at it: see inspect.js; there the right stick turns it over, B goes back.)
   catch: { A: 'cast', X: 'keep', Y: 'photo', RB: 'interact', MENU: 'settings' },
   inspect: { B: 'cancel', A: 'interact', RB: 'interact' },
+  // (Crouched over a rockpool: A turns a stone, X sweeps the net, Y photographs, B leaves.)
+  pool: { A: 'interact', X: 'cast', Y: 'photo', B: 'cancel' },
   // (Y raises the binoculars from photo mode; in them, Y or B lowers them again.)
   photo: { A: 'photo', RT: 'photo', B: 'cancel', R3: 'reset', Y: 'binoculars' },
   binocs: { B: 'cancel', Y: 'binoculars', A: 'binoculars', R3: 'reset' },
