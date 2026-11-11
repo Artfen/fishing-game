@@ -19,9 +19,12 @@ import { DESTS, driveMinutes } from './outing.js';
 //    at a jetty or quay, and overnight whenever you sleep.
 //  · The kayak's little electric motor has a battery of its own, charged the same way. Flat, it
 //    simply stops: the paddle is always there.
+//  · An electric outboard (the skiff can have one: engines.js, the Eider) runs on its own battery
+//    instead of petrol: quickly down flat out, a long while at an easy pace, charged at a jetty or
+//    a quay and overnight, free. Flat, it stops, and the oars take you in.
 //
 // state.fuel: { car, boats: { skiff, bass, cabin, sail, cruiser, console, rib, jetski } (litres), battery (0…1),
-//   kayak (0…1), can: { at, litres } }
+//   kayak (0…1), troll: { kind: 0…1 }, elec: { kind: 0…1 }, can: { at, litres } }
 
 // (The sailing boat's little outboard has a small tank of its own; the yacht (id 'cruiser') a
 // big one, enough for the long passage south and some.)
@@ -58,7 +61,7 @@ const num = (v, d, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Mat
 const r1 = (v) => Math.round(v * 10) / 10;
 
 export function defaultFuel() {
-  return { car: TANKS.car, boats: Object.fromEntries(PETROL.map((k) => [k, TANKS[k]])), battery: 1, kayak: 1, troll: {}, can: { at: 'home', litres: CAN } };
+  return { car: TANKS.car, boats: Object.fromEntries(PETROL.map((k) => [k, TANKS[k]])), battery: 1, kayak: 1, troll: {}, elec: {}, can: { at: 'home', litres: CAN } };
 }
 
 // A saved record made safe (and a save from before fuel: everything full).
@@ -72,6 +75,9 @@ export function cleanFuel(raw) {
   // (Each boat's trolling-motor battery, 0 … 1: a save from before them has them full.)
   d.troll = {};
   if (raw.troll && typeof raw.troll === 'object') for (const k of PETROL) if (Number.isFinite(raw.troll[k])) d.troll[k] = num(raw.troll[k], 1, 0, 1);
+  // (An electric outboard's battery, 0 … 1: one fitted before it was kept, or never run, is full.)
+  d.elec = {};
+  if (isObj(raw.elec)) for (const k of PETROL) if (Number.isFinite(raw.elec[k])) d.elec[k] = num(raw.elec[k], 1, 0, 1);
   // (A save from before the kayak had a motor: its battery starts full.)
   d.kayak = num(raw.kayak, 1, 0, 1);
   if (isObj(raw.can)) {
@@ -135,6 +141,26 @@ export function burnBoat(f, kind, lever, dt, troll = 0) {
   f.boats[kind] = Math.max(0, v - BOAT_PER_S[kind] * Math.pow(Math.min(1.05, Math.abs(lever)), 1.5) * dt);
   return f.boats[kind] === 0 ? 'dry' : null;
 }
+
+// An electric outboard running for dt seconds at lever (−1 … 1; endure: the seconds a full
+// battery lasts flat out, engines.js): it takes nothing in neutral, and like a petrol engine more
+// than in proportion to the throttle (an easy pace lasts far longer). Returns 'flat' the moment it
+// runs out.
+export const elecLevel = (f, kind) => f.elec?.[kind] ?? 1;
+export function burnElec(f, kind, lever, dt, endure) {
+  if (!lever || !(endure > 0)) return null;
+  const v = elecLevel(f, kind);
+  if (v <= 0) return null;
+  f.elec ??= {};
+  f.elec[kind] = Math.max(0, v - (Math.pow(Math.min(1, Math.abs(lever)), 1.5) * dt) / endure);
+  return f.elec[kind] === 0 ? 'flat' : null;
+}
+// Charged at a jetty or a quay, and overnight (as fast as the other batteries).
+export function chargeElec(f, kind, hours) {
+  f.elec ??= {};
+  f.elec[kind] = Math.min(1, elecLevel(f, kind) + hours * BATTERY_PER_HOUR);
+}
+export const elecWords = (f, kind) => `battery ${Math.round(elecLevel(f, kind) * 100)}%`;
 
 export function chargeBattery(f, hours, which = 'battery') {
   f[which] = Math.min(1, f[which] + hours * BATTERY_PER_HOUR);

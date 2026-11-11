@@ -60,6 +60,8 @@ test('every boat’s own engine on its own propeller: exactly the push she alway
 
 test('the catalogue: portables to big diesels, as they really are; no maker’s names', () => {
   for (const [id, O] of Object.entries(MODELS)) {
+    // (The electric outboard burns nothing: its battery, below and in electric.test.mjs.)
+    if (O.electric) continue;
     // Petrol about 0.37 litres an hour per horsepower flat out (a tenth of a US gallon); a diesel
     // about half that.
     const per = O.lph / O.hp;
@@ -70,18 +72,31 @@ test('the catalogue: portables to big diesels, as they really are; no maker’s 
     assert.ok(O.desc && O.layout && O.price > 0 && O.rpm > 2500, id);
   }
   for (const k of BOATS) {
-    const C = CATALOGUE[k], list = C.models.map((m) => MODELS[m]);
+    const C = CATALOGUE[k], list = C.models.filter((m) => !MODELS[m].electric).map((m) => MODELS[m]);
     assert.ok(C.models.includes(C.stock), k);
     assert.ok(list.every((O, i) => !i || (O.hp > list[i - 1].hp && O.kg >= list[i - 1].kg && O.lph > list[i - 1].lph)), `${k}: heavier and thirstier as they grow`);
-    if (C.plate) assert.ok(list.every((O) => O.hp <= C.plate), k);
+    if (C.plate) assert.ok(C.models.every((m) => MODELS[m].hp <= C.plate), k);
     // Matched pitches in a sensible range (inches), a lower pitch lower.
     for (const m of C.models) {
       const p = spec(k, m).pitch;
       assert.ok(p >= 6 && p <= 26, `${k} ${m}: ${p}-inch`);
+      if (!E.propsFor(k, m).includes('low')) continue;
       assert.ok(spec(k, m, 'low').pitch < p, `${k} ${m} low`);
       if (C.props.includes('four')) assert.ok(spec(k, m, 'four').pitch <= p && spec(k, m, 'four').pitch >= spec(k, m, 'low').pitch, `${k} ${m} four`);
     }
   }
+  // The skiff's electric: a 3 kW motor (about 3.5 hp at the shaft, as a petrol engine's is
+  // counted), heavier than a petrol portable of its push for its battery, slow revs on a big
+  // propeller of its own, and an hour flat out on its battery in life (3 kWh at 3 kW): eight
+  // minutes as the game's clock runs, against the skiff's tank's thousand-odd seconds.
+  const El = MODELS.e3;
+  assert.ok(El.electric && El.kw === 3 && Math.abs(El.hp - (El.kw * 0.87) / 0.746) < 0.05, `${El.hp} hp`);
+  assert.ok(El.lph === 0 && El.kg > MODELS.p6.kg && El.kg >= MODELS.p10.kg && El.rpm < 2000 && El.wh / 1000 / El.kw === 1);
+  assert.ok(El.endure > 300 && El.endure < Fu.TANKS.skiff / Fu.BOAT_PER_S.skiff, `${El.endure} s flat out`);
+  assert.ok(El.desc && El.layout && El.price > 0);
+  assert.deepEqual(E.propsFor('skiff', 'e3'), ['matched']);
+  assert.deepEqual(E.propsFor('skiff', 'p10'), ['matched', 'low', 'four']);
+  assert.ok(CATALOGUE.skiff.models.includes('e3') && Object.values(CATALOGUE).filter((C) => C.models.some((m) => MODELS[m].electric)).length === 1, 'the skiff alone');
   // An inboard's propellers are four-bladed whatever; the stainless four-blade is an outboard's.
   assert.ok(!CATALOGUE.cruiser.props.includes('four') && spec('cruiser', 'd320').blades === 4);
   for (const id of Object.keys(PROPS)) assert.ok(PROPS[id].name && PROPS[id].desc && PROPS[id].price > 0, id);
@@ -98,6 +113,8 @@ test('what the yard measured, on every boat: more power is quicker and faster; a
     const goes = C.models.map((m) => tr(k, m).t20 ?? Infinity);
     assert.ok(goes.every((v, i) => !i || v <= goes[i - 1]), `${k} 0–${C.go} kn: ${goes.join(', ')} s`);
     for (const m of C.models) {
+      // (The electric has only its own propeller: its figures in electric.test.mjs.)
+      if (!E.propsFor(k, m).includes('low')) continue;
       const M = tr(k, m), L = tr(k, m, 'low');
       // The matched propeller is her best flat out; a lower pitch is quicker away and better laden.
       assert.ok(M.top > L.top, `${k} ${m}: matched ${M.top}, low ${L.top}`);
@@ -125,12 +142,14 @@ test('what the yard measured, on every boat: more power is quicker and faster; a
 });
 
 test('the figures are the boat’s own: run again in the simulation, they come out the same', () => {
-  for (const [k, m, p] of [['rib', 'f150', 'matched'], ['rib', 's225', 'low'], ['console', 'f115', 'matched']]) {
+  for (const [k, m, p] of [['rib', 'f150', 'matched'], ['rib', 's225', 'low'], ['console', 'f115', 'matched'], ['skiff', 'e3', 'matched']]) {
     const T = trial(k, { model: m, prop: p }), was = tr(k, m, p);
     assert.ok(Math.abs(T.top - was.top) / was.top < 0.01, `${k} ${m}/${p} top ${T.top} (table ${was.top})`);
     assert.ok(Math.abs(T.t20 - was.t20) <= 0.15, `${k} ${m}/${p} 0–${CATALOGUE[k].go} kn ${T.t20} (table ${was.t20})`);
     assert.ok(Math.abs(T.laden - was.laden) / was.laden < 0.01, `${k} ${m}/${p} laden ${T.laden} (table ${was.laden})`);
-    assert.ok(Math.abs(T.lph - was.lph) / was.lph < 0.02, `${k} ${m}/${p} ${T.lph} L/h (table ${was.lph})`);
+    // (Petrol in litres an hour at her cruise; an electric in the share of its battery an hour at its own pace.)
+    const use = was.bph ? 'bph' : 'lph';
+    assert.ok(Math.abs(T[use] - was[use]) / was[use] < 0.02, `${k} ${m}/${p} ${T[use]} ${use} (table ${was[use]})`);
   }
 });
 
@@ -138,6 +157,7 @@ test('fuel follows the work: a lower pitch burns what the matched one does at th
   for (const k of BOATS) {
     const C = CATALOGUE[k];
     for (const m of C.models) {
+      if (MODELS[m].electric) continue;
       assert.ok(Math.abs(tr(k, m, 'low').lph - tr(k, m).lph) / tr(k, m).lph < 0.03, `${k} ${m}: ${tr(k, m).lph} / ${tr(k, m, 'low').lph} L/h at ${C.cruise} kn`);
       assert.ok(spec(k, m, 'low').effort > 1 && spec(k, m).effort === 1);
       assert.equal(spec(k, m).burn, MODELS[m].lph / MODELS[C.stock].lph);
@@ -186,6 +206,9 @@ test('the outboard drawn is the engine fitted: its size, a V6’s taller cowling
   const s = new Boat(scene, { kind: 'skiff' });
   s.setMotor(spec('skiff', 'p6'));
   assert.ok(s.motorGroups[0].scale.x < 1);
+  // (The electric's leg and pod slimmer still: its weight is in the battery, in the boat.)
+  s.setMotor(spec('skiff', 'e3'));
+  assert.ok(s.motorGroups[0].scale.x < spec('skiff', 'p6').scale);
   // The yacht's diesels are below decks: nothing to redraw, and nothing breaks.
   const y = new Boat(scene, { kind: 'cruiser' });
   y.setMotor(spec('cruiser', 'd440'));
@@ -214,6 +237,17 @@ test('the Marine Works: a new engine or propeller paid for and fitted; older gam
   assert.equal(state.money, m - 2 * MODELS.s200.price);
   // Saved and read back: the same.
   assert.deepEqual(cleanYard(JSON.parse(JSON.stringify(state.yard)), KINDS).engines, { rib: { model: 's225', prop: 'low' }, console: { model: 's200', prop: 'matched' } });
+  // The skiff's electric comes with its own propeller (whatever she had), and takes no other;
+  // back to petrol, on its matched propeller.
+  assert.equal(repropBoat(state, 'skiff', 'four').ok, true);
+  m = state.money;
+  assert.equal(repowerBoat(state, 'skiff', 'e3').ok, true);
+  assert.equal(state.money, m - MODELS.e3.price);
+  assert.deepEqual(engineOf(state.yard, 'skiff'), { model: 'e3', prop: 'matched' });
+  const no = repropBoat(state, 'skiff', 'low');
+  assert.ok(!no.ok && /own propeller/.test(no.why), no.why);
+  assert.equal(repowerBoat(state, 'skiff', 'p10').ok, true);
+  assert.deepEqual(state.yard.engines.skiff, undefined, 'her own engine on its matched propeller: nothing written down');
   // Back to her own: nothing written down.
   repowerBoat(state, 'rib', 'f150');
   repropBoat(state, 'rib', 'matched');

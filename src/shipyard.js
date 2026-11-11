@@ -12,7 +12,7 @@
 // your colours and your boat's name. Each fitting weighs something and some draw on her batteries.
 
 import { pay } from './economy.js';
-import { CATALOGUE, MODELS, PROPS, cleanChoice } from './engines.js';
+import { CATALOGUE, MODELS, PROPS, cleanChoice, propsFor } from './engines.js';
 import { cleanVessels, cleanTrim, newVessel, logLine, flagById, STRIPE_PRICE, TUBES_PRICE } from './papers.js';
 
 export const STARTER = ['row', 'skiff', 'kayak'];
@@ -308,7 +308,8 @@ export function repowerBoat(state, kind, model) {
   if (now.model === model) return { ok: false, why: 'She has that engine already.' };
   const r = pay(state, MODELS[model].price * (C.count || 1), `${MODELS[model].name} for the ${kind}`);
   if (!r.ok) return r;
-  setEngine(Y, kind, { ...now, model });
+  // (An electric comes with its own propeller; back to petrol, the one she had if it fits.)
+  setEngine(Y, kind, { model, prop: propsFor(kind, model).includes(now.prop) ? now.prop : 'matched' });
   return { ok: true };
 }
 export function repropBoat(state, kind, prop) {
@@ -316,6 +317,7 @@ export function repropBoat(state, kind, prop) {
   if (!owns(Y, kind)) return { ok: false, why: 'Only your own boat.' };
   if (!CATALOGUE[kind]?.props.includes(prop)) return { ok: false, why: 'That propeller doesn’t fit her.' };
   const now = engineOf(Y, kind);
+  if (!propsFor(kind, now.model).includes(prop)) return { ok: false, why: `The ${MODELS[now.model].name} takes only its own propeller.` };
   if (now.prop === prop) return { ok: false, why: 'She has that propeller already.' };
   const r = pay(state, PROPS[prop].price * (CATALOGUE[kind].count || 1), `A propeller for the ${kind}`);
   if (!r.ok) return r;

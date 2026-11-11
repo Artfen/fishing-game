@@ -61,7 +61,8 @@ export class HelmUI {
     if (P.battery || P.starter === 'key') gauge('battery', 'battery');
     if (P.cooling) gauge('cool', 'cooling');
     if (P.trim) gauge('trim', P.trim === 'tilt' ? 'tilt' : 'trim');
-    gauge('fuel', 'fuel');
+    // (An electric outboard's battery is its fuel: engine.js setElectric.)
+    gauge('fuel', P.electric ? 'battery' : 'fuel');
     gauge('gear', 'gear');
     // The switches.
     this.b = {};
@@ -99,7 +100,7 @@ export class HelmUI {
     R.append(head, gauges, row, assist, this.list, this.say);
   }
 
-  // ctx: { lever, fuel (litres), gear ('N', 'F', 'R'), message }
+  // ctx: { lever, fuel (litres; an electric's battery, 0 … 1), gear ('N', 'F', 'R'), message }
   update(E, ctx = {}) {
     if (!this.isOpen || !E) return;
     const P = PROFILES[E.kind];
@@ -117,7 +118,7 @@ export class HelmUI {
       set(this.g.trim.v, E.trim > TRIM.max ? 'up' : `${Math.round(E.trim)}°`);
       this.g.trim.box.classList.toggle('warn', E.trim >= TRIM.out);
     }
-    set(this.g.fuel.v, `${Math.round(ctx.fuel ?? 0)} L`);
+    set(this.g.fuel.v, P.electric ? `${Math.round((ctx.fuel ?? 0) * 100)}%` : `${Math.round(ctx.fuel ?? 0)} L`);
     set(this.g.gear.v, ctx.gear || 'N');
     this.g.gear.box.classList.toggle('warn', !!ctx.lever);
     const state = (id, text, lit) => {
