@@ -354,12 +354,22 @@ test('the RIB and the centre console have a cruising notch: on the plane, betwee
   conditions.manual = null;
 });
 
-test('her outboards keep their size with fittings on: both of the console’s pair alike, a bigger one a tenth bigger', () => {
+test('her outboards keep their size with fittings on: both of the console’s pair alike, a bigger engine drawn bigger', async () => {
+  const { CATALOGUE, engineSpec } = await import('../src/engines.js');
   for (const kind of ['console', 'rib', 'bass', 'cabin', 'sail', 'skiff']) {
     const b = boatAt(kind), M = b.hull.motor || b.hull.outboard;
-    for (const [fits, k] of [[[], 1], [['power'], 1.1]]) {
+    for (const fits of [[], ['tank', 'sonar']]) {
       b.setFits(fits);
-      for (const g of b.motorGroups) assert.ok(Math.abs(g.scale.x - M.scale * k) < 1e-9, `${kind} ${fits.join(',') || 'as she came'}: ${g.scale.x.toFixed(2)} (her own ${M.scale})`);
+      for (const g of b.motorGroups) assert.ok(Math.abs(g.scale.x - M.scale) < 1e-9, `${kind} ${fits.join(',') || 'as she came'}: ${g.scale.x.toFixed(2)} (her own ${M.scale})`);
+    }
+    // (The biggest engine in her catalogue, drawn as big as it is, fittings or none: see engines.js.)
+    const C = CATALOGUE[kind];
+    if (C) {
+      const big = engineSpec(kind, b.hull, { model: C.models.at(-1) });
+      b.setMotor(big);
+      b.setFits(['tank']);
+      for (const g of b.motorGroups) assert.ok(g.scale.x > M.scale && Math.abs(g.scale.x - big.scale) < 1e-9, `${kind}: ${g.scale.x.toFixed(2)}`);
+      b.setMotor(null);
     }
   }
   const c = boatAt('console');

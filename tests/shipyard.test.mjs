@@ -100,9 +100,8 @@ test('paint, a name and fittings: only on your own boat, each paid once, and fit
   assert.equal(s.yard.looks.rib.name, 'Kittiwake');
   assert.equal(cleanBoatName('A'.repeat(40)).length, 18);
   assert.ok(['tank', 'sonar', 'plotter', 'anchor'].every((id) => fitsFor('rib').includes(id)));
-  // (The RIB chooses her engine and propeller from the engine catalogue instead: see engines.test.mjs.)
-  assert.ok(!fitsFor('rib').includes('power') && !fitsFor('rib').includes('economy'));
-  assert.ok(fitsFor('console').includes('power') && fitsFor('console').includes('economy'));
+  // (Engines and propellers come from the engine catalogue instead: see engines.test.mjs.)
+  assert.ok(!fitsFor('rib').includes('power') && !fitsFor('console').includes('economy'));
   assert.deepEqual(fitsFor('row'), []);
   const none = fitEffect(s.yard, 'rib');
   assert.ok(none.tank === 1 && none.thrust === 1 && none.burn === 1 && none.kg === 0 && !none.sonar);
@@ -160,19 +159,17 @@ test('Shipyard 2.0: every fitting weighs something real and does something real,
   for (const k of ['skiff', 'bass', 'cabin', 'console', 'rib', 'cruiser']) assert.ok(fitsFor(k).length >= 6, k);
   for (const k of ['row', 'kayak', 'windsurf']) assert.equal(fitsFor(k).length, 0, k);
   const s = { day: 1, hour: 9, money: 5000, ledger: [], yard: cleanYard({ owned: KINDS }, KINDS) };
-  // One engine choice at a time: the economy tune replaces the bigger outboard.
-  assert.ok(fitBoat(s, 'console', 'power').ok);
-  const big = fitEffect(s.yard, 'console');
-  assert.ok(big.thrust > 1 && big.burn > 1);
-  const sw = fitBoat(s, 'console', 'economy');
-  assert.ok(sw.ok && sw.swapped === 'power');
-  assert.deepEqual(s.yard.fits.console, ['economy']);
+  // One to a slot: the GPS trolling motor replaces the plain one.
+  assert.ok(fitBoat(s, 'console', 'troll').ok);
+  const sw = fitBoat(s, 'console', 'trollgps');
+  assert.ok(sw.ok && sw.swapped === 'troll');
+  assert.deepEqual(s.yard.fits.console, ['trollgps']);
   let e = fitEffect(s.yard, 'console');
-  assert.ok(e.burn < 1 && e.thrust < 1);
+  assert.ok(e.trollMotor === 'trollgps' && e.burn === 1 && e.thrust === 1);
   // Weight and draw add up; the flags follow.
   for (const id of ['sonar', 'lights', 'livewell', 'battery', 'anchor']) assert.ok(fitBoat(s, 'console', id).ok, id);
   e = fitEffect(s.yard, 'console');
-  assert.equal(e.kg, ['economy', 'sonar', 'lights', 'livewell', 'battery', 'anchor'].reduce((a, id) => a + FITS[id].kg, 0));
+  assert.equal(e.kg, ['trollgps', 'sonar', 'lights', 'livewell', 'battery', 'anchor'].reduce((a, id) => a + FITS[id].kg, 0));
   assert.ok(e.amps >= 7 && e.sonar && e.lights && e.livewell && e.house && e.hold > 2);
   // Taking one off: free, no refund, the weight gone.
   const m = s.money;
@@ -180,7 +177,7 @@ test('Shipyard 2.0: every fitting weighs something real and does something real,
   assert.equal(s.money, m);
   assert.equal(fitEffect(s.yard, 'console').kg, e.kg - FITS.livewell.kg);
   // The save keeps one to a slot, and drops what doesn't fit.
-  const back = cleanYard({ owned: KINDS, fits: { console: ['power', 'economy', 'bimini', 'livewell', 'nonsense'] } }, KINDS);
-  assert.deepEqual(back.fits.console, ['economy', 'livewell']);
+  const back = cleanYard({ owned: KINDS, fits: { console: ['troll', 'trollgps', 'bimini', 'livewell', 'nonsense'] } }, KINDS);
+  assert.deepEqual(back.fits.console, ['trollgps', 'livewell']);
 });
 
