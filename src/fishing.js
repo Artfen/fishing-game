@@ -782,6 +782,8 @@ export class Fishing {
     const sp = this.relSpeed;
     b.speed = sp + (this.twitchT > 0 ? 0.5 : 0);
     b.motion = this.twitchT > 0 ? 'twitch' : sp > 1.15 ? 'fast' : sp > 0.15 ? 'slow' : 'still';
+    // (A live bait swims about on its own, even with the line still.)
+    if (this.item?.live && b.motion === 'still') b.motion = 'slow';
     b.pause = !!this.r.pausing;
     b.towed = this.towSpeed > 1;
     b.drag = !!this.r.drag;
@@ -1217,6 +1219,20 @@ export class Fishing {
     this.from.copy(this.fishMeshes[F.sp.id].position);
     this.eco.keep(F.agent);
     this.hooks.onKeep(F.sp, F.size);
+    return true;
+  }
+
+  // Into the bait bucket (see livebait.js): out of the water like a fish kept, but alive in the
+  // bucket, for bait.
+  keepForBait() {
+    if (this.state !== 'caught' || this.t < 0.4) return false;
+    const F = this.fight;
+    if (!this.hooks.canBait?.(F.sp, F.size)) return false;
+    this.state = 'keeping';
+    this.t = 0;
+    this.from.copy(this.fishMeshes[F.sp.id].position);
+    this.eco.keep(F.agent);
+    this.hooks.onBait?.(F.sp, F.size);
     return true;
   }
 

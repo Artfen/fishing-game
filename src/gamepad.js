@@ -45,10 +45,12 @@ export const MAPS = {
   // sets the drag too; A follows a running fish with the boat.
   fight: { A: 'interact', B: 'cancel', RT: 'cast', R3: 'reset', LEFT: 'view', VIEW: 'map', MENU: 'settings' },
   // (RB looks closer at it: see inspect.js; there the right stick turns it over, B goes back.)
-  catch: { A: 'cast', X: 'keep', Y: 'photo', RB: 'interact', MENU: 'settings' },
+  // (LB: into the bait bucket, a fish small enough for bait.)
+  catch: { A: 'cast', X: 'keep', Y: 'photo', RB: 'interact', LB: 'tackle', MENU: 'settings' },
   inspect: { B: 'cancel', A: 'interact', RB: 'interact' },
-  // (Crouched over a rockpool: A turns a stone, X sweeps the net, Y photographs, B leaves.)
-  pool: { A: 'interact', X: 'cast', Y: 'photo', B: 'cancel' },
+  // (Crouched over a rockpool: A turns a stone, X sweeps the net, Y photographs, LB keeps a
+  // netted prawn for bait, B leaves.)
+  pool: { A: 'interact', X: 'cast', Y: 'photo', LB: 'tackle', B: 'cancel' },
   // (Y raises the binoculars from photo mode; in them, Y or B lowers them again.)
   photo: { A: 'photo', RT: 'photo', B: 'cancel', R3: 'reset', Y: 'binoculars' },
   binocs: { B: 'cancel', Y: 'binoculars', A: 'binoculars', R3: 'reset' },

@@ -1,3 +1,4 @@
+import { liveAppeal } from '../livebait.js';
 import { FISH } from '../fish.js';
 import { Pressure, restockFactor, pressureWariness } from './pressure.js';
 import { currentFast, currentAt, waveHeightHere } from './conditions.js';
@@ -1228,6 +1229,8 @@ export class Ecosystem {
   appeal(a, b, parts = null) {
     const sp = a.sp, L = a.L, V = this.level;
     let f = sp.food?.[b.item] ?? 0;
+    // (A live bait: the hunters want it most of all, see livebait.js.)
+    if (!f && TACKLE[b.item]?.live) f = liveAppeal(sp, b.item);
     // (A bait or lure that's a smaller version of another, a scrap of worm or a micro jig, tempts
     // the fish that don't list it a little less than the thing it stands for.)
     if (!f && TACKLE[b.item]?.as) f = Math.max(0, ...TACKLE[b.item].as.map((i) => sp.food?.[i] ?? 0)) * 0.8;
