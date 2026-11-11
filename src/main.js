@@ -7308,7 +7308,8 @@ function photoSubjects(extra = null) {
     if (d > 420) continue;
     if (d < 25 || _frustum.containsPoint(_pv.set(p.x, Math.max(solidHeight(p.x, p.z), 0) + 2, p.z))) places.push(p.id);
   }
-  const birds = world.flocks.some((f) => Math.hypot(f.x - c.x, f.z - c.z) < 320 && _frustum.containsPoint(_pv.set(f.x, 12, f.z)));
+  // (Gulls diving on a shoal in the picture. Not called birds: that's the birds of the coast, below.)
+  const gulls = world.flocks.some((f) => Math.hypot(f.x - c.x, f.z - c.z) < 320 && _frustum.containsPoint(_pv.set(f.x, 12, f.z)));
   // The Kittiwake's bell, close enough to make out, under the water.
   const by = heightAt(WRECK_BELL.x, WRECK_BELL.z) + 0.2;
   const bell = under && Math.hypot(WRECK_BELL.x - c.x, by - c.y, WRECK_BELL.z - c.z) < 7 && _frustum.containsPoint(_pv.set(WRECK_BELL.x, by, WRECK_BELL.z));
@@ -7316,7 +7317,7 @@ function photoSubjects(extra = null) {
   const life = [...wildlife.inFrame(_frustum, c), ...birds.inFrame(_frustum, c)];
   // (And the sea's: dolphins, whales, seals and turtles near enough, and a pod on your own bow.)
   const sea = sealife.inFrame(_frustum, c, together.active ? [together.id, crew.on?.id].filter(Boolean) : 'me');
-  return { species: [...species].slice(0, 12), places: places.slice(0, 12), birds, ...(bell ? { bell: true } : {}), ...(life.length ? { life } : {}), ...(sea.life.length ? { sea: sea.life } : {}), ...(sea.bow ? { bow: true } : {}) };
+  return { species: [...species].slice(0, 12), places: places.slice(0, 12), birds: gulls, ...(bell ? { bell: true } : {}), ...(life.length ? { life } : {}), ...(sea.life.length ? { sea: sea.life } : {}), ...(sea.bow ? { bow: true } : {}) };
 }
 
 function openPhoto() {

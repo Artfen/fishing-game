@@ -415,3 +415,14 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | Performance | The ecosystem at the quay: 0.66–0.74 ms a frame with the small fish, 0.67 without (run-to-run noise); up to three more instanced fish meshes where they're in view |
 | Remaining risks | French, Spanish and Portuguese names for the three new register entries weren't checked against a source this round, so they're left out. The micro float rod casts only a few metres, by design. Live bait (keeping these fish in a bucket for bass and pike) comes with the rockpools |
 
+
+### A fix: photographs failed since the birds came
+
+| Field | |
+| --- | --- |
+| System | `photoSubjects` in `src/main.js` (what a photograph shows) |
+| Previous issue | Since the birds of the coast arrived (Version 77), every photograph failed: a local value for "gulls diving in the picture" was named `birds`, hiding the birds of the coast, so asking them what was in the picture threw ("birds.inFrame is not a function") and no photo card came up |
+| Change | The local is `gulls` now (still saved as the picture's `birds`, as before) |
+| After | In the browser, photo mode on the Willowhaven quay: the photo card comes up ("Willow Bay, Willowhaven."), no page errors |
+| Validation | A test in `tests/birds.test.mjs` that nothing in photoSubjects is called `birds` but the birds of the coast; full suite in CI |
+
