@@ -9834,8 +9834,9 @@ setupOffline((event) => {
   if (event === 'ready') hud.toast('Ready to play offline: the whole game is stored on this device, so it starts and plays even without a connection.', 7);
   if (event === 'update') {
     // On the title screen, take the new version straight away; mid-game, ask first.
+    // (Not when it was the Update button that asked for it: that switches over by itself.)
     if (!started) updateNow();
-    else hud.toast('A new version of Slow Tide is ready. Open the journal (J) and choose Update; your progress is kept.', 8);
+    else if (!checkingUpdate) hud.toast('A new version of Slow Tide is ready. Open the journal (J) and choose Update; your progress is kept.', 8);
   }
   if (event === 'offline') hud.toast(`You’re offline. Everything keeps working and saving on this device.${cloud.signedIn ? ' Cloud sync is paused until you’re back online.' : ''}`, 6);
   if (event === 'online') {
