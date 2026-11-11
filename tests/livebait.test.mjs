@@ -60,7 +60,7 @@ test('the bucket: six in it (twelve in a livewell), the water goes stale, the we
   const M = L.newBucket();
   for (let i = 0; i < 3; i++) { L.addLive(M, 'sprat', 10); L.addLive(M, 'shanny', 10); }
   M.water = 0.05;
-  const dead = L.stepBucket(M, 0.5, {}, () => 0.5);
+  const dead = L.stepBucket(M, 0.5, {}, () => 0.3);
   assert.ok(dead.length && dead.every((f) => f.id === 'sprat'), dead.map((f) => f.id).join());
   // Fresh water, and none die.
   L.freshen(M);
