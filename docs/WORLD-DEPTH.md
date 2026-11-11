@@ -60,6 +60,6 @@ Trust assignments.
 - [x] A2b live bait (Version 86): small fish and netted prawns into a bait bucket (six) or a livewell (twelve); water that goes stale and is changed; the least hardy die first; a live fish or prawn the hunters' first choice; used up when taken
 - [x] B1 engine catalogue, the RIB (Version 85): the Fulmar 115 and 150, the Skua 200 and 225; three propellers; push from power and pitch, calibrated on her own engine; weight, fuel, sound, revs and the outboard drawn; the Marine Works' comparison measured on the boat; old saves' engine fittings carried over
 - [x] B2 engines for the other boats (Version 87): Petrel portables for the skiff, Tern threes for the bass and cabin boats, twin outboards for the console, twin Shearwater diesels for the yacht; the old engine fittings retired and carried over. (Still to come: an electric outboard for the skiff, and the jet ski's)
-- [ ] B3 vessels and customization
+- [x] B3 vessels and customization (Version 88): each boat's papers (registration, since when, engine hours, sea miles, fuel, fish aboard and her best, her log); a stripe or a RIB's tubes in your colours, and a flag at her stern; old games get papers for every boat. (One of each kind, as ever: two boats of a kind would need the harbour to hold them)
 - [ ] C chart layers and routes
 - [ ] D character and research

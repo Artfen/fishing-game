@@ -84,7 +84,8 @@ import { PROFILES as ENGINES, WOT, START_MODES, hasEngine, cleanEngine, engineSa
 import { HelmUI } from './helm.js';
 import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
-import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, hiredToday, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect, engineOf, repowerBoat, repropBoat } from './shipyard.js';
+import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, hiredToday, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect, engineOf, repowerBoat, repropBoat, trimBoat } from './shipyard.js';
+import { flagById, logLine, addRun, addFish } from './papers.js';
 import { engineSpec, hasCatalogue, MODELS, CATALOGUE as ENGINE_BOATS, propName, fittedName } from './engines.js';
 const CATALOGUE_COUNT = (kind) => ENGINE_BOATS[kind]?.count || 1;
 import { BoatPreview } from './boatPreview.js';
@@ -1369,6 +1370,12 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
   const rec = state.fish[sp.id];
   const record = !isNew && size > rec.best;
   if (record) noteRecord(state.today, sp.id, size);
+  // (Caught aboard one of your boats: in her papers, and her best fish in her log.)
+  const V = !onFoot && boat ? state.yard.vessels?.[boat.kind] : null;
+  if (V && !how) {
+    const kg = agent?.weight ?? weightOf(sp, size);
+    if (addFish(V, sp.id, kg, size, state.day) && kg >= 1) logLine(V, state.day, `Her best fish yet: a ${size} cm ${sp.name.toLowerCase()}, ${kg.toFixed(1)} kg.`);
+  }
   // Was it under a sign you saw just now? Then you know what that sign was (see grounds.js).
   const read = agent ? readSign(state.grounds, recentSigns, sp.id, agent.x, agent.z, clock.abs) : null;
   if (read) later(read.first ? SIGNS[read.kind].lesson(sp.id) : `${SIGNS[read.kind].name}: ${read.kind === 'birds' ? 'under the birds again' : 'you read it right again'}.`);
@@ -1922,6 +1929,19 @@ const harbourSheet = new HarbourSheet(state, {
   // Willowhaven Marine Works (see shipyard.js).
   yardKinds: () => KINDS.filter((k) => k !== 'row' && k !== 'kayak'),
   boatName: (kind) => BOATS[kind]?.name || kind,
+  // Her stripe, tubes or flag (see papers.js), and what she can take.
+  trimOf: (kind) => ({ stripes: !!BOATS[kind]?.hull && BOATS[kind].hull.stripe !== BOATS[kind].hull.paint && !BOATS[kind].hull.tubes, tubes: !!BOATS[kind]?.hull.tubes }),
+  yardTrim: (kind, what, id) => {
+    const T = { stripes: BOATS[kind].hull.stripe !== BOATS[kind].hull.paint && !BOATS[kind].hull.tubes, tubes: !!BOATS[kind].hull.tubes };
+    yardDo(trimBoat(state, kind, what, id, T), () => {
+      // (A flag's name as it reads in a sentence: "the Willowhaven Sailing Club burgee", "a plain
+      // swallowtail", "code flag A".)
+      const flagWords = (n) => (/^A /.test(n) ? n.replace(/^A /, 'a ') : /^Code /.test(n) ? n.replace(/^Code /, 'code ') : `the ${n}`);
+      hud.toast(what === 'flag' ? (id ? `${flagById[id].name}: flying at her stern.` : 'The flag’s down and folded.') : what === 'tubes' ? 'New covers on her tubes.' : 'Her new stripe, fresh from the brush.', 3);
+      vesselLog(kind, what === 'flag' ? (id ? `Flying ${flagWords(flagById[id].name)}.` : 'Her flag taken down.') : what === 'tubes' ? `New tube covers: ${PAINTS.find((p) => p.id === id).name.toLowerCase()}.` : `A new stripe: ${PAINTS.find((p) => p.id === id).name.toLowerCase()}.`);
+    });
+  },
+  fishName: (id) => fishById[id]?.name.toLowerCase() || id,
   yardBuy: (kind) => yardDo(buyBoat(state, kind), () => {
     hud.toast(`The ${BOATS[kind].name} is yours. ${BOATS[kind].stowed ? 'She’s laid up at the yard: the harbour office puts her in the water whenever you like.' : ''}`, 6);
     audio.fanfare?.();
@@ -1933,18 +1953,27 @@ const harbourSheet = new HarbourSheet(state, {
     // (The board, written again for a boat you have now: jobs taken or done stay as they are.)
     state.contracts.board = null;
   }),
-  yardPaint: (kind, paint) => yardDo(paintBoat(state, kind, paint), () => hud.toast(`A fresh coat on the ${BOATS[kind].name}.`, 3)),
-  yardName: (kind, name) => yardDo(nameBoat(state, kind, name), () => hud.toast(`“${state.yard.looks[kind].name}”, sign-written on her bow.`, 4)),
+  yardPaint: (kind, paint) => yardDo(paintBoat(state, kind, paint), () => {
+    hud.toast(`A fresh coat on the ${BOATS[kind].name}.`, 3);
+    vesselLog(kind, `Painted ${PAINTS.find((p) => p.id === paint).name.toLowerCase()}.`);
+  }),
+  yardName: (kind, name) => yardDo(nameBoat(state, kind, name), () => {
+    hud.toast(`“${state.yard.looks[kind].name}”, sign-written on her bow.`, 4);
+    vesselLog(kind, `Named “${state.yard.looks[kind].name}”.`);
+  }),
   yardFit: (kind, id) => {
     const r = fitBoat(state, kind, id);
-    yardDo(r, () => hud.toast(r.swapped ? `Fitted, in place of the ${FITS[r.swapped].name.toLowerCase()}.` : 'Fitted.', 3));
+    yardDo(r, () => {
+      hud.toast(r.swapped ? `Fitted, in place of the ${FITS[r.swapped].name.toLowerCase()}.` : 'Fitted.', 3);
+      vesselLog(kind, `Fitted: ${FITS[id].name.toLowerCase()}.`);
+    });
   },
   yardUnfit: (kind, id) => yardDo(unfitBoat(state, kind, id), () => hud.toast('Taken off: back in the store.', 2)),
   // Her engine and propeller (see engines.js): what's on her, and a new one fitted while you
   // wait; her tank and the spec of any choice, for the comparison's figures.
   yardEngine: (kind) => engineOf(state.yard, kind),
-  yardRepower: (kind, model) => yardDo(repowerBoat(state, kind, model), () => hud.toast(`The ${fittedName(kind, model)} ${MODELS[model].inboard ? 'are in her engine room' : CATALOGUE_COUNT(kind) > 1 ? 'are on her transom' : 'is on her transom'}, the old taken in.`, 4)),
-  yardReprop: (kind, prop) => yardDo(repropBoat(state, kind, prop), () => hud.toast(`New propeller${CATALOGUE_COUNT(kind) > 1 ? 's' : ''} on: ${propName(kind, prop).toLowerCase()}.`, 3)),
+  yardRepower: (kind, model) => yardDo(repowerBoat(state, kind, model), () => vesselLog(kind, `Re-engined: ${fittedName(kind, model)}.`) || hud.toast(`The ${fittedName(kind, model)} ${MODELS[model].inboard ? 'are in her engine room' : CATALOGUE_COUNT(kind) > 1 ? 'are on her transom' : 'is on her transom'}, the old taken in.`, 4)),
+  yardReprop: (kind, prop) => yardDo(repropBoat(state, kind, prop), () => vesselLog(kind, `New propeller${CATALOGUE_COUNT(kind) > 1 ? 's' : ''}: ${propName(kind, prop).toLowerCase()}.`) || hud.toast(`New propeller${CATALOGUE_COUNT(kind) > 1 ? 's' : ''} on: ${propName(kind, prop).toLowerCase()}.`, 3)),
   tankOf: (kind) => TANKS[kind] || 0,
   engineSpecFor: (kind, choice) => engineSpec(kind, BOATS[kind].hull, choice),
   // The look at a boat at the Marine Works (see boatPreview.js).
@@ -1954,6 +1983,17 @@ const harbourSheet = new HarbourSheet(state, {
 });
 const boatPreview = new BoatPreview((scene, kind) => new Boat(scene, { kind }));
 // Something done at the Marine Works: paid for and done, or why not.
+// A line in a boat's log (her papers: see papers.js), if she's yours.
+function vesselLog(kind, text) {
+  logLine(state.yard.vessels?.[kind], state.day, text);
+}
+// What she's done under her own power, while you're in her: engine hours, sea miles, fuel.
+function vesselRun(dt, hours, litres) {
+  if (onFoot || !boat || !state.yard.vessels?.[boat.kind]) return;
+  const E = engines[boat.kind];
+  addRun(state.yard.vessels[boat.kind], { hours: boat.motor && (!E || engineRunning(E)) ? hours : 0, metres: Math.abs(boat.speed) * dt, litres });
+}
+
 function yardDo(r, then) {
   if (!r.ok) {
     hud.toast(r.why, 4);
@@ -7129,9 +7169,13 @@ function applyYard() {
       WOT[k] = S.rpm;
     }
     if (isPetrol(k) && fuelLevel(f, k) > TANKS[k]) addFuel(f, k, TANKS[k] - fuelLevel(f, k));
-    const L = state.yard.looks[k] || {};
-    b.repaint(L.paint ? PAINTS.find((p) => p.id === L.paint)?.hex : null);
+    const L = state.yard.looks[k] || {}, hex = (id) => (id ? PAINTS.find((p) => p.id === id)?.hex : null);
+    b.repaint(hex(L.paint));
     if ((L.name || '') !== (b.boatName || '')) b.setName(L.name || '');
+    // (Her stripe or a RIB's tubes, and a flag at her stern: see papers.js.)
+    b.restripe?.(hex(L.stripe));
+    b.retube?.(hex(L.tubes));
+    if ((b.flagId || null) !== (L.flag || null) || L.flag === 'own') b.setFlag?.(flagById[L.flag] || null, { paint: hex(L.paint), stripe: hex(L.stripe) });
     // (What she carries, how hard her anchor holds, and her fittings to see.)
     b.payload = payloadOf(k, e);
     b.anchorHold = e.hold;
@@ -7792,6 +7836,7 @@ function bucketWords() {
 // The hours go by (however they went: fishing, sleeping, travelling) and the bucket's water with
 // them; in stale water the bait starts to die.
 let bucketAt = null;
+let burnedNow = 0;
 function bucketTick() {
   const B = state.gear.bucket, now = ownAbs();
   if (bucketAt == null || !B.fish.length) {
@@ -11286,7 +11331,9 @@ function tick(now, manual = false) {
       // (The bass boat's trolling battery: a second one fitted, it lasts half as long again.)
       // (An engine from the catalogue works as hard as its propeller makes it: see engines.js.)
       const work = !electric && boat.motorSpec ? boat.motorSpec.effort : 1;
+      const had = fuelLevel(f, boat.kind);
       const ran = burnBoat(f, boat.kind, (throttle || 0.06) * work, electric ? dt / (fitsAboard()?.troll || 1) : dt, throttle ? troll : 0);
+      burnedNow = Math.max(0, had - fuelLevel(f, boat.kind));
       const what = scheme() === 'touch' ? 'tap the prompt' : K('interact');
       if (ran === 'dry') hud.flash(`The outboard splutters and stops: the tank is dry. An oar moves her along, slowly; stop, then ${what} for the jerry can or a tow.`, t, 6);
       if (ran === 'flat') hud.flash('The electric motor whines down: the battery is flat. It charges at a jetty, and overnight; the outboard still runs.', t, 5);
@@ -11296,6 +11343,9 @@ function tick(now, manual = false) {
     if (hours) for (const k of Object.keys(f.troll || {})) if (BOATS[k] && moored(BOATS[k])) f.troll[k] = Math.min(1, f.troll[k] + hours * BATTERY_PER_HOUR);
     if (hours && moored(BOATS.kayak)) chargeBattery(f, hours, 'kayak');
     bucketTick();
+    // (Her papers: what she's done, see papers.js.)
+    vesselRun(dt, hours, burnedNow);
+    burnedNow = 0;
     fuelCheckT -= dt;
     if (fuelCheckT <= 0) {
       fuelCheckT = 1;

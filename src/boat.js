@@ -652,6 +652,98 @@ export class Boat {
     if (this.boatName) this.setName(this.boatName);
   }
 
+  // Recolour what's this colour on her meshes tagged tag (userData), its shading kept: her stripe
+  // on her hull, a RIB's tubes. Returns the colour now.
+  recolor(tag, fromHex, toHex) {
+    const to = new THREE.Color(toHex), from = new THREE.Color(fromHex);
+    if (to.equals(from)) return to;
+    const f2 = from.r * from.r + from.g * from.g + from.b * from.b || 1e-6;
+    this.group.traverse((o) => {
+      const c = o.userData?.[tag] && o.geometry?.attributes?.color;
+      if (!c) return;
+      const a = c.array;
+      for (let i = 0; i < a.length; i += 3) {
+        const k = (a[i] * from.r + a[i + 1] * from.g + a[i + 2] * from.b) / f2;
+        if (k < 0.88 || k > 1.1) continue;
+        const dr = a[i] - k * from.r, dg = a[i + 1] - k * from.g, db = a[i + 2] - k * from.b;
+        if (dr * dr + dg * dg + db * db > 0.0009 * f2) continue;
+        a[i] = to.r * k;
+        a[i + 1] = to.g * k;
+        a[i + 2] = to.b * k;
+      }
+      c.needsUpdate = true;
+    });
+    return to;
+  }
+
+  // Her stripe in a colour of your own (hex, or null: as she came). Not on a hull whose stripe is
+  // her paint (the RIB's: her tubes are her second colour, see retube).
+  restripe(hex) {
+    const H = this.hull;
+    if (new THREE.Color(H.stripe).equals(new THREE.Color(H.paint))) return;
+    const to = hex || H.stripe;
+    this.stripeNow = '#' + this.recolor('hull', this.stripeNow || H.stripe, to).getHexString();
+  }
+  // A RIB's tubes in a colour of your own (hex, or null: as she came).
+  retube(hex) {
+    const T = this.hull.tubes;
+    if (!T) return;
+    this.tubesNow = '#' + this.recolor('tubes', this.tubesNow || T.color, hex || T.color).getHexString();
+  }
+
+  // A flag at her stern (see papers.js FLAGS; null: none): on a short staff off to one side of
+  // the transom, clear of the outboard, stirring in the breeze.
+  setFlag(flag, own = null) {
+    if (this.flag) {
+      this.flag.parent?.remove(this.flag);
+      this.flag.traverse((o) => {
+        o.geometry?.dispose();
+        o.material?.map?.dispose();
+        o.material?.dispose();
+      });
+      this.flag = null;
+    }
+    this.flagId = flag?.id || null;
+    if (!flag || !document?.createElement) return;
+    const H = this.hull, g = new THREE.Group();
+    const side = (H.tubes ? H.B * 0.7 : H.B * 0.55) * (H.motor?.twin || H.motor?.side ? 0 : 1);
+    const zs = zAt(H, 0.03), y0 = sheer(H, 0.03) + (H.tubes ? H.tubes.r * 0.8 : 0.02);
+    g.position.set(H.motor?.twin ? 0 : -side, y0, zs);
+    const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.01, 0.9, 6), new THREE.MeshStandardMaterial({ color: '#c9cdd0', metalness: 0.6, roughness: 0.35 }));
+    staff.position.y = 0.45;
+    g.add(staff);
+    const cv = document.createElement('canvas');
+    cv.width = 64;
+    cv.height = 40;
+    const ctx = cv.getContext('2d');
+    const [a, b] = flag.colors || [own?.paint || H.paint, own?.stripe || H.stripe];
+    if (ctx && ctx.fillRect) {
+      ctx.clearRect(0, 0, 64, 40);
+      ctx.fillStyle = a;
+      ctx.beginPath();
+      if (flag.shape === 'pennant') {
+        ctx.moveTo(0, 0); ctx.lineTo(64, 20); ctx.lineTo(0, 40);
+      } else {
+        ctx.moveTo(0, 0); ctx.lineTo(64, 0); ctx.lineTo(44, 20); ctx.lineTo(64, 40); ctx.lineTo(0, 40);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = b;
+      if (flag.id === 'alpha') ctx.fillRect(32, 0, 32, 40);
+      else if (flag.shape === 'pennant') ctx.fillRect(4, 14, 22, 12);
+      else ctx.fillRect(0, 14, 50, 12);
+    }
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const cloth = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.26), new THREE.MeshStandardMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, roughness: 0.9 }));
+    cloth.position.set(0, 0.76, -0.21);
+    cloth.rotation.y = Math.PI / 2;
+    g.add(cloth);
+    this.flag = g;
+    this.flagCloth = cloth;
+    this.body.add(g);
+  }
+
   // Her name, sign-written on both sides of the bow (or none).
   setName(name) {
     for (const m of this.nameBoards || []) {
@@ -1478,6 +1570,7 @@ export class Boat {
     const mesh = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.02 }));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
+    mesh.userData.tubes = true; // (what a new colour for her tubes recolours: see retube)
     this.body.add(mesh);
   }
 

@@ -351,7 +351,7 @@ export function sanitize(raw) {
   s.gifts = (Array.isArray(raw.gifts) ? raw.gifts : []).filter((h) => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h)).slice(0, 20);
   s.track = (Array.isArray(raw.track) ? raw.track : []).filter((p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1])).slice(-600).map((p) => [Math.round(p[0]), Math.round(p[1])]);
   // (A game from before the Marine Works owns every boat it had: it already knew where they were.)
-  s.yard = cleanYard(raw.yard, VESSELS, !isObj(raw.yard) && isObj(raw.boats));
+  s.yard = cleanYard(raw.yard, VESSELS, !isObj(raw.yard) && isObj(raw.boats), s.day);
   s.behaviour = oneOf(raw.behaviour, BEHAVIOUR_IDS, 'relaxed');
   s.fishView = oneOf(raw.fishView, ['first', 'shoulder'], 'first');
   s.sonar = !!raw.sonar;

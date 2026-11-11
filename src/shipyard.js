@@ -13,6 +13,7 @@
 
 import { pay } from './economy.js';
 import { CATALOGUE, MODELS, PROPS, cleanChoice } from './engines.js';
+import { cleanVessels, cleanTrim, newVessel, logLine, flagById, STRIPE_PRICE, TUBES_PRICE } from './papers.js';
 
 export const STARTER = ['row', 'skiff', 'kayak'];
 // What each boat costs (pounds): from a couple of good days' fishing to a summer's.
@@ -133,8 +134,8 @@ const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 export const cleanBoatName = (v) => (typeof v === 'string' ? v.replace(/[^\p{L}\p{N} '’.&-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX) : '');
 
 // The yard's records, made sensible. kinds: the boats there are; legacy: a game from before the
-// Marine Works (it owns every boat it had).
-export function cleanYard(raw, kinds, legacy = false) {
+// Marine Works (it owns every boat it had); day: today (a boat's papers begin today if it has none).
+export function cleanYard(raw, kinds, legacy = false, day = 1) {
   const r = isObj(raw) ? raw : {};
   let owned = Array.isArray(r.owned) ? [...new Set(r.owned.filter((k) => kinds.includes(k)))] : legacy ? [...kinds] : [...STARTER];
   for (const k of STARTER) if (kinds.includes(k) && !owned.includes(k)) owned.push(k);
@@ -144,7 +145,9 @@ export function cleanYard(raw, kinds, legacy = false) {
   for (const [k, v] of Object.entries(isObj(r.looks) ? r.looks : {})) {
     if (!kinds.includes(k) || !isObj(v)) continue;
     const paint = PAINTS.some((p) => p.id === v.paint) ? v.paint : null, name = cleanBoatName(v.name);
-    if (paint || name) looks[k] = { ...(paint ? { paint } : {}), ...(name ? { name } : {}) };
+    // (And her stripe, a RIB's tubes, a flag: see papers.js.)
+    const trim = cleanTrim(v, PAINTS.map((p) => p.id));
+    if (paint || name || Object.keys(trim).length) looks[k] = { ...(paint ? { paint } : {}), ...(name ? { name } : {}), ...trim };
   }
   const fits = {};
   for (const [k, v] of Object.entries(isObj(r.fits) ? r.fits : {})) {
@@ -172,7 +175,9 @@ export function cleanYard(raw, kinds, legacy = false) {
     const c = cleanChoice(k, v || (old ? { model: CATALOGUE[k].legacy?.[old] } : null));
     if (c.model !== CATALOGUE[k].stock || c.prop !== 'matched') engines[k] = c;
   }
-  return { owned, hired, looks, fits, engines };
+  // Each boat's papers: her registration, her log, what she's done (see papers.js).
+  const vessels = cleanVessels(r.vessels, owned, day);
+  return { owned, hired, looks, fits, engines, vessels };
 }
 
 // Can you take her out: yours, or on hire to you now. A hire runs 24 hours from when you took her
@@ -199,6 +204,9 @@ export function buyBoat(state, kind) {
   if (!r.ok) return r;
   Y.owned.push(kind);
   if (Y.hired?.kind === kind) Y.hired = null;
+  Y.vessels ??= {};
+  Y.vessels[kind] = newVessel(kind, state.day);
+  logLine(Y.vessels[kind], state.day, `Bought at Willowhaven Marine Works for ${PRICES[kind]} pounds.`);
   return { ok: true };
 }
 
@@ -221,6 +229,7 @@ export function paintBoat(state, kind, paint) {
   if (!owns(Y, kind)) return { ok: false, why: 'Only your own boat.' };
   if (!PAINTS.some((p) => p.id === paint)) return { ok: false, why: 'Not a colour on the chart.' };
   if (Y.looks[kind]?.paint === paint) return { ok: false, why: 'She’s that colour already.' };
+  if (Y.looks[kind]?.stripe === paint) return { ok: false, why: 'That’s her stripe’s colour: her paint wants one of its own.' };
   const r = pay(state, PAINT_PRICE, `Painted the ${kind}`);
   if (!r.ok) return r;
   Y.looks[kind] = { ...Y.looks[kind], paint };
@@ -234,6 +243,37 @@ export function nameBoat(state, kind, name) {
   const r = pay(state, NAME_PRICE, `Sign-written the ${kind}`);
   if (!r.ok) return r;
   Y.looks[kind] = { ...Y.looks[kind], name: n };
+  return { ok: true };
+}
+
+// Her stripe or a RIB's tubes in a colour from the chart, or a flag at her stern (see papers.js).
+// Returns { ok, why }.
+export function trimBoat(state, kind, what, id, { stripes = true, tubes = false } = {}) {
+  const Y = state.yard;
+  if (!owns(Y, kind)) return { ok: false, why: 'Only your own boat.' };
+  const L = Y.looks[kind] || {};
+  if (what === 'flag') {
+    if (id === null) {
+      if (!L.flag) return { ok: false, why: 'She flies none.' };
+      Y.looks[kind] = { ...L };
+      delete Y.looks[kind].flag;
+      return { ok: true };
+    }
+    const F = flagById[id];
+    if (!F) return { ok: false, why: 'Not a flag the chandlery has.' };
+    if (L.flag === id) return { ok: false, why: 'She flies that one already.' };
+    const r = pay(state, F.price, `A flag for the ${kind}`);
+    if (!r.ok) return r;
+    Y.looks[kind] = { ...L, flag: id };
+    return { ok: true };
+  }
+  if ((what === 'stripe' && !stripes) || (what === 'tubes' && !tubes) || !['stripe', 'tubes'].includes(what)) return { ok: false, why: 'Not on her.' };
+  if (!PAINTS.some((p) => p.id === id)) return { ok: false, why: 'Not a colour on the chart.' };
+  if (L[what] === id) return { ok: false, why: 'She’s that colour already.' };
+  if (what === 'stripe' && L.paint === id) return { ok: false, why: 'That’s her paint: a stripe wants a colour of its own.' };
+  const r = pay(state, what === 'tubes' ? TUBES_PRICE : STRIPE_PRICE, `${what === 'tubes' ? 'New tube covers' : 'A new stripe'} for the ${kind}`);
+  if (!r.ok) return r;
+  Y.looks[kind] = { ...L, [what]: id };
   return { ok: true };
 }
 
