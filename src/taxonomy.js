@@ -44,6 +44,7 @@ export const CLASSES = {
   chondrichthyes: { phylum: 'chordata', name: 'Sharks, skates and rays', sci: 'Chondrichthyes', note: 'Skeletons of cartilage, not bone; skin like sandpaper, rough with tiny teeth.' },
   cephalopoda: { phylum: 'mollusca', name: 'Cephalopods', sci: 'Cephalopoda', note: 'Molluscs whose foot became arms round the head: three hearts, blue blood, skin that changes colour in a blink.' },
   bivalvia: { phylum: 'mollusca', name: 'Bivalves', sci: 'Bivalvia', note: 'Two shells hinged together, and a life spent filtering the water.' },
+  thecostraca: { phylum: 'arthropoda', name: 'Barnacles', sci: 'Thecostraca', note: 'Crustaceans that settle head-down on rock, a boat or a whale, build a shell round themselves and fish with their legs.' },
   gastropoda: { phylum: 'mollusca', name: 'Snails, slugs and limpets', sci: 'Gastropoda', note: 'Molluscs that crawl on one big foot, most under a single coiled shell: a rasping tongue scrapes their food off the rock.' },
   malacostraca: { phylum: 'arthropoda', name: 'Crabs, lobsters and shrimps', sci: 'Malacostraca' },
   polychaeta: { phylum: 'annelida', name: 'Bristle worms', sci: 'Polychaeta' },
@@ -111,6 +112,8 @@ export const ORDERS = {
   // Arthropods
   decapoda: { sci: 'Decapoda', name: 'Ten-legged crustaceans: crabs, lobsters, shrimps' },
   patellogastropoda: { sci: 'Patellogastropoda', name: 'True limpets' },
+  balanomorpha: { sci: 'Balanomorpha', name: 'Acorn barnacles' },
+  mytilida: { sci: 'Mytilida', name: 'Sea mussels' },
   littorinimorpha: { sci: 'Littorinimorpha', name: 'Periwinkles, cowries and their kin' },
   valvatida: { sci: 'Valvatida', name: 'Cushion stars and their kin' },
   // Echinoderms
@@ -167,7 +170,8 @@ export const FAMILIES = {
   Octopodidae: ['octopoda', 'Octopuses'], Sepiidae: ['sepiida', 'Cuttlefishes'], Loliginidae: ['myopsida', 'Inshore squids'],
   Pectinidae: ['pectinida', 'Scallops'], Unionidae: ['unionida', 'River mussels'],
   // Arthropods
-  Paguridae: ['decapoda', 'Hermit crabs'], Nephropidae: ['decapoda', 'Clawed lobsters'], Carcinidae: ['decapoda', 'Shore crabs'], Palaemonidae: ['decapoda', 'Prawns'],
+  Paguridae: ['decapoda', 'Hermit crabs'], Nephropidae: ['decapoda', 'Clawed lobsters'], Carcinidae: ['decapoda', 'Shore crabs'], Palaemonidae: ['decapoda', 'Prawns'], Cancridae: ['decapoda', 'Rock crabs'], Polybiidae: ['decapoda', 'Swimming crabs'],
+  Archaeobalanidae: ['balanomorpha', 'Acorn barnacles'], Mytilidae: ['mytilida', 'Sea mussels'],
   Patellidae: ['patellogastropoda', 'Limpets'], Littorinidae: ['littorinimorpha', 'Periwinkles'], Asterinidae: ['valvatida', 'Cushion stars'],
   // Annelids (no order: the bristle worms' orders are unsettled)
   Arenicolidae: [null, 'Lugworms'],
@@ -257,6 +261,11 @@ export const LIFE = {
   diadema: { src: 'nature', cls: 'echinoidea', family: 'Diadematidae', sci: 'Diadema africanum', look: 'In herds on the black rock at Las Brasas.' },
   cucumber: { src: 'nature', cls: 'holothuroidea', family: 'Holothuriidae', sci: 'Holothuria sanctori', look: 'On the sand and in the weed at Las Brasas.' },
   dahlia: { src: 'nature', cls: 'anthozoa', family: 'Actiniidae', sci: 'Urticina felina', look: 'On rock: Skerries Reef.' },
+  // The crevices and rock tops of Skerries Reef (world/divesiteWorld.js)
+  ediblecrab: { src: 'nature', cls: 'malacostraca', family: 'Cancridae', sci: 'Cancer pagurus', look: 'Dive Skerries Reef: in the crevices at the foot of the boulders, by day.' },
+  velvetcrab: { src: 'nature', cls: 'malacostraca', family: 'Polybiidae', sci: 'Necora puber', look: 'Dive Skerries Reef: under the boulders. It rears up at you.' },
+  barnacle: { src: 'nature', cls: 'thecostraca', family: 'Archaeobalanidae', sci: 'Semibalanus balanoides', look: 'On the shallow rock tops at Skerries Reef.' },
+  bluemussel: { src: 'nature', cls: 'bivalvia', family: 'Mytilidae', sci: 'Mytilus edulis', look: 'In clumps on the shallow rock tops at Skerries Reef.' },
   // The rockpools at low water (world/rockpools.js)
   beadlet: { src: 'nature', cls: 'anthozoa', family: 'Actiniidae', sci: 'Actinia equina', look: 'On the sides of the rockpools at low water: east of Willowhaven, in Willow Bay, at Puffin Cove.' },
   snakelocks: { src: 'nature', cls: 'anthozoa', family: 'Actiniidae', sci: 'Anemonia viridis', look: 'In the sunnier, lower rockpools at low water.' },

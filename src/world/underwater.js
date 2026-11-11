@@ -15,6 +15,7 @@ const UNDER_NIGHT = new THREE.Color('#0b1f33');
 const UNDER_RAIN = new THREE.Color('#4a6f74');
 const UNDER_DEEP = new THREE.Color('#0d3f5a');
 const UNDER_SILT = new THREE.Color('#4a5a3e');
+const UNDER_KELP = new THREE.Color('#2c5236'); // the green-brown dusk under a kelp canopy
 // Las Brasas' water, far to the south: clear ocean blue, seeing twice as far.
 const UNDER_DAY_S = new THREE.Color('#1c87b6');
 const UNDER_DEEP_S = new THREE.Color('#09306e');
@@ -122,6 +123,7 @@ export class Underwater {
     this.submerge = 0;
     this.clear = 0; // 1 in Las Brasas' clear blue water (set by the game)
     this.colour = 0; // silt after rain or a blow (set by the game, see grounds.js): murkier, greener
+    this.shade = 0; // 0 … 1 under a kelp forest's canopy (set by the game): dimmer, greener light
     this.underColor = new THREE.Color().copy(UNDER_DAY);
     const rnd = seeded(9090);
 
@@ -361,6 +363,11 @@ export class Underwater {
     c.lerp(UNDER_DUSK, smoothstep(0.35, 0.05, env.sunDir.y) * env.daylight * 0.5);
     if (rain > 0) c.lerp(UNDER_RAIN, rain * 0.35 * env.daylight);
     if (this.colour > 0) c.lerp(UNDER_SILT, this.colour * 0.5 * (1 - this.clear));
+    // Under the kelp canopy the light comes down green-brown and dim, through the fronds.
+    if (this.shade > 0) {
+      c.lerp(UNDER_KELP, this.shade * 0.4);
+      c.multiplyScalar(1 - 0.35 * this.shade);
+    }
     c.multiplyScalar(1 - clamp(-cp.y / 40, 0, 0.45));
     if (sub > 0) {
       // Water scatters light from above: looking up the haze is bright, looking down it deepens to blue.

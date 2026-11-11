@@ -11419,6 +11419,11 @@ function tick(now, manual = false) {
   stormFx.update(dt, t, { storm: Math.max(weather.storm, conditions.sea.storm * 0.8), camera, env, onThunder: (d, loud) => { audio.thunder?.(d, loud); haptics.pulse('thunder', clamp(loud, 0.15, 1)); }, flashes: !settings.controls.reducedMotion });
   watchStorm(dt);
   env.update(dt, t, sunHour(clock.hour, clock.abs), weather.rain, fpShadow ? _shadowAt : P, camera, renderer, weather.cloud);
+  // Down among the Kelp Forest's stalks, under its canopy: the light dims and greens (see underwater.js).
+  {
+    const K = siteById.kelp, cp = camera.position;
+    underwater.shade = cp.y < -1.2 ? smoothstep(K.r + 6, K.r * 0.55, Math.hypot(cp.x - K.x, cp.z - K.z)) * smoothstep(-1.2, -4, cp.y) : 0;
+  }
   const sub = underwater.updateMedium(t, camera, env, scene, water, weather.rain);
   postLook.under = sub;
   audio.setUnderwater(sub);

@@ -99,6 +99,7 @@ export class Ecosystem {
     // Solid rock besides the seabed, for the dive sites' fish to keep out of (the Hound, the arch
     // on Skerries Reef, the boulders): (point, pad) => true if it pushed the point out.
     this.solid = pushOut;
+    this.rockStep = 0;
     this.populate();
   }
 
@@ -1189,6 +1190,22 @@ export class Ecosystem {
     }
     const floor = -depth + (a.L?.flat ? 0.04 : 0.18 + a.scale * 0.15);
     if (a.y < floor) a.y = floor;
+    // Round the rock of a dive site (its boulders, the arch, the pinnacles), never through it: out
+    // to its surface and turned away along it. (Every third step for each fish: plenty, at the
+    // speeds they swim; and only near a site does it cost anything, see divesites.js pushOut.)
+    if (this.solid && (a.id + (this.rockStep = (this.rockStep + 1) % 3)) % 3 === 0) {
+      _rp.x = a.x;
+      _rp.y = a.y;
+      _rp.z = a.z;
+      if (this.solid(_rp, 0.15 + a.scale * 0.3)) {
+        const px = _rp.x - a.x, pz = _rp.z - a.z;
+        a.x = _rp.x;
+        a.y = Math.min(_rp.y, -0.2);
+        a.z = _rp.z;
+        if (px || pz) a.yaw += wrapAngle(Math.atan2(px, pz) - a.yaw) * Math.min(1, h * 6);
+        this.rockTurns = (this.rockTurns || 0) + 1;
+      }
+    }
     if (a.L?.flat && a.state !== 'flee' && !BAIT_STATES.has(a.state) && a.state !== 'jump') {
       // Flat on the bottom: they glide close over it, never pitched up.
       a.y = Math.min(a.y, floor + 0.15);
