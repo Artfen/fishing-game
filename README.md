@@ -274,7 +274,7 @@ On the map, **Mark a spot** (or **Mark where you are**) adds a mark with a title
 
 Camps you've found are listed beside the map: **Go there** takes you to any of them in a short fade (a little time passes, more for further camps), and **Go there** by your boat takes you back aboard. Your boats stay where you left them.
 
-### Six ways to fish
+### Seven ways to fish
 
 The rod decides how you fish; what you tie on decides which fish come. (Strike times below are for Standard difficulty.)
 
@@ -283,6 +283,7 @@ The rod decides how you fish; what you tie on decides which fish come. (Strike t
 - **Carp fishing** (carp rod, with a bait). The rig sinks and sits on the bottom while the rod rests on a bite alarm. A single soft **bleep** means something is moving the line; a run means a carp has picked up the bait, and with the **hair rig** or **method feeder** it hooks itself: a three-note bell and **Fish on!** tell you it's already hooked. Press **G** to throw loose bait around the rig.
 - **Sea bottom fishing** (boat & bottom rod, with lugworm, ragworm, crab or mackerel strip). A flapper rig or running ledger on the seabed. Watch the rod tip: little rattles are fish mouthing the bait; when it **pulls round**, strike. Flatfish (flounder in the estuary, plaice on the sand round Gannet Isle), wrasse by the rocks and sea bass take baits on the bottom.
 - **Fly fishing** (fly rod, with a fly). Hold Space to false-cast: each stroke shoots more line out; let go on a forward stroke to deliver. A dry fly floats and drifts with the current, a nymph drifts under an indicator, a streamer is stripped back in pulls. Trout won't take a **dragging** fly: cast upstream of them and let it drift down.
+- **Micro-fishing** (micro float rod, with worm pieces or maggots under a micro float on a size 18 hook; or a 1 g micro jig on the light spinning rod). For the small fish most anglers never notice: rock gobies, shannies and little corkwing wrasse at the foot of the Willowhaven quay and on the shallow weedy rocks round the Skerries, the Calf and the cove; shannies and black gobies at Wend Quay and in the estuary's eelgrass; minnow shoals in the pools of the Fernbeck and the Coldwater's dale. Swing the bait out a few metres to the foot of the wall and set the float so it just touches the bottom (W/S). A goby notices it, edges up, pecks (the micro float's pink tip barely twitches), and then drags it under: strike. They fight like fish ten times their size for a few seconds, darting for their crevice, and swing in on the line. Every one is a new name for the journal and a close look worth taking (E on the catch card), and every one goes back. Mind the size of the hook: a goby pecks a worm off a big sea hook without ever taking it in. A big fish mostly ignores a scrap that small, and the odd bass or mullet that does take it snaps 2 lb line almost at once. **Micro Fishing** in the backpack's ready-made setups packs it all.
 - **Squid jigging** (squid rod, with an egi jig: 1.8 sinks slowly for the shallows, 2.5 for most places, 3.0 sinks fast for deep water or current). Let the jig sink to near the bottom, **tap** to dart it up, then **pause**: squid follow a darting jig and grab it as it glides back down. A touch on the line is a squid feeling the jig; let it sink on and strike when it takes. Squid gather where light falls on the water after dark (the lamps at the jetty and at Puffin Cove, or your boat's lantern) and hunt by day too, more warily. A hooked squid jets backwards in pulses and may squirt ink when you land it. In the journal and on the catch card they're measured by mantle length, and listed under *Not fish*.
 
 ### Diving: freediving with a speargun, and scuba
@@ -426,6 +427,7 @@ The camera stays in the view you chose: casting, a bite and a hooked fish never 
 | --- | --- | --- | --- | --- | --- |
 | Willow float rod | Float, baits | 3–26 m | 2–12 g | 4, 6 or 8 lb mono | Stick float, waggler, margin float |
 | Light spinning rod | Lures | 5–28 m | 2–8 g | 4 lb fluorocarbon, 6 lb mono | Straight through |
+| Micro float rod | Float, small baits for small fish | 2–14 m | 0.3–4 g | 1.5, 2 or 3 lb mono | Micro float (size 18 hook), stick float |
 | Spinning rod | Lures | 8–40 m | 7–30 g | 10 or 20 lb braid | Wire trace (for pike), fluorocarbon leader, straight through |
 | Carp rod | Bottom baits on an alarm | 10–50 m | 40–120 g | 12 or 15 lb mono | Hair rig with a 3 oz lead, method feeder (both self-hooking) |
 | Fly rod | Flies | 5–20 m | — | Floating line, 3 or 5 lb tippet | Tapered leader |
@@ -435,7 +437,7 @@ The camera stays in the view you chose: casting, a bite and a hooked fish never 
 | Offshore rod | Big lures for tuna | 15–70 m | 40–160 g | 80 lb braid | 100 lb shock leader |
 | Big-game trolling rod | Trolled lures for the big ocean fish | 6–32 m (let out astern) | 90–400 g | 50 or 80 lb mono | 200 lb wind-on leader, wire trace (for sharks and wahoo) |
 
-Baits: garden worms, maggots, sweetcorn, bread flake, boilies, prawns, ragworm, lugworm, peeler crab, mackerel strip. Lures: trout spinner, silver spinner, trout spoon, mini minnow, shallow and deep crankbaits, jerkbait, paddle-tail shad, weedless creature bait, surface popper, soft sandeel, 25 g casting metal, 60 g offshore stickbait, 80 g metal jig, skirted trolling lure (Konahead), rigged ballyhoo. Flies: dry fly, nymph, streamer. Squid jigs: 1.8, 2.5 and 3.0.
+Baits: garden worms, worm pieces, maggots, sweetcorn, bread flake, boilies, prawns, ragworm, lugworm, peeler crab, mackerel strip. Lures: micro jig (1 g), trout spinner, silver spinner, trout spoon, mini minnow, shallow and deep crankbaits, jerkbait, paddle-tail shad, weedless creature bait, surface popper, soft sandeel, 25 g casting metal, 60 g offshore stickbait, 80 g metal jig, skirted trolling lure (Konahead), rigged ballyhoo. Flies: dry fly, nymph, streamer. Squid jigs: 1.8, 2.5 and 3.0.
 
 ### The backpack
 
@@ -1025,7 +1027,7 @@ The research came from FishBase, SeaLifeBase, DORIS, WoRMS and the Catalog of Fi
 
 Four things are kept apart: the **research catalogue** (all 64), the **playable roster** (the 54 you can catch), **observation-only wildlife** (in the water to be watched, never caught) and **planned or uncertain records**. Each card and page says which:
 
-- **In the game · catchable now**: 54 species. Every one has an anatomical model, lives in its habitats, has a setup the field guide recommends that the tackle rules accept, is tested biting on it in the headless ecosystem and landed with it (careful play, Standard difficulty), and is logged in the journal.
+- **In the game · catchable now**: 58 species from the register, and the minnow (fresh water). Every one has an anatomical model, lives in its habitats, has a setup the field guide recommends that the tackle rules accept, is tested biting on it in the headless ecosystem and landed with it (careful play, Standard difficulty), and is logged in the journal.
   - Bass and the estuary: European seabass, spotted seabass, meagre, thicklip grey mullet.
   - Seabreams and grunts: gilthead, black, white, two-banded, striped and redbanded seabream, red porgy, common pandora, common dentex, rubberlip grunt, bastard grunt.
   - Rock and open-water predators: pollack, European conger, bluefish, ballan wrasse.
@@ -1035,6 +1037,7 @@ Four things are kept apart: the **research catalogue** (all 64), the **playable 
   - Cephalopods: European squid, common cuttlefish, common octopus.
   - Sharks and rays of the bottom: small-spotted catshark; thornback ray (released: near threatened).
   - The shallows' sand: lesser weever (released: venomous spines, handled with care).
+  - Small fish of the rocks and the estuary, for micro-fishing, every one released: rock goby, shanny, corkwing wrasse, black goby (and the minnow in the streams).
   - Deep holes and wrecks: European hake (a soft mouth: play it gently), John Dory.
   - The big game and Las Brasas: blue shark and shortfin mako (released), albacore, dusky grouper (released), Atlantic chub mackerel.
 - **In the game · to be seen, not caught**: the European eel (critically endangered, and banned to leisure fishing in the Gironde): it lives in the estuary's reeds and quay and the bay's rocks, comes out after dark, ignores every bait, and goes in your records when you see it underwater.
@@ -1070,7 +1073,7 @@ Skins are painted from each species' markings at load time; fins are translucent
 
 Done: the six reference species (the first milestone), then the playable roster of 44 with the eel to watch (*The Living Atlantic*), the big game and Las Brasas' own (blue shark, mako, albacore, dusky grouper, chub mackerel), and the angling depth release: the thornback ray (with its own plating fight), the small-spotted catshark (rolling in the line), the lesser weever (venomous, handled with care), the soft-mouthed European hake and the John Dory. What could come next, in order (the batch is on each planned entry):
 
-2. **Common coastal fish still missing**: striped red mullet, shanny, thin-lipped and golden grey mullet.
+2. **Common coastal fish still missing**: striped red mullet, thin-lipped and golden grey mullet. (The shanny came in with micro-fishing, with the rock goby, black goby and corkwing wrasse: research/register/batch-f.json.)
 3. **Rarer visitors**: the common stingray (to be released: venomous, and vulnerable).
 4. **Migratory and protected estuary species, with seasons**: allis and twaite shad, sea lamprey, European sturgeon (to watch).
 

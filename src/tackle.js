@@ -45,6 +45,23 @@ export const RODS = {
     limits: 'No wire trace, so pike bite straight through it. Heavy lures overload it, and a big carp is far too much.',
     look: { len: 1.8, color: '#5f7350', handle: '#d7b98a', reel: 'spin' },
   },
+  // Light rock fishing (LRF) and stream fishing for the small fish: a long, soft, ultralight rod
+  // with a tiny reel and gossamer line, a micro float and a size 18 hook. Swung out under the rod
+  // tip to the foot of a harbour wall, or trotted down a stream pool.
+  micro: {
+    id: 'micro', name: 'Micro float rod', short: 'Micro rod', kind: 'float', accepts: ['bait'], micro: true,
+    length: '2.7 m, ultralight', reel: 'tiny fixed-spool reel',
+    cast: [2, 14], weight: [0.3, 4], power: 0.55, finesse: 1.0, flex: 0.55, drag: 1, build: 1.0,
+    lines: [
+      { id: 'm15', name: '1.5 lb mono', kg: 0.7, thick: 0.15 },
+      { id: 'm2', name: '2 lb mono', kg: 0.9, thick: 0.2 },
+      { id: 'm3', name: '3 lb mono', kg: 1.4, thick: 0.27 },
+    ],
+    terms: ['micro', 'stick'],
+    strengths: 'Shows the bite of a fish no longer than your finger. Gobies, blennies and little wrasse at the foot of a harbour wall; minnows in a stream pool. Every small fish is a new name for the journal.',
+    limits: 'A bass or a mullet that takes the tiny bait snaps the line almost at once. It casts only a few metres: fish close in, under the rod tip.',
+    look: { len: 2.7, color: '#6a5a7a', handle: '#d7b98a', reel: 'spin' },
+  },
   spin: {
     id: 'spin', name: 'Spinning rod', short: 'Spinning rod', kind: 'lure', accepts: ['lure'],
     length: '2.4 m, medium', reel: 'medium fixed-spool reel',
@@ -160,6 +177,8 @@ export const TERMS = {
     desc: 'The all-round float: casts further and rides a ripple. Worms, sweetcorn, prawns.' },
   margin: { id: 'margin', name: 'Margin float, size 8 hook', short: 'Margin float', weight: 7, sensitive: 0.85, hook: 8, strong: true,
     desc: 'A stubby float and a strong hook for carp and tench close in. Big baits.' },
+  micro: { id: 'micro', name: 'Micro float, size 18 hook', short: 'Micro float', weight: 0.6, sensitive: 1.6, hook: 18,
+    desc: 'A tiny bristle-tipped float that dips at the touch of a goby, and a size 18 hook small enough for its mouth. Set it so the bait just touches the bottom.' },
   hair: { id: 'hair', name: 'Hair rig, 3 oz lead', short: 'Hair rig', weight: 85, selfHook: true,
     desc: 'The bait hangs off the hook on a hair; a carp that picks it up bolts against the lead and hooks itself.' },
   method: { id: 'method', name: 'Method feeder, 45 g', short: 'Method feeder', weight: 50, selfHook: true, feeder: true,
@@ -206,6 +225,8 @@ export const TACKLE = {
     desc: 'A soft crab, irresistible to wrasse on the reef and bass in the estuary.' },
   strip: { id: 'strip', on: 'a mackerel strip', type: 'bait', name: 'Mackerel strip', short: 'Fish strip', size: 2, weight: 6, water: 'salt',
     desc: 'An oily strip that flutters in the tide. Bigger flatfish, bass and the old mossback.' },
+  wormpiece: { id: 'wormpiece', on: 'a scrap of worm', type: 'bait', name: 'Worm pieces', short: 'Worm piece', size: 0.5, weight: 0.5, water: 'both', as: ['worm', 'rag', 'maggot'],
+    desc: 'A pinch of worm on a tiny hook: gobies, blennies, small wrasse and minnows. Bigger fish mostly leave a scrap that small alone.' },
   // --- lures: spinners, spoons, plugs, soft plastics, metals and surface lures ---
   tspin: { id: 'tspin', on: 'a little trout spinner', type: 'lure', name: 'Trout spinner (size 0)', short: 'Trout spinner', size: 1, weight: 3,
     action: 'flash', sink: 0.4, lift: 0.95, water: 'fresh',
@@ -259,6 +280,9 @@ export const TACKLE = {
   sabiki: { id: 'sabiki', on: 'sabiki feathers', type: 'lure', name: 'Sabiki feathers (6 tiny hooks, 20 g)', short: 'Sabiki', size: 0.5, weight: 20,
     action: 'flutter', sink: 0.9, water: 'salt',
     desc: 'A string of tiny hooks dressed in shiny fish skin, above a small lead. Let it down, then lift and drop it: sardines, anchovies, horse mackerel, bogue and sprats.' },
+  microjig: { id: 'microjig', on: 'a micro jig', type: 'lure', name: 'Micro jig (1 g, soft worm)', short: 'Micro jig', size: 0.5, weight: 1, hook: 14,
+    action: 'swim', sink: 0.5, water: 'both', as: ['tspin', 'shad'],
+    desc: 'A 1 g jig head and a 4 cm soft worm, hopped along the rocks on the light rod: gobies, blennies and little wrasse chase it, and perch in the lake.' },
   // --- flies ---
   dry: { id: 'dry', on: 'a dry fly', type: 'fly', name: 'Dry fly (mayfly)', short: 'Dry fly', size: 1, fly: 'dry', water: 'fresh',
     desc: 'Floats on the surface like a hatching insect. Deadly when flies are hatching.' },
@@ -321,6 +345,9 @@ export const SETUPS = [
   { id: 'biggame', name: 'Big Game', note: 'Big-game trolling rod with skirted lures and rigged ballyhoo, and the offshore rod with a stickbait and jig: marlin, sailfish, wahoo, dorado, tuna and sharks',
     rods: ['biggame', 'offshore'], items: ['skirt', 'ballyhoo', 'stickbait', 'mjig'], rod: 'biggame',
     line: { biggame: 'm80' }, term: { biggame: 'windon' }, rig: { biggame: 'skirt', offshore: 'stickbait' } },
+  { id: 'micro', name: 'Micro Fishing', note: 'Micro float rod (2 lb, size 18 hook) with worm pieces and maggots for gobies, blennies, little wrasse and minnows; light rod with a micro jig',
+    rods: ['micro', 'trout'], items: ['wormpiece', 'maggot', 'rag', 'bread', 'microjig', 'tspin'], rod: 'micro',
+    line: { micro: 'm2', trout: 'f4' }, term: { micro: 'micro' }, rig: { micro: 'wormpiece', trout: 'microjig' } },
   { id: 'bay', name: 'The Bay', note: 'Float rod and spinning rod with sea baits and lures (the way Slow Tide began)',
     rods: ['float', 'spin'], items: ['worm', 'prawn', 'corn', 'spinner', 'crankS', 'crankD'], rod: 'float',
     line: { float: 'm4', spin: 'b10' }, term: { float: 'waggler', spin: 'wire' }, rig: { float: 'worm', spin: 'spinner' } },

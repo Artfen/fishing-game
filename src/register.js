@@ -55,6 +55,8 @@ const CATCHABLE = [
   'blueshark', 'mako', 'albacore',
   // The angling depth release: the thornback (released), the catshark, the weever (released), hake and the John Dory
   'thornback', 'catshark', 'weever', 'hake', 'johndory',
+  // The small fish of the rocks and the estuary, for micro-fishing (smallFish.js), every one released
+  'rockgoby', 'shanny', 'corkwing', 'blackgoby',
 ];
 const GAME = {
   ...Object.fromEntries(CATCHABLE.map((id) => [id, { status: 'catchable', model: 'anatomical' }])),
@@ -65,7 +67,7 @@ const GAME = {
 // expansion plan in the README). Deep-water fish and occasional visitors may stay here.
 const BATCH = {
   // next: common coastal fish still missing, and catch-and-release on the bottom.
-  redmullet: 2, shanny: 2, thinlip: 2, goldengrey: 2,
+  redmullet: 2, thinlip: 2, goldengrey: 2,
   // deeper water and rarer visitors.
   stingray: 3,
   // migratory and protected estuary species, with seasons (observation-only where protected).
@@ -144,6 +146,7 @@ export const FRESHWATER = {
   tench: { scientific: 'Tinca tinca', note: 'Native to France and Iberia.' },
   roach: { scientific: 'Rutilus rutilus', note: 'Native to France; introduced in Iberia.' },
   lmbass: { scientific: 'Micropterus salmoides', note: 'A North American fish, introduced and invasive in France and Iberia.' },
+  minnow: { scientific: 'Phoxinus phoxinus', note: 'Native to France from the Garonne north and east; the minnows of Iberia are other, closely related species.' },
 };
 
 // Fish of Las Brasas, the invented island far to the south, that live outside the Atlantic

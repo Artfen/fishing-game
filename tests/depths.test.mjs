@@ -21,7 +21,11 @@ const IDS = ['thornback', 'catshark', 'weever', 'hake', 'johndory'];
 
 test('five new kinds, joined after every other fish, with real names and models of their own', () => {
   assert.deepEqual(DEPTHS.map((f) => f.id), IDS);
-  assert.deepEqual(FISH.slice(-5).map((f) => f.id), IDS, 'last of all, so no fish moves');
+  // Last of all when they came, so no fish moved; only the small fish of a later release (micro-
+  // fishing, smallFish.js) have joined after them, the same way.
+  const at = FISH.findIndex((f) => f.id === IDS[0]);
+  assert.deepEqual(FISH.slice(at, at + 5).map((f) => f.id), IDS, 'together');
+  assert.ok(FISH.slice(at + 5).every((f) => f.life.micro), 'nothing but the small fish after them');
   const latin = { thornback: 'Raja clavata', catshark: 'Scyliorhinus canicula', weever: 'Echiichthys vipera', hake: 'Merluccius merluccius', johndory: 'Zeus faber' };
   for (const id of IDS) {
     const sp = fishById[id];

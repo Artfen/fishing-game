@@ -1,0 +1,116 @@
+[
+  {
+    "id": "rockgoby",
+    "scientific": "Gobius paganellus Linnaeus, 1758",
+    "family": "Gobiidae",
+    "synonyms": [],
+    "names": { "en": "Rock goby", "fr": null, "es": null, "pt": null },
+    "nameSources": ["https://fishbase.se/summary/73"],
+    "habitat": "Inshore and intertidal: under stones and in pools on sheltered rocky shores with heavy weed cover; also shallow subtidal rock, 0-15 m (FishBase).",
+    "depth": { "usual": null, "range": [0, 15], "source": "https://fishbase.se/summary/73" },
+    "size": { "common": null, "max": 13, "maxNote": "13.0 cm TL (FishBase; older editions gave 12 cm). Mature at about 6.5 cm; lives up to about 10 years.", "source": "https://fishbase.se/summary/73" },
+    "diet": "Small bottom-living invertebrates (crustaceans, worms and molluscs).",
+    "behaviour": "A bottom-living goby that perches on rock and under stones, its pelvic fins joined into a sucking disc; males guard the eggs under stones.",
+    "seasonal": "Resident year-round on rocky shores; spawns in spring.",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "medium", "basis": "Range statement (western Scotland to Senegal, and the Mediterranean and Black Sea; FishBase). Rocky shore near the estuary mouth not verified. https://fishbase.se/summary/73" },
+      "biscay": { "status": "resident", "confidence": "medium", "basis": "Range statement (western Scotland to Senegal; FishBase). https://fishbase.se/summary/73" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range statement (western Scotland to Senegal; FishBase). https://fishbase.se/summary/73" },
+      "galicia": { "status": "resident", "confidence": "medium", "basis": "Range statement (western Scotland to Senegal; FishBase). https://fishbase.se/summary/73" },
+      "portugal": { "status": "resident", "confidence": "medium", "basis": "Range statement (western Scotland to Senegal; FishBase). https://fishbase.se/summary/73" },
+      "cadiz": { "status": "resident", "confidence": "medium", "basis": "Range statement (to Senegal and into the Mediterranean; FishBase). https://fishbase.se/summary/73" }
+    },
+    "identification": [
+      "Large head with thick lips and high-set eyes; pelvic fins joined into a sucking disc (as in all gobies)",
+      "A pale cream, yellow or orange band along the top edge of the first dorsal fin",
+      "Mottled dark brown body, darker in breeding males"
+    ],
+    "similar": [
+      "Black goby (Gobius niger): a black spot at the top front of the first dorsal fin, and longer dorsal rays in males; sand, mud and eelgrass rather than rock",
+      "Giant goby (Gobius cobitis): the same rockpool habitat, but grows much larger (to about 27 cm)"
+    ],
+    "anglingMethods": ["Light rock fishing (LRF): a tiny hook and a scrap of worm or a small soft lure among the rocks and harbour walls"],
+    "conservation": "IUCN global: Least Concern (LC). Of no fisheries interest; catch and release suits it.",
+    "sources": [
+      { "title": "FishBase summary: Gobius paganellus", "url": "https://fishbase.se/summary/73" },
+      { "title": "Wikipedia: Rock goby", "url": "https://en.wikipedia.org/wiki/Rock_goby" }
+    ],
+    "uncertain": "French, Spanish and Portuguese names not checked against a source in this round. Diet and spawning season from general accounts, not checked against FishBase's own tables. Presence on each region's rocky shores rests on range statements only."
+  },
+  {
+    "id": "blackgoby",
+    "scientific": "Gobius niger Linnaeus, 1758",
+    "family": "Gobiidae",
+    "synonyms": [],
+    "names": { "en": "Black goby", "fr": null, "es": null, "pt": null },
+    "nameSources": ["https://www.fishbase.se/summary/72"],
+    "habitat": "Shallow coastal and estuarine waters, rarely on the shore: among eelgrass (Zostera) or algae on sandy or muddy bottoms (MarLIN); estuaries and lagoons; marine and brackish, 1-96 m, usually 1-50 m (FishBase).",
+    "depth": { "usual": [1, 50], "range": [1, 96], "source": "https://www.fishbase.se/summary/72" },
+    "size": { "common": null, "max": 17, "maxNote": "Up to 17 cm (MarLIN). FishBase gives a maximum of 25.3 cm TL, far above other accounts.", "source": "https://www.marlin.ac.uk/species/detail/1867" },
+    "diet": "Small bottom-living invertebrates (crustaceans, worms and molluscs).",
+    "behaviour": "A bottom-living goby of soft ground and eelgrass; tolerates brackish water.",
+    "seasonal": "Resident year-round.",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "medium", "basis": "Range statement (eastern Atlantic from Norway to Mauritania, Mediterranean and Black Sea) and its estuarine habit (MarLIN, FishBase). https://www.marlin.ac.uk/species/detail/1867" },
+      "biscay": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/72" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/72" },
+      "galicia": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/72" },
+      "portugal": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/72" },
+      "cadiz": { "status": "resident", "confidence": "medium", "basis": "Range statement (to Mauritania and into the Mediterranean). https://www.fishbase.se/summary/72" }
+    },
+    "identification": [
+      "Dark brown to nearly black, with darker blotches",
+      "A black spot at the top front of the first dorsal fin",
+      "In males the rays of the first dorsal fin grow long, beyond the fin's edge"
+    ],
+    "similar": [
+      "Rock goby (Gobius paganellus): a pale band along the top of the first dorsal fin; rocky shores rather than soft ground"
+    ],
+    "anglingMethods": ["A tiny hook and a scrap of worm on the bottom in estuaries and harbours"],
+    "conservation": "IUCN global: Least Concern (LC). Of no fisheries interest; catch and release suits it.",
+    "sources": [
+      { "title": "FishBase summary: Gobius niger", "url": "https://www.fishbase.se/summary/72" },
+      { "title": "MarLIN: Black goby (Gobius niger)", "url": "https://www.marlin.ac.uk/species/detail/1867" }
+    ],
+    "uncertain": "Maximum size: FishBase's 25.3 cm disagrees with MarLIN's 17 cm; the smaller is used. French, Spanish and Portuguese names not checked against a source in this round. Regional presence rests on range statements."
+  },
+  {
+    "id": "corkwing",
+    "scientific": "Symphodus melops (Linnaeus, 1758)",
+    "family": "Labridae",
+    "synonyms": ["Crenilabrus melops (Linnaeus, 1758)"],
+    "names": { "en": "Corkwing wrasse", "fr": null, "es": null, "pt": null },
+    "nameSources": ["https://www.fishbase.se/summary/59"],
+    "habitat": "Rocky shores and shallow reefs with seaweed, and seagrass beds; in pools and in the shallow subtidal, usually 1-30 m (MarLIN, FishBase).",
+    "depth": { "usual": [1, 30], "range": [1, 50], "source": "https://www.marlin.ac.uk/species/detail/1658" },
+    "size": { "common": 20, "max": 28, "maxNote": "28 cm SL, common 20 cm (FishBase); MarLIN: to 25 cm, usually under 15 cm.", "source": "https://www.fishbase.se/summary/59" },
+    "diet": "Small invertebrates picked from rock and weed: crustaceans and molluscs.",
+    "behaviour": "Males build nests of seaweed among rocks, in crevices or in seagrass, spending weeks on them in spring and early summer and guarding the eggs; some sex reversal (MarLIN, FishBase).",
+    "seasonal": "Resident year-round; nests and spawns in spring and early summer.",
+    "regions": {
+      "gironde": { "status": "resident", "confidence": "medium", "basis": "Range statement (Norway to Morocco; FishBase, MarLIN). Rocky shore near the estuary mouth not verified. https://www.fishbase.se/summary/59" },
+      "biscay": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/59" },
+      "cantabria": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/59" },
+      "galicia": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/59" },
+      "portugal": { "status": "resident", "confidence": "medium", "basis": "Range statement only. https://www.fishbase.se/summary/59" },
+      "cadiz": { "status": "resident", "confidence": "medium", "basis": "Range statement (to Morocco). https://www.fishbase.se/summary/59" }
+    },
+    "identification": [
+      "A dark comma-shaped mark just behind the eye",
+      "A dark spot on the wrist of the tail (caudal peduncle)",
+      "Females and young brown; breeding males green and blue, with bright blue lines on the head"
+    ],
+    "similar": [
+      "Ballan wrasse (Labrus bergylta): grows much bigger, without the mark behind the eye or the spot on the tail",
+      "Goldsinny (Ctenolabrus rupestris): a black spot on the upper side of the tail wrist and at the front of the dorsal fin"
+    ],
+    "anglingMethods": ["Light rock fishing (LRF): worm, ragworm or a small soft lure among the weedy rocks and harbour walls"],
+    "conservation": "IUCN global: Least Concern (LC). Taken in some places as cleaner fish for salmon farms, where local minimum sizes and seasons apply; best returned.",
+    "sources": [
+      { "title": "FishBase summary: Symphodus melops", "url": "https://www.fishbase.se/summary/59" },
+      { "title": "MarLIN: Corkwing wrasse (Symphodus melops)", "url": "https://www.marlin.ac.uk/species/detail/1658" },
+      { "title": "Devon and Severn IFCA: A review of wrasse ecology and fisheries interactions (2023)", "url": "https://www.devonandsevernifca.gov.uk/wp-content/uploads/2023/08/AReviewofWrasseEcologyandFisheriesInteractions.pdf" }
+    ],
+    "uncertain": "French, Spanish and Portuguese names not checked against a source in this round. Identification marks from general field accounts. Regional presence rests on range statements."
+  }
+]

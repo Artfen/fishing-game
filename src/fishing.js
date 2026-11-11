@@ -678,6 +678,9 @@ export class Fishing {
       fresh: 4, owner: null, held: false, twitch: 0, speed: 0, motion: 'still', pause: false, drag: false, fouled: false,
       feeder: !!this.term?.feeder, surface: !!it.floats && (it.action === 'pop' || it.action === 'walk'), sinking: false, darted: 0,
       natural: it.type === 'bait',
+      // The hook's size (a float rig's own, a jig's, or the big hooks of a bottom or carp rig):
+      // a small fish can't take a big one in.
+      hook: this.term?.hook ?? it.hook ?? (this.kind === 'bottom' ? 2 : this.kind === 'ledger' ? 6 : null),
       // (Fresh bait from the chandlery, today: a natural bait found from further off.)
       boost: it.type === 'bait' ? this.hooks.baitBoost?.() || 1 : 1,
     });
@@ -843,9 +846,11 @@ export class Fishing {
       this.setStatus('bleep');
       return;
     }
-    this.dip = rand(0.05, 0.09);
-    this.fx.ripple(this.bob.x, this.bob.z, 0.6, 0.8, 0.35);
-    this.audio.nibble();
+    // (A small fish's peck barely moves the float: a twitch of the micro float's bristle tip.)
+    const tiny = a.L?.micro ? Math.min(0.8, Math.max(0.35, a.size / 25)) * (this.term?.sensitive ?? 1) : 1;
+    this.dip = rand(0.05, 0.09) * Math.min(1, tiny);
+    this.fx.ripple(this.bob.x, this.bob.z, 0.6 * Math.min(1, tiny), 0.8, 0.35 * Math.min(1, tiny));
+    this.audio.nibble(a.L?.micro ? 0.6 : undefined);
     this.setStatus('nibble');
   }
 
@@ -923,9 +928,13 @@ export class Fishing {
         this.setStatus('take');
         return;
       default:
-        // The float goes under: a real bite that still needs striking. A gentle ring, once.
-        this.fx.splash(this.bob.x, 0.05, this.bob.z, 8, 1.4, 0.5);
-        this.fx.ripple(this.bob.x, this.bob.z, 1.5, 1.3, 0.55);
+        // The float goes under: a real bite that still needs striking. A gentle ring, once. (A
+        // small fish just drags the micro float's tip under: no splash, a little ring.)
+        if (a?.L?.micro) this.fx.ripple(this.bob.x, this.bob.z, 0.7, 0.9, 0.35);
+        else {
+          this.fx.splash(this.bob.x, 0.05, this.bob.z, 8, 1.4, 0.5);
+          this.fx.ripple(this.bob.x, this.bob.z, 1.5, 1.3, 0.55);
+        }
         this.audio.bite();
         this.audio.biteAlert?.('strike');
         this.setStatus('bite');

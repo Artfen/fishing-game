@@ -113,6 +113,10 @@ export function setupsFor(sp) {
         if (term.trace && !L.teeth) score *= 0.9;
         if (midwater && it.type === 'bait' && ['bottom', 'ledger'].includes(rod.kind)) score *= 0.5;
         if (sea ? SEA_RODS.has(rodId) : FRESH_RODS.has(rodId)) score *= 1.15;
+        // The small fish want the micro rod's tiny hook and fine line; it's no advice for anything
+        // bigger (a bass on a 2 lb line and a size 18 hook).
+        if (L.micro) score *= rod.micro ? 1.3 : 0.6;
+        else if (rod.micro) score *= 0.85;
         // The big game is trolled on the big-game rod, and fought from the chair.
         if (L.big && rod.chair) score *= 1.12;
         else if (wrongWater(rodId)) score *= 0.8;

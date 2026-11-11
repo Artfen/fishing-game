@@ -100,7 +100,7 @@ export function rigOf(b) {
     motion: b.motion, twitch: q(b.twitch || 0), pause: !!b.pause, drag: !!b.drag, fouled: !!b.fouled,
     natural: !!b.natural, nearBottom: !!b.nearBottom, anglerX: q(b.anglerX || 0), anglerZ: q(b.anglerZ || 0),
     towed: !!b.towed, darted: q(b.darted || 0), boost: q(b.boost || 1), surface: !!b.surface, feeder: !!b.feeder,
-    sinking: !!b.sinking, fresh: q(Math.max(0, b.fresh || 0)),
+    sinking: !!b.sinking, fresh: q(Math.max(0, b.fresh || 0)), hook: b.hook ?? null,
   };
 }
 
@@ -116,6 +116,8 @@ export function cleanRig(r, items = null) {
   for (const k of ['pause', 'drag', 'fouled', 'natural', 'nearBottom', 'towed', 'surface', 'feeder', 'sinking']) out[k] = !!r[k];
   // (Nothing a guest sends can make a rig more tempting than one of the host's own could be.)
   Object.assign(out, { kind: r.kind, item: r.item, motion: r.motion, fly: r.fly, boost: Math.min(1.5, Math.max(1, r.boost)), fresh: Math.min(4, Math.max(0, r.fresh)) });
+  // (The hook's size, for the small fish: a whole number, or none said.)
+  out.hook = Number.isInteger(r.hook) && r.hook >= 1 && r.hook <= 30 ? r.hook : null;
   return out;
 }
 

@@ -8,6 +8,7 @@ import { tideBoost } from './tide.js';
 import { seasonBoost } from './season.js';
 import { colourFactor } from '../grounds.js';
 import { blowFactor } from './forecast.js';
+import { TACKLE } from '../tackle.js';
 import { clamp, lerp, damp, rand, smoothstep, wrapAngle, seeded } from '../util.js';
 import { spookRadius, curiosity } from '../dive.js';
 
@@ -146,6 +147,7 @@ export class Ecosystem {
     this.habitat.spots.forEach((home, h) => {
       if (home.site) return; // (the dive sites': last of all, below)
       if (home.south || home.crossing) return; // (Puerto Brasa's and the crossing's: after even those)
+      if (home.small) return; // (the small fish's: at the very end)
       for (const id of home.hosts || []) {
         const i = FISH.findIndex((f) => f.id === id), sp = FISH[i];
         if (!sp || sp.retired || !sp.life.homes.includes(home.type) || !sp.life.zones.includes(home.zone)) continue;
@@ -244,6 +246,23 @@ export class Ecosystem {
         else {
           const m = L.group[0] + Math.floor(rnd() * (L.group[1] - L.group[0] + 1));
           for (let k = 0; k < m; k++) this.addAgent(sp, s, rnd);
+        }
+      }
+    });
+    // Last of all, the small fish for micro-fishing (smallFish.js) on the homes laid out for them
+    // (habitat.js smallFishSpots: harbour walls, the shallow rocks, the estuary's eelgrass, the
+    // stream pools), each home with a seed of its own: every fish above keeps its place and its id.
+    this.habitat.spots.forEach((home, h) => {
+      if (!home.small) return;
+      for (const id of home.hosts) {
+        const i = FISH.findIndex((f) => f.id === id), sp = FISH[i];
+        if (!sp || sp.retired || !sp.life.homes.includes(home.type) || !sp.life.zones.includes(home.zone)) continue;
+        rnd = seeded(31337 + i * 1013 + h * 7);
+        const L = sp.life;
+        if (L.school) this.addSchool(sp, home, rnd);
+        else {
+          const n = L.group[0] + Math.floor(rnd() * (L.group[1] - L.group[0] + 1));
+          for (let k = 0; k < n; k++) this.addAgent(sp, home, rnd);
         }
       }
     });
@@ -1174,7 +1193,7 @@ export class Ecosystem {
       // Flat on the bottom: they glide close over it, never pitched up.
       a.y = Math.min(a.y, floor + 0.15);
       a.pitch = 0;
-    } else if (a.L?.benthic && a.state !== 'flee' && a.state !== 'jump') {
+    } else if (a.L?.benthic && a.state !== 'flee' && a.state !== 'jump' && !(a.L.lift && BAIT_STATES.has(a.state))) {
       // Over the seabed, following its slope.
       a.y = Math.min(a.y, floor + 0.3);
       a.pitch *= 0.5;
@@ -1192,6 +1211,9 @@ export class Ecosystem {
   appeal(a, b, parts = null) {
     const sp = a.sp, L = a.L, V = this.level;
     let f = sp.food?.[b.item] ?? 0;
+    // (A bait or lure that's a smaller version of another, a scrap of worm or a micro jig, tempts
+    // the fish that don't list it a little less than the thing it stands for.)
+    if (!f && TACKLE[b.item]?.as) f = Math.max(0, ...TACKLE[b.item].as.map((i) => sp.food?.[i] ?? 0)) * 0.8;
     if (f <= 0 || b.fouled) return 0;
     if (L.bottom && !b.nearBottom) return 0;
     // A big lure is too much for a small fish; the bigger ones of a kind can manage more.
@@ -1200,6 +1222,10 @@ export class Ecosystem {
     const k = (a.size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]);
     const big = b.size > (sp.mouth ?? 2) * (b.natural ? 1.05 + 0.4 * k : 0.7 + 0.5 * k);
     if (big) f *= Math.max(0.02, 1 - 0.95 * V.fussy);
+    // A tiny scrap is hardly worth a big fish's while (it takes one now and then, and snaps the
+    // fine line it's on); and a small fish pecks a bait off a big hook without ever taking it in.
+    if (b.natural && b.size < 1) f *= Math.min(1, Math.max(0.2, (2 * b.size) / Math.max(1, (sp.mouth ?? 2) - 0.5 * k)));
+    if (L.micro && b.hook != null && b.hook < 12) f *= 0.3;
     if (b.fly === 'dry') {
       f *= 0.25 + (this.ctx.hatch ?? 0.5);
       if (b.drag) f *= Math.max(0.03, 1 - 0.93 * V.fussy);

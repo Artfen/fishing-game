@@ -51,11 +51,14 @@ const { HarbourSheet } = await import('../src/harbourView.js');
 const now = 10 * 24 + 14;
 const fresh = (id, size, extra = {}) => ({ id, size, logId: `${id}-${size}`, at: now - 2, ...extra });
 
-test('nearly every fish you can catch can be kept now, to eat or to sell; only the mako and the hammerhead go back', () => {
-  const catchable = FISH.filter((sp) => !sp.retired && !sp.life.observe);
+test('nearly every fish you can catch can be kept now, to eat or to sell; only the mako, the hammerhead and the little fish of the rocks and streams go back', () => {
+  // (The small fish for micro-fishing, smallFish.js, are caught to be seen and noted, and released:
+  // gobies, blennies, a nest-building wrasse and minnows are nobody's supper.)
+  const catchable = FISH.filter((sp) => !sp.retired && !sp.life.observe && !sp.life.micro);
   const kept = catchable.filter((sp) => sp.meal);
   assert.ok(kept.length / catchable.length >= 0.97, `${kept.length} of ${catchable.length}`);
   assert.deepEqual(catchable.filter((sp) => !sp.meal).map((sp) => sp.id).sort(), ['hammerhead', 'mako']);
+  for (const sp of FISH.filter((f) => f.life.micro)) assert.ok(!sp.meal && sp.keep.length > 20, `${sp.id}: released, and says why`);
   // Each of them a meal at camp and a price somewhere.
   for (const sp of kept) {
     assert.ok(sp.meal.name.length > 8 && sp.meal.fill > 0, sp.id);
