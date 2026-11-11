@@ -1,3 +1,4 @@
+import { figureLook } from '../looks.js';
 import * as THREE from 'three';
 import { walkHeight } from './terrain.js';
 import { waveHeight } from './water.js';
@@ -76,13 +77,15 @@ export class VisitorView {
 
   entry(p) {
     let d = this.drawn.get(p.id);
-    if (d && d.name !== p.name) {
-      // A new name is a new look: start them afresh.
+    // (Their look: as they made it, sent with their name (see looks.js), or one made from their name.)
+    const lookKey = p.look ? JSON.stringify(p.look) : '';
+    if (d && (d.name !== p.name || d.lookKey !== lookKey)) {
+      // A new name (or a new look) is a new figure: start them afresh.
       this.forget(p.id);
       d = null;
     }
     if (!d) {
-      d = { name: p.name, look: lookFor(p.name), figure: null, boats: {}, moored: {}, roll: 0 };
+      d = { name: p.name, lookKey, look: p.look ? figureLook(p.look) : lookFor(p.name), figure: null, boats: {}, moored: {}, roll: 0 };
       this.drawn.set(p.id, d);
     }
     return d;

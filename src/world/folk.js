@@ -3,6 +3,7 @@ import { walkHeight, solidHeight } from './terrain.js';
 import { waveHeight } from './water.js';
 import { Boat, floatDraft, wakeOf } from '../boat.js';
 import { wakes } from './wakes.js';
+import { buildHat } from '../hats.js';
 import { damp, dampAngle, clamp, smoothstep, wrapAngle } from '../util.js';
 import { FOLK, FOLK_IDS, SPOTS, POTS } from '../townsfolk.js';
 import { Skipper } from './skipper.js';
@@ -245,45 +246,9 @@ export class Figure {
     for (const [n, g] of Object.entries(this.props || {})) if (!want.includes(n)) g.visible = false;
   }
 
+  // (The hats, and hair for no hat: see hats.js, which your own figure shares.)
   hat(L) {
-    const g = new THREE.Group();
-    const c = mat(L.hatColor || L.hair || '#333');
-    if (L.hat === 'flatcap') {
-      const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.135, 0.06, 14), c);
-      crown.position.y = 0.09;
-      crown.scale.z = 1.12;
-      const peak = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.02, 0.1), c);
-      peak.position.set(0, 0.075, 0.14);
-      g.add(crown, peak);
-    } else if (L.hat === 'beanie') {
-      const b = new THREE.Mesh(new THREE.SphereGeometry(0.135, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), c);
-      b.position.y = 0.02;
-      b.scale.y = 1.15;
-      g.add(b);
-    } else if (L.hat === 'bucket') {
-      const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.135, 0.12, 14), c);
-      crown.position.y = 0.13;
-      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.21, 0.02, 16), c);
-      brim.position.y = 0.075;
-      g.add(crown, brim);
-    } else if (L.hat === 'cap') {
-      const crown = new THREE.Mesh(new THREE.SphereGeometry(0.132, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), c);
-      crown.position.y = 0.03;
-      const peak = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.02, 0.12), c);
-      peak.position.set(0, 0.04, 0.15);
-      g.add(crown, peak);
-    } else {
-      // Hair: a cap of it, and a bun at the back (or short, for Paco).
-      const hair = new THREE.Mesh(new THREE.SphereGeometry(0.132, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), c);
-      hair.position.set(0, 0.012, -0.012);
-      g.add(hair);
-      if (L.hat === 'bun') {
-        const bun = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), c);
-        bun.position.set(0, 0.07, -0.12);
-        g.add(bun);
-      }
-    }
-    return g;
+    return buildHat(L, mat);
   }
 
   // Gone for good (a passenger ashore, a castaway picked up): out of the scene, and the shapes and

@@ -1,4 +1,5 @@
 import { ACTIONS, ACTION_BY_ID, cleanBindings, defaultBindings } from './input.js';
+import { LOOK_OPTIONS, LOOK_WORDS, DEFAULT_LOOK, cleanLook } from './looks.js';
 import { GROUPS, LEVELS, CHOICES, PRESETS } from './quality.js';
 import { DIFFICULTY, DIFFICULTY_IDS } from './fight.js';
 import { BEHAVIOUR, BEHAVIOUR_IDS } from './behaviour.js';
@@ -149,7 +150,7 @@ const el = (tag, cls, text) => {
   if (text != null) e.textContent = text;
   return e;
 };
-const TABS = [['audio', 'Sound'], ['graphics', 'Graphics'], ['weather', 'Weather & sea'], ['controls', 'Controls & comfort'], ['together', 'Play together']];
+const TABS = [['audio', 'Sound'], ['graphics', 'Graphics'], ['weather', 'Weather & sea'], ['controls', 'Controls & comfort'], ['you', 'You'], ['together', 'Play together']];
 const LEVEL_NAMES = { auto: 'With the preset', low: 'Low', medium: 'Medium', high: 'High', ultra: 'Ultra' };
 
 // hooks: { changed(section, key, value), close(), playAlert(), restartSound() → status, soundStatus(), qualityText(), difficulty(), setDifficulty(id),
@@ -236,6 +237,7 @@ export class SettingsUI {
     else if (this.tab === 'graphics') kids.push(...this.graphicsPane());
     else if (this.tab === 'weather') kids.push(...this.weatherPane());
     else if (this.tab === 'together') kids.push(...this.togetherPane());
+    else if (this.tab === 'you') kids.push(...this.youPane());
     else kids.push(...this.controlsPane());
     this.body.replaceChildren(...kids);
     if (typing) {
@@ -243,6 +245,53 @@ export class SettingsUI {
       e?.focus();
       if (e?.setSelectionRange && typeof e.value === 'string') e.setSelectionRange(e.value.length, e.value.length);
     }
+  }
+
+  /* ---------- you ---------- */
+
+  // How you look (see looks.js): your skin, clothes, hat, hair, a beard, glasses. Worn on foot and
+  // in every boat, and what friends see of you. (What you wear still keeps you warm and dry as it
+  // always did: the colours are yours to choose.)
+  youPane() {
+    const L = cleanLook(this.hooks.look?.()), out = [];
+    const put = (k, v) => {
+      this.hooks.setLook?.({ ...L, [k]: v });
+      this.render();
+    };
+    const swatches = (k, label) => {
+      const wrap = el('div', 'st-swatches');
+      LOOK_OPTIONS[k].forEach((hex, i) => {
+        const b = el('button', `pk-btn hb-swatch${L[k] === hex ? '' : ' quiet'}`, '');
+        b.type = 'button';
+        b.style.setProperty('--sw', hex);
+        b.setAttribute('aria-label', `${label}: ${i + 1} of ${LOOK_OPTIONS[k].length}`);
+        b.setAttribute('aria-pressed', String(L[k] === hex));
+        b.addEventListener('click', () => put(k, hex));
+        wrap.append(b);
+      });
+      return wrap;
+    };
+    const words = (k) => this.choice(LOOK_OPTIONS[k].map((v) => [v, LOOK_WORDS[k][v]]), L[k], (v) => put(k, v));
+    out.push(el('p', 'st-note', 'How you look, on foot and at the helm, and to friends playing with you. Your clothes keep you warm and dry whatever their colour (the woolly hat still comes out when it’s cold).'));
+    out.push(this.row('Skin', null, swatches('skin', 'Skin')));
+    out.push(this.row('Raincoat', 'When it’s on.', swatches('coat', 'Raincoat')));
+    out.push(this.row('Jumper', 'With the coat off on a cool day.', swatches('jumper', 'Jumper')));
+    out.push(this.row('Shirt', 'On a warm one.', swatches('shirt', 'Shirt')));
+    out.push(this.row('Trousers', null, swatches('legs', 'Trousers')));
+    out.push(this.row('Boots', null, swatches('boots', 'Boots')));
+    out.push(this.row('Hat', null, words('hat')));
+    if (L.hat !== 'hair' && L.hat !== 'bun') out.push(this.row('Hat colour', null, swatches('hatColor', 'Hat colour')));
+    out.push(this.row('Hair', 'Shows with no hat on, and in a beard.', swatches('hair', 'Hair')));
+    out.push(this.row('Beard', null, words('beard')));
+    out.push(this.row('Glasses', null, words('glasses')));
+    const reset = el('button', 'pk-btn quiet', 'As you were: the yellow raincoat and the teal sun hat');
+    reset.type = 'button';
+    reset.addEventListener('click', () => {
+      this.hooks.setLook?.({ ...DEFAULT_LOOK });
+      this.render();
+    });
+    out.push(reset);
+    return out;
   }
 
   /* ---------- playing together ---------- */

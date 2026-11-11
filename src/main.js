@@ -85,6 +85,9 @@ import { HelmUI } from './helm.js';
 import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
 import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, hiredToday, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect, engineOf, repowerBoat, repropBoat, trimBoat } from './shipyard.js';
+import { BIRD_KINDS } from './birdData.js';
+import { cleanLook } from './looks.js';
+import { dressFigure } from './dress.js';
 import { flagById, logLine, addRun, addFish } from './papers.js';
 import { follow as followLeg, courseWords, rangeWords } from './routes.js';
 import { TRIALS as ENGINE_TRIALS } from './engineTrials.js';
@@ -421,7 +424,7 @@ const folkView = new FolkView(scene);
 // Willowhaven's other people, out and about of a fine day (see world/passersby.js).
 const passersby = new Passersby(scene, town.paths);
 // Playing together (see together.js): friends in a session, drawn where they are.
-const together = new Together({ config: () => cloud.cfg, name: () => settings.player.name, kinds: BOAT_KINDS, skies: Object.keys(SKIES), rods: Object.keys(RODS), items: Object.keys(TACKLE) });
+const together = new Together({ config: () => cloud.cfg, name: () => settings.player.name, look: () => state.look || null, kinds: BOAT_KINDS, skies: Object.keys(SKIES), rods: Object.keys(RODS), items: Object.keys(TACKLE) });
 const visitors = new VisitorView(scene);
 visitors.audio = audio; // (a friend's fish splashing near you: see fishAtEnd)
 // One sea for everyone in a session: the host's sea life and shoals go across, everyone else's
@@ -3741,7 +3744,9 @@ function jobWorld() {
     galeAt: galeFor(clock.day) && clock.abs < galeFor(clock.day).start ? galeFor(clock.day).start : null,
     galeWords: galeFor(clock.day) ? formatClock(galeFor(clock.day).start % 24) : '',
     summer: mo >= 4 && mo <= 7, canCross: usable('cruiser') || usable('sail'), ownsSail: usable('sail'), beenSouth: !!state.tips.brasa,
-    places: { quay: placeOf('quay'), puerto: placeOf('puerto'), stream: placeOf('stream'), puffin: placeOf('puffin'), landing: placeOf('landing'), light: placeOf('light'), hound: placeOf('hound'), visitors: { x: (VISITOR_FINGERS[0].x0 + VISITOR_FINGERS[0].x1) / 2, z: (VISITOR_FINGERS[0].z0 + VISITOR_FINGERS[0].z1) / 2, name: 'the visitors’ pontoon' } },
+    places: { quay: placeOf('quay'), puerto: placeOf('puerto'), stream: placeOf('stream'), puffin: placeOf('puffin'), landing: placeOf('landing'), light: placeOf('light'), hound: placeOf('hound'), reef: placeOf('reef'),
+      // (The nearest rocky shore with pools, for the Trust's rockpool work.)
+      pools: POOL_SITES[0] ? { x: POOL_SITES[0].x, z: POOL_SITES[0].z, name: POOL_SITES[0].name } : null, visitors: { x: (VISITOR_FINGERS[0].x0 + VISITOR_FINGERS[0].x1) / 2, z: (VISITOR_FINGERS[0].z0 + VISITOR_FINGERS[0].z1) / 2, name: 'the visitors’ pontoon' } },
     surveyLines: [{ name: 'the bay mouth', marks: [markOf('d', 'mark 1'), markOf('b', 'mark 2'), markOf('a', 'mark 3')] }, { name: 'off the bay', marks: [markOf('c', 'mark 1'), markOf('e', 'mark 2'), markOf('f', 'mark 3')] }],
     tempMarks: [markOf('a', 'buoy A'), markOf('e', 'buoy B'), markOf('f', 'buoy C'), markOf('b', 'buoy D')],
     courses: [{ name: 'the bay', marks: [markOf('a', 'mark 1'), markOf('c', 'mark 2'), markOf('b', 'mark 3'), markOf('d', 'mark 4')], minutes: 8 }],
@@ -7197,6 +7202,7 @@ function payloadOf(k, e = fitEffect(state.yard, k)) {
 }
 applyYard();
 jobWeight();
+wearLook();
 
 // A day's hire over: she goes back to the yard (once you're out of her).
 function watchHire() {
@@ -7546,6 +7552,8 @@ function binocularsStep(dt) {
     $('binocs').classList.add('named');
     seeSeaLife(kind, c.x + _bnDir.x * best.d, c.z + _bnDir.z * best.d);
     if (fresh) audio.chime?.();
+    // (A seabird count for the Trust: each kind named counts. See contracts.js noted.)
+    jobsDone(Con.noted(state.contracts, 'binoculars', kind, BIRD_KINDS.includes(kind)));
   }
   // (The name stays a moment after it's gone from the middle.)
   if (!kind) {
@@ -7609,7 +7617,7 @@ async function keepPhoto() {
   state.photos.push(meta);
   adventures.photographed(meta);
   favoursReady(favourPhotographed(state.favours, meta.subjects));
-  jobsDone(Con.photographed(state.contracts, { life: meta.subjects?.sea || [], bow: !!meta.subjects?.bow }));
+  jobsDone(Con.photographed(state.contracts, { life: meta.subjects?.sea || [], bow: !!meta.subjects?.bow, species: meta.subjects?.species || [], nature: meta.subjects?.nature || [], wild: meta.subjects?.life || [] }));
   save();
   hud.toast(`Kept in your album (${state.photos.length} of ${PHOTO_MAX}).${photos.persistent ? '' : ' This browser won’t keep it after you close the tab: download it from the journal.'}`, 4);
 }
@@ -7754,6 +7762,8 @@ function notePool() {
     const key = `${c.kind}`;
     if (V.met.has(key)) continue;
     V.met.add(key);
+    // (A rockpool count for the Trust: each kind you see counts. See contracts.js noted.)
+    jobsDone(Con.noted(state.contracts, 'pool', c.kind));
     if (POOL_LIFE[c.kind].fish) {
       const before = !!state.observed?.[c.kind] || !!state.fish[c.kind];
       markObserved(c.kind, { id: `pool-${p.id}-${p.life.indexOf(c)}`, x: c.x, z: c.z });
@@ -8618,6 +8628,9 @@ const settingsUI = new SettingsUI(state, {
   // (Settings → Play together → Network details: see sharedworld.js.)
   netDiagnostics: () => netDiagnostics(),
   setName: (name) => setName(name),
+  // How you look (see looks.js): worn on foot and in every boat, sent to friends.
+  look: () => state.look,
+  setLook: (L) => setLook(L),
   // A friend code: boats, money or both, each once per game (see giftcodes.js).
   redeem: async (code) => {
     const r = await redeemGift(state, code, KINDS);
@@ -8646,6 +8659,18 @@ const settingsUI = new SettingsUI(state, {
 });
 
 // The name you go by when playing together (kept with the settings, so a new game keeps it).
+function setLook(L) {
+  state.look = cleanLook(L);
+  wearLook();
+  together.renamed();
+  save();
+}
+// Your look on your figure on foot and at the helm of every boat (see looks.js, dress.js).
+function wearLook() {
+  dressFigure(walker, state.look);
+  for (const k of KINDS) dressFigure(BOATS[k], state.look);
+}
+
 function setName(name) {
   const n = cleanName(name);
   if (!n || n === settings.player.name) return;
