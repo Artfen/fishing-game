@@ -486,7 +486,9 @@ export class Ecosystem {
       const d2 = this.d2near(a.x, a.z);
       // (A fish already after a bait is always kept in full detail; one within reach of a bait
       // but beyond the active radius still looks at baits, between its coarser steps.)
-      if (d2 < near2 || BAIT_STATES.has(a.state)) this.stepAgent(a, h, false, d2 < reach2 || BAIT_STATES.has(a.state));
+      // (Distance first: the state's only asked of the few within reach.)
+      if (d2 < near2) this.stepAgent(a, h, false, d2 < reach2);
+      else if (d2 < reach2 && BAIT_STATES.has(a.state)) this.stepAgent(a, h, false, true);
       else if (d2 < far2 && (this.tick + a.id) % FAR_EVERY === 0) this.stepAgent(a, h * FAR_EVERY, true, d2 < reach2);
     }
     this.boatStartle(h);
