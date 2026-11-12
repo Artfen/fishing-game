@@ -94,6 +94,8 @@ export function newDamage(tubes = false) {
   return {
     hull: Object.fromEntries(SECTIONS.map((s) => [s, 0])), tubes: tubes ? CHAMBERS.map(() => ({ air: 1, leak: 0 })) : null,
     steer: { bend: 0, loss: 0 }, mount: 0, tightened: false, wiring: { loose: false, shock: 0 },
+    // (C6b: a breach plugged at sea, by the part of her hull it's in: see plug.)
+    plugs: {},
   };
 }
 
@@ -109,8 +111,10 @@ export function cleanDamage(raw, tubes = false) {
       if (!r || typeof r !== 'object') return;
       c.air = n(r.air, 0, 1, 1);
       c.leak = n(r.leak, 0, 0.1, 0);
+      c.plugged = r.plugged === true && c.leak > 0;
     });
   }
+  if (raw.plugs && typeof raw.plugs === 'object') for (const s of SECTIONS) if (raw.plugs[s] === true && D.hull[s] >= 0.85) D.plugs[s] = true;
   if (raw.steer && typeof raw.steer === 'object') {
     D.steer.bend = n(raw.steer.bend, -PARTS.steer.most, PARTS.steer.most, 0);
     D.steer.loss = n(raw.steer.loss, 0, 0.8, 0);
@@ -131,7 +135,9 @@ export function damageSave(D) {
   const out = {};
   const hull = Object.fromEntries(SECTIONS.filter((s) => D.hull[s] > 0).map((s) => [s, Math.round(D.hull[s] * 1000) / 1000]));
   if (Object.keys(hull).length) out.hull = hull;
-  if (D.tubes?.some((c) => c.air < 1 || c.leak > 0)) out.tubes = D.tubes.map((c) => ({ air: Math.round(c.air * 1000) / 1000, leak: Math.round(c.leak * 10000) / 10000 }));
+  if (D.tubes?.some((c) => c.air < 1 || c.leak > 0)) out.tubes = D.tubes.map((c) => ({ air: Math.round(c.air * 1000) / 1000, leak: Math.round(c.leak * 100000) / 100000, ...(c.plugged ? { plugged: true } : {}) }));
+  const plugs = Object.keys(D.plugs || {}).filter((s) => D.plugs[s]);
+  if (plugs.length) out.plugs = Object.fromEntries(plugs.map((s) => [s, true]));
   const r4 = (v) => Math.round(v * 10000) / 10000;
   if (D.steer && (D.steer.bend || D.steer.loss)) out.steer = { bend: r4(D.steer.bend), loss: r4(D.steer.loss) };
   if (D.mount > 0) out.mount = r4(D.mount);
@@ -204,6 +210,31 @@ export function shake(D, jolt, mode = MODES.standard) {
   D.wiring.loose = true;
   return 'loose';
 }
+// Plugged at sea (C6b): a breach in a part of her hull ('hull:bottom' …), a softwood plug or the
+// collision mat over it, letting in a fifth of what it did (see flooding.js holeArea's use in
+// boat.js flood); a punctured tube chamber ('tube:2' …), a leak-stopper screwed into it, a fifth
+// of its leak. Until the yard. Returns true if there was something to plug.
+export const PLUGGED = 0.2;
+export function plug(D, id) {
+  const [what, key] = String(id).split(':');
+  if (what === 'hull' && D.hull[key] >= 0.85 && !D.plugs?.[key]) {
+    (D.plugs ||= {})[key] = true;
+    return true;
+  }
+  const c = what === 'tube' ? D.tubes?.[+key] : null;
+  if (c && c.leak > 0 && !c.plugged) {
+    c.leak *= PLUGGED;
+    c.plugged = true;
+    return true;
+  }
+  return false;
+}
+// What could be plugged at sea: ids for plug.
+export const pluggable = (D) => [
+  ...SECTIONS.filter((s) => D.hull[s] >= 0.85 && !D.plugs?.[s]).map((s) => `hull:${s}`),
+  ...(D.tubes || []).map((c, i) => (c.leak > 0 && !c.plugged ? `tube:${i}` : null)).filter(Boolean),
+];
+
 // Her steering as damaged: the helm's angle (rad) as the leg or rudder actually takes it.
 export const steered = (D, r) => (D?.steer ? r * (1 - 0.5 * D.steer.loss) + D.steer.bend : r);
 // Her outboard's push as her bracket allows (1: sound).
@@ -361,12 +392,14 @@ export function mend(D, id) {
     for (const c of D.tubes || []) { c.air = 1; c.leak = 0; }
     for (const x of ['steer', 'mount', 'wiring']) mend(D, x);
     if (D.water) D.water.fill(0);
+    D.plugs = {};
+    for (const c of D.tubes || []) c.plugged = false;
     return true;
   }
   const [what, key] = String(id).split(':');
   // (Hauled out to be mended, she drains.)
-  if (what === 'hull' && key in D.hull) { D.hull[key] = 0; if (D.water) D.water.fill(0); return true; }
-  if (what === 'tube' && D.tubes?.[+key]) { D.tubes[+key].air = 1; D.tubes[+key].leak = 0; return true; }
+  if (what === 'hull' && key in D.hull) { D.hull[key] = 0; if (D.plugs) delete D.plugs[key]; if (D.water) D.water.fill(0); return true; }
+  if (what === 'tube' && D.tubes?.[+key]) { Object.assign(D.tubes[+key], { air: 1, leak: 0, plugged: false }); return true; }
   if (what === 'steer' && D.steer) { D.steer.bend = 0; D.steer.loss = 0; return true; }
   if (what === 'mount') { D.mount = 0; D.tightened = false; return true; }
   if (what === 'wiring' && D.wiring) { D.wiring.loose = false; D.wiring.shock = 0; return true; }
