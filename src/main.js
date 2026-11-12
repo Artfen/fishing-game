@@ -150,6 +150,7 @@ import { Post } from './post.js';
 import { Diver, Shot, buildGun } from './diver.js';
 import { stepComfort, effectsOf, needsOf, dressFor, drink as drinkFrom, refill, eatRoll, packRolls, mealDrink, CLOTHES, CLOTHES_IDS, BOTTLE, ROLLS, feelsLike } from './comfort.js';
 import { LINES, STRENGTH, loadWords } from './lines.js';
+import { modeOf as floodModeOf, PUMP_DRAW, waterWords as floodWords } from './flooding.js';
 import { cleanDamage, damageSave, modeOf, stepTubes, pump as pumpTubes, survey, repairs as damageRepairs, mend as mendDamage, sound as hullSound, hullWords, materialOf, tighten, steerWords, CHAMBERS, SECTION_NAMES, SURFACES, TUBED, PARTS } from './damage.js';
 import { CARGO, buy as buyCargo, putAboard, bringAshore, piecesAboard, storePieces, weightOf as cargoKg, newCargo } from './cargo.js';
 import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance, logSite, logFind } from './dive.js';
@@ -2050,7 +2051,7 @@ const harbourSheet = new HarbourSheet(state, {
     BOATS[kind].sagTubes?.();
     audio.chime?.();
     const [part, key] = id.split(':');
-    const PART = { steer: 'Her steering', mount: 'The engine’s bracket', wiring: 'The battery terminal' };
+    const PART = { steer: 'Her steering', mount: 'The engine’s bracket', wiring: 'The battery terminal', water: 'Her bilge (pumped out)' };
     vesselLog(kind, id === 'all' ? 'Her knocks put right at the Marine Works.' : part === 'tube' ? `The ${CHAMBERS[+key]} tube patched at the Marine Works.` : part === 'hull' ? `${SECTION_NAMES[key].replace(/^her /, 'Her ')} put right at the Marine Works.` : `${PART[part] || 'She'} put right at the Marine Works.`);
     hud.toast(id === 'all' ? 'The yard puts her right: she’s herself again.' : 'Done: the yard puts it right.', 3);
     save();
@@ -4326,6 +4327,7 @@ function updateEngine(dt) {
   // running as soon as you take the helm.
   // (Her battery terminal shaken loose (damage.js): the starter only clicks until it's done up.)
   E.loose = !!damages[k]?.wiring?.loose;
+  E.drowned = !!BOATS[k]?._drowned;
   if (E.loose && mode === 'go' && !engineRunning(E) && !engineCranking(E) && !looseSaid) {
     looseSaid = true;
     hud.flash('She won’t start: a click, and nothing. The battery terminal’s loose: stopped, look her over and do it up.', t, 5);
@@ -4397,7 +4399,7 @@ function helmGauges() {
   const E = engineHere();
   if (!E) return '';
   const P = ENGINES[E.kind], on = engineRunning(E);
-  if (!on && !engineCranking(E)) return `<span class="lv-off">Engine off</span>`;
+  if (!on && !engineCranking(E)) return `<span class="lv-off">Engine off</span>${waterBit() ? ` · ${waterBit()}` : ''}`;
   const bits = [`<b>${Math.round(rpmOf(E) / 50) * 50}</b> rpm`];
   // (Trimming herself, the angle she's at.)
   const tr = boat.trimAuto ? boat.legAngle || 0 : E.trim;
@@ -4417,6 +4419,9 @@ function helmGauges() {
     tubes.forEach((c, i) => { if (c.air < 0.55 && (w < 0 || c.air < tubes[w].air)) w = i; });
     if (w >= 0) bits.push(`<span class="lv-warn">${CHAMBERS[w]} tube ${tubes[w].air < 0.2 ? 'flat' : 'soft'}</span>`);
   }
+  // (Water in her: see flooding.js.)
+  const wb = waterBit();
+  if (wb) bits.push(wb);
   // (Her working parts, as hurt: see damage.js.)
   const DD = damages[boat.kind];
   if (DD?.wiring?.loose) bits.push('<span class="lv-warn">terminal loose</span>');
@@ -8808,6 +8813,36 @@ for (const b of Object.values(BOATS)) {
 // what it was; on Relaxed, scuffs only. The words once for each part of her as it gets worse; a
 // tube punctured, the bang and the hiss; a line in her log.
 const KN_PER = 1.944;
+// Water coming in, her engine room flooded, pumped dry (boat.js flood).
+const FLOOD_WHERE = { bottom: 'her bottom', bow: 'her bow', port: 'her port side', stbd: 'her starboard side', stern: 'her stern' };
+for (const b of Object.values(BOATS)) {
+  b.floodMode = floodModeOf(state.difficulty);
+  b.onFlood = (bt, what) => {
+    const mine = bt === boat && !onFoot, D = damages[bt.kind];
+    if (what === 'breach') {
+      const holed = Object.keys(FLOOD_WHERE).filter((s) => D.hull[s] >= 0.85).map((s) => FLOOD_WHERE[s]);
+      if (mine) {
+        const pump = bt.pumpRunning ? 'Her bilge pump’s running, ' : bt.kind in PUMP_NAMES ? 'Her bilge pump’s not running: ' : '';
+        hud.flash(`Water’s coming in: ${holed.join(' and ') || 'her hull'} ${holed.length > 1 ? 'are' : 'is'} holed below the waterline. ${pump}${bt.pumpRunning ? 'but get her in' : 'bail (look her over)'}, and get her to the Marine Works.`, t, 7);
+        audio.splashSmall?.(0.4);
+      }
+      vesselLog(bt.kind, 'Holed below the waterline: taking water.');
+      save();
+    } else if (what === 'engine') {
+      const E = engines[bt.kind];
+      if (E && cutOut(E) && mine) hud.flash('Her engine room’s flooded: the engines have stopped. Pump her out (her bilge pump’s at it), and she’ll start again.', t, 6);
+      vesselLog(bt.kind, 'Her engine room flooded.');
+      save();
+    } else if (what === 'dry' && mine) hud.flash('Pumped dry.', t, 2);
+  };
+}
+const PUMP_NAMES = { bass: 1, cabin: 1, console: 1, rib: 1, cruiser: 1 };
+// (In words for the throttle panel: water in the boat you're in, if any to speak of.)
+function waterBit() {
+  const F = boat?.flooding;
+  if (!F || F.litres < 5) return '';
+  return `<span class="lv-warn">${floodWords(F.litres)}${F.gaining ? ', gaining' : ''}${boat.pumpRunning ? ' · pump on' : ''}</span>`;
+}
 for (const b of Object.values(BOATS)) {
   b.damageMode = modeOf(state.difficulty);
   b.onDamage = (bt, r, ev) => {
@@ -8883,8 +8918,40 @@ function partsDamaged(bt, r, mine) {
 }
 // Each frame: every punctured tube letting go (yours, wherever she lies); the one you're in, a word
 // as a chamber goes soft; and the foot pump while you work it.
-let pumping = null;
+let pumping = null, bailing = null;
 function damageTick(dt) {
+  // The rain on every boat, and each pump's battery: running with the engine off, it draws on it;
+  // flat, it stops. (See flooding.js.)
+  for (const [k, b] of Object.entries(BOATS)) {
+    b.rain = weather.rain || 0;
+    const E = engines[k];
+    if (!E) continue;
+    if (b.pumpRunning && !engineRunning(E)) E.charge = Math.max(0, E.charge - PUMP_DRAW * dt);
+    b.pumpPower = E.charge > 0.05 ? 1 : 0;
+  }
+  // Bailing her out, while you keep still at it.
+  if (bailing) {
+    const b = BOATS[bailing.kind], F = b.flooding;
+    const moved = boat.deck ? Math.hypot(boat.deck.x - bailing.x, boat.deck.z - bailing.z) > 0.4 : false;
+    if (boat !== b || onFoot || moved || Math.abs(boat.speed) > 1.5) {
+      b.bailing = false;
+      bailing = null;
+      hud.flash('You stop bailing.', t, 1.6);
+    } else {
+      b.bailing = true;
+      bailing.t += dt;
+      if (bailing.t >= bailing.next) {
+        bailing.next = bailing.t + 1.3;
+        audio.splashSmall?.(0.25);
+      }
+      if (!F || F.litres < 1) {
+        b.bailing = false;
+        bailing = null;
+        hud.flash('Bailed dry.', t, 2);
+        save();
+      } else if (Math.floor(bailing.t / 4) !== Math.floor((bailing.t - dt) / 4)) hud.flash(`Bailing: ${floodWords(F.litres)}${F.gaining ? ', and still coming in' : ''}. Keep still to keep at it.`, t, 1.6);
+    }
+  }
   for (const [k, D] of Object.entries(damages)) {
     if (!D.tubes?.some((c) => c.leak && c.air > 0)) continue;
     const was = D.tubes.map((c) => c.air);
@@ -8920,21 +8987,23 @@ function damageTick(dt) {
 // otherwise). What each part of her is like, and the foot pump for a RIB's tubes.
 function damageAction() {
   if (onFoot || fishing.busy || pumping || Math.abs(boat.speed) > 1.2) return null;
-  const D = damages[boat.kind];
-  if (!D || hullSound(D)) return null;
+  const D = damages[boat.kind], wet = (boat.flooding?.litres || 0) > 5;
+  if (!D || (hullSound(D) && !wet)) return null;
   if (boat.hull.standing && (!boat.deck || boat.atHelm)) return null;
-  return { text: 'Look her over', run: () => lookHerOver() };
+  return { text: wet && hullSound(D) ? 'Bail her out' : 'Look her over', run: () => lookHerOver() };
 }
 function lookHerOver() {
   const D = damages[boat.kind], rows = survey(D, boat.kind).filter((r) => r.bad > 0.02);
-  const say = rows.map((r) => `${r.what[0].toUpperCase() + r.what.slice(1)}: ${r.words}.`).join(' ');
+  const F = boat.flooding, wet = (F?.litres || 0) > 5;
+  const say = [...rows.map((r) => `${r.what[0].toUpperCase() + r.what.slice(1)}: ${r.words}.`), wet ? `Water in her: ${Math.round(F.litres)} litres${F.gaining ? ', and coming in' : ''}${boat.pumpRunning ? ' (her pump’s at it)' : ''}.` : ''].filter(Boolean).join(' ');
   const soft = D.tubes?.some((c) => c.air < 0.97), leaking = D.tubes?.some((c) => c.leak);
   const acts = [{ text: 'Leave it', cls: 'quiet', cancel: true, run: () => {} }];
   if (soft) acts.push({ text: 'Pump up the tubes', run: () => startPumping() });
+  if (wet) acts.push({ text: boat.hull.cabin || boat.kind === 'cruiser' ? 'Work the hand pump' : 'Bail her out', run: () => startBailing() });
   // (Done up at sea with the spanner from her locker: see damage.js tighten.)
   if (D.wiring?.loose) acts.push({ text: 'Do up the battery terminal', run: () => doUp('terminal') });
   if (D.mount > PARTS.mount.tight && !D.tightened) acts.push({ text: 'Do up the bracket bolts', run: () => doUp('mount') });
-  ask(boatTitle(boat), `${say} ${leaking ? 'A punctured chamber keeps letting go: the foot pump gets you home, and the Marine Works patches it.' : 'The Marine Works can put it right.'}`, acts);
+  ask(boatTitle(boat), `${say} ${leaking ? 'A punctured chamber keeps letting go: the foot pump gets you home, and the Marine Works patches it.' : hullSound(D) ? '' : 'The Marine Works can put it right.'}`.trim(), acts);
 }
 function doUp(what) {
   const D = damages[boat.kind];
@@ -8949,6 +9018,10 @@ function doUp(what) {
     vesselLog(boat.kind, 'The engine’s bracket bolts done up at sea.');
   }
   save();
+}
+function startBailing() {
+  bailing = { kind: boat.kind, x: boat.deck?.x ?? 0, z: boat.deck?.z ?? 0, t: 0, next: 0 };
+  hud.flash('You get the bailer going, a scoop at a time over the side. Keep still to keep at it.', t, 2.5);
 }
 function startPumping() {
   if (!boat.deck) return;
@@ -9139,6 +9212,7 @@ function applyDifficulty() {
     b.propStrikes = strikesFor();
     // (What a knock does: on Relaxed, scuffs only. See damage.js MODES.)
     b.damageMode = modeOf(state.difficulty);
+    b.floodMode = floodModeOf(state.difficulty);
   }
   eco.biteScale = d.bite;
   $('title-difficulty').textContent = `Difficulty: ${d.label}`;

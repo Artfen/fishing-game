@@ -121,6 +121,9 @@ export function cleanDamage(raw, tubes = false) {
     D.wiring.loose = raw.wiring.loose === true;
     D.wiring.shock = n(raw.wiring.shock, 0, 1, 0);
   }
+  // (The water in each of her compartments, litres: see flooding.js. Held within each one's size
+  // when she's next afloat.)
+  if (Array.isArray(raw.water)) D.water = raw.water.slice(0, 6).map((l) => n(l, 0, 20000, 0));
   return D;
 }
 // For the save: only what isn't sound.
@@ -134,6 +137,7 @@ export function damageSave(D) {
   if (D.mount > 0) out.mount = r4(D.mount);
   if (D.tightened && D.mount > 0) out.tightened = true;
   if (D.wiring && (D.wiring.loose || D.wiring.shock > 0)) out.wiring = { loose: D.wiring.loose, shock: r4(D.wiring.shock) };
+  if (D.water?.some((l) => l > 0.05)) out.water = D.water.map((l) => Math.round(l * 10) / 10);
   return Object.keys(out).length ? out : null;
 }
 // The boats with tubes (a RIB's chambers are kept with her hull's record).
@@ -345,6 +349,9 @@ export function repairs(D, kind, base) {
   if (D.steer && (Math.abs(D.steer.bend) > 0.003 || D.steer.loss > 0.02)) out.push({ id: 'steer', what: `Her steering: ${steerWords(D)}. ${MATERIAL_OF[kind] === 'wood' || kind === 'sail' ? 'The rudder straightened and rehung' : 'The leg lined up again, a new steering cable'}.`, price: price(0.03 + 0.08 * Math.min(1, Math.abs(D.steer.bend) / PARTS.steer.most + D.steer.loss)) });
   if (D.mount > 0.03) out.push({ id: 'mount', what: `The engine’s bracket: ${D.tightened ? 'done up at sea' : 'loose'}. Lifted, the bolts and the transom checked, new bolts and backing plates.`, price: price(0.03 + 0.05 * D.mount) });
   if (D.wiring?.loose) out.push({ id: 'wiring', what: 'The battery terminal: loose. Cleaned and done up.', price: 5 });
+  // (Water in her: hauled out, it drains; done with any job on her hull, free.)
+  const litres = (D.water || []).reduce((n, l) => n + l, 0);
+  if (litres > 5 && !out.some((r) => r.id.startsWith('hull:'))) out.push({ id: 'water', what: `Her bilge: ${Math.round(litres)} litres of water. Pumped out and left to dry.`, price: 5 });
   return out;
 }
 // The yard's work done (an id from repairs; 'all': everything).
@@ -353,13 +360,16 @@ export function mend(D, id) {
     for (const s of SECTIONS) D.hull[s] = 0;
     for (const c of D.tubes || []) { c.air = 1; c.leak = 0; }
     for (const x of ['steer', 'mount', 'wiring']) mend(D, x);
+    if (D.water) D.water.fill(0);
     return true;
   }
   const [what, key] = String(id).split(':');
-  if (what === 'hull' && key in D.hull) { D.hull[key] = 0; return true; }
+  // (Hauled out to be mended, she drains.)
+  if (what === 'hull' && key in D.hull) { D.hull[key] = 0; if (D.water) D.water.fill(0); return true; }
   if (what === 'tube' && D.tubes?.[+key]) { D.tubes[+key].air = 1; D.tubes[+key].leak = 0; return true; }
   if (what === 'steer' && D.steer) { D.steer.bend = 0; D.steer.loss = 0; return true; }
   if (what === 'mount') { D.mount = 0; D.tightened = false; return true; }
   if (what === 'wiring' && D.wiring) { D.wiring.loose = false; D.wiring.shock = 0; return true; }
+  if (what === 'water' && D.water) { D.water.fill(0); return true; }
   return false;
 }
