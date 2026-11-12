@@ -37,6 +37,11 @@ test('every outboard shaped like one, inside the old box’s envelope: nothing m
     assert.ok(bb.max.x <= 0.16 && bb.min.x >= -0.16, `${kind}: ${bb.min.x.toFixed(2)}…${bb.max.x.toFixed(2)} across`);
     assert.ok(bb.min.y >= -1.03 && bb.max.y <= 0.4 + 1e-6, `${kind}: ${bb.min.y.toFixed(2)}…${bb.max.y.toFixed(2)} high`);
     assert.ok(bb.min.z >= -0.4, `${kind}: back to ${bb.min.z.toFixed(2)}`);
+    // (No further forward than the clamp, but for a tiller: the cowling's front at its front.)
+    const H = b.hull;
+    if (H.console || H.form?.wheel) assert.ok(bb.max.z < 0.2, `${kind}: forward to ${bb.max.z.toFixed(2)}`);
+    const cowlFront = new THREE.Box3().setFromBufferAttribute(g.attributes.position);
+    assert.ok(cowlFront.max.y > 0.3, `${kind}: a cowling on top`);
     // A V6's taller cowling, taller.
     const tall = new THREE.Box3().setFromBufferAttribute(b.outboardGeo({ tall: 1.25 }).attributes.position);
     assert.ok(tall.max.y > bb.max.y + 0.05);

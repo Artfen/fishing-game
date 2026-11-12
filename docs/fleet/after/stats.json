@@ -9,7 +9,7 @@
   "verts": 8683,
   "materials": 12,
   "geometries": 19,
-  "buildMs": 44.9
+  "buildMs": 47
  },
  {
   "kind": "skiff",
@@ -21,7 +21,7 @@
   "verts": 10099,
   "materials": 12,
   "geometries": 19,
-  "buildMs": 29.4
+  "buildMs": 31.9
  },
  {
   "kind": "kayak",
@@ -33,7 +33,7 @@
   "verts": 7849,
   "materials": 15,
   "geometries": 22,
-  "buildMs": 15.6
+  "buildMs": 27.5
  },
  {
   "kind": "bass",
@@ -45,7 +45,7 @@
   "verts": 19311,
   "materials": 15,
   "geometries": 22,
-  "buildMs": 25.5
+  "buildMs": 26.2
  },
  {
   "kind": "sail",
@@ -57,7 +57,7 @@
   "verts": 9838,
   "materials": 19,
   "geometries": 26,
-  "buildMs": 30.6
+  "buildMs": 25
  },
  {
   "kind": "cabin",
@@ -69,7 +69,7 @@
   "verts": 28368,
   "materials": 18,
   "geometries": 26,
-  "buildMs": 41.8
+  "buildMs": 52
  },
  {
   "kind": "cruiser",
@@ -81,7 +81,7 @@
   "verts": 44620,
   "materials": 58,
   "geometries": 78,
-  "buildMs": 55.8
+  "buildMs": 78.3
  },
  {
   "kind": "console",
@@ -93,7 +93,7 @@
   "verts": 18606,
   "materials": 45,
   "geometries": 69,
-  "buildMs": 51.4
+  "buildMs": 21.2
  },
  {
   "kind": "rib",
@@ -105,7 +105,7 @@
   "verts": 57691,
   "materials": 43,
   "geometries": 64,
-  "buildMs": 49.2
+  "buildMs": 50.5
  },
  {
   "kind": "windsurf",
@@ -117,7 +117,7 @@
   "verts": 8256,
   "materials": 12,
   "geometries": 19,
-  "buildMs": 14.9
+  "buildMs": 10.6
  },
  {
   "kind": "jetski",
@@ -129,6 +129,6 @@
   "verts": 11761,
   "materials": 13,
   "geometries": 20,
-  "buildMs": 18.9
+  "buildMs": 17.7
  }
 ]

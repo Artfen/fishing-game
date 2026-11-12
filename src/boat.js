@@ -1813,8 +1813,9 @@ export class Boat {
     P.quadraticCurveTo(za - 0.01, yt - 0.04 * tall, za, y0 + (yt - y0) * 0.4);
     P.quadraticCurveTo(za, y0, za + 0.03, y0);
     const cowl = new THREE.ExtrudeGeometry(P, { depth: 0.2, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.03, bevelSegments: 2, curveSegments: 4 });
-    cowl.rotateY(Math.PI / 2);
-    cowl.translate(-0.1, 0, 0);
+    // (The profile's x is the boat's z: turned so, forward to the front.)
+    cowl.rotateY(-Math.PI / 2);
+    cowl.translate(0.1, 0, 0);
     const leg = new THREE.CylinderGeometry(0.065, 0.06, 0.9, 10);
     leg.scale(0.6, 1, 1);
     const nose = new THREE.SphereGeometry(0.06, 10, 6);
