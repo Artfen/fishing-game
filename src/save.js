@@ -15,6 +15,7 @@ import { cleanEquip, cleanCar, cleanOuting, defaultEquip } from './outing.js';
 import { cleanGuide } from './firstTrip.js';
 import { cleanFuel } from './fuel.js';
 import { cleanCargo } from './cargo.js';
+import { cleanDamages } from './damage.js';
 import { CHOICES } from './quality.js';
 import { cleanStored } from './fleet.js';
 import { cleanTrailer } from './trailer.js';
@@ -86,6 +87,7 @@ export const DEFAULT_STATE = {
   shipping: [],    // boats on the supply ship between the harbours: { kind, to ('south' or 'home'), due (game hours) }
   stored: null,    // your boats laid up ashore (kinds; see fleet.js): null until it's been decided
   engines: {},     // each motorboat's engine room: switches, battery and trim (see engine.js)
+  damage: {},      // what knocks have done to each boat: her hull, a RIB's tubes (see damage.js)
   yard: null,      // Willowhaven Marine Works: the boats you own, a day's hire, paint, names, fittings (see shipyard.js)
   economy: 'gentle', // 'gentle' | 'authentic': what fuel costs (see economy.js)
   ledger: [],      // the last few payments in and out, as receipts
@@ -407,6 +409,7 @@ export function sanitize(raw) {
   const fleet = VESSELS.filter((k) => k !== s.trailer.boat);
   // (Each boat's own, made sensible: see engine.js cleanEngine.)
   s.engines = Object.fromEntries((isObj(raw.engines) ? Object.entries(raw.engines) : []).filter(([k, v]) => hasEngine(k) && isObj(v)).map(([k, v]) => [k, engineSave(cleanEngine(k, v))]));
+  s.damage = cleanDamages(raw.damage, VESSELS);
   s.stored = cleanStored(raw.stored, fleet, isObj(raw.boats) ? Object.keys(raw.boats).filter((k) => k !== s.trailer.boat) : null);
   s.seenSouth = typeof raw.seenSouth === 'string' && raw.seenSouth.length <= 2000 && /^[A-Za-z0-9+/=]*$/.test(raw.seenSouth) ? raw.seenSouth : '';
   // A crossing under way (an older save has none: nothing to resume), and your crossings so far.

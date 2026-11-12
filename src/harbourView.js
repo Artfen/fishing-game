@@ -163,7 +163,7 @@ export class HarbourSheet {
     $('hb-title').textContent = W === 'market' ? 'The fish market' : W === 'kaigan' ? 'Kaigan' : W === 'inn' ? 'The Lobster Pot' : W === 'chandlery' ? 'The chandlery' : W === 'works' ? 'Willowhaven Marine Works' : 'Bar El Muelle';
     $('hb-sub').textContent = `${formatClock(this.hour)} · day ${this.state.day} · ${W === 'muelle' ? 'Puerto Brasa' : 'Willowhaven'}`;
     $('hb-purse').textContent = `In your purse: ${money(this.state.money)}`;
-    const tabs = W === 'market' || W === 'kaigan' ? [] : W === 'inn' ? [['bar', 'The bar'], ['kitchen', 'The kitchen']] : W === 'chandlery' ? [['counter', 'The counter'], ['boat', 'For the boat'], ['mend', 'Mending'], ['ready', 'Ready for a trip']] : W === 'works' ? [['boats', 'Boats'], ['looks', 'Paint & name'], ['fit', 'Fit-out']] : [['bar', 'The bar'], ['kitchen', 'The kitchen'], ['sell', 'Sell to Paco']];
+    const tabs = W === 'market' || W === 'kaigan' ? [] : W === 'inn' ? [['bar', 'The bar'], ['kitchen', 'The kitchen']] : W === 'chandlery' ? [['counter', 'The counter'], ['boat', 'For the boat'], ['mend', 'Mending'], ['ready', 'Ready for a trip']] : W === 'works' ? [['boats', 'Boats'], ['looks', 'Paint & name'], ['fit', 'Fit-out'], ['repair', 'Repairs']] : [['bar', 'The bar'], ['kitchen', 'The kitchen'], ['sell', 'Sell to Paco']];
     $('hb-tabs').replaceChildren(...tabs.map(([id, text]) => {
       const b = el('button', id === this.tab ? 'on' : '', text);
       b.type = 'button';
@@ -174,7 +174,7 @@ export class HarbourSheet {
       return b;
     }), ...(W === 'muelle' ? [this.button('Your room upstairs', () => this.hooks.openRoom(), 'quiet hb-room')] : W === 'chandlery' ? [this.button('The tackle store (free)', () => this.hooks.openStore(), 'quiet hb-room')] : []));
     $('hb-tabs').hidden = !tabs.length;
-    const body = this.tab === 'kaigan' ? this.renderKaigan() : this.tab === 'boats' ? this.renderBoats() : this.tab === 'looks' ? this.renderLooks() : this.tab === 'fit' ? this.renderFit() : this.tab === 'sell' ? this.renderSell() : this.tab === 'kitchen' ? this.renderKitchen() : this.tab === 'counter' ? this.renderCounter() : this.tab === 'mend' ? this.renderMend() : this.tab === 'ready' ? this.renderReady() : this.tab === 'boat' ? this.renderBoatStores() : this.renderBar();
+    const body = this.tab === 'kaigan' ? this.renderKaigan() : this.tab === 'boats' ? this.renderBoats() : this.tab === 'looks' ? this.renderLooks() : this.tab === 'fit' ? this.renderFit() : this.tab === 'repair' ? this.renderRepairs() : this.tab === 'sell' ? this.renderSell() : this.tab === 'kitchen' ? this.renderKitchen() : this.tab === 'counter' ? this.renderCounter() : this.tab === 'mend' ? this.renderMend() : this.tab === 'ready' ? this.renderReady() : this.tab === 'boat' ? this.renderBoatStores() : this.renderBar();
     $('hb-body').replaceChildren(...body);
   }
 
@@ -328,6 +328,42 @@ export class HarbourSheet {
       }
     }
     out.push(el('p', 'cp-soft', 'Everything here weighs something (she sits a touch lower and goes a touch slower for it) and the electronics and lights draw on her battery while the engine’s off. Nothing here does a thing for the fish’s appetite.'));
+    return out;
+  }
+
+  // Her knocks (see damage.js): what the yard finds on each of your boats and what it costs to put
+  // right, a job at a time or all of it.
+  renderRepairs() {
+    const out = [], Y = this.state.yard, H = this.hooks;
+    out.push(el('p', 'hb-say', 'Out in the yard a boat stands on blocks, a lamp under her bottom. “Brought her in knocked about? Let’s have a look.”'));
+    let any = false;
+    for (const k of H.yardKinds().filter((x) => owns(Y, x))) {
+      const rows = H.repairsFor?.(k) || [];
+      if (!rows.length) continue;
+      any = true;
+      out.push(el('h4', 'hb-fit-cat', `The ${H.boatName(k)}`));
+      for (const r of rows) {
+        const row = el('div', 'cp-row hb-fit');
+        const text = el('div', 'hb-fit-text');
+        text.append(el('p', '', r.what));
+        row.append(text, this.button(r.price ? `Do it: ${money(r.price)}` : 'Do it', () => {
+          if (r.price && !this.pay(r.price, 'Willowhaven Marine Works')) return;
+          H.yardRepair(k, r.id);
+          this.render();
+        }));
+        out.push(row);
+      }
+      if (rows.length > 1) {
+        const all = rows.reduce((n, r) => n + r.price, 0);
+        out.push(this.button(`All of it: ${money(all)}`, () => {
+          if (all && !this.pay(all, 'Willowhaven Marine Works')) return;
+          H.yardRepair(k, 'all');
+          this.render();
+        }, 'quiet'));
+      }
+    }
+    if (!any) out.push(el('p', 'cp-soft', 'Your boats are sound: not a mark on them the yard would charge for.'));
+    out.push(el('p', 'cp-soft', 'Nothing breaks on its own: a knock is what she hit and how hard. A quay met gently, or sand, does no harm; rock, or a quay met at speed, does. A gouged or cracked bottom slows her. A punctured tube goes soft, and she sits lower on that side. A bent propeller is on the Fit-out tab.'));
     return out;
   }
 

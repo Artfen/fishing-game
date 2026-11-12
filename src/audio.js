@@ -737,6 +737,17 @@ export class AudioScape {
     this.burst({ buf: this.pink, type: 'bandpass', freq: 1400 + Math.random() * 600, q: 2, dur: 0.18, gain: 0.025 * vol, attack: 0.02 });
   }
 
+  // Air hissing out of a punctured tube (vol 0 … 1; longer for a tear).
+  hiss(vol = 1, dur = 1.6) {
+    this.burst({ type: 'highpass', freq: 3200, freqEnd: 2200, q: 0.7, dur, gain: 0.05 * vol, attack: 0.02 });
+  }
+
+  // One stroke of the foot pump: a breathy push of air and the bellows' creak back.
+  pump(vol = 1) {
+    this.burst({ buf: this.pink, type: 'bandpass', freq: 900, freqEnd: 500, q: 1.1, dur: 0.38, gain: 0.05 * vol, attack: 0.05 });
+    this.burst({ buf: this.brown, type: 'lowpass', freq: 300, dur: 0.12, gain: 0.04 * vol, attack: 0.01, when: 0.42 });
+  }
+
   cast(vol = 1) {
     this.burst({ type: 'bandpass', freq: 2400, freqEnd: 500, q: 1.2, dur: 0.42, gain: 0.07 * vol, attack: 0.06 });
     this.tickRun(10, 0.03, 0.025 * vol);
