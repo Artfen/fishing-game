@@ -47,6 +47,11 @@ const SCENARIOS = {
     save: base(),
     setup: () => { slowTide.state.yard.owned.push('cabin'); slowTide.setHour(12); slowTide.useSkiffAt(150, 420, 0.3, 'cabin'); slowTide.boat.lever = 1; },
   },
+  // The yacht under way, the same (her old drawing by ?classic=cruiser).
+  cruiser: {
+    save: base(),
+    setup: () => { slowTide.state.yard.owned.push('cruiser'); slowTide.setHour(12); slowTide.useSkiffAt(150, 420, 0.3, 'cruiser'); slowTide.boat.lever = 1; },
+  },
   shoal: {
     save: base(),
     setup: () => {
