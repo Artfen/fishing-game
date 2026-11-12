@@ -419,6 +419,15 @@ The right rod, a sensible drag and easing off at the surge land fish at every le
 
 Played carefully (easing off at the surge, winding through a leap, a sensible drag), every fish can still be landed at every level.
 
+**Where they go.** The fish move with the water round them (`src/world/ecology.js`; every driver and what it does is in `docs/ECOLOGY.md`):
+- **The water's warmth.** In summer the sun warms the top of the sea and the warm layer floats on colder water from about eight metres down. The cool-water kinds (pollack, hake, conger, John Dory, plaice, thornback ray, catshark) keep below it where the water's deep enough: late in the summer the pollack are fifteen metres down. On shallow rocks they can't get below it, and they're sluggish. A fish that turns away says so, and fishing deeper or at dawn is the answer. In early spring the whole water suits them; by autumn the warm layer's mixed down and they hardly feel it.
+- **The food.** The fish-eaters (bass, pollack, mackerel, pike, perch, the tunas and more) go where the small shoaling fish are: sprat, sand smelt, sardines, roach, rudd. Find a shoal on the fish finder and the hunters are usually under it, and keener for it.
+- **The light.** In a bright sun the fish shy of it keep deeper and tighter to cover; under cloud and at dusk they come up and out.
+- **The tide.** Bass, mullet, gilthead and the flatfish push up over the shallows on the flood and drop back to deeper water on the ebb.
+- **You.** Fish move away from water lately churned by a motor or cast at again and again, for a minute or two. Where it's been fished hard, what's left keeps tight to cover.
+
+The graphics settings never change which fish come to a bait: every fish within 160 m of you looks at it, on every setting.
+
 ### Casting
 
 Hold Space to load the rod: the ring on the water and the dotted arc of the cast move out at an even pace, so it's easy to stop where you want. Let go to cast. The rig flies along the arc you saw and lands on the ring: no dice, the same release always lands in the same place. Swing the aim with A/D (or by looking round) independently of where the boat or you face. Esc or right-click puts the cast down.

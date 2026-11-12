@@ -144,7 +144,9 @@ export const prefsFor = (id) => PREFS[id] || DEFAULT;
 
 // How the water here suits this fish just now, as a multiplier on its interest (0.25 … 1.4), and
 // the biggest thing putting it off (for advice). env: { current (m/s), waves (crest-to-trough m),
-// light (0 night … 1 a bright midday sun), disturb (0 … 1 near here lately), storm (0 … 1) }.
+// light (0 night … 1 a bright midday sun), disturb (0 … 1 near here lately), storm (0 … 1),
+// warm (0 … 1: how much warmer than it likes, see ecology.js), food (0 … 1: small fish about a
+// hunter) }.
 export function mood(a, env, level = BEHAVIOUR.relaxed) {
   const P = prefsFor(a.sp.id), k = level.mood;
   let m = 1, worst = null, worstK = 1;
@@ -169,6 +171,10 @@ export function mood(a, env, level = BEHAVIOUR.relaxed) {
   note(1 - smoothstep(0.6, 1, env.light) * P.bright * 0.4 * k, 'bright');
   // Disturbance: splashes, motors, the same spot cast at again and again.
   note(1 - clamp(env.disturb * P.disturb * 0.55 * level.disturb, 0, 0.8), 'disturbed');
+  // Water warmer than a cool-water kind likes (stuck in the shallows in a hot August): sluggish.
+  if (env.warm > 0) note(1 - env.warm * 0.5 * k, 'warm');
+  // Small fish about: a hunter's on the feed.
+  if (env.food > 0) m *= 1 + env.food * 0.3;
   // And its own temper: bold fish come, shy ones hang back.
   m *= lerp(1, a.temper ?? 1, 0.6);
   return { m: clamp(m, 0.2, 1.45), worst: worstK < 0.85 ? worst : null };
@@ -187,6 +193,7 @@ export function whyRejected(f, reason) {
   if (f.motion) return ['motion', f.motion === 'fast' ? 'It followed but wouldn’t take: too fast for it. Slow the retrieve.' : f.motion === 'still' ? 'It lost interest in something so still. Give it a twitch, or reel steadily.' : 'It followed but wouldn’t commit. A twitch or a pause often makes them strike.'];
   if (f.mood === 'disturbed') return ['spooked', 'It hung back, wary: this water’s been disturbed lately. Rest it, or move along a little.'];
   if (f.mood === 'bright') return ['bright', 'It hung back in the bright light. Shy fish feed better at dawn, dusk or under cloud, or deeper down.'];
+  if (f.mood === 'warm') return ['warm', 'It’s sluggish in water this warm. Its kind keeps to the cooler water deeper down in summer: fish deeper, or at dawn.'];
   if (f.mood === 'current') return ['current', 'It wouldn’t hold in water running this hard. Look for the slacker water beside it.'];
   if (f.mood === 'still') return ['still', 'It’s a fish of moving water: try where the current runs.'];
   if (f.mood === 'storm' || f.mood === 'rough') return ['weather', 'It’s keeping its head down in this weather. Sheltered water, or the fish that love the surf.'];

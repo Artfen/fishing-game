@@ -72,7 +72,7 @@ export function dayTides(day) {
 
 // The fish of the sea, and the tide: a running tide brings the food to them, slack water quietens
 // them; these few feed hardest on the flood, pushing up over ground the ebb left dry.
-const FLOOD_FEEDERS = new Set(['seabass', 'mullet', 'flounder', 'plaice', 'sole', 'gilthead', 'meagre', 'senegalsole', 'sandsole', 'gurnard', 'baila']);
+export const FLOOD_FEEDERS = new Set(['seabass', 'mullet', 'flounder', 'plaice', 'sole', 'gilthead', 'meagre', 'senegalsole', 'sandsole', 'gurnard', 'baila']);
 export function tideBoost(sp, tide) {
   if (!tide || sp.water === 'fresh' || sp.life?.big) return 1;
   const moving = Math.min(1, Math.abs(tide.flow) / 0.6);
