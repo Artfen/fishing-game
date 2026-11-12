@@ -94,8 +94,10 @@ export const reserveOf = (volumeToSheer, kg) => Math.max(0, ((volumeToSheer * RH
 export const waterKg = (W) => (W || []).reduce((n, l) => n + l, 0) * (RHO / 1000);
 export const waterLitres = (W) => (W || []).reduce((n, l) => n + l, 0);
 
-// How deep the water stands in a compartment (m, from its floor) holding `litres`.
-export const depthOf = (c, litres) => (c.cap > 0 ? clamp(litres / c.cap, 0, 1) * (c.top - c.floor) : 0);
+// How deep the water stands in a compartment (m, from its floor) holding `litres`. A hull's section
+// is a V or a round at the bottom, not a box: a little water stands deeper than it would spread over
+// a flat floor (the volume grows about as the depth to the power 1.6).
+export const depthOf = (c, litres) => (c.cap > 0 ? Math.pow(clamp(litres / c.cap, 0, 1), 0.62) * (c.top - c.floor) : 0);
 
 // A hole of area A (m²) with `head` m of water outside above it and `inside` m inside: litres a second.
 export const breachFlow = (A, head, inside = 0) => {

@@ -6548,6 +6548,11 @@ function interaction() {
   }
   // A boat you stand in: off the helm to walk her deck (slow, or held still).
   if (boat.hull.standing && !fishing.busy && !boat.deck && (boat.speed < 2.5 || boat.anchored || boat.tie)) return { text: 'Leave the helm: walk the deck', run: () => takeHelm(false) };
+  // Water in her, sitting in a boat you don't walk about: bailing comes before anything else.
+  if (!boat.hull.standing && (boat.flooding?.litres || 0) > 5) {
+    const da = damageAction();
+    if (da) return da;
+  }
   // The cabin boat, stopped: its galley and bunk (or over the side for a dive).
   const entry = !fishing.lineOut ? diveEntry() : null;
   if (boat.hull.cabin && !fishing.lineOut && canEnterCabin(boat)) {
@@ -8822,7 +8827,8 @@ for (const b of Object.values(BOATS)) {
     if (what === 'breach') {
       const holed = Object.keys(FLOOD_WHERE).filter((s) => D.hull[s] >= 0.85).map((s) => FLOOD_WHERE[s]);
       if (mine) {
-        const next = bt.pumpRunning ? 'Her bilge pump’s running, but get her in to the Marine Works.' : `${bt.kind in PUMP_NAMES ? 'Her bilge pump’s not running: bail' : 'Bail'} (look her over), and get her to the Marine Works.`;
+        const has = bt.kind in PUMP_NAMES, live = has && (bt.pumpPower ?? 1) > 0;
+        const next = live ? 'Her bilge pump’s on its float switch and will take what it can; bail too if it can’t keep up (look her over), and get her in to the Marine Works.' : `${has ? 'Her battery’s too flat for the bilge pump: bail' : 'Bail'} (look her over), and get her to the Marine Works.`;
         hud.flash(`Water’s coming in: ${holed.join(' and ') || 'her hull'} ${holed.length > 1 ? 'are' : 'is'} holed below the waterline. ${next}`, t, 7);
         audio.splashSmall?.(0.4);
       }
