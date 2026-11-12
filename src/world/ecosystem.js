@@ -631,14 +631,13 @@ export class Ecosystem {
     const noisy = this.noise.length > 0, wary = this.pressure.cells.size > 0 ? pressureWariness(this.pressureAt(home.x, home.z)) : 0;
     // (Disturbed water over its home: it shifts away from the noise, to the far side of its home
     // and beyond, by how much it minds.)
+    // (Only where there's been some near its home: one look, then each place it might go.)
     let cx = home.x, cz = home.z;
-    if (noisy) {
-      const n = this.noiseFrom(home.x, home.z);
-      if (n) {
-        const d = Math.hypot(home.x - n.x, home.z - n.z) || 1, push = R * clamp(n.w * (P.disturb ?? 1), 0, 1.2);
-        cx += ((home.x - n.x) / d) * push;
-        cz += ((home.z - n.z) / d) * push;
-      }
+    const n = noisy ? this.noiseFrom(home.x, home.z) : null;
+    if (n) {
+      const d = Math.hypot(home.x - n.x, home.z - n.z) || 1, push = R * clamp(n.w * (P.disturb ?? 1), 0, 1.2);
+      cx += ((home.x - n.x) / d) * push;
+      cz += ((home.z - n.z) / d) * push;
     }
     let bx = home.x, bz = home.z, bd = Math.max(this.habitat.depth(home.x, home.z), 0.8), best = -Infinity, atPrey = false;
     for (let i = 0; i < 8; i++) {
@@ -667,7 +666,7 @@ export class Ecosystem {
       if (prey) score += 1.2 * smoothstep(Math.max(40, R * 1.6), 6, Math.hypot(x - prey.x, z - prey.z));
       if (tide > 0) score += 0.9 * tide * (1 - smoothstep(band[0], band[1] + 2, s.depth));
       else if (tide < 0) score -= 0.6 * tide * smoothstep(band[0], band[1] + 2, s.depth);
-      if (noisy) score -= 1.5 * (P.disturb ?? 1) * this.disturbAt(x, z);
+      if (n) score -= 1.5 * (P.disturb ?? 1) * this.disturbAt(x, z);
       if (score > best) {
         best = score;
         bx = x;
