@@ -80,7 +80,7 @@ import { Placement } from './placement.js';
 import { Adventures, ADVENTURE_BY_ID, PAGES, KEEPSAKES } from './adventures.js';
 import { PhotoStore, capture, photoId, albumPage, download } from './photos.js';
 import { Haptics, STRENGTHS, engineFeel, lineFeel, slamFeel, knockFeel } from './haptics.js';
-import { PROFILES as ENGINES, WOT, setElectric, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM, tiltToggle, tiltedUp, stepTilt } from './engine.js';
+import { PROFILES as ENGINES, WOT, setElectric, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM, tiltToggle, tiltedUp, stepTilt, HOLE } from './engine.js';
 import { HelmUI } from './helm.js';
 import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
@@ -2021,7 +2021,17 @@ const harbourSheet = new HarbourSheet(state, {
   // wait; her tank and the spec of any choice, for the comparison's figures.
   yardEngine: (kind) => engineOf(state.yard, kind),
   yardRepower: (kind, model) => yardDo(repowerBoat(state, kind, model), () => vesselLog(kind, `Re-engined: ${fittedName(kind, model)}.`) || hud.toast(`The ${fittedName(kind, model)} ${MODELS[model].inboard ? 'are in her engine room' : CATALOGUE_COUNT(kind) > 1 ? 'are on her transom' : 'is on her transom'}, the old taken in.`, 4)),
-  yardReprop: (kind, prop) => yardDo(repropBoat(state, kind, prop), () => vesselLog(kind, `New propeller${CATALOGUE_COUNT(kind) > 1 ? 's' : ''}: ${propName(kind, prop).toLowerCase()}.`) || hud.toast(`New propeller${CATALOGUE_COUNT(kind) > 1 ? 's' : ''} on: ${propName(kind, prop).toLowerCase()}.`, 3)),
+  // A propeller bent on the bottom (boat.js propStrike): how bad, and a new one of the same.
+  propDamage: (kind) => engines[kind]?.dmg || 0,
+  yardMendProp: (kind) => {
+    if (engines[kind]) engines[kind].dmg = 0;
+    BOATS[kind]._strikeBand = -1;
+    audio.chime?.();
+    vesselLog(kind, 'A new propeller, for the one bent on the bottom.');
+    hud.toast('The yard fits a new propeller: she’s herself again.', 3);
+    save();
+  },
+  yardReprop: (kind, prop) => yardDo(repropBoat(state, kind, prop), () => (engines[kind] && (engines[kind].dmg = 0)) || vesselLog(kind, `New propeller${CATALOGUE_COUNT(kind) > 1 ? 's' : ''}: ${propName(kind, prop).toLowerCase()}.`) || hud.toast(`New propeller${CATALOGUE_COUNT(kind) > 1 ? 's' : ''} on: ${propName(kind, prop).toLowerCase()}.`, 3)),
   tankOf: (kind) => TANKS[kind] || 0,
   engineSpecFor: (kind, choice) => engineSpec(kind, BOATS[kind].hull, choice),
   // The look at a boat at the Marine Works (see boatPreview.js).
@@ -4210,9 +4220,14 @@ function updateEngine(dt) {
   }
   const pos = boat.power ? Math.abs(positionOf(k, boat.power)) : 0;
   const opening = clamp((pos - GEAR_IN) / (1 - GEAR_IN), 0, 1);
-  const ev = stepEngine(E, dt, { lever: boat.lever, power: boat.power, opening, fuel, wet: boat.intakeWet !== false, speed: boat.forwardSpeed });
+  // (What her propeller's pitched for, and how well it grips, for the revs under load: see
+  // engine.js loadRpm and propBite. A lower pitch lets the engine rev higher off the mark.)
+  const spec = boat.motorSpec, hole = spec ? Math.min(0.8, HOLE + 0.4 * ((spec.effort || 1) - 1)) : HOLE;
+  const ev = stepEngine(E, dt, { lever: boat.lever, power: boat.power, opening, fuel, wet: boat.intakeWet !== false, speed: boat.forwardSpeed, vd: spec?.vd || 0, hole, bite: boat.propBite ?? 1, inGear: pos > GEAR_IN });
   for (const e of ev) engineEvent(e, E, k);
   if (engineCranking(E)) haptics.hold('crank', P.diesel ? 0.45 : 0.35, 0.3, { buzz: P.diesel ? 5 : 7 });
+  // (A bent propeller: a judder through her, the harder she's driven.)
+  if (engineRunning(E) && E.dmg > 0.1 && Math.abs(boat.power) > 0.05) haptics.hold('bentProp', 0.08 + 0.3 * E.dmg * Math.abs(boat.power), 0.05, { buzz: 11 });
   // The overheat alarm, beeping while she's hot.
   if (engineRunning(E) && E.temp >= 0.6) {
     hotBeepT -= dt;
@@ -8615,6 +8630,28 @@ BOATS.sail.onGybe = (b) => {
   hud.flash(state.tips.gybed ? 'Gybe!' : 'Gybe! The wind crossed the stern and the boom slammed across. Haul the sheet in a little before you turn the stern through the wind, and it comes over gently.', t, state.tips.gybed ? 1.4 : 5);
   state.tips.gybed = true;
 };
+// A propeller on the bottom (boat.js propStrike): only for a leg you trim yourself, and not on
+// Relaxed. A touch creeping; a bent blade at speed (she's slower, the engine races and she
+// judders), put right with a new propeller at the Marine Works.
+const strikesFor = () => (state.difficulty === 'relaxed' ? null : state.difficulty === 'realistic' ? 'hard' : 'on');
+for (const b of Object.values(BOATS)) {
+  b.propStrikes = strikesFor();
+  b.onStrike = (bt, s) => {
+    if (bt !== boat || onFoot) return;
+    audio.knock?.(Math.min(1, 0.4 + s.speed / 8));
+    audio.scrape?.(Math.min(1, s.speed / 6));
+    haptics.pulse('snap', Math.min(1, 0.5 + s.speed / 10));
+    if (!settings.controls.reducedMotion) rig.shake = Math.max(rig.shake, Math.min(0.35, 0.1 + s.speed / 40));
+    // (Words once for a touch, and again only as it gets worse: dragging her propeller over a
+    // bank knocks it again and again.)
+    const band = s.dmg >= 0.9 ? 3 : s.dmg >= 0.5 ? 2 : s.dmg >= 0.15 ? 1 : 0, was = bt._strikeBand ?? -1;
+    bt._strikeBand = band;
+    if (band <= was) return;
+    hud.flash(band ? `A bang from the stern: her propeller’s hit the bottom${band >= 2 ? ' hard' : ''}. She’s ${band >= 3 ? 'barely making way' : 'down on speed'} and the engine runs rough. Trim the leg right up into its shallow-water range before you run over shallows; the Marine Works can fit a new propeller.` : 'The propeller ticks the bottom. Trim the leg up (into its shallow-water range) or find deeper water.', t, band ? 6 : 3.5);
+    if (band) vesselLog(bt.kind, `Propeller damaged on the bottom (${Math.round(s.dmg * 100)}%).`);
+    save();
+  };
+}
 for (const b of boats) {
   if (b.motor) b.onShallow = () => hud.flash(b.kind === 'bass' ? 'Shallow water: the outboard tips up. Ease back to the first notches to creep on with the electric motor.'
     : b.hull.motor?.inboard ? 'Shallow water: her propellers are touching the bottom, so you can only creep along. Steer for deeper water.'
@@ -8794,6 +8831,8 @@ function applyQuality() {
 function applyDifficulty() {
   const d = DIFFICULTY[state.difficulty] || DIFFICULTY.standard;
   fishing.diff = d;
+  // (Propeller strikes on the bottom: none on Relaxed. See strikesFor.)
+  for (const b of Object.values(BOATS)) b.propStrikes = strikesFor();
   eco.biteScale = d.bite;
   $('title-difficulty').textContent = `Difficulty: ${d.label}`;
 }

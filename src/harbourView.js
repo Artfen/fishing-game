@@ -384,7 +384,14 @@ export class HarbourSheet {
       const laden = (x) => [`${kn(x.laden)} with ${C.crew}${diff(x.laden * KN, cur.laden * KN, ' kn')}`];
       text.append(el('p', '', `${propName(k, prop)}: ${pitch}-inch`), el('span', 'cp-soft', P.desc), el('span', 'hb-fit-meta', figures(t, laden)));
       row.append(text);
-      if (on) row.append(el('span', 'cp-soft', 'on her now'));
+      // (Hers, bent on the bottom: a new one of the same, or another fitted, puts it right.)
+      const dmg = on ? H.propDamage?.(k) || 0 : 0;
+      if (on && dmg >= 0.05) row.append(el('span', 'hb-warn', `damaged: ${Math.round(dmg * 100)}% down`), this.button(`A new one: ${money(P.price * n)}`, () => {
+        if (!this.pay(P.price * n, 'Willowhaven Marine Works')) return;
+        H.yardMendProp(k);
+        this.render();
+      }));
+      else if (on) row.append(el('span', 'cp-soft', 'on her now'));
       else row.append(this.button(`Fit ${n > 1 ? 'them' : 'it'}: ${money(P.price * n)}`, () => H.yardReprop(k, prop)));
       out.push(row);
     }
