@@ -36,4 +36,12 @@ The host decides the shoals, so the forage and the hunters, and sends them to ev
 
 ## Performance
 
-D1 adds a short search of the 116 forage shoals when a fish-eater picks where to go next, a look at the disturbance (only when there is some), and one pressure lookup per choice. Each cool-water kind's depth below the warm layer is worked out once per game half hour for each water it lives in. See the PR for timings.
+D1 adds a few things:
+- A short search of the 116 forage shoals when a fish-eater picks where to go next.
+- A look at the disturbance, only when there's some near a fish's home.
+- One pressure lookup per choice.
+- Each cool-water kind's depth below the warm layer, worked out once per game half hour for each water it lives in.
+
+The bite checks for fish beyond the active radius but within reach are made between their coarser steps, and only those fish are asked their state.
+
+The ecosystem's frame in the busiest water (837 fish within 150 m, a lure in and a motor about) costs 1.53 ms against 1.48 before D1 by default, and 1.34 against 1.32 on the lowest setting. Those are medians of five or six interleaved runs, and both differences are within the noise.
