@@ -1281,6 +1281,7 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 | `src/diver.js` | You in the water: swimming where you look, fins, buoyancy, the current, the diver's figure, the speargun and its shaft on its line |
 | `src/post.js` | The finishing pass of Ultra and Cinematic: glow, sun shafts, the hour's colour grade and the vignette |
 | `tools/fightsim.mjs`, `tools/ecosim.mjs` | Headless tuning tools for the fight and the ecosystem (see [Tests](#tests)) |
+| `bench.html`, `src/bench.js`, `tools/perf.mjs` | The benchmark: the same scenarios (the harbour, rough water, a storm, a school of fish, dives at home and at Las Brasas, the sonar, the crossing, boats far off) measured in your own browser on your own graphics card (`bench.html`: in a save of its own, never touching yours) or headless for before-and-after (`tools/perf.mjs`); the targets and numbers in `docs/PERFORMANCE.md` |
 | `tools/boatstudio.html`, `tools/boatshots.mjs` | The boat studio: every boat built by the game's own code under the same light, from the same six views, with what she costs to draw (`node tools/boatshots.mjs --out docs/fleet/now`); the fleet's before-and-after record (`docs/FLEET-AUDIT.md`, `docs/BOAT-ART-DIRECTION.md`) |
 | `vendor/three/` | three.js r160 (MIT licence) |
 | `assets/` | Fonts (SIL Open Font License), icons, and the link-preview image |

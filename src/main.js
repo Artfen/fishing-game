@@ -159,14 +159,17 @@ const ELEC = {};
 const REST_SPEED = 30;   // holding T lets time drift by
 const $ = (id) => document.getElementById(id);
 
+// The benchmark (bench.html, bench.js): this scenario, in a save of its own (save.js BENCH), never
+// signed in, never mirrored.
+const BENCH_RUN = new URLSearchParams(location.search).get('bench');
 // (The desktop build: on a computer with no save of its own, the one Steam Cloud brought.)
-seedSave({ get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => localStorage.setItem(k, v) }, 'slow-tide-save');
+if (!BENCH_RUN) seedSave({ get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => localStorage.setItem(k, v) }, 'slow-tide-save');
 const loaded = loadGame();
 // Optional cloud saves: only when a backend is configured and you've signed in. Startup waits
 // a moment for the cloud (just when signed in, or arriving from a sign-in link), so the game
 // begins from the combined save rather than jumping later. Offline, it simply carries on.
 const cloud = new Cloud();
-const cloudReady = cloud.init();
+const cloudReady = BENCH_RUN ? Promise.resolve() : cloud.init();
 let cloudStart = null;
 if (Cloud.expected() && saveStatus.canSave) {
   const sync = cloudReady.then(() => cloud.syncAtStart(loaded.state, saveStatus.lastSaved)).catch(() => null);
@@ -10060,7 +10063,7 @@ function save() {
   if (ok) cloud.queue(state, saveStatus.lastSaved);
   // (The desktop build: the same save to a file, for Steam Cloud; and achievements earned.)
   if (ok && onDesktop()) {
-    try { mirrorSave(localStorage.getItem('slow-tide-save')); } catch { /* next time */ }
+    if (!BENCH_RUN) try { mirrorSave(localStorage.getItem('slow-tide-save')); } catch { /* next time */ }
     const C = careerOf(state);
     reportAchievements(state, { places: [C.places, C.placesOf] });
   }
@@ -12168,3 +12171,6 @@ window.slowTide = {
     location.reload();
   },
 };
+// The benchmark: bench.html opened this page to measure one scenario (see bench.js), once the
+// game has loaded.
+if (BENCH_RUN) setTimeout(() => import('./bench.js').then((m) => m.benchRun(BENCH_RUN, window.slowTide)), 3000);
