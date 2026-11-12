@@ -142,6 +142,12 @@ const HULLS = {
     surge: 0.22,
     cabin: [0.44, 0.88], lantern: [0.55, -1.7], stow: [-0.7, 0.62, -1.3], noise: 1, steady: 0.55,
     windage: 0.0042, ride: 2.6, // long and heavy: it bridges the chop, and the cabin catches the wind
+    // (Her wheelhouse as drawn, see buildWheelhouse: where it ends and the forepeak's low trunk
+    // begins (t), her side decks' width, the trunk's height over the deck, the windscreen's rake
+    // (run over rise), how far the walls lean in, the roof's colour. Her short foredeck, flush
+    // with her capping: where the trolling motor's plate goes.)
+    wheelhouse: { front: 0.73, deck: 0.2, trunk: 0.18, rake: 0.42, lean: 0.07, roof: '#2f5d50' },
+    decks: [[0.88, 1, 0.005]],
   },
   cruiser: {
     name: 'sport-fishing yacht', mass: 9000, L: 9.2, B: 1.5, D: 1.6, draft: 0.75, shallow: 1.1, seatZ: -2.28, seatY: 1.73, floorY: 0.85,
@@ -247,6 +253,7 @@ for (const id of ['skiff', 'cabin']) Object.assign(HULLS[id], { hw: HULLS.row.hw
 // where you sit.)
 const CLASSIC = {
   bass: { form: null, seatX: 0, seatZ: -1.55, seatY: 0.78, stow: [-0.72, 0.62, 0.4], paint: '#7a2430', bottom: '#2c2f33', decks: [[0.6, 1, 0.07], [0, 0.17, 0.07]] },
+  cabin: { wheelhouse: null, decks: null },
 };
 for (const k of (globalThis.location?.search?.match(/[?&]classic=([a-z,]+)/)?.[1] || '').split(',')) if (CLASSIC[k]) Object.assign(HULLS[k], CLASSIC[k]);
 export const BOAT_KINDS = Object.keys(HULLS);
@@ -287,22 +294,24 @@ function surfaceFromRows(rows, colorFor, split = null) {
     for (let n = 0; n < 3; n++) col.push(c.r, c.g, c.b);
   };
   // (Cut along a level line, if asked, so a painted waterline runs straight: each face that
-  // crosses it is split into the part below and the part above.)
-  const cut = (a, b) => {
-    const k = (split - a[1]) / (b[1] - a[1]);
-    return [a[0] + (b[0] - a[0]) * k, split, a[2] + (b[2] - a[2]) * k];
+  // crosses it is split into the part below and the part above. Several lines, for a band: a
+  // boot-top's top and bottom.)
+  const levels = split == null ? [] : [].concat(split);
+  const cut = (a, b, y) => {
+    const k = (y - a[1]) / (b[1] - a[1]);
+    return [a[0] + (b[0] - a[0]) * k, y, a[2] + (b[2] - a[2]) * k];
   };
-  const face = (p, q, r, i, j) => {
-    if (split == null) return tri(p, q, r, i, j);
-    const v = [p, q, r], below = v.map((x) => x[1] < split), n = below.filter(Boolean).length;
-    if (n === 0 || n === 3) return tri(p, q, r, i, j);
+  const face = (p, q, r, i, j, l = 0) => {
+    if (l >= levels.length) return tri(p, q, r, i, j);
+    const y = levels[l], v = [p, q, r], below = v.map((x) => x[1] < y), n = below.filter(Boolean).length;
+    if (n === 0 || n === 3) return face(p, q, r, i, j, l + 1);
     // The odd one out (alone on its side of the line), and the other two in winding order.
     const o = below.findIndex((x) => (n === 1 ? x : !x));
     const A = v[o], B = v[(o + 1) % 3], C = v[(o + 2) % 3];
-    const ab = cut(A, B), ac = cut(A, C);
-    tri(A, ab, ac, i, j);
-    tri(ab, B, C, i, j);
-    tri(ab, C, ac, i, j);
+    const ab = cut(A, B, y), ac = cut(A, C, y);
+    face(A, ab, ac, i, j, l + 1);
+    face(ab, B, C, i, j, l + 1);
+    face(ab, C, ac, i, j, l + 1);
   };
   for (let i = 0; i < NZ; i++) {
     for (let j = 0; j < NP; j++) {
@@ -924,12 +933,18 @@ export class Boat {
     const BOTTOM = new THREE.Color(H.bottom);
     // (Her bottom paint comes up to just above where she floats, in a clean straight line.)
     const boot = floatDraft(this.base) + 0.06;
+    // (The cabin boat's livery, drawn as a classic launch's: her topsides all her paint, a stripe
+    // along her sheer and a boot-top in her stripe's colour over her bottom paint; see the trim
+    // below. Every other boat: her stripe on the upper strake.)
+    const WH = !!H.wheelhouse, top = WH ? boot + 0.045 : null;
     const outer = hullSurface(H, 0, (c, i, j, NP, y) => {
-      if (j === 0 || j === NP - 1) c.copy(STRIPE);
+      if (WH) c.copy(y < boot ? BOTTOM : y < top ? STRIPE : PAINT);
+      else if (j === 0 || j === NP - 1) c.copy(STRIPE);
       else if (y < boot) c.copy(BOTTOM);
       else c.copy(PAINT);
       c.multiplyScalar(0.94 + ((i * 7 + j * 3) % 5) * 0.025);
-    }, boot);
+    }, WH ? [boot, top] : boot);
+    this.hullRows = outer.rows;
     // Inside: planks in the wooden boats, moulded plastic in the kayak, grey carpet in the bass boat.
     const INSIDE = {
       wood: [new THREE.Color('#c99a63'), new THREE.Color('#b8874f'), new THREE.Color('#a87a48')],
@@ -940,6 +955,7 @@ export class Boat {
       c.copy(j === 0 || j === NP - 1 ? INSIDE[2] : INSIDE[j % 2]);
       c.multiplyScalar(0.95 + ((i * 5 + j) % 4) * 0.03);
     });
+    this.innerRows = inner.rows;
 
     // Transom: a fan closing off the stern.
     const stern = outer.rows[0];
@@ -973,7 +989,8 @@ export class Boat {
         parts.push({ geo: new THREE.CylinderGeometry(0.025, 0.025, 0.1, 5), matrix: mat(sd * (hw(H, OAR_T) + 0.02), sheer(H, OAR_T) + 0.06, zAt(H, OAR_T)), color: '#3b342e' });
       }
     }
-    for (const [t0, t1, drop] of H.decks || []) parts.push({ geo: deckSurface(H, t0, t1, drop), color: drop ? '#5d6066' : H.paint, jitter: 0 });
+    for (const [t0, t1, drop] of H.decks || []) parts.push({ geo: deckSurface(H, t0, t1, drop), color: WH ? '#c9b58f' : drop ? '#5d6066' : H.paint, jitter: WH ? 0.03 : 0 });
+    if (WH) parts.push(...this.launchTrim(outer.rows));
     if (H.paddle) {
       // A moulded seat with a backrest, and a hatch on the stern deck.
       parts.push(
@@ -1593,6 +1610,7 @@ export class Boat {
   // shelf, a rug and a lamp under the roof. The walls are a shell open at the doorway, and the
   // roof lifts away on its own, so from inside the camera can look down into it (as at home).
   buildCabin() {
+    if (this.hull.wheelhouse) return this.buildWheelhouse();
     const H = this.hull, [t0, t1] = H.cabin, N = 10;
     const side = (t) => hw(H, t) * 0.86;
     const base = sheer(H, t0) - 0.12, height = H.cabinH || 1.05, wall = 0.05, dt1 = wall / H.L;
@@ -1731,6 +1749,433 @@ export class Boat {
     this.cabinFloor = H.floorY + 0.02;
     this.cabinRoofY = base + height;
     this.cabinMid = new THREE.Vector3(0, base, (zb + zf) / 2);
+  }
+
+  // The cabin boat's hull trim, as a classic wooden launch's (H.wheelhouse; into her hull's mesh,
+  // so her stripe stays the Marine Works' to change): a stripe along her sheer, a varnished
+  // rubbing strake over it, a bronze band up her stem, and her side decks either side of the
+  // wheelhouse. rows: her outer hull's sections (hullSurface), starboard gunwale first.
+  launchTrim(rows) {
+    const H = this.hull, W = H.wheelhouse, [t0, t1] = H.cabin, NP = rows[0].length - 1, out = [];
+    // Where her side is at height y on station i, on side sd (+1 port, -1 starboard): along her
+    // topside, the straight run from the gunwale (j 0, or NP) to the next point down.
+    const at = (i, y, sd, off = 0) => {
+      const r = rows[i], a = sd < 0 ? r[0] : r[NP], b = sd < 0 ? r[1] : r[NP - 1];
+      const k = clamp((a[1] - y) / (a[1] - b[1]), 0, 1), x = a[0] + (b[0] - a[0]) * k;
+      return [x + sd * off, y, a[2]];
+    };
+    for (const sd of [1, -1]) {
+      // The stripe: a band 6.5 to 13.5 cm under her sheer, following it.
+      const pos = [];
+      for (let i = 0; i < rows.length - 1; i++) {
+        const s0 = rows[i][0][1], s1 = rows[i + 1][0][1];
+        const a = at(i, s0 - 0.065, sd, 0.003), b = at(i + 1, s1 - 0.065, sd, 0.003), c = at(i + 1, s1 - 0.135, sd, 0.003), d = at(i, s0 - 0.135, sd, 0.003);
+        pos.push(...a, ...b, ...c, ...a, ...c, ...d);
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      out.push({ geo: g, color: H.stripe, jitter: 0.02 });
+      // The rubbing strake, half-round, varnished, just above it.
+      const strake = rows.slice(0, -1).map((r, i) => new THREE.Vector3(...at(i, r[0][1] - 0.045, sd, 0.008)));
+      out.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(strake), 40, 0.02, 5), color: '#7b5434', jitter: 0.03 });
+      // The side deck between her capping and the wheelhouse's side, flush with the capping.
+      const dp = [], N = 14;
+      for (let n = 0; n < N; n++) {
+        const ta = t0 + ((t1 - t0) * n) / N, tb = t0 + ((t1 - t0) * (n + 1)) / N;
+        const edge = (t) => [sd * (hw(H, t) - 0.02), sheer(H, t) - 0.005, zAt(H, t)];
+        const wall = (t) => [sd * Math.max(0.12, hw(H, t) - W.deck), sheer(H, t) - 0.005, zAt(H, t)];
+        dp.push(...edge(ta), ...edge(tb), ...wall(tb), ...edge(ta), ...wall(tb), ...wall(ta));
+      }
+      const dg = new THREE.BufferGeometry();
+      dg.setAttribute('position', new THREE.Float32BufferAttribute(dp, 3));
+      out.push({ geo: dg, color: '#c9b58f', jitter: 0.03 });
+    }
+    // The stem band, bronze, from her stem head down to her forefoot.
+    const stem = rows.at(-1).slice(0, Math.floor(NP / 2) + 1).map((p) => new THREE.Vector3(0, p[1], p[2] + 0.012));
+    out.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(stem), 12, 0.016, 5), color: '#b08d57', jitter: 0.02 });
+    return out;
+  }
+
+  // The cabin boat's wheelhouse (H.wheelhouse; her old cuddy is buildCabin, ?classic=cabin): a
+  // little wooden launch's. The house stands in from her sides on side decks, its walls leaning in
+  // a little, with standing room inside under a cambered roof that runs back over the door; a
+  // raked windscreen of three panes; long windows down each side; a window either side of the door
+  // and one in it, so from her tiller you see forward through the house and out of the windscreen;
+  // forward of it a low trunk over the forepeak, with a hatch and a port each side; then a short
+  // foredeck with a samson post and cleats. On the roof, grab rails, the stove's chimney and a
+  // little mast with an all-round light; her sidelights on the house's sides. Inside, as in the
+  // old cuddy: the bunk, the galley, the shelf, the rug, the lamp. The glass is glass: you see in,
+  // and out. In her cockpit, floorboards, a bench along each side on knees and the helm bench
+  // across her stern (its locker holds her battery). (Her hull's trim: launchTrim.)
+  buildWheelhouse() {
+    const H = this.hull, W = H.wheelhouse, [t0, t1] = H.cabin, tf = W.front, L = H.L, V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+    const WALL = '#ece6d8', LINING = '#f1ece1', VARNISH = '#7b5434', TEAK = '#a8784a', SOLE = '#a77746', STEEL = '#c9cdd0', BRONZE = '#b08d57', DARK = '#2b2b2b', NAVY = '#1f3b56';
+    const deckAt = (t) => sheer(H, t) - 0.005, side = (t) => Math.max(0.12, hw(H, t) - W.deck);
+    const floor = H.floorY, cabinFloor = floor + 0.02, yTop = cabinFloor + 1.74, yTrunk = deckAt(tf) + W.trunk;
+    const run = (yTop - yTrunk) * W.rake, tw = tf - run / L, lean = W.lean / (yTop - deckAt(t0));
+    // The house's side (its outer face) at t and height y: in from the deck's edge as it rises.
+    const wallX = (t, y) => side(t) - lean * Math.max(0, y - deckAt(t));
+    // How high the house's side goes at t: the roof over the wheelhouse, down the windscreen's
+    // rake, then the trunk's roof forward.
+    const topAt = (t) => (t <= tw ? yTop : t >= tf ? yTrunk : yTop + ((yTrunk - yTop) * (t - tw)) / (tf - tw));
+    const zb = zAt(H, t0), zt = zAt(H, t1), base = sheer(H, t0) - 0.12, wall = 0.04;
+    const parts = [], roof = [], glass = [], inside = [];
+    const tri = (to, pts, color, jitter = 0.02) => {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pts.flat(), 3));
+      to.push({ geo: g, color, jitter });
+    };
+    const quad = (to, a, b, c, d, color, jitter) => tri(to, [a, b, c, a, c, d], color, jitter);
+    const box = (to, sx, sy, sz, x, y, z, color, rx = 0, ry = 0, rz = 0, jitter = 0.03) => to.push({ geo: new THREE.BoxGeometry(sx, sy, sz), matrix: mat(x, y, z, rx, ry, rz), color, jitter });
+    const cyl = (to, r0, r1, h, x, y, z, color, rx = 0, ry = 0, rz = 0, n = 8) => to.push({ geo: new THREE.CylinderGeometry(r0, r1, h, n), matrix: mat(x, y, z, rx, ry, rz), color, jitter: 0.02 });
+    // A rounded rectangle (x0, y0)-(x1, y1), corners r, as a path (a shape, or a hole in one).
+    const rrect = (P, x0, y0, x1, y1, r) => {
+      P.moveTo(x0 + r, y0);
+      P.lineTo(x1 - r, y0);
+      P.absarc(x1 - r, y0 + r, r, -Math.PI / 2, 0);
+      P.lineTo(x1, y1 - r);
+      P.absarc(x1 - r, y1 - r, r, 0, Math.PI / 2);
+      P.lineTo(x0 + r, y1);
+      P.absarc(x0 + r, y1 - r, r, Math.PI / 2, Math.PI);
+      P.lineTo(x0, y0 + r);
+      P.absarc(x0 + r, y0 + r, r, Math.PI, Math.PI * 1.5);
+      return P;
+    };
+    // A window, in the plane given by its centre and axes (u along it, v up it, n out of it), w by
+    // h: its frame, a rounded ring standing proud of the wall round the opening (covering the
+    // opening's square corners), and its glass, set back in it.
+    const windowAt = (C, u, v, n, w, h, r, frame, color) => {
+      const m = new THREE.Matrix4().makeBasis(u, v, n).setPosition(C);
+      const ring = rrect(new THREE.Shape(), -w / 2 - frame, -h / 2 - frame, w / 2 + frame, h / 2 + frame, r + frame);
+      ring.holes.push(rrect(new THREE.Path(), -w / 2 + 0.01, -h / 2 + 0.01, w / 2 - 0.01, h / 2 - 0.01, r));
+      const rg = new THREE.ExtrudeGeometry(ring, { depth: 0.028, bevelEnabled: false, curveSegments: 3 });
+      rg.translate(0, 0, -0.012);
+      parts.push({ geo: rg, matrix: m, color, jitter: 0.02 });
+      const pane = new THREE.ShapeGeometry(rrect(new THREE.Shape(), -w / 2 + 0.01, -h / 2 + 0.01, w / 2 - 0.01, h / 2 - 0.01, r), 3);
+      pane.translate(0, 0, -0.004);
+      glass.push({ geo: pane, matrix: m, color: '#ffffff', jitter: 0 });
+    };
+
+    // The house's sides: the wheelhouse's with its windows, a grid with the openings left out;
+    // then the windscreen's rake and the trunk's low side.
+    const WIN = [[0.49, 0.6], [0.62, 0.68]], w0 = cabinFloor + 1.16, w1 = cabinFloor + 1.48;
+    const lin = (a, b, n) => Array.from({ length: n + 1 }, (_, i) => a + ((b - a) * i) / n);
+    const sorted = (xs) => [...new Set(xs.map((x) => +x.toFixed(5)))].sort((a, b) => a - b);
+    const stA = sorted([...lin(t0, tw, 8), ...WIN.flat()]), stB = sorted([...lin(tw, t1, 9), tf]);
+    const P = (sd, t, y) => [sd * wallX(t, y), y, zAt(H, t)];
+    for (const sd of [1, -1]) {
+      for (let i = 0; i < stA.length - 1; i++) {
+        const ta = stA[i], tb = stA[i + 1], open = WIN.some(([a, b]) => ta >= a - 1e-6 && tb <= b + 1e-6);
+        const lv = (t) => [deckAt(t), w0, w1, yTop];
+        for (let k = 0; k < 3; k++) {
+          if (k === 1 && open) continue;
+          quad(parts, P(sd, ta, lv(ta)[k]), P(sd, tb, lv(tb)[k]), P(sd, tb, lv(tb)[k + 1]), P(sd, ta, lv(ta)[k + 1]), WALL);
+        }
+      }
+      for (let i = 0; i < stB.length - 1; i++) {
+        const ta = stB[i], tb = stB[i + 1];
+        quad(parts, P(sd, ta, deckAt(ta)), P(sd, tb, deckAt(tb)), P(sd, tb, topAt(tb)), P(sd, ta, topAt(ta)), WALL);
+      }
+      // The windows' frames (varnished) and glass, in the plane of the wall at each.
+      for (const [ta, tb] of WIN) {
+        const ym = (w0 + w1) / 2, A = V3(...P(sd, ta, ym)), B = V3(...P(sd, tb, ym));
+        const u = B.clone().sub(A).normalize(), up = V3(-sd * lean, 1, 0).normalize();
+        const v = up.clone().addScaledVector(u, -up.dot(u)).normalize(), n = new THREE.Vector3().crossVectors(u, v);
+        if (n.x * sd < 0) n.negate(), u.negate();
+        windowAt(A.clone().add(B).multiplyScalar(0.5), u, v, n, A.distanceTo(B), (w1 - w0) * Math.hypot(1, lean), 0.07, 0.04, VARNISH);
+      }
+      // A round port in the trunk's side, bronze.
+      {
+        const t = 0.8, y = (deckAt(t) + yTrunk) / 2, x = sd * (wallX(t, y) + 0.004), a = Math.atan2(side(t + 0.02) - side(t - 0.02), zAt(H, t + 0.02) - zAt(H, t - 0.02));
+        parts.push({ geo: new THREE.TorusGeometry(0.055, 0.012, 5, 14), matrix: mat(x, y, zAt(H, t), 0, sd * (Math.PI / 2 - a), 0), color: BRONZE, jitter: 0.02 });
+        parts.push({ geo: new THREE.CircleGeometry(0.05, 14), matrix: mat(x + sd * 0.002, y, zAt(H, t), 0, sd * (Math.PI / 2 - a), 0), color: '#2e3f49', jitter: 0 });
+      }
+      // Her sidelight on the house's side near its front: red to port, green to starboard.
+      {
+        const t = tw + 0.016, y = w0 + 0.2, x = sd * (wallX(t, y) + 0.03);
+        box(parts, 0.05, 0.1, 0.16, x, y, zAt(H, t), DARK);
+        box(parts, 0.012, 0.07, 0.11, x + sd * 0.027, y, zAt(H, t) + 0.01, sd > 0 ? '#c0392b' : '#2e8b57', 0, 0, 0, 0);
+      }
+    }
+    // The trunk's front, bowed a little.
+    {
+      const U = [-1, -0.6, -0.2, 0.2, 0.6, 1], F = (u, y) => [u * wallX(t1, y), y, zt + 0.06 * (1 - u * u)];
+      for (let i = 0; i < U.length - 1; i++) quad(parts, F(U[i], deckAt(t1)), F(U[i], yTrunk), F(U[i + 1], yTrunk), F(U[i + 1], deckAt(t1)), WALL);
+    }
+    // The windscreen: three panes in a raked front, frames in the house's colour, a varnished sill.
+    {
+      const at = (u, v) => {
+        const y = yTrunk + v * (yTop - yTrunk), t = tf - v * (tf - tw);
+        return [u * wallX(t, y), y, zAt(H, t)];
+      };
+      const Us = [-1, -0.95, -0.37, -0.31, 0.31, 0.37, 0.95, 1], Vs = [0, 0.12, 0.86, 1];
+      const panes = [[-0.95, -0.37], [-0.31, 0.31], [0.37, 0.95]];
+      for (let i = 0; i < Us.length - 1; i++) {
+        for (let k = 0; k < Vs.length - 1; k++) {
+          if (k === 1 && panes.some(([a, b]) => Us[i] >= a - 1e-6 && Us[i + 1] <= b + 1e-6)) continue;
+          quad(parts, at(Us[i], Vs[k]), at(Us[i + 1], Vs[k]), at(Us[i + 1], Vs[k + 1]), at(Us[i], Vs[k + 1]), WALL);
+        }
+      }
+      const back = new THREE.Vector3(0, run, yTop - yTrunk).normalize().multiplyScalar(-0.012);
+      for (const [a, b] of panes) {
+        const g = [at(a, 0.12), at(b, 0.12), at(b, 0.86), at(a, 0.86)].map((p) => [p[0], p[1] + back.y, p[2] + back.z]);
+        quad(glass, g[0], g[1], g[2], g[3], '#ffffff', 0);
+      }
+      const s0 = at(-1, 0), s1 = at(1, 0);
+      box(parts, s1[0] - s0[0] + 0.04, 0.035, 0.07, 0, yTrunk + 0.012, zAt(H, tf) + 0.01, VARNISH);
+    }
+    // The back of the house, down to her floorboards: the door's opening in the middle, a window
+    // either side of it; below the side decks it fills her hull to its planking.
+    const door = 0.3, doorTop = floor + 1.62;
+    {
+      const halfAt = (y) => (y <= deckAt(t0) ? this.innerHalf(t0, y) - 0.005 : wallX(t0, y));
+      const S = new THREE.Shape(), ys = lin(floor, deckAt(t0), 6);
+      S.moveTo(door, floor);
+      for (const y of ys) S.lineTo(halfAt(y), y);
+      S.lineTo(wallX(t0, deckAt(t0) + 0.001), deckAt(t0) + 0.001);
+      S.lineTo(wallX(t0, yTop), yTop);
+      S.lineTo(-wallX(t0, yTop), yTop);
+      S.lineTo(-wallX(t0, deckAt(t0) + 0.001), deckAt(t0) + 0.001);
+      for (const y of [...ys].reverse()) S.lineTo(-halfAt(y), y);
+      S.lineTo(-door, floor);
+      S.lineTo(-door, doorTop);
+      S.lineTo(door, doorTop);
+      S.lineTo(door, floor);
+      const wx0 = door + 0.08, wx1 = wallX(t0, w1) - 0.08;
+      for (const sd of [1, -1]) S.holes.push(rrect(new THREE.Path(), sd > 0 ? wx0 : -wx1, w0 + 0.04, sd > 0 ? wx1 : -wx0, w1, 0.06));
+      parts.push({ geo: new THREE.ShapeGeometry(S, 4), matrix: mat(0, 0, zb), color: WALL, jitter: 0.02 });
+      for (const sd of [1, -1]) windowAt(V3(sd * (wx0 + wx1) / 2, (w0 + 0.04 + w1) / 2, zb), V3(1, 0, 0), V3(0, 1, 0), V3(0, 0, 1), wx1 - wx0, w1 - w0 - 0.04, 0.06, 0.035, VARNISH);
+      // The doorway's frame and sill, varnished; a grab handle either side of it.
+      box(parts, 0.05, doorTop - floor, 0.06, door + 0.025, (doorTop + floor) / 2, zb, VARNISH);
+      box(parts, 0.05, doorTop - floor, 0.06, -door - 0.025, (doorTop + floor) / 2, zb, VARNISH);
+      box(parts, door * 2 + 0.1, 0.05, 0.06, 0, doorTop + 0.025, zb, VARNISH);
+      box(parts, door * 2, 0.06, 0.08, 0, floor + 0.03, zb, VARNISH);
+      for (const sd of [1, -1]) {
+        const x = sd * (door + 0.09), ya = floor + 0.7, yb = w0 - 0.06;
+        parts.push(strut(V3(x, ya, zb - 0.06), V3(x, yb, zb - 0.06), 0.014, 0.014, VARNISH));
+        for (const y of [ya, yb]) box(parts, 0.025, 0.025, 0.06, x, y, zb - 0.03, VARNISH);
+      }
+    }
+
+    // The roofs: the wheelhouse's, cambered, overhanging aft over the door and forward over the
+    // windscreen, with a varnished fascia and a lining underneath; the trunk's, low, with its
+    // hatch. (All in the roof, which lifts away when you look down into the cabin.)
+    const camber = (u, c) => c * (1 - u * u);
+    const roofSlab = (z0, z1, half, y0, c, color) => {
+      const Z = lin(z0, z1, 10), U = lin(-1, 1, 8);
+      const top = (z, u) => [u * half(z), y0 + 0.04 + camber(u, c), z];
+      for (let i = 0; i < Z.length - 1; i++) {
+        for (let k = 0; k < U.length - 1; k++) {
+          quad(roof, top(Z[i], U[k]), top(Z[i], U[k + 1]), top(Z[i + 1], U[k + 1]), top(Z[i + 1], U[k]), color, 0.02);
+          quad(roof, [U[k] * half(Z[i]), y0, Z[i]], [U[k] * half(Z[i + 1]), y0, Z[i + 1]], [U[k + 1] * half(Z[i + 1]), y0, Z[i + 1]], [U[k + 1] * half(Z[i]), y0, Z[i]], LINING, 0.01);
+        }
+        // The fascia either side.
+        for (const sd of [1, -1]) quad(roof, [sd * half(Z[i]), y0, Z[i]], [sd * half(Z[i + 1]), y0, Z[i + 1]], top(Z[i + 1], sd), top(Z[i], sd), VARNISH, 0.02);
+      }
+      // And fore and aft.
+      for (const z of [z0, z1]) for (let k = 0; k < U.length - 1; k++) quad(roof, [U[k] * half(z), y0, z], [U[k + 1] * half(z), y0, z], top(z, U[k + 1]), top(z, U[k]), VARNISH, 0.02);
+      return (u, z) => top(z, u)[1];
+    };
+    const tOfZ = (z) => clamp((z + L / 2) / L, 0, 1);
+    const roofColor = W.roof || '#2f5d50';
+    const wheelRoof = roofSlab(zb - 0.32, zAt(H, tw) + 0.1, (z) => wallX(tOfZ(Math.max(z, zb)), yTop) + 0.05, yTop, 0.06, roofColor);
+    roofSlab(zAt(H, tf) - 0.04, zt + 0.1, (z) => wallX(tOfZ(Math.min(z, zt)), yTrunk) + 0.035, yTrunk, 0.02, roofColor);
+    // The forehatch on the trunk: a varnished frame, a smoked lid.
+    {
+      // (Low: from her tiller you look forward over it.)
+      const z = (zAt(H, tf) + zt) / 2, y = yTrunk + 0.04 + 0.02;
+      box(roof, 0.42, 0.035, 0.42, 0, y + 0.0, z, VARNISH);
+      box(roof, 0.36, 0.01, 0.36, 0, y + 0.018, z, '#34444d', 0, 0, 0, 0);
+    }
+    // Grab rails along the roof, varnished, on three feet each.
+    for (const sd of [1, -1]) {
+      const za = zb + 0.12, zc = zAt(H, tw) - 0.15, at = (z) => {
+        const half = wallX(tOfZ(z), yTop) + 0.05, x = sd * (half - 0.14);
+        return V3(x, wheelRoof(x / half, z), z);
+      };
+      const A = at(za).add(V3(0, 0.07, 0)), B = at(zc).add(V3(0, 0.07, 0));
+      roof.push(strut(A, B, 0.016, 0.016, VARNISH));
+      for (const k of [0, 0.5, 1]) {
+        const z = za + (zc - za) * k, F = at(z);
+        roof.push(strut(F, F.clone().add(V3(0, 0.08, 0)), 0.014, 0.014, VARNISH));
+      }
+    }
+    // The stove's chimney over the galley, with its cap; the little mast aft, its light at the top.
+    const gx = -(side(0.5) - wall - 0.19 - lean * 0.2), gz = zAt(H, 0.54);
+    {
+      const y = wheelRoof(gx / (wallX(tOfZ(gz), yTop) + 0.05), gz);
+      cyl(roof, 0.045, 0.045, 0.36, gx, y + 0.17, gz + 0.1, DARK);
+      cyl(roof, 0.075, 0.06, 0.07, gx, y + 0.37, gz + 0.1, DARK);
+      const my = wheelRoof(0, zb + 0.3);
+      cyl(roof, 0.03, 0.035, 0.9, 0, my + 0.45, zb + 0.3, VARNISH);
+      cyl(roof, 0.06, 0.06, 0.03, 0, my + 0.015, zb + 0.3, VARNISH);
+      roof.push({ geo: new THREE.OctahedronGeometry(0.09), matrix: mat(0, my + 0.6, zb + 0.3, 0, Math.PI / 4, 0), color: STEEL, jitter: 0.04 });
+      this.mastLightY = my + 0.95;
+    }
+
+    // Forward: the samson post on her foredeck, a cleat either side, a fairlead each bow.
+    {
+      const t = 0.925, y = sheer(H, t);
+      box(parts, 0.09, 0.24, 0.09, 0, y + 0.1, zAt(H, t), VARNISH);
+      cyl(parts, 0.012, 0.012, 0.2, 0, y + 0.16, zAt(H, t), STEEL, 0, 0, Math.PI / 2, 6);
+      for (const sd of [1, -1]) {
+        const tc = 0.895, x = sd * (hw(H, tc) - 0.1), yc = sheer(H, tc), zc = zAt(H, tc);
+        box(parts, 0.03, 0.04, 0.05, x, yc + 0.02, zc - 0.05, STEEL);
+        box(parts, 0.03, 0.04, 0.05, x, yc + 0.02, zc + 0.05, STEEL);
+        box(parts, 0.035, 0.025, 0.22, x, yc + 0.05, zc, STEEL);
+      }
+    }
+    // Aft: a cleat on each quarter, on her capping.
+    for (const sd of [1, -1]) {
+      const t = 0.06, x = sd * (hw(H, t) - 0.03), y = sheer(H, t) + 0.06, z = zAt(H, t);
+      box(parts, 0.03, 0.04, 0.05, x, y + 0.01, z - 0.05, STEEL);
+      box(parts, 0.03, 0.04, 0.05, x, y + 0.01, z + 0.05, STEEL);
+      box(parts, 0.035, 0.025, 0.2, x, y + 0.04, z, STEEL);
+    }
+
+    // Her cockpit: floorboards (and on into the cabin), a bench along each side on knees, the helm
+    // bench across her stern.
+    {
+      const zs0 = zAt(H, 0.02), zs1 = zAt(H, 0.67), n = 9;
+      for (let i = 0; i < n; i++) {
+        const za = zs0 + ((zs1 - zs0) * i) / n, zb2 = zs0 + ((zs1 - zs0) * (i + 1)) / n, half = Math.min(this.innerHalf(tOfZ(za), floor + 0.01), this.innerHalf(tOfZ(zb2), floor + 0.01)) - 0.01;
+        for (let k = 0; k < 5; k++) {
+          const x0 = -half + (2 * half * k) / 5, x1 = -half + (2 * half * (k + 1)) / 5;
+          box(parts, x1 - x0 - 0.012, 0.025, zb2 - za - 0.004, (x0 + x1) / 2, floor - 0.0125, (za + zb2) / 2, k % 2 ? SOLE : '#9c6d40', 0, 0, 0, 0.04);
+        }
+      }
+      // The side benches: a varnished plank from her side to the lantern's post, on three knees.
+      const bz0 = H.seatZ + 0.36, bz1 = zb - 0.18, by = 0.62, inner = 0.5;
+      for (const sd of [1, -1]) {
+        const segs = 3;
+        for (let i = 0; i < segs; i++) {
+          const za = bz0 + ((bz1 - bz0) * i) / segs, zc = bz0 + ((bz1 - bz0) * (i + 1)) / segs;
+          const outA = this.innerHalf(tOfZ(za), by) - 0.005, outC = this.innerHalf(tOfZ(zc), by) - 0.005;
+          tri(parts, [[sd * inner, by, za], [sd * outA, by, za], [sd * outC, by, zc], [sd * inner, by, za], [sd * outC, by, zc], [sd * inner, by, zc]], TEAK, 0.03);
+          tri(parts, [[sd * inner, by - 0.03, za], [sd * inner, by - 0.03, zc], [sd * outC, by - 0.03, zc], [sd * inner, by - 0.03, za], [sd * outC, by - 0.03, zc], [sd * outA, by - 0.03, za]], TEAK, 0.03);
+          quad(parts, [sd * inner, by - 0.03, za], [sd * inner, by, za], [sd * inner, by, zc], [sd * inner, by - 0.03, zc], VARNISH, 0.02);
+        }
+        for (const k of [0.1, 0.5, 0.9]) {
+          const z = bz0 + (bz1 - bz0) * k, o = this.innerHalf(tOfZ(z), by - 0.15) - 0.03;
+          box(parts, 0.04, 0.2, 0.04, sd * o, by - 0.13, z, VARNISH);
+          parts.push(strut(V3(sd * (o - 0.02), by - 0.05, z), V3(sd * Math.max(inner + 0.03, o - 0.26), by - 0.05, z), 0.018, 0.018, VARNISH));
+        }
+      }
+      // The helm bench across her stern: a locker (her battery's in it) under a varnished top and
+      // a navy cushion; you sit on it to steer by the tiller.
+      const sz = H.seatZ, top = this.seatY - 0.07, t = tOfZ(sz);
+      const half = this.innerHalf(t, top) - 0.005, halfF = this.innerHalf(tOfZ(sz + 0.21), floor + 0.02) - 0.005;
+      box(parts, half * 2, 0.04, 0.44, 0, top - 0.02, sz, TEAK);
+      box(parts, half * 2 - 0.06, 0.07, 0.4, 0, this.seatY - 0.035, sz - 0.01, NAVY, 0, 0, 0, 0.02);
+      tri(parts, [[-halfF, floor, sz + 0.21], [halfF, floor, sz + 0.21], [half, top - 0.04, sz + 0.21], [-halfF, floor, sz + 0.21], [half, top - 0.04, sz + 0.21], [-half, top - 0.04, sz + 0.21]], WALL, 0.02);
+      box(parts, 0.3, 0.2, 0.012, 0, (floor + top) / 2, sz + 0.215, VARNISH);
+    }
+
+    // Inside (as in the old cuddy). The bunk across the bow, narrowing with her, a mattress, a
+    // blanket and a pillow; the galley by the door to starboard; the shelf to port; a rug.
+    const sideIn = (t) => side(t) - lean * 0.2;
+    const tb0 = 0.67, tb1 = t1 - wall / L - 0.01, by = floor + 0.46;
+    const berth = (ta, tb, inset, y, h, color) => {
+      const w = Math.min(sideIn(ta), sideIn(tb)) - wall - inset;
+      return { geo: new THREE.BoxGeometry(w * 2, h, zAt(H, tb) - zAt(H, ta)), matrix: mat(0, y, (zAt(H, ta) + zAt(H, tb)) / 2), color };
+    };
+    const gxx = -(sideIn(0.5) - wall - 0.19), shelfX = wallX(0.56, base + 0.45) - wall - 0.09;
+    inside.push(
+      berth(tb0, 0.77, 0.02, by - 0.04, 0.08, '#8a6040'),
+      berth(0.77, tb1, 0.02, by - 0.04, 0.08, '#8a6040'),
+      { geo: new THREE.BoxGeometry(0.06, by - floor - 0.08, 0.06), matrix: mat(0, (by + floor) / 2 - 0.08, zAt(H, tb0) + 0.05), color: '#6b4a30' },
+      berth(tb0, 0.77, 0.06, by + 0.06, 0.12, '#5b7290'),
+      berth(0.77, tb1, 0.06, by + 0.06, 0.12, '#5b7290'),
+      berth(tb0 - 0.005, 0.74, 0.04, by + 0.14, 0.05, '#b5523b'),
+      { geo: new THREE.BoxGeometry(0.4, 0.09, 0.24), matrix: mat(0, by + 0.17, zAt(H, tb1) - 0.2), color: '#f1ece2' },
+      { geo: new THREE.BoxGeometry(0.34, 0.84, 0.62), matrix: mat(gxx, floor + 0.42, zAt(H, 0.54)), color: '#a8743f' },
+      { geo: new THREE.BoxGeometry(0.36, 0.03, 0.64), matrix: mat(gxx, floor + 0.85, zAt(H, 0.54)), color: '#7b5434' },
+      { geo: new THREE.BoxGeometry(0.26, 0.05, 0.4), matrix: mat(gxx, floor + 0.89, zAt(H, 0.54)), color: '#3a3d42' },
+      { geo: new THREE.TorusGeometry(0.06, 0.012, 4, 12), matrix: mat(gxx, floor + 0.92, zAt(H, 0.54) - 0.1, Math.PI / 2, 0, 0), color: '#1d1d1d' },
+      { geo: new THREE.TorusGeometry(0.06, 0.012, 4, 12), matrix: mat(gxx, floor + 0.92, zAt(H, 0.54) + 0.1, Math.PI / 2, 0, 0), color: '#1d1d1d' },
+      { geo: new THREE.CylinderGeometry(0.06, 0.07, 0.13, 10), matrix: mat(gxx, floor + 0.99, zAt(H, 0.54) + 0.1), color: '#b8312f' },
+      { geo: new THREE.CylinderGeometry(0.012, 0.012, 0.1, 5), matrix: mat(gxx + 0.07, floor + 1.0, zAt(H, 0.54) + 0.1, 0, 0, -1.0), color: '#b8312f' },
+      { geo: new THREE.BoxGeometry(0.16, 0.025, 0.7), matrix: mat(shelfX, base + 0.45, zAt(H, 0.56)), color: '#7b5434' },
+      ...[0, 1, 2].map((k) => ({ geo: new THREE.CylinderGeometry(0.035, 0.035, 0.11, 8), matrix: mat(shelfX, base + 0.52, zAt(H, 0.53) + k * 0.1), color: ['#c9a34a', '#8fb36a', '#d97a4a'][k] })),
+      ...[0, 1, 2, 3].map((k) => ({ geo: new THREE.BoxGeometry(0.1, 0.16, 0.035), matrix: mat(shelfX - 0.01, base + 0.54, zAt(H, 0.6) + k * 0.04), color: ['#35676b', '#7a2430', '#2f4f7a', '#a8743f'][k] })),
+      { geo: new THREE.BoxGeometry(0.46, 0.012, 0.8), matrix: mat(0, floor + 0.006, zAt(H, 0.58)), color: '#9b3b30' },
+      { geo: new THREE.BoxGeometry(0.4, 0.013, 0.72), matrix: mat(0, floor + 0.007, zAt(H, 0.58)), color: '#c98a45' },
+      { geo: new THREE.CylinderGeometry(0.006, 0.006, 0.09, 4), matrix: mat(side(0.63) * 0.5, yTop - 0.045, zAt(H, 0.63)), color: '#3a3d42' },
+    );
+
+    const mesh = (this.cabinMesh = new THREE.Mesh(mergeParts([...parts, ...inside]), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    this.body.add(mesh);
+    // The glass: clear (tinted a little), the lamp's warmth glowing in it after dark (see
+    // setCabinLight). Shared by the door's.
+    const glassMat = new THREE.MeshStandardMaterial({ color: '#7f9aa6', transparent: true, opacity: 0.32, roughness: 0.05, metalness: 0.1, emissive: '#ffb25c', emissiveIntensity: 0, depthWrite: false, side: THREE.DoubleSide });
+    this.cabinGlass = new THREE.Mesh(mergeParts(glass), glassMat);
+    this.cabinGlass.renderOrder = 2;
+    this.body.add(this.cabinGlass);
+    this.cabinPanes = null;
+    // The lamp under the roof, to port, and its light.
+    const lampY = yTop - 0.13, lampX = side(0.63) * 0.5;
+    this.cabinLamp = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffd28a' }));
+    this.cabinLamp.position.set(lampX, lampY, zAt(H, 0.63));
+    this.body.add(this.cabinLamp);
+    this.cabinLight = new THREE.PointLight('#ffc77d', 0, 4.2, 1.5);
+    this.cabinLight.position.set(lampX, lampY - 0.08, zAt(H, 0.63));
+    this.body.add(this.cabinLight);
+    // The roofs, the chimney, the mast (and its light), the rails: lifted away when you look down
+    // into the cabin.
+    this.cabinRoof = new THREE.Mesh(mergeParts(roof), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+    this.cabinRoof.castShadow = true;
+    this.cabinRoof.receiveShadow = true;
+    this.body.add(this.cabinRoof);
+    this.mastLight = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), new THREE.MeshBasicMaterial({ color: '#fff3d6' }));
+    this.mastLight.position.set(0, this.mastLightY, zb + 0.3);
+    this.cabinRoof.add(this.mastLight);
+    // The door, hinged on the doorway's port side, swinging out into the cockpit: varnished, with
+    // a window in its upper half and a brass knob.
+    const hinge = (this.cabinDoor = new THREE.Group());
+    hinge.position.set(door, floor + 0.06, zb - 0.035);
+    const dw = door * 2 - 0.02, dh = doorTop - floor - 0.08, gy0 = 1.0 - floor, gy1 = w1 - floor - 0.06;
+    const leafShape = new THREE.Shape();
+    leafShape.moveTo(-dw, 0).lineTo(0, 0).lineTo(0, dh).lineTo(-dw, dh).lineTo(-dw, 0);
+    leafShape.holes.push(rrect(new THREE.Path(), -dw + 0.1, gy0, -0.1, gy1, 0.05));
+    const leafGeo = new THREE.ExtrudeGeometry(leafShape, { depth: 0.035, bevelEnabled: false, curveSegments: 3 });
+    leafGeo.translate(0, 0, -0.0175);
+    const leaf = new THREE.Mesh(mergeParts([
+      { geo: leafGeo, color: VARNISH, jitter: 0.02 },
+      { geo: new THREE.CylinderGeometry(0.022, 0.022, 0.06, 6), matrix: mat(-dw + 0.07, dh * 0.5, -0.04, Math.PI / 2, 0, 0), color: '#c9a34a' },
+    ]), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    leaf.castShadow = true;
+    hinge.add(leaf);
+    const pane = new THREE.ShapeGeometry(rrect(new THREE.Shape(), -dw + 0.1, gy0, -0.1, gy1, 0.05), 3);
+    hinge.add(new THREE.Mesh(pane, glassMat));
+    this.body.add(hinge);
+    this.cabinOpen = 0;
+    // Where you stand inside, and which way you face: the doorway, the galley, the bunk.
+    this.cabinStations = [
+      { id: 'door', x: 0, z: zb + 0.38, yaw: 0 },
+      { id: 'galley', x: -0.08, z: zAt(H, 0.54), yaw: -Math.PI / 2 },
+      { id: 'bunk', x: 0, z: zAt(H, tb0) - 0.32, yaw: 0 },
+    ];
+    this.cabinFloor = cabinFloor;
+    this.cabinRoofY = yTop;
+    this.cabinMid = new THREE.Vector3(0, base, (zb + zt) / 2);
+    // (For the Marine Works' fittings: the back of the house, where her screens and floodlights go.)
+    this.houseBack = { z: zb, top: yTop, door, window: [door + 0.08, wallX(t0, w1) - 0.08, w0] };
+  }
+
+  // Her inner hull's half-width at t and height y (from her inner sections: see buildHull).
+  innerHalf(t, y) {
+    const R = this.innerRows, NP = R[0].length - 1, f = clamp(t, 0, 1) * (R.length - 1), i = Math.min(R.length - 2, Math.floor(f)), k = f - i;
+    const half = (row) => {
+      if (y >= row[0][1]) return Math.abs(row[0][0]);
+      for (let j = 0; j < NP / 2; j++) {
+        const a = row[j], b = row[j + 1];
+        if (y <= a[1] && y >= b[1]) return Math.abs(a[0] + ((b[0] - a[0]) * (a[1] - y)) / (a[1] - b[1] || 1));
+      }
+      return 0;
+    };
+    return half(R[i]) * (1 - k) + half(R[i + 1]) * k;
   }
 
   // Stainless rails round the bow: posts up from the gunwale at each t of ts, a rail along their
@@ -2161,11 +2606,22 @@ export class Boat {
     // (A built hull has these built in: a bass boat's graphs on her console and her bow, her
     // livewell under her rear deck's hatch, her batteries below decks. See buildFormedHull.)
     const built = !!H.form;
+    // (The cabin boat's wheelhouse: her screens on the back of the house below its windows, where
+    // you see them from the tiller, facing aft; see buildWheelhouse.)
+    const HB = this.houseBack;
+    if (HB) {
+      const x = (HB.window[0] + HB.window[1]) / 2, y = HB.window[2] - 0.2;
+      for (const [id, sd, glow] of [['sonar', -1, '#1d4f9a'], ['plotter', 1, '#2f7a5a']]) {
+        if (!has(id)) continue;
+        box(0.24, 0.16, 0.04, sd * x, y, HB.z - 0.03, '#15181c');
+        box(0.2, 0.12, 0.005, sd * x, y, HB.z - 0.052, glow);
+      }
+    }
     if (has('sonar')) {
-      if (!built) screen(hx + 0.2, '#1d4f9a');
+      if (!built && !HB) screen(hx + 0.2, '#1d4f9a');
       box(0.14, 0.06, 0.2, 0.22, H.keel(0.03) + 0.04, zAt(H, 0.01) + 0.08, '#1b1d20');
     }
-    if (has('plotter') && !built) screen(hx - 0.2, '#2f7a5a');
+    if (has('plotter') && !built && !HB) screen(hx - 0.2, '#2f7a5a');
     if (has('vhf')) {
       const t = tOf(hz) + 0.04, x = -(hw(H, t) - 0.08);
       parts.push(strut(V(x, sheer(H, t), zAt(H, t)), V(x, sheer(H, t) + 2.3, zAt(H, t) - 0.15), 0.012, 0.005, '#f1efe8'));
@@ -2192,7 +2648,13 @@ export class Boat {
     }
     if (has('anchor')) box(0.16, 0.12, 0.3, 0, sheer(H, 0.97) + 0.07, zAt(H, 0.965), '#2a2c30');
     if (has('lights')) {
+      // (Under the wheelhouse roof's overhang, shining aft over her cockpit; otherwise over the helm.)
       for (const sd of [1, -1]) {
+        if (HB) {
+          box(0.12, 0.08, 0.06, sd * 0.32, HB.top - 0.05, HB.z - 0.2, '#1d2125');
+          box(0.1, 0.06, 0.005, sd * 0.32, HB.top - 0.05, HB.z - 0.232, '#fff6dc');
+          continue;
+        }
         box(0.12, 0.08, 0.06, sd * 0.32, y0 + 1.82, hz + 0.1, '#1d2125');
         box(0.1, 0.06, 0.005, sd * 0.32, y0 + 1.82, hz + 0.135, '#fff6dc');
       }
@@ -2202,7 +2664,8 @@ export class Boat {
     this.deckLight = null;
     if (has('lights')) {
       const L = (this.deckLight = new THREE.PointLight('#fff4dd', 0, 16, 1.6));
-      L.position.set(0, y0 + 1.75, hz + 0.6);
+      if (HB) L.position.set(0, HB.top - 0.2, HB.z - 0.8);
+      else L.position.set(0, y0 + 1.75, hz + 0.6);
       g.add(L);
     }
     // (The outboard as big as it is: one from the engine catalogue, see setMotor; both of a pair
@@ -2461,7 +2924,7 @@ export class Boat {
     const on = Math.max(night, inside ? 0.35 : 0);
     this.cabinLight.intensity = on * (inside ? 2.4 : 1.4);
     this.cabinLamp.material.color.set('#ffd28a').multiplyScalar(0.55 + 0.45 * on);
-    this.cabinPanes.material.color.setScalar(0.25 + 0.75 * (1 - night));
+    this.cabinPanes?.material.color.setScalar(0.25 + 0.75 * (1 - night));
     // From outside, the lit cabin glows through its windows: a little home on the water. (The
     // cruiser's white light at the masthead, lit after dark.)
     this.cabinGlass.material.emissiveIntensity = night * 1.1;
