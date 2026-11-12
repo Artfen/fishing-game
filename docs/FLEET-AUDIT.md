@@ -67,7 +67,8 @@ Scored against the three references (5: as good as the best of them; 1: placehol
 | Sailing boat | 4 | 5 | 4 | 5 | 4 | Reference |
 | Bass boat (before A1) | 2 | 3 | 1 | 2 | 1 | Rebuild first |
 | Bass boat (after A1) | 4 | 4 | 4 | 4 | 4 | Rebuilt: `docs/fleet/after/bass*.jpg`, in the game `bass-game.jpg` |
-| Cabin boat | 2 | 2 | 2 | 3 | 2 | Rebuild |
+| Cabin boat (before A2) | 2 | 2 | 2 | 3 | 2 | Rebuild |
+| Cabin boat (after A2) | 4 | 4 | 4 | 4 | 4 | Rebuilt: `docs/fleet/after/cabin*.jpg`, in the game `cabin-game.jpg` |
 | Sport-fishing yacht | 3 | 3 | 3 | 3 | 3 | Rebuild the hull and deckhouse, keep her layout |
 | Motor skiff | 3 | 3 | 3 | 3 | 2 | Refine |
 | Rowing boat | 3 | 4 | 3 | 4 | 3 | Refine |

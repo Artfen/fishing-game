@@ -41,6 +41,12 @@ const SCENARIOS = {
     save: base(),
     setup: () => { slowTide.state.yard.owned.push('bass'); slowTide.setHour(12); slowTide.useSkiffAt(150, 420, 0.3, 'bass'); slowTide.boat.lever = 1; },
   },
+  // The cabin boat under way, the same; her old cuddy for comparison by the address's
+  // ?classic=cabin (see boat.js CLASSIC).
+  cabin: {
+    save: base(),
+    setup: () => { slowTide.state.yard.owned.push('cabin'); slowTide.setHour(12); slowTide.useSkiffAt(150, 420, 0.3, 'cabin'); slowTide.boat.lever = 1; },
+  },
   shoal: {
     save: base(),
     setup: () => {

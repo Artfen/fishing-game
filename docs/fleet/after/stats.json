@@ -9,6 +9,18 @@
   "verts": 18051,
   "materials": 15,
   "geometries": 22,
-  "buildMs": 66.6
+  "buildMs": 58.4
+ },
+ {
+  "kind": "cabin",
+  "name": "cabin boat",
+  "meshes": 33,
+  "calls": 35,
+  "tris": 10157,
+  "drawnTris": 10350,
+  "verts": 27108,
+  "materials": 18,
+  "geometries": 26,
+  "buildMs": 64.9
  }
 ]

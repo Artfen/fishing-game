@@ -106,6 +106,12 @@ camera usually is (a windscreen you look through from the helm is low and stays 
 first-person view). Windscreens rake back 25 to 40°; cabin side windows are long, low and rounded
 off at the ends with a short frame segment rather than drawn square.
 
+The one boat with clear glass is the cabin boat: you steer her by the tiller from behind her
+wheelhouse, and look ahead through it (its back windows, the door's window, the windscreen), so
+her wheelhouse is glazed with real, faintly tinted glass all round (`buildWheelhouse`), the lamp's
+warmth glowing in it after dark. The glass sits in openings cut in the wall, behind a frame that
+covers the opening's square corners.
+
 ## Metalwork
 
 Rails 18 to 22 mm (`r` 0.018–0.022), stanchions every 0.6 to 0.9 m, the ends bent down into the

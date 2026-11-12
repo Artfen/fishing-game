@@ -70,6 +70,15 @@ export function obstacles(b, M) {
     const [t0, t1] = H.cabin, top = sheer(H, t0) - 0.12 + (H.cabinH || 1.05) + 0.06;
     boxes.push({ cabin: true, t0, t1, top, what: 'cabin' });
   }
+  if (H.wheelhouse) {
+    // The cabin boat's foredeck: her samson post and a cleat either side (boat.js buildWheelhouse).
+    const t = 0.925, y = sheer(H, t), z = zAt(H, t);
+    boxes.push({ min: [-0.045, y - 0.02, z - 0.045], max: [0.045, y + 0.22, z + 0.045], what: 'samson post' });
+    for (const sd of [1, -1]) {
+      const tc = 0.895, x = sd * (hw(H, tc) - 0.1), yc = sheer(H, tc), zc = zAt(H, tc);
+      boxes.push({ min: [x - 0.02, yc, zc - 0.11], max: [x + 0.02, yc + 0.07, zc + 0.11], what: 'foredeck cleat' });
+    }
+  }
   if (H.pedestals) {
     const z = zAt(H, 0.78);
     boxes.push({ min: [-0.21, sheer(H, 0.78) - 0.07, z - 0.24], max: [0.21, H.seatY + 0.34, z + 0.2], what: 'casting-deck seat' });
