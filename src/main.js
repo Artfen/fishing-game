@@ -4426,7 +4426,10 @@ function helmGauges() {
   const DD = damages[boat.kind];
   if (DD?.wiring?.loose) bits.push('<span class="lv-warn">terminal loose</span>');
   if (DD && Math.abs(DD.steer.bend) > 0.01) bits.push(`<span class="lv-warn">pulls to ${DD.steer.bend > 0 ? 'starboard' : 'port'}</span>`);
-  if (DD && DD.mount > 0.3) bits.push('<span class="lv-warn">engine loose on its bracket</span>');
+  // (Whatever judders through her and your hands says so: the bracket from as loose as you feel it,
+  // and a propeller bent on the bottom. See updateEngine, where you feel them.)
+  if (DD && DD.mount > 0.1) bits.push(`<span class="lv-warn">engine ${DD.mount > 0.3 ? 'loose' : 'a little loose'} on its bracket</span>`);
+  if (E.dmg > 0.1) bits.push(`<span class="lv-warn">propeller ${E.dmg > 0.5 ? 'badly bent' : 'bent'}</span>`);
   return bits.join(' · ');
 }
 // Each frame, the fittings of the boat you're in at work (see shipyard.js): the sonar's imaging
