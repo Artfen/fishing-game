@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slow Tide · benchmark</title>
+<link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml">
+<style>
+  :root { --bg: #f4efe4; --ink: #24303a; --muted: #5d6a73; --line: #d9d0bf; --accent: #2f5d50; --warn: #9b2333; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1b2228; --ink: #e9e3d6; --muted: #a3acb2; --line: #34404a; --accent: #7fb8a4; --warn: #e07a85; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  p { margin: 8px 0; }
+  .muted { color: var(--muted); }
+  fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 16px 0; padding: 10px 14px; }
+  legend { padding: 0 6px; font-weight: 600; }
+  label { display: inline-flex; align-items: center; gap: 6px; margin: 4px 14px 4px 0; }
+  button { font: inherit; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }
+  button.go { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-variant-numeric: tabular-nums; }
+  th, td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; white-space: normal; }
+  .scroll { overflow-x: auto; }
+  .err { color: var(--warn); }
+  #status { font-weight: 600; min-height: 1.5em; }
+  pre { background: rgba(127, 127, 127, 0.12); padding: 10px; border-radius: 8px; overflow-x: auto; font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Slow Tide benchmark</h1>
+  <p class="muted">Measures the game on <em>this</em> computer and graphics card: each scenario is set up the same way every time, then run for a few seconds while the frame rate, the 1% low, the graphics card's time per frame (where the browser allows), the game's simulation cost, draw calls and memory are recorded.</p>
+  <p class="muted">It runs in a save of its own: your game and your save are never read or written, and it never signs in. The results stay in this browser until you copy them. Close other tabs, plug a laptop in, and keep this window in front while it runs (each scenario reloads the page). It takes about half a minute per scenario.</p>
+
+  <fieldset>
+    <legend>Graphics</legend>
+    <div id="presets"></div>
+  </fieldset>
+  <fieldset>
+    <legend>Scenarios</legend>
+    <div id="scenarios"></div>
+    <p><button id="all" type="button">All</button> <button id="none" type="button">None</button></p>
+  </fieldset>
+  <p><button class="go" id="run" type="button">Run the benchmark</button> <button id="stop" type="button">Stop</button></p>
+  <p id="status"></p>
+
+  <h2>Results</h2>
+  <div class="scroll"><table id="results"><thead><tr><th>Scenario</th><th>Preset</th><th>FPS</th><th>1% low</th><th>Frame ms</th><th>GPU ms</th><th>Sim ms</th><th>Sim p99</th><th>Draw calls</th><th>Triangles</th><th>Heap MB</th></tr></thead><tbody></tbody></table></div>
+  <p id="device" class="muted"></p>
+  <p><button id="copy" type="button">Copy the results</button> <button id="clear" type="button">Clear them</button></p>
+  <p class="muted">What the numbers mean, and the targets they're judged against: <code>docs/PERFORMANCE.md</code> in the game's repository.</p>
+  <pre id="json" hidden></pre>
+</main>
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.min.js"
+  }
+}
+</script>
+<script type="module">
+  import { BENCH_SCENARIOS, benchSave } from './src/bench.js';
+  import { SAVE_VERSION } from './src/save.js';
+  const $ = (id) => document.getElementById(id);
+  const PRESETS = ['low', 'medium', 'high', 'ultra'];
+  const RESULTS = 'slow-tide-bench-results', QUEUE = 'slow-tide-bench-queue';
+  const read = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+  const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* full or blocked */ } };
+
+  $('presets').innerHTML = PRESETS.map((p, i) => `<label><input type="radio" name="preset" value="${p}" ${i === 1 ? 'checked' : ''}> ${p[0].toUpperCase() + p.slice(1)}</label>`).join('');
+  $('scenarios').innerHTML = Object.entries(BENCH_SCENARIOS).map(([id, S]) => `<label><input type="checkbox" value="${id}" checked> ${S.label}</label>`).join('<br>');
+  const boxes = () => [...document.querySelectorAll('#scenarios input')];
+  $('all').onclick = () => boxes().forEach((b) => (b.checked = true));
+  $('none').onclick = () => boxes().forEach((b) => (b.checked = false));
+
+  // The next scenario in the queue: its own save (under the benchmark's key: see save.js), then the
+  // game with ?bench=<it>; it comes back here when it's measured.
+  function next() {
+    const Q = read(QUEUE, null);
+    if (!Q || Q.i >= Q.list.length) {
+      localStorage.removeItem(QUEUE);
+      $('status').textContent = Q ? 'Done.' : '';
+      return;
+    }
+    const id = Q.list[Q.i], S = BENCH_SCENARIOS[id];
+    Q.i++;
+    write(QUEUE, Q);
+    for (const k of Object.keys(localStorage)) if (k.startsWith('slow-tide-bench') && k !== RESULTS && k !== QUEUE) localStorage.removeItem(k);
+    write('slow-tide-bench', { game: 'slow-tide', version: SAVE_VERSION, savedAt: Date.now(), data: benchSave(S.save, Q.preset) });
+    $('status').textContent = `Running ${Q.i} of ${Q.list.length}: ${S.label}…`;
+    setTimeout(() => (location.href = `index.html?bench=${encodeURIComponent(id)}`), 400);
+  }
+  $('run').onclick = () => {
+    const list = boxes().filter((b) => b.checked).map((b) => b.value);
+    if (!list.length) return;
+    write(QUEUE, { list, i: 0, preset: document.querySelector('input[name=preset]:checked').value });
+    next();
+  };
+  $('stop').onclick = () => { localStorage.removeItem(QUEUE); $('status').textContent = 'Stopped.'; };
+  $('clear').onclick = () => { localStorage.removeItem(RESULTS); show(); };
+  $('copy').onclick = async () => {
+    const text = JSON.stringify(read(RESULTS, {}), null, 2);
+    $('json').textContent = text;
+    $('json').hidden = false;
+    try { await navigator.clipboard.writeText(text); $('status').textContent = 'Copied.'; } catch { $('status').textContent = 'Select the text below to copy it.'; }
+  };
+
+  function show() {
+    const R = read(RESULTS, {}), Q = read(QUEUE, null);
+    // (Back from a scenario: the preset it ran at, written into its result.)
+    const done = new URLSearchParams(location.search).get('done');
+    if (Q && done && R[done] && !R[done].preset) { R[done].preset = Q.preset; write(RESULTS, R); }
+    const rows = Object.values(R);
+    const f = (v) => (v == null ? '–' : v.toLocaleString());
+    $('results').tBodies[0].innerHTML = rows.map((r) => r.error
+      ? `<tr><td>${r.label}</td><td colspan="10" class="err">${r.error}</td></tr>`
+      : `<tr><td>${r.label}</td><td>${r.preset ?? ''}</td><td>${f(r.fps)}</td><td>${f(r.fps1Low)}</td><td>${f(r.frameMs)}</td><td>${f(r.gpuMs)}</td><td>${f(r.simMs)}</td><td>${f(r.simP99)}</td><td>${f(r.calls)}</td><td>${f(r.tris)}</td><td>${f(r.heapMB)}</td></tr>`).join('');
+    const d = rows.find((r) => r.device)?.device;
+    $('device').textContent = d ? `Graphics: ${d.gpu} · window ${d.window} at ×${d.pixelRatio} · ${d.cores ?? '?'} cores · ${d.browser}` : '';
+    if (Q) next();
+  }
+  show();
+</script>
+</body>
+</html>

@@ -19,74 +19,25 @@ const args = process.argv.slice(2);
 const URL = args.find((a) => a.startsWith('http')) || 'http://127.0.0.1:8642/';
 const only = args.filter((a) => !a.startsWith('http'));
 
-const TIPS = { rowed: true, cast: true, caught: true, journal: true, ashore: true, style: true, pack: true, walked: true, board: true, havenTip: true };
 // (The Low preset and a small window by default: software rendering is slow, and the simulation's
 // cost doesn't depend on them. PERF_PRESET and PERF_SIZE=WxH to change.)
 const PRESET = process.env.PERF_PRESET || 'low';
 const [VW, VH] = (process.env.PERF_SIZE || '800x450').split('x').map(Number);
-const base = (over = {}) => {
-  const settings = { player: { name: 'Perf' }, graphics: { preset: PRESET }, ...(over.settings || {}) };
-  return { quality: PRESET, vessel: 'row', mode: 'boat', day: 13, tips: TIPS, places: { camp: { day: 1, hour: 10 } }, ...over, settings };
-};
-
-// Each: the save to start from, and what to do once started (in the page).
-const SCENARIOS = {
-  harbour: { save: base({ mode: 'foot', walker: { x: 6, z: -96, heading: Math.PI } }), setup: () => { slowTide.setHour(10.5); slowTide.walkTo(6, -96, Math.PI); } },
-  // Lying off Willowhaven in the skiff, about a hundred metres out, looking in at the marina and
-  // its boats (how much the boats far off cost: see boat.js DETAIL).
-  harbour_off: { save: base(), setup: () => { slowTide.setHour(10.5); slowTide.useSkiffAt(30, 20, Math.PI, 'skiff'); } },
-  rib_rough: {
-    save: base({ settings: { weather: { sea: 'lively', windMode: 'manual', windSpeed: 11, windFrom: 225 } } }),
-    setup: () => { slowTide.state.yard.owned.push('rib'); slowTide.setHour(12); slowTide.useSkiffAt(150, 420, 0.3, 'rib'); slowTide.boat.lever = 1; },
-  },
-  // The bass boat under way in open water on a fair day (the fleet's art: docs/FLEET-AUDIT.md).
-  bass: {
-    save: base(),
-    setup: () => { slowTide.state.yard.owned.push('bass'); slowTide.setHour(12); slowTide.useSkiffAt(150, 420, 0.3, 'bass'); slowTide.boat.lever = 1; },
-  },
-  // The cabin boat under way, the same; her old cuddy for comparison by the address's
-  // ?classic=cabin (see boat.js CLASSIC).
-  cabin: {
-    save: base(),
-    setup: () => { slowTide.state.yard.owned.push('cabin'); slowTide.setHour(12); slowTide.useSkiffAt(150, 420, 0.3, 'cabin'); slowTide.boat.lever = 1; },
-  },
-  // The jet ski flat out, the same (her old drawing by ?classic=jetski).
-  jetski: {
-    save: base(),
-    setup: () => { slowTide.state.yard.owned.push('jetski'); slowTide.setHour(12); slowTide.useSkiffAt(150, 420, 0.3, 'jetski'); slowTide.boat.lever = 1; },
-  },
-  // The yacht under way, the same (her old drawing by ?classic=cruiser).
-  cruiser: {
-    save: base(),
-    setup: () => { slowTide.state.yard.owned.push('cruiser'); slowTide.setHour(12); slowTide.useSkiffAt(150, 420, 0.3, 'cruiser'); slowTide.boat.lever = 1; },
-  },
-  shoal: {
-    save: base(),
-    setup: () => {
-      slowTide.setHour(9);
-      const S = slowTide.eco.schools.filter((s) => s.members?.length).sort((a, b) => b.members.length - a.members.length)[0];
-      slowTide.useSkiffAt((S?.x ?? 60) + 12, (S?.z ?? 160) + 12, 0, 'skiff');
-    },
-  },
-  wildlife: {
-    save: base(),
-    setup: () => {
-      slowTide.state.yard.owned.push('rib');
-      slowTide.setHour(11);
-      const p = slowTide.sealife.pods.find((q) => q.sea === 'home') || { x: 200, z: 600 };
-      slowTide.useSkiffAt(p.x + 25, p.z + 25, 0, 'rib');
-    },
-  },
-  electronics: {
-    save: base(),
-    setup: () => { slowTide.state.yard.owned.push('rib'); slowTide.setHour(11); slowTide.useSkiffAt(60, 160, 0, 'rib'); slowTide.firstPerson(true); if (slowTide.finder && !slowTide.finder.visible) slowTide.finder.toggle?.(); },
-  },
-  underwater: {
-    save: base(),
-    setup: () => { slowTide.setHour(12); slowTide.useSkiffAt(98, 82, 0, 'skiff'); slowTide.boat.setAnchor(true); },
-    after: () => slowTide.diving.start('scuba'),
-  },
-};
+// The scenarios, shared with the benchmark you run on your own computer (bench.html: see
+// src/bench.js); and a few more for the fleet's own before-and-after (docs/FLEET-AUDIT.md).
+const { BENCH_SCENARIOS, benchSave } = await import(new globalThis.URL('../src/bench.js', import.meta.url).href);
+const base = (over = {}) => benchSave(over, PRESET);
+const fleet = (kind) => ({
+  save: {},
+  setup: new Function(`slowTide.state.yard.owned.push('${kind}'); slowTide.setHour(12); slowTide.useSkiffAt(150, 420, 0.3, '${kind}'); slowTide.boat.lever = 1;`),
+});
+const SCENARIOS = Object.fromEntries(Object.entries({
+  ...BENCH_SCENARIOS,
+  // (The fleet under way in open water on a fair day; the yacht and jet ski the same.)
+  bass: fleet('bass'), cabin: fleet('cabin'), jetski: fleet('jetski'), cruiser: fleet('cruiser'),
+  // (Its old name.)
+  electronics: BENCH_SCENARIOS.sonar,
+}).map(([k, S]) => [k, { ...S, save: base(S.save) }]));
 
 const pct = (xs, p) => { const s = [...xs].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(s.length * p))]; };
 const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;

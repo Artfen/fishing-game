@@ -37,11 +37,15 @@ import { BIRD_KINDS } from './birdData.js';
 // the previous version's data into the new shape.
 
 export const SAVE_VERSION = 6;
-const KEY = 'slow-tide-save';
-const BACKUP = 'slow-tide-save-backup';          // the save as it was when this session began
-const LEGACY = 'slow-tide-save-v1';              // the format before versioning
-const UNREADABLE = 'slow-tide-save-unreadable';  // raw text of a save that couldn't be read, kept aside
-const BEFORE_RESET = 'slow-tide-save-before-new-game';
+// (The benchmark, bench.html, runs the game with ?bench=<scenario> in a save of its own: every key
+// below under 'slow-tide-bench' instead, so it never reads or writes yours. See bench.js.)
+export const BENCH = /[?&]bench=/.test(globalThis.location?.search || '');
+const NS = BENCH ? 'slow-tide-bench' : 'slow-tide-save';
+const KEY = NS;
+const BACKUP = `${NS}-backup`;                   // the save as it was when this session began
+const LEGACY = BENCH ? `${NS}-v1` : 'slow-tide-save-v1'; // the format before versioning
+const UNREADABLE = `${NS}-unreadable`;           // raw text of a save that couldn't be read, kept aside
+const BEFORE_RESET = `${NS}-before-new-game`;
 const LOG_MAX = 1000;
 
 export const DEFAULT_STATE = {
