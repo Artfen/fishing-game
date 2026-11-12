@@ -647,7 +647,8 @@ export class Ecosystem {
     }
     // (D2: a shoal of small fish keeps away from the hunters about it lately, and in winter goes
     // out to deeper water.)
-    const fear = a.forage ? this.fearOf(a) : 0;
+    // (Wary from about two hunters lately; one passing doesn't put it off.)
+    const fear = a.forage && this.fearOf(a) > 0.8 ? this.fearOf(a) : 0;
     if (a.forage) {
       const ws = this.winterness(a);
       if (ws > 0.02) {
@@ -655,7 +656,7 @@ export class Ecosystem {
         cx = lerp(cx, a.winterX, ws * 0.8);
         cz = lerp(cz, a.winterZ, ws * 0.8);
       }
-      if (fear > 0.3) {
+      if (fear > 0.8) {
         const d = Math.hypot(cx - a.threatX, cz - a.threatZ) || 1, push = R * Math.min(1, fear / 2);
         cx += ((cx - a.threatX) / d) * push;
         cz += ((cz - a.threatZ) / d) * push;
@@ -715,7 +716,7 @@ export class Ecosystem {
     if (shy > 0) top = Math.min(bot, top + shy * Math.min(3, (band[1] - band[0]) * 0.5));
     // (D2: with hunters about, a shoal of small fish keeps deeper. Their depths by day and night
     // are each kind's own: see fish.js and atlantic.js.)
-    if (fear > 0.3 && !L.bottom) top = Math.min(bot, top + Math.min((bot - top) * 0.3, fear));
+    if (fear > 0 && !L.bottom) top = Math.min(bot, top + Math.min((bot - top) * 0.3, fear));
     let y;
     if (L.flat) y = -bd + 0.06; // flatfish lie on the bottom itself
     else if (L.benthic) y = -bd + 0.12; // gurnards walk the seabed; an octopus crawls over it
@@ -736,7 +737,7 @@ export class Ecosystem {
     // came from.)
     if (atPrey) {
       const k = Math.exp(-(this.time - prey.threatT) / 20), fresh = prey.threat * k < 0.2;
-      prey.threat = Math.min(4, prey.threat * k + 1);
+      prey.threat = Math.min(3, prey.threat * k + 0.5);
       prey.threatT = this.time;
       prey.threatX = fresh ? a.x : lerp(prey.threatX, a.x, 0.4);
       prey.threatZ = fresh ? a.z : lerp(prey.threatZ, a.z, 0.4);
@@ -771,7 +772,8 @@ export class Ecosystem {
     return c.d;
   }
 
-  // (D2) How wary a shoal of small fish is of the hunters about it just now (0 … 4).
+  // (D2) How wary a shoal of small fish is of the hunters about it just now (0 … 3: each hunter
+  // settling at it adds half, fading by half in twenty seconds).
   fearOf(s) {
     return s.threat * Math.exp(-(this.time - s.threatT) / 20);
   }
@@ -941,7 +943,7 @@ export class Ecosystem {
       s.wantSpeed = mode === 'cruise' ? s.L.speed * 0.8 : 0.18;
       s.spread = act < 0.3 ? 0.75 : rand(1.3, 2.2);
       // (Hunters about: tighter, and quicker away.)
-      if (fear > 0.3) {
+      if (fear > 0.8) {
         s.spread *= 1 - 0.15 * Math.min(fear, 3);
         s.wantSpeed = Math.max(s.wantSpeed, s.L.speed * (0.8 + 0.25 * Math.min(fear, 2)));
       }
@@ -960,10 +962,10 @@ export class Ecosystem {
   // (Only the host's own boat, as with a boat scattering a shoal: see startle.)
   forageWatch(s, h) {
     const fear = this.fearOf(s);
-    if (fear > 1.2 && !s.fled) {
+    if (fear > 1.4 && !s.fled) {
       s.fled = true;
       s.t = s.dur + 1;
-    } else if (fear < 0.5) s.fled = false;
+    } else if (fear < 0.6) s.fled = false;
     if (s.soundT > 0) {
       s.soundT -= h;
       return fear;

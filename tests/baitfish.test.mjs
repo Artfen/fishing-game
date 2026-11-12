@@ -79,7 +79,7 @@ test('hunters gathering about a shoal: it goes off the other way, closer togethe
       eco.pickPoint(bass, 'cruise');
     }
     assert.ok(bass.atPrey, 'the bass settled at the shoal');
-    assert.ok(eco.fearOf(s) >= 0.9 && Math.hypot(s.threatX - side.x, s.threatZ - side.z) < 1e-6, `fear ${eco.fearOf(s).toFixed(2)}`);
+    assert.ok(eco.fearOf(s) >= 0.45 && Math.hypot(s.threatX - side.x, s.threatZ - side.z) < 1e-6, `fear ${eco.fearOf(s).toFixed(2)}`);
   } finally {
     Object.assign(bass, { x: keep.x, z: keep.z });
     s.home.zone = keep.homeZone;
