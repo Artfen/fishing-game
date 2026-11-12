@@ -149,6 +149,7 @@ import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality
 import { Post } from './post.js';
 import { Diver, Shot, buildGun } from './diver.js';
 import { stepComfort, effectsOf, needsOf, dressFor, drink as drinkFrom, refill, eatRoll, packRolls, mealDrink, CLOTHES, CLOTHES_IDS, BOTTLE, ROLLS, feelsLike } from './comfort.js';
+import { CARGO, buy as buyCargo, putAboard, bringAshore, piecesAboard, storePieces, weightOf as cargoKg, newCargo } from './cargo.js';
 import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance, logSite, logFind } from './dive.js';
 import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick, seeded, wrapAngle } from './util.js';
 
@@ -1662,7 +1663,8 @@ function renderKit(el) {
   // The jerry can: where it is, how full, and pouring it into whatever's here.
   {
     const f = tanks(), P = player().pos;
-    out.push(p(`Jerry can: ${canWords(f)}, ${f.can.at === 'pack' ? 'in your backpack' : f.can.at === 'car' ? 'in the car' : 'in the garage at home'}.`, 'gx-kit-text'));
+    const aboardOf = f.can.at.startsWith('boat:') ? BOATS[f.can.at.slice(5)] : null;
+    out.push(p(`Jerry can: ${canWords(f)}, ${f.can.at === 'pack' ? 'in your backpack' : f.can.at === 'car' ? 'in the car' : aboardOf ? `aboard the ${aboardOf.name}` : 'in the garage at home'}.`, 'gx-kit-text'));
     const row = document.createElement('div');
     row.className = 'gx-kit-acts';
     const nearCar = driving || (onFoot && Math.hypot(car.pos.x - P.x, car.pos.z - P.z) < 8);
@@ -1674,6 +1676,10 @@ function renderKit(el) {
     }
     if (nearCar && f.can.at === 'pack') row.append(btn('Leave it in the car', () => { moveCan(f, 'car'); save(); redo(); }, false, 'quiet'));
     if (nearCar && f.can.at === 'car') row.append(btn('Take it from the car', () => { moveCan(f, 'pack'); save(); redo(); }, false, 'quiet'));
+    // (Aboard a boat you walk about, as cargo on her deck: see cargo.js.)
+    const deckBoat = !onFoot ? (cargoBoat(boat) ? boat : null) : boats.find((b) => cargoBoat(b) && Math.hypot(b.pos.x - P.x, b.pos.z - P.z) < 6);
+    if (deckBoat && f.can.at === 'pack') row.append(btn(`Put it aboard the ${deckBoat.name}`, () => { canAboard(deckBoat, true); redo(); }, false, 'quiet'));
+    if (aboardOf && (aboardOf === deckBoat || (!onFoot && aboardOf === boat))) row.append(btn('Take it off her, into your backpack', () => { canAboard(aboardOf, false); redo(); }, false, 'quiet'));
     if (row.children.length) out.push(row);
   }
   // The camera rides in the same pocket (the only way into photo mode on a touch screen).
@@ -1938,6 +1944,36 @@ const harbourSheet = new HarbourSheet(state, {
   rods: () => ROD_IDS.filter((id) => state.gear.pack.rods.includes(id) || wearOf(state, id) > 0)
     .map((id) => ({ id, name: RODS[id].name, line: lineInUse(state.gear, RODS[id]) })),
   trip: () => tripChecklist(),
+  // Things for the boat (cargo.js): yours, where each is, the boats lying here to load, and
+  // putting them aboard, ashore, refilled and charged.
+  cargo: {
+    items: () => state.cargo.items,
+    boatsHere: () => cargoBoatsHere().map((b) => ({ kind: b.kind, name: b.name })),
+    nameOf: (kind) => BOATS[kind]?.name || kind,
+    buy: (id) => buyCargo(state.cargo, id),
+    aboard: (uid, kind) => {
+      const b = BOATS[kind], it = state.cargo.items.find((i) => i.uid === uid);
+      if (!b || !it) return { ok: false, why: 'Not here.' };
+      syncCargo(kind);
+      const r = putAboard(state.cargo, uid, kind, cargoSpot(b, it.id));
+      if (r.ok) syncCargo(kind);
+      return r;
+    },
+    ashore: (uid) => {
+      const it = state.cargo.items.find((i) => i.uid === uid), kind = it?.at.startsWith('boat:') ? it.at.slice(5) : null;
+      if (kind) syncCargo(kind);
+      if (carrying?.key === uid) carrying = null;
+      const r = bringAshore(state.cargo, uid);
+      if (kind) syncCargo(kind);
+      return r;
+    },
+    renew: (uid) => {
+      const it = state.cargo.items.find((i) => i.uid === uid);
+      if (!it) return;
+      it.full = true;
+      if (it.at.startsWith('boat:')) syncCargo(it.at.slice(5));
+    },
+  },
   // Willowhaven Marine Works (see shipyard.js).
   yardKinds: () => KINDS.filter((k) => k !== 'row' && k !== 'kayak'),
   boatName: (kind) => BOATS[kind]?.name || kind,
@@ -5468,6 +5504,164 @@ function pourCan(into) {
   save();
 }
 
+/* ---------------- cargo (cargo.js): aboard her, where you put it ---------------- */
+
+// The boats that take cargo on deck so far: the ones you walk about (the RIB, the centre console
+// and the yacht).
+const cargoBoat = (b) => !!b?.hull.standing;
+// What you're carrying about her deck: { kind, key }.
+let carrying = null;
+state.cargo ??= newCargo();
+// Her deck's things back into the save (where her loose ones have slid to), then handed to her
+// again from it, and her loads with them.
+function syncCargo(k) {
+  const b = BOATS[k];
+  if (!b) return;
+  if (b.cargo) storePieces(state.cargo, k, b.cargo.filter((pc) => !pc.carried));
+  b.setCargo(piecesAboard(state.cargo, k, tanks().can.at).map((p) => ({ ...p, carried: carrying?.kind === k && carrying.key === p.key })));
+  b.setLoads(loadsOf(k));
+}
+function cargoSave() {
+  for (const k of KINDS) if (BOATS[k].cargo?.length) storePieces(state.cargo, k, BOATS[k].cargo.map((pc) => (pc.carried ? { ...pc, x: pc.p[0], z: pc.p[2] } : pc)));
+}
+// A clear place on her floor for a piece coming aboard: from aft forward, the middle then each
+// side, the first spot clear of what's there already.
+function cargoSpot(b, id) {
+  const H = b.hull, C = CARGO[id], others = b.cargo || [];
+  for (let t = 0.14; t < 0.8; t += 0.05) {
+    for (const sd of [0, -1, 1]) {
+      const at = b.cargoFit({ id }, sd * 0.6, -H.L / 2 + H.L * t);
+      const clear = others.every((o) => Math.abs(o.x - at.x) > (CARGO[o.id].size[0] + C.size[0]) / 2 + 0.04 || Math.abs(o.z - at.z) > (CARGO[o.id].size[2] + C.size[2]) / 2 + 0.04);
+      if (clear) return at;
+    }
+  }
+  return null;
+}
+// The boats lying at Willowhaven that you could load from the chandlery.
+const cargoBoatsHere = () => boats.filter((b) => cargoBoat(b) && ownsBoat(state.yard, b.kind) && b.speed < 0.8 && Math.hypot(b.pos.x - HAVEN.x, b.pos.z - HAVEN.z) < 90);
+// A piece's words: what it is, what it weighs, how it's stowed.
+const cargoWords = (pc) => `${CARGO[pc.id].name}, ${Math.round(cargoKg(pc, tanks().can.litres) * 10) / 10} kg${pc.id === 'cylinder' ? (pc.full ? ', full' : ', breathed') : pc.id === 'battery' ? (pc.full ? ', charged' : ', flat') : ''}: ${pc.secured ? 'strapped down' : 'loose'}.`;
+
+// Each frame: her loose things move only while she's the boat you're in or near (boat.js
+// slideCargo); a knock as one fetches up; and what you carry is set down if you leave her deck.
+function cargoTick() {
+  const P = player().pos;
+  for (const b of boats) {
+    if (!b.cargo?.length) continue;
+    b.cargoAwake = (!onFoot && b === boat) || Math.hypot(b.pos.x - P.x, b.pos.z - P.z) < 40;
+    if (b.cargoHit > 0.6 && b.cargoAwake) {
+      audio.knock?.(Math.min(0.9, b.cargoHit / 3));
+      if (b === boat && !onFoot) teach('cargoLoose', 'Something loose just slid across her deck and fetched up against her side. Walk to it (off the helm) to strap it down, or move it.', 6);
+    }
+  }
+  if (carrying && (onFoot || boat.kind !== carrying.kind || !boat.deck)) setDown(true);
+}
+
+// On her deck: what you're carrying, set down; or the piece at your feet.
+function cargoAction() {
+  if (!boat.deck || !boat.cargo?.length || fishing.busy) return null;
+  const D = boat.deck;
+  if (carrying) return { text: `Set the ${CARGO[carrying.id].short} down here`, run: () => setDown() };
+  let best = null, bd = 0.85;
+  for (const pc of boat.cargo) {
+    const d = Math.hypot(pc.x - D.x, pc.z - D.z);
+    if (d < bd) [bd, best] = [d, pc];
+  }
+  if (!best) return null;
+  return { text: `The ${CARGO[best.id].short}: ${best.secured ? 'unstrap it' : 'pick it up, or strap it down'}${cargoUse(best) ? ', or use it' : ''}`, run: () => cargoMenu(best) };
+}
+function cargoMenu(pc) {
+  const acts = [], use = cargoUse(pc);
+  if (use) acts.push({ text: use.text, cls: 'quiet', run: use.run });
+  if (pc.secured) acts.push({ text: 'Undo the straps', cls: 'quiet', run: () => strapCargo(pc, false) });
+  else {
+    acts.push({ text: 'Strap it down', cls: 'quiet', run: () => strapCargo(pc, true) });
+    acts.push({ text: 'Pick it up', run: () => pickUpCargo(pc) });
+  }
+  acts.push({ text: 'Leave it', cls: 'quiet', run: () => {} });
+  ask(CARGO[pc.id].name, cargoWords(pc), acts);
+}
+function strapCargo(pc, on) {
+  boat.strapCargo(pc, on);
+  audio.step?.(false, 0, 'wood');
+  hud.flash(on ? `Strapped down: the ${CARGO[pc.id].short} stays where it is now.` : `Unstrapped: the ${CARGO[pc.id].short} is loose, and slides if she heels or lurches.`, t, 2.6);
+  syncCargo(boat.kind);
+  save();
+}
+function pickUpCargo(pc) {
+  carrying = { kind: boat.kind, key: pc.key, id: pc.id };
+  pc.carried = true;
+  boat.strapCargo(pc, false);
+  audio.step?.(false, 0, 'wood');
+  hud.flash(`You pick up the ${CARGO[pc.id].short} (${Math.round(cargoKg(pc, tanks().can.litres))} kg). Walk it where you want it, and set it down.`, t, 3);
+}
+// Set it down in front of you (or, leaving her deck with it, where you stand): loose, until you
+// strap it.
+function setDown(quiet = false) {
+  const b = BOATS[carrying?.kind], pc = b?.cargo?.find((p) => p.key === carrying.key);
+  carrying = null;
+  if (!pc) return;
+  const D = b.deck, x = D ? D.x + Math.sin(D.yaw) * 0.45 : pc.p[0], z = D ? D.z + Math.cos(D.yaw) * 0.45 : pc.p[2];
+  pc.carried = false;
+  const at = b.cargoClear(pc, x, z);
+  Object.assign(pc, { x: at.x, z: at.z, vx: 0, vz: 0 });
+  b.strapCargo(pc, false);
+  b.placeCargo(pc);
+  audio.knock?.(0.3);
+  if (!quiet) teach('cargoDown', `Set down loose. Strapped, a thing stays put; loose, it slides about her deck when she heels, lurches or turns hard, and its weight goes with it.`, 6);
+  syncCargo(b.kind);
+  save();
+}
+// What a piece is for, out here: a full cylinder for a breathed tank, a charged battery for a
+// flat one, the jerry can into her tank.
+function cargoUse(pc) {
+  const k = boat.kind, f = tanks();
+  if (pc.id === 'cylinder' && pc.full && state.dive.tank < SCUBA.full - 10) {
+    return { text: `Swap your dive tank (${Math.round(state.dive.tank)} bar) for it`, run: () => {
+      state.dive.tank = SCUBA.full;
+      pc.full = false;
+      audio.knock?.(0.3);
+      hud.toast(`You swap your breathed tank for the full cylinder: ${SCUBA.full} bar for the next dive. The chandlery fills the empty one.`, 5);
+      syncCargo(k);
+      save();
+    } };
+  }
+  if (pc.id === 'battery' && pc.full) {
+    const flat = [['troll', f.troll?.[k]], ['elec', ELEC[k] ? elecLevel(f, k) : undefined]].filter(([, v]) => v != null && v < 0.6).sort((a, b) => a[1] - b[1])[0];
+    if (flat) return { text: `Swap in the spare battery (${flat[0] === 'troll' ? 'the trolling motor’s' : 'the motor’s'} is at ${Math.round(flat[1] * 100)}%)`, run: () => {
+      if (flat[0] === 'troll') f.troll[k] = 1;
+      else f.elec[k] = 1;
+      pc.full = false;
+      audio.knock?.(0.3);
+      hud.toast('The spare battery’s in and the flat one’s on deck: charge it at a jetty, a quay or the chandlery.', 5);
+      syncCargo(k);
+      save();
+    } };
+  }
+  if (pc.id === 'can' && f.can.litres >= 0.5 && isPetrol(k) && fuelRoom(f, k) >= 0.05) {
+    return { text: `Pour it into her tank (${litres(f.can.litres)})`, run: () => {
+      pourCan(k);
+      syncCargo(k);
+    } };
+  }
+  return null;
+}
+// The jerry can aboard a boat, or back in your backpack.
+function canAboard(b, on) {
+  const f = tanks();
+  if (on) {
+    const spot = cargoSpot(b, 'can');
+    if (!spot) return hud.flash('There’s no clear space on her deck for it.', t, 2.5);
+    moveCan(f, `boat:${b.kind}`);
+    state.cargo.can = { x: spot.x, z: spot.z, secured: true };
+  } else {
+    if (carrying?.key === 'can') carrying = null;
+    moveCan(f, 'pack');
+  }
+  syncCargo(b.kind);
+  save();
+}
+
 // Run dry in the car: someone up the lane lends you a can (it takes an hour).
 function rescueCar() {
   passTime(rescue(tanks(), 'car'));
@@ -5486,9 +5680,11 @@ function boatChoices() {
     ask(`The ${boat.name}: battery flat`, 'The motor’s battery is flat. An oar moves her along, slowly; tied up at a jetty or a quay it charges again (half an hour’s worth an hour), and overnight.', acts);
     return;
   }
-  if (f.can.at === 'pack' && f.can.litres >= 0.5) acts.push({ text: `Pour in the jerry can (${litres(f.can.litres)})`, cls: 'quiet', run: () => pourCan(kind) });
+  // (The jerry can in your backpack, or aboard her as cargo: see cargo.js.)
+  const canWith = f.can.at === 'pack' || f.can.at === `boat:${kind}`;
+  if (canWith && f.can.litres >= 0.5) acts.push({ text: `Pour in the jerry can (${litres(f.can.litres)})`, cls: 'quiet', run: () => { pourCan(kind); if (f.can.at !== 'pack') syncCargo(kind); } });
   acts.push({ text: kind === 'bass' ? 'A tow to the boathouse (about an hour)' : boat.pos.z > SOUTH_Z ? 'A tow in to Puerto Brasa (about an hour)' : 'A tow to Willowhaven quay (about an hour)', run: () => towBoat() });
-  ask(`The ${boat.name}: out of fuel`, `The tank is dry. An oar moves her along, slowly${kind === 'bass' && f.battery > 0 ? ', and the electric motor still runs on its battery' : ''}.${f.can.at === 'pack' ? '' : ' (The jerry can isn’t with you.)'}`, acts);
+  ask(`The ${boat.name}: out of fuel`, `The tank is dry. An oar moves her along, slowly${kind === 'bass' && f.battery > 0 ? ', and the electric motor still runs on its battery' : ''}.${canWith ? '' : ' (The jerry can isn’t with you.)'}`, acts);
 }
 
 function towBoat() {
@@ -6116,6 +6312,12 @@ function interaction() {
     const entry = diveEntry();
     if (entry) return { text: 'Go diving', run: () => chooseDive(entry) };
     return null;
+  }
+  // On her deck: what you're carrying, or the piece of cargo at your feet (see cargoAction), even
+  // lying alongside (step ashore from anywhere else on her deck).
+  {
+    const ca = cargoAction();
+    if (ca) return ca;
   }
   const spot = cachedShoreSpot();
   const ashore = spot && (spot.landing ? 'Step ashore at the landing' : spot.quay ? 'Step up onto the quay' : spot.pier ? 'Step onto the jetty' : 'Step ashore');
@@ -7237,7 +7439,9 @@ function applyYard() {
     b.restripe?.(hex(L.stripe));
     b.retube?.(hex(L.tubes));
     if ((b.flagId || null) !== (L.flag || null) || L.flag === 'own') b.setFlag?.(flagById[L.flag] || null, { paint: hex(L.paint), stripe: hex(L.stripe) });
-    // (What she carries, how hard her anchor holds, and her fittings to see.)
+    // (Her cargo as the save has it: see cargo.js. Then what she carries, how hard her anchor
+    // holds, and her fittings to see.)
+    b.setCargo(piecesAboard(state.cargo ||= newCargo(), k, tanks().can.at).map((p) => ({ ...p, carried: carrying?.kind === k && carrying.key === p.key })));
     b.setLoads(loadsOf(k, e));
     b.anchorHold = e.hold;
     b.setFits?.(e.list);
@@ -7256,6 +7460,9 @@ function loadsOf(k, e = fitEffect(state.yard, k)) {
   if (YARD_BASE.tanks[k]) L.push({ what: 'fuel', kg: (fuelLevel(tanks(), k) - YARD_BASE.tanks[k]) * fuelKg, p: b.loadPlace('fuel') });
   const aboard = Con.aboardKg(state.contracts, k) + Story.storyKg(state.story, k);
   if (aboard) L.push({ what: 'aboard', kg: aboard, p: b.loadPlace('cockpit') });
+  // (Her cargo, each piece where it sits on her deck, or in your hands: see cargo.js. Its `p` is
+  // the boat's own, moving as it slides.)
+  for (const pc of b.cargo || []) L.push({ what: pc.id, kg: cargoKg(pc, tanks().can.litres), p: pc.p });
   return L;
 }
 applyYard();
@@ -10027,6 +10234,7 @@ function updateDiveHud() {
 
 let saveWarned = false;
 function save() {
+  cargoSave();
   for (const [k, b] of Object.entries(BOATS)) {
     state.boats[k] = { x: b.pos.x, z: b.pos.z, heading: b.heading, anchored: b.anchored && b.anchor?.phase !== 'haul', ...(b.emotorDown || b.outboardDown ? { motor: true } : {}), ...(b.sailUp ? { sail: Math.round(b.sheet * 100) / 100 } : {}) };
     // (Where her anchor lies, or the berth she's tied up at, so she's found just as she was left.)
@@ -11496,6 +11704,7 @@ function tick(now, manual = false) {
     // (Her papers: what she's done, see papers.js.)
     vesselRun(dt, hours, burnedNow);
     burnedNow = 0;
+    cargoTick();
     fuelCheckT -= dt;
     if (fuelCheckT <= 0) {
       fuelCheckT = 1;

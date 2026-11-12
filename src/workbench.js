@@ -535,8 +535,8 @@ function checkAll(s, p, ctx) {
 function canRow(s, { carHome, here, changed }) {
   const f = s.fuel, row = el('div', 'wb-kitrow');
   const t = el('div', '');
-  const words = { home: 'In the garage', car: 'In the car', pack: 'In your backpack' }[f.can.at];
-  t.append(el('b', '', `Jerry can (${canWords(f)})`), el('span', `wb-tag ${f.can.at === 'pack' ? 'carried' : f.can.at === 'car' ? 'loaded' : 'stored'}`, words));
+  const words = { home: 'In the garage', car: 'In the car', pack: 'In your backpack' }[f.can.at] || 'Aboard a boat';
+  t.append(el('b', '', `Jerry can (${canWords(f)})`), el('span', `wb-tag ${f.can.at === 'pack' ? 'carried' : f.can.at === 'car' || f.can.at.startsWith('boat:') ? 'loaded' : 'stored'}`, words));
   row.append(t);
   const chips = el('div', 'cp-choice');
   const opts = here === 'home' ? [['home', 'Garage'], ...(carHome ? [['car', 'Car']] : []), ['pack', 'Backpack']] : [['car', 'Boot'], ['pack', 'Backpack']];

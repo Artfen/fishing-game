@@ -14,6 +14,7 @@ import { cleanCamps } from './campsite.js';
 import { cleanEquip, cleanCar, cleanOuting, defaultEquip } from './outing.js';
 import { cleanGuide } from './firstTrip.js';
 import { cleanFuel } from './fuel.js';
+import { cleanCargo } from './cargo.js';
 import { CHOICES } from './quality.js';
 import { cleanStored } from './fleet.js';
 import { cleanTrailer } from './trailer.js';
@@ -168,6 +169,7 @@ const fresh = () => {
   s.guide = cleanGuide(null);
   s.fuel = cleanFuel(null);
   s.yard = cleanYard(null, VESSELS);
+  s.cargo = cleanCargo(null);
   s.dive = cleanDive(null);
   s.comfort = cleanComfort(null);
   s.today = newToday(s.day);
@@ -455,6 +457,10 @@ export function sanitize(raw) {
   s.home = cleanHome(raw.home, s);
   s.guide = cleanGuide(raw.guide);
   s.fuel = cleanFuel(raw.fuel);
+  // What you carry in your boats, and what Bert keeps for you (cargo.js); the jerry can aboard a
+  // boat that isn't one goes back to the garage.
+  s.cargo = cleanCargo(raw.cargo, VESSELS);
+  if (s.fuel.can.at.startsWith('boat:') && !VESSELS.includes(s.fuel.can.at.slice(5))) s.fuel.can.at = 'home';
   s.dive = cleanDive(raw.dive);
   s.seaLife = cleanSeaLife(raw.seaLife);
   s.comfort = cleanComfort(raw.comfort);

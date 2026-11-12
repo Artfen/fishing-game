@@ -11,6 +11,7 @@ import { FLAGS, flagById, STRIPE_PRICE, TUBES_PRICE } from './papers.js';
 import { MODELS as ENGINE_MODELS } from './engines.js';
 import { CATALOGUE, MODELS, PROPS, hasCatalogue, KN, rangeAt, propName, fittedName, propsFor } from './engines.js';
 import { TRIALS } from './engineTrials.js';
+import { CARGO, SOLD as CARGO_SOLD, owned as cargoOwned } from './cargo.js';
 import { CREELS, ICE, BAIT, creelOf, newShop, onIce, freshBaitToday, wearOf, wearWords, respoolPrice, creelGroups, groupWords, creelWords, kgWords } from './shop.js';
 import { KAIGAN_HOURS, RAW_HOURS, kaiganValue, kaiganLine, specialsFor, gradeWords, DISHES } from './kaigan.js';
 
@@ -162,7 +163,7 @@ export class HarbourSheet {
     $('hb-title').textContent = W === 'market' ? 'The fish market' : W === 'kaigan' ? 'Kaigan' : W === 'inn' ? 'The Lobster Pot' : W === 'chandlery' ? 'The chandlery' : W === 'works' ? 'Willowhaven Marine Works' : 'Bar El Muelle';
     $('hb-sub').textContent = `${formatClock(this.hour)} · day ${this.state.day} · ${W === 'muelle' ? 'Puerto Brasa' : 'Willowhaven'}`;
     $('hb-purse').textContent = `In your purse: ${money(this.state.money)}`;
-    const tabs = W === 'market' || W === 'kaigan' ? [] : W === 'inn' ? [['bar', 'The bar'], ['kitchen', 'The kitchen']] : W === 'chandlery' ? [['counter', 'The counter'], ['mend', 'Mending'], ['ready', 'Ready for a trip']] : W === 'works' ? [['boats', 'Boats'], ['looks', 'Paint & name'], ['fit', 'Fit-out']] : [['bar', 'The bar'], ['kitchen', 'The kitchen'], ['sell', 'Sell to Paco']];
+    const tabs = W === 'market' || W === 'kaigan' ? [] : W === 'inn' ? [['bar', 'The bar'], ['kitchen', 'The kitchen']] : W === 'chandlery' ? [['counter', 'The counter'], ['boat', 'For the boat'], ['mend', 'Mending'], ['ready', 'Ready for a trip']] : W === 'works' ? [['boats', 'Boats'], ['looks', 'Paint & name'], ['fit', 'Fit-out']] : [['bar', 'The bar'], ['kitchen', 'The kitchen'], ['sell', 'Sell to Paco']];
     $('hb-tabs').replaceChildren(...tabs.map(([id, text]) => {
       const b = el('button', id === this.tab ? 'on' : '', text);
       b.type = 'button';
@@ -173,7 +174,7 @@ export class HarbourSheet {
       return b;
     }), ...(W === 'muelle' ? [this.button('Your room upstairs', () => this.hooks.openRoom(), 'quiet hb-room')] : W === 'chandlery' ? [this.button('The tackle store (free)', () => this.hooks.openStore(), 'quiet hb-room')] : []));
     $('hb-tabs').hidden = !tabs.length;
-    const body = this.tab === 'kaigan' ? this.renderKaigan() : this.tab === 'boats' ? this.renderBoats() : this.tab === 'looks' ? this.renderLooks() : this.tab === 'fit' ? this.renderFit() : this.tab === 'sell' ? this.renderSell() : this.tab === 'kitchen' ? this.renderKitchen() : this.tab === 'counter' ? this.renderCounter() : this.tab === 'mend' ? this.renderMend() : this.tab === 'ready' ? this.renderReady() : this.renderBar();
+    const body = this.tab === 'kaigan' ? this.renderKaigan() : this.tab === 'boats' ? this.renderBoats() : this.tab === 'looks' ? this.renderLooks() : this.tab === 'fit' ? this.renderFit() : this.tab === 'sell' ? this.renderSell() : this.tab === 'kitchen' ? this.renderKitchen() : this.tab === 'counter' ? this.renderCounter() : this.tab === 'mend' ? this.renderMend() : this.tab === 'ready' ? this.renderReady() : this.tab === 'boat' ? this.renderBoatStores() : this.renderBar();
     $('hb-body').replaceChildren(...body);
   }
 
@@ -871,6 +872,60 @@ export class HarbourSheet {
     bait.append(bb);
     out.push(bait);
     out.push(el('p', 'cp-soft', 'Everything here is a help, never a need: the tackle store is free, and a fish caught on the plainest worm counts the same.'));
+    return out;
+  }
+
+  // Things for the boat (cargo.js): yours, where each is, put aboard a boat lying here or brought
+  // ashore, a cylinder refilled or a battery charged; and the shelves.
+  renderBoatStores() {
+    const out = [], C = this.hooks.cargo, here = C.boatsHere();
+    out.push(el('p', 'hb-say', '“Going further out? You’ll want a few things aboard.” Bert nods at the shelves by the door: cylinders, boxes, a crate of stores. “Strap them down, mind. Anything loose ends up in the scuppers the first time she heels.”'));
+    const mine = C.items();
+    if (mine.length) {
+      out.push(el('h3', '', 'Your things'));
+      for (const it of mine) {
+        const D = CARGO[it.id], kind = it.at.startsWith('boat:') ? it.at.slice(5) : null, lying = kind && here.some((h) => h.kind === kind);
+        const used = !it.full && (it.id === 'cylinder' || it.id === 'battery');
+        const row = el('div', 'cp-row');
+        row.append(el('p', '', `${D.name}${used ? (it.id === 'cylinder' ? ', breathed' : ', flat') : ''}: ${kind ? `aboard the ${C.nameOf(kind)}${it.secured ? '' : ', loose'}` : 'here, in Bert’s store room'}`));
+        if (used && (!kind || lying)) row.append(this.button(it.id === 'cylinder' ? 'Fill it (free)' : 'Charge it (free)', () => {
+          C.renew(it.uid);
+          this.hooks.toast(it.id === 'cylinder' ? 'Bert fills the cylinder from the compressor: full again.' : 'Bert swaps it for one off the charger: charged.', 3);
+          this.hooks.changed();
+          this.render();
+        }, 'quiet'));
+        if (!kind) for (const h of here) row.append(this.button(`Aboard the ${h.name}`, () => {
+          const r = C.aboard(it.uid, h.kind);
+          this.hooks.toast(r.ok ? `The ${D.short} goes aboard the ${h.name}, strapped down on her deck.` : r.why, 4);
+          if (r.ok) this.hooks.changed();
+          this.render();
+        }, 'quiet'));
+        if (kind && lying) row.append(this.button('Bring it ashore', () => {
+          const r = C.ashore(it.uid);
+          if (r.ok) this.hooks.changed();
+          this.render();
+        }, 'quiet'));
+        out.push(row);
+      }
+      if (!here.length) out.push(el('p', 'cp-soft', 'To load or unload, bring a boat you can walk about (the RIB, the centre console or the yacht) into Willowhaven and stop.'));
+    }
+    out.push(el('h3', '', 'On the shelves'));
+    for (const id of CARGO_SOLD) {
+      const D = CARGO[id], n = cargoOwned({ items: mine }, id), most = D.most || 1;
+      const row = el('div', 'cp-row');
+      row.append(el('p', '', `${D.name}, ${D.kg} kg. ${D.note}`), el('span', 'cp-soft', n >= most ? (most > 1 ? `you’ve ${n}` : 'yours') : money(D.price)));
+      const b = this.button('Buy it', () => {
+        if (cargoOwned({ items: C.items() }, id) >= most || !this.pay(D.price)) return;
+        const r = C.buy(id);
+        this.hooks.toast(r.ok ? `The ${D.short} is yours: Bert keeps it here till you put it aboard.` : r.why, 4);
+        this.hooks.changed();
+        this.render();
+      });
+      b.disabled = n >= most;
+      row.append(b);
+      out.push(row);
+    }
+    out.push(el('p', 'cp-soft', 'On her deck, walk to a thing (off the helm) to pick it up, move it, strap it down or let it go. Strapped, it stays put; loose, it slides when she heels, lurches or turns hard, and its weight goes with it. The jerry can goes aboard from your backpack.'));
     return out;
   }
 

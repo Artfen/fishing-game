@@ -16,6 +16,7 @@ import { RODS } from './tackle.js';
 import { Rope } from './rope.js';
 import { reachFor, berthAt } from './mooring.js';
 import { Dress } from './dress.js';
+import { CARGO, slide as slidePiece } from './cargo.js';
 import { sailForce, hullDrag, boardGrip, heelFor, SAIL, boardDrag, finGrip } from './sailing.js';
 
 // The boats. Each has its own hull (metres; the bow points along local +z), its own
@@ -488,6 +489,79 @@ const ALL = [];
 // (You, as she's weighed: see loadForces.)
 const SKIPPER_KG = 80;
 
+// A piece of cargo as it's drawn (see cargo.js; Boat.setCargo): its own simple shapes in its own
+// colours, lying as it's stowed (its length fore-and-aft), with the two webbing straps that hold
+// it down while it's strapped. Centred on its middle. One mesh a piece; the shapes are made once
+// for each kind, strapped and not, and shared.
+let cargoMat = null;
+const cargoGeos = new Map();
+function cargoGeo(id, strapped) {
+  const key = `${id}:${strapped ? 1 : 0}`;
+  if (!cargoGeos.has(key)) {
+    const { parts, straps } = cargoParts(id);
+    cargoGeos.set(key, mergeParts(strapped ? [...parts, ...straps] : parts));
+  }
+  return cargoGeos.get(key);
+}
+function cargoMesh(id, strapped) {
+  cargoMat ||= new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.08 });
+  const m = new THREE.Mesh(cargoGeo(id, strapped), cargoMat);
+  m.castShadow = true;
+  m.name = `cargo:${id}`;
+  m.userData.strapped = !!strapped;
+  return m;
+}
+function cargoParts(id) {
+  const C = CARGO[id], [w, h, l] = C.size, parts = [], straps = [];
+  const box = (to, bw, bh, bd, x, y, z, color, rx = 0) => to.push({ geo: new THREE.BoxGeometry(bw, bh, bd), matrix: mat(x, y, z, rx, 0, 0), color, jitter: 0.03 });
+  const cyl = (to, r, len, x, y, z, color, rx = Math.PI / 2, seg = 14) => to.push({ geo: new THREE.CylinderGeometry(r, r, len, seg), matrix: mat(x, y, z, rx, 0, 0), color, jitter: 0.03 });
+  const r = w / 2;
+  if (id === 'cylinder') {
+    // (Lying fore-and-aft: the shoulder and valve forward, a black boot on its foot.)
+    cyl(parts, r, l * 0.78, 0, 0, -0.02, C.colour);
+    parts.push({ geo: new THREE.SphereGeometry(r, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), matrix: mat(0, 0, l * 0.37, Math.PI / 2, 0, 0), color: C.colour, jitter: 0.03 });
+    cyl(parts, r * 1.04, l * 0.16, 0, 0, -l * 0.42, '#1b1d20');
+    cyl(parts, 0.03, 0.09, 0, 0, l * 0.37 + r * 0.9, '#a7adb3');
+    cyl(parts, 0.035, 0.05, 0, 0.05, l * 0.37 + r * 0.95, '#2c2f33', 0);
+    cyl(parts, r * 1.02, 0.03, 0, 0, l * 0.12, '#2a6f97');
+  } else if (id === 'fishbox') {
+    box(parts, w, h * 0.8, l, 0, -h * 0.1, 0, C.colour);
+    box(parts, w + 0.02, h * 0.2, l + 0.02, 0, h * 0.4, 0, C.trim);
+    for (const s of [-1, 1]) box(parts, 0.03, 0.04, 0.16, s * (w / 2 + 0.012), h * 0.18, 0, '#2a2d30');
+  } else if (id === 'case') {
+    box(parts, w, h, l, 0, 0, 0, C.colour);
+    box(parts, w + 0.01, 0.02, l + 0.01, 0, h * 0.12, 0, '#3a4046');
+    for (const s of [-1, 1]) box(parts, 0.05, 0.05, 0.02, s * w * 0.28, h * 0.12, l / 2 + 0.006, C.trim);
+    box(parts, 0.04, 0.03, 0.16, -w / 2 - 0.012, 0, 0, '#15181b');
+  } else if (id === 'battery') {
+    box(parts, w, h * 0.88, l, 0, -h * 0.06, 0, C.colour);
+    box(parts, w + 0.006, h * 0.12, l + 0.006, 0, h * 0.44, 0, '#2d3236');
+    cyl(parts, 0.016, 0.04, 0.05, h / 2 + 0.02, l * 0.3, C.trim, 0, 8);
+    cyl(parts, 0.016, 0.04, 0.05, h / 2 + 0.02, -l * 0.3, '#111', 0, 8);
+    box(parts, 0.02, 0.05, l * 0.5, -0.04, h / 2 + 0.025, 0, '#111');
+  } else if (id === 'stores') {
+    box(parts, w * 0.96, h * 0.96, l * 0.96, 0, 0, 0, '#6f5536');
+    for (const y of [-0.38, -0.05, 0.28]) {
+      box(parts, w, h * 0.2, 0.02, 0, y * h, l / 2, C.colour);
+      box(parts, w, h * 0.2, 0.02, 0, y * h, -l / 2, C.colour);
+      box(parts, 0.02, h * 0.2, l, w / 2, y * h, 0, C.colour);
+      box(parts, 0.02, h * 0.2, l, -w / 2, y * h, 0, C.colour);
+    }
+    for (let i = 0; i < 6; i++) cyl(parts, 0.035, 0.06, (i % 2 ? 0.1 : -0.1), h / 2 + 0.02, -0.18 + (Math.floor(i / 2) * 0.18), '#2f6fa8', 0, 8);
+  } else {
+    // (The jerry can: upright, its handle along the top, the spout capped.)
+    box(parts, w, h * 0.84, l, 0, -h * 0.08, 0, C.colour);
+    box(parts, w * 0.5, 0.05, l * 0.7, 0, h * 0.4, -l * 0.08, C.colour);
+    cyl(parts, 0.025, 0.07, 0, h * 0.4, l * 0.36, '#d7b52a', 0.6, 8);
+  }
+  // (The straps: two bands round it, down to the deck.)
+  for (const z of [-l * 0.26, l * 0.26]) {
+    box(straps, w + 0.03, 0.012, 0.04, 0, h / 2 + 0.006, z, '#1f2b3a');
+    for (const s of [-1, 1]) box(straps, 0.012, h + 0.01, 0.04, s * (w / 2 + 0.012), 0, z, '#1f2b3a');
+  }
+  return { parts, straps };
+}
+
 // Far off, a boat's small parts aren't drawn: her hull, cabin, consoles, sails and anything else
 // big still are, so her shape doesn't change, but her fittings, rods, figure's hands and the like
 // (each its own draw call and shadow) would be a pixel or two for the cost of a near boat's. Two
@@ -781,6 +855,139 @@ export class Boat {
     }
   }
 
+  // Her cargo (cargo.js): what's on her deck, each drawn where it sits, strapped down or loose.
+  // The game hands her the pieces ({ key, id, x, z, secured, full }); she keeps them (with the
+  // loose ones' sliding) as this.cargo, each with `p`, its middle in her own space, which is
+  // where its weight acts (main.js loadsOf). A piece already aboard keeps its mesh.
+  setCargo(pieces = []) {
+    const old = new Map((this.cargo || []).map((p) => [p.key, p])), keep = new Set();
+    if (!this.cargoGroup) {
+      this.cargoGroup = new THREE.Group();
+      this.cargoGroup.name = 'cargo';
+      this.body.add(this.cargoGroup);
+    }
+    this.cargo = pieces.filter((p) => CARGO[p.id] && !keep.has(p.key)).map((p) => {
+      const was = old.get(p.key), pc = was && was.id === p.id ? was : { key: p.key, id: p.id, vx: 0, vz: 0, p: [0, 0, 0], mesh: null };
+      Object.assign(pc, { x: p.x, z: p.z, secured: !!p.secured, full: p.full !== false, carried: !!p.carried });
+      if (pc.secured) pc.vx = pc.vz = 0;
+      const at = this.cargoFit(pc, pc.x, pc.z);
+      pc.x = at.x;
+      pc.z = at.z;
+      if (!pc.mesh) this.cargoGroup.add((pc.mesh = cargoMesh(pc.id, pc.secured)));
+      this.strapCargo(pc, pc.secured);
+      keep.add(pc.key);
+      this.placeCargo(pc);
+      return pc;
+    });
+    // (Their shapes are shared: only the mesh goes.)
+    for (const [k, pc] of old) if (!keep.has(k)) pc.mesh.removeFromParent();
+    return this.cargo;
+  }
+
+  // Strapped down or loose: its straps drawn or not, and a strapped one still.
+  strapCargo(pc, on) {
+    pc.secured = !!on;
+    if (pc.secured) pc.vx = pc.vz = 0;
+    if (pc.mesh && pc.mesh.userData.strapped !== pc.secured) {
+      pc.mesh.geometry = cargoGeo(pc.id, pc.secured);
+      pc.mesh.userData.strapped = pc.secured;
+    }
+  }
+
+  // Where a piece can sit on her floor near (x, z): inside her sides and ends (by its own size),
+  // clear of her console (out of it the shortest way), and aft of a wheelhouse. Returns { x, z }.
+  cargoFit(pc, x, z) {
+    const H = this.hull, C = CARGO[pc.id], hx = C.size[0] / 2, hz = C.size[2] / 2;
+    const z0 = -H.L / 2 + H.L * 0.08 + hz, z1 = -H.L / 2 + H.L * (H.wheelhouse || H.cabin ? (H.cabin ? H.cabin[0] : 0.6) : 0.84) - hz;
+    let nz = clamp(z, z0, Math.max(z0, z1));
+    const room = () => Math.max(0, Math.min(this.deckRoom(nz - hz), this.deckRoom(nz + hz)) - hx);
+    let nx = clamp(x, -room(), room());
+    const S = H.standing;
+    if (S && !H.cabin) {
+      const [cx, cz] = S.helm, x0 = cx - 0.42 - hx, x1 = cx + 0.42 + hx, za = cz + 0.3 - hz, zb = cz + 1.15 + hz;
+      if (nx > x0 && nx < x1 && nz > za && nz < zb) {
+        const m = Math.min(nx - x0, x1 - nx, nz - za, zb - nz);
+        // (Out to the side only where there's room beside it; else out of its front or back.)
+        if (m === nx - x0 && -room() <= x0) nx = x0;
+        else if (m === x1 - nx && room() >= x1) nx = x1;
+        else if (nz - za < zb - nz) nz = za;
+        else nz = zb;
+        nz = clamp(nz, z0, Math.max(z0, z1));
+        nx = clamp(nx, -room(), room());
+      }
+    }
+    return { x: nx, z: nz };
+  }
+
+  // As cargoFit, and clear of her other pieces too (each a box on her floor: out of one the
+  // shortest way). What a loose piece slides into, and where one's set down.
+  cargoClear(pc, x, z) {
+    let at = this.cargoFit(pc, x, z);
+    const C = CARGO[pc.id];
+    const over = (p, o) => Math.abs(p.x - o.x) < (C.size[0] + CARGO[o.id].size[0]) / 2 - 1e-6 && Math.abs(p.z - o.z) < (C.size[2] + CARGO[o.id].size[2]) / 2 - 1e-6;
+    const others = (this.cargo || []).filter((o) => o !== pc && o.key !== pc.key && !o.carried);
+    for (let pass = 0; pass < 3; pass++) {
+      const o = others.find((q) => over(at, q));
+      if (!o) return at;
+      // (Beside it on each of its four sides, kept on her floor; the nearest that's clear of
+      // everything, or failing that clear of this one.)
+      const gx = (C.size[0] + CARGO[o.id].size[0]) / 2 + 0.002, gz = (C.size[2] + CARGO[o.id].size[2]) / 2 + 0.002;
+      const from = at, near = (a, b) => Math.hypot(a.x - from.x, a.z - from.z) - Math.hypot(b.x - from.x, b.z - from.z);
+      const cands = [[o.x + gx, from.z], [o.x - gx, from.z], [from.x, o.z + gz], [from.x, o.z - gz]].map(([cx, cz]) => this.cargoFit(pc, cx, cz)).sort(near);
+      at = cands.find((c) => !others.some((q) => over(c, q))) || cands.find((c) => !over(c, o)) || from;
+      if (at === from) return at;
+    }
+    return at;
+  }
+
+  // A piece drawn where it is: on her floor; carried, in your hands as you walk her deck.
+  placeCargo(pc) {
+    const H = this.hull, C = CARGO[pc.id], y0 = H.floorY ?? 0.1, D = this.deck;
+    let x = pc.x, z = pc.z, y = y0 + C.size[1] / 2, yaw = 0;
+    if (pc.carried && D) {
+      x = D.x + Math.sin(D.yaw) * 0.34;
+      z = D.z + Math.cos(D.yaw) * 0.34;
+      y = y0 + 0.78;
+      yaw = D.yaw;
+    }
+    pc.p[0] = x;
+    pc.p[1] = y;
+    pc.p[2] = z;
+    pc.mesh.position.set(x, y, z);
+    pc.mesh.rotation.y = yaw;
+  }
+
+  // Her loose things, a step (cargo.js slide): what each feels in her own space (gravity less her
+  // acceleration, and the turn) slides it where the deck's grip lets go, until it fetches up
+  // against her side or her console. Only while she's awake (cargoAwake: the boat you're in or
+  // near); otherwise they stay as they are. The hardest knock this step: cargoHit (m/s).
+  slideCargo(dt) {
+    const b = this._phys, L = this.cargo;
+    this.cargoHit = 0;
+    if (!L?.length || !b) return;
+    const v = b.v, pv = this._pv;
+    this._pv = [v[0], v[1], v[2]];
+    if (!pv || !this.cargoAwake || dt <= 0 || L.every((pc) => pc.secured && !pc.carried)) {
+      if (L.some((pc) => pc.carried)) for (const pc of L) this.placeCargo(pc);
+      return;
+    }
+    // (What a kilogram on her deck feels, in the world: gravity, less her acceleration; and in her
+    // own space, y the push into her deck.)
+    const R = b.R, wx = -(v[0] - pv[0]) / dt, wy = -G - (v[1] - pv[1]) / dt, wz = -(v[2] - pv[2]) / dt;
+    const F = (this._F ||= { x: 0, y: 0, z: 0 }), f = (this._f ||= { x: 0, y: 0, z: 0 });
+    F.x = R[0] * wx + R[3] * wy + R[6] * wz;
+    F.y = -(R[1] * wx + R[4] * wy + R[7] * wz);
+    F.z = R[2] * wx + R[5] * wy + R[8] * wz;
+    const w2 = b.w[1] * b.w[1], cg = b.model.cg, fit = (this._fit ||= (pc, x, z) => this.cargoClear(pc, x, z));
+    for (const pc of L) {
+      f.x = F.x + w2 * (pc.x - cg[0]);
+      f.y = F.y;
+      f.z = F.z + w2 * (pc.z - cg[2]);
+      this.cargoHit = Math.max(this.cargoHit, slidePiece(pc, f, fit, dt));
+      this.placeCargo(pc);
+    }
+  }
+
   // How much of her to draw from where the camera is (see DETAIL, boatDetail): 0 all of her, 1
   // without her small parts, 2 without her middling ones either. (With a little slack either
   // side of each step, so she doesn't flicker at the line.)
@@ -839,6 +1046,7 @@ export class Boat {
   }
 
   place(x, z, heading) {
+    this._pv = null;
     this.pos.set(x, 0, z);
     this.vel.set(0, 0, 0);
     this.heading = heading;
@@ -3959,8 +4167,10 @@ export class Boat {
     const ax = air.x - this.fwd.x * vg - this.right.x * vs * 0.3, az = air.z - this.fwd.z * vg - this.right.z * vs * 0.3;
     b.thrusters.length = 0;
     b.forces.length = 0;
-    // What she carries, each weight where it is (see setLoads), and you where you stand on her
-    // deck: she trims and heels to them through her own buoyancy.
+    // Her loose cargo sliding about her deck (see slideCargo), then what she carries, each weight
+    // where it is (see setLoads), and you where you stand on her deck: she trims and heels to
+    // them through her own buoyancy.
+    this.slideCargo(dt);
     this.loadForces(b);
     b.ropes.length = 0;
     b.rudder = -steer;

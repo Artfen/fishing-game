@@ -24,7 +24,8 @@ import { DESTS, driveMinutes } from './outing.js';
 //    a quay and overnight, free. Flat, it stops, and the oars take you in.
 //
 // state.fuel: { car, boats: { skiff, bass, cabin, sail, cruiser, console, rib, jetski } (litres), battery (0…1),
-//   kayak (0…1), troll: { kind: 0…1 }, elec: { kind: 0…1 }, can: { at, litres } }
+//   kayak (0…1), troll: { kind: 0…1 }, elec: { kind: 0…1 }, can: { at ('home', 'car', 'pack' or
+//   'boat:<kind>', aboard her), litres } }
 
 // (The sailing boat's little outboard has a small tank of its own; the yacht (id 'cruiser') a
 // big one, enough for the long passage south and some.)
@@ -35,6 +36,8 @@ export const PETROL = ['skiff', 'bass', 'cabin', 'sail', 'cruiser', 'console', '
 export const PASSAGE_FUEL = 90;
 export const CAN = 10;
 export const CAN_PLACES = ['home', 'car', 'pack'];
+// (Or aboard a boat, on her deck as cargo: 'boat:<kind>'; see cargo.js.)
+export const canPlace = (at) => CAN_PLACES.includes(at) || (typeof at === 'string' && /^boat:[a-z]{2,12}$/.test(at));
 // The car: litres a minute of driving (a drive you let go by), and a metre (one you drive).
 // (Home to Willowhaven is about 2 L; Wend Quay or the Mere Boathouse and back, about a third of a tank.)
 export const CAR_PER_MIN = 0.35;
@@ -81,7 +84,7 @@ export function cleanFuel(raw) {
   // (A save from before the kayak had a motor: its battery starts full.)
   d.kayak = num(raw.kayak, 1, 0, 1);
   if (isObj(raw.can)) {
-    d.can.at = CAN_PLACES.includes(raw.can.at) ? raw.can.at : 'home';
+    d.can.at = canPlace(raw.can.at) ? raw.can.at : 'home';
     d.can.litres = num(raw.can.litres, CAN, 0, CAN);
   }
   return d;
@@ -196,7 +199,7 @@ export function pour(f, into) {
 }
 
 export function moveCan(f, to) {
-  if (!CAN_PLACES.includes(to)) return { ok: false, why: 'Nowhere to put it.' };
+  if (!canPlace(to)) return { ok: false, why: 'Nowhere to put it.' };
   f.can.at = to;
   return { ok: true };
 }
@@ -225,7 +228,7 @@ export function fuelCheck(f, from, to) {
   const there = carNeeds(from, to), back = carNeeds(to, 'home');
   const have = f.car;
   const out = [];
-  const canWith = f.can.at !== 'home' && f.can.litres >= 1;
+  const canWith = (f.can.at === 'pack' || f.can.at === 'car') && f.can.litres >= 1;
   if (have >= there + back) out.push({ level: 'ok', text: `Fuel: ${tankWords(f, 'car')}, plenty for ${D.name} and back (about ${litres(there + back)}).` });
   else if (have + (canWith ? f.can.litres : 0) >= there + back) out.push({ level: 'info', text: `Fuel: ${tankWords(f, 'car')} gets you to ${D.name} (about ${litres(there)}); the jerry can with you gets you home again.` });
   else if (have >= there) out.push({ level: 'info', text: `Fuel: ${tankWords(f, 'car')} gets you to ${D.name} (about ${litres(there)}), but not home again: fill up at the pump by the garage, or take the jerry can.` });
