@@ -3635,7 +3635,7 @@ function jobWeight() {
     const kg = Con.aboardKg(state.contracts, k) + Story.storyKg(state.story, k);
     if ((BOATS[k]._jobKg || 0) === kg) continue;
     BOATS[k]._jobKg = kg;
-    BOATS[k].payload = payloadOf(k);
+    BOATS[k].setLoads(loadsOf(k));
   }
   // (And the charters' people, sat in the boat they're aboard: see passengers.js.)
   const people = (a) => (a.obj.kind === 'charter' && a.progress.aboard ? a.obj.pax : a.obj.kind === 'pickup' && a.obj.what === 'person' && a.progress.picked ? 1 : 0);
@@ -7238,18 +7238,25 @@ function applyYard() {
     b.retube?.(hex(L.tubes));
     if ((b.flagId || null) !== (L.flag || null) || L.flag === 'own') b.setFlag?.(flagById[L.flag] || null, { paint: hex(L.paint), stripe: hex(L.stripe) });
     // (What she carries, how hard her anchor holds, and her fittings to see.)
-    b.payload = payloadOf(k, e);
+    b.setLoads(loadsOf(k, e));
     b.anchorHold = e.hold;
     b.setFits?.(e.list);
     trollOf(b);
   }
 }
-// What a boat carries beyond her own weight: her fittings, and fuel past what her standard tank
-// would hold (a long-range tank, full: heavier).
-function payloadOf(k, e = fitEffect(state.yard, k)) {
-  const extra = YARD_BASE.tanks[k] ? Math.max(0, fuelLevel(tanks(), k) - YARD_BASE.tanks[k]) : 0;
-  // (An engine from the catalogue weighs what it weighs: lighter or heavier than her own.)
-  return e.kg + (BOATS[k].motorSpec?.kg || 0) + extra * (ENGINES[k]?.diesel ? 0.84 : 0.74) + Con.aboardKg(state.contracts, k) + Story.storyKg(state.story, k);
+// What a boat carries beyond her own weight as built, and where (boat.js setLoads, loadPlace):
+// each of her fittings where it's fitted; an engine from the catalogue at her transom (lighter or
+// heavier than her own); her fuel at her tank (past what her standard tank holds full, heavier;
+// with less than that in it, lighter); passengers, freight and anything else aboard for a job or
+// the story, in her cockpit. She trims and heels to it all.
+function loadsOf(k, e = fitEffect(state.yard, k)) {
+  const b = BOATS[k], L = [], fuelKg = ENGINES[k]?.diesel ? 0.84 : 0.74;
+  for (const id of e.list) if (FITS[id]?.kg) L.push({ what: id, kg: FITS[id].kg, p: b.loadPlace(id) });
+  if (b.motorSpec?.kg) L.push({ what: 'engine', kg: b.motorSpec.kg, p: b.loadPlace('engine') });
+  if (YARD_BASE.tanks[k]) L.push({ what: 'fuel', kg: (fuelLevel(tanks(), k) - YARD_BASE.tanks[k]) * fuelKg, p: b.loadPlace('fuel') });
+  const aboard = Con.aboardKg(state.contracts, k) + Story.storyKg(state.story, k);
+  if (aboard) L.push({ what: 'aboard', kg: aboard, p: b.loadPlace('cockpit') });
+  return L;
 }
 applyYard();
 jobWeight();
@@ -11492,7 +11499,7 @@ function tick(now, manual = false) {
     fuelCheckT -= dt;
     if (fuelCheckT <= 0) {
       fuelCheckT = 1;
-      for (const k of KINDS) BOATS[k].payload = payloadOf(k);
+      for (const k of KINDS) BOATS[k].setLoads(loadsOf(k));
       if (!onFoot && (isPetrol(boat.kind) || ELEC[boat.kind]) && boat.motor) watchTank(boat.kind);
       if (driving) watchTank('car');
     }
