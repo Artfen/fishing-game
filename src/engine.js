@@ -134,6 +134,8 @@ export function blocker(E, ctx = {}) {
   if (P.cord && !E.cord) return { id: 'cord', text: 'The kill cord isn’t clipped on' };
   if (ctx.lever) return { id: 'neutral', text: 'She’s in gear: the starter only turns in neutral' };
   if (P.starter === 'key' && !E.key) return { id: 'key', text: 'The key is off' };
+  // (Her battery terminal shaken loose: see damage.js. Set by the game each frame, never saved.)
+  if (E.loose && P.battery) return { id: 'loose', text: 'A click, and nothing: the battery terminal’s loose. Do it up (look her over) and try again' };
   if (P.electric) return ctx.fuel <= 0 ? { id: 'flat', text: 'Its battery is flat: it charges at a jetty, and overnight' } : null;
   if (P.starter !== 'pull' && E.charge < 0.12) return { id: 'flat', text: 'The battery is flat: the starter only clicks' };
   return null;
@@ -241,6 +243,16 @@ export function act(E, action, ctx = {}, which = null, rnd = Math.random) {
     default:
       return done(false, 'Nothing to do');
   }
+}
+
+// Everything electrical dropped at once (her battery terminal shaken loose by a jolt: see
+// damage.js shake): the engine stops where it is, and the assisted start gives up. Returns whether
+// it was running.
+export function cutOut(E) {
+  const was = running(E) || cranking(E);
+  for (const e of E.engines) stopOne(e);
+  E.auto = null;
+  return was;
 }
 
 function stopOne(e) {

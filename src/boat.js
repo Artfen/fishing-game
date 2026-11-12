@@ -17,7 +17,7 @@ import { Rope } from './rope.js';
 import { reachFor, berthAt } from './mooring.js';
 import { Dress } from './dress.js';
 import { CARGO, slide as slidePiece } from './cargo.js';
-import { MODES, materialOf, sectionAt, knock, scrape as scrapeHull, firmness, roughness, chamberAt, CHAMBER_SPLIT, surfaceAt } from './damage.js';
+import { MODES, materialOf, sectionAt, knock, scrape as scrapeHull, firmness, roughness, chamberAt, CHAMBER_SPLIT, surfaceAt, legStrike, rudderStrike, shake, steered, mountPush } from './damage.js';
 import { sailForce, hullDrag, boardGrip, heelFor, SAIL, boardDrag, finGrip } from './sailing.js';
 
 // The boats. Each has its own hull (metres; the bow points along local +z), its own
@@ -874,7 +874,13 @@ export class Boat {
     }
     const M = b.model, H = this.hull, mode = this.damageMode || MODES.standard;
     const h = b.hit;
-    if (h.vn > 0.9 && h.i >= 0) {
+    // (A rudder's foot on the bottom: her steering, not her hull. See damage.js rudderStrike.)
+    const foil = !h.set && h.i >= 0 ? M.groundFoil?.[h.i] ?? -1 : -1;
+    if (h.vn > 0.9 && foil >= 0 && M.foils[foil].steer) {
+      const side = -(this.vel.x * this.right.x + this.vel.z * this.right.z);
+      const r = rudderStrike(D, { vn: h.vn, side }, mode);
+      if (r) this.onDamage?.(this, r, { vn: h.vn, surface: this.groundAt(h.x, h.z), part: true });
+    } else if (h.vn > 0.9 && h.i >= 0) {
       const lp = (h.set ? M.ring : M.contacts)[h.i];
       if (lp) {
         const ev = {
@@ -901,6 +907,16 @@ export class Boat {
     } else b.tubeLift = null;
     b.rough = roughness(D);
     this.sagTubes();
+  }
+
+  // A jolt through her (m/s: a landing off a wave, a slam into one): her battery terminal shaken
+  // (only a boat with a battery: see damage.js shake). 'loose' as it goes; 'cut' when a hard one
+  // finds it loose already (the game cuts the engine).
+  jolt(v) {
+    const D = this.damage;
+    if (!D || !this.engine || !profileOf(this.engine.kind)?.battery) return;
+    const r = shake(D, v, this.damageMode || MODES.standard);
+    if (r) this.onDamage?.(this, { parts: ['wiring'], wiring: r, jolt: v }, { part: true, jolt: v });
   }
 
   // The bottom under a point: rock (a sea stack, or rock on the seabed's map: Boat.rockAt, set by
@@ -973,6 +989,12 @@ export class Boat {
     E.dmg = Math.min(1, (E.dmg || 0) + add);
     this.strikeT = 1.2;
     this.onStrike?.(this, { speed: v, add, dmg: E.dmg });
+    // (Harder, it bends her steering and works her bracket loose: see damage.js legStrike.)
+    if (this.damage) {
+      const side = -(this.vel.x * this.right.x + this.vel.z * this.right.z);
+      const r = legStrike(this.damage, { speed: v, side }, this.damageMode || MODES.standard);
+      if (r) this.onDamage?.(this, r, { speed: v, surface: this.groundAt(this.pos.x, this.pos.z), part: true });
+    }
   }
 
   // Her cargo (cargo.js): what's on her deck, each drawn where it sits, strapped down or loose.
@@ -4304,7 +4326,7 @@ export class Boat {
     this.slideCargo(dt);
     this.loadForces(b);
     b.ropes.length = 0;
-    b.rudder = -steer;
+    b.rudder = steered(this.damage, -steer);
     b.legDown = false;
     b.balance = 0;
     b.pitchBalance = 0;
@@ -4380,7 +4402,8 @@ export class Boat {
         // where it cavitates.)
         const bent = this.engine?.dmg ? 1 - this.engine.dmg * (0.3 + 0.25 * Math.abs(pw)) : 1;
         const ahead = S ? pushAt(S, vf) : (E || M).thrust, astern = S ? S.astern : (E || M).astern;
-        const k = (tilted ? 0.22 : 1) * (TE ? TE.eff : 1) * bent;
+        // (Her bracket worked loose on the bottom (C5b): the engine shifts on the transom.)
+        const k = (tilted ? 0.22 : 1) * (TE ? TE.eff : 1) * bent * mountPush(this.damage);
         thrust = (pw > 0 ? ahead * pw : astern * pw) * share * k;
         // (Each leg's share of her push: its own lever split, its own engine running or not.)
         if (twin) {
@@ -4401,7 +4424,7 @@ export class Boat {
       // pace, and only a little way at speed: see helmTo.
       const hold = this.holdCourse(steer, !held && Math.abs(pw) > 0.02 && Math.abs(vf) > 0.6);
       const helm = this.helmTo(steer || -hold * (vf < 0 ? -1 : 1), dt, vf);
-      b.rudder = -helm;
+      b.rudder = steered(this.damage, -helm);
       // (Astride a jet ski you balance it with your weight; at the wheel of a fast boat, the
       // driver's trim keeps her from walking from chine to chine.)
       b.balance = M?.jet ? 0.8 : M ? 0.25 * smoothstep(4, 10, Math.abs(vf)) : 0;
@@ -4592,7 +4615,7 @@ export class Boat {
       // (On the Helped trim, the hand besides yours eases her as she goes over: she barely gripes.)
       const over = smoothstep(0.48, 0.72, Math.abs(this.roll)) * smoothstep(0.25, 0.6, A.power) * smoothstep(0.8, 2, Math.abs(vf)) * (this.sheetHelp ? 0.25 : 1);
       this.overpowered = over;
-      b.rudder = -this.helmTo(tiller, dt, vf) * (1 - 0.9 * over);
+      b.rudder = steered(this.damage, -this.helmTo(tiller, dt, vf) * (1 - 0.9 * over));
       if (over > 0.01 && !held) {
         // (Towards the wind: where it comes from, across her bow. The heeled hull's turning moment
         // grows with the square of her speed through the water, as any hull force does.)
@@ -4721,7 +4744,16 @@ export class Boat {
     }
     // Clear of the water (a jet ski off a crest): in the air, and the smack of landing.
     this.air = b.dryT > 0.06;
-    if (wasAir && !this.air && -airVy > 1) this.onLand?.(this, -airVy);
+    if (wasAir && !this.air && -airVy > 1) {
+      this.onLand?.(this, -airVy);
+      this.jolt(-airVy);
+    }
+    // (Her bow slamming into a sea: the hardest of each slam, a jolt through her.)
+    this.slamT = Math.max(0, (this.slamT || 0) - dt);
+    if (this.slam > 3 && this.slamT <= 0) {
+      this.jolt(this.slam * 0.8);
+      this.slamT = 0.5;
+    }
     if (!this.air) this._airVy = 0;
     // Knocks and scrapes: against a pier, another boat or the bottom.
     this.bumpCooldown -= dt;

@@ -13,9 +13,21 @@
 // side; the others hold her up. The foot pump puts the air back for a while; the yard patches the
 // hole. (Water coming in, through a hull holed or cracked through, is C6: flooding.)
 //
-// Difficulty: on Relaxed, knocks scuff the paint and no more (and a tube never punctures); on
-// Standard, the full account; on Realistic, a little less takes a little more, and a punctured
-// tube goes soft sooner.
+// And (C5b) her working parts, each hurt only by what can hurt it:
+// - Her steering: an outboard's leg driven onto the bottom fast (the strike that bends its
+//   propeller, harder: its swivel and the steering cable take it), or a rudder's foot hitting it.
+//   It's bent (she pulls to one side, the way the blow pushed it) and stiff (less lock).
+// - Her outboard's mounting: the same strike, harder still, works the bracket's bolts loose: she
+//   loses push and judders. The bolts can be done up at sea, most of the way; the yard does the
+//   rest.
+// - Her electrics: the battery terminal, shaken by hard landings off waves and slams into them,
+//   each worse than the last past a jolt a boat's built for, works loose. Loose, the next hard
+//   jolt cuts the engine and the instruments, and the starter only clicks until it's done up (at
+//   sea, with a spanner, for good).
+//
+// Difficulty: on Relaxed, knocks scuff the paint and no more (a tube never punctures, and her
+// working parts take no harm); on Standard, the full account; on Realistic, a little less takes a
+// little more, and a punctured tube goes soft sooner.
 
 export const SECTIONS = ['bow', 'port', 'stbd', 'stern', 'bottom'];
 export const SECTION_NAMES = { bow: 'her bow', port: 'her port side', stbd: 'her starboard side', stern: 'her stern', bottom: 'her bottom' };
@@ -56,9 +68,19 @@ export const surfaceAt = (rock) => (rock > 0.45 ? 'rock' : 'sand');
 // By difficulty. cap: the worst a knock can do to her hull; v: her thresholds' share; k: damage's;
 // tubes: whether they puncture; leak: how fast a puncture lets go.
 export const MODES = {
-  relaxed: { cap: 0.2, v: 1.3, k: 0.6, tubes: false, leak: 0 },
-  standard: { cap: 1, v: 1, k: 1, tubes: true, leak: 1 },
-  realistic: { cap: 1, v: 0.85, k: 1.3, tubes: true, leak: 1.8 },
+  relaxed: { cap: 0.2, v: 1.3, k: 0.6, tubes: false, leak: 0, parts: false },
+  standard: { cap: 1, v: 1, k: 1, tubes: true, leak: 1, parts: true },
+  realistic: { cap: 1, v: 0.85, k: 1.3, tubes: true, leak: 1.8, parts: true },
+};
+// Her working parts (C5b). steer: a leg's strike bends it past v0 (m/s over the ground), a
+// rudder's foot past rudder (m/s square on); bend: rad of pull for each m/s past it, up to most;
+// stiff: lock lost for each. mount: a strike past v0 works the bracket loose, per m/s past it;
+// tight: what doing up the bolts at sea brings it back to. shock: a jolt (m/s, landing or slam)
+// past j0 adds its excess squared times k; past 1, the terminal's loose.
+export const PARTS = {
+  steer: { v0: 6, rudder: 1.6, bend: 0.012, most: 0.09, stiff: 0.05 },
+  mount: { v0: 8, per: 0.07, tight: 0.25 },
+  shock: { j0: 2.6, k: 0.09 },
 };
 export const modeOf = (difficulty) => MODES[difficulty] || MODES.standard;
 
@@ -69,7 +91,10 @@ const smooth = (a, b, x) => {
 };
 
 export function newDamage(tubes = false) {
-  return { hull: Object.fromEntries(SECTIONS.map((s) => [s, 0])), tubes: tubes ? CHAMBERS.map(() => ({ air: 1, leak: 0 })) : null };
+  return {
+    hull: Object.fromEntries(SECTIONS.map((s) => [s, 0])), tubes: tubes ? CHAMBERS.map(() => ({ air: 1, leak: 0 })) : null,
+    steer: { bend: 0, loss: 0 }, mount: 0, tightened: false, wiring: { loose: false, shock: 0 },
+  };
 }
 
 // What the save holds, made sensible (anything odd: sound).
@@ -86,6 +111,16 @@ export function cleanDamage(raw, tubes = false) {
       c.leak = n(r.leak, 0, 0.1, 0);
     });
   }
+  if (raw.steer && typeof raw.steer === 'object') {
+    D.steer.bend = n(raw.steer.bend, -PARTS.steer.most, PARTS.steer.most, 0);
+    D.steer.loss = n(raw.steer.loss, 0, 0.8, 0);
+  }
+  D.mount = n(raw.mount, 0, 1, 0);
+  D.tightened = raw.tightened === true && D.mount > 0;
+  if (raw.wiring && typeof raw.wiring === 'object') {
+    D.wiring.loose = raw.wiring.loose === true;
+    D.wiring.shock = n(raw.wiring.shock, 0, 1, 0);
+  }
   return D;
 }
 // For the save: only what isn't sound.
@@ -94,6 +129,11 @@ export function damageSave(D) {
   const hull = Object.fromEntries(SECTIONS.filter((s) => D.hull[s] > 0).map((s) => [s, Math.round(D.hull[s] * 1000) / 1000]));
   if (Object.keys(hull).length) out.hull = hull;
   if (D.tubes?.some((c) => c.air < 1 || c.leak > 0)) out.tubes = D.tubes.map((c) => ({ air: Math.round(c.air * 1000) / 1000, leak: Math.round(c.leak * 10000) / 10000 }));
+  const r4 = (v) => Math.round(v * 10000) / 10000;
+  if (D.steer && (D.steer.bend || D.steer.loss)) out.steer = { bend: r4(D.steer.bend), loss: r4(D.steer.loss) };
+  if (D.mount > 0) out.mount = r4(D.mount);
+  if (D.tightened && D.mount > 0) out.tightened = true;
+  if (D.wiring && (D.wiring.loose || D.wiring.shock > 0)) out.wiring = { loose: D.wiring.loose, shock: r4(D.wiring.shock) };
   return Object.keys(out).length ? out : null;
 }
 // The boats with tubes (a RIB's chambers are kept with her hull's record).
@@ -109,7 +149,76 @@ export function cleanDamages(raw, kinds) {
   }
   return out;
 }
-export const sound = (D) => !D || (SECTIONS.every((s) => D.hull[s] < 0.005) && !(D.tubes || []).some((c) => c.air < 0.995 || c.leak > 0));
+export const sound = (D) => !D || (SECTIONS.every((s) => D.hull[s] < 0.005) && !(D.tubes || []).some((c) => c.air < 0.995 || c.leak > 0) && !partsHurt(D));
+// Anything wrong with her working parts that a look would find (a shock not yet loosened anything:
+// no).
+export const partsHurt = (D) => !!D && (Math.abs(D.steer?.bend || 0) > 0.003 || (D.steer?.loss || 0) > 0.02 || (D.mount || 0) > 0.03 || !!D.wiring?.loose);
+
+// An outboard's leg against the bottom (boat.js propStrike): at `speed` (m/s over the ground) and
+// going sideways at `side` (m/s, + to port) as it struck. Past PARTS.steer.v0 the steering's bent
+// (the way the blow pushed the leg: against her sideways way) and stiffened; past PARTS.mount.v0
+// her bracket's worked loose. Returns what it did: { part: 'steer' | 'mount' | both in parts, ... }
+// or null.
+export function legStrike(D, ev, mode = MODES.standard) {
+  if (!mode.parts || !D.steer) return null;
+  const S = PARTS.steer, M = PARTS.mount, out = { parts: [], speed: ev.speed };
+  const vs = ev.speed - S.v0 * mode.v;
+  if (vs > 0) {
+    const dir = -Math.sign(ev.side || 1);
+    D.steer.bend = clamp(D.steer.bend + dir * vs * S.bend * mode.k, -S.most, S.most);
+    D.steer.loss = clamp(D.steer.loss + vs * S.stiff * mode.k, 0, 0.8);
+    out.parts.push('steer');
+  }
+  const vm = ev.speed - M.v0 * mode.v;
+  if (vm > 0) {
+    D.mount = clamp(D.mount + vm * M.per * mode.k, 0, 1);
+    D.tightened = false;
+    out.parts.push('mount');
+  }
+  return out.parts.length ? out : null;
+}
+// A rudder's foot on the bottom (boat.js takeDamage): vn m/s square on, going sideways at `side`.
+export function rudderStrike(D, ev, mode = MODES.standard) {
+  if (!mode.parts || !D.steer) return null;
+  const S = PARTS.steer, v = ev.vn - S.rudder * mode.v;
+  if (v <= 0) return null;
+  D.steer.bend = clamp(D.steer.bend - Math.sign(ev.side || 1) * v * S.bend * 2 * mode.k, -S.most, S.most);
+  D.steer.loss = clamp(D.steer.loss + v * S.stiff * 2 * mode.k, 0, 0.8);
+  return { parts: ['steer'], vn: ev.vn };
+}
+// A jolt through her (a landing off a wave, or her bow slamming into one: m/s, down): past
+// PARTS.shock.j0, it works at her battery terminal, each harder one more (the excess squared); past
+// a full measure, it's loose. Returns 'loose' the moment it goes, 'cut' for a hard jolt while it's
+// loose already (the engine and the instruments cut out), else null.
+export function shake(D, jolt, mode = MODES.standard) {
+  if (!mode.parts || !D.wiring) return null;
+  const J = PARTS.shock, x = jolt - J.j0 * mode.v;
+  if (x <= 0) return null;
+  if (D.wiring.loose) return jolt > J.j0 * 0.8 ? 'cut' : null;
+  D.wiring.shock = Math.min(1, D.wiring.shock + x * x * J.k * mode.k);
+  if (D.wiring.shock < 1) return null;
+  D.wiring.loose = true;
+  return 'loose';
+}
+// Her steering as damaged: the helm's angle (rad) as the leg or rudder actually takes it.
+export const steered = (D, r) => (D?.steer ? r * (1 - 0.5 * D.steer.loss) + D.steer.bend : r);
+// Her outboard's push as her bracket allows (1: sound).
+export const mountPush = (D) => (D ? 1 - 0.35 * (D.mount || 0) : 1);
+// Done up at sea (look her over): the battery terminal, for good; the bracket's bolts, most of the
+// way (the yard does the rest). Returns true if there was anything to do.
+export function tighten(D, what) {
+  if (what === 'terminal' && D.wiring?.loose) {
+    D.wiring.loose = false;
+    D.wiring.shock = 0;
+    return true;
+  }
+  if (what === 'mount' && D.mount > PARTS.mount.tight && !D.tightened) {
+    D.mount = PARTS.mount.tight;
+    D.tightened = true;
+    return true;
+  }
+  return false;
+}
 
 // Which part of her a local point is on (x, y, z in her own frame: +x port, +z forward), for a
 // hull of length L, half-beam B, draft d: her bottom below her waterline (but her stem forward),
@@ -205,7 +314,16 @@ export function survey(D, kind) {
   const mat = materialOf(kind), out = [];
   for (const s of SECTIONS) out.push({ what: SECTION_NAMES[s].replace(/^her /, ''), words: hullWords(mat, D.hull[s]), bad: D.hull[s] });
   (D.tubes || []).forEach((c, i) => out.push({ what: `${CHAMBERS[i]} tube`, words: tubeWords(c), bad: Math.max(1 - c.air, c.leak ? 0.5 : 0) }));
+  if (D.steer) out.push({ what: 'steering', words: steerWords(D), bad: Math.abs(D.steer.bend) * 8 + D.steer.loss });
+  if (D.mount > 0.03) out.push({ what: 'the engine’s bracket', words: D.tightened ? 'its bolts done up at sea: holding, but not right' : D.mount > 0.6 ? 'badly loose: the engine shifts on the transom' : 'its bolts working loose', bad: D.mount });
+  if (D.wiring?.loose) out.push({ what: 'the battery terminal', words: 'shaken loose', bad: 0.6 });
   return out.sort((a, b) => b.bad - a.bad);
+}
+export function steerWords(D) {
+  const S = D.steer, b = Math.abs(S.bend);
+  if (b < 0.003 && S.loss < 0.02) return 'sound';
+  const pull = b >= 0.003 ? `bent (she pulls to ${S.bend > 0 ? 'starboard' : 'port'})` : 'stiff';
+  return `${pull}${b >= 0.003 && S.loss >= 0.15 ? ' and stiff' : ''}`;
 }
 
 // The yard's bill for each repair: [{ id, what, price }]. base: what she cost new (the yard's
@@ -223,6 +341,10 @@ export function repairs(D, kind, base) {
     if (!c.leak && c.air >= 0.995) return;
     out.push({ id: `tube:${i}`, what: c.leak ? `The ${CHAMBERS[i]} tube: ${c.leak >= TUBE.torn * 0.9 ? 'torn' : 'punctured'}. Patched, the glue left to cure, and pumped up.` : `The ${CHAMBERS[i]} tube: soft. Pumped up.`, price: c.leak ? Math.max(20, Math.round((b * (c.leak >= TUBE.torn * 0.9 ? 0.09 : 0.04)) / 5) * 5) : 0 });
   });
+  const price = (share) => Math.max(10, Math.round((b * share) / 5) * 5);
+  if (D.steer && (Math.abs(D.steer.bend) > 0.003 || D.steer.loss > 0.02)) out.push({ id: 'steer', what: `Her steering: ${steerWords(D)}. ${MATERIAL_OF[kind] === 'wood' || kind === 'sail' ? 'The rudder straightened and rehung' : 'The leg lined up again, a new steering cable'}.`, price: price(0.03 + 0.08 * Math.min(1, Math.abs(D.steer.bend) / PARTS.steer.most + D.steer.loss)) });
+  if (D.mount > 0.03) out.push({ id: 'mount', what: `The engine’s bracket: ${D.tightened ? 'done up at sea' : 'loose'}. Lifted, the bolts and the transom checked, new bolts and backing plates.`, price: price(0.03 + 0.05 * D.mount) });
+  if (D.wiring?.loose) out.push({ id: 'wiring', what: 'The battery terminal: loose. Cleaned and done up.', price: 5 });
   return out;
 }
 // The yard's work done (an id from repairs; 'all': everything).
@@ -230,10 +352,14 @@ export function mend(D, id) {
   if (id === 'all') {
     for (const s of SECTIONS) D.hull[s] = 0;
     for (const c of D.tubes || []) { c.air = 1; c.leak = 0; }
+    for (const x of ['steer', 'mount', 'wiring']) mend(D, x);
     return true;
   }
   const [what, key] = String(id).split(':');
   if (what === 'hull' && key in D.hull) { D.hull[key] = 0; return true; }
   if (what === 'tube' && D.tubes?.[+key]) { D.tubes[+key].air = 1; D.tubes[+key].leak = 0; return true; }
+  if (what === 'steer' && D.steer) { D.steer.bend = 0; D.steer.loss = 0; return true; }
+  if (what === 'mount') { D.mount = 0; D.tightened = false; return true; }
+  if (what === 'wiring' && D.wiring) { D.wiring.loose = false; D.wiring.shock = 0; return true; }
   return false;
 }
