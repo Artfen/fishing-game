@@ -685,9 +685,9 @@ export class Ecosystem {
     let y;
     if (L.flat) y = -bd + 0.06; // flatfish lie on the bottom itself
     else if (L.benthic) y = -bd + 0.12; // gurnards walk the seabed; an octopus crawls over it
+    // (A hunter at a shoal of small fish keeps just under it, cruising or feeding on it.)
+    else if (atPrey && !L.bottom) y = prey.y - rand(0.5, 2);
     else if (L.bottom || mode === 'rest' || mode === 'feed') y = -bd + rand(0.35, mode === 'feed' ? 0.8 : 1.3);
-    // (A hunter at a shoal of small fish keeps just under it.)
-    else if (atPrey) y = prey.y - rand(0.5, 2);
     else y = -rand(top, Math.max(top, Math.min(bot, bd - 0.4)));
     // (Under a shoal it may come up above its usual depths, but a cool-water kind no more than a
     // few metres into the warm layer.)
