@@ -149,6 +149,7 @@ import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality
 import { Post } from './post.js';
 import { Diver, Shot, buildGun } from './diver.js';
 import { stepComfort, effectsOf, needsOf, dressFor, drink as drinkFrom, refill, eatRoll, packRolls, mealDrink, CLOTHES, CLOTHES_IDS, BOTTLE, ROLLS, feelsLike } from './comfort.js';
+import { LINES, STRENGTH, loadWords } from './lines.js';
 import { CARGO, buy as buyCargo, putAboard, bringAshore, piecesAboard, storePieces, weightOf as cargoKg, newCargo } from './cargo.js';
 import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance, logSite, logFind } from './dive.js';
 import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick, seeded, wrapAngle } from './util.js';
@@ -2519,6 +2520,20 @@ function letGoTow(quiet = false) {
   save();
 }
 const _ts = new THREE.Vector3(), _tb = new THREE.Vector3();
+// The towline parted (snatched past its breaking load: see lines.js): the towed boat's adrift
+// where she is, with what's left of the line trailing.
+function partTow() {
+  const { lead, towed } = tow, name = towed.name;
+  tow = null;
+  towRope.hide();
+  audio.knock?.(1);
+  audio.thud?.();
+  haptics.pulse('snap', 1);
+  if (!settings.controls.reducedMotion) rig.shake = Math.max(rig.shake, 0.2);
+  vesselLog(lead.kind, `The towline parted, towing the ${name}.`);
+  hud.flash(`Crack: the towline’s parted, snatched past what it holds (${Math.round((LINES.towline.mbl * (STRENGTH[state.difficulty] ?? 1)) / 1000)} kN). The ${name} is adrift where she is: come back alongside, slowly, and take her in tow again, then open up gently once it’s taken the strain.`, t, 7);
+  save();
+}
 function updateTow(dt) {
   if (!tow) return;
   const { lead, towed } = tow;
@@ -2527,7 +2542,20 @@ function updateTow(dt) {
     letGoTow(true);
     return;
   }
-  tow.tight = towStep(lead, towed, dt);
+  // (The line's pull, and whether it's parted: see lines.js. On Relaxed it never parts.)
+  const out = (tow.out ||= {});
+  const strength = STRENGTH[state.difficulty] ?? 1;
+  tow.tight = towStep(lead, towed, dt, TOW.len, out, strength);
+  tow.T = out.T || 0;
+  tow.peak = Math.max((tow.peak || 0) * Math.exp(-dt / 3), out.load || 0);
+  if (out.parted) return partTow();
+  // (Near its breaking load: a word, now and then, before it goes.)
+  if (out.load > 0.6 && lead === boat && t > (tow.warnT || 0)) {
+    tow.warnT = t + 6;
+    haptics.pulse('creak', Math.min(1, out.load));
+    audio.creak?.(0.045 * Math.min(1, out.load), 0);
+    hud.flash(`The towline’s ${loadWords(out.T, LINES.towline)}: ease off${strength === Infinity ? '' : ', or it’ll part'}. Take up the slack slowly before you open her up.`, t, 3);
+  }
   lead.body.localToWorld(_ts.copy(lead.cleats[1]));
   towed.body.localToWorld(_tb.copy(towed.cleats[0]));
   towRope.lay(_ts, _tb, { tension: tow.tight, sag: 0.9 });
@@ -4347,6 +4375,8 @@ function helmGauges() {
   if (nav) bits.push(nav);
   const tw = trollWords();
   if (tw) bits.push(tw);
+  // (A towline from her stern, or her anchor's rode: the pull on it. See lines.js.)
+  if (tow?.lead === boat && tow.T > 50) bits.push(`${(tow.peak || 0) > 0.5 ? '<span class="lv-warn">' : ''}tow ${loadWords(tow.T, LINES.towline)}${(tow.peak || 0) > 0.5 ? '</span>' : ''}`);
   return bits.join(' · ');
 }
 // Each frame, the fittings of the boat you're in at work (see shipyard.js): the sonar's imaging
@@ -12435,7 +12465,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView, passersby, together, visitors, clock, drifters, seabed, shared, teamwork, crew, birds, binoculars: { open: () => openBinoculars(), close: () => closeBinoculars() }, catchCard: (id, size) => showCatch(fishById[id], size, eco.bySpecies[id]?.[0] || { x: 0, z: 0, caught: 0 }, null), inspect: { open: () => openInspect(), close: () => closeInspect(), get on() { return inspector.isOpen; } }, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pickupsShown() { return pickups.count; }, padContext: () => padContext(), jobsChanged: () => jobWeight(), strays, get towing() { return tow ? { lead: tow.lead.kind, towed: tow.towed.boatName || tow.towed.name, tight: tow.tight } : null; }, seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
+  rowboat, skiff, boats: BOATS, wind, town, folkView, passersby, together, visitors, clock, drifters, seabed, shared, teamwork, crew, birds, binoculars: { open: () => openBinoculars(), close: () => closeBinoculars() }, catchCard: (id, size) => showCatch(fishById[id], size, eco.bySpecies[id]?.[0] || { x: 0, z: 0, caught: 0 }, null), inspect: { open: () => openInspect(), close: () => closeInspect(), get on() { return inspector.isOpen; } }, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pickupsShown() { return pickups.count; }, padContext: () => padContext(), jobsChanged: () => jobWeight(), strays, get towing() { return tow ? { lead: tow.lead.kind, towed: tow.towed.boatName || tow.towed.name, tight: tow.tight, T: tow.T || 0 } : null; }, takeInTow: (kind) => takeInTow(BOATS[kind]), seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
   pump: (id = 'haven') => openPump(id),
