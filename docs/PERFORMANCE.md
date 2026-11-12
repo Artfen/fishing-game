@@ -87,13 +87,49 @@ draw calls are highest looking at many boats or the harbour (`harbour_off` 534 a
 distance culling took it from 719, `sonar` 363 with the dashboard's controls), triangles highest in
 the harbour and at Las Brasas (over a million), and the storm's simulation the dearest.
 
+## A long session: the soak (`tools/soak.mjs`)
+
+An hour of varied play run through the game's own clock in a headless browser, sampled after
+every lap (a garbage collection first): the JS heap; the geometries, textures and shader programs
+the renderer holds; the distinct geometries the scene itself has; its objects; the page's
+elements. A lap is about six minutes of the game's time: ashore in Willowhaven, the RIB flat out
+round the bay, a dive on the wreck, south to Las Brasas and a dive on its arches, home under way;
+the hours moving on four at a time (day and night), a storm every third lap.
+`PLAYWRIGHT=… node tools/soak.mjs http://127.0.0.1:8642/ [laps=10]`; about three minutes a lap here.
+
+What counts as a leak: the heap, the scene's objects or the scene's own geometries rising every
+lap, or the renderer holding more geometries than the scene has. The renderer uploads a geometry
+the first time it draws it, so its count climbs for a while as play reaches more of the world
+(other hours and weather, folk walking into view, other dive sites); that's bounded by what the
+scene has and isn't a leak.
+
+**November 2026, eight laps (about fifty minutes of the game's time), Low preset:**
+
+| | Lap 2 | Lap 8 | Per lap |
+| --- | --- | --- | --- |
+| Heap | 271.8 MB | 276.1 MB | +0.7 MB (most of it the two storm laps; flat otherwise) |
+| Geometries the renderer holds | 1,131 | 1,284 | +25, slowing (+93 in the first storm, then +6 to +20) |
+| Textures | 160 | 167 | +1 |
+| Shader programs | 188 | 203 | +2.5 (the second storm's, then flat) |
+| Objects in the scene | 13,630 | 13,648 | +3 |
+| Page elements | 819 | 819 | 0 |
+| Page errors | 0 | 0 | |
+
+The renderer's geometries were followed up leg by leg (each leg of play repeated three times, every
+geometry made tagged with where it was made, freed or not, and checked against the scene): the
+scene had 7,245 distinct geometries throughout and the renderer had uploaded 589 to 715 of them;
+nothing was made and left behind (none outside the scene and not freed), and almost nothing was
+made at all during play (four or five). The climb is the world being drawn for the first time,
+bounded by what it has: **no leak found**. The heap is steady too.
+
 ## Not yet covered
 
 - **Two players**: the render and simulation cost of a friend's boat and figure is in every
   scenario with townsfolk boats; the network traffic of a shared session is measured by
   `tools/netbudget.mjs`. A two-client benchmark needs a second browser joined to the same session:
   a later step.
-- **Long sessions**: memory and frame time over an hour of play (a soak run), garbage-collection
-  pauses: the next step of this stage.
+- **Long sessions on real hardware**: the soak measures what the game holds on to, which doesn't
+  depend on the graphics card; frame time over an hour and garbage-collection pauses need a real
+  machine (a long `bench.html` run is the next step).
 - **Real-hardware results**: to be added here from `bench.html` runs on the two reference machines
   above.
