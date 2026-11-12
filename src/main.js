@@ -3180,7 +3180,58 @@ function setLever(i) {
   }
   const r = setIndex(kind, i, leverSituation());
   if (r.capped) hud.flash(CAP_WORDS[leverSituation()], t, 2.6);
+  // (Twin engines, the levers apart: the one picked, or both.)
+  if (boat.split) return setSplit(() => r.v);
   changeLever(r.v);
+}
+
+/* ---------------- twin engines: the levers together, or apart ---------------- */
+
+// At the helm of twin engines (the centre console's outboards, the yacht's diesels) the throttle
+// keys work both levers, the port one or the starboard one (the levers action: ; or the D-pad on a
+// controller, each press the next; or the lever panel's buttons). Apart (boat.split: [port,
+// starboard]: see boat.js), each engine pushes with its own, so one ahead and one astern turn her
+// on the spot. Neutral joins them, and so do both levers at the same notch with both picked.
+let leverSel = 'both';
+const twinHelm = () => !!leverKind() && boat.engine?.engines?.length === 2 && !!(boat.hull.motor?.twin || boat.hull.motor?.inboard);
+const SIDE = { port: 'port', stbd: 'starboard' };
+function cycleLevers() {
+  if (twinHelm()) selectLevers({ both: 'port', port: 'stbd', stbd: 'both' }[leverSel]);
+}
+function selectLevers(sel) {
+  if (!twinHelm()) return;
+  leverSel = sel;
+  if (sel !== 'both' && !boat.split) boat.split = [boat.lever, boat.lever];
+  if (sel === 'both') joinLevers(false);
+  audio.tick?.(0.2);
+  haptics.pulse('notch');
+  hud.flash(sel === 'both' ? (boat.split ? 'Both levers: they move together, apart as they are. Neutral joins them.' : 'Both levers, together.') : `The ${SIDE[sel]} lever: the throttle works it alone.`, t, 2.2);
+  teach('twinLevers', `Twin engines: ${scheme() === 'pad' ? kbd('D-pad →') : K('levers')} picks the lever the throttle works: both, the port one, the starboard one. One ahead and one astern turns her on the spot; neutral joins them again.`, 7);
+}
+function joinLevers(neutral) {
+  if (!boat.split) return;
+  if (neutral || boat.split[0] === boat.split[1]) {
+    boat.lever = neutral ? 0 : boat.split[0];
+    boat.split = null;
+    leverSel = 'both';
+  }
+}
+// The picked lever(s) to a new value (f: from the old), clicking into their notches; both picked
+// and now level, one lever again. boat.lever keeps their mean, for what reads it (the words).
+function setSplit(f) {
+  const S = boat.split, idx = leverSel === 'port' ? [0] : leverSel === 'stbd' ? [1] : [0, 1];
+  let moved = false;
+  for (const i of idx) {
+    const v = f(S[i]);
+    if (v !== S[i]) moved = true;
+    S[i] = v;
+  }
+  if (moved) {
+    audio.tick?.(0.35);
+    haptics.pulse(idx.some((i) => S[i] === 0) ? 'detent' : 'notch');
+  }
+  if (leverSel === 'both') joinLevers(false);
+  if (boat.split) boat.lever = (S[0] + S[1]) / 2;
 }
 function stepLever(dir, fresh = true) {
   const kind = leverKind();
@@ -3193,6 +3244,16 @@ function stepLever(dir, fresh = true) {
   }
   if (boat.anchored && dir > 0 && L[i].v >= 0) {
     hud.flash(`The anchor is down: raise it first (${K('anchor')})`, t, 2);
+    return;
+  }
+  if (boat.split) {
+    let capped = false;
+    setSplit((v) => {
+      const r = step(kind, v, dir, leverSituation());
+      capped ||= r.capped;
+      return r.v;
+    });
+    if (capped && fresh) hud.flash(CAP_WORDS[leverSituation()], t, 2.6);
     return;
   }
   const r = step(kind, boat.lever, dir, leverSituation());
@@ -3208,7 +3269,8 @@ function changeLever(v) {
 }
 function leverNeutral(say = false) {
   if (!leverKind()) return;
-  if (boat.lever && say) hud.flash('Neutral: the motor idles, and she coasts on', t, 1.6);
+  if ((boat.lever || boat.split) && say) hud.flash('Neutral: the motor idles, and she coasts on', t, 1.6);
+  joinLevers(true);
   changeLever(0);
 }
 // The tilt button (\, or the button on the throttle panel): the outboard's leg (both, on twins)
@@ -4545,6 +4607,8 @@ function updateSailPanel() {
 
 const leverUI = new LeverUI($('lever'), {
   set: (i) => { if (started && !modal) setLever(i); },
+  // (Twin engines: the lever the throttle works: 'both', 'port' or 'stbd'.)
+  levers: (sel) => { if (started && !modal) selectLevers(sel); },
   stop: () => { if (started && !modal) leverNeutral(true); },
   motor: () => { if (started && !modal) (boat.hull.outboard ? toggleOutboard() : toggleKayakMotor()); },
   tilt: () => tiltOutboards(),
@@ -4552,6 +4616,8 @@ const leverUI = new LeverUI($('lever'), {
   slideTo: (f) => {
     const kind = leverKind();
     if (!started || modal || !kind) return;
+    // (Twin levers apart work notch by notch.)
+    if (boat.split) return setLever(Math.round(f));
     let pos = positionAtIndex(kind, f);
     if (boat.tie || (boat.anchored && pos > 0)) return setLever(nearest(kind, valueAt(kind, pos)));
     const capV = levers(kind)[capIndex(kind, leverSituation())].v;
@@ -4591,9 +4657,13 @@ function updateLever() {
   // (An outboard with a leg to tilt: the tilt button, and its key.)
   const EL = kind && boat.motor ? engines[kind] : null, tiltable = !!EL && !!ENGINES[EL.kind]?.trim;
   if (tiltable && !T) keys += `${keys ? ' · ' : ''}${K('tilt')} tilt`;
+  // (Twin engines: which lever the throttle works, and with them apart, each one's notch.)
+  const twins = twinHelm() ? { sel: leverSel, split: boat.split ? boat.split.map((v) => nearest(kind, v)) : null } : null;
+  if (twins && !T) keys += ` · ${P ? kbd('D-pad →') : K('levers')} levers`;
+  const S2 = boat.split;
   leverUI.update({
-    show: true, kind, smooth, index: kind ? (smooth ? displayIndex(kind, leverPos(kind)) : nearest(kind, boat.lever)) : 0, power: boat.power, cap: kind ? capIndex(kind, sit) : 0,
-    words: !kind ? 'paddling' : boat.anchored ? 'at anchor' : dead ? (kind === 'kayak' ? 'battery flat' : 'motor dead') : cap(smooth ? leverPositionWords(leverPos(kind)) : leverWords(kind, boat.lever)),
+    show: true, kind, smooth: smooth && !S2, index: kind ? (S2 ? nearest(kind, S2[leverSel === 'stbd' ? 1 : 0]) : smooth ? displayIndex(kind, leverPos(kind)) : nearest(kind, boat.lever)) : 0, power: boat.power, cap: kind ? capIndex(kind, sit) : 0, twins,
+    words: !kind ? 'paddling' : boat.anchored ? 'at anchor' : dead ? (kind === 'kayak' ? 'battery flat' : 'motor dead') : S2 ? `port ${leverWords(kind, S2[0])} · starboard ${leverWords(kind, S2[1])}` : cap(smooth ? leverPositionWords(leverPos(kind)) : leverWords(kind, boat.lever)),
     title: kind === 'kayak' ? 'Kayak motor' : kayak ? 'Kayak' : outboard ? 'Outboard' : 'Throttle',
     motor: kayak ? (boat.emotorDown ? 'down' : 'up') : outboard ? 'outboard' : null, keys,
     tilt: tiltable ? (tiltedUp(EL) ? 'up' : 'down') : null, twin: tiltable && ENGINES[EL.kind].engines > 1,
@@ -9239,6 +9309,7 @@ function padContext() {
   // (A line out from a boat under power: the D-pad works the throttle.)
   if (fishing.busy) return leverKind() ? 'troll' : 'fish';
   if (dashCtl.focused) return 'dash';
+  if (!onFoot && !cabinIn && boat.motor && twinHelm()) return 'helmtwin';
   if (!onFoot && !cabinIn && boat.motor && ENGINES[boat.kind]?.trim) return 'helmtrim';
   if (!onFoot && !cabinIn && (boat.motor || boat.hull.emotor || boat.hull.sail || boat.hull.rig)) return 'helm';
   return 'play';
@@ -11247,6 +11318,7 @@ input.on('press', (code, acts) => {
   }
   else if (is('anchor')) mooringAction()?.run();
   else if (is('tilt')) tiltOutboards();
+  else if (is('levers') && leverKind()) (twinHelm() ? cycleLevers() : hud.flash('One engine, one lever: the levers split only on twin engines (the centre console, the yacht).', t, 2.4));
   else if (is('neutral') && leverKind()) leverNeutral(true);
   else if (is('throttleUp') && leverKind()) stepLever(1);
   else if (is('throttleDown') && leverKind()) stepLever(-1);
@@ -11670,6 +11742,8 @@ function tick(now, manual = false) {
   const cw = !onFoot && !cabinIn && !(boat.sailUp && (boat.hull.sail || boat.hull.rig)) ? crew.wheel() : null;
   if (cw) {
     if (leverKind()) {
+      // (A friend at your helm works the levers together.)
+      if (boat.split) joinLevers(true);
       helmInput(cw.ti, dt, cw.si);
       throttle = boat.lever;
     } else throttle = cw.ti;
@@ -11679,7 +11753,11 @@ function tick(now, manual = false) {
   // What's allowed with a line out or a fish on (a lever left higher comes back).
   if (leverKind()) {
     watchHookup();
-    const v = within(leverKind(), boat.lever, leverSituation());
+    // (Twin levers apart: each within what's allowed, and their mean for the rest. Away from the
+    // helm, or a single-engined boat, they're joined at neutral.)
+    if (boat.split && !twinHelm()) joinLevers(true);
+    if (boat.split) setSplit((v) => within(leverKind(), v, leverSituation()));
+    const v = boat.split ? boat.lever : within(leverKind(), boat.lever, leverSituation());
     if (v !== boat.lever) changeLever(v);
     if (throttle) throttle = boat.lever;
   } else fishWas = fishing.state;
@@ -11724,7 +11802,9 @@ function tick(now, manual = false) {
       const work = !electric && boat.motorSpec ? boat.motorSpec.effort : 1;
       const had = fuelLevel(f, boat.kind);
       // (An electric outboard: its own battery, nothing at all in neutral. See fuel.js burnElec.)
-      const ran = ELEC[boat.kind] ? burnElec(f, boat.kind, throttle * work, dt, ELEC[boat.kind]) : burnBoat(f, boat.kind, (throttle || 0.06) * work, electric ? dt / (fitsAboard()?.troll || 1) : dt, throttle ? troll : 0);
+      // (Twin levers apart: what both engines are doing, whichever way.)
+      const open = boat.split ? (Math.abs(boat.split[0]) + Math.abs(boat.split[1])) / 2 : throttle;
+      const ran = ELEC[boat.kind] ? burnElec(f, boat.kind, throttle * work, dt, ELEC[boat.kind]) : burnBoat(f, boat.kind, (open || 0.06) * work, electric ? dt / (fitsAboard()?.troll || 1) : dt, throttle ? troll : 0);
       burnedNow = Math.max(0, had - fuelLevel(f, boat.kind));
       const what = scheme() === 'touch' ? 'tap the prompt' : K('interact');
       if (ran === 'flat' && ELEC[boat.kind]) hud.flash(`The motor whines down and stops: its battery is flat. The oars move her along; stop, then ${what} for a tow. It charges at a jetty or a quay, and overnight.`, t, 6);

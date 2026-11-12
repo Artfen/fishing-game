@@ -36,6 +36,7 @@ export const ACTIONS = [
   { id: 'trimUp', label: 'Trim the outboard out (hold; at rest it tilts right up)', keys: ['BracketRight', 'PageUp'], group: 'Boats' },
   { id: 'trimDown', label: 'Trim the outboard in (hold)', keys: ['BracketLeft', 'PageDown'], group: 'Boats' },
   { id: 'tilt', label: 'Tilt the outboard right up, or back down (one press)', keys: ['Backslash'], group: 'Boats' },
+  { id: 'levers', label: 'Twin engines: the throttle keys work both levers, the port one or the starboard one (each press, the next)', keys: ['Semicolon'], group: 'Boats' },
   { id: 'outboard', label: 'Sailing boat: the outboard down or up (when there’s no wind)', keys: ['KeyL'], group: 'Boats' },
   { id: 'drink', label: 'A drink from your water bottle', keys: ['Digit3'], group: 'Around' },
   { id: 'call', label: 'Playing together: a quick call to your friends', keys: ['Digit4'], group: 'Around' },
