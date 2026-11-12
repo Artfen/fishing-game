@@ -1,0 +1,14 @@
+[
+ {
+  "kind": "bass",
+  "name": "bass boat",
+  "meshes": 28,
+  "calls": 28,
+  "tris": 6754,
+  "drawnTris": 6754,
+  "verts": 17475,
+  "materials": 14,
+  "geometries": 21,
+  "buildMs": 66.1
+ }
+]
