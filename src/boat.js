@@ -1175,8 +1175,9 @@ export class Boat {
       g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
       fit.push({ geo: g, color: CAP, jitter: 0.015 });
       // The rub rail: stainless, half-round, round her sheer.
+      // (A built hull's sections start at her port gunwale: see formRows.)
       const rail = rows.map((r) => {
-        const p = sd < 0 ? r[0] : r[NP];
+        const p = sd > 0 ? r[0] : r[NP];
         return new THREE.Vector3(p[0] + sd * 0.012, p[1] - 0.02, p[2]);
       });
       fit.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rail), 60, 0.026, 6), color: STEEL, jitter: 0.02 });
