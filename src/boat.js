@@ -6,7 +6,8 @@ import * as THREE from 'three';
 import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat, wrapAngle } from './util.js';
 import { waveHeight } from './world/water.js';
 import { windAt, currentAt, currentScale, conditions, waveSampler, sampleWaves, shelterAt } from './world/conditions.js';
-import { buildHullModel, HydroBody, G, RHO, tubeCentre, section } from './hydro.js';
+import { buildHullModel, HydroBody, G, RHO, tubeCentre, section, hydrostatics } from './hydro.js';
+import { compartmentsFor, reserveOf, breachFlow, overFlow, rainFlow, holeArea, stepWater, waterAt, waterKg, depthOf, PUMPS, BAIL, MODES as FLOOD_MODES } from './flooding.js';
 import { wakes } from './world/wakes.js';
 import { solidHeight, heightAt, stackHeight, PIERS, SEA, SOUTH_Z, CROSSING } from './world/terrain.js';
 import { SOUTH_RECT } from './world/brasa.js';
@@ -460,6 +461,35 @@ function waterLid(rows, draft) {
   return lid;
 }
 
+// The water in her bilge, seen: its surface at height y, across her inside skin (rows, as
+// waterLid's) from z0 to z1.
+function bilgeSurface(rows, y, z0, z1) {
+  const mid = (rows[0].length - 1) / 2;
+  const cross = (row, dir) => {
+    for (let j = mid; j >= 0 && j < row.length; j += dir) {
+      const a = row[j], b = row[j + dir];
+      if (!b) return null;
+      if (b[1] >= y) {
+        const k = (y - a[1]) / (b[1] - a[1] || 1);
+        return [(a[0] + (b[0] - a[0]) * k) * 0.97, y, a[2] + (b[2] - a[2]) * k];
+      }
+    }
+    return null;
+  };
+  const pos = [];
+  let prev = null;
+  for (const row of rows) {
+    const z = row[mid][2];
+    const cur = z >= z0 && z <= z1 && row[mid][1] < y ? [cross(row, -1), cross(row, 1)] : null;
+    if (cur && cur[0] && cur[1] && prev) pos.push(...prev[0], ...prev[1], ...cur[1], ...prev[0], ...cur[1], ...cur[0]);
+    prev = cur && cur[0] && cur[1] ? cur : null;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.computeVertexNormals();
+  return geo;
+}
+
 function setLimb(mesh, a, b, r) {
   _d.subVectors(b, a);
   const len = _d.length() || 0.001;
@@ -683,6 +713,13 @@ export class Boat {
     // else's boat); set by the game for yours. damageMode: by difficulty (damage.js MODES).
     this.damage = null;
     this.damageMode = MODES.standard;
+    // Water in her (see flooding.js and flood): by difficulty; the electric pump running (and
+    // whether it's on at all: a boat with a battery); you bailing; the rain on her (0 … 1).
+    this.floodMode = FLOOD_MODES.standard;
+    this.pumpRunning = false;
+    this.bailing = false;
+    this.rain = 0;
+    this.waterKg = 0;
     this.material = materialOf(this.kind);
     // The engine on her transom and its propeller, where she has a choice of them (see
     // engines.js and setMotor): null, her motor as the hull has it.
@@ -907,6 +944,128 @@ export class Boat {
     } else b.tubeLift = null;
     b.rough = roughness(D);
     this.sagTubes();
+    this.flood(dt);
+  }
+
+  // Her compartments (flooding.js), worked out once: their sizes from her hull, held within the
+  // water she can take and still float.
+  compartments() {
+    if (this._comps) return this._comps;
+    const b = this.phys, H = this.hull;
+    const toSheer = hydrostatics(b.model, H.D).volume;
+    return (this._comps = compartmentsFor(this.kind, H, reserveOf(toSheer, b.model.mass + 150)));
+  }
+
+  // The water in her this step (flooding.js): in through a breach below her waterline, over her
+  // gunwale where a sea stands above it, and the rain; out by her pump and your bailing. Only for a
+  // boat whose damage is kept (yours). Emits onFlood(this, what) for 'breach' (water coming in
+  // through her hull, first noticed), 'engine' (her engine room flooded) and 'dry' (pumped dry).
+  flood(dt) {
+    const D = this.damage, b = this._phys;
+    if (!D || !b) return;
+    const C = this.compartments();
+    if (!C.length) return;
+    const W = (D.water ||= C.map(() => 0));
+    while (W.length < C.length) W.push(0);
+    const H = this.hull, t = this.lastT, inflow = (this._inflow ||= C.map(() => 0));
+    inflow.fill(0);
+    let breachIn = 0;
+    // (Her breaches: each part of her hull cracked right through, where it is.)
+    for (const s of ['bottom', 'bow', 'port', 'stbd', 'stern']) {
+      const A = holeArea(D.hull[s]);
+      if (!A) continue;
+      const tt = s === 'bow' ? 0.9 : s === 'stern' ? 0.04 : 0.5;
+      const k = C.findIndex((c) => tt >= c.t0 && tt <= c.t1);
+      const ci = k >= 0 ? k : C.reduce((best, c, i) => (Math.abs((c.t0 + c.t1) / 2 - tt) < Math.abs((C[best].t0 + C[best].t1) / 2 - tt) ? i : best), 0);
+      const c = C[ci], w = H.B * H.hw(tt), z = -H.L / 2 + H.L * tt;
+      const lp = s === 'bottom' ? [0, H.keel(tt) + 0.03, z] : s === 'port' ? [w * 0.85, H.draft * 0.6, z] : s === 'stbd' ? [-w * 0.85, H.draft * 0.6, z] : [0, H.draft * 0.6, z];
+      const p = b.toWorld(lp, _w3), outside = waveHeight(p[0], p[2], t) - p[1];
+      const inside = c.floor + depthOf(c, W[ci]) - lp[1];
+      const q = breachFlow(A, outside, inside);
+      inflow[ci] += q;
+      breachIn += q;
+    }
+    // (Over her gunwale, in an open compartment: a sea standing above it, either side; and the rain.)
+    for (let i = 0; i < C.length; i++) {
+      const c = C[i];
+      if (!c.open) continue;
+      const tc = (c.t0 + c.t1) / 2, w = H.B * H.hw(tc), y = H.D + H.sheer(tc);
+      for (const sd of [1, -1]) {
+        const p = b.toWorld([sd * w, y, c.zc], _w3);
+        inflow[i] += overFlow(waveHeight(p[0], p[2], t) - p[1], c.len);
+      }
+      if (this.rain > 0) inflow[i] += rainFlow(this.rain, c.len * c.width);
+    }
+    // Out: her pump, on its float switch, while there's water to take (and her battery to drive
+    // it: the game says, see pumpPower); your bailing.
+    const total = W.reduce((n, l) => n + l, 0);
+    const pumpCap = (PUMPS[this.kind] || 0) * (this.pumpPower ?? 1);
+    this.pumpRunning = pumpCap > 0 && total > 8;
+    const out = (this.pumpRunning ? pumpCap : 0) + (this.bailing ? (this.kind === 'cruiser' ? BAIL * 0.5 : BAIL) : 0);
+    const r = stepWater(C, W, inflow, out, dt, this.floodMode || FLOOD_MODES.standard);
+    this.flooding = { gaining: r.gaining, litres: W.reduce((n, l) => n + l, 0), breach: breachIn };
+    this.waterKg = waterKg(W);
+    if (breachIn > 0.05 && !this._breachSaid) {
+      this._breachSaid = true;
+      this.onFlood?.(this, 'breach');
+    }
+    if (breachIn <= 0.05) this._breachSaid = false;
+    const E = C.findIndex((c) => c.engine);
+    if (E >= 0) {
+      const drowned = W[E] > C[E].cap * 0.5;
+      if (drowned && !this._drowned) this.onFlood?.(this, 'engine');
+      this._drowned = drowned;
+    }
+    if (total > 1 && this.flooding.litres <= 1 && !this.flooding.gaining) this.onFlood?.(this, 'dry');
+    this.drawWater(C, W);
+  }
+
+  // The water in her, seen: its surface in each open compartment (a decked one's is out of sight),
+  // at the height it stands, out to her inside skin there (her hull's own sections, as the lid
+  // that keeps the sea out of her is: see waterLid). Drawn before that lid, opaque, so the lid
+  // hides the sea but not her own water; under her floor it's out of sight, as it would be.
+  // Rebuilt only as the level moves a centimetre; one draw each, only while there's water.
+  drawWater(C, W) {
+    const M = (this._waterMeshes ||= []), rows = this.lidRows;
+    if (!rows) return;
+    for (let i = 0; i < C.length; i++) {
+      const c = C[i], l = W[i] || 0;
+      let m = M[i];
+      if (l < 3 || !c.open) {
+        if (m) m.visible = false;
+        continue;
+      }
+      const y = c.floor + depthOf(c, l);
+      if (!m) {
+        m = M[i] = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshStandardMaterial({ color: '#3f6468', roughness: 0.2, metalness: 0, side: THREE.DoubleSide }));
+        m.renderOrder = 0.4;
+        this.body.add(m);
+      }
+      if (Math.abs((m.userData.y ?? -9) - y) > 0.01) {
+        m.userData.y = y;
+        m.geometry.dispose();
+        m.geometry = bilgeSurface(rows, y, c.zc - c.len / 2, c.zc + c.len / 2);
+      }
+      m.visible = true;
+    }
+  }
+
+  // The water in her, its weight where it lies (see flooding.js waterAt: run to her low side and
+  // end), against her payload's at her centre of gravity, as her loads are (see loadForces).
+  waterForces(b) {
+    const D = this.damage;
+    if (!D?.water || !this.waterKg) return;
+    const C = this.compartments(), R = b.R, cg = b.model.cg;
+    let P = 0;
+    for (let i = 0; i < C.length; i++) {
+      const l = D.water[i];
+      if (!(l > 0.5)) continue;
+      const kg = l * 1.025, lp = waterAt(C[i], l, R[3], R[5], (this._wa ||= [0, 0, 0]));
+      const wp = ((this._wp ||= [])[i] ||= [0, 0, 0]);
+      b.forces.push({ f: [0, -kg * G, 0], p: b.toWorld(lp, wp) });
+      P += kg;
+    }
+    if (P) b.forces.push({ f: [0, P * G, 0], p: b.toWorld(cg, (this._wcg ||= [0, 0, 0])) });
   }
 
   // A jolt through her (m/s: a landing off a wave, a slam into one): her battery terminal shaken
@@ -1533,6 +1692,7 @@ export class Boat {
     mesh.receiveShadow = true;
     this.body.add(mesh);
     this.body.add(waterLid(inner.rows, H.draft));
+    this.lidRows = inner.rows; // (her inside, for the water in her: see drawWater)
   }
 
   // A built hull (H.form, see formRows) and her fit-out, in three meshes: her shell (paint, a
@@ -1577,6 +1737,7 @@ export class Boat {
     const inner = yacht ? formRows({ ...H, hw: (t) => Math.max(0, H.hw(t) - 0.05 / H.B), keel: (t) => H.keel(t) + 0.05 }, F) : null;
     if (inner) this.innerRows = inner;
     this.body.add(waterLid(inner || rows, H.draft));
+    this.lidRows = inner || rows;
 
     const carpet = [], fit = [], glow = [], deck = [];
     if (F.kind === 'bass') this.fitBass(carpet, fit, glow);
@@ -4282,7 +4443,7 @@ export class Boat {
     // (What she carries beyond her own weight: her fittings, and the fuel in a long-range tank.
     // She sits lower and goes a little slower for it; her engine is no stronger.)
     phys.m0 ??= phys.m;
-    phys.m = phys.m0 + (this.payload || 0);
+    phys.m = phys.m0 + (this.payload || 0) + (this.waterKg || 0);
     const b = phys, H = this.hull, m = b.m;
     if (dt <= 0) return;
     const still = Math.hypot(b.v[0], b.v[2]) < 0.15 && Math.abs(b.w[1]) < 0.05 && !throttle && !steer && !this.shove && !this.air && this.vel.x === this._vx && this.vel.z === this._vz;
@@ -4325,6 +4486,7 @@ export class Boat {
     // them through her own buoyancy.
     this.slideCargo(dt);
     this.loadForces(b);
+    this.waterForces(b);
     b.ropes.length = 0;
     b.rudder = steered(this.damage, -steer);
     b.legDown = false;

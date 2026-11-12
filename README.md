@@ -513,6 +513,24 @@ Her working parts are hurt only by what can hurt them:
 
 On Relaxed, knocks only scuff her paint, a tube never punctures and her working parts take no harm; Realistic is a little less forgiving than Standard. It's all kept in the save.
 
+**Water in her** (`src/flooding.js`). Each boat is divided as her builder divided her:
+- An open boat (the rowing boat, the skiff, the bass boat, the sailing boat) is one bilge, the water running freely along it.
+- A kayak's cockpit lies between its sealed ends.
+- The cabin boat's cockpit and cabin, and the yacht's engine room, saloon and forecabin, are behind bulkheads.
+- The RIB and the centre console have self-draining decks: only the bilge below fills.
+- The jet ski and the board are sealed.
+
+Water gets in only by a way in:
+- **A breach.** A part of her hull cracked right through below her waterline, as fast as the water's depth over the hole drives it in, less as the water inside rises to meet it.
+- **Over the side.** A sea standing above the gunwale of an open boat.
+- **Rain**, a little.
+
+It comes out by her electric bilge pump (on a float switch, on the boats with a battery, which it draws on with the engine off) or by bailing: **Bail her out** (or the hand pump), keeping still at it.
+
+The water weighs what it weighs where it lies. She sits lower, and it runs to her low side and end, so she's tender with water loose in her. You can see it in her. The throttle panel says how much is aboard, whether it's gaining and whether the pump's on. A flooded engine room stops the yacht's engines until it's pumped out.
+
+Swamped, she floats awash and the water stops coming in: small craft carry buoyancy. On Relaxed it never stands past a third and the pumps are twice as strong; on Realistic a breach lets in more and the pumps manage less. A job on her hull at the Marine Works drains her, and so does a pump-out on its own.
+
 **The throttle.** The motor skiff, the bass boat, the cabin boat, the yacht, the centre console and the jet ski each have a throttle lever with notches (and the sailing boat's outboard a smaller one: R, N, 1, 2, F): **R** astern, **N** neutral, then **1** dead slow (about 1 m/s, for creeping round piers and moorings), **2** slow ahead (about 2 m/s, trolling speed), **3** half and **F** full ahead (on the bass boat the first two notches, **E1** and **E2**, are its quiet electric motor; the RIB and the centre console also have **C**, cruising, between half and full: on the plane at about 22 and 19 knots, easier on the fuel and the crew than flat out). The lever is on screen at the bottom right while you're at the helm (above the round button on a touch screen): click or tap a notch, or drag the handle; the fill beside it shows what the motor is actually giving. **W**/**S** (or the left stick pushed and let go, or **+**/**−**) move it a notch at a time, and it stays where you leave it; held down, it steps on, pausing at neutral before going astern. **X**, **B** on a controller or the big **Stop** under the lever knock it into neutral: the motor idles and the boat coasts on, slowing gradually. The motor takes a moment to build up and to ease off (an electric one less), and changing between ahead and astern it goes through neutral and pauses while the gear changes. Steering (A/D, the stick across) is separate and works at any speed, best with a little way on. On a controller the stick pushed mostly sideways only steers, so a hard turn never knocks the throttle up or down a notch.
 
 **Or a smooth lever** (Settings → Controls & comfort → Throttle: *Smooth lever*), like a real boat's: push it forward or pull it back and it moves as long as you push (faster the further you push the stick), staying where you leave it, and the revs follow smoothly instead of clicking from notch to notch. As on a real outboard's control, the first part of its travel either side of neutral just puts her into gear at idle (dead slow); beyond that it opens the throttle, up to full at the end of its travel. The notches are still marked along it at the same places (trolling speed is where it always was), the reading says where it is (*ahead, idle*, *ahead, 48%*, *full ahead*, *astern, idle*), and the handle on screen glides with it (drag it to just where you want). Coming back through neutral it stops there with a click you feel: let go and push again to go on into astern. With a line out it goes no further than trolling speed, with a fish on no further than dead slow, as ever; **+**/**−** (or the D-pad with a line out) still jump a notch at a time.
