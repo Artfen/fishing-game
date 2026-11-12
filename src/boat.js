@@ -461,6 +461,35 @@ function waterLid(rows, draft) {
   return lid;
 }
 
+// The water in her bilge, seen: its surface at height y, across her inside skin (rows, as
+// waterLid's) from z0 to z1.
+function bilgeSurface(rows, y, z0, z1) {
+  const mid = (rows[0].length - 1) / 2;
+  const cross = (row, dir) => {
+    for (let j = mid; j >= 0 && j < row.length; j += dir) {
+      const a = row[j], b = row[j + dir];
+      if (!b) return null;
+      if (b[1] >= y) {
+        const k = (y - a[1]) / (b[1] - a[1] || 1);
+        return [(a[0] + (b[0] - a[0]) * k) * 0.97, y, a[2] + (b[2] - a[2]) * k];
+      }
+    }
+    return null;
+  };
+  const pos = [];
+  let prev = null;
+  for (const row of rows) {
+    const z = row[mid][2];
+    const cur = z >= z0 && z <= z1 && row[mid][1] < y ? [cross(row, -1), cross(row, 1)] : null;
+    if (cur && cur[0] && cur[1] && prev) pos.push(...prev[0], ...prev[1], ...cur[1], ...prev[0], ...cur[1], ...cur[0]);
+    prev = cur && cur[0] && cur[1] ? cur : null;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.computeVertexNormals();
+  return geo;
+}
+
 function setLimb(mesh, a, b, r) {
   _d.subVectors(b, a);
   const len = _d.length() || 0.001;
@@ -991,11 +1020,14 @@ export class Boat {
     this.drawWater(C, W);
   }
 
-  // The water in her, seen: a level surface in each open compartment (a decked one's is out of
-  // sight), as deep as it stands and as wide as her bilge is there, kept level as she heels and
-  // trims. Made only once there's water; one draw each, only while it's there.
+  // The water in her, seen: its surface in each open compartment (a decked one's is out of sight),
+  // at the height it stands, out to her inside skin there (her hull's own sections, as the lid
+  // that keeps the sea out of her is: see waterLid). Drawn before that lid, opaque, so the lid
+  // hides the sea but not her own water; under her floor it's out of sight, as it would be.
+  // Rebuilt only as the level moves a centimetre; one draw each, only while there's water.
   drawWater(C, W) {
-    const M = (this._waterMeshes ||= []);
+    const M = (this._waterMeshes ||= []), rows = this.lidRows;
+    if (!rows) return;
     for (let i = 0; i < C.length; i++) {
       const c = C[i], l = W[i] || 0;
       let m = M[i];
@@ -1003,16 +1035,18 @@ export class Boat {
         if (m) m.visible = false;
         continue;
       }
+      const y = c.floor + depthOf(c, l);
       if (!m) {
-        m = M[i] = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#4e6f73', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.78 }));
-        m.renderOrder = 2;
+        m = M[i] = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshStandardMaterial({ color: '#3f6468', roughness: 0.2, metalness: 0, side: THREE.DoubleSide }));
+        m.renderOrder = 0.4;
         this.body.add(m);
       }
-      const fill = Math.min(1, l / c.cap), d = depthOf(c, l);
+      if (Math.abs((m.userData.y ?? -9) - y) > 0.01) {
+        m.userData.y = y;
+        m.geometry.dispose();
+        m.geometry = bilgeSurface(rows, y, c.zc - c.len / 2, c.zc + c.len / 2);
+      }
       m.visible = true;
-      m.position.set(0, c.floor + d, c.zc);
-      m.scale.set(c.width * (0.45 + 0.55 * Math.sqrt(fill)), 1, c.len * 0.92);
-      m.rotation.set(-this.body.rotation.x, 0, -this.body.rotation.z);
     }
   }
 
@@ -1658,6 +1692,7 @@ export class Boat {
     mesh.receiveShadow = true;
     this.body.add(mesh);
     this.body.add(waterLid(inner.rows, H.draft));
+    this.lidRows = inner.rows; // (her inside, for the water in her: see drawWater)
   }
 
   // A built hull (H.form, see formRows) and her fit-out, in three meshes: her shell (paint, a
@@ -1702,6 +1737,7 @@ export class Boat {
     const inner = yacht ? formRows({ ...H, hw: (t) => Math.max(0, H.hw(t) - 0.05 / H.B), keel: (t) => H.keel(t) + 0.05 }, F) : null;
     if (inner) this.innerRows = inner;
     this.body.add(waterLid(inner || rows, H.draft));
+    this.lidRows = inner || rows;
 
     const carpet = [], fit = [], glow = [], deck = [];
     if (F.kind === 'bass') this.fitBass(carpet, fit, glow);
