@@ -21,6 +21,7 @@
 // floats level at her design weight.
 
 import { hypot2, hypot3, hypot4 } from './hypot.js';
+import { CHAMBER_SPLIT, chamberAt } from './damage.js';
 
 export const RHO = 1025;   // sea water, kg/m³
 export const G = 9.81;
@@ -74,7 +75,8 @@ export function section(H, w, s, k, a) {
 }
 
 // A RIB's tubes (H.tubes: { r, out, drop, t1 }): the centre of the tube's round section at t
-// along her (0 stern … t1, where the two meet at the nose) on side sd (+1 starboard, −1 port),
+// along her (0 stern … t1, where the two meet at the nose) on side sd (+1 port, her local +x;
+// −1 starboard),
 // lying along her gunwale, out from the hull by `out` of its radius and down by `drop`.
 export function tubeCentre(H, t, sd) {
   const T = H.tubes, u = Math.min(1, Math.max(0, t));
@@ -117,6 +119,9 @@ export function buildHullModel(H) {
   const idx = (i, j) => i * (NP + 1) + j;
   for (const row of rows) for (const p of row) verts.push(p);
   const tris = [];
+  // (Which of a RIB's tube chambers each panel belongs to, −1 her hull: see damage.js.)
+  const triCh = [];
+  let curCh = -1;
   const axis = (z) => {
     // (The middle of the section, for telling which way is out.)
     const t = Math.min(1, Math.max(0, (z + H.L / 2) / H.L));
@@ -134,6 +139,7 @@ export function buildHullModel(H) {
     const ref = out || [cx - axis(cz)[0], cy - axis(cz)[1], 0];
     if (nx * ref[0] + ny * ref[1] + nz * ref[2] < 0) tris.push([a, c, b]);
     else tris.push([a, b, c]);
+    triCh.push(curCh);
   };
   for (let i = 0; i < NZ; i++) {
     for (let j = 0; j < NP; j++) {
@@ -156,11 +162,15 @@ export function buildHullModel(H) {
     addTri(idx(i, 0), idx(i + 1, NP), idx(i + 1, 0), [0, 1, 0]);
   }
   // A RIB's tubes, each a sealed shell of its own along her side: out of the water lying still,
-  // they press on it as she heels or pitches into a sea, and stand her up again.
+  // they press on it as she heels or pitches into a sea, and stand her up again. Each side is two
+  // chambers, aft and fore, sealed from each other by a baffle (see damage.js: a punctured one
+  // goes soft, and holds her up no more).
+  const baffles = [];
   if (H.tubes) {
     const TB = H.tubes, NT = 12, NS = 8, t0 = -0.05, t1 = TB.t1 ?? 0.93;
+    const iS = Math.round((NT * (CHAMBER_SPLIT - t0)) / (t1 - t0));
     for (const sd of [1, -1]) {
-      const base = verts.length, centres = [];
+      const base = verts.length, centres = [], ch0 = sd > 0 ? 0 : 2;
       for (let i = 0; i <= NT; i++) {
         const c = tubeCentre(H, t0 + (t1 - t0) * (i / NT), sd);
         centres.push(c);
@@ -171,6 +181,7 @@ export function buildHullModel(H) {
       }
       const at = (i, k) => base + i * NS + (k % NS);
       for (let i = 0; i < NT; i++) {
+        curCh = ch0 + (i < iS ? 0 : 1);
         for (let k = 0; k < NS; k++) {
           const a = ((k + 0.5) / NS) * Math.PI * 2, out = [sd * Math.cos(a), Math.sin(a), 0];
           addTri(at(i, k), at(i + 1, k), at(i + 1, k + 1), out);
@@ -179,12 +190,28 @@ export function buildHullModel(H) {
       }
       // (Sealed at both ends.)
       for (const [i, dir] of [[0, -1], [NT, 1]]) {
+        curCh = ch0 + (i < iS ? 0 : 1);
         verts.push(centres[i]);
         const m = verts.length - 1;
         for (let k = 0; k < NS; k++) addTri(m, at(i, k), at(i, k + 1), [0, 0, dir]);
       }
+      baffles.push({ c: centres[iS], ring: (k) => at(iS, k), ch0, NS });
+    }
+    curCh = -1;
+  }
+  // The baffles, last: each a disc across the tube, once for the chamber aft of it (facing
+  // forward) and once for the one ahead (facing aft). Both chambers firm, the two press equally
+  // and cancel, and they're passed over (see hullForces); one soft, the firm one's baffle presses.
+  const ntSolid = tris.length;
+  for (const B of baffles) {
+    verts.push(B.c);
+    const m = verts.length - 1;
+    for (const [dir, ch] of [[1, B.ch0], [-1, B.ch0 + 1]]) {
+      curCh = ch;
+      for (let k = 0; k < B.NS; k++) addTri(m, B.ring(k), B.ring(k + 1), [0, 0, dir]);
     }
   }
+  curCh = -1;
 
   const nv = verts.length, nt = tris.length;
   const V = new Float64Array(nv * 3);
@@ -229,7 +256,7 @@ export function buildHullModel(H) {
     set(3, a0 + 1, c0 + 1, ta * tc);
   }
 
-  const model = { H, NZ, NP, rows, nv, nt, V, T, N, A, NA, NC, lat, W, WI, bMax };
+  const model = { H, NZ, NP, rows, nv, nt, ntSolid, V, T, N, A, NA, NC, lat, W, WI, bMax, chamber: Int8Array.from(triCh) };
   // Mass, and where her weight sits: she floats level (with you aboard) at whatever draft her
   // weight sinks her to: her design draft, unless she's given her own weight.
   let hs = hydrostatics(model, H.draft);
@@ -267,7 +294,21 @@ export function buildHullModel(H) {
   for (let i = 1; i < NZ; i += 3) contacts.push(rows[i][2], rows[i][NP - 2]);
   contacts.push(rows[NZ][NP / 2], rows[0][1], rows[0][NP - 1]);
   for (const f of model.foils) if (f.tip) contacts.push(f.tip);
+  // (How many of them carry her on the bottom: their stiffness is shared among these.)
+  model.nGround = contacts.length;
+  // (A RIB's tubes, under each chamber: they meet a rock before her hull does. −1: her hull.)
+  const groundCh = contacts.map(() => -1);
+  if (H.tubes) {
+    for (const t of [0.12, 0.34, 0.58, 0.8]) {
+      for (const sd of [1, -1]) {
+        const c = tubeCentre(H, t, sd);
+        contacts.push([c[0] + sd * H.tubes.r * 0.35, c[1] - H.tubes.r * 0.9, c[2]]);
+        groundCh.push(chamberAt(sd, t));
+      }
+    }
+  }
   model.contacts = contacts;
+  model.groundCh = Int8Array.from(groundCh);
   const ring = [];
   for (let i = 0; i <= NZ; i += 2) {
     ring.push(rows[i][0], rows[i][NP]);
@@ -276,15 +317,18 @@ export function buildHullModel(H) {
   }
   ring.push([0, sheer(H, 1), zAt(H, 1) + 0.02], [0, H.draft + 0.05, zAt(H, 1)]);
   // (A RIB meets a pier or another boat with her tubes: the outside of each, all along.)
+  const ringCh = ring.map(() => -1);
   if (H.tubes) {
     for (let t = 0; t <= (H.tubes.t1 ?? 0.93); t += 0.12) {
       for (const sd of [1, -1]) {
         const c = tubeCentre(H, t, sd);
         ring.push([c[0] + sd * H.tubes.r, c[1], c[2]]);
+        ringCh.push(chamberAt(sd, t));
       }
     }
   }
   model.ring = ring;
+  model.ringCh = Int8Array.from(ringCh);
   model.drag = calibrate(model);
   return model;
 }
@@ -299,7 +343,7 @@ function levelHeights(V, draft) {
 // What the water does to her floating still and level at a draft: the displaced volume, its
 // centre (the centre of buoyancy), the wetted area and the waterplane's area.
 export function hydrostatics(model, draft) {
-  const { V, T, N, A, nt } = model;
+  const { V, T, N, A } = model, nt = model.ntSolid ?? model.nt;
   let fy = 0, mx = 0, mz = 0, my = 0, wet = 0;
   const sub = _clip, Hv = levelHeights(V, draft);
   for (let k = 0; k < nt; k++) {
@@ -502,7 +546,7 @@ function frictionAt(model, v) {
 // The panels' pressure drag and suction, moving at v along one of her axes (0 sideways, 2 ahead),
 // level at her draft.
 function panelResistance(model, v, c1, c2, axis = 2) {
-  const { V, T, N, nt } = model;
+  const { V, T, N } = model, nt = model.ntSolid ?? model.nt;
   const draft = model.H.draft;
   let f = 0;
   const sub = _clip, Hv = levelHeights(V, draft);
@@ -547,6 +591,14 @@ export class HydroBody {
     this.impact = 0;      // the hardest she's met the water or the ground lately (m/s into it)
     this.grounded = 0;    // how much of her is resting on the bottom (0 … 1)
     this.scrape = 0;      // how hard she's sliding on the bottom (m/s)
+    // This step's hardest knock (vn: m/s square on; i: the contact point's index, in the model's
+    // contacts (set 0: the bottom) or ring (set 1: a pier or a boat); x, z: where, in the world;
+    // kind: what it was, as the pier or boat said) and fastest slide on the bottom (v: m/s; i,
+    // x, z as for a knock). For damage: see damage.js and Boat.takeDamage.
+    this.hit = { vn: 0, i: -1, set: 0, x: 0, z: 0, kind: null };
+    this.slide = { v: 0, i: -1, x: 0, z: 0 };
+    this.tubeLift = null; // a RIB's tube chambers: how much each holds her up (1 firm … 0 flat)
+    this.rough = 1;       // her hull's resistance, for a damaged bottom (1: sound)
     // Set by the boat each frame.
     this.thrusters = [];  // { p: [local], d: [local unit], f: N, vent: m (submersion needed); k: how far in (0 … 1), set by step }
     this.forces = [];     // { f: [world N], p: [world] }
@@ -647,6 +699,8 @@ export class HydroBody {
     const hMax = fast ? 1 / 240 : 1 / 120;
     const n = Math.max(1, Math.ceil(dt / hMax - 1e-6)), h = dt / n;
     this.impact *= Math.exp(-dt * 4);
+    this.hit.vn = 0;
+    this.slide.v = 0;
     // (Barely moving, she reads the water round her once a step and carries its rise and fall on
     // through the substeps; under way, every substep.)
     const v = this.v, w = this.w;
@@ -746,6 +800,7 @@ export class HydroBody {
 
   hullForces(h) {
     const M = this.model, { T, N, nt } = M, P = this.P, Hh = this.Hh, WV = this.WV;
+    const ntS = M.ntSolid ?? nt, CH = M.chamber, TL = this.tubeLift;
     const R = this.R, c1 = this.drag.c1, c2 = this.drag.c2;
     const sub = _clip, X = this.x, Vb = this.v, Wb = this.w;
     let wet = 0, along = 0, wx = 0, wy = 0, wz = 0, ux0 = 0, uz0 = 0;
@@ -757,6 +812,11 @@ export class HydroBody {
     const fn = speed / Math.sqrt(G * M.H.L);
     const suck = 1 - 0.75 * Math.min(1, Math.max(0, (fn - 0.6) / 0.8)) ** 2;
     for (let k = 0; k < nt; k++) {
+      // (A tube chamber's panels hold her up as firm as it is; its baffle presses only while the
+      // chamber's firmer than the one on its other side: see buildHullModel.)
+      const ch = CH ? CH[k] : -1, lift = ch >= 0 && TL ? TL[ch] : 1;
+      const baffle = k >= ntS;
+      if (baffle && (!TL || TL[ch] === TL[ch ^ 1])) continue;
       const a = T[k * 3], b = T[k * 3 + 1], c = T[k * 3 + 2];
       const ha = Hh[a], hb = Hh[b], hc = Hh[c];
       if (ha >= 0 && hb >= 0 && hc >= 0) continue;
@@ -765,13 +825,20 @@ export class HydroBody {
       // The panel's outward normal in the world.
       const ln0 = N[k * 3], ln1 = N[k * 3 + 1], ln2 = N[k * 3 + 2];
       const nx = R[0] * ln0 + R[1] * ln1 + R[2] * ln2, ny = R[3] * ln0 + R[4] * ln1 + R[5] * ln2, nz = R[6] * ln0 + R[7] * ln1 + R[8] * ln2;
+      if (baffle) {
+        for (let i = 0; i < ns; i++) {
+          const o = i * CLIP, p = RHO * G * -sub[o + 4] * sub[o] * lift;
+          this.addForce(-p * nx, -p * ny, -p * nz, sub[o + 1], sub[o + 2], sub[o + 3]);
+        }
+        continue;
+      }
       // The water's motion here (the panel's corners averaged).
       const wvx = (WV[a * 3] + WV[b * 3] + WV[c * 3]) / 3, wvy = (WV[a * 3 + 1] + WV[b * 3 + 1] + WV[c * 3 + 1]) / 3, wvz = (WV[a * 3 + 2] + WV[b * 3 + 2] + WV[c * 3 + 2]) / 3;
       for (let i = 0; i < ns; i++) {
         const o = i * CLIP, area = sub[o], scx = sub[o + 1], scy = sub[o + 2], scz = sub[o + 3];
         wet += area;
         // Pressure, by depth.
-        const p = RHO * G * -sub[o + 4] * area;
+        const p = RHO * G * -sub[o + 4] * area * lift;
         let fx = -p * nx, fy = -p * ny, fz = -p * nz;
         // Drag: the panel's own velocity through the moving water. (Its velocity as a point
         // fixed to the hull, as pointVel works it out.)
@@ -830,7 +897,7 @@ export class HydroBody {
       const munk = -0.12 * this.m * Math.min(1, share) * vs * vf;
       this.Tq[0] += R[1] * munk; this.Tq[1] += R[4] * munk; this.Tq[2] += R[7] * munk;
     }
-    const want = -Math.sign(vf) * this.m * this.drag.resist(Math.abs(vf)) * share;
+    const want = -Math.sign(vf) * this.m * this.drag.resist(Math.abs(vf)) * share * this.rough;
     const fix = want - along;
     // (On her centreline, at the wetted part's height and its place along her: heeled, the
     // wetted area lies to leeward, but a hull's resistance doesn't swing her bow away for it.)
@@ -934,13 +1001,19 @@ export class HydroBody {
   // points has gone into the ground.
   groundForces(env) {
     if (!env.ground) return;
-    const M = this.model, m = this.m;
-    const k = (m * G * 12) / 0.05 / M.contacts.length, c = 2 * Math.sqrt(k * m / M.contacts.length) * 1.1;
-    let touching = 0, slide = 0, deep = 0;
-    for (const lp of M.contacts) {
+    const M = this.model, m = this.m, nG = M.nGround ?? M.contacts.length;
+    const k = (m * G * 12) / 0.05 / nG, c = 2 * Math.sqrt(k * m / nG) * 1.1;
+    let touching = 0, slide = 0, deep = 0, clear = Infinity;
+    const hit = this.hit, sl = this.slide;
+    for (let ci = 0; ci < M.contacts.length; ci++) {
+      // (A RIB's tubes, last in the list, only when her hull's within a metre and a half of the
+      // bottom: over deep water they can't touch it.)
+      if (ci === nG && clear > 1.5) break;
+      const lp = M.contacts[ci];
       const p = this.toWorld(lp, _p1);
       const g = env.ground(p[0], p[2]);
       const pen = g - p[1];
+      if (ci < nG && -pen < clear) clear = -pen;
       if (pen <= 0) continue;
       touching++;
       deep = Math.max(deep, pen);
@@ -953,15 +1026,17 @@ export class HydroBody {
       this.pointVel(p, _pv);
       const vn = _pv[0] * nx + _pv[1] * ny + _pv[2] * nz;
       if (vn < -0.5) this.impact = Math.max(this.impact, -vn);
+      if (-vn > hit.vn) { hit.vn = -vn; hit.i = ci; hit.set = 0; hit.x = p[0]; hit.z = p[2]; hit.kind = null; }
       // (The spring saturates: put down deep in the sand she's eased out, never fired out.)
       const fn = Math.max(0, k * Math.min(pen, 0.08) - c * vn);
       // Friction: wet sand, stones, weed.
       const tx = _pv[0] - vn * nx, ty = _pv[1] - vn * ny, tz = _pv[2] - vn * nz, tl = hypot3(tx, ty, tz);
       const mu = 0.45, fr = tl > 1e-4 ? (mu * fn) / Math.max(tl, 0.08) : 0;
       slide = Math.max(slide, tl);
+      if (tl > sl.v) { sl.v = tl; sl.i = ci; sl.x = p[0]; sl.z = p[2]; }
       this.addForce(nx * fn - tx * fr, ny * fn - ty * fr, nz * fn - tz * fr, p[0], p[1], p[2]);
     }
-    this.grounded = touching / M.contacts.length;
+    this.grounded = Math.min(1, touching / nG);
     this.scrape = touching ? slide : 0;
     // Deep in the ground (put down there, or driven up a beach): lifted out a little each step,
     // without any kick.
@@ -973,13 +1048,15 @@ export class HydroBody {
 
   // Piers, quays and other hulls (the boat works out what's there: see boat.js).
   contactForces(env) {
-    for (const lp of this.model.ring) {
-      const p = this.toWorld(lp, _p1);
+    const ring = this.model.ring, hit = this.hit;
+    for (let ci = 0; ci < ring.length; ci++) {
+      const p = this.toWorld(ring[ci], _p1);
       const f = env.contact(this, p);
       if (!f) continue;
       this.pointVel(p, _pv);
       const vn = _pv[0] * f.nx + _pv[1] * f.ny + _pv[2] * f.nz - (f.vn || 0);
       if (vn < -0.4) this.impact = Math.max(this.impact, -vn);
+      if (-vn > hit.vn) { hit.vn = -vn; hit.i = ci; hit.set = 1; hit.x = p[0]; hit.z = p[2]; hit.kind = f.kind || null; }
       const k = f.k ?? (this.m * 120), c = f.c ?? 2 * Math.sqrt(k * this.m) * 0.25;
       // (Already parting faster than half a metre a second: the spring lets go, so hulls that find
       // themselves inside each other ease apart instead of firing off at many metres a second.)

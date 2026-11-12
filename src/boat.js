@@ -8,7 +8,7 @@ import { waveHeight } from './world/water.js';
 import { windAt, currentAt, currentScale, conditions, waveSampler, sampleWaves, shelterAt } from './world/conditions.js';
 import { buildHullModel, HydroBody, G, RHO, tubeCentre, section } from './hydro.js';
 import { wakes } from './world/wakes.js';
-import { solidHeight, PIERS, SEA, SOUTH_Z, CROSSING } from './world/terrain.js';
+import { solidHeight, heightAt, stackHeight, PIERS, SEA, SOUTH_Z, CROSSING } from './world/terrain.js';
 import { SOUTH_RECT } from './world/brasa.js';
 import { buildLanternModel, buildRod, bendRod } from './props.js';
 import { withSurface } from './world/surface.js';
@@ -17,6 +17,7 @@ import { Rope } from './rope.js';
 import { reachFor, berthAt } from './mooring.js';
 import { Dress } from './dress.js';
 import { CARGO, slide as slidePiece } from './cargo.js';
+import { MODES, materialOf, sectionAt, knock, scrape as scrapeHull, firmness, roughness, chamberAt, CHAMBER_SPLIT, surfaceAt } from './damage.js';
 import { sailForce, hullDrag, boardGrip, heelFor, SAIL, boardDrag, finGrip } from './sailing.js';
 
 // The boats. Each has its own hull (metres; the bow points along local +z), its own
@@ -678,6 +679,11 @@ export class Boat {
     this.sheetHelp = true;
     this.overpowered = 0;
     this.payload = 0;       // kg carried beyond her own weight (fittings, extra fuel: see the game)
+    // What knocks have done to her (see damage.js and takeDamage): null, nothing kept (someone
+    // else's boat); set by the game for yours. damageMode: by difficulty (damage.js MODES).
+    this.damage = null;
+    this.damageMode = MODES.standard;
+    this.material = materialOf(this.kind);
     // The engine on her transom and its propeller, where she has a choice of them (see
     // engines.js and setMotor): null, her motor as the hull has it.
     this.motorSpec = null;
@@ -853,6 +859,90 @@ export class Boat {
       b.forces.push({ f: [0, -SKIPPER_KG * G, 0], p: b.toWorld([D.x, y, D.z], (this._dw ||= [0, 0, 0])) });
       b.forces.push({ f: [0, SKIPPER_KG * G, 0], p: b.toWorld([S.helm[0], y, S.helm[1]], (this._hw ||= [0, 0, 0])) });
     }
+  }
+
+  // What this step's knock or slide did to her (see damage.js: nothing on its own; only what she
+  // hit, how hard, square on, and what it was), and her tubes' air in the water and in the
+  // drawing. Only for a boat whose damage is kept (yours).
+  takeDamage(dt) {
+    const D = this.damage, b = this._phys;
+    if (!b) return;
+    if (!D) {
+      b.tubeLift = null;
+      b.rough = 1;
+      return;
+    }
+    const M = b.model, H = this.hull, mode = this.damageMode || MODES.standard;
+    const h = b.hit;
+    if (h.vn > 0.9 && h.i >= 0) {
+      const lp = (h.set ? M.ring : M.contacts)[h.i];
+      if (lp) {
+        const ev = {
+          section: sectionAt(lp[0], lp[1], lp[2], H.L, H.B, H.draft), vn: h.vn,
+          surface: h.set ? h.kind || 'pier' : this.groundAt(h.x, h.z),
+          chamber: (h.set ? M.ringCh : M.groundCh)?.[h.i] ?? -1, x: h.x, z: h.z,
+        };
+        const r = knock(D, this.material, ev, mode);
+        if (r) this.onDamage?.(this, r, ev);
+      }
+    }
+    const s = b.slide;
+    if (s.v > 0.6 && s.i >= 0) {
+      const lp = M.contacts[s.i], surface = this.groundAt(s.x, s.z);
+      if (lp && surface === 'rock') {
+        const ev = { section: sectionAt(lp[0], lp[1], lp[2], H.L, H.B, H.draft), speed: s.v, surface, chamber: M.groundCh?.[s.i] ?? -1, x: s.x, z: s.z, slid: true };
+        const r = scrapeHull(D, this.material, ev, dt, mode);
+        if (r) this.onDamage?.(this, r, ev);
+      }
+    }
+    if (D.tubes) {
+      const TL = (b.tubeLift ||= new Float64Array(4));
+      for (let i = 0; i < 4; i++) TL[i] = firmness(D.tubes[i].air);
+    } else b.tubeLift = null;
+    b.rough = roughness(D);
+    this.sagTubes();
+  }
+
+  // The bottom under a point: rock (a sea stack, or rock on the seabed's map: Boat.rockAt, set by
+  // the game from its habitat) or sand.
+  groundAt(x, z) {
+    if (stackHeight(x, z) >= heightAt(x, z) - 0.05) return 'rock';
+    return surfaceAt(Boat.rockAt ? Boat.rockAt(x, z) : 0);
+  }
+
+  // A RIB's tubes drawn as firm as each chamber is: a soft one slumps onto the water and bulges a
+  // little, the line between it and a firm one plain to see. (Moved only when a chamber's air
+  // has changed enough to see.)
+  sagTubes() {
+    const T = this.hull.tubes, mesh = this.tubeMesh, D = this.damage;
+    if (!T || !mesh) return;
+    const f = (this._sagF ||= [1, 1, 1, 1]);
+    let key = 0;
+    for (let i = 0; i < 4; i++) {
+      f[i] = D?.tubes ? Math.round(firmness(D.tubes[i].air) * 40) / 40 : 1;
+      key = key * 41 + f[i] * 40;
+    }
+    if (key === (this._sagKey ?? 40 * (41 ** 3 + 41 ** 2 + 41 + 1))) return;
+    this._sagKey = key;
+    const H = this.hull, g = mesh.geometry, pos = g.attributes.position;
+    const base = (g.userData.base ||= Float32Array.from(pos.array)), r = T.r, P = pos.array;
+    for (let i = 0; i < pos.count; i++) {
+      const x = base[i * 3], y = base[i * 3 + 1], z = base[i * 3 + 2];
+      P[i * 3] = x; P[i * 3 + 1] = y; P[i * 3 + 2] = z;
+      const t = (z + H.L / 2) / H.L;
+      // (The tube out along her side; the nose, the towing eye and the keel guard stay put.)
+      if (Math.abs(x) < hw(H, clamp(t, 0, 1)) * 0.5 || t > T.t1 + 0.01) continue;
+      const sd = x >= 0 ? 1 : -1;
+      // (Firmness across the baffle blends over a hand's breadth, as a tube's skin does.)
+      const u = clamp((t - CHAMBER_SPLIT) / 0.03 + 0.5, 0, 1), a = chamberAt(sd, CHAMBER_SPLIT - 0.1), fo = a + 1;
+      const k = f[a] + (f[fo] - f[a]) * u;
+      if (k >= 0.999) continue;
+      const c = tubeCentre(H, clamp(t, -0.02, T.t1), sd), low = c[1] - r, sq = 0.4 + 0.6 * k;
+      P[i * 3] = c[0] + (x - c[0]) * (1 + 0.16 * (1 - k));
+      P[i * 3 + 1] = low + (y - low) * sq;
+    }
+    pos.needsUpdate = true;
+    g.computeBoundingSphere();
   }
 
   // Her outboard's propeller against the bottom (with propStrikes on and her leg yours to trim:
@@ -3116,6 +3206,8 @@ export class Boat {
     mesh.receiveShadow = true;
     mesh.userData.tubes = true; // (what a new colour for her tubes recolours: see retube)
     this.body.add(mesh);
+    this.tubeMesh = mesh; // (slumped where a chamber's soft: see sagTubes)
+    this._sagKey = null;
   }
 
   // A RIB's deck: the bow locker seat forward (a cushion on its lid), the stand-up console (the
@@ -4616,6 +4708,7 @@ export class Boat {
       this._props = null;
     } else this.propBite = 1;
     this.propStrike(dt);
+    this.takeDamage(dt);
     this.thrustNow = thrust;
     // Her own wake, left behind her.
     // (With the white water her propeller churns up: how hard it's working, prop or jet.)
@@ -4671,6 +4764,8 @@ export class Boat {
     this.pitch += (Math.atan2(hs - hb, 2 * L2) - this.pitch) * k;
     this.roll += (Math.atan2(hq - hp, 2 * B2) * 0.8 - this.roll) * k;
     this.vel.set(0, 0, 0);
+    // (Her tubes as soft as they are, lying here too.)
+    this.sagTubes();
     this._vx = this._vz = 0;
     this.forwardSpeed = 0;
     this.omega = 0;
@@ -4857,6 +4952,7 @@ export class Boat {
       out.c = 2 * Math.sqrt(out.k * body.m) * 0.35;
       out.mu = 0.3;
       out.vn = 0;
+      out.kind = this.tie ? 'fender' : 'pier';
       best = out;
     }
     for (const o of this._others) {
@@ -4880,6 +4976,7 @@ export class Boat {
       out.c = 2 * Math.sqrt(out.k * body.m) * 0.3;
       out.mu = 0.2;
       out.vn = o.vel.x * out.nx + o.vel.z * out.nz;
+      out.kind = 'boat';
       best = out;
     }
     return best;
