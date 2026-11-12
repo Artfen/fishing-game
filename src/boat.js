@@ -91,16 +91,29 @@ const HULLS = {
     emotor: { thrust: 0.82, astern: 0.75, tilt: 0.35 },
     windage: 0.0018, ride: 6, // low and light: it rides every little wave, but offers the wind little
   },
+  // A modern bass boat (docs/BOAT-ART-DIRECTION.md): drawn as a hard-chined planing V with a pad
+  // (form: see buildFormedHull) over her physics envelope (hw, sheer, keel: unchanged); flush
+  // casting decks fore and aft with a rod locker, hatches and pedestal seats; a cockpit with a
+  // driver's console to starboard (the wheel, a graph, a windscreen), a passenger's to port and
+  // two bucket seats; a jack-plated outboard. You sit at the wheel (seatX: to starboard).
   bass: {
-    name: 'bass boat', mass: 700, L: 4.7, B: 1.05, D: 0.55, draft: 0.22, shallow: 0.4, seatZ: -1.55, seatY: 0.78, floorY: 0.27,
+    name: 'bass boat', mass: 700, L: 4.7, B: 1.05, D: 0.55, draft: 0.22, shallow: 0.4, seatX: -0.44, seatZ: -0.66, seatY: 0.69, floorY: 0.27,
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.32 + 0.68 * t)), 0.42),
     sheer: (t) => 0.14 * Math.pow(t, 2),
     keel: (t) => 0.16 * Math.pow(t, 3),
-    paint: '#7a2430', stripe: '#d9d4c7', bottom: '#2c2f33', inside: 'carpet',
-    decks: [[0.6, 1, 0.07], [0, 0.17, 0.07]], floor: true, pedestals: true, locker: true,
+    paint: '#9b2333', stripe: '#d9d4c7', bottom: '#4a4f56', inside: 'carpet',
+    // (Her hull as drawn: chine as a share of her half-beam, the chine's flat, the pad's
+    // half-width aft, the bottom's rise (tan of the deadrise) aft and at the bow, the stem's rake,
+    // stations; where the decks end (z), the jack plate's setback.)
+    form: { kind: 'bass', chine: 0.92, flat: 0.03, pad: 0.1, rise: [0.24, 0.85], rake: 0.38, stations: 30, rear: -1.45, front: 0.33, jack: 0.12, wheel: true },
+    // (Her casting decks fore and aft, as t along her and how far below her sheer: where you
+    // stand on them; see trollmount.js deckY.)
+    decks: [[0.57, 1, 0.045], [0, 0.19, 0.045]], floor: true, pedestals: true, locker: true,
     motor: { thrust: 7.6, astern: 3, tilt: 0.85, scale: 1.3, cowl: '#2b2e33', band: '#b8312f', troll: 0.3 },
     surge: 0.45, carve: 0.3, // (a planing V: she banks into a turn at speed: see carve in update)
-    lantern: [0.8, -1.95], stow: [-0.72, 0.62, 0.4], noise: 1, steady: 0.45, hump: 0.22,
+    // (Her rods when you're not fishing: two strapped to the casting deck, part of her; see
+    // buildFormedHull.)
+    lantern: [0.8, -1.95], stow: null, noise: 1, steady: 0.45, hump: 0.22,
     windage: 0.0036, ride: 3, // high-sided: the wind pushes it more; broad and heavy: it rides the swell slowly
   },
   sail: {
@@ -228,8 +241,16 @@ const HULLS = {
   },
 };
 for (const id of ['skiff', 'cabin']) Object.assign(HULLS[id], { hw: HULLS.row.hw, sheer: HULLS.row.sheer, keel: HULLS.row.keel });
+// The fleet's visual rebuild goes a boat at a time (docs/FLEET-AUDIT.md); until a rebuilt boat is
+// accepted, ?classic=bass (several: ?classic=bass,cabin) in the address brings her back as she was
+// drawn before, for side-by-side judging. (Her physics never changed: only how she's drawn and
+// where you sit.)
+const CLASSIC = {
+  bass: { form: null, seatX: 0, seatZ: -1.55, seatY: 0.78, stow: [-0.72, 0.62, 0.4], paint: '#7a2430', bottom: '#2c2f33', decks: [[0.6, 1, 0.07], [0, 0.17, 0.07]] },
+};
+for (const k of (globalThis.location?.search?.match(/[?&]classic=([a-z,]+)/)?.[1] || '').split(',')) if (CLASSIC[k]) Object.assign(HULLS[k], CLASSIC[k]);
 export const BOAT_KINDS = Object.keys(HULLS);
-export { HULLS };
+export { HULLS, formHalf, formRows };
 const OAR_T = 0.56;
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -251,6 +272,14 @@ function hullSurface(H, inset, colorFor, split = null) {
     }
     rows.push(row);
   }
+  return { geo: surfaceFromRows(rows, colorFor, split), rows };
+}
+
+// A hull surface from its sections (rows from stern to bow, each across her from one gunwale to
+// the other): two triangles a quad, coloured by colorFor(c, i, j, NP, y), and (split) every face
+// that crosses that height cut along it, so a painted line there runs straight.
+function surfaceFromRows(rows, colorFor, split = null) {
+  const NZ = rows.length - 1, NP = rows[0].length - 1;
   const pos = [], col = [], c = new THREE.Color();
   const tri = (p, q, r, i, j) => {
     pos.push(...p, ...q, ...r);
@@ -285,7 +314,65 @@ function hullSurface(H, inset, colorFor, split = null) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-  return { geo, rows };
+  return geo;
+}
+
+// A built planing hull's sections (H.form; docs/BOAT-ART-DIRECTION.md): at each station from the
+// transom to the stem, across her from her port gunwale to her starboard one: the gunwale, a band
+// under it, the topside (a little flare), the chine's flat, the chine, a running strake, the pad
+// either side of the keel, the keel. Her half-beam, sheer and keel line are her physics hull's
+// (hw, sheer, keel), so everything placed by them sits on her as before; only the shape between
+// differs: a V bottom rising to a hard chine (deadrise from rise[0] aft to rise[1] at the bow)
+// instead of a round bilge, and the forefoot cut back under a raked stem. (FORM_SIDE: the points
+// a side, gunwale to pad.)
+const FORM_SIDE = 8;
+function formRows(H, F) {
+  const N = F.stations || 28, rows = [];
+  for (let i = 0; i <= N; i++) {
+    // (Stations closer together towards the bow, where she curves fastest.)
+    const u = i / N, t = 1 - Math.pow(1 - u, 1.3);
+    const w = hw(H, t), s = sheer(H, t), k = H.keel(t);
+    const small = Math.min(1, w / 0.45);
+    const rise = lerp(F.rise[0], F.rise[1], smoothstep(0.45, 1, t));
+    const pad = F.pad * (1 - smoothstep(0.45, 0.85, t)) * small;
+    const wc = w * F.chine, yc = Math.min(k + rise * Math.max(0, wc - pad), k + 0.82 * (s - k));
+    const f = F.flat * small, xs = pad + (wc - pad) * 0.5, ys = k + rise * (xs - pad);
+    const band = 0.08 * small, flare = 0.006 * small;
+    // (One side, gunwale to keel; the other mirrors it.)
+    const side = [
+      [w, s],
+      [w - 0.004 * small, s - band],
+      [lerp(wc + f, w, 0.5) + flare, lerp(yc, s - band, 0.5)],
+      [wc + f, yc + 0.008 * small],
+      [wc, yc],
+      [xs + 0.02 * small, ys + 0.004 * small],
+      [xs, ys - 0.006 * small],
+      [pad, k],
+    ];
+    const row = [];
+    const rake = F.rake * smoothstep(0.84, 1, t);
+    const at = (x, y) => {
+      // (The stem raked: low down she ends further aft than at her gunwale.)
+      const h = clamp((y - k) / Math.max(0.01, s - k), 0, 1);
+      return [x, y, zAt(H, t) - rake * Math.pow(1 - h, 1.4)];
+    };
+    for (const [x, y] of side) row.push(at(x, y));
+    row.push(at(0, k));
+    for (let j = side.length - 1; j >= 0; j--) row.push(at(-side[j][0], side[j][1]));
+    rows.push(row);
+  }
+  return rows;
+}
+// Her half-width at height y at t along her (formRows' section, without its strake): what her
+// cockpit, seats and consoles must keep inside, since a V is narrow low down.
+function formHalf(H, F, t, y) {
+  const w = hw(H, t), s = sheer(H, t), k = H.keel(t), small = Math.min(1, w / 0.45);
+  const rise = lerp(F.rise[0], F.rise[1], smoothstep(0.45, 1, t));
+  const pad = F.pad * (1 - smoothstep(0.45, 0.85, t)) * small;
+  const wc = w * F.chine, yc = Math.min(k + rise * Math.max(0, wc - pad), k + 0.82 * (s - k));
+  if (y <= k) return 0;
+  if (y < yc) return pad + (wc - pad) * ((y - k) / Math.max(1e-6, yc - k));
+  return lerp(wc, w, clamp((y - yc) / Math.max(1e-6, s - yc), 0, 1));
 }
 
 // A deck across the hull between t0 and t1 (a kayak's covered ends, a bass boat's casting
@@ -452,6 +539,7 @@ export class Boat {
     this.motor = !!H.motor;
     this.name = H.name;
     this.seatZ = H.seatZ; // where you sit: amidships to row, at the stern to steer
+    this.seatX = H.seatX ?? 0; // (and across her: the bass boat's helm is to starboard)
     this.seatY = H.seatY;
     this.noise = H.noise; // how much the fish hear it moving (the kayak hardly at all)
     this.lever = 0;        // motor throttle, -1 (astern) … 1 (full ahead), set a notch at a time (see throttle.js)
@@ -830,6 +918,7 @@ export class Boat {
 
   buildHull() {
     const H = this.hull;
+    if (H.form) return this.buildFormedHull();
     const PAINT = new THREE.Color(H.paint);
     const STRIPE = new THREE.Color(H.stripe);
     const BOTTOM = new THREE.Color(H.bottom);
@@ -939,6 +1028,320 @@ export class Boat {
     this.body.add(waterLid(inner.rows, H.draft));
   }
 
+  // A built hull (H.form, see formRows) and her fit-out, in three meshes: her shell (paint, a
+  // band under the gunwale and an accent along the chine in her stripe, bottom paint up to just
+  // above where she floats), the carpet (decks, cockpit sole and sides), and everything else
+  // merged (gunwale cap, consoles, seats, hatches, fittings). The rubbing strake round her sheer is
+  // in the fit-out. Her paint and stripe stay the Marine Works' to change: both meshes it touches
+  // are tagged hull.
+  buildFormedHull() {
+    const H = this.hull, F = H.form, L = H.L;
+    const PAINT = new THREE.Color(H.paint), STRIPE = new THREE.Color(H.stripe), BOTTOM = new THREE.Color(H.bottom);
+    const boot = floatDraft(this.base) + 0.035;
+    const rows = formRows(H, F), NP = rows[0].length - 1;
+    // (Each face by which part of her section it's in, gunwale down: 0 the band, 1 and 2 the
+    // topside, 3 the chine's flat, then the bottom.)
+    const shell = surfaceFromRows(rows, (c, i, j, n, y) => {
+      const seg = j < FORM_SIDE ? j : n - 1 - j;
+      if (y < boot) c.copy(BOTTOM);
+      else if (seg === 0 || seg === 3) c.copy(STRIPE);
+      else c.copy(PAINT);
+      c.multiplyScalar(0.95 + ((i * 7 + j * 3) % 5) * 0.022);
+    }, boot);
+    // The transom: a fan across her stern section, in her paint.
+    const stern = rows[0], mid = (NP / 2) | 0, cy = (stern[0][1] + stern[mid][1]) / 2, tPos = [];
+    for (let j = 0; j < NP; j++) tPos.push(0, cy, stern[0][2], ...stern[j + 1], ...stern[j]);
+    const transom = new THREE.BufferGeometry();
+    transom.setAttribute('position', new THREE.Float32BufferAttribute(tPos, 3));
+    const shellGeo = mergeParts([{ geo: shell, color: '#ffffff', jitter: 0 }, { geo: transom, color: H.paint, jitter: 0.02 }]);
+    shellGeo.attributes.color.array.set(shell.attributes.color.array, 0);
+    // (A bass boat's gelcoat has a metal flake in it: a little sheen.)
+    const hullMesh = new THREE.Mesh(shellGeo, new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.32, metalness: 0.1 }));
+    hullMesh.userData.hull = true;
+    hullMesh.castShadow = true;
+    hullMesh.receiveShadow = true;
+    this.body.add(hullMesh);
+    this.body.add(waterLid(rows, H.draft));
+
+    const carpet = [], fit = [], glow = [];
+    if (F.kind === 'bass') this.fitBass(carpet, fit, glow);
+    const carpetMesh = new THREE.Mesh(mergeParts(carpet), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 }));
+    carpetMesh.receiveShadow = true;
+    carpetMesh.castShadow = true;
+    const fitMesh = new THREE.Mesh(mergeParts(fit), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.12 }));
+    fitMesh.userData.hull = true; // (her consoles are her paint, her piping her stripe: see repaint)
+    fitMesh.castShadow = true;
+    fitMesh.receiveShadow = true;
+    this.body.add(carpetMesh, fitMesh);
+    // (Her graphs' displays, lit from within: they read by day and glow after dark.)
+    if (glow.length) this.body.add((this.screens = new THREE.Mesh(mergeParts(glow), new THREE.MeshBasicMaterial({ vertexColors: true }))));
+    if (F.wheel && this.wheelAt) this.buildWheel(this.seatX, ...this.wheelAt);
+  }
+
+  // The bass boat's fit-out (H.form.kind 'bass'), into the carpet and the fit-out parts: flush
+  // casting decks aft and forward of a carpeted cockpit; in the cockpit a seat box with two bucket
+  // seats, the driver's console to starboard (dash, gauges, graph, windscreen, throttle; the wheel
+  // is its own, see buildWheel) and a passenger's console to port with a grab rail; on the front
+  // deck the rod locker, two storage hatches, the pedestal seat, the trolling motor's foot pedal,
+  // a second graph and two rods strapped down; on the rear deck the livewell and battery hatches,
+  // a pedestal seat and the stern light; round her the gunwale cap and a black rubbing strake,
+  // pop-up cleats, the bow light and bow eye; on the transom a jack plate for the outboard.
+  // (Starboard is -x.)
+  fitBass(carpet, fit, glow) {
+    const H = this.hull, F = H.form, L = H.L, V = (x, y, z) => new THREE.Vector3(x, y, z);
+    const T = (z) => clamp((z + L / 2) / L, 0, 1), W = (z) => hw(H, T(z)), S = (z) => sheer(H, T(z));
+    const y0 = H.floorY, zR = F.rear, zF = F.front, zStern = -L / 2, zBow = L / 2;
+    const CARPET = '#575c64', LID = '#464b53', CAP = '#dcd7cc', STEEL = '#c9cdd0', BLACK = '#1d2125', DARK = '#383d44', GLASS = '#5d7381', VINYL = '#33393f';
+    const box = (to, sx, sy, sz, x, y, z, color, rx = 0, ry = 0, rz = 0, jitter = 0.03) => to.push({ geo: new THREE.BoxGeometry(sx, sy, sz), matrix: mat(x, y, z, rx, ry, rz), color, jitter });
+    const cyl = (to, r0, r1, h, x, y, z, color, rx = 0, ry = 0, rz = 0, n = 8) => to.push({ geo: new THREE.CylinderGeometry(r0, r1, h, n), matrix: mat(x, y, z, rx, ry, rz), color, jitter: 0.02 });
+    // A graph (a fish finder with a chart): a black case w by h, its face aft towards whoever
+    // uses it, leaning back by lean; on the face a split screen, the chart to port (sea, a shore,
+    // your track) and the sonar to starboard (the water column, a school, the bottom's bright
+    // return over the seabed), into glow (lit: see buildFormedHull).
+    const graph = (w, h, x, y, z, lean) => {
+      box(fit, w, h, 0.05, x, y, z, BLACK, lean, 0, 0);
+      const m = mat(x, y, z, lean, 0, 0), fz = -0.027, iw = w - 0.035, ih = h - 0.035, half = iw / 2;
+      const px = (u, v, sw, sh, color, dz = 0) => glow.push({ geo: new THREE.BoxGeometry(sw, sh, 0.002).translate(u, v, fz - dz), matrix: m, color, jitter: 0 });
+      // (Starboard is -x, and the face looks aft: the chart, to port, is at +x.)
+      px(half / 2, 0, half - 0.004, ih, '#2b6d9e');
+      px(half * 0.8, ih * 0.22, half * 0.4, ih * 0.5, '#c9b373', 0.001);
+      px(half * 0.35, -ih * 0.05, half * 0.5, 0.006, '#f2f0ea', 0.001);
+      px(-half / 2, 0, half - 0.004, ih, '#0f2c4c');
+      px(-half / 2, -ih * 0.36, half - 0.004, ih * 0.28, '#7a3f22', 0.001);
+      px(-half / 2, -ih * 0.22, half - 0.004, 0.008, '#f0b030', 0.002);
+      px(-half * 0.62, ih * 0.08, 0.03, 0.012, '#f2d24b', 0.001);
+      px(-half * 0.36, ih * 0.16, 0.025, 0.01, '#f2d24b', 0.001);
+      px(0, ih / 2 - 0.006, iw, 0.012, '#24415e', 0.002);
+    };
+    // Her half-width inside her skin at z and height y (a V is narrow low down: see formHalf).
+    const HF = (z, y) => Math.max(0, formHalf(H, F, T(z), y) - 0.035);
+    // A surface across her between z0 and z1, inset from her sides, at height y(z): a deck or a sole.
+    const plate = (to, z0, z1, inset, y, color, step = 0.12) => {
+      const pos = [];
+      const n = Math.max(2, Math.ceil((z1 - z0) / step));
+      let prev = null;
+      for (let i = 0; i <= n; i++) {
+        const z = lerp(z0, z1, i / n), yy = y(z), w = Math.max(0, Math.min(W(z) - inset, HF(z, yy)));
+        const cur = [[-w, yy, z], [w, yy, z]];
+        if (prev) pos.push(...prev[0], ...cur[0], ...cur[1], ...prev[0], ...cur[1], ...prev[1]);
+        prev = cur;
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      to.push({ geo: g, color, jitter: 0.025 });
+    };
+    // Her sides inside (the cockpit's liner), from ya(z) up to yb(z), between z0 and z1, following
+    // her skin up the V and the topside to under the gunwale cap.
+    const sides = (to, z0, z1, inset, ya, yb, color, step = 0.15) => {
+      const pos = [];
+      const n = Math.max(2, Math.ceil((z1 - z0) / step)), K = 4;
+      for (const sd of [1, -1]) {
+        let prev = null;
+        for (let i = 0; i <= n; i++) {
+          const z = lerp(z0, z1, i / n), cur = [];
+          for (let k = 0; k <= K; k++) {
+            const y = lerp(ya(z), yb(z), k / K);
+            cur.push([sd * Math.min(W(z) - inset, HF(z, y)), y, z]);
+          }
+          if (prev) for (let k = 0; k < K; k++) pos.push(...prev[k], ...cur[k], ...cur[k + 1], ...prev[k], ...cur[k + 1], ...prev[k + 1]);
+          prev = cur;
+        }
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      to.push({ geo: g, color, jitter: 0.025 });
+    };
+    // A block across her from x0 to x1 (null: out to her side) between z0 and z1, ya to yb, its
+    // outboard faces following her skin: a bulkhead, a seat box, a console. (Six faces.)
+    const block = (to, x0, x1, z0, z1, ya, yb, color, jitter = 0.03) => {
+      // (Each corner out to her skin where it is: she narrows towards her ends.)
+      const out = (y, z, sd) => sd * Math.min(W(z) - 0.07, HF(z, y));
+      const xa = (y, z) => (x0 == null ? out(y, z, -1) : x0), xb = (y, z) => (x1 == null ? out(y, z, 1) : x1);
+      const v = [];
+      for (const y of [ya, yb]) for (const z of [z0, z1]) v.push([xa(y, z), y, z], [xb(y, z), y, z]);
+      // (v: [y][z][a|b]: 0 ya z0 a, 1 ya z0 b, 2 ya z1 a, 3 ya z1 b, 4 yb z0 a, 5 yb z0 b, 6 yb z1 a, 7 yb z1 b.)
+      const quads = [[4, 5, 7, 6], [0, 2, 3, 1], [0, 1, 5, 4], [2, 6, 7, 3], [0, 4, 6, 2], [1, 3, 7, 5]];
+      const pos = [];
+      for (const [a, b2, c, d] of quads) pos.push(...v[a], ...v[b2], ...v[c], ...v[a], ...v[c], ...v[d]);
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      to.push({ geo: g, color, jitter });
+    };
+    // Across her at z, from ya to yb, out to her sides: a bulkhead's face.
+    const across = (to, z, ya, yb, inset, color) => block(to, null, null, z - 0.015, z + 0.015, ya, yb, color);
+    const yDeck = (z) => S(z) - 0.045, inset = 0.085;
+
+    // The decks and the cockpit, carpeted; the cockpit's sides; the decks' faces where you step
+    // up onto them.
+    plate(carpet, zStern + 0.03, zR, 0.03, yDeck, CARPET);
+    plate(carpet, zF, zBow - 0.04, 0.03, yDeck, CARPET, 0.1);
+    plate(carpet, zR, zF, inset, () => y0, CARPET);
+    sides(carpet, zR, zF, inset, () => y0, (z) => S(z) - 0.03, CARPET);
+    across(carpet, zR, y0, yDeck(zR), inset, CARPET);
+    across(carpet, zF, y0, yDeck(zF), inset, CARPET);
+    // A step up onto the casting deck, in the walk-through between the consoles.
+    box(carpet, 0.42, 0.17, 0.12, 0, y0 + 0.085, zF - 0.06, CARPET);
+
+    // The gunwale cap all round, a strip on her sheer stepping down to the decks inside it; the
+    // rubbing strake outside it, black, from her transom round to her stem.
+    const capPts = [], strake = [[], []];
+    for (let i = 0; i <= 40; i++) {
+      const z = lerp(zStern, zBow - 0.02, i / 40), w = W(z), s = S(z);
+      capPts.push([z, w, s]);
+      strake[0].push(V(w + 0.014, s - 0.03, z));
+      strake[1].push(V(-(w + 0.014), s - 0.03, z));
+    }
+    const capPos = [];
+    for (let i = 0; i < capPts.length - 1; i++) {
+      const [za, wa, sa] = capPts[i], [zb, wb, sb] = capPts[i + 1];
+      for (const sd of [1, -1]) {
+        const ow = 0.06, A = [sd * wa, sa + 0.012, za], B2 = [sd * wb, sb + 0.012, zb], C = [sd * Math.max(0, wb - ow), sb + 0.012, zb], D = [sd * Math.max(0, wa - ow), sa + 0.012, za];
+        capPos.push(...A, ...B2, ...C, ...A, ...C, ...D);
+        // (Its inner edge, down to the deck.)
+        const Cl = [C[0], sb - 0.05, zb], Dl = [D[0], sa - 0.05, za];
+        capPos.push(...D, ...C, ...Cl, ...D, ...Cl, ...Dl);
+      }
+    }
+    const capGeo = new THREE.BufferGeometry();
+    capGeo.setAttribute('position', new THREE.Float32BufferAttribute(capPos, 3));
+    fit.push({ geo: capGeo, color: CAP, jitter: 0.02 });
+    for (const pts of strake) {
+      pts.push(V(0, S(zBow) - 0.03, zBow + 0.012));
+      fit.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 48, 0.022, 5), color: BLACK, jitter: 0.02 });
+    }
+    // The transom's cap, and a jack plate carrying the outboard aft of it.
+    box(fit, W(zStern) * 2 - 0.06, 0.035, 0.07, 0, S(zStern) + 0.012, zStern + 0.02, CAP);
+    const jy = S(zStern) - 0.15;
+    box(fit, 0.24, 0.32, F.jack, 0, jy, zStern - F.jack / 2 - 0.01, '#a9aeb2');
+    for (const sd of [1, -1]) box(fit, 0.02, 0.32, F.jack + 0.04, sd * 0.13, jy, zStern - F.jack / 2 - 0.01, '#8f9499');
+    // The livewell's outlets in her transom.
+    for (const sd of [1, -1]) cyl(fit, 0.03, 0.03, 0.02, sd * 0.42, 0.42, zStern - 0.008, BLACK, Math.PI / 2, 0, 0, 10);
+
+    // The rear deck: the livewell and battery hatches, a pedestal seat, the stern light.
+    const hatch = (x, z, sx, sz, y) => {
+      box(fit, sx + 0.03, 0.012, sz + 0.03, x, y + 0.004, z, '#5a5f66');
+      box(fit, sx, 0.018, sz, x, y + 0.012, z, LID);
+      box(fit, 0.08, 0.01, 0.025, x, y + 0.024, z + sz / 2 - 0.04, STEEL);
+    };
+    for (const sd of [1, -1]) hatch(sd * 0.45, -1.88, 0.42, 0.42, yDeck(-1.88));
+    const pedestal = (z, y, back = true) => {
+      cyl(fit, 0.09, 0.09, 0.015, 0, y + 0.008, z, STEEL, 0, 0, 0, 12);
+      cyl(fit, 0.032, 0.032, 0.3, 0, y + 0.16, z, STEEL);
+      box(fit, 0.36, 0.075, 0.3, 0, y + 0.345, z, VINYL);
+      box(fit, 0.37, 0.02, 0.31, 0, y + 0.31, z, H.stripe);
+      if (back) box(fit, 0.34, 0.16, 0.05, 0, y + 0.44, z - 0.15, VINYL, -0.15, 0, 0);
+    };
+    pedestal(-1.62, yDeck(-1.62));
+    {
+      const z = -2.18, x = W(z) - 0.05, s = S(z);
+      cyl(fit, 0.012, 0.012, 0.75, x, s + 0.375, z, STEEL, 0, 0, 0, 6);
+      cyl(fit, 0.03, 0.03, 0.06, x, s + 0.78, z, '#f1efe8', 0, 0, 0, 10);
+    }
+
+    // The seat box across the cockpit, and the two bucket seats on it (the driver's at the
+    // wheel, where you sit: seatX, seatZ).
+    const zs = H.seatZ, boxTop = H.seatY - 0.09;
+    block(carpet, null, null, zs - 0.31, zs + 0.25, y0, boxTop, CARPET);
+    for (const x of [H.seatX, -H.seatX]) {
+      const yc = H.seatY - 0.02;
+      cyl(fit, 0.13, 0.13, 0.03, x, boxTop + 0.015, zs, '#5a5f66', 0, 0, 0, 12);
+      box(fit, 0.46, 0.08, 0.44, x, yc, zs, VINYL);
+      box(fit, 0.47, 0.02, 0.45, x, yc - 0.035, zs, H.stripe);
+      box(fit, 0.44, 0.42, 0.07, x, yc + 0.22, zs - 0.22, VINYL, -0.16, 0, 0);
+      box(fit, 0.45, 0.025, 0.08, x, yc + 0.43, zs - 0.25, H.stripe, -0.16, 0, 0);
+      for (const sd of [1, -1]) box(fit, 0.06, 0.3, 0.2, x + sd * 0.235, yc + 0.17, zs - 0.15, VINYL, -0.1, sd * 0.35, 0);
+    }
+
+    // The consoles: the driver's to starboard (body in her paint, dash, gauges, graph, windscreen,
+    // throttle), the passenger's to port (glovebox, grab rail); the walk-through between.
+    const zc0 = zF - 0.4, zc1 = zF - 0.02, cz = (zc0 + zc1) / 2, cd = zc1 - zc0;
+    const consoleBody = (x0, x1, top) => {
+      // (Her side of it follows her skin down to the sole; its top and dash run out to the liner.)
+      const sd = Math.sign(x0 + x1), xo = sd * Math.min(W(zc1) - 0.07, HF(zc1, top)), xi = sd > 0 ? x0 : x1;
+      block(fit, sd > 0 ? xi : null, sd > 0 ? null : xi, zc0, zc1, y0, top, H.paint, 0.02);
+      x0 = Math.min(xi, xo);
+      x1 = Math.max(xi, xo);
+      const cx = (x0 + x1) / 2, cw = Math.abs(x1 - x0);
+      box(fit, cw + 0.01, 0.025, cd + 0.01, cx, top - 0.06, cz, H.stripe);
+      // (The dash: a face sloping up and away from you, then a flat top to the windscreen.)
+      const rise = 0.17, run = 0.2, len = Math.hypot(rise, run), a = Math.atan2(rise, run);
+      box(fit, cw, 0.035, len, cx, top + rise / 2, zc0 + run / 2, DARK, -a, 0, 0);
+      box(fit, cw, 0.04, cd - run, cx, top + rise, zc0 + run + (cd - run) / 2, H.paint);
+      // The windscreen, smoked, raked back, a bright trim along its top.
+      const ws = 0.17, wa = 0.55;
+      box(fit, cw - 0.04, ws, 0.012, cx, top + rise + Math.cos(wa) * ws / 2, zc1 - 0.04 - Math.sin(wa) * ws / 2, GLASS, -wa, 0, 0, 0.01);
+      box(fit, cw - 0.02, 0.014, 0.018, cx, top + rise + Math.cos(wa) * ws, zc1 - 0.04 - Math.sin(wa) * ws, STEEL, -wa, 0, 0);
+      return { cx, cw, top: top + rise };
+    };
+    const xIn = 0.21, xOut = W(cz) - inset;
+    const D = consoleBody(-xOut, -xIn, 0.72), P = consoleBody(xIn, xOut, 0.66);
+    // The driver's gauges on the dash, the graph on top, the throttle beside the wheel.
+    for (const dx of [-0.17, 0.17]) cyl(fit, 0.04, 0.04, 0.025, H.seatX + dx, 0.79, zc0 + 0.075, '#e9e5dc', -1.0, 0, 0, 12);
+    // (The graph leans back to face your eyes at the wheel.)
+    graph(0.28, 0.18, D.cx - 0.04, D.top + 0.13, zc0 + 0.27, 0.5);
+    cyl(fit, 0.02, 0.025, 0.06, D.cx - 0.04, D.top + 0.03, zc0 + 0.29, BLACK);
+    box(fit, 0.07, 0.06, 0.12, -xOut + 0.06, D.top - 0.13, zc0 + 0.06, DARK);
+    {
+      const a = V(-xOut + 0.06, D.top - 0.1, zc0 + 0.04), b = V(-xOut + 0.06, D.top + 0.08, zc0 - 0.06);
+      fit.push(strut(a, b, 0.012, 0.012, STEEL));
+      cyl(fit, 0.028, 0.028, 0.07, b.x, b.y, b.z, BLACK, 0, 0, Math.PI / 2, 8);
+    }
+    // The passenger's glovebox and grab rail.
+    box(fit, P.cw - 0.16, 0.16, 0.02, P.cx, 0.5, zc0 - 0.008, DARK);
+    {
+      const y = P.top + 0.02;
+      fit.push(strut(V(P.cx - 0.18, y - 0.02, zc0 + 0.12), V(P.cx - 0.18, y + 0.1, zc0 + 0.12), 0.012, 0.012, STEEL));
+      fit.push(strut(V(P.cx + 0.18, y - 0.02, zc0 + 0.12), V(P.cx + 0.18, y + 0.1, zc0 + 0.12), 0.012, 0.012, STEEL));
+      fit.push(strut(V(P.cx - 0.18, y + 0.1, zc0 + 0.12), V(P.cx + 0.18, y + 0.1, zc0 + 0.12), 0.012, 0.012, STEEL));
+    }
+    this.wheelAt = [0.84, zc0 - 0.06, -0.62];
+
+    // The casting deck: the rod locker down the middle, a storage hatch either side, the pedestal
+    // seat forward, the trolling motor's foot pedal, a graph at the bow, two rods strapped down.
+    {
+      const z0 = zF + 0.14, z1 = 1.36, y = yDeck((z0 + z1) / 2);
+      hatch(0, (z0 + z1) / 2, 0.4, z1 - z0, y);
+      for (const sd of [1, -1]) hatch(sd * 0.48, zF + 0.4, 0.36, 0.42, yDeck(zF + 0.4));
+    }
+    pedestal(1.6, yDeck(1.6), false);
+    box(fit, 0.16, 0.035, 0.26, 0.28, yDeck(1.3) + 0.03, 1.3, DARK, -0.12, 0, 0);
+    {
+      const z = 1.98, y = yDeck(z), x = 0.14;
+      cyl(fit, 0.05, 0.05, 0.015, x, y + 0.008, z, BLACK, 0, 0, 0, 10);
+      cyl(fit, 0.015, 0.015, 0.1, x, y + 0.06, z, BLACK, 0, 0, 0, 6);
+      graph(0.2, 0.13, x, y + 0.15, z, 0.35);
+    }
+    for (const [x0, x1] of [[-0.62, -0.3], [-0.5, -0.2]]) {
+      const a = V(x0, yDeck(zF + 0.12) + 0.03, zF + 0.12), b = V(x1, yDeck(2.0) + 0.02, 2.0);
+      fit.push(strut(a, b, 0.012, 0.005, '#1d2125'));
+      const d = b.clone().sub(a).normalize();
+      fit.push(strut(a.clone().addScaledVector(d, 0.2), a.clone().addScaledVector(d, 0.27), 0.035, 0.035, '#5a5f66'));
+      for (const k of [0.45, 1.3]) {
+        const p = a.clone().addScaledVector(d, k);
+        box(fit, 0.06, 0.012, 0.03, p.x, p.y - 0.004, p.z, BLACK);
+      }
+    }
+
+    // Pop-up cleats at her bow and stern quarters, the bow light, the bow eye.
+    for (const z of [1.72, -2.1]) {
+      for (const sd of [1, -1]) {
+        const x = sd * (W(z) - 0.035), y = S(z) + 0.022;
+        box(fit, 0.16, 0.02, 0.035, x, y + 0.02, z, STEEL, 0, sd * 0.25, 0);
+        for (const dz of [-0.04, 0.04]) cyl(fit, 0.01, 0.01, 0.025, x, y + 0.006, z + dz, STEEL, 0, 0, 0, 6);
+      }
+    }
+    {
+      const z = zBow - 0.2, y = S(z) + 0.01;
+      box(fit, 0.08, 0.04, 0.07, 0, y + 0.02, z, BLACK);
+      box(fit, 0.012, 0.035, 0.06, 0.03, y + 0.035, z + 0.005, '#c0392b');
+      box(fit, 0.012, 0.035, 0.06, -0.03, y + 0.035, z + 0.005, '#2e8b57');
+    }
+    {
+      const k = H.keel(1), s = S(zBow), y = 0.34, h = clamp((y - k) / (s - k), 0, 1);
+      fit.push({ geo: new THREE.TorusGeometry(0.028, 0.008, 5, 10), matrix: mat(0, y, zBow - F.rake * Math.pow(1 - h, 1.4) + 0.012), color: STEEL, jitter: 0.02 });
+    }
+  }
+
   buildCharacter() {
     const coat = new THREE.MeshLambertMaterial({ color: '#e8b440' });
     const skin = new THREE.MeshLambertMaterial({ color: '#f1c7a1' });
@@ -950,7 +1353,7 @@ export class Boat {
     const cast = (m) => { m.castShadow = true; return m; };
 
     this.torso = new THREE.Group();
-    this.torso.position.set(0, this.seatY, 0.02 + this.seatZ);
+    this.torso.position.set(this.seatX, this.seatY, 0.02 + this.seatZ);
     this.body.add(this.torso);
     this.rowerParts.push(this.torso);
     const chest = cast(new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.22, 4, 10), coat));
@@ -996,10 +1399,12 @@ export class Boat {
       const hip = new THREE.Vector3(s * (H.astride ? 0.13 : 0.09), y + (H.astride ? -0.04 : 0.05), 0.06 + z);
       const knee = H.paddle ? new THREE.Vector3(s * 0.13, y + 0.2, 0.48 + z) : H.astride ? new THREE.Vector3(s * 0.27, y - 0.1, 0.44 + z) : new THREE.Vector3(s * 0.11, y + 0.09, 0.42 + z);
       const foot = H.paddle ? new THREE.Vector3(s * 0.11, y + 0.04, 0.88 + z) : H.astride ? new THREE.Vector3(s * 0.25, sheer(H, 0.45) + 0.04, 0.6 + z) : new THREE.Vector3(s * 0.11, H.floorY + 0.06, 0.5 + z);
+      // (Across her where you sit: see seatX.)
+      for (const p of [hip, knee, foot]) p.x += this.seatX;
       setLimb(thigh, hip, knee, 0.07);
       setLimb(shin, knee, foot, 0.06);
       const b = cast(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.22), boot));
-      b.position.set(s * 0.11, foot.y - 0.02, foot.z + 0.05);
+      b.position.set(foot.x, foot.y - 0.02, foot.z + 0.05);
       if (H.paddle) b.rotation.x = -0.9;
       this.body.add(thigh, shin, b);
       this.rowerParts.push(thigh, shin, b);
@@ -1027,7 +1432,8 @@ export class Boat {
     if (M.inboard) return this.buildInboards();
     const one = (x) => {
       const g = new THREE.Group();
-      g.position.set(x, sheer(H, 0) - 0.02, zAt(H, 0) - 0.04);
+      // (On a jack plate, if she has one, that much further aft: see form.jack.)
+      g.position.set(x, sheer(H, 0) - 0.02, zAt(H, 0) - 0.04 - (H.form?.jack || 0));
       // (An outboard that's up starts tilted out of the water.)
       // (Tilting swings the leg up and aft, the propeller out behind the transom: + about x.)
       if (!H.motor) g.rotation.x = 1.3;
@@ -1092,7 +1498,7 @@ export class Boat {
       { geo: new THREE.CylinderGeometry(0.06, 0.05, 0.3, 8), matrix: mat(0, -0.86, -0.16, Math.PI / 2, 0, 0), color: '#3a3d42' },
       { geo: new THREE.BoxGeometry(0.02, 0.14, 0.12), matrix: mat(0, -0.95, -0.1), color: '#3a3d42' },
       // (The tiller: none on a boat steered by a wheel.)
-      ...(H.console ? [] : [
+      ...(H.console || H.form?.wheel ? [] : [
         { geo: new THREE.CylinderGeometry(0.018, 0.022, 0.62, 6), matrix: mat(0.04, 0.17, 0.26, Math.PI / 2 - 0.12, 0, 0), color: '#2b2b2b' },
         { geo: new THREE.CylinderGeometry(0.03, 0.03, 0.14, 8), matrix: mat(0.04, 0.2, 0.55, Math.PI / 2 - 0.12, 0, 0), color: '#c0392b' },
       ]),
@@ -1752,17 +2158,20 @@ export class Boat {
       box(0.24, 0.16, 0.04, x, y0 + 1.02, hz + 0.42, '#15181c', -0.5);
       box(0.2, 0.12, 0.005, x, y0 + 1.03, hz + 0.398, glow, -0.5);
     };
+    // (A built hull has these built in: a bass boat's graphs on her console and her bow, her
+    // livewell under her rear deck's hatch, her batteries below decks. See buildFormedHull.)
+    const built = !!H.form;
     if (has('sonar')) {
-      screen(hx + 0.2, '#1d4f9a');
+      if (!built) screen(hx + 0.2, '#1d4f9a');
       box(0.14, 0.06, 0.2, 0.22, H.keel(0.03) + 0.04, zAt(H, 0.01) + 0.08, '#1b1d20');
     }
-    if (has('plotter')) screen(hx - 0.2, '#2f7a5a');
+    if (has('plotter') && !built) screen(hx - 0.2, '#2f7a5a');
     if (has('vhf')) {
       const t = tOf(hz) + 0.04, x = -(hw(H, t) - 0.08);
       parts.push(strut(V(x, sheer(H, t), zAt(H, t)), V(x, sheer(H, t) + 2.3, zAt(H, t) - 0.15), 0.012, 0.005, '#f1efe8'));
     }
-    if (has('battery')) box(0.36, 0.24, 0.26, 0.28, y0 + 0.13, zAt(H, 0.12), '#24272b');
-    if (has('livewell')) {
+    if (has('battery') && !built) box(0.36, 0.24, 0.26, 0.28, y0 + 0.13, zAt(H, 0.12), '#24272b');
+    if (has('livewell') && !built) {
       box(0.62, 0.36, 0.42, -0.26, y0 + 0.19, zAt(H, 0.3), '#f2f0ea');
       box(0.5, 0.03, 0.32, -0.26, y0 + 0.385, zAt(H, 0.3), '#d9d6cc');
     }
@@ -1773,10 +2182,13 @@ export class Boat {
       }
     }
     if (has('bimini')) {
-      const t1 = tOf(hz - 0.55), t2 = tOf(hz + 0.75), top = y0 + 1.95;
+      // (Its frame stands beside and behind the helm, out of your view ahead, on a boat you sit
+      // at a console to steer (a built hull), the canopy reaching forward over the console; on
+      // others, posts either side, behind you and ahead.)
+      const t1 = tOf(hz - 0.55), t2 = tOf(hz + (built ? 0.05 : 0.75)), top = y0 + 1.95;
       for (const t of [t1, t2]) for (const sd of [1, -1]) parts.push(strut(V(sd * (hw(H, t) - 0.06), sheer(H, t), zAt(H, t)), V(sd * 0.7 * hw(H, t), top, zAt(H, t)), 0.016, 0.016, '#c9cdd0'));
-      const w = 1.4 * Math.min(hw(H, t1), hw(H, t2)), d = zAt(H, t2) - zAt(H, t1) + 0.2;
-      box(w, 0.05, d, 0, top + 0.02, (zAt(H, t1) + zAt(H, t2)) / 2, '#2f4f63');
+      const w = 1.4 * Math.min(hw(H, t1), hw(H, t2)), z0 = zAt(H, t1) - 0.1, z1 = built ? hz + 0.85 : zAt(H, t2) + 0.1;
+      box(w, 0.05, z1 - z0, 0, top + 0.02, (z0 + z1) / 2, '#2f4f63');
     }
     if (has('anchor')) box(0.16, 0.12, 0.3, 0, sheer(H, 0.97) + 0.07, zAt(H, 0.965), '#2a2c30');
     if (has('lights')) {
@@ -2436,7 +2848,7 @@ export class Boat {
     this.rods = {};
     for (const [id, def] of Object.entries(RODS)) {
       const rod = buildRod(def.look);
-      rod.group.position.set(0.05, this.seatY + 0.33, 0.34 + this.seatZ);
+      rod.group.position.set(this.seatX + 0.05, this.seatY + 0.33, 0.34 + this.seatZ);
       rod.hold = rod.group.position.clone();
       rod.group.visible = false;
       this.body.add(rod.group);
@@ -2472,7 +2884,7 @@ export class Boat {
   // you face, standing.
   fromYou(out, across, up, ahead) {
     const S = this.standAt;
-    if (!S) return out.set(across, this.seatY + up, this.seatZ + ahead);
+    if (!S) return out.set(this.seatX + across, this.seatY + up, this.seatZ + ahead);
     const c = Math.cos(S.yaw), s = Math.sin(S.yaw);
     return out.set(S.x + across * c + ahead * s, S.y + up, S.z - across * s + ahead * c);
   }

@@ -7,7 +7,7 @@ import { wakes } from './wakes.js';
 import { Figure } from './folk.js';
 import { berthFor } from '../mooring.js';
 import { damp, clamp } from '../util.js';
-import { cleanTrollWire } from '../trollmount.js';
+import { cleanTrollWire, deckY } from '../trollmount.js';
 import { RODS, LINE_COLORS } from '../tackle.js';
 import { buildFloat } from '../tackleModels.js';
 import { buildRod } from '../props.js';
@@ -376,7 +376,9 @@ export class VisitorView {
     if (!P?.cr) return null;
     const B = P.cr === me ? mine : this.boatOf(P.cr);
     if (!B?.body || B.group?.visible === false) return null;
-    _crew.set(P.cx, B.hull.floorY ?? 0.1, P.cz);
+    // (On her sole, or up on a deck if that's where they are: a bass boat's casting decks.)
+    const H = B.hull, t = (P.cz + H.L / 2) / H.L, onDeck = (H.decks || []).some(([a, b]) => t >= a && t <= b);
+    _crew.set(P.cx, onDeck ? deckY(H, P.cz) : H.floorY ?? 0.1, P.cz);
     B.body.localToWorld(_crew);
     return { x: _crew.x, y: _crew.y, z: _crew.z, h: B.heading };
   }
