@@ -8822,8 +8822,8 @@ for (const b of Object.values(BOATS)) {
     if (what === 'breach') {
       const holed = Object.keys(FLOOD_WHERE).filter((s) => D.hull[s] >= 0.85).map((s) => FLOOD_WHERE[s]);
       if (mine) {
-        const pump = bt.pumpRunning ? 'Her bilge pump’s running, ' : bt.kind in PUMP_NAMES ? 'Her bilge pump’s not running: ' : '';
-        hud.flash(`Water’s coming in: ${holed.join(' and ') || 'her hull'} ${holed.length > 1 ? 'are' : 'is'} holed below the waterline. ${pump}${bt.pumpRunning ? 'but get her in' : 'bail (look her over)'}, and get her to the Marine Works.`, t, 7);
+        const next = bt.pumpRunning ? 'Her bilge pump’s running, but get her in to the Marine Works.' : `${bt.kind in PUMP_NAMES ? 'Her bilge pump’s not running: bail' : 'Bail'} (look her over), and get her to the Marine Works.`;
+        hud.flash(`Water’s coming in: ${holed.join(' and ') || 'her hull'} ${holed.length > 1 ? 'are' : 'is'} holed below the waterline. ${next}`, t, 7);
         audio.splashSmall?.(0.4);
       }
       vesselLog(bt.kind, 'Holed below the waterline: taking water.');
