@@ -58,11 +58,17 @@ test('the reference species bite on the setups the guide recommends (headless ec
 test('every other catchable species bites on the guide’s first choice, rigged as it says (headless ecosystem)', async () => {
   const { createHabitat } = await import('../src/world/habitat.js');
   const { Ecosystem } = await import('../src/world/ecosystem.js');
-  const eco = new Ecosystem(createHabitat());
+  const habitat = createHabitat();
   const special = new Set([...REFERENCE, 'squid', 'tuna']);
   const failed = [];
+  // (Each kind is fished on a fresh sea with its own dice: whether it bites can't hang on where
+  // the kinds fished before it left the shoals, nor on how any change elsewhere in the game moved
+  // the dice along.)
+  const hash = (id) => [...id].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 7);
   for (const sp of FISH) {
     if (sp.retired || sp.life.observe || sp.water === 'fresh' || special.has(sp.id)) continue;
+    Math.random = seeded(20261025 ^ hash(sp.id));
+    const eco = new Ecosystem(habitat);
     let r = fishWithGuide(eco, sp.id);
     // (A wary fish can lose the bait to quicker neighbours: give it a second chance elsewhere.)
     if (!r.hits) r = fishWithGuide(eco, sp.id, { homes: [1, 3, 7], tries: 3 });
