@@ -22,5 +22,17 @@
   "materials": 18,
   "geometries": 26,
   "buildMs": 64.9
+ },
+ {
+  "kind": "cruiser",
+  "name": "sport-fishing yacht",
+  "meshes": 83,
+  "calls": 85,
+  "tris": 16909,
+  "drawnTris": 17098,
+  "verts": 44620,
+  "materials": 58,
+  "geometries": 78,
+  "buildMs": 117.9
  }
 ]

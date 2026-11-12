@@ -106,11 +106,12 @@ camera usually is (a windscreen you look through from the helm is low and stays 
 first-person view). Windscreens rake back 25 to 40°; cabin side windows are long, low and rounded
 off at the ends with a short frame segment rather than drawn square.
 
-The one boat with clear glass is the cabin boat: you steer her by the tiller from behind her
-wheelhouse, and look ahead through it (its back windows, the door's window, the windscreen), so
-her wheelhouse is glazed with real, faintly tinted glass all round (`buildWheelhouse`), the lamp's
-warmth glowing in it after dark. The glass sits in openings cut in the wall, behind a frame that
-covers the opening's square corners.
+Two boats have clear glass, because their helm is behind a wheelhouse you must see ahead through:
+the cabin boat (steered by the tiller aft of it, looking through its back windows, the door's window
+and the windscreen; faintly tinted, the lamp's warmth glowing in it after dark) and the yacht (from
+her helm under the hardtop, through the house's back window and windscreen; smoked, in black
+frames). Both are built by `buildWheelhouse`; the glass sits in openings cut in the wall, behind a
+frame that covers the opening's square corners.
 
 ## Metalwork
 
