@@ -1,5 +1,6 @@
 import { solidHeight, PIERS, inSeas } from './world/terrain.js';
 import { clamp, dampAngle } from './util.js';
+import { LINES, tension } from './lines.js';
 
 // Holding a boat still, three ways (the rules here; the boat does the rest, see boat.js):
 //
@@ -170,33 +171,42 @@ export function canTow(lead, towed) {
 const sternOf = (b) => ({ x: b.pos.x - b.fwd.x * b.hull.L * 0.5, z: b.pos.z - b.fwd.z * b.hull.L * 0.5 });
 const bowEnd = (b) => ({ x: b.pos.x + b.fwd.x * b.hull.L * 0.5, z: b.pos.z + b.fwd.z * b.hull.L * 0.5 });
 
-// One step of the towline, after both boats have moved: it only pulls (a rope can't push). A
-// tight line snatches at both ends, stern of the one and bow of the other: it stops them parting
-// (the pull shared between them by their weight), slows the leader for what she's pulling, and,
-// pulling the towed boat by her bow, brings her round to follow it. Returns how tight it is (0 … 1).
-export function towStep(lead, towed, dt, len = TOW.len) {
+// One step of the towline, after both boats have moved: it only pulls (a rope can't push). It's a
+// nylon line (lines.js): slack, nothing; past its length it stretches, pulling the harder the
+// more it stretches and the faster it's opening, at both ends (the leader's stern cleat, the
+// towed boat's bow), so it slows the leader for what she's pulling and, pulling the towed boat by
+// her bow, brings her round to follow. Snatched hard enough (going ahead fast on a slack line, or
+// a big boat yanked about in a sea) it parts. Returns how tight it is (0 … 1); `out`, if given,
+// gets { T (N), load (T over what it holds), parted }. `strength`: what share of a new line's
+// breaking load it holds (lines.js STRENGTH, by difficulty; Infinity: it never parts).
+export function towStep(lead, towed, dt, len = TOW.len, out = null, strength = 1) {
   const s = sternOf(lead), w = bowEnd(towed);
   let dx = s.x - w.x, dz = s.z - w.z;
   const d = Math.hypot(dx, dz) || 1e-6;
   dx /= d;
   dz /= d;
   const A = lead._phys, B = towed._phys;
+  if (out) Object.assign(out, { T: 0, load: 0, parted: false });
   if (A && B) {
     if (d > len) {
-      const mL = A.m, mT = B.m, wL = mT / (mL + mT), wT = mL / (mL + mT), c = d - len;
-      A.x[0] -= dx * c * wL; A.x[2] -= dz * c * wL;
-      B.x[0] += dx * c * wT; B.x[2] += dz * c * wT;
+      const mL = A.m, mT = B.m, mE = (mL * mT) / (mL + mT);
+      // (How fast it's opening: the leader's stern going away from the towed boat's bow.)
       const rel = (lead.vel.x - towed.vel.x) * dx + (lead.vel.z - towed.vel.z) * dz;
-      if (rel > 0) {
-        const J = rel / (1 / mL + 1 / mT);
+      const r = tension(LINES.towline, len, d, rel, mE, strength);
+      if (out) Object.assign(out, r);
+      if (r.parted) return 0;
+      // (As an impulse this step, never more than closes what's opening plus the stretch: a stiff
+      // line on a light boat would otherwise overshoot from one step to the next.)
+      const J = Math.min(r.T * dt, (Math.max(0, rel) + (d - len) / dt) * mE);
+      if (J > 0) {
         A.updateR();
         B.updateR();
         const ps = A.toWorld([lead.cleats[1].x, lead.cleats[1].y, lead.cleats[1].z]), pb = B.toWorld([towed.cleats[0].x, towed.cleats[0].y, towed.cleats[0].z]);
         A.applyImpulse(-dx * J, 0, -dz * J, ps[0], ps[1], ps[2]);
         B.applyImpulse(dx * J, 0, dz * J, pb[0], pb[1], pb[2]);
+        lead.syncFromPhys();
+        towed.syncFromPhys();
       }
-      lead.syncFromPhys();
-      towed.syncFromPhys();
     }
     return clamp((d - len * 0.9) / (len * 0.1), 0, 1);
   }

@@ -273,19 +273,25 @@ test('towing: the line pulls (never pushes), the towed boat follows her leader, 
   assert.ok(!M.canTow(boatAt('kayak', 0, 0), towed).ok, 'the kayak tows nothing bigger');
   assert.ok(!M.canTow(boatAt('row', 0, 0), boatAt('cabin', 3, 0)).ok, 'the rowing boat can’t tow the cabin boat');
   // Motor away: the line comes tight and she follows, bow to the line, at the leader's speed.
-  let tight = 0;
+  // (The line is nylon, so in the swell she surges a little about it: her speed and the leader's
+  // compared over the last two seconds.)
+  let tight = 0, vL = 0, vT = 0;
   for (let i = 0; i < 30 * 20; i++) {
     clock += 1 / 30;
     lead.update(1 / 30, clock, 0.14, 0, 0);
     towed.update(1 / 30, clock, 0, 0, 0);
     tight = M.towStep(lead, towed, 1 / 30);
+    if (i >= 30 * 18) {
+      vL += lead.speed / 60;
+      vT += towed.speed / 60;
+    }
   }
   const stern = { x: lead.pos.x - lead.fwd.x * lead.hull.L / 2, z: lead.pos.z - lead.fwd.z * lead.hull.L / 2 };
   const bow = { x: towed.pos.x + towed.fwd.x * towed.hull.L / 2, z: towed.pos.z + towed.fwd.z * towed.hull.L / 2 };
   const d = Math.hypot(stern.x - bow.x, stern.z - bow.z);
   assert.ok(d <= M.TOW.len + 0.05 && d > M.TOW.len * 0.9, `on the end of the line (${d.toFixed(2)} m)`);
   assert.ok(tight > 0.5);
-  assert.ok(Math.abs(towed.speed - lead.speed) < 0.3 && towed.speed > 1, `following at ${towed.speed.toFixed(2)} m/s`);
+  assert.ok(Math.abs(vT - vL) < 0.3 && vT > 1, `following at ${vT.toFixed(2)} m/s (the leader ${vL.toFixed(2)})`);
   const off = Math.abs(Math.atan2(Math.sin(towed.heading - lead.heading), Math.cos(towed.heading - lead.heading)));
   assert.ok(off < 0.25, 'in line astern');
   // Towing slows the leader a little: she's pulling a boat.
