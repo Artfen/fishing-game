@@ -293,7 +293,13 @@ export function buildHullModel(H) {
   for (let i = 0; i <= NZ; i += 2) contacts.push(rows[i][NP / 2]);
   for (let i = 1; i < NZ; i += 3) contacts.push(rows[i][2], rows[i][NP - 2]);
   contacts.push(rows[NZ][NP / 2], rows[0][1], rows[0][NP - 1]);
-  for (const f of model.foils) if (f.tip) contacts.push(f.tip);
+  // (Which foil each contact is the foot of, −1 none: a rudder's knock is her steering's.)
+  const groundFoil = contacts.map(() => -1);
+  model.foils.forEach((f, i) => {
+    if (!f.tip) return;
+    contacts.push(f.tip);
+    groundFoil.push(i);
+  });
   // (How many of them carry her on the bottom: their stiffness is shared among these.)
   model.nGround = contacts.length;
   // (A RIB's tubes, under each chamber: they meet a rock before her hull does. −1: her hull.)
@@ -309,6 +315,8 @@ export function buildHullModel(H) {
   }
   model.contacts = contacts;
   model.groundCh = Int8Array.from(groundCh);
+  while (groundFoil.length < contacts.length) groundFoil.push(-1);
+  model.groundFoil = Int8Array.from(groundFoil);
   const ring = [];
   for (let i = 0; i <= NZ; i += 2) {
     ring.push(rows[i][0], rows[i][NP]);

@@ -80,7 +80,7 @@ import { Placement } from './placement.js';
 import { Adventures, ADVENTURE_BY_ID, PAGES, KEEPSAKES } from './adventures.js';
 import { PhotoStore, capture, photoId, albumPage, download } from './photos.js';
 import { Haptics, STRENGTHS, engineFeel, lineFeel, slamFeel, knockFeel } from './haptics.js';
-import { PROFILES as ENGINES, WOT, setElectric, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM, tiltToggle, tiltedUp, stepTilt, HOLE } from './engine.js';
+import { PROFILES as ENGINES, WOT, setElectric, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM, tiltToggle, tiltedUp, stepTilt, HOLE, cutOut } from './engine.js';
 import { HelmUI } from './helm.js';
 import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
@@ -150,7 +150,7 @@ import { Post } from './post.js';
 import { Diver, Shot, buildGun } from './diver.js';
 import { stepComfort, effectsOf, needsOf, dressFor, drink as drinkFrom, refill, eatRoll, packRolls, mealDrink, CLOTHES, CLOTHES_IDS, BOTTLE, ROLLS, feelsLike } from './comfort.js';
 import { LINES, STRENGTH, loadWords } from './lines.js';
-import { cleanDamage, damageSave, modeOf, stepTubes, pump as pumpTubes, survey, repairs as damageRepairs, mend as mendDamage, sound as hullSound, hullWords, materialOf, CHAMBERS, SECTION_NAMES, SURFACES, TUBED } from './damage.js';
+import { cleanDamage, damageSave, modeOf, stepTubes, pump as pumpTubes, survey, repairs as damageRepairs, mend as mendDamage, sound as hullSound, hullWords, materialOf, tighten, steerWords, CHAMBERS, SECTION_NAMES, SURFACES, TUBED, PARTS } from './damage.js';
 import { CARGO, buy as buyCargo, putAboard, bringAshore, piecesAboard, storePieces, weightOf as cargoKg, newCargo } from './cargo.js';
 import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance, logSite, logFind } from './dive.js';
 import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick, seeded, wrapAngle } from './util.js';
@@ -2049,7 +2049,9 @@ const harbourSheet = new HarbourSheet(state, {
     BOATS[kind]._dmgBand = null;
     BOATS[kind].sagTubes?.();
     audio.chime?.();
-    vesselLog(kind, id === 'all' ? 'Her knocks put right at the Marine Works.' : id.startsWith('tube') ? `The ${CHAMBERS[+id.split(':')[1]]} tube patched at the Marine Works.` : `${SECTION_NAMES[id.split(':')[1]].replace(/^her /, 'Her ')} put right at the Marine Works.`);
+    const [part, key] = id.split(':');
+    const PART = { steer: 'Her steering', mount: 'The engine’s bracket', wiring: 'The battery terminal' };
+    vesselLog(kind, id === 'all' ? 'Her knocks put right at the Marine Works.' : part === 'tube' ? `The ${CHAMBERS[+key]} tube patched at the Marine Works.` : part === 'hull' ? `${SECTION_NAMES[key].replace(/^her /, 'Her ')} put right at the Marine Works.` : `${PART[part] || 'She'} put right at the Marine Works.`);
     hud.toast(id === 'all' ? 'The yard puts her right: she’s herself again.' : 'Done: the yard puts it right.', 3);
     save();
   },
@@ -4322,7 +4324,14 @@ function updateEngine(dt) {
   const P = ENGINES[k], fuel = fuelOf(k);
   // Get in and go (and the sailing boat's little outboard, lowered, on the one-button start):
   // running as soon as you take the helm.
-  if ((mode === 'go' || (mode === 'simple' && k === 'sail')) && !engineRunning(E) && !engineCranking(E) && fuel > 0) {
+  // (Her battery terminal shaken loose (damage.js): the starter only clicks until it's done up.)
+  E.loose = !!damages[k]?.wiring?.loose;
+  if (E.loose && mode === 'go' && !engineRunning(E) && !engineCranking(E) && !looseSaid) {
+    looseSaid = true;
+    hud.flash('She won’t start: a click, and nothing. The battery terminal’s loose: stopped, look her over and do it up.', t, 5);
+  }
+  if (!E.loose) looseSaid = false;
+  if ((mode === 'go' || (mode === 'simple' && k === 'sail')) && !E.loose && !engineRunning(E) && !engineCranking(E) && fuel > 0) {
     E.battery = true;
     E.cord = true;
     if (P.starter === 'key') E.key = true;
@@ -4339,6 +4348,9 @@ function updateEngine(dt) {
   if (engineCranking(E)) haptics.hold('crank', P.diesel ? 0.45 : 0.35, 0.3, { buzz: P.diesel ? 5 : 7 });
   // (A bent propeller: a judder through her, the harder she's driven.)
   if (engineRunning(E) && E.dmg > 0.1 && Math.abs(boat.power) > 0.05) haptics.hold('bentProp', 0.08 + 0.3 * E.dmg * Math.abs(boat.power), 0.05, { buzz: 11 });
+  // (Her bracket worked loose: the engine shifting on the transom, the harder she's driven.)
+  const mt = damages[k]?.mount || 0;
+  if (engineRunning(E) && mt > 0.1 && Math.abs(boat.power) > 0.1) haptics.hold('looseMount', 0.06 + 0.3 * mt * Math.abs(boat.power), 0.05, { buzz: 6 });
   // The overheat alarm, beeping while she's hot.
   if (engineRunning(E) && E.temp >= 0.6) {
     hotBeepT -= dt;
@@ -4405,6 +4417,11 @@ function helmGauges() {
     tubes.forEach((c, i) => { if (c.air < 0.55 && (w < 0 || c.air < tubes[w].air)) w = i; });
     if (w >= 0) bits.push(`<span class="lv-warn">${CHAMBERS[w]} tube ${tubes[w].air < 0.2 ? 'flat' : 'soft'}</span>`);
   }
+  // (Her working parts, as hurt: see damage.js.)
+  const DD = damages[boat.kind];
+  if (DD?.wiring?.loose) bits.push('<span class="lv-warn">terminal loose</span>');
+  if (DD && Math.abs(DD.steer.bend) > 0.01) bits.push(`<span class="lv-warn">pulls to ${DD.steer.bend > 0 ? 'starboard' : 'port'}</span>`);
+  if (DD && DD.mount > 0.3) bits.push('<span class="lv-warn">engine loose on its bracket</span>');
   return bits.join(' · ');
 }
 // Each frame, the fittings of the boat you're in at work (see shipyard.js): the sonar's imaging
@@ -6509,6 +6526,8 @@ function interaction() {
   // At the helm with the engine off: start her (or the helm panel, on the full procedure).
   {
     const E = engineHere();
+    // (Her battery terminal shaken loose: she won't start till it's done up, at the console.)
+    if (E && E.loose && !engineRunning(E) && !engineCranking(E) && !fishing.busy) return { text: 'She won’t start: look her over', run: () => lookHerOver() };
     if (E && startMode() !== 'go' && !engineRunning(E) && !engineCranking(E) && !E.auto && !fishing.lineOut) {
       const P = ENGINES[E.kind];
       // (With a controller, the trolling motor's menu from here too: L3 starts her, and the motor's
@@ -8794,6 +8813,7 @@ for (const b of Object.values(BOATS)) {
   b.onDamage = (bt, r, ev) => {
     const mine = bt === boat && !onFoot, name = bt.kind;
     const what = SURFACES[ev.surface]?.name || 'something';
+    if (r.parts) return partsDamaged(bt, r, mine);
     if (r.chamber >= 0) {
       if (!r.punctured && !r.torn) return;
       if (mine) {
@@ -8819,6 +8839,47 @@ for (const b of Object.values(BOATS)) {
     vesselLog(name, `${SECTION_NAMES[r.section][0].toUpperCase() + SECTION_NAMES[r.section].slice(1)} ${word} on ${what}.`);
     save();
   };
+}
+// Her working parts hurt (damage.js legStrike, rudderStrike, shake): the words once for each as it
+// gets worse; the engine cut by a jolt with her terminal loose; her log.
+let looseSaid = false;
+function partsDamaged(bt, r, mine) {
+  const D = damages[bt.kind], B = (bt._dmgBand ||= {});
+  if (r.parts.includes('wiring')) {
+    if (r.wiring === 'cut') {
+      const E = engines[bt.kind];
+      if (E && cutOut(E) && mine) {
+        audio.knock?.(0.5);
+        haptics.pulse('snap', 0.6);
+        hud.flash('The engine cut out on that jolt: the battery terminal’s loose. Stopped, look her over and do it up, then start her again.', t, 6);
+      }
+      return;
+    }
+    if (mine) hud.flash('The instruments flickered on that landing: her battery terminal’s been shaken loose. Another hard jolt and the engine will cut out. Ease off, and do it up (stopped: look her over).', t, 6);
+    vesselLog(bt.kind, 'Her battery terminal shaken loose by hard landings.');
+    save();
+    return;
+  }
+  const said = [];
+  if (r.parts.includes('steer')) {
+    const band = Math.min(3, Math.floor((Math.abs(D.steer.bend) / PARTS.steer.most + D.steer.loss) * 4));
+    if (band > (B.steer ?? -1)) {
+      B.steer = band;
+      said.push(`her steering’s ${steerWords(D)}${Math.abs(D.steer.bend) > 0.003 ? ' (hold her against it)' : ''}`);
+      vesselLog(bt.kind, `Steering ${steerWords(D)}, on the bottom.`);
+    }
+  }
+  if (r.parts.includes('mount')) {
+    const band = Math.min(3, Math.floor(D.mount * 4));
+    if (band > (B.mount ?? -1)) {
+      B.mount = band;
+      said.push(`the engine shifted on her transom: the bracket’s bolts ${D.mount > 0.6 ? 'are badly loose' : 'have worked loose'}, and she’s down on push`);
+      vesselLog(bt.kind, 'The engine’s bracket worked loose, on the bottom.');
+    }
+  }
+  if (!said.length) return;
+  if (mine) hud.flash(`A jolt through the helm: ${said.join('; and ')}. ${r.parts.includes('mount') ? 'Stopped, look her over to do up the bolts; ' : ''}the Marine Works can put it right.`, t, 6);
+  save();
 }
 // Each frame: every punctured tube letting go (yours, wherever she lies); the one you're in, a word
 // as a chamber goes soft; and the foot pump while you work it.
@@ -8870,7 +8931,24 @@ function lookHerOver() {
   const soft = D.tubes?.some((c) => c.air < 0.97), leaking = D.tubes?.some((c) => c.leak);
   const acts = [{ text: 'Leave it', cls: 'quiet', cancel: true, run: () => {} }];
   if (soft) acts.push({ text: 'Pump up the tubes', run: () => startPumping() });
+  // (Done up at sea with the spanner from her locker: see damage.js tighten.)
+  if (D.wiring?.loose) acts.push({ text: 'Do up the battery terminal', run: () => doUp('terminal') });
+  if (D.mount > PARTS.mount.tight && !D.tightened) acts.push({ text: 'Do up the bracket bolts', run: () => doUp('mount') });
   ask(boatTitle(boat), `${say} ${leaking ? 'A punctured chamber keeps letting go: the foot pump gets you home, and the Marine Works patches it.' : 'The Marine Works can put it right.'}`, acts);
+}
+function doUp(what) {
+  const D = damages[boat.kind];
+  if (!D || !tighten(D, what)) return;
+  audio.clink?.(0.5, 0);
+  if (what === 'terminal') {
+    BOATS[boat.kind]._dmgBand && (BOATS[boat.kind]._dmgBand.wiring = -1);
+    hud.flash('You find the battery terminal hanging by its clamp, clean it and do it up tight with the spanner. Start her again.', t, 4);
+    vesselLog(boat.kind, 'Battery terminal done up at sea.');
+  } else {
+    hud.flash('You do up the bracket’s bolts as tight as the spanner goes: she’ll hold, and push nearly as she should. The yard should still see to it.', t, 5);
+    vesselLog(boat.kind, 'The engine’s bracket bolts done up at sea.');
+  }
+  save();
 }
 function startPumping() {
   if (!boat.deck) return;
