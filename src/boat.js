@@ -485,6 +485,8 @@ export function wakeOf(H) {
   return { mass: M.mass, L: H.L, fine: H.L / Math.cbrt(M.mass / RHO) };
 }
 const ALL = [];
+// (You, as she's weighed: see loadForces.)
+const SKIPPER_KG = 80;
 
 // Far off, a boat's small parts aren't drawn: her hull, cabin, consoles, sails and anything else
 // big still are, so her shape doesn't change, but her fittings, rods, figure's hands and the like
@@ -711,6 +713,72 @@ export class Boat {
 
   get speed() {
     return Math.hypot(this.vel.x, this.vel.z);
+  }
+
+  // What she carries beyond her own weight as built, and where (set by the game: main.js loadsOf):
+  // [{ kg, p: [x, y, z] in her own space, what }]; kg below zero where she carries less than
+  // that (her standard tank part-empty). Her payload is their sum (she sits lower, goes a little
+  // slower); each weight acts where it is, so she trims and heels to them; and her inertia grows
+  // with them (a laden boat is slower to pitch and roll).
+  setLoads(list = []) {
+    this.loads = list.filter((l) => l && Number.isFinite(l.kg) && l.kg && Array.isArray(l.p));
+    this.payload = this.loads.reduce((n, l) => n + l.kg, 0);
+    const b = this.phys, I0 = b.model.inertia, cg = b.model.cg, dI = [0, 0, 0];
+    for (const l of this.loads) {
+      const dx = l.p[0] - cg[0], dy = l.p[1] - cg[1], dz = l.p[2] - cg[2];
+      dI[0] += l.kg * (dy * dy + dz * dz);
+      dI[1] += l.kg * (dx * dx + dz * dz);
+      dI[2] += l.kg * (dx * dx + dy * dy);
+    }
+    // (Never below her own: an empty tank's missing fuel lightens her, not her inertia so much.)
+    b.I = I0.map((v, i) => Math.max(v * 0.9, v + dI[i]));
+  }
+
+  // Where a weight goes aboard her, in her own space: a fitting from the Marine Works (by its id),
+  // or 'engine', 'fuel', 'cockpit', 'bow', 'helm'.
+  loadPlace(id) {
+    const H = this.hull, y0 = H.floorY ?? 0.1, helm = H.standing?.helm, hx = helm ? helm[0] : this.seatX || 0, hz = helm ? helm[1] : this.seatZ ?? -H.L * 0.25;
+    const at = {
+      engine: [0, sheer(H, 0) - 0.3, zAt(H, 0) - 0.15],
+      fuel: [0, y0 + 0.15, zAt(H, 0.28)],
+      tank: [0, y0 + 0.15, zAt(H, 0.28)],
+      cockpit: [0, y0 + 0.35, zAt(H, 0.38)],
+      helm: [hx, y0 + 0.6, hz + 0.3],
+      sonar: [hx, y0 + 0.9, hz + 0.4],
+      plotter: [hx, y0 + 0.9, hz + 0.4],
+      vhf: [hx, y0 + 0.9, hz + 0.4],
+      lights: [0, y0 + 1.8, hz],
+      bimini: [0, y0 + 1.9, hz + 0.1],
+      battery: [0.28, y0 + 0.13, zAt(H, 0.12)],
+      livewell: [-0.26, y0 + 0.2, zAt(H, 0.3)],
+      holders: [0, sheer(H, 0.22), zAt(H, 0.22)],
+      anchor: [0, sheer(H, 0.97) + 0.05, zAt(H, 0.965)],
+      bow: [0, sheer(H, 0.9), zAt(H, 0.9)],
+    };
+    if (/^troll/.test(id)) return [0.3, sheer(H, 0.95), zAt(H, 0.95)];
+    return at[id] || at.cockpit;
+  }
+
+  // Each weight she carries where it is: down there, and her payload's weight given back at her
+  // centre of gravity (the hull's gravity already counts it), so it's a moment, not twice the
+  // weight. You on her deck, too: your weight is part of her own, at the helm; wherever you walk
+  // it goes with you.
+  loadForces(b) {
+    const L = this.loads, cg = b.model.cg;
+    let P = 0;
+    if (L?.length) {
+      for (const l of L) {
+        b.forces.push({ f: [0, -l.kg * G, 0], p: b.toWorld(l.p, (l._w ||= [0, 0, 0])) });
+        P += l.kg;
+      }
+      b.forces.push({ f: [0, P * G, 0], p: b.toWorld(cg, (this._cgw ||= [0, 0, 0])) });
+    }
+    const D = this.deck, S = this.hull.standing;
+    if (D && S) {
+      const y = this.hull.floorY + 0.9;
+      b.forces.push({ f: [0, -SKIPPER_KG * G, 0], p: b.toWorld([D.x, y, D.z], (this._dw ||= [0, 0, 0])) });
+      b.forces.push({ f: [0, SKIPPER_KG * G, 0], p: b.toWorld([S.helm[0], y, S.helm[1]], (this._hw ||= [0, 0, 0])) });
+    }
   }
 
   // How much of her to draw from where the camera is (see DETAIL, boatDetail): 0 all of her, 1
@@ -3891,6 +3959,9 @@ export class Boat {
     const ax = air.x - this.fwd.x * vg - this.right.x * vs * 0.3, az = air.z - this.fwd.z * vg - this.right.z * vs * 0.3;
     b.thrusters.length = 0;
     b.forces.length = 0;
+    // What she carries, each weight where it is (see setLoads), and you where you stand on her
+    // deck: she trims and heels to them through her own buoyancy.
+    this.loadForces(b);
     b.ropes.length = 0;
     b.rudder = -steer;
     b.legDown = false;
