@@ -44,10 +44,12 @@ export function fish(sc, { tries = 6, limit = 240 } = {}) {
       b.pause = false;
       if (sc.kind === 'lure') {
         phase = (phase + STEP) % 6;
-        const reeling = phase < 4.5;
+        // (A trolled lure runs on steadily behind the boat; a cast one is reeled with pauses and
+        // twitches.)
+        const reeling = sc.towed || phase < 4.5;
         speed = reeling ? sc.retrieve ?? 1 : 0;
         b.pause = !reeling && phase < 5.6;
-        if (Math.abs(phase - 2.2) < STEP / 2) b.twitch = 1.2;
+        if (!sc.towed && Math.abs(phase - 2.2) < STEP / 2) b.twitch = 1.2;
         // The lure's depth as fishing.js moves it: sinking lures go down while you pause and
         // climb as you reel; floating plugs dive as you reel; surface lures stay on top.
         const moving = speed > 0.12, act = it.action;

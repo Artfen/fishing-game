@@ -115,6 +115,7 @@ export class Ecosystem {
     this.coolCache = new Map();
     this.populate();
     this.forage = this.schools.filter((s) => FORAGE.has(s.sp.id));
+    for (const s of this.forage) s.forage = true;
   }
 
   /* ---------- population ---------- */
@@ -353,6 +354,9 @@ export class Ecosystem {
       speed: 0, wantSpeed: 0, turnRate: 0, tx: home.x, ty: -0.9, tz: home.z,
       t: 99, dur: 0, scatterT: 0, sx: 0, sy: 0, sz: 0, spread: 1.4 + rnd() * 0.8, clueCD: 1, flashCD: 3,
       atPrey: false, shoal: null, shoalTop: 0, coolKey: null,
+      // (D2: a shoal of small fish: the hunters about it lately, where from, and when; where it
+      // goes in winter; diving from a boat.)
+      forage: false, threat: 0, threatT: -1e9, threatX: 0, threatZ: 0, winterX: NaN, winterZ: 0, soundT: 0, fled: false,
     };
     const n = L.members[0] + Math.floor(rnd() * (L.members[1] - L.members[0] + 1));
     for (let k = 0; k < n; k++) {
@@ -641,6 +645,31 @@ export class Ecosystem {
       cx += ((home.x - n.x) / d) * push;
       cz += ((home.z - n.z) / d) * push;
     }
+    // (D2: a shoal of small fish keeps away from the hunters about it lately, and in winter goes
+    // out to deeper water.)
+    // (Wary from about two hunters lately; one passing doesn't put it off.)
+    const fear = a.forage && this.fearOf(a) > 0.8 ? this.fearOf(a) : 0;
+    if (a.forage) {
+      const ws = this.winterness(a);
+      if (ws > 0.02) {
+        this.winterGround(a);
+        cx = lerp(cx, a.winterX, ws * 0.8);
+        cz = lerp(cz, a.winterZ, ws * 0.8);
+      }
+      if (fear > 0.8) {
+        const d = Math.hypot(cx - a.threatX, cz - a.threatZ) || 1, push = R * Math.min(1, fear / 2);
+        cx += ((cx - a.threatX) / d) * push;
+        cz += ((cz - a.threatZ) / d) * push;
+      } else if (mode === 'feed') {
+        // Feeding, it works up into the current, where its food (the plankton) comes from.
+        const c = currentFast(a.x, a.z, _cur), sp = Math.hypot(c.x, c.z);
+        if (sp > 0.03) {
+          const push = R * 0.6 * Math.min(1, sp / 0.3);
+          cx -= (c.x / sp) * push;
+          cz -= (c.z / sp) * push;
+        }
+      }
+    }
     let bx = home.x, bz = home.z, bd = Math.max(this.habitat.depth(home.x, home.z), 0.8), best = -Infinity, atPrey = false;
     for (let i = 0; i < 8; i++) {
       let x, z;
@@ -661,7 +690,7 @@ export class Ecosystem {
       if (L.bottom && s.depth > band[1] + 1.5) continue;
       if (!L.zones.includes(zoneAt(x, z))) continue;
       const cover = L.cover === 'weed' ? s.weed : L.cover === 'rock' ? s.rock : L.cover === 'open' ? 0 : Math.max(s.weed, s.rock);
-      let score = Math.random() * 0.4 + (mode === 'cruise' ? cover * (shy * 0.8 + wary * 6) : cover * 1.2 * (1 + shy + wary * 6));
+      let score = Math.random() * 0.4 + (mode === 'cruise' ? cover * (shy * 0.8 + wary * 6 + fear * 0.8) : cover * 1.2 * (1 + shy + wary * 6 + fear));
       if (L.bottom) score += smoothstep(band[0], band[0] + 6, s.depth);
       if (cool > band[0]) score += 1.5 * smoothstep(band[0], cool + 1, s.depth);
       if (shy > 0) score += 0.6 * shy * smoothstep(band[0], band[0] + 4, s.depth);
@@ -685,6 +714,9 @@ export class Ecosystem {
       bot = Math.max(bot, cool + (band[1] - band[0]) * 0.5);
     }
     if (shy > 0) top = Math.min(bot, top + shy * Math.min(3, (band[1] - band[0]) * 0.5));
+    // (D2: with hunters about, a shoal of small fish keeps deeper. Their depths by day and night
+    // are each kind's own: see fish.js and atlantic.js.)
+    if (fear > 0 && !L.bottom) top = Math.min(bot, top + Math.min((bot - top) * 0.3, fear));
     let y;
     if (L.flat) y = -bd + 0.06; // flatfish lie on the bottom itself
     else if (L.benthic) y = -bd + 0.12; // gurnards walk the seabed; an octopus crawls over it
@@ -701,6 +733,15 @@ export class Ecosystem {
     a.ty = y;
     a.tz = bz;
     a.atPrey = atPrey;
+    // (D2: the shoal knows it: the more hunters about it lately, the warier, and which side they
+    // came from.)
+    if (atPrey) {
+      const k = Math.exp(-(this.time - prey.threatT) / 20), fresh = prey.threat * k < 0.2;
+      prey.threat = Math.min(3, prey.threat * k + 0.5);
+      prey.threatT = this.time;
+      prey.threatX = fresh ? a.x : lerp(prey.threatX, a.x, 0.4);
+      prey.threatZ = fresh ? a.z : lerp(prey.threatZ, a.z, 0.4);
+    }
     // (Not `prey`: a hunting shoal's prey is its own, decided by the host; see hunt.)
     a.shoal = atPrey ? prey : null;
     a.shoalTop = preyTop;
@@ -729,6 +770,33 @@ export class Ecosystem {
       this.coolCache.set(key, c);
     }
     return c.d;
+  }
+
+  // (D2) How wary a shoal of small fish is of the hunters about it just now (0 … 3: each hunter
+  // settling at it adds half, fading by half in twenty seconds).
+  fearOf(s) {
+    return s.threat * Math.exp(-(this.time - s.threatT) / 20);
+  }
+  // How far into its winter a shoal of small fish's water is (0 … 1): by the water's warmth at
+  // the top, so the south's barely ever. (Fresh water's colder in winter than the sea.)
+  winterness(s) {
+    if (this.ctx.abs == null) return 0;
+    const zone = s.home.zone, T = tempAt(this.ctx, zone, s.home.south, 0);
+    return zone === 'lake' || zone === 'mere' || zone === 'tarn' ? smoothstep(10, 5, T) : zone === 'stream' || zone === 'river' ? smoothstep(9, 5, T) : smoothstep(16.5, 13, T);
+  }
+  // Where a shoal of small fish goes in winter: out from its home towards deeper water, as far as
+  // its own kind of water goes (up to about a hundred metres). Worked out once.
+  winterGround(s) {
+    if (!Number.isNaN(s.winterX)) return;
+    let x = s.home.x, z = s.home.z;
+    for (let i = 0; i < 10; i++) {
+      const g = this.habitat.deeper(x, z, _g), nx = x + g.x * 10, nz = z + g.z * 10;
+      if (this.habitat.depth(nx, nz) < this.habitat.depth(x, z) - 0.5 || !s.L.zones.includes(zoneAt(nx, nz))) break;
+      x = nx;
+      z = nz;
+    }
+    s.winterX = x;
+    s.winterZ = z;
   }
 
   // The nearest shoal of small fish a hunter could go after: in its kind of water, within reach
@@ -854,7 +922,12 @@ export class Ecosystem {
     // Tuna hunt the sprat shoals: they drive one up to the surface, the sea boils, and birds
     // come down on it.
     if ((s.home.south ? s.L.hunterSouth || s.L.hunter : s.L.hunter) && act > 0.4 && this.hunt(s, h, coarse)) return;
-    if (s.t > s.dur || this.near(s, 1.5)) {
+    // (D2: a shoal of small fish, not being driven by a hunting shoal just now: off as soon as
+    // the hunters gather, and down and together when a boat roars past.)
+    const fear = s.forage && !(s.scatterT > 0) ? this.forageWatch(s, h) : 0;
+    if (s.soundT > 0) {
+      // (Sounding from a boat: it keeps down a few seconds.)
+    } else if (s.t > s.dur || this.near(s, 1.5)) {
       const mode = act < 0.3 ? 'rest' : Math.random() < 0.65 ? 'cruise' : 'feed';
       this.pickPoint(s, mode);
       // A shoal that gathers under lights after dark (horse mackerel) heads for the nearest one.
@@ -869,6 +942,11 @@ export class Ecosystem {
       s.dur = mode === 'cruise' ? 25 : rand(8, 16);
       s.wantSpeed = mode === 'cruise' ? s.L.speed * 0.8 : 0.18;
       s.spread = act < 0.3 ? 0.75 : rand(1.3, 2.2);
+      // (Hunters about: tighter, and quicker away.)
+      if (fear > 0.8) {
+        s.spread *= 1 - 0.15 * Math.min(fear, 3);
+        s.wantSpeed = Math.max(s.wantSpeed, s.L.speed * (0.8 + 0.25 * Math.min(fear, 2)));
+      }
     }
     // (A shoal that's dawdling wheels round slowly: a whole school turning on the spot swings
     // every fish's place round with it.)
@@ -876,6 +954,33 @@ export class Ecosystem {
     this.steer(s, h);
     this.integrate(s, h);
     this.schoolClues(s, coarse, act);
+  }
+
+  // (D2) A shoal of small fish keeping watch: the hunters gathering about it (see pickPoint),
+  // which send it off at once when they first do; and a boat going fast within 45 m, which makes
+  // it sound: down two or three metres and closer together for six seconds. Returns its fear.
+  // (Only the host's own boat, as with a boat scattering a shoal: see startle.)
+  forageWatch(s, h) {
+    const fear = this.fearOf(s);
+    if (fear > 1.4 && !s.fled) {
+      s.fled = true;
+      s.t = s.dur + 1;
+    } else if (fear < 0.6) s.fled = false;
+    if (s.soundT > 0) {
+      s.soundT -= h;
+      return fear;
+    }
+    const bt = this.boat;
+    if (bt && bt.speed > 3 && (bt.x - s.x) ** 2 + (bt.z - s.z) ** 2 < 45 * 45) {
+      s.soundT = 6;
+      s.ty = Math.max(-(this.habitat.depth(s.x, s.z) - 0.6), Math.min(s.ty, s.y - 2.5));
+      s.tx = s.x;
+      s.tz = s.z;
+      s.spread = Math.max(0.6, s.spread * 0.8);
+      s.t = 0;
+      s.dur = 6;
+    }
+    return fear;
   }
 
   // What a shoal shows at the top: gulls over it, nervous water, a flash of silver sides.
