@@ -179,5 +179,6 @@ then.
    hardtop, her cockpit and fighting chair kept.
 5. **A4, the small craft.** Skiff and rowing boat refined (planking, transom, fittings), then the
    jet ski rebuilt, and the kayak if the pictures say so.
-6. **A5, the fleet together.** Colours, materials, fittings and the outboard's cowling made
+6. **A5, the fleet together** (done: the outboard shaped like one on every boat, boats far off
+   without their small parts; `docs/fleet/after/outboard-compare.jpg`, `fleet.jpg`). Colours, materials, fittings and the outboard's cowling made
    consistent; a simplified model for boats far off.

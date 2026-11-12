@@ -53,7 +53,7 @@ import { SailUI } from './sailui.js';
 import { WindLines } from './world/windlines.js';
 import { Storm } from './world/storm.js';
 import { coldInfo, COLDWATER, FALLS, tarnSDF } from './world/coldwater.js';
-import { Boat, BOAT_KINDS } from './boat.js';
+import { Boat, BOAT_KINDS, boatDetail } from './boat.js';
 import { wakes } from './world/wakes.js';
 import { Walker } from './walker.js';
 import { Effects } from './effects.js';
@@ -12010,6 +12010,9 @@ function draw() {
   }
   if (farWakes.on) farWakes.render(renderer, camera.position.x, camera.position.z);
   ripples.render(renderer, _rf.x, _rf.z);
+  // (Boats far off without their small parts: see boat.js boatDetail. Before the reflection, so
+  // it's spared them too.)
+  boatDetail(camera.position, scene);
   reflection.render(renderer, scene, camera);
   const wu = water.uniforms;
   wu.uReflOn.value = reflection.active ? 1 : 0;

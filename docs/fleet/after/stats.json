@@ -1,27 +1,75 @@
 [
  {
+  "kind": "row",
+  "name": "rowing boat",
+  "meshes": 24,
+  "calls": 24,
+  "tris": 3820,
+  "drawnTris": 3820,
+  "verts": 8683,
+  "materials": 12,
+  "geometries": 19,
+  "buildMs": 47
+ },
+ {
+  "kind": "skiff",
+  "name": "motor skiff",
+  "meshes": 26,
+  "calls": 26,
+  "tris": 4304,
+  "drawnTris": 4304,
+  "verts": 10099,
+  "materials": 12,
+  "geometries": 19,
+  "buildMs": 31.9
+ },
+ {
+  "kind": "kayak",
+  "name": "kayak",
+  "meshes": 27,
+  "calls": 27,
+  "tris": 3550,
+  "drawnTris": 3550,
+  "verts": 7849,
+  "materials": 15,
+  "geometries": 22,
+  "buildMs": 27.5
+ },
+ {
   "kind": "bass",
   "name": "bass boat",
   "meshes": 29,
   "calls": 29,
-  "tris": 6946,
-  "drawnTris": 6946,
-  "verts": 18051,
+  "tris": 7366,
+  "drawnTris": 7366,
+  "verts": 19311,
   "materials": 15,
   "geometries": 22,
-  "buildMs": 58.4
+  "buildMs": 26.2
+ },
+ {
+  "kind": "sail",
+  "name": "sailing boat",
+  "meshes": 33,
+  "calls": 32,
+  "tris": 4255,
+  "drawnTris": 4254,
+  "verts": 9838,
+  "materials": 19,
+  "geometries": 26,
+  "buildMs": 25
  },
  {
   "kind": "cabin",
   "name": "cabin boat",
   "meshes": 33,
   "calls": 35,
-  "tris": 10157,
-  "drawnTris": 10350,
-  "verts": 27108,
+  "tris": 10577,
+  "drawnTris": 10770,
+  "verts": 28368,
   "materials": 18,
   "geometries": 26,
-  "buildMs": 64.9
+  "buildMs": 52
  },
  {
   "kind": "cruiser",
@@ -33,7 +81,43 @@
   "verts": 44620,
   "materials": 58,
   "geometries": 78,
-  "buildMs": 117.9
+  "buildMs": 78.3
+ },
+ {
+  "kind": "console",
+  "name": "centre-console boat",
+  "meshes": 80,
+  "calls": 80,
+  "tris": 8626,
+  "drawnTris": 8626,
+  "verts": 18606,
+  "materials": 45,
+  "geometries": 69,
+  "buildMs": 21.2
+ },
+ {
+  "kind": "rib",
+  "name": "RIB",
+  "meshes": 71,
+  "calls": 71,
+  "tris": 21538,
+  "drawnTris": 21538,
+  "verts": 57691,
+  "materials": 43,
+  "geometries": 64,
+  "buildMs": 50.5
+ },
+ {
+  "kind": "windsurf",
+  "name": "windsurf board",
+  "meshes": 24,
+  "calls": 20,
+  "tris": 3669,
+  "drawnTris": 3505,
+  "verts": 8256,
+  "materials": 12,
+  "geometries": 19,
+  "buildMs": 10.6
  },
  {
   "kind": "jetski",
@@ -45,30 +129,6 @@
   "verts": 11761,
   "materials": 13,
   "geometries": 20,
-  "buildMs": 66.6
- },
- {
-  "kind": "row",
-  "name": "rowing boat",
-  "meshes": 24,
-  "calls": 24,
-  "tris": 3820,
-  "drawnTris": 3820,
-  "verts": 8683,
-  "materials": 12,
-  "geometries": 19,
-  "buildMs": 37
- },
- {
-  "kind": "skiff",
-  "name": "motor skiff",
-  "meshes": 26,
-  "calls": 26,
-  "tris": 3884,
-  "drawnTris": 3884,
-  "verts": 8839,
-  "materials": 12,
-  "geometries": 19,
-  "buildMs": 25.3
+  "buildMs": 17.7
  }
 ]
