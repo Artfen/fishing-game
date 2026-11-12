@@ -71,10 +71,13 @@ Scored against the three references (5: as good as the best of them; 1: placehol
 | Cabin boat (after A2) | 4 | 4 | 4 | 4 | 4 | Rebuilt: `docs/fleet/after/cabin*.jpg`, in the game `cabin-game.jpg` |
 | Sport-fishing yacht (before A3) | 3 | 3 | 3 | 3 | 3 | Rebuild the hull and deckhouse, keep her layout |
 | Sport-fishing yacht (after A3) | 4 | 4 | 4 | 4 | 4 | Rebuilt: `docs/fleet/after/cruiser*.jpg`, in the game `cruiser-game.jpg` |
-| Motor skiff | 3 | 3 | 3 | 3 | 2 | Refine |
-| Rowing boat | 3 | 4 | 3 | 4 | 3 | Refine |
-| Jet ski | 2 | 3 | 2 | 3 | 2 | Rebuild |
-| Kayak | 3 | 3 | 2 | 3 | 2 | Refine if justified |
+| Motor skiff (before A4) | 3 | 3 | 3 | 3 | 2 | Refine |
+| Motor skiff (after A4) | 3 | 3 | 4 | 4 | 3 | Refined: plank lands, stem band, motor board (`docs/fleet/after/skiff*.jpg`) |
+| Rowing boat (before A4) | 3 | 4 | 3 | 4 | 3 | Refine |
+| Rowing boat (after A4) | 3 | 4 | 4 | 4 | 4 | Refined: plank lands, stem band, bow eye (`docs/fleet/after/row*.jpg`) |
+| Jet ski (before A4) | 2 | 3 | 2 | 3 | 2 | Rebuild |
+| Jet ski (after A4) | 4 | 4 | 4 | 4 | 4 | Rebuilt: `docs/fleet/after/jetski*.jpg`, in the game `jetski-game.jpg` |
+| Kayak | 3 | 3 | 2 | 3 | 2 | Left as she is (A4): she reads as a sit-on-top fishing kayak at every distance the game shows her; her detail waits for A5's consistency pass |
 | Windsurf board | 3 | 4 | 3 | 4 | 3 | Leave |
 
 **Bass boat** (`docs/fleet/before/bass.jpg`). The round-bilged dinghy hull every small boat shares
