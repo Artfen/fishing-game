@@ -1020,7 +1020,9 @@ export class Boat {
     }
     if (breachIn <= 0.05) this._breachSaid = false;
     const E = C.findIndex((c) => c.engine);
-    const drowned = E >= 0 ? W[E] > C[E].cap * 0.5 : !!(mode.drown && this.hull.motor && !this.hull.motor.inboard && (swamped || (this._drowned && litres > capTotal * 0.35)));
+    // (An outboard: her own, or the sailing boat's little one in hull.outboard.)
+    const M = this.hull.motor || this.hull.outboard;
+    const drowned = E >= 0 ? W[E] > C[E].cap * 0.5 : !!(mode.drown && M && !M.inboard && (swamped || (this._drowned && litres > capTotal * 0.35)));
     if (drowned && !this._drowned) this.onFlood?.(this, 'engine');
     this._drowned = drowned;
     if (total > 1 && this.flooding.litres <= 1 && !this.flooding.gaining) this.onFlood?.(this, 'dry');
