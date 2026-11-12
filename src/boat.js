@@ -61,7 +61,7 @@ import { sailForce, hullDrag, boardGrip, heelFor, SAIL, boardDrag, finGrip } fro
 // as deep as that weighs, and it's what the helm, the waves and a knock have to move.
 const HULLS = {
   row: {
-    name: 'rowing boat', mass: 230, L: 3.8, B: 0.8, D: 0.6, draft: 0.2, shallow: 0.35, seatZ: 0, seatY: 0.47, floorY: 0.08,
+    name: 'rowing boat', mass: 230, L: 3.8, B: 0.8, D: 0.6, draft: 0.2, shallow: 0.35, seatZ: 0, seatY: 0.47, floorY: 0.08, planked: true,
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.17 + 0.83 * t)), 0.75),
     sheer: (t) => 0.26 * Math.pow(t, 2.4) + 0.05 * Math.pow(1 - t, 3),
     keel: (t) => 0.2 * Math.pow(t, 3),
@@ -71,7 +71,7 @@ const HULLS = {
     windage: 0.0026, ride: 4,
   },
   skiff: {
-    name: 'motor skiff', mass: 290, L: 3.8, B: 0.8, D: 0.6, draft: 0.2, shallow: 0.35, seatZ: -1.25, seatY: 0.47, floorY: 0.08,
+    name: 'motor skiff', mass: 290, L: 3.8, B: 0.8, D: 0.6, draft: 0.2, shallow: 0.35, seatZ: -1.25, seatY: 0.47, floorY: 0.08, planked: true,
     paint: '#ece6d8', stripe: '#2f4f7a', bottom: '#7c3a2e', inside: 'wood',
     motor: { thrust: 5.4, astern: 2.4, tilt: 0.75, scale: 1, cowl: '#e9e5dc', band: '#2f4f7a' },
     surge: 0.5,
@@ -249,6 +249,9 @@ const HULLS = {
     keel: (t) => 0.22 * Math.pow(t, 3),
     paint: '#f2f0ea', stripe: '#e8b820', bottom: '#20262c', inside: 'plastic',
     decks: [[0.06, 1, 0]], noFish: true, noLantern: true, astride: true, bars: true, grip: [0.32, 0],
+    // (Her hull as drawn, see formRows: a deep V to a chine drawing in towards the bow, a pad
+    // aft; her deck top over it, see fitJetski.)
+    form: { kind: 'jetski', chine: [0.86, 0.55], flat: 0.03, pad: 0.05, rise: [0.42, 1.0], rake: 0.4, stations: 26 },
     // The jet: a strong push (about seventeen metres a second, thirty-three knots, flat out); it
     // steers by turning its nozzle, so only under power.
     motor: { thrust: 18, astern: 2.2, tilt: 0.25, scale: 1, jet: true, cowl: '#20262c', band: '#e8b820' },
@@ -266,6 +269,9 @@ const CLASSIC = {
   bass: { form: null, seatX: 0, seatZ: -1.55, seatY: 0.78, stow: [-0.72, 0.62, 0.4], paint: '#7a2430', bottom: '#2c2f33', decks: [[0.6, 1, 0.07], [0, 0.17, 0.07]] },
   cabin: { wheelhouse: null, decks: null },
   cruiser: { form: null, wheelhouse: null },
+  jetski: { form: null },
+  row: { planked: false },
+  skiff: { planked: false },
 };
 for (const k of (globalThis.location?.search?.match(/[?&]classic=([a-z,]+)/)?.[1] || '').split(',')) if (CLASSIC[k]) Object.assign(HULLS[k], CLASSIC[k]);
 export const BOAT_KINDS = Object.keys(HULLS);
@@ -1006,6 +1012,7 @@ export class Boat {
     }
     for (const [t0, t1, drop] of H.decks || []) parts.push({ geo: deckSurface(H, t0, t1, drop), color: WH ? '#c9b58f' : drop ? '#5d6066' : H.paint, jitter: WH ? 0.03 : 0 });
     if (WH) parts.push(...this.launchTrim(outer.rows));
+    if (H.planked) parts.push(...this.plankTrim(outer.rows));
     if (H.paddle) {
       // A moulded seat with a backrest, and a hatch on the stern deck.
       parts.push(
@@ -1105,6 +1112,7 @@ export class Boat {
 
     const carpet = [], fit = [], glow = [], deck = [];
     if (F.kind === 'bass') this.fitBass(carpet, fit, glow);
+    if (F.kind === 'jetski') this.fitJetski(fit, rows);
     // (A yacht's decks, liner and sole on their own: white like her paint, but not hers to repaint.)
     if (yacht) {
       this.fitYacht(deck, inner, rows);
@@ -1117,7 +1125,8 @@ export class Boat {
     carpetMesh.receiveShadow = true;
     carpetMesh.castShadow = true;
     carpetMesh.visible = carpet.length > 0;
-    const fitMesh = new THREE.Mesh(mergeParts(fit), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.12 }));
+    // (A jet ski's deck top is a moulded skin: both its faces are seen.)
+    const fitMesh = new THREE.Mesh(mergeParts(fit), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: F.kind === 'jetski' ? 0.3 : 0.45, metalness: F.kind === 'jetski' ? 0.08 : 0.12, side: F.kind === 'jetski' ? THREE.DoubleSide : THREE.FrontSide }));
     fitMesh.userData.hull = true; // (her consoles are her paint, her piping her stripe: see repaint)
     fitMesh.castShadow = true;
     fitMesh.receiveShadow = true;
@@ -1126,6 +1135,154 @@ export class Boat {
     // (Her graphs' displays, lit from within: they read by day and glow after dark.)
     if (glow.length) this.body.add((this.screens = new THREE.Mesh(mergeParts(glow), new THREE.MeshBasicMaterial({ vertexColors: true }))));
     if (F.wheel && this.wheelAt) this.buildWheel(this.seatX, ...this.wheelAt);
+  }
+
+  // A jet ski's deck top (H.form.kind 'jetski'), into the fit-out parts: the moulding in her
+  // accent colour (her stripe: the Marine Works' to change) over her white hull; footwells either
+  // side of a raised spine, non-skid mats in them, bolsters along their outer edges; the saddle on
+  // the spine, black with piping, a grab handle behind it; the hood, lofted from the saddle's front
+  // up to the handlebar pod and down to her bow, its dash and mirrors; the swim platform across her
+  // stern with its mat and tow eye; a bumper rail round her sheer; sponsons on her quarters. (The
+  // handlebars and their column: buildBars. Your feet go in the footwells, either side of the
+  // saddle: see the figure.)
+  fitJetski(fit, rows) {
+    const H = this.hull, NP = rows[0].length - 1, zs = this.seatZ, ys = this.seatY, T = (z) => clamp((z + H.L / 2) / H.L, 0, 1);
+    const TOP = H.stripe, MAT = '#3a3f45', BLACK = '#1d2125', DARK = '#2b2e33', STEEL = '#c9cdd0';
+    const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+    const tri = (pts, color, jitter = 0.02) => {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pts.flat(), 3));
+      fit.push({ geo: g, color, jitter });
+    };
+    const quad = (a, b, c, d, color, jitter) => tri([a, b, c, a, c, d], color, jitter);
+    const S = (t) => sheer(H, t), W = (t) => hw(H, t);
+    const lin = (a, b, n) => Array.from({ length: n + 1 }, (_, i) => a + ((b - a) * i) / n);
+    const spine = 0.21, tw0 = 0.1, tw1 = 0.6, plat = 0.08;
+    // Footwells: a mat either side of the spine, a bolster outboard of it.
+    for (const sd of [1, -1]) {
+      const ts = lin(tw0, tw1, 10);
+      for (let i = 0; i < ts.length - 1; i++) {
+        const a = ts[i], b = ts[i + 1], ya = S(a) - 0.02, yb = S(b) - 0.02;
+        const oa = W(a) - 0.09, ob = W(b) - 0.09;
+        quad([sd * spine, ya, zAt(H, a)], [sd * spine, yb, zAt(H, b)], [sd * ob, yb, zAt(H, b)], [sd * oa, ya, zAt(H, a)], MAT, 0.03);
+        // The bolster: up from the mat, across, and down to her bumper.
+        const ta = S(a) + 0.07, tb = S(b) + 0.07;
+        quad([sd * oa, ya, zAt(H, a)], [sd * ob, yb, zAt(H, b)], [sd * (ob + 0.01), tb, zAt(H, b)], [sd * (oa + 0.01), ta, zAt(H, a)], TOP);
+        quad([sd * (oa + 0.01), ta, zAt(H, a)], [sd * (ob + 0.01), tb, zAt(H, b)], [sd * (W(b) - 0.01), S(b) + 0.02, zAt(H, b)], [sd * (W(a) - 0.01), S(a) + 0.02, zAt(H, a)], TOP);
+      }
+      // The footwells' ends: a face up to the deck at either end.
+      for (const t of [tw0, tw1]) quad([sd * spine, S(t) - 0.02, zAt(H, t)], [sd * (W(t) - 0.09), S(t) - 0.02, zAt(H, t)], [sd * (W(t) - 0.09), S(t) + 0.07, zAt(H, t)], [sd * spine, S(t) + 0.07, zAt(H, t)], TOP);
+    }
+    // The spine under the saddle, from the platform to the hood: its sides and top.
+    {
+      const ts = lin(plat, tw1 + 0.02, 10), yt = ys - 0.1;
+      for (let i = 0; i < ts.length - 1; i++) {
+        const a = ts[i], b = ts[i + 1];
+        for (const sd of [1, -1]) quad([sd * spine, S(a) - 0.02, zAt(H, a)], [sd * spine, S(b) - 0.02, zAt(H, b)], [sd * spine, yt, zAt(H, b)], [sd * spine, yt, zAt(H, a)], TOP);
+        quad([-spine, yt, zAt(H, a)], [spine, yt, zAt(H, a)], [spine, yt, zAt(H, b)], [-spine, yt, zAt(H, b)], TOP);
+      }
+    }
+    // The deck round the footwells' ends: aft of them to the platform, forward under the hood.
+    for (const [a, b] of [[plat, tw0], [tw1, tw1 + 0.04]]) {
+      for (const sd of [1, -1]) quad([sd * spine, S(a) + 0.07, zAt(H, a)], [sd * spine, S(b) + 0.07, zAt(H, b)], [sd * (W(b) - 0.01), S(b) + 0.02, zAt(H, b)], [sd * (W(a) - 0.01), S(a) + 0.02, zAt(H, a)], TOP);
+    }
+    // The swim platform: a step down across her stern, a mat on it, a tow eye at its middle.
+    {
+      const y = S(0) - 0.05, z0 = zAt(H, 0) + 0.01, z1 = zAt(H, plat);
+      quad([-(W(0) - 0.02), y, z0], [W(0) - 0.02, y, z0], [W(plat) - 0.02, y, z1], [-(W(plat) - 0.02), y, z1], DARK, 0.02);
+      fit.push({ geo: new THREE.BoxGeometry((W(0) - 0.08) * 2, 0.01, z1 - z0 - 0.06), matrix: mat(0, y + 0.006, (z0 + z1) / 2), color: MAT, jitter: 0.03 });
+      quad([-(W(plat) - 0.02), y, z1], [W(plat) - 0.02, y, z1], [W(plat) - 0.02, S(plat) + 0.07, z1], [-(W(plat) - 0.02), S(plat) + 0.07, z1], TOP);
+      fit.push({ geo: new THREE.TorusGeometry(0.035, 0.01, 5, 10), matrix: mat(0, y - 0.06, z0 - 0.01), color: STEEL, jitter: 0.02 });
+    }
+    // The saddle: a rounded section along the spine, black, piped in her accent; a grab handle
+    // at its back.
+    {
+      const P = new THREE.Shape(), w = 0.205, y0 = ys - 0.1, h = 0.1;
+      P.moveTo(-w, 0);
+      P.lineTo(w, 0);
+      P.lineTo(w, h * 0.55);
+      P.quadraticCurveTo(w, h, w * 0.55, h);
+      P.lineTo(-w * 0.55, h);
+      P.quadraticCurveTo(-w, h, -w, h * 0.55);
+      P.lineTo(-w, 0);
+      const z0 = zs - 0.66, z1 = zs + 0.56, g = new THREE.ExtrudeGeometry(P, { depth: z1 - z0, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.02, bevelSegments: 2, curveSegments: 4 });
+      g.translate(0, y0, z0);
+      fit.push({ geo: g, color: BLACK, jitter: 0.02 });
+      for (const sd of [1, -1]) fit.push({ geo: new THREE.BoxGeometry(0.012, 0.025, z1 - z0), matrix: mat(sd * (w + 0.021), y0 + 0.05, (z0 + z1) / 2), color: TOP, jitter: 0.02 });
+      fit.push({ geo: new THREE.TorusGeometry(0.08, 0.016, 5, 10, Math.PI), matrix: mat(0, y0 + 0.02, z0 - 0.06, -Math.PI / 2, 0, 0), color: DARK, jitter: 0.02 });
+    }
+    // The hood: lofted from the saddle's front up to the pod and down to her bow, rounded across.
+    {
+      const zh0 = zs + 0.58, zp = zs + 0.86, zb = zAt(H, 0.975), yPeak = ys + 0.17;
+      const Z = lin(zh0, zb, 14), N = 8;
+      const crest = (z) => {
+        const t = T(z), base = S(t) + 0.04;
+        if (z <= zp) return lerp(ys - 0.02, yPeak, smoothstep(zh0, zp, z));
+        return lerp(yPeak, base + 0.08, Math.pow((z - zp) / (zb - zp), 1.15));
+      };
+      const ring = (z) => {
+        const t = T(z), base = S(t) + 0.04, half = Math.max(0.04, W(t) - 0.03), c = crest(z);
+        return Array.from({ length: N + 1 }, (_, k) => {
+          const th = (Math.PI * k) / N;
+          return [half * Math.cos(th), base + (c - base) * Math.pow(Math.sin(th), 0.6), z];
+        });
+      };
+      let prev = ring(Z[0]);
+      // (Its back: a face from the deck up to the crest's start, where the saddle meets it.)
+      for (let k = 0; k < N; k++) tri([[prev[k][0], S(T(Z[0])) + 0.04, Z[0]], prev[k], prev[k + 1]], TOP);
+      for (let i = 1; i < Z.length; i++) {
+        const cur = ring(Z[i]);
+        for (let k = 0; k < N; k++) quad(prev[k], cur[k], cur[k + 1], prev[k + 1], TOP, 0.025);
+        prev = cur;
+      }
+      // The dash: a dark pod at the column's foot, its screen; and a mirror either side.
+      fit.push({ geo: new THREE.BoxGeometry(0.3, 0.08, 0.2), matrix: mat(0, yPeak + 0.01, zp - 0.06, 0.35, 0, 0), color: BLACK, jitter: 0.02 });
+      fit.push({ geo: new THREE.BoxGeometry(0.16, 0.05, 0.006), matrix: mat(0, yPeak + 0.03, zp - 0.15, 0.35, 0, 0), color: '#24323c', jitter: 0 });
+      for (const sd of [1, -1]) {
+        const base = V3(sd * 0.24, crest(zp + 0.1) - 0.05, zp + 0.1);
+        fit.push(strut(base, base.clone().add(V3(sd * 0.1, 0.16, -0.04)), 0.01, 0.008, BLACK));
+        fit.push({ geo: new THREE.BoxGeometry(0.11, 0.07, 0.025), matrix: mat(sd * 0.36, base.y + 0.18, zp + 0.05, 0.1, sd * 0.25, 0), color: BLACK, jitter: 0.02 });
+      }
+    }
+    // A graphic swept along each side, dark, rising forward: a jet ski's, not a dinghy's, flank.
+    // (On her hull's topside, the run from the gunwale (j 0, or NP) to the next point down.)
+    for (const sd of [1, -1]) {
+      const on = (t, f) => {
+        const f2 = clamp(t * (rows.length - 1), 0, rows.length - 1.001), i = Math.floor(f2), k = f2 - i;
+        // (f: how far down from her gunwale to her chine (FORM_SIDE's fourth point), by height.
+        // A built hull's sections start at her port gunwale: see formRows.)
+        const pt = (r) => {
+          const P = (j) => r[sd > 0 ? j : NP - j], y = P(0)[1] + (P(4)[1] - P(0)[1]) * f;
+          for (let j = 0; j < 4; j++) {
+            const a = P(j), b = P(j + 1);
+            if (y <= a[1] && y >= b[1]) {
+              const k = (a[1] - y) / Math.max(1e-6, a[1] - b[1]);
+              return [a[0] + (b[0] - a[0]) * k + sd * 0.004, y, a[2] + (b[2] - a[2]) * k];
+            }
+          }
+          return [P(4)[0] + sd * 0.004, P(4)[1], P(4)[2]];
+        };
+        const A = pt(rows[i]), B = pt(rows[i + 1]);
+        return A.map((v, n) => v + (B[n] - v) * k);
+      };
+      const N = 10, pos = [];
+      for (let n = 0; n < N; n++) {
+        const ta = 0.12 + (0.58 * n) / N, tb = 0.12 + (0.58 * (n + 1)) / N, lo = (t) => lerp(0.75, 0.3, (t - 0.12) / 0.58), hi = (t) => lerp(0.55, 0.12, (t - 0.12) / 0.58);
+        const a = on(ta, lo(ta)), b = on(tb, lo(tb)), c = on(tb, hi(tb)), d = on(ta, hi(ta));
+        pos.push(a, b, c, a, c, d);
+      }
+      tri(pos, DARK, 0.02);
+    }
+    // Her bumper rail round her sheer, and her sponsons aft.
+    for (const sd of [1, -1]) {
+      const pts = rows.map((r) => {
+        const p = sd > 0 ? r[0] : r[NP];
+        return V3(p[0] + sd * 0.01, p[1] + 0.01, p[2]);
+      });
+      fit.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 48, 0.028, 6), color: DARK, jitter: 0.02 });
+      const t = 0.16, z = zAt(H, t), y = formHalf(H, H.form, t, 0.2) > 0 ? 0.22 : 0.25;
+      fit.push({ geo: new THREE.BoxGeometry(0.05, 0.05, 0.42), matrix: mat(sd * (formHalf(H, H.form, t, y) + 0.02), y, z), color: DARK, jitter: 0.02 });
+    }
   }
 
   // A yacht's hull fit-out (H.form.kind 'yacht'), into the fit-out parts: her liner (the inner
@@ -1841,6 +1998,55 @@ export class Boat {
     this.cabinFloor = H.floorY + 0.02;
     this.cabinRoofY = base + height;
     this.cabinMid = new THREE.Vector3(0, base, (zb + zf) / 2);
+  }
+
+  // A clinker-built boat's trim (H.planked: the rowing boat and the skiff), into her hull's mesh:
+  // the lands of her planks (each plank's lower edge lapping over the next, a fine dark line
+  // along her topsides, following her sheer), a bronze band up her stem and an eye low on it for a
+  // painter, and on a boat with an outboard, a varnished motor board on her transom for it to clamp
+  // to. rows: her outer hull's sections (hullSurface), starboard gunwale first.
+  plankTrim(rows) {
+    const H = this.hull, NP = rows[0].length - 1, out = [], boot = floatDraft(this.base) + 0.06;
+    // Her side at height y on station i, side sd (-1 starboard: j from 0; +1 port: from NP), down
+    // the section's run of points.
+    const at = (i, y, sd, off) => {
+      const r = rows[i], P = (j) => r[sd < 0 ? j : NP - j];
+      for (let j = 0; j < NP / 2; j++) {
+        const a = P(j), b = P(j + 1);
+        if (y <= a[1] && y >= b[1]) {
+          const k = (a[1] - y) / Math.max(1e-6, a[1] - b[1]);
+          return [a[0] + (b[0] - a[0]) * k + sd * off, y, a[2] + (b[2] - a[2]) * k];
+        }
+      }
+      return null;
+    };
+    // (Four lands, evenly down from her sheer towards her keel, those above her bottom paint.)
+    for (const f of [0.2, 0.4, 0.6, 0.8]) {
+      for (const sd of [1, -1]) {
+        const pos = [];
+        for (let i = 0; i < rows.length - 2; i++) {
+          const y0 = (i) => { const r = rows[i], s = r[0][1], k = r[NP / 2][1]; return s - (s - k) * f; };
+          const ya = y0(i), yb = y0(i + 1);
+          if (ya < boot + 0.02 || yb < boot + 0.02) continue;
+          const a = at(i, ya, sd, 0.004), b = at(i + 1, yb, sd, 0.004), c = at(i + 1, yb - 0.012, sd, 0.004), d = at(i, ya - 0.012, sd, 0.004);
+          if (a && b && c && d) pos.push(...a, ...b, ...c, ...a, ...c, ...d);
+        }
+        if (!pos.length) continue;
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        out.push({ geo: g, color: '#3b3330', jitter: 0.03 });
+      }
+    }
+    const stem = rows.at(-1).slice(0, Math.floor(NP / 2) + 1).map((p) => new THREE.Vector3(0, p[1], p[2] + 0.01));
+    out.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(stem), 10, 0.012, 5), color: '#b08d57', jitter: 0.02 });
+    const eyeY = boot + 0.12, eyeZ = zAt(H, 1) + 0.02;
+    out.push({ geo: new THREE.TorusGeometry(0.025, 0.007, 5, 10), matrix: mat(0, eyeY, eyeZ, 0, Math.PI / 2, 0), color: '#b08d57', jitter: 0.02 });
+    if (H.motor) {
+      const y = sheer(H, 0), z = zAt(H, 0);
+      out.push({ geo: new THREE.BoxGeometry(0.34, 0.26, 0.05), matrix: mat(0, y - 0.11, z - 0.03), color: '#8a5d38', jitter: 0.03 });
+      out.push({ geo: new THREE.BoxGeometry(0.34, 0.26, 0.04), matrix: mat(0, y - 0.11, z + 0.05), color: '#8a5d38', jitter: 0.03 });
+    }
+    return out;
   }
 
   // The cabin boat's hull trim, as a classic wooden launch's (H.wheelhouse; into her hull's mesh,
@@ -2655,10 +2861,14 @@ export class Boat {
   // The jet ski's saddle, its hood, and the handlebars (turning with the jet), hands on the grips.
   buildBars() {
     const H = this.hull, z = this.seatZ, y = this.seatY;
+    // (Drawn as a jet ski, her saddle and hood are her deck top's: see fitJetski. The steering
+    // column stays.)
     const parts = [
-      { geo: new THREE.BoxGeometry(0.42, 0.22, 1.25), matrix: mat(0, y - 0.15, z - 0.05), color: '#1d2125' },
-      { geo: new THREE.BoxGeometry(0.66, 0.3, 0.72), matrix: mat(0, sheer(H, 0.74) + 0.08, zAt(H, 0.74), -0.28, 0, 0), color: H.stripe },
-      { geo: new THREE.BoxGeometry(0.5, 0.05, 0.4), matrix: mat(0, sheer(H, 0.74) + 0.24, zAt(H, 0.74) - 0.05, -0.28, 0, 0), color: '#20262c' },
+      ...(H.form ? [] : [
+        { geo: new THREE.BoxGeometry(0.42, 0.22, 1.25), matrix: mat(0, y - 0.15, z - 0.05), color: '#1d2125' },
+        { geo: new THREE.BoxGeometry(0.66, 0.3, 0.72), matrix: mat(0, sheer(H, 0.74) + 0.08, zAt(H, 0.74), -0.28, 0, 0), color: H.stripe },
+        { geo: new THREE.BoxGeometry(0.5, 0.05, 0.4), matrix: mat(0, sheer(H, 0.74) + 0.24, zAt(H, 0.74) - 0.05, -0.28, 0, 0), color: '#20262c' },
+      ]),
       { geo: new THREE.BoxGeometry(0.1, 0.34, 0.1), matrix: mat(0, y + 0.04, z + 0.74, -0.45, 0, 0), color: '#2b2e33' },
     ];
     const m = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.1 }));

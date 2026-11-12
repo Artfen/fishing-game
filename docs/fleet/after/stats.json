@@ -34,5 +34,41 @@
   "materials": 58,
   "geometries": 78,
   "buildMs": 117.9
+ },
+ {
+  "kind": "jetski",
+  "name": "jet ski",
+  "meshes": 25,
+  "calls": 25,
+  "tris": 4856,
+  "drawnTris": 4856,
+  "verts": 11761,
+  "materials": 13,
+  "geometries": 20,
+  "buildMs": 66.6
+ },
+ {
+  "kind": "row",
+  "name": "rowing boat",
+  "meshes": 24,
+  "calls": 24,
+  "tris": 3820,
+  "drawnTris": 3820,
+  "verts": 8683,
+  "materials": 12,
+  "geometries": 19,
+  "buildMs": 37
+ },
+ {
+  "kind": "skiff",
+  "name": "motor skiff",
+  "meshes": 26,
+  "calls": 26,
+  "tris": 3884,
+  "drawnTris": 3884,
+  "verts": 8839,
+  "materials": 12,
+  "geometries": 19,
+  "buildMs": 25.3
  }
 ]
