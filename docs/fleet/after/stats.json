@@ -2,13 +2,13 @@
  {
   "kind": "bass",
   "name": "bass boat",
-  "meshes": 28,
-  "calls": 28,
-  "tris": 6754,
-  "drawnTris": 6754,
-  "verts": 17475,
-  "materials": 14,
-  "geometries": 21,
-  "buildMs": 66.1
+  "meshes": 29,
+  "calls": 29,
+  "tris": 6946,
+  "drawnTris": 6946,
+  "verts": 18051,
+  "materials": 15,
+  "geometries": 22,
+  "buildMs": 66.6
  }
 ]

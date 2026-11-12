@@ -1063,8 +1063,8 @@ export class Boat {
     this.body.add(hullMesh);
     this.body.add(waterLid(rows, H.draft));
 
-    const carpet = [], fit = [];
-    if (F.kind === 'bass') this.fitBass(carpet, fit);
+    const carpet = [], fit = [], glow = [];
+    if (F.kind === 'bass') this.fitBass(carpet, fit, glow);
     const carpetMesh = new THREE.Mesh(mergeParts(carpet), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 }));
     carpetMesh.receiveShadow = true;
     carpetMesh.castShadow = true;
@@ -1073,6 +1073,8 @@ export class Boat {
     fitMesh.castShadow = true;
     fitMesh.receiveShadow = true;
     this.body.add(carpetMesh, fitMesh);
+    // (Her graphs' displays, lit from within: they read by day and glow after dark.)
+    if (glow.length) this.body.add((this.screens = new THREE.Mesh(mergeParts(glow), new THREE.MeshBasicMaterial({ vertexColors: true }))));
     if (F.wheel && this.wheelAt) this.buildWheel(this.seatX, ...this.wheelAt);
   }
 
@@ -1085,13 +1087,32 @@ export class Boat {
   // a pedestal seat and the stern light; round her the gunwale cap and a black rubbing strake,
   // pop-up cleats, the bow light and bow eye; on the transom a jack plate for the outboard.
   // (Starboard is -x.)
-  fitBass(carpet, fit) {
+  fitBass(carpet, fit, glow) {
     const H = this.hull, F = H.form, L = H.L, V = (x, y, z) => new THREE.Vector3(x, y, z);
     const T = (z) => clamp((z + L / 2) / L, 0, 1), W = (z) => hw(H, T(z)), S = (z) => sheer(H, T(z));
     const y0 = H.floorY, zR = F.rear, zF = F.front, zStern = -L / 2, zBow = L / 2;
     const CARPET = '#575c64', LID = '#464b53', CAP = '#dcd7cc', STEEL = '#c9cdd0', BLACK = '#1d2125', DARK = '#383d44', GLASS = '#5d7381', VINYL = '#33393f';
     const box = (to, sx, sy, sz, x, y, z, color, rx = 0, ry = 0, rz = 0, jitter = 0.03) => to.push({ geo: new THREE.BoxGeometry(sx, sy, sz), matrix: mat(x, y, z, rx, ry, rz), color, jitter });
     const cyl = (to, r0, r1, h, x, y, z, color, rx = 0, ry = 0, rz = 0, n = 8) => to.push({ geo: new THREE.CylinderGeometry(r0, r1, h, n), matrix: mat(x, y, z, rx, ry, rz), color, jitter: 0.02 });
+    // A graph (a fish finder with a chart): a black case w by h, its face aft towards whoever
+    // uses it, leaning back by lean; on the face a split screen, the chart to port (sea, a shore,
+    // your track) and the sonar to starboard (the water column, a school, the bottom's bright
+    // return over the seabed), into glow (lit: see buildFormedHull).
+    const graph = (w, h, x, y, z, lean) => {
+      box(fit, w, h, 0.05, x, y, z, BLACK, lean, 0, 0);
+      const m = mat(x, y, z, lean, 0, 0), fz = -0.027, iw = w - 0.035, ih = h - 0.035, half = iw / 2;
+      const px = (u, v, sw, sh, color, dz = 0) => glow.push({ geo: new THREE.BoxGeometry(sw, sh, 0.002).translate(u, v, fz - dz), matrix: m, color, jitter: 0 });
+      // (Starboard is -x, and the face looks aft: the chart, to port, is at +x.)
+      px(half / 2, 0, half - 0.004, ih, '#2b6d9e');
+      px(half * 0.8, ih * 0.22, half * 0.4, ih * 0.5, '#c9b373', 0.001);
+      px(half * 0.35, -ih * 0.05, half * 0.5, 0.006, '#f2f0ea', 0.001);
+      px(-half / 2, 0, half - 0.004, ih, '#0f2c4c');
+      px(-half / 2, -ih * 0.36, half - 0.004, ih * 0.28, '#7a3f22', 0.001);
+      px(-half / 2, -ih * 0.22, half - 0.004, 0.008, '#f0b030', 0.002);
+      px(-half * 0.62, ih * 0.08, 0.03, 0.012, '#f2d24b', 0.001);
+      px(-half * 0.36, ih * 0.16, 0.025, 0.01, '#f2d24b', 0.001);
+      px(0, ih / 2 - 0.006, iw, 0.012, '#24415e', 0.002);
+    };
     // Her half-width inside her skin at z and height y (a V is narrow low down: see formHalf).
     const HF = (z, y) => Math.max(0, formHalf(H, F, T(z), y) - 0.035);
     // A surface across her between z0 and z1, inset from her sides, at height y(z): a deck or a sole.
@@ -1256,9 +1277,9 @@ export class Boat {
     const D = consoleBody(-xOut, -xIn, 0.72), P = consoleBody(xIn, xOut, 0.66);
     // The driver's gauges on the dash, the graph on top, the throttle beside the wheel.
     for (const dx of [-0.17, 0.17]) cyl(fit, 0.04, 0.04, 0.025, H.seatX + dx, 0.79, zc0 + 0.075, '#e9e5dc', -1.0, 0, 0, 12);
-    box(fit, 0.28, 0.18, 0.05, D.cx - 0.04, D.top + 0.13, zc0 + 0.26, BLACK, -0.3, 0, 0);
-    box(fit, 0.24, 0.14, 0.01, D.cx - 0.04, D.top + 0.13, zc0 + 0.232, '#24323c', -0.3, 0, 0, 0.01);
-    cyl(fit, 0.02, 0.025, 0.06, D.cx - 0.04, D.top + 0.03, zc0 + 0.28, BLACK);
+    // (The graph leans back to face your eyes at the wheel.)
+    graph(0.28, 0.18, D.cx - 0.04, D.top + 0.13, zc0 + 0.27, 0.5);
+    cyl(fit, 0.02, 0.025, 0.06, D.cx - 0.04, D.top + 0.03, zc0 + 0.29, BLACK);
     box(fit, 0.07, 0.06, 0.12, -xOut + 0.06, D.top - 0.13, zc0 + 0.06, DARK);
     {
       const a = V(-xOut + 0.06, D.top - 0.1, zc0 + 0.04), b = V(-xOut + 0.06, D.top + 0.08, zc0 - 0.06);
@@ -1288,8 +1309,7 @@ export class Boat {
       const z = 1.98, y = yDeck(z), x = 0.14;
       cyl(fit, 0.05, 0.05, 0.015, x, y + 0.008, z, BLACK, 0, 0, 0, 10);
       cyl(fit, 0.015, 0.015, 0.1, x, y + 0.06, z, BLACK, 0, 0, 0, 6);
-      box(fit, 0.2, 0.13, 0.045, x, y + 0.15, z, BLACK, -0.35, 0, 0);
-      box(fit, 0.17, 0.1, 0.01, x, y + 0.15, z - 0.024, '#24323c', -0.35, 0, 0, 0.01);
+      graph(0.2, 0.13, x, y + 0.15, z, 0.35);
     }
     for (const [x0, x1] of [[-0.62, -0.3], [-0.5, -0.2]]) {
       const a = V(x0, yDeck(zF + 0.12) + 0.03, zF + 0.12), b = V(x1, yDeck(2.0) + 0.02, 2.0);
@@ -2162,10 +2182,13 @@ export class Boat {
       }
     }
     if (has('bimini')) {
-      const t1 = tOf(hz - 0.55), t2 = tOf(hz + 0.75), top = y0 + 1.95;
+      // (Its frame stands beside and behind the helm, out of your view ahead, on a boat you sit
+      // at a console to steer (a built hull), the canopy reaching forward over the console; on
+      // others, posts either side, behind you and ahead.)
+      const t1 = tOf(hz - 0.55), t2 = tOf(hz + (built ? 0.05 : 0.75)), top = y0 + 1.95;
       for (const t of [t1, t2]) for (const sd of [1, -1]) parts.push(strut(V(sd * (hw(H, t) - 0.06), sheer(H, t), zAt(H, t)), V(sd * 0.7 * hw(H, t), top, zAt(H, t)), 0.016, 0.016, '#c9cdd0'));
-      const w = 1.4 * Math.min(hw(H, t1), hw(H, t2)), d = zAt(H, t2) - zAt(H, t1) + 0.2;
-      box(w, 0.05, d, 0, top + 0.02, (zAt(H, t1) + zAt(H, t2)) / 2, '#2f4f63');
+      const w = 1.4 * Math.min(hw(H, t1), hw(H, t2)), z0 = zAt(H, t1) - 0.1, z1 = built ? hz + 0.85 : zAt(H, t2) + 0.1;
+      box(w, 0.05, z1 - z0, 0, top + 0.02, (z0 + z1) / 2, '#2f4f63');
     }
     if (has('anchor')) box(0.16, 0.12, 0.3, 0, sheer(H, 0.97) + 0.07, zAt(H, 0.965), '#2a2c30');
     if (has('lights')) {

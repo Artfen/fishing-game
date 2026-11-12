@@ -139,3 +139,40 @@ test('her decks where you stand on them, and her drawing within the fleet’s bu
   assert.ok(ms.length <= 32, `${ms.length} meshes`);
   assert.ok(tris <= 12000, `${tris} triangles`);
 });
+
+test('her graphs face whoever uses them, lit; a bimini over her leaves your view ahead clear', () => {
+  const b = new Boat(scene, { kind: 'bass' });
+  b.place(150, 330, 0);
+  for (let i = 0; i < 6; i++) b.update(1 / 30, i / 30, 0, 0.4, 0);
+  b.body.updateMatrixWorld(true);
+  const eye = b.body.worldToLocal(b.eyePoint(new THREE.Vector3()));
+  // Their displays: lit (they read by day, and glow after dark), every face of them that looks
+  // aft also looking up, towards the eyes over them (they once leaned away and showed black).
+  assert.ok(b.screens?.material.isMeshBasicMaterial, 'lit displays');
+  const p = b.screens.geometry.attributes.position.array, n = new THREE.Vector3(), A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3();
+  let faces = 0;
+  for (let i = 0; i < p.length; i += 9) {
+    A.fromArray(p, i);
+    B.fromArray(p, i + 3);
+    C.fromArray(p, i + 6);
+    n.subVectors(C, B).cross(B.clone().sub(A)).normalize();
+    if (n.z > -0.8) continue;
+    faces++;
+    assert.ok(n.y > 0.25, `a display face looking ${n.y.toFixed(2)} up`);
+  }
+  assert.ok(faces >= 18, `${faces} display faces`);
+  // The console's graph faces your eyes at the wheel.
+  const at = new THREE.Vector3(), seen = new THREE.Box3().setFromBufferAttribute(b.screens.geometry.attributes.position);
+  assert.ok(seen.max.z > eye.z, 'ahead of you');
+  // A bimini: nothing of its frame ahead of your eyes, below its canopy.
+  b.setFits(['bimini']);
+  const q = b.fitGroup.children[0].geometry.attributes.position, top = H.floorY + 1.95;
+  let posts = 0;
+  for (let i = 0; i < q.count; i++) {
+    at.fromBufferAttribute(q, i);
+    if (at.y > top - 0.05) continue;
+    posts++;
+    assert.ok(at.z < eye.z + 0.05, `a bimini post ${(at.z - eye.z).toFixed(2)} m ahead of your eyes`);
+  }
+  assert.ok(posts > 20, 'its posts');
+});
