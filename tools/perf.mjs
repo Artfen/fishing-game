@@ -32,6 +32,9 @@ const base = (over = {}) => {
 // Each: the save to start from, and what to do once started (in the page).
 const SCENARIOS = {
   harbour: { save: base({ mode: 'foot', walker: { x: 6, z: -96, heading: Math.PI } }), setup: () => { slowTide.setHour(10.5); slowTide.walkTo(6, -96, Math.PI); } },
+  // Lying off Willowhaven in the skiff, about a hundred metres out, looking in at the marina and
+  // its boats (how much the boats far off cost: see boat.js DETAIL).
+  harbour_off: { save: base(), setup: () => { slowTide.setHour(10.5); slowTide.useSkiffAt(30, 20, Math.PI, 'skiff'); } },
   rib_rough: {
     save: base({ settings: { weather: { sea: 'lively', windMode: 'manual', windSpeed: 11, windFrom: 225 } } }),
     setup: () => { slowTide.state.yard.owned.push('rib'); slowTide.setHour(12); slowTide.useSkiffAt(150, 420, 0.3, 'rib'); slowTide.boat.lever = 1; },

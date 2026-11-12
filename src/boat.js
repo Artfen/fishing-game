@@ -485,6 +485,19 @@ export function wakeOf(H) {
   return { mass: M.mass, L: H.L, fine: H.L / Math.cbrt(M.mass / RHO) };
 }
 const ALL = [];
+
+// Far off, a boat's small parts aren't drawn: her hull, cabin, consoles, sails and anything else
+// big still are, so her shape doesn't change, but her fittings, rods, figure's hands and the like
+// (each its own draw call and shadow) would be a pixel or two for the cost of a near boat's. Two
+// steps: past NEAR, parts smaller than about half a metre across go; past FAR, those under about
+// a metre and a quarter. Drawing only: it takes a part out of every camera (its layers emptied,
+// and given back when she's near again), so what the game shows or hides of her is untouched, and
+// nothing she does reads it.
+export const DETAIL = { near: 70, far: 160, small: 0.25, mid: 0.6, slack: 6 };
+// (scene: only boats in it: the Marine Works' preview has its own, and its own camera.)
+export function boatDetail(camPos, scene = null) {
+  for (const b of ALL) if (!scene || b.group.parent === scene) b.detailFor(camPos);
+}
 const SEQ = { n: 0 }; // every boat's update, counted: which ones are out on the water now
 const ORIGIN = [0, 0, 0];
 const CREW = 80; // kg, you
@@ -698,6 +711,34 @@ export class Boat {
 
   get speed() {
     return Math.hypot(this.vel.x, this.vel.z);
+  }
+
+  // How much of her to draw from where the camera is (see DETAIL, boatDetail): 0 all of her, 1
+  // without her small parts, 2 without her middling ones either. (With a little slack either
+  // side of each step, so she doesn't flicker at the line.)
+  detailFor(camPos) {
+    const d = Math.hypot(camPos.x - this.pos.x, camPos.y - this.heave, camPos.z - this.pos.z), was = this.detailTier || 0;
+    const up = (lim, tier) => (was >= tier ? d > lim - DETAIL.slack : d > lim + DETAIL.slack);
+    const tier = up(DETAIL.far, 2) ? 2 : up(DETAIL.near, 1) ? 1 : 0;
+    if (tier === was) return tier;
+    this.detailTier = tier;
+    const v = new THREE.Vector3();
+    this.group.traverse((o) => {
+      if (!o.isMesh && !o.isLine && !o.isPoints) return;
+      if (o.userData.detailMask !== undefined) {
+        o.layers.mask = o.userData.detailMask;
+        delete o.userData.detailMask;
+      }
+      if (!tier || o.userData.hull || !o.geometry) return;
+      if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+      o.getWorldScale(v);
+      const r = o.geometry.boundingSphere.radius * Math.max(v.x, v.y, v.z);
+      if (r < (tier === 2 ? DETAIL.mid : DETAIL.small)) {
+        o.userData.detailMask = o.layers.mask;
+        o.layers.mask = 0;
+      }
+    });
+    return tier;
   }
 
   // The bass boat's first notches of throttle run the quiet electric motor, not the outboard.
@@ -1752,17 +1793,46 @@ export class Boat {
     // rig: see buildTroll, and main.js, which gives her one.)
   }
 
-  // The outboard's shell, in one piece: its cowling and band (look: { cowl, band, tall }, the
-  // hull's own colours if none; tall: a V6's taller cowling), leg, gearcase and tiller.
+  // The outboard's shell, in one piece (look: { cowl, band, tall }, the hull's own colours if
+  // none; tall: a V6's taller cowling): the clamp bracket on the transom; the top cowling, a
+  // rounded loaf on its lower pan, the band round the join, a vent at its back; the midsection
+  // and leg, streamlined; the anti-ventilation plate over the propeller; the gearcase, a torpedo
+  // with a rounded nose; the skeg; and the tiller. (The same envelope as the old box it replaces:
+  // nothing mounted on it moves.)
   outboardGeo(look = null) {
     const H = this.hull, M = H.motor || H.outboard, tall = look?.tall ?? 1, ch = 0.3 * tall;
+    const DARK = '#3a3d42', BLACK = '#24272b';
+    // The cowling's side profile (y up, z forward towards the boat), extruded across and rounded
+    // (the rounding standing 3 cm proud of it, so its outline is the old box's).
+    const P = new THREE.Shape(), y0 = 0.13, yt = 0.06 + ch, zf = 0.06, za = -0.3;
+    P.moveTo(za + 0.03, y0);
+    P.lineTo(zf - 0.04, y0);
+    P.quadraticCurveTo(zf + 0.01, y0, zf, y0 + (yt - y0) * 0.45);
+    P.quadraticCurveTo(zf - 0.01, yt, zf - 0.12, yt);
+    P.lineTo(za + 0.08, yt - 0.03 * tall);
+    P.quadraticCurveTo(za - 0.01, yt - 0.04 * tall, za, y0 + (yt - y0) * 0.4);
+    P.quadraticCurveTo(za, y0, za + 0.03, y0);
+    const cowl = new THREE.ExtrudeGeometry(P, { depth: 0.2, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.03, bevelSegments: 2, curveSegments: 4 });
+    cowl.rotateY(Math.PI / 2);
+    cowl.translate(-0.1, 0, 0);
+    const leg = new THREE.CylinderGeometry(0.065, 0.06, 0.9, 10);
+    leg.scale(0.6, 1, 1);
+    const nose = new THREE.SphereGeometry(0.06, 10, 6);
+    nose.scale(1, 1, 1.2);
     const parts = [
-      { geo: new THREE.BoxGeometry(0.16, 0.14, 0.12), matrix: mat(0, 0, 0.02), color: '#3a3d42' },
-      { geo: new THREE.BoxGeometry(0.3, ch, 0.42), matrix: mat(0, 0.09 + ch / 2, -0.12), color: look?.cowl ?? M.cowl },
-      { geo: new THREE.BoxGeometry(0.31, 0.06, 0.43), matrix: mat(0, 0.11, -0.12), color: look?.band ?? M.band },
-      { geo: new THREE.BoxGeometry(0.09, 0.95, 0.11), matrix: mat(0, -0.42, -0.14), color: '#3a3d42' },
-      { geo: new THREE.CylinderGeometry(0.06, 0.05, 0.3, 8), matrix: mat(0, -0.86, -0.16, Math.PI / 2, 0, 0), color: '#3a3d42' },
-      { geo: new THREE.BoxGeometry(0.02, 0.14, 0.12), matrix: mat(0, -0.95, -0.1), color: '#3a3d42' },
+      { geo: new THREE.BoxGeometry(0.16, 0.14, 0.12), matrix: mat(0, 0, 0.02), color: DARK },
+      ...[1, -1].map((s) => ({ geo: new THREE.CylinderGeometry(0.012, 0.012, 0.09, 6), matrix: mat(s * 0.06, 0.03, 0.1, Math.PI / 2, 0, 0), color: '#c9cdd0' })),
+      // (The lower pan, dark; the cowling on it; the band in the engine's colour round the join.)
+      { geo: new THREE.BoxGeometry(0.27, 0.07, 0.38), matrix: mat(0, 0.1, -0.12), color: BLACK, jitter: 0.02 },
+      { geo: cowl, color: look?.cowl ?? M.cowl, jitter: 0.02 },
+      { geo: new THREE.BoxGeometry(0.29, 0.035, 0.4), matrix: mat(0, 0.145, -0.12), color: look?.band ?? M.band, jitter: 0.02 },
+      { geo: new THREE.BoxGeometry(0.14, 0.03, 0.012), matrix: mat(0, yt - 0.06 * tall, za - 0.035), color: BLACK, jitter: 0 },
+      // The midsection and leg, streamlined; the plate; the gearcase and its nose; the skeg.
+      { geo: leg, matrix: mat(0, -0.4, -0.14), color: DARK },
+      { geo: new THREE.BoxGeometry(0.22, 0.012, 0.22), matrix: mat(0, -0.74, -0.16), color: DARK },
+      { geo: new THREE.CylinderGeometry(0.06, 0.05, 0.3, 10), matrix: mat(0, -0.86, -0.16, Math.PI / 2, 0, 0), color: DARK },
+      { geo: nose, matrix: mat(0, -0.86, -0.01), color: DARK },
+      { geo: new THREE.BoxGeometry(0.02, 0.14, 0.12), matrix: mat(0, -0.95, -0.1), color: DARK },
       // (The tiller: none on a boat steered by a wheel.)
       ...(H.console || H.form?.wheel ? [] : [
         { geo: new THREE.CylinderGeometry(0.018, 0.022, 0.62, 6), matrix: mat(0.04, 0.17, 0.26, Math.PI / 2 - 0.12, 0, 0), color: '#2b2b2b' },

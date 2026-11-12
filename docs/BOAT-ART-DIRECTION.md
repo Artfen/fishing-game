@@ -151,9 +151,13 @@ strake and a grab line on D-rings; the rigid hull powder-coated light grey, face
   Measured with `node tools/boatshots.mjs --stats`.
 - Details under about 3 cm don't get geometry unless they're on something you hold or look at
   from the helm.
-- **Distant boats** (the harbour's, friends' far off) should not need the hero's detail: a later
-  step adds a simplified model past some tens of metres (see the fleet plan, A5 and B4). Until
-  then, keep the merged detail cheap: few draw calls matter more than triangles.
+- **Distant boats** (the harbour's, friends' far off) don't get the hero's detail: past 70 m a
+  boat's parts under about half a metre across aren't drawn, past 160 m those under about a
+  metre and a quarter (`DETAIL` and `boatDetail` in `src/boat.js`), so her hull, house, consoles
+  and sails keep her shape while her fittings, rods and the like stop costing a draw call and a
+  shadow each. So: build a boat's silhouette from big merged meshes, and let the small stuff be
+  small (its own little meshes are fine: they go when she's far). Few draw calls still matter more
+  than triangles.
 
 ## Engines
 
