@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boat studio</title>
+<!--
+  The boat studio (docs/FLEET-AUDIT.md, docs/BOAT-ART-DIRECTION.md): each boat of the fleet built
+  by the game's own Boat class, under the same light, on a still sea at her own floating draft, from
+  the same six views, for before-and-after comparisons; and what she costs to draw (her meshes,
+  draw calls, triangles, materials). Driven by tools/boatshots.mjs; open it by hand as
+  tools/boatstudio.html?kind=bass from a server at the repository root to look round one boat
+  (drag to turn, wheel to zoom).
+-->
+<style>
+  html, body { margin: 0; height: 100%; background: #20262b; color: #e9e5dc; font: 13px system-ui, sans-serif; }
+  canvas { display: block; }
+  #note { position: fixed; left: 8px; top: 6px; opacity: 0.8; pointer-events: none; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "../vendor/three/three.module.min.js" } }
+</script>
+</head>
+<body>
+<div id="note"></div>
+<script type="module">
+import * as THREE from 'three';
+const { Boat, HULLS, floatDraft } = await import('../src/boat.js');
+
+// (Everything the boats need from the page: a document is there; a few modules ask for the
+// window's height.)
+const W = 640, Hh = 400;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(W, Hh);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+// The light: a late-morning sun over the starboard bow (as the game's at about ten o'clock), and
+// the sky's light from above and the sea's below, at the game's own strengths (world/sky.js).
+const scene = new THREE.Scene();
+const LIGHTS = {
+  day: { sun: '#fff1dc', sunI: 3, sky: '#b9d3ea', ground: '#5a6a72', hemiI: 1.5, bg: '#a9c4d8', dir: [0.55, 0.62, 0.56] },
+  evening: { sun: '#ffb27a', sunI: 2.2, sky: '#8fa3c7', ground: '#4a4048', hemiI: 1.1, bg: '#c49a86', dir: [-0.7, 0.22, 0.4] },
+  overcast: { sun: '#e8edf0', sunI: 0.9, sky: '#c7ced3', ground: '#6a7378', hemiI: 2.2, bg: '#b8c1c7', dir: [0.2, 0.9, 0.3] },
+};
+const sun = new THREE.DirectionalLight(0xffffff, 3);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 0.5, far: 60 });
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.03;
+const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
+scene.add(sun, sun.target, hemi);
+function light(id) {
+  const L = LIGHTS[id] || LIGHTS.day;
+  sun.color.set(L.sun);
+  sun.intensity = L.sunI;
+  sun.position.set(...L.dir).multiplyScalar(30);
+  hemi.color.set(L.sky);
+  hemi.groundColor.set(L.ground);
+  hemi.intensity = L.hemiI;
+  scene.background = new THREE.Color(L.bg);
+}
+light('day');
+
+// A still sea at y = 0: translucent, so the hull below the waterline shows through faintly and
+// where she floats is plain to see.
+const water = new THREE.Mesh(new THREE.CircleGeometry(60, 64).rotateX(-Math.PI / 2),
+  new THREE.MeshStandardMaterial({ color: '#2f6378', roughness: 0.25, metalness: 0, transparent: true, opacity: 0.62, depthWrite: false }));
+water.receiveShadow = true;
+water.renderOrder = 1;
+scene.add(water);
+
+const cam = new THREE.PerspectiveCamera(30, W / Hh, 0.05, 400);
+const ortho = new THREE.OrthographicCamera(-10, 10, 4, -4, 0.1, 400);
+
+let boat = null, kindNow = null, built = 0;
+// One boat on her own, at rest on the still sea at her floating draft, bow to +z.
+function show(kind) {
+  if (boat) {
+    scene.remove(boat.group);
+    boat.group.traverse((o) => { o.geometry?.dispose?.(); });
+  }
+  const t0 = performance.now();
+  boat = new Boat(scene, { kind });
+  built = performance.now() - t0;
+  kindNow = kind;
+  pose(boat, kind, 0);
+  return boat;
+}
+// (A few of her own steps out in open water, as the game runs her, so everything aboard is posed
+// as it is in play (your arms on the tiller or the wheel, the rods in their holders), then back to
+// the studio's still sea at her floating draft, bow to +z, at z.)
+function pose(b, kind, z) {
+  try {
+    b.place(150, 330, 0);
+    for (let i = 0; i < 4; i++) b.update(1 / 30, i / 30, 0, 0, 0);
+  } catch (e) { console.warn('pose', e.message); }
+  b.group.position.set(0, -floatDraft(HULLS[kind]), z);
+  b.group.rotation.set(0, 0, 0);
+  b.body.position.set(0, 0, 0);
+  b.body.rotation.set(0, 0, 0);
+  b.group.updateMatrixWorld(true);
+  b.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+}
+
+// The views (each boat framed by her own size): three-quarter from ahead and astern, abeam, from
+// above, at the helm (where you sit or stand to drive her; you hidden), and low at the waterline.
+const VIEWS = ['front34', 'rear34', 'side', 'top', 'helm', 'waterline'];
+const LABEL = { front34: 'Three-quarter front', rear34: 'Three-quarter rear', side: 'Side', top: 'Top', helm: 'At the helm', waterline: 'Waterline' };
+function aim(view) {
+  const H = HULLS[kindNow], L = H.L, mid = new THREE.Vector3(0, H.D * 0.55 - floatDraft(H), 0);
+  const tall = H.sail ? 0.5 : H.cabinH ? 0.35 : 0;
+  const at = (az, el, d, y = mid.y) => {
+    const a = (az * Math.PI) / 180, e = (el * Math.PI) / 180;
+    cam.position.set(Math.sin(a) * Math.cos(e) * d, y + Math.sin(e) * d, Math.cos(a) * Math.cos(e) * d);
+    cam.lookAt(0, y, 0);
+    return cam;
+  };
+  if (view === 'front34') { cam.fov = 30; return at(38, 20 - tall * 10, L * 1.75 + 1.2, mid.y + tall * 1.2); }
+  if (view === 'rear34') { cam.fov = 30; return at(142, 20 - tall * 10, L * 1.75 + 1.2, mid.y + tall * 1.2); }
+  if (view === 'waterline') { cam.fov = 30; return at(62, 1.5, L * 1.35 + 0.8, 0.12); }
+  if (view === 'side' || view === 'top') {
+    // (Framed to all of her, the mast and the outboard's leg too, with a margin.)
+    const box = new THREE.Box3().setFromObject(boat.group), c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
+    const aspect = W / Hh;
+    if (view === 'side') {
+      const half = Math.max(size.z / 2, (size.y / 2) * aspect) * 1.08 + 0.2;
+      ortho.left = -half; ortho.right = half; ortho.top = half / aspect; ortho.bottom = -half / aspect;
+      ortho.position.set(30, c.y, c.z);
+      ortho.lookAt(0, c.y, c.z);
+    } else {
+      const half = Math.max(size.z / 2, (size.x / 2) * aspect) * 1.08 + 0.2;
+      ortho.left = -half; ortho.right = half; ortho.top = half / aspect; ortho.bottom = -half / aspect;
+      ortho.position.set(c.x, 30, c.z);
+      ortho.up.set(1, 0, 0);
+      ortho.lookAt(c.x, 0, c.z);
+    }
+    ortho.updateProjectionMatrix();
+    return ortho;
+  }
+  // At the helm: from where you'd sit or stand to drive her, looking ahead and a little down.
+  const S = H.standing?.helm, x = S ? S[0] : 0, z = S ? S[1] : H.seatZ, eye = (S ? H.floorY + 1.62 : H.seatY + 0.78) - floatDraft(H);
+  cam.fov = 62;
+  cam.position.set(x, eye, z - 0.15);
+  cam.lookAt(x * 0.5, eye - 0.55, z + 4);
+  hideYou(true);
+  return cam;
+}
+// (You, hidden for the view from the helm: the game's own first-person switch.)
+const hideYou = (on) => boat.setSelfHidden(on);
+function render(view) {
+  ortho.up.set(0, 1, 0);
+  const c = aim(view);
+  if (c === cam) { cam.aspect = W / Hh; cam.updateProjectionMatrix(); }
+  sun.target.position.set(0, 0, 0);
+  renderer.render(scene, c);
+  if (view === 'helm') hideYou(false);
+}
+
+// One boat's sheet: the six views, three by two, labelled.
+const sheetCanvas = document.createElement('canvas');
+function sheet(kind, lighting = 'day') {
+  light(lighting);
+  show(kind);
+  const cols = 3, rows = 2;
+  sheetCanvas.width = W * cols;
+  sheetCanvas.height = Hh * rows;
+  const g = sheetCanvas.getContext('2d');
+  VIEWS.forEach((v, i) => {
+    render(v);
+    const x = (i % cols) * W, y = Math.floor(i / cols) * Hh;
+    g.drawImage(renderer.domElement, x, y);
+    g.fillStyle = 'rgba(20,24,28,0.55)';
+    g.fillRect(x, y, 230, 24);
+    g.fillStyle = '#f1ece2';
+    g.font = '14px system-ui, sans-serif';
+    g.fillText(`${HULLS[kind].name} · ${LABEL[v]}`, x + 8, y + 17);
+  });
+  return sheetCanvas.toDataURL('image/jpeg', 0.86);
+}
+
+// What she costs to draw: her meshes, the draw calls rendering her alone takes (no shadows), her
+// triangles and vertices, her materials and geometries, and how long she took to build.
+function stats(kind) {
+  show(kind);
+  let meshes = 0, tris = 0, verts = 0;
+  const mats = new Set(), geos = new Set();
+  boat.group.traverse((o) => {
+    if (!o.isMesh || !o.visible) return;
+    let vis = true;
+    for (let p = o; p; p = p.parent) if (p.visible === false) vis = false;
+    if (!vis) return;
+    meshes++;
+    const g = o.geometry, n = g.index ? g.index.count : g.attributes.position.count;
+    const inst = o.isInstancedMesh ? o.count : 1;
+    tris += (n / 3) * inst;
+    verts += g.attributes.position.count * inst;
+    geos.add(g.uuid);
+    for (const m of [].concat(o.material)) mats.add(m.uuid);
+  });
+  water.visible = false;
+  const sh = renderer.shadowMap.enabled;
+  renderer.shadowMap.enabled = false;
+  render('front34');
+  const calls = renderer.info.render.calls, drawnTris = renderer.info.render.triangles;
+  renderer.shadowMap.enabled = sh;
+  water.visible = true;
+  return { kind, name: HULLS[kind].name, meshes, calls, tris: Math.round(tris), drawnTris, verts, materials: mats.size, geometries: geos.size, buildMs: +built.toFixed(1) };
+}
+
+// The fleet side by side, abeam, at one scale: proportions against each other.
+function lineup(kinds, lighting = 'day') {
+  light(lighting);
+  if (boat) { scene.remove(boat.group); boat = null; }
+  const group = [];
+  let z = 0;
+  for (const k of kinds) {
+    const b = new Boat(scene, { kind: k }), L = HULLS[k].L;
+    z += L / 2;
+    pose(b, k, z);
+    group.push(b);
+    z += L / 2 + 1.2;
+  }
+  const span = z - 1.2, w = 1920, h = 520;
+  renderer.setSize(w, h);
+  const half = span / 2 + 0.6;
+  ortho.left = -half; ortho.right = half; ortho.top = (half * h) / w * 1.35; ortho.bottom = -(half * h) / w * 0.65;
+  ortho.position.set(40, 1.2, span / 2);
+  ortho.up.set(0, 1, 0);
+  ortho.lookAt(0, 1.2, span / 2);
+  ortho.updateProjectionMatrix();
+  renderer.render(scene, ortho);
+  const url = renderer.domElement.toDataURL('image/jpeg', 0.88);
+  for (const b of group) scene.remove(b.group);
+  renderer.setSize(W, Hh);
+  return url;
+}
+
+// By hand: one boat, turned with the mouse.
+const params = new URLSearchParams(location.search);
+if (params.get('kind')) {
+  show(params.get('kind'));
+  let az = 38, el = 18, dist = HULLS[kindNow].L * 1.8 + 1.2, drag = null;
+  renderer.setSize(innerWidth, innerHeight);
+  cam.aspect = innerWidth / innerHeight;
+  const loop = () => {
+    const a = (az * Math.PI) / 180, e = (el * Math.PI) / 180;
+    cam.fov = 30;
+    cam.position.set(Math.sin(a) * Math.cos(e) * dist, 0.4 + Math.sin(e) * dist, Math.cos(a) * Math.cos(e) * dist);
+    cam.lookAt(0, 0.4, 0);
+    cam.updateProjectionMatrix();
+    renderer.render(scene, cam);
+    requestAnimationFrame(loop);
+  };
+  addEventListener('pointerdown', (e) => (drag = [e.clientX, e.clientY]));
+  addEventListener('pointerup', () => (drag = null));
+  addEventListener('pointermove', (e) => { if (!drag) return; az -= (e.clientX - drag[0]) * 0.4; el = Math.max(-5, Math.min(85, el + (e.clientY - drag[1]) * 0.3)); drag = [e.clientX, e.clientY]; });
+  addEventListener('wheel', (e) => { dist *= e.deltaY > 0 ? 1.08 : 0.93; });
+  document.getElementById('note').textContent = `${HULLS[kindNow].name}: drag to turn, wheel to zoom`;
+  loop();
+}
+
+window.studio = { kinds: Object.keys(HULLS), views: VIEWS, sheet, stats, lineup, show, render, light, ready: true };
+</script>
+</body>
+</html>

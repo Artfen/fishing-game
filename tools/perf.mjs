@@ -36,6 +36,11 @@ const SCENARIOS = {
     save: base({ settings: { weather: { sea: 'lively', windMode: 'manual', windSpeed: 11, windFrom: 225 } } }),
     setup: () => { slowTide.state.yard.owned.push('rib'); slowTide.setHour(12); slowTide.useSkiffAt(150, 420, 0.3, 'rib'); slowTide.boat.lever = 1; },
   },
+  // The bass boat under way in open water on a fair day (the fleet's art: docs/FLEET-AUDIT.md).
+  bass: {
+    save: base(),
+    setup: () => { slowTide.state.yard.owned.push('bass'); slowTide.setHour(12); slowTide.useSkiffAt(150, 420, 0.3, 'bass'); slowTide.boat.lever = 1; },
+  },
   shoal: {
     save: base(),
     setup: () => {
