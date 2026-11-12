@@ -2686,6 +2686,22 @@ body.placing #sonar, body.placing #act-btn, body.placing #cancel-btn { visibilit
   transition: top 0.12s ease;
 }
 #lever.lv-dragging .lv-handle { transition: none; background: var(--lantern); }
+/* Twin engines: which lever the throttle works (both, port, starboard), and, with the levers
+   apart, the other one's handle beside the one you're working, smaller and dimmer. */
+.lv-twins { display: flex; gap: 4px; margin: 2px 0 6px; }
+.lv-twin {
+  flex: 1;
+  min-height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--hud-line);
+  background: rgba(255, 249, 239, 0.08);
+  color: var(--hud-ink);
+  font: 700 12px var(--font-ui);
+  cursor: pointer;
+}
+.lv-twin[aria-pressed='true'] { background: var(--lantern); color: #1d2a33; border-color: transparent; }
+.lv-handle2 { width: 24px; height: 12px; margin: -6px 0 0 -12px; opacity: 0.55; pointer-events: none; }
+#lever.lv-apart .lv-handle:not(.lv-handle2) { background: var(--lantern); }
 /* The smooth lever: the handle glides (no snapping), and the notches are only marks along it. */
 #lever.lv-smooth .lv-handle { transition: none; background: var(--lantern); }
 #lever.lv-smooth .lv-notches li:not(.on) .lv-notch { opacity: 0.7; }

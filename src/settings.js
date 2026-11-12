@@ -66,6 +66,7 @@ export const PAD_HELP = [
     ['helm', 'forward', 'throttle up or down (a notch, or the smooth lever), and steer'], ['helm', 'neutral', 'stop: the motor to neutral'],
     ['helm', 'motor', 'the engine: start or stop (or the helm panel) · kayak: the electric motor · sailing boat: the sail'],
     ['helmtrim', 'trimUp', 'trim the outboard out (hold; at rest it tilts right up)'], ['helmtrim', 'trimDown', 'trim the outboard in (hold)'],
+    ['helmtwin', 'levers', 'twin engines: both levers, the port one, or the starboard one'],
     ['troll', 'throttleUp', 'with a line out: throttle up a notch'], ['troll', 'throttleDown', 'with a line out: throttle down a notch'],
   ]],
   ['A line in the water', [['fish', 'advice', 'why aren’t they biting?'], ['fish', 'feed', 'throw loose bait'], ['fish', 'walkline', 'walk with the line out (along the bank, or about the deck), or stand to fish again']]],

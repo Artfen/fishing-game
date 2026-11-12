@@ -51,7 +51,21 @@ export class LeverUI {
     this.tiltBtn.type = 'button';
     this.tiltBtn.hidden = true;
     this.keys = el('div', 'lv-keys');
-    root.append(head, this.gauges, this.body, this.stopBtn, this.tiltBtn, this.motorBtn, this.keys);
+    // (Twin engines: which lever the throttle works, and the other one's notch when they're apart.)
+    this.handle2 = el('div', 'lv-handle lv-handle2');
+    this.handle2.hidden = true;
+    this.track.append(this.handle2);
+    this.twins = el('div', 'lv-twins');
+    this.twins.hidden = true;
+    this.twinBtns = [['both', 'Both'], ['port', 'Port'], ['stbd', 'Stbd']].map(([id, text]) => {
+      const b = el('button', 'lv-twin', text);
+      b.type = 'button';
+      b.dataset.sel = id;
+      b.setAttribute('aria-label', id === 'both' ? 'Both levers' : id === 'port' ? 'The port lever' : 'The starboard lever');
+      this.twins.append(b);
+      return b;
+    });
+    root.append(head, this.gauges, this.twins, this.body, this.stopBtn, this.tiltBtn, this.motorBtn, this.keys);
     // Buttons press on the way down (no focus left behind, no click lost to a moving finger).
     const press = (b, fn) => b.addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -61,6 +75,7 @@ export class LeverUI {
     press(this.stopBtn, () => this.h.stop());
     press(this.motorBtn, () => this.h.motor());
     press(this.tiltBtn, () => this.h.tilt?.());
+    for (const b of this.twinBtns) press(b, () => this.h.levers?.(b.dataset.sel));
     this.track.addEventListener('pointerdown', (e) => this.dragStart(e));
     this.track.addEventListener('pointermove', (e) => this.dragMove(e));
     for (const ev of ['pointerup', 'pointercancel']) this.track.addEventListener(ev, (e) => this.dragEnd(e));
@@ -160,11 +175,18 @@ export class LeverUI {
     if (this.keys.innerHTML !== (s.keys || '')) this.keys.innerHTML = s.keys || '';
     if (this.gauges.innerHTML !== (s.gauges || '')) this.gauges.innerHTML = s.gauges || '';
     this.gauges.hidden = !s.gauges;
+    this.twins.hidden = !s.twins;
+    if (s.twins) for (const b of this.twinBtns) b.setAttribute('aria-pressed', b.dataset.sel === s.twins.sel);
     if (!s.kind) return;
     const L = levers(s.kind), n = L.length - 1;
     // The handle sits on the chosen notch; the fill shows what the motor is giving, from neutral.
     const at = (i) => `${((n - i) / n) * 100}%`;
     this.handle.style.top = at(s.index);
+    // (Twin levers apart: the other one's handle, smaller, where it is.)
+    const other = s.twins?.split ? s.twins.split[s.twins.sel === 'stbd' ? 0 : 1] : null;
+    this.handle2.hidden = other == null;
+    if (other != null) this.handle2.style.top = at(other);
+    this.root.classList.toggle('lv-apart', !!s.twins?.split);
     const iN = L.findIndex((x) => x.id === 'N');
     const yN = (n - iN) / n;
     const p = s.power || 0;

@@ -1270,6 +1270,15 @@ export class Boat {
   // The motor answers the lever: it takes a moment to build up and to ease off (an electric motor
   // quicker than an outboard), and between ahead and astern it comes back through neutral and
   // pauses there while the gear changes.
+  // One of twin engines' own lever (split: see the motor in update): its push builds and falls as
+  // the joined lever's does, through neutral when it changes gear.
+  spoolLeg(dt, p, want) {
+    if (p && want && Math.sign(p) !== Math.sign(want)) want = 0;
+    const up = this.hull.motor?.spool ?? 0.6, rate = Math.abs(want) > Math.abs(p) ? up : 1;
+    p += clamp(want - p, -rate * dt, rate * dt);
+    return Math.abs(p) < 1e-5 ? 0 : p;
+  }
+
   spool(dt, lever, electric) {
     const way = Math.sign(lever);
     let want = lever;
@@ -4215,6 +4224,7 @@ export class Boat {
     b.wind[1] = air.z;
     const held = this.anchored || this.tie;
     let thrust = 0; // (what's pushing her on, as an acceleration: for the motor's sound and the wake)
+    let legs2 = null; // (twin engines: each leg's share of it, port then starboard: see the motor)
     const M = H.motor || (this.outboardDown ? H.outboard : null);
     const E = H.emotor && this.emotorDown ? H.emotor : null;
     if (M || E) {
@@ -4241,7 +4251,20 @@ export class Boat {
       this.legAngle = legOf ? legOf.angle : 0;
       this.intakeWet = TE ? TE.wet && !this.air : !this.air;
       const lever = share > 0 ? lever0 : 0;
-      this.spool(dt, lever, troll || !!E);
+      // Twin engines (the centre console's outboards, the yacht's diesels; engines[0] port,
+      // engines[1] starboard): each leg pushes with its own engine, so one stopped pulls her
+      // round; and with the levers split (this.split: [port, starboard], set by the game) each
+      // with its own lever, so one ahead and one astern turn her on the spot.
+      const twin = !!M && !troll && !dead && !E && (M.twin || M.inboard) && sys?.engines?.length === 2;
+      const split = twin && Array.isArray(this.split) ? this.split : null;
+      if (split) {
+        this.legPower ||= [0, 0];
+        for (let i = 0; i < 2; i++) this.legPower[i] = this.spoolLeg(dt, this.legPower[i], sys.engines[i].run ? split[i] : 0);
+        this.power = (this.legPower[0] + this.legPower[1]) / 2;
+      } else {
+        this.spool(dt, lever, troll || !!E);
+        if (this.legPower) this.legPower = null;
+      }
       const pw = this.power;
       const depth = -solidHeight(p.x - this.fwd.x * H.L * 0.45, p.z - this.fwd.z * H.L * 0.45);
       // (An outboard on a pin, or one she trims herself: its leg kicks up out of the way over the
@@ -4264,7 +4287,19 @@ export class Boat {
         // (A bent propeller (propStrike) slips: less push, and less still the harder it's driven,
         // where it cavitates.)
         const bent = this.engine?.dmg ? 1 - this.engine.dmg * (0.3 + 0.25 * Math.abs(pw)) : 1;
-        thrust = (pw > 0 ? (S ? pushAt(S, vf) : (E || M).thrust) * pw : (S ? S.astern : (E || M).astern) * pw) * (tilted ? 0.22 : 1) * share * (TE ? TE.eff : 1) * bent;
+        const ahead = S ? pushAt(S, vf) : (E || M).thrust, astern = S ? S.astern : (E || M).astern;
+        const k = (tilted ? 0.22 : 1) * (TE ? TE.eff : 1) * bent;
+        thrust = (pw > 0 ? ahead * pw : astern * pw) * share * k;
+        // (Each leg's share of her push: its own lever split, its own engine running or not.)
+        if (twin) {
+          const run = sys.engines.map((e) => (e.run ? (sys.temp >= 1 ? 0.3 : 1) : 0));
+          if (split) legs2 = this.legPower.map((p, i) => (p > 0 ? ahead * p : astern * p) * k * run[i] / 2);
+          else {
+            const n = run[0] + run[1];
+            legs2 = n > 0 ? run.map((r) => (thrust * r) / n) : [0, 0];
+          }
+          thrust = legs2[0] + legs2[1];
+        }
       }
       const spin = troll || dead || E ? 0 : pw;
       this.propSpin += dt * (6 + Math.abs(spin) * 60) * Math.sign(spin || 1) * (Math.abs(spin) > 0.02 ? 1 : 0.1);
@@ -4345,24 +4380,27 @@ export class Boat {
         // Twin screws under her stern, rudders behind them; slow, one ahead and one astern bring
         // her round on the spot (the skipper easing the inside one back as far as it balances the
         // other, so she turns where she is rather than going on).
-        const tw = M.twin ?? 0.4, slow = 1 - clamp(Math.abs(vf) / 3, 0, 1);
+        // (With the levers split, the skipper's own levers do it: no easing on her part.)
+        const tw = M.twin ?? 0.4, slow = this.split && legs2 ? 0 : 1 - clamp(Math.abs(vf) / 3, 0, 1);
         const diff = dead ? 0 : helm * slow * m * 2.5;
         const ahead = f * (1 - Math.abs(helm) * slow * 0.9);
         for (const sd of [1, -1]) {
-          b.thrusters.push({ p: [sd * tw, keel0 - 0.22, stern + 0.45], d: [0, 0, 1], f: ahead / 2 - sd * diff, vent: 0.1,
+          const fl = legs2 ? legs2[sd > 0 ? 0 : 1] * b.m0 * gov * (1 - Math.abs(helm) * slow * 0.9) - sd * diff : ahead / 2 - sd * diff;
+          b.thrusters.push({ p: [sd * tw, keel0 - 0.22, stern + 0.45], d: [0, 0, 1], f: fl, vent: 0.1,
             foil: { p: [sd * tw, keel0 - 0.3, stern + 0.25], d: dirAt(b.rudder * 0.6), area: 0.16, disk: 0.35 } });
         }
       } else {
         // Outboards: the whole motor turns with the tiller (or the wheel), so the push turns her.
         const tw = M.twin ?? 0, legs = tw ? [tw, -tw] : [M.side || 0];
-        const slow = M.twin ? 1 - clamp(Math.abs(vf) / 3, 0, 1) : 0;
+        const slow = M.twin && !(this.split && legs2) ? 1 - clamp(Math.abs(vf) / 3, 0, 1) : 0;
         // (Trimmed out of true, the push tips down, lifting her bow; trimmed in, up, pressing it down.)
         const tip = TE ? (TE.err * Math.PI) / 180 : 0, ct = Math.cos(tip);
         for (const x of legs) {
           const diff = M.twin && !dead ? -Math.sign(x) * helm * slow * m * 1.2 : 0;
           const d = dirAt(b.rudder * 0.7);
           if (tip) d.splice(0, 3, d[0] * ct, -Math.sin(tip), d[2] * ct);
-          b.thrusters.push({ p: [x, keel0 - 0.28, stern - 0.18], d, f: f / legs.length + diff, vent: 0.1, lever: PROP_LEVER });
+          const fl = legs2 ? legs2[x > 0 ? 0 : 1] * b.m0 * gov + diff : f / legs.length + diff;
+          b.thrusters.push({ p: [x, keel0 - 0.28, stern - 0.18], d, f: fl, vent: 0.1, lever: PROP_LEVER });
         }
       }
       this._props = troll || dead || E ? null : [t0, b.thrusters.length];
