@@ -425,6 +425,7 @@ Played carefully (easing off at the surge, winding through a leap, a sensible dr
 - **The light.** In a bright sun the fish shy of it keep deeper and tighter to cover; under cloud and at dusk they come up and out.
 - **The tide.** Bass, mullet, gilthead and the flatfish push up over the shallows on the flood and drop back to deeper water on the ebb.
 - **You.** Fish move away from water lately churned by a motor or cast at again and again, for a minute or two. Where it's been fished hard, what's left keeps tight to cover.
+- **The small fish themselves.** A shoal of sprat, sand smelt or roach with hunters gathering about it goes off the other way, closer together and deeper, into the weed if it keeps to weed. Feeding, it works up into the current. In winter the shoals go out to deeper water, and in summer they come back in. Roar past one in a fast boat and it goes down and bunches up for a few seconds (and scatters if you run right over it). On the fish finder: a tight, deep shoal moving off means hunters about.
 
 The graphics settings never change which fish come to a bait: every fish within 160 m of you looks at it, on every setting.
 
