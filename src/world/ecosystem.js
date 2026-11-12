@@ -2,10 +2,11 @@ import { liveAppeal } from '../livebait.js';
 import { FISH } from '../fish.js';
 import { Pressure, restockFactor, pressureWariness } from './pressure.js';
 import { currentFast, currentAt, waveHeightHere } from './conditions.js';
-import { traits, mood, whyRejected, BEHAVIOUR } from '../behaviour.js';
+import { traits, mood, whyRejected, BEHAVIOUR, prefsFor } from '../behaviour.js';
 import { zoneAt } from './terrain.js';
 import { pushOut } from './divesites.js';
-import { tideBoost } from './tide.js';
+import { tideBoost, FLOOD_FEEDERS } from './tide.js';
+import { WARM_LIMIT, coolDepth, tempAt, warmStress, FORAGE, fishEater } from './ecology.js';
 import { seasonBoost } from './season.js';
 import { colourFactor } from '../grounds.js';
 import { blowFactor } from './forecast.js';
@@ -26,6 +27,13 @@ import { spookRadius, curiosity } from '../dive.js';
 const STEP = 1 / 30;
 const FAR_EVERY = 6; // fish beyond the active radius update at 5 Hz
 const FAR_RADIUS = 240;
+// The fish this near the focus (the camera's: your bait, or you; or, hosting, anyone in the
+// session) look at baits, and only these, whatever the graphics settings' active radius
+// (simRadius, 70 to 150 m: how far round the fish are kept going in full detail; beyond it they
+// go on at 5 Hz). The furthest anything notices a bait is the big game raised by a trolled lure,
+// three times a blue marlin's 40 m, and the lure can be a boat's length or two from the focus.
+// So graphics change how smoothly a distant fish swims, never which fish come to a bait.
+export const BAIT_REACH = 160;
 const BITE_WINDOW = 2.6; // seconds you have to set the hook once a fish takes the bait
 const ENGAGEABLE = new Set(['cruise', 'rest', 'feed', 'school']);
 // (The states a fish can be in, as numbers, for playing together: see captureAgents.)
@@ -49,7 +57,7 @@ export class Ecosystem {
     // or two. Fish nearby are warier while they last.
     this.noise = [];
     this.pressure = new Pressure(); // how hard each stretch of water has been fished lately
-    this.envCache = { current: 0, waves: 0, light: 1, disturb: 0, storm: 0 };
+    this.envCache = { current: 0, waves: 0, light: 1, disturb: 0, storm: 0, warm: 0, food: 0 };
     this.agents = [];
     this.schools = [];
     this.bySpecies = Object.fromEntries(FISH.map((f) => [f.id, []]));
@@ -100,7 +108,13 @@ export class Ecosystem {
     // Solid rock besides the seabed, for the dive sites' fish to keep out of (the Hound, the arch
     // on Skerries Reef, the boulders): (point, pad) => true if it pushed the point out.
     this.solid = pushOut;
+    // (D1, see ecology.js: the light just now, 0 … 1 for a bright midday sun; how far below the
+    // summer's warm top layer each cool-water kind keeps, by its water; and the shoals of small
+    // fish the hunters go after.)
+    this.light = 1;
+    this.coolCache = new Map();
     this.populate();
+    this.forage = this.schools.filter((s) => FORAGE.has(s.sp.id));
   }
 
   /* ---------- population ---------- */
@@ -300,6 +314,7 @@ export class Ecosystem {
       yaw: rnd() * Math.PI * 2, pitch: 0, bank: 0, speed: 0, wantSpeed: 0, turnRate: 0,
       tx: 0, ty: 0, tz: 0, state: 'rest', t: 0, dur: rnd() * 4, rank: rnd(), active: true,
       wary: 0, flashCD: 2 + rnd() * 6, clueCD: 2 + rnd() * 8, interestCD: rnd() * 0.5, retarget: 0,
+      atPrey: false, shoal: null, shoalTop: 0, coolKey: null, // (D1: at a shoal of small fish; see pickPoint)
       nibbles: 0, maxNibbles: 1, nibbleT: 0, invT: 0, biteT: 0, vy: 0, jumpSpeed: 0,
       phase: rnd() * 10, beat: 0.3, caught: 0, faceBait: false, risen: false,
     };
@@ -337,6 +352,7 @@ export class Ecosystem {
       x: home.x, y: -0.9, z: home.z, yaw: rnd() * Math.PI * 2, pitch: 0, bank: 0,
       speed: 0, wantSpeed: 0, turnRate: 0, tx: home.x, ty: -0.9, tz: home.z,
       t: 99, dur: 0, scatterT: 0, sx: 0, sy: 0, sz: 0, spread: 1.4 + rnd() * 0.8, clueCD: 1, flashCD: 3,
+      atPrey: false, shoal: null, shoalTop: 0, coolKey: null,
     };
     const n = L.members[0] + Math.floor(rnd() * (L.members[1] - L.members[0] + 1));
     for (let k = 0; k < n; k++) {
@@ -397,6 +413,7 @@ export class Ecosystem {
     // (The sea's fish feed best on a running tide, some on the flood: see tide.js; each kind has
     // its seasons: see season.js; and coloured water suits some and not others: see grounds.js.)
     for (const sp of FISH) this.activity[sp.id] = Math.min(1, sp.life.activity(this.ctx) * tideBoost(sp, this.ctx.tide) * seasonBoost(sp, this.ctx.abs) * colourFactor(sp, this.ctx.colour));
+    this.light = (this.ctx.daylight ?? 1) * (1 - 0.75 * (this.ctx.cloud ?? 0)) * smoothstep(0.1, 0.6, this.ctx.daylight ?? 1);
     for (const b of this.baitsList()) {
       if (b.fresh > 0) b.fresh -= dt;
       if (b.twitch > 0) b.twitch -= dt;
@@ -433,7 +450,7 @@ export class Ecosystem {
   stepWorld(h) {
     this.tick++;
     this.time += h;
-    const near2 = this.simRadius * this.simRadius, far2 = FAR_RADIUS * FAR_RADIUS;
+    const near2 = this.simRadius * this.simRadius, far2 = FAR_RADIUS * FAR_RADIUS, reach2 = BAIT_REACH * BAIT_REACH;
     for (const s of this.schools) {
       // (Following the host: a shoal goes where the host's goes; one the host hasn't spoken of
       // lately is out of everyone's way, and waits.)
@@ -467,8 +484,12 @@ export class Ecosystem {
         continue;
       }
       const d2 = this.d2near(a.x, a.z);
-      if (d2 < near2) this.stepAgent(a, h, false);
-      else if (d2 < far2 && (this.tick + a.id) % FAR_EVERY === 0) this.stepAgent(a, h * FAR_EVERY, true);
+      // (A fish already after a bait is always kept in full detail; one within reach of a bait
+      // but beyond the active radius still looks at baits, between its coarser steps.)
+      // (Distance first: the state's only asked of the few within reach.)
+      if (d2 < near2) this.stepAgent(a, h, false, d2 < reach2);
+      else if (d2 < reach2 && BAIT_STATES.has(a.state)) this.stepAgent(a, h, false, true);
+      else if (d2 < far2 && (this.tick + a.id) % FAR_EVERY === 0) this.stepAgent(a, h * FAR_EVERY, true, d2 < reach2);
     }
     this.boatStartle(h);
     this.walkerStartle(h);
@@ -477,7 +498,7 @@ export class Ecosystem {
 
   /* ---------- individual fish ---------- */
 
-  stepAgent(a, h, coarse) {
+  stepAgent(a, h, coarse, reach = !coarse) {
     a.t += h;
     if (a.wary > 0) a.wary -= h;
     a.flashCD -= h;
@@ -509,7 +530,7 @@ export class Ecosystem {
       default:
         if (BAIT_STATES.has(a.state)) this.baitBehaviour(a, h);
     }
-    if (!coarse && ENGAGEABLE.has(a.state)) {
+    if (reach && ENGAGEABLE.has(a.state)) {
       a.interestCD -= h;
       if (a.interestCD <= 0) {
         a.interestCD = 0.5;
@@ -549,6 +570,8 @@ export class Ecosystem {
     }
     if (act > 0.3 && Math.random() < L.rises(this.ctx) * 0.12) return this.startRise(a);
     if (act < 0.25) return this.startState(a, 'rest', rand(10, 22));
+    // (D1: water fished hard lately: what's left lies up in cover more, and cruises less.)
+    if (this.pressure.cells.size && Math.random() < pressureWariness(this.pressureAt(a.home.x, a.home.z))) return this.startState(a, 'rest', rand(10, 22));
     // Carp find loose bait thrown in nearby and graze there.
     if (L.grazer) {
       const spot = this.feedSpots.find((f) => f.amount > 0.05 && Math.hypot(f.x - a.x, f.z - a.z) < 45);
@@ -590,38 +613,97 @@ export class Ecosystem {
   }
 
   // Choose somewhere to go within the fish's home range, preferring cover for resting and feeding.
+  // (D1, see ecology.js and docs/ECOLOGY.md: and where the water suits it just now. A cool-water
+  // kind goes down below the summer's warm top layer; a fish shy of the light keeps deeper and
+  // closer to cover in a bright sun; a hunter goes where the small fish are; the flood-tide
+  // feeders push up over the shallows on the flood and drop back on the ebb; every fish keeps away
+  // from water lately disturbed; and in water fished hard, what's left keeps tight to cover (and
+  // lies up more: see decide).)
   pickPoint(a, mode) {
     const L = a.L, home = a.home, R = home.r * (L.range || 1);
     const band = this.bandOf(a);
-    let bx = home.x, bz = home.z, bd = Math.max(this.habitat.depth(home.x, home.z), 0.8), best = -Infinity;
+    const P = prefsFor(a.sp.id), act = this.activity[a.sp.id] ?? 0.5;
+    const cool = this.coolTop(a);
+    const shy = L.bottom ? 0 : (P.bright || 0) * smoothstep(0.6, 1, this.light);
+    const prey = mode !== 'rest' && act > 0.3 && fishEater(a.sp) ? this.nearestForage(a, home, Math.max(40, R * 1.6)) : null;
+    const flow = this.ctx.tide?.flow ?? 0;
+    const tide = FLOOD_FEEDERS.has(a.sp.id) ? clamp(-flow / 0.6, -1, 1) : 0; // > 0 on the flood
+    // (Water fished hard lately: what's left keeps tighter to cover. The pressure's kept in cells
+    // about fifty metres across, wider than most homes: one look, here.)
+    const noisy = this.noise.length > 0, wary = this.pressure.cells.size > 0 ? pressureWariness(this.pressureAt(home.x, home.z)) : 0;
+    // (Disturbed water over its home: it shifts away from the noise, to the far side of its home
+    // and beyond, by how much it minds.)
+    // (Only where there's been some near its home: one look, then each place it might go.)
+    let cx = home.x, cz = home.z;
+    const n = noisy ? this.noiseFrom(home.x, home.z) : null;
+    if (n) {
+      const d = Math.hypot(home.x - n.x, home.z - n.z) || 1, push = R * clamp(n.w * (P.disturb ?? 1), 0, 1.2);
+      cx += ((home.x - n.x) / d) * push;
+      cz += ((home.z - n.z) / d) * push;
+    }
+    let bx = home.x, bz = home.z, bd = Math.max(this.habitat.depth(home.x, home.z), 0.8), best = -Infinity, atPrey = false;
     for (let i = 0; i < 8; i++) {
-      const ang = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * R;
-      const x = home.x + Math.cos(ang) * r, z = home.z + Math.sin(ang) * r;
+      let x, z;
+      // (A hunter looks over the water round the shoal it's found as well as its own.)
+      const near = prey && i < 3;
+      if (near) {
+        const ang = Math.random() * Math.PI * 2, r = Math.random() * 8;
+        x = prey.x + Math.cos(ang) * r;
+        z = prey.z + Math.sin(ang) * r;
+      } else {
+        const ang = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * R;
+        x = cx + Math.cos(ang) * r;
+        z = cz + Math.sin(ang) * r;
+      }
       const s = this.habitat.sample(x, z, _s);
       if (s.depth < Math.max(0.6, band[0] + 0.3)) continue;
       // Bottom fish keep to their depth: they don't wander off into deep water.
       if (L.bottom && s.depth > band[1] + 1.5) continue;
       if (!L.zones.includes(zoneAt(x, z))) continue;
       const cover = L.cover === 'weed' ? s.weed : L.cover === 'rock' ? s.rock : L.cover === 'open' ? 0 : Math.max(s.weed, s.rock);
-      let score = Math.random() * 0.4 + (mode === 'cruise' ? 0 : cover * 1.2);
+      let score = Math.random() * 0.4 + (mode === 'cruise' ? cover * (shy * 0.8 + wary * 6) : cover * 1.2 * (1 + shy + wary * 6));
       if (L.bottom) score += smoothstep(band[0], band[0] + 6, s.depth);
+      if (cool > band[0]) score += 1.5 * smoothstep(band[0], cool + 1, s.depth);
+      if (shy > 0) score += 0.6 * shy * smoothstep(band[0], band[0] + 4, s.depth);
+      if (prey) score += 1.2 * smoothstep(Math.max(40, R * 1.6), 6, Math.hypot(x - prey.x, z - prey.z));
+      if (tide > 0) score += 0.9 * tide * (1 - smoothstep(band[0], band[1] + 2, s.depth));
+      else if (tide < 0) score -= 0.6 * tide * smoothstep(band[0], band[1] + 2, s.depth);
+      if (n) score -= 1.5 * (P.disturb ?? 1) * this.disturbAt(x, z);
       if (score > best) {
         best = score;
         bx = x;
         bz = z;
         bd = s.depth;
+        atPrey = !!prey && Math.hypot(x - prey.x, z - prey.z) < 14;
       }
     }
+    // The depths it keeps to just now: below the warm layer if it likes it cool, and a little
+    // deeper in a bright sun if it's shy of it.
+    let top = band[0], bot = band[1];
+    if (cool > top) {
+      top = cool;
+      bot = Math.max(bot, cool + (band[1] - band[0]) * 0.5);
+    }
+    if (shy > 0) top = Math.min(bot, top + shy * Math.min(3, (band[1] - band[0]) * 0.5));
     let y;
     if (L.flat) y = -bd + 0.06; // flatfish lie on the bottom itself
     else if (L.benthic) y = -bd + 0.12; // gurnards walk the seabed; an octopus crawls over it
+    // (A hunter at a shoal of small fish keeps just under it, cruising or feeding on it.)
+    else if (atPrey && !L.bottom) y = prey.y - rand(0.5, 2);
     else if (L.bottom || mode === 'rest' || mode === 'feed') y = -bd + rand(0.35, mode === 'feed' ? 0.8 : 1.3);
-    else y = -rand(band[0], Math.max(band[0], Math.min(band[1], bd - 0.4)));
-    y = clamp(y, -band[1], -band[0]);
+    else y = -rand(top, Math.max(top, Math.min(bot, bd - 0.4)));
+    // (Under a shoal it may come up above its usual depths, but a cool-water kind no more than a
+    // few metres into the warm layer.)
+    const preyTop = atPrey ? Math.max(Math.min(top, -prey.y + 0.5), cool - 3, 0.3) : 0;
+    y = clamp(y, -bot, -(atPrey ? preyTop : top));
     y = Math.min(Math.max(y, -bd + 0.3), -0.3);
     a.tx = bx;
     a.ty = y;
     a.tz = bz;
+    a.atPrey = atPrey;
+    // (Not `prey`: a hunting shoal's prey is its own, decided by the host; see hunt.)
+    a.shoal = atPrey ? prey : null;
+    a.shoalTop = preyTop;
     if (home.site) {
       _tp.x = bx;
       _tp.y = y;
@@ -633,13 +715,56 @@ export class Ecosystem {
     }
   }
 
+  // How deep (m) a cool-water kind keeps below the summer's warm top layer in its own water just
+  // now (0 if it doesn't mind, or the top's cool enough). Worked out for each kind and water every
+  // game half hour.
+  coolTop(a) {
+    const lim = WARM_LIMIT[a.sp.id];
+    if (lim == null || this.ctx.abs == null) return 0;
+    const home = a.home, key = a.coolKey || (a.coolKey = `${a.sp.id}|${home.zone}|${home.south ? 1 : 0}`);
+    const when = Math.floor(this.ctx.abs * 2);
+    let c = this.coolCache.get(key);
+    if (!c || c.when !== when) {
+      c = { when, d: coolDepth(lim, this.ctx, home.zone, home.south) };
+      this.coolCache.set(key, c);
+    }
+    return c.d;
+  }
+
+  // The nearest shoal of small fish a hunter could go after: in its kind of water, within reach
+  // of its home and not far from where it is. (The shoals are few: a short list.)
+  nearestForage(a, home, reach) {
+    let best = null, bd2 = reach * reach;
+    const zones = a.L.zones;
+    for (const s of this.forage) {
+      if (s.home?.zone && !zones.includes(s.home.zone)) continue;
+      const d2 = (s.x - home.x) ** 2 + (s.z - home.z) ** 2;
+      if (d2 >= bd2 || (s.x - a.x) ** 2 + (s.z - a.z) ** 2 > 150 * 150) continue;
+      bd2 = d2;
+      best = s;
+    }
+    return best;
+  }
+
   feed(a, h) {
     if (a.t > a.dur) return this.decide(a);
     a.retarget -= h;
     if (a.feedSpot) a.feedSpot.amount -= h * 0.004;
     if (a.retarget <= 0 || this.near(a, 0.4)) {
-      // short darts close to the bottom, picking at weeds and sand (or at the loose bait)
       a.retarget = rand(1, 2.5);
+      // (A hunter feeding at a shoal of small fish darts about under it, following it as it goes.)
+      const P = a.shoal;
+      if (P && !a.L.bottom) {
+        const x = P.x + rand(-3, 3), z = P.z + rand(-3, 3), d = this.habitat.depth(x, z);
+        if (d > 0.8) {
+          a.tx = x;
+          a.tz = z;
+          a.ty = clamp(P.y - rand(0.3, 1.8), -d + 0.3, -a.shoalTop);
+        }
+        a.wantSpeed = a.L.speed * 0.6;
+        return;
+      }
+      // short darts close to the bottom, picking at weeds and sand (or at the loose bait)
       const cx = a.feedSpot ? a.feedSpot.x : a.x, cz = a.feedSpot ? a.feedSpot.z : a.z;
       const x = cx + rand(-1.8, 1.8), z = cz + rand(-1.8, 1.8);
       const d = this.habitat.depth(x, z);
@@ -1270,10 +1395,17 @@ export class Ecosystem {
     const E = this.envCache;
     E.current = Math.hypot(c.x, c.z);
     E.waves = waveHeightHere(a.x, a.z);
-    E.light = (this.ctx.daylight ?? 1) * (1 - 0.75 * (this.ctx.cloud ?? 0)) * smoothstep(0.1, 0.6, this.ctx.daylight ?? 1);
+    E.light = this.light;
     // (A spot fished hard: the fish still there are warier, as if it had just been disturbed.)
     E.disturb = Math.min(1, this.disturbAt(a.x, a.z) + pressureWariness(this.pressureAt(a.x, a.z)));
     E.storm = this.ctx.storm ?? 0;
+    // (D1: water warmer than a cool-water kind likes, where it is; and small fish about a hunter.)
+    E.warm = WARM_LIMIT[a.sp.id] != null && this.ctx.abs != null ? warmStress(a.sp.id, tempAt(this.ctx, a.home.zone, a.home.south, Math.max(0, -a.y))) : 0;
+    E.food = 0;
+    if (fishEater(a.sp)) {
+      const s = this.nearestForage(a, a, 30);
+      if (s) E.food = smoothstep(30, 6, Math.hypot(s.x - a.x, s.z - a.z));
+    }
     return E;
   }
 
@@ -1287,6 +1419,22 @@ export class Ecosystem {
       near.t = this.time;
     } else N.push({ x, z, a: amount, t: this.time });
     if (N.length > 48) N.shift();
+  }
+  // Where the disturbance round (x, z) lately is centred, and how strong it is here: { x, z, w }
+  // (null if none).
+  noiseFrom(x, z) {
+    let sx = 0, sz = 0, sw = 0;
+    for (const n of this.noise) {
+      const age = this.time - n.t;
+      if (age > 240) continue;
+      const d = Math.hypot(n.x - x, n.z - z);
+      if (d > 30) continue;
+      const w = n.a * Math.exp(-age / 75) * smoothstep(30, 6, d);
+      sx += n.x * w;
+      sz += n.z * w;
+      sw += w;
+    }
+    return sw > 0.05 ? { x: sx / sw, z: sz / sw, w: Math.min(1, sw) } : null;
   }
   disturbAt(x, z) {
     let s = 0;
