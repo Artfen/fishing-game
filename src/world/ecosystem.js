@@ -314,6 +314,7 @@ export class Ecosystem {
       yaw: rnd() * Math.PI * 2, pitch: 0, bank: 0, speed: 0, wantSpeed: 0, turnRate: 0,
       tx: 0, ty: 0, tz: 0, state: 'rest', t: 0, dur: rnd() * 4, rank: rnd(), active: true,
       wary: 0, flashCD: 2 + rnd() * 6, clueCD: 2 + rnd() * 8, interestCD: rnd() * 0.5, retarget: 0,
+      atPrey: false, shoal: null, shoalTop: 0, coolKey: null, // (D1: at a shoal of small fish; see pickPoint)
       nibbles: 0, maxNibbles: 1, nibbleT: 0, invT: 0, biteT: 0, vy: 0, jumpSpeed: 0,
       phase: rnd() * 10, beat: 0.3, caught: 0, faceBait: false, risen: false,
     };
@@ -351,6 +352,7 @@ export class Ecosystem {
       x: home.x, y: -0.9, z: home.z, yaw: rnd() * Math.PI * 2, pitch: 0, bank: 0,
       speed: 0, wantSpeed: 0, turnRate: 0, tx: home.x, ty: -0.9, tz: home.z,
       t: 99, dur: 0, scatterT: 0, sx: 0, sy: 0, sz: 0, spread: 1.4 + rnd() * 0.8, clueCD: 1, flashCD: 3,
+      atPrey: false, shoal: null, shoalTop: 0, coolKey: null,
     };
     const n = L.members[0] + Math.floor(rnd() * (L.members[1] - L.members[0] + 1));
     for (let k = 0; k < n; k++) {
@@ -691,12 +693,16 @@ export class Ecosystem {
     else y = -rand(top, Math.max(top, Math.min(bot, bd - 0.4)));
     // (Under a shoal it may come up above its usual depths, but a cool-water kind no more than a
     // few metres into the warm layer.)
-    y = clamp(y, -bot, -(atPrey ? Math.max(Math.min(top, -prey.y + 0.5), cool - 3) : top));
+    const preyTop = atPrey ? Math.max(Math.min(top, -prey.y + 0.5), cool - 3, 0.3) : 0;
+    y = clamp(y, -bot, -(atPrey ? preyTop : top));
     y = Math.min(Math.max(y, -bd + 0.3), -0.3);
     a.tx = bx;
     a.ty = y;
     a.tz = bz;
     a.atPrey = atPrey;
+    // (Not `prey`: a hunting shoal's prey is its own, decided by the host; see hunt.)
+    a.shoal = atPrey ? prey : null;
+    a.shoalTop = preyTop;
     if (home.site) {
       _tp.x = bx;
       _tp.y = y;
@@ -744,8 +750,20 @@ export class Ecosystem {
     a.retarget -= h;
     if (a.feedSpot) a.feedSpot.amount -= h * 0.004;
     if (a.retarget <= 0 || this.near(a, 0.4)) {
-      // short darts close to the bottom, picking at weeds and sand (or at the loose bait)
       a.retarget = rand(1, 2.5);
+      // (A hunter feeding at a shoal of small fish darts about under it, following it as it goes.)
+      const P = a.shoal;
+      if (P && !a.L.bottom) {
+        const x = P.x + rand(-3, 3), z = P.z + rand(-3, 3), d = this.habitat.depth(x, z);
+        if (d > 0.8) {
+          a.tx = x;
+          a.tz = z;
+          a.ty = clamp(P.y - rand(0.3, 1.8), -d + 0.3, -a.shoalTop);
+        }
+        a.wantSpeed = a.L.speed * 0.6;
+        return;
+      }
+      // short darts close to the bottom, picking at weeds and sand (or at the loose bait)
       const cx = a.feedSpot ? a.feedSpot.x : a.x, cz = a.feedSpot ? a.feedSpot.z : a.z;
       const x = cx + rand(-1.8, 1.8), z = cz + rand(-1.8, 1.8);
       const d = this.habitat.depth(x, z);
