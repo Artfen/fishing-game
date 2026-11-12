@@ -548,7 +548,7 @@ export class HydroBody {
     this.grounded = 0;    // how much of her is resting on the bottom (0 … 1)
     this.scrape = 0;      // how hard she's sliding on the bottom (m/s)
     // Set by the boat each frame.
-    this.thrusters = [];  // { p: [local], d: [local unit], f: N, vent: m (submersion needed) }
+    this.thrusters = [];  // { p: [local], d: [local unit], f: N, vent: m (submersion needed); k: how far in (0 … 1), set by step }
     this.forces = [];     // { f: [world N], p: [world] }
     this.ropes = [];      // { p: [local], to: [world] | () => [world], len, k, c, out: { tension } }
     this.rudder = 0;      // helm angle (rad) on the steerable foils
@@ -698,6 +698,9 @@ export class HydroBody {
       const p = this.toWorld(th.p, _p1), d = this.dirWorld(th.d, _p2);
       const depth = this.depthAt(p, env, t);
       const k = th.vent ? Math.min(1, Math.max(0, (depth + 0.02) / th.vent)) : 1;
+      // (How deep in it is, as a share of what it needs to grip: the boat reads it back for the
+      // engine's revs, see Boat.propBite.)
+      th.k = k;
       // (lever: how much of the propeller's depth below her centre of gravity turns her bow up.
       // It grips the water where it is, but a push that has to make up for the game's own hull
       // resistance is bigger than a real propeller's, and would twist her over far harder than a

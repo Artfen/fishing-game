@@ -1,4 +1,4 @@
-import { runShare, trimEffect } from './engine.js';
+import { runShare, trimEffect, profileOf, TRIM } from './engine.js';
 import { pushAt } from './engines.js';
 import { Dashboard, DASHES } from './dashboard.js';
 import { canMount, mountFor, rigPose, propAt } from './trollmount.js';
@@ -853,6 +853,36 @@ export class Boat {
       b.forces.push({ f: [0, -SKIPPER_KG * G, 0], p: b.toWorld([D.x, y, D.z], (this._dw ||= [0, 0, 0])) });
       b.forces.push({ f: [0, SKIPPER_KG * G, 0], p: b.toWorld([S.helm[0], y, S.helm[1]], (this._hw ||= [0, 0, 0])) });
     }
+  }
+
+  // Her outboard's propeller against the bottom (with propStrikes on and her leg yours to trim:
+  // see the motor in update). Its tips, where the leg holds them (tilted up into its shallow-water
+  // range they're well up), below the seabed there: a strike. Creeping, a touch; at speed, a bent
+  // blade (the engine's dmg, kept in the save): she loses push, more the harder she's driven, and
+  // the engine races (engine.js propBite). 'hard' (Realistic) bends it further. A new propeller
+  // at the Marine Works puts it right. onStrike tells the game.
+  propStrike(dt) {
+    const L = this._legs, E = this.engine;
+    this._legs = null;
+    this.strikeT = Math.max(0, (this.strikeT || 0) - dt);
+    if (!L || !E || !this._phys) return;
+    const b = this._phys, M = this.hull.motor;
+    const lift = L.angle > TRIM.max ? 0.8 * smoothstep(TRIM.max, TRIM.out, L.angle) : 0, r = 0.11 * (M.scale ?? 1);
+    let pen = 0;
+    for (const x of L.xs) {
+      const w = b.toWorld([x, L.y + lift - r, L.z], _w3);
+      pen = Math.max(pen, solidHeight(w[0], w[2]) - w[1]);
+    }
+    this.propAground = pen > 0;
+    if (pen <= 0.01 || this.strikeT > 0) return;
+    // (Harder the faster she's going, and the harder it's turning: idling in gear or coasting
+    // over a bank it dings; driven onto one, the blades fold.)
+    const v = Math.hypot(this.vel.x, this.vel.z), spin = Math.min(1, Math.abs(this.power) * 5);
+    const add = clamp((v - 1) / 10, 0, 0.5) * (0.35 + 0.65 * spin) * (this.propStrikes === 'hard' ? 1.5 : 1);
+    if (add < 0.01) return;
+    E.dmg = Math.min(1, (E.dmg || 0) + add);
+    this.strikeT = 1.2;
+    this.onStrike?.(this, { speed: v, add, dmg: E.dmg });
   }
 
   // Her cargo (cargo.js): what's on her deck, each drawn where it sits, strapped down or loose.
@@ -4214,7 +4244,12 @@ export class Boat {
       this.spool(dt, lever, troll || !!E);
       const pw = this.power;
       const depth = -solidHeight(p.x - this.fwd.x * H.L * 0.45, p.z - this.fwd.z * H.L * 0.45);
-      const tilted = depth < (E || M).tilt && !troll;
+      // (An outboard on a pin, or one she trims herself: its leg kicks up out of the way over the
+      // shallows. One you trim yourself, with strikes on (propStrikes: see propStrike), stays
+      // where you put it: tilt it up into its shallow-water range, or her propeller finds the
+      // bottom.)
+      const ownLeg = !!this.propStrikes && this.trimAuto === false && !!this.engine && profileOf(this.engine.kind)?.trim === 'power' && !M.inboard && !M.jet;
+      const tilted = !ownLeg && depth < (E || M).tilt && !troll;
       if (tilted && !this.tilted && lever > 0.05 && this.onShallow && !dead) this.onShallow();
       this.tilted = tilted;
       b.legDown = !!M && !M.inboard && !M.jet && !tilted && !TE?.out;
@@ -4226,7 +4261,10 @@ export class Boat {
       // the speed its propeller's pitched for. See engines.js.)
       else {
         const S = !E && this.motorSpec;
-        thrust = (pw > 0 ? (S ? pushAt(S, vf) : (E || M).thrust) * pw : (S ? S.astern : (E || M).astern) * pw) * (tilted ? 0.22 : 1) * share * (TE ? TE.eff : 1);
+        // (A bent propeller (propStrike) slips: less push, and less still the harder it's driven,
+        // where it cavitates.)
+        const bent = this.engine?.dmg ? 1 - this.engine.dmg * (0.3 + 0.25 * Math.abs(pw)) : 1;
+        thrust = (pw > 0 ? (S ? pushAt(S, vf) : (E || M).thrust) * pw : (S ? S.astern : (E || M).astern) * pw) * (tilted ? 0.22 : 1) * share * (TE ? TE.eff : 1) * bent;
       }
       const spin = troll || dead || E ? 0 : pw;
       this.propSpin += dt * (6 + Math.abs(spin) * 60) * Math.sign(spin || 1) * (Math.abs(spin) > 0.02 ? 1 : 0.1);
@@ -4285,6 +4323,9 @@ export class Boat {
         if (seaway) b.forces.push({ f: [-this.fwd.x * seaway, 0, -this.fwd.z * seaway], p: b.toWorld(b.model.cg, [0, 0, 0]) });
       }
       const keel0 = H.keel(0), stern = zAt(H, 0);
+      // (Her propellers' thrusters, for how deep they are once she's stepped: see propBite.)
+      const t0 = b.thrusters.length;
+      this._legs = ownLeg && legOf && !legOf.out ? { xs: M.twin ? [M.twin, -M.twin] : [M.side || 0], y: keel0 - 0.28, z: stern - 0.18, angle: legOf.angle } : null;
       if (dead) {
         // (An oar over the stern: a gentle push, a little steer.)
         b.thrusters.push({ p: [0, H.draft, stern + 0.2], d: dirAt(b.rudder * 0.5), f, vent: 0 });
@@ -4324,6 +4365,7 @@ export class Boat {
           b.thrusters.push({ p: [x, keel0 - 0.28, stern - 0.18], d, f: f / legs.length + diff, vent: 0.1, lever: PROP_LEVER });
         }
       }
+      this._props = troll || dead || E ? null : [t0, b.thrusters.length];
     } else if (H.rig) {
       // The windsurf board: the same sail (sailing.js) on a small rig and a light board, its pull
       // coming down through the mast foot and your feet. Fast enough it planes and slips away;
@@ -4527,6 +4569,15 @@ export class Boat {
     b.step(dt, env);
     this.syncFromPhys();
     this.forwardSpeed = (this.vel.x - this.drift.x) * this.fwd.x + (this.vel.z - this.drift.z) * this.fwd.z;
+    // How well her propellers are gripping the water (0 … 1): out on a wave's crest, less (the
+    // engine races: see engine.js propBite); and an outboard's against the bottom.
+    if (this._props) {
+      let k = 1;
+      for (let i = this._props[0]; i < this._props[1]; i++) k = Math.min(k, b.thrusters[i]?.k ?? 1);
+      this.propBite = k;
+      this._props = null;
+    } else this.propBite = 1;
+    this.propStrike(dt);
     this.thrustNow = thrust;
     // Her own wake, left behind her.
     // (With the white water her propeller churns up: how hard it's working, prop or jet.)

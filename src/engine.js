@@ -96,12 +96,13 @@ export function newEngine(kind) {
     pulls: 0,                   // pulls of the cord since she last ran
     engines: Array.from({ length: P.engines }, () => ({ run: false, crank: 0, need: 0, rpm: 0 })),
     auto: null,                 // the assisted start, under way: { steps, t }
+    dmg: 0,                     // her propeller's damage, 0 … 1 (a strike on the bottom: see boat.js)
   };
 }
 
 // What's kept in the save: the switches and the battery (an engine left on is off again next time).
 export function engineSave(E) {
-  return E ? { battery: E.battery, cord: E.cord, charge: Math.round(E.charge * 1000) / 1000, trim: Math.round(E.trim * 10) / 10 } : null;
+  return E ? { battery: E.battery, cord: E.cord, charge: Math.round(E.charge * 1000) / 1000, trim: Math.round(E.trim * 10) / 10, ...(E.dmg > 0 ? { dmg: Math.round(E.dmg * 100) / 100 } : {}) } : null;
 }
 export function cleanEngine(kind, raw) {
   const E = newEngine(kind);
@@ -111,6 +112,7 @@ export function cleanEngine(kind, raw) {
   if (P.cord) E.cord = raw.cord === true;
   E.charge = Number.isFinite(raw.charge) ? clamp(raw.charge, 0, 1) : 1;
   E.trim = Number.isFinite(raw.trim) ? clamp(raw.trim, TRIM.min, P.trim === 'power' || P.trim === 'tilt' ? TRIM.up : 0) : 0;
+  E.dmg = Number.isFinite(raw.dmg) ? clamp(raw.dmg, 0, 1) : 0;
   return E;
 }
 
@@ -345,7 +347,17 @@ export function stepEngine(E, dt, ctx = {}, rnd = Math.random) {
       const open = clamp(ctx.opening ?? Math.abs(ctx.power || 0), 0, 1);
       // (Flat out, the revs her propeller lets the engine reach: see engines.js and WOT.)
       const top = WOT[E.kind] || P.max;
-      const want = P.idle + (top - P.idle) * Math.pow(open, 0.85) * (1 + 0.12 * vent) * (E.temp >= 1 ? 0.55 : 1);
+      const free = P.idle + (top - P.idle) * Math.pow(open, 0.85) * (E.temp >= 1 ? 0.55 : 1);
+      let want = free * (1 + 0.12 * vent);
+      // In gear, with what her propeller's pitched for known (ctx.vd), the propeller holds the
+      // engine down to the revs it lets it turn at her speed (loadRpm): flat out from a standstill
+      // it labours well short of its rated revs, and climbs to them as she gathers way; laden,
+      // she never quite gets there. A propeller losing its grip (propBite: out of the water on a
+      // wave, drawing air, or bent on the bottom) lets the engine race towards its free revs.
+      if (ctx.vd > 0 && ctx.inGear && !P.electric) {
+        const held = Math.max(P.idle, Math.min(free, loadRpm(top, ctx.speed || 0, ctx.vd, ctx.hole)));
+        want = held + (free * 1.1 - held) * (1 - propBite(E, ctx));
+      }
       e.rpm += (Math.min(top * 1.08, want) - e.rpm) * Math.min(1, dt * 2.5);
     } else e.rpm += (0 - e.rpm) * Math.min(1, dt * 4);
   }
@@ -362,6 +374,21 @@ export function stepEngine(E, dt, ctx = {}, rnd = Math.random) {
   if (before >= 0.6 && E.temp < 0.6) ev.push('cool');
   return ev;
 }
+
+// The revs a propeller lets the engine turn flat out at a speed through the water (m/s), against
+// the speed it's pitched for (vd: engines.js engineSpec): at a standstill it holds it to `hole` of
+// its rated revs (a propeller's hole-shot revs: a lower pitch lets it rev a little higher), rising
+// to its rated revs as she reaches that speed, and past it the propeller drives the engine on
+// into its limiter.
+export const HOLE = 0.7;
+export function loadRpm(top, speed, vd, hole = HOLE) {
+  const s = Math.abs(speed) / Math.max(0.1, vd);
+  return top * Math.max(hole + (1 - hole) * Math.pow(Math.min(1, s), 1.3), s);
+}
+// How well her propeller grips the water (0 … 1): in it to its full depth (ctx.bite, from where
+// it is: see boat.js propBite), less what it's drawing air (trimmed out: ventilation) and what a
+// bent blade lets slip.
+export const propBite = (E, ctx = {}) => clamp((ctx.bite ?? 1) * (1 - 0.8 * ventilation(E, ctx.speed || 0)) * (1 - 0.35 * (E?.dmg || 0)), 0, 1);
 
 // The engine's revs (the fastest-turning one), and as a share of its range for the sound.
 export const rpmOf = (E) => (E ? Math.max(0, ...E.engines.map((e) => e.rpm)) : 0);
