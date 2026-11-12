@@ -136,8 +136,9 @@ export function blocker(E, ctx = {}) {
   if (P.starter === 'key' && !E.key) return { id: 'key', text: 'The key is off' };
   // (Her battery terminal shaken loose: see damage.js. Set by the game each frame, never saved.)
   if (E.loose && P.battery) return { id: 'loose', text: 'A click, and nothing: the battery terminal’s loose. Do it up (look her over) and try again' };
-  // (Her engine room flooded: see flooding.js. Set by the game each frame, never saved.)
-  if (E.drowned) return { id: 'drowned', text: 'Her engine room’s flooded: she won’t turn over until it’s pumped out' };
+  // (Her engine room flooded, or on Realistic a swamped outboard's powerhead under: see
+  // flooding.js. Set by the game each frame, never saved.)
+  if (E.drowned) return { id: 'drowned', text: P.drive === 'inboard' ? 'Her engine room’s flooded: she won’t turn over until it’s pumped out' : 'Her outboard’s powerhead is under water: bail her out below a third and it’ll start' };
   if (P.electric) return ctx.fuel <= 0 ? { id: 'flat', text: 'Its battery is flat: it charges at a jetty, and overnight' } : null;
   if (P.starter !== 'pull' && E.charge < 0.12) return { id: 'flat', text: 'The battery is flat: the starter only clicks' };
   return null;

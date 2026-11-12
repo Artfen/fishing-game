@@ -37,12 +37,19 @@ export const PUMPS = { bass: 1.2, cabin: 1.2, console: 2, rib: 1.5, cruiser: 3 }
 export const BAIL = 0.7;
 // What a pump draws on her battery, a share of its charge a second (about 5 A from 70 Ah).
 export const PUMP_DRAW = 2e-5;
+// (drown: swamped, an outboard's powerhead goes under and stops; see SWAMPED.)
 export const MODES = {
-  relaxed: { cap: 1 / 3, inK: 1, pumpK: 2 },
-  standard: { cap: 1, inK: 1, pumpK: 1 },
-  realistic: { cap: 1, inK: 1.4, pumpK: 0.75 },
+  relaxed: { cap: 1 / 3, inK: 1, pumpK: 2, drown: false },
+  standard: { cap: 1, inK: 1, pumpK: 1, drown: false },
+  realistic: { cap: 1, inK: 1.4, pumpK: 0.75, drown: true },
 };
+// Swamped: past this share of all she can hold (C6b): low, heavy, awash. (A breach fills her only
+// until the water inside stands as high as the sea outside: an open boat, about three-fifths of
+// what she can hold. That's swamped.)
+export const SWAMPED = 0.5;
 export const modeOf = (difficulty) => MODES[difficulty] || MODES.standard;
+import { section } from './hydro.js';
+
 const RHO = 1025;   // kg/m³
 const G = 9.81;
 const CD = 0.6;     // a sharp-edged hole's discharge coefficient
@@ -69,17 +76,30 @@ export function compartmentsFor(kind, H, reserve = Infinity) {
   const out = [];
   const hw = (t) => H.B * H.hw(t), sheer = (t) => H.D + H.sheer(t), keel = (t) => H.keel(t), zAt = (t) => -H.L / 2 + H.L * t;
   const deck = SELF_DRAINING.has(kind) ? H.floorY ?? 0.2 : null;
+  const NS = 8, NY = 16, NA = 24;
   for (const L of layoutOf(kind)) {
-    let cap = 0;
-    const N = 8, dz = (H.L * (L.t1 - L.t0)) / N;
-    for (let i = 0; i < N; i++) {
-      const t = L.t0 + ((i + 0.5) / N) * (L.t1 - L.t0);
-      const top = deck != null ? Math.min(deck, sheer(t)) : sheer(t);
-      // (A boat's section is rounder than a box: three-fifths of one, from her keel up.)
-      cap += 0.6 * 2 * hw(t) * Math.max(0, top - keel(t)) * dz;
+    const tc = (L.t0 + L.t1) / 2, floor = keel(tc), top = deck != null ? Math.min(deck, sheer(tc)) : sheer(tc);
+    // Her inside, as her sections shape it: the litres standing up to each of NY levels from her
+    // floor to her top (her hull's own section at each of NS stations along the compartment).
+    const vol = new Float64Array(NY + 1), dz = (H.L * (L.t1 - L.t0)) / NS;
+    for (let i = 0; i < NS; i++) {
+      const t = L.t0 + ((i + 0.5) / NS) * (L.t1 - L.t0), w = hw(t), sh = sheer(t), k = keel(t);
+      const pts = [];
+      for (let a = 0; a <= NA; a++) pts.push(section(H, w, sh, k, (a / NA) * (Math.PI / 2)));
+      for (let j = 1; j <= NY; j++) {
+        const y = Math.min(floor + ((top - floor) * j) / NY, deck != null ? Math.min(deck, sh) : sh);
+        // (Area of the section below y: twice the half-width, up from her keel.)
+        let area = 0;
+        for (let a = 0; a < NA; a++) {
+          const [x0, y0] = pts[a], [x1, y1] = pts[a + 1];
+          if (y0 >= y) break;
+          const yb = Math.min(y1, y), xb = y1 > y0 ? x0 + ((x1 - x0) * (yb - y0)) / (y1 - y0) : x1;
+          area += (x0 + xb) * (yb - y0);
+        }
+        vol[j] += area * dz * 1000;
+      }
     }
-    const tc = (L.t0 + L.t1) / 2;
-    out.push({ ...L, cap: cap * 1000, zc: zAt(tc), len: H.L * (L.t1 - L.t0), width: 2 * hw(tc) * 0.85, floor: keel(tc), top: deck != null ? Math.min(deck, sheer(tc)) : sheer(tc) });
+    out.push({ ...L, vol, cap: vol[NY], zc: zAt(tc), len: H.L * (L.t1 - L.t0), width: 2 * hw(tc) * 0.85, floor, top });
   }
   // (Held within her reserve of buoyancy, shared in proportion: swamped, she floats.)
   const total = out.reduce((n, c) => n + c.cap, 0);
@@ -94,10 +114,19 @@ export const reserveOf = (volumeToSheer, kg) => Math.max(0, ((volumeToSheer * RH
 export const waterKg = (W) => (W || []).reduce((n, l) => n + l, 0) * (RHO / 1000);
 export const waterLitres = (W) => (W || []).reduce((n, l) => n + l, 0);
 
-// How deep the water stands in a compartment (m, from its floor) holding `litres`. A hull's section
-// is a V or a round at the bottom, not a box: a little water stands deeper than it would spread over
-// a flat floor (the volume grows about as the depth to the power 1.6).
-export const depthOf = (c, litres) => (c.cap > 0 ? Math.pow(clamp(litres / c.cap, 0, 1), 0.62) * (c.top - c.floor) : 0);
+// How deep the water stands in a compartment (m, from its floor) holding `litres`: from her own
+// sections (compartmentsFor's vol), so a little water in a V stands as deep as it really would.
+// (A compartment made by hand, without them: as a box.)
+export function depthOf(c, litres) {
+  const V = c.vol, H = c.top - c.floor;
+  if (!V) return c.cap > 0 ? clamp(litres / c.cap, 0, 1) * H : 0;
+  const n = V.length - 1;
+  if (!(litres > 0)) return 0;
+  for (let j = 1; j <= n; j++) {
+    if (litres <= V[j]) return ((j - 1 + (litres - V[j - 1]) / Math.max(1e-9, V[j] - V[j - 1])) / n) * H;
+  }
+  return H;
+}
 
 // A hole of area A (m²) with `head` m of water outside above it and `inside` m inside: litres a second.
 export const breachFlow = (A, head, inside = 0) => {

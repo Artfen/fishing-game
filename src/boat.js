@@ -7,7 +7,7 @@ import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat, wrapAngle } 
 import { waveHeight } from './world/water.js';
 import { windAt, currentAt, currentScale, conditions, waveSampler, sampleWaves, shelterAt } from './world/conditions.js';
 import { buildHullModel, HydroBody, G, RHO, tubeCentre, section, hydrostatics } from './hydro.js';
-import { compartmentsFor, reserveOf, breachFlow, overFlow, rainFlow, holeArea, stepWater, waterAt, waterKg, depthOf, PUMPS, BAIL, MODES as FLOOD_MODES } from './flooding.js';
+import { compartmentsFor, reserveOf, breachFlow, overFlow, rainFlow, holeArea, stepWater, waterAt, waterKg, depthOf, PUMPS, BAIL, SWAMPED, MODES as FLOOD_MODES } from './flooding.js';
 import { wakes } from './world/wakes.js';
 import { solidHeight, heightAt, stackHeight, PIERS, SEA, SOUTH_Z, CROSSING } from './world/terrain.js';
 import { SOUTH_RECT } from './world/brasa.js';
@@ -972,7 +972,8 @@ export class Boat {
     let breachIn = 0;
     // (Her breaches: each part of her hull cracked right through, where it is.)
     for (const s of ['bottom', 'bow', 'port', 'stbd', 'stern']) {
-      const A = holeArea(D.hull[s]);
+      // (Plugged at sea, C6b: a fifth of it.)
+      const A = holeArea(D.hull[s]) * (D.plugs?.[s] ? 0.2 : 1);
       if (!A) continue;
       const tt = s === 'bow' ? 0.9 : s === 'stern' ? 0.04 : 0.5;
       const k = C.findIndex((c) => tt >= c.t0 && tt <= c.t1);
@@ -1002,8 +1003,16 @@ export class Boat {
     const pumpCap = (PUMPS[this.kind] || 0) * (this.pumpPower ?? 1);
     this.pumpRunning = pumpCap > 0 && total > 8;
     const out = (this.pumpRunning ? pumpCap : 0) + (this.bailing ? (this.kind === 'cruiser' ? BAIL * 0.5 : BAIL) : 0);
-    const r = stepWater(C, W, inflow, out, dt, this.floodMode || FLOOD_MODES.standard);
-    this.flooding = { gaining: r.gaining, litres: W.reduce((n, l) => n + l, 0), breach: breachIn };
+    const mode = this.floodMode || FLOOD_MODES.standard;
+    const r = stepWater(C, W, inflow, out, dt, mode);
+    const litres = W.reduce((n, l) => n + l, 0), capTotal = C.reduce((n, c) => n + c.cap, 0);
+    // (Swamped, C6b: past most of all she can hold. On Realistic her outboard's powerhead goes
+    // under and stops.)
+    const swamped = capTotal > 0 && litres >= capTotal * SWAMPED;
+    if (swamped && !this.flooding?.swamped) this.onFlood?.(this, 'swamped');
+    // (Full as she'll hold, nothing more is gaining: the sea's as high inside as out.)
+    const full = litres >= capTotal * mode.cap - 1;
+    this.flooding = { gaining: r.gaining && !full, litres, breach: breachIn, swamped, fill: capTotal ? litres / capTotal : 0 };
     this.waterKg = waterKg(W);
     if (breachIn > 0.05 && !this._breachSaid) {
       this._breachSaid = true;
@@ -1011,11 +1020,11 @@ export class Boat {
     }
     if (breachIn <= 0.05) this._breachSaid = false;
     const E = C.findIndex((c) => c.engine);
-    if (E >= 0) {
-      const drowned = W[E] > C[E].cap * 0.5;
-      if (drowned && !this._drowned) this.onFlood?.(this, 'engine');
-      this._drowned = drowned;
-    }
+    // (An outboard: her own, or the sailing boat's little one in hull.outboard.)
+    const M = this.hull.motor || this.hull.outboard;
+    const drowned = E >= 0 ? W[E] > C[E].cap * 0.5 : !!(mode.drown && M && !M.inboard && (swamped || (this._drowned && litres > capTotal * 0.35)));
+    if (drowned && !this._drowned) this.onFlood?.(this, 'engine');
+    this._drowned = drowned;
     if (total > 1 && this.flooding.litres <= 1 && !this.flooding.gaining) this.onFlood?.(this, 'dry');
     this.drawWater(C, W);
   }
