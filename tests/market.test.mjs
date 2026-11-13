@@ -72,9 +72,12 @@ test('the day’s demand: the same all day, different from day to day, and only 
     }
   }
   assert.ok(seen.size > 15, 'it changes');
-  // Las Brasas' parrotfish at Paco's, not at Mags's slab; the home coast's sole at Mags's, not Paco's.
-  assert.ok(M.buyers.muelle(fishById.parrotfish) && !M.buyers.haven(fishById.parrotfish));
-  assert.ok(M.buyers.haven(fishById.sole) && !M.buyers.muelle(fishById.sole));
+  // Las Brasas' parrotfish at Paco's as its own, and at Mags's slab only brought over the sea (G2:
+  // see regional.test.mjs); the home coast's sole the other way round. A fish that's neither one
+  // quay's own nor brought to it (the island's moray at Mags's) isn't bought there at all.
+  assert.ok(M.buyers.muelle(fishById.parrotfish) && !M.imported(fishById.parrotfish, 'muelle') && M.imported(fishById.parrotfish, 'haven'));
+  assert.ok(M.buyers.haven(fishById.sole) && !M.imported(fishById.sole, 'haven') && M.imported(fishById.sole, 'muelle'));
+  assert.ok(!M.buyers.haven(fishById.moray));
 });
 
 test('a fish fetches its weight in money, half as much again when wanted, less when there’s plenty, and less as it ages', () => {

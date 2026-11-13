@@ -1,6 +1,6 @@
 import { fishById } from './fish.js';
 import { formatClock } from './world/sky.js';
-import { MARKET_HOURS, ORDERS_BY, demandFor, fishValue, ordersFor, fills, money, receiptLine, seasonWord, standingOf, orderPay, worthGoingAfter, STANDING } from './market.js';
+import { MARKET_HOURS, ORDERS_BY, demandFor, fishValue, ordersFor, fills, money, receiptLine, seasonWord, standingOf, orderPay, worthGoingAfter, STANDING, IMPORTS, IMPORT_K } from './market.js';
 import { setupsFor } from './guide.js';
 import { RODS, TACKLE } from './tackle.js';
 import { nextStory, adviceFor, rumoursNow, lower, an } from './innTalk.js';
@@ -455,6 +455,8 @@ export class HarbourSheet {
     slate.append(el('h3', '', place === 'haven' ? 'On the slate today' : 'Paco wants today'));
     slate.append(el('p', '', `Wanted: ${names(D.wanted)} (half as much again)`));
     slate.append(el('p', '', `Plenty of: ${names(D.plenty)} (a bit less)`));
+    // (G2) What this quay can't get for itself, and always pays well for.
+    slate.append(el('p', '', `Always dear here, brought over the sea from ${place === 'haven' ? 'Las Brasas' : 'the north'}: ${names(IMPORTS[place])} (${Math.round((IMPORT_K - 1) * 100)}% over, fresh or iced)`));
     out.push(slate);
     out.push(el('h3', '', `Your creel (${this.state.keep.length} fish, ${creelWords(this.state)})`));
     const orders = ordersFor(day, place).filter((o) => !this.harbour.filled.includes(o.key));
@@ -472,7 +474,7 @@ export class HarbourSheet {
       } else {
         const sum = vs.reduce((s, x) => s + x.price, 0), fresh = Math.min(...vs.map((x) => x.fresh));
         const prime = vs.some((x) => x.prime);
-        const tags = [kgWords(g.kg), OLD(fresh), v.demand === 'wanted' ? 'wanted today' : v.demand === 'plenty' ? 'plenty about' : '', seasonWord(v.season), prime ? (g.n > 1 ? 'prime ones among them' : 'a prime fish') : ''].filter(Boolean).join(' · ');
+        const tags = [kgWords(g.kg), OLD(fresh), v.imported ? 'brought over the sea: dear here' : '', v.demand === 'wanted' ? 'wanted today' : v.demand === 'plenty' ? 'plenty about' : '', seasonWord(v.season), prime ? (g.n > 1 ? 'prime ones among them' : 'a prime fish') : ''].filter(Boolean).join(' · ');
         row.append(el('p', '', groupWords(sp.name, g)), el('span', 'cp-soft', tags));
         const order = orders.find((o) => o.id === g.id && g.max >= o.min);
         if (order) row.append(el('span', 'cp-soft hb-hint', `${place === 'haven' ? 'Ruth at The Lobster Pot' : 'Paco’s kitchen'} wants ${g.n > 1 ? 'one of these' : 'this one'}: ${money(order.reward)}`));

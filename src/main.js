@@ -6175,31 +6175,32 @@ function openPump(id) {
   }
   // (The pump at home is the farm's: theirs to give. The harbour's and the quay's are paid for.)
   const free = id === 'home';
-  const each = fuelPrice(state.economy);
+  // (G2) The island's fuel is dearer: shipped in.
+  const at = id === 'brasa' ? 'brasa' : 'haven', each = fuelPrice(state.economy, at);
   const room = (w) => (w === 'can' ? 10 - f.can.litres : fuelRoom(f, w));
   const what = (w) => (w === 'can' ? 'the jerry can' : fuelName(w));
   const opts = needs.map((w) => {
-    const q = free ? { litres: room(w), price: 0, short: false } : fuelQuote(room(w), state.economy, state.money);
+    const q = free ? { litres: room(w), price: 0, short: false } : fuelQuote(room(w), state.economy, state.money, at);
     const text = free ? `Fill ${what(w)}` : !q.short ? `Fill ${what(w)}: ${litres(q.litres)}, ${money(q.price)}` : q.litres >= 0.5 ? `${money(q.price)} worth in ${what(w)} (${litres(q.litres)})` : null;
-    return text && { text, cls: needs.length > 1 ? 'quiet' : '', run: () => fillUp([w], free) };
+    return text && { text, cls: needs.length > 1 ? 'quiet' : '', run: () => fillUp([w], free, at) };
   }).filter(Boolean);
   const all = needs.reduce((sum, w) => sum + room(w), 0);
-  if (needs.length > 1 && (free || state.money >= all * each - 1e-6)) opts.push({ text: free ? 'Fill everything' : `Fill everything: ${money(all * each)}`, run: () => fillUp(needs, free) });
+  if (needs.length > 1 && (free || state.money >= all * each - 1e-6)) opts.push({ text: free ? 'Fill everything' : `Fill everything: ${money(all * each)}`, run: () => fillUp(needs, free, at) });
   // Broke, and nearly dry: the harbour sees you home (once a day).
   const dry = here.filter((w) => w !== 'car');
   if (!free && dry.length && goodwillDue(state, state.economy, Math.min(...dry.map((w) => fuelLevel(f, w))))) {
     opts.push({ text: `Ask Wenna to see you home (${GOODWILL_L} L, on the harbour)`, run: () => goodwillFuel(dry[0]) });
   }
-  const price = free ? '' : ` Fuel is ${money(each)} a litre; you’ve ${money(state.money)} in your purse.`;
+  const price = free ? '' : ` Fuel is ${money(each)} a litre${at === 'brasa' ? ' here, shipped in from the mainland' : ''}; you’ve ${money(state.money)} in your purse.`;
   ask(name, `${lines.join(' ')}${price}`, [{ text: 'Not now', cls: 'quiet' }, ...opts]);
 }
 
-function fillUp(list, free = false) {
+function fillUp(list, free = false, at = 'haven') {
   const f = tanks();
   let total = 0, paid = 0;
   for (const w of list) {
     const room = w === 'can' ? 10 - f.can.litres : fuelRoom(f, w);
-    const q = free ? { litres: room, price: 0 } : fuelQuote(room, state.economy, state.money);
+    const q = free ? { litres: room, price: 0 } : fuelQuote(room, state.economy, state.money, at);
     if (q.litres <= 0.05) continue;
     if (q.price > 0 && !payOut(state, q.price, `Fuel: ${litres(q.litres)}`).ok) continue;
     if (w === 'can') f.can.litres = Math.min(10, f.can.litres + q.litres);
