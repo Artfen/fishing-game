@@ -47,6 +47,8 @@ The graphics settings' "Visible fish" choice sets how far round you (or round ev
 
 Now every fish within 160 m of the focus looks at baits on every setting, and only those (`BAIT_REACH`). A fish already going for a bait is always kept in full detail. The setting changes only how smoothly a distant fish swims, and how far off the surface signs are drawn.
 
+The hunters' strikes (D3) are the same: a hunter strikes on its coarser steps too, so the small fish taken don't depend on the setting either.
+
 ## Playing together
 
 The host decides the shoals, so the forage and the hunters, and sends them to everyone. It also sends the clock, the sky, the wind, the sea and the water's colour every two seconds. Every input D1 reads is therefore the same on every screen. The fish on their own run on each screen from the same seeds; where exactly one goes next is each screen's own choice, as before, but it follows the same water. Which fish takes a guest's bait is the host's word.

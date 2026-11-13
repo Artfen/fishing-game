@@ -536,8 +536,9 @@ export class Ecosystem {
         if (BAIT_STATES.has(a.state)) this.baitBehaviour(a, h);
     }
     // (D3: a hunter of small fish at a shoal, or lying up in cover as one comes by, strikes it.
-    // The host's word, as the shoals are.)
-    if (a.eater && !this.follower && !coarse && (a.shoal || a.state === 'rest') && ENGAGEABLE.has(a.state)) this.stalk(a, h);
+    // The host's word, as the shoals are. On its coarser steps too, beyond the detailed radius:
+    // that radius is a graphics setting, and a strike takes fish.)
+    if (a.eater && !this.follower && (a.shoal || a.state === 'rest') && ENGAGEABLE.has(a.state)) this.stalk(a, h);
     if (reach && ENGAGEABLE.has(a.state)) {
       a.interestCD -= h;
       if (a.interestCD <= 0) {

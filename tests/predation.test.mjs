@@ -103,6 +103,22 @@ test('small fish are taken, never more than a third of the shoal, and come back 
   assert.ok(gone.every((m) => m.state === 'school'), 'back in the shoal');
 });
 
+test('a hunter beyond the detailed radius strikes too: the graphics setting never changes what’s taken', () => {
+  // Beyond the "Visible fish" radius (a graphics setting) a fish is stepped coarsely, five times a
+  // second: it strikes on those steps as well.
+  const eco = new Ecosystem(habitat);
+  settle(eco);
+  const s = eco.forage.find((f) => f.sp.id === 'sandsmelt');
+  const bass = eco.bySpecies.seabass[0];
+  eco.activity.seabass = 0.9;
+  withDice(() => {
+    atShoal(bass, s);
+    Object.assign(bass, { dur: 99, t: 0 });
+    eco.stepAgent(bass, (1 / 30) * 6, true);
+  });
+  assert.ok(s.scatterT > 0 && bass.strikeT > 5, 'it struck on a coarse step');
+});
+
 test('an ambusher lying up in cover goes for a shoal that comes by within a few metres', () => {
   const eco = new Ecosystem(habitat);
   settle(eco);
