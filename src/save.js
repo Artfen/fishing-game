@@ -25,6 +25,7 @@ import { cleanGrounds, newGrounds } from './grounds.js';
 import { cleanComfort } from './comfort.js';
 import { cleanCrossing, cleanPassages } from './crossing.js';
 import { cleanStores } from './stores.js';
+import { cleanFishbox } from './fishbox.js';
 import { cleanSafety } from './safety.js';
 import { BEHAVIOUR_IDS } from './behaviour.js';
 import { BIRD_KINDS } from './birdData.js';
@@ -175,6 +176,7 @@ const fresh = () => {
   s.yard = cleanYard(null, VESSELS);
   s.cargo = cleanCargo(null);
   s.stores = cleanStores(null);
+  s.fishbox = cleanFishbox(null);
   s.safety = cleanSafety(null);
   s.dive = cleanDive(null);
   s.comfort = cleanComfort(null);
@@ -478,6 +480,8 @@ export function sanitize(raw) {
   s.cargo = cleanCargo(raw.cargo, VESSELS);
   // (F1a: food and water in her lockers, days; an older save's boats come stocked.)
   s.stores = cleanStores(raw.stores);
+  // (F2b: ice in a boat's fish box, until when; an older save's boxes are empty.)
+  s.fishbox = cleanFishbox(raw.fishbox);
   // (F1b: the repair kit's plugs and stoppers, and flares; an older save has a full kit.)
   s.safety = cleanSafety(raw.safety);
   if (s.fuel.can.at.startsWith('boat:') && !VESSELS.includes(s.fuel.can.at.slice(5))) s.fuel.can.at = 'home';

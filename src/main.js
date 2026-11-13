@@ -87,6 +87,7 @@ import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
 import { takePlug, restock as restockKit, fillKit, helpBy, helpHours, HELP_WORDS, KIT as REPAIR_KIT, FLARES, FLARE_PRICE } from './safety.js';
 import { galeHoursIn, nightAtAnchor, dragTo, nightWords } from './anchorage.js';
+import { FISHBOX, BOX_PRICE, hasBox, iceBox, iceUntilHere, boxHoursLeft, boxWords } from './fishbox.js';
 import { storesAboard, draw as drawStores, stockUp, daysWords, storesFor, FILL as STORES_FILL, WATCH as STORES_WATCH } from './stores.js';
 import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, hiredToday, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect, engineOf, repowerBoat, repropBoat, trimBoat } from './shipyard.js';
 import { BIRD_KINDS } from './birdData.js';
@@ -1775,6 +1776,13 @@ const camp = new Camp(state, scene, world.camp, {
       ? { text: `The kitchen will stock the ${S.name}’s lockers for the voyage: ${daysWords(q.days)} more of food and water, ${money(q.price)}. (Aboard: ${daysWords(storesAboard(state, S.kind).days)}.)`, label: `Stock her: ${money(q.price)}`, run: () => stockBoat(S.kind) }
       : { text: `The ${S.name}’s lockers are full: ${storesWordsOf(S.kind)}.`, label: 'Full', run: () => {} };
   },
+  iceHere: () => {
+    const S = BOATS[state.vessel], now = state.day * 24 + state.hour;
+    if (!S || S.pos.z < SOUTH_Z || !hasBox(S.kind)) return null;
+    return boxHoursLeft(state, S.kind, now) >= 60
+      ? { text: `The ${S.name}: ${boxWords(state, S.kind, now)}.`, label: 'Iced', run: () => {} }
+      : { text: `The kitchen will fill the ${S.name}’s ${FISHBOX[S.kind]} with ice for the voyage home: three days of it, ${money(BOX_PRICE)}. (Now: ${boxWords(state, S.kind, now)}.)`, label: `Ice it: ${money(BOX_PRICE)}`, run: () => buyBoxIce(S.kind, 'kitchen') };
+  },
   // The camping gear at a camp: what's set up there, where the rest is, moving it on and off.
   kit: {
     has: (c, k) => campHas(state, c, k),
@@ -1837,6 +1845,21 @@ function buyFlares() {
 }
 
 // Fill her lockers and crates: paid for, said. Returns whether it was done.
+// (F2b) Ice for a boat's fish box (three days of it): Bert at the chandlery, or the kitchen at Bar El
+// Muelle in Puerto Brasa.
+function buyBoxIce(kind, where = 'chandlery') {
+  const S = BOATS[kind], now = state.day * 24 + state.hour;
+  if (!S || !hasBox(kind)) return false;
+  if (!payOut(state, BOX_PRICE, `Ice for the ${S.name}`).ok) {
+    hud.toast(`Ice for her ${FISHBOX[kind]} is ${money(BOX_PRICE)}, and your purse has ${money(state.money)}. Sell a fish or two at the market first.`, 5);
+    return false;
+  }
+  iceBox(state, kind, now);
+  hud.toast(where === 'kitchen' ? `The kitchen fills the ${S.name}’s ${FISHBOX[kind]} from the bar’s ice machine: three days of ice, for the voyage home.` : `Bert wheels a sack of crushed ice down the pontoon and fills the ${S.name}’s ${FISHBOX[kind]}: three days of it. Your catch keeps in it while you’re aboard her.`, 6);
+  save();
+  return true;
+}
+
 function stockBoat(kind) {
   const S = BOATS[kind], q = stockUp(state, kind, state.economy, true);
   if (q.days <= 0.01) return true;
@@ -2264,6 +2287,15 @@ function voyageLines(v, { fuel = true, air = false, at = null } = {}) {
     const A = storesAboard(state, v), q = stockUp(state, v, state.economy, true);
     out.push(q.days <= 0.01 ? { ok: true, text: `${name}: ${storesWordsOf(v)} aboard.` }
       : { ok: A.days >= 1, text: `${name}: ${storesWordsOf(v)} aboard.`, act: { label: `Stock her up: ${money(q.price)}`, run: () => stockBoat(v) } });
+  }
+  // (F2b) Her fish box: ice for the catch on a voyage (a day in your creel, three in her box). A
+  // livewell keeps them alive instead. Bound across, it wants a day's ice in it at least.
+  if (hasBox(v)) {
+    const now = state.day * 24 + state.hour, left = boxHoursLeft(state, v, now), w = boxWords(state, v, now);
+    const act = { label: `Ice it: ${money(BOX_PRICE)}`, run: () => buyBoxIce(v) };
+    out.push(fitEffect(state.yard, v)?.livewell ? { ok: true, text: `${name}: her livewell keeps your catch alive while you’re aboard.` }
+      : left >= 24 ? { ok: true, text: `${name}: ${w}. Your catch keeps in it while you’re aboard.` }
+        : { ok: !at, text: `${name}: ${w}. Ice in your creel lasts a day; in her ${FISHBOX[v]}, three, for a voyage of more than a day.`, act });
   }
   // (F1b) The repair kit, and calling for help out on the deep water.
   const S = state.safety;
@@ -12954,12 +12986,13 @@ function tick(now, manual = false) {
     if (modal === 'board' && $('board-sub').textContent !== `${formatClock(clock.hour)} · day ${state.day}`) renderBoard();
     if (slateDay !== state.day) chalkSlate();
     if (Math.hypot(player().pos.x - HAVEN_ROOMS.inn.doorX, player().pos.z - HAVEN_ROOMS.inn.front) < 40) chalkKitchen();
-    // The fish in your creel: on ice, or in a cool-lined creel, their freshness keeps.
+    // The fish in your creel: on ice, or in a cool-lined creel, their freshness keeps. (F2b: aboard
+    // a boat with ice in her fish box, they're in it, on ice: fishbox.js.)
     const nowH = state.day * 24 + state.hour;
     // (Aboard a boat with a livewell, they're alive in it: no older for the market at all.)
     if (chilledTo < nowH && fitsAboard()?.livewell) {
       for (const f of state.keep) if (Number.isFinite(f.at) && !f.cooked) f.at = Math.min(nowH, f.at + (nowH - chilledTo));
-    } else if (chilledTo < nowH) chill(state, chilledTo, nowH);
+    } else if (chilledTo < nowH) chill(state, chilledTo, nowH, iceUntilHere(state, state.shop?.iceUntil, !onFoot && !driving && boat ? boat.kind : null));
     chilledTo = nowH;
     watchAdventures(dt);
     watchObservations(dt);
