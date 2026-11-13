@@ -7,6 +7,7 @@ import { VESSELS } from './vessels.js';
 import { PLACES, MAP_RECT, PATH, ZONE_NAMES, solidHeight } from './world/terrain.js';
 import { formatClock } from './world/sky.js';
 import { dayPage, dayText, careerOf, CHALLENGES } from './daybook.js';
+import { voyageWords } from './voyages.js';
 import { groundsOf, groundWords, SIGNS, NATURE, NATURE_IDS } from './grounds.js';
 import { SEA_LIFE } from './world/sealife.js';
 import { SITE_DETAILS, foundWords } from './world/divesites.js';
@@ -126,6 +127,7 @@ export class Journal {
     this.el.querySelectorAll('.j-guide-view').forEach((e) => { e.hidden = view !== 'guide'; });
     this.el.querySelectorAll('.j-mem-view').forEach((e) => { e.hidden = view !== 'memories'; });
     this.el.querySelectorAll('.j-days-view').forEach((e) => { e.hidden = view !== 'days'; });
+    this.el.querySelectorAll('.j-voyages-view').forEach((e) => { e.hidden = view !== 'voyages'; });
     this.el.querySelectorAll('.j-notes-view').forEach((e) => { e.hidden = view !== 'notes'; });
     this.el.querySelectorAll('.j-species-view').forEach((e) => { e.hidden = view !== 'species'; });
     this.el.querySelector('.book').dataset.view = view;
@@ -134,6 +136,7 @@ export class Journal {
     if (view === 'log') this.renderLog();
     if (view === 'memories') this.memories?.render();
     if (view === 'days') this.renderDays();
+    if (view === 'voyages') this.renderVoyages();
     if (view === 'notes') this.renderNotes();
     if (view === 'species') this.renderSpecies();
     if (view === 'guide') this.guide?.render();
@@ -223,6 +226,37 @@ export class Journal {
       li.append(dot, el('b', '', c.name), el('span', '', `${c.text} ${got ? `Done, day ${got.day}.` : p.of > 1 ? `${Math.min(p.n, p.of)} of ${p.of}.` : ''}`));
       return li;
     }));
+  }
+
+  // (G1) Voyages (see voyages.js): each one kept, the newest first, with what happened on it and
+  // her papers' lines from it; the one under way; and the voyages in all.
+  renderVoyages() {
+    const st = this.state, list = (st.voyages || []).slice().reverse();
+    const names = { boat: (k) => VESSELS[k]?.name || k, life: (k) => (SEA_LIFE[k]?.name || k).split(' ').map((w) => (/^(Atlantic|European|Eurasian|Mediterranean|Canary|Manx)$/.test(w) || /[’']s$/.test(w) ? w : w.toLowerCase())).join(' ') };
+    $('voy-count').textContent = list.length ? String(list.length) : '';
+    $('voy-list').replaceChildren(...(list.length ? list.map((R) => {
+      const W = voyageWords(R, names), d = el('div', 'j-day');
+      d.append(el('strong', '', W.title), el('small', 'j-faint', W.when), el('p', '', W.lines.join(' ')));
+      if (W.log.length) {
+        const ul = el('ul', 'j-voy-log');
+        for (const line of W.log) ul.append(el('li', '', line));
+        d.append(ul);
+      }
+      return d;
+    }) : [el('p', 'j-faint', 'None yet. Take her out past the bay, stay out a night, or cross to Las Brasas, and when she’s tied up again the voyage is written up here.')]));
+    const V = st.voyage;
+    $('voy-now').replaceChildren(V ? el('p', '', `Since day ${V.day}, ${formatClock(V.hour)}, from ${V.from}, in ${V.boats.map((k) => `the ${names.boat(k)}`).join(' and ')}: ${(V.m / 1852).toFixed(1)} nm so far${V.far > 400 ? `, ${(V.far / 1000).toFixed(1)} km out at the furthest${V.farAt ? ` (${V.farAt})` : ''}` : ''}${V.fish ? `, ${V.fish} fish` : ''}.`) : el('p', 'j-faint', 'Not under way: she’s at a berth.'));
+    const all = st.voyages || [], sum = (f) => all.reduce((s, r) => s + f(r), 0);
+    const far = all.reduce((a, r) => (!a || r.far > a.far ? r : a), null), long = all.reduce((a, r) => (!a || r.nm > a.nm ? r : a), null);
+    const row = (k, v) => [el('dt', '', k), el('dd', '', v)];
+    $('voy-totals').replaceChildren(
+      ...row('Voyages', String(all.length)),
+      ...row('Sea miles', `${sum((r) => r.nm).toFixed(1)} nm`),
+      ...row('Nights out', String(sum((r) => r.nights))),
+      ...row('Crossings', String(sum((r) => r.cross.filter((c) => c.stage === 'in').length))),
+      ...row('The longest', long ? `${long.title}, ${long.nm} nm` : '—'),
+      ...row('The furthest out', far && far.far > 400 ? `${(far.far / 1000).toFixed(1)} km${far.farAt ? `, ${far.farAt}` : ''}` : '—'),
+    );
   }
 
   // The tree of life (see taxonomy.js): every living thing on the coast by kingdom, phylum and

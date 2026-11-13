@@ -61,6 +61,9 @@ export function cleanVessels(raw, owned, day) {
 // A line in her log.
 export function logLine(V, day, text) {
   if (!V) return;
+  // (The same thing again the same day, a hull knocked twice where it's holed already: once.)
+  const last = V.log[V.log.length - 1];
+  if (last && last.day === day && last.text === text) return;
   V.log.push({ day, text });
   if (V.log.length > LOG_MAX) V.log.splice(0, V.log.length - LOG_MAX);
 }

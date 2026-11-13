@@ -2460,6 +2460,9 @@ body.placing #sonar, body.placing #act-btn, body.placing #cancel-btn { visibilit
 .j-day strong { display: block; font: 700 20px var(--font-display); }
 .j-day p { margin: 2px 0 0; font: 17px/1.4 var(--font-hand); color: var(--ink); }
 .j-day.today { border-left-color: #2f6f74; }
+/* (G1) A voyage's card: when, under the title; her papers' lines from it, small. */
+.j-day small.j-faint { display: block; margin: 1px 0 3px; font-size: 13px; }
+.j-voy-log { margin: 6px 0 0; padding-left: 1.1em; font: 14px/1.35 var(--font-hand); color: var(--ink-faint); }
 .rec-totals { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 6px 0 12px; font: 14px/1.35 var(--font-ui); }
 .rec-totals dt { color: var(--ink-soft); }
 .rec-totals dd { margin: 0; font-weight: 700; }
