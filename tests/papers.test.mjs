@@ -43,6 +43,12 @@ test('her papers: a registration of her own, the day she became yours, what sheâ
   assert.deepEqual(P.best, { id: 'pollack', kg: 3.2, size: 62, day: 10 });
   // The log keeps its last forty.
   for (let i = 0; i < 60; i++) V.logLine(P, 10, `line ${i}`);
+  // (The same line again the same day, a holed hull knocked again: written once.)
+  const n = P.log.length;
+  V.logLine(P, 10, 'line 59');
+  assert.equal(P.log.length, n, 'not again the same day');
+  V.logLine(P, 11, 'line 59');
+  assert.equal(P.log[P.log.length - 1].day, 11, 'another day, again');
   assert.equal(P.log.length, V.LOG_MAX);
   assert.equal(P.log.at(-1).text, 'line 59');
 });

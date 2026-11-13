@@ -87,6 +87,7 @@ import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
 import { takePlug, restock as restockKit, fillKit, helpBy, helpHours, HELP_WORDS, KIT as REPAIR_KIT, FLARES, FLARE_PRICE, NO_SIGNAL } from './safety.js';
 import { worthWord, heardBy, wordLeft, wordPassed, wordFor, VOICES, newWord } from './word.js';
+import { newVoyage, onVoyage, worthKeeping, finishVoyage, keepVoyage, papersLine } from './voyages.js';
 import { galeHoursIn, nightAtAnchor, dragTo, nightWords } from './anchorage.js';
 import { FISHBOX, BOX_PRICE, hasBox, iceBox, iceUntilHere, boxHoursLeft, boxWords } from './fishbox.js';
 import { FINDS, NOTES, LIES_DAYS, HELD_MAX, thrownUp, tideSpot, stillLying, beachName, saleOf } from './flotsam.js';
@@ -1409,6 +1410,8 @@ function logCatch(sp, size, agent, rigUsed, how = null) {
   if (F?.leadered && F.leaderId && together.peers.has(F.leaderId)) teamwork.thank(together.peers.get(F.leaderId), F.agent?.id, sp.name, agent?.weight ?? weightOf(sp, size), 'leader');
   state.log.push(entry);
   if (state.log.length > 1000) state.log.splice(0, state.log.length - 1000);
+  // (G1) A fish on the voyage under way.
+  voy({ k: 'fish', sp: sp.id, name: fishWords(sp.name), kg: entry.weight });
   lastCatchId = entry.id;
 }
 
@@ -1912,6 +1915,59 @@ function spotWords(x, z) {
   const H = HARBOUR_OFFICE, km = Math.round(Math.hypot(x - H.x, z - H.z) / 100) / 10;
   return near ? `off ${near.replace(/^The /, 'the ')}` : `${km} km ${compass(bearingOf(x - H.x, z - H.z))} of the harbour`;
 }
+/* ---------- (G1) voyages: see voyages.js ---------- */
+// Under way away from a berth, a voyage begins; tied up at one again (in her, or having stepped
+// ashore from her), it's over, and if it was a voyage (offshore, a night out, a crossing, a job
+// done, or half a day away) it's written up in the journal and in her papers.
+const voy = (ev) => { if (state.voyage) onVoyage(state.voyage, ev); };
+let voyT = 0, voyAt = null, voyGale = false;
+// Where somewhere is, as a voyage names it: "the Blue Water", "the Kelp Forest", "the outer coast".
+function farName(x, z) {
+  if (region !== 'south' && z > DEEP_Z) return 'the Blue Water';
+  const p = placeName(x, z) || PLACES.find((q) => !q.area && Math.hypot(q.x - x, q.z - z) < 160)?.name;
+  return (p || zoneWords(x, z)).replace(/^The /, 'the ');
+}
+function watchVoyage(dt) {
+  if ((voyT -= dt) > 0) return;
+  voyT = 2;
+  if (!started) return;
+  const afloat = !onFoot && !!boat && !driving;
+  const V = state.voyage;
+  if (!V) {
+    if (afloat && !boat.tie && Math.abs(boat.speed) > 0.6) {
+      // (How far out she gets is measured from the harbour of the sea she's in.)
+      const H = region === 'south' ? PUERTO_AT : HAVEN;
+      state.voyage = newVoyage({ day: state.day, hour: state.hour, abs: clock.abs, kind: boat.kind, from: farName(boat.pos.x, boat.pos.z), x: H.x, z: H.z });
+      voyAt = { x: boat.pos.x, z: boat.pos.z };
+    }
+    return;
+  }
+  if (afloat) {
+    const P = boat.pos, d = voyAt ? Math.hypot(P.x - voyAt.x, P.z - voyAt.z) : 0;
+    // (Not the jumps: a passage by the map, being put somewhere.)
+    onVoyage(V, { k: 'move', m: d < 300 ? d : 0, x: P.x, z: P.z, where: farName(P.x, P.z) });
+    onVoyage(V, { k: 'boat', kind: boat.kind });
+    voyAt = { x: P.x, z: P.z };
+    const storm = conditions.sea.storm > 0.5;
+    if (storm && !voyGale) onVoyage(V, { k: 'gale' });
+    voyGale = storm || (voyGale && conditions.sea.storm > 0.3);
+  } else voyAt = null;
+  // Over: tied up at a berth, in her or ashore from her; or she's been put away.
+  const B = BOATS[V.boats[V.boats.length - 1]] || boat;
+  if (afloat ? !!boat.tie : !crew.on && !!B && (!!B.tie || !!B.stowed)) endVoyage(afloat ? boat : B);
+}
+function endVoyage(B) {
+  const V = state.voyage;
+  state.voyage = null;
+  voyAt = null;
+  if (!V || !worthKeeping(V, { day: state.day, abs: clock.abs, offshoreAt: OFFSHORE_AT })) return;
+  const R = finishVoyage(V, { day: state.day, hour: state.hour, abs: clock.abs, to: farName(B.pos.x, B.pos.z) });
+  keepVoyage((state.voyages ||= []), R);
+  vesselLog(B.kind, papersLine(R));
+  hud.toast(`${R.title}: ${R.nm} nm${R.nights ? `, ${R.nights} night${R.nights > 1 ? 's' : ''} out` : ''}. The voyage is written up in your journal and in the ${B.name}’s papers.`, 6);
+  save();
+}
+
 // A fish's name in the middle of a sentence: lower case, but for a place in it (Atlantic mackerel).
 const fishWords = (n) => (n ? n.split(' ').map((w) => (/^(Atlantic|European|Mediterranean|Pacific|Canary|Dover)$/.test(w) ? w : w.toLowerCase())).join(' ') : null);
 function watchWord(dt) {
@@ -2354,6 +2410,8 @@ const boatPreview = new BoatPreview((scene, kind) => new Boat(scene, { kind }));
 // A line in a boat's log (her papers: see papers.js), if she's yours.
 function vesselLog(kind, text) {
   logLine(state.yard.vessels?.[kind], state.day, text);
+  // (G1) And in the voyage's own log, while one's under way.
+  voy({ k: 'log', day: state.day, text });
 }
 // What she's done under her own power, while you're in her: engine hours, sea miles, fuel.
 function vesselRun(dt, hours, litres) {
@@ -4379,6 +4437,7 @@ function payJob(id, onSpot = false) {
   // (A step up: a new kind of work on the board from tomorrow.)
   if (now !== was) setTimeout(() => hud.toast(`You’re a ${now.name} now: ${now.says}. Tomorrow’s board will have the work for it.`, 8), 6500);
   earnIn(state, r.pay, `${r.contract.title} (${Con.GIVERS[r.contract.giver]})`);
+  voy({ k: 'job', title: r.contract.title });
   const rough = r.contract.obj.kind === 'charter' && r.pay < r.contract.pay ? ' A rough trip in an open boat: they didn’t tip.' : '';
   hud.toast(`${onSpot ? `${r.contract.title}: ${r.contract.cat === 'rescue' ? 'safely in' : 'delivered'}. ` : ''}Paid ${money(r.pay)} for ${r.contract.title.toLowerCase()}.${rough}${r.rep ? ` ${Con.GIVERS[r.contract.giver].split(',')[0]} will remember it.` : ''}`, 6);
   audio.coins?.();
@@ -5825,6 +5884,7 @@ function updatePassage(dt) {
     modal = null;
     passage = null;
     // (In the day book: the passage made, on the day you arrive.)
+    voy({ k: 'cross', to: P.to, stage: 'in' });
     noteCrossing(state.today, { to: P.to, stage: 'in', how: 'fast', boat: BOATS[P.kind]?.name || '' });
     state.passages = cleanPassages(state.passages);
     state.passages.fast++;
@@ -7204,6 +7264,7 @@ function startCrossing(to, S = boat) {
   if (onFoot || boat !== S) board(S);
   state.crossing = { to, kind: S.kind, day: state.day, abs: state.day * 24 + state.hour, secs: 0, events: planCrossing(state.day, to), weather: null, eased: false, back: false };
   crossSaid = {};
+  voy({ k: 'cross', to, stage: 'out' });
   noteCrossing(state.today, { to, stage: 'out', boat: S.name });
   // A good meal and a full bottle before you go (F1a: what's aboard for the passage is her stores).
   state.food = { ...(state.food || {}), full: Math.max(state.food?.full ?? 0, 90) };
@@ -7386,6 +7447,7 @@ function weatherTurns(C, B, h, storm, done) {
     ...(done < 0.5 ? [{ text: `Turn back for ${back}`, cls: 'quiet', run: () => {
       C.back = !C.back;
       C.weather = 'back';
+      voy({ k: 'cross', to: C.to, stage: 'back' });
       noteCrossing(state.today, { to: C.to, stage: 'back', boat: B.name });
       hud.toast(`You put her about for ${back}: better a day lost than the boat. The marker shows the way back.`, 7);
       save();
@@ -7422,6 +7484,7 @@ function finishCrossing(C, going) {
   P[going]++;
   const was = P.best[C.kind];
   if (!was || mins < was) P.best[C.kind] = mins;
+  voy({ k: 'cross', to: going, stage: 'in' });
   noteCrossing(state.today, { to: going, stage: 'in', boat: BOATS[C.kind].name, mins });
   if (going === 'south') {
     const first = !state.tips.brasa;
@@ -8968,6 +9031,7 @@ function noteTheDay(dt) {
   dayLast = { x: p.x, z: p.z };
   const pl = PLACES.find((q) => !q.area && q.test(p.x, p.z));
   if (pl) notePlace(T, pl.id, h);
+  if (pl && !onFoot) voy({ k: 'place', name: pl.name.replace(/^The /, 'the ') });
   if (mode === 'boat' && Math.abs(boat.speed) > 0.5) noteBoat(T, boat.name);
   noteSky(T, weather.state);
   if (Math.max(weather.storm, conditions.sea.storm) > 0.3) noteGale(T, mode === 'boat' || mode === 'swim' ? (isSheltered(zoneAt(p.x, p.z)) ? 'shelter' : 'out') : 'ashore');
@@ -9217,6 +9281,7 @@ function seeSeaLife(kind, x, z) {
   if (!started) return;
   favoursReady(favourSaw(state.favours, kind));
   noteSeen(state.today, kind);
+  voy({ k: 'life', kind });
   const now = performance.now() / 1000;
   if (seaLifeSeenAt[kind] && now - seaLifeSeenAt[kind] < 600) return;
   seaLifeSeenAt[kind] = now;
@@ -13551,6 +13616,7 @@ function tick(now, manual = false) {
     watchAdventures(dt);
     watchFlotsam(dt);
     watchWord(dt);
+    watchVoyage(dt);
     watchObservations(dt);
     moments();
     saveTimer -= dt;

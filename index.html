@@ -511,6 +511,7 @@
       <button type="button" data-view="guide" aria-label="Field guide"><span class="j-tab-more">Field </span>guide</button>
       <button type="button" data-view="memories">Memories</button>
       <button type="button" data-view="days" aria-label="Days and your record">Days</button>
+      <button type="button" data-view="voyages" aria-label="Voyages: each real passage you've made">Voyages</button>
       <button type="button" data-view="notes" aria-label="Notes: the grounds and the field notes">Notes</button>
       <button type="button" data-view="species" aria-label="Species: every living thing on the coast, by animal group">Species</button>
     </nav>
@@ -563,6 +564,17 @@
       <h3>The harbour’s challenges</h3>
       <p class="j-faint">On the board in the Lobster Pot. Each one done puts a cloth badge on the board at home.</p>
       <ul id="rec-challenges" class="rec-challenges"></ul>
+    </section>
+    <section class="page left j-voyages-view" aria-label="Your voyages" hidden>
+      <h2>Voyages <span class="count" id="voy-count"></span></h2>
+      <p class="j-faint">Each real passage you make (out to sea, a night away, a crossing, a job done), written up when she’s tied up again.</p>
+      <div id="voy-list"></div>
+    </section>
+    <section class="page right j-voyages-view" aria-label="The voyage under way, and your voyages in all" hidden>
+      <h2>Under way</h2>
+      <div id="voy-now"></div>
+      <h2>In all</h2>
+      <dl id="voy-totals" class="rec-totals"></dl>
     </section>
     <section class="page left j-notes-view" aria-label="The grounds and the signs on the water" hidden>
       <h2>The grounds</h2>
