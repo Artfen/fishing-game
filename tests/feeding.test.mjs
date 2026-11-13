@@ -241,10 +241,10 @@ test('an empty sea: with no hunters pressing a shoal, no feed starts near anyone
   for (const f of eco.forage) f.feed = null;
   eco.focus = { x: s.x + 500, z: s.z };
   for (const id in eco.activity) eco.activity[id] = 0.4;
-  withDice(() => { for (let i = 0; i < 300; i++) eco.feeding.look(); });
+  withDice(() => { for (let i = 0; i < 5000; i++) eco.feeding.look(); });
   assert.equal(eco.feeding.events.length, 0, 'not keen: none');
   for (const id in eco.activity) eco.activity[id] = 1;
-  withDice(() => { for (let i = 0; i < 300 && !eco.feeding.events.length; i++) eco.feeding.look(); });
+  withDice(() => { for (let i = 0; i < 5000 && !eco.feeding.events.length; i++) eco.feeding.look(); });
   const far = eco.feeding.events[0];
   assert.ok(far && far.cause === 'far', 'keen: one starts, now and then');
   // It runs on without the fish: driven up all the same if there are hunters about.
