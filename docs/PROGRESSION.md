@@ -30,7 +30,7 @@ the order the work goes in. Each step is one pull request, small enough to revie
 1. **G1 — Voyages.** Each real passage written up for good (the journal's Voyages), and in her
    papers: items 2 and 9. Built on the day book and the papers.
 2. **G2 — Regional trade.** Las Brasas prices and fuel of its own, and a board at Bar El Muelle
-   with southern work: item 8.
+   with southern work: item 8. (The board, as Paco's slate: G2b.)
 3. **G3 — Wildlife over the seasons.** Months and places per kind, and a photographed collection
    on the species pages: items 7 and 10.
 4. **G4 — Standing.** Standing with each job-giver, read at last: better charters and regular
