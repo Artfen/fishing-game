@@ -10,6 +10,8 @@ const PING_HZ = 10;
 const HISTORY = 160; // pings of history (16 seconds)
 const CONE = Math.tan((22 * Math.PI) / 180); // the transducer's beam spreads 22° each side
 export const RANGES = [3, 5, 10, 15, 20, 30, 40];
+// (G7) With a deep sounder on the boat (shipyard.js deepsonar): the bottom to 200 m.
+export const DEEP_RANGES = [60, 80, 120, 160, 200];
 const SIZES = [230, 300, 420];
 const COLORS = {
   screenTop: '#12293a',
@@ -80,6 +82,8 @@ export class FishFinder {
     // An imaging transducer on the boat you're in (see shipyard.js): the down view and the split,
     // ranges past 20 m, and the smaller echoes picked out. Without it, the 2D sonar to 20 m.
     this.imaging = false;
+    // (G7) A deep sounder on the boat you're in: the ranges down to 200 m.
+    this.deep = false;
     $('sonar-help').addEventListener('click', () => this.toggleLegend());
     $('sonar-size').addEventListener('click', () => this.cycleSize());
     $('sonar-unit')?.addEventListener('click', () => this.setUnit(!this.state.finder.unit));
@@ -105,7 +109,12 @@ export class FishFinder {
   // A key on the unit pressed.
   // The pages and the scales this boat's transducer can give.
   get pages() { return this.imaging ? PAGES : ['sonar']; }
-  get ranges() { return this.imaging ? RANGES : RANGES.filter((r) => r <= 20); }
+  get ranges() {
+    if (this.deep) return [...RANGES, ...DEEP_RANGES];
+    return this.imaging ? RANGES : RANGES.filter((r) => r <= 20);
+  }
+  // (How deep it reads the bottom at all: past that, the bottom's lost.)
+  get reach() { return this.ranges[this.ranges.length - 1]; }
   // The page showing (the one chosen, if this transducer can give it).
   get page() { return this.pages.includes(this.state.finder.page) ? this.state.finder.page : 'sonar'; }
   // The next page after this one, or null at the last (see the game's finder button).
@@ -132,8 +141,8 @@ export class FishFinder {
     else if (k === 'colour') F.pal = (F.pal + 1) % PALETTES.length;
     else if (k === 'fish') F.symbols = !F.symbols;
     else if (k === 'mark') {
-      if (this.read && this.read.depth != null) this.hooks.mark?.(this.read);
-      else this.hooks.mark?.(null);
+      // (A reading with no bottom in it, G7, goes too: the game says why there's nothing to mark.)
+      this.hooks.mark?.(this.read || null);
     }
     this.showKeys();
     if (this.read) this.range = this.rangeFor();
@@ -402,15 +411,18 @@ export class FishFinder {
     const type = bottomWords(B);
     // (What the unit's readouts show, and what a mark records.)
     const near = echoes.filter((e) => e.size >= 0.35).map((e) => e.depth).sort((a, b) => a - b);
+    // (G7) Deeper than it reaches: the bottom's lost, and no depth to read.
+    const lost = s.depth > this.reach + 0.5;
     this.read = {
-      depth: s.depth, type, hard: B.hard, temp: src.temp ?? null, deepTemp: L && L.top - L.bottom >= 1 ? L.bottom : null, cline,
+      depth: lost ? null : s.depth, lost, type, hard: B.hard, temp: src.temp ?? null, deepTemp: L && L.top - L.bottom >= 1 ? L.bottom : null, cline,
       speed: src.mode === 'boat' ? src.moving || 0 : null, ball: baitBall, fish: near, x, z, mode: src.mode,
     };
     // (And the water's temperature at the surface, when the game gives it: see seatemp.js; and
     // the cold below the summer's warm layer.)
     const temp = src.temp != null ? ` · ${Math.round(src.temp)}°C` : '';
     const cold = cline != null ? ` · ${Math.round(L.bottom)}°C below ${Math.round(cline)} m` : '';
-    this.depthEl.textContent = `${s.depth.toFixed(1)} m · ${type}${temp}${cold}${baitBall ? ' · bait below' : ''}`;
+    this.depthEl.textContent = lost ? `no bottom: deeper than ${this.reach} m${this.deep ? '' : ' (a deep sounder reads it)'}${temp}${baitBall ? ' · bait below' : ''}`
+      : `${s.depth.toFixed(1)} m · ${type}${temp}${cold}${baitBall ? ' · bait below' : ''}`;
     this.tell(src, s, B, prev, cline, ballTop);
     this.draw();
   }

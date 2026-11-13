@@ -1,7 +1,7 @@
 import {
   heightAt, zoneAt, streamFlow, lakeSDF, ISLAND, COVE, STACKS, CHANNEL, JETTY, LAKE, STREAM, SNAG, LILIES,
   RIVER, riverInfo, riverSDF, MARSH, SANDBANKS, QUAY, MERE, MERE_BAYS, HOLM, TIMBER, mereSDF,
-  GANNET, PUFFIN_COVE, SKERRIES, SKELLIG, SHOAL, DEEP_Z, WRECK, STRAND, DAYMARK, CALF, CALF_SKERRY, CALF_SOUND,
+  GANNET, PUFFIN_COVE, SKERRIES, SKELLIG, SHOAL, DEEP_Z, CANYON, canyonAxis, WRECK, STRAND, DAYMARK, CALF, CALF_SKERRY, CALF_SOUND,
   HAVEN, HAVEN_QUAY, BOATHOUSE_PIER, waterLevel,
 } from './terrain.js';
 import { COLDWATER, TARN } from './coldwater.js';
@@ -436,6 +436,9 @@ function regionSpots(habitat, rnd) {
   put('tide', 360, 260, 30);
   // The deep water: wide-roaming bait shoals and the tuna that follow them.
   for (let i = 0; i < 5; i++) put('blue', -120 + i * 140, DEEP_Z + 120 + (i % 2) * 110, 60, 'blue');
+  // (G7) And the head of Gannet Deep, where the cold water wells up the canyon: bait, and the
+  // tuna after it.
+  put('blue', canyonAxis(CANYON.z0 + 70), CANYON.z0 + 70, 60, 'canyon');
   // The Calf and its Sound. These homes have fish of their own (hosts, see ecosystem.js), added
   // on top of everything else, so no fish anywhere else moves to fill them: mackerel, garfish
   // and bluefish hunting sandeels in the race; pollack over the kelp off the Calf's west foot

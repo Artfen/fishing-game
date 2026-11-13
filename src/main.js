@@ -863,6 +863,8 @@ const finder = new FishFinder(eco, habitat, state, {
   // The unit's Mark key: a waypoint on your map where the sonar is reading, with what it read.
   mark: (r) => {
     if (!r) return hud.toast('Nothing under the sonar to mark yet.', 3);
+    // (G7: no bottom to read, deeper than it reaches.)
+    if (r.depth == null) return hud.toast(`No bottom on the sonar here: it’s deeper than the finder reaches.${finder.deep ? '' : ' A deep sounder (the Marine Works fits them) reads to 200 m.'}`, 5);
     if (state.pins.length >= 60) return hud.toast('Your map is full of marks: clear a few first (the map, or the journal’s Your marks).', 5);
     const fish = r.fish.length ? ` · fish at ${r.fish.slice(0, 3).map((d) => d.toFixed(1)).join(', ')} m` : '';
     state.pins.push({ id: `sn-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, x: Math.round(r.x * 10) / 10, z: Math.round(r.z * 10) / 10, title: `Sonar mark · ${r.depth.toFixed(1)} m`, note: `${r.depth.toFixed(1)} m over ${r.type}${r.temp != null ? `, ${r.temp.toFixed(1)}°C` : ''}${fish}${r.ball ? ' · bait below' : ''}.`, fav: false, day: state.day, hour: Math.round(state.hour * 100) / 100 });
@@ -5016,6 +5018,7 @@ let radioT = 90, batteryWarned = false;
 function updateFittings(dt) {
   const e = fitsAboard();
   finder.imaging = !!e?.sonar;
+  finder.deep = !!e?.deep;
   for (const b of boats) b.setDeckLights?.(!!(e?.lights && b === boat && env.night > 0.35));
   if (!e) return;
   // The chartplotter: a point on your track every fifteen metres or so (kept for the chart).

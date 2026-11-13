@@ -58,6 +58,13 @@ export const FITS = {
     price: { skiff: 140, bass: 180, cabin: 200, console: 300, rib: 260, cruiser: 360 },
     desc: 'A through-hull imaging transducer for the fish finder’s head unit: the down view and the split screen, ranges down to 40 m, and the smaller echoes picked out. (Without it the head unit shows the 2D sonar to 20 m.)',
   },
+  // (G7) A deep sounder: the bottom to 200 m, where the shelf falls away and Gannet Deep's floor
+  // lies (see sonar.js DEEP_RANGES). Without it the finder loses the bottom past what it reaches.
+  deepsonar: {
+    name: 'Deep sounder', cat: 'electronics', kg: 5, amps: 1.5,
+    price: { cabin: 360, rib: 380, console: 420, cruiser: 480 },
+    desc: 'A big low-frequency transducer for the fish finder’s head unit: it reads the bottom to two hundred metres, and the marks over it. The deep water off the shelf, and Gannet Deep’s floor, where nothing else reaches. (Without it the finder loses the bottom past 20 m, or 40 m with the imaging sonar.)',
+  },
   plotter: {
     name: 'GPS chartplotter', cat: 'electronics', kg: 2, amps: 1,
     price: { skiff: 150, bass: 170, cabin: 190, console: 260, rib: 240, cruiser: 320, sail: 170, jetski: 160 },
@@ -364,7 +371,7 @@ export function unfitBoat(state, kind, id) {
 export function fitEffect(yard, kind) {
   const list = (yard?.fits?.[kind] || []).filter((id) => FITS[id]?.price[kind]);
   const has = (id) => list.includes(id);
-  const e = { tank: 1, thrust: 1, burn: 1, kg: 0, amps: 0, sonar: false, plotter: false, vhf: false, house: false, troll: 1, lights: false, livewell: false, holders: false, bimini: false, hold: 1, seats: 0, comfort: 0, divers: false, trollMotor: null, trollBank: false, list };
+  const e = { tank: 1, thrust: 1, burn: 1, kg: 0, amps: 0, sonar: false, deep: false, plotter: false, vhf: false, house: false, troll: 1, lights: false, livewell: false, holders: false, bimini: false, hold: 1, seats: 0, comfort: 0, divers: false, trollMotor: null, trollBank: false, list };
   for (const id of list) {
     const F = FITS[id];
     e.kg += F.kg || 0;
@@ -383,6 +390,7 @@ export function fitEffect(yard, kind) {
     }
   }
   for (const id of ['sonar', 'plotter', 'vhf', 'lights', 'livewell', 'holders', 'bimini']) e[id] = has(id);
+  e.deep = has('deepsonar');
   // (The bow trolling motor fitted, if any, and its battery bank.)
   // (The bass boat's own: the basic bow motor, there unless a better one's fitted.)
   e.trollMotor = ['trollpro', 'trollgps', 'troll'].find(has) || (kind === 'bass' ? 'troll' : null);
