@@ -169,12 +169,17 @@ test('fish of their own: mackerel, garfish and bluefish in the race, pollack and
   assert.ok(O.habitatsAt(habitat, 'calf').includes('tide'));
 });
 
-test('the tackle the field guide suggests catches the Calf’s fish, there (headless ecosystem)', () => {
-  const eco = new Ecosystem(createHabitat());
-  const at = (id) => eco.bySpecies[id].map((a, i) => [a, i]).filter(([a]) => a.home.hosts && Math.hypot(a.home.x - CALF.x, a.home.z - CALF.z) < 60).map(([, i]) => i);
+test('the tackle the field guide suggests catches the Calf’s fish, there (headless ecosystem)', (t) => {
+  const habitat = createHabitat();
+  const random = Math.random;
+  t.after(() => { Math.random = random; });
+  // (Each kind on a fresh sea with its own dice, as in guide.test.mjs and paradise.test.mjs.)
+  const hash = (id) => [...id].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 7);
   const failed = [];
   for (const id of ['mackerel', 'pollack', 'wrasse', 'seabass', 'garfish']) {
-    const homes = at(id).slice(0, 2);
+    Math.random = seeded(20261113 ^ hash(id));
+    const eco = new Ecosystem(habitat);
+    const homes = eco.bySpecies[id].map((a, i) => [a, i]).filter(([a]) => a.home.hosts && Math.hypot(a.home.x - CALF.x, a.home.z - CALF.z) < 60).map(([, i]) => i).slice(0, 2);
     let r = fishWithGuide(eco, id, { homes, tries: 3 });
     // (A wary fish can lose the bait to a quicker neighbour: a second go.)
     if (!r.hits) r = fishWithGuide(eco, id, { homes, tries: 4 });
