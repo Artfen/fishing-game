@@ -53,17 +53,17 @@ export const FEED = {
   most: 16,            // hunters drawn in to one feed at most
   drive: 3,            // hunters it takes to drive the ball up
   top: -2.2,           // m: up to here, it's at the top
-  life: [120, 300],    // s: how long the hunters keep at it, if nothing ends it sooner
+  life: [100, 260],    // s: how long the hunters keep at it, if nothing ends it sooner
   none: 20,            // s with no hunters at it and it's over
   linger: 40,          // s: the dispersal, before it's gone
   full: [900, 2400],   // s: a hunter that's fed leaves the small fish alone this long
   quiet: [600, 1500],  // s: the water stays quiet this long after a feed
-  quietR: 250,         // m: ... this far round it
+  quietR: 300,         // m: ... this far round it
   apart: 400,          // m: no two feeds nearer than this
   max: 3,              // feeds at once
   sight: 900,          // m: no feed starts further than this from everyone
   farKeen: 0.7,        // far off: the hunters about a shoal must be this keen
-  farChance: 0.00025,  // ... and then this chance at each look, times how keen
+  farChance: 0.00015,  // ... and then this chance at each look, times how keen
   boatR: 9,            // m: a boat running through it this near, over boatV m/s, breaks it up
   boatV: 3,
 };
