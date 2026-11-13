@@ -64,6 +64,9 @@ export const FORAGE = new Set(['sprat', 'sardine', 'anchovy', 'sandsmelt', 'glas
 // The baits and lures that are a small fish (or pass for one): a kind that takes them well eats
 // fish.
 const FISHY = ['sandeel', 'shad', 'strip', 'metal', 'popper', 'spinner', 'stickbait', 'ballyhoo', 'skirt', 'tspin', 'crankS', 'crankD', 'mjig', 'minnow', 'streamer', 'spoon', 'jerk', 'microjig'];
+// (D4: whether a rig's item is a small fish or passes for one: what a hunter in a feed goes for
+// most readily. A live fish too.)
+export const fishyItem = (item) => item === 'livefish' || FISHY.includes(item);
 const eaters = new Map();
 // Whether a kind hunts small fish: the hunters of shoals (tuna, bluefish, barracuda…), and any
 // kind that takes a fish, or something like one, well (bass, pollack, pike, perch, mackerel…),

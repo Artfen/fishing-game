@@ -8524,7 +8524,8 @@ function handleClues() {
   for (const c of eco.takeClues()) {
     const dx = c.x - cp.x, dz = c.z - cp.z;
     const d = Math.hypot(dx, dz);
-    if (d > (c.type === 'birds' ? 400 : c.type === 'boil' ? 220 : 90)) continue;
+    // (The birds over a feed, D4, are seen from most of a kilometre: see feeding.js.)
+    if (d > (c.type === 'birds' ? (c.big ? 900 : 400) : c.type === 'boil' ? 220 : 90)) continue;
     // Seen, if it's near enough and light enough to see: noted (see grounds.js).
     if (SEEN_AT[c.type] && d < SEEN_AT[c.type] && (env.daylight > 0.2 || c.type === 'rise' || c.type === 'jump')) seeSign(state.grounds, recentSigns, c, clock.abs, state.day);
     const vol = clamp(1 - d / 60, 0, 1);
@@ -8565,7 +8566,7 @@ function handleClues() {
         if (d < 120) teach('boil', 'The sea boils as big fish crash through the bait. Motor up gently, stop well short, and cast into it.', 7);
         break;
       case 'birds':
-        world.birdsAt(c.x, c.z);
+        world.birdsAt(c.x, c.z, c.big ? 10 : 6);
         if (d < 200) teach('birds', 'Gulls diving over the water: fish are feeding underneath, driving small fry to the top.', 7);
         break;
       case 'fizz':

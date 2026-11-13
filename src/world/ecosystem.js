@@ -6,7 +6,8 @@ import { traits, mood, whyRejected, BEHAVIOUR, prefsFor } from '../behaviour.js'
 import { zoneAt } from './terrain.js';
 import { pushOut } from './divesites.js';
 import { tideBoost, FLOOD_FEEDERS } from './tide.js';
-import { WARM_LIMIT, coolDepth, tempAt, warmStress, FORAGE, fishEater } from './ecology.js';
+import { WARM_LIMIT, coolDepth, tempAt, warmStress, FORAGE, fishEater, fishyItem } from './ecology.js';
+import { Feeding, OVER, HUNT_REST } from './feeding.js';
 import { seasonBoost } from './season.js';
 import { colourFactor } from '../grounds.js';
 import { blowFactor } from './forecast.js';
@@ -116,6 +117,8 @@ export class Ecosystem {
     this.populate();
     this.forage = this.schools.filter((s) => FORAGE.has(s.sp.id));
     for (const s of this.forage) s.forage = true;
+    // (D4: the feeds, where enough hunters find a shoal of small fish at once: see feeding.js.)
+    this.feeding = new Feeding(this, FAR_RADIUS, ENGAGEABLE);
   }
 
   /* ---------- population ---------- */
@@ -317,6 +320,7 @@ export class Ecosystem {
       wary: 0, flashCD: 2 + rnd() * 6, clueCD: 2 + rnd() * 8, interestCD: rnd() * 0.5, retarget: 0,
       atPrey: false, shoal: null, shoalTop: 0, coolKey: null, // (D1: at a shoal of small fish; see pickPoint)
       eater: fishEater(sp), strikeT: 0, // (D3: a hunter of small fish, and its next strike: see stalk)
+      fullUntil: 0, // (D4: fed at a feed, it leaves the small fish alone till then: see feeding.js)
       nibbles: 0, maxNibbles: 1, nibbleT: 0, invT: 0, biteT: 0, vy: 0, jumpSpeed: 0,
       phase: rnd() * 10, beat: 0.3, caught: 0, faceBait: false, risen: false,
     };
@@ -359,6 +363,9 @@ export class Ecosystem {
       // goes in winter; diving from a boat.)
       forage: false, threat: 0, threatT: -1e9, threatX: 0, threatZ: 0, winterX: NaN, winterZ: 0, soundT: 0, fled: false,
       calmAt: 0, // (D3: struck, it's tight and watchful until then: see stalk)
+      // (D4: the feed it's in, if any; how many looks running the hunters have pressed it; the
+      // fish-eating kinds living about it. See feeding.js.)
+      feed: null, pressN: 0, eaterKinds: null,
     };
     const n = L.members[0] + Math.floor(rnd() * (L.members[1] - L.members[0] + 1));
     for (let k = 0; k < n; k++) {
@@ -497,6 +504,7 @@ export class Ecosystem {
       else if (d2 < reach2 && BAIT_STATES.has(a.state)) this.stepAgent(a, h, false, true);
       else if (d2 < far2 && (this.tick + a.id) % FAR_EVERY === 0) this.stepAgent(a, h * FAR_EVERY, true, d2 < reach2);
     }
+    this.feeding.step(h);
     this.boatStartle(h);
     this.walkerStartle(h);
     this.diverReact(h);
@@ -635,7 +643,8 @@ export class Ecosystem {
     const P = prefsFor(a.sp.id), act = this.activity[a.sp.id] ?? 0.5;
     const cool = this.coolTop(a);
     const shy = L.bottom ? 0 : (P.bright || 0) * smoothstep(0.6, 1, this.light);
-    const prey = mode !== 'rest' && act > 0.3 && fishEater(a.sp) ? this.nearestForage(a, home, Math.max(40, R * 1.6)) : null;
+    // (D4: a hunter that's just fed at a feed leaves the small fish alone a while.)
+    const prey = mode !== 'rest' && act > 0.3 && fishEater(a.sp) && !(a.fullUntil > this.time) ? this.nearestForage(a, home, Math.max(40, R * 1.6)) : null;
     const flow = this.ctx.tide?.flow ?? 0;
     const tide = FLOOD_FEEDERS.has(a.sp.id) ? clamp(-flow / 0.6, -1, 1) : 0; // > 0 on the flood
     // (Water fished hard lately: what's left keeps tighter to cover. The pressure's kept in cells
@@ -792,13 +801,15 @@ export class Ecosystem {
     const act = this.activity[a.sp.id] ?? 0.5, L = a.L;
     const ambusher = !!(L.lurk || L.strike?.lure === 'ambush');
     let s = a.shoal;
-    if (!s && a.state === 'rest' && (ambusher || L.cover === 'rock' || L.cover === 'weed')) s = this.nearestForage(a, a, 8);
+    if (!s && a.state === 'rest' && !(a.fullUntil > this.time) && (ambusher || L.cover === 'rock' || L.cover === 'weed')) s = this.nearestForage(a, a, 8);
     if (!s || act < 0.3 || s.scatterT > 0 || this.time < s.calmAt) {
       a.strikeT = rand(1.5, 3);
       return;
     }
+    // (D4: in a feed, the ball held tight at the top, they're at it again and again.)
+    const feed = this.feeding.live(s);
     const dx = s.x - a.x, dz = s.z - a.z, d = Math.hypot(dx, dz) || 1;
-    if (d > (a.shoal ? 9 : 8) || Math.abs(s.y - a.y) > 3) {
+    if (d > (feed ? 12 : a.shoal ? 9 : 8) || Math.abs(s.y - a.y) > 3) {
       a.strikeT = rand(1, 2);
       return;
     }
@@ -811,9 +822,10 @@ export class Ecosystem {
     a.ty = s.y;
     a.tz = s.z + (dz / d) * 3;
     a.wantSpeed = L.speed * (L.burst || 2.5);
-    a.strikeT = rand(ambusher ? 20 : 12, ambusher ? 45 : 30) / Math.max(0.4, act);
-    // (Struck, the shoal is tight and watchful for a while: the hunters bide their time.)
-    s.calmAt = this.time + rand(12, 35);
+    a.strikeT = (feed ? rand(3, 9) : rand(ambusher ? 20 : 12, ambusher ? 45 : 30)) / Math.max(0.4, act);
+    // (Struck, the shoal is tight and watchful for a while: the hunters bide their time. Balled up
+    // at the top in a feed, it has nowhere to go: they're at it again in moments.)
+    s.calmAt = this.time + (feed ? rand(1.5, 4) : rand(12, 35));
     s.scatterT = Math.max(s.scatterT || 0, 0.9);
     s.sx = a.x;
     s.sy = a.y;
@@ -824,7 +836,8 @@ export class Ecosystem {
     s.threatX = a.x;
     s.threatZ = a.z;
     // (Most strikes miss: an ambusher's first rush does best.)
-    const taken = Math.random() < (ambusher ? 0.3 : 0.15) ? this.takeFromShoal(s) : null;
+    // (A ball in a feed, packed tight, loses fewer to each rush: the many rushes take their toll.)
+    const taken = Math.random() < (ambusher ? 0.3 : 0.15) * (feed ? 0.25 : 1) ? this.takeFromShoal(s) : null;
     if (s.y > -2.5) {
       this.clue('splash', a);
       const m = taken || s.members[0];
@@ -1002,6 +1015,15 @@ export class Ecosystem {
     // Tuna hunt the sprat shoals: they drive one up to the surface, the sea boils, and birds
     // come down on it.
     if ((s.home.south ? s.L.hunterSouth || s.L.hunter : s.L.hunter) && act > (s.L.hunt?.keen ?? 0.4) && this.hunt(s, h, coarse)) return;
+    // (D4: balled up in a feed: tight, holding its ground, driven up. See feeding.js.)
+    if (s.feed && s.feed.phase < OVER) {
+      this.feeding.hold(s, h);
+      s.turnScale = 1;
+      this.steer(s, h);
+      this.integrate(s, h);
+      this.schoolClues(s, coarse, act);
+      return;
+    }
     // (D2: a shoal of small fish, not being driven by a hunting shoal just now: off as soon as
     // the hunters gather, and down and together when a boat roars past.)
     const fear = s.forage && !(s.scatterT > 0) ? this.forageWatch(s, h) : 0;
@@ -1065,9 +1087,10 @@ export class Ecosystem {
 
   // What a shoal shows at the top: gulls over it, nervous water, a flash of silver sides.
   schoolClues(s, coarse, act) {
-    // Shoals feeding near the top in daylight draw the gulls (mackerel, and the tuna's prey).
-    if (!coarse && s.L.birds && s.y > -2.5 && this.ctx.daylight > 0.3 && act > 0.5 && s.birdCD <= 0) {
-      s.birdCD = rand(8, 16);
+    // Shoals feeding near the top in daylight draw the odd gull (mackerel, and the tuna's prey).
+    // (D4: the birds come down in earnest on a feed: see feeding.js. Between, now and then.)
+    if (!coarse && s.L.birds && !s.feed && s.y > -2.5 && this.ctx.daylight > 0.3 && act > 0.5 && s.birdCD <= 0) {
+      s.birdCD = rand(40, 100);
       const m = s.members[0];
       if (m) this.clue('birds', m);
     }
@@ -1111,7 +1134,8 @@ export class Ecosystem {
     const d = Math.hypot(p.x - s.x, p.z - s.z);
     // On the bait ball: a feeding frenzy that lasts a minute or so, circling and slashing
     // through it, then they sound and rest before hunting again.
-    const F = s.L.hunt?.frenzy || [50, 80], Rr = s.L.hunt?.rest || [60, 120];
+    // (D4: four to ten minutes' rest by default, so water with hunters in it has its quiet spells.)
+    const F = s.L.hunt?.frenzy || [50, 80], Rr = s.L.hunt?.rest || HUNT_REST;
     if (d < 22 && !s.frenzy) s.frenzy = rand(F[0], F[1]);
     if (s.frenzy > 0 && s.frenzy < h * 2) {
       s.rest = rand(Rr[0], Rr[1]);
@@ -1211,6 +1235,8 @@ export class Ecosystem {
       if ((m < N2 && !still) || (all && m < R2)) want.add(s);
     }
     for (const s of [...want]) if (s.prey) want.add(s.prey);
+    // (D4: the shoal of each feed going on, however far: its birds can be seen from far off.)
+    for (const e of this.feeding.events) want.add(e.s);
     const q = (v) => Math.round(v * 10) / 10, c = (v) => Math.round(v * 100) / 100;
     const out = [];
     for (const s of want) {
@@ -1693,6 +1719,11 @@ export class Ecosystem {
       }
       return;
     }
+    // (D4: a hunter in a feed, and the rig among the ball: keen and careless, it sees it from further
+    // off and takes it far more readily, a small fish's likeness most of all.)
+    const F = this.feeding.events.length ? this.feeding.live(a.shoal) || this.feeding.live(a.school?.prey) : null;
+    const inFeed = !!F && (b.x - F.s.x) ** 2 + (b.z - F.s.z) ** 2 < 15 * 15;
+    if (inFeed) per *= 1.5;
     if (d > per) return;
     const dv = Math.abs(dy);
     if (dv > L.depthTol * 2.2) return;
@@ -1711,6 +1742,7 @@ export class Ecosystem {
     // A gale, and the coloured water after it: sheltered water fishes, the open sea doesn't.
     if (this.ctx.storming || this.ctx.after) p *= blowFactor(a.home.zone, this.ctx.storming, this.ctx.after);
     if (L.grazer && this.feedSpots.some((f) => f.amount > 0.05 && Math.hypot(f.x - b.x, f.z - b.z) < 6)) p *= 2;
+    if (inFeed) p *= fishyItem(b.item) || b.kind === 'lure' || b.kind === 'jig' || b.fly === 'streamer' ? 3 : 1.6;
     if (Math.random() < p) this.engage(a, b);
   }
 
@@ -2142,6 +2174,7 @@ export class Ecosystem {
     if (this.startleT > 0 || bt.speed < 1.4) return;
     this.startleT = 0.3;
     this.startle(bt.x, -0.6, bt.z, 4 + bt.speed * 0.8, 1);
+    this.feeding.boatThrough(bt.x, bt.z, bt.speed);
   }
 
   // Heavy footsteps on the bank send shy fish (trout, carp in the shallows) darting off.

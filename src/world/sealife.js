@@ -771,7 +771,7 @@ export function buildSeaLife(scene, { glow = null, seed = 20261106 } = {}) {
     scene.add(b.g);
     feeders.push({ ...b, state: 'off', a: B() * 6.28, r: brand(8, 18), y0: brand(18, 30), sp: (B() < 0.5 ? -1 : 1) * brand(9, 12), ph: B() * 10, t: 0, x: 0, y: 0, z: 0, tx: 0, tz: 0 });
   }
-  let feeding = null, lookT = 2;
+  let feeding = null, lookT = 2, gannetQuiet = 0;
   const flap = (b, t, k = 1) => {
     const f = Math.sin(t * 6 + b.ph) * 0.5 * k;
     b.wl.rotation.z = f;
@@ -791,7 +791,25 @@ export function buildSeaLife(scene, { glow = null, seed = 20261106 } = {}) {
     scene.add(b.g);
     shears.push({ ...b, state: 'off', a: B() * 6.28, r: brand(9, 22), y0: brand(2.5, 6), sp: (B() < 0.5 ? -1 : 1) * brand(8, 11), ph: B() * 10, t: 0, x: 0, y: 0, z: 0, ox: brand(-14, 14), oz: brand(-10, 10) });
   }
-  let shearFeed = null, shearLook = 1;
+  let shearFeed = null, shearLook = 1, shearQuiet = 0;
+  // (D4: the feed going on nearest anyone within R in the home sea or the south, its ball up at the
+  // top, if there is one: see feeding.js.)
+  const feedFor = (ctx, south, R) => {
+    const F = ctx.eco?.feeding;
+    if (!F?.events?.length) return null;
+    let best = null, bd = R;
+    for (const e of F.events) {
+      if (e.phase !== 1 || !!e.s.home?.south !== south) continue;
+      const d = nearestViewer(ctx.V, e.s.x, e.s.z);
+      if (d < bd) {
+        bd = d;
+        best = e;
+      }
+    }
+    return best;
+  };
+  // (A flock that came to a feed goes a little after the feed breaks up.)
+  const feedOver = (F) => !!F.feed && (F.feed.done || (F.feed.phase === 2 && F.feed.t - F.feed.overAt > 10));
   const startShears = (best, F) => {
     shearFeed = F;
     // (In from far off, low over the sea.)
@@ -814,23 +832,34 @@ export function buildSeaLife(scene, { glow = null, seed = 20261106 } = {}) {
       }
     }
     shearLook -= dt;
-    if (!life.follower && !shearFeed && shearLook <= 0 && day && ctx.eco) {
+    shearQuiet -= dt;
+    // A feed (D4) brings them first; failing one, now and then a shoal up near the top by itself,
+    // with a long while between.
+    if (!life.follower && shearLook <= 0 && day && ctx.eco) {
       shearLook = 2.5;
-      let best = null, bd = 520;
-      for (const S of ctx.eco.schools) {
-        if (!BAIT_S.has(S.sp.id) || !S.home?.south || S.y < -3) continue;
-        const d = nearestViewer(ctx.V, S.x, S.z);
-        if (d < bd && depthAt(S.x, S.z) > 3) {
-          bd = d;
-          best = S;
+      const ev = feedFor(ctx, true, 600);
+      if (ev && shearFeed && !shearFeed.feed) shearFeed.over = true;
+      else if (ev && !shearFeed) startShears(ev.s, { school: ev.s, t: 0, life: rand(80, 160), feed: ev });
+      else if (!shearFeed && shearQuiet <= 0) {
+        let best = null, bd = 520;
+        for (const S of ctx.eco.schools) {
+          if (!BAIT_S.has(S.sp.id) || !S.home?.south || S.y < -3) continue;
+          const d = nearestViewer(ctx.V, S.x, S.z);
+          if (d < bd && depthAt(S.x, S.z) > 3) {
+            bd = d;
+            best = S;
+          }
+        }
+        if (best) {
+          startShears(best, { school: best, t: 0, life: rand(55, 95) });
+          shearQuiet = rand(240, 600);
         }
       }
-      if (best) startShears(best, { school: best, t: 0, life: rand(55, 95) });
     }
     if (!near) {
       if (shearFeed) {
         shearFeed.t += dt;
-        if (!life.follower && (shearFeed.t > shearFeed.life || !day)) {
+        if (!life.follower && (shearFeed.t > shearFeed.life || !day || shearFeed.over || feedOver(shearFeed))) {
           shearFeed = null;
           for (const b of shears) b.state = 'off';
         }
@@ -844,7 +873,7 @@ export function buildSeaLife(scene, { glow = null, seed = 20261106 } = {}) {
       const F = shearFeed;
       F.t += dt;
       const S = F.school, cx = S.x, cz = S.z;
-      const done = F.over || (!life.follower && (F.t > F.life || S.y < -4.5 || !day));
+      const done = F.over || (!life.follower && (F.t > F.life || S.y < -4.5 || !day || feedOver(F)));
       if (done && shears.every((b) => b.state === 'circle')) {
         shearFeed = null;
         for (const b of shears) b.state = 'off';
@@ -1014,25 +1043,35 @@ export function buildSeaLife(scene, { glow = null, seed = 20261106 } = {}) {
       flap(b, t, (t + b.ph) % 7 < 2.5 ? 1 : 0.1);
     }
     if (near && day && Math.hypot(ctx.from.x - GANNET.x, ctx.from.z - GANNET.z) < 250) events.onSighting?.('gannet', GANNET.x, GANNET.z);
-    // A shoal up near the surface within sight brings a flock down onto it.
+    // A feed within sight (D4, see feeding.js) brings a flock down onto it. Failing one, now and
+    // then a shoal up near the surface by itself does, with a long while between.
     lookT -= dt;
-    if (!life.follower && !feeding && lookT <= 0 && live && day && ctx.eco) {
+    gannetQuiet -= dt;
+    if (!life.follower && lookT <= 0 && live && day && ctx.eco) {
       lookT = 3;
-      let best = null, bd = 450;
-      for (const s of ctx.eco.schools) {
-        if (!BAIT.has(s.sp.id) || s.y < -3.5 || s.home?.south) continue;
-        const d = nearestViewer(ctx.V, s.x, s.z);
-        if (d < bd && depthAt(s.x, s.z) > 3) {
-          bd = d;
-          best = s;
+      const ev = feedFor(ctx, false, 600);
+      if (ev && feeding && !feeding.feed) feeding.over = true;
+      else if (ev && !feeding) startGannets({ school: ev.s, t: 0, life: rand(80, 160), feed: ev });
+      else if (!feeding && gannetQuiet <= 0) {
+        let best = null, bd = 450;
+        for (const s of ctx.eco.schools) {
+          if (!BAIT.has(s.sp.id) || s.y < -3.5 || s.home?.south) continue;
+          const d = nearestViewer(ctx.V, s.x, s.z);
+          if (d < bd && depthAt(s.x, s.z) > 3) {
+            bd = d;
+            best = s;
+          }
+        }
+        if (best) {
+          startGannets({ school: best, t: 0, life: rand(45, 75) });
+          gannetQuiet = rand(240, 600);
         }
       }
-      if (best) startGannets({ school: best, t: 0, life: rand(45, 75) });
     }
     if (feeding) {
       feeding.t += dt;
       const S = feeding.school;
-      const done = feeding.over || (!life.follower && (feeding.t > feeding.life || S.y < -5 || !day));
+      const done = feeding.over || (!life.follower && (feeding.t > feeding.life || S.y < -5 || !day || feedOver(feeding)));
       if (done && feeders.every((b) => b.state === 'off' || b.state === 'circle')) {
         feeding = null;
         for (const b of feeders) {
