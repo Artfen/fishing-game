@@ -558,24 +558,27 @@ export function offers(C, W) {
     const j = Math.floor(r() * (i + 1));
     [ids[i], ids[j]] = [ids[j], ids[i]];
   }
-  // (G4) A regular client's work, and a trusting one's, first: two of them at most, so the board
-  // still has everyone else's on it; the rest in the day's order.
-  const keen = ids.filter((tpl) => !TEMPLATES[tpl].call && standingWith(C, TEMPLATES[tpl].giver).k >= 1.2).slice(0, KEEN_FIRST);
-  ids.splice(0, ids.length, ...keen, ...ids.filter((tpl) => !keen.includes(tpl)));
-  const out = [];
+  const made = [];
   W = { ...W, rank: career(C).rank, first: C.count === 0 };
   // (Until you've done a job, the easy first one is always there, at the top.)
   if (W.first) ids.unshift(...ids.splice(ids.indexOf('firstjob'), 1));
+  // Every job there is today, in the day's order (made the same whoever's looking: the day's die
+  // is drawn the same way for everyone).
   for (const tpl of ids) {
-    if (out.length >= 6) break;
     const T = TEMPLATES[tpl];
     if (T.call) continue;
     const o = T.make(W, r);
     if (!o) continue;
     const id = `${W.day}-${W.region}-${tpl}`;
     if (id in C.done || C.active.some((a) => a.id === id)) continue;
-    out.push({ id, tpl, cat: T.cat, giver: T.giver, coop: false, boat: null, gear: null, where: null, ...o });
+    made.push({ id, tpl, cat: T.cat, giver: T.giver, coop: false, boat: null, gear: null, where: null, ...o });
   }
+  // (G4) A regular client's work, and a trusting one's, first: two of their jobs today at most,
+  // so the board still has everyone else's on it; the rest in the day's order. (Under the first
+  // job, for someone who's done none.)
+  const first = made.filter((o) => o.tpl === 'firstjob' && W.first);
+  const keen = made.filter((o) => !first.includes(o) && standingWith(C, o.giver).k >= 1.2).slice(0, KEEN_FIRST);
+  const out = [...first, ...keen, ...made.filter((o) => !first.includes(o) && !keen.includes(o))].slice(0, 6);
   C.board = { day: W.day, region: W.region, offers: out };
   return out;
 }
