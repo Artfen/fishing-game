@@ -60,6 +60,8 @@ function play(sp, rod, diffId, style, { k = 0.9, cover = false, n = 200, seed = 
       }
     }
     out[result || 'timeout'] = (out[result || 'timeout'] || 0) + 1;
+    // (E2c: reaching the weed, it's caught fast in it; not lost there and then.)
+    if (F.stuckTimes || result === 'snag' || result === 'rock') out.reached = (out.reached || 0) + 1;
   }
   out.rate = out.landed / n;
   out.time = out.landed ? out.time / out.landed : 0; // average length of a landed fight, in seconds
@@ -116,7 +118,8 @@ test('pike bite through line without a wire trace, never through one', () => {
 test('light line lets a big fish reach the weed; the carp rod turns it', () => {
   const light = play(carp, rodOf('float'), 'standard', 'careful', { k: 0.9, cover: true });
   const heavy = play(carp, rodOf('carp'), 'standard', 'careful', { k: 0.9, cover: true });
-  assert.ok(light.snag > 0, JSON.stringify(light));
+  assert.ok(light.reached > 0, JSON.stringify(light));
+  assert.equal(heavy.reached || 0, 0);
   assert.equal(heavy.snag || 0, 0);
 });
 

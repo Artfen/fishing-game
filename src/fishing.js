@@ -46,6 +46,9 @@ const OVERLOAD = 0.9;   // …and how long more until the cast collapses complet
 const FLY_CYCLE = 1.15; // one back-and-forward false cast with the fly rod
 const _v = new THREE.Vector3();
 const _w = new THREE.Vector3(), _nh = new THREE.Vector3();
+const _cs = {}; // (a habitat sample, reused: see seekCover)
+// (E2c) How far off a fish knows the weed or the rocks it can make for, m.
+const HAVEN = 12;
 
 // The fishing loop:
 // idle → aiming (hold, aim, choose distance) → casting → drifting (rig in the water)
@@ -1289,6 +1292,29 @@ export class Fishing {
     this.net.lookAt(hand.x, hand.y - 0.3, hand.z);
   }
 
+  // (E2c) What a hooked fish could run into where it is now (weed or rock within a couple of
+  // metres: F.cover, F.coverKind), and the nearest of either it could make for, or push on into,
+  // within HAVEN m (F.haven). The same thresholds as at the hook (see setHook).
+  seekCover(F) {
+    const H = this.eco.habitat, p = this.fishPos;
+    const kindAt = (x, z) => {
+      const s = H.sample(x, z, _cs);
+      return s.rock > 0.4 ? 'rock' : s.weed > 0.35 ? 'weed' : null;
+    };
+    let here = kindAt(p.x, p.z), best = null;
+    for (const r of [2.5, 5, 8, HAVEN]) {
+      for (let a = 0; a < 8 && !best; a++) {
+        const x = p.x + Math.sin((a * Math.PI) / 4) * r, z = p.z + Math.cos((a * Math.PI) / 4) * r, k = kindAt(x, z);
+        if (k && depthAt(x, z) > 0.4) best = { x, z, kind: k, r };
+      }
+      if (best) break;
+    }
+    if (!here && best && best.r <= 2.5) here = best.kind;
+    F.cover = !!here;
+    F.coverKind = here;
+    F.haven = best;
+  }
+
   landFish() {
     const F = this.fight;
     const mesh = this.fishMeshes[F.sp.id];
@@ -2210,6 +2236,18 @@ export class Fishing {
       F.roomT = 0.5;
       F.room = this.roomBeyond(F, b);
     }
+    // (E2c) The weed and the rocks round it where it is now: what it could run into, and the
+    // nearest it could make for (looked at twice a second). Fast in them, how far the line has
+    // swung since (a boat right over the top counts as all the way round).
+    F.coverT = (F.coverT ?? 0) - dt;
+    if (F.coverT <= 0 && !F.stuck) {
+      F.coverT = 0.5;
+      this.seekCover(F);
+    }
+    if (F.stuck && F.stuckAt) {
+      const over = this.angler.onBoat && Math.hypot(F.stuckAt.x - b.x, F.stuckAt.z - b.z) < 4;
+      F.angle = over ? Math.PI : Math.abs(wrapAngle(Math.atan2(F.stuckAt.x - b.x, F.stuckAt.z - b.z) - F.stuckBearing));
+    }
     const before = F.progress, outBefore = F.dist * (1 - F.progress) + F.extra, chargeWas = F.coming;
     const ev = stepFight(F, held, dt, diff);
     if (ev && ev.startsWith('snap:')) {
@@ -2226,6 +2264,26 @@ export class Fishing {
       F.wordT = secs;
     };
     F.wordT -= dt;
+    // (E2c) Fast in the weed or the rocks; and out again.
+    if (ev === 'stuck') {
+      const rock = F.stuck === 'rock', reel = this.hooks.key('cast');
+      F.stuckAt = { x: this.fishPos.x, z: this.fishPos.z };
+      F.stuckBearing = Math.atan2(F.stuckAt.x - b.x, F.stuckAt.z - b.z);
+      say(rock ? 'fast in the rocks!' : 'weeded!', 2.4);
+      this.fx.ripple(this.fishPos.x, this.fishPos.z, 1.2, 1.1, 0.5);
+      this.audio.splashSmall(0.6);
+      this.hooks.feel?.('turn');
+      const angle = this.angler.onBoat ? 'take the boat round, or over the top of it' : 'walk along the bank';
+      this.hooks.flash(rock
+        ? `It’s wedged under the rocks! Let go of ${reel} and give it slack: it may back out. Or pull from a new angle (${angle}). Pulling hard saws the line on the rock.`
+        : `It’s weeded! Let go of ${reel} and give it slack: it may swim out. Or pull from a new angle (${angle}), or keep a steady pressure on it. Pulling hard cuts the line on the stems.`, 4);
+      this.hooks.teach('weeded', 'A fish that reaches the weed or the rocks with line pouring off gets caught fast in them. It isn’t lost yet: slack often lets it swim out by itself, and a new angle pulls it free. The longer it stays in, the likelier it works the hook out.', 9);
+    }
+    if (ev === 'unstuck') {
+      say(F.unstuckBy === 'slack' ? 'it’s swum out!' : F.unstuckBy === 'angle' ? 'free: a new angle!' : 'worked it out!', 2);
+      this.fx.ripple(this.fishPos.x, this.fishPos.z, 1.4, 1.2, 0.55);
+      this.hooks.feel?.('turn');
+    }
     const surge = ev === 'run' || ev === 'longrun' || ev === 'dive' || ev === 'lastdash';
     if (surge || ev === 'jump') {
       F.creaked = false;
@@ -2345,14 +2403,35 @@ export class Fishing {
     F.lat = damp(F.lat, F.pulling ? F.dir * St.sway * (1 - F.progress * 0.6) * (1 - 0.5 * F.turn) : 0, 1.4, dt);
     const wig = Math.sin(t * 6.5) * 0.15 * (F.stage === 'beaten' ? 0.3 : 1);
     let x = cx - dz * (F.lat + wig), z = cz + dx * (F.lat + wig);
+    // (E2c) Making for the weed or the rocks it knows are near: on a run, out at the far end, it
+    // heads that way; won back towards you, you draw it away from them again.
+    {
+      // (Fast in there, it's where it was when it stuck: see below.)
+      if (!F.stuck) {
+        const h = F.haven, making = h && F.pulling && F.progress < 0.4 && F.coverK > 0.3;
+        const tx = making ? h.x - x : 0, tz = making ? h.z - z : 0;
+        const v = (making ? 1.5 * Math.min(1, F.coverK) : 0.5) * dt;
+        F.lx = (F.lx || 0) + clamp(tx - (F.lx || 0), -v, v);
+        F.lz = (F.lz || 0) + clamp(tz - (F.lz || 0), -v, v);
+      }
+      x += F.lx || 0;
+      z += F.lz || 0;
+    }
     // Don't let it swim up onto the bank.
     if (depthAt(x, z) < 0.35) {
       x = cx;
       z = cz;
     }
+    // (Fast in there, it stays put.)
+    if (F.stuck && F.stuckAt) {
+      x = F.stuckAt.x;
+      z = F.stuckAt.z;
+    }
     const floor = solidHeight(x, z) + 0.3, lv = waterLevel(x, z);
     let y = Math.min(Math.max(lerp(F.start.y, lv - 0.35, e) - (F.pulling ? St.dive * (1 - e * 0.5) : 0) - F.deep, floor), lv - 0.2);
     y = lerp(y, lv - 0.12, F.top);
+    // (Fast in the weed or the rocks, it's down in among them.)
+    if (F.stuck) y = Math.max(floor, Math.min(y, lv - 0.8));
     // In a leap it clears the water (as far as a fish its size and kind does), nose up, the sea
     // streaming off it, shaking its head, and crashes back in; a billfish walks on its tail and
     // greyhounds on (see fightshow.js).

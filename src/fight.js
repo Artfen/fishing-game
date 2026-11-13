@@ -278,6 +278,14 @@ export function newFight(sp, size, rod, diff, cover = false, rnd = Math.random, 
     // stems, nicked by teeth (0 … 1). It stays: the line's that much weaker for the rest of the
     // fight, and after it until it's respooled (see shop.js wearFrom).
     chafe: 0,
+    // (E2c) Fast in the weed or the rocks: 'weed' | 'rock' | null, how long, how long it's been
+    // worked under steady pressure, how long slack, and a moment's grace after it comes free.
+    stuck: null,
+    stuckT: 0,
+    workT: 0,
+    slackT: 0,
+    stuckGrace: 0,
+    angle: 0, // set by the game: how far (radians) the line has swung since it stuck
     time: 0,
     peak: 0,
     strain: 0, // how close the line is to parting from overload (1 = it parts); eases off slowly
@@ -320,11 +328,15 @@ export function newFight(sp, size, rod, diff, cover = false, rnd = Math.random, 
 // changed direction), 'jump', 'tiring', 'beaten'; a signature move beginning: 'charge', 'shake'
 // (a headshake), 'dive', 'lastdash', 'longrun', 'sound', 'circle', or answered: 'turned' (side
 // strain turned a dive), 'lifted' (pumped up off the bottom), 'spool' (the spool running low),
-// 'edge' (a run stopped by a bank or the shallows: it turns);
+// 'edge' (a run stopped by a bank or the shallows: it turns), 'stuck' (fast in the weed or the
+// rocks, E2c) and 'unstuck' (out again);
 // or an end: a break 'snap:tension' | 'snap:drag' | 'snap:snag' | 'snap:rock' | 'snap:teeth' |
-// 'snap:spool', or the fish coming off, 'off:thrown' | 'off:pulled'.
+// 'snap:spool', or the fish coming off, 'off:thrown' | 'off:pulled' | 'off:weeded'.
 export function stepFight(F, held, dt, diff, rnd = Math.random) {
   F.time += dt;
+  // (E2c) Fast in the weed or the rocks: nothing else happens until it's out.
+  if (F.stuck) return stuckStep(F, held, dt, diff, rnd);
+  F.stuckGrace = Math.max(0, F.stuckGrace - dt);
   let event = null;
   F.phaseT -= dt;
   F.windSlip = 0;
@@ -698,11 +710,17 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
   // (E2: while it's in among them, the line rubs: that damage stays, however it ends. Rock wears it
   // by how the line stands up to rock, weed stems a little.)
   const weak = 1 - 0.45 * F.chafe;
-  if (F.cover && F.coverK > 0 && F.slipping && F.progress < (diving ? 0.3 : 0.1) && F.ratio > diff.light * wear * weak) {
+  if (F.cover && F.coverK > 0 && F.slipping && F.stuckGrace <= 0 && F.progress < (diving ? 0.3 : 0.1) && F.ratio > diff.light * wear * weak) {
     F.snagT += dt * F.coverK * (diving ? 1.8 : 1);
     F.chafe = Math.min(1, F.chafe + dt * F.coverK * (rock ? 0.05 / wear : 0.015) * (0.5 + F.tension));
   } else F.snagT = Math.max(0, F.snagT - dt * 0.5);
-  if (F.snagT > 3.5 * diff.snag * wear * weak) return rock ? 'snap:rock' : 'snap:snag';
+  // (E2c) In far enough, it's fast in there: the line caught round the stems or under a ledge.
+  // Not lost yet: see stuckStep.
+  if (F.snagT > 3.5 * diff.snag * wear * weak) {
+    Object.assign(F, { stuck: rock ? 'rock' : 'weed', stuckT: 0, workT: 0, slackT: 0, angle: 0, pulling: false, slipping: false, surgeT: 0, shakeT: 0, move: null, snagT: 0 });
+    F.stuckTimes = (F.stuckTimes || 0) + 1;
+    return 'stuck';
+  }
 
   // Past its rating the line strains, faster the further past; below it, it recovers slowly. (A
   // chafed or nicked line's rating is lower.)
@@ -726,6 +744,67 @@ function wearGrip(F, w) {
     return true;
   }
   return false;
+}
+
+// (E2c) Fast in the weed or the rocks. It ran in with line pouring off, and the line's caught round
+// the stems or under a ledge; it can't be wound in. What gets it out:
+// - Slack: let go, and it may swim out by itself (out of weed sooner than from under a rock). On
+//   Relaxed it always does, in a few seconds.
+// - A new angle: pulled from the side (F.angle, set by the game, is how far the line has swung
+//   since it stuck; a boat over the top of it counts), it comes free.
+// - Steady pressure works it out in a few seconds, but saws at the line meanwhile: a little on
+//   weed stems, hard on rock (braid worst). Heavy pressure strains the line as ever, and a chafed
+//   line is weaker.
+// Left in there (on Natural and Demanding), it may work the hook out against the stems or the rock
+// and be gone, more readily from a light hold. Returns 'unstuck' (with F.unstuckBy: 'slack',
+// 'angle' or 'worked'), an end ('snap:snag' | 'snap:rock' | 'off:weeded'), or null.
+export const STUCK = {
+  free: { weed: 0.3, rock: 0.14 }, // a second, slack (after the first moment)
+  relaxed: 3,                      // s of slack that always frees it on Relaxed
+  work: { weed: 2.5, rock: 5 },    // s of steady pressure that works it out, times its pull for cover
+  saw: { weed: 0.012, rock: 0.15 },// chafe a second under pressure (rock divided by the line's abrade); chafed right through, it parts
+  angle: 0.6,                      // radians the line must swing to pull it out sideways
+  shed: 0.025,                     // a second, times the behaviour's pull (twice from a light hold)
+  grace: 5,                        // s after it's out before it can be caught up again
+};
+function stuckStep(F, held, dt, diff, rnd) {
+  const rock = F.stuck === 'rock', kind = F.stuck, L = F.level, d = DRAG_LEVELS[F.drag];
+  F.stuckT += dt;
+  F.pulling = false;
+  F.slipping = false;
+  F.surgeT = 0;
+  F.shakeT = 0;
+  F.jumping = 0;
+  F.windSlip = 0;
+  // (In there, resting, it gets a little breath back.)
+  F.stamina = Math.min(1, F.stamina + 0.01 * dt);
+  const free = (by) => {
+    Object.assign(F, { stuck: null, snagT: 0, workT: 0, slackT: 0, angle: 0, unstuckBy: by, stuckGrace: STUCK.grace });
+    F.phaseT = Math.min(F.phaseT, 0.4);
+    return 'unstuck';
+  };
+  if ((F.angle || 0) > STUCK.angle) return free('angle');
+  const weak = 1 - 0.45 * F.chafe;
+  if (held) {
+    F.slackT = 0;
+    // Winding against it: the load climbs to where the drag slips.
+    F.tension = approach(F.tension, Math.min(1.1, d + 0.05), 2, 1.5, dt);
+    if (F.tension > 0.35) {
+      F.workT += dt * (F.tension < 0.85 ? 1 : 0.6);
+      F.chafe = Math.min(1, F.chafe + dt * STUCK.saw[kind] * (rock ? 1 / F.abrade : 1) * F.tension);
+    }
+    if (F.tension > 0.97 * weak) F.strain += ((F.tension - 0.97 * weak) / diff.strain) * dt;
+    if (F.strain >= 1 || F.chafe >= 1) return rock ? 'snap:rock' : 'snap:snag';
+    if (F.workT > STUCK.work[kind] * (0.6 + 0.4 * F.coverK)) return free('worked');
+  } else {
+    F.slackT += dt;
+    F.tension = approach(F.tension, 0.06, 1, 2, dt);
+    F.strain = Math.max(0, F.strain - 0.1 * dt);
+    if (L.pull === 0 && F.slackT > STUCK.relaxed) return free('slack');
+    if (F.stuckT > 0.8 && rnd() < STUCK.free[kind] * dt) return free('slack');
+  }
+  if (L.pull > 0 && rnd() < STUCK.shed * L.pull * (F.hold === 'light' ? 2 : 1) * dt) return 'off:weeded';
+  return null;
 }
 
 // Advice after a break (or a fish lost), in words. extra: { by (what threw the hook: 'charge',
@@ -762,8 +841,14 @@ export function breakReason(cause, sp, rod, extra = {}) {
     case 'slipped':
       return `You grabbed at the ${fish} as it kicked: it slipped your hand, and the jerk tore the hook out. Wait till it lies still, then take it by the tail.`;
     case 'snag':
+      if (extra.stuck) return `The ${fish} was fast in the weed, and you kept pulling until the ${rod.line.name} parted on the stems. A weeded fish often swims out by itself if you give it slack, or comes free pulled from a new angle; steady, gentle pressure works it out too. Force cuts the line.`;
       return `The ${fish} ran into the weed and the ${rod.line.name} parted on the stems. Heavier line or a firmer drag would have turned it sooner.`;
+    case 'weeded':
+      return extra.kind === 'rock'
+        ? `The ${fish} stayed wedged under the rocks, and worked the hook free against them: the line came back without it. Give it slack straight away (it often backs out by itself) or pull from a new angle: the longer it stays in, the likelier it sheds the hook.`
+        : `The ${fish} stayed in the weed and worked the hook free against the stems: the line came back with a clump of weed and no fish. Give it slack straight away (it often swims out by itself) or pull from a new angle: the longer it stays in, the likelier it sheds the hook.`;
     case 'rock':
+      if (extra.stuck) return `The ${fish} was wedged under the rocks, and pulling on it sawed the ${rod.line.name} through on them. Slack lets it back out by itself, and a new angle (the boat over the top, or along the shore) pulls it free; pressure on rock only cuts the line${(rod.line.abrade ?? 1) < 1 ? ', braid fastest' : ''}.`;
       return (rod.line.abrade ?? 1) < 1
         ? `The ${fish} got down among the rocks and the ${rod.line.name} chafed through on them: braid cuts on rock in a moment. A fluorocarbon leader stands up to it far better, and side strain keeps a fish out of the rocks.`
         : `The ${fish} got down among the rocks and the line chafed through on them. Turn it sooner (a firmer drag, side strain) before it reaches them.`;
