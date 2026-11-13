@@ -1242,16 +1242,25 @@ export function buildWorld(scene, renderer, habitat) {
       const near = (g) => g.visible && g.position.distanceToSquared(p) < r * r;
       return gulls.some((b) => near(b.g)) || flockBirds.some((b) => b.flock && near(b.g));
     },
-    // Birds over feeding fish: a flock gathers over (x, z) for a while (or freshens if one is there).
-    birdsAt(x, z) {
+    // Birds over feeding fish: a flock of up to n gathers over (x, z) for a while (or freshens if
+    // one is there, more joining it over a feed).
+    birdsAt(x, z, n = 6) {
       const near = flocks.find((f) => Math.hypot(f.x - x, f.z - z) < 40);
       if (near) {
         near.x = x;
         near.z = z;
         near.t = Math.min(near.t, 2);
+        const have = flockBirds.filter((b) => b.flock === near).length;
+        for (const b of flockBirds.filter((o) => !o.flock).slice(0, Math.max(0, n - have))) {
+          b.flock = near;
+          b.r = 8 + Math.random() * 12;
+          b.y0 = 10 + Math.random() * 8;
+          b.sp = (Math.random() < 0.5 ? -1 : 1) * (5 + Math.random() * 2);
+          b.g.visible = true;
+        }
         return;
       }
-      const free = flockBirds.filter((b) => !b.flock).slice(0, 6);
+      const free = flockBirds.filter((b) => !b.flock).slice(0, n);
       if (free.length < 3) return;
       const f = { x, z, t: 0, life: 24 };
       flocks.push(f);
