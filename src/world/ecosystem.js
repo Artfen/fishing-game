@@ -316,6 +316,7 @@ export class Ecosystem {
       tx: 0, ty: 0, tz: 0, state: 'rest', t: 0, dur: rnd() * 4, rank: rnd(), active: true,
       wary: 0, flashCD: 2 + rnd() * 6, clueCD: 2 + rnd() * 8, interestCD: rnd() * 0.5, retarget: 0,
       atPrey: false, shoal: null, shoalTop: 0, coolKey: null, // (D1: at a shoal of small fish; see pickPoint)
+      eater: fishEater(sp), strikeT: 0, // (D3: a hunter of small fish, and its next strike: see stalk)
       nibbles: 0, maxNibbles: 1, nibbleT: 0, invT: 0, biteT: 0, vy: 0, jumpSpeed: 0,
       phase: rnd() * 10, beat: 0.3, caught: 0, faceBait: false, risen: false,
     };
@@ -534,6 +535,9 @@ export class Ecosystem {
       default:
         if (BAIT_STATES.has(a.state)) this.baitBehaviour(a, h);
     }
+    // (D3: a hunter of small fish at a shoal, or lying up in cover as one comes by, strikes it.
+    // The host's word, as the shoals are.)
+    if (a.eater && !this.follower && !coarse && (a.shoal || a.state === 'rest') && ENGAGEABLE.has(a.state)) this.stalk(a, h);
     if (reach && ENGAGEABLE.has(a.state)) {
       a.interestCD -= h;
       if (a.interestCD <= 0) {
@@ -772,6 +776,77 @@ export class Ecosystem {
     return c.d;
   }
 
+  // (D3) A hunter of small fish striking a shoal: one at the shoal (see pickPoint) dashes through
+  // it when it's within a few metres; an ambusher (a pike, a conger, a bass in the rocks) lying up in
+  // cover goes for one that comes by within eight. The shoal bulges away from it, as from a hunting
+  // shoal (scatterT: everyone sees it), its fear rises (D2), and now and then a small fish is taken
+  // (one strike in seven, an ambusher's one in three; never more than a third of the shoal; the
+  // taken come back in time, as a kept fish does). At the top,
+  // a slash and the small fish flicking silver. Each hunter then waits a while before the next,
+  // longer if it's not keen just now.
+  stalk(a, h) {
+    if ((a.strikeT -= h) > 0) return;
+    const act = this.activity[a.sp.id] ?? 0.5, L = a.L;
+    const ambusher = !!(L.lurk || L.strike?.lure === 'ambush');
+    let s = a.shoal;
+    if (!s && a.state === 'rest' && (ambusher || L.cover === 'rock' || L.cover === 'weed')) s = this.nearestForage(a, a, 8);
+    if (!s || act < 0.3 || s.scatterT > 0) {
+      a.strikeT = rand(1.5, 3);
+      return;
+    }
+    const dx = s.x - a.x, dz = s.z - a.z, d = Math.hypot(dx, dz) || 1;
+    if (d > (a.shoal ? 9 : 8) || Math.abs(s.y - a.y) > 3) {
+      a.strikeT = rand(1, 2);
+      return;
+    }
+    // Through it, fast.
+    a.state = 'cruise';
+    a.t = 0;
+    a.dur = 2.5;
+    a.feedSpot = null;
+    a.tx = s.x + (dx / d) * 3;
+    a.ty = s.y;
+    a.tz = s.z + (dz / d) * 3;
+    a.wantSpeed = L.speed * (L.burst || 2.5);
+    a.strikeT = rand(ambusher ? 14 : 8, ambusher ? 30 : 20) / Math.max(0.4, act);
+    s.scatterT = Math.max(s.scatterT || 0, 0.9);
+    s.sx = a.x;
+    s.sy = a.y;
+    s.sz = a.z;
+    const k = Math.exp(-(this.time - s.threatT) / 20);
+    s.threat = Math.min(3, s.threat * k + 0.5);
+    s.threatT = this.time;
+    s.threatX = a.x;
+    s.threatZ = a.z;
+    // (Most strikes miss: an ambusher's first rush does best.)
+    const taken = Math.random() < (ambusher ? 0.3 : 0.15) ? this.takeFromShoal(s) : null;
+    if (s.y > -2.5) {
+      this.clue('splash', a);
+      const m = taken || s.members[0];
+      if (m) this.clue('flash', m);
+    }
+    this.strikes = (this.strikes || 0) + 1;
+    this.onStrike?.(a, s, taken);
+  }
+  // A small fish taken from a shoal by a hunter (never more than a third of it): gone, and back in
+  // four to eight minutes, as a fish kept is (see stepWorld's restock; on the host, so everyone's
+  // the same: see captureAgents).
+  takeFromShoal(s) {
+    let alive = 0;
+    for (const m of s.members) if (m.state === 'school' && m.active) alive++;
+    if (alive <= Math.ceil((s.members.length * 2) / 3)) return null;
+    let pick = Math.floor(Math.random() * alive);
+    for (const m of s.members) {
+      if (m.state !== 'school' || !m.active || pick-- > 0) continue;
+      m.state = 'gone';
+      m.hookedBy = null;
+      m.backAt = this.time + rand(240, 480);
+      this.taken = (this.taken || 0) + 1;
+      return m;
+    }
+    return null;
+  }
+
   // (D2) How wary a shoal of small fish is of the hunters about it just now (0 … 3: each hunter
   // settling at it adds half, fading by half in twenty seconds).
   fearOf(s) {
@@ -921,7 +996,7 @@ export class Ecosystem {
     const act = this.activity[s.sp.id];
     // Tuna hunt the sprat shoals: they drive one up to the surface, the sea boils, and birds
     // come down on it.
-    if ((s.home.south ? s.L.hunterSouth || s.L.hunter : s.L.hunter) && act > 0.4 && this.hunt(s, h, coarse)) return;
+    if ((s.home.south ? s.L.hunterSouth || s.L.hunter : s.L.hunter) && act > (s.L.hunt?.keen ?? 0.4) && this.hunt(s, h, coarse)) return;
     // (D2: a shoal of small fish, not being driven by a hunting shoal just now: off as soon as
     // the hunters gather, and down and together when a boat roars past.)
     const fear = s.forage && !(s.scatterT > 0) ? this.forageWatch(s, h) : 0;
@@ -1013,10 +1088,14 @@ export class Ecosystem {
     if (s.rest > 0) return false; // after a frenzy they go deep and wander for a while
     if (s.huntT <= 0 || !s.prey) {
       s.huntT = 4;
-      let best = null, bd = 380;
+      // (Each kind's own way of hunting, if it has one (H): how far it looks, how long its frenzy and
+      // its rest; and a kind with one hunts only in its own kind of water.)
+      const H = s.L.hunt;
+      let best = null, bd = H?.range ?? 380;
       const prey = [].concat(s.home.south ? s.L.hunterSouth || s.L.hunter : s.L.hunter);
       for (const o of this.schools) {
         if (!prey.includes(o.sp.id)) continue;
+        if (H && o.home?.zone && !s.L.zones.includes(o.home.zone)) continue;
         const d = Math.hypot(o.x - s.x, o.z - s.z);
         if (d < bd) { bd = d; best = o; }
       }
@@ -1027,9 +1106,10 @@ export class Ecosystem {
     const d = Math.hypot(p.x - s.x, p.z - s.z);
     // On the bait ball: a feeding frenzy that lasts a minute or so, circling and slashing
     // through it, then they sound and rest before hunting again.
-    if (d < 22 && !s.frenzy) s.frenzy = rand(50, 80);
+    const F = s.L.hunt?.frenzy || [50, 80], Rr = s.L.hunt?.rest || [60, 120];
+    if (d < 22 && !s.frenzy) s.frenzy = rand(F[0], F[1]);
     if (s.frenzy > 0 && s.frenzy < h * 2) {
-      s.rest = rand(60, 120);
+      s.rest = rand(Rr[0], Rr[1]);
       s.prey = null;
       return false;
     }

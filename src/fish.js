@@ -551,6 +551,9 @@ export const FISH = [
     food: { metal: 1.5, strip: 1.2, sandeel: 0.9, spinner: 1.0, shad: 0.6, rag: 0.5, prawn: 0.4 },
     life: {
       school: true, schools: 9, members: [14, 24], spacing: 60, range: 1.8,
+      // (D3: a shoal of mackerel drives the sprat and the sand smelt up when it's keenest, in
+      // shorter frenzies than the tuna's and with longer rests between: see ecosystem.js hunt.)
+      hunter: ['sprat', 'sandsmelt'], hunt: { range: 160, frenzy: [25, 45], rest: [240, 600], keen: 0.85 },
       speed: 1.6, turn: 3.0, perception: 10, depthTol: 2.5, cover: 'open',
       homes: ['tide'], zones: ['coast', 'open', 'deep'],
       depth: ({ hour }) => (isDay(hour) ? [0.5, 5] : [3, 12]),
