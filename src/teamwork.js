@@ -36,7 +36,8 @@ export class Teamwork {
     let best = null, bd = NET_REACH + extra;
     for (const p of this.together.peers.values()) {
       const P = p.view || p.pose;
-      if (!p.name || !P?.o || !P.nt || P.hk == null) continue;
+      // (nt 1: waiting for the net. 2: too big for it, landed another way: see landing.js.)
+      if (!p.name || !P?.o || P.nt !== 1 || P.hk == null) continue;
       const e = this.lineEnd(p.id) || (P.ex != null ? { x: P.ex, z: P.ez } : null);
       if (!e) continue;
       const d = Math.hypot(e.x - me.x, e.z - me.z);
@@ -56,7 +57,8 @@ export class Teamwork {
   // The angler's side: may friend p net the fish on your line? fight: yours (see fishing.js); at:
   // where your fish is.
   mayNet(p, f, fight, at) {
-    if (!fight?.atNet || fight.agent?.id !== f || !p?.at) return false;
+    // (Only into the net: a fish too big for it is landed another way, see landing.js.)
+    if (!fight?.atNet || (fight.landBy && fight.landBy !== 'net') || fight.agent?.id !== f || !p?.at) return false;
     return Math.hypot(p.at.x - at.x, p.at.z - at.z) <= NET_SLACK;
   }
 

@@ -296,7 +296,8 @@ export class VisitorView {
       else if (mv === 'land' && d.mvWas) show.landed(F, { x, y: lv, z }, lv, !!d.netWas, null);
       d.mvWas = mv;
     }
-    d.netWas = !!P.nt;
+    // (1 into the net; 2 landed another way, too big for it: see landing.js.)
+    d.netWas = P.nt === 1;
     const leap = show.leap(F, dt, t, x, d.fishY, z, lv);
     const away = from ? Math.atan2(x - (P.x ?? from.x), z - (P.z ?? from.z)) : 0;
     show.frame(F, dt, t, { x, y: leap.y, z }, lv, {

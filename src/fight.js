@@ -729,7 +729,8 @@ function wearGrip(F, w) {
 }
 
 // Advice after a break (or a fish lost), in words. extra: { by (what threw the hook: 'charge',
-// 'shake' or 'leap'), loosen (the control that loosens the drag, as the player has it) }.
+// 'shake' or 'leap'), loosened (the hold had worn loose), landBy (how it was being landed, see
+// landing.js), loosen (the control that loosens the drag, as the player has it) }.
 export function breakReason(cause, sp, rod, extra = {}) {
   const fish = sp.name.toLowerCase();
   switch (cause) {
@@ -749,9 +750,17 @@ export function breakReason(cause, sp, rod, extra = {}) {
     case 'spool':
       return `The ${fish} took every metre of line off the reel and broke it at the knot. With the drag that light it ran too far: a click more drag slows a long run, and following it with the boat keeps line on the spool.`;
     case 'lifted':
-      return `You tried to lift the ${fish} out on the line, and the hook tore free: a fish that size needs the net. When it’s beaten and alongside, let go of the reel and tap to net it.`;
+      if (extra.landBy === 'lift') return `The hook tore out as you lifted the ${fish} up out of the water: its whole weight was on the hook, and the hold wasn’t firm enough for it. A fish played gently keeps a firmer hold (every head-shake and slack leap works at it). Lower down, where you can reach the water, you could take it by the tail; on a sandy shore, slide it up the beach.`;
+      return `You tried to lift the ${fish} out on the line, and the hook tore free: a fish that size needs ${extra.landBy === 'hand' ? 'taking by the tail' : 'the net'}. When it’s beaten and alongside, let go of the reel and tap to ${extra.landBy === 'hand' ? 'grab it as it lies still' : 'net it'}.`;
+    case 'hoisted':
+      return `The line broke as you lifted the ${fish} clear: it weighed far more than the ${rod.line.name} will take as a dead weight. A fish that size can’t come up a wall on that line: land it lower down, where you can reach the water, or on a beach.`;
     case 'kicked':
-      return `The ${fish} gave a last kick alongside while you were winding hard, and the hook came out. Let go as it kicks, and net it when it rolls over again.`;
+      if (extra.landBy === 'beach' || extra.landBy === 'lift') return `The ${fish} gave a last kick while you were winding it ${extra.landBy === 'beach' ? 'up the beach' : 'up'}, and the hook came out. Let go as it stirs, and wind again when it lies still.`;
+      return `The ${fish} gave a last kick alongside while you were winding hard, and the hook came out. Let go as it kicks, and ${extra.landBy === 'hand' ? 'take it by the tail' : 'net it'} when it rolls over again.`;
+    case 'knocked':
+      return `You swung the net at the ${fish} as it kicked, and the rim knocked the hook out${extra.loosened ? ': the fight had worn it loose' : ''}. Wait for it to lie still, then net it.`;
+    case 'slipped':
+      return `You grabbed at the ${fish} as it kicked: it slipped your hand, and the jerk tore the hook out. Wait till it lies still, then take it by the tail.`;
     case 'snag':
       return `The ${fish} ran into the weed and the ${rod.line.name} parted on the stems. Heavier line or a firmer drag would have turned it sooner.`;
     case 'rock':

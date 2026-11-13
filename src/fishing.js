@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { FISH, buildFishMesh, weightOf } from './fish.js';
 import { waveHeight } from './world/water.js';
 import { currentAt, windAt, currentScale } from './world/conditions.js';
-import { solidHeight, depthAt, waterLevel } from './world/terrain.js';
+import { solidHeight, depthAt, waterLevel, walkHeight, zoneAt, SOUTH_Z } from './world/terrain.js';
 import { RODS, TACKLE, TERMS, LINE_COLORS, castRange, windSensitivity, splashOf, checkSetup, castWeight } from './tackle.js';
 import { buildTackleModel, buildFloat, buildIndicator, buildLead } from './tackleModels.js';
 import { clamp, lerp, damp, dampAngle, rand, smoothstep, wrapAngle, glowTexture } from './util.js';
@@ -13,6 +13,7 @@ import { FishLine } from './fishline.js';
 import { heroDistance } from './reveal.js';
 import { BEHAVIOUR, prefsFor } from './behaviour.js';
 import { FightShow, bigness } from './fightshow.js';
+import { fitsNet, shoreMethodAt, LAND_WAYS, liftRisk, liftBreakRisk, knockRisk } from './landing.js';
 
 // Which kind of drag a rod's reel has, for how it sounds (see audio.js reel()): a fixed-spool
 // reel's fine clicker, a fly reel's click-pawl ratchet (and a centrepin's), a multiplier's lever drag.
@@ -338,8 +339,8 @@ export class Fishing {
         this.setHook();
         break;
       case 'reeling':
-        // Beaten and alongside, too heavy to lift: a tap nets it.
-        if (this.fight?.atNet) this.netFish();
+        // Beaten and alongside, too heavy to lift: a tap nets it (or takes it by the tail).
+        if (this.fight?.atNet) this.landTap();
         break;
       case 'caught':
         if (this.t > 0.5) this.letGo();
@@ -1073,12 +1074,83 @@ export class Fishing {
     this.parted = true;
   }
 
-  // Beaten and alongside: does it need the net? Too heavy to swing in on this line (see fight.js
-  // swingLimit); a big fish drawn alongside the boat is seen to there, as ever.
+  // Beaten and alongside: does it need landing (the net, or for one too big for it, the beach, a
+  // hand or a lift)? Too heavy to swing in on this line (see fight.js swingLimit); a big fish drawn
+  // alongside the boat is seen to there, as ever.
   needsNet() {
     const F = this.fight;
     if (!F || this.bigCatch()) return false;
-    return (F.agent?.weight ?? weightOf(F.sp, F.size)) > swingLimit(this.rod.line);
+    return !this.fitsNet() || this.weight() > swingLimit(this.rod.line);
+  }
+
+  weight() {
+    const F = this.fight;
+    return F.agent?.weight ?? weightOf(F.sp, F.size);
+  }
+
+  // Would it go in the landing net (see landing.js NET)?
+  fitsNet() {
+    const F = this.fight;
+    return !!F && fitsNet(F.size, this.weight());
+  }
+
+  // How it's landed, beaten (see landing.js): the net if it fits; from the shore, too big for it,
+  // as the shore allows.
+  landingBy() {
+    if (this.fitsNet() || this.angler.onBoat) return 'net';
+    const F = this.fight, b = this.angler.pos;
+    let dx = F.start.x - b.x, dz = F.start.z - b.z;
+    const dl = Math.hypot(dx, dz) || 1;
+    const end = F.end || { x: b.x + (dx / dl) * 2.6, z: b.z + (dz / dl) * 2.6 };
+    return shoreMethodAt(b, end, { walkHeight, depthAt, waterLevel, habitat: this.eco.habitat, zoneAt, southZ: SOUTH_Z });
+  }
+
+  // A tap, beaten and alongside: the net, or a hand to take it by the tail. As it kicks, the net
+  // or the hand misses (on Natural and Demanding; on Relaxed it never does), and may knock a hook
+  // that's worn loose out of it. Landed by winding (up the beach, up the wall), a tap only says so.
+  landTap() {
+    const F = this.fight, L = this.level;
+    if (!F?.atNet) return;
+    const by = F.landBy || 'net';
+    if (!LAND_WAYS[by].tap) {
+      F.word = by === 'beach' ? 'hold to wind it up' : 'hold to lift it';
+      F.wordT = 1.2;
+      return;
+    }
+    if (F.missT > 0) return;
+    if (L.pull > 0 && F.kick > 0.3) {
+      F.missT = 0.8;
+      if (Math.random() < knockRisk(L.pull, F.grip ?? 1)) {
+        this.lose(by === 'net' ? 'knocked' : 'slipped');
+        return;
+      }
+      F.word = by === 'net' ? 'missed: it kicked' : 'it slipped your hand';
+      F.wordT = 1.4;
+      this.audio.splashSmall(0.7);
+      this.hooks.feel?.('kick');
+      this.hooks.teach('landkick', by === 'net'
+        ? 'Missed! A fish kicking is hard to net, and the rim can knock a loose hook out. Wait till it lies still again, then net it.'
+        : 'It slipped your hand! A fish kicking can’t be held, and the jerk can tear a loose hook out. Wait till it lies still again, then take it by the tail.', 7);
+      return;
+    }
+    if (by === 'net') this.netFish();
+    else this.handFish();
+  }
+
+  // Taken by the tail, by hand, and lifted out.
+  handFish() {
+    const F = this.fight;
+    F.handed = true;
+    this.audio.splashSmall(0.6);
+    this.hooks.feel?.('netted');
+    this.landFish();
+  }
+
+  // Wound out: slid up the beach, or lifted up the wall on the line.
+  windOut() {
+    const F = this.fight;
+    F[F.landBy === 'beach' ? 'beached' : 'hoisted'] = true;
+    this.landFish();
   }
 
   // Into the net with it.
@@ -1092,21 +1164,33 @@ export class Fishing {
     this.landFish();
   }
 
-  // Beaten, rolled on its side, lying alongside, waiting for the net. Holding the reel instead tries
-  // to lift it out on the line; now and then it gives a last kick, and winding hard through that can
-  // tear the hook out (on Natural and Demanding). On Relaxed, it's netted for you after a moment.
+  // Beaten, rolled on its side, lying alongside, waiting to be landed (see landing.js): by the net,
+  // a hand, or wound up a beach or a wall. Now and then it gives a last kick, stirring a moment
+  // before. Winding hard through a kick can tear the hook out (on Natural and Demanding); so can
+  // trying to lift a fish that needs the net out on the line. On Relaxed, it's landed for you after
+  // a moment.
   netStep(dt, t, held) {
-    const F = this.fight, b = this.angler.pos, L = this.level;
+    const F = this.fight, b = this.angler.pos, L = this.level, by = F.landBy || 'net', wound = !LAND_WAYS[by].tap;
     F.netT += dt;
     F.progress = 1;
     F.stage = 'beaten';
     F.pulling = false;
     F.slipping = false;
     F.kick = Math.max(0, F.kick - dt * 1.2);
+    F.missT = Math.max(0, (F.missT || 0) - dt);
     F.kickT -= dt;
+    // (The tell: a stir of the tail and a swirl a moment before it kicks, time to let go or hold the
+    // net off.)
+    if (!F.stirred && F.kickT < 0.7) {
+      F.stirred = true;
+      this.fx.ripple(this.fishPos.x, this.fishPos.z, 0.5 + 0.4 * bigness(F.size), 0.7, 0.3);
+      F.word = 'it stirs…';
+      F.wordT = 0.7;
+    }
     if (F.kickT <= 0) {
       F.kickT = rand(3.5, 6);
       F.kick = 1;
+      F.stirred = false;
       {
         // (A last kick alongside: the bigger the fish, the bigger the splash.)
         const S = bigness(F.size), lv = waterLevel(this.fishPos.x, this.fishPos.z);
@@ -1122,39 +1206,68 @@ export class Fishing {
         return;
       }
     }
-    // (A moment's grace to let go: you've been winding all the way in.)
-    if (held && F.netT > 1.2) F.liftT += dt;
-    else F.liftT = Math.max(0, F.liftT - dt * 2);
-    if (L.pull > 0 && F.liftT > 1.6) {
-      this.lose('lifted');
-      return;
-    }
-    // (On Relaxed nothing's lost: just how it's done.)
-    if (L.pull === 0 && F.liftT > 0.4 && !F.toldLift) {
-      F.toldLift = true;
-      this.hooks.flash(`Too heavy to lift on the line: let go, and tap ${this.hooks.key('cast')} to net it.`, 2.6);
+    if (wound) {
+      // Up the beach or up the wall: wound in steadily while it lies still.
+      if (held && F.kick < 0.3) F.landT += dt;
+      const u = F.landT / LAND_WAYS[by].wind;
+      // (Lifted clear, its whole weight comes on the hook and the line: see landing.js.)
+      if (by === 'lift' && !F.liftRolled && u > 0.4) {
+        F.liftRolled = true;
+        const kg = this.weight(), line = this.hooks.line ? this.hooks.line(this.rod) : this.rod.line;
+        if (Math.random() < liftBreakRisk(L.pull, kg, line.kg)) {
+          this.snap('hoisted');
+          return;
+        }
+        if (Math.random() < liftRisk(L.pull, F.grip ?? 1, kg)) {
+          this.lose('lifted');
+          return;
+        }
+      }
+      if (u >= 1) {
+        this.windOut();
+        return;
+      }
+      F.tension = held ? 0.5 + 0.25 * Math.min(1, u) : 0.12;
+    } else {
+      // (A moment's grace to let go: you've been winding all the way in.)
+      if (held && F.netT > 1.2) F.liftT += dt;
+      else F.liftT = Math.max(0, F.liftT - dt * 2);
+      if (L.pull > 0 && F.liftT > 1.6) {
+        this.lose('lifted');
+        return;
+      }
+      // (On Relaxed nothing's lost: just how it's done.)
+      if (L.pull === 0 && F.liftT > 0.4 && !F.toldLift) {
+        F.toldLift = true;
+        this.hooks.flash(`Too heavy to lift on the line: let go, and tap ${this.hooks.key('cast')} to ${by === 'net' ? 'net it' : 'take it by the tail'}.`, 2.6);
+      }
+      F.tension = held ? Math.min(0.95, 0.45 + F.liftT * 0.3) : 0.12;
     }
     if (L.pull === 0 && F.netT > 2.6) {
-      this.netFish();
+      if (by === 'net') this.netFish();
+      else if (by === 'hand') this.handFish();
+      else this.windOut();
       return;
     }
-    F.tension = held ? Math.min(0.95, 0.45 + F.liftT * 0.3) : 0.12;
     F.wordT -= dt;
     if (F.wordT <= 0) {
-      F.word = 'net it';
+      F.word = LAND_WAYS[by].word;
       F.wordT = 0.5;
     }
-    // Where it lies: at the end of the fight, kicked a little way out now and then.
+    // Where it lies: at the end of the fight, kicked a little way out now and then; slid in towards
+    // you up the beach, or coming up the wall.
     let dx = F.start.x - b.x, dz = F.start.z - b.z;
     const dl = Math.hypot(dx, dz) || 1;
     dx /= dl;
     dz /= dl;
     const ex = F.end ? F.end.x : b.x + dx * 2.6, ez = F.end ? F.end.z : b.z + dz * 2.6;
-    const out = F.kick * 1.2 + Math.sin(t * 1.3) * 0.08;
+    const u = wound ? Math.min(1, F.landT / LAND_WAYS[by].wind) : 0;
+    const out = F.kick * 1.2 + Math.sin(t * 1.3) * 0.08 - (by === 'beach' ? u * Math.min(1.4, Math.hypot(ex - b.x, ez - b.z) * 0.6) : 0);
     const x = ex + dx * out, z = ez + dz * out, lv = waterLevel(x, z);
-    this.fishPos.set(x, lv - 0.15, z);
+    const y = by === 'lift' ? lv - 0.15 + u * 0.5 : by === 'beach' ? lv - 0.15 + u * 0.1 : lv - 0.15;
+    this.fishPos.set(x, y, z);
     const away = Math.atan2(x - b.x, z - b.z);
-    this.eco.placeHooked(F.agent, x, lv - 0.15, z, away + Math.PI / 2 + Math.sin(t * 0.7) * 0.2, F.kick > 0.3 ? 0.8 : 0.15);
+    this.eco.placeHooked(F.agent, x, y, z, away + Math.PI / 2 + Math.sin(t * 0.7) * 0.2, F.kick > 0.3 ? 0.8 : 0.15);
     F.roll = damp(F.roll, F.kick > 0.3 ? 0.3 : 1.25, 3, dt);
     F.agent.bank = F.roll;
     F.agent.pitch = 0;
@@ -1165,7 +1278,7 @@ export class Fishing {
   // The net, held out alongside the fish waiting for it, and with the fish in it as it comes out.
   placeNet(fishMesh, t) {
     const F = this.fight, s = this.state;
-    const waiting = s === 'reeling' && F?.atNet, lifting = s === 'landing' && this.netted && this.t < 0.8;
+    const waiting = s === 'reeling' && F?.atNet && (F.landBy || 'net') === 'net', lifting = s === 'landing' && this.netted && this.t < 0.8;
     this.net.visible = !!(waiting || lifting);
     if (!this.net.visible) return;
     const hand = this.angler.holdPoint(_nh);
@@ -1602,9 +1715,10 @@ export class Fishing {
   // A landed fish held up in your hands, wriggling now and then.
   // A big fish landed from a boat (the big game, or anything well over a metre) isn't lifted
   // aboard: it lies alongside, at the surface beside you, until you let it go.
+  // (E2b: and anything too big for the landing net.)
   bigCatch() {
     const F = this.fight;
-    return !!F && this.angler.onBoat && (!!F.sp.life.big || F.size > 120);
+    return !!F && this.angler.onBoat && (!!F.sp.life.big || F.size > 120 || !this.fitsNet());
   }
 
   // Where a landed fish is shown: up in your hands, or alongside in the water.
@@ -2282,12 +2396,19 @@ export class Fishing {
     }
     if (F.progress >= 1) {
       if (!this.needsNet()) {
+        // (From a boat, one too big for the net is drawn alongside: said once.)
+        if (this.bigCatch() && !F.sp.life.big && !this.fitsNet()) this.hooks.teach('alongside', 'Too big for the landing net (it takes fish up to 110 cm and 16 kg): drawn alongside the boat instead.', 7);
         this.landFish();
         return;
       }
-      // Beaten and alongside, and too heavy to lift out on the line: the net.
-      Object.assign(F, { atNet: true, netT: 0, kick: 0, kickT: rand(2.5, 4), liftT: 0, warned: false, surgeT: 0 });
-      this.hooks.teach('net', `A fish this size needs the net: when it’s beaten and alongside, let go of the reel and tap ${this.hooks.key('cast')}. Don’t wind hard as it kicks.`, 8);
+      // Beaten and alongside, and too heavy to lift out on the line: the net, or for one too big
+      // for it, what the shore allows.
+      const by = this.landingBy(), key = this.hooks.key('cast');
+      Object.assign(F, { atNet: true, landBy: by, netT: 0, kick: 0, kickT: rand(2.5, 4), stirred: false, liftT: 0, landT: 0, missT: 0, warned: false, surgeT: 0 });
+      if (by === 'net') this.hooks.teach('net', `A fish this size needs the net: when it’s beaten and alongside, let go of the reel and tap ${key}. Don’t wind hard as it kicks.`, 8);
+      else if (by === 'beach') this.hooks.teach('beach', `Too big for the landing net (it takes fish up to 110 cm and 16 kg). On a shelving shore like this you can beach it: hold ${key} and it slides up into the shallows. Let go as it stirs, or the kick can tear the hook out.`, 9);
+      else if (by === 'hand') this.hooks.teach('tail', `Too big for the landing net (it takes fish up to 110 cm and 16 kg). Here you can reach the water: tap ${key} as it lies still to take it by the tail. Grab as it kicks and it slips your hand.`, 9);
+      else this.hooks.teach('hoist', `Too big for the landing net, and too high above the water to reach it: it has to come up on the line. Hold ${key} to lift it, and let go as it stirs. The hook takes all its weight, so a fish played gently, its hook still firm, is the one that comes up.`, 10);
     }
   }
 
