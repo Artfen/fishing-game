@@ -28,7 +28,17 @@ test('the board answers the world: no deliveries in a gale, no dolphin pictures 
   // (and on days with a gale coming)
   for (let d = 0; d < 40; d++) for (const o of K.offers(K.newContracts(), world({ day: d, storm: true, abs: d * 24 + 9, galeAt: d * 24 + 14 }))) seen.add(o.tpl);
   for (let d = 0; d < 5; d++) for (const o of K.offers(K.newContracts(), world({ day: d }))) seen.add(o.tpl);
+  // (and on the slate at Bar El Muelle, the island's own work: never on the home board, and the
+  // home's never on it.)
+  const homeSeen = new Set(seen), slate = new Set();
+  const SPL = { ...PL, veril: { x: 120, z: 6600, name: 'El Veril' }, sebadal: { x: 300, z: 6200, name: 'El Sebadal' }, coladas: { x: -480, z: 5640, name: 'Las Coladas' } };
+  for (let d = 0; d < 60; d++) for (const o of K.offers(master(), world({ day: d, region: 'south', beenSouth: true, places: SPL }))) slate.add(o.tpl);
+  for (const t of slate) seen.add(t);
   for (const t of K.TEMPLATE_IDS) if (!K.TEMPLATES[t].call) assert.ok(seen.has(t), `${t} turns up`);
+  for (const t of K.TEMPLATE_IDS) {
+    if (K.TEMPLATES[t].south) assert.ok(slate.has(t) && !homeSeen.has(t), `${t}: on the slate, not the home board`);
+    else assert.ok(!slate.has(t), `${t}: not on the slate`);
+  }
   // (The radio's calls never go on the board.)
   for (const t of K.TEMPLATE_IDS) if (K.TEMPLATES[t].call) assert.ok(!seen.has(t), `${t} never on the board`);
   // The island's work comes up the board once you've been there (Paco writes).

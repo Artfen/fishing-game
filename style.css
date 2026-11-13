@@ -2387,6 +2387,13 @@ body.placing #sonar, body.placing #act-btn, body.placing #cancel-btn { visibilit
 .hb-slate { margin: 8px 0; padding: 10px 14px; background: #2b2f2e; color: #efefe6; border: 6px solid #6a503b; border-radius: 4px; }
 .hb-slate h3 { margin: 0 0 4px; color: #efefe6; }
 .hb-slate p { margin: 2px 0; font: 600 16px/1.35 var(--font-hand); }
+/* (G2b) Paco's slate of work: the notice board's job cards, chalked on it. */
+.hb-slate .board-job { background: rgba(255, 255, 255, 0.04); border-color: rgba(239, 239, 230, 0.18); }
+.hb-slate .board-job.mine { border-color: rgba(150, 200, 240, 0.5); }
+.hb-slate .board-job.ready { border-color: rgba(140, 220, 150, 0.7); background: rgba(140, 220, 150, 0.08); }
+.hb-slate .j-faint { color: rgba(239, 239, 230, 0.68); }
+.hb-slate .board-work-h, .hb-slate .board-career { color: rgba(239, 239, 230, 0.8); }
+.hb-slate .pk-btn { background: #efefe6; color: #2b2f2e; }
 .hb-hint { flex-basis: 100%; color: #2f6f74; }
 .hb-done { font: 700 13px var(--font-ui); color: #2f6f74; }
 .hb-warn { font: 700 13px var(--font-ui); color: var(--stamp); min-width: 10px; }

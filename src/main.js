@@ -2270,6 +2270,8 @@ function closeCamp() {
 /* ---------------- the harbour: the fish market and the inns ---------------- */
 
 const harbourSheet = new HarbourSheet(state, {
+  // (G2b) The slate at Bar El Muelle: the island's work.
+  slate: (root, again) => renderSlate(root, again),
   toast: (text, secs) => hud.toast(text, secs),
   chime: () => audio.chime?.(),
   changed: () => save(),
@@ -4551,6 +4553,40 @@ function renderJobs() {
       claim: (id) => {
         payJob(id);
         renderJobs();
+      },
+    },
+  });
+}
+// (G2b) The island as the slate at Bar El Muelle reads it: its places and its weather.
+function southWorld() {
+  const W = jobWorld();
+  return { ...W, region: 'south', busy: [], whales: [], places: Object.fromEntries(['puerto', 'veril', 'sebadal', 'coladas', 'bajon'].map((id) => [id, placeOf(id)])) };
+}
+// The slate's work, in its own box on Bar El Muelle's sheet: the island's offers, and the jobs
+// you've taken from it.
+function renderSlate(root, again) {
+  Con.prune(state.contracts, state.day);
+  renderWork(root, {
+    offers: Con.offers(state.contracts, southWorld()), active: state.contracts.active.filter((a) => Con.TEMPLATES[a.tpl]?.south), money,
+    payOf: (a) => Math.round(Con.payFor(a, {}) * Con.standingWith(state.contracts, a.giver).k),
+    standingOf: (giver) => Con.standingWith(state.contracts, giver),
+    hooks: {
+      take: (id) => {
+        const r = Con.accept(state.contracts, id, t);
+        if (r.why) hud.flash(r.why, t, 2.6);
+        else hud.toast(`Taken: ${r.contract.title}. It’s on your map, and in the journal (Memories).`, 5);
+        save();
+        again();
+      },
+      drop: (id) => {
+        Con.abandon(state.contracts, id);
+        jobWeight();
+        save();
+        again();
+      },
+      claim: (id) => {
+        payJob(id);
+        again();
       },
     },
   });

@@ -163,7 +163,7 @@ export class HarbourSheet {
     $('hb-title').textContent = W === 'market' ? 'The fish market' : W === 'kaigan' ? 'Kaigan' : W === 'inn' ? 'The Lobster Pot' : W === 'chandlery' ? 'The chandlery' : W === 'works' ? 'Willowhaven Marine Works' : 'Bar El Muelle';
     $('hb-sub').textContent = `${formatClock(this.hour)} · day ${this.state.day} · ${W === 'muelle' ? 'Puerto Brasa' : 'Willowhaven'}`;
     $('hb-purse').textContent = `In your purse: ${money(this.state.money)}`;
-    const tabs = W === 'market' || W === 'kaigan' ? [] : W === 'inn' ? [['bar', 'The bar'], ['kitchen', 'The kitchen']] : W === 'chandlery' ? [['counter', 'The counter'], ['boat', 'For the boat'], ['mend', 'Mending'], ['ready', 'Ready for a trip']] : W === 'works' ? [['boats', 'Boats'], ['looks', 'Paint & name'], ['fit', 'Fit-out'], ['repair', 'Repairs']] : [['bar', 'The bar'], ['kitchen', 'The kitchen'], ['sell', 'Sell to Paco']];
+    const tabs = W === 'market' || W === 'kaigan' ? [] : W === 'inn' ? [['bar', 'The bar'], ['kitchen', 'The kitchen']] : W === 'chandlery' ? [['counter', 'The counter'], ['boat', 'For the boat'], ['mend', 'Mending'], ['ready', 'Ready for a trip']] : W === 'works' ? [['boats', 'Boats'], ['looks', 'Paint & name'], ['fit', 'Fit-out'], ['repair', 'Repairs']] : [['bar', 'The bar'], ['kitchen', 'The kitchen'], ['sell', 'Sell to Paco'], ['slate', 'Paco’s slate']];
     $('hb-tabs').replaceChildren(...tabs.map(([id, text]) => {
       const b = el('button', id === this.tab ? 'on' : '', text);
       b.type = 'button';
@@ -174,7 +174,7 @@ export class HarbourSheet {
       return b;
     }), ...(W === 'muelle' ? [this.button('Your room upstairs', () => this.hooks.openRoom(), 'quiet hb-room')] : W === 'chandlery' ? [this.button('The tackle store (free)', () => this.hooks.openStore(), 'quiet hb-room')] : []));
     $('hb-tabs').hidden = !tabs.length;
-    const body = this.tab === 'kaigan' ? this.renderKaigan() : this.tab === 'boats' ? this.renderBoats() : this.tab === 'looks' ? this.renderLooks() : this.tab === 'fit' ? this.renderFit() : this.tab === 'repair' ? this.renderRepairs() : this.tab === 'sell' ? this.renderSell() : this.tab === 'kitchen' ? this.renderKitchen() : this.tab === 'counter' ? this.renderCounter() : this.tab === 'mend' ? this.renderMend() : this.tab === 'ready' ? this.renderReady() : this.tab === 'boat' ? this.renderBoatStores() : this.renderBar();
+    const body = this.tab === 'kaigan' ? this.renderKaigan() : this.tab === 'boats' ? this.renderBoats() : this.tab === 'looks' ? this.renderLooks() : this.tab === 'fit' ? this.renderFit() : this.tab === 'repair' ? this.renderRepairs() : this.tab === 'sell' ? this.renderSell() : this.tab === 'slate' ? this.renderSlate() : this.tab === 'kitchen' ? this.renderKitchen() : this.tab === 'counter' ? this.renderCounter() : this.tab === 'mend' ? this.renderMend() : this.tab === 'ready' ? this.renderReady() : this.tab === 'boat' ? this.renderBoatStores() : this.renderBar();
     $('hb-body').replaceChildren(...body);
   }
 
@@ -272,6 +272,17 @@ export class HarbourSheet {
     if (L.flag) flags.append(this.button('Take it down', () => H.yardTrim(k, 'flag', null), 'quiet'));
     out.push(flags);
     out.push(...this.papersBlock(k));
+    return out;
+  }
+
+  // (G2b) The slate behind Paco's bar: the island's work, his and the fishermen's (see
+  // contracts.js, the south's templates), taken, given up and paid for here as on the board at home.
+  renderSlate() {
+    const out = [el('p', 'hb-say', 'Paco wipes the slate behind the bar with his sleeve and chalks up the day’s work. “For a boat, if you want it. The fishermen leave word here too.”')];
+    const box = el('div', 'hb-slate board-work');
+    box.id = 'hb-slate';
+    this.hooks.slate?.(box, () => this.render());
+    out.push(box);
     return out;
   }
 
