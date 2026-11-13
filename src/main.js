@@ -4812,7 +4812,8 @@ function helmGauges() {
   const E = engineHere();
   if (!E) return '';
   const P = ENGINES[E.kind], on = engineRunning(E);
-  if (!on && !engineCranking(E)) return `<span class="lv-off">Engine off</span>${waterBit() ? ` · ${waterBit()}` : ''}`;
+  // (F4a) Your navigator's call, with the engine off too.
+  if (!on && !engineCranking(E)) return `<span class="lv-off">Engine off</span>${waterBit() ? ` · ${waterBit()}` : ''}${navNow ? ` · ${plotterNav()}` : ''}`;
   const bits = [`<b>${Math.round(rpmOf(E) / 50) * 50}</b> rpm`];
   // (Trimming herself, the angle she's at.)
   const tr = boat.trimAuto ? boat.legAngle || 0 : E.trim;
@@ -4910,6 +4911,8 @@ function radioLine() {
 
 // The chartplotter at the helm: the nearest of your marks, its bearing and how far.
 function plotterNav() {
+  // (F4a) A crewmate navigating for you: their call, plotter or not.
+  if (navNow) return `⌖ ${navNow.name}: mark ${navNow.leg + 1} of ${navNow.of}, ${courseWords(navNow.course)} ${rangeWords(navNow.m)}`;
   // (Following a route: the next mark, its course and how far.)
   const F = routeNow;
   if (F && fitsAboard()?.plotter) return `⌖ mark ${F.leg + 1} of ${F.R.pts.length}: ${courseWords(F.course)} ${rangeWords(F.m)}`;
@@ -10650,6 +10653,9 @@ function updateHud() {
   if (job && $('job-name').textContent !== job.name) $('job-name').textContent = job.name;
   // (The story's next place says so, not "Job".)
   if (job && $('job-kind').textContent !== (job.story ? 'Story' : 'Job')) $('job-kind').textContent = job.story ? 'Story' : 'Job';
+  // (F4a) The mark your navigator's calling for, in any boat: oars, sail or engine.
+  if (navNow && $('nav-name').textContent !== `${navNow.name}’s mark ${navNow.leg + 1}`) $('nav-name').textContent = `${navNow.name}’s mark ${navNow.leg + 1}`;
+  placeMarker($('nav-marker'), navNow?.x ?? 0, 2, navNow?.z ?? 0, !!navNow && started && !modal && !dive && !onFoot);
   placeMarker($('word-marker'), wordOn?.x ?? 0, 2, wordOn?.z ?? 0, !!wordOn && started && !modal && !dive && Math.hypot((wordOn?.x ?? 0) - player().pos.x, (wordOn?.z ?? 0) - player().pos.z) > 40);
   placeMarker($('job-marker'), job?.x ?? 0, 1.5, job?.z ?? 0, !!job && started && !modal && !dive && Math.hypot((job?.x ?? 0) - player().pos.x, (job?.z ?? 0) - player().pos.z) > 15);
   placeFriendMarkers();
@@ -11244,6 +11250,7 @@ together.onEvent = (kind, p, data) => {
   else if (kind === 'paid') friendPaid(p, data);
   else if (kind === 'help') friendHelp(p, data);
   else if (kind === 'crew') crewWord(p, data);
+  else if (kind === 'nav') navHeard(p, data);
   else if (kind === 'shoal') {
     const s = teamwork.heard(p, data);
     if (s) hud.toast(`${p.name} marked a shoal of ${s.sp.name.toLowerCase()} ${friendWhere(p)}: the mark goes with it.`, 6);
@@ -11812,6 +11819,11 @@ const mapSheet = new MapSheet(state, explored, { data: heightTex.image.data, wid
   // at her cruise; following one, and stopping.
   routeBoat: () => routeBoat(),
   routeDay: (pts) => routeDayLines(pts),
+  // (F4a) Crewing a friend's boat: navigate for them with one of your routes.
+  crewSkipper: () => (crew.on && together.active ? together.peers.get(crew.on.id)?.name || null : null),
+  navigating: () => navFor?.id || null,
+  navigateFor: (id) => startNavigating(id),
+  stopNavigating: () => stopNavigating(),
   followRoute: (id) => {
     state.route = { id, leg: 1 };
     routeSaid = null;
@@ -11830,9 +11842,11 @@ const mapSheet = new MapSheet(state, explored, { data: heightTex.image.data, wid
 // no engine choice is quoted at an easy pace of her own.
 const EASY_KN = { row: 2.5, kayak: 3, sail: 5, windsurf: 8, jetski: 25 };
 function routeBoat() {
-  const b = !onFoot ? boat : BOATS[state.vessel] || boat;
+  // (F4a) Crewing in a friend's boat: the passage in hers, the boat you're navigating.
+  const F = crew.on && together.active ? visitors.boatOf(crew.on.id) : null;
+  const b = F || (!onFoot ? boat : BOATS[state.vessel] || boat);
   if (!b) return null;
-  const k = b.kind, C = ENGINE_BOATS[k], at = !onFoot ? b.pos : walker.pos;
+  const k = b.kind, C = ENGINE_BOATS[k], at = F || !onFoot ? b.pos : walker.pos;
   if (C) {
     const e = engineOf(state.yard, k), T = ENGINE_TRIALS[k]?.[`${e.model}/${e.prop}`];
     // (An electric outboard: at its own easy pace, in hundredths of its battery.)
@@ -11910,6 +11924,91 @@ function routeTick() {
     save();
   }
   return { R, ...f };
+}
+
+/* ---------- (F4a) the navigator: a crewmate calling the course from their route ---------- */
+// Crewing in a friend's boat, you can navigate for them with one of your routes: your game sends its
+// marks to theirs, and at their wheel they have your course and distance to each mark, plotter or
+// not, moving on as they round each one (both games follow her rounding them). It ends when you
+// stop, step off, or leave; a navigator not heard from in NAV_STALE seconds is taken to have gone.
+const NAV_STALE = 40, NAV_EVERY = 10;
+let navFrom = null; // (skipper) { id, name, route: { name, pts, leg }, heard }
+let navNow = null;  // (skipper, at the wheel) { name, leg, of, course, m }
+let navFor = null;  // (navigator) { to, id (your route), leg, sent }
+let navT = 0;
+const crewingFor = (p) => (p?.view || p?.pose)?.cr === together.id;
+function navHeard(p, route) {
+  if (!route) {
+    if (navFrom?.id === p.id) {
+      navFrom = navNow = null;
+      hud.flash(`${p.name} has stopped navigating.`, t, 3);
+    }
+    return;
+  }
+  // (Only someone crewing in your boat navigates for you.)
+  if (onFoot || !crewingFor(p)) return;
+  // (One navigator at a time: another crewmate's call waits until the first one stops.)
+  if (navFrom && navFrom.id !== p.id && navT - navFrom.heard <= NAV_STALE) return;
+  const fresh = !navFrom || navFrom.id !== p.id || navFrom.route.name !== route.name;
+  navFrom = { id: p.id, name: p.name, route, leg: fresh ? route.leg : Math.max(navFrom.leg, route.leg), heard: navT };
+  if (fresh) {
+    audio.chime?.();
+    hud.toast(`${p.name} is navigating for you: ${route.name}, ${route.pts.length} marks. The course and distance to each mark are at the helm.`, 6);
+  }
+}
+function startNavigating(id) {
+  const R = state.routes.find((r) => r.id === id);
+  if (!R || !crew.on || !together.active) return;
+  navFor = { to: crew.on.id, id: R.id, leg: 1, sent: -99 };
+  const who = together.peers.get(crew.on.id)?.name || 'your friend';
+  hud.toast(`You're navigating for ${who}: ${R.name}. They'll have your course and distance to each mark at the helm.`, 6);
+}
+function stopNavigating(say = true) {
+  if (!navFor) return;
+  together.navigate(navFor.to, null);
+  if (say) hud.flash('You stop navigating.', t, 2.5);
+  navFor = null;
+}
+function navTick(dt) {
+  navT += dt;
+  // The skipper's side: your crewmate's call, at the wheel.
+  navNow = null;
+  if (navFrom) {
+    const p = together.peers.get(navFrom.id);
+    if (!together.active || !p || !crewingFor(p) || navT - navFrom.heard > NAV_STALE) {
+      hud.flash(`${navFrom.name} is no longer navigating.`, t, 3);
+      navFrom = null;
+    } else if (!onFoot) {
+      const f = followLeg(navFrom.route, navFrom.leg, boat.pos.x, boat.pos.z);
+      if (f.done) {
+        hud.flash(`${navFrom.name}: “That's the last mark: we're there.”`, t, 4);
+        audio.chime?.();
+        navFrom = null;
+      } else {
+        if (f.leg !== navFrom.leg) hud.flash(`${navFrom.name}: “Mark ${f.leg} rounded. Now ${courseWords(f.course)} for mark ${f.leg + 1}, ${rangeWords(f.m)}.”`, t, 3.5);
+        navFrom.leg = f.leg;
+        const at = navFrom.route.pts[f.leg];
+        navNow = { name: navFrom.name, leg: f.leg, of: navFrom.route.pts.length, course: f.course, m: f.m, x: at[0], z: at[1] };
+      }
+    }
+  }
+  // The navigator's side: your route, followed as your skipper's boat goes, sent now and then.
+  if (navFor) {
+    const R = state.routes.find((r) => r.id === navFor.id), B = crew.on && crew.on.id === navFor.to ? visitors.boatOf(navFor.to) : null;
+    if (!R || !B || !together.active) {
+      stopNavigating(!!together.active);
+      return;
+    }
+    const f = followLeg(R, navFor.leg, B.pos.x, B.pos.z);
+    if (f.done) {
+      hud.flash(`${R.name}: the last mark. Route done.`, t, 4);
+      stopNavigating(false);
+      return;
+    }
+    if (f.leg !== navFor.leg) hud.flash(`Mark ${f.leg} rounded: you call ${courseWords(f.course)} for mark ${f.leg + 1}.`, t, 3);
+    navFor.leg = f.leg;
+    if (navT - navFor.sent > NAV_EVERY && together.navigate(navFor.to, { name: R.name, pts: R.pts, leg: navFor.leg })) navFor.sent = navT;
+  }
 }
 
 // Las Brasas' chart: its heights from the island's own water map, baked when first needed.
@@ -12866,6 +12965,8 @@ function tick(now, manual = false) {
     bucketTick();
     // (A route you're following: on round its marks, see routes.js.)
     routeNow = routeTick();
+    // (F4a) A crewmate navigating for you, or you for your skipper.
+    navTick(dt);
     // (Her papers: what she's done, see papers.js.)
     vesselRun(dt, hours, burnedNow);
     burnedNow = 0;

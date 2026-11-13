@@ -1395,7 +1395,23 @@ export class MapSheet {
         this.renderRoutes();
         this.draw();
       });
-      li.append(name, sub, go, del);
+      // (F4a) Crewing a friend's boat: navigate for them with this route.
+      const skipper = this.hooks.crewSkipper?.();
+      let nav = null;
+      if (skipper) {
+        const navving = this.hooks.navigating?.() === r.id;
+        nav = document.createElement('button');
+        nav.type = 'button';
+        nav.className = 'pk-btn';
+        nav.textContent = navving ? 'Stop navigating' : `Navigate for ${skipper}`;
+        nav.addEventListener('click', () => {
+          if (navving) this.hooks.stopNavigating?.();
+          else this.hooks.navigateFor?.(r.id);
+          this.renderRoutes();
+          this.draw();
+        });
+      }
+      li.append(name, sub, go, ...(nav ? [nav] : []), del);
       if (this.showRoute === r.id) li.append(...this.dayNotes(r.pts));
       return li;
     });

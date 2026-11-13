@@ -67,9 +67,27 @@ const CREW_WORDS = ['helm', 'yes', 'no', 'back', 'wheel'];
 const CREW_GAP = 0.3, WHEEL_GAP = 0.1, ANSWER_GAP = 0.05;
 const crewGap = (e) => (e === 'helm' ? CREW_GAP : e === 'wheel' ? WHEEL_GAP : ANSWER_GAP);
 const crewKey = (e) => `crew_${e}_T`;
+// (F4a) A crewmate navigating for their skipper: their route's marks and the leg they're on, or
+// word that they've stopped. Sent when it starts and now and then after, never in a flood.
+export const NAV_POINTS = 16;
+const NAV_GAP = 1;
 const ASK_BURST = 12;     // asks a guest may make of the host in any second (rigs come up to four a second)
 // Plain words only (nothing that could be read as markup), trimmed to fit.
 const plain = (v, max) => (typeof v === 'string' ? v.replace(/[<>\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '');
+// A navigator's route as it comes over the wire: two to NAV_POINTS marks on the charts (held to
+// them), a leg that's one of them, a plain name; anything else, null.
+export function cleanNav(d) {
+  if (!d || typeof d !== 'object' || d.off || !Array.isArray(d.pts)) return null;
+  const pts = [];
+  for (const p of d.pts.slice(0, NAV_POINTS)) {
+    const x = Array.isArray(p) ? finite(p[0], -3000, 3000) : null, z = Array.isArray(p) ? finite(p[1], -3000, 8000) : null;
+    if (x == null || z == null) return null;
+    pts.push([Math.round(x), Math.round(z)]);
+  }
+  if (pts.length < 2) return null;
+  const leg = Number.isInteger(d.leg) && d.leg >= 1 && d.leg < pts.length ? d.leg : 1;
+  return { name: plain(d.name, 30) || 'their route', pts, leg };
+}
 export function cleanFind(f) {
   if (!f || typeof f !== 'object' || !FIND_KINDS.includes(f.k)) return null;
   const x = finite(f.x, -3000, 3000), z = finite(f.z, -3000, 8000);
@@ -986,6 +1004,15 @@ export class Together {
         Object.assign(d, { ti, si });
       }
       this.onEvent('crew', p, d);
+    } else if (kind === 'nav') {
+      // (F4a) A crewmate navigating for you: their route, or that they've stopped (main.js checks
+      // they're aboard your boat).
+      // (Word that they've stopped always counts: it only ever clears their call.)
+      if (!p.name || data.to !== this.id) return;
+      if (data.off) return this.onEvent('nav', p, null);
+      if (this.clock - (p.navT ?? -99) < NAV_GAP * 0.7) return;
+      p.navT = this.clock;
+      this.onEvent('nav', p, cleanNav(data));
     } else if (kind === 'shoal') {
       // A shoal marked by a friend (teamwork.js checks it's one there is).
       const x = finite(data.x, -3000, 3000), z = finite(data.z, -3000, 8000);
@@ -1191,6 +1218,17 @@ export class Together {
     if (wheel) Object.assign(msg, { ti: finite(extra.ti, -1, 1) ?? 0, si: finite(extra.si, -1, 1) ?? 0 });
     if (extra.w) msg.w = plain(extra.w, 160);
     this.rt.send('crew', msg);
+    return true;
+  }
+
+  // (F4a) Navigating for the skipper you're crewing for (to: their id): your route ({ name, pts,
+  // leg }), or null to stop (which always goes, however soon after).
+  navigate(to, route) {
+    if (!this.active || !this.rt?.open || this.reconnecting || !this.peers.has(to)) return false;
+    const R = route && cleanNav(route);
+    if (R && this.clock - (this.navSent ?? -99) < NAV_GAP) return false;
+    this.navSent = this.clock;
+    this.rt.send('nav', R ? { id: this.id, to, ...R } : { id: this.id, to, off: true });
     return true;
   }
 
