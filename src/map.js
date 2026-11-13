@@ -1315,8 +1315,9 @@ export class MapSheet {
         const P = passage(this.plan, B);
         const t = document.createElement('p');
         t.className = 'map-note';
-        t.textContent = `${P.nm.toFixed(1)} nm: about ${timeWords(P.hours)} at the ${B.name}'s ${B.knots} knots${B.lph ? `, ${B.battery ? `about ${Math.max(1, Math.round(P.litres))}% of her battery` : `some ${Math.max(1, Math.round(P.litres))} litre${Math.max(1, Math.round(P.litres)) === 1 ? '' : 's'} of her ${Math.round(B.tank)}`}${P.spare < 0 ? (B.battery ? ': more than it holds' : ': more than she carries') : P.fine ? ': cutting it fine' : ''}` : ''}.`;
+        t.textContent = `${P.nm.toFixed(1)} nm: about ${timeWords(P.hours)} at the helm, at the ${B.name}'s ${B.knots} knots${B.lph ? `, ${B.battery ? `about ${Math.max(1, Math.round(P.litres))}% of her battery` : `some ${Math.max(1, Math.round(P.litres))} litre${Math.max(1, Math.round(P.litres)) === 1 ? '' : 's'} of her ${Math.round(B.tank)}`}${P.spare < 0 ? (B.battery ? ': more than it holds' : ': more than she carries') : P.fine ? ': cutting it fine' : ''}` : ''}.`;
         out.push(t);
+        out.push(...this.dayNotes(this.plan));
       }
     }
     const acts = document.createElement('div');
@@ -1347,6 +1348,17 @@ export class MapSheet {
     this.setPlanning(false);
     this.hooks.changed?.();
     this.renderRoutes();
+  }
+  // (F2d) A route's day, leaving now in the boat you'd take (main.js routeDayLines): when she's in,
+  // where she'll be when the sun goes down and whether that's water to lie in for the night, a gale
+  // due on the way, and the days of stores and ice it wants.
+  dayNotes(pts) {
+    return (this.hooks.routeDay?.(pts) || []).map((L) => {
+      const p = document.createElement('p');
+      p.className = `map-note map-day${L.ok ? '' : ' warn'}`;
+      p.textContent = `${L.ok ? '✓' : '!'} ${L.text}`;
+      return p;
+    });
   }
   // Your routes: each with its length, to follow, see on the chart, or throw away.
   renderRoutes() {
@@ -1384,6 +1396,7 @@ export class MapSheet {
         this.draw();
       });
       li.append(name, sub, go, del);
+      if (this.showRoute === r.id) li.append(...this.dayNotes(r.pts));
       return li;
     });
     if (!rows.length) {
