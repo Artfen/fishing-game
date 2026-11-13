@@ -2437,6 +2437,8 @@ body.placing #sonar, body.placing #act-btn, body.placing #cancel-btn { visibilit
 .sp-order i, .sp-family i { font-style: italic; }
 .page h4.sp-family { margin: 8px 0 2px; font: 700 13px/1.35 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--ink-soft); }
 .sp-rank { font: 400 12px var(--font-ui); color: var(--ink-soft); }
+/* (G3) A kind you have a photograph of. */
+.sp-photo { margin-left: 6px; padding: 0 6px; border-radius: 8px; font: 600 11px var(--font-ui); color: #f4efe2; background: #2f6f74; vertical-align: 2px; }
 .sp-what { font-weight: 400; color: var(--ink-soft); }
 .sp-card { margin: 4px 0 8px; padding: 4px 0 4px 10px; border-left: 3px solid #6f9a63; }
 .sp-card.faint { border-left-color: var(--ink-faint); }

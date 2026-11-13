@@ -125,7 +125,10 @@ test('goals: counted from what the game keeps, done when reached', async () => {
   assert.equal(none.filter((g) => g.done).length, 0);
   const live = FISH.filter((f) => !f.retired);
   const all = Object.fromEntries(live.map((f) => [f.id, { count: 1, best: f.size[1] }]));
-  const done = goalsOf({ fish: all, yard: { owned: KINDS }, tips: { brasa: true } }, { places: [20, 20] });
+  // (G3: and a photograph of each of twenty kinds of wildlife.)
+  const { SEA_LIFE_KINDS } = await import('../src/save.js');
+  const photos = [{ subjects: { sea: SEA_LIFE_KINDS.slice(0, 20) } }];
+  const done = goalsOf({ fish: all, yard: { owned: KINDS }, tips: { brasa: true }, photos }, { places: [20, 20] });
   assert.ok(done.every((g) => g.done), done.filter((g) => !g.done).map((g) => g.id).join());
   const k = done.find((g) => g.id === 'kinds');
   assert.equal(k.of, done.find((g) => g.id === 'fresh').of + done.find((g) => g.id === 'salt').of, 'fresh and sea make up every kind');

@@ -3,6 +3,7 @@
 // journal's Days page (see journal.js), counted from what the game already keeps.
 
 import { FISH, fishById } from './fish.js';
+import { wildPhotographed, WILD_GOAL } from './watching.js';
 
 const LIVE = FISH.filter((f) => !f.retired);
 
@@ -26,6 +27,8 @@ export function goalsOf(state, extra = {}) {
     { id: 'boats', text: 'Boats of your own', n: owned, of: extra.boats || 11 },
     { id: 'places', text: 'Every place on the coast found', n: pf, of: po },
     { id: 'brasas', text: 'Across the ocean to Las Brasas', n: state.tips?.brasa ? 1 : 0, of: 1 },
+    // (G3) A collection of your own: kinds of wildlife with a photograph of each.
+    { id: 'photos', text: 'Wildlife photographed: twenty kinds, a picture of each', n: Math.min(WILD_GOAL, wildPhotographed(state.photos || [])), of: WILD_GOAL },
   ];
   return list.filter((g) => g.of > 0).map((g) => ({ ...g, done: g.n >= g.of }));
 }

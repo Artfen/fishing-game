@@ -8,6 +8,7 @@ import { PLACES, MAP_RECT, PATH, ZONE_NAMES, solidHeight } from './world/terrain
 import { formatClock } from './world/sky.js';
 import { dayPage, dayText, careerOf, CHALLENGES } from './daybook.js';
 import { voyageWords } from './voyages.js';
+import { seasonsWords, placesWords, photographed } from './watching.js';
 import { groundsOf, groundWords, SIGNS, NATURE, NATURE_IDS } from './grounds.js';
 import { SEA_LIFE } from './world/sealife.js';
 import { SITE_DETAILS, foundWords } from './world/divesites.js';
@@ -264,6 +265,8 @@ export class Journal {
   // recorded of it (caught, seen, met on a dive, or heard) or where to look.
   renderSpecies() {
     const st = this.state, tree = treeOf(st);
+    // (G3) Each kind you have a photograph of, from the album.
+    this.shot = photographed(st.photos);
     const total = tree.reduce((s, k) => s + k.of, 0), got = tree.reduce((s, k) => s + k.n, 0);
     $('sp-count').textContent = `${got} of ${total} recorded`;
     // (The group shown: the one chosen, or the first with something recorded in it.)
@@ -346,6 +349,8 @@ export class Journal {
       b.setAttribute('aria-label', `IUCN Red List: ${IUCN[e.iucn]}`);
       top.append(b);
     }
+    // (G3) Photographed: a picture of it in your album.
+    if (this.shot?.has(`${e.kind === 'fish' ? 'fish' : e.kind === 'nature' ? 'nature' : 'sea'}:${e.id}`)) top.append(el('span', 'sp-photo', 'photographed'));
     card.append(top);
     if (R) {
       const n = R.n === 1 ? 'once' : `${R.n} times`;
@@ -398,6 +403,9 @@ export class Journal {
     $('notes-sea').replaceChildren(...(sea.length ? sea.map(([k, R]) => {
       const d = el('div', 'n-life');
       d.append(el('b', '', SEA_LIFE[k].name), el('p', '', SEA_LIFE[k].note), el('p', 'j-seen', `First ${R.heard ? 'heard' : 'seen'} day ${R.day}${R.where ? `, ${R.where}` : ''}; ${R.heard ? 'heard' : 'seen'} ${R.n === 1 ? 'once' : `${R.n} times`}.`));
+      // (G3) Over the seasons: when it's about, and where it's mostly seen.
+      const when = seasonsWords(R), where = placesWords(R);
+      if (when || where) d.append(el('p', 'j-seen', [when && `${when.charAt(0).toUpperCase()}${when.slice(1)}.`, where && `${R.n > 1 ? 'Mostly seen' : 'Seen'} at ${where}.`].filter(Boolean).join(' ')));
       return d;
     }) : [el('p', 'j-faint', 'Dolphins, seals, whales and the gannets: watch from the boat.')]));
   }
