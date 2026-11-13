@@ -86,6 +86,7 @@ import { HelmUI } from './helm.js';
 import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
 import { takePlug, restock as restockKit, fillKit, helpBy, helpHours, HELP_WORDS, KIT as REPAIR_KIT, FLARES, FLARE_PRICE } from './safety.js';
+import { galeHoursIn, nightAtAnchor, dragTo, nightWords } from './anchorage.js';
 import { storesAboard, draw as drawStores, stockUp, daysWords, storesFor, FILL as STORES_FILL, WATCH as STORES_WATCH } from './stores.js';
 import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, hiredToday, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect, engineOf, repowerBoat, repropBoat, trimBoat } from './shipyard.js';
 import { BIRD_KINDS } from './birdData.js';
@@ -2378,12 +2379,38 @@ function sleepUntil(h) {
 }
 
 // Halfway through the fade: move the world on.
+const STALE_BY_MORNING = (t) => /^Gale warning|the gale’s an hour|^The light turns gold|^Night settles in/.test(t);
 function passTheNight() {
   const h = sleeping.h;
   let hours = h - state.hour;
   if (hours <= 0.5) hours += 24;
+  const from = state.day * 24 + state.hour;
+  // The evening's messages still waiting their turn are out of date by the morning: the gale
+  // warnings go, and the dusk and nightfall words wait for the next evening.
+  for (const t of hud.forget(STALE_BY_MORNING)) {
+    if (/^The light turns gold/.test(t)) state.tips.dusk = false;
+    if (/^Night settles in/.test(t)) state.tips.night = false;
+  }
   if (state.hour + hours >= 24) state.day++;
   state.hour = h;
+  // (F2a) A night aboard at anchor: any gale that blew while you slept, against where she lies and
+  // how she's held (see anchorage.js). Out in the open she drags, downwind, short of the shallows.
+  if (sleeping.site === 'cabin' && boat.pos.z < SOUTH_Z) {
+    const N = nightAtAnchor({ galeHours: galeHoursIn(from, from + hours), sheltered: isSheltered(zoneAt(boat.pos.x, boat.pos.z)), hold: boat.anchorHold || 1, tied: !!boat.tie || moored(boat) });
+    let short = false;
+    if (N.dragged > 0) {
+      const to = conditions.wind.from + Math.PI, r = dragTo(boat.pos.x, boat.pos.z, Math.sin(to), -Math.cos(to), N.dragged, depthAt, boat.hull.draft + 0.8);
+      N.dragged = Math.round(r.m);
+      short = r.short;
+      if (r.m > 0) {
+        boat.place(r.x, r.z, boat.heading);
+        boat.anchor = null;
+        boat.setAnchor(true, { instant: true });
+        vesselLog(boat.kind, `Dragged her anchor ${N.dragged} m in a gale overnight.`);
+      }
+    }
+    sleeping.night = nightWords(N, boat.name, short);
+  }
   camp.update(0, hours, true);
   // You wake warm and dry, and fill your water bottle before you set off (F1a: aboard, from her
   // water tank, if there's any left in it).
@@ -2391,8 +2418,9 @@ function passTheNight() {
     stepComfort(state.comfort, hours, { asleep: true });
     if (sleeping?.site !== 'cabin' || drawStores(state, boat.kind, STORES_FILL)) refill(state.comfort);
   }
-  // The weather turns while you sleep (unless you've chosen it): sometimes you wake to rain.
-  if (skyMode() === 'auto' && !clock.following) {
+  // The weather turns while you sleep (unless you've chosen it): sometimes you wake to rain. (F2a:
+  // a gale still blowing, or coming on, is the weather you wake to.)
+  if (skyMode() === 'auto' && !clock.following && !galeSky(state.day * 24 + state.hour)) {
     weather.state = pick(Math.random() < 0.3 ? ['light', 'heavy', 'overcast'] : ['clear', 'partly', 'partly', 'overcast']);
     weather.storm = 0;
     weather.timer = rand(120, 260);
@@ -2484,6 +2512,8 @@ function updateSleep(dt) {
     hud.sleep(false);
     modal = null;
     hud.toast(wakeLine(sleeping.h, sleeping.rain, sleeping.site), 6);
+    // (F2a) What the night did, aboard.
+    if (sleeping.night) hud.toast(sleeping.night, 10);
     audio.chime();
     sleeping = null;
   }
