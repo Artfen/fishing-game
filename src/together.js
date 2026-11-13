@@ -63,13 +63,15 @@ export function cleanPaid(d) {
 }
 // Crewing (see crew.js): asking for the helm and its answers, and the wheel from the one at it.
 // (Asking is limited; answers always go, a flood of them aside.)
-const CREW_WORDS = ['helm', 'yes', 'no', 'back', 'wheel'];
+const CREW_WORDS = ['helm', 'yes', 'no', 'back', 'wheel', 'tend', 'untend'];
 const CREW_GAP = 0.3, WHEEL_GAP = 0.1, ANSWER_GAP = 0.05;
 const crewGap = (e) => (e === 'helm' ? CREW_GAP : e === 'wheel' ? WHEEL_GAP : ANSWER_GAP);
 const crewKey = (e) => `crew_${e}_T`;
 // (F4a) A crewmate navigating for their skipper: their route's marks and the leg they're on, or
 // word that they've stopped. Sent when it starts and now and then after, never in a flood.
 export const NAV_POINTS = 16;
+// (F4b) A towed boat is never further than this from the boat towing her (m).
+export const TOW_REACH = 40;
 const NAV_GAP = 1;
 const ASK_BURST = 12;     // asks a guest may make of the host in any second (rigs come up to four a second)
 // Plain words only (nothing that could be read as markup), trimmed to fit.
@@ -161,6 +163,14 @@ export function cleanPose(p, kinds = null, gear = null) {
     out.n = !!p.n;   // at anchor or tied up
     // Their bow trolling motor's state (see trollmount.js: ten small numbers), if they have one.
     if (Array.isArray(p.tr) && p.tr.length === 10 && p.tr.every((v) => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) < 20)) out.tr = p.tr.map(r2);
+    // (F4b) Towing one of their boats: which, where she is and which way she's heading (never
+    // further off than a towline reaches), the pull on the line (kN), the line a crewmate tending
+    // it has let run (m), and which crewmate is (their id).
+    const W = p.tw;
+    if (W && typeof W === 'object' && typeof W.k === 'string' && W.k !== out.k && (!kinds || kinds.includes(W.k))) {
+      const wx = finite(W.x, -1e5, 1e5), wz = finite(W.z, -1e5, 1e5), wh = finite(W.h, -100, 100);
+      if (wx != null && wz != null && wh != null && Math.hypot(wx - x, wz - z) <= TOW_REACH) out.tw = { k: W.k, x: wx, z: wz, h: wh, t: finite(W.t, 0, 60) ?? 0, l: finite(W.l, 0, 20) ?? 0, ...(typeof W.e === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(W.e) ? { e: W.e } : {}) };
+    }
   }
   if (m === 'foot') out.a = ACTS.includes(p.a) ? p.a : 'stand';
   // Diving: how deep, head up or down, kicking or not, and the kit (scuba, or breath-hold with a
@@ -1096,6 +1106,8 @@ export class Together {
     const msg = { m: P.m, x: r2(P.x), z: r2(P.z), h: r2(P.h), vx: slow ? 0 : r2(P.vx), vz: slow ? 0 : r2(P.vz) };
     if (P.m === 'boat') Object.assign(msg, { k: P.k, f: P.f ? 1 : 0, s: P.s ? 1 : 0, n: P.n ? 1 : 0 });
     if (P.m === 'boat' && Array.isArray(P.tr)) msg.tr = P.tr;
+    // (F4b) The boat you're towing, and the line.
+    if (P.m === 'boat' && P.tw) msg.tw = { k: P.tw.k, x: r2(P.tw.x), z: r2(P.tw.z), h: r2(P.tw.h), t: Math.round((P.tw.t || 0) * 10) / 10, l: Math.round((P.tw.l || 0) * 10) / 10, ...(P.tw.e ? { e: P.tw.e } : {}) };
     if (P.m === 'foot') msg.a = P.a;
     if (P.m === 'dive') Object.assign(msg, { y: r2(P.y ?? 0), pt: r2(P.pt ?? 0), kt: P.kt === 's' ? 's' : 'f', kk: P.kk ? 1 : 0 });
     if (P.m === 'foot' && P.cr) Object.assign(msg, { cr: P.cr, cx: r2(P.cx), cz: r2(P.cz) });
@@ -1125,6 +1137,7 @@ export class Together {
       || Math.abs((S.xl ?? 0) - (msg.xl ?? 0)) > 3 || Math.abs((S.sl ?? 100) - (msg.sl ?? 100)) > 2
       || S.cr !== msg.cr || (msg.cr && Math.hypot(S.cx - msg.cx, S.cz - msg.cz) > 0.15)
       || String(S.tr) !== String(msg.tr)
+      || (S.tw?.k ?? null) !== (msg.tw?.k ?? null) || (msg.tw && (Math.hypot(S.tw.x - msg.tw.x, S.tw.z - msg.tw.z) > 0.25 || Math.abs(S.tw.h - msg.tw.h) > 0.05 || Math.abs(S.tw.t - msg.tw.t) > 0.5 || Math.abs(S.tw.l - msg.tw.l) > 0.5 || S.tw.e !== msg.tw.e))
       || S.kt !== msg.kt || S.kk !== msg.kk || Math.abs((S.y ?? 0) - (msg.y ?? 0)) > 0.25 || Math.abs((S.pt ?? 0) - (msg.pt ?? 0)) > 0.1;
     if (!now && (this.sendT > 0 || (!moved && this.clock - (S?.at ?? -99) < IDLE_EVERY))) return;
     this.rt.send('pose', { id: this.id, n: this.name(), host: this.hosting, t: Math.round(this.now() * 1000) / 1000, p: msg });

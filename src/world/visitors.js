@@ -7,7 +7,8 @@ import { wakes } from './wakes.js';
 import { Figure } from './folk.js';
 import { berthFor } from '../mooring.js';
 import { modeFor as navMode } from '../navlights.js';
-import { damp, clamp } from '../util.js';
+import { damp, clamp, dampAngle } from '../util.js';
+import { Rope } from '../rope.js';
 import { cleanTrollWire, deckY } from '../trollmount.js';
 import { RODS, LINE_COLORS } from '../tackle.js';
 import { buildFloat } from '../tackleModels.js';
@@ -19,7 +20,7 @@ import { Diver } from '../diver.js';
 const LINE_N = 18;  // points along a friend's line
 const DIVER_SEEN = 160; // how near a friend diving is drawn (m)
 const _tip = new THREE.Vector3();
-const _crew = new THREE.Vector3();
+const _crew = new THREE.Vector3(), _towA = new THREE.Vector3(), _towB = new THREE.Vector3();
 
 // The friends you're playing with (see together.js), drawn where they are: on foot, a figure of
 // their own (walking, standing, fishing or sitting), or in whichever boat they're in, at the helm
@@ -341,6 +342,11 @@ export class VisitorView {
   forget(id) {
     const d = this.drawn.get(id);
     if (!d) return;
+    if (d.towRope) {
+      this.scene.remove(d.towRope.mesh);
+      d.towRope.mesh.geometry.dispose();
+      d.towRope.mesh.material.dispose();
+    }
     if (d.line) {
       this.scene.remove(d.line);
       d.line.geometry.dispose();
@@ -433,13 +439,17 @@ export class VisitorView {
         if (P.r) b.setRod(P.r);
         this.drawBoat(d, b, P, A, dt, t, { fx, glow, night, lights, eye });
         if (P.f || P.o) tip = b.rodTip;
+        this.drawTow(d, b, P, A, dt, t);
       } else if (diving) this.drawDiver(d, P, A, dt, t);
+      if (!afloat || !P.tw) d.towRope?.hide();
       this.drawLine(d, P, tip, dt, t);
       this.fishAtEnd(d, P, dt, t, fx, from);
       // Their other boats in the water, lying where they left them (not the one they're in).
       const keep = new Set();
+      // (The one on their towline is drawn with them, above.)
+      if (afloat && P.tw) keep.add(P.tw.k);
       for (const F of p.fleet || []) {
-        if ((P.m === 'boat' && F.k === P.k) || Math.hypot(F.x - from.x, F.z - from.z) > 900) continue;
+        if ((P.m === 'boat' && F.k === P.k) || (afloat && F.k === P.tw?.k) || Math.hypot(F.x - from.x, F.z - from.z) > 900) continue;
         keep.add(F.k);
         this.drawMoored(this.mooredFor(d, F.k), F, t);
       }
@@ -475,7 +485,25 @@ export class VisitorView {
 
   // A friend's boat lying where they left her: riding the swell, her lines out if she's alongside,
   // solid to your boats.
-  drawMoored(b, F, t) {
+  // (F4b) The boat a friend's towing, coming along behind them on the line: kept where their game
+  // has her relative to them (so she comes with them between words, eased from one to the next),
+  // and the towline from their stern to her bow, taut while it's pulling.
+  drawTow(d, lead, P, A, dt, t) {
+    const W = P.tw;
+    if (!W) return;
+    const b = this.mooredFor(d, W.k), ox = W.x - P.x, oz = W.z - P.z;
+    const o = d.towOff && b.group.visible && d.towOff.k === W.k ? d.towOff : (d.towOff = { k: W.k, x: ox, z: oz, h: W.h });
+    const k = 1 - Math.exp(-6 * dt);
+    o.x += (ox - o.x) * k;
+    o.z += (oz - o.z) * k;
+    o.h = dampAngle(o.h, W.h, 6, dt);
+    this.drawMoored(b, { x: A.x + o.x, z: A.z + o.z, h: o.h }, t, true);
+    lead.body.localToWorld(_towA.copy(lead.cleats[1]));
+    b.body.localToWorld(_towB.copy(b.cleats[0]));
+    (d.towRope ||= new Rope(this.scene, { segments: 12, radius: 0.013 })).lay(_towA, _towB, { tension: W.t > 0.05 ? 1 : 0.3, sag: 0.9 });
+  }
+
+  drawMoored(b, F, t, towed = false) {
     const moved = !b.group.visible || Math.hypot(b.pos.x - F.x, b.pos.z - F.z) > 0.3;
     b.group.visible = true;
     const fw = { x: Math.sin(F.h), z: Math.cos(F.h) };
@@ -493,7 +521,9 @@ export class VisitorView {
     b.body.rotation.z = Math.sin(t * 0.8 + F.x) * 0.03;
     b.animate(0, t, 0, 0, 0);
     b.group.updateMatrixWorld(true);
-    if (moved) b.tie = berthFor({ hull: H, pos: { x: F.x, z: F.z }, heading: F.h }, [], { reach: 1.5 });
+    // (Lying at a berth, she's tied up there; on a towline she's tied to nothing.)
+    if (towed) b.tie = null;
+    else if (moved) b.tie = berthFor({ hull: H, pos: { x: F.x, z: F.z }, heading: F.h }, [], { reach: 1.5 });
     b.updateGear();
     b.afloat(t);
   }
