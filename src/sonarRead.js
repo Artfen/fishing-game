@@ -37,7 +37,8 @@ export const bottomWords = (b) => (b.kind === 'weed' ? `weed over ${b.under}` : 
 // The water column's temperature layers, from tempAt(depth) (°C) down to the bottom (m):
 // { top, bottom, cline } where cline is the depth (m) where it cools fastest, if it cools by at
 // least a quarter of a degree a metre there (a thermocline a sonar can show at high gain), else
-// null. (Only where the world's water has one: the sea in summer; the winter's gales mix it.)
+// null, as it is when the top's less than 1.5°C warmer than the bottom. (Only where the world's
+// water has one: the sea in summer; the winter's gales mix it.)
 export function layers(tempAt, bottom) {
   const top = tempAt(0), deepest = Math.max(0.5, bottom);
   let cline = null, steepest = 0.25, prev = top;
@@ -49,5 +50,8 @@ export function layers(tempAt, bottom) {
     }
     prev = t;
   }
-  return { top, bottom: tempAt(deepest), cline, drop: cline != null ? steepest : 0 };
+  // (A band for less than a degree and a half top to bottom would be a guess: none.)
+  const bottomT = tempAt(deepest);
+  if (top - bottomT < 1.5) cline = null;
+  return { top, bottom: bottomT, cline, drop: cline != null ? steepest : 0 };
 }

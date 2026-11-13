@@ -188,10 +188,10 @@ function drawSonar(ctx, x0, y0, w, h, U, P, win) {
     const hard = p.hard ?? p.rock;
     const band = Math.max(3, h * (0.035 + 0.05 * hard));
     const bg = ctx.createLinearGradient(0, yb, 0, yb + band * 3.5);
-    bg.addColorStop(0, css(rampAt(P, 1)));
-    bg.addColorStop(0.25, css(rampAt(P, 0.8 + 0.2 * hard)));
-    bg.addColorStop(0.6, css(rampAt(P, 0.45 + 0.2 * hard)));
-    bg.addColorStop(1, css(rampAt(P, 0.15), 0.9));
+    bg.addColorStop(0, css(rampAt(P, 0.5 + 0.5 * hard)));
+    bg.addColorStop(0.25, css(rampAt(P, 0.4 + 0.5 * hard)));
+    bg.addColorStop(0.6, css(rampAt(P, 0.25 + 0.4 * hard)));
+    bg.addColorStop(1, css(rampAt(P, 0.12), 0.9));
     ctx.fillStyle = bg;
     ctx.fillRect(x, yb, cw, y0 + h - yb);
     // (A hard bottom: a second echo at twice the depth, stronger the harder it is.)
