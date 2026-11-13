@@ -914,6 +914,24 @@ export class HarbourSheet {
     bb.disabled = today;
     bait.append(bb);
     out.push(bait);
+    // (F1b) For when it goes wrong at sea: the repair kit's spares, and flares (see safety.js).
+    const safe = this.hooks.safety?.() || [];
+    if (safe.length) {
+      out.push(el('h3', '', 'For when it goes wrong'));
+      for (const r of safe) {
+        const row = el('div', 'cp-row');
+        row.append(el('p', '', r.text), el('span', 'cp-soft', r.state));
+        if (r.label) {
+          const b = this.button(r.label, () => {
+            r.run();
+            this.render();
+          });
+          b.disabled = !!r.done;
+          row.append(b);
+        }
+        out.push(row);
+      }
+    }
     out.push(el('p', 'cp-soft', 'Everything here is a help, never a need: the tackle store is free, and a fish caught on the plainest worm counts the same.'));
     return out;
   }
