@@ -426,6 +426,7 @@ Played carefully (easing off at the surge, winding through a leap, a sensible dr
 - **The tide.** Bass, mullet, gilthead and the flatfish push up over the shallows on the flood and drop back to deeper water on the ebb.
 - **You.** Fish move away from water lately churned by a motor or cast at again and again, for a minute or two. Where it's been fished hard, what's left keeps tight to cover.
 - **The small fish themselves.** A shoal of sprat, sand smelt or roach with hunters gathering about it goes off the other way, closer together and deeper, into the weed if it keeps to weed. Feeding, it works up into the current. In winter the shoals go out to deeper water, and in summer they come back in. Roar past one in a fast boat and it goes down and bunches up for a few seconds (and scatters if you run right over it). On the fish finder: a tight, deep shoal moving off means hunters about.
+- **The hunters strike.** Watch a shoal near the top at dawn and you'll see the bass or pollack slash through it, the small fish flick away silver, and now and then one taken. A pike in the weed or a conger in the rocks goes for a shoal that drifts past it. In summer, mackerel shoals drive the sprat to the top in short, busy frenzies, with the gulls over them, then go quiet for several minutes.
 
 The graphics settings never change which fish come to a bait: every fish within 160 m of you looks at it, on every setting.
 
