@@ -21,6 +21,7 @@ const { Fishing } = await import('../src/fishing.js');
 const { Boat } = await import('../src/boat.js');
 const { Ecosystem } = await import('../src/world/ecosystem.js');
 const { createHabitat } = await import('../src/world/habitat.js');
+const { seeded } = await import('../src/util.js');
 
 const dice = (seed) => {
   let s = seed;
@@ -128,14 +129,25 @@ test('a new angle pulls it free at once', () => {
   assert.equal(W.F.stuck, null);
 });
 
-test('steady pressure works it out of weed with little harm to the line; on rock it saws braid through, while a leader stands it', () => {
-  const w = play(stuckIn('weed', mono, BEHAVIOUR.relaxed, 9), () => true, 30);
+test('steady pressure works a tired fish out of weed in a few seconds, a fresh one on light line only slowly, with little harm to the line; on rock it saws braid through, while a leader stands it', () => {
+  const tired = stuckIn('weed', mono, BEHAVIOUR.relaxed, 9);
+  tired.F.stamina = 0.1;
+  const w = play(tired, () => true, 60);
   assert.equal(w.by, 'worked');
-  assert.ok(w.t < 6, `worked out in ${w.t.toFixed(1)} s`);
+  assert.ok(w.t < 8, `a tired fish worked out in ${w.t.toFixed(1)} s`);
   assert.ok(w.F.chafe < 0.3, `chafe ${w.F.chafe.toFixed(2)}`);
-  const b = play(stuckAs('rock', braid, BEHAVIOUR.relaxed, 9, 3), () => true, 30);
+  const fresh = play(stuckIn('weed', mono, BEHAVIOUR.relaxed, 9), () => true, 60);
+  assert.equal(fresh.by, 'worked');
+  assert.ok(fresh.t > 2 * w.t, `a fresh one on light line: ${fresh.t.toFixed(1)} s against ${w.t.toFixed(1)}`);
+  // (On rock, a tired fish too: braid is sawn through before it comes, a leader lasts.)
+  const tiredAs = (line) => {
+    const r = stuckAs('rock', line, BEHAVIOUR.relaxed, 9, 3);
+    r.F.stamina = 0.1;
+    return r;
+  };
+  const b = play(tiredAs(braid), () => true, 60);
   assert.equal(b.end, 'snap:rock', JSON.stringify({ by: b.by, t: b.t }));
-  const l = play(stuckAs('rock', leader, BEHAVIOUR.relaxed, 9, 3), () => true, 30);
+  const l = play(tiredAs(leader), () => true, 60);
   assert.equal(l.by, 'worked', JSON.stringify({ end: l.end, t: l.t }));
   assert.ok(l.F.chafe > w.F.chafe, 'but even a leader takes some chafe on rock');
   assert.match(breakReason('rock', fishById.pollack, { line: braid }, { stuck: true }), /sawed the 20 lb braid through.*braid fastest/);
@@ -212,18 +224,23 @@ function onLine(at, level = 'natural') {
   f.state = 'bite';
   f.setHook();
   let t = 0;
+  // (held: true, false, or (fight) => whether to wind this step.)
   const step = (secs, held = false, each = () => {}) => {
     for (let i = 0; i < secs * 30 && f.fight; i++) {
       t += 1 / 30;
       b.update(1 / 30, t, 0, 0, 0);
       each(f.fight);
-      f.update(1 / 30, t, b.heading, held);
+      f.update(1 / 30, t, b.heading, typeof held === 'function' ? held(f.fight) : held);
     }
   };
   return { f, b, step, words, lost, flashes };
 }
 
-test('a hooked fish knows the rock near it and makes for it on a run; caught fast there, it stays put, and the boat over the top frees it', () => {
+test('a hooked fish knows the rock near it and makes for it on a run; caught fast there, it stays put, and the boat over the top frees it', (t) => {
+  // (The world's own dice, seeded, so the run is the same every time.)
+  const real = Math.random;
+  Math.random = seeded(117);
+  t.after(() => (Math.random = real));
   const G = onLine(ROCK);
   const F = G.f.fight;
   G.step(0.6);
@@ -231,7 +248,8 @@ test('a hooked fish knows the rock near it and makes for it on a run; caught fas
   assert.equal(F.haven.kind, 'rock');
   const before = Math.hypot(G.f.fishPos.x - ROCK.x, G.f.fishPos.z - ROCK.z);
   // A long run, out at the far end, winding against it: it makes for the rock and is caught fast.
-  G.step(20, true, (q) => {
+  // (Then let go: winding on, the rock would saw the line.)
+  G.step(20, (q) => !q.stuck, (q) => {
     if (!q.stuck) Object.assign(q, { pulling: true, phaseT: 99, progress: Math.min(q.progress, 0.05), extra: 0, stamina: Math.max(q.stamina, 0.8) });
   });
   assert.ok(G.f.fight, `still on: ${G.lost}`);
@@ -239,7 +257,7 @@ test('a hooked fish knows the rock near it and makes for it on a run; caught fas
   assert.ok(G.words.includes('weeded'), 'told what to do');
   assert.ok(G.flashes.some((w) => /wedged under the rocks/.test(w)));
   const at = { ...F.stuckAt };
-  G.step(1.5, true);
+  G.step(0.5, true);
   assert.ok(Math.hypot(G.f.fishPos.x - at.x, G.f.fishPos.z - at.z) < 0.01, 'it stays put');
   // The boat brought over the top of it: free.
   G.b.place(at.x, at.z + 1, Math.PI);

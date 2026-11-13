@@ -752,9 +752,10 @@ function wearGrip(F, w) {
 //   Relaxed it always does, in a few seconds.
 // - A new angle: pulled from the side (F.angle, set by the game, is how far the line has swung
 //   since it stuck; a boat over the top of it counts), it comes free.
-// - Steady pressure works it out in a few seconds, but saws at the line meanwhile: a little on
-//   weed stems, hard on rock (braid worst). Heavy pressure strains the line as ever, and a chafed
-//   line is weaker.
+// - Steady pressure works it out, in a few seconds if you can pull harder than it does (a tired
+//   fish, or line heavy for it), slowly on light line against a fresh one; and saws at the line
+//   meanwhile: a little on weed stems, hard on rock (braid worst). Heavy pressure strains the line
+//   as ever, and a chafed line is weaker.
 // Left in there (on Natural and Demanding), it may work the hook out against the stems or the rock
 // and be gone, more readily from a light hold. Returns 'unstuck' (with F.unstuckBy: 'slack',
 // 'angle' or 'worked'), an end ('snap:snag' | 'snap:rock' | 'off:weeded'), or null.
@@ -790,7 +791,10 @@ function stuckStep(F, held, dt, diff, rnd) {
     // Winding against it: the load climbs to where the drag slips.
     F.tension = approach(F.tension, Math.min(1.1, d + 0.05), 2, 1.5, dt);
     if (F.tension > 0.35) {
-      F.workT += dt * (F.tension < 0.85 ? 1 : 0.6);
+      // (How hard you can pull against how hard it pulls back: on light line a fresh fish won't
+      // come; a tired one can be eased out.)
+      const against = F.tension / Math.max(0.2, F.ratio * (0.35 + 0.65 * F.stamina));
+      F.workT += dt * (F.tension < 0.85 ? 1 : 0.6) * clamp(against, 0.1, 1);
       F.chafe = Math.min(1, F.chafe + dt * STUCK.saw[kind] * (rock ? 1 / F.abrade : 1) * F.tension);
     }
     if (F.tension > 0.97 * weak) F.strain += ((F.tension - 0.97 * weak) / diff.strain) * dt;
