@@ -34,6 +34,27 @@ test('a message stays up long enough to read it', async () => {
   assert.ok(h.shown >= 10, `140 characters: ${h.shown} s`);
 });
 
+test('a night’s sleep drops the evening’s messages still waiting (a gale warning isn’t true by morning)', async () => {
+  globalThis.document ??= { getElementById: () => null };
+  const { HUD } = await import('../src/ui.js');
+  const h = Object.create(HUD.prototype);
+  const el = { toast: { classList: { remove() {} } } };
+  Object.assign(h, { el, toastQ: [], toastUp: null, quiet: () => true, toastLater() {} });
+  h.toast('The sky’s blackening to the south-west and the wind is rising: the gale’s an hour or so off.', 9);
+  h.toast('The cabin boat: slow and steady.', 9);
+  h.toast('The light turns gold. Some fish only stir after sundown.', 6);
+  const src = readFileSync('src/main.js', 'utf8');
+  const stale = new Function(`return ${src.match(/const STALE_BY_MORNING = (\(t\) => .*);/)[1]}`)();
+  const gone = h.forget(stale);
+  assert.equal(gone.length, 2, 'the warning and the dusk words');
+  assert.deepEqual(h.toastQ.map((q) => q.text), ['The cabin boat: slow and steady.'], 'the tip still waits its turn');
+  // The one up goes too, if it's out of date.
+  h.toastUp = { text: 'Gale warning: a storm about 8 pm until 2 am.', at: 0, until: 1e9 };
+  assert.deepEqual(h.forget(stale), ['Gale warning: a storm about 8 pm until 2 am.']);
+  assert.equal(h.toastUp, null);
+  assert.match(src, /for \(const t of hud\.forget\(STALE_BY_MORNING\)\)/, 'turning in forgets them');
+});
+
 test('new settings follow the system’s reduce-motion; a choice made stands', async () => {
   const { cleanSettings } = await import('../src/settings.js');
   const was = globalThis.matchMedia;

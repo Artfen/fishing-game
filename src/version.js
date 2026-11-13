@@ -3,8 +3,8 @@
 // request that shipped it); BUILD and BUILT are written by tools/build-sw.mjs from the game's own
 // files: BUILD is the same as the offline copy's version in sw.js, and changes whenever any file
 // of the game does, so two copies with the same BUILD are the same game.
-export const RELEASE = 124;
+export const RELEASE = 125;
 // <build> Written by tools/build-sw.mjs: do not edit by hand.
-export const BUILD = '6bc8df07db95';
+export const BUILD = '8da45ea65b2d';
 export const BUILT = '2026-11-13';
 // </build>

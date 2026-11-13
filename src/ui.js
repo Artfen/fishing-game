@@ -165,6 +165,22 @@ export class HUD {
     this.toastLater();
   }
 
+  // Drop the waiting messages (and the one up) that `stale(text)` says are out of date: when the
+  // clock jumps on (a night's sleep), the evening's warnings no longer hold. Returns their words.
+  forget(stale) {
+    const gone = this.toastQ.filter((q) => stale(q.text)).map((q) => q.text);
+    this.toastQ = this.toastQ.filter((q) => !stale(q.text));
+    const up = this.toastUp;
+    if (up && stale(up.text)) {
+      gone.push(up.text);
+      clearTimeout(this.toastTimer);
+      this.el.toast.classList.remove('show');
+      this.toastUp = null;
+      this.toastLater();
+    }
+    return gone;
+  }
+
   // The next waiting message, as soon as it may show.
   toastLater() {
     if (this.toastWait || !this.toastQ.length) return;
