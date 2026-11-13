@@ -694,6 +694,7 @@ export class Boat {
     this.noise = H.noise; // how much the fish hear it moving (the kayak hardly at all)
     this.lever = 0;        // motor throttle, -1 (astern) … 1 (full ahead), set a notch at a time (see throttle.js)
     this.power = 0;        // what the motor is actually giving: it follows the lever, a moment behind
+    this.tune = 1;         // her engine's state of tune: 1 serviced, less overdue (see service.js)
     this.lastGear = 0;     // ahead (1) or astern (-1), the last way the propeller turned
     this.shiftT = 0;       // changing gear: a pause in neutral
     this.emotorDown = false; // the kayak's electric motor lowered into the water (else you paddle)
@@ -869,6 +870,9 @@ export class Boat {
       battery: [0.28, y0 + 0.13, zAt(H, 0.12)],
       livewell: [-0.26, y0 + 0.2, zAt(H, 0.3)],
       holders: [0, sheer(H, 0.22), zAt(H, 0.22)],
+      seating: [0, y0 + 0.3, zAt(H, 0.4)],
+      ladder: [0.45, sheer(H, 0.02), zAt(H, 0.02)],
+      dodger: [0, sheer(H, 0.62) + 0.3, zAt(H, 0.62)],
       anchor: [0, sheer(H, 0.97) + 0.05, zAt(H, 0.965)],
       bow: [0, sheer(H, 0.9), zAt(H, 0.9)],
     };
@@ -3570,7 +3574,10 @@ export class Boat {
     if (key === this.fitKey) return;
     this.fitKey = key;
     if (this.fitGroup) {
-      this.fitGroup.traverse((o) => o.geometry?.dispose());
+      this.fitGroup.traverse((o) => {
+        o.geometry?.dispose();
+        o.material?.dispose?.();
+      });
       this.fitGroup.removeFromParent();
     }
     const H = this.hull, g = (this.fitGroup = new THREE.Group()), parts = [];
@@ -3640,7 +3647,62 @@ export class Boat {
         box(0.1, 0.06, 0.005, sd * 0.32, y0 + 1.82, hz + 0.135, '#fff6dc');
       }
     }
+    // (G5's fit-outs: see shipyard.js FITS' work.) Extra seating: a padded bench across her,
+    // behind the console on a boat you stand to steer, ahead of you on one you steer from aft, in
+    // the cabin boat's cockpit aft of her wheelhouse.
+    const standing = !!helm && !HB && !built;
+    if (has('seating')) {
+      const t = clamp(HB ? 0.14 : standing ? tOf(hz - 0.95) : tOf(hz) + 0.3, 0.1, 0.75), z = zAt(H, t);
+      const w = Math.max(0.5, 2 * (hw(H, t) - (H.tubes ? H.tubes.r * 1.6 : 0.12)));
+      box(w * 0.9, 0.34, 0.32, 0, y0 + 0.17, z, '#e9e4d8');
+      box(w, 0.08, 0.4, 0, y0 + 0.38, z, '#2f4f63');
+    }
+    // A dive ladder: two rails over her transom to one side, clear of the engine, down into the
+    // water, with four rungs; tank racks along her side ahead of it.
+    if (has('ladder')) {
+      const t = 0.02, zs = zAt(H, t), x = 0.55 * hw(H, t), top = sheer(H, t) + 0.32, foot = H.keel(t) - 0.35;
+      for (const dx of [-0.16, 0.16]) {
+        parts.push(strut(V(x + dx, sheer(H, 0.05), zAt(H, 0.05)), V(x + dx, top, zs + 0.02), 0.014, 0.014, '#c9cdd0'));
+        parts.push(strut(V(x + dx, top, zs + 0.02), V(x + dx, foot, zs - 0.22), 0.014, 0.014, '#c9cdd0'));
+      }
+      for (let i = 1; i <= 4; i++) {
+        const f = i / 5, y = top + (foot - top) * f, z = zs + 0.02 + (-0.24) * f;
+        box(0.34, 0.025, 0.06, x, y, z, '#9aa1a7');
+      }
+      const tr = 0.2, zr = zAt(H, tr), xr = -(hw(H, tr) - 0.16);
+      for (const dz of [0, 0.32]) {
+        box(0.24, 0.06, 0.06, xr, y0 + 0.12, zr + dz, '#24272b');
+        box(0.24, 0.06, 0.06, xr, y0 + 0.5, zr + dz, '#24272b');
+      }
+    }
+    // A spray dodger: a canvas hood with a clear window, over the front of the console on a boat
+    // you stand to steer, across her ahead of you on one you steer sitting aft (low, so you see
+    // over it).
+    let windows = null;
+    if (has('dodger')) {
+      let front, back, bottom, top, w;
+      if (standing) {
+        front = hz + 1.0; back = hz + 0.45; bottom = y0 + 0.55; top = y0 + 1.3;
+        w = Math.min(1.25, 1.2 * hw(H, tOf(hz + 0.7)));
+      } else {
+        const t = clamp(tOf(hz) + 0.38, 0.3, 0.8);
+        front = zAt(H, t); back = front - 0.55; bottom = sheer(H, t) - 0.05; top = sheer(H, t) + 0.32;
+        w = 2 * (hw(H, t) - 0.05);
+      }
+      const lean = 0.22, h = top - bottom, a = -Math.atan2(lean, h), L = Math.hypot(lean, h);
+      // (The canvas: its top, its sides, and a strip round the window.)
+      box(w, 0.025, Math.max(0.1, front - lean - back), 0, top, (front - lean + back) / 2, '#2f4f63');
+      for (const sd of [1, -1]) box(0.025, h, front - back, sd * w / 2, (top + bottom) / 2, (front + back) / 2, '#2f4f63');
+      box(w, 0.07, 0.03, 0, bottom + 0.035, front, '#2f4f63');
+      // (The frame's bow along its front edge.)
+      parts.push(strut(V(-w / 2, top, front - lean), V(w / 2, top, front - lean), 0.012, 0.012, '#c9cdd0'));
+      // (The window, clear vinyl: seen through, drawn apart below.)
+      windows = new THREE.Mesh(new THREE.BoxGeometry(w * 0.94, L * 0.86, 0.01).applyMatrix4(mat(0, (top + bottom) / 2 + 0.02, front - lean / 2, a, 0, 0)),
+        new THREE.MeshStandardMaterial({ color: '#d6e6ec', transparent: true, opacity: 0.28, roughness: 0.1, metalness: 0.1, depthWrite: false }));
+      windows.name = 'dodger window';
+    }
     if (parts.length) g.add(new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.15 })));
+    if (windows) g.add(windows);
     // The floods themselves: a light over the deck, off until it's dark (see setDeckLights).
     this.deckLight = null;
     if (has('lights')) {
@@ -4574,7 +4636,8 @@ export class Boat {
         const bent = this.engine?.dmg ? 1 - this.engine.dmg * (0.3 + 0.25 * Math.abs(pw)) : 1;
         const ahead = S ? pushAt(S, vf) : (E || M).thrust, astern = S ? S.astern : (E || M).astern;
         // (Her bracket worked loose on the bottom (C5b): the engine shifts on the transom.)
-        const k = (tilted ? 0.22 : 1) * (TE ? TE.eff : 1) * bent * mountPush(this.damage);
+        // (And her engine overdue for its service: a touch down on power. See service.js.)
+        const k = (tilted ? 0.22 : 1) * (TE ? TE.eff : 1) * bent * mountPush(this.damage) * (E ? 1 : this.tune ?? 1);
         thrust = (pw > 0 ? ahead * pw : astern * pw) * share * k;
         // (Each leg's share of her push: its own lever split, its own engine running or not.)
         if (twin) {

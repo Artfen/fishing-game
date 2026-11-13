@@ -81,7 +81,7 @@ import { Placement } from './placement.js';
 import { Adventures, ADVENTURE_BY_ID, PAGES, KEEPSAKES } from './adventures.js';
 import { PhotoStore, capture, photoId, albumPage, download } from './photos.js';
 import { Haptics, STRENGTHS, engineFeel, lineFeel, slamFeel, knockFeel } from './haptics.js';
-import { PROFILES as ENGINES, WOT, setElectric, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM, tiltToggle, tiltedUp, stepTilt, HOLE, cutOut, foul, foulChance, clearIntake } from './engine.js';
+import { PROFILES as ENGINES, WOT, setElectric, isElectricNow, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM, tiltToggle, tiltedUp, stepTilt, HOLE, cutOut, foul, foulChance, clearIntake } from './engine.js';
 import { HelmUI } from './helm.js';
 import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
@@ -132,7 +132,8 @@ import * as Con from './contracts.js';
 import { Passengers } from './passengers.js';
 import * as Story from './story.js';
 import { onDesktop, seedSave, mirrorSave, reportAchievements } from './desktop.js';
-import { vesselOf } from './vessels.js';
+import { vesselOf, setFitOut } from './vessels.js';
+import { wearOf as engineWearOf, wearFx, serviceWords, serviceDone, serviceRow, sinceService, SERVICE_HOURS } from './service.js';
 import { PickupView } from './world/pickups.js';
 import { renderWork } from './contractboard.js';
 import { demandFor, money, ordersFor, ORDERS_BY } from './market.js';
@@ -2385,10 +2386,31 @@ const harbourSheet = new HarbourSheet(state, {
     save();
   },
   // Her knocks (damage.js): what the yard would do to put each right, and doing it.
-  repairsFor: (kind) => (damages[kind] ? damageRepairs(damages[kind], kind, BOAT_PRICES[kind]) : []),
+  // (G5) And her engine's service, once it's nearly due: see service.js.
+  repairsFor: (kind) => {
+    const rows = damages[kind] ? damageRepairs(damages[kind], kind, BOAT_PRICES[kind]) : [];
+    const svc = serviceRow(state.yard.vessels?.[kind], kind, { electric: isElectricNow(kind) });
+    return svc ? [...rows, svc] : rows;
+  },
+  serviceOf: (kind) => (hasEngine(kind) ? serviceWords(state.yard.vessels?.[kind], { electric: isElectricNow(kind) }) : null),
   yardRepair: (kind, id) => {
     const D = damages[kind];
-    if (!D || !mendDamage(D, id)) return;
+    // (Her service: on its own, or with the rest of what the yard does to her.)
+    const svc = (id === 'service' || id === 'all') && serviceRow(state.yard.vessels?.[kind], kind, { electric: isElectricNow(kind) });
+    if (svc) {
+      serviceDone(state.yard.vessels[kind]);
+      tuneEngine(kind);
+      vesselLog(kind, 'Her engine serviced at the Marine Works: oil and filters, plugs and the impeller.');
+      dueTold[kind] = false;
+    }
+    if (id === 'service' || !D || !mendDamage(D, id)) {
+      if (svc) {
+        audio.chime?.();
+        hud.toast('The yard services her engine: she runs sweetly again.', 3);
+        save();
+      }
+      return;
+    }
     BOATS[kind]._dmgBand = null;
     BOATS[kind].sagTubes?.();
     audio.chime?.();
@@ -2417,8 +2439,32 @@ function vesselLog(kind, text) {
 // What she's done under her own power, while you're in her: engine hours, sea miles, fuel.
 function vesselRun(dt, hours, litres) {
   if (onFoot || !boat || !state.yard.vessels?.[boat.kind]) return;
-  const E = engines[boat.kind];
-  addRun(state.yard.vessels[boat.kind], { hours: boat.motor && (!E || engineRunning(E)) ? hours : 0, metres: Math.abs(boat.speed) * dt, litres });
+  const E = engines[boat.kind], V = state.yard.vessels[boat.kind];
+  addRun(V, { hours: boat.motor && (!E || engineRunning(E)) ? hours : 0, metres: Math.abs(boat.speed) * dt, litres });
+  watchService(boat.kind, V);
+}
+// (G5) Her engine's service (see service.js): as the hours since the last one pass a hundred,
+// she's told to be due (once a session), and as she runs on overdue, her push and her thirst
+// follow, a step at a time.
+const wearBand = {}, dueTold = {};
+function engineWear(k) {
+  return hasEngine(k) && !isElectricNow(k) ? engineWearOf(state.yard.vessels?.[k]) : 0;
+}
+function tuneEngine(k) {
+  const B = BOATS[k];
+  if (!B) return;
+  const fx = wearFx(engineWear(k));
+  B.tune = fx.thrust;
+  if (YARD_BURN[k] != null) BOAT_PER_S[k] = YARD_BURN[k] * fx.burn;
+  wearBand[k] = Math.round(engineWear(k) * 20);
+}
+function watchService(k, V) {
+  if (!hasEngine(k) || isElectricNow(k)) return;
+  if (Math.round(engineWear(k) * 20) !== wearBand[k]) tuneEngine(k);
+  if (!dueTold[k] && sinceService(V) >= SERVICE_HOURS) {
+    dueTold[k] = true;
+    hud.toast(`The ${BOATS[k].name}’s engine is due its service (${SERVICE_HOURS} engine hours since the last): the Marine Works does it, on the Repairs tab. Overdue, she slowly loses a little power and burns more.`, 7);
+  }
 }
 
 function yardDo(r, then) {
@@ -4818,6 +4864,8 @@ function updateEngine(dt) {
   // (Her battery terminal shaken loose (damage.js): the starter only clicks until it's done up.)
   E.loose = !!damages[k]?.wiring?.loose;
   E.drowned = !!BOATS[k]?._drowned;
+  // (G5: her engine overdue for its service, harder to start cold. See service.js.)
+  E.wear = engineWear(k);
   if (E.loose && mode === 'go' && !engineRunning(E) && !engineCranking(E) && !looseSaid) {
     looseSaid = true;
     hud.flash('She won’t start: a click, and nothing. The battery terminal’s loose: stopped, look her over and do it up.', t, 5);
@@ -8194,6 +8242,13 @@ function chooseLaunch() {
 // What the Marine Works has done to your boats (see shipyard.js): fittings (a long-range tank, a
 // bigger outboard), paint, and her name on her bow.
 const YARD_BASE = { tanks: { ...TANKS }, burn: { ...BOAT_PER_S }, thrust: Object.fromEntries(KINDS.map((k) => [k, BOATS[k].hull.motor?.thrust])) };
+const YARD_BURN = {};
+// (G5) What her fittings do to the work she can take (vessels.js vesselOf): more seats, room for
+// divers, her people happy in a rougher sea.
+setFitOut((k) => {
+  const e = fitEffect(state.yard, k);
+  return e.seats || e.comfort || e.divers ? { seats: e.seats, comfort: e.comfort, divers: e.divers } : null;
+});
 function applyYard() {
   const f = tanks();
   for (const k of KINDS) {
@@ -8214,6 +8269,9 @@ function applyYard() {
       setElectric(k, S.electric ? S.rpm : 0);
       ELEC[k] = S.electric ? S.endure : 0;
     }
+    // (Her burn as fitted, before her engine's service has its say: see tuneEngine.)
+    YARD_BURN[k] = BOAT_PER_S[k] ?? null;
+    tuneEngine(k);
     if (isPetrol(k) && fuelLevel(f, k) > TANKS[k]) addFuel(f, k, TANKS[k] - fuelLevel(f, k));
     const L = state.yard.looks[k] || {}, hex = (id) => (id ? PAINTS.find((p) => p.id === id)?.hex : null);
     b.repaint(hex(L.paint));

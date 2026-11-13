@@ -257,8 +257,10 @@ export function act(E, action, ctx = {}, which = null, rnd = Math.random) {
       if (e.run) return done(false, 'Already running');
       ev.push('pull');
       E.pulls++;
-      // (Warm, she goes first pull; cold, it can take two or three, never more.)
-      const chance = ctx.fuel <= 0 ? 0 : E.warm > 0.4 ? 0.9 : [0.45, 0.75, 1][Math.min(2, E.pulls - 1)];
+      // (Warm, she goes first pull; cold, it can take two or three, never more. Overdue for her
+      // service (E.wear, see service.js), the first pulls catch less often.)
+      const w = Math.max(0, Math.min(1, E.wear || 0));
+      const chance = ctx.fuel <= 0 ? 0 : E.warm > 0.4 ? 0.9 - 0.15 * w : [0.45 - 0.2 * w, 0.75 - 0.25 * w, 1][Math.min(2, E.pulls - 1)];
       if (rnd() < chance) {
         e.run = true;
         e.rpm = P.idle * 1.3;
@@ -302,6 +304,8 @@ function catchTime(E, ctx, rnd) {
   if (P.electric) return 0.15;
   let t = E.warm > 0.4 ? 0.45 : 0.9;
   if (P.diesel && E.glow < 1 && E.warm <= 0.5) t += 2.2;
+  // (Overdue for her service: more turning over before she catches, cold.)
+  if (E.warm <= 0.4) t += 0.9 * Math.max(0, Math.min(1, E.wear || 0));
   return t + rnd() * 0.5;
 }
 

@@ -285,6 +285,9 @@ export class HarbourSheet {
     const engine = H.yardEngine(k);
     const run = [V.hours >= 0.05 ? `${V.hours.toFixed(1)} engine hours` : null, `${V.nm.toFixed(1)} sea miles`, V.litres >= 0.05 ? `${V.litres.toFixed(0)} litres burned` : null, `${V.fish} fish aboard`].filter(Boolean).join(' · ');
     out.push(el('p', 'hb-fit-sum', `Registered at Willowhaven, ${V.reg}. Yours since day ${V.since}${engine ? `, her engine the ${ENGINE_MODELS[engine.model]?.name}` : ''}. ${run}${best}.`));
+    // (G5) Her engine's service: when it's next due, or how overdue (the Repairs tab does it).
+    const svc = H.serviceOf?.(k);
+    if (svc) out.push(el('p', 'cp-soft', svc));
     const log = el('ul', 'hb-log');
     for (const e of V.log.slice(-8).reverse()) log.append(el('li', 'cp-soft', `Day ${e.day}: ${e.text}`));
     out.push(log);
@@ -320,7 +323,10 @@ export class HarbourSheet {
         const slotted = !fitted && F.slot ? have.find((x) => FITS[x].slot === F.slot) : null;
         const row = el('div', `cp-row hb-fit${fitted ? ' on' : ''}`);
         const text = el('div', 'hb-fit-text');
-        text.append(el('p', '', F.name), el('span', 'cp-soft', F.desc), el('span', 'hb-fit-meta', [F.kg ? `${F.kg} kg` : 'no weight to speak of', F.amps ? `draws ${F.amps} A` : null].filter(Boolean).join(' · ')));
+        // (G5: what it does to the work she can take.)
+        const W = F.work, more = W?.seats?.[k] || 0;
+        const work = [more ? `${more} more seat${more > 1 ? 's' : ''}` : null, W?.divers ? 'takes dive work' : null, W?.comfort ? `her people happy in ${Math.round(W.comfort * 100)} cm more sea` : null];
+        text.append(el('p', '', F.name), el('span', 'cp-soft', F.desc), el('span', 'hb-fit-meta', [F.kg ? `${F.kg} kg` : 'no weight to speak of', F.amps ? `draws ${F.amps} A` : null, ...work].filter(Boolean).join(' · ')));
         row.append(text);
         if (fitted) row.append(el('span', 'cp-soft', 'fitted'), this.button('Take it off', () => H.yardUnfit(k, id), 'quiet'));
         else row.append(this.button(`${slotted ? `Swap for this` : 'Fit it'}: ${money(F.price[k])}`, () => H.yardFit(k, id)));
@@ -362,8 +368,8 @@ export class HarbourSheet {
         }, 'quiet'));
       }
     }
-    if (!any) out.push(el('p', 'cp-soft', 'Your boats are sound: not a mark on them the yard would charge for.'));
-    out.push(el('p', 'cp-soft', 'Nothing breaks on its own: a knock is what she hit and how hard. A quay met gently, or sand, does no harm; rock, or a quay met at speed, does. A gouged or cracked bottom slows her. A punctured tube goes soft, and she sits lower on that side. A bent propeller is on the Fit-out tab.'));
+    if (!any) out.push(el('p', 'cp-soft', 'Your boats are sound: not a mark on them the yard would charge for, and no engine due its service.'));
+    out.push(el('p', 'cp-soft', 'Her engine wants a service every hundred hours it runs (her papers count them): run on past that and she slowly loses a little power and burns more, until it’s done. Nothing else breaks on its own: a knock is what she hit and how hard. A quay met gently, or sand, does no harm; rock, or a quay met at speed, does. A gouged or cracked bottom slows her. A punctured tube goes soft, and she sits lower on that side. A bent propeller is on the Fit-out tab.'));
     return out;
   }
 
