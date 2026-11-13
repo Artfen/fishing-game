@@ -56,4 +56,18 @@ test('a trusting giver’s work comes first on the board', () => {
   assert.ok(lifted >= 1 && lifted <= K.KEEN_FIRST);
   const rest = after.slice(K.KEEN_FIRST).map((o) => o.tpl), natural = before.map((o) => o.tpl).filter((t) => !after.slice(0, K.KEEN_FIRST).some((o) => o.tpl === t));
   assert.deepEqual(rest, natural.slice(0, rest.length), 'the rest in the day’s order');
+  // Every day, whoever it is: a trusted giver with work on the board has it first. (Their jobs
+  // that can't be made today are skipped, not lifted in place of the one that can.)
+  for (let day = 1; day <= 60; day++) {
+    const Wd = { ...W, day };
+    const board = K.offers(Object.assign(K.newContracts(), { count: 20 }), Wd);
+    for (const g of new Set(board.map((o) => o.giver))) {
+      const C = Object.assign(K.newContracts(), { count: 20 });
+      C.rep[g] = 10;
+      const top = K.offers(C, Wd);
+      assert.equal(top[0].giver, g, `day ${day}: ${g}'s work first`);
+      // (The same jobs, the board's six: nobody else's work made differently for it.)
+      for (const o of top) assert.ok(K.offers(Object.assign(K.newContracts(), { count: 20 }), Wd).some((p) => p.tpl === o.tpl) || o.giver === g, `day ${day}: ${o.tpl}`);
+    }
+  }
 });
