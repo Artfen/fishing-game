@@ -182,6 +182,11 @@ export function cleanPose(p, kinds = null, gear = null) {
     // (Beaten and alongside: 1 waiting for the net, a friend by it can net it for them; 2 too big
     // for the net, landed another way, see landing.js.)
     if (out.o && p.nt) out.nt = p.nt === 2 ? 2 : 1;
+    // (E3a: the line out past where it was hooked, m, and what's left on the spool, %: for a
+    // friend at their helm chasing it.)
+    const xl = out.o ? finite(p.xl, 0, 2000) : null, sl = out.o ? finite(p.sl, 0, 100) : null;
+    if (xl != null) out.xl = Math.round(xl);
+    if (sl != null) out.sl = Math.round(sl);
   }
   return out;
 }
@@ -1076,6 +1081,8 @@ export class Together {
       if (P.o && P.mv) msg.mv = P.mv;
       if (P.o && P.hk != null) msg.hk = P.hk;
       if (P.o && P.nt) msg.nt = P.nt === 2 ? 2 : 1;
+      if (P.o && P.xl != null) msg.xl = Math.round(P.xl);
+      if (P.o && P.sl != null) msg.sl = Math.round(P.sl);
       // (What the fish is, and how big: friends see it leap as itself. See fightshow.js.)
       if (P.o && P.sp) msg.sp = P.sp;
       if (P.o && P.sz) msg.sz = Math.round(P.sz);
@@ -1087,6 +1094,7 @@ export class Together {
       || Math.hypot(S.x - msg.x, S.z - msg.z) > 0.25 || Math.abs(S.h - msg.h) > 0.05 || Math.hypot(S.vx - msg.vx, S.vz - msg.vz) > 0.3
       || S.r !== msg.r || S.i !== msg.i || (S.ex == null) !== (msg.ex == null) || (msg.ex != null && Math.hypot(S.ex - msg.ex, S.ez - msg.ez) > 0.3)
       || Math.abs((S.tn ?? 0) - (msg.tn ?? 0)) > 0.12 || S.mv !== msg.mv || S.hk !== msg.hk || S.nt !== msg.nt || S.sp !== msg.sp
+      || Math.abs((S.xl ?? 0) - (msg.xl ?? 0)) > 3 || Math.abs((S.sl ?? 100) - (msg.sl ?? 100)) > 2
       || S.cr !== msg.cr || (msg.cr && Math.hypot(S.cx - msg.cx, S.cz - msg.cz) > 0.15)
       || String(S.tr) !== String(msg.tr)
       || S.kt !== msg.kt || S.kk !== msg.kk || Math.abs((S.y ?? 0) - (msg.y ?? 0)) > 0.25 || Math.abs((S.pt ?? 0) - (msg.pt ?? 0)) > 0.1;
