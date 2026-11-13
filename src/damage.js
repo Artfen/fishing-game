@@ -111,10 +111,11 @@ export function cleanDamage(raw, tubes = false) {
       if (!r || typeof r !== 'object') return;
       c.air = n(r.air, 0, 1, 1);
       c.leak = n(r.leak, 0, 0.1, 0);
-      c.plugged = r.plugged === true && c.leak > 0;
+      // (F1b: a rag where there was no leak-stopper.)
+      c.plugged = c.leak > 0 && (r.plugged === true || r.plugged === 'rag') ? r.plugged : false;
     });
   }
-  if (raw.plugs && typeof raw.plugs === 'object') for (const s of SECTIONS) if (raw.plugs[s] === true && D.hull[s] >= 0.85) D.plugs[s] = true;
+  if (raw.plugs && typeof raw.plugs === 'object') for (const s of SECTIONS) if ((raw.plugs[s] === true || raw.plugs[s] === 'rag') && D.hull[s] >= 0.85) D.plugs[s] = raw.plugs[s];
   if (raw.steer && typeof raw.steer === 'object') {
     D.steer.bend = n(raw.steer.bend, -PARTS.steer.most, PARTS.steer.most, 0);
     D.steer.loss = n(raw.steer.loss, 0, 0.8, 0);
@@ -135,9 +136,9 @@ export function damageSave(D) {
   const out = {};
   const hull = Object.fromEntries(SECTIONS.filter((s) => D.hull[s] > 0).map((s) => [s, Math.round(D.hull[s] * 1000) / 1000]));
   if (Object.keys(hull).length) out.hull = hull;
-  if (D.tubes?.some((c) => c.air < 1 || c.leak > 0)) out.tubes = D.tubes.map((c) => ({ air: Math.round(c.air * 1000) / 1000, leak: Math.round(c.leak * 100000) / 100000, ...(c.plugged ? { plugged: true } : {}) }));
+  if (D.tubes?.some((c) => c.air < 1 || c.leak > 0)) out.tubes = D.tubes.map((c) => ({ air: Math.round(c.air * 1000) / 1000, leak: Math.round(c.leak * 100000) / 100000, ...(c.plugged ? { plugged: c.plugged } : {}) }));
   const plugs = Object.keys(D.plugs || {}).filter((s) => D.plugs[s]);
-  if (plugs.length) out.plugs = Object.fromEntries(plugs.map((s) => [s, true]));
+  if (plugs.length) out.plugs = Object.fromEntries(plugs.map((s) => [s, D.plugs[s]]));
   const r4 = (v) => Math.round(v * 10000) / 10000;
   if (D.steer && (D.steer.bend || D.steer.loss)) out.steer = { bend: r4(D.steer.bend), loss: r4(D.steer.loss) };
   if (D.mount > 0) out.mount = r4(D.mount);
@@ -214,26 +215,31 @@ export function shake(D, jolt, mode = MODES.standard) {
 // collision mat over it, letting in a fifth of what it did (see flooding.js holeArea's use in
 // boat.js flood); a punctured tube chamber ('tube:2' …), a leak-stopper screwed into it, a fifth
 // of its leak. Until the yard. Returns true if there was something to plug.
+// (F1b) how: 'kit' (a plug or a stopper from the repair kit, see safety.js) or 'rag' (none left: a
+// rag and a jumper stuffed in, half of it still coming); a proper plug can take a rag's place.
 export const PLUGGED = 0.2;
-export function plug(D, id) {
-  const [what, key] = String(id).split(':');
-  if (what === 'hull' && D.hull[key] >= 0.85 && !D.plugs?.[key]) {
-    (D.plugs ||= {})[key] = true;
+export const RAG = 0.5;
+export function plug(D, id, how = 'kit') {
+  const [what, key] = String(id).split(':'), rag = how === 'rag';
+  if (what === 'hull' && D.hull[key] >= 0.85 && (!D.plugs?.[key] || (D.plugs[key] === 'rag' && !rag))) {
+    (D.plugs ||= {})[key] = rag ? 'rag' : true;
     return true;
   }
   const c = what === 'tube' ? D.tubes?.[+key] : null;
-  if (c && c.leak > 0 && !c.plugged) {
-    c.leak *= PLUGGED;
-    c.plugged = true;
+  if (c && c.leak > 0 && (!c.plugged || (c.plugged === 'rag' && !rag))) {
+    c.leak *= rag ? RAG : c.plugged === 'rag' ? PLUGGED / RAG : PLUGGED;
+    c.plugged = rag ? 'rag' : true;
     return true;
   }
   return false;
 }
-// What could be plugged at sea: ids for plug.
-export const pluggable = (D) => [
-  ...SECTIONS.filter((s) => D.hull[s] >= 0.85 && !D.plugs?.[s]).map((s) => `hull:${s}`),
-  ...(D.tubes || []).map((c, i) => (c.leak > 0 && !c.plugged ? `tube:${i}` : null)).filter(Boolean),
+// What could be plugged at sea: ids for plug (better: a rag's place too, for a proper plug).
+export const pluggable = (D, better = false) => [
+  ...SECTIONS.filter((s) => D.hull[s] >= 0.85 && (!D.plugs?.[s] || (better && D.plugs[s] === 'rag'))).map((s) => `hull:${s}`),
+  ...(D.tubes || []).map((c, i) => (c.leak > 0 && (!c.plugged || (better && c.plugged === 'rag')) ? `tube:${i}` : null)).filter(Boolean),
 ];
+// How a part of her hull is plugged (a fifth of the water still coming, or a rag's half), 1 open.
+export const plugLets = (v) => (v === 'rag' ? RAG : v ? PLUGGED : 1);
 
 // Her steering as damaged: the helm's angle (rad) as the leg or rudder actually takes it.
 export const steered = (D, r) => (D?.steer ? r * (1 - 0.5 * D.steer.loss) + D.steer.bend : r);

@@ -85,6 +85,7 @@ import { PROFILES as ENGINES, WOT, setElectric, START_MODES, hasEngine, cleanEng
 import { HelmUI } from './helm.js';
 import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
+import { takePlug, restock as restockKit, fillKit, helpBy, helpHours, HELP_WORDS, KIT as REPAIR_KIT, FLARES, FLARE_PRICE } from './safety.js';
 import { storesAboard, draw as drawStores, stockUp, daysWords, storesFor, FILL as STORES_FILL, WATCH as STORES_WATCH } from './stores.js';
 import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, hiredToday, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect, engineOf, repowerBoat, repropBoat, trimBoat } from './shipyard.js';
 import { BIRD_KINDS } from './birdData.js';
@@ -1798,6 +1799,42 @@ function storesWordsOf(kind) {
   const A = storesAboard(state, kind);
   return A.most ? `food and water for ${daysWords(A.days)}${A.days < A.most - 0.01 ? ` (${daysWords(A.most)} when full)` : ''}` : 'no lockers';
 }
+// (F1b) How help can be called from where she is: your phone near a harbour, her VHF, a flare, or
+// nobody (see safety.js). kind: the boat (her VHF).
+function helpHere(kind = boat.kind, P = boat.pos) {
+  return helpBy({ zone: zoneAt(P.x, P.z), vhf: !!fitEffect(state.yard, kind)?.vhf, flares: state.safety?.flares || 0 });
+}
+const HELP_ASK = { phone: 'Ring the harbour for a tow', vhf: 'Radio the harbour for a tow', flare: 'Fire a flare for help', wait: 'Wait for a passing boat' };
+// The chandlery counter's rows for when it goes wrong: the repair kit and its spares, and flares.
+function safetyRows() {
+  const S = state.safety, q = restockKit(S);
+  const kitText = S.kit ? `Your repair kit: ${S.plugs} of ${REPAIR_KIT.plugs} softwood plugs and ${S.stoppers} of ${REPAIR_KIT.stoppers} leak-stoppers for a tube, for a hole at sea` : 'A repair kit: softwood plugs for a hole in her hull and leak-stoppers for a punctured tube. Without one, a hole gets a rag';
+  const kit = { text: kitText, state: q.n ? money(q.price) : 'full', label: S.kit ? 'Top it up' : 'Buy one', done: !q.n, run: () => buyKit() };
+  const flares = { text: `Hand flares: out on the deep water your phone has no signal, and with no VHF aboard a flare brings help (without one, you wait for a passing boat). ${S.flares ? `You have ${S.flares}.` : 'You have none.'}`, state: S.flares >= FLARES ? 'enough' : `${FLARES} for ${money(FLARE_PRICE)}`, label: 'Buy three', done: S.flares >= FLARES, run: () => buyFlares() };
+  return [kit, flares];
+}
+function buyKit() {
+  const q = restockKit(state.safety);
+  if (!q.n) return;
+  if (!payOut(state, q.price, q.whole ? 'A repair kit' : 'Spares for the repair kit').ok) {
+    hud.toast(`That’s ${money(q.price)}, and your purse has ${money(state.money)}.`, 4);
+    return;
+  }
+  fillKit(state.safety);
+  hud.toast(q.whole ? 'Bert packs a repair kit for you: softwood plugs, leak-stoppers, a roll of tape. It lives in your backpack.' : 'Bert tops up your repair kit: plugs and leak-stoppers.', 5);
+  save();
+}
+function buyFlares() {
+  if (state.safety.flares >= FLARES) return;
+  if (!payOut(state, FLARE_PRICE, 'Hand flares').ok) {
+    hud.toast(`Flares are ${money(FLARE_PRICE)}, and your purse has ${money(state.money)}.`, 4);
+    return;
+  }
+  state.safety.flares += FLARES;
+  hud.toast('Three red hand flares, in a waterproof tube. Out of your phone’s reach, with no VHF aboard, one brings help.', 5);
+  save();
+}
+
 // Fill her lockers and crates: paid for, said. Returns whether it was done.
 function stockBoat(kind) {
   const S = BOATS[kind], q = stockUp(state, kind, state.economy, true);
@@ -2014,6 +2051,7 @@ const harbourSheet = new HarbourSheet(state, {
   rods: () => ROD_IDS.filter((id) => state.gear.pack.rods.includes(id) || wearOf(state, id) > 0)
     .map((id) => ({ id, name: RODS[id].name, line: lineInUse(state.gear, RODS[id]) })),
   trip: () => tripChecklist(),
+  safety: () => safetyRows(),
   // Things for the boat (cargo.js): yours, where each is, the boats lying here to load, and
   // putting them aboard, ashore, refilled and charged.
   cargo: {
@@ -2225,6 +2263,18 @@ function tripChecklist() {
   } else if (isPetrol(v) && BOATS[v]) {
     const low = fuelLow(tanks(), v);
     out.push({ ok: !low, text: `${boatTitle(BOATS[v])}: ${tankWords(tanks(), v)}${low ? '. Fill up at the fuel point on the pontoon, or the pump by the quay.' : '.'}` });
+  }
+  // (F1b) The repair kit, and calling for help offshore in her.
+  {
+    const S = state.safety;
+    out.push(S.kit && S.plugs > 0 && S.stoppers > 0 ? { ok: true, text: `Your repair kit: ${S.plugs} plugs and ${S.stoppers} leak-stoppers.` }
+      : { ok: false, text: S.kit ? `Your repair kit is down to ${S.plugs} plug${S.plugs === 1 ? '' : 's'} and ${S.stoppers} leak-stopper${S.stoppers === 1 ? '' : 's'}.` : 'No repair kit: a hole at sea gets a rag stuffed in it.', act: { label: S.kit ? 'Top it up' : 'A repair kit', run: () => buyKit() } });
+    if (BOATS[v]) {
+      const vhf = !!fitEffect(state.yard, v)?.vhf;
+      out.push(vhf ? { ok: true, text: `${boatTitle(BOATS[v])}: her VHF reaches the harbour from anywhere.` }
+        : S.flares ? { ok: true, text: `${boatTitle(BOATS[v])}: no VHF, but ${S.flares} flare${S.flares > 1 ? 's' : ''} in your kit for the deep water, where your phone has no signal.` }
+          : { ok: false, text: `${boatTitle(BOATS[v])}: no VHF and no flares. Your phone reaches the harbour along the coast and round the islands; out on the deep water (the Blue Water, the crossing), nobody hears you.`, act: { label: `Flares: ${money(FLARE_PRICE)}`, run: () => buyFlares() } });
+    }
   }
   // (F1a) Her stores: food and water aboard for days away (with needs off, nothing to want).
   if (needsMode() !== 'off' && BOATS[v] && storesAboard(state, v).most) {
@@ -5962,39 +6012,47 @@ function boatChoices() {
   const acts = [{ text: 'Paddle on with the oar', cls: 'quiet', run: () => {} }];
   // (An electric outboard's battery flat: no can will help, a tow will.)
   if (ELEC[kind]) {
-    acts.push({ text: boat.pos.z > SOUTH_Z ? 'A tow in to Puerto Brasa (about an hour)' : 'A tow to Willowhaven quay (about an hour)', run: () => towBoat() });
+    const how = helpHere(), into = boat.pos.z > SOUTH_Z ? 'Puerto Brasa' : 'Willowhaven quay';
+    acts.push({ text: how === 'flare' ? `Fire a flare for a tow (${state.safety.flares} left: a couple of hours)` : how === 'wait' ? `Wait for a passing boat to tow you to ${into} (hours)` : `${how === 'vhf' ? 'Radio' : 'Ring'} for a tow to ${into} (about an hour)`, run: () => towBoat(how) });
     ask(`The ${boat.name}: battery flat`, 'The motor’s battery is flat. An oar moves her along, slowly; tied up at a jetty or a quay it charges again (half an hour’s worth an hour), and overnight.', acts);
     return;
   }
   // (The jerry can in your backpack, or aboard her as cargo: see cargo.js.)
   const canWith = f.can.at === 'pack' || f.can.at === `boat:${kind}`;
   if (canWith && f.can.litres >= 0.5) acts.push({ text: `Pour in the jerry can (${litres(f.can.litres)})`, cls: 'quiet', run: () => { pourCan(kind); if (f.can.at !== 'pack') syncCargo(kind); } });
-  acts.push({ text: kind === 'bass' ? 'A tow to the boathouse (about an hour)' : boat.pos.z > SOUTH_Z ? 'A tow in to Puerto Brasa (about an hour)' : 'A tow to Willowhaven quay (about an hour)', run: () => towBoat() });
-  ask(`The ${boat.name}: out of fuel`, `The tank is dry. An oar moves her along, slowly${kind === 'bass' && f.battery > 0 ? ', and the electric motor still runs on its battery' : ''}.${canWith ? '' : ' (The jerry can isn’t with you.)'}`, acts);
+  // (F1b) A tow as help can be called from here.
+  const how = helpHere(), into = kind === 'bass' ? 'the boathouse' : boat.pos.z > SOUTH_Z ? 'Puerto Brasa' : 'Willowhaven quay';
+  acts.push({ text: how === 'flare' ? `Fire a flare for a tow (${state.safety.flares} left: a couple of hours)` : how === 'wait' ? `Wait for a passing boat to tow you to ${into} (hours)` : `${how === 'vhf' ? 'Radio' : 'Ring'} for a tow to ${into} (about an hour)`, run: () => towBoat(how) });
+  ask(`The ${boat.name}: out of fuel`, `The tank is dry. An oar moves her along, slowly${kind === 'bass' && f.battery > 0 ? ', and the electric motor still runs on its battery' : ''}.${canWith ? '' : ' (The jerry can isn’t with you.)'}${how === 'phone' || how === 'vhf' ? '' : ` ${HELP_WORDS[how]}`}`, acts);
 }
 
-function towBoat() {
+function towBoat(how = 'vhf') {
   if (fishing.lineOut || fishing.aiming) fishing.cancel();
+  // (F1b) A flare used; help as long as it takes to find you.
+  if (how === 'flare') state.safety.flares = Math.max(0, state.safety.flares - 1);
   // (Down south, into Puerto Brasa: a berth on the pontoon.)
   const south = boat.pos.z > SOUTH_Z, berth = south ? pontoonBerth(boat, true) : null;
   const p = berth || (south ? { x: PONTOON_S.x1 + 6, z: PONTOON_S.z1 + 6, heading: 0 } : boat.kind === 'bass' ? mooring('bass') : quayMooring(boat) || mooring(boat.kind));
   boat.place(p.x, p.z, p.heading);
   if (berth) boat.tieTo({ ...berth, t: 9 });
   else boat.setAnchor(true);
-  passTime(rescue(tanks(), boat.kind));
+  const hrs = helpHours(how, rescue(tanks(), boat.kind));
+  passTime(hrs);
   rig.reset(boat, t);
   audio.knock?.(0.4);
+  const gone = hrs > 1.5 ? `${Math.round(hrs)} hours gone` : 'an hour gone';
+  if (how === 'flare' || how === 'wait') hud.toast(how === 'flare' ? `Your flare goes up red over the water. In time a boat comes: ${gone}.` : `Nobody hears you out here: ${gone} before a passing boat sees you. (A VHF, or flares from the chandlery, and they’d have come sooner.)`, 7);
   // (An electric: tied up the while, its battery's had an hour's charge.)
   if (ELEC[boat.kind]) {
     chargeElec(tanks(), boat.kind, 1);
-    hud.toast(`${south ? 'A fishing boat tows you in to Puerto Brasa' : 'A boat from the harbour tows you in to Willowhaven quay'}, an hour gone, and the motor’s battery has had an hour on charge: ${elecWords(tanks(), boat.kind)}.`, 8);
+    hud.toast(`${south ? 'A fishing boat tows you in to Puerto Brasa' : 'A boat from the harbour tows you in to Willowhaven quay'}, ${gone}, and the motor’s battery has had an hour on charge: ${elecWords(tanks(), boat.kind)}.`, 8);
     save();
     return;
   }
   hud.toast(boat.kind === 'bass'
-    ? `The boathouse keeper tows you back to the jetty, an hour gone, and leaves you ${litres(fuelLevel(tanks(), 'bass'))} to potter with. The jerry can fills at home or at Willowhaven.`
-    : south ? `A fishing boat tows you in to Puerto Brasa, an hour gone, and they leave you ${litres(fuelLevel(tanks(), boat.kind))}. The pump is on the quay.`
-      : `A boat from the harbour tows you in to Willowhaven quay, an hour gone, and they leave you ${litres(fuelLevel(tanks(), boat.kind))}. The pump is at the root of the quay.`, 8);
+    ? `The boathouse keeper tows you back to the jetty, ${gone}, and leaves you ${litres(fuelLevel(tanks(), 'bass'))} to potter with. The jerry can fills at home or at Willowhaven.`
+    : south ? `A fishing boat tows you in to Puerto Brasa, ${gone}, and they leave you ${litres(fuelLevel(tanks(), boat.kind))}. The pump is on the quay.`
+      : `A boat from the harbour tows you in to Willowhaven quay, ${gone}, and they leave you ${litres(fuelLevel(tanks(), boat.kind))}. The pump is at the root of the quay.`, 8);
   save();
 }
 
@@ -9148,13 +9206,17 @@ function lookHerOver() {
   const acts = [{ text: 'Leave it', cls: 'quiet', cancel: true, run: () => {} }];
   if (soft) acts.push({ text: 'Pump up the tubes', run: () => startPumping() });
   if (wet) acts.push({ text: boat.hull.cabin || boat.kind === 'cruiser' ? 'Work the hand pump' : 'Bail her out', run: () => startBailing() });
-  // (Plugged at sea: a softwood plug or the collision mat in a breach, a leak-stopper in a tube.)
-  for (const id of pluggable(D).slice(0, 2)) {
-    const [what, key] = id.split(':');
-    acts.push({ text: what === 'hull' ? `Plug the hole in ${SECTION_NAMES[key]}` : `Stop the ${CHAMBERS[+key]} tube’s puncture`, run: () => plugIt(id) });
+  // (Plugged at sea: a softwood plug or the collision mat in a breach, a leak-stopper in a tube; F1b,
+  // from the repair kit, or a rag with none left; a proper plug in a rag's place.)
+  const K = state.safety, spare = (what) => !!K?.kit && (what === 'hull' ? K.plugs : K.stoppers) > 0;
+  for (const id of pluggable(D, !!K?.kit && (K.plugs > 0 || K.stoppers > 0)).slice(0, 2)) {
+    const [what, key] = id.split(':'), ragged = what === 'hull' ? D.plugs?.[key] === 'rag' : D.tubes?.[+key]?.plugged === 'rag';
+    if (ragged && !spare(what)) continue;
+    const where = what === 'hull' ? `the hole in ${SECTION_NAMES[key]}` : `the ${CHAMBERS[+key]} tube’s puncture`;
+    acts.push({ text: ragged ? `A proper ${what === 'hull' ? 'plug' : 'stopper'} for ${where}` : spare(what) ? (what === 'hull' ? `Plug ${where}` : `Stop ${where}`) : `Stuff a rag in ${where} (no ${what === 'hull' ? 'plugs' : 'stoppers'} left)`, run: () => plugIt(id) });
   }
-  // (Help from the harbour: anywhere out of it.)
-  if (!inMarina(boat.pos) && (!hullSound(D) || wet)) acts.push({ text: 'Radio the harbour for a tow', cls: 'quiet', run: () => askTow() });
+  // (Help from the harbour: anywhere out of it; F1b, as you can call it from here.)
+  if (!inMarina(boat.pos) && (!hullSound(D) || wet)) acts.push({ text: HELP_ASK[helpHere()], cls: 'quiet', run: () => askTow() });
   // (Done up at sea with the spanner from her locker: see damage.js tighten.)
   if (D.wiring?.loose) acts.push({ text: 'Do up the battery terminal', run: () => doUp('terminal') });
   if (D.mount > PARTS.mount.tight && !D.tightened) acts.push({ text: 'Do up the bracket bolts', run: () => doUp('mount') });
@@ -9176,11 +9238,16 @@ function doUp(what) {
 }
 function plugIt(id) {
   const D = damages[boat.kind];
-  if (!D || !plugDamage(D, id)) return;
-  audio.knock?.(0.35);
   const [what] = id.split(':');
-  hud.flash(what === 'hull' ? 'You hammer a softwood plug into the hole and lash the collision mat over it: it still weeps, but a fraction of what it did. It’ll hold till the yard.' : 'You screw a leak-stopper into the puncture: the hiss drops to a whisper. Pump her up, and it’ll hold till the yard.', t, 5);
-  vesselLog(boat.kind, what === 'hull' ? 'A breach plugged at sea.' : 'A tube’s puncture stopped at sea.');
+  if (!D || !pluggable(D, true).includes(id)) return;
+  // (F1b) A plug or a stopper from the repair kit, or a rag.
+  const how = takePlug(state.safety, what);
+  if (!plugDamage(D, id, how)) return;
+  audio.knock?.(0.35);
+  hud.flash(how === 'rag'
+    ? (what === 'hull' ? 'No plugs left in the kit: you stuff a rag and your jumper into the hole and wedge them with a boot. It slows the water, no more: half of it still comes. Bail, and head in. (The chandlery sells spares.)' : 'No leak-stoppers left: you bind a rag hard over the puncture. It slows the hiss, no more. Pump her up, and head in. (The chandlery sells spares.)')
+    : what === 'hull' ? 'You hammer a softwood plug into the hole and lash the collision mat over it: it still weeps, but a fraction of what it did. It’ll hold till the yard.' : 'You screw a leak-stopper into the puncture: the hiss drops to a whisper. Pump her up, and it’ll hold till the yard.', t, 5);
+  vesselLog(boat.kind, how === 'rag' ? (what === 'hull' ? 'A breach stuffed with a rag at sea.' : 'A tube’s puncture bound with a rag at sea.') : what === 'hull' ? 'A breach plugged at sea.' : 'A tube’s puncture stopped at sea.');
   save();
 }
 // The harbour's help (C6b): the launch comes out, puts their pump and their plugs in her and
@@ -9188,14 +9255,24 @@ function plugIt(id) {
 // long it takes and what they ask go by difficulty; short of money, they take what you have.
 const HARBOUR_TOW = { relaxed: { fee: 0, hours: 0.5 }, standard: { fee: 30, hours: 1 }, realistic: { fee: 60, hours: 2 } };
 function askTow() {
-  const T = HARBOUR_TOW[state.difficulty] || HARBOUR_TOW.standard;
-  ask('The harbour office, on the radio', `“We’ll send the launch out with a pump. ${T.hours < 1 ? 'Half an hour' : T.hours > 1 ? 'Two hours, mind' : 'About an hour'}${T.fee ? `, and it’s £${T.fee} for the trouble` : ', and no charge'}.”`, [
+  const T = HARBOUR_TOW[state.difficulty] || HARBOUR_TOW.standard, how = helpHere(), hrs = helpHours(how, T.hours);
+  const span = (h) => (h < 1 ? 'Half an hour' : h > 1.5 ? `${Math.round(h)} hours` : 'About an hour');
+  // (F1b) By phone or her VHF, the harbour office answers; with a flare or nothing, it's whoever sees you.
+  if (how === 'flare' || how === 'wait') {
+    ask(how === 'flare' ? 'A flare' : 'Nobody to call', `${HELP_WORDS[how]} ${how === 'flare' ? `Someone should see it and come: ${span(hrs).toLowerCase()} or so, by the time they find you` : `${span(hrs)} or more before a boat passes close enough to see you`}${T.fee ? `, and £${T.fee} for the harbour's trouble once you're in` : ''}.`, [
+      { text: 'Not now', cls: 'quiet', cancel: true, run: () => {} },
+      { text: how === 'flare' ? `Fire a flare (${state.safety.flares} left)` : 'Wait for a boat', run: () => harbourTow(how) },
+    ]);
+    return;
+  }
+  ask(how === 'vhf' ? 'The harbour office, on the radio' : 'The harbour office, on your phone', `“We’ll send the launch out with a pump. ${span(T.hours)}${T.hours > 1.5 ? ', mind' : ''}${T.fee ? `, and it’s £${T.fee} for the trouble` : ', and no charge'}.”`, [
     { text: 'Not now', cls: 'quiet', cancel: true, run: () => {} },
-    { text: 'Send the launch', run: () => harbourTow() },
+    { text: 'Send the launch', run: () => harbourTow(how) },
   ]);
 }
-function harbourTow() {
-  const T = HARBOUR_TOW[state.difficulty] || HARBOUR_TOW.standard, kind = boat.kind, D = damages[kind];
+function harbourTow(how = 'vhf') {
+  const T = HARBOUR_TOW[state.difficulty] || HARBOUR_TOW.standard, kind = boat.kind, D = damages[kind], hrs = helpHours(how, T.hours);
+  if (how === 'flare') state.safety.flares = Math.max(0, state.safety.flares - 1);
   if (fishing.lineOut || fishing.aiming) fishing.cancel();
   if (bailing) { BOATS[bailing.kind].bailing = false; bailing = null; }
   pumping = null;
@@ -9204,18 +9281,19 @@ function harbourTow() {
   boat.place(p.x, p.z, p.heading);
   if (berth) boat.tieTo({ ...berth, t: 9 });
   else boat.setAnchor(true);
-  // (Their pump and their plugs: dry, the holes stopped, the tubes pumped up.)
+  // (Their pump and their plugs: dry, the holes stopped (a rag's place too), the tubes pumped up.)
   if (D) {
     D.water?.fill(0);
-    for (const id of pluggable(D)) plugDamage(D, id);
+    for (const id of pluggable(D, true)) plugDamage(D, id);
     for (const c of D.tubes || []) c.air = 1;
   }
-  passTime(T.hours);
+  passTime(hrs);
   rig.reset(boat, t);
   const fee = Math.min(T.fee, Math.max(0, state.money || 0));
   if (fee > 0) payOut(state, fee, 'The harbour launch: a tow in');
   audio.knock?.(0.4);
-  hud.toast(`The harbour launch comes out, puts a pump and a plug in her and tows you in to ${south ? 'Puerto Brasa' : kind === 'bass' ? 'the boathouse' : 'Willowhaven quay'}: ${T.hours < 1 ? 'half an hour' : T.hours > 1 ? 'two hours' : 'an hour'} gone${fee ? `, £${fee} for their trouble` : T.fee ? ', and they’ll not take your last penny' : ''}. The Marine Works can put her right.`, 8);
+  const gone = hrs < 1 ? 'half an hour' : hrs > 1.5 ? `${Math.round(hrs)} hours` : 'an hour';
+  hud.toast(`${how === 'flare' ? 'Your flare goes up red over the water. In time a fishing boat comes, and the harbour launch behind her: they put' : how === 'wait' ? `Nobody hears you out here. ${gone[0].toUpperCase() + gone.slice(1)} go by before a passing boat sees you and calls the harbour launch: they put` : 'The harbour launch comes out, puts'} a pump and a plug in her and tow${how === 'flare' || how === 'wait' ? '' : 's'} you in to ${south ? 'Puerto Brasa' : kind === 'bass' ? 'the boathouse' : 'Willowhaven quay'}${how === 'wait' ? '' : `: ${gone} gone`}${fee ? `, £${fee} for their trouble` : T.fee ? ', and they’ll not take your last penny' : ''}. The Marine Works can put her right.${how === 'wait' ? ' (A VHF, or flares from the chandlery, and they’d have come sooner.)' : ''}`, 9);
   vesselLog(kind, 'Towed in by the harbour launch.');
   save();
 }
@@ -12992,6 +13070,7 @@ window.slowTide = {
   car, travel: (d) => travel(d), driveTo: (d, how) => driveTo(d, how), enterCar: () => enterCar(), exitCar: () => exitCar(),
   openBench: (st) => openBench(st), get driving() { return driving; }, get modalName() { return modal; },
   state, walker, fishing, env, weather, renderer, post, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world, explored, stormFx, mapSheet,
+  damages, // (each boat's knocks and holes, see damage.js)
   get boat() { return boat; }, // the boat you're in (or last used)
   reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI, pads, sealife, wildlife, crossingLife, glow,
   // What the harbour's placed sounds come from just now (see earshot.js), and the town's boats.

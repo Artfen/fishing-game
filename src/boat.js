@@ -18,7 +18,7 @@ import { Rope } from './rope.js';
 import { reachFor, berthAt } from './mooring.js';
 import { Dress } from './dress.js';
 import { CARGO, slide as slidePiece } from './cargo.js';
-import { MODES, materialOf, sectionAt, knock, scrape as scrapeHull, firmness, roughness, chamberAt, CHAMBER_SPLIT, surfaceAt, legStrike, rudderStrike, shake, steered, mountPush } from './damage.js';
+import { MODES, materialOf, sectionAt, knock, scrape as scrapeHull, firmness, roughness, chamberAt, CHAMBER_SPLIT, surfaceAt, legStrike, rudderStrike, shake, steered, mountPush, plugLets } from './damage.js';
 import { sailForce, hullDrag, boardGrip, heelFor, SAIL, boardDrag, finGrip } from './sailing.js';
 
 // The boats. Each has its own hull (metres; the bow points along local +z), its own
@@ -972,8 +972,8 @@ export class Boat {
     let breachIn = 0;
     // (Her breaches: each part of her hull cracked right through, where it is.)
     for (const s of ['bottom', 'bow', 'port', 'stbd', 'stern']) {
-      // (Plugged at sea, C6b: a fifth of it.)
-      const A = holeArea(D.hull[s]) * (D.plugs?.[s] ? 0.2 : 1);
+      // (Plugged at sea, C6b: a fifth of it; F1b, a rag: half.)
+      const A = holeArea(D.hull[s]) * plugLets(D.plugs?.[s]);
       if (!A) continue;
       const tt = s === 'bow' ? 0.9 : s === 'stern' ? 0.04 : 0.5;
       const k = C.findIndex((c) => tt >= c.t0 && tt <= c.t1);
