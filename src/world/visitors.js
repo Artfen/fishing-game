@@ -6,6 +6,7 @@ import { Boat, floatDraft, wakeOf } from '../boat.js';
 import { wakes } from './wakes.js';
 import { Figure } from './folk.js';
 import { berthFor } from '../mooring.js';
+import { modeFor as navMode } from '../navlights.js';
 import { damp, clamp } from '../util.js';
 import { cleanTrollWire, deckY } from '../trollmount.js';
 import { RODS, LINE_COLORS } from '../tackle.js';
@@ -386,7 +387,7 @@ export class VisitorView {
 
   // peers: from Together; from: where you are (those far off aren't drawn); me and mine: your id
   // and the boat you're in, for a friend crewing in her.
-  update(dt, t, peers, { from, fx = null, glow = null, night = 0, me = null, mine = null } = {}) {
+  update(dt, t, peers, { from, fx = null, glow = null, night = 0, me = null, mine = null, lights = null, eye = null } = {}) {
     for (const id of [...this.drawn.keys()]) if (!peers.has(id)) this.forget(id);
     for (const p of peers.values()) {
       if (!p.name || !p.pose || !p.at) continue;
@@ -430,7 +431,7 @@ export class VisitorView {
       } else if (afloat) {
         const b = this.boatFor(d, P.k);
         if (P.r) b.setRod(P.r);
-        this.drawBoat(d, b, P, A, dt, t, { fx, glow, night });
+        this.drawBoat(d, b, P, A, dt, t, { fx, glow, night, lights, eye });
         if (P.f || P.o) tip = b.rodTip;
       } else if (diving) this.drawDiver(d, P, A, dt, t);
       this.drawLine(d, P, tip, dt, t);
@@ -506,7 +507,7 @@ export class VisitorView {
 
   // Like the harbour's own boats (see folk.js): she rides the swell where she is, bow up a little
   // under way, her skipper at the helm, a rod out if they're fishing, the sail up if it is.
-  drawBoat(d, b, P, A, dt, t, { fx, glow, night }) {
+  drawBoat(d, b, P, A, dt, t, { fx, glow, night, lights = null, eye = null }) {
     b.group.visible = true;
     const fw = { x: Math.sin(A.h), z: Math.cos(A.h) };
     const speed = A.v || 0;
@@ -544,6 +545,8 @@ export class VisitorView {
     b.group.updateMatrixWorld(true);
     // (Solid to your boats: you bump off a friend's boat as off any other.)
     b.afloat(t);
+    // (F2c) Their lights after dark (navlights.js): at anchor or tied up they show the anchor light.
+    if (lights && eye && night > 0.3) lights.add(b, navMode({ night, anchored: !!P.n }), eye, { sailing: !!P.s });
     if (fx && speed > 0.5) {
       d.rippleT = (d.rippleT || 0) - dt;
       if (d.rippleT <= 0) {

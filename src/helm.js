@@ -87,6 +87,8 @@ export class HelmUI {
       button('start1', 'Start starboard', () => this.h.act('start', 1), 'go');
     } else button('start', P.starter === 'button' ? 'Start button' : 'Start', () => this.h.act('start'), 'go');
     button('stop', 'Stop', () => this.h.act('stop'), 'stop');
+    // (F2c) Her navigation lights, where she has them on her dash.
+    if (this.h.navLights?.has(kind)) button('lights', 'Navigation lights', () => this.h.navLights.toggle());
     if (P.trim) {
       button('trimDown', P.trim === 'tilt' ? 'Tilt down' : 'Trim in', () => this.h.trim(-1));
       button('trimUp', P.trim === 'tilt' ? 'Tilt up' : 'Trim out', () => this.h.trim(1));
@@ -128,6 +130,7 @@ export class HelmUI {
       s.b.classList.toggle('lit', !!lit);
     };
     state('battery', E.battery ? 'ON' : 'OFF', E.battery);
+    state('lights', ctx.lights ? 'ON' : 'OFF', ctx.lights);
     state('cord', E.cord ? 'clipped on' : 'off', E.cord);
     state('key', E.key ? 'ON' : 'OFF', E.key);
     state('glow', E.glowing > 0 ? `${Math.ceil(E.glowing)} s` : E.glow >= 1 ? 'ready' : '', E.glow >= 1);

@@ -120,7 +120,8 @@ import { Teamwork } from './teamwork.js';
 import { Crew, CREW_REACH, CREW_SLOW, fishFromHelm, helmWords } from './crew.js';
 import { offshorePlan, turnForHome, seaFor, OFFSHORE_AT } from './offshore.js';
 import { DashControl } from './dashcontrol.js';
-import { keyStep } from './dashboard.js';
+import { keyStep, DASHES } from './dashboard.js';
+import { NavLights, modeFor as navMode } from './navlights.js';
 import { TrollMotor, canTroll } from './trolling.js';
 import { trollWire, deckY } from './trollmount.js';
 import * as Con from './contracts.js';
@@ -3808,6 +3809,15 @@ const helmUI = new HelmUI($('helm'), {
     if (why === 'fast') helmSay('Slow down to tilt her right up: under way the trim stops at the top of its range.');
   },
   close: () => closeHelm(),
+  // (F2c) Her navigation lights, on the panel too, for a boat with them on her dash.
+  navLights: {
+    has: (k) => !!DASHES[k],
+    toggle: () => {
+      if (modal !== 'helm') return;
+      boat.navLights = !boat.navLights;
+      audio.tick?.(0.4);
+    },
+  },
 });
 function openHelm() {
   const k = leverKind();
@@ -4591,7 +4601,7 @@ function updateEngine(dt) {
     hud.flash(`The engine’s off: ${mode === 'full' ? `${K('motor')} for the helm panel` : `${K('motor')} starts her`}.`, t, 2.4);
   }
   if (t > engineSayUntil) engineSay = '';
-  helmUI.update(E, { lever: boat.lever, fuel, gear: boat.lever > 0 ? 'F' : boat.lever < 0 ? 'R' : 'N', message: engineSay });
+  helmUI.update(E, { lever: boat.lever, fuel, gear: boat.lever > 0 ? 'F' : boat.lever < 0 ? 'R' : 'N', message: engineSay, lights: !!boat.navLights });
 }
 
 // The gauges beside the throttle lever: the revs, the trim and anything wrong.
@@ -5810,6 +5820,33 @@ const fuelName = (what) => (what === 'car' ? 'the car' : `the ${BOATS[what].name
 // Within reach of a jetty or quay (where a boat ties up, and the battery charges).
 const pierNear = (b, reach = 4) => PIERS.some((P) => Math.hypot(b.pos.x - clamp(b.pos.x, P.x0, P.x1), b.pos.z - clamp(b.pos.z, P.z0, P.z1)) < reach);
 const moored = (b) => !!b.tie || (b.speed < 0.4 && pierNear(b));
+
+// (F2c) Lights at sea (navlights.js): every boat's after dark, yours, the town's and your friends',
+// in one cloud of points drawn with the scene. The town's and your friends' are added as they're
+// drawn (folk.js, visitors.js); yours, your other boats out on the water too, just before the frame.
+const navLights = new NavLights(scene, { dashOf: (b) => DASHES[b.kind]?.(b.hull)?.lights || null });
+// Her navigation-lights switch, for a boat with one on her dash (lit with her battery on), or null.
+function navSwitch(b) {
+  if (!DASHES[b.kind]) return null;
+  const E = engines[b.kind], P = ENGINES[b.kind];
+  return !!b.navLights && (!E || !P?.battery || !!E.battery);
+}
+let darkRunNight = -1;
+function shipLights() {
+  const night = env.night;
+  if (night < 0.3) return;
+  for (const b of boats) {
+    if (!b.group.visible) continue;
+    const mode = navMode({ night, tied: moored(b), anchored: !!b.anchored, lit: navSwitch(b) ?? true });
+    navLights.add(b, mode, camera.position, { sailing: !!(b.hull.sail && b.sailUp) });
+  }
+  // Under way after dark with her lights switched off: you're told, once a night.
+  const n = Math.floor((clock.abs - 12) / 24);
+  if (started && !onFoot && !driving && night > 0.5 && navSwitch(boat) === false && Math.abs(boat.forwardSpeed || 0) > 1.5 && darkRunNight !== n) {
+    darkRunNight = n;
+    hud.toast(`Running without lights: after dark nobody can see you coming. The navigation-lights switch is on her dash, or on the helm panel (${input.keyLabel('motor')}).`, 8);
+  }
+}
 const pumpNear = () => (onFoot && !driving ? Object.keys(FUEL_PUMPS).find((id) => Math.hypot(walker.pos.x - FUEL_PUMPS[id].x, walker.pos.z - FUEL_PUMPS[id].z) < 1.9) || null : null);
 // The jerry can within reach: carried, or in the boot of a car close by.
 const canHere = (reach = 8) => tanks().can.at === 'pack' || (tanks().can.at === 'car' && Math.hypot(car.pos.x - player().pos.x, car.pos.z - player().pos.z) < reach);
@@ -12329,6 +12366,7 @@ function tick(now, manual = false) {
   last = now;
   t += dt;
   conditions.time = t;
+  navLights.begin();
   watchRegion();
   deliverShipping();
   // (At Las Brasas before El Bajón was there to find: a word about it, once, a moment after you
@@ -12726,7 +12764,7 @@ function tick(now, manual = false) {
         lostBuoy.rotation.z = Math.sin(t * 1.3) * 0.15;
       }
     }
-    folkView.update(dt, t, town, { from: P, south: region === 'south', fx, glow, night: env.lantern, boats, more: visitors.boats() });
+    folkView.update(dt, t, town, { from: P, south: region === 'south', fx, glow, night: env.lantern, boats, more: visitors.boats(), lights: navLights, eye: camera.position });
     {
       const W = folkCtx(0);
       passersby.update(dt, t, { day: clock.day, hour: clock.hour, season: W.season, rain: W.rain, storm: W.storm, wind: W.wind, from: P, home: region === 'home' });
@@ -12747,7 +12785,8 @@ function tick(now, manual = false) {
         world.coast.ownerSign(plate);
       }
     }
-    visitors.update(dt, t, together.peers, { from: P, fx, glow, night: env.lantern, me: together.id, mine: onFoot ? null : boat });
+    visitors.update(dt, t, together.peers, { from: P, fx, glow, night: env.lantern, me: together.id, mine: onFoot ? null : boat, lights: navLights, eye: camera.position });
+    navLights.mark();
     placeFriendsFish(t);
     // A boat of yours lying where a friend's boat is (boats from the same jetty start in the same
     // spot) steps out of sight while theirs is there, rather than two hulls drawn in one.
@@ -13119,6 +13158,9 @@ function draw() {
   wu.uFarOn.value = farWakes.on ? 1 : 0;
   wu.uFarRipple.value = farWakes.target?.texture || null;
   wu.uFarRect.value.copy(farWakes.rect);
+  navLights.rewind();
+  shipLights();
+  navLights.end(env.night, renderer.getPixelRatio());
   renderer.render(scene, camera);
   if (post.on) post.finish(camera, lookOfTheHour());
 }
@@ -13158,6 +13200,7 @@ window.slowTide = {
   openBench: (st) => openBench(st), get driving() { return driving; }, get modalName() { return modal; },
   state, walker, fishing, env, weather, renderer, post, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world, explored, stormFx, mapSheet,
   damages, // (each boat's knocks and holes, see damage.js)
+  navLights, // (F2c: every boat's lights after dark, see navlights.js)
   get boat() { return boat; }, // the boat you're in (or last used)
   reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI, pads, sealife, wildlife, crossingLife, glow,
   // What the harbour's placed sounds come from just now (see earshot.js), and the town's boats.
