@@ -97,12 +97,13 @@ export function newEngine(kind) {
     engines: Array.from({ length: P.engines }, () => ({ run: false, crank: 0, need: 0, rpm: 0 })),
     auto: null,                 // the assisted start, under way: { steps, t }
     dmg: 0,                     // her propeller's damage, 0 … 1 (a strike on the bottom: see boat.js)
+    blocked: 0,                 // (F3b) how much of her cooling intake is covered (weed, a bag), 0 … 1
   };
 }
 
 // What's kept in the save: the switches and the battery (an engine left on is off again next time).
 export function engineSave(E) {
-  return E ? { battery: E.battery, cord: E.cord, charge: Math.round(E.charge * 1000) / 1000, trim: Math.round(E.trim * 10) / 10, ...(E.dmg > 0 ? { dmg: Math.round(E.dmg * 100) / 100 } : {}) } : null;
+  return E ? { battery: E.battery, cord: E.cord, charge: Math.round(E.charge * 1000) / 1000, trim: Math.round(E.trim * 10) / 10, ...(E.dmg > 0 ? { dmg: Math.round(E.dmg * 100) / 100 } : {}), ...(E.blocked > 0 ? { blocked: Math.round(E.blocked * 100) / 100 } : {}) } : null;
 }
 export function cleanEngine(kind, raw) {
   const E = newEngine(kind);
@@ -113,7 +114,38 @@ export function cleanEngine(kind, raw) {
   E.charge = Number.isFinite(raw.charge) ? clamp(raw.charge, 0, 1) : 1;
   E.trim = Number.isFinite(raw.trim) ? clamp(raw.trim, TRIM.min, P.trim === 'power' || P.trim === 'tilt' ? TRIM.up : 0) : 0;
   E.dmg = Number.isFinite(raw.dmg) ? clamp(raw.dmg, 0, 1) : 0;
+  E.blocked = P.cooling && Number.isFinite(raw.blocked) ? clamp(raw.blocked, 0, 1) : 0;
   return E;
+}
+
+// (F3b) The cooling intake fouled: weed, or a bag, over it. The heat she runs to with `blocked` of
+// it covered at a throttle `open` (0 … 1): the water she needs rises with the throttle (NEED_IDLE at
+// idle), and what's short of it heats her (1: overheated; 0.6 and over, the alarm).
+export const NEED_IDLE = 0.15;
+export function intakeHeat(blocked, open) {
+  const flow = 1 - clamp(blocked, 0, 1), need = NEED_IDLE + (1 - NEED_IDLE) * clamp(open, 0, 1);
+  return clamp(((need - flow) / need) * 1.4, 0, 1);
+}
+// How often, under way with her engine running: once in about FOUL_S seconds of motoring on the
+// Standard setting, twice as often on Realistic, never on Relaxed; twice as often in weedy water
+// (the estuary, the tideway, the coves), three times the day after a gale (the sea full of rubbish).
+export const FOUL_S = 1800;
+export function foulChance(dt, { difficulty = 'standard', weedy = false, afterGale = false } = {}) {
+  if (difficulty === 'relaxed') return 0;
+  return (dt / FOUL_S) * (difficulty === 'realistic' ? 2 : 1) * (weedy ? 2 : 1) * (afterGale ? 3 : 1);
+}
+// Fouled: most of the intake covered (BLOCK_LO … BLOCK_HI), and what by.
+export const BLOCK_LO = 0.6, BLOCK_HI = 0.9;
+export function foul(E, rnd = Math.random) {
+  if (!E || !PROFILES[E.kind]?.cooling || E.blocked > 0) return null;
+  E.blocked = Math.round((BLOCK_LO + (BLOCK_HI - BLOCK_LO) * rnd()) * 100) / 100;
+  return rnd() < 0.5 ? 'weed' : 'bag';
+}
+// Cleared (stopped, the leg tilted up or the strainer opened): true if there was anything on it.
+export function clearIntake(E) {
+  if (!E || !(E.blocked > 0)) return false;
+  E.blocked = 0;
+  return true;
 }
 
 export const running = (E) => !!E && E.engines.some((e) => e.run);
@@ -382,9 +414,14 @@ export function stepEngine(E, dt, ctx = {}, rnd = Math.random) {
     if (P.battery || P.starter === 'key') E.charge = Math.min(1, E.charge + 0.012 * dt);
   } else E.warm = Math.max(0, E.warm - dt / 900);
   // Cooling: water through the engine while the intake's in the water; without it she heats up.
+  // (F3b) With the intake part covered (weed, a bag), she runs to the heat the water still getting
+  // through allows at the throttle she's at: cool at dead slow, hot opened up.
   const before = E.temp;
   if (on && P.cooling && ctx.wet === false) E.temp = Math.min(1, E.temp + dt / 22);
-  else E.temp = Math.max(0, E.temp - dt / (on ? 30 : 15));
+  else if (on && P.cooling && E.blocked > 0) {
+    const T = intakeHeat(E.blocked, clamp(ctx.opening ?? Math.abs(ctx.power || 0), 0, 1));
+    E.temp = clamp(E.temp + clamp(T - E.temp, -dt / 30, dt / 22), 0, 1);
+  } else E.temp = Math.max(0, E.temp - dt / (on ? 30 : 15));
   if (before < 0.6 && E.temp >= 0.6) ev.push('hot');
   if (before >= 0.6 && E.temp < 0.6) ev.push('cool');
   return ev;

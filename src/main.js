@@ -81,7 +81,7 @@ import { Placement } from './placement.js';
 import { Adventures, ADVENTURE_BY_ID, PAGES, KEEPSAKES } from './adventures.js';
 import { PhotoStore, capture, photoId, albumPage, download } from './photos.js';
 import { Haptics, STRENGTHS, engineFeel, lineFeel, slamFeel, knockFeel } from './haptics.js';
-import { PROFILES as ENGINES, WOT, setElectric, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM, tiltToggle, tiltedUp, stepTilt, HOLE, cutOut } from './engine.js';
+import { PROFILES as ENGINES, WOT, setElectric, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM, tiltToggle, tiltedUp, stepTilt, HOLE, cutOut, foul, foulChance, clearIntake } from './engine.js';
 import { HelmUI } from './helm.js';
 import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
@@ -3772,6 +3772,42 @@ const helmSay = (text, secs = 2.6, flash = true) => {
 };
 
 // Something happened in the engine room: heard, felt and (where it matters) said.
+// (F3b) The cooling intake fouled (engine.js foul): where weed's likely, and whether a gale's just
+// been through (the sea full of rubbish after one).
+const WEEDY = new Set(['estuary', 'tideway', 'cove']);
+function galeLately() {
+  const abs = clock.abs;
+  for (let d = Math.floor(abs / 24) - 1; d <= Math.floor(abs / 24); d++) {
+    const g = galeFor(d);
+    if (g && g.end <= abs && abs - g.end < 24) return true;
+  }
+  return false;
+}
+// The alarm with her intake fouled: stop and clear it, or ease her back and limp home slow.
+function intakeAlarm(E, kind) {
+  const inboard = ENGINES[kind]?.cooling === 'alarm', by = E.fouledBy === 'bag' ? 'a plastic bag' : 'a mat of weed';
+  const what = inboard ? 'The raw-water alarm: her strainer’s choking' : 'The overheat alarm, and no water from the telltale though the leg’s down';
+  if (modal || fishing.busy || !$('confirm').hidden) {
+    helmSay(`${what}: something over the intake. Ease her right back, or stop and look her over.`, 6);
+    return;
+  }
+  ask(inboard ? 'The raw-water alarm' : 'The overheat alarm', `${what}: ${by} over the cooling intake, by the feel of it. Stop and clear it (${inboard ? 'open up the strainer and clear it out' : 'tilt the leg up and reach down for it'}), or ease her right back and limp home slow: at dead slow she runs cooler.`, [
+    { text: 'Ease her back', cls: 'quiet', run: () => hud.toast('Back to dead slow, and keep an eye on the temperature: she cools there, or near it. Opened up, she’ll run hot again.', 6) },
+    { text: 'Stop and clear it', run: () => hud.toast(`Throttle to neutral. Once she’s lost way, ${scheme() === 'touch' ? 'tap' : 'press'} ${scheme() === 'touch' ? 'the prompt' : input.keyLabel('interact')} to look her over, and clear the intake.`, 6) },
+  ]);
+}
+function clearTheIntake() {
+  const E = engines[boat.kind];
+  if (!E || !clearIntake(E)) return;
+  const inboard = ENGINES[boat.kind]?.cooling === 'alarm', by = E.fouledBy === 'bag' ? 'a shredded plastic bag' : 'a dripping mat of weed';
+  E.fouledBy = null;
+  passTime(0.25);
+  audio.splashSmall?.();
+  hud.flash(inboard ? `You open up the raw-water strainer and pull out ${by}: the water runs through again. Start her up.` : `You tilt the leg up, lean out over the transom and pull ${by} off the intake. Leg down, and the telltale's peeing again.`, t, 5);
+  vesselLog(boat.kind, 'The cooling intake cleared at sea.');
+  save();
+}
+
 function engineEvent(e, E, kind) {
   const P = ENGINES[kind], diesel = !!P.diesel;
   if (e && typeof e === 'object') {
@@ -3835,6 +3871,11 @@ function engineEvent(e, E, kind) {
       break;
     case 'hot':
       haptics.pulse('warn');
+      // (F3b) Her intake fouled, the leg down: what to do about it.
+      if (E.blocked > 0 && boat.intakeWet !== false) {
+        intakeAlarm(E, kind);
+        break;
+      }
       helmSay(P.cooling === 'telltale' ? 'Overheat alarm! No water through the engine: trim the leg down into the water.' : 'Overheat alarm! Ease off and let her cool.', 4);
       break;
     case 'cool':
@@ -4677,6 +4718,10 @@ function updateEngine(dt) {
   const spec = boat.motorSpec, hole = spec ? Math.min(0.8, HOLE + 0.4 * ((spec.effort || 1) - 1)) : HOLE;
   const ev = stepEngine(E, dt, { lever: boat.lever, power: boat.power, opening, fuel, wet: boat.intakeWet !== false, speed: boat.forwardSpeed, vd: spec?.vd || 0, hole, bite: boat.propBite ?? 1, inGear: pos > GEAR_IN });
   for (const e of ev) engineEvent(e, E, k);
+  // (F3b) Now and then under way, weed or a bag over her cooling intake: more in weedy water and
+  // the day after a gale (see engine.js foulChance). The alarm, when it comes, asks what to do.
+  if (engineRunning(E) && P.cooling && !(E.blocked > 0) && Math.abs(boat.forwardSpeed || 0) > 2
+    && Math.random() < foulChance(dt, { difficulty: state.difficulty, weedy: WEEDY.has(zoneAt(boat.pos.x, boat.pos.z)), afterGale: galeLately() })) E.fouledBy = foul(E);
   if (engineCranking(E)) haptics.hold('crank', P.diesel ? 0.45 : 0.35, 0.3, { buzz: P.diesel ? 5 : 7 });
   // (A bent propeller: a judder through her, the harder she's driven.)
   if (engineRunning(E) && E.dmg > 0.1 && Math.abs(boat.power) > 0.05) haptics.hold('bentProp', 0.08 + 0.3 * E.dmg * Math.abs(boat.power), 0.05, { buzz: 11 });
@@ -9438,17 +9483,20 @@ function damageTick(dt) {
 // otherwise). What each part of her is like, and the foot pump for a RIB's tubes.
 function damageAction() {
   if (onFoot || fishing.busy || pumping || Math.abs(boat.speed) > 1.2) return null;
-  const D = damages[boat.kind], wet = (boat.flooding?.litres || 0) > 5;
-  if (!D || (hullSound(D) && !wet)) return null;
+  const D = damages[boat.kind], wet = (boat.flooding?.litres || 0) > 5, fouled = engines[boat.kind]?.blocked > 0;
+  if ((!D || (hullSound(D) && !wet)) && !fouled) return null;
   if (boat.hull.standing && (!boat.deck || boat.atHelm)) return null;
   return { text: wet && hullSound(D) ? 'Bail her out' : 'Look her over', run: () => lookHerOver() };
 }
 function lookHerOver() {
   const D = damages[boat.kind], rows = survey(D, boat.kind).filter((r) => r.bad > 0.02);
   const F = boat.flooding, wet = (F?.litres || 0) > 5;
-  const say = [...rows.map((r) => `${r.what[0].toUpperCase() + r.what.slice(1)}: ${r.words}.`), wet ? `Water in her: ${Math.round(F.litres)} litres${F.gaining ? ', and coming in' : ''}${boat.pumpRunning ? ' (her pump’s at it)' : ''}.` : ''].filter(Boolean).join(' ');
+  const fouled = engines[boat.kind]?.blocked > 0;
+  const say = [...rows.map((r) => `${r.what[0].toUpperCase() + r.what.slice(1)}: ${r.words}.`), wet ? `Water in her: ${Math.round(F.litres)} litres${F.gaining ? ', and coming in' : ''}${boat.pumpRunning ? ' (her pump’s at it)' : ''}.` : '', fouled ? 'Her cooling intake: something over it, by the way she heats up.' : ''].filter(Boolean).join(' ');
   const soft = D.tubes?.some((c) => c.air < 0.97), leaking = D.tubes?.some((c) => c.leak);
   const acts = [{ text: 'Leave it', cls: 'quiet', cancel: true, run: () => {} }];
+  // (F3b) Weed or a bag over her cooling intake: off with it.
+  if (fouled) acts.push({ text: ENGINES[boat.kind]?.cooling === 'alarm' ? 'Clear the raw-water strainer' : 'Clear the cooling intake', run: () => clearTheIntake() });
   if (soft) acts.push({ text: 'Pump up the tubes', run: () => startPumping() });
   if (wet) acts.push({ text: boat.hull.cabin || boat.kind === 'cruiser' ? 'Work the hand pump' : 'Bail her out', run: () => startBailing() });
   // (Plugged at sea: a softwood plug or the collision mat in a breach, a leak-stopper in a tube; F1b,
