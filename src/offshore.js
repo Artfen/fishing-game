@@ -9,7 +9,7 @@
 
 import { BOAT_PER_S, isPetrol } from './fuel.js';
 import { LEVERS } from './throttle.js';
-import { vesselOf, misery } from './vessels.js';
+import { vesselOf, hullOf, misery, hullMisery } from './vessels.js';
 
 export const HOUR_S = 40; // real seconds a game hour (world/clock.js)
 // Further than this from Willowhaven (m), you're offshore: the planner thinks the run through, and
@@ -42,16 +42,17 @@ export function runOf(kind, dist) {
 }
 
 // A boat made for the open sea: one her people are happy in a metre of sea or more (the sailing
-// boat, the RIB, the centre console, the cabin boat, the yacht). The rest are inshore boats.
+// boat, the RIB, the centre console, the cabin boat, the yacht). The rest are inshore boats. (As
+// she was built: a spray dodger keeps her people drier, not her any safer out there.)
 export const OPEN_SEA = 1.0;
-export const openSea = (kind) => vesselOf(kind).comfort >= OPEN_SEA;
+export const openSea = (kind) => hullOf(kind).comfort >= OPEN_SEA;
 
 // The sea for her (sea: significant wave height, m): 'fine', 'lively' (her people feel it),
 // 'rough' (they're miserable: past half of misery), or 'dangerous' (a good way past what she's
 // for: misery full, and green water coming aboard an open boat).
 export function seaFor(kind, sea) {
   const m = misery(kind, sea);
-  return m >= 1 ? 'dangerous' : m > 0.5 ? 'rough' : m > 0 ? 'lively' : 'fine';
+  return hullMisery(kind, sea) >= 1 ? 'dangerous' : m > 0.5 ? 'rough' : m > 0 ? 'lively' : 'fine';
 }
 
 // Time to turn for home? distHome (m), litres (in the tank, or null for no engine), toGale (hours,
@@ -80,7 +81,7 @@ export function offshorePlan({ placeName, dist, kind, litres = null, toGale = nu
   const km = dist >= 1000 ? `${(dist / 1000).toFixed(1)} km` : `${Math.round(dist / 10) * 10} m`;
   const fuel = isPetrol(kind) ? `, ${Math.ceil(run.litres * 2)} L of fuel there and back${litres != null ? ` (${Math.floor(litres)} L aboard)` : ''}` : '';
   out.push({ ok: litres == null || !isPetrol(kind) || litres >= run.litres * 2 * 1.3, text: `${placeName} is ${km} away: about ${hrs(run.hours)} each way in the ${V.name}${fuel}.` });
-  if (!openSea(kind)) out.push({ ok: false, text: `The ${V.name} is an inshore boat: a sea over ${V.comfort} m and she’s in trouble out there. The RIB, the centre console, the cabin boat and the yacht are made for it.` });
+  if (!openSea(kind)) out.push({ ok: false, text: `The ${V.name} is an inshore boat: a sea over ${hullOf(kind).comfort} m and she’s in trouble out there. The RIB, the centre console, the cabin boat and the yacht are made for it.` });
   if (toGale != null) out.push({ ok: toGale > run.hours * 2 + 2, text: `A gale is due in ${hrs(toGale)}: ${toGale > run.hours * 2 + 2 ? `time to get out, fish ${hrs(toGale - run.hours * 2 - 1)} and be home an hour before it` : 'not long enough to get out there, fish and be back before it'}.` });
   else out.push({ ok: true, text: 'No gale on the way in the next day or so.' });
   if (season < 0.35 && fish) out.push({ ok: false, text: `The ${fish} is scarce in ${seasonName || 'this season'}: few are out there now.` });

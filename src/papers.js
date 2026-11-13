@@ -32,7 +32,7 @@ const num = (v, lo = 0, hi = 1e9) => (Number.isFinite(v) ? Math.min(hi, Math.max
 export const LOG_MAX = 40;
 
 export function newVessel(kind, day) {
-  return { reg: regOf(kind), since: Number.isFinite(day) ? day : 1, hours: 0, nm: 0, litres: 0, fish: 0, best: null, log: [] };
+  return { reg: regOf(kind), since: Number.isFinite(day) ? day : 1, hours: 0, serviced: 0, nm: 0, litres: 0, fish: 0, best: null, log: [] };
 }
 
 // The records, made sensible: one for each boat you own (a new one for any without), nonsense
@@ -51,6 +51,9 @@ export function cleanVessels(raw, owned, day) {
     out[k] = {
       reg: regOf(k), since: Number.isFinite(v.since) ? Math.max(0, Math.floor(v.since)) : day,
       hours: num(v.hours), nm: num(v.nm), litres: num(v.litres), fish: Math.floor(num(v.fish)), best,
+      // (Her engine's hours at its last service (service.js). A game from before services: counted
+      // from now, so nothing's suddenly overdue.)
+      serviced: Number.isFinite(v.serviced) ? Math.min(num(v.hours), num(v.serviced)) : num(v.hours),
       log: (Array.isArray(v.log) ? v.log : []).filter((e) => isObj(e) && typeof e.text === 'string' && Number.isFinite(e.day)).slice(-LOG_MAX)
         .map((e) => ({ day: Math.max(0, Math.floor(e.day)), text: e.text.slice(0, 160) })),
     };

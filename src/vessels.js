@@ -29,7 +29,21 @@ export const VESSELS = {
   jetski: { name: 'jet ski', seats: 1, cargo: 20, shelter: false, comfort: 0.6, divers: false, purpose: 'For the fun of it.' },
   windsurf: { name: 'windsurf board', seats: 0, cargo: 0, shelter: false, comfort: 0.6, divers: false, purpose: 'For the fun of it, and the wind.' },
 };
-export const vesselOf = (kind) => VESSELS[kind] || VESSELS.row;
+// She as she was built.
+export const hullOf = (kind) => VESSELS[kind] || VESSELS.row;
+// She as she's fitted out (G5 of docs/PROGRESSION.md): the Marine Works' extra seating, a dive
+// ladder and tank racks, a spray dodger (see shipyard.js FITS' work) change what she can take.
+// The game tells this module how her fittings change her (setFitOut: kind -> { seats, comfort,
+// divers } or null); without it, every boat is as she was built.
+let fitOut = null;
+export const setFitOut = (fn) => {
+  fitOut = typeof fn === 'function' ? fn : null;
+};
+export function vesselOf(kind) {
+  const V = hullOf(kind), w = fitOut?.(kind);
+  if (!w || !(w.seats || w.comfort || w.divers)) return V;
+  return { ...V, seats: V.seats + (w.seats || 0), comfort: Math.round((V.comfort + (w.comfort || 0)) * 100) / 100, divers: V.divers || !!w.divers };
+}
 
 // Can she take this job's people and freight? Returns why not, or null.
 export function fits(kind, { pax = 0, cargo = 0, divers = false } = {}) {
@@ -45,5 +59,9 @@ export function smallestFor(need, kinds = Object.keys(VESSELS)) {
   ok.sort((a, b) => VESSELS[a].seats + VESSELS[a].cargo / 200 - (VESSELS[b].seats + VESSELS[b].cargo / 200));
   return ok[0] || null;
 }
-// How the people aboard find the sea (wave height, m): 0 happy … 1 miserable.
+// How the people aboard find the sea (wave height, m): 0 happy … 1 miserable. (A spray dodger
+// keeps the wind and the spray off them: they're happy in a bigger sea.)
 export const misery = (kind, sea) => Math.max(0, Math.min(1, (sea - vesselOf(kind).comfort) / 0.8));
+// What the sea is to her hull (the same scale, as she was built): canvas doesn't make an open
+// boat any more seaworthy.
+export const hullMisery = (kind, sea) => Math.max(0, Math.min(1, (sea - hullOf(kind).comfort) / 0.8));

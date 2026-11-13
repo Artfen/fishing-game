@@ -94,6 +94,28 @@ export const FITS = {
     price: { skiff: 90, bass: 120, rib: 160 },
     desc: 'A canvas top on a frame over the helm: shade from the sun and most of the rain off you while you’re aboard.',
   },
+  // Fit-outs that change the work she can take (G5 of docs/PROGRESSION.md; vessels.js vesselOf):
+  // room for more people, divers able to go down from her and climb back, her people happy in a
+  // rougher sea. work: { seats (more, by kind), divers, comfort (m more sea her people are happy
+  // in: not seaworthiness, which stays her hull's) }.
+  seating: {
+    name: 'Extra seating', cat: 'deck', kg: 18, amps: 0,
+    price: { skiff: 80, rib: 140, console: 160, cabin: 150 },
+    desc: 'A padded bench across her cockpit and a seat or two more: room for more people on a charter or a trip out (two more; on the skiff, one). Each of them weighs what a person weighs, and she feels it.',
+    work: { seats: { skiff: 1, rib: 2, console: 2, cabin: 2 } },
+  },
+  ladder: {
+    name: 'Dive ladder and tank racks', cat: 'deck', kg: 14, amps: 0,
+    price: { skiff: 90, sail: 140, cabin: 170 },
+    desc: 'A folding ladder over her stern and racks for the tanks: divers can kit up aboard, go down from her and climb back in, so she can take dive work.',
+    work: { divers: true },
+  },
+  dodger: {
+    name: 'Spray dodger', cat: 'deck', kg: 8, amps: 0,
+    price: { skiff: 110, rib: 150, console: 170 },
+    desc: 'A folding canvas hood with clear windows ahead of the helm: it turns the spray and the wind, and her people stay happy in a sea about 40 cm bigger. (She’s no more seaworthy for it: open water still wants a boat built for it.)',
+    work: { comfort: 0.4 },
+  },
   // The bow trolling motors (see trolling.js, and trollmount.js for each boat's installation):
   // one at a time, on the boats a bow mount suits. (The RIB's goes on a raised platform over her
   // tube nose, so it costs a little more fitted; the bass boat comes with the basic one.)
@@ -337,11 +359,12 @@ export function unfitBoat(state, kind, id) {
 // What her fittings do (1, false or 0: as she came):
 // { tank, thrust, burn (multipliers), kg (what they weigh), amps (what they draw, all on),
 //   sonar, plotter, vhf, house (a house battery), troll (the trolling battery's size), lights,
-//   livewell, holders, bimini, hold (how hard her anchor holds), list (the ids) }.
+//   livewell, holders, bimini, hold (how hard her anchor holds), seats (more), comfort (m more),
+//   divers (room for them now), list (the ids) }.
 export function fitEffect(yard, kind) {
   const list = (yard?.fits?.[kind] || []).filter((id) => FITS[id]?.price[kind]);
   const has = (id) => list.includes(id);
-  const e = { tank: 1, thrust: 1, burn: 1, kg: 0, amps: 0, sonar: false, plotter: false, vhf: false, house: false, troll: 1, lights: false, livewell: false, holders: false, bimini: false, hold: 1, trollMotor: null, trollBank: false, list };
+  const e = { tank: 1, thrust: 1, burn: 1, kg: 0, amps: 0, sonar: false, plotter: false, vhf: false, house: false, troll: 1, lights: false, livewell: false, holders: false, bimini: false, hold: 1, seats: 0, comfort: 0, divers: false, trollMotor: null, trollBank: false, list };
   for (const id of list) {
     const F = FITS[id];
     e.kg += F.kg || 0;
@@ -352,6 +375,12 @@ export function fitEffect(yard, kind) {
     if (F.troll) e.troll *= F.troll;
     if (F.hold) e.hold *= F.hold;
     if (F.house) e.house = true;
+    const W = F.work;
+    if (W) {
+      e.seats += W.seats?.[kind] || 0;
+      e.comfort += W.comfort || 0;
+      if (W.divers) e.divers = true;
+    }
   }
   for (const id of ['sonar', 'plotter', 'vhf', 'lights', 'livewell', 'holders', 'bimini']) e[id] = has(id);
   // (The bow trolling motor fitted, if any, and its battery bank.)
