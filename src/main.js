@@ -88,6 +88,7 @@ import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODW
 import { takePlug, restock as restockKit, fillKit, helpBy, helpHours, HELP_WORDS, KIT as REPAIR_KIT, FLARES, FLARE_PRICE, NO_SIGNAL } from './safety.js';
 import { worthWord, heardBy, wordLeft, wordPassed, wordFor, VOICES, newWord } from './word.js';
 import { newVoyage, onVoyage, worthKeeping, finishVoyage, keepVoyage, papersLine } from './voyages.js';
+import { noteSighting } from './watching.js';
 import { galeHoursIn, nightAtAnchor, dragTo, nightWords } from './anchorage.js';
 import { FISHBOX, BOX_PRICE, hasBox, iceBox, iceUntilHere, boxHoursLeft, boxWords } from './fishbox.js';
 import { FINDS, NOTES, LIES_DAYS, HELD_MAX, thrownUp, tideSpot, stillLying, beachName, saleOf } from './flotsam.js';
@@ -9287,11 +9288,15 @@ function seeSeaLife(kind, x, z) {
   if (seaLifeSeenAt[kind] && now - seaLifeSeenAt[kind] < 600) return;
   seaLifeSeenAt[kind] = now;
   const S = (state.seaLife ||= {});
+  // (G3) The season it came in, and the place, for the notes over the years.
+  const at = region === 'south' ? 'off Las Brasas' : placeName(x, z) || farName(x, z);
   if (S[kind]) {
     S[kind].n++;
     delete S[kind].heard; // (heard before, seen now)
+    noteSighting(S[kind], { day: state.day, where: at });
   } else {
     S[kind] = { n: 1, day: state.day, hour: state.hour, where: region === 'south' ? 'off Las Brasas' : placeName(x, z) || '' };
+    noteSighting(S[kind], { day: state.day, where: at });
     // A word the first time (and where the notes are, the very first time): one at a time, so a
     // busy shore doesn't bury you in birds; the rest go quietly into the notes.
     if (now - lastSightingWord > SIGHTING_GAP) {

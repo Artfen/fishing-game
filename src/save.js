@@ -29,6 +29,7 @@ import { cleanFishbox } from './fishbox.js';
 import { cleanFlotsam } from './flotsam.js';
 import { cleanWord } from './word.js';
 import { cleanVoyage, cleanVoyages } from './voyages.js';
+import { cleanWatch } from './watching.js';
 import { cleanSafety } from './safety.js';
 import { BEHAVIOUR_IDS } from './behaviour.js';
 import { BIRD_KINDS } from './birdData.js';
@@ -221,6 +222,8 @@ function cleanSeaLife(raw) {
     if (!isObj(r) || !Number.isFinite(r.n) || r.n < 1) continue;
     out[k] = { n: Math.min(9999, Math.floor(r.n)), day: Number.isFinite(r.day) ? r.day : 1, hour: Number.isFinite(r.hour) ? r.hour : 12, where: typeof r.where === 'string' ? r.where.slice(0, 60) : '' };
     if (r.heard === true) out[k].heard = true; // (heard, not seen yet)
+    // (G3: the seasons it's been seen in, and the places it's mostly seen.)
+    Object.assign(out[k], cleanWatch(r));
   }
   return out;
 }
