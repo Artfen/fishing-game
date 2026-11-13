@@ -66,7 +66,7 @@ import { species as allSpecies } from './taxonomy.js';
 import { CatchInspector } from './inspect.js';
 import { buildWildlife } from './world/wildlife.js';
 import { seeSign, readSign, SIGNS, SEEN_AT, stepColour, colourKey, colourWords, NATURE, noteNature, groundsOf, groundWords } from './grounds.js';
-import { newToday, notePlace, noteMove, noteBoat, noteDive, noteSeen, noteSky, noteGale, noteRecord, closeDay, dayLine, checkChallenges, isSheltered, CHALLENGES, challengeById, dayPage, dayText, noteSat, noteCrossing, careerOf } from './daybook.js';
+import { newToday, notePlace, noteMove, noteBoat, noteDive, noteSeen, noteSky, noteGale, noteRecord, closeDay, dayLine, checkChallenges, isSheltered, CHALLENGES, challengeById, dayPage, dayText, noteSat, noteCrossing, noteTrip, careerOf } from './daybook.js';
 import { SeaGlow, nightGlow } from './world/seaglow.js';
 import { Fishing } from './fishing.js';
 import { drawFishSketch, drawLanternSketch, fishById, weightOf } from './fish.js';
@@ -132,7 +132,7 @@ import { PHOTO_MAX } from './save.js';
 import { Journal } from './journal.js';
 import { MapSheet, Explored, OCEAN_SHEET } from './map.js';
 import { FieldGuide } from './guide.js';
-import { startTrip, endTrip, summaryText } from './trip.js';
+import { startTrip, endTrip, summaryText, backHome } from './trip.js';
 import { diagnose } from './advice.js';
 import { studio } from './gearView.js';
 import { CameraRig } from './camera.js';
@@ -1387,6 +1387,11 @@ function logCatch(sp, size, agent, rigUsed, how = null) {
     outcome: 'released',
     x: Math.round(at.x),
     z: Math.round(at.z),
+    // (E3c) How long the fight, the boat it was fought from (yours, or the friend's you're crewing
+    // in), and a friend who helped: with the net, or at your helm.
+    ...(F?.time ? { fight: Math.round(F.time) } : {}),
+    ...(catchBoat() ? { boat: catchBoat() } : {}),
+    ...catchHelper(F),
   };
   state.log.push(entry);
   if (state.log.length > 1000) state.log.splice(0, state.log.length - 1000);
@@ -10138,7 +10143,12 @@ function updateHud() {
   const trip = state.trip;
   if (trip) {
     const d = Math.hypot(trip.x - player().pos.x, trip.z - player().pos.z);
-    if (!trip.arrived && d < trip.r) {
+    // (E3c) Back where you set off, having fished the trip's water, and settled (ashore, or the boat
+    // all but stopped, no line out): the trip's over, and goes into the day book.
+    if (backHome(trip, player().pos.x, player().pos.z) && !fishing.lineOut && (onFoot || Math.abs(boat.forwardSpeed) < 0.8) && !modal) {
+      const sp = trip.sp, sum = finishTrip();
+      if (sum) hud.toast(`Back where you set off: that’s the trip. ${summaryText(sp, sum)} It’s in today’s page of the day book.`, 8);
+    } else if (!trip.arrived && d < trip.r) {
       trip.arrived = true;
       hud.flash(`You’re on the trip’s water: ${trip.name}. Good luck with the ${fishById[trip.sp].name.toLowerCase()}.`, t, 4);
       save();
@@ -10149,7 +10159,7 @@ function updateHud() {
   // The crossing: where to steer for now (across, round the point, into the harbour).
   if (crossAim && $('cross-name').textContent !== crossAim.name) $('cross-name').textContent = crossAim.name;
   placeMarker($('cross-marker'), crossAim?.x ?? 0, 6, crossAim?.z ?? 0, !!crossAim && started && !modal && !dive);
-  placeMarker($('trip-marker'), trip?.x ?? 0, 1.2, trip?.z ?? 0, !!trip && started && !modal && Math.hypot((trip?.x ?? 0) - player().pos.x, (trip?.z ?? 0) - player().pos.z) > (trip?.r ?? 0));
+  placeMarker($('trip-marker'), trip?.x ?? 0, 1.2, trip?.z ?? 0, !!trip && state.trip === trip && started && !modal && Math.hypot((trip?.x ?? 0) - player().pos.x, (trip?.z ?? 0) - player().pos.z) > (trip?.r ?? 0));
   // The next mark of a job you've taken (one marker, not one for each).
   const job = jobTarget();
   if (job && $('job-name').textContent !== job.name) $('job-name').textContent = job.name;
@@ -10431,11 +10441,23 @@ function crewWord(p, d) {
   }
 }
 
+// (E3c) For the catch log: the boat a fish was fought from, and a friend who helped.
+function catchBoat() {
+  if (!onFoot) return boat?.kind || null;
+  return crew.on ? visitors.boatOf(crew.on.id)?.kind || null : null;
+}
+function catchHelper(F) {
+  if (F?.nettedBy) return { helper: F.nettedBy, helped: 'net' };
+  const g = crew.given && together.peers.get(crew.given.id);
+  return g?.name ? { helper: g.name, helped: 'helm' } : {};
+}
+
 // A friend netting your fish for you, or thanking you for netting theirs.
 function friendHelp(p, d) {
   if (d.e === 'net') {
     const F = fishing.fight;
     if (!teamwork.mayNet(p, d.f, F, fishing.fishPos)) return;
+    F.nettedBy = p.name;
     const kg = F.agent?.weight ?? weightOf(F.sp, F.size);
     fishing.netFish();
     hud.flash(`${p.name} nets it for you!`, t, 3);
@@ -11481,17 +11503,26 @@ journal.guide = new FieldGuide(state, {
     });
   },
   startTrip: (place, s, sp) => {
-    startTrip(state, { sp, place, setup: s });
+    startTrip(state, { sp, place, setup: s, from: player().pos, boat: onFoot ? null : boat.kind });
     save();
     return `Trip set for the ${fishById[sp].name.toLowerCase()}: ${place.name}, ${Math.round(place.dist)} m ${place.dir}. Follow the marker.`;
   },
   endTrip: () => {
     const sp = state.trip?.sp;
-    const sum = endTrip(state);
-    save();
+    const sum = finishTrip();
     return sum ? `Trip ended. ${summaryText(sp, sum)}` : '';
   },
 });
+
+// (E3c) The trip over (by hand, or back where you set off): into the record and today's page.
+function finishTrip() {
+  const trip = state.trip;
+  if (!trip) return null;
+  const sum = endTrip(state);
+  noteTrip(state.today, { name: trip.name, sp: trip.sp, boat: trip.boat || '', target: sum.target, total: sum.total, hours: sum.hours });
+  save();
+  return sum;
+}
 
 // Rig a rod from the field guide (the parts must be carried).
 function rigSetup(s) {

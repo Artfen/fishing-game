@@ -3,6 +3,7 @@ import { FISH, fishById, drawFishSketch, drawLanternSketch, weightOf } from './f
 import { hasAnatomy } from './anatomy.js';
 import { studio } from './gearView.js';
 import { TACKLE, RODS, KIND_NAMES } from './tackle.js';
+import { VESSELS } from './vessels.js';
 import { PLACES, MAP_RECT, PATH, ZONE_NAMES, solidHeight } from './world/terrain.js';
 import { formatClock } from './world/sky.js';
 import { dayPage, dayText, careerOf, CHALLENGES } from './daybook.js';
@@ -467,7 +468,12 @@ export class Journal {
     if (e.kind === 'spear') return 'Speargun · freediving';
     const rod = RODS[e.rod]?.short || KIND_NAMES[e.kind] || e.kind;
     const item = e.item ? TACKLE[e.item]?.name : null;
-    return `${rod}${item ? `, ${item.toLowerCase()}` : ''}${e.line ? ` · ${e.line}` : ''} · from the ${e.from}`;
+    // (E3c) Which boat (yours, or a friend's you were crewing in: aboard on foot, so not 'boat'); how
+    // long the fight; a friend at your helm, or with the net.
+    const from = e.boat && VESSELS[e.boat] ? VESSELS[e.boat].name : e.from;
+    const fight = e.fight >= 90 ? ` · fought ${Math.round(e.fight / 60)} minutes` : e.fight >= 20 ? ` · fought ${e.fight} seconds` : '';
+    const help = e.helper ? (e.helped === 'net' ? ` · netted by ${e.helper}` : ` · ${e.helper} at the helm`) : '';
+    return `${rod}${item ? `, ${item.toLowerCase()}` : ''}${e.line ? ` · ${e.line}` : ''} · from the ${from}${fight}${help}`;
   }
 
   // What the water was like: depth, rain, a hatch. Only what the game knew at the time.

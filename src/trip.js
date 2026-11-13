@@ -50,12 +50,16 @@ export function tripPlaces(sp, map, from, state, max = 4) {
 }
 
 // Set off: the target, the water marked, the setup chosen.
-export function startTrip(state, { sp, place, setup }) {
+// (E3c) from: where you set off ({ x, z }), so the trip ends when you're back there; boat: what you
+// set off in (vessels.js kind), for the day book.
+export function startTrip(state, { sp, place, setup, from = null, boat = null }) {
   state.trip = {
     id: `t${Date.now().toString(36)}`, sp, start: Date.now(), day: state.day, hour: state.hour,
     x: Math.round(place.x), z: Math.round(place.z), r: Math.round(place.r), name: place.name,
     setup: { rod: setup.rod, item: setup.item, term: setup.term, line: setup.line },
     arrived: false,
+    ...(from ? { from: { x: Math.round(from.x), z: Math.round(from.z) } } : {}),
+    ...(boat ? { boat } : {}),
   };
   return state.trip;
 }
@@ -85,6 +89,17 @@ export function endTrip(state) {
   if (state.trips.length > 20) state.trips.splice(0, state.trips.length - 20);
   state.trip = null;
   return sum;
+}
+
+// (E3c) Home again? Back within HOME_R m of where you set off, having been on the trip's water and
+// gone well away from there (left: set by the game past twice HOME_R; a trip planned on its own
+// water doesn't end where it began).
+export const HOME_R = 45;
+export function backHome(trip, x, z) {
+  if (!trip?.from) return false;
+  const d = Math.hypot(x - trip.from.x, z - trip.from.z);
+  if (d > HOME_R * 2) trip.left = true;
+  return !!trip.arrived && !!trip.left && d < HOME_R;
 }
 
 // In words, for the guide and the end of a trip.

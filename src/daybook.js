@@ -5,6 +5,7 @@ import { seasonWords } from './world/season.js';
 import { SEA_LIFE } from './world/sealife.js';
 import { DIVE_SITES, HOME_SITES, SOUTH_SITES, siteById } from './world/divesites.js';
 import { lower, an } from './innTalk.js';
+import { VESSELS } from './vessels.js';
 
 // The day book: every day out becomes a page in your journal, written up when the day ends (you
 // sleep, or midnight passes): the weather and the tides, where you went and how, what you caught
@@ -20,7 +21,13 @@ export const isSheltered = (zone) => SHELTERED.has(zone);
 /* ---------------- today, as it goes ---------------- */
 
 export function newToday(day) {
-  return { day, out: null, back: null, places: [], boats: [], dives: [], seen: [], sky: [], gale: null, records: [], sat: null, cross: [], dist: { boat: 0, foot: 0, car: 0, swim: 0 } };
+  return { day, out: null, back: null, places: [], boats: [], dives: [], seen: [], sky: [], gale: null, records: [], sat: null, cross: [], trips: [], dist: { boat: 0, foot: 0, car: 0, swim: 0 } };
+}
+// (E3c) A trip (see trip.js), when it ends: where, what for, in what, and how it went (the target
+// caught, all fish, hours out).
+export function noteTrip(today, { name, sp, boat = '', target = 0, total = 0, hours = 0 }) {
+  today.trips ??= [];
+  if (today.trips.length < 4) today.trips.push(cleanTrip({ name, sp, boat, target, total, hours }));
 }
 // The crossing to Las Brasas or home (see crossing.js): setting out ('out'), making it ('in'),
 // turning back ('back'); at the helm or by the fast passage ('fast'); in which boat; and for one
@@ -95,14 +102,14 @@ export function dayPage(state, today = state.today) {
   const firstLife = Object.entries(state.seaLife || {}).filter(([, r]) => r.day === day).map(([k]) => k).filter((k) => SEA_LIFE[k]);
   const moved = Object.values(today.dist).reduce((a, b) => a + b, 0);
   const top = log.reduce((b, e) => (!b || rel(e) > rel(b) ? e : b), null);
-  if (!log.length && !today.dives.length && !today.seen.length && moved < 150 && !firstPlaces.length && !today.sat && !today.cross?.length) return null;
+  if (!log.length && !today.dives.length && !today.seen.length && moved < 150 && !firstPlaces.length && !today.sat && !today.cross?.length && !today.trips?.length) return null;
   return {
     day, season: seasonWords(day), sky: today.sky.slice(), out: today.out, back: today.back,
     places: today.places.slice(), boats: today.boats.slice(), dist: Object.fromEntries(Object.entries(today.dist).map(([k, v]) => [k, Math.round(v)])),
     caught: log.length, kept: log.filter((e) => e.outcome !== 'released').length, kinds,
     best: top ? { sp: top.sp, size: top.size } : null,
     records: today.records.filter((r) => !firstFish.includes(r.sp)), firsts: { fish: firstFish, places: firstPlaces, sites: firstSites, life: firstLife },
-    dives: today.dives.slice(), seen: today.seen.slice(), gale: today.gale, sat: today.sat, cross: (today.cross || []).slice(),
+    dives: today.dives.slice(), seen: today.seen.slice(), gale: today.gale, sat: today.sat, cross: (today.cross || []).slice(), trips: (today.trips || []).slice(),
   };
 }
 // The page goes into the book (the last sixty days), and a new day starts.
@@ -167,6 +174,14 @@ export function dayText(p) {
   if (p.sat && SATS[p.sat.kind]) {
     const h = p.sat.hour, when = h >= 18 && h < 22 ? ' as the evening came on' : h >= 22 || h < 5 ? ' late into the night' : h < 8 ? ' in the early morning' : '';
     out.push(`You sat a while ${SATS[p.sat.kind]}${when}.`);
+  }
+  // (E3c) The trips, as they ended.
+  for (const r of p.trips || []) {
+    const fish = fishById[r.sp]?.name.toLowerCase() || 'fish', boat = r.boat && VESSELS[r.boat] ? ` in the ${VESSELS[r.boat].name}` : '';
+    const m = Math.max(1, Math.round(r.hours * 60)), hh = Math.round(r.hours * 10) / 10; // (as trip.js's summary says it)
+    const h = r.hours < 1 ? `${m} minute${m > 1 ? 's' : ''}` : `${hh} hour${hh === 1 ? '' : 's'}`;
+    const others = r.total - r.target;
+    out.push(`A trip to ${r.name}${boat} for ${fish}: ${r.target ? `${r.target} caught` : 'none this time'}${others > 0 ? ` (and ${others} other fish)` : ''}, ${h} out.`);
   }
   // The crossing.
   for (const c of p.cross || []) {
@@ -297,6 +312,21 @@ export const CHALLENGES = [
     check: (s) => ({ n: new Set(logOf(s).map((e) => e.day)).size, of: 7 }),
   },
 ];
+// (E3c) The offshore day: a big-game fish from the Blue Water, and a fish fought with a friend at
+// your helm.
+const BLUE = new Set(['blueshark', 'mako', 'albacore', 'tuna']);
+CHALLENGES.push(
+  {
+    id: 'bluewater', name: 'Blue water', color: '#1f4f8a', mark: 'drop',
+    text: 'A big fish from the Blue Water, a kilometre out: a blue shark, a mako, an albacore or a tuna.',
+    check: (s) => ({ n: logOf(s).some((e) => e.zone === 'deep' && BLUE.has(e.sp)) ? 1 : 0, of: 1 }),
+  },
+  {
+    id: 'crewed', name: 'A crew of two', color: '#6a4a8a', mark: 'three',
+    text: 'A fish landed with a friend at your helm, chasing it for you.',
+    check: (s) => ({ n: logOf(s).some((e) => e.helped === 'helm') ? 1 : 0, of: 1 }),
+  },
+);
 export const challengeById = Object.fromEntries(CHALLENGES.map((c) => [c.id, c]));
 // Any newly done: their badges go to state.badges ({ id: { day, hour } }); returns them.
 export function checkChallenges(state) {
@@ -330,9 +360,14 @@ export function cleanToday(raw, day) {
   return {
     day, out: raw.out == null ? null : num(raw.out, null, 0, 24), back: raw.back == null ? null : num(raw.back, null, 0, 24),
     places: strs(raw.places, 30), boats: strs(raw.boats, 6), dives: cleanDives(raw.dives), seen: strs(raw.seen, 12, (k) => !!SEA_LIFE[k]),
-    sky: strs(raw.sky, 8), gale: GALE.includes(raw.gale) ? raw.gale : null, records: cleanRecords(raw.records), sat: cleanSat(raw.sat), cross: cleanCross(raw.cross), dist: cleanDist(raw.dist),
+    sky: strs(raw.sky, 8), gale: GALE.includes(raw.gale) ? raw.gale : null, records: cleanRecords(raw.records), sat: cleanSat(raw.sat), cross: cleanCross(raw.cross), trips: cleanTrips(raw.trips), dist: cleanDist(raw.dist),
   };
 }
+function cleanTrip(r) {
+  if (!r || typeof r !== 'object' || !fishOk(r.sp)) return null;
+  return { name: typeof r.name === 'string' ? r.name.slice(0, 60) : '', sp: r.sp, boat: typeof r.boat === 'string' && /^[a-z]{0,12}$/.test(r.boat) ? r.boat : '', target: Math.round(num(r.target, 0, 0, 1e4)), total: Math.round(num(r.total, 0, 0, 1e4)), hours: Math.round(num(r.hours, 0, 0, 1e4) * 100) / 100 }; // (to the minute or so: the same minutes as the trip's own summary)
+}
+const cleanTrips = (v) => (Array.isArray(v) ? v.slice(0, 4).map(cleanTrip).filter(Boolean) : []);
 function cleanCross(v) {
   if (!Array.isArray(v)) return [];
   const out = [];
@@ -361,6 +396,7 @@ export function cleanDays(raw) {
       firsts: { fish: strs(f.fish, 20, fishOk), places: strs(f.places, 20), sites: strs(f.sites, 5, (x) => !!siteById[x]), life: strs(f.life, 12, (k) => !!SEA_LIFE[k]) },
       dives: cleanDives(p.dives), seen: strs(p.seen, 12, (k) => !!SEA_LIFE[k]), gale: GALE.includes(p.gale) ? p.gale : null, sat: cleanSat(p.sat),
       cross: cleanCross(p.cross),
+      trips: cleanTrips(p.trips),
     };
   });
 }

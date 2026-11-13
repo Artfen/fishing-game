@@ -125,3 +125,88 @@ test('the field guide says when a fish is about, from the same year the game pla
   assert.equal(seasonsOf(fishById.squid), 'most about in autumn and winter');
   assert.equal(seasonsOf(fishById.goldsinny ?? { id: 'nothing-listed' }), 'about all year round');
 });
+
+/* ---------- E3c: home again, the day book, the badges ---------- */
+
+const { backHome, HOME_R, startTrip, endTrip, summaryText } = await import('../src/trip.js');
+const { sanitizeLogEntry, sanitize } = await import('../src/save.js');
+const { noteTrip, dayPage, dayText, cleanToday, cleanDays, newToday, CHALLENGES, checkChallenges } = await import('../src/daybook.js');
+
+test('a trip ends back where you set off, once you have fished its water and been away; not where it began', () => {
+  const trip = { arrived: false, from: { x: 4, z: -97 } };
+  assert.equal(backHome(trip, 5, -95), false, 'not yet on the water');
+  trip.arrived = true;
+  assert.equal(backHome(trip, 5, -95), false, 'on its water from the start, and never away: not over');
+  assert.equal(backHome(trip, 4, -97 + HOME_R * 3), false, 'away now');
+  assert.equal(trip.left, true);
+  assert.equal(backHome(trip, 4 + HOME_R - 5, -97), true, 'and back');
+  assert.equal(backHome({ arrived: true, left: true }, 0, 0), false, 'an older trip with no starting point ends by hand');
+});
+
+test('the trip remembers where it set off from and in what, through a save', () => {
+  const s = sanitize({});
+  startTrip(s, { sp: 'albacore', place: { x: 100, z: 1000, r: 40, name: 'The Blue Water' }, setup: { rod: 'biggame', item: 'skirt', term: 'none', line: 'm50' }, from: { x: 4.4, z: -97.2 }, boat: 'console' });
+  s.trip.left = true;
+  const back = sanitize(JSON.parse(JSON.stringify(s)));
+  assert.deepEqual(back.trip?.from, { x: 4, z: -97 });
+  assert.equal(back.trip.boat, 'console');
+  assert.equal(back.trip.left, true);
+  const junk = sanitize({ ...JSON.parse(JSON.stringify(s)), trip: { ...s.trip, from: { x: 'a' }, boat: 'Console Boat!' } });
+  assert.equal(junk.trip.from, undefined);
+  assert.equal(junk.trip.boat, undefined);
+});
+
+test('the catch log keeps how long the fight was, the boat and the friend who helped; the journal says so', async () => {
+  const e = sanitizeLogEntry({ sp: 'albacore', size: 95, day: 3, hour: 11, zone: 'deep', kind: 'lure', rod: 'biggame', from: 'boat', fight: 263.4, boat: 'console', helper: ' Tris ', helped: 'helm' });
+  assert.equal(e.fight, 263);
+  assert.equal(e.boat, 'console');
+  assert.deepEqual([e.helper, e.helped], ['Tris', 'helm']);
+  const old = sanitizeLogEntry({ sp: 'albacore', size: 95, day: 3, hour: 11 });
+  assert.equal('fight' in old || 'boat' in old || 'helper' in old, false, 'an older entry has none of them');
+  const bad = sanitizeLogEntry({ sp: 'albacore', size: 95, fight: 'long', boat: '<b>', helper: 'Tris', helped: 'cheered' });
+  assert.equal('fight' in bad || 'boat' in bad || 'helper' in bad, false, 'junk dropped');
+  // (A stand-in page for the journal's module.)
+  globalThis.document ??= { createElement: () => ({ width: 0, height: 0, getContext: () => new Proxy({}, { get: () => () => ({ addColorStop() {} }) }) }), fonts: null };
+  const { Journal } = await import('../src/journal.js');
+  assert.match(Journal.howText(e), /from the centre-console boat · fought 4 minutes · Tris at the helm$/);
+  assert.match(Journal.howText({ ...e, helped: 'net', fight: 40 }), /fought 40 seconds · netted by Tris$/);
+  assert.match(Journal.howText(old), /from the boat$/);
+  // A crewmate rides a friend's boat on foot: still that boat, not the shore.
+  assert.match(Journal.howText({ ...e, from: 'shore', helper: undefined, helped: undefined }), /from the centre-console boat · fought 4 minutes$/);
+  assert.match(Journal.howText({ ...old, from: 'shore' }), /from the shore$/);
+});
+
+test('the trip goes into the day book, and keeps through a save', () => {
+  const s = sanitize({});
+  s.day = 4;
+  s.today = newToday(4);
+  noteTrip(s.today, { name: 'The Blue Water', sp: 'albacore', boat: 'console', target: 2, total: 5, hours: 6.47 });
+  const page = dayPage(s);
+  assert.ok(page, 'a day with a trip has a page');
+  assert.match(dayText(page), /A trip to The Blue Water in the centre-console boat for albacore: 2 caught \(and 3 other fish\), 6\.5 hours out\./);
+  noteTrip(s.today, { name: 'Wend estuary', sp: 'seabass', target: 0, total: 0, hours: 0.5 });
+  assert.match(dayText(dayPage(s)), /A trip to Wend estuary for european seabass: none this time, 30 minutes out\./);
+  const kept = cleanToday(JSON.parse(JSON.stringify(s.today)), 4);
+  assert.equal(kept.trips.length, 2);
+  // The same minutes as the trip's own summary, through a save (27, not 24 from a rounded 0.4 h).
+  const t = newToday(4);
+  noteTrip(t, { name: 'the outer coast', sp: 'mackerel', boat: 'skiff', target: 1, total: 1, hours: 0.452 });
+  noteTrip(t, { name: 'the outer coast', sp: 'mackerel', target: 1, total: 1, hours: 1.02 });
+  const words = dayText(dayPage({ ...s, today: cleanToday(JSON.parse(JSON.stringify(t)), 4) }, cleanToday(JSON.parse(JSON.stringify(t)), 4)));
+  assert.match(words, /1 caught, 27 minutes out\./);
+  assert.match(summaryText('mackerel', { hours: 0.452, target: 1, total: 1, best: { size: 41 }, others: {} }), /^27 minutes out/);
+  assert.match(words, /1 caught, 1 hour out\./);
+  assert.equal(cleanDays([JSON.parse(JSON.stringify(dayPage(s)))])[0].trips.length, 2);
+  assert.equal(cleanToday({ ...s.today, trips: [{ sp: 'nothing' }, 'x'] }, 4).trips.length, 0, 'junk dropped');
+});
+
+test('two new badges: a big fish from the Blue Water, and one landed with a friend at your helm', () => {
+  const ids = CHALLENGES.map((c) => c.id);
+  assert.ok(ids.includes('bluewater') && ids.includes('crewed'));
+  const s = sanitize({});
+  s.log = [{ sp: 'mackerel', zone: 'deep', day: 1, hour: 10 }, { sp: 'albacore', zone: 'open', day: 1, hour: 11 }];
+  assert.deepEqual(checkChallenges(s).map((c) => c.id).filter((id) => id === 'bluewater' || id === 'crewed'), [], 'a mackerel out there, or an albacore inshore, isn’t it');
+  s.log.push({ sp: 'albacore', zone: 'deep', day: 2, hour: 9, helper: 'Tris', helped: 'helm' });
+  const got = checkChallenges(s).map((c) => c.id);
+  assert.ok(got.includes('bluewater') && got.includes('crewed'), got.join(', '));
+});

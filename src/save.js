@@ -276,6 +276,11 @@ export function sanitizeLogEntry(e) {
     // (The water's temperature where it was caught, °C: from the living ocean on; null before.)
     ...(typeof e.temp === 'number' && Number.isFinite(e.temp) ? { temp: Math.round(Math.min(35, Math.max(-2, e.temp)) * 10) / 10 } : {}),
     outcome: oneOf(e.outcome, OUTCOMES, 'released'),
+    // (E3c) How long the fight (s), the boat it was fought from, and a friend who helped: at your
+    // helm, or with the net. (None of these in older entries.)
+    ...(Number.isFinite(e.fight) ? { fight: int(e.fight, 0, 0, 36000) } : {}),
+    ...(typeof e.boat === 'string' && /^[a-z]{2,12}$/.test(e.boat) ? { boat: e.boat } : {}),
+    ...(typeof e.helper === 'string' && e.helper.trim() && ['helm', 'net'].includes(e.helped) ? { helper: e.helper.trim().slice(0, 24), helped: e.helped } : {}),
     // From save version 4: what it weighed (estimated from its length), the sky, the line and rig.
     weight: num(e.weight, 0, 0, 1000),
     sky: oneOf(e.sky, ['', ...SKY_STATES], ''),
@@ -390,6 +395,10 @@ export function sanitize(raw) {
     s.trip = {
       id: String(t.id || 't').slice(0, 24), sp: t.sp, start: num(t.start, Date.now(), 0, 1e15), day: int(t.day, 1, 1, 1e6), hour: num(t.hour, 12, 0, 24),
       x: num(t.x, 0, -5000, 5000), z: num(t.z, 0, -5000, 5000), r: num(t.r, 30, 5, 200), name: String(t.name || '').slice(0, 80), setup: setupOf(t.setup), arrived: !!t.arrived,
+      // (E3c: where it set off from, and in what.)
+      ...(isObj(t.from) && Number.isFinite(t.from.x) && Number.isFinite(t.from.z) ? { from: { x: num(t.from.x, 0, -5000, 5000), z: num(t.from.z, 0, -5000, 5000) } } : {}),
+      ...(typeof t.boat === 'string' && /^[a-z]{2,12}$/.test(t.boat) ? { boat: t.boat } : {}),
+      ...(t.left ? { left: true } : {}),
     };
   }
   if (Array.isArray(raw.trips)) {
