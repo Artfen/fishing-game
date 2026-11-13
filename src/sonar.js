@@ -12,6 +12,7 @@ const CONE = Math.tan((22 * Math.PI) / 180); // the transducer's beam spreads 22
 export const RANGES = [3, 5, 10, 15, 20, 30, 40];
 // (G7) With a deep sounder on the boat (shipyard.js deepsonar): the bottom to 200 m.
 export const DEEP_RANGES = [60, 80, 120, 160, 200];
+export const REACH = 70, DEEP_REACH = 250;
 const SIZES = [230, 300, 420];
 const COLORS = {
   screenTop: '#12293a',
@@ -113,8 +114,10 @@ export class FishFinder {
     if (this.deep) return [...RANGES, ...DEEP_RANGES];
     return this.imaging ? RANGES : RANGES.filter((r) => r <= 20);
   }
-  // (How deep it reads the bottom at all: past that, the bottom's lost.)
-  get reach() { return this.ranges[this.ranges.length - 1]; }
+  // (How deep it reads the bottom at all, whatever the scale on the screen: an ordinary
+  // transducer to about seventy metres, so the shelf's sixty still reads; the deep sounder past
+  // the canyon's floor. Past that, the bottom's lost.)
+  get reach() { return this.deep ? DEEP_REACH : REACH; }
   // The page showing (the one chosen, if this transducer can give it).
   get page() { return this.pages.includes(this.state.finder.page) ? this.state.finder.page : 'sonar'; }
   // The next page after this one, or null at the last (see the game's finder button).

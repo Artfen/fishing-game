@@ -63,7 +63,7 @@ export const FITS = {
   deepsonar: {
     name: 'Deep sounder', cat: 'electronics', kg: 5, amps: 1.5,
     price: { cabin: 360, rib: 380, console: 420, cruiser: 480 },
-    desc: 'A big low-frequency transducer for the fish finder’s head unit: it reads the bottom to two hundred metres, and the marks over it. The deep water off the shelf, and Gannet Deep’s floor, where nothing else reaches. (Without it the finder loses the bottom past 20 m, or 40 m with the imaging sonar.)',
+    desc: 'A big low-frequency transducer for the fish finder’s head unit: it reads the bottom to two hundred metres, and the marks over it. The deep water off the shelf, and Gannet Deep’s floor, where nothing else reaches. (Without it the finder loses the bottom past about seventy metres.)',
   },
   plotter: {
     name: 'GPS chartplotter', cat: 'electronics', kg: 2, amps: 1,

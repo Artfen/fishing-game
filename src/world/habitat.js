@@ -260,6 +260,11 @@ export function createHabitat() {
   spots.push({ type: 'weed', x: JETTY.x + 2.5, z: jz, depth: habitat.depth(JETTY.x + 2.5, jz), zone: 'bay', r: 8, tag: 'jetty' });
 
   regionSpots(habitat, rnd);
+  // (G7) The head of Gannet Deep, where the cold water wells up the canyon: the bait, and the tuna
+  // after it. Fish of its own (a host, see ecosystem.js), last of all, so no other fish's home
+  // moves for it.
+  const cz = CANYON.z0 + 70, cx = canyonAxis(cz);
+  spots.push({ type: 'blue', x: cx, z: cz, depth: habitat.depth(cx, cz), zone: zoneAt(cx, cz), r: 60, tag: 'canyon', hosts: ['tuna', 'bonito'] });
   return habitat;
 }
 
@@ -436,9 +441,6 @@ function regionSpots(habitat, rnd) {
   put('tide', 360, 260, 30);
   // The deep water: wide-roaming bait shoals and the tuna that follow them.
   for (let i = 0; i < 5; i++) put('blue', -120 + i * 140, DEEP_Z + 120 + (i % 2) * 110, 60, 'blue');
-  // (G7) And the head of Gannet Deep, where the cold water wells up the canyon: bait, and the
-  // tuna after it.
-  put('blue', canyonAxis(CANYON.z0 + 70), CANYON.z0 + 70, 60, 'canyon');
   // The Calf and its Sound. These homes have fish of their own (hosts, see ecosystem.js), added
   // on top of everything else, so no fish anywhere else moves to fill them: mackerel, garfish
   // and bluefish hunting sandeels in the race; pollack over the kelp off the Calf's west foot

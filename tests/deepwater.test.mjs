@@ -64,12 +64,15 @@ test('the deep sounder: the finder reads the bottom to 200 m with it; past what 
     F.update(0.1, { x, z, mode: 'boat', moving: 0 }, { active: false });
     return F.read;
   };
-  // What each reaches.
-  assert.equal(F.reach, 20);
+  // What each reaches: the bottom to about seventy metres with an ordinary transducer, imaging or
+  // not (whatever the screen's scale); with the deep sounder, past the canyon's floor, and the
+  // scale down to 200 m.
+  assert.equal(F.reach, 70);
   F.imaging = true;
-  assert.equal(F.reach, 40);
+  assert.equal(F.reach, 70);
+  assert.equal(F.ranges[F.ranges.length - 1], 40);
   F.deep = true;
-  assert.equal(F.reach, 200);
+  assert.equal(F.reach, 250);
   assert.deepEqual(F.ranges, [...RANGES, ...DEEP_RANGES]);
   // Over the canyon's floor: read with the deep sounder, the range auto to show it.
   const x = T.canyonAxis(1200), z = 1200;
@@ -83,10 +86,11 @@ test('the deep sounder: the finder reads the bottom to 200 m with it; past what 
   F.pings.length = 0;
   r = ping(x, z);
   assert.ok(r.lost && r.depth == null);
-  assert.match(F.depthEl.textContent, /no bottom: deeper than 40 m \(a deep sounder reads it\)/);
-  // The shelf's sixty metres, out on the Blue Water: lost to the imaging sonar too.
+  assert.match(F.depthEl.textContent, /no bottom: deeper than 70 m \(a deep sounder reads it\)/);
+  // The shelf's sixty metres, out on the Blue Water beside it: read, as ever (off the bottom of
+  // the screen's 40 m, the readout gives it).
   r = ping(x + 200, z);
-  assert.ok(r.lost);
+  assert.ok(!r.lost && r.depth > 55 && r.depth < 66, `${r.depth} m`);
   // In ordinary water, as ever.
   r = ping(150, 330);
   assert.ok(!r.lost && r.depth > 3 && r.depth < 40, `${r.depth} m`);

@@ -192,7 +192,8 @@ test('every fish already in the world is where it was, the same size, the same k
   for (const a of eco.agents) {
     // (The crossing to Las Brasas, out past the bottom of the home chart, has homes of its own too.)
     // (And the small fish for micro-fishing, on homes of their own after everyone else's.)
-    if (COLD.has(a.home.tag) || a.home.level || a.home.south || a.home.site || a.home.crossing || a.home.small || BIG.has(a.sp.id)) continue;
+    // (And Gannet Deep's own, at its head, a host after them all: G7.)
+    if (COLD.has(a.home.tag) || a.home.tag === 'canyon' || a.home.level || a.home.south || a.home.site || a.home.crossing || a.home.small || BIG.has(a.sp.id)) continue;
     n++;
     const s = `${a.sp.id}|${a.home.type}@${a.home.x.toFixed(1)},${a.home.z.toFixed(1)}:${a.size}`;
     for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0;
