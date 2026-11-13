@@ -4439,8 +4439,13 @@ function payJob(id, onSpot = false) {
   if (now !== was) setTimeout(() => hud.toast(`You’re a ${now.name} now: ${now.says}. Tomorrow’s board will have the work for it.`, 8), 6500);
   earnIn(state, r.pay, `${r.contract.title} (${Con.GIVERS[r.contract.giver]})`);
   voy({ k: 'job', title: r.contract.title });
-  const rough = r.contract.obj.kind === 'charter' && r.pay < r.contract.pay ? ' A rough trip in an open boat: they didn’t tip.' : '';
-  hud.toast(`${onSpot ? `${r.contract.title}: ${r.contract.cat === 'rescue' ? 'safely in' : 'delivered'}. ` : ''}Paid ${money(r.pay)} for ${r.contract.title.toLowerCase()}.${rough}${r.rep ? ` ${Con.GIVERS[r.contract.giver].split(',')[0]} will remember it.` : ''}`, 6);
+  // (A rough charter in an open boat goes untipped: see contracts.js payFor.)
+  const rough = r.contract.obj.kind === 'charter' && r.contract.progress?.rough > 60 ? ' A rough trip in an open boat: they didn’t tip.' : '';
+  // (G4) A step up in their standing: their work pays more from now on.
+  const who = Con.GIVERS[r.contract.giver].split(',')[0];
+  const as = { known: `known to ${who}`, trusted: `trusted by ${who}`, regular: `one of ${who}’s regulars` }[r.standing.id];
+  const up = r.up && as ? ` You’re ${as} now: their work pays ${Math.round((r.standing.k - 1) * 100)}% more${r.standing.k >= 1.2 ? ', and comes first on the board' : ''}.` : '';
+  hud.toast(`${onSpot ? `${r.contract.title}: ${r.contract.cat === 'rescue' ? 'safely in' : 'delivered'}. ` : ''}Paid ${money(r.pay)} for ${r.contract.title.toLowerCase()}.${rough}${r.rep && !up ? ` ${who} will remember it.` : ''}${up}`, up ? 8 : 6);
   audio.coins?.();
   save();
   return true;
@@ -4451,7 +4456,9 @@ function renderJobs() {
   Con.prune(state.contracts, state.day);
   renderWork(el, {
     offers: Con.offers(state.contracts, jobWorld()), active: state.contracts.active, money, career: Con.career(state.contracts), done: state.contracts.count,
-    payOf: (a) => Con.payFor(a, { imaging: !!a.progress?.imaging || !!fitEffect(state.yard, boat.kind)?.sonar }),
+    payOf: (a) => Math.round(Con.payFor(a, { imaging: !!a.progress?.imaging || !!fitEffect(state.yard, boat.kind)?.sonar }) * Con.standingWith(state.contracts, a.giver).k),
+    // (G4) Where you stand with each giver.
+    standingOf: (giver) => Con.standingWith(state.contracts, giver),
     hooks: {
       take: (id) => {
         const r = Con.accept(state.contracts, id, t);

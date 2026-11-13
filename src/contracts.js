@@ -53,6 +53,25 @@ export const GIVERS = {
   divers: 'Willow Bay Sub-Aqua Club',
 };
 
+// (G4) Standing with each of them: the jobs done for them add up (each job's rep), and a giver who
+// knows you pays more for their work, and a regular client's work goes to the top of the board.
+// at: the standing it takes; k: what their work pays, over its price.
+export const KEEN_FIRST = 2;
+export const GIVER_STANDING = [
+  { id: 'new', name: 'new to them', at: 0, k: 1 },
+  { id: 'known', name: 'known to them', at: 3, k: 1.1 },
+  { id: 'trusted', name: 'trusted', at: 8, k: 1.2 },
+  { id: 'regular', name: 'a regular', at: 15, k: 1.3 },
+];
+// Where you stand with a giver: { id, name, at, k, n (their count), next (or null), toGo }.
+export function standingWith(C, giver) {
+  const n = Math.max(0, C?.rep?.[giver] || 0);
+  let i = 0;
+  while (i + 1 < GIVER_STANDING.length && n >= GIVER_STANDING[i + 1].at) i++;
+  const next = GIVER_STANDING[i + 1] || null;
+  return { ...GIVER_STANDING[i], n, next, toGo: next ? next.at - n : 0 };
+}
+
 // A career on the water: what you're trusted with grows with the jobs you've done. Carrying paying
 // passengers wants a ticket (as it does for real: a commercial endorsement), and a bigger party or
 // a heavier load a better one. jobs: finished jobs it takes; pax: the most passengers a charter
@@ -539,6 +558,10 @@ export function offers(C, W) {
     const j = Math.floor(r() * (i + 1));
     [ids[i], ids[j]] = [ids[j], ids[i]];
   }
+  // (G4) A regular client's work, and a trusting one's, first: two of them at most, so the board
+  // still has everyone else's on it; the rest in the day's order.
+  const keen = ids.filter((tpl) => !TEMPLATES[tpl].call && standingWith(C, TEMPLATES[tpl].giver).k >= 1.2).slice(0, KEEN_FIRST);
+  ids.splice(0, ids.length, ...keen, ...ids.filter((tpl) => !keen.includes(tpl)));
   const out = [];
   W = { ...W, rank: career(C).rank, first: C.count === 0 };
   // (Until you've done a job, the easy first one is always there, at the top.)
@@ -584,12 +607,15 @@ export function claim(C, id, day = 0, bonus = {}) {
   const i = C.active.findIndex((a) => a.id === id);
   if (i < 0 || !C.active[i].ready) return null;
   const a = C.active.splice(i, 1)[0];
-  const pay = payFor(a, bonus);
+  // (G4) Paid with your standing with them as it was: this job's goes on after.)
+  const was = standingWith(C, a.giver);
+  const pay = Math.round(payFor(a, bonus) * was.k);
   C.done[a.id] = day;
   C.earned += pay;
   C.count++;
   C.rep[a.giver] = (C.rep[a.giver] || 0) + (a.rep || 0);
-  return { pay, rep: a.rep || 0, contract: a };
+  const now = standingWith(C, a.giver);
+  return { pay, rep: a.rep || 0, contract: a, standing: now, up: now.id !== was.id };
 }
 // (The record of finished jobs kept to a sensible size: ids older than a fortnight go. Board ids
 // carry their day, so an old one can never come round again anyway.)
