@@ -113,7 +113,7 @@ import { Passersby } from './world/passersby.js';
 import { VisitorView } from './world/visitors.js';
 import { SharedWorld } from './sharedworld.js';
 import { Teamwork } from './teamwork.js';
-import { Crew, CREW_REACH, CREW_SLOW } from './crew.js';
+import { Crew, CREW_REACH, CREW_SLOW, fishFromHelm, helmWords } from './crew.js';
 import { DashControl } from './dashcontrol.js';
 import { keyStep } from './dashboard.js';
 import { TrollMotor, canTroll } from './trolling.js';
@@ -3221,8 +3221,9 @@ function diveAction() {
 const leverKind = () => (onFoot || driving || cabinIn ? null : boat.motor ? boat.kind : boat.hull.emotor && boat.emotorDown ? 'kayak' : null);
 // What the lever may do just now: a line out (or a cast being aimed) caps it at trolling speed,
 // a fish on at dead slow.
-// (Following a running fish, she may go at a trolling pace: see followAction.)
-const leverSituation = () => (fishing.state === 'reeling' || fishing.state === 'landing' ? (following ? 'line' : 'fight') : fishing.busy ? (fitsAboard()?.holders ? 'line+' : 'line') : 'free');
+// (Following a running fish, she may go at a trolling pace: see followAction. So may a friend at
+// your helm, chasing it for you while you play it: E3a.)
+const leverSituation = () => (fishing.state === 'reeling' || fishing.state === 'landing' ? (following || crew.given ? 'line' : 'fight') : fishing.busy ? (fitsAboard()?.holders ? 'line+' : 'line') : 'free');
 // What the boat you're in has fitted (see shipyard.js), or null ashore. (Worked out once a frame.)
 let fitsCache = { t: -1, e: null };
 function fitsAboard() {
@@ -6370,7 +6371,8 @@ const motorRunning = () => {
 };
 function followAction() {
   const F = fishing.fight;
-  if (onFoot || !F || fishing.state !== 'reeling' || F.atNet || !motorRunning() || !(following || F.extra > 3)) return null;
+  // (A friend at your helm steers after it themselves: E3a.)
+  if (onFoot || crew.given || !F || fishing.state !== 'reeling' || F.atNet || !motorRunning() || !(following || F.extra > 3)) return null;
   return {
     text: following ? 'Stop following the fish' : 'Follow the fish with the boat',
     run: () => {
@@ -9739,6 +9741,9 @@ function currentHint() {
     return T ? 'In the cabin · the stick walks between the galley and the bunk · tap the prompt to use them'
       : `In the cabin · ${UD} the galley and the bunk · ${K('interact')} use · ${K('cancel')} back out on deck · ${K('eye')} through your eyes`;
   }
+  // (E3a) At a friend's helm: while they play a fish, where it is from her bow, the line out, and
+  // what to do with her; otherwise her controls (not the walking keys, as it used to say).
+  if (crew.on?.helm) return helmHint(T, UD, LR);
   const space = K('cast');
   const cancel = T ? '✕ cancels' : `${K('cancel')} cancel`;
   const info = fishing.info;
@@ -10205,6 +10210,19 @@ function friendsOnMap() {
     return { name: p.name, x: p.at.x, z: p.at.z, heading: p.at.h, mode: P.m, boat: P.m === 'boat' ? BOATS[P.k]?.name : null, colour: visitors.colourOf(p.name), on: !!P.o };
   });
 }
+// (E3a) The word at a friend's helm: while they play a fish (see crew.js helmWords), where it is
+// and what to do; otherwise how her controls go.
+function helmHint(T, UD, LR) {
+  const p = together.peers.get(crew.on.id), Q = p && (p.view || p.pose), b = visitors.boatOf(crew.on.id), name = p?.name || 'your friend';
+  if (Q?.o && Q.ex != null && b) {
+    const e = visitors.lineEnd(crew.on.id) || { x: Q.ex, z: Q.ez };
+    const at = fishFromHelm(b.pos.x, b.pos.z, Math.atan2(b.fwd.x, b.fwd.z), e.x, e.z);
+    return helmWords(name, at, { xl: Q.xl ?? 0, sl: Q.sl ?? null, nt: Q.nt ?? 0 });
+  }
+  return T ? `At ${name}’s helm: the stick works her lever and her wheel · the prompt hands it back`
+    : `At ${name}’s helm: ${UD} her lever a notch at a time · ${LR} steer · ${K('interact')} to hand it back or step off`;
+}
+
 // How far and which way a friend is, in a few words, for the news of them.
 function friendWhere(p) {
   if (!p.at) return '';
@@ -10496,6 +10514,9 @@ function whereIAm() {
   if (gear && (fishing.baitInWater || landing)) {
     const e = fishing.state === 'reeling' || landing ? fishing.fishPos : fishing.bob, F = fishing.fight;
     Object.assign(gear, { ex: e.x, ez: e.z, tn: F?.tension, hk: F?.agent?.id, nt: F?.atNet ? ((F.landBy || 'net') === 'net' ? 1 : 2) : 0 });
+    // (E3a: the line out past where it was hooked, and what's left on the spool, for a friend at
+    // your helm chasing it.)
+    if (F && fishing.state === 'reeling') Object.assign(gear, { xl: Math.round(F.extra), sl: Math.round(100 * Math.max(0, 1 - (F.dist * (1 - F.progress) + F.extra) / F.spool)) });
     // (What the fish is doing, so they can see it at the end of your line; what it is, and how
     // big, so they see it leap and crash back in as itself.)
     if (F && landing) gear.mv = 'land';
@@ -12157,7 +12178,9 @@ function tick(now, manual = false) {
       helmInput(cw.ti, dt, cw.si);
       throttle = boat.lever;
     } else throttle = cw.ti;
-    if (!(following && fishing.state === 'reeling')) steer = cw.si;
+    // (Their wheel steers her: never overridden by following the fish yourself.)
+    steer = cw.si;
+    if (following) stopFollowing();
   }
   if (boat.motor && (onFoot || (modal && !mapAboard()) || cabinIn)) throttle = 0;
   // What's allowed with a line out or a fish on (a lever left higher comes back).

@@ -198,3 +198,31 @@ export class Crew {
     return null;
   }
 }
+
+/* ---------- at a friend's helm while they play a fish (E3a) ---------- */
+
+// Where a fish lies from a boat's bow: { d (m), rel (radians, + to port, − to starboard), where
+// (in words) }. heading: the boat's (atan2 of where she points, x over z), as boat.js keeps it.
+export function fishFromHelm(bx, bz, heading, fx, fz) {
+  const d = Math.hypot(fx - bx, fz - bz);
+  let rel = Math.atan2(fx - bx, fz - bz) - heading;
+  rel = Math.atan2(Math.sin(rel), Math.cos(rel));
+  const a = Math.abs(rel) * (180 / Math.PI), side = rel > 0 ? 'port' : 'starboard';
+  const where = a < 20 ? 'dead ahead' : a < 70 ? `off the ${side} bow` : a < 110 ? `on the ${side} beam` : a < 160 ? `off the ${side} quarter` : 'astern';
+  return { d, rel, where };
+}
+
+// What the helmsman's told while their friend plays a fish (name: the angler's), from the
+// angler's pose: where it is from the bow, how much line is out past where it was hooked (xl, m)
+// and how much is left on the spool (sl, %), and whether it's beaten and alongside (nt). Running
+// out line: follow it, harder as the spool empties; coming back: ease off and keep her steady.
+export const FOLLOW_AT = 3;  // m of line out past the hook point before it's worth following
+export const SPOOL_LOW = 35; // % left on the spool: after it, now
+export function helmWords(name, at, { xl = 0, sl = null, nt = 0 } = {}) {
+  const dist = at.d >= 1000 ? `${(at.d / 1000).toFixed(1)} km` : `${Math.round(at.d)} m`;
+  if (nt) return `${name}’s fish is beaten, ${at.where}: stop her and keep her still while it’s landed`;
+  const line = sl != null ? ` · spool ${Math.round(sl)}%` : '';
+  if (xl > FOLLOW_AT && sl != null && sl < SPOOL_LOW) return `${name}’s fish is emptying the spool, ${dist} ${at.where}${line}: after it, now!`;
+  if (xl > FOLLOW_AT) return `${name}’s fish is taking line, ${dist} ${at.where}${line}: follow it at a trolling pace`;
+  return `${name} has a fish on, ${dist} ${at.where}${line}: keep her steady and let ${name} play it`;
+}
