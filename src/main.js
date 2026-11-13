@@ -135,7 +135,7 @@ import { PickupView } from './world/pickups.js';
 import { renderWork } from './contractboard.js';
 import { demandFor, money, ordersFor, ORDERS_BY } from './market.js';
 import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
-import { PHOTO_MAX } from './save.js';
+import { PHOTO_MAX, SEA_LIFE_KINDS } from './save.js';
 import { Journal } from './journal.js';
 import { MapSheet, Explored, OCEAN_SHEET } from './map.js';
 import { FieldGuide } from './guide.js';
@@ -8525,6 +8525,8 @@ function binocularsStep(dt) {
     if (fresh) audio.chime?.();
     // (A seabird count for the Trust: each kind named counts. See contracts.js noted.)
     jobsDone(Con.noted(state.contracts, 'binoculars', kind, BIRD_KINDS.includes(kind)));
+    // (F4c) Crewing: you call it to your skipper, and it counts for theirs too.
+    if (crew.on && together.active) together.seen(crew.on.id, { w: 'spot', k: kind, x: c.x + _bnDir.x * best.d, z: c.z + _bnDir.z * best.d });
   }
   // (The name stays a moment after it's gone from the middle.)
   if (!kind) {
@@ -8589,6 +8591,9 @@ async function keepPhoto() {
   adventures.photographed(meta);
   favoursReady(favourPhotographed(state.favours, meta.subjects));
   jobsDone(Con.photographed(state.contracts, { life: meta.subjects?.sea || [], bow: !!meta.subjects?.bow, species: meta.subjects?.species || [], nature: meta.subjects?.nature || [], wild: meta.subjects?.life || [] }));
+  // (F4c) Taken aboard a friend's boat: what's in it counts for your skipper's photo jobs too.
+  const S = meta.subjects;
+  if (crew.on && together.active && S) together.seen(crew.on.id, { w: 'snap', sea: S.sea || [], life: S.life || [], nature: S.nature || [], species: S.species || [], bow: !!S.bow });
   save();
   hud.toast(`Kept in your album (${state.photos.length} of ${PHOTO_MAX}).${photos.persistent ? '' : ' This browser won’t keep it after you close the tab: download it from the journal.'}`, 4);
 }
@@ -11279,6 +11284,7 @@ together.onEvent = (kind, p, data) => {
   else if (kind === 'help') friendHelp(p, data);
   else if (kind === 'crew') crewWord(p, data);
   else if (kind === 'nav') navHeard(p, data);
+  else if (kind === 'seen') seenHeard(p, data);
   else if (kind === 'shoal') {
     const s = teamwork.heard(p, data);
     if (s) hud.toast(`${p.name} marked a shoal of ${s.sp.name.toLowerCase()} ${friendWhere(p)}: the mark goes with it.`, 6);
@@ -12089,6 +12095,46 @@ function tendTick(dt) {
     tendT = 1.5;
     together.crewWord(tending, 'tend');
   }
+}
+
+/* ---------- (F4c) the spotter and the photographer ---------- */
+// A crewmate's eye counts for the skipper: wildlife they name through their binoculars aboard is
+// called out to you (what, and where it is from her bow) and goes on your Trust count; what's in a
+// photograph they take aboard counts for your photo jobs and favours (dolphins on her bow too), so
+// one of you can drive while the other watches and shoots. Only from someone standing in her.
+const SEA_KINDS = new Set(SEA_LIFE_KINDS), NATURE_KINDS = new Set(Object.keys(NATURE));
+let spotSaidT = -1e9, spotSaid = '';
+// (Their names mid-sentence, as the journal has them: "northern gannets", "a fin whale", "Cory's
+// shearwaters", "Atlantic puffins".)
+const lifeWords = (k) => (SEA_LIFE[k]?.name || k).split(' ').map((w) => (/^(Atlantic|European|Eurasian|Mediterranean|Canary|Manx)$/.test(w) || /[’']s$/.test(w) ? w : w.toLowerCase())).join(' ');
+// Where something is from her bow, in a skipper's words: "off the starboard bow, about 200 m".
+function fromTheBow(x, z) {
+  const dx = x - boat.pos.x, dz = z - boat.pos.z, d = Math.hypot(dx, dz);
+  const rel = Math.atan2(dx * boat.right.x + dz * boat.right.z, dx * boat.fwd.x + dz * boat.fwd.z) * (180 / Math.PI);
+  const a = Math.abs(rel), side = rel > 0 ? 'starboard' : 'port';
+  const where = a < 15 ? 'dead ahead' : a < 60 ? `off the ${side} bow` : a < 120 ? `on the ${side} beam` : a < 165 ? `off the ${side} quarter` : 'astern';
+  return `${where}, about ${d < 100 ? Math.max(10, Math.round(d / 10) * 10) : Math.round(d / 50) * 50} m`;
+}
+function seenHeard(p, S) {
+  if (onFoot || !crewingFor(p)) return;
+  if (S.w === 'spot') {
+    if (!SEA_KINDS.has(S.k)) return;
+    jobsDone(Con.noted(state.contracts, 'binoculars', S.k, BIRD_KINDS.includes(S.k)));
+    // (A call now and then: a new kind at once, the same one again not for a while.)
+    if (S.k === spotSaid && t - spotSaidT < 30) return;
+    if (t - spotSaidT < 6) return;
+    spotSaid = S.k;
+    spotSaidT = t;
+    hud.flash(`${p.name} spots ${lifeWords(S.k)} ${fromTheBow(S.x, S.z)}.`, t, 3.5);
+    return;
+  }
+  const sea = S.sea.filter((k) => SEA_KINDS.has(k)), life = S.life.filter((k) => SEA_KINDS.has(k));
+  const nature = S.nature.filter((k) => NATURE_KINDS.has(k)), species = S.species.filter((k) => fishById[k]);
+  const subjects = { species, nature, life, sea, bow: S.bow && sea.length > 0 };
+  favoursReady(favourPhotographed(state.favours, subjects));
+  jobsDone(Con.photographed(state.contracts, { life: sea, bow: subjects.bow, species, nature, wild: life }));
+  const wild = [...new Set([...sea, ...life])].map(lifeWords);
+  if (wild.length) hud.flash(`${p.name} has a photograph of ${wild.slice(0, 2).join(' and ')}${subjects.bow ? ' on your bow' : ''}.`, t, 3.5);
 }
 
 // Las Brasas' chart: its heights from the island's own water map, baked when first needed.
