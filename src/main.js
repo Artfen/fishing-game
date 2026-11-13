@@ -858,7 +858,22 @@ const finder = new FishFinder(eco, habitat, state, {
     audio.chime?.();
     hud.toast(`Marked on your map: ${r.depth.toFixed(1)} m over ${r.type}.`, 4);
   },
+  // (E1) What the screen has just shown: an arch noted as a sign (a catch soon after near it tells
+  // you what it was: see grounds.js), and the first of each kind of mark explained once.
+  sighted: (kind, i) => {
+    if (kind === 'arch' && i.mode === 'boat') seeSign(state.grounds, recentSigns, { type: 'arch', x: i.x, z: i.z, sp: i.sp }, clock.abs, state.day);
+    const words = SONAR_MARKS[kind];
+    if (words) teach(`sonar-${kind}`, typeof words === 'function' ? words(i) : words, 8);
+  },
 });
+// (E1) The first time the fish finder shows each kind of mark, a word on how to read it.
+const SONAR_MARKS = {
+  arch: (i) => `An arch on the sonar at ${i.depth.toFixed(1)} m: a fish crossing the beam. A thicker arch is a bigger fish; a long flat line is one holding still under you. Fish at that depth.`,
+  ball: 'A cloud on the sonar: a shoal of small fish. Look for arches under and round it: that’s where the hunters wait.',
+  cline: (i) => `A faint band across the sonar at ${Math.round(i.depth)} m: the thermocline, where the warm top water (${Math.round(i.top)}°C) meets the cold below (${Math.round(i.bottom)}°C). In summer the cool-water fish keep under it.`,
+  rock: 'A thick, bright bottom with a second echo under it: hard rock. Fish hold over it, and a lure dragged along it snags.',
+  drop: (i) => `The bottom falling away on the sonar, ${i.from.toFixed(0)} m to ${i.to.toFixed(0)} m: a drop-off. Hunters hang along edges like this.`,
+};
 
 // Where each boat is tied up to begin with: the skiff alongside the end of the landing pier
 // in water deep enough for the motor, the kayak on the other side nearer the beach, and the
@@ -12534,8 +12549,9 @@ function tick(now, manual = false) {
   water.follow(camera.position);
 
   // The boat's sonar reads under the hull; on foot it reads around your rig once it's in the water.
-  if (onFoot) finder.update(dt, fishing.baitInWater ? { x: fishing.hook.x, z: fishing.hook.z, mode: 'rig', moving: fishing.reelSpeed, temp: finderTemp(fishing.hook.x, fishing.hook.z, dt) } : { mode: 'none' }, eco.bait);
-  else finder.update(dt, { x: boat.pos.x, z: boat.pos.z, mode: 'boat', moving: boat.speed, temp: finderTemp(boat.pos.x, boat.pos.z, dt) }, eco.bait);
+  // (E1: and the water's warmth at each depth there, for its layers: see sonarRead.js.)
+  if (onFoot) finder.update(dt, fishing.baitInWater ? { x: fishing.hook.x, z: fishing.hook.z, mode: 'rig', moving: fishing.reelSpeed, temp: finderTemp(fishing.hook.x, fishing.hook.z, dt), tempAt: (d) => waterTempAt(fishing.hook.x, fishing.hook.z, d) } : { mode: 'none' }, eco.bait);
+  else finder.update(dt, { x: boat.pos.x, z: boat.pos.z, mode: 'boat', moving: boat.speed, temp: finderTemp(boat.pos.x, boat.pos.z, dt), tempAt: (d) => waterTempAt(boat.pos.x, boat.pos.z, d) }, eco.bait);
 
   const zone = zoneAt(P.x, P.z);
   zoneW.open = damp(zoneW.open, (zone === 'open' || zone === 'coast' || zone === 'deep' || zone === 'veril' || zone === 'ocean' || zone === 'lava') && !onFoot ? 1 : 0, 0.5, dt);

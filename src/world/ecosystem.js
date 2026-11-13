@@ -2321,7 +2321,9 @@ export class Ecosystem {
       const r = Math.hypot(a.x - x, a.z - z);
       const cone = tanA * depth + 0.6;
       if (r > cone) continue;
-      out.push({ depth: Math.hypot(depth, r * 0.6), size: a.scale, strength: 1 - r / cone, bait: !!a.L.bait });
+      // (Which fish, for the finder to join its echoes into one arch as it crosses the beam, and
+      // what it was, which the screen never shows: see sonar.js and grounds.js.)
+      out.push({ depth: Math.hypot(depth, r * 0.6), size: a.scale, strength: 1 - r / cone, bait: !!a.L.bait, id: a.id, sp: a.sp.id });
     }
     return out;
   }

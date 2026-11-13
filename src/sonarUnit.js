@@ -66,7 +66,7 @@ const hash = (a, b) => {
 };
 
 // Draw the unit's screen on ctx (W × H). U: { pings, history, range, opts (the finder's settings:
-// page, pal, gain, zoom, symbols), read: { depth, type, temp, speed, ball, mode } }, message:
+// page, pal, gain, zoom, symbols), read: { depth, type, temp, deepTemp, speed, ball, mode } }, message:
 // words across the screen instead.
 export function drawUnit(ctx, W, H, U, message) {
   const o = U.opts, P = PALETTES[o.pal] || PALETTES[0];
@@ -96,10 +96,12 @@ export function drawUnit(ctx, W, H, U, message) {
   ctx.fillText('kn', W - 10, bar * 0.5 + small * 0.25);
   ctx.textAlign = 'center';
   ctx.font = `800 ${Math.round(bar * 0.42)}px Nunito, system-ui, sans-serif`;
-  ctx.fillText(tp, W * 0.56, bar * 0.5);
+  // (With a warm top over cold water: the top's warmth, and the bottom's beside it.)
+  const deep = R.deepTemp != null ? ` / ${R.deepTemp.toFixed(1)}°` : '';
+  ctx.fillText(tp + deep, W * 0.56, bar * 0.5);
   ctx.font = `700 ${Math.round(small * 0.8)}px Nunito, system-ui, sans-serif`;
   ctx.globalAlpha = 0.65;
-  ctx.fillText('WATER', W * 0.56, bar * 0.88);
+  ctx.fillText(deep ? 'TOP / BOTTOM' : 'WATER', W * 0.56, bar * 0.88);
   ctx.textAlign = 'right';
   ctx.fillText('SPEED', W - 10, bar * 0.88);
   ctx.globalAlpha = 1;
@@ -170,22 +172,34 @@ function drawSonar(ctx, x0, y0, w, h, U, P, win) {
       ctx.fillStyle = css(rampAt(P, 0.25 + 0.3 * gain), 0.8);
       ctx.fillRect(x, yOf(d, p), cw, 2);
     }
-    // The bottom: the strongest band at the top line, fading down through the mud or rock below.
-    const hard = p.rock;
+    // The thermocline: at gain enough, a faint broken band where the warm water meets the cold.
+    if (p.cline != null && gain >= 0.4 && !win.lock) {
+      ctx.fillStyle = css(rampAt(P, 0.2 + 0.2 * gain), 0.75);
+      for (let j = 0; j < 4; j++) if (hash(p.seed, j * 5.3) < 0.35 + 0.5 * gain) ctx.fillRect(x, yOf(p.cline + (j - 1.5) * 0.3, p), cw, 1.5);
+    }
+    // A bait ball: its cloud behind the specks.
+    if (p.ball && p.ballTop != null) {
+      ctx.fillStyle = css(rampAt(P, 0.4), 0.45);
+      const yt = yOf(p.ballTop, p), ybb = yOf(p.ballBot, p);
+      ctx.fillRect(x, yt - 2, cw, ybb - yt + 4);
+    }
+    // The bottom: the strongest band at the top line, fading down through the mud or rock below
+    // (hard rock a thick, bright band and a second echo; mud a dim, soft one).
+    const hard = p.hard ?? p.rock;
     const band = Math.max(3, h * (0.035 + 0.05 * hard));
     const bg = ctx.createLinearGradient(0, yb, 0, yb + band * 3.5);
-    bg.addColorStop(0, css(rampAt(P, 1)));
-    bg.addColorStop(0.25, css(rampAt(P, 0.8 + 0.2 * hard)));
-    bg.addColorStop(0.6, css(rampAt(P, 0.45 + 0.2 * hard)));
-    bg.addColorStop(1, css(rampAt(P, 0.15), 0.9));
+    bg.addColorStop(0, css(rampAt(P, 0.5 + 0.5 * hard)));
+    bg.addColorStop(0.25, css(rampAt(P, 0.4 + 0.5 * hard)));
+    bg.addColorStop(0.6, css(rampAt(P, 0.25 + 0.4 * hard)));
+    bg.addColorStop(1, css(rampAt(P, 0.12), 0.9));
     ctx.fillStyle = bg;
     ctx.fillRect(x, yb, cw, y0 + h - yb);
-    // (Hard bottom: a second echo at twice the depth.)
-    if (hard > 0.45 && !win.lock) {
+    // (A hard bottom: a second echo at twice the depth, stronger the harder it is.)
+    if (hard > 0.4 && !win.lock) {
       const y2 = yOf(p.bottom * 2, p);
       if (y2 < y0 + h) {
-        ctx.fillStyle = css(rampAt(P, 0.35), 0.8);
-        ctx.fillRect(x, y2, cw, 2);
+        ctx.fillStyle = css(rampAt(P, 0.2 + 0.4 * (hard - 0.4)), 0.4 + 0.8 * (hard - 0.4));
+        ctx.fillRect(x, y2, cw, 1 + 3 * hard);
       }
     }
     // Weed: ragged strands standing up off the bottom, stronger at their roots, with gaps.
@@ -198,11 +212,23 @@ function drawSonar(ctx, x0, y0, w, h, U, P, win) {
       ctx.fillStyle = wg;
       ctx.fillRect(x, yt, cw, yb - yt);
     }
-    // Fish: arches coloured by strength (or, with fish symbols on, the symbols drawn below).
+    // Fish: arches coloured by strength (or, with fish symbols on, the symbols drawn below). Each
+    // fish's echo is joined to its echo in the ping before, so its passage draws one arch.
+    const before = pings[i - 1];
     for (const f of p.fish) {
       const fy = yOf(f.depth, p);
       const k = clamp(f.size * 1.1 * f.strength + gain * 0.15, 0, 1);
       if (o.symbols && f.size >= 0.35) continue;
+      const was = before && f.size >= 0.3 ? before.fish.find((q) => q.id === f.id) : null;
+      if (was) {
+        ctx.strokeStyle = css(rampAt(P, 0.45 + 0.55 * k));
+        ctx.lineWidth = Math.max(2, Math.min(16, f.size * 10) * (h / 300));
+        ctx.beginPath();
+        ctx.moveTo(x - colW * 0.5, yOf(was.depth, before));
+        ctx.lineTo(x + colW * 0.5, fy);
+        ctx.stroke();
+        continue;
+      }
       if (f.size < 0.3) {
         ctx.fillStyle = css(rampAt(P, f.bait && p.ball ? 0.5 : 0.3 + 0.3 * k));
         ctx.fillRect(x, fy, Math.max(cw, 2), 2);
@@ -324,10 +350,12 @@ function drawDown(ctx, x0, y0, w, h, U, P, win, scale) {
     }
     // The bottom: a bright, grainy surface (harder brighter, rock lumpy and broken), then its
     // shadow fading into the ground below.
-    const hard = p.rock, rows = 10;
+    const hard = p.hard ?? p.rock, rows = 10;
     const th = Math.max(4, h * (0.04 + 0.05 * hard));
     for (let j = 0; j < rows; j++) {
-      const r = hash(p.seed, j * 3.7), yy = yb + (j / rows) * th * (1 + hard * hash(p.seed + 1, j));
+      // (Rock lumpy and broken, gravel grainy, sand smooth, mud soft and dim.)
+      const lump = p.kind === 'rock' ? 1 : p.kind === 'gravel' ? 0.5 : 0.15;
+      const r = hash(p.seed, j * 3.7), yy = yb + (j / rows) * th * (1 + lump * hash(p.seed + 1, j));
       const k = (0.55 + 0.45 * hard) * (1 - j / rows) * (0.65 + 0.35 * r) + gain * 0.1;
       ctx.fillStyle = tint(k);
       ctx.fillRect(x, yy, cw, th / rows + 1);
