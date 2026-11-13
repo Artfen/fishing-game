@@ -248,7 +248,7 @@ export class SharedWorld {
     this.seen = n;
     const A = this.eco.captureAgents(foci, INTEREST, full);
     // (The feeds going on, D4: few, and each a handful of numbers. See feeding.js.)
-    return { v: SHARE_V, ep: this.together.epoch || 'solo', sq: ++this.sq, t: this.together.now(), s: this.sealife.capture(), k: this.eco.captureSchools(foci, INTEREST, NEAR, full), a: A, e: this.eco.feeding.capture() };
+    return { v: SHARE_V, ep: this.together.epoch || 'solo', sq: ++this.sq, t: this.together.now(), s: this.sealife.capture(), k: this.eco.captureSchools(foci, INTEREST, NEAR, full), a: A, e: this.eco.feeding?.capture() ?? [] };
   }
 
   send(viewers) {
@@ -290,7 +290,7 @@ export class SharedWorld {
     this.eco.applySchools(d.k, lag);
     if (d.a) this.eco.applyAgents(d.a, T.id);
     // (An older host's snapshot has no feeds: then none are shown, rather than any guessed.)
-    this.eco.feeding.apply(d.e || []);
+    this.eco.feeding?.apply(d.e || []);
     Object.assign(this.stats, { got: this.stats.got + 1, delay: lag, heardAt: T.now(), schools: d.k.length, bytes, fish: d.a?.rows.length ?? 0 });
     this.stats.animals = this.counts.pods.length + this.counts.whales + this.counts.seals + this.counts.turtles;
   }
@@ -316,7 +316,7 @@ export class SharedWorld {
       s.synced = false;
     }
     // (The host's feeds go with it: this screen's sea starts its own.)
-    this.eco.feeding.apply([]);
+    this.eco.feeding?.apply([]);
     for (const a of this.eco.agents) {
       a.net = null;
       if (a.remoteHook && a.state === 'hooked') {
