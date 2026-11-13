@@ -181,6 +181,16 @@ const bowEnd = (b) => ({ x: b.pos.x + b.fwd.x * b.hull.L * 0.5, z: b.pos.z + b.f
 // breaking load it holds (lines.js STRENGTH, by difficulty; Infinity: it never parts).
 // hold (F4b): the most a hand tending it lets it take, surging it round the cleat (see lines.js
 // TEND): past it the line runs out (out.slip, m) rather than pulling harder or parting.
+// How far it is from the leader's stern to the towed boat's bow (m): where the towline runs.
+export const towGap = (lead, towed) => {
+  const s = sternOf(lead), w = bowEnd(towed);
+  return Math.hypot(s.x - w.x, s.z - w.z);
+};
+// The line paid out when she's taken in tow (m): the usual length, or more if she's further off
+// than that from your stern (taken from alongside, her bow's well forward of your stern), so the
+// line starts slack, not already stretched past what it holds.
+export const towLineFor = (lead, towed) => Math.max(TOW.len, towGap(lead, towed) + 0.5);
+
 export function towStep(lead, towed, dt, len = TOW.len, out = null, strength = 1, hold = Infinity) {
   const s = sternOf(lead), w = bowEnd(towed);
   let dx = s.x - w.x, dz = s.z - w.z;

@@ -133,7 +133,8 @@ test('a buoy adrift: aboard in a boat that takes its weight; given up with nothi
 
 test('a tow: she’s on your line, off it, and into the harbour; paid there, once', () => {
   const C = rec(2), W = world({ abs: 9, callSpot: { x: 300, z: 300, where: 'off Shell Strand' } });
-  const ids = K.TEMPLATE_IDS.filter((k) => K.TEMPLATES[k].call);
+  // (The calls there are for a skipper the harbour office doesn't know yet: see callPool.)
+  const ids = K.callPool(C, W);
   const o = K.callFor(C, W, () => (ids.indexOf('breakdown') + 0.5) / ids.length);
   assert.equal(o.tpl, 'breakdown');
   const a = K.acceptCall(C, o, 0);
