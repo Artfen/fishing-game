@@ -7,6 +7,8 @@
 // state.routes: [{ id, name, pts: [[x, z], …] }] (up to ROUTES_MAX, each up to POINTS_MAX marks);
 // state.route: the one you're following, { id, leg } (leg: the mark you're making for), or null.
 
+import { HOUR_SECONDS } from './world/clock.js';
+
 export const ROUTES_MAX = 8;
 export const POINTS_MAX = 16;
 // (Rounding a mark: within this of it, the next leg begins.)
@@ -77,3 +79,53 @@ export const timeWords = (hours) => {
   const min = Math.round(hours * 60);
   return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`;
 };
+
+// (F2d) The route's day. A route takes the game's day as well as your time at the helm: at the
+// clock's HOUR_S seconds a game hour (world/clock.js), a sea mile at six knots is ten minutes at
+// the helm and fifteen hours of the day. So a route of any length runs into the night: where she'll
+// be when the sun goes down (and whether that's water to anchor in for the night), when a gale due
+// will find her, and how many days of stores and ice it wants.
+export const HOUR_S = HOUR_SECONDS;
+export const KNOT = 1852 / 3600; // metres a second
+
+// Game hours to run `m` metres at `knots`.
+export const runHours = (m, knots) => (knots > 0 ? m / (knots * KNOT) / HOUR_S : Infinity);
+
+// Where she is `h` game hours along the route at `knots`: { x, z, leg (the mark she's making for),
+// done }.
+export function alongAt(pts, knots, h) {
+  const { legs } = legsOf(pts);
+  let left = h;
+  for (let i = 0; i < legs.length; i++) {
+    const L = legs[i], lh = runHours(L.m, knots);
+    if (left <= lh) {
+      const f = lh > 0 ? left / lh : 1;
+      return { x: L.from[0] + (L.to[0] - L.from[0]) * f, z: L.from[1] + (L.to[1] - L.from[1]) * f, leg: i + 1, done: false };
+    }
+    left -= lh;
+  }
+  const end = pts[pts.length - 1];
+  return { x: end[0], z: end[1], leg: pts.length - 1, done: true };
+}
+
+// The route's day, leaving at `abs` (game hours) at her `knots`: { hours (of the game's day),
+// arrive (abs), days (of stores it wants: whole days begun), dark (where she is at `sunset`, abs,
+// if she's still out then: { at, x, z, leg }), gale (where she is when a gale due at `galeAt`
+// begins, if she's still out: { at, x, z, leg }) }.
+export function routeDay(pts, knots, abs, { sunset = null, galeAt = null } = {}) {
+  const hours = legsOf(pts).legs.reduce((s, L) => s + runHours(L.m, knots), 0);
+  const at = (t) => (t != null && t > abs && t < abs + hours ? { at: t, ...alongAt(pts, knots, t - abs) } : null);
+  return { hours, arrive: abs + hours, days: Math.max(1, Math.ceil(hours / 24 - 1e-9)), dark: at(sunset), gale: at(galeAt) };
+}
+
+// The last mark she rounds before `h` game hours where `ok(x, z)` (sheltered water, say), or null:
+// { i (the mark's number from 0, the start), x, z }.
+export function lastMarkBefore(pts, knots, h, ok) {
+  let t = 0, best = ok(pts[0][0], pts[0][1]) ? { i: 0, x: pts[0][0], z: pts[0][1] } : null;
+  for (let i = 1; i < pts.length; i++) {
+    t += runHours(dist(pts[i - 1], pts[i]), knots);
+    if (t > h) break;
+    if (ok(pts[i][0], pts[i][1])) best = { i, x: pts[i][0], z: pts[i][1] };
+  }
+  return best;
+}

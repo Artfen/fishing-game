@@ -33,7 +33,7 @@ import { surfaceUniforms } from './world/surface.js';
 import { causticUniforms } from './world/caustics.js';
 import {
   bakeHeightTexture, heightAt, walkHeight, solidHeight, landSDF, lakeSDF, streamSDF, zoneAt, waterOf, riverSDF, mereSDF, waterLevel, depthAt,
-  PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD, SEA, inSeas, inWorld, SOUTH_Z, CROSSING,
+  PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD, SEA, inSeas, inWorld, SOUTH_Z, CROSSING, ZONE_NAMES,
   PEGS, POOLS, STREAM, SNAG, LILIES, JETTY, ISLAND, GANNET_CAMP, SKERRIES, SKELLIG, DEEP_Z,
   HAVEN, HAVEN_QUAY, HAVEN_BENCH, DAYMARK, STRAND, WRECK, WRECK_BUOY, WRECK_BELL, CHANNEL,
   HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, FUEL_PUMPS, HAVEN_PONTOON, HAVEN_FINGERS, OWN_FINGER, VISITOR_FINGERS, HARBOUR_OFFICE, laneInfo,
@@ -94,7 +94,7 @@ import { BIRD_KINDS } from './birdData.js';
 import { cleanLook } from './looks.js';
 import { dressFigure } from './dress.js';
 import { flagById, logLine, addRun, addFish } from './papers.js';
-import { follow as followLeg, courseWords, rangeWords } from './routes.js';
+import { follow as followLeg, courseWords, rangeWords, routeDay, lastMarkBefore } from './routes.js';
 import { TRIALS as ENGINE_TRIALS } from './engineTrials.js';
 import { engineSpec, hasCatalogue, MODELS, CATALOGUE as ENGINE_BOATS, propName, fittedName } from './engines.js';
 const CATALOGUE_COUNT = (kind) => ENGINE_BOATS[kind]?.count || 1;
@@ -11601,6 +11601,7 @@ const mapSheet = new MapSheet(state, explored, { data: heightTex.image.data, wid
   // Routes (see routes.js): the boat you'd take (the one you're in or last used) and what she does
   // at her cruise; following one, and stopping.
   routeBoat: () => routeBoat(),
+  routeDay: (pts) => routeDayLines(pts),
   followRoute: (id) => {
     state.route = { id, leg: 1 };
     routeSaid = null;
@@ -11625,10 +11626,56 @@ function routeBoat() {
   if (C) {
     const e = engineOf(state.yard, k), T = ENGINE_TRIALS[k]?.[`${e.model}/${e.prop}`];
     // (An electric outboard: at its own easy pace, in hundredths of its battery.)
-    if (MODELS[e.model]?.electric) return { name: b.name, knots: T?.kn || MODELS[e.model].cruise, lph: (T?.bph || 0) * 100, tank: 100, battery: true, at };
-    return { name: b.name, knots: C.cruise, lph: T?.lph || 0, tank: TANKS[k] || 0, at };
+    if (MODELS[e.model]?.electric) return { kind: k, name: b.name, knots: T?.kn || MODELS[e.model].cruise, lph: (T?.bph || 0) * 100, tank: 100, battery: true, at };
+    return { kind: k, name: b.name, knots: C.cruise, lph: T?.lph || 0, tank: TANKS[k] || 0, at };
   }
-  return { name: b.name, knots: EASY_KN[k] ?? 4, lph: 0, tank: TANKS[k] || 0, at };
+  return { kind: k, name: b.name, knots: EASY_KN[k] ?? 4, lph: 0, tank: TANKS[k] || 0, at };
+}
+
+// (F2d) A route's day, leaving now in the boat you'd take (routes.js routeDay): when she's in by the
+// game's clock; where she'll be when the sun goes down, and whether that's sheltered water to lie
+// in for the night (F2a), or else the last sheltered mark before it; where a gale due would find
+// her; and, for a run of more than half a day, her stores (F1a) and the ice in her fish box (F2b).
+// Lines { ok, text }, for the chart's route card.
+const zoneWords = (x, z) => ZONE_NAMES[zoneAt(x, z)] || 'open water';
+// (Out in open water, out in the deep water; off the outer coast.)
+const outIn = (x, z) => (zoneAt(x, z) === 'coast' ? 'off ' : 'out in ') + zoneWords(x, z);
+const shelteredAt = (x, z) => isSheltered(zoneAt(x, z));
+function routeDayLines(pts) {
+  const B = routeBoat();
+  if (!B || !pts || pts.length < 2 || !(B.knots > 0)) return [];
+  const abs = clock.abs, day0 = abs - state.hour;
+  let sunset = day0 + sunTimes(abs).set;
+  if (sunset <= abs) sunset = day0 + 24 + sunTimes(abs + 24).set;
+  const toGale = hoursToGale(abs);
+  const D = routeDay(pts, B.knots, abs, { sunset, galeAt: toGale != null ? abs + toGale : null });
+  const when = (a) => `${formatClock(((a % 24) + 24) % 24)}${Math.floor(a / 24) > Math.floor(abs / 24) ? (Math.floor(a / 24) - Math.floor(abs / 24) === 1 ? ' tomorrow' : ` on day ${Math.floor(a / 24)}`) : ''}`;
+  const hrs = (h) => (h < 1 ? `${Math.max(5, Math.round((h * 60) / 5) * 5)} minutes` : `${Math.round(h * 2) / 2} hours`);
+  const out = [{ ok: true, text: `Leaving now, she's in about ${when(D.arrive)}: ${hrs(D.hours)} of the day.` }];
+  if (D.dark) {
+    const name = zoneWords(D.dark.x, D.dark.z);
+    if (shelteredAt(D.dark.x, D.dark.z)) out.push({ ok: true, text: `The sun sets about ${when(D.dark.at)} with her in ${name}: sheltered water to lie in for the night.` });
+    else {
+      const last = lastMarkBefore(pts, B.knots, D.dark.at - abs, shelteredAt);
+      out.push({ ok: false, text: `The sun sets about ${when(D.dark.at)} with her ${outIn(D.dark.x, D.dark.z)}. ${last ? (last.i === 0 ? 'There\'s no sheltered water on the way before then: leave in the morning, or carry on through the night with her lights on.' : `The last sheltered water before then is mark ${last.i}, in ${zoneWords(last.x, last.z)}: lie there for the night, or carry on in the dark with her lights on.`) : 'There\'s no sheltered water on the way before then: carry on through the night with her lights on, or plan it for the morning.'}` });
+    }
+  }
+  if (D.gale) {
+    const name = zoneWords(D.gale.x, D.gale.z), safe = shelteredAt(D.gale.x, D.gale.z);
+    out.push({ ok: safe, text: `A gale is due about ${when(D.gale.at)}: it would find her ${safe ? `in ${name}, sheltered` : `${outIn(D.gale.x, D.gale.z)}, in the open`}.` });
+  }
+  if (D.hours > 12) {
+    if (needsMode() !== 'off' && storesAboard(state, B.kind).most) {
+      const A = storesAboard(state, B.kind), want = D.hours / 24;
+      out.push({ ok: A.days >= want + 0.25, text: `Her stores: ${daysWords(A.days)} aboard, for a run of ${hrs(D.hours)}${A.days >= want + 0.25 ? '' : ': stock her up before you go'}.` });
+    }
+    if (hasBox(B.kind) && !fitEffect(state.yard, B.kind)?.livewell) {
+      const left = boxHoursLeft(state, B.kind, abs);
+      const box = FISHBOX[B.kind];
+      out.push({ ok: left >= D.hours, text: left >= D.hours ? `Her ${box}: ice for the whole of it.` : left > 0 ? `Her ${box}: ice for ${hrs(left)} of the ${hrs(D.hours)}: the chandlery tops it up.` : `Her ${box}: no ice in it for a run of ${hrs(D.hours)}. The chandlery ices it, and your catch keeps in it while you're aboard.` });
+    }
+  }
+  return out;
 }
 // Following a route at the helm: on to the next mark as each is rounded (see routes.js).
 let routeSaid = null;
