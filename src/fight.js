@@ -19,7 +19,8 @@
 // Or the fish comes off without the line breaking (the Fish behaviour setting decides how
 // likely; on Relaxed, never):
 // - 'thrown':  it leapt or shook its head while the line hung slack, and threw the hook;
-// - 'pulled':  a hook with only a light hold tore free under heavy, sustained pressure.
+// - 'pulled':  a hook with only a light hold tore free under heavy, sustained pressure (a hold that
+//              started solid can work loose: see the grip below).
 //
 // Each fish fights as itself: its kind's style, its size (a big fish's runs longer and heavier,
 // a small one's quick), its own vigour and condition; it changes direction on a run, some kinds
@@ -223,13 +224,21 @@ export function newFight(sp, size, rod, diff, cover = false, rnd = Math.random, 
   let light = sp.life?.softMouth ? 0.75 : 0.3;
   if (who.range != null) light += 0.25 * stretch * clamp((who.range - 20) / 30, 0, 1);
   if (stretch === 0) light -= 0.1;
+  // (E2) How firmly, as a number (the grip, 0 … 1): a light hold 0.2-0.45, a solid one 0.6-1,
+  // from the same roll that decided which. Head-shakes, leaps and long heavy pressure wear it
+  // (see stepFight), and a solid hold worn below half is a light one. Never on Relaxed.
+  const pL = clamp(light, 0.05, 0.9), roll = level.pull > 0 ? rnd() : 1;
+  const lightHold = roll < pL;
+  const grip = level.pull > 0 ? (lightHold ? 0.2 + 0.25 * (roll / pL) : 0.6 + 0.4 * ((roll - pL) / (1 - pL))) : 1;
   return {
     vigour,
     endure: (who.condition ?? 1) * vigour,
     jumpy: who.jumpy ?? 0,
     flex: rod.flex ?? 1,
     level,
-    hold: level.pull > 0 && rnd() < clamp(light, 0.05, 0.9) ? 'light' : 'solid',
+    hold: lightHold ? 'light' : 'solid',
+    grip,
+    loosened: false, // a solid hold that wore light in this fight
     stretch,
     soft: !!sp.life?.softMouth,
     flow: 0,     // the current, pulling it away from you (+) or towards you (−), m/s (set each step)
@@ -265,6 +274,10 @@ export function newFight(sp, size, rod, diff, cover = false, rnd = Math.random, 
     // heavy mono stands up to it, wire and the heavy leaders more still.
     abrade: rod.line.abrade ?? 1,
     teeth: !!sp.life?.teeth && !rod.line.trace,
+    // (E2) Damage the line has taken in this fight where it meets the fish: chafed on rock or weed
+    // stems, nicked by teeth (0 … 1). It stays: the line's that much weaker for the rest of the
+    // fight, and after it until it's respooled (see shop.js wearFrom).
+    chafe: 0,
     time: 0,
     peak: 0,
     strain: 0, // how close the line is to parting from overload (1 = it parts); eases off slowly
@@ -389,7 +402,11 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
       F.dir = rnd() < 0.5 ? -1 : 1;
       F.turnT = 0.5 + rnd() * 1.2;
       event = 'run';
-      if (F.teeth && rnd() < 0.2 * diff.teeth) return 'snap:teeth';
+      // (Teeth: a bite through the line now and then; the rest of the time, a nick in it.)
+      if (F.teeth) {
+        if (rnd() < 0.2 * diff.teeth) return 'snap:teeth';
+        F.chafe = Math.min(1, F.chafe + 0.08 * diff.teeth);
+      }
       // Some kinds leap or shake their heads at the top a moment into a run (once the surge
       // has passed, so it's time to be winding again).
       if (!beaten && F.jumpy > 0 && rnd() < F.jumpy * 0.55 * (1 - F.progress * 0.5)) F.leapIn = SURGE + 0.15 + rnd() * 0.5;
@@ -598,10 +615,13 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
     if (F.shakeT <= 0) {
       F.tension -= F.shakeOff;
       F.shakeOff = 0;
-      if (F.shakeSlack > 0.12 && rnd() < F.level.throwHook * 1.2 * Math.min(1, F.shakeSlack / 0.4)) {
+      if (F.shakeSlack > 0.12 && rnd() < F.level.throwHook * 1.2 * Math.min(1, F.shakeSlack / 0.4) * looseK(F)) {
         F.thrownBy = 'shake';
         return 'off:thrown';
       }
+      // (Every shake works at the hook-hold: little with the rod low to the side and the line
+      // steady, most when it snatched against a high rod or fell slack between the shakes.)
+      if (wearGrip(F, (0.025 + 0.1 * Math.min(1, F.shakeSlack / 0.3)) * (A / 0.3))) event = event || 'loosened';
     }
   }
   // A fish that keeps running against the drag takes line past where it was hooked; that has to
@@ -654,11 +674,15 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
   if (F.jumping > 0) {
     F.jumping -= dt;
     if (F.tension < 0.16) F.jumpSlack = true;
-    if (F.jumping <= 0 && F.jumpSlack && rnd() < F.level.throwHook * 2.2) {
+    if (F.jumping <= 0 && F.jumpSlack && rnd() < F.level.throwHook * 2.2 * looseK(F)) {
       F.thrownBy = 'leap';
       return 'off:thrown';
     }
+    // (A leap wrenches at the hook-hold, most of all on a slack line.)
+    if (F.jumping <= 0 && wearGrip(F, F.jumpSlack ? 0.14 : 0.05)) event = event || 'loosened';
   }
+  // (Long heavy pressure slowly opens the hook-hole: a soft mouth's sooner.)
+  if (F.tension > 0.85 && wearGrip(F, dt * 0.012 * (F.soft ? 2 : 1))) event = event || 'loosened';
   // A light hold tears free under heavy pressure held too long (a drag set tight, or a heavy hand);
   // sooner on braid, which has no stretch to cushion it.
   if (F.hold === 'light' && F.tension > (F.soft ? 0.66 : 0.76)) {
@@ -671,15 +695,37 @@ export function stepFight(F, held, dt, diff, rnd = Math.random) {
   // for this fish can't turn it in time; on rock, how the line stands up to it counts as much
   // (braid goes in a moment).
   const rock = F.coverKind === 'rock', wear = rock ? F.abrade : 1, diving = F.pulling && F.move === 'dive';
-  if (F.cover && F.coverK > 0 && F.slipping && F.progress < (diving ? 0.3 : 0.1) && F.ratio > diff.light * wear) F.snagT += dt * F.coverK * (diving ? 1.8 : 1);
-  else F.snagT = Math.max(0, F.snagT - dt * 0.5);
-  if (F.snagT > 3.5 * diff.snag * wear) return rock ? 'snap:rock' : 'snap:snag';
+  // (E2: while it's in among them, the line rubs: that damage stays, however it ends. Rock wears it
+  // by how the line stands up to rock, weed stems a little.)
+  const weak = 1 - 0.45 * F.chafe;
+  if (F.cover && F.coverK > 0 && F.slipping && F.progress < (diving ? 0.3 : 0.1) && F.ratio > diff.light * wear * weak) {
+    F.snagT += dt * F.coverK * (diving ? 1.8 : 1);
+    F.chafe = Math.min(1, F.chafe + dt * F.coverK * (rock ? 0.05 / wear : 0.015) * (0.5 + F.tension));
+  } else F.snagT = Math.max(0, F.snagT - dt * 0.5);
+  if (F.snagT > 3.5 * diff.snag * wear * weak) return rock ? 'snap:rock' : 'snap:snag';
 
-  // Past its rating the line strains, faster the further past; below it, it recovers slowly.
-  if (F.tension > 0.97) F.strain += (F.tension - 0.97) / diff.strain * dt;
+  // Past its rating the line strains, faster the further past; below it, it recovers slowly. (A
+  // chafed or nicked line's rating is lower.)
+  if (F.tension > 0.97 * weak) F.strain += (F.tension - 0.97 * weak) / diff.strain * dt;
   else if (F.tension < 0.9) F.strain = Math.max(0, F.strain - 0.1 * dt);
   if (F.strain >= 1) return d >= 0.9 ? 'snap:drag' : 'snap:tension';
   return event;
+}
+
+// (E2) How much more readily a slack moment throws the hook, by its grip: a hold set well (0.6
+// or more) as it always was; one only nicked in, or worn loose, more readily (up to 1.75 times).
+const looseK = (F) => 1 + Math.max(0, 0.6 - (F.grip ?? 1)) * 1.5;
+// (E2) Wear the hook-hold by w (scaled by the Fish behaviour setting's pull: never on Relaxed). A
+// solid hold worn below half is a light one from then on: true when that just happened.
+function wearGrip(F, w) {
+  if (!(F.level.pull > 0) || !(w > 0)) return false;
+  F.grip = Math.max(0.05, (F.grip ?? 1) - w * F.level.pull);
+  if (F.hold === 'solid' && F.grip < 0.5) {
+    F.hold = 'light';
+    F.loosened = true;
+    return true;
+  }
+  return false;
 }
 
 // Advice after a break (or a fish lost), in words. extra: { by (what threw the hook: 'charge',
@@ -692,6 +738,7 @@ export function breakReason(cause, sp, rod, extra = {}) {
       if (extra.by === 'shake') return `The ${fish} shook its head at the top while the line went slack, and threw the hook. Keep the rod low and to the side and the line steady when it head-shakes.`;
       return `The ${fish} leapt and shook its head while the line hung slack, and threw the hook. Keep the rod up and the line tight when it jumps: wind down to it.`;
     case 'pulled':
+      if (extra.loosened) return `The hook pulled out. It was set well, but the fight wore the hold loose (every head-shake, leap and long heavy pull works at it), and then the pressure stayed too heavy for too long. Keep the rod low to the side through the head-shakes, the line tight when it jumps, and ease off once it's working loose.`;
       return `The hook pulled out: it only had a light hold in the ${fish}’s lip, and the pressure stayed too heavy for too long. A lighter drag and a softer touch keep a lightly hooked fish on.`;
     case 'spat':
       return `The ${fish} let go just as you struck, and the hook came back empty. Strike as the float goes under or the line draws tight, not a moment after.`;
