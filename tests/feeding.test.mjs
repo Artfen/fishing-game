@@ -310,3 +310,48 @@ test('a snapshot’s feeds are checked: sound ones pass, junk is refused, and an
   for (const bad of [[[3, 5, 1, 1, 1, 1, 0, 0]], [[3, 1, 1, 1, 1, 1, 0]], [[1e6, 1, 1, 1, 1, 1, 0, 0]], [[3, 1, 'x', 1, 1, 1, 0, 0]], 'x', new Array(9).fill([3, 1, 1, 1, 1, 1, 0, 0])]) assert.equal(cleanShared({ ...base(), e: bad }, counts), null, JSON.stringify(bad).slice(0, 40));
   assert.ok(typeof countsOf === 'function');
 });
+
+test('the gannets come to a feed first; between feeds, a shoal at the top by itself brings them only now and then', async () => {
+  const THREE = await import('three');
+  // (Sea life draws its textures on a canvas: a stand-in, as in sealife.test.mjs.)
+  const ctx2d = new Proxy({}, { get: (o, k) => (k === 'createRadialGradient' || k === 'createLinearGradient' ? () => ({ addColorStop() {} }) : k === 'measureText' ? () => ({ width: 10 }) : k === 'getImageData' ? () => ({ data: [] }) : k === 'createImageData' ? (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }) : () => {}), set: () => true });
+  globalThis.document ??= { createElement: () => ({ width: 0, height: 0, getContext: () => ctx2d }), fonts: null };
+  const { buildSeaLife } = await import('../src/world/sealife.js');
+  const scene = new THREE.Scene();
+  const ctxFor = (from, extra = {}) => ({ from, boat: null, boatSpeed: 0, daylight: 1, region: 'home', eco: null, diving: false, ...extra });
+  // A sprat shoal at the top near you, and a feed on another a little further off.
+  const near = { id: 1, sp: { id: 'sprat' }, x: 60, z: 420, y: -1, home: {} };
+  const fed = { id: 2, sp: { id: 'sandsmelt' }, x: 160, z: 380, y: -1, home: {} };
+  const feed = { s: fed, phase: UP, t: 10, overAt: 0, done: false };
+  const eco = { schools: [near, fed], feeding: { events: [feed] } };
+  const life = buildSeaLife(scene);
+  const plunges = [];
+  life.onPlunge = (x, z) => plunges.push({ x, z });
+  let t = 0;
+  for (let i = 0; i < 30 * 40; i++) {
+    t += 1 / 30;
+    life.update(1 / 30, t, ctxFor({ x: 20, z: 400 }, { eco }));
+  }
+  assert.ok(life.feeding?.school === fed, 'down on the feed, not the nearer shoal');
+  assert.ok(plunges.length >= 3 && plunges.every((p) => Math.hypot(p.x - fed.x, p.z - fed.z) < 8), `${plunges.length} plunges, into the feed`);
+  // The feed breaks up: they go a little after.
+  feed.phase = OVER;
+  feed.overAt = feed.t;
+  feed.t += 11;
+  for (let i = 0; i < 30 * 30; i++) {
+    t += 1 / 30;
+    life.update(1 / 30, t, ctxFor({ x: 20, z: 400 }, { eco }));
+  }
+  assert.ok(!life.feeding || life.feeding.school !== fed, 'gone from it');
+  // Then the shoal at the top by itself: once, and not again for minutes.
+  eco.feeding.events = [];
+  const starts = [];
+  let was = life.feeding;
+  for (let i = 0; i < 30 * 200; i++) {
+    t += 1 / 30;
+    life.update(1 / 30, t, ctxFor({ x: 20, z: 400 }, { eco }));
+    if (life.feeding && life.feeding !== was) starts.push(t);
+    was = life.feeding;
+  }
+  assert.ok(starts.length <= 1, `${starts.length} flocks on the lone shoal in 200 s`);
+});
