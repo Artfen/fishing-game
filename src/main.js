@@ -865,12 +865,17 @@ const finder = new FishFinder(eco, habitat, state, {
     state.pins.push({ id: `sn-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, x: Math.round(r.x * 10) / 10, z: Math.round(r.z * 10) / 10, title: `Sonar mark · ${r.depth.toFixed(1)} m`, note: `${r.depth.toFixed(1)} m over ${r.type}${r.temp != null ? `, ${r.temp.toFixed(1)}°C` : ''}${fish}${r.ball ? ' · bait below' : ''}.`, fav: false, day: state.day, hour: Math.round(state.hour * 100) / 100 });
     save();
     audio.chime?.();
-    hud.toast(`Marked on your map: ${r.depth.toFixed(1)} m over ${r.type}.`, 4);
+    // (F4d) Crewing: the mark goes on your skipper's chart too.
+    const sent = crew.on && together.active && together.seen(crew.on.id, { w: 'mark', x: r.x, z: r.z, d: r.depth, f: r.fish.slice(0, 3), t: r.type });
+    hud.toast(`Marked on your map${sent ? ` and ${together.peers.get(crew.on.id)?.name || 'your skipper'}’s chart` : ''}: ${r.depth.toFixed(1)} m over ${r.type}.`, 4);
   },
   // (E1) What the screen has just shown: an arch noted as a sign (a catch soon after near it tells
   // you what it was: see grounds.js), and the first of each kind of mark explained once.
   sighted: (kind, i) => {
     if (kind === 'arch' && i.mode === 'boat') seeSign(state.grounds, recentSigns, { type: 'arch', x: i.x, z: i.z, sp: i.sp }, clock.abs, state.day);
+    // (F4d) Crewing, watching the sonar under her: fish or bait coming under, called to your
+    // skipper now and then (see sonarCall).
+    if ((kind === 'arch' || kind === 'ball') && onFoot && crew.on) sonarCall(kind, i);
     const words = SONAR_MARKS[kind];
     if (words) teach(`sonar-${kind}`, typeof words === 'function' ? words(i) : words, 8);
   },
@@ -12103,7 +12108,13 @@ function tendTick(dt) {
 // photograph they take aboard counts for your photo jobs and favours (dolphins on her bow too), so
 // one of you can drive while the other watches and shoots. Only from someone standing in her.
 const SEA_KINDS = new Set(SEA_LIFE_KINDS), NATURE_KINDS = new Set(Object.keys(NATURE));
-let spotSaidT = -1e9, spotSaid = '';
+let spotSaidT = -1e9, spotSaid = '', sonarSaidT = -1e9, sonarCallT = -1e9;
+// (F4d) The crew's side: fish or bait on the sonar under her, called to the skipper at most every
+// 15 s (and only while you're crewing in her).
+function sonarCall(kind, i) {
+  if (!together.active || t - sonarCallT < 15) return;
+  if (together.seen(crew.on.id, { w: 'fish', d: i.depth, b: kind === 'ball' })) sonarCallT = t;
+}
 // (Their names mid-sentence, as the journal has them: "northern gannets", "a fin whale", "Cory's
 // shearwaters", "Atlantic puffins".)
 const lifeWords = (k) => (SEA_LIFE[k]?.name || k).split(' ').map((w) => (/^(Atlantic|European|Eurasian|Mediterranean|Canary|Manx)$/.test(w) || /[’']s$/.test(w) ? w : w.toLowerCase())).join(' ');
@@ -12126,6 +12137,22 @@ function seenHeard(p, S) {
     spotSaid = S.k;
     spotSaidT = t;
     hud.flash(`${p.name} spots ${lifeWords(S.k)} ${fromTheBow(S.x, S.z)}.`, t, 3.5);
+    return;
+  }
+  if (S.w === 'mark') {
+    // (Their sonar mark, on your chart: where her plotter, if she has one, points to the nearest.)
+    if (state.pins.length >= 60) return hud.flash(`${p.name} marked the sonar, but your chart has no room for another mark.`, t, 3);
+    const fish = S.f.length ? ` · fish at ${S.f.map((d) => d.toFixed(1)).join(', ')} m` : '';
+    state.pins.push({ id: `cs-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, x: S.x, z: S.z, title: `${p.name}’s sonar mark · ${S.d.toFixed(1)} m`, note: `${S.d.toFixed(1)} m over ${S.t}${fish}.`, fav: false, from: p.name, day: state.day, hour: Math.round(state.hour * 100) / 100 });
+    save();
+    hud.toast(`${p.name} marks the sonar under her: ${S.d.toFixed(1)} m over ${S.t}${fish}. It’s on your chart${fitsAboard()?.plotter ? ', and on the plotter' : ''}.`, 5);
+    return;
+  }
+  if (S.w === 'fish') {
+    // (Fish or bait coming under her, now and then: not over and over.)
+    if (t - sonarSaidT < 12) return;
+    sonarSaidT = t;
+    hud.flash(S.b ? `${p.name}: “Bait on the sonar, ${Math.round(S.d)} m down. Look for fish under it.”` : `${p.name}: “Fish on the sonar, ${Math.round(S.d)} m down.”`, t, 3.5);
     return;
   }
   const sea = S.sea.filter((k) => SEA_KINDS.has(k)), life = S.life.filter((k) => SEA_KINDS.has(k));
@@ -13427,7 +13454,10 @@ function tick(now, manual = false) {
 
   // The boat's sonar reads under the hull; on foot it reads around your rig once it's in the water.
   // (E1: and the water's warmth at each depth there, for its layers: see sonarRead.js.)
-  if (onFoot) finder.update(dt, fishing.baitInWater ? { x: fishing.hook.x, z: fishing.hook.z, mode: 'rig', moving: fishing.reelSpeed, temp: finderTemp(fishing.hook.x, fishing.hook.z, dt), tempAt: (d) => waterTempAt(fishing.hook.x, fishing.hook.z, d) } : { mode: 'none' }, eco.bait);
+  // (F4d) Crewing in a friend's boat: the sonar under her, as on your own boat.
+  const her = onFoot && crew.on ? visitors.boatOf(crew.on.id) : null;
+  if (her) finder.update(dt, { x: her.pos.x, z: her.pos.z, mode: 'boat', moving: together.peers.get(crew.on.id)?.at?.v || 0, temp: finderTemp(her.pos.x, her.pos.z, dt), tempAt: (d) => waterTempAt(her.pos.x, her.pos.z, d) }, eco.bait);
+  else if (onFoot) finder.update(dt, fishing.baitInWater ? { x: fishing.hook.x, z: fishing.hook.z, mode: 'rig', moving: fishing.reelSpeed, temp: finderTemp(fishing.hook.x, fishing.hook.z, dt), tempAt: (d) => waterTempAt(fishing.hook.x, fishing.hook.z, d) } : { mode: 'none' }, eco.bait);
   else finder.update(dt, { x: boat.pos.x, z: boat.pos.z, mode: 'boat', moving: boat.speed, temp: finderTemp(boat.pos.x, boat.pos.z, dt), tempAt: (d) => waterTempAt(boat.pos.x, boat.pos.z, d) }, eco.bait);
 
   const zone = zoneAt(P.x, P.z);

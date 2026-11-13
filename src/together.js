@@ -74,7 +74,9 @@ export const NAV_POINTS = 16;
 export const TOW_REACH = 40;
 // (F4c) A crewmate's eye: wildlife they've named through their binoculars aboard your boat
 // ('spot': its kind and where), or what's in a photograph they've taken aboard ('snap': the kinds
-// of each sort, and whether dolphins were riding her bow). Each sort at most once a second.
+// of each sort, and whether dolphins were riding her bow). (F4d) And the sonar under her, as their
+// fish finder reads it: a mark they've made ('mark': where, how deep, fish at what depths, over
+// what), or fish or bait coming under her ('fish': how deep; b, bait). Each sort at most once a second.
 const SEEN_GAP = 1;
 const ids = (v, max = 12) => (Array.isArray(v) ? v.filter((s) => typeof s === 'string' && /^[a-z0-9]{1,24}$/.test(s)).slice(0, max) : []);
 export function cleanSeen(d) {
@@ -82,6 +84,17 @@ export function cleanSeen(d) {
   if (d.w === 'spot') {
     const k = ids([d.k])[0], x = finite(d.x, -3000, 3000), z = finite(d.z, -3000, 8000);
     return k && x != null && z != null ? { w: 'spot', k, x: Math.round(x), z: Math.round(z) } : null;
+  }
+  if (d.w === 'mark') {
+    const x = finite(d.x, -3000, 3000), z = finite(d.z, -3000, 8000), dep = finite(d.d, 0, 400);
+    if (x == null || z == null || dep == null) return null;
+    const f = Array.isArray(d.f) ? d.f.map((v) => finite(v, 0, 400)).filter((v) => v != null).slice(0, 3).map((v) => Math.round(v * 10) / 10) : [];
+    const t = typeof d.t === 'string' && /^[a-z ]{1,16}$/.test(d.t) ? d.t : 'the bottom';
+    return { w: 'mark', x: Math.round(x * 10) / 10, z: Math.round(z * 10) / 10, d: Math.round(dep * 10) / 10, f, t };
+  }
+  if (d.w === 'fish') {
+    const dep = finite(d.d, 0, 400);
+    return dep == null ? null : { w: 'fish', d: Math.round(dep * 10) / 10, b: !!d.b };
   }
   if (d.w === 'snap') {
     const S = { w: 'snap', sea: ids(d.sea), life: ids(d.life), nature: ids(d.nature), species: ids(d.species), bow: !!d.bow };
