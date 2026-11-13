@@ -45,7 +45,7 @@ export const FIND_KINDS = ['place', 'site', 'detail', 'fish', 'mark'];
 const FIND_BURST = 6, FIND_WINDOW = 30; // at most six in any half-minute, each way
 // Helping each other (see teamwork.js): a friend's fish netted for them, and their thanks; a shoal
 // marked for everyone, at most every few seconds each.
-export const HELPS = ['net', 'thanks'];
+export const HELPS = ['net', 'thanks', 'leader']; // (E3d: taking the leader of their big game)
 const HELP_GAP = 0.5, SHOAL_GAP = 4;
 // Fish sold, shared (Settings → Play together): what you're paid for your fish, friends in the
 // session are paid the same; where it was sold, and how many fish. Capped, and only so much
@@ -180,8 +180,9 @@ export function cleanPose(p, kinds = null, gear = null) {
     // (Which of the shared sea's fish it is: see sharedworld.js.)
     if (out.o && Number.isInteger(p.hk) && p.hk >= 0 && p.hk < 1e5) out.hk = p.hk;
     // (Beaten and alongside: 1 waiting for the net, a friend by it can net it for them; 2 too big
-    // for the net, landed another way, see landing.js.)
-    if (out.o && p.nt) out.nt = p.nt === 2 ? 2 : 1;
+    // for the net, landed another way, see landing.js; 3, E3d: their big game waiting at the
+    // leader, a friend aboard can take it.)
+    if (out.o && p.nt) out.nt = p.nt === 2 ? 2 : p.nt === 3 ? 3 : 1;
     // (E3a: the line out past where it was hooked, m, and what's left on the spool, %: for a
     // friend at their helm chasing it.)
     const xl = out.o ? finite(p.xl, 0, 2000) : null, sl = out.o ? finite(p.sl, 0, 100) : null;
@@ -971,7 +972,7 @@ export class Together {
       if (!p.name || data.to !== this.id || !HELPS.includes(data.e) || !Number.isInteger(data.f) || data.f < 0 || data.f >= 1e5) return;
       if (this.clock - (p.helpT ?? -99) < HELP_GAP) return;
       p.helpT = this.clock;
-      this.onEvent('help', p, { e: data.e, f: data.f, sp: plain(data.sp, 40), kg: finite(data.kg, 0, 2000) });
+      this.onEvent('help', p, { e: data.e, f: data.f, sp: plain(data.sp, 40), kg: finite(data.kg, 0, 2000), h: data.h === 'leader' ? 'leader' : 'net' });
     } else if (kind === 'crew') {
       // Crewing: words between a boat's skipper and their crew (crew.js checks who's aboard).
       if (!p.name || data.to !== this.id || !CREW_WORDS.includes(data.e)) return;
@@ -1175,7 +1176,7 @@ export class Together {
     if (this.clock - (this.helpedT ?? -99) < HELP_GAP) return false;
     this.helpedT = this.clock;
     const kg = finite(extra.kg, 0, 2000);
-    this.rt.send('help', { id: this.id, to, e, f, ...(extra.sp ? { sp: plain(extra.sp, 40) } : {}), ...(kg != null ? { kg: Math.round(kg * 100) / 100 } : {}) });
+    this.rt.send('help', { id: this.id, to, e, f, ...(extra.sp ? { sp: plain(extra.sp, 40) } : {}), ...(kg != null ? { kg: Math.round(kg * 100) / 100 } : {}), ...(extra.h === 'leader' ? { h: 'leader' } : {}) });
     return true;
   }
 

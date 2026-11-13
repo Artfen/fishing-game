@@ -1,6 +1,6 @@
 // Landing a beaten fish (E2b). The landing net takes fish up to NET's length and weight. A fish too
 // big for it is landed another way, depending on where you stand:
-// - From a boat, it's drawn alongside, as the big game always has been (see fishing.js bigCatch).
+// - From a boat, it's drawn alongside (see fishing.js bigCatch); the big game on the leader (E3d, below).
 // - From the shore, the shore decides:
 //   - 'beach': a shelving shore of sand, gravel or mud. Wind steadily and it slides up into the
 //     shallows; let go as it stirs.
@@ -55,7 +55,23 @@ export const LAND_WAYS = {
   hand: { tap: true, word: 'tail it', act: 'Grab it' },
   beach: { tap: false, word: 'beach it', act: 'Wind', wind: 2.2 },
   lift: { tap: false, word: 'lift it', act: 'Lift', wind: 1.6 },
+  // (E3d) The big game from a boat: drawn alongside on the leader, hand over hand (see below).
+  leader: { tap: false, word: 'take the leader', act: 'Take the leader', wind: 3.2 },
 };
+
+// (E3d) The big game from a boat. Beaten, it comes to the leader: the heavy trace above the hook,
+// its swivel at the rod tip, the fish a few metres off and still with a surge or two in it. Someone
+// takes the leader and draws it alongside hand over hand: you (hold), or a friend aboard (see
+// teamwork.js). Each surge takes back some of the leader. Held through a surge, the hook can tear
+// out: let go as it stirs, and the rod takes the run.
+// LEADER_OFF: how far off it lies (m) as the leader reaches the rod tip; LEADER_SLIP: how much of
+// the draw (s of it) a surge takes back.
+export const LEADER_OFF = 4.5;
+export const LEADER_SLIP = 1.1;
+// The chance (0 … 1) the hook tears out when you hold the leader through a surge: none on Relaxed
+// (pull 0); otherwise some even on a firm hold (a big fish's surge on a hand-held leader), and more
+// the looser the hook has worn (grip, see fight.js).
+export const leaderRisk = (pull, grip) => pull * (0.25 + 0.5 * (1 - grip));
 
 // The chance (0 … 1) the hook tears out as it's lifted clear on the line: none on Relaxed (pull
 // 0), and otherwise by how firmly it's still hooked (grip, see fight.js) and how heavy it is.

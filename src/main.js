@@ -1245,7 +1245,7 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   // Every break has a reason you can see and do something about (see fight.js).
   // A fish thrown or pulled free has the line whole: it says so.
   onSnap: (why, sp, rod, F = null) => {
-    hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : why === 'rock' ? 'Cut on the rocks!' : why === 'thrown' ? 'It threw the hook!' : why === 'pulled' || why === 'lifted' ? 'The hook pulled free.' : why === 'kicked' ? `It kicked free${{ beach: ' in the shallows', lift: ' as it came up', hand: '' }[F?.landBy] ?? ' at the net'}!` : why === 'knocked' ? 'The net knocked the hook out!' : why === 'slipped' ? 'It slipped your hand!' : why === 'weeded' ? `It shed the hook in the ${F?.stuck === 'rock' ? 'rocks' : 'weed'}!` : why === 'spat' ? 'It let go!' : 'Snap! The line broke.', t, 3);
+    hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : why === 'rock' ? 'Cut on the rocks!' : why === 'thrown' ? 'It threw the hook!' : why === 'pulled' || why === 'lifted' ? 'The hook pulled free.' : why === 'kicked' ? `It kicked free${{ beach: ' in the shallows', lift: ' as it came up', hand: '', leader: ' on the leader' }[F?.landBy] ?? ' at the net'}!` : why === 'knocked' ? 'The net knocked the hook out!' : why === 'slipped' ? 'It slipped your hand!' : why === 'weeded' ? `It shed the hook in the ${F?.stuck === 'rock' ? 'rocks' : 'weed'}!` : why === 'spat' ? 'It let go!' : 'Snap! The line broke.', t, 3);
     hud.toast(breakReason(why, sp, rod, { by: F?.thrownBy, loosened: !!F?.loosened, landBy: F?.landBy, stuck: !!F?.stuck, kind: F?.stuck, loosen: pads.active ? 'LT' : scheme() === 'touch' ? 'the stick down' : 'S' }), 9);
   },
   // The line as it is (worn by hard fights, see shop.js); and the wear a fight just ended leaves.
@@ -1393,6 +1393,8 @@ function logCatch(sp, size, agent, rigUsed, how = null) {
     ...(catchBoat() ? { boat: catchBoat() } : {}),
     ...catchHelper(F),
   };
+  // (E3d) A friend who took the leader: thanked now it's alongside.
+  if (F?.leadered && F.leaderId && together.peers.has(F.leaderId)) teamwork.thank(together.peers.get(F.leaderId), F.agent?.id, sp.name, agent?.weight ?? weightOf(sp, size), 'leader');
   state.log.push(entry);
   if (state.log.length > 1000) state.log.splice(0, state.log.length - 1000);
   lastCatchId = entry.id;
@@ -6429,6 +6431,8 @@ function interaction() {
   if (!started || modal || placement.isOn || walker.stepping) return null;
   // A friend's fish beaten and lying alongside, within reach: net it for them (see teamwork.js).
   const helpNet = together.active && !fishing.fight && !dive && !driving ? teamwork.netTarget(player().pos, onFoot ? 0 : boat.hull.L * 0.5) : null;
+  // (E3d: or, for their big game, take the leader.)
+  if (helpNet?.kind === 'leader') return { text: `Take ${helpNet.p.name}’s leader`, run: () => { if (teamwork.net(helpNet)) hud.flash(`You take the leader of ${helpNet.p.name}’s fish, hand over hand…`, t, 2.5); } };
   if (helpNet) return { text: `Net ${helpNet.p.name}’s fish`, run: () => { if (teamwork.net(helpNet)) hud.flash(`You reach out with the net for ${helpNet.p.name}’s fish…`, t, 2); } };
   if (fishing.busy) return followAction();
   // Crewing in a friend's boat: the helm, or stepping off (see crew.js).
@@ -9851,6 +9855,9 @@ function currentHint() {
       // big for the net, land it as the shore allows: see landing.js.)
       // (E2c: fast in the weed or the rocks.)
       if (F?.stuck) return T ? `${F.stuck === 'rock' ? 'Wedged under the rocks' : 'Weeded'}: let go to give it slack, or pull from a new angle` : `${F.stuck === 'rock' ? 'Wedged under the rocks' : 'Weeded'}: let go of ${space} to give it slack, or pull from a new angle${F.stuck === 'rock' ? '' : ' (or a steady pressure)'}`;
+      // (E3d) The big game from a boat, on the leader: yours to take, or a friend's.
+      if (F?.atNet && F.landBy === 'leader') return F.leaderBy ? `${F.leaderBy} has the leader: keep the rod up while they draw it alongside`
+        : T ? 'The leader’s at the rod tip: hold the button to draw it alongside, and let go as it stirs' : `The leader’s at the rod tip: hold ${space} to draw it alongside, and let go as it stirs${together.active ? ' (a friend aboard can take it)' : ''}`;
       if (F?.atNet && F.landBy === 'beach') return T ? 'Too big for the net: hold the button to slide it up the beach, and let go as it stirs' : `Too big for the net: hold ${space} to slide it up the beach, and let go as it stirs`;
       if (F?.atNet && F.landBy === 'lift') return T ? 'Too big for the net, and the water’s out of reach: hold the button to lift it, and let go as it stirs' : `Too big for the net, and the water’s out of reach: hold ${space} to lift it, and let go as it stirs`;
       if (F?.atNet && F.landBy === 'hand') return T ? 'Too big for the net: tap the button as it lies still to take it by the tail' : `Too big for the net: tap ${space} as it lies still to take it by the tail`;
@@ -9952,7 +9959,7 @@ function actionLabel() {
   if (modal === 'note') return 'OK';
   if (dive) return dive.kit === 'scuba' ? 'Photo' : shot.loaded ? 'Shoot' : '…';
   if (driving) return 'Brake';
-  if (fishing.state === 'reeling' && fishing.fight?.atNet) return LAND_WAYS[fishing.fight.landBy || 'net'].act;
+  if (fishing.state === 'reeling' && fishing.fight?.atNet) return fishing.fight.leaderBy ? 'Wait' : LAND_WAYS[fishing.fight.landBy || 'net'].act;
   if (fishing.state === 'reeling' && (fishing.fight?.surgeT > 0 || (fishing.fight?.warned && !fishing.pulling))) return 'Easy';
   if (fishing.state === 'reeling' && fishing.pulling) return 'Hold';
   if (fishing.state === 'drifting' && (fishing.kind === 'ledger' || fishing.kind === 'bottom')) return 'Wind in';
@@ -10087,7 +10094,7 @@ function updateHud() {
       : F.pulling && F.move === 'longrun' ? 'let it run' : F.move === 'sound' ? 'pump!' : F.move === 'circle' && !F.pulling ? (F.coming ? 'wind' : 'hold') : '';
     // (The coach line is plain text: the key's name, not its markup.)
     const way = LAND_WAYS[F.landBy || 'net'];
-    const word = F.stuck ? (F.stuck === 'rock' ? 'in the rocks: slack!' : 'weeded: slack!') : F.atNet ? `${way.word}: ${way.tap ? 'tap' : 'hold'} ${input.keyLabel('cast')}` : F.surgeT > 0 ? 'easy!' : easy ? 'flick!' : F.tension > 0.9 ? 'ease off!' : move || (F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel');
+    const word = F.stuck ? (F.stuck === 'rock' ? 'in the rocks: slack!' : 'weeded: slack!') : F.atNet && F.leaderBy ? `${F.leaderBy} has the leader` : F.atNet ? `${way.word}: ${way.tap ? 'tap' : 'hold'} ${input.keyLabel('cast')}` : F.surgeT > 0 ? 'easy!' : easy ? 'flick!' : F.tension > 0.9 ? 'ease off!' : move || (F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel');
     const doing = F.wordT > 0 ? F.word : fishing.side && F.pulling ? `side strain ${fishing.side < 0 ? '←' : '→'}` : F.stage !== 'fresh' ? F.stage : '';
     const out = Math.round(fishing.tip.distanceTo(fishing.fishPos));
     // (On a long run, how much is left on the spool.)
@@ -10448,6 +10455,7 @@ function catchBoat() {
 }
 function catchHelper(F) {
   if (F?.nettedBy) return { helper: F.nettedBy, helped: 'net' };
+  if (F?.leadered && F.leaderBy) return { helper: F.leaderBy, helped: 'leader' };
   const g = crew.given && together.peers.get(crew.given.id);
   return g?.name ? { helper: g.name, helped: 'helm' } : {};
 }
@@ -10462,7 +10470,14 @@ function friendHelp(p, d) {
     fishing.netFish();
     hud.flash(`${p.name} nets it for you!`, t, 3);
     teamwork.thank(p, d.f, F.sp.name, kg);
-  } else if (d.e === 'thanks') hud.toast(`You netted ${p.name}’s ${d.sp ? d.sp.toLowerCase() : 'fish'}${d.kg ? `, ${kgWords(d.kg)}` : ''}. Nice work.`, 5);
+  } else if (d.e === 'leader') {
+    // (E3d) They take the leader of your big fish: from now on they draw it alongside, and your
+    // game thanks them once it's there.
+    const F = fishing.fight;
+    if (!teamwork.mayLeader(p, d.f, F, fishing.fishPos) || !fishing.friendLeader(p.name)) return;
+    F.leaderId = p.id;
+    hud.flash(`${p.name} takes the leader for you: keep the rod up.`, t, 3);
+  } else if (d.e === 'thanks') hud.toast(d.h === 'leader' ? `You took the leader of ${p.name}’s ${d.sp ? d.sp.toLowerCase() : 'fish'}${d.kg ? `, ${kgWords(d.kg)}` : ''}, and drew it alongside. Nice work.` : `You netted ${p.name}’s ${d.sp ? d.sp.toLowerCase() : 'fish'}${d.kg ? `, ${kgWords(d.kg)}` : ''}. Nice work.`, 5);
 }
 function openCalls() {
   if (!together.active) return;
@@ -10565,7 +10580,7 @@ function whereIAm() {
   const gear = fishing.lineOut || landing ? { r: fishing.rod?.id, i: fishing.item?.id } : null;
   if (gear && (fishing.baitInWater || landing)) {
     const e = fishing.state === 'reeling' || landing ? fishing.fishPos : fishing.bob, F = fishing.fight;
-    Object.assign(gear, { ex: e.x, ez: e.z, tn: F?.tension, hk: F?.agent?.id, nt: F?.atNet ? ((F.landBy || 'net') === 'net' ? 1 : 2) : 0 });
+    Object.assign(gear, { ex: e.x, ez: e.z, tn: F?.tension, hk: F?.agent?.id, nt: F?.atNet ? ((F.landBy || 'net') === 'net' ? 1 : F.landBy === 'leader' && !F.leaderBy ? 3 : 2) : 0 });
     // (E3a: the line out past where it was hooked, and what's left on the spool, for a friend at
     // your helm chasing it.)
     if (F && fishing.state === 'reeling') Object.assign(gear, { xl: Math.round(F.extra), sl: Math.round(100 * Math.max(0, 1 - (F.dist * (1 - F.progress) + F.extra) / F.spool)) });
@@ -10676,7 +10691,7 @@ function watchCrew() {
   for (const id of now) {
     if (crewAboard.has(id)) continue;
     const p = together.peers.get(id);
-    hud.toast(`${p.name} steps aboard. They can fish from her${boat.hull.motor ? ', use her locker' : ''} and net your fish, and take the helm while you’re away from it.`, 6);
+    hud.toast(`${p.name} steps aboard. They can fish from her${boat.hull.motor ? ', use her locker' : ''} and net your fish (or take the leader of a big one), and take the helm while you’re away from it.`, 6);
   }
   for (const id of crewAboard) {
     const p = together.peers.get(id);
