@@ -5,6 +5,7 @@ import { ZONE_NAMES } from './world/terrain.js';
 import { studio } from './gearView.js';
 import { HOME_WORDS, tripPlaces, tripSummary, summaryText } from './trip.js';
 import { formatClock } from './world/sky.js';
+import { SEASON_FISH } from './world/season.js';
 
 // The Atlantic field guide, inside the journal: every species in the game, with the same model
 // it has in the water, how to tell it apart, where it lives in the game (from the simulation's
@@ -131,6 +132,19 @@ export function setupsFor(sp) {
   }
   const right = out.filter((s) => !wrongWater(s.rod));
   return (right.length ? right : out).sort((a, b) => b.score - a.score);
+}
+
+// (E3b) The year as the game has it for a fish (world/season.js SEASON_FISH: spring, summer,
+// autumn, winter, 1 as usual): when it's most about, and when it's scarce.
+const SEASON_NAMES = ['spring', 'summer', 'autumn', 'winter'];
+const listed = (a) => (a.length > 1 ? `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}` : a[0]);
+export function seasonsOf(sp) {
+  const row = SEASON_FISH[sp.id];
+  if (!row) return 'about all year round';
+  const most = SEASON_NAMES.filter((n, i) => row[i] >= 1.1), scarce = SEASON_NAMES.filter((n, i) => row[i] < 0.35);
+  const parts = [most.length ? `most about in ${listed(most)}` : 'about all year round'];
+  if (scarce.length) parts.push(`scarce in ${listed(scarce)}`);
+  return parts.join('; ');
 }
 
 export class FieldGuide {
@@ -478,7 +492,7 @@ export class FieldGuide {
       add('Depth', L.bottom || L.flat ? `on the bottom, in ${H.depth[0]}–${Math.round(H.depth[1])} m of water` : `about ${H.depth[0]}–${Math.round(H.depth[1])} m down`);
       add('Most active', H.allDay ? 'all day' : H.active);
       if (H.rainy) add('Weather', 'bolder in rain and cloud');
-      add('Seasons', 'not simulated yet: the game has no seasons, so it is there all year');
+      add('Seasons', seasonsOf(e.sp));
       out.push(dl);
       const map = el('div', 'g-map');
       const cv = el('canvas', 'g-mini');
@@ -806,6 +820,16 @@ export class FieldGuide {
       go.append(el('p', 'g-note', `${place.name}: ${Math.round(place.dist)} m ${place.dir}. A marker shows the way, and the map rings the water. Your catches are counted for the trip until you end it here.`));
     } else if (place) go.append(el('p', 'g-note', 'Under way. Follow the marker; end the trip here when you’re done to keep a record of it.'));
     kids.push(go);
+    // (E3b) Far water: the run out and back, the boat, the gale and the season, thought through.
+    const off = place && this.hooks.offshore?.(place, sp);
+    if (off?.length) {
+      const card = el('div', 'g-rec g-offshore');
+      card.append(el('h4', '', 'Going offshore'));
+      const ul = el('ul', 'g-checks');
+      for (const o of off) ul.append(el('li', o.ok ? 'ok' : 'warn', `${o.ok ? '✓' : '!'} ${o.text}`));
+      card.append(ul);
+      kids.push(card);
+    }
     box.replaceChildren(...kids);
   }
 

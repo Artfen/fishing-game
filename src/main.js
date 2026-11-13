@@ -106,7 +106,7 @@ import { requestById, businessWith, accept as acceptFavour, decline as declineFa
 import { lower } from './innTalk.js';
 import { tideAt, tideWords, turns } from './world/tide.js';
 import { Rockpools, poolNear, poolOpen, visibleLife, turnStone, settle, netIn, letGo, POOL_LIFE, POOL_SITES } from './world/rockpools.js';
-import { seasonOf, seasonWords, sunTimes, sunHour, seasonWarmth, riverFlow, leafTint, seasonLine } from './world/season.js';
+import { seasonOf, seasonWords, sunTimes, sunHour, seasonWarmth, riverFlow, leafTint, seasonLine, seasonBoost } from './world/season.js';
 import { galeSky, galeNear, hoursToGale, outlook, galeFor } from './world/forecast.js';
 import { FolkView } from './world/folk.js';
 import { Passersby } from './world/passersby.js';
@@ -114,6 +114,7 @@ import { VisitorView } from './world/visitors.js';
 import { SharedWorld } from './sharedworld.js';
 import { Teamwork } from './teamwork.js';
 import { Crew, CREW_REACH, CREW_SLOW, fishFromHelm, helmWords } from './crew.js';
+import { offshorePlan, turnForHome, seaFor, OFFSHORE_AT } from './offshore.js';
 import { DashControl } from './dashcontrol.js';
 import { keyStep } from './dashboard.js';
 import { TrollMotor, canTroll } from './trolling.js';
@@ -4650,6 +4651,35 @@ hideFromReflection(stormFx.spray);
 // A storm coming in: a word when it starts, and now and then a warning for a small boat caught out
 // in the open; spray off her bow as she plunges into the seas.
 let stormWas = 0, stormWarnT = 0, lastPitch = 0, slamT = 0;
+// (E3b) Out on far water: time to turn for home (fuel for the way back, the gale, the dark: see
+// offshore.js turnForHome), each said once an outing; and anywhere afloat, a sea too rough for
+// the boat you're in (the storm's own word covers the little boats in a blow: see below).
+let offshoreT = 0, offshoreSaid = {}, roughSaidT = -1e9;
+function watchOffshore(dt) {
+  offshoreT -= dt;
+  if (offshoreT > 0 || !started || onFoot || dive || driving || !boat) return;
+  offshoreT = 3;
+  const P = boat.pos, kind = boat.kind, distHome = Math.hypot(P.x - HAVEN.x, P.z - HAVEN.z);
+  if (distHome < 300) offshoreSaid = {};
+  if (distHome > OFFSHORE_AT) {
+    const sun = sunTimes(clock.abs), toDark = state.hour < sun.set ? sun.set - state.hour : null;
+    const r = turnForHome({ kind, distHome, litres: isPetrol(kind) ? fuelLevel(tanks(), kind) : null, toGale: hoursToGale(clock.abs), toDark });
+    if (r && !offshoreSaid[r.why]) {
+      offshoreSaid[r.why] = true;
+      hud.toast(r.words, 8);
+      audio.chime?.();
+    }
+  }
+  const sea = waveHeightHere(P.x, P.z), how = seaFor(kind, sea);
+  const stormTold = conditions.sea.storm > 0.5 && (kind === 'kayak' || kind === 'row' || kind === 'sail');
+  if ((how === 'rough' || how === 'dangerous') && !stormTold && t - roughSaidT > 300) {
+    roughSaidT = t;
+    const name = boat.name || 'boat', m = Math.round(sea * 10) / 10;
+    hud.toast(how === 'dangerous'
+      ? `It’s dangerous for the ${name} out here: ${m} m of sea, more than she’s made for. Head for sheltered water, and keep her bow to the waves.`
+      : `It’s rough for the ${name} out here (${m} m of sea): her people are miserable. Sheltered water, or a bigger boat for days like this.`, 8);
+  }
+}
 function watchStorm(dt) {
   const st = conditions.sea.storm;
   if (weather.storm > 0.4 && stormWas <= 0.4 && started) {
@@ -11441,6 +11471,15 @@ journal.guide = new FieldGuide(state, {
   miniMap: (cv, id, places) => mapSheet.miniMap(cv, id, places, player().pos),
   map: () => mapSheet,
   where: () => player().pos,
+  // (E3b) Far water: what the run out and back asks, in the boat you'd take.
+  offshore: (place, sp) => {
+    if (place.zone !== 'deep' && place.dist < OFFSHORE_AT) return null;
+    const kind = state.vessel || 'row';
+    return offshorePlan({
+      placeName: place.name, dist: place.dist, kind, litres: isPetrol(kind) ? fuelLevel(tanks(), kind) : null,
+      toGale: hoursToGale(clock.abs), season: seasonBoost(sp, clock.abs), seasonName: seasonOf(state.day).name.toLowerCase(), fish: sp.name.toLowerCase(),
+    });
+  },
   startTrip: (place, s, sp) => {
     startTrip(state, { sp, place, setup: s });
     save();
@@ -12524,6 +12563,7 @@ function tick(now, manual = false) {
   // A storm's lightning (and its thunder, arriving later) and the spray off the seas.
   stormFx.update(dt, t, { storm: Math.max(weather.storm, conditions.sea.storm * 0.8), camera, env, onThunder: (d, loud) => { audio.thunder?.(d, loud); haptics.pulse('thunder', clamp(loud, 0.15, 1)); }, flashes: !settings.controls.reducedMotion });
   watchStorm(dt);
+  watchOffshore(dt);
   env.update(dt, t, sunHour(clock.hour, clock.abs), weather.rain, fpShadow ? _shadowAt : P, camera, renderer, weather.cloud);
   // Down among the Kelp Forest's stalks, under its canopy: the light dims and greens (see underwater.js).
   {
