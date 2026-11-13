@@ -33,7 +33,7 @@ import { surfaceUniforms } from './world/surface.js';
 import { causticUniforms } from './world/caustics.js';
 import {
   bakeHeightTexture, heightAt, walkHeight, solidHeight, landSDF, lakeSDF, streamSDF, zoneAt, waterOf, riverSDF, mereSDF, waterLevel, depthAt,
-  PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD, SEA, inSeas, inWorld, SOUTH_Z, CROSSING, ZONE_NAMES,
+  PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD, SEA, inSeas, inWorld, SOUTH_Z, CROSSING, ZONE_NAMES, FRESH_ZONES,
   PEGS, POOLS, STREAM, SNAG, LILIES, JETTY, ISLAND, GANNET_CAMP, SKERRIES, SKELLIG, DEEP_Z,
   HAVEN, HAVEN_QUAY, HAVEN_BENCH, DAYMARK, STRAND, WRECK, WRECK_BUOY, WRECK_BELL, CHANNEL,
   HOME, HOME_START, HOUSE, GARAGE, CAR_PARKS, FUEL_PUMPS, HAVEN_PONTOON, HAVEN_FINGERS, OWN_FINGER, VISITOR_FINGERS, HARBOUR_OFFICE, laneInfo,
@@ -69,7 +69,7 @@ import { seeSign, readSign, SIGNS, SEEN_AT, stepColour, colourKey, colourWords, 
 import { newToday, notePlace, noteMove, noteBoat, noteDive, noteSeen, noteSky, noteGale, noteRecord, closeDay, dayLine, checkChallenges, isSheltered, CHALLENGES, challengeById, dayPage, dayText, noteSat, noteCrossing, noteTrip, careerOf } from './daybook.js';
 import { SeaGlow, nightGlow } from './world/seaglow.js';
 import { Fishing } from './fishing.js';
-import { drawFishSketch, drawLanternSketch, fishById, weightOf } from './fish.js';
+import { FISH, drawFishSketch, drawLanternSketch, fishById, weightOf } from './fish.js';
 import { RODS, TACKLE, ROD_IDS, PACK, cleanGear, currentRig, carriedItems, fits, termOf, lineInUse } from './tackle.js';
 import { LIVE, isLiveBait, addLive, takeLive, liveCount, stepBucket, freshen, waterWords, capOf, STALE } from './livebait.js';
 import { PackUI } from './pack.js';
@@ -85,7 +85,8 @@ import { PROFILES as ENGINES, WOT, setElectric, START_MODES, hasEngine, cleanEng
 import { HelmUI } from './helm.js';
 import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
-import { takePlug, restock as restockKit, fillKit, helpBy, helpHours, HELP_WORDS, KIT as REPAIR_KIT, FLARES, FLARE_PRICE } from './safety.js';
+import { takePlug, restock as restockKit, fillKit, helpBy, helpHours, HELP_WORDS, KIT as REPAIR_KIT, FLARES, FLARE_PRICE, NO_SIGNAL } from './safety.js';
+import { worthWord, heardBy, wordLeft, wordPassed, wordFor, VOICES, newWord } from './word.js';
 import { galeHoursIn, nightAtAnchor, dragTo, nightWords } from './anchorage.js';
 import { FISHBOX, BOX_PRICE, hasBox, iceBox, iceUntilHere, boxHoursLeft, boxWords } from './fishbox.js';
 import { FINDS, NOTES, LIES_DAYS, HELD_MAX, thrownUp, tideSpot, stillLying, beachName, saleOf } from './flotsam.js';
@@ -1896,6 +1897,43 @@ function watchFlotsam(dt) {
   }
   if (F.lying.length !== was || F.lying.length !== flotMeshes.size) syncFlotsamMeshes();
 }
+/* ---------- (F3c) word on the water: a big feed passed on (word.js) ---------- */
+let wordT = 0, wordOn = null;
+const wordTold = new Set();
+// Somewhere on the water, in a skipper's words: off a named place, or so far and which way from
+// the harbour (as the harbour office gives a call's spot).
+function spotWords(x, z) {
+  const near = placeName(x, z) || PLACES.find((p) => !p.area && Math.hypot(p.x - x, p.z - z) < 160)?.name;
+  const H = HARBOUR_OFFICE, km = Math.round(Math.hypot(x - H.x, z - H.z) / 100) / 10;
+  return near ? `off ${near.replace(/^The /, 'the ')}` : `${km} km ${compass(bearingOf(x - H.x, z - H.z))} of the harbour`;
+}
+// A fish's name in the middle of a sentence: lower case, but for a place in it (Atlantic mackerel).
+const fishWords = (n) => (n ? n.split(' ').map((w) => (/^(Atlantic|European|Mediterranean|Pacific|Canary|Dover)$/.test(w) ? w : w.toLowerCase())).join(' ') : null);
+function watchWord(dt) {
+  if ((wordT -= dt) > 0) return;
+  wordT = 3;
+  // (The marker goes with the feed: once it's over, it's gone.)
+  if (wordOn && (wordOn.done || wordOn.phase !== 1)) wordOn = null;
+  if (!started || region !== 'home' || modal || fishing.busy || driving || dive || clock.hour < 7 || clock.hour > 19.5) return;
+  state.word ??= newWord();
+  if (!wordLeft(state.word, state.day)) return;
+  const P = player().pos;
+  // (On the sea: the ones out there passing word are out on salt water, not the lakes.)
+  const e = (eco.feeding?.events || []).find((f) => f.z < SOUTH_Z && !FRESH_ZONES.includes(zoneAt(f.x, f.z)) && worthWord(f, P.x, P.z, wordTold));
+  if (!e) return;
+  wordTold.add(e.id);
+  // (Heard by her VHF, or your phone where it has signal: on the deep water with no VHF, nobody.)
+  const vhf = !onFoot && !driving && !!fitEffect(state.yard, boat.kind)?.vhf;
+  const how = heardBy({ vhf, signal: !NO_SIGNAL.has(zoneAt(P.x, P.z)) });
+  if (!how) return;
+  const fish = e.sp >= 0 ? fishWords(FISH[e.sp]?.name) : null;
+  wordPassed(state.word, state.day);
+  wordOn = e;
+  audio.chime?.();
+  hud.toast(wordFor({ voice: VOICES[Math.floor(Math.random() * VOICES.length)], how, where: spotWords(e.x, e.z), fish }), 10);
+  save();
+}
+
 const flotsamNear = () => (onFoot && !driving ? (state.flotsam?.lying || []).find((f) => Math.hypot(walker.pos.x - f.x, walker.pos.z - f.z) < 2.2) : null);
 function pickUpFind(f) {
   const F = state.flotsam, K = FINDS[f.kind];
@@ -10612,6 +10650,7 @@ function updateHud() {
   if (job && $('job-name').textContent !== job.name) $('job-name').textContent = job.name;
   // (The story's next place says so, not "Job".)
   if (job && $('job-kind').textContent !== (job.story ? 'Story' : 'Job')) $('job-kind').textContent = job.story ? 'Story' : 'Job';
+  placeMarker($('word-marker'), wordOn?.x ?? 0, 2, wordOn?.z ?? 0, !!wordOn && started && !modal && !dive && Math.hypot((wordOn?.x ?? 0) - player().pos.x, (wordOn?.z ?? 0) - player().pos.z) > 40);
   placeMarker($('job-marker'), job?.x ?? 0, 1.5, job?.z ?? 0, !!job && started && !modal && !dive && Math.hypot((job?.x ?? 0) - player().pos.x, (job?.z ?? 0) - player().pos.z) > 15);
   placeFriendMarkers();
   placeShoalMarkers();
@@ -13253,6 +13292,7 @@ function tick(now, manual = false) {
     chilledTo = nowH;
     watchAdventures(dt);
     watchFlotsam(dt);
+    watchWord(dt);
     watchObservations(dt);
     moments();
     saveTimer -= dt;
