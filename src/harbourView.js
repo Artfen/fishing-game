@@ -932,6 +932,20 @@ export class HarbourSheet {
         out.push(row);
       }
     }
+    // (F3a) What you've picked up on the beaches after a gale.
+    const finds = this.hooks.finds?.() || [];
+    if (finds.length) {
+      out.push(el('h3', '', 'From the shore'));
+      for (const r of finds) {
+        const row = el('div', 'cp-row');
+        row.append(el('p', '', r.text), el('span', 'cp-soft', r.state));
+        row.append(this.button(r.label, () => {
+          r.run();
+          this.render();
+        }));
+        out.push(row);
+      }
+    }
     out.push(el('p', 'cp-soft', 'Everything here is a help, never a need: the tackle store is free, and a fish caught on the plainest worm counts the same.'));
     return out;
   }

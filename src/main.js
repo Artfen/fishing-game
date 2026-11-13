@@ -88,6 +88,7 @@ import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODW
 import { takePlug, restock as restockKit, fillKit, helpBy, helpHours, HELP_WORDS, KIT as REPAIR_KIT, FLARES, FLARE_PRICE } from './safety.js';
 import { galeHoursIn, nightAtAnchor, dragTo, nightWords } from './anchorage.js';
 import { FISHBOX, BOX_PRICE, hasBox, iceBox, iceUntilHere, boxHoursLeft, boxWords } from './fishbox.js';
+import { FINDS, NOTES, LIES_DAYS, HELD_MAX, thrownUp, tideSpot, stillLying, beachName, saleOf } from './flotsam.js';
 import { storesAboard, draw as drawStores, stockUp, daysWords, storesFor, FILL as STORES_FILL, WATCH as STORES_WATCH } from './stores.js';
 import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, hiredToday, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect, engineOf, repowerBoat, repropBoat, trimBoat } from './shipyard.js';
 import { BIRD_KINDS } from './birdData.js';
@@ -1816,6 +1817,124 @@ function helpHere(kind = boat.kind, P = boat.pos) {
 }
 const HELP_ASK = { phone: 'Ring the harbour for a tow', vhf: 'Radio the harbour for a tow', flare: 'Fire a flare for help', wait: 'Wait for a passing boat' };
 // The chandlery counter's rows for when it goes wrong: the repair kit and its spares, and flares.
+/* ---------- (F3a) after the gale: what the sea throws up on the beaches (flotsam.js) ---------- */
+// A gale that's blown itself out leaves a find on the tide line of one beach: you're told once,
+// walk there and pick it up. The tide takes it back after LIES_DAYS.
+const flotMeshes = new Map(); // gale day -> mesh
+function flotsamMesh(kind) {
+  const g = new THREE.Group(), M = (c, o = {}) => new THREE.MeshLambertMaterial({ color: c, ...o });
+  if (kind === 'float') {
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 10), new THREE.MeshStandardMaterial({ color: '#4f9c79', roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.85 }));
+    ball.position.y = 0.13;
+    const net = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.012, 4, 16), M('#4a3a26'));
+    net.position.y = 0.13;
+    const net2 = net.clone();
+    net2.rotation.x = Math.PI / 2;
+    g.add(ball, net, net2);
+  } else if (kind === 'timber') {
+    const t = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.16, 0.24), M('#3b2e22'));
+    t.position.y = 0.08;
+    t.rotation.y = 0.6;
+    g.add(t);
+  } else if (kind === 'rope') {
+    for (let i = 0; i < 3; i++) {
+      const c = new THREE.Mesh(new THREE.TorusGeometry(0.26 - i * 0.05, 0.035, 5, 18), M('#b08a4e'));
+      c.rotation.x = Math.PI / 2;
+      c.position.y = 0.04 + i * 0.05;
+      g.add(c);
+    }
+  } else {
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.24, 10), new THREE.MeshStandardMaterial({ color: '#2f6b45', roughness: 0.2, transparent: true, opacity: 0.85 }));
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.03, 0.08, 8), b.material);
+    neck.position.y = 0.16;
+    const cork = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.019, 0.03, 6), M('#a5793f'));
+    cork.position.y = 0.21;
+    const lie = new THREE.Group();
+    lie.add(b, neck, cork);
+    lie.rotation.z = Math.PI / 2;
+    lie.position.y = 0.05;
+    g.add(lie);
+  }
+  return g;
+}
+function syncFlotsamMeshes() {
+  const lying = state.flotsam?.lying || [];
+  for (const [d, m] of flotMeshes) {
+    if (!lying.some((f) => f.gale === d)) {
+      scene.remove(m);
+      flotMeshes.delete(d);
+    }
+  }
+  for (const f of lying) {
+    if (flotMeshes.has(f.gale)) continue;
+    const m = flotsamMesh(f.kind);
+    m.position.set(f.x, Math.max(0, heightAt(f.x, f.z)) + 0.02, f.z);
+    m.rotation.y = (f.gale * 1.7) % (Math.PI * 2);
+    scene.add(m);
+    flotMeshes.set(f.gale, m);
+  }
+}
+let flotT = 0;
+function watchFlotsam(dt) {
+  if ((flotT -= dt) > 0 || !state.flotsam) return;
+  flotT = 2;
+  const F = state.flotsam, abs = clock.abs;
+  // The tide takes back what's lain too long.
+  const was = F.lying.length;
+  F.lying = F.lying.filter((f) => stillLying(f, abs));
+  // A gale that's blown itself out: the sea throws something up.
+  for (let d = Math.floor(abs / 24) - 1; d <= Math.floor(abs / 24); d++) {
+    const g = galeFor(d);
+    if (!g || g.end > abs || d <= F.seen) continue;
+    F.seen = d;
+    if (abs - g.end > LIES_DAYS * 24) continue;
+    const T = thrownUp(d), spot = tideSpot(T.beach, heightAt, T.seed);
+    if (!spot || F.lying.some((f) => f.beach === T.beach)) continue;
+    F.lying.push({ gale: d, beach: T.beach, kind: T.kind, note: T.note, x: spot.x, z: spot.z, at: g.end });
+    if (started && region === 'home') hud.toast(`The gale's blown itself out. After a blow like that the sea throws all sorts up on the beaches: ${beachName(T.beach)} is worth a walk.`, 9);
+    save();
+  }
+  if (F.lying.length !== was || F.lying.length !== flotMeshes.size) syncFlotsamMeshes();
+}
+const flotsamNear = () => (onFoot && !driving ? (state.flotsam?.lying || []).find((f) => Math.hypot(walker.pos.x - f.x, walker.pos.z - f.z) < 2.2) : null);
+function pickUpFind(f) {
+  const F = state.flotsam, K = FINDS[f.kind];
+  if (!K) return;
+  if (K.note) {
+    const N = NOTES[f.note] ?? NOTES[0];
+    // (Its place on your chart, once: the same note from another gale doesn't mark it twice.)
+    const had = N.x != null && state.pins.some((p) => p.title === N.title);
+    const marked = N.x != null && !had && state.pins.length < 60;
+    if (marked) state.pins.push({ id: `pin-${Date.now().toString(36)}f`, x: N.x, z: N.z, title: N.title, note: N.note, fav: false, day: state.day, hour: Math.round(state.hour * 100) / 100 });
+    hud.toast(`${K.text} The note says: ${N.note}${marked ? ' It’s on your chart now, as a mark.' : had ? ' (The same as one you found before: it’s on your chart already.)' : ''}`, 12);
+  } else {
+    if (F.held.length >= HELD_MAX) {
+      hud.toast('Your arms are full of finds already: the chandlery in Willowhaven buys them.', 5);
+      return;
+    }
+    F.held.push({ kind: f.kind, day: state.day });
+    hud.toast(`${K.name[0].toUpperCase()}${K.name.slice(1)}. ${K.text} Bert at the chandlery will give you ${money(K.price)} for it.`, 9);
+  }
+  F.lying = F.lying.filter((x) => x !== f);
+  audio.tick?.(0.3);
+  syncFlotsamMeshes();
+  save();
+}
+// The chandlery's counter: what you've picked up, for Bert's shop.
+function flotsamRows() {
+  const q = saleOf(state.flotsam?.held || []);
+  if (!q.n) return [];
+  return [{ text: `What you've picked up on the beaches: ${q.words}. Bert buys it for the shop.`, state: money(q.price), label: 'Sell it', run: () => sellFinds() }];
+}
+function sellFinds() {
+  const q = saleOf(state.flotsam.held);
+  if (!q.n) return;
+  earnIn(state, q.price, 'Finds from the shore');
+  state.flotsam.held = state.flotsam.held.filter((h) => !(FINDS[h.kind]?.price > 0));
+  hud.toast(`Bert turns them over, pleased. “That'll go in the window.” ${money(q.price)} for ${q.words}.`, 6);
+  save();
+}
+
 function safetyRows() {
   const S = state.safety, q = restockKit(S);
   const kitText = S.kit ? `Your repair kit: ${S.plugs} of ${REPAIR_KIT.plugs} softwood plugs and ${S.stoppers} of ${REPAIR_KIT.stoppers} leak-stoppers for a tube, for a hole at sea` : 'A repair kit: softwood plugs for a hole in her hull and leak-stoppers for a punctured tube. Without one, a hole gets a rag';
@@ -2077,6 +2196,7 @@ const harbourSheet = new HarbourSheet(state, {
     .map((id) => ({ id, name: RODS[id].name, line: lineInUse(state.gear, RODS[id]) })),
   trip: () => tripChecklist(),
   safety: () => safetyRows(),
+  finds: () => flotsamRows(),
   // Things for the boat (cargo.js): yours, where each is, the boats lying here to load, and
   // putting them aboard, ashore, refilled and charged.
   cargo: {
@@ -6752,6 +6872,9 @@ function interaction() {
     if (coastSpot('cairn')) return { text: 'Add a stone to the cairn', run: () => addToCairn() };
     const box = regionBox();
     if (box) return { text: `${PLACES.find((p) => p.id === box.place)?.name || 'Camp'}: the tackle box`, run: () => openPack('tackle box') };
+    // (F3a) Something the gale threw up on the tide line.
+    const fl = flotsamNear();
+    if (fl) return { text: `Pick up ${FINDS[fl.kind].name}`, run: () => pickUpFind(fl) };
     // Willowhaven, and the pages round the cove.
     const page = pageNear();
     if (page) return { text: PAGES[page].where.startsWith('tucked') ? 'Look at the paper tucked under the seat' : PAGES[page].where.startsWith('folded') ? 'Look at the paper in the crack' : 'Look at the paper in the driftwood', run: () => readPage(page) };
@@ -13081,6 +13204,7 @@ function tick(now, manual = false) {
     } else if (chilledTo < nowH) chill(state, chilledTo, nowH, iceUntilHere(state, state.shop?.iceUntil, !onFoot && !driving && boat ? boat.kind : null));
     chilledTo = nowH;
     watchAdventures(dt);
+    watchFlotsam(dt);
     watchObservations(dt);
     moments();
     saveTimer -= dt;
@@ -13248,6 +13372,7 @@ window.slowTide = {
   state, walker, fishing, env, weather, renderer, post, scene, camera, quality, eco, habitat, rig, finder, underwater, camp, world, explored, stormFx, mapSheet,
   damages, // (each boat's knocks and holes, see damage.js)
   navLights, // (F2c: every boat's lights after dark, see navlights.js)
+  hud, // (the messages and prompts: hud.toast and the rest, see ui.js)
   get boat() { return boat; }, // the boat you're in (or last used)
   reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI, pads, sealife, wildlife, crossingLife, glow,
   // What the harbour's placed sounds come from just now (see earshot.js), and the town's boats.
