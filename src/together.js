@@ -72,6 +72,23 @@ const crewKey = (e) => `crew_${e}_T`;
 export const NAV_POINTS = 16;
 // (F4b) A towed boat is never further than this from the boat towing her (m).
 export const TOW_REACH = 40;
+// (F4c) A crewmate's eye: wildlife they've named through their binoculars aboard your boat
+// ('spot': its kind and where), or what's in a photograph they've taken aboard ('snap': the kinds
+// of each sort, and whether dolphins were riding her bow). Each sort at most once a second.
+const SEEN_GAP = 1;
+const ids = (v, max = 12) => (Array.isArray(v) ? v.filter((s) => typeof s === 'string' && /^[a-z0-9]{1,24}$/.test(s)).slice(0, max) : []);
+export function cleanSeen(d) {
+  if (!d || typeof d !== 'object') return null;
+  if (d.w === 'spot') {
+    const k = ids([d.k])[0], x = finite(d.x, -3000, 3000), z = finite(d.z, -3000, 8000);
+    return k && x != null && z != null ? { w: 'spot', k, x: Math.round(x), z: Math.round(z) } : null;
+  }
+  if (d.w === 'snap') {
+    const S = { w: 'snap', sea: ids(d.sea), life: ids(d.life), nature: ids(d.nature), species: ids(d.species), bow: !!d.bow };
+    return S.sea.length || S.life.length || S.nature.length || S.species.length ? S : null;
+  }
+  return null;
+}
 const NAV_GAP = 1;
 const ASK_BURST = 12;     // asks a guest may make of the host in any second (rigs come up to four a second)
 // Plain words only (nothing that could be read as markup), trimmed to fit.
@@ -1023,6 +1040,13 @@ export class Together {
       if (this.clock - (p.navT ?? -99) < NAV_GAP * 0.7) return;
       p.navT = this.clock;
       this.onEvent('nav', p, cleanNav(data));
+    } else if (kind === 'seen') {
+      // (F4c) A crewmate's sighting or photograph (main.js checks they're aboard your boat).
+      if (!p.name || data.to !== this.id) return;
+      const S = cleanSeen(data), key = `seen_${S?.w}_T`;
+      if (!S || this.clock - (p[key] ?? -99) < SEEN_GAP * 0.7) return;
+      p[key] = this.clock;
+      this.onEvent('seen', p, S);
     } else if (kind === 'shoal') {
       // A shoal marked by a friend (teamwork.js checks it's one there is).
       const x = finite(data.x, -3000, 3000), z = finite(data.z, -3000, 8000);
@@ -1242,6 +1266,17 @@ export class Together {
     if (R && this.clock - (this.navSent ?? -99) < NAV_GAP) return false;
     this.navSent = this.clock;
     this.rt.send('nav', R ? { id: this.id, to, ...R } : { id: this.id, to, off: true });
+    return true;
+  }
+
+  // (F4c) To the skipper you're crewing for (to: their id): wildlife you've named ({ w: 'spot', k,
+  // x, z }), or a photograph's subjects ({ w: 'snap', sea, life, nature, species, bow }).
+  seen(to, what) {
+    if (!this.active || !this.rt?.open || this.reconnecting || !this.peers.has(to)) return false;
+    const S = cleanSeen(what), key = `seen_${S?.w}_Sent`;
+    if (!S || this.clock - (this[key] ?? -99) < SEEN_GAP) return false;
+    this[key] = this.clock;
+    this.rt.send('seen', { id: this.id, to, ...S });
     return true;
   }
 
