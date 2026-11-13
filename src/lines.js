@@ -40,6 +40,23 @@ export function tension(spec, len, d, rate, mass, strength = 1) {
 // Realistic, one that's seen some seasons (four-fifths of a new one's strength).
 export const STRENGTH = { relaxed: Infinity, standard: 1, realistic: 0.8 };
 
+// (F4b) A towline tended by a hand at the cleat. When it snatches past what they'll let it take
+// (TEND.hold of a new line's breaking load), they surge it: let it run round the cleat under a
+// turn, which holds the pull there while line runs out. When it's gone slack again (under
+// TEND.slack) they take it back in, hand over hand, at TEND.back m/s. There's TEND.spare m of
+// line to let run; once that's out, the bitter end's made fast and it takes what comes.
+export const TEND = { hold: 0.3, slack: 0.05, back: 0.4, spare: 12 };
+// The pull a tender holds a line at, or Infinity if nobody is or there's no more to let run.
+export const tendHold = (spec, tended, extra) => (tended && extra < TEND.spare ? spec.mbl * TEND.hold : Infinity);
+// The line let out past its length after a step: what ran out this step (out.slip, see
+// mooring.js towStep), or taken back in while it's slack; and with nobody tending, as it is.
+export function tendLine(extra, out, spec, tended, dt) {
+  if (!tended) return extra;
+  if (out?.slip > 0) return Math.min(TEND.spare, extra + out.slip);
+  if ((out?.T || 0) < spec.mbl * TEND.slack) return Math.max(0, extra - TEND.back * dt);
+  return extra;
+}
+
 // In words for the screen: "2.1 kN, a twentieth of what it holds".
 export function loadWords(T, spec) {
   const kN = T / 1000, share = T / spec.mbl;

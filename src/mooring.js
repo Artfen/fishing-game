@@ -1,6 +1,6 @@
 import { solidHeight, PIERS, inSeas } from './world/terrain.js';
 import { clamp, dampAngle } from './util.js';
-import { LINES, tension } from './lines.js';
+import { LINES, tension, stiffness } from './lines.js';
 
 // Holding a boat still, three ways (the rules here; the boat does the rest, see boat.js):
 //
@@ -179,20 +179,31 @@ const bowEnd = (b) => ({ x: b.pos.x + b.fwd.x * b.hull.L * 0.5, z: b.pos.z + b.f
 // a big boat yanked about in a sea) it parts. Returns how tight it is (0 … 1); `out`, if given,
 // gets { T (N), load (T over what it holds), parted }. `strength`: what share of a new line's
 // breaking load it holds (lines.js STRENGTH, by difficulty; Infinity: it never parts).
-export function towStep(lead, towed, dt, len = TOW.len, out = null, strength = 1) {
+// hold (F4b): the most a hand tending it lets it take, surging it round the cleat (see lines.js
+// TEND): past it the line runs out (out.slip, m) rather than pulling harder or parting.
+export function towStep(lead, towed, dt, len = TOW.len, out = null, strength = 1, hold = Infinity) {
   const s = sternOf(lead), w = bowEnd(towed);
   let dx = s.x - w.x, dz = s.z - w.z;
   const d = Math.hypot(dx, dz) || 1e-6;
   dx /= d;
   dz /= d;
   const A = lead._phys, B = towed._phys;
-  if (out) Object.assign(out, { T: 0, load: 0, parted: false });
+  if (out) Object.assign(out, { T: 0, load: 0, parted: false, slip: 0 });
   if (A && B) {
     if (d > len) {
       const mL = A.m, mT = B.m, mE = (mL * mT) / (mL + mT);
       // (How fast it's opening: the leader's stern going away from the towed boat's bow.)
       const rel = (lead.vel.x - towed.vel.x) * dx + (lead.vel.z - towed.vel.z) * dz;
-      const r = tension(LINES.towline, len, d, rel, mE, strength);
+      let r = tension(LINES.towline, len, d, rel, mE, strength);
+      // (Tended, a pull past what the tender holds runs line out round the cleat instead: held at
+      // that, the stretch beyond it let go.)
+      const raw = r.parted ? Infinity : r.T;
+      if (raw > hold) {
+        const k = stiffness(LINES.towline, len);
+        const mbl = LINES.towline.mbl;
+        r = { T: hold, parted: false, load: hold / Math.min(mbl * (strength > 0 ? strength : 1), mbl * 4) };
+        if (out) out.slip = Math.max(0, d - len - hold / k);
+      }
       if (out) Object.assign(out, r);
       if (r.parted) return 0;
       // (As an impulse this step, never more than closes what's opening plus the stretch: a stiff

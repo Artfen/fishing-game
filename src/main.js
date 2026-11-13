@@ -158,7 +158,7 @@ import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality
 import { Post } from './post.js';
 import { Diver, Shot, buildGun } from './diver.js';
 import { stepComfort, effectsOf, needsOf, dressFor, drink as drinkFrom, refill, eatRoll, packRolls, mealDrink, CLOTHES, CLOTHES_IDS, BOTTLE, ROLLS, feelsLike } from './comfort.js';
-import { LINES, STRENGTH, loadWords } from './lines.js';
+import { LINES, STRENGTH, loadWords, tendHold, tendLine } from './lines.js';
 import { modeOf as floodModeOf, PUMP_DRAW, waterWords as floodWords } from './flooding.js';
 import { cleanDamage, damageSave, modeOf, stepTubes, pump as pumpTubes, survey, repairs as damageRepairs, mend as mendDamage, sound as hullSound, hullWords, materialOf, tighten, steerWords, plug as plugDamage, pluggable, CHAMBERS, SECTION_NAMES, SURFACES, TUBED, PARTS } from './damage.js';
 import { CARGO, buy as buyCargo, putAboard, bringAshore, piecesAboard, storePieces, weightOf as cargoKg, newCargo } from './cargo.js';
@@ -2927,7 +2927,16 @@ function updateTow(dt) {
   // (The line's pull, and whether it's parted: see lines.js. On Relaxed it never parts.)
   const out = (tow.out ||= {});
   const strength = STRENGTH[state.difficulty] ?? 1;
-  tow.tight = towStep(lead, towed, dt, TOW.len, out, strength);
+  // (F4b) A crewmate tending it surges a snatch round the cleat, and takes the line back in after.)
+  if (tow.tender && (lead !== boat || onFoot || !together.active || !crewingFor(together.peers.get(tow.tender.id)))) tow.tender = null;
+  const tended = !!tow.tender;
+  tow.tight = towStep(lead, towed, dt, TOW.len + (tow.extra || 0), out, strength, tendHold(LINES.towline, tended, tow.extra || 0));
+  tow.extra = tendLine(tow.extra || 0, out, LINES.towline, tended, dt);
+  if (out.slip > 0 && t > (tow.surgeT || 0)) {
+    tow.surgeT = t + 6;
+    audio.creak?.(0.03, 0);
+    hud.flash(`${tow.tender.name} surges the towline round the cleat as it snatches: ${tow.extra < 1 ? 'a little' : `${Math.round(tow.extra)} m`} let run.`, t, 3);
+  }
   tow.T = out.T || 0;
   tow.peak = Math.max((tow.peak || 0) * Math.exp(-dt / 3), out.load || 0);
   if (out.parted) return partTow();
@@ -10264,6 +10273,9 @@ function currentHint() {
   // (E3a) At a friend's helm: while they play a fish, where it is from her bow, the line out, and
   // what to do with her; otherwise her controls (not the walking keys, as it used to say).
   if (crew.on?.helm) return helmHint(T, UD, LR);
+  // (F4b) Tending a friend's towline: the strain on it, and what you've let run.
+  const TW = tending && crew.on && !fishing.lineOut ? towOf(crew.on.id) : null;
+  if (TW) return `Tending ${together.peers.get(crew.on.id)?.name || 'your friend'}’s towline: ${loadWords(TW.t * 1000, LINES.towline)}${TW.l >= 1 ? ` · ${Math.round(TW.l)} m let run` : ''} · ${T ? 'the prompt' : K('interact')} to stop tending or step off`;
   const space = K('cast');
   const cancel = T ? '✕ cancels' : `${K('cancel')} cancel`;
   const info = fishing.info;
@@ -10902,6 +10914,8 @@ function crewChoices() {
   const opts = [];
   if (O.helm) opts.push({ text: 'Hand back the helm', run: () => { crew.handBack(); hud.flash(`You hand the helm back to ${name}.`, t, 2); } });
   else opts.push({ text: 'Take the helm', run: () => { if (crew.askHelm()) hud.flash(`You ask ${name} for the helm…`, t, 2); } });
+  // (F4b) Her towline, while she's towing: tend it, or stop.
+  if (towOf(O.id)) opts.push({ text: tending === O.id ? 'Stop tending the towline' : 'Tend the towline', run: () => tendTowline(tending !== O.id) });
   const P = walker.pos;
   const mine = boats.find((B) => Math.hypot(B.pos.x - P.x, B.pos.z - P.z) < B.hull.L * 0.5 + 4);
   if (mine) opts.push({ text: `Step back into your ${mine.name}`, cls: 'quiet', run: () => leaveCrew({ boat: mine }) });
@@ -10926,6 +10940,16 @@ function crewWord(p, d) {
   else if (r === 'refused') hud.toast(`${p.name} keeps the helm${d.w ? `: ${d.w}` : ''}.`, 4);
   else if (r === 'returned') hud.flash(`${p.name} has the helm back.`, t, 3);
   else if (r === 'handed') hud.flash(`${p.name} hands the helm back to you.`, t, 3);
+  // (F4b) A crewmate tending your towline, or not now.
+  else if (r === 'tend' && tow?.lead === boat && !onFoot) {
+    // (One crewmate tends it at a time.)
+    if (tow.tender && tow.tender.id !== p.id && crewingFor(together.peers.get(tow.tender.id))) return;
+    if (tow.tender?.id !== p.id) hud.toast(`${p.name} is tending the towline: they'll let it run round the cleat when it snatches, and take it back in after.`, 5);
+    tow.tender = { id: p.id, name: p.name };
+  } else if (r === 'untend' && tow?.tender?.id === p.id) {
+    tow.tender = null;
+    hud.flash(`${p.name} has stopped tending the towline${tow.extra > 0.5 ? `, with ${Math.round(tow.extra)} m of it let run` : ''}.`, t, 3);
+  }
   else if (r === 'asked') {
     const why = helmRefusal() || (crew.given && crew.given.id !== p.id ? 'someone else has it' : null);
     if (why) crew.deny(p, why);
@@ -11079,7 +11103,11 @@ function whereIAm() {
   if (onFoot) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: sitting ? 'sit' : fishing.lineOut ? 'fish' : walker.speed > 0.4 ? 'walk' : 'stand', o: on, ...gear };
   // (Her bow trolling motor, where it is: friends see it stowed, swinging down, or at work.)
   const T = boat.troll, tr = T ? trollWire(T.tier, T.mech, T.angle, T.f > 20 || (boat.bowNotch > 0 && T.deployed)) : undefined;
-  return { m: 'boat', k: boat.kind, x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), o: on, ...(tr ? { tr } : {}), ...gear };
+  // (F4b) Towing: the boat on your towline, where she is, the pull on it and the line let run, so
+  // friends see her come along behind you, and a crewmate tending it knows the strain.
+  const W = tow?.lead === boat ? tow.towed : null;
+  const tw = W ? { k: W.kind, x: W.pos.x, z: W.pos.z, h: W.heading, t: (tow.T || 0) / 1000, l: tow.extra || 0, ...(tow.tender ? { e: tow.tender.id } : {}) } : undefined;
+  return { m: 'boat', k: boat.kind, x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), o: on, ...(tr ? { tr } : {}), ...(tw ? { tw } : {}), ...gear };
 }
 // A friend's fish, as it fights at the end of their line.
 const FISH_MOVE_WORDS = { run: 'fish on! it’s running', jump: 'fish on! it’s leaping', shake: 'fish on! head-shaking', charge: 'fish on! it’s charging', dive: 'fish on! it’s diving', longrun: 'fish on! a long run', sound: 'fish on! it’s sounding', circle: 'fish on! it’s circling' };
@@ -12008,6 +12036,58 @@ function navTick(dt) {
     if (f.leg !== navFor.leg) hud.flash(`Mark ${f.leg} rounded: you call ${courseWords(f.course)} for mark ${f.leg + 1}.`, t, 3);
     navFor.leg = f.leg;
     if (navT - navFor.sent > NAV_EVERY && together.navigate(navFor.to, { name: R.name, pts: R.pts, leg: navFor.leg })) navFor.sent = navT;
+  }
+}
+
+/* ---------- (F4b) tending a friend's towline ---------- */
+// Crewing in a friend's boat while she's towing, you can tend her towline: your word goes to her
+// game, which surges the line round the cleat when it snatches (see lines.js TEND) and takes it back
+// in after. Her position carries the tow (who, where, the pull, the line let run, and whether her
+// game has you tending), so you see the strain; if her game hasn't heard you, you say it again.
+let tending = null; // (crew) the skipper whose towline you're tending
+let tendT = 0;
+// The tow a friend's boat has on (her pose's tw), or null.
+function towOf(id) {
+  const p = together.peers.get(id), Q = p && (p.view || p.pose);
+  return Q?.m === 'boat' && Q.tw ? Q.tw : null;
+}
+function tendTowline(on) {
+  const O = crew.on;
+  if (!O) return;
+  const name = together.peers.get(O.id)?.name || 'your friend';
+  if (on) {
+    if (!towOf(O.id) || !together.crewWord(O.id, 'tend')) return;
+    tending = O.id;
+    tendT = 0;
+    hud.toast(`You take a turn of ${name}’s towline round the cleat: when it snatches you’ll let it run, and take it back in when it’s slack.`, 5);
+  } else {
+    together.crewWord(O.id, 'untend');
+    tending = null;
+    hud.flash('You stop tending the towline.', t, 2.5);
+  }
+}
+function tendTick(dt) {
+  if (!tending) return;
+  const TW = crew.on && crew.on.id === tending && together.active ? towOf(tending) : null;
+  if (!TW) {
+    if (crew.on?.id === tending && together.active) hud.flash('The tow’s let go: nothing to tend.', t, 2.5);
+    tending = null;
+    return;
+  }
+  // (Her game's answer, in her position, takes a moment to come back.)
+  tendT += dt;
+  if (tendT < 1.5) return;
+  // (Someone else aboard has it.)
+  if (TW.e && TW.e !== together.id) {
+    const who = together.peers.get(TW.e)?.name || 'Someone';
+    hud.flash(`${who} is tending the towline.`, t, 2.5);
+    tending = null;
+    return;
+  }
+  // (Her game hasn't got you tending it, a word lost on the way: say it again, now and then.)
+  if (!TW.e && tendT > 4) {
+    tendT = 1.5;
+    together.crewWord(tending, 'tend');
   }
 }
 
@@ -12967,6 +13047,7 @@ function tick(now, manual = false) {
     routeNow = routeTick();
     // (F4a) A crewmate navigating for you, or you for your skipper.
     navTick(dt);
+    tendTick(dt);
     // (Her papers: what she's done, see papers.js.)
     vesselRun(dt, hours, burnedNow);
     burnedNow = 0;
@@ -13597,7 +13678,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView, passersby, together, visitors, clock, drifters, seabed, shared, teamwork, crew, birds, binoculars: { open: () => openBinoculars(), close: () => closeBinoculars() }, catchCard: (id, size) => showCatch(fishById[id], size, eco.bySpecies[id]?.[0] || { x: 0, z: 0, caught: 0 }, null), inspect: { open: () => openInspect(), close: () => closeInspect(), get on() { return inspector.isOpen; } }, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pickupsShown() { return pickups.count; }, padContext: () => padContext(), jobsChanged: () => jobWeight(), strays, get towing() { return tow ? { lead: tow.lead.kind, towed: tow.towed.boatName || tow.towed.name, tight: tow.tight, T: tow.T || 0 } : null; }, takeInTow: (kind) => takeInTow(BOATS[kind]), seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
+  rowboat, skiff, boats: BOATS, wind, town, folkView, passersby, together, visitors, clock, drifters, seabed, shared, teamwork, crew, birds, binoculars: { open: () => openBinoculars(), close: () => closeBinoculars() }, catchCard: (id, size) => showCatch(fishById[id], size, eco.bySpecies[id]?.[0] || { x: 0, z: 0, caught: 0 }, null), inspect: { open: () => openInspect(), close: () => closeInspect(), get on() { return inspector.isOpen; } }, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pickupsShown() { return pickups.count; }, padContext: () => padContext(), jobsChanged: () => jobWeight(), strays, get towing() { return tow ? { lead: tow.lead.kind, towed: tow.towed.boatName || tow.towed.name, tight: tow.tight, T: tow.T || 0, tender: tow.tender?.name || null, extra: tow.extra || 0, peak: tow.peak || 0 } : null; }, takeInTow: (kind) => takeInTow(BOATS[kind]), seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
   pump: (id = 'haven') => openPump(id),

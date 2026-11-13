@@ -20,7 +20,7 @@ export const CREW_SLOW = 1.2;     // m/s: a boat going faster than this can't be
 export const WHEEL_EVERY = 0.15;  // s between words from the wheel while it's moving
 export const WHEEL_IDLE = 0.8;    // s between words while it isn't
 export const WHEEL_STALE = 1.5;   // s without a word: the wheel goes slack
-export const CREW_WORDS = ['helm', 'yes', 'no', 'back', 'wheel'];
+export const CREW_WORDS = ['helm', 'yes', 'no', 'back', 'wheel', 'tend', 'untend'];
 const WALK = 1.1;                 // m/s about the boat
 
 // Where crew stand in a boat (boat-local metres, x across, z fore and aft): clear of the helm.
@@ -187,6 +187,8 @@ export class Crew {
     }
     if (!this.aboard(p)) return null;
     if (d.e === 'helm') return 'asked';
+    // (F4b) Tending your towline, or not now.
+    if (d.e === 'tend' || d.e === 'untend') return d.e;
     if (d.e === 'wheel' && this.given?.id === p.id) {
       Object.assign(this.given, { ti: d.ti, si: d.si, at: this.together.clock });
       return null;
