@@ -35,6 +35,9 @@
 import { FISH } from '../fish.js';
 import { FRESH_ZONES } from './terrain.js';
 import { rand, clamp, damp } from '../util.js';
+// How long a hunting shoal rests after a frenzy (s), unless its kind says (see ecosystem.js hunt):
+// four to ten minutes, so water with hunters in it has its quiet spells.
+export const HUNT_REST = [240, 600];
 
 export const GATHER = 0, UP = 1, OVER = 2;
 const FRESH = new Set(FRESH_ZONES);
@@ -42,8 +45,8 @@ const FISH_IX = new Map(FISH.map((f, i) => [f.id, i]));
 
 export const FEED = {
   press: 1.8,          // a shoal's fear (D2) that can start one: about four hunters at it lately
-  pressFor: 2,         // ... on this many looks running
-  chance: 0.5,         // ... and then this chance at each look
+  pressFor: 6,         // ... on this many looks running
+  chance: 0.1,         // ... and then this chance at each look
   look: 2,             // s between looks
   reach: 70,           // m: the hunters this near come in (in fresh water, reachFresh)
   reachFresh: 35,
@@ -53,14 +56,14 @@ export const FEED = {
   life: [120, 300],    // s: how long the hunters keep at it, if nothing ends it sooner
   none: 20,            // s with no hunters at it and it's over
   linger: 40,          // s: the dispersal, before it's gone
-  full: [180, 420],    // s: a hunter that's fed leaves the small fish alone this long
-  quiet: [480, 1200],  // s: the water stays quiet this long after a feed
-  quietR: 500,         // m: ... this far round it
+  full: [900, 2400],   // s: a hunter that's fed leaves the small fish alone this long
+  quiet: [600, 1500],  // s: the water stays quiet this long after a feed
+  quietR: 250,         // m: ... this far round it
   apart: 400,          // m: no two feeds nearer than this
   max: 3,              // feeds at once
   sight: 900,          // m: no feed starts further than this from everyone
-  farKeen: 0.6,        // far off: the hunters about a shoal must be this keen
-  farChance: 0.002,    // ... and then this chance at each look, times how keen
+  farKeen: 0.7,        // far off: the hunters about a shoal must be this keen
+  farChance: 0.00025,  // ... and then this chance at each look, times how keen
   boatR: 9,            // m: a boat running through it this near, over boatV m/s, breaks it up
   boatV: 3,
 };
@@ -159,12 +162,31 @@ export class Feeding {
         // Far off: by chance, by how keen the hunters about it are.
         const k = this.keenAbout(s);
         if (k < FEED.farKeen || Math.random() >= FEED.farChance * k || this.eco.bandOf(s)[0] > 6) continue;
+        // (Only where there are hunters enough about it to drive it up.)
+        if (this.huntersAbout(s) < FEED.drive) continue;
         cause = 'far';
       }
       if (!this.room(s, true)) continue;
       this.start(s, cause);
       if (this.events.length >= FEED.max) return;
     }
+  }
+
+  // How many keen hunters there are within reach of a shoal (a hunting shoal near counting for four).
+  huntersAbout(s) {
+    const eco = this.eco, zone = s.home.zone, R = FRESH.has(zone) ? FEED.reachFresh : FEED.reach, T = eco.time;
+    let n = 0;
+    for (const a of this.eaters) {
+      if (!a.active || a.bait || !this.engageable.has(a.state) || a.fullUntil > T || (eco.activity[a.sp.id] ?? 0) < 0.3 || !a.L.zones.includes(zone)) continue;
+      if ((a.x - s.x) ** 2 + (a.z - s.z) ** 2 < R * R && ++n >= FEED.most) break;
+    }
+    for (const H of this.hunters) {
+      const prey = [].concat(H.home.south ? H.L.hunterSouth || H.L.hunter : H.L.hunter), L = H.L;
+      if (!prey.includes(s.sp.id) || H.rest > 0 || H.frenzy > 0 || (eco.activity[H.sp.id] ?? 0) <= (L.hunt?.keen ?? 0.4)) continue;
+      if (L.hunt && s.home.zone && !L.zones.includes(s.home.zone)) continue;
+      if (Math.hypot(H.x - s.x, H.z - s.z) < (L.hunt?.range ?? 380)) n += 4;
+    }
+    return n;
   }
 
   // How keen the hunters living about a shoal are just now (0 … 1).
@@ -178,6 +200,8 @@ export class Feeding {
   // hunting shoal's frenzy, which keeps its own rests) not where one was lately, nor near another.
   room(s, quiet) {
     if (this.eco.habitat.depth(s.x, s.z) < (FRESH.has(s.home.zone) ? 1.5 : 2.5)) return false;
+    // (A shoal already thinned by the hunters (D3) has nothing left to give a feed.)
+    if (alive(s) <= Math.ceil((s.members.length * 2) / 3) + 2) return false;
     for (const e of this.events) if ((e.s.x - s.x) ** 2 + (e.s.z - s.z) ** 2 < FEED.apart * FEED.apart) return false;
     if (quiet) for (const q of this.quiet) if ((q.x - s.x) ** 2 + (q.z - s.z) ** 2 < FEED.quietR * FEED.quietR) return false;
     return true;
@@ -219,7 +243,7 @@ export class Feeding {
     else if (e.hunters === 0 && (e.lone += h) > FEED.none) why = 'gone';
     if (e.hunters > 0) e.lone = 0;
     if (why) return this.disperse(e, why);
-    if (e.phase === GATHER && s.y > FEED.top) {
+    if (e.phase === GATHER && s.y > FEED.top && e.hunters >= FEED.drive) {
       e.phase = UP;
       e.upAt = e.t;
       this.onEvent?.('up', e);
@@ -270,6 +294,8 @@ export class Feeding {
       if (Math.hypot(H.x - s.x, H.z - s.z) > (L.hunt?.range ?? 380)) continue;
       H.prey = s;
       H.huntT = 4;
+      n += 4;
+      kinds.set(H.sp.id, (kinds.get(H.sp.id) || 0) + 4);
     }
     e.hunters = n;
     let best = -1, bn = 0;
@@ -336,7 +362,7 @@ export class Feeding {
     }
     for (const H of this.hunters) {
       if (H.prey !== s) continue;
-      const Rr = H.L.hunt?.rest || [60, 120];
+      const Rr = H.L.hunt?.rest || HUNT_REST;
       H.prey = null;
       H.frenzy = 0;
       H.rest = Math.max(H.rest || 0, rand(Rr[0], Rr[1]));

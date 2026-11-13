@@ -7,7 +7,7 @@ import { zoneAt } from './terrain.js';
 import { pushOut } from './divesites.js';
 import { tideBoost, FLOOD_FEEDERS } from './tide.js';
 import { WARM_LIMIT, coolDepth, tempAt, warmStress, FORAGE, fishEater, fishyItem } from './ecology.js';
-import { Feeding, OVER } from './feeding.js';
+import { Feeding, OVER, HUNT_REST } from './feeding.js';
 import { seasonBoost } from './season.js';
 import { colourFactor } from '../grounds.js';
 import { blowFactor } from './forecast.js';
@@ -320,6 +320,7 @@ export class Ecosystem {
       wary: 0, flashCD: 2 + rnd() * 6, clueCD: 2 + rnd() * 8, interestCD: rnd() * 0.5, retarget: 0,
       atPrey: false, shoal: null, shoalTop: 0, coolKey: null, // (D1: at a shoal of small fish; see pickPoint)
       eater: fishEater(sp), strikeT: 0, // (D3: a hunter of small fish, and its next strike: see stalk)
+      fullUntil: 0, // (D4: fed at a feed, it leaves the small fish alone till then: see feeding.js)
       nibbles: 0, maxNibbles: 1, nibbleT: 0, invT: 0, biteT: 0, vy: 0, jumpSpeed: 0,
       phase: rnd() * 10, beat: 0.3, caught: 0, faceBait: false, risen: false,
     };
@@ -824,7 +825,7 @@ export class Ecosystem {
     a.strikeT = (feed ? rand(3, 9) : rand(ambusher ? 20 : 12, ambusher ? 45 : 30)) / Math.max(0.4, act);
     // (Struck, the shoal is tight and watchful for a while: the hunters bide their time. Balled up
     // at the top in a feed, it has nowhere to go: they're at it again in moments.)
-    s.calmAt = this.time + (feed ? rand(0.8, 2.5) : rand(12, 35));
+    s.calmAt = this.time + (feed ? rand(1.5, 4) : rand(12, 35));
     s.scatterT = Math.max(s.scatterT || 0, 0.9);
     s.sx = a.x;
     s.sy = a.y;
@@ -835,7 +836,8 @@ export class Ecosystem {
     s.threatX = a.x;
     s.threatZ = a.z;
     // (Most strikes miss: an ambusher's first rush does best.)
-    const taken = Math.random() < (ambusher ? 0.3 : 0.15) ? this.takeFromShoal(s) : null;
+    // (A ball in a feed, packed tight, loses fewer to each rush: the many rushes take their toll.)
+    const taken = Math.random() < (ambusher ? 0.3 : 0.15) * (feed ? 0.25 : 1) ? this.takeFromShoal(s) : null;
     if (s.y > -2.5) {
       this.clue('splash', a);
       const m = taken || s.members[0];
@@ -1132,7 +1134,8 @@ export class Ecosystem {
     const d = Math.hypot(p.x - s.x, p.z - s.z);
     // On the bait ball: a feeding frenzy that lasts a minute or so, circling and slashing
     // through it, then they sound and rest before hunting again.
-    const F = s.L.hunt?.frenzy || [50, 80], Rr = s.L.hunt?.rest || [60, 120];
+    // (D4: four to ten minutes' rest by default, so water with hunters in it has its quiet spells.)
+    const F = s.L.hunt?.frenzy || [50, 80], Rr = s.L.hunt?.rest || HUNT_REST;
     if (d < 22 && !s.frenzy) s.frenzy = rand(F[0], F[1]);
     if (s.frenzy > 0 && s.frenzy < h * 2) {
       s.rest = rand(Rr[0], Rr[1]);

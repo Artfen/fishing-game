@@ -54,7 +54,7 @@ const bassAbout = (eco, s, n = 5) => {
 const startOn = (eco, s) => {
   press(eco, s);
   withDice(() => {
-    for (let i = 0; i < 6 && !s.feed; i++) eco.feeding.look();
+    for (let i = 0; i < 60 && !s.feed; i++) eco.feeding.look();
   });
   return s.feed;
 };
@@ -97,6 +97,7 @@ test('too few hunters to drive it up: the feed stays down and shows nothing at t
   const s = seaShoal(eco);
   s.y = -6;
   for (const a of eco.feeding.eaters) a.fullUntil = Infinity;
+  for (const H of eco.feeding.hunters) H.rest = 1e6;
   bassAbout(eco, s, 2);
   const e = startOn(eco, s);
   step(eco, s, 20);
