@@ -153,7 +153,7 @@ import { setupTouch } from './touch.js';
 import { Gamepads, buttonFor, topDialog, focusables } from './gamepad.js';
 import { levers, nearest, step, setIndex, within, capIndex, leverWords, slide, valueAt, positionOf, displayIndex, positionAtIndex, leverPositionWords, GEAR_IN } from './throttle.js';
 import { LeverUI } from './lever.js';
-import { anchorCheck, berthFor, berthAt, castOffCheck, canTow, towStep, TOW } from './mooring.js';
+import { anchorCheck, berthFor, berthAt, castOffCheck, canTow, towStep, towLineFor, TOW } from './mooring.js';
 import { Rope } from './rope.js';
 import { BOAT_PER_S, TANKS, addFuel, isPetrol, PASSAGE_FUEL, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, burnKayak, burnElec, chargeElec, elecLevel, elecWords, chargeBattery, BATTERY_PER_HOUR, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
 import { STEPS as TRIP_STEPS, stepOf, stepNumber, complete as completeStep, start as startGuide, words as guideWords, isNewGame, placeAt, FISH_SPOTS } from './firstTrip.js';
@@ -162,8 +162,8 @@ import { Post } from './post.js';
 import { Diver, Shot, buildGun } from './diver.js';
 import { stepComfort, effectsOf, needsOf, dressFor, drink as drinkFrom, refill, eatRoll, packRolls, mealDrink, CLOTHES, CLOTHES_IDS, BOTTLE, ROLLS, feelsLike } from './comfort.js';
 import { LINES, STRENGTH, loadWords, tendHold, tendLine } from './lines.js';
-import { modeOf as floodModeOf, PUMP_DRAW, waterWords as floodWords } from './flooding.js';
-import { cleanDamage, damageSave, modeOf, stepTubes, pump as pumpTubes, survey, repairs as damageRepairs, mend as mendDamage, sound as hullSound, hullWords, materialOf, tighten, steerWords, plug as plugDamage, pluggable, CHAMBERS, SECTION_NAMES, SURFACES, TUBED, PARTS } from './damage.js';
+import { modeOf as floodModeOf, PUMP_DRAW, waterWords as floodWords, SWAMPED } from './flooding.js';
+import { cleanDamage, newDamage, damageSave, modeOf, stepTubes, pump as pumpTubes, survey, repairs as damageRepairs, mend as mendDamage, sound as hullSound, hullWords, materialOf, tighten, steerWords, plug as plugDamage, pluggable, CHAMBERS, SECTION_NAMES, SURFACES, TUBED, PARTS } from './damage.js';
 import { CARGO, buy as buyCargo, putAboard, bringAshore, piecesAboard, storePieces, weightOf as cargoKg, newCargo } from './cargo.js';
 import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance, logSite, logFind } from './dive.js';
 import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick, seeded, wrapAngle } from './util.js';
@@ -2996,7 +2996,8 @@ function takeInTow(other) {
     hud.flash(c.why, t, 3.5);
     return;
   }
-  tow = { lead: boat, towed: other, tight: 0 };
+  // (The line paid out to suit: from alongside, her bow's well forward of your stern.)
+  tow = { lead: boat, towed: other, tight: 0, len: towLineFor(boat, other) };
   audio.knock(0.35);
   hud.flash(`The ${other.name} is on a towline from your stern, and follows where you go. ${scheme() === 'touch' ? 'Let go the tow' : `${K('anchor')} lets her go`} whenever you like: she stays where she is.`, t, 5);
   save();
@@ -3040,7 +3041,7 @@ function updateTow(dt) {
   // (F4b) A crewmate tending it surges a snatch round the cleat, and takes the line back in after.)
   if (tow.tender && (lead !== boat || onFoot || !together.active || !crewingFor(together.peers.get(tow.tender.id)))) tow.tender = null;
   const tended = !!tow.tender;
-  tow.tight = towStep(lead, towed, dt, TOW.len + (tow.extra || 0), out, strength, tendHold(LINES.towline, tended, tow.extra || 0));
+  tow.tight = towStep(lead, towed, dt, (tow.len || TOW.len) + (tow.extra || 0), out, strength, tendHold(LINES.towline, tended, tow.extra || 0));
   tow.extra = tendLine(tow.extra || 0, out, LINES.towline, tended, dt);
   if (out.slip > 0 && t > (tow.surgeT || 0)) {
     tow.surgeT = t + 6;
@@ -3064,7 +3065,7 @@ function updateTow(dt) {
 // (A tow kept from last time, if the two boats are still together.)
 {
   const T = state.tow, L = T && BOATS[T.lead], W = T && BOATS[T.towed];
-  if (L && W && L !== W && !L.stowed && !W.stowed && !W.tie && !W.anchored && Math.hypot(L.pos.x - W.pos.x, L.pos.z - W.pos.z) < TOW.len * 3) tow = { lead: L, towed: W, tight: 0 };
+  if (L && W && L !== W && !L.stowed && !W.stowed && !W.tie && !W.anchored && Math.hypot(L.pos.x - W.pos.x, L.pos.z - W.pos.z) < TOW.len * 3) tow = { lead: L, towed: W, tight: 0, len: towLineFor(L, W) };
 }
 
 // The mooring prompt (the anchor key, X on a controller, or a tap): what holding her still means
@@ -4358,11 +4359,31 @@ function syncStrays() {
     const k = `${a.obj.boat}:${a.obj.name}`;
     const b = (strayCache[k] ||= new Boat(scene, { kind: a.obj.boat, look: { name: a.obj.name, paint: '#efe9dc', stripe: '#7a2430', bottom: '#3a4a5a' } }));
     b.setRower(false);
+    // (G6) Taking water: a plank sprung below her waterline, and the water in her as the job last
+    // saw it; once she's on your line, a rag in the plank and your bucket going (see leakHelp).
+    // Any other: sound and dry.
+    b.waterKg = 0;
+    b.flooding = null;
+    b.bailing = false;
+    if (a.obj.leak) {
+      b.damage = newDamage(false);
+      b.damage.hull.bottom = Math.min(0.97, Math.max(0.86, +a.obj.leak || 0.9));
+      const W = a.progress.water;
+      if (Array.isArray(W) && W.every((n) => Number.isFinite(n) && n >= 0)) b.damage.water = W.slice(0, 8);
+      leakHelp(b, a);
+    } else b.damage = null;
     const p = a.progress.at || a.obj.at;
     b.place(p.x, p.z, b.heading || 0);
     b.group.visible = true;
     strays.set(id, b);
   }
+}
+// (G6) Her people helped, once she's on your line: a rag stuffed in the sprung plank (half the
+// water through it: see damage.js plugLets) and bailing with your bucket.
+function leakHelp(b, a) {
+  if (!b.damage || !a.progress.helped) return;
+  b.damage.plugs.bottom = 'rag';
+  b.bailing = true;
 }
 // (A stray within reach of you, slow, for the mooring prompt.)
 function strayNear(reach = 4.5) {
@@ -4389,12 +4410,19 @@ function updateCalls(dt) {
   // hand, or under way: it waits for a quiet moment.)
   if (fishing.busy || !$('confirm').hidden || placement.isOn || dashCtl.focused || boat.speed > 2.5) return;
   if (Math.max(weather.storm, conditions.sea.storm) > 0.2 || !Con.callDue(C, clock.abs)) return;
-  const spot = callSpot();
-  const o = spot && Con.callFor(C, { ...jobWorld(), callSpot: spot });
+  // (G6) Out on the Blue Water, beyond the harbour's reach: a call comes only to a boat with a VHF
+  // (the coastguard's, relayed), and it's one of the far ones. Without one, it waits until you're
+  // back within reach.
+  const blue = boat.pos.z > DEEP_Z + 40;
+  if (blue && !fitEffect(state.yard, boat.kind)?.vhf) return;
+  // (Out there, she's out there too: on the Blue Water, and how far from the harbour.)
+  const spot = callSpot(blue);
+  const km = spot ? Math.round(Math.hypot(spot.x - HARBOUR_OFFICE.x, spot.z - HARBOUR_OFFICE.z) / 100) / 10 : 0;
+  const o = spot && Con.callFor(C, { ...jobWorld(), callSpot: spot, offshore: blue ? { km } : null });
   Con.callMade(C, clock.abs);
   if (!o) return;
   audio.chime?.();
-  ask(o.cat === 'rescue' ? 'The harbour office, on the radio' : o.title, `${o.story} (${o.goal}: pays ${money(o.pay)}.)`, [
+  ask(o.cat === 'rescue' ? (o.tpl === 'farTow' ? 'The coastguard, on the VHF' : 'The harbour office, on the radio') : o.title, `${o.story} (${o.goal}: pays ${money(o.pay)}.)`, [
     { text: 'Not now', cls: 'quiet', run: () => { hud.toast('“No bother: someone else will go.”', 4); save(); } },
     { text: 'On my way', run: () => {
       if (Con.acceptCall(C, o, t)) hud.toast(`${o.title}: it’s marked, and on your map.`, 5);
@@ -4403,13 +4431,14 @@ function updateCalls(dt) {
     } },
   ]);
 }
-// Somewhere out on the water a few hundred metres off (deep enough, at home), in words.
-function callSpot() {
+// Somewhere out on the water a few hundred metres off (deep enough, at home), in words. (Out on
+// the Blue Water, G6: somewhere out there too.)
+function callSpot(blue = false) {
   const P = boat.pos;
   for (let i = 0; i < 24; i++) {
     const a = Math.random() * Math.PI * 2, d = 220 + Math.random() * 480;
     const x = P.x + Math.sin(a) * d, z = P.z + Math.cos(a) * d;
-    if (z > 2600 || solidHeight(x, z) > -2.5 || solidHeight(x + 8, z) > -2 || solidHeight(x, z + 8) > -2) continue;
+    if (z > 2600 || (blue && z <= DEEP_Z + 40) || solidHeight(x, z) > -2.5 || solidHeight(x + 8, z) > -2 || solidHeight(x, z + 8) > -2) continue;
     const near = placeName(x, z) || PLACES.find((p) => !p.area && Math.hypot(p.x - x, p.z - z) < 160)?.name;
     const H = HARBOUR_OFFICE, km = Math.round(Math.hypot(x - H.x, z - H.z) / 100) / 10;
     return { x, z, where: near ? `off ${near}` : `${km} km ${compass(bearingOf(x - H.x, z - H.z))} of the harbour` };
@@ -4561,7 +4590,12 @@ function updateJobs(dt) {
   for (const [id, b] of strays) {
     const a = state.contracts.active.find((c) => c.id === id);
     if (a) a.progress.at = { x: Math.round(b.pos.x * 10) / 10, z: Math.round(b.pos.z * 10) / 10 };
-    strayInfo[id] = { towed: !!tow && tow.towed === b, home: Math.hypot(b.pos.x - haven.x, b.pos.z - haven.z) < 90 && b.speed < 1 };
+    // (G6: one taking water, how far gone she is, kept with the job.)
+    if (a && b.damage) {
+      a.progress.water = (b.damage.water || []).map((n) => Math.round(n));
+      leakHelp(b, a);
+    }
+    strayInfo[id] = { towed: !!tow && tow.towed === b, home: Math.hypot(b.pos.x - haven.x, b.pos.z - haven.z) < 90 && b.speed < 1, swamped: !!b.flooding?.swamped, sink: b.flooding ? Math.min(1, b.flooding.fill / SWAMPED) : 0 };
   }
   const tied = afloat && boat.tie ? (VISITOR_FINGERS.includes(PIERS[boat.tie.pier]) ? 'visitors' : 'other') : null;
   const r = Con.tick(state.contracts, {
@@ -4574,7 +4608,7 @@ function updateJobs(dt) {
   for (const a of r.boarded) {
     const o = a.obj;
     hud.toast(o.kind === 'charter' ? `${a.title}: ${o.pax} aboard${o.divers ? ' with their kit' : ''}. ${Con.standing(a)}`
-      : o.kind === 'tow' ? `${a.title}: she’s on your line. Gently now: into Willowhaven.`
+      : o.kind === 'tow' ? (o.leak ? `${a.title}: she’s on your line. You pass across your bucket, and they stuff a rag in the sprung plank and bail: she’s still filling, but slowly. Gently now: into Willowhaven.` : `${a.title}: she’s on your line. Gently now: into Willowhaven.`)
       : o.kind === 'pickup' ? (o.what === 'person' ? `${a.title}: aboard, cold and grateful. Home to Willowhaven.` : `${a.title}: hauled aboard. Home to Willowhaven with it.`)
         : `${a.title}: loaded, ${o.cargo} kg. She sits lower for it: take her to ${a.where?.name || 'it'}.`, 6);
     audio.chime?.();
@@ -4591,7 +4625,7 @@ function updateJobs(dt) {
     audio.chime?.();
   }
   if (r.boarded.length || r.done.length || r.stepped.length) jobWeight();
-  for (const a of r.missed) hud.toast(`${a.title}: too late, the job’s gone. Nothing lost but the job.`, 5);
+  for (const a of r.missed) hud.toast(a.why === 'swamped' ? `${a.title}: she’s swamped. The inshore lifeboat has taken her owner off. Nothing lost but the job.` : `${a.title}: too late, the job’s gone. Nothing lost but the job.`, a.why ? 7 : 5);
   if (r.missed.length) {
     jobWeight();
     save();
@@ -13298,7 +13332,8 @@ function tick(now, manual = false) {
     const aside = !towed && d > r && Math.hypot(b.pos.x - me.x, b.pos.z - me.z) > r;
     b.update(dt, t, 0, 0, env.lantern, d > 140 && !towed ? true : aside ? 'moored' : false);
   }
-  for (const b of strays.values()) b.update(dt, t, 0, 0, env.lantern, !(tow && tow.towed === b) && Math.hypot(b.pos.x - camera.position.x, b.pos.z - camera.position.z) > 140);
+  // (One taking water, G6, is always simulated: she fills whether you're watching or not.)
+  for (const b of strays.values()) b.update(dt, t, 0, 0, env.lantern, !(tow && tow.towed === b) && !b.damage && Math.hypot(b.pos.x - camera.position.x, b.pos.z - camera.position.z) > 140);
   // The wind lines: round the boat while you sail (or wherever you are, if you like them always).
   {
     const L = settings.weather.windLines, sailing = !onFoot && !driving && !dive && (boat.hull.sail || boat.hull.rig) && boat.sailUp;

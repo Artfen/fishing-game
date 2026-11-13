@@ -38,7 +38,7 @@ the order the work goes in. Each step is one pull request, small enough to revie
 5. **G5 — Fit-outs that change the work.** Fittings that change seats, shelter and diver room; an
    engine service interval: item 6.
 6. **G6 — Harder calls.** A boat aground on a falling tide, one taking water; Blue Water calls
-   that want a VHF: item 5.
+   that want a VHF: item 5. (Taking water and the Blue Water calls first; aground to follow.)
 7. **G7 — Deep water.** One deep feature off the shelf, and a sonar that reaches it: item 11.
 8. **G8 — Boats of her own.** The staged refactor from kind to boat: each boat an id of her own
    (the same as her kind at first, so nothing changes), then a saved registration with a serial,

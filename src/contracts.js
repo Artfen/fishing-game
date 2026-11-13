@@ -479,6 +479,40 @@ export const TEMPLATES = {
       };
     },
   },
+  // ---- harder calls (G6 of docs/PROGRESSION.md) ----
+  // A skiff taking water: a plank sprung, her owner bailing and losing. She really fills (main.js
+  // gives her the breach: see flooding.js), and swamped before she's on your line, she's lost to
+  // you: the lifeboat takes her people off. On your line, they've your bucket and a rag in the
+  // plank: she still fills, but slowly, all the way in. Only for a skipper the harbour office
+  // knows (callPool).
+  leak: {
+    cat: 'rescue', giver: 'wenna', call: true, harder: true,
+    make(W, r) {
+      if (W.region !== 'home' || W.storm || W.wind > 12 || !W.callSpot) return null;
+      const name = pick(r, ['Bluebell', 'Seren', 'Pentire', 'Little Auk', 'Dunlin']), S = W.callSpot;
+      return {
+        title: `The ${name}, taking water`, story: `Harbour office: “The ${name}, a little skiff, is taking water ${S.where}: a plank’s sprung, and her owner’s bailing and losing. Get a line on her before she’s swamped and tow her in. Pass them your bucket when you’re alongside.”`,
+        goal: `Get the ${name} on your line ${S.where} before she’s swamped (alongside slowly, then the mooring key), and tow her into Willowhaven`, obj: { kind: 'tow', at: { x: S.x, z: S.z }, boat: 'skiff', name, leak: 0.9 },
+        where: { x: S.x, z: S.z, name: `the ${name}` }, boat: 'a boat big enough to tow a skiff (not the kayak)', difficulty: 3, minutes: 15, pay: 40, rep: 3,
+      };
+    },
+  },
+  // Out on the Blue Water, beyond the harbour's reach: the coastguard's call, relayed, and heard
+  // only in a boat with a VHF (main.js updateCalls). A sailing boat to tow all the way home, paid
+  // by how far out she is.
+  farTow: {
+    cat: 'rescue', giver: 'wenna', call: true, far: true,
+    make(W, r) {
+      if (W.region !== 'home' || W.storm || W.wind > 12 || !W.callSpot || !W.offshore) return null;
+      const name = pick(r, ['Curlew', 'Spindrift', 'Sanderling', 'Merlin', 'Fair Isle']), S = W.callSpot, km = W.offshore.km;
+      const why = W.wind < 4 ? 'becalmed, her engine dead' : 'dead in the water, her engine gone and her mainsail split';
+      return {
+        title: `The ${name}, out on the Blue Water`, story: `The coastguard, relayed by the harbour office on the VHF: “The sailing boat ${name} is ${why}, out on the Blue Water ${km} km from the harbour, with a family aboard. You’re the nearest boat with a radio: can you get a line on her and tow her home?”`,
+        goal: `Take the ${name} in tow out on the Blue Water (alongside slowly, then the mooring key) and bring her all the way into Willowhaven`, obj: { kind: 'tow', at: { x: S.x, z: S.z }, boat: 'sail', name },
+        where: { x: S.x, z: S.z, name: `the ${name}` }, boat: 'a boat that can tow a sailing boat home from the open sea', difficulty: 3, minutes: 30, pay: round5(30 + 12 * km), rep: 3,
+      };
+    },
+  },
   // ---- boat handling ----
   berthing: {
     cat: 'handling', giver: 'wenna',
@@ -732,11 +766,22 @@ export function callDue(C, abs) {
 export function callMade(C, abs, r = Math.random) {
   C.callAt = abs + 5 + r() * 5;
 }
+// The calls there might be (G6): out on the Blue Water (W.offshore: { km }), only the far ones; at
+// home, the everyday ones, and the harder ones too once the harbour office knows you (your
+// standing with Wenna: see standingWith).
+export function callPool(C, W) {
+  const known = standingWith(C, 'wenna').k > 1;
+  return TEMPLATE_IDS.filter((k) => {
+    const T = TEMPLATES[k];
+    return T.call && (W.offshore ? !!T.far : !T.far && (!T.harder || known));
+  });
+}
 // The call itself: an offer (not on the board) from the world W, which carries callSpot: { x, z,
 // where (in words) }, a spot out on the water. null if nothing suits.
 export function callFor(C, W, r = Math.random) {
   if (C.active.length >= CONTRACT_MAX) return null;
-  const ids = TEMPLATE_IDS.filter((k) => TEMPLATES[k].call);
+  const ids = callPool(C, W);
+  if (!ids.length) return null;
   const tpl = pick(r, ids), T = TEMPLATES[tpl], o = T.make({ ...W, rank: career(C).rank }, r);
   if (!o) return null;
   return { id: `${W.day}-call-${tpl}-${Math.round((W.abs || 0) * 60)}`, tpl, cat: T.cat, giver: T.giver, coop: true, boat: null, gear: null, where: null, ...o };
@@ -867,9 +912,25 @@ export function tick(C, x) {
       // { towed: on your line, home: in Willowhaven's harbour and still }): into the harbour, done.
       const S = x.strays?.[a.id];
       if (!S) continue;
+      // (G6) Taking water: swamped before she's on your line, and she's lost to you. Until then,
+      // how far gone she is, said at half way and nearly there.
+      if (o.leak && !P.helped) {
+        if (S.swamped) {
+          C.active.splice(C.active.indexOf(a), 1);
+          a.why = 'swamped';
+          missed.push(a);
+          continue;
+        }
+        const q = Math.floor(Math.max(0, Math.min(1, S.sink || 0)) * 4);
+        if (q >= 2 && q > (P.q || 0)) {
+          P.q = q;
+          said.push({ a, text: q === 2 ? `${a.title}: she’s half way to swamped.` : `${a.title}: she’s nearly swamped. Hurry.` });
+        }
+      }
       if (S.home) out.push(finish(a, true));
       else if (S.towed && !P.towing) {
         P.towing = true;
+        if (o.leak) P.helped = true;
         boarded.push(a);
       } else if (!S.towed && P.towing) {
         P.towing = false;
