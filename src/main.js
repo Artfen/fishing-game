@@ -1244,8 +1244,8 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   // Every break has a reason you can see and do something about (see fight.js).
   // A fish thrown or pulled free has the line whole: it says so.
   onSnap: (why, sp, rod, F = null) => {
-    hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : why === 'rock' ? 'Cut on the rocks!' : why === 'thrown' ? 'It threw the hook!' : why === 'pulled' || why === 'lifted' ? 'The hook pulled free.' : why === 'kicked' ? `It kicked free${{ beach: ' in the shallows', lift: ' as it came up', hand: '' }[F?.landBy] ?? ' at the net'}!` : why === 'knocked' ? 'The net knocked the hook out!' : why === 'slipped' ? 'It slipped your hand!' : why === 'spat' ? 'It let go!' : 'Snap! The line broke.', t, 3);
-    hud.toast(breakReason(why, sp, rod, { by: F?.thrownBy, loosened: !!F?.loosened, landBy: F?.landBy, loosen: pads.active ? 'LT' : scheme() === 'touch' ? 'the stick down' : 'S' }), 9);
+    hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : why === 'rock' ? 'Cut on the rocks!' : why === 'thrown' ? 'It threw the hook!' : why === 'pulled' || why === 'lifted' ? 'The hook pulled free.' : why === 'kicked' ? `It kicked free${{ beach: ' in the shallows', lift: ' as it came up', hand: '' }[F?.landBy] ?? ' at the net'}!` : why === 'knocked' ? 'The net knocked the hook out!' : why === 'slipped' ? 'It slipped your hand!' : why === 'weeded' ? `It shed the hook in the ${F?.stuck === 'rock' ? 'rocks' : 'weed'}!` : why === 'spat' ? 'It let go!' : 'Snap! The line broke.', t, 3);
+    hud.toast(breakReason(why, sp, rod, { by: F?.thrownBy, loosened: !!F?.loosened, landBy: F?.landBy, stuck: !!F?.stuck, kind: F?.stuck, loosen: pads.active ? 'LT' : scheme() === 'touch' ? 'the stick down' : 'S' }), 9);
   },
   // The line as it is (worn by hard fights, see shop.js); and the wear a fight just ended leaves.
   line: (rod) => wornLine(rod.line, wearOf(state, rod.id)),
@@ -9809,6 +9809,8 @@ function currentHint() {
       if (F?.selfHooked && !F.pickedUp) return T ? 'Fish on! It hooked itself on the rig. Hold the button to pick up the rod and play it' : `Fish on! It hooked itself on the rig. Hold ${space} to pick up the rod and play it`;
       // (Beaten and alongside: winding now tears the hook out. The one thing to do is net it; or, too
       // big for the net, land it as the shore allows: see landing.js.)
+      // (E2c: fast in the weed or the rocks.)
+      if (F?.stuck) return T ? `${F.stuck === 'rock' ? 'Wedged under the rocks' : 'Weeded'}: let go to give it slack, or pull from a new angle` : `${F.stuck === 'rock' ? 'Wedged under the rocks' : 'Weeded'}: let go of ${space} to give it slack, or pull from a new angle${F.stuck === 'rock' ? '' : ' (or a steady pressure)'}`;
       if (F?.atNet && F.landBy === 'beach') return T ? 'Too big for the net: hold the button to slide it up the beach, and let go as it stirs' : `Too big for the net: hold ${space} to slide it up the beach, and let go as it stirs`;
       if (F?.atNet && F.landBy === 'lift') return T ? 'Too big for the net, and the water’s out of reach: hold the button to lift it, and let go as it stirs' : `Too big for the net, and the water’s out of reach: hold ${space} to lift it, and let go as it stirs`;
       if (F?.atNet && F.landBy === 'hand') return T ? 'Too big for the net: tap the button as it lies still to take it by the tail' : `Too big for the net: tap ${space} as it lies still to take it by the tail`;
@@ -10045,7 +10047,7 @@ function updateHud() {
       : F.pulling && F.move === 'longrun' ? 'let it run' : F.move === 'sound' ? 'pump!' : F.move === 'circle' && !F.pulling ? (F.coming ? 'wind' : 'hold') : '';
     // (The coach line is plain text: the key's name, not its markup.)
     const way = LAND_WAYS[F.landBy || 'net'];
-    const word = F.atNet ? `${way.word}: ${way.tap ? 'tap' : 'hold'} ${input.keyLabel('cast')}` : F.surgeT > 0 ? 'easy!' : easy ? 'flick!' : F.tension > 0.9 ? 'ease off!' : move || (F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel');
+    const word = F.stuck ? (F.stuck === 'rock' ? 'in the rocks: slack!' : 'weeded: slack!') : F.atNet ? `${way.word}: ${way.tap ? 'tap' : 'hold'} ${input.keyLabel('cast')}` : F.surgeT > 0 ? 'easy!' : easy ? 'flick!' : F.tension > 0.9 ? 'ease off!' : move || (F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel');
     const doing = F.wordT > 0 ? F.word : fishing.side && F.pulling ? `side strain ${fishing.side < 0 ? '←' : '→'}` : F.stage !== 'fresh' ? F.stage : '';
     const out = Math.round(fishing.tip.distanceTo(fishing.fishPos));
     // (On a long run, how much is left on the spool.)

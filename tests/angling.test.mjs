@@ -25,7 +25,8 @@ const dice = (seed) => {
   let s = seed;
   return () => ((s = (s * 16807) % 2147483647) / 2147483647);
 };
-// n fights, played carefully (winding between its runs, letting it run): how each ended.
+// n fights, played carefully (winding between its runs, letting it run): how each ended, and
+// (reached) how many reached the cover and were caught fast in it (E2c: not lost there and then).
 function fights(sp, size, line, cover, n = 160, who = {}) {
   const out = {}, rnd = dice(11), diff = DIFFICULTY.standard;
   for (let i = 0; i < n; i++) {
@@ -40,6 +41,7 @@ function fights(sp, size, line, cover, n = 160, who = {}) {
       if (F.progress >= 1) break;
     }
     out[end] = (out[end] || 0) + 1;
+    if (F.stuckTimes || end === 'snag' || end === 'rock') out.reached = (out.reached || 0) + 1;
   }
   return out;
 }
@@ -49,13 +51,15 @@ test('each kind makes for cover as itself: the pollack and the conger dive for i
   for (const id of ['mackerel', 'tuna', 'garfish', 'bluemarlin']) assert.ok(coverPull(fishById[id]) <= 0.2, id);
   assert.equal(coverPull({ id: 'nothing-special', fight: 'steady' }), 1);
   // On line just too light to turn it, in the same weed: the pollack reaches it far more often.
+  // (Reaching it, it's caught fast in it, E2c: whether it's lost there depends on what you do.)
   const line = { name: '4 lb mono', kg: 1.6, stretch: 1, abrade: 1 };
   const pollack = fights(fishById.pollack, 60, line, 'weed');
   const mackerel = fights(fishById.mackerel, 40, { ...line, kg: 0.42 }, 'weed');
-  assert.ok((pollack.snag || 0) > 20, JSON.stringify(pollack));
-  assert.ok((pollack.snag || 0) > 3 * (mackerel.snag || 0) + 5, `pollack ${JSON.stringify(pollack)}, mackerel ${JSON.stringify(mackerel)}`);
+  assert.ok((pollack.reached || 0) > 20, JSON.stringify(pollack));
+  assert.ok((pollack.reached || 0) > 3 * (mackerel.reached || 0) + 5, `pollack ${JSON.stringify(pollack)}, mackerel ${JSON.stringify(mackerel)}`);
   // In open water, nothing to reach.
-  assert.equal(fights(fishById.pollack, 60, line, false).snag || 0, 0);
+  const open = fights(fishById.pollack, 60, line, false);
+  assert.equal((open.reached || 0) + (open.snag || 0), 0);
 });
 
 test('rock chafes braid through; a fluorocarbon leader stands up to it', () => {
