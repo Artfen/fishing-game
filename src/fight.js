@@ -838,6 +838,8 @@ export function breakReason(cause, sp, rod, extra = {}) {
     case 'hoisted':
       return `The line broke as you lifted the ${fish} clear: it weighed far more than the ${rod.line.name} will take as a dead weight. A fish that size can’t come up a wall on that line: land it lower down, where you can reach the water, or on a beach.`;
     case 'kicked':
+      // (E3d) On the leader, the big game from a boat.
+      if (extra.landBy === 'leader') return `The ${fish} surged as you held the leader, and the hook tore out${extra.loosened ? ': the fight had worn it loose' : ''}. Let go of the leader as it stirs: the rod takes the surge, then take the leader again once it’s spent. A friend aboard can take it for you.`;
       if (extra.landBy === 'beach' || extra.landBy === 'lift') return `The ${fish} gave a last kick while you were winding it ${extra.landBy === 'beach' ? 'up the beach' : 'up'}, and the hook came out. Let go as it stirs, and wind again when it lies still.`;
       return `The ${fish} gave a last kick alongside while you were winding hard, and the hook came out. Let go as it kicks, and ${extra.landBy === 'hand' ? 'take it by the tail' : 'net it'} when it rolls over again.`;
     case 'knocked':

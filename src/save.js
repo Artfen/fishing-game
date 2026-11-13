@@ -280,7 +280,7 @@ export function sanitizeLogEntry(e) {
     // helm, or with the net. (None of these in older entries.)
     ...(Number.isFinite(e.fight) ? { fight: int(e.fight, 0, 0, 36000) } : {}),
     ...(typeof e.boat === 'string' && /^[a-z]{2,12}$/.test(e.boat) ? { boat: e.boat } : {}),
-    ...(typeof e.helper === 'string' && e.helper.trim() && ['helm', 'net'].includes(e.helped) ? { helper: e.helper.trim().slice(0, 24), helped: e.helped } : {}),
+    ...(typeof e.helper === 'string' && e.helper.trim() && ['helm', 'net', 'leader'].includes(e.helped) ? { helper: e.helper.trim().slice(0, 24), helped: e.helped } : {}),
     // From save version 4: what it weighed (estimated from its length), the sky, the line and rig.
     weight: num(e.weight, 0, 0, 1000),
     sky: oneOf(e.sky, ['', ...SKY_STATES], ''),

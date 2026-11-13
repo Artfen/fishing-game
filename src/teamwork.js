@@ -36,22 +36,24 @@ export class Teamwork {
     let best = null, bd = NET_REACH + extra;
     for (const p of this.together.peers.values()) {
       const P = p.view || p.pose;
-      // (nt 1: waiting for the net. 2: too big for it, landed another way: see landing.js.)
-      if (!p.name || !P?.o || P.nt !== 1 || P.hk == null) continue;
+      // (nt 1: waiting for the net. 2: too big for it, landed another way: see landing.js. 3, E3d:
+      // their big game at the leader, waiting for someone to take it.)
+      if (!p.name || !P?.o || (P.nt !== 1 && P.nt !== 3) || P.hk == null) continue;
       const e = this.lineEnd(p.id) || (P.ex != null ? { x: P.ex, z: P.ez } : null);
       if (!e) continue;
       const d = Math.hypot(e.x - me.x, e.z - me.z);
       if (d <= bd) {
         bd = d;
-        best = { p, f: P.hk, e };
+        best = { p, f: P.hk, e, kind: P.nt === 3 ? 'leader' : 'net' };
       }
     }
     return best;
   }
 
-  // Net it for them: the word goes to them (their game decides). Returns whether it went.
+  // Net it for them (or take the leader): the word goes to them (their game decides). Returns
+  // whether it went.
   net(target) {
-    return this.together.help(target.p.id, 'net', target.f);
+    return this.together.help(target.p.id, target.kind === 'leader' ? 'leader' : 'net', target.f);
   }
 
   // The angler's side: may friend p net the fish on your line? fight: yours (see fishing.js); at:
@@ -62,9 +64,17 @@ export class Teamwork {
     return Math.hypot(p.at.x - at.x, p.at.z - at.z) <= NET_SLACK;
   }
 
-  // The angler's side, once it's in the net: thanks to whoever netted it, with what it was.
-  thank(p, f, name, kg) {
-    return this.together.help(p.id, 'thanks', f, { sp: name, kg });
+  // (E3d) The angler's side: may friend p take the leader of the big fish on your line? Only while
+  // it's waiting at the leader, and they're by it.
+  mayLeader(p, f, fight, at) {
+    if (!fight?.atNet || fight.landBy !== 'leader' || fight.leaderBy || fight.agent?.id !== f || !p?.at) return false;
+    return Math.hypot(p.at.x - at.x, p.at.z - at.z) <= NET_SLACK;
+  }
+
+  // The angler's side, once it's in the net (or alongside on the leader, how: 'leader'): thanks to
+  // whoever netted it, with what it was.
+  thank(p, f, name, kg, how = 'net') {
+    return this.together.help(p.id, 'thanks', f, { sp: name, kg, ...(how === 'leader' ? { h: 'leader' } : {}) });
   }
 
   /* ---------- marking a shoal ---------- */

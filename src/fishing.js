@@ -13,7 +13,7 @@ import { FishLine } from './fishline.js';
 import { heroDistance } from './reveal.js';
 import { BEHAVIOUR, prefsFor } from './behaviour.js';
 import { FightShow, bigness } from './fightshow.js';
-import { fitsNet, shoreMethodAt, LAND_WAYS, liftRisk, liftBreakRisk, knockRisk } from './landing.js';
+import { fitsNet, shoreMethodAt, LAND_WAYS, liftRisk, liftBreakRisk, knockRisk, leaderRisk, LEADER_OFF, LEADER_SLIP } from './landing.js';
 
 // Which kind of drag a rod's reel has, for how it sounds (see audio.js reel()): a fixed-spool
 // reel's fine clicker, a fly reel's click-pawl ratchet (and a centrepin's), a multiplier's lever drag.
@@ -1082,8 +1082,19 @@ export class Fishing {
   // alongside the boat is seen to there, as ever.
   needsNet() {
     const F = this.fight;
-    if (!F || this.bigCatch()) return false;
+    if (!F) return false;
+    if (this.bigCatch()) return this.onLeader();
     return !this.fitsNet() || this.weight() > swingLimit(this.rod.line);
+  }
+
+  // (E3d) The big game, from a boat: beaten, it comes in on the leader, and someone has to take it
+  // (see landing.js); so does a fish too big for the net on the heavy leader of the big-game or the
+  // offshore rod (a bluefin off a stickbait). Anything else too big for the net is drawn alongside,
+  // as before.
+  onLeader() {
+    const F = this.fight;
+    if (!F || !this.angler.onBoat) return false;
+    return !!F.sp.life.big || ((this.rod?.id === 'biggame' || this.rod?.id === 'offshore') && !this.fitsNet());
   }
 
   weight() {
@@ -1100,6 +1111,7 @@ export class Fishing {
   // How it's landed, beaten (see landing.js): the net if it fits; from the shore, too big for it,
   // as the shore allows.
   landingBy() {
+    if (this.onLeader()) return 'leader';
     if (this.fitsNet() || this.angler.onBoat) return 'net';
     const F = this.fight, b = this.angler.pos;
     let dx = F.start.x - b.x, dz = F.start.z - b.z;
@@ -1116,7 +1128,7 @@ export class Fishing {
     if (!F?.atNet) return;
     const by = F.landBy || 'net';
     if (!LAND_WAYS[by].tap) {
-      F.word = by === 'beach' ? 'hold to wind it up' : 'hold to lift it';
+      F.word = by === 'beach' ? 'hold to wind it up' : by === 'leader' ? (F.leaderBy ? `${F.leaderBy} has the leader` : 'hold to take the leader') : 'hold to lift it';
       F.wordT = 1.2;
       return;
     }
@@ -1152,8 +1164,20 @@ export class Fishing {
   // Wound out: slid up the beach, or lifted up the wall on the line.
   windOut() {
     const F = this.fight;
-    F[F.landBy === 'beach' ? 'beached' : 'hoisted'] = true;
+    F[F.landBy === 'beach' ? 'beached' : F.landBy === 'leader' ? 'leadered' : 'hoisted'] = true;
     this.landFish();
+  }
+
+  // (E3d) A friend aboard takes the leader for you (see teamwork.js): from now on they draw it
+  // alongside, and let it run as it surges; the rod's still yours. Returns whether they could.
+  friendLeader(name) {
+    const F = this.fight;
+    if (!F?.atNet || F.landBy !== 'leader' || F.leaderBy || this.state !== 'reeling') return false;
+    F.leaderBy = name;
+    F.word = `${name} takes the leader`;
+    F.wordT = 1.6;
+    this.hooks.feel?.('netted');
+    return true;
   }
 
   // Into the net with it.
@@ -1204,14 +1228,24 @@ export class Fishing {
       F.word = 'a last kick';
       F.wordT = 1.2;
       this.hooks.feel?.('kick');
-      if (held && L.pull > 0 && (F.hold === 'light' || Math.random() < 0.25 * L.pull)) {
+      if (by === 'leader') {
+        // (E3d) A surge on the leader: it takes some of the leader back. Held through it, the hook
+        // can tear out; a friend with the leader lets it run, as a good deckhand does.
+        F.landT = Math.max(0, F.landT - LEADER_SLIP);
+        F.word = F.leaderBy ? `it surges: ${F.leaderBy} lets it run` : 'it surges!';
+        if (!F.leaderBy && held && L.pull > 0 && Math.random() < leaderRisk(L.pull, F.grip ?? 1)) {
+          this.lose('kicked');
+          return;
+        }
+      } else if (held && L.pull > 0 && (F.hold === 'light' || Math.random() < 0.25 * L.pull)) {
         this.lose('kicked');
         return;
       }
     }
     if (wound) {
-      // Up the beach or up the wall: wound in steadily while it lies still.
-      if (held && F.kick < 0.3) F.landT += dt;
+      // Up the beach or up the wall: wound in steadily while it lies still. (E3d: on the leader,
+      // drawn in hand over hand, yours or a friend's.)
+      if ((held || (by === 'leader' && F.leaderBy)) && F.kick < 0.3) F.landT += dt;
       const u = F.landT / LAND_WAYS[by].wind;
       // (Lifted clear, its whole weight comes on the hook and the line: see landing.js.)
       if (by === 'lift' && !F.liftRolled && u > 0.4) {
@@ -1254,7 +1288,7 @@ export class Fishing {
     }
     F.wordT -= dt;
     if (F.wordT <= 0) {
-      F.word = LAND_WAYS[by].word;
+      F.word = by === 'leader' && F.leaderBy ? 'hand over hand' : LAND_WAYS[by].word;
       F.wordT = 0.5;
     }
     // Where it lies: at the end of the fight, kicked a little way out now and then; slid in towards
@@ -1265,7 +1299,9 @@ export class Fishing {
     dz /= dl;
     const ex = F.end ? F.end.x : b.x + dx * 2.6, ez = F.end ? F.end.z : b.z + dz * 2.6;
     const u = wound ? Math.min(1, F.landT / LAND_WAYS[by].wind) : 0;
-    const out = F.kick * 1.2 + Math.sin(t * 1.3) * 0.08 - (by === 'beach' ? u * Math.min(1.4, Math.hypot(ex - b.x, ez - b.z) * 0.6) : 0);
+    // (On the leader: from LEADER_OFF out, drawn in alongside, and thrown back out by a surge.)
+    const lead = by === 'leader' ? LEADER_OFF - Math.hypot(ex - b.x, ez - b.z) - u * (LEADER_OFF - 2.2) : 0;
+    const out = F.kick * (by === 'leader' ? 2.4 : 1.2) + Math.sin(t * 1.3) * 0.08 - (by === 'beach' ? u * Math.min(1.4, Math.hypot(ex - b.x, ez - b.z) * 0.6) : 0) + lead;
     const x = ex + dx * out, z = ez + dz * out, lv = waterLevel(x, z);
     const y = by === 'lift' ? lv - 0.15 + u * 0.5 : by === 'beach' ? lv - 0.15 + u * 0.1 : lv - 0.15;
     this.fishPos.set(x, y, z);
@@ -2486,7 +2522,10 @@ export class Fishing {
       Object.assign(F, { atNet: true, landBy: by, netT: 0, kick: 0, kickT: rand(2.5, 4), stirred: false, liftT: 0, landT: 0, missT: 0, warned: false, surgeT: 0 });
       if (by === 'net') this.hooks.teach('net', `A fish this size needs the net: when it’s beaten and alongside, let go of the reel and tap ${key}. Don’t wind hard as it kicks.`, 8);
       else if (by === 'beach') this.hooks.teach('beach', `Too big for the landing net (it takes fish up to 110 cm and 16 kg). On a shelving shore like this you can beach it: hold ${key} and it slides up into the shallows. Let go as it stirs, or the kick can tear the hook out.`, 9);
-      else if (by === 'hand') this.hooks.teach('tail', `Too big for the landing net (it takes fish up to 110 cm and 16 kg). Here you can reach the water: tap ${key} as it lies still to take it by the tail. Grab as it kicks and it slips your hand.`, 9);
+      else if (by === 'leader') {
+        F.kickT = rand(1.6, 2.6);
+        this.hooks.teach('leader', `The leader’s at the rod tip, the ${F.sp.name.toLowerCase()} a few metres off with a surge still in it. Hold ${key} to take the leader and draw it alongside, hand over hand. Let go as it stirs: the rod takes the surge, then take the leader again. A friend aboard can take it for you.`, 11);
+      } else if (by === 'hand') this.hooks.teach('tail', `Too big for the landing net (it takes fish up to 110 cm and 16 kg). Here you can reach the water: tap ${key} as it lies still to take it by the tail. Grab as it kicks and it slips your hand.`, 9);
       else this.hooks.teach('hoist', `Too big for the landing net, and too high above the water to reach it: it has to come up on the line. Hold ${key} to lift it, and let go as it stirs. The hook takes all its weight, so a fish played gently, its hook still firm, is the one that comes up.`, 10);
     }
   }

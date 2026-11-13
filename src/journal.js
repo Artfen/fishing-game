@@ -472,7 +472,7 @@ export class Journal {
     // long the fight; a friend at your helm, or with the net.
     const from = e.boat && VESSELS[e.boat] ? VESSELS[e.boat].name : e.from;
     const fight = e.fight >= 90 ? ` · fought ${Math.round(e.fight / 60)} minutes` : e.fight >= 20 ? ` · fought ${e.fight} seconds` : '';
-    const help = e.helper ? (e.helped === 'net' ? ` · netted by ${e.helper}` : ` · ${e.helper} at the helm`) : '';
+    const help = e.helper ? (e.helped === 'net' ? ` · netted by ${e.helper}` : e.helped === 'leader' ? ` · ${e.helper} took the leader` : ` · ${e.helper} at the helm`) : '';
     return `${rod}${item ? `, ${item.toLowerCase()}` : ''}${e.line ? ` · ${e.line}` : ''} · from the ${from}${fight}${help}`;
   }
 
