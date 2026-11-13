@@ -2240,6 +2240,52 @@ function innTalk(place) {
     },
   };
 }
+// (F1c) Ready for the voyage in boat v: one set of lines for every place a trip is planned (the
+// chandlery's Ready for a trip, the crossing card, the field guide's offshore card): her fuel or
+// battery, her stores, your repair kit, how you'd call for help out there, and air for a dive.
+// Each { ok, text, act? } (the act a button where there's one to press: the chandlery's).
+// opts: fuel (her tank: default true), air (your dive tank: default false), at (where it's for:
+// 'south' says there's no compressor at Las Brasas).
+function voyageLines(v, { fuel = true, air = false, at = null } = {}) {
+  const out = [], B = BOATS[v];
+  if (!B) return out;
+  const name = boatTitle(B);
+  // Her fuel, or an electric outboard's battery (charged at a jetty and overnight).
+  if (fuel && ELEC[v]) {
+    const low = elecLevel(tanks(), v) < 0.4;
+    out.push({ ok: !low, text: `${name}: ${elecWords(tanks(), v)}${low ? '. Leave her tied up at a jetty or the pontoon a while and it charges.' : '.'}` });
+  } else if (fuel && isPetrol(v)) {
+    const low = fuelLow(tanks(), v);
+    out.push({ ok: !low, text: `${name}: ${tankWords(tanks(), v)}${low ? '. Fill up at the fuel point on the pontoon, or the pump by the quay.' : '.'}` });
+  }
+  // (F1a) Her stores: food and water aboard for days away (with needs off, nothing to want).
+  if (needsMode() !== 'off' && storesAboard(state, v).most) {
+    const A = storesAboard(state, v), q = stockUp(state, v, state.economy, true);
+    out.push(q.days <= 0.01 ? { ok: true, text: `${name}: ${storesWordsOf(v)} aboard.` }
+      : { ok: A.days >= 1, text: `${name}: ${storesWordsOf(v)} aboard.`, act: { label: `Stock her up: ${money(q.price)}`, run: () => stockBoat(v) } });
+  }
+  // (F1b) The repair kit, and calling for help out on the deep water.
+  const S = state.safety;
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  out.push(S.kit && S.plugs >= REPAIR_KIT.plugs && S.stoppers >= REPAIR_KIT.stoppers ? { ok: true, text: `Your repair kit: ${plural(S.plugs, 'plug')} and ${plural(S.stoppers, 'leak-stopper')}.` }
+    : { ok: false, text: S.kit ? `Your repair kit is down to ${plural(S.plugs, 'plug')} and ${plural(S.stoppers, 'leak-stopper')} (the chandlery tops it up).` : 'No repair kit: a hole at sea gets a rag stuffed in it (the chandlery sells one).', act: { label: S.kit ? 'Top it up' : 'A repair kit', run: () => buyKit() } });
+  const vhf = !!fitEffect(state.yard, v)?.vhf;
+  out.push(vhf ? { ok: true, text: `${name}: her VHF reaches the harbour from anywhere.` }
+    : S.flares ? { ok: true, text: `${name}: no VHF, but ${S.flares} flare${S.flares > 1 ? 's' : ''} in your kit for the deep water, where your phone has no signal.` }
+      : { ok: false, text: `${name}: no VHF and no flares. Your phone reaches the harbour along the coast and round the islands; out on the deep water (the Blue Water, the crossing), nobody hears you.`, act: { label: `Flares: ${money(FLARE_PRICE)}`, run: () => buyFlares() } });
+  // Air for a dive: your tank, and full cylinders aboard her (cargo.js).
+  if (air) {
+    const tank = Math.round(state.dive.tank), spare = (state.cargo?.items || []).filter((it) => it.id === 'cylinder' && it.full && it.at === `boat:${v}`).length;
+    const south = at === 'south' ? ' There’s no compressor at Las Brasas: what you take is what you have.' : '';
+    const full = tank >= SCUBA.full - 10, cyl = spare ? `, and ${spare} full cylinder${spare > 1 ? 's' : ''} aboard her` : '';
+    // (Enough: a full tank, a spare cylinder, or (not bound for Las Brasas) enough left for a dive.)
+    const enough = full || spare > 0 || (at !== 'south' && tank > SCUBA.reserve + 20);
+    out.push(full ? { ok: true, text: `Air: your tank at ${tank} bar${cyl}.${south}` }
+      : { ok: enough, text: `Air: your tank at ${tank} bar${cyl} (the chandlery in Willowhaven fills it, free).${south}`, act: { label: 'Fill it here', run: () => fillTank() } });
+  }
+  return out;
+}
+
 // Ready for a trip: what Bert runs through with you at the counter.
 function tripChecklist() {
   const out = [];
@@ -2255,33 +2301,8 @@ function tripChecklist() {
   }
   const worn = state.gear.pack.rods.filter((id) => wearOf(state, id) >= 0.6);
   out.push(worn.length ? { ok: false, text: `Frayed line on your ${worn.map((id) => RODS[id].short.toLowerCase()).join(' and ')}.`, act: { label: 'Mending', run: () => { harbourSheet.tab = 'mend'; } } } : { ok: true, text: 'Your lines are sound.' });
-  const v = state.vessel;
-  // (An electric outboard: its battery, charged at a jetty and overnight.)
-  if (ELEC[v] && BOATS[v]) {
-    const low = elecLevel(tanks(), v) < 0.4;
-    out.push({ ok: !low, text: `${boatTitle(BOATS[v])}: ${elecWords(tanks(), v)}${low ? '. Leave her tied up at a jetty or the pontoon a while and it charges.' : '.'}` });
-  } else if (isPetrol(v) && BOATS[v]) {
-    const low = fuelLow(tanks(), v);
-    out.push({ ok: !low, text: `${boatTitle(BOATS[v])}: ${tankWords(tanks(), v)}${low ? '. Fill up at the fuel point on the pontoon, or the pump by the quay.' : '.'}` });
-  }
-  // (F1b) The repair kit, and calling for help offshore in her.
-  {
-    const S = state.safety;
-    out.push(S.kit && S.plugs > 0 && S.stoppers > 0 ? { ok: true, text: `Your repair kit: ${S.plugs} plugs and ${S.stoppers} leak-stoppers.` }
-      : { ok: false, text: S.kit ? `Your repair kit is down to ${S.plugs} plug${S.plugs === 1 ? '' : 's'} and ${S.stoppers} leak-stopper${S.stoppers === 1 ? '' : 's'}.` : 'No repair kit: a hole at sea gets a rag stuffed in it.', act: { label: S.kit ? 'Top it up' : 'A repair kit', run: () => buyKit() } });
-    if (BOATS[v]) {
-      const vhf = !!fitEffect(state.yard, v)?.vhf;
-      out.push(vhf ? { ok: true, text: `${boatTitle(BOATS[v])}: her VHF reaches the harbour from anywhere.` }
-        : S.flares ? { ok: true, text: `${boatTitle(BOATS[v])}: no VHF, but ${S.flares} flare${S.flares > 1 ? 's' : ''} in your kit for the deep water, where your phone has no signal.` }
-          : { ok: false, text: `${boatTitle(BOATS[v])}: no VHF and no flares. Your phone reaches the harbour along the coast and round the islands; out on the deep water (the Blue Water, the crossing), nobody hears you.`, act: { label: `Flares: ${money(FLARE_PRICE)}`, run: () => buyFlares() } });
-    }
-  }
-  // (F1a) Her stores: food and water aboard for days away (with needs off, nothing to want).
-  if (needsMode() !== 'off' && BOATS[v] && storesAboard(state, v).most) {
-    const A = storesAboard(state, v), q = stockUp(state, v, state.economy, true);
-    out.push(q.days <= 0.01 ? { ok: true, text: `${boatTitle(BOATS[v])}: ${storesWordsOf(v)} aboard.` }
-      : { ok: A.days >= 1, text: `${boatTitle(BOATS[v])}: ${storesWordsOf(v)} aboard.`, act: { label: `Stock her up: ${money(q.price)}`, run: () => stockBoat(v) } });
-  }
+  // (F1c) Her and you for the voyage: fuel, stores, the kit, help, air (see voyageLines).
+  out.push(...voyageLines(state.vessel, { air: true }));
   out.push(freshBaitToday(state) ? { ok: true, text: 'Fresh bait for today.' } : { ok: true, text: 'No fresh bait today (a help with worms and crab, never a need).' });
   const storm = Math.max(weather.storm, conditions.sea.storm);
   out.push({ ok: storm < 0.4, text: storm >= 0.4 ? 'A storm is blowing: stay in the bay and the sheltered water today.' : weatherLines(weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : weather.cloud > 0.3 ? 'Some cloud' : 'Clear')[0] });
@@ -6830,6 +6851,8 @@ function crossingChecks(to, S) {
   }
   // (F1a) Her stores against the passage (with needs off, nothing to want).
   if (needsMode() !== 'off') list.push(storesFor(state, S.kind, crossHours(S.kind), S.name));
+  // (F1c) The rest of the voyage's lines: the kit, help out there, air (her fuel is above).
+  list.push(...voyageLines(S.kind, { fuel: false, air: true, at: to }).filter((l) => !/food and water/.test(l.text)).map(({ ok, text }) => ({ ok, text })));
   const abs = clock.abs, h = hoursToGale(abs), storm = Math.max(weather.storm, conditions.sea.storm);
   if (storm > 0.35) list.push({ ok: false, text: 'It’s blowing a gale: no weather to be out on the open sea. Wait for it to pass, or take the fast passage.' });
   else if (h != null && h < crossHours(S.kind) + 3) list.push({ ok: false, text: `A gale is due in about ${Math.max(1, Math.round(h))} hours, before you'd be across. Wait for it to pass, or take the fast passage.` });
@@ -11659,10 +11682,11 @@ journal.guide = new FieldGuide(state, {
   offshore: (place, sp) => {
     if (place.zone !== 'deep' && place.dist < OFFSHORE_AT) return null;
     const kind = state.vessel || 'row';
-    return offshorePlan({
+    // (F1c) And the voyage's own lines: her stores, the kit, help out there (her fuel's in the plan).
+    return [...offshorePlan({
       placeName: place.name, dist: place.dist, kind, litres: isPetrol(kind) ? fuelLevel(tanks(), kind) : null,
       toGale: hoursToGale(clock.abs), season: seasonBoost(sp, clock.abs), seasonName: seasonOf(state.day).name.toLowerCase(), fish: sp.name.toLowerCase(),
-    });
+    }), ...voyageLines(kind, { fuel: false }).map(({ ok, text }) => ({ ok, text }))];
   },
   startTrip: (place, s, sp) => {
     startTrip(state, { sp, place, setup: s, from: player().pos, boat: onFoot ? null : boat.kind });
