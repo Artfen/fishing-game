@@ -930,7 +930,9 @@ export class HarbourSheet {
         const D = CARGO[it.id], kind = it.at.startsWith('boat:') ? it.at.slice(5) : null, lying = kind && here.some((h) => h.kind === kind);
         const used = !it.full && (it.id === 'cylinder' || it.id === 'battery');
         const row = el('div', 'cp-row');
-        row.append(el('p', '', `${D.name}${used ? (it.id === 'cylinder' ? ', breathed' : ', flat') : ''}: ${kind ? `aboard the ${C.nameOf(kind)}${it.secured ? '' : ', loose'}` : 'here, in Bert’s store room'}`));
+        // (F1a: a stores crate says what's left in it; it's stocked with her lockers, Ready for a trip.)
+        const left = it.id === 'stores' ? ` (${(it.days ?? 3) <= 0.01 ? 'empty' : `${Math.round((it.days ?? 3) * 2) / 2} of 3 days left`})` : '';
+        row.append(el('p', '', `${D.name}${used ? (it.id === 'cylinder' ? ', breathed' : ', flat') : ''}${left}: ${kind ? `aboard the ${C.nameOf(kind)}${it.secured ? '' : ', loose'}` : 'here, in Bert’s store room'}`));
         if (used && (!kind || lying)) row.append(this.button(it.id === 'cylinder' ? 'Fill it (free)' : 'Charge it (free)', () => {
           C.renew(it.uid);
           this.hooks.toast(it.id === 'cylinder' ? 'Bert fills the cylinder from the compressor: full again.' : 'Bert swaps it for one off the charger: charged.', 3);
