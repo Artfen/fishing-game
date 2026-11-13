@@ -39,7 +39,7 @@ Only the host decides a strike, as with the shoals. Guests see the same shoal bu
 - **From cover.** An ambusher lying up goes for a shoal that comes by within eight metres, and then waits longer. That's a pike in the weed, a conger in the rocks, or any fish-eater resting in weed or rock: a bass in the rocks, say.
 - **What the shoal does.** It bulges away from the strike as it does from a hunting shoal. Its fear rises (D2), so it moves off and tightens. At the top (within 2.5 m) there's a slash and a flicker of silver.
 - **Taken.** About one strike in seven takes a small fish; an ambusher's first rush, one in three. A shoal never loses more than a third of its fish. The taken come back in four to eight minutes, out of sight, as a kept fish does.
-- **Mackerel.** A shoal of mackerel drives the sprat and the sand smelt up when it's keenest (by day, in summer and autumn) and within 160 m in its own kind of water. Its frenzies last 25 to 45 seconds (the tuna's 50 to 80), and it rests four to ten minutes between them, so a stretch of coast has its quiet spells. The gulls and gannets come to its boils as to the tuna's.
+- **Mackerel.** A shoal of mackerel drives the sprat and the sand smelt up when it's keenest (by day, in summer and autumn) and within 160 m in its own kind of water. Its frenzies last 20 to 40 seconds (the tuna's 50 to 80), and it rests eight to twenty minutes between them, so a stretch of coast has its quiet spells. The gulls and gannets come to its boils as to the tuna's.
 
 ## The graphics settings never change what bites
 
