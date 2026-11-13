@@ -14,6 +14,7 @@ const T = await import('../src/world/terrain.js');
 const { createHabitat } = await import('../src/world/habitat.js');
 const { Ecosystem } = await import('../src/world/ecosystem.js');
 const { fishWithGuide } = await import('../tools/ecosim.mjs?nomain');
+const { seeded } = await import('../src/util.js');
 
 const { PRESETS, CHOICES, LEVELS, AUTO_LEVELS, GROUPS, resolveQuality, lowerLevel, startingLevel } = Q;
 const ORDER = ['low', 'medium', 'high', 'ultra', 'cinematic'];
@@ -168,12 +169,20 @@ test('more fish, but not absurdly many; Fernbeck’s pools all hold fish', () =>
   for (const p of all) assert.ok(stream.filter((a) => a.home === p).length <= 7);
 });
 
-test('the tackle the field guide suggests catches the new residents, there (headless ecosystem)', () => {
-  const eco = new Ecosystem(createHabitat());
-  const at = (id, tag) => eco.bySpecies[id].map((a, i) => [a, i]).filter(([a]) => a.home.hosts && a.home.tag === tag).map(([, i]) => i);
+test('the tackle the field guide suggests catches the new residents, there (headless ecosystem)', (t) => {
+  const habitat = createHabitat();
+  const random = Math.random;
+  t.after(() => { Math.random = random; });
+  // (Each kind is fished on a fresh sea with its own dice, as in guide.test.mjs: whether it bites
+  // can't hang on where the kinds fished before it left the fish, nor on luck from run to run.
+  // Unseeded, the roach at the boathouse once lost the bait to its perch neighbours eight times
+  // running.)
+  const hash = (id) => [...id].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 7);
   const failed = [];
   for (const [id, tag] of [['gilthead', 'haven'], ['conger', 'haven'], ['sandsmelt', 'landing'], ['perch', 'boathouse'], ['roach', 'boathouse'], ['seabass', 'quay']]) {
-    const homes = at(id, tag).slice(0, 2);
+    Math.random = seeded(20261113 ^ hash(id));
+    const eco = new Ecosystem(habitat);
+    const homes = eco.bySpecies[id].map((a, i) => [a, i]).filter(([a]) => a.home.hosts && a.home.tag === tag).map(([, i]) => i).slice(0, 2);
     assert.ok(homes.length, `${id} at the ${tag}`);
     let r = fishWithGuide(eco, id, { homes, tries: 3 });
     // (A wary fish can lose the bait to a quicker neighbour: a second go.)
