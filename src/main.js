@@ -7,6 +7,7 @@ import { Together, cleanName, suggestName, NAME_MAX, CALLS, PAID_MAX } from './t
 import { setupOffline, offline, applyUpdate, checkForUpdate } from './offline.js';
 import { RELEASE, BUILD, BUILT } from './version.js';
 import { DIFFICULTY, DIFFICULTY_IDS, DRAG_LEVELS, DRAG_NAMES, breakReason } from './fight.js';
+import { LAND_WAYS } from './landing.js';
 import { BEHAVIOUR, conditionWords } from './behaviour.js';
 import { HUD, kbd } from './ui.js';
 import { AudioScape } from './audio.js';
@@ -1243,8 +1244,8 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   // Every break has a reason you can see and do something about (see fight.js).
   // A fish thrown or pulled free has the line whole: it says so.
   onSnap: (why, sp, rod, F = null) => {
-    hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : why === 'rock' ? 'Cut on the rocks!' : why === 'thrown' ? 'It threw the hook!' : why === 'pulled' || why === 'lifted' ? 'The hook pulled free.' : why === 'kicked' ? 'It kicked free at the net!' : why === 'spat' ? 'It let go!' : 'Snap! The line broke.', t, 3);
-    hud.toast(breakReason(why, sp, rod, { by: F?.thrownBy, loosened: !!F?.loosened, loosen: pads.active ? 'LT' : scheme() === 'touch' ? 'the stick down' : 'S' }), 9);
+    hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : why === 'rock' ? 'Cut on the rocks!' : why === 'thrown' ? 'It threw the hook!' : why === 'pulled' || why === 'lifted' ? 'The hook pulled free.' : why === 'kicked' ? `It kicked free${{ beach: ' in the shallows', lift: ' as it came up', hand: '' }[F?.landBy] ?? ' at the net'}!` : why === 'knocked' ? 'The net knocked the hook out!' : why === 'slipped' ? 'It slipped your hand!' : why === 'spat' ? 'It let go!' : 'Snap! The line broke.', t, 3);
+    hud.toast(breakReason(why, sp, rod, { by: F?.thrownBy, loosened: !!F?.loosened, landBy: F?.landBy, loosen: pads.active ? 'LT' : scheme() === 'touch' ? 'the stick down' : 'S' }), 9);
   },
   // The line as it is (worn by hard fights, see shop.js); and the wear a fight just ended leaves.
   line: (rod) => wornLine(rod.line, wearOf(state, rod.id)),
@@ -9806,7 +9807,11 @@ function currentHint() {
       const F = fishing.fight;
       const drag = `${T ? 'stick up/down' : UD} drag: ${DRAG_NAMES[F?.drag ?? 2]}${P ? ` (${kbd('LT')} eases it)` : ''}`;
       if (F?.selfHooked && !F.pickedUp) return T ? 'Fish on! It hooked itself on the rig. Hold the button to pick up the rod and play it' : `Fish on! It hooked itself on the rig. Hold ${space} to pick up the rod and play it`;
-      // (Beaten and alongside: winding now tears the hook out. The one thing to do is net it.)
+      // (Beaten and alongside: winding now tears the hook out. The one thing to do is net it; or, too
+      // big for the net, land it as the shore allows: see landing.js.)
+      if (F?.atNet && F.landBy === 'beach') return T ? 'Too big for the net: hold the button to slide it up the beach, and let go as it stirs' : `Too big for the net: hold ${space} to slide it up the beach, and let go as it stirs`;
+      if (F?.atNet && F.landBy === 'lift') return T ? 'Too big for the net, and the water’s out of reach: hold the button to lift it, and let go as it stirs' : `Too big for the net, and the water’s out of reach: hold ${space} to lift it, and let go as it stirs`;
+      if (F?.atNet && F.landBy === 'hand') return T ? 'Too big for the net: tap the button as it lies still to take it by the tail' : `Too big for the net: tap ${space} as it lies still to take it by the tail`;
       if (F?.atNet) return T ? 'Beaten and alongside: let go, and tap the button to net it' : `Beaten and alongside: let go of ${space}, and tap it to net it`;
       if (F && F.tension > 0.97) return T ? 'The line is straining! Let go of the button' : `The line is straining! Let go of ${space}`;
       if (F?.surgeT > 0) return T ? 'It’s surging! Let go of the button' : `It’s surging! Let go of ${space}`;
@@ -9905,7 +9910,7 @@ function actionLabel() {
   if (modal === 'note') return 'OK';
   if (dive) return dive.kit === 'scuba' ? 'Photo' : shot.loaded ? 'Shoot' : '…';
   if (driving) return 'Brake';
-  if (fishing.state === 'reeling' && fishing.fight?.atNet) return 'Net it';
+  if (fishing.state === 'reeling' && fishing.fight?.atNet) return LAND_WAYS[fishing.fight.landBy || 'net'].act;
   if (fishing.state === 'reeling' && (fishing.fight?.surgeT > 0 || (fishing.fight?.warned && !fishing.pulling))) return 'Easy';
   if (fishing.state === 'reeling' && fishing.pulling) return 'Hold';
   if (fishing.state === 'drifting' && (fishing.kind === 'ledger' || fishing.kind === 'bottom')) return 'Wind in';
@@ -10038,7 +10043,9 @@ function updateHud() {
     // (Each signature move has its own answer: see fight.js.)
     const move = F.move === 'charge' ? 'wind!' : F.shakeT > 0 ? (fishing.side ? 'steady' : 'rod low!') : F.pulling && F.move === 'dive' ? (fishing.side ? 'turn it' : 'side strain!')
       : F.pulling && F.move === 'longrun' ? 'let it run' : F.move === 'sound' ? 'pump!' : F.move === 'circle' && !F.pulling ? (F.coming ? 'wind' : 'hold') : '';
-    const word = F.atNet ? `net it: tap ${K('cast')}` : F.surgeT > 0 ? 'easy!' : easy ? 'flick!' : F.tension > 0.9 ? 'ease off!' : move || (F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel');
+    // (The coach line is plain text: the key's name, not its markup.)
+    const way = LAND_WAYS[F.landBy || 'net'];
+    const word = F.atNet ? `${way.word}: ${way.tap ? 'tap' : 'hold'} ${input.keyLabel('cast')}` : F.surgeT > 0 ? 'easy!' : easy ? 'flick!' : F.tension > 0.9 ? 'ease off!' : move || (F.slipping ? 'line out' : F.pulling ? 'hold' : 'reel');
     const doing = F.wordT > 0 ? F.word : fishing.side && F.pulling ? `side strain ${fishing.side < 0 ? '←' : '→'}` : F.stage !== 'fresh' ? F.stage : '';
     const out = Math.round(fishing.tip.distanceTo(fishing.fishPos));
     // (On a long run, how much is left on the spool.)
@@ -10486,7 +10493,7 @@ function whereIAm() {
   const gear = fishing.lineOut || landing ? { r: fishing.rod?.id, i: fishing.item?.id } : null;
   if (gear && (fishing.baitInWater || landing)) {
     const e = fishing.state === 'reeling' || landing ? fishing.fishPos : fishing.bob, F = fishing.fight;
-    Object.assign(gear, { ex: e.x, ez: e.z, tn: F?.tension, hk: F?.agent?.id, nt: F?.atNet ? 1 : 0 });
+    Object.assign(gear, { ex: e.x, ez: e.z, tn: F?.tension, hk: F?.agent?.id, nt: F?.atNet ? ((F.landBy || 'net') === 'net' ? 1 : 2) : 0 });
     // (What the fish is doing, so they can see it at the end of your line; what it is, and how
     // big, so they see it leap and crash back in as itself.)
     if (F && landing) gear.mv = 'land';
@@ -12679,7 +12686,8 @@ let slamFelt = 0, gearFelt = 0, powerFelt = 0;
 function feelFrame(dt) {
   haptics.live = started && (!modal || modal === 'catch') && pads.active && !document.hidden;
   const F = fishing.fight;
-  if (F && !F.atNet) {
+  // (And winding a beaten fish up a beach or a wall: its weight on the line, see landing.js.)
+  if (F && (!F.atNet || (F.landBy && !LAND_WAYS[F.landBy].tap))) {
     const f = lineFeel(F.tension, F.slipping, F.pulling ? clamp((F.ratio ?? 1) / Math.max(0.3, DRAG_LEVELS[F.drag] ?? 0.55) - 1, 0, 1) : 0);
     haptics.hold('line', f.weight.strong, f.weight.weak, { rt: f.weight.rt });
     if (f.drag) haptics.hold('drag', 0, f.drag.weak, { rt: f.drag.rt, buzz: f.drag.buzz });

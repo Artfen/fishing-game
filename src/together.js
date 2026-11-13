@@ -179,8 +179,9 @@ export function cleanPose(p, kinds = null, gear = null) {
     if (out.o && Number.isFinite(p.sz) && p.sz >= 3 && p.sz <= 700) out.sz = Math.round(p.sz);
     // (Which of the shared sea's fish it is: see sharedworld.js.)
     if (out.o && Number.isInteger(p.hk) && p.hk >= 0 && p.hk < 1e5) out.hk = p.hk;
-    // (Beaten and alongside, waiting for the net: a friend by it can net it for them.)
-    if (out.o && p.nt) out.nt = true;
+    // (Beaten and alongside: 1 waiting for the net, a friend by it can net it for them; 2 too big
+    // for the net, landed another way, see landing.js.)
+    if (out.o && p.nt) out.nt = p.nt === 2 ? 2 : 1;
   }
   return out;
 }
@@ -1074,7 +1075,7 @@ export class Together {
       if (P.o && P.tn != null) msg.tn = r2(P.tn);
       if (P.o && P.mv) msg.mv = P.mv;
       if (P.o && P.hk != null) msg.hk = P.hk;
-      if (P.o && P.nt) msg.nt = 1;
+      if (P.o && P.nt) msg.nt = P.nt === 2 ? 2 : 1;
       // (What the fish is, and how big: friends see it leap as itself. See fightshow.js.)
       if (P.o && P.sp) msg.sp = P.sp;
       if (P.o && P.sz) msg.sz = Math.round(P.sz);
