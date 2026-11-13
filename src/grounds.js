@@ -34,10 +34,14 @@ export const SIGNS = {
   splash: { name: 'A splash', note: 'Something swirling at the top.', lesson: (sp) => `That splash was ${whatWas(sp)} taking something at the top.` },
   flash: { name: 'A flash', note: 'A wink of silver under the surface.', lesson: (sp) => `The flash was ${whatWas(sp)} turning under the surface, catching the light.` },
   fizz: { name: 'Fizzing bubbles', note: 'Patches of tiny bubbles on still water.', lesson: (sp) => `The fizzing was ${whatWas(sp)} grazing the bottom, stirring up the mud.` },
+  // (E1: the fish finder's marks. It never names a fish; a catch soon after, near where it showed
+  // one, tells you what that arch was: its depth, its size and the water are the clues to learn.)
+  arch: { name: 'An arch on the sonar', note: 'A fish crossing the sonar’s beam: an arch, thicker for a bigger fish.', lesson: (sp) => `That arch on the sonar was ${whatWas(sp)}. Remember its depth and its size: next time you’ll know it before you catch it.` },
 };
 // How near you have to be to see one, and how near a catch has to be to it to tell you what it was.
-export const SEEN_AT = { birds: 320, boil: 200, nervous: 45, rise: 50, jump: 70, splash: 50, flash: 25, fizz: 30 };
-const READ_AT = { birds: 60, boil: 45 };
+// (An arch is seen on the sonar under you: its distance is the beam's, a few boat lengths at most.)
+export const SEEN_AT = { birds: 320, boil: 200, nervous: 45, rise: 50, jump: 70, splash: 50, flash: 25, fizz: 30, arch: 30 };
+const READ_AT = { birds: 60, boil: 45, arch: 30 };
 const RECENT_H = 0.75; // game hours a sign stays fresh
 
 // A sign you've just seen (if it's a new one, not the same birds again): into the recent list and
