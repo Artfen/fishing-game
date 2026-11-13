@@ -32,7 +32,7 @@ const atShoal = (a, s, d = 5) => {
 const alive = (s) => s.members.filter((m) => m.state === 'school' && m.active).length;
 const fresh = (s) => {
   for (const m of s.members) if (m.state === 'gone') m.state = 'school';
-  Object.assign(s, { scatterT: 0, threat: 0, threatT: -1e9 });
+  Object.assign(s, { scatterT: 0, threat: 0, threatT: -1e9, calmAt: 0 });
 };
 
 test('a hunter at a shoal strikes through it: the shoal bulges away, its fear rises, a splash at the top', () => {
@@ -53,6 +53,13 @@ test('a hunter at a shoal strikes through it: the shoal bulges away, its fear ri
   assert.ok(bass.wantSpeed > bass.L.speed * 1.5, 'a dash');
   assert.ok(bass.strikeT > 5, `and a wait before the next: ${bass.strikeT.toFixed(1)} s`);
   assert.ok(eco.clues.some((c) => c.type === 'splash'), 'a slash at the top');
+  // Struck, it's watchful a while: another hunter at it bides its time.
+  const pol = eco.bySpecies.pollack.find((p) => p.L.zones.includes(s.home.zone)) || eco.bySpecies.seabass[1];
+  eco.activity[pol.sp.id] = 0.9;
+  s.scatterT = 0;
+  atShoal(pol, s, -4);
+  eco.stalk(pol, 1 / 30);
+  assert.ok(s.calmAt > eco.time + 10 && pol.wantSpeed < pol.L.speed * 1.5, 'the next hunter waits');
   // Deep, no splash; not keen, no strike; out of reach, no strike.
   fresh(s);
   withDice(() => {
@@ -86,6 +93,7 @@ test('small fish are taken, never more than a third of the shoal, and come back 
     eco.activity.pollack = 0.9;
     for (let i = 0; i < 200; i++) {
       s.scatterT = 0;
+      s.calmAt = 0;
       atShoal(bass, s);
       eco.onStrike = (a, sh, m) => { if (m) taken++; };
       eco.stalk(bass, 1 / 30);
@@ -157,6 +165,7 @@ test('the host decides the strikes; a guest sees the shoal bulge and the fish ta
   withDice(() => {
     for (let i = 0; i < 40 && !s.members.some((m) => m.state === 'gone'); i++) {
       s.scatterT = 0;
+      s.calmAt = 0;
       atShoal(bass, s);
       host.stalk(bass, 1 / 30);
       n++;

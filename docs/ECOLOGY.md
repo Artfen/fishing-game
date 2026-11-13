@@ -35,9 +35,9 @@ Each shoal of small fish lives as one: its leader decides, and its members keep 
 ## The hunters strike (D3)
 
 Only the host decides a strike, as with the shoals. Guests see the same shoal bulge away and the same small fish gone, from what the host already sends.
-- **At a shoal.** A fish-eater keeping just under a shoal (D1) dashes through it when it's within nine metres and keen enough: bass, pollack, perch, garfish and the rest. Each then waits eight to twenty seconds before the next, longer when it's less keen (a bass at noon waits about twice as long as at dusk).
+- **At a shoal.** A fish-eater keeping just under a shoal (D1) dashes through it when it's within nine metres and keen enough: bass, pollack, perch, garfish and the rest. Each then waits twelve to thirty seconds before the next, longer when it's less keen (a bass at noon waits about twice as long as at dusk).
 - **From cover.** An ambusher lying up goes for a shoal that comes by within eight metres, and then waits longer. That's a pike in the weed, a conger in the rocks, or any fish-eater resting in weed or rock: a bass in the rocks, say.
-- **What the shoal does.** It bulges away from the strike as it does from a hunting shoal. Its fear rises (D2), so it moves off and tightens. At the top (within 2.5 m) there's a slash and a flicker of silver.
+- **What the shoal does.** It bulges away from the strike as it does from a hunting shoal. Its fear rises (D2), so it moves off and tightens. At the top (within 2.5 m) there's a slash and a flicker of silver. Struck, it's tight and watchful for twelve to thirty-five seconds, and no hunter strikes it again till then: at a busy dawn spot a shoal is hit about every half minute, not every few seconds.
 - **Taken.** About one strike in seven takes a small fish; an ambusher's first rush, one in three. A shoal never loses more than a third of its fish. The taken come back in four to eight minutes, out of sight, as a kept fish does.
 - **Mackerel.** A shoal of mackerel drives the sprat and the sand smelt up when it's keenest (by day, in summer and autumn) and within 160 m in its own kind of water. Its frenzies last 20 to 40 seconds (the tuna's 50 to 80), and it rests eight to twenty minutes between them, so a stretch of coast has its quiet spells. The gulls and gannets come to its boils as to the tuna's.
 
