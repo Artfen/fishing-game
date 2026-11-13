@@ -1247,3 +1247,17 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | After | In the game (browser): see the PR's browser validation |
 | Validation | New `tests/canyonwhale.test.mjs` (2): the whale starts over the canyon, every place it heads for over the canyon's 100 m and more, over deep water all along, and up to blow over it at least five times in a quarter of an hour; a fingerprint of everything else the seed makes (the pods, the other whales, the seals, the visitors, the colonies, the feeders, the haul-outs, the shearwaters, the turtles) the same as before it was added. `tests/slate.test.mjs`: Paco's photo job done by the sperm whale off the island, not by the one at home |
 | Remaining risks | One more whale in the shared snapshot: a host and a guest on different releases don't share whales (as with any change to the sea's life) |
+
+### Long-term play G8a: each boat an id of her own
+
+| Field | |
+| --- | --- |
+| System | `src/boat.js` (`id`, her own, for now her kind); `src/main.js` (`BOATS` built and found by id; `IDS`; where each lies in the save, the one you're in, the ones laid up and launched, on the trailer, shipped and towed, by id; a saved tow keeps only your own boats, as before); `src/save.js` (its notes: these are ids) |
+| Previous issue | From `docs/PROGRESSION.md` G8: every boat was known by her kind, so there could only be one of each; and a boat's kind meant both what sort of boat she is and which boat she is |
+| Change | The first of G8's stages: which boat she is (her id) apart from what sort of boat she is (her kind), for the boats themselves and where they lie. Each id is her kind for now, so nothing a player sees changes |
+| Player benefit | None yet, by design: it makes room for boats of her own (a second boat of a kind) without changing anything in the meantime |
+| Before | (From the code.) `BOATS` keyed by kind; `state.boats`, `vessel`, `stored`, `trailer`, `shipping` and `tow` written from `b.kind` |
+| After | In the game (browser): the same save loaded and saved on the build before and this one, each boat where she was, the one you're in, the ones laid up and shipped, the same; and the same again loaded from it |
+| Validation | New `tests/boatids.test.mjs` (3): a boat's id her kind unless given one, her kind still her hull's; the fleet's berths, laying up and choosing who stays afloat by id (two RIBs, a berth each); a guard on `src/main.js` that where each lies, the one you're in, laid up, launched, the trailer, shipping and a tow read her id, not her kind |
+| Remaining risks | Her kit and accounts are still kept by kind (G8b): until then a second boat of a kind would share them |
+

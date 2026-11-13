@@ -403,7 +403,7 @@ function updateFoamTrails(t) {
     foamTracks.note(b, b.pos.x - b.fwd.x * H.L * 0.5, b.pos.z - b.fwd.z * H.L * 0.5, b.heading, b.speed, H.B * 1.6, H.L, churn, now);
   };
   // (Yours in the water, the harbour's out and about, and any friends' or visitors'.)
-  for (const b of boats) if (!isStored(b.kind) && b.kind !== state.trailer?.boat) lay(b, b.motor && !b.dry ? Math.abs(b.power || 0) : 0);
+  for (const b of boats) if (!isStored(b.id) && b.id !== state.trailer?.boat) lay(b, b.motor && !b.dry ? Math.abs(b.power || 0) : 0);
   for (const b of Object.values(folkView.boats)) lay(b, b.speed > 2 ? 0.6 : 0);
   for (const b of visitors.boats()) lay(b, b.speed > 2 ? 0.6 : 0);
   foamTracks.step(now);
@@ -491,7 +491,7 @@ function aroundEar(P, dt) {
   aroundT -= dt;
   if (aroundT > 0) return around;
   aroundT = 0.2;
-  const mine = boats.filter((b) => (onFoot || b !== boat) && !isStored(b.kind) && b.kind !== state.trailer?.boat && b.speed < 0.6);
+  const mine = boats.filter((b) => (onFoot || b !== boat) && !isStored(b.id) && b.id !== state.trailer?.boat && b.speed < 0.6);
   const lying = [
     ...mine.map((b) => ({ x: b.pos.x, z: b.pos.z, mast: b.kind === 'sail' })),
     ...Object.entries(town.boats).filter(([id, b]) => b.present && (b.moored || b.speed < 0.3) && !id.startsWith('kay')).map(([id, b]) => ({ x: b.x, z: b.z, mast: id === 'marigold' || id === 'puffin' })),
@@ -711,7 +711,11 @@ for (const m of fishRenderer.meshes) hideFromReflection(m);
 // The boats: the rowing boat you start with, the motor skiff and the kayak tied up at the
 // landing, and the bass boat at the Longmere boathouse. `boat` is whichever you're in (or
 // last used); the others float where you left them.
-const BOATS = Object.fromEntries(BOAT_KINDS.map((k) => [k, new Boat(scene, { kind: k })]));
+// (G8) Each boat is known by her id, her own: where she lies in the save, the one you're in, the
+// ones laid up, on the trailer, shipped or towed. Her kind is what sort of boat she is (her hull,
+// her engine's catalogue, what she can be fitted with). For now each id is her kind, one boat of
+// each; her kit and accounts (fuel, stores, cargo, papers, fit-out) are still kept by kind.
+const BOATS = Object.fromEntries(BOAT_KINDS.map((k) => new Boat(scene, { kind: k, id: k })).map((b) => [b.id, b]));
 // Each motorboat's engine room (see engine.js): its switches, battery and trim, kept in the save.
 const engines = Object.fromEntries(BOAT_KINDS.filter(hasEngine).map((k) => [k, cleanEngine(k, state.engines?.[k])]));
 for (const [k, E] of Object.entries(engines)) BOATS[k].engine = E;
@@ -930,21 +934,22 @@ function mooring(kind) {
 // Which of your boats are laid up ashore (see fleet.js). A game from before there was a boat
 // store keeps the three you'd most want in the water (the one you were in first) and lays up
 // the rest; a new game starts with the camp's three boats in the water.
-const KINDS = Object.keys(BOATS);
+// (IDS: your boats, by id; KINDS: the kinds of boat there are.)
+const IDS = Object.keys(BOATS), KINDS = [...BOAT_KINDS];
 // (A boat on the trailer is out of the water but not laid up: she's left out of the count.)
-const FLEET = KINDS.filter((k) => k !== state.trailer?.boat);
+const FLEET = IDS.filter((id) => id !== state.trailer?.boat);
 const fleetNews = (() => {
   if (cleanStored(state.stored, FLEET)) return null;
   const saved = state.boats || {}, fresh = !Object.keys(saved).length;
   const homes = { harbour: { x: 11, z: -70 }, camp: { x: LANDING.x, z: LANDING.z }, lake: BOATHOUSE_PIER.end };
-  const away = KINDS.filter((k) => saved[k] && Math.hypot(saved[k].x - homes[homeOf(k)].x, saved[k].z - homes[homeOf(k)].z) > 60);
+  const away = IDS.filter((id) => saved[id] && Math.hypot(saved[id].x - homes[homeOf(BOATS[id].kind)].x, saved[id].z - homes[homeOf(BOATS[id].kind)].z) > 60);
   const afloat = fresh ? NEW_AFLOAT : chooseAfloat(FLEET, { vessel: state.vessel, away });
-  state.stored = FLEET.filter((k) => !afloat.includes(k));
+  state.stored = FLEET.filter((id) => !afloat.includes(id));
   return fresh ? null : afloat;
 })();
-const isStored = (k) => state.stored.includes(k);
-const LENGTHS = Object.fromEntries(KINDS.map((k) => [k, BOATS[k].hull.L]));
-const BEAMS = Object.fromEntries(KINDS.map((k) => [k, BOATS[k].hull.B]));
+const isStored = (id) => state.stored.includes(id);
+const LENGTHS = Object.fromEntries(IDS.map((id) => [id, BOATS[id].hull.L]));
+const BEAMS = Object.fromEntries(IDS.map((id) => [id, BOATS[id].hull.B]));
 // Where your Willowhaven boats lie: your own finger; or, a guest in a friend's session (it's their
 // harbour), the visitors' row at the end of the pontoon, each guest a finger or a side of their
 // own (by their place among the guests: see together.js guestSlot).
@@ -955,9 +960,9 @@ function homeBerths() {
   return [{ F: V[1], sides: [1, -1], east: false }, { F: V[0], sides: [-1], east: true }][g] || { F: V[1], sides: [1, -1], east: false, extra: true };
 }
 // Her berth there, alongside the others of yours in the water.
-function ownBerth(kind) {
-  const H = homeBerths(), set = KINDS.filter((k) => homeOf(k) === 'harbour' && (!isStored(k) || k === kind));
-  const B = H.extra ? null : ownBerths(H.F, set, LENGTHS, BEAMS, H.sides, H.east)[kind];
+function ownBerth(id) {
+  const H = homeBerths(), set = IDS.filter((o) => homeOf(BOATS[o].kind) === 'harbour' && (!isStored(o) || o === id));
+  const B = H.extra ? null : ownBerths(H.F, set, LENGTHS, BEAMS, H.sides, H.east)[id];
   return B ? { x: B.x, z: B.z, heading: B.heading } : { x: H.F.x1 + 8, z: (H.F.z0 + H.F.z1) / 2, heading: Math.PI / 2 };
 }
 // In among the berths at Willowhaven (where a harbour boat left lying is moved to her own).
@@ -993,7 +998,7 @@ function unstow(b) {
 // Her place on your finger now, clear of your other boats lying there (along whichever side has
 // room); or off the end of it, if there's none.
 function freeOwnBerth(b) {
-  const want = ownBerth(b.kind), { F, sides, east } = homeBerths(), L = b.hull.L, others = [...boats.filter((o) => o !== b), ...(together.active ? visitors.boats() : [])];
+  const want = ownBerth(b.id), { F, sides, east } = homeBerths(), L = b.hull.L, others = [...boats.filter((o) => o !== b), ...(together.active ? visitors.boats() : [])];
   const clear = (x, z) => others.every((o) => Math.abs(o.pos.z - z) > (o.hull.B + b.hull.B) * 1.05 || Math.abs(o.pos.x - x) > (o.hull.L + L) / 2 + 0.4);
   if (clear(want.x, want.z)) return want;
   for (const side of sides) {
@@ -1015,10 +1020,10 @@ function floats(b, p) {
   const m = p.tie ? 0.2 : 0.8;
   return !PIERS.some((P) => p.x > P.x0 - m && p.x < P.x1 + m && p.z > P.z0 - m && p.z < P.z1 + m);
 }
-for (const [kind, b] of Object.entries(BOATS)) {
-  const saved = state.boats[kind];
+for (const [id, b] of Object.entries(BOATS)) {
+  const saved = state.boats[id];
   // (One of the Willowhaven boats left in among the berths goes to hers on your finger.)
-  const at = floats(b, saved) && !(homeOf(kind) === 'harbour' && inMarina(saved)) ? saved : mooring(kind);
+  const at = floats(b, saved) && !(homeOf(b.kind) === 'harbour' && inMarina(saved)) ? saved : mooring(b.kind);
   b.place(at.x, at.z, at.heading);
   // (The kayak's motor as you left it: lowered, or up; the sailing boat's sail, and its sheet.)
   if (saved?.motor && b.hull.emotor) b.setEMotor(true);
@@ -1030,15 +1035,15 @@ for (const [kind, b] of Object.entries(BOATS)) {
   }
 }
 // (The ones laid up ashore, out of the way first; and one on the trailer.)
-for (const k of state.stored) stow(BOATS[k], true);
+for (const id of state.stored) stow(BOATS[id], true);
 if (state.trailer?.boat) stow(BOATS[state.trailer.boat], true);
 // How each boat was left: tied up alongside (made fast again where she lies, held firm from the
 // start), at anchor (the anchor already on the bottom where it was), or free. A boat at her home
 // mooring starts tied up there; an older save's boat "anchored" right alongside a pier (how boats
 // brought round to the quay used to be left) is tied up instead.
-for (const [kind, b] of Object.entries(BOATS)) {
+for (const [id, b] of Object.entries(BOATS)) {
   if (b.stowed) continue;
-  const saved = state.boats[kind], here = !!saved && floats(b, saved) && Math.hypot(saved.x - b.pos.x, saved.z - b.pos.z) < 0.01;
+  const saved = state.boats[id], here = !!saved && floats(b, saved) && Math.hypot(saved.x - b.pos.x, saved.z - b.pos.z) < 0.01;
   const T = here ? saved.tie : null;
   const berth = T ? berthAt(b, T.pier, T.side, T.along, T.heading) : null;
   if (berth && Math.hypot(berth.x - b.pos.x, berth.z - b.pos.z) < 3) {
@@ -8251,9 +8256,9 @@ function boatsRound(here = regionOf(player())) {
   const south = here === 'south';
   const atHand = (b) => (south ? Math.hypot(b.pos.x - PONTOON_S.x0, b.pos.z - 6320) < 45
     : Math.hypot(b.pos.x - QUAY_HEAD.x, b.pos.z - HAVEN_QUAY.z1) < 14 || (homeOf(b.kind) === 'harbour' && inMarina(b.pos)));
-  const coming = new Set((state.shipping || []).filter((s) => s.to === here).map((s) => s.kind));
-  const near = boats.filter((b) => b.kind !== 'bass' && regionOf(b) === here && !atHand(b) && !coming.has(b.kind));
-  const far = boats.filter((b) => b.kind !== 'bass' && regionOf(b) !== here && !coming.has(b.kind) && b !== boat);
+  const coming = new Set((state.shipping || []).filter((s) => s.to === here).map((s) => s.kind)); // (her id, under its old name)
+  const near = boats.filter((b) => b.kind !== 'bass' && regionOf(b) === here && !atHand(b) && !coming.has(b.id));
+  const far = boats.filter((b) => b.kind !== 'bass' && regionOf(b) !== here && !coming.has(b.id) && b !== boat);
   const otherName = south ? 'Willowhaven' : 'Puerto Brasa';
   const onShip = [...coming].map((k) => BOATS[k].name);
   const shipNote = onShip.length ? ` On the supply ship already: the ${onShip.join(' and the ')}, here tomorrow morning.` : '';
@@ -8279,9 +8284,9 @@ function whereWords(b) {
   if (b.kind === 'bass') return 'on Longmere';
   return 'out on the water';
 }
-const canStore = (b) => !(b === boat && !onFoot) && regionOf(b) === 'home' && !(tow && (tow.lead === b || tow.towed === b)) && !(state.shipping || []).some((s) => s.kind === b.kind);
+const canStore = (b) => !(b === boat && !onFoot) && regionOf(b) === 'home' && !(tow && (tow.lead === b || tow.towed === b)) && !(state.shipping || []).some((s) => s.kind === b.id);
 function harbourOffice() {
-  const laid = KINDS.filter(isStored).filter((k) => usableBoat(state.yard, k, state.day, ownAbs())).map((k) => BOATS[k]);
+  const laid = IDS.filter(isStored).filter((id) => usableBoat(state.yard, id, state.day, ownAbs())).map((id) => BOATS[id]);
   const south = boats.some((b) => b.kind !== 'bass' && regionOf(b) === 'south');
   // (Wenna at the hatch in office hours; out of them, the yard's board beside it does as well.)
   const W = town.people.wenna, inOffice = W?.block?.spot === 'office' && W.act === 'inside';
@@ -8306,7 +8311,7 @@ function chooseStore() {
   ]);
 }
 function chooseLaunch() {
-  const laid = KINDS.filter(isStored).filter((k) => usableBoat(state.yard, k, state.day, ownAbs())).map((k) => BOATS[k]);
+  const laid = IDS.filter(isStored).filter((id) => usableBoat(state.yard, id, state.day, ownAbs())).map((id) => BOATS[id]);
   ask('Put a boat in the water', boats.length >= MAX_AFLOAT ? `Three of your boats are in the water already, so one of them is laid up in her place.` : 'Which one?', [
     { text: 'Never mind', cls: 'quiet' },
     ...laid.map((b) => ({ text: `The ${b.name}`, run: () => launchBoat(b) })),
@@ -8393,7 +8398,7 @@ function watchHire() {
   if (!b.stowed) {
     if (boats.length <= 1) launchBoat(BOATS.row, { quiet: true });
     stow(b);
-    state.stored = [...new Set([...state.stored, b.kind])];
+    state.stored = [...new Set([...state.stored, b.id])];
   }
   hud.toast(`The ${b.name} has gone back to the Marine Works: your day’s hire is up. Buy her there whenever you like.`, 6);
   save();
@@ -8459,7 +8464,7 @@ function trailerChoices() {
 function loadOnTrailer(b) {
   if (state.trailer.boat || boats.length <= 1) return;
   stow(b);
-  state.trailer.boat = b.kind;
+  state.trailer.boat = b.id;
   // (Not the boat you'd go back to any more: the nearest of the others in the water is.)
   if (boat === b) switchBoat(boats.reduce((best, o) => (!best || Math.hypot(o.pos.x - walker.pos.x, o.pos.z - walker.pos.z) < Math.hypot(best.pos.x - walker.pos.x, best.pos.z - walker.pos.z) ? o : best), null));
   passTime(0.25);
@@ -8487,7 +8492,7 @@ function storeBoat(b, { quiet = false } = {}) {
   const home = homeOf(b.kind) === 'harbour' ? OWN_FINGER : mooring(b.kind);
   const far = Math.hypot(b.pos.x - (home.x ?? (home.x0 + home.x1) / 2), b.pos.z - (home.z ?? (home.z0 + home.z1) / 2));
   stow(b);
-  state.stored = [...new Set([...state.stored, b.kind])];
+  state.stored = [...new Set([...state.stored, b.id])];
   // (Not the boat you'd go back to any more: the nearest of the others in the water is.)
   if (boat === b) switchBoat(boats.reduce((best, o) => (!best || Math.hypot(o.pos.x - walker.pos.x, o.pos.z - walker.pos.z) < Math.hypot(best.pos.x - walker.pos.x, best.pos.z - walker.pos.z) ? o : best), null));
   if (!quiet) {
@@ -8515,7 +8520,7 @@ function launchBoat(b, { quiet = false } = {}) {
     ]);
     return false;
   }
-  state.stored = state.stored.filter((k) => k !== b.kind);
+  state.stored = state.stored.filter((id) => id !== b.id);
   unstow(b);
   if (!quiet) {
     passTime(0.4);
@@ -8559,7 +8564,7 @@ function bringRound(b, here) {
 // harbour at eight tomorrow morning.
 function shipBoat(b, to) {
   const due = (state.hour < 3 ? state.day : state.day + 1) * 24 + 8;
-  state.shipping = [...(state.shipping || []).filter((s) => s.kind !== b.kind), { kind: b.kind, to, due }];
+  state.shipping = [...(state.shipping || []).filter((s) => s.kind !== b.id), { kind: b.id, to, due }];
   audio.knock?.(0.3);
   hud.toast(`The ${b.name} goes on the supply ship tonight: she’ll be tied up at the pontoon in ${to === 'south' ? 'Puerto Brasa' : 'Willowhaven'} at eight tomorrow morning. (Sleep, or rest a while.)`, 7);
   save();
@@ -10194,7 +10199,7 @@ function setLook(L) {
 // Your look on your figure on foot and at the helm of every boat (see looks.js, dress.js).
 function wearLook() {
   dressFigure(walker, state.look);
-  for (const k of KINDS) dressFigure(BOATS[k], state.look);
+  for (const b of Object.values(BOATS)) dressFigure(b, state.look);
 }
 
 function setName(name) {
@@ -11577,24 +11582,25 @@ function updateDiveHud() {
 let saveWarned = false;
 function save() {
   cargoSave();
-  for (const [k, b] of Object.entries(BOATS)) {
-    state.boats[k] = { x: b.pos.x, z: b.pos.z, heading: b.heading, anchored: b.anchored && b.anchor?.phase !== 'haul', ...(b.emotorDown || b.outboardDown ? { motor: true } : {}), ...(b.sailUp ? { sail: Math.round(b.sheet * 100) / 100 } : {}) };
+  for (const [id, b] of Object.entries(BOATS)) {
+    state.boats[id] = { x: b.pos.x, z: b.pos.z, heading: b.heading, anchored: b.anchored && b.anchor?.phase !== 'haul', ...(b.emotorDown || b.outboardDown ? { motor: true } : {}), ...(b.sailUp ? { sail: Math.round(b.sheet * 100) / 100 } : {}) };
     // (Where her anchor lies, or the berth she's tied up at, so she's found just as she was left.)
-    if (b.anchor && b.anchor.phase !== 'haul') state.boats[k].anchor = { x: b.anchor.x, z: b.anchor.z };
-    if (b.tie) state.boats[k].tie = { pier: b.tie.pier, side: b.tie.side, along: b.tie.along, heading: b.tie.heading };
+    if (b.anchor && b.anchor.phase !== 'haul') state.boats[id].anchor = { x: b.anchor.x, z: b.anchor.z };
+    if (b.tie) state.boats[id].tie = { pier: b.tie.pier, side: b.tie.side, along: b.tie.along, heading: b.tie.heading };
   }
-  const kindOf = (b) => Object.keys(BOATS).find((k) => BOATS[k] === b);
-  state.tow = tow ? { lead: kindOf(tow.lead), towed: kindOf(tow.towed) } : null;
+  // (Each of yours by her id; a stray or a friend's boat on the line isn't kept.)
+  const ownId = (b) => (b && BOATS[b.id] === b ? b.id : undefined);
+  state.tow = tow ? { lead: ownId(tow.lead), towed: ownId(tow.towed) } : null;
   state.engines = Object.fromEntries(Object.entries(engines).map(([k, E]) => [k, engineSave(E)]));
   state.damage = Object.fromEntries(Object.entries(damages).map(([k, D]) => [k, damageSave(D)]).filter(([, v]) => v));
-  state.vessel = boat.kind;
+  state.vessel = boat.id;
   state.mode = onFoot ? 'foot' : 'boat';
   state.walker = onFoot ? { x: walker.pos.x, z: walker.pos.z, heading: walker.heading } : null;
   // Crewing in a friend's boat, you're saved where you stepped aboard from (never on the sea).
   if (crew.on && crewFrom) {
     if (crewFrom.boat) {
       state.mode = 'boat';
-      state.vessel = crewFrom.boat.kind;
+      state.vessel = crewFrom.boat.id;
       state.walker = null;
     } else state.walker = { ...crewFrom.spot };
   }
@@ -11602,7 +11608,7 @@ function save() {
   if (dive) {
     if (dive.boat) {
       state.mode = 'boat';
-      state.vessel = dive.boat.kind;
+      state.vessel = dive.boat.id;
       state.walker = null;
     } else state.walker = { ...dive.back };
   }

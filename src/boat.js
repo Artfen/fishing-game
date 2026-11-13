@@ -681,11 +681,13 @@ function strut(a, b, r0, r1, color) {
 // One of the boats in HULLS: the rowing boat, the motor skiff, the kayak or the bass boat.
 export class Boat {
   // look: paint and the like over the hull's own (someone else's boat of the same kind).
-  constructor(scene, { kind = 'row', look = null } = {}) {
+  // id: which boat she is, her own (G8): for now, the same as her kind (one of each).
+  constructor(scene, { kind = 'row', look = null, id = null } = {}) {
     // (A boat painted her own way is still her kind of boat underneath: the same physics hull.)
     this.base = HULLS[kind] || HULLS.row;
     const H = (this.hull = look ? { ...this.base, ...look } : this.base);
     this.kind = HULLS[kind] ? kind : 'row';
+    this.id = id || this.kind;
     this.motor = !!H.motor;
     this.name = H.name;
     this.seatZ = H.seatZ; // where you sit: amidships to row, at the stern to steer
