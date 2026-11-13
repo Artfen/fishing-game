@@ -1,7 +1,7 @@
 import {
   heightAt, zoneAt, streamFlow, lakeSDF, ISLAND, COVE, STACKS, CHANNEL, JETTY, LAKE, STREAM, SNAG, LILIES,
   RIVER, riverInfo, riverSDF, MARSH, SANDBANKS, QUAY, MERE, MERE_BAYS, HOLM, TIMBER, mereSDF,
-  GANNET, PUFFIN_COVE, SKERRIES, SKELLIG, SHOAL, DEEP_Z, WRECK, STRAND, DAYMARK, CALF, CALF_SKERRY, CALF_SOUND,
+  GANNET, PUFFIN_COVE, SKERRIES, SKELLIG, SHOAL, DEEP_Z, CANYON, canyonAxis, WRECK, STRAND, DAYMARK, CALF, CALF_SKERRY, CALF_SOUND,
   HAVEN, HAVEN_QUAY, BOATHOUSE_PIER, waterLevel,
 } from './terrain.js';
 import { COLDWATER, TARN } from './coldwater.js';
@@ -260,6 +260,11 @@ export function createHabitat() {
   spots.push({ type: 'weed', x: JETTY.x + 2.5, z: jz, depth: habitat.depth(JETTY.x + 2.5, jz), zone: 'bay', r: 8, tag: 'jetty' });
 
   regionSpots(habitat, rnd);
+  // (G7) The head of Gannet Deep, where the cold water wells up the canyon: the bait, and the tuna
+  // after it. Fish of its own (a host, see ecosystem.js), last of all, so no other fish's home
+  // moves for it.
+  const cz = CANYON.z0 + 70, cx = canyonAxis(cz);
+  spots.push({ type: 'blue', x: cx, z: cz, depth: habitat.depth(cx, cz), zone: zoneAt(cx, cz), r: 60, tag: 'canyon', hosts: ['tuna', 'bonito'] });
   return habitat;
 }
 

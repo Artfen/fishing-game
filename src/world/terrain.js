@@ -114,6 +114,19 @@ export const CALF_SKERRY = { x: -516, z: 158, r: 5.5 };
 export const CALF_SOUND = { x0: -528, z0: 141, x1: -440, z1: 138, r: 15 };
 export const SHOAL = { x: 300, z: 520, rx: 115, rz: 34, yaw: 0.25, top: -3.6 };
 export const DEEP_Z = 860; // past here the seabed falls away to the deep water
+// Gannet Deep (G7 of docs/PROGRESSION.md): a canyon cut into the edge of the shelf, its head just
+// past the drop-off and winding on out to the edge of the chart; its floor 150 m down and its
+// walls steep. The one place off this coast where the water's properly deep: the cold water
+// welling up its head brings the bait, and the bait the tuna. (Only a deep sounder finds its
+// floor: see sonar.js DEEP_RANGES.)
+export const CANYON = { x: 330, z0: 1000, w: 55, floor: -150 };
+export const canyonAxis = (z) => CANYON.x + 45 * Math.sin((z - CANYON.z0) / 130);
+// How far into it (0 outside … 1 on its floor).
+export function canyonAt(x, z) {
+  if (z < CANYON.z0 - 20) return 0;
+  const d = Math.abs(x - canyonAxis(z));
+  return smoothstep(CANYON.w * 2, CANYON.w * 0.6, d) * smoothstep(CANYON.z0 - 20, CANYON.z0 + 100, z);
+}
 
 // The west shore: a landing on the bay, a camp on the rise behind it, a freshwater lake
 // (Reedmere) tucked into the hill, and a stream (Fernbeck) running down to it from the north.
@@ -437,6 +450,11 @@ function baseHeight(x, z) {
     // Far from land the shelf slopes on down, and past DEEP_Z it falls away to the deep water.
     h -= 14 * smoothstep(140, 420, d) * smoothstep(120, 300, z);
     h -= 30 * smoothstep(DEEP_Z - 60, DEEP_Z + 200, z);
+    // (Gannet Deep: the canyon, its walls ribbed by the slides down them.)
+    if (z > CANYON.z0 - 20) {
+      const k = canyonAt(x, z);
+      if (k > 0) h = lerp(h, CANYON.floor + fbm(x * 0.03, z * 0.03, 2) * 8, k);
+    }
     h += fbm(x * 0.06, z * 0.06, 2) * 0.5 * smoothstep(0, 5, d);
     // The Long Shoal: a sandbank a few metres down, out in the open.
     const sx = x - SHOAL.x, sz = z - SHOAL.z;
@@ -1361,6 +1379,12 @@ export const PLACES = [
     note: 'A rock with nothing but birds on it, on the way out to the deep water. A good mark to steer by.',
     x: SKELLIG.x, z: SKELLIG.z, region: 'coast',
     test: (x, z) => Math.hypot(x - SKELLIG.x, z - SKELLIG.z) < 45,
+  },
+  {
+    id: 'canyon', name: 'Gannet Deep', sub: 'a canyon in the edge of the shelf', area: true, size: 24,
+    note: 'A canyon cut into the edge of the shelf, its walls falling to a hundred and fifty metres. Cold water wells up its head, and the bait and the tuna come with it. Only a deep sounder finds its floor.',
+    x: Math.round(canyonAxis(1180)), z: 1180, region: 'deep',
+    test: (x, z) => canyonAt(x, z) > 0.5,
   },
   {
     id: 'deep', name: 'The Blue Water', sub: 'deep sea, far from land', area: true, size: 30,

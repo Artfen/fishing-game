@@ -485,7 +485,9 @@ export class MapSheet {
           else if (depth < 2) [r, g, b] = fresh ? [170, 204, 180] : [176, 212, 206];
           else if (depth < 8) [r, g, b] = fresh ? [146, 188, 172] : [150, 196, 204];
           else if (depth < 25) [r, g, b] = [118, 166, 194];
-          else [r, g, b] = [94, 134, 172];
+          else if (depth < 80) [r, g, b] = [94, 134, 172];
+          // (G7: the deep water, Gannet Deep's floor.)
+          else [r, g, b] = [72, 108, 152];
         }
         // A little paper grain.
         const n = ((i * 73856093) ^ (j * 19349663)) % 7;
