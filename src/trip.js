@@ -33,7 +33,8 @@ export function tripPlaces(sp, map, from, state, max = 4) {
       .map((pl) => ({ pl, d: Math.hypot(pl.x - p[0], pl.z - p[1]) }))
       .sort((x, y) => x.d - y.d)[0];
     const zone = zoneAt(p[0], p[1]) || a.zone;
-    const name = named && named.d < 160 ? `${ZONE_NAMES[zone] || zone}, near ${named.pl.name}` : ZONE_NAMES[zone] || zone;
+    // (The open ocean past the shelf has a name of its own: E3b.)
+    const name = zone === 'deep' ? 'The Blue Water' : named && named.d < 160 ? `${ZONE_NAMES[zone] || zone}, near ${named.pl.name}` : ZONE_NAMES[zone] || zone;
     const dist = Math.hypot(p[0] - from.x, p[1] - from.z);
     out.push({ x: p[0], z: p[1], r: Math.min(60, Math.max(22, a.r * 0.5)), zone, name, dist, dir: bearing(p[0] - from.x, p[1] - from.z), size: a.cells, homes, depth: H.depth });
   }

@@ -51,3 +51,77 @@ test('the pose carries the line out and the spool, with a fish on; junk is dropp
   assert.equal(off.xl, undefined);
   assert.equal(off.sl, undefined);
 });
+
+/* ---------- E3b: planning a run offshore, and the way home ---------- */
+
+const { CRUISE, runOf, openSea, seaFor, turnForHome, offshorePlan, HOUR_S, OFFSHORE_AT } = await import('../src/offshore.js');
+const { BOAT_PER_S, TANKS } = await import('../src/fuel.js');
+
+test('her cruising pace is the one her physics gives in calm water', async () => {
+  const THREE = await import('three');
+  const { Boat } = await import('../src/boat.js');
+  const scene = new THREE.Scene();
+  for (const kind of ['skiff', 'console', 'rib', 'cruiser']) {
+    const b = new Boat(scene, { kind });
+    b.place(60, 300, 0);
+    for (let i = 0; i < 40 * 30; i++) b.update(1 / 30, i / 30, CRUISE[kind].lever, 0, 0);
+    const v = Math.hypot(b.vel.x, b.vel.z);
+    assert.ok(Math.abs(v - CRUISE[kind].v) / CRUISE[kind].v < 0.12, `${kind}: ${v.toFixed(1)} m/s against ${CRUISE[kind].v}`);
+  }
+});
+
+test('a run offshore: hours each way and litres there, from her pace and her burn', () => {
+  const skiff = runOf('skiff', 1000), rib = runOf('rib', 1000);
+  assert.ok(Math.abs(skiff.hours - 1000 / 6.9 / HOUR_S) < 1e-9, 'a kilometre in the skiff: over three and a half hours of the game’s day');
+  assert.ok(skiff.hours > 3 && rib.hours < 2.5, `skiff ${skiff.hours.toFixed(1)} h, RIB ${rib.hours.toFixed(1)} h`);
+  assert.ok(Math.abs(skiff.litres - BOAT_PER_S.skiff * (1000 / 6.9)) < 1e-9);
+  assert.ok(rib.litres < TANKS.rib && skiff.litres * 2 < TANKS.skiff, 'either has the fuel for the Blue Water and back, full');
+  assert.equal(runOf('row', 1000).litres, 0, 'oars burn nothing');
+});
+
+test('boats for the open sea, and the sea for each', () => {
+  for (const k of ['rib', 'console', 'cabin', 'cruiser', 'sail']) assert.ok(openSea(k), k);
+  for (const k of ['row', 'skiff', 'kayak', 'bass', 'jetski']) assert.ok(!openSea(k), k);
+  assert.equal(seaFor('skiff', 0.3), 'fine');
+  assert.equal(seaFor('skiff', 0.8), 'lively');
+  assert.equal(seaFor('skiff', 1.2), 'rough');
+  assert.equal(seaFor('skiff', 1.5), 'dangerous');
+  assert.equal(seaFor('cruiser', 1.5), 'fine', 'the yacht shrugs off what swamps the skiff');
+});
+
+test('time to turn for home: fuel for the way back and half again, home an hour before the gale, an open boat home before dark', () => {
+  const far = { kind: 'skiff', distHome: 1000 };
+  assert.equal(turnForHome({ ...far, litres: 15, toGale: null, toDark: 10 }), null, 'plenty of everything');
+  const fuel = turnForHome({ ...far, litres: 3 });
+  assert.equal(fuel.why, 'fuel');
+  assert.match(fuel.words, /about 3 L back to Willowhaven in the motor skiff, and you have 3 L: too little to spare/);
+  assert.match(turnForHome({ ...far, litres: 4 }).words, /about 3 L back .* you have 4 L: too little to spare/, 'half as much again as the way home is the margin');
+  const gale = turnForHome({ ...far, litres: 15, toGale: 4 });
+  assert.equal(gale.why, 'gale', 'three and a half hours home with four to go: not the hour to spare');
+  assert.match(gale.words, /gale’s due in 4 hours, and it’s 3\.5 hours back/);
+  assert.equal(turnForHome({ ...far, litres: 15, toGale: 6 }), null);
+  assert.equal(turnForHome({ ...far, litres: 15, toDark: 3 }).why, 'dark');
+  assert.equal(turnForHome({ kind: 'cabin', distHome: 1000, litres: 30, toDark: 3 })?.why ?? null, null, 'a boat with a cabin and lights can stay out after dark');
+  assert.equal(turnForHome({ kind: 'row', distHome: 1000, litres: null, toGale: 1.2 }).why, 'gale', 'oars: no fuel to run out of, but the gale still counts');
+});
+
+test('the planner on the Blue Water: the run, the boat, the gale and the season, each a tick or a warning', () => {
+  const plan = offshorePlan({ placeName: 'The Blue Water', dist: 1100, kind: 'skiff', litres: 20, toGale: 5, season: 0.05, seasonName: 'winter', fish: 'albacore' });
+  const text = plan.map((p) => `${p.ok ? '✓' : '!'} ${p.text}`).join('\n');
+  assert.match(text, /✓ The Blue Water is 1\.1 km away: about 4 hours each way in the motor skiff, 7 L of fuel there and back \(20 L aboard\)/);
+  assert.match(text, /! The motor skiff is an inshore boat/);
+  assert.match(text, /! A gale is due in 5 hours: not long enough/);
+  assert.match(text, /! The albacore is scarce in winter/);
+  const good = offshorePlan({ placeName: 'The Blue Water', dist: 1100, kind: 'console', litres: 180, toGale: null, season: 1.3, fish: 'albacore' });
+  assert.ok(good.every((p) => p.ok), good.map((p) => p.text).join(' | '));
+  assert.ok(OFFSHORE_AT >= 400 && OFFSHORE_AT <= 900);
+});
+
+test('the field guide says when a fish is about, from the same year the game plays by', async () => {
+  const { seasonsOf } = await import('../src/guide.js');
+  const { fishById } = await import('../src/fish.js');
+  assert.equal(seasonsOf(fishById.albacore), 'most about in summer; scarce in spring and winter');
+  assert.equal(seasonsOf(fishById.mackerel), 'most about in summer; scarce in winter');
+  assert.equal(seasonsOf(fishById.squid), 'most about in autumn and winter');
+  assert.equal(seasonsOf(fishById.goldsinny ?? { id: 'nothing-listed' }), 'about all year round');
+});
