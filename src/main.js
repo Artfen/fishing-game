@@ -1244,13 +1244,15 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   // A fish thrown or pulled free has the line whole: it says so.
   onSnap: (why, sp, rod, F = null) => {
     hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : why === 'rock' ? 'Cut on the rocks!' : why === 'thrown' ? 'It threw the hook!' : why === 'pulled' || why === 'lifted' ? 'The hook pulled free.' : why === 'kicked' ? 'It kicked free at the net!' : why === 'spat' ? 'It let go!' : 'Snap! The line broke.', t, 3);
-    hud.toast(breakReason(why, sp, rod, { by: F?.thrownBy, loosen: pads.active ? 'LT' : scheme() === 'touch' ? 'the stick down' : 'S' }), 9);
+    hud.toast(breakReason(why, sp, rod, { by: F?.thrownBy, loosened: !!F?.loosened, loosen: pads.active ? 'LT' : scheme() === 'touch' ? 'the stick down' : 'S' }), 9);
   },
   // The line as it is (worn by hard fights, see shop.js); and the wear a fight just ended leaves.
   line: (rod) => wornLine(rod.line, wearOf(state, rod.id)),
   fought: (F, rod) => {
     const w = addWear(state, rod.id, wearFrom(F));
-    if (w.was < 0.6 && w.now >= 0.6) teach('frayed', `That fight has left the line on your ${rod.short.toLowerCase()} frayed: it’s a little weaker now. Old Bert at the chandlery will put fresh line on for a few pounds.`, 9);
+    // (E2: chafed on rock or nicked by teeth: said, as it's the end of the line that's weak now.)
+    if ((F.chafe || 0) >= 0.15) teach('chafed', `The end of the line on your ${rod.short.toLowerCase()} is chafed where it rubbed on the ${F.coverKind === 'rock' ? 'rock' : F.teeth ? 'fish’s teeth' : 'weed'}: it’ll break more easily now. Fresh line at the chandlery puts it right.`, 9);
+    else if (w.was < 0.6 && w.now >= 0.6) teach('frayed', `That fight has left the line on your ${rod.short.toLowerCase()} frayed: it’s a little weaker now. Old Bert at the chandlery will put fresh line on for a few pounds.`, 9);
   },
   baitBoost: () => (freshBaitToday(state) ? BAIT.boost : 1),
   onDrag: (level, rod) => {

@@ -1000,7 +1000,14 @@ export class Fishing {
       dist: Math.max(3, this.tip.distanceTo(this.hook)), leapT: 0, roll: 0, word: '', wordT: 0,
     });
     // (On Expert, how hard the rod was swept up sets the hook more or less firmly: see technique.js.)
-    if (this.expert && !selfHooked) this.fight.hold = holdAfterStrike(this.fight.hold, this.strikeQ, Math.random());
+    if (this.expert && !selfHooked) {
+      const was = this.fight.hold;
+      this.fight.hold = holdAfterStrike(was, this.strikeQ, Math.random());
+      // (And the grip with it: a firm strike sets a light hold home; a feeble one leaves a solid
+      // one only nicked in.)
+      if (this.fight.hold === 'solid' && this.fight.grip < 0.6) this.fight.grip = 0.75;
+      else if (this.fight.hold === 'light' && this.fight.grip >= 0.5) this.fight.grip = 0.4;
+    }
     this.fishPos.copy(this.hook);
     this.side = 0;
     this.rodLoad = null;
@@ -2145,6 +2152,12 @@ export class Fishing {
       this.fx.ripple(this.fishPos.x, this.fishPos.z, 0.9, 1.0, 0.4);
       say('it turns', 1);
       this.hooks.feel?.('turn');
+    }
+    // (E2) The hook-hold worn loose by the fight: from now on a heavy hand pulls it out.
+    if (ev === 'loosened') {
+      say('the hook’s working loose', 2.4);
+      this.hooks.flash('The hook’s working loose! Ease the pressure: keep it steady, rod low through the head-shakes.', 3);
+      this.hooks.teach('loosened', 'Every head-shake, leap and long heavy pull works at the hook-hold. Once it’s loose, a lighter drag and a steady line keep the fish on.', 8);
     }
     if (ev === 'tiring') {
       say('tiring', 2.5);

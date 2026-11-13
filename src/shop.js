@@ -92,10 +92,12 @@ export function chill(state, from, to) {
   for (const f of state.keep) if (Number.isFinite(f.at) && !f.cooked) f.at = Math.min(to, f.at + shift);
 }
 
-// Line wear from a fight just ended: F is the fight (its time in seconds and peak tension, 0 … 1).
+// Line wear from a fight just ended: F is the fight (its time in seconds and peak tension, 0 … 1;
+// and, E2, its chafe: where the line rubbed on rock or weed or was nicked by teeth, 0 … 1).
 export function wearFrom(F) {
   const secs = Math.max(0, F.time || 0), peak = Math.min(1, Math.max(0, F.peak || 0));
-  return Math.min(0.45, (secs / 150) * (0.4 + peak * 0.8));
+  const chafe = Math.min(1, Math.max(0, F.chafe || 0));
+  return Math.min(0.45, (secs / 150) * (0.4 + peak * 0.8)) + 0.6 * chafe;
 }
 export function addWear(state, rodId, w) {
   const S = (state.shop ??= newShop());
