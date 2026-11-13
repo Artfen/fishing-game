@@ -624,9 +624,10 @@ export class Camp {
     const oat = el('div', 'cp-row');
     oat.append(el('p', 'cp-soft', this.bothy ? 'Someone has left a tin of oatcakes on the shelf, for whoever comes next.' : this.posada ? 'There’s always a bowl of little wrinkled potatoes and a pot of red mojo on the bar.' : this.cabin ? `Her lockers and water tank: ${this.hooks.storesWords?.() || 'stocked'}.` : 'The oatcake tin is on the shelf.'), button(this.posada ? 'Have some potatoes' : 'Have an oatcake', () => this.oatcake(), 'quiet'));
     out.push(oat);
-    // (F1a) The bar's kitchen stocks your boat's lockers for the voyage home.
-    const stock = this.posada ? this.hooks.stockHere?.() : null;
-    if (stock) {
+    // (F1a) The bar's kitchen stocks your boat's lockers for the voyage home, and (F2b) ices her
+    // fish box.
+    for (const stock of this.posada ? [this.hooks.stockHere?.(), this.hooks.iceHere?.()] : []) {
+      if (!stock) continue;
       const row = el('div', 'cp-row');
       row.append(el('p', 'cp-soft', stock.text), button(stock.label, () => { stock.run(); this.render(); }, 'quiet'));
       out.push(row);

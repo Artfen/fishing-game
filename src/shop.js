@@ -82,10 +82,11 @@ export const onIce = (state, now) => shopOf(state).iceUntil > now;
 // Time passing for the fish in your creel (from game hour `from` to `to`): on ice, their
 // freshness clock stops; in a cool-lined creel it runs at half speed. (Freshness is told from
 // each fish's `at`, the hour it was caught: moving it on keeps the fish as fresh as it was.)
-export function chill(state, from, to) {
+// `ice`: the hour the ice they're on lasts until (your creel's, or a boat's fish box: fishbox.js).
+export function chill(state, from, to, ice = shopOf(state).iceUntil) {
   const dh = to - from;
   if (!(dh > 0) || !state.keep?.length) return;
-  const iced = Math.max(0, Math.min(to, shopOf(state).iceUntil) - from);
+  const iced = Math.max(0, Math.min(to, ice) - from);
   const slowed = creelOf(state).cool ? (dh - iced) * 0.5 : 0;
   const shift = iced + slowed;
   if (shift <= 0) return;
