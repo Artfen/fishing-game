@@ -358,6 +358,7 @@ export class Ecosystem {
       // (D2: a shoal of small fish: the hunters about it lately, where from, and when; where it
       // goes in winter; diving from a boat.)
       forage: false, threat: 0, threatT: -1e9, threatX: 0, threatZ: 0, winterX: NaN, winterZ: 0, soundT: 0, fled: false,
+      calmAt: 0, // (D3: struck, it's tight and watchful until then: see stalk)
     };
     const n = L.members[0] + Math.floor(rnd() * (L.members[1] - L.members[0] + 1));
     for (let k = 0; k < n; k++) {
@@ -780,7 +781,8 @@ export class Ecosystem {
   // (D3) A hunter of small fish striking a shoal: one at the shoal (see pickPoint) dashes through
   // it when it's within a few metres; an ambusher (a pike, a conger, a bass in the rocks) lying up in
   // cover goes for one that comes by within eight. The shoal bulges away from it, as from a hunting
-  // shoal (scatterT: everyone sees it), its fear rises (D2), and now and then a small fish is taken
+  // shoal (scatterT: everyone sees it), its fear rises (D2), it's watchful for twelve to thirty-five
+  // seconds after (no hunter strikes it again till then), and now and then a small fish is taken
   // (one strike in seven, an ambusher's one in three; never more than a third of the shoal; the
   // taken come back in time, as a kept fish does). At the top,
   // a slash and the small fish flicking silver. Each hunter then waits a while before the next,
@@ -791,7 +793,7 @@ export class Ecosystem {
     const ambusher = !!(L.lurk || L.strike?.lure === 'ambush');
     let s = a.shoal;
     if (!s && a.state === 'rest' && (ambusher || L.cover === 'rock' || L.cover === 'weed')) s = this.nearestForage(a, a, 8);
-    if (!s || act < 0.3 || s.scatterT > 0) {
+    if (!s || act < 0.3 || s.scatterT > 0 || this.time < s.calmAt) {
       a.strikeT = rand(1.5, 3);
       return;
     }
@@ -809,7 +811,9 @@ export class Ecosystem {
     a.ty = s.y;
     a.tz = s.z + (dz / d) * 3;
     a.wantSpeed = L.speed * (L.burst || 2.5);
-    a.strikeT = rand(ambusher ? 14 : 8, ambusher ? 30 : 20) / Math.max(0.4, act);
+    a.strikeT = rand(ambusher ? 20 : 12, ambusher ? 45 : 30) / Math.max(0.4, act);
+    // (Struck, the shoal is tight and watchful for a while: the hunters bide their time.)
+    s.calmAt = this.time + rand(12, 35);
     s.scatterT = Math.max(s.scatterT || 0, 0.9);
     s.sx = a.x;
     s.sy = a.y;
