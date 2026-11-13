@@ -229,7 +229,7 @@ export const LIFE = {
   pilotwhale: { src: 'sea', name: 'Short-finned pilot whale', cls: 'mammalia', family: 'Delphinidae', sci: 'Globicephala macrorhynchus', iucn: 'LC', look: 'A family group in the deep water south-west of Las Brasas, often resting at the surface.' },
   finwhale: { src: 'sea', name: 'Fin whale', cls: 'mammalia', family: 'Balaenopteridae', sci: 'Balaenoptera physalus', iucn: 'VU', look: 'Far offshore past the bay, and in the cooler half of the crossing: watch for a tall, narrow blow.' },
   minkewhale: { src: 'sea', name: 'Common minke whale', cls: 'mammalia', family: 'Balaenopteridae', sci: 'Balaenoptera acutorostrata', iucn: 'LC', look: 'Offshore past the bay mouth: a dark back and a curved fin, rolling through and gone.' },
-  spermwhale: { src: 'sea', name: 'Sperm whale', cls: 'mammalia', family: 'Physeteridae', sci: 'Physeter macrocephalus', iucn: 'VU', look: 'The deep water south of Las Brasas, and the warm half of the crossing: a bushy blow slanting forward.' },
+  spermwhale: { src: 'sea', name: 'Sperm whale', cls: 'mammalia', family: 'Physeteridae', sci: 'Physeter macrocephalus', iucn: 'VU', look: 'The deep water south of Las Brasas, the warm half of the crossing, and at home one that hunts Gannet Deep: a bushy blow slanting forward.' },
   seal: { src: 'sea', name: 'Grey seal', cls: 'mammalia', family: 'Phocidae', sci: 'Halichoerus grypus', iucn: 'LC', look: 'Hauled out on Gannet Isle and the Skerries, or bobbing nearby. Go quietly and one may follow you.' },
   otter: { src: 'sea', name: 'Eurasian otter', cls: 'mammalia', family: 'Mustelidae', sci: 'Lutra lutra', iucn: 'NT', look: 'Along the quiet rivers and the salt channels at dawn and dusk. Approach softly.' },
   // Birds

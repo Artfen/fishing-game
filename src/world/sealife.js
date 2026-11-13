@@ -109,6 +109,11 @@ const WHALES = [
   // (And out on the crossing: a fin whale in the cooler northern half, a sperm whale in the warm.)
   { kind: 'finwhale', sea: 'crossing', len: 18, area: [-1200, 1400, 1500, 3200], minDepth: 40, speed: 2.2, blow: [7, 1.3, 0], breaths: [3, 5], down: [110, 170], gap: [12, 18] },
   { kind: 'spermwhale', sea: 'crossing', len: 14, area: [-1200, 1400, 3000, 5000], minDepth: 80, speed: 0.7, blow: [4, 2.2, 0.8], breaths: [7, 10], down: [160, 240], gap: [10, 15], rests: true, flukes: true },
+  // (G7b) And at home, a sperm whale hunting Gannet Deep (terrain.js CANYON): squid in the dark
+  // of its floor, a hundred and fifty metres down, and up to breathe and lie at the surface over
+  // it. Kept to water a hundred metres deep, which at home is the canyon alone. (Its own dice:
+  // the wildlife made after it is where it always was.)
+  { kind: 'spermwhale', sea: 'home', len: 13, area: [240, 470, 1060, 1400], minDepth: 100, speed: 0.6, blow: [4, 2.2, 0.8], breaths: [7, 10], down: [180, 260], gap: [10, 15], rests: true, flukes: true, ownDice: 4242 },
 ];
 
 const BAIT = new Set(['sprat', 'sardine', 'anchovy', 'mackerel', 'horsemackerel', 'chubmackerel', 'garfish']);
@@ -495,11 +500,13 @@ export function buildSeaLife(scene, { glow = null, seed = 20261106 } = {}) {
 
   /* ---------- the great whales ---------- */
   const whales = WHALES.map((W, id) => {
-    const at = pickTarget(W.area, W.minDepth, undefined, undefined, B);
+    // (A whale added later rolls dice of its own, so nothing made after the whales moves.)
+    const R = W.ownDice ? seeded(seed + W.ownDice) : B;
+    const at = pickTarget(W.area, W.minDepth, undefined, undefined, R);
     const body = cetacean(scene, W.kind, W.len);
     return {
-      ...W, ...body, id, x: at.x, z: at.z, y: -30, heading: B() * Math.PI * 2, pitch: 0, target: pickTarget(W.area, W.minDepth, at.x, at.z, B),
-      state: 'down', t: brand(10, 60), breathsLeft: 0, breathN: 0, phase: 0, seenT: 0, blew: false, net: null,
+      ...W, ...body, id, x: at.x, z: at.z, y: -30, heading: R() * Math.PI * 2, pitch: 0, target: pickTarget(W.area, W.minDepth, at.x, at.z, R),
+      state: 'down', t: 10 + R() * 50, breathsLeft: 0, breathN: 0, phase: 0, seenT: 0, blew: false, net: null,
     };
   });
   const stepWhale = (w, dt, t, ctx, near) => {
