@@ -8,6 +8,7 @@ import { damp, dampAngle, clamp, smoothstep, wrapAngle } from '../util.js';
 import { FOLK, FOLK_IDS, SPOTS, POTS } from '../townsfolk.js';
 import { Skipper } from './skipper.js';
 import { berthFor } from '../mooring.js';
+import { modeFor as navMode } from '../navlights.js';
 
 // How the harbour's people look, and the Morning Star (Dougie's boat), drawn where townsfolk.js
 // says they are: walking (legs and arms swinging), standing about, sitting (on the bench, Bert's
@@ -684,7 +685,7 @@ export class FolkView {
   // wakes (ripples, and the glow at night); south: you're at Las Brasas; night (0 … 1): the
   // Puffin's anchor light.
   // boats: yours (and more: friends'), for the skippers to keep clear of.
-  update(dt, t, town, { from, south = false, fx = null, glow = null, night = 0, boats = [], more = [] } = {}) {
+  update(dt, t, town, { from, south = false, fx = null, glow = null, night = 0, boats = [], more = [], lights = null, eye = null } = {}) {
     const shown = [];
     for (const id of FOLK_IDS) {
       const p = town.people[id], f = this.figures[id];
@@ -726,13 +727,13 @@ export class FolkView {
           others.splice(mine, 0, me);
         }
       } else k.on = false;
-      this.drawBoat(id, B, show, dt, t, { fx, glow, night });
+      this.drawBoat(id, B, show, dt, t, { fx, glow, night, lights, eye });
     }
   }
 
   // A boat rides the swell where she is: bow up a little under way, rolling as she goes; her
   // skipper aboard (or not), fishing, or under sail.
-  drawBoat(id, B, show, dt, t, { fx, glow, night }) {
+  drawBoat(id, B, show, dt, t, { fx, glow, night, lights = null, eye = null }) {
     const b = this.boats[id];
     b.group.visible = show;
     if (!show) return;
@@ -777,6 +778,8 @@ export class FolkView {
     else if (!lying && b.tie) b.tie = null;
     if (b.tie || b._tied) b.updateGear();
     b._tied = !!b.tie;
+    // (F2c) Her lights after dark: under way, at anchor, or none alongside (navlights.js).
+    if (lights && eye && night > 0.3) lights.add(b, navMode({ night, tied: lying || !!b.tie, anchored: !!B.anchored }), eye, { sailing: !!B.sails });
     // (Out on the water: solid to your boats, which bump off her as off any boat.)
     b.afloat(t);
     if (!B.fishing && b.rod && b.hull.sail == null) b.rod.visible = false;
