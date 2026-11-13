@@ -63,9 +63,18 @@ const SOUTH_ZONES = new Set(['harbor', 'lee', 'lava', 'sebadal', 'veril', 'ocean
 // island's (and the home coast's kinds that live there too).
 const atHome = (sp) => sp.life.zones.some((z) => !SOUTH_ZONES.has(z));
 const atBrasas = (sp) => !!sp.life.southGroups;
+// (G2) And what each can't get for itself, and pays well for: the home coast's prized fish at Bar El
+// Muelle, the island's at Willowhaven, brought over the sea (iced, they keep: see fishbox.js). Not
+// in the day's dice: always dear, at IMPORT_K over the quay's price.
+export const IMPORTS = {
+  muelle: ['sole', 'turbot', 'hake', 'johndory', 'seabass', 'plaice', 'pollack'],
+  haven: ['parrotfish', 'wahoo', 'dorado', 'yellowfin', 'grouper', 'triggerfish'],
+};
+export const IMPORT_K = 1.35;
+export const imported = (sp, place) => !!IMPORTS[place]?.includes(sp.id) && !(place === 'haven' ? atHome(sp) : atBrasas(sp));
 export const buyers = {
-  haven: (sp) => (PRICES[sp.id] ?? 0) > 0 && atHome(sp),
-  muelle: (sp) => (PRICES[sp.id] ?? 0) > 0 && atBrasas(sp),
+  haven: (sp) => (PRICES[sp.id] ?? 0) > 0 && (atHome(sp) || imported(sp, 'haven')),
+  muelle: (sp) => (PRICES[sp.id] ?? 0) > 0 && (atBrasas(sp) || imported(sp, 'muelle')),
 };
 
 // A small, steady hash for the day's dice.
@@ -90,7 +99,7 @@ const shuffled = (list, r) => {
 // The day's demand at a place: { wanted: [ids] (×1.5), plenty: [ids] (×0.7) }.
 export function demandFor(day, place = 'haven') {
   const r = dice(day * 31 + (place === 'muelle' ? 7 : 3));
-  const pool = shuffled(FISH.filter((sp) => !sp.retired && sp.meal && buyers[place](sp) && sp.water !== 'fresh').map((sp) => sp.id).sort(), r);
+  const pool = shuffled(FISH.filter((sp) => !sp.retired && sp.meal && buyers[place](sp) && !imported(sp, place) && sp.water !== 'fresh').map((sp) => sp.id).sort(), r);
   return { wanted: pool.slice(0, 2), plenty: pool.slice(2, 3) };
 }
 
@@ -120,21 +129,21 @@ export function sizePrice(sp, size) {
 // ('wanted' | 'plenty' | null), season (×), prime (bool), wanted (false if nobody here buys it) }.
 export function fishValue(f, { day, now, place = 'haven' } = {}) {
   const sp = fishById[f.id];
-  if (!sp || f.cooked || !buyers[place](sp)) return { price: 0, kg: 0, each: 0, fresh: 1, demand: null, season: 1, prime: false, wanted: false };
+  if (!sp || f.cooked || !buyers[place](sp)) return { price: 0, kg: 0, each: 0, fresh: 1, demand: null, season: 1, prime: false, wanted: false, imported: false };
   const kg = weightOf(sp, f.size);
   const D = demandFor(day, place);
   const demand = D.wanted.includes(sp.id) ? 'wanted' : D.plenty.includes(sp.id) ? 'plenty' : null;
   const season = place === 'haven' ? seasonPrice(sp, now) : 1;
-  const size = sizePrice(sp, f.size);
-  const each = Math.round(PRICES[sp.id] * (demand === 'wanted' ? 1.5 : demand === 'plenty' ? 0.7 : 1) * season * size * 100) / 100;
+  const size = sizePrice(sp, f.size), imp = imported(sp, place);
+  const each = Math.round(PRICES[sp.id] * (demand === 'wanted' ? 1.5 : demand === 'plenty' ? 0.7 : 1) * (imp ? IMPORT_K : 1) * season * size * 100) / 100;
   const fresh = freshness(f.at, now);
-  return { price: Math.min(priceCap(sp), Math.max(0.2, Math.round(kg * each * fresh * 20) / 20)), kg, each, fresh, demand, season, prime: size > 1, wanted: true };
+  return { price: Math.min(priceCap(sp), Math.max(0.2, Math.round(kg * each * fresh * 20) / 20)), kg, each, fresh, demand, season, prime: size > 1, wanted: true, imported: imp };
 }
 
 // A line of a sale's receipt: what it was, its weight, the price by the kilo and why, the total.
 export function receiptLine(f, v) {
   const sp = fishById[f.id];
-  const why = [v.demand === 'wanted' ? 'wanted today' : v.demand === 'plenty' ? 'plenty about' : '', seasonWord(v.season), v.prime ? 'a prime fish' : '', v.fresh < 0.99 ? `${Math.round(v.fresh * 100)}% fresh` : ''].filter(Boolean);
+  const why = [v.imported ? 'brought over the sea: dear here' : '', v.demand === 'wanted' ? 'wanted today' : v.demand === 'plenty' ? 'plenty about' : '', seasonWord(v.season), v.prime ? 'a prime fish' : '', v.fresh < 0.99 ? `${Math.round(v.fresh * 100)}% fresh` : ''].filter(Boolean);
   return { id: f.id, name: sp.name, size: f.size, kg: Math.round(v.kg * 100) / 100, each: v.each, why, price: v.price };
 }
 

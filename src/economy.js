@@ -58,12 +58,14 @@ export function cleanLedger(raw) {
 
 /* ---------------- fuel at the pump ---------------- */
 
-export const fuelPrice = (profile = 'gentle') => (ECONOMY[profile] || ECONOMY.gentle).fuel;
+// (G2) Fuel on the island is shipped in: dearer at Puerto Brasa's pump (place 'brasa').
+export const ISLAND_FUEL_K = 1.25;
+export const fuelPrice = (profile = 'gentle', place = 'haven') => Math.round((ECONOMY[profile] || ECONOMY.gentle).fuel * (place === 'brasa' ? ISLAND_FUEL_K : 1) * 100) / 100;
 
 // A quote at the pump: want litres (to fill up); what that costs, and if the purse won't run to it,
 // as much as it will (to the nearest tenth of a litre). Returns { litres, price, short }.
-export function fuelQuote(want, profile, purse) {
-  const each = fuelPrice(profile);
+export function fuelQuote(want, profile, purse, place = 'haven') {
+  const each = fuelPrice(profile, place);
   const full = Math.max(0, want);
   if (purse >= full * each - 1e-6) return { litres: Math.round(full * 10) / 10, price: r2(full * each), short: false };
   const can = Math.floor((Math.max(0, purse) / each) * 10) / 10;
