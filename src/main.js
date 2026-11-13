@@ -85,6 +85,7 @@ import { PROFILES as ENGINES, WOT, setElectric, START_MODES, hasEngine, cleanEng
 import { HelmUI } from './helm.js';
 import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
+import { storesAboard, draw as drawStores, stockUp, daysWords, storesFor, FILL as STORES_FILL, WATCH as STORES_WATCH } from './stores.js';
 import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, hiredToday, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect, engineOf, repowerBoat, repropBoat, trimBoat } from './shipyard.js';
 import { BIRD_KINDS } from './birdData.js';
 import { cleanLook } from './looks.js';
@@ -1760,6 +1761,18 @@ const camp = new Camp(state, scene, world.camp, {
   },
   packUp: (c, release) => packCamp(c, release),
   passTime: (h) => passTime(h),
+  // (F1a) The galley's food and water come out of her stores; the bar's kitchen at Puerto Brasa
+  // stocks them.
+  fromStores: (d) => drawStores(state, boat.kind, d) > 0,
+  storesWords: () => storesWordsOf(boat.kind),
+  stockHere: () => {
+    const S = BOATS[state.vessel];
+    if (!S || S.pos.z < SOUTH_Z || !storesAboard(state, S.kind).most) return null;
+    const q = stockUp(state, S.kind, state.economy, true);
+    return q.days > 0.01
+      ? { text: `The kitchen will stock the ${S.name}’s lockers for the voyage: ${daysWords(q.days)} more of food and water, ${money(q.price)}. (Aboard: ${daysWords(storesAboard(state, S.kind).days)}.)`, label: `Stock her: ${money(q.price)}`, run: () => stockBoat(S.kind) }
+      : { text: `The ${S.name}’s lockers are full: ${storesWordsOf(S.kind)}.`, label: 'Full', run: () => {} };
+  },
   // The camping gear at a camp: what's set up there, where the rest is, moving it on and off.
   kit: {
     has: (c, k) => campHas(state, c, k),
@@ -1778,6 +1791,26 @@ const camp = new Camp(state, scene, world.camp, {
 
 function nearCamp() {
   return onFoot && walker.pos.distanceTo(world.camp.firePos) < 7.5;
+}
+
+// (F1a) Her stores, in words: "food and water for 2½ days (6 when full)".
+function storesWordsOf(kind) {
+  const A = storesAboard(state, kind);
+  return A.most ? `food and water for ${daysWords(A.days)}${A.days < A.most - 0.01 ? ` (${daysWords(A.most)} when full)` : ''}` : 'no lockers';
+}
+// Fill her lockers and crates: paid for, said. Returns whether it was done.
+function stockBoat(kind) {
+  const S = BOATS[kind], q = stockUp(state, kind, state.economy, true);
+  if (q.days <= 0.01) return true;
+  if (q.price > 0 && !payOut(state, q.price, `Stores for the ${S?.name || 'boat'}`).ok) {
+    hud.toast(`Stores for the voyage are ${money(q.price)}, and your purse has ${money(state.money)}. Sell a fish or two at the market first.`, 5);
+    return false;
+  }
+  stockUp(state, kind, state.economy);
+  hud.toast(`Water, tins, oatcakes and bread stowed aboard the ${S?.name || 'boat'}: ${storesWordsOf(kind)}.`, 5);
+  packUI.render();
+  save();
+  return true;
 }
 
 // Your own camp, if you're standing by it (its door, or anywhere round its middle).
@@ -2193,6 +2226,12 @@ function tripChecklist() {
     const low = fuelLow(tanks(), v);
     out.push({ ok: !low, text: `${boatTitle(BOATS[v])}: ${tankWords(tanks(), v)}${low ? '. Fill up at the fuel point on the pontoon, or the pump by the quay.' : '.'}` });
   }
+  // (F1a) Her stores: food and water aboard for days away (with needs off, nothing to want).
+  if (needsMode() !== 'off' && BOATS[v] && storesAboard(state, v).most) {
+    const A = storesAboard(state, v), q = stockUp(state, v, state.economy, true);
+    out.push(q.days <= 0.01 ? { ok: true, text: `${boatTitle(BOATS[v])}: ${storesWordsOf(v)} aboard.` }
+      : { ok: A.days >= 1, text: `${boatTitle(BOATS[v])}: ${storesWordsOf(v)} aboard.`, act: { label: `Stock her up: ${money(q.price)}`, run: () => stockBoat(v) } });
+  }
   out.push(freshBaitToday(state) ? { ok: true, text: 'Fresh bait for today.' } : { ok: true, text: 'No fresh bait today (a help with worms and crab, never a need).' });
   const storm = Math.max(weather.storm, conditions.sea.storm);
   out.push({ ok: storm < 0.4, text: storm >= 0.4 ? 'A storm is blowing: stay in the bay and the sheltered water today.' : weatherLines(weather.rain > 0.6 ? 'Heavy rain' : weather.rain > 0.15 ? 'Light rain' : weather.cloud > 0.7 ? 'Overcast' : weather.cloud > 0.3 ? 'Some cloud' : 'Clear')[0] });
@@ -2275,10 +2314,11 @@ function passTheNight() {
   if (state.hour + hours >= 24) state.day++;
   state.hour = h;
   camp.update(0, hours, true);
-  // You wake warm and dry, and fill your water bottle before you set off.
+  // You wake warm and dry, and fill your water bottle before you set off (F1a: aboard, from her
+  // water tank, if there's any left in it).
   if (needsMode() !== 'off') {
     stepComfort(state.comfort, hours, { asleep: true });
-    refill(state.comfort);
+    if (sleeping?.site !== 'cabin' || drawStores(state, boat.kind, STORES_FILL)) refill(state.comfort);
   }
   // The weather turns while you sleep (unless you've chosen it): sometimes you wake to rain.
   if (skyMode() === 'auto' && !clock.following) {
@@ -5056,7 +5096,8 @@ function takeDrink() {
 // Where your bottle can be filled (and where there's a kitchen to pack rolls from): at a camp or
 // a kitchen (home, the bothy, Bar El Muelle, a boat's galley), the chandlery, or a clear stream
 // or river beside you.
-const kitchenHere = () => (onFoot ? !!(insideHome(walker.pos.x, walker.pos.z) || coastSpot('bothy', 1) || coastSpot('posada', 1) || chandleryNear()) : !driving && !!boat.hull.cabin);
+// (F1a: aboard, a galley or a stores crate, from her stores.)
+const kitchenHere = () => (onFoot ? !!(insideHome(walker.pos.x, walker.pos.z) || coastSpot('bothy', 1) || coastSpot('posada', 1) || chandleryNear()) : !driving && (!!boat.hull.cabin || storesAboard(state, boat.kind).crates > 0));
 function streamHere() {
   if (!onFoot) return false;
   const P = walker.pos;
@@ -5069,6 +5110,11 @@ function streamHere() {
 const waterHere = () => kitchenHere() || nearCamp() || !!ownCampNear(4.5) || streamHere();
 
 function fillBottle(quiet = false) {
+  // (F1a) Aboard, from her water tank (see stores.js).
+  if (!onFoot && !drawStores(state, boat.kind, STORES_FILL)) {
+    if (!quiet) hud.flash(`${boat.hull.cabin ? 'Her water tank is dry' : 'The stores crate is empty'}. Stock her up at the chandlery in Willowhaven, or the kitchen of Bar El Muelle.`, t, 3.5);
+    return;
+  }
   refill(state.comfort);
   if (!quiet) hud.flash(`Your water bottle is full (${BOTTLE} drinks), and you drink your fill while you’re at it.`, t, 3);
   packUI.render();
@@ -5076,6 +5122,11 @@ function fillBottle(quiet = false) {
   save();
 }
 function takeRolls() {
+  // (F1a) Aboard, out of her lockers.
+  if (!onFoot && state.comfort.rolls < ROLLS && !drawStores(state, boat.kind, STORES_FILL)) {
+    hud.flash('Her stores are finished: no bread aboard to make rolls with.', t, 3);
+    return;
+  }
   const got = packRolls(state.comfort);
   hud.flash(got ? `${got} ${got > 1 ? 'rolls' : 'roll'} wrapped and into your backpack (${ROLLS} in all).` : 'Your backpack has all the rolls it can carry.', t, 3);
   packUI.render();
@@ -5387,7 +5438,7 @@ function startPassage(to, S = boat, part = 1) {
   // (The cruiser takes the jet ski and the windsurf board along, lashed on deck, if they're by her.)
   const carry = S.hull.passage ? ['jetski', 'windsurf'].filter((k) => !BOATS[k].stowed && Math.hypot(BOATS[k].pos.x - S.pos.x, BOATS[k].pos.z - S.pos.z) < 45 && !(tow && (tow.lead === BOATS[k] || tow.towed === BOATS[k]))) : [];
   passage = { to, kind: S.kind, t: 0, line: -1, moved: false, carry, part };
-  hud.sleep(true, to === 'south' ? `You stow the gear, take on water and stores${S.hull.passage ? ', check the oil' : ''}, and cast off…` : 'You stow the gear and cast off for the long run north…');
+  hud.sleep(true, to === 'south' ? `You stow the gear, check her stores (${storesWordsOf(S.kind)})${S.hull.passage ? ' and the oil' : ''}, and cast off…` : `You stow the gear, check her stores (${storesWordsOf(S.kind)}), and cast off for the long run north…`);
 }
 
 function updatePassage(dt) {
@@ -5424,6 +5475,8 @@ function updatePassage(dt) {
         ? `Las Brasas. Puerto Brasa lies ahead behind its breakwater: ${how} and tie up at the quay or the pontoon (${input.keyLabel('anchor')}). Bar El Muelle on the waterfront has a room, a stove and a shelf of tackle, and the fuel pump is on the quay. The water here is clear and warm: just west of the harbour mouth a yellow buoy marks El Bajón, a reef of lava pinnacles with sea fans and sponges, parrotfish, wrasse and morays (dive it, or look down from a boat over it); groupers live down the drop-off.`
         : `Las Brasas, and Puerto Brasa ahead behind its breakwater${motor ? ` (the fuel pump is on the quay: ${tankWords(tanks(), P.kind)} left)` : ''}.`, first ? 14 : 6);
     } else hud.toast(motor ? `Home: Willow Bay, and the yacht at her berth on the pontoon (${tankWords(tanks(), P.kind)} left: the fuel point is on the pontoon).` : 'Home: Willow Bay, and the sailing boat alongside Willowhaven quay.', 6);
+    // (F1a) Her stores ran out on the way.
+    if (P.short) hud.toast(`The stores ran out ${P.short} short of the far side: you come in hungry and thirsty. Eat and drink ashore, and stock her up before the next passage (${P.to === 'south' ? 'the kitchen at Bar El Muelle' : 'the chandlery'}).`, 8);
     save();
   }
 }
@@ -5477,9 +5530,18 @@ function arrivePassage(to) {
   // more for the coast at each end; you arrive fed and rested.
   const hours = Math.round(crossHours(S.kind) * part + 2.5);
   passTime(hours);
-  state.food = { ...(state.food || {}), full: 100 };
+  // (F1a) Fed and watered from her stores the whole way, if they last.
+  const need = hours / 24, had = drawStores(state, S.kind, need, true);
   Object.assign(state.comfort, { warm: 18, wet: 0 });
-  refill(state.comfort);
+  if (had >= need - 0.05) {
+    state.food = { ...(state.food || {}), full: 100 };
+    refill(state.comfort);
+  } else {
+    state.food = { ...(state.food || {}), full: 20 };
+    state.comfort.drink = 20;
+    // (Said with the landfall, once the passage's screen has gone.)
+    if (passage) passage.short = daysWords(need - had);
+  }
   // The weather where you land: fine, in the trade wind down south (your own sky: playing
   // together, the sky is the host's).
   if (skyMode() === 'auto' && !clock.following) {
@@ -6708,7 +6770,8 @@ function crossingChecks(to, S) {
   } else {
     list.push({ ok: true, text: to === 'south' ? 'The wind: home’s own weather this side, then backing into the north-east trade halfway over, on the quarter: fast going. Ease the sheet as it comes aft.' : 'The wind: the north-east trade on the quarter going north, then home’s own weather the far side.' });
   }
-  list.push({ ok: true, text: 'Water and stores for the crossing, taken aboard as you set out.' });
+  // (F1a) Her stores against the passage (with needs off, nothing to want).
+  if (needsMode() !== 'off') list.push(storesFor(state, S.kind, crossHours(S.kind), S.name));
   const abs = clock.abs, h = hoursToGale(abs), storm = Math.max(weather.storm, conditions.sea.storm);
   if (storm > 0.35) list.push({ ok: false, text: 'It’s blowing a gale: no weather to be out on the open sea. Wait for it to pass, or take the fast passage.' });
   else if (h != null && h < crossHours(S.kind) + 3) list.push({ ok: false, text: `A gale is due in about ${Math.max(1, Math.round(h))} hours, before you'd be across. Wait for it to pass, or take the fast passage.` });
@@ -6739,11 +6802,11 @@ function startCrossing(to, S = boat) {
   state.crossing = { to, kind: S.kind, day: state.day, abs: state.day * 24 + state.hour, secs: 0, events: planCrossing(state.day, to), weather: null, eased: false, back: false };
   crossSaid = {};
   noteCrossing(state.today, { to, stage: 'out', boat: S.name });
-  // Water and stores aboard for the crossing.
+  // A good meal and a full bottle before you go (F1a: what's aboard for the passage is her stores).
   state.food = { ...(state.food || {}), full: Math.max(state.food?.full ?? 0, 90) };
   refill(state.comfort);
   const T = to === 'south' ? ENDS.south : ENDS.home;
-  hud.toast(`You take on water and stores and set your course: ${pointWords(bearingTo(S.pos.x, S.pos.z, T.x, T.z))} for ${to === 'south' ? 'Las Brasas' : 'Gannet Light and home'}. The marker shows the way; the chart (${input.keyLabel('map')}) has the open sea on it.${S.kind === 'sail' ? (to === 'south' ? ' The wind will back into the trade halfway over: ease the sheet as it comes aft.' : '') : ' Out in the swell, hold her at about six knots.'}`, 10);
+  hud.toast(`You eat, fill your bottle and set your course (${storesWordsOf(S.kind)} aboard): ${pointWords(bearingTo(S.pos.x, S.pos.z, T.x, T.z))} for ${to === 'south' ? 'Las Brasas' : 'Gannet Light and home'}. The marker shows the way; the chart (${input.keyLabel('map')}) has the open sea on it.${S.kind === 'sail' ? (to === 'south' ? ' The wind will back into the trade halfway over: ease the sheet as it comes aft.' : '') : ' Out in the swell, hold her at about six knots.'}`, 10);
   save();
 }
 
@@ -6793,12 +6856,18 @@ function updateCrossing(dt) {
   const aboard = afloat && boat === B;
   if (!aboard) return;
   if (!modal) C.secs += dt;
-  // (The stores: a meal and a drink from them every few hours at sea.)
+  // (The stores: a meal and a drink from them every six hours at sea, F1a: out of her lockers and
+  // crates, while there's any left.)
   C.storesT = (C.storesT ?? 0) + dt;
   if (C.storesT > 6 * HOUR_SECONDS) {
     C.storesT = 0;
-    state.food = { ...(state.food || {}), full: Math.max(state.food?.full ?? 0, 75) };
-    if (state.comfort) state.comfort.drink = Math.max(state.comfort.drink, 75);
+    if (drawStores(state, B.kind, STORES_WATCH, true) >= STORES_WATCH - 1e-6) {
+      state.food = { ...(state.food || {}), full: Math.max(state.food?.full ?? 0, 75) };
+      if (state.comfort) state.comfort.drink = Math.max(state.comfort.drink, 75);
+    } else if (!C.bare) {
+      C.bare = true;
+      hud.toast(`The stores are finished: nothing left aboard to eat or drink, and ${Math.round(Math.abs((going === 'south' ? ENDS.south.z : ENDS.home.z) - B.pos.z) / 100) / 10} km to go. What’s in your backpack is all there is now.`, 8);
+    }
   }
   const z = B.pos.z, south = going === 'south';
   // What's met along the way, in order.
@@ -12947,6 +13016,7 @@ window.slowTide = {
   // The crossing at the helm: slowTide.cross('south'), and where it's at (slowTide.crossing()).
   passage: (to = 'south') => startPassage(to),
   cross: (to = 'south') => startCrossing(to),
+  crossCard: (to = 'south') => offerCrossing(to),
   crossing: () => state.crossing,
   get region() { return region; },
   // Put yourself ashore at (x, z), e.g. slowTide.walkTo(-99, -2) for camp.

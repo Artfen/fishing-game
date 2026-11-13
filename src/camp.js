@@ -4,6 +4,7 @@ import { formatClock } from './world/sky.js';
 import { clamp, smoothstep } from './util.js';
 import { creelWords, creelGroups, groupWords } from './shop.js';
 import { mealDrink, refill, packRolls, BOTTLE, ROLLS } from './comfort.js';
+import { MEAL } from './stores.js';
 import { COOLBOX, MEALS_MAX, TENTS, DECOR, DECOR_UNLOCK, settleCooking, startCooking, stow, take, packPlan, cleanName } from './campsite.js';
 
 const $ = (id) => document.getElementById(id);
@@ -179,6 +180,11 @@ export class Camp {
   }
 
   oatcake() {
+    // (F1a) Aboard, out of her stores: with the lockers bare, there's nothing to have.
+    if (this.cabin && this.hooks.fromStores && !this.hooks.fromStores(MEAL)) {
+      this.hooks.toast('Her lockers are bare: nothing aboard to eat but what’s in your creel. Stock her up at the chandlery in Willowhaven, or the kitchen of Bar El Muelle.', 6);
+      return;
+    }
     this.food.full = Math.min(100, this.food.full + 22);
     this.hooks.toast(this.posada ? 'Papas arrugadas: little potatoes boiled in salty water till their skins wrinkle, with a hot red mojo. They keep you going; a fish would be better.' : 'An oatcake from the tin. It keeps you going, but a hot meal would be nicer.');
     this.hooks.changed();
@@ -616,8 +622,15 @@ export class Camp {
       out.push(row);
     }
     const oat = el('div', 'cp-row');
-    oat.append(el('p', 'cp-soft', this.bothy ? 'Someone has left a tin of oatcakes on the shelf, for whoever comes next.' : this.posada ? 'There’s always a bowl of little wrinkled potatoes and a pot of red mojo on the bar.' : 'The oatcake tin is on the shelf.'), button(this.posada ? 'Have some potatoes' : 'Have an oatcake', () => this.oatcake(), 'quiet'));
+    oat.append(el('p', 'cp-soft', this.bothy ? 'Someone has left a tin of oatcakes on the shelf, for whoever comes next.' : this.posada ? 'There’s always a bowl of little wrinkled potatoes and a pot of red mojo on the bar.' : this.cabin ? `Her lockers and water tank: ${this.hooks.storesWords?.() || 'stocked'}.` : 'The oatcake tin is on the shelf.'), button(this.posada ? 'Have some potatoes' : 'Have an oatcake', () => this.oatcake(), 'quiet'));
     out.push(oat);
+    // (F1a) The bar's kitchen stocks your boat's lockers for the voyage home.
+    const stock = this.posada ? this.hooks.stockHere?.() : null;
+    if (stock) {
+      const row = el('div', 'cp-row');
+      row.append(el('p', 'cp-soft', stock.text), button(stock.label, () => { stock.run(); this.render(); }, 'quiet'));
+      out.push(row);
+    }
     $('camp-cook').replaceChildren(...out);
   }
 

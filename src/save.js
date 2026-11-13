@@ -24,6 +24,7 @@ import { cleanToday, cleanDays, cleanBadges, newToday } from './daybook.js';
 import { cleanGrounds, newGrounds } from './grounds.js';
 import { cleanComfort } from './comfort.js';
 import { cleanCrossing, cleanPassages } from './crossing.js';
+import { cleanStores } from './stores.js';
 import { BEHAVIOUR_IDS } from './behaviour.js';
 import { BIRD_KINDS } from './birdData.js';
 
@@ -172,6 +173,7 @@ const fresh = () => {
   s.fuel = cleanFuel(null);
   s.yard = cleanYard(null, VESSELS);
   s.cargo = cleanCargo(null);
+  s.stores = cleanStores(null);
   s.dive = cleanDive(null);
   s.comfort = cleanComfort(null);
   s.today = newToday(s.day);
@@ -472,6 +474,8 @@ export function sanitize(raw) {
   // What you carry in your boats, and what Bert keeps for you (cargo.js); the jerry can aboard a
   // boat that isn't one goes back to the garage.
   s.cargo = cleanCargo(raw.cargo, VESSELS);
+  // (F1a: food and water in her lockers, days; an older save's boats come stocked.)
+  s.stores = cleanStores(raw.stores);
   if (s.fuel.can.at.startsWith('boat:') && !VESSELS.includes(s.fuel.can.at.slice(5))) s.fuel.can.at = 'home';
   s.dive = cleanDive(raw.dive);
   s.seaLife = cleanSeaLife(raw.seaLife);

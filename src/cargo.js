@@ -15,11 +15,14 @@
 //    side heels her further. Only the boat you're in (or near) moves her loose things, and only a
 //    few each: nothing else in the world is simulated for it.
 //
-// state.cargo: { items: [{ uid, id, at ('ashore' | 'boat:<kind>'), x, z, secured, full }],
+// state.cargo: { items: [{ uid, id, at ('ashore' | 'boat:<kind>'), x, z, secured, full, days (a stores
+//   crate's food and water left, F1a) }],
 //   can: { x, z, secured } (where the jerry can sits when it's aboard: fuel.js has where it is) }.
 // x across (her port side +), z along (bow +), metres, in her own space, on her floor.
 
 export const G = 9.81;
+// Days of food and water in a full stores crate (see stores.js).
+export const STORES_DAYS = 3;
 
 // Each thing: its weight (kg; `empty` when it has been used), its size [across, up, along] lying
 // as it's stowed, what it costs, the deck's grip on it (static and sliding; a cylinder's across
@@ -29,7 +32,7 @@ export const CARGO = {
   fishbox: { name: 'Fish box', short: 'fish box', kg: 9, size: [0.5, 0.32, 0.78], price: 15, grip: { s: 0.55, k: 0.42 }, colour: '#e9eef0', trim: '#2f6fa8', note: 'An insulated box with ice: 9 kg as it stands.' },
   case: { name: 'Equipment case', short: 'case', kg: 11, size: [0.42, 0.24, 0.56], price: 35, grip: { s: 0.4, k: 0.3 }, colour: '#2c3136', trim: '#c9a227', note: 'A hard case for the camera, spares and tools.' },
   battery: { name: 'Spare battery', short: 'battery', kg: 24, size: [0.2, 0.24, 0.34], price: 90, grip: { s: 0.5, k: 0.4 }, colour: '#1f2326', trim: '#c0392b', note: 'A charged deep-cycle battery: swap it in when an electric motor’s is flat. It charges at a jetty or quay.' },
-  stores: { name: 'Stores crate', short: 'stores crate', kg: 22, size: [0.46, 0.34, 0.6], price: 20, grip: { s: 0.6, k: 0.45 }, colour: '#9a7a4f', trim: '#5c4630', note: 'Water and food for a few days away.' },
+  stores: { name: 'Stores crate', short: 'stores crate', kg: 22, empty: 6, size: [0.46, 0.34, 0.6], price: 20, grip: { s: 0.6, k: 0.45 }, colour: '#9a7a4f', trim: '#5c4630', note: 'Water and food for three days away, in any boat with room for it (see stores.js). Stocked again where her lockers are.' },
   can: { name: 'Jerry can', short: 'jerry can', kg: 1.6, size: [0.16, 0.34, 0.32], price: 0, grip: { s: 0.45, k: 0.35 }, colour: '#b3262a', note: 'Your jerry can, aboard: pour it into her tank from the deck.' },
 };
 export const CARGO_IDS = Object.keys(CARGO);
@@ -53,7 +56,9 @@ export function cleanCargo(raw, kinds = null) {
     const kind = typeof it.at === 'string' && /^boat:[a-z]{2,12}$/.test(it.at) ? it.at.slice(5) : null;
     const at = kind && (!kinds || kinds.includes(kind)) ? it.at : 'ashore';
     seen.add(it.uid);
-    c.items.push({ uid: it.uid, id: it.id, at, x: num(it.x, 0, -5, 5), z: num(it.z, 0, -15, 15), secured: it.secured !== false, full: it.full !== false });
+    c.items.push({ uid: it.uid, id: it.id, at, x: num(it.x, 0, -5, 5), z: num(it.z, 0, -15, 15), secured: it.secured !== false, full: it.full !== false,
+      // (F1a: a stores crate's days of food and water left in it; full in an older save.)
+      ...(it.id === 'stores' ? { days: Math.round(num(it.days, STORES_DAYS, 0, STORES_DAYS) * 100) / 100 } : {}) });
     if (c.items.length >= CARGO_MAX * 2) break;
   }
   if (isObj(raw.can)) c.can = { x: num(raw.can.x, 0, -5, 5), z: num(raw.can.z, 0, -15, 15), secured: raw.can.secured !== false };
@@ -65,6 +70,8 @@ export function weightOf(piece, canLitres = 0) {
   const C = CARGO[piece.id];
   if (!C) return 0;
   if (piece.id === 'can') return C.kg + Math.max(0, canLitres) * PETROL_KG;
+  // (A stores crate by what's left in it.)
+  if (piece.id === 'stores') return C.empty + (C.kg - C.empty) * Math.min(1, Math.max(0, piece.days ?? STORES_DAYS) / STORES_DAYS);
   return piece.full === false && C.empty ? C.empty : C.kg;
 }
 
@@ -79,7 +86,7 @@ export function buy(c, id) {
   if (c.items.length >= CARGO_MAX * 2) return { ok: false, why: 'Bert’s store room is full of your things.' };
   let n = c.items.length + 1;
   while (c.items.some((it) => it.uid === `c${n}`)) n++;
-  const it = { uid: `c${n}`, id, at: 'ashore', x: 0, z: 0, secured: true, full: true };
+  const it = { uid: `c${n}`, id, at: 'ashore', x: 0, z: 0, secured: true, full: true, ...(id === 'stores' ? { days: STORES_DAYS } : {}) };
   c.items.push(it);
   return { ok: true, item: it };
 }
