@@ -66,10 +66,10 @@ export const DEFAULT_STATE = {
   places: {},    // id -> { day, hour }
   items: {},     // lantern: true
   tips: {},      // which gentle hints have already been shown
-  boats: {},     // where each boat was left: kind ('row', 'skiff', 'kayak', 'bass', 'cabin', 'sail', 'cruiser', 'console', …) ->
+  boats: {},     // where each boat was left: her id (G8: for now her kind: 'row', 'skiff', 'kayak', 'bass', 'cabin', 'sail', …) ->
                  //   { x, z, heading, anchored, anchor: { x, z }, tie: { pier, side, along, heading }, motor }
-  vessel: 'row', // which boat you're in, or last used
-  tow: null,     // one boat towing another: { lead, towed } (kinds)
+  vessel: 'row', // which boat you're in, or last used (her id)
+  tow: null,     // one boat towing another: { lead, towed } (ids)
   mode: 'boat',  // 'boat' or 'foot'
   walker: null,  // { x, z, heading } while on foot
   gear: null,    // rods and tackle in the backpack, and what's tied on (see tackle.js)
@@ -91,8 +91,8 @@ export const DEFAULT_STATE = {
   sky: null,       // the weather right now: { cloud, rain, state, timer }
   seen: '',        // the parts of the map you've explored (see map.js), as base64
   seenSouth: '',   // the same for Las Brasas' chart, far to the south
-  shipping: [],    // boats on the supply ship between the harbours: { kind, to ('south' or 'home'), due (game hours) }
-  stored: null,    // your boats laid up ashore (kinds; see fleet.js): null until it's been decided
+  shipping: [],    // boats on the supply ship between the harbours: { kind (her id), to ('south' or 'home'), due (game hours) }
+  stored: null,    // your boats laid up ashore (ids; see fleet.js): null until it's been decided
   engines: {},     // each motorboat's engine room: switches, battery and trim (see engine.js)
   damage: {},      // what knocks have done to each boat: her hull, a RIB's tubes (see damage.js)
   yard: null,      // Willowhaven Marine Works: the boats you own, a day's hire, paint, names, fittings (see shipyard.js)
@@ -122,7 +122,7 @@ export const DEFAULT_STATE = {
   // loadouts, and what's on the wall at home.
   equip: null,     // { kit: { tent, stove, coolbox: 'home' | 'car' | 'pack' | 'camp:<id>' }, car: { rods, items } }
   car: null,       // { x, z, yaw, at: 'home' | destination id | null }
-  trailer: null,   // the boat trailer (see trailer.js): { hitched, boat (on it: a kind, or null) }
+  trailer: null,   // the boat trailer (see trailer.js): { hitched, boat (on it: her id, or null) }
   outing: null,    // { plan, last, lastDest, loadouts, travel, intro }
   home: null,      // { photos: [ids], keepsake, catchId, auto }
   guide: null,     // the first-trip guide: { on, done, dest, offered, finished, min, since } (see firstTrip.js)
@@ -242,6 +242,7 @@ const ID = /^[a-z0-9-]{3,40}$/;
 const X_LO = -3000, X_HI = 3000, Z_LO = -3000, Z_HI = 8000;
 const when = (v) => (isObj(v) ? { day: int(v.day, 1, 1, 1e6), hour: num(v.hour, 12, 0, 24) } : null);
 
+// (Your boats' ids: G8, for now one of each kind, her id her kind.)
 const VESSELS = ['row', 'skiff', 'kayak', 'bass', 'cabin', 'sail', 'cruiser', 'console', 'windsurf', 'jetski', 'rib'];
 
 function pos(v) {

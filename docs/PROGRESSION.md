@@ -43,5 +43,13 @@ the order the work goes in. Each step is one pull request, small enough to revie
 8. **G8 — Boats of her own.** The staged refactor from kind to boat: each boat an id of her own
    (the same as her kind at first, so nothing changes), then a saved registration with a serial,
    then a second boat of a kind: item 1.
+   - **G8a (done):** each boat an id of her own, the same as her kind: the boats built and found by
+     id; where each lies, the one you're in, the ones laid up, on the trailer, shipped and towed,
+     kept by id. Nothing a player sees changes.
+   - **G8b:** her kit and accounts by id too (fuel, stores, the fish box, cargo, papers, fit-out,
+     paint, engine room, damage, the trolling motor; jobs and the crossing), and a saved register
+     of your boats (her id, kind and registration) in a new save version.
+   - **G8c:** a second boat of a kind: her own berth and mooring, her own name, shared with friends
+     by id.
 
 Item 4 (research) grows through G3 and G6 rather than on its own.
