@@ -6,11 +6,12 @@ import { RODS, TACKLE } from './tackle.js';
 import { nextStory, adviceFor, rumoursNow, lower, an } from './innTalk.js';
 import { CHALLENGES } from './daybook.js';
 import { pay as payOut, earn as earnIn } from './economy.js';
-import { PRICES, hirePrice, PAINTS, PAINT_PRICE, NAME_PRICE, NAME_MAX, FITS, FIT_CATS, fitsFor, fitEffect, owns, hiredToday } from './shipyard.js';
+import { PRICES, hirePrice, PAINTS, PAINT_PRICE, NAME_PRICE, NAME_MAX, FITS, FIT_CATS, fitsFor, fitEffect, owns, hiredToday, SECOND, MOST_OF_A_KIND, ofKind } from './shipyard.js';
 import { FLAGS, flagById, STRIPE_PRICE, TUBES_PRICE } from './papers.js';
 import { MODELS as ENGINE_MODELS } from './engines.js';
 import { CATALOGUE, MODELS, PROPS, hasCatalogue, KN, rangeAt, propName, fittedName, propsFor } from './engines.js';
 import { TRIALS } from './engineTrials.js';
+import { kindOf } from './boatid.js';
 import { CARGO, SOLD as CARGO_SOLD, owned as cargoOwned } from './cargo.js';
 import { CREELS, ICE, BAIT, creelOf, newShop, onIce, freshBaitToday, wearOf, wearWords, respoolPrice, creelGroups, groupWords, creelWords, kgWords } from './shop.js';
 import { KAIGAN_HOURS, RAW_HOURS, kaiganValue, kaiganLine, specialsFor, gradeWords, DISHES } from './kaigan.js';
@@ -193,6 +194,16 @@ export class HarbourSheet {
       row.append(this.button('Look', () => { this.viewKind = kind; this.render(); }, kind === this.viewKind ? '' : 'quiet'));
       if (owns(Y, kind)) {
         row.append(el('p', '', `The ${name}`), el('span', 'cp-soft', 'yours'));
+        // (G8c) Another of her, for a boat that lives at Willowhaven: two to a kind.
+        const have = ofKind(Y, kind);
+        if (SECOND.includes(kind) && have.length < MOST_OF_A_KIND) row.append(this.button(`Buy another: ${money(PRICES[kind])}`, () => H.yardBuyAnother(kind), 'quiet'));
+        out.push(row);
+        for (const id of have.filter((x) => x !== kind)) {
+          const r2 = el('div', 'cp-row');
+          r2.append(el('p', '', `The ${H.boatName(id)}`), el('span', 'cp-soft', 'yours: your second'));
+          out.push(r2);
+        }
+        continue;
       } else if (hiredToday(Y, kind, day, this.state.day * 24 + this.state.hour)) {
         const until = Y.hired.until;
         row.append(el('p', '', `The ${name}`), el('span', 'cp-soft', Number.isFinite(until) ? `on hire to you until ${formatClock(until % 24)} ${Math.floor(until / 24) > day ? 'tomorrow' : 'today'}` : 'on hire to you today (back at the yard tomorrow)'));
@@ -210,7 +221,7 @@ export class HarbourSheet {
   // Paint and a name, on your own boats.
   renderLooks() {
     const out = [], Y = this.state.yard, H = this.hooks;
-    const mine = H.yardKinds().filter((k) => owns(Y, k));
+    const mine = H.yardBoats();
     this.lookKind = mine.includes(this.lookKind) ? this.lookKind : mine[0];
     const k = this.lookKind;
     out.push(el('p', 'hb-say', `Morwenna in the paint shed, a brush behind her ear: “Your colours, and her name on the bow in proper sign-writer’s letters. ${money(PAINT_PRICE)} a coat, ${money(NAME_PRICE)} for the name.”`));
@@ -310,7 +321,7 @@ export class HarbourSheet {
   renderFit() {
     const out = [], Y = this.state.yard, H = this.hooks;
     out.push(el('p', 'hb-say', 'In the workshop, an outboard hangs on a stand with its cowling off. “What’ll it be: range, speed, electronics, something for the deck? Fitted while you wait.”'));
-    const mine = H.yardKinds().filter((k) => owns(Y, k) && fitsFor(k, Y.fits[k] || []).length);
+    const mine = H.yardBoats().filter((k) => fitsFor(k, Y.fits[k] || []).length);
     if (!mine.length) {
       out.push(el('p', 'cp-soft', 'None of your boats takes a fitting from the workshop: the motorboats do (the skiff, the bass boat, the cabin boat, the centre console, the RIB, the yacht, the jet ski), and the sailing boat a few.'));
       return out;
@@ -324,7 +335,7 @@ export class HarbourSheet {
     out.push(el('p', 'hb-fit-sum', have.length
       ? `Fitted: ${have.length} · carrying ${e.kg} kg more · drawing up to ${e.amps.toFixed(1)} A${e.house ? ' (on her house battery)' : ''}`
       : 'As she came from the builder: nothing fitted yet.'));
-    if (hasCatalogue(k)) out.push(...this.engineBlock(k));
+    if (hasCatalogue(kindOf(k))) out.push(...this.engineBlock(k));
     for (const [cat, catName] of Object.entries(FIT_CATS)) {
       const ids = fitsFor(k, Y.fits[k] || []).filter((id) => FITS[id].cat === cat);
       if (!ids.length) continue;
@@ -354,7 +365,7 @@ export class HarbourSheet {
     const out = [], Y = this.state.yard, H = this.hooks;
     out.push(el('p', 'hb-say', 'Out in the yard a boat stands on blocks, a lamp under her bottom. “Brought her in knocked about? Let’s have a look.”'));
     let any = false;
-    for (const k of H.yardKinds().filter((x) => owns(Y, x))) {
+    for (const k of H.yardBoats()) {
       const rows = H.repairsFor?.(k) || [];
       if (!rows.length) continue;
       any = true;
@@ -389,7 +400,8 @@ export class HarbourSheet {
   // (engineTrials.js: measured on the boat herself, in open water on a calm day), and how it
   // compares with what she has now.
   engineBlock(k) {
-    const H = this.hooks, C = CATALOGUE[k], now = H.yardEngine(k), T = TRIALS[k] || {}, tank = H.tankOf(k);
+    // (k: her id, as the sheet has her; kk: her kind, for the catalogue of a boat like her.)
+    const kk = kindOf(k), H = this.hooks, C = CATALOGUE[kk], now = H.yardEngine(k), T = TRIALS[kk] || {}, tank = H.tankOf(k);
     const cur = T[`${now.model}/${now.prop}`], spec = H.engineSpecFor(k, now), O = MODELS[now.model], n = C.count || 1;
     const inboard = !!O.inboard, where = inboard ? 'In her engine room' : 'On her transom';
     const kn = (v) => `${(v * KN).toFixed(1)} kn`;
@@ -409,16 +421,16 @@ export class HarbourSheet {
     // (An electric outboard: its power in kilowatts, its range on its own battery at its own easy
     // pace, not on her tank at her cruise.)
     const power = (E) => (E.electric ? `${E.kw} kW` : n > 1 ? `2 × ${E.hp} hp` : `${E.hp} hp`);
-    const far = (x) => (x?.bph ? `${Math.round(rangeAt(x, tank, k))} nautical miles on a full battery at ${x.kn} knots` : `${Math.round(rangeAt(x, tank, k))} nautical miles on a full tank at ${C.cruise} knots`);
+    const far = (x) => (x?.bph ? `${Math.round(rangeAt(x, tank, kk))} nautical miles on a full battery at ${x.kn} knots` : `${Math.round(rangeAt(x, tank, kk))} nautical miles on a full tank at ${C.cruise} knots`);
     out.push(el('p', 'hb-fit-sum', `${where}: ${n > 1 ? 'a pair of ' : 'the '}${O.name}${n > 1 ? 's' : ''} (${power(O)} ${O.layout}, ${O.kg * n} kg), on ${n > 1 ? `${blades} ${spec.pitch}-inch propellers` : `a ${blades} ${spec.pitch}-inch propeller`}.${cur ? ` She does ${kn(cur.top)} flat out, and ${far(cur)}.` : ''}`));
     for (const model of C.models) {
-      const E = MODELS[model], on = model === now.model, t = T[`${model}/${propsFor(k, model).includes(now.prop) ? now.prop : 'matched'}`];
+      const E = MODELS[model], on = model === now.model, t = T[`${model}/${propsFor(kk, model).includes(now.prop) ? now.prop : 'matched'}`];
       const row = el('div', `cp-row hb-fit${on ? ' on' : ''}`);
       const text = el('div', 'hb-fit-text');
       const range = (x) => {
-        const nm = Math.round(rangeAt(x, tank, k));
+        const nm = Math.round(rangeAt(x, tank, kk));
         if (x.bph) return [`${nm} nm on its battery at ${x.kn} kn`];
-        const was = cur && !cur.bph ? Math.round(rangeAt(cur, tank, k)) : null;
+        const was = cur && !cur.bph ? Math.round(rangeAt(cur, tank, kk)) : null;
         return [`${nm} nm at ${C.cruise} kn${was != null && nm !== was ? ` (${nm > was ? '+' : '−'}${Math.abs(nm - was)})` : ''}`];
       };
       text.append(el('p', '', `${n > 1 ? 'Twin ' : ''}${E.name}${n > 1 ? 's' : ''}: ${power(E)}${model === C.stock ? ' (as she came)' : ''}`), el('span', 'cp-soft', E.desc),
@@ -429,13 +441,13 @@ export class HarbourSheet {
       out.push(row);
     }
     if (O.electric) out.push(el('p', 'cp-soft', `The ${O.name} turns its own propeller, matched to it. It charges free wherever she ties up at a jetty or a quay, and overnight; flat, the oars bring her in.`));
-    else out.push(el('p', 'cp-soft', `Propellers for the ${fittedName(k, now.model)}:`));
-    for (const prop of O.electric ? [] : propsFor(k, now.model)) {
+    else out.push(el('p', 'cp-soft', `Propellers for the ${fittedName(kk, now.model)}:`));
+    for (const prop of O.electric ? [] : propsFor(kk, now.model)) {
       const P = PROPS[prop], on = prop === now.prop, t = T[`${now.model}/${prop}`], pitch = H.engineSpecFor(k, { model: now.model, prop }).pitch;
       const row = el('div', `cp-row hb-fit${on ? ' on' : ''}`);
       const text = el('div', 'hb-fit-text');
       const laden = (x) => [`${kn(x.laden)} with ${C.crew}${diff(x.laden * KN, cur.laden * KN, ' kn')}`];
-      text.append(el('p', '', `${propName(k, prop)}: ${pitch}-inch`), el('span', 'cp-soft', P.desc), el('span', 'hb-fit-meta', figures(t, laden)));
+      text.append(el('p', '', `${propName(kk, prop)}: ${pitch}-inch`), el('span', 'cp-soft', P.desc), el('span', 'hb-fit-meta', figures(t, laden)));
       row.append(text);
       // (Hers, bent on the bottom: a new one of the same, or another fitted, puts it right.)
       const dmg = on ? H.propDamage?.(k) || 0 : 0;

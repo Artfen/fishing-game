@@ -14,7 +14,7 @@
 import { pay } from './economy.js';
 import { CATALOGUE, MODELS, PROPS, cleanChoice, propsFor } from './engines.js';
 import { cleanVessels, cleanTrim, newVessel, logLine, flagById, STRIPE_PRICE, TUBES_PRICE } from './papers.js';
-import { kindOf, isBoatId } from './boatid.js';
+import { kindOf, isBoatId, idFor } from './boatid.js';
 
 export const STARTER = ['row', 'skiff', 'kayak'];
 // What each boat costs (pounds): from a couple of good days' fishing to a summer's.
@@ -245,6 +245,30 @@ export function buyBoat(state, kind) {
   Y.vessels[kind] = newVessel(kind, state.day);
   logLine(Y.vessels[kind], state.day, `Bought at Willowhaven Marine Works for ${PRICES[kind]} pounds.`);
   return { ok: true };
+}
+
+
+// Another of a kind you have already, for good (G8c): her own id ('rib~2', see boatid.js), her own
+// papers, at the same price. Only the boats that live at Willowhaven (SECOND: the camp's and the
+// lake's moorings are one to a kind), and no more than MOST_OF_A_KIND of one: two to a kind is all
+// your finger of the pontoon takes. Returns { ok, why, id }.
+export const SECOND = ['windsurf', 'jetski', 'sail', 'cabin', 'rib', 'console', 'cruiser'];
+export const MOST_OF_A_KIND = 2;
+export const ofKind = (yard, kind) => yard.owned.filter((id) => kindOf(id) === kind);
+export function buyAnother(state, kind) {
+  const Y = state.yard;
+  if (!SECOND.includes(kind) || !PRICES[kind]) return { ok: false, why: 'The harbour has no berth for another of those.' };
+  if (!owns(Y, kind)) return { ok: false, why: 'She isn’t yours yet: buy her first.' };
+  if (ofKind(Y, kind).length >= MOST_OF_A_KIND) return { ok: false, why: 'Two of a kind is all your finger of the pontoon will take.' };
+  let n = 2;
+  while (Y.owned.includes(idFor(kind, n))) n++;
+  const id = idFor(kind, n);
+  const r = pay(state, PRICES[kind], `Bought another ${kind}`);
+  if (!r.ok) return r;
+  Y.owned.push(id);
+  Y.vessels[id] = newVessel(id, state.day);
+  logLine(Y.vessels[id], state.day, `Bought at Willowhaven Marine Works for ${PRICES[kind]} pounds: your second.`);
+  return { ok: true, id };
 }
 
 // Hire her for a day: 24 hours from now (one boat at a time). Returns { ok, why }.
