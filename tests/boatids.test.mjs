@@ -50,7 +50,7 @@ test('the game keeps each boat by her id: where she lies, the one you are in, la
   // (A guard on src/main.js: the places that mean "this boat" read her id, not her kind. Her kind
   // stays for what sort of boat she is: her home, her mooring, her hull.)
   const src = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
-  assert.match(src, /new Boat\(scene, \{ kind: k, id: k \}\)\)\.map\(\(b\) => \[b\.id, b\]\)/, 'the boats built and found by id');
+  assert.match(src, /new Boat\(scene, \{ kind: k, id: k \}\)[^;\n]*\.map\(\(b\) => \[b\.id, b\]\)/, 'the boats built and found by id (and a second of a kind, G8c)');
   for (const [what, re] of [
     ['where each lies in the save', /state\.boats\[id\] = \{/],
     ['the one you are in', /state\.vessel = boat\.id;/],
