@@ -13,7 +13,8 @@ const SPL = {
 };
 const south = (over = {}) => ({
   day: 4, region: 'south', busy: [], whales: [], dolphins: false, birds: false, storm: false, forecastStorm: false, wind: 5, summer: true,
-  canCross: true, beenSouth: true, places: SPL, usable: ['row', 'skiff', 'kayak', 'cruiser'], kinds: BOAT_KINDS, diveUnfound: [], ...over,
+  canCross: true, beenSouth: true, places: SPL, usable: ['row', 'skiff', 'kayak', 'cruiser'], kinds: BOAT_KINDS, diveUnfound: [],
+  diveSites: [{ id: 'bajon', name: 'El Bajón', x: 60, z: 6250, noAnchor: 'the reef’s a marine reserve' }], ...over,
 });
 const SOUTH = K.TEMPLATE_IDS.filter((t) => K.TEMPLATES[t].south);
 const take = (tpl, C = Object.assign(K.newContracts(), { count: 10 })) => {
@@ -25,13 +26,15 @@ const take = (tpl, C = Object.assign(K.newContracts(), { count: 10 })) => {
 };
 
 test('the slate: the island’s work, Paco’s and the fishermen’s, and only there', () => {
-  assert.deepEqual(SOUTH.sort(), ['angelote', 'cachalote', 'medregal', 'sondaveril', 'vieja']);
+  // (G2c added the island's charters and freight: tests/puertojobs.test.mjs.)
+  assert.deepEqual(SOUTH.sort(), ['angelote', 'avistamiento', 'boya', 'buceo', 'cachalote', 'medregal', 'salazon', 'sondaveril', 'vieja']);
   assert.equal(K.GIVERS.cofradia, 'The fishermen of Puerto Brasa');
-  for (const t of SOUTH) assert.ok(['paco', 'cofradia'].includes(K.TEMPLATES[t].giver), t);
-  // Over a month of days, every one of them turns up on the slate, and nothing else does.
+  for (const t of SOUTH) assert.ok(['paco', 'cofradia', 'buceo'].includes(K.TEMPLATES[t].giver), t);
+  // Over a month of days, every one of them turns up on the slate, and nothing else does. (For a
+  // skipper: the island's charters want a passenger ticket, as Willowhaven's do.)
   const seen = new Set();
   for (let d = 0; d < 30; d++) {
-    const offers = K.offers(K.newContracts(), south({ day: d }));
+    const offers = K.offers(Object.assign(K.newContracts(), { count: 10 }), south({ day: d }));
     assert.ok(offers.length >= 1 && offers.length <= 6, `day ${d}: ${offers.length}`);
     for (const o of offers) {
       assert.ok(K.TEMPLATES[o.tpl].south, `day ${d}: ${o.tpl} on the slate`);

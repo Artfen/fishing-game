@@ -4536,7 +4536,8 @@ function jobWorld() {
     day: state.day, region: 'home', busy, whales,
     // (The boats you can take out today, and the ones there are to hire, for a charter's "take".)
     usable: KINDS.filter(usable), kinds: KINDS.filter((k) => usable(k) || BOAT_PRICES[k]),
-    diveSites: PLACES.filter((p) => p.dive).map((p) => ({ id: p.id, name: p.name, x: p.x, z: p.z, noAnchor: DIVE_RULES[p.id] || null })),
+    // (Willowhaven's: the island's are the dive school's, on the slate.)
+    diveSites: PLACES.filter((p) => p.dive && !p.south).map((p) => ({ id: p.id, name: p.name, x: p.x, z: p.z, noAnchor: DIVE_RULES[p.id] || null })),
     // (What's left to find at each dive site, for the Trust's surveys.)
     diveUnfound: PLACES.filter((p) => p.dive && SITE_DETAILS[p.id]).map((p) => {
       const got = state.dive.sites[p.id]?.found || [];
@@ -4566,7 +4567,7 @@ function jobsDone(list) {
   for (const a of list || []) {
     if (a.onSpot) payJob(a.id, true);
     else {
-      hud.toast(`Job done: ${a.title}. Back to the notice board at Willowhaven to be paid.`, 6);
+      hud.toast(`Job done: ${a.title}. Back to ${Con.paidAt(a)} to be paid.`, 6);
       audio.chime?.();
     }
   }
@@ -4621,10 +4622,19 @@ function renderJobs() {
     },
   });
 }
-// (G2b) The island as the slate at Bar El Muelle reads it: its places and its weather.
+// (G2b) The island as the slate at Bar El Muelle reads it: its places and its weather. (G2c) Its
+// dive sites (the dive school's), and the boats of yours there now, in the water: none to hire on
+// the island, so a charter's offered only for a boat you have there.
+const SOUTH_DIVES = ['bajon', 'arcos', 'sebadal', 'coladas'];
+const SOUTH_DIVE_RULES = { sebadal: 'the seagrass is protected', bajon: 'the reef’s a marine reserve' };
 function southWorld() {
   const W = jobWorld();
-  return { ...W, region: 'south', busy: [], whales: [], places: Object.fromEntries(['puerto', 'veril', 'sebadal', 'coladas', 'bajon'].map((id) => [id, placeOf(id)])) };
+  const here = [...new Set(IDS.filter((id) => !isStored(id) && !BOATS[id].stowed && id !== state.trailer?.boat && regionOf(BOATS[id]) === 'south').map(kindOf))].filter((k) => W.usable.includes(k));
+  return {
+    ...W, region: 'south', busy: [], whales: [], usable: here, kinds: here,
+    diveSites: SOUTH_DIVES.map((id) => PLACES.find((p) => p.id === id)).filter(Boolean).map((p) => ({ id: p.id, name: p.name, x: p.x, z: p.z, noAnchor: SOUTH_DIVE_RULES[p.id] || null })),
+    places: Object.fromEntries(['puerto', 'veril', 'sebadal', 'coladas', 'bajon', 'haven'].map((id) => [id, placeOf(id)])),
+  };
 }
 // The slate's work, in its own box on Bar El Muelle's sheet: the island's offers, and the jobs
 // you've taken from it.
@@ -4684,9 +4694,11 @@ function updateJobs(dt) {
     const p = PLACES.find((q) => q.id === id);
     if (p && Math.hypot(P.x - p.x, P.z - p.z) < 40) at = id;
   }
-  // Home: afloat and stopped in Willowhaven's harbour (for charters' passengers and freight).
+  // Home: afloat and stopped in Willowhaven's harbour (for charters' passengers and freight); and
+  // the same in Puerto Brasa's, for the island's (G2c).
   const haven = PLACES.find((q) => q.id === 'haven');
   const home = afloat && boat.speed < 0.8 && Math.hypot(P.x - haven.x, P.z - haven.z) < 90;
+  const puerto = afloat && boat.speed < 0.8 && Math.hypot(P.x - PUERTO_AT.x, P.z - PUERTO_AT.z) < 75;
   const me = together.active ? together.id : 'me';
   const strayInfo = {};
   for (const [id, b] of strays) {
@@ -4703,7 +4715,7 @@ function updateJobs(dt) {
   const r = Con.tick(state.contracts, {
     x: P.x, z: P.z, now: t, abs: clock.abs, night: env.night > 0.5, sonar: afloat && finder.visible,
     sailing: afloat && !!boat.sailUp && !motorRunning(), whale, frenzy, at, tied, bumps: afloat ? jobBumps : 0,
-    home, boat: afloat ? boat.id : null, dt: step, speed: afloat ? boat.speed : 0, anchored: afloat && !!boat.anchored,
+    home, puerto, boat: afloat ? boat.id : null, dt: step, speed: afloat ? boat.speed : 0, anchored: afloat && !!boat.anchored,
     strays: strayInfo, sea: afloat ? waveHeightHere(P.x, P.z) : null, bow: afloat && sealife.pods.some((p) => p.mode === 'bow' && (p.owner == null || p.owner === me)),
   });
   jobBumps = 0;
@@ -4711,7 +4723,7 @@ function updateJobs(dt) {
     const o = a.obj;
     hud.toast(o.kind === 'charter' ? `${a.title}: ${o.pax} aboard${o.divers ? ' with their kit' : ''}. ${Con.standing(a)}`
       : o.kind === 'tow' ? (o.leak ? `${a.title}: she’s on your line. You pass across your bucket, and they stuff a rag in the sprung plank and bail: she’s still filling, but slowly. Gently now: into Willowhaven.` : `${a.title}: she’s on your line. Gently now: into Willowhaven.`)
-      : o.kind === 'pickup' ? (o.what === 'person' ? `${a.title}: aboard, cold and grateful. Home to Willowhaven.` : `${a.title}: hauled aboard. Home to Willowhaven with it.`)
+      : o.kind === 'pickup' ? (o.what === 'person' ? `${a.title}: aboard, cold and grateful. Home to Willowhaven.` : o.base === 'puerto' ? `${a.title}: hauled aboard. Into Puerto Brasa with it.` : `${a.title}: hauled aboard. Home to Willowhaven with it.`)
         : `${a.title}: loaded, ${o.cargo} kg. She sits lower for it: take her to ${a.where?.name || 'it'}.`, 6);
     audio.chime?.();
   }
@@ -4723,7 +4735,7 @@ function updateJobs(dt) {
   }
   for (const s of r.said) hud.toast(s.text, 6);
   for (const a of r.seen) {
-    hud.toast(`${a.title}: ${a.obj.dive ? 'all back aboard, and happy.' : a.obj.fish ? 'that’s their fish.' : 'they saw it, and loved it.'} Home to Willowhaven.`, 6);
+    hud.toast(`${a.title}: ${a.obj.dive ? 'all back aboard, and happy.' : a.obj.fish ? 'that’s their fish.' : 'they saw it, and loved it.'} ${a.obj.base === 'puerto' ? 'Back to Puerto Brasa.' : 'Home to Willowhaven.'}`, 6);
     audio.chime?.();
   }
   if (r.boarded.length || r.done.length || r.stepped.length) jobWeight();
@@ -4753,7 +4765,8 @@ function storyAt() {
 function jobAt(a) {
   const at = Con.target(a);
   if (!at?.home) return at;
-  const h = PLACES.find((q) => q.id === 'haven');
+  // (The job's harbour: Willowhaven, or Puerto Brasa for the island's.)
+  const h = PLACES.find((q) => q.id === (at.base === 'puerto' ? 'puerto' : 'haven'));
   return { x: h.x, z: h.z, name: at.name };
 }
 // (For the marker: the first job with somewhere to go.)
