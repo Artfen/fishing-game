@@ -1989,7 +1989,7 @@ function watchVoyage(dt) {
     if (afloat && !boat.tie && Math.abs(boat.speed) > 0.6) {
       // (How far out she gets is measured from the harbour of the sea she's in.)
       const H = region === 'south' ? PUERTO_AT : HAVEN;
-      state.voyage = newVoyage({ day: state.day, hour: state.hour, abs: clock.abs, kind: boat.kind, from: farName(boat.pos.x, boat.pos.z), x: H.x, z: H.z });
+      state.voyage = newVoyage({ day: state.day, hour: state.hour, abs: clock.abs, kind: boat.id, from: farName(boat.pos.x, boat.pos.z), x: H.x, z: H.z });
       voyAt = { x: boat.pos.x, z: boat.pos.z };
     }
     return;
@@ -1998,7 +1998,7 @@ function watchVoyage(dt) {
     const P = boat.pos, d = voyAt ? Math.hypot(P.x - voyAt.x, P.z - voyAt.z) : 0;
     // (Not the jumps: a passage by the map, being put somewhere.)
     onVoyage(V, { k: 'move', m: d < 300 ? d : 0, x: P.x, z: P.z, where: farName(P.x, P.z) });
-    onVoyage(V, { k: 'boat', kind: boat.kind });
+    onVoyage(V, { k: 'boat', kind: boat.id });
     voyAt = { x: P.x, z: P.z };
     const storm = conditions.sea.storm > 0.5;
     if (storm && !voyGale) onVoyage(V, { k: 'gale' });
@@ -6052,7 +6052,7 @@ function startPassage(to, S = boat, part = 1) {
   modal = 'travel';
   // (The cruiser takes the jet ski and the windsurf board along, lashed on deck, if they're by her.)
   const carry = S.hull.passage ? ['jetski', 'windsurf'].filter((k) => !BOATS[k].stowed && Math.hypot(BOATS[k].pos.x - S.pos.x, BOATS[k].pos.z - S.pos.z) < 45 && !(tow && (tow.lead === BOATS[k] || tow.towed === BOATS[k]))) : [];
-  passage = { to, kind: S.kind, t: 0, line: -1, moved: false, carry, part };
+  passage = { to, kind: S.id, t: 0, line: -1, moved: false, carry, part };
   hud.sleep(true, to === 'south' ? `You stow the gear, check her stores (${storesWordsOf(S.id)})${S.hull.passage ? ' and the oil' : ''}, and cast off…` : `You stow the gear, check her stores (${storesWordsOf(S.id)}), and cast off for the long run north…`);
 }
 
@@ -6078,7 +6078,7 @@ function updatePassage(dt) {
     passage = null;
     // (In the day book: the passage made, on the day you arrive.)
     voy({ k: 'cross', to: P.to, stage: 'in' });
-    noteCrossing(state.today, { to: P.to, stage: 'in', how: 'fast', boat: BOATS[P.kind]?.name || '' });
+    noteCrossing(state.today, { to: P.to, stage: 'in', how: 'fast', boat: boatCall(BOATS[P.kind]) || '' });
     state.passages = cleanPassages(state.passages);
     state.passages.fast++;
     if (P.to === 'south') {
@@ -7456,7 +7456,7 @@ function offerCrossing(to, S = boat, atEdge = false) {
 function startCrossing(to, S = boat) {
   if (crossingChecks(to, S).stop || modal) return;
   if (onFoot || boat !== S) board(S);
-  state.crossing = { to, kind: S.kind, day: state.day, abs: state.day * 24 + state.hour, secs: 0, events: planCrossing(state.day, to), weather: null, eased: false, back: false };
+  state.crossing = { to, kind: S.id, day: state.day, abs: state.day * 24 + state.hour, secs: 0, events: planCrossing(state.day, to), weather: null, eased: false, back: false };
   crossSaid = {};
   voy({ k: 'cross', to, stage: 'out' });
   noteCrossing(state.today, { to, stage: 'out', boat: S.name });
@@ -7493,8 +7493,9 @@ function updateCrossing(dt) {
   const C = state.crossing;
   conditions.trade = P.z > CROSSING.z0 - 400 && P.z < CROSSING.z1 + 400 ? tradeAt(P.z) : null;
   conditions.ocean = oceanAt(P.z, !!C);
-  for (const b of boats) b.vmax = b.hull.sail && b.sailUp ? Infinity : seaKindly(oceanAt(b.pos.z, C?.kind === b.kind), conditions.sea.swell, !!(C?.eased && C.kind === b.kind));
-  BOATS.sail.reef = C?.eased && C.kind === 'sail' ? 0.72 : 1;
+  for (const b of boats) b.vmax = b.hull.sail && b.sailUp ? Infinity : seaKindly(oceanAt(b.pos.z, C?.kind === b.id), conditions.sea.swell, !!(C?.eased && C.kind === b.id));
+  // (The sailing boat making the crossing, reefed when she's eased.)
+  for (const b of Object.values(BOATS)) if (b.kind === 'sail') b.reef = C?.eased && C.kind === b.id ? 0.72 : 1;
   edgeToastT -= dt;
   crossAim = null;
   if (!started || sleeping || traveling || passage) return;
@@ -7646,10 +7647,10 @@ function weatherTurns(C, B, h, storm, done) {
       hud.toast(`You put her about for ${back}: better a day lost than the boat. The marker shows the way back.`, 7);
       save();
     } }] : []),
-    { text: C.kind === 'sail' ? 'Reef and carry on' : 'Ease back, carry on', run: () => {
+    { text: kindOf(C.kind) === 'sail' ? 'Reef and carry on' : 'Ease back, carry on', run: () => {
       C.eased = true;
       C.weather = 'carry';
-      hud.toast(C.kind === 'sail' ? 'You tie in a reef: less sail, less heel, slower but easier on her. On you go.' : 'You ease her back to take the seas on the shoulder: slower, and kinder to her. On you go.', 7);
+      hud.toast(kindOf(C.kind) === 'sail' ? 'You tie in a reef: less sail, less heel, slower but easier on her. On you go.' : 'You ease her back to take the seas on the shoulder: slower, and kinder to her. On you go.', 7);
       save();
     } },
   ]);
@@ -7676,10 +7677,11 @@ function finishCrossing(C, going) {
     return;
   }
   P[going]++;
-  const was = P.best[C.kind];
-  if (!was || mins < was) P.best[C.kind] = mins;
+  // (The best crossing for a boat of her kind.)
+  const was = P.best[kindOf(C.kind)];
+  if (!was || mins < was) P.best[kindOf(C.kind)] = mins;
   voy({ k: 'cross', to: going, stage: 'in' });
-  noteCrossing(state.today, { to: going, stage: 'in', boat: BOATS[C.kind].name, mins });
+  noteCrossing(state.today, { to: going, stage: 'in', boat: boatCall(BOATS[C.kind]), mins });
   if (going === 'south') {
     const first = !state.tips.brasa;
     state.tips.brasa = true;
@@ -11398,8 +11400,8 @@ function whereIAm() {
   // (F4b) Towing: the boat on your towline, where she is, the pull on it and the line let run, so
   // friends see her come along behind you, and a crewmate tending it knows the strain.
   const W = tow?.lead === boat ? tow.towed : null;
-  const tw = W ? { k: W.kind, x: W.pos.x, z: W.pos.z, h: W.heading, t: (tow.T || 0) / 1000, l: tow.extra || 0, ...(tow.tender ? { e: tow.tender.id } : {}) } : undefined;
-  return { m: 'boat', k: boat.kind, x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), o: on, ...(tr ? { tr } : {}), ...(tw ? { tw } : {}), ...gear };
+  const tw = W ? { k: W.kind, ...(W.id !== W.kind && BOATS[W.id] === W ? { i: W.id } : {}), x: W.pos.x, z: W.pos.z, h: W.heading, t: (tow.T || 0) / 1000, l: tow.extra || 0, ...(tow.tender ? { e: tow.tender.id } : {}) } : undefined;
+  return { m: 'boat', k: boat.kind, ...(boat.id !== boat.kind ? { i: boat.id } : {}), x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), o: on, ...(tr ? { tr } : {}), ...(tw ? { tw } : {}), ...gear };
 }
 // A friend's fish, as it fights at the end of their line.
 const FISH_MOVE_WORDS = { run: 'fish on! it’s running', jump: 'fish on! it’s leaping', shake: 'fish on! head-shaking', charge: 'fish on! it’s charging', dive: 'fish on! it’s diving', longrun: 'fish on! a long run', sound: 'fish on! it’s sounding', circle: 'fish on! it’s circling' };
@@ -11410,7 +11412,7 @@ const gearWords = (P) => {
 };
 
 // Your boats in the water as your friends see them: where each is lying (but the one you're in).
-together.fleetSource = () => boats.filter((b) => !(b === boat && !onFoot)).map((b) => ({ k: b.kind, x: b.pos.x, z: b.pos.z, h: b.heading }));
+together.fleetSource = () => boats.filter((b) => !(b === boat && !onFoot)).map((b) => ({ k: b.kind, ...(b.id !== b.kind ? { i: b.id } : {}), x: b.pos.x, z: b.pos.z, h: b.heading }));
 // Playing in a friend's session you're a visitor in their harbour: your Willowhaven boats lying at
 // Willowhaven go to the visitors' row (theirs is the finger with their name on it); leaving it,
 // back to your own finger.
@@ -14043,6 +14045,7 @@ window.slowTide = {
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
   harbourOffice: () => harbourOffice(),
+  whereIAm: () => whereIAm(),
   pump: (id = 'haven') => openPump(id),
   get yard() { return state.yard; },
   get money() { return state.money; },

@@ -16,6 +16,7 @@ import { buildRod } from '../props.js';
 import { FightShow } from '../fightshow.js';
 import { fishById, buildFishMesh } from '../fish.js';
 import { Diver } from '../diver.js';
+import { kindOf } from '../boatid.js';
 
 const LINE_N = 18;  // points along a friend's line
 const DIVER_SEEN = 160; // how near a friend diving is drawn (m)
@@ -93,14 +94,15 @@ export class VisitorView {
     return d;
   }
 
-  boatFor(d, kind) {
-    if (d.boats[kind]) return d.boats[kind];
-    const old = this.keptBoat(d.name, 'boats', kind);
+  // (id: her kind, or a second of it's id, 'rib~2': see boatid.js.)
+  boatFor(d, id) {
+    if (d.boats[id]) return d.boats[id];
+    const old = this.keptBoat(d.name, 'boats', id);
     if (old) {
       old.group.visible = false;
-      return (d.boats[kind] = old);
+      return (d.boats[id] = old);
     }
-    const b = new Boat(this.scene, { kind, look: { stripe: d.look.coat } });
+    const b = new Boat(this.scene, { kind: kindOf(id), look: { stripe: d.look.coat } });
     const M = b.selfMats, L = d.look;
     M[0].color.set(L.coat);
     M[1].color.set(L.skin);
@@ -109,23 +111,23 @@ export class VisitorView {
     M[4].color.set(L.boots);
     b.setRower(true);
     b.group.visible = false;
-    d.boats[kind] = b;
+    d.boats[id] = b;
     return b;
   }
 
   // One of a friend's boats lying where they left her (nobody aboard): her own instance, apart from
   // the one they ride in.
-  mooredFor(d, kind) {
-    if (d.moored[kind]) return d.moored[kind];
-    const old = this.keptBoat(d.name, 'moored', kind);
+  mooredFor(d, id) {
+    if (d.moored[id]) return d.moored[id];
+    const old = this.keptBoat(d.name, 'moored', id);
     if (old) {
       old.group.visible = false;
-      return (d.moored[kind] = old);
+      return (d.moored[id] = old);
     }
-    const b = new Boat(this.scene, { kind, look: { stripe: d.look.coat } });
+    const b = new Boat(this.scene, { kind: kindOf(id), look: { stripe: d.look.coat } });
     b.setRower(false);
     b.group.visible = false;
-    d.moored[kind] = b;
+    d.moored[id] = b;
     return b;
   }
 
@@ -406,7 +408,7 @@ export class VisitorView {
       const diving = P.m === 'dive' && far < DIVER_SEEN;
       if (d.figure) d.figure.group.visible = false;
       if (d.diver && !diving) d.diver.group.visible = false;
-      for (const [k, b] of Object.entries(d.boats)) if (k !== P.k || !afloat) b.group.visible = false;
+      for (const [k, b] of Object.entries(d.boats)) if (k !== (P.i || P.k) || !afloat) b.group.visible = false;
       let tip = null;
       if (onFoot) {
         const f = this.figureFor(d, p.id);
@@ -435,7 +437,7 @@ export class VisitorView {
           f.rodTip.children[0].visible = P.ex == null;
         }
       } else if (afloat) {
-        const b = this.boatFor(d, P.k);
+        const b = this.boatFor(d, P.i || P.k);
         if (P.r) b.setRod(P.r);
         this.drawBoat(d, b, P, A, dt, t, { fx, glow, night, lights, eye });
         if (P.f || P.o) tip = b.rodTip;
@@ -447,11 +449,12 @@ export class VisitorView {
       // Their other boats in the water, lying where they left them (not the one they're in).
       const keep = new Set();
       // (The one on their towline is drawn with them, above.)
-      if (afloat && P.tw) keep.add(P.tw.k);
+      if (afloat && P.tw) keep.add(P.tw.i || P.tw.k);
       for (const F of p.fleet || []) {
-        if ((P.m === 'boat' && F.k === P.k) || (afloat && F.k === P.tw?.k) || Math.hypot(F.x - from.x, F.z - from.z) > 900) continue;
-        keep.add(F.k);
-        this.drawMoored(this.mooredFor(d, F.k), F, t);
+        const fid = F.i || F.k;
+        if ((P.m === 'boat' && fid === (P.i || P.k)) || (afloat && P.tw && fid === (P.tw.i || P.tw.k)) || Math.hypot(F.x - from.x, F.z - from.z) > 900) continue;
+        keep.add(fid);
+        this.drawMoored(this.mooredFor(d, fid), F, t);
       }
       for (const [k, b] of Object.entries(d.moored)) if (!keep.has(k)) b.group.visible = false;
     }
@@ -491,8 +494,8 @@ export class VisitorView {
   drawTow(d, lead, P, A, dt, t) {
     const W = P.tw;
     if (!W) return;
-    const b = this.mooredFor(d, W.k), ox = W.x - P.x, oz = W.z - P.z;
-    const o = d.towOff && b.group.visible && d.towOff.k === W.k ? d.towOff : (d.towOff = { k: W.k, x: ox, z: oz, h: W.h });
+    const wid = W.i || W.k, b = this.mooredFor(d, wid), ox = W.x - P.x, oz = W.z - P.z;
+    const o = d.towOff && b.group.visible && d.towOff.k === wid ? d.towOff : (d.towOff = { k: wid, x: ox, z: oz, h: W.h });
     const k = 1 - Math.exp(-6 * dt);
     o.x += (ox - o.x) * k;
     o.z += (oz - o.z) * k;

@@ -13,6 +13,7 @@ import { groundsOf, groundWords, SIGNS, NATURE, NATURE_IDS } from './grounds.js'
 import { SEA_LIFE } from './world/sealife.js';
 import { SITE_DETAILS, foundWords } from './world/divesites.js';
 import { treeOf, byOrder, recordOf, IUCN, KINGDOMS } from './taxonomy.js';
+import { kindOf, nthOf } from './boatid.js';
 
 const $ = (id) => document.getElementById(id);
 const ZONE_WORDS = {
@@ -233,7 +234,8 @@ export class Journal {
   // her papers' lines from it; the one under way; and the voyages in all.
   renderVoyages() {
     const st = this.state, list = (st.voyages || []).slice().reverse();
-    const names = { boat: (k) => VESSELS[k]?.name || k, life: (k) => (SEA_LIFE[k]?.name || k).split(' ').map((w) => (/^(Atlantic|European|Eurasian|Mediterranean|Canary|Manx)$/.test(w) || /[’']s$/.test(w) ? w : w.toLowerCase())).join(' ') };
+    // (A boat by her id: a second of a kind is "the second RIB". See boatid.js.)
+    const names = { boat: (k) => (VESSELS[kindOf(k)] ? `${nthOf(k) > 1 ? 'second ' : ''}${VESSELS[kindOf(k)].name}` : k), life: (k) => (SEA_LIFE[k]?.name || k).split(' ').map((w) => (/^(Atlantic|European|Eurasian|Mediterranean|Canary|Manx)$/.test(w) || /[’']s$/.test(w) ? w : w.toLowerCase())).join(' ') };
     $('voy-count').textContent = list.length ? String(list.length) : '';
     $('voy-list').replaceChildren(...(list.length ? list.map((R) => {
       const W = voyageWords(R, names), d = el('div', 'j-day');

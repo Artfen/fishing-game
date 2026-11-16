@@ -61,6 +61,8 @@ the order the work goes in. Each step is one pull request, small enough to revie
      on the yard's sheets and in the harbour office, a second named apart from the first (her name,
      or "second RIB"); everything every boat is given at the start given to a boat launched or
      bought later too (`eachBoat`).
-   - **G8c3:** friends seeing her by id; the crossing and the voyage journal by id.
+   - **G8c3 (done):** friends see a second boat of a kind by her id (her pose, her towing the other,
+     your moored boats), the crossing and the fast passage made in her by id, and the voyage journal
+     naming her "the second RIB". G8, boats of her own, is done.
 
 Item 4 (research) grows through G3 and G6 rather than on its own.
