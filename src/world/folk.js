@@ -42,6 +42,10 @@ const LOOKS = {
   // a little bent.)
   nayra: { coat: '#1f2f3a', legs: '#3b5a6e', boots: '#c9a27a', skin: '#c08a62', hat: 'hair', hair: '#1c1714', sleeves: 'rolled', idle: 'hips' },
   agustin: { coat: '#d8d0bd', legs: '#3a3a3a', boots: '#2a2420', skin: '#a77a55', hat: 'flatcap', hatColor: '#2b2b2b', stoop: 0.12, idle: 'behind' },
+  // (G9b: Bryn in an old waxed jacket and a rust-red beanie, a big man; Fen in the Trust's green
+  // fleece and walking boots, her hair tied back.)
+  bryn: { coat: '#5b5a3c', legs: '#3e3a34', boots: '#2a2420', skin: '#dcae88', hat: 'beanie', hatColor: '#9a4a2c', big: 1.05, stoop: 0.05, idle: 'pockets' },
+  fen: { coat: '#3f6a4c', legs: '#4a4a40', boots: '#5a4632', skin: '#ecc4a2', hat: 'bun', hair: '#9a6238', idle: 'folded' },
   // (Skippers seen only at the helm: the Sea Wren's, the Halcyon's, and the two kayakers.)
   tam: { coat: '#d9472b', legs: '#2f3a4a', boots: '#2a2a2a', skin: '#e3b48e', hatColor: '#2c3e50' },
   halcyon: { coat: '#f2efe6', legs: '#3a3f46', boots: '#2a2a2a', skin: '#efc6a2', hatColor: '#f2efe6' },
@@ -191,11 +195,12 @@ export class Figure {
     this.turnPh = 0;
     this.turnK = 0;
     this.talkK = 0;
+    this.glassUp = 0;
     this.props = null;
   }
 
   // What they might have in their hands, made the first time it's wanted: a broom, a gutting
-  // knife, a netting needle, a fish box, a bucket, a lobster pot.
+  // knife, a netting needle, a fish box, a bucket, a lobster pot, binoculars.
   prop(name) {
     this.props ||= {};
     if (this.props[name]) return this.props[name];
@@ -235,6 +240,25 @@ export class Figure {
       handle.position.y = -0.06;
       g.add(b, handle);
       this.arms[1].hand.add(g);
+    } else if (name === 'glasses' || name === 'strap') {
+      // Binoculars: up at the eyes (on the head, so they follow its look), or hanging on their
+      // strap at the chest.
+      const black = mat('#24282c');
+      for (const s of [-1, 1]) {
+        const tube = cast(new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.027, 0.12, 8), black));
+        tube.rotation.x = Math.PI / 2;
+        tube.position.x = s * 0.036;
+        g.add(tube);
+      }
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.05), black));
+      if (name === 'glasses') {
+        g.position.set(0, 0.012, 0.18);
+        this.head.add(g);
+      } else {
+        g.position.set(0, 0.3, 0.175);
+        g.rotation.x = 1.2;
+        this.torso.add(g);
+      }
     } else if (name === 'pot') {
       const box = cast(new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.28, 0.32), pot));
       box.position.set(0.12, -0.12, 0);
@@ -312,8 +336,9 @@ export class Figure {
     const sPrev = this.seat;
     this.seat = damp(this.seat, sitting ? 1 : 0, 4, dt);
     const s = this.seat, sitting2 = Math.abs(this.seat - sPrev) > 1e-4;
-    // (Hips down to the seat, half a metre up, or to the quay's deck: as far as their legs are long.)
-    let yOff = -s * (act === 'crab' ? 0.9 * sc - 0.03 : Math.max(0, 0.9 * sc - 0.47));
+    // (Hips down to the seat, half a metre up (or as high as the place's own seat: Fen's driftwood
+    // log is lower), or to the quay's deck: as far as their legs are long.)
+    let yOff = -s * (act === 'crab' ? 0.9 * sc - 0.03 : Math.max(0, 0.9 * sc - (SPOTS[p.block?.spot]?.seat ?? 0.47)));
     // Their weight, from foot to foot now and then, stood about.
     this.weightT -= dt;
     if (this.weightT <= 0) {
@@ -327,11 +352,11 @@ export class Figure {
     const breath = Math.sin(t * 1.65 + this.phase * 0.37);
     // Jobs, by where they are.
     const spot = p.block?.spot;
-    const job = act !== 'work' ? null : spot === 'innFront' ? 'sweep' : spot === 'slab' ? 'gut' : spot === 'pots' || spot === 'nets' ? 'mend' : spot === 'innBar' ? 'wipe' : spot === 'hull' ? 'sand' : 'busy';
+    const job = act !== 'work' ? null : spot === 'innFront' || spot === 'quayTop' ? 'sweep' : spot === 'slab' ? 'gut' : spot === 'pots' || spot === 'nets' ? 'mend' : spot === 'innBar' ? 'wipe' : spot === 'hull' ? 'sand' : spot === 'cliff' || spot === 'headland' ? 'count' : 'busy';
     // Walking to a job, what it needs: a rod and a bucket to fish, the fish box to the slab, a pot
     // down to the boat.
     const bound = act === 'walk' ? p.block : null;
-    const carry = !bound ? null : bound.act === 'fish' ? 'rod' : bound.spot === 'slab' ? 'box' : bound.spot === 'pots' || (bound.sea && this.id === 'dougie') ? 'pot' : bound.spot === 'innFront' ? 'broom' : null;
+    const carry = !bound ? null : bound.act === 'fish' ? 'rod' : bound.spot === 'slab' ? 'box' : bound.spot === 'pots' || (bound.sea && this.id === 'dougie') ? 'pot' : bound.spot === 'innFront' || bound.spot === 'quayTop' ? 'broom' : null;
     const crouch = job === 'mend' ? 1 : 0;
     this.crouch = damp(this.crouch ?? 0, crouch, 3, dt);
     const cr = this.crouch;
@@ -363,14 +388,19 @@ export class Figure {
     this.torso.rotation.x = (L.stoop ?? 0) + w * 0.06 + smoothstep(1.8, 2.6, this.speed) * w * 0.14 + (job === 'busy' ? 0.22 : job === 'gut' ? 0.32 : job === 'sweep' ? 0.18 : job === 'wipe' ? 0.2 : 0) + cr * 0.5 + (sitting ? -0.05 : 0) + rising + breath * 0.008 * (1 - w);
     let ty = w * fL * 0.16;
     if (job === 'sweep') ty += Math.sin(t * 2.4 + this.phase) * 0.35;
+    // (Counting the birds: binoculars up to the eyes, panning slowly along the cliff, and lowered
+    // now and then to jot the count down.)
+    this.glassUp = damp(this.glassUp, job === 'count' && Math.sin(t * 0.3 + this.phase) > -0.55 ? 1 : 0, 2.5, dt);
+    const up = this.glassUp;
+    if (job === 'count') ty += Math.sin(t * 0.22 + this.phase) * 0.35 * up;
     // You, near: a look your way (the head mostly, the shoulders a little), and a wave the first
     // time in a while you come within a few metres.
-    const canLook = from && dist < 8 && act !== 'inside' && !(job && job !== 'busy' && Math.sin(t * 0.4 + this.phase) < 0.6);
+    const canLook = from && dist < 8 && act !== 'inside' && up < 0.2 && !(job && job !== 'busy' && Math.sin(t * 0.4 + this.phase) < 0.6);
     const toYou = canLook ? clamp(wrapAngle(Math.atan2(dx, dz) - this.yaw), -1.3, 1.3) : 0;
     this.lookK = damp(this.lookK, canLook && Math.abs(toYou) < 1.25 ? 1 : 0, 3, dt);
     this.gaze = damp(this.gaze, toYou, 4, dt);
     const near = dist < 5;
-    if (near && !this.near && t - this.waved > 75 && act !== 'lift') {
+    if (near && !this.near && t - this.waved > 75 && act !== 'lift' && up < 0.5) {
       this.waveT = 1.7;
       this.waved = t;
     }
@@ -385,7 +415,7 @@ export class Figure {
     // A slow look about, now and then; your way when you're near; a nod as they listen.
     const about = act === 'stand' || act === 'sit' ? Math.sin(t * 0.3 + this.phase) * 0.45 : act === 'fish' ? Math.sin(t * 0.2 + this.phase) * 0.15 : 0;
     this.head.rotation.y = damp(this.head.rotation.y, env.chat ? Math.sin(t * 0.5 + this.phase) * 0.12 : this.lookK > 0.05 ? this.gaze * 0.72 : about * (1 - w) - ty * 0.6, 4, dt);
-    this.head.rotation.x = (env.chat && !env.chat.talking ? Math.max(0, Math.sin(t * 2.2 + this.phase) - 0.7) * 0.5 : 0) + (job === 'gut' || job === 'mend' ? 0.35 : 0) + talk * Math.sin(t * 3.1) * 0.05;
+    this.head.rotation.x = (env.chat && !env.chat.talking ? Math.max(0, Math.sin(t * 2.2 + this.phase) - 0.7) * 0.5 : 0) + (job === 'gut' || job === 'mend' ? 0.35 : 0) + up * 0.08 + talk * Math.sin(t * 3.1) * 0.05;
     // Arms: swinging from the shoulder as they walk (the elbow bending as each comes forward),
     // stood about in their own way, at their job, with what they carry, holding the rod or the
     // line, or a fish held up to show.
@@ -447,6 +477,12 @@ export class Figure {
         ls = -0.85;
         le = -0.35;
         lz = -0.2;
+      } else if (job === 'count') {
+        // (Up: both hands to the binoculars at the eyes, elbows out. Down: the notebook at the chest.)
+        ls = rs = -1.2 * up - 0.6 * (1 - up);
+        le = re = -1.95 * up - 1.3 * (1 - up);
+        lz = -0.9 * up - 0.25 * (1 - up);
+        rz = -lz;
       } else if (job === 'wipe') {
         // (Wiping down the bar: a slow round and round.)
         rs = -0.95 + Math.cos(t * 3.4) * 0.12;
@@ -524,6 +560,7 @@ export class Figure {
       ...(job === 'sweep' || carry === 'broom' ? ['broom'] : []),
       ...(job === 'gut' ? ['knife'] : []),
       ...(job === 'mend' ? ['needle'] : []),
+      ...(job === 'count' ? [up > 0.5 ? 'glasses' : 'strap'] : []),
       ...(carry === 'box' ? ['box'] : []),
       ...(carry === 'rod' ? ['bucket'] : []),
       ...(carry === 'pot' ? ['pot'] : []),

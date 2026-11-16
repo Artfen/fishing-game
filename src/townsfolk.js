@@ -1,4 +1,4 @@
-import { HAVEN_HOUSES, HAVEN_QUAY, HAVEN_MARKET, HAVEN_BENCH, SLIPWAY, STRAND, STACKS, HAVEN_FINGERS, HAVEN_PONTOON, VISITOR_FINGERS, HARBOUR_OFFICE, walkHeight, heightAt } from './world/terrain.js';
+import { HAVEN_HOUSES, HAVEN_QUAY, HAVEN_MARKET, HAVEN_BENCH, SLIPWAY, STRAND, STACKS, HAVEN_FINGERS, HAVEN_PONTOON, VISITOR_FINGERS, HARBOUR_OFFICE, QUAY, COVE_PIER, WEND_CAMP, WEND_HUT, GANNET_CAMP, walkHeight, heightAt } from './world/terrain.js';
 import { POSADA, QUAY_S } from './world/brasa.js';
 import { fishById } from './fish.js';
 import { seeded } from './util.js';
@@ -33,6 +33,15 @@ import { lower } from './innTalk.js';
 //  · Agustín, the oldest of the cofradía's fishermen, mends nets on the quay by the fuel pump of
 //    a morning and, after his siesta, of a fine afternoon; towards sunset he walks out along the
 //    dique to look at the weather, then sits with Chano outside the bar.
+//  · Bryn Tregear keeps Wend Quay and its camp, and lives in the hut above it: he sweeps the quay
+//    first thing, fishes for the mullet off the end of it through the morning and again of a fair
+//    evening (now and then he has one), puts the camp to rights after lunch, and sits on its bench
+//    till dark.
+//  · Fen Hollis is the Marine Trust's seabird warden on Gannet Isle for the season (spring and
+//    summer): she counts the colony from the clifftop over Puffin Cove at dawn and through the
+//    afternoon, watches from the landing stage of a morning, writes up her counts in the bivouac,
+//    eats on the driftwood log, and at dusk counts the shearwaters gathering off the island's east
+//    side. In autumn and winter the birds have gone, and so has she.
 //
 // Everyone walks at a stroll (1.3 m/s, so an hour of the game's clock covers about fifty metres)
 // along paths that keep clear of the buildings, walls and clutter (a little grid search over the
@@ -57,6 +66,9 @@ export const FOLK = {
   chano: { name: 'Chano', short: 'Chano', role: 'a fisherman of Puerto Brasa', home: 'chanoHome', south: true },
   nayra: { name: 'Nayra Cabrera', short: 'Nayra', role: 'runs Buceo Las Brasas, the dive school', home: 'nayraHome', south: true },
   agustin: { name: 'Agustín', short: 'Agustín', role: 'the oldest of the cofradía’s fishermen', home: 'agustinHome', south: true },
+  // (G9b) The small harbours': walked straight to their places (remote), as the island's are.
+  bryn: { name: 'Bryn Tregear', short: 'Bryn', role: 'keeps Wend Quay and its camp', home: 'brynHut', remote: true },
+  fen: { name: 'Fen Hollis', short: 'Fen', role: 'the Marine Trust’s seabird warden on Gannet Isle', home: 'bivouac', remote: true },
 };
 export const FOLK_IDS = Object.keys(FOLK);
 
@@ -71,6 +83,15 @@ const doorOf = (id, out = 1.2) => {
   return { x: p.x, z: p.z, yaw: b.yaw };
 };
 const Q = HAVEN_QUAY, M = HAVEN_MARKET;
+
+// (G9b) The foot of Wend Quay (Bryn's hut is world/terrain.js's WEND_HUT), and the ways round
+// Puffin Cove's camp: between the tackle box and the bivouac, the root of the landing stage, up
+// past the driftwood log to the slope, and round the front of the bivouac to the east.
+const WEND_FOOT = { x: QUAY.land.x - 3.5, z: QUAY.land.z };
+const COVE_CAMP = { x: GANNET_CAMP.x + 0.5, z: GANNET_CAMP.z };
+const COVE_FOOT = { x: COVE_PIER.land.x, z: COVE_PIER.land.z + 1.2 };
+const COVE_UP = { x: GANNET_CAMP.x - 3.5, z: GANNET_CAMP.z + 7 };
+const COVE_EAST = { x: GANNET_CAMP.x + 5.5, z: GANNET_CAMP.z + 1 };
 
 // Where people go, and which way they face there (yaw: 0 is +z, towards the bay).
 export const SPOTS = {
@@ -109,6 +130,22 @@ export const SPOTS = {
   nets: { x: 74, z: 6296, yaw: 0, south: true },
   dique: { x: 96.5, z: 6318, yaw: Math.PI / 2, south: true },
   barTable2: { x: POSADA.x + 1.1, z: POSADA.z + 7, yaw: Math.PI / 2, south: true },
+  // The small harbours (remote: walked to straight, by way of the points in `way`, from where the
+  // way starts: onto the quay at its foot, or round the camp's things).
+  // (Bryn: his hut's door (world/regions.js), the quay he sweeps, the end of it where he fishes
+  // for the mullet, the camp's bench, and the pitch beside the tent.)
+  brynHut: { x: WEND_HUT.x - 0.5, z: WEND_HUT.z - WEND_HUT.d / 2 - 0.8, yaw: Math.PI, remote: true },
+  quayTop: { x: QUAY.land.x + 4.5, z: QUAY.land.z - 0.2, yaw: Math.PI / 2, remote: true, way: [WEND_FOOT] },
+  mulletEnd: { x: QUAY.end.x - 0.6, z: QUAY.end.z - 0.3, yaw: Math.PI / 2 + 0.25, remote: true, way: [WEND_FOOT] },
+  wendBench: { x: WEND_CAMP.x + 1.2, z: WEND_CAMP.z - 2.32, yaw: 0, remote: true },
+  pitch: { x: WEND_CAMP.x - 0.4, z: WEND_CAMP.z + 4.4, yaw: -2.5, remote: true },
+  // (Fen: the bivouac's door (it faces the cove), the driftwood log, the end of the landing stage,
+  // the clifftop over the cove and its puffins, and the island's east side, over the sea.)
+  bivouac: { x: GANNET_CAMP.x + 2.6, z: GANNET_CAMP.z + 1.3, yaw: Math.PI, remote: true },
+  fenLog: { x: GANNET_CAMP.x - 0.3, z: GANNET_CAMP.z + 4.5, yaw: -Math.PI + 0.3, seat: 0.4, remote: true, way: [COVE_CAMP] },
+  stage: { x: COVE_PIER.end.x, z: COVE_PIER.end.z + 0.9, yaw: Math.PI, remote: true, way: [COVE_CAMP, COVE_FOOT] },
+  cliff: { x: GANNET_CAMP.x - 11, z: GANNET_CAMP.z + 26, yaw: Math.PI - 0.15, remote: true, way: [COVE_CAMP, COVE_UP] },
+  headland: { x: GANNET_CAMP.x + 25, z: GANNET_CAMP.z + 29, yaw: Math.PI / 2 - 0.3, remote: true, way: [COVE_EAST] },
   // Inside the chandlery and The Lobster Pot (see world/havenHouses.js): Bert behind his counter,
   // Ruth behind her bar, the regulars at the bar, the tables and the settle by the fire.
   ...ROOM_PLACES,
@@ -121,7 +158,7 @@ const ASHORE = { dougie: 'slipway', ian: 'slipway', chano: 'steps' };
 // Places reached by bike (out of sight on the way), not on foot.
 const FAR = new Set(['strand']);
 // Where someone fishes, in words.
-const WHERE = { strand: 'on Shell Strand', quayEnd: 'off the end of the quay', slipway: 'by the slipway', lee: 'in the lee of the quay' };
+const WHERE = { strand: 'on Shell Strand', quayEnd: 'off the end of the quay', slipway: 'by the slipway', lee: 'in the lee of the quay', mulletEnd: 'off Wend Quay' };
 
 // Dougie's boat: her mooring off the quay, where she lands at the quay's end, and the pots.
 export const MOORING = { x: 17, z: -79.6, heading: Math.PI };
@@ -383,6 +420,12 @@ export function hettieMark(hour, ctx) {
   return { spot: 'slipway', target: 'flounder', why: 'down by the slipway, a worm out on the sand for flounder' };
 }
 
+// In (at home, or the bivouac) until the next of the day's times, as each could take them out again.
+function hutUntil(key, h, times, spot, B) {
+  const i = times.findIndex((t) => h < t);
+  return i < 0 ? B(`${key}-${times.length}`, 24 + times[0], spot, 'inside') : B(`${key}-${i}`, times[i], spot, 'inside');
+}
+
 // What someone is doing at `hour` (a block of the day): { key, until, spot, act } where act is
 // 'stand' | 'sit' | 'work' | 'fish' | 'crab' | 'inside' (gone in at the spot's door) | 'boat'.
 export function blockFor(id, hour, ctx, day) {
@@ -486,6 +529,39 @@ export function blockFor(id, hour, ctx, day) {
       if (h >= 17.3 && h < 18.5 && (ctx.storm ?? 0) < 0.4) return B('dique', 18.5, 'dique', 'stand');
       if (h >= 18.5 && h < 22.5) return B('evening', 22.5, 'barTable2', 'sit');
       return B(`home-${h < 7 ? 0 : h < 17.3 ? 1 : 2}`, h < 7 ? 7 : h < 17.3 ? 17.3 : 31, 'agustinHome', 'inside');
+    case 'bryn': {
+      // (The quay swept first thing; the mullet off the end of it through the morning, unless it's
+      // blowing (they keep away from rough water) or pouring; the kettle in the hut; lunch on the
+      // bench; the camp put to rights; the mullet again of a fair evening; the bench till dark.)
+      const blow = (ctx.storm ?? 0) >= 0.4, wet = (ctx.rain ?? 0) >= 0.6;
+      if (h >= 6.5 && h < 7.8 && !blow) return B('sweep', 7.8, 'quayTop', 'work');
+      if (h >= 7.8 && h < 11 && !blow && !wet) return B('mullet-am', 11, 'mulletEnd', 'fish', { target: 'mullet' });
+      if (h >= 12.5 && h < 13.5 && !wet) return B('lunch', 13.5, 'wendBench', 'sit');
+      if (h >= 13.5 && h < 15.5 && !blow) return B('camp', 15.5, 'pitch', 'work');
+      if (h >= 17 && h < 19.5 && fair(ctx)) return B('mullet-pm', 19.5, 'mulletEnd', 'fish', { target: 'mullet' });
+      if (h >= 19.5 && h < 21.5 && !blow && (ctx.rain ?? 0) < 0.3) return B('evening', 21.5, 'wendBench', 'sit');
+      return hutUntil('hut', h, [6.5, 7.8, 11, 12.5, 13.5, 15.5, 17, 19.5, 21.5], 'brynHut', B);
+    }
+    case 'fen': {
+      // (Gannet Isle for the seabird season, spring and summer: the colony counted from the
+      // clifftop at dawn and through the afternoon, the landing stage of a morning, the counts
+      // written up in the bivouac, meals on the driftwood log, and at dusk the shearwaters counted
+      // as they gather off the island's east side. Not in a gale, nor counting in the pouring rain.
+      // In autumn and winter the birds have gone, and so has she.)
+      const season = ctx.season ?? 'summer';
+      if (season !== 'spring' && season !== 'summer') return B('away', 24 + 5.5, 'bivouac', 'inside', { away: true });
+      const blow = (ctx.storm ?? 0) >= 0.4, wet = (ctx.rain ?? 0) >= 0.6;
+      // (The clifftop's a stiff climb from the camp, the headland further: half an hour and more of
+      // the clock each way, so she comes down in good time for her meals.)
+      if (h >= 5.5 && h < 7.6 && !blow && !wet) return B('dawn', 7.6, 'cliff', 'work');
+      if (h >= 7.6 && h < 9 && !wet) return B('breakfast', 9, 'fenLog', 'sit');
+      if (h >= 9 && h < 11.5 && !blow) return B('stage', 11.5, 'stage', 'stand');
+      if (h >= 13.5 && h < 14.5 && !wet) return B('lunch', 14.5, 'fenLog', 'sit');
+      if (h >= 14.5 && h < 16.8 && !blow && !wet) return B('count', 16.8, 'cliff', 'work');
+      if (h >= 16.8 && h < 18.2 && !wet) return B('supper', 18.2, 'fenLog', 'sit');
+      if (h >= 18.2 && h < 21 && !blow && !wet) return B('dusk', 21, 'headland', 'work');
+      return hutUntil('in', h, [5.5, 7.6, 9, 11.5, 13.5, 14.5, 16.8, 18.2, 21], 'bivouac', B);
+    }
   }
   return B('none', 99, 'inn', 'inside');
 }
@@ -780,10 +856,18 @@ export class Townsfolk {
       p.t0 = abs + 0.2;
     }
     const S = SPOTS[b.spot];
-    // (At Puerto Brasa the waterfront is open: they walk straight there.)
-    if (FOLK[p.id].south) {
+    // (At Puerto Brasa the waterfront is open: they walk straight there. At the small harbours too,
+    // by way of the points on the way (onto the quay at its foot, round the camp's things): back
+    // along the way they came to where the two ways part, and out along the new one. Two places
+    // the same way out (along the quay, say) are walked between straight.)
+    if (FOLK[p.id].south || FOLK[p.id].remote) {
       if (!(p.away > abs)) p.away = 0;
-      p.path = Math.hypot(S.x - p.pos.x, S.z - p.pos.z) < 0.3 ? null : [{ ...p.pos }, { x: S.x, z: S.z }];
+      const back = (was && SPOTS[was.spot]?.way) || [], on = S.way || [];
+      let k = 0;
+      while (k < back.length && k < on.length && back[k] === on[k]) k++;
+      const same = k === back.length && k === on.length;
+      const via = same ? [] : [...back.slice(k).reverse(), ...(k ? [back[k - 1]] : []), ...on.slice(k)].map((q) => ({ x: q.x, z: q.z }));
+      p.path = Math.hypot(S.x - p.pos.x, S.z - p.pos.z) < 0.3 ? null : [{ ...p.pos }, ...via, { x: S.x, z: S.z }];
       p.len = p.path ? pathLength(p.path) : 0;
       return;
     }
@@ -849,7 +933,7 @@ export class Townsfolk {
       const slot = Math.floor(abs * 2);
       p.lastCatch = abs;
       const act = ctx.activity?.[b.target] ?? 0.5;
-      const r = seeded(slot * 131 + (p.id === 'hettie' ? 7 : 3))();
+      const r = seeded(slot * 131 + (p.id === 'hettie' ? 7 : p.id === 'bryn' ? 11 : 3))();
       if (r < 0.06 + 0.22 * act) {
         const sp = fishById[b.target];
         if (sp) {
@@ -1036,6 +1120,9 @@ export class Townsfolk {
       else if (P.leg === 'out') out.push('The Puffin’s off, under sail, out of the bay and on round the coast.');
       else out.push(V.stay ? 'The Puffin’s still at anchor in the bay, waiting for the weather to let her go on.' : 'The Puffin’s at anchor in the bay for the night: a little cruising boat, going round the coast.');
     }
+    // (G9b) The Trust's warden, out on Gannet Isle for the season.
+    const Fn = this.people.fen;
+    if (Fn && !Fn.block?.away) out.push('Fen Hollis is out on Gannet Isle for the Trust, counting the seabirds. She’d be glad of a visitor, and of the post.');
     return out;
   }
 
@@ -1111,6 +1198,23 @@ export function sayTo(p, { hour = 12, storm = 0, wanted = [], caught = 0, landed
       if (act === 'work') return `“Sixty years I’ve mended nets on this quay.” His needle doesn’t stop.${rep.cofradia > 0 ? ' “You carried our salt fish, our buoys. The cofradía doesn’t forget.”' : ' “The young ones buy new. A good net, you mend.”'}`;
       if (b.spot === 'dique') return storm > 0.3 ? '“Look at it. The sea’s the sea’s today. Tomorrow, maybe.”' : '“The trade wind’s backing. When the cloud sits on the Pico like a hat, it’ll blow by morning.”';
       return rep.cofradia > 0 ? '“¡Siéntate! The one who carried our fish to the English. Paco, another for my friend.”' : '“The salt fish, the way my father did it: split, salted, dried in the wind on the roofs. Your Mags pays well for it, they tell me.”';
+    // (G9b) Bryn at Wend Quay and Fen on Gannet Isle: what they're at, and a word for someone who's
+    // worked for the harbour office or the Trust.
+    case 'bryn': {
+      const mine = landed.filter((l) => l.who === 'Bryn'), last = mine[mine.length - 1];
+      if (act === 'walk') return '“Can’t stop: the tide won’t wait for me.”';
+      if (b.spot === 'quayTop') return `“Somebody has to keep the old quay. Three hundred years these stones have stood: I’d like them to see another three hundred.”${rep.wenna > 0 ? ' “Wenna speaks well of you, and she doesn’t speak well of many.”' : ''}`;
+      if (b.spot === 'mulletEnd') return last ? `“Had one! ${last.size} centimetres, on bread flake. Don’t tell Hettie: she says they can’t be caught off here.”` : '“Mullet. Look: grey backs, nosing at the weed on the stones. I can see them, they can see me, and thirty years they’ve laughed at me.”';
+      if (b.spot === 'pitch') return '“Campers leave their tent pegs everywhere. I’ve a jar of them in the hut: forty years of pegs.”';
+      if (hour >= 19.5) return '“Listen: the curlews, out on the flats. They’ll be calling all night, and the tide coming up under them.”';
+      return `“The tide comes up the Wend a good hour after it’s high at Willowhaven, and the mullet come up with it. Bread flake, a little float, and keep still: they see you long before you see them.”${rep.wenna > 0 ? ' “Sit down a minute. Wenna’s friends are mine.”' : ''}`;
+    }
+    case 'fen':
+      if (act === 'walk') return '“Sorry, can’t stop: I mustn’t miss the light.”';
+      if (b.spot === 'cliff') return `“Three hundred and twelve… Sorry. Puffins. They all look the same from up here, so I count the ones coming in with a beak full of sandeels: each of those is a chick being fed.”${rep.trust > 0 ? ' “Your counts are in the Trust’s records with mine, you know.”' : ''}`;
+      if (b.spot === 'headland') return '“They gather out there at dusk, the shearwaters, thousands of them, and come in to their burrows after dark. You’ll hear them before you see them: they wail like lost souls.”';
+      if (b.spot === 'stage') return rep.trust > 0 ? '“The Trust tells me you’ve done counts for us. Come up to the cliff one dawn and I’ll show you how it’s done on a colony.”' : '“The Trust’s boat comes out once a week, with water and the post. Anything sooner is a kindness.”';
+      return '“Porridge on a little stove, three months running. I dream about Ruth’s fish pie.”';
   }
   return '';
 }

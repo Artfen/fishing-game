@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {
-  heightAt, riverSDF, mereSDF, WEND_CAMP, QUAY, BOATHOUSE, BOATHOUSE_PIER, COVE_PIER, GANNET_CAMP, LIGHT,
+  heightAt, riverSDF, mereSDF, WEND_CAMP, WEND_HUT, QUAY, BOATHOUSE, BOATHOUSE_PIER, COVE_PIER, GANNET_CAMP, LIGHT,
   TIMBER, MERE_BAYS, SKERRIES, SKELLIG, MARSH, RIVER, SHOAL, PUFFIN_COVE,
 } from './terrain.js';
 import { BUOYS } from '../chartMarks.js';
@@ -106,12 +106,28 @@ export function buildRegions(scene, rnd) {
     obstacles.push({ x: tent.position.x, z: tent.position.z, r: 1.35 });
     chestParts(C.x + 1.5, gy, C.z + 2.2, Math.PI / 2, woodParts);
     obstacles.push({ x: C.x + 1.5, z: C.z + 2.2, r: 0.55 });
-    woodParts.push({ geo: new THREE.BoxGeometry(1.4, 0.06, 0.4), matrix: mat(C.x + 1, gy + 0.45, C.z - 2.4), color: '#a98258' });
-    for (const sx of [-0.6, 0.6]) woodParts.push({ geo: new THREE.BoxGeometry(0.06, 0.5, 0.36), matrix: mat(C.x + 1 + sx, gy + 0.2, C.z - 2.4), color: '#6e5238' });
+    // (The bench on its own ground: the camp's level ground rises towards the trail here.)
+    const by = heightAt(C.x + 1, C.z - 2.4);
+    woodParts.push({ geo: new THREE.BoxGeometry(1.4, 0.06, 0.4), matrix: mat(C.x + 1, by + 0.45, C.z - 2.4), color: '#a98258' });
+    for (const sx of [-0.6, 0.6]) woodParts.push({ geo: new THREE.BoxGeometry(0.06, 0.5, 0.36), matrix: mat(C.x + 1 + sx, by + 0.2, C.z - 2.4), color: '#6e5238' });
     const sx = C.x - 3.5, sz = C.z - 3.5, sy = heightAt(sx, sz);
     woodParts.push({ geo: new THREE.CylinderGeometry(0.06, 0.07, 1.8, 6), matrix: mat(sx, sy + 0.9, sz), color: '#6e5238' });
     woodParts.push({ geo: new THREE.BoxGeometry(1.0, 0.24, 0.05), matrix: mat(sx + 0.3, sy + 1.55, sz, 0, -0.9, 0), color: '#c9a978' });
     obstacles.push({ x: sx, z: sz, r: 0.12 });
+    // (G9b) Bryn Tregear's hut, on the level ground above the camp: painted boards gone grey, a
+    // tarred roof with a stove pipe, a red door and a window on the side towards the camp, and a
+    // water butt at the end.
+    const H = WEND_HUT, hy = heightAt(H.x, H.z), top = hy + 1.85, front = H.z - H.d / 2;
+    woodParts.push({ geo: new THREE.BoxGeometry(H.w, 2.1, H.d), matrix: mat(H.x, top - 1.05, H.z), color: '#66737a', jitter: 0.01 });
+    // (The gable ends: a low triangle along the ridge, under the two slopes of the roof.)
+    woodParts.push({ geo: new THREE.CylinderGeometry(1, 1, 1, 3), matrix: mat(H.x, top + 0.167, H.z, -Math.PI / 2, 0, Math.PI / 2, H.d / 1.732, H.w, 0.333), color: '#66737a' });
+    for (const s of [-1, 1]) woodParts.push({ geo: new THREE.BoxGeometry(H.w + 0.4, 0.09, H.d / 2 + 0.35), matrix: mat(H.x, top + 0.3, H.z + s * 0.56, s * 0.5, 0, 0), color: '#3b3734' });
+    woodParts.push({ geo: new THREE.BoxGeometry(0.8, 1.72, 0.05), matrix: mat(H.x - 0.5, hy + 0.86, front - 0.03), color: '#a5462f' });
+    woodParts.push({ geo: new THREE.BoxGeometry(0.72, 0.6, 0.03), matrix: mat(H.x + 0.65, hy + 1.2, front - 0.02), color: '#e6e0d2' });
+    plainParts.push({ geo: new THREE.BoxGeometry(0.58, 0.46, 0.03), matrix: mat(H.x + 0.65, hy + 1.2, front - 0.04), color: '#9fb2b8' });
+    plainParts.push({ geo: new THREE.CylinderGeometry(0.06, 0.06, 0.9, 6), matrix: mat(H.x + 0.85, top + 0.75, H.z + 0.35), color: '#2a2a2a' });
+    plainParts.push({ geo: new THREE.CylinderGeometry(0.3, 0.28, 0.8, 10), matrix: mat(H.x + H.w / 2 + 0.38, heightAt(H.x + H.w / 2 + 0.38, H.z - 0.5) + 0.38, H.z - 0.5), color: '#3d5640' });
+    obstacles.push({ x: H.x - 0.6, z: H.z, r: 1.2 }, { x: H.x + 0.6, z: H.z, r: 1.2 }, { x: H.x + H.w / 2 + 0.38, z: H.z - 0.5, r: 0.34 });
   }
 
   /* ---------- the Longmere boathouse ---------- */
@@ -121,8 +137,10 @@ export function buildRegions(scene, rnd) {
     // A tarred shed on the bank beside the jetty's land end.
     const hx = B.x + 4.5, hz = B.z + 4;
     woodParts.push({ geo: new THREE.BoxGeometry(4.2, 2.4, 3.4), matrix: mat(hx, gy + 1.2, hz), color: '#4a3a30', jitter: 0.01 });
-    woodParts.push({ geo: new THREE.BoxGeometry(4.6, 0.12, 2.2), matrix: mat(hx, gy + 2.75, hz - 0.85, 0.5, 0, 0), color: '#6a3a2a' });
-    woodParts.push({ geo: new THREE.BoxGeometry(4.6, 0.12, 2.2), matrix: mat(hx, gy + 2.75, hz + 0.85, -0.5, 0, 0), color: '#6a3a2a' });
+    // (Its roof pitched up to the ridge, the gable ends filled in under it.)
+    woodParts.push({ geo: new THREE.BoxGeometry(4.6, 0.12, 2.2), matrix: mat(hx, gy + 2.85, hz - 0.85, -0.5, 0, 0), color: '#6a3a2a' });
+    woodParts.push({ geo: new THREE.BoxGeometry(4.6, 0.12, 2.2), matrix: mat(hx, gy + 2.85, hz + 0.85, 0.5, 0, 0), color: '#6a3a2a' });
+    woodParts.push({ geo: new THREE.CylinderGeometry(1, 1, 1, 3), matrix: mat(hx, gy + 2.4 + 0.25, hz, -Math.PI / 2, 0, Math.PI / 2, 3.4 / 1.732, 4.2, 0.5), color: '#4a3a30' });
     woodParts.push({ geo: new THREE.BoxGeometry(1.1, 1.8, 0.06), matrix: mat(hx - 0.8, gy + 0.9, hz - 1.72), color: '#7a5a3a' });
     obstacles.push({ x: hx - 1, z: hz, r: 1.6 }, { x: hx + 1, z: hz, r: 1.6 });
     chestParts(B.x + 2.2, heightAt(B.x + 2.2, B.z - 2.4), B.z - 2.4, 0, woodParts);
