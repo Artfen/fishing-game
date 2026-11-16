@@ -32,7 +32,8 @@ test('the board answers the world: no deliveries in a gale, no dolphin pictures 
   // home's never on it.)
   const homeSeen = new Set(seen), slate = new Set();
   const SPL = { ...PL, veril: { x: 120, z: 6600, name: 'El Veril' }, sebadal: { x: 300, z: 6200, name: 'El Sebadal' }, coladas: { x: -480, z: 5640, name: 'Las Coladas' } };
-  for (let d = 0; d < 60; d++) for (const o of K.offers(master(), world({ day: d, region: 'south', beenSouth: true, places: SPL }))) slate.add(o.tpl);
+  // (G2c: with a boat of yours there that makes the crossing, for the island's freight home.)
+  for (let d = 0; d < 60; d++) for (const o of K.offers(master(), world({ day: d, region: 'south', beenSouth: true, places: SPL, usable: ['row', 'skiff', 'kayak', 'cruiser'] }))) slate.add(o.tpl);
   for (const t of slate) seen.add(t);
   for (const t of K.TEMPLATE_IDS) if (!K.TEMPLATES[t].call) assert.ok(seen.has(t), `${t} turns up`);
   for (const t of K.TEMPLATE_IDS) {

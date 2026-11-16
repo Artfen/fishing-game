@@ -75,10 +75,12 @@ test('charter offers name a boat you have, or one to hire, and never one that ca
       assert.ok(named && !fits(named, need), `${o.title}: ${o.boat}`);
     }
   }
-  // At the island, and in a gale, no charters.
+  // At the island, none of Willowhaven's charters: only the island's own, from Puerto Brasa
+  // (G2c, tests/puertojobs.test.mjs). In a gale, no charters.
   for (let d = 0; d < 40; d++) {
-    assert.ok(!K.offers(master(), world({ day: d, region: 'south', beenSouth: true })).some((o) => o.cat === 'charter'));
+    assert.ok(K.offers(master(), world({ day: d, region: 'south', beenSouth: true })).filter((o) => o.cat === 'charter').every((o) => o.obj.base === 'puerto' && K.TEMPLATES[o.tpl].south));
     assert.ok(!K.offers(master(), world({ day: d, storm: true })).some((o) => o.cat === 'charter'));
+    assert.ok(!K.offers(master(), world({ day: d, region: 'south', beenSouth: true, storm: true })).some((o) => o.cat === 'charter'));
   }
 });
 

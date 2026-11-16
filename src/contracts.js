@@ -52,6 +52,7 @@ export const GIVERS = {
   cofradia: 'The fishermen of Puerto Brasa',
   trips: 'Willow Bay Boat Trips',
   divers: 'Willow Bay Sub-Aqua Club',
+  buceo: 'Buceo Las Brasas, the dive school',
 };
 
 // (G4) Standing with each of them: the jobs done for them add up (each job's rep), and a giver who
@@ -101,6 +102,14 @@ function boatFor(W, need, what) {
   if (!any) return null;
   return mine ? `${what} (your ${vesselOf(mine).name} will do)` : `${what} (the ${vesselOf(any).name}: hire her for the day at the Marine Works)`;
 }
+// (G2c) Where a job's people and freight come aboard, and where they're brought back to:
+// Willowhaven's harbour, or Puerto Brasa's for the island's work (obj.base 'puerto'). x.home and
+// x.puerto: afloat and stopped in that harbour (see tick).
+export const BASES = { home: 'Willowhaven', puerto: 'Puerto Brasa' };
+const baseName = (o) => BASES[o?.base] || BASES.home;
+const atBase = (o, x) => (o?.base === 'puerto' ? !!x.puerto : !!x.home);
+// Where a job's paid: the slate at Bar El Muelle for the island's work, the notice board at home.
+export const paidAt = (a) => (TEMPLATES[a?.tpl]?.south ? 'Paco’s slate at Bar El Muelle' : 'the notice board at Willowhaven');
 // A day's seed (and the region's): the same board all day, a different one tomorrow.
 export function seeded(n) {
   let s = (n * 2654435761) >>> 0 || 1;
@@ -540,6 +549,72 @@ export const TEMPLATES = {
       };
     },
   },
+  // ---- (G2c) passengers and freight from Puerto Brasa ----
+  // The island's charters, a drifting buoy to bring in and the island's freight for home: aboard
+  // at Puerto Brasa (obj.base) and back to it, in a boat of yours that's on the island (the slate's
+  // W.usable and W.kinds: there's none to hire there, so with no boat for it there's no offer).
+  buceo: {
+    cat: 'charter', giver: 'buceo', south: true,
+    make(W, r) {
+      if (W.storm || !W.diveSites?.length) return null;
+      const can = [2, 4, 6].filter((n) => n <= W.rank.pax);
+      if (!can.length) return null;
+      const site = pick(r, W.diveSites), pax = pick(r, can), boat = boatFor(W, { pax, divers: true }, `a boat for ${pax} divers and their kit`);
+      if (!boat) return null;
+      return {
+        title: `Buceo: ${pax} divers to ${site.name}`, story: `The dive school on the quay has ${pax} divers booked for ${site.name}, and its own boat’s up on the slip with a cracked hull${site.noAnchor ? ` (${site.noAnchor}: no anchoring, so hold her on the spot while they’re down)` : ''}. Take them out from Puerto Brasa, stay with them while they dive, and bring them back.`,
+        goal: `Take ${pax} divers from Puerto Brasa to ${site.name}, stay on the site while they’re down, and back to Puerto Brasa`, obj: { kind: 'charter', base: 'puerto', pax, divers: true, dive: { x: site.x, z: site.z, r: 45, stay: 90, noAnchor: !!site.noAnchor } },
+        where: site, boat, gear: site.noAnchor ? 'a GPS trolling motor (Spot-Lock), or a steady hand on the helm' : null, difficulty: site.noAnchor ? 3 : 2, minutes: 35, pay: round5(30 + pax * 15 + (site.noAnchor ? 25 : 0)), rep: 2,
+      };
+    },
+  },
+  avistamiento: {
+    cat: 'charter', giver: 'paco', south: true,
+    make(W, r) {
+      if (W.storm) return null;
+      const can = [2, 3, 4, 6].filter((n) => n <= W.rank.pax);
+      if (!can.length) return null;
+      const whale = r() < 0.5, pax = pick(r, can), boat = boatFor(W, { pax }, `a boat with ${pax} seats`);
+      if (!boat) return null;
+      return {
+        title: whale ? `El cachalote: ${pax} visitors` : `Los delfines: ${pax} visitors`,
+        story: whale ? `${pax} visitors staying above the bar want to see the sperm whale that blows off the island’s south side, out over the deep water past El Veril, and Paco has told them you’ll find it. Pick them up at Puerto Brasa, wait for it to come up (it dives for a long time), and bring them back happy (rough water in an open boat and they won’t tip).`
+          : `${pax} visitors at the bar want to see dolphins ride a bow, and the spotted dolphins are off the harbour most days. Pick them up at Puerto Brasa, run out until they come and play on your bow, and bring them back (rough water in an open boat and they won’t tip).`,
+        goal: `Take ${pax} passengers from Puerto Brasa ${whale ? 'out to see the sperm whale surface' : 'out until dolphins ride your bow'}, and back to Puerto Brasa`, obj: { kind: 'charter', base: 'puerto', pax, see: whale ? 'whale' : 'dolphins' },
+        where: whale ? W.places?.veril || null : null, boat, difficulty: 2, minutes: whale ? 45 : 30, pay: round5((whale ? 30 : 20) + pax * 14), rep: 2, coop: true,
+      };
+    },
+  },
+  boya: {
+    cat: 'rescue', giver: 'cofradia', south: true,
+    make(W, r) {
+      if (W.storm || W.wind > 11) return null;
+      const S = pick(r, [{ x: -540, z: 6420, where: 'off Roque del Arco' }, { x: 330, z: 6340, where: 'off Playa Negra' }, { x: 260, z: 6640, where: 'out over El Veril' }]);
+      const boat = boatFor(W, { cargo: 40 }, 'a boat that can take 40 kg');
+      if (!boat) return null;
+      return {
+        title: 'La boya', story: `One of the cofradía’s mooring buoys broke away from its chain in the night and is drifting ${S.where}, a danger to anyone coming in after dark. Get alongside it, haul it aboard and bring it in to Puerto Brasa.`,
+        goal: `Get alongside the buoy ${S.where}, haul it aboard, and bring it in to Puerto Brasa`, obj: { kind: 'pickup', base: 'puerto', what: 'buoy', at: { x: S.x, z: S.z }, r: 7, cargo: 40 },
+        where: { x: S.x, z: S.z, name: 'the drifting buoy' }, boat, difficulty: 1, minutes: 15, pay: 20, rep: 1,
+      };
+    },
+  },
+  salazon: {
+    cat: 'delivery', giver: 'cofradia', south: true,
+    make(W, r) {
+      // (Across the ocean, so in fair weather, and in a boat of yours that makes the crossing and
+      // is at the island now.)
+      if (W.storm || W.forecastStorm) return null;
+      const kg = pick(r, [120, 180, 240].filter((k) => k <= W.rank.kg));
+      const by = kg && ['sail', 'cruiser'].find((k) => (W.usable || []).includes(k) && !fits(k, { cargo: kg }));
+      if (!by) return null;
+      return {
+        title: 'Salt fish for Mags', story: `The fishermen of Puerto Brasa salt and dry part of their catch the old way, and Mags Pennock will take all they can send her. ${kg} kg of it is boxed on the quay: load it at Puerto Brasa and carry it across the ocean to Willowhaven, in fair weather.`,
+        goal: `Load ${kg} kg of salt fish at Puerto Brasa and carry it across to Willowhaven`, obj: { kind: 'deliver', base: 'puerto', to: 'home', cargo: kg }, cargo: `${kg} kg of salt fish`,
+        where: W.places?.haven || null, boat: `a boat that makes the crossing with ${kg} kg aboard (your ${vesselOf(by).name} will do)`, difficulty: 3, minutes: 60, pay: round5(100 + kg * 0.25), rep: 3,
+      };
+    },
+  },
   // ---- harder calls (G6 of docs/PROGRESSION.md) ----
   // A skiff taking water: a plank sprung, her owner bailing and losing. She really fills (main.js
   // gives her the breach: see flooding.js), and swamped before she's on your line, she's lost to
@@ -896,9 +971,10 @@ export function tick(C, x) {
       const d = o.what === 'whale' ? x.whale : x.frenzy;
       if (d != null && d <= o.r) out.push(finish(a));
     } else if (o.kind === 'deliver') {
-      // (Freight: loaded at Willowhaven first, in a boat that can carry it; then there.)
+      // (Freight: loaded at Willowhaven first (or Puerto Brasa, for the island's), in a boat that
+      // can carry it; then there: a quay, or Willowhaven's harbour for the island's freight.)
       if (o.cargo && !P.loaded) {
-        if (x.home && x.boat) {
+        if (atBase(o, x) && x.boat) {
           const why = fits(x.boat, { cargo: o.cargo });
           if (!why) {
             P.loaded = true;
@@ -908,28 +984,29 @@ export function tick(C, x) {
             P.said = true;
             said.push({ a, text: `${a.title}: it won’t go in her, ${why}.` });
           }
-        } else if (!x.home) P.said = false;
+        } else if (!atBase(o, x)) P.said = false;
         continue;
       }
-      if (x.at === o.to && (!o.cargo || x.boat === P.boat)) out.push(finish(a, true));
+      if ((o.to === 'home' ? x.home : x.at === o.to) && (!o.cargo || x.boat === P.boat)) out.push(finish(a, true));
     } else if (o.kind === 'charter') {
-      // Aboard at Willowhaven (if she has the room), out to whatever they came for, and home.
-      // (Before the trip's begun they'll move to another boat at Willowhaven, if she has the room.)
-      const need = { pax: o.pax, divers: o.divers };
-      if (x.home && x.boat && x.boat !== P.boat && !P.seen && !fits(x.boat, need)) {
+      // Aboard at Willowhaven (or Puerto Brasa, for the island's: o.base) if she has the room,
+      // out to whatever they came for, and back. (Before the trip's begun they'll move to another
+      // boat there, if she has the room.)
+      const need = { pax: o.pax, divers: o.divers }, there = atBase(o, x);
+      if (there && x.boat && x.boat !== P.boat && !P.seen && !fits(x.boat, need)) {
         P.aboard = true;
         P.boat = x.boat;
         boarded.push(a);
         continue;
       }
       if (!P.aboard) {
-        if (x.home && x.boat) {
+        if (there && x.boat) {
           const why = fits(x.boat, need);
           if (!P.said) {
             P.said = true;
             said.push({ a, text: `${a.title}: they can’t all come in her, ${why}.` });
           }
-        } else if (!x.home) P.said = false;
+        } else if (!there) P.said = false;
         continue;
       }
       if (x.boat !== P.boat) continue;
@@ -953,9 +1030,10 @@ export function tick(C, x) {
       if (P.seen && !P.told) {
         P.told = true;
         seen.push(a);
-      } else if (P.seen && x.home) out.push(finish(a));
+      } else if (P.seen && there) out.push(finish(a));
     } else if (o.kind === 'pickup') {
-      // Alongside, slowly, in a boat with room: aboard. Then home, and the harbour office pays.
+      // Alongside, slowly, in a boat with room: aboard. Then home (or into Puerto Brasa, for the
+      // island's), and the harbour office pays.
       if (!P.picked) {
         const near = Math.hypot(x.x - o.at.x, x.z - o.at.z) <= o.r;
         if (near && x.boat && (x.speed ?? 0) < 1.5) {
@@ -971,7 +1049,7 @@ export function tick(C, x) {
         } else if (!near) P.said = false;
         continue;
       }
-      if (x.home && x.boat === P.boat) out.push(finish(a, true));
+      if (atBase(o, x) && x.boat === P.boat) out.push(finish(a, true));
     } else if (o.kind === 'tow') {
       // A boat out there with a dead engine (x.strays: the game's own boats for these jobs, each
       // { towed: on your line, home: in Willowhaven's harbour and still }): into the harbour, done.
@@ -1051,16 +1129,19 @@ export function target(a) {
     const m = o.marks[a.progress.next];
     return m ? { x: m.x, z: m.z, name: `${a.title}: mark ${a.progress.next + 1} of ${o.marks.length}` } : null;
   }
+  // (home: the job's harbour, Willowhaven or Puerto Brasa: base.)
+  const base = o.base === 'puerto' ? 'puerto' : 'home', back = base === 'puerto' ? 'back to Puerto Brasa' : 'home to Willowhaven';
   if (o.kind === 'charter') {
-    if (!a.progress.aboard || a.progress.seen) return { home: true, name: a.progress.aboard ? `${a.title}: home to Willowhaven` : `${a.title}: pick them up at Willowhaven` };
+    if (!a.progress.aboard || a.progress.seen) return { home: true, base, name: a.progress.aboard ? `${a.title}: ${back}` : `${a.title}: pick them up at ${baseName(o)}` };
     if (o.dive) return { x: o.dive.x, z: o.dive.z, name: a.where?.name || a.title };
   }
-  if (o.kind === 'deliver' && o.cargo && !a.progress.loaded) return { home: true, name: `${a.title}: load at Willowhaven` };
+  if (o.kind === 'deliver' && o.cargo && !a.progress.loaded) return { home: true, base, name: `${a.title}: load at ${baseName(o)}` };
+  if (o.kind === 'deliver' && o.to === 'home') return { home: true, base: 'home', name: `${a.title}: into Willowhaven` };
   if (o.kind === 'tow') {
     const p = a.progress.at || o.at;
     return a.progress.towing ? { home: true, name: `${a.title}: into Willowhaven` } : { x: p.x, z: p.z, name: a.title };
   }
-  if (o.kind === 'pickup') return a.progress.picked ? { home: true, name: `${a.title}: home to Willowhaven` } : { x: o.at.x, z: o.at.z, name: a.title };
+  if (o.kind === 'pickup') return a.progress.picked ? { home: true, base, name: `${a.title}: ${back}` } : { x: o.at.x, z: o.at.z, name: a.title };
   if (o.kind === 'stages') {
     const S = o.stages[a.progress.stage], name = `${a.title}: ${S.say}`;
     if (S.kind === 'load' || S.kind === 'home') return { home: true, name };
@@ -1072,20 +1153,20 @@ export function target(a) {
 
 // Where it stands, in a line, for the journal.
 export function standing(a) {
-  if (a.ready) return a.onSpot ? 'Done and paid.' : 'Done: back to the notice board at Willowhaven to be paid.';
-  const o = a.obj, P = a.progress;
+  if (a.ready) return a.onSpot ? 'Done and paid.' : `Done: back to ${paidAt(a)} to be paid.`;
+  const o = a.obj, P = a.progress, at = baseName(o);
   if (o.kind === 'catch' && o.distinct) return `${P.species.length} of ${o.distinct} kinds so far.`;
   if (o.kind === 'catch' && (o.count || 1) > 1) return `${P.got} of ${o.count} so far.`;
   if (o.kind === 'visit') return `Mark ${Math.min(P.next + 1, o.marks.length)} of ${o.marks.length}${o.limit && P.started != null ? ' (the clock’s running)' : ''}.`;
   if (o.kind === 'charter') {
-    if (!P.aboard) return `They’re waiting at Willowhaven: bring a boat with room for ${o.pax}${o.divers ? ' divers' : ''}.`;
+    if (!P.aboard) return `They’re waiting at ${at}: bring a boat with room for ${o.pax}${o.divers ? ' divers' : ''}.`;
     if (!P.seen) return o.dive ? `Divers down: ${Math.floor(P.stay)} of ${o.dive.stay} s on the site.` : o.fish ? `${P.caught} of ${o.fish} fish so far.` : o.see === 'whale' ? 'Find them a whale.' : 'Find them dolphins to ride your bow.';
-    return `Bring them home to Willowhaven${P.rough > 60 ? ' (a rough trip: no tip)' : ''}.`;
+    return `Bring them ${o.base === 'puerto' ? 'back to Puerto Brasa' : 'home to Willowhaven'}${P.rough > 60 ? ' (a rough trip: no tip)' : ''}.`;
   }
-  if (o.kind === 'deliver' && o.cargo && !P.loaded) return `${o.cargo} kg waiting on Willowhaven quay: bring a boat that can carry it.`;
+  if (o.kind === 'deliver' && o.cargo && !P.loaded) return `${o.cargo} kg waiting on ${at} quay: bring a boat that can carry it.`;
   if (o.kind === 'dive') return `${P.got} of ${o.n} new things logged.`;
   if (o.kind === 'notes') return `${(P.seen || []).length} of ${o.n} recorded.`;
-  if (o.kind === 'pickup') return P.picked ? 'Aboard: home to Willowhaven.' : 'Out there: get alongside, slowly.';
+  if (o.kind === 'pickup') return P.picked ? (o.base === 'puerto' ? 'Aboard: into Puerto Brasa.' : 'Aboard: home to Willowhaven.') : 'Out there: get alongside, slowly.';
   if (o.kind === 'tow') return P.towing ? 'On your towline: bring her into Willowhaven.' : 'Out there, engine dead: come alongside slowly and take her in tow.';
   if (o.kind === 'stages') {
     const S = o.stages[P.stage];
