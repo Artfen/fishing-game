@@ -15,6 +15,8 @@
 // a charter of eight, a ton of freight or a night out. The yacht: long range, passengers, freight
 // and a bed, for the price. The sailing boat: no fuel at all, and the seamanship to go with it.
 
+import { kindOf } from './boatid.js';
+
 export const KG_PER_PERSON = 80;
 export const VESSELS = {
   row: { name: 'rowing boat', seats: 1, cargo: 120, shelter: false, comfort: 0.5, divers: false, purpose: 'Cheap, quiet and simple: sheltered water, close to the fish.' },
@@ -30,7 +32,8 @@ export const VESSELS = {
   windsurf: { name: 'windsurf board', seats: 0, cargo: 0, shelter: false, comfort: 0.6, divers: false, purpose: 'For the fun of it, and the wind.' },
 };
 // She as she was built.
-export const hullOf = (kind) => VESSELS[kind] || VESSELS.row;
+// (By her kind, or her id: a second boat of a kind is the same sort of boat. See boatid.js.)
+export const hullOf = (kind) => VESSELS[kindOf(kind)] || VESSELS.row;
 // She as she's fitted out (G5 of docs/PROGRESSION.md): the Marine Works' extra seating, a dive
 // ladder and tank racks, a spray dodger (see shipyard.js FITS' work) change what she can take.
 // The game tells this module how her fittings change her (setFitOut: kind -> { seats, comfort,

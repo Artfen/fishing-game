@@ -9,6 +9,8 @@
 //
 // state.fishbox: { boat kind: game hour her ice lasts until }.
 
+import { kindOf, isBoatId } from './boatid.js';
+
 export const FISHBOX = {
   cabin: 'fish box',
   cruiser: 'fish hold',
@@ -19,7 +21,7 @@ export const FISHBOX = {
 export const BOX_HOURS = 72;
 export const BOX_PRICE = 6;
 
-export const hasBox = (kind) => Object.hasOwn(FISHBOX, kind);
+export const hasBox = (kind) => Object.hasOwn(FISHBOX, kindOf(kind));
 export const boxIceUntil = (state, kind) => (hasBox(kind) && state.fishbox?.[kind]) || 0;
 
 // Ice her box (to the full BOX_HOURS from `now`).
@@ -41,7 +43,7 @@ export const boxHoursLeft = (state, kind, now) => Math.max(0, boxIceUntil(state,
 // In words: "her fish box iced for 2 days more" / "… for 5 hours more" / "no ice in her fish box".
 export function boxWords(state, kind, now) {
   if (!hasBox(kind)) return '';
-  const h = boxHoursLeft(state, kind, now), box = FISHBOX[kind];
+  const h = boxHoursLeft(state, kind, now), box = FISHBOX[kindOf(kind)];
   if (h <= 0) return `no ice in her ${box}`;
   const n = Math.max(1, Math.round(h));
   return `her ${box} iced for ${h >= 36 ? `${Math.round(h / 24)} days` : h >= 20 ? 'a day' : `${n} hour${n === 1 ? '' : 's'}`} more`;
@@ -51,7 +53,8 @@ export function boxWords(state, kind, now) {
 export function cleanFishbox(raw) {
   const out = {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
-  for (const k of Object.keys(FISHBOX)) {
+  // (By her id: a second boat of a kind has a box of her own. See boatid.js.)
+  for (const k of Object.keys(raw).filter((k) => isBoatId(k, Object.keys(FISHBOX)))) {
     const v = raw[k];
     if (typeof v === 'number' && Number.isFinite(v) && v > 0) out[k] = Math.min(1e7, v);
   }

@@ -1,4 +1,5 @@
 import { DESTS, driveMinutes } from './outing.js';
+import { kindOf, isBoatId } from './boatid.js';
 
 // Fuel: light, and only for what has an engine. The car and the motorboats (the motor skiff,
 // the bass boat's outboard, the cabin boat, the sailing boat's little outboard, the centre
@@ -37,7 +38,7 @@ export const PASSAGE_FUEL = 90;
 export const CAN = 10;
 export const CAN_PLACES = ['home', 'car', 'pack'];
 // (Or aboard a boat, on her deck as cargo: 'boat:<kind>'; see cargo.js.)
-export const canPlace = (at) => CAN_PLACES.includes(at) || (typeof at === 'string' && /^boat:[a-z]{2,12}$/.test(at));
+export const canPlace = (at) => CAN_PLACES.includes(at) || (typeof at === 'string' && at.startsWith('boat:') && isBoatId(at.slice(5)));
 // The car: litres a minute of driving (a drive you let go by), and a metre (one you drive).
 // (Home to Willowhaven is about 2 L; Wend Quay or the Mere Boathouse and back, about a third of a tank.)
 export const CAR_PER_MIN = 0.35;
@@ -74,13 +75,15 @@ export function cleanFuel(raw) {
   d.car = num(raw.car, TANKS.car, 0, TANKS.car);
   // (Up to a long-range tank's worth: the game trims it to the tank she has. See shipyard.js.)
   if (isObj(raw.boats)) for (const k of PETROL) d.boats[k] = num(raw.boats[k], TANKS[k], 0, TANKS[k] * MAX_TANK);
+  // (A second boat of a kind's tank, by her id: see boatid.js.)
+  if (isObj(raw.boats)) for (const k of Object.keys(raw.boats)) if (k !== kindOf(k) && isBoatId(k, PETROL)) d.boats[k] = num(raw.boats[k], tankOf(k), 0, tankOf(k) * MAX_TANK);
   d.battery = num(raw.battery, 1, 0, 1);
   // (Each boat's trolling-motor battery, 0 … 1: a save from before them has them full.)
   d.troll = {};
-  if (raw.troll && typeof raw.troll === 'object') for (const k of PETROL) if (Number.isFinite(raw.troll[k])) d.troll[k] = num(raw.troll[k], 1, 0, 1);
+  if (raw.troll && typeof raw.troll === 'object') for (const k of Object.keys(raw.troll)) if (isBoatId(k, PETROL) && Number.isFinite(raw.troll[k])) d.troll[k] = num(raw.troll[k], 1, 0, 1);
   // (An electric outboard's battery, 0 … 1: one fitted before it was kept, or never run, is full.)
   d.elec = {};
-  if (isObj(raw.elec)) for (const k of PETROL) if (Number.isFinite(raw.elec[k])) d.elec[k] = num(raw.elec[k], 1, 0, 1);
+  if (isObj(raw.elec)) for (const k of Object.keys(raw.elec)) if (isBoatId(k, PETROL) && Number.isFinite(raw.elec[k])) d.elec[k] = num(raw.elec[k], 1, 0, 1);
   // (A save from before the kayak had a motor: its battery starts full.)
   d.kayak = num(raw.kayak, 1, 0, 1);
   if (isObj(raw.can)) {
@@ -92,17 +95,19 @@ export function cleanFuel(raw) {
 
 // How much is in a tank ('car' or a petrol boat), and how much it holds.
 export const level = (f, what) => (what === 'car' ? f.car : f.boats[what] ?? 0);
-export const room = (f, what) => TANKS[what] - level(f, what);
+// (Her tank: one the yard has made bigger is kept under her id, else her kind's.)
+const tankOf = (what) => TANKS[what] ?? TANKS[kindOf(what)];
+export const room = (f, what) => tankOf(what) - level(f, what);
 const set = (f, what, v) => {
   if (what === 'car') f.car = v;
   else f.boats[what] = v;
 };
-export const isPetrol = (kind) => PETROL.includes(kind);
+export const isPetrol = (kind) => PETROL.includes(kindOf(kind));
 // The biggest a tank can be made (a long-range tank: see shipyard.js).
 export const MAX_TANK = 1.5;
 // Litres into (or, negative, out of) a tank, never past full or below empty.
 export function addFuel(f, what, litres) {
-  set(f, what, Math.max(0, Math.min(TANKS[what], level(f, what) + litres)));
+  set(f, what, Math.max(0, Math.min(tankOf(what), level(f, what) + litres)));
   return level(f, what);
 }
 
@@ -141,7 +146,7 @@ export function burnBoat(f, kind, lever, dt, troll = 0) {
   if (v <= 0) return null;
   // (lever: how hard the engine's working. A propeller of lower pitch works it a little harder for
   // the same lever, up to its limiter: see engines.js effort.)
-  f.boats[kind] = Math.max(0, v - BOAT_PER_S[kind] * Math.pow(Math.min(1.05, Math.abs(lever)), 1.5) * dt);
+  f.boats[kind] = Math.max(0, v - (BOAT_PER_S[kind] ?? BOAT_PER_S[kindOf(kind)]) * Math.pow(Math.min(1.05, Math.abs(lever)), 1.5) * dt);
   return f.boats[kind] === 0 ? 'dry' : null;
 }
 
@@ -185,7 +190,7 @@ export function fill(f, what) {
     return r1(got);
   }
   const got = room(f, what);
-  set(f, what, TANKS[what]);
+  set(f, what, tankOf(what));
   return r1(got);
 }
 
@@ -213,10 +218,10 @@ export function rescue(f, what) {
 // In words, for the hints and the sheets: "31 of 45 L", "battery 80%".
 const amount = (v) => (v < 10 ? r1(v) : Math.round(v));
 export const litres = (v) => `${amount(v)} L`;
-export const tankWords = (f, what) => `${amount(level(f, what))} of ${TANKS[what]} L`;
+export const tankWords = (f, what) => `${amount(level(f, what))} of ${tankOf(what)} L`;
 export const batteryWords = (f, which = 'battery') => `battery ${Math.round(f[which] * 100)}%`;
 export const canWords = (f) => `${amount(f.can.litres)} of ${CAN} L`;
-export const low = (f, what) => level(f, what) < TANKS[what] * LOW;
+export const low = (f, what) => level(f, what) < tankOf(what) * LOW;
 
 // For the workbench's packing list and the car's "Where to?": will the tank get you there and
 // back? (A level per line, like the rest of the check: ok, info or warn.)

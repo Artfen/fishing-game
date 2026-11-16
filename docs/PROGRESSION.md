@@ -48,10 +48,13 @@ the order the work goes in. Each step is one pull request, small enough to revie
      kept by id. Nothing a player sees changes.
    - **G8b1 (done):** her engine room, her damage and her trolling motor her own, kept by id and
      found through the boat herself; bailing, pumping and leaving the helm remember the boat.
-   - **G8b2:** her accounts by id too (fuel, stores, the fish box, cargo, papers, fit-out, paint;
-     jobs and the crossing), and a saved register of your boats (her id, kind and registration) in
-     a new save version.
-   - **G8c:** a second boat of a kind: her own berth and mooring, her own name, shared with friends
-     by id.
+   - **G8b2 (done):** her accounts by id: her fuel and batteries, her lockers, her fish box, her
+     deck, her papers and registration, her paint, name, fittings and engine at the Marine Works, and
+     the boat a job or the story has her as. An id says her kind (`src/boatid.js`: the first of a
+     kind her kind, 'rib'; a second 'rib~2'), so each module finds what she is from it, and every
+     save from before keeps its ids: no new save version needed.
+   - **G8c:** a second boat of a kind: bought at the Marine Works, her own berth and mooring, her
+     fitted tank, burn and engine (still kept in tables by kind), the crossing and the voyage
+     journal by id, and friends seeing her by id.
 
 Item 4 (research) grows through G3 and G6 rather than on its own.

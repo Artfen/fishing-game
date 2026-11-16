@@ -14,6 +14,7 @@
 import { pay } from './economy.js';
 import { CATALOGUE, MODELS, PROPS, cleanChoice, propsFor } from './engines.js';
 import { cleanVessels, cleanTrim, newVessel, logLine, flagById, STRIPE_PRICE, TUBES_PRICE } from './papers.js';
+import { kindOf, isBoatId } from './boatid.js';
 
 export const STARTER = ['row', 'skiff', 'kayak'];
 // What each boat costs (pounds): from a couple of good days' fishing to a summer's.
@@ -157,7 +158,7 @@ export const FITS = {
 export const FIT_IDS = Object.keys(FITS);
 // (What she comes with as standard isn't offered, unless an older game bought it anyway: fitted,
 // it stays listed so it can be taken off.)
-export const fitsFor = (kind, fitted = []) => FIT_IDS.filter((id) => FITS[id].price[kind] && !(FITS[id].standardOn?.includes(kind) && !fitted.includes(id)));
+export const fitsFor = (kind, fitted = []) => FIT_IDS.filter((id) => FITS[id].price[kindOf(kind)] && !(FITS[id].standardOn?.includes(kindOf(kind)) && !fitted.includes(id)));
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 export const cleanBoatName = (v) => (typeof v === 'string' ? v.replace(/[^\p{L}\p{N} '’.&-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX) : '');
@@ -166,13 +167,14 @@ export const cleanBoatName = (v) => (typeof v === 'string' ? v.replace(/[^\p{L}\
 // Marine Works (it owns every boat it had); day: today (a boat's papers begin today if it has none).
 export function cleanYard(raw, kinds, legacy = false, day = 1) {
   const r = isObj(raw) ? raw : {};
-  let owned = Array.isArray(r.owned) ? [...new Set(r.owned.filter((k) => kinds.includes(k)))] : legacy ? [...kinds] : [...STARTER];
+  // (Each boat by her id: a second of a kind's too. See boatid.js.)
+  let owned = Array.isArray(r.owned) ? [...new Set(r.owned.filter((k) => isBoatId(k, kinds)))] : legacy ? [...kinds] : [...STARTER];
   for (const k of STARTER) if (kinds.includes(k) && !owned.includes(k)) owned.push(k);
   const hired = isObj(r.hired) && kinds.includes(r.hired.kind) && !owned.includes(r.hired.kind) && Number.isFinite(r.hired.day)
     ? { kind: r.hired.kind, day: r.hired.day, ...(Number.isFinite(r.hired.until) ? { until: r.hired.until } : {}) } : null;
   const looks = {};
   for (const [k, v] of Object.entries(isObj(r.looks) ? r.looks : {})) {
-    if (!kinds.includes(k) || !isObj(v)) continue;
+    if (!isBoatId(k, kinds) || !isObj(v)) continue;
     const paint = PAINTS.some((p) => p.id === v.paint) ? v.paint : null, name = cleanBoatName(v.name);
     // (And her stripe, a RIB's tubes, a flag: see papers.js.)
     const trim = cleanTrim(v, PAINTS.map((p) => p.id));
@@ -180,10 +182,10 @@ export function cleanYard(raw, kinds, legacy = false, day = 1) {
   }
   const fits = {};
   for (const [k, v] of Object.entries(isObj(r.fits) ? r.fits : {})) {
-    if (!kinds.includes(k) || !Array.isArray(v)) continue;
+    if (!isBoatId(k, kinds) || !Array.isArray(v)) continue;
     const ok = [];
     for (const id of new Set(v)) {
-      if (!FITS[id]?.price[k]) continue;
+      if (!FITS[id]?.price[kindOf(k)]) continue;
       // (One to a slot: the last one fitted.)
       const slot = FITS[id].slot;
       if (slot) for (let i = ok.length - 1; i >= 0; i--) if (FITS[ok[i]].slot === slot) ok.splice(i, 1);
@@ -203,6 +205,12 @@ export function cleanYard(raw, kinds, legacy = false, day = 1) {
     const old = !v && isObj(r.fits) && Array.isArray(r.fits[k]) ? r.fits[k].filter((id) => id === 'power' || id === 'economy').pop() : null;
     const c = cleanChoice(k, v || (old ? { model: CATALOGUE[k].legacy?.[old] } : null));
     if (c.model !== CATALOGUE[k].stock || c.prop !== 'matched') engines[k] = c;
+  }
+  // (A second boat of a kind's engine, by her id.)
+  for (const [k, v] of Object.entries(isObj(r.engines) ? r.engines : {})) {
+    if (k === kindOf(k) || !isBoatId(k, kinds) || !CATALOGUE[kindOf(k)] || !isObj(v)) continue;
+    const c = cleanChoice(kindOf(k), v);
+    if (c.model !== CATALOGUE[kindOf(k)].stock || c.prop !== 'matched') engines[k] = c;
   }
   // Each boat's papers: her registration, her log, what she's done (see papers.js).
   const vessels = cleanVessels(r.vessels, owned, day);
@@ -310,9 +318,9 @@ export function trimBoat(state, kind, what, id, { stripes = true, tubes = false 
 export function fitBoat(state, kind, id) {
   const Y = state.yard, F = FITS[id];
   if (!owns(Y, kind)) return { ok: false, why: 'Only your own boat.' };
-  if (!F?.price[kind]) return { ok: false, why: 'That doesn’t fit her.' };
+  if (!F?.price[kindOf(kind)]) return { ok: false, why: 'That doesn’t fit her.' };
   if (Y.fits[kind]?.includes(id)) return { ok: false, why: 'She has one already.' };
-  const r = pay(state, F.price[kind], `${F.name} for the ${kind}`);
+  const r = pay(state, F.price[kindOf(kind)], `${F.name} for the ${kindOf(kind)}`);
   if (!r.ok) return r;
   const was = (Y.fits[kind] || []).filter((x) => !(F.slot && FITS[x].slot === F.slot));
   const swapped = (Y.fits[kind] || []).find((x) => F.slot && FITS[x].slot === F.slot) || null;
@@ -323,32 +331,32 @@ export function fitBoat(state, kind, id) {
 // A new engine on her transom, or a new propeller (see engines.js): fitted while you wait, the old
 // one taken in part exchange (the price is what's left to pay). A new engine keeps the kind of
 // propeller she had, pitched for it. Returns { ok, why }.
-export const engineOf = (yard, kind) => cleanChoice(kind, yard?.engines?.[kind]);
+export const engineOf = (yard, kind) => cleanChoice(kindOf(kind), yard?.engines?.[kind]);
 function setEngine(Y, kind, c) {
   Y.engines ??= {};
-  if (c.model === CATALOGUE[kind].stock && c.prop === 'matched') delete Y.engines[kind];
+  if (c.model === CATALOGUE[kindOf(kind)].stock && c.prop === 'matched') delete Y.engines[kind];
   else Y.engines[kind] = c;
 }
 export function repowerBoat(state, kind, model) {
-  const Y = state.yard, C = CATALOGUE[kind];
+  const Y = state.yard, C = CATALOGUE[kindOf(kind)];
   if (!owns(Y, kind)) return { ok: false, why: 'Only your own boat.' };
   if (!C?.models.includes(model)) return { ok: false, why: 'That engine doesn’t go on her.' };
   const now = engineOf(Y, kind);
   if (now.model === model) return { ok: false, why: 'She has that engine already.' };
-  const r = pay(state, MODELS[model].price * (C.count || 1), `${MODELS[model].name} for the ${kind}`);
+  const r = pay(state, MODELS[model].price * (C.count || 1), `${MODELS[model].name} for the ${kindOf(kind)}`);
   if (!r.ok) return r;
   // (An electric comes with its own propeller; back to petrol, the one she had if it fits.)
-  setEngine(Y, kind, { model, prop: propsFor(kind, model).includes(now.prop) ? now.prop : 'matched' });
+  setEngine(Y, kind, { model, prop: propsFor(kindOf(kind), model).includes(now.prop) ? now.prop : 'matched' });
   return { ok: true };
 }
 export function repropBoat(state, kind, prop) {
   const Y = state.yard;
   if (!owns(Y, kind)) return { ok: false, why: 'Only your own boat.' };
-  if (!CATALOGUE[kind]?.props.includes(prop)) return { ok: false, why: 'That propeller doesn’t fit her.' };
+  if (!CATALOGUE[kindOf(kind)]?.props.includes(prop)) return { ok: false, why: 'That propeller doesn’t fit her.' };
   const now = engineOf(Y, kind);
-  if (!propsFor(kind, now.model).includes(prop)) return { ok: false, why: `The ${MODELS[now.model].name} takes only its own propeller.` };
+  if (!propsFor(kindOf(kind), now.model).includes(prop)) return { ok: false, why: `The ${MODELS[now.model].name} takes only its own propeller.` };
   if (now.prop === prop) return { ok: false, why: 'She has that propeller already.' };
-  const r = pay(state, PROPS[prop].price * (CATALOGUE[kind].count || 1), `A propeller for the ${kind}`);
+  const r = pay(state, PROPS[prop].price * (CATALOGUE[kindOf(kind)].count || 1), `A propeller for the ${kindOf(kind)}`);
   if (!r.ok) return r;
   setEngine(Y, kind, { ...now, prop });
   return { ok: true };
@@ -368,8 +376,10 @@ export function unfitBoat(state, kind, id) {
 //   sonar, plotter, vhf, house (a house battery), troll (the trolling battery's size), lights,
 //   livewell, holders, bimini, hold (how hard her anchor holds), seats (more), comfort (m more),
 //   divers (room for them now), list (the ids) }.
-export function fitEffect(yard, kind) {
-  const list = (yard?.fits?.[kind] || []).filter((id) => FITS[id]?.price[kind]);
+export function fitEffect(yard, id0) {
+  // (id0: her id, her fittings; kind: her kind, what they do on a boat like her.)
+  const kind = kindOf(id0);
+  const list = (yard?.fits?.[id0] || []).filter((id) => FITS[id]?.price[kind]);
   const has = (id) => list.includes(id);
   const e = { tank: 1, thrust: 1, burn: 1, kg: 0, amps: 0, sonar: false, deep: false, plotter: false, vhf: false, house: false, troll: 1, lights: false, livewell: false, holders: false, bimini: false, hold: 1, seats: 0, comfort: 0, divers: false, trollMotor: null, trollBank: false, list };
   for (const id of list) {

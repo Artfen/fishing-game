@@ -11,6 +11,7 @@
 // or drink but what you brought in your backpack and caught.
 
 import { STORES_DAYS } from './cargo.js';
+import { kindOf, isBoatId } from './boatid.js';
 
 export const GALLEY = { cabin: 3, cruiser: 6, sail: 3 };
 export const CRATE_DAYS = STORES_DAYS;
@@ -30,6 +31,8 @@ export function cleanStores(raw) {
   const s = newStores();
   if (!isObj(raw)) return s;
   for (const k of Object.keys(GALLEY)) s[k] = r2(num(raw[k], GALLEY[k], 0, GALLEY[k]));
+  // (A second boat of a kind's lockers, by her id: see boatid.js.)
+  for (const k of Object.keys(raw)) if (k !== kindOf(k) && isBoatId(k, Object.keys(GALLEY))) s[k] = r2(num(raw[k], GALLEY[kindOf(k)], 0, GALLEY[kindOf(k)]));
   return s;
 }
 
@@ -38,7 +41,7 @@ const cratesIn = (cargo, kind) => (cargo?.items || []).filter((it) => it.id === 
 
 // What's aboard her: { galley, crates, days (all of it), most (all she can carry) }.
 export function storesAboard(state, kind) {
-  const most = GALLEY[kind] ?? 0, galley = most ? Math.min(most, state.stores?.[kind] ?? most) : 0;
+  const most = GALLEY[kindOf(kind)] ?? 0, galley = most ? Math.min(most, state.stores?.[kind] ?? most) : 0;
   const crates = cratesIn(state.cargo, kind);
   const inCrates = crates.reduce((a, it) => a + (it.days ?? CRATE_DAYS), 0);
   return { galley, crates: crates.length, days: r2(galley + inCrates), most: most + crates.length * CRATE_DAYS };
@@ -52,10 +55,10 @@ export function draw(state, kind, days, part = false) {
   if (have + 0.005 < days && !part) return 0;
   let want = Math.min(days, have);
   const got = want;
-  if (GALLEY[kind]) {
+  if (GALLEY[kindOf(kind)]) {
     state.stores ??= newStores();
-    const g = Math.min(want, state.stores[kind] ?? GALLEY[kind]);
-    state.stores[kind] = r2((state.stores[kind] ?? GALLEY[kind]) - g);
+    const g = Math.min(want, state.stores[kind] ?? GALLEY[kindOf(kind)]);
+    state.stores[kind] = r2((state.stores[kind] ?? GALLEY[kindOf(kind)]) - g);
     want -= g;
   }
   for (const it of cratesIn(state.cargo, kind)) {
@@ -72,9 +75,9 @@ export function draw(state, kind, days, part = false) {
 export function stockUp(state, kind, profile = 'gentle', dry = false) {
   const A = storesAboard(state, kind), days = r2(A.most - A.days), price = r2(days * (DAY_PRICE[profile] ?? DAY_PRICE.gentle));
   if (!dry && days > 0) {
-    if (GALLEY[kind]) {
+    if (GALLEY[kindOf(kind)]) {
       state.stores ??= newStores();
-      state.stores[kind] = GALLEY[kind];
+      state.stores[kind] = GALLEY[kindOf(kind)];
     }
     for (const it of cratesIn(state.cargo, kind)) it.days = CRATE_DAYS;
   }
