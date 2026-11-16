@@ -598,6 +598,7 @@ export class HydroBody {
     this.dryT = 0;        // how long she's been clear of the water (s)
     this.impact = 0;      // the hardest she's met the water or the ground lately (m/s into it)
     this.grounded = 0;    // how much of her is resting on the bottom (0 … 1)
+    this.groundLoad = 0;  // the share of her weight the bottom is bearing (0 … 1 at rest)
     this.scrape = 0;      // how hard she's sliding on the bottom (m/s)
     // This step's hardest knock (vn: m/s square on; i: the contact point's index, in the model's
     // contacts (set 0: the bottom) or ring (set 1: a pier or a boat); x, z: where, in the world;
@@ -1011,7 +1012,7 @@ export class HydroBody {
     if (!env.ground) return;
     const M = this.model, m = this.m, nG = M.nGround ?? M.contacts.length;
     const k = (m * G * 12) / 0.05 / nG, c = 2 * Math.sqrt(k * m / nG) * 1.1;
-    let touching = 0, slide = 0, deep = 0, clear = Infinity;
+    let touching = 0, slide = 0, deep = 0, clear = Infinity, load = 0;
     const hit = this.hit, sl = this.slide;
     for (let ci = 0; ci < M.contacts.length; ci++) {
       // (A RIB's tubes, last in the list, only when her hull's within a metre and a half of the
@@ -1043,8 +1044,12 @@ export class HydroBody {
       slide = Math.max(slide, tl);
       if (tl > sl.v) { sl.v = tl; sl.i = ci; sl.x = p[0]; sl.z = p[2]; }
       this.addForce(nx * fn - tx * fr, ny * fn - ty * fr, nz * fn - tz * fr, p[0], p[1], p[2]);
+      load += ny * fn;
     }
     this.grounded = Math.min(1, touching / nG);
+    // (What the bottom holds up of her, as a share of her weight: what's left when the water
+    // under her no longer floats her. Read only: see aground.js.)
+    this.groundLoad = load / (m * G);
     this.scrape = touching ? slide : 0;
     // Deep in the ground (put down there, or driven up a beach): lifted out a little each step,
     // without any kick.

@@ -114,6 +114,7 @@ import { HOLD as REVEAL_HOLD, COUNT as REVEAL_COUNT, needle, verdictOf } from '.
 import { requestById, businessWith, accept as acceptFavour, decline as declineFavour, complete as completeFavour, caught as favourCaught, saw as favourSaw, photographed as favourPhotographed, buoyAt, pickUpBuoy, fishFor, remember, cleanFavours } from './requests.js';
 import { lower } from './innTalk.js';
 import { tideAt, tideWords, turns } from './world/tide.js';
+import { groundSpot as findGroundSpot, waterUnder, AGROUND, OFF as AGROUND_OFF } from './aground.js';
 import { Rockpools, poolNear, poolOpen, visibleLife, turnStone, settle, netIn, letGo, POOL_LIFE, POOL_SITES } from './world/rockpools.js';
 import { seasonOf, seasonWords, sunTimes, sunHour, seasonWarmth, riverFlow, leafTint, seasonLine, seasonBoost } from './world/season.js';
 import { galeSky, galeNear, hoursToGale, outlook, galeFor } from './world/forecast.js';
@@ -4440,8 +4441,12 @@ function syncStrays() {
       if (Array.isArray(W) && W.every((n) => Number.isFinite(n) && n >= 0)) b.damage.water = W.slice(0, 8);
       leakHelp(b, a);
     } else b.damage = null;
+    // (G6b: one aground lies on the bank with her bow swung round to the deep water, as she was put
+    // down; and where she's since been pulled to, the way she was lying.)
+    b._offT = 0;
+    b.aground = !!a.obj.aground;
     const p = a.progress.at || a.obj.at;
-    b.place(p.x, p.z, b.heading || 0);
+    b.place(p.x, p.z, p.h ?? a.obj.heading ?? b.heading ?? 0);
     b.group.visible = true;
     strays.set(id, b);
   }
@@ -4453,12 +4458,15 @@ function leakHelp(b, a) {
   b.damage.plugs.bottom = 'rag';
   b.bailing = true;
 }
-// (A stray within reach of you, slow, for the mooring prompt.)
+// (A stray within reach of you, slow, for the mooring prompt. G6b: one aground can't be come
+// alongside without going aground yourself, so her people heave you a line: within a heaving
+// line's throw of her will do.)
+const HEAVE = 12;
 function strayNear(reach = 4.5) {
-  let best = null;
+  let best = null, near = Infinity;
   for (const b of strays.values()) {
     const d = Math.hypot(b.pos.x - boat.pos.x, b.pos.z - boat.pos.z);
-    if (d < reach && b.speed < 1.2) { reach = d; best = b; }
+    if (d < (b.aground ? Math.max(reach, HEAVE) : reach) && d < near && b.speed < 1.2) { near = d; best = b; }
   }
   return best;
 }
@@ -4486,7 +4494,11 @@ function updateCalls(dt) {
   // (Out there, she's out there too: on the Blue Water, and how far from the harbour.)
   const spot = callSpot(blue);
   const km = spot ? Math.round(Math.hypot(spot.x - HARBOUR_OFFICE.x, spot.z - HARBOUR_OFFICE.z) / 100) / 10 : 0;
-  const o = spot && Con.callFor(C, { ...jobWorld(), callSpot: spot, offshore: blue ? { km } : null });
+  // (G6b: a bank near you, and a tide falling slowly enough to give a fair window, for a boat
+  // aground: see aground.js.)
+  const g = !blue && boat.pos.z < SOUTH_Z ? findGroundSpot(clock.abs, boat.pos) : null;
+  const groundSpot = g && { ...g, dryWords: formatClock(g.dryAt % 24) };
+  const o = spot && Con.callFor(C, { ...jobWorld(), callSpot: spot, groundSpot, offshore: blue ? { km } : null });
   Con.callMade(C, clock.abs);
   if (!o) return;
   audio.chime?.();
@@ -4589,7 +4601,7 @@ function payJob(id, onSpot = false) {
   const who = Con.GIVERS[r.contract.giver].split(',')[0];
   const as = { known: `known to ${who}`, trusted: `trusted by ${who}`, regular: `one of ${who}’s regulars` }[r.standing.id];
   const up = r.up && as ? ` You’re ${as} now: their work pays ${Math.round((r.standing.k - 1) * 100)}% more${r.standing.k >= 1.2 ? ', and comes first on the board' : ''}.` : '';
-  hud.toast(`${onSpot ? `${r.contract.title}: ${r.contract.cat === 'rescue' ? 'safely in' : 'delivered'}. ` : ''}Paid ${money(r.pay)} for ${r.contract.title.toLowerCase()}.${rough}${r.rep && !up ? ` ${who} will remember it.` : ''}${up}`, up ? 8 : 6);
+  hud.toast(`${onSpot ? `${r.contract.title}: ${r.contract.obj.aground ? 'off and afloat, and her owner takes her home' : r.contract.cat === 'rescue' ? 'safely in' : 'delivered'}. ` : ''}Paid ${money(r.pay)} for ${r.contract.title.toLowerCase()}.${rough}${r.rep && !up ? ` ${who} will remember it.` : ''}${up}`, up ? 8 : 6);
   audio.coins?.();
   save();
   return true;
@@ -4703,13 +4715,21 @@ function updateJobs(dt) {
   const strayInfo = {};
   for (const [id, b] of strays) {
     const a = state.contracts.active.find((c) => c.id === id);
-    if (a) a.progress.at = { x: Math.round(b.pos.x * 10) / 10, z: Math.round(b.pos.z * 10) / 10 };
+    if (a) a.progress.at = { x: Math.round(b.pos.x * 10) / 10, z: Math.round(b.pos.z * 10) / 10, h: Math.round(b.heading * 100) / 100 };
     // (G6: one taking water, how far gone she is, kept with the job.)
     if (a && b.damage) {
       a.progress.water = (b.damage.water || []).map((n) => Math.round(n));
       leakHelp(b, a);
     }
-    strayInfo[id] = { towed: !!tow && tow.towed === b, home: Math.hypot(b.pos.x - haven.x, b.pos.z - haven.z) < 90 && b.speed < 1, swamped: !!b.flooding?.swamped, sink: b.flooding ? Math.min(1, b.flooding.fill / SWAMPED) : 0 };
+    // (G6b) Aground: off once she's floated clear of the bank, none of her on the bottom and in water
+    // deeper than she draws, for a few seconds together.
+    let off = false;
+    if (a?.obj.aground) {
+      const clear = !(b.grounded > 0) && waterUnder(b.pos.x, b.pos.z, TIDE.level) > AGROUND.draft + AGROUND_OFF.clear;
+      b._offT = clear ? (b._offT || 0) + step : 0;
+      off = b._offT >= AGROUND_OFF.secs;
+    }
+    strayInfo[id] = { towed: !!tow && tow.towed === b, home: Math.hypot(b.pos.x - haven.x, b.pos.z - haven.z) < 90 && b.speed < 1, swamped: !!b.flooding?.swamped, sink: b.flooding ? Math.min(1, b.flooding.fill / SWAMPED) : 0, off };
   }
   const tied = afloat && boat.tie ? (VISITOR_FINGERS.includes(PIERS[boat.tie.pier]) ? 'visitors' : 'other') : null;
   const r = Con.tick(state.contracts, {
@@ -4722,6 +4742,7 @@ function updateJobs(dt) {
   for (const a of r.boarded) {
     const o = a.obj;
     hud.toast(o.kind === 'charter' ? `${a.title}: ${o.pax} aboard${o.divers ? ' with their kit' : ''}. ${Con.standing(a)}`
+      : o.kind === 'tow' && o.aground ? `${a.title}: she’s on your line. Take up the strain gently, then give her more if she won’t come, and ease her off into deep water: don’t snatch at it, and mind your own keel.`
       : o.kind === 'tow' ? (o.leak ? `${a.title}: she’s on your line. You pass across your bucket, and they stuff a rag in the sprung plank and bail: she’s still filling, but slowly. Gently now: into Willowhaven.` : `${a.title}: she’s on your line. Gently now: into Willowhaven.`)
       : o.kind === 'pickup' ? (o.what === 'person' ? `${a.title}: aboard, cold and grateful. Home to Willowhaven.` : o.base === 'puerto' ? `${a.title}: hauled aboard. Into Puerto Brasa with it.` : `${a.title}: hauled aboard. Home to Willowhaven with it.`)
         : `${a.title}: loaded, ${o.cargo} kg. She sits lower for it: take her to ${a.where?.name || 'it'}.`, 6);
@@ -4739,7 +4760,7 @@ function updateJobs(dt) {
     audio.chime?.();
   }
   if (r.boarded.length || r.done.length || r.stepped.length) jobWeight();
-  for (const a of r.missed) hud.toast(a.why === 'swamped' ? `${a.title}: she’s swamped. The inshore lifeboat has taken her owner off. Nothing lost but the job.` : `${a.title}: too late, the job’s gone. Nothing lost but the job.`, a.why ? 7 : 5);
+  for (const a of r.missed) hud.toast(a.why === 'swamped' ? `${a.title}: she’s swamped. The inshore lifeboat has taken her owner off. Nothing lost but the job.` : a.why === 'dry' ? `${a.title}: the tide’s left her, high and dry on the sand. She’ll float off on the flood, and her owner will wait for it. Nothing lost but the job.` : `${a.title}: too late, the job’s gone. Nothing lost but the job.`, a.why ? 7 : 5);
   if (r.missed.length) {
     jobWeight();
     save();
@@ -7297,7 +7318,7 @@ function interaction() {
     const S = !onFoot && boat.speed < 1.2 ? strayNear(tow && tow.lead === boat ? 9 : 5) : null;
     if (S) {
       const towing = tow && tow.lead === boat && tow.towed === S;
-      return { text: towing ? `Let go the ${S.name}` : `Take the ${S.boatName || S.name} in tow`, run: () => (towing ? letGoTow() : takeInTow(S)) };
+      return { text: towing ? `Let go the ${S.name}` : S.aground ? `Take the ${S.boatName || S.name}’s line` : `Take the ${S.boatName || S.name} in tow`, run: () => (towing ? letGoTow() : takeInTow(S)) };
     }
   }
   // A boat you stand in, walking her deck: back at the wheel, take the helm again.
@@ -13461,7 +13482,9 @@ function tick(now, manual = false) {
     b.update(dt, t, 0, 0, env.lantern, d > 140 && !towed ? true : aside ? 'moored' : false);
   }
   // (One taking water, G6, is always simulated: she fills whether you're watching or not.)
-  for (const b of strays.values()) b.update(dt, t, 0, 0, env.lantern, !(tow && tow.towed === b) && !b.damage && Math.hypot(b.pos.x - camera.position.x, b.pos.z - camera.position.z) > 140);
+  // (A stray far from anyone looking rests on the waves; not one taking water, nor, G6b, one aground:
+  // she sits on the sand as the tide leaves her, near or far.)
+  for (const b of strays.values()) b.update(dt, t, 0, 0, env.lantern, !(tow && tow.towed === b) && !b.damage && !b.aground && Math.hypot(b.pos.x - camera.position.x, b.pos.z - camera.position.z) > 140);
   // The wind lines: round the boat while you sail (or wherever you are, if you like them always).
   {
     const L = settings.weather.windLines, sailing = !onFoot && !driving && !dive && (boat.hull.sail || boat.hull.rig) && boat.sailUp;
