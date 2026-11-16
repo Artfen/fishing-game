@@ -53,8 +53,11 @@ the order the work goes in. Each step is one pull request, small enough to revie
      the boat a job or the story has her as. An id says her kind (`src/boatid.js`: the first of a
      kind her kind, 'rib'; a second 'rib~2'), so each module finds what she is from it, and every
      save from before keeps its ids: no new save version needed.
-   - **G8c:** a second boat of a kind: bought at the Marine Works, her own berth and mooring, her
-     fitted tank, burn and engine (still kept in tables by kind), the crossing and the voyage
-     journal by id, and friends seeing her by id.
+   - **G8c1 (done):** a second boat of a kind in a save (one of the boats that live at Willowhaven)
+     is built, moored at a berth of her own on your finger, fitted out (her tank, burn, engine and
+     its revs under her id), driven and saved like any other, and kept everywhere a boat is kept.
+   - **G8c2:** buying her at the Marine Works, and each of your boats on its own line on every
+     sheet (the yard, repairs, the boat store).
+   - **G8c3:** friends seeing her by id; the crossing and the voyage journal by id.
 
 Item 4 (research) grows through G3 and G6 rather than on its own.

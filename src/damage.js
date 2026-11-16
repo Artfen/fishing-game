@@ -29,6 +29,8 @@
 // working parts take no harm); on Standard, the full account; on Realistic, a little less takes a
 // little more, and a punctured tube goes soft sooner.
 
+import { kindOf } from './boatid.js';
+
 export const SECTIONS = ['bow', 'port', 'stbd', 'stern', 'bottom'];
 export const SECTION_NAMES = { bow: 'her bow', port: 'her port side', stbd: 'her starboard side', stern: 'her stern', bottom: 'her bottom' };
 // A RIB's tube chambers (port is her local +x): 0 port aft, 1 port fore, 2 starboard aft, 3
@@ -155,7 +157,7 @@ export function cleanDamages(raw, kinds) {
   const out = {};
   if (!raw || typeof raw !== 'object') return out;
   for (const k of kinds) {
-    const v = damageSave(cleanDamage(raw[k], TUBED.has(k)));
+    const v = damageSave(cleanDamage(raw[k], TUBED.has(kindOf(k))));
     if (v) out[k] = v;
   }
   return out;

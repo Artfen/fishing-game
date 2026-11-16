@@ -13,6 +13,8 @@
 // evening light. The record lives in the save: state.story = { ch, at: { id: { day, hour } },
 // wenna (the boat she's aboard, or null), laid, last }.
 
+import { kindOf, isBoatId } from './boatid.js';
+
 export const STORY_TITLE = 'The Fifth Name';
 const GAP = 12; // s between one chapter's card and the next, when several are already done
 
@@ -77,7 +79,7 @@ export function cleanStory(raw, kinds = null) {
   S.ch = Number.isInteger(raw.ch) ? Math.max(0, Math.min(CHAPTERS.length, raw.ch)) : 0;
   if (isObj(raw.at)) for (const [k, v] of Object.entries(raw.at)) if (CHAPTER_IDS.includes(k) && whenOk(v)) S.at[k] = { day: v.day, hour: v.hour };
   // (Wenna aboard only while the last scene is on, and only in a boat there is.)
-  if (CHAPTERS[S.ch]?.id === 'dusk' && typeof raw.wenna === 'string' && (!kinds || kinds.includes(raw.wenna))) S.wenna = raw.wenna;
+  if (CHAPTERS[S.ch]?.id === 'dusk' && isBoatId(raw.wenna) && (!kinds || kinds.includes(kindOf(raw.wenna)))) S.wenna = raw.wenna;
   S.laid = !!(S.wenna && raw.laid);
   return S;
 }

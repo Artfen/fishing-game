@@ -1287,3 +1287,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | Validation | New `tests/boataccounts.test.mjs` (5): an id says her kind (and nonsense isn't one); a second RIB's tank, batteries and jerry can apart from the first, the RIB's size; her lockers, fish box and deck her own, through a save; her papers (WH 171-2), paint, name, fittings (a RIB's, at a RIB's price) and engine her own; a guard on `src/main.js` that her accounts are asked for by id |
 | Remaining risks | Her fitted tank, burn and engine are still worked out into tables by kind each time the yard changes (G8c); the crossing and the voyage journal still record her kind |
 
+### Long-term play G8c1: a second boat of a kind, in the water
+
+| Field | |
+| --- | --- |
+| System | `src/save.js` (a second boat of a kind kept wherever a boat is: where she lies, the one you're in, the tow, shipping, the boats laid up, her engine room, damage and the jerry can aboard; one with no place yet starts laid up), `src/trailer.js`, `src/damage.js`, `src/story.js` (by id, her kind from it); `src/engine.js` (her revs flat out off her own engine room, `E.wot`); `src/main.js` (`SECONDS`: a second of a Willowhaven kind you own built as a boat of her own; `mooring` by id, a harbour boat at her own berth; the yard on each boat by id: her fitted tank, burn, engine and revs, her electric outboard; her loads, the jobs' weight and the cargo by id; the helm's fuel, her own) |
+| Previous issue | After G8b2, everything kept about a boat was by id, but the game built one boat of each kind, moored by kind, and worked out each boat's fitted tank, burn and engine into tables by kind |
+| Change | The first of G8c's stages: a second boat of a kind lives in the game as a boat of her own |
+| Player benefit | None to buy yet (G8c2): with one in the save, she's moored beside the first, fitted out as she is, and runs on her own tank |
+| Before | (From the code.) `BOATS` one per kind; `mooring(kind)`; `TANKS[k]`, `BOAT_PER_S[k]`, `ELEC[k]`, `WOT[k]` by kind |
+| After | In the game (browser), with a second RIB in the save (the *Second Wind*, a Skua 225 and a VHF): both RIBs tied up at berths of their own on your finger; aboard her out at sea, 15.7 m/s on her own engine, 0.43 L from her tank and none from the first RIB's; saved and loaded again, she's where she was and you're aboard her |
+| Validation | New `tests/secondboat.test.mjs` (3): a save keeps her everywhere a boat is kept, nonsense dropped; one with no place yet starts laid up, one you don't own isn't laid up; a guard on `src/main.js` that she's built, moored and fitted out by her id. The full suite |
+| Remaining risks | Only boats that live at Willowhaven can have a second (the camp's and the lake's moorings are one to a kind); the sheets still list your boats by kind (G8c2); friends see her by kind (G8c3) |
+
