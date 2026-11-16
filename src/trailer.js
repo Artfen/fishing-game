@@ -5,6 +5,8 @@
 // boat down to the sea. Plain rules here; the trailer you see is in car.js, the prompts in main.js.
 
 // The boats small enough to go on it.
+import { kindOf, isBoatId } from './boatid.js';
+
 export const TRAILABLE = ['kayak', 'row', 'skiff', 'bass', 'jetski'];
 // Where it stands at home when it isn't hitched: beside the garage's far wall, nose to the drive.
 export const TRAILER_HOME = { x: 139, z: -79, yaw: 0 };
@@ -18,7 +20,8 @@ export const LOAD_REACH = 40, LAUNCH_REACH = 28, LAUNCH_DEPTH = 0.7;
 // In the save: { hitched, boat (a kind, or null) }. A boat on it isn't in the water, nor laid up.
 export function cleanTrailer(raw, kinds = TRAILABLE) {
   const r = raw && typeof raw === 'object' ? raw : {};
-  const boat = TRAILABLE.includes(r.boat) && kinds.includes(r.boat) ? r.boat : null;
+  // (By her id: a second boat of a kind's trailable as the first is. See boatid.js.)
+  const boat = isBoatId(r.boat) && TRAILABLE.includes(kindOf(r.boat)) && kinds.includes(kindOf(r.boat)) ? r.boat : null;
   return { hitched: !!r.hitched || !!boat, boat };
 }
 

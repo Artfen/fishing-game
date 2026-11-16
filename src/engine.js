@@ -397,7 +397,8 @@ export function stepEngine(E, dt, ctx = {}, rnd = Math.random) {
       const vent = ventilation(E, ctx.speed || 0);
       const open = clamp(ctx.opening ?? Math.abs(ctx.power || 0), 0, 1);
       // (Flat out, the revs her propeller lets the engine reach: see engines.js and WOT.)
-      const top = WOT[E.kind] || P.max;
+      // (Her own engine's, when the yard's fitted one: E.wot. See main.js applyYard.)
+      const top = E.wot || WOT[E.kind] || P.max;
       const free = P.idle + (top - P.idle) * Math.pow(open, 0.85) * (E.temp >= 1 ? 0.55 : 1);
       let want = free * (1 + 0.12 * vent);
       // In gear, with what her propeller's pitched for known (ctx.vd), the propeller holds the

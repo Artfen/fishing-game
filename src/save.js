@@ -33,6 +33,7 @@ import { cleanWatch } from './watching.js';
 import { cleanSafety } from './safety.js';
 import { BEHAVIOUR_IDS } from './behaviour.js';
 import { BIRD_KINDS } from './birdData.js';
+import { kindOf, isBoatId } from './boatid.js';
 
 // Saving your progress in this browser, with nobody to sign in to.
 //
@@ -338,8 +339,14 @@ export function sanitize(raw) {
     const b = pos(boats[k]);
     if (b) s.boats[k] = b;
   }
-  s.vessel = oneOf(raw.vessel, VESSELS, 'row');
-  s.tow = isObj(raw.tow) && VESSELS.includes(raw.tow.lead) && VESSELS.includes(raw.tow.towed) && raw.tow.lead !== raw.tow.towed ? { lead: raw.tow.lead, towed: raw.tow.towed } : null;
+  // (A second boat of a kind, by her id: see boatid.js.)
+  for (const k of Object.keys(boats || {})) {
+    if (k === kindOf(k) || !isBoatId(k, VESSELS)) continue;
+    const b = pos(boats[k]);
+    if (b) s.boats[k] = b;
+  }
+  s.vessel = isBoatId(raw.vessel, VESSELS) ? raw.vessel : 'row';
+  s.tow = isObj(raw.tow) && isBoatId(raw.tow.lead, VESSELS) && isBoatId(raw.tow.towed, VESSELS) && raw.tow.lead !== raw.tow.towed ? { lead: raw.tow.lead, towed: raw.tow.towed } : null;
   s.mode = oneOf(raw.mode, ['boat', 'foot'], 'boat');
   s.walker = pos(raw.walker);
   if (s.mode === 'foot' && !s.walker) s.mode = 'boat';
@@ -426,16 +433,18 @@ export function sanitize(raw) {
   }
   s.seen = typeof raw.seen === 'string' && raw.seen.length <= 4000 && /^[A-Za-z0-9+/=]*$/.test(raw.seen) ? raw.seen : '';
   s.shipping = (Array.isArray(raw.shipping) ? raw.shipping : [])
-    .filter((x) => isObj(x) && VESSELS.includes(x.kind) && x.kind !== 'bass' && (x.to === 'south' || x.to === 'home') && Number.isFinite(x.due))
-    .slice(0, VESSELS.length)
+    .filter((x) => isObj(x) && isBoatId(x.kind, VESSELS) && kindOf(x.kind) !== 'bass' && (x.to === 'south' || x.to === 'home') && Number.isFinite(x.due))
+    .slice(0, VESSELS.length * 2)
     .map((x) => ({ kind: x.kind, to: x.to, due: x.due }));
   // (A boat new to the game since this save was made starts laid up.)
   // (A boat on the trailer is neither in the water nor laid up.)
   s.trailer = cleanTrailer(raw.trailer, VESSELS);
-  const fleet = VESSELS.filter((k) => k !== s.trailer.boat);
+  // (Your boats: one of each kind, and a second of a kind you own, by her id.)
+  const ids = [...VESSELS, ...s.yard.owned.filter((k) => k !== kindOf(k))];
+  const fleet = ids.filter((k) => k !== s.trailer.boat);
   // (Each boat's own, made sensible: see engine.js cleanEngine.)
-  s.engines = Object.fromEntries((isObj(raw.engines) ? Object.entries(raw.engines) : []).filter(([k, v]) => hasEngine(k) && isObj(v)).map(([k, v]) => [k, engineSave(cleanEngine(k, v))]));
-  s.damage = cleanDamages(raw.damage, VESSELS);
+  s.engines = Object.fromEntries((isObj(raw.engines) ? Object.entries(raw.engines) : []).filter(([k, v]) => isBoatId(k, VESSELS) && hasEngine(kindOf(k)) && isObj(v)).map(([k, v]) => [k, engineSave(cleanEngine(kindOf(k), v))]));
+  s.damage = cleanDamages(raw.damage, ids);
   s.stored = cleanStored(raw.stored, fleet, isObj(raw.boats) ? Object.keys(raw.boats).filter((k) => k !== s.trailer.boat) : null);
   s.seenSouth = typeof raw.seenSouth === 'string' && raw.seenSouth.length <= 2000 && /^[A-Za-z0-9+/=]*$/.test(raw.seenSouth) ? raw.seenSouth : '';
   // A crossing under way (an older save has none: nothing to resume), and your crossings so far.
@@ -502,7 +511,7 @@ export function sanitize(raw) {
   s.voyages = cleanVoyages(raw.voyages);
   // (F1b: the repair kit's plugs and stoppers, and flares; an older save has a full kit.)
   s.safety = cleanSafety(raw.safety);
-  if (s.fuel.can.at.startsWith('boat:') && !VESSELS.includes(s.fuel.can.at.slice(5))) s.fuel.can.at = 'home';
+  if (s.fuel.can.at.startsWith('boat:') && !isBoatId(s.fuel.can.at.slice(5), VESSELS)) s.fuel.can.at = 'home';
   s.dive = cleanDive(raw.dive);
   s.seaLife = cleanSeaLife(raw.seaLife);
   s.comfort = cleanComfort(raw.comfort);
