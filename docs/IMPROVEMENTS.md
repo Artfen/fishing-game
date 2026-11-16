@@ -1235,3 +1235,15 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | Validation | New `tests/slate.test.mjs` (3): the slate's work and only it, every one of the five over a month, none of the far work in a gale, and the home board and the slate keeping their own day's offers; each job done as the board's are (the vieja caught big enough, the amberjack, El Veril sounded with the finder on and not without, the sperm whale and the angel shark photographed); standing with the fishermen, their work first when trusted and paying 20% more, kept through a save. `tests/contracts.test.mjs` gathers the slate's boards too: every non-call template turns up on one or the other, the island's never on the home board, the home's never on the slate |
 | Remaining risks | The island's work is five jobs; none uses Las Brasas' passengers or freight (those still start at Willowhaven) |
 
+### Long-term play G7b: a sperm whale hunting Gannet Deep
+
+| Field | |
+| --- | --- |
+| System | `src/world/sealife.js` (a sperm whale at home in `WHALES`, kept to the canyon's deep water, `minDepth` 100, down three to four minutes; a whale with `ownDice` draws from dice of its own, so nothing made after the whales from the shared seed moves); `src/contracts.js` (a photo job may want a `region`: Paco's *El cachalote* wants the one off the island); `src/main.js` (where a photograph was taken passed to the jobs); `src/taxonomy.js` (the field guide's sperm whale); the photograph's card naming the sea's life in the picture, not only the coast's |
+| Previous issue | From G7's limitations: "Sperm whales stay in the south. They aren't drawn to it yet." The canyon had tuna at its head and nothing that hunts its depths |
+| Change | A sperm whale at home that hunts Gannet Deep |
+| Player benefit | A reason to look for the canyon even without a fishing rod: a big whale to watch and photograph without making the crossing, at the deepest water at home |
+| Before | (From the code.) Sperm whales only in the south and on the crossing's warm half |
+| After | In the game (browser): see the PR's browser validation |
+| Validation | New `tests/canyonwhale.test.mjs` (2): the whale starts over the canyon, every place it heads for over the canyon's 100 m and more, over deep water all along, and up to blow over it at least five times in a quarter of an hour; a fingerprint of everything else the seed makes (the pods, the other whales, the seals, the visitors, the colonies, the feeders, the haul-outs, the shearwaters, the turtles) the same as before it was added. `tests/slate.test.mjs`: Paco's photo job done by the sperm whale off the island, not by the one at home |
+| Remaining risks | One more whale in the shared snapshot: a host and a guest on different releases don't share whales (as with any change to the sea's life) |

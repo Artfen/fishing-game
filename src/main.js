@@ -8770,7 +8770,8 @@ async function takePhoto(extra = null, title = '') {
   $('pc-title').value = title;
   const sp = subjects.species.map((id) => fishById[id]?.name).filter(Boolean);
   const pl = subjects.places.map((id) => PLACES.find((q) => q.id === id)?.name).filter(Boolean);
-  const life = [...(subjects.life || []).map((k) => SEA_LIFE[k]?.name.toLowerCase()), ...(subjects.nature || []).map((k) => NATURE[k]?.name.toLowerCase())].filter(Boolean);
+  // (The sea's too: a whale or dolphins in the picture are named on its card.)
+  const life = [...new Set([...(subjects.sea || []), ...(subjects.life || [])])].map((k) => SEA_LIFE[k]?.name.toLowerCase()).concat((subjects.nature || []).map((k) => NATURE[k]?.name.toLowerCase())).filter(Boolean);
   $('pc-text').textContent = [subjects.bell ? 'The Kittiwake’s bell, where it lies.' : '', sp.length ? `In the picture: ${sp.join(', ')}.` : '', life.length ? `Wildlife: ${life.join(', ')}.` : '', pl.length ? `${pl.slice(0, 4).join(', ')}.` : '', subjects.birds ? 'Gulls diving.' : ''].filter(Boolean).join(' ') || 'A quiet moment.';
   photoReturn = from === 'rockpool' ? 'rockpool' : null;
   if (from !== 'catch') modal = 'photocard';
@@ -8798,7 +8799,7 @@ async function keepPhoto() {
   state.photos.push(meta);
   adventures.photographed(meta);
   favoursReady(favourPhotographed(state.favours, meta.subjects));
-  jobsDone(Con.photographed(state.contracts, { life: meta.subjects?.sea || [], bow: !!meta.subjects?.bow, species: meta.subjects?.species || [], nature: meta.subjects?.nature || [], wild: meta.subjects?.life || [] }));
+  jobsDone(Con.photographed(state.contracts, { life: meta.subjects?.sea || [], bow: !!meta.subjects?.bow, species: meta.subjects?.species || [], nature: meta.subjects?.nature || [], wild: meta.subjects?.life || [], region }));
   // (F4c) Taken aboard a friend's boat: what's in it counts for your skipper's photo jobs too.
   const S = meta.subjects;
   if (crew.on && together.active && S) together.seen(crew.on.id, { w: 'snap', sea: S.sea || [], life: S.life || [], nature: S.nature || [], species: S.species || [], bow: !!S.bow });
@@ -12368,7 +12369,7 @@ function seenHeard(p, S) {
   const nature = S.nature.filter((k) => NATURE_KINDS.has(k)), species = S.species.filter((k) => fishById[k]);
   const subjects = { species, nature, life, sea, bow: S.bow && sea.length > 0 };
   favoursReady(favourPhotographed(state.favours, subjects));
-  jobsDone(Con.photographed(state.contracts, { life: sea, bow: subjects.bow, species, nature, wild: life }));
+  jobsDone(Con.photographed(state.contracts, { life: sea, bow: subjects.bow, species, nature, wild: life, region }));
   const wild = [...new Set([...sea, ...life])].map(lifeWords);
   if (wild.length) hud.flash(`${p.name} has a photograph of ${wild.slice(0, 2).join(' and ')}${subjects.bow ? ' on your bow' : ''}.`, t, 3.5);
 }

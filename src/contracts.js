@@ -524,7 +524,7 @@ export const TEMPLATES = {
       if (W.storm) return null;
       return {
         title: 'El cachalote', story: 'A sperm whale has been blowing off the island, out in the deep water: the old men at the bar say it comes every year. Paco would put a photograph of it on the wall behind the bar.',
-        goal: 'Photograph a sperm whale', obj: { kind: 'photo', life: ['spermwhale'] },
+        goal: 'Photograph a sperm whale off the island', obj: { kind: 'photo', life: ['spermwhale'], region: 'south' },
         difficulty: 2, minutes: 40, pay: 40, rep: 2,
       };
     },
@@ -775,7 +775,8 @@ export function caught(C, c) {
 }
 
 // A photograph kept. s: { life: [kinds of sea life in it], bow: a pod on your bow in it, species
-// (fish), nature (the naturalist's notes' kinds), wild (the coast's wildlife and birds) }.
+// (fish), nature (the naturalist's notes' kinds), wild (the coast's wildlife and birds), region:
+// where it was taken ('home' or 'south'; a job with a region wants it taken there) }.
 export function photographed(C, s) {
   const out = [];
   for (const a of C.active) {
@@ -783,6 +784,7 @@ export function photographed(C, s) {
     if (a.ready || o.kind !== 'photo') continue;
     if (o.life && !o.life.some((k) => (s.life || []).includes(k))) continue;
     if (o.bow && !s.bow) continue;
+    if (o.region && s.region !== o.region) continue;
     if (o.subjects && !o.subjects.some((k) => [...(s.species || []), ...(s.nature || []), ...(s.wild || []), ...(s.life || [])].includes(k))) continue;
     out.push(finish(a));
   }

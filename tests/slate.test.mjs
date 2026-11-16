@@ -75,8 +75,10 @@ test('the island’s jobs, done as the board’s are: a vieja for the grill, an 
   assert.ok(a.ready);
   // The sperm whale's photograph, and the angel shark's.
   ({ C, a } = take('cachalote'));
-  assert.equal(K.photographed(C, { life: ['finwhale'] }).length, 0);
-  assert.equal(K.photographed(C, { life: ['spermwhale'] }).length, 1);
+  assert.equal(K.photographed(C, { life: ['finwhale'], region: 'south' }).length, 0);
+  // (Off the island: the one at home, in Gannet Deep, isn't Paco's.)
+  assert.equal(K.photographed(C, { life: ['spermwhale'], region: 'home' }).length, 0);
+  assert.equal(K.photographed(C, { life: ['spermwhale'], region: 'south' }).length, 1);
   ({ C, a } = take('angelote'));
   assert.equal(K.photographed(C, { species: ['parrotfish'] }).length, 0);
   assert.equal(K.photographed(C, { species: ['angelshark'] }).length, 1);
