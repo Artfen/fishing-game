@@ -1300,3 +1300,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | Validation | New `tests/secondboat.test.mjs` (3): a save keeps her everywhere a boat is kept, nonsense dropped; one with no place yet starts laid up, one you don't own isn't laid up; a guard on `src/main.js` that she's built, moored and fitted out by her id. The full suite |
 | Remaining risks | Only boats that live at Willowhaven can have a second (the camp's and the lake's moorings are one to a kind); the sheets still list your boats by kind (G8c2); friends see her by kind (G8c3) |
 
+### Long-term play G8c2: buying a second boat of a kind
+
+| Field | |
+| --- | --- |
+| System | `src/shipyard.js` (`buyAnother`, `SECOND`, `MOST_OF_A_KIND`, `ofKind`: another of a Willowhaven boat you have, at her price, two to a kind, her own id and papers); `src/main.js` (`addBoat`: a boat bought now built, given her engine room and damage and laid up; `eachBoat`: what every boat is given, her knocks, scrapes, anchor's words, prop strikes, flooding, damage and shallow-water warning, run for every boat and any built later; `boatCall`: two of a kind named apart; the yard's hooks by id, her kind for the yard's prices, the service, propellers and engines; the harbour office's lists); `src/harbourView.js` (*Buy another*; your second on her own line; paint and name, fit-out and repairs for each of your boats; the engine catalogue by her kind) |
+| Previous issue | After G8c1, a second boat of a kind could only come from a save. And everything given to each boat at the start (the knock you feel, the anchor's words, the shallow-water warning) went only to the boats in the water then: one launched from the boat store later in the session had none of it |
+| Change | You can buy a second of a boat you have, tell the two apart, and fit, paint, name and repair each |
+| Player benefit | Two RIBs (or yachts, consoles...) of your own: one fitted for diving and one for fishing, say, each with her own engine, tank, papers and name |
+| Before | (From the code.) Buying only a boat you didn't have; the sheets one line per kind; handlers set on `boats` at the start |
+| After | In the game (browser): *Buy another: £1200* beside the RIB; bought, £1,200 paid, her papers WH 171-2, laid up at the yard with every boat's handlers; the sheet listing "The second RIB · yours: your second" and no third offered; named *Second Wind* on the Paint & name tab; the harbour office naming her "the RIB “Second Wind”"; put in the water at a berth of her own beside the first; saved and loaded again, there and named |
+| Validation | `tests/secondboat.test.mjs` (5, two new): buying another (only one you have, only a Willowhaven boat, at her price, her own id and papers, two to a kind, kept through a save, nothing bought short of money); a guard on `src/main.js` that what every boat is given runs for one built later, a boat bought is built and set up, and the harbour office names them apart |
+| Remaining risks | Friends still see your second as one of the kind (G8c3); a boat bought on a visit to the island waits at Willowhaven |
+

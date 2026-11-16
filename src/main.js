@@ -8562,7 +8562,7 @@ function storeBoat(b, { quiet = false } = {}) {
   if (!quiet) {
     passTime(clamp(0.3 + far / 600, 0.3, 1.5));
     audio.knock(0.35);
-    hud.toast(`The ${b.name} is out of the water, ${STORE_WORDS[homeOf(b.kind)]}.`, 5);
+    hud.toast(`The ${boatCall(b)} is out of the water, ${STORE_WORDS[homeOf(b.kind)]}.`, 5);
   }
   save();
   return true;
@@ -8590,7 +8590,7 @@ function launchBoat(b, { quiet = false } = {}) {
     passTime(0.4);
     audio.knock(0.4);
     const where = homeOf(b.kind) === 'harbour' ? 'tied up on your finger of the pontoon (the second out, with your name on it): down the gangway and out along it' : LAUNCH_WORDS[homeOf(b.kind)];
-    hud.toast(`The ${b.name} is in the water, ${where}.`, 7);
+    hud.toast(`The ${boatCall(b)} is in the water, ${where}.`, 7);
   }
   save();
   return true;
@@ -14042,6 +14042,7 @@ window.slowTide = {
   rowboat, skiff, boats: BOATS, wind, town, folkView, passersby, together, visitors, clock, drifters, seabed, shared, teamwork, crew, birds, binoculars: { open: () => openBinoculars(), close: () => closeBinoculars() }, catchCard: (id, size) => showCatch(fishById[id], size, eco.bySpecies[id]?.[0] || { x: 0, z: 0, caught: 0 }, null), inspect: { open: () => openInspect(), close: () => closeInspect(), get on() { return inspector.isOpen; } }, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pickupsShown() { return pickups.count; }, padContext: () => padContext(), jobsChanged: () => jobWeight(), strays, get towing() { return tow ? { lead: tow.lead.kind, towed: tow.towed.boatName || tow.towed.name, tight: tow.tight, T: tow.T || 0, tender: tow.tender?.name || null, extra: tow.extra || 0, peak: tow.peak || 0 } : null; }, takeInTow: (kind) => takeInTow(BOATS[kind]), seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
+  harbourOffice: () => harbourOffice(),
   pump: (id = 'haven') => openPump(id),
   get yard() { return state.yard; },
   get money() { return state.money; },

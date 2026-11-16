@@ -56,8 +56,11 @@ the order the work goes in. Each step is one pull request, small enough to revie
    - **G8c1 (done):** a second boat of a kind in a save (one of the boats that live at Willowhaven)
      is built, moored at a berth of her own on your finger, fitted out (her tank, burn, engine and
      its revs under her id), driven and saved like any other, and kept everywhere a boat is kept.
-   - **G8c2:** buying her at the Marine Works, and each of your boats on its own line on every
-     sheet (the yard, repairs, the boat store).
+   - **G8c2 (done):** buying her at the Marine Works (*Buy another*, at her price, two to a kind),
+     built at once and laid up for the harbour office to launch; each of your boats on its own line
+     on the yard's sheets and in the harbour office, a second named apart from the first (her name,
+     or "second RIB"); everything every boat is given at the start given to a boat launched or
+     bought later too (`eachBoat`).
    - **G8c3:** friends seeing her by id; the crossing and the voyage journal by id.
 
 Item 4 (research) grows through G3 and G6 rather than on its own.
