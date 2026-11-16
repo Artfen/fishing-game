@@ -29,7 +29,10 @@ const at = (town, h, ctx) => {
 test('the paths: every place reachable from every other, never through a building, a wall or the clutter', () => {
   const P = new F.Paths(coast.obstacles);
   // (The places inside the chandlery and the inn are reached through their doors: see below.)
-  const names = Object.keys(F.SPOTS).filter((k) => !['strand', 'paco', 'chanoHome', 'steps', 'barTable'].includes(k) && !F.SPOTS[k].via);
+  // (Nor Puerto Brasa's, across the ocean: walked to straight over its open waterfront. See
+  // tests/brasafolk.test.mjs.)
+  const names = Object.keys(F.SPOTS).filter((k) => k !== 'strand' && !F.SPOTS[k].south && !F.SPOTS[k].via);
+  assert.deepEqual(Object.keys(F.SPOTS).filter((k) => F.SPOTS[k].south).sort(), ['agustinHome', 'barTable', 'barTable2', 'chanoHome', 'dique', 'hull', 'nayraHome', 'nayraTable', 'nets', 'paco', 'steps', 'tanks']);
   const walls = coast.obstacles.filter((o) => o.kind === 'building' || o.kind === 'harbour');
   for (const a of names) {
     for (const b of names) {

@@ -38,6 +38,10 @@ const LOOKS = {
   ian: { coat: '#3d5a7a', legs: '#5b5a50', boots: '#3a2b20', skin: '#efc6a2', hat: 'flatcap', hatColor: '#6b6152', stoop: 0.06, idle: 'behind' },
   chano: { coat: '#e9e2d0', legs: '#2f4a6a', boots: '#3a2e26', skin: '#b98863', hat: 'bucket', hatColor: '#d8c38a', sleeves: 'rolled', idle: 'pockets' },
   wenna: { coat: '#24435a', legs: '#2f3236', boots: '#2a2a2a', skin: '#f0c6a0', hat: 'cap', hatColor: '#1f3a44', hair: '#5a3a28', idle: 'behind' },
+  // (G9: Nayra in the dive school's dark top, sleeves pushed up; Agustín in an old shirt and cap,
+  // a little bent.)
+  nayra: { coat: '#1f2f3a', legs: '#3b5a6e', boots: '#c9a27a', skin: '#c08a62', hat: 'hair', hair: '#1c1714', sleeves: 'rolled', idle: 'hips' },
+  agustin: { coat: '#d8d0bd', legs: '#3a3a3a', boots: '#2a2420', skin: '#a77a55', hat: 'flatcap', hatColor: '#2b2b2b', stoop: 0.12, idle: 'behind' },
   // (Skippers seen only at the helm: the Sea Wren's, the Halcyon's, and the two kayakers.)
   tam: { coat: '#d9472b', legs: '#2f3a4a', boots: '#2a2a2a', skin: '#e3b48e', hatColor: '#2c3e50' },
   halcyon: { coat: '#f2efe6', legs: '#3a3f46', boots: '#2a2a2a', skin: '#efc6a2', hatColor: '#f2efe6' },
@@ -323,7 +327,7 @@ export class Figure {
     const breath = Math.sin(t * 1.65 + this.phase * 0.37);
     // Jobs, by where they are.
     const spot = p.block?.spot;
-    const job = act !== 'work' ? null : spot === 'innFront' ? 'sweep' : spot === 'slab' ? 'gut' : spot === 'pots' ? 'mend' : spot === 'innBar' ? 'wipe' : 'busy';
+    const job = act !== 'work' ? null : spot === 'innFront' ? 'sweep' : spot === 'slab' ? 'gut' : spot === 'pots' || spot === 'nets' ? 'mend' : spot === 'innBar' ? 'wipe' : spot === 'hull' ? 'sand' : 'busy';
     // Walking to a job, what it needs: a rod and a bucket to fish, the fish box to the slab, a pot
     // down to the boat.
     const bound = act === 'walk' ? p.block : null;
@@ -433,6 +437,16 @@ export class Figure {
         re = -0.6 + c * 0.25;
         lz = -0.2;
         rz = 0.15 + c * 0.1;
+      } else if (job === 'sand') {
+        // (Sanding the keel of the boat beside her: the block in her right hand going to and fro,
+        // her left on the hull.)
+        const c = Math.sin(t * 4.2 + this.phase);
+        rs = -1.0;
+        re = -0.45;
+        rz = 0.25 + c * 0.3;
+        ls = -0.85;
+        le = -0.35;
+        lz = -0.2;
       } else if (job === 'wipe') {
         // (Wiping down the bar: a slow round and round.)
         rs = -0.95 + Math.cos(t * 3.4) * 0.12;

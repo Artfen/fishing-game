@@ -156,6 +156,22 @@ export const REQUESTS = [
     thanks: '“¡Es él! Still there.” Chano is quiet a moment. Then he gives you a big old hand-forged hook from his tin. “For luck. My father’s.”',
     reward: { money: 10, keepsake: 'hook' },
   },
+  // (G9) Nayra Cabrera, the dive school.
+  {
+    id: 'calderones', who: 'nayra', kind: 'see', what: ['pilotwhale'],
+    ask: '“The calderones, the pilot whales, rest at the surface off the south-west of an afternoon, a whole family together. My divers ask me every day where they are, and with the boat up here I haven’t been out to look in weeks. If you see them, come and tell me?”',
+    short: 'See the pilot whales off the island, and tell Nayra',
+    thanks: '“Off the Roque? All of them, the little one too?” She writes it on the school’s board. “Here: something only the school knows. Los Arcos, the second arch, at slack water. The barracuda hang in it like a curtain.”',
+    reward: { money: 15, pin: { x: -440, z: 6537, title: 'Nayra’s arch', note: 'Los Arcos, the second arch off Roque del Arco, eleven metres down: at slack water a school of barracuda hangs in it like a curtain. Dive it, don’t anchor.' } },
+  },
+  // (G9) Agustín, the oldest of the cofradía's fishermen.
+  {
+    id: 'gallo', who: 'agustin', kind: 'bring', species: 'triggerfish', min: 30,
+    ask: '“Nobody wants the gallo cochino, the triggerfish. Too tough to skin, they say. But it’s the sweetest fish in the sea, and my wife made it with mojo verde every Friday for forty years. Bring me a good one, thirty centimetres, and I’ll cook it the way she did.”',
+    short: 'A triggerfish of 30 cm or more, for Agustín’s supper',
+    thanks: '“¡Mira qué gallo!” He has it skinned in a moment, with an old knife and a twist you’d never manage. “Tonight you eat with me.”',
+    reward: { money: 8, dish: { text: 'Supper with Agustín outside the bar: gallo cochino in green mojo, wrinkled potatoes, and a glass of the island’s wine.', fill: 45 } },
+  },
 ];
 export const REQUEST_IDS = REQUESTS.map((r) => r.id);
 export const requestById = Object.fromEntries(REQUESTS.map((r) => [r.id, r]));

@@ -69,4 +69,12 @@ the order the work goes in. Each step is one pull request, small enough to revie
      your moored boats), the crossing and the fast passage made in her by id, and the voyage journal
      naming her "the second RIB". G8, boats of her own, is done.
 
+9. **G9 — Harbours and people.** More people where there are few, each with a day, words and a
+   favour: item 12.
+   - **G9a (done):** Puerto Brasa's: Nayra Cabrera, who runs the dive school (her boat up with a
+     cracked keel, her tanks on the quay, her table at the bar), and Agustín, the oldest of the
+     cofradía's fishermen (his nets on the quay, the dique at sunset, the evening with Chano).
+     Their words know what you've done for the dive school and the cofradía.
+   - **G9b:** the small harbours (Wend Quay, Puffin Cove), which have no one.
+
 Item 4 (research) grows through G3 and G6 rather than on its own.

@@ -536,7 +536,7 @@ function talkTo(p) {
   const r = talkedToday[p.id] === state.day ? '' : remember(p.id, memoryCtx());
   talkedToday[p.id] = state.day;
   const wanted = demandFor(state.day, 'haven').wanted.map((id) => fishById[id].name);
-  hud.toast(`${FOLK[p.id].short}: ${r ? `“${r}”` : sayTo(p, { hour: clock.hour, storm: Math.max(weather.storm, conditions.sea.storm), wanted, caught: Math.floor(state.hour) % 3, landed: town.landed })}`, 8);
+  hud.toast(`${FOLK[p.id].short}: ${r ? `“${r}”` : sayTo(p, { hour: clock.hour, storm: Math.max(weather.storm, conditions.sea.storm), wanted, caught: Math.floor(state.hour) % 3, landed: town.landed, rep: state.contracts.rep || {} })}`, 8);
   audio.page?.();
 }
 const talkedToday = {};
