@@ -55,7 +55,7 @@ import { WindLines } from './world/windlines.js';
 import { Storm } from './world/storm.js';
 import { coldInfo, COLDWATER, FALLS, tarnSDF } from './world/coldwater.js';
 import { Boat, BOAT_KINDS, boatDetail } from './boat.js';
-import { kindOf, isBoatId } from './boatid.js';
+import { kindOf, isBoatId, nthOf } from './boatid.js';
 import { wakes } from './world/wakes.js';
 import { Walker } from './walker.js';
 import { Effects } from './effects.js';
@@ -94,7 +94,7 @@ import { galeHoursIn, nightAtAnchor, dragTo, nightWords } from './anchorage.js';
 import { FISHBOX, BOX_PRICE, hasBox, iceBox, iceUntilHere, boxHoursLeft, boxWords } from './fishbox.js';
 import { FINDS, NOTES, LIES_DAYS, HELD_MAX, thrownUp, tideSpot, stillLying, beachName, saleOf } from './flotsam.js';
 import { storesAboard, draw as drawStores, stockUp, daysWords, storesFor, FILL as STORES_FILL, WATCH as STORES_WATCH } from './stores.js';
-import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, hireBoat, hiredToday, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect, engineOf, repowerBoat, repropBoat, trimBoat } from './shipyard.js';
+import { PRICES as BOAT_PRICES, PAINTS, FITS, usable as usableBoat, owns as ownsBoat, buyBoat, buyAnother, hireBoat, hiredToday, paintBoat, nameBoat, fitBoat, unfitBoat, fitEffect, engineOf, repowerBoat, repropBoat, trimBoat } from './shipyard.js';
 import { BIRD_KINDS } from './birdData.js';
 import { cleanLook } from './looks.js';
 import { dressFigure } from './dress.js';
@@ -728,6 +728,14 @@ for (const [id, E] of Object.entries(engines)) BOATS[id].engine = E;
 // (Each boat's own, by her id: `boat.damage`.)
 const damages = Object.fromEntries(Object.values(BOATS).map((b) => [b.id, cleanDamage(state.damage?.[b.id], TUBED.has(b.kind))]));
 for (const [id, D] of Object.entries(damages)) BOATS[id].damage = D;
+// (G8c) What every boat of yours is given (her knocks, her anchor's words, her flooding, her
+// damage...): run for each now, and for a boat built later (see addBoat). Not only the ones in the
+// water at the start: one launched from the boat store has it all too.
+const boatSetup = [];
+function eachBoat(fn) {
+  boatSetup.push(fn);
+  for (const b of Object.values(BOATS)) fn(b);
+}
 {
   const hs = {};
   Boat.rockAt = (x, z) => habitat.sample(x, z, hs).rock || 0;
@@ -980,6 +988,36 @@ function stow(b, loading = false) {
   const i = boats.indexOf(b);
   if (i >= 0) boats.splice(i, 1);
   wakes.forget(b);
+}
+// (G8c) A boat bought now (a second of a kind: see shipyard.js buyAnother): built, given her
+// engine room and damage and everything every boat has (eachBoat), and laid up at the yard for the
+// harbour office to put in the water.
+function addBoat(id) {
+  if (BOATS[id]) return BOATS[id];
+  if (!isBoatId(id, BOAT_KINDS)) return null;
+  const kind = kindOf(id), b = new Boat(scene, { kind, id });
+  BOATS[id] = b;
+  IDS.push(id);
+  LENGTHS[id] = b.hull.L;
+  BEAMS[id] = b.hull.B;
+  if (hasEngine(kind)) b.engine = engines[id] = cleanEngine(kind, null);
+  b.damage = damages[id] = cleanDamage(null, TUBED.has(kind));
+  b.setRower(false);
+  for (const fn of boatSetup) fn(b);
+  dressFigure(b, state.look);
+  stow(b, true);
+  state.stored = [...new Set([...state.stored, id])];
+  applyYard();
+  return b;
+}
+// (G8c) A boat as she's named in a sentence: with two of a kind, the one you've named by her name,
+// else the first by her kind and the other as your second.
+function boatCall(b) {
+  if (!b) return '';
+  const twin = IDS.some((o) => o !== b.id && kindOf(o) === b.kind && ownsBoat(state.yard, o));
+  if (!twin) return b.name;
+  const n = state.yard.looks[b.id]?.name;
+  return n ? `${b.name} “${n}”` : nthOf(b.id) > 1 ? `second ${b.name}` : b.name;
 }
 // Back in the water, at home (her berth, the camp's landing, the boathouse jetty), tied up.
 function unstow(b) {
@@ -2344,7 +2382,9 @@ const harbourSheet = new HarbourSheet(state, {
   },
   // Willowhaven Marine Works (see shipyard.js).
   yardKinds: () => KINDS.filter((k) => k !== 'row' && k !== 'kayak'),
-  boatName: (kind) => BOATS[kind]?.name || kind,
+  // (G8c) Your own boats, each on her own line: a second of a kind too.
+  yardBoats: () => IDS.filter((id) => kindOf(id) !== 'row' && kindOf(id) !== 'kayak' && ownsBoat(state.yard, id)),
+  boatName: (kind) => (BOATS[kind] ? boatCall(BOATS[kind]) : kind),
   // Her stripe, tubes or flag (see papers.js), and what she can take.
   trimOf: (kind) => ({ stripes: !!BOATS[kind]?.hull && BOATS[kind].hull.stripe !== BOATS[kind].hull.paint && !BOATS[kind].hull.tubes, tubes: !!BOATS[kind]?.hull.tubes }),
   yardTrim: (kind, what, id) => {
@@ -2362,6 +2402,15 @@ const harbourSheet = new HarbourSheet(state, {
     hud.toast(`The ${BOATS[kind].name} is yours. ${BOATS[kind].stowed ? 'She’s laid up at the yard: the harbour office puts her in the water whenever you like.' : ''}`, 6);
     audio.fanfare?.();
   }),
+  // (G8c) Another of a kind you have: built at once, laid up at the yard.
+  yardBuyAnother: (kind) => {
+    const r = buyAnother(state, kind);
+    yardDo(r, () => {
+      const b = addBoat(r.id);
+      hud.toast(`Your second ${b.name} is yours. She’s laid up at the yard: the harbour office puts her in the water whenever you like. (Paint her and give her a name here, so you can tell the two apart.)`, 7);
+      audio.fanfare?.();
+    });
+  },
   yardHire: (kind) => yardDo(hireBoat(state, kind), () => {
     closeHarbour();
     hud.toast(`The ${BOATS[kind].name} is yours for a day: she goes back to the yard at ${formatClock((state.yard.hired?.until ?? ownAbs() + 24) % 24)} tomorrow.`, 6);
@@ -2388,7 +2437,7 @@ const harbourSheet = new HarbourSheet(state, {
   // Her engine and propeller (see engines.js): what's on her, and a new one fitted while you
   // wait; her tank and the spec of any choice, for the comparison's figures.
   yardEngine: (kind) => engineOf(state.yard, kind),
-  yardRepower: (kind, model) => yardDo(repowerBoat(state, kind, model), () => vesselLog(kind, `Re-engined: ${fittedName(kind, model)}.`) || hud.toast(`The ${fittedName(kind, model)} ${MODELS[model].inboard ? 'are in her engine room' : CATALOGUE_COUNT(kind) > 1 ? 'are on her transom' : 'is on her transom'}, the old taken in.`, 4)),
+  yardRepower: (kind, model) => yardDo(repowerBoat(state, kind, model), () => vesselLog(kind, `Re-engined: ${fittedName(kindOf(kind), model)}.`) || hud.toast(`The ${fittedName(kindOf(kind), model)} ${MODELS[model].inboard ? 'are in her engine room' : CATALOGUE_COUNT(kind) > 1 ? 'are on her transom' : 'is on her transom'}, the old taken in.`, 4)),
   // A propeller bent on the bottom (boat.js propStrike): how bad, and a new one of the same.
   propDamage: (kind) => BOATS[kind]?.engine?.dmg || 0,
   yardMendProp: (kind) => {
@@ -2402,15 +2451,16 @@ const harbourSheet = new HarbourSheet(state, {
   // Her knocks (damage.js): what the yard would do to put each right, and doing it.
   // (G5) And her engine's service, once it's nearly due: see service.js.
   repairsFor: (kind) => {
-    const rows = BOATS[kind]?.damage ? damageRepairs(BOATS[kind].damage, kind, BOAT_PRICES[kind]) : [];
-    const svc = serviceRow(state.yard.vessels?.[kind], kind, { electric: isElectricNow(kind) });
+    // (kind: her id, as the sheet has her; her kind for what the yard charges a boat like her.)
+    const rows = BOATS[kind]?.damage ? damageRepairs(BOATS[kind].damage, kindOf(kind), BOAT_PRICES[kindOf(kind)]) : [];
+    const svc = serviceRow(state.yard.vessels?.[kind], kindOf(kind), { electric: isElectricNow(kindOf(kind)) });
     return svc ? [...rows, svc] : rows;
   },
-  serviceOf: (kind) => (hasEngine(kind) ? serviceWords(state.yard.vessels?.[kind], { electric: isElectricNow(kind) }) : null),
+  serviceOf: (kind) => (hasEngine(kindOf(kind)) ? serviceWords(state.yard.vessels?.[kind], { electric: isElectricNow(kindOf(kind)) }) : null),
   yardRepair: (kind, id) => {
     const D = BOATS[kind]?.damage;
     // (Her service: on its own, or with the rest of what the yard does to her.)
-    const svc = (id === 'service' || id === 'all') && serviceRow(state.yard.vessels?.[kind], kind, { electric: isElectricNow(kind) });
+    const svc = (id === 'service' || id === 'all') && serviceRow(state.yard.vessels?.[kind], kindOf(kind), { electric: isElectricNow(kindOf(kind)) });
     if (svc) {
       serviceDone(state.yard.vessels[kind]);
       tuneEngine(kind);
@@ -2434,15 +2484,15 @@ const harbourSheet = new HarbourSheet(state, {
     hud.toast(id === 'all' ? 'The yard puts her right: she’s herself again.' : 'Done: the yard puts it right.', 3);
     save();
   },
-  yardReprop: (kind, prop) => yardDo(repropBoat(state, kind, prop), () => (BOATS[kind]?.engine && (BOATS[kind].engine.dmg = 0)) || vesselLog(kind, `New propeller${CATALOGUE_COUNT(kind) > 1 ? 's' : ''}: ${propName(kind, prop).toLowerCase()}.`) || hud.toast(`New propeller${CATALOGUE_COUNT(kind) > 1 ? 's' : ''} on: ${propName(kind, prop).toLowerCase()}.`, 3)),
+  yardReprop: (kind, prop) => yardDo(repropBoat(state, kind, prop), () => (BOATS[kind]?.engine && (BOATS[kind].engine.dmg = 0)) || vesselLog(kind, `New propeller${CATALOGUE_COUNT(kindOf(kind)) > 1 ? 's' : ''}: ${propName(kindOf(kind), prop).toLowerCase()}.`) || hud.toast(`New propeller${CATALOGUE_COUNT(kind) > 1 ? 's' : ''} on: ${propName(kind, prop).toLowerCase()}.`, 3)),
   tankOf: (kind) => TANKS[kind] ?? TANKS[kindOf(kind)] ?? 0,
-  engineSpecFor: (kind, choice) => engineSpec(kind, BOATS[kind].hull, choice),
+  engineSpecFor: (kind, choice) => engineSpec(kindOf(kind), BOATS[kind].hull, choice),
   // The look at a boat at the Marine Works (see boatPreview.js).
   preview: (want) => boatPreview.show({ ...want, motor: BOATS[want.kind]?.motorSpec || null }),
   previewTurn: (dx) => boatPreview.turn(dx),
   previewStop: () => boatPreview.stop(),
 });
-const boatPreview = new BoatPreview((scene, kind) => new Boat(scene, { kind }));
+const boatPreview = new BoatPreview((scene, kind) => new Boat(scene, { kind: kindOf(kind) }));
 // Something done at the Marine Works: paid for and done, or why not.
 // A line in a boat's log (her papers: see papers.js), if she's yours.
 function vesselLog(kind, text) {
@@ -2964,7 +3014,7 @@ function toggleAnchor() {
   save();
 }
 // What the anchor does as it goes: it bites on the bottom, and comes up again.
-for (const b of boats) {
+eachBoat((b) => {
   b.onAnchor = (what, who) => {
     if (who !== boat || onFoot) return;
     if (what === 'set') hud.flash('The anchor’s holding: she’ll lie back on her rope, head to the wind and tide', t, 4);
@@ -2975,7 +3025,7 @@ for (const b of boats) {
       save();
     }
   };
-}
+});
 
 /* ---------------- tying up, and towing ---------------- */
 
@@ -8300,7 +8350,7 @@ function harbourOffice() {
   // (Wenna at the hatch in office hours; out of them, the yard's board beside it does as well.)
   const W = town.people.wenna, inOffice = W?.block?.spot === 'office' && W.act === 'inside';
   const greet = inOffice ? 'Wenna Penhallow, the harbourmaster, looks up from her ledger. ' : W?.block?.spot === 'gangway' ? 'Wenna’s down at the gangway looking over the pontoon; the board by the hatch does as well. ' : 'The hatch is shut for the night, but the yard’s board beside it sees to your boats all the same. ';
-  ask('The harbour office', `${greet}In the water (${boats.length} of ${MAX_AFLOAT}): ${boats.map((b) => `the ${b.name}, ${whereWords(b)}`).join('; ')}.${laid.length ? ` Laid up: ${laid.map((b) => `the ${b.name}`).join(', ')}.` : ''}${state.trailer.boat ? ` On your trailer: the ${BOATS[state.trailer.boat].name}.` : ''}`, [
+  ask('The harbour office', `${greet}In the water (${boats.length} of ${MAX_AFLOAT}): ${boats.map((b) => `the ${boatCall(b)}, ${whereWords(b)}`).join('; ')}.${laid.length ? ` Laid up: ${laid.map((b) => `the ${boatCall(b)}`).join(', ')}.` : ''}${state.trailer.boat ? ` On your trailer: the ${BOATS[state.trailer.boat].name}.` : ''}`, [
     { text: 'Never mind', cls: 'quiet' },
     ...(laid.length ? [{ text: 'Put a boat in the water…', run: () => chooseLaunch() }] : []),
     ...(boats.length > 1 ? [{ text: 'Lay a boat up…', run: () => chooseStore() }] : []),
@@ -8316,14 +8366,14 @@ function chooseStore() {
   }
   ask('Lay a boat up', 'Which one comes out of the water? She’s fetched if she’s lying somewhere else, and kept where she lives until you want her.', [
     { text: 'Never mind', cls: 'quiet' },
-    ...can.map((b) => ({ text: `The ${b.name} (${whereWords(b)})`, run: () => storeBoat(b) })),
+    ...can.map((b) => ({ text: `The ${boatCall(b)} (${whereWords(b)})`, run: () => storeBoat(b) })),
   ]);
 }
 function chooseLaunch() {
   const laid = IDS.filter(isStored).filter((id) => usableBoat(state.yard, id, state.day, ownAbs())).map((id) => BOATS[id]);
   ask('Put a boat in the water', boats.length >= MAX_AFLOAT ? `Three of your boats are in the water already, so one of them is laid up in her place.` : 'Which one?', [
     { text: 'Never mind', cls: 'quiet' },
-    ...laid.map((b) => ({ text: `The ${b.name}`, run: () => launchBoat(b) })),
+    ...laid.map((b) => ({ text: `The ${boatCall(b)}`, run: () => launchBoat(b) })),
   ]);
 }
 // What the Marine Works has done to your boats (see shipyard.js): fittings (a long-range tank, a
@@ -9365,20 +9415,22 @@ BOATS.kayak.onStroke = (p, side) => {
   fx.splash(p.x, 0.05, p.z, 2, 0.7, 0.25);
   audio.oar(side > 0 ? -0.3 : 0.3, 0.35);
 };
-for (const b of boats) {
+eachBoat((b) => {
   b.onBump = (v) => {
     audio.knock(clamp(v / 3, 0.4, 1));
     // (A knock you're aboard for comes up through your hands.)
     if (b === boat && !onFoot) haptics.pulse({ strong: 1, weak: 0.55, ms: 220, shape: 'thump' }, knockFeel(v));
   };
-}
+});
 // Running aground, or dragged up a beach: the hull grinding on the bottom (yours, a few times a second).
 let scrapeT = 0;
-for (const b of boats) b.onScrape = (v, on) => {
+eachBoat((b) => {
+  b.onScrape = (v, on) => {
   if (b !== boat || t - scrapeT < 0.28) return;
   scrapeT = t;
   audio.scrape(clamp(v / 1.5, 0.2, 1) * clamp(on * 2, 0.3, 1));
-};
+  };
+});
 // Under sail: the boom comes across in a tack, or slams across in a gybe.
 // The windsurf board: catapulted in, back up, the rig flipping across; and planing, the first
 // time. The jet ski landing off a wave.
@@ -9565,7 +9617,7 @@ BOATS.sail.onGybe = (b) => {
 // Relaxed. A touch creeping; a bent blade at speed (she's slower, the engine races and she
 // judders), put right with a new propeller at the Marine Works.
 const strikesFor = () => (state.difficulty === 'relaxed' ? null : state.difficulty === 'realistic' ? 'hard' : 'on');
-for (const b of Object.values(BOATS)) {
+eachBoat((b) => {
   b.propStrikes = strikesFor();
   b.onStrike = (bt, s) => {
     if (bt !== boat || onFoot) return;
@@ -9582,14 +9634,14 @@ for (const b of Object.values(BOATS)) {
     if (band) vesselLog(bt.id, `Propeller damaged on the bottom (${Math.round(s.dmg * 100)}%).`);
     save();
   };
-}
+});
 // What a knock did (boat.js takeDamage, damage.js): only what she hit, how hard and square on, and
 // what it was; on Relaxed, scuffs only. The words once for each part of her as it gets worse; a
 // tube punctured, the bang and the hiss; a line in her log.
 const KN_PER = 1.944;
 // Water coming in, her engine room flooded, pumped dry (boat.js flood).
 const FLOOD_WHERE = { bottom: 'her bottom', bow: 'her bow', port: 'her port side', stbd: 'her starboard side', stern: 'her stern' };
-for (const b of Object.values(BOATS)) {
+eachBoat((b) => {
   b.floodMode = floodModeOf(state.difficulty);
   b.onFlood = (bt, what) => {
     const mine = bt === boat && !onFoot, D = bt.damage;
@@ -9620,7 +9672,7 @@ for (const b of Object.values(BOATS)) {
       save();
     } else if (what === 'dry' && mine) hud.flash('Pumped dry.', t, 2);
   };
-}
+});
 const PUMP_NAMES = { bass: 1, cabin: 1, console: 1, rib: 1, cruiser: 1 };
 // (In words for the throttle panel: water in the boat you're in, if any to speak of.)
 function waterBit() {
@@ -9628,7 +9680,7 @@ function waterBit() {
   if (!F || F.litres < 5) return '';
   return `<span class="lv-warn">${F.swamped ? 'swamped · ' : ''}${floodWords(F.litres)}${F.gaining ? ', gaining' : ''}${boat.pumpRunning ? ' · pump on' : ''}</span>`;
 }
-for (const b of Object.values(BOATS)) {
+eachBoat((b) => {
   b.damageMode = modeOf(state.difficulty);
   b.onDamage = (bt, r, ev) => {
     const mine = bt === boat && !onFoot, name = bt.kind;
@@ -9659,7 +9711,7 @@ for (const b of Object.values(BOATS)) {
     vesselLog(name, `${SECTION_NAMES[r.section][0].toUpperCase() + SECTION_NAMES[r.section].slice(1)} ${word} on ${what}.`);
     save();
   };
-}
+});
 // Her working parts hurt (damage.js legStrike, rudderStrike, shake): the words once for each as it
 // gets worse; the engine cut by a jolt with her terminal loose; her log.
 let looseSaid = false;
@@ -9889,11 +9941,11 @@ function startPumping() {
   pumping = { b: boat, x: boat.deck.x, z: boat.deck.z, t: 0, next: 0 };
   hud.flash('You get the foot pump out and set to. Stand still to keep at it.', t, 2.5);
 }
-for (const b of boats) {
+eachBoat((b) => {
   if (b.motor) b.onShallow = () => hud.flash(b.kind === 'bass' ? 'Shallow water: the outboard tips up. Ease back to the first notches to creep on with the electric motor.'
     : b.hull.motor?.inboard ? 'Shallow water: her propellers are touching the bottom, so you can only creep along. Steer for deeper water.'
       : `Shallow water: the ${b.hull.motor?.twin ? 'motors tip' : 'motor tips'} up, so you can only creep along. Steer for deeper water.`, t, 3.4);
-}
+});
 // What's underfoot, for the sound of your steps: planks, stone (the quay and Willowhaven's
 // setts), sand (beaches and the strand) or grass.
 function surfaceAt(p) {
