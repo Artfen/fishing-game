@@ -49,6 +49,7 @@ export const GIVERS = {
   wenna: 'Wenna, the harbour office',
   sailing: 'Willowhaven Sailing Club',
   paco: 'Paco, Bar El Muelle',
+  cofradia: 'The fishermen of Puerto Brasa',
   trips: 'Willow Bay Boat Trips',
   divers: 'Willow Bay Sub-Aqua Club',
 };
@@ -479,6 +480,66 @@ export const TEMPLATES = {
       };
     },
   },
+  // ---- Las Brasas: the slate behind Paco's bar (G2b of docs/PROGRESSION.md) ----
+  // Southern work, offered on the slate at Bar El Muelle while you're on the island (south: the
+  // board for region 'south' has these and only these), for Paco and for the harbour's fishermen.
+  vieja: {
+    cat: 'fishing', giver: 'paco', south: true,
+    make(W, r) {
+      const min = pick(r, [30, 32, 35]);
+      return {
+        title: 'Una vieja para la plancha', story: 'Paco wants a good parrotfish for the grill tonight, the way the island likes it: split, salted, and straight onto the hot plate. They graze the lava reefs, Las Coladas and El Bajón, by day.',
+        goal: `Catch a parrotfish of ${min} cm or more`, obj: { kind: 'catch', sp: 'parrotfish', min, count: 1 },
+        where: W.places?.coladas || null, difficulty: 1, minutes: 20, pay: 25, rep: 1,
+      };
+    },
+  },
+  medregal: {
+    cat: 'fishing', giver: 'cofradia', south: true,
+    make(W, r) {
+      if (W.storm) return null;
+      const min = pick(r, [70, 80, 90]);
+      return {
+        title: 'Amberjack off El Veril', story: 'The fishermen of Puerto Brasa say the amberjack are running along the drop-off at El Veril, big ones, hunting the edge where the shelf falls into the blue. They want to know they’re right: bring one in.',
+        goal: `Catch an amberjack of ${min} cm or more`, obj: { kind: 'catch', sp: 'amberjack', min, count: 1 },
+        where: W.places?.veril || null, gear: 'a stout rod: they fight deep and hard', difficulty: 3, minutes: 35, pay: 55, rep: 2,
+      };
+    },
+  },
+  sondaveril: {
+    cat: 'survey', giver: 'cofradia', south: true,
+    make(W) {
+      const V = W.places?.veril;
+      if (!V || W.storm) return null;
+      return {
+        title: 'Sounding El Veril', story: 'The cofradía keeps a chart of the drop-off, and a winter’s storms have moved the sand at its foot. Run over the edge with your fish finder on, where the bottom falls away, so they can mark it again.',
+        goal: 'Pass over El Veril’s edge with the fish finder on', obj: { kind: 'visit', marks: [{ x: V.x, z: V.z, name: 'El Veril' }], r: 60, sonar: true },
+        where: V, gear: 'a fish finder', difficulty: 1, minutes: 20, pay: 30, rep: 1,
+      };
+    },
+  },
+  cachalote: {
+    cat: 'wildlife', giver: 'paco', south: true,
+    make(W) {
+      if (W.storm) return null;
+      return {
+        title: 'El cachalote', story: 'A sperm whale has been blowing off the island, out in the deep water: the old men at the bar say it comes every year. Paco would put a photograph of it on the wall behind the bar.',
+        goal: 'Photograph a sperm whale', obj: { kind: 'photo', life: ['spermwhale'] },
+        difficulty: 2, minutes: 40, pay: 40, rep: 2,
+      };
+    },
+  },
+  angelote: {
+    cat: 'wildlife', giver: 'cofradia', south: true,
+    make(W) {
+      if (!W.places?.sebadal) return null;
+      return {
+        title: 'The angel sharks of El Sebadal', story: 'The fishermen want the angel sharks left in peace on El Sebadal, and a photograph for the harbour’s notice of one lying in the sand, flat as a doormat, would help. Look, don’t touch: dive it, or look down from a boat on a calm day.',
+        goal: 'Photograph an angel shark', obj: { kind: 'photo', subjects: ['angelshark'] },
+        where: W.places.sebadal, difficulty: 2, minutes: 30, pay: 35, rep: 2,
+      };
+    },
+  },
   // ---- harder calls (G6 of docs/PROGRESSION.md) ----
   // A skiff taking water: a plank sprung, her owner bailing and losing. She really fills (main.js
   // gives her the breach: see flooding.js), and swamped before she's on your line, she's lost to
@@ -601,6 +662,8 @@ export function offers(C, W) {
   for (const tpl of ids) {
     const T = TEMPLATES[tpl];
     if (T.call) continue;
+    // (G2b: the slate at Bar El Muelle has the island's work, and only it; the home board, none.)
+    if (!!T.south !== (W.region === 'south')) continue;
     const o = T.make(W, r);
     if (!o) continue;
     const id = `${W.day}-${W.region}-${tpl}`;
