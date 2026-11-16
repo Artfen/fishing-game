@@ -1274,3 +1274,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | Validation | `tests/boatids.test.mjs` (4): a guard on `src/main.js` that the engine rooms and damage are built by id, bailing, pumping and leaving the helm remember the boat, the trolling motors are kept by id, and nothing of these is looked up by kind |
 | Remaining risks | Her accounts (fuel, stores, the fish box, cargo, papers, fit-out, paint) are still kept by kind (G8b2) |
 
+### Long-term play G8b2: her accounts her own
+
+| Field | |
+| --- | --- |
+| System | New `src/boatid.js` (`kindOf`, `idFor`, `nthOf`, `isBoatId`: an id says her kind; the first of a kind is her kind, a second 'rib~2'); `src/fuel.js`, `src/stores.js`, `src/fishbox.js`, `src/cargo.js`, `src/papers.js`, `src/shipyard.js`, `src/vessels.js` (each finds what sort of boat she is from her id, and keeps a second boat of a kind's records: her tank, batteries, lockers, fish box, deck, papers and registration ('WH 171-2'), paint, name, fittings and engine); `src/main.js` (her accounts asked for by her id: fuel, batteries, the jerry can, lockers, fish box, deck, papers, fittings, ownership; and the boat a job or the story has her as) |
+| Previous issue | After G8b1, her accounts were still asked for by her kind, and each module took a kind for both which boat and what sort of boat |
+| Change | The third of G8's stages: everything kept about each boat, her own, and ready for a second of a kind |
+| Player benefit | None yet, by design: each id is still her kind, and saves are unchanged (no new save version: an id carries her kind) |
+| Before | (From the code.) 76 calls in `src/main.js` handing a module her kind; the modules' records keyed and checked by kind alone |
+| After | In the game (browser): the same save (fittings, paint and a name, a crate aboard, ice in her box) loaded and saved on G8b1 and on this build, and her fuel burned the same running her |
+| Validation | New `tests/boataccounts.test.mjs` (5): an id says her kind (and nonsense isn't one); a second RIB's tank, batteries and jerry can apart from the first, the RIB's size; her lockers, fish box and deck her own, through a save; her papers (WH 171-2), paint, name, fittings (a RIB's, at a RIB's price) and engine her own; a guard on `src/main.js` that her accounts are asked for by id |
+| Remaining risks | Her fitted tank, burn and engine are still worked out into tables by kind each time the yard changes (G8c); the crossing and the voyage journal still record her kind |
+

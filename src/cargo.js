@@ -20,6 +20,8 @@
 //   can: { x, z, secured } (where the jerry can sits when it's aboard: fuel.js has where it is) }.
 // x across (her port side +), z along (bow +), metres, in her own space, on her floor.
 
+import { kindOf, isBoatId } from './boatid.js';
+
 export const G = 9.81;
 // Days of food and water in a full stores crate (see stores.js).
 export const STORES_DAYS = 3;
@@ -53,8 +55,8 @@ export function cleanCargo(raw, kinds = null) {
   const seen = new Set();
   for (const it of Array.isArray(raw.items) ? raw.items : []) {
     if (!isObj(it) || !SOLD.includes(it.id) || typeof it.uid !== 'string' || !/^[a-z0-9]{1,12}$/.test(it.uid) || seen.has(it.uid)) continue;
-    const kind = typeof it.at === 'string' && /^boat:[a-z]{2,12}$/.test(it.at) ? it.at.slice(5) : null;
-    const at = kind && (!kinds || kinds.includes(kind)) ? it.at : 'ashore';
+    const kind = typeof it.at === 'string' && it.at.startsWith('boat:') && isBoatId(it.at.slice(5)) ? it.at.slice(5) : null;
+    const at = kind && (!kinds || kinds.includes(kindOf(kind))) ? it.at : 'ashore';
     seen.add(it.uid);
     c.items.push({ uid: it.uid, id: it.id, at, x: num(it.x, 0, -5, 5), z: num(it.z, 0, -15, 15), secured: it.secured !== false, full: it.full !== false,
       // (F1a: a stores crate's days of food and water left in it; full in an older save.)
