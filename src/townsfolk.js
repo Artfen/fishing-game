@@ -26,6 +26,13 @@ import { lower } from './innTalk.js';
 //  · Paco, at Las Brasas, stands in the door of Bar El Muelle; Chano takes his boat, the Virgen del
 //    Carmen, out to El Bajón at sunrise, handlines over the pinnacles, and lands his catch at the
 //    quay steps for Paco's kitchen; afternoons and evenings he sits outside the bar.
+//  · Nayra Cabrera runs Buceo Las Brasas, the dive school: her boat is up at the west end of the
+//    waterfront with a cracked keel, and she's at it with a sanding block morning and afternoon,
+//    out of the rain; late morning she's on the quay by the steps with her tanks, for anyone who
+//    wants to dive; lunch and the evening at a table outside the bar.
+//  · Agustín, the oldest of the cofradía's fishermen, mends nets on the quay by the fuel pump of
+//    a morning and, after his siesta, of a fine afternoon; towards sunset he walks out along the
+//    dique to look at the weather, then sits with Chano outside the bar.
 //
 // Everyone walks at a stroll (1.3 m/s, so an hour of the game's clock covers about fifty metres)
 // along paths that keep clear of the buildings, walls and clutter (a little grid search over the
@@ -48,6 +55,8 @@ export const FOLK = {
   wenna: { name: 'Morwenna Penhallow', short: 'Wenna', role: 'the harbourmaster', home: 'innUp' },
   paco: { name: 'Paco', short: 'Paco', role: 'Bar El Muelle', home: 'paco', south: true },
   chano: { name: 'Chano', short: 'Chano', role: 'a fisherman of Puerto Brasa', home: 'chanoHome', south: true },
+  nayra: { name: 'Nayra Cabrera', short: 'Nayra', role: 'runs Buceo Las Brasas, the dive school', home: 'nayraHome', south: true },
+  agustin: { name: 'Agustín', short: 'Agustín', role: 'the oldest of the cofradía’s fishermen', home: 'agustinHome', south: true },
 };
 export const FOLK_IDS = Object.keys(FOLK);
 
@@ -82,11 +91,24 @@ export const SPOTS = {
   office: { x: HARBOUR_OFFICE.x + HARBOUR_OFFICE.w / 2 + 0.6, z: HARBOUR_OFFICE.z - 0.2, yaw: -Math.PI / 2 },
   gangway: { x: 10.9, z: Q.z1 - 3.2, yaw: 0 },
   strand: { x: STRAND.x - 1, z: STRAND.z + 4.5, yaw: 0 },
-  paco: { x: POSADA.x - 1.2, z: POSADA.z + 5.8, yaw: 0 },
-  // Puerto Brasa: Chano's door up the lane, the quay steps, and the table outside the bar.
-  chanoHome: { x: -4, z: 6290, yaw: 0 },
-  steps: { x: 30, z: QUAY_S.z1 - 1.6, yaw: 0 },
-  barTable: { x: POSADA.x + 2.6, z: POSADA.z + 7, yaw: -Math.PI / 2 },
+  // Puerto Brasa (south: walked to straight across the open waterfront, never by Willowhaven's
+  // paths): Paco's door, Chano's door up the lane, the quay steps, and the table outside the bar.
+  paco: { x: POSADA.x - 1.2, z: POSADA.z + 5.8, yaw: 0, south: true },
+  chanoHome: { x: -4, z: 6290, yaw: 0, south: true },
+  steps: { x: 30, z: QUAY_S.z1 - 1.6, yaw: 0, south: true },
+  barTable: { x: POSADA.x + 2.6, z: POSADA.z + 7, yaw: -Math.PI / 2, south: true },
+  // (Nayra: her door, her boat up at the west end of the waterfront (brasaWorld.js, the first of
+  // the boats pulled up), her tanks on the quay by the steps, a table of her own outside the bar.
+  // Agustín: his door, his nets on the quay by the fuel pump, the dique, and the other chair at
+  // Chano's table (world/folk.js's terrace: across it from Chano's).)
+  nayraHome: { x: 4, z: 6284, yaw: 0, south: true },
+  hull: { x: -3.9, z: 6296.2, yaw: -Math.PI / 2, south: true },
+  tanks: { x: 24, z: QUAY_S.z1 - 1.6, yaw: 0, south: true },
+  nayraTable: { x: POSADA.x - 2.3, z: POSADA.z + 6.2, yaw: -Math.PI / 2, south: true },
+  agustinHome: { x: 76, z: 6284, yaw: 0, south: true },
+  nets: { x: 74, z: 6296, yaw: 0, south: true },
+  dique: { x: 96.5, z: 6318, yaw: Math.PI / 2, south: true },
+  barTable2: { x: POSADA.x + 1.1, z: POSADA.z + 7, yaw: Math.PI / 2, south: true },
   // Inside the chandlery and The Lobster Pot (see world/havenHouses.js): Bert behind his counter,
   // Ruth behind her bar, the regulars at the bar, the tables and the settle by the fire.
   ...ROOM_PLACES,
@@ -443,6 +465,27 @@ export function blockFor(id, hour, ctx, day) {
       if (h >= 18 && h < 21.5) return B('evening', 21.5, 'barTable', 'sit');
       return B(`home-${h < 6.2 ? 0 : h < 12.5 ? 1 : h < 18 ? 2 : 3}`, h < 6.2 ? 6.2 : h < 12.5 ? 12.5 : h < 18 ? 18 : 30.2, 'chanoHome', 'inside');
     }
+    case 'nayra': {
+      // (Sanding her boat's keel, out of the rain; her tanks on the quay late morning; lunch and the
+      // evening outside the bar.)
+      const dry = (ctx.rain ?? 0) < 0.6 && (ctx.storm ?? 0) < 0.4;
+      if (h >= 7.5 && h < 10.5) return dry ? B('hull-am', 10.5, 'hull', 'work') : B('wet-am', 10.5, 'nayraHome', 'inside');
+      if (h >= 10.5 && h < 12.5) return B('tanks', 12.5, 'tanks', 'stand');
+      if (h >= 12.5 && h < 14) return B('lunch', 14, 'nayraTable', 'sit');
+      if (h >= 14 && h < 17.5) return dry ? B('hull-pm', 17.5, 'hull', 'work') : B('wet-pm', 17.5, 'nayraHome', 'inside');
+      if (h >= 19 && h < 21) return B('evening', 21, 'nayraTable', 'sit');
+      return B(`home-${h < 7.5 ? 0 : h < 19 ? 1 : 2}`, h < 7.5 ? 7.5 : h < 19 ? 19 : 31.5, 'nayraHome', 'inside');
+    }
+    case 'agustin':
+      // (His nets every morning; a siesta; his nets again of a fine afternoon; out along the dique
+      // as the sun goes down, to look at the weather; then the evening with Chano. It's a long
+      // stroll from the dique to the bar, an hour and a half of the game's clock, so he leaves it
+      // in good time.)
+      if (h >= 7 && h < 12) return B('nets-am', 12, 'nets', 'work');
+      if (h >= 16 && h < 17.3 && fair(ctx)) return B('nets-pm', 17.3, 'nets', 'work');
+      if (h >= 17.3 && h < 18.5 && (ctx.storm ?? 0) < 0.4) return B('dique', 18.5, 'dique', 'stand');
+      if (h >= 18.5 && h < 22.5) return B('evening', 22.5, 'barTable2', 'sit');
+      return B(`home-${h < 7 ? 0 : h < 17.3 ? 1 : 2}`, h < 7 ? 7 : h < 17.3 ? 17.3 : 31, 'agustinHome', 'inside');
   }
   return B('none', 99, 'inn', 'inside');
 }
@@ -1004,6 +1047,8 @@ export class Townsfolk {
     const C = this.boats.carmen, ch = this.people.chano;
     if (C.aboard && C.leg !== 'land') out.push(C.fishing ? 'Chano is out over El Bajón with his handlines, since sunrise.' : 'That’s Chano’s boat, the Virgen del Carmen, going out to El Bajón.');
     else if (ch.block?.spot === 'steps' && ch.act === 'work' && !C.aboard) out.push('Chano didn’t go out this morning: too much wind. He’s mending his nets on the quay.');
+    // (G9) The dive school's boat, up at the end of the waterfront.
+    if (this.people.nayra?.block?.spot === 'hull') out.push('The dive school’s boat is still up at the end of the waterfront with a cracked keel. Nayra’s at it with a sanding block.');
     return out;
   }
 
@@ -1020,7 +1065,7 @@ export class Townsfolk {
 }
 
 // A word from someone you walk up to: what they're doing, and something useful or kind.
-export function sayTo(p, { hour = 12, storm = 0, wanted = [], caught = 0, landed = [] } = {}) {
+export function sayTo(p, { hour = 12, storm = 0, wanted = [], caught = 0, landed = [], rep = {} } = {}) {
   const act = p.act, b = p.block || {};
   switch (p.id) {
     case 'mags':
@@ -1055,6 +1100,17 @@ export function sayTo(p, { hour = 12, storm = 0, wanted = [], caught = 0, landed
     case 'chano':
       if (act === 'work') return '“Too much wind for my little boat today. So, the nets.” He holds up a tangle. “Always the nets.”';
       return '“El Bajón, every morning since I was a boy. The viejas like a piece of crab, on the bottom, right by the rock. Paco’s mother cooks them better than anyone.”';
+    // (G9) Nayra and Agustín: what they're at, and a word for someone who's worked for them (your
+    // standing with the dive school and the cofradía: contracts.js rep).
+    case 'nayra':
+      if (rep.buceo > 0 && act !== 'work') return '“My divers still talk about you holding the boat over the reef while they were down. ¡Gracias! Come and dive with us one day, as a guest.”';
+      if (act === 'work') return `“A crack in her keel, from a bad landing on Las Coladas.” She runs a hand along it.${rep.buceo > 0 ? ' “You’ve kept my divers going while she’s up here. I won’t forget it.”' : ' “Two more days of sanding and filling, and she’s back in the water. Till then, the school needs a boat.”'}`;
+      if (b.spot === 'tanks') return '“El Bajón is a marine reserve: no anchoring, no fishing over the pinnacles. Ten metres down it’s full of life. Barracuda, groupers, and the black coral down the walls.”';
+      return '“If you want to see angel sharks, go to El Sebadal early, before the boats. They lie in the sand like doormats, and the sand is their colour.”';
+    case 'agustin':
+      if (act === 'work') return `“Sixty years I’ve mended nets on this quay.” His needle doesn’t stop.${rep.cofradia > 0 ? ' “You carried our salt fish, our buoys. The cofradía doesn’t forget.”' : ' “The young ones buy new. A good net, you mend.”'}`;
+      if (b.spot === 'dique') return storm > 0.3 ? '“Look at it. The sea’s the sea’s today. Tomorrow, maybe.”' : '“The trade wind’s backing. When the cloud sits on the Pico like a hat, it’ll blow by morning.”';
+      return rep.cofradia > 0 ? '“¡Siéntate! The one who carried our fish to the English. Paco, another for my friend.”' : '“The salt fish, the way my father did it: split, salted, dried in the wind on the roofs. Your Mags pays well for it, they tell me.”';
   }
   return '';
 }
