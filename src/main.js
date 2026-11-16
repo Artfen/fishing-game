@@ -123,7 +123,7 @@ import { Passersby } from './world/passersby.js';
 import { VisitorView } from './world/visitors.js';
 import { SharedWorld } from './sharedworld.js';
 import { Teamwork } from './teamwork.js';
-import { Crew, CREW_REACH, CREW_SLOW, fishFromHelm, helmWords } from './crew.js';
+import { Crew, CREW_REACH, CREW_SLOW, fishFromHelm, helmWords, stillForDiving, overTheSide, nearestToClimb } from './crew.js';
 import { offshorePlan, turnForHome, seaFor, OFFSHORE_AT } from './offshore.js';
 import { DashControl } from './dashcontrol.js';
 import { keyStep, DASHES } from './dashboard.js';
@@ -3283,15 +3283,16 @@ function diveEntry() {
 // Which way in: the speargun on a breath, or the camera on a tank.
 function chooseDive(entry) {
   const tank = state.dive.tank;
-  const drift = entry.from === 'boat' && !boat.anchored && !boat.tie;
+  // (J2) Over the side of a friend's boat: whether she's held, from their word.
+  const drift = entry.from === 'boat' ? !boat.anchored && !boat.tie : entry.from === 'crew' && !entry.held;
   const fresh = waterOf(zoneAt(entry.x, entry.z)) === 'fresh';
   const buttons = [];
-  if (drift) buttons.push({ text: 'Drop the anchor first', cls: 'quiet', run: () => toggleAnchor() });
+  if (drift && entry.from === 'boat') buttons.push({ text: 'Drop the anchor first', cls: 'quiet', run: () => toggleAnchor() });
   buttons.push(tank > SCUBA.reserve
     ? { text: `Scuba, with the camera (${Math.round(tank)} bar)`, cls: 'quiet', run: () => startDive('scuba', entry) }
     : { text: 'Scuba: the tank needs filling', cls: 'quiet', run: () => hud.flash('The tank’s nearly empty: the chandlery in Willowhaven fills it.', t, 3.5) });
   buttons.push({ text: fresh ? 'Freedive, to look' : 'Freedive, with the speargun', run: () => startDive('free', entry) });
-  ask('Go diving', `${drift ? `The ${boat.name} isn’t anchored: she’ll drift off while you’re down. ` : ''}${fresh
+  ask('Go diving', `${drift ? `${entry.from === 'crew' ? entry.whose : `The ${boat.name}`} isn’t anchored: she’ll drift off while you’re down. ` : ''}${fresh
     ? 'Fresh water: a breath-hold dive or a tank, to look (spearfishing isn’t allowed in fresh water).'
     : 'Hold your breath and take the speargun, or dive on a tank with the camera, to look and take photographs (spearfishing on scuba is banned).'}`, buttons);
 }
@@ -3302,12 +3303,20 @@ function startDive(kit, entry) {
   if (entry.from === 'boat') {
     walker.place(entry.x, entry.z, entry.heading);
     setFoot(true, true);
+    // (J2) Friends see her lying where you've left her (and anyone crewing in her stays aboard).
+    if (together.active) together.fleetSoon();
+  }
+  // (J2) Over the side of a friend's boat you were crewing in: off her for now (still remembering
+  // where you first stepped aboard from), and back aboard her after.
+  if (entry.from === 'crew') {
+    crew.leave();
+    walker.place(entry.x, entry.z, entry.heading);
   }
   const back = entry.from === 'shore' ? { x: walker.pos.x, z: walker.pos.z, heading: walker.heading } : null;
   walker.setVisible(false);
   diver.enter(kit, entry.x, waveHeight(entry.x, entry.z, t) - 0.3, entry.z, entry.heading);
   dive = {
-    kit, from: entry.from, boat: entry.from === 'boat' ? boat : null, back, t: 0,
+    kit, from: entry.from, boat: entry.from === 'boat' ? boat : null, crew: entry.from === 'crew' ? { id: entry.id } : null, back, t: 0,
     o2: 1, hold: 0, longest: 0, maxDepth: 0, lastY: diver.pos.y, rate: 0, breathT: 1.5, blackT: 0,
     stop: { need: false, left: SCUBA.stopFor, done: false, said: false },
     said: {}, fastT: 0, catches: [], fresh: waterOf(zoneAt(entry.x, entry.z)) === 'fresh',
@@ -3348,9 +3357,33 @@ function endDive(to = null, quiet = false) {
   S.deepest = Math.max(S.deepest, Math.round(d.maxDepth * 10) / 10);
   if (d.maxDepth > 1.5) noteDive(state.today, d.site?.id || null, d.maxDepth);
   challengesDone();
-  const back = to || (d.boat ? { boat: d.boat } : { spot: d.back });
-  if (back.boat) board(back.boat);
-  else {
+  const back = to || (d.boat ? { boat: d.boat } : d.crew ? { crew: d.crew } : { spot: d.back });
+  if (back.crew) {
+    // (J2) Aboard a friend's boat: crewing in her again. (Gone, or nowhere to be found: back where
+    // you first stepped aboard from, as when a friend's boat goes.)
+    const p = together.active ? together.peers.get(back.crew.id) : null, b = p && (back.crew.b || visitors.crewBoat(p.id, diver.pos));
+    const from = crewFrom || (d.boat ? { boat: d.boat } : null);
+    if (p && b) {
+      walker.place(b.pos.x, b.pos.z, b.heading);
+      setFoot(true, true);
+      walker.setVisible(true);
+      stepAboard({ p, b }, from);
+    } else {
+      crewFrom = from;
+      leaveCrew();
+      if (!quiet) hud.toast(from?.boat ? `Your friend’s boat has gone: you climb back into your ${from.boat.name}.` : 'Your friend’s boat has gone: you’re back where you stepped aboard her.', 6);
+      if (!from) {
+        const spot = campSpot();
+        walker.place(spot.x, spot.z, spot.heading);
+        setFoot(true, true);
+      }
+      walker.setVisible(true);
+    }
+    if (d.boat && together.active) together.fleetSoon();
+  } else if (back.boat) {
+    board(back.boat);
+    if (together.active) together.fleetSoon();
+  } else {
     walker.place(back.spot.x, back.spot.z, back.spot.heading ?? walker.heading);
     setFoot(true, true);
     walker.setVisible(true);
@@ -3367,15 +3400,19 @@ function endDive(to = null, quiet = false) {
 function diveExit() {
   if (!dive || dive.blackT > 0 || !diver.atSurface(t)) return null;
   const P = diver.pos;
-  let best = null, bd = 1.7;
-  for (const b of boats) {
-    const d = Math.hypot(P.x - b.pos.x, P.z - b.pos.z) - b.hull.L * 0.45;
-    if (d < bd) {
-      bd = d;
-      best = b;
+  // Your own boats, and (J2) a friend's lying still: you climb aboard as their crew.
+  const near = boats.map((b) => ({ b }));
+  if (together.active) {
+    for (const p of together.peers.values()) {
+      const Q = p.view || p.pose;
+      if (!p.name || !stillForDiving(Q, p.at)) continue;
+      const b = visitors.crewBoat(p.id, P);
+      if (b) near.push({ b, p });
     }
   }
-  if (best) return { text: `Climb aboard the ${best.name}`, run: () => endDive({ boat: best }) };
+  const best = nearestToClimb(near, P);
+  if (best?.p) return { text: `Climb aboard ${best.p.name}’s ${best.b.hull.name}`, run: () => endDive({ crew: { id: best.p.id, b: best.b } }) };
+  if (best) return { text: `Climb aboard the ${best.b.name}`, run: () => endDive({ boat: best.b }) };
   for (const Q of PIERS) {
     const qx = clamp(P.x, Q.x0, Q.x1), qz = clamp(P.z, Q.z0, Q.z1);
     if (Math.hypot(P.x - qx, P.z - qz) > 1.6) continue;
@@ -3400,6 +3437,12 @@ function diveExit() {
 // Each frame in the water (not while a panel's open: the dive waits for you).
 function updateDive(dt) {
   const d = dive, D = diver;
+  // (J2) Diving from a friend's boat, and they've gone (left the session): back where you first
+  // stepped aboard her from, as when a friend's boat goes while you're crewing.
+  if (d.crew && (!together.active || !together.peers.has(d.crew.id))) {
+    endDive({ crew: d.crew });
+    return;
+  }
   if (d.blackT > 0) {
     // Blacked out: carried up, and you come to at the surface.
     d.blackT -= dt;
@@ -7184,7 +7227,7 @@ function interaction() {
   if (helpNet) return { text: `Net ${helpNet.p.name}’s fish`, run: () => { if (teamwork.net(helpNet)) hud.flash(`You reach out with the net for ${helpNet.p.name}’s fish…`, t, 2); } };
   if (fishing.busy) return followAction();
   // Crewing in a friend's boat: the helm, or stepping off (see crew.js).
-  if (crew.on) return { text: crew.on.helm ? 'At the helm: hand it back, or step off' : 'Crewing: take the helm, or step off', run: () => crewChoices() };
+  if (crew.on) return { text: crew.on.helm ? 'At the helm: hand it back, or step off' : crewDiveEntry() ? 'Crewing: the helm, a dive, or step off' : 'Crewing: take the helm, or step off', run: () => crewChoices() };
   // In the water: something to climb out onto, at the surface.
   if (dive) return diveExit();
   // Inside the cabin: what's where you stand.
@@ -7340,8 +7383,9 @@ function interaction() {
   // A dry tank: the jerry can, a tow, or an oar.
   if (ELEC[boat.id] && boat.motor && elecLevel(tanks(), boat.id) <= 0 && boat.speed < 1) return { text: 'Battery flat: what now?', run: () => boatChoices() };
   if (isPetrol(boat.kind) && !ELEC[boat.id] && boat.motor && fuelLevel(tanks(), boat.id) <= 0 && boat.speed < 1) return { text: 'Out of fuel: what now?', run: () => boatChoices() };
-  // Walking her deck, knocked about: look her over (see damageAction).
-  if (boat.deck && !boat.atHelm) {
+  // Walking her deck, knocked about, with something to do about it: look her over (see
+  // damageAction). (Paint-deep, it waits: sitting back or a dive first, and it's in their menu.)
+  if (boat.deck && !boat.atHelm && needsSeeingTo()) {
     const da = damageAction();
     if (da) return da;
   }
@@ -7384,12 +7428,15 @@ function interaction() {
   // At anchor or made fast, and still: sit back a while (or over the side, over deep water).
   const settled = (boat.anchored || boat.tie) && Math.abs(boat.speed) < 0.3 && !fishing.lineOut;
   const sitBoat = () => sitDown({ kind: 'boat', name: `back in the ${boat.name}` });
+  const look = damageAction() ? [{ text: 'Look her over', cls: 'quiet', run: () => lookHerOver() }] : [];
   if (settled && entry) {
     return { text: 'Sit back a while, or go diving', run: () => ask(boatTitle(boat), 'At anchor, and all quiet. Sit back a while and watch the water, or over the side for a dive?', [
+      ...look,
       { text: 'Go diving', cls: 'quiet', run: () => chooseDive(entry) },
       { text: 'Sit back a while', run: sitBoat },
     ]) };
   }
+  if (settled && look.length) return { text: 'Sit back a while, or look her over', run: () => ask(boatTitle(boat), 'At anchor, and all quiet. Sit back a while and watch the water, or look her over?', [...look, { text: 'Sit back a while', run: sitBoat }]) };
   if (settled) return { text: 'Sit back a while', run: sitBoat };
   // Stopped over deep water: over the side.
   if (entry) return { text: 'Go diving', run: () => chooseDive(entry) };
@@ -9863,6 +9910,14 @@ function damageTick(dt) {
 }
 // Knocked about, and stopped: look her over (from her deck, on a boat you walk; sitting in her
 // otherwise). What each part of her is like, and the foot pump for a RIB's tubes.
+// (J2) Something about her to do at sea, not just to look at: water in her, the intake fouled, a
+// tube soft or leaking, a hole to plug, the battery terminal or the bracket's bolts to do up.
+function needsSeeingTo() {
+  const D = boat.damage;
+  if ((boat.flooding?.litres || 0) > 5 || boat.engine?.blocked > 0) return true;
+  if (!D) return false;
+  return !!((D.tubes || []).some((c) => c.air < 0.97 || c.leak > 0) || pluggable(D).length || D.wiring?.loose || (D.mount > PARTS.mount.tight && !D.tightened));
+}
 function damageAction() {
   if (onFoot || fishing.busy || pumping || Math.abs(boat.speed) > 1.2) return null;
   const D = boat.damage, wet = (boat.flooding?.litres || 0) > 5, fouled = boat.engine?.blocked > 0;
@@ -11184,9 +11239,10 @@ function crewBoatNear(extra = 0) {
   return best;
 }
 
-function stepAboard({ p, b }) {
+// (from: where you first stepped aboard from, if not here: climbing back aboard from a dive, J2.)
+function stepAboard({ p, b }, from = null) {
   if (fishing.busy) fishing.cancel();
-  crewFrom = onFoot ? { spot: { x: walker.pos.x, z: walker.pos.z, heading: walker.heading } } : { boat };
+  crewFrom = from || (onFoot ? { spot: { x: walker.pos.x, z: walker.pos.z, heading: walker.heading } } : { boat });
   if (!onFoot) {
     boat.setDeck?.(false);
     walker.place(b.pos.x, b.pos.z, b.heading);
@@ -11204,13 +11260,23 @@ function stepAboard({ p, b }) {
 }
 
 // Each frame while crewing: stood in her where you are, going with her; the keys walk you about her.
+// (J2) Her skipper over the side diving from her: still aboard her, lying as they left her. (Word
+// of where she lies comes a moment after they go in, and she's drawn as theirs again a frame after
+// they're back aboard: you wait for it a few seconds either way.)
+const CREW_WAIT = 6;
 function rideCrew(dt) {
-  const O = crew.on, p = together.peers.get(O.id), b = visitors.boatOf(O.id), Q = p && (p.view || p.pose);
-  if (!together.active || !p || !b || Q?.m !== 'boat' || !onFoot || dive || driving) return crewLost(p);
+  const O = crew.on, p = together.peers.get(O.id), Q = p && (p.view || p.pose);
+  const b = Q?.m === 'boat' || Q?.m === 'dive' ? visitors.crewBoat(O.id, walker.pos) : null;
+  if (!together.active || !p || !onFoot || dive || driving) return crewLost(p);
+  if (!b) {
+    if ((Q?.m === 'boat' || Q?.m === 'dive') && (O.wait = (O.wait || 0) + dt) < CREW_WAIT) return;
+    return crewLost(p);
+  }
+  O.wait = 0;
   // (The keys are camera-relative: turned into her own across, and fore and aft.)
   const moving = !O.helm && (move.x || move.z);
   if (moving) crew.walk(-(move.x * b.right.x + move.z * b.right.z), move.x * b.fwd.x + move.z * b.fwd.z, b.hull, dt);
-  const C = visitors.crewAt({ cr: O.id, cx: O.x, cz: O.z });
+  const C = visitors.crewAt({ cr: O.id, cx: O.x, cz: O.z, x: walker.pos.x, z: walker.pos.z });
   if (!C) return crewLost(p);
   _crewAt.set(C.x, C.y, C.z);
   walker.ride(dt, t, _crewAt, moving ? Math.atan2(move.x, move.z) : walker.heading, b.vel, !!moving);
@@ -11242,10 +11308,14 @@ function crewLost(p) {
 
 // What you can do from here: the helm, or step off (onto your own boat alongside, or ashore).
 function crewChoices() {
-  const O = crew.on, p = together.peers.get(O.id), name = p?.name || 'your friend';
+  const O = crew.on, p = together.peers.get(O.id), name = p?.name || 'your friend', Q = p && (p.view || p.pose);
   const opts = [];
   if (O.helm) opts.push({ text: 'Hand back the helm', run: () => { crew.handBack(); hud.flash(`You hand the helm back to ${name}.`, t, 2); } });
-  else opts.push({ text: 'Take the helm', run: () => { if (crew.askHelm()) hud.flash(`You ask ${name} for the helm…`, t, 2); } });
+  // (Not while they're over the side: there's nobody at her helm to hand it over.)
+  else if (Q?.m === 'boat') opts.push({ text: 'Take the helm', run: () => { if (crew.askHelm()) hud.flash(`You ask ${name} for the helm…`, t, 2); } });
+  // (J2) She's still: over the side for a dive, as they might.
+  const entry = crewDiveEntry();
+  if (entry) opts.push({ text: 'Go diving', cls: 'quiet', run: () => chooseDive(entry) });
   // (F4b) Her towline, while she's towing: tend it, or stop.
   if (towOf(O.id)) opts.push({ text: tending === O.id ? 'Stop tending the towline' : 'Tend the towline', run: () => tendTowline(tending !== O.id) });
   const P = walker.pos;
@@ -11254,7 +11324,19 @@ function crewChoices() {
   const spot = (p?.at?.v || 0) < CREW_SLOW ? shoreSpot(P) : null;
   if (spot) opts.push({ text: spot.pier ? 'Step onto the jetty' : 'Step ashore', cls: 'quiet', run: () => leaveCrew({ spot }) });
   if (!mine && !spot) opts.push({ text: 'Back to your own boat (off the session’s map)', cls: 'quiet', run: () => leaveCrew(crewFrom?.boat ? { boat: crewFrom.boat } : null) });
-  ask(`${name}’s boat`, O.helm ? 'You have the helm: the keys steer her and work her throttle.' : 'Crewing for them: fish, watch the sonar, net their fish.', opts);
+  ask(`${name}’s boat`, O.helm ? 'You have the helm: the keys steer her and work her throttle.' : Q?.m === 'dive' ? `${name}’s over the side, diving: mind her while they’re down, or go in after them.` : 'Crewing for them: fish, watch the sonar, net their fish.', opts);
+}
+
+// (J2) Over the side of the friend's boat you're crewing in: she's still, the water's deep enough
+// beside her (the side you're stood on first), and you're not at her helm. The entry, or null.
+function crewDiveEntry() {
+  const O = crew.on, p = O && together.peers.get(O.id), Q = p && (p.view || p.pose);
+  if (!O || O.helm || fishing.busy || !stillForDiving(Q, p.at)) return null;
+  const b = visitors.crewBoat(O.id, walker.pos);
+  if (!b) return null;
+  const side = (walker.pos.x - b.pos.x) * b.right.x + (walker.pos.z - b.pos.z) * b.right.z;
+  const at = overTheSide(b, depthAt, side >= 0 ? 1 : -1);
+  return at && { ...at, from: 'crew', id: O.id, whose: `${p.name}’s ${b.hull.name}`, held: Q.m === 'dive' || !!Q.n };
 }
 
 // Why you won't hand over your helm just now, or null.
@@ -11711,13 +11793,21 @@ function save() {
       state.walker = null;
     } else state.walker = { ...crewFrom.spot };
   }
-  // In the water, you're saved where you went in: aboard, or on the bank.
+  // In the water, you're saved where you went in: aboard, or on the bank. (J2: over the side of a
+  // friend's boat, where you first stepped aboard her from, as crewing.)
   if (dive) {
     if (dive.boat) {
       state.mode = 'boat';
       state.vessel = dive.boat.id;
       state.walker = null;
-    } else state.walker = { ...dive.back };
+    } else if (dive.crew && crewFrom?.boat) {
+      state.mode = 'boat';
+      state.vessel = crewFrom.boat.id;
+      state.walker = null;
+    } else {
+      const spot = dive.crew ? crewFrom?.spot : dive.back;
+      if (spot) state.walker = { ...spot };
+    }
   }
   // The car where it is; at the wheel, you're saved standing by its door (you get out on loading).
   const at = state.car.at;
@@ -13623,7 +13713,7 @@ function tick(now, manual = false) {
         world.coast.ownerSign(plate);
       }
     }
-    visitors.update(dt, t, together.peers, { from: P, fx, glow, night: env.lantern, me: together.id, mine: onFoot ? null : boat, lights: navLights, eye: camera.position });
+    visitors.update(dt, t, together.peers, { from: P, fx, glow, night: env.lantern, me: together.id, mine: dive?.boat || (onFoot ? null : boat), lights: navLights, eye: camera.position });
     navLights.mark();
     placeFriendsFish(t);
     // A boat of yours lying where a friend's boat is (boats from the same jetty start in the same

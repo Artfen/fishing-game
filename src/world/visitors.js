@@ -20,6 +20,8 @@ import { kindOf } from '../boatid.js';
 
 const LINE_N = 18;  // points along a friend's line
 const DIVER_SEEN = 160; // how near a friend diving is drawn (m)
+const CREW_NEAR = 4;    // m beyond a boat's half-length she's still the one you're stood in
+const MOORED_EASE = 6;  // m: a boat of a friend's lying this near where she was eases there
 const _tip = new THREE.Vector3();
 const _crew = new THREE.Vector3(), _towA = new THREE.Vector3(), _towB = new THREE.Vector3();
 
@@ -156,6 +158,26 @@ export class VisitorView {
     if (!d) return null;
     for (const b of Object.values(d.boats)) if (b.group.visible) return b;
     return null;
+  }
+
+  // The boat of friend `id`'s that someone crews in (or climbs back aboard from the water): the one
+  // they're in, or, while they're over the side diving from her, the one of theirs lying nearest
+  // `near` (within a few metres of her). null if neither.
+  crewBoat(id, near = null) {
+    const b = this.boatOf(id);
+    if (b) return b;
+    const d = this.drawn.get(id);
+    if (!d || !near) return null;
+    let best = null, bd = Infinity;
+    for (const m of Object.values(d.moored)) {
+      if (!m.group.visible) continue;
+      const dist = Math.hypot(m.pos.x - near.x, m.pos.z - near.z);
+      if (dist < m.hull.L * 0.5 + CREW_NEAR && dist < bd) {
+        bd = dist;
+        best = m;
+      }
+    }
+    return best;
   }
 
   // A friend's own colour (their coat), for the map.
@@ -384,7 +406,7 @@ export class VisitorView {
   // or (me: your id, mine: your boat) in yours. { x, y, z, h } or null.
   crewAt(P, me = null, mine = null) {
     if (!P?.cr) return null;
-    const B = P.cr === me ? mine : this.boatOf(P.cr);
+    const B = P.cr === me ? mine : this.crewBoat(P.cr, P);
     if (!B?.body || B.group?.visible === false) return null;
     // (On her sole, or up on a deck if that's where they are: a bass boat's casting decks.)
     const H = B.hull, t = (P.cz + H.L / 2) / H.L, onDeck = (H.decks || []).some(([a, b]) => t >= a && t <= b);
@@ -454,7 +476,7 @@ export class VisitorView {
         const fid = F.i || F.k;
         if ((P.m === 'boat' && fid === (P.i || P.k)) || (afloat && P.tw && fid === (P.tw.i || P.tw.k)) || Math.hypot(F.x - from.x, F.z - from.z) > 900) continue;
         keep.add(fid);
-        this.drawMoored(this.mooredFor(d, fid), F, t);
+        this.drawMoored(this.mooredFor(d, fid), F, t, false, dt);
       }
       for (const [k, b] of Object.entries(d.moored)) if (!keep.has(k)) b.group.visible = false;
     }
@@ -506,9 +528,14 @@ export class VisitorView {
     (d.towRope ||= new Rope(this.scene, { segments: 12, radius: 0.013 })).lay(_towA, _towB, { tension: W.t > 0.05 ? 1 : 0.3, sag: 0.9 });
   }
 
-  drawMoored(b, F, t, towed = false) {
+  // dt: given, a boat lying near where she was eases to where word now says (swinging at her
+  // anchor, someone may be stood in her: see crewBoat), rather than jumping there.
+  drawMoored(b, F, t, towed = false, dt = 0) {
     const moved = !b.group.visible || Math.hypot(b.pos.x - F.x, b.pos.z - F.z) > 0.3;
+    const ease = dt > 0 && b.group.visible && Math.hypot(b.pos.x - F.x, b.pos.z - F.z) < MOORED_EASE;
     b.group.visible = true;
+    const h = ease ? dampAngle(b.heading, F.h, 2, dt) : F.h;
+    F = ease ? { x: damp(b.pos.x, F.x, 2, dt), z: damp(b.pos.z, F.z, 2, dt), h } : F;
     const fw = { x: Math.sin(F.h), z: Math.cos(F.h) };
     b.pos.set(F.x, 0, F.z);
     b.heading = F.h;

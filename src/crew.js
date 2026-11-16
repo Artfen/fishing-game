@@ -201,6 +201,46 @@ export class Crew {
   }
 }
 
+/* ---------- diving together from one boat (J2) ---------- */
+
+// A friend's boat you could go over the side of, or that you're stood in while they dive from
+// her: still enough. Their pose (Q) and how fast they're going (at.v): anchored or tied up, or
+// barely moving; over the side diving from her themselves, she's lying as they left her.
+export const DIVE_STILL = 0.6;    // m/s
+export function stillForDiving(Q, at) {
+  if (!Q) return false;
+  if (Q.m === 'dive') return true;
+  return Q.m === 'boat' && (!!Q.n || (at?.v || 0) < DIVE_STILL);
+}
+
+// Where to go in over the side of boat b (as drawn: pos, right, heading, hull), with water deep
+// enough there (depthAt(x, z), metres): the side you're on first (prefer: +1 her right, -1 her
+// left), then the other. { x, z, heading } or null.
+export const DIVE_DEEP = 1.6;
+export function overTheSide(b, depthAt, prefer = 1) {
+  const off = b.hull.B * 0.5 + 0.7;
+  for (const s of prefer < 0 ? [-1, 1] : [1, -1]) {
+    const x = b.pos.x + b.right.x * off * s, z = b.pos.z + b.right.z * off * s;
+    if (depthAt(x, z) > DIVE_DEEP) return { x, z, heading: b.heading };
+  }
+  return null;
+}
+
+// At the surface: of the boats about (each { b, … }), the nearest close enough to climb aboard
+// (CLIMB_REACH beyond most of her half-length from her middle), or null.
+export const CLIMB_REACH = 1.7;
+export function nearestToClimb(list, P) {
+  let best = null, bd = CLIMB_REACH;
+  for (const c of list) {
+    const d = Math.hypot(P.x - c.b.pos.x, P.z - c.b.pos.z) - c.b.hull.L * 0.45;
+    if (d < bd) {
+      bd = d;
+      best = c;
+    }
+  }
+  return best;
+}
+
 /* ---------- at a friend's helm while they play a fish (E3a) ---------- */
 
 // Where a fish lies from a boat's bow: { d (m), rel (radians, + to port, − to starboard), where
