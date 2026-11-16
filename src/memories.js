@@ -277,8 +277,10 @@ export class Memories {
     for (const [id, day] of Object.entries(F.done)) {
       const R = requestById[id];
       if (!R) continue;
+      // (One that comes round again: how many times, and the last.)
+      const n = F.times?.[id] || 1;
       const d = el('div', 'mem-place done');
-      d.append(el('b', '', `${R.short} ✓`), el('span', 'j-faint', ` · day ${day}`));
+      d.append(el('b', '', `${R.short} ✓${n > 1 ? ` ×${n}` : ''}`), el('span', 'j-faint', ` · ${n > 1 ? 'last on ' : ''}day ${day}`));
       out.push(d);
     }
     if (!out.length) out.push(el('p', 'j-empty', 'Nobody has asked you anything yet. Stop for a word with the harbour’s people (E): now and then they’ll ask a small favour.'));

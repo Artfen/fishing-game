@@ -17,7 +17,10 @@ import { lower, an } from './innTalk.js';
 //  · deliver carry `item` to `to`;
 //  · find    find Dougie's pot buoy, adrift at sea, and bring it back.
 // reward: { money, keepsake, pin: { x, z, title, note }, dish: { text, fill } } (from whoever you
-// finish it with). (The marks: the ledges off Cove Head, the Kittiwake's buoy, the end of the Old
+// finish it with).
+// again: days. A favour that comes round again (G9c): once someone's first favours are done, this
+// one of theirs is asked again that many days after you last did it, so nobody runs out of things
+// to ask. Its words fit any week, and it gives back money or a meal, never a mark or a keepsake. (The marks: the ledges off Cove Head, the Kittiwake's buoy, the end of the Old
 // Jetty; see world/terrain.js's DAYMARK, WRECK_BUOY and JETTY.)
 
 export const REQUESTS = [
@@ -188,6 +191,107 @@ export const REQUESTS = [
     thanks: '“Out past the bay mouth? Then that’s where the sandeels are this year.” She writes it down, and then marks your map. “Where the tide runs off the west point: the auks and the gannets are on the sandeels there at the turn of the tide, and the mackerel under them.”',
     reward: { money: 6, pin: { x: -358, z: 560, title: 'Fen’s tide rip', note: 'Off Gannet Isle’s west point, where the tide runs hard over the ledge: at the turn of the tide the sandeels come up in it, the auks and gannets pile in, and the mackerel and pollack are underneath.' } },
   },
+
+  // (G9c) Favours that come round again, one of each person's: asked once their first ones are
+  // done, and again every few days after.
+  {
+    id: 'bream', who: 'mags', kind: 'bring', species: 'gilthead', min: 30, again: 5,
+    ask: '“Mr Trelawney up at the Grange wants a gilt-head bream every week, and sends it back if it’s under thirty centimetres. They come in round the quay wall on the flood. Bring me one when you can, would you?”',
+    short: 'A gilthead bream of 30 cm or more, for Mr Trelawney’s week',
+    thanks: '“Gold between the eyes: that’s the one. He’ll not find fault with that.” She counts it out from the till.',
+    reward: { money: 18 },
+  },
+  {
+    id: 'order', who: 'bert', kind: 'deliver', item: 'Hettie’s tackle order', to: 'hettie', again: 6,
+    ask: '“Hettie’s order’s in again: a spool of line and two packets of hooks. She’ll be out on the rocks somewhere, or on the end of the quay. Would you take it to her?”',
+    short: 'Take Hettie’s tackle order to her, from Bert',
+    thanks: '“Bless him, he remembered the size fours this time.” She tucks the packet in her bag and presses a coin on you.',
+    reward: { money: 4 },
+  },
+  {
+    id: 'piefish', who: 'ruth', kind: 'bring', species: 'pollack', count: 2, again: 4,
+    ask: '“Fish pie night, and the van never came. Two pollack would see me right: any size, so long as they’re fresh. There’s a plate in it for you.”',
+    short: 'Two pollack for Ruth’s fish pie',
+    thanks: '“That’s the pie saved.” She’s already filleting. “Sit yourself down: the first plate’s yours.”',
+    reward: { money: 12, dish: { text: 'A plate of Ruth’s fish pie at The Lobster Pot, hot from the oven.', fill: 40 } },
+  },
+  {
+    id: 'buoy2', who: 'dougie', kind: 'find', again: 5,
+    ask: '“Lost another one off Gull Rock. The tide gets under them in a big swell and away they go. Same as before: an orange float with a flag. Keep an eye out for it?”',
+    short: 'Find another of Dougie’s pot buoys, adrift at sea, and bring it in',
+    thanks: '“That’s the one. Saves me forty pound and a morning.” He gives you a few coins and a nod.',
+    reward: { money: 8 },
+  },
+  {
+    id: 'nightbass', who: 'hettie', kind: 'catch', species: 'seabass', min: 45, night: true, shore: true, again: 5,
+    ask: '“Same bet as ever: a bass of forty-five or better, from the shore, after dark. I’ll stand you a drink if you do it before I do.”',
+    short: 'Hettie’s bet: a sea bass of 45 cm or more, from the shore, after dark',
+    thanks: '“After dark, off the shore, and bigger than mine this week.” She shakes her head and laughs. “Go on, then: I owe you.”',
+    reward: { money: 5 },
+  },
+  {
+    id: 'dolphinbook', who: 'kit', kind: 'see', what: ['bottlenose', 'commondolphin'], again: 4,
+    ask: '“Have you seen the dolphins this week? Tell me everything: how many, and if they jumped. I write them all down in my book.”',
+    short: 'See dolphins, and tell Kit for his book',
+    thanks: '“Seven? And one jumped right out?” He writes it down very carefully. “Gran made jam tarts. You can have one.”',
+    reward: { dish: { text: 'One of Kit’s gran’s jam tarts, still warm.', fill: 12 } },
+  },
+  {
+    id: 'wrassephoto', who: 'ian', kind: 'photo', species: 'wrasse', again: 6,
+    ask: '“I give a talk at the village hall every month: the sea on our doorstep. They always ask for the wrasse, the colours of them. Could you get me a photograph of a ballan wrasse, down on the reef?”',
+    short: 'Photograph a ballan wrasse on the reef, for Ian’s talk',
+    thanks: '“Look at the green on him. The hall will love it.” He insists on paying for the film, as he calls it.',
+    reward: { money: 8 },
+  },
+  {
+    id: 'tides', who: 'wenna', kind: 'deliver', item: 'the new tide tables for Wend Quay', to: 'bryn', again: 7,
+    ask: '“The new tide tables have come for the camp at Wend Quay. Bryn likes them pinned up by the tackle box before the month turns. If you’re going that way, would you take them?”',
+    short: 'Take the new tide tables to Bryn at Wend Quay',
+    thanks: '“The tables! Wenna never forgets.” He pins them up by the tackle box straight away, and finds you a coin from his jacket.',
+    reward: { money: 6 },
+  },
+  {
+    id: 'caballas', who: 'paco', kind: 'bring', species: 'chubmackerel', count: 2, again: 4,
+    ask: '“Caballas for the tapas tonight: two, any size, so long as they’re fresh. Chano’s gone after the viejas and left me short.”',
+    short: 'Two chub mackerel (caballas) for Paco’s tapas',
+    thanks: '“¡Perfecto! Grilled, a little salt, a little lemon.” He pays you from the till and pours you a caña.',
+    reward: { money: 10 },
+  },
+  {
+    id: 'tortuga', who: 'chano', kind: 'see', what: ['turtle'], again: 6,
+    ask: '“There’s a loggerhead that comes past El Bajón, an old one. The old men say she brings luck to the boats. If you see a turtle out there, come and tell me how she looked.”',
+    short: 'See a loggerhead turtle off the island, and tell Chano',
+    thanks: '“Still coming, the old girl.” He smiles out at the harbour mouth. “Then the fish will come too.”',
+    reward: { money: 5 },
+  },
+  {
+    id: 'manchados', who: 'nayra', kind: 'see', what: ['spotteddolphin'], again: 5,
+    ask: '“My divers ask me every morning where the spotted dolphins are. If you see them, come and tell me where, and the next boat goes that way.”',
+    short: 'See the spotted dolphins, and tell Nayra where',
+    thanks: '“There? Then that’s where we’ll go.” She chalks it on the board by her tanks, and pays you for your trouble.',
+    reward: { money: 8 },
+  },
+  {
+    id: 'salpreso', who: 'agustin', kind: 'bring', species: 'bogue', count: 3, again: 5,
+    ask: '“The salting racks are half empty. Three bogues, any size: the little ones salt best. Bring them, and the cofradía will pay.”',
+    short: 'Three bogues for Agustín’s salting racks',
+    thanks: '“Good. Split, salted, and up on the roof by tonight.” He counts out the cofradía’s coins slowly.',
+    reward: { money: 9 },
+  },
+  {
+    id: 'samphire', who: 'bryn', kind: 'deliver', item: 'a crate of samphire from the Saltings', to: 'ruth', again: 6,
+    ask: '“Ruth at The Lobster Pot will have the samphire, if it gets to her fresh. I’ve a crate cut from the Saltings this morning. Would you take it down to Willowhaven?”',
+    short: 'Take Bryn’s crate of samphire to Ruth',
+    thanks: '“Samphire! It’ll go with the bass tonight.” She pays you for Bryn, and a little for yourself.',
+    reward: { money: 6 },
+  },
+  {
+    id: 'counts', who: 'fen', kind: 'deliver', item: 'Fen’s week of counts for the Trust', to: 'wenna', again: 5,
+    ask: '“The Trust wants my counts every week, and the post only comes out with the boat. If you’re going back to Willowhaven, would you take them to Wenna at the harbour office? She sends them on.”',
+    short: 'Take Fen’s counts to Wenna at the harbour office',
+    thanks: '“Fen’s counts. The Trust will be glad of them.” She pays the carriage out of the office tin.',
+    reward: { money: 7 },
+  },
 ];
 export const REQUEST_IDS = REQUESTS.map((r) => r.id);
 export const requestById = Object.fromEntries(REQUESTS.map((r) => [r.id, r]));
@@ -196,9 +300,10 @@ export const ACTIVE_MAX = 3;
 // Where Dougie's buoy might have drifted to (one of these, by the day you're asked).
 export const BUOY_DRIFT = [{ x: 60, z: 140 }, { x: -20, z: 230 }, { x: 150, z: 200 }, { x: -60, z: 180 }];
 
-// state.favours: { active: [{ id, day, ready, pos? (the buoy) }], done: { id: day }, last: { who: day
-// a favour was finished }, declined: { id: day } }.
-export const newFavours = () => ({ active: [], done: {}, last: {}, declined: {} });
+// state.favours: { active: [{ id, day, ready, pos? (the buoy) }], done: { id: day (the last time) },
+// last: { who: day a favour was finished }, declined: { id: day }, times: { id: how many times
+// you've done one that comes round again } }.
+export const newFavours = () => ({ active: [], done: {}, last: {}, declined: {}, times: {} });
 export function cleanFavours(raw) {
   const F = newFavours();
   if (!raw || typeof raw !== 'object') return F;
@@ -211,22 +316,26 @@ export function cleanFavours(raw) {
   }
   for (const k of ['done', 'declined']) if (raw[k] && typeof raw[k] === 'object') for (const [id, d] of Object.entries(raw[k])) if (requestById[id] && day(d) != null) F[k][id] = day(d);
   if (raw.last && typeof raw.last === 'object') for (const [who, d] of Object.entries(raw.last)) if (/^[a-z]{2,12}$/.test(who) && day(d) != null) F.last[who] = day(d);
+  if (raw.times && typeof raw.times === 'object') for (const [id, n] of Object.entries(raw.times)) if (requestById[id]?.again && id in F.done && Number.isFinite(n) && n >= 1) F.times[id] = Math.min(9999, Math.round(n));
   return F;
 }
 
 const isActive = (F, id) => F.active.some((a) => a.id === id);
-// The favour someone would ask of you now, if any: their next one not yet done, unless they've one
-// running already, you've finished one for them today, you said not now today, or you've already
-// three on the go.
+// Whether a favour could be asked on `day`: never done, or one that comes round again and it's been
+// long enough since you last did it.
+export const askable = (F, R, day) => !(R.id in F.done) || (!!R.again && day - F.done[R.id] >= R.again);
+// The favour someone would ask of you now, if any: their next one not yet done (their first ones
+// first, then the one that comes round again, when it's due), unless they've one running already,
+// you've finished one for them today, you said not now today, or you've already three on the go.
 export function offerFor(who, F, day) {
   if (F.active.length >= ACTIVE_MAX || F.last[who] === day) return null;
   if (F.active.some((a) => requestById[a.id].who === who)) return null;
-  const next = REQUESTS.find((r) => r.who === who && !(r.id in F.done) && !isActive(F, r.id));
+  const next = REQUESTS.find((r) => r.who === who && !isActive(F, r.id) && askable(F, r, day));
   if (!next || F.declined[next.id] === day) return null;
   return next;
 }
 export function accept(F, id, day) {
-  if (isActive(F, id) || id in F.done || F.active.length >= ACTIVE_MAX) return null;
+  if (!requestById[id] || isActive(F, id) || !askable(F, requestById[id], day) || F.active.length >= ACTIVE_MAX) return null;
   const e = { id, day, ready: false };
   if (requestById[id].kind === 'find') e.pos = { ...BUOY_DRIFT[day % BUOY_DRIFT.length] };
   if (requestById[id].kind === 'deliver') e.ready = true; // (carried from the start)
@@ -311,6 +420,7 @@ export function complete(F, id, day) {
   F.active.splice(i, 1);
   F.done[id] = day;
   const R = requestById[id];
+  if (R.again) F.times[id] = (F.times[id] || 0) + 1;
   F.last[R.who] = day;
   if (R.to) F.last[R.to] = day;
   return R.reward;
