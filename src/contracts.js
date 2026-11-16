@@ -549,6 +549,24 @@ export const TEMPLATES = {
       };
     },
   },
+  // (G6b) A cabin boat aground on the Wend's sand as the tide falls: pull her off into deep
+  // water before it leaves her. She's a real hull sat on the sand (aground.js chooses where and
+  // when, so there's a fair window: W.groundSpot), heavier on it the lower the water; once she's
+  // dry she sits there till the flood, and the job's gone (by: when she's dry). Only for a skipper
+  // the harbour office knows (callPool), and only when there's a bank and a tide for it (spot).
+  aground: {
+    cat: 'rescue', giver: 'wenna', call: true, harder: true, spot: 'groundSpot',
+    make(W, r) {
+      const S = W.groundSpot;
+      if (W.region !== 'home' || W.storm || W.wind > 12 || !S) return null;
+      const name = pick(r, ['Curlew', 'Sea Holly', 'Lapwing', 'Morwenna', 'Spindrift']);
+      return {
+        title: `The ${name}, aground`, story: `Harbour office: “The ${name}, a little cabin boat, has run up on ${S.name}, and the tide’s falling. If she’s not off before it leaves her she’ll sit there till the flood: she’ll be high and dry by about ${S.dryWords}. Come in off her bow from the deep water, gently (it’s shallow there, and you don’t want to join her), and they’ll heave you a line. Then ease her off.”`,
+        goal: `Pull the ${name} off ${S.name} before the tide leaves her, by about ${S.dryWords} (close off her bow, slowly, then the mooring key for her line, then ease her off into deep water)`, obj: { kind: 'tow', at: { x: S.x, z: S.z }, heading: S.heading, boat: 'cabin', name, aground: true, by: S.dryAt },
+        where: { x: S.x, z: S.z, name: `the ${name}` }, boat: 'a boat with the power to pull a cabin boat off the sand (the RIB, or the centre-console boat)', difficulty: 3, minutes: 10, pay: 45, rep: 3,
+      };
+    },
+  },
   // ---- (G2c) passengers and freight from Puerto Brasa ----
   // The island's charters, a drifting buoy to bring in and the island's freight for home: aboard
   // at Puerto Brasa (obj.base) and back to it, in a boat of yours that's on the island (the slate's
@@ -913,7 +931,8 @@ export function callPool(C, W) {
   const known = standingWith(C, 'wenna').k > 1;
   return TEMPLATE_IDS.filter((k) => {
     const T = TEMPLATES[k];
-    return T.call && (W.offshore ? !!T.far : !T.far && (!T.harder || known));
+    // (spot: a call that wants a place the world must find for it first, G6b's bank.)
+    return T.call && (!T.spot || !!W[T.spot]) && (W.offshore ? !!T.far : !T.far && (!T.harder || known));
   });
 }
 // The call itself: an offer (not on the board) from the world W, which carries callSpot: { x, z,
@@ -947,6 +966,8 @@ export function tick(C, x) {
     if (a.ready) continue;
     if (o.by != null && x.abs != null && x.abs > o.by) {
       C.active.splice(C.active.indexOf(a), 1);
+      // (G6b: aground, and the tide's left her.)
+      if (o.aground) a.why = 'dry';
       missed.push(a);
       continue;
     }
@@ -1070,7 +1091,9 @@ export function tick(C, x) {
           said.push({ a, text: q === 2 ? `${a.title}: she’s half way to swamped.` : `${a.title}: she’s nearly swamped. Hurry.` });
         }
       }
-      if (S.home) out.push(finish(a, true));
+      // (G6b: one aground is done once she's off, floating clear in deep water; her owner takes
+      // her home. Any other, once she's in Willowhaven's harbour.)
+      if (o.aground ? S.off : S.home) out.push(finish(a, true));
       else if (S.towed && !P.towing) {
         P.towing = true;
         if (o.leak) P.helped = true;
@@ -1139,6 +1162,7 @@ export function target(a) {
   if (o.kind === 'deliver' && o.to === 'home') return { home: true, base: 'home', name: `${a.title}: into Willowhaven` };
   if (o.kind === 'tow') {
     const p = a.progress.at || o.at;
+    if (o.aground) return { x: p.x, z: p.z, name: a.progress.towing ? `${a.title}: ease her off into deep water` : a.title };
     return a.progress.towing ? { home: true, name: `${a.title}: into Willowhaven` } : { x: p.x, z: p.z, name: a.title };
   }
   if (o.kind === 'pickup') return a.progress.picked ? { home: true, base, name: `${a.title}: ${back}` } : { x: o.at.x, z: o.at.z, name: a.title };
@@ -1167,6 +1191,7 @@ export function standing(a) {
   if (o.kind === 'dive') return `${P.got} of ${o.n} new things logged.`;
   if (o.kind === 'notes') return `${(P.seen || []).length} of ${o.n} recorded.`;
   if (o.kind === 'pickup') return P.picked ? (o.base === 'puerto' ? 'Aboard: into Puerto Brasa.' : 'Aboard: home to Willowhaven.') : 'Out there: get alongside, slowly.';
+  if (o.kind === 'tow' && o.aground) return P.towing ? 'On your towline: ease her off into deep water.' : 'Aground, and the tide falling: come in off her bow from the deep water, slowly, and take her line.';
   if (o.kind === 'tow') return P.towing ? 'On your towline: bring her into Willowhaven.' : 'Out there, engine dead: come alongside slowly and take her in tow.';
   if (o.kind === 'stages') {
     const S = o.stages[P.stage];

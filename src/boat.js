@@ -4999,6 +4999,7 @@ export class Boat {
       b.impact = 0;
     }
     this.grounded = b.grounded;
+    this.groundLoad = b.groundLoad;
     if (b.scrape > 0.3 && b.grounded > 0) this.onScrape?.(b.scrape, b.grounded);
 
     this.group.position.set(this.pos.x, this.heave - H.draft, this.pos.z);
