@@ -6,6 +6,7 @@ import { Cloud } from './cloud.js';
 import { Together, cleanName, suggestName, NAME_MAX, CALLS, PAID_MAX } from './together.js';
 import { setupOffline, offline, applyUpdate, checkForUpdate } from './offline.js';
 import { RELEASE, BUILD, BUILT } from './version.js';
+import { frameLoop } from './loop.js';
 import { DIFFICULTY, DIFFICULTY_IDS, DRAG_LEVELS, DRAG_NAMES, breakReason } from './fight.js';
 import { LAND_WAYS } from './landing.js';
 import { BEHAVIOUR, conditionWords } from './behaviour.js';
@@ -14026,11 +14027,11 @@ function lookOfTheHour() {
   return L;
 }
 
-function frame(now) {
+// (The next frame asked for first, so one that throws is reported and the game goes on: loop.js.)
+const frame = frameLoop(requestAnimationFrame, (now) => {
   if (!window.slowTide?.paused) tick(now);
   else last = now;
-  requestAnimationFrame(frame);
-}
+});
 
 $('loading')?.remove();
 requestAnimationFrame((now) => {
