@@ -1261,3 +1261,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | Validation | New `tests/boatids.test.mjs` (3): a boat's id her kind unless given one, her kind still her hull's; the fleet's berths, laying up and choosing who stays afloat by id (two RIBs, a berth each); a guard on `src/main.js` that where each lies, the one you're in, laid up, launched, the trailer, shipping and a tow read her id, not her kind |
 | Remaining risks | Her kit and accounts are still kept by kind (G8b): until then a second boat of a kind would share them |
 
+### Long-term play G8b1: her engine room, damage and trolling motor her own
+
+| Field | |
+| --- | --- |
+| System | `src/main.js`: each boat's engine room and damage kept by her id and reached through her (`boat.engine`, `boat.damage`) in the helm, the engine's start and stop, a flat battery, the dashboard, her lights, flooding and knocks, the pumps' batteries, the tubes, the repairs at sea and at the Marine Works, and the harbour's tow; leaving the helm remembers the boat whose helm it was (`helmBoat`); bailing and pumping remember the boat you're at it in; the trolling motors kept by her id |
+| Previous issue | After G8a, a boat's engine room, damage and trolling motor were still looked up by her kind (`engines[boat.kind]`, `damages[boat.kind]`, `trollMotors[b.kind]`), so a second boat of a kind would have shared them |
+| Change | The second of G8's stages: what's aboard each boat and what's happened to her, her own |
+| Player benefit | None yet, by design: each id is still her kind |
+| Before | (From the code.) 49 lookups of the engine room, damage and trolling motor by kind |
+| After | In the game (browser): the same save loaded and saved on G8a and on this build, each boat where she was, her engine room and damage saved under the same names, and the RIB driven under power with her engine room and damage her own |
+| Validation | `tests/boatids.test.mjs` (4): a guard on `src/main.js` that the engine rooms and damage are built by id, bailing, pumping and leaving the helm remember the boat, the trolling motors are kept by id, and nothing of these is looked up by kind |
+| Remaining risks | Her accounts (fuel, stores, the fish box, cargo, papers, fit-out, paint) are still kept by kind (G8b2) |
+
