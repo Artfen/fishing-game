@@ -1313,3 +1313,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | Validation | `tests/secondboat.test.mjs` (5, two new): buying another (only one you have, only a Willowhaven boat, at her price, her own id and papers, two to a kind, kept through a save, nothing bought short of money); a guard on `src/main.js` that what every boat is given runs for one built later, a boat bought is built and set up, and the harbour office names them apart |
 | Remaining risks | Friends still see your second as one of the kind (G8c3); a boat bought on a visit to the island waits at Willowhaven |
 
+### Long-term play G8c3: a second boat of a kind, with friends and across the sea
+
+| Field | |
+| --- | --- |
+| System | `src/together.js` (a pose, a tow and your moored boats carry her id, `i`, when she's a second of a kind; one of a kind may tow the other; each boat once in your moored boats, by id); `src/world/visitors.js` (a friend's boats kept and drawn by id, built as her kind); `src/main.js` (her id sent only for a second of a kind: everyone else's messages as before; the crossing and the fast passage by her id, the sailing boat making it reefed, the best crossing kept for her kind, her name in the crossing's words; a voyage records her id; the debug API's `whereIAm`); `src/crossing.js` (a crossing in a second of a kind kept); `src/journal.js` (the voyage journal names her "the second RIB") |
+| Previous issue | After G8c2, a friend's game saw your second RIB as a RIB and kept one moored RIB of yours; towing one RIB with the other was dropped as a boat towing herself; a crossing in a second yacht wasn't kept by the save, and the journal would have named her by her id |
+| Change | The last of G8's stages: a second boat of a kind is herself wherever she is, with friends, on the crossing and in the journal |
+| Player benefit | Your friends see both your RIBs, and you towing one with the other; a second yacht or sailing boat can make the crossing |
+| Before | (From the code.) Boats sent and kept by kind alone; the crossing checked against the kinds that make it |
+| After | In the game (browser), with two RIBs: aboard the second, your pose names her (`rib~2`) and your moored boats the first; aboard the first, no id sent (as before) and the second among your moored boats by hers |
+| Validation | `tests/secondboat.test.mjs` (7, two new): a pose in the second RIB towing the first kept, a boat towing herself not, an id of another kind dropped, the first of a kind sends none; both RIBs moored, each once; a crossing in a second yacht kept (and none in a RIB); a guard on `src/main.js` for the crossing, the passage, reefing, the record, the voyage and what friends are sent |
+| Remaining risks | A friend on a release before this sees a second boat as one of her kind, and one of your two moored RIBs (their game drops the id) |
+

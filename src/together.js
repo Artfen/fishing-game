@@ -16,6 +16,7 @@
 // 1.0.0), so no SDK is needed: see Realtime below.
 
 import { cleanLook } from './looks.js';
+import { kindOf, isBoatId } from './boatid.js';
 
 export const NAME_MAX = 16;
 export const MAX_PLAYERS = 8;
@@ -188,6 +189,8 @@ export function cleanPose(p, kinds = null, gear = null) {
   if (m === 'boat') {
     if (typeof p.k !== 'string' || (kinds && !kinds.includes(p.k))) return null;
     out.k = p.k;
+    // (G8c) Her id, when she's a second of her kind ('rib~2': see boatid.js).
+    if (isBoatId(p.i) && p.i !== p.k && kindOf(p.i) === p.k) out.i = p.i;
     out.f = !!p.f;   // a line out
     out.s = !!p.s;   // under sail
     out.n = !!p.n;   // at anchor or tied up
@@ -197,9 +200,11 @@ export function cleanPose(p, kinds = null, gear = null) {
     // further off than a towline reaches), the pull on the line (kN), the line a crewmate tending
     // it has let run (m), and which crewmate is (their id).
     const W = p.tw;
-    if (W && typeof W === 'object' && typeof W.k === 'string' && W.k !== out.k && (!kinds || kinds.includes(W.k))) {
+    // (One of a kind towing the other of it: told apart by her id.)
+    const wi = W && isBoatId(W.i) && W.i !== W.k && kindOf(W.i) === W.k ? W.i : null;
+    if (W && typeof W === 'object' && typeof W.k === 'string' && (wi || W.k) !== (out.i || out.k) && (!kinds || kinds.includes(W.k))) {
       const wx = finite(W.x, -1e5, 1e5), wz = finite(W.z, -1e5, 1e5), wh = finite(W.h, -100, 100);
-      if (wx != null && wz != null && wh != null && Math.hypot(wx - x, wz - z) <= TOW_REACH) out.tw = { k: W.k, x: wx, z: wz, h: wh, t: finite(W.t, 0, 60) ?? 0, l: finite(W.l, 0, 20) ?? 0, ...(typeof W.e === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(W.e) ? { e: W.e } : {}) };
+      if (wx != null && wz != null && wh != null && Math.hypot(wx - x, wz - z) <= TOW_REACH) out.tw = { k: W.k, ...(wi ? { i: wi } : {}), x: wx, z: wz, h: wh, t: finite(W.t, 0, 60) ?? 0, l: finite(W.l, 0, 20) ?? 0, ...(typeof W.e === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(W.e) ? { e: W.e } : {}) };
     }
   }
   if (m === 'foot') out.a = ACTS.includes(p.a) ? p.a : 'stand';
@@ -258,8 +263,10 @@ export function cleanFleet(list, kinds = null) {
   for (const b of list.slice(0, FLEET_MAX)) {
     if (!b || typeof b !== 'object' || typeof b.k !== 'string' || (kinds && !kinds.includes(b.k))) continue;
     const x = finite(b.x, -1e5, 1e5), z = finite(b.z, -1e5, 1e5), h = finite(b.h, -100, 100);
-    if (x == null || z == null || h == null || out.some((o) => o.k === b.k)) continue;
-    out.push({ k: b.k, x, z, h });
+    // (Each boat once: a second of a kind by her id.)
+    const i = isBoatId(b.i) && b.i !== b.k && kindOf(b.i) === b.k ? b.i : null;
+    if (x == null || z == null || h == null || out.some((o) => (o.i || o.k) === (i || b.k))) continue;
+    out.push({ k: b.k, ...(i ? { i } : {}), x, z, h });
   }
   return out;
 }

@@ -1,6 +1,7 @@
 import { CROSSING, LIGHT } from './world/terrain.js';
 import { SOUTH_Z, ISLE, FARO, PUERTO, brasaSDF } from './world/brasa.js';
 import { clamp, lerp, smoothstep, seeded } from './util.js';
+import { kindOf, isBoatId } from './boatid.js';
 
 // The crossing: Las Brasas lies across the open Atlantic to the south of Willow Bay, in the same
 // world, and you can sail there (or motor, in the yacht) the whole way, at the helm: out past
@@ -146,7 +147,8 @@ export function planCrossing(day, to) {
 export function cleanCrossing(raw) {
   if (!raw || typeof raw !== 'object') return null;
   if (raw.to !== 'south' && raw.to !== 'home') return null;
-  if (!LONG_RANGE.includes(raw.kind)) return null;
+  // (The boat making it, by her id: a second of a kind too. See boatid.js.)
+  if (!isBoatId(raw.kind) || !LONG_RANGE.includes(kindOf(raw.kind))) return null;
   const num = (v, d, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
   const events = Array.isArray(raw.events) ? raw.events.filter((e) => e && ENCOUNTERS[e.kind]).slice(0, 8).map((e) => ({ kind: e.kind, z: num(e.z, 3000, CROSSING.z0 - 600, CROSSING.z1 + 900), done: !!e.done })) : [];
   return {

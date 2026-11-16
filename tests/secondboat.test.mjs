@@ -9,6 +9,8 @@ import { readFileSync } from 'node:fs';
 
 const { sanitize } = await import('../src/save.js');
 const Sy = await import('../src/shipyard.js');
+const Tg = await import('../src/together.js');
+const Cr = await import('../src/crossing.js');
 
 const base = (extra = {}) => ({
   day: 9, hour: 10, money: 900, vessel: 'rib~2', mode: 'boat',
@@ -111,5 +113,37 @@ test('G8c2: a boat bought now is built and set up as every boat is, and named ap
   // (Set up only for the ones in the water at the start, as before: none left.)
   assert.doesNotMatch(src, /^for \(const b of boats\) \{\n  b\.on/m);
   assert.doesNotMatch(src, /^for \(const b of boats\) b\.onScrape/m);
+});
+
+test('G8c3: friends see a second boat of a kind by her id; one RIB can tow the other', () => {
+  const KINDS = ['row', 'skiff', 'kayak', 'bass', 'cabin', 'sail', 'cruiser', 'console', 'windsurf', 'jetski', 'rib'];
+  // A pose: in the second RIB, towing the first.
+  const p = Tg.cleanPose({ m: 'boat', k: 'rib', i: 'rib~2', x: 10, z: 20, h: 1, tw: { k: 'rib', x: 12, z: 26, h: 1 } }, KINDS);
+  assert.equal(p.k, 'rib');
+  assert.equal(p.i, 'rib~2', 'which RIB she\'s in');
+  assert.ok(p.tw && p.tw.k === 'rib' && !p.tw.i, 'towing the other RIB (the first)');
+  // Towing herself (the same boat) isn't a tow; an id that isn't of her kind is dropped.
+  assert.ok(!Tg.cleanPose({ m: 'boat', k: 'rib', x: 0, z: 0, h: 0, tw: { k: 'rib', x: 2, z: 5, h: 0 } }, KINDS).tw, 'the first RIB towing the first RIB');
+  assert.ok(!('i' in Tg.cleanPose({ m: 'boat', k: 'rib', i: 'sail~2', x: 0, z: 0, h: 0 }, KINDS)), 'an id of another kind dropped');
+  assert.ok(!('i' in Tg.cleanPose({ m: 'boat', k: 'rib', i: 'rib', x: 0, z: 0, h: 0 }, KINDS)), 'the first of a kind sends no id');
+  // Moored: both RIBs, each once.
+  const F = Tg.cleanFleet([{ k: 'rib', x: 1, z: 1, h: 0 }, { k: 'rib', i: 'rib~2', x: 5, z: 1, h: 0 }, { k: 'rib', i: 'rib~2', x: 9, z: 1, h: 0 }, { k: 'rib', x: 3, z: 3, h: 0 }], KINDS);
+  assert.deepEqual(F.map((b) => b.i || b.k), ['rib', 'rib~2'], 'both RIBs, each once');
+});
+
+test('G8c3: a crossing in a second boat of a kind is kept; the crossing\'s words and records by her id and kind', () => {
+  const C = Cr.cleanCrossing({ to: 'south', kind: 'cruiser~2', day: 4, abs: 100, secs: 30, events: [] });
+  assert.ok(C && C.kind === 'cruiser~2', 'the second yacht making the crossing');
+  assert.equal(Cr.cleanCrossing({ to: 'south', kind: 'rib~2', day: 4, abs: 100, secs: 30, events: [] }), null, 'no RIB makes the crossing');
+  const src = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  for (const [what, re] of [
+    ['the crossing, by her id', /state\.crossing = \{ to, kind: S\.id,/],
+    ['the fast passage, by her id', /passage = \{ to, kind: S\.id,/],
+    ['reefed, the sailing boat making it', /if \(b\.kind === 'sail'\) b\.reef = C\?\.eased && C\.kind === b\.id/],
+    ['the best crossing for a boat of her kind', /P\.best\[kindOf\(C\.kind\)\] = mins/],
+    ['a voyage in her, by her id', /onVoyage\(V, \{ k: 'boat', kind: boat\.id \}\)/],
+    ['her id to friends, a second of a kind\'s', /k: boat\.kind, \.\.\.\(boat\.id !== boat\.kind \? \{ i: boat\.id \} : \{\}\)/],
+    ['her moored boats to friends, by id', /k: b\.kind, \.\.\.\(b\.id !== b\.kind \? \{ i: b\.id \} : \{\}\), x: b\.pos\.x/],
+  ]) assert.match(src, re, what);
 });
 
