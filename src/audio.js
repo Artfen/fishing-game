@@ -317,8 +317,10 @@ export class AudioScape {
 
   get muted() { return !!this.volumes.mute; }
 
-  // 0 above water, 1 fully under: everything goes soft and low, with a quiet hum.
+  // 0 above water, 1 fully under: everything goes soft and low, with a quiet hum. (Anything that
+  // isn't a number leaves it as it was: the browser refuses one, and would stop the frame.)
   setUnderwater(amount) {
+    if (!Number.isFinite(amount)) return;
     this.under = amount;
     if (!this.ctx) return;
     const f = 20000 * Math.pow(650 / 20000, amount);
