@@ -80,5 +80,9 @@ the order the work goes in. Each step is one pull request, small enough to revie
      Trust's seabird warden on Gannet Isle for the season (the colony counted from the clifftop over
      Puffin Cove, the landing stage, the bivouac and the driftwood log; gone in autumn and winter).
      Their words know your work for the harbour office and the Trust.
+   - **G9c (done):** favours that don't run out. Once someone's first favours are done, one of
+     theirs comes round again every few days (a bream for Mags's customer, Ruth's pie, Dougie's
+     buoys, Bryn's samphire down to Ruth, Fen's counts to Wenna, and the rest), for money or a
+     meal; the journal counts the times. Item 12 has no gap left.
 
 Item 4 (research) grows through G3 and G6 rather than on its own.
