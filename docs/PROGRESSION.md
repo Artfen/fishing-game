@@ -75,6 +75,10 @@ the order the work goes in. Each step is one pull request, small enough to revie
      cracked keel, her tanks on the quay, her table at the bar), and Agustín, the oldest of the
      cofradía's fishermen (his nets on the quay, the dique at sunset, the evening with Chano).
      Their words know what you've done for the dive school and the cofradía.
-   - **G9b:** the small harbours (Wend Quay, Puffin Cove), which have no one.
+   - **G9b (done):** the small harbours: Bryn Tregear, who keeps Wend Quay (the quay swept, the
+     mullet off its end, the camp's bench, a hut of his own above it), and Fen Hollis, the Marine
+     Trust's seabird warden on Gannet Isle for the season (the colony counted from the clifftop over
+     Puffin Cove, the landing stage, the bivouac and the driftwood log; gone in autumn and winter).
+     Their words know your work for the harbour office and the Trust.
 
 Item 4 (research) grows through G3 and G6 rather than on its own.

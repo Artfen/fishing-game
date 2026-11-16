@@ -30,9 +30,11 @@ test('the paths: every place reachable from every other, never through a buildin
   const P = new F.Paths(coast.obstacles);
   // (The places inside the chandlery and the inn are reached through their doors: see below.)
   // (Nor Puerto Brasa's, across the ocean: walked to straight over its open waterfront. See
-  // tests/brasafolk.test.mjs.)
-  const names = Object.keys(F.SPOTS).filter((k) => k !== 'strand' && !F.SPOTS[k].south && !F.SPOTS[k].via);
+  // tests/brasafolk.test.mjs. Nor the small harbours' (Wend Quay, Puffin Cove), walked to straight
+  // by their own ways: see tests/harbourfolk.test.mjs.)
+  const names = Object.keys(F.SPOTS).filter((k) => k !== 'strand' && !F.SPOTS[k].south && !F.SPOTS[k].remote && !F.SPOTS[k].via);
   assert.deepEqual(Object.keys(F.SPOTS).filter((k) => F.SPOTS[k].south).sort(), ['agustinHome', 'barTable', 'barTable2', 'chanoHome', 'dique', 'hull', 'nayraHome', 'nayraTable', 'nets', 'paco', 'steps', 'tanks']);
+  assert.deepEqual(Object.keys(F.SPOTS).filter((k) => F.SPOTS[k].remote).sort(), ['bivouac', 'brynHut', 'cliff', 'fenLog', 'headland', 'mulletEnd', 'pitch', 'quayTop', 'stage', 'wendBench']);
   const walls = coast.obstacles.filter((o) => o.kind === 'building' || o.kind === 'harbour');
   for (const a of names) {
     for (const b of names) {

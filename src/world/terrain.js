@@ -79,6 +79,9 @@ export const MARSH = [
 ];
 // Wend Quay: a stone quay on the west bank where the estuary narrows, with a little camp.
 export const WEND_CAMP = { x: 522, z: -170, r: 5 };
+// Bryn Tregear's hut (G9b), on the level ground above the camp: w along the shore, d deep, with its
+// door on the side towards the camp (world/regions.js builds it; townsfolk.js walks him to it).
+export const WEND_HUT = { x: WEND_CAMP.x + 8, z: WEND_CAMP.z + 12.5, w: 2.8, d: 2.2 };
 
 // Longmere: a big inland lake. Shallow weedy bays, fallen timber on the north shore, a steep
 // drop-off and a deep middle; Heron Holm, a little wooded island; and a boathouse.

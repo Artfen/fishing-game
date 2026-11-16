@@ -172,6 +172,22 @@ export const REQUESTS = [
     thanks: '“¡Mira qué gallo!” He has it skinned in a moment, with an old knife and a twist you’d never manage. “Tonight you eat with me.”',
     reward: { money: 8, dish: { text: 'Supper with Agustín outside the bar: gallo cochino in green mojo, wrinkled potatoes, and a glass of the island’s wine.', fill: 45 } },
   },
+  // (G9b) Bryn Tregear, who keeps Wend Quay.
+  {
+    id: 'bigmullet', who: 'bryn', kind: 'catch', species: 'mullet', min: 50, shore: true,
+    ask: '“Thirty summers I’ve fished for those mullet off this quay, and never had one of fifty centimetres. They’re there: great grey shadows on the flood, nosing at the weed. You’ve young eyes. Catch me one of fifty or more, from the shore, and come and tell me how.”',
+    short: 'A mullet of 50 cm or more, from the shore, for Bryn',
+    thanks: '“Fifty or more, from the bank. Well, I’ll be.” He shakes your hand for a long time. “Here, I’ll show you where I’ve seen the biggest of them. Never had one there, mind.” He marks your map: a channel in the Saltings.',
+    reward: { money: 8, pin: { x: 535.5, z: -81.5, title: 'Bryn’s mullet', note: 'The Saltings: the channel along the first marsh island’s west side. On the top of the flood the big mullet come up it in a line, nosing the mud. Bread flake under a little float, and not a sound.' } },
+  },
+  // (G9b) Fen Hollis, the Marine Trust's seabird warden on Gannet Isle.
+  {
+    id: 'shearwaters', who: 'fen', kind: 'see', what: ['manx'],
+    ask: '“The shearwaters come in to their burrows here after dark, but where do they feed all day? Miles out, some of them. If you see them at sea (black, then white, tilting low over the waves), come and tell me where. It all goes in the Trust’s record.”',
+    short: 'See Manx shearwaters at sea, and tell Fen where',
+    thanks: '“Out past the bay mouth? Then that’s where the sandeels are this year.” She writes it down, and then marks your map. “Where the tide runs off the west point: the auks and the gannets are on the sandeels there at the turn of the tide, and the mackerel under them.”',
+    reward: { money: 6, pin: { x: -358, z: 560, title: 'Fen’s tide rip', note: 'Off Gannet Isle’s west point, where the tide runs hard over the ledge: at the turn of the tide the sandeels come up in it, the auks and gannets pile in, and the mackerel and pollack are underneath.' } },
+  },
 ];
 export const REQUEST_IDS = REQUESTS.map((r) => r.id);
 export const requestById = Object.fromEntries(REQUESTS.map((r) => [r.id, r]));

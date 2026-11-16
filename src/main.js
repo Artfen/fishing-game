@@ -7258,6 +7258,10 @@ function interaction() {
     if (coastSpot('posada')) return { text: 'Bar El Muelle: Paco’s bar, his kitchen, and your room', run: () => openHarbour('muelle') };
     if (coastSpot('fingerpost')) return { text: 'Read the fingerpost', run: () => readFingerpost() };
     if (coastSpot('cairn')) return { text: 'Add a stone to the cairn', run: () => addToCairn() };
+    // (G9b) Someone keeping a small harbour's camp, within a stride: a word with them before its
+    // tackle box (which is within reach of most of where they go about the camp).
+    const keeper = town.near(walker.pos.x, walker.pos.z, 1.9);
+    if (keeper && FOLK[keeper.id].remote) return { text: `Talk to ${FOLK[keeper.id].short}`, run: () => talkTo(keeper) };
     const box = regionBox();
     if (box) return { text: `${PLACES.find((p) => p.id === box.place)?.name || 'Camp'}: the tackle box`, run: () => openPack('tackle box') };
     // (F3a) Something the gale threw up on the tide line.
