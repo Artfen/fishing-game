@@ -46,9 +46,11 @@ the order the work goes in. Each step is one pull request, small enough to revie
    - **G8a (done):** each boat an id of her own, the same as her kind: the boats built and found by
      id; where each lies, the one you're in, the ones laid up, on the trailer, shipped and towed,
      kept by id. Nothing a player sees changes.
-   - **G8b:** her kit and accounts by id too (fuel, stores, the fish box, cargo, papers, fit-out,
-     paint, engine room, damage, the trolling motor; jobs and the crossing), and a saved register
-     of your boats (her id, kind and registration) in a new save version.
+   - **G8b1 (done):** her engine room, her damage and her trolling motor her own, kept by id and
+     found through the boat herself; bailing, pumping and leaving the helm remember the boat.
+   - **G8b2:** her accounts by id too (fuel, stores, the fish box, cargo, papers, fit-out, paint;
+     jobs and the crossing), and a saved register of your boats (her id, kind and registration) in
+     a new save version.
    - **G8c:** a second boat of a kind: her own berth and mooring, her own name, shared with friends
      by id.
 

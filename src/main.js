@@ -717,12 +717,14 @@ for (const m of fishRenderer.meshes) hideFromReflection(m);
 // each; her kit and accounts (fuel, stores, cargo, papers, fit-out) are still kept by kind.
 const BOATS = Object.fromEntries(BOAT_KINDS.map((k) => new Boat(scene, { kind: k, id: k })).map((b) => [b.id, b]));
 // Each motorboat's engine room (see engine.js): its switches, battery and trim, kept in the save.
-const engines = Object.fromEntries(BOAT_KINDS.filter(hasEngine).map((k) => [k, cleanEngine(k, state.engines?.[k])]));
-for (const [k, E] of Object.entries(engines)) BOATS[k].engine = E;
+// (G8b) Each boat's own, kept by her id and found through her: `boat.engine`.
+const engines = Object.fromEntries(Object.values(BOATS).filter((b) => hasEngine(b.kind)).map((b) => [b.id, cleanEngine(b.kind, state.engines?.[b.id])]));
+for (const [id, E] of Object.entries(engines)) BOATS[id].engine = E;
 // What knocks have done to each of your boats (see damage.js): her hull, a RIB's tubes. Kept in the
 // save. (Rock on the seabed, for what a grounding does: the habitat's map.)
-const damages = Object.fromEntries(BOAT_KINDS.map((k) => [k, cleanDamage(state.damage?.[k], TUBED.has(k))]));
-for (const [k, D] of Object.entries(damages)) BOATS[k].damage = D;
+// (Each boat's own, by her id: `boat.damage`.)
+const damages = Object.fromEntries(Object.values(BOATS).map((b) => [b.id, cleanDamage(state.damage?.[b.id], TUBED.has(b.kind))]));
+for (const [id, D] of Object.entries(damages)) BOATS[id].damage = D;
 {
   const hs = {};
   Boat.rockAt = (x, z) => habitat.sample(x, z, hs).rock || 0;
@@ -2385,9 +2387,9 @@ const harbourSheet = new HarbourSheet(state, {
   yardEngine: (kind) => engineOf(state.yard, kind),
   yardRepower: (kind, model) => yardDo(repowerBoat(state, kind, model), () => vesselLog(kind, `Re-engined: ${fittedName(kind, model)}.`) || hud.toast(`The ${fittedName(kind, model)} ${MODELS[model].inboard ? 'are in her engine room' : CATALOGUE_COUNT(kind) > 1 ? 'are on her transom' : 'is on her transom'}, the old taken in.`, 4)),
   // A propeller bent on the bottom (boat.js propStrike): how bad, and a new one of the same.
-  propDamage: (kind) => engines[kind]?.dmg || 0,
+  propDamage: (kind) => BOATS[kind]?.engine?.dmg || 0,
   yardMendProp: (kind) => {
-    if (engines[kind]) engines[kind].dmg = 0;
+    if (BOATS[kind]?.engine) BOATS[kind].engine.dmg = 0;
     BOATS[kind]._strikeBand = -1;
     audio.chime?.();
     vesselLog(kind, 'A new propeller, for the one bent on the bottom.');
@@ -2397,13 +2399,13 @@ const harbourSheet = new HarbourSheet(state, {
   // Her knocks (damage.js): what the yard would do to put each right, and doing it.
   // (G5) And her engine's service, once it's nearly due: see service.js.
   repairsFor: (kind) => {
-    const rows = damages[kind] ? damageRepairs(damages[kind], kind, BOAT_PRICES[kind]) : [];
+    const rows = BOATS[kind]?.damage ? damageRepairs(BOATS[kind].damage, kind, BOAT_PRICES[kind]) : [];
     const svc = serviceRow(state.yard.vessels?.[kind], kind, { electric: isElectricNow(kind) });
     return svc ? [...rows, svc] : rows;
   },
   serviceOf: (kind) => (hasEngine(kind) ? serviceWords(state.yard.vessels?.[kind], { electric: isElectricNow(kind) }) : null),
   yardRepair: (kind, id) => {
-    const D = damages[kind];
+    const D = BOATS[kind]?.damage;
     // (Her service: on its own, or with the rest of what the yard does to her.)
     const svc = (id === 'service' || id === 'all') && serviceRow(state.yard.vessels?.[kind], kind, { electric: isElectricNow(kind) });
     if (svc) {
@@ -2429,7 +2431,7 @@ const harbourSheet = new HarbourSheet(state, {
     hud.toast(id === 'all' ? 'The yard puts her right: she’s herself again.' : 'Done: the yard puts it right.', 3);
     save();
   },
-  yardReprop: (kind, prop) => yardDo(repropBoat(state, kind, prop), () => (engines[kind] && (engines[kind].dmg = 0)) || vesselLog(kind, `New propeller${CATALOGUE_COUNT(kind) > 1 ? 's' : ''}: ${propName(kind, prop).toLowerCase()}.`) || hud.toast(`New propeller${CATALOGUE_COUNT(kind) > 1 ? 's' : ''} on: ${propName(kind, prop).toLowerCase()}.`, 3)),
+  yardReprop: (kind, prop) => yardDo(repropBoat(state, kind, prop), () => (BOATS[kind]?.engine && (BOATS[kind].engine.dmg = 0)) || vesselLog(kind, `New propeller${CATALOGUE_COUNT(kind) > 1 ? 's' : ''}: ${propName(kind, prop).toLowerCase()}.`) || hud.toast(`New propeller${CATALOGUE_COUNT(kind) > 1 ? 's' : ''} on: ${propName(kind, prop).toLowerCase()}.`, 3)),
   tankOf: (kind) => TANKS[kind] || 0,
   engineSpecFor: (kind, choice) => engineSpec(kind, BOATS[kind].hull, choice),
   // The look at a boat at the Marine Works (see boatPreview.js).
@@ -2448,7 +2450,7 @@ function vesselLog(kind, text) {
 // What she's done under her own power, while you're in her: engine hours, sea miles, fuel.
 function vesselRun(dt, hours, litres) {
   if (onFoot || !boat || !state.yard.vessels?.[boat.kind]) return;
-  const E = engines[boat.kind], V = state.yard.vessels[boat.kind];
+  const E = boat.engine, V = state.yard.vessels[boat.kind];
   addRun(V, { hours: boat.motor && (!E || engineRunning(E)) ? hours : 0, metres: Math.abs(boat.speed) * dt, litres });
   watchService(boat.kind, V);
 }
@@ -3820,7 +3822,7 @@ function leverNeutral(say = false) {
 function tiltOutboards() {
   if (!started || modal || onFoot || driving) return;
   if (boat.hull.outboard) return toggleOutboard();
-  const k = leverKind(), E = k && boat.motor ? engines[k] : null;
+  const k = leverKind(), E = k && boat.motor ? boat.engine : null;
   if (!E) return;
   const r = tiltToggle(E, boat.forwardSpeed);
   if (r.why === 'none') return hud.flash('There’s no outboard leg to tilt on her.', t, 2);
@@ -3928,10 +3930,10 @@ const startMode = () => settings.controls.start;
 // The engine room of the boat whose helm you're at (her engine runs only while you're there).
 const engineHere = () => {
   const k = leverKind();
-  return k && boat.motor ? engines[k] || null : null;
+  return k && boat.motor ? boat.engine || null : null;
 };
 const fuelOf = (kind) => (ELEC[kind] ? elecLevel(tanks(), kind) : isPetrol(kind) ? fuelLevel(tanks(), kind) : 99);
-let helmKind = null, engineSay = '', engineSayUntil = 0, offWordT = 0, hotBeepT = 0, trimWordT = 0, trimming = false, legWordT = 0;
+let helmBoat = null, engineSay = '', engineSayUntil = 0, offWordT = 0, hotBeepT = 0, trimWordT = 0, trimming = false, legWordT = 0;
 const helmSay = (text, secs = 2.6, flash = true) => {
   engineSay = text;
   engineSayUntil = t + 6;
@@ -3964,7 +3966,7 @@ function intakeAlarm(E, kind) {
   ]);
 }
 function clearTheIntake() {
-  const E = engines[boat.kind];
+  const E = boat.engine;
   if (!E || !clearIntake(E)) return;
   const inboard = ENGINES[boat.kind]?.cooling === 'alarm', by = E.fouledBy === 'bag' ? 'a shredded plastic bag' : 'a dripping mat of weed';
   E.fouledBy = null;
@@ -4059,7 +4061,7 @@ function engineEvent(e, E, kind) {
 // diesels a second battery to switch over to.
 let flatAsked = 0;
 function flatBattery(kind) {
-  const E = engines[kind], P = ENGINES[kind];
+  const E = boat.engine, P = ENGINES[kind];
   if (t < flatAsked + 4 || !$('confirm').hidden) return;
   flatAsked = t;
   // (An electric outboard's battery is what drives her: flat, the oars, or a tow.)
@@ -4091,7 +4093,7 @@ function flatBattery(kind) {
 
 // Something done at the helm (a switch, the key, the starter): done, or why not.
 function engineAct(action, which = null) {
-  const k = leverKind(), E = k ? engines[k] : null;
+  const k = leverKind(), E = k ? boat.engine : null;
   if (!E || !boat.motor) return;
   const r = engineDo(E, action, { lever: boat.lever, fuel: fuelOf(k) }, which);
   for (const e of r.events) engineEvent(e, E, k);
@@ -4101,7 +4103,7 @@ function engineAct(action, which = null) {
 // The engine key (U, or L3): the helm panel on the full procedure; on the one-button start, it
 // starts her (the same steps, done for you) or stops her.
 function engineKey() {
-  const k = leverKind(), E = k ? engines[k] : null;
+  const k = leverKind(), E = k ? boat.engine : null;
   if (!E) return;
   const mode = startMode();
   if (mode === 'go') {
@@ -4149,8 +4151,8 @@ const helmUI = new HelmUI($('helm'), {
 });
 function openHelm() {
   const k = leverKind();
-  if (modal || !k || !engines[k]) return;
-  helmUI.open(k, BOATS[k].hull.name || cap(k));
+  if (modal || !k || !boat.engine) return;
+  helmUI.open(k, boat.hull.name || cap(k));
   modal = 'helm';
   audio.page?.();
   teach('helmPanel', 'The helm: battery on, kill cord on, neutral, then the key. Assisted start does it all for you. B or Esc closes it.', 9);
@@ -4276,7 +4278,7 @@ function dashWords(c) {
 }
 // What the dashboard shows: the engine room and the boat as they are.
 function dashState() {
-  const k = leverKind(), E = k ? engines[k] : null, P = E && ENGINES[k];
+  const k = leverKind(), E = k ? boat.engine : null, P = E && ENGINES[k];
   if (!E || !P) return null;
   if (E.key && !dashKeyWas) keySelftest = 1.4;
   dashKeyWas = E.key;
@@ -4723,17 +4725,17 @@ function trollOf(b) {
   const e = fitEffect(state.yard, b.kind), tier = canTroll(b.kind) ? e.trollMotor : null;
   if (!tier) {
     if (b.troll) b.troll = null;
-    delete trollMotors[b.kind];
+    delete trollMotors[b.id];
     return null;
   }
-  const M = trollMotors[b.kind];
+  const M = trollMotors[b.id];
   if (!M || M.tier !== tier || M.wh !== (e.trollBank ? 2400 : 1200)) {
     const m = new TrollMotor(tier, { bank: e.trollBank, mount: b.trollMount });
     // (The bass boat's own bow motor starts down, where it's always been; one newly fitted, stowed.)
     if (e.trollStandard && !M) m.down = 1;
-    trollMotors[b.kind] = m;
+    trollMotors[b.id] = m;
   }
-  b.troll = trollMotors[b.kind];
+  b.troll = trollMotors[b.id];
   return b.troll;
 }
 // Standing by the motor on her bow (walking her deck), within reach of its bracket.
@@ -4916,19 +4918,19 @@ function toggleDashFocus() {
 // the starter turns her over, the revs follow the throttle, the alarm sounds if she overheats,
 // and you trim the leg.
 function updateEngine(dt) {
-  const k = leverKind(), E = k && boat.motor ? engines[k] : null;
+  const k = leverKind(), E = k && boat.motor ? boat.engine : null;
   const mode = startMode();
   // Left the helm: her engine stops (switched off as you go).
-  if (helmKind && helmKind !== (E ? k : null)) {
-    const L = engines[helmKind];
+  if (helmBoat && helmBoat !== (E ? boat : null)) {
+    const L = helmBoat.engine;
     if (L && (engineRunning(L) || engineCranking(L) || L.auto)) {
       L.auto = null;
       engineDo(L, 'stop');
     }
     closeHelm();
   }
-  helmKind = E ? k : null;
-  for (const [kind, B] of Object.entries(BOATS)) if (B.engine) B.trimAuto = mode === 'go' || !ENGINES[kind].trim;
+  helmBoat = E ? boat : null;
+  for (const B of Object.values(BOATS)) if (B.engine) B.trimAuto = mode === 'go' || !ENGINES[B.kind].trim;
   audio.starter?.(!!E && engineCranking(E) && !ENGINES[k].electric, !!E && !!ENGINES[k].diesel);
   if (!E) {
     trimming && audio.trimWhine?.(false);
@@ -4939,8 +4941,8 @@ function updateEngine(dt) {
   // Get in and go (and the sailing boat's little outboard, lowered, on the one-button start):
   // running as soon as you take the helm.
   // (Her battery terminal shaken loose (damage.js): the starter only clicks until it's done up.)
-  E.loose = !!damages[k]?.wiring?.loose;
-  E.drowned = !!BOATS[k]?._drowned;
+  E.loose = !!boat.damage?.wiring?.loose;
+  E.drowned = !!boat._drowned;
   // (G5: her engine overdue for its service, harder to start cold. See service.js.)
   E.wear = engineWear(k);
   if (E.loose && mode === 'go' && !engineRunning(E) && !engineCranking(E) && !looseSaid) {
@@ -4970,7 +4972,7 @@ function updateEngine(dt) {
   // (A bent propeller: a judder through her, the harder she's driven.)
   if (engineRunning(E) && E.dmg > 0.1 && Math.abs(boat.power) > 0.05) haptics.hold('bentProp', 0.08 + 0.3 * E.dmg * Math.abs(boat.power), 0.05, { buzz: 11 });
   // (Her bracket worked loose: the engine shifting on the transom, the harder she's driven.)
-  const mt = damages[k]?.mount || 0;
+  const mt = boat.damage?.mount || 0;
   if (engineRunning(E) && mt > 0.1 && Math.abs(boat.power) > 0.1) haptics.hold('looseMount', 0.06 + 0.3 * mt * Math.abs(boat.power), 0.05, { buzz: 6 });
   // The overheat alarm, beeping while she's hot.
   if (engineRunning(E) && E.temp >= 0.6) {
@@ -5033,7 +5035,7 @@ function helmGauges() {
   // (A towline from her stern, or her anchor's rode: the pull on it. See lines.js.)
   if (tow?.lead === boat && tow.T > 50) bits.push(`${(tow.peak || 0) > 0.5 ? '<span class="lv-warn">' : ''}tow ${loadWords(tow.T, LINES.towline)}${(tow.peak || 0) > 0.5 ? '</span>' : ''}`);
   // (A RIB's tube gone soft: see damage.js.)
-  const tubes = damages[boat.kind]?.tubes;
+  const tubes = boat.damage?.tubes;
   if (tubes) {
     let w = -1;
     tubes.forEach((c, i) => { if (c.air < 0.55 && (w < 0 || c.air < tubes[w].air)) w = i; });
@@ -5043,7 +5045,7 @@ function helmGauges() {
   const wb = waterBit();
   if (wb) bits.push(wb);
   // (Her working parts, as hurt: see damage.js.)
-  const DD = damages[boat.kind];
+  const DD = boat.damage;
   if (DD?.wiring?.loose) bits.push('<span class="lv-warn">terminal loose</span>');
   if (DD && Math.abs(DD.steer.bend) > 0.01) bits.push(`<span class="lv-warn">pulls to ${DD.steer.bend > 0 ? 'starboard' : 'port'}</span>`);
   // (Whatever judders through her and your hands says so: the bracket from as loose as you feel it,
@@ -5085,7 +5087,7 @@ function updateFittings(dt) {
   }
   // What they draw, engine off (with the engine running, the alternator keeps up; a house
   // battery takes it all; on Get in and go, nobody's counting).
-  const E = engines[boat.kind];
+  const E = boat.engine;
   if (E && !e.house && startMode() !== 'go' && !engineRunning(E)) {
     const amps = (e.sonar && finder.visible ? 1.2 : 0) + (e.plotter ? 1 : 0) + (e.vhf ? 0.5 : 0) + (e.livewell && state.keep.length ? 0.5 : 0) + (e.lights && env.night > 0.35 ? 6 : 0);
     // (A hundred amp-hours, an hour of the game's clock every forty seconds.)
@@ -5390,7 +5392,7 @@ function updateLever() {
   if (outboard && !T) keys += ` · ${K('outboard')} outboard up`;
   const dead = kind && (kind === 'kayak' ? boat.kflat : boat.trolling ? boat.flat : boat.dry);
   // (An outboard with a leg to tilt: the tilt button, and its key.)
-  const EL = kind && boat.motor ? engines[kind] : null, tiltable = !!EL && !!ENGINES[EL.kind]?.trim;
+  const EL = kind && boat.motor ? boat.engine : null, tiltable = !!EL && !!ENGINES[EL.kind]?.trim;
   if (tiltable && !T) keys += `${keys ? ' · ' : ''}${K('tilt')} tilt`;
   // (Twin engines: which lever the throttle works, and with them apart, each one's notch.)
   const twins = twinHelm() ? { sel: leverSel, split: boat.split ? boat.split.map((v) => nearest(kind, v)) : null } : null;
@@ -6242,7 +6244,7 @@ const navLights = new NavLights(scene, { dashOf: (b) => DASHES[b.kind]?.(b.hull)
 // Her navigation-lights switch, for a boat with one on her dash (lit with her battery on), or null.
 function navSwitch(b) {
   if (!DASHES[b.kind]) return null;
-  const E = engines[b.kind], P = ENGINES[b.kind];
+  const E = b.engine, P = ENGINES[b.kind];
   return !!b.navLights && (!E || !P?.battery || !!E.battery);
 }
 let darkRunNight = -1;
@@ -7058,7 +7060,7 @@ const lanternReach = () => !state.items.lantern && (onFoot
 let following = false;
 const motorRunning = () => {
   if (onFoot || !boat.motor) return false;
-  const Eh = engines[boat.kind];
+  const Eh = boat.engine;
   return boat.trolling ? !boat.flat : !boat.dry && (!Eh || engineRunning(Eh));
 };
 function followAction() {
@@ -9578,7 +9580,7 @@ const FLOOD_WHERE = { bottom: 'her bottom', bow: 'her bow', port: 'her port side
 for (const b of Object.values(BOATS)) {
   b.floodMode = floodModeOf(state.difficulty);
   b.onFlood = (bt, what) => {
-    const mine = bt === boat && !onFoot, D = damages[bt.kind];
+    const mine = bt === boat && !onFoot, D = bt.damage;
     if (what === 'breach') {
       const holed = Object.keys(FLOOD_WHERE).filter((s) => D.hull[s] >= 0.85).map((s) => FLOOD_WHERE[s]);
       if (mine) {
@@ -9590,7 +9592,7 @@ for (const b of Object.values(BOATS)) {
       vesselLog(bt.kind, 'Holed below the waterline: taking water.');
       save();
     } else if (what === 'engine') {
-      const E = engines[bt.kind], inboard = !!bt.hull.motor?.inboard, stopped = !!E && cutOut(E);
+      const E = bt.engine, inboard = !!bt.hull.motor?.inboard, stopped = !!E && cutOut(E);
       if (mine) {
         if (inboard) hud.flash(`Her engine room’s flooded${stopped ? ': the engines have stopped' : ''}. Pump her out (her bilge pump’s at it), and she’ll start again.`, t, 6);
         else hud.flash(`Swamped, her outboard’s powerhead ${stopped ? 'went under and it’s stopped' : 'is under: it won’t start'}. Bail her out below a third and it’ll start again; or radio the harbour (look her over).`, t, 6);
@@ -9650,10 +9652,10 @@ for (const b of Object.values(BOATS)) {
 // gets worse; the engine cut by a jolt with her terminal loose; her log.
 let looseSaid = false;
 function partsDamaged(bt, r, mine) {
-  const D = damages[bt.kind], B = (bt._dmgBand ||= {});
+  const D = bt.damage, B = (bt._dmgBand ||= {});
   if (r.parts.includes('wiring')) {
     if (r.wiring === 'cut') {
-      const E = engines[bt.kind];
+      const E = bt.engine;
       if (E && cutOut(E) && mine) {
         audio.knock?.(0.5);
         haptics.pulse('snap', 0.6);
@@ -9693,16 +9695,16 @@ let pumping = null, bailing = null;
 function damageTick(dt) {
   // The rain on every boat, and each pump's battery: running with the engine off, it draws on it;
   // flat, it stops. (See flooding.js.)
-  for (const [k, b] of Object.entries(BOATS)) {
+  for (const b of Object.values(BOATS)) {
     b.rain = weather.rain || 0;
-    const E = engines[k];
+    const E = b.engine;
     if (!E) continue;
     if (b.pumpRunning && !engineRunning(E)) E.charge = Math.max(0, E.charge - PUMP_DRAW * dt);
     b.pumpPower = E.charge > 0.05 ? 1 : 0;
   }
   // Bailing her out, while you keep still at it.
   if (bailing) {
-    const b = BOATS[bailing.kind], F = b.flooding;
+    const b = bailing.b, F = b.flooding;
     const moved = boat.deck ? Math.hypot(boat.deck.x - bailing.x, boat.deck.z - bailing.z) > 0.4 : false;
     if (boat !== b || onFoot || moved || Math.abs(boat.speed) > 1.5) {
       b.bailing = false;
@@ -9723,19 +9725,20 @@ function damageTick(dt) {
       } else if (Math.floor(bailing.t / 4) !== Math.floor((bailing.t - dt) / 4)) hud.flash(`Bailing: ${floodWords(F.litres)}${F.gaining ? ', and still coming in' : ''}. Keep still to keep at it.`, t, 1.6);
     }
   }
-  for (const [k, D] of Object.entries(damages)) {
-    if (!D.tubes?.some((c) => c.leak && c.air > 0)) continue;
+  for (const b of Object.values(BOATS)) {
+    const D = b.damage;
+    if (!D?.tubes?.some((c) => c.leak && c.air > 0)) continue;
     const was = D.tubes.map((c) => c.air);
     stepTubes(D, dt);
-    if (BOATS[k] !== boat || onFoot) continue;
+    if (b !== boat || onFoot) continue;
     D.tubes.forEach((c, i) => {
       if (was[i] >= 0.55 && c.air < 0.55) hud.flash(`The ${CHAMBERS[i]} tube’s gone soft: she’s sitting lower on that side${i % 2 ? ' and her bow’s heavier in a sea' : ''}. Walk her deck and look her over to pump it up, or bring her in to the Marine Works.`, t, 6);
     });
   }
   if (!pumping) return;
-  const P = pumping, D = damages[P.kind];
+  const P = pumping, D = P.b.damage;
   const moved = !boat.deck || Math.hypot(boat.deck.x - P.x, boat.deck.z - P.z) > 0.4;
-  if (boat.kind !== P.kind || onFoot || moved || Math.abs(boat.speed) > 1.5 || !D?.tubes) {
+  if (boat !== P.b || onFoot || moved || Math.abs(boat.speed) > 1.5 || !D?.tubes) {
     pumping = null;
     hud.flash('You leave the pump.', t, 1.6);
     return;
@@ -9758,15 +9761,15 @@ function damageTick(dt) {
 // otherwise). What each part of her is like, and the foot pump for a RIB's tubes.
 function damageAction() {
   if (onFoot || fishing.busy || pumping || Math.abs(boat.speed) > 1.2) return null;
-  const D = damages[boat.kind], wet = (boat.flooding?.litres || 0) > 5, fouled = engines[boat.kind]?.blocked > 0;
+  const D = boat.damage, wet = (boat.flooding?.litres || 0) > 5, fouled = boat.engine?.blocked > 0;
   if ((!D || (hullSound(D) && !wet)) && !fouled) return null;
   if (boat.hull.standing && (!boat.deck || boat.atHelm)) return null;
   return { text: wet && hullSound(D) ? 'Bail her out' : 'Look her over', run: () => lookHerOver() };
 }
 function lookHerOver() {
-  const D = damages[boat.kind], rows = survey(D, boat.kind).filter((r) => r.bad > 0.02);
+  const D = boat.damage, rows = survey(D, boat.kind).filter((r) => r.bad > 0.02);
   const F = boat.flooding, wet = (F?.litres || 0) > 5;
-  const fouled = engines[boat.kind]?.blocked > 0;
+  const fouled = boat.engine?.blocked > 0;
   const say = [...rows.map((r) => `${r.what[0].toUpperCase() + r.what.slice(1)}: ${r.words}.`), wet ? `Water in her: ${Math.round(F.litres)} litres${F.gaining ? ', and coming in' : ''}${boat.pumpRunning ? ' (her pump’s at it)' : ''}.` : '', fouled ? 'Her cooling intake: something over it, by the way she heats up.' : ''].filter(Boolean).join(' ');
   const soft = D.tubes?.some((c) => c.air < 0.97), leaking = D.tubes?.some((c) => c.leak);
   const acts = [{ text: 'Leave it', cls: 'quiet', cancel: true, run: () => {} }];
@@ -9791,7 +9794,7 @@ function lookHerOver() {
   ask(boatTitle(boat), `${say} ${leaking ? 'A punctured chamber keeps letting go: the foot pump gets you home, and the Marine Works patches it.' : hullSound(D) ? '' : 'The Marine Works can put it right.'}`.trim(), acts);
 }
 function doUp(what) {
-  const D = damages[boat.kind];
+  const D = boat.damage;
   if (!D || !tighten(D, what)) return;
   audio.clink?.(0.5, 0);
   if (what === 'terminal') {
@@ -9805,7 +9808,7 @@ function doUp(what) {
   save();
 }
 function plugIt(id) {
-  const D = damages[boat.kind];
+  const D = boat.damage;
   const [what] = id.split(':');
   if (!D || !pluggable(D, true).includes(id)) return;
   // (F1b) A plug or a stopper from the repair kit, or a rag.
@@ -9839,10 +9842,10 @@ function askTow() {
   ]);
 }
 function harbourTow(how = 'vhf') {
-  const T = HARBOUR_TOW[state.difficulty] || HARBOUR_TOW.standard, kind = boat.kind, D = damages[kind], hrs = helpHours(how, T.hours);
+  const T = HARBOUR_TOW[state.difficulty] || HARBOUR_TOW.standard, kind = boat.kind, D = boat.damage, hrs = helpHours(how, T.hours);
   if (how === 'flare') state.safety.flares = Math.max(0, state.safety.flares - 1);
   if (fishing.lineOut || fishing.aiming) fishing.cancel();
-  if (bailing) { BOATS[bailing.kind].bailing = false; bailing = null; }
+  if (bailing) { bailing.b.bailing = false; bailing = null; }
   pumping = null;
   const south = boat.pos.z > SOUTH_Z, berth = south ? pontoonBerth(boat, true) : null;
   const p = berth || (south ? { x: PONTOON_S.x1 + 6, z: PONTOON_S.z1 + 6, heading: 0 } : kind === 'bass' ? mooring('bass') : quayMooring(boat) || mooring(kind));
@@ -9866,12 +9869,12 @@ function harbourTow(how = 'vhf') {
   save();
 }
 function startBailing() {
-  bailing = { kind: boat.kind, x: boat.deck?.x ?? 0, z: boat.deck?.z ?? 0, t: 0, next: 0 };
+  bailing = { b: boat, x: boat.deck?.x ?? 0, z: boat.deck?.z ?? 0, t: 0, next: 0 };
   hud.flash('You get the bailer going, a scoop at a time over the side. Keep still to keep at it.', t, 2.5);
 }
 function startPumping() {
   if (!boat.deck) return;
-  pumping = { kind: boat.kind, x: boat.deck.x, z: boat.deck.z, t: 0, next: 0 };
+  pumping = { b: boat, x: boat.deck.x, z: boat.deck.z, t: 0, next: 0 };
   hud.flash('You get the foot pump out and set to. Stand still to keep at it.', t, 2.5);
 }
 for (const b of boats) {
@@ -12838,7 +12841,7 @@ input.on('press', (code, acts) => {
   else if (is('trollDepth')) trollDepth();
   else if (is('motor')) {
     // (At a motorboat's helm: the engine.)
-    if (!onFoot && !driving && !cabinIn && boat.hull.motor && engines[boat.kind]) {
+    if (!onFoot && !driving && !cabinIn && boat.hull.motor && boat.engine) {
       if (dashCtl.focused || (rig.mode === 'eye' && dashHere())) toggleDashFocus();
       else engineKey();
     }
@@ -13307,7 +13310,7 @@ function tick(now, manual = false) {
     }
     // (Only while her engine runs: a little at idle, more with the throttle. The bass boat's
     // electric notches run on its battery, engine or no.)
-    const Eb = engines[boat.kind], troll = boat.hull.motor?.troll || 0;
+    const Eb = boat.engine, troll = boat.hull.motor?.troll || 0;
     const electric = troll && throttle > 0 && throttle <= troll;
     if (boat.motor && !onFoot && (electric || ((!Eb || engineRunning(Eb)) && (throttle || Eb)))) {
       // (The sailing boat's outboard has no electric notches: it's hull.outboard, not hull.motor.)
@@ -13403,7 +13406,7 @@ function tick(now, manual = false) {
   // (The kayak's motor is electric too: a faint hum.)
   const kayakOn = !onFoot && boat.kind === 'kayak' && boat.emotorDown && !boat.kflat;
   // (With an engine room, only while her engine runs: see engine.js.)
-  const Eh = !onFoot ? engines[boat.kind] : null;
+  const Eh = !onFoot ? boat.engine : null;
   const motorOn = !onFoot && ((boat.motor && (boat.trolling ? !boat.flat : !boat.dry && (!Eh || engineRunning(Eh)))) || kayakOn);
   const outboard = motorOn && boat.motor && !boat.trolling;
   const voice = onFoot ? '' : boat.hull.motor?.jet ? 'jet' : boat.hull.motor?.inboard ? 'inboard' : '';

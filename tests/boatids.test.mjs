@@ -1,4 +1,4 @@
-// G8a, boats of her own: each boat known by an id of her own, not by her kind (src/boat.js; the
+// G8a and G8b, boats of her own: each boat known by an id of her own, not by her kind (src/boat.js; the
 // fleet's berths and laying up, src/fleet.js; where each lies, the one you're in, the ones laid
 // up, on the trailer, shipped or towed, src/main.js). For now each boat's id is her kind, one of
 // each, so nothing a player sees changes. Run with `node --import ./tests/setup.mjs --test tests/`.
@@ -71,3 +71,26 @@ test('the game keeps each boat by her id: where she lies, the one you are in, la
     ['where each lies, by kind', /state\.boats\[[a-z]*\.?kind\]/],
   ]) assert.doesNotMatch(src, re, what);
 });
+
+test('each boat\'s engine room, damage and trolling motor are her own, found through her (G8b)', () => {
+  // (A guard on src/main.js: the engine room and the damage kept by her id and reached through the
+  // boat herself; bailing, pumping and leaving the helm remember the boat, not her kind.)
+  const src = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  for (const [what, re] of [
+    ['the engine rooms, by id', /\.filter\(\(b\) => hasEngine\(b\.kind\)\)\.map\(\(b\) => \[b\.id, cleanEngine\(b\.kind, state\.engines\?\.\[b\.id\]\)\]\)/],
+    ['the damage, by id', /\.map\(\(b\) => \[b\.id, cleanDamage\(state\.damage\?\.\[b\.id\], TUBED\.has\(b\.kind\)\)\]\)/],
+    ['bailing in this boat', /bailing = \{ b: boat,/],
+    ['pumping in this boat', /pumping = \{ b: boat,/],
+    ['the helm left: that boat', /helmBoat = E \? boat : null;/],
+    ['her trolling motor, by id', /trollMotors\[b\.id\] = m;/],
+  ]) assert.match(src, re, what);
+  for (const [what, re] of [
+    ['an engine room by kind', /\bengines\[[a-zA-Z]*\.?kind\]/],
+    ['an engine room by the helm\'s kind', /\bengines\[k\]/],
+    ['damage by kind', /\bdamages\[[a-zA-Z]*\.?kind\]|\bdamages\[k\]/],
+    ['a trolling motor by kind', /trollMotors\[[a-z]+\.kind\]/],
+    ['the helm left, by kind', /helmKind/],
+    ['bailing or pumping, by kind', /(bailing|pumping)\.kind/],
+  ]) assert.doesNotMatch(src, re, what);
+});
+
