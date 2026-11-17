@@ -3312,7 +3312,7 @@ function diveEntry() {
   if (t - diveSpotCache.t < 0.3) return diveSpotCache.spot;
   let spot = null;
   if (!onFoot) {
-    if (boat.speed < 0.6) {
+    if (boat.steadySpeed < 0.6) {
       const off = boat.hull.B * 0.5 + 0.7;
       for (const s of [1, -1]) {
         const x = boat.pos.x + boat.right.x * off * s, z = boat.pos.z + boat.right.z * off * s;
@@ -5656,7 +5656,7 @@ let deckStepT = 0;
 // Inside the cabin: where you stand (the doorway, the galley, the bunk), walking between them.
 let cabinIn = null;
 const _cab = new THREE.Vector3(), _cab2 = new THREE.Vector3();
-const canEnterCabin = (b) => !!b.hull.cabin && (b.anchored || !!b.tie || moored(b)) && b.speed < 0.6 && b.anchor?.phase !== 'haul';
+const canEnterCabin = (b) => !!b.hull.cabin && (b.anchored || !!b.tie || moored(b)) && b.steadySpeed < 0.6 && b.anchor?.phase !== 'haul';
 
 function enterCabin(b = boat) {
   if (!canEnterCabin(b)) {
@@ -7486,7 +7486,9 @@ function interaction() {
   // At anchor or made fast, and still: sit back a while (or over the side, over deep water). (J3:
   // "still" as for her cabin: a boat swinging on her anchor in a breeze is still, and the deck's
   // prompt doesn't come and go as she swings.)
-  const settled = (boat.anchored || boat.tie) && Math.abs(boat.speed) < 0.6 && !fishing.lineOut;
+  // (Still over the last few seconds, not this moment: in a swell each wave carries her to and
+  // fro, and the deck's offer would come and go with it. See Boat.steady.)
+  const settled = (boat.anchored || boat.tie) && boat.steadySpeed < 0.6 && !fishing.lineOut;
   const sitBoat = () => sitDown({ kind: 'boat', name: `back in the ${boat.name}` });
   const look = damageAction() ? [{ text: 'Look her over', cls: 'quiet', run: () => lookHerOver() }] : [];
   // (J3) In a boat with no cabin, the night aboard: turn in on her deck (with a bivvy roll aboard).
