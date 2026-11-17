@@ -210,3 +210,5 @@ In `docs/playthrough/` (runs 15 and 16):
 - `landed.jpg`: the mackerel just landed and kept, from Bert's side of the RIB.
 - `dive.jpg`: Mags on the Hound at 12 m; Bert's marker says where the bug had put him.
 - `home-rough.jpg`: home after dark in a 37 km/h wind, her wake glowing with plankton.
+- `bivvy-aboard.jpg` (J3): the bivvy roll strapped on her deck beside the stores crate, at the pontoon.
+- `night-aboard.jpg` (J3): dawn at anchor on the Hound's shelf, both of them aboard after the night.

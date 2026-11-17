@@ -7479,8 +7479,10 @@ function interaction() {
     }
     return { text: 'Into the cabin: galley and bunk', run: () => enterCabin() };
   }
-  // At anchor or made fast, and still: sit back a while (or over the side, over deep water).
-  const settled = (boat.anchored || boat.tie) && Math.abs(boat.speed) < 0.3 && !fishing.lineOut;
+  // At anchor or made fast, and still: sit back a while (or over the side, over deep water). (J3:
+  // "still" as for her cabin: a boat swinging on her anchor in a breeze is still, and the deck's
+  // prompt doesn't come and go as she swings.)
+  const settled = (boat.anchored || boat.tie) && Math.abs(boat.speed) < 0.6 && !fishing.lineOut;
   const sitBoat = () => sitDown({ kind: 'boat', name: `back in the ${boat.name}` });
   const look = damageAction() ? [{ text: 'Look her over', cls: 'quiet', run: () => lookHerOver() }] : [];
   // (J3) In a boat with no cabin, the night aboard: turn in on her deck (with a bivvy roll aboard).

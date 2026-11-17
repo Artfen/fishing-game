@@ -702,6 +702,9 @@ const turned = await A.evaluate(() => {
   slowTide.advance(0.3, 30, false);
   const acts = () => [...document.querySelectorAll('#confirm-acts button')], text = () => document.getElementById('confirm-text')?.textContent || null;
   const seen = [];
+  // (Swinging on her anchor in a breeze she isn't still every moment: the settled prompt, waited
+  // for as a player would.)
+  for (let i = 0; i < 40 && !/^(Sit back a while|Look her over)/.test(slowTide.interaction()?.text || ''); i++) slowTide.advance(0.5, 30, false);
   let I = slowTide.interaction();
   seen.push(I?.text || null);
   // (Something to put right first, as before the dive.)
