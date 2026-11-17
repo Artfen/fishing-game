@@ -80,9 +80,13 @@ counts the night it ran into). No page errors.
    runs were stopped at the reef by it. In run 16, looked over: "Bow: dented. Starboard side:
    scored. The Marine Works can put it right." (*Leave it*), and the prompt was *Look her over*
    again.
-3. **No night aboard an open boat** (J3). The brief has them stay the night aboard; only the cabin
+3. **No night aboard an open boat** (J3: fixed). The brief has them stay the night aboard; only the cabin
    boat and the yacht have anywhere to sleep (`hull.cabin`). Anchored in the RIB, there's no way to
-   turn in.
+   turn in. Now a **bivvy roll** from the chandlery (two sleeping bags in waterproof bags, and two
+   mats) goes aboard her as cargo, and at anchor or tied up the deck's menu has *Turn in for the
+   night* (`src/nightaboard.js`). The night is the cabin's (a gale is reckoned against where she
+   lies). A friend crewing aboard sleeps it through with her: their game shows the night go by,
+   and they wake beside her. The playthrough's step 11 now does this.
 4. **A friend's second boat of a kind isn't drawn for anyone else** (found reading the code for
    the first; J2: fixed). The word of where your boats lie (`together.js` `sendFleet`) left out a boat's
    own id, which the friend's game reads (`cleanFleet`): two RIBs lying in the water were one.

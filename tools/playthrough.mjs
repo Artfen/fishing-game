@@ -146,7 +146,7 @@ const kit = await A.evaluate(() => {
   const rows = () => [...document.querySelectorAll('.cp-row')];
   const buyRow = (n) => rows().find((r) => r.textContent.startsWith(`${n},`))?.querySelector('button');
   const bought = [];
-  for (const n of ['Dive cylinder', 'Dive cylinder', 'Stores crate', 'Fish box']) { const b = buyRow(n); if (b) { b.click(); bought.push(n); } }
+  for (const n of ['Dive cylinder', 'Dive cylinder', 'Stores crate', 'Fish box', 'Bivvy roll']) { const b = buyRow(n); if (b) { b.click(); bought.push(n); } }
   let aboard = 0;
   for (let i = 0; i < 6; i++) { const b = [...document.querySelectorAll('button')].find((x) => /^Aboard the /.test(x.textContent)); if (!b) break; b.click(); aboard++; }
   return { bought, aboard, items: slowTide.state.cargo.items.map((i) => i.id), onDeck: slowTide.boats.rib.cargo.map((c) => c.id) };
@@ -685,10 +685,70 @@ if (await B.evaluate(() => !!slowTide.diving.state)) {
 }
 
 /* ---------- 11. The night ---------- */
-// (The brief has them stay the night aboard. A night aboard needs a boat with a cabin (the cabin
-// boat, the yacht); an open boat like the RIB has nowhere to sleep. Recorded, not faked.)
-const canSleep = await A.evaluate(() => !!slowTide.boat.hull.cabin);
-check('11 · a night aboard the RIB (an open boat)', canSleep, 'no cabin: an open boat has nowhere to sleep aboard (see docs/PLAYTHROUGH.md)');
+// (J3) The brief has them stay the night aboard. At anchor on the Hound's shelf: Mags off the helm,
+// a stride along her deck, and she turns in on it in the bivvy roll from the chandlery, till dawn.
+// Bert, crewing aboard, sleeps it through with her: his game shows the night go by (the host's
+// time), and he wakes beside her.
+const clockOf = (P) => P.evaluate(() => +slowTide.clock.abs.toFixed(2));
+const night0 = { mags: await clockOf(A), bert: await clockOf(B), hour: await A.evaluate(() => +slowTide.state.hour.toFixed(2)) };
+await said(A);
+await said(B);
+await A.evaluate(() => { const I = slowTide.interaction(); if (/^Leave the helm/.test(I?.text || '')) { I.run(); slowTide.advance(0.6, 30, false); } });
+await A.keyboard.down('KeyW');
+await A.evaluate(() => slowTide.advance(1, 30, false));
+await A.keyboard.up('KeyW');
+const turned = await A.evaluate(() => {
+  slowTide.advance(0.3, 30, false);
+  const acts = () => [...document.querySelectorAll('#confirm-acts button')], text = () => document.getElementById('confirm-text')?.textContent || null;
+  const seen = [];
+  let I = slowTide.interaction();
+  seen.push(I?.text || null);
+  // (Something to put right first, as before the dive.)
+  if (/^Look her over/.test(I?.text || '')) {
+    I.run();
+    slowTide.advance(0.2, 30, false);
+    (acts().find((x) => /^(Clear the|Pump up|Bail her|Do up)/.test(x.textContent)) || acts().find((x) => /^Leave it/.test(x.textContent)))?.click();
+    slowTide.advance(0.6, 30, false);
+    I = slowTide.interaction();
+    seen.push(I?.text || null);
+  }
+  if (/^Sit back a while/.test(I?.text || '')) I.run();
+  slowTide.advance(0.2, 30, false);
+  seen.push(text());
+  const bed = acts().find((x) => /^Turn in for the night/.test(x.textContent));
+  bed?.click();
+  slowTide.advance(0.2, 30, false);
+  seen.push(text());
+  const dawn = acts().find((x) => /^Dawn/.test(x.textContent));
+  seen.push(dawn?.textContent || null);
+  dawn?.click();
+  return { seen, bed: !!bed, dawn: !!dawn };
+});
+note('turning in', JSON.stringify(turned));
+// (Each game's sleep screen, and what it says.)
+const sleepScreen = (P) => P.evaluate(() => { const H = slowTide.hud.el; return H.sleep.classList.contains('show') ? H.sleepText.textContent : null; });
+const bertNight = { saw: null };
+for (let i = 0; i < 40; i++) {
+  await step(0.5);
+  const [a, b] = [await sleepScreen(A), await sleepScreen(B)];
+  if (b && !bertNight.saw) bertNight.saw = b;
+  if (i > 8 && !a && !b) break;
+}
+const morning = { mags: await clockOf(A), bert: await clockOf(B), hour: await A.evaluate(() => +slowTide.state.hour.toFixed(2)), anchored: await A.evaluate(() => !!slowTide.boat.anchored), saidA: await said(A), saidB: await said(B), crew: await B.evaluate(() => !!slowTide.crew.on) };
+note('the night', JSON.stringify({ night0, morning, bertNight }));
+check('11 · Mags turns in on her deck in the bivvy roll, till dawn', turned.bed && turned.dawn && morning.mags - night0.mags > 6 && morning.hour < 8, JSON.stringify({ seen: turned.seen, from: night0.hour, to: morning.hour }));
+check('11 · she wakes aboard, at anchor still, Bert in the other bag', morning.anchored && morning.saidA.some((t) => /^You wake/.test(t) && /Bert is stirring in the other bag/.test(t)), JSON.stringify(morning.saidA));
+check('11 · Bert sleeps the night through with her, and wakes aboard beside her', /^Mags turns in/.test(bertNight.saw || '') && morning.crew && morning.bert - night0.bert > 6 && morning.saidB.some((t) => /^You wake/.test(t) && /Mags is stirring/.test(t)), JSON.stringify({ saw: bertNight.saw, bert: [night0.bert, morning.bert], said: morning.saidB, crew: morning.crew }));
+await shot(A, 'j3-morning');
+// Aft to the wheel again, and the helm.
+await A.evaluate(() => {
+  const b = slowTide.boat, S = b.hull.standing;
+  if (b.deck) { b.deck.x = S.helm[0]; b.deck.z = S.helm[1]; }
+  slowTide.advance(0.3, 30, false);
+  const I = slowTide.interaction();
+  if (I?.text === 'Take the helm') I.run();
+  slowTide.advance(0.5, 30, false);
+});
 
 /* ---------- 12. Home, in rougher weather ---------- */
 const outbound = sea;

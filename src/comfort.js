@@ -96,13 +96,16 @@ export function feelsLike(c, env) {
 
 // One step of the day: hours of the game's time gone by. env: as for feelsLike, and wading (0 …
 // 1: how deep you're standing in the water), spray (0 … 1: a boat throwing spray over you),
-// asleep (indoors or in a tent: you wake warm and dry).
+// asleep (indoors or in a tent: you wake warm and dry), open (J3: asleep in a bivvy bag on an
+// open deck: warm enough in the bag, but you wake to the morning's chill, and damp clothes only
+// half dry in a bag).
+export const OPEN_WAKE = 13;
 export function stepComfort(c, hours, env) {
   if (hours <= 0) return c;
   const W = c.wear;
   if (env.asleep) {
-    c.warm = lerp(c.warm, 18, 1 - Math.exp(-hours * 2));
-    c.wet = Math.max(0, c.wet - hours * 0.8);
+    c.warm = lerp(c.warm, env.open ? OPEN_WAKE : 18, 1 - Math.exp(-hours * 2));
+    c.wet = Math.max(0, c.wet - hours * (env.open ? 0.04 : 0.8));
     c.drink = clamp(c.drink - hours * 1.2, 0, 100);
     return c;
   }

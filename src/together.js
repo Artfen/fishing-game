@@ -194,6 +194,7 @@ export function cleanPose(p, kinds = null, gear = null) {
     out.f = !!p.f;   // a line out
     out.s = !!p.s;   // under sail
     out.n = !!p.n;   // at anchor or tied up
+    if (p.zz) out.zz = true; // (J3) asleep aboard (turned in on her deck, or her bunk)
     // Their bow trolling motor's state (see trollmount.js: ten small numbers), if they have one.
     if (Array.isArray(p.tr) && p.tr.length === 10 && p.tr.every((v) => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) < 20)) out.tr = p.tr.map(r2);
     // (F4b) Towing one of their boats: which, where she is and which way she's heading (never
@@ -1150,6 +1151,7 @@ export class Together {
     const msg = { m: P.m, x: r2(P.x), z: r2(P.z), h: r2(P.h), vx: slow ? 0 : r2(P.vx), vz: slow ? 0 : r2(P.vz) };
     if (P.m === 'boat') Object.assign(msg, { k: P.k, f: P.f ? 1 : 0, s: P.s ? 1 : 0, n: P.n ? 1 : 0 });
     if (P.m === 'boat' && Array.isArray(P.tr)) msg.tr = P.tr;
+    if (P.m === 'boat' && P.zz) msg.zz = 1; // (J3: asleep aboard)
     // (F4b) The boat you're towing, and the line.
     if (P.m === 'boat' && P.tw) msg.tw = { k: P.tw.k, x: r2(P.tw.x), z: r2(P.tw.z), h: r2(P.tw.h), t: Math.round((P.tw.t || 0) * 10) / 10, l: Math.round((P.tw.l || 0) * 10) / 10, ...(P.tw.e ? { e: P.tw.e } : {}) };
     if (P.m === 'foot') msg.a = P.a;
@@ -1180,7 +1182,7 @@ export class Together {
       || Math.abs((S.tn ?? 0) - (msg.tn ?? 0)) > 0.12 || S.mv !== msg.mv || S.hk !== msg.hk || S.nt !== msg.nt || S.sp !== msg.sp
       || Math.abs((S.xl ?? 0) - (msg.xl ?? 0)) > 3 || Math.abs((S.sl ?? 100) - (msg.sl ?? 100)) > 2
       || S.cr !== msg.cr || (msg.cr && Math.hypot(S.cx - msg.cx, S.cz - msg.cz) > 0.15)
-      || String(S.tr) !== String(msg.tr)
+      || String(S.tr) !== String(msg.tr) || S.zz !== msg.zz
       || (S.tw?.k ?? null) !== (msg.tw?.k ?? null) || (msg.tw && (Math.hypot(S.tw.x - msg.tw.x, S.tw.z - msg.tw.z) > 0.25 || Math.abs(S.tw.h - msg.tw.h) > 0.05 || Math.abs(S.tw.t - msg.tw.t) > 0.5 || Math.abs(S.tw.l - msg.tw.l) > 0.5 || S.tw.e !== msg.tw.e))
       || S.kt !== msg.kt || S.kk !== msg.kk || Math.abs((S.y ?? 0) - (msg.y ?? 0)) > 0.25 || Math.abs((S.pt ?? 0) - (msg.pt ?? 0)) > 0.1;
     if (!now && (this.sendT > 0 || (!moved && this.clock - (S?.at ?? -99) < IDLE_EVERY))) return;

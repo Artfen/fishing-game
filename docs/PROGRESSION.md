@@ -99,6 +99,7 @@ home) is played by two game clients together, step by step, as a player would
 2. **J2 (done):** diving together from one boat (the crewmate stays aboard while the skipper dives, and
    can go over the side and climb back aboard too); a scuff no longer hiding the dive; a friend's
    second boat of a kind drawn for everyone.
-3. **J3:** a night aboard an open boat (the RIB, the console, the bass boat), at anchor or tied up.
+3. **J3 (done):** a night aboard an open boat (the RIB, the console), at anchor or tied up, in a bivvy
+   roll from the chandlery; a friend crewing aboard sleeps it through too.
 4. **J4:** the crew's catch in her voyage: fish landed aboard her by a friend crewing, named as
    theirs, in the skipper's voyage and her papers.
