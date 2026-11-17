@@ -566,7 +566,12 @@ void main() {
     // (Foam is a web of bubbles: just broken, all of it, dense white; as it ages holes open in it
     // and only its walls are left, threads and lace trailing down the wind, until it's gone. Far off,
     // too fine to see, it's as bright as it is on average.)
+#if DETAIL > 0
     float web = detail > 0.0 ? foamWeb(wq) : 0.5;
+#else
+    // (Low detail: the threads alone, without the bubbles' cells, which cost the most.)
+    float web = detail > 0.0 ? clamp(0.1 + (1.0 - abs(vnoise(wq * vec2(0.9, 0.3)) * 2.0 - 1.0)) * 0.55 + (1.0 - abs(vnoise(wq * vec2(2.4, 0.8) + 3.1) * 2.0 - 1.0)) * 0.35, 0.0, 1.0) : 0.5;
+#endif
     // (The short waves' own pinched crests break it up, where they're worked out.)
     web = mix(web, web * 0.75 + 0.25 * smoothstep(0.7, 1.02, shortS.z), uShortOn);
     float near = smoothstep(0.0, 0.6, detail);
