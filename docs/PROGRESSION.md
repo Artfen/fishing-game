@@ -132,3 +132,6 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
 7. **B2 (done):** the waves below the surface: their pressure and their motion fade with depth;
    her keel, rudders and outboard's leg feel the waves' to-and-fro, so a following sea's crest
    takes the grip off her rudder.
+8. **W4 (second part, done):** with Ocean: Full, the bottom seen through the moving surface: the
+   sand, the rocks, a wreck and the fish below bent the way each bit of the surface bends the
+   light, and shimmering under the wavelets too small to draw.

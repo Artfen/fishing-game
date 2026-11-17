@@ -208,7 +208,7 @@ included). The full table, with each LICENSE file read, is in the two research n
   | Diving, three metres down | ![](water/dive-before.jpg) | ![](water/dive-after.jpg) |
 
   Still to do from W4's line in the plan: the bottom seen through the moving surface, bent by it
-  (Ocean: Full).
+  (Ocean: Full): done below, W4's second part.
 
 - **B2:** the waves below the surface. A wave's pressure and its orbital motion fade with depth,
   as exp(−k·depth): a short sea's within a metre or two, a long swell's hardly at all over a
@@ -243,3 +243,31 @@ included). The full table, with each LICENSE file read, is in the two research n
   Still to do from B2's line in the plan: the propeller. It already feels the waves' rise and
   fall, racing as it comes out on a crest; its push with the speed of the water into it, the
   waves' motion included, comes with B4 (thrust with speed).
+
+- **W4 (second part):** the bottom seen through the moving surface (Ocean: Full). Before, what's
+  under the sea was laid under the surface where it was drawn, as if the surface were glass: the
+  waves moved over it without moving it. Now, just before the sea is drawn, the picture under it
+  (everything solid under the water is drawn by then) is copied off the screen, and each bit of
+  the surface shows it where the eye's ray, bent by that bit's slope (Snell's law), meets the
+  bottom, rather than straight below. Only the waves' share of the bend: a level surface shows it
+  where it was, so nothing changes in a calm but what moves it. The bend is a quarter of the depth
+  times the slope (2 m down under a slope of 0.1, about 5 cm), as the test checks against Snell's
+  law worked out by angles. The waves drawn are only part of the sea's roughness: the rest, too
+  fine to draw (what spreads the sun's glitter, W2), bends it too, each wavelet its own way. Close
+  by, where a pixel sees them one at a time, that's a shimmer of the right size moving with them;
+  further off, where a pixel covers many, their average, a blur. A few metres down at most
+  (deeper, the water's own colour hides it), and none at the very edge of the beach. The sand and
+  its caustics waver as the ripples pass, and the wreck and the rocks under the buoy are bent by
+  the surface instead of painted under it:
+
+  | | Before | After |
+  | --- | --- | --- |
+  | The shallows as clear as Las Brasas', noon | ![](water/bent-clear-before.jpg) | ![](water/bent-clear-after.jpg) |
+  | The wreck under its buoy, a breeze | ![](water/bent-wreck-before.jpg) | ![](water/bent-wreck-after.jpg) |
+
+  It shows most in motion. In a still in software rendering, about one pixel in a hundred changes
+  by more than a shade in the clear shallows and over the wreck, and fewer than one in a thousand
+  looking in to the beach; what changes is the caustics' lines and the wreck's edges going wavy. It
+  costs one copy of the screen a frame and a few more texture reads for each pixel of near sea, on
+  Ocean: Full only.
+

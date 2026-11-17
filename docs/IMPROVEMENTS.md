@@ -1600,3 +1600,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | Validation | New `tests/swell.test.mjs` (3): at anchor in a swell her speed this moment past 0.6 m/s again and again, her steady speed hardly ever, and under way the two the same; the deck's offers (settled, a dive, the cabin) read the steady speed; a diver at the surface rides the swell all the time, more than 1.2 m up and down, never out of the water, and a duck dive still goes down. All three checked to fail on the old tree. The day played through again on top. Full suite |
 | Remaining risks | A boat surging hard on her rope in a big swell still counts as moving now and then (her steady speed past 0.6 m/s a couple of times in five minutes in that swell); a friend's boat lying still is judged from what the network sends, as before |
 
+### The sea, close up: W4 (second part), the bottom seen through the moving surface
+
+| Field | |
+| --- | --- |
+| System | `src/world/water.js` (the sea sheet's `onBeforeRender`: with Ocean: Full, once a frame, the screen copied just before the sea is drawn, into a `FramebufferTexture`, only for the view on the screen and not from under the water; `bottomShift`, in GLSL and JS: where the eye's ray, bent by a bit of the surface's slope, meets a bottom d metres down, against through a level surface; the sea's colour laid over that copy after the fog, as the blending did, at the point the bent ray meets it; the wavelets too fine to draw (the slope that spreads the glitter) as a shimmer of their size close by and a blur further off; the far ring left as it was) |
+| Previous issue | W4's own limitation: what's under the sea was laid under the surface where it was drawn, as if under glass, the waves moving over it without moving it |
+| Change | The bottom, the wreck, the rocks and the fish below seen through the surface as it moves, bent by Snell's law through each bit of it |
+| Player benefit | In the shallows and over the wreck, the sand, the caustics and the shapes below waver as the waves and ripples pass |
+| Before | (Ultra, Ocean: Full, software rendering.) The wreck under its buoy and the clear shallows crisp under a moving surface |
+| After | Their edges and the caustics' lines bent and shimmering with the surface. In a still, about 1% of the picture changes by more than a shade over the clear shallows and the wreck, under 0.1% looking in to the beach (pictures in `docs/WATER.md`); it shows most in motion |
+| Validation | New `tests/refraction.test.mjs` (2): a level surface moves nothing, from any way of looking; through a sloping one the bottom moves as Snell's law worked out by angles says, to 1e-9, and twice as far twice as deep; the shader's bend is the JS one, laid in after the fog on the detailed sheet only, the copy taken once a frame, only for the screen and not under the water, and only with the short waves on. Both checked to fail on the old tree. The shaders compile and draw on Low, Medium, High and Ultra. Full suite |
+| Remaining risks | Tuned in software rendering; not measured on real hardware (one screen copy a frame on Ocean: Full). Something above the water close beside it (a hull) can be pulled a few pixels into the water's picture of what's below; the bend is held to 3% of the screen |
+

@@ -249,6 +249,17 @@ uniform vec3 uSkySun;    // the sun's colour as the sky dome has it (sky.js)
 uniform float uGlow;     // the sky's glow round a low sun (sky.js)
 uniform vec2 uSlopeVar;  // the sea's mean square slope for this wind, up and across it (Cox and Munk)
 uniform float uColour;   // silt stirred up by rain or a blow (0 clear … 1 thick): see grounds.js
+uniform sampler2D uBelow;  // (W4b) what's under the sea, as drawn, copied just before the sea is
+uniform float uBelowOn;
+uniform vec2 uScreen;      // the drawing buffer's size, in pixels
+uniform mat4 uViewProj;    // the camera's projection times its view, this frame
+// (W4b) Where the eye's ray, through the surface at a slope, meets a bottom d metres down, against
+// where it would through a level surface: the waves' share of the bend (Snell's law, water's
+// index 1.333), as a shift along the bottom (x, z). See bottomShift below for the same in JS.
+vec2 bottomShift(float d, vec3 N, vec3 V) {
+  vec3 T = refract(-V, N, 0.75), T0 = refract(-V, vec3(0.0, 1.0, 0.0), 0.75);
+  return T.xz * (d / max(-T.y, 0.2)) - T0.xz * (d / max(-T0.y, 0.2));
+}
 varying vec3 vWorld;
 varying vec3 vN;
 varying vec4 vRefl;
@@ -689,6 +700,43 @@ void main() {
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>
+#if DETAIL > 0
+  // (W4b, Ocean: Full) What's under the surface, seen through it as it moves: the bottom where the
+  // eye's ray, bent by this bit of the surface's slope, meets it, rather than straight below. Only
+  // the waves' share of the bend (a level surface shows it just where it was drawn), so the sand
+  // and the stones in the shallows waver and the caustics' lines dance as the ripples pass. What
+  // it's drawn over is what the blending would have laid it on, moved: so where the copy is the
+  // picture behind (no slope), it's exactly as before. A few metres down at most (deeper, the water's
+  // own colour hides it), and none at the very edge, where the beach above the water starts.
+  if (uBelowOn > 0.5) {
+    float dB = clamp(vWorld.y - ground, 0.0, 6.0) * smoothstep(0.02, 0.3, depth);
+    vec2 sh = bottomShift(dB, N, V);
+    // (And the roughness too fine to draw (msq, which spreads the sun's glitter too): each of those
+    // wavelets bends the ray its own way, by a quarter of the depth times its slope. Close by, where
+    // a pixel sees them one at a time, they're a shimmer, moving as they do (noise as rough as they
+    // are: two samples about zero, each spread about 0.2, times 5); further off, where a pixel
+    // covers many, their average: a blur.)
+    float sc = 0.25 * dB * sqrt(0.5 * (msq.x + msq.y));
+    vec2 q = p * 3.0 + vec2(uTime * 0.7, -uTime * 0.5);
+    sh += (vec2(vnoise(q), vnoise(q * 1.13 + vec2(17.3, -uTime * 0.4))) - 0.5) * 5.0 * sc * near;
+    vec3 Pb = vWorld - V * (dB / max(V.y, 0.08));
+    vec4 c0 = uViewProj * vec4(Pb, 1.0), c1 = uViewProj * vec4(Pb + vec3(sh.x, 0.0, sh.y), 1.0);
+    vec2 duv = (c1.xy / c1.w - c0.xy / c0.w) * 0.5;
+    duv *= min(1.0, 0.03 / max(length(duv), 1e-5));
+    // (Far off, the fine wavelets' blur: a quarter of the depth times their slope, a few
+    // centimetres on a calm day, a hand's breadth in a breeze.)
+    float rb = 0.25 * dB * sqrt(msq.x + msq.y) * (1.0 - near);
+    vec4 cx = uViewProj * vec4(Pb + vec3(rb, 0.0, 0.0), 1.0), cz = uViewProj * vec4(Pb + vec3(0.0, 0.0, rb), 1.0);
+    vec2 bx = (cx.xy / cx.w - c0.xy / c0.w) * 0.5, bz = (cz.xy / cz.w - c0.xy / c0.w) * 0.5;
+    bx *= min(1.0, 0.02 / max(length(bx), 1e-5));
+    bz *= min(1.0, 0.02 / max(length(bz), 1e-5));
+    vec2 uv = gl_FragCoord.xy / uScreen + duv, lo = vec2(0.001), hi = vec2(0.999);
+    vec3 below = texture2D(uBelow, clamp(uv, lo, hi)).rgb * 0.4
+      + (texture2D(uBelow, clamp(uv + bx, lo, hi)).rgb + texture2D(uBelow, clamp(uv - bx, lo, hi)).rgb
+      + texture2D(uBelow, clamp(uv + bz, lo, hi)).rgb + texture2D(uBelow, clamp(uv - bz, lo, hi)).rgb) * 0.15;
+    gl_FragColor = vec4(gl_FragColor.rgb + (1.0 - gl_FragColor.a) * below, 1.0);
+  }
+#endif
 }
 `;
 
@@ -717,6 +765,24 @@ export const SEA_SIGMA = {
 // from its cosine in the air (Snell's law, water's index 1.333: it's bent towards the vertical,
 // never further from it than 48.6°). The fog chunk bends the eye's ray the same way (sky.js).
 export const refractedCos = (cosAir) => Math.sqrt(1 - (1 - cosAir * cosAir) / 1.777);
+// (W4b) Where the eye's ray through a sloping bit of the surface meets a bottom d metres down,
+// against where it would through a level one (both bent by Snell's law, water's index 1.333): the
+// shift along the bottom (x, z) the waves' slope makes. N the surface's normal, V towards the eye
+// (both unit vectors, y up). The sea shader does the same (bottomShift there).
+export function bottomShift(d, N, V, out = [0, 0]) {
+  const refr = (n) => {
+    const eta = 0.75, ix = -V[0], iy = -V[1], iz = -V[2];
+    const c = n[0] * ix + n[1] * iy + n[2] * iz, k = 1 - eta * eta * (1 - c * c);
+    if (k < 0) return [0, 0, 0];
+    const f = eta * c + Math.sqrt(k);
+    return [eta * ix - f * n[0], eta * iy - f * n[1], eta * iz - f * n[2]];
+  };
+  const T = refr(N), T0 = refr([0, 1, 0]);
+  const a = d / Math.max(-T[1], 0.2), b = d / Math.max(-T0[1], 0.2);
+  out[0] = T[0] * a - T0[0] * b;
+  out[1] = T[2] * a - T0[2] * b;
+  return out;
+}
 export function seaSigma(clear = 0, silt = 0, storm = 0, out = [0, 0, 0]) {
   const C = SEA_SIGMA;
   for (let i = 0; i < 3; i++) out[i] = C.coastal[i] + (C.clear[i] - C.coastal[i]) * clear + C.silt[i] * silt * (1 - clear) + C.storm[i] * Math.min(1, storm);
@@ -793,6 +859,10 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
   uniforms.uShortSlope = { value: null };
   uniforms.uShortOn = { value: 0 };
   uniforms.uShortL = { value: SHORT.L };
+  uniforms.uBelow = { value: null };
+  uniforms.uBelowOn = { value: 0 };
+  uniforms.uScreen = { value: new THREE.Vector2(1, 1) };
+  uniforms.uViewProj = { value: new THREE.Matrix4() };
   let shortSea = null;
 
   const material = new THREE.ShaderMaterial({
@@ -825,6 +895,36 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
   ring.frustumCulled = false;
   ring.renderOrder = 1;
   mesh.add(ring);
+
+  // (W4b) Ocean: Full: what's under the sea, as drawn, copied off the screen just before the sea
+  // itself is drawn (everything solid is drawn before anything see-through, and the sea before the
+  // things on its surface), once a frame, for the sea to see it through its moving surface. Only
+  // for the view on the screen (not the reflection, which leaves the sea out), and not from under
+  // the water.
+  const below = { want: false, done: false, tex: null, size: new THREE.Vector2(), origin: new THREE.Vector2() };
+  mesh.onBeforeRender = (renderer, scene, camera) => {
+    // (Any other picture the sea is drawn into, into a texture of its own, goes without; and so
+    // does the plainest sea (DETAIL 0, the Low setting), which hasn't the code to use it.)
+    if (!below.want || !(material.defines.DETAIL > 0) || uniforms.uUnder.value > 0.5 || renderer.getRenderTarget() !== null) {
+      uniforms.uBelowOn.value = 0;
+      return;
+    }
+    if (!below.done) {
+      below.done = true;
+      renderer.getDrawingBufferSize(below.size);
+      const w = below.size.x, h = below.size.y;
+      if (!below.tex || below.tex.image.width !== w || below.tex.image.height !== h) {
+        below.tex?.dispose();
+        below.tex = new THREE.FramebufferTexture(w, h);
+        below.tex.minFilter = below.tex.magFilter = THREE.LinearFilter;
+        uniforms.uBelow.value = below.tex;
+      }
+      renderer.copyFramebufferToTexture(below.origin, below.tex);
+      uniforms.uScreen.value.set(w, h);
+    }
+    uniforms.uViewProj.value.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    uniforms.uBelowOn.value = 1;
+  };
 
   const api = {
     mesh,
@@ -868,6 +968,7 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       uniforms.uStorm.value = conditions.sea.storm;
     },
     follow(pos) {
+      below.done = false;
       mesh.position.x = Math.round(pos.x / snap) * snap;
       mesh.position.z = Math.round(pos.z / snap) * snap;
       ring.position.set(pos.x - mesh.position.x, 0, pos.z - mesh.position.z);
@@ -888,6 +989,9 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
         shortSea = null;
       }
       uniforms.uShortOn.value = shortSea ? 1 : 0;
+      // (W4b) The bottom seen through the moving surface, with the short waves that move it.
+      below.want = !!shortSea;
+      if (!below.want) uniforms.uBelowOn.value = 0;
       uniforms.uShortDisp.value = shortSea ? shortSea.disp.texture : null;
       uniforms.uShortSlope.value = shortSea ? shortSea.slope.texture : null;
       return shortSea ? 'full' : 'simple';
