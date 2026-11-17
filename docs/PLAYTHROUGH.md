@@ -110,8 +110,9 @@ counts the night it ran into). No page errors.
    only counts for the skipper's fishing charter), but the brief's "a vessel log documenting their
    adventure" wants the fish taken aboard her in her voyage, named as the crew's. Now a friend
    crewing aboard is named in her voyage, and the fish they land from her are in it as theirs
-   (`src/voyages.js`): "Out to the Hound: 1.4 nm, 1 night out, 1 fish, with Bert." The fish stay
-   in their own log too.
+   (`src/voyages.js`). On J4's tree, her papers say "Out to the Hound: 1.1 nm, 1 night out, 1 fish,
+   with Bert.", and the voyage has his mackerel as the best of it, his. The fish stay in his own
+   log too.
 
 6. **One frame threw, and the game stopped** (J1 and J1b: fixed). Once in sixteen runs, at sea
    with Bert crewing, a value that wasn't a number reached the sound's underwater filter
