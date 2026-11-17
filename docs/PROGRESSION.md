@@ -94,7 +94,7 @@ home) is played by two game clients together, step by step, as a player would
 (`tools/playthrough.mjs`). What it found, and the order of the fixes, is in `docs/PLAYTHROUGH.md`:
 
 1. **J1 (done):** the playthrough itself, and its findings written up.
-2. **J2:** diving together from one boat (the crewmate stays aboard while the skipper dives, and
+2. **J2 (done):** diving together from one boat (the crewmate stays aboard while the skipper dives, and
    can go over the side and climb back aboard too); a scuff no longer hiding the dive; a friend's
    second boat of a kind drawn for everyone.
 3. **J3:** a night aboard an open boat (the RIB, the console, the bass boat), at anchor or tied up.

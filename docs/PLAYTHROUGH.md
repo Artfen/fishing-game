@@ -68,12 +68,13 @@ counts the night it ran into). No page errors.
 
 ### In the game, to fix
 
-1. **Two friends in one boat can't dive together** (J2). When the skipper goes over the side, the
+1. **Two friends in one boat can't dive together** (J2: fixed). When the skipper goes over the side, the
    one crewing for them is put back where they first stepped aboard (in the run, the Willowhaven
    pontoon, seven hundred metres away), as if her boat had gone: crewing ended whenever the
    skipper's pose wasn't a boat's (`main.js` `rideCrew`). A crewmate's menu has no way over the side
    of a friend's boat, and from the water there's no climbing back into one.
-2. **A scuff hides going diving** (J2). On a boat you walk about (the RIB, the console), any damage
+2. **A scuff hides going diving** (J2: fixed; paint-deep damage now waits, with *Look her over* in
+   the sit-back-or-dive menu). On a boat you walk about (the RIB, the console), any damage
    at all, even a scuff off the quay or another boat, makes *Look her over* the deck's prompt until
    the Marine Works mends it, so *Sit back a while, or go diving* never shows. Four of the sixteen
    runs were stopped at the reef by it. In run 16, looked over: "Bow: dented. Starboard side:
@@ -83,7 +84,7 @@ counts the night it ran into). No page errors.
    boat and the yacht have anywhere to sleep (`hull.cabin`). Anchored in the RIB, there's no way to
    turn in.
 4. **A friend's second boat of a kind isn't drawn for anyone else** (found reading the code for
-   the first; J2). The word of where your boats lie (`together.js` `sendFleet`) left out a boat's
+   the first; J2: fixed). The word of where your boats lie (`together.js` `sendFleet`) left out a boat's
    own id, which the friend's game reads (`cleanFleet`): two RIBs lying in the water were one.
 
 5. **The crew's catch isn't in her voyage** (smaller; after J3). Bert's mackerel, landed from the
