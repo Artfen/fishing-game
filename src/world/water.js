@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { conditions, WAVE_PARTS, bakeShelter, tidalTexture, SHELTER_RECT, waveHeight as conditionsWaveHeight } from './conditions.js';
 import { longSea, PATCH, SHORT } from './ocean.js';
 import { ShortSea } from './oceangpu.js';
+import { HAZE } from './sky.js';
 
 // The water surface: swell and wind chop from the shared conditions (conditions.js). The same
 // function moves these vertices and lifts the boats and floats (waveHeight below), so a hull
@@ -425,7 +426,7 @@ void main() {
     // A brighter rim where the window meets the mirrored part.
     colU += skyU * 0.25 * win * (1.0 - smoothstep(0.78, 0.86, view));
     colU += uSunColor * pow(max(0.0, 1.0 - length(gu) * 0.5), 6.0) * 0.06 * win;
-    gl_FragColor = vec4(colU, 0.95);
+    gl_FragColor = vec4(colU * 0.95, 0.95);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
     #include <fog_fragment>
@@ -555,6 +556,16 @@ void main() {
   float cosV = clamp(dot(N, V), 0.0, 1.0);
   float fres = 0.02 + 0.98 * pow(1.0 - cosV, 5.0);
   fres = min(fres, mix(1.0, 0.7, smoothstep(0.003, 0.03, msq.x + msq.y)));
+  // (W4) In the sea, what you see is what its surface reflects (the sky, the sun, the foam) and,
+  // through the rest, what's under it, seen through the water as it really is (sky.js: each colour
+  // taken up along the light's way down and back, the water's glow in its place). Only where the
+  // bottom's too deep to show at all does the water's own colour stand in for it, so the sea far
+  // out, where nothing's drawn under it, is the deep blue it was, without a seam. (Kept as light,
+  // premultiplied, so the sun's glitter isn't dimmed where the surface lets most light through.)
+  // Fresh water keeps its colour by depth, the bed seen more or less through it.
+  float aBody = smoothstep(0.75, 0.97, 1.0 - exp(-hazeSigma.g * 2.0 * depth));
+  vec3 pmSea = col * (1.0 - fres) * aBody + sky * fres;
+  float aSea = fres + (1.0 - fres) * aBody;
   col = mix(col, sky, fres);
 
   // The sun (or the moon) in the water: each of the waves too small to draw is a little mirror, and
@@ -580,8 +591,11 @@ void main() {
   sunSpec *= mix(1.0, spark * 2.7, near * 0.85);
 #endif
   col += uSunColor * sunSpec * up * (1.0 - uRain * 0.85);
+  pmSea += uSunColor * sunSpec * up * (1.0 - uRain * 0.85);
   // Ripple crests catch a little extra light.
-  col += (uAmbient + uSunColor * 0.4) * clamp(length(rips.xy) * 0.6 + max(0.0, length(rips.zw) - 0.18) * 0.8, 0.0, 0.25);
+  vec3 ripLit = (uAmbient + uSunColor * 0.4) * clamp(length(rips.xy) * 0.6 + max(0.0, length(rips.zw) - 0.18) * 0.8, 0.0, 0.25);
+  col += ripLit;
+  pmSea += ripLit * 0.5;
 
   // Shoreline foam: a soft edge plus bands rolling in, bigger where the swell reaches the shore.
   float n1 = vnoise(p * 0.7 + uTime * 0.25);
@@ -643,6 +657,8 @@ void main() {
   // (Foam stays white against a dark storm sea.)
   vec3 foamLit = uFoam * max(uAmbient + uSunColor * 0.6, vec3(0.62 * stormy));
   col = mix(col, foamLit, foam * 0.85);
+  pmSea = mix(pmSea, foamLit, foam * 0.85);
+  aSea = mix(aSea, 1.0, foam * 0.85);
 
   // Warm lantern light pooling on the water.
   for (int i = 0; i < 2; i++) {
@@ -653,10 +669,12 @@ void main() {
       float glow = exp(-ld * 0.38) * 0.24;
       float spec = pow(max(dot(R, normalize(toL)), 0.0), 60.0) * 0.6;
       col += vec3(1.0, 0.6, 0.3) * L.w * (glow + spec);
+      pmSea += vec3(1.0, 0.6, 0.3) * L.w * (glow * 0.3 + spec);
     }
   }
 
   col = mix(col, vec3(dot(col, vec3(0.3, 0.59, 0.11))), uNight * 0.35);
+  pmSea = mix(pmSea, vec3(dot(pmSea, vec3(0.3, 0.59, 0.11))), uNight * 0.35);
 
   float alpha = mix(0.42, 0.95, smoothstep(0.0, 5.0, depth));
   // Clear blue water (Las Brasas): the reef and its fish show from a boat down to a dozen metres or
@@ -666,7 +684,8 @@ void main() {
   alpha = mix(alpha, mix(0.5, 0.92, smoothstep(0.0, 3.0, depth)), fresh);
   alpha = mix(alpha, 0.93, silty * 0.8);
   alpha = max(alpha, foam);
-  gl_FragColor = vec4(col, alpha);
+  // (The sea as light let through and light sent back; fresh water as it was.)
+  gl_FragColor = vec4(mix(pmSea, col * alpha, fresh), mix(aSea, alpha, fresh));
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>
@@ -679,6 +698,29 @@ void main() {
 export function seaSlopeVariance(u) {
   const U = Math.max(0.5, u || 0);
   return [3.16e-3 * U, 0.003 + 1.92e-3 * U];
+}
+
+// (W4) How strongly sea water takes up red, green and blue light, per metre (the diffuse
+// attenuation, Kd). This coast's water is coastal (Jerlov's coastal types 1 to 3; a summer Secchi
+// depth of eight to twelve metres, as off south-west Britain and Brittany, about 1.7 / Kd for
+// green): red is gone in a couple of metres, and blue goes sooner than green (the dissolved yellow
+// matter off the land takes it), so it's green. The clear blue water at Las Brasas is oceanic (the
+// Canaries' summer Secchi depth of 25 m or more), keeping the blue longest. Silt after rain or a
+// blow, and a storm's churn, take everything faster.
+export const SEA_SIGMA = {
+  coastal: [0.55, 0.16, 0.22],
+  clear: [0.4, 0.06, 0.04],
+  silt: [0.6, 0.55, 0.65],
+  storm: [0.25, 0.22, 0.25],
+};
+// The cosine of a ray's angle from the vertical once it's through the surface into the water,
+// from its cosine in the air (Snell's law, water's index 1.333: it's bent towards the vertical,
+// never further from it than 48.6°). The fog chunk bends the eye's ray the same way (sky.js).
+export const refractedCos = (cosAir) => Math.sqrt(1 - (1 - cosAir * cosAir) / 1.777);
+export function seaSigma(clear = 0, silt = 0, storm = 0, out = [0, 0, 0]) {
+  const C = SEA_SIGMA;
+  for (let i = 0; i < 3; i++) out[i] = C.coastal[i] + (C.clear[i] - C.coastal[i]) * clear + C.silt[i] * silt * (1 - clear) + C.storm[i] * Math.min(1, storm);
+  return out;
 }
 
 export function createWater(heightTex, rect, detailTex, detailRect) {
@@ -757,8 +799,9 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
     uniforms,
     vertexShader,
     fragmentShader,
-    defines: { DETAIL: 2 },
+    defines: { DETAIL: 2, NO_WATER_TINT: 1 },
     transparent: true,
+    premultipliedAlpha: true,
     fog: true,
     side: THREE.DoubleSide,
   });
@@ -775,7 +818,7 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
   // Beyond it, a plain ring of sea out to the horizon (the same water, without moving waves),
   // so a long way out from the bay there is still ocean all round.
   const ringMat = new THREE.ShaderMaterial({
-    uniforms, vertexShader, fragmentShader, defines: { DETAIL: 0, RING: 1 }, transparent: true, fog: true, side: THREE.DoubleSide,
+    uniforms, vertexShader, fragmentShader, defines: { DETAIL: 0, RING: 1, NO_WATER_TINT: 1 }, transparent: true, premultipliedAlpha: true, fog: true, side: THREE.DoubleSide,
   });
   const ringGeo = new THREE.RingGeometry(NEAR_R - 2, 6000, 96, 6).rotateX(-Math.PI / 2);
   const ring = new THREE.Mesh(ringGeo, ringMat);
@@ -787,6 +830,23 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
     mesh,
     ring,
     uniforms,
+    // (W4) The sea's water, each frame, for everything seen through it from above (sky.js HAZE):
+    // where its surface stands, whether the eye's above it (under: 0 above … 1 under), the sun's
+    // way down through it (bent by the surface), how it takes up each colour, and its glow: the
+    // deep water's colour lit as the surface shader lights it, so the deep sea and the seabed seen
+    // far down through it are one colour.
+    seaLight(lightDir, under) {
+      const u = uniforms, S = HAZE.hazeSea.value, W = HAZE.hazeWater.value;
+      S[0] = u.uTideLevel.value;
+      S[1] = 1 - under;
+      const sy = Math.max(0.05, lightDir.y);
+      S[2] = refractedCos(sy);
+      seaSigma(u.uClear.value, u.uColour.value, u.uStorm.value, HAZE.hazeSigma.value);
+      const D = u.uDeep.value, A = u.uAmbient.value, L = u.uSunColor.value, k = 0.25 + 0.55 * sy, st = Math.min(1, u.uStorm.value) * 0.8;
+      W[0] = (D.r + (0.09 - D.r) * st) * (A.r + L.r * k);
+      W[1] = (D.g + (0.17 - D.g) * st) * (A.g + L.g * k);
+      W[2] = (D.b + (0.21 - D.b) * st) * (A.b + L.b * k);
+    },
     // The shared conditions, each frame: the waves' amplitudes and the wind's ruffle.
     sync(windX, windZ) {
       uniforms.uSwellA.value.splice(0, SWELL.length, ...conditions.swellAmps);

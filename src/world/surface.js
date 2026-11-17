@@ -32,8 +32,9 @@ const KINDS = {
       // Ripples in the sand under shallow water.
       float shallow = smoothstep(-0.15, -0.6, sp.y) * (1.0 - smoothstep(2.5, 9.0, -sp.y));
       lum += sin(dot(sp.xz, vec2(0.8, 0.6)) * 6.5 + sNoise(sp.xz * 0.45) * 7.0) * 0.045 * shallow;
-      // Darker, cooler sand and mud just above the waterline where the water reaches.
-      float wet = (1.0 - smoothstep(0.0, uWetTop + (sNoise(sp.xz * 0.7) - 0.5) * 0.15, sp.y)) * step(-0.2, sp.y);
+      // Darker, cooler sand and mud just above the waterline where the water reaches, and all of it
+      // under the water (seen through it now, W4: dry-pale sand under the sea was a glare).
+      float wet = 1.0 - smoothstep(0.0, uWetTop + (sNoise(sp.xz * 0.7) - 0.5) * 0.15, sp.y);
       diffuseColor.rgb *= lum * mix(1.0, 0.72, wet);
       diffuseColor.rgb *= mix(vec3(1.0), vec3(0.93, 0.98, 1.05), wet);
     }`,

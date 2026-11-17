@@ -34,7 +34,9 @@ export function withCaustics(material) {
     shader.fragmentShader = CAUSTIC_GLSL + shader.fragmentShader.replace('#include <opaque_fragment>', `
       float cDepth = -vCausticPos.y;
       float cMask = smoothstep(0.05, 0.6, cDepth) * (1.0 - smoothstep(4.0, 16.0, cDepth)) * uCaustic;
-      if (cMask > 0.001) outgoingLight += diffuseColor.rgb * causticAt(vCausticPos.xz, uCausticTime) * cMask * 0.6;
+      // (Light gathered into the bright lines from the dimmer patches between: as much light as
+      // ever on average, W4. Seen through the water now, a bottom only ever brightened was a glare.)
+      if (cMask > 0.001) outgoingLight += diffuseColor.rgb * (causticAt(vCausticPos.xz, uCausticTime) - 0.21) * cMask * 0.6;
       #include <opaque_fragment>`);
   };
   const prevKey = material.customProgramCacheKey;
