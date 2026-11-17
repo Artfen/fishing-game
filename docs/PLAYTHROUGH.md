@@ -77,6 +77,16 @@ counts the night it ran into). No page errors.
   and nothing for Bert's log: the world's doing, not the game's.
 - No page errors.
 
+**On J3's tree**, the whole day passes, every step, with no page errors:
+
+- Out with a bivvy roll among her kit (106 kg aboard).
+- A mackerel to Bert on the first cast into the feed.
+- Both dive on the Hound and climb back aboard.
+- At 21:38, anchored on the shelf, Mags turns in on her deck. Bert's game shows "Mags turns in. You unroll the other bivvy on her deck and sleep…".
+- They wake at 04:19 the next day, still at anchor, each to the other stirring in the other bag.
+- Home in the next day's stiffer blow (heaving 1.1 m against 0.16 m going out), and tied up.
+- "Out to the Hound: 1.1 nm, 1 night out" goes in her papers, and Bert's mackerel in his log, from the RIB.
+
 ## What it found
 
 ### In the game, to fix
