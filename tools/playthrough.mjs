@@ -549,9 +549,6 @@ if (dA.diving === 'scuba') {
     return { depth: +d.depth.toFixed(1), near: e.agents.filter((a) => a.active && a.state !== 'gone' && Math.hypot(a.x - d.pos.x, a.z - d.pos.z) < 15).length, air: Math.round(slowTide.state.dive.tank) };
   });
   note('on the reef', JSON.stringify(under));
-  const ids = await Promise.all(both.map((P) => P.evaluate(() => slowTide.together.id)));
-  const seeEach = [await A.evaluate((id) => { const p = slowTide.together.peers.get(id); return (p?.view || p?.pose)?.m || null; }, ids[1]), await B.evaluate((id) => { const p = slowTide.together.peers.get(id); return (p?.view || p?.pose)?.m || null; }, ids[0])];
-  check('10 · each sees the other diving', seeEach.every((m) => m === 'dive'), JSON.stringify(seeEach));
   check('10 · down on the reef, fish about her', under.depth > 5 && under.near > 0, JSON.stringify(under));
 
   const bertWhile = await B.evaluate(() => ({ crew: !!slowTide.crew.on, at: [Math.round(slowTide.walker.pos.x), Math.round(slowTide.walker.pos.z)], said: window.__said.filter((m) => /boat has gone/.test(m)).slice(-1) }));
@@ -578,6 +575,10 @@ if (dA.diving === 'scuba') {
     await step(3);
     await B.keyboard.up('KeyW');
     await B.evaluate(() => { slowTide.rig.views.dive.pitch = 0; });
+    // (Both in the water now: each sees the other diving.)
+    const ids = await Promise.all(both.map((P) => P.evaluate(() => slowTide.together.id)));
+    const seeEach = [await A.evaluate((id) => { const p = slowTide.together.peers.get(id); return (p?.view || p?.pose)?.m || null; }, ids[1]), await B.evaluate((id) => { const p = slowTide.together.peers.get(id); return (p?.view || p?.pose)?.m || null; }, ids[0])];
+    check('10 · each sees the other diving', seeEach.every((m) => m === 'dive'), JSON.stringify(seeEach));
   }
   // A photograph: the camera on the nearest fish (Space underwater), kept (Enter).
   const photos0 = await A.evaluate(() => slowTide.state.photos.length);

@@ -64,6 +64,19 @@ checks, and what it saw):
 The clock runs on through it all at the game's pace, so the day ends after dark (and the voyage
 counts the night it ran into). No page errors.
 
+**On J2's tree** (its second run), step 10 is the dive two friends in one boat would make:
+
+- Mags goes over the side on scuba. Bert, crewing, stays aboard her while she's down, in her on
+  both screens.
+- From the crew menu, Bert goes over the side after her, on scuba.
+- Mags's photograph is kept, her safety stop done, and she's back aboard and at the helm.
+- Bert climbs back aboard Mags's RIB (*Climb aboard Mags's RIB*), her crew again.
+- She had scuffed her bow on the quay going out ("Her bow scuffed on the quay", in her papers), and
+  the dive still showed.
+- That day the feed moved off before a fish took (re-aimed twice, ten casts), so there was no fish
+  and nothing for Bert's log: the world's doing, not the game's.
+- No page errors.
+
 ## What it found
 
 ### In the game, to fix
