@@ -121,3 +121,5 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
    foam: dense white just broken, thinning to lace, a glow of bubbles under it.
 2. **W2 (done):** the sun and the sky in the water, done physically: the sky's own colours mirrored
    on every setting, water's Fresnel, and the sun's glitter as wide as the wind makes it.
+3. **W3 (done, the haze):** the horizon without a seam: the haze the sky's own colour along the
+   horizon, the way you look, warm towards a low sun and bright round it.

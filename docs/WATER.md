@@ -101,7 +101,7 @@ included). The full table, with each LICENSE file read, is in the two research n
 
 ## Done
 
-- **W1 (this pull request):** the whitecaps are back, and drawn as foam. Before and after, an
+- **W1:** the whitecaps are back, and drawn as foam. Before and after, an
   11 m/s breeze and a storm, the same views:
 
   | | Before | After |
@@ -125,3 +125,21 @@ included). The full table, with each LICENSE file read, is in the two research n
   | --- | --- | --- |
   | Sunset, 11 m/s | ![](water/sunset-before.jpg) | ![](water/sunset-after.jpg) |
   | Calm morning, 1.5 m/s | ![](water/morning-before.jpg) | ![](water/morning-after.jpg) |
+
+- **W3:** the horizon, where the sea meets the sky. The haze was one colour for the whole view,
+  warmed by turning the camera to face a low sun, so turning warmed all of it at once; and the far
+  sea started a step darker than the sky just above it, 12 levels of 255 at dawn and 6 in a storm,
+  a line drawn along the horizon. Now the haze is the sky's own colour along the horizon, the way
+  each pixel looks, worked out as the sky dome works out its horizon: warm towards a low sun and
+  bright round it, dusk-blue on the far side, a storm's dark. The far sea and the far shore fade
+  into the sky just above them without a seam; under the water, the haze is the water's, as before.
+  Before and after, the horizon in the same views:
+
+  | | Before | After |
+  | --- | --- | --- |
+  | Calm morning, towards the sun | ![](water/haze-morning-before.jpg) | ![](water/haze-morning-after.jpg) |
+  | Sunset, 11 m/s | ![](water/haze-sunset-before.jpg) | ![](water/haze-sunset-after.jpg) |
+  | Storm, 20 m/s | ![](water/haze-storm-before.jpg) | ![](water/haze-storm-after.jpg) |
+
+  Still to do from W3's line in the plan: the big seas carried out past the fine sheet (444 m) as
+  roughness. In a storm the waves still end at a line there, now against a haze the sky's colour.

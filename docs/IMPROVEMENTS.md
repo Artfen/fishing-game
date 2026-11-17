@@ -1508,3 +1508,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | After | A glitter road out to the sun, breaking into single flashes near the boat; on a calm morning, a narrow broken road. Pictures in `docs/WATER.md` |
 | Validation | New `tests/seasurface.test.mjs` (1): the slopes are Cox and Munk's, up and across the wind, rougher the fresher it blows, never glassy. The water shader compiles and draws on Low, Medium, High and Ultra. Full suite |
 | Remaining risks | Tuned by eye in software rendering; the glitter's brightness is a judgement (its shape is physical). The planar reflection, where it's on, still takes over from the sky in calm water, as before |
+
+### The sea, close up: W3, the horizon without a seam
+
+| Field | |
+| --- | --- |
+| System | `src/world/sky.js` (`HAZE`: the haze's colours, shared by every hazed material (three.js keeps a typed-array uniform as it is for each material, never copying it), set once a frame as the sky dome makes its horizon: away from the sun, towards it, the warm glow round a low sun, the brightness round the sun itself, a storm's dark, a lightning flash; the fog chunks: the direction each pixel is seen in, and the haze the sky's colour along the horizon that way, worked out in linear light and turned into the screen's colours as the dome's are; `hazeAt`: the same on the CPU, for the fog's one colour, now the haze straight ahead; under the water, the water's haze, as before) |
+| Previous issue | Found inspecting the water closely (`docs/WATER.md`): the haze was one colour for the whole view, warmed by facing a low sun, so turning the camera warmed all of it at once; the far sea started a step darker than the sky just above it, 12 levels of 255 at dawn, 6 in a storm: a line along the horizon |
+| Change | The haze the sky's own colour along the horizon, the way each pixel looks |
+| Player benefit | The far sea and the shore melt into the sky; a low sun's glow lies along the horizon under it, the far side dusk-blue |
+| Before | (Measured in the pictures, the same views.) Calm morning, towards the sun: the sky just above the horizon 252, 218, 189, the far sea below it 240, 204, 184; storm: 131, 136, 138 above, 125, 130, 133 below |
+| After | Calm morning: 253, 223, 193 above, 253, 222, 194 below; storm: 131, 136, 138 both. Pictures in `docs/WATER.md` |
+| Validation | New `tests/haze.test.mjs` (3): the haze along the horizon is the dome's own colour there (its shader's sum, worked out in the test) all round the compass, at dawn, noon, sunset, in rain, in a storm and at night; towards a low sun it's brighter and warmer than away from it, at noon much the same all round; the fog's one colour is the haze straight ahead, and under the water the sky's share goes and comes back as you surface. The shaders compile and draw on Low, Medium, High and Ultra. Full suite |
+| Remaining risks | Tuned in software rendering. In a storm the waves still end at a line where the fine sheet does (444 m), now against a haze the sky's colour; the big seas carried out past it as roughness is still to do |
