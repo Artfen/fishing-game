@@ -116,3 +116,54 @@ test('kept through a save: the voyage under way and those written up; junk dropp
   assert.equal(old.state.voyage, null);
   assert.deepEqual(old.state.voyages, []);
 });
+
+// (J4) Found playing the brief's Part J day through (docs/PLAYTHROUGH.md, finding 5): Bert's
+// mackerel, landed from Mags's RIB, was in his log but her voyage said "0 fish".
+test('a friend crewing aboard is in her voyage, and so are the fish they land from her, as theirs', () => {
+  const V = start();
+  onVoyage(V, { k: 'crew', name: 'Bert' });
+  onVoyage(V, { k: 'crew', name: 'Bert' });
+  onVoyage(V, { k: 'crew', name: '' });
+  assert.deepEqual(V.crew, ['Bert'], 'once each, and only a name');
+  onVoyage(V, { k: 'fish', sp: 'mackerel', name: 'Atlantic mackerel', kg: 0.41, by: 'Bert' });
+  onVoyage(V, { k: 'fish', sp: 'pollack', name: 'pollack', kg: 0.3 });
+  assert.equal(V.fish, 2, 'hers and his, both aboard her');
+  assert.equal(V.crewFish, 1);
+  assert.deepEqual(V.best, { sp: 'mackerel', name: 'Atlantic mackerel', kg: 0.41, by: 'Bert' }, 'his the best, and said so');
+  // (A fish of a crewmate's who wasn't named yet: they're aboard now.)
+  onVoyage(V, { k: 'fish', sp: 'bass', name: 'bass', kg: 0.2, by: 'Cass' });
+  assert.deepEqual(V.crew, ['Bert', 'Cass']);
+  const R = finishVoyage(V, { day: 5, hour: 9, abs: 5 * 24 + 9, to: 'Willowhaven' });
+  assert.deepEqual([R.crew, R.crewFish], [['Bert', 'Cass'], 2]);
+  assert.match(papersLine(R), /, 3 fish, with Bert and Cass\.$/);
+  const W = voyageWords(R, { boat: () => 'RIB' });
+  assert.match(W.lines[0], /^From Willowhaven to Willowhaven, in the RIB with Bert and Cass:/);
+  assert.ok(W.lines.includes('Three fish (two of them the crew’s), the best an Atlantic mackerel of 410 g, Bert’s.'), JSON.stringify(W.lines));
+  // (All of them one crewmate's.)
+  const V2 = start();
+  onVoyage(V2, { k: 'fish', sp: 'mackerel', name: 'Atlantic mackerel', kg: 0.41, by: 'Bert' });
+  const W2 = voyageWords(finishVoyage(V2, { day: 4, hour: 20, abs: 4 * 24 + 20, to: 'Willowhaven' }));
+  assert.ok(W2.lines.includes('One fish (all Bert’s), the best an Atlantic mackerel of 410 g, Bert’s.'), JSON.stringify(W2.lines));
+  // (Your own alone: as before, no crew mentioned.)
+  const V3 = start();
+  onVoyage(V3, { k: 'fish', sp: 'pollack', name: 'pollack', kg: 2.1 });
+  const R3 = finishVoyage(V3, { day: 4, hour: 20, abs: 4 * 24 + 20, to: 'Willowhaven' });
+  assert.equal(papersLine(R3), `${R3.title}: 0 nm, 1 fish.`);
+  assert.ok(voyageWords(R3).lines.includes('One fish, the best a pollack of 2.1 kg.'));
+});
+
+test('the crew and their fish are kept through a save; an older save has none', () => {
+  const V = start();
+  onVoyage(V, { k: 'fish', sp: 'mackerel', name: 'Atlantic mackerel', kg: 0.41, by: 'Bert' });
+  const back = cleanVoyage(JSON.parse(JSON.stringify(V)));
+  assert.deepEqual([back.crew, back.crewFish, back.best.by], [['Bert'], 1, 'Bert']);
+  const R = cleanVoyages([JSON.parse(JSON.stringify(finishVoyage(V, { day: 5, hour: 9, abs: 5 * 24 + 9, to: 'Willowhaven' })))])[0];
+  assert.deepEqual([R.crew, R.crewFish, R.best.by], [['Bert'], 1, 'Bert']);
+  // (Older: no crew, no crewFish; and never more of the crew's fish than fish.)
+  const { crew, crewFish, ...old } = JSON.parse(JSON.stringify(V));
+  const O = cleanVoyage(old);
+  assert.deepEqual([O.crew, O.crewFish], [[], 0]);
+  assert.equal(cleanVoyage({ ...JSON.parse(JSON.stringify(V)), crewFish: 9 }).crewFish, 1);
+  // (Names as plain words, and only names.)
+  assert.deepEqual(cleanVoyage({ ...JSON.parse(JSON.stringify(V)), crew: ['<b>Bert</b>', 7] }).crew, ['b Bert /b']);
+});

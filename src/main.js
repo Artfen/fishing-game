@@ -1995,6 +1995,8 @@ function watchVoyage(dt) {
       const H = region === 'south' ? PUERTO_AT : HAVEN;
       state.voyage = newVoyage({ day: state.day, hour: state.hour, abs: clock.abs, kind: boat.id, from: farName(boat.pos.x, boat.pos.z), x: H.x, z: H.z });
       voyAt = { x: boat.pos.x, z: boat.pos.z };
+      // (J4) Whoever's crewing aboard as she sets out is on it too.
+      for (const id of crewAboard) voy({ k: 'crew', name: together.peers.get(id)?.name });
     }
     return;
   }
@@ -11684,6 +11686,8 @@ function watchCrew() {
   for (const id of now) {
     if (crewAboard.has(id)) continue;
     const p = together.peers.get(id);
+    // (J4) Aboard for her voyage, if she's on one.
+    voy({ k: 'crew', name: p.name });
     hud.toast(`${p.name} steps aboard. They can fish from her${boat.hull.motor ? ', use her locker' : ''} and net your fish (or take the leader of a big one), and take the helm while you’re away from it.`, 6);
   }
   for (const id of crewAboard) {
@@ -11751,6 +11755,8 @@ together.onEvent = (kind, p, data) => {
       const Q = p.view || p.pose;
       if (crew.aboard(p) && !onFoot && !driving && Q && Math.hypot(Q.x - boat.pos.x, Q.z - boat.pos.z) < boat.hull.L + 4) {
         jobsDone(Con.caught(state.contracts, { sp: sp.id, sea: sp.water !== 'fresh', phase: 'landed', boat: boat.id, crew: true }));
+        // (J4) And in her voyage, as theirs.
+        voy({ k: 'fish', sp: sp.id, name: fishWords(sp.name), kg: data.kg, by: p.name || 'your crew' });
       }
     }
   } else if (kind === 'ended') hud.toast(p ? `${p.name} ended the session.` : data?.hostGone ? `${data.name[0].toUpperCase()}${data.name.slice(1)} didn’t come back, so the session has ended. Your own time and weather are back.` : 'The connection to your session was lost, so you’ve left it.', 7);

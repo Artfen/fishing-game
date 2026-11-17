@@ -85,6 +85,11 @@ counts the night it ran into). No page errors.
 - Home in the next day's stiffer blow (heaving 1.1 m against 0.16 m going out), and tied up.
 - "Out to the Hound: 1.1 nm, 1 night out" goes in her papers, and Bert's mackerel in his log, from the RIB.
 
+**On J4's tree**, Bert's mackerel, landed from her at the feed, is in her voyage as his. Her papers
+say "Out to the Hound: 1.1 nm, 1 night out, 1 fish, with Bert.", and the mackerel is the best of the
+voyage, his. Every other step passes but one: no fish came within 15 m of Mags on the reef that time
+(the world's doing). No page errors.
+
 ## What it found
 
 ### In the game, to fix
@@ -112,11 +117,15 @@ counts the night it ran into). No page errors.
    the first; J2: fixed). The word of where your boats lie (`together.js` `sendFleet`) left out a boat's
    own id, which the friend's game reads (`cleanFleet`): two RIBs lying in the water were one.
 
-5. **The crew's catch isn't in her voyage** (smaller; after J3). Bert's mackerel, landed from the
+5. **The crew's catch isn't in her voyage** (J4: fixed). Bert's mackerel, landed from the
    RIB, is in his own log (in the RIB, as it should be), but the voyage written up in Mags's journal
    and her papers says "0 fish". The game means it ("it's their fish": `main.js`, a friend's catch
    only counts for the skipper's fishing charter), but the brief's "a vessel log documenting their
-   adventure" wants the fish taken aboard her in her voyage, named as the crew's.
+   adventure" wants the fish taken aboard her in her voyage, named as the crew's. Now a friend
+   crewing aboard is named in her voyage, and the fish they land from her are in it as theirs
+   (`src/voyages.js`). On J4's tree, her papers say "Out to the Hound: 1.1 nm, 1 night out, 1 fish,
+   with Bert.", and the voyage has his mackerel as the best of it, his. The fish stay in his own
+   log too.
 
 6. **One frame threw, and the game stopped** (J1 and J1b: fixed). Once in sixteen runs, at sea
    with Bert crewing, a value that wasn't a number reached the sound's underwater filter
