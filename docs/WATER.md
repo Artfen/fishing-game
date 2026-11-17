@@ -125,3 +125,22 @@ included). The full table, with each LICENSE file read, is in the two research n
   | --- | --- | --- |
   | Sunset, 11 m/s | ![](water/sunset-before.jpg) | ![](water/sunset-after.jpg) |
   | Calm morning, 1.5 m/s | ![](water/morning-before.jpg) | ![](water/morning-after.jpg) |
+
+- **B1:** added mass in heave, pitch and roll. Each hull now carries the water she has to move as
+  she bobs and pitches: from her waterline beam and waterplane, about one to two times her own
+  mass for the light open boats (the rowing boat 1.5, the skiff 1.4, the bass boat 1.8) and less for
+  the heavy ones (the cabin boat 0.9, the yacht 0.66); in pitch, that along her length; in roll, a
+  sixth more. It's in her mass, not a force, and only as much as she's in the water: off a crest
+  she falls at g. On the plane it fades out (from Froude 0.4 to 1), since there she rides a thin
+  sheet of water whose push her hull's pressures already carry; carried at full speed it made her
+  ride harsher (the RIB's peak jolt 2.6 g to 4.4 g in a fresh sea), which is how that was found.
+  Lifted 10 cm and let go in a calm, her heave period before and after:
+
+  | | Rowing | Skiff | Kayak | Bass | Cabin | Console | RIB | Yacht |
+  | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+  | Before | 0.57 s | 0.60 | 0.47 | 0.70 | 0.87 | 0.90 | 0.70 | 1.30 |
+  | After | 0.87 s | 0.90 | 0.67 | 1.07 | 1.17 | 1.27 | 1.00 | 1.70 |
+
+  Driven across an 11 m/s sea, the ride is as it was (vertical jolts at the helm within about 10%
+  at every speed); at rest and at a walking pace she bobs at a boat's pace, settling over about
+  three swings, not a toy's two.

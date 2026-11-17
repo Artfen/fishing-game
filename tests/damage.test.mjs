@@ -126,12 +126,18 @@ test('the record is kept in the save, cleaned; a sound boat writes nothing; the 
 });
 
 // Afloat in still water out in the bay, settled: her heel and trim (degrees) and her height.
+// (She lies in a little sea there, rolling half a degree or so either way: her list is her roll
+// on average over her last four seconds, not at one moment of it.)
 const afloat = (prep) => {
   const b = new Boat(scene, { kind: 'rib' });
   b.place(300, 900, 0);
   prep?.(b);
-  for (let i = 0; i < 360; i++) b.update(1 / 30, i / 30, 0, 0, 0);
-  return { roll: (b.roll * 180) / Math.PI, pitch: (b.pitch * 180) / Math.PI, y: b.phys.x[1], b };
+  let mean = 0;
+  for (let i = 0; i < 480; i++) {
+    b.update(1 / 30, i / 30, 0, 0, 0);
+    if (i >= 360) mean += (b.roll * 180) / Math.PI / 120;
+  }
+  return { roll: (b.roll * 180) / Math.PI, list: mean, pitch: (b.pitch * 180) / Math.PI, y: b.phys.x[1], b };
 };
 
 test('a RIB with a chamber flat sits lower on that side; firm, she floats exactly as a boat with no record kept', () => {
@@ -142,11 +148,11 @@ test('a RIB with a chamber flat sits lower on that side; firm, she floats exactl
   // The aft chambers are in the water lying still: one flat, she lists to it and sits lower.
   const port = afloat((b) => { b.damage = DM.newDamage(true); b.damage.tubes[0].air = 0; });
   const stbd = afloat((b) => { b.damage = DM.newDamage(true); b.damage.tubes[2].air = 0; });
-  assert.ok(Math.abs(port.roll - none.roll) > 0.6, `port aft flat: ${port.roll.toFixed(2)}°`);
-  assert.ok(Math.sign(port.roll - none.roll) === -Math.sign(stbd.roll - none.roll), 'each to its own side');
+  assert.ok(Math.abs(port.list - none.list) > 0.6, `port aft flat: ${port.list.toFixed(2)}°`);
+  assert.ok(Math.sign(port.list - none.list) === -Math.sign(stbd.list - none.list), 'each to its own side');
   assert.ok(port.y < none.y && stbd.y < none.y);
   // (And only a few degrees: the other chambers and her hull hold her up.)
-  assert.ok(Math.abs(port.roll) < 4 && Math.abs(stbd.roll) < 4);
+  assert.ok(Math.abs(port.list) < 4 && Math.abs(stbd.list) < 4);
   // Drawn so: the flat chamber's tube slumps; patched, it's as built.
   const T = port.b.tubeMesh, base = T.geometry.userData.base, P = T.geometry.attributes.position.array;
   let moved = 0;

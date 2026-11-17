@@ -121,3 +121,4 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
    foam: dense white just broken, thinning to lace, a glow of bubbles under it.
 2. **W2 (done):** the sun and the sky in the water, done physically: the sky's own colours mirrored
    on every setting, water's Fresnel, and the sun's glitter as wide as the wind makes it.
+3. **B1 (done):** added mass in heave, pitch and roll: the boats bob at their real pace.
