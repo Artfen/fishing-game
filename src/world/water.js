@@ -284,6 +284,31 @@ vec2 ngrad(vec2 p) {
   float c = vnoise(p);
   return vec2(vnoise(p + vec2(0.12, 0.0)) - c, vnoise(p + vec2(0.0, 0.12)) - c) / 0.12;
 }
+// Cells round scattered points (Worley): the distance to the nearest point and to the next. Their
+// borders make a web like the walls of the bubbles in foam.
+vec2 worley(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  float d1 = 8.0, d2 = 8.0;
+  for (int y = -1; y <= 1; y++) {
+    for (int x = -1; x <= 1; x++) {
+      vec2 g = vec2(float(x), float(y));
+      vec2 o = vec2(hash12(i + g), hash12(i + g + 17.3));
+      float d = length(g + o - f);
+      if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) { d2 = d; }
+    }
+  }
+  return vec2(d1, d2);
+}
+// Foam's own look, 0 … 1 (q: wind-aligned metres): threads of it drawn out down the wind, and the
+// walls of its bubbles among them. Foam thinning as it ages loses the faint parts first.
+float foamWeb(vec2 q) {
+  vec2 w = q + vec2(vnoise(q * 0.35), vnoise(q * 0.35 + 4.7)) * 1.6;
+  float t1 = 1.0 - abs(vnoise(w * vec2(0.9, 0.3)) * 2.0 - 1.0);
+  float t2 = 1.0 - abs(vnoise(w * vec2(2.4, 0.8) + 3.1) * 2.0 - 1.0);
+  vec2 b = worley(w * vec2(5.2, 3.6) + 7.1);
+  float bub = 1.0 - smoothstep(0.0, 0.25, b.y - b.x);
+  return clamp(t1 * 0.55 + t2 * 0.35 + bub * 0.14 - 0.04, 0.0, 1.0);
+}
 // Expanding rings where raindrops land.
 vec2 rainRings(vec2 p, float t) {
   vec2 g = vec2(0.0);
@@ -525,24 +550,28 @@ void main() {
   float swellHere = max(0.04, uSwellH * shel.r * 1.6);
   float breaker = smoothstep(0.35, 0.8, vWorld.y / swellHere) * smoothstep(0.45 + 3.0 * surf, 0.8, depth) * smoothstep(0.05, 0.35, depth)
     * smoothstep(0.35, 0.7, vnoise(p * vec2(0.6, 0.25) + uTime * 0.1)) * smoothstep(0.05, 0.12, uSwellH * shel.r) * (1.0 - fresh);
-  // Whitecaps: from a moderate breeze up, the steepest crests of the wind sea break in white,
-  // more of them the fresher the wind (a few scattered at 5 m/s, everywhere by 10); and a few
-  // short-lived streaks of foam beside them.
-  float capWind = smoothstep(4.5, 10.5, uWindMS);
-  // (The foam is where the waves themselves have broken, pinched too steep at their crests (see
-  // ocean.js), broken into flecks and lacing by fine noise as it fades; and a few scattered
-  // streaks beside it.)
-  float fleck = smoothstep(0.3, 0.72, vnoise((p - drift * 1.4) * vec2(0.9, 0.7) + n1 * 0.6));
-  // (The short waves' own pinched crests lace it, where they're worked out.)
-  fleck = mix(fleck, max(smoothstep(1.02, 0.72, shortS.z), fleck * 0.3), uShortOn);
-  // (A cap is white at its heart, where it's just broken, and trails off downwind in threads of
-  // lace as it fades: a firm core and streaky edges, not a soft blot.)
+  // Whitecaps: from a moderate breeze up, the crests of the wind sea pinched too steep break in
+  // white (ocean.js), more of them the fresher the wind. (A cap is white where the foam here (ocean.js: 1 where a crest has just broken, fading as it
+  // ages) is more than a lace of noise carried down the wind: so a fresh cap is solid white, an
+  // older one breaks up into threads and flecks trailing downwind before it goes, and as much of
+  // the sea is white as the foam says, a few percent in a fresh breeze, a fifth or more in a gale.
+  // Before, a fixed threshold on the foam showed its 2 m cells as diamonds.)
   vec2 wn = windS > 0.01 ? uWindV / windS : vec2(1.0, 0.0);
-  vec2 wq = vec2(dot(p, vec2(-wn.y, wn.x)), dot(p, wn)) - vec2(0.0, uTime * 0.5);
-  float thread = (1.0 - abs(vnoise(wq * vec2(1.7, 0.55)) * 2.0 - 1.0)) * 0.6 + (1.0 - abs(vnoise(wq * vec2(4.1, 1.3) + 5.1) * 2.0 - 1.0)) * 0.5;
-  float capF = seaS.z * (0.5 + 0.5 * fleck);
-  float caps = min(1.0, smoothstep(0.3, 0.65, capF) + smoothstep(0.06, 0.3, capF) * smoothstep(0.6, 0.95, thread) * 0.8)
-    * mix(0.65, 1.0, max(detail, uStorm)) * (1.0 - fresh);
+  vec2 wq = vec2(dot(p, vec2(-wn.y, wn.x)), dot(p, wn)) - vec2(0.0, uTime * 0.35);
+  // (Squared: a cap just broken is dense, the long tail of it fading is a thin veil, so a fresh
+  // breeze shows a few percent of the sea white and a gale about a quarter, as they do.)
+  float capF = seaS.z * seaS.z * (1.0 - fresh);
+  float caps = 0.0;
+  if (capF > 0.01) {
+    // (Foam is a web of bubbles: just broken, all of it, dense white; as it ages holes open in it
+    // and only its walls are left, threads and lace trailing down the wind, until it's gone. Far off,
+    // too fine to see, it's as bright as it is on average.)
+    float web = detail > 0.0 ? foamWeb(wq) : 0.5;
+    // (The short waves' own pinched crests break it up, where they're worked out.)
+    web = mix(web, web * 0.75 + 0.25 * smoothstep(0.7, 1.02, shortS.z), uShortOn);
+    float near = smoothstep(0.0, 0.6, detail);
+    caps = mix(capF * 0.55, smoothstep(1.0 - capF, 1.0 - capF + 0.18, web), near);
+  }
   // In a storm: foam blown in long streaks down the wind, and the crests of the big seas breaking.
   vec2 wdir = windS > 0.01 ? uWindV / windS : vec2(1.0, 0.0);
   float lane = vnoise(vec2(dot(p, vec2(-wdir.y, wdir.x)) * 0.85, dot(p, wdir) * 0.03 - uTime * 0.5));
@@ -560,7 +589,9 @@ void main() {
                     1.0 - smoothstep(0.03, 0.1, abs(vnoise(p * 4.3 - uTime * 0.05 + 3.7) - 0.5)) * 0.8);
     wash = smoothstep(0.6, 0.95, washed) * (0.7 + 0.3 * web) + smoothstep(0.05, 0.6, washed) * web * 0.8;
   }
-  float foam = clamp(edge * (0.9 - fresh * 0.75) + bands * 0.35 * min(surf, 1.0) + breaker * 0.85 + streak * 0.45 + caps * 0.75 + streaks * 0.55 + crest * 0.9 + wash * 0.85, 0.0, 1.0);
+  // (Under a whitecap, the cloud of bubbles it has driven down glows pale turquoise.)
+  col += mix(uMid, uShallow, 0.7) * (uAmbient + uSunColor * 0.5) * capF * 0.22;
+  float foam = clamp(edge * (0.9 - fresh * 0.75) + bands * 0.35 * min(surf, 1.0) + breaker * 0.85 + streak * 0.45 + caps * 0.92 + streaks * 0.55 + crest * 0.9 + wash * 0.85, 0.0, 1.0);
   // (Foam stays white against a dark storm sea.)
   vec3 foamLit = uFoam * max(uAmbient + uSunColor * 0.6, vec3(0.62 * stormy));
   col = mix(col, foamLit, foam * 0.85);
