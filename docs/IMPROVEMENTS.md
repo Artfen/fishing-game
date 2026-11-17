@@ -1495,3 +1495,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | After | The same views: scattered caps in the fresh breeze; in the storm, dense caps on the crests with lace across the backs of the seas. The foam in the sea's own cells: 0.6% white at 7 m/s, 3.1% at 11, 8.1% at 15, 18% at 20 (Monahan's breaking cover, about half that, plus each patch's few seconds of fading) |
 | Validation | New `tests/whitecaps.test.mjs` (2): light air leaves the foam as numbers and white-free; a fresh breeze after it brings whitecaps (between 0.2% and 6% of the sea white), a gale more than twice as many, and they fade away when the wind drops; foam gone wrong mends itself, in a breeze and in light air (both checked to fail on the old tree). Full suite |
 | Remaining risks | The caps' look is tuned by eye in software rendering, on Ultra with Ocean: Full; on Simple the short waves don't lace them. Each cap is still the sea's 2 m cells under the lace, so up close a very young cap's outline can look soft |
+
+### The sea, close up: W2, the sun and the sky in the water
+
+| Field | |
+| --- | --- |
+| System | `src/world/water.js` (`skyAt`: the sky dome's own colours (its gradient, the glow round a low sun, dusk on the far side, a storm's dark) in the reflected direction; water's Fresnel from 2%, a rough sea never quite a mirror; the sun's reflection through the slopes of the waves too small to draw, Cox and Munk's, up and across the wind, less what the drawn waves show, all of it once a pixel covers metres of sea, calmer in shelter and fresh water, rougher in the gusts and the rain; close by, single wavelets flashing; `seaSlopeVariance`); `src/main.js` (the sky's sun, its colour and glow for the water); `tools/watershots.mjs` (a spring day, so the morning and the sunset are in daylight; a frame drawn so the sky catches up with the hour) |
+| Previous issue | Found inspecting the water closely (`docs/WATER.md`): the sun on the water was one fixed highlight, widening with distance by a rule of thumb, plus random sparkles; the sky in it a two-colour gradient (no sunset colours, no overcast), the mirrored scene only where the planar reflection is on; how much it reflected a hand-made curve, capped at about 70% |
+| Change | The sky as it is in the water; water's own reflectance; the sun's glitter as the wind makes it |
+| Player benefit | A golden road out to a low sun, narrow on a calm morning and broad and sparkling in a breeze; a sunset's colours in the sea |
+| Before | (The same views, a spring day.) Towards a low sun at 11 m/s: a faint smear of light; on a calm morning: a soft patch |
+| After | A glitter road out to the sun, breaking into single flashes near the boat; on a calm morning, a narrow broken road. Pictures in `docs/WATER.md` |
+| Validation | New `tests/seasurface.test.mjs` (1): the slopes are Cox and Munk's, up and across the wind, rougher the fresher it blows, never glassy. The water shader compiles and draws on Low, Medium, High and Ultra. Full suite |
+| Remaining risks | Tuned by eye in software rendering; the glitter's brightness is a judgement (its shape is physical). The planar reflection, where it's on, still takes over from the sky in calm water, as before |

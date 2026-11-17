@@ -110,3 +110,18 @@ included). The full table, with each LICENSE file read, is in the two research n
   | Storm, 20 m/s | ![](water/storm-before.jpg) | ![](water/storm-after.jpg) |
 
   Close up in the fresh breeze: ![](water/fresh-close-after.jpg)
+
+- **W2:** the sun and the sky in the water, done physically. The water mirrors the sky as the dome
+  draws it (its glow round a low sun, dusk on the far side, a storm's dark), on every setting, not
+  a two-colour gradient. How much it reflects is water's own Fresnel, 2% looking straight down and
+  rising to nearly all of it at a glancing angle, a rough sea never quite a mirror. The sun's
+  reflection is spread by the slopes of the waves too small to draw (Cox and Munk's, wider along
+  the wind than across it, less what the drawn waves already show, all of it once a pixel covers
+  metres of sea), so the glitter is as wide as the wind makes it; close by it breaks into single
+  wavelets flashing. The same views, before and after (the pictures before W2 now taken on a spring
+  day, so the morning and the sunset are in daylight):
+
+  | | Before | After |
+  | --- | --- | --- |
+  | Sunset, 11 m/s | ![](water/sunset-before.jpg) | ![](water/sunset-after.jpg) |
+  | Calm morning, 1.5 m/s | ![](water/morning-before.jpg) | ![](water/morning-after.jpg) |

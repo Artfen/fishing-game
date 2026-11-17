@@ -1,5 +1,5 @@
-// The sea, close up, in the same views every time (docs/WATER.md): a calm morning, a breeze at
-// noon, a fresh breeze in the afternoon, dusk and a storm, looking towards the sun, away from it,
+// The sea, close up, in the same views every time (docs/WATER.md), on a spring day (sunrise about
+// 05:10, sunset 20:15): a calm morning, a breeze at noon, a fresh breeze in the afternoon, dusk and a storm, looking towards the sun, away from it,
 // across and down, on Ultra graphics with Ocean: Full. For before-and-after pictures of the water.
 //
 //   python3 -m http.server 8676 &
@@ -13,17 +13,17 @@ const OUT = process.argv[3] || '.';
 const ONLY = process.argv[4] ? new RegExp(process.argv[4]) : null;
 const SCENES = [
   // name, wind m/s, wind from (deg), hour, weather, camera spot [x,z], camera height, view: 'sun' | 'away' | 'cross' | 'down', pitch down (rad)
-  { name: 'calm-morning-sun', wind: 1.5, hour: 7.6, x: -60, z: 450, h: 2.2, view: 'sun', pitch: 0.05 },
-  { name: 'calm-morning-away', wind: 1.5, hour: 7.6, x: -60, z: 450, h: 2.2, view: 'away', pitch: 0.08 },
+  { name: 'calm-morning-sun', wind: 1.5, hour: 6.4, x: -60, z: 450, h: 2.2, view: 'sun', pitch: 0.05 },
+  { name: 'calm-morning-away', wind: 1.5, hour: 6.4, x: -60, z: 450, h: 2.2, view: 'away', pitch: 0.08 },
   { name: 'breeze-noon-cross', wind: 7, hour: 12.5, x: -60, z: 450, h: 2.6, view: 'cross', pitch: 0.12 },
   { name: 'breeze-noon-down', wind: 7, hour: 12.5, x: -60, z: 450, h: 1.6, view: 'cross', pitch: 0.55 },
-  { name: 'fresh-sunset-sun', wind: 11, hour: 18.4, x: -60, z: 450, h: 2.6, view: 'sun', pitch: 0.04 },
+  { name: 'fresh-sunset-sun', wind: 11, hour: 19.5, x: -60, z: 450, h: 2.6, view: 'sun', pitch: 0.04 },
   { name: 'fresh-afternoon-away', wind: 11, hour: 15.5, x: -60, z: 450, h: 3, view: 'away', pitch: 0.1 },
   { name: 'fresh-afternoon-down', wind: 11, hour: 15.5, x: -60, z: 450, h: 2.4, view: 'cross', pitch: 0.42 },
   { name: 'storm', wind: 20, hour: 13, weather: 'storm', x: -60, z: 450, h: 4, view: 'cross', pitch: 0.08 },
 ];
 const save = { game: 'slow-tide', version: 6, savedAt: 1, data: {
-  quality: 'high', vessel: 'rib', mode: 'boat', day: 160, hour: 12, money: 4000,
+  quality: 'high', vessel: 'rib', mode: 'boat', day: 200, hour: 12, money: 4000,
   tips: { rowed: true, cast: true, caught: true, journal: true, ashore: true, style: true, pack: true, walked: true, binoculars: true, photoMode: true, favours: true },
   places: { camp: { day: 1, hour: 10 } }, yard: { owned: ['row', 'skiff', 'kayak', 'rib'] },
   settings: { player: { name: 'Mags' }, graphics: { preset: 'ultra', ocean: 'full' }, weather: { mode: 'clear', sea: 'auto', windMode: 'manual', windSpeed: 4, windFrom: 225 } } } };
@@ -51,6 +51,8 @@ for (const S of SCENES) {
     slowTide.clock.shown = null;
     slowTide.clock.sweeping = false;
     slowTide.advance(3, 20, false);
+    // (A frame drawn, so the sky and the light catch up with the hour: they move as it's drawn.)
+    slowTide.advance(0.1, 20, true);
     const L = slowTide.env.lightDir;
     const sunYaw = Math.atan2(L.x, L.z);
     const yaw = S.view === 'sun' ? sunYaw : S.view === 'away' ? sunYaw + Math.PI : sunYaw + Math.PI / 2;
