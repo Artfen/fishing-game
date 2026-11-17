@@ -110,3 +110,12 @@ home) is played by two game clients together, step by step, as a player would
 5. **J5 (done):** the rest of what they come home with in her voyage: the dives made from her
    (the skipper's, and a crewmate's) and the photographs taken on the way (theirs too), with what's
    in them. A dive makes a voyage of a short trip.
+
+## After Part J: the sea, close up
+
+The water and the boats on it inspected closely against the best real-time oceans and boat
+models; the findings and the plan, W1–W7 for the water and B1–B6 for the boats, are in
+`docs/WATER.md`.
+
+1. **W1 (done):** the whitecaps back (they never showed once the wind had been light), drawn as
+   foam: dense white just broken, thinning to lace, a glow of bubbles under it.

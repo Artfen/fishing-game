@@ -355,8 +355,23 @@ export class LongSea {
       for (; b < B && acc + hist[b] < want; b++) acc += hist[b];
       th = lo + ((b + (want - acc) / Math.max(1, hist[b])) / B) * (hi - lo);
     }
+    // (Too light a wind for whitecaps, or nothing to go by: what foam there is fades, and none is
+    // added. This used to leave the pinch at minus infinity, and the smoothing then made every
+    // cell's foam "not a number", which no fading ever clears: from the first light air on, no
+    // whitecap was ever drawn again, whatever the wind did.)
+    if (!Number.isFinite(th)) {
+      for (let q = 0; q < N * N; q++) {
+        const old = this.foam[q] * fade;
+        this.foam[q] = old > 0 ? old : 0;
+      }
+      return;
+    }
     const soft = Math.max(0.02, (hi - lo) * 0.04);
-    for (let q = 0; q < N * N; q++) this.foam[q] = Math.max(this.foam[q] * fade, smooth(th + soft, th - soft, J[q]));
+    for (let q = 0; q < N * N; q++) {
+      // (And a cell whose foam has gone wrong takes the new value, rather than keeping it wrong.)
+      const old = this.foam[q] * fade, now = smooth(th + soft, th - soft, J[q]);
+      this.foam[q] = old > now ? old : now > 0 ? now : 0;
+    }
   }
 
   // The blended fields for the GPU at time t: tex0 (h, dx, dz, foam), tex1 (hx, hz, 0, 0).
