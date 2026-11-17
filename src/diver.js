@@ -82,6 +82,7 @@ export class Diver {
     this.kicking = false;
     this.still = 0;       // seconds without moving
     this.aground = false; // pushing up against the beach
+    this.floating = false; // at the surface, riding the waves
     this.speed = 0;
     this.build();
   }
@@ -175,6 +176,7 @@ export class Diver {
     this.bodyPitch = 0;
     this.still = 0;
     this.aground = false;
+    this.floating = false;
     const scuba = kit === 'scuba';
     this.tank.visible = scuba;
     this.snorkel.visible = !scuba;
@@ -201,7 +203,8 @@ export class Diver {
     _v.copy(input.dir).multiplyScalar(speed);
     // Along the surface you stay at the surface, unless you look well down (a duck dive) or
     // swim down on purpose.
-    if (near && input.dir.y > -0.35 && input.up <= 0) _v.y = Math.max(_v.y, 0);
+    const level = input.dir.y > -0.35 && input.up <= 0;
+    if (near && level) _v.y = Math.max(_v.y, 0);
     _v.y += input.up * (this.kit === 'scuba' && input.up > 0 ? RISE_SCUBA : RISE);
     // Floating up near the surface (a freediver's wetsuit floats), sinking deeper down; a
     // scuba diver's jacket keeps them neutral.
@@ -232,6 +235,13 @@ export class Diver {
     if (ny > top) {
       ny = top;
       V.y = Math.min(V.y, 0);
+    } else if (this.floating && level && ny > top - 0.6) {
+      // Floating, you ride the waves: up with each crest as well as down into each trough (a
+      // freediver's suit floats you, and a scuba diver's jacket, blown up at the surface). Left
+      // where a trough put you, a crest would close over you, and you'd be under the swell
+      // rather than on it, with nothing to bring you up but swimming.
+      ny = top;
+      V.y = Math.max(V.y, 0);
     }
     if (ny < ground + CLEAR) {
       ny = ground + CLEAR;
@@ -256,6 +266,7 @@ export class Diver {
       P.x += (dx / l) * push;
       P.z += (dz / l) * push;
     }
+    this.floating = P.y > top - 0.15;
     this.speed = V.length();
     this.kicking = !!input.kick && Math.abs(input.fwd) > 0.1;
     this.still = this.speed < 0.18 ? this.still + dt : 0;

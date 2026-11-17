@@ -794,6 +794,8 @@ export class Boat {
     this.fwd = new THREE.Vector3(0, 0, 1);
     this.right = new THREE.Vector3(-1, 0, 0);
     this.forwardSpeed = 0;
+    // How fast she's going over the last few seconds (see steady below).
+    this.steadySpeed = 0;
     this.onBoat = true;
     this.occupied = true;
     this.rowerParts = [];
@@ -843,6 +845,18 @@ export class Boat {
 
   get speed() {
     return Math.hypot(this.vel.x, this.vel.z);
+  }
+
+  // Her speed over the last few seconds (steadySpeed): what says she's still, at anchor or made
+  // fast. Her speed this moment won't do: in a swell each wave carries her to and fro, most of a
+  // metre a second at its height, and anything that asked whether she was still would come and
+  // go with every wave. Her velocity averaged over about four seconds, the way she's going, so
+  // the to and the fro cancel; a boat under way keeps her speed in it.
+  steady(dt) {
+    const k = 1 - Math.exp(-dt / 4), S = (this._steady ||= { x: 0, z: 0 });
+    S.x += (this.vel.x - S.x) * k;
+    S.z += (this.vel.z - S.z) * k;
+    this.steadySpeed = Math.hypot(S.x, S.z);
   }
 
   // What she carries beyond her own weight as built, and where (set by the game: main.js loadsOf):
@@ -1388,6 +1402,8 @@ export class Boat {
     this._pv = null;
     this.pos.set(x, 0, z);
     this.vel.set(0, 0, 0);
+    this.steadySpeed = 0;
+    this._steady = null;
     this.heading = heading;
     this.omega = 0;
     this.power = 0;
@@ -4983,6 +4999,7 @@ export class Boat {
     b.step(dt, env);
     this.syncFromPhys();
     this.forwardSpeed = (this.vel.x - this.drift.x) * this.fwd.x + (this.vel.z - this.drift.z) * this.fwd.z;
+    this.steady(dt);
     // How well her propellers are gripping the water (0 … 1): out on a wave's crest, less (the
     // engine races: see engine.js propBite); and an outboard's against the bottom.
     if (this._props) {
@@ -5062,6 +5079,7 @@ export class Boat {
     this.sagTubes();
     this._vx = this._vz = 0;
     this.forwardSpeed = 0;
+    this.steady(dt);
     this.omega = 0;
     this._resting = true;
     this.lastT = t;
