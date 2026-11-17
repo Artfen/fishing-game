@@ -641,6 +641,9 @@ export class HydroBody {
     this.v = [0, 0, 0];
     this.w = [0, 0, 0];
     this.dryT = 0;
+    // (Put back where she was: a clean slate for the next word of anything going wrong.)
+    this.nanAt = null;
+    this.blowAt = this.blowFirst = null;
   }
 
   updateR() {
@@ -719,6 +722,8 @@ export class HydroBody {
 
   substep(h, t, env, carry = -1) {
     const M = this.model, R = this.R, x = this.x;
+    this._t = t;
+    if (!this.nanAt) this.check('state', true);
     this.updateR();
     this.F[0] = 0; this.F[1] = -this.m * G; this.F[2] = 0;
     this.Tq[0] = this.Tq[1] = this.Tq[2] = 0;
@@ -735,6 +740,11 @@ export class HydroBody {
       this.LV[j * 3 + 1] = _o.vy;
       this.LV[j * 3 + 2] = _o.vz + this.current[1];
       this.LH0[j] = _o.h;
+    }
+    if (!this.nanAt) {
+      let s = 0;
+      for (let j = 0; j < nl; j++) s += this.LH[j] + this.LV[j * 3] + this.LV[j * 3 + 1] + this.LV[j * 3 + 2];
+      if (!Number.isFinite(s)) this.lost('water');
     }
     // Each vertex in the world, the water's height and motion there.
     const { V, W, WI, nv } = M, P = this.P;
@@ -754,7 +764,9 @@ export class HydroBody {
       this.WV[i * 3] = ex; this.WV[i * 3 + 1] = ey; this.WV[i * 3 + 2] = ez;
     }
     this.hullForces(h);
+    if (!this.nanAt) this.check('hull');
     this.foilForces();
+    if (!this.nanAt) this.check('foils');
     // Propellers and jets: they push where they are, the way they point, while they're in the water.
     for (const th of this.thrusters) {
       if (!th.f) continue;
@@ -789,16 +801,49 @@ export class HydroBody {
         this.foil(th.foil.p || th.p, _l1, th.foil.area * k, th.foil.ar ?? 1.5, th.foil.stall ?? 0.35, 2 * Math.PI, wash, fd);
       }
     }
+    if (!this.nanAt) this.check('thrusters');
     for (const fo of this.forces) this.addForce(fo.f[0], fo.f[1], fo.f[2], fo.p[0], fo.p[1], fo.p[2]);
+    if (!this.nanAt) this.check('forces');
     this.windForce();
+    if (!this.nanAt) this.check('wind');
     // (What drives her and holds her back as she goes, before the ropes, the bottom and anything
     // she bumps into: the part her momentum under way applies to. See surgeShare.)
     this.Fs[0] = this.F[0]; this.Fs[1] = this.F[1]; this.Fs[2] = this.F[2];
     this.ropeForces(h);
+    if (!this.nanAt) this.check('ropes');
     this.groundForces(env);
+    if (!this.nanAt) this.check('ground');
     if (env.contact) this.contactForces(env);
+    if (!this.nanAt) this.check('contact');
     this.crewForces();
+    if (!this.nanAt) this.check('crew');
     this.integrate(h);
+    if (!this.nanAt) this.check('integrate', true);
+  }
+
+  // (J1c) The first stage of a step to bring a value that isn't a number into her forces or her
+  // state, and her state just then: kept (nanAt) for the word when she's found lost (main.js), so
+  // what sends a boat nowhere names itself. Cheap: a sum and a test, a dozen times a substep.
+  check(stage, state = false) {
+    const F = this.F, T = this.Tq, x = this.x, v = this.v, w = this.w, q = this.q;
+    const s = state ? x[0] + x[1] + x[2] + v[0] + v[1] + v[2] + w[0] + w[1] + w[2] + q[0] + q[1] + q[2] + q[3] : F[0] + F[1] + F[2] + T[0] + T[1] + T[2];
+    if (!Number.isFinite(s)) this.lost(stage);
+    // (And before that, the first stage to give her a kick no boat takes, more than fifty times her
+    // weight, or her speed past any boat's: where a blow-up starts, kept as blowAt.)
+    else if (!this.blowAt || this._t - this.blowAt.t > 20) {
+      const big = state ? v[0] * v[0] + v[1] * v[1] + v[2] * v[2] > 60 * 60 : Math.abs(F[0]) + Math.abs(F[1] + this.m * G) + Math.abs(F[2]) > this.m * G * 50;
+      if (big) {
+        const r = (a) => Array.from(a, (n) => Math.round(n * 1000) / 1000);
+        // (The first of a run of them: one more than twenty seconds after the last starts afresh.)
+        this.blowAt = { stage, t: Math.round(this._t * 100) / 100, x: r(x), v: r(v), w: r(w), F: r(F), Tq: r(T), m: this.m, prev: this._prevF ? r(this._prevF) : null };
+        this.blowFirst ||= this.blowAt;
+      }
+      if (!state) (this._prevF ||= [0, 0, 0])[0] = F[0], this._prevF[1] = F[1], this._prevF[2] = F[2];
+    }
+  }
+  lost(stage) {
+    const r = (a) => Array.from(a, (n) => (Number.isFinite(n) ? Math.round(n * 1000) / 1000 : String(n)));
+    this.nanAt = { stage, x: r(this.x), v: r(this.v), w: r(this.w), q: r(this.q), F: r(this.F), Tq: r(this.Tq), m: this.m };
   }
 
   // How far a world point is below the water (positive under it).

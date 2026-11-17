@@ -37,7 +37,7 @@ async function client(name, save) {
   page.on('pageerror', (e) => errors.push(`${name} PAGEERROR ${e.message} ${(e.stack || '').split('\n').slice(0, 3).join(' | ')}`));
   page.on('console', (m) => {
     // (Errors, and the game's own word that it put something right that shouldn't have gone wrong.)
-    if ((m.type() === 'error' && !/cloud-config|404|favicon/.test(m.text())) || (m.type() === 'warning' && /^Slow Tide:/.test(m.text()))) errors.push(`${name} ${m.text().slice(0, 200)}`);
+    if ((m.type() === 'error' && !/cloud-config|404|favicon/.test(m.text())) || (m.type() === 'warning' && /^Slow Tide:/.test(m.text()))) errors.push(`${name} ${m.text().slice(0, /^Slow Tide:/.test(m.text()) ? 6000 : 200)}`);
   });
   await page.route('**/api/cloud-config', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ enabled: true, url: RELAY, anonKey: 'local' }) }));
   await page.goto(new URL('README.md', URL0).href);
@@ -54,6 +54,28 @@ async function client(name, save) {
     slowTide.state.contracts.callAt = 1e9;
     const H = slowTide.hud, said = (window.__said = []);
     for (const k of ['toast', 'flash']) { const f = H[k].bind(H); H[k] = (m, ...r) => { said.push(m); return f(m, ...r); }; }
+    // (Every knock to one of hers: what it was against, and every boat within 15 m just then, whose,
+    // how far and how fast, so a knock on another boat says which.)
+    const knocks = (window.__knocks = []);
+    const near = (b) => {
+      const out = [];
+      const add = (who, o) => {
+        if (o === b || !o?.group?.visible) return;
+        const d = Math.hypot(o.pos.x - b.pos.x, o.pos.z - b.pos.z);
+        if (d < 15) out.push({ who, kind: o.kind, d: +d.toFixed(1), v: +Math.hypot(o.vel.x, o.vel.z).toFixed(1) });
+      };
+      for (const o of Object.values(slowTide.boats)) add('own', o);
+      for (const o of slowTide.visitors.boats([])) add('friend', o);
+      for (const o of Object.values(slowTide.folkView.boats || {})) add('town', o);
+      return out;
+    };
+    for (const b of Object.values(slowTide.boats)) {
+      const was = b.onBump;
+      b.onBump = (v) => {
+        knocks.push({ hour: +slowTide.state.hour.toFixed(2), boat: b.id || b.kind, v: +v.toFixed(1), at: [Math.round(b.pos.x), Math.round(b.pos.z)], speed: +Math.hypot(b.vel.x, b.vel.z).toFixed(1), hit: b.phys?.hit?.kind || null, near: near(b) });
+        was?.(v);
+      };
+    }
   });
   return page;
 }
@@ -297,6 +319,11 @@ await helmsman([34, -12], 40, 0.4, 8);
 const knocks = await A.evaluate(() => (slowTide.state.yard.vessels?.rib?.log || []).filter((l) => /quay|pontoon|jetty|scuff|scor|dent|knock/i.test(l.text)).map((l) => l.text));
 check('4 · out of the marina without a knock', knocks.length === 0, JSON.stringify(knocks));
 const motion = [];
+// (Then out past the camp well east of the two rowing boats lying off it, Mags's and Bert's
+// (drawn where his game has it), before turning for the first mark: across them at speed she
+// hits one, as a skipper wouldn't. Found by J1c: the two used to lie one inside the other, one
+// hull's width to miss; now they lie side by side.)
+await helmsman([32, 60], 40, 0.5, 10);
 let reached = await helmsman(MARKS[0], 60);
 note('mark 1', JSON.stringify(reached));
 const sea = await A.evaluate(() => {
@@ -803,6 +830,7 @@ check('13 · the voyage written up in the journal', !!home.voyage, JSON.stringif
 check('13 · and in her papers', home.papers.length > 0, JSON.stringify(home.papers));
 // (Everything in her papers that day: a knock names what she hit.)
 note('her papers, all the day', JSON.stringify(home.allPapers));
+note('knocks', JSON.stringify(await A.evaluate(() => window.__knocks.slice(0, 40))), 'Bert’s', JSON.stringify(await B.evaluate(() => window.__knocks.slice(0, 20))));
 const bertHome = await B.evaluate(() => ({ log: slowTide.state.log.slice(-2).map((e) => [e.sp, e.size, e.boat || null, e.helper || null]), voyages: (slowTide.state.voyages || []).length }));
 note('Bert', JSON.stringify(bertHome));
 check('13 · Bert’s catch in his log', bertHome.log.length > 0, JSON.stringify(bertHome));

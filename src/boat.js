@@ -16,6 +16,7 @@ import { withSurface } from './world/surface.js';
 import { RODS } from './tackle.js';
 import { Rope } from './rope.js';
 import { reachFor, berthAt } from './mooring.js';
+import { CLEAR_K } from './apart.js';
 import { Dress } from './dress.js';
 import { CARGO, slide as slidePiece } from './cargo.js';
 import { MODES, materialOf, sectionAt, knock, scrape as scrapeHull, firmness, roughness, chamberAt, CHAMBER_SPLIT, surfaceAt, legStrike, rudderStrike, shake, steered, mountPush, plugLets } from './damage.js';
@@ -611,6 +612,9 @@ export function boatDetail(camPos, scene = null) {
   for (const b of ALL) if (!scene || b.group.parent === scene) b.detailFor(camPos);
 }
 const SEQ = { n: 0 }; // every boat's update, counted: which ones are out on the water now
+// (J1c) How far inside another hull a point of hers is still at its skin, pushed out the nearest
+// side; deeper, she's inside it, and goes out on the side her middle is on (see touch).
+export const CONTACT_SKIN = 0.3;
 const ORIGIN = [0, 0, 0];
 const CREW = 80; // kg, you
 // The sailing boat's sail pushes about here: well up the mast, and (her rig balanced over the
@@ -623,7 +627,7 @@ const ANCHOR_HOLD = 0.12;
 // (m/s)² of her speed. See the sail's overpowered.)
 const ROUND_UP = 0.35;
 const _w3 = [0, 0, 0], _w4 = [0, 0, 0];
-const _qt = new THREE.Quaternion(), _eu = new THREE.Euler(0, 0, 0, 'YXZ'), _v3 = new THREE.Vector3();
+const _qt = new THREE.Quaternion(), _eu = new THREE.Euler(0, 0, 0, 'YXZ'), _v3 = new THREE.Vector3(), _v4 = new THREE.Vector3();
 const _tx = new THREE.Vector3(), _ty = new THREE.Vector3(), _tz = new THREE.Vector3(), _m4 = new THREE.Matrix4();
 const _ta = new THREE.Vector3(), _tb = new THREE.Vector3(), _tc = new THREE.Vector3();
 // The bow trolling motors' looks, by kind: the basic one (and the bass boat's own) in black
@@ -1364,6 +1368,19 @@ export class Boat {
     if (!this.hull.emotor) return;
     this.emotorDown = !!down;
     this.lever = 0;
+  }
+
+  // (J1c) Moved a little across the water from outside her physics (eased clear of a friend's
+  // boat: apart.js keepClear), her body with her, as it is: speed, heel and all.
+  shift(dx, dz) {
+    this.pos.x += dx;
+    this.pos.z += dz;
+    if (this._phys) {
+      this._phys.x[0] += dx;
+      this._phys.x[2] += dz;
+    }
+    this.group.position.x += dx;
+    this.group.position.z += dz;
   }
 
   place(x, z, heading) {
@@ -5199,6 +5216,10 @@ export class Boat {
       // (Only boats out on the water with her just now: afloat, moved a moment ago, on the same clock.)
       if (o === this || !o.group.visible || SEQ.n - (o.lastSeq ?? -1e9) > 40 || !(Math.abs((o.lastT ?? -1e9) - t) < 0.5)) continue;
       const d = Math.hypot(o.pos.x - this.pos.x, o.pos.z - this.pos.z);
+      // (J1c: nor a friend's boat drawn on top of her, or one she's sliding clear of from there:
+      // she's slid out from under it, not knocked, see apart.js keepClear. From the first frame
+      // it's there, before the slide has begun.)
+      if (o === this.clearOf || (o.drawn && d < (this.hull.B + o.hull.B) * CLEAR_K)) continue;
       // (Not one lying right on top of her: no two hulls ever get there, so it isn't really there.)
       if (d < r + o.hull.L * 0.6 && d > 0.3) O.push(o);
     }
@@ -5237,10 +5258,26 @@ export class Boat {
       if (tt < 0 || tt > 1) continue;
       const half = hw(H, tt) + 0.02;
       if (Math.abs(_v3.x) > half || _v3.y > sheer(H, tt) + 0.05 || _v3.y < H.keel(tt) - 0.05) continue;
-      const pen = Math.min(half - Math.abs(_v3.x), 0.5);
+      // Pushed out sideways from her centreline (or along her, off the very ends), from the side
+      // of hers it's nearest.
+      let pen = half - Math.abs(_v3.x), side = Math.sign(_v3.x) || 1;
+      // (J1c) But a point deep inside her (two hulls that have ended up overlapped: a friend's
+      // boat drawn where it's said to lie, on top of yours) goes out on the side her own middle is
+      // on. Pushed out its own side, it was pushed back and forth as it crossed her centreline,
+      // harder each time, until the boat was flung off and lost; this way all of her goes out the
+      // one way, and the two part. A point at her skin is met as ever, so a bump is a bump and a
+      // fast ram is stopped where it comes in.
+      if (pen > CONTACT_SKIN) {
+        _v4.set(body.x[0], body.x[1], body.x[2]);
+        o.body.worldToLocal(_v4);
+        const mid = Math.sign(_v4.x) || 1;
+        if (mid !== side) {
+          pen = half + Math.abs(_v3.x);
+          side = mid;
+        }
+      }
+      pen = Math.min(pen, 0.5);
       if (best && pen <= best.pen) continue;
-      // Pushed out sideways from her centreline (or along her, off the very ends).
-      const side = Math.sign(_v3.x) || 1;
       _v3.set(side, 0, 0).transformDirection(o.body.matrixWorld);
       out.nx = _v3.x; out.ny = 0; out.nz = _v3.z;
       const nl = Math.hypot(out.nx, out.nz) || 1;

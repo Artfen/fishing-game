@@ -97,6 +97,17 @@ had the RIB holed on the way out; the deck rightly put *Look her over* first, wi
 in, so Mags never dived. That run's papers didn't say what she'd hit, so the script now prints all
 her papers for the day: each knock writes what she hit.
 
+**On J1c's tree**, the two rowing boats at the start no longer lie one inside the other: each
+game slides its own clear of the friend's, and neither is flung off. Every step passes, with no
+word of a lost boat. Her papers say "Out to the Hound: 1 nm, 1 night out, 1 fish, 2 dives, with
+Bert."; the voyage has Bert's common dentex (0.75 kg, his), Mags's dive at the Hound to 11.1 m and
+Bert's at Gannet Light to 3 m, and her photograph. Her knocks all day, now written out with every
+boat near her: six coming into the marina at the end of it, against the pier and a townsfolk boat
+lying there, one at 4.3 m/s and one at 2.6 into the pier (a scuff in her papers), the rest under
+2 m/s. Two
+runs before the script went east of the rowing boats, she hit one of them on the way out (see
+*Fixed in the check itself*). No page errors.
+
 ## What it found
 
 ### In the game, to fix
@@ -155,6 +166,20 @@ her papers for the day: each knock writes what she hit.
    watched didn't): the playthrough now records the game's word of it as an error, with which boat
    and where, for when it next does.
 
+   It did, on J5's tree: "the row had lost her position", Mags's rowing boat. J1c found why. Her
+   physics now note the first stage of a step to bring in a value that isn't a number, and before
+   it any kick of more than fifty times her weight (`src/hydro.js` `check`), and the warning
+   carries both. The next run named it: the rowing boat's first kick came seven seconds into the
+   day, in the contact stage, at the spot she starts from (12, 32), 113 kN on a boat of 232 kg;
+   more came, and at last she was flung off at 270 m/s and 260 m up, where her position stopped
+   being a number. Bert's game starts him in his rowing boat at that same spot, so on Mags's
+   screen his row was drawn where his game said: right on top of hers. The contact pushed each
+   point of her hull inside his out from his centreline, and as a point crossed it, back the other
+   way, harder each time. Now a point deep inside another hull goes out on the side its own boat's
+   middle is on, so all of her goes out the one way and the two part with a push (`src/boat.js`
+   `touch`); and yours slides clear of a friend's boat, which only their game moves, without
+   touching it as she goes (`src/apart.js` `keepClear`).
+
 ### As it should be, and worth knowing
 
 - **The Hound is too deep to anchor on.** Its foot is thirty metres down, and the anchor's thirty
@@ -181,6 +206,14 @@ thinking that the script had to be taught.
 - **Leaving the marina:** straight out along the slot between the fingers as she lies, then north
   up the open water east of them. (Trying the steering in the slot swung her stern into the
   finger: a scuff in her papers.) Coming in, the same way, slowly, and only then into her berth.
+- **Out past the camp, clear of the rowing boats.** Mags's and Bert's rowing boats lie off the camp
+  where each started, right across the way from the marina to the first mark. Until J1c the two lay
+  one inside the other (Bert's drawn on top of Mags's), one hull's width to miss, and she mostly
+  missed it; now each lies clear of the other, and twice in three runs she hit one at speed and
+  was holed (the run on J5's tree holed on the way out was very likely this). The script now goes
+  north well east of them before turning for the mark, as a skipper keeps clear of boats lying
+  off a beach. (Every knock in a run is now written out: what it was against, and every boat
+  within fifteen metres, whose, how far and how fast.)
 - **The nearest feed was in the harbour mouth** (mackerel on sprats can be): the script looks for
   one offshore, past the first mark, as the brief has it.
 - **Running up on a feed.** At speed she coasted into it and the feed broke up (a boat run through

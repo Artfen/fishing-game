@@ -105,6 +105,8 @@ export class VisitorView {
       return (d.boats[id] = old);
     }
     const b = new Boat(this.scene, { kind: kindOf(id), look: { stripe: d.look.coat } });
+    // (J1c: drawn where word says, never moved by anything in your game: see Boat.nearby.)
+    b.drawn = true;
     const M = b.selfMats, L = d.look;
     M[0].color.set(L.coat);
     M[1].color.set(L.skin);
@@ -127,6 +129,7 @@ export class VisitorView {
       return (d.moored[id] = old);
     }
     const b = new Boat(this.scene, { kind: kindOf(id), look: { stripe: d.look.coat } });
+    b.drawn = true;
     b.setRower(false);
     b.group.visible = false;
     d.moored[id] = b;
