@@ -1547,3 +1547,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | After | 0.87 s, 0.90, 1.00 and 1.70 (every boat in `docs/WATER.md`); settling over about three swings. Driven across an 11 m/s sea at four speeds, her vertical jolts at the helm within about 10% of before. Carried at full speed as well (the first try), the RIB's peak jolt flat out went from 2.6 g to 4.4 g: so it fades out on the plane |
 | Validation | New `tests/addedmass.test.mjs` (3): every hull's added mass between 0.3 and 2 times hers, more than her own weight for the open boats and less, for her mass, the heavier she is; the rowing boat lifted and let go swings at 0.72 to 1.4 s (0.57 before) and settles back where she floated; out of the water she falls at g (a guard: true before too). The first two checked to fail on the old tree. `tests/damage.test.mjs`: the flat-chamber RIB's list was read at one moment of her rolling in a little sea (half a degree either way), and fell below its 0.6° bar at that moment; now her average roll, which passes on both trees, the bar unchanged. Full suite |
 | Remaining risks | The added masses are estimates from the hull's shape, not measured for these boats; sway and surge are left as they were |
+
+### Keys after a panel closes
+
+| Field | |
+| --- | --- |
+| System | `src/input.js` (a key counts as a panel's only while the panel's showing; a panel that closes with the keys' focus in it takes the focus with it, seen by one watcher on every panel's `hidden`) |
+| Previous issue | Found playing the brief's Part J day through (`tools/playthrough.mjs`), where now and then Mags's photograph on the reef wasn't taken and the day went wrong from there, on main as on every branch. A question answered with the mouse (or a script clicking its button) closed with the keys' focus still on its button, and the browser kept it there, hidden. The next Space went to that button and was taken for the closed panel's: a cast that didn't go, a photograph under water not taken |
+| Change | Keys aimed at a closed panel are the game's; closing a panel lets go of the focus |
+| Player benefit | After answering a question with the mouse, the next Space casts (or takes the photograph) as it should |
+| Before | (In the browser, main.) A question shown, its last button focused as questions do, answered by clicking another: the focus still on the hidden button half a second later; Space then reached the hidden button, and the game didn't cast |
+| After | The focus back on the page as the question closes; Space casts |
+| Validation | New `tests/panelkeys.test.mjs` (2): a key on a panel's button is the panel's while it shows and the game's once it's closed (or inside a hidden parent); a panel that closes with the focus in it takes the focus with it, and something else closing doesn't (both checked to fail on the old tree). The browser check above, on main and this tree. Full suite |
+| Remaining risks | A panel hidden some other way than its `hidden` attribute (none do now) would still keep the focus; the first half of the fix covers its keys all the same |

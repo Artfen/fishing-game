@@ -127,11 +127,24 @@ export class Input {
     // In an open panel, the keys that move focus and press buttons belong to the panel (so Space
     // presses a button there instead of casting, and Tab and the arrows move between things).
     // (A dialog counts only if it's really showing: one inside a hidden parent, as the journal's
-    // book is, doesn't; and questions are alertdialogs.)
+    // book is, doesn't, nor one just closed with the focus still on its button; and questions are
+    // alertdialogs.)
     const DIALOGS = '[role="dialog"], [role="alertdialog"]';
-    const openDialog = () => [...document.querySelectorAll(DIALOGS)].some((d) => !d.hidden && !d.closest('[hidden]'));
-    const inPanel = (e) => UI_KEYS.has(e.code) && ((e.target instanceof Element && e.target.closest(DIALOGS))
+    const showing = (d) => !!d && !d.hidden && !d.closest('[hidden]');
+    const openDialog = () => [...document.querySelectorAll(DIALOGS)].some(showing);
+    const inPanel = (e) => UI_KEYS.has(e.code) && ((e.target instanceof Element && showing(e.target.closest(DIALOGS)))
       || (e.code === 'Tab' && openDialog()));
+    // And when a panel closes with the keys' focus still in it (a button clicked with the mouse,
+    // a box typed in), the focus goes with it. (Left on the hidden button, the browser kept it
+    // there, and the next Space was taken for the closed panel's and lost: the cast that didn't
+    // go, the photograph under water not taken.)
+    if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined' && document.body) {
+      new MutationObserver((changes) => {
+        const a = document.activeElement;
+        if (!a || a === document.body) return;
+        for (const m of changes) if (m.target.hidden && m.target.contains(a)) { a.blur(); return; }
+      }).observe(document.body, { attributes: true, attributeFilter: ['hidden'], subtree: true });
+    }
     addEventListener('keydown', (e) => {
       // (The arrow keys a controller sends round a menu are for the menu, not the game.)
       if (e.fromPad) return;
