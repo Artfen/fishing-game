@@ -26,6 +26,7 @@ const { heightAt, PIERS } = await import('../src/world/terrain.js');
 const { ACTIONS, defaultBindings } = await import('../src/input.js');
 const P = await import('../src/gamepad.js');
 const { conditions } = await import('../src/world/conditions.js');
+const { longSea } = await import('../src/world/ocean.js');
 
 const scene = new THREE.Scene();
 // Open water well clear of anything (south of the bay, past the shoal's edge).
@@ -105,11 +106,21 @@ test('the motor answers the lever like a real one: it builds up, eases off, chan
   }
   assert.ok(paused > 0.25, `a pause in neutral (${paused.toFixed(2)} s)`);
   assert.ok(c.power < 0);
-  // At dead slow she still turns well (for piers and moorings).
-  const d = run(fresh('skiff'), Th.levers('skiff')[2].v, 4);
-  const h0 = d.heading;
-  run(d, Th.levers('skiff')[2].v, 3, 1);
-  assert.ok(Math.abs(d.heading - h0) > 1, `turned ${(d.heading - h0).toFixed(2)} rad in 3 s`);
+  // At dead slow she still turns well (for piers and moorings): in the flat water by a pier.
+  // (Out in the swell each moment of the sea turns her a little more or less, a few hundredths of
+  // a radian in these 3 s: the sea under her keel and her outboard's leg, see hydro.js wavesAt.)
+  const amps = Float32Array.from(conditions.swellAmps), W = { ...longSea.wind }, chop = longSea.choppy;
+  conditions.swellAmps.fill(0);
+  longSea.setWind(W.u, W.to, 0, chop);
+  try {
+    const d = run(fresh('skiff'), Th.levers('skiff')[2].v, 4);
+    const h0 = d.heading;
+    run(d, Th.levers('skiff')[2].v, 3, 1);
+    assert.ok(Math.abs(d.heading - h0) > 1, `turned ${(d.heading - h0).toFixed(2)} rad in 3 s`);
+  } finally {
+    conditions.swellAmps.set(amps);
+    longSea.setWind(W.u, W.to, W.m0, chop);
+  }
 });
 
 test('the kayak’s electric motor: quieter and slower than the paddle, on its own battery, and never a way to get stuck', () => {

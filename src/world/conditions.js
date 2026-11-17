@@ -392,6 +392,7 @@ export function waveSampler(x, z, S = { n: 0, kx: null, kz: null, w: null, a: nu
   S.level = 0;
   S.n = 0;
   S.sea = 0;
+  S.kH = S.kV = 0;
   if (lvl > 0.05) {
     // (Up the Coldwater and on Hoar Tarn: still water at its own level.)
     S.level = lvl;
@@ -418,6 +419,28 @@ export function waveSampler(x, z, S = { n: 0, kx: null, kz: null, w: null, a: nu
   for (let i = 0; i < SWELL.length; i++) add(SWELL[i], C.swellAmps[i] * sh[0] * grow, peak, fade);
   // (The wind sea: its share here, the same as waveHeight's.)
   S.sea = (0.15 + 0.85 * sh[1]) * fade;
+  seaDecay(S);
+  return S;
+}
+// (B2) How fast the waves here die away with depth. A wave's pressure and its orbital motion fall
+// off as exp(−k·depth) below the surface: a short one's within a metre or two, a long swell's
+// hardly at all over a boat's draft. For the whole sea: kH, the wavenumber averaged by each
+// wave's share of the height (for the pressure), and kV, by its share of the water's motion
+// (for the orbital flow; ω² = g·k, so it leans to the shorter waves). The swell's waves one by
+// one, the wind sea's from its spectrum's moments (ocean.js setSpectrum).
+export function seaDecay(S) {
+  let m0 = 0, m1 = 0, m2 = 0;
+  for (let i = 0; i < S.n; i++) {
+    const e = (S.a[i] * S.a[i]) / 2, k = Math.hypot(S.kx[i], S.kz[i]);
+    m0 += e; m1 += e * k; m2 += e * k * k;
+  }
+  const B = longSea.patch.m;
+  if (S.sea > 0 && B && longSea.wind.m0 > 1e-9) {
+    const s2 = S.sea * S.sea;
+    m0 += s2 * B[0]; m1 += s2 * B[1]; m2 += s2 * B[2];
+  }
+  S.kH = m0 > 1e-12 ? m1 / m0 : 0;
+  S.kV = m1 > 1e-12 ? m2 / m1 : 0;
   return S;
 }
 // out: { h (m), vx, vy, vz (m/s) }.

@@ -11,7 +11,12 @@
 //
 // This is the model of Jacques Kerner's "Water interaction model for boats in video games" (the
 // Just Cause 3 boats), with the moving water itself (the waves' orbital motion and the current)
-// carried into every velocity. Keels, centreboards, rudders, fins and outboard legs are foils:
+// carried into every velocity, the foils' included. (B2) Below the surface a wave's pressure and
+// its orbital motion fade as they do in real water, exp(−k·depth) (env.sea: the sea's kH and kV,
+// see conditions.js seaDecay): the hull's pressure follows Smith's correction, so a short sea
+// heaves a deep hull less than its surface would say; and the keel and the rudder feel the water
+// moving at their own depth, so on a following sea's crest, where the water runs with her, the
+// rudder goes light. Keels, centreboards, rudders, fins and outboard legs are foils:
 // lift across the flow and drag along it, stalling past their best angle. On top: propellers,
 // oars, sails and ropes as forces at the points where they act, the wind on the topsides, and
 // the seabed, piers and other hulls as contacts.
@@ -747,6 +752,12 @@ export class HydroBody {
   substep(h, t, env, carry = -1) {
     const M = this.model, R = this.R, x = this.x;
     this._t = t;
+    // (B2) How the waves here fade with depth, and the still water's level they rise and fall
+    // about. (None given: they don't fade, as before B2.)
+    const sea = env.sea;
+    this.kH = sea?.kH > 0 ? sea.kH : 0;
+    this.kV = sea?.kV > 0 ? sea.kV : 0;
+    this.lvl = sea?.level ?? 0;
     if (!this.nanAt) this.check('state', true);
     this.updateR();
     this.F[0] = 0; this.F[1] = -this.m * G; this.F[2] = 0;
@@ -770,8 +781,9 @@ export class HydroBody {
       for (let j = 0; j < nl; j++) s += this.LH[j] + this.LV[j * 3] + this.LV[j * 3 + 1] + this.LV[j * 3 + 2];
       if (!Number.isFinite(s)) this.lost('water');
     }
-    // Each vertex in the world, the water's height and motion there.
-    const { V, W, WI, nv } = M, P = this.P;
+    // Each vertex in the world, the water's height and motion there. (The waves' part of that
+    // motion fading with the vertex's depth below the surface: the current doesn't.)
+    const { V, W, WI, nv } = M, P = this.P, kV = this.kV, cx0 = this.current[0], cz0 = this.current[1];
     for (let i = 0; i < nv; i++) {
       const lx = V[i * 3] - cg[0], ly = V[i * 3 + 1] - cg[1], lz = V[i * 3 + 2] - cg[2];
       const px = x[0] + R[0] * lx + R[1] * ly + R[2] * lz;
@@ -785,6 +797,10 @@ export class HydroBody {
         ex += this.LV[j * 3] * w; ey += this.LV[j * 3 + 1] * w; ez += this.LV[j * 3 + 2] * w;
       }
       this.Hh[i] = py - eh;
+      if (kV > 0 && py < eh) {
+        const f = Math.exp(kV * (py - eh));
+        ex = cx0 + (ex - cx0) * f; ey *= f; ez = cz0 + (ez - cz0) * f;
+      }
       this.WV[i * 3] = ex; this.WV[i * 3 + 1] = ey; this.WV[i * 3 + 2] = ez;
     }
     this.hullForces(h);
@@ -820,9 +836,9 @@ export class HydroBody {
       // she has way enough on for the hull and the leg to bite on their own.
       if (th.foil && k > 0) {
         const wash = Math.sign(th.f) * Math.sqrt((2 * Math.abs(th.f) * k) / (RHO * th.foil.disk));
-        const fd = th.foil.d || th.d;
+        const fd = th.foil.d || th.d, fp = th.foil.p || th.p;
         _l1[0] = fd[2]; _l1[1] = 0; _l1[2] = -fd[0];
-        this.foil(th.foil.p || th.p, _l1, th.foil.area * k, th.foil.ar ?? 1.5, th.foil.stall ?? 0.35, 2 * Math.PI, wash, fd);
+        this.foil(fp, _l1, th.foil.area * k, th.foil.ar ?? 1.5, th.foil.stall ?? 0.35, 2 * Math.PI, wash, fd, -this.localWaterHeight(fp));
       }
     }
     if (!this.nanAt) this.check('thrusters');
@@ -880,7 +896,7 @@ export class HydroBody {
     const M = this.model, { T, N, nt } = M, P = this.P, Hh = this.Hh, WV = this.WV;
     const ntS = M.ntSolid ?? nt, CH = M.chamber, TL = this.tubeLift;
     const R = this.R, c1 = this.drag.c1, c2 = this.drag.c2;
-    const sub = _clip, X = this.x, Vb = this.v, Wb = this.w;
+    const sub = _clip, X = this.x, Vb = this.v, Wb = this.w, kH = this.kH, lvl = this.lvl;
     let wet = 0, along = 0, wx = 0, wy = 0, wz = 0, ux0 = 0, uz0 = 0;
     const bx = R[2], by = R[5], bz = R[8];
     const speed = hypot2(this.v[0] - this.current[0], this.v[2] - this.current[1]);
@@ -912,11 +928,17 @@ export class HydroBody {
       }
       // The water's motion here (the panel's corners averaged).
       const wvx = (WV[a * 3] + WV[b * 3] + WV[c * 3]) / 3, wvy = (WV[a * 3 + 1] + WV[b * 3 + 1] + WV[c * 3 + 1]) / 3, wvz = (WV[a * 3 + 2] + WV[b * 3 + 2] + WV[c * 3 + 2]) / 3;
+      // (B2) How far the waves have lifted the water here above its still level (the corners'
+      // surface averaged): under a crest the pressure at depth is less than the surface above
+      // would give, under a trough more (Smith's correction).
+      const eta = kH > 0 ? (P[a * 3 + 1] - Hh[a] + P[b * 3 + 1] - Hh[b] + P[c * 3 + 1] - Hh[c]) / 3 - lvl : 0;
       for (let i = 0; i < ns; i++) {
         const o = i * CLIP, area = sub[o], scx = sub[o + 1], scy = sub[o + 2], scz = sub[o + 3];
         wet += area;
-        // Pressure, by depth.
-        const p = RHO * G * -sub[o + 4] * area * lift;
+        // Pressure, by depth: ρg·(depth − η·(1 − e^(−k·depth))). At the surface, none; deep
+        // down, the still water's own (the wave's share gone).
+        const dep = -sub[o + 4];
+        const p = RHO * G * (kH > 0 ? Math.max(0, dep - eta * (1 - Math.exp(-kH * dep))) : dep) * area * lift;
         let fx = -p * nx, fy = -p * ny, fz = -p * nz;
         // Drag: the panel's own velocity through the moving water. (Its velocity as a point
         // fixed to the hull, as pointVel works it out.)
@@ -990,9 +1012,11 @@ export class HydroBody {
     for (const f of M.foils) {
       if (f.leg && !this.legDown) continue;
       // How much of it is under water (the hull's draft at its spot).
-      const depth = -this.localWaterHeight(f.p) + f.span / 2;
+      const mid = -this.localWaterHeight(f.p), depth = mid + f.span / 2;
       const wetK = Math.min(1, Math.max(0, depth / f.span));
       if (wetK <= 0) continue;
+      // (And how deep the middle of its wetted part is: where it feels the waves' motion.)
+      const dc = depth >= f.span ? mid : depth / 2;
       // Its face, turned by the helm about the vertical.
       let n = f.n;
       if (f.steer || f.kayak) {
@@ -1000,16 +1024,18 @@ export class HydroBody {
         n = _l1;
         n[0] = Math.cos(d); n[1] = 0; n[2] = -Math.sin(d);
       }
-      this.foil(f.p, n, f.area * wetK, f.ar, f.stall, f.cl, 0, null);
+      this.foil(f.p, n, f.area * wetK, f.ar, f.stall, f.cl, 0, null, dc);
     }
   }
 
   // One foil at local point lp, its face along local n: the water's flow past it (her motion
-  // through the current, plus wash: a propeller's slipstream, m/s along the local direction wd).
-  foil(lp, n, area, ar, stall, clA = 2 * Math.PI, wash = 0, wd = null) {
+  // through the current and the waves' own motion at depth dc, plus wash: a propeller's
+  // slipstream, m/s along the local direction wd).
+  foil(lp, n, area, ar, stall, clA = 2 * Math.PI, wash = 0, wd = null, dc = 0) {
     const p = this.toWorld(lp, _p1);
     this.pointVel(p, _pv);
-    let ux = _pv[0] - this.current[0], uy = _pv[1], uz = _pv[2] - this.current[1];
+    const o = this.wavesAt(lp, dc, _pw);
+    let ux = _pv[0] - this.current[0] - o[0], uy = _pv[1] - o[1], uz = _pv[2] - this.current[1] - o[2];
     if (wash && wd) {
       // (The slipstream streams aft past it: as if it were going that much faster ahead.)
       this.dirWorld(wd, _p3);
@@ -1032,6 +1058,27 @@ export class HydroBody {
     const ll = hypot3(lx, ly, lz) || 1;
     const L = (q * cl * (alpha > 0 ? -1 : 1)) / ll, D = (-q * cd) / u;
     this.addForce(lx * L + ux * D, ly * L + uy * D, lz * L + uz * D, p[0], p[1], p[2]);
+  }
+
+  // (B2) The waves' own motion (world m/s, the current left out) at a local point of the hull,
+  // dc metres below the surface: read off the lattice as the hull's vertices read it, and faded
+  // with depth as the sea's orbital motion is (kV).
+  wavesAt(lp, dc, out) {
+    const M = this.model, NA = M.NA, NC = M.NC, lat = M.lat, LV = this.LV;
+    const z0 = lat[1], z1 = lat[(NA - 1) * NC * 2 + 1], x0 = lat[0], x1 = lat[(NC - 1) * 2];
+    let fa = ((lp[2] - z0) / (z1 - z0)) * (NA - 1);
+    fa = Math.min(NA - 1.0001, Math.max(0, fa));
+    let fc = ((lp[0] - x0) / (x1 - x0)) * (NC - 1);
+    fc = Math.min(NC - 1.0001, Math.max(0, fc));
+    const a0 = Math.floor(fa), ta = fa - a0, c0 = Math.floor(fc), tc = fc - c0;
+    out[0] = out[1] = out[2] = 0;
+    for (let k = 0; k < 4; k++) {
+      const a = a0 + (k & 1), c = c0 + (k >> 1), w = (k & 1 ? ta : 1 - ta) * (k >> 1 ? tc : 1 - tc), j = (a * NC + c) * 3;
+      out[0] += (LV[j] - this.current[0]) * w; out[1] += LV[j + 1] * w; out[2] += (LV[j + 2] - this.current[1]) * w;
+    }
+    const f = this.kV > 0 ? Math.exp(-this.kV * Math.max(0, dc)) : 1;
+    out[0] *= f; out[1] *= f; out[2] *= f;
+    return out;
   }
 
   // The water's height above the hull's origin level at a local point (from the nearest lattice
@@ -1357,5 +1404,5 @@ export class HydroBody {
 
 // (Scratch for local points and directions built on the fly.)
 const _l1 = [0, 0, 0], _l2 = [0, 0, 0], _l3 = [0, 0, 0];
-const _p1 = [0, 0, 0], _p2 = [0, 0, 0], _p3 = [0, 0, 0], _pc = [0, 0, 0], _pv = [0, 0, 0];
+const _p1 = [0, 0, 0], _p2 = [0, 0, 0], _p3 = [0, 0, 0], _pc = [0, 0, 0], _pv = [0, 0, 0], _pw = [0, 0, 0];
 const _cV = [0, 0, 0], _cW = [0, 0, 0], _cU = [0, 0, 0], _c0 = [0, 0, 0];
