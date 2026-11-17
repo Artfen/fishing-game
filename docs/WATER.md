@@ -101,7 +101,7 @@ included). The full table, with each LICENSE file read, is in the two research n
 
 ## Done
 
-- **W1 (this pull request):** the whitecaps are back, and drawn as foam. Before and after, an
+- **W1:** the whitecaps are back, and drawn as foam. Before and after, an
   11 m/s breeze and a storm, the same views:
 
   | | Before | After |
@@ -125,3 +125,23 @@ included). The full table, with each LICENSE file read, is in the two research n
   | --- | --- | --- |
   | Sunset, 11 m/s | ![](water/sunset-before.jpg) | ![](water/sunset-after.jpg) |
   | Calm morning, 1.5 m/s | ![](water/morning-before.jpg) | ![](water/morning-after.jpg) |
+
+- **B0 (found starting B1):** hulls that meet, solved, not sprung. Adding the boats' added mass
+  (B1) turned two tests red: a rowing boat lying across another was kicked off, and a skiff tied
+  at a pontoon was flung 18 m from her berth. Both were already there on main, and B1 had only
+  moved the start onto them. Two hundred and fifty random overlaps of two hulls on main were
+  kicked apart at up to 35 m/s in about a third of them (27 of 100 rows on rows, 34 of 50 skiffs
+  on cabin boats), and some shook on for good. Each point touching was a stiff spring with a
+  damper of its own: a dozen at once were more than one step could carry, and the spring letting
+  go above half a metre a second, with points pushed out opposite sides, kept a boat jumping back
+  and forth at ±0.9 m/s for as long as it lasted. And a boat met another as she'd meet a quay: a
+  RIB ramming a rowing boat at 15 m/s nudged her off at half a metre a second.
+
+  Now they're worked out as game physics engines work them out (sequential impulses: Catto,
+  GDC 2005; Box2D, Bullet): every touching point takes just the push that stops it going in, all
+  of them together, a hard knock bouncing her off a little (restitution 0.3); a hull found inside
+  another is eased out at half a metre a second; the rub along it is as they move against each
+  other, up to its friction. All of her goes out of each hull or quay the one way, by where her
+  middle is, kept until it's clearly over. And another boat under her own physics takes her equal
+  and opposite share. On the same overlaps: none kicked, all parted at 0.51 m/s; the RIB at
+  15 m/s shoves the row off at 15.1 m/s, against 15.2 for two masses meeting.
