@@ -121,3 +121,6 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
    foam: dense white just broken, thinning to lace, a glow of bubbles under it.
 2. **W2 (done):** the sun and the sky in the water, done physically: the sky's own colours mirrored
    on every setting, water's Fresnel, and the sun's glitter as wide as the wind makes it.
+3. **B0 (done, found starting B1):** hulls that meet, solved as a physics engine solves them, not
+   sprung: two hulls found overlapped are eased apart, never kicked off at many metres a second;
+   a RIB that rams a rowing boat shoves her off as two masses meeting do.

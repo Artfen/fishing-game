@@ -612,9 +612,10 @@ export function boatDetail(camPos, scene = null) {
   for (const b of ALL) if (!scene || b.group.parent === scene) b.detailFor(camPos);
 }
 const SEQ = { n: 0 }; // every boat's update, counted: which ones are out on the water now
-// (J1c) How far inside another hull a point of hers is still at its skin, pushed out the nearest
-// side; deeper, she's inside it, and goes out on the side her middle is on (see touch).
-export const CONTACT_SKIN = 0.3;
+// How much further out her middle must be past another face of a hull or a quay she's touching
+// than past the one she's leaving by, as a share of its half-size, before she leaves by that one
+// instead (see exitFrom).
+export const EXIT_HYST = 0.15;
 const ORIGIN = [0, 0, 0];
 const CREW = 80; // kg, you
 // The sailing boat's sail pushes about here: well up the mast, and (her rig balanced over the
@@ -5228,25 +5229,32 @@ export class Boat {
   }
 
   // A point on her hull (world p) pressed into a pier or another boat: which way it's pushed out,
-  // and how far it's in (null: it isn't).
+  // and how far it's in (null: it isn't). All of her goes out of each one the same way (exitFrom):
+  // across it, out the side her middle is on, or along it, out the end her middle is past.
+  // (Before, each point went out its own nearest side: two hulls lying across each other, or a hull
+  // pinned on a quay's corner, were pushed both ways at once, and spun or shook. (J1c) had deep
+  // points go out the side her middle is on, but not those near the far side's skin.)
   touch(body, p) {
     let best = null;
-    const out = (this._tc ||= { nx: 0, ny: 0, nz: 0, pen: 0, k: 0, c: 0, mu: 0.25, vn: 0 });
+    const out = (this._tc ||= { nx: 0, ny: 0, nz: 0, pen: 0, e: 0.3, mu: 0.25, vn: 0, ovx: 0, ovz: 0, other: null, so: 0 });
     for (const Q of this._piers) {
       if (p[1] > Q.deck + 0.15) continue;
       if (p[0] < Q.x0 || p[0] > Q.x1 || p[2] < Q.z0 || p[2] > Q.z1) continue;
-      const d0 = p[0] - Q.x0, d1 = Q.x1 - p[0], d2 = p[2] - Q.z0, d3 = Q.z1 - p[2];
-      const pen = Math.min(d0, d1, d2, d3);
+      const hx = (Q.x1 - Q.x0) / 2, hz = (Q.z1 - Q.z0) / 2;
+      const ex = this.exitFrom(Q, (body.x[0] - Q.x0 - hx) / Math.max(hx, 0.1), (body.x[2] - Q.z0 - hz) / Math.max(hz, 0.1), body._t);
+      const pen = ex.axis ? (ex.sign > 0 ? Q.z1 - p[2] : p[2] - Q.z0) : ex.sign > 0 ? Q.x1 - p[0] : p[0] - Q.x0;
       if (best && pen <= best.pen) continue;
-      out.nx = pen === d0 ? -1 : pen === d1 ? 1 : 0;
-      out.nz = out.nx ? 0 : pen === d2 ? -1 : 1;
+      out.nx = ex.axis ? 0 : ex.sign;
+      out.nz = ex.axis ? ex.sign : 0;
       out.ny = 0;
       out.pen = Math.min(pen, 0.5);
-      // (Fenders over the side, tied up: a soft cushion.)
-      out.k = body.m * (this.tie ? 60 : 500);
-      out.c = 2 * Math.sqrt(out.k * body.m) * 0.35;
+      // (Fenders over the side, tied up: a soft cushion, that hardly bounces her.)
+      out.e = this.tie ? 0.1 : 0.3;
       out.mu = 0.3;
       out.vn = 0;
+      out.ovx = out.ovz = 0;
+      out.other = null;
+      out.so = 0;
       out.kind = this.tie ? 'fender' : 'pier';
       best = out;
     }
@@ -5258,39 +5266,50 @@ export class Boat {
       if (tt < 0 || tt > 1) continue;
       const half = hw(H, tt) + 0.02;
       if (Math.abs(_v3.x) > half || _v3.y > sheer(H, tt) + 0.05 || _v3.y < H.keel(tt) - 0.05) continue;
-      // Pushed out sideways from her centreline (or along her, off the very ends), from the side
-      // of hers it's nearest.
-      let pen = half - Math.abs(_v3.x), side = Math.sign(_v3.x) || 1;
-      // (J1c) But a point deep inside her (two hulls that have ended up overlapped: a friend's
-      // boat drawn where it's said to lie, on top of yours) goes out on the side her own middle is
-      // on. Pushed out its own side, it was pushed back and forth as it crossed her centreline,
-      // harder each time, until the boat was flung off and lost; this way all of her goes out the
-      // one way, and the two part. A point at her skin is met as ever, so a bump is a bump and a
-      // fast ram is stopped where it comes in.
-      if (pen > CONTACT_SKIN) {
-        _v4.set(body.x[0], body.x[1], body.x[2]);
-        o.body.worldToLocal(_v4);
-        const mid = Math.sign(_v4.x) || 1;
-        if (mid !== side) {
-          pen = half + Math.abs(_v3.x);
-          side = mid;
-        }
-      }
+      _v4.set(body.x[0], body.x[1], body.x[2]);
+      o.body.worldToLocal(_v4);
+      const ex = this.exitFrom(o, _v4.x / Math.max(H.B, 0.1), _v4.z / (H.L / 2), body._t);
+      // (Across her: as far as it is from her side that way, deeper still past her centreline.
+      // Along her: from her end.)
+      let pen = ex.axis ? H.L / 2 - _v3.z * ex.sign : half - _v3.x * ex.sign;
       pen = Math.min(pen, 0.5);
       if (best && pen <= best.pen) continue;
-      _v3.set(side, 0, 0).transformDirection(o.body.matrixWorld);
+      _v3.set(ex.axis ? 0 : ex.sign, 0, ex.axis ? ex.sign : 0).transformDirection(o.body.matrixWorld);
       out.nx = _v3.x; out.ny = 0; out.nz = _v3.z;
       const nl = Math.hypot(out.nx, out.nz) || 1;
       out.nx /= nl; out.nz /= nl;
       out.pen = pen;
-      out.k = Math.min(body.m, o._phys ? o._phys.m : body.m) * 300;
-      out.c = 2 * Math.sqrt(out.k * body.m) * 0.3;
+      out.e = 0.3;
       out.mu = 0.2;
       out.vn = o.vel.x * out.nx + o.vel.z * out.nz;
+      out.ovx = o.vel.x;
+      out.ovz = o.vel.z;
       out.kind = 'boat';
+      // (Out on the water under her own physics, she gives: nudged, she moves. A friend's boat
+      // drawn where word says she is, or a townsman's placed by hand, doesn't.)
+      out.other = o._phys && !o.drawn ? o : null;
+      out.so = out.other ? 1 / o._phys.m : 0;
       best = out;
     }
     return best;
+  }
+
+  // Which way she leaves a hull or a quay (key) she's touching: across it (axis 0) or along it
+  // (axis 1), and which side or end (sign). By where her middle is, in units of its half-beam and
+  // half-length (ax, az): the face it's furthest out past. Kept from step to step (t: her physics'
+  // time) until her middle's clearly further past another, so a boat lying square on top of
+  // another doesn't flip from side to side; chosen afresh after a second without touching it.
+  exitFrom(key, ax, az, t) {
+    const S = (this._exits ||= new WeakMap());
+    let e = S.get(key);
+    if (!e) S.set(key, (e = { axis: 0, sign: 1, t: -Infinity }));
+    if (e.t === t) return e;
+    const fresh = !(t - e.t <= 1);
+    e.t = t;
+    const along = Math.abs(az) > Math.abs(ax) ? 1 : 0, sign = Math.sign(along ? az : ax) || 1;
+    const now = e.axis ? az * e.sign : ax * e.sign;
+    if (fresh || Math.abs(along ? az : ax) > now + EXIT_HYST) { e.axis = along; e.sign = sign; }
+    return e;
   }
 
   // Where the anchor, its rope, the mooring lines and the fenders are this frame.
