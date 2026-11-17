@@ -93,15 +93,26 @@ counts the night it ran into). No page errors.
    only counts for the skipper's fishing charter), but the brief's "a vessel log documenting their
    adventure" wants the fish taken aboard her in her voyage, named as the crew's.
 
-6. **One frame threw, and the game stopped** (fixed here). Once in sixteen runs, at sea with Bert
-   crewing, a value that wasn't a number reached the sound's underwater filter
+6. **One frame threw, and the game stopped** (J1 and J1b: fixed). Once in sixteen runs, at sea
+   with Bert crewing, a value that wasn't a number reached the sound's underwater filter
    (`AudioScape.setUnderwater`), which the browser refuses with an error. The frame loop only asked
-   for the next frame after this one had finished, so one bad frame stopped the game dead. Now the
-   next frame is asked for first (`src/loop.js`): a frame that throws is reported and the game goes
-   on; and the underwater filter is never handed anything but a number. Where the bad value came
-   from isn't found yet: ten minutes of hard running offshore with a crewmate aboard didn't bring it
-   back, and the playthrough now writes out both games' state (camera, walker, boat, friends) if
-   either throws, for next time.
+   for the next frame after this one had finished, so one bad frame stopped the game dead. J1 asks
+   for the next frame first (`src/loop.js`), and hands the underwater filter only numbers.
+
+   The playthrough on J2's tree then met it again, leaving the marina, and wrote out both games'
+   state: the RIB's own physics was sound, but her position wasn't. Trapping every write to her
+   position found what wrote it: keeping boats apart (`keepBoatsApart`). If any one boat's
+   position had gone wrong, every comparison with it failed both tests that let a pair be, so the
+   push was "not a number" and every boat it was compared with, anywhere, went the same way in that
+   frame: the boat you're in, out at sea, nowhere, and every sound and the camera after it. J1b
+   (`src/apart.js`) only pushes a pair whose distance is a real number, and puts any boat left
+   nowhere back where she last was, saying so in the console ("Slow Tide: the row had lost her
+   position; put back where she last was"). Checked in the game: the rowing boat at the camp knocked
+   to nowhere while Mags is out in the RIB; before, the RIB and the camera went with it and the
+   game stopped; after, the RIB carries on and the rowing boat is back where she lay. What first
+   sends a boat nowhere isn't found yet (an hour of hard running at the beach with every boat
+   watched didn't): the playthrough now records the game's word of it as an error, with which boat
+   and where, for when it next does.
 
 ### As it should be, and worth knowing
 

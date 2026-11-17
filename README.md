@@ -1226,6 +1226,7 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 | --- | --- |
 | `src/main.js` | Game loop, time of day, weather, the boats, stepping ashore and boarding, travel, interactions, sleep, discoveries, surface clues, HUD, glue between systems |
 | `src/loop.js` | The frame loop: the next frame asked for before this one runs, so a frame that throws is reported and the game goes on |
+| `src/apart.js` | Boats kept from overlapping, only where their distance is a real number; and a boat left nowhere put back where she last was |
 | `src/settings.js` | The settings: what's in them, checking saved ones, and the Settings panel (tabs, sliders, key rebinding) |
 | `src/map.js` | The map: which parts of the coast you've explored, and the map sheet with its markers, zoom and camp list |
 | `src/world/coldwater.js` | Hoarfell, Hoar Tarn and the Coldwater: the river's course, falls and water levels, the shape of the fell and the dale, the fell path |

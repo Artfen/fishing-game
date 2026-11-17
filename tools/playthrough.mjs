@@ -35,7 +35,10 @@ async function client(name, save) {
   browsers.push(br);
   const page = await (await br.newContext({ viewport: { width: 1000, height: 640 } })).newPage();
   page.on('pageerror', (e) => errors.push(`${name} PAGEERROR ${e.message} ${(e.stack || '').split('\n').slice(0, 3).join(' | ')}`));
-  page.on('console', (m) => { if (m.type() === 'error' && !/cloud-config|404|favicon/.test(m.text())) errors.push(`${name} ${m.text().slice(0, 200)}`); });
+  page.on('console', (m) => {
+    // (Errors, and the game's own word that it put something right that shouldn't have gone wrong.)
+    if ((m.type() === 'error' && !/cloud-config|404|favicon/.test(m.text())) || (m.type() === 'warning' && /^Slow Tide:/.test(m.text()))) errors.push(`${name} ${m.text().slice(0, 200)}`);
+  });
   await page.route('**/api/cloud-config', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ enabled: true, url: RELAY, anonKey: 'local' }) }));
   await page.goto(new URL('README.md', URL0).href);
   await page.evaluate((s) => localStorage.setItem('slow-tide-save', JSON.stringify(s)), save);
