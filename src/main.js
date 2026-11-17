@@ -168,7 +168,8 @@ import { stepComfort, effectsOf, needsOf, dressFor, drink as drinkFrom, refill, 
 import { LINES, STRENGTH, loadWords, tendHold, tendLine } from './lines.js';
 import { modeOf as floodModeOf, PUMP_DRAW, waterWords as floodWords, SWAMPED } from './flooding.js';
 import { cleanDamage, newDamage, damageSave, modeOf, stepTubes, pump as pumpTubes, survey, repairs as damageRepairs, mend as mendDamage, sound as hullSound, hullWords, materialOf, tighten, steerWords, plug as plugDamage, pluggable, CHAMBERS, SECTION_NAMES, SURFACES, TUBED, PARTS } from './damage.js';
-import { CARGO, buy as buyCargo, putAboard, bringAshore, piecesAboard, storePieces, weightOf as cargoKg, newCargo } from './cargo.js';
+import { CARGO, buy as buyCargo, putAboard, bringAshore, piecesAboard, storePieces, weightOf as cargoKg, newCargo, hasAboard } from './cargo.js';
+import { turnIn, wakeOnDeck, turningIn, SHARED_NIGHT_MAX } from './nightaboard.js';
 import { BREATH, SCUBA, SPEAR, breathUse, breathToSurface, recoverRate, airUse, minutesLeft, canSpear, sizeGuess, spearHit, shotQuality, tearChance, logSite, logFind } from './dive.js';
 import { clamp, damp, dampAngle, lerp, smoothstep, rand, pick, seeded, wrapAngle } from './util.js';
 
@@ -2719,7 +2720,8 @@ function chalkKitchen() {
 }
 
 let sleeping = null;
-function sleepUntil(h) {
+// (site: where you sleep: the camp sheet's, or J3's 'deck', turned in on an open boat's deck.)
+function sleepUntil(h, site = camp.site) {
   if (sleeping) return;
   if (clock.following) {
     hud.toast(timeIsHosts(), 6);
@@ -2729,20 +2731,21 @@ function sleepUntil(h) {
     hud.toast('Land or let go of the fish first.', 3);
     return;
   }
-  // Aboard the cabin boat: not adrift.
-  if (camp.site === 'cabin' && !boat.anchored && !moored(boat)) {
+  // Aboard the cabin boat (or on an open boat's deck): not adrift.
+  if ((site === 'cabin' || site === 'deck') && !boat.anchored && !moored(boat)) {
     hud.toast(`Drop the anchor first (${input.keyLabel('anchor')}), or tie up alongside a quay: nobody sleeps adrift.`, 4);
     return;
   }
   // (A line left out overnight would be a tangle by morning: you reel in before turning in.)
   if (fishing.lineOut || fishing.aiming) fishing.cancel();
-  const site = camp.site;
   closeCamp();
   modal = 'sleep';
-  const w = wakeTimes().find((x) => x.h === h);
-  hud.sleep(true, `You sleep until ${w ? w.name.toLowerCase() : formatClock(h)}…`);
+  const w = wakeTimes().find((x) => x.h === h), until = w ? w.name.toLowerCase() : formatClock(h);
+  // (J3) On her deck, with a friend crewing aboard: they turn in too, in the other bag.
+  const friend = site === 'deck' ? crewAboardNames()[0] || null : null;
+  hud.sleep(true, site === 'deck' ? `${turningIn(friend)} ${until}…` : `You sleep until ${until}…`);
   audio.rustle?.();
-  sleeping = { h, phase: 0, t: 0, site };
+  sleeping = { h, phase: 0, t: 0, site, friend };
   if (stepOf(state.guide) === 'back') guideEvent('back');
 }
 
@@ -2763,7 +2766,7 @@ function passTheNight() {
   state.hour = h;
   // (F2a) A night aboard at anchor: any gale that blew while you slept, against where she lies and
   // how she's held (see anchorage.js). Out in the open she drags, downwind, short of the shallows.
-  if (sleeping.site === 'cabin' && boat.pos.z < SOUTH_Z) {
+  if ((sleeping.site === 'cabin' || sleeping.site === 'deck') && boat.pos.z < SOUTH_Z) {
     const N = nightAtAnchor({ galeHours: galeHoursIn(from, from + hours), sheltered: isSheltered(zoneAt(boat.pos.x, boat.pos.z)), hold: boat.anchorHold || 1, tied: !!boat.tie || moored(boat) });
     let short = false;
     if (N.dragged > 0) {
@@ -2783,8 +2786,10 @@ function passTheNight() {
   // You wake warm and dry, and fill your water bottle before you set off (F1a: aboard, from her
   // water tank, if there's any left in it).
   if (needsMode() !== 'off') {
-    stepComfort(state.comfort, hours, { asleep: true });
-    if (sleeping?.site !== 'cabin' || drawStores(state, boat.id, STORES_FILL)) refill(state.comfort);
+    // (J3: in a bivvy on an open deck, warm in the bag but waking to the chill; the bottle from the
+    // stores crate, if there is one aboard.)
+    stepComfort(state.comfort, hours, { asleep: true, open: sleeping.site === 'deck' });
+    if ((sleeping.site !== 'cabin' && sleeping.site !== 'deck') || drawStores(state, boat.id, STORES_FILL)) refill(state.comfort);
   }
   // The weather turns while you sleep (unless you've chosen it): sometimes you wake to rain. (F2a:
   // a gale still blowing, or coming on, is the weather you wake to.)
@@ -2806,7 +2811,7 @@ function passTheNight() {
   tanks().battery = 1;
   tanks().kayak = 1;
   for (const k of Object.keys(ELEC)) if (ELEC[k]) chargeElec(tanks(), k, 24);
-  const door = sleeping.site === 'house' ? { x: 113.6, z: -78.6 } : sleeping.site === 'bothy' ? BOTHY_DOOR : sleeping.site === 'posada' ? { x: POSADA.x - 2, z: POSADA.z + 5 } : sleeping.site && sleeping.site !== 'cabin' ? toWorld(sleeping.site.x, sleeping.site.z, sleeping.site.yaw, 0.6, 1.6) : null;
+  const door = sleeping.site === 'house' ? { x: 113.6, z: -78.6 } : sleeping.site === 'bothy' ? BOTHY_DOOR : sleeping.site === 'posada' ? { x: POSADA.x - 2, z: POSADA.z + 5 } : sleeping.site && typeof sleeping.site === 'object' ? toWorld(sleeping.site.x, sleeping.site.z, sleeping.site.yaw, 0.6, 1.6) : null;
   const spot = door ? standNear(door.x, door.z, 0.3) : onFoot && walkHeight(walker.pos.x, walker.pos.z) < 0.1 ? campSpot() : null;
   if (spot && onFoot) {
     walker.place(spot.x, spot.z, spot.heading);
@@ -2879,12 +2884,59 @@ function updateSleep(dt) {
   if (sleeping.phase === 1 && sleeping.t > 3.4) {
     hud.sleep(false);
     modal = null;
-    hud.toast(wakeLine(sleeping.h, sleeping.rain, sleeping.site), 6);
+    hud.toast(sleeping.site === 'deck' ? wakeOnDeck(sleeping.h, sleeping.rain, sleeping.friend) : wakeLine(sleeping.h, sleeping.rain, sleeping.site), 6);
     // (F2a) What the night did, aboard.
     if (sleeping.night) hud.toast(sleeping.night, 10);
     audio.chime();
     sleeping = null;
   }
+}
+
+/* ---------------- (J3) a night aboard an open boat ---------------- */
+
+// Who's crewing aboard your boat just now (their names), playing together.
+const crewAboardNames = () => (together.active ? [...together.peers.values()].filter((p) => p.present && crewingFor(p)).map((p) => p.name || 'your friend') : []);
+
+// Turning in on her deck (see nightaboard.js): until when, or why not.
+function turnInAboard(night) {
+  if (!night.ok) {
+    hud.toast(night.host ? timeIsHosts() : night.why, 7);
+    return;
+  }
+  const friend = crewAboardNames()[0] || null;
+  ask(boatTitle(boat), `${turningIn(friend)}…`, [
+    { text: 'Not yet', cls: 'quiet', cancel: true },
+    ...wakeTimes().map((w, i) => ({ text: `${w.name} (${formatClock(w.h)})`, cls: i ? 'quiet' : '', run: () => sleepUntil(w.h, 'deck') })),
+  ]);
+}
+
+// Crewing in a friend's boat when they turn in: the night goes by for you too (their time: the
+// clock sweeps to it), asleep in the other bag, and you wake beside them.
+let nightWith = null, nightDone = false;
+function startNightWith(p) {
+  if (fishing.lineOut || fishing.aiming) fishing.cancel();
+  nightWith = { id: p.id, name: p.name || 'your friend', from: clock.abs, t: 0 };
+  modal = 'sleep';
+  hud.sleep(true, `${nightWith.name} turns in. You unroll the other bivvy on her deck and sleep…`);
+  audio.rustle?.();
+}
+function updateNightWith(dt) {
+  if (!nightWith) return;
+  const N = nightWith, p = together.peers.get(N.id);
+  N.t += dt;
+  // (Awake when they are and your clock has caught theirs up, the night gone by; or if the word
+  // never comes.)
+  const slept = clock.abs - N.from > 0.5 || N.t > 8;
+  if (N.t < 2 || ((p?.pose?.zz || clock.sweeping || !slept) && crew.on && N.t < SHARED_NIGHT_MAX)) return;
+  nightWith = null;
+  nightDone = true;
+  hud.sleep(false);
+  if (modal === 'sleep') modal = null;
+  const hours = Math.max(0, clock.abs - N.from);
+  if (needsMode() !== 'off' && hours > 0) stepComfort(state.comfort, hours, { asleep: true, open: true });
+  if (hours > 0.5) hud.toast(wakeOnDeck(clock.hour, weather.rain > 0.2, N.name), 6);
+  audio.chime();
+  save();
 }
 
 /* ---------------- on foot and back in the boat ---------------- */
@@ -5725,7 +5777,7 @@ function comfortEnv() {
 function updateComfort(dt, hours) {
   const c = state.comfort, mode = needsMode(), off = mode === 'off';
   camp.quiet = off;
-  if (!off && hours > 0 && !dive && !sleeping && !passage) stepComfort(c, hours, comfortEnv());
+  if (!off && hours > 0 && !dive && !sleeping && !nightWith && !passage) stepComfort(c, hours, comfortEnv());
   comfortFx = effectsOf(c, state.food, mode);
   walker.speedMul = comfortFx.pace;
   fishing.steady = (camp.wellFed ? 0.8 : 1) * comfortFx.shake;
@@ -7427,18 +7479,26 @@ function interaction() {
     }
     return { text: 'Into the cabin: galley and bunk', run: () => enterCabin() };
   }
-  // At anchor or made fast, and still: sit back a while (or over the side, over deep water).
-  const settled = (boat.anchored || boat.tie) && Math.abs(boat.speed) < 0.3 && !fishing.lineOut;
+  // At anchor or made fast, and still: sit back a while (or over the side, over deep water). (J3:
+  // "still" as for her cabin: a boat swinging on her anchor in a breeze is still, and the deck's
+  // prompt doesn't come and go as she swings.)
+  const settled = (boat.anchored || boat.tie) && Math.abs(boat.speed) < 0.6 && !fishing.lineOut;
   const sitBoat = () => sitDown({ kind: 'boat', name: `back in the ${boat.name}` });
   const look = damageAction() ? [{ text: 'Look her over', cls: 'quiet', run: () => lookHerOver() }] : [];
+  // (J3) In a boat with no cabin, the night aboard: turn in on her deck (with a bivvy roll aboard).
+  const night = turnIn({ cabin: !!boat.hull.cabin, deck: !!boat.hull.standing, settled, bivvy: hasAboard(state.cargo, boat.id, 'bivvy'), following: clock.following });
+  const bed = night ? [{ text: 'Turn in for the night', cls: 'quiet', run: () => turnInAboard(night) }] : [];
+  const orBed = bed.length ? ' Or turn in for the night.' : '';
   if (settled && entry) {
-    return { text: 'Sit back a while, or go diving', run: () => ask(boatTitle(boat), 'At anchor, and all quiet. Sit back a while and watch the water, or over the side for a dive?', [
+    return { text: 'Sit back a while, or go diving', run: () => ask(boatTitle(boat), `At anchor, and all quiet. Sit back a while and watch the water, or over the side for a dive?${orBed}`, [
       ...look,
       { text: 'Go diving', cls: 'quiet', run: () => chooseDive(entry) },
+      ...bed,
       { text: 'Sit back a while', run: sitBoat },
     ]) };
   }
-  if (settled && look.length) return { text: 'Sit back a while, or look her over', run: () => ask(boatTitle(boat), 'At anchor, and all quiet. Sit back a while and watch the water, or look her over?', [...look, { text: 'Sit back a while', run: sitBoat }]) };
+  if (settled && look.length) return { text: 'Sit back a while, or look her over', run: () => ask(boatTitle(boat), `At anchor, and all quiet. Sit back a while and watch the water, or look her over?${orBed}`, [...look, ...bed, { text: 'Sit back a while', run: sitBoat }]) };
+  if (settled && bed.length) return { text: 'Sit back a while, or turn in', run: () => ask(boatTitle(boat), 'At anchor, and all quiet. Sit back a while and watch the water, or turn in for the night?', [...bed, { text: 'Sit back a while', run: sitBoat }]) };
   if (settled) return { text: 'Sit back a while', run: sitBoat };
   // Stopped over deep water: over the side.
   if (entry) return { text: 'Go diving', run: () => chooseDive(entry) };
@@ -11275,6 +11335,10 @@ function rideCrew(dt) {
     return crewLost(p);
   }
   O.wait = 0;
+  // (J3) Your skipper has turned in on her deck: you sleep the night through with them.
+  // (Once: their asleep word can outlast your night by a moment.)
+  if (!p.pose?.zz) nightDone = false;
+  else if (!nightWith && !nightDone && !modal) startNightWith(p);
   // (The keys are camera-relative: turned into her own across, and fore and aft.)
   const moving = !O.helm && (move.x || move.z);
   if (moving) crew.walk(-(move.x * b.right.x + move.z * b.right.z), move.x * b.fwd.x + move.z * b.fwd.z, b.hull, dt);
@@ -11523,7 +11587,7 @@ function whereIAm() {
   // friends see her come along behind you, and a crewmate tending it knows the strain.
   const W = tow?.lead === boat ? tow.towed : null;
   const tw = W ? { k: W.kind, ...(W.id !== W.kind && BOATS[W.id] === W ? { i: W.id } : {}), x: W.pos.x, z: W.pos.z, h: W.heading, t: (tow.T || 0) / 1000, l: tow.extra || 0, ...(tow.tender ? { e: tow.tender.id } : {}) } : undefined;
-  return { m: 'boat', k: boat.kind, ...(boat.id !== boat.kind ? { i: boat.id } : {}), x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), o: on, ...(tr ? { tr } : {}), ...(tw ? { tw } : {}), ...gear };
+  return { m: 'boat', k: boat.kind, ...(boat.id !== boat.kind ? { i: boat.id } : {}), x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), ...(sleeping ? { zz: 1 } : {}), o: on, ...(tr ? { tr } : {}), ...(tw ? { tw } : {}), ...gear };
 }
 // A friend's fish, as it fights at the end of their line.
 const FISH_MOVE_WORDS = { run: 'fish on! it’s running', jump: 'fish on! it’s leaping', shake: 'fish on! head-shaking', charge: 'fish on! it’s charging', dive: 'fish on! it’s diving', longrun: 'fish on! a long run', sound: 'fish on! it’s sounding', circle: 'fish on! it’s circling' };
@@ -13321,6 +13385,7 @@ function tick(now, manual = false) {
   updateWeather(dt, speed);
   updateTide();
   updateSleep(dt);
+  updateNightWith(dt);
   updateTravel(dt);
   updatePassage(dt);
   updateCrossing(dt);

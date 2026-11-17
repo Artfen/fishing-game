@@ -35,6 +35,8 @@ export const CARGO = {
   case: { name: 'Equipment case', short: 'case', kg: 11, size: [0.42, 0.24, 0.56], price: 35, grip: { s: 0.4, k: 0.3 }, colour: '#2c3136', trim: '#c9a227', note: 'A hard case for the camera, spares and tools.' },
   battery: { name: 'Spare battery', short: 'battery', kg: 24, size: [0.2, 0.24, 0.34], price: 90, grip: { s: 0.5, k: 0.4 }, colour: '#1f2326', trim: '#c0392b', note: 'A charged deep-cycle battery: swap it in when an electric motor’s is flat. It charges at a jetty or quay.' },
   stores: { name: 'Stores crate', short: 'stores crate', kg: 22, empty: 6, size: [0.46, 0.34, 0.6], price: 20, grip: { s: 0.6, k: 0.45 }, colour: '#9a7a4f', trim: '#5c4630', note: 'Water and food for three days away, in any boat with room for it (see stores.js). Stocked again where her lockers are.' },
+  // (J3) Bedding for a night aboard a boat with no cabin: rolled tight, lying fore-and-aft.
+  bivvy: { name: 'Bivvy roll', short: 'bivvy roll', kg: 7, size: [0.32, 0.32, 0.72], price: 45, grip: { s: 0.55, k: 0.45, roll: 0.06 }, colour: '#4f5b3a', trim: '#2f6fa8', note: 'Two sleeping bags in waterproof bivvy bags, and two foam mats, rolled tight: a night aboard a boat with no cabin, at anchor or tied up, for you and a friend.' },
   can: { name: 'Jerry can', short: 'jerry can', kg: 1.6, size: [0.16, 0.34, 0.32], price: 0, grip: { s: 0.45, k: 0.35 }, colour: '#b3262a', note: 'Your jerry can, aboard: pour it into her tank from the deck.' },
 };
 export const CARGO_IDS = Object.keys(CARGO);
@@ -79,6 +81,8 @@ export function weightOf(piece, canLitres = 0) {
 
 export const owned = (c, id) => c.items.filter((it) => it.id === id).length;
 export const aboard = (c, kind) => c.items.filter((it) => it.at === `boat:${kind}`);
+// (J3) Whether a thing of this kind is aboard her (the bivvy roll, for a night aboard).
+export const hasAboard = (c, kind, id) => aboard(c, kind).some((it) => it.id === id);
 
 // Buy one at the chandlery: it waits there, ashore. (The money is the caller's.)
 export function buy(c, id) {

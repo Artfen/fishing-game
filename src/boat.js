@@ -570,6 +570,11 @@ function cargoParts(id) {
     cyl(parts, 0.016, 0.04, 0.05, h / 2 + 0.02, l * 0.3, C.trim, 0, 8);
     cyl(parts, 0.016, 0.04, 0.05, h / 2 + 0.02, -l * 0.3, '#111', 0, 8);
     box(parts, 0.02, 0.05, l * 0.5, -0.04, h / 2 + 0.025, 0, '#111');
+  } else if (id === 'bivvy') {
+    // (J3) The bags rolled tight in olive, a blue foam mat round them, its ends showing.
+    cyl(parts, r * 0.9, l * 0.96, 0, 0, 0, C.colour);
+    cyl(parts, r, l * 0.62, 0, 0, 0, C.trim);
+    for (const s of [-1, 1]) cyl(parts, r * 0.62, 0.012, 0, 0, s * l * 0.48, '#3b4530');
   } else if (id === 'stores') {
     box(parts, w * 0.96, h * 0.96, l * 0.96, 0, 0, 0, '#6f5536');
     for (const y of [-0.38, -0.05, 0.28]) {

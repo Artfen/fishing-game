@@ -75,6 +75,16 @@ counts the night it ran into). No page errors.
   and nothing for Bert's log: the world's doing, not the game's.
 - No page errors.
 
+**On J3's tree**, the whole day passes, every step, with no page errors:
+
+- Out with a bivvy roll among her kit (106 kg aboard).
+- A mackerel to Bert on the first cast into the feed.
+- Both dive on the Hound and climb back aboard.
+- At 21:38, anchored on the shelf, Mags turns in on her deck. Bert's game shows "Mags turns in. You unroll the other bivvy on her deck and sleep…".
+- They wake at 04:19 the next day, still at anchor, each to the other stirring in the other bag.
+- Home in the next day's stiffer blow (heaving 1.1 m against 0.16 m going out), and tied up.
+- "Out to the Hound: 1.1 nm, 1 night out" goes in her papers, and Bert's mackerel in his log, from the RIB.
+
 ## What it found
 
 ### In the game, to fix
@@ -91,9 +101,13 @@ counts the night it ran into). No page errors.
    runs were stopped at the reef by it. In run 16, looked over: "Bow: dented. Starboard side:
    scored. The Marine Works can put it right." (*Leave it*), and the prompt was *Look her over*
    again.
-3. **No night aboard an open boat** (J3). The brief has them stay the night aboard; only the cabin
+3. **No night aboard an open boat** (J3: fixed). The brief has them stay the night aboard; only the cabin
    boat and the yacht have anywhere to sleep (`hull.cabin`). Anchored in the RIB, there's no way to
-   turn in.
+   turn in. Now a **bivvy roll** from the chandlery (two sleeping bags in waterproof bags, and two
+   mats) goes aboard her as cargo, and at anchor or tied up the deck's menu has *Turn in for the
+   night* (`src/nightaboard.js`). The night is the cabin's (a gale is reckoned against where she
+   lies). A friend crewing aboard sleeps it through with her: their game shows the night go by,
+   and they wake beside her. The playthrough's step 11 now does this.
 4. **A friend's second boat of a kind isn't drawn for anyone else** (found reading the code for
    the first; J2: fixed). The word of where your boats lie (`together.js` `sendFleet`) left out a boat's
    own id, which the friend's game reads (`cleanFleet`): two RIBs lying in the water were one.
@@ -196,3 +210,5 @@ In `docs/playthrough/` (runs 15 and 16):
 - `landed.jpg`: the mackerel just landed and kept, from Bert's side of the RIB.
 - `dive.jpg`: Mags on the Hound at 12 m; Bert's marker says where the bug had put him.
 - `home-rough.jpg`: home after dark in a 37 km/h wind, her wake glowing with plankton.
+- `bivvy-aboard.jpg` (J3): the bivvy roll strapped on her deck beside the stores crate, at the pontoon.
+- `night-aboard.jpg` (J3): dawn at anchor on the Hound's shelf, both of them aboard after the night.
