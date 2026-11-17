@@ -90,6 +90,13 @@ say "Out to the Hound: 1.1 nm, 1 night out, 1 fish, with Bert.", and the mackere
 voyage, his. Every other step passes but one: no fish came within 15 m of Mags on the reef that time
 (the world's doing). No page errors.
 
+**On J5's tree**, her voyage keeps the dives and the photograph too. Her papers say "Out to the
+Hound: 1.1 nm, 1 night out, 1 fish, 2 dives, with Bert.", and the voyage has Mags's dive at the
+Hound, to 12.1 m, Bert's (his) at Gannet Light, to 2.6 m, and her photograph. Another run that day
+had the RIB holed on the way out; the deck rightly put *Look her over* first, with water coming
+in, so Mags never dived. That run's papers didn't say what she'd hit, so the script now prints all
+her papers for the day: each knock writes what she hit.
+
 ## What it found
 
 ### In the game, to fix

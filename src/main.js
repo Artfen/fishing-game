@@ -3412,6 +3412,8 @@ function endDive(to = null, quiet = false) {
   const S = state.dive;
   S.deepest = Math.max(S.deepest, Math.round(d.maxDepth * 10) / 10);
   if (d.maxDepth > 1.5) noteDive(state.today, d.site?.id || null, d.maxDepth);
+  // (J5) A dive made on her voyage, into it (not one from a friend's boat: that's their voyage).
+  if (d.maxDepth > 1.5 && !d.crew) voy({ k: 'dive', at: d.site ? d.site.name.replace(/^The /, 'the ') : farName(diver.pos.x, diver.pos.z), m: d.maxDepth, kit: d.kit === 'free' ? 'free' : 'scuba' });
   challengesDone();
   const back = to || (d.boat ? { boat: d.boat } : d.crew ? { crew: d.crew } : { spot: d.back });
   if (back.crew) {
@@ -9017,12 +9019,15 @@ async function keepPhoto() {
   await photos.put(id, pp.shot.blob, pp.shot.thumb);
   const meta = { id, title: $('pc-title').value.replace(/[<>]/g, '').trim().slice(0, 60), at: Date.now(), day: state.day, hour: Math.round(state.hour * 100) / 100, ...pp.meta, sky: weather.state, subjects: pp.subjects };
   state.photos.push(meta);
+  // (J5) Taken on her voyage: in it, with what's in it.
+  voy({ k: 'photo', of: photoWords(meta.subjects) });
   adventures.photographed(meta);
   favoursReady(favourPhotographed(state.favours, meta.subjects));
   jobsDone(Con.photographed(state.contracts, { life: meta.subjects?.sea || [], bow: !!meta.subjects?.bow, species: meta.subjects?.species || [], nature: meta.subjects?.nature || [], wild: meta.subjects?.life || [], region }));
-  // (F4c) Taken aboard a friend's boat: what's in it counts for your skipper's photo jobs too.
-  const S = meta.subjects;
-  if (crew.on && together.active && S) together.seen(crew.on.id, { w: 'snap', sea: S.sea || [], life: S.life || [], nature: S.nature || [], species: S.species || [], bow: !!S.bow });
+  // (F4c) Taken aboard a friend's boat: what's in it counts for your skipper's photo jobs too. (J5:
+  // and in her voyage; taken on a dive from her, too.)
+  const S = meta.subjects, skipper = crew.on?.id || dive?.crew?.id || null;
+  if (skipper && together.active && S) together.seen(skipper, { w: 'snap', sea: S.sea || [], life: S.life || [], nature: S.nature || [], species: S.species || [], bow: !!S.bow });
   save();
   hud.toast(`Kept in your album (${state.photos.length} of ${PHOTO_MAX}).${photos.persistent ? '' : ' This browser won’t keep it after you close the tab: download it from the journal.'}`, 4);
 }
@@ -11692,9 +11697,49 @@ function watchCrew() {
   }
   for (const id of crewAboard) {
     const p = together.peers.get(id);
-    if (!now.has(id) && p?.name) hud.toast(`${p.name} steps off.`, 3);
+    if (!now.has(id) && p?.name) hud.toast((p.view || p.pose)?.m === 'dive' ? `${p.name} goes over the side.` : `${p.name} steps off.`, 3);
   }
   crewAboard = now;
+}
+
+// (J5) What's in a photograph, in a few words: its fish, then its wildlife.
+function photoWords(S) {
+  if (!S) return [];
+  const fish = (S.species || []).map((id) => fishWords(fishById[id]?.name)).filter(Boolean);
+  const wild = [...new Set([...(S.sea || []), ...(S.life || [])])].filter((k) => SEA_KINDS.has(k)).map(lifeWords);
+  return [...fish, ...wild].slice(0, 3);
+}
+
+// (J5) A crewmate's dive from her: anyone crewing for you in the last two minutes who's now in
+// the water, followed down (as deep as their pose says), and into her voyage when they're out.
+const CREW_DIVE_RECENT = 120;
+const crewSeenAt = new Map(), crewDives = new Map();
+function watchCrewDives() {
+  if (!together.active) {
+    crewSeenAt.clear();
+    crewDives.clear();
+    return;
+  }
+  for (const p of together.peers.values()) {
+    const Q = p.pose;
+    if (crewingFor(p)) crewSeenAt.set(p.id, t);
+    const D = crewDives.get(p.id);
+    if (Q?.m === 'dive') {
+      if (D) D.m = Math.max(D.m, -(Q.y ?? 0));
+      else if (state.voyage && t - (crewSeenAt.get(p.id) ?? -1e9) < CREW_DIVE_RECENT) crewDives.set(p.id, { name: p.name || 'your crew', m: Math.max(0, -(Q.y ?? 0)), kit: Q.kt === 's' ? 'scuba' : 'free', x: Q.x, z: Q.z });
+    } else if (D) {
+      crewDives.delete(p.id);
+      if (D.m > 1.5) {
+        const S = siteAt(D.x, D.z);
+        voy({ k: 'dive', by: D.name, at: S ? S.name.replace(/^The /, 'the ') : farName(D.x, D.z), m: D.m, kit: D.kit });
+      }
+    }
+  }
+  // (Gone from the session while under: the dive as far as it went.)
+  for (const [id, D] of crewDives) if (!together.peers.has(id)) {
+    crewDives.delete(id);
+    if (D.m > 1.5) voy({ k: 'dive', by: D.name, at: farName(D.x, D.z), m: D.m, kit: D.kit });
+  }
 }
 
 // A friend's find, onto your map: once (found again, it's brought up to date), and not for a place
@@ -11753,7 +11798,8 @@ together.onEvent = (kind, p, data) => {
       // (Landed by a friend crewing your boat, close aboard: it counts for your fishing charter,
       // their guests' fish brought in with them aboard. Nothing else of yours: it's their fish.)
       const Q = p.view || p.pose;
-      if (crew.aboard(p) && !onFoot && !driving && Q && Math.hypot(Q.x - boat.pos.x, Q.z - boat.pos.z) < boat.hull.L + 4) {
+      // (J5: and while you're over the side of her, diving: that isn't ashore.)
+      if (crew.aboard(p) && (!onFoot || !!dive?.boat) && !driving && Q && Math.hypot(Q.x - boat.pos.x, Q.z - boat.pos.z) < boat.hull.L + 4) {
         jobsDone(Con.caught(state.contracts, { sp: sp.id, sea: sp.water !== 'fresh', phase: 'landed', boat: boat.id, crew: true }));
         // (J4) And in her voyage, as theirs.
         voy({ k: 'fish', sp: sp.id, name: fishWords(sp.name), kg: data.kg, by: p.name || 'your crew' });
@@ -12612,7 +12658,9 @@ function fromTheBow(x, z) {
   return `${where}, about ${d < 100 ? Math.max(10, Math.round(d / 10) * 10) : Math.round(d / 50) * 50} m`;
 }
 function seenHeard(p, S) {
-  if (onFoot || !crewingFor(p)) return;
+  // (J5: a photograph from a friend diving from her counts as from her crew; and you, over the side
+  // of her yourself, are still her skipper: diving isn't ashore.)
+  if ((onFoot && !dive?.boat) || !(crewingFor(p) || (S.w === 'snap' && crewDives.has(p.id)))) return;
   if (S.w === 'spot') {
     if (!SEA_KINDS.has(S.k)) return;
     jobsDone(Con.noted(state.contracts, 'binoculars', S.k, BIRD_KINDS.includes(S.k)));
@@ -12646,6 +12694,8 @@ function seenHeard(p, S) {
   favoursReady(favourPhotographed(state.favours, subjects));
   jobsDone(Con.photographed(state.contracts, { life: sea, bow: subjects.bow, species, nature, wild: life, region }));
   const wild = [...new Set([...sea, ...life])].map(lifeWords);
+  // (J5) Taken aboard her: in her voyage, as theirs.
+  voy({ k: 'photo', of: photoWords(subjects), by: p.name || 'your crew' });
   if (wild.length) hud.flash(`${p.name} has a photograph of ${wild.slice(0, 2).join(' and ')}${subjects.bow ? ' on your bow' : ''}.`, t, 3.5);
 }
 
@@ -13774,6 +13824,7 @@ function tick(now, manual = false) {
     together.update(dt, started ? whereIAm() : null);
     flushSale();
     watchCrew();
+    watchCrewDives();
     lookForGulls(dt);
     // (Under water the right mouse button, held, looks about: see input.js.)
     input.rightLooks = !!dive;

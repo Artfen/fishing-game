@@ -9,10 +9,13 @@
 //
 // (J4) Playing together, a friend crewing aboard is part of her voyage: named in it, and the fish
 // they land from her are in it too, as theirs ("two fish, one of them Bert's").
+//
+// (J5) And what they came back with besides the fish: the dives made from her (yours, and a
+// crewmate's), and the photographs taken on the way (yours, and a crewmate's), with what's in them.
 
 export const VOYAGES_KEPT = 40;
 export const LONG_HOURS = 12;   // game hours away from a berth that make a voyage of it
-const LOG_KEPT = 16, PLACES_KEPT = 12, LIFE_KEPT = 16, BOATS_KEPT = 4, JOBS_KEPT = 8, CROSS_KEPT = 6, CREW_KEPT = 4;
+const LOG_KEPT = 16, PLACES_KEPT = 12, LIFE_KEPT = 16, BOATS_KEPT = 4, JOBS_KEPT = 8, CROSS_KEPT = 6, CREW_KEPT = 4, DIVES_KEPT = 6, SNAPS_KEPT = 8;
 const STAGES = ['out', 'in', 'back'];
 
 const plain = (v, max) => (typeof v === 'string' ? v.replace(/[<>\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '');
@@ -28,14 +31,15 @@ export function newVoyage({ day, hour, abs, kind, from, x, z }) {
   return {
     day, hour: Math.round(hour * 100) / 100, abs, from: plain(from, 40) || 'the water', x: Math.round(x), z: Math.round(z),
     boats: [kind], m: 0, far: 0, farAt: '', places: [], fish: 0, kept: 0, best: null, life: [], gales: 0, cross: [], jobs: [], log: [],
-    crew: [], crewFish: 0,
+    crew: [], crewFish: 0, dives: [], photos: 0, crewPhotos: 0, snaps: [],
   };
 }
 
 // Something on the voyage (ev.k): 'move' (m metres more, now at x, z, called `where`), 'boat',
 // 'place', 'fish' ({ sp, name, kg, kept, by: a crewmate's name if they landed it }), 'life', 'gale',
 // 'cross' ({ to, stage }), 'job' (its title), 'log' ({ day, text }: a line in her papers) or 'crew'
-// ({ name }: a friend crewing aboard).
+// ({ name }: a friend crewing aboard), 'dive' ({ at: where, m: how deep, kit: 'scuba' or 'free', by:
+// a crewmate's name if theirs }) or 'photo' ({ of: what's in it, by: a crewmate's name if theirs }).
 export function onVoyage(V, ev) {
   if (!V || !ev) return V;
   switch (ev.k) {
@@ -66,6 +70,24 @@ export function onVoyage(V, ev) {
       break;
     }
     case 'crew': V.crew ??= []; addOnce(V.crew, plain(ev.name, 24), CREW_KEPT); break;
+    case 'dive': {
+      V.dives ??= [];
+      const by = plain(ev.by, 24);
+      if (by) { V.crew ??= []; addOnce(V.crew, by, CREW_KEPT); }
+      if (V.dives.length < DIVES_KEPT) V.dives.push({ at: plain(ev.at, 40), m: Math.round(num(ev.m, 0, 500) * 10) / 10, kit: ev.kit === 'free' ? 'free' : 'scuba', ...(by ? { by } : {}) });
+      break;
+    }
+    case 'photo': {
+      const by = plain(ev.by, 24);
+      if (by) {
+        V.crew ??= [];
+        addOnce(V.crew, by, CREW_KEPT);
+        V.crewPhotos = (V.crewPhotos || 0) + 1;
+      } else V.photos = (V.photos || 0) + 1;
+      V.snaps ??= [];
+      for (const n of Array.isArray(ev.of) ? ev.of.slice(0, 3) : []) addOnce(V.snaps, plain(n, 40), SNAPS_KEPT);
+      break;
+    }
     case 'cross':
       if (STAGES.includes(ev.stage) && (ev.to === 'south' || ev.to === 'home') && V.cross.length < CROSS_KEPT) V.cross.push({ to: ev.to, stage: ev.stage });
       break;
@@ -85,7 +107,8 @@ export function onVoyage(V, ev) {
 // Whether it was a voyage, now it's over: out past offshoreAt (m from the harbour), a night
 // out, a crossing, a job done, or half a day away from a berth.
 export function worthKeeping(V, { day, abs, offshoreAt }) {
-  return V.far > offshoreAt || day > V.day || V.cross.length > 0 || V.jobs.length > 0 || abs - V.abs >= LONG_HOURS;
+  // (J5: a dive made from her, too.)
+  return V.far > offshoreAt || day > V.day || V.cross.length > 0 || V.jobs.length > 0 || abs - V.abs >= LONG_HOURS || (V.dives?.length || 0) > 0;
 }
 
 // Its name: the crossing, if it made one; otherwise where it reached.
@@ -106,6 +129,7 @@ export function finishVoyage(V, { day, hour, abs, to }) {
     far: V.far, farAt: V.farAt, boats: V.boats.slice(), places: V.places.slice(), fish: V.fish, kept: V.kept, best: V.best,
     life: V.life.slice(), gales: V.gales, cross: V.cross.slice(), jobs: V.jobs.slice(), log: V.log.slice(),
     crew: (V.crew || []).slice(), crewFish: V.crewFish || 0,
+    dives: (V.dives || []).map((d) => ({ ...d })), photos: V.photos || 0, crewPhotos: V.crewPhotos || 0, snaps: (V.snaps || []).slice(),
   };
   R.title = voyageTitle(V);
   return R;
@@ -120,7 +144,7 @@ export function keepVoyage(list, R) {
 
 // Her papers' line for it.
 export function papersLine(R) {
-  return `${R.title}: ${R.nm} nm${R.nights ? `, ${R.nights} night${R.nights > 1 ? 's' : ''} out` : ''}${R.fish ? `, ${R.fish} fish` : ''}${R.crew?.length ? `, with ${list(R.crew)}` : ''}.`;
+  return `${R.title}: ${R.nm} nm${R.nights ? `, ${R.nights} night${R.nights > 1 ? 's' : ''} out` : ''}${R.fish ? `, ${R.fish} fish` : ''}${R.dives?.length ? `, ${R.dives.length} dive${R.dives.length > 1 ? 's' : ''}` : ''}${R.crew?.length ? `, with ${list(R.crew)}` : ''}.`;
 }
 
 // For the journal, in words: { title, when, lines } (names: kinds -> names, boats and sea life).
@@ -139,6 +163,16 @@ export function voyageWords(R, { boat = (k) => k, life = (k) => k } = {}) {
   // (J4: the crew's among them, said as theirs.)
   const crewOnes = R.crewFish ? (R.crewFish === R.fish ? (R.crew?.length === 1 ? ` (all ${R.crew[0]}’s)` : ' (all the crew’s)') : ` (${count(R.crewFish, 'of them', 'of them')} ${R.crew?.length === 1 ? `${R.crew[0]}’s` : 'the crew’s'})`) : '';
   if (R.fish) lines.push(`${count(R.fish, 'fish', 'fish').replace(/^./, (c) => c.toUpperCase())}${crewOnes}${R.kept && R.kept < R.fish ? ` (${R.kept} kept)` : ''}${R.best ? `, the best ${/^[aeiou]/i.test(R.best.name) ? 'an' : 'a'} ${R.best.name} of ${R.best.kg < 1 ? `${Math.round(R.best.kg * 1000)} g` : `${R.best.kg.toFixed(1)} kg`}${R.best.by ? `, ${R.best.by}’s` : ''}` : ''}.`);
+  // (J5) The dives from her, and the photographs.
+  if (R.dives?.length) {
+    const said = R.dives.map((d) => `${d.by ? `${d.by} ` : ''}${d.kit === 'free' ? 'freedived' : 'dived'}${d.at ? ` at ${d.at}` : ''}, to ${d.m.toFixed(1)} m`).join('; ');
+    lines.push(`${said[0].toUpperCase()}${said.slice(1)}.`);
+  }
+  const shots = (R.photos || 0) + (R.crewPhotos || 0);
+  if (shots) {
+    const theirs = R.crewPhotos ? (R.crewPhotos === shots ? (R.crew?.length === 1 ? ` (all ${R.crew[0]}’s)` : ' (all the crew’s)') : ` (${count(R.crewPhotos, 'of them', 'of them')} ${R.crew?.length === 1 ? `${R.crew[0]}’s` : 'the crew’s'})`) : '';
+    lines.push(`${count(shots, 'photograph').replace(/^./, (c) => c.toUpperCase())}${theirs}${R.snaps?.length ? `, of ${list(R.snaps.slice(0, 5))}` : ''}.`);
+  }
   if (R.life.length) lines.push(`Saw ${list(R.life.slice(0, 6).map(life))}.`);
   if (R.gales) lines.push(R.gales === 1 ? 'Weathered a gale.' : `Weathered ${count(R.gales, 'gale')}.`);
   if (R.places.length) lines.push(`By ${list(R.places.slice(0, 6))}.`);
@@ -155,6 +189,8 @@ export function cleanVoyage(v) {
     boats: strs(v.boats, BOATS_KEPT, 16), m: num(v.m), far: Math.round(num(v.far)), farAt: plain(v.farAt, 40), places: strs(v.places, PLACES_KEPT, 40),
     fish: Math.floor(num(v.fish)), kept: Math.floor(num(v.kept)), best: isObj(v.best) && typeof v.best.sp === 'string' ? { sp: plain(v.best.sp, 24), name: plain(v.best.name, 40), kg: num(v.best.kg), ...(plain(v.best.by, 24) ? { by: plain(v.best.by, 24) } : {}) } : null,
     crew: strs(v.crew, CREW_KEPT, 24), crewFish: Math.min(Math.floor(num(v.crewFish)), Math.floor(num(v.fish))),
+    dives: (Array.isArray(v.dives) ? v.dives : []).filter(isObj).slice(0, DIVES_KEPT).map((d) => ({ at: plain(d.at, 40), m: Math.round(num(d.m, 0, 500) * 10) / 10, kit: d.kit === 'free' ? 'free' : 'scuba', ...(plain(d.by, 24) ? { by: plain(d.by, 24) } : {}) })),
+    photos: Math.floor(num(v.photos, 0, 9999)), crewPhotos: Math.floor(num(v.crewPhotos, 0, 9999)), snaps: strs(v.snaps, SNAPS_KEPT, 40),
     life: strs(v.life, LIFE_KEPT, 24), gales: Math.floor(num(v.gales, 0, 99)),
     cross: (Array.isArray(v.cross) ? v.cross : []).filter((c) => isObj(c) && STAGES.includes(c.stage) && (c.to === 'south' || c.to === 'home')).slice(0, CROSS_KEPT).map((c) => ({ to: c.to, stage: c.stage })),
     jobs: strs(v.jobs, JOBS_KEPT, 60), log: (Array.isArray(v.log) ? v.log : []).filter((e) => isObj(e) && typeof e.text === 'string').slice(-LOG_KEPT).map((e) => ({ day: Math.floor(num(e.day)), text: plain(e.text, 160) })),

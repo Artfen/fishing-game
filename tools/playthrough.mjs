@@ -529,6 +529,7 @@ const goDiving = (P) => P.evaluate(() => {
 const dA = await goDiving(A);
 note('in', JSON.stringify(dA));
 check('10 · Mags over the side on scuba, with the camera', dA.diving === 'scuba', JSON.stringify(dA));
+let bertDived = false;
 if (dA.diving === 'scuba') {
   // Down, and over to the reef: face it, head down, swim (forward swims where you look).
   const REEF = [-196, 735];
@@ -569,6 +570,7 @@ if (dA.diving === 'scuba') {
   });
   note('Bert, crewing', JSON.stringify(bertDive));
   check('10 · Bert, crewing, over the side after her', bertDive.diving === 'scuba', JSON.stringify(bertDive));
+  bertDived = bertDive.diving === 'scuba';
   if (bertDive.diving) {
     await B.evaluate(() => { slowTide.rig.views.dive.pitch = 1.1; });
     await B.keyboard.down('KeyW');
@@ -740,9 +742,10 @@ for (let i = 0; i < 40; i++) {
 }
 const morning = { mags: await clockOf(A), bert: await clockOf(B), hour: await A.evaluate(() => +slowTide.state.hour.toFixed(2)), anchored: await A.evaluate(() => !!slowTide.boat.anchored), saidA: await said(A), saidB: await said(B), crew: await B.evaluate(() => !!slowTide.crew.on) };
 note('the night', JSON.stringify({ night0, morning, bertNight }));
-check('11 · Mags turns in on her deck in the bivvy roll, till dawn', turned.bed && turned.dawn && morning.mags - night0.mags > 6 && morning.hour < 8, JSON.stringify({ seen: turned.seen, from: night0.hour, to: morning.hour }));
+// (However late she turns in, she sleeps till the dawn she chose: the clock on to it.)
+check('11 · Mags turns in on her deck in the bivvy roll, till dawn', turned.bed && turned.dawn && morning.mags - night0.mags > 2 && morning.hour < 8, JSON.stringify({ seen: turned.seen, from: night0.hour, to: morning.hour }));
 check('11 · she wakes aboard, at anchor still, Bert in the other bag', morning.anchored && morning.saidA.some((t) => /^You wake/.test(t) && /Bert is stirring in the other bag/.test(t)), JSON.stringify(morning.saidA));
-check('11 · Bert sleeps the night through with her, and wakes aboard beside her', /^Mags turns in/.test(bertNight.saw || '') && morning.crew && morning.bert - night0.bert > 6 && morning.saidB.some((t) => /^You wake/.test(t) && /Mags is stirring/.test(t)), JSON.stringify({ saw: bertNight.saw, bert: [night0.bert, morning.bert], said: morning.saidB, crew: morning.crew }));
+check('11 · Bert sleeps the night through with her, and wakes aboard beside her', /^Mags turns in/.test(bertNight.saw || '') && morning.crew && morning.bert - night0.bert > 2 && morning.saidB.some((t) => /^You wake/.test(t) && /Mags is stirring/.test(t)), JSON.stringify({ saw: bertNight.saw, bert: [night0.bert, morning.bert], said: morning.saidB, crew: morning.crew }));
 await shot(A, 'j3-morning');
 // Aft to the wheel again, and the helm.
 await A.evaluate(() => {
@@ -792,16 +795,21 @@ await step(4);
 const home = await A.evaluate(() => {
   const S = slowTide.state, V = (S.voyages || [])[S.voyages.length - 1];
   const log = S.yard.vessels?.rib?.log || [];
-  return { tied: !!slowTide.boat.tie, voyage: V && { title: V.title, nm: V.nm, hours: V.hours, places: V.places, fish: V.fish, kept: V.kept, best: V.best, boats: V.boats, crew: V.crew, crewFish: V.crewFish }, papers: log.slice(-2).map((l) => `day ${l.day}: ${l.text}`), photos: S.photos.length, said: window.__said.slice(-3) };
+  return { tied: !!slowTide.boat.tie, voyage: V && { title: V.title, nm: V.nm, hours: V.hours, places: V.places, fish: V.fish, kept: V.kept, best: V.best, boats: V.boats, crew: V.crew, crewFish: V.crewFish, dives: V.dives, photos: V.photos, crewPhotos: V.crewPhotos, snaps: V.snaps }, papers: log.slice(-2).map((l) => `day ${l.day}: ${l.text}`), allPapers: log.filter((l) => l.day >= 6).map((l) => `day ${l.day}: ${l.text}`), photos: S.photos.length, said: window.__said.slice(-3) };
 });
 note('home', JSON.stringify(home));
 check('13 · tied up at her berth', home.tied, JSON.stringify(home.said));
 check('13 · the voyage written up in the journal', !!home.voyage, JSON.stringify(home.voyage));
 check('13 · and in her papers', home.papers.length > 0, JSON.stringify(home.papers));
+// (Everything in her papers that day: a knock names what she hit.)
+note('her papers, all the day', JSON.stringify(home.allPapers));
 const bertHome = await B.evaluate(() => ({ log: slowTide.state.log.slice(-2).map((e) => [e.sp, e.size, e.boat || null, e.helper || null]), voyages: (slowTide.state.voyages || []).length }));
 note('Bert', JSON.stringify(bertHome));
 check('13 · Bert’s catch in his log', bertHome.log.length > 0, JSON.stringify(bertHome));
 // (J4) And in her voyage: Bert aboard for it, his fish counted as his.
+// (J5) And the dives from her (hers, and Bert's if he went in), and her photograph.
+const dives = home.voyage?.dives || [];
+check('13 · the dives from her and her photograph in her voyage', dives.some((d) => !d.by && d.m > 5) && (!bertDived || dives.some((d) => d.by === 'Bert')) && (home.voyage?.photos || 0) >= 1, JSON.stringify({ dives, photos: home.voyage?.photos, crewPhotos: home.voyage?.crewPhotos, snaps: home.voyage?.snaps, bertDived }));
 check('13 · Bert in her voyage, and his catch in it, as his', (home.voyage?.crew || []).includes('Bert') && home.voyage.crewFish >= bertHome.log.filter((e) => e[2] === 'rib').length && home.voyage.fish >= home.voyage.crewFish, JSON.stringify({ crew: home.voyage?.crew, fish: home.voyage?.fish, crewFish: home.voyage?.crewFish, bert: bertHome.log }));
 
 console.log(errors.slice(0, 12).join('\n') || 'no errors');

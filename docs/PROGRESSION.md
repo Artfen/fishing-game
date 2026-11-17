@@ -103,3 +103,6 @@ home) is played by two game clients together, step by step, as a player would
    roll from the chandlery; a friend crewing aboard sleeps it through too.
 4. **J4 (done):** the crew's catch in her voyage: fish landed aboard her by a friend crewing, named as
    theirs, in the skipper's voyage and her papers.
+5. **J5 (done):** the rest of what they come home with in her voyage: the dives made from her
+   (the skipper's, and a crewmate's) and the photographs taken on the way (theirs too), with what's
+   in them. A dive makes a voyage of a short trip.

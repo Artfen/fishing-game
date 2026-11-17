@@ -19,7 +19,7 @@ async function until(fn, ms = 2000) {
 }
 const CFG = { url: 'https://example.supabase.co', anonKey: 'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.c2ln' };
 
-test('a sighting or a photograph as it comes over the wire: plain kinds only, a dozen of each at most, and something in it', () => {
+test('a sighting or a photograph as it comes over the wire: plain kinds only, a dozen of each at most', () => {
   assert.deepEqual(cleanSeen({ w: 'spot', k: 'gannet', x: 120.6, z: -40.2 }), { w: 'spot', k: 'gannet', x: 121, z: -40 });
   assert.equal(cleanSeen({ w: 'spot', k: 'Gannet!', x: 1, z: 2 }), null, 'a kind that isn’t one');
   assert.equal(cleanSeen({ w: 'spot', k: 'gannet' }), null, 'nowhere');
@@ -28,7 +28,9 @@ test('a sighting or a photograph as it comes over the wire: plain kinds only, a 
   const many = cleanSeen({ w: 'snap', species: Array.from({ length: 40 }, (_, i) => `fish${i}`), life: ['<b>', 7, 'heron'] });
   assert.equal(many.species.length, 12, 'a dozen at most');
   assert.deepEqual(many.life, ['heron'], 'plain kinds only');
-  assert.equal(cleanSeen({ w: 'snap', bow: true }), null, 'nothing in it');
+  // (J5: a photograph with nothing known in it still goes to the skipper, to count in her voyage;
+  // there's nothing in it for her jobs, and the bow's only with sea life in it, as before.)
+  assert.deepEqual(cleanSeen({ w: 'snap', bow: true }), { w: 'snap', sea: [], life: [], nature: [], species: [], bow: true }, 'nothing in it, still a photograph');
   assert.equal(cleanSeen({ w: 'look', k: 'gannet' }), null);
   assert.equal(cleanSeen('gannet'), null);
 });
