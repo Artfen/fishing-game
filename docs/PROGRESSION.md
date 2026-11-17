@@ -124,4 +124,6 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
 3. **B0 (done, found starting B1):** hulls that meet, solved as a physics engine solves them, not
    sprung: two hulls found overlapped are eased apart, never kicked off at many metres a second;
    a RIB that rams a rowing boat shoves her off as two masses meeting do.
-4. **B1 (done):** added mass in heave, pitch and roll: the boats bob at their real pace.
+4. **W3 (done, the haze):** the horizon without a seam: the haze the sky's own colour along the
+   horizon, the way you look, warm towards a low sun and bright round it.
+5. **B1 (done):** added mass in heave, pitch and roll: the boats bob at their real pace.

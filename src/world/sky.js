@@ -4,18 +4,47 @@ import { clamp, lerp, smoothstep, seeded, mergeParts, mat } from '../util.js';
 // The haze lies low: thick over the sea and the low ground, thinner higher up, so the snow on
 // Hoarfell shows from the bay while the far edges of the land stay lost in it. (The fog's
 // density, for each thing drawn, goes by how high that thing is.)
+// (W3) And the haze is the sky's own colour along the horizon, the way you look (not one colour
+// for the whole view): warm towards a low sun and bright round it, dusk-blue on the far side, the
+// storm's dark, so the far sea and the far shore fade into the sky just above them without a seam.
+// Worked out as the sky dome works out its horizon (skyFrag, at h = 0), in linear light, and
+// turned into the screen's colours as the dome's are. Every hazed material shares these: the same
+// arrays, never copied (three.js copies a uniform's Color or Vector for each material, but keeps a
+// typed array as it is), set once a frame (Environment.update).
+export const HAZE = {
+  hazeSun: { value: new Float32Array(4) },    // the sun's direction; w: how much the haze is the sky's (0: fogColor alone)
+  hazeAway: { value: new Float32Array(3) },   // along the horizon, away from the sun
+  hazeToward: { value: new Float32Array(3) }, // towards it
+  hazeGlow: { value: new Float32Array(3) },   // the warm glow along the horizon round a low sun
+  hazeHalo: { value: new Float32Array(3) },   // the brightness round the sun itself
+  hazeDark: { value: new Float32Array(4) },   // a storm's dark horizon, and how much of it
+  hazeFlash: { value: new Float32Array(4) },  // a lightning flash, and how much
+};
+Object.assign(THREE.UniformsLib.fog, HAZE);
+for (const sh of Object.values(THREE.ShaderLib)) if (sh.uniforms?.fogColor) Object.assign(sh.uniforms, HAZE);
+
 THREE.ShaderChunk.fog_pars_vertex = `#ifdef USE_FOG
   varying float vFogDepth;
   varying float vFogY;
+  varying vec3 vFogDir;
 #endif`;
 THREE.ShaderChunk.fog_vertex = `#ifdef USE_FOG
   vFogDepth = - mvPosition.z;
   vFogY = cameraPosition.y + dot(viewMatrix[1].xyz, mvPosition.xyz);
+  vFogDir = (vec4(mvPosition.xyz, 0.0) * viewMatrix).xyz;
 #endif`;
 THREE.ShaderChunk.fog_pars_fragment = `#ifdef USE_FOG
   uniform vec3 fogColor;
+  uniform vec4 hazeSun;
+  uniform vec3 hazeAway;
+  uniform vec3 hazeToward;
+  uniform vec3 hazeGlow;
+  uniform vec3 hazeHalo;
+  uniform vec4 hazeDark;
+  uniform vec4 hazeFlash;
   varying float vFogDepth;
   varying float vFogY;
+  varying vec3 vFogDir;
   #ifdef FOG_EXP2
     uniform float fogDensity;
   #else
@@ -34,8 +63,34 @@ THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
   #else
     float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
   #endif
-  gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );
+  vec3 fogC = fogColor;
+  if (hazeSun.w > 0.0) {
+    vec3 fogD = normalize(vFogDir);
+    float fogT = dot(normalize(fogD.xz + vec2(1e-5)), normalize(hazeSun.xz + vec2(1e-5))) * 0.5 + 0.5;
+    float fogS = max(dot(fogD, hazeSun.xyz), 0.0);
+    vec3 hz = mix(hazeAway, hazeToward, smoothstep(0.15, 1.0, fogT)) + hazeGlow * (fogT * fogT * fogT * fogT)
+      + hazeHalo * (pow(fogS, 5.0) * 0.16 + pow(fogS, 40.0) * 0.32);
+    hz = mix(mix(hz, hazeDark.rgb, hazeDark.a), hazeFlash.rgb, hazeFlash.a);
+    fogC = mix(fogC, linearToOutputTexel(vec4(hz, 1.0)).rgb, hazeSun.w);
+  }
+  gl_FragColor.rgb = mix( gl_FragColor.rgb, fogC, fogFactor );
 #endif`;
+
+// The haze's colour looking along (dx, dz), in linear light: the fog chunk's sum, for what reads
+// it on the CPU (the fog colour, for what's in view).
+export function hazeAt(dx, dz, out) {
+  const S = HAZE.hazeSun.value, l = Math.hypot(dx, dz) || 1, sl = Math.hypot(S[0], S[2]) || 1;
+  const t = ((dx * S[0] + dz * S[2]) / (l * sl)) * 0.5 + 0.5;
+  const w = smoothstep(0.15, 1, t), t4 = t * t * t * t;
+  const sd = Math.max(0, (dx * S[0] + dz * S[2]) / l), halo = Math.pow(sd, 5) * 0.16 + Math.pow(sd, 40) * 0.32;
+  const A = HAZE.hazeAway.value, B = HAZE.hazeToward.value, Gl = HAZE.hazeGlow.value, Hl = HAZE.hazeHalo.value, D = HAZE.hazeDark.value, F = HAZE.hazeFlash.value;
+  const c = [0, 1, 2].map((i) => {
+    let v = A[i] + (B[i] - A[i]) * w + Gl[i] * t4 + Hl[i] * halo;
+    v += (D[i] - v) * D[3];
+    return v + (F[i] - v) * F[3];
+  });
+  return out.setRGB(c[0], c[1], c[2]);
+}
 
 // Hand-picked colours for each part of the day. Everything else is interpolated.
 const KEYS = [
@@ -163,7 +218,8 @@ void main() {
 const _v = new THREE.Vector3();
 const _f = new THREE.Vector3();
 const _grey = new THREE.Color();
-const _haze = new THREE.Color();
+const _haze = new THREE.Color(), _hA = new THREE.Color();
+const _dusk = new THREE.Color(0.07, 0.035, 0.09);
 
 function towardsGrey(c, amt, dark) {
   const l = (c.r * 0.3 + c.g * 0.59 + c.b * 0.11) * dark;
@@ -197,6 +253,8 @@ export class Environment {
     // A storm (0 … 1) and a lightning flash this frame (0 … 1, set by the storm: see storm.js).
     this.storm = 0;
     this.flash = 0;
+    // (How far under the water the camera is, 0 … 1: see setUnder.)
+    this.under = 0;
     this.flashDir = new THREE.Vector3(1, 0.2, 0);
 
     const light = (this.light = new THREE.DirectionalLight(0xffffff, 3));
@@ -273,6 +331,8 @@ export class Environment {
 
   // While the camera is underwater, the sky behind the surface becomes the water colour.
   setUnder(amount, color) {
+    this.under = amount;
+    HAZE.hazeSun.value[3] = 1 - amount;
     this.skyUniforms.uUnder.value = amount;
     this.skyUniforms.uUnderColor.value.copy(color);
   }
@@ -373,18 +433,27 @@ export class Environment {
     this.hemi.intensity = this.hemiI + this.flash * 3.5;
 
     const fog = this.scene.fog;
-    fog.color.copy(this.horizon).lerp(this.zenith, 0.08);
-    // Looking towards a low sun, the haze glows warm; looking away, it stays cool.
-    camera.getWorldDirection(_f);
-    const fl = Math.hypot(_f.x, _f.z) || 1, sl = Math.hypot(this.sunDir.x, this.sunDir.z) || 1;
-    const facing = Math.max(0, (_f.x * this.sunDir.x + _f.z * this.sunDir.z) / (fl * sl));
     const low = (1 - smoothstep(0.04, 0.45, this.sunDir.y)) * this.daylight * (1 - gloom * 0.7);
-    fog.color.lerp(_haze.copy(this.sunColor).lerp(this.horizon, 0.4), facing * facing * facing * low * 0.45);
+    // The haze, the sky's along the horizon (see HAZE): its colours as the dome makes them there.
+    const H = this.horizon, Z = this.zenith, S = this.sunColor, g = low, Hz = HAZE;
+    const sunVis = smoothstep(-0.12, 0.02, this.sunDir.y) * (1 - gloom * 0.8);
+    Hz.hazeSun.value.set([this.sunDir.x, this.sunDir.y, this.sunDir.z, 1 - this.under]);
+    _haze.copy(Z).multiplyScalar(1.15).add(_dusk).lerp(_hA.copy(H), 1 - 0.42 * g).toArray(Hz.hazeAway.value);
+    _haze.copy(H).multiplyScalar(1.04).add(_hA.copy(S).multiplyScalar(0.1 * g)).toArray(Hz.hazeToward.value);
+    _haze.copy(S).multiplyScalar(0.22 * g).toArray(Hz.hazeGlow.value);
+    _haze.copy(S).multiplyScalar(sunVis).toArray(Hz.hazeHalo.value);
+    // (A storm's sky low and dark right down to the horizon; lightning lighting the haze.)
+    _haze.copy(H).multiplyScalar(0.55).toArray(Hz.hazeDark.value);
+    Hz.hazeDark.value[3] = this.storm * 0.74;
+    _flashC.toArray(Hz.hazeFlash.value);
+    Hz.hazeFlash.value[3] = this.flash * 0.5;
+    // (And as one colour, the way you're looking, for what reads the fog's: what the haze hides
+    // ahead, and the water closing over it when you dive.)
+    camera.getWorldDirection(_f);
+    hazeAt(_f.x, _f.z, fog.color);
     // Early mornings are hazier, before the day warms up.
     const morning = smoothstep(4.5, 5.8, hour) * (1 - smoothstep(7.5, 10, hour));
     fog.density = this.fogBase * (this.air + rain * 2.1 + cloud * 0.25 + morning * 0.65 + this.storm * 0.6);
-    if (this.storm > 0.001) fog.color.multiplyScalar(1 - 0.35 * this.storm);
-    fog.color.lerp(_flashC, this.flash * 0.5);
 
     const su = this.skyUniforms;
     su.uSunColor.value.copy(this.sunColor);
