@@ -98,8 +98,8 @@ export function cleanSeen(d) {
     return dep == null ? null : { w: 'fish', d: Math.round(dep * 10) / 10, b: !!d.b };
   }
   if (d.w === 'snap') {
-    const S = { w: 'snap', sea: ids(d.sea), life: ids(d.life), nature: ids(d.nature), species: ids(d.species), bow: !!d.bow };
-    return S.sea.length || S.life.length || S.nature.length || S.species.length ? S : null;
+    // (J5: one with nothing known in it is still a photograph, for her voyage.)
+    return { w: 'snap', sea: ids(d.sea), life: ids(d.life), nature: ids(d.nature), species: ids(d.species), bow: !!d.bow };
   }
   return null;
 }

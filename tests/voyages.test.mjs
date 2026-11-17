@@ -167,3 +167,49 @@ test('the crew and their fish are kept through a save; an older save has none', 
   // (Names as plain words, and only names.)
   assert.deepEqual(cleanVoyage({ ...JSON.parse(JSON.stringify(V)), crew: ['<b>Bert</b>', 7] }).crew, ['b Bert /b']);
 });
+
+// (J5) The brief's two friends come home "with new discoveries, photographs, a memorable catch
+// and a vessel log documenting their adventure": the dives from her and the photographs taken on
+// her voyage were in the day book, but not in her voyage.
+test('the dives made from her, and the photographs taken, are in her voyage (a crewmate’s as theirs)', () => {
+  const V = start();
+  onVoyage(V, { k: 'dive', at: 'the Hound', m: 12.23, kit: 'scuba' });
+  onVoyage(V, { k: 'dive', at: 'the Hound', m: 3.46, kit: 'scuba', by: 'Bert' });
+  onVoyage(V, { k: 'photo', of: ['bogue'] });
+  onVoyage(V, { k: 'photo', of: ['ballan wrasse', 'bogue', 'a', 'b'], by: 'Bert' });
+  assert.deepEqual(V.dives, [{ at: 'the Hound', m: 12.2, kit: 'scuba' }, { at: 'the Hound', m: 3.5, kit: 'scuba', by: 'Bert' }]);
+  assert.deepEqual([V.photos, V.crewPhotos], [1, 1]);
+  assert.deepEqual(V.snaps, ['bogue', 'ballan wrasse', 'a'], 'what was in them, once each, three a photograph at most');
+  assert.deepEqual(V.crew, ['Bert'], 'a crewmate who dived or took a photograph was aboard');
+  const R = finishVoyage(V, { day: 5, hour: 9, abs: 5 * 24 + 9, to: 'Willowhaven' });
+  assert.match(papersLine(R), /, 2 dives, with Bert\.$/);
+  const W = voyageWords(R, { boat: () => 'RIB' });
+  assert.ok(W.lines.includes('Dived at the Hound, to 12.2 m; Bert dived at the Hound, to 3.5 m.'), JSON.stringify(W.lines));
+  assert.ok(W.lines.includes('Two photographs (one of them Bert’s), of bogue, ballan wrasse and a.'), JSON.stringify(W.lines));
+  // (A freedive; all the photographs a crewmate's.)
+  const V2 = start();
+  onVoyage(V2, { k: 'dive', at: '', m: 4, kit: 'free' });
+  onVoyage(V2, { k: 'photo', of: [], by: 'Bert' });
+  const W2 = voyageWords(finishVoyage(V2, { day: 4, hour: 12, abs: 4 * 24 + 12, to: 'Willowhaven' }));
+  assert.ok(W2.lines.includes('Freedived, to 4.0 m.') && W2.lines.includes('One photograph (all Bert’s).'), JSON.stringify(W2.lines));
+});
+
+test('a dive made from her makes a voyage of a short trip; kept through a save, an older save has none', () => {
+  const V = start();
+  onVoyage(V, { k: 'move', m: 300, x: 0, z: 300 });
+  const when = { day: 4, abs: V.abs + 1.5, offshoreAt: 1500 };
+  assert.equal(worthKeeping(V, when), false, 'a turn round the bay');
+  onVoyage(V, { k: 'dive', at: 'the Wend', m: 6, kit: 'scuba' });
+  assert.equal(worthKeeping(V, when), true, 'with a dive in it, a voyage');
+  onVoyage(V, { k: 'photo', of: ['bass'] });
+  const back = cleanVoyage(JSON.parse(JSON.stringify(V)));
+  assert.deepEqual([back.dives, back.photos, back.crewPhotos, back.snaps], [[{ at: 'the Wend', m: 6, kit: 'scuba' }], 1, 0, ['bass']]);
+  const R = cleanVoyages([JSON.parse(JSON.stringify(finishVoyage(V, { day: 4, hour: 9, abs: V.abs + 1.5, to: 'Willowhaven' })))])[0];
+  assert.deepEqual([R.dives.length, R.photos, R.snaps], [1, 1, ['bass']]);
+  const { dives, photos, crewPhotos, snaps, ...old } = JSON.parse(JSON.stringify(V));
+  const O = cleanVoyage(old);
+  assert.deepEqual([O.dives, O.photos, O.crewPhotos, O.snaps], [[], 0, 0, []]);
+  // (Odd values made sensible: a kit that isn't one is scuba, a depth that isn't a number none.)
+  const odd = cleanVoyage({ ...JSON.parse(JSON.stringify(V)), dives: [{ at: '<b>x</b>', m: 'deep', kit: 'jet' }, 7] });
+  assert.deepEqual(odd.dives, [{ at: 'b x /b', m: 0, kit: 'scuba' }]);
+});
