@@ -85,6 +85,11 @@ counts the night it ran into). No page errors.
 - Home in the next day's stiffer blow (heaving 1.1 m against 0.16 m going out), and tied up.
 - "Out to the Hound: 1.1 nm, 1 night out" goes in her papers, and Bert's mackerel in his log, from the RIB.
 
+**On J4's tree**, Bert's mackerel, landed from her at the feed, is in her voyage as his. Her papers
+say "Out to the Hound: 1.1 nm, 1 night out, 1 fish, with Bert.", and the mackerel is the best of the
+voyage, his. Every other step passes but one: no fish came within 15 m of Mags on the reef that time
+(the world's doing). No page errors.
+
 ## What it found
 
 ### In the game, to fix
