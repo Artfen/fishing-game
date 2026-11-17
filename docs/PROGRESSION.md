@@ -94,6 +94,8 @@ home) is played by two game clients together, step by step, as a player would
 (`tools/playthrough.mjs`). What it found, and the order of the fixes, is in `docs/PLAYTHROUGH.md`:
 
 1. **J1 (done):** the playthrough itself, and its findings written up.
+   - **J1b (done):** one boat whose position goes wrong no longer takes every boat with it (and
+     the game with them); she's put back where she last was.
 2. **J2:** diving together from one boat (the crewmate stays aboard while the skipper dives, and
    can go over the side and climb back aboard too); a scuff no longer hiding the dive; a friend's
    second boat of a kind drawn for everyone.

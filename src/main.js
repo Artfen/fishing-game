@@ -6,6 +6,7 @@ import { Cloud } from './cloud.js';
 import { Together, cleanName, suggestName, NAME_MAX, CALLS, PAID_MAX } from './together.js';
 import { setupOffline, offline, applyUpdate, checkForUpdate } from './offline.js';
 import { RELEASE, BUILD, BUILT } from './version.js';
+import { keepApart, keepFinite } from './apart.js';
 import { frameLoop } from './loop.js';
 import { DIFFICULTY, DIFFICULTY_IDS, DRAG_LEVELS, DRAG_NAMES, breakReason } from './fight.js';
 import { LAND_WAYS } from './landing.js';
@@ -13959,21 +13960,14 @@ function feelBoat(motorOn, outboard, voice) {
 // The boats bump gently instead of sailing through each other.
 function keepBoatsApart() {
   const all = strays.size ? [...boats, ...strays.values()] : boats;
-  for (let i = 0; i < all.length; i++) {
-    for (let j = i + 1; j < all.length; j++) {
-      const A = all[i], B = all[j], a = A.pos, b = B.pos;
-      const gap = (A.hull.B + B.hull.B) * 1.35;
-      const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz);
-      if (d >= gap || d < 1e-4) continue;
-      const nx = dx / d, nz = dz / d, push = (gap - d) / 2;
-      a.x -= nx * push; a.z -= nz * push;
-      b.x += nx * push; b.z += nz * push;
-      for (const [v, s] of [[A.vel, -1], [B.vel, 1]]) {
-        const vn = (v.x * nx + v.z * nz) * s;
-        if (vn < 0) { v.x -= nx * vn * s; v.z -= nz * vn * s; }
-      }
-    }
-  }
+  keepApart(all);
+  // (And none left nowhere: see apart.js. Said in the console, with which and where, so the cause
+  // can be found if it ever happens.)
+  keepFinite(all, (b, at) => {
+    console.warn(`Slow Tide: the ${b.id || b.kind} had lost her position${at ? `; put back where she last was (${at.x.toFixed(1)}, ${at.z.toFixed(1)})` : ''}.`);
+    const H = at || { x: 0, z: 0, h: 0 };
+    b.place(H.x, H.z, H.h);
+  });
 }
 const _rf = new THREE.Vector3();
 // Everything that has to happen to put a frame on screen: the ripple field (centred
