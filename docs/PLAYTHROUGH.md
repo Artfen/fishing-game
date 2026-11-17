@@ -71,8 +71,6 @@ counts the night it ran into). No page errors.
 - From the crew menu, Bert goes over the side after her, on scuba.
 - Mags's photograph is kept, her safety stop done, and she's back aboard and at the helm.
 - Bert climbs back aboard Mags's RIB (*Climb aboard Mags's RIB*), her crew again.
-- She had scuffed her bow on the quay going out ("Her bow scuffed on the quay", in her papers), and
-  the dive still showed.
 - That day the feed moved off before a fish took (re-aimed twice, ten casts), so there was no fish
   and nothing for Bert's log: the world's doing, not the game's.
 - No page errors.
