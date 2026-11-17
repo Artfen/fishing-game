@@ -4966,6 +4966,8 @@ export class Boat {
       ground: solidHeight,
       contact: null,
     });
+    // (B2) How the waves here fade with depth, and the still level they rise and fall about.
+    env.sea = this._ws;
     // A bow trolling motor (see trolling.js): its push under the bow, the way its head points. (It
     // lifts out in a big sea as her bow does, and pushes nothing while it's out: vent.)
     // (At its propeller, wherever her mount puts it: off to starboard, forward of her bow.)

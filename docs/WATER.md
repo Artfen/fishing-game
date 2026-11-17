@@ -209,3 +209,37 @@ included). The full table, with each LICENSE file read, is in the two research n
 
   Still to do from W4's line in the plan: the bottom seen through the moving surface, bent by it
   (Ocean: Full).
+
+- **B2:** the waves below the surface. A wave's pressure and its orbital motion fade with depth,
+  as exp(−k·depth): a short sea's within a metre or two, a long swell's hardly at all over a
+  boat's draft. For the sea where she is, two wavenumbers stand for all its waves: one averaged by
+  each wave's share of the height, for the pressure, and one by its share of the water's motion,
+  for the flow, which leans to the shorter waves (in a fresh breeze about 17 m and 13 m
+  wavelengths). Three things follow:
+  - **Her hull's pressure follows Smith's correction.** Under a crest the pressure at her keel is
+    less than the surface above would say, under a trough more, and deep down it's the still
+    water's. A hull held still in a 6 m sea, its crests 10 cm up, now feels this share of the heave force
+    she felt before:
+
+    | Rowing | Skiff | Cabin | RIB | Yacht |
+    | --- | --- | --- | --- | --- |
+    | 0.91 | 0.90 | 0.82 | 0.85 | 0.62 |
+
+    In a 20 m sea, 0.87 to 0.97. In still water, at any tide, nothing changes.
+  - **The water's motion round her hull fades the same way:** what drags at her bottom is the
+    water moving at its own depth.
+  - **Her keel, rudders, centreboard and outboard's leg feel the waves' motion**, not just the
+    current. Before, they felt only her own way through the water. On a following sea's crest the
+    water runs on with her, so her rudder grips less; in the trough it bites harder. Going ahead
+    at 3 m/s on a sea 20 m long, its crests half a metre up, her rudder's grip on the crest is a third of
+    what it is in the trough: ((U − u)/(U + u))², u the wave's motion at the rudder's depth. Before,
+    the same either way. Lying across a sea, the water's to-and-fro pushes at her keel.
+
+  Running before an 11 m/s sea with the helm amidships, she now yaws as boats do in a following
+  sea (yaw rate RMS, main then B2: the RIB 0.015 to 0.019 rad/s, the skiff 0.003 to 0.007, the
+  yacht 0.018 to 0.019, her heading wandering 7° where it wandered 6°). Her roll is a little
+  gentler (the yacht 3.1° to 2.3° RMS), and the RIB's worst slam into a head sea 4.4 g to 4.3 g.
+
+  Still to do from B2's line in the plan: the propeller. It already feels the waves' rise and
+  fall, racing as it comes out on a crest; its push with the speed of the water into it, the
+  waves' motion included, comes with B4 (thrust with speed).

@@ -169,6 +169,7 @@ export class Patch {
     if (key === this.key) return false;
     this.key = key;
     const N = this.N, dk = TAU / this.L, norm = m0 / jonswapTotal(peakFrequency(u));
+    let m0b = 0, m1b = 0, m2b = 0;
     for (let q = 0; q < N * N; q++) {
       const kx = this.kx[q], kz = this.kz[q], k = Math.hypot(kx, kz);
       const i = q % N, j = (q / N) | 0;
@@ -177,9 +178,14 @@ export class Patch {
         this.amp[q] = 0;
         continue;
       }
-      const P = spectrum2D(kx, kz, u, to) * dk * dk * norm * this.band(k);
-      this.amp[q] = Math.sqrt(Math.max(0, P) / 2);
+      const P = Math.max(0, spectrum2D(kx, kz, u, to) * dk * dk * norm * this.band(k));
+      this.amp[q] = Math.sqrt(P / 2);
+      m0b += P; m1b += P * k; m2b += P * k * k;
     }
+    // (B2) The band's height variance and its first two moments in wavenumber: how fast, on
+    // average, its rise and fall and its orbital motion die away below the surface (see
+    // conditions.js waveSampler).
+    this.m = [m0b, m1b, m2b];
     return true;
   }
 }
