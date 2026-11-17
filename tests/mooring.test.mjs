@@ -141,6 +141,8 @@ test('every jetty and quay has a berth alongside; she lies along it and stays th
       for (const side of [-1, 1]) for (let u = 0.15; u <= 0.85 && !B; u += 0.1) {
         const x = long ? P.x0 + (P.x1 - P.x0) * u : (side < 0 ? P.x0 - 2.4 : P.x1 + 2.4);
         const z = long ? (side < 0 ? P.z0 - 2.4 : P.z1 + 2.4) : P.z0 + (P.z1 - P.z0) * u;
+        // (Each place tried and passed over taken off the water, so she isn't put down among them.)
+        if (b) b.group.visible = false;
         b = boatAt(kind, x, z, long ? Math.PI / 2 : 0);
         if (solidHeight(x, z) > -(b.hull.draft + 0.2)) continue;
         B = M.berthFor(b, []);
@@ -168,6 +170,9 @@ test('every jetty and quay has a berth alongside; she lies along it and stays th
       assert.ok(!b.tie && b.lines.every((l) => !l.mesh.visible) && b.fenders.every((f) => !f.visible));
       const out = along ? Math.min(Math.abs(b.pos.z - Q.z0), Math.abs(b.pos.z - Q.z1)) : Math.min(Math.abs(b.pos.x - Q.x0), Math.abs(b.pos.x - Q.x1));
       assert.ok(out > gap, 'she drifts clear of the pier');
+      // (And off the water, so the next kind isn't tied up on top of her: she lies just off this
+      // berth, and for its first moments she's a boat it would rightly be pushed out of.)
+      b.group.visible = false;
     }
   });
 });
