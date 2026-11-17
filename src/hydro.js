@@ -24,6 +24,9 @@ import { hypot2, hypot3, hypot4 } from './hypot.js';
 import { CHAMBER_SPLIT, chamberAt } from './damage.js';
 
 export const RHO = 1025;   // sea water, kg/m³
+// (B1) Added mass in heave, as a share of RHO × waterline beam × waterplane area (see buildHullModel).
+export const ADDED_K = 0.09;
+const smooth01 = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 export const G = 9.81;
 
 // Meeting a quay or another hull (contactForces): how fast at most a hull found inside another is
@@ -291,6 +294,17 @@ export function buildHullModel(H) {
   model.inertia = [m * (0.25 * L) ** 2, m * (0.25 * L) ** 2, m * (0.38 * Bf) ** 2];
   model.wetted = hs.wetted;
   model.waterplane = hs.waterplane;
+  // (B1) The water a hull has to move as she heaves, pitches and rolls: her added mass. Without
+  // it a light boat bobs like a toy, faster than a real one. From her waterline beam and waterplane
+  // (a heaving strip of hull carries water about as wide as it is: Lewis, and Kerner Part 2, who
+  // left it out of Just Cause 3), about one to two times her own mass for the light open boats and
+  // less for the heavy ones; in pitch, that along her length; in roll, a little. Into her mass,
+  // not as a force (as a force it's unstable), and only as much as she's in the water.
+  const bWl = hs.waterplane / (0.7 * L);
+  model.addedHeave = Math.min(2 * m, Math.max(0.3 * m, ADDED_K * RHO * bWl * hs.waterplane));
+  model.addedPitch = model.addedHeave * L * L * 0.07;
+  model.addedRoll = model.inertia[2] * 0.15;
+  model.length = L;
   // (Her stiffness in roll from her waterplane alone, N·m a radian: what a wave's slope works
   // against, whatever she weighs.)
   model.rollK = RHO * G * hs.iwp;
@@ -1306,16 +1320,24 @@ export class HydroBody {
         fz -= (1 - k) * al * uz;
       }
     }
-    v[0] += (fx / m) * h; v[1] += (this.F[1] / m) * h; v[2] += (fz / m) * h;
+    // (B1: up and down, and pitching and rolling, she moves the water round her too: as much of it
+    // as she's in. Out of the water, off a crest, her own mass alone.)
+    // (On the plane she rides a thin sheet of water racing under her, whose push her hull's pressures
+    // already carry, lift and slam: what she carries with her fades out as she climbs onto it, from
+    // her hull speed (Froude 0.4) to fully planing (Froude 1).)
+    const md = this.model, fn = hypot2(v[0] - this.current[0], v[2] - this.current[1]) / Math.sqrt(G * md.length);
+    const wet = (md.wetted > 0 ? Math.min(1, this.submerged / md.wetted) : 0) * (1 - smooth01((fn - 0.4) / 0.6));
+    v[0] += (fx / m) * h; v[1] += (this.F[1] / (m + md.addedHeave * wet)) * h; v[2] += (fz / m) * h;
     x[0] += v[0] * h; x[1] += v[1] * h; x[2] += v[2] * h;
     // Angular: in her own frame, where the inertia is diagonal.
     const T = this.Tq;
     const tl0 = R[0] * T[0] + R[3] * T[1] + R[6] * T[2], tl1 = R[1] * T[0] + R[4] * T[1] + R[7] * T[2], tl2 = R[2] * T[0] + R[5] * T[1] + R[8] * T[2];
     let wl0 = R[0] * w[0] + R[3] * w[1] + R[6] * w[2], wl1 = R[1] * w[0] + R[4] * w[1] + R[7] * w[2], wl2 = R[2] * w[0] + R[5] * w[1] + R[8] * w[2];
-    const Iw0 = I[0] * wl0, Iw1 = I[1] * wl1, Iw2 = I[2] * wl2;
+    const I0 = I[0] + md.addedPitch * wet, I2 = I[2] + md.addedRoll * wet;
+    const Iw0 = I0 * wl0, Iw1 = I[1] * wl1, Iw2 = I2 * wl2;
     // (Euler's equations: the gyroscopic term ω × Iω.)
     const g0 = wl1 * Iw2 - wl2 * Iw1, g1 = wl2 * Iw0 - wl0 * Iw2, g2 = wl0 * Iw1 - wl1 * Iw0;
-    wl0 += ((tl0 - g0) / I[0]) * h; wl1 += ((tl1 - g1) / I[1]) * h; wl2 += ((tl2 - g2) / I[2]) * h;
+    wl0 += ((tl0 - g0) / I0) * h; wl1 += ((tl1 - g1) / I[1]) * h; wl2 += ((tl2 - g2) / I2) * h;
     // (A whisper of damping, so nothing hums forever.)
     const damp = Math.exp(-0.05 * h);
     wl0 *= damp; wl1 *= damp; wl2 *= damp;
