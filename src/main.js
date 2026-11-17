@@ -13995,6 +13995,8 @@ function tick(now, manual = false) {
   wu.uLights.value[0].set(_lp.x, _lp.y, _lp.z, boat.hasLantern ? boat.lanternLevel : 0);
   wu.uLights.value[1].set(world.lampPos.x, world.lampPos.y, world.lampPos.z, env.lantern);
   water.follow(camera.position);
+  // (W4) The sea's water, for all that's seen through it.
+  water.seaLight(env.lightDir, env.under || 0);
 
   // The boat's sonar reads under the hull; on foot it reads around your rig once it's in the water.
   // (E1: and the water's warmth at each depth there, for its layers: see sonarRead.js.)

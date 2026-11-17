@@ -21,6 +21,14 @@ const SCENES = [
   { name: 'fresh-afternoon-away', wind: 11, hour: 15.5, x: -60, z: 450, h: 3, view: 'away', pitch: 0.1 },
   { name: 'fresh-afternoon-down', wind: 11, hour: 15.5, x: -60, z: 450, h: 2.4, view: 'cross', pitch: 0.42 },
   { name: 'storm', wind: 20, hour: 13, weather: 'storm', x: -60, z: 450, h: 4, view: 'cross', pitch: 0.08 },
+  // (W4) The shallows off the beach east of the camp (dry at z 32, 8 m down by z 58): looking down
+  // into a metre or three of water, and in from 9 m over the sand to the beach. at: the camera
+  // and what it looks at, in place of the view.
+  { name: 'shallows-noon-down', wind: 3, hour: 12.5, x: 100, z: 52, at: [96, 3.2, 47, 100, -1.6, 37] },
+  { name: 'shallows-noon-in', wind: 3, hour: 12.5, x: 100, z: 76, at: [100, 4.2, 74, 100, -0.4, 34] },
+  { name: 'shallows-evening-in', wind: 3, hour: 18.5, x: 100, z: 76, at: [100, 4.2, 74, 100, -0.4, 34] },
+  // (The same shallows as clear as Las Brasas' water: clear, its clarity on.)
+  { name: 'shallows-clear-down', wind: 3, hour: 12.5, x: 100, z: 52, clear: 1, at: [96, 3.2, 47, 100, -1.6, 37] },
 ];
 const save = { game: 'slow-tide', version: 6, savedAt: 1, data: {
   quality: 'high', vessel: 'rib', mode: 'boat', day: 200, hour: 12, money: 4000,
@@ -44,6 +52,7 @@ for (const S of SCENES) {
     slowTide.setWeather(S.weather || 'clear');
     slowTide.setRain(S.weather === 'storm' ? 0.6 : 0);
     slowTide.teleport(S.x, S.z, 0);
+    slowTide.scene.traverse((o) => { if (o.material?.uniforms?.uClear) o.material.uniforms.uClear.value = S.clear || 0; });
     // (Manual wind, and the sea let build to it; then the hour, straight to it.)
     slowTide.setWind(S.wind / 12, 225 * Math.PI / 180);
     slowTide.advance(70, 20, false);
@@ -58,13 +67,14 @@ for (const S of SCENES) {
     const yaw = S.view === 'sun' ? sunYaw : S.view === 'away' ? sunYaw + Math.PI : sunYaw + Math.PI / 2;
     const cx = S.x + 6, cz = S.z + 6;
     const y = S.h, tx = cx + Math.sin(yaw) * 20, tz = cz + Math.cos(yaw) * 20, ty = y - 20 * Math.tan(S.pitch);
-    window.__view = [cx, y, cz, tx, ty, tz];
+    window.__view = S.at || [cx, y, cz, tx, ty, tz];
     slowTide.look(cx, y, cz, tx, ty, tz);
     return { hour: +slowTide.clock.hour.toFixed(2), wind: +slowTide.conditions.wind.speed.toFixed(1), sea: Object.fromEntries(Object.entries(slowTide.conditions.sea).map(([k, v]) => [k, typeof v === 'number' ? +v.toFixed(2) : v])), sun: [+L.x.toFixed(2), +L.y.toFixed(2), +L.z.toFixed(2)] };
   }, S);
   await page.waitForTimeout(1300);
   await page.evaluate(() => { slowTide.advance(0.05, 20, false); slowTide.look(...window.__view); });
-  await page.screenshot({ path: `${OUT}/${S.name}.png` });
+  // (Close in to the shore a frame takes long in software rendering.)
+  await page.screenshot({ path: `${OUT}/${S.name}.png`, timeout: 180000 });
   console.log(S.name, JSON.stringify(info));
 }
 console.log(errs.length ? errs.slice(0, 5).join('\n') : 'no page errors');

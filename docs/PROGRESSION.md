@@ -127,3 +127,5 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
 4. **W3 (done, the haze):** the horizon without a seam: the haze the sky's own colour along the
    horizon, the way you look, warm towards a low sun and bright round it.
 5. **B1 (done):** added mass in heave, pitch and roll: the boats bob at their real pace.
+6. **W4 (first part, done):** the water's colour from light in water: the seabed and all under the
+   sea seen through it as it is, red taken first, turquoise over sand, Las Brasas clear and blue.

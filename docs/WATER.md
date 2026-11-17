@@ -182,3 +182,30 @@ included). The full table, with each LICENSE file read, is in the two research n
   Driven across an 11 m/s sea, the ride is as it was (vertical jolts at the helm within about 10%
   at every speed); at rest and at a walking pace she bobs at a boat's pace, settling over about
   three swings, not a toy's two.
+
+- **W4 (first part):** the water's colour from light in water. The sea was a see-through layer
+  over the seabed, its opacity rising with depth, every colour dimmed alike: the sand in a metre or
+  three of water was a flat painted turquoise under a milky veil, and Las Brasas' clear water,
+  thinned to show the reef, was a milky wash over pale sand. Now, seen from above, everything under
+  the sea (the seabed and its rocks, the fish, a hull below her waterline, a diver) is seen through
+  the water as it really is: each colour taken up along the light's way down from the sky and back
+  up to the eye (Snell's law for both), red first, and the water's own glow in its place, the more
+  water the more of it. This coast's water is coastal (a summer Secchi depth of about ten metres:
+  red gone in a couple of metres, blue sooner than green), Las Brasas' clear and blue (25 m and
+  more); silt after a blow and a storm's churn take everything faster. The surface itself is what
+  it reflects (the sky, the sun's glitter, the foam) and, through the rest, what's under it; only
+  where the bottom's too deep to show does the water's own colour stand in for it, so the open sea
+  is as it was. Two things that never showed under the old veil came out with it, and are put right:
+  sand under the water is wet sand, darker, and the caustics gather light into their bright lines
+  from the dimmer patches between (as much light on average) instead of only adding it. Under the
+  water, as before. The same views, before and after:
+
+  | | Before | After |
+  | --- | --- | --- |
+  | A metre or three over sand, noon | ![](water/shallows-before.jpg) | ![](water/shallows-after.jpg) |
+  | In towards the beach, evening | ![](water/shallows-evening-before.jpg) | ![](water/shallows-evening-after.jpg) |
+  | The same shallows as clear as Las Brasas' | ![](water/clear-before.jpg) | ![](water/clear-after.jpg) |
+  | Diving, three metres down | ![](water/dive-before.jpg) | ![](water/dive-after.jpg) |
+
+  Still to do from W4's line in the plan: the bottom seen through the moving surface, bent by it
+  (Ocean: Full).

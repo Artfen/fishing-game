@@ -99,6 +99,8 @@ function waterMaterial() {
     }]),
     vertexShader: VERT,
     fragmentShader: FRAG,
+    // (Its own water's colour: not tinted as the sea's, W4.)
+    defines: { NO_WATER_TINT: 1 },
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,

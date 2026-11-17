@@ -19,6 +19,13 @@ export const HAZE = {
   hazeHalo: { value: new Float32Array(3) },   // the brightness round the sun itself
   hazeDark: { value: new Float32Array(4) },   // a storm's dark horizon, and how much of it
   hazeFlash: { value: new Float32Array(4) },  // a lightning flash, and how much
+  // (W4) The sea, for everything seen through it from above: where its surface stands, how much
+  // it counts (0 with the eye under it), and the sun's way down through it (the cosine of its
+  // angle in the water); how strongly it takes up red, green and blue, per metre; and its glow
+  // (linear). Set by water.js seaLight.
+  hazeSea: { value: new Float32Array(4) },
+  hazeSigma: { value: new Float32Array(3) },
+  hazeWater: { value: new Float32Array(3) },
 };
 Object.assign(THREE.UniformsLib.fog, HAZE);
 for (const sh of Object.values(THREE.ShaderLib)) if (sh.uniforms?.fogColor) Object.assign(sh.uniforms, HAZE);
@@ -42,6 +49,9 @@ THREE.ShaderChunk.fog_pars_fragment = `#ifdef USE_FOG
   uniform vec3 hazeHalo;
   uniform vec4 hazeDark;
   uniform vec4 hazeFlash;
+  uniform vec4 hazeSea;
+  uniform vec3 hazeSigma;
+  uniform vec3 hazeWater;
   varying float vFogDepth;
   varying float vFogY;
   varying vec3 vFogDir;
@@ -63,6 +73,28 @@ THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
   #else
     float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
   #endif
+  #ifndef NO_WATER_TINT
+  // (W4) Seen from above the sea, anything under its surface (the seabed and its rocks, the fish,
+  // a hull below her waterline, a diver) is seen through the water: each colour taken up along the
+  // way the light came, down from the sky to it and back up to the eye (red first, in a metre or
+  // two), and the water's own glow in its place, the more of it the more water between. (In this
+  // chunk the colour's already the screen's, so the light let through and the glow go into the
+  // screen's colours too.)
+  if (hazeSea.y > 0.0 && vFogY < hazeSea.x) {
+    float wd = hazeSea.x - vFogY;
+    float wc = abs(normalize(vFogDir).y);
+    float wmu = sqrt(max(1.0 - (1.0 - wc * wc) / 1.777, 0.05));
+    vec3 wtv = exp(-hazeSigma * wd / wmu);
+    vec3 wt = wtv * exp(-hazeSigma * wd / max(hazeSea.z, 0.2));
+    vec3 wg = hazeWater;
+    #ifdef TONE_MAPPING
+      wg = toneMapping(wg);
+    #endif
+    vec3 wseen = gl_FragColor.rgb * linearToOutputTexel(vec4(wt, 1.0)).rgb
+      + linearToOutputTexel(vec4(wg, 1.0)).rgb * (1.0 - linearToOutputTexel(vec4(wtv, 1.0)).rgb);
+    gl_FragColor.rgb = mix(gl_FragColor.rgb, wseen, hazeSea.y);
+  }
+  #endif
   vec3 fogC = fogColor;
   if (hazeSun.w > 0.0) {
     vec3 fogD = normalize(vFogDir);
@@ -73,7 +105,11 @@ THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
     hz = mix(mix(hz, hazeDark.rgb, hazeDark.a), hazeFlash.rgb, hazeFlash.a);
     fogC = mix(fogC, linearToOutputTexel(vec4(hz, 1.0)).rgb, hazeSun.w);
   }
-  gl_FragColor.rgb = mix( gl_FragColor.rgb, fogC, fogFactor );
+  #ifdef PREMULTIPLIED_ALPHA
+    gl_FragColor.rgb = mix( gl_FragColor.rgb, fogC * gl_FragColor.a, fogFactor );
+  #else
+    gl_FragColor.rgb = mix( gl_FragColor.rgb, fogC, fogFactor );
+  #endif
 #endif`;
 
 // The haze's colour looking along (dx, dz), in linear light: the fog chunk's sum, for what reads
