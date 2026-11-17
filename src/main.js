@@ -6,7 +6,7 @@ import { Cloud } from './cloud.js';
 import { Together, cleanName, suggestName, NAME_MAX, CALLS, PAID_MAX } from './together.js';
 import { setupOffline, offline, applyUpdate, checkForUpdate } from './offline.js';
 import { RELEASE, BUILD, BUILT } from './version.js';
-import { keepApart, keepFinite } from './apart.js';
+import { keepApart, keepFinite, keepClear } from './apart.js';
 import { frameLoop } from './loop.js';
 import { DIFFICULTY, DIFFICULTY_IDS, DRAG_LEVELS, DRAG_NAMES, breakReason } from './fight.js';
 import { LAND_WAYS } from './landing.js';
@@ -13710,7 +13710,7 @@ function tick(now, manual = false) {
     windLines.update(dt, t, _wl, started && !modal && (L === 'always' ? !dive : L === 'sailing' && sailing), camera);
   }
   updateTow(dt);
-  keepBoatsApart();
+  keepBoatsApart(dt);
   if (cabinIn) placeInCabin(dt);
   if (dive) {
     if (!modal) updateDive(dt);
@@ -14170,13 +14170,18 @@ function feelBoat(motorOn, outboard, voice) {
 }
 
 // The boats bump gently instead of sailing through each other.
-function keepBoatsApart() {
+function keepBoatsApart(dt) {
   const all = strays.size ? [...boats, ...strays.values()] : boats;
   keepApart(all);
+  // (J1c) And yours eased clear of a friend's, which only their game moves: see apart.js. (Out of a
+  // session, none: any she was sliding clear of is let go.)
+  keepClear(all, together.active ? visitors.boats() : undefined, dt);
   // (And none left nowhere: see apart.js. Said in the console, with which and where, so the cause
   // can be found if it ever happens.)
   keepFinite(all, (b, at) => {
-    console.warn(`Slow Tide: the ${b.id || b.kind} had lost her position${at ? `; put back where she last was (${at.x.toFixed(1)}, ${at.z.toFixed(1)})` : ''}.`);
+    // (J1c: and where it first came from, if from her own physics: hydro.js check.)
+    const N = b.phys?.nanAt, X = b.phys?.blowAt;
+    console.warn(`Slow Tide: the ${b.id || b.kind} had lost her position${at ? `; put back where she last was (${at.x.toFixed(1)}, ${at.z.toFixed(1)})` : ''}.${N ? ` First in her ${N.stage}: ${JSON.stringify(N)}` : ' Her physics were sound: it came from outside them.'}${X ? ` Before that, a blow in her ${X.stage}: ${JSON.stringify(X)}` : ''}${b.phys?.blowFirst && b.phys.blowFirst !== X ? ` The first ever: ${JSON.stringify(b.phys.blowFirst)}` : ''}`);
     const H = at || { x: 0, z: 0, h: 0 };
     b.place(H.x, H.z, H.h);
   });
