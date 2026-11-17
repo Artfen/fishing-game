@@ -71,11 +71,19 @@ counts the night it ran into). No page errors.
 - From the crew menu, Bert goes over the side after her, on scuba.
 - Mags's photograph is kept, her safety stop done, and she's back aboard and at the helm.
 - Bert climbs back aboard Mags's RIB (*Climb aboard Mags's RIB*), her crew again.
-- She had scuffed her bow on the quay going out ("Her bow scuffed on the quay", in her papers), and
-  the dive still showed.
 - That day the feed moved off before a fish took (re-aimed twice, ten casts), so there was no fish
   and nothing for Bert's log: the world's doing, not the game's.
 - No page errors.
+
+**On J3's tree**, the whole day passes, every step, with no page errors:
+
+- Out with a bivvy roll among her kit (106 kg aboard).
+- A mackerel to Bert on the first cast into the feed.
+- Both dive on the Hound and climb back aboard.
+- At 21:38, anchored on the shelf, Mags turns in on her deck. Bert's game shows "Mags turns in. You unroll the other bivvy on her deck and sleep…".
+- They wake at 04:19 the next day, still at anchor, each to the other stirring in the other bag.
+- Home in the next day's stiffer blow (heaving 1.1 m against 0.16 m going out), and tied up.
+- "Out to the Hound: 1.1 nm, 1 night out" goes in her papers, and Bert's mackerel in his log, from the RIB.
 
 ## What it found
 
@@ -206,3 +214,5 @@ In `docs/playthrough/` (runs 15 and 16):
 - `landed.jpg`: the mackerel just landed and kept, from Bert's side of the RIB.
 - `dive.jpg`: Mags on the Hound at 12 m; Bert's marker says where the bug had put him.
 - `home-rough.jpg`: home after dark in a 37 km/h wind, her wake glowing with plankton.
+- `bivvy-aboard.jpg` (J3): the bivvy roll strapped on her deck beside the stores crate, at the pontoon.
+- `night-aboard.jpg` (J3): dawn at anchor on the Hound's shelf, both of them aboard after the night.
