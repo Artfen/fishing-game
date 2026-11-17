@@ -26,6 +26,16 @@ import { CHAMBER_SPLIT, chamberAt } from './damage.js';
 export const RHO = 1025;   // sea water, kg/m³
 export const G = 9.81;
 
+// Meeting a quay or another hull (contactForces): how fast at most a hull found inside another is
+// eased out (m/s); how much of an overlap is taken up each step (Baumgarte's factor) and how much
+// is let be, so a hull lying against a quay doesn't chatter; how much a hard knock bounces her off;
+// and how many passes the touching points share their pushes over.
+export const CONTACT_PUSH = 0.5;
+export const CONTACT_BETA = 0.2;
+export const CONTACT_SLOP = 0.01;
+export const CONTACT_E = 0.3;
+export const CONTACT_ITERS = 6;
+
 // Momentum under way. A hull's resistance curve and the push that drives her against it (see
 // hullForces, boat.js) are each several times a real boat's (they balance at the same speeds, so
 // every boat makes her real top speed, and the hull grips and turns as a real one does); but
@@ -813,7 +823,7 @@ export class HydroBody {
     if (!this.nanAt) this.check('ropes');
     this.groundForces(env);
     if (!this.nanAt) this.check('ground');
-    if (env.contact) this.contactForces(env);
+    if (env.contact) this.contactForces(env, h);
     if (!this.nanAt) this.check('contact');
     this.crewForces();
     if (!this.nanAt) this.check('crew');
@@ -1104,9 +1114,24 @@ export class HydroBody {
     }
   }
 
-  // Piers, quays and other hulls (the boat works out what's there: see boat.js).
-  contactForces(env) {
-    const ring = this.model.ring, hit = this.hit;
+  // Piers, quays and other hulls (the boat works out what's there: see boat.js), met as a contact
+  // solver meets them (sequential impulses: Catto, "Iterative Dynamics with Temporal Coherence",
+  // GDC 2005, as Box2D and Bullet do): each point of her ring that's touching takes the push that
+  // stops it going in and no more, a hard knock bouncing her off a little (CONTACT_E); a point
+  // found inside a quay or another hull is eased out at no more than CONTACT_PUSH; and the rub
+  // along it (as they move against each other) holds her up to mu times that push. Worked out
+  // together, a few times over, so a dozen points touching at once share it. Another boat out on
+  // the water under her own physics gives as much as she weighs (f.so, one over her mass): the push
+  // is the two of them meeting, and she takes her equal and opposite share (her vel nudged: see
+  // boat.js update), so a RIB that rams a rowing boat shoves her off as two boats meeting do.
+  // (Before, each point was a stiff spring with a damper of its own: with a dozen touching, their
+  // sum was more than one step could carry, and a boat lying across another, or pinned on a quay,
+  // was kicked off at many metres a second or shook from side to side for good; and the other boat
+  // was met as a quay, the rowing boat nudged off at half a metre a second whatever hit her.)
+  contactForces(env, h) {
+    const ring = this.model.ring, hit = this.hit, C = (this._ct ||= []), O = (this._co ||= []);
+    const x = this.x, v = this.v, w = this.w, m = this.m, R = this.R, I = this.I, F = this.F, T = this.Tq;
+    let n = 0, no = 0;
     for (let ci = 0; ci < ring.length; ci++) {
       const p = this.toWorld(ring[ci], _p1);
       const f = env.contact(this, p);
@@ -1115,14 +1140,113 @@ export class HydroBody {
       const vn = _pv[0] * f.nx + _pv[1] * f.ny + _pv[2] * f.nz - (f.vn || 0);
       if (vn < -0.4) this.impact = Math.max(this.impact, -vn);
       if (-vn > hit.vn) { hit.vn = -vn; hit.i = ci; hit.set = 1; hit.x = p[0]; hit.z = p[2]; hit.kind = f.kind || null; }
-      const k = f.k ?? (this.m * 120), c = f.c ?? 2 * Math.sqrt(k * this.m) * 0.25;
-      // (Already parting faster than half a metre a second: the spring lets go, so hulls that find
-      // themselves inside each other ease apart instead of firing off at many metres a second.)
-      const fn = vn > 0.5 ? 0 : Math.max(0, k * Math.min(f.pen, 0.1) - c * vn);
-      const tx = _pv[0] - vn * f.nx, ty = _pv[1] - vn * f.ny, tz = _pv[2] - vn * f.nz, tl = hypot3(tx, ty, tz);
-      const fr = tl > 1e-4 ? ((f.mu ?? 0.3) * fn) / Math.max(tl, 0.1) : 0;
-      this.addForce(f.nx * fn - tx * fr, f.ny * fn - ty * fr, f.nz * fn - tz * fr, p[0], p[1], p[2]);
+      const c = (C[n] ||= { r: [0, 0, 0], n: [0, 0, 0], ft: [0, 0, 0], ov: [0, 0, 0], mu: 0, s: 0, so: 0, k: -1, ln: 0, to: 0, cap: 0 });
+      c.r[0] = p[0] - x[0]; c.r[1] = p[1] - x[1]; c.r[2] = p[2] - x[2];
+      c.n[0] = f.nx; c.n[1] = f.ny; c.n[2] = f.nz;
+      // (How the other is moving: a quay not at all; a boat, along the water.)
+      c.ov[0] = f.ovx || 0; c.ov[1] = 0; c.ov[2] = f.ovz || 0;
+      c.mu = f.mu ?? 0.3;
+      c.s = this.invMassAlong(c.r, c.n);
+      // (The other boat, if she can give: which one, kept once for all her points.)
+      c.so = f.other ? f.so : 0;
+      c.k = -1;
+      if (c.so > 0) {
+        for (let j = 0; j < no && c.k < 0; j++) if (O[j].o === f.other) c.k = j;
+        if (c.k < 0) { const e = (O[no] ||= { o: null, dv: [0, 0, 0] }); e.o = f.other; e.dv[0] = e.dv[1] = e.dv[2] = 0; c.k = no++; }
+      }
+      // (How fast it should leave: eased out of an overlap, or bounced off a hard knock.)
+      const out = Math.min((CONTACT_BETA * Math.max(0, Math.min(f.pen, 0.5) - CONTACT_SLOP)) / h, CONTACT_PUSH);
+      c.to = Math.max(out, vn < -0.5 ? -(f.e ?? CONTACT_E) * vn : 0);
+      c.ln = 0; c.ft[0] = c.ft[1] = c.ft[2] = 0;
+      n++;
     }
+    if (!n) return;
+    // Her velocity at the end of this step from the forces so far, before the contacts.
+    const V = _cV, W = _cW;
+    V[0] = v[0] + (F[0] / m) * h; V[1] = v[1] + (F[1] / m) * h; V[2] = v[2] + (F[2] / m) * h;
+    const b0 = (R[0] * T[0] + R[3] * T[1] + R[6] * T[2]) / I[0], b1 = (R[1] * T[0] + R[4] * T[1] + R[7] * T[2]) / I[1], b2 = (R[2] * T[0] + R[5] * T[1] + R[8] * T[2]) / I[2];
+    W[0] = w[0] + (R[0] * b0 + R[1] * b1 + R[2] * b2) * h;
+    W[1] = w[1] + (R[3] * b0 + R[4] * b1 + R[5] * b2) * h;
+    W[2] = w[2] + (R[6] * b0 + R[7] * b1 + R[8] * b2) * h;
+    // (No point pushes harder than it would alone to stop and leave, and a bit; nor do they all
+    // together move any point of her faster than the most any one of them asks: a hull caught
+    // between two that each push her their own way is held, not crushed or shot out between them.)
+    let need = 0;
+    for (let i = 0; i < n; i++) {
+      const c = C[i], r = c.r, N = c.n;
+      const vn = (V[0] + W[1] * r[2] - W[2] * r[1] - c.ov[0]) * N[0] + (V[1] + W[2] * r[0] - W[0] * r[2] - c.ov[1]) * N[1] + (V[2] + W[0] * r[1] - W[1] * r[0] - c.ov[2]) * N[2];
+      c.cap = (Math.max(0, c.to - vn) + CONTACT_PUSH) / (c.s + c.so);
+      need = Math.max(need, c.to - vn);
+    }
+    const V0x = V[0], V0y = V[1], V0z = V[2], W0x = W[0], W0y = W[1], W0z = W[2];
+    for (let it = 0; it < CONTACT_ITERS; it++) {
+      for (let i = 0; i < n; i++) {
+        const c = C[i], r = c.r, N = c.n, ov = c.ov, dv = c.k >= 0 ? O[c.k].dv : _c0;
+        // Into it: the push that brings it to the speed it should leave at (never a pull).
+        let rx = V[0] + W[1] * r[2] - W[2] * r[1] - ov[0] - dv[0], ry = V[1] + W[2] * r[0] - W[0] * r[2] - ov[1] - dv[1], rz = V[2] + W[0] * r[1] - W[1] * r[0] - ov[2] - dv[2];
+        const vn = rx * N[0] + ry * N[1] + rz * N[2];
+        const ln = Math.min(c.cap, Math.max(0, c.ln + (c.to - vn) / (c.s + c.so))), dl = ln - c.ln;
+        c.ln = ln;
+        if (dl !== 0) this.share(V, W, r, N[0] * dl, N[1] * dl, N[2] * dl, dv, c.so);
+        // Along it: the rub that would stop them sliding there, held within mu times the push.
+        rx = V[0] + W[1] * r[2] - W[2] * r[1] - ov[0] - dv[0]; ry = V[1] + W[2] * r[0] - W[0] * r[2] - ov[1] - dv[1]; rz = V[2] + W[0] * r[1] - W[1] * r[0] - ov[2] - dv[2];
+        const un = rx * N[0] + ry * N[1] + rz * N[2];
+        const tx = rx - un * N[0], ty = ry - un * N[1], tz = rz - un * N[2], tl = hypot3(tx, ty, tz);
+        if (tl < 1e-6) continue;
+        _cU[0] = tx / tl; _cU[1] = ty / tl; _cU[2] = tz / tl;
+        const st = this.invMassAlong(r, _cU) + c.so, ft = c.ft, lim = c.mu * c.ln;
+        let fx = ft[0] - (_cU[0] * tl) / st, fy = ft[1] - (_cU[1] * tl) / st, fz = ft[2] - (_cU[2] * tl) / st;
+        const fl = hypot3(fx, fy, fz);
+        if (fl > lim) { const k = lim / fl; fx *= k; fy *= k; fz *= k; }
+        const dx = fx - ft[0], dy = fy - ft[1], dz = fz - ft[2];
+        ft[0] = fx; ft[1] = fy; ft[2] = fz;
+        if (dx || dy || dz) this.share(V, W, r, dx, dy, dz, dv, c.so);
+      }
+    }
+    const dVx = V[0] - V0x, dVy = V[1] - V0y, dVz = V[2] - V0z, dWx = W[0] - W0x, dWy = W[1] - W0y, dWz = W[2] - W0z;
+    let most = 0;
+    for (let i = 0; i < n; i++) {
+      const r = C[i].r;
+      most = Math.max(most, hypot3(dVx + dWy * r[2] - dWz * r[1], dVy + dWz * r[0] - dWx * r[2], dVz + dWx * r[1] - dWy * r[0]));
+    }
+    const k = most > need + CONTACT_PUSH ? (need + CONTACT_PUSH) / most : 1;
+    // (Her share to each other boat, on her way at once.)
+    for (let j = 0; j < no; j++) {
+      const e = O[j];
+      e.o.vel.x += e.dv[0] * k;
+      e.o.vel.z += e.dv[2] * k;
+      e.o = null;
+    }
+    // (Each point's share, as a force over the step.)
+    for (let i = 0; i < n; i++) {
+      const c = C[i], r = c.r, N = c.n, ft = c.ft, kh = k / h;
+      this.addForce((N[0] * c.ln + ft[0]) * kh, (N[1] * c.ln + ft[1]) * kh, (N[2] * c.ln + ft[2]) * kh, x[0] + r[0], x[1] + r[1], x[2] + r[2]);
+    }
+  }
+  // How much a push along unit d at r (from her middle) changes her speed there along d: one over
+  // her effective mass there. (Her own mass and inertia, without the water's: the solver asks a
+  // little more than it gets, never less, so it never overshoots.)
+  invMassAlong(r, d) {
+    const R = this.R, I = this.I;
+    const ax = r[1] * d[2] - r[2] * d[1], ay = r[2] * d[0] - r[0] * d[2], az = r[0] * d[1] - r[1] * d[0];
+    const b0 = R[0] * ax + R[3] * ay + R[6] * az, b1 = R[1] * ax + R[4] * ay + R[7] * az, b2 = R[2] * ax + R[5] * ay + R[8] * az;
+    return 1 / this.m + (b0 * b0) / I[0] + (b1 * b1) / I[1] + (b2 * b2) / I[2];
+  }
+  // An impulse (jx, jy, jz) at r, applied to the solver's velocities V, W; and the equal and
+  // opposite one to the other boat's (dv), as much as she gives (so: one over her mass).
+  share(V, W, r, jx, jy, jz, dv, so) {
+    if (so > 0) { dv[0] -= jx * so; dv[1] -= jy * so; dv[2] -= jz * so; }
+    this.nudge(V, W, r, jx, jy, jz);
+  }
+  // An impulse (jx, jy, jz) at r, applied to the solver's velocities V, W.
+  nudge(V, W, r, jx, jy, jz) {
+    const R = this.R, I = this.I, m = this.m;
+    V[0] += jx / m; V[1] += jy / m; V[2] += jz / m;
+    const ax = r[1] * jz - r[2] * jy, ay = r[2] * jx - r[0] * jz, az = r[0] * jy - r[1] * jx;
+    const b0 = (R[0] * ax + R[3] * ay + R[6] * az) / I[0], b1 = (R[1] * ax + R[4] * ay + R[7] * az) / I[1], b2 = (R[2] * ax + R[5] * ay + R[8] * az) / I[2];
+    W[0] += R[0] * b0 + R[1] * b1 + R[2] * b2;
+    W[1] += R[3] * b0 + R[4] * b1 + R[5] * b2;
+    W[2] += R[6] * b0 + R[7] * b1 + R[8] * b2;
   }
 
   // The crew: sitting out against a heel (sailing), a standing rider balancing, and, past a
@@ -1212,3 +1336,4 @@ export class HydroBody {
 // (Scratch for local points and directions built on the fly.)
 const _l1 = [0, 0, 0], _l2 = [0, 0, 0], _l3 = [0, 0, 0];
 const _p1 = [0, 0, 0], _p2 = [0, 0, 0], _p3 = [0, 0, 0], _pc = [0, 0, 0], _pv = [0, 0, 0];
+const _cV = [0, 0, 0], _cW = [0, 0, 0], _cU = [0, 0, 0], _c0 = [0, 0, 0];

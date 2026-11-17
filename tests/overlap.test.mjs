@@ -3,11 +3,12 @@
 // friend's row, drawn where their game says, right over yours. Every point of her hull inside the
 // other's was pushed out from its centreline, back and forth as it crossed it, harder each time,
 // until she was flung off (fifty times her weight in a step) and her position stopped being a
-// number. Now a point deep inside the other hull goes out on the side her own middle is on, so all
-// of her goes out the one way (boat.js touch), and yours slides clear of a friend's, which can't
-// give, without touching it as she goes (apart.js keepClear). And her physics now name the stage that
-// first went wrong, if one ever does again (hydro.js check). Run with
-// `node --import ./tests/setup.mjs --test tests/`.
+// number. Yours now slides clear of a friend's, which can't give, without touching it as she goes
+// (apart.js keepClear), and her physics name the stage that first went wrong, if one ever does
+// again (hydro.js check). And (B0) every point of her inside another hull goes out the one way, and
+// the contacts are solved together as impulses, not sprung (boat.js touch, hydro.js
+// contactForces): before, any two hulls found overlapped were kicked apart at up to 35 m/s in a
+// quarter of the places tried. Run with `node --import ./tests/setup.mjs --test tests/`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
@@ -15,9 +16,9 @@ import * as THREE from 'three';
 globalThis.document ??= { createElement: () => ({ width: 0, height: 0, getContext: () => new Proxy({}, { get: () => () => ({ addColorStop() {} }) }) }) };
 globalThis.innerHeight ??= 800;
 
-const { Boat, CONTACT_SKIN } = await import('../src/boat.js');
+const { Boat, EXIT_HYST } = await import('../src/boat.js');
 const { keepClear, CLEAR_K } = await import('../src/apart.js');
-const { buildHullModel, HydroBody } = await import('../src/hydro.js');
+const { buildHullModel, HydroBody, CONTACT_PUSH, CONTACT_E } = await import('../src/hydro.js');
 const { HULLS } = await import('../src/boat.js');
 
 const scene = new THREE.Scene();
@@ -96,7 +97,7 @@ test('and yours slides clear of hers in a moment, gently, hers left where it’s
   }
 });
 
-test('a point at another hull’s skin is pushed out that side; one deep inside her, out the side her middle is on', () => {
+test('every point of hers inside another hull goes out the one way: the side her middle is on, or out the end it’s past', () => {
   const me = new Boat(scene, { kind: 'row' }), o = new Boat(scene, { kind: 'row' });
   // (Yours lying off hers to the west, her bow north: your middle on her -x side.)
   me.place(2, 5, 0);
@@ -107,55 +108,133 @@ test('a point at another hull’s skin is pushed out that side; one deep inside 
   o.group.updateMatrixWorld(true);
   me._others = [o];
   me._piers = [];
+  me.phys._t = 0;
   const half = o.hull.B * o.hull.hw(0.5) + 0.02;
-  const at = (x) => { const v = new THREE.Vector3(x, o.hull.D * 0.5, 0); o.body.localToWorld(v); return [v.x, v.y, v.z]; };
-  const out = (x) => { const v = new THREE.Vector3(x, 0, 0).transformDirection(o.body.matrixWorld); return [v.x, v.z]; };
+  const at = (x, z = 0) => { const v = new THREE.Vector3(x, o.hull.D * 0.5, z); o.body.localToWorld(v); return [v.x, v.y, v.z]; };
+  const out = (x, z = 0) => { const v = new THREE.Vector3(x, 0, z).transformDirection(o.body.matrixWorld); return [v.x, v.z]; };
   const mid = new THREE.Vector3(me.phys.x[0], me.phys.x[1], me.phys.x[2]);
   o.body.worldToLocal(mid);
   const m = Math.sign(mid.x);
   assert.equal(m, -1, 'her middle on hers’ -x side');
-  // (At her skin, either side: out that side, as deep as it is, as ever: a bump is a bump.)
-  for (const s of [1, -1]) {
-    const f = me.touch(me.phys, at(s * (half - 0.1)));
-    assert.ok(f && f.kind === 'boat', `at her skin (${s})`);
-    assert.ok(Math.abs(f.pen - 0.1) < 1e-6, `as deep as it is: ${f.pen}`);
-    const [nx, nz] = out(s);
-    assert.ok(Math.abs(f.nx - nx) < 1e-6 && Math.abs(f.nz - nz) < 1e-6, `out her side: ${f.nx}, ${f.nz}`);
-  }
-  // (Deep inside her, on either side of her centreline: out the side your middle is on, never
-  // flipping as it crosses it. Past her centreline, it's deeper still from that side.)
+  // (At her skin on your side, as deep as it is: a bump is a bump. Further in, deeper; past her
+  // centreline deeper still, and still out your side, never flipping as it crosses it; even at her
+  // far side's skin, where before it was pushed on out through her.)
   const [mx, mz] = out(m);
-  for (const x of [0.4, 0.05, -0.05, -0.4, half - CONTACT_SKIN - 0.05]) {
+  for (const x of [-(half - 0.1), -0.4, -0.05, 0.05, 0.4, half - 0.1]) {
     const f = me.touch(me.phys, at(x));
-    assert.ok(f && f.kind === 'boat', `deep inside at ${x}`);
+    assert.ok(f && f.kind === 'boat', `inside her at ${x}`);
     assert.ok(Math.abs(f.nx - mx) < 1e-6 && Math.abs(f.nz - mz) < 1e-6, `out your middle’s side at ${x}: ${f.nx}, ${f.nz}`);
-    const deep = Math.min(0.5, x * m > 0 ? half - Math.abs(x) : half + Math.abs(x));
+    const deep = Math.min(0.5, half - x * m);
     assert.ok(Math.abs(f.pen - deep) < 1e-6, `as deep as it is from that side at ${x}: ${f.pen} (${deep})`);
   }
   // (Clear of her: nothing.)
   assert.equal(me.touch(me.phys, at(half + 0.2)), null);
+  // (Kept while your middle is only just over her centreline, a step later: a boat lying square on
+  // top of another doesn't flip from side to side. Clearly over, it goes out that side.)
+  const step = (x, z) => { me.phys._t += 1 / 120; const v = new THREE.Vector3(x, 0, z); o.body.localToWorld(v); me.phys.x[0] = v.x; me.phys.x[2] = v.z; };
+  step(half * EXIT_HYST * 0.3, 0);
+  let f = me.touch(me.phys, at(0));
+  assert.ok(Math.abs(f.nx - mx) < 1e-6 && Math.abs(f.nz - mz) < 1e-6, 'kept, just over');
+  step(o.hull.B * 0.4, 0);
+  f = me.touch(me.phys, at(0));
+  const [px, pz] = out(1);
+  assert.ok(Math.abs(f.nx - px) < 1e-6 && Math.abs(f.nz - pz) < 1e-6, `clearly over: out the other side (${f.nx}, ${f.nz})`);
+  // (Your middle out past her bow: along her, out over her bow, as deep as it is from there.)
+  step(0, o.hull.L / 2 + 1);
+  const [bx, bz] = out(0, 1);
+  for (const z of [o.hull.L / 2 - 0.2, 0.3]) {
+    f = me.touch(me.phys, at(0, z));
+    assert.ok(Math.abs(f.nx - bx) < 1e-6 && Math.abs(f.nz - bz) < 1e-6, `out over her bow at ${z}: ${f.nx}, ${f.nz}`);
+    assert.ok(Math.abs(f.pen - Math.min(0.5, o.hull.L / 2 - z)) < 1e-6, `from her bow at ${z}: ${f.pen}`);
+  }
   me.dispose?.();
   o.dispose?.();
 });
 
-test('a fast ram is still stopped where it comes in: the RIB at 15 m/s into the side of your row', () => {
-  // (Points deep inside the other no longer go out their own side, but a ram's come in at her
-  // skin. As before: her bow 0.31 m into the row's side at 8 m/s, 0.67 at 15 (0.73 now). Had deep
-  // points simply been let be, as first tried, her bow went on through, nearly 2 m in.)
-  for (const v of [8, 15]) {
+// Two hulls found overlapped (seeded, so the same places each run): each kind of each, over and
+// askew, from just touching to right on top. How fast yours ever goes, whether she's thrown a kick
+// no boat takes, and whether she's still moving at the end.
+function overlapped(kinds, n, seed) {
+  let s = seed;
+  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  const out = [];
+  for (let k = 0; k < n; k++) {
+    const dx = rnd() * 1.2, dz = (rnd() - 0.5) * 3, dh = (rnd() - 0.5) * 1.2;
+    const me = new Boat(scene, { kind: kinds[0] }), her = new Boat(scene, { kind: kinds[1] });
+    me.place(12, 32, Math.PI);
+    her.place(12 + dx, 32 + dz, Math.PI + dh);
+    let t = 10, top = 0, lost = false;
+    for (let i = 0; i < 12 * 30; i++) {
+      t += 1 / 30;
+      drawn(her, 12 + dx, 32 + dz, Math.PI + dh, t);
+      me.update(1 / 30, t, 0, 0, 0);
+      if (!Number.isFinite(me.pos.x + me.pos.z + me.vel.x + me.vel.z)) { lost = true; break; }
+      top = Math.max(top, Math.hypot(me.vel.x, me.vel.z));
+    }
+    out.push({ at: [+dx.toFixed(2), +dz.toFixed(2), +dh.toFixed(2)], top, lost, late: Math.hypot(me.vel.x, me.vel.z), blow: me.phys.blowFirst || null, d: Math.hypot(me.pos.x - her.pos.x, me.pos.z - her.pos.z) });
+    me.dispose?.();
+    her.dispose?.();
+  }
+  return out;
+}
+
+test('two hulls found overlapped anywhere, of any kinds, part with one easy push: no kick, no spin, nothing left shaking', () => {
+  // (Before, the same places: a row on a row kicked apart at up to 35 m/s in a quarter of them, a
+  // skiff on a cabin boat in two thirds, and some left shaking for good.)
+  for (const [kinds, seed] of [[['row', 'row'], 777], [['rib', 'row'], 99], [['skiff', 'cabin'], 5], [['cabin', 'skiff'], 8]]) {
+    for (const r of overlapped(kinds, 6, seed)) {
+      const at = JSON.stringify({ kinds, ...r, top: +r.top.toFixed(2), late: +r.late.toFixed(2) });
+      assert.ok(!r.lost && r.blow == null, `no kick: ${at}`);
+      // (Eased apart at the contacts' own pace, a touch more as the swell rocks her.)
+      assert.ok(r.top < CONTACT_PUSH * 2, `one easy push: ${at}`);
+      assert.ok(r.late < 0.3, `nothing left shaking: ${at}`);
+    }
+  }
+});
+
+// How deep the deepest point of one hull's ring is inside another's outline: the shortest way out.
+function deepest(me, o) {
+  const H = o.hull;
+  let d = 0;
+  for (const lp of me.phys.model.ring) {
+    const p = me.phys.toWorld(lp, [0, 0, 0]), v = new THREE.Vector3(p[0], p[1], p[2]);
+    o.body.worldToLocal(v);
+    const tt = (v.z + H.L / 2) / H.L;
+    if (tt < 0 || tt > 1) continue;
+    const half = H.B * H.hw(tt) + 0.02;
+    if (Math.abs(v.x) > half || v.y > H.D + 0.3 || v.y < -1) continue;
+    d = Math.max(d, Math.min(half - Math.abs(v.x), H.L / 2 - Math.abs(v.z)));
+  }
+  return d;
+}
+
+test('a RIB ramming a rowing boat shoves her off as two boats meeting do, and never goes through her', () => {
+  // (Before, each hull met the other as if it were a quay: the RIB bounced off or ploughed on and
+  // the row, a fifth of her weight, was nudged off at half a metre a second whatever the speed.
+  // Now they meet as two masses do, a hard knock bouncing a little (CONTACT_E): the row goes off at
+  // (1 + e)·m₁/(m₁ + m₂) of the RIB's speed, the RIB carries on at (m₁ − e·m₂)/(m₁ + m₂) of it.
+  // And her bow is stopped at the row's side, as J1c asked: no point of her ever more than 0.8 m
+  // inside the row, 0.68 m at 15 m/s (0.72 before).)
+  for (const v of [3, 8, 15]) {
     const me = new Boat(scene, { kind: 'rib' }), row = new Boat(scene, { kind: 'row' });
     me.place(-8, 300, Math.PI / 2);
     row.place(0, 300, 0);
-    let t = 10, bow = -1e9, through = false;
+    let t = 10, deep = 0, met = null, prev = 0, ribOn = 0, rowOff = 0;
     for (let i = 0; i < 30 * 6; i++) {
       t += 1 / 30;
       row.update(1 / 30, t, 0, 0, 0);
       me.update(1 / 30, t, 0, 0, 0);
       if (i === 0) { me.phys.v[0] = v; me.phys.v[2] = 0; continue; }
-      bow = Math.max(bow, me.pos.x + Math.sin(me.heading) * me.hull.L / 2 - (row.pos.x - row.hull.B));
-      if (me.pos.x > row.pos.x) through = true;
+      deep = Math.max(deep, deepest(me, row));
+      if (met == null && Math.hypot(row.vel.x, row.vel.z) > 0.3) { met = prev; ribOn = me.vel.x; rowOff = Math.hypot(row.vel.x, row.vel.z); }
+      prev = me.vel.x;
     }
-    assert.ok(bow < 1 && !through, `stopped at her side: bow ${bow.toFixed(2)} m in at ${v} m/s`);
+    const m1 = me.phys.m, m2 = row.phys.m, e = CONTACT_E;
+    const at = JSON.stringify({ v, met: met && +met.toFixed(2), rowOff: +rowOff.toFixed(2), ribOn: +ribOn.toFixed(2), deep: +deep.toFixed(2) });
+    assert.ok(met > v * 0.8, `she meets the row near the speed she was sent at: ${at}`);
+    assert.ok(Math.abs(rowOff / ((1 + e) * m1 / (m1 + m2) * met) - 1) < 0.1, `the row shoved off as two masses meeting: ${at}`);
+    assert.ok(Math.abs(ribOn / ((m1 - e * m2) / (m1 + m2) * met) - 1) < 0.1, `the RIB carrying on as two masses meeting: ${at}`);
+    assert.ok(deep < 0.8, `never into her more than her side: ${at}`);
     me.dispose?.();
     row.dispose?.();
   }
