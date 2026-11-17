@@ -13987,6 +13987,10 @@ function tick(now, manual = false) {
   wu.uAmbient.value.copy(env.skyCol).multiplyScalar(env.hemiI * 0.33);
   wu.uZenith.value.copy(env.zenith);
   wu.uHorizon.value.copy(env.horizon);
+  // (The sky as the dome draws it, for the water to mirror: W2.)
+  wu.uSunDir.value.copy(env.sunDir);
+  wu.uSkySun.value.copy(env.sunColor);
+  wu.uGlow.value = env.skyUniforms.uGlow.value;
   boat.lanternWorld(_lp);
   wu.uLights.value[0].set(_lp.x, _lp.y, _lp.z, boat.hasLantern ? boat.lanternLevel : 0);
   wu.uLights.value[1].set(world.lampPos.x, world.lampPos.y, world.lampPos.z, env.lantern);

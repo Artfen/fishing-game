@@ -243,6 +243,10 @@ uniform float uChopH;    // the chop's crest amplitude (m)
 uniform float uStorm;    // how stormy (0 … 1)
 uniform float uWindMS;   // the sustained wind (m/s), for the whitecaps
 uniform float uClear;    // clear blue water (Las Brasas): you see the seabed and the fish much deeper
+uniform vec3 uSunDir;    // where the sun really is (the light may be the moon's, or held up off the horizon)
+uniform vec3 uSkySun;    // the sun's colour as the sky dome has it (sky.js)
+uniform float uGlow;     // the sky's glow round a low sun (sky.js)
+uniform vec2 uSlopeVar;  // the sea's mean square slope for this wind, up and across it (Cox and Munk)
 uniform float uColour;   // silt stirred up by rain or a blow (0 clear … 1 thick): see grounds.js
 varying vec3 vWorld;
 varying vec3 vN;
@@ -376,6 +380,24 @@ vec4 rippleSlopes(vec2 p) {
   return r;
 }
 
+// The sky as the dome draws it (sky.js) in direction d: its gradient, the warm glow along the
+// horizon round a low sun and the dusk on the far side, and the brightness round the sun itself.
+// (What the water mirrors on every setting, where there's no mirrored scene: sunset colours,
+// overcast grey, the storm's dark sky.)
+vec3 skyAt(vec3 d) {
+  float h = max(d.y, 0.0);
+  vec2 across = normalize(d.xz + vec2(1e-5));
+  vec2 sunFlat = normalize(uSunDir.xz + vec2(1e-5));
+  float toward = dot(across, sunFlat) * 0.5 + 0.5;
+  vec3 hor = mix(mix(uHorizon, uZenith * 1.15 + vec3(0.07, 0.035, 0.09), 0.42 * uGlow), uHorizon * 1.04 + uSkySun * 0.1 * uGlow, smoothstep(0.15, 1.0, toward));
+  vec3 c = mix(hor, uZenith, pow(h, mix(0.6, 0.45, uGlow)));
+  c += uSkySun * pow(toward, 4.0) * exp(-h * 7.0) * 0.22 * uGlow;
+  float sd = max(dot(d, uSunDir), 0.0);
+  c += uSkySun * (pow(sd, 5.0) * 0.16 + pow(sd, 40.0) * 0.32) * smoothstep(-0.12, 0.02, uSunDir.y) * (1.0 - uRain * 0.8);
+  // (A storm's sky is low and dark.)
+  return mix(c, mix(uHorizon * 0.55, uZenith * 0.35, clamp(h * 1.5, 0.0, 1.0)) * 0.9, uStorm);
+}
+
 void main() {
   // The near sheet is round, and the far ring starts where it ends.
   #ifndef RING
@@ -499,10 +521,11 @@ void main() {
   col += mix(uMid, uShallow, 0.55) * uSunColor * crestH * through * (0.55 + 0.45 * length(N.xz) * 3.0) * 0.35 * (1.0 - fresh) * (1.0 - uRain * 0.6);
 
   vec3 R = reflect(-V, N);
-  float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 4.0);
-  // Far away the water looks rougher: reflections soften and the sun's path spreads.
+  // (R below the horizon, from a facet tilted away: what it sees is the sea beyond, near the horizon.)
+  R.y = abs(R.y);
+  // Far away the water looks rougher: reflections soften.
   float rough = smoothstep(25.0, 260.0, dist);
-  vec3 sky = mix(uHorizon, uZenith, clamp(R.y * 1.5, 0.0, 1.0));
+  vec3 sky = skyAt(R);
   // The mirrored scene (sky, shore, boat, lights), nudged by the small waves and ripples.
   // Calm fresh water mirrors crisply; the sea breaks it up.
   // (A rough sea breaks the mirror up: clouds and shores reflect only on calm water.)
@@ -518,23 +541,43 @@ void main() {
       + texture2D(uRefl, ruv + vec2(bl.x, -bl.y)).rgb + texture2D(uRefl, ruv + vec2(-bl.x, bl.y)).rgb) * 0.15;
     sky = mix(sky, mirrored, inside.x * inside.y * (1.0 - uRain * 0.4) * (1.0 - 0.75 * roughSea));
   }
-  // Looking straight down you mostly see into the water; at a glancing angle, mostly reflection.
-  float reflAmt = mix(0.035 + fres * 0.66, 0.08 + fres * 0.82, fresh);
-  col = mix(col, sky, clamp(reflAmt, 0.0, 1.0));
+  // The roughness the drawn waves leave out (W2, after Bruneton, Neyret and Holzschuch 2010): the
+  // sea's whole mean square slope for this wind (Cox and Munk), less what the waves drawn here
+  // already show. Close by, with the short waves worked out, about half of it; without them, most;
+  // and once a pixel covers metres of sea, all of it. Sheltered water and fresh water are calmer,
+  // gusts rougher, rain roughens it.
+  float foot = length(fwidth(vWorld.xz));
+  float unres = mix(mix(0.7, 0.3, uShortOn), 1.0, smoothstep(0.04, 1.6, foot));
+  float calm = (0.12 + 0.88 * shel.g) * (1.0 - 0.75 * fresh) * mix(0.6, 1.3, gust);
+  vec2 msq = max(uSlopeVar * unres * calm + uRain * 0.01, vec2(0.0012));
+  // How much the water reflects (Fresnel, from water's own 2% looking straight down to all of it at
+  // a glancing angle); a rough sea, its facets tilted every way, never quite turns to a mirror.
+  float cosV = clamp(dot(N, V), 0.0, 1.0);
+  float fres = 0.02 + 0.98 * pow(1.0 - cosV, 5.0);
+  fres = min(fres, mix(1.0, 0.7, smoothstep(0.003, 0.03, msq.x + msq.y)));
+  col = mix(col, sky, fres);
 
-  float sd = max(dot(R, uLightDir), 0.0);
-  float up = smoothstep(-0.02, 0.08, uLightDir.y);
-  float sunSpec = pow(sd, mix(220.0, 45.0, rough)) * mix(2.4, 0.7, rough) + pow(sd, 18.0) * 0.12;
+  // The sun (or the moon) in the water: each of the waves too small to draw is a little mirror, and
+  // the ones tilted just so flash it back. Their slopes are spread as measured (Cox and Munk, wider
+  // along the wind than across it), so the glitter is as wide as the wind makes it: a narrow bright
+  // road in a calm, a broad field of sparkle in a breeze, long and golden towards a low sun.
+  vec3 L = uLightDir, Hv = normalize(V + L);
+  vec2 wdir2 = windS > 0.01 ? uWindV / windS : vec2(1.0, 0.0);
+  vec3 Tw = vec3(wdir2.x, 0.0, wdir2.y);
+  Tw = normalize(Tw - N * dot(N, Tw));
+  vec3 Bw = cross(N, Tw);
+  float hn = max(dot(Hv, N), 0.05);
+  float zx = dot(Hv, Tw) / hn, zy = dot(Hv, Bw) / hn;
+  float pz = exp(-0.5 * (zx * zx / msq.x + zy * zy / msq.y)) / (6.2831853 * sqrt(msq.x * msq.y));
+  float fh = 0.02 + 0.98 * pow(1.0 - clamp(dot(V, Hv), 0.0, 1.0), 5.0);
+  float up = smoothstep(-0.02, 0.08, L.y);
+  float sunSpec = min(pz * fh / (4.0 * max(cosV, 0.06) * hn * hn * hn * hn), 40.0) * 4.5;
 #if DETAIL > 0
-  // Glints: single wavelets flashing the sun back for a moment, along the sun's path.
-  vec2 gc = p * 4.0 + g * 3.0;
-  vec2 gcell = floor(gc);
-  float gh = hash12(gcell);
-  float blink = fract(uTime * (0.7 + gh) + gh * 7.0);
-  vec2 goff = vec2(hash12(gcell + 3.1), hash12(gcell + 7.7)) * 0.7 + 0.15;
-  float spot = 1.0 - smoothstep(0.02, 0.1, length(fract(gc) - goff));
-  float glint = spot * step(0.8, gh) * smoothstep(0.0, 0.1, blink) * (1.0 - smoothstep(0.1, 0.3, blink));
-  sunSpec += glint * pow(sd, 24.0) * near * wind * 3.5;
+  // (Close by, the glitter is a scatter of single wavelets each flashing for a moment, the road broken
+  // into sparks; as bright on average, so far off, where they're too small to see apart, it's the
+  // smooth road.)
+  float spark = smoothstep(0.56, 0.68, vnoise((p * 2.6 + g * 2.0) + vec2(uTime * 1.7, -uTime * 1.3)));
+  sunSpec *= mix(1.0, spark * 2.7, near * 0.85);
 #endif
   col += uSunColor * sunSpec * up * (1.0 - uRain * 0.85);
   // Ripple crests catch a little extra light.
@@ -630,6 +673,14 @@ void main() {
 }
 `;
 
+// (W2) The sea's mean square slope in a wind of u m/s, up the wind and across it: what Cox and Munk
+// measured from photographs of the sun's glitter on the sea (clean surface, 1954). The water's
+// shading spreads the sun's reflection by the part of it its drawn waves leave out.
+export function seaSlopeVariance(u) {
+  const U = Math.max(0.5, u || 0);
+  return [3.16e-3 * U, 0.003 + 1.92e-3 * U];
+}
+
 export function createWater(heightTex, rect, detailTex, detailRect) {
   const uniforms = THREE.UniformsUtils.merge([
     THREE.UniformsLib.fog,
@@ -638,6 +689,10 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       uSwellA: { value: Array.from(conditions.swellAmps) },
       uPeak: { value: 1 },
       uWindMS: { value: 0 },
+      uSunDir: { value: new THREE.Vector3(0, 1, 0) },
+      uSkySun: { value: new THREE.Color(1, 1, 1) },
+      uGlow: { value: 0 },
+      uSlopeVar: { value: new THREE.Vector2(0.01, 0.01) },
       uStorm: { value: 0 },
       uShelterRect: { value: new THREE.Vector4(SHELTER_RECT.x, SHELTER_RECT.z, SHELTER_RECT.w, SHELTER_RECT.h) },
       uWindV: { value: new THREE.Vector2() },
@@ -748,6 +803,8 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       uniforms.uChopH.value = conditions.sea.chop;
       uniforms.uPeak.value = conditions.sea.peak;
       uniforms.uWindMS.value = conditions.wind.speed;
+      const [up, across] = seaSlopeVariance(conditions.wind.speed);
+      uniforms.uSlopeVar.value.set(up, across);
       uniforms.uStorm.value = conditions.sea.storm;
     },
     follow(pos) {
