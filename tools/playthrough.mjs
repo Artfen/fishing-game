@@ -529,21 +529,6 @@ const goDiving = (P) => P.evaluate(() => {
 const dA = await goDiving(A);
 note('in', JSON.stringify(dA));
 check('10 · Mags over the side on scuba, with the camera', dA.diving === 'scuba', JSON.stringify(dA));
-// Bert, crewing: what he can do from her deck.
-const bertDive = await B.evaluate(() => {
-  const I = slowTide.interaction();
-  const text = I?.text;
-  I?.run?.();
-  slowTide.advance(0.2, 30, false);
-  const acts = [...document.querySelectorAll('#confirm-acts button')].map((x) => x.textContent);
-  return { text, acts };
-});
-// (Nothing chosen: the menu put away, still crewing.)
-await B.keyboard.press('Escape');
-await step(0.5);
-bertDive.crew = await B.evaluate(() => !!slowTide.crew.on);
-note('Bert, crewing', JSON.stringify(bertDive));
-check('10 · Bert, crewing, over the side with her', bertDive.acts.some((a) => /diving/i.test(a)), `crewing a friend’s boat offers ${JSON.stringify(bertDive.acts)}: no way to dive from her (see docs/PLAYTHROUGH.md)`);
 if (dA.diving === 'scuba') {
   // Down, and over to the reef: face it, head down, swim (forward swims where you look).
   const REEF = [-196, 735];
@@ -565,11 +550,36 @@ if (dA.diving === 'scuba') {
   });
   note('on the reef', JSON.stringify(under));
   check('10 · down on the reef, fish about her', under.depth > 5 && under.near > 0, JSON.stringify(under));
-  const seesHer = await A.evaluate(() => slowTide.together.id).then((id) => B.evaluate((id) => { const p = slowTide.together.peers.get(id); return (p?.view || p?.pose)?.m || null; }, id));
-  check('10 · Bert, on her deck, sees Mags diving', seesHer === 'dive', JSON.stringify(seesHer));
+
   const bertWhile = await B.evaluate(() => ({ crew: !!slowTide.crew.on, at: [Math.round(slowTide.walker.pos.x), Math.round(slowTide.walker.pos.z)], said: window.__said.filter((m) => /boat has gone/.test(m)).slice(-1) }));
   const ribNow = await A.evaluate(() => [Math.round(slowTide.boats.rib.pos.x), Math.round(slowTide.boats.rib.pos.z)]);
   check('10 · Bert still aboard her while Mags is down', bertWhile.crew && Math.hypot(bertWhile.at[0] - ribNow[0], bertWhile.at[1] - ribNow[1]) < 4, JSON.stringify({ ...bertWhile, rib: ribNow }));
+  // Bert, crewing: over the side after her (the crew menu's Go diving, on scuba), a few metres down.
+  const bertDive = await B.evaluate(() => {
+    const I = slowTide.interaction();
+    const text = I?.text;
+    I?.run?.();
+    slowTide.advance(0.2, 30, false);
+    const acts = [...document.querySelectorAll('#confirm-acts button')].map((x) => x.textContent);
+    [...document.querySelectorAll('#confirm-acts button')].find((x) => /^Go diving/.test(x.textContent))?.click();
+    slowTide.advance(0.3, 30, false);
+    [...document.querySelectorAll('#confirm-acts button')].find((x) => /^Scuba, with the camera/.test(x.textContent))?.click();
+    slowTide.advance(1.5, 30, false);
+    return { text, acts, diving: slowTide.diving.state?.kit || null, crew: !!slowTide.crew.on };
+  });
+  note('Bert, crewing', JSON.stringify(bertDive));
+  check('10 · Bert, crewing, over the side after her', bertDive.diving === 'scuba', JSON.stringify(bertDive));
+  if (bertDive.diving) {
+    await B.evaluate(() => { slowTide.rig.views.dive.pitch = 1.1; });
+    await B.keyboard.down('KeyW');
+    await step(3);
+    await B.keyboard.up('KeyW');
+    await B.evaluate(() => { slowTide.rig.views.dive.pitch = 0; });
+    // (Both in the water now: each sees the other diving.)
+    const ids = await Promise.all(both.map((P) => P.evaluate(() => slowTide.together.id)));
+    const seeEach = [await A.evaluate((id) => { const p = slowTide.together.peers.get(id); return (p?.view || p?.pose)?.m || null; }, ids[1]), await B.evaluate((id) => { const p = slowTide.together.peers.get(id); return (p?.view || p?.pose)?.m || null; }, ids[0])];
+    check('10 · each sees the other diving', seeEach.every((m) => m === 'dive'), JSON.stringify(seeEach));
+  }
   // A photograph: the camera on the nearest fish (Space underwater), kept (Enter).
   const photos0 = await A.evaluate(() => slowTide.state.photos.length);
   const aim = await A.evaluate(() => {
@@ -644,6 +654,36 @@ const helmBack = await A.evaluate(() => {
   return { text, atHelm: !b.deck };
 });
 check('10 · Mags back at the helm', helmBack.atHelm, JSON.stringify(helmBack));
+// Bert up, and back aboard her (as he sees her, lying at anchor): crewing again.
+if (await B.evaluate(() => !!slowTide.diving.state)) {
+  await B.evaluate(() => { slowTide.rig.views.dive.pitch = -0.6; });
+  await B.keyboard.down('KeyW');
+  await step(6);
+  await B.keyboard.up('KeyW');
+  const magsId = await A.evaluate(() => slowTide.together.id);
+  for (let k = 0; k < 25; k++) {
+    const bp = await B.evaluate((id) => { const b = slowTide.visitors.crewBoat(id, slowTide.diving.diver.pos); return b ? [b.pos.x, b.pos.z] : null; }, magsId) || await A.evaluate(() => [slowTide.boats.rib.pos.x, slowTide.boats.rib.pos.z]);
+    await B.evaluate(([x, z]) => { const d = slowTide.diving.diver.pos, V = slowTide.rig.views.dive; V.yaw = Math.atan2(x - d.x, z - d.z); V.pitch = 0; }, bp);
+    await B.keyboard.down('KeyW');
+    await step(1);
+    await B.keyboard.up('KeyW');
+    if (await B.evaluate(([x, z]) => Math.hypot(slowTide.diving.diver.pos.x - x, slowTide.diving.diver.pos.z - z), bp) < 2.5) break;
+  }
+  const bertBack = await B.evaluate(() => {
+    const out = [];
+    for (let i = 0; i < 12; i++) {
+      const I = slowTide.interaction();
+      out.push(I?.text || null);
+      if (/^Climb aboard/.test(I?.text || '')) { I.run(); slowTide.advance(1.5, 30, false); break; }
+      slowTide.advance(0.5, 30, false);
+    }
+    return { prompts: out.filter(Boolean), diving: !!slowTide.diving.state, crew: !!slowTide.crew.on };
+  });
+  await step(2);
+  bertBack.still = await B.evaluate(() => !!slowTide.crew.on);
+  note('Bert back aboard', JSON.stringify(bertBack));
+  check('10 · Bert climbs back aboard Mags’s RIB, her crew again', bertBack.crew && bertBack.still && bertBack.prompts.some((p) => /^Climb aboard Mags’s RIB/.test(p)), JSON.stringify(bertBack));
+}
 
 /* ---------- 11. The night ---------- */
 // (The brief has them stay the night aboard. A night aboard needs a boat with a cabin (the cabin

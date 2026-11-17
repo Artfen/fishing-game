@@ -1189,12 +1189,20 @@ export class Together {
     this.sendT = SEND_EVERY;
   }
 
+  // Word of where your boats lie, at the next tick rather than the next round (you've just left
+  // one: over the side, say, with a friend still stood in her).
+  fleetSoon() {
+    this.fleetT = 0;
+    this.fleetSent = null;
+  }
+
   // Where your boats in the water are lying (every FLEET_EVERY seconds, or sooner when one moves).
   sendFleet() {
     if (!this.fleetSource || !this.rt?.open || this.reconnecting) return;
-    const fl = this.fleetSource().slice(0, FLEET_MAX).map((b) => ({ k: b.k, x: r2(b.x), z: r2(b.z), h: r2(b.h) }));
+    // (A second of a kind by her own id, as cleanFleet takes it.)
+    const fl = this.fleetSource().slice(0, FLEET_MAX).map((b) => ({ k: b.k, ...(b.i ? { i: b.i } : {}), x: r2(b.x), z: r2(b.z), h: r2(b.h) }));
     const S = this.fleetSent;
-    const moved = !S || S.length !== fl.length || fl.some((b, i) => b.k !== S[i].k || Math.hypot(b.x - S[i].x, b.z - S[i].z) > 1 || Math.abs(b.h - S[i].h) > 0.1);
+    const moved = !S || S.length !== fl.length || fl.some((b, i) => b.k !== S[i].k || b.i !== S[i].i || Math.hypot(b.x - S[i].x, b.z - S[i].z) > 1 || Math.abs(b.h - S[i].h) > 0.1);
     if (!moved && this.fleetT > -FLEET_EVERY * 2) return;
     this.rt.send('fleet', { id: this.id, fl });
     this.fleetSent = fl;
