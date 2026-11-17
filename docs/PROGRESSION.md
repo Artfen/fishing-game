@@ -101,5 +101,5 @@ home) is played by two game clients together, step by step, as a player would
    second boat of a kind drawn for everyone.
 3. **J3 (done):** a night aboard an open boat (the RIB, the console), at anchor or tied up, in a bivvy
    roll from the chandlery; a friend crewing aboard sleeps it through too.
-4. **J4:** the crew's catch in her voyage: fish landed aboard her by a friend crewing, named as
+4. **J4 (done):** the crew's catch in her voyage: fish landed aboard her by a friend crewing, named as
    theirs, in the skipper's voyage and her papers.

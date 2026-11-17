@@ -789,7 +789,7 @@ await step(4);
 const home = await A.evaluate(() => {
   const S = slowTide.state, V = (S.voyages || [])[S.voyages.length - 1];
   const log = S.yard.vessels?.rib?.log || [];
-  return { tied: !!slowTide.boat.tie, voyage: V && { title: V.title, nm: V.nm, hours: V.hours, places: V.places, fish: V.fish, kept: V.kept, best: V.best, boats: V.boats }, papers: log.slice(-2).map((l) => `day ${l.day}: ${l.text}`), photos: S.photos.length, said: window.__said.slice(-3) };
+  return { tied: !!slowTide.boat.tie, voyage: V && { title: V.title, nm: V.nm, hours: V.hours, places: V.places, fish: V.fish, kept: V.kept, best: V.best, boats: V.boats, crew: V.crew, crewFish: V.crewFish }, papers: log.slice(-2).map((l) => `day ${l.day}: ${l.text}`), photos: S.photos.length, said: window.__said.slice(-3) };
 });
 note('home', JSON.stringify(home));
 check('13 · tied up at her berth', home.tied, JSON.stringify(home.said));
@@ -798,6 +798,8 @@ check('13 · and in her papers', home.papers.length > 0, JSON.stringify(home.pap
 const bertHome = await B.evaluate(() => ({ log: slowTide.state.log.slice(-2).map((e) => [e.sp, e.size, e.boat || null, e.helper || null]), voyages: (slowTide.state.voyages || []).length }));
 note('Bert', JSON.stringify(bertHome));
 check('13 · Bert’s catch in his log', bertHome.log.length > 0, JSON.stringify(bertHome));
+// (J4) And in her voyage: Bert aboard for it, his fish counted as his.
+check('13 · Bert in her voyage, and his catch in it, as his', (home.voyage?.crew || []).includes('Bert') && home.voyage.crewFish >= bertHome.log.filter((e) => e[2] === 'rib').length && home.voyage.fish >= home.voyage.crewFish, JSON.stringify({ crew: home.voyage?.crew, fish: home.voyage?.fish, crewFish: home.voyage?.crewFish, bert: bertHome.log }));
 
 console.log(errors.slice(0, 12).join('\n') || 'no errors');
 console.log(fails ? `${fails} FAILED` : 'ALL PASSED');

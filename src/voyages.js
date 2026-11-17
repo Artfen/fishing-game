@@ -6,10 +6,13 @@
 // isn't a voyage: one that went offshore, spent a night out, crossed to Las Brasas, did a job, or
 // kept away from a berth for half a day is, and goes into the journal's Voyages (the last
 // VOYAGES_KEPT), with a line in her papers.
+//
+// (J4) Playing together, a friend crewing aboard is part of her voyage: named in it, and the fish
+// they land from her are in it too, as theirs ("two fish, one of them Bert's").
 
 export const VOYAGES_KEPT = 40;
 export const LONG_HOURS = 12;   // game hours away from a berth that make a voyage of it
-const LOG_KEPT = 16, PLACES_KEPT = 12, LIFE_KEPT = 16, BOATS_KEPT = 4, JOBS_KEPT = 8, CROSS_KEPT = 6;
+const LOG_KEPT = 16, PLACES_KEPT = 12, LIFE_KEPT = 16, BOATS_KEPT = 4, JOBS_KEPT = 8, CROSS_KEPT = 6, CREW_KEPT = 4;
 const STAGES = ['out', 'in', 'back'];
 
 const plain = (v, max) => (typeof v === 'string' ? v.replace(/[<>\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '');
@@ -25,12 +28,14 @@ export function newVoyage({ day, hour, abs, kind, from, x, z }) {
   return {
     day, hour: Math.round(hour * 100) / 100, abs, from: plain(from, 40) || 'the water', x: Math.round(x), z: Math.round(z),
     boats: [kind], m: 0, far: 0, farAt: '', places: [], fish: 0, kept: 0, best: null, life: [], gales: 0, cross: [], jobs: [], log: [],
+    crew: [], crewFish: 0,
   };
 }
 
 // Something on the voyage (ev.k): 'move' (m metres more, now at x, z, called `where`), 'boat',
-// 'place', 'fish' ({ sp, name, kg, kept }), 'life', 'gale', 'cross' ({ to, stage }), 'job' (its
-// title) or 'log' ({ day, text }: a line in her papers).
+// 'place', 'fish' ({ sp, name, kg, kept, by: a crewmate's name if they landed it }), 'life', 'gale',
+// 'cross' ({ to, stage }), 'job' (its title), 'log' ({ day, text }: a line in her papers) or 'crew'
+// ({ name }: a friend crewing aboard).
 export function onVoyage(V, ev) {
   if (!V || !ev) return V;
   switch (ev.k) {
@@ -50,9 +55,17 @@ export function onVoyage(V, ev) {
     case 'fish': {
       V.fish++;
       if (ev.kept) V.kept++;
-      if (!V.best || num(ev.kg) > V.best.kg) V.best = { sp: ev.sp, name: plain(ev.name, 40), kg: Math.round(num(ev.kg) * 100) / 100 };
+      // (A crewmate's: counted as theirs, and they're aboard.)
+      const by = plain(ev.by, 24);
+      if (by) {
+        V.crew ??= [];
+        V.crewFish = (V.crewFish || 0) + 1;
+        addOnce(V.crew, by, CREW_KEPT);
+      }
+      if (!V.best || num(ev.kg) > V.best.kg) V.best = { sp: ev.sp, name: plain(ev.name, 40), kg: Math.round(num(ev.kg) * 100) / 100, ...(by ? { by } : {}) };
       break;
     }
+    case 'crew': V.crew ??= []; addOnce(V.crew, plain(ev.name, 24), CREW_KEPT); break;
     case 'cross':
       if (STAGES.includes(ev.stage) && (ev.to === 'south' || ev.to === 'home') && V.cross.length < CROSS_KEPT) V.cross.push({ to: ev.to, stage: ev.stage });
       break;
@@ -92,6 +105,7 @@ export function finishVoyage(V, { day, hour, abs, to }) {
     nights: Math.max(0, day - V.day), hours: Math.round(Math.max(0, abs - V.abs) * 10) / 10, nm: Math.round((V.m / 1852) * 10) / 10,
     far: V.far, farAt: V.farAt, boats: V.boats.slice(), places: V.places.slice(), fish: V.fish, kept: V.kept, best: V.best,
     life: V.life.slice(), gales: V.gales, cross: V.cross.slice(), jobs: V.jobs.slice(), log: V.log.slice(),
+    crew: (V.crew || []).slice(), crewFish: V.crewFish || 0,
   };
   R.title = voyageTitle(V);
   return R;
@@ -106,7 +120,7 @@ export function keepVoyage(list, R) {
 
 // Her papers' line for it.
 export function papersLine(R) {
-  return `${R.title}: ${R.nm} nm${R.nights ? `, ${R.nights} night${R.nights > 1 ? 's' : ''} out` : ''}${R.fish ? `, ${R.fish} fish` : ''}.`;
+  return `${R.title}: ${R.nm} nm${R.nights ? `, ${R.nights} night${R.nights > 1 ? 's' : ''} out` : ''}${R.fish ? `, ${R.fish} fish` : ''}${R.crew?.length ? `, with ${list(R.crew)}` : ''}.`;
 }
 
 // For the journal, in words: { title, when, lines } (names: kinds -> names, boats and sea life).
@@ -120,9 +134,11 @@ const list = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', '
 export function voyageWords(R, { boat = (k) => k, life = (k) => k } = {}) {
   const when = R.end.day === R.day ? `Day ${R.day}, ${clock(R.hour)} to ${clock(R.end.hour)}` : `Day ${R.day}, ${clock(R.hour)} to day ${R.end.day}, ${clock(R.end.hour)}`;
   const lines = [];
-  lines.push(`From ${R.from} to ${R.end.to}, in ${list(R.boats.map((k) => `the ${boat(k)}`))}: ${R.nm} nm${R.far > 400 ? `, ${(R.far / 1000).toFixed(1)} km out at the furthest${R.farAt ? ` (${R.farAt})` : ''}` : ''}.`);
+  lines.push(`From ${R.from} to ${R.end.to}, in ${list(R.boats.map((k) => `the ${boat(k)}`))}${R.crew?.length ? ` with ${list(R.crew)}` : ''}: ${R.nm} nm${R.far > 400 ? `, ${(R.far / 1000).toFixed(1)} km out at the furthest${R.farAt ? ` (${R.farAt})` : ''}` : ''}.`);
   if (R.nights) lines.push(`${count(R.nights, 'night').replace(/^./, (c) => c.toUpperCase())} out.`);
-  if (R.fish) lines.push(`${count(R.fish, 'fish', 'fish').replace(/^./, (c) => c.toUpperCase())}${R.kept && R.kept < R.fish ? ` (${R.kept} kept)` : ''}${R.best ? `, the best ${/^[aeiou]/i.test(R.best.name) ? 'an' : 'a'} ${R.best.name} of ${R.best.kg < 1 ? `${Math.round(R.best.kg * 1000)} g` : `${R.best.kg.toFixed(1)} kg`}` : ''}.`);
+  // (J4: the crew's among them, said as theirs.)
+  const crewOnes = R.crewFish ? (R.crewFish === R.fish ? (R.crew?.length === 1 ? ` (all ${R.crew[0]}’s)` : ' (all the crew’s)') : ` (${count(R.crewFish, 'of them', 'of them')} ${R.crew?.length === 1 ? `${R.crew[0]}’s` : 'the crew’s'})`) : '';
+  if (R.fish) lines.push(`${count(R.fish, 'fish', 'fish').replace(/^./, (c) => c.toUpperCase())}${crewOnes}${R.kept && R.kept < R.fish ? ` (${R.kept} kept)` : ''}${R.best ? `, the best ${/^[aeiou]/i.test(R.best.name) ? 'an' : 'a'} ${R.best.name} of ${R.best.kg < 1 ? `${Math.round(R.best.kg * 1000)} g` : `${R.best.kg.toFixed(1)} kg`}${R.best.by ? `, ${R.best.by}’s` : ''}` : ''}.`);
   if (R.life.length) lines.push(`Saw ${list(R.life.slice(0, 6).map(life))}.`);
   if (R.gales) lines.push(R.gales === 1 ? 'Weathered a gale.' : `Weathered ${count(R.gales, 'gale')}.`);
   if (R.places.length) lines.push(`By ${list(R.places.slice(0, 6))}.`);
@@ -137,7 +153,8 @@ export function cleanVoyage(v) {
   return {
     day: Math.floor(num(v.day)), hour: num(v.hour, 0, 24), abs: num(v.abs), from: plain(v.from, 40) || 'the water', x: Math.round(num(v.x, -1e5, 1e5)), z: Math.round(num(v.z, -1e5, 1e5)),
     boats: strs(v.boats, BOATS_KEPT, 16), m: num(v.m), far: Math.round(num(v.far)), farAt: plain(v.farAt, 40), places: strs(v.places, PLACES_KEPT, 40),
-    fish: Math.floor(num(v.fish)), kept: Math.floor(num(v.kept)), best: isObj(v.best) && typeof v.best.sp === 'string' ? { sp: plain(v.best.sp, 24), name: plain(v.best.name, 40), kg: num(v.best.kg) } : null,
+    fish: Math.floor(num(v.fish)), kept: Math.floor(num(v.kept)), best: isObj(v.best) && typeof v.best.sp === 'string' ? { sp: plain(v.best.sp, 24), name: plain(v.best.name, 40), kg: num(v.best.kg), ...(plain(v.best.by, 24) ? { by: plain(v.best.by, 24) } : {}) } : null,
+    crew: strs(v.crew, CREW_KEPT, 24), crewFish: Math.min(Math.floor(num(v.crewFish)), Math.floor(num(v.fish))),
     life: strs(v.life, LIFE_KEPT, 24), gales: Math.floor(num(v.gales, 0, 99)),
     cross: (Array.isArray(v.cross) ? v.cross : []).filter((c) => isObj(c) && STAGES.includes(c.stage) && (c.to === 'south' || c.to === 'home')).slice(0, CROSS_KEPT).map((c) => ({ to: c.to, stage: c.stage })),
     jobs: strs(v.jobs, JOBS_KEPT, 60), log: (Array.isArray(v.log) ? v.log : []).filter((e) => isObj(e) && typeof e.text === 'string').slice(-LOG_KEPT).map((e) => ({ day: Math.floor(num(e.day)), text: plain(e.text, 160) })),
