@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { heightAt, waterLevel, STACKS, SKERRIES, CALF, CALF_SKERRY, GANNET, PUFFIN_COVE, MARSH, SANDBANKS, STRAND, COVE, DAYMARK, LAKE, MERE, STREAM, RIVER } from './terrain.js';
 import { COLDWATER } from './coldwater.js';
 import { waveHeight } from './water.js';
-import { VILLAGE, PUERTO, MOLE, FARO_POINT, ARCO, ROJA, ISLE, PLAYA } from './brasa.js';
+import { VILLAGE, PUERTO, MOLE, FARO_POINT, ARCO, ROJA, ISLE, PLAYA, GAVIOTA, HONDA } from './brasa.js';
 import { BIRDS } from '../birdData.js';
 import { clamp, damp, dampAngle, wrapAngle, mergeParts, mat, seeded } from '../util.js';
 
@@ -252,6 +252,12 @@ function colonies(rnd) {
   add('bpipit', 'flit', spots(rnd, VILLAGE.x, VILLAGE.z, VILLAGE.r, VILLAGE.r + 80, 3, ground(4, 60)));
   add('canary', 'flit', spots(rnd, VILLAGE.x, VILLAGE.z, 20, VILLAGE.r + 30, 4, ground(3, 40)));
   add('plainswift', 'skim', Array.from({ length: 8 }, (_, i) => ({ x: VILLAGE.x + (rnd() - 0.5) * 60, y: 30 + rnd() * 20, z: VILLAGE.z - 40 + (rnd() - 0.5) * 60, r: 60 + i * 9 })));
+  // (The archipelago) Isla Gaviota's gulls: a colony on the ledges of its weather cliffs, and more
+  // wheeling over them; and terns and waders on Isla Honda's sand.
+  add('ylgull', 'perch', spots(rnd, GAVIOTA.x - 40, GAVIOTA.z - 60, 60, 190, 26, ledge(6, 40, 3)));
+  add('ylgull', 'glide', Array.from({ length: 5 }, (_, i) => ({ x: GAVIOTA.x - 60 + (rnd() - 0.5) * 120, y: 30 + rnd() * 18, z: GAVIOTA.z - 90 + (rnd() - 0.5) * 80, r: 50 + i * 12 })));
+  add('turnstone', 'wade', spots(rnd, HONDA.cove.x, HONDA.cove.z, HONDA.cove.r, HONDA.cove.r + 40, 3, rock(0.2, 1.6)));
+  add('whimbrel', 'wade', spots(rnd, HONDA.x, HONDA.z, 80, 220, 2, rock(0.2, 2)));
   add('bulwer', 'skim', Array.from({ length: 5 }, (_, i) => ({ x: ISLE.x + (rnd() - 0.5) * 200, y: 1.2, z: ISLE.z + ISLE.rz + 120 + i * 30, r: 260 + i * 40 })));
   // (Each colony's middle, for drawing only those near you.)
   for (const c of C) {

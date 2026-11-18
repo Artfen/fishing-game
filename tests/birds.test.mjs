@@ -17,7 +17,7 @@ const { SEA_LIFE } = await import('../src/world/sealife.js');
 const { SEA_LIFE_KINDS, parseSave, SAVE_VERSION } = await import('../src/save.js');
 const T = await import('../src/taxonomy.js');
 const { GANNET, PUFFIN_COVE, MARSH, LAKE } = await import('../src/world/terrain.js');
-const { PUERTO, ISLE } = await import('../src/world/brasa.js');
+const { PUERTO, ISLE, GAVIOTA } = await import('../src/world/brasa.js');
 
 const run = (B, secs, ctx, dt = 1 / 20) => {
   for (let i = 0; i < secs / dt; i++) B.update(dt, i * dt, ctx);
@@ -43,7 +43,13 @@ test('every bird of the coast has a body, a place to live, a name, a note and a 
   assert.ok(near('puffin', 'perch', PUFFIN_COVE, 75));
   assert.ok(B.colonies.filter((c) => c.kind === 'redshank').some((c) => c.at.some((p) => MARSH.some((M) => Math.hypot(p.x - M.x, p.z - M.z) < M.r + 15))));
   assert.ok(B.colonies.some((c) => c.kind === 'muteswan' && c.at.every((p) => Math.hypot(p.x - LAKE.x, p.z - LAKE.z) < LAKE.rx) || c.kind === 'muteswan'));
-  assert.ok(near('ylgull', 'glide', PUERTO, 120));
+  // (The yellow-legged gulls wheel over Puerto Brasa, and over their colony on Isla Gaviota in the
+  // archipelago: docs/ARCHIPELAGO.md.)
+  const gulls = B.colonies.filter((c) => c.kind === 'ylgull' && c.how === 'glide');
+  const at = (c, P, r) => c.at.every((p) => Math.hypot(p.x - P.x, p.z - P.z) < r);
+  assert.ok(gulls.every((c) => at(c, PUERTO, 120) || at(c, GAVIOTA, 260)));
+  assert.ok(gulls.some((c) => at(c, PUERTO, 120)) && gulls.some((c) => at(c, GAVIOTA, 260)));
+  assert.ok(near('ylgull', 'perch', GAVIOTA, 260) || B.colonies.some((c) => c.kind === 'ylgull' && c.how === 'perch' && at(c, GAVIOTA, 260)), 'their colony on Gaviota\'s cliffs');
   // Standing birds stand on something, swimming birds on water, none in the air unless flying.
   for (const b of B.birds) assert.ok(Number.isFinite(b.x + b.y + b.z), b.kind);
   // And the same birds in the same places, game after game.

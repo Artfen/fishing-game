@@ -85,7 +85,7 @@ for (const [k, B] of Object.entries(BIRDS)) SEA_LIFE[k] = { name: B.name, note: 
 
 // The pods, where they roam (an area, kept to water at least minDepth deep), how fast they go,
 // how long between breaths, and whether they ride a bow.
-const PODS = [
+export const PODS = [
   { kind: 'bottlenose', sea: 'home', n: 5, len: [2.6, 3.4], area: [-450, 450, -60, 820], minDepth: 6, speed: 2.2, period: [7, 12], bow: true },
   { kind: 'commondolphin', sea: 'home', n: 9, len: [1.8, 2.3], area: [-600, 900, 650, 1350], minDepth: 15, speed: 3, period: [5, 9], bow: true },
   // (Round Las Brasas, where the water's clear and the lee calm, they notice a boat from further
@@ -93,6 +93,8 @@ const PODS = [
   // approaches to the harbour, where the boats are.)
   { kind: 'spotteddolphin', sea: 'south', n: 7, len: [1.7, 2.2], area: [-700, 800, 6300, 6750], minDepth: 20, speed: 2.6, period: [5, 9], bow: true, reach: 320, seen: 260 },
   { kind: 'bottlenose', sea: 'south', n: 4, len: [2.6, 3.3], area: [-600, 700, 6250, 6800], minDepth: 10, speed: 2, period: [7, 12], bow: true, reach: 280, seen: 240 },
+  // (The archipelago) Common dolphins working the bait over El Banco, out in the north-west.
+  { kind: 'commondolphin', sea: 'south', n: 8, len: [1.8, 2.3], area: [-1100, -540, 4900, 5400], minDepth: 25, speed: 3, period: [5, 9], bow: true, reach: 360, seen: 280 },
   // (Out on the crossing between the two: a big pod of common dolphins, met along the way (see
   // crossing.js and summon below); they come racing to a bow from a long way off.)
   { kind: 'commondolphin', sea: 'crossing', n: 12, len: [1.8, 2.3], area: [-1200, 1400, 1500, 5000], minDepth: 50, speed: 3, period: [5, 9], bow: true, reach: 480, seen: 320 },

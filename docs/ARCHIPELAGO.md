@@ -84,6 +84,23 @@ island lies well off its line, so the open water it crosses stays deep (`tests/c
   bait fish favour them, so the feeds (which start where hunters meet bait) happen there.
 - A gull colony on Gaviota; dolphins over El Banco.
 
+*A2 done.* What was built:
+
+- **Up-current** (`brasa.js` `upCurrent`): the water off the north-east side of Brasa, each island
+  and El Banco, where the current meets them, out from the surf. The island's fish homes there
+  are tagged so, and those in El Estrecho and on El Banco have tags of their own; the harbour
+  folk have words for them all.
+- **The bait** (sardine, horse mackerel, chub mackerel) favours up-current water and the channel,
+  and so do the hunters that feed on it (bluefish, bullet and little tunny); amberjack, barracuda
+  and the groupers favour El Banco, and barracuda and groupers Los Roquetes. Feeds start where
+  hunters meet bait, so the boiling water and the birds come up there. Of five sardine schools
+  three are now up-current; of six horse-mackerel schools, four.
+- **A gull colony** on Isla Gaviota's weather cliffs, wheeling over it too; turnstones and
+  whimbrel on Isla Honda's sand; a pod of common dolphins over El Banco.
+- **Tests:** in `tests/archipelago.test.mjs`. One older test changed: the birds test held that
+  every flock of yellow-legged gulls wheels over Puerto Brasa; it now allows (and wants) the
+  colony on Isla Gaviota as well.
+
 **A3, things to find:** El Vapor (the wreck, a dive site with its buoy), El Banco (a deep dive),
 the ruins of Las Salinas, a beacon on Gaviota; the coves' sand for the anchor.
 

@@ -6,7 +6,7 @@ import {
 } from './terrain.js';
 import { COLDWATER, TARN } from './coldwater.js';
 import {
-  SOUTH_Z, SOUTH_MAP, brasaHeight, brasaZone, brasaHabitat, brasaSDF, PUERTO, QUAY_S, MOLE, DIQUE, PLAYA, ARCO, ARCHES, FARO, COLADAS, SEBADAL, BAJON, onBajon,
+  SOUTH_Z, SOUTH_MAP, brasaHeight, brasaZone, brasaHabitat, brasaSDF, upCurrent, inEstrecho, onBanco, GAVIOTA, HONDA, ROQUETES, VAPOR, PUERTO, QUAY_S, MOLE, DIQUE, PLAYA, ARCO, ARCHES, FARO, COLADAS, SEBADAL, BAJON, onBajon,
 } from './brasa.js';
 import { siteById, PINNACLES } from './divesites.js';
 import { ENDS } from '../crossing.js';
@@ -736,8 +736,14 @@ function southSpots(habitat, spots) {
       brasaHabitat(px, pz, S);
       const depth = S.depth;
       if (onBajon(px, pz) > 0.2) continue; // (El Bajón's are placed by hand, below)
+      // (The archipelago, docs/ARCHIPELAGO.md: the channel and the water up-current of an island or
+      // the bank, where the bait gathers; the bank, the stacks and the islands' own shores.)
+      const up = upCurrent(px, pz) > 0.5, strait = inEstrecho(px, pz) > 0.4, bank = onBanco(px, pz) > 0.2;
       const tag = near(px, pz, ARCO, 120) ? 'roque' : near(px, pz, FARO, 160) ? 'faro' : near(px, pz, PLAYA, 190) ? 'playa' : zone === 'harbor' ? 'puerto'
-        : zone === 'sebadal' ? 'sebadal' : COLADAS.some((c) => Math.hypot(px - c[2], pz - c[3]) < 150) ? 'coladas' : zone === 'veril' ? 'veril' : null;
+        : strait ? 'estrecho' : up ? 'upwell' : bank ? 'banco'
+          : zone === 'sebadal' ? 'sebadal' : COLADAS.some((c) => Math.hypot(px - c[2], pz - c[3]) < 150) ? 'coladas'
+            : Math.hypot(px + 890, pz - 6450) < 220 ? 'roquetes' : near(px, pz, GAVIOTA, 420) ? 'gaviota' : near(px, pz, HONDA, 400) ? 'honda'
+              : zone === 'veril' ? 'veril' : null;
       if (zone === 'harbor') continue; // (the harbour's are placed by hand, below)
       if (zone === 'veril') {
         // The wall: the steep edge, with caves in it; open water above and beyond.

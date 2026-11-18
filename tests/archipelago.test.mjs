@@ -129,3 +129,40 @@ test('a chart of the island explored before the archipelago is laid out on the b
   now.reveal(GAVIOTA.x, GAVIOTA.z, 100);
   assert.equal(new Explored(now.toString(), B.SOUTH_MAP).toString(), now.toString());
 });
+
+/* ---------------- A2: life, through its habitats ---------------- */
+
+test('up-current: the water off each island\'s and the bank\'s north-east side, not their lee', () => {
+  for (const I of ISLANDS) {
+    assert.ok(B.upCurrent(I.x + I.rx * 0.9 + 80, I.z - I.rz * 0.9 - 80) > 0.5, `${I.id}: up-current off its north-east`);
+    assert.ok(B.upCurrent(I.cove.x, I.cove.z) < 0.2, `${I.id}: not in its cove`);
+  }
+  assert.ok(B.upCurrent(BANCO.x + 130, BANCO.z - 130) > 0.5, 'El Banco\'s north-east face');
+  assert.ok(B.upCurrent(BANCO.x - 130, BANCO.z + 130) < 0.2, 'not its south-west');
+});
+
+test('the bait gathers up-current and in El Estrecho, its hunters with it; fish round every island, the budget kept', async () => {
+  const { createHabitat } = await import('../src/world/habitat.js');
+  const { Ecosystem } = await import('../src/world/ecosystem.js');
+  const H = createHabitat(), eco = new Ecosystem(H);
+  const tagOf = (s) => (s.home || s.members?.[0]?.home)?.tag;
+  const where = (id) => eco.schools.filter((s) => s.sp.id === id && (s.home || s.members?.[0]?.home)?.south).map(tagOf);
+  const there = (tags) => tags.filter((t) => t === 'upwell' || t === 'estrecho').length;
+  for (const id of ['sardine', 'horsemackerel', 'chubmackerel']) {
+    const t = where(id);
+    assert.ok(there(t) >= 2 && there(t) >= t.filter((x) => x !== 'crossing').length / 2, `${id}: ${t.join(', ')}`);
+  }
+  for (const id of ['bluefish', 'bullet']) assert.ok(there(where(id)) >= 1, `${id} hunting there: ${where(id).join(', ')}`);
+  assert.ok(where('amberjack').includes('banco') || where('barracuda').includes('banco'), 'on El Banco');
+  // Fish round each new island, the stacks and the bank; and no more in the south than before.
+  const south = eco.agents.filter((a) => a.home.south);
+  const round = (x, z, r) => south.filter((a) => Math.hypot(a.home.x - x, a.home.z - z) < r).length;
+  for (const I of ISLANDS) assert.ok(round(I.x, I.z, 450) > 40, `${I.id}: ${round(I.x, I.z, 450)}`);
+  assert.ok(round(-890, 6450, 250) > 30 && round(BANCO.x, BANCO.z, 300) > 20);
+  assert.ok(south.length > 1200 && south.length < 2400, `${south.length} in all`);
+});
+
+test('dolphins work the bait over El Banco', async () => {
+  const { PODS } = await import('../src/world/sealife.js');
+  assert.ok(PODS.some((p) => p.sea === 'south' && p.area[0] < BANCO.x && p.area[1] > BANCO.x && p.area[2] < BANCO.z && p.area[3] > BANCO.z));
+});

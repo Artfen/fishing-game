@@ -198,6 +198,21 @@ export function bancoHeight(x, z) {
 export function onBanco(x, z) {
   return smoothstep(1, 0.75, Math.hypot(x - BANCO.x, z - BANCO.z) / BANCO.r);
 }
+// Up-current (0 … 1): out from an island's or El Banco's north-east side, where the Canary current
+// (running south-west) meets it and wells up, bringing the bait (docs/ARCHIPELAGO.md). Off the
+// shore a little way, not in its surf.
+const UPS = [{ x: ISLE.x, z: ISLE.z, r: Math.max(ISLE.rx, ISLE.rz) }, ...ISLANDS.map((I) => ({ x: I.x, z: I.z, r: Math.max(I.rx, I.rz) })), { x: BANCO.x, z: BANCO.z, r: BANCO.r * 0.6 }];
+export function upCurrent(x, z) {
+  let best = 0;
+  for (const C of UPS) {
+    const dx = x - C.x, dz = z - C.z, d = Math.hypot(dx, dz) || 1;
+    if (d > C.r + 420) continue;
+    // (The north-east: against the current, which runs toward (-0.72, 0.69).)
+    const face = (dx * 0.72 - dz * 0.69) / d;
+    best = Math.max(best, smoothstep(0.45, 0.85, face) * smoothstep(C.r + 420, C.r + 200, d));
+  }
+  return best * smoothstep(15, 60, Math.max(0, brasaSDF(x, z)) + (onBanco(x, z) > 0.2 ? 60 : 0));
+}
 // In an island's cove (0 … 1): its sheltered sand, and its pale beach.
 export function inCove(x, z) {
   let k = 0;
