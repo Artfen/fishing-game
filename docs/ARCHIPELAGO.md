@@ -146,6 +146,9 @@ tender ashore to Las Salinas, a dive on El Vapor; the numbers in `docs/PERFORMAN
   anchor among the islands draws half what it did. On the way, the scatter's counts went back to
   what they were before the archipelago (the islands share Brasa's, as the fish do) and the
   islands' weed beds were thinned.
+- **The coves from the sea:** their white sand stopped short against the brown slope behind,
+  showing the terrain's triangles as a row of teeth along the back of each beach. It's now blown
+  up onto the low ground behind and fades over twenty-odd metres.
 - **The sea life's dice:** the sea's creatures are placed from one stream of dice, so El Banco's
   dolphins, added mid-list in A2, moved every creature after them. They now roll dice of their
   own and come last (`sealife.js` `ownDice`), so nothing else moves for them.

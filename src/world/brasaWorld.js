@@ -86,10 +86,14 @@ export function brasaColor(c, h, ny, x, z, r) {
     c.lerp(BC.pineFloor, smoothstep(120, 170, h) * smoothstep(260, 200, h) * smoothstep(0.7, 0.85, ny) * clamp(0.3 + n2, 0, 1) * 0.7);
     c.lerp(BC.lavaLight, steep * (0.5 + rough * 0.3));
     // Black sand, wet at the water's edge (white shell sand in the islands' coves).
-    if (beach > 0.02) {
-      const pale = beachPale(x, z);
+    // (The coves' white sand blown up onto the low ground behind, fading out over twenty-odd
+    // metres: a pale beach stopped short against the brown slope shows the terrain's triangles as
+    // teeth along its back.)
+    const pale = beachPale(x, z), dune = pale > 0 ? 0.7 * Math.pow(pale, 1.5) * smoothstep(14, 3, h) : 0;
+    const onSand = beach * smoothstep(5, 1, h);
+    if (onSand > 0.02 || dune > 0.02) {
       _sand.copy(h < 0.9 ? BC.wetBlack : BC.blackSand).lerp(h < 0.9 ? BC.wetShell : BC.shellSand, pale);
-      c.lerp(_sand, beach * smoothstep(5, 1, h));
+      c.lerp(_sand, Math.max(onSand, dune));
     }
     // Las Salinas: the salt pans' crust, in squares between their walls.
     {
