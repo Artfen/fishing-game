@@ -612,3 +612,64 @@ included). The full table, with each LICENSE file read, is in the two research n
     in a minute: just under the 15.6 m she went. With the drift fitted again she goes 15.0 m (3.6%
     of the wind, her trolling motor's leg down). It now asks for what the trials find of small
     craft, at least 3% of the wind.
+
+- **W6 (second part):** spray and spindrift torn off the breaking crests in a strong wind, and the
+  foam streaks on the water by the Beaufort scale.
+
+  **Where it comes from.** From the crests breaking round you now, and only from them, as hard as
+  each is breaking (the long waves' own breaking, kept since W6's first part: `ocean.js`
+  `breaking`, `breakingAt`), the wind sea's share there squared as the whitecaps drawn there are
+  (none on the river or the tarn, less in the bays). Points of the sea within 50 m of you are tried
+  at random, as many as the most there could be, and each kept as often as its crest is breaking
+  and the wind there tears it, so each square metre of crest breaking gives off spumeRate(u) plumes
+  a second.
+
+  **When.** Spume, the drops the wind tears from the crests, begins somewhere between 7 and 11 m/s
+  (Andreas et al. 1995, a review: the usual 9 m/s is a rule of thumb within that range); by force 8
+  (17.2 m/s) "the edges of the crests begin to break into spindrift" (the Beaufort scale). So none
+  in a wind whose gusts stay under 7 m/s, all the breaking crests giving it from 11, and more from
+  each crest the harder it blows (as the wind's square: our choice), on top of the whitecaps' own
+  cover rising as the wind's 3.41 power.
+
+  **How it flies.** Each puff is a cloud of fine drops (falling at 0.35 to 1.6 m/s in still air),
+  pulled to the wind's speed a metre or two up (0.8 of the 10 m wind, the log profile over a rough
+  sea) in a time vt/g, worked out exactly for each frame's step. And the air close over a rough sea
+  is turbulent: its eddies go up and down at about 1.25 times the friction velocity u* (√Cd·U, with
+  Large and Pond's drag coefficient), 0.65 m/s in a near gale and nearly 1 m/s in a gale, as fast as
+  the finest drops fall. So each puff is given the eddy it's torn into, and the fine ones are carried
+  up and along over the troughs, not let fall straight back; the cloud spreads as the eddies mix
+  it, by twice their speed across each second, thinning as it goes. A crest gives a short plume, two
+  to four puffs torn off its lip one after another down the wind. A slamming bow's heavy spray (2.2
+  to 4.5 m/s) arcs and falls back close by, as before, but now flies the same way.
+
+  **Lit as the foam:** the spray's white is the water's foam colour lit as the water lights it (the
+  sky's light and the sun's, never darker than a storm's white); before it was plain white whatever
+  the light, glowing at night.
+
+  On the open sea, within 50 m of you, measured over 20 s of the test's sea:
+
+  | Wind | Plumes a second | Puffs in the air | Their height above the sea: half within | Nine in ten within |
+  | --- | --- | --- | --- | --- |
+  | 8 m/s | 7 | 23 | 0.2 m | 0.7 m |
+  | 10 m/s | 25 | 89 | 0.4 m | 1.2 m |
+  | 14 m/s | 124 | 562 | 0.7 m | 2.1 m |
+  | 18 m/s | 403 | 1428 | 0.8 m | 1.7 m |
+  | 20 m/s | 754 | 1936 | 0.7 m | 1.4 m |
+
+  **Seen.** The first version was too faint to pick out: drawn red and on top of everything, the
+  spindrift was all round the camera, streaming down the wind, but its puffs, small and about 0.4
+  opaque on average, vanished against a bright, foam-flecked sea and a pale sky. Torn off now each
+  is dense white at its core, thinning as it spreads (at half that it still didn't read), drawn as
+  an uneven cloud of soft blobs turned its own way (the shared glow, white to a third of its
+  radius, read as lights, not spray). A gale looking down across the wind, before and after
+  (`docs/water/spindrift-before.jpg`, `spindrift-after.jpg`): now puffs of spray drift over the
+  water down the wind, and a foam streak lies along it; and low across the wind
+  (`docs/water/spindrift-across.jpg`), faint wisps stream over the water. Against the sky near the
+  horizon it's white on white, as it is at sea.
+
+  **Foam streaks on the water by the Beaufort scale.** Foam blown in long streaks down the wind now
+  comes with the wind's strength, not with a storm: none to force 6, beginning at force 7
+  (13.9 m/s), well marked at force 8, dense at force 9 (20.8 m/s) (`spindrift.js` `streakShare`,
+  the shader the same). Lying on the water, the streaks drift down the wind as its surface does,
+  about 3% of the wind; before, their pattern raced down the wind at 17 m/s. Each is threads of
+  foam drawn out along the wind; before, a smooth smear.

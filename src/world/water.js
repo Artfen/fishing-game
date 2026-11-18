@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { conditions, WAVE_PARTS, bakeShelter, tidalTexture, SHELTER_RECT, waveHeight as conditionsWaveHeight } from './conditions.js';
 import { longSea, PATCH, SHORT, FINE, TMA_N, FineSpectrum, slopeShare } from './ocean.js';
 import { ShortSea } from './oceangpu.js';
+import { STREAKS } from './spindrift.js';
 import { HAZE } from './sky.js';
 
 // The water surface: swell and wind chop from the shared conditions (conditions.js). The same
@@ -682,10 +683,23 @@ void main() {
     float near = smoothstep(0.0, 0.6, detail);
     caps = mix(capF * 0.55, smoothstep(1.0 - capF, 1.0 - capF + 0.18, web), near);
   }
-  // In a storm: foam blown in long streaks down the wind, and the crests of the big seas breaking.
+  // Foam blown in long streaks down the wind, and in a storm the crests of the big seas breaking.
+  // (W6) The streaks by the wind's strength, as the Beaufort scale has them (spindrift.js
+  // streakShare): none to force 6, beginning at force 7 (13.9 m/s), well marked at 8, dense at 9
+  // (20.8). Lying on the water, they drift down the wind as its surface does, at about 3% of the
+  // wind. (Before, they came with a storm whatever the wind, and their pattern raced down the wind
+  // at 17 m/s.)
   vec2 wdir = windS > 0.01 ? uWindV / windS : vec2(1.0, 0.0);
-  float lane = vnoise(vec2(dot(p, vec2(-wdir.y, wdir.x)) * 0.85, dot(p, wdir) * 0.03 - uTime * 0.5));
-  float streaks = smoothstep(0.7, 0.86, lane) * smoothstep(0.35, 0.7, vnoise(p * 0.09 - drift * 0.3)) * shel.g * stormy;
+  float streakF = smoothstep(${STREAKS[0].toFixed(1)}, ${STREAKS[1].toFixed(1)}, uWindMS) * (1.0 - fresh);
+  float lane = vnoise(vec2(dot(p, vec2(-wdir.y, wdir.x)) * 0.85, (dot(p, wdir) - 0.03 * uWindMS * uTime) * 0.03));
+  float streaks = smoothstep(0.7 - 0.1 * streakF, 0.86, lane) * smoothstep(0.35, 0.7, vnoise(p * 0.09 - drift * 0.3)) * shel.g * streakF;
+  // (Each lane threads of foam down the wind, not a smooth smear: filaments a few tens of
+  // centimetres across, drawn out along it.)
+  if (streaks > 0.001) {
+    vec2 sq = vec2(dot(p, vec2(-wdir.y, wdir.x)), dot(p, wdir) - 0.03 * uWindMS * uTime);
+    float threads = 1.0 - abs(vnoise(sq * vec2(2.2, 0.18)) * 2.0 - 1.0);
+    streaks *= smoothstep(0.45, 0.9, threads) * 0.8 + 0.2 * smoothstep(0.2, 0.8, vnoise(sq * vec2(5.0, 0.5) + 7.3));
+  }
   // (Breaking only at the very tops of the big seas, where their faces are steepest.)
   float steepSea = smoothstep(0.08, 0.26, length(Nw.xz));
   float crest = smoothstep(uSwellH * 0.62, uSwellH * 1.1, vWorld.y) * mix(0.35, 1.0, steepSea) * smoothstep(0.3, 0.62, vnoise(p * 0.42 - drift * 0.6)) * shel.r * stormy;

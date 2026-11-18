@@ -379,6 +379,13 @@ export function waveHeight(x, z, t = conditions.time) {
   hc = longSea.add(x, z, t, (0.15 + 0.85 * sh[1]) * fade * seaDepth(ground, fresh), _wh).h;
   return TIDE.level * (1 - fresh) + hs * fade + hc;
 }
+// (W6) The wind sea's share of itself at a point (its shelter, the shore's fade, the depth), as
+// waveHeight scales it there; none on the river and the tarn.
+export function seaShareAt(x, z) {
+  if (waterLevel(x, z) > 0.05) return 0;
+  const ground = solidHeight(x, z), fresh = freshness(x, z);
+  return (0.15 + 0.85 * shelterAt(x, z)[1]) * shoreFadeOf(ground, fresh) * seaDepth(ground, fresh);
+}
 // (W5) The wind sea's long waves' share of their height left in water this deep (the TMA
 // spectrum's depth limit: ocean.js tmaAt), the depth counted with the tide as the water shader
 // counts it.
