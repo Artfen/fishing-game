@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SHORT, ShortSpectrum } from './ocean.js';
+import { SHORT, ShortSpectrum, SURFACE_TENSION } from './ocean.js';
 
 // The sea's short waves, from about eight metres down to a few centimetres, worked out on the
 // graphics card each frame (Ocean: Full in Settings): the texture of the water close by, its
@@ -34,7 +34,8 @@ void main() {
   vec2 kv = ${TAU.toFixed(6)} * m / uL;
   float k = length(kv);
   vec4 s = texelFetch(uH0, c, 0);
-  float w = sqrt(9.81 * k), ph = w * uTime;
+  // (W5: with surface tension, which only the finest feel.)
+  float w = sqrt(9.81 * k + ${SURFACE_TENSION.toExponential(3)} * k * k * k), ph = w * uTime;
   vec2 e1 = cmul(s.xy, vec2(cos(ph), -sin(ph))), e2 = cmul(s.zw, vec2(cos(ph), sin(ph)));
   vec2 h = e1 + e2;
   vec2 ih = vec2(-h.y, h.x);          // i·h
@@ -100,9 +101,10 @@ export class ShortSea {
     return !!renderer.capabilities.isWebGL2 && renderer.extensions.has('EXT_color_buffer_float');
   }
 
-  constructor(renderer) {
+  // (W5) spectrum: the band it works out (the short waves, or ocean.js FineSpectrum).
+  constructor(renderer, spectrum = new ShortSpectrum()) {
     this.renderer = renderer;
-    this.spectrum = new ShortSpectrum();
+    this.spectrum = spectrum;
     const rt = (type, filter, mips) => {
       const t = new THREE.WebGLRenderTarget(N, N, { type, format: THREE.RGBAFormat, depthBuffer: false, magFilter: filter, minFilter: mips ? THREE.LinearMipmapLinearFilter : filter, wrapS: THREE.RepeatWrapping, wrapT: THREE.RepeatWrapping });
       t.texture.generateMipmaps = !!mips;
@@ -121,7 +123,7 @@ export class ShortSea {
       fragmentShader: frag.replace(/gl_FragColor/g, 'outColor').replace('precision highp float;', 'precision highp float;\nprecision highp int;\nprecision highp sampler2D;\nout vec4 outColor;'),
       uniforms, depthTest: false, depthWrite: false,
     });
-    this.evolve = mat(evolveFrag, { uH0: { value: this.h0 }, uTime: { value: 0 }, uL: { value: SHORT.L }, uWhich: { value: 0 } });
+    this.evolve = mat(evolveFrag, { uH0: { value: this.h0 }, uTime: { value: 0 }, uL: { value: spectrum.size?.L ?? SHORT.L }, uWhich: { value: 0 } });
     this.fft = mat(fftFrag, { uSrc: { value: null }, uSize: { value: 2 }, uDir: { value: 0 } });
     this.assemble = mat(assembleFrag, { uP: { value: null }, uQ: { value: null }, uWhich: { value: 0 }, uChop: { value: 0.8 } });
     this.scene = new THREE.Scene();

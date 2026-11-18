@@ -502,3 +502,38 @@ included). The full table, with each LICENSE file read, is in the two research n
   the wind sea's part. Its wavelengths are still deep water's (the patch is one for the whole sea),
   and the shore's fade over the last half metre or so is as before.
 
+- **W5 (second part):** a third layer of waves, the finest, close by (Ocean: Full): ripples from
+  60 cm down to 5 cm, worked out on the graphics card from the same spectrum, on a 3.17 m patch
+  (128 cells; the short waves' 23.7 m patch hands over to it between 75 and 50 cm). They run as
+  ripples do, a little faster than gravity alone would take them for the water's surface tension
+  (ω² = g·k + (σ/ρ)·k³: a 5 cm ripple 6% faster). Drawn as slopes within about 18 m, read turned so
+  their small patch never lines up with the short one's; further off they'd be a pixel or so across
+  and only speckle, and the glitter's spread stands in for them.
+
+  **Ripples need a wind.** JONSWAP's tail carried on down to centimetres would keep them in a calm,
+  and the first try did: a calm morning came out speckled. Elfouhaily, Chapron, Katsaros and
+  Vandemark's (1997) unified spectrum puts the capillary-gravity range's level at
+  α_m = 0.01·(1 + ln(u*/c_m)) below u* = c_m, c_m = 0.23 m/s the slowest a ripple runs, u* the
+  wind's friction velocity (√Cd·U, Cd 1.2·10⁻³ in a light wind): so none in a wind under about 2.4
+  m/s, where viscosity smooths them away and the water stays glassy (`docs/water/ripples-calm.jpg`),
+  a fifth of their level at 3 m/s, half at 4, all of it from about 6.6.
+
+  **The glitter's spread.** How far the sun's reflection spreads (W2) is the sea's whole mean
+  square slope for this wind (Cox and Munk), less what the drawn waves show. With Ocean: Full it's
+  now worked out from each band's own spectrum (its Σ k²·E) rather than set at 0.3 of it close by:
+
+  | Wind | Ripples' level | Long waves draw | Short | Finest | Left to the glitter close by |
+  | --- | --- | --- | --- | --- | --- |
+  | 1.5 m/s | 0 | 0% | 14% | 0% | 0.86 (was 0.3) |
+  | 3 m/s | 0.21 | 1% | 13% | 3% | 0.84 |
+  | 5 m/s | 0.72 | 3% | 15% | 13% | 0.69 |
+  | 7 m/s | 1 | 5% | 20% | 23% | 0.51 |
+  | 11 m/s | 1 | 10% | 32% | 36% | 0.22 |
+  | 15 m/s | 1 | 18% | 45% | 50% | 0.10 (held there) |
+
+  With Ocean: Simple it's 0.7 as before (the shading's own ripples draw the rest). A fresh breeze
+  (11 m/s) looking down at the water a few metres off, before and after
+  (`docs/water/ripples-before.jpg`, `ripples-after.jpg`): before, smooth long waves close by;
+  now the ripples over them break up the sky's reflection, and fade into the glitter's roughness
+  beyond about 18 m.
+

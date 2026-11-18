@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { conditions, WAVE_PARTS, bakeShelter, tidalTexture, SHELTER_RECT, waveHeight as conditionsWaveHeight } from './conditions.js';
-import { longSea, PATCH, SHORT, TMA_N } from './ocean.js';
+import { longSea, PATCH, SHORT, FINE, TMA_N, FineSpectrum, slopeShare } from './ocean.js';
 import { ShortSea } from './oceangpu.js';
 import { HAZE } from './sky.js';
 
@@ -287,6 +287,10 @@ varying float vWave;
 uniform sampler2D uShortSlope; // the short waves (Ocean: Full): slopes x, z, and how pinched (J)
 uniform float uShortOn;
 uniform float uShortL;
+uniform sampler2D uFineSlope;  // (W5) the finest, 60 to 5 cm (Ocean: Full): slopes x, z
+uniform float uFineOn;
+uniform float uFineL;
+uniform vec3 uSlopeShare;      // (W5) the share of the sea's mean square slope the long, short and finest waves draw
 uniform sampler2D uSea1;  // the wind sea's long waves: slopes x, z and foam (see WAVE_GLSL)
 uniform vec4 uSeaCopy;
 uniform vec2 uSeaPatch;
@@ -488,6 +492,17 @@ void main() {
     vec4 s1 = texture2D(uShortSlope, q), s2 = texture2D(uShortSlope, q2);
     shortS = vec3((s1.xy + vec2(0.81 * s2.x - 0.59 * s2.y, 0.59 * s2.x + 0.81 * s2.y) / 1.63) * 0.8 * kcS * tmaS(depth), min(s1.z, mix(1.0, s2.z, 0.6)));
   }
+  // (W5) And the finest, close by (Ocean: Full): a few centimetres to half a metre long, read turned
+  // so their small patch never lines up with the short one's; gone by 18 m, where they'd be a pixel
+  // or so across and only speckle, and the glitter's spread stands in for them.
+  float fineNear = 0.0;
+  if (uFineOn > 0.5) {
+    fineNear = 1.0 - smoothstep(5.0, 18.0, dist);
+    if (fineNear > 0.0) {
+      vec4 f1 = texture2D(uFineSlope, mat2(0.6, -0.8, 0.8, 0.6) * vRest / uFineL + vec2(0.13, 0.57));
+      shortS.xy += vec2(0.6 * f1.x + 0.8 * f1.y, -0.8 * f1.x + 0.6 * f1.y) * kcS * fineNear;
+    }
+  }
   // Gusts: patches where the breeze ruffles the water, carried downwind, with calmer, glassier
   // lanes between. Stronger wind, rougher water; sheltered water stays smoother.
   float windS = length(uWindV);
@@ -574,11 +589,14 @@ void main() {
   }
   // The roughness the drawn waves leave out (W2, after Bruneton, Neyret and Holzschuch 2010): the
   // sea's whole mean square slope for this wind (Cox and Munk), less what the waves drawn here
-  // already show. Close by, with the short waves worked out, about half of it; without them, most;
-  // and once a pixel covers metres of sea, all of it. Sheltered water and fresh water are calmer,
-  // gusts rougher, rain roughens it.
+  // already show; and once a pixel covers metres of sea, all of it. With Ocean: Full (W5), worked
+  // out from each band's own spectrum (uSlopeShare): the long, short and finest waves close by draw
+  // a sixth of it in light air, half in a moderate breeze and all of it in a strong wind. Without
+  // them (Simple), most of it, as W2 set it (the shading's own ripples draw the rest). Sheltered
+  // water and fresh water are calmer, gusts rougher, rain roughens it.
   float foot = length(fwidth(vWorld.xz));
-  float unres = mix(mix(0.7, 0.3, uShortOn), 1.0, smoothstep(0.04, 1.6, foot));
+  float drawn = uSlopeShare.x + uSlopeShare.y + uFineOn * fineNear * uSlopeShare.z;
+  float unres = mix(uShortOn > 0.5 ? clamp(1.0 - drawn, 0.1, 1.0) : 0.7, 1.0, smoothstep(0.04, 1.6, foot));
   float calm = (0.12 + 0.88 * shel.g) * (1.0 - 0.75 * fresh) * mix(0.6, 1.3, gust);
   vec2 msq = max(uSlopeVar * unres * calm + uRain * 0.01, vec2(0.0012));
   // How much the water reflects (Fresnel, from water's own 2% looking straight down to all of it at
@@ -880,11 +898,15 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
   uniforms.uShortSlope = { value: null };
   uniforms.uShortOn = { value: 0 };
   uniforms.uShortL = { value: SHORT.L };
+  uniforms.uFineSlope = { value: null };
+  uniforms.uFineOn = { value: 0 };
+  uniforms.uFineL = { value: FINE.L };
+  uniforms.uSlopeShare = { value: new THREE.Vector3(0, 0, 0) };
   uniforms.uBelow = { value: null };
   uniforms.uBelowOn = { value: 0 };
   uniforms.uScreen = { value: new THREE.Vector2(1, 1) };
   uniforms.uViewProj = { value: new THREE.Matrix4() };
-  let shortSea = null;
+  let shortSea = null, fineSea = null;
 
   const material = new THREE.ShaderMaterial({
     uniforms,
@@ -981,6 +1003,7 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
         const W = longSea.wind;
         shortSea.update(conditions.time, W.u, W.to, W.m0, longSea.choppy);
         for (let i = 0; i < TMA_N; i++) uniforms.uTmaS.value[i] = shortSea.spectrum.patch.tma[i];
+        fineSea?.update(conditions.time, W.u, W.to, W.m0, longSea.choppy);
       }
       uniforms.uWindV.value.set(windX, windZ);
       uniforms.uSwellH.value = conditions.sea.swell;
@@ -989,6 +1012,9 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       uniforms.uWindMS.value = conditions.wind.speed;
       const [up, across] = seaSlopeVariance(conditions.wind.speed);
       uniforms.uSlopeVar.value.set(up, across);
+      // (W5) How much of it each band draws, from its spectrum (as it was last built).
+      const cm = up + across;
+      uniforms.uSlopeShare.value.set(slopeShare(longSea.patch, cm), slopeShare(shortSea?.spectrum.patch, cm), slopeShare(fineSea?.spectrum.patch, cm));
       uniforms.uStorm.value = conditions.sea.storm;
     },
     follow(pos) {
@@ -1007,12 +1033,20 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
     // 'simple' leaves them to the shading. Returns what it's doing.
     setOcean(mode, renderer) {
       const want = mode === 'full' && renderer && ShortSea.supported(renderer);
-      if (want && !shortSea) shortSea = new ShortSea(renderer);
+      if (want && !shortSea) {
+        shortSea = new ShortSea(renderer);
+        // (W5) And the finest waves, close by.
+        fineSea = new ShortSea(renderer, new FineSpectrum());
+      }
       if (!want && shortSea) {
         shortSea.dispose();
         shortSea = null;
+        fineSea?.dispose();
+        fineSea = null;
       }
       uniforms.uShortOn.value = shortSea ? 1 : 0;
+      uniforms.uFineOn.value = fineSea ? 1 : 0;
+      uniforms.uFineSlope.value = fineSea ? fineSea.slope.texture : null;
       // (W4b) The bottom seen through the moving surface, with the short waves that move it.
       below.want = !!shortSea;
       if (!below.want) uniforms.uBelowOn.value = 0;

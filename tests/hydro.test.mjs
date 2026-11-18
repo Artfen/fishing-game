@@ -92,9 +92,12 @@ test('the wind sea’s energy is shared as a real one’s is, and adds up to its
   let m0 = 0;
   for (const v of L.a.h) m0 += v * v;
   m0 /= L.a.h.length;
-  const S = new O.ShortSpectrum();
+  const S = new O.ShortSpectrum(), F = new O.FineSpectrum();
   S.update(L.wind.u, L.wind.to, L.wind.m0);
+  F.update(L.wind.u, L.wind.to, L.wind.m0);
+  // (W5: and the finest, below 75 cm.)
   for (const a of S.patch.amp) m0 += 2 * a * a;
+  for (const a of F.patch.amp) m0 += 2 * a * a;
   const hs = 4 * Math.sqrt(m0);
   assert.ok(Math.abs(hs / (2 * C.conditions.sea.chop) - 1) < 0.12, `Hs ${hs.toFixed(2)} m for a crest of ${C.conditions.sea.chop.toFixed(2)}`);
   // It runs downwind, and the physics feels exactly the surface that's drawn.
