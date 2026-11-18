@@ -80,7 +80,11 @@ test('Spot-Lock holds her near her spot in a breeze, wandering a little as it co
       m.spotLock(true, spot);
     });
     const off = from(held.track, spot), late = off.slice(Math.floor(off.length / 3));
-    assert.ok(drift > 15, `free, the breeze takes her ${drift.toFixed(1)} m in a minute`);
+    // (Free, she drifts off as small craft do in the field trials, at 3 to 5% of the wind (B3):
+    // here at least 3% of 7 m/s for a minute, with her trolling motor's leg down. W6: this was "more
+    // than 15 m", just under the 15.6 m she went then; with B3's drift fitted again (her own
+    // resistance along her coming in from 0.7 m/s) she goes 15.0 m, 3.6% of the wind.)
+    assert.ok(drift > 0.03 * 7 * 60, `free, the breeze takes her ${drift.toFixed(1)} m in a minute`);
     assert.ok(Math.max(...late) < 6, `Spot-Lock keeps her within ${Math.max(...late).toFixed(1)} m of her spot`);
     assert.ok(Math.max(...off) > 0.3, `and she wanders as it corrects (never frozen): ${Math.max(...off).toFixed(2)} m at most`);
     assert.ok(held.m.f > 0, 'it’s pushing');

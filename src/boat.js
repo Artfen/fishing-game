@@ -5266,7 +5266,11 @@ export class Boat {
         A.dragging = false;
         if (A.wasSet) A.heldAt = A.dug;
       }
-      if (!A.wasSet && A.set > 0.9) {
+      // (It's bitten, dug in and holding her, once it's 90% set; or once it's three-quarters set
+      // and, having dragged a little way digging in, holds her (W6). Before, only the first: one
+      // holding her at 88% never said so, and so never said either if it dragged later. Lying
+      // back in a light air, barely begun to dig in, it says nothing yet.)
+      if (!A.wasSet && (A.set > 0.9 || (A.set > 0.75 && (A.dug || 0) > 0.3 && over <= 0))) {
         A.wasSet = true;
         A.heldAt = A.dug;
         this.onAnchor?.('bite', this);

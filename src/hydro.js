@@ -62,9 +62,14 @@ export function windLoad(along, across, A, end, out = [0, 0, 0]) {
   return out;
 }
 const _wl = [0, 0, 0];
-// (B3) Drifting, the speeds (m/s along her) over which her own resistance curve takes over from the
-// water's on her panels: see hullForces.
+// (B3) Drifting, the speeds (m/s through the water) over which the water's slow, linear grip
+// across her comes in as she gets under way: see hullForces.
 export const DRIFT_FULL = [0.2, 1.2];
+// (B3) And the speeds (m/s along her) over which her own resistance curve takes over along her
+// from the water's on her panels. (W6: fitted again, all of it from 0.7 m/s rather than B3's 1.2,
+// once the wind sea's water ran the right way under its crests. Run backwards, it had been holding
+// a drifting boat back by about a quarter, and the fit had leant on that: see docs/WATER.md.)
+export const DRIFT_ALONG = [0.2, 0.7];
 // (B4) Ventilation: a propeller working hard close under the surface draws air down onto its
 // blades once part of its disc breaks the surface, and loses most of its push (the engine races).
 // And it has a memory, as model tests find (Koushan; Kozlowska et al.): the air takes a moment to
@@ -1119,7 +1124,7 @@ export class HydroBody {
     // speed, so she answers the helm crisply and stops when it's off) is back from about 1.2 m/s,
     // and whenever she's driven by them.
     if (!this.thrusters.some((t) => t.f)) {
-      const k = smooth01((Math.abs(vf) - DRIFT_FULL[0]) / (DRIFT_FULL[1] - DRIFT_FULL[0]));
+      const k = smooth01((Math.abs(vf) - DRIFT_ALONG[0]) / (DRIFT_ALONG[1] - DRIFT_ALONG[0]));
       want = along + (want - along) * k;
     }
     const fix = want - along;

@@ -268,6 +268,9 @@ export class LongSea {
     this.latest = -1e9;
     this.specT = -1e9;
     this.foam = new Float32Array(n);
+    // (W6) How hard each cell's crest is breaking at this moment (0 … 1); the foam is what lingers
+    // after it. Where the crests break now, and in a strong wind what's torn off them.
+    this.brk = new Float32Array(n);
     this.foamT = -1e9;
     this.choppy = 0.8;   // how far the to-and-fro carries the crests along (1: fully, as Tessendorf)
     this.wind = { u: 3, to: 0, m0: 0.0004 };
@@ -322,8 +325,12 @@ export class LongSea {
       const tr = w * (e1i - e2i), ti = -w * (e1r - e2r); // ∂ĥ/∂t
       const kx = P.kx[q], kz = P.kz[q], ux = P.ux[q], uz = P.uz[q];
       // Real fields two at a time: transform of A + iB comes out A + iB.
-      // F1 = h + i·Dx   (Dx = −i k̂x ĥ)
-      const dxr = ux * hi, dxi = -ux * hr, dzr = uz * hi, dzi = -uz * hr;
+      // F1 = h + i·Dx   (Dx = +i k̂x ĥ: with this transform, e^{+i k·x}, that carries the water
+      // in towards each crest and away from each trough, as a real wave's orbits do, a Gerstner
+      // wave's −A sin θ under A cos θ. (W6) It was −i k̂x ĥ, Tessendorf's form, which with his
+      // positive λ spreads the water apart under the crests: blunt crests, sharp troughs, the
+      // whitecaps breaking in the troughs and the water running backwards under the crests.)
+      const dxr = -ux * hi, dxi = ux * hr, dzr = -uz * hi, dzi = uz * hr;
       r1[q] = hr - dxi;
       i1[q] = hi + dxr;
       // F2 = Dz + i·∂h/∂t
@@ -333,8 +340,8 @@ export class LongSea {
       const sxr = -kx * hi, sxi = kx * hr, szr = -kz * hi, szi = kz * hr;
       r3[q] = sxr - szi;
       i3[q] = sxi + szr;
-      // F4 = ∂Dx/∂t + i·∂Dz/∂t: the water's horizontal motion
-      const vxr = ux * ti, vxi = -ux * tr, vzr = uz * ti, vzi = -uz * tr;
+      // F4 = ∂Dx/∂t + i·∂Dz/∂t: the water's horizontal motion (forward under a crest)
+      const vxr = -ux * ti, vxi = ux * tr, vzr = -uz * ti, vzi = uz * tr;
       r4[q] = vxr - vzi;
       i4[q] = vxi + vzr;
     }
@@ -391,6 +398,7 @@ export class LongSea {
     this.foamT = t;
     if (!(dt > 0) || dt > 5) {
       this.foam.fill(0);
+      this.brk.fill(0);
       if (dt > 5 || !(dt > 0)) return;
     }
     // (Each copy of the patch carries half the sea: its pinch counted at that.)
@@ -430,6 +438,7 @@ export class LongSea {
         const old = this.foam[q] * fade;
         this.foam[q] = old > 0 ? old : 0;
       }
+      this.brk.fill(0);
       return;
     }
     const soft = Math.max(0.02, (hi - lo) * 0.04);
@@ -437,6 +446,7 @@ export class LongSea {
       // (And a cell whose foam has gone wrong takes the new value, rather than keeping it wrong.)
       const old = this.foam[q] * fade, now = smooth(th + soft, th - soft, J[q]);
       this.foam[q] = old > now ? old : now > 0 ? now : 0;
+      this.brk[q] = now > 0 ? now : 0;
     }
   }
 
@@ -509,6 +519,62 @@ export class LongSea {
       }
     }
     return out;
+  }
+
+  // (W6) How hard the crest is breaking at the still-water point (x, z), now (0 … 1): the harder
+  // of the two copies, bilinear between the cells, as the graphics card reads the foam.
+  breaking(x, z) {
+    const C = this.copy, N = this.N, cell = this.L / N, B = this.brk;
+    let most = 0;
+    for (let copy = 0; copy < 2; copy++) {
+      let px = x, pz = z;
+      if (copy) {
+        const ux = x - C.x, uz = z - C.z;
+        px = ux * C.c + uz * C.s;
+        pz = -ux * C.s + uz * C.c;
+      }
+      const gx = px / cell, gz = pz / cell, ix = Math.floor(gx), iz = Math.floor(gz), fx = gx - ix, fz = gz - iz;
+      const i0 = ((ix % N) + N) % N, i1 = (i0 + 1) % N, j0 = (((iz % N) + N) % N) * N, j1 = (j0 + N) % (N * N);
+      const b = (B[j0 + i0] * (1 - fx) + B[j0 + i1] * fx) * (1 - fz) + (B[j1 + i0] * (1 - fx) + B[j1 + i1] * fx) * fz;
+      if (b > most) most = b;
+    }
+    return most;
+  }
+
+  // (W6) Where the crests are breaking: at the still-water point (x, z), time t, with the wind
+  // sea's share s here, how hard (out.b, returned too: breaking above), and that bit of the
+  // surface: where the to-and-fro has carried it (out.x, out.z), the wind sea's height there
+  // (out.h) and the water's motion (out.vx, out.vy, out.vz).
+  breakingAt(x, z, t, s, out) {
+    out.x = x;
+    out.z = z;
+    out.h = out.vx = out.vy = out.vz = 0;
+    out.b = 0;
+    if (s <= 0 || this.wind.m0 < 1e-9) return 0;
+    const k = this.at(t), C = this.copy, f = 1 / Math.SQRT2, lam = this.choppy * s * f;
+    out.b = this.breaking(x, z);
+    for (let copy = 0; copy < 2; copy++) {
+      let px = x, pz = z;
+      if (copy) {
+        const ux = x - C.x, uz = z - C.z;
+        px = ux * C.c + uz * C.s;
+        pz = -ux * C.s + uz * C.c;
+      }
+      this.stencil(px, pz);
+      let dx = lam * this.field('dx', k), dz = lam * this.field('dz', k);
+      let vx = s * f * this.field('ux', k), vz = s * f * this.field('uz', k);
+      out.h += s * f * this.field('h', k);
+      out.vy += s * f * this.field('ht', k);
+      if (copy) {
+        [dx, dz] = [dx * C.c - dz * C.s, dx * C.s + dz * C.c];
+        [vx, vz] = [vx * C.c - vz * C.s, vx * C.s + vz * C.c];
+      }
+      out.x += dx;
+      out.z += dz;
+      out.vx += vx;
+      out.vz += vz;
+    }
+    return out.b;
   }
 }
 const _sq = new Int32Array(16), _sw = new Float64Array(16);
