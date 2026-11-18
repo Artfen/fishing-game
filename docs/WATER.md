@@ -271,3 +271,68 @@ included). The full table, with each LICENSE file read, is in the two research n
   costs one copy of the screen a frame and a few more texture reads for each pixel of near sea, on
   Ocean: Full only.
 
+
+- **B3:** calibration against measurements, first part: the wind on a boat, a boat drifting, a
+  boat at anchor, and her roll. Before, the wind pushed on a boat the same whichever way she lay
+  (0.003 N per kilogram of her for each (m/s)² of wind), several times what air does on a hull
+  that size, so every boat left to drift went off at 4 to 14% of the wind, lying end-on to it.
+  Field trials of small craft drifting (Allen et al., met.no report 17/2010) find 3 to 5%.
+
+  Now the wind on her topsides is Blendermann's (1994), as fitted to wind-tunnel tests of ships
+  and boats (and as Fossen's *Handbook of Marine Craft Hydrodynamics*, 2011, gives it), with his
+  coefficients for a speed boat: across her on the area of her side, along her on the area of her
+  end, in the wind as it blows at her windage's height over open water (U₁₀·(z/10)^0.12, DNV's
+  marine profile). Each boat has her own side area, end share and height (hull, cabin or console,
+  whoever's at the helm). Across her the push grows with the sine of the wind's angle off her
+  bow, as a wing's lift does, so lying to the wind she's pushed back to it; and it pushes further
+  forward the finer the wind is on her bow (a flat plate's quarter-chord), so at anchor she sheers
+  as boats do. Drifting slowly with nothing driving her, her resistance is the water's on her own
+  panels (mostly friction along them) rather than her full resistance curve, which is several
+  times a real hull's at a walking pace so that she answers the helm and stops when it's off; and
+  the slow, linear part of the water's grip on her panels comes in across her only as she gets
+  under way (a hull drifting slowly across the water makes no waves).
+
+  Her drift through the water down the wind, after a minute to settle, over two minutes (the
+  wind's own sea, no swell; the wind she feels on average, its gusts and all, in brackets):
+
+  | Wind | Field trials, 4.15 m skiff | Skiff, before | Skiff, now | Rowing boat | Console | Yacht |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | 5 m/s | 0.26 to 0.29 m/s | 0.34 (6.0) | 0.28 (6.1) | 0.19, was 0.23 | 0.29, was 0.44 | 0.21, was 0.42 |
+  | 10 m/s | 0.39 to 0.43 | 0.77 (9.9) | 0.38 (11.7) | 0.39, was 0.60 | 0.46, was 1.18 | 0.42, was 1.14 |
+  | 15 m/s | 0.51 to 0.55 | 1.50 (15.5) | 0.46 (16.6) | 0.46, was 1.17 | 0.52, was 2.18 | 0.48, was 2.13 |
+
+  (The trials' fit, 0.0252·U₁₀ + 0.134 m/s, at the game's wind and at the wind she feels.) At 5
+  and 10 m/s the skiff is within 4 and 12% of the fit at the wind she feels; at 15 m/s, a wind
+  above most of the trials', 16% under it.
+
+  **At anchor.** On her rope she lies near head to it on average and swings to and fro about it:
+  in a moderate breeze the rowing boat swings through about 60° of compass each half-minute, the
+  fleet 23 to 94° (the yacht least, the skiff and rowing boat most in a fresh wind). Practical
+  Sailor's survey of sailors at anchor in strong weather: most see 55 to 65°, some up to 120°.
+
+  What drags an anchor is now mostly the sea, not the wind. Through a gale (17 m/s, the sea it
+  raises) the ordinary anchor held each boat tried (rowing boat, skiff, bass boat, console). In the game's own storm (its wind at its strongest,
+  gusting to over 30 m/s, and its long seas built), over three minutes on the rope, the rowing
+  boat's ordinary anchor dragged 2.6 m and the skiff's 2.5 m (the console's 0.9 m); the heavier
+  one on chain held each of them (0.14 m at most). Before, with the wind's push overstated, an
+  ordinary anchor dragged far faster (in the game's storm the console's went 25 m in a minute and a
+  half) and even the heavier one dragged (1.4 m). What an anchor holds is unchanged (12% of her weight, the heavier one 2.2 times
+  that): a well-set anchor in good sand. Holding by the bottom (sand, weed, mud, rock) is B6's.
+
+  **Spot-Lock** holds her to its GPS fix, and a consumer fix with satellite-based correction is
+  good to a metre or two, its error wandering over tens of seconds (modelled so: 0.6 m each way,
+  half a minute). In a flat calm she wanders up to about 1.3 m round her spot, the motor always
+  correcting; in a 7 m/s breeze it keeps her within about a metre. In a gale's sea her bow lifts
+  and its propeller draws air (as before), and she drags off.
+
+  **Her roll**, heeled 10° in a calm and let go (a free roll decay): damping ratios 0.039 (the
+  yacht) to 0.083 (the sailing boat), periods 1.2 to 3.4 s, as before B3 (it changes how she's
+  pushed across the water, not how she rolls). Calm-water decay tests of small craft find a few
+  hundredths to a tenth (a 10 m yacht's: 0.025 with her sails stowed, 0.079 with her mainsail up).
+  A test now keeps it there.
+
+  The engines' top speeds were measured again (tools/engine-trials.mjs): with less air holding
+  her back, each is 0.2 to 2.1% faster; and a propeller of less pitch is now at least an inch
+  less than her matched one (they come in whole inches).
+
+  Still to do from B3's line in the plan: the planing trim checked against Savitsky.

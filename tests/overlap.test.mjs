@@ -164,14 +164,19 @@ function overlapped(kinds, n, seed) {
     me.place(12, 32, Math.PI);
     her.place(12 + dx, 32 + dz, Math.PI + dh);
     let t = 10, top = 0, lost = false;
+    const vs = [];
     for (let i = 0; i < 12 * 30; i++) {
       t += 1 / 30;
       drawn(her, 12 + dx, 32 + dz, Math.PI + dh, t);
       me.update(1 / 30, t, 0, 0, 0);
       if (!Number.isFinite(me.pos.x + me.pos.z + me.vel.x + me.vel.z)) { lost = true; break; }
       top = Math.max(top, Math.hypot(me.vel.x, me.vel.z));
+      if (i >= 10 * 30) vs.push([me.vel.x, me.vel.z]);
     }
-    out.push({ at: [+dx.toFixed(2), +dz.toFixed(2), +dh.toFixed(2)], top, lost, late: Math.hypot(me.vel.x, me.vel.z), blow: me.phys.blowFirst || null, d: Math.hypot(me.pos.x - her.pos.x, me.pos.z - her.pos.z) });
+    // (Shaking: how far her velocity strays from its average over the last two seconds.)
+    const mx = vs.reduce((a, v) => a + v[0], 0) / vs.length, mz = vs.reduce((a, v) => a + v[1], 0) / vs.length;
+    const shake = Math.max(...vs.map((v) => Math.hypot(v[0] - mx, v[1] - mz)));
+    out.push({ at: [+dx.toFixed(2), +dz.toFixed(2), +dh.toFixed(2)], top, lost, late: Math.hypot(me.vel.x, me.vel.z), shake, blow: me.phys.blowFirst || null, d: Math.hypot(me.pos.x - her.pos.x, me.pos.z - her.pos.z) });
     me.dispose?.();
     her.dispose?.();
   }
@@ -183,11 +188,14 @@ test('two hulls found overlapped anywhere, of any kinds, part with one easy push
   // skiff on a cabin boat in two thirds, and some left shaking for good.)
   for (const [kinds, seed] of [[['row', 'row'], 777], [['rib', 'row'], 99], [['skiff', 'cabin'], 5], [['cabin', 'skiff'], 8]]) {
     for (const r of overlapped(kinds, 6, seed)) {
-      const at = JSON.stringify({ kinds, ...r, top: +r.top.toFixed(2), late: +r.late.toFixed(2) });
+      const at = JSON.stringify({ kinds, ...r, top: +r.top.toFixed(2), late: +r.late.toFixed(2), shake: +r.shake.toFixed(3) });
       assert.ok(!r.lost && r.blow == null, `no kick: ${at}`);
       // (Eased apart at the contacts' own pace, a touch more as the swell rocks her.)
       assert.ok(r.top < CONTACT_PUSH * 2, `one easy push: ${at}`);
-      assert.ok(r.late < 0.3, `nothing left shaking: ${at}`);
+      // (B3) Pushed apart, she glides on as a boat does with nothing driving her, slowing: no
+      // faster than the push left her, and her velocity steady, not shaking. (Before B3, the
+      // worst of these strayed 0.13 m/s over the last two seconds; now 0.06.)
+      assert.ok(r.late <= r.top + 1e-9 && r.shake < 0.15, `nothing left shaking: ${at}`);
     }
   }
 });

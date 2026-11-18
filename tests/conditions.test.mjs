@@ -86,8 +86,8 @@ test('the water you see and the water boats float on are one function', () => {
 });
 
 // A boat left to drift in a steady wind and current, simulated at a frame rate.
-function drift(kind, fps, seconds, { anchored = false } = {}) {
-  settle('moderate', 9, 270);
+function drift(kind, fps, seconds, { anchored = false, each = null, from = 270 } = {}) {
+  settle('moderate', 9, from);
   const b = new Boat(new THREE.Scene(), { kind });
   b.place(-120, 420, 0);
   if (anchored) b.setAnchor?.(true);
@@ -98,6 +98,7 @@ function drift(kind, fps, seconds, { anchored = false } = {}) {
     b.update(dt, i * dt, 0, 0, 0);
     maxRoll = Math.max(maxRoll, Math.abs(b.roll));
     maxPitch = Math.max(maxPitch, Math.abs(b.pitch));
+    each?.(b, i * dt);
   }
   return { x: b.pos.x, z: b.pos.z, maxRoll, maxPitch, b };
 }
@@ -119,19 +120,51 @@ test('boats ride the waves gently and differently: a kayak follows the chop, the
   assert.ok(bass.maxRoll < kayak.maxRoll, `bass boat ${bass.maxRoll.toFixed(3)} vs kayak ${kayak.maxRoll.toFixed(3)}`);
 });
 
-test('an anchored boat stays on its rope, and lies to it', () => {
-  const r = drift('row', 30, 90, { anchored: true });
+test('an anchored boat stays on its rope, and lies to it, swinging as boats do', () => {
+  // (B3) With the wind's real push on her (hydro.js windLoad), a rowing boat dropped where she
+  // lies takes the best part of a minute and a half to drift back onto her rope in a moderate
+  // breeze (her leeway, about 3% of the wind). Then, on it: the anchor never drags, her bow never
+  // further from it than the rope reaches (and the few per cent a nylon rope gives under a wave's
+  // snatch), on average near head to it, never
+  // lying across it, and swinging to and fro on it as boats do (Practical Sailor's survey: most
+  // sailors see 55 to 65° of compass in strong weather, some up to 120°). (The wind from the
+  // swell's own quarter here: with them apart a light boat lies between the two.)
+  const offs = [], hs = [], _f = [0, 0, 0];
+  let set = null, moved = 0, over = -Infinity;
+  const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  const r = drift('row', 30, 240, {
+    anchored: true,
+    from: 250,
+    each: (b, t) => {
+      const A = b.anchor, R = A.rope;
+      if (A.phase === 'set') {
+        set ??= { x: A.x, z: A.z };
+        moved = Math.max(moved, Math.hypot(A.x - set.x, A.z - set.z));
+      }
+      if (R) {
+        const f = b._phys.toWorld(R.p, _f);
+        over = Math.max(over, Math.hypot(f[0] - R.to[0], f[1] - R.to[1], f[2] - R.to[2]) / R.len - 1);
+      }
+      if (t < 150) return;
+      offs.push(wrap(Math.atan2(A.x - b.pos.x, A.z - b.pos.z) - b.heading));
+      hs.push(b.heading);
+    },
+  });
   const A = r.b.anchor;
   assert.ok(A && A.phase === 'set', 'the anchor is on the bottom');
-  // Her bow no further from the anchor than the rope reaches (it never drags), and once the
-  // wind and tide have taken her back on it, lying head to it.
-  const bx = r.x + r.b.fwd.x * r.b.hull.L * 0.45, bz = r.z + r.b.fwd.z * r.b.hull.L * 0.45;
-  const d = Math.hypot(bx - A.x, bz - A.z);
-  assert.ok(d <= A.reach + 0.3, `${d.toFixed(1)} m from the anchor, on a ${A.reach.toFixed(1)} m reach`);
-  if (A.tension > 0.5) {
-    const to = Math.atan2(A.x - r.x, A.z - r.z), off = Math.abs(Math.atan2(Math.sin(to - r.b.heading), Math.cos(to - r.b.heading)));
-    assert.ok(off < 0.5, `head to the anchor (${off.toFixed(2)} rad off)`);
+  assert.ok(moved < 0.01, `it never dragged (${moved.toFixed(3)} m)`);
+  assert.ok(over < 0.02, `her bow never past her rope and 2% of its stretch (${(over * 100).toFixed(1)}% at most)`);
+  const mean = offs.reduce((a, x) => a + x, 0) / offs.length, most = Math.max(...offs.map(Math.abs));
+  assert.ok(Math.abs(mean) < 0.35, `on average ${mean.toFixed(2)} rad off head to her anchor`);
+  assert.ok(most < 1.3, `never across it (${most.toFixed(2)} rad at most)`);
+  // Her swing: the compass range over each half-minute, on average.
+  const ranges = [];
+  for (let s = 0; s + 900 <= hs.length; s += 900) {
+    const w = hs.slice(s, s + 900).map((h) => wrap(h - hs[s]));
+    ranges.push(((Math.max(...w) - Math.min(...w)) * 180) / Math.PI);
   }
+  const swing = ranges.reduce((a, x) => a + x, 0) / ranges.length;
+  assert.ok(swing > 15 && swing < 120, `swinging through ${swing.toFixed(0)}° (${ranges.map((x) => x.toFixed(0)).join(', ')})`);
 });
 
 test('the Currents setting steadies your boat (the fish still know the water)', () => {
