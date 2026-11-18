@@ -28,7 +28,7 @@ const tr = (kind, model, prop = 'matched') => TRIALS[kind][`${model}/${prop}`];
 const scene = new THREE.Scene();
 
 test('every boat’s own engine on its own propeller: exactly the push she always had', () => {
-  assert.deepEqual(BOATS.sort(), ['bass', 'cabin', 'console', 'cruiser', 'rib', 'skiff']);
+  assert.deepEqual(BOATS.sort(), ['bass', 'cabin', 'console', 'cruiser', 'rib', 'skiff', 'tender']);
   for (const k of BOATS) {
     const H = HULLS[k], C = CATALOGUE[k], S = engineSpec(k, H, null);
     assert.equal(S.thrust, H.motor.thrust, k);

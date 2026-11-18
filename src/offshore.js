@@ -17,7 +17,7 @@ export const HOUR_S = 40; // real seconds a game hour (world/clock.js)
 export const OFFSHORE_AT = 600;
 
 // Her cruising pace (m/s, calm water) and the notch it's at: the cruise notch where she has one
-// (the centre console, the RIB), else flat out; the rowing boat and the kayak at a steady pull.
+// (the centre console, the RIB, the tender), else flat out; the rowing boat and the kayak at a steady pull.
 // (Measured with boat.js in calm water: tests/offshore.test.mjs checks the motorboats' against it.)
 const notch = (kind, id) => LEVERS[kind]?.find((n) => n.id === id)?.v ?? 1;
 export const CRUISE = {
@@ -25,6 +25,7 @@ export const CRUISE = {
   cabin: { v: 5.7, lever: 1 },
   console: { v: 9.6, lever: notch('console', 'C') },
   rib: { v: 11.4, lever: notch('rib', 'C') },
+  tender: { v: 7.7, lever: notch('tender', 'C') },
   cruiser: { v: 9.4, lever: 1 },
   jetski: { v: 15.8, lever: 1 },
   bass: { v: 8.9, lever: 1 },

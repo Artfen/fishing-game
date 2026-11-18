@@ -7,7 +7,7 @@
 // The boats small enough to go on it.
 import { kindOf, isBoatId } from './boatid.js';
 
-export const TRAILABLE = ['kayak', 'row', 'skiff', 'bass', 'jetski'];
+export const TRAILABLE = ['kayak', 'row', 'skiff', 'bass', 'jetski', 'tender'];
 // Where it stands at home when it isn't hitched: beside the garage's far wall, nose to the drive.
 export const TRAILER_HOME = { x: 139, z: -79, yaw: 0 };
 // The trailer behind the car: the hitch this far behind the car's middle, the axle this far behind

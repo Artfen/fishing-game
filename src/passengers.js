@@ -24,8 +24,10 @@ export function seatsFor(hull, n) {
     const t = z / L + 0.5, w = widthAt(hull, t);
     if (w < 0.32 || inCabin(z)) continue;
     // Two abreast where she's wide enough (along each side, clear of a console in the middle),
-    // three in a big cockpit, otherwise one on the centreline.
-    const xs = w >= 1.2 ? [w - 0.33, 0, -(w - 0.33)] : w >= 0.75 ? [w - 0.33, -(w - 0.33)] : [0];
+    // three in a big cockpit; on a little RIB (the tender) one on each tube, as people sit in one;
+    // otherwise one on the centreline.
+    const T = hull.tubes, tube = T ? w + T.r * T.out : 0;
+    const xs = w >= 1.2 ? [w - 0.33, 0, -(w - 0.33)] : w >= 0.75 ? [w - 0.33, -(w - 0.33)] : tube >= 0.5 ? [tube, -tube] : [0];
     for (const x of xs) {
       // (Not at the helm or the oars, nor at the console ahead of it, nor in the fighting chair.)
       if (Math.hypot(x - helmX, z - helmZ) < 0.75) continue;

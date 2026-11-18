@@ -173,6 +173,10 @@ export const CATALOGUE = {
     legacy: { power: 't60', economy: 't30' }, go: 8, cruise: 8, laden: 300, crew: 'four aboard' },
   rib: { slip: 0.1, stock: 'f150', models: ['f115', 'f150', 's200', 's225'], plate: 225, props: ['matched', 'low', 'four'], drag: 1.0233, tops: { f115: 17.268, f150: 18.742, s200: 20.589, s225: 21.382 },
     legacy: { power: 's200', economy: 'f115' }, go: 20, cruise: 25, laden: 300, crew: 'four aboard' },
+  // (The tender: a tiller outboard on a little RIB, twenty horsepower as she comes, thirty at most
+  // by her plate; nothing smaller than fifteen, which still has her on the plane.)
+  tender: { slip: 0.15, stock: 'p20', models: ['p15', 'p20', 't30'], plate: 30, props: ['matched', 'low', 'four'], drag: 1.067, tops: { p15: 10.701, p20: 11.886, t30: 13.221 },
+    legacy: {}, go: 15, cruise: 15, laden: 160, crew: 'two aboard' },
   console: { slip: 0.12, stock: 'f115', models: ['t90', 'f115', 'f150', 's200'], count: 2, plate: 200, props: ['matched', 'low', 'four'], drag: 1.0341, tops: { t90: 12.649, f115: 13.809, f150: 15.017, s200: 16.546 },
     legacy: { power: 'f150', economy: 't90' }, go: 20, cruise: 22, laden: 400, crew: 'five aboard' },
   cruiser: { slip: 0.3, stock: 'd320', models: ['d260', 'd320', 'd370', 'd440'], count: 2, plate: null, props: ['matched', 'low'], drag: 1.065, tops: { d260: 9.222, d320: 9.947, d370: 10.489, d440: 11.14 },

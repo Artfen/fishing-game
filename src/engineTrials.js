@@ -56,6 +56,17 @@ export const TRIALS = {
     's225/low': {top: 20.04, t20: 2.9, laden: 19.82, lever: 0.358, lph: 69.1},
     's225/four': {top: 21.2, t20: 3, laden: 19.68, lever: 0.382, lph: 69.1},
   },
+  tender: {
+    'p15/matched': {top: 10.7, t20: 3.2, laden: 7.69, lever: 0.586, lph: 30.8},
+    'p15/low': {top: 10.03, t20: 2.8, laden: 8.3, lever: 0.515, lph: 30.8},
+    'p15/four': {top: 10.61, t20: 3, laden: 7.98, lever: 0.55, lph: 30.8},
+    'p20/matched': {top: 11.89, t20: 2.7, laden: 8.56, lever: 0.492, lph: 31.1},
+    'p20/low': {top: 11.14, t20: 2.4, laden: 9.26, lever: 0.433, lph: 31.1},
+    'p20/four': {top: 11.79, t20: 2.5, laden: 8.89, lever: 0.463, lph: 31.1},
+    't30/matched': {top: 13.22, t20: 2.3, laden: 9.89, lever: 0.405, lph: 35.5},
+    't30/low': {top: 12.4, t20: 2.1, laden: 10.71, lever: 0.357, lph: 35.5},
+    't30/four': {top: 13.12, t20: 2.2, laden: 10.28, lever: 0.381, lph: 35.5},
+  },
   console: {
     't90/matched': {top: 12.53, t20: 6.1, laden: 11.46, lever: 0.839, lph: 130.3},
     't90/low': {top: 11.84, t20: 5.2, laden: 11.75, lever: 0.738, lph: 130.3},

@@ -14,7 +14,7 @@ export const MAX_AFLOAT = 3;
 export const HOMES = {
   row: 'camp', skiff: 'camp', kayak: 'camp',
   bass: 'lake',
-  sail: 'harbour', cabin: 'harbour', cruiser: 'harbour', console: 'harbour', jetski: 'harbour', windsurf: 'harbour', rib: 'harbour',
+  sail: 'harbour', cabin: 'harbour', cruiser: 'harbour', console: 'harbour', jetski: 'harbour', windsurf: 'harbour', rib: 'harbour', tender: 'harbour',
 };
 export const homeOf = (kind) => HOMES[kind] || 'harbour';
 export const STORE_WORDS = {
@@ -34,7 +34,7 @@ export const NEW_AFLOAT = ['row', 'skiff', 'kayak'];
 // A game from before boats were laid up: which three stay in the water. The boat you're in (or
 // last used) first; then any you've left somewhere other than where she lives (you've been out
 // in her); then the rest in the order a fisherman would want them.
-const ORDER = ['skiff', 'row', 'console', 'cabin', 'cruiser', 'rib', 'sail', 'kayak', 'bass', 'jetski', 'windsurf'];
+const ORDER = ['skiff', 'row', 'console', 'cabin', 'cruiser', 'rib', 'tender', 'sail', 'kayak', 'bass', 'jetski', 'windsurf'];
 export function chooseAfloat(kinds, { vessel = null, away = [] } = {}) {
   const pick = [];
   const add = (k) => {

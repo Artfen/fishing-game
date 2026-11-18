@@ -191,17 +191,35 @@ tubes, a bench seat, a tiller outboard, a bow locker and paddles.
 
 | | |
 | --- | --- |
-| Length | 3.3 m (with the outboard tilted, about 3.7 m across the platform) |
-| Weight | about 140 kg ready to go with the Petrel 20, 165 with the Tern 30 |
-| Engine | Petrel 20 (in the catalogue already): about 22 knots with one aboard; Tern 30 at the Marine Works: about 27 |
-| Fuel | a 12-litre tank |
-| Takes | you and two, or about 150 kg of gear; one diver and kit |
-| When the engine won't go | the paddles (slow, like rowing) |
+| Length | 3.3 m over her tubes (her hull 2.85 m; with the outboard tilted, about 3.7 m across the platform) |
+| Beam | 1.67 m over her tubes, about 0.8 m inside them |
+| Weight | about 150 kg ready to go with the Petrel 20 (230 kg as she goes out, you aboard) |
+| Engine | a short-shaft tiller outboard: the Petrel 20 as she comes, 22 to 23 knots with one aboard and about 16.6 with two and their gear; the Petrel 15 (about 21) or the Tern 30 (about 26) at the Marine Works |
+| Fuel | a 20-litre portable tank: about 10 nautical miles at her 15-knot cruise |
+| Takes | you and two (on her tubes), or about 150 kg of gear; divers roll off her tubes |
+| When the engine won't go | the paddles (slow, as every motorboat's oar is) |
+| Price | £520, hired by the day like any boat, a second allowed; on the car's trailer |
 
 Her hull borrows the RIB's (`tubes`, `vee`, `planing.deadrise`, `carve`) and the skiff's tiller.
-She joins the RIB in the tables keyed to tubes (`TUBED` in `damage.js`, `SELF_DRAINING` in
-`flooding.js`). A test hull of this size builds and floats correctly (draft 0.25 m, onto the plane
-from about 5 m/s). A boat this light may need the balancing the jet ski has: that's tuned in L1.
+She joins the RIB in `TUBED` (`damage.js`: four tube chambers kept with her hull's record), but not
+in `SELF_DRAINING`: her sole is low, below the water, so she's bailed like an open boat.
+
+What L1 found, measuring her in the game's own simulation:
+
+- **Her tubes sit in the water aft at rest** (6 cm, dropped a little from the RIB's), which stiffens
+  her: someone sat on a tube heels her about 10° (13° with the tubes up where the RIB's are).
+- **A following sea throws her about.** Flat out with a fresh breeze astern, a hull this short climbs
+  the back of each sea and comes off its crest bow-high: 32° at worst, against the jet ski's 38° and
+  the RIB's 12°. Neither more pitch inertia, a deeper V nor smaller tubes changed it; it's how the
+  game's short planing hulls meet a steep wind sea. What does help is what a real skipper does: she
+  has the jet ski rider's lean fore and aft (`lean`, the same mechanism, `pitchBalance` in
+  `hydro.js`), since your weight is a third of all she carries. With it, 23° at worst. In a rough
+  sea astern she still rears to about 40°: ease her off.
+- **Her outboard is short-shafted** (`motor.shaft`): the drawn leg was a long shaft hanging half a
+  metre under her. The physics always took its push 0.28 m under her keel; only the drawing changed.
+- **Her tubes are drawn for her length**: the RIB's segment counts, scaled, fewer round. 9,974
+  triangles and 28 draw calls (the RIB: 21,538 and 71), within a small boat's budget.
+- **Passengers sit on her tubes** (`seatsFor` in `passengers.js`): inside them there's room for one.
 
 ## Carrying her
 
@@ -392,8 +410,10 @@ things outright: the save's own list (a boat not in it is scrubbed from saves) a
 
 Each step is a pull request with its tests, checked in the browser, and merged before the next.
 
-**L1: the tender, a boat of her own.** Her hull, tubes, tiller and paddles; the Petrel 20 and Tern
-30; every list above; sold and hired at the Marine Works; trailerable.
+**L1: the tender, a boat of her own (done).** Her hull, tubes, tiller and paddles; the Petrel 15, 20
+and Tern 30; every list above; sold and hired at the Marine Works; trailerable. Tests:
+`tests/tender.test.mjs`; pictures: `docs/fleet/after/tender*.jpg`. In the browser: 22.3 knots flat
+out, a line cast from her seat, and saved and loaded again in her.
 *Done when:*
 - she passes the hull checks;
 - her pictures stand beside the RIB's in `docs/fleet/`;

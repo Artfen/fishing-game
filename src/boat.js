@@ -243,6 +243,33 @@ const HULLS = {
     windage: 0.0033, ride: 2.8,
     wind: [5.6, 0.45, 0.75], // (B3) side above the water m², end-on share, its middle's height m
   },
+  // The tender (L1 of docs/LIVEABOARD.md): a little rigid inflatable of about eleven feet over
+  // her tubes, the RIB's family in small. An aluminium V (17° of deadrise to a chine) with grey
+  // Hypalon tubes sitting on its edge for her sides (in the water aft as she lies), a non-skid
+  // sole low inside them, a bench across her stern quarters to sit on and steer by the tiller, a
+  // locker under a cushion in her nose, a red fuel tank aft of the bench, the paddles along the
+  // tubes, and lifting eyes on her transom. Light and quick: onto the plane in under three
+  // seconds and about twenty-two knots with one aboard on her own twenty-horsepower outboard,
+  // short-shafted for her low transom (motor.shaft). The boat a bigger one carries to go ashore
+  // in, and a cheap, nimble one for the bay on her own.
+  tender: {
+    planing: { deadrise: 17 }, // (B3) a planing hull; her bottom's deadrise, degrees (hydro.js savitskyTrim)
+    name: 'tender', mass: 230, L: 2.85, B: 0.55, D: 0.36, draft: 0.17, shallow: 0.3, seatZ: -0.8, seatY: 0.47, floorY: 0.18,
+    carve: 0.35,
+    hw: (t) => Math.pow(Math.sin(Math.PI * (0.3 + 0.7 * t)), 0.5),
+    sheer: (t) => 0.3 * Math.pow(t, 2.3),
+    keel: (t) => 0.16 * Math.pow(t, 3),
+    vee: { chine: 0.6, wc: 0.9, rise: 0.306 },
+    paint: '#b7bdc2', stripe: '#b7bdc2', bottom: '#9aa1a7', inside: 'plastic',
+    floor: [0.04, 0.72], floorColor: '#4a4f55',
+    tubes: { r: 0.21, out: 0.35, drop: 0.1, t1: 0.94, color: '#5f656b', strake: '#1d2023' },
+    motor: { thrust: 10.2, astern: 2.4, tilt: 0.5, scale: 1.05, shaft: 0.24, cowl: '#1d2125', band: '#9aa1a7' },
+    drag: [0.21, 0.05], side: 2.8, helm: 0.9, fend: 0.86, surge: 0.5,
+    hump: 0.2, tender: true, lean: 1,
+    lantern: [0.42, 0.75], stow: [0.36, 0.3, 0.05], noise: 1, steady: 0.8,
+    windage: 0.003, ride: 4.5,
+    wind: [1.2, 0.45, 0.4], // (B3) side above the water m², end-on share, its middle's height m
+  },
   windsurf: {
     name: 'windsurf board', L: 2.6, B: 0.34, D: 0.13, draft: 0.05, shallow: 0.35, seatZ: -0.45, seatY: 1.02, floorY: 0.14,
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.1 + 0.9 * t)), 0.4),
@@ -859,6 +886,7 @@ export class Boat {
     if (H.sportfish) this.buildSportfish();
     if (H.console) this.buildConsole();
     if (H.tubes) this.buildTubes();
+    if (H.tender) this.buildTender();
     if (H.rig) {
       this.buildBoardRig();
       this.sailUp = true; // (a board's rig is always up, but for a fall)
@@ -2445,7 +2473,7 @@ export class Boat {
       grp.add(mesh);
       this.motorMeshes.push(mesh);
       const prop = new THREE.Group();
-      prop.position.set(0, -0.86, -0.33);
+      prop.position.set(0, -0.86 + (M.shaft || 0), -0.33);
       this.setBlades(prop, 3, bladeMat);
       grp.add(prop);
       this.body.add(grp);
@@ -2489,7 +2517,11 @@ export class Boat {
     // (The profile's x is the boat's z: turned so, forward to the front.)
     cowl.rotateY(-Math.PI / 2);
     cowl.translate(0.1, 0, 0);
-    const leg = new THREE.CylinderGeometry(0.065, 0.06, 0.9, 10);
+    // (M.shaft: a short-shaft engine's leg, that much shorter (m), for a low transom: the tender's,
+    // its plate about level with her keel. The propeller's push is taken below her keel whatever's
+    // drawn: see the thrusters in update.)
+    const sh = M.shaft || 0;
+    const leg = new THREE.CylinderGeometry(0.065, 0.06, 0.9 - sh, 10);
     leg.scale(0.6, 1, 1);
     const nose = new THREE.SphereGeometry(0.06, 10, 6);
     nose.scale(1, 1, 1.2);
@@ -2502,11 +2534,11 @@ export class Boat {
       { geo: new THREE.BoxGeometry(0.29, 0.035, 0.4), matrix: mat(0, 0.145, -0.12), color: look?.band ?? M.band, jitter: 0.02 },
       { geo: new THREE.BoxGeometry(0.14, 0.03, 0.012), matrix: mat(0, yt - 0.06 * tall, za - 0.035), color: BLACK, jitter: 0 },
       // The midsection and leg, streamlined; the plate; the gearcase and its nose; the skeg.
-      { geo: leg, matrix: mat(0, -0.4, -0.14), color: DARK },
-      { geo: new THREE.BoxGeometry(0.22, 0.012, 0.22), matrix: mat(0, -0.74, -0.16), color: DARK },
-      { geo: new THREE.CylinderGeometry(0.06, 0.05, 0.3, 10), matrix: mat(0, -0.86, -0.16, Math.PI / 2, 0, 0), color: DARK },
-      { geo: nose, matrix: mat(0, -0.86, -0.01), color: DARK },
-      { geo: new THREE.BoxGeometry(0.02, 0.14, 0.12), matrix: mat(0, -0.95, -0.1), color: DARK },
+      { geo: leg, matrix: mat(0, -0.4 + sh / 2, -0.14), color: DARK },
+      { geo: new THREE.BoxGeometry(0.22, 0.012, 0.22), matrix: mat(0, -0.74 + sh, -0.16), color: DARK },
+      { geo: new THREE.CylinderGeometry(0.06, 0.05, 0.3, 10), matrix: mat(0, -0.86 + sh, -0.16, Math.PI / 2, 0, 0), color: DARK },
+      { geo: nose, matrix: mat(0, -0.86 + sh, -0.01), color: DARK },
+      { geo: new THREE.BoxGeometry(0.02, 0.14, 0.12), matrix: mat(0, -0.95 + sh, -0.1), color: DARK },
       // (The tiller: none on a boat steered by a wheel.)
       ...(H.console || H.form?.wheel ? [] : [
         { geo: new THREE.CylinderGeometry(0.018, 0.022, 0.62, 6), matrix: mat(0.04, 0.17, 0.26, Math.PI / 2 - 0.12, 0, 0), color: '#2b2b2b' },
@@ -3412,6 +3444,9 @@ export class Boat {
   buildTubes() {
     const H = this.hull, T = H.tubes, r = T.r, V = (p) => new THREE.Vector3(p[0], p[1], p[2]);
     const t0 = -0.02, nose = tubeCentre(H, T.t1, 1);
+    // (Segments along the tube for her length, the RIB's 200 over her 6.5 m; round it, fewer on a
+    // little boat's slimmer tubes: the tender's within a small boat's budget.)
+    const along = (n) => Math.max(40, Math.round((n * H.L) / 6.5)), round = H.L < 4 ? 14 : 22;
     // The centreline of the tube: port side forward, round the nose, starboard side aft.
     const side = (sd, from, to, step) => {
       const q = [];
@@ -3421,7 +3456,7 @@ export class Boat {
     const tip = new THREE.Vector3(0, nose[1] + r * 0.35, zAt(H, 1) + r * 0.55);
     const pts = [...side(-1, t0, T.t1, 0.03), tip, ...side(1, T.t1, t0, -0.03)];
     const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
-    const parts = [{ geo: new THREE.TubeGeometry(curve, 200, r, 22), color: T.color, jitter: 0 }];
+    const parts = [{ geo: new THREE.TubeGeometry(curve, along(200), r, round), color: T.color, jitter: 0 }];
     // The cones: the tube running on past the transom, tapering, with a rounded end.
     const coneLen = r * 1.9;
     for (const sd of [1, -1]) {
@@ -3437,7 +3472,7 @@ export class Boat {
       }
       // (Drawn from its rounded end back to the tube, so the lathe's faces look outward: drawn
       // the other way they face inward, and the cones vanish from outside.)
-      const g = new THREE.LatheGeometry(prof.reverse(), 22).rotateX(Math.PI / 2);
+      const g = new THREE.LatheGeometry(prof.reverse(), round).rotateX(Math.PI / 2);
       parts.push({ geo: g, matrix: mat(c[0], c[1], c[2]), color: T.color, jitter: 0 });
       // (The strake carries on round the cone a little way.)
       parts.push({ geo: new THREE.CylinderGeometry(0.055, 0.05, coneLen * 0.7, 6).rotateX(Math.PI / 2), matrix: mat(c[0] + sd * r * 0.82, c[1] - r * 0.45, c[2] - coneLen * 0.35), color: T.strake });
@@ -3447,7 +3482,7 @@ export class Boat {
       const q = [...side(-1, from, to, 0.04).map((v) => v.add(new THREE.Vector3(-r * dx, r * dy, 0)))];
       if (through) q.push(tip.clone().add(new THREE.Vector3(0, r * dy * 0.6, r * dx * 0.9)));
       q.push(...side(1, to, from, -0.04).map((v) => v.add(new THREE.Vector3(r * dx, r * dy, 0))));
-      parts.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(q, false, 'centripetal'), 140, rad, 6), color, jitter: 0 });
+      parts.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(q, false, 'centripetal'), along(140), rad, 6), color, jitter: 0 });
     };
     band(0.93, -0.32, 0.06, T.strake, t0, T.t1);
     // (The grab line, sagging a little between its D-rings; the patches themselves.)
@@ -3462,7 +3497,7 @@ export class Boat {
           q.push(new THREE.Vector3(n[0] + sd * r * 0.42, n[1] + r * 0.82, n[2]));
         }
       }
-      parts.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(q), 80, 0.011, 5), color: '#2b2f33', jitter: 0 });
+      parts.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(q), along(80), 0.011, 5), color: '#2b2f33', jitter: 0 });
     }
     // The towing eye on the nose, and a keel guard down the bow.
     parts.push({ geo: new THREE.TorusGeometry(0.05, 0.012, 6, 12), matrix: mat(0, tip.y - r * 0.4, tip.z + 0.02), color: '#c9cdd0' });
@@ -3476,6 +3511,57 @@ export class Boat {
     this.body.add(mesh);
     this.tubeMesh = mesh; // (slumped where a chamber's soft: see sagTubes)
     this._sagKey = null;
+  }
+
+  // The tender's fit-out (L1 of docs/LIVEABOARD.md), inside her tubes: the bench across her stern
+  // quarters (a moulded seat with a cushion, a locker under it) where you sit to steer by the
+  // tiller; the locker in her nose under a cushion; the red fuel tank on the sole aft of the
+  // bench with its line to the engine; a paddle along each tube; the lifting eyes on her transom
+  // (what a davit or a platform's straps take hold of: see docs/LIVEABOARD.md).
+  buildTender() {
+    const H = this.hull, T = H.tubes, y0 = H.floorY, V = (x, y, z) => new THREE.Vector3(x, y, z);
+    // (Inside the tubes at t: the half-width between their inner faces.)
+    const within = (t) => hw(H, t) + T.r * T.out - T.r - 0.02;
+    const parts = [];
+    const box = (w, h, d, x, y, z, color, rx = 0, ry = 0) => parts.push({ geo: new THREE.BoxGeometry(w, h, d), matrix: mat(x, y, z, rx, ry, 0), color });
+    // The bench: tube to tube at the seat, its cushion, and a locker under it.
+    const ts = (H.seatZ + H.L / 2) / H.L, ws = 2 * within(ts), top = H.seatY - 0.04;
+    box(ws, 0.05, 0.28, 0, top - 0.025, H.seatZ, '#dcd8cc');
+    box(ws * 0.92, 0.012, 0.29, 0, top - 0.004, H.seatZ, '#c9c5ba');
+    box(ws * 0.66, 0.04, 0.25, 0, top + 0.02, H.seatZ, '#2d3a40');
+    box(ws * 0.6, top - 0.05 - y0, 0.24, 0, (top - 0.05 + y0) / 2, H.seatZ, '#e6e2d8');
+    box(0.12, 0.02, 0.012, 0, (top + y0) / 2, H.seatZ + 0.125, '#c9cdd0');
+    // The nose locker: a moulded box narrowing with her, a cushion on its lid.
+    const lockers = [[0.72, 0.8], [0.8, 0.88]];
+    for (const [t0, t1] of lockers) {
+      const w = 2 * Math.min(within(t0), within(t1)) - 0.04, h = 0.24, z = (zAt(H, t0) + zAt(H, t1)) / 2, d = zAt(H, t1) - zAt(H, t0);
+      box(w, h, d + 0.005, 0, y0 + h / 2, z, '#e6e2d8');
+      box(w * 0.9, 0.05, d * 0.94, 0, y0 + h + 0.025, z, '#2d3a40');
+    }
+    // The fuel tank on the sole, aft of the bench and to starboard; its line to the engine.
+    const tz = H.seatZ - 0.36, tx = -0.2;
+    box(0.26, 0.2, 0.36, tx, y0 + 0.1, tz, '#b8312f');
+    box(0.06, 0.04, 0.06, tx + 0.06, y0 + 0.22, tz + 0.1, '#1d2125');
+    box(0.14, 0.03, 0.03, tx, y0 + 0.215, tz - 0.13, '#1d2125');
+    const zt = zAt(H, 0);
+    parts.push({ geo: new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(tx + 0.06, y0 + 0.24, tz + 0.1), V(tx + 0.1, y0 + 0.3, tz - 0.1), V(-0.05, sheer(H, 0) - 0.05, zt + 0.06), V(0, sheer(H, 0) - 0.02, zt + 0.02)]), 12, 0.009, 5), color: '#1d2125', jitter: 0 });
+    // A paddle along the inside of each tube: the shaft, the grip, the blade forward.
+    for (const sd of [1, -1]) {
+      const t0 = 0.3, t1 = 0.66, a = V(sd * (within(t0) - 0.04), y0 + 0.08, zAt(H, t0)), b = V(sd * (within(t1) - 0.05), y0 + 0.1, zAt(H, t1));
+      parts.push(strut(a, b, 0.016, 0.016, '#9aa1a7'));
+      const dir = b.clone().sub(a).normalize(), yaw = Math.atan2(dir.x, dir.z);
+      box(0.12, 0.014, 0.32, b.x + dir.x * 0.14, b.y + 0.005, b.z + dir.z * 0.14, '#1d2125', 0, yaw);
+      box(0.1, 0.03, 0.03, a.x, a.y + 0.01, a.z, '#1d2125', 0, yaw);
+    }
+    // The lifting eyes on her transom, either side of the engine.
+    for (const sd of [1, -1]) {
+      parts.push({ geo: new THREE.TorusGeometry(0.03, 0.008, 6, 10), matrix: mat(sd * 0.3, sheer(H, 0) + 0.035, zt + 0.03), color: '#c9cdd0' });
+      box(0.07, 0.012, 0.06, sd * 0.3, sheer(H, 0) + 0.005, zt + 0.03, '#c9cdd0');
+    }
+    const mesh = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.12 }));
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    this.body.add(mesh);
   }
 
   // A RIB's deck: the bow locker seat forward (a cushion on its lid), the stand-up console (the
@@ -4747,7 +4833,10 @@ export class Boat {
       // (Astride a jet ski you balance it with your weight; at the wheel of a fast boat, the
       // driver's trim keeps her from walking from chine to chine.)
       b.balance = M?.jet ? 0.8 : M ? 0.25 * smoothstep(4, 10, Math.abs(vf)) : 0;
-      b.pitchBalance = M?.jet ? smoothstep(4, 8, Math.abs(vf)) : 0;
+      // (And a little boat's skipper, sat at her tiller, leans fore and aft with her the same way
+      // (H.lean, as a share of the rider's): in the tender you're a third of all she weighs, and
+      // without it she rears off the backs of a following sea as no one at her tiller lets her.)
+      b.pitchBalance = M?.jet ? smoothstep(4, 8, Math.abs(vf)) : H.lean && M && !dead ? H.lean * smoothstep(4, 8, Math.abs(vf)) : 0;
       // (And on a jet ski you lean into a turn, as on a motorbike, so her V carves round it
       // instead of skidding: as far over as the turn wants, up to thirty degrees or so.)
       b.trimBias = M?.jet ? clamp(-Math.atan((vf * this.omega) / G) * 0.9, -0.5, 0.5) : 0;

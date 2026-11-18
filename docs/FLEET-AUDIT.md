@@ -182,3 +182,10 @@ then.
 6. **A5, the fleet together** (done: the outboard shaped like one on every boat, boats far off
    without their small parts; `docs/fleet/after/outboard-compare.jpg`, `fleet.jpg`). Colours, materials, fittings and the outboard's cowling made
    consistent; a simplified model for boats far off.
+
+## New boats since
+
+- **The tender** (L1 of `docs/LIVEABOARD.md`): a little RIB of about eleven feet over her tubes on a
+  short-shaft tiller outboard, built in the RIB's family to this page's rules. 28 meshes and draw
+  calls, 9,974 triangles (her tubes' segments scaled to her length), in `docs/fleet/after/tender*.jpg`
+  (day, evening, overcast) and `docs/fleet/after/stats.json`.

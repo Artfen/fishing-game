@@ -50,7 +50,7 @@ export const MATERIALS = {
   pe: { name: 'polyethylene', v0: 3, per: 0.08, scrape: 0.004, words: ['scuffed', 'scored', 'dented', 'split'], touch: 'faired smooth', mend: 'welded with a hot-air gun' },
   epoxy: { name: 'epoxy sandwich', v0: 1.2, per: 0.2, scrape: 0.02, words: ['scuffed', 'dinged', 'cracked', 'crushed'], touch: 'filled and sealed', mend: 'cut out, filled and glassed over' },
 };
-export const MATERIAL_OF = { row: 'wood', skiff: 'wood', kayak: 'pe', bass: 'grp', sail: 'grp', cabin: 'grp', cruiser: 'grp', console: 'grp', rib: 'aluminium', windsurf: 'epoxy', jetski: 'grp' };
+export const MATERIAL_OF = { row: 'wood', skiff: 'wood', kayak: 'pe', bass: 'grp', sail: 'grp', cabin: 'grp', cruiser: 'grp', console: 'grp', rib: 'aluminium', tender: 'aluminium', windsurf: 'epoxy', jetski: 'grp' };
 export const materialOf = (kind) => MATERIALS[MATERIAL_OF[kind]] || MATERIALS.grp;
 // The tubes: Hypalon over a woven base. Punctured by `sharp` contact past `v0` (m/s), torn past
 // `tear`; scored along rock. leak: how fast the air goes from a small hole (the chamber's soft, at
@@ -149,8 +149,8 @@ export function damageSave(D) {
   if (D.water?.some((l) => l > 0.05)) out.water = D.water.map((l) => Math.round(l * 10) / 10);
   return Object.keys(out).length ? out : null;
 }
-// The boats with tubes (a RIB's chambers are kept with her hull's record).
-export const TUBED = new Set(['rib']);
+// The boats with tubes (a RIB's chambers are kept with her hull's record; the tender's too).
+export const TUBED = new Set(['rib', 'tender']);
 // Every boat's record from the save, made sensible: { kind: what damageSave wrote }, only boats
 // that aren't sound; anything not a boat's, dropped.
 export function cleanDamages(raw, kinds) {

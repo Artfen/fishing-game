@@ -3,7 +3,7 @@ import { kindOf, isBoatId } from './boatid.js';
 
 // Fuel: light, and only for what has an engine. The car and the motorboats (the motor skiff,
 // the bass boat's outboard, the cabin boat, the sailing boat's little outboard, the centre
-// console, the jet ski, and the yacht's diesels) burn fuel from the pumps; the rowing boat and the kayak never
+// console, the RIB, the tender, the jet ski, and the yacht's diesels) burn fuel from the pumps; the rowing boat and the kayak never
 // need any; the bass boat's quiet electric motor runs on a battery of its own.
 //
 //  · You fill up at the pump by the garage at home, the harbour pump on Willowhaven quay (it
@@ -24,14 +24,14 @@ import { kindOf, isBoatId } from './boatid.js';
 //    instead of petrol: quickly down flat out, a long while at an easy pace, charged at a jetty or
 //    a quay and overnight, free. Flat, it stops, and the oars take you in.
 //
-// state.fuel: { car, boats: { skiff, bass, cabin, sail, cruiser, console, rib, jetski } (litres), battery (0…1),
+// state.fuel: { car, boats: { skiff, bass, cabin, sail, cruiser, console, rib, jetski, tender } (litres), battery (0…1),
 //   kayak (0…1), troll: { kind: 0…1 }, elec: { kind: 0…1 }, can: { at ('home', 'car', 'pack' or
 //   'boat:<kind>', aboard her), litres } }
 
 // (The sailing boat's little outboard has a small tank of its own; the yacht (id 'cruiser') a
 // big one, enough for the long passage south and some.)
-export const TANKS = { car: 45, skiff: 20, bass: 30, cabin: 40, sail: 12, cruiser: 300, console: 200, rib: 150, jetski: 60 };
-export const PETROL = ['skiff', 'bass', 'cabin', 'sail', 'cruiser', 'console', 'rib', 'jetski'];
+export const TANKS = { car: 45, skiff: 20, bass: 30, cabin: 40, sail: 12, cruiser: 300, console: 200, rib: 150, jetski: 60, tender: 20 };
+export const PETROL = ['skiff', 'bass', 'cabin', 'sail', 'cruiser', 'console', 'rib', 'jetski', 'tender'];
 // What the yacht needs aboard to set out on the crossing to Las Brasas or home (see crossing.js):
 // she burns about 55 litres across with the lever down the whole way; this leaves a margin.
 export const PASSAGE_FUEL = 90;
@@ -45,7 +45,7 @@ export const CAR_PER_MIN = 0.35;
 export const CAR_PER_M = 0.014;
 // The boats: litres a second at full throttle (a full tank of the skiff is a good quarter of an
 // hour flat out, far longer at the speeds you fish at).
-export const BOAT_PER_S = { skiff: 0.02, bass: 0.03, cabin: 0.03, sail: 0.008, cruiser: 0.05, console: 0.06, rib: 0.05, jetski: 0.045 };
+export const BOAT_PER_S = { skiff: 0.02, bass: 0.03, cabin: 0.03, sail: 0.008, cruiser: 0.05, console: 0.06, rib: 0.05, jetski: 0.045, tender: 0.025 };
 // The battery: what a second of the electric motor at full takes (about ten minutes of it), and
 // what an hour tied up at a jetty or a quay gives back.
 export const BATTERY_PER_S = 0.0017;

@@ -130,5 +130,17 @@
   "materials": 13,
   "geometries": 20,
   "buildMs": 17.7
+ },
+ {
+  "kind": "tender",
+  "name": "tender",
+  "meshes": 28,
+  "calls": 28,
+  "tris": 9974,
+  "drawnTris": 9974,
+  "verts": 27109,
+  "materials": 14,
+  "geometries": 21,
+  "buildMs": 77.8
  }
 ]

@@ -46,7 +46,8 @@ test('each boat takes only what she has room for, and an impossible load is refu
   assert.equal(fits('rib', { pax: 4, divers: true }), null);
   assert.match(fits('skiff', { cargo: 450 }), /200 kg/);
   assert.equal(smallestFor({ cargo: 1200 }), 'cruiser', 'a ton of timber: only the yacht');
-  assert.equal(smallestFor({ pax: 2 }), 'skiff');
+  assert.equal(smallestFor({ pax: 2 }), 'tender', 'two passengers: the little RIB');
+  assert.equal(smallestFor({ pax: 2 }, ['row', 'skiff', 'kayak']), 'skiff', 'of the camp\'s boats, the skiff');
   assert.equal(smallestFor({ pax: 9 }), null, 'nine passengers: no boat in the game');
   // Rough water: an open boat's passengers mind it before a sheltered one's.
   assert.ok(misery('rib', 1.8) > 0.5 && misery('cruiser', 1.8) === 0);
@@ -280,7 +281,8 @@ test('every boat has a seat for each person she’s rated to carry, clear of the
     assert.equal(s.length, V.seats, `${k}: ${s.length} of ${V.seats} seats`);
     const helm = H.standing?.helm ?? [0, H.seatZ ?? 0];
     for (const p of s) {
-      assert.ok(Math.abs(p.z) < H.L / 2 && Math.abs(p.x) < H.B, `${k}: inside her`);
+      // (Inside her sides; on a little RIB, on her tubes.)
+      assert.ok(Math.abs(p.z) < H.L / 2 && Math.abs(p.x) < H.B + (H.tubes ? H.tubes.r * H.tubes.out + 0.01 : 0), `${k}: inside her`);
       // (The jet ski's passenger rides pillion, right behind you.)
       assert.ok(Math.hypot(p.x - helm[0], p.z - helm[1]) >= (k === 'jetski' ? 0.5 : 0.75), `${k}: clear of the helm`);
       if (H.cabin) assert.ok(p.z < (H.cabin[0] - 0.5) * H.L || p.z > (H.cabin[1] - 0.5) * H.L, `${k}: not in the cabin`);
