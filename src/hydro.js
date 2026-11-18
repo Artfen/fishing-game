@@ -124,6 +124,54 @@ export const ADDED_K = 0.09;
 const smooth01 = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 export const G = 9.81;
 
+// (B3) A planing hull's lift, as Savitsky's equations for a prismatic planing surface give it
+// (Savitsky 1964, "Hydrodynamic design of planing hulls"; the ITTC's planing procedure uses the
+// same). Cv, the speed coefficient: V/√(g·b), b her beam at the chine. λ, her mean wetted length
+// over that beam. τ, her trim (the angle of her bottom to the water), degrees; β her deadrise.
+//
+//   C_L0 = τ^1.1 · (0.0120·λ^0.5 + 0.0055·λ^2.5 / Cv²)        a flat plate's lift
+//   C_Lβ = C_L0 − 0.0065·β·C_L0^0.6                            less for her deadrise
+//   Δ = ½·ρ·V²·b²·C_Lβ                                          it carries her weight
+//   lp/(λ·b) = 0.75 − 1 / (5.21·Cv²/λ² + 2.39)                where it acts, from her transom
+//
+// The water's pressure on a planing bottom peaks where the spray leaves it, forward, and falls to
+// nothing at the transom: so her lift acts forward of the middle of her wetted length, at
+// three-quarters of it going fast, and further aft slower, where her buoyancy (a wedge, deepest
+// at the transom) is most of it. Valid for Cv from about 0.6 to 13, λ up to 4, τ 2° to 15°.
+export const savitskyCP = (cv, lam) => 0.75 - 1 / ((5.21 * cv * cv) / (lam * lam) + 2.39);
+// Her running trim (degrees) and wetted length (λ) by Savitsky, where her lift carries her weight
+// and acts at her centre of gravity (thrust and drag taken through it): mass (kg), beam at the
+// chine b (m), deadrise (degrees), lcg (her centre of gravity forward of the transom, m), speed
+// (m/s).
+export function savitskyTrim({ mass, b, deadrise, lcg, speed }) {
+  const cv = speed / Math.sqrt(G * b);
+  const clb = (mass * G) / (0.5 * RHO * speed * speed * b * b);
+  let cl0 = clb;
+  for (let i = 0; i < 60; i++) cl0 = clb + 0.0065 * deadrise * Math.pow(cl0, 0.6);
+  // (Where her lift acts moves forward with her wetted length: the λ that puts it at her centre
+  // of gravity.)
+  let lo = 0.05, hi = 12;
+  for (let i = 0; i < 80; i++) {
+    const mid = 0.5 * (lo + hi);
+    if (mid * savitskyCP(cv, mid) < lcg / b) lo = mid;
+    else hi = mid;
+  }
+  const lam = 0.5 * (lo + hi);
+  const tau = Math.pow(cl0 / (0.012 * Math.sqrt(lam) + (0.0055 * Math.pow(lam, 2.5)) / (cv * cv)), 1 / 1.1);
+  return { tau, lambda: lam, cv };
+}
+// (Where it's applied: from a speed coefficient of 1.5, getting onto the plane, all of it by 3.)
+export const PLANE_CV = [1.5, 3];
+// How hard the water presses on a planing bottom moving into it, on the plane, as a share of the
+// panels' own (½·ρ·1.1·u² for each unit of the angle): Savitsky's lift for so much wetted bottom
+// at so much trim is about half what the panels' pressure gives, so a hull rode high on half her
+// real wetted length, too flat. (Checked: tests/planing.test.mjs.)
+export const PLANE_LIFT = 0.5;
+// (What share of her weight her bottom must be holding for her lift to be moved, and her
+// resistance balanced with her propeller: none at the first, all from the second. Less, and she's
+// leaving the water off a crest: see hullForces.)
+export const PLANE_HELD = [0.5, 0.9];
+
 // Meeting a quay or another hull (contactForces): how fast at most a hull found inside another is
 // eased out (m/s); how much of an overlap is taken up each step (Baumgarte's factor) and how much
 // is let be, so a hull lying against a quay doesn't chatter; how much a hard knock bounces her off;
@@ -382,6 +430,13 @@ export function buildHullModel(H) {
   model.volume = hs.volume;
   model.cb = hs.cb;
   model.cg = [0, H.cgY ?? Math.min((H.floorY ?? 0.1) + 0.24, H.D * 0.62), hs.cb[2]];
+  // (B3) A planing hull's beam at the chine, over her after half (where she planes): a deep-V's
+  // at its hard chine; a round-bilged hull's, where the water leaves her bottom, about 0.85 of it.
+  if (H.planing) {
+    let w = 0;
+    for (let i = 1; i <= 10; i++) w = Math.max(w, hw(H, i * 0.05));
+    model.planeBeam = 2 * w * (H.vee ? H.vee.wc : 0.85);
+  }
   const m = model.mass, L = H.L, Bf = 2 * bMax;
   // (Radii of gyration of a boat: a quarter of her length in pitch and yaw, the usual naval
   // architect's figure, and a little over a third of her beam in roll.)
@@ -1013,6 +1068,10 @@ export class HydroBody {
     // (B3) How far she's under way, for the slow grip across the water (see below): none drifting,
     // all of it from about a walking pace.
     const underway = smooth01((speed - DRIFT_FULL[0]) / (DRIFT_FULL[1] - DRIFT_FULL[0]));
+    // (B3) Planing: what her bottom holds her up with, and how much of it is wet (its plan area),
+    // for where Savitsky puts her lift (below).
+    const plane = M.H.planing && M.planeBeam ? smooth01((speed / Math.sqrt(G * M.planeBeam) - PLANE_CV[0]) / (PLANE_CV[1] - PLANE_CV[0])) : 0;
+    let liftY = 0, planArea = 0;
     for (let k = 0; k < nt; k++) {
       // (A tube chamber's panels hold her up as firm as it is; its baffle presses only while the
       // chamber's firmer than the one on its other side: see buildHullModel.)
@@ -1067,7 +1126,12 @@ export class HydroBody {
           // (a bluff body's drag) and the friction along her.
           const uN = ux * nx + uy * ny + uz * nz;
           const lin = c1 * (0.2 + 0.8 * any) * (Math.abs(uy * ny) + Math.abs(uN - uy * ny) * underway);
-          const mag = (lin + c2 * u * u * (0.25 + 0.75 * any) * Math.abs(cos)) * area;
+          // (B3) On the plane, the bottom's dynamic pressure from running forward over the water as
+          // Savitsky's planing lift has it; what it meets heaving and pitching through the water
+          // (its own up and down, uy·ny) as ever, so a planing hull's motions stay as damped.
+          const dyn = plane > 0 && ny < 0 && cos > 0 ? 1 - plane * (1 - PLANE_LIFT) : 1;
+          const uNe = dyn < 1 ? uy * ny + (uN - uy * ny) * dyn : uN;
+          const mag = (lin + c2 * u * Math.abs(uNe) * (0.25 + 0.75 * any)) * area;
           // Into the water: pressure drag, pushing back along the normal. Away from it: suction,
           // pulling back towards it. (Both oppose the panel's motion through the water. But going
           // fast the flow breaks away from her chines and transom and the air gets in under her:
@@ -1084,8 +1148,38 @@ export class HydroBody {
         }
         wx += scx * area; wy += scy * area; wz += scz * area;
         ux0 += wvx * area; uz0 += wvz * area;
+        if (plane > 0 && ny < 0) {
+          liftY += fy;
+          planArea -= area * ny;
+        }
         this.addForce(fx, fy, fz, scx, scy, scz);
       }
+    }
+    // (B3) On the plane her bottom's lift acts where Savitsky puts it: forward of the middle of her
+    // wetted length, at three-quarters of it going fast (savitskyCP). The water's pressure peaks
+    // where the spray leaves her bottom and falls to nothing at her transom, where the panels'
+    // pressure is even along it. So her lift is moved forward by the difference, as a couple:
+    // how much she's lifted is as the panels have it, and so is how it shifts as she pitches
+    // (what pitches her back when a sea lifts her bow or drops it); only its steady place moves.
+    // (Her steady running, not each slap of her bow on a sea: her wetted length is smoothed over
+    // half a second, and her lift taken as her weight, which on the plane it is on average.
+    // Following each slap, up to several times her weight, the shift came and went with her
+    // pitching and set her porpoising. But leaving the water off a crest, only her transom in it,
+    // it goes as what holds her up falls below her weight (held), or it stood her on her tail.)
+    // (How much her bottom is carrying her: all of her weight or more, running on the plane;
+    // less and she's leaving the water off a crest, where neither the shift below nor her
+    // resistance's balance with her propeller holds: see PLANE_HELD.)
+    const held = plane > 0 ? smooth01((liftY / (this.m * G) - PLANE_HELD[0]) / (PLANE_HELD[1] - PLANE_HELD[0])) : 0;
+    this.planeHeld = held;
+    if (!(plane > 0)) this.planeLam = null;
+    if (plane > 0 && liftY > 0) {
+      const b = M.planeBeam, cv = speed / Math.sqrt(G * b);
+      const lamNow = Math.max(0.3, planArea / (b * b));
+      this.planeLam = this.planeLam == null ? lamNow : this.planeLam + (lamNow - this.planeLam) * Math.min(1, h / 0.5);
+      const lam = this.planeLam;
+      const k = this.m * G * held * (savitskyCP(cv, lam) - 0.5) * lam * b * plane;
+      this.addForce(0, k, 0, X[0] + bx, X[1] + by, X[2] + bz);
+      this.addForce(0, -k, 0, X[0], X[1], X[2]);
     }
     this.submerged = wet;
     if (wet < 1e-3) this.dryT += h;
@@ -1132,7 +1226,13 @@ export class HydroBody {
     // wetted area lies to leeward, but a hull's resistance doesn't swing her bow away for it.)
     const cx = wx / wet - this.x[0], cy = wy / wet - this.x[1], cz = wz / wet - this.x[2];
     const side = cx * R[0] + cy * R[3] + cz * R[6];
-    this.addForce(fix * bx, fix * by, fix * bz, wx / wet - side * R[0], wy / wet - side * R[3], wz / wet - side * R[6]);
+    // (B3) On the plane, at the height her propeller's push is taken at (its turning arm scaled
+    // as a real one's: boat.js PROP_LEVER), so the two balance about her centre of gravity, as
+    // Savitsky takes them: below it, her resistance held her bow down more than her propeller
+    // lifted it, and she ran flatter than a real planing hull.
+    const drive = plane > 0 ? this.thrusters.find((t) => t.f) : null;
+    const down = drive ? (cx * R[1] + cy * R[4] + cz * R[7]) * (1 - (drive.lever ?? 1)) * plane * (this.planeHeld ?? 0) : 0;
+    this.addForce(fix * bx, fix * by, fix * bz, wx / wet - side * R[0] - down * R[1], wy / wet - side * R[3] - down * R[4], wz / wet - side * R[6] - down * R[7]);
   }
 
   // Keels, centreboards, rudders, fins: lift across the flow, drag along it.

@@ -77,6 +77,7 @@ const HULLS = {
     wind: [1.6, 0.45, 0.45], // (B3) side above the water m², end-on share, its middle's height m
   },
   skiff: {
+    planing: { deadrise: 10 }, // (B3) a planing hull; her real bottom's deadrise, degrees (hydro.js savitskyTrim)
     name: 'motor skiff', mass: 290, L: 3.8, B: 0.8, D: 0.6, draft: 0.2, shallow: 0.35, seatZ: -1.25, seatY: 0.47, floorY: 0.08, planked: true,
     paint: '#ece6d8', stripe: '#2f4f7a', bottom: '#7c3a2e', inside: 'wood',
     motor: { thrust: 5.4, astern: 2.4, tilt: 0.75, scale: 1, cowl: '#e9e5dc', band: '#2f4f7a' },
@@ -105,6 +106,7 @@ const HULLS = {
   // driver's console to starboard (the wheel, a graph, a windscreen), a passenger's to port and
   // two bucket seats; a jack-plated outboard. You sit at the wheel (seatX: to starboard).
   bass: {
+    planing: { deadrise: 14 }, // (B3) a planing hull; her real bottom's deadrise, degrees (hydro.js savitskyTrim)
     name: 'bass boat', mass: 700, L: 4.7, B: 1.05, D: 0.55, draft: 0.22, shallow: 0.4, seatX: -0.44, seatZ: -0.66, seatY: 0.69, floorY: 0.27,
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.32 + 0.68 * t)), 0.42),
     sheer: (t) => 0.14 * Math.pow(t, 2),
@@ -193,6 +195,7 @@ const HULLS = {
     wind: [22, 0.4, 1.8], // (B3) side above the water m², end-on share, its middle's height m
   },
   console: {
+    planing: { deadrise: 21 }, // (B3) a planing hull; her real bottom's deadrise, degrees (hydro.js savitskyTrim)
     name: 'centre-console boat', mass: 2400, L: 7.4, B: 1.25, D: 1.15, draft: 0.42, shallow: 0.7, seatZ: -0.62, seatY: 1.38, floorY: 0.5,
     carve: 0.4, // (a deep V: she banks into a hard turn at speed, on the inside of her V: see carve in update)
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.32 + 0.68 * t)), 0.45),
@@ -221,6 +224,7 @@ const HULLS = {
   // fished from anywhere, as the centre console. (Out of the water lying still, the tubes stand
   // her up as she heels, bank her into a turn and soften her landings: see hydro.js.)
   rib: {
+    planing: { deadrise: 24 }, // (B3) a planing hull; her real bottom's deadrise, degrees (hydro.js savitskyTrim)
     name: 'RIB', mass: 1250, L: 6.5, B: 0.95, D: 0.5, draft: 0.34, shallow: 0.6, seatZ: -0.3, seatY: 1.25, floorY: 0.4,
     carve: 0.45, // (a deep V: she banks into a hard turn at speed, on the inside of her V: see carve in update)
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.3 + 0.7 * t)), 0.5),
@@ -257,6 +261,7 @@ const HULLS = {
     windage: 0.002, ride: 7, // light: it rides every wave
   },
   jetski: {
+    planing: { deadrise: 22 }, // (B3) a planing hull; her real bottom's deadrise, degrees (hydro.js savitskyTrim)
     name: 'jet ski', L: 3.1, B: 0.58, D: 0.62, draft: 0.22, shallow: 0.3, seatZ: -0.35, seatY: 0.95, floorY: 0.5,
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.28 + 0.72 * t)), 0.55),
     sheer: (t) => 0.18 * Math.pow(t, 2) + 0.04,

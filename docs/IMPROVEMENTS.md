@@ -1742,3 +1742,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | After | Simulated rings, as steep at the quarter of their life as the drawn ones were, round within 1%, the graphics card's heights within 6·10⁻⁵ of the reference's |
 | Validation | New `tests/ripplesim.test.mjs` (7): a ring spreads at its speed and stays steady at the largest step; comes back off a wall crest as crest, twice as high against it, none through; two pass through each other unchanged; the edge soaks them up; the square follows you; a ring as steep as the drawn one at the game's grid; a ring stays round. `tools/ripplecheck.mjs`: the graphics card against the reference. Pictures before and after (`tools/rippleshots.mjs`) |
 | Remaining risks | Ocean: Full only; a boat's hull is a still wall to the rings (her bow waves and wake are drawn as before); her shape from her deck plan, not her waterline; not measured on real hardware |
+
+### Boats: B3 (second part), the planing trim checked against Savitsky
+
+| Field | |
+| --- | --- |
+| System | `src/hydro.js` (`savitskyCP`, `savitskyTrim`: Savitsky's planing equations; on the plane, a planing bottom's pressure from running forward at `PLANE_LIFT` of the panels', its lift moved forward to Savitsky's centre of pressure as a couple, and her resistance taken at her propeller's scaled height); `src/boat.js` (the planing hulls marked, with their bottoms' deadrise); `src/engineTrials.js` (measured again) |
+| Previous issue | Fast boats ran a degree or two flatter than a real planing hull: the panels gave a planing bottom about twice Savitsky's lift for its wetted area, evenly along it rather than forward, and her resistance acted lower than her (scaled) propeller's push, holding her bow down |
+| Change | On the plane, the bottom's pressure from running forward halved (what it meets heaving and pitching as before), her lift moved forward to Savitsky's centre of pressure (following her steady running), her resistance and propeller balanced about her centre of gravity; both of the last gone as she leaves the water off a crest |
+| Player benefit | The RIB and the jet ski run bow-up at their real angle; a fast hull sits in the water on her real wetted length |
+| Before | RIB 1.0° at 16 m/s, jet ski 1.6° at 14 m/s |
+| After | RIB 2.5° at 16 m/s (Savitsky 2.9°), jet ski 3.1° at 14 m/s (3.6°); within 1° from a speed coefficient of 3.4, steady; speeds as before to a percent or two |
+| Validation | New `tests/planing.test.mjs` (2): Savitsky's equations solved (the lift carries her weight and acts at her centre of gravity, within 0.5%; trim falling with speed, rising with weight and with her weight aft); the RIB and the jet ski on the plane within 1° of Savitsky at three speeds each, pitch steady to under 0.5°. The RIB's wheelie guard (`tests/sportboats.test.mjs`) and the flat-water smoothness (`tests/hydro.test.mjs`) pass as they stand |
+| Remaining risks | The console and the bass boat, getting onto the plane rather than fully on it (Cv under 3), still 1.4 to 2.8° under Savitsky; the RIB 1.4° under at 12 m/s; in the tests' rough sea the RIB's bow lifts to 14° at most (was 9°) and she's off the water 1.3 s of 25 (was 0.7) |

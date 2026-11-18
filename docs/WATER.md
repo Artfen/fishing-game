@@ -335,7 +335,8 @@ included). The full table, with each LICENSE file read, is in the two research n
   her back, each is 0.2 to 2.1% faster; and a propeller of less pitch is now at least an inch
   less than her matched one (they come in whole inches).
 
-  Still to do from B3's line in the plan: the planing trim checked against Savitsky.
+  Still to do from B3's line in the plan: the planing trim checked against Savitsky (done since:
+  see B3's second part, below).
 
 - **B4:** the propeller. Three things it does that it didn't:
 
@@ -740,3 +741,59 @@ included). The full table, with each LICENSE file read, is in the two research n
   to 16 and 12), a step for each 1/60 s of game time (each cell reading its eight neighbours), a
   pass to add new rings when there are any, and the square drawn into the ripple field. Not
   measured on real hardware.
+
+- **B3 (second part):** the planing trim, checked against Savitsky. Running fast, the planing
+  boats ran a degree or two flatter than a real planing hull of their weight, beam, deadrise and
+  centre of gravity does by Savitsky's equations (1964, the ones the ITTC's planing procedure
+  uses): the RIB at 1.0° at 16 m/s where they give 2.9°, the jet ski at 1.6° at 14 m/s where they
+  give 3.6°. Three things in the panels' physics held them down:
+
+  - **Too much lift for the bottom wet.** The panels press back on a bottom running into the
+    water by ½·ρ·1.1·u² for each unit of its angle: about twice what Savitsky's lift gives a
+    planing bottom for its wetted area and trim (his C_L about 0.54 for each radian, against the
+    panels' 1.1). So a hull rode high on about half her real wetted length (the RIB on 0.9 beams
+    of it at 16 m/s, with her lift moved forward but not yet less; Savitsky's 2.0), flat. On the
+    plane (from a speed coefficient V/√(g·b) of 1.5, all of it by 3) the bottom's pressure from
+    running forward is now half the panels' own (PLANE_LIFT); what it meets heaving and pitching
+    through the water is as before, so her motions are as damped (with that halved too, the jet
+    ski bounced 8 cm on flat water).
+  - **Its lift in the wrong place.** The water's pressure on a planing bottom peaks where the
+    spray leaves it, forward, and falls to nothing at the transom; the panels' is even along it.
+    So her lift is moved forward to where Savitsky puts it, 0.75 − 1/(5.21·Cv²/λ² + 2.39) of her
+    wetted length from the transom, by the difference from its middle, as a couple: how much she's
+    lifted, and how that shifts as she pitches, are as the panels have it; only its steady place
+    moves. It follows her steady running: her wetted length smoothed over half a second, the lift
+    taken as her weight (following each slap of her bow set the jet ski porpoising, ±5°), and it
+    goes as what holds her up falls from 90% of her weight to half of it (leaving the water off a
+    crest, only her transom in it, it stood the RIB on her tail in a rough sea, 43°).
+  - **Her propeller and her resistance out of balance.** The game's propeller pushes harder than a
+    real one (it makes up for the resistance the game gives her), so its turning arm was scaled to
+    a real one's (PROP_LEVER, against wheelies); but her resistance still acted low on her hull,
+    at its full depth, holding her bow down more than the propeller lifted it. On the plane it now
+    acts at the same scaled height, so the two balance about her centre of gravity, as Savitsky
+    takes them; and, as the shift above, back at its depth as she leaves the water (kept there,
+    off a crest it no longer helped put her bow down, and the RIB reared to 27° in a rough sea).
+
+  Measured in calm water, steady over ten seconds at each lever (her bottom's angle to the water;
+  hydro.js savitskyTrim for hers):
+
+  | | Speed | Before | Now | Savitsky |
+  | --- | --- | --- | --- | --- |
+  | RIB | 14.4 m/s | 1.1° | 2.3° | 3.2° |
+  | RIB | 15.9 m/s | 1.0° | 2.5° | 2.9° |
+  | RIB | 17.4 m/s | 0.8° | 2.4° | 2.7° |
+  | Jet ski | 12.7 m/s | 1.8° | 4.2° | 4.0° |
+  | Jet ski | 14.1 m/s | 1.6° | 3.1° | 3.6° |
+  | Jet ski | 15.1 m/s | 1.3° | 3.3° | 3.2° |
+
+  Steady: her pitch wanders by at most about 0.4° (standard deviation) at any of these. (The speeds
+  before were the same to 0.3 m/s.) Slower, at 12 m/s, the RIB is still 1.4° under Savitsky's
+  3.8°; and the console and the bass boat, which run below a speed coefficient of 3, getting onto
+  the plane rather than fully on it, where his equations are at their edge, came up less (the
+  console 0.6 to 2°, the bass boat 0 to 0.7°) and are still 1.4 to 2.8° under them. Their speeds are as before to a percent or two
+  (tools/engine-trials.mjs measured them again: the figures the Marine Works shows).
+
+  In the tests' rough sea, flat out, the RIB's bow now lifts to 14° at most (it was 9°), against
+  the test's limit of 23° (she stood on her tail at 54°, once), and she's off the water for 1.3 s
+  of the 25 (it was 0.7): she comes off a crest a little more freely, as a planing hull at her real
+  trim does.
