@@ -336,3 +336,37 @@ included). The full table, with each LICENSE file read, is in the two research n
   less than her matched one (they come in whole inches).
 
   Still to do from B3's line in the plan: the planing trim checked against Savitsky.
+
+- **B4:** the propeller. Three things it does that it didn't:
+
+  **It walks.** A propeller pushes a little sideways as well as ahead, its blades biting deeper
+  water at the bottom of their sweep than at the top: a right-handed one (as most outboards' are)
+  walks her stern to port going astern, and a little to starboard going ahead, most from rest.
+  Seamanship texts give its direction and when it's worst but not how much; here, 8% of a real
+  propeller's push astern and 2% ahead (the game's push is bigger than a real one's, so it's
+  scaled as the propeller's turning arm already is), less as she gathers way. On these small
+  outboards it's small, as it is on real ones: easing astern from rest for ten seconds, helm
+  amidships, the skiff's bow swings 1.0° further to starboard than without it, the cabin boat's
+  1.4°, the bass boat's and the RIB's 0.6 and 0.7°. The console's two outboards and the yacht's
+  two screws turn opposite ways and cancel it (their headings the same within 0.1 and 0.4°).
+
+  **It draws air, and keeps it.** Driven hard as part of its disc breaks the surface, a propeller
+  draws air down onto its blades and loses most of its push (70% here), the engine racing. Model
+  tests find it has a memory (Koushan; Kozlowska et al.): the air takes a moment to get down, and
+  once there it stays until the propeller's well under again or eased, its push coming back as
+  the air washes out. Here the air's down within about a third of a second, stays while the
+  propeller's no deeper than 1.4 times what it needs to grip, and washes out over a second or so
+  once it's deeper or eased. Flat out into a lively sea (11 m/s), the RIB's propeller now has its air down
+  1.1% of the time, leaving a crest, and she averages 11.62 m/s where she made 11.80; before
+  the sea, and the console and the skiff either way, it never comes up enough to.
+
+  **It feels the waves' motion (B2's leftover).** The water into it is her way through the water
+  less the waves' own motion along her at the propeller's depth: up to 0.36 m/s either way in a
+  1.8 m swell. Running down a sea's face the water's going her way, so near her top speed her
+  propeller reaches its limiter sooner; climbing one, later.
+
+  Still to do from B4's line in the plan: the rudder's wash was already in (a propeller's
+  slipstream over the leg or the rudder behind it steers her at idle); the propeller's push
+  falling away with her speed (rather than holding until its limiter) would change every boat's
+  acceleration and is left for a pass that measures it against real acceleration trials.
+

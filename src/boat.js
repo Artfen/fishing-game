@@ -663,6 +663,17 @@ const dirAt = (a) => [Math.sin(a), 0, Math.cos(a)];
 // the hull resistance the game gives her), so its turning arm is scaled to a real one's. At full
 // lever a fast boat stood on her tail in a sea; at this she runs as a real one does.
 const PROP_LEVER = 0.3;
+// (B4) Prop walk: a propeller pushes sideways as well as ahead, its blades at the bottom of their
+// sweep biting deeper water than at the top, so a right-handed one (turning clockwise seen from
+// astern as it drives her ahead, as most outboards' and single screws' do) walks her stern to port
+// going astern, and a little to starboard going ahead; worst from rest, and going astern, when its
+// wash isn't going over the rudder or the leg. As a share of a real propeller's push (the game's
+// is bigger: see PROP_LEVER): an estimate, as seamanship texts give its direction and when it's
+// worst but no figure. Counter-rotating twins (the console's outboards, the yacht's screws, the
+// port one left-handed) cancel it.
+const WALK_ASTERN = 0.08, WALK_AHEAD = 0.02;
+const walkFade = (v) => 1 - 0.7 * smoothstep(0.5, 3, Math.abs(v));
+const _pin = [0, 0, 0], _pwv = [0, 0, 0], _pfz = [0, 0, 1], _pfw = [0, 0, 0];
 // The resistance a seaway adds (per kg, per m/s of speed): as the square of the local wave height
 // (the waves' energy), over her length (the same sea slows a little boat more than a big one; a
 // low swell hardly at all).
@@ -4691,7 +4702,10 @@ export class Boat {
         // (A bent propeller (propStrike) slips: less push, and less still the harder it's driven,
         // where it cavitates.)
         const bent = this.engine?.dmg ? 1 - this.engine.dmg * (0.3 + 0.25 * Math.abs(pw)) : 1;
-        const ahead = S ? pushAt(S, vf) : (E || M).thrust, astern = S ? S.astern : (E || M).astern;
+        // (B4) The water into her propeller: her way through it, less the waves' own motion along
+        // her there (B2's, faded with its depth). Running down a sea's face the water's going her
+        // way and her propeller reaches its limiter sooner; climbing one, later.
+        const ahead = S ? pushAt(S, this.propInflow(vf, M)) : (E || M).thrust, astern = S ? S.astern : (E || M).astern;
         // (Her bracket worked loose on the bottom (C5b): the engine shifts on the transom.)
         // (And her engine overdue for its service: a touch down on power. See service.js.)
         const k = (tilted ? 0.22 : 1) * (TE ? TE.eff : 1) * bent * mountPush(this.damage) * (E ? 1 : this.tune ?? 1);
@@ -4792,8 +4806,10 @@ export class Boat {
         const ahead = f * (1 - Math.abs(helm) * slow * 0.9);
         for (const sd of [1, -1]) {
           const fl = legs2 ? legs2[sd > 0 ? 0 : 1] * b.m0 * gov * (1 - Math.abs(helm) * slow * 0.9) - sd * diff : ahead / 2 - sd * diff;
-          b.thrusters.push({ p: [sd * tw, keel0 - 0.22, stern + 0.45], d: [0, 0, 1], f: fl, vent: 0.1,
+          b.thrusters.push({ p: [sd * tw, keel0 - 0.22, stern + 0.45], d: [0, 0, 1], f: fl, vent: 0.1, load: Math.abs(pw),
             foil: { p: [sd * tw, keel0 - 0.3, stern + 0.25], d: dirAt(b.rudder * 0.6), area: 0.16, disk: 0.35 } });
+          // (B4) Its walk: outward-turning screws, the port one left-handed.
+          this.propWalk(b, [sd * tw, keel0 - 0.22, stern + 0.45], [0, 0, 1], fl, sd > 0 ? -1 : 1, vf);
         }
       } else {
         // Outboards: the whole motor turns with the tiller (or the wheel), so the push turns her.
@@ -4806,7 +4822,9 @@ export class Boat {
           const d = dirAt(b.rudder * 0.7);
           if (tip) d.splice(0, 3, d[0] * ct, -Math.sin(tip), d[2] * ct);
           const fl = legs2 ? legs2[x > 0 ? 0 : 1] * b.m0 * gov + diff : f / legs.length + diff;
-          b.thrusters.push({ p: [x, keel0 - 0.28, stern - 0.18], d, f: fl, vent: 0.1, lever: PROP_LEVER });
+          b.thrusters.push({ p: [x, keel0 - 0.28, stern - 0.18], d, f: fl, vent: 0.1, lever: PROP_LEVER, load: Math.abs(pw) });
+          // (B4) Its walk: right-handed, a twin's port engine left-handed.
+          this.propWalk(b, [x, keel0 - 0.28, stern - 0.18], d, fl, M.twin && x > 0 ? -1 : 1, vf);
         }
       }
       this._props = troll || dead || E ? null : [t0, b.thrusters.length];
@@ -5147,6 +5165,30 @@ export class Boat {
   // head to it, swinging and riding the waves as they come (no more held than that: nothing pins
   // her in place). Hauling in shortens the rope, drawing her up over the anchor, and then it comes
   // up to the bow.
+  // (B4) The water's speed into her propeller (m/s along her, + from ahead): her way through it vf,
+  // less the waves' own motion along her at her propeller, at its depth (B2: HydroBody.wavesAt,
+  // from the last step's sea; none before her first).
+  propInflow(vf, M) {
+    const b = this._phys;
+    if (!b?.LV || M?.jet) return vf;
+    const H = this.hull, pl = _pin;
+    pl[0] = 0; pl[1] = H.keel(0) - (M?.inboard ? 0.22 : 0.28); pl[2] = zAt(H, 0) + (M?.inboard ? 0.45 : -0.18);
+    const w = b.wavesAt(pl, Math.max(0, -b.localWaterHeight(pl)), _pwv);
+    const f = b.dirWorld(_pfz, _pfw);
+    return vf - (w[0] * f[0] + w[2] * f[2]) / (Math.hypot(f[0], f[2]) || 1);
+  }
+
+  // (B4) A propeller's walk (see WALK_ASTERN): at p (her frame), pushing along d with push f (N,
+  // + ahead), hand +1 right-handed or -1 left-handed, her way through the water vf. Across its
+  // axis: a right-handed one astern walks her stern to port.
+  propWalk(b, p, d, f, hand, vf) {
+    if (!f) return 0;
+    const w = (f < 0 ? WALK_ASTERN : -WALK_AHEAD) * hand * PROP_LEVER * Math.abs(f) * walkFade(vf);
+    const side = b.dirWorld([d[2] * w, 0, -d[0] * w], [0, 0, 0]);
+    b.forces.push({ f: side, p: b.toWorld(p, [0, 0, 0]) });
+    return w;
+  }
+
   holdAnchor(dt, steer) {
     const A = this.anchor, H = this.hull, b = this._phys;
     const bowY = this.heave + sheer(H, 1) - H.draft;

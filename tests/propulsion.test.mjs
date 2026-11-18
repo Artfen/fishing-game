@@ -85,7 +85,7 @@ const run = ({ strikes = 'on', trim = 2, lever = 1, x0 = 200, z0 = 21, secs = 14
     hits.push(s);
     firstX ??= bt.pos.x;
   };
-  let vmax = 0;
+  let vmax = 0, up = 0, after = 0;
   for (let i = 0; i < secs * 30; i++) {
     // (stop: a skipper easing back to neutral at the first touch.)
     const L = stop && hits.length ? 0 : lever;
@@ -93,8 +93,13 @@ const run = ({ strikes = 'on', trim = 2, lever = 1, x0 = 200, z0 = 21, secs = 14
     b.lever = L;
     b.update(1 / 30, i / 30, L, 0, 0);
     vmax = Math.max(vmax, b.speed);
+    // (Once it's first kicked up, how much of the time it's up.)
+    if (b.tilted || after) {
+      after++;
+      if (b.tilted) up++;
+    }
   }
-  return { b, E, hits, vmax, get firstX() { return firstX; } };
+  return { b, E, hits, vmax, upShare: after ? up / after : 0, get firstX() { return firstX; } };
 };
 
 test('in deep water her push is the catalogue’s, strikes on or off; a bent propeller costs her speed', () => {
@@ -123,7 +128,9 @@ test('over the shallows: her leg down, a strike and a bent propeller; tilted up,
   for (const r of [run({ strikes: null }), run({ own: false })]) {
     assert.equal(r.hits.length, 0);
     assert.equal(r.E.dmg, 0);
-    assert.ok(r.b.tilted, 'kicked up');
+    // (Over the bank it kicks up, drops back over a deeper patch and kicks up again, so it's
+    // judged over the run, not at its last moment: kicked up, and up most of the time after.)
+    assert.ok(r.upShare > 0.6, `kicked up, and up ${(r.upShare * 100).toFixed(0)}% of the time after`);
   }
 });
 
