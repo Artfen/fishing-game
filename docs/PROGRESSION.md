@@ -141,3 +141,6 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
    rope as boats do, and it's a storm's seas, not the wind alone, that drag an anchor; Spot-Lock
    wanders with its GPS fix; each hull's roll decay checked. (Still to do: the planing trim
    against Savitsky.)
+10. **B4 (done):** the propeller: it walks her stern to port going astern (a single outboard;
+   twins cancel it), draws air down when driven hard as it breaks the surface and keeps it until
+   it's well under again, and feels the waves' own motion in the water into it.

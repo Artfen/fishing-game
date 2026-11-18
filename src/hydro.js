@@ -64,6 +64,23 @@ const _wl = [0, 0, 0];
 // (B3) Drifting, the speeds (m/s along her) over which her own resistance curve takes over from the
 // water's on her panels: see hullForces.
 export const DRIFT_FULL = [0.2, 1.2];
+// (B4) Ventilation: a propeller working hard close under the surface draws air down onto its
+// blades once part of its disc breaks the surface, and loses most of its push (the engine races).
+// And it has a memory, as model tests find (Koushan; Kozlowska et al.): the air takes a moment to
+// get down, and once there it stays until the propeller is well under again (deeper than it needs
+// to grip) or eased, its push coming back over a moment as the air washes out. load: the share of
+// its push asked for above which it draws air; inT, outT: how long the air takes to get down and
+// to wash out (s); clear: how deep it must be to shed it, as a share of the depth it needs to grip;
+// loss: the share of its push lost with the air down.
+export const VENT = { load: 0.35, inT: 0.15, outT: 0.6, clear: 1.4, loss: 0.7 };
+// One step of a propeller's air: a (0 none … 1 fully ventilated), kg (how much of it is under the
+// water, 0 … 1), depth (m under the surface), need (the depth it needs to grip), load (0 … 1), dt.
+export function ventStep(a, kg, depth, need, load, dt) {
+  if (kg <= 0) return 1;
+  if (kg < 0.9 && load > VENT.load) return a + (1 - a) * Math.min(1, dt / VENT.inT);
+  if (depth > need * VENT.clear || load < VENT.load * 0.5) return a - a * Math.min(1, dt / VENT.outT);
+  return a;
+}
 // (B1) Added mass in heave, as a share of RHO × waterline beam × waterplane area (see buildHullModel).
 export const ADDED_K = 0.09;
 const smooth01 = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
@@ -845,11 +862,18 @@ export class HydroBody {
     this.foilForces();
     if (!this.nanAt) this.check('foils');
     // Propellers and jets: they push where they are, the way they point, while they're in the water.
-    for (const th of this.thrusters) {
+    const aer = (this.aer ||= []);
+    for (let i = 0; i < this.thrusters.length; i++) {
+      const th = this.thrusters[i];
       if (!th.f) continue;
       const p = this.toWorld(th.p, _p1), d = this.dirWorld(th.d, _p2);
       const depth = this.depthAt(p, env, t);
-      const k = th.vent ? Math.min(1, Math.max(0, (depth + 0.02) / th.vent)) : 1;
+      let k = th.vent ? Math.min(1, Math.max(0, (depth + 0.02) / th.vent)) : 1;
+      // (B4) With the air down on it (an engine's propeller: load given), most of its push gone.
+      if (th.load != null && th.vent) {
+        aer[i] = ventStep(aer[i] || 0, k, depth, th.vent, th.load, h);
+        k *= 1 - VENT.loss * aer[i];
+      }
       // (How deep in it is, as a share of what it needs to grip: the boat reads it back for the
       // engine's revs, see Boat.propBite.)
       th.k = k;
