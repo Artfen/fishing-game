@@ -5,8 +5,10 @@ import { LINES, tension, stiffness } from './lines.js';
 // Holding a boat still, three ways (the rules here; the boat does the rest, see boat.js):
 //
 //  · At anchor, away from the shore: the anchor goes down to the seabed from the bow and the rope
-//    is paid out to two and a half times the depth. The boat drifts back on the wind and tide until
-//    the rope comes tight, then lies there bow to the anchor, swinging a little, riding the waves.
+//    is paid out to five times the depth, as much as there is in deep water. The boat drifts back
+//    on the wind and tide, the rope lifting off the bottom as it takes her weight (B6: its
+//    catenary, anchoring.js), then lies there bow to the anchor, swinging a little, riding the
+//    waves.
 //    It needs water deep enough to float in (and not run aground on the swing) and no deeper than
 //    the rope is long.
 //  · Tied up alongside a jetty or quay: made fast by a line at the bow and the stern, fenders
@@ -15,13 +17,13 @@ import { LINES, tension, stiffness } from './lines.js';
 //    there has to be open water beside her to go.
 //  · On a towline: one boat's stern to another's bow, the second following the first.
 
-// The anchor's rope, and how much of it goes out for a given depth (two and a half times the depth;
-// in shallow water a few metres more than the depth at least).
-export const ANCHOR = { rope: 30, scope: 2.5, maxDepth: 25 };
+// The anchor's rope, and how much of it goes out for a given depth. (B6) Five times the depth, the
+// scope a skipper pays out for a night or a blow with a rope rode (seven is better, three will do
+// for lunch in a calm), as far as the rope goes: 50 m, so in deeper water than 10 m the scope's
+// shorter and the anchor's pulled more upward (anchoring.js uplift), and holds less. In shallow
+// water, a few metres more than the depth at least. (Before B6: two and a half times, on 30 m.)
+export const ANCHOR = { rope: 50, scope: 5, maxDepth: 25 };
 export const rodeFor = (depth) => clamp(depth * ANCHOR.scope, depth + 2.5, ANCHOR.rope);
-// How far along the bottom that lets the boat lie from the anchor (a little less than the rope
-// would reach pulled straight: it hangs).
-export const reachFor = (depth) => Math.max(1.5, Math.sqrt(Math.max(0, rodeFor(depth) ** 2 - depth ** 2)) * 0.8);
 
 // Where the bow is, on the water.
 export const bowOf = (b, out = { x: 0, z: 0 }) => {

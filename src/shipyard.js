@@ -151,8 +151,13 @@ export const FITS = {
   anchor: {
     name: 'Heavier anchor and chain', cat: 'gear', kg: 14, amps: 0,
     price: { skiff: 35, bass: 45, cabin: 60, console: 80, rib: 70, cruiser: 120, sail: 50 },
-    desc: 'A bigger anchor on a length of chain: it digs in first time and holds in a blow that would drag the old one across the bottom.',
-    hold: 2.2,
+    desc: 'A bigger anchor on a length of chain: it digs in first time and holds in a blow that would drag the old one across the bottom. The chain’s weight keeps the pull on it low along the seabed, so it holds even where the rope runs short in deep water.',
+    // (B6) The anchor itself, twice the weight, holds about twice as hard (holding power goes about
+    // with an anchor's weight: Practical Sailor's soft-mud tests); its chain (anchoring.js rodeOf)
+    // more, lying along the bottom so it's pulled level, less so in a storm when it's pulled
+    // nearly straight. Before B6, 2.2 for both together.
+    hold: 2,
+    rode: 'chain',
   },
 };
 export const FIT_IDS = Object.keys(FITS);
@@ -405,7 +410,7 @@ export function fitEffect(yard, id0) {
   const kind = kindOf(id0);
   const list = (yard?.fits?.[id0] || []).filter((id) => FITS[id]?.price[kind]);
   const has = (id) => list.includes(id);
-  const e = { tank: 1, thrust: 1, burn: 1, kg: 0, amps: 0, sonar: false, deep: false, plotter: false, vhf: false, house: false, troll: 1, lights: false, livewell: false, holders: false, bimini: false, hold: 1, seats: 0, comfort: 0, divers: false, trollMotor: null, trollBank: false, list };
+  const e = { tank: 1, thrust: 1, burn: 1, kg: 0, amps: 0, sonar: false, deep: false, plotter: false, vhf: false, house: false, troll: 1, lights: false, livewell: false, holders: false, bimini: false, hold: 1, rode: 'rope', seats: 0, comfort: 0, divers: false, trollMotor: null, trollBank: false, list };
   for (const id of list) {
     const F = FITS[id];
     e.kg += F.kg || 0;
@@ -415,6 +420,7 @@ export function fitEffect(yard, id0) {
     if (F.tank) e.tank *= F.tank;
     if (F.troll) e.troll *= F.troll;
     if (F.hold) e.hold *= F.hold;
+    if (F.rode) e.rode = F.rode;
     if (F.house) e.house = true;
     const W = F.work;
     if (W) {

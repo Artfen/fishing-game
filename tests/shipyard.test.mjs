@@ -173,7 +173,8 @@ test('Shipyard 2.0: every fitting weighs something real and does something real,
   for (const id of ['sonar', 'lights', 'livewell', 'battery', 'anchor']) assert.ok(fitBoat(s, 'console', id).ok, id);
   e = fitEffect(s.yard, 'console');
   assert.equal(e.kg, ['trollgps', 'sonar', 'lights', 'livewell', 'battery', 'anchor'].reduce((a, id) => a + FITS[id].kg, 0));
-  assert.ok(e.amps >= 7 && e.sonar && e.lights && e.livewell && e.house && e.hold > 2);
+  // (B6: the heavier anchor twice the ordinary one, on its chain.)
+  assert.ok(e.amps >= 7 && e.sonar && e.lights && e.livewell && e.house && e.hold === 2 && e.rode === 'chain');
   // Taking one off: free, no refund, the weight gone.
   const m = s.money;
   assert.ok(unfitBoat(s, 'console', 'livewell').ok);

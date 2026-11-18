@@ -56,6 +56,21 @@ export class Rope {
     this.place();
   }
 
+  // (B6) Laid to a shape worked out for it: pts[i] = [s, y], s along the bottom from the anchor
+  // (to pts[n][0] at the bow) and y above it (to pts[n][1] at the bow), as anchoring.js
+  // rodePoints gives, stretched to where its ends are this frame.
+  shape(bow, anchor, pts, floor) {
+    const P = this.points, n = this.n, X = pts[n][0] || 1, Y = pts[n][1] || 1;
+    for (let i = 0; i <= n; i++) {
+      const u = pts[i][0] / X, p = P[i];
+      p.x = lerp(anchor.x, bow.x, u);
+      p.z = lerp(anchor.z, bow.z, u);
+      p.y = anchor.y + ((bow.y - anchor.y) * pts[i][1]) / Y;
+      if (floor) p.y = Math.max(p.y, floor(p.x, p.z) + 0.04);
+    }
+    this.place();
+  }
+
   place() {
     const P = this.points;
     for (let i = 0; i < this.n; i++) {

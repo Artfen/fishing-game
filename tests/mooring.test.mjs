@@ -41,7 +41,7 @@ test('the anchor needs the right depth: not so shallow she’d sit on the bottom
   // The open sea, far out past the shelf.
   const deep = boatAt('skiff', 0, 1150);
   const d = M.anchorCheck(deep);
-  assert.ok(!d.ok && /Too deep/.test(d.why) && /30 m/.test(d.why), d.why);
+  assert.ok(!d.ok && /Too deep/.test(d.why) && /50 m/.test(d.why), d.why);
   // Right in by a beach.
   let shallow = null;
   for (let z = 30; z < 70 && !shallow; z += 0.5) {
@@ -53,10 +53,11 @@ test('the anchor needs the right depth: not so shallow she’d sit on the bottom
   // Under way: slow down first.
   run(ok, 4, 1);
   assert.ok(!M.anchorCheck(ok).ok);
-  // The rope's reach: two and a half times the depth paid out, never more than the rope.
-  assert.ok(M.rodeFor(5) === 12.5 && M.rodeFor(20) === M.ANCHOR.rope);
-  assert.ok(M.reachFor(5) > 7 && M.reachFor(5) < 12.5);
-  assert.ok(M.reachFor(2) > 2 && M.reachFor(2) < 5, 'close in, in shallow water');
+  // The rope paid out (B6): five times the depth, never more than the rope (50 m), and a few metres
+  // more than the depth in shallow water. (Where she lies on it is its catenary's: see
+  // tests/anchoring.test.mjs.)
+  assert.ok(M.rodeFor(5) === 25 && M.rodeFor(20) === M.ANCHOR.rope && M.ANCHOR.rope === 50);
+  assert.ok(M.rodeFor(0.5) === 3, 'close in, in shallow water');
 });
 
 // Somewhere about 4 m deep in open water.
@@ -91,11 +92,27 @@ test('anchored: it goes down to the seabed, holds her on its rope in wind and cu
     b.vel.z -= 0.35 * (1 / 30);
     b.update(1 / 30, clock, 0, 0, 0);
   }
-  const bow = M.bowOf(b), d = Math.hypot(bow.x - A.x, bow.z - A.z);
-  assert.ok(d > A.reach * 0.85 && d < A.reach + 0.6, `lying back on her rope: ${d.toFixed(1)} of ${A.reach.toFixed(1)} m`);
+  // (B6) On a rope rode that's nearly straight from the anchor to her bow once it takes her
+  // weight: lying back about as far as the rope reaches pulled straight (a little more, its
+  // stretch).
+  const bow = M.bowOf(b), d = Math.hypot(bow.x - A.x, bow.z - A.z), straight = Math.sqrt(A.out ** 2 - A.depth ** 2);
+  assert.ok(d > straight * 0.9 && d < A.out + 0.6, `lying back on her rope: ${d.toFixed(1)} m, ${straight.toFixed(1)} straight`);
   const toAnchor = Math.atan2(A.x - b.pos.x, A.z - b.pos.z), off = Math.abs(Math.atan2(Math.sin(toAnchor - b.heading), Math.cos(toAnchor - b.heading)));
   assert.ok(off < 0.35, `head to the anchor (${off.toFixed(2)} rad off)`);
   assert.ok(A.tension > 0.5, 'the rope is tight');
+  // (B6) Lying back on it in a breeze, the anchor's begun to dig in, but a breeze this light
+  // doesn't set it. A fresher blow does: it drags a little, digging in as it goes, and holds (and
+  // says so), within a few metres in sand.
+  assert.ok(A.set > 0.16 && A.set < 0.9 && A.dug > 0, `begun to dig in: ${A.set.toFixed(2)} after ${A.dug.toFixed(2)} m`);
+  assert.deepEqual(sets, ['set']);
+  for (let i = 0; i < 20 * 30; i++) {
+    clock += 1 / 30;
+    b.vel.z -= 0.85 * (1 / 30);
+    b.update(1 / 30, clock, 0, 0, 0);
+  }
+  assert.ok(A.set > 0.9, `set: ${A.set.toFixed(2)} after ${A.dug.toFixed(2)} m`);
+  assert.ok(A.dug < 4, `within a few metres, in sand: ${A.dug.toFixed(2)} m`);
+  run(b, 3);
   // Haul it in: she's drawn up over the anchor, it comes up, and she's free (in seconds).
   b.setAnchor(false);
   let secs = 0;
@@ -104,8 +121,9 @@ test('anchored: it goes down to the seabed, holds her on its rope in wind and cu
     secs += 0.1;
   }
   assert.ok(!b.anchored && !b.anchor, `up in ${secs.toFixed(1)} s`);
-  assert.ok(secs < 16);
-  assert.deepEqual(sets, ['set', 'up']);
+  assert.ok(secs < 20);
+  // (B6: and it dug in, dragged a little as she first lay back on it.)
+  assert.deepEqual(sets, ['set', 'bite', 'up']);
   assert.ok(b.anchorStowed.visible && !b.anchorOut.visible && !b.rode.mesh.visible, 'back on the foredeck');
   // And she motors off normally.
   const v = run(b, 4, 0.4).forwardSpeed;
@@ -233,7 +251,11 @@ test('tied up or anchored out of your way, she rests once settled, still afloat,
   moored(0.5, a);
   assert.ok(a.anchor.phase === 'drop' && !a._resting, 'the anchor still going down');
   let swinging = 0, rested = 0;
+  // (B6: in a breeze, as before. Her rode's a catenary now, most of it lying on the bottom till
+  // she's drifted back on it: in the light airs this test had she'd wander about over it slower
+  // than this counts as moving, and it'd prove nothing.)
   for (let i = 0; i < 30 * 20; i++) {
+    a.vel.z -= 0.3 * (1 / 30);
     moored(1 / 30, a);
     if (Math.hypot(a._phys.v[0], a._phys.v[2]) > 0.15) {
       swinging++;
