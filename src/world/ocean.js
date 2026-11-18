@@ -65,8 +65,23 @@ function jonswapTotal(wp) {
   for (let i = 0; i < n; i++) m += jonswap(w0 + (i + 0.5) * dw, wp) * dw;
   return m;
 }
-// Spread round the wind: cos⁴ of the angle off it, normalised over the half-plane it blows into.
-const spread = (d) => (Math.abs(d) < Math.PI / 2 ? (8 / (3 * Math.PI)) * Math.cos(d) ** 4 : 0);
+// (W5) How it spreads round the wind, by each wave's frequency against the peak's: Donelan, Hamilton
+// and Hui's (1985) measured spreading, sech²(β·θ), as Horvath ("Empirical directional wave spectra
+// for computer graphics", 2015) recommends it for drawing the sea. Narrowest at the spectrum's peak
+// (β about 2.4: half its energy within ±21° of the wind), broadening for the waves either side
+// of it, the short ones most (β 0.6 for waves four times the peak's frequency, a little of them
+// running even against the wind, as measured). Before, cos⁴ for every wave (±33°).
+export function spreadBeta(r) {
+  if (r < 0.95) return 2.61 * Math.max(r, 0.05) ** 1.3;
+  if (r < 1.6) return 2.28 * r ** -1.3;
+  return 10 ** (-0.4 + 0.8393 * Math.exp(-0.567 * Math.log(r * r)));
+}
+// Its share of the energy at angle d off the wind (rad, −π … π), for a wave at r = ω/ωp:
+// normalised over the whole circle.
+export function spread(d, r) {
+  const b = spreadBeta(r), x = b * Math.atan2(Math.sin(d), Math.cos(d)), c = Math.cosh(Math.min(40, x));
+  return b / (2 * Math.tanh(b * Math.PI) * c * c);
+}
 
 // The energy (m² per (rad/m)²) at wavenumber (kx, kz) for a wind of u m/s blowing towards
 // angle `to` (world: 0 = +x... as atan2(z, x)), before normalising.
@@ -75,7 +90,29 @@ function spectrum2D(kx, kz, u, to) {
   if (k < 1e-6) return 0;
   const w = Math.sqrt(G * k), wp = peakFrequency(u);
   const sw = jonswap(w, wp), dwdk = G / (2 * w);
-  return (sw * dwdk * spread(Math.atan2(kz, kx) - to)) / k;
+  return (sw * dwdk * spread(Math.atan2(kz, kx) - to, w / wp)) / k;
+}
+
+// (W5) Shallow water: the wind sea can't hold as much energy where the bottom's near. The TMA
+// spectrum (Bouws, Günther, Rosenthal and Vincent 1985, from the Texel, Marsen and Arsloe
+// measurements) is JONSWAP times Kitaigorodskii's depth factor Φ(ωh), ωh = ω·√(h/g): ½ωh² up to
+// 1, then 1 − ½(2 − ωh)², 1 from 2. For each band, the share of its wave height left at a depth
+// (√ of its energy's), for depths 0.25·i² m (i = 0 … TMA_N − 1, to about 30 m), worked out with
+// its spectrum (Patch.setSpectrum) and read anywhere by tmaAt: the physics and the water shader
+// alike (water.js tmaAt, the same interpolation).
+export const TMA_N = 12;
+export const tmaDepth = (i) => 0.25 * i * i;
+export function kitaigorodskii(w, h) {
+  const x = w * Math.sqrt(Math.max(0, h) / G);
+  return x <= 1 ? 0.5 * x * x : x < 2 ? 1 - 0.5 * (2 - x) ** 2 : 1;
+}
+// (A band's table at depth h (m): piecewise linear in i = 2·√h, built up as the shader does it,
+// a step at a time.)
+export function tmaAt(table, h) {
+  const fi = Math.min(TMA_N - 1, 2 * Math.sqrt(Math.max(0, h)));
+  let r = table[0];
+  for (let i = 0; i < TMA_N - 1; i++) r += (table[i + 1] - r) * Math.min(1, Math.max(0, fi - i));
+  return r;
 }
 
 /* ---------------- the FFT ---------------- */
@@ -160,6 +197,8 @@ export class Patch {
       this.uz[q] = kz / k;
     }
     this.key = '';
+    // (W5) Its waves' height left by depth (see tmaAt): all of it till a spectrum's set.
+    this.tma = new Float32Array(TMA_N).fill(1);
   }
 
   // Each wave's amplitude for a wind of u m/s blowing towards `to`, the whole wind sea (both
@@ -170,6 +209,7 @@ export class Patch {
     this.key = key;
     const N = this.N, dk = TAU / this.L, norm = m0 / jonswapTotal(peakFrequency(u));
     let m0b = 0, m1b = 0, m2b = 0;
+    const tm = (this._tm ||= new Float64Array(TMA_N)).fill(0);
     for (let q = 0; q < N * N; q++) {
       const kx = this.kx[q], kz = this.kz[q], k = Math.hypot(kx, kz);
       const i = q % N, j = (q / N) | 0;
@@ -181,7 +221,9 @@ export class Patch {
       const P = Math.max(0, spectrum2D(kx, kz, u, to) * dk * dk * norm * this.band(k));
       this.amp[q] = Math.sqrt(P / 2);
       m0b += P; m1b += P * k; m2b += P * k * k;
+      for (let d = 0; d < TMA_N; d++) tm[d] += P * kitaigorodskii(this.w[q], tmaDepth(d));
     }
+    for (let d = 0; d < TMA_N; d++) this.tma[d] = m0b > 0 ? Math.sqrt(tm[d] / m0b) : 1;
     // (B2) The band's height variance and its first two moments in wavenumber: how fast, on
     // average, its rise and fall and its orbital motion die away below the surface (see
     // conditions.js waveSampler).
@@ -225,6 +267,14 @@ export class LongSea {
     this.tex1 = new Float32Array(n * 4);
     const c = Math.cos(COPY.angle), s = Math.sin(COPY.angle);
     this.copy = { c, s, x: COPY.x, z: COPY.z };
+  }
+
+  // (W5) The long waves' height left by depth (Patch.tma), for this sea: worked out with its
+  // spectrum, which follows the wind a second at a time (compute); set here the first time it's
+  // asked for, before any moment has been worked out.
+  get tma() {
+    if (!this.patch.key) this.patch.setSpectrum(this.wind.u, this.wind.to, this.wind.m0);
+    return this.patch.tma;
   }
 
   // The conditions that shape the sea (from conditions.js each step).

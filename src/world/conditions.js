@@ -6,7 +6,7 @@ import {
 } from './terrain.js';
 import { coldwaterFlow } from './coldwater.js';
 import { SOUTH_WATER, brasaCurrent } from './brasa.js';
-import { longSea } from './ocean.js';
+import { longSea, tmaAt } from './ocean.js';
 
 // Wind, waves and currents: one shared state for the whole game, so the water you see, the
 // boats on it, a float, a cast, the trees and the sound of the wind all answer to the same
@@ -376,9 +376,13 @@ export function waveHeight(x, z, t = conditions.time) {
   }
   const fade = shoreFadeOf(ground, fresh);
   _wh.h = 0;
-  hc = longSea.add(x, z, t, (0.15 + 0.85 * sh[1]) * fade, _wh).h;
+  hc = longSea.add(x, z, t, (0.15 + 0.85 * sh[1]) * fade * seaDepth(ground, fresh), _wh).h;
   return TIDE.level * (1 - fresh) + hs * fade + hc;
 }
+// (W5) The wind sea's long waves' share of their height left in water this deep (the TMA
+// spectrum's depth limit: ocean.js tmaAt), the depth counted with the tide as the water shader
+// counts it.
+const seaDepth = (ground, fresh) => tmaAt(longSea.tma, Math.max(0, TIDE.level * (1 - fresh) - ground));
 // The waves around one place, for a boat's hull (see hydro.js): everything that changes slowly
 // across a boat's length (shelter, shoaling, the shore's fade, fresh water, the tide) is read once
 // at its middle, so each point on the hull costs only the waves themselves. sampleWaves then gives
@@ -418,7 +422,7 @@ export function waveSampler(x, z, S = { n: 0, kx: null, kz: null, w: null, a: nu
   };
   for (let i = 0; i < SWELL.length; i++) add(SWELL[i], C.swellAmps[i] * sh[0] * grow, peak, fade);
   // (The wind sea: its share here, the same as waveHeight's.)
-  S.sea = (0.15 + 0.85 * sh[1]) * fade;
+  S.sea = (0.15 + 0.85 * sh[1]) * fade * seaDepth(ground, fresh);
   seaDecay(S);
   return S;
 }
@@ -477,7 +481,7 @@ function shoreFade(x, z) {
   return shoreFadeOf(solidHeight(x, z), freshness(x, z));
 }
 // (The same, from the ground's height and the water's freshness there, already read.)
-function shoreFadeOf(ground, fresh) {
+export function shoreFadeOf(ground, fresh) {
   return smoothstep(0.05, 0.9 + 3.5 * conditions.sea.storm, -ground) * (1 - 0.85 * fresh);
 }
 
@@ -612,7 +616,7 @@ export const seaWords = (h) => SEA.find(([v]) => h < v)[1];
 // The wave height (m, crest to trough) you'd see at a point.
 export function waveHeightHere(x, z) {
   const C = conditions, sh = shelterAt(x, z);
-  return 2 * (C.sea.swell * (1 + 0.54 * C.sea.storm) * sh[0] + C.sea.chop * (0.15 + 0.85 * sh[1])) * shoreFade(x, z);
+  return 2 * (C.sea.swell * (1 + 0.54 * C.sea.storm) * sh[0] + C.sea.chop * (0.15 + 0.85 * sh[1]) * seaDepth(solidHeight(x, z), freshness(x, z))) * shoreFade(x, z);
 }
 
 // For the water shader: the waves' fixed parts (directions, wavenumbers, speeds).

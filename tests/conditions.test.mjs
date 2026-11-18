@@ -267,7 +267,9 @@ test('the sea’s height comes out just as it always did, reading the ground and
     }
     const fade = fadeOld(x, z);
     const o = { h: 0, vy: 0, vx: 0, vz: 0 };
-    const hc = O.longSea.add(x, z, t, (0.15 + 0.85 * sh[1]) * fade, o).h;
+    // (W5: and the wind sea's height left in shallow water, which it didn't have then.)
+    const deep = O.tmaAt(O.longSea.tma, Math.max(0, C.TIDE.level * (1 - T.freshness(x, z)) - T.solidHeight(x, z)));
+    const hc = O.longSea.add(x, z, t, (0.15 + 0.85 * sh[1]) * fade * deep, o).h;
     return C.TIDE.level * (1 - T.freshness(x, z)) + hs * fade + hc;
   };
   let n = 0;
