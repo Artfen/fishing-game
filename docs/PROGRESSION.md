@@ -151,7 +151,7 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
    it takes her weight; what the anchor holds goes by the bottom (sand best, weed and rock worst),
    the scope (a short rope in deep water pulls it up) and how well it's dug in; it drags in a blow
    and digs in again, and the night at anchor is reckoned the same way.
-13. **W5 (first part, done):** the wind sea spreads round the wind as measured seas do, its long
-   waves long-crested about the wind and the short ones fanning out; and shallow water holds less
-   of it, the boats and the drawn water feeling the same. (Still to do: a third layer of
-   centimetre waves close by.)
+13. **W5 (done):** the wind sea spreads round the wind as measured seas do, its long waves
+   long-crested about the wind and the short ones fanning out; shallow water holds less of it, the
+   boats and the drawn water feeling the same; and close by (Ocean: Full) the ripples a breeze
+   raises, none in light air, with the sun's glitter spread by what they leave out.

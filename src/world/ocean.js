@@ -23,6 +23,16 @@ const TAU = Math.PI * 2;
 export const PATCH = { N: 64, L: 140 };       // the long waves: cells across, metres across
 export const SHORT = { N: 128, L: 23.7 };      // the short ones (GPU): an odd size, so the two never line up
 export const CUT = [2 * Math.PI / 8.5, 2 * Math.PI / 6]; // where the long band hands over to the short (k, rad/m)
+// (W5) The finest waves (GPU, Ocean: Full): from about 60 cm down to 5 cm, close by. A patch 3.17 m
+// across, an odd size against the short one's so the two never line up; the short band hands
+// over to it between 75 and 50 cm.
+export const FINE = { N: 128, L: 3.17 };
+export const CUT2 = [2 * Math.PI / 0.75, 2 * Math.PI / 0.5];
+// (W5) Surface tension over density, sea water (m³/s²): at a few centimetres it stiffens the
+// surface, and the waves run faster than gravity alone would take them, ω² = g·k + (σ/ρ)·k³ (a
+// 5 cm wave 6% faster). The long and short waves are far too long to feel it.
+export const SURFACE_TENSION = 7.3e-5;
+export const omegaOf = (k) => Math.sqrt(G * k + SURFACE_TENSION * k * k * k);
 const COPY = { angle: 0.47, x: 37.3, z: 59.1 };   // the second copy of the long patch: turned and shifted
 const STEP = 1 / 20;                               // seconds between worked-out moments (between them, blended)
 const FOAM_FADE = 2.8;                             // seconds for foam to fade by e
@@ -519,16 +529,19 @@ export const SEA_COPY = COPY;
 // The short waves' spectrum, for the GPU patch: each wave's amplitude and fixed draw, packed for
 // a texture (r, i of h0(k); r, i of conj h0(−k)), and the wavenumbers.
 export class ShortSpectrum {
-  constructor() {
-    this.patch = new Patch(SHORT.N, SHORT.L, 777, (k) => smooth(CUT[0], CUT[1], k));
-    this.data = new Float32Array(SHORT.N * SHORT.N * 4);
+  // (W5) Any of the GPU's bands: the short waves by default, or (FineSpectrum) the finest. The
+  // short ones now hand over to the finest below 75 cm.
+  constructor(size = SHORT, seed = 777, band = (k) => smooth(CUT[0], CUT[1], k) * (1 - smooth(CUT2[0], CUT2[1], k))) {
+    this.size = size;
+    this.patch = new Patch(size.N, size.L, seed, band);
+    this.data = new Float32Array(size.N * size.N * 4);
   }
 
   // Returns true when the amplitudes changed (and data was refilled).
   update(u, to, m0) {
     const P = this.patch;
     if (!P.setSpectrum(u, to, m0)) return false;
-    const n = SHORT.N * SHORT.N, d = this.data;
+    const n = this.size.N * this.size.N, d = this.data;
     for (let q = 0; q < n; q++) {
       const m = P.mirror[q], a = P.amp[q] / Math.SQRT2, am = P.amp[m] / Math.SQRT2;
       d[q * 4] = a * P.xr[q];
@@ -539,6 +552,31 @@ export class ShortSpectrum {
     return true;
   }
 }
+
+// (W5) Ripples are raised by the wind's stress on the water, and in light air viscosity smooths
+// them away: Elfouhaily, Chapron, Katsaros and Vandemark's (1997) unified spectrum puts the
+// capillary-gravity range's level at α_m = 0.01·(1 + ln(u*/c_m)) below u* = c_m, c_m = 0.23 m/s
+// (the slowest a ripple runs), u* the wind's friction velocity (√Cd·U, Cd 1.2·10⁻³ in a light
+// wind). As a share of its full level: none in a wind under about 2.4 m/s, a fifth at 3, all of it
+// from about 6.6. (JONSWAP's tail carried on down to centimetres would keep them in a calm.)
+export const RIPPLE_C = 0.23;
+export const rippleShare = (u) => Math.min(1, Math.max(0, 1 + Math.log(Math.max(1e-9, Math.sqrt(1.2e-3) * u) / RIPPLE_C)));
+
+// (W5) The finest waves' spectrum, for the GPU: JONSWAP's tail, as the wind raises it.
+export class FineSpectrum extends ShortSpectrum {
+  constructor() {
+    super(FINE, 4242, (k) => smooth(CUT2[0], CUT2[1], k));
+  }
+
+  update(u, to, m0) {
+    return super.update(u, to, m0 * rippleShare(u));
+  }
+}
+
+// (W5) The share of the sea's whole mean square slope (Cox and Munk's, for this wind: up + across)
+// that each band draws, from its own spectrum (Patch.m[2] = Σ k²·E): what the glitter's spread
+// leaves out is the rest.
+export const slopeShare = (patch, cm) => (cm > 0 && patch?.m ? patch.m[2] / cm : 0);
 
 // A patch's energy (m²) in bands of wavelength between `edges` (metres, rising): what each band
 // of the sea carries on average.

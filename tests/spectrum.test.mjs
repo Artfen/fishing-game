@@ -114,3 +114,74 @@ test('the boats and the drawn water feel the same shallow sea: the wind sea\'s s
     longSea.setWind(saved.u, saved.to, saved.m0, saved.chop);
   }
 });
+
+test('(W5) the finest waves close by: 60 cm down to 5 cm, handed over smoothly from the short ones, a little faster for surface tension', () => {
+  // Their patch: 3.17 m across, 128 cells, so the shortest about 5 cm.
+  assert.ok(Math.abs((2 * O.FINE.L) / O.FINE.N - 0.0495) < 1e-3);
+  // The short band hands over to the finest between 75 and 50 cm: their shares add up to the whole
+  // spectrum everywhere, as the long and short ones' do.
+  const S = new O.ShortSpectrum(), F = new O.FineSpectrum();
+  // (From where the long waves have handed over to the short, 6 m, down.)
+  for (const len of [5, 2, 1, 0.8, 0.7, 0.6, 0.55, 0.45, 0.3, 0.1]) {
+    const k = (2 * Math.PI) / len;
+    assert.ok(Math.abs(S.patch.band(k) + F.patch.band(k) - 1) < 1e-12, `at ${len} m`);
+  }
+  assert.equal(F.patch.band((2 * Math.PI) / 1), 0, 'none at a metre');
+  assert.equal(S.patch.band((2 * Math.PI) / 0.3), 0, 'the short patch none at 30 cm');
+  // Surface tension: ω² = g·k + (σ/ρ)·k³. A 5 cm wave runs about 6% faster than gravity alone would
+  // take it; a 60 cm one barely 0.4%.
+  const c = (len) => O.omegaOf((2 * Math.PI) / len) / ((2 * Math.PI) / len), cg = (len) => Math.sqrt((9.81 * len) / (2 * Math.PI));
+  assert.ok(Math.abs(c(0.05) / cg(0.05) - 1.057) < 0.01, `${c(0.05) / cg(0.05)}`);
+  assert.ok(c(0.6) / cg(0.6) < 1.005);
+  // Its spectrum is the sea's own, carrying its share.
+  S.update(10, 0, 0.09);
+  F.update(10, 0, 0.09);
+  assert.ok(F.patch.m[0] > 0 && F.patch.m[0] < S.patch.m[0] * 0.05, 'little of the height');
+  assert.ok(F.patch.m[2] > S.patch.m[2] * 0.6, 'much of the slope');
+});
+
+test('(W5) the glitter’s spread is the slope the drawn waves leave out, worked out from their spectra', async () => {
+  const { seaSlopeVariance } = await import('../src/world/water.js');
+  const share = (u) => {
+    const chop = 0.02 + 0.005 * u ** 1.75, m0 = (chop * chop) / 4;
+    const L = new O.Patch(O.PATCH.N, O.PATCH.L, 20251104, (k) => 1 - (k > O.CUT[1] ? 1 : k < O.CUT[0] ? 0 : (k - O.CUT[0]) / (O.CUT[1] - O.CUT[0])));
+    const S = new O.ShortSpectrum(), F = new O.FineSpectrum();
+    L.setSpectrum(u, 0, m0);
+    S.update(u, 0, m0);
+    F.update(u, 0, m0);
+    const [up, across] = seaSlopeVariance(u), cm = up + across;
+    return [O.slopeShare(L, cm), O.slopeShare(S.patch, cm), O.slopeShare(F.patch, cm)];
+  };
+  const light = share(3), strong = share(15);
+  // The long waves alone draw almost none of it in light air, a sixth or so in a strong wind; the
+  // finest, in light air hardly any (the wind barely raises ripples, rippleShare), in a strong one
+  // about as much as the short ones; all together, from a sixth or so to (more than) all of it.
+  assert.ok(light[0] < 0.02 && strong[0] > 0.12 && strong[0] < 0.25, `${light[0]} ${strong[0]}`);
+  assert.ok(light[2] < light[1] * 0.4 && Math.abs(strong[2] / strong[1] - 1) < 0.5, `${light} / ${strong}`);
+  const all = (s) => s[0] + s[1] + s[2];
+  assert.ok(all(light) > 0.1 && all(light) < 0.3 && all(strong) > 0.9, `${all(light)} ${all(strong)}`);
+  assert.equal(O.slopeShare(null, 0.05), 0);
+});
+
+test('(W5) ripples need a wind: none in light air under about 2.4 m/s, a fifth of their level at 3, all of it from about 6.6 (Elfouhaily et al.)', () => {
+  // α_m = 0.01·(1 + ln(u*/c_m)) against its level at u* = c_m: u* = √(1.2·10⁻³)·U, c_m = 0.23 m/s.
+  const at = (u) => O.rippleShare(u);
+  assert.equal(at(0), 0);
+  assert.equal(at(2), 0);
+  assert.ok(at(2.4) < 0.01 && at(2.6) > 0.03);
+  assert.ok(Math.abs(at(3) - (1 + Math.log((Math.sqrt(1.2e-3) * 3) / 0.23))) < 1e-12 && Math.abs(at(3) - 0.206) < 0.01);
+  assert.ok(at(6.6) > 0.99 && at(12) === 1);
+  for (let u = 2; u < 8; u += 0.25) assert.ok(at(u + 0.25) >= at(u));
+  // The finest waves' spectrum carries it: in a light air, none of them; in a breeze, their share.
+  const F = new O.FineSpectrum(), F2 = new O.FineSpectrum();
+  F.update(2, 0, 0.01);
+  assert.equal(F.patch.m[0], 0, 'a flat calm close by');
+  F.update(7, 0, 0.01);
+  const full = new O.ShortSpectrum(O.FINE, 4242, F.patch.band);
+  full.update(7, 0, 0.01);
+  assert.ok(Math.abs(F.patch.m[0] / full.patch.m[0] - O.rippleShare(7)) < 1e-9);
+  // (At 4 m/s, half its level.)
+  F2.update(4, 0, 0.01);
+  full.update(4, 0, 0.01);
+  assert.ok(Math.abs(F2.patch.m[0] / full.patch.m[0] - O.rippleShare(4)) < 1e-9 && Math.abs(O.rippleShare(4) - 0.49) < 0.01);
+});

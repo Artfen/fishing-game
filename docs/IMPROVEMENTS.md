@@ -1691,3 +1691,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | Validation | New `tests/spectrum.test.mjs` (4): the spreading normalised round the circle, Donelan et al.'s β, joined without a step, its widths and the short waves against the wind; in the patch, the waves about the peak closer to the wind; Kitaigorodskii's factor, each band's table (none at the edge, all in deep water, never more as it shoals, the long waves first, a stronger wind's sooner), read between its depths; the hull's sampler carrying exactly the depth's share. Restated: `tests/conditions.test.mjs` "the sea's height comes out just as it always did" (its reference given the depth factor) |
 | Remaining risks | The wavelengths are still deep water's (one patch for the whole sea); one table a band, not each wave by its own depth factor at each point |
 
+### The sea, close up: W5 (second part), the finest waves
+
+| Field | |
+| --- | --- |
+| System | `src/world/ocean.js` (`FINE`, a 3.17 m patch of 128 cells; `CUT2`, the short band handing over to it between 75 and 50 cm; `FineSpectrum`; `SURFACE_TENSION`, `omegaOf`; `rippleShare`, the ripples' level by wind after Elfouhaily et al. 1997; `slopeShare`, a band's share of Cox and Munk's mean square slope); `src/world/oceangpu.js` (`ShortSea` for any band; the waves' speed with surface tension); `src/world/water.js` (the finest waves' slopes within 18 m with Ocean: Full; `uSlopeShare`, what the glitter's spread leaves out, worked out from the bands) |
+| Previous issue | W5 of the plan: the drawn waves stopped at about 37 cm; the texture closer in was the shading's procedural ripples; how much the glitter spread was a fixed share (0.3 of the sea's slope close by with Ocean: Full, whatever the wind) |
+| Change | A third layer of the sea's own waves, 60 to 5 cm, close by, raised by the wind as ripples are; the glitter's spread worked out from what the drawn waves leave out |
+| Player benefit | Close to the boat in a breeze the water is covered in fine ripples that break up the sky's reflection; on a calm morning it stays glassy |
+| Before | Smooth long waves close by in any wind; the glitter's share fixed at 0.3 |
+| After | Ripples drawn within 18 m: none under 2.4 m/s of wind, a fifth of their level at 3, all of it from 6.6. The finest waves draw 3% of the sea's slope at 3 m/s, 23% at 7, 50% at 15; what's left to the glitter close by, 0.84, 0.51 and 0.10 (held there) |
+| Validation | New in `tests/spectrum.test.mjs` (3): the finest band's size, its smooth hand-over from the short one, surface tension's 6% at 5 cm, its little height and much slope; the bands' shares of the slope by wind; the ripples' level (none under 2.4 m/s, Elfouhaily's at 3 and 4, all from 6.6) carried by the spectrum. `tests/hydro.test.mjs`'s wave height counts the finest band too. Pictures from `tools/watershots.mjs` before and after; in the browser, the shader compiled and no errors |
+| Remaining risks | The ripples' level is Elfouhaily's shape scaled on to JONSWAP's tail, not his full spectrum; the drawn ripples are averaged away in the distance rather than turned into roughness smoothly (they fade out by 18 m instead) |
+
