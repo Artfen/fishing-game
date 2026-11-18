@@ -221,6 +221,18 @@ thinking that the script had to be taught.
   "Motor up gently, stop well short, and cast into it". The script now runs to 80 m short, comes
   off the plane and creeps to 24 m. Re-aimed at the feed as it drifts, and after it again if three
   casts go untouched.
+- **Aground on the way to a far feed.** Once in three runs on W3's second part the nearest feed
+  was 743 m off. She ended the run down to it aground, in a tenth of a metre of water at (−237,
+  509), well west of the straight line to it (which is 16 m deep or more all the way), and the
+  anchoring, the dive and the night that follow went with her. The log can't say how she got
+  there; and when that feed moved off, the script's next choice (at (−383, 612)) lay across land,
+  8.5 m above the water on the straight line at (−287, 564). Now:
+  - the script takes only a feed she can reach over open water in a straight line (2 m under her
+    at least, every 5 m of the way to where she stops short of it, by the game's own depths), as a
+    skipper looks at the chart before running down to birds working;
+  - the run down gets time for its distance (a minute, or the distance at eight metres a second);
+  - and where she is, and the water under her, is written out at each stage of it (from, 80 m
+    short, 24 m short), so a run that goes wrong there says where.
 - **The catch card** stays up until the fish is kept (**K**) or let go; while it's up nothing else
   answers.
 - **The intake alarm** (weed or a bag over the cooling intake, now and then under way:
