@@ -149,7 +149,7 @@ export const ESTRECHO = { x0: 470, z0: 5660, x1: 800, z1: 5330, w: 120, sill: -3
 // El Vapor: a coasting steamer wrecked on Los Roquetes, lying on the sand on their lee side.
 export const VAPOR = { x: -905, z: 6530, yaw: 2.1, len: 46, beam: 8 };
 // Las Salinas: the old salt pans behind Bahía Escondida, and the hut at their head.
-export const SALINAS = { x: 905, z: 6815, w: 90, d: 50, yaw: 0.3, hut: { x: 948, z: 6800 } };
+export const SALINAS = { x: 985, z: 6795, w: 72, d: 40, yaw: 0.55, hut: { x: 1020, z: 6774 } };
 
 // (In an island's own frame, scaled to its size: 1 at its edge.)
 function islandK(I, x, z) {
@@ -404,7 +404,8 @@ function islandLand(I, x, z, inland) {
   if (I === HONDA) {
     const dx = x - SALINAS.x, dz = z - SALINAS.z, c = Math.cos(SALINAS.yaw), s = Math.sin(SALINAS.yaw);
     const u = Math.abs(dx * c - dz * s) / (SALINAS.w / 2), v = Math.abs(dx * s + dz * c) / (SALINAS.d / 2);
-    h = lerp(h, 1.1, smoothstep(1.3, 0.9, Math.max(u, v)));
+    // (Level over the pans and the hut's yard at their head, rising to the island beyond.)
+    h = lerp(h, 1.1, smoothstep(1.6, 1.25, Math.max(u, v)));
   }
   return h;
 }
@@ -518,9 +519,9 @@ export const BRASA_PLACES = [
   { id: 'gaviota', name: 'Isla Gaviota', sub: 'a low island up-current, and its gulls', south: true, x: GAVIOTA.x, z: GAVIOTA.z, r: 330, note: 'A low island of grey lava to the north-east, where the current comes in from the open sea. Gulls nest on its weather cliffs in their thousands; the water up-current of it is where the bait gathers, and everything that eats bait with it.' },
   { id: 'caleta', name: 'Caleta Blanca', sub: 'a cove of white shell sand', south: true, x: GAVIOTA.cove.x, z: GAVIOTA.cove.z, r: 95, note: 'A cove in Isla Gaviota’s lee, facing back across to Brasa, with a beach of white shell sand: the only white sand in the islands. Five to eight metres of clear water over sand to anchor in, and a beach to land the tender on.' },
   { id: 'estrecho', name: 'El Estrecho', sub: 'the channel between Brasa and Gaviota', area: true, south: true, x: (ESTRECHO.x0 + ESTRECHO.x1) / 2, z: (ESTRECHO.z0 + ESTRECHO.z1) / 2, size: 18, note: 'The channel between the two islands, over a sill about thirty metres down. The current squeezes through it, faster on the ebb of the trade-wind sea, and the bait it carries draws little tunny, bonito and the birds.' },
-  { id: 'banco', name: 'El Banco', sub: 'a seamount out in the north-west', south: true, x: BANCO.x, z: BANCO.z, r: 200, note: 'Out in the open swell north-west of Brasa, the bottom comes up from the deep to about twenty-four metres: a mountain under the sea. Amberjack and barracuda patrol its edges, groupers live in its rock, and the current welling up its north-east face brings the bait.' },
+  { id: 'banco', dive: true, name: 'El Banco', sub: 'a seamount out in the north-west', south: true, x: BANCO.x, z: BANCO.z, r: 200, note: 'Out in the open swell north-west of Brasa, the bottom comes up from the deep to about twenty-four metres: a mountain under the sea. Amberjack and barracuda patrol its edges, groupers live in its rock, and the current welling up its north-east face brings the bait.' },
   { id: 'roquetes', name: 'Los Roquetes', sub: 'a chain of black stacks', south: true, x: -890, z: 6450, r: 160, note: 'Four black stacks in a line west of Roque del Arco, the tallest thirty metres, with channels of clear water between them. A steamer lies wrecked on their lee side.' },
-  { id: 'vapor', name: 'El Vapor', sub: 'a steamer wrecked on Los Roquetes', south: true, x: VAPOR.x, z: VAPOR.z, r: 60, note: 'An old coasting steamer, driven onto Los Roquetes in a winter gale and lying on the sand in their lee, about twelve metres down: her bow, her boiler and the ribs of her hull, grown over with sponges, the fish living in her.' },
+  { id: 'vapor', dive: true, name: 'El Vapor', sub: 'a steamer wrecked on Los Roquetes', south: true, x: VAPOR.x, z: VAPOR.z, r: 60, note: 'An old coasting steamer, driven onto Los Roquetes in a winter gale and lying on the sand in their lee, about twelve metres down: her bow, her boiler and the ribs of her hull, grown over with sponges, the fish living in her.' },
   { id: 'honda', name: 'Isla Honda', sub: 'the outer island, low and sandy', south: true, x: HONDA.x, z: HONDA.z, r: 300, note: 'The outer island to the south-east, beyond the sebadal: low lava and sand, salt scrub, and a bay in its lee that you’d sail past without seeing.' },
   { id: 'escondida', name: 'Bahía Escondida', sub: 'a horseshoe bay of sand', south: true, x: HONDA.cove.x, z: HONDA.cove.z, r: 110, note: 'A horseshoe bay in Isla Honda’s lee, sand at four to eight metres, sheltered from everything but the south: the best anchorage in the islands. Rays feed over the sand; behind the beach lie the old salt pans.' },
   { id: 'salinas', name: 'Las Salinas', sub: 'the old salt works', south: true, x: SALINAS.x, z: SALINAS.z, r: 60, note: 'The salt pans behind Bahía Escondida, their low walls still standing, and the stone hut where the salt was kept. Nobody has worked them in a lifetime; the sea comes in at the big tides and the salt still crusts in the corners.' },

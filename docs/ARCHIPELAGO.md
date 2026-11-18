@@ -104,6 +104,29 @@ island lies well off its line, so the open water it crosses stays deep (`tests/c
 **A3, things to find:** El Vapor (the wreck, a dive site with its buoy), El Banco (a deep dive),
 the ruins of Las Salinas, a beacon on Gaviota; the coves' sand for the anchor.
 
+*A3 done.* What was built:
+
+- **El Vapor:** a 46 m steel coaster broken on the sand in the lee of Los Roquetes, about twelve
+  metres down: her bow section standing and listing, her ribs and boiler amidships, her stern
+  with its rudder and propeller half buried, her mast and plates on the sand; sponges and sun
+  coral grown on her. A dive site with a yellow buoy over her, and her own fish (a grouper and a
+  moray in her hull, combers and an octopus in her plates, chromis, wrasse, trumpetfish and
+  triggerfish over her, barracuda and amberjack above).
+- **El Banco** as a dive site (20 to 40 m), with no buoy out in the open sea: groupers, red
+  porgy and dentex on its walls, amberjack and barracuda round it, the bait on its north-east
+  face. Fans, sponges and black coral on its rock, and round Los Roquetes'.
+- **Las Salinas:** the salt pans' low walls in squares on level ground behind Bahía Escondida's
+  beach, and a roofless stone hut at their head (moved inland from the first sketch, which had
+  half the pans out in the bay).
+- **The beacon:** a white tower on Isla Gaviota's highest ground, two flashes every ten seconds
+  after dark.
+- **The coves' bottoms** read as sand to the anchor and the fish finder; El Banco's as rock.
+- **The board's challenges:** *Under the island* stays the island's five dives (so nobody who
+  has done them loses it), and *Round the islands* is the archipelago's two.
+- **Tests:** in `tests/archipelago.test.mjs`. Two older tests changed for the new dive sites:
+  `tests/divesites.test.mjs` lists the southern sites (now seven, with the life expected at
+  each) and counts the yellow buoys (now nine, El Vapor's added).
+
 **A4, played through:** the trawler across to the islands, anchored in Bahía Escondida, the
 tender ashore to Las Salinas, a dive on El Vapor; the numbers in `docs/PERFORMANCE.md`.
 

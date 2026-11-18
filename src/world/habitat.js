@@ -6,7 +6,7 @@ import {
 } from './terrain.js';
 import { COLDWATER, TARN } from './coldwater.js';
 import {
-  SOUTH_Z, SOUTH_MAP, brasaHeight, brasaZone, brasaHabitat, brasaSDF, upCurrent, inEstrecho, onBanco, GAVIOTA, HONDA, ROQUETES, VAPOR, PUERTO, QUAY_S, MOLE, DIQUE, PLAYA, ARCO, ARCHES, FARO, COLADAS, SEBADAL, BAJON, onBajon,
+  SOUTH_Z, SOUTH_MAP, brasaHeight, brasaZone, brasaHabitat, brasaSDF, upCurrent, inEstrecho, onBanco, GAVIOTA, HONDA, ROQUETES, VAPOR, BANCO, PUERTO, QUAY_S, MOLE, DIQUE, PLAYA, ARCO, ARCHES, FARO, COLADAS, SEBADAL, BAJON, onBajon,
 } from './brasa.js';
 import { siteById, PINNACLES } from './divesites.js';
 import { ENDS } from '../crossing.js';
@@ -616,6 +616,24 @@ function southDiveSpots(habitat, spots) {
   put('coladas', 'reef', -520, 5604, 8, ['parrotfish', 'triggerfish'], 13);
   put('coladas', 'rock', -485, 5632, 8, ['moray', 'comber', 'salema'], 12);
   put('coladas', 'rock', -512, 5636, 8, ['whitebream', 'octopus', 'borriquete'], 10);
+  //  · (The archipelago) El Vapor: a grouper and a moray in her hull, combers and an octopus in her
+  //    plates, chromis and wrasse over her bow, trumpetfish along her, barracuda hanging over her.
+  {
+    const c = Math.cos(VAPOR.yaw), s = Math.sin(VAPOR.yaw), at = (u) => ({ x: VAPOR.x + Math.sin(VAPOR.yaw) * u, z: VAPOR.z + Math.cos(VAPOR.yaw) * u });
+    const bow = at(VAPOR.len * 0.35), mid = at(0), stern = at(-VAPOR.len * 0.35);
+    put('vapor', 'cave', mid.x, mid.z, 5, ['grouper', 'moray', 'comber'], 12);
+    put('vapor', 'reef', bow.x, bow.z, 6, ['chromis', 'ornatewrasse', 'trumpetfish'], 8);
+    put('vapor', 'rock', stern.x, stern.z, 6, ['comber', 'whitebream', 'octopus'], 12);
+    put('vapor', 'reef', mid.x + c * 8, mid.z - s * 8, 7, ['triggerfish', 'bogue', 'parrotfish'], 10);
+    put('vapor', 'wall', mid.x - c * 6, mid.z + s * 6, 12, ['barracuda', 'amberjack'], 9);
+  }
+  //  · El Banco: groupers, red porgy, dentex and chromis on its walls, a cave with a grouper,
+  //    amberjack and barracuda round it, and the bait (sardine, chub mackerel) up its north-east face.
+  put('banco', 'wall', BANCO.x - 40, BANCO.z + 50, 10, ['grouper', 'redporgy', 'dentex', 'chromis'], 34);
+  put('banco', 'wall', BANCO.x + 55, BANCO.z + 30, 10, ['redporgy', 'comber', 'chromis'], 30);
+  put('banco', 'cave', BANCO.x - 20, BANCO.z - 45, 6, ['grouper', 'comber'], 32);
+  put('banco', 'open', BANCO.x + 20, BANCO.z + 10, 18, ['amberjack', 'barracuda', 'bogue', 'horsemackerel'], 26);
+  put('banco', 'tide', BANCO.x + 110, BANCO.z - 110, 20, ['sardine', 'chubmackerel']);
 }
 
 // The dive sites' own fish (see divesites.js), the very last of all, so nothing anywhere else

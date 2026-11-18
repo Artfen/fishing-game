@@ -3,7 +3,7 @@ import { PLACES } from './world/terrain.js';
 import { SOUTH_ZONES } from './world/brasa.js';
 import { seasonWords } from './world/season.js';
 import { SEA_LIFE } from './world/sealife.js';
-import { DIVE_SITES, HOME_SITES, SOUTH_SITES, siteById } from './world/divesites.js';
+import { DIVE_SITES, HOME_SITES, SOUTH_SITES, siteById, ISLAND_SITES, ARCH_SITES } from './world/divesites.js';
 import { lower, an } from './innTalk.js';
 import { VESSELS } from './vessels.js';
 
@@ -294,7 +294,12 @@ export const CHALLENGES = [
   {
     id: 'brasadives', name: 'Under the island', color: '#1c87b6', mark: 'flag',
     text: 'All five of Las Brasas’ dive sites dived: El Bajón, Los Arcos, El Veril, El Sebadal and Las Coladas.',
-    check: (s) => ({ n: SOUTH_SITES.filter((x) => s.dive?.sites?.[x.id]?.dives).length, of: SOUTH_SITES.length }),
+    check: (s) => ({ n: ISLAND_SITES.filter((x) => s.dive?.sites?.[x.id]?.dives).length, of: ISLAND_SITES.length }),
+  },
+  {
+    id: 'archdives', name: 'Round the islands', color: '#2a9d8f', mark: 'flag',
+    text: 'The archipelago’s two dives: El Vapor, the steamer wrecked on Los Roquetes, and El Banco, the seamount out in the north-west.',
+    check: (s) => ({ n: ARCH_SITES.filter((x) => s.dive?.sites?.[x.id]?.dives).length, of: ARCH_SITES.length }),
   },
   {
     id: 'thirty', name: 'Thirty metres', color: '#1f4e6f', mark: 'down',

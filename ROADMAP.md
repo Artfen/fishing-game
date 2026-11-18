@@ -437,7 +437,7 @@ careers, contracts, story, boat ownership and co-op are here already; see the se
 3. The Las Brasas archipelago (in today's world: no new world architecture needed;
    `docs/ARCHIPELAGO.md`, A1 to A4). A1, the islands, the seamount, the channel and the coves:
    done. A2, life through its habitats (bait up-current, the hunters with it, a gull colony):
-   done.
+   done. A3, things to find (El Vapor and El Banco to dive, the salt works, a beacon): done.
 4. The world extended: building and dropping regions as you come and go, checking the far
    coordinates in the shaders, the chart and the passage speed-up; the downloadable build.
 5. The Northern Archipelago and the voyage north.

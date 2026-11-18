@@ -24,8 +24,8 @@ const highest = (I, dx, dz) => {
 
 test('the islands: land where they lie, low hills, higher to weather than in their lee, all inside the southern sea', () => {
   for (const I of ISLANDS) {
-    assert.ok(T.heightAt(I.x, I.z) > 3, `${I.id} stands out of the sea`);
     const weather = Math.max(highest(I, 0, -1), highest(I, -0.7, -0.7)), lee = highest(I, 0.7, 0.7);
+    assert.ok(Math.max(weather, lee) > 5 && T.heightAt(I.x, I.z) > 0.5, `${I.id} stands out of the sea`);
     assert.ok(weather < 60 && weather > lee, `${I.id}: ${weather.toFixed(0)} m to weather, ${lee.toFixed(0)} m in its lee`);
     const R = B.SOUTH_RECT, M = B.SOUTH_MAP;
     assert.ok(I.x - I.rx > M.x && I.x + I.rx < M.x + M.w && I.z - I.rz > M.z && I.z + I.rz < M.z + M.h, `${I.id} on the chart`);
@@ -165,4 +165,57 @@ test('the bait gathers up-current and in El Estrecho, its hunters with it; fish 
 test('dolphins work the bait over El Banco', async () => {
   const { PODS } = await import('../src/world/sealife.js');
   assert.ok(PODS.some((p) => p.sea === 'south' && p.area[0] < BANCO.x && p.area[1] > BANCO.x && p.area[2] < BANCO.z && p.area[3] > BANCO.z));
+});
+
+/* ---------------- A3: things to find ---------------- */
+
+test('the coves\' bottoms read as sand to the anchor and the finder; El Banco\'s as rock', async () => {
+  const { bottomOf } = await import('../src/sonarRead.js');
+  for (const I of ISLANDS) {
+    const b = bottomOf(B.brasaHabitat(I.cove.x, I.cove.z, {}), T.zoneAt(I.cove.x, I.cove.z), true);
+    assert.ok(b.under === 'sand' && b.kind !== 'rock', `${I.id}'s cove: ${b.kind}`);
+  }
+  assert.equal(bottomOf(B.brasaHabitat(BANCO.x, BANCO.z, {}), 'veril', true).kind, 'rock');
+});
+
+test('what there is to find, built: El Vapor on the sand, the salt works and its hut, the beacon on Gaviota lit after dark', async () => {
+  const THREE = await import('three');
+  const { buildBrasa } = await import('../src/world/brasaWorld.js');
+  const { seeded } = await import('../src/util.js');
+  const W = buildBrasa(new THREE.Scene(), seeded(5));
+  assert.ok(W.obstacles.some((o) => o.name === 'the salt hut' && Math.hypot(o.x - SALINAS.hut.x, o.z - SALINAS.hut.z) < 1));
+  const beacon = W.obstacles.find((o) => o.name === 'the beacon');
+  assert.ok(beacon && Math.hypot(beacon.x - GAVIOTA.x, beacon.z - GAVIOTA.z) < GAVIOTA.rx && T.heightAt(beacon.x, beacon.z) > 20, 'on Gaviota\'s high ground');
+  // The salt works level and low, the hut's yard with them.
+  assert.ok(Math.abs(T.heightAt(SALINAS.hut.x, SALINAS.hut.z) - T.heightAt(SALINAS.x, SALINAS.z)) < 0.3);
+  // El Vapor: iron near her place on the sand.
+  let iron = 0;
+  W.group.traverse((o) => {
+    if (!o.isMesh || o.isInstancedMesh) return;
+    o.geometry.computeBoundingBox();
+    const b = o.geometry.boundingBox;
+    if (b.min.x < VAPOR.x + 5 && b.max.x > VAPOR.x - 5 && b.min.z < VAPOR.z + 5 && b.max.z > VAPOR.z - 5 && b.max.y < -2) iron++;
+  });
+  assert.ok(iron >= 1, 'her hull under the water at her place');
+  // The beacon flashes after dark (and only glimmers by day).
+  const lamp = W.group.children.find((o) => o.isMesh && o.geometry.type === 'SphereGeometry' && Math.hypot(o.position.x - beacon.x, o.position.z - beacon.z) < 0.5);
+  const seen = [];
+  for (let t = 0; t < 10; t += 0.1) {
+    W.update(0.1, t, { lantern: 1, night: 1 });
+    seen.push(lamp.material.opacity);
+  }
+  assert.ok(Math.max(...seen) > 0.9 && Math.min(...seen) < 0.4, 'flashing');
+  W.update(0.1, 0.1, { lantern: 0, night: 0 });
+  assert.ok(lamp.material.opacity < 0.3, 'by day, only a glimmer');
+});
+
+test('the board\'s challenges: the island\'s five dives as before, and the archipelago\'s two of their own', async () => {
+  const D = await import('../src/world/divesites.js');
+  assert.deepEqual(D.ISLAND_SITES.map((s) => s.id), ['bajon', 'arcos', 'veril', 'sebadal', 'coladas']);
+  assert.deepEqual(D.ARCH_SITES.map((s) => s.id), ['vapor', 'banco']);
+  const { CHALLENGES } = await import('../src/daybook.js');
+  const find = (id) => CHALLENGES.find((c) => c.id === id);
+  const five = { dive: { sites: Object.fromEntries(D.ISLAND_SITES.map((s) => [s.id, { dives: 1 }])) } };
+  assert.deepEqual(find('brasadives').check(five), { n: 5, of: 5 }, 'done as it was');
+  assert.deepEqual(find('archdives').check(five), { n: 0, of: 2 });
 });

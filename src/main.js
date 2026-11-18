@@ -4824,7 +4824,7 @@ function renderJobs() {
 // (G2b) The island as the slate at Bar El Muelle reads it: its places and its weather. (G2c) Its
 // dive sites (the dive school's), and the boats of yours there now, in the water: none to hire on
 // the island, so a charter's offered only for a boat you have there.
-const SOUTH_DIVES = ['bajon', 'arcos', 'sebadal', 'coladas'];
+const SOUTH_DIVES = ['bajon', 'arcos', 'sebadal', 'coladas', 'vapor', 'banco'];
 const SOUTH_DIVE_RULES = { sebadal: 'the seagrass is protected', bajon: 'the reef’s a marine reserve' };
 function southWorld() {
   const W = jobWorld();
