@@ -397,6 +397,40 @@ The Electron wrapper (`desktop/`) was already there. Now:
 - *Needs a decision and an account*: a Steamworks app id (Steam Direct's fee is yours to decide),
   then the overlay, a store page and a demo.
 
+## A liveaboard, her tender and two archipelagos (November 2026)
+
+Worked out from the "Beyond the Horizon" brief, against what the game already has (most of its
+careers, contracts, story, boat ownership and co-op are here already; see the sections above).
+
+**Decisions**
+
+- **Steam waits.** `desktop/` stays as it is, tested and unused. Later the game is offered as a
+  download from its own website as well as played in the browser: saves as files, no slowing
+  behind other windows, full screen. (A download needs a code-signing certificate for Windows and
+  Apple's notarisation for macOS, and an update channel.) The download doesn't by itself make a
+  bigger world possible: the browser runs the same WebGL, so the world is built to work in both.
+- **One world, compressed.** Real distances would take days at the helm, so geography is
+  compressed as it already is (Willow Bay to Las Brasas: 4.5 km of open sea, 20 to 25 minutes).
+  The Northern Archipelago lies about 10 km north of Willow Bay: about forty minutes at a
+  trawler's eight knots, with an optional speed-up of the game's clock on passage. Sailed the
+  whole way, in one world: no portals, no separate maps.
+- **The liveaboard is the point of the distance.** A boat to live in and walk about (a pilothouse,
+  a saloon and galley, cabins, an aft deck) carrying a small, fast RIB as her tender, launched and
+  recovered by a hydraulic swim platform. The design: `docs/LIVEABOARD.md`.
+- **Two archipelagos.** An archipelago at Las Brasas, full of fish and things to find, through
+  its habitats (drop-offs, a seamount, bait balls on the up-current side) rather than more fish
+  spawned; then the Northern Archipelago (cold water, kelp, fjords, cliffs, seabird colonies).
+
+**Order**
+
+1. Career and Free Roam, and save slots (small, and they decide how the liveaboard is earned;
+   Free Roam has her from the start).
+2. The liveaboard and her tender, tested in home waters (`docs/LIVEABOARD.md`, L1 to L8).
+3. The Las Brasas archipelago (in today's world: no new world architecture needed).
+4. The world extended: building and dropping regions as you come and go, checking the far
+   coordinates in the shaders, the chart and the passage speed-up; the downloadable build.
+5. The Northern Archipelago and the voyage north.
+
 ## Open-source projects that could help
 
 Checked for licence and fit, November 2026. A public repository isn't permission to use its
