@@ -288,6 +288,8 @@ export class CameraRig {
       _f.set(this.car.pos.x, this.car.pos.y + 1.3, this.car.pos.z);
     } else if (this.mode === 'boat') {
       _f.set(boat.pos.x, boat.heave + 1.2, boat.pos.z);
+      // (Walking a big boat's decks, the trawler's: on you, not her middle.)
+      if (boat.deck && boat.plan) boat.deckWorld(_f);
       if (fishing.lineOut) {
         _f.x = lerp(_f.x, fishing.bob.x, 0.35);
         _f.z = lerp(_f.z, fishing.bob.z, 0.35);

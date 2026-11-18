@@ -303,8 +303,13 @@ export class Fishing {
       case 'idle': {
         // (Not from a windsurf board or a jet ski: they're for the fun of it.)
         if (this.angler.onBoat && this.angler.hull?.noFish) {
-          const why = this.angler.hull.noFish;
-          this.hooks.flash(typeof why === 'string' ? why : `No fishing from the ${this.angler.name}: it's for the sport of it. Step ashore, or take a boat.`, 3);
+          this.hooks.flash(`No fishing from the ${this.angler.name}: it's for the sport of it. Step ashore, or take a boat.`, 3);
+          return;
+        }
+        // (A boat fished from her decks only, the trawler: not from her wheel, nor indoors.)
+        const blocked = this.angler.onBoat && this.angler.fishBlock?.();
+        if (blocked) {
+          this.hooks.flash(blocked, 3);
           return;
         }
         // An impossible setup is explained before the cast, not after.

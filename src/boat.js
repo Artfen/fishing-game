@@ -20,6 +20,7 @@ import { anchorBottom, setBy, uplift, UPLIFT_REF, rodeOf, rodePoints, ANCHOR_HOL
 import { CLEAR_K } from './apart.js';
 import { Dress } from './dress.js';
 import { CARGO, slide as slidePiece } from './cargo.js';
+import { trawlerPlan, trawlerPlaces, step as planStep, spotAt as planSpot, nearestOn } from './deckplan.js';
 import { MODES, materialOf, sectionAt, knock, scrape as scrapeHull, firmness, roughness, chamberAt, CHAMBER_SPLIT, surfaceAt, legStrike, rudderStrike, shake, steered, mountPush, plugLets } from './damage.js';
 import { sailForce, hullDrag, boardGrip, heelFor, SAIL, boardDrag, finGrip } from './sailing.js';
 
@@ -297,19 +298,20 @@ const HULLS = {
     // transom, forward of the transom], radius) in the keel's aperture, the rudder behind it.
     motor: { thrust: 2.47, astern: 1.1, tilt: 1.4, inboard: true, prop: [0, -0.38, 1.25, 0.38], rudder: { z: 0.6, area: 0.6 } },
     resist: trawlerDrag, calV: [1, 4],
-    surge: 0.1, helm: 0.6, fend: 2.3, passage: true, trawler: true, walk: false, noLantern: true, lantern: [0, -4],
+    surge: 0.1, helm: 0.6, fend: 2.3, passage: true, trawler: true, noLantern: true, lantern: [0, -4],
+    // (Her deck plan: where you walk aboard her, see deckplan.js.)
+    plan: trawlerPlan,
     // (Her bow thruster: at t 0.9, in its tunnel, a kilonewton and a half (as the thrusters fitted
     // to boats of forty to fifty feet); and an autopilot at her helm: see autopilot.js.)
     thruster: [0.9, 0.42, 1500], autopilot: true,
     // (Her swim platform, 1.7 m out past her transom: in her length alongside a pontoon. And the
     // speed she holds in the ocean's usual long swell, m/s: see crossing.js seaKindly.)
     aft: 1.7, seakind: 4.0,
-    noFish: 'Not from her pilothouse: she’s fished from her aft deck, and walking her decks is still to come.',
     // (At her wheel on the pilothouse sole, 0.6 m up from her main deck (floor). Until her decks
     // are walked (L3) there's nowhere else to stand: aft is the helm.)
     standing: { helm: [-0.7, 1.15], aft: [-0.7, 1.15, 0, 0], round: 0, floor: 2.3 },
     // Where her people sit, on the aft deck (passengers.js): the transom bench, the side lockers.
-    seats: [[0.8, -6.3], [-0.8, -6.3], [1.45, -5.6], [-1.45, -5.6], [1.45, -4.85], [-1.45, -4.85]],
+    seats: [[0.05, -6.32], [-1.1, -6.32], [1.45, -5.75], [-1.45, -5.75], [1.45, -5.05], [-1.45, -5.05]],
     stow: null, noise: 1.2, steady: 0.25,
     windage: 0.005, ride: 1.5,
     wind: [45, 0.45, 2.4], // (B3) side above the water m², end-on share, its middle's height m
@@ -944,6 +946,8 @@ export class Boat {
     this.buildMooringGear(scene);
     this.buildRods();
     this.buildLantern();
+    // (A boat with a deck plan, the trawler: where you can walk aboard her. See deckplan.js.)
+    this.plan = typeof H.plan === 'function' ? H.plan(H) : null;
     ALL.push(this);
   }
 
@@ -3674,7 +3678,7 @@ export class Boat {
     const H = this.hull, S = H.standing, y0 = H.floorY, yp = S.floor, [hx, hz] = S.helm;
     const white = '#f2efe8', trim = '#e6e2d8', steel = '#c9cdd0', black = '#1d2125', dark = '#1f2c36';
     const V = (x, y, z) => new THREE.Vector3(x, y, z);
-    const parts = [], wood = [], glass = [];
+    const parts = [], wood = [], glass = [], roof = [];
     const box = (w, h, d, x, y, z, color, rx = 0, ry = 0, rz = 0, list = parts) => list.push({ geo: new THREE.BoxGeometry(w, h, d), matrix: mat(x, y, z, rx, ry, rz), color });
     const tOf = (z) => (z + H.L / 2) / H.L;
     const deckAt = (z) => sheer(H, clamp(tOf(z), 0, 1)) - 0.7;
@@ -3732,8 +3736,9 @@ export class Boat {
     box(pw * 2 + 0.08, yt - yw1, 0.07, 0, (yw1 + yt) / 2, pz1 + lean, white);
     // (Filling the corners the windscreen's lean leaves either side.)
     for (const sd of [1, -1]) box(0.07, yt - yw0, lean, sd * pw, (yw0 + yt) / 2, pz1 + lean / 2, white);
-    // The roof, a visor out over the windscreen.
-    box(2 * (pw + 0.12), 0.09, pz1 + lean + 0.35 - pz0 + 0.15, 0, yt + 0.045, (pz0 - 0.15 + pz1 + lean + 0.35) / 2, trim);
+    // The roof, a visor out over the windscreen (with all that stands on it, a mesh of its own:
+    // lifted away while you're inside, as a house's roof is: see showRoof).
+    box(2 * (pw + 0.12), 0.09, pz1 + lean + 0.35 - pz0 + 0.15, 0, yt + 0.045, (pz0 - 0.15 + pz1 + lean + 0.35) / 2, trim, 0, 0, 0, roof);
     // Inside: the sole, the console with the wheel, the chart table to port, the helm chair.
     wood.push({ geo: new THREE.BoxGeometry(pw * 2 - 0.08, 0.05, pz1 - pz0 - 0.08), matrix: mat(0, yp - 0.025, (pz0 + pz1) / 2), color: '#9a6b40', jitter: 0.02 });
     const cz = hz + 0.72;
@@ -3745,26 +3750,32 @@ export class Boat {
     box(0.5, 0.1, 0.48, hx, yp + 0.66, hz - 0.5, '#1f3b56');
     box(0.5, 0.48, 0.09, hx, yp + 0.94, hz - 0.76, '#1f3b56', -0.12);
     this.buildWheel(hx, yp + 1.06, hz + 0.42);
-    // On the aft deck: a bench across the transom and a locker-seat along each bulwark, cushioned
-    // (where her people sit: H.seats).
-    box(3.0, 0.45, 0.42, 0, y0 + 0.225, zAt(H, 0) + 0.38, white);
-    box(2.9, 0.08, 0.4, 0, y0 + 0.49, zAt(H, 0) + 0.38, '#1f3b56');
+    // On the aft deck: a bench across the transom (to starboard of the gate in it) and a
+    // locker-seat along each bulwark, cushioned (where her people sit: H.seats). Where they stand
+    // is her plan's (deckplan.js trawlerPlaces), which you walk round.
+    const PL = trawlerPlaces(H), [b0, b1] = PL.bench, benchZ = PL.benchFront - 0.21, [l0, l1] = PL.lockerZ;
+    box(b1 - b0, 0.45, 0.42, (b0 + b1) / 2, y0 + 0.225, benchZ, white);
+    box(b1 - b0 - 0.1, 0.08, 0.4, (b0 + b1) / 2, y0 + 0.49, benchZ, '#1f3b56');
     for (const sd of [1, -1]) {
-      box(0.42, 0.45, 1.5, sd * 1.45, y0 + 0.225, -5.2, white);
-      box(0.4, 0.08, 1.46, sd * 1.45, y0 + 0.49, -5.2, '#1f3b56');
+      box(0.42, 0.45, l1 - l0, sd * (PL.lockerIn + 0.24), y0 + 0.225, (l0 + l1) / 2, white);
+      box(0.4, 0.08, l1 - l0 - 0.04, sd * (PL.lockerIn + 0.24), y0 + 0.49, (l0 + l1) / 2, '#1f3b56');
     }
+    // The gate in her transom, to port: its posts and a hinged top rail on the bulwark's cap.
+    const zt0 = zAt(H, 0), capY = sheer(H, 0);
+    for (const x of PL.gate) parts.push(strut(V(x, y0, zt0 + 0.08), V(x, capY + 0.12, zt0 + 0.08), 0.03, 0.03, steel));
+    parts.push(strut(V(PL.gate[0], capY + 0.12, zt0 + 0.08), V(PL.gate[1], capY + 0.12, zt0 + 0.08), 0.022, 0.022, steel));
     // The radar arch on the pilothouse roof, its dome, the masthead light and the whip aerials.
     const ma = 0.15;
-    for (const sd of [1, -1]) parts.push(strut(V(sd * 0.75, yt + 0.09, ma - 0.25), V(sd * 0.55, yt + 1.2, ma), 0.06, 0.05, white));
-    box(1.25, 0.12, 0.2, 0, yt + 1.22, ma, white);
-    parts.push({ geo: new THREE.CylinderGeometry(0.33, 0.34, 0.22, 16), matrix: mat(0, yt + 1.4, ma), color: '#f4f2ec' });
-    parts.push(strut(V(0, yt + 1.28, ma - 0.12), V(0, yt + 2.05, ma - 0.12), 0.02, 0.016, steel));
-    parts.push({ geo: new THREE.CylinderGeometry(0.045, 0.045, 0.1, 8), matrix: mat(0, yt + 2.1, ma - 0.12), color: '#f1efe8' });
+    for (const sd of [1, -1]) roof.push(strut(V(sd * 0.75, yt + 0.09, ma - 0.25), V(sd * 0.55, yt + 1.2, ma), 0.06, 0.05, white));
+    box(1.25, 0.12, 0.2, 0, yt + 1.22, ma, white, 0, 0, 0, roof);
+    roof.push({ geo: new THREE.CylinderGeometry(0.33, 0.34, 0.22, 16), matrix: mat(0, yt + 1.4, ma), color: '#f4f2ec' });
+    roof.push(strut(V(0, yt + 1.28, ma - 0.12), V(0, yt + 2.05, ma - 0.12), 0.02, 0.016, steel));
+    roof.push({ geo: new THREE.CylinderGeometry(0.045, 0.045, 0.1, 8), matrix: mat(0, yt + 2.1, ma - 0.12), color: '#f1efe8' });
     // (Where her masthead light shines from: see navlights.js.)
     this.mastLight = new THREE.Object3D();
     this.mastLight.position.set(0, yt + 2.1, ma - 0.12);
     this.body.add(this.mastLight);
-    for (const sd of [1, -1]) parts.push(strut(V(sd * 0.55, yt + 1.28, ma), V(sd * 0.62, yt + 3.1, ma - 0.05), 0.008, 0.004, black));
+    for (const sd of [1, -1]) roof.push(strut(V(sd * 0.55, yt + 1.28, ma), V(sd * 0.62, yt + 3.1, ma - 0.05), 0.008, 0.004, black));
     // The foredeck: a low trunk over the cabins below, with its hatch; the windlass, the bow
     // roller and the anchor; stainless rails along the bulwarks from the pilothouse forward.
     const tz0 = 2.55, tz1 = 4.75, tw = 1.05, ty = deckAt(tz1) + 0.36;
@@ -3823,7 +3834,8 @@ export class Boat {
     for (const sd of [1, -1]) parts.push({ geo: new THREE.CylinderGeometry(0.17, 0.17, 0.02, 14).rotateZ(Math.PI / 2), matrix: mat(sd * (hw(H, thT) * 0.62), thY, zAt(H, thT)), color: '#16181b' });
     const fit = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.12 }));
     const teak = new THREE.Mesh(mergeParts(wood), withSurface(new THREE.MeshLambertMaterial({ vertexColors: true }), 'wood', { axis: 'z' }));
-    for (const m of [fit, teak]) {
+    this.roof = new THREE.Mesh(mergeParts(roof), fit.material);
+    for (const m of [fit, teak, this.roof]) {
       m.castShadow = true;
       m.receiveShadow = true;
       this.body.add(m);
@@ -5926,8 +5938,40 @@ export class Boat {
       // (From where you stand: at the wheel, or at the rail you've been fishing from.)
       const [hx, hz] = this.hull.standing.helm, A = this.standAt;
       this.deck = { x: A ? A.x : hx, z: A ? A.z : hz, yaw: A ? A.yaw : 0, step: 0, moving: 0 };
-    } else if (!on) this.deck = null;
+      // (On her plan: the floor you're on and its height, from where you stand.)
+      if (this.plan) Object.assign(this.deck, nearestOn(this.plan, this.deck.x, this.deck.z));
+    } else if (!on) {
+      this.deck = null;
+      this.showRoof(true);
+    }
     return true;
+  }
+
+  // Where you are aboard her plan just now: the spot you're at (her wheel, the aft deck), and
+  // whether you're indoors. Null off her plan, or not walking.
+  get deckSpot() {
+    return this.plan && this.deck ? planSpot(this.plan, this.deck.x, this.deck.z, this.deck.floor) : null;
+  }
+  get indoors() {
+    return !!(this.plan && this.deck && this.plan.floors.find((f) => f.id === this.deck.floor)?.inside);
+  }
+  // Why you can't fish from where you are aboard her, or null: a boat with a plan is fished from
+  // her decks, never from her wheel or indoors.
+  fishBlock() {
+    if (!this.plan) return null;
+    if (!this.deck) return 'Not from her wheel: she’s fished from her decks. Leave the wheel and go aft.';
+    if (this.indoors) return 'Not from inside: out on deck first.';
+    return null;
+  }
+  // Her pilothouse roof (and what stands on it) shown, or lifted away (see buildTrawler).
+  showRoof(on) {
+    if (this.roof) this.roof.visible = on;
+  }
+  // Where you stand aboard her, in the world (out: a Vector3), at your chest: for the camera.
+  deckWorld(out) {
+    const D = this.deck, A = this.standAt;
+    out.set(A ? A.x : D.x, (A ? A.y : this.seatY) + 0.4, A ? A.z : D.z);
+    return this.body.localToWorld(out);
   }
 
   // Where on her deck you can stand at z (her own space): inside her sides (the tubes, the
@@ -5947,6 +5991,15 @@ export class Boat {
   walkDeck(across, ahead, dt) {
     const D = this.deck;
     if (!D) return 0;
+    // (On her plan: its floors, walls, doors and furniture, see deckplan.js.)
+    if (this.plan) {
+      const r = planStep(this.plan, D, across, ahead), went = Math.hypot(r.x - D.x, r.z - D.z);
+      if (went > 1e-4) D.yaw = dampAngle(D.yaw, Math.atan2(r.x - D.x, r.z - D.z), 10, dt);
+      Object.assign(D, r);
+      D.moving = damp(D.moving, went / Math.max(dt, 1e-3) > 0.2 ? 1 : 0, 8, dt);
+      D.step += went * 5.5;
+      return went;
+    }
     const H = this.hull, [hx, hz] = H.standing.helm;
     let nx = D.x + across, nz = D.z + ahead;
     // (Her ends and sides. With a wheelhouse, forward as far as its front, beside it on a side deck.)
@@ -6003,14 +6056,17 @@ export class Boat {
     const yaw = fishing > 0.3 ? wrapAngle(this.pose.rodYaw) : D.yaw;
     A.x = D.x;
     A.z = D.z;
-    A.y = this.seatY;
+    // (On her plan, at the height of the floor you're on: the standing height at the wheel above
+    // its sole, carried with you.)
+    const S = this.hull.standing, floor = D.y ?? S.floor ?? this.hull.floorY, hip = this.seatY - (S.floor ?? this.hull.floorY);
+    A.y = D.y != null ? D.y + hip : this.seatY;
     A.yaw = dampAngle(A.yaw, yaw, 8, dt);
     const T = this.torso;
     T.rotation.order = 'YXZ';
     T.position.set(A.x, A.y + Math.abs(Math.sin(D.step)) * 0.025 * D.moving, A.z);
     T.rotation.y = A.yaw;
     // Walking: a stride either side; standing: feet a little apart, knees soft.
-    const deck = this.hull.floorY + 0.04 - A.y, c = Math.cos(A.yaw), sn = Math.sin(A.yaw);
+    const deck = (D.y != null ? floor : this.hull.floorY) + 0.04 - A.y, c = Math.cos(A.yaw), sn = Math.sin(A.yaw);
     for (const L of this.legs) {
       const stride = Math.sin(D.step + (L.s > 0 ? 0 : Math.PI)) * 0.22 * D.moving;
       this.fromYou(_a, L.s * 0.1, -0.02, 0.02);

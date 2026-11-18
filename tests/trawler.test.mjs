@@ -63,7 +63,7 @@ test('built as a trawler: forty-four feet, seventeen tonnes on a full keel, one 
   assert.ok(H.standing.floor > H.floorY + 0.4);
   assert.ok(b.wheel && b.dash, 'a wheel and a dashboard');
   assert.ok(b.mastLight, 'a masthead light on her arch');
-  assert.match(H.noFish, /aft deck/, 'not fished from the pilothouse');
+  assert.match(b.fishBlock(), /wheel/, 'not fished from her wheel: from her decks (tests/deckplan.test.mjs)');
   // What she costs to draw.
   let calls = 0, tris = 0;
   b.group.traverseVisible((o) => {

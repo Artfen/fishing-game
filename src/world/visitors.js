@@ -17,6 +17,7 @@ import { FightShow } from '../fightshow.js';
 import { fishById, buildFishMesh } from '../fish.js';
 import { Diver } from '../diver.js';
 import { kindOf } from '../boatid.js';
+import { floorAt as planFloor, heightOf as planHeight } from '../deckplan.js';
 
 const LINE_N = 18;  // points along a friend's line
 const DIVER_SEEN = 160; // how near a friend diving is drawn (m)
@@ -411,9 +412,11 @@ export class VisitorView {
     if (!P?.cr) return null;
     const B = P.cr === me ? mine : this.crewBoat(P.cr, P);
     if (!B?.body || B.group?.visible === false) return null;
-    // (On her sole, or up on a deck if that's where they are: a bass boat's casting decks.)
+    // (On her sole, or up on a deck if that's where they are: a bass boat's casting decks; on a
+    // boat with a deck plan, the trawler's, the floor under them there.)
     const H = B.hull, t = (P.cz + H.L / 2) / H.L, onDeck = (H.decks || []).some(([a, b]) => t >= a && t <= b);
-    _crew.set(P.cx, onDeck ? deckY(H, P.cz) : H.floorY ?? 0.1, P.cz);
+    const F = B.plan && planFloor(B.plan, P.cx, P.cz);
+    _crew.set(P.cx, F ? planHeight(F, P.cx, P.cz) : onDeck ? deckY(H, P.cz) : H.floorY ?? 0.1, P.cz);
     B.body.localToWorld(_crew);
     return { x: _crew.x, y: _crew.y, z: _crew.z, h: B.heading };
   }

@@ -5731,8 +5731,6 @@ function toggleWalkLine() {
     hud.flash('There’s no room to walk about in this boat: fish from where you sit.', t, 2.4);
     return;
   }
-  // (Not yet aboard the trawler: walking her decks is still to come, L3.)
-  if (!onFoot && boat.hull.walk === false) return;
   walkLine = !walkLine;
   if (walkLine && !onFoot) boat.setDeck(true);
   hud.flash(walkLine ? `Walking with your line out: ${scheme() === 'pad' ? kbd('L-stick') : MOVE()} to walk, the line pays out as you go · ${scheme() === 'pad' ? 'L3' : K('jog')} to stand and work it again` : 'Standing to fish again: the movement keys work the line', t, 3.4);
@@ -7589,7 +7587,8 @@ function interaction() {
   }
   // A boat you stand in: off the helm to walk her deck (slow, or held still).
   // (Not yet aboard the trawler, whose decks and house want a plan of their own to walk: L3.)
-  if (boat.hull.standing && boat.hull.walk !== false && !fishing.busy && !boat.deck && (boat.speed < 2.5 || boat.anchored || boat.tie)) return { text: 'Leave the helm: walk the deck', run: () => takeHelm(false) };
+  // (The trawler's wheel can be left under way too, with her autopilot on: it steers while you're about her.)
+  if (boat.hull.standing && !fishing.busy && !boat.deck && (boat.speed < 2.5 || boat.anchored || boat.tie || (pilot.on && pilot.id === boat.id))) return { text: 'Leave the helm: walk the deck', run: () => takeHelm(false) };
   // Water in her, sitting in a boat you don't walk about: bailing comes before anything else.
   if (!boat.hull.standing && (boat.flooding?.litres || 0) > 5) {
     const da = damageAction();
@@ -11483,7 +11482,7 @@ function rideCrew(dt) {
   else if (!nightWith && !nightDone && !modal) startNightWith(p);
   // (The keys are camera-relative: turned into her own across, and fore and aft.)
   const moving = !O.helm && (move.x || move.z);
-  if (moving) crew.walk(-(move.x * b.right.x + move.z * b.right.z), move.x * b.fwd.x + move.z * b.fwd.z, b.hull, dt);
+  if (moving) crew.walk(-(move.x * b.right.x + move.z * b.right.z), move.x * b.fwd.x + move.z * b.fwd.z, b.hull, dt, b.plan);
   const C = visitors.crewAt({ cr: O.id, cx: O.x, cz: O.z, x: walker.pos.x, z: walker.pos.z });
   if (!C) return crewLost(p);
   _crewAt.set(C.x, C.y, C.z);
@@ -13819,6 +13818,8 @@ function tick(now, manual = false) {
     watchHire();
   }
   if (pilot.on) steer = pilotTick(dt, steer);
+  // (Inside the trawler's pilothouse, seen from outside: its roof lifted away, as a house's is.)
+  if (boat.roof) boat.showRoof(!(boat.indoors && rig.mode !== 'eye'));
   boat.update(dt, t, throttle, steer, env.lantern);
   // (Her speed over a second or so: the waves' own to-and-fro averaged out, so the tie-up and
   // anchor prompts don't flicker in a swell.)
@@ -14436,7 +14437,7 @@ window.slowTide = {
   board: () => board(),
   // The field guide open at a species, e.g. slowTide.openGuide('bluemarlin').
   openGuide: (id) => openGuide(id),
-  rowboat, skiff, boats: BOATS, wind, town, folkView, passersby, together, visitors, clock, drifters, seabed, shared, teamwork, crew, birds, binoculars: { open: () => openBinoculars(), close: () => closeBinoculars() }, catchCard: (id, size) => showCatch(fishById[id], size, eco.bySpecies[id]?.[0] || { x: 0, z: 0, caught: 0 }, null), inspect: { open: () => openInspect(), close: () => closeInspect(), get on() { return inspector.isOpen; } }, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pickupsShown() { return pickups.count; }, padContext: () => padContext(), jobsChanged: () => jobWeight(), strays, get towing() { return tow ? { lead: tow.lead.kind, towed: tow.towed.boatName || tow.towed.name, tight: tow.tight, T: tow.T || 0, tender: tow.tender?.name || null, extra: tow.extra || 0, peak: tow.peak || 0 } : null; }, takeInTow: (kind) => takeInTow(BOATS[kind]), seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
+  rowboat, skiff, boats: BOATS, wind, town, folkView, passersby, together, visitors, clock, drifters, seabed, shared, teamwork, crew, birds, binoculars: { open: () => openBinoculars(), close: () => closeBinoculars() }, catchCard: (id, size) => showCatch(fishById[id], size, eco.bySpecies[id]?.[0] || { x: 0, z: 0, caught: 0 }, null), inspect: { open: () => openInspect(), close: () => closeInspect(), get on() { return inspector.isOpen; } }, interaction: () => interaction(), engineHere: () => engineHere(), openBoard: () => openBoard(), closeBoard: () => closeBoard(), payJobTwice: (id) => payJob(id), get passengers() { return passengers.count; }, get pilot() { return pilot; }, get pickupsShown() { return pickups.count; }, padContext: () => padContext(), jobsChanged: () => jobWeight(), strays, get towing() { return tow ? { lead: tow.lead.kind, towed: tow.towed.boatName || tow.towed.name, tight: tow.tight, T: tow.T || 0, tender: tow.tender?.name || null, extra: tow.extra || 0, peak: tow.peak || 0 } : null; }, takeInTow: (kind) => takeInTow(BOATS[kind]), seaHere: (x, z) => waveHeightHere(x, z), save: () => save(), hideHud: (on = true) => { hudOff = on; hud.hidden(on); }, get crewFrom() { return crewFrom; },
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
   harbourOffice: () => harbourOffice(),

@@ -462,8 +462,7 @@ own simulation and in the browser:
 - **Deferred to L4:** building her only when she's needed. Today she costs about 75 ms to build
   and 26,000 vertices, and she isn't drawn while laid up. Her interior is what will make it worth
   doing.
-- **Fishing from her** waits for L3: her aft deck is reached on foot. From the pilothouse the game
-  says so.
+- **Fishing from her** waited for L3: her aft deck is reached on foot (now done, below).
 
 What was planned for L2:
 - the single screw;
@@ -479,7 +478,42 @@ What was planned for L2:
   course on autopilot for five minutes in a beam sea, and the alarms sound before the shallows;
 - she draws within budget.
 
-**L3: walking aboard.**
+**L3: walking aboard (done).** What was built, and where it differs from the plan above:
+
+- **`src/deckplan.js`**: floors (convex shapes, each at a height, or a height that follows her
+  sheer or ramps across a sill), furniture (boxes) and spots. There are no wall segments: a wall
+  is simply the edge of a floor with no floor beyond it, and a doorway is a small floor of its own
+  bridging the two either side. That keeps every wall closed by construction. A step slides along
+  what it meets, is taken in 5 cm pieces so nothing is tunnelled through at a run, and never goes
+  up or down more than a step. Her side decks come in pieces short enough to follow her curve.
+- **Her plan:** the aft deck (between the side lockers, full width forward of them), the side
+  decks either side of the house, the foredeck either side of the trunk and across to the
+  windlass, the pilothouse sole (up a step through a door each side; the console, chart table and
+  helm chair walked round), and the swim platform, down through the gate in her transom to port.
+  The saloon is closed until L4 builds it; its door is a spot already. The model's bench, lockers
+  and gate are placed from the same numbers as the plan (`trawlerPlaces`).
+- **You aboard:** the deck figure, as on the deck boats, at each floor's height (the pilothouse
+  sole, her sheer, the platform). The camera follows you on deck, not her middle; first person
+  stands at your eyes. Inside the pilothouse in third person her roof (and the arch on it) lifts
+  away; it is a mesh of its own.
+- **Leaving the wheel:** at rest as on the other deck boats, or under way with her autopilot on.
+  In the browser, at eight knots on autopilot, walking from the wheel out of the door, aft along
+  the side deck to the aft deck, she held her course within 2°.
+- **Fishing:** only out on deck (the aft deck, the side decks, the foredeck, the platform), never
+  from her wheel or indoors; the game says which. Walking with a line out works as on the other
+  deck boats.
+- **Crew:** a friend aboard walks the same plan; those who see them place them on its floor's
+  height, found from where they stand (`cx`, `cz`), so the pose needs nothing new yet. The
+  skipper's own place aboard in her pose is left for L7, with the rest of sailing her together.
+- **The controls** are the deck boats' walking (keyboard, controller and touch alike, through
+  the same input), so nothing new was needed.
+- **Tests:** `tests/deckplan.test.mjs`: no walking through the pilothouse's side, the saloon, her
+  bulwarks or her furniture however long the step; sliding along walls; every spot reachable from
+  her wheel and back; up into the pilothouse and down to the platform with no step over 15 cm;
+  fishing refused at the wheel and indoors; the roof; a friend walking the same plan. Her pictures
+  in `docs/fleet/after/trawler*.jpg` are updated (66 draw calls, 10,342 triangles).
+
+What was planned for L3:
 - `deckplan.js` with tests;
 - her plan, with one figure aboard on several floors, the stairs and doors;
 - the cameras;
