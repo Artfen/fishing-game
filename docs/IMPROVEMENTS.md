@@ -1729,3 +1729,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | After | Within 50 m: 7 plumes a second at 8 m/s, 124 at 14, 403 at 18; nine in ten puffs within 1 to 2 m of the sea; streaks from 13.9 m/s, dense at 20.8 |
 | Validation | New `tests/spindrift.test.mjs` (6): spume's onset and rate by wind; the streaks by Beaufort, the shader's numbers the same; a drop's flight exact for any step, settling to the wind and to rising in an eddy, the eddies' strength; the flight time; in a test sea, as many plumes as the crests breaking and the wind give (within 15% at 18 m/s and 20% at 14), none in a gentle breeze or with no crest breaking, the drops streaming down the wind, some carried up over a metre, nine in ten within 3 m; the spray lit as the foam. Pictures before and after |
 | Remaining risks | The spray's rate and the puffs' look are our calibration, not measured; points, not streaks, so close by a puff is a soft blob; drawn round the camera only |
+
+### The sea, close up: W7, the rings round you simulated
+
+| Field | |
+| --- | --- |
+| System | `src/world/ripplesim.js` (new: the wave equation stepped on a grid, walls with no flow through them, a soaking band at the edge, the square moved by whole cells, the eight-neighbour Laplacian; `ringShape`, `RING`, `ringBump`: a ring started as steep as the drawn one); `src/world/ripplegpu.js` (new, Ocean: Full: the same steps on the graphics card, the walls from the map at the tide, the quays and pontoons, the timber piers' posts and every hull afloat); `src/world/waterfx.js` (rings in the square handed to it, the rest drawn as before); `src/world/terrain.js` (the timber piers' posts); `src/main.js`, `src/effects.js` (wired in; a boat's bow waves stay drawn) |
+| Previous issue | Every ring (a cast, the bobber, a fish rising, a wading foot, the water lapping at the hull) was drawn as a ring that spread and faded: through a boat and up a quay as if neither were there, gone after a second or two |
+| Change | Within 48 m of where you're looking the rings are run as the water runs them: they spread at a real ripple's group speed, trail shorter waves, cross one another, come back off hulls, quays, pontoons and the shore, and pass under the timber piers, scattering off their posts |
+| Player benefit | The water between your boat and the jetty fills with rings crossing and coming back off her side; a fish rising by a quay sends its rings back off the wall |
+| Before | Drawn rings, passing through hulls and walls |
+| After | Simulated rings, as steep at the quarter of their life as the drawn ones were, round within 1%, the graphics card's heights within 6·10⁻⁵ of the reference's |
+| Validation | New `tests/ripplesim.test.mjs` (7): a ring spreads at its speed and stays steady at the largest step; comes back off a wall crest as crest, twice as high against it, none through; two pass through each other unchanged; the edge soaks them up; the square follows you; a ring as steep as the drawn one at the game's grid; a ring stays round. `tools/ripplecheck.mjs`: the graphics card against the reference. Pictures before and after (`tools/rippleshots.mjs`) |
+| Remaining risks | Ocean: Full only; a boat's hull is a still wall to the rings (her bow waves and wake are drawn as before); her shape from her deck plan, not her waterline; not measured on real hardware |

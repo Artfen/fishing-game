@@ -673,3 +673,70 @@ included). The full table, with each LICENSE file read, is in the two research n
   the shader the same). Lying on the water, the streaks drift down the wind as its surface does,
   about 3% of the wind; before, their pattern raced down the wind at 17 m/s. Each is threads of
   foam drawn out along the wind; before, a smooth smear.
+
+- **W7:** the rings round you simulated, not drawn. The rings a cast, the bobber, a fish rising, a
+  wading foot and the water lapping at your hull make, within a square 48 m across round where
+  you're looking (between you and your line, or a little ahead of you), are run by the wave
+  equation, ∂²h/∂t² = c²∇²h − γ∂h/∂t, on a grid of 512 × 512 cells of 9.4 cm, on the graphics card
+  each frame (Ocean: Full; `src/world/ripplegpu.js`, its reference `src/world/ripplesim.js`).
+  Before, each was drawn as a ring that spread and faded, through a boat and up a quay as if
+  neither were there. Now they cross one another and come back off what stands in the water:
+
+  - **a boat's hull** where she floats, her own shape along her length;
+  - **the stone quays and the pontoons;**
+  - **the shore**, where the ground is above the tide;
+  - and **the water runs under the timber piers**, which stand on posts (the old jetty, the
+    Landing, the boathouse pier and Puffin Cove's): the rings scatter off the posts.
+
+  At a wall no water goes through it (the height's slope across it is nought), so a ring comes
+  back as it went in, crest as a crest, the water standing twice as high against the wall as it
+  meets it. Beyond the square, and with Ocean: Simple, the rings are drawn as before; so are the
+  little waves a boat's bow pushes out under way (they'd start inside her hull), and her wake
+  (`wakes.js`).
+
+  **How fast.** A ring's crests run through it at their own speed, but the ring itself, its
+  energy, spreads at the waves' group speed: 0.2 to 0.4 m/s for ripples of 2 to 30 cm (ω² = g·k +
+  (σ/ρ)·k³; the slowest of all is 0.18 m/s, at 4.4 cm). These spread at 0.45 m/s. On the grid the
+  shortest waves run a little slower, so a ring trails a train of shorter ones behind it, as a
+  real one does. A ring fades as it spreads and by a gentle damping (by e in about 6 s of its
+  own), and a band round the square's edge soaks the rings up, so none comes back off the square
+  itself. The square moves with you by whole cells, and the water keeps its place in the world.
+
+  **Round.** The first version's rings came out square. With only the nearest four cells, the short
+  waves trailing a ring run slower along the grid's lines than across them: 5 s out, the crest
+  along the grid a quarter lower than on the diagonal, the trough 17% lower and 0.11 m further in.
+  The Laplacian from all eight neighbours, the nearest weighted 4 and the corners 1 (Patra and
+  Karttunen 2006), keeps a ring round, the same within 1%.
+
+  **As steep as before.** Each ring starts as a bump sized so that a quarter of the way through
+  its life it's as steep as the drawn ring of that size and strength was then: the table of how
+  steep a ring from a bump is at each distance, at the game's grid, speed and bump, is measured,
+  and the test measures it again. So the water looks as it was tuned to, but the rings run as the
+  water does, and they go on, fading, where the drawn ones stopped after a second or two. A big
+  ring starts as a tall, narrow bump for its first moment (a fish rising: about 0.3 m); the water's
+  shown raised by 5 cm at most.
+
+  **Checked on the graphics card.** `tools/ripplecheck.mjs` runs the same ring, a quay, a pier on
+  posts, a boat and a shore on the graphics card and on the reference, the square moved part way:
+  over 15 s their heights agree within 6·10⁻⁵ of the ring's height (float rounding), and the walls
+  cell for cell.
+
+  **Seen** (`tools/rippleshots.mjs`: a calm afternoon by the old jetty, a bobber twitching every
+  1.4 s between the boat and the jetty, and a fish rising north of it; Ultra, Ocean: Full; software
+  rendering). Before, each drawn ring is gone within a couple of seconds, so there's only ever the
+  bobber's last ring or two. Now the rings run on: the fish's ring spreads round and passes under
+  the jetty between its posts, and by 9 s the bobber's rings have spread across the water round
+  the boat and under the jetty. (The first version had the jetty as a solid wall, and its rings cut
+  off flat against it; it stands on posts.) Seen low across the water, neither shows much: the
+  rings are a few millimetres high.
+
+  | | Before | After |
+  | --- | --- | --- |
+  | 3 s | ![](water/rings-3s-before.jpg) | ![](water/rings-3s-after.jpg) |
+  | 9 s | ![](water/rings-9s-before.jpg) | ![](water/rings-9s-after.jpg) |
+
+  **What it costs.** While there are rings about (it stops a minute after the last): a pass for
+  the walls (262,144 cells, each reading the map and testing the piers and hulls in the square, up
+  to 16 and 12), a step for each 1/60 s of game time (each cell reading its eight neighbours), a
+  pass to add new rings when there are any, and the square drawn into the ripple field. Not
+  measured on real hardware.

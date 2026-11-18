@@ -30,6 +30,7 @@ import { Seabed } from './world/seabed.js';
 import { Drifters } from './world/drifters.js';
 import { siteAt, siteById, pushOut, detailsNear, SITE_DETAILS } from './world/divesites.js';
 import { Reflection, RippleField, NO_REFLECT, hideFromReflection } from './world/waterfx.js';
+import { RippleSim } from './world/ripplegpu.js';
 import { createMist } from './world/mist.js';
 import { surfaceUniforms } from './world/surface.js';
 import { causticUniforms } from './world/caustics.js';
@@ -432,6 +433,21 @@ farWakes.extra = (cx, cz, span) => {
   return wakes.updateMesh(t, cx, cz, span);
 };
 fx.setField(ripples);
+// (W7) And the rings round you simulated, coming back off hulls, quays and the shore (Ocean: Full;
+// see ripplegpu.js). It reads the water's own map and tide.
+const rippleSim = new RippleSim({ uHeight: water.uniforms.uHeight, uRect: water.uniforms.uRect, uHeight2: water.uniforms.uHeight2, uRect2: water.uniforms.uRect2 }, water.uniforms.uTideLevel);
+ripples.setSim(rippleSim);
+// The boats afloat round you, for the rings to come back off.
+function rippleHulls() {
+  const out = [];
+  const one = (b) => {
+    if (b?.group?.visible && b.hull && b.pos && b.fwd) out.push(b);
+  };
+  for (const b of boats) if (!isStored(b.id) && b.id !== state.trailer?.boat) one(b);
+  for (const b of Object.values(folkView.boats)) one(b);
+  for (const b of visitors.boats()) one(b);
+  return out;
+}
 // The sea glowing at night (splashes, wakes and strokes light it: see seaglow.js), and the
 // whales, dolphins, seals and gannets you watch rather than catch (sealife.js).
 const glow = new SeaGlow(scene);
@@ -10285,6 +10301,8 @@ function applyQuality() {
   oceanMode = water.setOcean(oceanWant, renderer);
   // (Ocean: Full also draws the wakes far off.)
   farWakes.setQuality(oceanMode === 'full' && q.ripples ? 512 : 0, 512, renderer);
+  // (And simulates the rings round you.)
+  rippleSim.setOn(oceanMode === 'full' && ripples.on, renderer);
   rainDrawn = q.rain;
   world.setPixelRatio(pr);
   glow.setPixelRatio(pr);
@@ -14230,6 +14248,7 @@ function draw() {
     _rf.set(P.x + _rf.x * 14, 0, P.z + _rf.z * 14);
   }
   if (farWakes.on) farWakes.render(renderer, camera.position.x, camera.position.z);
+  rippleSim.update(renderer, _rf.x, _rf.z, rippleHulls());
   ripples.render(renderer, _rf.x, _rf.z);
   // (Boats far off without their small parts: see boat.js boatDetail. Before the reflection, so
   // it's spared them too.)
@@ -14291,7 +14310,7 @@ window.slowTide = {
   navLights, // (F2c: every boat's lights after dark, see navlights.js)
   hud, // (the messages and prompts: hud.toast and the rest, see ui.js)
   get boat() { return boat; }, // the boat you're in (or last used)
-  reflection, ripples, mist, fx, rodView, audio, settingsUI, input, packUI, pads, sealife, wildlife, crossingLife, glow,
+  reflection, ripples, rippleSim, rippleHulls, mist, fx, rodView, audio, settingsUI, input, packUI, pads, sealife, wildlife, crossingLife, glow,
   // What the harbour's placed sounds come from just now (see earshot.js), and the town's boats.
   get around() { return around; }, town,
   openHarbour: (where, tab) => openHarbour(where, tab), fitsAboard: () => fitsAboard(),

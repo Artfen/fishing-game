@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ringShape } from './ripplesim.js';
 
 // Two helpers that make the water respond to the world around it:
 //
@@ -178,6 +179,15 @@ export class RippleField {
     this.mesh.frustumCulled = false;
     this.scene.add(this.mesh);
     this.extra = null; // (cx, cz, span) => whether it drew anything more into the scene
+    // (W7) The rings simulated round you (ripplegpu.js RippleSim): those it takes it runs as the
+    // water does, off hulls, quays and the shore; the rest are drawn here, as before.
+    this.sim = null;
+  }
+
+  // The simulated rings, drawn into this field with the rest.
+  setSim(sim) {
+    this.sim = sim;
+    this.scene.add(sim.mesh);
   }
 
   get on() { return this.size > 0 && !!this.target; }
@@ -201,14 +211,17 @@ export class RippleField {
     } else if (this.target.width !== size) this.target.setSize(size, size);
   }
 
-  // A ripple at (x, z): spreads to about `size` metres over `life` seconds.
-  add(x, z, size = 1.5, life = 1.6, str = 0.5) {
+  // A ripple at (x, z): spreads to about `size` metres over `life` seconds. (Simulated, if it's in
+  // the simulated square and `sim` isn't false.)
+  add(x, z, size = 1.5, life = 1.6, str = 0.5, sim = true) {
     if (!this.size) return;
+    if (sim && this.sim?.take(x, z, size, str)) return;
     if (this.packets.length >= this.max) this.packets.shift();
     this.packets.push({ x, z, size, life, str, age: 0 });
   }
 
   update(dt) {
+    this.sim?.advance(dt);
     let n = 0;
     for (const p of this.packets) {
       p.age += dt;
@@ -233,12 +246,8 @@ export class RippleField {
     let k = 0;
     for (const p of this.packets) {
       if (p.x < x0 - 6 || p.x > x0 + this.span + 6 || p.z < z0 - 6 || p.z > z0 + this.span + 6) continue;
-      const u = p.age / p.life;
-      const R = 0.08 + p.size * Math.sqrt(u);
-      const lambda = 0.16 + 0.07 * p.size + 0.12 * u;
-      const width = lambda * (0.9 + 0.8 * u);
-      // Height in arbitrary units: the water shader scales the slope.
-      const amp = 0.12 * p.str * (1 - u) * (1 - u) * lambda / (1 + R * 0.9);
+      // (Its shape at its age: ripplesim.js ringShape. Heights in metres.)
+      const { R, lambda, width, amp } = ringShape(p.size, p.str, p.age / p.life);
       P[k * 4] = p.x; P[k * 4 + 1] = p.z; P[k * 4 + 2] = R; P[k * 4 + 3] = amp;
       S[k * 2] = width; S[k * 2 + 1] = lambda;
       k++;
@@ -247,7 +256,8 @@ export class RippleField {
     this.aPacket.needsUpdate = true;
     this.aShape.needsUpdate = true;
     // (Anything else drawn into the field this frame: the boats' wakes, see wakes.js.)
-    const more = this.extra ? this.extra(x0 + this.span / 2, z0 + this.span / 2, this.span) : false;
+    let more = this.extra ? this.extra(x0 + this.span / 2, z0 + this.span / 2, this.span) : false;
+    if (this.sim) more = this.sim.show() || more;
     const prev = renderer.getRenderTarget();
     const prevColor = renderer.getClearColor(new THREE.Color());
     const prevAlpha = renderer.getClearAlpha();
