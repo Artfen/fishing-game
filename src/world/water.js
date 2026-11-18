@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { conditions, WAVE_PARTS, bakeShelter, tidalTexture, SHELTER_RECT, waveHeight as conditionsWaveHeight } from './conditions.js';
-import { longSea, PATCH, SHORT } from './ocean.js';
+import { longSea, PATCH, SHORT, TMA_N } from './ocean.js';
 import { ShortSea } from './oceangpu.js';
 import { HAZE } from './sky.js';
 
@@ -18,6 +18,22 @@ const { SWELL } = WAVE_PARTS;
 // term for term: the same swell, and the wind sea sampled from the same grid the same way
 // (Catmull-Rom, both copies of the patch), so a hull sits on the water you see. Far off, where
 // the sheet's cells are coarse, the patch is read blurred (its mipmaps) so nothing flickers.
+// (W5) The wind sea's height left in shallow water, by depth, for its long waves (uTmaL) and its
+// short ones (uTmaS): ocean.js tmaAt, interpolated the same way, a step at a time.
+const TMA_GLSL = /* glsl */ `
+uniform float uTmaL[${TMA_N}];
+uniform float uTmaS[${TMA_N}];
+float tmaL(float h) {
+  float fi = min(${(TMA_N - 1).toFixed(1)}, 2.0 * sqrt(max(h, 0.0))), r = uTmaL[0];
+  for (int i = 0; i < ${TMA_N - 1}; i++) r += (uTmaL[i + 1] - r) * clamp(fi - float(i), 0.0, 1.0);
+  return r;
+}
+float tmaS(float h) {
+  float fi = min(${(TMA_N - 1).toFixed(1)}, 2.0 * sqrt(max(h, 0.0))), r = uTmaS[0];
+  for (int i = 0; i < ${TMA_N - 1}; i++) r += (uTmaS[i + 1] - r) * clamp(fi - float(i), 0.0, 1.0);
+  return r;
+}
+`;
 const WAVE_GLSL = /* glsl */ `
 uniform float uSwellA[${SWELL.length}];
 uniform float uPeak;
@@ -34,6 +50,7 @@ uniform float uSeaChop;   // how far the water's to-and-fro carries a crest alon
 uniform sampler2D uShortDisp; // the short waves (oceangpu.js, Ocean: Full): height, to-and-fro x, z
 uniform float uShortOn;
 uniform float uShortL;        // their patch, metres across
+${TMA_GLSL}
 // How much of a wave of length len the sheet can draw this far from you (dist, m).
 float waveLod(float len, float dist) {
   float far = len * uWaveLod.y;
@@ -94,13 +111,14 @@ vec3 waves(vec2 p, float t, float ground, float fresh, float dist, out vec2 shif
   s = uSwellA[${i}] * ks;
   r += vec3(s * sin(a) - ${f(0.5 * w.k)} * s * s * pk * cos(2.0 * a), vec2(${f(w.k * w.dx)}, ${f(w.k * w.dz)}) * (s * cos(a) + ${f(w.k)} * s * s * pk * sin(2.0 * a)));`).join('\n  ')}
   float fade = smoothstep(0.05, 0.9 + 3.5 * uStorm, -ground) * (1.0 - 0.85 * fresh);
-  vec3 sea = seaAt(p, dist);
+  // (W5: each band's height left in water this deep.)
+  vec3 sea = seaAt(p, dist) * tmaL(depth);
   // (The short waves too, close by: read blurred to about twice the sheet's cell there, so it
   // only carries those it can draw.)
   if (uShortOn > 0.5 && dist < 90.0) {
     float cell = max(uWaveLod.x, dist * 4.0 / (uWaveLod.y * 12.0));
     float lod = log2(max(1.0, 2.0 * cell / (uShortL / 128.0)));
-    sea += textureLod(uShortDisp, p / uShortL, lod).xyz * (1.0 - smoothstep(60.0, 90.0, dist));
+    sea += textureLod(uShortDisp, p / uShortL, lod).xyz * (1.0 - smoothstep(60.0, 90.0, dist)) * tmaS(depth);
   }
   sea *= kc * fade;
   shift = sea.yz * uSeaChop;
@@ -235,6 +253,7 @@ uniform float uRippleOn;
 uniform float uRippleTexel;
 uniform sampler2D uShelter;
 uniform vec4 uShelterRect;
+${TMA_GLSL}
 uniform sampler2D uTidal;  // the tidal streams at full ebb (RG), turned by uTideFlow
 uniform float uTideFlow;   // +1 full ebb … −1 full flood
 uniform float uTideLevel;  // the sea's level above the mean (m)
@@ -459,7 +478,7 @@ void main() {
   // The wind sea's long waves (ocean.js): their slope here, smooth from pixel to pixel, and the
   // foam where their crests have broken; with the swell's slope (from the sheet), the waves' own.
   float kcS = (0.15 + 0.85 * shel.g) * smoothstep(0.05, 0.9 + 3.5 * uStorm, -ground) * (1.0 - 0.85 * fresh);
-  vec3 seaS = seaSlope(vRest) * kcS;
+  vec3 seaS = seaSlope(vRest) * kcS * tmaL(depth);
   vec3 Nw = vec3(vN.x - seaS.x, 1.0, vN.z - seaS.y);
   // And the short waves (Ocean: Full), pixel by pixel: two readings of their patch, one turned and
   // larger, so its tiling never shows; their pinched crests lace the foam.
@@ -467,7 +486,7 @@ void main() {
   if (uShortOn > 0.5) {
     vec2 q = vRest / uShortL, q2 = mat2(0.81, 0.59, -0.59, 0.81) * vRest / (uShortL * 1.63) + vec2(0.37, 0.71);
     vec4 s1 = texture2D(uShortSlope, q), s2 = texture2D(uShortSlope, q2);
-    shortS = vec3((s1.xy + vec2(0.81 * s2.x - 0.59 * s2.y, 0.59 * s2.x + 0.81 * s2.y) / 1.63) * 0.8 * kcS, min(s1.z, mix(1.0, s2.z, 0.6)));
+    shortS = vec3((s1.xy + vec2(0.81 * s2.x - 0.59 * s2.y, 0.59 * s2.x + 0.81 * s2.y) / 1.63) * 0.8 * kcS * tmaS(depth), min(s1.z, mix(1.0, s2.z, 0.6)));
   }
   // Gusts: patches where the breeze ruffles the water, carried downwind, with calmer, glassier
   // lanes between. Stronger wind, rougher water; sheltered water stays smoother.
@@ -855,6 +874,8 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
   uniforms.uSeaCopy = { value: new THREE.Vector4(longSea.copy.c, longSea.copy.s, longSea.copy.x, longSea.copy.z) };
   uniforms.uSeaPatch = { value: new THREE.Vector2(PATCH.L, PATCH.N) };
   uniforms.uSeaChop = { value: longSea.choppy };
+  uniforms.uTmaL = { value: Array.from(longSea.tma) };
+  uniforms.uTmaS = { value: new Array(TMA_N).fill(1) };
   uniforms.uShortDisp = { value: null };
   uniforms.uShortSlope = { value: null };
   uniforms.uShortOn = { value: 0 };
@@ -954,9 +975,12 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       longSea.fill(conditions.time);
       seaTex.send(longSea);
       uniforms.uSeaChop.value = longSea.choppy;
+      // (W5) Each band's height left by depth, as its spectrum has it now.
+      for (let i = 0; i < TMA_N; i++) uniforms.uTmaL.value[i] = longSea.tma[i];
       if (shortSea) {
         const W = longSea.wind;
         shortSea.update(conditions.time, W.u, W.to, W.m0, longSea.choppy);
+        for (let i = 0; i < TMA_N; i++) uniforms.uTmaS.value[i] = shortSea.spectrum.patch.tma[i];
       }
       uniforms.uWindV.value.set(windX, windZ);
       uniforms.uSwellH.value = conditions.sea.swell;

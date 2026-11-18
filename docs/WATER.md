@@ -468,3 +468,37 @@ included). The full table, with each LICENSE file read, is in the two research n
   20 m of water with only 50 m of rope she drags even in shelter; the heavier anchor on its chain
   barely moves. The words on waking say why.
 
+- **W5 (first part):** the wind sea's spectrum refined, how it spreads round the wind and how much
+  of it shallow water holds. (Its third layer, the centimetre waves close by, is the second part.)
+
+  **How it spreads.** Each wave's share of the energy by its angle off the wind now goes by its
+  frequency against the peak's: Donelan, Hamilton and Hui's (1985) spreading, measured on Lake
+  Ontario, sech²(β·θ), as Horvath ("Empirical directional wave spectra for computer graphics",
+  2015) recommends it for drawing the sea. β is 2.61(ω/ωp)^1.3 below 0.95 of the peak frequency,
+  2.28(ω/ωp)^−1.3 up to 1.6, and their fit above. So the waves about the peak are the narrowest,
+  half their energy within ±22° of the wind (cos⁴ for every wave, before, ±33°): long-crested.
+  Either side of the peak they widen: at twice its frequency ±53°, at four times ±85°, and a few of
+  the short ones run against the wind, as measured. In the 140 m patch at 10 m/s, the energy about
+  the peak spreads ±24° (root mean square), the waves at twice its frequency ±51°. A fresh breeze
+  (11 m/s) looking downwind, before and after (`docs/water/spread-before.jpg`,
+  `spread-after.jpg`): before, every wave combed one way into long streaks; now the short waves run
+  every way over longer, more regular crests.
+
+  **Shallow water.** The bottom holds less of a wind sea: the TMA spectrum (Bouws, Günther,
+  Rosenthal and Vincent 1985, from the Texel, Marsen and Arsloe measurements) is JONSWAP times
+  Kitaigorodskii's depth factor, Φ(ωh) with ωh = ω·√(h/g): ½ωh² up to 1, 1 − ½(2 − ωh)² up to 2,
+  then 1. Worked out wave by wave from each band's own spectrum, as a table of its height left by
+  depth (0.25·i² m, to about 30 m), and read by depth wherever the sea is sampled: the boats'
+  physics and the water shader alike, the same interpolation in both. The share of the wind sea's
+  height left:
+
+  | Wind | Peak wavelength | Long waves: 0.5 m | 1 m | 2 m | 4 m | 8 m | Short waves: 0.5 m | 1 m | 2 m |
+  | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+  | 4 m/s | 8.0 m | 0.43 | 0.60 | 0.81 | 0.97 | 1.00 | 0.61 | 0.81 | 0.94 |
+  | 10 m/s | 14.8 m | 0.35 | 0.49 | 0.68 | 0.88 | 0.98 | 0.61 | 0.82 | 0.94 |
+  | 20 m/s | 23.4 m | 0.29 | 0.41 | 0.58 | 0.78 | 0.93 | 0.60 | 0.81 | 0.94 |
+
+  The swell was already shoaling (growing and steepening into the shallows, and breaking); this is
+  the wind sea's part. Its wavelengths are still deep water's (the patch is one for the whole sea),
+  and the shore's fade over the last half metre or so is as before.
+
