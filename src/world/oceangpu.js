@@ -41,8 +41,10 @@ void main() {
   vec2 ih = vec2(-h.y, h.x);          // i·h
   float kk = max(k, 1e-6);
   vec2 hx = ih * kv.x, hz = ih * kv.y;
-  vec2 dx = -ih * (kv.x / kk), dz = -ih * (kv.y / kk);
-  vec2 dxx = h * (kv.x * kv.x / kk), dzz = h * (kv.y * kv.y / kk), dxz = h * (kv.x * kv.y / kk);
+  // (The water carried in towards each crest: D = +i k̂ ĥ with this transform (see ocean.js). W6:
+  // it was −i k̂ ĥ, which sharpened the troughs instead.)
+  vec2 dx = ih * (kv.x / kk), dz = ih * (kv.y / kk);
+  vec2 dxx = -h * (kv.x * kv.x / kk), dzz = -h * (kv.y * kv.y / kk), dxz = -h * (kv.x * kv.y / kk);
   // (Two real fields to one complex: A + i·B.)
   vec2 a, b;
   if (uWhich == 0) {

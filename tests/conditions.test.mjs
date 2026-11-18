@@ -122,17 +122,23 @@ test('boats ride the waves gently and differently: a kayak follows the chop, the
 
 test('an anchored boat stays on its rope, and lies to it, swinging as boats do', () => {
   // (B3) With the wind's real push on her (hydro.js windLoad), a rowing boat dropped where she
-  // lies takes the best part of a minute and a half to drift back onto her rope in a moderate
-  // breeze (her leeway, about 3% of the wind). Then, on it: the anchor never drags, her bow never
-  // further from it than the rope reaches (and the few per cent a nylon rope gives under a wave's
-  // snatch), on average near head to it, seldom lying across it (B6: see below), and swinging to
-  // and fro on it as boats do (Practical Sailor's survey: most
-  // sailors see 55 to 65° of compass in strong weather, some up to 120°). (The wind from the
-  // swell's own quarter here: with them apart a light boat lies between the two.)
+  // lies takes two minutes or so to drift back onto her rope in a moderate breeze (her leeway,
+  // about 3% of the wind, and 44 m of rope out). Then, on it, for ten minutes: the anchor never
+  // drags, her bow never further from it than the rope reaches (and the few per cent a nylon rope
+  // gives under a wave's snatch), on average near head to it, seldom lying across it (B6: see
+  // below), and swinging to and fro on it as boats do (Practical Sailor's survey: most sailors see
+  // 55 to 65° of compass in strong weather, some up to 120°). (The wind from the swell's own
+  // quarter here: with them apart a light boat lies between the two.)
+  // (W6, first part) On so long and light a rope she sheers slowly from one side to the other, a minute or two
+  // each way, so she's watched over several sheers, from when she first comes onto her rope. Until
+  // W6 this watched her from 150 s to 240 s: with the wind sea's water then running the wrong way
+  // under its crests she came onto her rope only at about 190 s, so the average took in her lying
+  // stern to it on the way back and happened to come out near head to it; on her rope alone, that
+  // window caught one sheer to one side.)
   const offs = [], hs = [], _f = [0, 0, 0];
-  let set = null, moved = 0, over = -Infinity;
+  let set = null, moved = 0, over = -Infinity, onRope = null;
   const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
-  const r = drift('row', 30, 240, {
+  const r = drift('row', 30, 780, {
     anchored: true,
     from: 250,
     each: (b, t) => {
@@ -142,24 +148,26 @@ test('an anchored boat stays on its rope, and lies to it, swinging as boats do',
         moved = Math.max(moved, Math.hypot(A.x - set.x, A.z - set.z));
       }
       if (R) {
-        const f = b._phys.toWorld(R.p, _f);
-        over = Math.max(over, Math.hypot(f[0] - R.to[0], f[1] - R.to[1], f[2] - R.to[2]) / R.len - 1);
+        const f = b._phys.toWorld(R.p, _f), out = Math.hypot(f[0] - R.to[0], f[1] - R.to[1], f[2] - R.to[2]) / R.len;
+        over = Math.max(over, out - 1);
+        if (onRope == null && A.phase === 'set' && out > 0.97) onRope = t;
       }
-      if (t < 150) return;
+      if (onRope == null || t < onRope || t > onRope + 600) return;
       offs.push(wrap(Math.atan2(A.x - b.pos.x, A.z - b.pos.z) - b.heading));
       hs.push(b.heading);
     },
   });
   const A = r.b.anchor;
   assert.ok(A && A.phase === 'set', 'the anchor is on the bottom');
+  assert.ok(onRope != null && onRope < 180 && offs.length >= 600 * 30, `on her rope from ${onRope?.toFixed(0)} s, watched ${(offs.length / 30).toFixed(0)} s`);
   assert.ok(moved < 0.01, `it never dragged (${moved.toFixed(3)} m)`);
   assert.ok(over < 0.02, `her bow never past her rope and 2% of its stretch (${(over * 100).toFixed(1)}% at most)`);
   const mean = offs.reduce((a, x) => a + x, 0) / offs.length, most = Math.max(...offs.map(Math.abs));
   assert.ok(Math.abs(mean) < 0.35, `on average ${mean.toFixed(2)} rad off head to her anchor`);
   // (B6) On her rode's catenary, 44 m of light rope out, she's held head to it far more lightly
   // than on the stiff, steep rope before (two kilograms' pull on it on average in this breeze):
-  // she sheers about, now and then lying across it a while (a sixth of the time here, before
-  // the rope comes taut and turns her bow up again), but never stern to it.
+  // she sheers about, now and then lying across it a while, before the rope comes taut and turns
+  // her bow up again, but never stern to it.
   const across = offs.filter((o) => Math.abs(o) > 1.3).length / offs.length;
   assert.ok(across < 0.25, `across it ${(across * 100).toFixed(0)}% of the time`);
   assert.ok(most < 2.2, `never stern to it (${most.toFixed(2)} rad at most)`);

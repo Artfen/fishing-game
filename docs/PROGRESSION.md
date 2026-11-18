@@ -155,3 +155,8 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
    long-crested about the wind and the short ones fanning out; shallow water holds less of it, the
    boats and the drawn water feeling the same; and close by (Ocean: Full) the ripples a breeze
    raises, none in light air, with the sun's glitter spread by what they leave out.
+14. **W6 (first part, done, found starting its spray):** the wind sea the right way up: its water
+   carried in towards each crest, so the crests are sharp, the whitecaps break on their tops (they
+   broke in the troughs) and the water runs forward under them (it ran backwards); a drifting
+   boat's drift fitted again to the field trials with the water right; an anchor that's dug in
+   enough to hold her says so.

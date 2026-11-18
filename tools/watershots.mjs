@@ -21,6 +21,12 @@ const SCENES = [
   { name: 'fresh-afternoon-away', wind: 11, hour: 15.5, x: -60, z: 450, h: 3, view: 'away', pitch: 0.1 },
   { name: 'fresh-afternoon-down', wind: 11, hour: 15.5, x: -60, z: 450, h: 2.4, view: 'cross', pitch: 0.42 },
   { name: 'storm', wind: 20, hour: 13, weather: 'storm', x: -60, z: 450, h: 4, view: 'cross', pitch: 0.08 },
+  // (W6) A gale and a near gale with no storm in the sky: looking across the wind (blowing towards
+  // −x −z here), low over the water, at the crests breaking and what the wind tears off them, and
+  // down at the whitecaps on the crests and the foam streaks on the water.
+  { name: 'gale-across', wind: 18.5, hour: 13, x: -60, z: 450, at: [-60, 2.6, 450, -46, 0.8, 436] },
+  { name: 'neargale-across', wind: 15, hour: 13, x: -60, z: 450, at: [-60, 2.6, 450, -46, 0.8, 436] },
+  { name: 'gale-down', wind: 18.5, hour: 13, x: -60, z: 450, at: [-60, 9, 450, -44, 0, 434] },
   // (W4) The shallows off the beach east of the camp (dry at z 32, 8 m down by z 58): looking down
   // into a metre or three of water, and in from 9 m over the sand to the beach. at: the camera
   // and what it looks at, in place of the view.

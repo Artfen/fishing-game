@@ -537,3 +537,78 @@ included). The full table, with each LICENSE file read, is in the two research n
   now the ripples over them break up the sky's reflection, and fade into the glitter's roughness
   beyond about 18 m.
 
+- **W6 (first part):** the wind sea the right way up, found starting W6's spray. Spray is torn off
+  the crests that are breaking, so the first thing was to find where they break, and in a gale they
+  broke 0.6 m below the sea's mean (its heights' spread 0.4 m): in the troughs.
+
+  **What was wrong.** The waves' to-and-fro (Tessendorf's "choppy" displacement, which sharpens the
+  crests) had the wrong sign for the transform it's used with. A real wave carries its water in
+  towards each crest and away from each trough (a Gerstner wave's −A·sin θ under A·cos θ). Here
+  each wave was carried as −i·k̂·ĥ (Tessendorf's form) with a positive λ on a transform of
+  e^{+i k·x}, which is +A·sin θ: away from the crests. So every crest was spread out and every
+  trough pinched: blunt crests and sharp troughs; the whitecaps (W1), which break where the water's
+  pinched tightest, broke in the troughs; and the water under the long waves ran backwards beneath
+  each crest, against the swell's own (which was right) and against real water. The heights
+  themselves were right; it's where the surface lay sideways, and how the water moved, that wasn't.
+  The long waves (`ocean.js`, the boats' and the drawn) and the short ones on the graphics card
+  (`oceangpu.js`, and their pinch for the foam) are now +i·k̂·ĥ.
+
+  | In a gale's sea (18 m/s) | Before | Now |
+  | --- | --- | --- |
+  | Where the crests break (mean height, the sea's spread 0.39 m) | 0.62 m below the mean | 0.58 m above it |
+  | The water bunched under the crests (correlation of height with the to-and-fro's divergence; −1 bunched in at the crests) | +0.97 | −0.97 |
+  | The water's motion under a crest (correlation with height along the waves' way; +1 forward) | −0.97 | +0.97 |
+
+  So the crests are sharp and the troughs broad, the whitecaps break on the crests, and the sea's
+  mean level, each bit of the surface counted by the area it's spread over, lies a little below the
+  still water, so the crests stand higher above it than the troughs fall below, as a Gerstner
+  wave's do. Pictures (a gale, 18.5 m/s, low over the water across the wind; Ultra, Ocean: Full):
+  `docs/water/rightway-before.jpg`, `rightway-after.jpg`: before, the whitecaps lay in the hollows
+  between the seas; now they're on their tops.
+
+  **What it changed for the boats, and what was fitted again.** The water under the waves is what
+  a boat drifting or at anchor is pushed by. Running backwards under the crests, it had been
+  holding a drifting boat back by about a quarter (the skiff in a fresh breeze: 0.38 m/s, against
+  0.51 with it running the right way, and 0.51 with no sea at all), and B3's fit to the field
+  trials of drifting small craft had leant on that. Fitted again: when a drifting hull's own
+  resistance curve takes over along her from the water's on her panels alone (`DRIFT_ALONG`), all
+  of it from 0.7 m/s rather than 1.2. (The water's grip across her as she gets under way keeps
+  B3's 0.2 to 1.2 m/s, `DRIFT_FULL`: it's what turns her at dead slow, and that's unchanged. A
+  first try moved both, and the skiff then turned 0.99 rad in 3 s at dead slow, short of the 1
+  rad her test asks.)
+
+  The skiff's drift through the water down the wind, after a minute to settle, over two minutes
+  (the wind's own sea, no swell; in brackets the wind she feels on average, gusts and all; the
+  trials' fit, 0.0252·U₁₀ + 0.134 m/s, at that wind):
+
+  | Wind | Trials | Before (B3's fit, the water backwards) | The water right, B3's fit | Now |
+  | --- | --- | --- | --- | --- |
+  | 5 m/s | 0.29 | 0.28 (6.1) | 0.33 (6.1) | 0.31 (6.2), +5% |
+  | 10 m/s | 0.42 to 0.43 | 0.38 (11.7), −11% | 0.51 (11.0), +23% | 0.43 (11.2), +4% |
+  | 15 m/s | 0.53 to 0.56 | 0.45 (16.8), −19% | 0.64 (15.3), +23% | 0.56 (15.8), +6% |
+
+  The rest of the fleet, now (B3's in brackets): the rowing boat 0.22, 0.43 and 0.56 m/s (0.19,
+  0.39, 0.46); the console 0.31, 0.50, 0.67 (0.29, 0.46, 0.52); the yacht 0.21, 0.47, 0.60 (0.21,
+  0.42, 0.48).
+
+  **At anchor.** What an anchor holds (B6's calibration) is unchanged, and so, near enough, is what
+  drags it: in the test's storm the rowing boat's ordinary anchor dragged 7.7 m in three minutes
+  (8.8 with the water backwards), the heavier one on chain crept 0.42 m (0.44), and through a gale
+  the ordinary one held, creeping 0.06 m (0.008). (B6's other numbers above were measured before
+  this.)
+
+  Three things this shook out:
+  - **An anchor that held before it was nine-tenths dug in never said so.** It said it had bitten
+    only at 90% set; one that dragged a little way digging in and then held her at 88% stayed
+    silent, and so never said either if it dragged later. Now it has bitten once it's 90% set, or
+    once it's dragged 0.3 m digging in and holds her.
+  - **The test of a boat lying to her anchor** watched her from 150 s to 240 s. On 44 m of light
+    rope a rowing boat sheers slowly from side to side, a minute or two each way; with the water
+    backwards she came onto her rope only at about 190 s, so that window took in her lying stern to
+    it on the way back and happened to average out near head to it. Now she comes onto it at about
+    130 s, and it's watched for ten minutes from then: on average 0.23 rad off head to it (0.26
+    with the old water and B3's fit), never lying across it, never stern to it.
+  - **Spot-Lock's test** asked that, with it off, a 7 m/s breeze take the console more than 15 m
+    in a minute: just under the 15.6 m she went. With the drift fitted again she goes 15.0 m (3.6%
+    of the wind, her trolling motor's leg down). It now asks for what the trials find of small
+    craft, at least 3% of the wind.
