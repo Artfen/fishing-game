@@ -727,6 +727,7 @@ function pickUpLostBuoy() {
 }
 camera.layers.enable(NO_REFLECT);
 hideFromReflection(water.mesh);
+hideFromReflection(water.far);
 hideFromReflection(water.ring);
 for (const o of [...underwater.beds.flatMap((b) => [b.grass, b.kelp]), underwater.rocks, underwater.particles, underwater.bubblesPts, ...underwater.rays]) hideFromReflection(o);
 for (const m of fishRenderer.meshes) hideFromReflection(m);

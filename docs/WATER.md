@@ -163,6 +163,7 @@ included). The full table, with each LICENSE file read, is in the two research n
 
   Still to do from W3's line in the plan: the big seas carried out past the fine sheet (444 m) as
   roughness. In a storm the waves still end at a line there, now against a haze the sky's colour.
+  (Done since: see W3's second part, below.)
 
 - **B1:** added mass in heave, pitch and roll. Each hull now carries the water she has to move as
   she bobs and pitches: from her waterline beam and waterplane, about one to two times her own
@@ -797,3 +798,50 @@ included). The full table, with each LICENSE file read, is in the two research n
   the test's limit of 23° (she stood on her tail at 54°, once), and she's off the water for 1.3 s
   of the 25 (it was 0.7): she comes off a crest a little more freely, as a planing hull at her real
   trim does.
+
+- **W3 (second part):** the big seas carried on past the fine sheet. The sheet that draws the
+  waves' rise and fall stopped 444 m round you; past it, a flat ring out to the horizon, shaded
+  with the wind sea's slopes and its whitecaps but not the swell's, and lifted by none of it. So
+  the swell's long crests ended at a line, a boat out there rode up and down on a sea that wasn't
+  drawn moving, and through the binoculars the far sea was flat.
+
+  - **The far sheet.** Past the near sheet, a second one draws the same waves, on cells as coarse
+    as the near sheet's coarsest and twice as coarse ring by ring, out to where the sheets can't
+    draw any of them (`seaLayout`'s flatR: 1.5 km on High and up, 1.1 km on Medium, 750 m on
+    Low); then the flat ring. Where it lies under the near sheet's coarsest ring its vertices are
+    that ring's own, worked out the same way, so the two are the same triangles and meet without a
+    step; the near sheet is now a square 444 m each way round you (always on its coarsest ring,
+    which a circle wasn't on Low, Medium and Cinematic), and each draws its own side of it. It
+    adds 13,000 triangles on Low, 29,000 on Medium and 53,000 to 75,000 on High and up (the near
+    sheet has 33,000 to 156,000), with the plainest shading the far ring had.
+  - **Each wave as far as the cells can draw it.** The sheets' cells grow with distance, so each
+    wave is drawn in full while they're at most about a quarter of its length and faded out by a
+    third, as the wind sea's long waves already were. Before, the swell was drawn on whatever cells
+    it fell on, out to the edge: on Low, its 38 m waves on 24 m cells, a scatter of facets.
+  - **The swell's slope pixel by pixel.** Past where the sheet can draw it, the swell carries on in
+    the shading: each of its waves worked out at each pixel (they're a handful of sines), shown as
+    long as the pixel is less than a quarter of its length along it, gone by half. Far off and low,
+    a pixel is long along your line of sight: there the waves coming at you go first, those running
+    across it last. What a pixel can't show goes into the roughness that spreads the sun's glitter
+    and the sky's reflection (½(sk)² for each, up the wind and across it, after Bruneton, Neyret and
+    Holzschuch 2010), as the wind sea's own fine waves already did.
+  - **A storm's crests breaking white out there too:** by the swell's height pixel by pixel, out
+    past where the sheet lifts it; and where a pixel is too coarse for them, as much of the sea
+    white as on average (worked out over the swell: one part in forty in fair weather to one in
+    twelve in a full storm). Found on the way: the test had the tide's height in it, so more of
+    the crests broke white at high water than at low; now it's the waves' height alone.
+
+  The storm's sea, before and after (`tools/watershots.mjs`, `far-`): from 260 m up, looking out
+  over a kilometre or two of it (the haze off, to show it), and through the binoculars from 4 m up,
+  out to the horizon (a third of the haze):
+
+  | | Before | After |
+  | --- | --- | --- |
+  | From 260 m up | ![](water/far-above-before.jpg) | ![](water/far-above-after.jpg) |
+  | Through the binoculars | ![](water/far-binoculars-before.jpg) | ![](water/far-binoculars-after.jpg) |
+
+  The haze hides most of the sea past a kilometre or so on an ordinary day (and more of it in a
+  storm), so from a boat the change is at the horizon; it shows most from high up and through the
+  binoculars. A boat further off than about 300 m still rides the waves the sheet no longer draws
+  there (a few tens of centimetres of the shortest swell at 300 to 550 m on High): less than before,
+  when past 444 m she rode all of them over a flat sea.

@@ -170,3 +170,7 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
 17. **B3 (second part, done):** the planing trim against Savitsky: a fast boat runs at her real
    angle, the RIB about 2.5° bow-up cruising and the jet ski 3 to 4°, where they ran a degree or two
    flatter, riding high on half their real wetted length.
+18. **W3 (second part, done):** the big seas carried on past 444 m: a far sheet draws their rise
+   and fall out to where its cells can (1.5 km on High and up), meeting the near one without a
+   step, and the swell's long crests carry on in the shading to the horizon, and in the roughness
+   once a pixel's too coarse for them.

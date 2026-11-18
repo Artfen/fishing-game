@@ -21,6 +21,12 @@ const SCENES = [
   { name: 'fresh-afternoon-away', wind: 11, hour: 15.5, x: -60, z: 450, h: 3, view: 'away', pitch: 0.1 },
   { name: 'fresh-afternoon-down', wind: 11, hour: 15.5, x: -60, z: 450, h: 2.4, view: 'cross', pitch: 0.42 },
   { name: 'storm', wind: 20, hour: 13, weather: 'storm', x: -60, z: 450, h: 4, view: 'cross', pitch: 0.08 },
+  // (W3, second part) The storm's sea out past where the drawn sheet of waves used to end, 444 m
+  // off: from 260 m up, looking out over a kilometre or two of it, and (the storm built up by then)
+  // through the binoculars, an 8° view from 4 m up. (haze: the haze as a share of the day's, so
+  // there's sea to see.)
+  { name: 'far-above', wind: 20, hour: 13, weather: 'storm', x: -60, z: 450, h: 260, view: 'cross', pitch: 0.42, haze: 0 },
+  { name: 'far-binoculars', wind: 20, hour: 13, weather: 'storm', x: -60, z: 450, h: 4, view: 'cross', pitch: 0.004, haze: 0.3, fov: 8 },
   // (W6) A gale and a near gale with no storm in the sky: looking across the wind (blowing towards
   // −x −z here), low over the water, at the crests breaking and what the wind tears off them, and
   // down at the whitecaps on the crests and the foam streaks on the water.
@@ -68,6 +74,12 @@ for (const S of SCENES) {
     slowTide.clock.shown = null;
     slowTide.clock.sweeping = false;
     slowTide.advance(3, 20, false);
+    slowTide.env.fogBase = 0.0021 * (S.haze ?? 1);
+    // (The camera's own view, but for those through the binoculars.)
+    window.__fov0 ??= slowTide.camera.fov;
+    window.__fov = S.fov || window.__fov0;
+    slowTide.camera.fov = window.__fov;
+    slowTide.camera.updateProjectionMatrix();
     // (A frame drawn, so the sky and the light catch up with the hour: they move as it's drawn.)
     slowTide.advance(0.1, 20, true);
     const L = slowTide.env.lightDir;
@@ -82,7 +94,12 @@ for (const S of SCENES) {
     return { hour: +slowTide.clock.hour.toFixed(2), wind: +slowTide.conditions.wind.speed.toFixed(1), sea: Object.fromEntries(Object.entries(slowTide.conditions.sea).map(([k, v]) => [k, typeof v === 'number' ? +v.toFixed(2) : v])), sun: [+L.x.toFixed(2), +L.y.toFixed(2), +L.z.toFixed(2)] };
   }, S);
   await page.waitForTimeout(1300);
-  await page.evaluate(() => { slowTide.advance(0.05, 20, false); slowTide.look(...window.__view); });
+  await page.evaluate(() => {
+    slowTide.advance(0.05, 20, false);
+    slowTide.camera.fov = window.__fov;
+    slowTide.camera.updateProjectionMatrix();
+    slowTide.look(...window.__view);
+  });
   // (Close in to the shore a frame takes long in software rendering.)
   await page.screenshot({ path: `${OUT}/${S.name}.png`, timeout: 180000 });
   console.log(S.name, JSON.stringify(info));
