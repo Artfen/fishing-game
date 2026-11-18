@@ -19,6 +19,7 @@ import { cleanDamages } from './damage.js';
 import { CHOICES } from './quality.js';
 import { cleanStored } from './fleet.js';
 import { cleanTrailer } from './trailer.js';
+import { cleanCarried, settle as settleCarried, TENDERS } from './carried.js';
 import { cleanDive } from './dive.js';
 import { cleanToday, cleanDays, cleanBadges, newToday } from './daybook.js';
 import { cleanGrounds, newGrounds } from './grounds.js';
@@ -124,6 +125,7 @@ export const DEFAULT_STATE = {
   equip: null,     // { kit: { tent, stove, coolbox: 'home' | 'car' | 'pack' | 'camp:<id>' }, car: { rods, items } }
   car: null,       // { x, z, yaw, at: 'home' | destination id | null }
   trailer: null,   // the boat trailer (see trailer.js): { hitched, boat (on it: her id, or null) }
+  carried: {},     // (L5) a tender on her mother's swim platform: { tender's id: mother's id } (see carried.js)
   outing: null,    // { plan, last, lastDest, loadouts, travel, intro }
   home: null,      // { photos: [ids], keepsake, catchId, auto }
   guide: null,     // the first-trip guide: { on, done, dest, offered, finished, min, since } (see firstTrip.js)
@@ -441,11 +443,18 @@ export function sanitize(raw) {
   s.trailer = cleanTrailer(raw.trailer, VESSELS);
   // (Your boats: one of each kind, and a second of a kind you own, by her id.)
   const ids = [...VESSELS, ...s.yard.owned.filter((k) => k !== kindOf(k))];
-  const fleet = ids.filter((k) => k !== s.trailer.boat);
+  // (L5) A tender on her mother's platform: neither in the water, laid up, trailered nor shipped.
+  s.carried = cleanCarried(raw.carried, s.yard.owned);
+  const dropped = isObj(raw.carried) ? Object.keys(raw.carried).filter((t) => ids.includes(t) && TENDERS.includes(kindOf(t)) && !s.carried[t]) : [];
+  settleCarried({ carried: s.carried, trailer: s.trailer, shipping: s.shipping });
+  s.shipping = s.shipping.filter((x) => !s.carried[x.kind]);
+  const fleet = ids.filter((k) => k !== s.trailer.boat && !s.carried[k]);
   // (Each boat's own, made sensible: see engine.js cleanEngine.)
   s.engines = Object.fromEntries((isObj(raw.engines) ? Object.entries(raw.engines) : []).filter(([k, v]) => isBoatId(k, VESSELS) && hasEngine(kindOf(k)) && isObj(v)).map(([k, v]) => [k, engineSave(cleanEngine(kindOf(k), v))]));
   s.damage = cleanDamages(raw.damage, ids);
-  s.stored = cleanStored(raw.stored, fleet, isObj(raw.boats) ? Object.keys(raw.boats).filter((k) => k !== s.trailer.boat) : null);
+  s.stored = cleanStored(raw.stored, fleet, isObj(raw.boats) ? Object.keys(raw.boats).filter((k) => k !== s.trailer.boat && !s.carried[k]) : null);
+  // (A tender the save had carried whose mother is gone: laid up at Willowhaven, never lost.)
+  if (s.stored) settleCarried({ carried: {}, stored: s.stored, trailer: s.trailer }, dropped.filter((t) => fleet.includes(t) && fleet.filter((k) => !s.stored.includes(k)).length > 1));
   s.seenSouth = typeof raw.seenSouth === 'string' && raw.seenSouth.length <= 2000 && /^[A-Za-z0-9+/=]*$/.test(raw.seenSouth) ? raw.seenSouth : '';
   // A crossing under way (an older save has none: nothing to resume), and your crossings so far.
   s.crossing = cleanCrossing(raw.crossing);

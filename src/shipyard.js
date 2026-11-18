@@ -249,8 +249,20 @@ export function buyBoat(state, kind) {
   Y.vessels ??= {};
   Y.vessels[kind] = newVessel(kind, state.day);
   logLine(Y.vessels[kind], state.day, `Bought at Willowhaven Marine Works for ${PRICES[kind]} pounds.`);
+  // (L5) The trawler comes with her tender, if you've none of your own: on her platform's chocks
+  // (the game puts her there: tender, her id).
+  if (COMES_WITH[kind] && !owns(Y, COMES_WITH[kind])) {
+    const t = COMES_WITH[kind];
+    Y.owned.push(t);
+    if (Y.hired?.kind === t) Y.hired = null;
+    Y.vessels[t] = newVessel(t, state.day);
+    logLine(Y.vessels[t], state.day, `Came with the ${kind} from Willowhaven Marine Works, on her swim platform.`);
+    return { ok: true, tender: t };
+  }
   return { ok: true };
 }
+// What comes with a boat when she's bought (L5): the trawler's tender.
+export const COMES_WITH = { trawler: 'tender' };
 
 
 // Another of a kind you have already, for good (G8c): her own id ('rib~2', see boatid.js), her own

@@ -45,6 +45,7 @@ import {
 import { Car } from './car.js';
 import { TRAILABLE, TRAILER_HOME, launchSpot, loadable } from './trailer.js';
 import { MAX_AFLOAT, homeOf, STORE_WORDS, LAUNCH_WORDS, NEW_AFLOAT, chooseAfloat, ownBerths, cleanStored } from './fleet.js';
+import { whereIs, carriedOn, TENDER_KG } from './carried.js';
 import { Workbench, OutingSheet } from './workbench.js';
 import { KIT, KIT_IDS, DESTS, launchOf, parkNear, driveMinutes, moveKit, reconcile, campOfKit, campHas, statusOf, snapshot } from './outing.js';
 import { insideHome, HOME_SPOTS } from './world/home.js';
@@ -974,7 +975,8 @@ function mooring(id) {
 // (IDS: your boats, by id; KINDS: the kinds of boat there are.)
 const IDS = Object.keys(BOATS), KINDS = [...BOAT_KINDS];
 // (A boat on the trailer is out of the water but not laid up: she's left out of the count.)
-const FLEET = IDS.filter((id) => id !== state.trailer?.boat);
+// (Nor is a tender on her mother's platform: L5, see carried.js.)
+const FLEET = IDS.filter((id) => id !== state.trailer?.boat && !state.carried?.[id]);
 const fleetNews = (() => {
   if (cleanStored(state.stored, FLEET)) return null;
   const saved = state.boats || {}, fresh = !Object.keys(saved).length;
@@ -1115,6 +1117,7 @@ for (const [id, b] of Object.entries(BOATS)) {
 // (The ones laid up ashore, out of the way first; and one on the trailer.)
 for (const id of state.stored) stow(BOATS[id], true);
 if (state.trailer?.boat) stow(BOATS[state.trailer.boat], true);
+for (const t of Object.keys(state.carried)) if (BOATS[t]) stow(BOATS[t], true);
 // How each boat was left: tied up alongside (made fast again where she lies, held firm from the
 // start), at anchor (the anchor already on the bottom where it was), or free. A boat at her home
 // mooring starts tied up there; an older save's boat "anchored" right alongside a pier (how boats
@@ -1144,7 +1147,9 @@ for (const [id, b] of Object.entries(BOATS)) {
     }
   }
 }
-boat = BOATS[state.vessel] && !BOATS[state.vessel].stowed ? BOATS[state.vessel] : boats[0];
+// (Saved in a tender that's on her mother's platform now: aboard her mother.)
+const motherOf = BOATS[state.carried?.[state.vessel]];
+boat = BOATS[state.vessel] && !BOATS[state.vessel].stowed ? BOATS[state.vessel] : motherOf && !motherOf.stowed ? motherOf : boats[0];
 for (const b of boats) if (b !== boat) b.setRower(false);
 if (state.items.lantern) {
   for (const b of boats) b.setLantern(true);
@@ -2435,10 +2440,13 @@ const harbourSheet = new HarbourSheet(state, {
     });
   },
   fishName: (id) => fishById[id]?.name.toLowerCase() || id,
-  yardBuy: (kind) => yardDo(buyBoat(state, kind), () => {
-    hud.toast(`The ${BOATS[kind].name} is yours. ${BOATS[kind].stowed ? 'She’s laid up at the yard: the harbour office puts her in the water whenever you like.' : ''}`, 6);
+  yardBuy: (kind) => { const r = buyBoat(state, kind); yardDo(r, () => {
+    // (L5) The trawler comes with her tender, on her platform: one from the yard if you've none,
+    // or your own if she's laid up.
+    const T = BOATS[kind].hull.platform ? withTender(kind, r.tender) : null;
+    hud.toast(`The ${BOATS[kind].name} is yours. ${BOATS[kind].stowed ? 'She’s laid up at the yard: the harbour office puts her in the water whenever you like.' : ''}${T ? ` Her tender ${T === 'new' ? 'comes with her' : '(yours, from the yard)'}, on the chocks on her swim platform.` : ''}`, 7);
     audio.fanfare?.();
-  }),
+  }); },
   // (G8c) Another of a kind you have: built at once, laid up at the yard.
   yardBuyAnother: (kind) => {
     const r = buyAnother(state, kind);
@@ -8677,7 +8685,7 @@ function harbourOffice() {
   // (Wenna at the hatch in office hours; out of them, the yard's board beside it does as well.)
   const W = town.people.wenna, inOffice = W?.block?.spot === 'office' && W.act === 'inside';
   const greet = inOffice ? 'Wenna Penhallow, the harbourmaster, looks up from her ledger. ' : W?.block?.spot === 'gangway' ? 'Wenna’s down at the gangway looking over the pontoon; the board by the hatch does as well. ' : 'The hatch is shut for the night, but the yard’s board beside it sees to your boats all the same. ';
-  ask('The harbour office', `${greet}In the water (${boats.length} of ${MAX_AFLOAT}): ${boats.map((b) => `the ${boatCall(b)}, ${whereWords(b)}`).join('; ')}.${laid.length ? ` Laid up: ${laid.map((b) => `the ${boatCall(b)}`).join(', ')}.` : ''}${state.trailer.boat ? ` On your trailer: the ${BOATS[state.trailer.boat].name}.` : ''}`, [
+  ask('The harbour office', `${greet}In the water (${boats.length} of ${MAX_AFLOAT}): ${boats.map((b) => `the ${boatCall(b)}, ${whereWords(b)}`).join('; ')}.${laid.length ? ` Laid up: ${laid.map((b) => `the ${boatCall(b)}`).join(', ')}.` : ''}${state.trailer.boat ? ` On your trailer: the ${BOATS[state.trailer.boat].name}.` : ''}${Object.entries(state.carried).map(([t, m]) => ` On the ${boatCall(BOATS[m])}’s platform: the ${boatCall(BOATS[t])}.`).join('')}`, [
     { text: 'Never mind', cls: 'quiet' },
     ...(laid.length ? [{ text: 'Put a boat in the water…', run: () => chooseLaunch() }] : []),
     ...(boats.length > 1 ? [{ text: 'Lay a boat up…', run: () => chooseStore() }] : []),
@@ -8774,6 +8782,9 @@ function loadsOf(k, e = fitEffect(state.yard, k)) {
   // (Her cargo, each piece where it sits on her deck, or in your hands: see cargo.js. Its `p` is
   // the boat's own, moving as it slides.)
   for (const pc of b.cargo || []) L.push({ what: pc.id, kg: cargoKg(pc, tanks().can.litres), p: pc.p });
+  // (L5) Her tender on the chocks at her platform: hull, outboard and the fuel in her tank.
+  const T = carriedOn(state, k);
+  if (T && b.chocksAt) L.push({ what: 'tender', kg: TENDER_KG + fuelLevel(tanks(), T) * 0.74, p: b.chocksAt(0.35) });
   return L;
 }
 applyYard();
@@ -8810,6 +8821,65 @@ function trailerBoatStep() {
   b.group.rotation.set(T.pitch, T.yaw, 0, 'YXZ');
 }
 trailerBoatStep();
+
+/* ---------- (L5) the tender on her mother's platform (see carried.js) ---------- */
+
+// Each frame, a carried tender is placed on her mother's chocks (athwartships, her bow to
+// starboard), riding her mother's every move, as a boat on the trailer rides behind the car. Out
+// of the physics, the collisions and the count of boats afloat; saved where her mother is.
+const _chock = new THREE.Vector3(), _chockQ = new THREE.Quaternion(), _across = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
+function carriedStep() {
+  for (const [t, m] of Object.entries(state.carried)) {
+    const B = BOATS[t], M = BOATS[m];
+    if (!B || !M) continue;
+    B.group.visible = !M.stowed && M.group.visible !== false;
+    // (Nobody in her, strapped down on the chocks.)
+    if (!B._onChocks) {
+      B.setRower(false);
+      B._onChocks = true;
+    }
+    M.body.updateMatrixWorld();
+    M.body.localToWorld(M.chocksAt(0, _chock));
+    M.body.getWorldQuaternion(_chockQ);
+    B.group.position.copy(_chock);
+    B.group.quaternion.copy(_chockQ).multiply(_across);
+    B.body.position.set(0, 0, 0);
+    B.body.rotation.set(0, 0, 0);
+    B.pos.set(M.pos.x, 0, M.pos.z);
+    B.heading = M.heading;
+  }
+}
+// A mother's tender, when she's bought: the one that came with her (given), or yours if she's laid
+// up. Returns 'new', 'yours' or null.
+function withTender(m, given = null) {
+  if (given) return carry(given, m) ? 'new' : null;
+  const t = IDS.find((id) => kindOf(id) === 'tender' && ownsBoat(state.yard, id) && whereIs(id, state) === 'stored');
+  return t && carry(t, m) ? 'yours' : null;
+}
+// Onto her mother's platform (and out of the water: laid up, the trailer and the ship never hold
+// her as well), or off it (where she is then is for the caller to say: afloat, or laid up).
+function carry(t, m) {
+  const B = BOATS[t], M = BOATS[m];
+  if (!B || !M || whereIs(t, state) === 'trailer' || carriedOn(state, m)) return false;
+  if (tow && (tow.lead === B || tow.towed === B)) letGoTow(true);
+  if (!B.stowed) stow(B);
+  state.stored = state.stored.filter((id) => id !== t);
+  state.shipping = (state.shipping || []).filter((x) => x.kind !== t);
+  state.carried[t] = m;
+  M.setLoads(loadsOf(m));
+  carriedStep();
+  return true;
+}
+function uncarry(t) {
+  const m = state.carried[t];
+  if (!m) return false;
+  delete state.carried[t];
+  BOATS[t].group.quaternion.identity();
+  BOATS[t]._onChocks = false;
+  BOATS[m]?.setLoads(loadsOf(m));
+  return true;
+}
+carriedStep();
 // What you can do at the trailer, standing beside it.
 function trailerAct(P) {
   if (!car.trailer.visible || driving) return null;
@@ -13964,6 +14034,7 @@ function tick(now, manual = false) {
     const bump = car.update(dt, t, { throttle: modal || dry ? 0 : carIn.throttle, steer: modal ? 0 : carIn.steer, brake: live && (modal || input.holding('cast')) ? 1 : 0 }, carWorld, { live, night: env.night, still: settings.controls.reducedMotion });
     if (bump) carBumped(bump);
     trailerBoatStep();
+    carriedStep();
     if (live && !dry && carIn.throttle && burnCar(tanks(), Math.abs(car.speed) * dt)) {
       hud.flash(`The engine coughs and dies: the tank is dry. Roll to a stop, then ${scheme() === 'touch' ? 'tap the prompt' : K('interact')}.`, t, 5);
     }

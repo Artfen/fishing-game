@@ -307,6 +307,8 @@ const HULLS = {
     // (Her swim platform, 1.7 m out past her transom: in her length alongside a pontoon. And the
     // speed she holds in the ocean's usual long swell, m/s: see crossing.js seaKindly.)
     aft: 1.7, seakind: 4.0,
+    // (L5: her platform carries a tender on its chocks: see carried.js, chocksAt.)
+    platform: true,
     // (At her wheel on the pilothouse sole, 0.6 m up from her main deck (floor). Until her decks
     // are walked (L3) there's nowhere else to stand: aft is the helm.)
     standing: { helm: [-0.7, 1.15], aft: [-0.7, 1.15, 0, 0], round: 0, floor: 2.3 },
@@ -3823,6 +3825,8 @@ export class Boat {
     const zt = zAt(H, 0), pY = H.draft + 0.32, pD = 1.65;
     wood.push({ geo: new THREE.BoxGeometry(3.7, 0.09, pD), matrix: mat(0, pY - 0.045, zt - pD / 2 - 0.02), color: '#a8784a', jitter: 0.03 });
     for (const x of [-1.2, 1.2]) box(0.12, 0.35, pD - 0.1, x, pY - 0.25, zt - pD / 2, '#2a3442');
+    // (L5) The chocks her tender rides on, athwartships across the platform (see carried.js).
+    for (const x of [-0.75, 0.75]) box(0.14, 0.1, pD - 0.45, x, pY + 0.05, zt - pD / 2, '#3b3f45');
     for (let i = 1; i <= 3; i++) box(0.5, 0.05, 0.22, 1.1, pY + (sheer(H, 0) - pY) * (i / 4), zt - 0.12 - (3 - i) * 0.05, '#a8784a', 0, 0, 0, wood);
     // Under the water: the keel, deep from forward of the aperture to where her forefoot rises,
     // the skeg's shoe under the propeller and the rudder; the bow thruster's tunnel ends.
@@ -6165,6 +6169,13 @@ export class Boat {
     if (!this.deck) return 'Not from her wheel: she’s fished from her decks. Leave the wheel and go aft.';
     if (this.indoors) return 'Not from inside: out on deck first.';
     return null;
+  }
+  // (L5) Where a carried tender sits on her platform's chocks, in her own space, lift m above
+  // them: her keel there, athwartships (see main.js carriedStep). out: a Vector3, else [x, y, z].
+  chocksAt(lift = 0, out = null) {
+    if (!this.hull.platform) return null;
+    const P = trawlerPlaces(this.hull), y = P.platformY + 0.1 + lift, z = (P.platform[0] + P.platform[1]) / 2;
+    return out ? out.set(0, y, z) : [0, y, z];
   }
   // Her pilothouse roof (and what stands on it) shown, or lifted away (see buildTrawler).
   showRoof(on) {

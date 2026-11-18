@@ -579,7 +579,34 @@ What was planned for L4:
 cabin, breakfast, the forecast, fishing from the aft deck, a dive, dinner, the night. The interior
 draws within budget.
 
-**L5: the tender carried.**
+**L5: the tender carried (done).** What was built, and where it differs from the plan above:
+
+- **`src/carried.js`**: `state.carried` (tender's id → mother's id), `whereIs(id)` (carried, the
+  trailer, the supply ship, laid up, or afloat: in that order), the slot cleaned from a save (a
+  tender of yours on a mother of yours, one to a platform), and `settle`, which puts a boat in one
+  place the same way every time: carried first (off the trailer, the ship and the laid-up list),
+  and a tender whose mother is gone laid up at Willowhaven. Never deleted.
+- **On the chocks:** a carried tender is out of the water as a laid-up boat is (out of the
+  physics, the collisions and the count of three afloat), and each frame she's placed on two
+  chocks across the trawler's swim platform, her bow to starboard, riding every move of her
+  mother's, as a boat on the trailer rides behind the car. Nobody's drawn in her. Her saved
+  position is her mother's; aboard her in a save, you're aboard her mother.
+- **Her weight** (150 kg of hull and outboard, and her fuel) is a load at the platform, through
+  `loadsOf`: the trawler sits a little lower by the stern with her.
+- **She comes with the trawler:** buying the trawler with no tender of your own gives you hers
+  (her papers say so), on the chocks; with one of your own laid up, she goes on the chocks
+  instead. The harbour office says where she is.
+- **Not done here, and why:** there's no selling of boats in the game, so nothing to do when a
+  mother is sold. Passages carry her with no work of their own: she's placed from her mother
+  wherever her mother goes. The trailer, laying up, shipping and restoring a tow never see her,
+  since she isn't among the boats in the water; `whereIs` is there for L6, when she comes and
+  goes. Launching and recovering her is L6.
+- **In the browser:** on the chocks at the berth and under way at eight knots, her weight on the
+  trawler, and the same after a save and a reload.
+- **Tests:** `tests/carried.test.mjs` (where each boat is, the slot cleaned, conflicts settled,
+  the save, the trawler coming with her tender, where she rides).
+
+What was planned for L5:
 - `state.carried`, and `whereIs` with the checks moved onto it;
 - placed on the chocks, her weight at the platform;
 - out of the physics, collisions and the cap of three;
