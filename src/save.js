@@ -459,7 +459,7 @@ export function sanitize(raw) {
   s.stored = cleanStored(raw.stored, fleet, isObj(raw.boats) ? Object.keys(raw.boats).filter((k) => k !== s.trailer.boat && !s.carried[k]) : null);
   // (A tender the save had carried whose mother is gone: laid up at Willowhaven, never lost.)
   if (s.stored) settleCarried({ carried: {}, stored: s.stored, trailer: s.trailer }, dropped.filter((t) => fleet.includes(t) && fleet.filter((k) => !s.stored.includes(k)).length > 1));
-  s.seenSouth = typeof raw.seenSouth === 'string' && raw.seenSouth.length <= 2000 && /^[A-Za-z0-9+/=]*$/.test(raw.seenSouth) ? raw.seenSouth : '';
+  s.seenSouth = typeof raw.seenSouth === 'string' && raw.seenSouth.length <= 4000 && /^[A-Za-z0-9+/=]*$/.test(raw.seenSouth) ? raw.seenSouth : '';
   // A crossing under way (an older save has none: nothing to resume), and your crossings so far.
   s.crossing = cleanCrossing(raw.crossing);
   s.passages = cleanPassages(raw.passages);

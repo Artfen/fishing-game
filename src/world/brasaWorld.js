@@ -5,6 +5,7 @@ import { withCaustics } from './caustics.js';
 import {
   brasaHeight, brasaSDF, brasaHabitat, lavaRough, onBeach, windward, ISLE, PICO, ROJA, FARO, PUERTO, PLAYA, ARCO, ARCHES,
   VILLAGE, QUAY_S, DIQUE, MOLE, POSADA, QUAY_STEPS, SEBADAL, SOUTH_MAP, PONTOON_S, FINGERS_S, PONTOON_STEPS, FUEL_S, BAJON, onBajon, HARBOUR_OFFICE,
+  beachPale, SALINAS,
 } from './brasa.js';
 import { fuelPumpParts, pontoonParts } from '../props.js';
 
@@ -29,6 +30,10 @@ import { fuelPumpParts, pontoonParts } from '../props.js';
 /* ---------------- colours ---------------- */
 
 const BC = {
+  // (The archipelago's coves: white shell sand, wet and dry; the salt pans' crust.)
+  shellSand: new THREE.Color('#e3d7bb'),
+  wetShell: new THREE.Color('#bfb193'),
+  salt: new THREE.Color('#d9d5cb'),
   lava: new THREE.Color('#3b393b'),
   lavaLight: new THREE.Color('#57524f'),
   lavaBrown: new THREE.Color('#5e4c40'),
@@ -49,7 +54,7 @@ const BC = {
   algae: new THREE.Color('#62653a'),
   deep: new THREE.Color('#2a3038'),
 };
-const _hb = {};
+const _hb = {}, _sand = new THREE.Color();
 
 // The ground's colour at a point of the far south (for the terrain's triangles).
 export function brasaColor(c, h, ny, x, z, r) {
@@ -59,7 +64,7 @@ export function brasaColor(c, h, ny, x, z, r) {
     // seagrass and weed where they grow, bare rock on the reef and the wall, dark far down.
     const H = brasaHabitat(x, z, _hb), d = -h;
     const sb = smoothstep(1.2, 0.8, Math.hypot((x - SEBADAL.x) / SEBADAL.rx, (z - SEBADAL.z) / SEBADAL.rz));
-    c.copy(BC.blackSand).lerp(BC.bedSand, smoothstep(1, 9, d)).lerp(BC.bedPale, sb * 0.85);
+    c.copy(BC.blackSand).lerp(BC.bedSand, smoothstep(1, 9, d)).lerp(BC.bedPale, Math.max(sb * 0.85, beachPale(x, z) * 0.9));
     c.lerp(BC.bedRock, clamp(H.rock * 1.1 + n2 * 0.2, 0, 1));
     c.lerp(BC.seagrass, H.grass * 0.75).lerp(BC.algae, clamp(H.weed - H.grass, 0, 1) * 0.6);
     c.lerp(BC.deep, smoothstep(30, 90, d));
@@ -80,8 +85,19 @@ export function brasaColor(c, h, ny, x, z, r) {
     c.lerp(BC.cinderDark, smoothstep(70, 20, dp) * 0.8 + smoothstep(32, 8, dr) * 0.4);
     c.lerp(BC.pineFloor, smoothstep(120, 170, h) * smoothstep(260, 200, h) * smoothstep(0.7, 0.85, ny) * clamp(0.3 + n2, 0, 1) * 0.7);
     c.lerp(BC.lavaLight, steep * (0.5 + rough * 0.3));
-    // Black sand, wet at the water's edge.
-    if (beach > 0.02) c.lerp(h < 0.9 ? BC.wetBlack : BC.blackSand, beach * smoothstep(5, 1, h));
+    // Black sand, wet at the water's edge (white shell sand in the islands' coves).
+    if (beach > 0.02) {
+      const pale = beachPale(x, z);
+      _sand.copy(h < 0.9 ? BC.wetBlack : BC.blackSand).lerp(h < 0.9 ? BC.wetShell : BC.shellSand, pale);
+      c.lerp(_sand, beach * smoothstep(5, 1, h));
+    }
+    // Las Salinas: the salt pans' crust, in squares between their walls.
+    {
+      const dx = x - SALINAS.x, dz = z - SALINAS.z, cs = Math.cos(SALINAS.yaw), sn = Math.sin(SALINAS.yaw);
+      const u = dx * cs - dz * sn, v = dx * sn + dz * cs;
+      const inPans = smoothstep(1.05, 0.9, Math.max(Math.abs(u) / (SALINAS.w / 2), Math.abs(v) / (SALINAS.d / 2)));
+      if (inPans > 0) c.lerp(BC.salt, inPans * (0.75 + 0.2 * n2));
+    }
     // The rim of boulders at the shore.
     if (h < 2.2 && beach < 0.5) c.lerp(BC.lava, smoothstep(2.2, 0.8, h) * 0.6);
     // The village's paving and whitewashed walls round the houses.
@@ -518,12 +534,15 @@ export function buildBrasa(scene, rnd) {
   }
   // Scrub over the island: tabaiba thick in the lee low down, cardón on the rocky slopes; pines high
   // on the volcano.
-  for (let i = 0; i < 26000 && tabaiba.length < 2600; i++) {
-    const x = ISLE.x - 720 + rnd() * 1440, z = ISLE.z - 460 + rnd() * 900;
+  // (Over the whole archipelago: Brasa and its islands.)
+  for (let i = 0; i < 60000 && tabaiba.length < 3200; i++) {
+    const x = SOUTH_MAP.x + rnd() * SOUTH_MAP.w, z = SOUTH_MAP.z + rnd() * SOUTH_MAP.h;
     const d = brasaSDF(x, z);
     if (d > -8) continue;
     const h = H(x, z);
     if (h > 230 || onBeach(x, z) > 0.2 || Math.hypot(x - VILLAGE.x, z - VILLAGE.z) < VILLAGE.r || Math.hypot(x - ARCO.x, z - ARCO.z) < ARCO.r + 6) continue;
+    // (Not on the salt pans.)
+    if (Math.hypot(x - SALINAS.x, z - SALINAS.z) < SALINAS.w * 0.6) continue;
     if (Math.abs(H(x + 2, z) - h) > 2.6) continue;
     const lee = 1 - windward(x, z), n = fbm(x * 0.02 + 9, z * 0.02, 2);
     if (rnd() > (0.25 + 0.5 * lee) * smoothstep(-0.3, 0.3, n)) continue;
@@ -533,23 +552,23 @@ export function buildBrasa(scene, rnd) {
     else tabaiba.push({ x, y: h - 0.05, z, s: 0.7 + rnd() * 0.8, r: rnd() * 6.28 });
   }
   // Lava boulders along the shore, and the reef's boulders and urchins under the water.
-  for (let i = 0; i < 30000 && (boulders.length < 1400 || rocksUnder.length < 1500); i++) {
+  for (let i = 0; i < 52000 && (boulders.length < 1900 || rocksUnder.length < 2100); i++) {
     const x = SOUTH_MAP.x + rnd() * SOUTH_MAP.w, z = SOUTH_MAP.z + rnd() * SOUTH_MAP.h;
     const d = brasaSDF(x, z);
     if (Math.abs(d) > 120) continue;
     const h = H(x, z);
     if (Math.hypot(x - PUERTO.x, z - PUERTO.z) < PUERTO.r + 25 || onBeach(x, z) > 0.3) continue;
     // (Not on a steep face, where they'd seem stuck to the cliff.)
-    if (d < 0 && d > -10 && boulders.length < 1400) {
+    if (d < 0 && d > -10 && boulders.length < 1900) {
       if (Math.abs(H(x + 1.2, z) - H(x - 1.2, z)) + Math.abs(H(x, z + 1.2) - H(x, z - 1.2)) < 2.2) boulders.push({ x, y: h - 0.2, z, s: 0.5 + rnd() * 1.4, r: rnd() * 6.28 });
     }
-    else if (d > 0 && h < -1 && h > -26 && rocksUnder.length < 1500) {
+    else if (d > 0 && h < -1 && h > -26 && rocksUnder.length < 2100) {
       const hb = brasaHabitat(x, z, _hb);
       if (hb.rock < 0.45) continue;
       const s = 0.6 + rnd() * 1.8;
       rocksUnder.push({ x, y: h - s * 0.3, z, s, r: rnd() * 6.28 });
       // The urchins graze the rock bare round them, in their dozens.
-      if (h > -16 && rnd() < 0.8) for (let k = 0; k < 4 && urchins.length < 3200; k++) {
+      if (h > -16 && rnd() < 0.8) for (let k = 0; k < 4 && urchins.length < 4200; k++) {
         const ux = x + (rnd() - 0.5) * 3.5, uz = z + (rnd() - 0.5) * 3.5;
         urchins.push({ x: ux, y: H(ux, uz) + 0.04, z: uz, s: 0.8 + rnd() * 0.5, r: rnd() * 6.28 });
       }

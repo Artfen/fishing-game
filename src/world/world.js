@@ -267,6 +267,12 @@ export const TERRAIN_PATCHES = [
   // a finer grid over Puerto Brasa and its village.
   { id: 'brasa-w', x0: -760, x1: -140, z0: 5480, z1: 6600, cell: 4, jitter: 0.45, shadows: true, later: true },
   { id: 'brasa-e', x0: -140, x1: 760, z0: 5480, z1: 6600, cell: 4, jitter: 0.45, shadows: true, later: true, inner: { x0: -138, x1: 160, z0: 6180, z1: 6466 }, innerSub: 2 },
+  // The archipelago round it (docs/ARCHIPELAGO.md): Isla Gaviota and El Estrecho's north side,
+  // Isla Honda and its bay, Los Roquetes and El Vapor, and El Banco's top for its divers.
+  { id: 'gaviota', x0: 700, x1: 1300, z0: 4960, z1: 5460, cell: 4, jitter: 0.45, shadows: true, later: true },
+  { id: 'honda', x0: 760, x1: 1260, z0: 6600, z1: 7040, cell: 4, jitter: 0.45, shadows: true, later: true },
+  { id: 'roquetes', x0: -1100, x1: -760, z0: 6320, z1: 6620, cell: 4, jitter: 0.45, shadows: true, later: true },
+  { id: 'banco', x0: -1040, x1: -600, z0: 4940, z1: 5360, cell: 5, jitter: 0.45, shadows: false, later: true },
   // The dive sites out on the coarse sheet (see divesites.js): Skerries Reef, the Hound and the
   // Gannet Drop, Anchor Sands; in detail, so what lies on the bottom sits on it. (Added after the
   // rest: the sheet still rolls its dice for their cells, so nothing else moves.)

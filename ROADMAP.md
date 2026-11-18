@@ -434,7 +434,9 @@ careers, contracts, story, boat ownership and co-op are here already; see the se
    done. L7, playing together aboard her (and a fix: a friend's second boat of a kind is drawn as
    herself): done. L8, where she fits (her price and hire, her papers, a first voyage, the
    benchmarks): done, and the first liveaboard voyage played through, to Las Brasas and home.
-3. The Las Brasas archipelago (in today's world: no new world architecture needed).
+3. The Las Brasas archipelago (in today's world: no new world architecture needed;
+   `docs/ARCHIPELAGO.md`, A1 to A4). A1, the islands, the seamount, the channel and the coves:
+   done.
 4. The world extended: building and dropping regions as you come and go, checking the far
    coordinates in the shaders, the chart and the passage speed-up; the downloadable build.
 5. The Northern Archipelago and the voyage north.

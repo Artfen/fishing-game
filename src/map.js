@@ -44,12 +44,14 @@ export class Explored {
     if (typeof saved === 'string' && saved) {
       try {
         const raw = atob(saved);
-        if (sheet === SHEET && raw.length === Math.ceil((OLD_SHEET.cols * OLD_SHEET.rows) / 8)) {
+        // (A sheet that has grown since: home's, or the south's when Brasa became an archipelago.)
+        const OLD = sheet === SHEET ? OLD_SHEET : sheet.old ? { ...sheet.old, cols: sheet.old.w / CELL, rows: sheet.old.h / CELL } : null;
+        if (OLD && raw.length === Math.ceil((OLD.cols * OLD.rows) / 8) && raw.length !== this.bits.length) {
           // A map from before the sheet grew: each cell moves to its place on the new one.
-          const di = (OLD_SHEET.x - SHEET.x) / CELL, dj = (OLD_SHEET.z - SHEET.z) / CELL;
-          for (let k = 0; k < OLD_SHEET.cols * OLD_SHEET.rows; k++) {
+          const di = (OLD.x - sheet.x) / CELL, dj = (OLD.z - sheet.z) / CELL;
+          for (let k = 0; k < OLD.cols * OLD.rows; k++) {
             if (!((raw.charCodeAt(k >> 3) >> (k & 7)) & 1)) continue;
-            const n = (Math.floor(k / OLD_SHEET.cols) + dj) * COLS + (k % OLD_SHEET.cols) + di;
+            const n = (Math.floor(k / OLD.cols) + dj) * COLS + (k % OLD.cols) + di;
             this.bits[n >> 3] |= 1 << (n & 7);
           }
         } else for (let i = 0; i < Math.min(raw.length, this.bits.length); i++) this.bits[i] = raw.charCodeAt(i);

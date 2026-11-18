@@ -1,5 +1,7 @@
 import { CROSSING, LIGHT } from './world/terrain.js';
-import { SOUTH_Z, ISLE, FARO, PUERTO, brasaSDF } from './world/brasa.js';
+import { SOUTH_Z, ISLE, FARO, PUERTO, brasaIsleSDF } from './world/brasa.js';
+// (Brasa's own coast: the archipelago's islands round it don't end the crossing early.)
+const brasaSDF = brasaIsleSDF;
 import { clamp, lerp, smoothstep, seeded } from './util.js';
 import { kindOf, isBoatId } from './boatid.js';
 

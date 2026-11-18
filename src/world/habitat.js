@@ -691,14 +691,34 @@ function southSpots(habitat, spots) {
   const rnd = seeded(6006);
   const S = {};
   const list = [];
+  // (Each home kept in a grid by its type too, so "is there one of these within gap?" looks only
+  // at its neighbours: the archipelago's chart is big, and a look through every home placed so far
+  // for every cell grew with the square of them.)
+  const G = 60, grid = new Map();
+  const cellKey = (type, i, j) => `${type}:${i}:${j}`;
+  const keep = (o) => {
+    const k = cellKey(o.type, Math.floor(o.x / G), Math.floor(o.z / G));
+    if (!grid.has(k)) grid.set(k, []);
+    grid.get(k).push(o);
+  };
   const put = (type, x, z, r, tag) => {
     const depth = Math.max(0, -brasaHeight(x, z));
     if (depth < 0.6) return;
     const o = { type, x, z, depth, zone: brasaZone(x, z), r, tag, south: true };
     list.push(o);
+    keep(o);
     spots.push(o);
   };
-  const clear = (type, x, z, gap) => list.every((p) => p.type !== type || Math.hypot(p.x - x, p.z - z) > gap);
+  const clear = (type, x, z, gap) => {
+    const n = Math.ceil(gap / G), i0 = Math.floor(x / G), j0 = Math.floor(z / G);
+    for (let i = i0 - n; i <= i0 + n; i++) {
+      for (let j = j0 - n; j <= j0 + n; j++) {
+        const L = grid.get(cellKey(type, i, j));
+        if (L && L.some((p) => Math.hypot(p.x - x, p.z - z) <= gap)) return false;
+      }
+    }
+    return true;
+  };
   const M = SOUTH_MAP;
   const near = (x, z, P, r) => Math.hypot(x - P.x, z - P.z) < r;
   for (let z = M.z + 4; z < M.z + M.h; z += 13) {
@@ -706,16 +726,19 @@ function southSpots(habitat, spots) {
       const px = x + (rnd() - 0.5) * 9, pz = z + (rnd() - 0.5) * 9;
       const d = brasaSDF(px, pz);
       if (d < 1) continue;
+      const zone = brasaZone(px, pz);
+      // (The open ocean only wants its depth: blue water, a home every 160 m.)
+      if (zone === 'ocean') {
+        const depth = Math.max(0, -brasaHeight(px, pz));
+        if (depth > 60 && clear('blue', px, pz, 160)) put('blue', px, pz, 40, 'ocean');
+        continue;
+      }
       brasaHabitat(px, pz, S);
-      const zone = brasaZone(px, pz), depth = S.depth;
+      const depth = S.depth;
       if (onBajon(px, pz) > 0.2) continue; // (El Bajón's are placed by hand, below)
       const tag = near(px, pz, ARCO, 120) ? 'roque' : near(px, pz, FARO, 160) ? 'faro' : near(px, pz, PLAYA, 190) ? 'playa' : zone === 'harbor' ? 'puerto'
         : zone === 'sebadal' ? 'sebadal' : COLADAS.some((c) => Math.hypot(px - c[2], pz - c[3]) < 150) ? 'coladas' : zone === 'veril' ? 'veril' : null;
       if (zone === 'harbor') continue; // (the harbour's are placed by hand, below)
-      if (zone === 'ocean') {
-        if (depth > 60 && clear('blue', px, pz, 160)) put('blue', px, pz, 40, 'ocean');
-        continue;
-      }
       if (zone === 'veril') {
         // The wall: the steep edge, with caves in it; open water above and beyond.
         if (S.rock > 0.55 && depth > 20 && depth < 60 && clear('cave', px, pz, 55)) put('cave', px, pz, 8, tag || 'veril');

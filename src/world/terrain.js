@@ -3,7 +3,7 @@ import { clamp, lerp, smoothstep, fbm } from '../util.js';
 import { hypot2 } from '../hypot.js';
 import { COLD_BOX, coldwaterHeight, inColdwater, waterLevel, neckSDF, coldInfo, FELL_PATH, FELL_BOX, FELL_PATH_SEGS, fellPathNear, fellPathCandidates, BOTHY, FOOTBRIDGE, SUMMIT_CAIRN, COLDWATER, TARN, tarnSDF } from './coldwater.js';
 export { waterLevel } from './coldwater.js';
-import { SOUTH_Z, brasaHeight, brasaSDF, brasaZone, SOUTH_ZONES, BRASA_PLACES, PUERTO, ISLE, inSouth, QUAY_S, MOLE, DIQUE, SOUTH_RECT, PONTOON_S, FINGERS_S, PONTOON_STEPS, FUEL_S } from './brasa.js';
+import { SOUTH_Z, brasaHeight, brasaSDF, brasaZone, SOUTH_ZONES, BRASA_PLACES, PUERTO, ISLE, inSouth, QUAY_S, MOLE, DIQUE, SOUTH_RECT, PONTOON_S, FINGERS_S, PONTOON_STEPS, FUEL_S, inEstrecho } from './brasa.js';
 export { SOUTH_Z, inSouth } from './brasa.js';
 
 // The whole archipelago is one signed-distance function: negative on land, positive on water.
@@ -1478,7 +1478,9 @@ export const PLACES = [
         : p.id === 'veril' ? (x, z) => inSouth(z) && brasaZone(x, z) === 'veril' && Math.hypot(x - ISLE.x, z - ISLE.z) < 900
           : p.id === 'puerto' ? (x, z) => inSouth(z) && Math.hypot(x - PUERTO.x, z - PUERTO.z + 20) < 95
             : p.id === 'pico' ? (x, z) => inSouth(z) && Math.hypot(x - p.x, z - p.z) < 70
-              : (x, z) => inSouth(z) && Math.hypot(x - p.x, z - p.z) < 70,
+              // (The archipelago: El Estrecho is found in its water; the rest near enough.)
+              : p.id === 'estrecho' ? (x, z) => inSouth(z) && inEstrecho(x, z) > 0.5
+                : (x, z) => inSouth(z) && Math.hypot(x - p.x, z - p.z) < (p.r || 70),
   })),
 ];
 

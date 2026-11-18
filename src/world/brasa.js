@@ -24,6 +24,17 @@ import { clamp, lerp, smoothstep, fbm } from '../util.js';
 //
 // The trade wind blows from the north-east almost all the time; the Atlantic swell comes in from
 // the north-west. So the north and west are rough and the south (the lee) is calm.
+//
+// The archipelago round it (docs/ARCHIPELAGO.md):
+//  · Isla Gaviota: a low island to the north-east, up-current, with gulls on its cliffs and
+//    Caleta Blanca, a cove of white shell sand, in its lee facing Brasa.
+//  · El Estrecho: the channel between Brasa and Gaviota, over a sill, the current squeezing
+//    through it.
+//  · El Banco: a seamount out in the north-west swell, from the deep to about 24 m.
+//  · Los Roquetes: a chain of black stacks west of the Roque, and El Vapor, a steamer wrecked on
+//    them.
+//  · Isla Honda: the outer island to the south-east, beyond the sebadal, and Bahía Escondida, a
+//    horseshoe bay of sand in its lee, with the old salt pans of Las Salinas behind it.
 
 export const SOUTH_Z = 3000;
 export const inSouth = (z) => z > SOUTH_Z;
@@ -31,8 +42,9 @@ export const BRASA = { x: 0, z: 6000 };
 // The far south's sea: where its seabed is drawn and its water shaded.
 export const SOUTH_RECT = { x0: -1400, x1: 1400, z0: 4600, z1: 7400 };
 export const SOUTH_WATER = { x: SOUTH_RECT.x0, z: SOUTH_RECT.z0, w: SOUTH_RECT.x1 - SOUTH_RECT.x0, h: SOUTH_RECT.z1 - SOUTH_RECT.z0 };
-// The chart of the island.
-export const SOUTH_MAP = { x: -1000, z: 5300, w: 2000, h: 1600 };
+// The chart of the islands (the archipelago's: see below). old: the chart of Brasa alone, from
+// before the archipelago, so a chart explored then is laid out on this one (map.js Explored).
+export const SOUTH_MAP = { x: -1300, z: 4840, w: 2600, h: 2320, old: { x: -1000, z: 5300, w: 2000, h: 1600 } };
 
 export const ISLE = { x: 0, z: 5960, rx: 560, rz: 380 };
 export const PICO = { x: -90, z: 5880, h: 330, r: 470 };
@@ -113,6 +125,95 @@ export const POSADA = { x: 18, z: 6276, yaw: 0 };
 export const LANDFALL = { x: 40, z: 6470, heading: Math.PI };
 
 const sdCircle = (x, z, cx, cz, r) => Math.hypot(x - cx, z - cz) - r;
+
+/* ---------------- the archipelago (docs/ARCHIPELAGO.md) ---------------- */
+
+// The islands round Brasa: each an ellipse (rx, rz, turned by yaw) standing h m at its highest,
+// cliffs of cliff m on its weather side, its shelf running out shelf m before the drop-off, and a
+// cove cut into its lee (its beach a pale shell sand on the cove's shore: pale 0 black … 1 white).
+export const GAVIOTA = { id: 'gaviota', x: 1000, z: 5180, rx: 240, rz: 150, yaw: -0.35, h: 30, cliff: 18, shelf: 120,
+  cove: { x: 815, z: 5300, r: 72, pale: 1 } };
+export const HONDA = { id: 'honda', x: 990, z: 6790, rx: 210, rz: 170, yaw: 0.3, h: 14, cliff: 6, shelf: 220,
+  cove: { x: 845, z: 6880, r: 88, pale: 0.8 } };
+export const ISLANDS = [GAVIOTA, HONDA];
+// Los Roquetes: black stacks in a chain west of the Roque (x, z, r, h).
+export const ROQUETES = [
+  { x: -770, z: 6390, r: 22, h: 26 }, { x: -850, z: 6430, r: 16, h: 18 },
+  { x: -935, z: 6470, r: 24, h: 31 }, { x: -1010, z: 6515, r: 14, h: 12 },
+];
+// El Banco: a seamount out in the north-west, from the deep to its top (m: negative, under).
+export const BANCO = { x: -820, z: 5150, r: 270, top: -24 };
+// El Estrecho: the channel between Brasa's north-east coast and Gaviota, along its axis, with the
+// half-width of its sill and the sill's depth (m).
+export const ESTRECHO = { x0: 470, z0: 5660, x1: 800, z1: 5330, w: 120, sill: -30 };
+// El Vapor: a coasting steamer wrecked on Los Roquetes, lying on the sand on their lee side.
+export const VAPOR = { x: -905, z: 6530, yaw: 2.1, len: 46, beam: 8 };
+// Las Salinas: the old salt pans behind Bahía Escondida, and the hut at their head.
+export const SALINAS = { x: 905, z: 6815, w: 90, d: 50, yaw: 0.3, hut: { x: 948, z: 6800 } };
+
+// (In an island's own frame, scaled to its size: 1 at its edge.)
+function islandK(I, x, z) {
+  const c = Math.cos(I.yaw), s = Math.sin(I.yaw), dx = x - I.x, dz = z - I.z;
+  return Math.hypot((dx * c - dz * s) / I.rx, (dx * s + dz * c) / I.rz);
+}
+// The island a point belongs to (on it, or in its waters): Brasa (null), or one of ISLANDS, by
+// which is nearest for its size.
+let _ioX = NaN, _ioZ = NaN, _io = null;
+export function islandOf(x, z) {
+  if (x === _ioX && z === _ioZ) return _io;
+  _ioX = x;
+  _ioZ = z;
+  let best = null, k = Math.hypot((x - ISLE.x) / ISLE.rx, (z - ISLE.z) / ISLE.rz) * 1.25;
+  for (const I of ISLANDS) {
+    const ki = islandK(I, x, z);
+    if (ki < k) {
+      k = ki;
+      best = I;
+    }
+  }
+  return (_io = best);
+}
+// The channel's axis: how far a point is from it (m), and how far along (0 … 1).
+function estrechoAt(x, z) {
+  const E = ESTRECHO, ax = E.x1 - E.x0, az = E.z1 - E.z0, L2 = ax * ax + az * az;
+  const t = clamp(((x - E.x0) * ax + (z - E.z0) * az) / L2, 0, 1);
+  return { d: Math.hypot(x - (E.x0 + ax * t), z - (E.z0 + az * t)), t };
+}
+// In the channel (0 … 1): over its sill, between the islands.
+export function inEstrecho(x, z) {
+  const { d, t } = estrechoAt(x, z);
+  return smoothstep(ESTRECHO.w + 60, ESTRECHO.w, d) * smoothstep(0, 0.15, t) * smoothstep(1, 0.85, t);
+}
+// El Banco's rock: how high it stands here (m; -Infinity off it). A broad cone with a cragged
+// plateau on top, steepest on its up-current (north-east) face.
+export function bancoHeight(x, z) {
+  const dx = x - BANCO.x, dz = z - BANCO.z, r = Math.hypot(dx, dz) / BANCO.r;
+  if (r > 1.25) return -Infinity;
+  const up = smoothstep(-0.3, 0.8, (dx * 0.7 - dz * 0.7) / (Math.hypot(dx, dz) || 1)); // (north-east)
+  const fall = Math.pow(Math.min(r, 1.25), lerp(1.5, 1.15, up));
+  const crag = Math.abs(fbm(x * 0.05 + 1, z * 0.05 - 7, 3)) * 5 + fbm(x * 0.15, z * 0.15, 2) * 1.5;
+  return BANCO.top - 6 * smoothstep(0, 0.25, r) - 175 * fall + crag * smoothstep(1, 0.4, r);
+}
+// On El Banco (0 … 1): for its rock, its zone and its homes.
+export function onBanco(x, z) {
+  return smoothstep(1, 0.75, Math.hypot(x - BANCO.x, z - BANCO.z) / BANCO.r);
+}
+// In an island's cove (0 … 1): its sheltered sand, and its pale beach.
+export function inCove(x, z) {
+  let k = 0;
+  for (const I of ISLANDS) k = Math.max(k, smoothstep(I.cove.r + 50, I.cove.r * 0.5, Math.hypot(x - I.cove.x, z - I.cove.z)));
+  return k;
+}
+// On Los Roquetes' stacks (0 … 1), and how high the tallest near here stands.
+function roqueteHeight(x, z) {
+  let h = -Infinity;
+  for (const R of ROQUETES) {
+    const d = Math.hypot(x - R.x, z - R.z);
+    // (Sheer sides up from a ledge of boulders, a broken top.)
+    if (d < R.r + 30) h = Math.max(h, 1 + 1.5 * smoothstep(R.r + 2, R.r * 0.85, d) + (R.h - 2.5) * Math.pow(smoothstep(R.r * 0.92, R.r * 0.62, d), 0.6) * (0.82 + 0.18 * lavaRough(x, z)));
+  }
+  return h;
+}
 function sdCapsule(x, z, ax, az, bx, bz, r) {
   const pax = x - ax, paz = z - az, bax = bx - ax, baz = bz - az;
   const h = clamp((pax * bax + paz * baz) / (bax * bax + baz * baz), 0, 1);
@@ -147,8 +248,43 @@ function sdBasin(x, z) {
 // (no wild noise), elsewhere it's ragged.
 const settled = (x, z) => smoothstep(220, 90, Math.hypot(x - PUERTO.x, z - PUERTO.z + 30));
 
-// Signed distance to the shore (negative on land).
+// Signed distance to the shore (negative on land): Brasa's own, and the archipelago's islands and
+// stacks round it.
+// (Asked again for the same point, as the zone, the habitat and the height each do in turn: the
+// last answer, kept.)
+let _sdfX = NaN, _sdfZ = NaN, _sdfD = 0;
 export function brasaSDF(x, z) {
+  if (x === _sdfX && z === _sdfZ) return _sdfD;
+  _sdfX = x;
+  _sdfZ = z;
+  return (_sdfD = archipelagoSDF(x, z));
+}
+function archipelagoSDF(x, z) {
+  let d = brasaIsleSDF(x, z);
+  // (The archipelago: each island near enough to matter, with its cove cut into its lee; Los
+  // Roquetes' stacks.)
+  let n1 = null, n2 = null;
+  for (const I of ISLANDS) {
+    const k = islandK(I, x, z);
+    if (k > 3.5) continue;
+    if (n1 == null) {
+      n1 = fbm(x * 0.0045 + 17, z * 0.0045 - 5, 3);
+      n2 = fbm(x * 0.03 - 4, z * 0.03 + 9, 2);
+    }
+    const size = Math.min(I.rx, I.rz);
+    let di = (k - 1) * size * 0.9 + (n1 * 26 + n2 * 6);
+    di = smax(di, -(sdCircle(x, z, I.cove.x, I.cove.z, I.cove.r) + n2 * 3), 14);
+    d = smin(d, di, 20);
+  }
+  if (Math.hypot(x - -890, z - 6450) < 420) {
+    n2 ??= fbm(x * 0.03 - 4, z * 0.03 + 9, 2);
+    for (const R of ROQUETES) d = smin(d, sdCircle(x, z, R.x, R.z, R.r) + n2 * 4, 3);
+  }
+  return d;
+}
+// Brasa's own shore (the island, its points and lava tongues, the harbour, the Roque): the coast the
+// crossing makes for (crossing.js), without the archipelago's islands round it.
+export function brasaIsleSDF(x, z) {
   const n1 = fbm(x * 0.0045 + 17, z * 0.0045 - 5, 3), n2 = fbm(x * 0.03 - 4, z * 0.03 + 9, 2);
   const calm = settled(x, z);
   let d = sdEllipse(x, z, ISLE.x, ISLE.z, ISLE.rx, ISLE.rz) + (n1 * 60 + n2 * 9) * (1 - 0.85 * calm);
@@ -168,15 +304,27 @@ export function lavaRough(x, z) {
   return clamp(0.5 + fbm(x * 0.05 + 3, z * 0.05 - 8, 3) * 0.9, 0, 1);
 }
 
-// Black sand on Playa Negra.
+// Sand on the beaches: black on Playa Negra, and the shell sand of the islands' coves.
 export function onBeach(x, z) {
   const u = (x - PLAYA.x) / PLAYA.len, v = (z - PLAYA.z) / 40;
-  return smoothstep(1.15, 0.7, Math.hypot(u, v));
+  let b = smoothstep(1.15, 0.7, Math.hypot(u, v));
+  for (const I of ISLANDS) b = Math.max(b, smoothstep(I.cove.r + 30, I.cove.r + 4, Math.hypot(x - I.cove.x, z - I.cove.z)));
+  return b;
+}
+// How pale a beach's sand is here: 0 Brasa's black … 1 the islands' white shell sand.
+export function beachPale(x, z) {
+  let p = 0;
+  for (const I of ISLANDS) p = Math.max(p, I.cove.pale * smoothstep(I.cove.r + 60, I.cove.r + 10, Math.hypot(x - I.cove.x, z - I.cove.z)));
+  return p;
 }
 
 // The windward side (north and west), where the swell breaks: 0 in the lee … 1 fully exposed.
+// (Round each island from its own middle: Brasa's, or the island nearest; Los Roquetes from the
+// middle of their chain.)
 export function windward(x, z) {
-  const a = Math.atan2(x - ISLE.x, -(z - ISLE.z)); // 0 north, π/2 east
+  const I = islandOf(x, z), roq = Math.hypot(x - -890, z - 6450) < 260 && !I;
+  const cx = I ? I.x : roq ? -890 : ISLE.x, cz = I ? I.z : roq ? 6450 : ISLE.z;
+  const a = Math.atan2(x - cx, -(z - cz)); // 0 north, π/2 east
   // (North-west round to north-east is exposed; the south is the lee.)
   return smoothstep(-0.2, 0.55, Math.cos(a + 0.55));
 }
@@ -184,10 +332,16 @@ export function windward(x, z) {
 // How far out the shelf runs before the drop-off (m from the shore).
 function shelfWidth(x, z) {
   const sb = smoothstep(1.3, 0.6, Math.hypot((x - SEBADAL.x) / SEBADAL.rx, (z - SEBADAL.z) / SEBADAL.rz));
-  return lerp(150 + fbm(x * 0.004, z * 0.004, 2) * 50, 380, sb);
+  const I = islandOf(x, z), own = I ? I.shelf : 150;
+  return lerp(own + fbm(x * 0.004, z * 0.004, 2) * 50, 380, sb);
 }
 
 function landHeight(x, z, inland) {
+  // (The archipelago's islands and stacks: their own ground.)
+  const I = islandOf(x, z);
+  if (I) return islandLand(I, x, z, inland);
+  const roq = roqueteHeight(x, z);
+  if (roq > -Infinity && Math.hypot(x - ISLE.x, z - ISLE.z) > 700) return roq;
   const calm = settled(x, z), beach = onBeach(x, z);
   // The shore: a rim of boulders and low lava (a gentle black beach on Playa Negra).
   let h = 0.7 + lerp(2.6, 0.9, beach) * smoothstep(0, lerp(10, 26, beach), inland);
@@ -222,6 +376,24 @@ function landHeight(x, z, inland) {
   return h;
 }
 
+// An island of the archipelago: a rim at the shore (low sand in its cove), cliffs on its weather
+// side, a hump of old lava and scrub inland.
+function islandLand(I, x, z, inland) {
+  const beach = onBeach(x, z), wind = windward(x, z), rough = lavaRough(x, z);
+  let h = 0.7 + lerp(2.4, 0.8, beach) * smoothstep(0, lerp(8, 22, beach), inland);
+  h += I.cliff * wind * (1 - beach) * smoothstep(2, 18, inland) * (0.7 + 0.3 * rough);
+  const n = fbm(x * 0.012 + I.x * 0.001, z * 0.012 - 3, 3) * 0.5 + 0.5;
+  h += I.h * (0.55 + 0.45 * n) * smoothstep(8, Math.min(I.rx, I.rz) * 0.9, inland);
+  h += fbm(x * 0.06, z * 0.06, 2) * 1.2 * smoothstep(4, 24, inland);
+  // (Las Salinas: the salt pans, flat and low behind the bay.)
+  if (I === HONDA) {
+    const dx = x - SALINAS.x, dz = z - SALINAS.z, c = Math.cos(SALINAS.yaw), s = Math.sin(SALINAS.yaw);
+    const u = Math.abs(dx * c - dz * s) / (SALINAS.w / 2), v = Math.abs(dx * s + dz * c) / (SALINAS.d / 2);
+    h = lerp(h, 1.1, smoothstep(1.3, 0.9, Math.max(u, v)));
+  }
+  return h;
+}
+
 function seaHeight(x, z, d) {
   const shelf = shelfWidth(x, z), wild = windward(x, z), beach = onBeach(x, z);
   // Down the inshore slope (gentler off the beach), along the shelf, over the edge (El Veril) and
@@ -241,6 +413,13 @@ function seaHeight(x, z, d) {
   // The harbour basin: dredged to a level four metres, quieter water than outside.
   const dh = Math.hypot(x - PUERTO.x, z - PUERTO.z);
   if (dh < PUERTO.r + 40) h = lerp(-4.2 + fbm(x * 0.1, z * 0.1, 2) * 0.3, h, smoothstep(PUERTO.r - 8, PUERTO.r + 40, dh));
+  // (The archipelago) The coves: gentle sand, no reef. El Estrecho's sill between the islands.
+  // El Banco standing up out of the deep.
+  const cove = inCove(x, z);
+  if (cove > 0) h = lerp(h, Math.max(h, -0.5 - 8 * (1 - Math.exp(-d / 55)) + fbm(x * 0.05, z * 0.05, 2) * 0.4), cove);
+  const sill = inEstrecho(x, z);
+  if (sill > 0) h = lerp(h, Math.max(h, ESTRECHO.sill + fbm(x * 0.03 + 3, z * 0.03, 2) * 3), sill);
+  h = Math.max(h, bancoHeight(x, z));
   // El Bajón standing up off the shelf.
   return Math.max(h, bajonHeight(x, z));
 }
@@ -264,6 +443,8 @@ export const SOUTH_ZONES = ['harbor', 'lee', 'lava', 'sebadal', 'veril', 'ocean'
 export function brasaZone(x, z) {
   if (Math.hypot(x - PUERTO.x, z - PUERTO.z) < PUERTO.r + 6 && z < MOLE.z1 + 4) return 'harbor';
   const d = brasaSDF(x, z), shelf = shelfWidth(x, z);
+  // (El Banco: a drop-off of its own, far out.)
+  if (onBanco(x, z) > 0.2 && brasaHeight(x, z) > -110) return 'veril';
   if (d > shelf + 260) return 'ocean';
   if (d > shelf - 30) return 'veril';
   if (Math.hypot((x - SEBADAL.x) / SEBADAL.rx, (z - SEBADAL.z) / SEBADAL.rz) < 1 && d > 25) return 'sebadal';
@@ -279,6 +460,9 @@ export function brasaCurrent(x, z, out) {
   let k = 0.16 * open * (1 - 0.6 * lee * (1 - smoothstep(150, 400, d)));
   // (Round the east point and off the Roque it squeezes past a little faster.)
   k += 0.12 * smoothstep(140, 30, Math.hypot(x - FARO.x, z - FARO.z)) + 0.1 * smoothstep(110, 30, Math.hypot(x - ARCO.x, z - ARCO.z));
+  // (The archipelago) Squeezing through El Estrecho, faster over El Banco; slack in the coves.
+  k += 0.22 * inEstrecho(x, z) + 0.1 * onBanco(x, z);
+  k *= 1 - 0.9 * inCove(x, z);
   if (Math.hypot(x - PUERTO.x, z - PUERTO.z) < PUERTO.r + 10) k = 0.01;
   out.x = -0.72 * k;
   out.z = 0.69 * k;
@@ -290,12 +474,14 @@ export function brasaCurrent(x, z, out) {
 export function brasaHabitat(x, z, out) {
   const h = brasaHeight(x, z), depth = Math.max(0, -h), d = brasaSDF(x, z);
   const sb = smoothstep(1.1, 0.8, Math.hypot((x - SEBADAL.x) / SEBADAL.rx, (z - SEBADAL.z) / SEBADAL.rz));
-  const grass = sb * smoothstep(3, 6, depth) * (1 - smoothstep(16, 22, depth)) * smoothstep(-0.2, 0.3, fbm(x * 0.03 + 5, z * 0.03, 2) + 0.15);
-  const reef = Math.max((1 - sb) * (1 - smoothstep(40, 170, d)), onBajon(x, z));
+  const grass = Math.max(sb, inCove(x, z) * 0.6) * smoothstep(3, 6, depth) * (1 - smoothstep(16, 22, depth)) * smoothstep(-0.2, 0.3, fbm(x * 0.03 + 5, z * 0.03, 2) + 0.15);
+  // (The coves are sand, a little seagrass in the bays; El Banco's top is rock.)
+  const cove = inCove(x, z);
+  const reef = Math.max((1 - sb) * (1 - cove) * (1 - smoothstep(40, 170, d)), onBajon(x, z), onBanco(x, z) * smoothstep(-110, -40, h));
   const algae = reef * smoothstep(0.8, 2, depth) * (1 - smoothstep(10, 18, depth)) * smoothstep(-0.3, 0.2, fbm(x * 0.05 - 2, z * 0.05 + 7, 2));
   out.depth = depth;
   out.weed = clamp(Math.max(grass, algae * 0.7), 0, 1);
-  out.rock = clamp(Math.max(reef * 0.85, onBajon(x, z)) + smoothstep(shelfWidth(x, z) - 25, shelfWidth(x, z) + 10, d) * (1 - smoothstep(shelfWidth(x, z) + 60, shelfWidth(x, z) + 120, d)), 0, 1);
+  out.rock = clamp(Math.max(reef * 0.85, onBajon(x, z), onBanco(x, z) * smoothstep(-110, -40, h)) + smoothstep(shelfWidth(x, z) - 25, shelfWidth(x, z) + 10, d) * (1 - smoothstep(shelfWidth(x, z) + 60, shelfWidth(x, z) + 120, d)), 0, 1);
   out.grass = grass;
   return out;
 }
@@ -313,4 +499,14 @@ export const BRASA_PLACES = [
   { id: 'veril', dive: true, name: 'El Veril', sub: 'the drop-off into the deep blue', area: true, south: true, x: 120, z: 6600, size: 22, note: 'The edge of the island’s shelf, where the bottom falls away from twenty-odd metres into the deep. Groupers in the caves of the wall, amberjack and barracuda along the edge.' },
   { id: 'faro', name: 'Punta del Faro', sub: 'the long east point and its lighthouse', south: true, x: FARO.x, z: FARO.z, note: 'A long, low tongue of lava with a white lighthouse at its end. The current runs past the point a little faster; bluefish and little tunny hunt there.' },
   { id: 'pico', name: 'Pico Brasa', sub: 'the volcano', south: true, x: PICO.x, z: PICO.z, note: 'The old volcano in the middle of the island, three hundred metres high, its crater full of cinders. From the sea it seems to smoke when the trade-wind cloud catches on its top.' },
+  // (The archipelago: docs/ARCHIPELAGO.md. r: how near you come to find it.)
+  { id: 'gaviota', name: 'Isla Gaviota', sub: 'a low island up-current, and its gulls', south: true, x: GAVIOTA.x, z: GAVIOTA.z, r: 330, note: 'A low island of grey lava to the north-east, where the current comes in from the open sea. Gulls nest on its weather cliffs in their thousands; the water up-current of it is where the bait gathers, and everything that eats bait with it.' },
+  { id: 'caleta', name: 'Caleta Blanca', sub: 'a cove of white shell sand', south: true, x: GAVIOTA.cove.x, z: GAVIOTA.cove.z, r: 95, note: 'A cove in Isla Gaviota’s lee, facing back across to Brasa, with a beach of white shell sand: the only white sand in the islands. Five to eight metres of clear water over sand to anchor in, and a beach to land the tender on.' },
+  { id: 'estrecho', name: 'El Estrecho', sub: 'the channel between Brasa and Gaviota', area: true, south: true, x: (ESTRECHO.x0 + ESTRECHO.x1) / 2, z: (ESTRECHO.z0 + ESTRECHO.z1) / 2, size: 18, note: 'The channel between the two islands, over a sill about thirty metres down. The current squeezes through it, faster on the ebb of the trade-wind sea, and the bait it carries draws little tunny, bonito and the birds.' },
+  { id: 'banco', name: 'El Banco', sub: 'a seamount out in the north-west', south: true, x: BANCO.x, z: BANCO.z, r: 200, note: 'Out in the open swell north-west of Brasa, the bottom comes up from the deep to about twenty-four metres: a mountain under the sea. Amberjack and barracuda patrol its edges, groupers live in its rock, and the current welling up its north-east face brings the bait.' },
+  { id: 'roquetes', name: 'Los Roquetes', sub: 'a chain of black stacks', south: true, x: -890, z: 6450, r: 160, note: 'Four black stacks in a line west of Roque del Arco, the tallest thirty metres, with channels of clear water between them. A steamer lies wrecked on their lee side.' },
+  { id: 'vapor', name: 'El Vapor', sub: 'a steamer wrecked on Los Roquetes', south: true, x: VAPOR.x, z: VAPOR.z, r: 60, note: 'An old coasting steamer, driven onto Los Roquetes in a winter gale and lying on the sand in their lee, about twelve metres down: her bow, her boiler and the ribs of her hull, grown over with sponges, the fish living in her.' },
+  { id: 'honda', name: 'Isla Honda', sub: 'the outer island, low and sandy', south: true, x: HONDA.x, z: HONDA.z, r: 300, note: 'The outer island to the south-east, beyond the sebadal: low lava and sand, salt scrub, and a bay in its lee that you’d sail past without seeing.' },
+  { id: 'escondida', name: 'Bahía Escondida', sub: 'a horseshoe bay of sand', south: true, x: HONDA.cove.x, z: HONDA.cove.z, r: 110, note: 'A horseshoe bay in Isla Honda’s lee, sand at four to eight metres, sheltered from everything but the south: the best anchorage in the islands. Rays feed over the sand; behind the beach lie the old salt pans.' },
+  { id: 'salinas', name: 'Las Salinas', sub: 'the old salt works', south: true, x: SALINAS.x, z: SALINAS.z, r: 60, note: 'The salt pans behind Bahía Escondida, their low walls still standing, and the stone hut where the salt was kept. Nobody has worked them in a lifetime; the sea comes in at the big tides and the salt still crusts in the corners.' },
 ];

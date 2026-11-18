@@ -18,7 +18,7 @@ import { WorldClock, advance as advanceClock, HOUR_SECONDS, rateAt } from './wor
 import { SKIES, createWeather, stepWeather, skyOf } from './world/weather.js';
 import { createWater } from './world/water.js';
 import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeight, waveHeightHere, compass, bearingOf, windWords, seaWords, shelterAt, bakeShelter, shelterRect, TIDE, tidalTexture } from './world/conditions.js';
-import { SOUTH_WATER, SOUTH_MAP, LANDFALL, POSADA, PUERTO as PUERTO_AT, PONTOON_S, FINGERS_S } from './world/brasa.js';
+import { SOUTH_WATER, SOUTH_MAP, LANDFALL, POSADA, PUERTO as PUERTO_AT, PONTOON_S, FINGERS_S, ISLANDS } from './world/brasa.js';
 import { buildWorld } from './world/world.js';
 import { createHabitat } from './world/habitat.js';
 import { HEAVY as PRESSURE_HEAVY, CELL as PRESSURE_CELL } from './world/pressure.js';
@@ -308,6 +308,9 @@ function setRegion(r) {
   if (r === 'south' && !southBeds) {
     southBeds = true;
     underwater.addBeds({ x: -760, z: 5480, w: 1520, h: 1120, grass: 6500, kelp: 1400 }, seeded(9191));
+    // (The archipelago's coves: a little seagrass in Caleta Blanca and Bahía Escondida, and the
+    // weed on the islands' reefs: see docs/ARCHIPELAGO.md.)
+    for (const [i, I] of ISLANDS.entries()) underwater.addBeds({ x: I.x - I.rx - 120, z: I.z - I.rz - 120, w: (I.rx + 120) * 2, h: (I.rz + 120) * 2, grass: 700, kelp: 260 }, seeded(9192 + i));
   }
 }
 let southBeds = false;
