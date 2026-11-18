@@ -47,6 +47,12 @@ export const TROLL_WH = 1200;
 const LOCK_KP = 0.16;     // 1/s²: how hard Spot-Lock pulls per metre off (as an acceleration of her mass)
 const LOCK_KD = 0.85;     // 1/s: how much it damps her drifting speed
 const LOCK_EASY = 0.8;    // m: inside this it barely pushes (a real one hunts less than it holds)
+// (B3) Where its GPS puts her: a consumer fix with satellite-based correction (WAAS, EGNOS) is good
+// to a metre or two most of the time, and its error wanders slowly (the sky's satellites and the
+// air they shine through change over minutes). GPS_SIGMA: its error along each way, m; GPS_TAU: how
+// long it takes to wander, s. Spot-Lock holds her to the fix, so even in a flat calm she wanders a
+// little round her spot as a real one does, the motor always correcting.
+export const GPS_SIGMA = 0.6, GPS_TAU = 30;
 const HEAD_RATE = 2.4;    // rad/s the head turns
 const ACTUATOR_W = 150;   // W the high-thrust motor's stow actuator and power trim draw while they run
 const ACTUATOR_MIN = 0.03; // the charge below which they won't run
@@ -75,6 +81,24 @@ export class TrollMotor {
     this.lock = null;       // Spot-Lock: { x, z }; heading hold: { heading }
     this.off = 0;           // Spot-Lock: how far she is from her spot now (m)
     this.short = 0;         // 0 … 1: how much of what's wanted it can't give (a strong drift)
+    // Its GPS's error now (m, world x and z), wandering as gpsStep has it; seeded, so a motor's
+    // fix wanders the same way each time it's run.
+    this.gpsErr = [0, 0];
+    this._seed = 20240611;
+  }
+
+  // (A normal deviate from the motor's own seeded sequence.)
+  _normal() {
+    const u = () => ((this._seed = (this._seed * 16807) % 2147483647) / 2147483647);
+    return Math.sqrt(-2 * Math.log(Math.max(1e-12, u()))) * Math.cos(2 * Math.PI * u());
+  }
+
+  // The GPS's error wanders: back towards none at its own pace, kicked on by the noise (an
+  // Ornstein-Uhlenbeck process, its spread GPS_SIGMA each way).
+  gpsStep(dt) {
+    const a = Math.exp(-dt / GPS_TAU), k = GPS_SIGMA * Math.sqrt(1 - a * a);
+    this.gpsErr[0] = this.gpsErr[0] * a + k * this._normal();
+    this.gpsErr[1] = this.gpsErr[1] * a + k * this._normal();
   }
 
   get gps() { return this.spec.gps; }
@@ -134,7 +158,8 @@ export class TrollMotor {
     if (!this.gps) return 'no-gps';
     if (!this.deployed) return 'stowed';
     this.mode = 'lock';
-    this.lock = { x: at.x, z: at.z };
+    // (The spot is where its GPS has her now.)
+    this.lock = { x: at.x + this.gpsErr[0], z: at.z + this.gpsErr[1] };
     return null;
   }
 
@@ -195,10 +220,12 @@ export class TrollMotor {
     // bow lifts and the propeller sucks air.
     const fmax = this.spec.push * clamp(battery / 0.2, 0.25, 1) * clamp(1 - (sea - 0.7) / 1.1, 0.15, 1);
     let want = 0, head = this.angle;
+    this.gpsStep(dt);
     if (this.mode === 'lock') {
       // Back towards the spot: an acceleration of her mass, from how far off she is and how fast
-      // she's drifting, turned into a push and the head pointed along it.
-      const ex = this.lock.x - boat.x, ez = this.lock.z - boat.z, d = Math.hypot(ex, ez);
+      // she's drifting, turned into a push and the head pointed along it. (How far off: as its GPS
+      // has it.)
+      const ex = this.lock.x - boat.x - this.gpsErr[0], ez = this.lock.z - boat.z - this.gpsErr[1], d = Math.hypot(ex, ez);
       this.off = d;
       const easy = clamp(d / LOCK_EASY, 0, 1);
       const ax = LOCK_KP * ex * easy - LOCK_KD * boat.vx, az = LOCK_KP * ez * easy - LOCK_KD * boat.vz;

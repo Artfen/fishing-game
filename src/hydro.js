@@ -29,6 +29,41 @@ import { hypot2, hypot3, hypot4 } from './hypot.js';
 import { CHAMBER_SPLIT, chamberAt } from './damage.js';
 
 export const RHO = 1025;   // sea water, kg/m³
+// (B3) Air, and the wind over open water by height: U(z) = U₁₀·(z/10)^α, α about 0.11 to 0.14 over
+// the sea (DNV-RP-C205's marine profile): the wind z metres up as a share of the 10 m wind.
+export const RHO_AIR = 1.225;
+export const WIND_ALPHA = 0.12;
+export const windAtHeight = (z) => Math.pow(Math.max(0.2, Math.min(10, z)) / 10, WIND_ALPHA);
+// (B3) The wind on a boat's topsides, as Blendermann (1994) fitted it to wind-tunnel tests of
+// ships and boats (as Fossen's Handbook of Marine Craft Hydrodynamics, 2011, gives it), with his
+// coefficients for a speed boat: across her, C_Dt on her side's area; along her, C_Dl on her
+// end's, a little more from astern than from ahead; δ, how much less than those two alone she
+// feels with the wind on the bow or the quarter. Across her, it's a side force that grows with the
+// sine of the wind's angle off her bow (as a wing's lift does), not its square, so with the wind
+// fine on her bow she's pushed back to lie to it; and it pushes further forward the finer the
+// wind is on her bow (a flat plate's quarter-chord, 0.18 of her length for each radian before the
+// beam), so at anchor she sheers about as boats do.
+export const WIND_CDT = 0.9, WIND_CDL = [0.55, 0.6], WIND_DELTA = 0.6, WIND_SHIFT = 0.18;
+export function windLoad(along, across, A, end, out = [0, 0, 0]) {
+  const U = Math.hypot(along, across);
+  if (U < 1e-6) {
+    out[0] = out[1] = out[2] = 0;
+    return out;
+  }
+  // (eps: the angle off her bow the wind blows from, 0 dead ahead to π dead astern.)
+  const eps = Math.atan2(Math.abs(across), -along);
+  const cdl = WIND_CDL[eps < Math.PI / 2 ? 0 : 1], s2 = (2 * along * across) / (U * U);
+  const D = 1 - (WIND_DELTA / 2) * (1 - (cdl * end) / WIND_CDT) * s2 * s2;
+  const q = 0.5 * RHO_AIR;
+  out[0] = (q * A * end * cdl * U * along) / D;
+  out[1] = (q * A * WIND_CDT * U * across) / D;
+  out[2] = WIND_SHIFT * (Math.PI / 2 - eps);
+  return out;
+}
+const _wl = [0, 0, 0];
+// (B3) Drifting, the speeds (m/s along her) over which her own resistance curve takes over from the
+// water's on her panels: see hullForces.
+export const DRIFT_FULL = [0.2, 1.2];
 // (B1) Added mass in heave, as a share of RHO × waterline beam × waterplane area (see buildHullModel).
 export const ADDED_K = 0.09;
 const smooth01 = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
@@ -63,7 +98,6 @@ export const surgeShare = (surge, v) => {
   return 1 - (1 - surge) * u * u * (3 - 2 * u);
 };
 const NU = 1.19e-6;        // kinematic viscosity of sea water, m²/s
-const RHO_AIR = 1.2;
 
 // The shape of a hull at t (0 stern … 1 bow), as boat.js builds its mesh.
 const hw = (H, t) => H.B * H.hw(t);
@@ -649,7 +683,10 @@ export class HydroBody {
     this.trimBias = 0;    // a held lean (rad of roll) the crew sit out for (sailing): torque target
     this.heelMoment = 0;  // the crew's weight moment to windward (N·m, + raises port)
     this.wind = [0, 0];   // the true wind (m/s, world xz)
-    this.windage = 0.003; // the topsides' push per kg for each (m/s)² of air past them
+    this.windage = 0.003; // the topsides' push per kg for each (m/s)² of air past them (without windSide)
+    this.windSide = 0;    // (B3) her side above the water, m², and end-on as a share of it, and its height
+    this.windEnd = 0.45;
+    this.windHigh = 0.5;
     this.windageAt = [0, model.H.D + 0.25, 0];
     this.current = [0, 0];
     this.drag = model.drag;
@@ -905,6 +942,9 @@ export class HydroBody {
     // (How much the faces leaving the water still pull: all of it slow, a quarter on the plane.)
     const fn = speed / Math.sqrt(G * M.H.L);
     const suck = 1 - 0.75 * Math.min(1, Math.max(0, (fn - 0.6) / 0.8)) ** 2;
+    // (B3) How far she's under way, for the slow grip across the water (see below): none drifting,
+    // all of it from about a walking pace.
+    const underway = smooth01((speed - DRIFT_FULL[0]) / (DRIFT_FULL[1] - DRIFT_FULL[0]));
     for (let k = 0; k < nt; k++) {
       // (A tube chamber's panels hold her up as firm as it is; its baffle presses only while the
       // chamber's firmer than the one on its other side: see buildHullModel.)
@@ -952,7 +992,14 @@ export class HydroBody {
           // easily than it gets out from under her flat bottom: going sideways, a hull's flanks
           // feel only about a quarter of what her bottom does lifting or planing.)
           const any = Math.abs(ny);
-          const mag = (c1 * u * (0.2 + 0.8 * any) + c2 * u * u * (0.25 + 0.75 * any)) * area * Math.abs(cos);
+          // (B3) The slow, linear part as the panel moves up and down through the water: it's the
+          // waves she makes heaving, pitching and rolling. Across the water it comes in only as
+          // she gets under way (the grip her hull's lift gives her, growing with her speed): a
+          // hull drifting slowly across the water makes no waves, and has only the quadratic part
+          // (a bluff body's drag) and the friction along her.
+          const uN = ux * nx + uy * ny + uz * nz;
+          const lin = c1 * (0.2 + 0.8 * any) * (Math.abs(uy * ny) + Math.abs(uN - uy * ny) * underway);
+          const mag = (lin + c2 * u * u * (0.25 + 0.75 * any) * Math.abs(cos)) * area;
           // Into the water: pressure drag, pushing back along the normal. Away from it: suction,
           // pulling back towards it. (Both oppose the panel's motion through the water. But going
           // fast the flow breaks away from her chines and transom and the air gets in under her:
@@ -997,7 +1044,17 @@ export class HydroBody {
       const munk = -0.12 * this.m * Math.min(1, share) * vs * vf;
       this.Tq[0] += R[1] * munk; this.Tq[1] += R[4] * munk; this.Tq[2] += R[7] * munk;
     }
-    const want = -Math.sign(vf) * this.m * this.drag.resist(Math.abs(vf)) * share * this.rough;
+    let want = -Math.sign(vf) * this.m * this.drag.resist(Math.abs(vf)) * share * this.rough;
+    // (B3) Drifting, with no engine in gear, no motor and no oars pushing her, and slower than a
+    // brisk walk, her resistance is the water's on her own panels, mostly the friction along
+    // them: what holds a drifting boat back in the field trials (and a sailing boat ghosting along
+    // in light air: the same hull's own). Her full curve (several times a real boat's at low
+    // speed, so she answers the helm crisply and stops when it's off) is back from about 1.2 m/s,
+    // and whenever she's driven by them.
+    if (!this.thrusters.some((t) => t.f)) {
+      const k = smooth01((Math.abs(vf) - DRIFT_FULL[0]) / (DRIFT_FULL[1] - DRIFT_FULL[0]));
+      want = along + (want - along) * k;
+    }
     const fix = want - along;
     // (On her centreline, at the wetted part's height and its place along her: heeled, the
     // wetted area lies to leeward, but a hull's resistance doesn't swing her bow away for it.)
@@ -1093,13 +1150,35 @@ export class HydroBody {
   }
 
   // The wind on the topsides: it blows her along and, pushing high on her, heels her a little.
+  // (B3) As air on what she shows it (her windage, set by the boat: windSide, the area of her side
+  // above the water, hull, cabin or console and whoever's aboard, m²; windEnd, what she shows it
+  // end-on as a share of that; windHigh, the middle of it above the water, m): Blendermann's wind
+  // loads (windLoad, above), in the wind as it blows at that height over open water
+  // (U₁₀·(z/10)^0.12: half a metre up, 70% of it). So a boat left to drift lies to the wind as her
+  // shape has her, and drifts as the field trials found small craft do (Allen et al., MET report
+  // 17/2010). Without a windage set, the old push per kg.
   windForce() {
-    const ax = this.wind[0] - this.v[0], az = this.wind[1] - this.v[2];
-    const a = hypot2(ax, az);
-    if (a < 0.05) return;
-    const k = this.windage * this.m * a;
     const p = this.toWorld(this.windageAt, _p1);
-    this.addForce(ax * k, 0, az * k, p[0], p[1], p[2]);
+    if (!(this.windSide > 0)) {
+      const ax = this.wind[0] - this.v[0], az = this.wind[1] - this.v[2];
+      const a = hypot2(ax, az);
+      if (a < 0.05) return;
+      const k = this.windage * this.m * a;
+      this.addForce(ax * k, 0, az * k, p[0], p[1], p[2]);
+      return;
+    }
+    // (The wind as it blows at her windage's height; the air she meets going through it, the same
+    // at every height.)
+    const zf = windAtHeight(this.windHigh);
+    const ax = this.wind[0] * zf - this.v[0], az = this.wind[1] * zf - this.v[2];
+    if (hypot2(ax, az) < 0.05) return;
+    const R = this.R, bx = R[2], bz = R[8], px = R[0], pz = R[6];
+    const hb = hypot2(bx, bz) || 1, hp = hypot2(px, pz) || 1;
+    const along = (ax * bx + az * bz) / hb, across = (ax * px + az * pz) / hp;
+    const w = windLoad(along, across, this.windSide, this.windEnd, _wl), fa = w[0], fc = w[1];
+    // (Pushing further forward the finer the wind is on her bow: see windLoad.)
+    const sh = w[2] * this.model.H.L;
+    this.addForce((fa * bx) / hb + (fc * px) / hp, 0, (fa * bz) / hb + (fc * pz) / hp, p[0] + (sh * bx) / hb, p[1], p[2] + (sh * bz) / hb);
   }
 
   ropeForces(h) {

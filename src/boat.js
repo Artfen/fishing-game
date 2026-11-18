@@ -73,6 +73,7 @@ const HULLS = {
     oars: true, thwarts: true, lantern: [0.42, -1.58], stow: [-0.42, 0.52, -0.25],
     pull: 6.4, back: 3.2, drag: [0.32, 0.075], side: 2.6, turn: 0.85, rate: 0.8, noise: 1, steady: 1,
     windage: 0.0026, ride: 4,
+    wind: [1.6, 0.45, 0.45], // (B3) side above the water m², end-on share, its middle's height m
   },
   skiff: {
     name: 'motor skiff', mass: 290, L: 3.8, B: 0.8, D: 0.6, draft: 0.2, shallow: 0.35, seatZ: -1.25, seatY: 0.47, floorY: 0.08, planked: true,
@@ -81,6 +82,7 @@ const HULLS = {
     surge: 0.5,
     thwarts: true, oarlocks: true, lantern: [0.3, 1.25], stow: [-0.42, 0.52, -0.25], noise: 1, steady: 1, hump: 0.18,
     windage: 0.003, ride: 4,
+    wind: [1.8, 0.45, 0.5], // (B3) side above the water m², end-on share, its middle's height m
   },
   kayak: {
     name: 'kayak', L: 3.7, B: 0.34, D: 0.3, draft: 0.09, shallow: 0.15, seatZ: -0.15, seatY: 0.1, floorY: 0.06,
@@ -94,6 +96,7 @@ const HULLS = {
     // in water shallower than tilt.
     emotor: { thrust: 0.82, astern: 0.75, tilt: 0.35 },
     windage: 0.0018, ride: 6, // low and light: it rides every little wave, but offers the wind little
+    wind: [1.0, 0.4, 0.35], // (B3) side above the water m², end-on share, its middle's height m
   },
   // A modern bass boat (docs/BOAT-ART-DIRECTION.md): drawn as a hard-chined planing V with a pad
   // (form: see buildFormedHull) over her physics envelope (hw, sheer, keel: unchanged); flush
@@ -119,6 +122,7 @@ const HULLS = {
     // buildFormedHull.)
     lantern: [0.8, -1.95], stow: null, noise: 1, steady: 0.45, hump: 0.22,
     windage: 0.0036, ride: 3, // high-sided: the wind pushes it more; broad and heavy: it rides the swell slowly
+    wind: [2.9, 0.45, 0.5], // (B3) side above the water m², end-on share, its middle's height m
   },
   sail: {
     name: 'sailing boat', mass: SAIL.mass, L: 4.9, B: 0.84, D: 0.66, draft: 0.24, shallow: 0.55, seatZ: -1.45, seatY: 0.45, floorY: 0.09,
@@ -138,6 +142,7 @@ const HULLS = {
     // knots, flat out).
     outboard: { thrust: 1.5, astern: 0.9, tilt: 0.5, scale: 0.68, cowl: '#e9e5dc', band: '#2f4d63', side: 0.3 },
     windage: 0.0026, ride: 3.6,
+    wind: [2.0, 0.4, 0.7], // (B3) side above the water m², end-on share, its middle's height m
   },
   cabin: {
     name: 'cabin boat', mass: 1500, L: 6.2, B: 1.0, D: 0.9, draft: 0.38, shallow: 0.75, seatZ: -2.3, seatY: 0.55, floorY: 0.12,
@@ -146,6 +151,7 @@ const HULLS = {
     surge: 0.22,
     cabin: [0.44, 0.88], lantern: [0.55, -1.7], stow: [-0.7, 0.62, -1.3], noise: 1, steady: 0.55,
     windage: 0.0042, ride: 2.6, // long and heavy: it bridges the chop, and the cabin catches the wind
+    wind: [7.5, 0.4, 0.9], // (B3) side above the water m², end-on share, its middle's height m
     // (Her wheelhouse as drawn, see buildWheelhouse: where it ends and the forepeak's low trunk
     // begins (t), her side decks' width, the trunk's height over the deck, the windscreen's rake
     // (run over rise), how far the walls lean in, the roof's colour. Her short foredeck, flush
@@ -183,6 +189,7 @@ const HULLS = {
     standing: { helm: [-0.62, -2.28], aft: [0, -3.6, 0.7, 0.45], side: -1, round: 0.55, chair: [0, -3.0, 0.52] },
     lantern: [1.05, -4.05], stow: null, noise: 1, steady: 0.3,
     windage: 0.005, ride: 1.8, // big and heavy: she shoulders the chop aside, but the wind gets a grip on the hardtop
+    wind: [22, 0.4, 1.8], // (B3) side above the water m², end-on share, its middle's height m
   },
   console: {
     name: 'centre-console boat', mass: 2400, L: 7.4, B: 1.25, D: 1.15, draft: 0.42, shallow: 0.7, seatZ: -0.62, seatY: 1.38, floorY: 0.5,
@@ -200,6 +207,7 @@ const HULLS = {
     standing: { helm: [0, -0.62], aft: [0, -2.5, 0.6, 0.55], bow: [0, 1.9, 0.4, 0.3], round: 0.85 },
     lantern: [0.8, -3.2], stow: null, noise: 1.1, steady: 0.45,
     windage: 0.004, ride: 2.6,
+    wind: [10, 0.4, 1.1], // (B3) side above the water m², end-on share, its middle's height m
   },
   // A rigid inflatable of about twenty-one feet, built the way the aluminium-hulled fishing RIBs
   // are: a deep-V hull (24° of deadrise to a hard chine) in powder-coated aluminium, and on top of
@@ -228,6 +236,7 @@ const HULLS = {
     standing: { helm: [0, -0.35], aft: [0, -2.2, 0.55, 0.5], bow: [0, 1.95, 0.3, 0.25], round: 0.7 },
     lantern: [0.7, -2.75], stow: null, noise: 1.1, steady: 0.5,
     windage: 0.0033, ride: 2.8,
+    wind: [5.6, 0.45, 0.75], // (B3) side above the water m², end-on share, its middle's height m
   },
   windsurf: {
     name: 'windsurf board', L: 2.6, B: 0.34, D: 0.13, draft: 0.05, shallow: 0.35, seatZ: -0.45, seatY: 1.02, floorY: 0.14,
@@ -262,6 +271,7 @@ const HULLS = {
     drag: [0.2, 0.05], helm: 1.7, jumps: true, surge: 0.6, carve: 0.6,
     lantern: [0, -1.2], stow: [0, 0.6, -1],
     noise: 1.2, steady: 0.7, windage: 0.002, ride: 6,
+    wind: [1.5, 0.5, 0.6], // (B3) side above the water m², end-on share, its middle's height m
   },
 };
 for (const id of ['skiff', 'cabin']) Object.assign(HULLS[id], { hw: HULLS.row.hw, sheer: HULLS.row.sheer, keel: HULLS.row.keel });
@@ -4514,6 +4524,12 @@ export class Boat {
     if (!this._phys) {
       const H = this.hull, b = (this._phys = new HydroBody(hullModel(this.base)));
       b.windage = H.windage ?? 0.003;
+      // (B3) What she shows the wind: her side, end-on as a share of it, and how high its middle is.
+      if (H.wind) {
+        b.windSide = H.wind[0];
+        b.windEnd = H.wind[1];
+        b.windHigh = H.wind[2];
+      }
       // (The wind gets its grip on her topsides, and higher on a cabin, a hardtop or a mast.)
       b.windageAt = [0, sheer(H, 0.5) + (H.sail ? 1.4 : H.cabin || H.console ? 0.7 : 0.15), 0.06 * H.L];
       b.place(this.pos.x, this.pos.z, this.heading, Math.max(waveHeight(this.pos.x, this.pos.z), this.restHeight(this.pos.x, this.pos.z, this.heading)));

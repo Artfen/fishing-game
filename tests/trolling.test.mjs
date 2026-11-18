@@ -12,8 +12,10 @@ globalThis.document ??= { createElement: () => ({ width: 0, height: 0, getContex
 globalThis.innerHeight ??= 800;
 
 const { Boat } = await import('../src/boat.js');
-const { TrollMotor, canTroll, TROLL_TIERS } = await import('../src/trolling.js');
-const { conditions } = await import('../src/world/conditions.js');
+const TM = await import('../src/trolling.js');
+const { TrollMotor, canTroll, TROLL_TIERS } = TM;
+const { conditions, updateConditions, waveHeightHere } = await import('../src/world/conditions.js');
+const { longSea } = await import('../src/world/ocean.js');
 const { FITS, fitEffect, fitBoat } = await import('../src/shipyard.js');
 const { cleanFuel } = await import('../src/fuel.js');
 
@@ -28,7 +30,7 @@ const calm = () => windy(0);
 
 // A boat with a motor, run for so long: each frame the motor works out its push from where she is
 // and how she's moving, and the boat's physics does the rest (as main.js does).
-function sim(kind, tier, secs, setup = () => {}, each = null) {
+function sim(kind, tier, secs, setup = () => {}, each = null, sea = () => 0) {
   const b = new Boat(scene, { kind });
   b.place(OPEN.x, OPEN.z, Math.PI / 2);
   const m = new TrollMotor(tier);
@@ -41,7 +43,7 @@ function sim(kind, tier, secs, setup = () => {}, each = null) {
   const track = [];
   for (let i = 0; i < secs * 30; i++) {
     t += 1 / 30;
-    const r = m.step(1 / 30, { boat: { x: b.pos.x, z: b.pos.z, vx: b.vel.x, vz: b.vel.z, heading: b.heading, mass: b._phys.m }, battery, sea: 0, lever: 0 });
+    const r = m.step(1 / 30, { boat: { x: b.pos.x, z: b.pos.z, vx: b.vel.x, vz: b.vel.z, heading: b.heading, mass: b._phys.m }, battery, sea: sea(b), lever: 0 });
     battery = Math.max(0, battery - r.drawn);
     if (r.why) said.push(r.why);
     b.update(1 / 30, t, 0, 0, 0);
@@ -88,19 +90,58 @@ test('Spot-Lock holds her near her spot in a breeze, wandering a little as it co
   }
 });
 
+test('Spot-Lock holds her to its GPS fix: in a flat calm she still wanders a little round her spot', () => {
+  // (B3) A consumer GPS with satellite-based correction is good to a metre or two, its error
+  // wandering slowly; Spot-Lock holds her to the fix, so even with nothing pushing her she moves a
+  // little round her spot, the motor always correcting, and never far.
+  const { GPS_SIGMA } = TM;
+  calm();
+  let spot = null;
+  const held = sim('console', 'trollpro', 120, (m, b) => {
+    spot = { x: b.pos.x, z: b.pos.z };
+    m.spotLock(true, spot);
+  });
+  const off = from(held.track, spot);
+  assert.ok(Math.max(...off) > 0.3, `she wanders ${Math.max(...off).toFixed(2)} m at most`);
+  assert.ok(Math.max(...off) < 3, `and stays within ${Math.max(...off).toFixed(2)} m`);
+  // Its error: about GPS_SIGMA each way, wandering over tens of seconds.
+  const m = new TrollMotor('trollgps');
+  let sx = 0, sz = 0, n = 0, near = 0;
+  const e0 = [], e1 = [];
+  for (let i = 0; i < 3600 * 10; i++) {
+    m.gpsStep(0.1);
+    sx += m.gpsErr[0] ** 2;
+    sz += m.gpsErr[1] ** 2;
+    n++;
+    if (i % 10 === 0) e0.push(m.gpsErr[0]);
+  }
+  for (let i = 0; i + 1 < e0.length; i++) near += e0[i] * e0[i + 1];
+  const rms = Math.sqrt((sx + sz) / (2 * n)), corr = near / (e0.length - 1) / (sx / n);
+  assert.ok(Math.abs(rms - GPS_SIGMA) < 0.2 * GPS_SIGMA, `its error ${rms.toFixed(2)} m each way`);
+  assert.ok(corr > 0.9, `a second apart, nearly the same (${corr.toFixed(2)})`);
+});
+
 test('in a gale it can’t hold her: she drags off slowly, and it knows it’s short', () => {
+  // (B3) A gale and the sea it raises, the motor told the waves' height where she is as the game
+  // tells it (main.js): with the wind's real push on her (hydro.js windLoad) the wind alone would
+  // hardly beat its push, but in a gale's sea her bow lifts and its propeller draws air.
+  const saved = { sea: { ...conditions.sea }, amps: Float32Array.from(conditions.swellAmps), W: { ...longSea.wind }, chop: longSea.choppy };
   windy(19);
+  for (let i = 0; i < 6000; i++) updateConditions(0.1, { rain: 0, cloud: 0.5 });
   try {
     let spot = null, short = 0;
     const r = sim('bass', 'trollgps', 45, (m, b) => {
       spot = { x: b.pos.x, z: b.pos.z };
       m.spotLock(true, spot);
-    }, (m) => { short = Math.max(short, m.short); });
+    }, (m) => { short = Math.max(short, m.short); }, (b) => waveHeightHere(b.pos.x, b.pos.z));
     const off = from(r.track, spot).at(-1);
     assert.ok(off > 8, `in a gale she drags ${off.toFixed(1)} m off her spot`);
     assert.ok(short > 0.3, `and it’s short of what it needs (${(short * 100).toFixed(0)}%)`);
   } finally {
     calm();
+    Object.assign(conditions.sea, saved.sea);
+    conditions.swellAmps.set(saved.amps);
+    longSea.setWind(saved.W.u, saved.W.to, saved.W.m0, saved.chop);
   }
 });
 

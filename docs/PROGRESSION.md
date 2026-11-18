@@ -135,3 +135,9 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
 8. **W4 (second part, done):** with Ocean: Full, the bottom seen through the moving surface: the
    sand, the rocks, a wreck and the fish below bent the way each bit of the surface bends the
    light, and shimmering under the wavelets too small to draw.
+9. **B3 (first part, done):** the boats checked against measurements: the wind on a boat as
+   wind-tunnel tests give it, so a boat left to drift goes off at the few per cent of the wind
+   field trials find (not 4 to 14%), lying to it as her shape has her; at anchor she swings on her
+   rope as boats do, and it's a storm's seas, not the wind alone, that drag an anchor; Spot-Lock
+   wanders with its GPS fix; each hull's roll decay checked. (Still to do: the planing trim
+   against Savitsky.)

@@ -25,7 +25,7 @@ const { waveHeight } = await import('../src/world/water.js');
 const { heightAt, PIERS } = await import('../src/world/terrain.js');
 const { ACTIONS, defaultBindings } = await import('../src/input.js');
 const P = await import('../src/gamepad.js');
-const { conditions } = await import('../src/world/conditions.js');
+const { conditions, updateConditions } = await import('../src/world/conditions.js');
 const { longSea } = await import('../src/world/ocean.js');
 
 const scene = new THREE.Scene();
@@ -440,28 +440,46 @@ test('what a boat carries counts: fittings and fuel make her sit lower and go a 
   assert.ok(laden.v < light.v - 0.15 && laden.v > light.v * 0.85, `${light.v.toFixed(2)} → ${laden.v.toFixed(2)} m/s with 400 kg aboard`);
 });
 
-test('an anchor drags in a storm, and a heavier one on chain holds', () => {
-  const was = conditions.manual;
-  conditions.manual = { speed: 22, from: Math.PI / 2 };
-  conditions.wind.speed = conditions.wind.target = 22;
-  conditions.wind.from = Math.PI / 2;
-  const drag = (hold) => {
-    const b = fresh('console');
+test('an anchor drags in a storm, and a heavier one on chain holds; through a gale it holds', () => {
+  // (B3) With the wind's real push on her (hydro.js windLoad), what drags an anchor is mostly the
+  // sea: here the game's own storm (its wind at its strongest, gusting harder, and its long seas
+  // built) and a gale without them, a rowing boat on her ordinary anchor and on a heavier one on
+  // chain. Dropped where she lies, she drifts back onto her rope first, then three minutes on it.
+  const saved = { manual: conditions.manual, wind: { ...conditions.wind }, sea: { ...conditions.sea }, amps: Float32Array.from(conditions.swellAmps), W: { ...longSea.wind }, chop: longSea.choppy, time: conditions.time };
+  const blow = (speed, storm) => {
+    conditions.manual = { speed, from: Math.PI / 2 };
+    conditions.wind.speed = conditions.wind.target = speed;
+    for (let i = 0; i < 6000; i++) updateConditions(0.1, { rain: 0.6 * storm, cloud: 0.3 + 0.7 * storm, storm });
+  };
+  const drag = (kind, hold) => {
+    const b = fresh(kind);
     b.anchorHold = hold;
     b.update(1 / 30, 0, 0, 0, 0);
     b.setAnchor(true, { instant: true });
     let a0 = null;
-    for (let i = 0; i < 40 * 30; i++) {
+    for (let i = 0; i < 180 * 30; i++) {
+      conditions.time = i / 30;
       b.update(1 / 30, i / 30, 0, 0, 0);
       if (i === 10 * 30) a0 = { x: b.anchor.x, z: b.anchor.z };
     }
     return Math.hypot(b.anchor.x - a0.x, b.anchor.z - a0.z);
   };
-  const ordinary = drag(1), heavy = drag(2.2);
-  conditions.manual = was;
-  conditions.wind.speed = conditions.wind.target = 0;
-  assert.ok(ordinary > 4, `the ordinary anchor dragged ${ordinary.toFixed(1)} m in 30 s`);
-  assert.ok(heavy < 0.5, `the heavy one ${heavy.toFixed(1)} m`);
+  try {
+    blow(20, 1);
+    const ordinary = drag('row', 1), heavy = drag('row', 2.2);
+    blow(17, 0);
+    const gale = drag('row', 1);
+    assert.ok(ordinary > 1.5, `in the storm the ordinary anchor dragged ${ordinary.toFixed(1)} m in three minutes`);
+    assert.ok(heavy < 0.5, `the heavy one ${heavy.toFixed(2)} m`);
+    assert.ok(gale < 0.5, `through a gale the ordinary one ${gale.toFixed(2)} m`);
+  } finally {
+    conditions.manual = saved.manual;
+    Object.assign(conditions.wind, saved.wind);
+    Object.assign(conditions.sea, saved.sea);
+    conditions.swellAmps.set(saved.amps);
+    longSea.setWind(saved.W.u, saved.W.to, saved.W.m0, saved.chop);
+    conditions.time = saved.time;
+  }
 });
 
 test('proper rod holders let you troll a notch faster', () => {
