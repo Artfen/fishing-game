@@ -45,7 +45,8 @@ import {
 import { Car } from './car.js';
 import { TRAILABLE, TRAILER_HOME, launchSpot, loadable } from './trailer.js';
 import { MAX_AFLOAT, homeOf, STORE_WORDS, LAUNCH_WORDS, NEW_AFLOAT, chooseAfloat, ownBerths, cleanStored } from './fleet.js';
-import { whereIs, carriedOn, TENDER_KG } from './carried.js';
+import { whereIs, carriedOn, TENDER_KG, TENDERS } from './carried.js';
+import { PLATFORM, stepPlatform, canLaunch, inWindow, savedDown } from './platform.js';
 import { Workbench, OutingSheet } from './workbench.js';
 import { KIT, KIT_IDS, DESTS, launchOf, parkNear, driveMinutes, moveKit, reconcile, campOfKit, campHas, statusOf, snapshot } from './outing.js';
 import { insideHome, HOME_SPOTS } from './world/home.js';
@@ -987,6 +988,9 @@ const fleetNews = (() => {
   return fresh ? null : afloat;
 })();
 const isStored = (id) => state.stored.includes(id);
+// (L6) Your boats in the water, as the cap of three counts them: a tender off her mother's
+// platform doesn't count while her mother's in the water too (they're a pair).
+const afloatCount = () => boats.filter((b) => !(TENDERS.includes(b.kind) && boats.some((m) => m.hull.platform && m !== b))).length;
 // (Her length alongside, with anything past her transom: the trawler's swim platform.)
 const LENGTHS = Object.fromEntries(IDS.map((id) => [id, BOATS[id].hull.L + (BOATS[id].hull.aft || 0)]));
 const BEAMS = Object.fromEntries(IDS.map((id) => [id, BOATS[id].hull.B]));
@@ -1118,6 +1122,11 @@ for (const [id, b] of Object.entries(BOATS)) {
 for (const id of state.stored) stow(BOATS[id], true);
 if (state.trailer?.boat) stow(BOATS[state.trailer.boat], true);
 for (const t of Object.keys(state.carried)) if (BOATS[t]) stow(BOATS[t], true);
+// (L6) A platform saved down (its tender off it): down still.
+for (const m of Object.keys(state.platforms || {})) if (BOATS[m]?.hull.platform) {
+  BOATS[m].platformWant = 1;
+  BOATS[m].setPlatform(1);
+}
 // How each boat was left: tied up alongside (made fast again where she lies, held firm from the
 // start), at anchor (the anchor already on the bottom where it was), or free. A boat at her home
 // mooring starts tied up there; an older save's boat "anchored" right alongside a pier (how boats
@@ -5887,6 +5896,8 @@ function roomAction(id) {
     case 'bunks': return { text: 'The guest bunks: sleep', run: () => openCamp('sleep', 'cabin') };
     case 'berth': return { text: 'Your berth: sleep', run: () => openCamp('sleep', 'cabin') };
     case 'heads': return { text: 'The heads: wash and brush up', run: () => washUp() };
+    case 'controls': return { text: 'The platform controls', run: () => platformControls(boat) };
+    case 'platform': return platformAction(boat);
   }
   return null;
 }
@@ -5898,7 +5909,7 @@ function chartTable() {
 // The heads: a wash, and you feel the better for it (no more than that).
 function washUp() {
   hud.flash('A wash in the heads, fresh water from her tank: you feel the better for it.', t, 3);
-  audio.splash?.(0.15);
+  audio.splashSmall(0.15);
 }
 // Below her decks, the view goes to your eyes (the cabins are under her decks, not under a roof
 // that lifts away), and comes back out as you come up.
@@ -7597,6 +7608,11 @@ function interaction() {
       return { text: towing ? `Let go the ${S.name}` : S.aground ? `Take the ${S.boatName || S.name}’s line` : `Take the ${S.boatName || S.name} in tow`, run: () => (towing ? letGoTow() : takeInTow(S)) };
     }
   }
+  // (L6) In her tender near the trawler: her platform's remote, and hauling her on.
+  {
+    const A = tenderAction();
+    if (A) return A;
+  }
   // (L4) Aboard the trawler, walking her: what's done where you stand (her plan's spots). Inside,
   // only those and her wheel: no diving from her saloon.
   if (boat.plan && boat.deck && !fishing.busy) {
@@ -8685,7 +8701,7 @@ function harbourOffice() {
   // (Wenna at the hatch in office hours; out of them, the yard's board beside it does as well.)
   const W = town.people.wenna, inOffice = W?.block?.spot === 'office' && W.act === 'inside';
   const greet = inOffice ? 'Wenna Penhallow, the harbourmaster, looks up from her ledger. ' : W?.block?.spot === 'gangway' ? 'Wenna’s down at the gangway looking over the pontoon; the board by the hatch does as well. ' : 'The hatch is shut for the night, but the yard’s board beside it sees to your boats all the same. ';
-  ask('The harbour office', `${greet}In the water (${boats.length} of ${MAX_AFLOAT}): ${boats.map((b) => `the ${boatCall(b)}, ${whereWords(b)}`).join('; ')}.${laid.length ? ` Laid up: ${laid.map((b) => `the ${boatCall(b)}`).join(', ')}.` : ''}${state.trailer.boat ? ` On your trailer: the ${BOATS[state.trailer.boat].name}.` : ''}${Object.entries(state.carried).map(([t, m]) => ` On the ${boatCall(BOATS[m])}’s platform: the ${boatCall(BOATS[t])}.`).join('')}`, [
+  ask('The harbour office', `${greet}In the water (${afloatCount()} of ${MAX_AFLOAT}): ${boats.map((b) => `the ${boatCall(b)}, ${whereWords(b)}`).join('; ')}.${laid.length ? ` Laid up: ${laid.map((b) => `the ${boatCall(b)}`).join(', ')}.` : ''}${state.trailer.boat ? ` On your trailer: the ${BOATS[state.trailer.boat].name}.` : ''}${Object.entries(state.carried).map(([t, m]) => ` On the ${boatCall(BOATS[m])}’s platform: the ${boatCall(BOATS[t])}.`).join('')}`, [
     { text: 'Never mind', cls: 'quiet' },
     ...(laid.length ? [{ text: 'Put a boat in the water…', run: () => chooseLaunch() }] : []),
     ...(boats.length > 1 ? [{ text: 'Lay a boat up…', run: () => chooseStore() }] : []),
@@ -8706,7 +8722,7 @@ function chooseStore() {
 }
 function chooseLaunch() {
   const laid = IDS.filter(isStored).filter((id) => usableBoat(state.yard, id, state.day, ownAbs())).map((id) => BOATS[id]);
-  ask('Put a boat in the water', boats.length >= MAX_AFLOAT ? `Three of your boats are in the water already, so one of them is laid up in her place.` : 'Which one?', [
+  ask('Put a boat in the water', afloatCount() >= MAX_AFLOAT ? `Three of your boats are in the water already, so one of them is laid up in her place.` : 'Which one?', [
     { text: 'Never mind', cls: 'quiet' },
     ...laid.map((b) => ({ text: `The ${boatCall(b)}`, run: () => launchBoat(b) })),
   ]);
@@ -8880,6 +8896,155 @@ function uncarry(t) {
   return true;
 }
 carriedStep();
+
+/* ---------- (L6) her swim platform: launching and recovering the tender (see platform.js) ---------- */
+
+let painter = null;  // the launched tender on her painter: { t, m } (ids), until she's put in gear
+let haul = null;     // the tender being hauled on: { t, m, k (0 … 1), from, fromQ }
+const _edge = new THREE.Vector3(), _hp = new THREE.Vector3(), _hq = new THREE.Quaternion();
+let platformSaidT = -99;
+// Lowered or raised (want: 1 or 0); a word for it.
+function setPlatformWant(M, want, words = true) {
+  M.platformWant = want;
+  audio.knock(0.25);
+  if (words) hud.flash(want ? `The ${M.name}’s platform hums down to the water.` : `The ${M.name}’s platform comes up.`, t, 2.4);
+}
+// Each frame: each platform toward where it's wanted (stopped while she moves); the tender floats
+// off as it goes down under her; on her painter till she's in gear; being hauled on.
+function platformStep(dt) {
+  for (const M of Object.values(BOATS)) {
+    if (!M.hull.platform || M.stowed) continue;
+    const want = M.platformWant || 0, d = stepPlatform(M.platformDrop || 0, want, dt, M.steadySpeed || 0);
+    if (d !== M.platformDrop) M.setPlatform(d);
+    // (Launching: she floats off her chocks once it's far enough down under her.)
+    const T = carriedOn(state, M.id);
+    if (T && M.launching === T && d >= PLATFORM.float) floatOff(T, M);
+  }
+  if (painter) {
+    const B = BOATS[painter.t], M = BOATS[painter.m];
+    if (!B || !M || B.stowed || M.stowed || B.lever) {
+      if (B && B.lever && boat === B) hud.flash('In gear: the painter’s let go. She’s yours.', t, 2.4);
+      painter = null;
+    } else towStep(M, B, dt, PLATFORM.painter, null, Infinity);
+  }
+  if (haul) {
+    const B = BOATS[haul.t], M = BOATS[haul.m];
+    if (!B || !M || M.stowed) {
+      haul = null;
+      return;
+    }
+    // (Her mother swings or moves: the haul stops, and the tender floats free to try again.)
+    if ((M.steadySpeed || 0) > PLATFORM.still) {
+      haulFree(B);
+      hud.flash('She moved: the haul stopped, and the tender’s free on the water. Try again when she’s steady.', t, 3);
+      return;
+    }
+    haul.k = Math.min(1, haul.k + dt / PLATFORM.haul);
+    const k = smoothstep(0, 1, haul.k);
+    M.body.updateMatrixWorld();
+    M.body.localToWorld(M.chocksAt(0, _hp));
+    M.body.getWorldQuaternion(_hq).multiply(_across);
+    B.group.position.lerpVectors(haul.from, _hp, k);
+    B.group.quaternion.slerpQuaternions(haul.fromQ, _hq, k);
+    if (haul.k >= 1) {
+      finishHaul();
+      save();
+    }
+  }
+}
+// On the chocks and strapped down; the platform comes up. (Saved mid-haul, she's finished too.)
+function finishHaul() {
+  const B = BOATS[haul?.t], M = BOATS[haul?.m];
+  haul = null;
+  if (!B || !M) return;
+  carry(B.id, M.id);
+  setPlatformWant(M, 0, false);
+  hud.flash(`The ${B.name}’s on the chocks, strapped down; the platform comes up.`, t, 3);
+}
+// The tender off her chocks and afloat where she lay, on her painter.
+function floatOff(id, M) {
+  const B = BOATS[id];
+  M.body.updateMatrixWorld();
+  M.body.localToWorld(M.chocksAt(0, _hp));
+  M.launching = null;
+  uncarry(id);
+  B.stowed = false;
+  B.group.visible = true;
+  B.setRower(false);
+  if (state.items.lantern) B.setLantern(true);
+  if (!boats.includes(B)) boats.push(B);
+  B.place(_hp.x, _hp.z, M.heading - Math.PI / 2);
+  painter = { t: id, m: M.id };
+  M.setLoads(loadsOf(M.id));
+  hud.flash(`The ${B.name} floats off her chocks, on her painter. Step down into her from the platform; put her in gear and the painter’s let go.`, t, 5);
+  save();
+}
+// The haul given up: she's afloat again where she is.
+function haulFree(B) {
+  haul = null;
+  B.stowed = false;
+  B.group.visible = true;
+  if (!boats.includes(B)) boats.push(B);
+  const h = Math.atan2(2 * (B.group.quaternion.w * B.group.quaternion.y + B.group.quaternion.x * B.group.quaternion.z), 1 - 2 * (B.group.quaternion.y ** 2 + B.group.quaternion.x ** 2));
+  B.group.quaternion.identity();
+  B.place(B.group.position.x, B.group.position.z, h);
+}
+// The control box on her aft deck: the platform down or up, the tender launched.
+function platformControls(M) {
+  const T = carriedOn(state, M.id), down = (M.platformWant || 0) > 0;
+  const opts = [{ text: 'Never mind', cls: 'quiet' }];
+  if (T) opts.push({ text: `Launch the ${BOATS[T].name}`, run: () => launchTender(M) });
+  opts.push(down ? { text: 'Raise the platform', run: () => setPlatformWant(M, 0) } : { text: 'Lower the platform (a swim step)', cls: T ? 'quiet' : '', run: () => setPlatformWant(M, 1) });
+  ask('The platform controls', `${T ? `The ${BOATS[T].name} is strapped on her chocks.` : 'Her chocks are empty.'} The platform’s ${down ? (M.platformDrop >= 1 ? 'down, at the water' : 'going down') : M.platformDrop > 0 ? 'coming up' : 'up'}.${down ? ' While it’s down her engine won’t go into gear.' : ''}`, opts);
+}
+// Launching: still enough, water enough and not too much sea; then down it goes, and she floats off.
+function launchTender(M) {
+  const T = carriedOn(state, M.id);
+  if (!T) return;
+  M.platformEdge(_edge);
+  const ok = canLaunch({ anchored: M.anchored, tie: M.tie, speed: M.steadySpeed || 0, lever: M.lever }, depthAt(_edge.x, _edge.z), waveHeightHere(_edge.x, _edge.z));
+  if (!ok.ok) return hud.flash(ok.why, t, 3);
+  M.launching = T;
+  setPlatformWant(M, 1, false);
+  hud.flash(`The straps off, and the platform hums down: the ${BOATS[T].name} floats off as it goes under her.`, t, 4);
+}
+// (L6) In the tender, near her mother: the remote for the platform, and hauling her on.
+function tenderAction() {
+  if (!TENDERS.includes(boat.kind) || onFoot || haul) return null;
+  const M = Object.values(BOATS).find((o) => o.hull.platform && !o.stowed && !carriedOn(state, o.id) && Math.hypot(o.pos.x - boat.pos.x, o.pos.z - boat.pos.z) < PLATFORM.remote);
+  if (!M) return null;
+  M.platformEdge(_edge);
+  const d = Math.hypot(boat.pos.x - _edge.x, boat.pos.z - _edge.z), down = (M.platformDrop || 0) >= 0.99;
+  if (!M.platformWant && boat.speed < 3) return { text: `The ${M.name}’s platform: lower it (the remote)`, run: () => setPlatformWant(M, 1) };
+  if (!down) return null;
+  const W = inWindow(_edge, M.heading, { x: boat.pos.x, z: boat.pos.z, heading: boat.heading, speed: boat.speed });
+  if (W.ok) return { text: `Haul her on to the ${M.name}’s platform`, run: () => startHaul(boat, M) };
+  if (d < 7) return { text: `Alongside her platform: ${W.why}`, run: () => hud.flash(`Come up to the middle of the platform’s aft edge, lying across it (her bow to starboard, or either way), slowly: within ${PLATFORM.window.d} m, and under ${PLATFORM.window.v} m/s.`, t, 4) };
+  if (d > 12) return { text: `The ${M.name}’s platform: raise it (the remote)`, run: () => setPlatformWant(M, 0) };
+  return null;
+}
+// You step up onto the platform with her painter, and she's drawn on over the chocks.
+function startHaul(B, M) {
+  if (B !== boat || painter?.t === B.id) painter = null;
+  B.lever = 0;
+  switchBoat(M);
+  M.setDeck(true);
+  const P = M.plan?.places;
+  if (P && M.deck) Object.assign(M.deck, { x: 0.6, z: (P.platform[0] + P.platform[1]) / 2 + 0.2, floor: 'platform', y: P.platformY - P.drop });
+  haul = { t: B.id, m: M.id, k: 0, from: B.group.position.clone(), fromQ: B.group.quaternion.clone() };
+  stow(B);
+  B.group.visible = true;
+  audio.knock(0.5);
+  hud.flash(`You step up onto the platform with her painter, and haul the ${B.name} on over the chocks.`, t, 3);
+}
+// What you can do on her platform: step down into her tender, lying alongside it.
+function platformAction(M) {
+  const B = Object.values(BOATS).find((o) => TENDERS.includes(o.kind) && !o.stowed && boats.includes(o));
+  if (!B) return null;
+  M.platformEdge(_edge);
+  if (Math.hypot(B.pos.x - _edge.x, B.pos.z - _edge.z) > 4) return null;
+  return { text: `Step down into the ${B.name}`, run: () => stepAcross(B) };
+}
 // What you can do at the trailer, standing beside it.
 function trailerAct(P) {
   if (!car.trailer.visible || driving) return null;
@@ -8908,7 +9073,7 @@ function trailerChoices() {
   if (b) {
     const spot = launchSpot(depthAt, T.x, T.z, T.yaw);
     if (!spot) text = `The ${b.name} is on the trailer. There’s no water close enough to launch her here: back the trailer down to the water’s edge (a slipway, a beach, a quay).`;
-    else if (boats.length >= MAX_AFLOAT) text = `The ${b.name} is on the trailer, but three of your boats are in the water already: bring one in onto the trailer, or lay one up at the harbour office, first.`;
+    else if (afloatCount() >= MAX_AFLOAT) text = `The ${b.name} is on the trailer, but three of your boats are in the water already: bring one in onto the trailer, or lay one up at the harbour office, first.`;
     else {
       text = `The ${b.name} is on the trailer, and there’s water to launch her ${spot.r < 8 ? 'right behind it' : `${Math.round(spot.r)} metres off`}.`;
       opts.push({ text: `Launch the ${b.name}`, run: () => launchOffTrailer(b, spot) });
@@ -8936,7 +9101,7 @@ function loadOnTrailer(b) {
   save();
 }
 function launchOffTrailer(b, spot) {
-  if (boats.length >= MAX_AFLOAT) return;
+  if (afloatCount() >= MAX_AFLOAT) return;
   state.trailer.boat = null;
   unstow(b);
   b.group.rotation.set(0, b.heading, 0, 'XYZ');
@@ -8969,7 +9134,7 @@ function storeBoat(b, { quiet = false } = {}) {
 // jetty). With three in the water already, one goes ashore in her place.
 function launchBoat(b, { quiet = false } = {}) {
   if (!b.stowed) return false;
-  if (boats.length >= MAX_AFLOAT) {
+  if (afloatCount() >= MAX_AFLOAT) {
     if (quiet) return false;
     const can = boats.filter(canStore);
     if (!can.length) {
@@ -12145,6 +12310,10 @@ function updateDiveHud() {
 let saveWarned = false;
 function save() {
   cargoSave();
+  // (L6) Saved mid-haul: she's on the chocks. A platform's saved down only with its tender off it
+  // (lowering with her still aboard, it's saved up: lowered again next time).
+  if (haul) finishHaul();
+  state.platforms = Object.fromEntries(Object.values(BOATS).filter((M) => M.hull.platform && savedDown(M.platformDrop || 0, M.platformWant || 0, !!carriedOn(state, M.id))).map((M) => [M.id, 1]));
   for (const [id, b] of Object.entries(BOATS)) {
     state.boats[id] = { x: b.pos.x, z: b.pos.z, heading: b.heading, anchored: b.anchored && b.anchor?.phase !== 'haul', ...(b.emotorDown || b.outboardDown ? { motor: true } : {}), ...(b.sailUp ? { sail: Math.round(b.sheet * 100) / 100 } : {}) };
     // (Where her anchor lies, or the berth she's tied up at, so she's found just as she was left.)
@@ -13939,6 +14108,16 @@ function tick(now, manual = false) {
     updateFittings(dt);
     watchHire();
   }
+  // (L6) Her platform down (or going down): her engine won't go into gear.
+  if (boat.hull.platform && (boat.platformWant || boat.platformDrop > 0.01) && throttle) {
+    throttle = 0;
+    boat.lever = 0;
+    if (t > platformSaidT + 4) {
+      platformSaidT = t;
+      hud.flash('PLATFORM: her swim platform’s down, so her engine won’t go into gear. Raise it first (the control box on the aft deck, or the tender’s remote).', t, 4);
+    }
+  }
+  platformStep(dt);
   if (pilot.on) steer = pilotTick(dt, steer);
   // (Inside the trawler's pilothouse, seen from outside: its roof lifted away, as a house's is.)
   if (boat.roof) boat.showRoof(!(boat.indoors && rig.mode !== 'eye'));

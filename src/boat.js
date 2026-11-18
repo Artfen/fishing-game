@@ -21,6 +21,7 @@ import { CLEAR_K } from './apart.js';
 import { Dress } from './dress.js';
 import { CARGO, slide as slidePiece } from './cargo.js';
 import { trawlerPlan, trawlerPlaces, pilotSole, step as planStep, spotAt as planSpot, nearestOn } from './deckplan.js';
+import { PLATFORM } from './platform.js';
 import { MODES, materialOf, sectionAt, knock, scrape as scrapeHull, firmness, roughness, chamberAt, CHAMBER_SPLIT, surfaceAt, legStrike, rudderStrike, shake, steered, mountPush, plugLets } from './damage.js';
 import { sailForce, hullDrag, boardGrip, heelFor, SAIL, boardDrag, finGrip } from './sailing.js';
 
@@ -3822,11 +3823,17 @@ export class Boat {
     }
     // Aft: the swim platform across her transom, on its brackets; steps up from it onto the
     // bulwark's cap, to port.
-    const zt = zAt(H, 0), pY = H.draft + 0.32, pD = 1.65;
-    wood.push({ geo: new THREE.BoxGeometry(3.7, 0.09, pD), matrix: mat(0, pY - 0.045, zt - pD / 2 - 0.02), color: '#a8784a', jitter: 0.03 });
-    for (const x of [-1.2, 1.2]) box(0.12, 0.35, pD - 0.1, x, pY - 0.25, zt - pD / 2, '#2a3442');
+    // (L6: it goes up and down, a part of its own: setPlatform. Its control box on the transom.)
+    const zt = zAt(H, 0), pY = H.draft + 0.32, pD = 1.65, plat = [], platWood = [];
+    platWood.push({ geo: new THREE.BoxGeometry(3.7, 0.09, pD), matrix: mat(0, pY - 0.045, zt - pD / 2 - 0.02), color: '#a8784a', jitter: 0.03 });
+    for (const x of [-1.2, 1.2]) box(0.12, 0.35, pD - 0.1, x, pY - 0.25, zt - pD / 2, '#2a3442', 0, 0, 0, plat);
     // (L5) The chocks her tender rides on, athwartships across the platform (see carried.js).
-    for (const x of [-0.75, 0.75]) box(0.14, 0.1, pD - 0.45, x, pY + 0.05, zt - pD / 2, '#3b3f45');
+    for (const x of [-0.75, 0.75]) box(0.14, 0.1, pD - 0.45, x, pY + 0.05, zt - pD / 2, '#3b3f45', 0, 0, 0, plat);
+    // (Its rams, down from her transom to its brackets.)
+    for (const x of [-1.2, 1.2]) parts.push(strut(V(x, pY - 0.1, zt + 0.02), V(x, pY - 0.95, zt + 0.02), 0.05, 0.05, '#9aa1a8'));
+    box(0.18, 0.24, 0.1, -0.95, y0 + 0.62, zt + 0.12, '#2b2e33');
+    box(0.1, 0.05, 0.02, -0.95, y0 + 0.66, zt + 0.18, '#c33d2e');
+    this.platformParts = { plat, platWood };
     for (let i = 1; i <= 3; i++) box(0.5, 0.05, 0.22, 1.1, pY + (sheer(H, 0) - pY) * (i / 4), zt - 0.12 - (3 - i) * 0.05, '#a8784a', 0, 0, 0, wood);
     // Under the water: the keel, deep from forward of the aperture to where her forefoot rises,
     // the skeg's shoe under the propeller and the rudder; the bow thruster's tunnel ends.
@@ -3867,6 +3874,17 @@ export class Boat {
     this.roof = new THREE.Mesh(mergeParts(roof), fit.material);
     // (Her windows: dark by day, warm from inside after dark, see setCabinLight.)
     this.cabinGlass = new THREE.Mesh(mergeParts(panes), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: '#ffb25c', emissiveIntensity: 0 }));
+    // (L6) Her swim platform, lowered and raised as a piece.
+    this.platformGroup = new THREE.Group();
+    const PP = this.platformParts;
+    const pm = [new THREE.Mesh(mergeParts(PP.plat), fit.material), new THREE.Mesh(mergeParts(PP.platWood), teak.material)];
+    for (const m of pm) {
+      m.castShadow = true;
+      m.receiveShadow = true;
+      this.platformGroup.add(m);
+    }
+    this.body.add(this.platformGroup);
+    this.platformDrop = 0;
     for (const m of [fit, teak, this.roof, this.cabinGlass]) {
       m.castShadow = true;
       m.receiveShadow = true;
@@ -6174,8 +6192,21 @@ export class Boat {
   // them: her keel there, athwartships (see main.js carriedStep). out: a Vector3, else [x, y, z].
   chocksAt(lift = 0, out = null) {
     if (!this.hull.platform) return null;
-    const P = trawlerPlaces(this.hull), y = P.platformY + 0.1 + lift, z = (P.platform[0] + P.platform[1]) / 2;
+    const P = trawlerPlaces(this.hull), y = P.platformY + 0.1 - (this.platformDrop || 0) * PLATFORM.travel + lift, z = (P.platform[0] + P.platform[1]) / 2;
     return out ? out.set(0, y, z) : [0, y, z];
+  }
+  // (L6) Her swim platform lowered (drop: 0 up … 1 down, PLATFORM.travel m), and where you walk on
+  // it with it.
+  setPlatform(drop) {
+    this.platformDrop = drop;
+    if (this.platformGroup) this.platformGroup.position.y = drop ? -drop * PLATFORM.travel : 0;
+    if (this.plan) this.plan.places.drop = drop * PLATFORM.travel;
+  }
+  // (L6) The middle of her platform's aft edge, in the world (out: a Vector3): where a tender comes
+  // alongside to be hauled on.
+  platformEdge(out) {
+    const P = trawlerPlaces(this.hull);
+    return this.body.localToWorld(out.set(0, P.platformY - (this.platformDrop || 0) * PLATFORM.travel, P.platform[0]));
   }
   // Her pilothouse roof (and what stands on it) shown, or lifted away (see buildTrawler).
   showRoof(on) {

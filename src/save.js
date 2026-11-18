@@ -126,6 +126,7 @@ export const DEFAULT_STATE = {
   car: null,       // { x, z, yaw, at: 'home' | destination id | null }
   trailer: null,   // the boat trailer (see trailer.js): { hitched, boat (on it: her id, or null) }
   carried: {},     // (L5) a tender on her mother's swim platform: { tender's id: mother's id } (see carried.js)
+  platforms: {},   // (L6) a swim platform left down (its tender off it): { mother's id: 1 } (see platform.js)
   outing: null,    // { plan, last, lastDest, loadouts, travel, intro }
   home: null,      // { photos: [ids], keepsake, catchId, auto }
   guide: null,     // the first-trip guide: { on, done, dest, offered, finished, min, since } (see firstTrip.js)
@@ -449,6 +450,9 @@ export function sanitize(raw) {
   settleCarried({ carried: s.carried, trailer: s.trailer, shipping: s.shipping });
   s.shipping = s.shipping.filter((x) => !s.carried[x.kind]);
   const fleet = ids.filter((k) => k !== s.trailer.boat && !s.carried[k]);
+  // (L6) A platform saved down: a mother of yours, with no tender on it.
+  const carrying = new Set(Object.values(s.carried));
+  s.platforms = Object.fromEntries((isObj(raw.platforms) ? Object.keys(raw.platforms) : []).filter((m) => isBoatId(m, ['trawler']) && s.yard.owned.includes(m) && !carrying.has(m)).slice(0, 4).map((m) => [m, 1]));
   // (Each boat's own, made sensible: see engine.js cleanEngine.)
   s.engines = Object.fromEntries((isObj(raw.engines) ? Object.entries(raw.engines) : []).filter(([k, v]) => isBoatId(k, VESSELS) && hasEngine(kindOf(k)) && isObj(v)).map(([k, v]) => [k, engineSave(cleanEngine(kindOf(k), v))]));
   s.damage = cleanDamages(raw.damage, ids);

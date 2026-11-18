@@ -618,6 +618,43 @@ What was planned for L5:
 - in the browser she sits on the chocks through a rough crossing, her mother a few centimetres down
   by the stern.
 
+**L6: launching and recovering her (done).** What was built, and where it differs from the plan above:
+
+- **`src/platform.js`**: the platform's travel (0.85 m, from 0.3 m above the water to 0.55
+  under) in 15 seconds each way, stopping where it is while her mother moves faster than 0.6 m/s;
+  when the tender can be launched (still: at anchor, tied up, or stopped in neutral; water under
+  the platform; not too much sea); the window for hauling her on (within 2.5 m of the middle of
+  the platform's aft edge, lying across it within 30° either way, under 1 m/s); and how it's saved.
+- **On the trawler:** the platform is a part of its own, lowered on two rams, its chocks and the
+  floor you walk on going down with it (down the gate's ramp to it, still never a jump); the
+  control box on the transom's inside, to starboard of the gate.
+- **Launching:** at the control box, *Launch the tender*: the straps come off, the platform goes
+  down, and when it's three-quarters of the way the tender floats off her chocks, an ordinary boat
+  again where she lay, on a 3 m painter from her mother's stern (the towline's own physics, short
+  and unbreakable). From the platform, *Step down into the tender*; put her in gear and the
+  painter's let go. The platform stays down until it's raised.
+- **The interlock:** while the platform's down or going down, the trawler's engine won't go into
+  gear, and the game says why (a PLATFORM warning in words; no lamp on her dashboard yet).
+- **Recovering:** in the tender within 30 m, *lower it (the remote)*; alongside, the game says
+  what's wanted (closer, square, slower); in the window, *Haul her on*: you step up onto the
+  platform and she's drawn over the chocks in three seconds, strapped down, and the platform comes
+  up. If her mother moves mid-haul, it stops and the tender's free on the water to try again.
+  Away from the platform, the remote raises it again.
+- **The cap of three** doesn't count a tender off her platform while a mother's in the water.
+- **Saving:** the platform's saved down only with its tender off it; lowering with her still on
+  it, or a haul under way, is saved as carried with the platform up. The tender in the water is
+  saved where she floats; the painter's let go.
+- **Not done here:** the helm switch for the platform (the control box and the remote are enough
+  to play it); dives starting and ending on the platform as a real step (today's dives start over
+  the side as before, which works from the platform too); hauling her on from the platform by her
+  painter in a wind; the painter isn't drawn. These are small and can follow.
+- **In the browser:** at anchor off Gannet Isle, the whole of it: the control box, the launch,
+  stepping down into her, the painter let go in gear, off and back, hauled on, the platform up;
+  and the engine refused gear with the platform down.
+- **Tests:** `tests/platform.test.mjs` (its travel and pause, when she launches, the window, how
+  it's saved, the platform moving as a piece with its floor and chocks).
+
+What was planned for L6:
 **L6: launching and recovering.**
 - The platform: its model, movement, the three controls and the interlock.
 - The painter, the launch, the recovery window and the haul.

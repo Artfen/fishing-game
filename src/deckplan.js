@@ -195,12 +195,13 @@ export function trawlerPlan(H) {
       },
       inside: true,
     })),
-    // Down through the gate in her transom (to port) to the swim platform.
+    // Down through the gate in her transom (to port) to the swim platform (wherever it is: lowered,
+    // down to the water, its steps with it; P.drop, m, set by her: boat.js setPlatform).
     { id: 'gate', poly: quad(P.gate[0] + 0.1, P.platform[1] - 0.2, P.gate[1] - 0.1, P.benchFront + 0.05), y: (x, z) => {
       const u = Math.min(1, Math.max(0, (P.benchFront + 0.05 - z) / (P.benchFront + 0.05 - (P.platform[1] - 0.2))));
-      return deck(x, P.benchFront) + (P.platformY - deck(x, P.benchFront)) * u;
+      return deck(x, P.benchFront) + (P.platformY - P.drop - deck(x, P.benchFront)) * u;
     } },
-    { id: 'platform', poly: quad(-P.platform[2], P.platform[0], P.platform[2], P.platform[1]), y: P.platformY },
+    { id: 'platform', poly: quad(-P.platform[2], P.platform[0], P.platform[2], P.platform[1]), y: () => P.platformY - P.drop },
     // Inside (L4). The saloon, in through the sliding door off the aft deck (level with it).
     { id: 'saloon', poly: quad(-(P.house - 0.035 - C), P.saloonAft + 0.035 + C, P.house - 0.035 - C, P.pilotAft - 0.035 - C), y: deck, inside: true },
     { id: 'slide', poly: quad(P.slide[0] + C * 0.6, aftEnd - 0.1, P.slide[1] - C * 0.6, P.saloonAft + 0.035 + C + 0.1), y: deck, inside: true },
@@ -223,6 +224,8 @@ export function trawlerPlan(H) {
     { id: 'helm', x: P.helm[0], z: P.helm[1], r: 0.5, floor: 'pilot' },
     { id: 'fish', x: 0, z: (P.benchFront + P.saloonAft) / 2, r: 1.2 },
     { id: 'platform', x: 0, z: (P.platform[0] + P.platform[1]) / 2, r: 1.2, floor: 'platform' },
+    // (L6) The platform's control box, on the transom's inside to starboard of the gate.
+    { id: 'controls', x: -0.95, z: P.benchFront + 0.3, r: 0.4, floor: 'aft' },
     // (L4: inside.)
     { id: 'galley', x: P.galley[0] - 0.3, z: (P.galley[1] + P.galley[3]) / 2, r: 0.5, floor: 'saloon' },
     { id: 'dinette', x: P.dinette[2] + 0.25, z: (P.dinette[1] + P.dinette[3]) / 2, r: 0.5, floor: 'saloon' },
@@ -298,6 +301,7 @@ export function trawlerPlaces(H) {
     gate: [0.8, 1.4],                    // the gate in her transom, to port (x)
     platform: [zt - 1.65, zt - 0.05, 1.8], // the swim platform: z from, to; half its width
     platformY: H.draft + 0.32,           // its top, up
+    drop: 0,                             // (L6) how far it's lowered just now (m)
     // (L4) Inside. Boxes on the plan are [x0, z0, x1, z1] (x to port).
     slide: [-0.08, 0.78],                // the sliding door's opening (x), in the saloon's after end
     galley: [0.88, -3.95, 1.48, -2.35],  // the galley counter along her port side
