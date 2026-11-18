@@ -185,7 +185,9 @@ test('in the water: with the engine off she doesn’t go; trimmed right she’s 
   let clock = 0;
   const drive = (setup, secs = 25) => {
     const b = new Boat(scene, { kind: 'rib' });
-    b.place(150, 330, 0);
+    // (Out in deep water, as the engines' trials are: over the bay's 17 to 27 m a RIB flat out is
+    // near the speed the bottom lets her waves go, where her speed settles sensitively (B5).)
+    b.place(0, 1500, Math.PI / 2);
     setup(b);
     const full = LEVERS.rib.at(-1).v;
     for (let i = 0; i < secs * 30; i++) {

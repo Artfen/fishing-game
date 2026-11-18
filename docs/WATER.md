@@ -370,3 +370,42 @@ included). The full table, with each LICENSE file read, is in the two research n
   falling away with her speed (rather than holding until its limiter) would change every boat's
   acceleration and is left for a pass that measures it against real acceleration trials.
 
+- **B5:** shallow water, by her depth Froude number Fh = V/√(g·h): her speed against the speed the
+  bottom lets her waves go.
+
+  **Her resistance.** In water h deep, a hull makes the resistance she would in deep water at a
+  higher speed: Lackenby's (1963) fit to Schlichting's method, which the ITTC's speed-trial
+  procedure uses to correct for shallow water. Part of it is the water squeezed back past her
+  (her midship section against the depth squared), most of it her waves slowed by the bottom as
+  Fh nears one. Its home is below that critical speed; past it her transverse waves can't keep up
+  and the hump is behind her, so it fades out between Fh 1 and 1.3. Two bounds of ours: the extra
+  is held to half as much again as her deep-water resistance (model tests and computations of
+  planing hulls put the worst of it about the critical speed, but none we could reach said how
+  much), and since what the bottom changes is the waves she makes, it's hers in full up to a
+  length Froude number of 0.8 and a quarter of it once she's planing (from 1.6).
+
+  So a boat on a moderate push over a shoal is held back about the critical speed, and pushed
+  hard she's slowed through it and out the other side. A RIB under a steady push from rest over a
+  flat bottom (in the physics alone):
+
+  | Push | Deep water | Over 4 m (critical 6.3 m/s) | Over 2 m (4.4 m/s) | Over 1.2 m (3.4 m/s) |
+  | --- | --- | --- | --- | --- |
+  | Moderate: after 40 s | 5.92 m/s | 5.34 | 4.64 | 5.92 (through it) |
+  | Hard: time to 8 m/s | 1.8 s | 2.5 s, then on as in deep water | 1.8 s | 1.8 s |
+
+  **Her wake.** In shallow water the wedge opens out: Havelock's (1908) result, worked out for
+  each depth Froude number from the waves that keep pace with her on the finite-depth dispersion
+  relation and the widest of their energy's paths. Kelvin's 19.5° up to Fh 0.6, 24° at 0.8, 35°
+  at 0.9, 46° at 0.95, square across her track at the critical speed (held to 77° here, where it's
+  singular); past it no wave can keep up across her track, so the transverse waves are gone and
+  the wedge closes to her Mach angle, asin(1/Fh): 65° at 1.1, 50° at 1.3, 30° at 2. Each point of
+  her track remembers the depth she made it in, and the deep-water pattern is stretched out to
+  the wider wedge, in the physics (the wakes that rock other boats) and in the drawn wake alike.
+
+  **The engines' trials** now run where the bottom can't touch them, on a calm day made calm: well
+  out to sea in 60 to 100 m of water (the ITTC asks speed trials for more than 2.75·V²/g of water,
+  about 60 m at 15 m/s), where the old course south of the bay had 17 to 27 m, which a fast boat's
+  waves feel; and with no wind, swell or chop, where before they took whatever swell the default
+  weather left, which the bay partly sheltered. Measured again there, each engine's top speed is
+  between 1.1% slower (the skiff's electric) and 2.6% faster than before.
+

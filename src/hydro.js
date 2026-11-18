@@ -73,6 +73,38 @@ export const DRIFT_FULL = [0.2, 1.2];
 // to wash out (s); clear: how deep it must be to shed it, as a share of the depth it needs to grip;
 // loss: the share of its push lost with the air down.
 export const VENT = { load: 0.35, inT: 0.15, outT: 0.6, clear: 1.4, loss: 0.7 };
+// (B5) Shallow water. In water h deep, a hull of midship section area Ax going V makes the
+// resistance she would in deep water at a higher speed Vinf, where V = Vinf·(1 − ΔV/Vinf) and
+// ΔV/Vinf = 0.1242·(Ax/h² − 0.05) + 1 − √tanh(g·h/Vinf²): Lackenby's (1963) fit to Schlichting's
+// method, as the ITTC's speed-trial procedure corrects for shallow water (the first term, the
+// water squeezed back past her, only once Ax/h² is over 0.05; the second, her waves slowed by the
+// bottom, growing as her depth Froude number Fh = V/√(g·h) nears one). Its home is below that
+// critical speed: past it her transverse waves can't keep up with her and the hump is behind
+// her, so here it fades out between Fh 1 and 1.3. Returns Vinf, the speed to read her deep-water
+// resistance at.
+export const SHALLOW_FADE = [1, 1.3];
+// (Model tests and computations of planing hulls in shallow water put the worst of it about the
+// critical speed, but none we could reach gave how much: so it's held to half as much again as
+// in deep water.)
+export const SHALLOW_MAX = 1.5;
+// (What the bottom changes is the waves she makes. That's most of a hull's resistance about her
+// hump and below it, where Lackenby's fit to ships belongs; once she's planing most of it is the
+// water along her bottom and her spray, which the bottom doesn't touch. So the extra is hers in
+// full up to a length Froude number of 0.8, a quarter of it from 1.6: ours.)
+export const shallowShare = (fn) => 1 - 0.75 * smooth01((fn - 0.8) / 0.8);
+export function shallowSpeed(V, h, Ax) {
+  if (!(h > 0) || !(V > 0.05) || !(Ax > 0)) return V;
+  const Fh = V / Math.sqrt(G * h);
+  const fade = 1 - smooth01((Fh - SHALLOW_FADE[0]) / (SHALLOW_FADE[1] - SHALLOW_FADE[0]));
+  if (fade <= 0) return V;
+  const squeeze = Math.max(0, 0.1242 * (Ax / (h * h) - 0.05));
+  let Vi = V;
+  for (let i = 0; i < 8; i++) {
+    const loss = Math.min(0.35, squeeze + 1 - Math.sqrt(Math.tanh((G * h) / (Vi * Vi))));
+    Vi = V / (1 - loss);
+  }
+  return V + (Vi - V) * fade;
+}
 // One step of a propeller's air: a (0 none … 1 fully ventilated), kg (how much of it is under the
 // water, 0 … 1), depth (m under the surface), need (the depth it needs to grip), load (0 … 1), dt.
 export function ventStep(a, kg, depth, need, load, dt) {
@@ -704,6 +736,10 @@ export class HydroBody {
     this.windSide = 0;    // (B3) her side above the water, m², and end-on as a share of it, and its height
     this.windEnd = 0.45;
     this.windHigh = 0.5;
+    // (B5) Her midship section under the water (m²: waterline beam × draft × 0.7, a V's fullness),
+    // and the depth under her (set each step), for shallowSpeed.
+    this.Ax = 2 * model.H.B * model.H.hw(0.5) * model.H.draft * 0.7;
+    this.depthBelow = Infinity;
     this.windageAt = [0, model.H.D + 0.25, 0];
     this.current = [0, 0];
     this.drag = model.drag;
@@ -812,6 +848,8 @@ export class HydroBody {
     this.kH = sea?.kH > 0 ? sea.kH : 0;
     this.kV = sea?.kV > 0 ? sea.kV : 0;
     this.lvl = sea?.level ?? 0;
+    // (B5) The depth of water under her middle, for shallowSpeed.
+    this.depthBelow = env.ground ? Math.max(0.05, this.lvl - env.ground(this.x[0], this.x[2])) : Infinity;
     if (!this.nanAt) this.check('state', true);
     this.updateR();
     this.F[0] = 0; this.F[1] = -this.m * G; this.F[2] = 0;
@@ -1068,7 +1106,11 @@ export class HydroBody {
       const munk = -0.12 * this.m * Math.min(1, share) * vs * vf;
       this.Tq[0] += R[1] * munk; this.Tq[1] += R[4] * munk; this.Tq[2] += R[7] * munk;
     }
-    let want = -Math.sign(vf) * this.m * this.drag.resist(Math.abs(vf)) * share * this.rough;
+    // (B5) In shallow water, her resistance as in deep water at a higher speed (see shallowSpeed),
+    // at most SHALLOW_MAX times what it is in deep water.
+    const r0 = this.drag.resist(Math.abs(vf)), vE = shallowSpeed(Math.abs(vf), this.depthBelow, this.Ax);
+    this.shallowK = vE > Math.abs(vf) && r0 > 0 ? 1 + (Math.min(SHALLOW_MAX, this.drag.resist(vE) / r0) - 1) * shallowShare(Math.abs(vf) / Math.sqrt(G * M.H.L)) : 1;
+    let want = -Math.sign(vf) * this.m * r0 * this.shallowK * share * this.rough;
     // (B3) Drifting, with no engine in gear, no motor and no oars pushing her, and slower than a
     // brisk walk, her resistance is the water's on her own panels, mostly the friction along
     // them: what holds a drifting boat back in the field trials (and a sailing boat ghosting along

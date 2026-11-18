@@ -17,6 +17,7 @@ const FLOAT = 0.28;   // how far under the surface your back lies, floating
 const CLEAR = 0.32;   // the closest your middle comes to the seabed
 const UP = new THREE.Vector3(0, 1, 0);
 const _d = new THREE.Vector3(), _v = new THREE.Vector3(), _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(0, 0, 0, 'YXZ');
+const _was = new THREE.Vector3(), _n = new THREE.Vector3();
 
 function setLimb(mesh, a, b, r) {
   _d.subVectors(b, a);
@@ -248,9 +249,20 @@ export class Diver {
       V.y = Math.max(V.y, 0);
     }
     P.y = ny;
-    // Out of the rock of the dive sites (the Hound, the arch on Skerries Reef, the boulders).
+    // Out of the rock of the dive sites (the Hound, the arch on Skerries Reef, the boulders):
+    // pushed back out of it, the way you were swimming into it stopped, and the rest of your
+    // swim, up its face or along it, going on. (Before, all of it was damped each moment you
+    // touched it, so swimming up beside the Hound's wall you barely rose: found playing the
+    // two-friends day through.)
+    _was.copy(P);
     if (this.solid && this.solid(P, 0.45)) {
-      V.multiplyScalar(0.7);
+      _n.subVectors(P, _was);
+      const l = _n.length();
+      if (l > 1e-6) {
+        _n.divideScalar(l);
+        const vn = V.dot(_n);
+        if (vn < 0) V.addScaledVector(_n, -vn);
+      }
       P.y = Math.max(P.y, heightAt(P.x, P.z) + CLEAR);
     }
     // Keep out of the boats' hulls.

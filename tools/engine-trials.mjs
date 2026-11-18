@@ -31,12 +31,38 @@ const { Boat, HULLS } = await import('../src/boat.js');
 const { CATALOGUE, MODELS, engineSpec, propsFor } = await import('../src/engines.js');
 const { BOAT_PER_S } = await import('../src/fuel.js');
 const { wakes } = await import('../src/world/wakes.js');
+const { conditions } = await import('../src/world/conditions.js');
+const { longSea } = await import('../src/world/ocean.js');
+
+// A calm day for a trial: no wind, no swell, no chop (put back as they were after, for whatever
+// calls it). (B5: before, the trials took whatever swell the default weather left, which the bay
+// partly sheltered; out in deep water it doesn't.)
+function calmDay(fn) {
+  const was = { manual: conditions.manual, wind: { ...conditions.wind }, sea: { ...conditions.sea }, amps: Float32Array.from(conditions.swellAmps), W: { ...longSea.wind }, chop: longSea.choppy };
+  conditions.manual = { speed: 0, from: 0 };
+  conditions.wind.speed = conditions.wind.target = 0;
+  conditions.sea.swell = conditions.sea.chop = 0;
+  conditions.swellAmps.fill(0);
+  longSea.setWind(0.5, 0, 0, 0.5);
+  try {
+    return fn();
+  } finally {
+    conditions.manual = was.manual;
+    Object.assign(conditions.wind, was.wind);
+    Object.assign(conditions.sea, was.sea);
+    conditions.swellAmps.set(was.amps);
+    longSea.setWind(was.W.u, was.W.to, was.W.m0, was.chop);
+  }
+}
 
 const root = join(fileURLToPath(import.meta.url), '..', '..');
 const out = join(root, 'src', 'engineTrials.js');
 
-// Open water well clear of anything (as the boat tests use: south of the bay, past the shoal).
-const OPEN = { x: 150, z: 330 }, DT = 1 / 30, KNOT = 0.514444, SECS = 40;
+// Open water well clear of anything, and deep: well out to sea, 60 to 100 m of water the whole
+// run, so no boat comes near the speed the bottom lets her waves go (B5: shallow water; the old
+// course, south of the bay, has 17 to 27 m, which a fast boat's waves feel; the ITTC asks speed
+// trials for more than 2.75·V²/g of water, about 60 m at 15 m/s).
+const OPEN = { x: 0, z: 1500 }, DT = 1 / 30, KNOT = 0.514444, SECS = 40;
 const scene = new THREE.Scene();
 const r = (v, d = 2) => Math.round(v * 10 ** d) / 10 ** d;
 
@@ -64,6 +90,9 @@ function flatOut(kind, S, extra = 0, at = Infinity) {
 }
 
 export function trial(kind, choice) {
+  return calmDay(() => trialIn(kind, choice));
+}
+function trialIn(kind, choice) {
   const C = CATALOGUE[kind], S = engineSpec(kind, HULLS[kind], choice), O = MODELS[S.model];
   const { top, when: t20 } = flatOut(kind, S, 0, C.go * KNOT);
   const laden = flatOut(kind, S, C.laden).top;
@@ -92,6 +121,9 @@ export function trial(kind, choice) {
 // out), and her top speed with each engine in her catalogue, no limiter (what its matched
 // propeller is pitched for).
 export function calibrate(kind) {
+  return calmDay(() => calibrateIn(kind));
+}
+function calibrateIn(kind) {
   const H = HULLS[kind], C = CATALOGUE[kind];
   const free = (model) => flatOut(kind, { ...engineSpec(kind, H, { model }), vd: 1e9 }).top;
   const top = free(C.stock);

@@ -144,3 +144,6 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
 10. **B4 (done):** the propeller: it walks her stern to port going astern (a single outboard;
    twins cancel it), draws air down when driven hard as it breaks the surface and keeps it until
    it's well under again, and feels the waves' own motion in the water into it.
+11. **B5 (done):** shallow water: more resistance as a boat nears the speed the bottom lets her
+   waves go, held back about it on a moderate throttle and labouring through it pushed hard; her
+   wake's wedge opening out over the shallows and, past that speed, closing to her Mach angle.

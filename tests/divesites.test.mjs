@@ -66,6 +66,38 @@ test('the Hound stands from thirty metres to ten; you can’t swim through it, o
   }
 });
 
+test('swimming up beside the Hound, even under the rim of its crown, you rise: the rock stops only the way into it', async () => {
+  // (Found playing the two-friends day through: a diver come up under the overhang of the Hound's
+  // crown, at about twelve metres, barely rose, every moment's touch on the rock damping all of
+  // her swim. Now only the part of it into the rock is stopped.)
+  const { Diver } = await import('../src/diver.js');
+  const C = await import('../src/world/conditions.js');
+  const amps = Float32Array.from(C.conditions.swellAmps), sea = { ...C.conditions.sea };
+  C.conditions.swellAmps.fill(0);
+  C.conditions.sea.swell = C.conditions.sea.chop = 0;
+  try {
+    const H = D.PINNACLES[0];
+    let worst = Infinity, at = null;
+    // All round it, from five metres under its crown to its top, against its wall or a little
+    // off it: looking up a little (as you do coming up), facing it, swimming, for two seconds.
+    for (let a = 0; a < 6.28; a += 0.5) for (let h = 15; h <= 20; h += 0.5) for (const off of [-0.2, 0.3, 1.0]) {
+      const d = new Diver(new THREE.Scene());
+      d.solid = D.pushOut;
+      const R = D.pinnacleRadius(H, h, a);
+      d.enter('scuba', H.x + Math.cos(a) * (R + off), H.bed + h, H.z + Math.sin(a) * (R + off), 0);
+      const yaw = Math.atan2(-Math.cos(a), -Math.sin(a));
+      const input = { fwd: 1, up: 0, kick: false, dir: new THREE.Vector3(Math.sin(yaw) * Math.cos(0.45), Math.sin(0.45), Math.cos(yaw) * Math.cos(0.45)) };
+      const y0 = d.pos.y;
+      for (let i = 0; i < 60; i++) d.update(1 / 30, 100 + i / 30, input);
+      if (d.pos.y - y0 < worst) [worst, at] = [d.pos.y - y0, { a: +a.toFixed(1), h, off }];
+    }
+    assert.ok(worst > 0.4, `the least anywhere round it: ${worst.toFixed(2)} m up in two seconds (${JSON.stringify(at)})`);
+  } finally {
+    C.conditions.swellAmps.set(amps);
+    Object.assign(C.conditions.sea, sea);
+  }
+});
+
 test('Skerries Reef’s arch: solid piers, and a gap under it you can swim through', () => {
   const A = D.siteById.reef, bed = T.heightAt(A.x, A.z);
   const arch = D.ROCKS.filter((o) => o.arch);

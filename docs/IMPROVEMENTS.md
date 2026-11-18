@@ -1639,3 +1639,29 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | Validation | New `tests/propeller.test.mjs` (3): the walk's push (astern to port, ahead a little to starboard, a left-handed one the other way, less with way on) and, the same boats with and without it, the skiff's and cabin boat's bow swinging more than half a degree further to starboard backing from rest while the console's twins move less than 0.3°; the air coming down within half a second half out and driven hard, none eased, staying back under at 1.2 times the depth it needs, washing out deeper or eased, and on a RIB flat out lifted clear and dropped back her grip coming back over a moment (under 0.7 a tenth of a second on, over 0.97 after three); the inflow her speed less the waves' motion, up to 0.36 m/s in a swell, her speed in a calm. Restated: the RIB over the shallows on Relaxed (`tests/propulsion.test.mjs`): its leg kicks up, drops back over a deeper patch and kicks up again on both trees, so judged over the run (up 77% of the time after it first kicks up; 81 and 82% before B4) rather than at its last moment. Full suite |
 | Remaining risks | The walk's size is an estimate (no measured figure found). The propeller's push still holds until its limiter rather than falling away with her speed; changing that is a recalibration of every boat's acceleration, left for a later pass |
 
+### The sea, close up: B5, shallow water
+
+| Field | |
+| --- | --- |
+| System | `src/hydro.js` (`shallowSpeed`: Lackenby's (1963) fit to Schlichting, as the ITTC corrects speed trials for shallow water, her resistance read at the deep-water speed with the same; `SHALLOW_FADE`: gone between depth Froude numbers 1 and 1.3; `SHALLOW_MAX`: the extra held to half as much again; `shallowShare`: the extra hers in full up to a length Froude number of 0.8, a quarter of it planing; each hull's midship section and the depth under her); `src/world/wakes.js` (`wedgeAngle`: Havelock's shallow-water wedge, tabled by depth Froude number; each track point remembers the depth she made it in; the deep-water pattern stretched out to the wider wedge and, past the critical speed, without its transverse waves, in the physics and in the shader); `tools/engine-trials.mjs` (the trials in 60 to 100 m of water on a calm day made calm), `src/engines.js` and `src/engineTrials.js` (measured again) |
+| Previous issue | B5 of the plan: the depth under a boat changed nothing but where she grounded. Running fast over a shoal felt like deep water, and her wake kept Kelvin's 19.5° wedge over any depth |
+| Change | More resistance as she nears the speed the bottom lets her waves go; the wake's wedge opening out towards it and closing past it |
+| Player benefit | Over the shallows a boat on a moderate throttle is held back about √(g·depth) (4.4 m/s over 2 m), and pushed hard labours through it before running free; her wake fans out wide as she does |
+| Before | The same resistance and wedge at any depth |
+| After | A RIB on a moderate push: 5.92 m/s in deep water, 5.34 over 4 m, 4.64 over 2 m, 5.92 over 1.2 m (through it); pushed hard over 4 m, 2.5 s to 8 m/s against 1.8. The wedge: 19.5° to Fh 0.6, 35° at 0.9, 46° at 0.95, 77° (held) at the critical speed, then her Mach angle (50° at 1.3, 30° at 2). The engines' top speeds, measured again in deep calm water: −1.1% (the electric) to +2.6% |
+| Validation | New `tests/shallow.test.mjs` (3): no change in deep water; below the critical speed exactly Lackenby's relation (four cases, to 1 mm/s), growing towards it and gone past it; the RIB held back on a moderate push over 2 and 4 m and, pushed hard over 4 m, slowed through it and out at her deep-water pace; the wedge at Kelvin's 19.47° slow, widening (never narrowing) to Fh 0.99, 30 to 40° at 0.9, her Mach angle past it, the transverse waves gone, a point 30° off her track wakeless in deep water and in her wake over shallow water at Fh 0.95, and the shader reading the same wedge. The engines' figures re-run in the simulation match the table. Full suite |
+| Remaining risks | The extra's ceiling and how it shares out once she's planing are ours (no measured figure reached). The wake pattern is the deep-water one stretched to the shallow wedge, not a full finite-depth pattern. Engine figures moved by up to 2.6% with the calm, deep trial course |
+
+### Rising beside the Hound
+
+| Field | |
+| --- | --- |
+| System | `src/diver.js` (a diver touching the rock of a dive site: pushed back out of it as before, but only the part of her swim into the rock stopped, the rest going on) |
+| Previous issue | Found playing the two-friends day through for B5: every moment a diver touched the rock (the Hound, the arch, the boulders), all of her swim was damped, so a diver come up under the overhanging rim of the Hound's crown, about twelve metres down, barely rose (0.15 m in two seconds), and in the play-through Mags never reached her safety stop |
+| Change | Pushed out of the rock, the way into it is stopped and the rest of the swim, up its face or along it, goes on |
+| Player benefit | Coming up beside the Hound, or along any rock, you rise and swim as you'd expect |
+| Before | The least rise anywhere round the Hound's crown, swimming up for two seconds: 0.15 m |
+| After | 0.63 m at the least, about 2.2 m against its wall |
+| Validation | New in `tests/divesites.test.mjs`: all round the Hound, five metres under its crown to its top, against its wall or a little off it, a diver swimming up rises more than 0.4 m in two seconds (fails on the old tree, 0.15 m). The dive tests all pass |
+| Remaining risks | None known |
+
