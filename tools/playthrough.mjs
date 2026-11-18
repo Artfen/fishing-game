@@ -280,7 +280,11 @@ const helmsman = async (to, secs, lever = 0.7, near = 25) => {
       const b = slowTide.boat;
       b.lever = lever;
       const want = Math.atan2(x - b.pos.x, z - b.pos.z);
-      let d = want - b.heading;
+      // (Steering by her course over the ground once she's moving, as a helmsman does in a
+      // crosswind: by her heading alone, a stiff breeze at dead slow sets her down to leeward of
+      // where she's pointing, past her berth and into the next slot.)
+      const over = b.speed > 0.4 ? Math.atan2(b.vel.x, b.vel.z) : b.heading;
+      let d = want - over;
       d = Math.atan2(Math.sin(d), Math.cos(d));
       return { d, dist: Math.hypot(x - b.pos.x, z - b.pos.z), x: b.pos.x, z: b.pos.z, v: b.speed };
     }, [to[0], to[1], lever]);
@@ -572,6 +576,16 @@ if (dA.diving === 'scuba') {
   // (Down a few metres, then along gently downhill: onto the reef's top, ten to fifteen metres.)
   await swimTo(A, REEF, 1.1, 5);
   await swimTo(A, REEF, 0.12, 60);
+  // (And down past ten metres there, so the dive needs its safety stop on the way up: the
+  // reef's top lies at ten to fifteen; the swim along it can end over a shallower knoll.)
+  for (let i = 0; i < 20 && (await A.evaluate(() => slowTide.diving.diver.depth)) < 10.5; i++) {
+    const was = await A.evaluate(() => { slowTide.rig.views.dive.pitch = 1.0; return slowTide.diving.diver.depth; });
+    await A.keyboard.down('KeyW');
+    await step(1);
+    await A.keyboard.up('KeyW');
+    // (On the bottom: along a little, then down again.)
+    if ((await A.evaluate(() => slowTide.diving.diver.depth)) - was < 0.05) await swimTo(A, [REEF[0] - 8, REEF[1] + 6], 0.4, 4);
+  }
   const under = await A.evaluate(() => {
     const d = slowTide.diving.diver, e = slowTide.eco;
     return { depth: +d.depth.toFixed(1), near: e.agents.filter((a) => a.active && a.state !== 'gone' && Math.hypot(a.x - d.pos.x, a.z - d.pos.z) < 15).length, air: Math.round(slowTide.state.dive.tank) };
@@ -655,7 +669,20 @@ if (dA.diving === 'scuba') {
     await swimTo(A, bp, 0, 15);
     if (await A.evaluate(() => Math.hypot(slowTide.diving.diver.pos.x - slowTide.boat.pos.x, slowTide.diving.diver.pos.z - slowTide.boat.pos.z)) < 4) break;
   }
-  const aboard = await A.evaluate(() => {
+  // (Up to the surface beside her: a diver climbs out only at the surface (her back 0.28 m under
+  // the wave), within reach of her side. On scuba she's neutral, so left 0.6 m down she stays
+  // there, counting as at the surface only while a trough passes over: up she comes, then.)
+  const surfaced = () => A.evaluate(() => { const d = slowTide.diving.diver; return d.atSurface(slowTide.conditions.time); });
+  const surface = async () => {
+    for (let i = 0; i < 20 && !(await surfaced()); i++) {
+      await A.evaluate(() => { slowTide.rig.views.dive.pitch = -0.6; });
+      await A.keyboard.down('KeyW');
+      await step(0.5);
+      await A.keyboard.up('KeyW');
+    }
+    await A.evaluate(() => { slowTide.rig.views.dive.pitch = 0; });
+  };
+  const climb = async () => A.evaluate(() => {
     const out = [];
     for (let i = 0; i < 6; i++) {
       const I = slowTide.interaction();
@@ -663,8 +690,17 @@ if (dA.diving === 'scuba') {
       if (/^Climb aboard/.test(I?.text || '')) { I.run(); slowTide.advance(1.5, 30, false); break; }
       slowTide.advance(0.5, 30, false);
     }
-    return { prompts: out, diving: !!slowTide.diving.state, said: window.__said.filter((m) => /^Scuba dive/.test(m)) };
+    const d = slowTide.diving.diver, b = slowTide.boat;
+    return { prompts: out, diving: !!slowTide.diving.state, said: window.__said.filter((m) => /^Scuba dive/.test(m)), depth: +(d.depth ?? 0).toFixed(2), surfaced: d.atSurface(slowTide.conditions.time), off: +(Math.hypot(d.pos.x - b.pos.x, d.pos.z - b.pos.z) - b.hull.L * 0.45).toFixed(2) };
   });
+  let aboard = null;
+  for (let k = 0; k < 6; k++) {
+    await surface();
+    aboard = await climb();
+    if (!aboard.diving) break;
+    const bp = await A.evaluate(() => [slowTide.boat.pos.x, slowTide.boat.pos.z]);
+    await swimTo(A, bp, -0.3, 4, 2);
+  }
   note('back aboard', JSON.stringify(aboard));
   check('10 · back aboard after the dive, written up', !aboard.diving && aboard.said.length > 0, JSON.stringify(aboard));
 } else {
@@ -816,7 +852,9 @@ check('12 · the anchor up, and homeward in a stiffer blow: she works harder in 
 await shot(A, 'j1-home-rough');
 // (Into the marina: down the open water east of the fingers, then in along her slot to her berth,
 // slow.)
-for (const [to, secs, lever, near] of [[MARKS[0], 80, 0.7, 25], [[34, -12], 60, 0.5, 8], [[36, -51.7], 50, 0.2, 3], [[19, -53.8], 40, 0.1, 2.5]]) {
+// (In the stiff breeze home, enough way on in the marina to steer against it: at dead slow she
+// barely moves ahead while it sets her half a metre a second to leeward, into the next slot.)
+for (const [to, secs, lever, near] of [[MARKS[0], 80, 0.7, 25], [[34, -12], 60, 0.5, 8], [[36, -51.7], 50, 0.25, 3], [[19, -53.8], 40, 0.18, 2.5]]) {
   await helmsman(to, secs, lever, near);
   note('home leg to', JSON.stringify(to), 'she is at', JSON.stringify(await where()));
 }
