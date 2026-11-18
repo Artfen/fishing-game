@@ -24,9 +24,11 @@ const SCENES = [
   // (W6) A gale and a near gale with no storm in the sky: looking across the wind (blowing towards
   // −x −z here), low over the water, at the crests breaking and what the wind tears off them, and
   // down at the whitecaps on the crests and the foam streaks on the water.
-  { name: 'gale-across', wind: 18.5, hour: 13, x: -60, z: 450, at: [-60, 2.6, 450, -46, 0.8, 436] },
-  { name: 'neargale-across', wind: 15, hour: 13, x: -60, z: 450, at: [-60, 2.6, 450, -46, 0.8, 436] },
-  { name: 'gale-down', wind: 18.5, hour: 13, x: -60, z: 450, at: [-60, 9, 450, -44, 0, 434] },
+  // (atCam: from where the game's own camera is, which is what the spray forms round: [height,
+  // how far off it looks across the wind, and down to what height].)
+  { name: 'gale-across', wind: 18.5, hour: 13, x: -60, z: 450, atCam: [2.6, 20, 0.8] },
+  { name: 'neargale-across', wind: 15, hour: 13, x: -60, z: 450, atCam: [2.6, 20, 0.8] },
+  { name: 'gale-down', wind: 18.5, hour: 13, x: -60, z: 450, atCam: [6, 14, -1] },
   // (W4) The shallows off the beach east of the camp (dry at z 32, 8 m down by z 58): looking down
   // into a metre or three of water, and in from 9 m over the sand to the beach. at: the camera
   // and what it looks at, in place of the view.
@@ -73,7 +75,9 @@ for (const S of SCENES) {
     const yaw = S.view === 'sun' ? sunYaw : S.view === 'away' ? sunYaw + Math.PI : sunYaw + Math.PI / 2;
     const cx = S.x + 6, cz = S.z + 6;
     const y = S.h, tx = cx + Math.sin(yaw) * 20, tz = cz + Math.cos(yaw) * 20, ty = y - 20 * Math.tan(S.pitch);
-    window.__view = S.at || [cx, y, cz, tx, ty, tz];
+    // (Across the wind, which blows towards −x −z here.)
+    const C = slowTide.camera.position, A = S.atCam;
+    window.__view = A ? [C.x, A[0], C.z, C.x + A[1] * 0.707, A[2], C.z - A[1] * 0.707] : S.at || [cx, y, cz, tx, ty, tz];
     slowTide.look(cx, y, cz, tx, ty, tz);
     return { hour: +slowTide.clock.hour.toFixed(2), wind: +slowTide.conditions.wind.speed.toFixed(1), sea: Object.fromEntries(Object.entries(slowTide.conditions.sea).map(([k, v]) => [k, typeof v === 'number' ? +v.toFixed(2) : v])), sun: [+L.x.toFixed(2), +L.y.toFixed(2), +L.z.toFixed(2)] };
   }, S);

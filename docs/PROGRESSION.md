@@ -160,3 +160,6 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
    broke in the troughs) and the water runs forward under them (it ran backwards); a drifting
    boat's drift fitted again to the field trials with the water right; an anchor that's dug in
    enough to hold her says so.
+15. **W6 (done):** and in a strong wind, spindrift torn off the crests where they're breaking, from
+   7 m/s up and more the harder it blows, streaming down the wind and carried up by its eddies;
+   foam blown in streaks on the water by the Beaufort scale.
