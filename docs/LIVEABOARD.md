@@ -702,7 +702,30 @@ What was planned for L7:
 dive kit ready, the other takes the tender ashore and back and it's recovered; a disconnect
 mid-launch and mid-haul; nothing doubled on either screen through a reload.
 
-**L8: where she fits.**
+**L8: where she fits (done).** What was built, and where it differs from the plan above:
+
+- **Her price and hire:** £9,500 at the Marine Works, her tender with her if you've none (the
+  yard's list says so); hired by the day like any boat, and a hired trawler takes your own tender
+  on her chocks if it's laid up, and gives it back (laid up, yours) when the hire's up. There's
+  no Free Roam in the game yet: when there is, she's to be had from the start.
+- **Her papers** count the nights slept aboard her (any boat's, in her cabin or on her deck), and
+  a tender's trips off her mother's platform, with a line in her log for each.
+- **A first liveaboard voyage suggested,** the first time you're out of the harbour in her with her
+  tender: south to Las Brasas, anchor in a cove, the tender ashore, a night aboard, and home.
+- **In a tender near her mother,** the game no longer warns you're hours from Willowhaven: her
+  mother is the way home.
+- **Played through in the browser,** from the Marine Works: bought (her tender with her), the
+  passage south (the tender carried), anchored off Playa Negra in 9 m, the tender launched, stepped
+  down into and run in to the beach (Playa Negra found), hauled back on, a night in the owner's
+  berth (her papers: one night; the tender's: one trip), up to her wheel, and the passage home
+  with the tender on her chocks. On the way, two faults found and fixed: anchored in the ocean's
+  swell her speed read as moving, so the platform stalled (at anchor or tied up she's now still,
+  unless the anchor's dragging); and a launch left pending could finish later at her berth (the
+  passage is now refused with her platform down, and raising it cancels a launch).
+- **The benchmarks:** `liveaboard` (in her saloon at dusk, at anchor) and `tender` (running in to
+  the beach), in `src/bench.js`, measured in `docs/PERFORMANCE.md`.
+
+What was planned for L8:
 - Her price and hire, and Free Roam from the start (once Free Roam exists).
 - Her pages at the Marine Works; her papers keeping nights aboard and the tender's trips.
 - A first liveaboard voyage suggested: south to Las Brasas, anchored in a cove, the tender ashore.

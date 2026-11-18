@@ -80,3 +80,15 @@ test('on her: the platform goes down as a piece, its floor and her chocks with i
   b.setPlatform(0);
   assert.equal(b.platformGroup.position.y, 0);
 });
+
+test('her papers keep nights aboard and a tender\'s trips; an older record starts them at none', async () => {
+  const { cleanVessels, newVessel } = await import('../src/papers.js');
+  const v = newVessel('trawler', 3);
+  assert.equal(v.nights, 0);
+  assert.equal(v.trips, 0);
+  const kept = cleanVessels({ trawler: { ...v, nights: 4, trips: 2 }, tender: { reg: 'x', since: 1, hours: 1, nm: 1, litres: 1, fish: 0, log: [] } }, ['trawler', 'tender'], 5);
+  assert.equal(kept.trawler.nights, 4);
+  assert.equal(kept.trawler.trips, 2);
+  assert.equal(kept.tender.nights, 0, 'a record from before: none yet');
+  assert.equal(cleanVessels({ trawler: { ...v, nights: -3, trips: 'lots' } }, ['trawler'], 5).trawler.nights, 0);
+});

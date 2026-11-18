@@ -1024,6 +1024,12 @@ const inMarina = (p) => !!p && p.x > -12 && p.x < 34 && p.z > -92 && p.z < -38;
 // Laid up: out of the water, out of sight, and out of everything that goes on afloat.
 function stow(b, loading = false) {
   if (!loading && tow && (tow.lead === b || tow.towed === b)) letGoTow(true);
+  // (L6) Her swim platform up (out of the water, it's raised), nothing launching off it.
+  if (b.hull.platform && !loading) {
+    b.platformWant = 0;
+    b.launching = null;
+    b.setPlatform(0);
+  }
   Object.assign(b, { tie: null, shove: null, anchor: null, anchored: false, lever: 0, power: 0, stowed: true });
   b.group.visible = false;
   const i = boats.indexOf(b);
@@ -2469,6 +2475,8 @@ const harbourSheet = new HarbourSheet(state, {
     closeHarbour();
     hud.toast(`The ${BOATS[kind].name} is yours for a day: she goes back to the yard at ${formatClock((state.yard.hired?.until ?? ownAbs() + 24) % 24)} tomorrow.`, 6);
     if (BOATS[kind].stowed) launchBoat(BOATS[kind]);
+    // (L8) A hired trawler takes your own tender on her chocks, if she's laid up.
+    if (BOATS[kind].hull.platform && withTender(kind) === 'yours') hud.toast(`Your tender’s on her chocks for the day.`, 4);
     // (The board, written again for a boat you have now: jobs taken or done stay as they are.)
     state.contracts.board = null;
   }),
@@ -2835,6 +2843,8 @@ function passTheNight() {
     sleeping.night = nightWords(N, boat.name, short);
   }
   camp.update(0, hours, true);
+  // (L8) A night aboard her, in her papers.
+  if ((sleeping.site === 'cabin' || sleeping.site === 'deck') && !onFoot && state.yard.vessels?.[boat.id]) state.yard.vessels[boat.id].nights = (state.yard.vessels[boat.id].nights || 0) + 1;
   // You wake warm and dry, and fill your water bottle before you set off (F1a: aboard, from her
   // water tank, if there's any left in it).
   if (needsMode() !== 'off') {
@@ -5595,7 +5605,9 @@ function watchOffshore(dt) {
   offshoreT = 3;
   const P = boat.pos, kind = boat.kind, distHome = Math.hypot(P.x - HAVEN.x, P.z - HAVEN.z);
   if (distHome < 300) offshoreSaid = {};
-  if (distHome > OFFSHORE_AT) {
+  // (L8) A tender out from her mother is out from home: her mother's the way back, not Willowhaven.
+  const mother = TENDERS.includes(kind) && boats.some((m) => m.hull.platform && !m.stowed && Math.hypot(m.pos.x - P.x, m.pos.z - P.z) < 3000);
+  if (distHome > OFFSHORE_AT && !mother) {
     const sun = sunTimes(clock.abs), toDark = state.hour < sun.set ? sun.set - state.hour : null;
     const r = turnForHome({ kind, distHome, litres: isPetrol(kind) ? fuelLevel(tanks(), boat.id) : null, toGale: hoursToGale(clock.abs), toDark });
     if (r && !offshoreSaid[r.why]) {
@@ -6334,6 +6346,8 @@ function passageWhy(S = BOATS.sail, part = 1) {
   if (driving) return 'Out of the car first.';
   if (sleeping || traveling || passage) return 'Not now.';
   if (tow && (tow.lead === S || tow.towed === S)) return 'Let go of the tow first.';
+  // (L6) Her swim platform up first (her engine won't go into gear while it's down).
+  if (S.hull.platform && (S.platformWant || S.platformDrop > 0.01)) return 'Raise her swim platform first (the control box on her aft deck): her engine won’t go into gear while it’s down.';
   const need = Math.round(passageFuel(S.id) * part);
   if (S.hull.passage && fuelLevel(tanks(), S.id) < need) {
     return `She needs ${litres(need)} aboard for the crossing, and has ${litres(fuelLevel(tanks(), S.id))}. Fill up first (${S.pos.z > SOUTH_Z ? 'the pump on Puerto Brasa quay' : 'the fuel point on Willowhaven’s pontoon'}).`;
@@ -8814,12 +8828,18 @@ function watchHire() {
   const b = BOATS[H.kind];
   if (!onFoot && boat === b) return;
   state.yard.hired = null;
+  // (L8) Your tender, if she had it on her chocks: laid up at Willowhaven, yours still.
+  const T = carriedOn(state, b.id);
+  if (T) {
+    uncarry(T);
+    state.stored = [...new Set([...state.stored, T])];
+  }
   if (!b.stowed) {
     if (boats.length <= 1) launchBoat(BOATS.row, { quiet: true });
     stow(b);
     state.stored = [...new Set([...state.stored, b.id])];
   }
-  hud.toast(`The ${b.name} has gone back to the Marine Works: your day’s hire is up. Buy her there whenever you like.`, 6);
+  hud.toast(`The ${b.name} has gone back to the Marine Works: your day’s hire is up.${T ? ` Your ${BOATS[T].name} came off her chocks first: laid up at the yard, yours as ever.` : ''} Buy her there whenever you like.`, 6);
   save();
 }
 
@@ -8906,6 +8926,7 @@ let platformSaidT = -99;
 // Lowered or raised (want: 1 or 0); a word for it.
 function setPlatformWant(M, want, words = true) {
   M.platformWant = want;
+  if (!want) M.launching = null;
   audio.knock(0.25);
   if (words) hud.flash(want ? `The ${M.name}’s platform hums down to the water.` : `The ${M.name}’s platform comes up.`, t, 2.4);
 }
@@ -8914,7 +8935,10 @@ function setPlatformWant(M, want, words = true) {
 function platformStep(dt) {
   for (const M of Object.values(BOATS)) {
     if (!M.hull.platform || M.stowed) continue;
-    const want = M.platformWant || 0, d = stepPlatform(M.platformDrop || 0, want, dt, M.steadySpeed || 0);
+    // (At anchor or tied up she's still, however the swell works her to and fro, unless her anchor's
+    // dragging; otherwise, still as her speed over the last few seconds says.)
+    const moving = M.tie || (M.anchored && !M.anchor?.dragging) ? 0 : M.steadySpeed || 0;
+    const want = M.platformWant || 0, d = stepPlatform(M.platformDrop || 0, want, dt, moving);
     if (d !== M.platformDrop) M.setPlatform(d);
     // (Launching: she floats off her chocks once it's far enough down under her.)
     const T = carriedOn(state, M.id);
@@ -8934,7 +8958,7 @@ function platformStep(dt) {
       return;
     }
     // (Her mother swings or moves: the haul stops, and the tender floats free to try again.)
-    if ((M.steadySpeed || 0) > PLATFORM.still) {
+    if (!(M.tie || (M.anchored && !M.anchor?.dragging)) && (M.steadySpeed || 0) > PLATFORM.still) {
       haulFree(B);
       hud.flash('She moved: the haul stopped, and the tender’s free on the water. Try again when she’s steady.', t, 3);
       return;
@@ -8976,6 +9000,12 @@ function floatOff(id, M) {
   B.place(_hp.x, _hp.z, M.heading - Math.PI / 2);
   painter = { t: id, m: M.id };
   M.setLoads(loadsOf(M.id));
+  // (L8) A trip off her mother's platform, in her papers.
+  const V = state.yard.vessels?.[id];
+  if (V) {
+    V.trips = (V.trips || 0) + 1;
+    logLine(V, state.day, `Launched from the ${M.name}’s swim platform.`);
+  }
   hud.flash(`The ${B.name} floats off her chocks, on her painter. Step down into her from the platform; put her in gear and the painter’s let go.`, t, 5);
   save();
 }
@@ -9002,7 +9032,7 @@ function launchTender(M) {
   const T = carriedOn(state, M.id);
   if (!T) return;
   M.platformEdge(_edge);
-  const ok = canLaunch({ anchored: M.anchored, tie: M.tie, speed: M.steadySpeed || 0, lever: M.lever }, depthAt(_edge.x, _edge.z), waveHeightHere(_edge.x, _edge.z));
+  const ok = canLaunch({ anchored: M.anchored && !M.anchor?.dragging, tie: M.tie, speed: M.steadySpeed || 0, lever: M.lever }, depthAt(_edge.x, _edge.z), waveHeightHere(_edge.x, _edge.z));
   if (!ok.ok) return hud.flash(ok.why, t, 3);
   M.launching = T;
   setPlatformWant(M, 1, false);
@@ -14111,6 +14141,10 @@ function tick(now, manual = false) {
     updateFittings(dt);
     watchHire();
   }
+  // (L8) The first time out of the harbour in the trawler with her tender: a voyage to make.
+  if (boat.hull.platform && !onFoot && !state.tips.liveaboard && boat.speed > 1.5 && carriedOn(state, boat.id) && !inMarina(boat.pos)) {
+    teach('liveaboard', 'A first voyage for her: south across to Las Brasas (the crossing, with stores and fuel aboard), anchor in one of the island’s coves, and take the tender ashore off her platform. A night aboard at anchor, and home again.', 12);
+  }
   // (L6) Her platform down (or going down): her engine won't go into gear.
   if (boat.hull.platform && (boat.platformWant || boat.platformDrop > 0.01) && throttle) {
     throttle = 0;
@@ -14771,7 +14805,7 @@ window.slowTide = {
   useSkiffAt: (x, z, heading = 0, kind = 'skiff') => {
     const b = BOATS[kind];
     if (b.stowed) {
-      if (boats.length >= MAX_AFLOAT) storeBoat(boats.find((o) => o !== boat && o !== b) || boats[0], { quiet: true });
+      if (afloatCount() >= MAX_AFLOAT) storeBoat(boats.find((o) => o !== boat && o !== b) || boats[0], { quiet: true });
       // (No room for her on the finger: the others laid up until there is.)
       for (const o of [...boats]) {
         if (launchBoat(b, { quiet: true })) break;

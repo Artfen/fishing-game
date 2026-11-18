@@ -21,6 +21,8 @@ what boat, at what hour, in what weather.
 | `dive_reef` | Diving Skerries Reef |
 | `dive_brasas` | Diving the arches at Las Brasas (the southern region loaded) |
 | `voyage` | The crossing south, under way at the yacht's helm |
+| `liveaboard` | In the trawler's saloon at dusk, at anchor off Gannet Isle, her lamps lit, her interior built and her tender on its chocks |
+| `tender` | The tender running in to the beach at Gannet Isle, the trawler at anchor behind her |
 
 Each is measured the same way: the **simulation alone** (240 steps at 30 Hz, nothing drawn: mean
 and worst 1%), a frame's **draw calls and triangles**, **real frames** running free for at least
@@ -81,6 +83,19 @@ run); they're for comparison with later runs here, not a statement about any rea
 | dive_reef | 14.3 · 23.7 | 263 | 689,561 | 228 MB |
 | dive_brasas | 9.8 · 16.6 | 167 | 1,141,802 | 257 MB |
 | voyage | 15.0 · 20.9 | 156 | 424,826 | 228 MB |
+
+The liveaboard's scenarios (L8 of `docs/LIVEABOARD.md`), measured the same way, November 2026, on
+a quiet machine (the yacht's `voyage` measured alongside them for comparison: 9.5 ms, 156 draw
+calls, against the 15.0 above taken under load):
+
+| Scenario | Sim ms (mean · worst 1%) | Draw calls | Triangles | Heap |
+| --- | --- | --- | --- | --- |
+| liveaboard | 6.1 · 15.9 | 197 | 718,856 | 228 MB |
+| tender | 9.7 · 22.9 | 130 | 367,703 | 228 MB |
+
+Living aboard costs little: the trawler's interior is two meshes (built the first time her decks
+are walked) and one light in the room you're in; the saloon at anchor is cheaper to simulate than
+running at sea. The tender under way costs what a small boat does.
 
 What stands out already, to be confirmed on real hardware before anything is changed for it:
 draw calls are highest looking at many boats or the harbour (`harbour_off` 534 after the fleet's
