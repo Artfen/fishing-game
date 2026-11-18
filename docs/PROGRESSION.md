@@ -167,3 +167,6 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
    lapping at your hull) run as the water runs them (Ocean: Full): spreading at a real ripple's
    pace, crossing one another, coming back off hulls, quays and the shore, and passing under the
    timber piers between their posts.
+17. **B3 (second part, done):** the planing trim against Savitsky: a fast boat runs at her real
+   angle, the RIB about 2.5° bow-up cruising and the jet ski 3 to 4°, where they ran a degree or two
+   flatter, riding high on half their real wetted length.
