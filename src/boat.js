@@ -5,7 +5,7 @@ import { canMount, mountFor, rigPose, propAt } from './trollmount.js';
 import * as THREE from 'three';
 import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat, wrapAngle } from './util.js';
 import { waveHeight } from './world/water.js';
-import { windAt, currentAt, currentScale, conditions, waveSampler, sampleWaves, shelterAt } from './world/conditions.js';
+import { windAt, currentAt, currentScale, conditions, waveSampler, sampleWaves, shelterAt, undrawnWave } from './world/conditions.js';
 import { buildHullModel, HydroBody, G, RHO, tubeCentre, section, hydrostatics } from './hydro.js';
 import { compartmentsFor, reserveOf, breachFlow, overFlow, rainFlow, holeArea, stepWater, waterAt, waterKg, depthOf, PUMPS, BAIL, SWAMPED, MODES as FLOOD_MODES } from './flooding.js';
 import { wakes } from './world/wakes.js';
@@ -626,6 +626,34 @@ export const DETAIL = { near: 70, far: 160, small: 0.25, mid: 0.6, slack: 6 };
 // (scene: only boats in it: the Marine Works' preview has its own, and its own camera.)
 export function boatDetail(camPos, scene = null) {
   for (const b of ALL) if (!scene || b.group.parent === scene) b.detailFor(camPos);
+}
+// (W3b) Boats far off drawn on the sea as it's drawn there. Past a few hundred metres the water's
+// sheets leave out the waves too short for their cells (water.js seaLayout), and past the far sheet
+// all of them; a boat out there still rides them all (her physics, and a friend's, are untouched),
+// so she'd bob over a sea that isn't moving. For the frame, each is lowered by the waves not drawn
+// under her middle (conditions.js undrawnWave), and put back after it (unseatFromDrawnSea): her
+// own place on the water is never changed. lod: the sheets' (water.js uWaveLod.y).
+const _seated = [];
+export function seatOnDrawnSea(camPos, lod, t, scene = null) {
+  _seated.length = 0;
+  for (const b of ALL) {
+    const g = b.group;
+    if ((scene && g.parent !== scene) || !g.visible) continue;
+    const off = undrawnWave(g.position.x, g.position.z, t, Math.hypot(g.position.x - camPos.x, g.position.z - camPos.z), lod);
+    if (Math.abs(off) < 0.005) continue;
+    g.position.y -= off;
+    g.updateMatrixWorld(true);
+    _seated.push(b, off);
+  }
+  return _seated.length / 2;
+}
+export function unseatFromDrawnSea() {
+  for (let i = 0; i < _seated.length; i += 2) {
+    const g = _seated[i].group;
+    g.position.y += _seated[i + 1];
+    g.updateMatrixWorld(true);
+  }
+  _seated.length = 0;
 }
 const SEQ = { n: 0 }; // every boat's update, counted: which ones are out on the water now
 // How much further out her middle must be past another face of a hull or a quay she's touching

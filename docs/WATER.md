@@ -844,4 +844,26 @@ included). The full table, with each LICENSE file read, is in the two research n
   storm), so from a boat the change is at the horizon; it shows most from high up and through the
   binoculars. A boat further off than about 300 m still rides the waves the sheet no longer draws
   there (a few tens of centimetres of the shortest swell at 300 to 550 m on High): less than before,
-  when past 444 m she rode all of them over a flat sea.
+  when past 444 m she rode all of them over a flat sea. (Done since: see the next entry.)
+
+- **Boats far off on the sea as drawn (W3's follow-up):** a boat out there, a friend's, a
+  townsperson's, one of your own lying off, still rode every wave the physics has, while the sheets
+  draw fewer of them the further off they are, and none past the far sheet; so she bobbed over a sea
+  that wasn't moving there. Now, for each frame drawn, a boat is lowered by the waves the sheets
+  leave out under her middle (`conditions.js` `undrawnWave`: each swell wave and the wind sea's patch
+  faded by distance exactly as the shader fades them, so the physics' sea less this is the sea as
+  drawn), and put back as soon as the frame is drawn (`boat.js` `seatOnDrawnSea`): her place on the
+  water, her physics and what's sent to a friend are as before. Measured in the game (the RIB lying
+  offshore in a 14 m/s breeze, watched from each distance; the spread, standard deviation over
+  thirty frames, of her height above the sea as drawn under her):
+
+  | Watched from | Before | Now | Above the sea itself, as close by |
+  | --- | --- | --- | --- |
+  | 420 m | 0.038 m | 0.033 m | 0.032 m |
+  | 700 m | 0.097 m | 0.047 m | 0.047 m |
+  | 1 km | 0.085 m | 0.036 m | 0.036 m |
+  | 1.6 km | 0.361 m | 0.047 m | 0.047 m |
+
+  So she sits on the sea as drawn as she sits on the water close by. Her pitch and roll still follow
+  the waves under her, the short ones the sheets leave out too: a degree or two either way, about
+  ten centimetres at the RIB's bow.
