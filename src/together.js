@@ -31,6 +31,12 @@ const RECONNECT = [1, 2, 4, 8, 15, 15, 15]; // seconds between tries after the c
 // The world the host shares (see shareWorld): its version (a newer game's is left alone, with a
 // word to reload), how often it's sent, and how long a word from the host stays good.
 export const WORLD_V = 1;
+// (L7) The pose's version: what a pose may carry (each boat kind, the fields below). A game that
+// meets a newer one says so, and the older one is told to reload: an older game drops the pose of
+// a boat kind it doesn't know, and can't draw what it doesn't know about.
+//   2: the boat's id in its own field (bi), the skipper's place aboard (dk), a platform's drop and
+//      the tender on it (pf, tc), a crewmate's height aboard (cy).
+export const POSE_V = 2;
 const WORLD_EVERY = 2;
 const WORLD_STALE = 20;
 const HOST_GRACE = 60;      // seconds the others wait for a host who's gone (a reload, a blip)
@@ -189,8 +195,20 @@ export function cleanPose(p, kinds = null, gear = null) {
   if (m === 'boat') {
     if (typeof p.k !== 'string' || (kinds && !kinds.includes(p.k))) return null;
     out.k = p.k;
-    // (G8c) Her id, when she's a second of her kind ('rib~2': see boatid.js).
-    if (isBoatId(p.i) && p.i !== p.k && kindOf(p.i) === p.k) out.i = p.i;
+    // (G8c) Her id, when she's a second of her kind ('rib~2': see boatid.js). (L7: its own field,
+    // bi; i is the tackle while they fish.)
+    if (isBoatId(p.bi) && p.bi !== p.k && kindOf(p.bi) === p.k) out.bi = p.bi;
+    // (L7) The skipper away from the wheel, walking her deck: where, in her own space ([x, z,
+    // facing], and on a boat with decks at different heights, the height of the floor they're on).
+    const dk = Array.isArray(p.dk) && (p.dk.length === 3 || p.dk.length === 4) ? p.dk : null;
+    if (dk) {
+      const dx = finite(dk[0], -3, 3), dz = finite(dk[1], -9, 9), dyaw = finite(dk[2], -7, 7), dy = dk.length === 4 ? finite(dk[3], -1, 6) : null;
+      if (dx != null && dz != null && dyaw != null) out.dk = dy != null ? [dx, dz, dyaw, dy] : [dx, dz, dyaw];
+    }
+    // (L7) Her swim platform, how far down (0 … 1), and the tender on its chocks (her id).
+    const pf = finite(p.pf, 0, 1);
+    if (pf != null) out.pf = pf;
+    if (isBoatId(p.tc) && (!kinds || kinds.includes(kindOf(p.tc))) && kindOf(p.tc) !== p.k) out.tc = p.tc;
     out.f = !!p.f;   // a line out
     out.s = !!p.s;   // under sail
     out.n = !!p.n;   // at anchor or tied up
@@ -203,7 +221,7 @@ export function cleanPose(p, kinds = null, gear = null) {
     const W = p.tw;
     // (One of a kind towing the other of it: told apart by her id.)
     const wi = W && isBoatId(W.i) && W.i !== W.k && kindOf(W.i) === W.k ? W.i : null;
-    if (W && typeof W === 'object' && typeof W.k === 'string' && (wi || W.k) !== (out.i || out.k) && (!kinds || kinds.includes(W.k))) {
+    if (W && typeof W === 'object' && typeof W.k === 'string' && (wi || W.k) !== (out.bi || out.k) && (!kinds || kinds.includes(W.k))) {
       const wx = finite(W.x, -1e5, 1e5), wz = finite(W.z, -1e5, 1e5), wh = finite(W.h, -100, 100);
       if (wx != null && wz != null && wh != null && Math.hypot(wx - x, wz - z) <= TOW_REACH) out.tw = { k: W.k, ...(wi ? { i: wi } : {}), x: wx, z: wz, h: wh, t: finite(W.t, 0, 60) ?? 0, l: finite(W.l, 0, 20) ?? 0, ...(typeof W.e === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(W.e) ? { e: W.e } : {}) };
     }
@@ -219,8 +237,8 @@ export function cleanPose(p, kinds = null, gear = null) {
   }
   // Crewing in a friend's boat (see crew.js): whose, and where in her.
   if (m === 'foot' && typeof p.cr === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(p.cr)) {
-    const cx = finite(p.cx, -3, 3), cz = finite(p.cz, -8, 8);
-    if (cx != null && cz != null) Object.assign(out, { cr: p.cr, cx, cz });
+    const cx = finite(p.cx, -3, 3), cz = finite(p.cz, -9, 9), cy = finite(p.cy, -1, 6);
+    if (cx != null && cz != null) Object.assign(out, { cr: p.cr, cx, cz }, cy != null ? { cy } : {});
   }
   if (m === 'foot' || m === 'boat') out.o = !!p.o; // (a fish on: their rod bent, and a word)
   // Fishing: the rod and what's on it, where their line meets the water (or the fish on it), and
@@ -977,6 +995,15 @@ export class Together {
     if (kind === 'pose') {
       const pose = cleanPose(data.p, this.kinds, this.gear);
       if (data.n) this.named(p, data.n, !!data.host);
+      // (L7) Another version of the game: a word, once each way (see POSE_V).
+      const v = Number.isInteger(data.v) ? data.v : 1;
+      if (v !== POSE_V && !p.toldVersion) {
+        p.toldVersion = true;
+        if (v > POSE_V) {
+          this.newer = true;
+          this.changed(`${p.name || 'A friend'} is playing a newer version of Slow Tide. Reload the page to update, so you see their boats as they are.`);
+        } else this.changed(`${p.name || 'A friend'} is playing an older version of Slow Tide: they’ll need to reload the page to see your boats as they are.`);
+      }
       if (!pose) return;
       // When they sent it, by their clock; and how far their clock is behind ours, plus the
       // quickest delivery lately (each message's lag beyond that is the wobble the delay hides).
@@ -1150,13 +1177,18 @@ export class Together {
     const slow = Math.hypot(P.vx || 0, P.vz || 0) < 0.15; // (keeping still is keeping still)
     const msg = { m: P.m, x: r2(P.x), z: r2(P.z), h: r2(P.h), vx: slow ? 0 : r2(P.vx), vz: slow ? 0 : r2(P.vz) };
     if (P.m === 'boat') Object.assign(msg, { k: P.k, f: P.f ? 1 : 0, s: P.s ? 1 : 0, n: P.n ? 1 : 0 });
+    // (L7) Her id (a second of a kind), the skipper's place on her deck, her platform and tender.
+    if (P.m === 'boat' && P.bi) msg.bi = P.bi;
+    if (P.m === 'boat' && Array.isArray(P.dk)) msg.dk = P.dk.map(r2);
+    if (P.m === 'boat' && P.pf != null) msg.pf = Math.round(P.pf * 20) / 20;
+    if (P.m === 'boat' && P.tc) msg.tc = P.tc;
     if (P.m === 'boat' && Array.isArray(P.tr)) msg.tr = P.tr;
     if (P.m === 'boat' && P.zz) msg.zz = 1; // (J3: asleep aboard)
     // (F4b) The boat you're towing, and the line.
     if (P.m === 'boat' && P.tw) msg.tw = { k: P.tw.k, x: r2(P.tw.x), z: r2(P.tw.z), h: r2(P.tw.h), t: Math.round((P.tw.t || 0) * 10) / 10, l: Math.round((P.tw.l || 0) * 10) / 10, ...(P.tw.e ? { e: P.tw.e } : {}) };
     if (P.m === 'foot') msg.a = P.a;
     if (P.m === 'dive') Object.assign(msg, { y: r2(P.y ?? 0), pt: r2(P.pt ?? 0), kt: P.kt === 's' ? 's' : 'f', kk: P.kk ? 1 : 0 });
-    if (P.m === 'foot' && P.cr) Object.assign(msg, { cr: P.cr, cx: r2(P.cx), cz: r2(P.cz) });
+    if (P.m === 'foot' && P.cr) Object.assign(msg, { cr: P.cr, cx: r2(P.cx), cz: r2(P.cz) }, P.cy != null ? { cy: r2(P.cy) } : {});
     if ((P.m === 'foot' || P.m === 'boat') && P.o) msg.o = 1;
     // (Fishing: the rod, what's on it, where the line meets the water, the load with a fish on.)
     if ((P.m === 'foot' || P.m === 'boat') && (P.f || P.a === 'fish' || P.o)) {
@@ -1181,12 +1213,13 @@ export class Together {
       || S.r !== msg.r || S.i !== msg.i || (S.ex == null) !== (msg.ex == null) || (msg.ex != null && Math.hypot(S.ex - msg.ex, S.ez - msg.ez) > 0.3)
       || Math.abs((S.tn ?? 0) - (msg.tn ?? 0)) > 0.12 || S.mv !== msg.mv || S.hk !== msg.hk || S.nt !== msg.nt || S.sp !== msg.sp
       || Math.abs((S.xl ?? 0) - (msg.xl ?? 0)) > 3 || Math.abs((S.sl ?? 100) - (msg.sl ?? 100)) > 2
-      || S.cr !== msg.cr || (msg.cr && Math.hypot(S.cx - msg.cx, S.cz - msg.cz) > 0.15)
+      || S.cr !== msg.cr || (msg.cr && Math.hypot(S.cx - msg.cx, S.cz - msg.cz) > 0.15) || Math.abs((S.cy ?? 0) - (msg.cy ?? 0)) > 0.1
+      || S.bi !== msg.bi || String(S.dk) !== String(msg.dk) || S.pf !== msg.pf || S.tc !== msg.tc
       || String(S.tr) !== String(msg.tr) || S.zz !== msg.zz
       || (S.tw?.k ?? null) !== (msg.tw?.k ?? null) || (msg.tw && (Math.hypot(S.tw.x - msg.tw.x, S.tw.z - msg.tw.z) > 0.25 || Math.abs(S.tw.h - msg.tw.h) > 0.05 || Math.abs(S.tw.t - msg.tw.t) > 0.5 || Math.abs(S.tw.l - msg.tw.l) > 0.5 || S.tw.e !== msg.tw.e))
       || S.kt !== msg.kt || S.kk !== msg.kk || Math.abs((S.y ?? 0) - (msg.y ?? 0)) > 0.25 || Math.abs((S.pt ?? 0) - (msg.pt ?? 0)) > 0.1;
     if (!now && (this.sendT > 0 || (!moved && this.clock - (S?.at ?? -99) < IDLE_EVERY))) return;
-    this.rt.send('pose', { id: this.id, n: this.name(), host: this.hosting, t: Math.round(this.now() * 1000) / 1000, p: msg });
+    this.rt.send('pose', { id: this.id, n: this.name(), host: this.hosting, t: Math.round(this.now() * 1000) / 1000, v: POSE_V, p: msg });
     this.sent = { ...msg, at: this.clock };
     this.sendT = SEND_EVERY;
   }

@@ -19,6 +19,7 @@ import { Diver } from '../diver.js';
 import { kindOf } from '../boatid.js';
 import { floorAt as planFloor, heightOf as planHeight } from '../deckplan.js';
 
+const _cv = new THREE.Vector3(), _cq = new THREE.Quaternion(), _ACROSS = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
 const LINE_N = 18;  // points along a friend's line
 const DIVER_SEEN = 160; // how near a friend diving is drawn (m)
 const CREW_NEAR = 4;    // m beyond a boat's half-length she's still the one you're stood in
@@ -415,7 +416,7 @@ export class VisitorView {
     // (On her sole, or up on a deck if that's where they are: a bass boat's casting decks; on a
     // boat with a deck plan, the trawler's, the floor under them there.)
     const H = B.hull, t = (P.cz + H.L / 2) / H.L, onDeck = (H.decks || []).some(([a, b]) => t >= a && t <= b);
-    const F = B.plan && planFloor(B.plan, P.cx, P.cz);
+    const F = B.plan && planFloor(B.plan, P.cx, P.cz, null, P.cy ?? null);
     _crew.set(P.cx, F ? planHeight(F, P.cx, P.cz) : onDeck ? deckY(H, P.cz) : H.floorY ?? 0.1, P.cz);
     B.body.localToWorld(_crew);
     return { x: _crew.x, y: _crew.y, z: _crew.z, h: B.heading };
@@ -436,7 +437,7 @@ export class VisitorView {
       const diving = P.m === 'dive' && far < DIVER_SEEN;
       if (d.figure) d.figure.group.visible = false;
       if (d.diver && !diving) d.diver.group.visible = false;
-      for (const [k, b] of Object.entries(d.boats)) if (k !== (P.i || P.k) || !afloat) b.group.visible = false;
+      for (const [k, b] of Object.entries(d.boats)) if (k !== (P.bi || P.k) || !afloat) b.group.visible = false;
       let tip = null;
       if (onFoot) {
         const f = this.figureFor(d, p.id);
@@ -465,9 +466,11 @@ export class VisitorView {
           f.rodTip.children[0].visible = P.ex == null;
         }
       } else if (afloat) {
-        const b = this.boatFor(d, P.i || P.k);
+        const b = this.boatFor(d, P.bi || P.k);
         if (P.r) b.setRod(P.r);
         this.drawBoat(d, b, P, A, dt, t, { fx, glow, night, lights, eye });
+        // (L7) Their tender on her chocks, riding with her.
+        if (P.tc && b.chocksAt) this.drawCarried(b, this.mooredFor(d, P.tc));
         if (P.f || P.o) tip = b.rodTip;
         this.drawTow(d, b, P, A, dt, t);
       } else if (diving) this.drawDiver(d, P, A, dt, t);
@@ -478,14 +481,28 @@ export class VisitorView {
       const keep = new Set();
       // (The one on their towline is drawn with them, above.)
       if (afloat && P.tw) keep.add(P.tw.i || P.tw.k);
+      if (afloat && P.tc) keep.add(P.tc);
       for (const F of p.fleet || []) {
         const fid = F.i || F.k;
-        if ((P.m === 'boat' && fid === (P.i || P.k)) || (afloat && P.tw && fid === (P.tw.i || P.tw.k)) || Math.hypot(F.x - from.x, F.z - from.z) > 900) continue;
+        if ((P.m === 'boat' && fid === (P.bi || P.k)) || (afloat && P.tw && fid === (P.tw.i || P.tw.k)) || Math.hypot(F.x - from.x, F.z - from.z) > 900) continue;
         keep.add(fid);
         this.drawMoored(this.mooredFor(d, fid), F, t, false, dt);
       }
       for (const [k, b] of Object.entries(d.moored)) if (!keep.has(k)) b.group.visible = false;
     }
+  }
+
+  // (L7) A friend's tender on her mother's chocks (b, their trawler), athwartships, her bow to
+  // starboard, as the game places your own (main.js carriedStep).
+  drawCarried(b, T) {
+    T.group.visible = true;
+    b.body.updateMatrixWorld();
+    b.body.localToWorld(b.chocksAt(0, _cv));
+    b.body.getWorldQuaternion(_cq);
+    T.group.position.copy(_cv);
+    T.group.quaternion.copy(_cq).multiply(_ACROSS);
+    T.body.position.set(0, 0, 0);
+    T.body.rotation.set(0, 0, 0);
   }
 
   // A friend diving: their diver, where they are and as deep, head up or down as they swim, the
@@ -607,6 +624,19 @@ export class VisitorView {
     }
     // (Their bow trolling motor, where theirs is: stowed, swinging down, at depth, its head turned.)
     b.trollView = P.tr ? cleanTrollWire(P.tr, b.trollMount) : null;
+    // (L7) The skipper away from her wheel, walking her deck: there, on the floor they're on, a
+    // stride as they go.
+    if (P.dk && H.standing) {
+      if (!b.deck) b.setDeck(true);
+      const [x, z, yaw, y] = P.dk, D = b.deck, went = Math.hypot(x - D.x, z - D.z);
+      D.step += Math.min(went, 0.5) * 5.5;
+      D.moving = damp(D.moving || 0, went > 0.004 ? 1 : 0, 6, dt);
+      Object.assign(D, { x, z, yaw });
+      const F = b.plan && planFloor(b.plan, x, z, null, y ?? null);
+      if (F) Object.assign(D, { floor: F.id, y: planHeight(F, x, z) });
+    } else if (b.deck) b.setDeck(false);
+    // (L7) Her swim platform as far down as theirs.
+    if (b.setPlatform && P.pf != null && P.pf !== b.platformDrop) b.setPlatform(P.pf);
     b.animate(dt, t, speed > 0.3 && !H.sail ? 0.7 : 0, 0, P.n ? night : 0);
     b.group.updateMatrixWorld(true);
     // (Solid to your boats: you bump off a friend's boat as off any other.)

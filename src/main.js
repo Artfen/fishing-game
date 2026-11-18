@@ -12007,7 +12007,7 @@ function whereIAm() {
     else if (F && !F.atNet) gear.mv = F.jumping > 0 ? 'jump' : F.shakeT > 0 ? 'shake' : F.move === 'charge' ? 'charge' : F.move === 'sound' ? 'sound' : F.move === 'circle' && !F.pulling ? 'circle' : F.pulling ? (F.move === 'dive' || F.move === 'longrun' ? F.move : 'run') : undefined;
     if (F) Object.assign(gear, { sp: F.sp.id, sz: Math.round(F.size) });
   }
-  if (onFoot && crew.on) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: fishing.lineOut ? 'fish' : walker.moving ? 'walk' : 'stand', o: on, cr: crew.on.id, cx: crew.on.x, cz: crew.on.z, ...gear };
+  if (onFoot && crew.on) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: fishing.lineOut ? 'fish' : walker.moving ? 'walk' : 'stand', o: on, cr: crew.on.id, cx: crew.on.x, cz: crew.on.z, ...(crew.on.y != null ? { cy: crew.on.y } : {}), ...gear };
   if (onFoot) return { m: 'foot', x: walker.pos.x, z: walker.pos.z, h: walker.heading, a: sitting ? 'sit' : fishing.lineOut ? 'fish' : walker.speed > 0.4 ? 'walk' : 'stand', o: on, ...gear };
   // (Her bow trolling motor, where it is: friends see it stowed, swinging down, or at work.)
   const T = boat.troll, tr = T ? trollWire(T.tier, T.mech, T.angle, T.f > 20 || (boat.bowNotch > 0 && T.deployed)) : undefined;
@@ -12015,7 +12015,10 @@ function whereIAm() {
   // friends see her come along behind you, and a crewmate tending it knows the strain.
   const W = tow?.lead === boat ? tow.towed : null;
   const tw = W ? { k: W.kind, ...(W.id !== W.kind && BOATS[W.id] === W ? { i: W.id } : {}), x: W.pos.x, z: W.pos.z, h: W.heading, t: (tow.T || 0) / 1000, l: tow.extra || 0, ...(tow.tender ? { e: tow.tender.id } : {}) } : undefined;
-  return { m: 'boat', k: boat.kind, ...(boat.id !== boat.kind ? { i: boat.id } : {}), x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), ...(sleeping ? { zz: 1 } : {}), o: on, ...(tr ? { tr } : {}), ...(tw ? { tw } : {}), ...gear };
+  // (L7) Away from her wheel, where you are on her deck; her platform and the tender on it.
+  const D = boat.deck && !boat.atHelm ? boat.deck : null, dk = D ? [D.x, D.z, D.yaw, ...(D.y != null ? [D.y] : [])] : undefined;
+  const tc = boat.hull.platform ? carriedOn(state, boat.id) : null;
+  return { m: 'boat', k: boat.kind, ...(boat.id !== boat.kind ? { bi: boat.id } : {}), x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), ...(sleeping ? { zz: 1 } : {}), o: on, ...(tr ? { tr } : {}), ...(tw ? { tw } : {}), ...(dk ? { dk } : {}), ...(boat.hull.platform ? { pf: boat.platformDrop || 0 } : {}), ...(tc ? { tc } : {}), ...gear };
 }
 // A friend's fish, as it fights at the end of their line.
 const FISH_MOVE_WORDS = { run: 'fish on! it’s running', jump: 'fish on! it’s leaping', shake: 'fish on! head-shaking', charge: 'fish on! it’s charging', dive: 'fish on! it’s diving', longrun: 'fish on! a long run', sound: 'fish on! it’s sounding', circle: 'fish on! it’s circling' };

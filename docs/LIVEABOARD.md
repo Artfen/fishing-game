@@ -655,7 +655,6 @@ What was planned for L5:
   it's saved, the platform moving as a piece with its floor and chocks).
 
 What was planned for L6:
-**L6: launching and recovering.**
 - The platform: its model, movement, the three controls and the interlock.
 - The painter, the launch, the recovery window and the haul.
 - Every rule in the table above; diving and swimming from the platform.
@@ -666,7 +665,34 @@ What was planned for L6:
   landing, ashore, back, recovered;
 - twenty deliberately sloppy recoveries in a row, none impossible.
 
-**L7: together.**
+**L7: together (done).** What was built, and where it differs from the plan above:
+
+- **The bug first:** a friend's second boat of a kind is now sent by her own id, in a field of
+  its own (`bi`): before, the pose put it in `i`, which the sending path only sent while fishing,
+  and then as the tackle. Friends in `rib~2` are drawn as `rib~2`. Tested through the real
+  sending path (`tests/liveaboard-together.test.mjs`); the older tests that checked the old field
+  were changed to the new one.
+- **A version on every pose** (`POSE_V`): two games of different versions each say so, once: the
+  newer tells the player with the older to reload. (An older game drops the pose of a boat kind it
+  doesn't know: now it's told why.)
+- **The skipper away from the wheel:** where they are on her deck goes in her pose (`dk`), and
+  friends see them walk about her, on the floor they're on.
+- **Her platform and tender:** how far down her platform is (`pf`) and the tender on its chocks
+  (`tc`) go in her pose; friends see the platform down and the tender riding on her.
+- **Crew on her plan:** a crewmate's height aboard goes with them (`cy`), so the cabins under the
+  pilothouse aren't taken for the pilothouse sole; the range a crewmate's place may take reaches
+  her platform.
+- **Never rested with a crewmate at the helm:** the helm handover only ever runs the boat the
+  owner is in, which is never rested; so it holds as it is.
+- **Not done here:** a crewmate working the platform (asked of the owner's game), and a friend
+  driving the tender while the owner stays aboard the trawler (the handover runs only the boat
+  the owner is in; letting a friend's game run her is the "lending" the plan describes, its own
+  piece of work).
+- **Tests:** `tests/liveaboard-together.test.mjs` (the id fishing or not, the deck, the platform,
+  the tender and the crewmate's height across the wire, the version words, and a friend's trawler
+  drawn as she is).
+
+What was planned for L7:
 - The boat-id fix first.
 - Crew on the plan; the platform asked of the owner's game.
 - A friend at the tender's helm: never rested; its feel measured; lent if it needs to be.

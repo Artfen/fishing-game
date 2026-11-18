@@ -431,7 +431,8 @@ careers, contracts, story, boat ownership and co-op are here already; see the se
    platform; fished from her decks): done. L4, living aboard (the saloon, the galley, the
    cabins below, the chart table, her lamps; sleeping in her berth): done. L5, the tender carried
    on her platform: done. L6, launching and recovering her (the platform, the painter, the haul):
-   done.
+   done. L7, playing together aboard her (and a fix: a friend's second boat of a kind is drawn as
+   herself): done.
 3. The Las Brasas archipelago (in today's world: no new world architecture needed).
 4. The world extended: building and dropping regions as you come and go, checking the far
    coordinates in the shaders, the chart and the passage speed-up; the downloadable build.

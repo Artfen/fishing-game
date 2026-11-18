@@ -117,15 +117,16 @@ test('G8c2: a boat bought now is built and set up as every boat is, and named ap
 
 test('G8c3: friends see a second boat of a kind by her id; one RIB can tow the other', () => {
   const KINDS = ['row', 'skiff', 'kayak', 'bass', 'cabin', 'sail', 'cruiser', 'console', 'windsurf', 'jetski', 'rib'];
-  // A pose: in the second RIB, towing the first.
-  const p = Tg.cleanPose({ m: 'boat', k: 'rib', i: 'rib~2', x: 10, z: 20, h: 1, tw: { k: 'rib', x: 12, z: 26, h: 1 } }, KINDS);
+  // A pose: in the second RIB, towing the first. (L7: her id in its own field, bi: i is the
+  // tackle while fishing, and the id was never sent in it; see tests/liveaboard-together.test.mjs.)
+  const p = Tg.cleanPose({ m: 'boat', k: 'rib', bi: 'rib~2', x: 10, z: 20, h: 1, tw: { k: 'rib', x: 12, z: 26, h: 1 } }, KINDS);
   assert.equal(p.k, 'rib');
-  assert.equal(p.i, 'rib~2', 'which RIB she\'s in');
+  assert.equal(p.bi, 'rib~2', 'which RIB she\'s in');
   assert.ok(p.tw && p.tw.k === 'rib' && !p.tw.i, 'towing the other RIB (the first)');
   // Towing herself (the same boat) isn't a tow; an id that isn't of her kind is dropped.
   assert.ok(!Tg.cleanPose({ m: 'boat', k: 'rib', x: 0, z: 0, h: 0, tw: { k: 'rib', x: 2, z: 5, h: 0 } }, KINDS).tw, 'the first RIB towing the first RIB');
-  assert.ok(!('i' in Tg.cleanPose({ m: 'boat', k: 'rib', i: 'sail~2', x: 0, z: 0, h: 0 }, KINDS)), 'an id of another kind dropped');
-  assert.ok(!('i' in Tg.cleanPose({ m: 'boat', k: 'rib', i: 'rib', x: 0, z: 0, h: 0 }, KINDS)), 'the first of a kind sends no id');
+  assert.ok(!('bi' in Tg.cleanPose({ m: 'boat', k: 'rib', bi: 'sail~2', x: 0, z: 0, h: 0 }, KINDS)), 'an id of another kind dropped');
+  assert.ok(!('bi' in Tg.cleanPose({ m: 'boat', k: 'rib', bi: 'rib', x: 0, z: 0, h: 0 }, KINDS)), 'the first of a kind sends no id');
   // Moored: both RIBs, each once.
   const F = Tg.cleanFleet([{ k: 'rib', x: 1, z: 1, h: 0 }, { k: 'rib', i: 'rib~2', x: 5, z: 1, h: 0 }, { k: 'rib', i: 'rib~2', x: 9, z: 1, h: 0 }, { k: 'rib', x: 3, z: 3, h: 0 }], KINDS);
   assert.deepEqual(F.map((b) => b.i || b.k), ['rib', 'rib~2'], 'both RIBs, each once');
@@ -142,7 +143,7 @@ test('G8c3: a crossing in a second boat of a kind is kept; the crossing\'s words
     ['reefed, the sailing boat making it', /if \(b\.kind === 'sail'\) b\.reef = C\?\.eased && C\.kind === b\.id/],
     ['the best crossing for a boat of her kind', /P\.best\[kindOf\(C\.kind\)\] = mins/],
     ['a voyage in her, by her id', /onVoyage\(V, \{ k: 'boat', kind: boat\.id \}\)/],
-    ['her id to friends, a second of a kind\'s', /k: boat\.kind, \.\.\.\(boat\.id !== boat\.kind \? \{ i: boat\.id \} : \{\}\)/],
+    ['her id to friends, a second of a kind\'s', /k: boat\.kind, \.\.\.\(boat\.id !== boat\.kind \? \{ bi: boat\.id \} : \{\}\)/],
     ['her moored boats to friends, by id', /k: b\.kind, \.\.\.\(b\.id !== b\.kind \? \{ i: b\.id \} : \{\}\), x: b\.pos\.x/],
   ]) assert.match(src, re, what);
 });
