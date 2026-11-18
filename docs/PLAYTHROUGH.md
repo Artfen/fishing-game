@@ -237,6 +237,24 @@ thinking that the script had to be taught.
   motored on and hit the quay at eight knots).
 - **Anchoring at the reef:** at a walking pace on to the anchorage (off the plane she carried her
   way fifty metres past it). See below for where.
+- **Back to the boat after the dive** (step 10 failed now and then, and once in three runs on
+  W7): she was swum back to the boat 0.6 m down and left there. A diver climbs out only at the
+  surface (her back 0.28 m under the wave) and within reach of the hull; on scuba she's neutral,
+  so at 0.6 m she stayed at 0.6 m, counting as at the surface only while a trough passed over. The
+  script now brings her up until the game's own test says she's at the surface, then climbs out,
+  and swims back alongside and tries again if not; the depth, whether she's surfaced and how far
+  off the hull she is are written out either way.
+- **Down past ten metres on the reef.** The swim along the reef can end over a shallower knoll
+  (once at 7.9 m), and above ten metres no safety stop is due, so the check that she made one
+  failed. The script now takes her down past ten metres there before coming up.
+- **Home into the marina in the stiffer blow** (failed about one run in four or five, and in two of
+  three on W7: she was found 21 m south of her berth, in the next slot, and the anchor went down).
+  At dead slow (a tenth of the lever) she barely moved ahead while the 10.8 m/s breeze set her
+  half a metre a second to leeward, and the script steered by her heading. Now it steers by her
+  course over the ground once she's moving (from 0.4 m/s), as a helmsman does in a crosswind, with
+  a little more way on in the marina (0.25 and 0.18 of the lever, not 0.2 and 0.1). In the run
+  that passed she came alongside the far side of her own finger, at the console's berth, about
+  8 m from her own: the check asks only that she's tied up.
 
 ## Harness artefacts (not the game)
 
