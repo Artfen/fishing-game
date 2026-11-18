@@ -461,7 +461,8 @@ own simulation and in the browser:
   five stretches and judges their middle, with a hard cap well short of standing on her tail.
 - **Deferred to L4:** building her only when she's needed. Today she costs about 75 ms to build
   and 26,000 vertices, and she isn't drawn while laid up. Her interior is what will make it worth
-  doing.
+  doing. (L4: her interior is built when first walked; the rest of her is still built with the
+  other boats, as it costs no more than the yacht.)
 - **Fishing from her** waited for L3: her aft deck is reached on foot (now done, below).
 
 What was planned for L2:
@@ -526,7 +527,50 @@ What was planned for L3:
 - in the browser she's walked end to end on keyboard, controller and touch, at anchor in a swell
   and at eight knots, with no clipping, and the cutaway shows each room.
 
-**L4: living aboard.**
+**L4: living aboard (done).** What was built, and where it differs from the plan above:
+
+- **The interior**, placed from the same numbers as her plan (`trawlerPlaces`): the saloon in
+  through the sliding door off the aft deck (the door is an opening now, its door slid aside), with
+  the galley to port (stove, sink, lockers), the dinette to starboard, the settee forward of the
+  galley and the engine-room hatch in its sole; four steps up from it through a doorway in the
+  pilothouse's back; a companionway down from the pilothouse (to port of the steps) to the cabins:
+  the lobby at its foot, the guest cabin with its two bunks to starboard, the heads to port, and
+  forward the owner's cabin with its lockers and the double berth narrowing into her bow. Bulkheads,
+  linings and deckheads close the cabins in; her deck is open over them (the pilothouse sole and
+  the trunk, which now starts at the pilothouse's front, cover them).
+- **Heights differ from the table:** the cabins' sole is 0.4 m up from her keel, about 0.3 m
+  below her waterline rather than just above it, for headroom under the pilothouse sole (the
+  water's kept out of her by the hull's lid, as in every boat).
+- **Clearance:** where you stand inside keeps 0.2 m from every wall (`CLEAR`), 0.1 m on the
+  narrow side decks, so in first person your eyes never come up against one. Floors that lie one
+  over another (the cabins under the pilothouse) are told apart by the height you're at.
+- **Every spot wired to what the game already does:** the galley cooks and eats from her stores
+  (the cabin boat's galley, `openCamp('cook', 'cabin')`); the dinette opens your journal; the
+  engine-room hatch looks her over; the chart table gives the forecast (the harbour board's
+  outlook) and opens the chart; the bunks and your berth sleep (at anchor or made fast, as the
+  cabin boat's bunk); the heads is a wash. Nothing new behind any of them.
+- **Lights and the night:** a lamp in the saloon and one below, and a light of her own in the
+  room you're in, after dark or while you're inside; her windows glow from outside after dark.
+  Inside counts as indoors for how you feel. On her deck at anchor she offers no bivvy: you go
+  below.
+- **The camera:** in the saloon and the pilothouse, third person lifts the boat deck and the
+  pilothouse roof away; below, the view goes to your eyes as you start down the companionway and
+  back out as you come up.
+- **Built when needed:** her interior (two meshes) is built the first time anyone walks her
+  decks; her lamps and her light are there from the start, so the scene's lights never change
+  under you. Until then she's 61 draw calls and 10,700 triangles; inside and all, 63 and about
+  12,300.
+- **In the browser,** at anchor off Gannet Isle: through the door to the galley (cooking), the
+  dinette (the journal), the engine-room hatch, up the steps to the chart table (the forecast and
+  the chart), down the companionway (first person) to the guest cabin and the owner's berth, slept
+  there to dawn and woke in it, and back up (third person again); after dark her windows glow.
+- **Tests:** in `tests/deckplan.test.mjs`, the way in through the door, up the steps and down the
+  companionway, never more than a short step; floors one over another kept apart; the cabins'
+  bulkheads and doors; standing clear of every wall and under the deckhead; below, the lamp and
+  the windows; in `tests/trawler.test.mjs`, the interior built only when wanted, and her budget
+  with it.
+
+What was planned for L4:
 - The interior built: saloon, galley, pilothouse, cabins, heads, the engine-room hatch.
 - Every spot wired to what the game already does.
 - Lights inside, the night aboard, meals under way.

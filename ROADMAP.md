@@ -428,7 +428,8 @@ careers, contracts, story, boat ownership and co-op are here already; see the se
 2. The liveaboard and her tender, tested in home waters (`docs/LIVEABOARD.md`, L1 to L8). L1, the
    tender as a boat of her own: done. L2, the trawler's hull, helm and handling: done (with a fix
    for every boat: none spins at rest any more). L3, walking aboard her (decks, pilothouse,
-   platform; fished from her decks): done.
+   platform; fished from her decks): done. L4, living aboard (the saloon, the galley, the
+   cabins below, the chart table, her lamps; sleeping in her berth): done.
 3. The Las Brasas archipelago (in today's world: no new world architecture needed).
 4. The world extended: building and dropping regions as you come and go, checking the far
    coordinates in the shaders, the chart and the passage speed-up; the downloadable build.

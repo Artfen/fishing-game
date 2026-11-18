@@ -20,7 +20,7 @@ import { anchorBottom, setBy, uplift, UPLIFT_REF, rodeOf, rodePoints, ANCHOR_HOL
 import { CLEAR_K } from './apart.js';
 import { Dress } from './dress.js';
 import { CARGO, slide as slidePiece } from './cargo.js';
-import { trawlerPlan, trawlerPlaces, step as planStep, spotAt as planSpot, nearestOn } from './deckplan.js';
+import { trawlerPlan, trawlerPlaces, pilotSole, step as planStep, spotAt as planSpot, nearestOn } from './deckplan.js';
 import { MODES, materialOf, sectionAt, knock, scrape as scrapeHull, firmness, roughness, chamberAt, CHAMBER_SPLIT, surfaceAt, legStrike, rudderStrike, shake, steered, mountPush, plugLets } from './damage.js';
 import { sailForce, hullDrag, boardGrip, heelFor, SAIL, boardDrag, finGrip } from './sailing.js';
 
@@ -500,15 +500,17 @@ function formHalf(H, F, t, y) {
 
 // A deck across the hull between t0 and t1 (a kayak's covered ends, a bass boat's casting
 // decks): from gunwale to gunwale, a little below them (drop) and crowned along the middle.
-function deckSurface(H, t0, t1, drop) {
+// (gap: an opening down her middle, gap m either side of it, where something else covers her
+// there and there's room below: the trawler's cabins under her pilothouse and trunk.)
+function deckSurface(H, t0, t1, drop, gap = 0) {
   const N = 8, pos = [];
   let prev = null;
   for (let i = 0; i <= N; i++) {
     const t = t0 + (t1 - t0) * (i / N), w = hw(H, t) * 0.98, y = sheer(H, t) - drop, z = zAt(H, t);
-    const crown = drop ? 0 : 0.035 * Math.min(1, w / 0.2);
-    const cur = [[-w, y, z], [0, y + crown, z], [w, y, z]];
+    const crown = drop ? 0 : 0.035 * Math.min(1, w / 0.2), g = Math.min(gap, w);
+    const cur = gap ? [[-w, y, z], [-g, y, z], [g, y, z], [w, y, z]] : [[-w, y, z], [0, y + crown, z], [w, y, z]];
     if (prev) {
-      for (const k of [0, 1]) pos.push(...prev[k], ...cur[k], ...cur[k + 1], ...prev[k], ...cur[k + 1], ...prev[k + 1]);
+      for (const k of gap ? [0, 2] : [0, 1]) pos.push(...prev[k], ...cur[k], ...cur[k + 1], ...prev[k], ...cur[k + 1], ...prev[k + 1]);
     }
     prev = cur;
   }
@@ -3678,12 +3680,14 @@ export class Boat {
     const H = this.hull, S = H.standing, y0 = H.floorY, yp = S.floor, [hx, hz] = S.helm;
     const white = '#f2efe8', trim = '#e6e2d8', steel = '#c9cdd0', black = '#1d2125', dark = '#1f2c36';
     const V = (x, y, z) => new THREE.Vector3(x, y, z);
-    const parts = [], wood = [], glass = [], roof = [];
+    const parts = [], wood = [], glass = [], roof = [], panes = [];
     const box = (w, h, d, x, y, z, color, rx = 0, ry = 0, rz = 0, list = parts) => list.push({ geo: new THREE.BoxGeometry(w, h, d), matrix: mat(x, y, z, rx, ry, rz), color });
     const tOf = (z) => (z + H.L / 2) / H.L;
     const deckAt = (z) => sheer(H, clamp(tOf(z), 0, 1)) - 0.7;
-    // Her decks, teak.
-    wood.push({ geo: deckSurface(H, 0.002, 0.985, 0.7), color: '#a8784a', jitter: 0.03 });
+    // Her decks, teak (and the saloon's sole). Open down her middle where the cabins are below,
+    // under the pilothouse sole and the foredeck's trunk, which cover them.
+    const PL = trawlerPlaces(H), tw = 1.05;
+    for (const [a, b, gap] of [[-6.67, -0.3, 0], [-0.3, 2.3, 1.5], [2.3, 4.75, tw], [4.75, 6.5, 0]]) wood.push({ geo: deckSurface(H, tOf(a), tOf(b), 0.7, gap), color: '#a8784a', jitter: 0.03 });
     // The saloon house: z from sz0 to sz1, half-width hw0, its roof (the boat deck) at yr, running
     // on aft to zb over the aft deck.
     const sz0 = -4.3, sz1 = -0.3, hw0 = 1.55, yr = y0 + 2.05, zb = -5.75;
@@ -3692,25 +3696,29 @@ export class Boat {
       // (Two long windows each side, dark, set in a frame.)
       for (const [a, b] of [[-4.0, -2.55], [-2.35, -0.75]]) {
         box(0.02, 0.9, b - a + 0.08, sd * (hw0 + 0.035), y0 + 1.27, (a + b) / 2, trim);
-        box(0.02, 0.8, b - a, sd * (hw0 + 0.045), y0 + 1.27, (a + b) / 2, dark);
+        box(0.02, 0.8, b - a, sd * (hw0 + 0.045), y0 + 1.27, (a + b) / 2, dark, 0, 0, 0, panes);
       }
     }
-    // Its after end: the sliding door to port of the middle, a window each side of it.
-    box(hw0 * 2, yr - y0, 0.07, 0, (y0 + yr) / 2, sz0, white);
-    box(0.86, 1.95, 0.02, 0.35, y0 + 0.98, sz0 - 0.04, trim);
-    box(0.78, 1.15, 0.02, 0.35, y0 + 1.35, sz0 - 0.05, dark);
-    box(0.04, 0.2, 0.03, 0.02, y0 + 1.0, sz0 - 0.06, steel);
-    box(0.62, 0.8, 0.02, -0.75, y0 + 1.3, sz0 - 0.045, dark);
-    box(0.4, 0.8, 0.02, 1.22, y0 + 1.3, sz0 - 0.045, dark);
+    // Its after end: the doorway to port of the middle (its door slid open, across the window to
+    // port of it), a window each side.
+    const [d0, d1] = PL.slide, dh = 1.95;
+    box(d0 + hw0, yr - y0, 0.07, (d0 - hw0) / 2, (y0 + yr) / 2, sz0, white);
+    box(hw0 - d1, yr - y0, 0.07, (d1 + hw0) / 2, (y0 + yr) / 2, sz0, white);
+    box(d1 - d0, yr - y0 - dh, 0.07, (d0 + d1) / 2, (y0 + dh + yr) / 2, sz0, white);
+    box(0.86, 1.95, 0.02, d1 + 0.43, y0 + 0.98, sz0 - 0.07, trim);
+    box(0.78, 1.15, 0.02, d1 + 0.43, y0 + 1.35, sz0 - 0.08, dark, 0, 0, 0, panes);
+    box(0.04, 0.2, 0.03, d1 + 0.06, y0 + 1.0, sz0 - 0.09, steel);
+    box(0.62, 0.8, 0.02, -0.75, y0 + 1.3, sz0 - 0.045, dark, 0, 0, 0, panes);
     // The boat deck, on aft over the aft deck on two posts; railed round its edge.
-    box(2 * (hw0 + 0.2), 0.09, sz1 - zb, 0, yr + 0.045, (sz1 + zb) / 2, trim);
+    // (It and its rails are lifted away with the pilothouse roof while you're inside: showRoof.)
+    box(2 * (hw0 + 0.2), 0.09, sz1 - zb, 0, yr + 0.045, (sz1 + zb) / 2, trim, 0, 0, 0, roof);
     for (const sd of [1, -1]) {
       parts.push(strut(V(sd * (hw0 - 0.05), y0, zb + 0.15), V(sd * (hw0 - 0.05), yr, zb + 0.15), 0.045, 0.045, steel));
       const x = sd * (hw0 + 0.12), top = yr + 0.62;
-      for (let z = zb + 0.1; z <= sz1 - 0.1; z += 0.9) parts.push(strut(V(x, yr + 0.09, z), V(x, top, z), 0.016, 0.016, steel));
-      parts.push(strut(V(x, top, zb + 0.1), V(x, top, sz1 - 0.15), 0.019, 0.019, steel));
+      for (let z = zb + 0.1; z <= sz1 - 0.1; z += 0.9) roof.push(strut(V(x, yr + 0.09, z), V(x, top, z), 0.016, 0.016, steel));
+      roof.push(strut(V(x, top, zb + 0.1), V(x, top, sz1 - 0.15), 0.019, 0.019, steel));
     }
-    parts.push(strut(V(hw0 + 0.12, yr + 0.62, zb + 0.1), V(-(hw0 + 0.12), yr + 0.62, zb + 0.1), 0.019, 0.019, steel));
+    roof.push(strut(V(hw0 + 0.12, yr + 0.62, zb + 0.1), V(-(hw0 + 0.12), yr + 0.62, zb + 0.1), 0.019, 0.019, steel));
     // The pilothouse: from pz0 to pz1 (its front at the sole; the windscreen leans forward by
     // lean to its top), half-width pw, its roof at yt; the window band from yw0 to yw1.
     const pz0 = sz1, pz1 = 2.3, pw = 1.5, yt = yp + 2.05, yw0 = yp + 0.85, yw1 = yp + 1.8, lean = 0.22;
@@ -3726,8 +3734,14 @@ export class Boat {
       box(0.02, yw0 - yp - 0.2, 0.56, sd * (pw + 0.05), (yp + yw0) / 2, 0.95, white);
       box(0.03, 0.03, 0.12, sd * (pw + 0.06), yp + 0.55, 0.68, steel);
     }
-    // Its back, above the saloon roof (and inside, from its sole); its front below the windscreen.
-    box(pw * 2, yt - yp, 0.07, 0, (yp + yt) / 2, pz0, white);
+    // Its back, above the saloon roof (and inside, from its sole), with the doorway the steps come
+    // up through from the saloon; its front below the windscreen.
+    {
+      const [s0, , s1] = PL.steps, top = yp + 1.95, low = y0;
+      box(s0 + pw, yt - low, 0.07, (s0 - pw) / 2, (low + yt) / 2, pz0, white);
+      box(pw - s1, yt - low, 0.07, (s1 + pw) / 2, (low + yt) / 2, pz0, white);
+      box(s1 - s0, yt - top, 0.07, (s0 + s1) / 2, (top + yt) / 2, pz0, white);
+    }
     box(pw * 2, yw0 - y0, 0.07, 0, (y0 + yw0) / 2, pz1, white);
     // The windscreen, leaning forward: three panes between four posts, a band over them.
     const wh = yw1 - yw0, wa = Math.atan2(lean, wh), wz = pz1 + lean / 2;
@@ -3740,12 +3754,19 @@ export class Boat {
     // lifted away while you're inside, as a house's roof is: see showRoof).
     box(2 * (pw + 0.12), 0.09, pz1 + lean + 0.35 - pz0 + 0.15, 0, yt + 0.045, (pz0 - 0.15 + pz1 + lean + 0.35) / 2, trim, 0, 0, 0, roof);
     // Inside: the sole, the console with the wheel, the chart table to port, the helm chair.
-    wood.push({ geo: new THREE.BoxGeometry(pw * 2 - 0.08, 0.05, pz1 - pz0 - 0.08), matrix: mat(0, yp - 0.025, (pz0 + pz1) / 2), color: '#9a6b40', jitter: 0.02 });
+    // (In pieces round the openings in it: the steps up from the saloon, the companionway down.)
+    for (const poly of pilotSole(PL, pw - 0.035, pz0 + 0.035, pz1 - 0.035)) {
+      const [[x0, z0], , [x1, z1]] = poly;
+      wood.push({ geo: new THREE.BoxGeometry(x1 - x0, 0.05, z1 - z0), matrix: mat((x0 + x1) / 2, yp - 0.025, (z0 + z1) / 2), color: '#9a6b40', jitter: 0.02 });
+    }
     const cz = hz + 0.72;
     box(0.86, 1.0, 0.5, hx, yp + 0.5, cz, white);
     box(0.82, 0.04, 0.36, hx, yp + 0.98, cz - 0.17, '#2b2e33', -0.45);
-    box(0.9, 0.95, 0.4, 0.75, yp + 0.47, 1.6, '#7b5434');
-    box(0.92, 0.04, 0.62, 0.75, yp + 0.96, 1.5, '#9a6b40', -0.1);
+    {
+      const [c0, c1, c2, c3] = PL.chart, cx = (c0 + c2) / 2;
+      box(c2 - c0, 0.95, c3 - c1, cx, yp + 0.47, (c1 + c3) / 2, '#7b5434');
+      box(c2 - c0 + 0.02, 0.04, c3 - c1 + 0.12, cx, yp + 0.96, (c1 + c3) / 2 - 0.04, '#9a6b40', -0.1);
+    }
     parts.push(strut(V(hx, yp, hz - 0.5), V(hx, yp + 0.6, hz - 0.5), 0.045, 0.04, steel));
     box(0.5, 0.1, 0.48, hx, yp + 0.66, hz - 0.5, '#1f3b56');
     box(0.5, 0.48, 0.09, hx, yp + 0.94, hz - 0.76, '#1f3b56', -0.12);
@@ -3753,7 +3774,7 @@ export class Boat {
     // On the aft deck: a bench across the transom (to starboard of the gate in it) and a
     // locker-seat along each bulwark, cushioned (where her people sit: H.seats). Where they stand
     // is her plan's (deckplan.js trawlerPlaces), which you walk round.
-    const PL = trawlerPlaces(H), [b0, b1] = PL.bench, benchZ = PL.benchFront - 0.21, [l0, l1] = PL.lockerZ;
+    const [b0, b1] = PL.bench, benchZ = PL.benchFront - 0.21, [l0, l1] = PL.lockerZ;
     box(b1 - b0, 0.45, 0.42, (b0 + b1) / 2, y0 + 0.225, benchZ, white);
     box(b1 - b0 - 0.1, 0.08, 0.4, (b0 + b1) / 2, y0 + 0.49, benchZ, '#1f3b56');
     for (const sd of [1, -1]) {
@@ -3778,7 +3799,7 @@ export class Boat {
     for (const sd of [1, -1]) roof.push(strut(V(sd * 0.55, yt + 1.28, ma), V(sd * 0.62, yt + 3.1, ma - 0.05), 0.008, 0.004, black));
     // The foredeck: a low trunk over the cabins below, with its hatch; the windlass, the bow
     // roller and the anchor; stainless rails along the bulwarks from the pilothouse forward.
-    const tz0 = 2.55, tz1 = 4.75, tw = 1.05, ty = deckAt(tz1) + 0.36;
+    const tz0 = pz1, tz1 = 4.75, ty = deckAt(tz1) + 0.36;
     box(tw * 2, ty - deckAt(tz0) + 0.05, tz1 - tz0, 0, (deckAt(tz0) + ty) / 2 - 0.02, (tz0 + tz1) / 2, white);
     box(0.7, 0.05, 0.7, 0, ty + 0.025, 3.75, trim);
     box(0.6, 0.02, 0.6, 0, ty + 0.06, 3.75, dark);
@@ -3832,10 +3853,17 @@ export class Boat {
     }
     const [thT, thY] = H.thruster;
     for (const sd of [1, -1]) parts.push({ geo: new THREE.CylinderGeometry(0.17, 0.17, 0.02, 14).rotateZ(Math.PI / 2), matrix: mat(sd * (hw(H, thT) * 0.62), thY, zAt(H, thT)), color: '#16181b' });
+    // Inside her (L4): the saloon, the steps, the companionway and the cabins below, built the
+    // first time anyone walks her decks (ensureInside: until then nobody sees in); her lamps now,
+    // so the scene's lights don't change when it is.
+    this.insideFrom = { PL, box, V, y0, yp, yr, ty, tw };
+    this.buildTrawlerLamps(PL, { V, yr, yp });
     const fit = new THREE.Mesh(mergeParts(parts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.12 }));
     const teak = new THREE.Mesh(mergeParts(wood), withSurface(new THREE.MeshLambertMaterial({ vertexColors: true }), 'wood', { axis: 'z' }));
     this.roof = new THREE.Mesh(mergeParts(roof), fit.material);
-    for (const m of [fit, teak, this.roof]) {
+    // (Her windows: dark by day, warm from inside after dark, see setCabinLight.)
+    this.cabinGlass = new THREE.Mesh(mergeParts(panes), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: '#ffb25c', emissiveIntensity: 0 }));
+    for (const m of [fit, teak, this.roof, this.cabinGlass]) {
       m.castShadow = true;
       m.receiveShadow = true;
       this.body.add(m);
@@ -3845,6 +3873,173 @@ export class Boat {
     pane.name = 'pilothouse glass';
     this.body.add(pane);
     if (DASHES[this.kind]) this.dash = new Dashboard(this);
+  }
+
+  // Inside the trawler (L4 of docs/LIVEABOARD.md), placed from her plan's places (PL: deckplan.js
+  // trawlerPlaces), so what you see is where you walk: the saloon (the galley to port, the dinette
+  // to starboard, the settee forward of the galley, the engine-room hatch in its sole), the steps
+  // up into the pilothouse, the companionway down from it; below, the guest cabin's bunks, the
+  // heads and forward the owner's cabin with the double berth and its lockers; the bulkheads,
+  // linings and deckheads that close the cabins in; her lamps. room and wood: buildTrawler's lists.
+  // (Built once, when first wanted: see ensureInside.)
+  ensureInside() {
+    if (this.inside || !this.insideFrom) return;
+    const room = [], wood = [];
+    this.buildTrawlerInside(this.insideFrom.PL, { room, wood, ...this.insideFrom });
+    const fit = new THREE.Mesh(mergeParts(room), new THREE.MeshLambertMaterial({ vertexColors: true }));
+    const teak = new THREE.Mesh(mergeParts(wood), withSurface(new THREE.MeshLambertMaterial({ vertexColors: true }), 'wood', { axis: 'z' }));
+    for (const m of [fit, teak]) {
+      m.castShadow = true;
+      m.receiveShadow = true;
+      this.body.add(m);
+    }
+    this.inside = [fit, teak];
+  }
+  buildTrawlerInside(PL, { room, wood, box, V, y0, yp, yr, ty, tw }) {
+    const H = this.hull, low = PL.low;
+    const cream = '#ece5d6', lining = '#e4dccb', navy = '#1f3b56', blue = '#34587a', teak = '#9a6b40', steel = '#aeb4b8', dark = '#26292c';
+    const tOf = (z) => (z + H.L / 2) / H.L, deckAt = (z) => sheer(H, clamp(tOf(z), 0, 1)) - 0.7;
+    // (Her hull's half-width inside, at height y and z along her: her round bilge, as hydro.js's
+    // section has it, less her skin.)
+    const halfAt = (z, y) => {
+      const t = clamp(tOf(z), 0, 1), w = hw(H, t), s = sheer(H, t), k = H.keel(t), u = (y - k) / (s - k);
+      if (u <= 0) return 0;
+      const c = Math.pow(Math.max(0, 1 - u), 1 / 0.55);
+      return w * Math.pow(Math.sqrt(Math.max(0, 1 - c * c)), 0.65) - 0.07;
+    };
+    const R = (w, h, d, x, y, z, color, rx = 0) => box(w, h, d, x, y, z, color, rx, 0, 0, room);
+    const T = (w, h, d, x, y, z, color = teak) => box(w, h, d, x, y, z, color, 0, 0, 0, wood);
+    // A slab over a box on the plan [x0, z0, x1, z1], from y up by h.
+    const slab = ([x0, z0, x1, z1], y, h, color, put = R) => put(x1 - x0, h, z1 - z0, (x0 + x1) / 2, y + h / 2, (z0 + z1) / 2, color);
+
+    // The saloon. The galley: its cabinets and worktop, the stove and the sink, lockers above.
+    const G = PL.galley, gz = (G[1] + G[3]) / 2, gx = (G[0] + G[2]) / 2, gy = deckAt(gz);
+    slab(G, gy - 0.02, 0.88, cream);
+    R(G[2] - G[0] + 0.03, 0.04, G[3] - G[1] + 0.02, gx - 0.015, gy + 0.88, gz, '#cdbfa6');
+    R(0.02, 0.08, G[3] - G[1], G[0] - 0.005, gy + 0.04, gz, dark);
+    R(0.5, 0.02, 0.5, gx, gy + 0.91, G[1] + 0.45, dark);
+    for (const dz of [-0.12, 0.12]) room.push({ geo: new THREE.TorusGeometry(0.075, 0.012, 4, 12), matrix: mat(gx, gy + 0.925, G[1] + 0.45 + dz, Math.PI / 2, 0, 0), color: '#151618' });
+    R(0.38, 0.03, 0.34, gx, gy + 0.905, G[3] - 0.45, steel);
+    room.push(strut(V(G[2] - 0.08, gy + 0.9, G[3] - 0.45), V(G[2] - 0.2, gy + 1.1, G[3] - 0.45), 0.012, 0.012, steel));
+    R(0.32, 0.3, G[3] - G[1], G[2] - 0.18, gy + 1.87, gz, cream);
+    // The dinette: a seat aft, one forward and one along her side, cushioned; the table.
+    const Dn = PL.dinette, dz0 = Dn[1], dz1 = Dn[3], dy = deckAt((dz0 + dz1) / 2), dxm = (Dn[0] + Dn[2]) / 2;
+    for (const s of [[Dn[0], dz0, Dn[2], dz0 + 0.45], [Dn[0], dz1 - 0.45, Dn[2], dz1], [Dn[0], dz0 + 0.45, Dn[0] + 0.3, dz1 - 0.45]]) {
+      slab(s, dy - 0.02, 0.44, cream);
+      slab([s[0] + 0.02, s[1] + 0.02, s[2] - 0.02, s[3] - 0.02], dy + 0.42, 0.09, navy);
+    }
+    R(Dn[2] - Dn[0], 0.42, 0.08, dxm, dy + 0.72, dz0 + 0.04, navy);
+    R(Dn[2] - Dn[0], 0.42, 0.08, dxm, dy + 0.72, dz1 - 0.04, navy);
+    R(0.08, 0.42, dz1 - dz0, Dn[0] + 0.04, dy + 0.72, (dz0 + dz1) / 2, navy);
+    T(0.58, 0.04, dz1 - dz0 - 1.0, (Dn[0] + 0.3 + Dn[2]) / 2 + 0.02, dy + 0.72, (dz0 + dz1) / 2);
+    room.push(strut(V((Dn[0] + 0.3 + Dn[2]) / 2, dy, (dz0 + dz1) / 2), V((Dn[0] + 0.3 + Dn[2]) / 2, dy + 0.7, (dz0 + dz1) / 2), 0.035, 0.035, steel));
+    // The settee forward of the galley, along her port side.
+    const Sf = PL.sofa, sy = deckAt((Sf[1] + Sf[3]) / 2);
+    slab(Sf, sy - 0.02, 0.42, cream);
+    slab([Sf[0] + 0.02, Sf[1] + 0.02, Sf[2] - 0.12, Sf[3] - 0.02], sy + 0.4, 0.1, navy);
+    R(0.1, 0.44, Sf[3] - Sf[1] - 0.04, Sf[2] - 0.06, sy + 0.72, (Sf[1] + Sf[3]) / 2, navy);
+    // The engine-room hatch, flush in the sole: its edges and its ring.
+    const Hc = PL.hatch, hy = deckAt((Hc[1] + Hc[3]) / 2) + 0.006, hxw = Hc[2] - Hc[0], hzd = Hc[3] - Hc[1], hxc = (Hc[0] + Hc[2]) / 2, hzc = (Hc[1] + Hc[3]) / 2;
+    for (const z of [Hc[1], Hc[3]]) R(hxw, 0.006, 0.02, hxc, hy, z, dark);
+    for (const x of [Hc[0], Hc[2]]) R(0.02, 0.006, hzd, x, hy, hzc, dark);
+    R(0.09, 0.008, 0.03, hxc, hy + 0.002, Hc[3] - 0.08, steel);
+    // The steps up into the pilothouse: four, solid, teak.
+    const St = PL.steps, s0 = deckAt(St[1]), n = 4, sd = (St[3] - St[1]) / n;
+    for (let i = 0; i < n; i++) {
+      const top = s0 + ((yp - s0) * (i + 1)) / n;
+      T(St[2] - St[0], top - s0 + 0.02, sd, (St[0] + St[2]) / 2, (s0 + top) / 2 - 0.01, St[1] + sd * (i + 0.5));
+    }
+    // The companionway down: open treads between two stringers, and a handrail.
+    const C = PL.stair, cw = C[2] - C[0], cxm = (C[0] + C[2]) / 2, nt = 7, run = (C[3] - C[1]) / nt;
+    for (let i = 0; i < nt; i++) T(cw - 0.06, 0.04, run + 0.04, cxm, yp - ((yp - low) * (i + 1)) / nt - 0.02, C[1] + run * (i + 0.5));
+    for (const x of [C[0] + 0.02, C[2] - 0.02]) wood.push(strut(V(x, yp - 0.08, C[1]), V(x, low, C[3]), 0.035, 0.035, '#7b5434'));
+    room.push(strut(V(C[2] + 0.02, yp + 0.85, C[1] - 0.05), V(C[2] + 0.02, low + 0.9, C[3]), 0.018, 0.018, steel));
+    room.push(strut(V(C[2] + 0.02, yp, C[1] - 0.05), V(C[2] + 0.02, yp + 0.85, C[1] - 0.05), 0.018, 0.018, steel));
+
+    // Below: the cabins' bulkheads and linings (PL.below: where you stand is kept clear of them,
+    // see deckplan.js belowRooms). Their headroom: up to the pilothouse sole, or under the trunk.
+    const Wb = PL.below, zf = PL.berth, pf = PL.pilotFront;
+    const top = (z) => (z < pf ? yp - 0.05 : ty - 0.1);
+    // The cabin sole, across her inside her bilge from the aft bulkhead to the berth.
+    for (let z = Wb.aft; z < Wb.berthAft - 0.01; z += 0.5) {
+      const z1 = Math.min(Wb.berthAft, z + 0.5), x = Math.min(1.5, halfAt(z1, low));
+      T(2 * x, 0.04, z1 - z + 0.01, 0, low - 0.02, (z + z1) / 2);
+    }
+    const wallX = (x, z0, z1, y1 = top((z0 + z1) / 2), y0 = low) => R(0.04, y1 - y0, z1 - z0, x, (y0 + y1) / 2, (z0 + z1) / 2, lining);
+    const wallZ = (z, x0, x1, y1 = top(z)) => R(x1 - x0, y1 - low, 0.04, (x0 + x1) / 2, (low + y1) / 2, z, lining);
+    const lintelX = (x, z0, z1) => R(0.04, top((z0 + z1) / 2) - (low + 1.85), z1 - z0, x, (low + 1.85 + top((z0 + z1) / 2)) / 2, (z0 + z1) / 2, lining);
+    const lintelZ = (z, x0, x1) => R(x1 - x0, top(z) - (low + 1.85), 0.04, (x0 + x1) / 2, (low + 1.85 + top(z)) / 2, z, lining);
+    const [gd0, gd1] = Wb.guestDoor, [hd0, hd1] = Wb.headsDoor, [od0, od1] = Wb.ownerDoor;
+    wallZ(Wb.aft, Wb.stbd, Wb.port);                               // aft, against the engine room
+    wallX(Wb.guestIn, Wb.aft, gd0);                                // the guest cabin's inboard side
+    wallX(Wb.guestIn, gd1, Wb.ownerAft);
+    lintelX(Wb.guestIn, gd0, gd1);
+    wallZ(Wb.voidZ, Wb.guestIn, PL.stair[0] - 0.02);               // under the steps, closed off
+    wallX(PL.stair[0] - 0.02, Wb.aft, Wb.voidZ);
+    wallX(Wb.headsIn, Wb.aft, Wb.headsFront);                      // the heads, beside the stair
+    wallZ(Wb.headsFront, Wb.headsIn, hd0);
+    wallZ(Wb.headsFront, hd1, Wb.port);
+    lintelZ(Wb.headsFront, hd0, hd1);
+    wallZ(Wb.ownerAft, Wb.stbd, od0);                              // the owner's cabin, forward
+    wallZ(Wb.ownerAft, od1, Wb.port);
+    lintelZ(Wb.ownerAft, od0, od1);
+    // Her sides lined, in the cabins and the lobby, closing them off from the side decks above.
+    // (From a little above the sole: low down her bilge curves in inside them.)
+    wallX(Wb.stbd, Wb.aft, Wb.ownerAft, undefined, low + 0.3);
+    wallX(Wb.port, Wb.aft, Wb.ownerAft, undefined, low + 0.3);
+    // Under the pilothouse sole, a deckhead (round the companionway's opening).
+    const [c0, c1, c2, c3] = PL.stair, dh = yp - 0.075;
+    for (const [x0, z0, x1, z1] of [[Wb.stbd, Wb.aft, c0, pf], [c2, Wb.aft, Wb.port, pf], [c0, c3, c2, pf]]) R(x1 - x0, 0.02, z1 - z0, (x0 + x1) / 2, dh, (z0 + z1) / 2, lining);
+    // Forward, the owner's cabin narrows with her bow: lined each side above the lockers and the
+    // berth, its deckhead under the deck either side of the trunk, the trunk lined inside and closed
+    // at its forward end, and the deck over the berth's forward end.
+    for (let z = Wb.ownerAft; z < zf - 0.01; z += 0.55) {
+      const z1 = Math.min(zf, z + 0.55), zm = (z + z1) / 2, x = Math.min(1.3, halfAt(z1, 1.2)), dk = deckAt(zm);
+      for (const sd of [1, -1]) {
+        R(0.04, dk - (low + 0.85), z1 - z, sd * x, (low + 0.85 + dk) / 2, zm, lining);
+        if (x > tw) R(x - tw, 0.03, z1 - z, (sd * (tw + x)) / 2, dk - 0.03, zm, lining);
+      }
+    }
+    R(tw * 2 - 0.08, 0.03, PL.trunkFwd - pf, 0, ty - 0.09, (PL.trunkFwd + pf) / 2, lining);
+    for (const sd of [1, -1]) R(0.03, ty - deckAt(3.5) - 0.02, PL.trunkFwd - pf, sd * (tw - 0.05), (ty + deckAt(3.5)) / 2 - 0.04, (PL.trunkFwd + pf) / 2, lining);
+    R(tw * 2 - 0.08, ty - deckAt(PL.trunkFwd) + 0.05, 0.03, 0, (ty + deckAt(PL.trunkFwd)) / 2 - 0.05, PL.trunkFwd - 0.04, lining);
+    R(2 * Math.min(1.2, halfAt(zf, 1.6)), 0.03, zf - PL.trunkFwd, 0, deckAt(zf) - 0.04, (zf + PL.trunkFwd) / 2, lining);
+    R(2 * Math.min(1.1, halfAt(zf, 1.2)), deckAt(zf) - (low + 0.6), 0.03, 0, (deckAt(zf) + low + 0.6) / 2, zf, lining);
+    // The guest cabin's bunks, one over the other along her side, with a lee board on the upper.
+    const Bk = [Wb.stbd + 0.04, Wb.aft + 0.1, Wb.bunksIn, Wb.ownerAft - 0.1];
+    slab(Bk, low, 0.42, cream);
+    slab([Bk[0], Bk[1] + 0.03, Bk[2] - 0.03, Bk[3] - 0.03], low + 0.42, 0.12, blue);
+    slab(Bk, low + 1.1, 0.05, cream);
+    slab([Bk[0], Bk[1] + 0.03, Bk[2] - 0.03, Bk[3] - 0.03], low + 1.15, 0.1, blue);
+    T(0.03, 0.2, Bk[3] - Bk[1] - 0.3, Bk[2] - 0.02, low + 1.32, (Bk[1] + Bk[3]) / 2);
+    // The heads: the bowl, the basin on its cupboard, a mirror.
+    const hx = (Wb.headsIn + Wb.port) / 2;
+    room.push({ geo: new THREE.CylinderGeometry(0.17, 0.13, 0.4, 12), matrix: mat(hx, low + 0.2, Wb.aft + 0.3), color: '#f4f2ec' });
+    R(0.36, 0.03, 0.42, hx, low + 0.415, Wb.aft + 0.32, '#e7e3d8');
+    R(0.36, 0.78, 0.34, hx, low + 0.39, Wb.headsFront - 0.4, cream);
+    R(0.38, 0.06, 0.36, hx, low + 0.81, Wb.headsFront - 0.4, '#f4f2ec');
+    R(0.02, 0.42, 0.32, Wb.port - 0.03, low + 1.3, Wb.headsFront - 0.4, '#9db3c2');
+    // The owner's cabin: lockers each side aft, the double berth forward, narrowing into her bow.
+    for (const sd of [1, -1]) T(0.42, 0.8, Wb.berthAft - Wb.ownerAft - 0.15, sd * (Wb.ownerHalf + 0.43), low + 0.4, (Wb.ownerAft + Wb.berthAft) / 2);
+    for (let z = Wb.berthAft; z < zf - 0.01; z += 0.4) {
+      const z1 = Math.min(zf, z + 0.4), x = Math.min(1.2, halfAt(z1, low + 0.5));
+      R(2 * x, 0.5, z1 - z, 0, low + 0.25, (z + z1) / 2, cream);
+      R(2 * x - 0.06, 0.15, z1 - z, 0, low + 0.575, (z + z1) / 2, z < Wb.berthAft + 0.8 ? '#3b6b8f' : '#efe9de');
+    }
+    for (const sd of [1, -1]) R(0.45, 0.1, 0.3, sd * 0.3, low + 0.7, zf - 0.55, '#f7f4ee');
+  }
+
+  // Her lamps (L4): one under the saloon's deckhead, one over the lobby below, and the light they
+  // give after dark or while you're inside (setCabinLight), in whichever room you're in.
+  buildTrawlerLamps(PL, { V, yr, yp }) {
+    // (Below, flush in the deckhead over the lobby, clear of your head.)
+    const lamps = [V(0, yr - 0.06, -2.3), V(0.6, yp - 0.095, 2.3)];
+    this.cabinLamp = new THREE.Mesh(mergeParts(lamps.map((p) => ({ geo: new THREE.SphereGeometry(0.06, 10, 8), matrix: mat(p.x, p.y, p.z), color: '#ffffff' }))), new THREE.MeshBasicMaterial({ color: '#ffd28a' }));
+    this.body.add(this.cabinLamp);
+    this.lampsAt = { saloon: lamps[0].clone().setY(lamps[0].y - 0.1), below: lamps[1].clone().setY(lamps[1].y - 0.1) };
+    this.cabinLight = new THREE.PointLight('#ffc77d', 0, 6, 1.5);
+    this.cabinLight.position.copy(this.lampsAt.saloon);
+    this.body.add(this.cabinLight);
   }
 
   // A RIB's deck: the bow locker seat forward (a cushion on its lid), the stand-up console (the
@@ -4407,6 +4602,8 @@ export class Boat {
 
   setCabinLight(night, inside) {
     if (!this.cabinLight) return;
+    // (The trawler's light, in the room you're in: the saloon, or below.)
+    if (this.lampsAt) this.cabinLight.position.copy(this.below ? this.lampsAt.below : this.lampsAt.saloon);
     const on = Math.max(night, inside ? 0.35 : 0);
     this.cabinLight.intensity = on * (inside ? 2.4 : 1.4);
     this.cabinLamp.material.color.set('#ffd28a').multiplyScalar(0.55 + 0.45 * on);
@@ -4414,7 +4611,7 @@ export class Boat {
     // From outside, the lit cabin glows through its windows: a little home on the water. (The
     // cruiser's white light at the masthead, lit after dark.)
     this.cabinGlass.material.emissiveIntensity = night * 1.1;
-    if (this.mastLight) this.mastLight.material.color.set('#fff3d6').multiplyScalar(0.3 + 0.7 * night);
+    if (this.mastLight?.material) this.mastLight.material.color.set('#fff3d6').multiplyScalar(0.3 + 0.7 * night);
   }
 
   // A point in the cabin (in the boat's own space) out into the world.
@@ -5938,6 +6135,7 @@ export class Boat {
       // (From where you stand: at the wheel, or at the rail you've been fishing from.)
       const [hx, hz] = this.hull.standing.helm, A = this.standAt;
       this.deck = { x: A ? A.x : hx, z: A ? A.z : hz, yaw: A ? A.yaw : 0, step: 0, moving: 0 };
+      this.ensureInside?.();
       // (On her plan: the floor you're on and its height, from where you stand.)
       if (this.plan) Object.assign(this.deck, nearestOn(this.plan, this.deck.x, this.deck.z));
     } else if (!on) {
@@ -5954,6 +6152,11 @@ export class Boat {
   }
   get indoors() {
     return !!(this.plan && this.deck && this.plan.floors.find((f) => f.id === this.deck.floor)?.inside);
+  }
+  // Below her decks (the cabins, and the companionway once you're on your way down it).
+  get below() {
+    const D = this.deck;
+    return !!(this.plan && D && this.plan.floors.find((f) => f.id === D.floor)?.below && !(D.y > this.hull.standing.floor - 0.5));
   }
   // Why you can't fish from where you are aboard her, or null: a boat with a plan is fished from
   // her decks, never from her wheel or indoors.

@@ -196,4 +196,6 @@ then.
   dashboard is 33 of them, as on the yacht), 10,270 triangles: `docs/fleet/after/trawler*.jpg` and
   `stats.json`. With L3 (walking aboard), 66: her pilothouse roof and what stands on it are a mesh
   of their own, lifted away while you're inside, and her bench, lockers and transom gate moved to
-  match her deck plan (10,342 triangles). The studio's helm view now stands on a raised helm's own sole (`standing.floor`).
+  match her deck plan (10,342 triangles). With L4 (living aboard), 68 as boatshots counts them
+  (10,802 triangles): her saloon's windows a mesh of their own (they glow after dark) and her lamps;
+  her interior, two meshes more, is built only when her decks are first walked. The studio's helm view now stands on a raised helm's own sole (`standing.floor`).

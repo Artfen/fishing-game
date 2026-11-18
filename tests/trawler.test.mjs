@@ -64,7 +64,10 @@ test('built as a trawler: forty-four feet, seventeen tonnes on a full keel, one 
   assert.ok(b.wheel && b.dash, 'a wheel and a dashboard');
   assert.ok(b.mastLight, 'a masthead light on her arch');
   assert.match(b.fishBlock(), /wheel/, 'not fished from her wheel: from her decks (tests/deckplan.test.mjs)');
-  // What she costs to draw.
+  // What she costs to draw, inside and all (built the first time her decks are walked).
+  assert.equal(b.inside, undefined, 'her inside not built until it is wanted');
+  b.ensureInside();
+  assert.equal(b.inside.length, 2);
   let calls = 0, tris = 0;
   b.group.traverseVisible((o) => {
     if (!o.isMesh || o.material?.colorWrite === false) return;

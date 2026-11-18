@@ -5864,6 +5864,49 @@ function cabinAction() {
   return { text: moored(boat) ? 'Back out on deck (and ashore)' : 'Back out on deck', run: () => leaveCabin() };
 }
 
+/* ---------------- the trawler: living aboard (L4 of docs/LIVEABOARD.md) ---------------- */
+
+// What's done at each place aboard her (her plan's spots, deckplan.js): cook and eat in the galley,
+// your journal at the dinette, look her over at the engine-room hatch, the chart and the forecast
+// at the chart table, sleep in the cabins (at anchor or made fast: sleepUntil says so), wash in
+// the heads. As the cabin boat's galley and bunk (openCamp's 'cabin' site, her stores).
+function roomAction(id) {
+  switch (id) {
+    case 'galley': return { text: 'The galley: cook and eat', run: () => openCamp('cook', 'cabin') };
+    case 'dinette': return { text: 'The dinette: your journal', run: () => openJournal() };
+    case 'engine': return { text: 'The engine-room hatch: look her over', run: () => lookHerOver() };
+    case 'chart': return { text: 'The chart table: the chart and the forecast', run: () => chartTable() };
+    case 'bunks': return { text: 'The guest bunks: sleep', run: () => openCamp('sleep', 'cabin') };
+    case 'berth': return { text: 'Your berth: sleep', run: () => openCamp('sleep', 'cabin') };
+    case 'heads': return { text: 'The heads: wash and brush up', run: () => washUp() };
+  }
+  return null;
+}
+// The chart table: the forecast read off her radio (the board's outlook), and the chart.
+function chartTable() {
+  hud.toast([seasonLine(clock.abs), ...outlook(clock.abs)].join(' '), 9);
+  openMap();
+}
+// The heads: a wash, and you feel the better for it (no more than that).
+function washUp() {
+  hud.flash('A wash in the heads, fresh water from her tank: you feel the better for it.', t, 3);
+  audio.splash?.(0.15);
+}
+// Below her decks, the view goes to your eyes (the cabins are under her decks, not under a roof
+// that lifts away), and comes back out as you come up.
+let belowEye = false;
+function eyesBelow() {
+  const below = !onFoot && !!boat.deck && boat.below;
+  if (below && !belowEye) {
+    belowEye = true;
+    if (rig.mode !== 'eye') rig.setFirstPerson(true, t);
+    else belowEye = 'was';
+  } else if (!below && belowEye) {
+    if (belowEye !== 'was' && rig.mode === 'eye') rig.setFirstPerson(false, t);
+    belowEye = false;
+  }
+}
+
 /* ---------------- how you feel: warmth, wet clothes, thirst (see comfort.js) ---------------- */
 
 const needsMode = () => settings.controls.needs || 'gentle';
@@ -5875,7 +5918,7 @@ const needSaid = {}; // need id -> when it was last mentioned (game hours)
 // and spray, how hard you're working, and a roof over you or a fire beside you.
 function comfortEnv() {
   const P = player().pos, w = windAt(P.x, P.z);
-  const indoors = driving || !!cabinIn || (modal === 'camp' && camp.house) || modal === 'bench' || sitting?.kind === 'home' || (onFoot && !!insideHaven(P.x, P.z));
+  const indoors = driving || !!cabinIn || (!onFoot && !!boat.indoors) || (modal === 'camp' && camp.house) || modal === 'bench' || sitting?.kind === 'home' || (onFoot && !!insideHaven(P.x, P.z));
   const F = world.camp.firePos;
   let fire = onFoot ? camp.fireLevel * smoothstep(5, 1.5, Math.hypot(P.x - F.x, P.z - F.z)) : 0;
   if (modal === 'camp' && camp.own) fire = Math.max(fire, 0.5);
@@ -7546,6 +7589,13 @@ function interaction() {
       return { text: towing ? `Let go the ${S.name}` : S.aground ? `Take the ${S.boatName || S.name}’s line` : `Take the ${S.boatName || S.name} in tow`, run: () => (towing ? letGoTow() : takeInTow(S)) };
     }
   }
+  // (L4) Aboard the trawler, walking her: what's done where you stand (her plan's spots). Inside,
+  // only those and her wheel: no diving from her saloon.
+  if (boat.plan && boat.deck && !fishing.busy) {
+    const A = roomAction(boat.deckSpot?.id);
+    if (A) return A;
+    if (boat.indoors && !boat.atHelm) return null;
+  }
   // A boat you stand in, walking her deck: back at the wheel, take the helm again.
   if (boat.hull.standing && !fishing.busy && boat.deck && boat.atHelm) return { text: 'Take the helm', run: () => takeHelm(true) };
   // By the trolling motor on her bow: deploy it, stow it, set its depth.
@@ -7614,7 +7664,7 @@ function interaction() {
   const sitBoat = () => sitDown({ kind: 'boat', name: `back in the ${boat.name}` });
   const look = damageAction() ? [{ text: 'Look her over', cls: 'quiet', run: () => lookHerOver() }] : [];
   // (J3) In a boat with no cabin, the night aboard: turn in on her deck (with a bivvy roll aboard).
-  const night = turnIn({ cabin: !!boat.hull.cabin, deck: !!boat.hull.standing, settled, bivvy: hasAboard(state.cargo, boat.id, 'bivvy'), following: clock.following });
+  const night = turnIn({ cabin: !!boat.hull.cabin || !!boat.plan, deck: !!boat.hull.standing, settled, bivvy: hasAboard(state.cargo, boat.id, 'bivvy'), following: clock.following });
   const bed = night ? [{ text: 'Turn in for the night', cls: 'quiet', run: () => turnInAboard(night) }] : [];
   const orBed = bed.length ? ' Or turn in for the night.' : '';
   if (settled && entry) {
@@ -10977,7 +11027,9 @@ function currentHint() {
   // Walking the deck: how to walk, and how to take her again.
   if (!onFoot && boat.deck) {
     const how = T ? 'the stick walks you about her' : `${P ? kbd('L-stick') : MOVE()} walk`;
-    return boat.atHelm ? `At the wheel · ${T ? 'tap the prompt' : K('interact')} to take the helm · ${how}` : `Walking the deck · ${how} · back at the wheel to take the helm`;
+    // (Aboard the trawler, where you are: the pilothouse, the saloon, below, or on deck.)
+    const fl = boat.plan ? boat.deck.floor : '', where = boat.below ? 'Below' : fl === 'pilot' ? 'In the pilothouse' : boat.indoors ? 'In the saloon' : 'Walking the deck';
+    return boat.atHelm ? `At the wheel · ${T ? 'tap the prompt' : K('interact')} to take the helm · ${how}` : `${where} · ${how} · back at the wheel to take the helm`;
   }
   // The trolling motor down (see trolling.js): the keys are its push and its head.
   if (leverKind() && boat.troll?.deployed && !boat.lever) {
@@ -13820,6 +13872,7 @@ function tick(now, manual = false) {
   if (pilot.on) steer = pilotTick(dt, steer);
   // (Inside the trawler's pilothouse, seen from outside: its roof lifted away, as a house's is.)
   if (boat.roof) boat.showRoof(!(boat.indoors && rig.mode !== 'eye'));
+  if (boat.plan) eyesBelow();
   boat.update(dt, t, throttle, steer, env.lantern);
   // (Her speed over a second or so: the waves' own to-and-fro averaged out, so the tie-up and
   // anchor prompts don't flicker in a swell.)
@@ -13855,7 +13908,7 @@ function tick(now, manual = false) {
     diveIn.fwd = diveIn.up = 0;
     diveIn.kick = false;
   }
-  for (const b of boats) if (b.hull.cabin) b.setCabinLight(env.night, !!cabinIn && b === boat);
+  for (const b of boats) if (b.hull.cabin || b.plan) b.setCabinLight(env.night, b === boat && (!!cabinIn || (!onFoot && !!b.indoors)));
   // The motor: a putter at idle when you're aboard, rising with the throttle. Fish nearby
   // hear it, so slow down (or anchor) before you fish. (The bass boat's electric motor is
   // almost silent, and doesn't bother them.)
