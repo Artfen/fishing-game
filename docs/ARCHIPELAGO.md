@@ -130,6 +130,31 @@ the ruins of Las Salinas, a beacon on Gaviota; the coves' sand for the anchor.
 **A4, played through:** the trawler across to the islands, anchored in Bahía Escondida, the
 tender ashore to Las Salinas, a dive on El Vapor; the numbers in `docs/PERFORMANCE.md`.
 
+*A4 done.* What was found, played through in the browser:
+
+- **The voyage:** the trawler at anchor in Bahía Escondida, on sand; the tender launched and run
+  ashore; Isla Honda, Bahía Escondida and Las Salinas found on foot (each once, in the journal and
+  on the chart); the tender recovered onto her chocks; then across to Los Roquetes, El Vapor and
+  the stacks found on the dive. No errors.
+- **One bug, fixed:** the game's test hook for putting you in a boat (`useSkiffAt`) moved the
+  tender while she sat on the trawler's chocks, so the trawler arrived without her. The hook now
+  takes her off the chocks first.
+- **The numbers** (`docs/PERFORMANCE.md`): a new `archipelago` scenario, at anchor in Bahía
+  Escondida. The first build drew a quarter more triangles diving the arches, because the scrub,
+  boulders, reef rocks and urchins were each one mesh over all the islands and so always partly in
+  view. They're now one mesh to an island: diving the arches is back within 2 % of before, and at
+  anchor among the islands draws half what it did. On the way, the scatter's counts went back to
+  what they were before the archipelago (the islands share Brasa's, as the fish do) and the
+  islands' weed beds were thinned.
+- **The sea life's dice:** the sea's creatures are placed from one stream of dice, so El Banco's
+  dolphins, added mid-list in A2, moved every creature after them. They now roll dice of their
+  own and come last (`sealife.js` `ownDice`), so nothing else moves for them.
+- **One older test changed:** `tests/canyonwhale.test.mjs` fingerprints where the rest of the
+  sea's life lies, to show the canyon's whale moves nothing. The archipelago's seabed itself
+  changes some of those places (creatures are placed by depth and bottom), so the fingerprint is
+  new: it's the one A1's seabed gives, checked against A1's own build, and El Banco's dolphins
+  (with their own dice) are left out of it, as the whale is.
+
 ## Done when
 
 - Tests show each island where it should be (land, its cove's sand and depth, its cliffs to

@@ -109,6 +109,13 @@ export const BENCH_SCENARIOS = {
       slowTide.boat.lever = 0.85;
     },
   },
+  // (docs/ARCHIPELAGO.md) The archipelago: anchored in Bahía Escondida, Isla Honda's sand and salt
+  // pans ashore, Brasa across the water.
+  archipelago: {
+    label: 'At anchor in Bahía Escondida, in the archipelago',
+    save: { yard: { owned: ['row', 'skiff', 'kayak', 'trawler', 'tender'] }, carried: { tender: 'trawler' } },
+    setup: () => { slowTide.setHour(16); slowTide.useSkiffAt(818, 6945, 0.9, 'trawler'); slowTide.boat.setAnchor(true); },
+  },
   voyage: {
     label: 'The crossing south, under way at the helm',
     save: {},

@@ -310,7 +310,7 @@ function setRegion(r) {
     underwater.addBeds({ x: -760, z: 5480, w: 1520, h: 1120, grass: 6500, kelp: 1400 }, seeded(9191));
     // (The archipelago's coves: a little seagrass in Caleta Blanca and Bahía Escondida, and the
     // weed on the islands' reefs: see docs/ARCHIPELAGO.md.)
-    for (const [i, I] of ISLANDS.entries()) underwater.addBeds({ x: I.x - I.rx - 120, z: I.z - I.rz - 120, w: (I.rx + 120) * 2, h: (I.rz + 120) * 2, grass: 700, kelp: 260 }, seeded(9192 + i));
+    for (const [i, I] of ISLANDS.entries()) underwater.addBeds({ x: I.x - I.rx - 120, z: I.z - I.rz - 120, w: (I.rx + 120) * 2, h: (I.rz + 120) * 2, grass: 420, kelp: 90 }, seeded(9192 + i));
   }
 }
 let southBeds = false;
@@ -14807,6 +14807,8 @@ window.slowTide = {
   // Climb into the skiff (or another boat: 'row', 'kayak', 'bass') at (x, z).
   useSkiffAt: (x, z, heading = 0, kind = 'skiff') => {
     const b = BOATS[kind];
+    // (A tender on her mother's chocks: off them first.)
+    if (state.carried[kind]) uncarry(kind);
     if (b.stowed) {
       if (afloatCount() >= MAX_AFLOAT) storeBoat(boats.find((o) => o !== boat && o !== b) || boats[0], { quiet: true });
       // (No room for her on the finger: the others laid up until there is.)

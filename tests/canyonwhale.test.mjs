@@ -50,12 +50,16 @@ test('the rest of the sea’s life is where it was: the canyon’s whale rolls d
   const groups = {};
   for (const k of ['pods', 'whales', 'ashore', 'visitors', 'colony', 'feeders', 'haulouts', 'shears', 'turtles']) {
     assert.ok(Array.isArray(life[k]), k);
-    groups[k] = life[k].filter((w) => !(k === 'whales' && w.kind === 'spermwhale' && w.sea === 'home')).map(pick);
+    // (Leaving out what rolls its own dice: the canyon's whale, and El Banco's dolphins.)
+    groups[k] = life[k].filter((w) => !(k === 'whales' && w.kind === 'spermwhale' && w.sea === 'home') && !w.ownDice).map(pick);
   }
   assert.deepEqual(Object.values(groups).map((L) => L.length), [6, 5, 8, 4, 6, 8, 2, 12, 3]);
   let h = 2166136261;
   const s = JSON.stringify(groups);
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
-  assert.equal(h, 4028242579, 'everything else where it was');
+  // (Taken again for the archipelago, docs/ARCHIPELAGO.md: its seabed changed how often the south's
+  // creatures re-roll a start in deep enough water, and so the shared dice everything after them
+  // draws. Everything made since rolls its own: El Banco's dolphins, like the canyon's whale.)
+  assert.equal(h, 1355927063, 'everything else where it was');
   assert.equal(life.whales[life.whales.length - 1].kind, 'spermwhale', 'the canyon’s whale last in the list');
 });

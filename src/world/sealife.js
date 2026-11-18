@@ -93,13 +93,14 @@ export const PODS = [
   // approaches to the harbour, where the boats are.)
   { kind: 'spotteddolphin', sea: 'south', n: 7, len: [1.7, 2.2], area: [-700, 800, 6300, 6750], minDepth: 20, speed: 2.6, period: [5, 9], bow: true, reach: 320, seen: 260 },
   { kind: 'bottlenose', sea: 'south', n: 4, len: [2.6, 3.3], area: [-600, 700, 6250, 6800], minDepth: 10, speed: 2, period: [7, 12], bow: true, reach: 280, seen: 240 },
-  // (The archipelago) Common dolphins working the bait over El Banco, out in the north-west.
-  { kind: 'commondolphin', sea: 'south', n: 8, len: [1.8, 2.3], area: [-1100, -540, 4900, 5400], minDepth: 25, speed: 3, period: [5, 9], bow: true, reach: 360, seen: 280 },
   // (Out on the crossing between the two: a big pod of common dolphins, met along the way (see
   // crossing.js and summon below); they come racing to a bow from a long way off.)
   { kind: 'commondolphin', sea: 'crossing', n: 12, len: [1.8, 2.3], area: [-1200, 1400, 1500, 5000], minDepth: 50, speed: 3, period: [5, 9], bow: true, reach: 480, seen: 320 },
   // (The pilot whales: a family, slow and often resting at the surface; they don't ride bows.)
   { kind: 'pilotwhale', sea: 'south', n: 6, len: [3.8, 5.6], area: [-950, -150, 6250, 6880], minDepth: 60, speed: 1.1, period: [9, 15], bow: false, whale: true },
+  // (The archipelago, docs/ARCHIPELAGO.md) Common dolphins working the bait over El Banco, out in
+  // the north-west. (Its own dice, as the canyon's whale has: the life made after it doesn't move.)
+  { kind: 'commondolphin', sea: 'south', n: 8, len: [1.8, 2.3], area: [-1100, -540, 4900, 5400], minDepth: 25, speed: 3, period: [5, 9], bow: true, reach: 360, seen: 280, ownDice: 5151 },
 ];
 
 // The great whales: where they range, their size, their blow (height, width, a forward lean), how
@@ -288,21 +289,23 @@ export function buildSeaLife(scene, { glow = null, seed = 20261106 } = {}) {
 
   /* ---------- dolphins (and the pilot whales) ---------- */
   const pods = PODS.map((P, id) => {
-    const at = pickTarget(P.area, P.minDepth, undefined, undefined, B);
+    // (A pod added later rolls dice of its own, as a whale does, so nothing made after it moves.)
+    const R = P.ownDice ? seeded(seed + P.ownDice) : B, rbrand = (a, b) => a + R() * (b - a);
+    const at = pickTarget(P.area, P.minDepth, undefined, undefined, R);
     const pod = {
-      ...P, id, x: at.x, z: at.z, heading: B() * Math.PI * 2, vx: 0, vz: 0, target: pickTarget(P.area, P.minDepth, at.x, at.z, B),
+      ...P, id, x: at.x, z: at.z, heading: R() * Math.PI * 2, vx: 0, vz: 0, target: pickTarget(P.area, P.minDepth, at.x, at.z, R),
       mode: 'roam', modeT: 0, bored: 0, slowT: 0, whistleT: 2, seenT: 0, glowT: 0, members: [], owner: null, net: null,
     };
     for (let i = 0; i < P.n; i++) {
-      const len = brand(P.len[0], P.len[1]);
+      const len = rbrand(P.len[0], P.len[1]);
       const body = cetacean(scene, P.kind, len);
       const side = i % 2 ? 1 : -1;
       pod.members.push({
         ...body, len, x: at.x, y: -3, z: at.z, yaw: pod.heading, pitch: 0,
         // Its place in the pod (across, along), and alongside a bow (across, ahead, how deep).
-        slot: { across: (B() - 0.5) * (P.whale ? 16 : 12), along: (B() - 0.5) * (P.whale ? 14 : 10) },
-        bowSlot: { across: side * brand(0.7, 2.2), ahead: brand(0.4, 3.8), deep: brand(0.5, 1.0) },
-        cyc: B() * 8, period: brand(P.period[0], P.period[1]), leap: false, blew: false, landed: true, phase: B() * 10,
+        slot: { across: (R() - 0.5) * (P.whale ? 16 : 12), along: (R() - 0.5) * (P.whale ? 14 : 10) },
+        bowSlot: { across: side * rbrand(0.7, 2.2), ahead: rbrand(0.4, 3.8), deep: rbrand(0.5, 1.0) },
+        cyc: R() * 8, period: rbrand(P.period[0], P.period[1]), leap: false, blew: false, landed: true, phase: R() * 10,
       });
     }
     return pod;

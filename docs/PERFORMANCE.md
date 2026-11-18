@@ -23,6 +23,7 @@ what boat, at what hour, in what weather.
 | `voyage` | The crossing south, under way at the yacht's helm |
 | `liveaboard` | In the trawler's saloon at dusk, at anchor off Gannet Isle, her lamps lit, her interior built and her tender on its chocks |
 | `tender` | The tender running in to the beach at Gannet Isle, the trawler at anchor behind her |
+| `archipelago` | At anchor in Bahía Escondida, in the Las Brasas archipelago, mid-afternoon: Isla Honda and its salt works close by, the other islands in view |
 
 Each is measured the same way: the **simulation alone** (240 steps at 30 Hz, nothing drawn: mean
 and worst 1%), a frame's **draw calls and triangles**, **real frames** running free for at least
@@ -96,6 +97,27 @@ calls, against the 15.0 above taken under load):
 Living aboard costs little: the trawler's interior is two meshes (built the first time her decks
 are walked) and one light in the room you're in; the saloon at anchor is cheaper to simulate than
 running at sea. The tender under way costs what a small boat does.
+
+The Las Brasas archipelago (A4 of `docs/ARCHIPELAGO.md`), measured the same way, November 2026,
+quiet machine; `dive_brasas` before the archipelago (just after L8) and with it. The draw calls
+vary from run to run here by twenty or so (what of the sea's life is in view), so each is the range
+over three runs, the rest the middle one:
+
+| Scenario | Sim ms (mean · worst 1%) | Draw calls | Triangles | Heap |
+| --- | --- | --- | --- | --- |
+| dive_brasas, before | 5.7 · 9.1 | 203–225 | 1,144,809 | 273 MB |
+| dive_brasas, with the archipelago | 6.1 · 9.9 | 232–244 | 1,163,726 | 273 MB |
+| archipelago | 4.9 · 9.0 | 141–145 | 556,688 | 273 MB |
+
+The first build of the islands drew 1.44 million triangles diving the arches, a quarter more,
+and almost none of it the islands themselves: the scrub, the shore's boulders, the reef's rocks
+and the urchins were each one mesh over the whole archipelago, so some part of each was always in
+view and the whole of it was drawn (the islands' scrub, on land, from under the water). Each is
+now one mesh to an island, so an island out of view is left out: diving the arches draws about 2 %
+more than before, and at anchor among the islands is half what it was. Diving the arches takes
+about twenty more draw calls (a tenth more), not yet traced object by object: Los Roquetes and El
+Vapor, with their detailed seabed, are the new things nearest. The heap and the simulation are as
+they were: the habitat's homes are built as fast as before (`docs/ARCHIPELAGO.md`, A1).
 
 What stands out already, to be confirmed on real hardware before anything is changed for it:
 draw calls are highest looking at many boats or the harbour (`harbour_off` 534 after the fleet's

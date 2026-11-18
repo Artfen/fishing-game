@@ -5,7 +5,7 @@ import { withCaustics } from './caustics.js';
 import {
   brasaHeight, brasaSDF, brasaHabitat, lavaRough, onBeach, windward, ISLE, PICO, ROJA, FARO, PUERTO, PLAYA, ARCO, ARCHES,
   VILLAGE, QUAY_S, DIQUE, MOLE, POSADA, QUAY_STEPS, SEBADAL, SOUTH_MAP, PONTOON_S, FINGERS_S, PONTOON_STEPS, FUEL_S, BAJON, onBajon, HARBOUR_OFFICE,
-  beachPale, SALINAS, VAPOR, BANCO, ROQUETES, GAVIOTA,
+  beachPale, SALINAS, VAPOR, BANCO, ROQUETES, GAVIOTA, islandOf,
 } from './brasa.js';
 import { fuelPumpParts, pontoonParts } from '../props.js';
 
@@ -139,6 +139,20 @@ function instanced(geo, list, material, rnd, { tint = 0.12, tilt = 0, shadows = 
   m.receiveShadow = true;
   m.computeBoundingSphere();
   return m;
+}
+// (The archipelago) The same, one mesh to each island (Brasa with the stacks, Gaviota, Honda), so
+// an island out of view is left out: one mesh over them all is always partly in view, and is drawn
+// whole. (The same draws of the dice, in the same number, so nothing after them moves.)
+function byIsland(group, geo, list, material, rnd, opts) {
+  const by = new Map();
+  for (const t of list) {
+    const k = islandOf(t.x, t.z)?.id || 'brasa';
+    if (!by.has(k)) by.set(k, []);
+    by.get(k).push(t);
+  }
+  const out = [...by.values()].map((l) => instanced(geo, l, material, rnd, opts));
+  for (const m of out) group.add(m);
+  return out;
 }
 
 // A Canary palm: a thick, slightly leaning trunk and a full crown of arching fronds.
@@ -534,8 +548,8 @@ export function buildBrasa(scene, rnd) {
   }
   // Scrub over the island: tabaiba thick in the lee low down, cardón on the rocky slopes; pines high
   // on the volcano.
-  // (Over the whole archipelago: Brasa and its islands.)
-  for (let i = 0; i < 60000 && tabaiba.length < 3200; i++) {
+  // (Over the whole archipelago: Brasa and its islands, sharing Brasa's budget, as its fish do.)
+  for (let i = 0; i < 60000 && tabaiba.length < 2600; i++) {
     const x = SOUTH_MAP.x + rnd() * SOUTH_MAP.w, z = SOUTH_MAP.z + rnd() * SOUTH_MAP.h;
     const d = brasaSDF(x, z);
     if (d > -8) continue;
@@ -552,23 +566,23 @@ export function buildBrasa(scene, rnd) {
     else tabaiba.push({ x, y: h - 0.05, z, s: 0.7 + rnd() * 0.8, r: rnd() * 6.28 });
   }
   // Lava boulders along the shore, and the reef's boulders and urchins under the water.
-  for (let i = 0; i < 52000 && (boulders.length < 1900 || rocksUnder.length < 2100); i++) {
+  for (let i = 0; i < 52000 && (boulders.length < 1400 || rocksUnder.length < 1500); i++) {
     const x = SOUTH_MAP.x + rnd() * SOUTH_MAP.w, z = SOUTH_MAP.z + rnd() * SOUTH_MAP.h;
     const d = brasaSDF(x, z);
     if (Math.abs(d) > 120) continue;
     const h = H(x, z);
     if (Math.hypot(x - PUERTO.x, z - PUERTO.z) < PUERTO.r + 25 || onBeach(x, z) > 0.3) continue;
     // (Not on a steep face, where they'd seem stuck to the cliff.)
-    if (d < 0 && d > -10 && boulders.length < 1900) {
+    if (d < 0 && d > -10 && boulders.length < 1400) {
       if (Math.abs(H(x + 1.2, z) - H(x - 1.2, z)) + Math.abs(H(x, z + 1.2) - H(x, z - 1.2)) < 2.2) boulders.push({ x, y: h - 0.2, z, s: 0.5 + rnd() * 1.4, r: rnd() * 6.28 });
     }
-    else if (d > 0 && h < -1 && h > -26 && rocksUnder.length < 2100) {
+    else if (d > 0 && h < -1 && h > -26 && rocksUnder.length < 1500) {
       const hb = brasaHabitat(x, z, _hb);
       if (hb.rock < 0.45) continue;
       const s = 0.6 + rnd() * 1.8;
       rocksUnder.push({ x, y: h - s * 0.3, z, s, r: rnd() * 6.28 });
       // The urchins graze the rock bare round them, in their dozens.
-      if (h > -16 && rnd() < 0.8) for (let k = 0; k < 4 && urchins.length < 4200; k++) {
+      if (h > -16 && rnd() < 0.8) for (let k = 0; k < 4 && urchins.length < 3200; k++) {
         const ux = x + (rnd() - 0.5) * 3.5, uz = z + (rnd() - 0.5) * 3.5;
         urchins.push({ x: ux, y: H(ux, uz) + 0.04, z: uz, s: 0.8 + rnd() * 0.5, r: rnd() * 6.28 });
       }
@@ -616,8 +630,8 @@ export function buildBrasa(scene, rnd) {
     // Round the Roque and its arches, and over the rest of the island's rock.
     for (let i = 0; i < 900; i++) tryAt(ARCO.x + (rnd() - 0.5) * 220, ARCO.z + 20 + (rnd() - 0.5) * 200, true);
     // (The archipelago) El Banco's top and walls, and round Los Roquetes' stacks.
-    for (let i = 0; i < 900; i++) tryAt(BANCO.x + (rnd() - 0.5) * BANCO.r * 1.4, BANCO.z + (rnd() - 0.5) * BANCO.r * 1.4, true);
-    for (let i = 0; i < 600; i++) {
+    for (let i = 0; i < 500; i++) tryAt(BANCO.x + (rnd() - 0.5) * BANCO.r * 1.4, BANCO.z + (rnd() - 0.5) * BANCO.r * 1.4, true);
+    for (let i = 0; i < 350; i++) {
       const R = ROQUETES[Math.floor(rnd() * ROQUETES.length)], a = rnd() * Math.PI * 2, d = R.r + rnd() * 40;
       tryAt(R.x + Math.cos(a) * d, R.z + Math.sin(a) * d, true);
     }
@@ -764,15 +778,13 @@ export function buildBrasa(scene, rnd) {
 
   const sway = plain();
   group.add(instanced(palmGeometry(rnd), palms, sway, rnd));
-  group.add(instanced(tabaibaGeometry(rnd), tabaiba, plain(), rnd, { tint: 0.15 }));
-  group.add(instanced(cardonGeometry(rnd), cardon, plain(), rnd, { tint: 0.1 }));
+  byIsland(group, tabaibaGeometry(rnd), tabaiba, plain(), rnd, { tint: 0.15 });
+  byIsland(group, cardonGeometry(rnd), cardon, plain(), rnd, { tint: 0.1 });
   group.add(instanced(pineGeometry(), pines, plain(), rnd, { tint: 0.1 }));
   const boulderGeo = mergeParts([{ geo: jitterGeo(new THREE.DodecahedronGeometry(1, 0), 0.4, rnd), color: '#3a3839', jitter: 0.08 }], rnd);
-  group.add(instanced(boulderGeo, boulders, rockMat, rnd, { tint: 0.18, tilt: 0.8 }));
-  const under = instanced(boulderGeo, rocksUnder, rockMat, rnd, { tint: 0.2, tilt: 0.9, shadows: false });
-  group.add(under);
-  const urch = instanced(urchinGeometry(), urchins, plain(), rnd, { tint: 0.05, shadows: false });
-  group.add(urch);
+  byIsland(group, boulderGeo, boulders, rockMat, rnd, { tint: 0.18, tilt: 0.8 });
+  byIsland(group, boulderGeo, rocksUnder, rockMat, rnd, { tint: 0.2, tilt: 0.9, shadows: false });
+  byIsland(group, urchinGeometry(), urchins, plain(), rnd, { tint: 0.05, shadows: false });
   // (The reef's colour thins out with the Vegetation setting: El Bajón's, placed first, stay longest.)
   const soft = withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
   const reefLife = [
