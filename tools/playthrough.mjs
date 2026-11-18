@@ -622,7 +622,10 @@ if (dA.diving === 'scuba') {
   });
   await shot(A, 'j1-dive');
   await A.keyboard.press('Space');
-  await step(1.5);
+  // (The photograph is taken from a frame drawn for it, then its card opens: in software
+  // rendering that can take longer than a moment. Kept once the card is up: an Enter before it
+  // does nothing, and the card left open holds the dive, as a panel does.)
+  for (let i = 0; i < 30 && (await A.evaluate(() => slowTide.modal)) !== 'photocard'; i++) await step(0.5);
   await A.keyboard.press('Enter');
   await step(0.5);
   const photo = await A.evaluate(() => { const p = slowTide.state.photos[slowTide.state.photos.length - 1]; return { n: slowTide.state.photos.length, species: p?.subjects?.species || [], said: window.__said.slice(-1) }; });

@@ -165,17 +165,17 @@ export const PROP_IDS = Object.keys(PROPS);
 // to time her to (go, knots), the speed to quote her range at (cruise, knots), and a load
 // (laden kg; crew: the words for it).
 export const CATALOGUE = {
-  skiff: { slip: 0.3, stock: 'p10', models: ['e3', 'p6', 'p10', 'p15', 'p20'], plate: 20, props: ['matched', 'low', 'four'], drag: 1.1557, tops: { e3: 4.561, p6: 5.814, p10: 7.151, p15: 8.409, p20: 9.367 },
+  skiff: { slip: 0.3, stock: 'p10', models: ['e3', 'p6', 'p10', 'p15', 'p20'], plate: 20, props: ['matched', 'low', 'four'], drag: 1.1122, tops: { e3: 4.516, p6: 5.876, p10: 7.325, p15: 8.63, p20: 9.6 },
     legacy: { power: 'p15', economy: 'p6' }, go: 10, cruise: 10, laden: 150, crew: 'two aboard' },
-  bass: { slip: 0.2, stock: 't60', models: ['t40', 't60', 't90'], plate: 90, props: ['matched', 'low', 'four'], drag: 1.0821, tops: { t40: 7.91, t60: 9.181, t90: 10.441 },
+  bass: { slip: 0.2, stock: 't60', models: ['t40', 't60', 't90'], plate: 90, props: ['matched', 'low', 'four'], drag: 1.0424, tops: { t40: 8.081, t60: 9.39, t90: 10.656 },
     legacy: { power: 't90', economy: 't40' }, go: 12, cruise: 12, laden: 150, crew: 'two aboard' },
-  cabin: { slip: 0.45, stock: 't40', models: ['t30', 't40', 't60'], plate: 60, props: ['matched', 'low', 'four'], drag: 1.0813, tops: { t30: 5.397, t40: 5.972, t60: 6.912 },
+  cabin: { slip: 0.45, stock: 't40', models: ['t30', 't40', 't60'], plate: 60, props: ['matched', 'low', 'four'], drag: 1.067, tops: { t30: 5.423, t40: 6.023, t60: 7.011 },
     legacy: { power: 't60', economy: 't30' }, go: 8, cruise: 8, laden: 300, crew: 'four aboard' },
-  rib: { slip: 0.1, stock: 'f150', models: ['f115', 'f150', 's200', 's225'], plate: 225, props: ['matched', 'low', 'four'], drag: 1.0406, tops: { f115: 17.087, f150: 18.57, s200: 20.453, s225: 21.275 },
+  rib: { slip: 0.1, stock: 'f150', models: ['f115', 'f150', 's200', 's225'], plate: 225, props: ['matched', 'low', 'four'], drag: 1.0233, tops: { f115: 17.268, f150: 18.742, s200: 20.589, s225: 21.382 },
     legacy: { power: 's200', economy: 'f115' }, go: 20, cruise: 25, laden: 300, crew: 'four aboard' },
-  console: { slip: 0.12, stock: 'f115', models: ['t90', 'f115', 'f150', 's200'], count: 2, plate: 200, props: ['matched', 'low', 'four'], drag: 1.0553, tops: { t90: 12.493, f115: 13.65, f150: 14.857, s200: 16.387 },
+  console: { slip: 0.12, stock: 'f115', models: ['t90', 'f115', 'f150', 's200'], count: 2, plate: 200, props: ['matched', 'low', 'four'], drag: 1.0341, tops: { t90: 12.649, f115: 13.809, f150: 15.017, s200: 16.546 },
     legacy: { power: 'f150', economy: 't90' }, go: 20, cruise: 22, laden: 400, crew: 'five aboard' },
-  cruiser: { slip: 0.3, stock: 'd320', models: ['d260', 'd320', 'd370', 'd440'], count: 2, plate: null, props: ['matched', 'low'], drag: 1.0841, tops: { d260: 9.121, d320: 9.841, d370: 10.382, d440: 11.035 },
+  cruiser: { slip: 0.3, stock: 'd320', models: ['d260', 'd320', 'd370', 'd440'], count: 2, plate: null, props: ['matched', 'low'], drag: 1.065, tops: { d260: 9.222, d320: 9.947, d370: 10.489, d440: 11.14 },
     legacy: {}, go: 15, cruise: 15, laden: 1600, crew: 'a full load (six aboard, full tanks and gear)' },
 };
 export const hasCatalogue = (kind) => !!CATALOGUE[kind];
