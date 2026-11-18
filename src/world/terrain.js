@@ -1087,10 +1087,18 @@ FUEL_PUMPS.marina = { x: HAVEN_PONTOON.x0 + 0.35, z: HAVEN_PONTOON.z0 + 5.5, yaw
 export const CRUISER_BERTH = { x: OWN_FINGER.x0 + 0.6 + 4.6, z: OWN_FINGER.z1 + 1.75, heading: Math.PI / 2 };
 export const CONSOLE_BERTH = { x: OWN_FINGER.x0 + 0.6 + 3.7, z: OWN_FINGER.z0 - 1.5, heading: Math.PI / 2 };
 
+// The timber piers stand on posts, so water runs under them (see ripplegpu.js): two rows of
+// posts along the pier, the first `first` metres from its near end and one every `step`, set
+// `inset` in from its sides, of radius r (as world.js buildJetty, shore.js buildLanding and
+// regions.js pierParts put them). The stone quays and the floating pontoons are solid to the water.
+const POSTS_JETTY = { first: 0.6, step: 2.3, inset: 0.07, r: 0.14 };
+const POSTS_LANDING = { first: 0.6, step: 2.2, inset: 0.05, r: 0.12 };
+BOATHOUSE_PIER.posts = COVE_PIER.posts = { first: 0.4, step: 2.2, inset: 0.1, r: 0.13 };
+
 // Walkable decks the boat bumps into: [x0, x1, z0, z1, deck height].
 export const PIERS = [
-  { x0: JETTY.x - JETTY.halfW, x1: JETTY.x + JETTY.halfW, z0: JETTY.z0, z1: JETTY.z1, deck: JETTY.deck },
-  { x0: LANDING.x - 2.5, x1: LANDING.x + LANDING.len, z0: LANDING.z - 0.9, z1: LANDING.z + 0.9, deck: LANDING.deck },
+  { x0: JETTY.x - JETTY.halfW, x1: JETTY.x + JETTY.halfW, z0: JETTY.z0, z1: JETTY.z1, deck: JETTY.deck, posts: POSTS_JETTY },
+  { x0: LANDING.x - 2.5, x1: LANDING.x + LANDING.len, z0: LANDING.z - 0.9, z1: LANDING.z + 0.9, deck: LANDING.deck, posts: POSTS_LANDING },
   // Wend Quay running out east into the estuary, the Longmere boathouse jetty, and the little
   // landing in Puffin Cove.
   QUAY, BOATHOUSE_PIER, COVE_PIER,

@@ -307,6 +307,8 @@ export class Effects {
   }
 
   // Under way, the bow pushes out little waves on both sides; together they spread into a V.
+  // (Drawn, not simulated: they'd start inside her hull, which the simulation keeps dry, and her
+  // wake's drawn as it is: wakes.js.)
   updateBow(dt, boat) {
     if (!this.field?.on || boat.speed < 0.5) return;
     this.bowT -= dt;
@@ -316,8 +318,8 @@ export class Effects {
     for (const side of [-1, 1]) {
       const x = boat.pos.x + boat.fwd.x * 1.3 + boat.right.x * side * 0.45;
       const z = boat.pos.z + boat.fwd.z * 1.3 + boat.right.z * side * 0.45;
-      this.field.add(x, z, 1.2 + s * 1.6, 2.4, 0.28 + s * 0.3);
+      this.field.add(x, z, 1.2 + s * 1.6, 2.4, 0.28 + s * 0.3, false);
     }
-    this.field.add(boat.pos.x - boat.fwd.x * 1.7, boat.pos.z - boat.fwd.z * 1.7, 0.9 + s, 1.6, 0.25 * s);
+    this.field.add(boat.pos.x - boat.fwd.x * 1.7, boat.pos.z - boat.fwd.z * 1.7, 0.9 + s, 1.6, 0.25 * s, false);
   }
 }

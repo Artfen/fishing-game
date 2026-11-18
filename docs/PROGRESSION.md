@@ -163,3 +163,7 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
 15. **W6 (done):** and in a strong wind, spindrift torn off the crests where they're breaking, from
    7 m/s up and more the harder it blows, streaming down the wind and carried up by its eddies;
    foam blown in streaks on the water by the Beaufort scale.
+16. **W7 (done):** the rings round you (a cast, the bobber, a fish rising, a wading foot, the water
+   lapping at your hull) run as the water runs them (Ocean: Full): spreading at a real ripple's
+   pace, crossing one another, coming back off hulls, quays and the shore, and passing under the
+   timber piers between their posts.
