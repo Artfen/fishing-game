@@ -45,6 +45,7 @@ export const PROFILES = {
   console: { drive: 'outboard', engines: 2, starter: 'key', battery: true, cord: true, trim: 'power', idle: 700, max: 6000, cooling: 'telltale', name: 'outboards' },
   tender: { drive: 'outboard', engines: 1, starter: 'pull', battery: false, cord: true, trim: 'tilt', idle: 950, max: 5700, cooling: 'telltale', name: 'outboard' },
   rib: { drive: 'outboard', engines: 1, starter: 'key', battery: true, cord: true, trim: 'power', idle: 700, max: 6000, cooling: 'telltale', name: 'outboard' },
+  trawler: { drive: 'inboard', engines: 1, starter: 'key', battery: true, cord: false, trim: null, diesel: true, idle: 650, max: 2600, cooling: 'alarm', name: 'diesel' },
   cruiser: { drive: 'inboard', engines: 2, starter: 'key', battery: true, cord: false, trim: null, diesel: true, idle: 650, max: 3200, cooling: 'alarm', name: 'diesels' },
   jetski: { drive: 'jet', engines: 1, starter: 'button', battery: false, cord: true, trim: null, idle: 1600, max: 7500, cooling: null, name: 'engine' },
 };

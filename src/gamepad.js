@@ -37,6 +37,9 @@ export const MAPS = {
   // At the helm of twin engines (the centre console, the yacht): D-pad → picks the lever the
   // stick works (both, the port one, the starboard one), for one ahead and one astern.
   helmtwin: { ...PLAY, B: 'neutral', L3: 'motor', LB: 'trimDown', RB: 'trimUp', RIGHT: 'levers' },
+  // At the trawler's helm: the bumpers push her bow thruster to port and starboard, and D-pad →
+  // is her autopilot.
+  helmpilot: { ...PLAY, B: 'neutral', L3: 'motor', LB: 'trimDown', RB: 'trimUp', RIGHT: 'spotlock' },
   // A line out from a boat under power: the D-pad moves the throttle a notch (the stick is for
   // the lure).
   troll: { ...PLAY, LB: 'advice', RB: 'feed', L3: 'walkline', UP: 'throttleUp', DOWN: 'throttleDown' },

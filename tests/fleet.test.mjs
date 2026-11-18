@@ -18,9 +18,12 @@ const { seeded } = await import('../src/util.js');
 
 const scene = new THREE.Scene();
 const boats = Object.fromEntries(BOAT_KINDS.map((k) => [k, new Boat(scene, { kind: k })]));
-const LENGTHS = Object.fromEntries(BOAT_KINDS.map((k) => [k, boats[k].hull.L]));
+// (Her length alongside, with anything past her transom: the trawler's swim platform.)
+const LENGTHS = Object.fromEntries(BOAT_KINDS.map((k) => [k, boats[k].hull.L + (boats[k].hull.aft || 0)]));
 const BEAMS = Object.fromEntries(BOAT_KINDS.map((k) => [k, boats[k].hull.B]));
-const HARBOUR = BOAT_KINDS.filter((k) => FL.homeOf(k) === 'harbour');
+const AFT = Object.fromEntries(BOAT_KINDS.map((k) => [k, boats[k].hull.aft || 0]));
+// (The trawler takes a side of a finger to herself: see the test of her berth.)
+const HARBOUR = BOAT_KINDS.filter((k) => FL.homeOf(k) === 'harbour' && k !== 'trawler');
 
 test('three of your boats in the water at most: a new game has the camp’s, an older one keeps the three you’d want', () => {
   assert.equal(FL.MAX_AFLOAT, 3);
@@ -70,6 +73,25 @@ test('your finger: any three of the Willowhaven boats lie alongside it at once, 
       }
       placed.push({ k, b, h });
     }
+  }
+});
+
+test('the trawler on your finger: its seaward side to herself, platform and all; the other side takes what fits, and nothing overlaps', () => {
+  const F = T.OWN_FINGER, h = boats.trawler.hull, room = F.x1 - F.x0 + 0.4;
+  for (let i = 0; i < HARBOUR.length; i++) for (let j = i + 1; j < HARBOUR.length; j++) {
+    const set = ['trawler', HARBOUR[i], HARBOUR[j]];
+    const B = FL.ownBerths(F, set, LENGTHS, BEAMS, [1, -1], true, AFT);
+    const t = B.trawler;
+    assert.ok(t && t.side === 1, 'she lies on its seaward side');
+    // Her platform's end clear of the pontoon, her bow short of the finger's end; deep enough.
+    assert.ok(t.x - h.L / 2 - h.aft >= F.x0 + 0.5 && t.x + h.L / 2 <= F.x1 + 0.5, 'along the finger, platform and all');
+    for (const u of [-0.45, 0, 0.45]) assert.ok(T.solidHeight(t.x + u * h.L, t.z) < -(h.shallow + 1), 'deep enough for her keel');
+    const berth = M.berthFor({ hull: h, pos: { x: t.x, z: t.z }, heading: t.heading }, []);
+    assert.ok(berth && T.PIERS[berth.pier] === F, 'her lines find the finger');
+    // The others on the other side: both if they fit, and never on hers.
+    const other = [HARBOUR[i], HARBOUR[j]], fits = 0.6 + LENGTHS[other[0]] + 1 + LENGTHS[other[1]] <= room;
+    for (const k of other) if (B[k]) assert.equal(B[k].side, -1, `${k} on the other side`);
+    assert.equal(other.every((k) => B[k]), fits, `${other.join(' and ')}: ${fits ? 'both fit' : 'one stays laid up'}`);
   }
 });
 

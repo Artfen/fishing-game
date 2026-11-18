@@ -17,6 +17,8 @@ const widthAt = (hull, t) => hull.B * (hull.hw ? hull.hw(t) : Math.pow(Math.sin(
 // (x to port, z forward from her middle), the ones nearest the cockpit aft first.
 export function seatsFor(hull, n) {
   if (n <= 0) return [];
+  // (A boat whose seats are laid out for her: the trawler's benches on her aft deck.)
+  if (hull.seats) return hull.seats.slice(0, n).map(([x, z]) => ({ x, z }));
   const L = hull.L, out = [];
   const helmX = hull.standing?.helm?.[0] ?? 0, helmZ = hull.standing?.helm?.[1] ?? hull.seatZ ?? 0;
   const inCabin = (z) => hull.cabin && z > (hull.cabin[0] - 0.5) * L - 0.3 && z < (hull.cabin[1] - 0.5) * L + 0.3;

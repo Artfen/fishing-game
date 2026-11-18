@@ -17,6 +17,7 @@ export const FISHBOX = {
   sail: 'cool box',
   console: 'fish box',
   rib: 'cool box',
+  trawler: 'fish box',
 };
 export const BOX_HOURS = 72;
 export const BOX_PRICE = 6;

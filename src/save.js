@@ -244,7 +244,7 @@ const X_LO = -3000, X_HI = 3000, Z_LO = -3000, Z_HI = 8000;
 const when = (v) => (isObj(v) ? { day: int(v.day, 1, 1, 1e6), hour: num(v.hour, 12, 0, 24) } : null);
 
 // (Your boats' ids: G8, for now one of each kind, her id her kind.)
-const VESSELS = ['row', 'skiff', 'kayak', 'bass', 'cabin', 'sail', 'cruiser', 'console', 'windsurf', 'jetski', 'rib', 'tender'];
+const VESSELS = ['row', 'skiff', 'kayak', 'bass', 'cabin', 'sail', 'cruiser', 'console', 'windsurf', 'jetski', 'rib', 'tender', 'trawler'];
 
 function pos(v) {
   if (!isObj(v)) return null;

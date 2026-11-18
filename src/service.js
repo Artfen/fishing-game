@@ -11,7 +11,7 @@
 export const SERVICE_HOURS = 100;
 // What a service costs at the Marine Works (pounds): by her engine room, the twin-engined boats
 // at twice.
-export const SERVICE_PRICE = { tender: 30, skiff: 30, sail: 30, jetski: 45, bass: 45, rib: 60, cabin: 60, console: 110, cruiser: 160 };
+export const SERVICE_PRICE = { trawler: 180, tender: 30, skiff: 30, sail: 30, jetski: 45, bass: 45, rib: 60, cabin: 60, console: 110, cruiser: 160 };
 
 // Engine hours since the last service (V: her papers).
 export const sinceService = (V) => (V ? Math.max(0, (V.hours || 0) - (V.serviced || 0)) : 0);

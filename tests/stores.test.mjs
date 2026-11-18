@@ -11,8 +11,8 @@ const { crossHours } = await import('../src/crossing.js');
 const crate = (uid, kind, days) => ({ uid, id: 'stores', at: kind ? `boat:${kind}` : 'ashore', x: 0, z: 0, secured: true, full: true, ...(days != null ? { days } : {}) });
 const world = (stores = newStores(), items = []) => ({ stores, cargo: { items } });
 
-test('her lockers: the cabin boat, the yacht and the sailing boat carry stores; an open boat only in a crate', () => {
-  assert.deepEqual(GALLEY, { cabin: 3, cruiser: 6, sail: 3 });
+test('her lockers: the cabin boat, the yacht, the sailing boat and the trawler carry stores; an open boat only in a crate', () => {
+  assert.deepEqual(GALLEY, { cabin: 3, cruiser: 6, sail: 3, trawler: 12 });
   const S = world();
   assert.deepEqual(storesAboard(S, 'cruiser'), { galley: 6, crates: 0, days: 6, most: 6 });
   assert.equal(storesAboard(S, 'skiff').most, 0, 'nothing in the skiff');
@@ -71,7 +71,7 @@ test('the words, and the crossing card: enough for the passage with half a day t
 
 test('kept through a save: her lockers, and what’s left in each crate; an older save comes stocked', () => {
   assert.deepEqual(cleanStores(undefined), newStores(), 'an older save: full');
-  assert.deepEqual(cleanStores({ cabin: 1.25, cruiser: 'lots', sail: -4, skiff: 9 }), { cabin: 1.25, cruiser: 6, sail: 0 }, 'junk dropped, clamped, no lockers for the skiff');
+  assert.deepEqual(cleanStores({ cabin: 1.25, cruiser: 'lots', sail: -4, skiff: 9 }), { cabin: 1.25, cruiser: 6, sail: 0, trawler: 12 }, 'junk dropped, clamped, no lockers for the skiff');
   const c = cleanCargo({ items: [crate('c1', 'skiff', 1.5), crate('c2', 'cabin', 'x'), crate('c3', null, 99)] });
   assert.deepEqual(c.items.map((it) => it.days), [1.5, CRATE_DAYS, CRATE_DAYS], 'a crate keeps what’s left in it; junk reads as full');
   // A crate weighs what's in it, and comes full from the chandlery.

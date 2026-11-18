@@ -67,6 +67,11 @@ export const TRIALS = {
     't30/low': {top: 12.4, t20: 2.1, laden: 10.71, lever: 0.357, lph: 35.5},
     't30/four': {top: 13.12, t20: 2.2, laden: 10.28, lever: 0.381, lph: 35.5},
   },
+  trawler: {
+    'd120/matched': {top: 4.46, t20: 15.3, laden: 4.26, lever: 0.674, lph: 45.7},
+    'd160/matched': {top: 4.7, t20: 10.9, laden: 4.55, lever: 0.545, lph: 43.4},
+    'd260/matched': {top: 5.1, t20: 6.8, laden: 4.95, lever: 0.41, lph: 41.7},
+  },
   console: {
     't90/matched': {top: 12.53, t20: 6.1, laden: 11.46, lever: 0.839, lph: 130.3},
     't90/low': {top: 11.84, t20: 5.2, laden: 11.75, lever: 0.738, lph: 130.3},

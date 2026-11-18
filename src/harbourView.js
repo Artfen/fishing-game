@@ -323,7 +323,7 @@ export class HarbourSheet {
     out.push(el('p', 'hb-say', 'In the workshop, an outboard hangs on a stand with its cowling off. “What’ll it be: range, speed, electronics, something for the deck? Fitted while you wait.”'));
     const mine = H.yardBoats().filter((k) => fitsFor(k, Y.fits[k] || []).length);
     if (!mine.length) {
-      out.push(el('p', 'cp-soft', 'None of your boats takes a fitting from the workshop: the motorboats do (the skiff, the tender, the bass boat, the cabin boat, the centre console, the RIB, the yacht, the jet ski), and the sailing boat a few.'));
+      out.push(el('p', 'cp-soft', 'None of your boats takes a fitting from the workshop: the motorboats do (the skiff, the tender, the bass boat, the cabin boat, the centre console, the RIB, the yacht, the trawler, the jet ski), and the sailing boat a few.'));
       return out;
     }
     this.fitKind = mine.includes(this.fitKind) ? this.fitKind : mine[0];

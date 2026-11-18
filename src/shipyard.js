@@ -18,7 +18,7 @@ import { kindOf, isBoatId, idFor } from './boatid.js';
 
 export const STARTER = ['row', 'skiff', 'kayak'];
 // What each boat costs (pounds): from a couple of good days' fishing to a summer's.
-export const PRICES = { windsurf: 90, jetski: 380, tender: 520, bass: 420, sail: 480, cabin: 650, rib: 1200, console: 1650, cruiser: 3600 };
+export const PRICES = { windsurf: 90, jetski: 380, tender: 520, bass: 420, sail: 480, cabin: 650, rib: 1200, console: 1650, cruiser: 3600, trawler: 9500 };
 // A day's hire: a few percent of her price.
 export const hirePrice = (kind) => (PRICES[kind] ? Math.max(6, Math.round(PRICES[kind] * 0.03)) : 0);
 
@@ -56,24 +56,24 @@ export const FITS = {
   },
   sonar: {
     name: 'Imaging sonar', cat: 'electronics', kg: 3, amps: 1.2,
-    price: { skiff: 140, bass: 180, cabin: 200, console: 300, rib: 260, cruiser: 360, tender: 140 },
+    price: { skiff: 140, bass: 180, cabin: 200, console: 300, rib: 260, cruiser: 360, tender: 140, trawler: 400 },
     desc: 'A through-hull imaging transducer for the fish finder’s head unit: the down view and the split screen, ranges down to 40 m, and the smaller echoes picked out. (Without it the head unit shows the 2D sonar to 20 m.)',
   },
   // (G7) A deep sounder: the bottom to 200 m, where the shelf falls away and Gannet Deep's floor
   // lies (see sonar.js DEEP_RANGES). Without it the finder loses the bottom past what it reaches.
   deepsonar: {
     name: 'Deep sounder', cat: 'electronics', kg: 5, amps: 1.5,
-    price: { cabin: 360, rib: 380, console: 420, cruiser: 480 },
+    price: { cabin: 360, rib: 380, console: 420, cruiser: 480, trawler: 520 },
     desc: 'A big low-frequency transducer for the fish finder’s head unit: it reads the bottom to two hundred metres, and the marks over it. The deep water off the shelf, and Gannet Deep’s floor, where nothing else reaches. (Without it the finder loses the bottom past about seventy metres.)',
   },
   plotter: {
     name: 'GPS chartplotter', cat: 'electronics', kg: 2, amps: 1,
-    price: { skiff: 150, bass: 170, cabin: 190, console: 260, rib: 240, cruiser: 320, sail: 170, jetski: 160, tender: 150 },
+    price: { skiff: 150, bass: 170, cabin: 190, console: 260, rib: 240, cruiser: 320, sail: 170, jetski: 160, tender: 150, trawler: 360 },
     desc: 'Your track drawn on the chart wherever she goes, and at the helm the bearing and distance to the nearest of your marks.',
   },
   vhf: {
     name: 'VHF radio', cat: 'electronics', kg: 1, amps: 0.5,
-    price: { skiff: 70, bass: 70, cabin: 80, console: 90, rib: 90, cruiser: 90, sail: 80, tender: 70 },
+    price: { skiff: 70, bass: 70, cabin: 80, console: 90, rib: 90, cruiser: 90, sail: 80, tender: 70, trawler: 100 },
     desc: 'The harbour’s channel at sea: who’s catching what and where the birds are working, and the forecast, now and then while you’re out.',
   },
   battery: {
@@ -150,7 +150,7 @@ export const FITS = {
   },
   anchor: {
     name: 'Heavier anchor and chain', cat: 'gear', kg: 14, amps: 0,
-    price: { skiff: 35, bass: 45, cabin: 60, console: 80, rib: 70, cruiser: 120, sail: 50, tender: 30 },
+    price: { skiff: 35, bass: 45, cabin: 60, console: 80, rib: 70, cruiser: 120, sail: 50, tender: 30, trawler: 160 },
     desc: 'A bigger anchor on a length of chain: it digs in first time and holds in a blow that would drag the old one across the bottom. The chain’s weight keeps the pull on it low along the seabed, so it holds even where the rope runs short in deep water.',
     // (B6) The anchor itself, twice the weight, holds about twice as hard (holding power goes about
     // with an anchor's weight: Practical Sailor's soft-mud tests); its chain (anchoring.js rodeOf)

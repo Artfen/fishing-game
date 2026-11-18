@@ -189,3 +189,9 @@ then.
   short-shaft tiller outboard, built in the RIB's family to this page's rules. 28 meshes and draw
   calls, 9,974 triangles (her tubes' segments scaled to her length), in `docs/fleet/after/tender*.jpg`
   (day, evening, overcast) and `docs/fleet/after/stats.json`.
+- **The expedition trawler** (L2 of `docs/LIVEABOARD.md`): a full-displacement trawler of
+  forty-four feet. A navy hull with a cream rubbing strake and portlights, a white house, a raised
+  pilothouse with clear glass raked forward, the boat deck, a radar arch, teak decks and a swim
+  platform; a full keel, a single screw and a barn-door rudder. 65 meshes and draw calls (her
+  dashboard is 33 of them, as on the yacht), 10,270 triangles: `docs/fleet/after/trawler*.jpg` and
+  `stats.json`. The studio's helm view now stands on a raised helm's own sole (`standing.floor`).

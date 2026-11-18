@@ -35,9 +35,11 @@ Each has a recommendation; the rest of this page assumes it.
    off; you bring her alongside it, haul her on, and it lifts. No swinging crane, no tender high up
    upsetting her stability, and forgiving to line up.
 3. **Her berth: the outer side of your own finger** at Willowhaven (16 m: room for her 13.4 m and
-   the platform and tender, about 15.1 m). The finger's other side takes one or two small boats;
-   more go to the visitors' pontoon. (The other choice is a mooring buoy in the bay, reached by the
-   tender, real enough but awkward on the first day.)
+   the platform and tender, about 15.1 m). The finger's other side takes one or two small boats.
+   (Decided in L2: the visitors' pontoon has no side free for a third boat, since the guests and
+   the Halcyon use them all, so the harbour office won't launch one that won't fit. The other
+   choice was a mooring buoy in the bay, reached by the tender: real enough, but awkward on the
+   first day.)
 4. **The tender is a boat in her own right,** sold on her own at the Marine Works as well: a cheap,
    fast little boat for the bay. She's built first (L1), useful before the trawler exists.
 5. **A price:** about £9,500 for the trawler with her tender (the yacht is £3,600), hire by the day
@@ -421,7 +423,49 @@ out, a line cast from her seat, and saved and loaded again in her.
   sitting, and kept by the save;
 - the whole suite passes.
 
-**L2: the trawler's hull, helm and handling** (outside only):
+**L2: the trawler's hull, helm and handling (done).** What was built and measured, in the game's
+own simulation and in the browser:
+
+- **Her hull:** 13.4 m by 4.4 m, 17 t, a hull body drawing 0.70 m (1.16 m to the bottom of her
+  keel). Her resistance has a hull-speed wall (`trawlerDrag` in `boat.js`): 7.8 knots at the
+  cruising notch, 9.1 flat out. On the Marine Works' engines, the Shearwater 120 gives 8.7 knots,
+  the 160 (as she comes) 9.1, and the 260 9.9: 60% more power for under a knot.
+- **Way on:** 7 knots in 11 s from rest; from a cruise she runs on about 100 m. Hard over at a
+  cruise she turns in about one and a half lengths; her roll period is about 3.3 s.
+- **The single screw:** the inboard code takes one shaft or two (`motor.prop`, `motor.rudder`,
+  `buildSingleScrew`). Her prop walk astern is small but right, held down by her full keel.
+- **Her bow thruster:** 1.5 kN; from rest it swings her about 1.4° a second and stops when it
+  does; once she's moving it does little.
+- **Her autopilot** (`src/autopilot.js`): the boats' own course-hold law, firmer. In a fresh breeze
+  on her beam it holds her within about 2°, 3° at worst. Its alarms cover shallows and land along
+  her course (a minute and a half of her speed ahead, never less than 80 m) and the boat closing
+  on her soonest. The anchor's dragging warning was already there for every boat.
+- **Controls:** the trim keys `[` and `]` (LB and RB) work her thruster, since she has no leg to
+  trim; `.` (D-pad →) works her autopilot. The hint at her helm shows both. On touch, neither yet.
+- **Her berth:** the seaward side of your finger, to herself, with her platform in her length
+  (`aft` in `fleet.js` ownBerths). The other side takes what fits. The harbour office won't put a
+  boat in the water that won't fit; it says to lay one up first.
+- **The crossing:** she's one of the long-range boats. In the ocean's swell she holds most of her
+  eight knots (`seakind`, her own figure in `seaKindly`): the planing boats still slow to six. The
+  crossing card, its fuel (60 litres to set out, about 35 across) and the fast passage are worked
+  out for whichever boat it is, not the yacht alone.
+- **A fix for every boat, found on the way:** a hull's panels were all split along the same
+  diagonal, so her starboard side wasn't her port side's mirror. The water's pressure left a small
+  turn on every hull at rest, and every boat left drifting on a flat calm slowly spun, two to five
+  degrees a second. Each quad is now split to mirror the other side (`buildHullModel`): no turn at
+  rest, and a boat left alone stays pointing where she was (`tests/hydro.test.mjs`). A turn now
+  dies away in about ten seconds.
+- **One test changed by it:** the RIB's rough-sea test took a single 25-second stretch of sea.
+  Sampled over ten stretches, her airborne time runs 1 to 2.7 s and her worst rear 13 to 37°,
+  with the old hull as with the new, so the one stretch passed or failed by chance. It now takes
+  five stretches and judges their middle, with a hard cap well short of standing on her tail.
+- **Deferred to L4:** building her only when she's needed. Today she costs about 75 ms to build
+  and 26,000 vertices, and she isn't drawn while laid up. Her interior is what will make it worth
+  doing.
+- **Fishing from her** waits for L3: her aft deck is reached on foot. From the pilothouse the game
+  says so.
+
+What was planned for L2:
 - the single screw;
 - displacement resistance and her own seakindly speed;
 - the thruster, the pilothouse helm, the autopilot and its alarms;

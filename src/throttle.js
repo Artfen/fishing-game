@@ -66,6 +66,17 @@ export const LEVERS = {
     { v: 0.45, id: 'C', name: 'cruising' },
     { v: 1, id: 'F', name: 'full ahead' },
   ],
+  // The trawler: a heavy displacement hull on one slow diesel; trolling at six knots, cruising at
+  // eight, and not much past nine however hard she's pushed.
+  trawler: [
+    { v: -0.3, id: 'R', name: 'astern' },
+    { v: 0, id: 'N', name: 'neutral' },
+    { v: 0.063, id: '1', name: 'dead slow' },
+    { v: 0.168, id: '2', name: 'slow ahead' },
+    { v: 0.345, id: 'T', name: 'trolling' },
+    { v: 0.56, id: 'C', name: 'cruising' },
+    { v: 1, id: 'F', name: 'full ahead' },
+  ],
   // The tender: a little RIB on a tiller outboard, onto the plane at a cruise.
   tender: [
     { v: -0.3, id: 'R', name: 'astern' },
@@ -113,8 +124,8 @@ export const LEVERS = {
 // The highest notch allowed with a line out, and with a fish on: trolling speed at most (the
 // lure swims, the line never drags it skipping across the top); once a fish takes, no more than
 // dead slow (it's your fish to play, not the boat's).
-const LINE_MAX = { tender: '2', skiff: '2', cabin: '2', bass: 'E2', kayak: '3', sail: '2', cruiser: 'T', console: 'T', rib: 'T', jetski: '2' };
-const FIGHT_MAX = { tender: '1', skiff: '1', cabin: '1', bass: 'E1', kayak: '1', sail: '1', cruiser: '1', console: '1', rib: '1', jetski: '1' };
+const LINE_MAX = { trawler: 'T', tender: '2', skiff: '2', cabin: '2', bass: 'E2', kayak: '3', sail: '2', cruiser: 'T', console: 'T', rib: 'T', jetski: '2' };
+const FIGHT_MAX = { trawler: '1', tender: '1', skiff: '1', cabin: '1', bass: 'E1', kayak: '1', sail: '1', cruiser: '1', console: '1', rib: '1', jetski: '1' };
 
 export const levers = (kind) => LEVERS[kind] || null;
 const indexOf = (kind, id) => LEVERS[kind].findIndex((n) => n.id === id);

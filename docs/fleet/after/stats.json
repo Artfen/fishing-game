@@ -142,5 +142,17 @@
   "materials": 14,
   "geometries": 21,
   "buildMs": 77.8
+ },
+ {
+  "kind": "trawler",
+  "name": "expedition trawler",
+  "meshes": 65,
+  "calls": 65,
+  "tris": 10270,
+  "drawnTris": 10270,
+  "verts": 25646,
+  "materials": 40,
+  "geometries": 60,
+  "buildMs": 76.8
  }
 ]

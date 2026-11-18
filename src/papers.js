@@ -13,7 +13,7 @@
 import { kindOf, nthOf } from './boatid.js';
 
 export const PORT = 'WH';
-const NUMBERS = { row: 101, skiff: 104, kayak: 109, bass: 132, sail: 147, cabin: 158, rib: 171, console: 186, cruiser: 203, jetski: 219, windsurf: 224, tender: 232 };
+const NUMBERS = { row: 101, skiff: 104, kayak: 109, bass: 132, sail: 147, cabin: 158, rib: 171, console: 186, cruiser: 203, jetski: 219, windsurf: 224, tender: 232, trawler: 241 };
 // (A second boat of a kind: her kind's number and which of them she is, 'WH 171-2'. See boatid.js.)
 export const regOf = (id) => `${PORT} ${NUMBERS[kindOf(id)] ?? 300}${nthOf(id) > 1 ? `-${nthOf(id)}` : ''}`;
 

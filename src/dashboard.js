@@ -51,6 +51,20 @@ export const DASHES = {
       lights: { side: [[H.B - 0.15, y0 + 1.75, cz + 0.6], [-(H.B - 0.15), y0 + 1.75, cz + 0.6]], stern: [0, y0 + 2.3, -H.L / 2 + 0.5] },
     };
   },
+  // The trawler: one diesel, its key and glow plugs, the lever to port of the wheel, on her
+  // pilothouse console (standing.floor: its sole); her sidelights on the pilothouse's sides up
+  // under its roof, her stern light on the boat deck's after edge.
+  trawler: (H) => {
+    const y0 = H.standing.floor, [hx, hz] = H.standing.helm, cz = hz + 0.72;
+    return {
+      face: { at: [hx, y0 + 1.06, cz - 0.17], tilt: -0.45, w: 0.8, d: 0.34 },
+      screen: { at: [-0.19, 0.08], w: 0.3, h: 0.17, lean: 1.0 },
+      gauges: { at: [0.08, 0.08], w: 0.26, h: 0.15, lean: 1.0 },
+      switches: { battery: [0.12, -0.1], lights: [0.05, -0.1], horn: [-0.02, -0.1], glow: [-0.09, -0.1], key: [-0.18, -0.1] },
+      throttle: { at: [hx + 0.32, y0 + 1.04, cz - 0.11] },
+      lights: { side: [[1.54, y0 + 1.92, 1.9], [-1.54, y0 + 1.92, 1.9]], stern: [0, H.floorY + 2.2, -5.68] },
+    };
+  },
   console: (H) => {
     const y0 = H.floorY, [hx, hz] = H.standing.helm, cz = hz + 0.75;
     return {

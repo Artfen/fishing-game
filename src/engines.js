@@ -108,6 +108,17 @@ export const MODELS = {
     desc: 'The biggest V6: the quickest she goes, and the thirstiest.',
   },
   // The Shearwater diesels, inboard: heavy, long-lived, and far thriftier than petrol for the power.
+  // (And the slow-turning fours, for a displacement hull: the trawler's.)
+  d120: {
+    name: 'Shearwater 120', hp: 120, kg: 430, lph: 26, layout: 'diesel, inline four, 4.5 litres', gear: 2.5, rpm: 2600,
+    look: null, note: 1.12, smooth: 0, price: 1600, inboard: true,
+    desc: 'The thrifty four, unblown: a knot short of her best, and a whisper of fuel at eight knots.',
+  },
+  d160: {
+    name: 'Shearwater 160', hp: 160, kg: 470, lph: 34, layout: 'diesel, inline four, 4.5 litres, turbocharged', gear: 2.5, rpm: 2600,
+    look: null, note: 1.08, smooth: 0, price: 2200, inboard: true,
+    desc: 'The expedition four: eight knots all day, and fuel for weeks.',
+  },
   d260: {
     name: 'Shearwater 260', hp: 260, kg: 480, lph: 50, layout: 'diesel, inline six, 4.2 litres, turbocharged', gear: 2.0, rpm: 3200,
     look: null, note: 1.06, smooth: 0, price: 900, inboard: true,
@@ -177,6 +188,11 @@ export const CATALOGUE = {
   // by her plate; nothing smaller than fifteen, which still has her on the plane.)
   tender: { slip: 0.15, stock: 'p20', models: ['p15', 'p20', 't30'], plate: 30, props: ['matched', 'low', 'four'], drag: 1.067, tops: { p15: 10.701, p20: 11.886, t30: 13.221 },
     legacy: {}, go: 15, cruise: 15, laden: 160, crew: 'two aboard' },
+  // (The trawler: one slow diesel. A bigger one buys her little: her hull won't be driven past the
+  // wave it makes. Her propeller is matched to her engine and no other: a lower pitch, quicker away
+  // and better laden on a planing hull, does nothing for a displacement one but burn more.)
+  trawler: { slip: 0.35, stock: 'd160', models: ['d120', 'd160', 'd260'], plate: null, props: ['matched'], drag: 1.0559, tops: { d120: 4.458, d160: 4.699, d260: 5.098 },
+    legacy: {}, go: 7, cruise: 8, laden: 2500, crew: 'a full load (six aboard, full tanks and stores)' },
   console: { slip: 0.12, stock: 'f115', models: ['t90', 'f115', 'f150', 's200'], count: 2, plate: 200, props: ['matched', 'low', 'four'], drag: 1.0341, tops: { t90: 12.649, f115: 13.809, f150: 15.017, s200: 16.546 },
     legacy: { power: 'f150', economy: 't90' }, go: 20, cruise: 22, laden: 400, crew: 'five aboard' },
   cruiser: { slip: 0.3, stock: 'd320', models: ['d260', 'd320', 'd370', 'd440'], count: 2, plate: null, props: ['matched', 'low'], drag: 1.065, tops: { d260: 9.222, d320: 9.947, d370: 10.489, d440: 11.14 },

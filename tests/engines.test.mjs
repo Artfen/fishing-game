@@ -28,7 +28,7 @@ const tr = (kind, model, prop = 'matched') => TRIALS[kind][`${model}/${prop}`];
 const scene = new THREE.Scene();
 
 test('every boat’s own engine on its own propeller: exactly the push she always had', () => {
-  assert.deepEqual(BOATS.sort(), ['bass', 'cabin', 'console', 'cruiser', 'rib', 'skiff', 'tender']);
+  assert.deepEqual(BOATS.sort(), ['bass', 'cabin', 'console', 'cruiser', 'rib', 'skiff', 'tender', 'trawler']);
   for (const k of BOATS) {
     const H = HULLS[k], C = CATALOGUE[k], S = engineSpec(k, H, null);
     assert.equal(S.thrust, H.motor.thrust, k);
@@ -157,7 +157,8 @@ test('fuel follows the work: a lower pitch burns what the matched one does at th
   for (const k of BOATS) {
     const C = CATALOGUE[k];
     for (const m of C.models) {
-      if (MODELS[m].electric) continue;
+      // (An electric has only its own propeller, and the trawler only her matched one.)
+      if (MODELS[m].electric || !E.propsFor(k, m).includes('low')) continue;
       assert.ok(Math.abs(tr(k, m, 'low').lph - tr(k, m).lph) / tr(k, m).lph < 0.03, `${k} ${m}: ${tr(k, m).lph} / ${tr(k, m, 'low').lph} L/h at ${C.cruise} kn`);
       assert.ok(spec(k, m, 'low').effort > 1 && spec(k, m).effort === 1);
       assert.equal(spec(k, m).burn, MODELS[m].lph / MODELS[C.stock].lph);

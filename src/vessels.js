@@ -29,6 +29,7 @@ export const VESSELS = {
   cabin: { name: 'cabin boat', seats: 4, cargo: 600, shelter: true, comfort: 2.0, divers: false, purpose: 'Weather protection and a bunk: longer trips, passengers kept dry, a night aboard.' },
   cruiser: { name: 'sport-fishing yacht', seats: 8, cargo: 1500, shelter: true, comfort: 2.6, divers: true, purpose: 'Long-range expeditions: passengers, freight, divers and a cabin to live in, across the ocean.' },
   tender: { name: 'tender', seats: 2, cargo: 150, shelter: false, comfort: 0.6, divers: true, purpose: 'Small, light and quick: ashore from a bigger boat, or nipping about the bay with a friend or two. Divers roll off her tubes.' },
+  trawler: { name: 'expedition trawler', seats: 6, cargo: 2000, shelter: true, comfort: 2.8, divers: true, purpose: 'Built for the long way: eight knots all day on very little fuel, a pilothouse to steer from in any weather, room for people, freight and divers.' },
   jetski: { name: 'jet ski', seats: 1, cargo: 20, shelter: false, comfort: 0.6, divers: false, purpose: 'For the fun of it.' },
   windsurf: { name: 'windsurf board', seats: 0, cargo: 0, shelter: false, comfort: 0.6, divers: false, purpose: 'For the fun of it, and the wind.' },
 };
