@@ -1768,3 +1768,16 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | After | The waves drawn out to the far sheet's edge and the swell's crests on to the horizon; the two sheets meeting on the same triangles |
 | Validation | New `tests/farsea.test.mjs` (5): every setting's sheets cover the sea with no gap wherever the camera is; each wave drawn only on cells at most a third of its length, every one gone where the flat ring starts; the far sheet the near sheet's own triangles where they meet; a swell wave's slope, unshown, as roughness; the crest foam's average where a pixel's too coarse, against the swell's own. Pictures before and after (`tools/watershots.mjs`, `far-`) |
 | Remaining risks | Up to 75,000 more triangles on High and up: vertex work (the same sea is shaded, each bit of it once; where the far sheet lies under the near one its pixels are dropped at the shader's first line); not measured on real hardware; a boat further off than about 300 m still rides the shortest swell the sheet no longer draws there |
+
+### The sea, close up: boats far off on the sea as drawn
+
+| Field | |
+| --- | --- |
+| System | `src/world/conditions.js` (`undrawnWave`: the waves the sheets leave out at a point from a camera so far off, faded as the shader fades them); `src/boat.js` (`seatOnDrawnSea`, `unseatFromDrawnSea`: each boat lowered by them for the frame, then put back); `src/main.js` (around the frame's drawing, before the reflection) |
+| Previous issue | A boat far off rode every wave the physics has while the sheets draw fewer the further off, none past the far sheet: she bobbed over a sea that wasn't moving there |
+| Change | For each frame drawn, a boat is lowered by the waves left out under her, and put back after: her place on the water, her physics and what a friend is sent are unchanged |
+| Player benefit | A friend's boat, or a townsperson's, seen from a long way off sits on the water you see |
+| Before | Her height above the sea as drawn spread 0.097 m at 700 m, 0.361 m at 1.6 km (a 14 m/s breeze) |
+| After | 0.047 m at both, as she sits on the water close by |
+| Validation | `tests/farsea.test.mjs` (a sixth test): none left out close in; past the far sheet, all of it, the sea as drawn flat at the tide; more left out the further off, from none to all; a far boat lowered for the frame and put back exactly, one close by untouched; wired round the frame's drawing. Measured in the game at four distances |
+| Remaining risks | Her pitch and roll still follow the short waves the sheets leave out (a degree or two, about ten centimetres at the RIB's bow); the wind sea's patch is drawn blurred far off (its mipmaps), which the correction doesn't take off |

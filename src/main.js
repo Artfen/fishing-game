@@ -57,7 +57,7 @@ import { SailUI } from './sailui.js';
 import { WindLines } from './world/windlines.js';
 import { Storm } from './world/storm.js';
 import { coldInfo, COLDWATER, FALLS, tarnSDF } from './world/coldwater.js';
-import { Boat, BOAT_KINDS, boatDetail } from './boat.js';
+import { Boat, BOAT_KINDS, boatDetail, seatOnDrawnSea, unseatFromDrawnSea } from './boat.js';
 import { kindOf, isBoatId, nthOf } from './boatid.js';
 import { wakes } from './world/wakes.js';
 import { Walker } from './walker.js';
@@ -14254,6 +14254,8 @@ function draw() {
   // (Boats far off without their small parts: see boat.js boatDetail. Before the reflection, so
   // it's spared them too.)
   boatDetail(camera.position, scene);
+  // (And those far off on the sea as it's drawn there, for this frame: see boat.js.)
+  seatOnDrawnSea(camera.position, water.uniforms.uWaveLod.value.y, conditions.time, scene);
   reflection.render(renderer, scene, camera);
   const wu = water.uniforms;
   wu.uReflOn.value = reflection.active ? 1 : 0;
@@ -14270,6 +14272,7 @@ function draw() {
   shipLights();
   navLights.end(env.night, renderer.getPixelRatio());
   renderer.render(scene, camera);
+  unseatFromDrawnSea();
   if (post.on) post.finish(camera, lookOfTheHour());
 }
 

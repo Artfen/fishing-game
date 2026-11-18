@@ -174,3 +174,5 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
    and fall out to where its cells can (1.5 km on High and up), meeting the near one without a
    step, and the swell's long crests carry on in the shading to the horizon, and in the roughness
    once a pixel's too coarse for them.
+19. **Boats far off on the sea as drawn (done):** a boat a long way off sits on the water you see
+   there, not bobbing on waves too far off to be drawn.

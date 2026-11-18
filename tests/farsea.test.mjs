@@ -182,3 +182,66 @@ test('a storm\'s crests break white out to the horizon, as much of the sea as on
   // (Not the height with the tide in it.)
   assert.doesNotMatch(SRC, /smoothstep\(uSwellH \* 0\.62, uSwellH \* 1\.1, vWorld\.y\)/);
 });
+
+test('a boat far off is drawn on the sea as drawn there: the waves the sheets leave out taken off her height, and only for the frame', async () => {
+  const C = await import('../src/world/conditions.js');
+  const { Boat, seatOnDrawnSea, unseatFromDrawnSea } = await import('../src/boat.js');
+  const THREE = await import('three');
+  // A fresh breeze's sea on the open water south of the bay, a swell running.
+  C.conditions.manual = { speed: 12, from: 0.6 };
+  for (let i = 0; i < 1500; i++) C.updateConditions(0.1, { rain: 0, cloud: 0.2 });
+  const t = C.conditions.time, x0 = -60, z0 = 900;
+  assert.ok(C.conditions.sea.swell > 0.1 && C.conditions.sea.chop > 0.3, `a sea: ${C.conditions.sea.swell}, ${C.conditions.sea.chop}`);
+  for (const seg of SEGS) {
+    const L = seaLayout(seg);
+    // Close in, nothing left out: every wave is drawn in full there.
+    assert.equal(C.undrawnWave(x0, z0, t, 0.7 * 38 * L.lod - 1, L.lod), 0);
+    // Past the far sheet (the flat ring), all of them: the sea as drawn is flat, at the tide.
+    let moved = 0;
+    for (let k = 0; k < 12; k++) {
+      const x = x0 + k * 7.3, z = z0 - k * 5.1, tk = t + k * 0.7;
+      const h = C.waveHeight(x, z, tk), off = C.undrawnWave(x, z, tk, L.farR + 10, L.lod);
+      assert.ok(Math.abs(h - off - C.TIDE.level) < 1e-9, `${seg}: drawn ${h - off} against the tide ${C.TIDE.level}`);
+      moved = Math.max(moved, Math.abs(h - C.TIDE.level));
+    }
+    assert.ok(moved > 0.2, `the physics' sea out there does move: ${moved}`);
+    // In between, more of the sea left out the further off (its root mean square over a patch of
+    // sea and a few seconds), from none to all of it.
+    const rms = (d) => {
+      let a = 0, b = 0;
+      for (let k = 0; k < 40; k++) {
+        const x = x0 + (k % 8) * 11, z = z0 + Math.floor(k / 8) * 13, tk = t + k * 0.37;
+        a += C.undrawnWave(x, z, tk, d, L.lod) ** 2;
+        b += (C.waveHeight(x, z, tk) - C.TIDE.level) ** 2;
+      }
+      return [Math.sqrt(a / 40), Math.sqrt(b / 40)];
+    };
+    let last = 0;
+    for (let d = 0.7 * 38 * L.lod; d <= L.farR + 10; d += 40) {
+      const [u, all] = rms(d);
+      assert.ok(u >= last - 1e-9 && u <= all + 1e-9, `${seg} at ${d.toFixed(0)} m: ${u} after ${last}, of ${all}`);
+      last = u;
+    }
+    const [u, all] = rms(L.farR + 10);
+    assert.ok(u >= last - 1e-9 && Math.abs(u - all) < 1e-9, `${seg}: all of it past the far sheet (${u} of ${all})`);
+  }
+  // A boat: lowered for the frame by just that, far off; one close by untouched; both put back.
+  const scene = new THREE.Scene(), far = new Boat(scene, { kind: 'rib' }), near = new Boat(scene, { kind: 'skiff' });
+  far.group.position.set(x0, 0.37, z0);
+  near.group.position.set(x0 + 900, 0.21, z0);
+  const cam = { x: x0 + 900, z: z0 + 5 }, lod = seaLayout(300).lod, off = C.undrawnWave(x0, z0, t, Math.hypot(900, 5), lod);
+  assert.ok(Math.abs(off) > 0.01, `something to take off out there: ${off}`);
+  const n = seatOnDrawnSea(cam, lod, t, scene);
+  assert.equal(n, 1);
+  assert.ok(Math.abs(far.group.position.y - (0.37 - off)) < 1e-12 && near.group.position.y === 0.21);
+  assert.ok(Math.abs(far.group.matrixWorld.elements[13] - (0.37 - off)) < 1e-9, 'its matrix too, for the frame');
+  unseatFromDrawnSea();
+  assert.ok(Math.abs(far.group.position.y - 0.37) < 1e-12 && near.group.position.y === 0.21);
+  unseatFromDrawnSea();
+  assert.ok(Math.abs(far.group.position.y - 0.37) < 1e-12, 'put back once only');
+  C.conditions.manual = null;
+  // In the game, around the frame's drawing: seated before the reflection, put back after.
+  const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const i = main.indexOf('seatOnDrawnSea(camera.position, water.uniforms.uWaveLod.value.y, conditions.time, scene);'), j = main.indexOf('reflection.render(renderer, scene, camera);'), k = main.indexOf('unseatFromDrawnSea();'), r = main.indexOf('renderer.render(scene, camera);\n  unseatFromDrawnSea();');
+  assert.ok(i > 0 && j > i && k > j && r > 0, 'seated around the frame');
+});
