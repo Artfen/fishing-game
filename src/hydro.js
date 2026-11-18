@@ -27,6 +27,7 @@
 
 import { hypot2, hypot3, hypot4 } from './hypot.js';
 import { CHAMBER_SPLIT, chamberAt } from './damage.js';
+import { rodeShape } from './anchoring.js';
 
 export const RHO = 1025;   // sea water, kg/m³
 // (B3) Air, and the wind over open water by height: U(z) = U₁₀·(z/10)^α, α about 0.11 to 0.14 over
@@ -1252,6 +1253,10 @@ export class HydroBody {
       const p = this.toWorld(r.p, _p1);
       const to = typeof r.to === 'function' ? r.to() : r.to;
       const dx = to[0] - p[0], dy = to[1] - p[1], dz = to[2] - p[2];
+      if (r.rode) {
+        this.rodeForce(r, p, dx, dy, dz);
+        continue;
+      }
       const d = hypot3(dx, dy, dz) || 1e-6;
       const stretch = d - r.len;
       r.out.tension = 0;
@@ -1265,6 +1270,24 @@ export class HydroBody {
       r.out.tension = T;
       this.addForce((dx / d) * T, (dy / d) * T, (dz / d) * T, p[0], p[1], p[2]);
     }
+  }
+
+  // (B6) An anchor's rode (r.rode: anchoring.js rodeOf; r.len: what's out): it pulls as its
+  // catenary does, level by H toward the anchor and down at her bow by the weight of what hangs
+  // (rodeShape), not as a straight spring. Damped along the bottom as stiff as it is there (lying
+  // slack, hardly at all; lifted off the bottom, as a rope on its stretch). r.out: the shape.
+  rodeForce(r, p, dx, dy, dz) {
+    const X = hypot2(dx, dz) || 1e-6, o = r.out, cap = this.m * G * 3;
+    rodeShape(X, -dy, r.len, r.rode, cap, o.H || 0, o);
+    this.pointVel(p, _pv);
+    const ux = dx / X, uz = dz / X;
+    // (Her bow moving away from the anchor stretches it: more pull.)
+    const away = -(_pv[0] * ux + _pv[2] * uz);
+    const c = 2 * 0.7 * Math.sqrt(o.k * this.m);
+    const H = Math.min(cap, Math.max(0, o.H + c * away));
+    o.pull = H;
+    o.tension = hypot2(H, o.V);
+    this.addForce(ux * H, -o.V, uz * H, p[0], p[1], p[2]);
   }
 
   // The seabed and the beach: a firm, springy contact with friction where any of her contact

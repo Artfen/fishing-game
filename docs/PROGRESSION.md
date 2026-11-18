@@ -147,3 +147,7 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
 11. **B5 (done):** shallow water: more resistance as a boat nears the speed the bottom lets her
    waves go, held back about it on a moderate throttle and labouring through it pushed hard; her
    wake's wedge opening out over the shallows and, past that speed, closing to her Mach angle.
+12. **B6 (done):** anchors: the rode hangs as a real one does, lying along the bottom and lifting as
+   it takes her weight; what the anchor holds goes by the bottom (sand best, weed and rock worst),
+   the scope (a short rope in deep water pulls it up) and how well it's dug in; it drags in a blow
+   and digs in again, and the night at anchor is reckoned the same way.

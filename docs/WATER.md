@@ -89,7 +89,7 @@ without it.
 | **B3** | **Calibration:** roll decay, drift in the wind with a drift sock, and the planing trim checked against Savitsky, each a test | Each boat as her real one | None | De Luca et al. 2024; Allen et al., met.no report 17/2010; OpenPlaning (MIT) |
 | **B4** | **The propeller and rudder:** thrust with speed, wash over the rudder, prop walk astern, ventilation with hysteresis | Docking, going astern, a hard turn at speed | Negligible | MMG standard method (Yasukawa and Yoshimura 2015) |
 | **B5** | **Shallow water** by depth Froude number: more resistance near the critical speed, the wake widening | Running fast over a shoal | Negligible | Mauro et al., HSMV 2023 |
-| **B6** | **Anchors:** catenary, holding by bottom type, setting and dragging | Anchoring in sand, weed or rock | Negligible | Vryhof anchor manual |
+| **B6** | **Anchors:** catenary, holding by bottom type, setting and dragging | Anchoring in sand, weed or rock | Negligible | The elastic catenary (Irvine 1981; Faltinsen); Pat Piper's scope table and the US Sailing anchor study; NCEL on drag anchors (the Vryhof manual, planned, was on a blocked host) |
 
 ## Licences
 
@@ -408,4 +408,63 @@ included). The full table, with each LICENSE file read, is in the two research n
   waves feel; and with no wind, swell or chop, where before they took whatever swell the default
   weather left, which the bay partly sheltered. Measured again there, each engine's top speed is
   between 1.1% slower (the skiff's electric) and 2.6% faster than before.
+
+- **B6:** anchors: the rode's catenary, what an anchor holds by its angle, the bottom it's in and
+  how well it's dug in, and dragging.
+
+  **The rode.** An elastic catenary (Irvine 1981; as in Faltinsen's *Sea Loads on Ships and
+  Offshore Structures*), solved each physics step from where her fairlead is: part of it lying
+  along the bottom from the anchor and the rest hanging up to her bow, or, pulled hard enough, all
+  of it off the bottom and lifting at the anchor. Her pull on it is level along the bottom, and at
+  her bow she carries the weight of what hangs as well. It's damped as stiff as it is there:
+  hardly at all lying slack, as a rope on its stretch once it's off the bottom. The ordinary
+  anchor's rode is nylon with a few metres of chain, its weight spread along it (so it lies nearly
+  straight once it's pulling); the heavier anchor's, a Marine Works fitting, is all chain with a
+  nylon snubber, and it lies along the bottom, keeping the pull on the anchor level, until it's
+  pulled nearly straight. A skipper pays out five times the depth now, as far as the rope goes (50
+  m; before, two and a half times on 30 m), so in deeper water than 10 m the scope's shorter. The
+  rope's drawn as its catenary hangs, along the bottom and up to her bow.
+
+  **What it holds.** By its angle: an anchor holds best pulled along the bottom, less and less
+  lifted at its shank, and past about 35° it pulls out. Pat Piper's table of holding against scope
+  (3:1 holds 53% of what 10:1 does, 5:1 77%, 7:1 91%) and the US Sailing anchor study (5:1 about
+  80% of 10:1) are both met by 1 − θ/35°, a taut rope's angle at the anchor being asin(1/scope). By
+  the bottom the fish finder reads there: sand best; mud 0.6 of it; gravel 0.5; weed 0.3, unless it
+  gets through to what's under (in about a third of spots, then 0.85 of what's under); rock, caught
+  on something in about two spots in five (1.3, harder than sand) or skidding over it (0.15). Every
+  test of these I could reach is qualitative (Practical Sailor, BoatingNZ, sailing guides: sand
+  best, weed and rock worst and least predictable), so these numbers are ours, in that order. And
+  by how well it's dug in: just dropped it holds 15%, and dragged it digs in, 63% of the way to
+  holding fully in 0.8 m of sand or 2 m of mud (the US Navy's NCEL guidance on drag anchors: three
+  to five fluke lengths in mud, less in sand); the heavier anchor in half that. Once the steadied
+  pull on it (not a wave's snatch, which it rides) passes what it holds, it ploughs after her,
+  digging in as it goes, so in good sand it soon holds again; lifted till it pulls out, it starts
+  digging in again from nothing. The game says what it's gone into, when it's dug in, and when
+  it's dragging (before, a dragging anchor was announced as "Anchor up").
+
+  What an ordinary anchor holds is still the game's calibration: through a gale it holds, in the
+  game's storm it drags, at five to one in sand. Measured now on the rode's level pull (before, the
+  whole pull of a short, steep rope at two and a half to one, its downward pull at her bow
+  included), that's 0.08 of her weight, where it was 0.12. In 9 m of open water, over three
+  minutes, the steadied pull's peak in the storm was 0.10 to 0.21 of her weight (the cabin boat,
+  the centre console, the skiff, the rowing boat) and in a gale 0.04 to 0.05. So in the storm, at
+  the shelf off the bay (16.6 m, 50 m of rope, three to one), the rowing boat's anchor drags 2.05 m
+  in three minutes (2.6 before), the skiff's 0.98, the console's 1.34; the heavier one on its chain
+  doesn't move; through a gale none do. The heavier anchor itself holds twice as hard (holding
+  power goes about with an anchor's weight, Practical Sailor's soft-mud tests found), and its chain
+  more again while it lies on the bottom.
+
+  The skiff under the same steady blow for 40 s, anchored in 6 m: in sand it digs in within 1.8 m
+  and holds; in mud it drags 8.6 m, in weed 17, skidding on rock 28. In 18 m of water (two and a
+  half to one) the same blow drags it 7.6 m, pulled up at 17° against 11°; on the heavier anchor's
+  chain it holds (0.16 m), pulled at 7°.
+
+  **The night at anchor** is reckoned the same way: the storm's pull on her (in the open, 1.45
+  times what an ordinary anchor holds dug into sand at a good scope, from the live anchor; in
+  sheltered water less than half of it, ours, since there its pull was too small to measure in
+  three minutes) against what her anchor holds: the bottom it's in, her rode's angle under that
+  pull, and the anchor. In the open with an ordinary anchor in sand she drags 22 m an hour, as
+  before; dug into sand in a cove she holds; in weed or skidding on rock she drags even there; in
+  20 m of water with only 50 m of rope she drags even in shelter; the heavier anchor on its chain
+  barely moves. The words on waking say why.
 

@@ -182,9 +182,9 @@ runs before the script went east of the rowing boats, she hit one of them on the
 
 ### As it should be, and worth knowing
 
-- **The Hound is too deep to anchor on.** Its foot is thirty metres down, and the anchor's thirty
-  metres of rope holds in twenty-five at most; the game says so ("Too deep to anchor here (30 m):
-  the anchor rope is 30 m long. Find water under 25 m deep, nearer the shore or over a shoal").
+- **The Hound is too deep to anchor on.** Its foot is thirty metres down, and the game anchors in
+  twenty-five at most; it says so ("Too deep to anchor here (30 m): the anchor rope is 50 m long.
+  Find water under 25 m deep, nearer the shore or over a shoal"). (B6: the rope was 30 m.)
   North of it a shelf runs at fifteen to seventeen metres: anchor there and swim forty metres to the
   reef, as the run does. The other way is Spot-Lock (a GPS trolling motor from the Marine Works),
   as the Sub-Aqua Club's charters do there: its sea fans are protected.

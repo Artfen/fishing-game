@@ -693,7 +693,10 @@ if (await B.evaluate(() => !!slowTide.diving.state)) {
   await step(6);
   await B.keyboard.up('KeyW');
   const magsId = await A.evaluate(() => slowTide.together.id);
-  for (let k = 0; k < 25; k++) {
+  // (B6: she lies further back on her rode now, five times the depth paid out, and sheers about on
+  // it: a longer swim back than the 25 s this once allowed.)
+  let swum = 0;
+  for (let k = 0; k < 60; k++, swum++) {
     const bp = await B.evaluate((id) => { const b = slowTide.visitors.crewBoat(id, slowTide.diving.diver.pos); return b ? [b.pos.x, b.pos.z] : null; }, magsId) || await A.evaluate(() => [slowTide.boats.rib.pos.x, slowTide.boats.rib.pos.z]);
     await B.evaluate(([x, z]) => { const d = slowTide.diving.diver.pos, V = slowTide.rig.views.dive; V.yaw = Math.atan2(x - d.x, z - d.z); V.pitch = 0; }, bp);
     await B.keyboard.down('KeyW');
@@ -711,6 +714,7 @@ if (await B.evaluate(() => !!slowTide.diving.state)) {
     }
     return { prompts: out.filter(Boolean), diving: !!slowTide.diving.state, crew: !!slowTide.crew.on };
   });
+  bertBack.swum = swum;
   await step(2);
   bertBack.still = await B.evaluate(() => !!slowTide.crew.on);
   note('Bert back aboard', JSON.stringify(bertBack));

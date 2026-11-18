@@ -153,6 +153,7 @@ import { CameraRig } from './camera.js';
 import { RodView } from './firstperson.js';
 import { bendRod } from './props.js';
 import { FishFinder } from './sonar.js';
+import { bottomOf } from './sonarRead.js';
 import { setupTouch } from './touch.js';
 import { Gamepads, buttonFor, topDialog, focusables } from './gamepad.js';
 import { levers, nearest, step, setIndex, within, capIndex, leverWords, slide, valueAt, positionOf, displayIndex, positionAtIndex, leverPositionWords, GEAR_IN } from './throttle.js';
@@ -743,6 +744,8 @@ function eachBoat(fn) {
 {
   const hs = {};
   Boat.rockAt = (x, z) => habitat.sample(x, z, hs).rock || 0;
+  // (B6) What an anchor goes down into: the bottom the fish finder reads there.
+  Boat.bottomAt = (x, z) => bottomOf(habitat.sample(x, z, hs), zoneAt(x, z), z > SOUTH_Z);
 }
 // The car (see car.js): on the drive at home, or wherever you left it. If the ground where it
 // stood has changed (an update), it waits at its car park instead.
@@ -2769,7 +2772,9 @@ function passTheNight() {
   // (F2a) A night aboard at anchor: any gale that blew while you slept, against where she lies and
   // how she's held (see anchorage.js). Out in the open she drags, downwind, short of the shallows.
   if ((sleeping.site === 'cabin' || sleeping.site === 'deck') && boat.pos.z < SOUTH_Z) {
-    const N = nightAtAnchor({ galeHours: galeHoursIn(from, from + hours), sheltered: isSheltered(zoneAt(boat.pos.x, boat.pos.z)), hold: boat.anchorHold || 1, tied: !!boat.tie || moored(boat) });
+    // (B6: her anchor as the live one reckons it: the bottom it's in, the rode and its scope.)
+    const A = boat.anchor;
+    const N = nightAtAnchor({ galeHours: galeHoursIn(from, from + hours), sheltered: isSheltered(zoneAt(boat.pos.x, boat.pos.z)), tied: !!boat.tie || moored(boat), hold: boat.anchorHold || 1, bed: A?.bed, rode: boat.anchorRode, depth: A?.depth, out: A?.out, m: boat._phys?.m });
     let short = false;
     if (N.dragged > 0) {
       const to = conditions.wind.from + Math.PI, r = dragTo(boat.pos.x, boat.pos.z, Math.sin(to), -Math.cos(to), N.dragged, depthAt, boat.hull.draft + 0.8);
@@ -3071,11 +3076,29 @@ function toggleAnchor() {
   save();
 }
 // What the anchor does as it goes: it bites on the bottom, and comes up again.
+// (B6) It goes down into what's there (sand, mud, gravel, weed, rock: anchoring.js), digs in as she
+// lies back on it, and may drag in a blow.
+function anchorDown(bed) {
+  const down = 'The anchor’s down';
+  if (bed.kind === 'rock') return bed.hooked ? `${down} on rock, and caught on something: she’s holding` : `${down} on rock and skidding over it: it won’t hold much. Sand’s better, and the fish finder reads the bottom`;
+  if (bed.kind === 'weed') return bed.through ? `${down} in weed, and through it to the ${bed.under} under: she’ll lie back on it and it’ll dig in` : `${down} in weed: it may not get through to the bottom, and won’t hold much. Sand’s better, and the fish finder reads the bottom`;
+  if (bed.kind === 'mud') return `${down} in mud: it takes a few metres to dig in, and holds less than sand`;
+  if (bed.kind === 'gravel') return `${down} on gravel: it may not dig in well`;
+  return `${down} on sand: she’ll lie back on her rope, and it’ll dig in`;
+}
 eachBoat((b) => {
   b.onAnchor = (what, who) => {
     if (who !== boat || onFoot) return;
-    if (what === 'set') hud.flash('The anchor’s holding: she’ll lie back on her rope, head to the wind and tide', t, 4);
-    else {
+    const bed = who.anchor?.bed || { kind: 'sand', hold: 1 };
+    if (what === 'set') hud.flash(anchorDown(bed), t, 4.5);
+    else if (what === 'bite') {
+      // (On rock it's caught or skidding, as it said going down: nothing to dig into.)
+      if (bed.kind !== 'rock') hud.flash(bed.hold < 0.5 ? 'It’s holding, just: a poor bottom for an anchor, so keep an eye on your marks' : 'It’s dug in: she’s holding, head to the wind and tide', t, 3.5);
+    } else if (what === 'drag') {
+      // (Before B6 this fell to the "Anchor up" below.)
+      haptics.pulse('warn', 1.5);
+      hud.flash('She’s dragging her anchor! More rope (anchor in shallower water), a better bottom (sand), or the heavier anchor on chain would hold her', t, 5);
+    } else {
       audio.knock(0.4);
       audio.plop(0.6);
       hud.flash('Anchor up: she’s free to go', t, 2.4);
@@ -8582,6 +8605,7 @@ function applyYard() {
     b.setCargo(piecesAboard(state.cargo ||= newCargo(), id, tanks().can.at).map((p) => ({ ...p, carried: carrying?.kind === id && carrying.key === p.key })));
     b.setLoads(loadsOf(id, e));
     b.anchorHold = e.hold;
+    b.anchorRode = e.rode || 'rope';
     b.setFits?.(e.list);
     trollOf(b);
   }

@@ -451,9 +451,10 @@ test('an anchor drags in a storm, and a heavier one on chain holds; through a ga
     conditions.wind.speed = conditions.wind.target = speed;
     for (let i = 0; i < 6000; i++) updateConditions(0.1, { rain: 0.6 * storm, cloud: 0.3 + 0.7 * storm, storm });
   };
-  const drag = (kind, hold) => {
+  const drag = (kind, hold, rode = 'rope') => {
     const b = fresh(kind);
     b.anchorHold = hold;
+    b.anchorRode = rode;
     b.update(1 / 30, 0, 0, 0, 0);
     b.setAnchor(true, { instant: true });
     let a0 = null;
@@ -466,7 +467,8 @@ test('an anchor drags in a storm, and a heavier one on chain holds; through a ga
   };
   try {
     blow(20, 1);
-    const ordinary = drag('row', 1), heavy = drag('row', 2.2);
+    // (B6: the heavier anchor is twice the ordinary one, on its chain.)
+    const ordinary = drag('row', 1), heavy = drag('row', 2, 'chain');
     blow(17, 0);
     const gale = drag('row', 1);
     assert.ok(ordinary > 1.5, `in the storm the ordinary anchor dragged ${ordinary.toFixed(1)} m in three minutes`);

@@ -125,8 +125,8 @@ test('an anchored boat stays on its rope, and lies to it, swinging as boats do',
   // lies takes the best part of a minute and a half to drift back onto her rope in a moderate
   // breeze (her leeway, about 3% of the wind). Then, on it: the anchor never drags, her bow never
   // further from it than the rope reaches (and the few per cent a nylon rope gives under a wave's
-  // snatch), on average near head to it, never
-  // lying across it, and swinging to and fro on it as boats do (Practical Sailor's survey: most
+  // snatch), on average near head to it, seldom lying across it (B6: see below), and swinging to
+  // and fro on it as boats do (Practical Sailor's survey: most
   // sailors see 55 to 65° of compass in strong weather, some up to 120°). (The wind from the
   // swell's own quarter here: with them apart a light boat lies between the two.)
   const offs = [], hs = [], _f = [0, 0, 0];
@@ -156,7 +156,13 @@ test('an anchored boat stays on its rope, and lies to it, swinging as boats do',
   assert.ok(over < 0.02, `her bow never past her rope and 2% of its stretch (${(over * 100).toFixed(1)}% at most)`);
   const mean = offs.reduce((a, x) => a + x, 0) / offs.length, most = Math.max(...offs.map(Math.abs));
   assert.ok(Math.abs(mean) < 0.35, `on average ${mean.toFixed(2)} rad off head to her anchor`);
-  assert.ok(most < 1.3, `never across it (${most.toFixed(2)} rad at most)`);
+  // (B6) On her rode's catenary, 44 m of light rope out, she's held head to it far more lightly
+  // than on the stiff, steep rope before (two kilograms' pull on it on average in this breeze):
+  // she sheers about, now and then lying across it a while (a sixth of the time here, before
+  // the rope comes taut and turns her bow up again), but never stern to it.
+  const across = offs.filter((o) => Math.abs(o) > 1.3).length / offs.length;
+  assert.ok(across < 0.25, `across it ${(across * 100).toFixed(0)}% of the time`);
+  assert.ok(most < 2.2, `never stern to it (${most.toFixed(2)} rad at most)`);
   // Her swing: the compass range over each half-minute, on average.
   const ranges = [];
   for (let s = 0; s + 900 <= hs.length; s += 900) {
