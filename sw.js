@@ -11,7 +11,7 @@
 // - It never touches saved games: those live in the browser's local storage, not here.
 
 // <precache> Written by tools/build-sw.mjs: do not edit by hand.
-const VERSION = '4ba606f4dec5';
+const VERSION = '1e54339b5b05';
 const FILES = [
   './index.html',
   './style.css',

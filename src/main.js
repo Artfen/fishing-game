@@ -13068,7 +13068,7 @@ function downloadSave() {
 function gameLine(g) {
   if (!g) return '';
   const fish = g.caught ? `${g.caught} fish of ${g.kinds} ${g.kinds === 1 ? 'kind' : 'kinds'}` : 'no fish yet';
-  return `${PLAYS[g.play]?.name || 'Career'} · day ${g.day} · ${fish} · ${g.places} ${g.places === 1 ? 'place' : 'places'} · £${g.money}`;
+  return `${PLAYS[g.play]?.name || 'Career'} · day ${g.day} · ${fish} · ${g.places} ${g.places === 1 ? 'place' : 'places'} · £${g.money.toLocaleString('en-GB')}`;
 }
 function lastPlayed(ms) {
   if (!ms) return '';
@@ -14331,6 +14331,7 @@ function startFreeRoam() {
   if (T && !T.stowed && !carriedOn(state, 'trawler')) withTender('trawler');
   state.tips.freeRoam = true;
   save();
+  if (typeof renderTitleGame === 'function') renderTitleGame();
   return r;
 }
 if (state.play === 'free' && !state.tips.freeRoam) startFreeRoam();

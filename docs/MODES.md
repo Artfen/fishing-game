@@ -56,6 +56,34 @@ from the start)."
 - Photographs live in the browser's photo store by their own ids, shared by the slots; deleting a
   game deletes its photographs from it.
 
+*M1 done.* `src/playmode.js`: `state.play` is `'career'` or `'free'` (every older save reads as a
+Career, and anything odd as one too). Free Roam's start (`giveFree`, and `main.js`
+`startFreeRoam`): all thirteen boats owned, the trawler launched at your berth (the kayak laid up
+to make room) with her tender carried on her platform, the board's state marked `free` so
+`career()` answers Master, the purse filled to £2,000 with a receipt in the ledger; run once,
+whether the game was chosen at the first question or started from the title screen or the
+journal. A new player is asked "Career or Free Roam?" after their name and before the play style;
+**New game…** in the journal offers *Start over: Career* and *Start over: Free Roam*, keeping your
+settings and answers. The journal's save line says which the game is. `achievements.js` leaves out
+FLEET, SKIPPER and MASTER in Free Roam.
+
+*M2 done.* `src/slots.js`, through `save.js` `slots`: the index (`slow-tide-slots`) with each
+game's line, kept up to date by every save; `switchTo` parks the game being played, puts the other
+where the save lives (or nothing, for a new game), clears the session backup, all in an order that
+can be undone at each step (a quota error at any of them leaves storage exactly as it was, tested
+step by step); the page stops saving the moment a switch is made, so its save on leaving can't
+land on the next game. The title screen's line (*Game 2 · Career · day 4*) and **Your games**
+(`#games`): play, new (either way), delete with a download first; its keys can't start the game
+behind it. Cloud: `cloud.elsewhere` when the game isn't Game 1 (no sync at start, no queue, no
+flush; the journal says the account keeps Game 1). Desktop: `save:mirror` takes the slot and
+writes its own file, ignoring a slot that isn't one; only Game 1 starts a computer from its file.
+
+Played in the browser from an empty one: named, *Free Roam* chosen (thirteen boats, the trawler at
+the berth with her tender on her platform, £2,000), the play style, the guide declined; reloaded
+(*Game 1 · Free Roam · day 1*); **Your games** → Game 2 → *New: Career* (three boats, £20, no
+opening questions but the guide); back to Game 1 (all as it was); Game 2 deleted (only Game 1's
+keys left). No errors.
+
 ## Done when
 
 - Tests: a new Free Roam game owns every boat, the trawler afloat with her tender carried, the board
