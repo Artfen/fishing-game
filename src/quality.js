@@ -19,6 +19,16 @@
 // more than the screen has and smooths it down); shadowSpan: metres the sharp shadows reach round
 // you; drawDistance: how far off things are drawn; air: haze (1 = the usual); fishNear: how close
 // fish are drawn in full anatomical detail; post: the finishing pass (see post.js).
+// (docs/PERFORMANCE.md) Drawing more pixels than the screen has, to smooth them down, only as far
+// as a 4K screen's worth: a big or ultrawide screen (3440 × 1440 on Cinematic was 11 million
+// pixels a frame) is already sharp, and drawing past that costs frames for nothing you'd see.
+// Never fewer pixels than the screen has.
+export const PIXEL_BUDGET = 3840 * 2160;
+export function budgetRatio(pr, w, h) {
+  const screen = Math.max(1, w * h);
+  if (pr <= 1 || screen * pr * pr <= PIXEL_BUDGET) return pr;
+  return Math.max(1, Math.sqrt(PIXEL_BUDGET / screen));
+}
 export const PRESETS = {
   cinematic: {
     label: 'Cinematic', pixelRatio: 2.5, minRatio: 1.5, shadows: true, shadowSize: 4096, shadowSpan: 70, waterSegments: 440, rain: 2400,

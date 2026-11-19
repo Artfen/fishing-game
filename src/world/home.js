@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Lamp } from '../lamps.js';
 import { HOME_PAD, HOUSE, GARAGE, CAR_PARKS, LANES, PLACES, FUEL_PUMPS, heightAt } from './terrain.js';
 import { RODS, ROD_IDS } from '../tackle.js';
 import { mergeParts, mat, pick, clamp, smoothstep, glowTexture, seeded } from '../util.js';
@@ -697,7 +698,7 @@ export function buildHome(scene, rnd) {
 
   // ---- light ----
   // One warm light, in whichever room you're in (or the garage, when you're outside nearby).
-  const light = new THREE.PointLight('#ffc98a', 0, 9, 1.6);
+  const light = new Lamp('#ffc98a', 0, 9, 1.6);
   light.position.set(130.6, Y + 2.2, -76);
   group.add(light);
   const bulbGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture('rgba(255,210,150,1)'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));

@@ -3,6 +3,7 @@ import { pushAt } from './engines.js';
 import { Dashboard, DASHES } from './dashboard.js';
 import { canMount, mountFor, rigPose, propAt } from './trollmount.js';
 import * as THREE from 'three';
+import { Lamp } from './lamps.js';
 import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat, wrapAngle } from './util.js';
 import { waveHeight } from './world/water.js';
 import { windAt, currentAt, currentScale, conditions, waveSampler, sampleWaves, shelterAt, undrawnWave } from './world/conditions.js';
@@ -2906,7 +2907,7 @@ export class Boat {
     this.cabinLamp = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffd28a' }));
     this.cabinLamp.position.set(lampX, lampY, zAt(H, 0.63));
     this.body.add(this.cabinLamp);
-    this.cabinLight = new THREE.PointLight('#ffc77d', 0, 4.2, 1.5);
+    this.cabinLight = new Lamp('#ffc77d', 0, 4.2, 1.5);
     this.cabinLight.position.set(lampX, lampY - 0.08, zAt(H, 0.63));
     this.body.add(this.cabinLight);
     // The roof (and the stove pipe through it): lifted away while you're inside and looking
@@ -3371,7 +3372,7 @@ export class Boat {
     this.cabinLamp = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffd28a' }));
     this.cabinLamp.position.set(lampX, lampY, zAt(H, 0.63));
     this.body.add(this.cabinLamp);
-    this.cabinLight = new THREE.PointLight('#ffc77d', 0, 4.2, 1.5);
+    this.cabinLight = new Lamp('#ffc77d', 0, 4.2, 1.5);
     this.cabinLight.position.set(lampX, lampY - 0.08, zAt(H, 0.63));
     this.body.add(this.cabinLight);
     // The roofs, the chimney, the mast (and its light), the rails: lifted away when you look down
@@ -4185,7 +4186,7 @@ export class Boat {
     this.cabinLamp = new THREE.Mesh(mergeParts(lamps.map((p) => ({ geo: new THREE.SphereGeometry(0.06, 10, 8), matrix: mat(p.x, p.y, p.z), color: '#ffffff' }))), new THREE.MeshBasicMaterial({ color: '#ffd28a' }));
     this.body.add(this.cabinLamp);
     this.lampsAt = { saloon: lamps[0].clone().setY(lamps[0].y - 0.1), below: lamps[1].clone().setY(lamps[1].y - 0.1) };
-    this.cabinLight = new THREE.PointLight('#ffc77d', 0, 6, 1.5);
+    this.cabinLight = new Lamp('#ffc77d', 0, 6, 1.5);
     this.cabinLight.position.copy(this.lampsAt.saloon);
     this.body.add(this.cabinLight);
   }
@@ -4492,7 +4493,7 @@ export class Boat {
     // The floods themselves: a light over the deck, off until it's dark (see setDeckLights).
     this.deckLight = null;
     if (has('lights')) {
-      const L = (this.deckLight = new THREE.PointLight('#fff4dd', 0, 16, 1.6));
+      const L = (this.deckLight = new Lamp('#fff4dd', 0, 16, 1.6));
       if (HB) L.position.set(0, HB.top - 0.2, HB.z - 0.8);
       else L.position.set(0, y0 + 1.75, hz + 0.6);
       g.add(L);
@@ -5253,7 +5254,7 @@ export class Boat {
     const model = buildLanternModel();
     this.lanternGlass = model.glassMat;
     this.lanternHanger.add(model.group);
-    this.lanternLight = new THREE.PointLight('#ffb15c', 0, 18, 1.6);
+    this.lanternLight = new Lamp('#ffb15c', 0, 18, 1.6);
     this.lanternLight.position.y = -0.2;
     this.lanternHanger.add(this.lanternLight);
     this.lanternRig.add(this.lanternHanger);
