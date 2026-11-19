@@ -106,7 +106,7 @@ const HULLS = {
   // driver's console to starboard (the wheel, a graph, a windscreen), a passenger's to port and
   // two bucket seats; a jack-plated outboard. You sit at the wheel (seatX: to starboard).
   bass: {
-    planing: { deadrise: 14 }, // (B3) a planing hull; her real bottom's deadrise, degrees (hydro.js savitskyTrim)
+    planing: { deadrise: 18 }, // (B3) a planing hull; her real bottom's deadrise, degrees (hydro.js savitskyTrim)
     name: 'bass boat', mass: 700, L: 4.7, B: 1.05, D: 0.55, draft: 0.22, shallow: 0.4, seatX: -0.44, seatZ: -0.66, seatY: 0.69, floorY: 0.27,
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.32 + 0.68 * t)), 0.42),
     sheer: (t) => 0.14 * Math.pow(t, 2),
@@ -115,7 +115,15 @@ const HULLS = {
     // (Her hull as drawn: chine as a share of her half-beam, the chine's flat, the pad's
     // half-width aft, the bottom's rise (tan of the deadrise) aft and at the bow, the stem's rake,
     // stations; where the decks end (z), the jack plate's setback.)
-    form: { kind: 'bass', chine: 0.92, flat: 0.03, pad: 0.1, rise: [0.24, 0.85], rake: 0.38, stations: 30, rear: -1.45, front: 0.33, jack: 0.12, wheel: true },
+    form: { kind: 'bass', chine: 0.92, flat: 0.03, pad: 0.1, rise: [0.33, 0.85], rake: 0.38, stations: 30, rear: -1.45, front: 0.33, jack: 0.12, wheel: true },
+    // (She floats on her bottom as she's drawn (form): flat across a pad either side of the keel
+    // aft, then a V to a hard chine at 0.92 of her half-beam, rising at her deadrise (tan 0.33, 18°,
+    // aft, sharpening to 0.85 at the bow), and her topsides from there up (hydro.js veeAt). On the
+    // rounded section the other hulls float on, flat at the keel, she was held up by more than a
+    // planing V of her deadrise is, and ran up to 1.9° flatter than Savitsky's equations; and on
+    // a V of the 13.5° she was drawn with, she'd float with her chine 2 cm under the water aft. See
+    // docs/WATER.md, the bass boat's planing bottom.)
+    vee: { chine: 0.75, wc: 0.92, rise: [0.33, 0.85], pad: 0.1 },
     // (Her casting decks fore and aft, as t along her and how far below her sheer: where you
     // stand on them; see trollmount.js deckY.)
     decks: [[0.57, 1, 0.045], [0, 0.19, 0.045]], floor: true, pedestals: true, locker: true,
@@ -317,7 +325,7 @@ function hullSurface(H, inset, colorFor, split = null) {
     const t = i / NZ, w = Math.max(hw(H, t) - inset, 0), s = sheer(H, t), k = H.keel(t) + inset;
     const row = [];
     for (let j = 0; j <= NP; j++) {
-      const [x, y] = section(H, w, s, k, -Math.PI / 2 + Math.PI * (j / NP));
+      const [x, y] = section(H, w, s, k, -Math.PI / 2 + Math.PI * (j / NP), t);
       row.push([x, y, zAt(H, t)]);
     }
     rows.push(row);
@@ -665,6 +673,10 @@ const SEQ = { n: 0 }; // every boat's update, counted: which ones are out on the
 // than past the one she's leaving by, as a share of its half-size, before she leaves by that one
 // instead (see exitFrom).
 export const EXIT_HYST = 0.15;
+// The hump's rearing (H.hump, in update) eases off from her bow 12° up on the water about her, and
+// is gone by 18°: about as far as a planing hull rears on her own wave (the RIB, driven hard from
+// rest on a calm sea, rears about 11°). A calibration, not a measurement.
+export const HUMP_EASE = [12 * (Math.PI / 180), 18 * (Math.PI / 180)];
 const ORIGIN = [0, 0, 0];
 const CREW = 80; // kg, you
 // The sailing boat's sail pushes about here: well up the mast, and (her rig balanced over the
@@ -4822,8 +4834,18 @@ export class Boat {
       // number near one) her stern settles into the trough behind it and her bow rears up, then
       // she climbs over it and levels out on the plane. (H.hump: how far she rears, as a share of
       // her weight acting at her length; driven hard through it she rears more.)
+      // (It's her trim on her own wave: once her bow is up on the water about her more than about
+      // the hump's own trim, it eases off, HUMP_EASE. Held at the hump in a head sea, where a seaway
+      // keeps her, without that it stood her on her tail: the bass boat's bow up to 41° beyond the
+      // sea's own slope along her, which was at most 9°, the console's 42°, the skiff's 46°.)
       if (H.hump && !dead && !troll && !E && vf > 0.5) {
-        const fn = vf / Math.sqrt(G * H.L), k = Math.exp(-(((fn - 0.85) / 0.32) ** 2)) * clamp(Math.abs(pw) * 3, 0, 1);
+        const fn = vf / Math.sqrt(G * H.L);
+        let k = Math.exp(-(((fn - 0.85) / 0.32) ** 2)) * clamp(Math.abs(pw) * 3, 0, 1);
+        if (k > 0.01) {
+          const r = 0.35 * H.L, fx = this.fwd.x * r, fz = this.fwd.z * r, x = this.pos.x, z = this.pos.z;
+          const sea = Math.atan2(waveHeight(x + fx, z + fz) - waveHeight(x - fx, z - fz), 2 * r);
+          k *= 1 - smoothstep(HUMP_EASE[0], HUMP_EASE[1], -this.pitch - sea);
+        }
         if (k > 0.01) {
           const F = H.hump * m * G * k, cg = b.model.cg;
           b.forces.push({ f: [0, F, 0], p: b.toWorld([0, cg[1], zAt(H, 0.85)], [0, 0, 0]) }, { f: [0, -F, 0], p: b.toWorld([0, cg[1], zAt(H, 0.15)], [0, 0, 0]) });

@@ -1,9 +1,12 @@
 // (B3, the hump region) Getting onto the plane: the console, the bass boat and the skiff, from
 // a speed coefficient of about 1 to their top speeds, trim as Savitsky's equations have them
-// (hydro.js savitskyTrim), within about 2°. Before this the console and the bass boat ran up to
+// (hydro.js savitskyTrim), within 1.75°. Before this the console and the bass boat ran up to
 // 2.7° flatter through a speed coefficient of about 2: the planing hull's lift was moved to where
 // Savitsky puts it only from 1.5 to 3, and her bottom held her up by all the water it pushed
-// aside, where on the plane it's about half (PLANE_BUOY). Run with
+// aside, where on the plane it's about half (PLANE_BUOY). And the bass boat floated on a rounded
+// section, flat at the keel, not the V she's drawn with, and still ran up to 1.9° flat (1.5° root
+// mean square); now she floats on her V (hydro.js veeAt). And held at the hump in a head sea,
+// the bass boat, the skiff and the console no longer stand on their tails. Run with
 // `node --import ./tests/setup.mjs --test tests/`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,6 +19,7 @@ const THREE = await import('three');
 const Hy = await import('../src/hydro.js');
 const { Boat, HULLS } = await import('../src/boat.js');
 const { conditions, updateConditions } = await import('../src/world/conditions.js');
+const { waveHeight } = await import('../src/world/water.js');
 
 test('on the plane her bottom holds her up by about half the water it pushes aside, as Savitsky’s buoyant lift has it', () => {
   // Savitsky's buoyant lift coefficient, 0.0055·λ^2.5·τ^1.1/Cv² (τ in degrees), against a flat
@@ -58,11 +62,48 @@ test('getting onto the plane, the console, the bass boat and the skiff trim as S
     // From below the hump to her top speed.
     assert.ok(runs[0].cv < 1.7 && runs[4].cv > 1.8, `${kind}: ${say}`);
     for (const r of runs) {
-      assert.ok(Math.abs(r.trim - r.sav) < 2.25, `${kind}, within 2.25°: ${say}`);
+      assert.ok(Math.abs(r.trim - r.sav) < 1.75, `${kind}, within 1.75°: ${say}`);
       assert.ok(r.sd < 0.6, `${kind}, no porpoising: ${say}`);
     }
     const rms = Math.sqrt(runs.reduce((a, r) => a + (r.trim - r.sav) ** 2, 0) / runs.length);
-    assert.ok(rms < 1.65, `${kind}, ${rms.toFixed(2)}° root mean square: ${say}`);
+    assert.ok(rms < 1.2, `${kind}, ${rms.toFixed(2)}° root mean square: ${say}`);
   }
   conditions.manual = null;
+});
+
+test('held at the hump in a head sea, the bass boat, the skiff and the console rear on their own wave, not on their tails', () => {
+  // A lively sea (the wind 10 m/s from the south-west, a metre's significant height), and each
+  // flat out into it from rest, as tests/watersports.test.mjs runs the jet ski: a seaway holds her
+  // at the hump, where its rearing (H.hump) is at its most. Eased off from 12° up on the water
+  // about her (boat.js HUMP_EASE), her bow goes no more than about 21° beyond the sea's own slope
+  // along her (at most 9°); without it, it stood them on their tails, the bass boat's bow up to 41°
+  // beyond it, the console's 42° and the skiff's 46°.
+  const was = conditions.preset;
+  conditions.preset = 'lively';
+  conditions.manual = { speed: 10, from: (225 * Math.PI) / 180 };
+  conditions.wind.speed = conditions.wind.target = 10;
+  for (let i = 0; i < 3000; i++) updateConditions(0.1, { rain: 0, cloud: 0.2 });
+  const scene = new THREE.Scene();
+  for (const kind of ['bass', 'skiff', 'console']) {
+    const H = HULLS[kind];
+    for (const start of [0, 60, 120]) {
+      let t = 1000 + start, beyond = 0, up = 0;
+      const b = new Boat(scene, { kind });
+      b.place(106, 294, -Math.PI * 0.25);
+      for (let i = 0; i < 25 * 30; i++) {
+        b.update(1 / 30, (conditions.time = t += 1 / 30), 1, 0, 0);
+        if (i < 150) continue;
+        // (The sea's own slope along her, over her length.)
+        const r = H.L / 2, fx = b.fwd.x * r, fz = b.fwd.z * r;
+        const sea = Math.atan2(waveHeight(b.pos.x + fx, b.pos.z + fz) - waveHeight(b.pos.x - fx, b.pos.z - fz), H.L);
+        up = Math.max(up, -b.pitch);
+        beyond = Math.max(beyond, -b.pitch - sea);
+      }
+      const say = `${kind}, sea ${start}: bow up ${(up * 57.3).toFixed(1)}°, ${(beyond * 57.3).toFixed(1)}° beyond the sea's slope`;
+      assert.ok(beyond < 27 / 57.3, say);
+      assert.ok(up < 28 / 57.3, say);
+    }
+  }
+  conditions.manual = null;
+  conditions.preset = was;
 });

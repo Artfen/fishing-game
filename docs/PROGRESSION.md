@@ -185,3 +185,6 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
 22. **An anchor comes out by what it holds (B6's follow-up, done):** dug in, it takes a firmer pull;
    hooked under a rock, more than you can heave, so the rope's made fast and the swell snatches it
    out; and it comes in along its rope to her bow.
+23. **The bass boat on her own V (B3's follow-up, done):** she floats on the planing V she's drawn
+   with, and climbs onto the plane within a degree and a half of Savitsky's trim; and held at the
+   hump in a head sea, no planing boat stands on her tail any more.

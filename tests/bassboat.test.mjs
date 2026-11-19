@@ -2,7 +2,8 @@
 // planing V drawn over her physics envelope, so her physics is exactly as it was; nothing of her
 // cockpit, consoles or seats through her skin; you at the wheel of her console, no tiller on her
 // outboard, on a jack plate; her paint and stripe still the Marine Works' to change; her decks
-// where you stand on them; and her drawing within the art direction's budget.
+// where you stand on them; and her drawing within the art direction's budget. And (B3's
+// follow-up) she floats on that V: her physics hull's bottom is the one she's drawn with.
 // Run with `node --import ./tests/setup.mjs --test tests/`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,7 +14,7 @@ globalThis.innerHeight ??= 800;
 
 const THREE = await import('three');
 const { Boat, HULLS, floatDraft, formHalf, formRows } = await import('../src/boat.js');
-const { buildHullModel } = await import('../src/hydro.js');
+const { buildHullModel, section, veeAt } = await import('../src/hydro.js');
 const { deckY } = await import('../src/trollmount.js');
 
 const H = HULLS.bass, F = H.form;
@@ -53,6 +54,35 @@ test('her physics is as it was: built from her envelope, never from how she is d
     return H.keel(t) + rise * (w * F.chine - F.pad);
   };
   assert.ok(chine(0.05) > wl && chine(0.05) < wl + 0.1, `chine aft ${chine(0.05).toFixed(3)} over a waterline of ${wl.toFixed(3)}`);
+});
+
+test('she floats on the bottom she is drawn with: her pad, her V and her hard chine', () => {
+  // Her physics hull (H.vee, hydro.js section) and her drawing (F, formRows) are made separately;
+  // along her, to well forward of where she meets the water, the physics bottom's keel, pad and
+  // chine are where she's drawn with them, to the millimetre. (Her chine's flat and her running
+  // strake are drawn only: a few centimetres of ledge.)
+  const V = H.vee, rows = formRows(H, F), mid = (rows[0].length - 1) / 2;
+  assert.ok(V && V.wc === F.chine && V.pad === F.pad && V.rise[0] === F.rise[0] && V.rise[1] === F.rise[1], 'her V as drawn');
+  let n = 0;
+  for (const row of rows) {
+    const t = tOf(row[0][2]);
+    if (t > 0.75) continue;
+    const w = hw(t), s = sheer(t), k = H.keel(t), { wc, rise, pad } = veeAt(V, t, w);
+    const drawnChine = row[4], drawnPad = row[mid - 1];
+    assert.ok(Math.abs(drawnChine[0] - wc) < 1e-3 && Math.abs(drawnPad[0] - pad) < 1e-3, `chine and pad across her at t ${t.toFixed(2)}`);
+    // Round her section from the keel: flat to the pad, then her V to the chine, at its height.
+    const at = (x) => { const u = Math.min(1, x / wc) * V.chine; return section(H, w, s, k, u * (Math.PI / 2), t); };
+    const [cx, cy] = at(wc), [px, py] = at(pad), [mx, my] = at((wc + pad) / 2);
+    assert.ok(Math.abs(cx - drawnChine[0]) < 1e-3 && Math.abs(cy - drawnChine[1]) < 1e-3, `chine at t ${t.toFixed(2)}: ${cy.toFixed(3)} against ${drawnChine[1].toFixed(3)} drawn`);
+    assert.ok(Math.abs(px - pad) < 1e-3 && Math.abs(py - k) < 1e-3, `pad at t ${t.toFixed(2)}`);
+    assert.ok(Math.abs(my - (k + rise * ((wc + pad) / 2 - pad))) < 1e-3, `her V at its deadrise at t ${t.toFixed(2)}`);
+    n++;
+  }
+  assert.ok(n > 15, `${n} stations`);
+  // And so she floats deeper than on the round section she had (0.16 m at her keel), with her
+  // chine aft just clear of the water (test 1).
+  const wl = floatDraft(H);
+  assert.ok(wl > 0.23 && wl < 0.27, `her draft ${wl.toFixed(3)}`);
 });
 
 test('nothing of her cockpit, seats or consoles comes through her skin', () => {
