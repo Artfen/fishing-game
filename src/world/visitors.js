@@ -590,6 +590,8 @@ export class VisitorView {
     d.roll = damp(d.roll, Math.sin(t * 0.9) * 0.05 + (P.s && !P.n ? 0.12 : 0), 2, dt);
     b.body.rotation.z = d.roll;
     if (!b.occupied) b.setRower(true);
+    // (At her inside helm, in her wheelhouse, or out at her helm in the cockpit.)
+    if (!b.occupied) b.setHelmInside?.(!!P.hi && !P.f && !P.o);
     b.pose.fishing = P.f || P.o ? 1 : 0;
     if (P.f || P.o) {
       b.pose.rodYaw = 1.1;

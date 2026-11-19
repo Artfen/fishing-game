@@ -161,6 +161,11 @@ const HULLS = {
     motor: { thrust: 3.8, astern: 2.0, tilt: 1.0, scale: 1.25, cowl: '#2b2e33', band: '#1f4e5f' },
     surge: 0.22,
     cabin: [0.44, 0.88], lantern: [0.55, -1.7], stow: [-0.7, 0.62, -1.3], noise: 1, steady: 0.55,
+    // (Her inside helm, in the wheelhouse forward of the galley to starboard: a wheel on a varnished
+    // shelf under the windscreen, a compass, the throttle, a stool; you sit to it, your eyes in the
+    // middle of the windscreen's starboard pane. Where you sit (x, z) and your hips' height (y); see
+    // buildInsideHelm.)
+    helmInside: { x: -0.32, z: 0.8, y: 0.66, sit: true },
     windage: 0.0042, ride: 2.6, // long and heavy: it bridges the chop, and the cabin catches the wind
     wind: [7.5, 0.4, 0.9], // (B3) side above the water m², end-on share, its middle's height m
     // (Her wheelhouse as drawn, see buildWheelhouse: where it ends and the forepeak's low trunk
@@ -198,6 +203,11 @@ const HULLS = {
     // of where you fish from, how far you go out to the side as you turn, and back to the transom;
     // side: which way round the fighting chair you go between the two.
     standing: { helm: [-0.62, -2.28], aft: [0, -3.6, 0.7, 0.45], side: -1, round: 0.55, chair: [0, -3.0, 0.52] },
+    // (Her inside helm, her lower station in the wheelhouse forward of the galley to starboard: the
+    // wheel, the throttles, a compass and a screen on a dash under the windscreen; you stand to it.
+    // Where you stand (x, z), your eyes in the middle of the windscreen's starboard pane; see
+    // buildInsideHelm.)
+    helmInside: { x: -0.5, z: 0.95 },
     lantern: [1.05, -4.05], stow: null, noise: 1, steady: 0.3,
     windage: 0.005, ride: 1.8, // big and heavy: she shoulders the chop aside, but the wind gets a grip on the hardtop
     wind: [22, 0.4, 1.8], // (B3) side above the water m², end-on share, its middle's height m
@@ -895,6 +905,7 @@ export class Boat {
     this.turns = !!H.standing;
     this.spot = null;
     this.standAt = null;
+    this.helmIn = false; // at her inside helm, in the wheelhouse (H.helmInside: see setHelmInside)
     this.chairT = 0; // in the fighting chair (0 … 1), fighting a big fish on the yacht
 
     this.buildHull();
@@ -959,7 +970,9 @@ export class Boat {
   // Where a weight goes aboard her, in her own space: a fitting from the Marine Works (by its id),
   // or 'engine', 'fuel', 'cockpit', 'bow', 'helm'.
   loadPlace(id) {
-    const H = this.hull, y0 = H.floorY ?? 0.1, helm = H.standing?.helm, hx = helm ? helm[0] : this.seatX || 0, hz = helm ? helm[1] : this.seatZ ?? -H.L * 0.25;
+    // (Her helm's fittings are at her helm outside, whichever helm you're at: see setHelmInside.)
+    const seat = this.outsideSeat, sx = seat ? seat[0] : this.seatX, sz = seat ? seat[2] : this.seatZ;
+    const H = this.hull, y0 = H.floorY ?? 0.1, helm = H.standing?.helm, hx = helm ? helm[0] : sx || 0, hz = helm ? helm[1] : sz ?? -H.L * 0.25;
     const at = {
       engine: [0, sheer(H, 0) - 0.3, zAt(H, 0) - 0.15],
       fuel: [0, y0 + 0.15, zAt(H, 0.28)],
@@ -2435,6 +2448,7 @@ export class Boat {
       if (H.paddle) b.rotation.x = -0.9;
       this.body.add(thigh, shin, b);
       this.rowerParts.push(thigh, shin, b);
+      (this.seatLegs ||= []).push(thigh, shin, b);
       this.legs.push({ s, thigh, shin, boot: b });
     };
     this.legs = [];
@@ -3199,6 +3213,12 @@ export class Boat {
       { geo: new THREE.CylinderGeometry(0.006, 0.006, 0.09, 4), matrix: mat(side(0.63) * 0.5, yTop - 0.045, zAt(H, 0.63)), color: '#3a3d42' },
     );
 
+    // Her inside helm (H.helmInside): just aft of the windscreen's foot, below its glass.
+    if (H.helmInside) {
+      const v = 0.12, foot = [yTrunk + v * (yTop - yTrunk), zAt(H, tf - v * (tf - tw))];
+      const room = (z, y) => wallX(clamp((z + L / 2) / L, 0, 1), y) - wall;
+      this.buildInsideHelm(inside, { foot, sill: yTrunk, floor: cabinFloor, room, wood: launch ? VARNISH : W.walls || '#f3f1ea', trim: launch ? BRONZE : STEEL, launch });
+    }
     const mesh = (this.cabinMesh = new THREE.Mesh(mergeParts([...parts, ...inside]), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
@@ -3255,6 +3275,8 @@ export class Boat {
     ];
     this.cabinFloor = cabinFloor;
     this.cabinRoofY = yTop;
+    // (Its galley's footprint, x and z: see the inside helm.)
+    this.galleyBox = { x0: gxx - 0.17, x1: gxx + 0.17, z0: zAt(H, 0.54) - 0.31, z1: zAt(H, 0.54) + 0.31 };
     this.cabinMid = new THREE.Vector3(0, base, (zb + zt) / 2);
     // (For the Marine Works' fittings: the back of the house, where her screens and floodlights go.)
     this.houseBack = { z: zb, top: yTop, door, window: [door + 0.08, wallX(t0, w1) - 0.08, w0] };
@@ -3308,7 +3330,10 @@ export class Boat {
 
   // The wheel: its rim, three spokes and a hub, tilted towards you, turning with the helm.
   buildWheel(x, y, z, tilt = -0.55) {
-    const w = (this.wheel = new THREE.Group());
+    this.wheel = this.makeWheel(x, y, z, tilt);
+  }
+  makeWheel(x, y, z, tilt = -0.55) {
+    const w = new THREE.Group();
     w.position.set(x, y, z);
     w.rotation.x = tilt;
     w.add(new THREE.Mesh(mergeParts([
@@ -3317,6 +3342,52 @@ export class Boat {
       ...[0, 1, 2].map((k) => ({ geo: new THREE.BoxGeometry(0.018, 0.17, 0.012), matrix: mat(Math.sin((k / 3) * Math.PI * 2) * 0.09, Math.cos((k / 3) * Math.PI * 2) * 0.09, 0, 0, 0, -(k / 3) * Math.PI * 2), color: '#c9cdd0' })),
     ]), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3 })));
     this.body.add(w);
+    return w;
+  }
+
+  // The inside helm (H.helmInside), into the wheelhouse's own parts (to): a shelf across under the
+  // windscreen (its top just below the glass, so you see out over it), its fascia down towards the
+  // bunk; the wheel on it, tilted to you and turning as she does; a compass, the throttle beside the
+  // wheel; on the yacht a screen too; on the cabin boat a stool on a pedestal to sit to it.
+  // (where: foot, the windscreen glass's lower edge [y, z]; sill, the windscreen's foot; floor, the
+  // wheelhouse's floor; room(z, y), the house's inner half-width; wood and trim, its colours.)
+  buildInsideHelm(to, { foot, sill, floor, room, wood, trim, launch }) {
+    const H = this.hull, G = H.helmInside, DARK = '#2b2e33';
+    // (A shallow shelf where you sit, so the wheel's in front of you; deeper where you stand. Its
+    // outboard end at the house's side, inside it, where the house is narrowest: forward, and up at
+    // the throttle's head.)
+    const top = sill - 0.03, z1 = foot[1] - 0.04, z0 = z1 - (G.sit ? 0.2 : 0.3), zm = (z0 + z1) / 2;
+    const x0 = Math.max(G.x - 0.3, -(room(z1, top + 0.22) - 0.02)), x1 = G.x + 0.3;
+    const box = (sx, sy, sz, x, y, z, color, rx = 0, ry = 0, rz = 0) => to.push({ geo: new THREE.BoxGeometry(sx, sy, sz), matrix: mat(x, y, z, rx, ry, rz), color, jitter: 0.02 });
+    const cyl = (r0, r1, h, x, y, z, color, rx = 0) => to.push({ geo: new THREE.CylinderGeometry(r0, r1, h, 10), matrix: mat(x, y, z, rx, 0, 0), color, jitter: 0.02 });
+    // The shelf and its fascia.
+    const xm = (x0 + x1) / 2;
+    box(x1 - x0, 0.03, z1 - z0, xm, top - 0.015, zm, wood);
+    box(x1 - x0, 0.26, 0.025, xm, top - 0.15, z0 + 0.012, wood);
+    box(0.025, 0.26, z1 - z0, x0 + 0.012, top - 0.15, zm, wood);
+    box(0.025, 0.26, z1 - z0, x1 - 0.012, top - 0.15, zm, wood);
+    // The compass in its bowl, to the inboard side; the throttle to the outboard side.
+    cyl(0.06, 0.07, 0.05, x1 - 0.1, top + 0.025, zm, DARK);
+    cyl(0.05, 0.05, 0.012, x1 - 0.1, top + 0.056, zm, '#e8e3d4');
+    box(0.06, 0.06, 0.12, x0 + 0.08, top + 0.03, z0 + 0.1, DARK);
+    box(0.016, 0.14, 0.016, x0 + 0.08, top + 0.1, z0 + 0.08, trim, 0.5);
+    cyl(0.022, 0.022, 0.05, x0 + 0.08, top + 0.17, z0 + 0.045, '#b8312f', Math.PI / 2);
+    // (The yacht's: a screen set into the shelf, leaning back, by the compass.)
+    if (!launch) box(0.28, 0.18, 0.02, G.x + 0.02, top + 0.09, z1 - 0.05, '#15181b', -0.45);
+    // Its stool: a pedestal from the floor, a round seat, a low back.
+    if (G.sit) {
+      const seatTop = G.y - 0.07;
+      cyl(0.035, 0.05, seatTop - floor - 0.05, G.x, (seatTop + floor) / 2 - 0.02, G.z - 0.02, trim);
+      cyl(0.18, 0.18, 0.06, G.x, seatTop - 0.03, G.z - 0.02, launch ? '#1f3b56' : DARK);
+      box(0.3, 0.16, 0.04, G.x, seatTop + 0.12, G.z - 0.2, launch ? '#1f3b56' : DARK, -0.15);
+    }
+    // The wheel on its boss at the shelf's edge, its face raked back to look up at you (its top
+    // leaning away, over the shelf, as a helm's wheel is set on its dash), its rim's top in the foot
+    // of your view out through the glass.
+    this.innerWheel = this.makeWheel(G.x, top + 0.04, z0 - 0.04, 0.6);
+    this.innerWheel.scale.setScalar(0.9);
+    this.insideHelmTop = top;
+    this.insideHelmBox = { x0, x1, z0, z1, y0: top - 0.28, y1: top + 0.22, room };
   }
 
   // The yacht, aft of her cabin: the helm to starboard (a console with the wheel, a throttle for
@@ -5610,6 +5681,46 @@ export class Boat {
   // big fish on the big-game rod is fought from the fighting chair: you sit, facing aft, the rod
   // butt in the gimbal between your knees and your feet on the footrest, and the chair swings
   // round to follow the fish.
+  // To her inside helm in the wheelhouse (on), or back out to her helm in the cockpit (the cabin
+  // boat's tiller, the yacht's wheel under her hardtop). Seated (the cabin boat), you and your rod
+  // move to its stool; standing (the yacht), you stand to its wheel (see standUp). Your eyes are
+  // where you are (eyePoint), so in first person you look out through the windscreen. False if
+  // she has none.
+  setHelmInside(on) {
+    const G = this.hull.helmInside;
+    if (!G) return false;
+    if (!!on === this.helmIn) return true;
+    this.helmIn = !!on;
+    if (on) this.deck = null;
+    if (G.sit) {
+      if (on) this.outsideSeat ||= [this.seatX, this.seatY, this.seatZ];
+      const [x, y, z] = on ? [G.x, G.y, G.z] : this.outsideSeat;
+      this.moveSeat(x, y, z);
+    }
+    return true;
+  }
+
+  // Where you sit, all three ways: you, your legs and your rod with you.
+  moveSeat(x, y, z) {
+    const dx = x - this.seatX, dy = y - this.seatY, dz = z - this.seatZ;
+    if (!dx && !dy && !dz) return;
+    this.seatX = x;
+    this.seatY = y;
+    this.seatZ = z;
+    if (this.torso) this.torso.position.set(x, y, 0.02 + z);
+    for (const m of this.seatLegs || []) m.position.set(m.position.x + dx, m.position.y + dy, m.position.z + dz);
+    for (const rod of Object.values(this.rods || {})) {
+      rod.group.position.set(rod.group.position.x + dx, rod.group.position.y + dy, rod.group.position.z + dz);
+      rod.hold.set(rod.hold.x + dx, rod.hold.y + dy, rod.hold.z + dz);
+    }
+  }
+
+  // Standing, which wheel you're at: her inside helm's, or her cockpit's (H.standing.helm).
+  get helmXZ() {
+    const G = this.hull.helmInside;
+    return this.helmIn && G ? [G.x, G.z] : this.hull.standing.helm;
+  }
+
   standUp(fishing, dt) {
     // Walking the deck (see walkDeck): you're where your feet have taken you, facing your line if
     // it's out, the way you're walking if not.
@@ -5626,10 +5737,12 @@ export class Boat {
     const fx = F[0] + sn * F[2], fz = F[1] + (F === S.bow ? Math.max(0, c) : Math.min(0, c)) * F[3];
     const side = S.side ?? (Math.sign(sn) || 1);
     if (this.chair) this.chair.rotation.y = lerp(Math.PI, swing, k);
-    const A = (this.standAt ||= { x: 0, z: 0, y: this.seatY, yaw: 0 });
-    A.x = lerp(lerp(S.helm[0], fx, u) + Math.sin(Math.PI * u) * S.round * side, S.chair?.[0] ?? 0, k);
-    A.z = lerp(lerp(S.helm[1], fz, u), S.chair?.[1] ?? 0, k);
-    A.y = lerp(this.seatY, this.hull.floorY + (S.chair?.[2] ?? 0) + 0.02, k);
+    const A = (this.standAt ||= { x: 0, z: 0, y: this.seatY, yaw: 0 }), [hx, hz] = this.helmXZ;
+    // (Inside, on the wheelhouse's floor; out in her cockpit, on her sole.)
+    const y0 = this.helmIn && this.cabinFloor != null ? this.seatY + this.cabinFloor - this.hull.floorY : this.seatY;
+    A.x = lerp(lerp(hx, fx, u) + Math.sin(Math.PI * u) * S.round * side, S.chair?.[0] ?? 0, k);
+    A.z = lerp(lerp(hz, fz, u), S.chair?.[1] ?? 0, k);
+    A.y = lerp(y0, this.hull.floorY + (S.chair?.[2] ?? 0) + 0.02, k);
     A.yaw = yaw;
     const T = this.torso;
     T.rotation.order = 'YXZ';
@@ -5637,7 +5750,7 @@ export class Boat {
     T.rotation.y = yaw;
     // Standing: feet a little apart under the hips, knees soft. Seated: knees up, feet out on the
     // footrest.
-    const deck = this.hull.floorY + 0.04 - A.y;
+    const deck = (this.helmIn && this.cabinFloor != null ? this.cabinFloor : this.hull.floorY) + 0.04 - A.y;
     for (const L of this.legs) {
       this.fromYou(_a, L.s * 0.1, -0.02, lerp(0.02, 0.06, k));
       this.fromYou(_b, L.s * lerp(0.12, 0.15, k), lerp(deck / 2 + 0.02, 0.06, k), lerp(0.09, 0.44, k));
@@ -5653,6 +5766,7 @@ export class Boat {
   // (true) at the wheel, or off. Where you are is in her own space, so you go where she goes.
   setDeck(on) {
     if (!this.hull.standing) return false;
+    if (on) this.setHelmInside(false);
     if (on && !this.deck) {
       // (From where you stand: at the wheel, or at the rail you've been fishing from.)
       const [hx, hz] = this.hull.standing.helm, A = this.standAt;
@@ -5725,7 +5839,7 @@ export class Boat {
   // Back at the wheel? (Near enough to take her again.)
   get atHelm() {
     const D = this.deck, S = this.hull.standing;
-    return !D || Math.hypot(D.x - S.helm[0], D.z - S.helm[1]) < 0.5;
+    return this.helmIn || !D || Math.hypot(D.x - S.helm[0], D.z - S.helm[1]) < 0.5;
   }
 
   placeOnDeck(fishing, dt) {
@@ -5815,6 +5929,7 @@ export class Boat {
     // The outboard: propeller spinning, the leg turning with the tiller. (The sailing boat's,
     // when it's up, tilts right out of the water on its bracket.)
     if (this.wheel && !this.hull.bars) this.wheel.rotation.z = damp(this.wheel.rotation.z, -this.omega * 2.2, 6, dt);
+    if (this.innerWheel) this.innerWheel.rotation.z = damp(this.innerWheel.rotation.z, -this.omega * 2.2, 6, dt);
     if (this.rudders) {
       // (The yacht's inboards: the propellers turning opposite ways, the rudders with the helm.)
       this.props.forEach((p, i) => (p.rotation.z = i ? -this.propSpin : this.propSpin));
@@ -5931,6 +6046,11 @@ export class Boat {
         // Away from the wheel, walking the deck: arms at your sides, swinging as you walk.
         const sw = Math.sin(this.deck.step + (a.s > 0 ? Math.PI : 0)) * 0.12 * this.deck.moving;
         onOar = this.fromYou(_b, a.s * 0.24, 0.28, 0.04 + sw);
+      } else if (this.helmIn && this.innerWheel) {
+        // At her inside helm: both hands on its wheel.
+        this.innerWheel.updateMatrix();
+        const G = this.hull.grip || [0.15, 0.05];
+        onOar = _b.set(a.s > 0 ? G[0] : -G[0], G[1], 0).applyMatrix4(this.innerWheel.matrix);
       } else if (this.wheel && this.motor) {
         // Both hands on the wheel.
         this.wheel.updateMatrix();

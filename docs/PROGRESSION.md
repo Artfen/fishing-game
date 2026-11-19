@@ -191,3 +191,5 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
 24. **The bass boat out on the sea (done):** the yard's trailer takes her between Longmere and
    Willowhaven by road, and at sea she's towed in, fuelled, brought round and spoken of where she
    is, not sent back to the boathouse from anywhere.
+25. **An inside helm (done):** the cabin boat and the yacht steered from inside their wheelhouse as
+   well as from outside, in first person looking out through the windscreen.
