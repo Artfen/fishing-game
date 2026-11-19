@@ -168,3 +168,57 @@ test('drawn in tiles on the coarse sheet\'s grid, covering the north and nothing
   const covered = (x, z) => NORTH_TILES.some((R) => x >= R.x0 && x <= R.x1 && z >= R.z0 && z <= R.z1);
   for (const [x, z] of [[-2250, 250], [-2600, -6170], [-1500, -5640], [-720, -5860], [-4500, -7800], [-1000, -3000]]) assert.ok(covered(x, z), `(${x}, ${z}) drawn`);
 });
+
+// N2: the isles in detail.
+test('the isles in detail: patches on the grid, over the isles, on the north\'s tiles', async () => {
+  const { TERRAIN_PATCHES, NORTH_TILES } = await import('../src/world/world.js');
+  const ids = ['ness', 'raven-s', 'raven-n', 'tern', 'selkie', 'skarv', 'bothy'];
+  for (const id of ids) {
+    const P = TERRAIN_PATCHES.find((p) => p.id === id);
+    assert.ok(P?.later, `${id}, built when you come near`);
+    for (const v of [P.x0, P.x1, P.z0, P.z1]) assert.equal(Math.abs(v % 20), 0, `${id} on the grid`);
+    assert.equal(Math.abs((20 / P.cell) % 1), 0, `${id}'s cell divides the coarse one`);
+    assert.ok(NORTH_TILES.some((R) => P.x0 >= R.x0 && P.x0 < R.x1 && P.z0 >= R.z0 && P.z0 < R.z1), `${id} on the north's tiles`);
+  }
+  const has = (x, z) => TERRAIN_PATCHES.some((P) => x > P.x0 && x < P.x1 && z > P.z0 && z < P.z1);
+  for (const [x, z] of [[N.RAVEN.x, N.RAVEN.z], [N.TERN.x, N.TERN.z], [N.SKARV.x, N.SKARV.z], [N.BOTHY_BAY.x, N.BOTHY_BAY.z], [N.CHURN.x - 200, N.CHURN.z + 30], [-2250, 250]]) assert.ok(has(x, z), `(${x}, ${z}) in detail`);
+});
+
+test('under the water: kelp on the rock round the isles, sand in the sound and off Tern Isle, mud in the loch', async () => {
+  const { createHabitat } = await import('../src/world/habitat.js');
+  const H = createHabitat(), s = {};
+  // Along Raven Isle's east shore, in the shallows: kelp on rock.
+  let kelp = 0;
+  for (let z = -6600; z < -5900; z += 20) {
+    for (let x = -2900; x < -2700; x += 10) {
+      H.sample(x, z, s);
+      if (s.depth > 3 && s.depth < 12 && s.weed > 0.3 && s.rock > 0.4) kelp++;
+    }
+  }
+  assert.ok(kelp > 10, `kelp along Raven Isle (${kelp})`);
+  assert.equal(H.sample(-2500, -6250, s).rock, 0, 'the sound\'s floor sand');
+  assert.ok(H.sample(-1500, -5600, s).mud > 0.8, 'the loch\'s basin mud');
+  assert.ok(H.sample(-2820, -6990, s).rock > 0.8 || H.sample(-2760, -7000, s).rock > 0.8, 'the Churn rock');
+  for (const B of N.NORTH_BEDS) assert.ok(B.x >= N.NORTH_RECT.x0 && B.x + B.w <= N.NORTH_RECT.x1 && B.z >= N.NORTH_RECT.z0 && B.z + B.h <= N.NORTH_RECT.z1, 'its kelp beds in the north');
+});
+
+test('on the isles: boulders on the shores, heather on the slopes, rowans in the loch\'s glens, marram on Tern Isle', async () => {
+  const THREE = await import('three');
+  const ctx2d = new Proxy({}, { get: (o, k) => (k === 'createRadialGradient' || k === 'createLinearGradient' ? () => ({ addColorStop() {} }) : k === 'measureText' ? () => ({ width: 10 }) : k === 'getImageData' ? () => ({ data: [] }) : k === 'createImageData' ? (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }) : () => {}), set: () => true });
+  globalThis.document ??= { createElement: () => ({ width: 0, height: 0, getContext: () => ctx2d }), fonts: null };
+  const { buildNorth, NORTH_AREAS } = await import('../src/world/northWorld.js');
+  const { seeded } = await import('../src/util.js');
+  const W = buildNorth(new THREE.Scene(), seeded(20261118));
+  const meshes = W.group.children.filter((o) => o.isInstancedMesh);
+  // (One set to each area, so an area out of view is left out.)
+  for (const A of NORTH_AREAS) {
+    const here = meshes.filter((m) => m.count && m.boundingSphere.center.x > A.x0 - 50 && m.boundingSphere.center.x < A.x1 + 50 && m.boundingSphere.center.z > A.z0 - 50 && m.boundingSphere.center.z < A.z1 + 50);
+    assert.ok(here.length >= 1, `${A.id}'s things`);
+    for (const m of here) assert.ok(m.boundingSphere.radius < 1400, `${A.id}'s drawn as its own`);
+  }
+  const rowans = W.obstacles.filter((o) => o.name === 'a rowan');
+  assert.ok(rowans.length > 20, 'rowans');
+  for (const r of rowans) assert.ok(heightAt(r.x, r.z) > 2 && N.lochAt(r.x, r.z).d < 270, 'a rowan in the loch\'s glens, on land');
+  const total = meshes.reduce((n, m) => n + m.count, 0);
+  assert.ok(total > 3000 && total < 12000, `${total} things in all`);
+});

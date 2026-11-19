@@ -287,8 +287,16 @@ export class Underwater {
   // Weed beds for a region built later (Las Brasas: its seagrass and the brown weed of its reefs),
   // with a seed of its own. R: { x, z, w, h, grass, kelp }.
   addBeds(R, rnd, q = this.quality) {
+    const g = this.bedSteps(R, rnd, q);
+    while (!g.next().done);
+  }
+
+  // The same, a slice at a time (a generator: each yield a slice of the placing), for the north's,
+  // which are many and laid as you come.
+  *bedSteps(R, rnd, q = this.quality) {
     const s = {}, grass = [], kelp = [];
     for (let i = 0; i < (R.grass + R.kelp) * 14 && (grass.length < R.grass || kelp.length < R.kelp); i++) {
+      if (i % 200 === 199) yield;
       const x = R.x + rnd() * R.w, z = R.z + rnd() * R.h;
       this.habitat.sample(x, z, s);
       if (s.weed < 0.2 || rnd() > Math.pow(s.weed, 0.8)) continue;
@@ -303,6 +311,7 @@ export class Underwater {
     g.computeBoundingSphere();
     k.computeBoundingSphere();
     const bed = { grass: g, kelp: k, grassTotal: grass.length, kelpTotal: kelp.length };
+    q = this.quality || q;
     if (q) {
       g.count = Math.floor(bed.grassTotal * q.plants);
       k.count = Math.floor(bed.kelpTotal * q.plants);

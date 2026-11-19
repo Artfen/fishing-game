@@ -19,7 +19,7 @@ import { SKIES, createWeather, stepWeather, skyOf } from './world/weather.js';
 import { createWater } from './world/water.js';
 import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeight, waveHeightHere, compass, bearingOf, windWords, seaWords, shelterAt, bakeShelter, shelterRect, TIDE, tidalTexture, shelterSteps } from './world/conditions.js';
 import { SOUTH_WATER, SOUTH_MAP, LANDFALL, POSADA, PUERTO as PUERTO_AT, PONTOON_S, FINGERS_S, ISLANDS } from './world/brasa.js';
-import { NORTH_WATER, ISLES_WATER, ISLES_MAP, COAST_SHEET, regionOf as seaAt, inNorth } from './world/north.js';
+import { NORTH_WATER, ISLES_WATER, ISLES_MAP, COAST_SHEET, NORTH_BEDS, regionOf as seaAt, inNorth } from './world/north.js';
 import { buildWorld } from './world/world.js';
 import { createHabitat } from './world/habitat.js';
 import { HEAVY as PRESSURE_HEAVY, CELL as PRESSURE_CELL } from './world/pressure.js';
@@ -297,8 +297,24 @@ function northWater() {
   }
   return NORTH_TEX;
 }
-// (A few milliseconds a frame, once you're heading that way.)
+// (A few milliseconds a frame, once you're heading that way; and once you're up the coast, the
+// kelp forests round the isles, a slice at a time too.)
+let northBeds = null;
+function* northBedSteps() {
+  for (const [i, R] of NORTH_BEDS.entries()) yield* underwater.bedSteps(R, seeded(9301 + i));
+}
 function bakeNorthAhead(budget = 4) {
+  if (NORTH_TEX && northBeds !== 'done' && player().pos.z < -2600) {
+    northBeds = northBeds || northBedSteps();
+    const t0 = performance.now();
+    while (performance.now() - t0 < budget) {
+      if (northBeds.next().done) {
+        northBeds = 'done';
+        break;
+      }
+    }
+    return;
+  }
   if (NORTH_TEX) return;
   const P = player().pos;
   if (P.x > -300 && P.z > -1900 && camera.position.x > -300) return;

@@ -20,7 +20,7 @@ import { buildCalf } from './calf.js';
 import { SOUTH_Z, SOUTH_RECT } from './brasa.js';
 import { brasaColor, buildBrasa } from './brasaWorld.js';
 import { northLand, NORTH_RECT, NORTH_EDGE, NORTH_EAST, farHills } from './north.js';
-import { northColor } from './northWorld.js';
+import { northColor, buildNorth, northSteps } from './northWorld.js';
 
 const shared = { uTime: { value: 0 }, uWind: { value: 1 }, uLeaf: { value: new THREE.Vector3(1, 1, 1) } };
 const UP = new THREE.Vector3(0, 1, 0);
@@ -286,6 +286,16 @@ export const TERRAIN_PATCHES = [
   { id: 'skerries', x0: -180, x1: -20, z0: 340, z1: 420, cell: 2.5, jitter: 0.5, shadows: true, later: true, added: true },
   { id: 'hound', x0: -280, x1: -120, z0: 680, z1: 820, cell: 2.5, jitter: 0.4, shadows: false, later: true, added: true },
   { id: 'sands', x0: 320, x1: 440, z0: 540, z1: 660, cell: 4, jitter: 0.4, shadows: false, later: true, added: true },
+  // The north (docs/NORTH.md): the Ness on the way, Raven Isle (in two: the north half takes in
+  // the Churn), Tern Isle, the Selkie Rocks, Skarv Stack (finer: it's sheer), and Bothy Bay in Loch
+  // Skarn. (Out on the north's tiles, which leave holes for them.)
+  { id: 'ness', x0: -2420, x1: -2080, z0: -60, z1: 540, cell: 5, jitter: 0.45, shadows: true, later: true },
+  { id: 'raven-s', x0: -3780, x1: -2700, z0: -6360, z1: -5600, cell: 5, jitter: 0.45, shadows: true, later: true },
+  { id: 'raven-n', x0: -3780, x1: -2480, z0: -7180, z1: -6360, cell: 5, jitter: 0.45, shadows: true, later: true },
+  { id: 'tern', x0: -4180, x1: -3340, z0: -5600, z1: -4920, cell: 4, jitter: 0.45, shadows: true, later: true },
+  { id: 'selkie', x0: -3180, x1: -2900, z0: -5060, z1: -4780, cell: 4, jitter: 0.4, shadows: true, later: true },
+  { id: 'skarv', x0: -4040, x1: -3860, z0: -7160, z1: -6960, cell: 2.5, jitter: 0.35, shadows: true, later: true },
+  { id: 'bothy', x0: -1680, x1: -1320, z0: -5880, z1: -5560, cell: 4, jitter: 0.45, shadows: true, later: true },
 ];
 const FAR_RECT = { x0: -1800, x1: 1500, z0: -2200, z1: 1800 };
 
@@ -1307,7 +1317,7 @@ export function buildWorld(scene, renderer, habitat) {
 
   const lanternPos = cove.lantern.group.position.clone();
   let lanternTaken = false;
-  let brasa = null, quality = null;
+  let brasa = null, north = null, northGen = null, quality = null;
 
   return {
     // The leaves' colour for the season: [r, g, b] multipliers on their green.
@@ -1389,11 +1399,30 @@ export function buildWorld(scene, renderer, habitat) {
       shore.setQuality(q);
       dives.setQuality(q);
       brasa?.setQuality(q);
+      north?.setQuality(q);
     },
     set drawDistance(d) { drawDistance = d; },
     get drawDistance() { return drawDistance; },
     // Las Brasas' buildings, plants and rocks (see brasaWorld.js), once you've come near.
     get brasa() { return brasa; },
+    // The north's plants, rocks and (N3) buildings (see northWorld.js), once you've come near.
+    get north() { return north; },
+    buildNorth() {
+      if (north) return north;
+      // (Finishing a build begun a slice at a time, or all at once.)
+      if (northGen) {
+        let r;
+        while (!(r = northGen.next()).done);
+        north = r.value;
+        northGen = null;
+      } else north = buildNorth(scene, seeded(20261118));
+      if (quality) north.setQuality(quality);
+      for (const o of north.obstacles) obstacles.add(o.x, o.z, o.r, o.top ?? Infinity, -Infinity, o.kind || 'thing', o.name || '');
+      coast.spots.push(...north.spots);
+      regions.boxes.push(...north.boxes);
+      for (const o of north.group.children) if (o.isInstancedMesh) watchDistance(o);
+      return north;
+    },
     // (The north's tiles built just now: see NORTH_TILES.)
     get northTiles() { return northTiles.filter((T) => T.mesh).map((T) => T.R); },
     buildBrasa() {
@@ -1410,6 +1439,22 @@ export function buildWorld(scene, renderer, habitat) {
       if (extra.camera) {
         const cp = extra.camera.position;
         if (!brasa && cp.z > SOUTH_Z - 500) this.buildBrasa();
+        // (The north's things: begun a slice at a time as you come up the coast; at once if you're
+        // among them before they're done.)
+        if (!north && cp.z < -3000 && cp.x < -400) {
+          northGen = northGen || northSteps(scene, seeded(20261118));
+          if (cp.z < -4600) this.buildNorth();
+          else {
+            const t0 = performance.now();
+            while (!north && performance.now() - t0 < (extra.hurry ? 40 : 4)) {
+              const r = northGen.next();
+              if (r.done) {
+                northGen = { next: () => r };
+                this.buildNorth();
+              }
+            }
+          }
+        }
         for (const o of distant) {
           const b = o.isInstancedMesh ? o.boundingSphere : o.geometry.boundingSphere;
           if (!b) continue;
@@ -1440,6 +1485,7 @@ export function buildWorld(scene, renderer, habitat) {
       regions.update(dt, t, env);
       coast.update(dt, t, env, extra.haven || {});
       if (brasa) brasa.update(dt, t, env);
+      if (north) north.update(dt, t, env);
       if (extra.camera) calf.update(dt, t, { from: extra.camera.position });
       dives.update(dt, t, extra.camera);
       fireflies.material.uniforms.uOpacity.value = env.night * (1 - env.rain * 0.8);

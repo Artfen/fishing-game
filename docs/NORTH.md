@@ -155,6 +155,24 @@ to, see and save in, before anything lives there:
 Churn, Loch Skarn and Bothy Bay in detail: detailed terrain patches, their colours, the scatter
 (grass and heather, boulders, the kelp beds under the water), the places in the journal.
 
+*N2 done.* What was built:
+
+- **In detail:** terrain patches over the Ness, Raven Isle (in two, the north half taking in the
+  Churn), Tern Isle, the Selkie Rocks, Skarv Stack (finer, being sheer) and Bothy Bay, built as
+  you come near like the fell's, on the north's tiles (which leave holes for them).
+- **Its colours** (`northWorld.js` `northColor`): grass, heather and bracken on the fells, scree
+  high up, grey crags and cliffs; machair and white shell sand on Tern Isle, shingle on the other
+  shores; under the water, dark kelp on the rock in the shallows, grey-green sand, mud in the
+  loch's basin, the deep dark.
+- **Under the water** (`habitat.js`, `north.js` `northHabitat`): kelp on the rock from a metre or
+  two down to fifteen, sand in the sound and off Tern Isle, mud in the loch's deep, rock walls in
+  the loch and round the stack, rock over the Churn. Kelp forests round each island and along the
+  shores near them (`NORTH_BEDS`), laid a slice at a time once you're up the coast.
+- **On the land** (`buildNorth`): boulders along the shores and on the scree, heather on the
+  slopes, rowans in Loch Skarn's sheltered glens, marram on Tern Isle's dunes; each area its own
+  meshes, built a slice at a time as you come up the coast.
+- Tests: in `tests/north.test.mjs`.
+
 **N3, things to find and a harbour.** Halvig (the pier, the fuel pump, the shop, the crofts,
 a berth), the light on Raven Head, the broch, the bothy, the herring station, the Seal Cave, the
 Sula (a dive site with its buoy) and the stack's foot (a dive); a challenge on the board.

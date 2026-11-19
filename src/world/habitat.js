@@ -2,13 +2,14 @@ import {
   heightAt, zoneAt, streamFlow, lakeSDF, ISLAND, COVE, STACKS, CHANNEL, JETTY, LAKE, STREAM, SNAG, LILIES,
   RIVER, riverInfo, riverSDF, MARSH, SANDBANKS, QUAY, MERE, MERE_BAYS, HOLM, TIMBER, mereSDF,
   GANNET, PUFFIN_COVE, SKERRIES, SKELLIG, SHOAL, DEEP_Z, CANYON, canyonAxis, WRECK, STRAND, DAYMARK, CALF, CALF_SKERRY, CALF_SOUND,
-  HAVEN, HAVEN_QUAY, BOATHOUSE_PIER, waterLevel,
+  HAVEN, HAVEN_QUAY, BOATHOUSE_PIER, waterLevel, northAt,
 } from './terrain.js';
 import { COLDWATER, TARN } from './coldwater.js';
 import {
   SOUTH_Z, SOUTH_MAP, brasaHeight, brasaZone, brasaHabitat, brasaSDF, upCurrent, inEstrecho, onBanco, GAVIOTA, HONDA, ROQUETES, VAPOR, BANCO, PUERTO, QUAY_S, MOLE, DIQUE, PLAYA, ARCO, ARCHES, FARO, COLADAS, SEBADAL, BAJON, onBajon,
 } from './brasa.js';
 import { siteById, PINNACLES } from './divesites.js';
+import { northLand, northHabitat } from './north.js';
 import { ENDS } from '../crossing.js';
 import { fbm, seeded, smoothstep, clamp } from '../util.js';
 
@@ -140,6 +141,11 @@ export function createHabitat() {
     sample(x, z, out = {}) {
       // (Las Brasas, far to the south, is described by its own functions: see brasa.js.)
       if (z > SOUTH_Z) return brasaHabitat(x, z, out);
+      // (And the north, up the coast: see north.js.)
+      if (northLand(x, z)) {
+        const h = heightAt(x, z);
+        return northHabitat(x, z, northAt(x, z), h, out, heightAt);
+      }
       const fx = (x - HABITAT_RECT.x) / CELL, fz = (z - HABITAT_RECT.z) / CELL;
       if (fx < 0 || fz < 0 || fx >= NX - 1 || fz >= NZ - 1) {
         for (const R of regionGrids) {

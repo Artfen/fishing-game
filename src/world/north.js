@@ -294,6 +294,17 @@ export function northHabitat(x, z, S, h, out, H) {
   return out;
 }
 
+// The kelp forests and the low weed under them (underwater.js addBeds), round each island and along
+// the shores near them: kelp wherever there's rock from a couple of metres down to fifteen.
+export const NORTH_BEDS = [
+  { x: -3780, z: -7180, w: 1300, h: 1580, grass: 900, kelp: 1100 }, // Raven Isle and the Churn
+  { x: -4180, z: -5600, w: 840, h: 680, grass: 400, kelp: 450 }, // Tern Isle
+  { x: -3200, z: -5080, w: 320, h: 320, grass: 150, kelp: 220 }, // the Selkie Rocks
+  { x: -4060, z: -7180, w: 220, h: 240, grass: 60, kelp: 140 }, // Skarv Stack
+  { x: -2500, z: -7300, w: 600, h: 2100, grass: 500, kelp: 600 }, // the mainland's shore along the sound
+  { x: -2300, z: -6100, w: 1700, h: 900, grass: 300, kelp: 300 }, // Loch Skarn's shores
+];
+
 /* ---------------- places ---------------- */
 
 // Found as you go (the journal's places and the chart's labels). r: how near you come to find it.
