@@ -145,8 +145,8 @@ export function stepColour(c, { rain = 0, storm = 0 }, hours) {
 }
 export const colourKey = (c) => (c < 0.15 ? 'clear' : c < 0.45 ? 'tinged' : 'coloured');
 export const colourWords = (c) => ({ clear: 'clear', tinged: 'a little colour in it', coloured: 'coloured, after the weather' })[colourKey(c)];
-const BY_FEEL = new Set(['seabass', 'conger', 'flounder', 'plaice', 'sole', 'sandsole', 'turbot', 'gurnard', 'meagre', 'senegalsole', 'eel']);
-const BY_SIGHT = new Set(['mackerel', 'garfish', 'wrasse', 'pollack', 'blackbream', 'whitebream', 'bluefish', 'bonito', 'horsemackerel', 'sardine', 'squid', 'cuttlefish', 'bogue', 'salema']);
+const BY_FEEL = new Set(['seabass', 'conger', 'flounder', 'plaice', 'sole', 'sandsole', 'turbot', 'gurnard', 'meagre', 'senegalsole', 'eel', 'cod', 'ling', 'skate', 'haddock']);
+const BY_SIGHT = new Set(['mackerel', 'garfish', 'wrasse', 'pollack', 'blackbream', 'whitebream', 'bluefish', 'bonito', 'horsemackerel', 'sardine', 'squid', 'cuttlefish', 'bogue', 'salema', 'saithe']);
 export function colourFactor(sp, c) {
   if (!c || sp.water === 'fresh') return 1;
   if (BY_FEEL.has(sp.id)) return 1 + 0.35 * c;

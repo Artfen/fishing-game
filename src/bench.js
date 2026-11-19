@@ -81,6 +81,54 @@ export const BENCH_SCENARIOS = {
     setup: () => { slowTide.setHour(12); slowTide.useSkiffAt(-446, 6522, 0, 'skiff'); slowTide.boat.setAnchor(true); },
     after: () => slowTide.diving.start('scuba'),
   },
+  // (L8 of docs/LIVEABOARD.md) Living aboard: in the trawler's saloon at dusk, at anchor off
+  // Gannet Isle, her lamps lit and her tender on its chocks (her interior built, as it is once
+  // you've walked her decks).
+  liveaboard: {
+    label: 'In the trawler’s saloon at dusk, at anchor off Gannet Isle',
+    save: { yard: { owned: ['row', 'skiff', 'kayak', 'trawler', 'tender'] }, carried: { tender: 'trawler' } },
+    setup: () => {
+      slowTide.setHour(20.4);
+      slowTide.useSkiffAt(-250, 440, 0, 'trawler');
+      const b = slowTide.boat;
+      b.setAnchor(true);
+      b.setDeck(true);
+      Object.assign(b.deck, { x: 0.3, z: -2.6, floor: 'saloon' });
+      b.walkDeck(0, 0, 1 / 30);
+    },
+  },
+  // The tender off her platform, running in to the island's beach (her mother at anchor behind).
+  tender: {
+    label: 'The tender running in to the beach at Gannet Isle',
+    save: { yard: { owned: ['row', 'skiff', 'kayak', 'trawler', 'tender'] } },
+    setup: () => {
+      slowTide.setHour(11);
+      slowTide.useSkiffAt(-250, 430, 0, 'trawler');
+      slowTide.boat.setAnchor(true);
+      slowTide.useSkiffAt(-252, 445, 0, 'tender');
+      slowTide.boat.lever = 0.85;
+    },
+  },
+  // (docs/ARCHIPELAGO.md) The archipelago: anchored in Bahía Escondida, Isla Honda's sand and salt
+  // pans ashore, Brasa across the water.
+  archipelago: {
+    label: 'At anchor in Bahía Escondida, in the archipelago',
+    save: { yard: { owned: ['row', 'skiff', 'kayak', 'trawler', 'tender'] }, carried: { tender: 'trawler' } },
+    setup: () => { slowTide.setHour(16); slowTide.useSkiffAt(818, 6945, 0.9, 'trawler'); slowTide.boat.setAnchor(true); },
+  },
+  // (docs/NORTH.md) Up the coast in the Selkie Isles: the trawler at anchor in Raven Sound off
+  // Halvig, mid-afternoon, the north's tiles, isles and life built round her; and diving the Sula.
+  north: {
+    label: 'At anchor in Raven Sound off Halvig, up the coast in the Selkie Isles',
+    save: { yard: { owned: ['row', 'skiff', 'kayak', 'trawler', 'tender'] }, carried: { tender: 'trawler' } },
+    setup: () => { slowTide.setHour(15); slowTide.useSkiffAt(-2760, -6200, -1.2, 'trawler'); slowTide.boat.setAnchor(true); for (let i = 0; i < 20; i++) slowTide.advance(0.5, 30, false); },
+  },
+  dive_north: {
+    label: 'Diving the Sula in the kelp off Tern Isle',
+    save: {},
+    setup: () => { slowTide.setHour(12); slowTide.useSkiffAt(-3441, -5108, 0, 'skiff'); slowTide.boat.setAnchor(true); for (let i = 0; i < 20; i++) slowTide.advance(0.5, 30, false); },
+    after: () => slowTide.diving.start('scuba'),
+  },
   voyage: {
     label: 'The crossing south, under way at the helm',
     save: {},

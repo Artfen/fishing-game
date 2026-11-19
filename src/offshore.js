@@ -17,7 +17,7 @@ export const HOUR_S = 40; // real seconds a game hour (world/clock.js)
 export const OFFSHORE_AT = 600;
 
 // Her cruising pace (m/s, calm water) and the notch it's at: the cruise notch where she has one
-// (the centre console, the RIB), else flat out; the rowing boat and the kayak at a steady pull.
+// (the centre console, the RIB, the tender, the trawler), else flat out; the rowing boat and the kayak at a steady pull.
 // (Measured with boat.js in calm water: tests/offshore.test.mjs checks the motorboats' against it.)
 const notch = (kind, id) => LEVERS[kind]?.find((n) => n.id === id)?.v ?? 1;
 export const CRUISE = {
@@ -25,6 +25,8 @@ export const CRUISE = {
   cabin: { v: 5.7, lever: 1 },
   console: { v: 9.6, lever: notch('console', 'C') },
   rib: { v: 11.4, lever: notch('rib', 'C') },
+  tender: { v: 7.7, lever: notch('tender', 'C') },
+  trawler: { v: 4.1, lever: notch('trawler', 'C') },
   cruiser: { v: 9.4, lever: 1 },
   jetski: { v: 15.8, lever: 1 },
   bass: { v: 8.9, lever: 1 },
@@ -60,13 +62,15 @@ export function seaFor(kind, sea) {
 // The margins: fuel for the way home and half as much again; home an hour before the gale; an
 // open boat home half an hour before dark. Returns { why: 'fuel' | 'gale' | 'dark', home (the run
 // home), words } or null.
-export function turnForHome({ kind, distHome, litres = null, toGale = null, toDark = null }) {
+// harbour: the nearest harbour's name, the way back (Willowhaven, unless you're up the coast or at
+// Las Brasas).
+export function turnForHome({ kind, distHome, litres = null, toGale = null, toDark = null, harbour = 'Willowhaven' }) {
   const home = runOf(kind, distHome), V = vesselOf(kind), name = V.name;
   const hrs = (h) => (h < 1 ? `${Math.max(5, Math.round((h * 60) / 5) * 5)} minutes` : `${Math.round(h * 2) / 2} hours`);
   if (litres != null && isPetrol(kind) && litres < home.litres * 1.5 + 0.5)
-    return { why: 'fuel', home, words: `Time to turn for home: it’s about ${Math.max(1, Math.round(home.litres))} L back to Willowhaven in the ${name}, and you have ${Math.max(0, Math.round(litres))} L: too little to spare out here.` };
+    return { why: 'fuel', home, words: `Time to turn for home: it’s about ${Math.max(1, Math.round(home.litres))} L back to ${harbour} in the ${name}, and you have ${Math.max(0, Math.round(litres))} L: too little to spare out here.` };
   if (toGale != null && toGale < home.hours + 1)
-    return { why: 'gale', home, words: `Time to turn for home: a gale’s due in ${hrs(toGale)}, and it’s ${hrs(home.hours)} back to Willowhaven in the ${name}.` };
+    return { why: 'gale', home, words: `Time to turn for home: a gale’s due in ${hrs(toGale)}, and it’s ${hrs(home.hours)} back to ${harbour} in the ${name}.` };
   if (toDark != null && !V.shelter && toDark < home.hours + 0.5)
     return { why: 'dark', home, words: `Time to turn for home: the sun sets in ${hrs(toDark)}, and it’s ${hrs(home.hours)} back in the open ${name}.` };
   return null;

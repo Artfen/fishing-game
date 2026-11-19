@@ -14,6 +14,7 @@
 //
 // Nothing here is saved: crewing ends with the session, and a save made while crewing puts you
 // back where you stepped aboard from (main.js).
+import { step as planStep, floorAt, nearestOn } from './deckplan.js';
 
 export const CREW_REACH = 2.5;    // m beyond a boat's half-length you can step aboard from
 export const CREW_SLOW = 1.2;     // m/s: a boat going faster than this can't be stepped onto
@@ -83,13 +84,19 @@ export class Crew {
     this.sent = null;
   }
 
-  // Walking about inside her: (ax, az) a boat-local direction, kept off her sides and ends.
-  walk(ax, az, hull, dt) {
+  // Walking about inside her: (ax, az) a boat-local direction, kept off her sides and ends (on a
+  // boat with a deck plan, the trawler's, its floors and walls: see deckplan.js).
+  walk(ax, az, hull, dt, plan = null) {
     const O = this.on;
     if (!O) return;
     const m = Math.hypot(ax, az);
     if (m < 0.05) return;
     const k = (WALK * dt) / Math.max(1, m);
+    if (plan) {
+      if (!O.floor || !floorAt(plan, O.x, O.z)) Object.assign(O, nearestOn(plan, O.x, O.z));
+      Object.assign(O, planStep(plan, O, ax * k, az * k));
+      return;
+    }
     const xs = Math.max(0.05, hull.B - 0.35), zs = Math.max(0.2, hull.L / 2 - 0.5);
     O.x = Math.max(-xs, Math.min(xs, O.x + ax * k));
     O.z = Math.max(-zs, Math.min(zs, O.z + az * k));

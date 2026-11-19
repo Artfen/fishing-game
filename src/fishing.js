@@ -306,6 +306,12 @@ export class Fishing {
           this.hooks.flash(`No fishing from the ${this.angler.name}: it's for the sport of it. Step ashore, or take a boat.`, 3);
           return;
         }
+        // (A boat fished from her decks only, the trawler: not from her wheel, nor indoors.)
+        const blocked = this.angler.onBoat && this.angler.fishBlock?.();
+        if (blocked) {
+          this.hooks.flash(blocked, 3);
+          return;
+        }
         // An impossible setup is explained before the cast, not after.
         const block = this.problems.find((p) => p.level === 'block');
         if (block) {
@@ -2313,7 +2319,7 @@ export class Fishing {
       this.hooks.flash(rock
         ? `It’s wedged under the rocks! Let go of ${reel} and give it slack: it may back out. Or pull from a new angle (${angle}). Pulling hard saws the line on the rock.`
         : `It’s weeded! Let go of ${reel} and give it slack: it may swim out. Or pull from a new angle (${angle}), or keep a steady pressure on it. Pulling hard cuts the line on the stems.`, 4);
-      this.hooks.teach('weeded', 'A fish that reaches the weed or the rocks with line pouring off gets caught fast in them. It isn’t lost yet: slack often lets it swim out by itself, and a new angle pulls it free. The longer it stays in, the likelier it works the hook out.', 9);
+      this.hooks.teach('weeded', 'Snagged: give it slack, or pull from a new angle. A fish that reaches the weed or the rocks with line pouring off gets caught fast in them, but it isn’t lost yet: slack often lets it swim out by itself, and a new angle pulls it free. The longer it stays in, the likelier it works the hook out.', 9);
     }
     if (ev === 'unstuck') {
       say(F.unstuckBy === 'slack' ? 'it’s swum out!' : F.unstuckBy === 'angle' ? 'free: a new angle!' : 'worked it out!', 2);
@@ -2512,7 +2518,7 @@ export class Fishing {
     if (F.progress >= 1) {
       if (!this.needsNet()) {
         // (From a boat, one too big for the net is drawn alongside: said once.)
-        if (this.bigCatch() && !F.sp.life.big && !this.fitsNet()) this.hooks.teach('alongside', 'Too big for the landing net (it takes fish up to 110 cm and 16 kg): drawn alongside the boat instead.', 7);
+        if (this.bigCatch() && !F.sp.life.big && !this.fitsNet()) this.hooks.teach('alongside', 'Too big for the landing net: drawn alongside instead. The net takes fish up to 110 cm and 16 kg.', 7);
         this.landFish();
         return;
       }
@@ -2520,13 +2526,13 @@ export class Fishing {
       // for it, what the shore allows.
       const by = this.landingBy(), key = this.hooks.key('cast');
       Object.assign(F, { atNet: true, landBy: by, netT: 0, kick: 0, kickT: rand(2.5, 4), stirred: false, liftT: 0, landT: 0, missT: 0, warned: false, surgeT: 0 });
-      if (by === 'net') this.hooks.teach('net', `A fish this size needs the net: when it’s beaten and alongside, let go of the reel and tap ${key}. Don’t wind hard as it kicks.`, 8);
+      if (by === 'net') this.hooks.teach('net', `A fish this size needs the net: tap ${key} when it’s beaten and alongside. Let go of the reel first, and don’t wind hard as it kicks.`, 8);
       else if (by === 'beach') this.hooks.teach('beach', `Too big for the landing net (it takes fish up to 110 cm and 16 kg). On a shelving shore like this you can beach it: hold ${key} and it slides up into the shallows. Let go as it stirs, or the kick can tear the hook out.`, 9);
       else if (by === 'leader') {
         F.kickT = rand(1.6, 2.6);
-        this.hooks.teach('leader', `The leader’s at the rod tip, the ${F.sp.name.toLowerCase()} a few metres off with a surge still in it. Hold ${key} to take the leader and draw it alongside, hand over hand. Let go as it stirs: the rod takes the surge, then take the leader again. A friend aboard can take it for you.`, 11);
+        this.hooks.teach('leader', `Hold ${key} to take the leader, hand over hand. The leader’s at the rod tip, the ${F.sp.name.toLowerCase()} a few metres off with a surge still in it: draw it alongside. Let go as it stirs (the rod takes the surge), then take the leader again. A friend aboard can take it for you.`, 11);
       } else if (by === 'hand') this.hooks.teach('tail', `Too big for the landing net (it takes fish up to 110 cm and 16 kg). Here you can reach the water: tap ${key} as it lies still to take it by the tail. Grab as it kicks and it slips your hand.`, 9);
-      else this.hooks.teach('hoist', `Too big for the landing net, and too high above the water to reach it: it has to come up on the line. Hold ${key} to lift it, and let go as it stirs. The hook takes all its weight, so a fish played gently, its hook still firm, is the one that comes up.`, 10);
+      else this.hooks.teach('hoist', `Too big to net from up here: hold ${key} to lift it on the line. Let go as it stirs. The hook takes all its weight, so a fish played gently, its hook still firm, is the one that comes up.`, 10);
     }
   }
 

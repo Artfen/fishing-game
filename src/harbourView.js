@@ -6,7 +6,7 @@ import { RODS, TACKLE } from './tackle.js';
 import { nextStory, adviceFor, rumoursNow, lower, an } from './innTalk.js';
 import { CHALLENGES } from './daybook.js';
 import { pay as payOut, earn as earnIn } from './economy.js';
-import { PRICES, hirePrice, PAINTS, PAINT_PRICE, NAME_PRICE, NAME_MAX, FITS, FIT_CATS, fitsFor, fitEffect, owns, hiredToday, SECOND, MOST_OF_A_KIND, ofKind } from './shipyard.js';
+import { PRICES, hirePrice, PAINTS, PAINT_PRICE, NAME_PRICE, NAME_MAX, FITS, FIT_CATS, fitsFor, fitEffect, owns, hiredToday, SECOND, MOST_OF_A_KIND, ofKind, COMES_WITH } from './shipyard.js';
 import { FLAGS, flagById, STRIPE_PRICE, TUBES_PRICE } from './papers.js';
 import { MODELS as ENGINE_MODELS } from './engines.js';
 import { CATALOGUE, MODELS, PROPS, hasCatalogue, KN, rangeAt, propName, fittedName, propsFor } from './engines.js';
@@ -209,7 +209,7 @@ export class HarbourSheet {
         row.append(el('p', '', `The ${name}`), el('span', 'cp-soft', Number.isFinite(until) ? `on hire to you until ${formatClock(until % 24)} ${Math.floor(until / 24) > day ? 'tomorrow' : 'today'}` : 'on hire to you today (back at the yard tomorrow)'));
         row.append(this.button(`Buy her: ${money(PRICES[kind])}`, () => H.yardBuy(kind)));
       } else {
-        row.append(el('p', '', `The ${name}`), el('span', 'cp-soft', `${money(PRICES[kind])} · or ${money(hirePrice(kind))} for a day`));
+        row.append(el('p', '', `The ${name}`), el('span', 'cp-soft', `${money(PRICES[kind])} · or ${money(hirePrice(kind))} for a day${COMES_WITH[kind] && !owns(Y, COMES_WITH[kind]) ? ` · her ${COMES_WITH[kind]} comes with her, bought` : ''}`));
         row.append(this.button(`Hire: ${money(hirePrice(kind))}`, () => H.yardHire(kind), 'quiet'), this.button(`Buy: ${money(PRICES[kind])}`, () => H.yardBuy(kind)));
       }
       out.push(row);
@@ -305,7 +305,8 @@ export class HarbourSheet {
     const out = [el('h4', 'hb-fit-cat', `Her papers: ${V.reg}`)];
     const best = V.best ? `; the best fish aboard a ${V.best.size} cm ${H.fishName(V.best.id)} (${V.best.kg < 1 ? `${Math.round(V.best.kg * 1000)} g` : `${V.best.kg.toFixed(1)} kg`}, day ${V.best.day})` : '';
     const engine = H.yardEngine(k);
-    const run = [V.hours >= 0.05 ? `${V.hours.toFixed(1)} engine hours` : null, `${V.nm.toFixed(1)} sea miles`, V.litres >= 0.05 ? `${V.litres.toFixed(0)} litres burned` : null, `${V.fish} fish aboard`].filter(Boolean).join(' · ');
+    const run = [V.hours >= 0.05 ? `${V.hours.toFixed(1)} engine hours` : null, `${V.nm.toFixed(1)} sea miles`, V.litres >= 0.05 ? `${V.litres.toFixed(0)} litres burned` : null, `${V.fish} fish aboard`,
+      V.nights ? `${V.nights} ${V.nights === 1 ? 'night' : 'nights'} aboard` : null, V.trips ? `${V.trips} ${V.trips === 1 ? 'trip' : 'trips'} off her mother’s platform` : null].filter(Boolean).join(' · ');
     out.push(el('p', 'hb-fit-sum', `Registered at Willowhaven, ${V.reg}. Yours since day ${V.since}${engine ? `, her engine the ${ENGINE_MODELS[engine.model]?.name}` : ''}. ${run}${best}.`));
     // (G5) Her engine's service: when it's next due, or how overdue (the Repairs tab does it).
     const svc = H.serviceOf?.(k);
@@ -323,7 +324,7 @@ export class HarbourSheet {
     out.push(el('p', 'hb-say', 'In the workshop, an outboard hangs on a stand with its cowling off. “What’ll it be: range, speed, electronics, something for the deck? Fitted while you wait.”'));
     const mine = H.yardBoats().filter((k) => fitsFor(k, Y.fits[k] || []).length);
     if (!mine.length) {
-      out.push(el('p', 'cp-soft', 'None of your boats takes a fitting from the workshop: the motorboats do (the skiff, the bass boat, the cabin boat, the centre console, the RIB, the yacht, the jet ski), and the sailing boat a few.'));
+      out.push(el('p', 'cp-soft', 'None of your boats takes a fitting from the workshop: the motorboats do (the skiff, the tender, the bass boat, the cabin boat, the centre console, the RIB, the yacht, the trawler, the jet ski), and the sailing boat a few.'));
       return out;
     }
     this.fitKind = mine.includes(this.fitKind) ? this.fitKind : mine[0];
@@ -911,7 +912,7 @@ export class HarbourSheet {
         if (this.shop.creel >= i || !this.pay(c.price)) return;
         this.shop.creel = i;
         this.hooks.chime();
-        this.hooks.toast(`${c.name}, over your shoulder: room for ${c.kg} kg of fish now${c.cool ? ', and they keep cool in it' : ''}. Your old creel goes on the hook behind the door.`, 6);
+        this.hooks.toast(`${c.name} over your shoulder: room for ${c.kg} kg now. ${c.cool ? 'Your catch keeps cool in it. ' : ''}Your old creel goes on the hook behind the door.`, 6);
         this.hooks.changed();
         this.render();
       }));

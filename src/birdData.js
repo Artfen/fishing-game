@@ -5,7 +5,7 @@
 //
 // name: as the notes and Memories list them; one: as a species list has it; note: a line on it;
 // sci, family, iucn (the IUCN Red List, worldwide): see taxonomy.js; look: where to find it;
-// region: 'home', 'south' (Las Brasas) or 'both'.
+// region: 'home' (the home coast, and up the coast in the north), 'south' (Las Brasas) or 'both'.
 
 export const BIRDS = {
   // The sea cliffs and the stacks
@@ -152,6 +152,17 @@ export const BIRDS = {
     name: 'Plain swifts', one: 'Plain swift', sci: 'Apus unicolor', family: 'Apodidae', iucn: 'LC', region: 'south',
     note: 'Plain swifts: dark, sickle-winged swifts that breed only on the Canaries and Madeira, screaming in fast parties round the cliffs and over the village. They feed and drink on the wing, and spend almost all their lives in the air.',
     look: 'Screaming over the village and round the slopes of the Pico.',
+  },
+  // Up the coast, the Selkie Isles (docs/NORTH.md)
+  wteagle: {
+    name: 'White-tailed eagles', one: 'White-tailed eagle', sci: 'Haliaeetus albicilla', family: 'Accipitridae', iucn: 'LC', region: 'home',
+    note: 'White-tailed eagles: the biggest bird of prey in Britain, brown with a pale head, a heavy yellow bill and a short white wedge of a tail, on wings so broad and square they’re called flying barn doors (up to two and a half metres across). Shot out of Britain by 1918, they were brought back from Norway to Rùm from 1975, and nest again along the west coast. They take fish from the surface in a long, shallow glide, feet swung forward at the last, and pairs stay together for life.',
+    look: 'Up the coast: soaring high over Loch Skarn and Raven Isle, and now and then down to the water for a fish.',
+  },
+  arctictern: {
+    name: 'Arctic terns', one: 'Arctic tern', sci: 'Sterna paradisaea', family: 'Laridae', iucn: 'LC', region: 'home', when: ['spring', 'summer'],
+    note: 'Arctic terns: slim and pale grey, a black cap, a blood-red bill and long white tail streamers. Every year they fly from the Arctic summer to the Antarctic one and back, the longest migration of any animal, and see more daylight than anything else alive. They nest on bare shingle and short turf, and go for the head of anyone who walks among the nests.',
+    look: 'Tern Isle, up the coast, in spring and summer: nesting on the machair, and hovering and plunging off its shores.',
   },
 };
 export const BIRD_KINDS = Object.keys(BIRDS);

@@ -3,8 +3,9 @@ import { clamp, lerp, smoothstep, fbm } from '../util.js';
 import { hypot2 } from '../hypot.js';
 import { COLD_BOX, coldwaterHeight, inColdwater, waterLevel, neckSDF, coldInfo, FELL_PATH, FELL_BOX, FELL_PATH_SEGS, fellPathNear, fellPathCandidates, BOTHY, FOOTBRIDGE, SUMMIT_CAIRN, COLDWATER, TARN, tarnSDF } from './coldwater.js';
 export { waterLevel } from './coldwater.js';
-import { SOUTH_Z, brasaHeight, brasaSDF, brasaZone, SOUTH_ZONES, BRASA_PLACES, PUERTO, ISLE, inSouth, QUAY_S, MOLE, DIQUE, SOUTH_RECT, PONTOON_S, FINGERS_S, PONTOON_STEPS, FUEL_S } from './brasa.js';
+import { SOUTH_Z, brasaHeight, brasaSDF, brasaZone, SOUTH_ZONES, BRASA_PLACES, PUERTO, ISLE, inSouth, QUAY_S, MOLE, DIQUE, SOUTH_RECT, PONTOON_S, FINGERS_S, PONTOON_STEPS, FUEL_S, inEstrecho } from './brasa.js';
 export { SOUTH_Z, inSouth } from './brasa.js';
+import { northLand, northShape, northGround, northZone, NORTH_ZONES, NORTH_RECT, NORTH_PLACES, inSound, inChurn, lochAt, HALVIG_PIER, HALVIG_FUEL } from './north.js';
 
 // The whole archipelago is one signed-distance function: negative on land, positive on water.
 // World axes: +x east, -z north. Water level is y = 0.
@@ -45,10 +46,12 @@ const inCrossing = (x, z, pad = 0) => x > CROSSING.x0 + pad && x < CROSSING.x1 -
 // Inside the world: home's, or Las Brasas' far to the south (see brasa.js), or the sea between.
 // pad: a margin inside.
 export const inWorld = (x, z, pad = 0) => (x > WORLD.x0 + pad && x < WORLD.x1 - pad && z > WORLD.z0 + pad && z < WORLD.z1 - pad)
-  || (x > SOUTH_RECT.x0 + pad && x < SOUTH_RECT.x1 - pad && z > SOUTH_RECT.z0 + pad && z < SOUTH_RECT.z1 - pad) || inCrossing(x, z, pad);
+  || (x > SOUTH_RECT.x0 + pad && x < SOUTH_RECT.x1 - pad && z > SOUTH_RECT.z0 + pad && z < SOUTH_RECT.z1 - pad) || inCrossing(x, z, pad) || inNorthRect(x, z, pad);
+// (The north, up the coast: see north.js.)
+const inNorthRect = (x, z, pad = 0) => x > NORTH_RECT.x0 + pad && x < NORTH_RECT.x1 - pad && z > NORTH_RECT.z0 + pad && z < NORTH_RECT.z1 - pad;
 // In either of the game's seas: home, or Las Brasas' far to the south (see brasa.js), or the open
 // sea between them.
-export const inSeas = (x, z) => (x > SEA.x0 && x < SEA.x1 && z > SEA.z0 && z < SEA.z1) || (x > SOUTH_RECT.x0 && x < SOUTH_RECT.x1 && z > SOUTH_RECT.z0 && z < SOUTH_RECT.z1) || inCrossing(x, z);
+export const inSeas = (x, z) => (x > SEA.x0 && x < SEA.x1 && z > SEA.z0 && z < SEA.z1) || (x > SOUTH_RECT.x0 && x < SOUTH_RECT.x1 && z > SOUTH_RECT.z0 && z < SOUTH_RECT.z1) || inCrossing(x, z) || inNorthRect(x, z);
 export const MAP_RECT = { x: -620, z: -700, w: 1380, h: 1700 };
 // The old home map (for the hand-drawn bay map in the journal).
 export const HOME_RECT = { x: -180, z: -112, w: 375, h: 284 };
@@ -234,6 +237,8 @@ export const FUEL_PUMPS = {
   home: { x: 136.6, z: -68.8, yaw: -Math.PI / 2, name: 'the fuel pump by the garage' },
   haven: { x: 13.6, z: -96.2, yaw: -Math.PI / 2, name: 'the harbour fuel pump' },
   brasa: FUEL_S,
+  // (The north's: Halvig's, at the root of its pier. See north.js.)
+  halvig: HALVIG_FUEL,
 };
 // Where a new game begins: in front of the cottage, the garage on your right, the car on the drive.
 export const HOME_START = { x: 123.5, z: -66, heading: Math.PI };
@@ -406,6 +411,15 @@ function coastZ(x) {
 export function landSDF(x, z) {
   // (Far to the south: Las Brasas, see brasa.js.)
   if (z > SOUTH_Z) return brasaSDF(x, z);
+  const d = homeSDF(x, z);
+  // (Up the coast, beyond the land home draws: home's land as it runs on, with a west coast, a sea
+  // loch and the isles off it. See north.js.)
+  return northLand(x, z) ? northShape(x, z, d).d : d;
+}
+// The north's shape at a point (see north.js northShape: its coast, mainland, isles, loch).
+export const northAt = (x, z) => northShape(x, z, homeSDF(x, z));
+// Home's own coast (as it runs on for ever, west and north, before the north gives it an end).
+function homeSDF(x, z) {
   const n1 = fbm(x * 0.021, z * 0.021, 3);
   const n2 = fbm(x * 0.08 + 5.2, z * 0.08 - 3.1, 2);
   // Mainland that wraps around the bay, joined to the coast running east and west.
@@ -445,8 +459,7 @@ export function landSDF(x, z) {
   return d;
 }
 
-function baseHeight(x, z) {
-  const d = landSDF(x, z);
+function baseHeight(x, z, d = landSDF(x, z)) {
   if (d >= 0) {
     let h = -0.6 - 9 * (1 - Math.exp(-d / 13));
     h -= 7 * smoothstep(25, 90, d);
@@ -618,6 +631,11 @@ export function heightAt(x, z) {
 
 function groundAt(x, z) {
   if (z > SOUTH_Z) return brasaHeight(x, z);
+  // (The north: home's ground for its coast distance, built on: see north.js.)
+  if (northLand(x, z)) {
+    const S = northShape(x, z, homeSDF(x, z));
+    return northGround(x, z, S, baseHeight(x, z, S.d));
+  }
   let h = baseHeight(x, z);
   if (x > SHORE_BOX.x0 && x < SHORE_BOX.x1 && z > SHORE_BOX.z0 && z < SHORE_BOX.z1) h = shoreHeight(x, z, h, true);
   else {
@@ -1110,6 +1128,8 @@ export const PIERS = [
   QUAY_S, DIQUE, MOLE, PONTOON_S, ...FINGERS_S,
   // Willowhaven's pontoon and its fingers.
   HAVEN_PONTOON, ...HAVEN_FINGERS,
+  // Halvig's stone pier, up the coast (see north.js). (Last, so the others keep their places.)
+  HALVIG_PIER,
 ];
 
 // Where the lake meets the land, walking out from its centre at an angle.
@@ -1185,6 +1205,10 @@ export function freshZone(x, z) {
 // stream, mere), the brackish estuary, and the sea (bay, cove, open, coast, deep).
 export function zoneAt(x, z) {
   if (z > SOUTH_Z) return brasaZone(x, z);
+  if (northLand(x, z)) {
+    const depth = -heightAt(x, z);
+    return northZone(x, z, northShape(x, z, homeSDF(x, z)), depth);
+  }
   const fresh = freshZone(x, z);
   if (fresh) return fresh;
   // The Coldwater and Hoar Tarn (the river's mouth, out in the bay, is the bay's).
@@ -1204,7 +1228,7 @@ export function zoneAt(x, z) {
   if (z > 260 || x < -300 || x > 300) return 'coast';
   return 'open';
 }
-export const SALT_ZONES = ['bay', 'cove', 'open', 'coast', 'deep', ...SOUTH_ZONES];
+export const SALT_ZONES = ['bay', 'cove', 'open', 'coast', 'deep', ...SOUTH_ZONES, ...NORTH_ZONES];
 export const FRESH_ZONES = ['lake', 'stream', 'mere', 'river', 'tarn'];
 export const waterOf = (zone) => (FRESH_ZONES.includes(zone) ? 'fresh' : zone === 'estuary' || zone === 'tideway' ? 'brackish' : 'salt');
 
@@ -1213,6 +1237,7 @@ export const ZONE_NAMES = {
   estuary: 'the Wend estuary', mere: 'Longmere', coast: 'the outer coast', deep: 'the deep water',
   river: 'the Coldwater', tarn: 'Hoar Tarn', tideway: 'the Coldwater’s tideway',
   harbor: 'Puerto Brasa harbour', lee: 'the lee of Brasa', lava: 'Las Coladas', sebadal: 'El Sebadal', veril: 'El Veril', ocean: 'the open ocean',
+  kelp: 'the kelp', sound: 'Raven Sound', race: 'the Churn', loch: 'Loch Skarn', skerry: 'the Selkie Rocks', outer: 'the Atlantic coast',
 };
 
 export const PLACES = [
@@ -1478,7 +1503,17 @@ export const PLACES = [
         : p.id === 'veril' ? (x, z) => inSouth(z) && brasaZone(x, z) === 'veril' && Math.hypot(x - ISLE.x, z - ISLE.z) < 900
           : p.id === 'puerto' ? (x, z) => inSouth(z) && Math.hypot(x - PUERTO.x, z - PUERTO.z + 20) < 95
             : p.id === 'pico' ? (x, z) => inSouth(z) && Math.hypot(x - p.x, z - p.z) < 70
-              : (x, z) => inSouth(z) && Math.hypot(x - p.x, z - p.z) < 70,
+              // (The archipelago: El Estrecho is found in its water; the rest near enough.)
+              : p.id === 'estrecho' ? (x, z) => inSouth(z) && inEstrecho(x, z) > 0.5
+                : (x, z) => inSouth(z) && Math.hypot(x - p.x, z - p.z) < (p.r || 70),
+  })),
+  // The north, up the coast (see north.js): the sound, the race and the loch found in their water.
+  ...NORTH_PLACES.map((p) => ({
+    ...p,
+    test: p.id === 'ravensound' ? (x, z) => northLand(x, z) && inSound(x, z) > 0.5
+      : p.id === 'churn' ? (x, z) => northLand(x, z) && inChurn(x, z) > 0.5
+        : p.id === 'loch' ? (x, z) => northLand(x, z) && lochAt(x, z).d < 0 && lochAt(x, z).t > 0.04
+          : (x, z) => northLand(x, z) && Math.hypot(x - p.x, z - p.z) < p.r,
   })),
 ];
 
@@ -1495,6 +1530,14 @@ export function findShore(cx, cz, angle, minH = 0.3, maxR = 80) {
 // The water shader's map of the world: R = ground height, G = fresh water (lake and stream),
 // B/A = the stream's current, so it can tint, calm and set the water flowing.
 export function bakeHeightTexture(size = 512, rect = WATER_RECT, sizeZ = size) {
+  const g = heightTextureSteps(size, rect, sizeZ);
+  let r;
+  while (!(r = g.next()).done);
+  return r.value;
+}
+// The same, a slice at a time (a generator: each yield a few rows; its value at the end, the
+// texture), for the north's, baked ahead of need.
+export function* heightTextureSteps(size = 512, rect = WATER_RECT, sizeZ = size, rows = 4) {
   const data = new Uint16Array(size * sizeZ * 4);
   const flow = { x: 0, z: 0 };
   const toHalf = THREE.DataUtils.toHalfFloat;
@@ -1509,6 +1552,7 @@ export function bakeHeightTexture(size = 512, rect = WATER_RECT, sizeZ = size) {
       data[o + 2] = toHalf(flow.x);
       data[o + 3] = toHalf(flow.z);
     }
+    if (j % rows === rows - 1) yield;
   }
   const tex = new THREE.DataTexture(data, size, sizeZ, THREE.RGBAFormat, THREE.HalfFloatType);
   tex.magFilter = THREE.LinearFilter;
@@ -1520,7 +1564,7 @@ export function bakeHeightTexture(size = 512, rect = WATER_RECT, sizeZ = size) {
 
 // 1 on the lakes and stream, 0 on the sea; the estuary is brackish, fresher upstream.
 export function freshness(x, z) {
-  if (z > SOUTH_Z) return 0;
+  if (z > SOUTH_Z || northLand(x, z)) return 0;
   if (x < COLD_BOX.x1 && z < COLD_BOX.z1 && x > COLD_BOX.x0 && z > COLD_BOX.z0) {
     const c = inColdwater(x, z, 8);
     if (c) {

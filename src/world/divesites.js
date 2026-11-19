@@ -1,5 +1,6 @@
 import { heightAt, WRECK, WRECK_BELL, DIVE_MARKS, PLACES } from './terrain.js';
-import { BAJON } from './brasa.js';
+import { BAJON, VAPOR, BANCO } from './brasa.js';
+import { SULA, SKARV } from './north.js';
 import { fbm, seeded, clamp } from '../util.js';
 
 // The dive sites of the home coast: five places worth going down at, each different, each with a
@@ -40,6 +41,14 @@ import { fbm, seeded, clamp } from '../util.js';
 //    Its buoy is a mooring: no anchoring in the seagrass.
 //  · Las Coladas, on the windward north-west (4 to 14 m): the lava tongues broken into a reef,
 //    parrotfish, triggerfish and salema; the swell works over it, so dive it on a calm day.
+//
+// And the archipelago's (docs/ARCHIPELAGO.md):
+//  · El Vapor, in the lee of Los Roquetes (6 to 14 m): a steel coaster broken on the sand, her bow
+//    standing, her boiler and her ribs; a grouper in her hull, morays in her plates, chromis and
+//    barracuda over her. A yellow buoy over her middle.
+//  · El Banco, the seamount out in the north-west (20 to 40 m): its cragged top and its walls,
+//    groupers and red porgy on them, amberjack and barracuda round it, the bait up its north-east
+//    face. No buoy out there: the chart and the fish finder find it.
 
 const M = DIVE_MARKS;
 const place = (id) => PLACES.find((p) => p.id === id);
@@ -85,10 +94,33 @@ export const DIVE_SITES = [
     id: 'coladas', south: true, x: -500, z: 5620, r: 36, buoy: { x: -505, z: 5612 }, depth: [4, 14],
     first: 'Las Coladas: the old lava broken into a reef of black blocks and gullies, the swell surging through them. Parrotfish grazing, triggerfish cruising over, a moray in every other hole. Keep off the rocks when a big one comes through.',
   },
+  {
+    id: 'vapor', south: true, arch: true, x: VAPOR.x, z: VAPOR.z, r: 34, buoy: { x: VAPOR.x + 6, z: VAPOR.z - 9 }, depth: [6, 14],
+    first: 'El Vapor: out of the blue her bow comes up at you, still standing, her plates gone orange and purple with sponge. Aft of it she’s broken open: her ribs, her boiler on its side, a grouper watching from inside her hull. Mind the edges of her plates.',
+  },
+  {
+    id: 'banco', south: true, arch: true, x: BANCO.x, z: BANCO.z, r: 70, buoy: null, depth: [20, 40],
+    first: 'El Banco: the top of a mountain under the sea, cragged rock coming up out of the deep blue all round. Groupers in its cracks, red porgy on its ledges, and a school of amberjack circling you to look. Watch your depth and your air: its walls go down into the dark.',
+  },
+  // The north, up the coast (docs/NORTH.md): the Sula in the kelp off Tern Isle, and the foot of
+  // Skarv Stack, its walls going down into deep water.
+  {
+    id: 'sula', north: true, x: SULA.x, z: SULA.z, r: 34, buoy: { x: SULA.x + 9, z: SULA.z - 8 }, depth: [10, 18],
+    first: 'The Sula: her bow looms out of the kelp, still upright, her wheelhouse standing with its windows gone. The kelp waves over her rails; a conger watches from a hole in her side, pollack hang above her. Cold, clear and green.',
+  },
+  {
+    id: 'skarv', north: true, x: SKARV.x, z: SKARV.z, r: 70, buoy: null, depth: [8, 34],
+    first: 'Skarv Stack from below: a wall of rock going down out of the kelp into the green dark, every ledge crowded with anemones and dead men’s fingers. Guillemots fly past you underwater, and something big moves at the edge of what you can see.',
+  },
 ].map((S) => ({ ...S, name: place(S.id).name, sub: place(S.id).sub, note: place(S.id).note }));
 // The home coast's five (the challenge on the board is for these), and Las Brasas'.
-export const HOME_SITES = DIVE_SITES.filter((S) => !S.south);
+export const HOME_SITES = DIVE_SITES.filter((S) => !S.south && !S.north);
+// (And the north's, up the coast.)
+export const NORTH_SITES = DIVE_SITES.filter((S) => S.north);
 export const SOUTH_SITES = DIVE_SITES.filter((S) => S.south);
+// (Brasa's own five, and the archipelago's round it: docs/ARCHIPELAGO.md.)
+export const ISLAND_SITES = SOUTH_SITES.filter((S) => !S.arch);
+export const ARCH_SITES = SOUTH_SITES.filter((S) => S.arch);
 export const siteById = Object.fromEntries(DIVE_SITES.map((s) => [s.id, s]));
 
 // The dive site at a point, if any.

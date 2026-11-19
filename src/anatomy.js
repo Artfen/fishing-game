@@ -3,6 +3,7 @@ import { ATLANTIC_ANATOMY } from './anatomyAtlantic.js';
 import { SOUTH_ANATOMY } from './anatomySouth.js';
 import { BIG_ANATOMY } from './anatomyBig.js';
 import { SEA_ANATOMY } from './anatomySea.js';
+import { NORTH_ANATOMY } from './anatomyNorth.js';
 
 // Anatomical models of aquatic animals, one recipe per species, built in code (no external
 // assets). Three body plans share the machinery where the animals really are alike:
@@ -1210,4 +1211,4 @@ export const hasAnatomy = (id) => !!ANATOMY[id];
 
 // The Atlantic roster's recipes live in their own module, and so do Las Brasas' fish and the
 // big game of the open ocean.
-Object.assign(ANATOMY, ATLANTIC_ANATOMY, SOUTH_ANATOMY, BIG_ANATOMY, SEA_ANATOMY);
+Object.assign(ANATOMY, ATLANTIC_ANATOMY, SOUTH_ANATOMY, BIG_ANATOMY, SEA_ANATOMY, NORTH_ANATOMY);

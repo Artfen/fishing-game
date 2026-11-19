@@ -21,6 +21,11 @@ what boat, at what hour, in what weather.
 | `dive_reef` | Diving Skerries Reef |
 | `dive_brasas` | Diving the arches at Las Brasas (the southern region loaded) |
 | `voyage` | The crossing south, under way at the yacht's helm |
+| `liveaboard` | In the trawler's saloon at dusk, at anchor off Gannet Isle, her lamps lit, her interior built and her tender on its chocks |
+| `tender` | The tender running in to the beach at Gannet Isle, the trawler at anchor behind her |
+| `archipelago` | At anchor in Bahía Escondida, in the Las Brasas archipelago, mid-afternoon: Isla Honda and its salt works close by, the other islands in view |
+| `north` | The trawler at anchor in Raven Sound off Halvig, up the coast in the Selkie Isles, mid-afternoon: the north's tiles, isles, life and water built round her |
+| `dive_north` | Diving the Sula, the trawler wrecked in the kelp off Tern Isle |
 
 Each is measured the same way: the **simulation alone** (240 steps at 30 Hz, nothing drawn: mean
 and worst 1%), a frame's **draw calls and triangles**, **real frames** running free for at least
@@ -82,10 +87,62 @@ run); they're for comparison with later runs here, not a statement about any rea
 | dive_brasas | 9.8 · 16.6 | 167 | 1,141,802 | 257 MB |
 | voyage | 15.0 · 20.9 | 156 | 424,826 | 228 MB |
 
+The liveaboard's scenarios (L8 of `docs/LIVEABOARD.md`), measured the same way, November 2026, on
+a quiet machine (the yacht's `voyage` measured alongside them for comparison: 9.5 ms, 156 draw
+calls, against the 15.0 above taken under load):
+
+| Scenario | Sim ms (mean · worst 1%) | Draw calls | Triangles | Heap |
+| --- | --- | --- | --- | --- |
+| liveaboard | 6.1 · 15.9 | 197 | 718,856 | 228 MB |
+| tender | 9.7 · 22.9 | 130 | 367,703 | 228 MB |
+
+Living aboard costs little: the trawler's interior is two meshes (built the first time her decks
+are walked) and one light in the room you're in; the saloon at anchor is cheaper to simulate than
+running at sea. The tender under way costs what a small boat does.
+
+The Las Brasas archipelago (A4 of `docs/ARCHIPELAGO.md`), measured the same way, November 2026,
+quiet machine; `dive_brasas` before the archipelago (just after L8) and with it. The draw calls
+vary from run to run here by twenty or so (what of the sea's life is in view), so each is the range
+over three runs, the rest the middle one:
+
+| Scenario | Sim ms (mean · worst 1%) | Draw calls | Triangles | Heap |
+| --- | --- | --- | --- | --- |
+| dive_brasas, before | 5.7 · 9.1 | 203–225 | 1,144,809 | 273 MB |
+| dive_brasas, with the archipelago | 6.1 · 9.9 | 232–244 | 1,163,726 | 273 MB |
+| archipelago | 4.9 · 9.0 | 141–145 | 556,688 | 273 MB |
+
+The first build of the islands drew 1.44 million triangles diving the arches, a quarter more,
+and almost none of it the islands themselves: the scrub, the shore's boulders, the reef's rocks
+and the urchins were each one mesh over the whole archipelago, so some part of each was always in
+view and the whole of it was drawn (the islands' scrub, on land, from under the water). Each is
+now one mesh to an island, so an island out of view is left out: diving the arches draws about 2 %
+more than before, and at anchor among the islands is half what it was. Diving the arches takes
+about twenty more draw calls (a tenth more), not yet traced object by object: Los Roquetes and El
+Vapor, with their detailed seabed, are the new things nearest. The heap and the simulation are as
+they were: the habitat's homes are built as fast as before (`docs/ARCHIPELAGO.md`, A1).
+
 What stands out already, to be confirmed on real hardware before anything is changed for it:
 draw calls are highest looking at many boats or the harbour (`harbour_off` 534 after the fleet's
 distance culling took it from 719, `sonar` 363 with the dashboard's controls), triangles highest in
 the harbour and at Las Brasas (over a million), and the storm's simulation the dearest.
+
+The north (`docs/NORTH.md`), measured the same way, November 2026, on a quiet machine, with two of
+home's scenarios alongside to show home unchanged by it:
+
+| Scenario | Sim ms (mean · worst 1%) | Draw calls | Triangles | Heap |
+| --- | --- | --- | --- | --- |
+| north | 3.2 · 7.7 | 131 | 509,040 | 290 MB |
+| dive_north | 4.6 · 13.9 | 87 | 283,083 | 273 MB |
+| harbour (home, unchanged) | 4.6 · 8.9 | 351 | 1,275,233 | 257 MB |
+| liveaboard (home, unchanged) | 6.5 · 21.1 | 197 | 721,368 | 242 MB |
+
+The north costs less to draw than Las Brasas: its terrain is tiles of coarse sheet (about forty
+built round you at once, each about 2,600 triangles) with the isles in detail only near, and its
+things are a few meshes an area. The heap is about 33 MB more once you're there (its water maps,
+its tiles, its isles' things and kelp). What it costs to get there is spread out: its water map and
+sea field (about 2 s of work), its kelp (0.6 s) and its things (0.3 s) are each made a few
+milliseconds a frame as you come up the coast, and its tiles one at a time; only a passage that
+lands you there before they're done makes them at once, behind the passage's own screen.
 
 ## A long session: the soak (`tools/soak.mjs`)
 

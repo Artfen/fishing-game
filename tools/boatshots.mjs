@@ -87,7 +87,7 @@ for (const k of kinds) {
   }
 }
 if (!statsOnly && !arg('kinds')) {
-  const order = ['kayak', 'windsurf', 'jetski', 'row', 'skiff', 'sail', 'bass', 'cabin', 'rib', 'console', 'cruiser'].filter((k) => all.includes(k));
+  const order = ['kayak', 'windsurf', 'jetski', 'tender', 'row', 'skiff', 'sail', 'bass', 'cabin', 'rib', 'console', 'cruiser', 'trawler'].filter((k) => all.includes(k));
   await writeFile(join(out, `fleet${lightId === 'day' ? '' : `-${lightId}`}.jpg`), jpeg(await page.evaluate(([o, l]) => window.studio.lineup(o, l), [order, lightId])));
 }
 const pad = (s, n) => String(s).padEnd(n);

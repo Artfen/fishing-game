@@ -24,6 +24,9 @@ const TAG_WORDS_S = {
   puerto: 'in the harbour, along the quay and the breakwater', bajon: 'over El Bajón', arcos: 'round Los Arcos', veril: 'along El Veril',
   sebadal: 'over the seagrass of El Sebadal', coladas: 'on the lava of Las Coladas', faro: 'off Punta del Faro', roque: 'round the Roque',
   playa: 'in the surf off Playa Negra', ocean: 'out in the blue water',
+  // (The archipelago: docs/ARCHIPELAGO.md.)
+  estrecho: 'in El Estrecho, where the current runs through', upwell: 'up-current of the islands, where the bait gathers', banco: 'out on El Banco',
+  roquetes: 'round Los Roquetes', gaviota: 'off Isla Gaviota', honda: 'round Isla Honda',
 };
 const ZONE_WORDS_S = { harbor: 'in the harbour', lee: 'in the lee', lava: 'on the lava to windward', sebadal: 'over El Sebadal', veril: 'along the drop-off', ocean: 'out in the blue water' };
 

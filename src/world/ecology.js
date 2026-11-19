@@ -18,6 +18,7 @@ import { smoothstep } from '../util.js';
 // layer's mixed down, these only just feel it).
 export const WARM_LIMIT = {
   pollack: 18, // off the rocks in winter; in late summer, 15 m down below the warm layer
+  cod: 15, saithe: 16, ling: 14, haddock: 14, skate: 14, // (the north's: cold-water fish)
   hake: 17,
   conger: 19,
   johndory: 19,

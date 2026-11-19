@@ -47,6 +47,7 @@ export const LIVE_FISH = {
   tuna: 1.4, barracuda: 1.6, amberjack: 1.6, grouper: 1.4, johndory: 1.6, hake: 1.2, turbot: 1.3,
   squid: 0.7, cuttlefish: 0.6, comber: 1.1, moray: 1.0, blueshark: 1.1, mako: 1.3, hammerhead: 1.1,
   catshark: 0.5, thornback: 0.5, gurnard: 0.5, urta: 0.8,
+  cod: 1.5, saithe: 1.5, ling: 1.4, skate: 1.0,
 };
 export const LIVE_PRAWN = 1.25;
 

@@ -13,7 +13,7 @@
 import { kindOf, nthOf } from './boatid.js';
 
 export const PORT = 'WH';
-const NUMBERS = { row: 101, skiff: 104, kayak: 109, bass: 132, sail: 147, cabin: 158, rib: 171, console: 186, cruiser: 203, jetski: 219, windsurf: 224 };
+const NUMBERS = { row: 101, skiff: 104, kayak: 109, bass: 132, sail: 147, cabin: 158, rib: 171, console: 186, cruiser: 203, jetski: 219, windsurf: 224, tender: 232, trawler: 241 };
 // (A second boat of a kind: her kind's number and which of them she is, 'WH 171-2'. See boatid.js.)
 export const regOf = (id) => `${PORT} ${NUMBERS[kindOf(id)] ?? 300}${nthOf(id) > 1 ? `-${nthOf(id)}` : ''}`;
 
@@ -35,7 +35,7 @@ const num = (v, lo = 0, hi = 1e9) => (Number.isFinite(v) ? Math.min(hi, Math.max
 export const LOG_MAX = 40;
 
 export function newVessel(kind, day) {
-  return { reg: regOf(kind), since: Number.isFinite(day) ? day : 1, hours: 0, serviced: 0, nm: 0, litres: 0, fish: 0, best: null, log: [] };
+  return { reg: regOf(kind), since: Number.isFinite(day) ? day : 1, hours: 0, serviced: 0, nm: 0, litres: 0, fish: 0, best: null, nights: 0, trips: 0, log: [] };
 }
 
 // The records, made sensible: one for each boat you own (a new one for any without), nonsense
@@ -54,6 +54,8 @@ export function cleanVessels(raw, owned, day) {
     out[k] = {
       reg: regOf(k), since: Number.isFinite(v.since) ? Math.max(0, Math.floor(v.since)) : day,
       hours: num(v.hours), nm: num(v.nm), litres: num(v.litres), fish: Math.floor(num(v.fish)), best,
+      // (L8) Nights slept aboard her; and a tender's trips off her mother's platform.
+      nights: Math.floor(num(v.nights)), trips: Math.floor(num(v.trips)),
       // (Her engine's hours at its last service (service.js). A game from before services: counted
       // from now, so nothing's suddenly overdue.)
       serviced: Number.isFinite(v.serviced) ? Math.min(num(v.hours), num(v.serviced)) : num(v.hours),

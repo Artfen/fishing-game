@@ -18,6 +18,9 @@ export function sediment(s, zone, south = false) {
   if (RUNNING.has(zone) || zone === 'tarn') return 'gravel';
   if (STILL.has(zone)) return d < 2 ? 'sand' : 'mud';
   if (BRACKISH.has(zone)) return d < 1.5 ? 'sand' : 'mud';
+  // (Loch Skarn, up the coast: its still water lets the silt settle shallower: mud in its bays and
+  // its deep, sand by the beaches.)
+  if (zone === 'loch') return s.mud > 0.3 || d > 12 ? 'mud' : 'sand';
   // The sea: sand, out to where it's deep and still enough for the silt to settle.
   return d < (south ? 45 : 25) ? 'sand' : 'mud';
 }

@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { heightAt, waterLevel, STACKS, SKERRIES, CALF, CALF_SKERRY, GANNET, PUFFIN_COVE, MARSH, SANDBANKS, STRAND, COVE, DAYMARK, LAKE, MERE, STREAM, RIVER } from './terrain.js';
 import { COLDWATER } from './coldwater.js';
 import { waveHeight } from './water.js';
-import { VILLAGE, PUERTO, MOLE, FARO_POINT, ARCO, ROJA, ISLE, PLAYA } from './brasa.js';
+import { VILLAGE, PUERTO, MOLE, FARO_POINT, ARCO, ROJA, ISLE, PLAYA, GAVIOTA, HONDA } from './brasa.js';
+import { SKARV, RAVEN, SELKIE, BOTHY_BAY, TERN } from './north.js';
 import { BIRDS } from '../birdData.js';
 import { clamp, damp, dampAngle, wrapAngle, mergeParts, mat, seeded } from '../util.js';
 
@@ -27,6 +28,12 @@ import { clamp, damp, dampAngle, wrapAngle, mergeParts, mat, seeded } from '../u
 //    cliffs, a kestrel over the Roja, whimbrels and turnstones on the Faro point's rocks, little
 //    egrets by the harbour, Berthelot's pipits and canaries round the village, plain swifts
 //    screaming over it, and at night Bulwer's petrels low over the sea.
+//  · Up the coast, the Selkie Isles: guillemots and kittiwakes on Skarv Stack, puffins and
+//    razorbills off Raven Isle, a peregrine and ravens over its cliffs, eiders in the sound; a
+//    white-tailed eagle soaring over Loch Skarn and another over Raven Isle, each now and then
+//    gliding down to snatch a fish from the water; Arctic terns nesting on Tern Isle's machair in
+//    spring and summer (walk among the nests and they're up and at your head) and fishing the
+//    shallows off its beaches, hovering and plunging.
 //
 // Birds that stand or swim go up if you come too close, fly round, and settle again. Only the
 // colonies near you are drawn. The game hears what you've seen up close (seenNear) and what's in
@@ -71,9 +78,17 @@ const LOOK = {
   bpipit: { len: 0.14, span: 0.23, back: '#8a8a80', belly: '#e8e4d8', head: '#8a8a80', bill: '#3a3a30', legs: '#c8b8a0', tip: '#4a4a40', chord: 0.24, fly: 'flit', sp: 7 },
   canary: { len: 0.13, span: 0.22, back: '#9aa04a', belly: '#d6d64a', head: '#c6c64a', bill: '#c8b89a', legs: '#a89a8a', tip: '#4a4a30', chord: 0.24, fly: 'flit', sp: 7 },
   plainswift: { len: 0.15, span: 0.4, back: '#2a2622', belly: '#2a2622', head: '#2a2622', bill: '#141414', legs: '#141414', tip: '#1a1612', chord: 0.12, fly: 'swift', sp: 18, tail: 'fork' },
+  // (Up the coast.) The eagle: broad "barn door" wings, a pale head, a heavy yellow bill, a short
+  // white wedge of a tail; seen from a long way off. The Arctic tern: pale grey, black cap, red bill
+  // and legs, long white tail streamers.
+  wteagle: { len: 0.86, span: 2.3, back: '#5a4431', belly: '#4b3727', head: '#cbbd9b', bill: '#e6c048', billDeep: true, billLen: 1.2, legs: '#e6c048', tip: '#241a12', tailColor: '#f1eee4', chord: 0.27, fly: 'glide', flap: 0.08, sp: 11, tail: 'wedge', far: 1400, carry: true },
+  arctictern: { len: 0.34, span: 0.78, back: '#c3cad0', belly: '#e9ecee', head: '#f2f2ef', cap: '#121212', bill: '#c8302a', billLen: 1.4, legs: '#c8302a', tip: '#8c959c', tailColor: '#f2f2ef', chord: 0.15, fly: 'glide', flap: 0.75, sp: 8, tail: 'fork' },
 };
 // How near you can come before it goes up (m).
-const FLUSH = { puffin: 12, razorbill: 14, guillemot: 14, shag: 16, gbbgull: 22, eider: 25, redshank: 30, curlew: 40, egret: 30, turnstone: 10, rockpipit: 8, kingfisher: 15, dipper: 10, muteswan: 8, mallard: 12, ylgull: 10, whimbrel: 25, bpipit: 6, canary: 6, kittiwake: 10 };
+const FLUSH = { puffin: 12, razorbill: 14, guillemot: 14, shag: 16, gbbgull: 22, eider: 25, redshank: 30, curlew: 40, egret: 30, turnstone: 10, rockpipit: 8, kingfisher: 15, dipper: 10, muteswan: 8, mallard: 12, ylgull: 10, whimbrel: 25, bpipit: 6, canary: 6, kittiwake: 10, arctictern: 28 };
+// (A tern comes up with the rest of the colony if its nest is within MOB_JOIN of you, and keeps at
+// you until you're MOB_TILL from its nest, m.)
+const MOB_JOIN = 55, MOB_TILL = 70;
 
 // One bird's shape, nose along +z: body, head, bill, tail, legs; wings that pivot at the shoulder.
 function buildBird(kind) {
@@ -107,9 +122,20 @@ function buildBird(kind) {
   // The tail: a short fan, a wedge, or a fork.
   const tl = s * (L.tail === 'wedge' ? 0.32 : L.tail === 'fork' ? 0.3 : 0.24);
   if (L.tail === 'fork') {
-    for (const sd of [1, -1]) parts.push({ geo: new THREE.ConeGeometry(s * 0.04, tl, 3), matrix: mat(sd * s * 0.04, legH + s * 0.12, -s * 0.3 - tl * 0.4, -Math.PI / 2, 0, sd * 0.25), color: L.back });
-  } else parts.push({ geo: new THREE.ConeGeometry(s * (L.tail === 'wedge' ? 0.1 : 0.08), tl, 4), matrix: mat(0, legH + s * 0.13, -s * 0.3 - tl * 0.35, -Math.PI / 2, 0, 0, 1.4, 1, 0.35), color: L.tip });
+    for (const sd of [1, -1]) parts.push({ geo: new THREE.ConeGeometry(s * 0.04, tl, 3), matrix: mat(sd * s * 0.04, legH + s * 0.12, -s * 0.3 - tl * 0.4, -Math.PI / 2, 0, sd * 0.25), color: L.tailColor || L.back });
+  } else parts.push({ geo: new THREE.ConeGeometry(s * (L.tail === 'wedge' ? 0.1 : 0.08), tl, 4), matrix: mat(0, legH + s * 0.13, -s * 0.3 - tl * 0.35, -Math.PI / 2, 0, 0, 1.4, 1, 0.35), color: L.tailColor || L.tip });
   body.add(new THREE.Mesh(mergeParts(parts), lit));
+  // (The eagle's catch, held under it on the way up: hidden until it has one.)
+  let fish = null;
+  if (L.carry) {
+    fish = new THREE.Mesh(mergeParts([
+      { geo: new THREE.SphereGeometry(s * 0.09, 7, 5), matrix: mat(0, 0, 0, 0, 0, 0, 0.55, 0.7, 2.4), color: '#b8c2c6' },
+      { geo: new THREE.ConeGeometry(s * 0.06, s * 0.12, 3), matrix: mat(0, 0, -s * 0.27, -Math.PI / 2, 0, 0, 1, 1, 0.3), color: '#8a969b' },
+    ]), lit);
+    fish.position.set(0, legH - s * 0.06, s * 0.04);
+    fish.visible = false;
+    body.add(fish);
+  }
   // Legs (and the egret's yellow feet), shown standing and wading.
   const legs = new THREE.Mesh(mergeParts([1, -1].flatMap((sd) => [
     { geo: new THREE.CylinderGeometry(s * 0.015, s * 0.015, legH, 4), matrix: mat(sd * s * 0.05, legH / 2, 0), color: L.legs },
@@ -134,7 +160,7 @@ function buildBird(kind) {
     body.add(m);
     return m;
   };
-  return { g, body, legs, wl: wing(1), wr: wing(-1), legH };
+  return { g, body, legs, wl: wing(1), wr: wing(-1), legH, fish };
 }
 
 /* ---------------- where they live ---------------- */
@@ -252,7 +278,44 @@ function colonies(rnd) {
   add('bpipit', 'flit', spots(rnd, VILLAGE.x, VILLAGE.z, VILLAGE.r, VILLAGE.r + 80, 3, ground(4, 60)));
   add('canary', 'flit', spots(rnd, VILLAGE.x, VILLAGE.z, 20, VILLAGE.r + 30, 4, ground(3, 40)));
   add('plainswift', 'skim', Array.from({ length: 8 }, (_, i) => ({ x: VILLAGE.x + (rnd() - 0.5) * 60, y: 30 + rnd() * 20, z: VILLAGE.z - 40 + (rnd() - 0.5) * 60, r: 60 + i * 9 })));
+  // (The archipelago) Isla Gaviota's gulls: a colony on the ledges of its weather cliffs, and more
+  // wheeling over them; and terns and waders on Isla Honda's sand.
+  add('ylgull', 'perch', spots(rnd, GAVIOTA.x - 40, GAVIOTA.z - 60, 60, 190, 26, ledge(6, 40, 3)));
+  add('ylgull', 'glide', Array.from({ length: 5 }, (_, i) => ({ x: GAVIOTA.x - 60 + (rnd() - 0.5) * 120, y: 30 + rnd() * 18, z: GAVIOTA.z - 90 + (rnd() - 0.5) * 80, r: 50 + i * 12 })));
+  add('turnstone', 'wade', spots(rnd, HONDA.cove.x, HONDA.cove.z, HONDA.cove.r, HONDA.cove.r + 40, 3, rock(0.2, 1.6)));
+  add('whimbrel', 'wade', spots(rnd, HONDA.x, HONDA.z, 80, 220, 2, rock(0.2, 2)));
   add('bulwer', 'skim', Array.from({ length: 5 }, (_, i) => ({ x: ISLE.x + (rnd() - 0.5) * 200, y: 1.2, z: ISLE.z + ISLE.rz + 120 + i * 30, r: 260 + i * 40 })));
+  // (The north, up the coast: docs/NORTH.md) Skarv Stack's colony, guillemots and kittiwakes packed on
+  // its ledges, fulmars round it, shags at its foot; puffins on Raven Isle's north-west slopes and
+  // rafting off them, razorbills; a peregrine and the ravens the island's named for over its
+  // cliffs; eiders in the sound and off the Selkie Rocks.
+  // (Skarv's ledges: on its sheer face, from a few metres up to near its top, facing out.)
+  const skarvLedges = (n) => Array.from({ length: n }, () => {
+    const a = rnd() * Math.PI * 2, y = 8 + rnd() * (SKARV.h - 14), r = SKARV.r + 0.8;
+    return { x: SKARV.x + Math.cos(a) * r, y, z: SKARV.z + Math.sin(a) * r, face: Math.atan2(Math.cos(a), Math.sin(a)) };
+  });
+  add('guillemot', 'perch', skarvLedges(22));
+  add('kittiwake', 'perch', skarvLedges(14));
+  add('guillemot', 'swim', spots(rnd, SKARV.x, SKARV.z, SKARV.r + 8, SKARV.r + 70, 10, water(4)));
+  add('fulmar', 'glide', [{ x: SKARV.x, y: 50, z: SKARV.z, r: 45 }, { x: SKARV.x + 20, y: 40, z: SKARV.z + 15, r: 60 }, { x: RAVEN.x - RAVEN.rx, y: 60, z: RAVEN.z - 300, r: 90 }]);
+  add('kittiwake', 'glide', [{ x: SKARV.x, y: 30, z: SKARV.z, r: 40 }, { x: SKARV.x - 15, y: 22, z: SKARV.z + 10, r: 55 }]);
+  add('shag', 'perch', spots(rnd, SKARV.x, SKARV.z, SKARV.r, SKARV.r + 12, 4, rock(0.2, 4)));
+  add('puffin', 'perch', spots(rnd, RAVEN.x - 300, RAVEN.z - 520, 20, 140, 12, ground(10, 70)));
+  add('puffin', 'swim', spots(rnd, RAVEN.x - 380, RAVEN.z - 600, 0, 120, 12, water(3)));
+  add('razorbill', 'swim', spots(rnd, RAVEN.x - 420, RAVEN.z - 520, 0, 140, 6, water(3)));
+  add('peregrine', 'glide', [{ x: RAVEN.x - 380, y: 110, z: RAVEN.z - 200, r: 80 }]);
+  add('raven', 'glide', [{ x: RAVEN.x - 250, y: 120, z: RAVEN.z, r: 90 }, { x: RAVEN.x - 240, y: 128, z: RAVEN.z + 12, r: 84 }]);
+  add('eider', 'swim', spots(rnd, SELKIE[0].x, SELKIE[0].z, 30, 120, 10, water(1.5)));
+  add('eider', 'swim', spots(rnd, BOTHY_BAY.x, BOTHY_BAY.z, 0, BOTHY_BAY.r, 6, water(1.2)));
+  // (Step 5's last: docs/NORTH.md.) A white-tailed eagle over Loch Skarn by Bothy Bay and another
+  // high over Raven Isle, each a colony of its own (drawn from far off); Arctic terns nesting on
+  // Tern Isle's machair and fishing round its shores. With dice of their own, after everything
+  // else: no other bird moves for them.
+  const own = seeded(20261119);
+  add('wteagle', 'soar', [{ x: BOTHY_BAY.x + 60, y: 150, z: BOTHY_BAY.z + 90, r: 150 }]);
+  add('wteagle', 'soar', [{ x: RAVEN.x - 100, y: 240, z: RAVEN.z + 150, r: 160 }]);
+  add('arctictern', 'nest', spots(own, TERN.x, TERN.z, 60, 300, 26, ground(2.6, 8)));
+  add('arctictern', 'plunge', spots(own, TERN.x, TERN.z, 360, 470, 6, water(1.5)).map((p, i) => ({ ...p, y: 8 + (i % 3), r: 18 + (i % 4) * 6 })));
   // (Each colony's middle, for drawing only those near you.)
   for (const c of C) {
     c.cx = c.at.reduce((s, p) => s + p.x, 0) / c.at.length;
@@ -273,7 +336,7 @@ export function buildBirds(scene, { seed = 20261110 } = {}) {
       const m = buildBird(c.kind);
       m.g.visible = false;
       scene.add(m.g);
-      const b = { ...m, kind: c.kind, how: c.how, home: p, colony: c, L: LOOK[c.kind], x: p.x, y: p.y, z: p.z, heading: p.face || 0, a: rnd() * Math.PI * 2, dir: rnd() < 0.5 ? 1 : -1, ph: rnd() * 10, t: 2 + rnd() * 30, state: c.how === 'perch' || c.how === 'wade' || c.how === 'flit' || c.how === 'dash' ? 'stand' : c.how === 'swim' ? 'swim' : 'fly', vx: 0, vz: 0, tx: p.x, tz: p.z };
+      const b = { ...m, kind: c.kind, how: c.how, home: p, colony: c, L: LOOK[c.kind], x: p.x, y: p.y, z: p.z, heading: p.face || 0, a: rnd() * Math.PI * 2, dir: rnd() < 0.5 ? 1 : -1, ph: rnd() * 10, t: 2 + rnd() * 30, state: c.how === 'perch' || c.how === 'wade' || c.how === 'flit' || c.how === 'dash' || c.how === 'nest' ? 'stand' : c.how === 'swim' ? 'swim' : 'fly', vx: 0, vz: 0, tx: p.x, tz: p.z };
       c.birds.push(b);
       birds.push(b);
     }
@@ -293,12 +356,202 @@ export function buildBirds(scene, { seed = 20261110 } = {}) {
   };
   const seaY = (x, z, t) => (z > 4000 || Math.abs(waterLevel(x, z)) < 0.05 ? waveHeight(x, z, t) : waterLevel(x, z));
 
+  // Water deep enough to take a fish from, somewhere round (x, z) within r: { x, z } or null.
+  const fishingWater = (x, z, r0, r1, depth) => {
+    for (let k = 0; k < 16; k++) {
+      const a = Math.random() * Math.PI * 2, d = r0 + Math.random() * (r1 - r0);
+      const px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d;
+      if (waterLevel(px, pz) - heightAt(px, pz) > depth) return { x: px, z: pz };
+    }
+    return null;
+  };
+  // Round and round its circle (the gliders, the eagle between stoops, a tern between dives).
+  const circle = (b, dt, t, r, sp, y) => {
+    b.a += ((sp / Math.max(3, r)) * dt) * b.dir;
+    b.x = b.home.x + Math.cos(b.a) * r;
+    b.z = b.home.z + Math.sin(b.a) * r;
+    b.y = y;
+    b.heading = Math.atan2(-Math.sin(b.a) * b.dir, Math.cos(b.a) * b.dir);
+  };
+
+  // The eagle: wide circles high up, hardly a wingbeat; every few minutes a long shallow glide
+  // down to the water, feet swung forward at the last, a fish snatched from the surface with a
+  // splash, and heavy wingbeats back up with it.
+  function soar(b, dt, t, from) {
+    const L = b.L, h = b.home;
+    if (!b.mode) Object.assign(b, { mode: 'circle', t: 30 + Math.random() * 150 });
+    b.t -= dt;
+    showWings(b, true);
+    if (b.mode === 'circle') {
+      circle(b, dt, t, h.r * (1 + 0.12 * Math.sin(t * 0.04 + b.ph)), L.sp, h.y + Math.sin(t * 0.3 + b.ph) * 4);
+      b.g.rotation.z = -0.22 * b.dir;
+      b.body.rotation.x = 0;
+      flapWings(b, t, ((t * 0.13 + b.ph) % 1) < L.flap ? 0.35 : 0.04, 3.2);
+      b.legs.visible = false;
+      if (b.fish && b.t < 0) b.fish.visible = false;
+      if (b.t < 0) {
+        const to = fishingWater(h.x, h.z, 60, h.r + 420, 3);
+        b.t = 90 + Math.random() * 120;
+        if (to) Object.assign(b, { mode: 'stoop', tx: to.x, tz: to.z, sy: b.y, sd: Math.max(1, Math.hypot(to.x - b.x, to.z - b.z)), t: 120 });
+      }
+    } else if (b.mode === 'stoop') {
+      const dx = b.tx - b.x, dz = b.tz - b.z, d = Math.hypot(dx, dz);
+      const sea = seaY(b.tx, b.tz, t), v = 16;
+      if (d > 0.01) {
+        const st = Math.min(d, v * dt);
+        b.x += (dx / d) * st;
+        b.z += (dz / d) * st;
+        b.heading = dampAngle(b.heading, Math.atan2(dx, dz), 2, dt);
+      }
+      // (A straight glide down: the last thirty metres flattening out a metre over the water.)
+      const k = clamp(d / b.sd, 0, 1);
+      b.y = sea + 1 + (b.sy - sea - 1) * k * (k < 0.08 ? k / 0.08 : 1);
+      b.g.rotation.z = 0;
+      b.body.rotation.x = d > 20 ? 0.18 : -0.25;
+      flapWings(b, t, 0.08, 2);
+      b.legs.visible = d < 25;
+      if (d < 1 || b.t < 0) {
+        b.y = sea + 0.6;
+        Object.assign(b, { mode: 'climb', t: 0 });
+        if (b.fish) b.fish.visible = true;
+        out.onSplash?.(b.x, b.z, 0.5);
+        if (Math.hypot(from.x - b.x, from.z - b.z) < 500) out.onMoment?.('eagleFish', 'A white-tailed eagle comes down in one long glide, low over the water at the last, swings its feet forward and snatches a fish from the surface in a burst of spray, then labours back up into the sky with it.');
+      }
+    } else {
+      // Back up: slow, heavy wingbeats, out to its circle and up to its height.
+      const r = h.r, ax = h.x + Math.cos(b.a) * r, az = h.z + Math.sin(b.a) * r;
+      const dx = ax - b.x, dz = az - b.z, d = Math.hypot(dx, dz);
+      if (d > 1) {
+        const st = Math.min(d, 9 * dt);
+        b.x += (dx / d) * st;
+        b.z += (dz / d) * st;
+        b.heading = dampAngle(b.heading, Math.atan2(dx, dz), 1.5, dt);
+      }
+      b.y = Math.min(h.y, b.y + 3 * dt);
+      b.g.rotation.z = 0;
+      b.body.rotation.x = -0.1;
+      flapWings(b, t, 0.5, 4);
+      b.legs.visible = true;
+      if (b.y >= h.y - 4 && d < 8) {
+        b.a = Math.atan2(b.z - h.z, b.x - h.x);
+        // (A few minutes up there before the next.)
+        Object.assign(b, { mode: 'circle', t: 150 + Math.random() * 200 });
+      }
+    }
+  }
+
+  // An Arctic tern on its nest on the machair: sitting tight, until you walk among the nests. Then
+  // it's up and over your head with the rest, screaming, swooping at you, until you've gone on
+  // (MOB_TILL from its nest), when it drops back to the nest.
+  function nest(b, dt, t, from, near) {
+    const L = b.L, h = b.home;
+    const fromNest = Math.hypot(from.x - h.x, from.z - h.z);
+    if (b.state === 'stand') {
+      Object.assign(b, { x: h.x, y: h.y, z: h.z });
+      b.body.rotation.x = Math.max(0, Math.sin(t * 0.7 + b.ph)) * 0.15;
+      b.g.rotation.z = 0;
+      showWings(b, false);
+      // (One that sees you close puts the whole colony up round you.)
+      const alarm = t - (b.colony.alarm ?? -1e9) < 0.5 && fromNest < MOB_JOIN;
+      if (near && (fromNest < FLUSH.arctictern || alarm)) {
+        Object.assign(b, { state: 'mob', mr: 3.5 + Math.random() * 5, my: 3 + Math.random() * 3, t: 1 + Math.random() * 3, a: Math.random() * Math.PI * 2, call: Math.random() * 2 });
+        b.body.rotation.x = 0;
+        if (!alarm) out.onMoment?.('ternMob', 'The terns are up all round you, screaming, and one swoops at your head: you’re among their nests. Walk on to the beach and they’ll settle again.');
+      }
+    } else if (b.state === 'mob') {
+      // Round and over you, each at its own height and distance; now and then a dive at your head.
+      b.t -= dt;
+      b.call -= dt;
+      b.colony.alarm = t;
+      b.a += (L.sp / b.mr) * dt * b.dir;
+      const swoop = b.t < 0 ? Math.max(0, 1 - Math.abs(b.t + 0.6) / 0.6) : 0;
+      if (b.t < -1.2) b.t = 2 + Math.random() * 4;
+      const r = b.mr * (1 - swoop * 0.8);
+      const tx = from.x + Math.cos(b.a) * r, tz = from.z + Math.sin(b.a) * r;
+      const ground = Math.max(heightAt(tx, tz), waterLevel(tx, tz));
+      b.x = damp(b.x, tx, 4, dt);
+      b.z = damp(b.z, tz, 4, dt);
+      b.y = damp(b.y, ground + b.my - swoop * (b.my - 2.1), 4, dt);
+      b.heading = Math.atan2(-Math.sin(b.a) * b.dir, Math.cos(b.a) * b.dir);
+      b.g.rotation.z = -0.4 * b.dir;
+      showWings(b, true);
+      flapWings(b, t, 0.6, 11);
+      if (b.call < 0) {
+        b.call = 0.8 + Math.random() * 2.5;
+        out.onCall?.(b.kind, b.x, b.z);
+      }
+      if (!near || fromNest > MOB_TILL) b.state = 'home';
+    } else {
+      // Back down onto its nest.
+      const dx = h.x - b.x, dz = h.z - b.z, d = Math.hypot(dx, dz);
+      if (d > 0.05) {
+        const st = Math.min(d, 9 * dt);
+        b.x += (dx / d) * st;
+        b.z += (dz / d) * st;
+        b.heading = Math.atan2(dx, dz);
+      }
+      b.y = damp(b.y, h.y + Math.min(4, d * 0.3), 3, dt);
+      showWings(b, true);
+      flapWings(b, t, 0.6, 11);
+      b.g.rotation.z = 0;
+      if (d < 0.3) {
+        Object.assign(b, { state: 'stand', x: h.x, y: h.y, z: h.z, heading: h.face ?? b.heading });
+      } else if (near && fromNest < MOB_JOIN && t - (b.colony.alarm ?? -1e9) < 0.5) b.state = 'mob';
+    }
+  }
+
+  // An Arctic tern fishing: flying its beat over the shallows, a pause to hover with wings a blur,
+  // then a plunge straight in after a sandeel, and up again.
+  function plunge(b, dt, t, from) {
+    const L = b.L, h = b.home;
+    b.mode ??= 'fly';
+    b.t -= dt;
+    showWings(b, true);
+    if (b.mode === 'fly') {
+      circle(b, dt, t, h.r, L.sp, damp(b.y, h.y + Math.sin(t * 0.5 + b.ph) * 1.5, 1, dt));
+      b.g.rotation.z = -0.3 * b.dir;
+      b.body.rotation.x = 0;
+      flapWings(b, t, 0.6, 8);
+      if (b.t < 0) {
+        const deep = waterLevel(b.x, b.z) - heightAt(b.x, b.z) > 0.8;
+        Object.assign(b, deep ? { mode: 'hover', t: 1.2 + Math.random() * 1.6 } : { t: 2 + Math.random() * 4 });
+        if (deep && Math.random() < 0.5) out.onCall?.(b.kind, b.x, b.z);
+      }
+    } else if (b.mode === 'hover') {
+      b.body.rotation.x = -0.6;
+      b.g.rotation.z = 0;
+      flapWings(b, t, 0.7, 22);
+      if (b.t < 0) Object.assign(b, { mode: 'dive', vy: 0 });
+    } else if (b.mode === 'dive') {
+      b.vy += 25 * dt;
+      b.y -= b.vy * dt;
+      b.body.rotation.x = 1.2;
+      b.wl.rotation.z = 1.4;
+      b.wr.rotation.z = -1.4;
+      const sea = seaY(b.x, b.z, t);
+      if (b.y <= sea) {
+        b.y = sea;
+        out.onSplash?.(b.x, b.z, 0.08);
+        if (Math.hypot(from.x - b.x, from.z - b.z) < 90) out.onMoment?.('arcticternDive', 'An Arctic tern hangs over the water off the beach, wings a blur, then folds and drops straight in, and is up again with a sandeel crossways in its bill.');
+        Object.assign(b, { mode: 'rise', t: 1.5 });
+      }
+    } else {
+      b.y += 4 * dt;
+      b.body.rotation.x = -0.4;
+      flapWings(b, t, 0.6, 9);
+      if (b.t < 0) Object.assign(b, { mode: 'fly', t: 5 + Math.random() * 10 });
+    }
+  }
+
   // One bird's step. from: where you are (for flushing).
   function step(b, dt, t, from, near) {
     const L = b.L, h = b.home;
     const flushR = FLUSH[b.kind] || 12;
     const close = near && Math.hypot(from.x - b.x, from.z - b.z) < flushR;
-    if (b.how === 'glide' || b.how === 'skim') {
+    if (b.how === 'soar') soar(b, dt, t, from);
+    else if (b.how === 'nest') nest(b, dt, t, from, near);
+    else if (b.how === 'plunge') plunge(b, dt, t, from);
+    else if (b.how === 'glide' || b.how === 'skim') {
       // Round and round the centre (the swifts and the choughs more wildly).
       const r = h.r * (1 + 0.15 * Math.sin(t * 0.05 + b.ph));
       const sp = L.sp * (b.how === 'skim' && L.fly === 'swift' ? 1 + 0.4 * Math.sin(t * 0.7 + b.ph) : 1);
@@ -430,6 +683,9 @@ export function buildBirds(scene, { seed = 20261110 } = {}) {
   const out = {
     birds,
     colonies: C,
+    // (The game hears of the eagle's and the terns' splashes, the terns' calls, and the moments
+    // worth a word: see main.js.)
+    onSplash: null, onCall: null, onMoment: null,
     // ctx: { from (you), daylight, season ('spring' …), region ('home' | 'south'), near (on foot or
     // close: birds go up) }.
     update(dt, t, ctx) {
@@ -437,14 +693,15 @@ export function buildBirds(scene, { seed = 20261110 } = {}) {
       for (const c of C) {
         const B = BIRDS[c.kind] || {};
         // (A small bird isn't drawn from as far off as a big one: you couldn't see it anyway.)
-        const range = clamp(LOOK[c.kind].span * 350, 150, ACTIVE);
+        const range = LOOK[c.kind].far || clamp(LOOK[c.kind].span * 350, 150, ACTIVE);
         const live = (c.south ? region === 'south' : region !== 'south')
           && Math.hypot(c.cx - from.x, c.cz - from.z) < range + c.reach
           && (B.night ? daylight < 0.15 : daylight > 0.15)
           && (!B.when || B.when.includes(season));
         for (const b of c.birds) {
           // (Out of sight, a bird that was up is back on its place by the time you return.)
-          if (!live && b.g.visible && b.state === 'fly' && b.how !== 'glide' && b.how !== 'skim' && b.how !== 'hover') {
+          if (!live && b.g.visible && b.how === 'nest' && b.state !== 'stand') Object.assign(b, { state: 'stand', x: b.home.x, y: b.home.y, z: b.home.z });
+          if (!live && b.g.visible && b.state === 'fly' && b.how !== 'glide' && b.how !== 'skim' && b.how !== 'hover' && b.how !== 'soar' && b.how !== 'plunge') {
             b.home = b.colony.at.includes(b.home) ? b.home : b.colony.at[0];
             Object.assign(b, { state: 'stand', x: b.home.x, y: b.home.y, z: b.home.z, tx: b.home.x, tz: b.home.z, t: 10 + Math.random() * 30 });
             b.body.rotation.x = 0;

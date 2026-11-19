@@ -466,6 +466,7 @@
           <button id="map-in" type="button" aria-label="Zoom in">+</button>
           <button id="map-out" type="button" aria-label="Zoom out">−</button>
           <button id="map-me" type="button" aria-label="Centre on you">◎</button>
+          <button id="map-world" type="button" aria-label="The whole chart" aria-pressed="false">◫</button>
         </div>
       </div>
       <aside class="map-side">
@@ -551,6 +552,8 @@
     <section class="page left j-days-view" aria-label="Your days" hidden>
       <h2>Today <span class="count" id="days-today-when"></span></h2>
       <div id="days-today"></div>
+      <h3>What you were told</h3>
+      <ol id="days-told" class="j-told"></ol>
       <h2>The days before</h2>
       <div id="days-list"></div>
     </section>
@@ -645,6 +648,10 @@
         <p id="update-note" class="j-save-status" role="status" hidden></p>
         <button id="update-now" type="button">Check for updates</button>
         <button id="save-download" type="button">Download a copy</button>
+        <span id="desktop-opts" class="j-desktop" hidden>
+          <button id="desktop-saves" type="button">Open the saves folder</button>
+          <label><input id="desktop-auto" type="checkbox"> Look for a new version when the game starts</label>
+        </span>
         <button id="save-load" type="button">Load a saved copy…</button>
         <input id="save-file" type="file" accept=".json,application/json" hidden>
         <button id="save-new" type="button" class="danger">New game…</button>
@@ -663,6 +670,15 @@
   </div>
 </div>
 
+<div id="games" class="sheet" role="dialog" aria-labelledby="games-title" hidden>
+  <div class="sheet-inner games-inner">
+    <header><h2 id="games-title">Your games</h2><p>Three games side by side in this browser.</p></header>
+    <button id="games-close" class="sheet-close" type="button" aria-label="Close">×</button>
+    <div id="games-list" class="gm-list"></div>
+    <p id="games-note" class="gm-note"></p>
+  </div>
+</div>
+
 <div id="confirm" class="sheet" role="alertdialog" aria-labelledby="confirm-title" aria-describedby="confirm-text" hidden>
   <div class="sheet-inner confirm-inner">
     <h2 id="confirm-title"></h2>
@@ -677,12 +693,14 @@
     <h1>Slow Tide</h1>
     <p class="t-sub">A little boat, a quiet bay, a camp on the shore, and nowhere you need to be.</p>
     <button id="start-btn" type="button">Begin</button>
+    <p class="t-game"><span id="title-game"></span> <button id="title-games" class="t-quality" type="button">Your games</button></p>
     <dl id="t-keys" class="t-keys" aria-label="Controls"></dl>
     <p id="t-pad" class="t-pad"></p>
     <p class="t-note">Best with sound on. <button id="title-settings" class="t-quality" type="button">Settings</button> · <button id="title-quality" class="t-quality" type="button">Graphics: Auto</button> · <button id="title-difficulty" class="t-quality" type="button">Difficulty: Standard</button></p>
     <p id="title-offline" class="t-offline" hidden></p>
     <p class="t-update"><button id="title-update" class="t-quality" type="button">Update</button><span id="title-update-note" class="t-update-note" role="status"></span></p>
     <p id="title-version" class="t-version"></p>
+    <p class="t-download"><a id="title-download" href="download.html" target="_blank" rel="noopener">Slow Tide for your computer: Windows, Mac, Linux</a> · <a id="title-privacy" href="privacy.html" target="_blank" rel="noopener">Privacy</a></p>
   </div>
 </div>
 

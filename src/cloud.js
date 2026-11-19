@@ -38,6 +38,18 @@ function validConfig(c) {
   return { url, anonKey: c.anonKey.trim() };
 }
 
+// What to tell the player when the cloud didn't answer as it should (docs/ONLINE.md): a paused or
+// unavailable project (free Supabase projects pause after a week without use), a plan's limits
+// reached, too many requests, or the service's own words.
+export function explainCloud(err) {
+  const s = err?.status || 0, why = String(err?.message || '');
+  if (s === 0 || /no connection/.test(why)) return 'no connection';
+  if (s === 540 || s === 503 || (s >= 520 && s <= 530)) return 'the cloud service isn’t answering: it may be paused, and whoever runs this copy of the game can restore it';
+  if (s === 402 || /quota|exceed|limit/i.test(why)) return 'the cloud service has reached its plan’s limits for now';
+  if (s === 429) return 'too many requests just now: it will try again shortly';
+  return why || `error ${s}`;
+}
+
 class CloudError extends Error {
   constructor(message, status = 0) {
     super(message);
@@ -54,6 +66,7 @@ export class Cloud {
     this.lastSync = 0;
     this.syncing = false;
     this.paused = false;   // the cloud save is from a newer game version: leave it alone
+    this.elsewhere = false; // another of this browser's games is being played: the account keeps Game 1 (docs/MODES.md)
     this.timer = null;
     this.waiting = false;  // changes made while offline (or while the cloud couldn't be reached)
     this.onChange = () => {};
@@ -218,7 +231,7 @@ export class Cloud {
       return true;
     } catch (err) {
       this.state = 'signedOut';
-      this.changed(err.status === 429 ? 'Too many sign-in emails just now. Please wait a minute and try again.' : `Couldn’t send the email: ${err.message}.`);
+      this.changed(err.status === 429 ? 'Too many sign-in emails just now. Please wait a minute and try again.' : `Couldn’t send the email: ${explainCloud(err)}.`);
       return false;
     }
   }
@@ -273,7 +286,7 @@ export class Cloud {
   // On sign-in or at startup: combine the cloud save with this browser's. Returns
   // { state, note } with the state to play, or null to keep the local one untouched.
   async syncAtStart(local, localSavedAt) {
-    if (!this.signedIn) return null;
+    if (!this.signedIn || this.elsewhere) return null;
     this.syncing = true;
     try {
       const remote = await this.pull();
@@ -312,7 +325,7 @@ export class Cloud {
       return { state, note };
     } catch (err) {
       this.waiting = true;
-      this.changed(navigator.onLine === false ? '' : `Couldn’t sync just now (${err.message}). Your progress is saved in this browser and will sync later.`);
+      this.changed(navigator.onLine === false ? '' : `Couldn’t sync just now (${explainCloud(err)}). Your progress is saved in this browser and will sync later.`);
       return null;
     } finally {
       this.syncing = false;
@@ -347,7 +360,7 @@ export class Cloud {
 
   // After each local save: send it to the cloud once things are quiet for a moment.
   queue(state, savedAt) {
-    if (!this.signedIn || this.paused) return;
+    if (!this.signedIn || this.paused || this.elsewhere) return;
     clearTimeout(this.timer);
     this.timer = null;
     // Offline: the save in this browser is the queue; it goes up when the connection is back.
@@ -360,13 +373,13 @@ export class Cloud {
 
   // The connection is back: send whatever was saved meanwhile (combining with anything newer).
   reconnected(state, savedAt) {
-    if (this.signedIn && !this.paused && this.waiting) this.flush(state, savedAt);
+    if (this.signedIn && !this.paused && !this.elsewhere && this.waiting) this.flush(state, savedAt);
   }
 
   async flush(state, savedAt, keepalive = false) {
     clearTimeout(this.timer);
     this.timer = null;
-    if (!this.signedIn || this.paused || (this.syncing && !keepalive)) return;
+    if (!this.signedIn || this.paused || this.elsewhere || (this.syncing && !keepalive)) return;
     if (navigator.onLine === false) {
       this.waiting = true;
       return;
@@ -389,9 +402,48 @@ export class Cloud {
 
   get pending() { return !!this.timer || this.waiting; }
 
+  /* ---------------- your data (docs/ONLINE.md) ---------------- */
+
+  // Your cloud save as it is in the cloud, as a file's text (the same form as "Download a copy"), or
+  // null when there's none.
+  async exportCloud() {
+    if (!this.signedIn) return null;
+    await this.freshToken();
+    const rows = await this.api('GET', `/rest/v1/${TABLE}?select=version,saved_at,data&user_id=eq.${this.session.user.id}`);
+    const row = Array.isArray(rows) ? rows[0] : null;
+    if (!row) return null;
+    return JSON.stringify({ game: 'slow-tide', version: row.version, savedAt: Date.parse(row.saved_at) || 0, data: row.data }, null, 1);
+  }
+
+  // Delete your cloud data: your save and your account (the sign-in record with your email), by the
+  // database's delete_my_account (supabase/schema.sql). On a backend set up before that existed, the
+  // save alone, and { account: false } so the game can say what's left. Signs you out here either
+  // way; the game in this browser is untouched. Returns { ok, account }.
+  async deleteCloud() {
+    if (!this.signedIn) return { ok: false, account: false };
+    clearTimeout(this.timer);
+    this.timer = null;
+    // (A sync already on its way finishes first, so nothing lands after the delete.)
+    for (let i = 0; this.syncing && i < 100; i++) await new Promise((r) => setTimeout(r, 100));
+    await this.freshToken();
+    let account = true;
+    try {
+      await this.api('POST', '/rest/v1/rpc/delete_my_account', { body: {} });
+    } catch (err) {
+      if (err.status !== 404 && !/delete_my_account|function/i.test(err.message)) throw err;
+      account = false;
+      await this.api('DELETE', `/rest/v1/${TABLE}?user_id=eq.${this.session.user.id}`);
+    }
+    this.session = null;
+    this.writeSession();
+    this.state = 'signedOut';
+    this.changed(account ? 'Your cloud save and your account are deleted. Your game in this browser is as it was: you’re playing as a guest.' : 'Your cloud save is deleted. Your sign-in record (your email address) is still held: ask whoever runs this copy of the game to remove it (see the privacy page).');
+    return { ok: true, account };
+  }
+
   // Starting a new game or loading a copy: the next sync replaces the cloud save with it.
   replaceNextSync() {
-    if (!this.session) return;
+    if (!this.session || this.elsewhere) return;
     this.session.replace = true;
     this.writeSession();
   }

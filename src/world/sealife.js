@@ -3,6 +3,7 @@ import { anatomyGeometry, anatomyMaterials } from '../anatomy.js';
 import { waveHeight } from './water.js';
 import { depthAt, heightAt, GANNET, SKERRIES } from './terrain.js';
 import { ARCO, PICO } from './brasa.js';
+import { SELKIE } from './north.js';
 import { sealParts } from './calf.js';
 import { clamp, lerp, damp, dampAngle, smoothstep, wrapAngle, glowTexture, mergeParts, mat, seeded } from '../util.js';
 import { BIRDS } from '../birdData.js';
@@ -75,9 +76,9 @@ export const SEA_LIFE = {
   // (Seen over the bay and heard ashore: see world.js for the gulls, audio.js for the calls. heard:
   // the words when you only hear one.)
   herringgull: { name: 'Herring gulls', note: 'Herring gulls: big gulls with a pale grey back, pink legs and a yellow bill with a red spot near its tip, which the chicks peck to be fed. The laughing “kyow-kyow-kyow” of every harbour. A young one takes four years to go from speckled brown to clean grey and white.' },
-  curlew: { name: 'Eurasian curlews', note: 'Eurasian curlews: Europe’s biggest wader, streaked brown, with a long down-curved bill for probing deep in the mud for worms and crabs. Near Threatened: there are far fewer than there were.', heard: 'You hear a curlew: a rising, bubbling “cur-lee” across the water, the loneliest sound on the coast. Europe’s biggest wader, probing the mud with a long down-curved bill.' },
+  curlew: { name: 'Eurasian curlews', note: 'Eurasian curlews: Europe’s biggest wader, streaked brown, with a long down-curved bill for probing deep in the mud for worms and crabs. Near Threatened: there are far fewer than there were.', heard: 'You hear a curlew: a rising, bubbling “cur-lee” across the water. The loneliest sound on the coast. Europe’s biggest wader, probing the mud with a long down-curved bill.' },
   tawnyowl: { name: 'Tawny owls', note: 'Tawny owls: round brown owls with dark eyes that hunt mice and voles by ear in the dark. A pair keeps the same patch of wood for life; the female’s sharp “ke-wick” and the male’s quavering hoot together make the “twit-twoo” of the stories.', heard: 'You hear a tawny owl hooting in the dark: a long, quavering “hoo… hoo”. Somewhere in the trees it’s listening for mice.' },
-  commonfrog: { name: 'Common frogs', note: 'Common frogs: olive to brown, a dark patch behind each eye. They breathe through their skin as well as their lungs, and spend the winter under logs or in the mud at the bottom of the pond.', heard: 'You hear frogs croaking softly at the water’s edge: common frogs, out on a damp night.' },
+  commonfrog: { name: 'Common frogs', note: 'Common frogs: olive to brown, a dark patch behind each eye. They breathe through their skin as well as their lungs, and spend the winter under logs or in the mud at the bottom of the pond.', heard: 'You hear frogs croaking softly at the water’s edge. Common frogs, out on a damp night.' },
 };
 // (And the birds of the coast, watched from the shore or the boat, or through the binoculars:
 // see birdData.js and birds.js.)
@@ -85,7 +86,7 @@ for (const [k, B] of Object.entries(BIRDS)) SEA_LIFE[k] = { name: B.name, note: 
 
 // The pods, where they roam (an area, kept to water at least minDepth deep), how fast they go,
 // how long between breaths, and whether they ride a bow.
-const PODS = [
+export const PODS = [
   { kind: 'bottlenose', sea: 'home', n: 5, len: [2.6, 3.4], area: [-450, 450, -60, 820], minDepth: 6, speed: 2.2, period: [7, 12], bow: true },
   { kind: 'commondolphin', sea: 'home', n: 9, len: [1.8, 2.3], area: [-600, 900, 650, 1350], minDepth: 15, speed: 3, period: [5, 9], bow: true },
   // (Round Las Brasas, where the water's clear and the lee calm, they notice a boat from further
@@ -98,6 +99,12 @@ const PODS = [
   { kind: 'commondolphin', sea: 'crossing', n: 12, len: [1.8, 2.3], area: [-1200, 1400, 1500, 5000], minDepth: 50, speed: 3, period: [5, 9], bow: true, reach: 480, seen: 320 },
   // (The pilot whales: a family, slow and often resting at the surface; they don't ride bows.)
   { kind: 'pilotwhale', sea: 'south', n: 6, len: [3.8, 5.6], area: [-950, -150, 6250, 6880], minDepth: 60, speed: 1.1, period: [9, 15], bow: false, whale: true },
+  // (The archipelago, docs/ARCHIPELAGO.md) Common dolphins working the bait over El Banco, out in
+  // the north-west. (Its own dice, as the canyon's whale has: the life made after it doesn't move.)
+  { kind: 'commondolphin', sea: 'south', n: 8, len: [1.8, 2.3], area: [-1100, -540, 4900, 5400], minDepth: 25, speed: 3, period: [5, 9], bow: true, reach: 360, seen: 280, ownDice: 5151 },
+  // (The north, up the coast, docs/NORTH.md) Common dolphins along the west coast on the way, out
+  // in the Atlantic swell. (Its own dice too.)
+  { kind: 'commondolphin', sea: 'north', n: 7, len: [1.8, 2.3], area: [-3600, -2400, -4600, -1200], minDepth: 25, speed: 3, period: [5, 9], bow: true, reach: 360, seen: 280, ownDice: 6262 },
 ];
 
 // The great whales: where they range, their size, their blow (height, width, a forward lean), how
@@ -109,6 +116,8 @@ const WHALES = [
   // (And out on the crossing: a fin whale in the cooler northern half, a sperm whale in the warm.)
   { kind: 'finwhale', sea: 'crossing', len: 18, area: [-1200, 1400, 1500, 3200], minDepth: 40, speed: 2.2, blow: [7, 1.3, 0], breaths: [3, 5], down: [110, 170], gap: [12, 18] },
   { kind: 'spermwhale', sea: 'crossing', len: 14, area: [-1200, 1400, 3000, 5000], minDepth: 80, speed: 0.7, blow: [4, 2.2, 0.8], breaths: [7, 10], down: [160, 240], gap: [10, 15], rests: true, flukes: true },
+  // (The north) A minke whale feeding round the Selkie Isles, in the sound and outside. (Its own dice; the canyon's whale stays last.)
+  { kind: 'minkewhale', sea: 'north', len: 8, area: [-4300, -2300, -7300, -4700], minDepth: 20, speed: 2, blow: [2.4, 0.9, 0], breaths: [3, 4], down: [70, 110], gap: [8, 14], ownDice: 6161 },
   // (G7b) And at home, a sperm whale hunting Gannet Deep (terrain.js CANYON): squid in the dark
   // of its floor, a hundred and fifty metres down, and up to breathe and lie at the surface over
   // it. Kept to water a hundred metres deep, which at home is the canyon alone. (Its own dice:
@@ -286,21 +295,23 @@ export function buildSeaLife(scene, { glow = null, seed = 20261106 } = {}) {
 
   /* ---------- dolphins (and the pilot whales) ---------- */
   const pods = PODS.map((P, id) => {
-    const at = pickTarget(P.area, P.minDepth, undefined, undefined, B);
+    // (A pod added later rolls dice of its own, as a whale does, so nothing made after it moves.)
+    const R = P.ownDice ? seeded(seed + P.ownDice) : B, rbrand = (a, b) => a + R() * (b - a);
+    const at = pickTarget(P.area, P.minDepth, undefined, undefined, R);
     const pod = {
-      ...P, id, x: at.x, z: at.z, heading: B() * Math.PI * 2, vx: 0, vz: 0, target: pickTarget(P.area, P.minDepth, at.x, at.z, B),
+      ...P, id, x: at.x, z: at.z, heading: R() * Math.PI * 2, vx: 0, vz: 0, target: pickTarget(P.area, P.minDepth, at.x, at.z, R),
       mode: 'roam', modeT: 0, bored: 0, slowT: 0, whistleT: 2, seenT: 0, glowT: 0, members: [], owner: null, net: null,
     };
     for (let i = 0; i < P.n; i++) {
-      const len = brand(P.len[0], P.len[1]);
+      const len = rbrand(P.len[0], P.len[1]);
       const body = cetacean(scene, P.kind, len);
       const side = i % 2 ? 1 : -1;
       pod.members.push({
         ...body, len, x: at.x, y: -3, z: at.z, yaw: pod.heading, pitch: 0,
         // Its place in the pod (across, along), and alongside a bow (across, ahead, how deep).
-        slot: { across: (B() - 0.5) * (P.whale ? 16 : 12), along: (B() - 0.5) * (P.whale ? 14 : 10) },
-        bowSlot: { across: side * brand(0.7, 2.2), ahead: brand(0.4, 3.8), deep: brand(0.5, 1.0) },
-        cyc: B() * 8, period: brand(P.period[0], P.period[1]), leap: false, blew: false, landed: true, phase: B() * 10,
+        slot: { across: (R() - 0.5) * (P.whale ? 16 : 12), along: (R() - 0.5) * (P.whale ? 14 : 10) },
+        bowSlot: { across: side * rbrand(0.7, 2.2), ahead: rbrand(0.4, 3.8), deep: rbrand(0.5, 1.0) },
+        cyc: R() * 8, period: rbrand(P.period[0], P.period[1]), leap: false, blew: false, landed: true, phase: R() * 10,
       });
     }
     return pod;
@@ -641,6 +652,28 @@ export function buildSeaLife(scene, { glow = null, seed = 20261106 } = {}) {
       s.neck.position.set(0, 0, 0);
       s.head.rotation.x = -0.35;
       visitors.push({ ...s, id: visitors.length, H, x: H.x, z: H.z, a: B() * 6.28, r: brand(14, 30), depth: 1, down: true, t: brand(5, 30), look: 0, mode: 'idle', visits: 0, cool: brand(20, 60), followCool: brand(60, 200), owner: null, net: null });
+    }
+  }
+  // (The north, up the coast) The Selkie Rocks' grey seals: hauled out on the dry tops of the rocks,
+  // and two in the water off them. (Their own dice, after the rest, so nothing else moves.)
+  {
+    const R = seeded(seed + 7171), rb = (a, b) => a + R() * (b - a);
+    const spots = SELKIE.flatMap((K) => [0, 2.1, 4.2].map((a) => ({ x: K.x + Math.sin(a) * K.r * 0.45, z: K.z + Math.cos(a) * K.r * 0.45 }))).filter((p) => heightAt(p.x, p.z) > 0.3);
+    const H = { id: 'selkie', x: SELKIE[0].x, z: SELKIE[0].z, spots, ownDice: true };
+    haulouts.push(H);
+    for (const p of spots) {
+      const s = makeSeal();
+      s.g.scale.setScalar(rb(0.8, 1.15));
+      s.g.position.set(p.x, Math.max(0.1, heightAt(p.x, p.z)) + 0.02, p.z);
+      s.g.rotation.y = R() * Math.PI * 2;
+      ashore.push({ ...s, H, ph: R() * 20, lift: 0, look: 0, ownDice: true });
+    }
+    for (let i = 0; i < 2; i++) {
+      const s = makeSeal();
+      s.body.visible = false;
+      s.neck.position.set(0, 0, 0);
+      s.head.rotation.x = -0.35;
+      visitors.push({ ...s, id: visitors.length, H, x: H.x, z: H.z, a: R() * 6.28, r: rb(14, 30), depth: 1, down: true, t: rb(5, 30), look: 0, mode: 'idle', visits: 0, cool: rb(20, 60), followCool: rb(60, 200), owner: null, net: null, ownDice: true });
     }
   }
   const stepSeals = (dt, t, ctx, near) => {
@@ -1334,8 +1367,11 @@ export function buildSeaLife(scene, { glow = null, seed = 20261106 } = {}) {
       const home = ctx.region !== 'south';
       // (Each sea's own where you are; the crossing's only while you're out on it. What's seen is
       // yours; what's alive is wherever anyone in the session is.)
-      const here = (sea) => (sea === 'crossing' ? !!ctx.crossing : (sea === 'home') === home);
-      const someone = (sea) => V.some((v) => (sea === 'crossing' ? !!v.crossing : (sea === 'home') === (v.region !== 'south')));
+      // (The north's, up the coast, only there; home's wherever's not the south, as they always were:
+      // they're too far off to wake from the north.)
+      const inSea = (sea, region, crossing) => (sea === 'crossing' ? !!crossing : sea === 'north' ? region === 'north' : (sea === 'home') === (region !== 'south'));
+      const here = (sea) => inSea(sea, ctx.region, ctx.crossing);
+      const someone = (sea) => V.some((v) => inSea(sea, v.region, v.crossing));
       for (const p of pods) stepPod(p, dt, t, ctx, here(p.sea) && Math.hypot(p.x - ctx.from.x, p.z - ctx.from.z) < 1200);
       for (const w of whales) {
         // (The crossing's lie dormant till someone's out there: no blows from the open sea at home.)

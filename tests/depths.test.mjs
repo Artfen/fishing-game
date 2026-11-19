@@ -25,7 +25,10 @@ test('five new kinds, joined after every other fish, with real names and models 
   // fishing, smallFish.js) have joined after them, the same way.
   const at = FISH.findIndex((f) => f.id === IDS[0]);
   assert.deepEqual(FISH.slice(at, at + 5).map((f) => f.id), IDS, 'together');
-  assert.ok(FISH.slice(at + 5).every((f) => f.life.micro), 'nothing but the small fish after them');
+  // (And after those, the north's own, up the coast: docs/NORTH.md, joined last the same way.)
+  const NORTH_IDS = ['cod', 'saithe', 'ling', 'skate', 'haddock'];
+  assert.ok(FISH.slice(at + 5).every((f) => f.life.micro || NORTH_IDS.includes(f.id)), 'nothing but the small fish and the north\'s after them');
+  assert.ok(FISH.slice(-NORTH_IDS.length).every((f) => NORTH_IDS.includes(f.id)), 'the north\'s last of all');
   const latin = { thornback: 'Raja clavata', catshark: 'Scyliorhinus canicula', weever: 'Echiichthys vipera', hake: 'Merluccius merluccius', johndory: 'Zeus faber' };
   for (const id of IDS) {
     const sp = fishById[id];

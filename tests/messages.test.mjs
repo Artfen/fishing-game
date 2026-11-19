@@ -23,7 +23,8 @@ test('a message stays up long enough to read it', async () => {
   globalThis.document ??= { getElementById: () => null };
   const { HUD } = await import('../src/ui.js');
   const h = Object.create(HUD.prototype);
-  Object.assign(h, { toastQ: [], toastUp: null, quiet: () => false, toastShow(text, secs) { this.shown = secs; } });
+  // (toastShow takes the message whole: its words, its time, what's on the screen: docs/TEXT.md.)
+  Object.assign(h, { toastQ: [], toastUp: null, quiet: () => false, toastShow(item) { this.shown = item.secs; this.screen = item.screen; } });
   h.toast('Short.', 4);
   assert.equal(h.shown, 4, 'a short one keeps its time');
   h.toastUp = null;
@@ -32,6 +33,12 @@ test('a message stays up long enough to read it', async () => {
   h.toastUp = null;
   h.toast('y'.repeat(140), 5);
   assert.ok(h.shown >= 10, `140 characters: ${h.shown} s`);
+  // (A long message shows its first sentence, and has the time to read that; the rest is in the
+  // journal.)
+  h.toastUp = null;
+  h.toast(`A short first line. Then ${'z'.repeat(200)}.`, 4);
+  assert.equal(h.screen, 'A short first line.');
+  assert.equal(h.shown, 4);
 });
 
 test('a night’s sleep drops the evening’s messages still waiting (a gale warning isn’t true by morning)', async () => {

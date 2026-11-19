@@ -1,5 +1,6 @@
 import { rand, clamp } from './util.js';
 import { hear } from './earshot.js';
+import { SOUNDS, SOUND_DIR, LOOP_PAD } from './soundFiles.js';
 
 const midi = (m) => 440 * Math.pow(2, (m - 69) / 12);
 // D major pentatonic, the gentlest scale there is.
@@ -7,7 +8,11 @@ const MELODY = [62, 64, 66, 69, 71, 74, 76, 78, 81, 83, 86];
 const CHORDS = [[50, 57, 62], [47, 54, 62], [43, 50, 59], [45, 52, 61]];
 
 // Everything you hear is synthesised: filtered noise for water, wind and rain,
-// tiny oscillator gestures for birds, and a slow generative pentatonic tune.
+// tiny oscillator gestures for birds, and a slow generative pentatonic tune. Under it (docs/SOUND.md,
+// soundFiles.js) a few recordings, public domain or CC0, for the texture noise can't give: waves up
+// a beach (calm and rough), a marina's halyards and gulls, rain in the leaves, a herring gull's
+// call. The made sound still does the responding; the recordings only lie under it, and if one
+// can't be loaded, nothing is missing but its texture.
 //
 // Round a harbour the sounds have places (see earshot.js): the sea slapping the quay where it
 // meets the water nearest you, mooring lines creaking and rigging tinkling on the boats lying
@@ -289,6 +294,8 @@ export class AudioScape {
     sv.start();
     this.alarmOsc = null;
     this.setVolumes(this.volumes);
+    // (The recordings: fetched and decoded in the background, each joining the mix when it's ready.)
+    this.loadRecordings();
 
     this.next = { slap: 1, creak: 3, lap: 1, bird: 3, gull: 8, cricket: 2, owl: 25, note: 5, chord: 1, drop: 0, crackle: 0.5, frog: 8, bloop: 1, clink: 2, curlew: 12, boom: 4, flap: 2, seal: 6, shear: 4, pub: 3, clock: 1 };
     this.lastNote = 5;
@@ -296,6 +303,41 @@ export class AudioScape {
   }
 
   get ready() { return !!this.ctx; }
+
+  // The recordings (docs/SOUND.md): each loop a bed of its own, looped between its padding (see
+  // tools/sounds.mjs), silent until update() raises it; the gull's calls kept to play. Resolves with
+  // what loaded; a file that doesn't (offline before it was stored, a browser that can't decode it)
+  // is simply left out.
+  loadRecordings(base = '') {
+    if (!this.ctx) return Promise.resolve(null);
+    if (this.recLoad) return this.recLoad;
+    this.rec = { loops: {}, calls: [] };
+    const dest = { shoreCalm: this.wavesBus, shoreRough: this.wavesBus, harbour: this.nature, rain: this.rainBus };
+    this.recLoad = Promise.all(Object.entries(SOUNDS).map(async ([id, s]) => {
+      try {
+        const res = await fetch(`${base}${SOUND_DIR}${s.file}`);
+        if (!res.ok) return;
+        const buf = await this.ctx.decodeAudioData(await res.arrayBuffer());
+        if (s.loop) this.rec.loops[id] = this.recBed(buf, s, dest[id] || this.nature);
+        else this.rec.calls.push(buf);
+      } catch { /* left out: the made sound covers it */ }
+    })).then(() => this.rec);
+    return this.recLoad;
+  }
+  recBed(buf, s, dest) {
+    const ctx = this.ctx, src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    src.loopStart = LOOP_PAD;
+    src.loopEnd = Math.min(buf.duration, LOOP_PAD + s.loop);
+    const g = ctx.createGain();
+    g.gain.value = 0;
+    src.connect(g);
+    g.connect(dest);
+    src.start(0, LOOP_PAD + Math.random() * s.loop);
+    (this.beds ||= []).push({ src, first: g, g, parked: false, quietSince: null });
+    return { g };
+  }
 
   setVolumes(v) {
     Object.assign(this.volumes, v);
@@ -677,6 +719,24 @@ export class AudioScape {
   }
 
   gull(vol, pan, lp = 0) {
+    // (A herring gull's recorded call, a little higher or lower each time, placed and muffled as the
+    // made one would be; the made one only if none is loaded. docs/SOUND.md)
+    const calls = this.rec?.calls;
+    if (calls?.length) {
+      const ctx = this.ctx, t0 = ctx.currentTime, n = 1 + Math.floor(rand(0, 2.4));
+      for (let i = 0; i < n; i++) {
+        const src = ctx.createBufferSource();
+        src.buffer = calls[Math.floor(Math.random() * calls.length)];
+        src.playbackRate.value = rand(0.9, 1.1);
+        const g = ctx.createGain(), p = this.placed(this.nature);
+        g.gain.value = vol * 1.2;
+        p.pan.value = clamp(pan, -1, 1);
+        g.connect(p);
+        src.connect(this.dull(g, lp));
+        src.start(t0 + i * rand(0.45, 0.7));
+      }
+      return;
+    }
     let t = 0;
     const n = 2 + Math.floor(rand(0, 3));
     for (let i = 0; i < n; i++) {
@@ -1453,13 +1513,24 @@ export class AudioScape {
     // The sea's wash grows with the waves where you are; the surf with the swell on the shore.
     this.set(this.waterBed.g.gain, (0.08 + 0.05 * Math.min(speed / 5, 1) + 0.12 * Math.min(sea, 1)) * (0.25 + 0.75 * water) * shut, 1);
     const above = (1 - this.under * 0.75) * shut;
-    this.set(this.surfBed.g.gain, (0.008 + land * (0.02 + 0.05 * Math.min(sea, 1)) * (1 - cove * 0.5)) * above, 1.5);
+    // (Under the made surf, the recorded shore: small waves when it's calm, the strong ones as the
+    // sea gets up; the made surf a little quieter once they're there. docs/SOUND.md)
+    const R = this.rec?.loops || {}, recShore = !!(R.shoreCalm || R.shoreRough);
+    this.set(this.surfBed.g.gain, (0.008 + land * (0.02 + 0.05 * Math.min(sea, 1)) * (1 - cove * 0.5)) * above * (recShore ? 0.6 : 1), 1.5);
+    {
+      const rough = clamp((sea - 0.3) / 0.9, 0, 1), shore = land * (1 - cove * 0.4) * above;
+      if (R.shoreCalm) this.set(R.shoreCalm.g.gain, 0.3 * shore * (1 - rough) * (0.6 + 0.4 * Math.min(1, sea * 2)), 1.5);
+      if (R.shoreRough) this.set(R.shoreRough.g.gain, 0.34 * shore * rough, 1.5);
+      if (R.harbour) this.set(R.harbour.g.gain, 0.3 * harbour * above, 1.5);
+      if (R.rain) this.set(R.rain.g.gain, 0.65 * rain * (0.35 + 0.65 * shut), 1.5);
+    }
     // The wind: its strength where you are (0 … 1 at a fresh breeze), louder and brighter in gusts.
     this.set(this.windBed.g.gain, (0.006 + 0.07 * wind * wind + 0.02 * rain) * above, 1.2);
     this.set(this.gustBed.g.gain, 0.012 * Math.max(0, gust - 1.1) * wind * above, 0.6);
     this.set(this.underBed.g.gain, 0.16 * this.under, 0.4);
     this.windBed.f[0].frequency.setTargetAtTime(500 + wind * 400 + (gust - 1) * 500 + Math.sin(this.t * 0.11) * 120, now, 0.8);
-    this.set(this.rainBed.g.gain, 0.085 * rain * shut, 1.5);
+    // (With the recorded rain under it, the made rain a little back: the recording's the texture.)
+    this.set(this.rainBed.g.gain, 0.085 * rain * shut * (this.rec?.loops?.rain ? 0.7 : 1), 1.5);
     this.set(this.rainLow.g.gain, 0.08 * rain * (0.5 + 0.5 * shut), 1.5);
     this.set(this.murmurBed.g.gain, 0.03 * pub * (0.7 + 0.3 * Math.sin(this.t * 0.37) * Math.sin(this.t * 0.13 + 1)), 1.2);
     this.set(this.music.gain, this.musicOn ? 0.9 * (1 - rain * 0.3) : 0, 1.5);

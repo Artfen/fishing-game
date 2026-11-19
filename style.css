@@ -250,6 +250,14 @@ kbd {
   z-index: 4; /* above the fish finder, even a dragged one */
 }
 #toast.show { opacity: 1; transform: none; }
+/* (docs/TEXT.md) A tip's lamp before it; a small book after a message with more to it in the
+   journal (Your days, What you were told). */
+#toast.tip::before { content: ''; display: inline-block; width: 11px; height: 15px; margin: 0 7px -2px 0; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 16'%3E%3Cpath d='M6 1a4.4 4.4 0 0 0-2.6 8c.6.5.9 1.1.9 1.8V12h3.4v-1.2c0-.7.3-1.3.9-1.8A4.4 4.4 0 0 0 6 1z' fill='%23ffc977'/%3E%3Cpath d='M4.4 13.3h3.2M4.8 14.8h2.4' stroke='%23ffc977' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat center / contain; }
+#toast.more::after { content: ''; display: inline-block; width: 15px; height: 13px; margin: 0 0 -1px 7px; opacity: 0.75; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 14'%3E%3Cpath d='M1 2.2c2.4-1 4.6-1 7 .6 2.4-1.6 4.6-1.6 7-.6v10c-2.4-1-4.6-1-7 .6-2.4-1.6-4.6-1.6-7-.6z' fill='none' stroke='%23fff9ef' stroke-width='1.3' stroke-linejoin='round'/%3E%3Cpath d='M8 2.8v10' stroke='%23fff9ef' stroke-width='1.1'/%3E%3C/svg%3E") no-repeat center / contain; }
+.j-told { list-style: none; margin: 4px 0 14px; padding: 0; display: grid; gap: 7px; max-height: 340px; overflow-y: auto; }
+.j-told li { font: 14px/1.4 var(--font-hand); }
+.j-told li.tip::before { content: '\2022 '; color: var(--stamp); }
+.j-told-when { display: block; font: 700 10px var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
 
 #hint {
   position: absolute;
@@ -1122,12 +1130,17 @@ p.cp-soft { margin: 6px 0; }
 #j-close:hover { background: rgba(53, 41, 31, 0.08); }
 .j-settings { display: flex; flex-wrap: wrap; gap: 8px; }
 .j-save-status { flex: 1 1 100%; margin: 0; font: 600 12px/1.4 var(--font-ui); color: var(--ink-soft); }
+.j-desktop { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.j-desktop[hidden] { display: none; }
+.j-desktop label { display: inline-flex; align-items: center; gap: 6px; font: 600 12px/1.4 var(--font-ui); color: var(--ink-soft); }
 .j-settings button.danger { border-color: rgba(181, 83, 47, 0.55); color: var(--stamp); }
 .j-cloud p { flex: 1 1 100%; margin: 0; font: 14px/1.4 var(--font-hand); }
 .j-cloud { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--ink-faint); }
 .j-cloud h4 { flex: 1 1 100%; margin: 0; font: 700 20px var(--font-display); }
 .j-cloud-form { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 8px; }
 .j-cloud .j-cloud-msg { font: 600 12px/1.4 var(--font-ui); color: var(--stamp); }
+.j-cloud .j-cloud-privacy { font: 600 12px/1.4 var(--font-ui); }
+.j-cloud .j-cloud-privacy a { color: var(--ink-soft); }
 .j-cloud input { flex: 1 1 200px; padding: 6px 10px; border: 1.5px solid var(--ink-faint); border-radius: 999px; background: rgba(255, 255, 255, 0.5); font: 600 13px var(--font-ui); color: var(--ink); }
 
 /* Journal tabs: a pair of bookmarks along the top edge. */
@@ -1188,6 +1201,19 @@ p.cp-soft { margin: 6px 0; }
 
 /* A gentle "are you sure?" */
 #confirm { z-index: 12; }
+/* The title screen's game line, and the list of games (docs/MODES.md, M2). */
+.t-game { margin: 10px 0 0; font: 600 13px/1.4 var(--font-ui); color: rgba(255, 249, 239, 0.78); animation: rise 1.6s 0.6s ease both; }
+#games { z-index: 11; }
+.games-inner { width: min(560px, 100%) !important; }
+.gm-list { display: grid; gap: 10px; margin-top: 14px; }
+.gm-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px 12px; padding: 12px 14px; border-radius: 8px; background: rgba(53, 41, 31, 0.06); border: 1px solid rgba(53, 41, 31, 0.1); }
+.gm-row.on { background: rgba(53, 41, 31, 0.11); border-color: rgba(53, 41, 31, 0.3); }
+.gm-row h4 { margin: 0; font: 700 22px/1.1 var(--font-display); }
+.gm-row h4 small { margin-left: 8px; font: 700 11px var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
+.gm-row p { margin: 2px 0 0; font: 15px/1.35 var(--font-hand); color: var(--ink-soft); }
+.gm-acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.gm-note { margin: 12px 0 0; font: 600 12px/1.4 var(--font-ui); color: var(--ink-soft); }
+@media (max-width: 520px) { .gm-row { grid-template-columns: 1fr; } .gm-acts { justify-content: flex-start; } }
 .confirm-inner { width: min(460px, 100%) !important; }
 .confirm-inner p { font: 16px/1.45 var(--font-hand); margin: 10px 0 0; }
 .confirm-acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 16px; }
@@ -1283,6 +1309,9 @@ p.cp-soft { margin: 6px 0; }
 .t-update .t-quality { margin-left: 0; }
 .t-update-note:not(:empty) { margin-left: 8px; }
 .t-quality:disabled, #update-now:disabled { opacity: 0.6; cursor: default; }
+.t-download { margin: 4px 0 0; font: 500 11px/1.4 var(--font-ui); animation: rise 1.6s 1s ease both; }
+.t-download a { color: rgba(255, 249, 239, 0.6); text-underline-offset: 2px; }
+.t-download a:hover, .t-download a:focus-visible { color: rgba(255, 249, 239, 0.9); }
 .t-version { margin: 6px 0 0; font: 500 11px/1.4 var(--font-ui); letter-spacing: 0.02em; color: rgba(255, 249, 239, 0.5); animation: rise 1.6s 1s ease both; user-select: all; }
 #clock-net { color: #ffd59a; opacity: 1; }
 .t-note { margin-top: 14px; font-size: 13px; animation: rise 1.6s 0.7s ease both; color: rgba(255, 249, 239, 0.75); }
@@ -2906,6 +2935,8 @@ body.sitting #lever, body.sitting #hint { display: none !important; }
 
 /* (Dialog text keeps its paragraphs: the play-style question.) */
 #confirm-text { white-space: pre-line; }
+/* (A long note, like the Loch Bothy's book, scrolls inside the card rather than running off the screen.) */
+#nc-text { white-space: pre-line; max-height: min(46vh, 420px); overflow-y: auto; overscroll-behavior: contain; }
 
 /* The dashboard's label: the control under the pointer (or ringed), and what it's doing. */
 .dash-tip { position: fixed; left: 50%; bottom: 128px; transform: translateX(-50%); padding: 6px 12px; border-radius: 10px; background: rgba(12, 18, 24, 0.72); color: #f3eee4; font: 600 14px var(--font-ui); pointer-events: none; z-index: 30; white-space: nowrap; max-width: calc(100vw - 32px); overflow: hidden; text-overflow: ellipsis; }

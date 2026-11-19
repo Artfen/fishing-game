@@ -331,8 +331,17 @@ export function buildHullModel(H) {
   };
   for (let i = 0; i < NZ; i++) {
     for (let j = 0; j < NP; j++) {
-      addTri(idx(i, j), idx(i + 1, j), idx(i + 1, j + 1));
-      addTri(idx(i, j), idx(i + 1, j + 1), idx(i, j + 1));
+      // (Each quad split across the diagonal that mirrors the other side's, so her starboard side
+      // is her port side's image. Split the same way on both, the water's pressure on the two
+      // didn't quite balance: a small turn even at rest, and every boat left drifting in a flat
+      // calm slowly spun.)
+      if (j < NP / 2) {
+        addTri(idx(i, j), idx(i + 1, j), idx(i + 1, j + 1));
+        addTri(idx(i, j), idx(i + 1, j + 1), idx(i, j + 1));
+      } else {
+        addTri(idx(i, j), idx(i + 1, j), idx(i, j + 1));
+        addTri(idx(i + 1, j), idx(i + 1, j + 1), idx(i, j + 1));
+      }
     }
   }
   // The transom (facing aft), a bow cap if the hull's open there (facing forward), and the lid.
@@ -698,6 +707,9 @@ function foilsFor(H, bMax) {
     case 'sport-fishing yacht': keel(0.1, 0.75, 0.25); break;
     case 'centre-console boat': keel(0.1, 0.8, 0.08); break;
     case 'jet ski': keel(0.1, 0.7, 0.06); break;
+    // (The trawler's full keel, from her forefoot to the aperture: a big grip on the water, so she
+    // holds a course and drifts off slowly.)
+    case 'expedition trawler': keel(0.12, 0.8, 0.45); break;
     default:
   }
   if (H.sail) {
@@ -709,7 +721,11 @@ function foilsFor(H, bMax) {
     // The windsurf board's fin, under its tail.
     foil({ p: [0, keelAt(0.08) - 0.2, zAt(H, 0.08)], area: 0.045, ar: 3.2, span: 0.38, stall: 0.3 });
   }
-  if (H.motor?.inboard) {
+  if (H.motor?.inboard && !H.motor.twin && H.motor.rudder) {
+    // One rudder behind her single screw, hung on the skeg (see boat.js buildSingleScrew).
+    const P = H.motor.prop, R = H.motor.rudder, top = keelAt(Math.max(0, R.z / H.L)), foot = keelAt(0) + P[1] - P[3] - 0.08;
+    foil({ p: [P[0], (top + foot) / 2, zAt(H, 0) + R.z - 0.2], area: R.area, ar: 1.5, span: top - foot, steer: 0.6, rudder: true, stall: 0.4 });
+  } else if (H.motor?.inboard) {
     // Two rudders behind the propellers.
     for (const s of [1, -1]) foil({ p: [s * (H.motor.twin ?? 0.4), keelAt(0.05) - 0.3, zAt(H, 0) + 0.25], area: 0.16, ar: 1.6, span: 0.5, steer: 0.6, rudder: true, stall: 0.4 });
   }

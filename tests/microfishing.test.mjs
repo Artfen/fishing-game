@@ -77,8 +77,9 @@ test('they live where you’d look for them, and every fish already in the water
   // All in shallow water, near the shore or a wall, never out in the deep.
   for (const id of IDS) for (const a of eco.bySpecies[id]) assert.ok(a.home.depth < 6, `${id} at ${a.home.depth.toFixed(1)} m`);
   // Added after every other fish: each one's id is past every fish that was there before.
+  // (Only the north's, up the coast, after them: docs/NORTH.md, joined last the same way.)
   const firstSmall = eco.agents.findIndex((a) => a.sp.life.micro);
-  assert.ok(firstSmall > 4000 && eco.agents.slice(firstSmall).every((a) => a.sp.life.micro), 'the small fish last of all');
+  assert.ok(firstSmall > 4000 && eco.agents.slice(firstSmall).every((a) => a.sp.life.micro || a.home.north), 'the small fish last of all but the north’s');
   assert.ok(eco.agents.every((a, i) => a.id === i));
 });
 

@@ -32,7 +32,7 @@
 export const SEALED = new Set(['windsurf', 'jetski']);
 export const SELF_DRAINING = new Set(['rib', 'console']);
 // Electric bilge pumps (litres a second, all together): the boats with a battery.
-export const PUMPS = { bass: 1.2, cabin: 1.2, console: 2, rib: 1.5, cruiser: 3 };
+export const PUMPS = { bass: 1.2, cabin: 1.2, console: 2, rib: 1.5, cruiser: 3, trawler: 3 };
 // Bailing by hand (litres a second: a bailer or a hand pump, steadily).
 export const BAIL = 0.7;
 // What a pump draws on her battery, a share of its charge a second (about 5 A from 70 Ah).
@@ -63,6 +63,7 @@ function layoutOf(kind) {
   if (kind === 'kayak') return [{ id: 'cockpit', name: 'the cockpit', t0: 0.3, t1: 0.6, open: true }];
   if (kind === 'cabin') return [{ id: 'cockpit', name: 'the cockpit', t0: 0.02, t1: 0.5, open: true }, { id: 'cabin', name: 'the cabin', t0: 0.5, t1: 0.95 }];
   if (kind === 'cruiser') return [{ id: 'engine', name: 'the engine room', t0: 0.02, t1: 0.3, engine: true }, { id: 'saloon', name: 'the saloon', t0: 0.3, t1: 0.72 }, { id: 'fore', name: 'the forecabin', t0: 0.72, t1: 0.95 }];
+  if (kind === 'trawler') return [{ id: 'engine', name: 'the engine room', t0: 0.02, t1: 0.3, engine: true }, { id: 'saloon', name: 'the saloon', t0: 0.3, t1: 0.72 }, { id: 'fore', name: 'the forecabin', t0: 0.72, t1: 0.95 }];
   if (SELF_DRAINING.has(kind)) return [{ id: 'bilge', name: 'her bilge', t0: 0.03, t1: 0.9 }];
   return [{ id: 'bilge', name: 'her bilge', t0: 0.03, t1: 0.95, open: true }];
 }

@@ -78,7 +78,7 @@ test('the ground under it is level across and eases back into the land: a bank h
 });
 
 test('the trailer takes the small boats, and nothing goes on it that shouldn’t', () => {
-  assert.deepEqual(TRAILABLE, ['kayak', 'row', 'skiff', 'bass', 'jetski']);
+  assert.deepEqual(TRAILABLE, ['kayak', 'row', 'skiff', 'bass', 'jetski', 'tender']);
   assert.deepEqual(cleanTrailer(null), { hitched: false, boat: null });
   assert.deepEqual(cleanTrailer({ hitched: true }), { hitched: true, boat: null });
   assert.deepEqual(cleanTrailer({ boat: 'kayak' }), { hitched: true, boat: 'kayak' }, 'a boat on it: it’s hitched');

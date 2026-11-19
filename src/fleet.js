@@ -14,7 +14,7 @@ export const MAX_AFLOAT = 3;
 export const HOMES = {
   row: 'camp', skiff: 'camp', kayak: 'camp',
   bass: 'lake',
-  sail: 'harbour', cabin: 'harbour', cruiser: 'harbour', console: 'harbour', jetski: 'harbour', windsurf: 'harbour', rib: 'harbour',
+  sail: 'harbour', cabin: 'harbour', cruiser: 'harbour', console: 'harbour', jetski: 'harbour', windsurf: 'harbour', rib: 'harbour', tender: 'harbour', trawler: 'harbour',
 };
 export const homeOf = (kind) => HOMES[kind] || 'harbour';
 export const STORE_WORDS = {
@@ -34,7 +34,7 @@ export const NEW_AFLOAT = ['row', 'skiff', 'kayak'];
 // A game from before boats were laid up: which three stay in the water. The boat you're in (or
 // last used) first; then any you've left somewhere other than where she lives (you've been out
 // in her); then the rest in the order a fisherman would want them.
-const ORDER = ['skiff', 'row', 'console', 'cabin', 'cruiser', 'rib', 'sail', 'kayak', 'bass', 'jetski', 'windsurf'];
+const ORDER = ['skiff', 'row', 'console', 'cabin', 'cruiser', 'trawler', 'rib', 'tender', 'sail', 'kayak', 'bass', 'jetski', 'windsurf'];
 export function chooseAfloat(kinds, { vessel = null, away = [] } = {}) {
   const pick = [];
   const add = (k) => {
@@ -51,8 +51,9 @@ export function chooseAfloat(kinds, { vessel = null, away = [] } = {}) {
 // east side, or its west with east false) for the harbour boats in the water: each lies
 // alongside, bow out, along one side or the other (of `sides`), longest first, a metre between. lengths: kind -> her length (m); beams: kind
 // -> her half-beam. Returns kind -> { x, z, heading, side } (side +1: the seaward side), leaving
-// out any that don't fit.
-export function ownBerths(F, kinds, lengths, beams, sides = [1, -1], east = true) {
+// out any that don't fit. aft: kind -> how far something of hers stands out past her transom (the
+// trawler's swim platform), counted in her length here, and her middle that much further out.
+export function ownBerths(F, kinds, lengths, beams, sides = [1, -1], east = true, aft = {}) {
   const out = {};
   // (Along from the pontoon: out towards +x on an east finger, −x on a west one.)
   const room = sides.map((side) => ({ side, at: 0.6 }));
@@ -62,7 +63,7 @@ export function ownBerths(F, kinds, lengths, beams, sides = [1, -1], east = true
     // (The side with the most room left.)
     const r = room.filter((s) => s.at + L <= F.x1 - F.x0 + 0.4).sort((a, b) => a.at - b.at)[0];
     if (!r) continue;
-    const u = r.at + L / 2, x = east ? F.x0 + u : F.x1 - u, z = r.side > 0 ? F.z1 + beams[k] + 0.25 : F.z0 - beams[k] - 0.25;
+    const u = r.at + (L + (aft[k] || 0)) / 2, x = east ? F.x0 + u : F.x1 - u, z = r.side > 0 ? F.z1 + beams[k] + 0.25 : F.z0 - beams[k] - 0.25;
     out[k] = { x, z, heading: east ? Math.PI / 2 : -Math.PI / 2, side: r.side };
     r.at += L + 1;
   }

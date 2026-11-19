@@ -13,7 +13,7 @@
 import { STORES_DAYS } from './cargo.js';
 import { kindOf, isBoatId } from './boatid.js';
 
-export const GALLEY = { cabin: 3, cruiser: 6, sail: 3 };
+export const GALLEY = { cabin: 3, cruiser: 6, sail: 3, trawler: 12 };
 export const CRATE_DAYS = STORES_DAYS;
 export const MEAL = 1 / 3;
 export const FILL = 1 / 6;

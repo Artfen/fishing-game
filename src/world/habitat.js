@@ -2,13 +2,14 @@ import {
   heightAt, zoneAt, streamFlow, lakeSDF, ISLAND, COVE, STACKS, CHANNEL, JETTY, LAKE, STREAM, SNAG, LILIES,
   RIVER, riverInfo, riverSDF, MARSH, SANDBANKS, QUAY, MERE, MERE_BAYS, HOLM, TIMBER, mereSDF,
   GANNET, PUFFIN_COVE, SKERRIES, SKELLIG, SHOAL, DEEP_Z, CANYON, canyonAxis, WRECK, STRAND, DAYMARK, CALF, CALF_SKERRY, CALF_SOUND,
-  HAVEN, HAVEN_QUAY, BOATHOUSE_PIER, waterLevel,
+  HAVEN, HAVEN_QUAY, BOATHOUSE_PIER, waterLevel, northAt,
 } from './terrain.js';
 import { COLDWATER, TARN } from './coldwater.js';
 import {
-  SOUTH_Z, SOUTH_MAP, brasaHeight, brasaZone, brasaHabitat, brasaSDF, PUERTO, QUAY_S, MOLE, DIQUE, PLAYA, ARCO, ARCHES, FARO, COLADAS, SEBADAL, BAJON, onBajon,
+  SOUTH_Z, SOUTH_MAP, brasaHeight, brasaZone, brasaHabitat, brasaSDF, upCurrent, inEstrecho, onBanco, GAVIOTA, HONDA, ROQUETES, VAPOR, BANCO, PUERTO, QUAY_S, MOLE, DIQUE, PLAYA, ARCO, ARCHES, FARO, COLADAS, SEBADAL, BAJON, onBajon,
 } from './brasa.js';
 import { siteById, PINNACLES } from './divesites.js';
+import { northLand, northHabitat, SULA, SKARV, ISLES_MAP } from './north.js';
 import { ENDS } from '../crossing.js';
 import { fbm, seeded, smoothstep, clamp } from '../util.js';
 
@@ -140,6 +141,11 @@ export function createHabitat() {
     sample(x, z, out = {}) {
       // (Las Brasas, far to the south, is described by its own functions: see brasa.js.)
       if (z > SOUTH_Z) return brasaHabitat(x, z, out);
+      // (And the north, up the coast: see north.js.)
+      if (northLand(x, z)) {
+        const h = heightAt(x, z);
+        return northHabitat(x, z, northAt(x, z), h, out, heightAt);
+      }
       const fx = (x - HABITAT_RECT.x) / CELL, fz = (z - HABITAT_RECT.z) / CELL;
       if (fx < 0 || fz < 0 || fx >= NX - 1 || fz >= NZ - 1) {
         for (const R of regionGrids) {
@@ -265,7 +271,70 @@ export function createHabitat() {
   // moves for it.
   const cz = CANYON.z0 + 70, cx = canyonAxis(cz);
   spots.push({ type: 'blue', x: cx, z: cz, depth: habitat.depth(cx, cz), zone: zoneAt(cx, cz), r: 60, tag: 'canyon', hosts: ['tuna', 'bonito'] });
+  // The north, up the coast (docs/NORTH.md): after everything, so no home anywhere else moves.
+  northDiveSpots(habitat, spots);
+  northSpots(habitat, spots);
   return habitat;
+}
+
+// The north's fish homes, over the isles and Loch Skarn (a 24 m grid, kept cheap: it's built at
+// the start): reef and rock under the rocky shores (the kelp, the skerries, the loch's walls),
+// sand in the sound, the deep in the loch's basin and out in the Atlantic, the tide in the Churn.
+// Marked north (each species' groups there come in a pass of their own, after every other fish:
+// see ecosystem.js), with their own dice.
+function northSpots(habitat, spots) {
+  const rnd = seeded(7007), G = 24, R = ISLES_MAP, out = [];
+  const grid = new Map(), key = (x, z) => `${Math.floor(x / 30)},${Math.floor(z / 30)}`;
+  const clear = (x, z) => {
+    const i = Math.floor(x / 30), j = Math.floor(z / 30);
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (const p of grid.get(`${i + a},${j + b}`) || []) if (Math.hypot(p.x - x, p.z - z) < 30) return false;
+    return true;
+  };
+  for (let z = R.z + G / 2; z < R.z + R.h; z += G) {
+    for (let x = R.x + G / 2; x < R.x + R.w; x += G) {
+      const jx = x + (rnd() - 0.5) * G * 0.8, jz = z + (rnd() - 0.5) * G * 0.8;
+      const h = heightAt(jx, jz), depth = -h;
+      if (depth < 2) continue;
+      const zone = zoneAt(jx, jz), S = northAt(jx, jz), d = S.d;
+      const shore = d < 70, deepLoch = zone === 'loch' && depth > 40;
+      let type;
+      if (zone === 'race') type = 'tide';
+      else if (zone === 'sound') type = depth > 12 ? 'sand' : 'reef';
+      else if (zone === 'loch') type = deepLoch ? (rnd() < 0.5 ? 'deep' : 'sand') : depth > 12 && d < 50 ? 'rock' : 'sand';
+      else if (zone === 'kelp' || zone === 'skerry') type = rnd() < 0.6 ? 'reef' : 'rock';
+      else type = depth > 25 ? 'deep' : shore ? 'rock' : 'open';
+      if (rnd() > (type === 'deep' || type === 'open' ? 0.25 : 0.6) || !clear(jx, jz)) continue;
+      const s = { type, x: jx, z: jz, depth, zone, r: type === 'deep' ? 14 : 9, tag: zone, north: true };
+      out.push(s);
+      const k = key(jx, jz);
+      if (!grid.has(k)) grid.set(k, []);
+      grid.get(k).push(s);
+    }
+  }
+  spots.push(...out);
+}
+
+// The north's dive sites' fish (see divesites.js), the home coast's cold-water fish there:
+//  · The Sula: a conger and pollack in her hull, wrasse in the kelp over her, catsharks on the sand
+//    beside her.
+//  · Skarv Stack's foot: wrasse and pollack on its walls, a conger and catsharks in the cracks at its
+//    foot, mackerel round it.
+function northDiveSpots(habitat, spots) {
+  const put = (id, type, x, z, r, hosts, down) => {
+    const depth = habitat.depth(x, z);
+    if (depth < 1) return;
+    spots.push({ type, x, z, depth, zone: zoneAt(x, z), r, tag: id, north: true, site: id, hosts, ...(down ? { down } : {}) });
+  };
+  const c = Math.cos(SULA.yaw), sn = Math.sin(SULA.yaw), along = (u, v) => [SULA.x + u * c + v * sn, SULA.z - u * sn + v * c];
+  put('sula', 'rock', ...along(0, 2), 6, ['conger', 'pollack'], 6);
+  put('sula', 'reef', ...along(0, -8), 7, ['wrasse', 'pollack'], 6);
+  put('sula', 'reef', ...along(4, 8), 6, ['wrasse'], 5);
+  put('sula', 'sand', ...along(-10, 0), 8, ['catshark'], 4);
+  put('sula', 'rock', ...along(-2, 10), 6, ['pollack', 'conger'], 6);
+  for (const [a, hosts] of [[0.3, ['wrasse', 'pollack']], [2.4, ['wrasse', 'pollack']], [4.2, ['conger', 'catshark']]]) {
+    put('skarv', a > 4 ? 'rock' : 'reef', SKARV.x + Math.cos(a) * (SKARV.r + 12), SKARV.z + Math.sin(a) * (SKARV.r + 12), 8, hosts, a > 4 ? 22 : 14);
+  }
+  put('skarv', 'tide', SKARV.x + 40, SKARV.z + 30, 14, ['mackerel'], 10);
 }
 
 /* ---------------- beyond the bay ---------------- */
@@ -616,6 +685,24 @@ function southDiveSpots(habitat, spots) {
   put('coladas', 'reef', -520, 5604, 8, ['parrotfish', 'triggerfish'], 13);
   put('coladas', 'rock', -485, 5632, 8, ['moray', 'comber', 'salema'], 12);
   put('coladas', 'rock', -512, 5636, 8, ['whitebream', 'octopus', 'borriquete'], 10);
+  //  · (The archipelago) El Vapor: a grouper and a moray in her hull, combers and an octopus in her
+  //    plates, chromis and wrasse over her bow, trumpetfish along her, barracuda hanging over her.
+  {
+    const c = Math.cos(VAPOR.yaw), s = Math.sin(VAPOR.yaw), at = (u) => ({ x: VAPOR.x + Math.sin(VAPOR.yaw) * u, z: VAPOR.z + Math.cos(VAPOR.yaw) * u });
+    const bow = at(VAPOR.len * 0.35), mid = at(0), stern = at(-VAPOR.len * 0.35);
+    put('vapor', 'cave', mid.x, mid.z, 5, ['grouper', 'moray', 'comber'], 12);
+    put('vapor', 'reef', bow.x, bow.z, 6, ['chromis', 'ornatewrasse', 'trumpetfish'], 8);
+    put('vapor', 'rock', stern.x, stern.z, 6, ['comber', 'whitebream', 'octopus'], 12);
+    put('vapor', 'reef', mid.x + c * 8, mid.z - s * 8, 7, ['triggerfish', 'bogue', 'parrotfish'], 10);
+    put('vapor', 'wall', mid.x - c * 6, mid.z + s * 6, 12, ['barracuda', 'amberjack'], 9);
+  }
+  //  · El Banco: groupers, red porgy, dentex and chromis on its walls, a cave with a grouper,
+  //    amberjack and barracuda round it, and the bait (sardine, chub mackerel) up its north-east face.
+  put('banco', 'wall', BANCO.x - 40, BANCO.z + 50, 10, ['grouper', 'redporgy', 'dentex', 'chromis'], 34);
+  put('banco', 'wall', BANCO.x + 55, BANCO.z + 30, 10, ['redporgy', 'comber', 'chromis'], 30);
+  put('banco', 'cave', BANCO.x - 20, BANCO.z - 45, 6, ['grouper', 'comber'], 32);
+  put('banco', 'open', BANCO.x + 20, BANCO.z + 10, 18, ['amberjack', 'barracuda', 'bogue', 'horsemackerel'], 26);
+  put('banco', 'tide', BANCO.x + 110, BANCO.z - 110, 20, ['sardine', 'chubmackerel']);
 }
 
 // The dive sites' own fish (see divesites.js), the very last of all, so nothing anywhere else
@@ -691,14 +778,34 @@ function southSpots(habitat, spots) {
   const rnd = seeded(6006);
   const S = {};
   const list = [];
+  // (Each home kept in a grid by its type too, so "is there one of these within gap?" looks only
+  // at its neighbours: the archipelago's chart is big, and a look through every home placed so far
+  // for every cell grew with the square of them.)
+  const G = 60, grid = new Map();
+  const cellKey = (type, i, j) => `${type}:${i}:${j}`;
+  const keep = (o) => {
+    const k = cellKey(o.type, Math.floor(o.x / G), Math.floor(o.z / G));
+    if (!grid.has(k)) grid.set(k, []);
+    grid.get(k).push(o);
+  };
   const put = (type, x, z, r, tag) => {
     const depth = Math.max(0, -brasaHeight(x, z));
     if (depth < 0.6) return;
     const o = { type, x, z, depth, zone: brasaZone(x, z), r, tag, south: true };
     list.push(o);
+    keep(o);
     spots.push(o);
   };
-  const clear = (type, x, z, gap) => list.every((p) => p.type !== type || Math.hypot(p.x - x, p.z - z) > gap);
+  const clear = (type, x, z, gap) => {
+    const n = Math.ceil(gap / G), i0 = Math.floor(x / G), j0 = Math.floor(z / G);
+    for (let i = i0 - n; i <= i0 + n; i++) {
+      for (let j = j0 - n; j <= j0 + n; j++) {
+        const L = grid.get(cellKey(type, i, j));
+        if (L && L.some((p) => Math.hypot(p.x - x, p.z - z) <= gap)) return false;
+      }
+    }
+    return true;
+  };
   const M = SOUTH_MAP;
   const near = (x, z, P, r) => Math.hypot(x - P.x, z - P.z) < r;
   for (let z = M.z + 4; z < M.z + M.h; z += 13) {
@@ -706,16 +813,25 @@ function southSpots(habitat, spots) {
       const px = x + (rnd() - 0.5) * 9, pz = z + (rnd() - 0.5) * 9;
       const d = brasaSDF(px, pz);
       if (d < 1) continue;
-      brasaHabitat(px, pz, S);
-      const zone = brasaZone(px, pz), depth = S.depth;
-      if (onBajon(px, pz) > 0.2) continue; // (El Bajón's are placed by hand, below)
-      const tag = near(px, pz, ARCO, 120) ? 'roque' : near(px, pz, FARO, 160) ? 'faro' : near(px, pz, PLAYA, 190) ? 'playa' : zone === 'harbor' ? 'puerto'
-        : zone === 'sebadal' ? 'sebadal' : COLADAS.some((c) => Math.hypot(px - c[2], pz - c[3]) < 150) ? 'coladas' : zone === 'veril' ? 'veril' : null;
-      if (zone === 'harbor') continue; // (the harbour's are placed by hand, below)
+      const zone = brasaZone(px, pz);
+      // (The open ocean only wants its depth: blue water, a home every 160 m.)
       if (zone === 'ocean') {
+        const depth = Math.max(0, -brasaHeight(px, pz));
         if (depth > 60 && clear('blue', px, pz, 160)) put('blue', px, pz, 40, 'ocean');
         continue;
       }
+      brasaHabitat(px, pz, S);
+      const depth = S.depth;
+      if (onBajon(px, pz) > 0.2) continue; // (El Bajón's are placed by hand, below)
+      // (The archipelago, docs/ARCHIPELAGO.md: the channel and the water up-current of an island or
+      // the bank, where the bait gathers; the bank, the stacks and the islands' own shores.)
+      const up = upCurrent(px, pz) > 0.5, strait = inEstrecho(px, pz) > 0.4, bank = onBanco(px, pz) > 0.2;
+      const tag = near(px, pz, ARCO, 120) ? 'roque' : near(px, pz, FARO, 160) ? 'faro' : near(px, pz, PLAYA, 190) ? 'playa' : zone === 'harbor' ? 'puerto'
+        : strait ? 'estrecho' : up ? 'upwell' : bank ? 'banco'
+          : zone === 'sebadal' ? 'sebadal' : COLADAS.some((c) => Math.hypot(px - c[2], pz - c[3]) < 150) ? 'coladas'
+            : Math.hypot(px + 890, pz - 6450) < 220 ? 'roquetes' : near(px, pz, GAVIOTA, 420) ? 'gaviota' : near(px, pz, HONDA, 400) ? 'honda'
+              : zone === 'veril' ? 'veril' : null;
+      if (zone === 'harbor') continue; // (the harbour's are placed by hand, below)
       if (zone === 'veril') {
         // The wall: the steep edge, with caves in it; open water above and beyond.
         if (S.rock > 0.55 && depth > 20 && depth < 60 && clear('cave', px, pz, 55)) put('cave', px, pz, 8, tag || 'veril');

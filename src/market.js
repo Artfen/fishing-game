@@ -43,6 +43,9 @@ export const PRICES = {
   blueshark: 3, bluemarlin: 8, sailfish: 6, spearfish: 6, grouper: 18, amberjack: 9, ornatewrasse: 2,
   // Las Brasas.
   parrotfish: 16, triggerfish: 9, moray: 6, barracuda: 7, chubmackerel: 3, wahoo: 12, dorado: 12, yellowfin: 14, littletunny: 6, comber: 8,
+  // The north, up the coast (brought home iced). The flapper skate nobody buys: it's protected,
+  // and goes back.
+  cod: 12, saithe: 6, ling: 7, haddock: 11, skate: 0,
 };
 
 // When the market on the quay is open (hours of the day). The inn's kitchen takes its orders until
@@ -149,7 +152,7 @@ export function receiptLine(f, v) {
 
 // The fish a kitchen likes to put on its menu.
 const MENU = {
-  haven: ['seabass', 'sole', 'turbot', 'plaice', 'gilthead', 'mackerel', 'squid', 'cuttlefish', 'pollack', 'blackbream', 'gurnard', 'flounder', 'bonito', 'octopus', 'redporgy', 'trout', 'hake', 'johndory'],
+  haven: ['seabass', 'sole', 'turbot', 'plaice', 'gilthead', 'mackerel', 'squid', 'cuttlefish', 'pollack', 'blackbream', 'gurnard', 'flounder', 'bonito', 'octopus', 'redporgy', 'trout', 'hake', 'johndory', 'cod', 'haddock'],
   muelle: ['parrotfish', 'moray', 'wahoo', 'dorado', 'octopus', 'squid', 'redporgy', 'dentex', 'triggerfish', 'albacore', 'chubmackerel', 'whitebream'],
 };
 

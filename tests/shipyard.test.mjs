@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { pay, earn, canAfford, cleanLedger, fuelQuote, fuelPrice, goodwillDue, ECONOMY_IDS, LEDGER_MAX, GOODWILL_L } from '../src/economy.js';
 import { STARTER, PRICES, hirePrice, PAINTS, FITS, fitsFor, cleanYard, owns, usable, buyBoat, hireBoat, paintBoat, nameBoat, fitBoat, fitEffect, cleanBoatName } from '../src/shipyard.js';
 
-const KINDS = ['row', 'skiff', 'kayak', 'bass', 'cabin', 'sail', 'cruiser', 'console', 'rib', 'windsurf', 'jetski'];
+const KINDS = ['row', 'skiff', 'kayak', 'bass', 'cabin', 'sail', 'cruiser', 'console', 'rib', 'windsurf', 'jetski', 'tender', 'trawler'];
 const fresh = (money = 20) => ({ money, day: 3, hour: 10, ledger: [], yard: cleanYard(undefined, KINDS) });
 
 test('the purse is never overdrawn, nothing is half-paid, and every payment leaves a receipt', () => {
@@ -151,7 +151,7 @@ test('one question instead of six: each play style is a whole, valid set of choi
 
 test('Shipyard 2.0: every fitting weighs something real and does something real, never to do with bites', async () => {
   const { FIT_CATS, unfitBoat } = await import('../src/shipyard.js');
-  const KINDS = ['row', 'skiff', 'kayak', 'bass', 'sail', 'cabin', 'cruiser', 'console', 'rib', 'windsurf', 'jetski'];
+  const KINDS = ['row', 'skiff', 'kayak', 'bass', 'sail', 'cabin', 'cruiser', 'console', 'rib', 'windsurf', 'jetski', 'tender', 'trawler'];
   for (const [id, F] of Object.entries(FITS)) {
     assert.ok(FIT_CATS[F.cat], `${id} has a category`);
     assert.ok(F.kg >= 0 && F.amps >= 0, `${id} weight and draw`);
@@ -159,7 +159,7 @@ test('Shipyard 2.0: every fitting weighs something real and does something real,
     assert.ok(!/bite|catch more|more fish/i.test(F.desc), `${id} says nothing of bites`);
   }
   // Each motorboat takes a fair choice; the rowing boat, kayak and board none.
-  for (const k of ['skiff', 'bass', 'cabin', 'console', 'rib', 'cruiser']) assert.ok(fitsFor(k).length >= 6, k);
+  for (const k of ['skiff', 'bass', 'cabin', 'console', 'rib', 'cruiser', 'tender']) assert.ok(fitsFor(k).length >= 6, k);
   for (const k of ['row', 'kayak', 'windsurf']) assert.equal(fitsFor(k).length, 0, k);
   const s = { day: 1, hour: 9, money: 5000, ledger: [], yard: cleanYard({ owned: KINDS }, KINDS) };
   // One to a slot: the GPS trolling motor replaces the plain one.

@@ -53,7 +53,10 @@ polish rather than new places or boats.
    and let it be discovered.
 6. **Too much text.** Messages and dialogs are long, lovely sentences, and several overlap on
    screen. Short prompts, icons and a cleaner HUD; less text also makes translation affordable,
-   and fishing games sell well in Germany, France and Japan.
+   and fishing games sell well in Germany, France and Japan. *Done* (`docs/TEXT.md`): every
+   message two lines on the screen at most (a test holds the source to it), the whole in the
+   journal; a lamp for tips, a book for more; the Clean screen for new players. Translation itself
+   waits for a language and a translator.
 7. **A story with an ending.** Six adventures and the favours are a thin spine. Two or three
    hours of light story would give a direction and a sense of finishing something (the Kittiwake,
    the lighthouse and Las Brasas are ready-made hooks).
@@ -61,7 +64,10 @@ polish rather than new places or boats.
    desktop build for Steam (a packaged app) with achievements, Steam cloud saves and Steam Deck
    support, and a free browser demo to bring people in. Co-op and cloud saves run on Supabase's
    free tier, which won't survive real popularity; and the online features need a privacy policy
-   (GDPR).
+   (GDPR). *Part done* (`docs/ONLINE.md`): the privacy page (four blanks for whoever runs the game),
+   players downloading and deleting their own cloud data, a paused or full Supabase said in plain
+   words, and the free tier worked out (cloud saves fine; playing together a few hours a month on
+   it). The demo, selling the download and Steam wait on decisions about money and accounts.
 9. **Real machines and real players.** Confirm 60 fps on a MacBook Air and a cheap Windows laptop
    (so far it's only been tested in software rendering on a slow server), and watch 10–20 people
    play it to see where they get confused or stop.
@@ -378,8 +384,11 @@ The next brief, worked through in order, each step merged to main once it's test
    you're under way. Browser-checked both ways. Full stays the default for now; Clean could become
    the default for new players once it's had some play.
 4. The story's next place on the marker now says *Story*, not *Job*.
-5. *Still to do from stage 7*: recorded sound (each file's licence checked and kept: needs people,
-   not just code).
+5. **Recorded sound: done** (`docs/SOUND.md`): real recordings under the made sound for texture
+   (the shore calm and rough, the harbours' halyards and gulls, the rain, a herring gull's call),
+   public domain or CC0 only, each file's source and licence kept beside it and held by a test;
+   under 1 MB, stored with the game. More would want a person's ear (the engine, the reel, the
+   inn's talk are still made in code, and good recordings of them are rarely free).
 
 ## Stage 8: the desktop build (November 2026)
 
@@ -396,6 +405,74 @@ The Electron wrapper (`desktop/`) was already there. Now:
   difference). Not run inside real Electron or Steam here.
 - *Needs a decision and an account*: a Steamworks app id (Steam Direct's fee is yours to decide),
   then the overlay, a store page and a demo.
+
+## A liveaboard, her tender and two archipelagos (November 2026)
+
+Worked out from the "Beyond the Horizon" brief, against what the game already has (most of its
+careers, contracts, story, boat ownership and co-op are here already; see the sections above).
+
+**Decisions**
+
+- **Steam waits.** `desktop/` stays as it is, tested and unused. Later the game is offered as a
+  download from its own website as well as played in the browser: saves as files, no slowing
+  behind other windows, full screen. (A download needs a code-signing certificate for Windows and
+  Apple's notarisation for macOS, and an update channel.) The download doesn't by itself make a
+  bigger world possible: the browser runs the same WebGL, so the world is built to work in both.
+- **One world, compressed.** Real distances would take days at the helm, so geography is
+  compressed as it already is (Willow Bay to Las Brasas: 4.5 km of open sea, 20 to 25 minutes).
+  The Northern Archipelago lies about 10 km north of Willow Bay: about forty minutes at a
+  trawler's eight knots, with an optional speed-up of the game's clock on passage. Sailed the
+  whole way, in one world: no portals, no separate maps.
+- **The liveaboard is the point of the distance.** A boat to live in and walk about (a pilothouse,
+  a saloon and galley, cabins, an aft deck) carrying a small, fast RIB as her tender, launched and
+  recovered by a hydraulic swim platform. The design: `docs/LIVEABOARD.md`.
+- **Two archipelagos.** An archipelago at Las Brasas, full of fish and things to find, through
+  its habitats (drop-offs, a seamount, bait balls on the up-current side) rather than more fish
+  spawned; then the Northern Archipelago (cold water, kelp, fjords, cliffs, seabird colonies).
+
+**Order**
+
+1. Career and Free Roam, and save slots (small, and they decide how the liveaboard is earned;
+   Free Roam has her from the start). Done (`docs/MODES.md`): a Career earns her (£9,500, or hired
+   by the day), as every game did; Free Roam has her afloat at the berth from the first morning
+   with her tender, every other boat, the whole board and a purse; three games side by side, chosen
+   from the title screen, the cloud keeping Game 1.
+2. The liveaboard and her tender, tested in home waters (`docs/LIVEABOARD.md`, L1 to L8). L1, the
+   tender as a boat of her own: done. L2, the trawler's hull, helm and handling: done (with a fix
+   for every boat: none spins at rest any more). L3, walking aboard her (decks, pilothouse,
+   platform; fished from her decks): done. L4, living aboard (the saloon, the galley, the
+   cabins below, the chart table, her lamps; sleeping in her berth): done. L5, the tender carried
+   on her platform: done. L6, launching and recovering her (the platform, the painter, the haul):
+   done. L7, playing together aboard her (and a fix: a friend's second boat of a kind is drawn as
+   herself): done. L8, where she fits (her price and hire, her papers, a first voyage, the
+   benchmarks): done, and the first liveaboard voyage played through, to Las Brasas and home.
+3. The Las Brasas archipelago (in today's world: no new world architecture needed;
+   `docs/ARCHIPELAGO.md`, A1 to A4). A1, the islands, the seamount, the channel and the coves:
+   done. A2, life through its habitats (bait up-current, the hunters with it, a gull colony):
+   done. A3, things to find (El Vapor and El Banco to dive, the salt works, a beacon): done.
+   A4, played through (the trawler to Bahía Escondida, the tender ashore, a dive on El Vapor)
+   and measured: done.
+4. The world extended: building and dropping regions as you come and go, checking the far
+   coordinates in the shaders, the chart and the passage speed-up; the downloadable build. (Done
+   with the north, for the north: its terrain in tiles built and dropped by distance, its water map
+   and sea baked a slice at a time ahead of need, its charts; the far coordinates checked, the north
+   kept within twelve kilometres, the same range of the shaders' numbers as Las Brasas'.) Then
+   for the whole world (`docs/WORLD.md`, W1 to W4): W1, a far sea let go four kilometres out and
+   made again the same when you come back: done. W2, the passage four times as fast at a tap of
+   T, stopping by itself for anything that matters: done. W3, the far-coordinates test and the
+   whole chart: done. W4, the downloadable build (installers for Windows, Mac and Linux built by
+   CI on a version's tag, the app updating itself, the download page): done, the Linux AppImage
+   built and started here, its update taken from a stand-in feed.
+5. The Northern Archipelago and the voyage north (`docs/NORTH.md`, N1 to N5), with the parts of
+   step 4 it needed: N1, the way up the coast as a region of the world (the Ness and the west
+   coast, its own water map and sea baked a slice at a time, its terrain in tiles built as you come
+   and dropped as you go, its charts, saves and edges): done. N2, the isles in detail: done. N3,
+   Halvig and things to find: done. N4, life (cod, saithe, ling, haddock and the flapper skate, the
+   home coast's cold-water fish, seals, a minke, the seabird colony, otters): done. N5, the voyage
+   (the passage north and home, the nearest harbour where it was Willowhaven, the westerlies),
+   played through and measured: done. And what N5 left: the white-tailed eagle over Loch Skarn
+   and Raven Isle, Arctic terns nesting on Tern Isle (and at your head if you walk among them),
+   Halvig Stores stocking and icing your boat, and a night in the Loch Bothy: done.
 
 ## Open-source projects that could help
 

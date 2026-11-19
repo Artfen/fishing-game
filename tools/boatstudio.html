@@ -144,7 +144,7 @@ function aim(view) {
     return ortho;
   }
   // At the helm: from where you'd sit or stand to drive her, looking ahead and a little down.
-  const S = H.standing?.helm, x = S ? S[0] : 0, z = S ? S[1] : H.seatZ, eye = (S ? H.floorY + 1.62 : H.seatY + 0.78) - floatDraft(H);
+  const S = H.standing?.helm, x = S ? S[0] : 0, z = S ? S[1] : H.seatZ, eye = (S ? (H.standing.floor ?? H.floorY) + 1.62 : H.seatY + 0.78) - floatDraft(H);
   cam.fov = 62;
   cam.position.set(x, eye, z - 0.15);
   cam.lookAt(x * 0.5, eye - 0.55, z + 4);

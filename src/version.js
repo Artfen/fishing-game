@@ -5,6 +5,6 @@
 // of the game does, so two copies with the same BUILD are the same game.
 export const RELEASE = 196;
 // <build> Written by tools/build-sw.mjs: do not edit by hand.
-export const BUILD = '34122795646a';
+export const BUILD = '93db6a2a0580';
 export const BUILT = '2026-11-19';
 // </build>

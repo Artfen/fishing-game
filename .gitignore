@@ -5,3 +5,4 @@ __pycache__/
 desktop/node_modules/
 desktop/game/
 desktop/dist/
+desktop/dist-next/

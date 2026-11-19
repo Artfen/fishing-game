@@ -25,6 +25,10 @@ export const SHEET = { x: -1400, z: -1800, w: 2240, h: 3080 };
 // its edges, drawn coarser (px: metres a pixel; grid: of the heights worked out for it), and all
 // of it charted from the start (it's the sea: nothing to find).
 export const OCEAN_SHEET = { x: -1600, z: 400, w: 3200, h: 5600, px: 10, grid: 24 };
+// (W3, docs/WORLD.md) The whole of it on one sheet: Willow Bay, the crossing and Las Brasas to the
+// south, the coast north and the Selkie Isles; all charted, drawn coarse (30 m a pixel), opened from
+// the button by the zoom (and back to the sheet you're on).
+export const WORLD_SHEET = { x: -4800, z: -8160, w: 6720, h: 15840, px: 30, grid: 60 };
 const CELL = 20;
 export const COLS = SHEET.w / CELL, ROWS = SHEET.h / CELL;
 const OLD_SHEET = { x: -560, z: -720, cols: 70, rows: 100 };
@@ -44,12 +48,14 @@ export class Explored {
     if (typeof saved === 'string' && saved) {
       try {
         const raw = atob(saved);
-        if (sheet === SHEET && raw.length === Math.ceil((OLD_SHEET.cols * OLD_SHEET.rows) / 8)) {
+        // (A sheet that has grown since: home's, or the south's when Brasa became an archipelago.)
+        const OLD = sheet === SHEET ? OLD_SHEET : sheet.old ? { ...sheet.old, cols: sheet.old.w / CELL, rows: sheet.old.h / CELL } : null;
+        if (OLD && raw.length === Math.ceil((OLD.cols * OLD.rows) / 8) && raw.length !== this.bits.length) {
           // A map from before the sheet grew: each cell moves to its place on the new one.
-          const di = (OLD_SHEET.x - SHEET.x) / CELL, dj = (OLD_SHEET.z - SHEET.z) / CELL;
-          for (let k = 0; k < OLD_SHEET.cols * OLD_SHEET.rows; k++) {
+          const di = (OLD.x - sheet.x) / CELL, dj = (OLD.z - sheet.z) / CELL;
+          for (let k = 0; k < OLD.cols * OLD.rows; k++) {
             if (!((raw.charCodeAt(k >> 3) >> (k & 7)) & 1)) continue;
-            const n = (Math.floor(k / OLD_SHEET.cols) + dj) * COLS + (k % OLD_SHEET.cols) + di;
+            const n = (Math.floor(k / OLD.cols) + dj) * COLS + (k % OLD.cols) + di;
             this.bits[n >> 3] |= 1 << (n & 7);
           }
         } else for (let i = 0; i < Math.min(raw.length, this.bits.length); i++) this.bits[i] = raw.charCodeAt(i);
@@ -99,7 +105,7 @@ export class Explored {
   }
 }
 
-const BOAT_COLORS = { row: '#b5532f', skiff: '#2f4f7a', kayak: '#e8742a', bass: '#7a2430', cabin: '#1f4e5f', sail: '#c4774a', cruiser: '#1d3b56', console: '#3a8fc4', windsurf: '#f2a32a', jetski: '#e8b820' };
+const BOAT_COLORS = { row: '#b5532f', skiff: '#2f4f7a', kayak: '#e8742a', bass: '#7a2430', cabin: '#1f4e5f', sail: '#c4774a', cruiser: '#1d3b56', console: '#3a8fc4', windsurf: '#f2a32a', jetski: '#e8b820', rib: '#6b7279', tender: '#9a6a3c', trawler: '#24354f' };
 const canvas2 = (w, h) => {
   const c = document.createElement('canvas');
   c.width = w;
@@ -111,8 +117,13 @@ const INK = '#3a2e26';
 const HOME_ZONES = new Set(['bay', 'cove', 'open', 'coast', 'deep', 'estuary', 'lake', 'stream', 'mere', 'river', 'tarn', 'tideway']);
 // The sheet a species lives on: 'south' if only round Las Brasas, 'home' if only at home, or null
 // for both.
+// (And the north's, up the coast: a species living only there is on the isles' chart; the home
+// coast's fish that live there too are still home's.)
+const NORTH_WATERS = new Set(['kelp', 'sound', 'race', 'loch', 'skerry', 'outer']);
 const sheetOf = (id) => {
-  const z = fishById[id]?.life.zones || [];
+  const all = fishById[id]?.life.zones || [];
+  if (all.length && all.every((k) => NORTH_WATERS.has(k))) return 'north';
+  const z = all.filter((k) => !NORTH_WATERS.has(k));
   return z.every((k) => !HOME_ZONES.has(k)) ? 'south' : z.every((k) => HOME_ZONES.has(k)) ? 'home' : null;
 };
 const half = THREE.DataUtils.fromHalfFloat;
@@ -142,6 +153,7 @@ export class MapSheet {
     $('map-in').addEventListener('click', () => this.zoomBy(1.5));
     $('map-out').addEventListener('click', () => this.zoomBy(1 / 1.5));
     $('map-me').addEventListener('click', () => this.centre(this.where?.player));
+    $('map-world')?.addEventListener('click', () => this.toggleWorld());
     this.el.addEventListener('click', (e) => { if (e.target === this.el) hooks.close(); });
     // Your marks: click "Mark a spot" then the map, or mark where you stand; edit them alongside.
     this.marking = false;
@@ -215,9 +227,14 @@ export class MapSheet {
   sheetFor(x, z) {
     // (Las Brasas' own chart first; then, between the bottom of home's and the top of the island's,
     // the open sea's.)
-    const S = this.sheets.south?.S, O = this.sheets.ocean?.S;
-    if (S && x > S.x && x < S.x + S.w && z > S.z && z < S.z + S.h) return 'south';
+    const S = this.sheets.south?.S, O = this.sheets.ocean?.S, N = this.sheets.north?.S, C = this.sheets.coast?.S;
+    const inside = (R) => R && x > R.x && x < R.x + R.w && z > R.z && z < R.z + R.h;
+    if (inside(S)) return 'south';
     if (O && x > O.x && x < O.x + O.w && z > SHEET.z + SHEET.h && z < (S ? S.z : O.z + O.h)) return 'ocean';
+    // (The north, up the coast: the isles' own chart, and the printed chart of the coast up to
+    // them wherever home's doesn't reach.)
+    if (inside(N)) return 'north';
+    if (inside(C) && !inside(SHEET)) return 'coast';
     return 'home';
   }
 
@@ -425,6 +442,25 @@ export class MapSheet {
     if (this.editing) this.savePin();
     this.setMarking(false);
     this.el.hidden = true;
+  }
+
+  // The whole chart, or back to the sheet you're on.
+  toggleWorld() {
+    if (!this.sheets.world) return;
+    const p = this.where?.player || { x: 0, z: 0 };
+    this.useSheet(this.key === 'world' ? this.sheetFor(p.x, p.z) : 'world');
+    if (!this.base) this.bake();
+    this.fit();
+    // (The whole of it in view; back on a sheet of its own, round you as it opens.)
+    if (this.key === 'world') {
+      this.view.zoom = this.fitZoom;
+      this.view.x = this.S.x + this.S.w / 2;
+      this.view.z = this.S.z + this.S.h / 2;
+    } else this.view.zoom = this.fitZoom * 2.2 * ZOOM;
+    this.centre(this.key === 'world' ? null : p);
+    $('map-world')?.setAttribute('aria-pressed', String(this.key === 'world'));
+    this.renderSide();
+    this.draw();
   }
 
   // Open on a particular spot (a mark, a photograph's place), zoomed in.
@@ -1184,6 +1220,21 @@ export class MapSheet {
       this.label(ctx, 'Las Brasas', bx + 10 * s, by + 14 * s, 18, INK, 0.9);
       this.label(ctx, `${(CROSS_M / 1000).toFixed(1)} km of open sea`, (ax + bx) / 2 + 12 * s, (ay + by) / 2, 16, '#2f6f74', 0.9);
     }
+    // On the whole chart: the crossing south and the way up the coast, dashed.
+    if (this.key === 'world') {
+      const routes = [[[ENDS.home.x, ENDS.home.z], [ENDS.south.x, ENDS.south.z]], [[0, 300], [-480, 330], [-1500, 620], [-2450, 700], [-2550, -1000], [-2500, -3000], [-2500, -4700], [-2600, -6170]]];
+      ctx.save();
+      ctx.strokeStyle = '#2f6f74';
+      ctx.globalAlpha = 0.8;
+      ctx.lineWidth = 2.5 * s;
+      ctx.setLineDash([8 * s, 6 * s]);
+      for (const R of routes) {
+        ctx.beginPath();
+        R.forEach(([x, z], i) => { const [px, py] = this.toPx(x, z); if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); });
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
     const me = this.where?.player;
     if (me) {
       const [x, y] = this.toPx(me.x, me.z);
@@ -1501,7 +1552,9 @@ export class MapSheet {
     $('map-sub').textContent = this.highlight
       ? `Shaded: water that suits ${fishById[this.highlight].name.toLowerCase()} (${[...new Set(fishById[this.highlight].life.zones.map((z) => ZONE_NAMES[z] || z))].join(', ')}). It shows where to look, not where each fish is.`
       : this.key === 'ocean' ? `The open Atlantic between Willow Bay and Las Brasas: ${(CROSS_M / 1000).toFixed(1)} km of open sea from Gannet Light to the island.`
-        : `${found.length} of ${PLACES.length} places found · ${Math.round(this.explored.fraction * 100)}% of ${this.key === 'south' ? 'Las Brasas' : 'the coast'} explored`;
+        : this.key === 'coast' ? 'The coast north from Willow Bay: west past Heron Point and the Calf, round the Ness, and up under the fells to the Selkie Isles, about nine kilometres by sea.'
+          : this.key === 'world' ? 'The whole chart: Willow Bay, the crossing south to Las Brasas, and the coast north to the Selkie Isles. (◫ again for the sheet you’re on.)'
+          : `${found.length} of ${PLACES.length} places found · ${Math.round(this.explored.fraction * 100)}% of ${this.key === 'south' ? 'Las Brasas' : this.key === 'north' ? 'the Selkie Isles' : 'the coast'} explored`;
 
     // Camps you can head to (the walk or sail there happens in a short fade; time passes).
     const camps = found.filter((p) => p.camp);

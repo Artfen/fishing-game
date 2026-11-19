@@ -182,3 +182,20 @@ then.
 6. **A5, the fleet together** (done: the outboard shaped like one on every boat, boats far off
    without their small parts; `docs/fleet/after/outboard-compare.jpg`, `fleet.jpg`). Colours, materials, fittings and the outboard's cowling made
    consistent; a simplified model for boats far off.
+
+## New boats since
+
+- **The tender** (L1 of `docs/LIVEABOARD.md`): a little RIB of about eleven feet over her tubes on a
+  short-shaft tiller outboard, built in the RIB's family to this page's rules. 28 meshes and draw
+  calls, 9,974 triangles (her tubes' segments scaled to her length), in `docs/fleet/after/tender*.jpg`
+  (day, evening, overcast) and `docs/fleet/after/stats.json`.
+- **The expedition trawler** (L2 of `docs/LIVEABOARD.md`): a full-displacement trawler of
+  forty-four feet. A navy hull with a cream rubbing strake and portlights, a white house, a raised
+  pilothouse with clear glass raked forward, the boat deck, a radar arch, teak decks and a swim
+  platform; a full keel, a single screw and a barn-door rudder. 65 meshes and draw calls (her
+  dashboard is 33 of them, as on the yacht), 10,270 triangles: `docs/fleet/after/trawler*.jpg` and
+  `stats.json`. With L3 (walking aboard), 66: her pilothouse roof and what stands on it are a mesh
+  of their own, lifted away while you're inside, and her bench, lockers and transom gate moved to
+  match her deck plan (10,342 triangles). With L4 (living aboard), 68 as boatshots counts them
+  (10,802 triangles): her saloon's windows a mesh of their own (they glow after dark) and her lamps;
+  her interior, two meshes more, is built only when her decks are first walked. The studio's helm view now stands on a raised helm's own sole (`standing.floor`).

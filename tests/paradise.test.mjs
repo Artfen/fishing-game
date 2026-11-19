@@ -155,7 +155,8 @@ test('more fish, but not absurdly many; Fernbeck’s pools all hold fish', () =>
   // (At home: Las Brasas, far to the south, has its own, see tests/brasas.test.mjs; so do the
   // dive sites, see tests/divesites.test.mjs.)
   // (The small fish for micro-fishing have homes of their own, see tests/microfishing.test.mjs.)
-  const n = eco.agents.filter((a) => !a.home.south && !a.home.site && !a.home.crossing && !a.home.small).length;
+  // (The north's, up the coast, have their own too, see tests/north.test.mjs.)
+  const n = eco.agents.filter((a) => !a.home.south && !a.home.site && !a.home.crossing && !a.home.small && !a.home.north).length;
   // (The angling depth release added five kinds to the home coast: a ray, a catshark, the weever,
   // hake and the John Dory, a hundred-odd fish between them.)
   assert.ok(n > 2300 && n < 2560, `${n} fish in all`);

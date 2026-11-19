@@ -19,13 +19,17 @@ const $ = (id) => document.getElementById(id);
 const ZONE_WORDS = {
   bay: 'in Willow Bay', cove: 'in Driftwood Cove', open: 'out on open water', lake: 'in Reedmere', stream: 'in Fernbeck',
   estuary: 'in the Wend estuary', mere: 'on Longmere', coast: 'off the outer coast', deep: 'out on the Blue Water',
+  // (Up the coast, in the north.)
+  kelp: 'over the kelp in the Selkie Isles', sound: 'in Raven Sound', race: 'in the Churn', loch: 'in Loch Skarn', skerry: 'off the Selkie Rocks', outer: 'off the Atlantic coast to the north',
 };
+const NORTHERN = new Set(['kelp', 'sound', 'race', 'loch', 'skerry', 'outer']);
 const SKY_WORDS = { clear: 'clear sky', partly: 'some cloud', overcast: 'overcast', light: 'light rain', heavy: 'heavy rain' };
 // The journal's pages of fish, by where they live (squid get a page of their own: not fish).
 const GROUPS = [
-  { name: 'Willow Bay and the coves', test: (f) => !f.creature && f.water !== 'fresh' && !f.life.zones.some((z) => ['estuary', 'coast', 'deep'].includes(z)) },
+  { name: 'Willow Bay and the coves', test: (f) => !f.creature && f.water !== 'fresh' && !f.life.zones.some((z) => ['estuary', 'coast', 'deep'].includes(z)) && !f.life.zones.every((z) => NORTHERN.has(z)) },
   { name: 'The Wend estuary (brackish water)', test: (f) => !f.creature && f.water !== 'fresh' && f.life.zones.includes('estuary') },
   { name: 'The outer coast and the open sea', test: (f) => !f.creature && f.water !== 'fresh' && !f.life.zones.includes('estuary') && f.life.zones.some((z) => z === 'coast' || z === 'deep') },
+  { name: 'Up the coast: the Selkie Isles', test: (f) => !f.creature && f.water !== 'fresh' && f.life.zones.every((z) => NORTHERN.has(z)) },
   { name: 'Fresh water: the meres and the stream', test: (f) => !f.creature && f.water === 'fresh' },
   { name: 'Not fish', test: (f) => !!f.creature },
 ];
@@ -84,7 +88,7 @@ const SOMEDAY = ['a softer cushion', 'a potted fern', 'a little cabin by the lak
 const OUTCOME_WORDS = { released: 'Released', kept: 'Kept', cooked: 'Cooked', eaten: 'Eaten', sold: 'Sold' };
 const RAIN_WORDS = ['', 'light rain', 'rain'];
 const PAGE = 25;
-const BOAT_COLORS = { row: '#b5532f', skiff: '#2f4f7a', kayak: '#e8742a', bass: '#7a2430', cabin: '#1f4e5f', sail: '#c4774a', cruiser: '#1d3b56', console: '#3a8fc4', windsurf: '#f2a32a', jetski: '#e8b820' };
+const BOAT_COLORS = { row: '#b5532f', skiff: '#2f4f7a', kayak: '#e8742a', bass: '#7a2430', cabin: '#1f4e5f', sail: '#c4774a', cruiser: '#1d3b56', console: '#3a8fc4', windsurf: '#f2a32a', jetski: '#e8b820', rib: '#6b7279', tender: '#9a6a3c', trawler: '#24354f' };
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -180,6 +184,15 @@ export class Journal {
     const now = st.today ? dayPage(st, st.today) : null;
     $('days-today-when').textContent = `day ${st.day}, ${formatClock(st.hour)}`;
     $('days-today').replaceChildren(now ? page(now, true) : el('p', 'j-faint', 'Nothing written yet today. Go out, and it will be.'));
+    // (docs/TEXT.md) What you were told: the whole of each message the screen showed in short,
+    // and every tip, newest first.
+    const told = st.told || [];
+    $('days-told').replaceChildren(...(told.length ? told.map((m) => {
+      const li = el('li', m.tip ? 'tip' : '');
+      const d = Math.floor(m.at / 24), h = m.at - d * 24;
+      li.append(el('span', 'j-told-when', d === st.day ? formatClock(h) : `day ${d}, ${formatClock(h)}`), document.createTextNode(m.text));
+      return li;
+    }) : [el('li', 'j-faint', 'Nothing yet. A message with a small book beside it on the screen has more to it here, and every tip comes here whole.')]));
     const days = st.days.slice().reverse();
     $('days-list').replaceChildren(...(days.length ? days.map((p) => page(p)) : [el('p', 'j-faint', 'Each day you go out is written up here when it ends: when you sleep, or at midnight.')]));
     const C = careerOf(st);

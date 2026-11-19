@@ -25,6 +25,39 @@ const flat = () => {
   O.longSea.setWind(0, 0, 0, 0);
 };
 
+test('her two sides are each other\'s image: still water leaves no turn on any hull, and a boat left on a flat calm doesn\'t spin', () => {
+  // The water's pressure on her panels at rest, as a yaw moment about her centre of gravity: none.
+  // (Her panels were once all split the same way, so starboard wasn't port's mirror: a small turn
+  // at rest, and every boat drifting in a calm slowly spun, two to five degrees a second.)
+  for (const [kind, H] of Object.entries(HULLS)) {
+    const M = buildHullModel(H), V = M.V, T = M.T, N = M.N, d = M.restDraft, cg = M.cg;
+    let yaw = 0, side = 0;
+    for (let k = 0; k < (M.ntSolid ?? M.nt); k++) {
+      const P = [0, 1, 2].map((i) => T[k * 3 + i]).map((i) => [V[i * 3], V[i * 3 + 1], V[i * 3 + 2]]);
+      const cy = (P[0][1] + P[1][1] + P[2][1]) / 3;
+      if (cy >= d) continue;
+      const u = [0, 1, 2].map((a) => P[1][a] - P[0][a]), v = [0, 1, 2].map((a) => P[2][a] - P[0][a]);
+      const area = 0.5 * Math.hypot(u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]);
+      const p = RHO * 9.81 * (d - cy) * area, fx = -p * N[k * 3], fz = -p * N[k * 3 + 2];
+      const cx = (P[0][0] + P[1][0] + P[2][0]) / 3, cz = (P[0][2] + P[1][2] + P[2][2]) / 3;
+      yaw += (cz - cg[2]) * fx - (cx - cg[0]) * fz;
+      side += fx;
+    }
+    assert.ok(Math.abs(yaw) < 1 && Math.abs(side) < 1, `${kind}: ${yaw.toFixed(1)} N·m of turn, ${side.toFixed(1)} N sideways, at rest`);
+  }
+  // And left to herself on a flat calm, each stays pointing where she was.
+  flat();
+  C.conditions.currents = 'still';
+  let x = 0;
+  for (const kind of ['skiff', 'console', 'cruiser', 'trawler']) {
+    const b = new Boat(scene, { kind });
+    b.place((x += 150), 2200, 0);
+    for (let i = 0, t = 0; i < 30 * 30; i++) b.update(1 / 30, (t += 1 / 30), 0, 0, 0);
+    assert.ok(Math.abs(b.heading) < 0.02, `${kind}: turned ${(b.heading * 57.3).toFixed(1)}° in half a minute, alone on a flat calm`);
+  }
+  C.conditions.currents = 'natural';
+});
+
 test('every hull floats at the draft her own weight sinks her to, level', () => {
   for (const [kind, H] of Object.entries(HULLS)) {
     const M = buildHullModel(H);

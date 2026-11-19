@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { heightAt, waterLevel, depthAt, RIVER, MARSH, SANDBANKS, LAKE, STRAND, BAY, STACKS, SKERRIES, CALF_SKERRY } from './terrain.js';
 import { COLDWATER } from './coldwater.js';
+import { lochAt } from './north.js';
 import { waveHeight } from './water.js';
 import { clamp, lerp, damp, dampAngle, smoothstep, wrapAngle, mergeParts, mat, seeded } from '../util.js';
 
@@ -237,6 +238,32 @@ function strandline(cx, cz, r0, r1, n, top = 0.8) {
   return out;
 }
 
+// (Up the coast, Loch Skarn's north shore either side of Bothy Bay: a little way out from the
+// water's edge, with the rocks of the shore to eat on.)
+function lochShore(x0, x1) {
+  const out = [];
+  for (let x = x0; x <= x1; x += 6) {
+    // (North from the loch's middle to its shore: the last water a metre or so deep.)
+    let z = -5640, prev = null;
+    while (z > -5900 && lochAt(x, z).d < 40) {
+      if (depthAt(x, z) < 0.3) break;
+      prev = { x, z };
+      z -= 1;
+    }
+    if (!prev || depthAt(prev.x, prev.z + 3) < 0.35) continue;
+    const p = { x, z: prev.z + 3 };
+    let bx = null, bz = null;
+    for (let o = 0; o < 12; o += 0.5) {
+      const h = heightAt(x, p.z - o) - waterLevel(x, p.z - o);
+      if (h > 0.06) {
+        if (h < 0.9) [bx, bz] = [x, p.z - o];
+        break;
+      }
+    }
+    out.push({ x: p.x, z: p.z, bx, bz, lvl: waterLevel(p.x, p.z) });
+  }
+  return out;
+}
 export const OTTER_BEATS = (() => {
   const cold = COLDWATER.slice(34, 42).map((n) => ({ x: n.x, z: n.z, hw: n.w * 0.5 }));
   const wend = RIVER.slice(0, 4).map(([x, z, hw]) => ({ x, z, hw }));
@@ -244,6 +271,8 @@ export const OTTER_BEATS = (() => {
     { id: 'coldwater', name: 'the Coldwater', path: bankPath(cold, 1) },
     { id: 'wend', name: 'the upper Wend', path: bankPath(wend, -1) },
     { id: 'saltings', name: 'the Saltings', path: [...ringPath(MARSH[0]), ...ringPath(MARSH[1])] },
+    // (The north: docs/NORTH.md.)
+    { id: 'loch', name: 'Loch Skarn', path: lochShore(-1760, -1240) },
   ].filter((B) => B.path.length > 6);
 })();
 export const HERON_SPOTS = [
@@ -275,7 +304,7 @@ export function buildWildlife(scene) {
   };
 
   /* ---------- otters ---------- */
-  const otters = OTTER_BEATS.slice(0, 3).map((B) => ({ ...add(otterModel()), B, state: 'away', t: rand(5, 40), i: Math.floor(Math.random() * B.path.length), dir: Math.random() < 0.5 ? 1 : -1, x: 0, y: 0, z: 0, heading: 0, fish: false, seen: false, ph: Math.random() * 10 }));
+  const otters = OTTER_BEATS.slice(0, 4).map((B) => ({ ...add(otterModel()), B, state: 'away', t: rand(5, 40), i: Math.floor(Math.random() * B.path.length), dir: Math.random() < 0.5 ? 1 : -1, x: 0, y: 0, z: 0, heading: 0, fish: false, seen: false, ph: Math.random() * 10 }));
   const otterActive = (h) => 0.35 + 0.65 * Math.max(smoothstep(3.5, 5.5, h) * (1 - smoothstep(8, 10, h)), smoothstep(17.5, 19.5, h) * (1 - smoothstep(22.5, 24, h)));
   const stepOtters = (dt, t, ctx) => {
     for (const o of otters) {

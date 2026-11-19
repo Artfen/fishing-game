@@ -18,7 +18,7 @@ import { kindOf, isBoatId, idFor } from './boatid.js';
 
 export const STARTER = ['row', 'skiff', 'kayak'];
 // What each boat costs (pounds): from a couple of good days' fishing to a summer's.
-export const PRICES = { windsurf: 90, jetski: 380, bass: 420, sail: 480, cabin: 650, rib: 1200, console: 1650, cruiser: 3600 };
+export const PRICES = { windsurf: 90, jetski: 380, tender: 520, bass: 420, sail: 480, cabin: 650, rib: 1200, console: 1650, cruiser: 3600, trawler: 9500 };
 // A day's hire: a few percent of her price.
 export const hirePrice = (kind) => (PRICES[kind] ? Math.max(6, Math.round(PRICES[kind] * 0.03)) : 0);
 
@@ -50,30 +50,30 @@ export const FIT_CATS = { fuel: 'Fuel', electronics: 'Electronics', power: 'Powe
 export const FITS = {
   tank: {
     name: 'Long-range tank', cat: 'fuel', kg: 8, amps: 0,
-    price: { skiff: 60, bass: 90, cabin: 110, console: 300, rib: 220, jetski: 90 },
+    price: { skiff: 60, bass: 90, cabin: 110, console: 300, rib: 220, jetski: 90, tender: 45 },
     desc: 'Half as much fuel again: further out, and home again. Heavier when she’s full.',
     tank: 1.5,
   },
   sonar: {
     name: 'Imaging sonar', cat: 'electronics', kg: 3, amps: 1.2,
-    price: { skiff: 140, bass: 180, cabin: 200, console: 300, rib: 260, cruiser: 360 },
+    price: { skiff: 140, bass: 180, cabin: 200, console: 300, rib: 260, cruiser: 360, tender: 140, trawler: 400 },
     desc: 'A through-hull imaging transducer for the fish finder’s head unit: the down view and the split screen, ranges down to 40 m, and the smaller echoes picked out. (Without it the head unit shows the 2D sonar to 20 m.)',
   },
   // (G7) A deep sounder: the bottom to 200 m, where the shelf falls away and Gannet Deep's floor
   // lies (see sonar.js DEEP_RANGES). Without it the finder loses the bottom past what it reaches.
   deepsonar: {
     name: 'Deep sounder', cat: 'electronics', kg: 5, amps: 1.5,
-    price: { cabin: 360, rib: 380, console: 420, cruiser: 480 },
+    price: { cabin: 360, rib: 380, console: 420, cruiser: 480, trawler: 520 },
     desc: 'A big low-frequency transducer for the fish finder’s head unit: it reads the bottom to two hundred metres, and the marks over it. The deep water off the shelf, and Gannet Deep’s floor, where nothing else reaches. (Without it the finder loses the bottom past about seventy metres.)',
   },
   plotter: {
     name: 'GPS chartplotter', cat: 'electronics', kg: 2, amps: 1,
-    price: { skiff: 150, bass: 170, cabin: 190, console: 260, rib: 240, cruiser: 320, sail: 170, jetski: 160 },
+    price: { skiff: 150, bass: 170, cabin: 190, console: 260, rib: 240, cruiser: 320, sail: 170, jetski: 160, tender: 150, trawler: 360 },
     desc: 'Your track drawn on the chart wherever she goes, and at the helm the bearing and distance to the nearest of your marks.',
   },
   vhf: {
     name: 'VHF radio', cat: 'electronics', kg: 1, amps: 0.5,
-    price: { skiff: 70, bass: 70, cabin: 80, console: 90, rib: 90, cruiser: 90, sail: 80 },
+    price: { skiff: 70, bass: 70, cabin: 80, console: 90, rib: 90, cruiser: 90, sail: 80, tender: 70, trawler: 100 },
     desc: 'The harbour’s channel at sea: who’s catching what and where the birds are working, and the forecast, now and then while you’re out.',
   },
   battery: {
@@ -94,7 +94,7 @@ export const FITS = {
   },
   holders: {
     name: 'Trolling rod holders', cat: 'deck', kg: 4, amps: 0,
-    price: { skiff: 40, bass: 50, cabin: 60, console: 90, rib: 80, cruiser: 90 },
+    price: { skiff: 40, bass: 50, cabin: 60, console: 90, rib: 80, cruiser: 90, tender: 40 },
     desc: 'Proper holders on the gunwale: with a line out you can run a notch faster, for the lures that want speed (mackerel feathers, tuna plugs), and the rod rides safe while you steer.',
   },
   bimini: {
@@ -150,7 +150,7 @@ export const FITS = {
   },
   anchor: {
     name: 'Heavier anchor and chain', cat: 'gear', kg: 14, amps: 0,
-    price: { skiff: 35, bass: 45, cabin: 60, console: 80, rib: 70, cruiser: 120, sail: 50 },
+    price: { skiff: 35, bass: 45, cabin: 60, console: 80, rib: 70, cruiser: 120, sail: 50, tender: 30, trawler: 160 },
     desc: 'A bigger anchor on a length of chain: it digs in first time and holds in a blow that would drag the old one across the bottom. The chain’s weight keeps the pull on it low along the seabed, so it holds even where the rope runs short in deep water.',
     // (B6) The anchor itself, twice the weight, holds about twice as hard (holding power goes about
     // with an anchor's weight: Practical Sailor's soft-mud tests); its chain (anchoring.js rodeOf)
@@ -249,15 +249,27 @@ export function buyBoat(state, kind) {
   Y.vessels ??= {};
   Y.vessels[kind] = newVessel(kind, state.day);
   logLine(Y.vessels[kind], state.day, `Bought at Willowhaven Marine Works for ${PRICES[kind]} pounds.`);
+  // (L5) The trawler comes with her tender, if you've none of your own: on her platform's chocks
+  // (the game puts her there: tender, her id).
+  if (COMES_WITH[kind] && !owns(Y, COMES_WITH[kind])) {
+    const t = COMES_WITH[kind];
+    Y.owned.push(t);
+    if (Y.hired?.kind === t) Y.hired = null;
+    Y.vessels[t] = newVessel(t, state.day);
+    logLine(Y.vessels[t], state.day, `Came with the ${kind} from Willowhaven Marine Works, on her swim platform.`);
+    return { ok: true, tender: t };
+  }
   return { ok: true };
 }
+// What comes with a boat when she's bought (L5): the trawler's tender.
+export const COMES_WITH = { trawler: 'tender' };
 
 
 // Another of a kind you have already, for good (G8c): her own id ('rib~2', see boatid.js), her own
 // papers, at the same price. Only the boats that live at Willowhaven (SECOND: the camp's and the
 // lake's moorings are one to a kind), and no more than MOST_OF_A_KIND of one: two to a kind is all
 // your finger of the pontoon takes. Returns { ok, why, id }.
-export const SECOND = ['windsurf', 'jetski', 'sail', 'cabin', 'rib', 'console', 'cruiser'];
+export const SECOND = ['windsurf', 'jetski', 'tender', 'sail', 'cabin', 'rib', 'console', 'cruiser'];
 export const MOST_OF_A_KIND = 2;
 export const ofKind = (yard, kind) => yard.owned.filter((id) => kindOf(id) === kind);
 export function buyAnother(state, kind) {

@@ -5,6 +5,7 @@ import { withCaustics } from './caustics.js';
 import {
   brasaHeight, brasaSDF, brasaHabitat, lavaRough, onBeach, windward, ISLE, PICO, ROJA, FARO, PUERTO, PLAYA, ARCO, ARCHES,
   VILLAGE, QUAY_S, DIQUE, MOLE, POSADA, QUAY_STEPS, SEBADAL, SOUTH_MAP, PONTOON_S, FINGERS_S, PONTOON_STEPS, FUEL_S, BAJON, onBajon, HARBOUR_OFFICE,
+  beachPale, SALINAS, VAPOR, BANCO, ROQUETES, GAVIOTA, islandOf,
 } from './brasa.js';
 import { fuelPumpParts, pontoonParts } from '../props.js';
 
@@ -29,6 +30,10 @@ import { fuelPumpParts, pontoonParts } from '../props.js';
 /* ---------------- colours ---------------- */
 
 const BC = {
+  // (The archipelago's coves: white shell sand, wet and dry; the salt pans' crust.)
+  shellSand: new THREE.Color('#e3d7bb'),
+  wetShell: new THREE.Color('#bfb193'),
+  salt: new THREE.Color('#d9d5cb'),
   lava: new THREE.Color('#3b393b'),
   lavaLight: new THREE.Color('#57524f'),
   lavaBrown: new THREE.Color('#5e4c40'),
@@ -49,7 +54,7 @@ const BC = {
   algae: new THREE.Color('#62653a'),
   deep: new THREE.Color('#2a3038'),
 };
-const _hb = {};
+const _hb = {}, _sand = new THREE.Color();
 
 // The ground's colour at a point of the far south (for the terrain's triangles).
 export function brasaColor(c, h, ny, x, z, r) {
@@ -59,7 +64,7 @@ export function brasaColor(c, h, ny, x, z, r) {
     // seagrass and weed where they grow, bare rock on the reef and the wall, dark far down.
     const H = brasaHabitat(x, z, _hb), d = -h;
     const sb = smoothstep(1.2, 0.8, Math.hypot((x - SEBADAL.x) / SEBADAL.rx, (z - SEBADAL.z) / SEBADAL.rz));
-    c.copy(BC.blackSand).lerp(BC.bedSand, smoothstep(1, 9, d)).lerp(BC.bedPale, sb * 0.85);
+    c.copy(BC.blackSand).lerp(BC.bedSand, smoothstep(1, 9, d)).lerp(BC.bedPale, Math.max(sb * 0.85, beachPale(x, z) * 0.9));
     c.lerp(BC.bedRock, clamp(H.rock * 1.1 + n2 * 0.2, 0, 1));
     c.lerp(BC.seagrass, H.grass * 0.75).lerp(BC.algae, clamp(H.weed - H.grass, 0, 1) * 0.6);
     c.lerp(BC.deep, smoothstep(30, 90, d));
@@ -80,8 +85,23 @@ export function brasaColor(c, h, ny, x, z, r) {
     c.lerp(BC.cinderDark, smoothstep(70, 20, dp) * 0.8 + smoothstep(32, 8, dr) * 0.4);
     c.lerp(BC.pineFloor, smoothstep(120, 170, h) * smoothstep(260, 200, h) * smoothstep(0.7, 0.85, ny) * clamp(0.3 + n2, 0, 1) * 0.7);
     c.lerp(BC.lavaLight, steep * (0.5 + rough * 0.3));
-    // Black sand, wet at the water's edge.
-    if (beach > 0.02) c.lerp(h < 0.9 ? BC.wetBlack : BC.blackSand, beach * smoothstep(5, 1, h));
+    // Black sand, wet at the water's edge (white shell sand in the islands' coves).
+    // (The coves' white sand blown up onto the low ground behind, fading out over twenty-odd
+    // metres: a pale beach stopped short against the brown slope shows the terrain's triangles as
+    // teeth along its back.)
+    const pale = beachPale(x, z), dune = pale > 0 ? 0.7 * Math.pow(pale, 1.5) * smoothstep(14, 3, h) : 0;
+    const onSand = beach * smoothstep(5, 1, h);
+    if (onSand > 0.02 || dune > 0.02) {
+      _sand.copy(h < 0.9 ? BC.wetBlack : BC.blackSand).lerp(h < 0.9 ? BC.wetShell : BC.shellSand, pale);
+      c.lerp(_sand, Math.max(onSand, dune));
+    }
+    // Las Salinas: the salt pans' crust, in squares between their walls.
+    {
+      const dx = x - SALINAS.x, dz = z - SALINAS.z, cs = Math.cos(SALINAS.yaw), sn = Math.sin(SALINAS.yaw);
+      const u = dx * cs - dz * sn, v = dx * sn + dz * cs;
+      const inPans = smoothstep(1.05, 0.9, Math.max(Math.abs(u) / (SALINAS.w / 2), Math.abs(v) / (SALINAS.d / 2)));
+      if (inPans > 0) c.lerp(BC.salt, inPans * (0.75 + 0.2 * n2));
+    }
     // The rim of boulders at the shore.
     if (h < 2.2 && beach < 0.5) c.lerp(BC.lava, smoothstep(2.2, 0.8, h) * 0.6);
     // The village's paving and whitewashed walls round the houses.
@@ -123,6 +143,20 @@ function instanced(geo, list, material, rnd, { tint = 0.12, tilt = 0, shadows = 
   m.receiveShadow = true;
   m.computeBoundingSphere();
   return m;
+}
+// (The archipelago) The same, one mesh to each island (Brasa with the stacks, Gaviota, Honda), so
+// an island out of view is left out: one mesh over them all is always partly in view, and is drawn
+// whole. (The same draws of the dice, in the same number, so nothing after them moves.)
+function byIsland(group, geo, list, material, rnd, opts) {
+  const by = new Map();
+  for (const t of list) {
+    const k = islandOf(t.x, t.z)?.id || 'brasa';
+    if (!by.has(k)) by.set(k, []);
+    by.get(k).push(t);
+  }
+  const out = [...by.values()].map((l) => instanced(geo, l, material, rnd, opts));
+  for (const m of out) group.add(m);
+  return out;
 }
 
 // A Canary palm: a thick, slightly leaning trunk and a full crown of arching fronds.
@@ -518,12 +552,15 @@ export function buildBrasa(scene, rnd) {
   }
   // Scrub over the island: tabaiba thick in the lee low down, cardón on the rocky slopes; pines high
   // on the volcano.
-  for (let i = 0; i < 26000 && tabaiba.length < 2600; i++) {
-    const x = ISLE.x - 720 + rnd() * 1440, z = ISLE.z - 460 + rnd() * 900;
+  // (Over the whole archipelago: Brasa and its islands, sharing Brasa's budget, as its fish do.)
+  for (let i = 0; i < 60000 && tabaiba.length < 2600; i++) {
+    const x = SOUTH_MAP.x + rnd() * SOUTH_MAP.w, z = SOUTH_MAP.z + rnd() * SOUTH_MAP.h;
     const d = brasaSDF(x, z);
     if (d > -8) continue;
     const h = H(x, z);
     if (h > 230 || onBeach(x, z) > 0.2 || Math.hypot(x - VILLAGE.x, z - VILLAGE.z) < VILLAGE.r || Math.hypot(x - ARCO.x, z - ARCO.z) < ARCO.r + 6) continue;
+    // (Not on the salt pans.)
+    if (Math.hypot(x - SALINAS.x, z - SALINAS.z) < SALINAS.w * 0.6) continue;
     if (Math.abs(H(x + 2, z) - h) > 2.6) continue;
     const lee = 1 - windward(x, z), n = fbm(x * 0.02 + 9, z * 0.02, 2);
     if (rnd() > (0.25 + 0.5 * lee) * smoothstep(-0.3, 0.3, n)) continue;
@@ -533,7 +570,7 @@ export function buildBrasa(scene, rnd) {
     else tabaiba.push({ x, y: h - 0.05, z, s: 0.7 + rnd() * 0.8, r: rnd() * 6.28 });
   }
   // Lava boulders along the shore, and the reef's boulders and urchins under the water.
-  for (let i = 0; i < 30000 && (boulders.length < 1400 || rocksUnder.length < 1500); i++) {
+  for (let i = 0; i < 52000 && (boulders.length < 1400 || rocksUnder.length < 1500); i++) {
     const x = SOUTH_MAP.x + rnd() * SOUTH_MAP.w, z = SOUTH_MAP.z + rnd() * SOUTH_MAP.h;
     const d = brasaSDF(x, z);
     if (Math.abs(d) > 120) continue;
@@ -596,6 +633,12 @@ export function buildBrasa(scene, rnd) {
     }
     // Round the Roque and its arches, and over the rest of the island's rock.
     for (let i = 0; i < 900; i++) tryAt(ARCO.x + (rnd() - 0.5) * 220, ARCO.z + 20 + (rnd() - 0.5) * 200, true);
+    // (The archipelago) El Banco's top and walls, and round Los Roquetes' stacks.
+    for (let i = 0; i < 500; i++) tryAt(BANCO.x + (rnd() - 0.5) * BANCO.r * 1.4, BANCO.z + (rnd() - 0.5) * BANCO.r * 1.4, true);
+    for (let i = 0; i < 350; i++) {
+      const R = ROQUETES[Math.floor(rnd() * ROQUETES.length)], a = rnd() * Math.PI * 2, d = R.r + rnd() * 40;
+      tryAt(R.x + Math.cos(a) * d, R.z + Math.sin(a) * d, true);
+    }
     for (let i = 0; i < 26000 && fans.length + sponges.length < 3400; i++) {
       const x = SOUTH_MAP.x + rnd() * SOUTH_MAP.w, z = SOUTH_MAP.z + rnd() * SOUTH_MAP.h, d = brasaSDF(x, z);
       if (d < 8 || d > 260) continue;
@@ -634,17 +677,118 @@ export function buildBrasa(scene, rnd) {
     if (!afloat) obstacles.push({ x, z, r: 1.6, top: 1 });
   }
 
+  /* ---------- the archipelago's (docs/ARCHIPELAGO.md) ---------- */
+  const iron = [];
+  // El Vapor: a steel coaster broken on the sand in the lee of Los Roquetes. Her bow still standing,
+  // listing to port; amidships her ribs and her boiler; aft, her stern section lower, its rudder
+  // and propeller half in the sand; plates and her fallen mast round her. Sponges and sun coral on
+  // her, as on the reef.
+  {
+    const V = VAPOR, yaw = V.yaw, sy = Math.sin(yaw), cy = Math.cos(yaw), L = V.len, half = V.beam / 2;
+    const at = (u, v) => ({ x: V.x + sy * u + cy * v, z: V.z + cy * u - sy * v });
+    const rust = ['#5a3a2a', '#6b4230', '#4a3328', '#7a4a32', '#3f2d24'];
+    const piece = (w, h, d, u, v, y, roll = 0, pitch = 0, list = iron, color = pick(rust, rnd)) => {
+      const p = at(u, v), bed = H(p.x, p.z);
+      const m = new THREE.Matrix4().makeRotationY(yaw).multiply(new THREE.Matrix4().makeRotationZ(roll)).multiply(new THREE.Matrix4().makeRotationX(pitch));
+      m.setPosition(p.x, bed + y, p.z);
+      list.push({ geo: new THREE.BoxGeometry(w, h, d), matrix: m, color, jitter: 0.06 });
+    };
+    // The bow section (forward of 0.18 of her length): her sides, her stem, a deck plate, a hatch.
+    for (let u = L * 0.18; u < L * 0.47; u += 2) {
+      const k = 1 - Math.max(0, (u - L * 0.32) / (L * 0.18));
+      for (const sd of [1, -1]) piece(0.16, 4.2, 2.05, u, sd * half * (0.35 + 0.65 * k), 2.1, sd * 0.06 + 0.12, 0);
+    }
+    piece(0.3, 5.2, 0.4, L * 0.49, 0, 2.6, 0.12, -0.25);
+    piece(V.beam * 0.75, 0.12, L * 0.22, L * 0.31, 0, 4.1, 0.12, 0);
+    piece(1.8, 0.6, 2.2, L * 0.26, 0.4, 4.4, 0.12, 0);
+    // Amidships: her keel plate and broken ribs, the boiler on its side among them.
+    piece(1.0, 0.25, L * 0.36, 0, 0, 0.15, 0, 0);
+    for (let u = -L * 0.16; u < L * 0.18; u += 1.25) {
+      for (const sd of [1, -1]) {
+        const h = (sd > 0 ? 3.2 : 1.6) * (0.35 + rnd() * 0.7);
+        piece(0.14, h, 0.22, u, sd * half * 0.92, h / 2, sd * (0.3 + rnd() * 0.3), 0);
+      }
+    }
+    {
+      const p = at(-L * 0.04, 0.6), bed = H(p.x, p.z);
+      iron.push({ geo: new THREE.CylinderGeometry(1.6, 1.6, 4.2, 14), matrix: new THREE.Matrix4().makeRotationY(yaw).multiply(new THREE.Matrix4().makeRotationX(Math.PI / 2)).setPosition(p.x, bed + 1.4, p.z), color: '#5d3a28', jitter: 0.05 });
+      const f = at(-L * 0.02, 1.2), fb = H(f.x, f.z);
+      iron.push({ geo: new THREE.CylinderGeometry(0.6, 0.6, 3.2, 10), matrix: new THREE.Matrix4().makeRotationY(yaw).multiply(new THREE.Matrix4().makeRotationZ(1.1)).setPosition(f.x, fb + 0.9, f.z), color: '#4e3022', jitter: 0.05 });
+    }
+    // The stern section: lower sides, the stern post and rudder, the propeller in the sand.
+    for (let u = -L * 0.47; u < -L * 0.18; u += 2) {
+      const k = 1 - Math.max(0, (-u - L * 0.36) / (L * 0.12));
+      for (const sd of [1, -1]) piece(0.16, 2.8, 2.05, u, sd * half * (0.45 + 0.55 * k), 1.4, -0.08 + sd * 0.05, 0);
+    }
+    piece(0.35, 3.6, 0.45, -L * 0.48, 0, 1.6, 0, 0.15);
+    piece(0.12, 2.2, 1.6, -L * 0.5, 0, 1.1, 0, 0);
+    {
+      const p = at(-L * 0.46, 0), bed = H(p.x, p.z), hub = new THREE.Matrix4().makeRotationY(yaw).setPosition(p.x, bed + 0.7, p.z);
+      iron.push({ geo: new THREE.CylinderGeometry(0.25, 0.3, 0.6, 10).rotateX(Math.PI / 2), matrix: hub, color: '#6b4a2c', jitter: 0.04 });
+      for (let k = 0; k < 4; k++) iron.push({ geo: new THREE.BoxGeometry(0.06, 0.9, 0.45).translate(0, 0.55, 0).rotateZ((k * Math.PI) / 2 + 0.3), matrix: hub, color: '#6b4a2c', jitter: 0.04 });
+    }
+    // Her mast, fallen across the sand to starboard; plates torn off her, lying round.
+    piece(0.35, 0.35, 14, L * 0.08, -half - 5, 0.2, 0, 0.05, iron, '#4a3328');
+    for (let i = 0; i < 14; i++) {
+      const u = (rnd() - 0.5) * L * 1.1, v = (rnd() < 0.5 ? -1 : 1) * (half + 1 + rnd() * 6);
+      piece(1.2 + rnd() * 1.6, 0.06, 1.6 + rnd() * 2, u, v, 0.05, (rnd() - 0.5) * 0.3, (rnd() - 0.5) * 0.3);
+    }
+    // Sponges and sun coral grown on her: along her sides' tops, her bow, her boiler.
+    const SP = ['#e8722a', '#e6c23a', '#c43a2e', '#7a3a6a', '#e88a3a'];
+    for (let i = 0; i < 140; i++) {
+      const u = (rnd() - 0.5) * L * 0.95, sd = rnd() < 0.5 ? -1 : 1, bow = u > L * 0.18, stern = u < -L * 0.18;
+      const top = bow ? 4.2 : stern ? 2.8 : 1.6 + rnd() * 1.2, p = at(u, sd * half * 0.8), bed = H(p.x, p.z);
+      if (rnd() < 0.6) sponges.push({ x: p.x, y: bed + top * (0.4 + rnd() * 0.6), z: p.z, s: 0.5 + rnd() * 0.7, r: rnd() * 6.28, color: pick(SP, rnd) });
+      else suns.push({ x: p.x, y: bed + top * (0.3 + rnd() * 0.7), z: p.z, s: 0.5 + rnd() * 0.6, r: rnd() * 6.28, color: '#f07a1e' });
+    }
+  }
+  // Las Salinas: the salt pans' low walls in squares behind Bahía Escondida, and the stone hut at
+  // their head, roofless now.
+  {
+    const S = SALINAS, c = Math.cos(S.yaw), s = Math.sin(S.yaw);
+    const at = (u, v) => ({ x: S.x + u * c + v * s, z: S.z - u * s + v * c });
+    const wall = (u0, v0, u1, v1) => {
+      const a = at(u0, v0), b = at(u1, v1), len = Math.hypot(b.x - a.x, b.z - a.z), mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
+      stone.push({ geo: new THREE.BoxGeometry(0.35, 0.32, len), matrix: mat(mx, H(mx, mz) + 0.1, mz, 0, Math.atan2(b.x - a.x, b.z - a.z), 0), color: pick(['#8a8378', '#7d766c', '#948d82'], rnd), jitter: 0.05 });
+    };
+    for (let u = -S.w / 2; u <= S.w / 2 + 0.1; u += S.w / 6) wall(u, -S.d / 2, u, S.d / 2);
+    for (let v = -S.d / 2; v <= S.d / 2 + 0.1; v += S.d / 4) wall(-S.w / 2, v, S.w / 2, v);
+    const hx = S.hut.x, hz = S.hut.z, hy = H(hx, hz), hw = 2.2, hd = 3, ht = 2.1;
+    for (const [w, d, ox, oz, h] of [[hw * 2, 0.4, 0, -hd, ht], [hw * 2, 0.4, 0, hd, ht * 0.6], [0.4, hd * 2, -hw, 0, ht], [0.4, hd * 2 - 1.4, hw, 0.7, ht * 0.85]]) {
+      stone.push({ geo: new THREE.BoxGeometry(w, h, d), matrix: mat(hx + ox * c + oz * s, hy + h / 2, hz - ox * s + oz * c, 0, S.yaw, 0), color: pick(['#8f877a', '#827a6e'], rnd), jitter: 0.05 });
+    }
+    wood.push({ geo: new THREE.BoxGeometry(0.15, 0.15, hd * 2.2), matrix: mat(hx, hy + ht + 0.1, hz, 0.2, S.yaw, 0.1), color: '#5a4836' });
+    obstacles.push({ x: hx, z: hz, r: Math.max(hw, hd), kind: 'building', name: 'the salt hut' });
+  }
+  // A beacon on Isla Gaviota's highest ground: a white tower with a light that flashes after dark.
+  let beacon = null;
+  {
+    let bx = GAVIOTA.x, bz = GAVIOTA.z, bh = H(bx, bz);
+    for (let i = 0; i < 400; i++) {
+      const x = GAVIOTA.x + (rnd() - 0.5) * GAVIOTA.rx * 1.4, z = GAVIOTA.z + (rnd() - 0.5) * GAVIOTA.rz * 1.4, h = H(x, z);
+      if (h > bh) {
+        bx = x;
+        bz = z;
+        bh = h;
+      }
+    }
+    white.push({ geo: new THREE.CylinderGeometry(0.7, 0.95, 6, 10), matrix: mat(bx, bh + 3, bz), color: '#f2efe8' });
+    white.push({ geo: new THREE.CylinderGeometry(0.85, 0.85, 0.25, 10), matrix: mat(bx, bh + 6.1, bz), color: '#c9c3b6' });
+    beacon = new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 8), new THREE.MeshBasicMaterial({ color: '#fff6dd', transparent: true, opacity: 0.25 }));
+    beacon.position.set(bx, bh + 6.6, bz);
+    group.add(beacon);
+    obstacles.push({ x: bx, z: bz, r: 1.1, kind: 'building', name: 'the beacon' });
+  }
+
   const sway = plain();
   group.add(instanced(palmGeometry(rnd), palms, sway, rnd));
-  group.add(instanced(tabaibaGeometry(rnd), tabaiba, plain(), rnd, { tint: 0.15 }));
-  group.add(instanced(cardonGeometry(rnd), cardon, plain(), rnd, { tint: 0.1 }));
+  byIsland(group, tabaibaGeometry(rnd), tabaiba, plain(), rnd, { tint: 0.15 });
+  byIsland(group, cardonGeometry(rnd), cardon, plain(), rnd, { tint: 0.1 });
   group.add(instanced(pineGeometry(), pines, plain(), rnd, { tint: 0.1 }));
   const boulderGeo = mergeParts([{ geo: jitterGeo(new THREE.DodecahedronGeometry(1, 0), 0.4, rnd), color: '#3a3839', jitter: 0.08 }], rnd);
-  group.add(instanced(boulderGeo, boulders, rockMat, rnd, { tint: 0.18, tilt: 0.8 }));
-  const under = instanced(boulderGeo, rocksUnder, rockMat, rnd, { tint: 0.2, tilt: 0.9, shadows: false });
-  group.add(under);
-  const urch = instanced(urchinGeometry(), urchins, plain(), rnd, { tint: 0.05, shadows: false });
-  group.add(urch);
+  byIsland(group, boulderGeo, boulders, rockMat, rnd, { tint: 0.18, tilt: 0.8 });
+  byIsland(group, boulderGeo, rocksUnder, rockMat, rnd, { tint: 0.2, tilt: 0.9, shadows: false });
+  byIsland(group, urchinGeometry(), urchins, plain(), rnd, { tint: 0.05, shadows: false });
   // (The reef's colour thins out with the Vegetation setting: El Bajón's, placed first, stay longest.)
   const soft = withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
   const reefLife = [
@@ -666,6 +810,7 @@ export function buildBrasa(scene, rnd) {
   group.add(mesh(mergeParts(stone, rnd), withCaustics(withSurface(plain(), 'ground'))));
   group.add(mesh(mergeParts(plainParts, rnd), withCaustics(plain())));
   group.add(mesh(mergeParts(wood, rnd), plain()));
+  group.add(mesh(mergeParts(iron, rnd), withCaustics(new THREE.MeshLambertMaterial({ vertexColors: true })), false));
   // Windows that light up after dark.
   const glass = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: new THREE.Color('#ffcf7a'), emissiveIntensity: 0 });
   const win = mesh(mergeParts(windows, rnd), glass, false);
@@ -686,6 +831,9 @@ export function buildBrasa(scene, rnd) {
       // The harbour light flashes green every four seconds.
       harbourLight.userData.glow.material.opacity = night * (Math.sin(t * Math.PI * 0.5) > 0.6 ? 1 : 0.1);
       glass.emissiveIntensity = smoothstep(0.15, 0.6, env.night) * 0.8;
+      // (Isla Gaviota's beacon: two flashes every ten seconds after dark.)
+      const ph = t % 10;
+      if (beacon) beacon.material.opacity = 0.25 + 0.75 * night * (ph < 0.4 || (ph > 1.2 && ph < 1.6) ? 1 : 0.05);
       buoy.position.y = -0.15 + Math.sin(t * 1.3) * 0.07;
       buoy.rotation.set(Math.sin(t * 0.9) * 0.06, 0, Math.sin(t * 1.1 + 1) * 0.06);
       for (const b of boats) {

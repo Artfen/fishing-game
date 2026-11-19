@@ -1,5 +1,7 @@
 import { CROSSING, LIGHT } from './world/terrain.js';
-import { SOUTH_Z, ISLE, FARO, PUERTO, brasaSDF } from './world/brasa.js';
+import { SOUTH_Z, ISLE, FARO, PUERTO, brasaIsleSDF } from './world/brasa.js';
+// (Brasa's own coast: the archipelago's islands round it don't end the crossing early.)
+const brasaSDF = brasaIsleSDF;
 import { clamp, lerp, smoothstep, seeded } from './util.js';
 import { kindOf, isBoatId } from './boatid.js';
 
@@ -64,26 +66,28 @@ export const oceanAt = (z, crossing = false) => (crossing
   ? smoothstep(ENDS.home.z, ENDS.home.z + 400, z) * (1 - smoothstep(4700, 5000, z))
   : smoothstep(CROSSING.z0, CROSSING.z0 + 400, z) * (1 - smoothstep(CROSSING.z1, CROSSING.z1 + 400, z)));
 // The fastest a motor boat goes comfortably out there (m/s): about six knots in the usual long
-// swell (her hull speed: above it she climbs the backs of the seas and slams down off them), less
-// as the sea gets up; near either coast, no limit (Infinity).
-export function seaKindly(ocean, swell = 0.3, eased = false) {
+// swell for a planing hull (above it she climbs the backs of the seas and slams down off them),
+// less as the sea gets up; near either coast, no limit (Infinity). own: her own figure in the usual
+// swell, where a hull has one (the trawler's: a displacement hull doesn't pound, and holds most of
+// her eight knots).
+export function seaKindly(ocean, swell = 0.3, eased = false, own = 2.8) {
   if (ocean <= 0.01) return Infinity;
-  const cap = (2.8 - 0.7 * smoothstep(0.6, 1.6, swell)) * (eased ? 0.8 : 1);
+  const cap = own * (1 - 0.25 * smoothstep(0.6, 1.6, swell)) * (eased ? 0.8 : 1);
   return lerp(14, cap, ocean);
 }
 
 // The boats that can make it, and how fast each goes on average across (for the fast passage's
 // hours and fuel, matching what the helm would take: the sailing boat in the trade wind on the
 // quarter, the yacht at her seakindly speed in the middle and flat out near the coasts).
-export const LONG_RANGE = ['sail', 'cruiser'];
-export const AVG_SPEED = { sail: 3.0, cruiser: 3.9 };
+export const LONG_RANGE = ['sail', 'cruiser', 'trawler'];
+export const AVG_SPEED = { sail: 3.0, cruiser: 3.9, trawler: 4.0 };
 export const HOUR_S = 40; // real seconds in a game hour (see townsfolk.js HOUR_SECONDS)
 export const crossSeconds = (kind) => CROSS_M / (AVG_SPEED[kind] || 3);
 export const crossHours = (kind) => crossSeconds(kind) / HOUR_S;
-// The yacht's diesel for it: what she burns with the lever down the whole way, and what she must
-// have aboard to set out (a margin over that).
-export const CROSS_FUEL = (perSecond) => Math.round(crossSeconds('cruiser') * perSecond);
-export const NEED_FUEL = (perSecond) => Math.round(CROSS_FUEL(perSecond) * 1.4 + 10);
+// A motor boat's diesel for it (the yacht's, or the trawler's: kind): what she burns with the lever
+// down the whole way, and what she must have aboard to set out (a margin over that).
+export const CROSS_FUEL = (perSecond, kind = 'cruiser') => Math.round(crossSeconds(kind) * perSecond);
+export const NEED_FUEL = (perSecond, kind = 'cruiser') => Math.round(CROSS_FUEL(perSecond, kind) * 1.4 + 10);
 
 // Words for a bearing (compass radians: 0 north, -z; π south, +z).
 const POINTS = ['north', 'north by east', 'north-north-east', 'north-east by north', 'north-east', 'north-east by east', 'east-north-east', 'east by north', 'east', 'east by south', 'east-south-east', 'south-east by east', 'south-east', 'south-east by south', 'south-south-east', 'south by east', 'south', 'south by west', 'south-south-west', 'south-west by south', 'south-west', 'south-west by west', 'west-south-west', 'west by south', 'west', 'west by north', 'west-north-west', 'north-west by west', 'north-west', 'north-west by north', 'north-north-west', 'north by west'];
