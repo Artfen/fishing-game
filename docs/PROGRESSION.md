@@ -176,3 +176,7 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
    once a pixel's too coarse for them.
 19. **Boats far off on the sea as drawn (done):** a boat a long way off sits on the water you see
    there, not bobbing on waves too far off to be drawn.
+20. **B3 (the hump region, done):** getting onto the plane: the console and the bass boat climb on
+   nearer their real trim, bow-up through the hump within a degree or two of Savitsky's equations,
+   where they ran 2° to 3° flatter; on the plane a hull's bottom holds her up by about half the water
+   it pushes aside.

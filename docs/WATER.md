@@ -791,7 +791,8 @@ included). The full table, with each LICENSE file read, is in the two research n
   before were the same to 0.3 m/s.) Slower, at 12 m/s, the RIB is still 1.4° under Savitsky's
   3.8°; and the console and the bass boat, which run below a speed coefficient of 3, getting onto
   the plane rather than fully on it, where his equations are at their edge, came up less (the
-  console 0.6 to 2°, the bass boat 0 to 0.7°) and are still 1.4 to 2.8° under them. Their speeds are as before to a percent or two
+  console 0.6 to 2°, the bass boat 0 to 0.7°) and are still 1.4 to 2.8° under them. (Done
+  since: see B3's hump region, below.) Their speeds are as before to a percent or two
   (tools/engine-trials.mjs measured them again: the figures the Marine Works shows).
 
   In the tests' rough sea, flat out, the RIB's bow now lifts to 14° at most (it was 9°), against
@@ -867,3 +868,93 @@ included). The full table, with each LICENSE file read, is in the two research n
   So she sits on the sea as drawn as she sits on the water close by. Her pitch and roll still follow
   the waves under her, the short ones the sheets leave out too: a degree or two either way, about
   ten centimetres at the RIB's bow.
+
+- **B3 (the hump region):** getting onto the plane. The console and the bass boat, which run below a
+  speed coefficient (V/√(g·b), b her beam at the chine) of about 3, still ran 2° to 3° flatter than
+  Savitsky's equations have them; the RIB 1.7° under them at 11 m/s. Taking the pitching moments on
+  the bass boat apart, stage by stage, showed why: her bottom's lift sat aft of her centre of
+  gravity, holding her bow down, and only two things lifted it, her propeller (low under her stern)
+  and the couple that moves her lift forward to where Savitsky puts it. Below a coefficient of
+  about 2, the hump's own rearing (boat.js, `H.hump`) does it, and on the console it's mostly gone
+  by 2.4; Savitsky's couple came in only from 1.5, and fully at 3. Between the two she ran flat.
+  Two changes, each from Savitsky's own equations:
+
+  - **Her lift moved to where Savitsky puts it from a coefficient of 1.2, all of it by 2.4**
+    (`PLANE_CV`; it was 1.5 to 3). His equations hold from about 0.6.
+  - **On the plane her bottom holds her up by half the water it pushes aside** (`PLANE_BUOY`, over
+    the same ramp). Running fast, the water leaves her bottom clean at the transom and the pressure
+    there falls to the air's. Savitsky's buoyant lift, 0.0055·λ^2.5·τ^1.1/Cv² (τ in degrees),
+    against a flat wedge's own displacement, λ²·τ/Cv² (τ in radians), is 0.32·λ^0.5·τ^0.1 of it:
+    0.43 to 0.65 over the wetted lengths (1.5 to 3 beams) and trims (3° to 6°) a planing hull runs
+    at. The panels gave all of it, so she was held up too well and ran flat, most of all getting
+    onto the plane, where her buoyancy is most of what holds her up. It's her steady buoyancy
+    that's halved, as B3 moved only her lift's steady place: what her bottom's buoyancy holds her
+    up with, smoothed over half a second, less half of it where it acts, and gone as she leaves the
+    water. How it grows and shrinks as she heaves and pitches through a sea is as the panels have
+    it. (Halved in each panel's pressure, she lost half her stiffness against each sea and flew off
+    the crests: in the tests' rough sea the RIB was off the water 2.2 s of the 25 watched, where
+    she's off it 1.3 s on main.)
+
+  The bottom's dynamic pressure halving (`PLANE_LIFT`) keeps its own ramp, 1.5 to 3
+  (`PLANE_LIFT_CV`). Brought in with the rest (in an earlier form of this change), it brought the
+  console and the bass boat closer still (0.56° and 1.29° root mean square), but with less to hold
+  her stern up as she launched from rest the jet ski reared 34° on a calm sea where she rears about
+  30°, and in the watersports test she left the water there. Two other things tried first didn't
+  hold up: moving her lift from where the panels actually put it (rather than from the middle of
+  her wetted length) to Savitsky's place ran the RIB bow-down on the plane (her tubes carry lift
+  well forward), and bringing her resistance up to her propeller's height earlier changed the
+  trims by half a degree at most.
+
+  Measured in calm water, steady over ten seconds at each lever (her bottom's angle to the water,
+  and Savitsky's for her speed then; hydro.js savitskyTrim):
+
+  | | Lever | Before | Now |
+  | --- | --- | --- | --- |
+  | Console | 0.4 | 3.95° (Savitsky 5.50°, Cv 1.68) | 5.08° (5.49°, Cv 1.64) |
+  | Console | 0.55 | 2.68° (5.21°, Cv 2.08) | 4.50° (5.29°, Cv 2.01) |
+  | Console | 0.7 | 2.01° (4.75°, Cv 2.38) | 3.49° (4.81°, Cv 2.34) |
+  | Console | 0.85 | 2.53° (4.31°, Cv 2.65) | 3.64° (4.36°, Cv 2.62) |
+  | Console | 1 | 2.45° (3.98°, Cv 2.88) | 2.95° (4.00°, Cv 2.87) |
+  | Bass boat | 0.4 | 3.80° (5.58°, Cv 1.18) | 3.80° (5.58°, Cv 1.18) |
+  | Bass boat | 0.55 | 3.60° (5.28°, Cv 1.46) | 4.01° (5.31°, Cv 1.45) |
+  | Bass boat | 0.7 | 2.47° (4.63°, Cv 1.74) | 3.30° (4.70°, Cv 1.71) |
+  | Bass boat | 0.85 | 1.31° (4.07°, Cv 1.98) | 2.18° (4.12°, Cv 1.96) |
+  | Bass boat | 1 | 1.77° (3.61°, Cv 2.20) | 2.86° (3.69°, Cv 2.16) |
+  | Skiff | 0.4 | 4.23° (4.72°, Cv 1.05) | 4.23° (4.72°, Cv 1.05) |
+  | Skiff | 0.55 | 5.43° (4.85°, Cv 1.26) | 5.45° (4.86°, Cv 1.26) |
+  | Skiff | 0.7 | 5.28° (4.56°, Cv 1.49) | 5.82° (4.59°, Cv 1.47) |
+  | Skiff | 0.85 | 3.71° (4.04°, Cv 1.73) | 4.90° (4.12°, Cv 1.70) |
+  | Skiff | 1 | 3.20° (3.60°, Cv 1.94) | 4.45° (3.71°, Cv 1.89) |
+  | RIB | 0.4 | 2.45° (4.19°, Cv 2.64) | 3.08° (4.22°, Cv 2.61) |
+  | RIB | 0.7 | 2.34° (3.22°, Cv 3.52) | 2.64° (3.23°, Cv 3.51) |
+  | RIB | 1 | 2.38° (2.65°, Cv 4.24) | 2.63° (2.65°, Cv 4.24) |
+  | Jet ski | 0.4 | 4.75° (6.04°, Cv 2.97) | 6.23° (6.23°, Cv 2.90) |
+  | Jet ski | 0.85 | 3.10° (3.55°, Cv 4.54) | 3.33° (3.55°, Cv 4.53) |
+  | Jet ski | 1 | 3.32° (3.24°, Cv 4.87) | 3.57° (3.25°, Cv 4.86) |
+
+  Over the five levers each, how far she is from Savitsky (root mean square): the console 2.09° to
+  0.91°, the bass boat 2.08° to 1.50°, the RIB 1.03° to 0.70°, the jet ski 0.61° to 0.34°. The
+  skiff went the other way, 0.52° to 0.81°: her top speed is on the hump (a coefficient of 1.9), so
+  she never climbs over it, and she now runs at it up to 1.2° more bow-up than his equations have.
+  Her pitch wanders by at most 0.5° (standard deviation; the console flat out, 0.45° before).
+
+  Her trim costs her a little speed, as a real hull's does: the Marine Works' figures were measured
+  again (the drag factors and top speeds in engines.js by `tools/engine-trials.mjs --calibrate`, the
+  table by the tool itself). On their own engines the skiff makes 13.7 knots (was 14.1), the bass
+  boat 17.9 (18.1), the console 26.4 (26.6) and the RIB 36.2 (36.3); the most any figure moved is
+  4.5% (the skiff's laden speed on the 15 hp with the four-bladed propeller), and the console burns
+  3.5% more at her cruise.
+
+  In the sport boats' test (its seas as that file's earlier tests leave them): driven hard from
+  rest on a calm sea, the RIB now rears 10.7° as she climbs onto the plane (8.5° on main; the test
+  allows 11.5°) and levels out at 2.2° bow-up; flat out in its rough sea her bow lifts to 15.3° at
+  most (14.4°) and she's off the water 1.5 s of the 25 watched (1.3 s). Steady at the hump's speeds
+  (a coefficient of 1.5 to 2.2) she's still under Savitsky, 2.4° to 4.1° against his 4.5° to 4.8°
+  (she was at 2.3° to 3.2°). Launched flat out from rest on a calm sea, the jet ski rears 28.5° (29.8°
+  on main).
+
+  Found on the way, and not this change's: launched from rest flat out into a lively sea (10 m/s of
+  wind, heading into it), the jet ski stands on her tail at about 6 m/s, 38° bow-up on main (40°
+  now), and never gets onto the plane; the watersports test counts those hops as her leaving the
+  crests. Her jet pushes on its full turning arm, where the outboards' is scaled to a real
+  propeller's (PROP_LEVER).
