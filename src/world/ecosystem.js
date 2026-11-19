@@ -1,5 +1,5 @@
 import { liveAppeal } from '../livebait.js';
-import { FISH, sizeAt, scaleOf } from '../fish.js';
+import { FISH, sizeAt, scaleOf, biggest } from '../fish.js';
 import { Pressure, restockFactor, pressureWariness } from './pressure.js';
 import { currentFast, currentAt, waveHeightHere } from './conditions.js';
 import { traits, mood, whyRejected, BEHAVIOUR, prefsFor, hashRnd } from '../behaviour.js';
@@ -57,7 +57,7 @@ export function schoolSizes(sp, id, n) {
   const size = sizeAt(sp, r()), out = { size, body: clamp(size / 45, 0.4, 3), big: 0, bigK: -1 };
   const roll = r(), at = r(), up = r();
   if (n > 2 && roll < 0.34 && size < lo + (hi - lo) * 0.62) {
-    out.big = Math.min(hi, Math.max(Math.round(size * 1.5), sizeAt(sp, 0.86 + 0.14 * up)));
+    out.big = Math.min(biggest(sp), Math.max(Math.round(size * 1.5), sizeAt(sp, 0.86 + 0.14 * up)));
     out.bigK = Math.floor(at * n);
   }
   return out;
@@ -67,7 +67,7 @@ export function schoolSizes(sp, id, n) {
 export function memberSize(sp, school, k, u) {
   if (!school) return sizeAt(sp, u);
   if (k >= 0 && k === school.bigK) return school.big;
-  return clamp(Math.round(school.size * (0.9 + 0.2 * u)), sp.size[0], sp.size[1]);
+  return clamp(Math.round(school.size * (0.9 + 0.2 * u)), sp.size[0], biggest(sp));
 }
 
 export class Ecosystem {

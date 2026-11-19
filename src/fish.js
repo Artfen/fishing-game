@@ -859,6 +859,22 @@ for (const f of FISH) {
 }
 export const fishById = Object.fromEntries(FISH.map((f) => [f.id, f]));
 
+// (F5, docs/FISH.md) The giants: in many kinds a few fish grow well past the sizes most reach
+// (the range above, the one the game's tackle and fights are made for), up to about the biggest
+// ever measured, rounded down (FishBase's maximum lengths, cm; never past the register's own,
+// register.js: tests/fishsize.test.mjs holds them to it). [share of the fish, biggest cm]. A giant
+// pulls harder for its bulk and lasts longer (fight.js), and is drawn as big as it is.
+export const GIANTS = {
+  tuna: [0.03, 300], yellowfin: [0.03, 210], albacore: [0.03, 130], littletunny: [0.02, 105], bonito: [0.02, 85],
+  bluemarlin: [0.03, 430], sailfish: [0.03, 310], spearfish: [0.03, 240], wahoo: [0.03, 220], dorado: [0.03, 185],
+  blueshark: [0.03, 360], mako: [0.03, 380], hammerhead: [0.02, 400], angelshark: [0.02, 220], skate: [0.03, 260],
+  conger: [0.03, 250], ling: [0.03, 190], cod: [0.03, 150], hake: [0.03, 120], saithe: [0.03, 120], pollack: [0.03, 115],
+  meagre: [0.03, 200], amberjack: [0.03, 185], grouper: [0.03, 150], moray: [0.02, 150], barracuda: [0.03, 150],
+  bluefish: [0.03, 115], seabass: [0.03, 95], dentex: [0.02, 100], thornback: [0.02, 110], turbot: [0.02, 90],
+  garfish: [0.02, 95], catshark: [0.02, 85], mackerel: [0.02, 55], pike: [0.03, 130], carp: [0.03, 110], eel: [0.02, 120],
+};
+for (const [id, g] of Object.entries(GIANTS)) if (fishById[id]) fishById[id].giant = g;
+
 /* ---------------- sizes (docs/FISH.md) ---------------- */
 
 // How a species' sizes run: most fish about a common size, big ones uncommon, the biggest rare.
@@ -867,11 +883,18 @@ export const fishById = Object.fromEntries(FISH.map((f) => [f.id, f]));
 // third of the way up the range, one in fourteen is in its top quarter and one in a hundred in
 // its top tenth (the fish of a lifetime). One draw, whatever the shape, so no fish moves.
 export const GROW = [1.3, 2.24];
+const kuma = (u, a, b) => Math.pow(1 - Math.pow(1 - u, 1 / b), 1 / a);
+// (F5) A species with giants (see GIANTS): the last few draws are fish past its usual range, most
+// of them just past it and the biggest rare, as big as the species is ever measured. The rest
+// run as before, over the usual range.
 export function sizeAt(f, u) {
-  const [a, b] = f.grow || GROW, [lo, hi] = f.size;
-  const x = Math.pow(1 - Math.pow(1 - Math.min(Math.max(u, 0), 0.999999), 1 / b), 1 / a);
-  return Math.round(lo + (hi - lo) * x);
+  const [a, b] = f.grow || GROW, [lo, hi] = f.size, G = f.giant;
+  u = Math.min(Math.max(u, 0), 0.999999);
+  if (G && u > 1 - G[0]) return Math.round(hi + (G[1] - hi) * kuma((u - (1 - G[0])) / G[0], a, b));
+  return Math.round(lo + (hi - lo) * kuma(G ? u / (1 - G[0]) : u, a, b));
 }
+// The biggest a fish of this kind can be: its giants', else the top of its usual range.
+export const biggest = (f) => f.giant?.[1] ?? f.size[1];
 // How long a species' model is (units, nose to tail-tip): the anatomical ones are made one unit
 // long; the older ones of the lakes and rivers measure 1.267 (tests/fishsize.test.mjs measures
 // them). A fish of size cm is drawn size/100 m long, its true length, by this scale.

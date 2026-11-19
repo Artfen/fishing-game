@@ -46,7 +46,8 @@ const shopOf = (state) => state.shop || newShop();
 export const creelOf = (state) => CREELS[shopOf(state).creel] || CREELS[0];
 export const creelKg = (state) => creelOf(state).kg;
 // What a fish in the creel weighs (cooked, the same near enough).
-export const keptKg = (f) => (fishById[f.id] ? weightOf(fishById[f.id], f.size) : 0);
+// (Its own weight, kept with it since docs/FISH.md; a fish kept before, its kind's for its length.)
+export const keptKg = (f) => (fishById[f.id] ? f.kg ?? weightOf(fishById[f.id], f.size) : 0);
 export const creelLoad = (state) => (state.keep || []).reduce((s, f) => s + keptKg(f), 0);
 // Room for a fish of this weight? (An empty creel always takes one, however big.)
 export function creelFits(state, kg) {

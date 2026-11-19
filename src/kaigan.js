@@ -114,7 +114,7 @@ export function kaiganValue(f, { day, now } = {}) {
   const D = sp && DISHES[sp.id];
   const none = { price: 0, kg: 0, each: 0, grade: 'raw', special: false, prime: false, dish: '', wanted: false, cap: 0 };
   if (!D || f.cooked || !takes(sp)) return none;
-  const kg = weightOf(sp, f.size), grade = gradeOf(f, now), cap = D.cap ?? CAP;
+  const kg = f.kg ?? weightOf(sp, f.size), grade = gradeOf(f, now), cap = D.cap ?? CAP;
   const special = sp.id === 'tuna' || specialsFor(day).includes(sp.id);
   const size = sizePrice(sp, f.size);
   const each = Math.round(D.k * (special && sp.id !== 'tuna' ? SPECIAL : 1) * size * (grade === 'kitchen' ? KITCHEN_SHARE : 1) * 100) / 100;

@@ -203,9 +203,11 @@ export function cleanName(v) {
   return typeof v === 'string' ? v.replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 40) : '';
 }
 
+// (Its own weight goes with it, where it's known: see shop.js keptKg.)
 const fishEntry = (f) => (isObj(f) && fishById[f.id]?.meal
-  ? { id: f.id, size: Math.round(num(f.size, fishById[f.id].size[0], 1, 700)), logId: typeof f.logId === 'string' ? f.logId.slice(0, 24) : null }
+  ? { id: f.id, size: Math.round(num(f.size, fishById[f.id].size[0], 1, 700)), logId: typeof f.logId === 'string' ? f.logId.slice(0, 24) : null, ...withKg(f) }
   : null);
+const withKg = (f) => (Number.isFinite(f.kg) && f.kg > 0 ? { kg: Math.min(f.kg, 2000) } : {});
 
 // A saved camp, made safe: anything odd is put right, and a camp that can't be read is dropped
 // (its kit comes home: see cleanCamps).
@@ -262,12 +264,12 @@ export function stow(state, camp, i) {
   if (f.cooked) {
     if (camp.store.meals.length >= MEALS_MAX) return { ok: false, why: `There’s no more room for cooked fish here (${MEALS_MAX}).` };
     state.keep.splice(i, 1);
-    camp.store.meals.push({ id: f.id, size: f.size, logId: f.logId || null });
+    camp.store.meals.push({ id: f.id, size: f.size, logId: f.logId || null, ...withKg(f) });
     return { ok: true };
   }
   if (camp.store.fish.length >= COOLBOX) return { ok: false, why: `The cool box is full (${COOLBOX} fish). Cook some, or keep them in your creel.` };
   state.keep.splice(i, 1);
-  camp.store.fish.push({ id: f.id, size: f.size, logId: f.logId || null });
+  camp.store.fish.push({ id: f.id, size: f.size, logId: f.logId || null, ...withKg(f) });
   return { ok: true };
 }
 
@@ -278,7 +280,7 @@ export function take(state, camp, i, meal = false) {
   if (!f) return { ok: false, why: 'Nothing there.' };
   if (!creelFits(state, keptKg(f))) return { ok: false, why: `No room in your creel for it (it holds ${creelKg(state)} kg).` };
   list.splice(i, 1);
-  state.keep.push({ id: f.id, size: f.size, logId: f.logId || null, ...(meal ? { cooked: true } : {}) });
+  state.keep.push({ id: f.id, size: f.size, logId: f.logId || null, ...withKg(f), ...(meal ? { cooked: true } : {}) });
   return { ok: true };
 }
 
@@ -314,8 +316,8 @@ export function packUp(state, camp, { release = [] } = {}) {
   if (overBy(state, [...keepFish, ...camp.store.meals])) {
     return { ok: false, why: `Your creel holds ${creelKg(state)} kg: not room for everything in the cool box.` };
   }
-  for (const f of keepFish) state.keep.push({ id: f.id, size: f.size, logId: f.logId || null });
-  for (const f of camp.store.meals) state.keep.push({ id: f.id, size: f.size, logId: f.logId || null, cooked: true });
+  for (const f of keepFish) state.keep.push({ id: f.id, size: f.size, logId: f.logId || null, ...withKg(f) });
+  for (const f of camp.store.meals) state.keep.push({ id: f.id, size: f.size, logId: f.logId || null, ...withKg(f), cooked: true });
   const i = state.camps.indexOf(camp);
   if (i >= 0) state.camps.splice(i, 1);
   return { ok: true, released, carried: keepFish.length + camp.store.meals.length };

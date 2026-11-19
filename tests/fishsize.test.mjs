@@ -11,7 +11,7 @@ globalThis.document ??= { createElement: () => ({ width: 0, height: 0, getContex
 globalThis.innerHeight ??= 800;
 
 const THREE = await import('three');
-const { FISH, fishById, sizeAt, GROW, drawnLength, PROC_LENGTH, scaleOf, girthOf, tempoOf, weightOf, buildFishGeometry } = await import('../src/fish.js');
+const { FISH, fishById, sizeAt, GROW, drawnLength, PROC_LENGTH, scaleOf, girthOf, tempoOf, weightOf, buildFishGeometry, biggest } = await import('../src/fish.js');
 const { traits } = await import('../src/behaviour.js');
 const { Ecosystem, schoolSizes, memberSize } = await import('../src/world/ecosystem.js');
 const { createHabitat } = await import('../src/world/habitat.js');
@@ -83,11 +83,12 @@ test('a school keeps fish of about one size, and one school in three or so has a
     s.members.forEach((a, k) => {
       if (k === s.bigK) {
         assert.equal(a.size, s.big);
-        assert.ok(a.size >= Math.min(hi, s.size * 1.45), `${s.sp.id} school ${s.id}: its big one ${a.size} cm by fish of ${s.size}`);
+        assert.ok(a.size >= Math.min(biggest(s.sp), s.size * 1.45), `${s.sp.id} school ${s.id}: its big one ${a.size} cm by fish of ${s.size}`);
         assert.ok(a.slot.y === -0.75 && Math.abs(a.slot.x) > 1, 'at the edge, below');
       } else {
-        // (Within a tenth either way, but for a centimetre's rounding and the species' range.)
-        assert.ok(a.size >= Math.max(lo, Math.floor(s.size * 0.9) - 1) && a.size <= Math.min(hi, Math.ceil(s.size * 1.1) + 1), `${s.sp.id} school ${s.id}: ${a.size} cm by ${s.size}`);
+        // (Within a tenth either way, but for a centimetre's rounding and the species' sizes, its
+        // giants' among them: a school of big tunas may have fish just past the usual range.)
+        assert.ok(a.size >= Math.max(lo, Math.floor(s.size * 0.9) - 1) && a.size <= Math.min(biggest(s.sp), Math.ceil(s.size * 1.1) + 1), `${s.sp.id} school ${s.id}: ${a.size} cm by ${s.size}`);
       }
     });
     if (s.bigK >= 0) withBig++;
@@ -162,4 +163,74 @@ test('drawn: its true length and its build; a big fish always, in detail a long 
   assert.ok(alone <= sprats.members.length + eco.bySpecies.sprat.length - sprats.members.length, `${alone}`);
   for (const a of sprats.members) a.state = 'school';
   for (const a of S.members) a.state = 'school';
+});
+
+test('giants: a few of a kind past its usual sizes, most just past, none past the biggest measured (nor the register\'s)', async () => {
+  const { GIANTS, biggest } = await import('../src/fish.js');
+  const { registerFor } = await import('../src/register.js');
+  for (const [id, [share, top]] of Object.entries(GIANTS)) {
+    const sp = fishById[id];
+    assert.ok(sp && sp.giant, id);
+    assert.ok(top > sp.size[1] && biggest(sp) === top, `${id}: ${top} past ${sp.size[1]}`);
+    const reg = registerFor(id)?.size;
+    if (reg?.max && !reg.unit) assert.ok(top <= reg.max, `${id}: ${top} cm, the register's biggest ${reg.max}`);
+    const N = 20000;
+    let past = 0, nearTop = 0, prev = 0;
+    for (let i = 0; i < N; i++) {
+      const s = sizeAt(sp, (i + 0.5) / N);
+      assert.ok(s >= prev && s <= top, `${id} ${s}`);
+      prev = s;
+      if (s > sp.size[1]) past++;
+      if (s > sp.size[1] + 0.9 * (top - sp.size[1])) nearTop++;
+    }
+    assert.ok(Math.abs(past / N - share) < 0.004, `${id}: ${(past / N * 100).toFixed(2)}% giants`);
+    assert.ok(nearTop / N < share * 0.03, `${id}: the biggest rare (${nearTop} in ${N})`);
+  }
+  // In the sea, a giant tuna school or two, and giants beside schools of ordinary ones.
+  const giants = eco.agents.filter((a) => a.size > a.sp.size[1]);
+  assert.ok(giants.length > 10, `${giants.length} giants in the sea`);
+  assert.ok(giants.every((a) => a.size <= biggest(a.sp)));
+});
+
+test('a giant fights harder and longer for its bulk, and careful play on the tackle its kind needs still lands it', async () => {
+  const { newFight, DIFFICULTY } = await import('../src/fight.js');
+  const { play } = await import('../tools/fightsim.mjs?nomain');
+  const { RODS, TERMS } = await import('../src/tackle.js');
+  const { setupsFor } = await import('../src/guide.js');
+  const rodFor = (sp) => { const s = setupsFor(sp)[0], R = RODS[s.rod]; return { line: { ...R.lines.find((l) => l.id === s.line), trace: !!TERMS[s.term].trace }, power: R.power, drag: R.drag }; };
+  const tuna = fishById.tuna, rod = rodFor(tuna), one = () => 0.5;
+  const usual = newFight(tuna, 175, rod, DIFFICULTY.standard, false, one), giant = newFight(tuna, 262, rod, DIFFICULTY.standard, false, one);
+  assert.ok(Math.abs(giant.force / usual.force - Math.pow(262 / 175, 1.5)) < 1e-9, 'its pull by its bulk');
+  assert.ok(Math.abs(giant.strength / usual.strength - 262 / 175) < 1e-9, 'its staying power by its length');
+  // Up to its usual sizes, the fight is as it was.
+  assert.equal(newFight(tuna, 150, rod, DIFFICULTY.standard, false, one).force, tuna.pull * (0.35 + 0.65 * (150 - 95) / 80) * DIFFICULTY.standard.force);
+  for (const id of ['tuna', 'bluemarlin', 'seabass', 'pike', 'conger']) {
+    const sp = fishById[id], [lo, hi] = sp.size, mid = (hi + sp.giant[1]) / 2;
+    const at = (size) => play(sp, rodFor(sp), 'standard', 'careful', { k: (size - lo) / (hi - lo), n: 30 });
+    const big = at(hi), g = at(mid);
+    assert.ok(g.rate >= 0.95, `${id} at ${mid} cm: ${JSON.stringify(g)}`);
+    assert.ok(g.time > big.time, `${id}: a giant ${g.time}s, the biggest usual one ${big.time}s`);
+    assert.ok(g.time < 240, `${id}: a giant within four minutes (${g.time}s)`);
+  }
+});
+
+test('one weight everywhere: a kept fish carries its own weight into the creel, the market and the save; and the records keep its kind\'s heaviest', async () => {
+  const { keptKg } = await import('../src/shop.js');
+  const { fishValue } = await import('../src/market.js');
+  const { sanitize, DEFAULT_STATE } = await import('../src/save.js');
+  const bass = fishById.seabass, plump = { id: 'seabass', size: 60, kg: weightOf(bass, 60) * 1.18, at: 0 }, lean = { ...plump, kg: weightOf(bass, 60) * 0.82 };
+  assert.equal(keptKg(plump), plump.kg);
+  assert.equal(keptKg({ id: 'seabass', size: 60 }), weightOf(bass, 60), 'a fish kept before: its kind\'s weight for its length');
+  const at = { day: 1, now: 0 };
+  assert.ok(fishValue(plump, at).price > fishValue(lean, at).price, 'the plump one fetches more');
+  assert.equal(fishValue(plump, at).kg, plump.kg);
+  // Through the save.
+  const s = sanitize({ ...structuredClone(DEFAULT_STATE), keep: [plump, { id: 'seabass', size: 50 }], fish: { seabass: { count: 3, best: 66, heaviest: 4.4, firstDay: 1, firstHour: 9, firstZone: 'bay' } } });
+  assert.equal(s.keep[0].kg, plump.kg);
+  assert.ok(!('kg' in s.keep[1]));
+  assert.equal(s.fish.seabass.heaviest, 4.4);
+  assert.ok(!('heaviest' in sanitize({ ...structuredClone(DEFAULT_STATE), fish: { seabass: { count: 1, best: 40, firstDay: 1, firstHour: 9, firstZone: 'bay' } } }).fish.seabass));
+  // A marlin of 330 cm is kept as long as it was (the save held sizes to 300 before).
+  const L = sanitize({ ...structuredClone(DEFAULT_STATE), fish: { bluemarlin: { count: 1, best: 410, firstDay: 1, firstHour: 9, firstZone: 'bay' } } });
+  assert.equal(L.fish.bluemarlin.best, 410);
 });

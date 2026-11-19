@@ -1444,19 +1444,20 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   onCatch: showCatch,
   onRelease: hideCatch,
   canKeep: () => {
-    const F = fishing.fight, kg = F ? weightOf(F.sp, F.size) : 0;
+    const F = fishing.fight, kg = F ? F.agent?.weight ?? weightOf(F.sp, F.size) : 0;
     if (creelFits(state, kg)) return true;
     hud.flash(`No room in your creel for this one (${creelWords(state)}). Cook or sell some, or let it go.`, t, 3.5);
     return false;
   },
   onKeep: (sp, size) => {
     notePressure(player().pos.x, player().pos.z);
-    state.keep.push({ id: sp.id, size, logId: lastCatchId, at: state.day * 24 + state.hour });
+    // (Its own weight, as it came up on the balance: into the creel, the market and the counter.)
+    const kg = logById(lastCatchId)?.weight ?? weightOf(sp, size);
+    state.keep.push({ id: sp.id, size, kg, logId: lastCatchId, at: state.day * 24 + state.hour });
     setOutcome(lastCatchId, 'kept');
     document.body.classList.remove('reveal');
     $('catch-card').hidden = true;
     modal = null;
-    const kg = weightOf(sp, size);
     hud.flash(kg > creelKg(state) ? `It fills your creel on its own: ${sp.name.toLowerCase()}, ${kgWords(kg)}. Sell it or cook it before you keep anything else.` : `Into the creel: ${sp.name.toLowerCase()}, ${size} cm (${creelWords(state)}). Cook it at camp, or sell it at the market.`, t, 3.5);
     teach('kept', 'Fish you keep go in your creel: grill them at camp, or sell them at the market. It’s on your backpack and holds them by weight: thirty-odd mackerel, or one big tuna.', 7);
     save();
@@ -1646,7 +1647,8 @@ const REPEAT_LINES = [
   'It eyes you, unimpressed.',
 ];
 
-// Into the records: the species' tally and best, the log, the adventures. Returns { isNew, record }.
+// Into the records: the species' tally, best (cm) and heaviest (kg), the log, the adventures. Returns
+// { isNew, record (its longest), heavier (its heaviest, not its first) }.
 function recordCatch(sp, size, agent, rigUsed, how = null) {
   const isNew = !state.fish[sp.id];
   if (isNew) {
@@ -1658,6 +1660,9 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
   const rec = state.fish[sp.id];
   const record = !isNew && size > rec.best;
   if (record) noteRecord(state.today, sp.id, size);
+  // (Its heaviest too: a short, deep fish can outweigh a longer, leaner one. See girthOf.)
+  const kgNow = agent?.weight ?? weightOf(sp, size), heavier = !isNew && kgNow > (rec.heaviest || 0) && !!rec.heaviest;
+  rec.heaviest = Math.max(rec.heaviest || 0, Math.round(kgNow * 100) / 100);
   // (Caught aboard one of your boats: in her papers, and her best fish in her log.)
   const V = !onFoot && boat ? state.yard.vessels?.[boat.id] : null;
   if (V && !how) {
@@ -1689,15 +1694,17 @@ function recordCatch(sp, size, agent, rigUsed, how = null) {
   // (Checked once the catch card's closed, when you've kept it or let it go.)
   challengesDue = true;
   save();
-  return { isNew, record };
+  return { isNew, record, heavier };
 }
 
 function showCatch(sp, size, agent, rigUsed) {
   // (The catch card's moment first: a discovery card this catch brings waits until it's done.)
   modal = 'catch';
   const bestBefore = state.fish[sp.id]?.best || 0;
-  const { isNew, record } = recordCatch(sp, size, agent, rigUsed);
+  const { isNew, record, heavier } = recordCatch(sp, size, agent, rigUsed);
   const verdict = verdictOf(sp, size, { isNew, record, count: state.fish[sp.id]?.count || 1, best: record ? bestBefore : state.fish[sp.id]?.best || size });
+  // (Not your longest, but your heaviest: a word for it, quietly.)
+  if (heavier && !record) verdict.tally += ' · your heaviest yet';
 
   // The species' own model, as it swims in the water and appears in the field guide.
   const cv = $('cc-canvas');
@@ -1731,9 +1738,9 @@ function showCatch(sp, size, agent, rigUsed) {
   $('cc-rig').textContent = (rigUsed?.item ? `Caught on ${rigUsed.item.on}, with the ${rigUsed.rod.short.toLowerCase()}` : '') + (state.trip?.sp === sp.id ? ' · the fish your trip is for' : '');
   const keepBtn = $('cc-keep');
   keepBtn.hidden = !sp.meal;
-  const room = creelFits(state, weightOf(sp, size));
+  const room = creelFits(state, kg);
   keepBtn.disabled = !room;
-  keepBtn.lastChild.textContent = room ? (state.keep.length && creelLoad(state) + weightOf(sp, size) > creelKg(state) * 0.75 ? 'Keep it (the creel’s nearly full)' : 'Keep for the pot') : 'No room in the creel';
+  keepBtn.lastChild.textContent = room ? (state.keep.length && creelLoad(state) + kg > creelKg(state) * 0.75 ? 'Keep it (the creel’s nearly full)' : 'Keep for the pot') : 'No room in the creel';
   // (A small fish that makes a live bait: into the bait bucket, see livebait.js.)
   const baitBtn = $('cc-bait'), baitOk = baitRoom(sp.id, size);
   baitBtn.hidden = !isLiveBait(sp.id, size);
@@ -4013,7 +4020,7 @@ function fireSpear() {
       hud.flash(`You hold your shot. ${ok.why}`, t, 2.6);
       return;
     }
-    if (!creelFits(state, weightOf(a.sp, a.size))) {
+    if (!creelFits(state, a.weight ?? weightOf(a.sp, a.size))) {
       hud.flash(`No room in your creel for it (${creelWords(state)}): take only what you’ll eat. Cook some at camp first.`, t, 3.2);
       return;
     }
@@ -4081,7 +4088,7 @@ function landSpeared(a) {
   const { isNew } = recordCatch(sp, size, a, null, { kind: 'spear', rod: 'speargun', from: 'dive', at: { x: a.x, y: a.y, z: a.z } });
   eco.keep(a);
   notePressure(a.x, a.z);
-  state.keep.push({ id: sp.id, size, logId: lastCatchId, at: state.day * 24 + state.hour });
+  state.keep.push({ id: sp.id, size, kg: a.weight ?? weightOf(sp, size), logId: lastCatchId, at: state.day * 24 + state.hour });
   setOutcome(lastCatchId, 'kept');
   state.dive.speared++;
   dive.catches.push(`${sp.name.toLowerCase()} ${size} cm`);
@@ -7689,7 +7696,7 @@ function bestCatches() {
     if (!sp) continue;
     if (!best[e.sp] || e.size > best[e.sp].size) best[e.sp] = e;
   }
-  return Object.values(best).map((e) => ({ id: e.id, e, kg: weightOf(fishById[e.sp], e.size) }))
+  return Object.values(best).map((e) => ({ id: e.id, e, kg: e.weight ?? weightOf(fishById[e.sp], e.size) }))
     .sort((a, b) => b.kg - a.kg)
     .map(({ id, e, kg }) => ({ id, title: `${fishById[e.sp].name}, ${e.size} cm`, sub: `${kg >= 1 ? `${kg.toFixed(1)} kg` : `${Math.round(kg * 1000)} g`} · day ${e.day}${e.place ? `, ${e.place}` : ''}`, e, kg }));
 }

@@ -189,7 +189,7 @@ test('every fish already in the world is where it was, the same size, the same k
   const COLD = new Set(['beck', 'gill', 'spout', 'dale', 'tarn', 'forcepool', 'tideway', 'flats']);
   const BIG = new Set([...BIG_GAME, ...DEPTHS].map((f) => f.id));
   // (Two fingerprints: kinds and places, unchanged since the river; and sizes, taken again when
-  // the sizes were reshaped (docs/FISH.md: schools of one size, rarer trophies), which moved no
+  // the sizes were reshaped (docs/FISH.md: schools of one size, rarer trophies, a few giants), which moved no
   // fish: the first was the same before that change and after it.)
   let h = 0x811c9dc5, hs = 0x811c9dc5, n = 0;
   for (const a of eco.agents) {
@@ -206,7 +206,7 @@ test('every fish already in the world is where it was, the same size, the same k
   }
   assert.equal(n, 2349);
   assert.equal(h, 959687524, 'every fish where it was, the same kind');
-  assert.equal(hs, 1451634096, 'and the same size');
+  assert.equal(hs, 1764999521, 'and the same size');
 });
 
 test('the Coldwater’s own fish live in water that suits them', () => {
