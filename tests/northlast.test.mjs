@@ -70,18 +70,23 @@ test('the eagles: one over Loch Skarn, one high over Raven Isle; now and then do
   // Not straight away: circling first.
   assert.equal(loch.mode, 'circle');
   loch.t = 0.05;
-  let low = Infinity, back = false;
+  // (Where it is the moment it takes the fish.)
+  const splash = B.onSplash;
+  let atCatch = null;
+  B.onSplash = (x, z, k) => { if (k === 0.5) atCatch = { x, z, y: loch.y }; splash(x, z, k); };
+  let back = false;
   for (let s = 0; s < 240 && !back; s++) {
     run(1, { from });
-    low = Math.min(low, loch.y);
-    back = ev.splash.length > 0 && loch.mode === 'circle';
+    back = !!atCatch && loch.mode === 'circle';
   }
   const catchSplash = ev.splash.find((s) => s.k === 0.5);
-  assert.ok(catchSplash, 'a fish taken with a splash');
+  assert.ok(catchSplash && atCatch, 'a fish taken with a splash');
   assert.ok(catchSplash.depth > 3, 'from deep water, not the shore');
-  assert.ok(low < T.waterLevel(catchSplash.x, catchSplash.z) + 1.5, 'right down to the surface');
+  assert.ok(atCatch.y < T.waterLevel(atCatch.x, atCatch.z) + 1.5, 'right down to the surface');
   assert.ok(back && loch.y > loch.home.y - 6, 'and back up to its circle');
-  assert.ok(ev.moments.includes('eagleFish'));
+  // (A word about it if it happened where you could see it.)
+  const seen = Math.hypot(atCatch.x - from.x, atCatch.z - from.z) < 500;
+  assert.equal(ev.moments.includes('eagleFish'), seen);
   // At night, roosting: not drawn.
   run(1, { from, daylight: 0.05 });
   assert.ok(!loch.g.visible);

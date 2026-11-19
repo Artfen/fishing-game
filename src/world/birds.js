@@ -415,7 +415,7 @@ export function buildBirds(scene, { seed = 20261110 } = {}) {
         Object.assign(b, { mode: 'climb', t: 0 });
         if (b.fish) b.fish.visible = true;
         out.onSplash?.(b.x, b.z, 0.5);
-        if (Math.hypot(from.x - b.x, from.z - b.z) < 500) out.onMoment?.('eagleFish', 'A white-tailed eagle comes down the loch in one long glide, swings its feet forward and snatches a fish from the surface in a burst of spray, then labours back up into the sky with it.');
+        if (Math.hypot(from.x - b.x, from.z - b.z) < 500) out.onMoment?.('eagleFish', 'A white-tailed eagle comes down in one long glide, low over the water at the last, swings its feet forward and snatches a fish from the surface in a burst of spray, then labours back up into the sky with it.');
       }
     } else {
       // Back up: slow, heavy wingbeats, out to its circle and up to its height.
