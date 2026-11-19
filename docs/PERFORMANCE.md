@@ -212,12 +212,45 @@ milliseconds. The CPU looks idle because the freeze is on one core of sixteen.
   On a 3440 × 1440 ultrawide, Cinematic drew 11.1 million pixels a frame; it now draws 1.29 a side.
   This is worked out again whenever the window changes size.
 
+**Part two.** The player reported it was 90% better, but still lagged arriving at the harbour and
+switching quickly between camera views. Profiled in the browser (CPU profile, and what each frame
+sent to the graphics card for the first time), three things were left:
+- **The reflection's own shaders.** The water's reflection draws what it shows into a picture of
+  its own, and a material drawn into a picture needs a second shader (no tone mapping, another
+  colour space). Arriving at the harbour built 9 of them in one frame as the houses and boats came
+  into the reflection. They're now built at loading too, for what the reflection's camera shows.
+- **First sending.** Arriving sent 36 pictures and 137 models to the graphics card for the first
+  time. Now every picture is sent during loading (349 of them, about 20 megapixels), and the whole
+  of what's shown is drawn once behind the loading screen, behind the camera as well as in front,
+  so its models go too. Hidden things stay hidden, so far scenery isn't loaded.
+- **Working out where everything is.** Every frame, three.js recalculated the position of all
+  15,747 objects in the scene, twice (once for the reflection), though 87 to 90% of them are hidden
+  at any moment: townsfolk out of sight, rooms you're not in, boats laid up. It was the single
+  biggest cost in a frame. Now (`src/shown.js`) only what's shown is worked out. Anything hidden is
+  marked and worked out the moment it's shown again. Code that asks where something is works it
+  out itself.
+
+Measured on the same arrival and view switching, before part two and after:
+
+| | Worst frame | Average frame | Shaders built | Pictures sent | Models sent |
+|---|---|---|---|---|---|
+| Arriving, before | 455 ms | 70 ms | 15 | 36 | 137 |
+| Arriving, after | 113 ms | 47 ms | 4 | 1 | 65 |
+| Switching views, before | 111 ms | 57 ms | 0 | 1 | 11 |
+| Switching views, after | 81 ms | 41 ms | 0 | 0 | 0 |
+
+The 65 models left on arrival are mostly things shown only right at the quay. Screenshots before and
+after match: the harbour, first person in the RIB at its dashboard, the camp at night, the quay at
+dusk with its lamps lit.
+
 `tests/stutter.test.mjs` covers it:
 - the light count holds whatever is shown or hidden;
 - the nearest lit lamps get the lights;
 - no point light outside the set;
-- the warm-up at load and as things are built;
-- the budget.
+- the warm-up at load and as things are built, and its reflection shaders, pictures and models;
+- the budget;
+- positions worked out for what's shown exactly as three.js would, and for a hidden thing the
+  moment it's shown.
 
 ## Not yet covered
 

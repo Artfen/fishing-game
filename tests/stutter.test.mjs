@@ -112,3 +112,78 @@ test('a big or ultrawide screen drawn sharp, but never more than a 4K screen\'s 
   assert.equal(budgetRatio(1.25, 5120, 2880), 1);
   assert.equal(budgetRatio(0.8, 5120, 2880), 0.8, 'a lower render scale left alone');
 });
+
+test('where things are worked out for what\'s shown, as three.js would, and for anything hidden the moment it\'s shown again', async () => {
+  const { updateShown, onlyShown } = await import('../src/shown.js');
+  const build = () => {
+    const scene = new THREE.Scene(), boat = new THREE.Group(), cabin = new THREE.Group(), lamp = new THREE.Mesh(), town = new THREE.Group(), folk = new THREE.Mesh();
+    scene.add(boat, town);
+    boat.add(cabin);
+    cabin.add(lamp);
+    town.add(folk);
+    boat.position.set(10, 0, 5);
+    boat.rotation.y = 0.7;
+    cabin.position.set(0, 1, -2);
+    lamp.position.set(0.3, 0.5, 0);
+    town.position.set(-40, 2, 9);
+    folk.position.set(1, 0, 1);
+    return { scene, boat, cabin, lamp, town, folk };
+  };
+  // Everything shown: the same matrices three.js works out.
+  const A = build(), B = build();
+  A.scene.updateMatrixWorld();
+  updateShown(B.scene);
+  for (const k of ['boat', 'cabin', 'lamp', 'town', 'folk']) assert.deepEqual(B[k].matrixWorld.elements, A[k].matrixWorld.elements, k);
+  // The town hidden, and moved while it was: left alone, then right the moment it's shown.
+  B.town.visible = false;
+  B.town.position.x = -80;
+  B.boat.position.z = 12;
+  updateShown(B.scene);
+  assert.equal(B.folk.matrixWorld.elements[12], -39, 'not worked out while hidden');
+  assert.equal(B.lamp.getWorldPosition(new THREE.Vector3()).z > 5, true, 'what\'s shown moved with its boat');
+  // (Asked where it is, a hidden thing works it out itself.)
+  assert.equal(B.folk.getWorldPosition(new THREE.Vector3()).x, -79);
+  B.town.visible = true;
+  updateShown(B.scene);
+  A.town.position.x = -80;
+  A.boat.position.z = 12;
+  A.scene.updateMatrixWorld();
+  for (const k of ['boat', 'cabin', 'lamp', 'town', 'folk']) assert.deepEqual(B[k].matrixWorld.elements, A[k].matrixWorld.elements, k);
+  // A static thing (matrix set by hand) under a hidden parent that moved: right when shown again.
+  const C = build();
+  C.folk.matrixAutoUpdate = false;
+  C.folk.updateMatrix();
+  updateShown(C.scene);
+  C.town.visible = false;
+  C.town.position.y = 7;
+  updateShown(C.scene);
+  C.town.visible = true;
+  updateShown(C.scene);
+  assert.equal(C.folk.matrixWorld.elements[13], 7);
+  // A camera in the scene keeps its view.
+  const cam = new THREE.PerspectiveCamera();
+  C.boat.add(cam);
+  updateShown(C.scene);
+  assert.deepEqual(cam.matrixWorldInverse.elements, cam.matrixWorld.clone().invert().elements);
+  // And the scene draws this way.
+  onlyShown(C.scene);
+  assert.equal(C.scene.matrixWorldAutoUpdate, false);
+  C.boat.position.x = 33;
+  C.scene.onBeforeRender();
+  assert.equal(C.boat.matrixWorld.elements[12], 33);
+  const main = fs.readFileSync(path.join(root, 'src/main.js'), 'utf8');
+  assert.match(main, /onlyShown\(scene\);/);
+});
+
+test('the warm-up covers the water\'s reflection, every picture and every model shown', () => {
+  const main = fs.readFileSync(path.join(root, 'src/main.js'), 'utf8');
+  // The reflection draws into a picture of its own: its shaders built with a picture bound, for
+  // what its camera shows.
+  assert.match(main, /renderer\.setRenderTarget\(warmTarget\);/);
+  assert.match(main, /o\.layers\.test\(seen\)/);
+  assert.match(main, /renderer\.compile\(\{ traverse: \(f\) => shown\.forEach\(f\), traverseVisible\(\) \{\} \}, camera, scene\)/);
+  // Every picture sent to the graphics card.
+  assert.match(main, /renderer\.initTexture\(p\)/);
+  // The whole of what's shown drawn once behind the loading screen, behind you as well as before.
+  assert.match(main, /o\.frustumCulled = false;[\s\S]{0,120}renderer\.render\(scene, camera\);/);
+});

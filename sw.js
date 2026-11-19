@@ -11,7 +11,7 @@
 // - It never touches saved games: those live in the browser's local storage, not here.
 
 // <precache> Written by tools/build-sw.mjs: do not edit by hand.
-const VERSION = '414dc7260066';
+const VERSION = '8f8a6a7c0e81';
 const FILES = [
   './index.html',
   './style.css',
@@ -148,6 +148,7 @@ const FILES = [
   './src/sharedworld.js',
   './src/shipyard.js',
   './src/shop.js',
+  './src/shown.js',
   './src/siteWorld.js',
   './src/slots.js',
   './src/smallFish.js',

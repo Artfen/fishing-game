@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { LampPool } from './lamps.js';
+import { onlyShown } from './shown.js';
 import { Input, defaultBindings } from './input.js';
 import { SettingsUI, WEATHER_MODES } from './settings.js';
 import { loadGame, saveGame, newGame, saveStatus, parseSave, importSave, exportText, stopSaving, SAVE_KEY, adoptJournal, slots } from './save.js';
@@ -267,6 +268,9 @@ scene.fog = new THREE.FogExp2(0xd5ebf1, 0.0021);
 // (The few real lights every lamp is lit by, a fixed number so no shader is ever rebuilt for a
 // lamp coming into view: see lamps.js.)
 const lampPool = new LampPool(scene);
+// (Each frame, where things are in the world worked out for what's shown, not the nine in ten
+// that are hidden: see shown.js.)
+onlyShown(scene);
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 2500);
 
 // One shared underwater world: habitat → plants, rocks and fish homes → the fish themselves.
@@ -11483,10 +11487,52 @@ let shotCam = null; // (see slowTide.shotCam)
 // (warmShaders.built: how many programs it has built, for tests and the soak.)
 // (renderer.compileAsync, but a material freed while it waits (a far sea let go) is let go too,
 // not an error: three.js's own looked for a program it no longer had.)
+let warmTarget = null;
 function warmShaders(root = scene, max = 25) {
   try {
     const before = renderer.info.programs?.length || 0, t0 = performance.now();
     const mats = renderer.compile(root, camera, scene);
+    // The water's reflection draws what it shows into a picture of its own, and a material drawn
+    // into a picture has a shader of its own (no tone mapping, another colour space): those built
+    // too, for what the reflection shows (its camera's layers), or arriving somewhere new built
+    // them as the houses and boats came into the reflection. (compile walks whatever it's given:
+    // here, just those.)
+    const prev = renderer.getRenderTarget(), seen = reflection.cam.layers, shown = [];
+    root.traverse((o) => { if (o.material && o.layers.test(seen)) shown.push(o); });
+    warmTarget ||= new THREE.WebGLRenderTarget(1, 1);
+    renderer.setRenderTarget(warmTarget);
+    try {
+      for (const m of renderer.compile({ traverse: (f) => shown.forEach(f), traverseVisible() {} }, camera, scene)) mats.add(m);
+    } finally {
+      renderer.setRenderTarget(prev);
+    }
+    // And every picture they're drawn with sent to the graphics card now, not when it's first seen.
+    const pics = new Set();
+    root.traverse((o) => {
+      for (const m of [o.material].flat()) {
+        if (!m) continue;
+        for (const v of Object.values(m)) if (v?.isTexture) pics.add(v);
+        for (const u of Object.values(m.uniforms || {})) if (u?.value?.isTexture) pics.add(u.value);
+      }
+    });
+    for (const p of pics) if (p.image && !p.isRenderTargetTexture) renderer.initTexture(p);
+    // At the start, behind the loading screen: the whole of what's shown drawn once, behind you as
+    // well as before you, so every model in it is sent to the graphics card now (and the shadows'
+    // own shaders built), not as you turn to it or come into the harbour. What's hidden stays so.
+    if (root === scene) {
+      const culled = [];
+      scene.traverse((o) => {
+        if (o.frustumCulled && (o.isMesh || o.isPoints || o.isLine || o.isSprite)) {
+          culled.push(o);
+          o.frustumCulled = false;
+        }
+      });
+      try {
+        renderer.render(scene, camera);
+      } finally {
+        for (const o of culled) o.frustumCulled = true;
+      }
+    }
     return new Promise((resolve) => {
       const check = () => {
         for (const m of mats) {
