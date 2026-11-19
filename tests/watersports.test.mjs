@@ -123,8 +123,9 @@ test('the jet ski leaves the crests at speed in a lively sea, and stays on a cal
       rec.push({ air: j.air, v: j.forwardSpeed, up: (-j.pitch * 180) / Math.PI });
     }
     const jumps = rec.filter((r, i) => r.air && !rec[i - 1]?.air).map((r) => r.v).sort((a, b) => a - b);
-    // (Running: on the water and more than a third of a second from leaving it or landing.)
-    const running = rec.filter((r, i) => !rec.slice(Math.max(0, i - 10), i + 11).some((q) => q.air));
+    // (Running: on the water and more than a third of a second from leaving it or landing. Not
+    // in the run's last third of a second, where whether she's about to leave it isn't known.)
+    const running = rec.filter((r, i) => i + 10 < rec.length && !rec.slice(Math.max(0, i - 10), i + 11).some((q) => q.air));
     return { jumps, up: Math.max(...rec.map((r) => r.up)), running: Math.max(...running.map((r) => r.up)) };
   };
   // Fully on the plane: her speed coefficient on her planing beam, V/√(g·b), at least 3 (where B3
@@ -135,12 +136,12 @@ test('the jet ski leaves the crests at speed in a lively sea, and stays on a cal
   assert.ok(lively.jumps.length >= 3, `off the crests: ${say}`);
   // (Her jet's push turned her bow up on its full arm, and a seaway's resistance, as the fleet's
   // rule put it on her, came to more than twice her own hull resistance: she stood on her tail,
-  // 30 to 38° up, and hopped along at 6 m/s.)
+  // 30 to 40° up, and hopped along at 6 m/s.)
   assert.ok(lively.jumps[lively.jumps.length >> 1] > planing, `at planing speed (${planing.toFixed(1)} m/s): ${say}`);
   assert.ok(lively.running < 20, `running between the crests, bow up at most ${lively.running.toFixed(0)}°`);
   const calm = ride('calm', 2);
   assert.equal(calm.jumps.length, 0, 'a calm sea: no jumps');
-  assert.ok(calm.up < 15, `launched from rest on a calm sea, bow up at most ${calm.up.toFixed(0)}° (it was 27 to 30°)`);
+  assert.ok(calm.up < 15, `launched from rest on a calm sea, bow up at most ${calm.up.toFixed(0)}° (it was 26 to 29°)`);
 });
 
 test('both are kept in the save, where you left them', async () => {
