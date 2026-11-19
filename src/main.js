@@ -17,7 +17,7 @@ import { Environment, phaseName, formatClock } from './world/sky.js';
 import { WorldClock, advance as advanceClock, HOUR_SECONDS, rateAt } from './world/clock.js';
 import { SKIES, createWeather, stepWeather, skyOf } from './world/weather.js';
 import { createWater } from './world/water.js';
-import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeight, waveHeightHere, compass, bearingOf, windWords, seaWords, shelterAt, bakeShelter, shelterRect, TIDE, tidalTexture, shelterSteps } from './world/conditions.js';
+import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeight, waveHeightHere, compass, bearingOf, windWords, seaWords, shelterAt, bakeShelter, shelterRect, TIDE, tidalTexture, shelterSteps, dropShelter } from './world/conditions.js';
 import { SOUTH_WATER, SOUTH_MAP, LANDFALL, POSADA, PUERTO as PUERTO_AT, PONTOON_S, FINGERS_S, ISLANDS } from './world/brasa.js';
 import { NORTH_WATER, ISLES_WATER, ISLES_MAP, COAST_SHEET, NORTH_BEDS, NORTH_M, NORTH_LANDFALL, HALVIG_PIER, northWaters, regionOf as seaAt, inNorth } from './world/north.js';
 import { buildWorld } from './world/world.js';
@@ -299,9 +299,9 @@ function northWater() {
 }
 // (A few milliseconds a frame, once you're heading that way; and once you're up the coast, the
 // kelp forests round the isles, a slice at a time too.)
-let northBeds = null;
+let northBeds = null, northBedList = [];
 function* northBedSteps() {
-  for (const [i, R] of NORTH_BEDS.entries()) yield* underwater.bedSteps(R, seeded(9301 + i));
+  for (const [i, R] of NORTH_BEDS.entries()) northBedList.push(yield* underwater.bedSteps(R, seeded(9301 + i)));
 }
 function bakeNorthAhead(budget = 4) {
   if (NORTH_TEX && northBeds !== 'done' && player().pos.z < -2600) {
@@ -356,16 +356,54 @@ function setRegion(r) {
   // (The first time: the island's buildings and plants, and its weed beds under the water.)
   if (r === 'south' && !world.brasa) world.buildBrasa();
   if (r === 'south' && !southBeds) {
-    southBeds = true;
-    underwater.addBeds({ x: -760, z: 5480, w: 1520, h: 1120, grass: 6500, kelp: 1400 }, seeded(9191));
+    southBeds = [];
+    southBeds.push(underwater.addBeds({ x: -760, z: 5480, w: 1520, h: 1120, grass: 6500, kelp: 1400 }, seeded(9191)));
     // (The archipelago's coves: a little seagrass in Caleta Blanca and Bahía Escondida, and the
     // weed on the islands' reefs: see docs/ARCHIPELAGO.md.)
-    for (const [i, I] of ISLANDS.entries()) underwater.addBeds({ x: I.x - I.rx - 120, z: I.z - I.rz - 120, w: (I.rx + 120) * 2, h: (I.rz + 120) * 2, grass: 420, kelp: 90 }, seeded(9192 + i));
+    for (const [i, I] of ISLANDS.entries()) southBeds.push(underwater.addBeds({ x: I.x - I.rx - 120, z: I.z - I.rz - 120, w: (I.rx + 120) * 2, h: (I.rz + 120) * 2, grass: 420, kelp: 90 }, seeded(9192 + i)));
   }
 }
-let southBeds = false;
+let southBeds = null; // (Las Brasas' weed beds, once laid: see setRegion, and dropFarSeas)
+// (W1, docs/WORLD.md) A sea far behind you (four kilometres and more from it): its water maps, its
+// sea's field and its weed beds let go, laid again when you next come near. (The world lets its
+// things go the same way: world.js.)
+const DROP_AT = 4000;
+const rectGap = (R, p) => Math.hypot(Math.max(R.x - p.x, 0, p.x - (R.x + R.w)), Math.max(R.z - p.z, 0, p.z - (R.z + R.h)));
+let dropCheckT = 0;
+function dropFarSeas() {
+  if ((dropCheckT -= 1) > 0) return;
+  dropCheckT = 30;
+  const P = player().pos;
+  if (region !== 'south' && rectGap(SOUTH_WATER, P) > DROP_AT && rectGap(SOUTH_WATER, camera.position) > DROP_AT) {
+    if (SOUTH_TEX) {
+      SOUTH_TEX.tex.dispose();
+      SOUTH_TEX.detail.dispose();
+      SOUTH_TEX = null;
+      dropShelter('south');
+    }
+    if (southBeds) {
+      for (const b of southBeds) underwater.removeBed(b);
+      southBeds = null;
+    }
+  }
+  if (region !== 'north' && rectGap(NORTH_WATER, P) > DROP_AT && rectGap(NORTH_WATER, camera.position) > DROP_AT) {
+    if (NORTH_TEX || northBake) {
+      NORTH_TEX?.tex.dispose();
+      NORTH_TEX?.detail.dispose();
+      NORTH_TEX = null;
+      northBake = null;
+      dropShelter('north');
+    }
+    if (northBeds) {
+      for (const b of northBedList) underwater.removeBed(b);
+      northBedList = [];
+      northBeds = null;
+    }
+  }
+}
 function watchRegion() {
   const P = player().pos, C = camera.position;
+  dropFarSeas();
   const at = seaAt(P.x, P.z, SOUTH_Z), seen = seaAt(C.x, C.z, SOUTH_Z);
   let r = at === 'south' || seen === 'south' ? 'south' : at === 'north' || seen === 'north' ? 'north' : 'home';
   bakeNorthAhead();

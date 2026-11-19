@@ -377,6 +377,10 @@ function outerHeight(x, z) {
 // keep: nine kilometres of coast), on the same 20 m grid as the sheet beside them. The far hills
 // north of home go on in tiles too beyond the loch's head. (Their heights: the north's own land,
 // or the far hills as drawn above.)
+// (W1, docs/WORLD.md) How far from a sea its things are kept (m): beyond, let go. And where the
+// north's things stand (its areas, see northWorld.js).
+const DROP_AT = 4000;
+const NORTH_THINGS = { x0: -3780, x1: -600, z0: -7180, z1: -4920 };
 const TILE = 720;
 export const NORTH_TILES = (() => {
   const out = [];
@@ -965,7 +969,7 @@ function buildFireflies(rnd, spots, count) {
 /* ---------------- obstacles ---------------- */
 
 // A coarse grid of circles, so someone walking only checks the few things near them.
-class ObstacleGrid {
+export class ObstacleGrid {
   constructor(cell = 4) {
     this.cell = cell;
     this.cells = new Map();
@@ -987,6 +991,23 @@ class ObstacleGrid {
         let list = this.cells.get(k);
         if (!list) this.cells.set(k, (list = []));
         list.push(o);
+      }
+    }
+    return o;
+  }
+
+  // Take one back out (a far sea's things, dropped: see buildWorld's dropBrasa and dropNorth).
+  remove(o) {
+    const c = this.cell, m = o.r + 0.6;
+    const i0 = Math.floor((o.x - m) / c), i1 = Math.floor((o.x + m) / c);
+    const j0 = Math.floor((o.z - m) / c), j1 = Math.floor((o.z + m) / c);
+    for (let i = i0; i <= i1; i++) {
+      for (let j = j0; j <= j1; j++) {
+        const k = this.key(i, j), list = this.cells.get(k);
+        if (!list) continue;
+        const at = list.indexOf(o);
+        if (at >= 0) list.splice(at, 1);
+        if (!list.length) this.cells.delete(k);
       }
     }
   }
@@ -1318,6 +1339,27 @@ export function buildWorld(scene, renderer, habitat) {
   const lanternPos = cove.lantern.group.position.clone();
   let lanternTaken = false;
   let brasa = null, north = null, northGen = null, quality = null;
+  // A far sea's things into the world (their obstacles, fishing spots and boxes, kept so they can
+  // be taken back out), and out of it again: everything freed but what's shared with the rest.
+  const takeIn = (R) => {
+    R.added = R.obstacles.map((o) => obstacles.add(o.x, o.z, o.r, o.top ?? Infinity, -Infinity, o.kind || 'thing', o.name || ''));
+    coast.spots.push(...R.spots);
+    regions.boxes.push(...R.boxes);
+  };
+  const letGo = (R) => {
+    scene.remove(R.group);
+    for (const o of R.added || []) obstacles.remove(o);
+    const spots = new Set(R.spots), boxes = new Set(R.boxes);
+    coast.spots.splice(0, coast.spots.length, ...coast.spots.filter((s) => !spots.has(s)));
+    regions.boxes.splice(0, regions.boxes.length, ...regions.boxes.filter((b) => !boxes.has(b)));
+    R.group.traverse((o) => {
+      const at = distant.indexOf(o);
+      if (at >= 0) distant.splice(at, 1);
+      if (o.isInstancedMesh) o.dispose();
+      o.geometry?.dispose();
+      for (const m of [].concat(o.material || [])) m.dispose();
+    });
+  };
 
   return {
     // The leaves' colour for the season: [r, g, b] multipliers on their green.
@@ -1417,9 +1459,7 @@ export function buildWorld(scene, renderer, habitat) {
         northGen = null;
       } else north = buildNorth(scene, seeded(20261118));
       if (quality) north.setQuality(quality);
-      for (const o of north.obstacles) obstacles.add(o.x, o.z, o.r, o.top ?? Infinity, -Infinity, o.kind || 'thing', o.name || '');
-      coast.spots.push(...north.spots);
-      regions.boxes.push(...north.boxes);
+      takeIn(north);
       for (const o of north.group.children) if (o.isInstancedMesh) watchDistance(o);
       return north;
     },
@@ -1429,16 +1469,40 @@ export function buildWorld(scene, renderer, habitat) {
       if (brasa) return brasa;
       brasa = buildBrasa(scene, seeded(20261025));
       if (quality) brasa.setQuality(quality);
-      for (const o of brasa.obstacles) obstacles.add(o.x, o.z, o.r, o.top ?? Infinity, -Infinity, o.kind || 'thing', o.name || '');
-      coast.spots.push(...brasa.spots);
-      regions.boxes.push(...brasa.boxes);
+      takeIn(brasa);
       return brasa;
     },
+    // (W1, docs/WORLD.md) A sea far behind you: its things out of the scene and freed, its
+    // obstacles, spots and boxes taken back out; made again the same when you come back.
+    dropBrasa() {
+      if (!brasa) return;
+      letGo(brasa);
+      brasa = null;
+    },
+    dropNorth() {
+      if (northGen) northGen = null;
+      if (!north) return;
+      letGo(north);
+      north = null;
+    },
+    // (How many of the far seas' things are built just now: for tests and the soak.)
+    get farBuilt() { return { brasa: !!brasa, north: !!north, patches: later.filter((L) => L.mesh).map((L) => L.P.id) }; },
     update(dt, t, env, extra = {}) {
       shared.uTime.value = t;
       if (extra.camera) {
         const cp = extra.camera.position;
         if (!brasa && cp.z > SOUTH_Z - 500) this.buildBrasa();
+        // (W1) Far behind you (four kilometres and more): a sea's things, and the detail of every
+        // patch out there, let go. (Built again the same as you come back.)
+        if (brasa && rectDist(SOUTH_RECT, cp) > DROP_AT) this.dropBrasa();
+        if ((north || northGen) && rectDist(NORTH_THINGS, cp) > DROP_AT) this.dropNorth();
+        for (const L of later) {
+          if (!L.mesh || rectDist(L.P, cp) < DROP_AT) continue;
+          scene.remove(L.mesh);
+          L.mesh.geometry.dispose();
+          L.mesh.material.dispose();
+          L.mesh = null;
+        }
         // (The north's things: begun a slice at a time as you come up the coast; at once if you're
         // among them before they're done.)
         if (!north && cp.z < -3000 && cp.x < -400) {

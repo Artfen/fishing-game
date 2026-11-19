@@ -288,7 +288,20 @@ export class Underwater {
   // with a seed of its own. R: { x, z, w, h, grass, kelp }.
   addBeds(R, rnd, q = this.quality) {
     const g = this.bedSteps(R, rnd, q);
-    while (!g.next().done);
+    let r;
+    while (!(r = g.next()).done);
+    return r.value;
+  }
+
+  // (W1, docs/WORLD.md) A far sea's beds taken out and freed (the plants' shape and colours are
+  // shared, and kept).
+  removeBed(bed) {
+    const at = this.beds.indexOf(bed);
+    if (at < 0) return;
+    this.beds.splice(at, 1);
+    this.scene.remove(bed.grass, bed.kelp);
+    bed.grass.dispose();
+    bed.kelp.dispose();
   }
 
   // The same, a slice at a time (a generator: each yield a slice of the placing), for the north's,
@@ -318,6 +331,7 @@ export class Underwater {
     }
     this.beds.push(bed);
     this.scene.add(g, k);
+    return bed;
   }
 
   setQuality(q) {

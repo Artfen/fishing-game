@@ -177,6 +177,16 @@ export function* shelterSteps(region = 'home') {
   if (!F.tex) F.tex = tex;
 }
 
+// (W1, docs/WORLD.md) A far sea's field let go: its textures freed, its numbers dropped; baked again
+// when it's next wanted. (Never home's.)
+export function dropShelter(region) {
+  const F = FIELDS[region];
+  if (!F || region === 'home' || !F.tex) return;
+  F.tex.dispose();
+  F.tidTex?.dispose();
+  F.tex = F.tidTex = F.data = F.cur = F.tid = null;
+}
+
 // Bilinear, at texel centres, exactly as the GPU filters the texture. out = [swell, wind].
 const _sh = [0, 0];
 export function shelterAt(x, z, out = _sh) {
