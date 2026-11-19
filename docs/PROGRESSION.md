@@ -180,3 +180,5 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
    nearer their real trim, bow-up through the hump within a degree or two of Savitsky's equations,
    where they ran 2° to 3° flatter; on the plane a hull's bottom holds her up by about half the water
    it pushes aside.
+21. **Raising the anchor (B6's follow-up, done):** her bow dips a degree or two as the anchor comes
+   up, where the rope drawn up short over it dragged it down 16° to 25° with more than her weight.

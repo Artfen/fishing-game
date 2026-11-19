@@ -879,9 +879,17 @@ for (let i = 0; i < 40; i++) {
 const morning = { mags: await clockOf(A), bert: await clockOf(B), hour: await A.evaluate(() => +slowTide.state.hour.toFixed(2)), anchored: await A.evaluate(() => !!slowTide.boat.anchored), saidA: await said(A), saidB: await said(B), crew: await B.evaluate(() => !!slowTide.crew.on) };
 note('the night', JSON.stringify({ night0, morning, bertNight }));
 // (However late she turns in, she sleeps till the dawn she chose: the clock on to it.)
-check('11 · Mags turns in on her deck in the bivvy roll, till dawn', turned.bed && turned.dawn && morning.mags - night0.mags > 2 && morning.hour < 8, JSON.stringify({ seen: turned.seen, from: night0.hour, to: morning.hour }));
+// (Till the dawn she chose, whenever she turned in: the clock on to it, and no further. It asked for
+// more than two hours' sleep, but how late they turn in goes with how long the day took (half past
+// nine to past midnight, mostly), and turning in at three the dawn at ten past four is an hour
+// off: she slept till it, as she should.)
+const dawnAt = (() => { const m = /(\d+):(\d+)\s*(am|pm)/i.exec(turned.seen.find((x) => /^Dawn/.test(x || '')) || ''); return m ? (+m[1] % 12) + +m[2] / 60 + (/pm/i.test(m[3]) ? 12 : 0) : null; })();
+const slept = morning.mags - night0.mags, toDawn = dawnAt == null ? null : (dawnAt - night0.hour + 24) % 24;
+note('the night: turned in at', night0.hour, 'dawn at', dawnAt, 'slept', +slept.toFixed(2), 'hours, to dawn', toDawn == null ? null : +toDawn.toFixed(2));
+check('11 · Mags turns in on her deck in the bivvy roll, till dawn', turned.bed && turned.dawn && dawnAt != null && Math.abs(morning.hour - dawnAt) < 0.3 && Math.abs(slept - toDawn) < 0.3, JSON.stringify({ seen: turned.seen, from: night0.hour, to: morning.hour, dawn: dawnAt, slept: +slept.toFixed(2) }));
 check('11 · she wakes aboard, at anchor still, Bert in the other bag', morning.anchored && morning.saidA.some((t) => /^You wake/.test(t) && /Bert is stirring in the other bag/.test(t)), JSON.stringify(morning.saidA));
-check('11 · Bert sleeps the night through with her, and wakes aboard beside her', /^Mags turns in/.test(bertNight.saw || '') && morning.crew && morning.bert - night0.bert > 2 && morning.saidB.some((t) => /^You wake/.test(t) && /Mags is stirring/.test(t)), JSON.stringify({ saw: bertNight.saw, bert: [night0.bert, morning.bert], said: morning.saidB, crew: morning.crew }));
+// (His clock on as far as hers: the night through with her.)
+check('11 · Bert sleeps the night through with her, and wakes aboard beside her', /^Mags turns in/.test(bertNight.saw || '') && morning.crew && Math.abs(morning.bert - night0.bert - slept) < 0.3 && morning.saidB.some((t) => /^You wake/.test(t) && /Mags is stirring/.test(t)), JSON.stringify({ saw: bertNight.saw, bert: [night0.bert, morning.bert], slept: +slept.toFixed(2), said: morning.saidB, crew: morning.crew }));
 await shot(A, 'j3-morning');
 // Aft to the wheel again, and the helm.
 await A.evaluate(() => {

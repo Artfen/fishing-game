@@ -1806,3 +1806,17 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | After | 11.0–11.7 m/s, jumps at a median 11.1–11.8 m/s, up to 11–14° running, over 20° only within a third of a second of leaving the water or landing (0.3–1.9 s); calm launch 7.7–8.5°, then 16.3 m/s (was 16.0). With the lever alone: 7.1–7.9 m/s, jumps at a median 7.2–7.6 |
 | Validation | `tests/watersports.test.mjs`: the jet ski test now checks the median speed of her jumps against fully planing (a speed coefficient of 3 on her planing beam: 9.3 m/s), her bow-up running between the crests under 20°, and her launch on a calm sea under 15°; it fails on the old code (ten jumps at 6.0–6.6 m/s). It starts her 150 m back on the same line, so that on the plane she stays in open, deep water (the shallows begin 175 m on from the old spot). `tests/planing.test.mjs`, `tests/hump.test.mjs` and the rest of the suite pass |
 | Remaining risks | Her share of the seaway is tuned, not measured; off a crest her bow still goes up to 24–35° for a moment, leaving the water or landing; the RIB in a sea is up to 0.8 m/s quicker for not being braked in the air (15.5–16.2 m/s in the sport boats' rough sea, was 15.4–15.5); the skiff's and the bass boat's bows reach 32–33° up at most, flat out in the same lively sea, as before (not looked into: they don't leave the water, and it may be the waves' faces) |
+
+### Boats: raising the anchor without burying her bow (B6's follow-up)
+
+| Field | |
+| --- | --- |
+| System | `src/hydro.js` (`rodeForce`: a rode being hauled in pulls her bow down no harder than `hold`); `src/boat.js` (`holdAnchor`: `hold` set while it's hauled, at what a hauler can heave, `haulHold`) |
+| Previous issue | Hauled in, the rode drawn up short over the anchor pulled her bow down with more than her whole weight, and it went down 16° to 25° as the anchor broke out; the hauling only minded the rope's level pull |
+| Change | While it's hauled, the rope's downward pull on her bow is held to what the hauler heaves (8% of her weight, 250 N at least): an anchor pulled from nearly overhead breaks out, it doesn't drag a boat's bow under. The level pull that draws her up to it, and when the hauling waits, are as before |
+| Player benefit | Raising the anchor, her bow dips a degree or two, not into the water |
+| Before | Bow down 16.0° (skiff), 21.4° (RIB), 25.2° (console) as the anchor came up in calm water; the rope pulling it down 3.3, 16.3 and 27.9 kN |
+| After | 2.0°, 1.4° and 2.0° (lying on it, 0.6° to 0.8°); 250, 981 and 1,884 N; up as quickly as before, in a breeze too |
+| Validation | New test in `tests/anchoring.test.mjs`: the skiff, the RIB and the console hauled up in 14–18 m, and the RIB blown back on it: up within 35 s, the rope's downward pull no more than a hauler's, her bow down less than 3.5° more than lying on it (main fails it: the skiff's bow 16.0°, 3,271 N on it) |
+| Remaining risks | The anchor still breaks out where the rope's straight up and down (the geometry, as before), not by what it holds pulled upward; in a real breeze her bow goes down 3° more than the seas pitch her lying on it, as she's drawn up into them |
+
