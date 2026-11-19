@@ -181,3 +181,43 @@ test('live: in deep water the rope runs short and the anchor drags where it held
   const c = blow('skiff', deep, push, 40, { rode: 'chain', hold: 2 });
   assert.ok(deg(c.theta) < deg(d.theta) - 5 && c.moved < 1, `chain: ${deg(c.theta).toFixed(1)}°, ${c.moved.toFixed(1)} m`);
 });
+
+test('hauled in, she comes up to her anchor and it breaks out without burying her bow (the rope pulls it down no harder than a hauler heaves)', () => {
+  const at = spotAt(14, 18);
+  assert.ok(at, 'somewhere 14 to 18 m deep');
+  for (const [kind, push] of [['skiff', 0], ['rib', 0], ['console', 0], ['rib', 0.25]]) {
+    const was = Boat.bottomAt;
+    Boat.bottomAt = () => ({ kind: 'sand', under: 'sand' });
+    const b = new Boat(scene, { kind });
+    const h = -solidHeight(at.x, at.z), L = rodeFor(h), far = 0.92 * Math.sqrt(L * L - h * h);
+    b.place(at.x, at.z - far - b.hull.L * 0.45, 0);
+    b.update(1 / 30, clock, 0, 0, 0);
+    b.setAnchor(true, { at });
+    Boat.bottomAt = was;
+    // (push: a breeze blowing her back on it, m/s².)
+    let down = 0, lying = 0, most = 0, up = null;
+    const step = (s, f) => {
+      for (let i = 0; i < s * 30; i++) {
+        clock += 1 / 30;
+        b.vel.z -= push * (1 / 30);
+        b.update(1 / 30, clock, 0, 0, 0);
+        f(i / 30);
+      }
+    };
+    step(30, () => {});
+    // How far her bow goes down anyway, lying on it: the sea's own pitching.
+    step(15, () => { lying = Math.max(lying, b.pitch); });
+    b.setAnchor(false);
+    const hold = Math.max(250, 0.08 * b._phys.m * 9.81);
+    step(40, (t) => {
+      down = Math.max(down, b.pitch);
+      const o = b.anchor?.rope?.out;
+      if (o && b.anchor.y <= b.anchor.floor + 0.01) most = Math.max(most, Math.sqrt(Math.max(0, o.tension * o.tension - o.pull * o.pull)));
+      if (!b.anchor && up == null) up = t;
+    });
+    const say = `${kind}${push ? ' in a breeze' : ''}: up in ${up?.toFixed(1)} s, her bow down ${deg(down).toFixed(1)}° (${deg(lying).toFixed(1)}° lying on it), the rope pulling it down ${most.toFixed(0)} N at most (a hauler's ${hold.toFixed(0)})`;
+    assert.ok(up != null && up < 35, `the anchor's up: ${say}`);
+    assert.ok(most <= hold * 1.001, `no harder than a hauler heaves: ${say}`);
+    assert.ok(deg(down) < deg(lying) + 3.5, `her bow not buried: ${say}`);
+  }
+});

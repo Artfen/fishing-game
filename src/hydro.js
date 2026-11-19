@@ -1435,9 +1435,15 @@ export class HydroBody {
     const away = -(_pv[0] * ux + _pv[2] * uz);
     const c = 2 * 0.7 * Math.sqrt(o.k * this.m);
     const H = Math.min(cap, Math.max(0, o.H + c * away));
+    // (Being hauled in (r.hold, N: see Boat.holdAnchor), it pulls her bow down no harder than that.
+    // Drawn up short over the anchor, the rope is steep and as taut as its stretch makes it, and its
+    // pull came down on her bow with up to her whole weight, burying it 13° to 23°. But an anchor
+    // pulled up from nearly overhead lets go of the bottom (it holds by its flukes dug in along the
+    // pull, not up), so a real one breaks out long before: no harder than the hauler heaves.)
+    const V = r.hold > 0 ? Math.min(o.V, r.hold) : o.V;
     o.pull = H;
-    o.tension = hypot2(H, o.V);
-    this.addForce(ux * H, -o.V, uz * H, p[0], p[1], p[2]);
+    o.tension = hypot2(H, V);
+    this.addForce(ux * H, -V, uz * H, p[0], p[1], p[2]);
   }
 
   // The seabed and the beach: a firm, springy contact with friction where any of her contact

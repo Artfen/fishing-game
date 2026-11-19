@@ -673,8 +673,10 @@ const CREW = 80; // kg, you
 const SAIL_CE_Y = 2.1, SAIL_CE_AFT = 1.55;
 // (B6) The heavier anchor digs in in this share of the distance an ordinary one takes.
 const HEAVY_SETS = 0.5;
-// (B6) The most hauling the anchor in pulls, as a share of her weight.
+// (B6) The most hauling the anchor in pulls, as a share of her weight (a quarter of a kilonewton at
+// least): what a hauler can heave on the rope.
 const HAUL = 0.08;
+const haulHold = (m) => Math.max(250, HAUL * m * G);
 // (How hard a sailing boat laid over in a gust gripes up into the wind: N·m per kg of her for each
 // (m/s)² of her speed. See the sail's overpowered.)
 const ROUND_UP = 0.35;
@@ -5256,8 +5258,10 @@ export class Boat {
       // (B6) Hauled in hand over hand (a windlass on a big boat): no faster than she comes up to
       // it, and not against more than a hauler can pull (HAUL of her weight; a quarter of a
       // kilonewton at least). In a blow it waits for a lull.
+      // (And while it's hauled, the rope pulls her bow down no harder than that: see rope.hold
+      // below, and hydro.js rodeForce.)
       const pull = A.rope?.out?.pull || 0;
-      if (pull < Math.max(250, HAUL * b.m * G)) A.out = Math.max(0, A.out - 2.4 * dt);
+      if (pull < haulHold(b.m)) A.out = Math.max(0, A.out - 2.4 * dt);
       // (Hauled in till it's straight up and down: it breaks out and comes up to the bow.)
       if (A.out < bowY - A.floor + 0.8) {
         A.y = Math.min(bowY, A.y + Math.max(2.4, A.depth / 3) * dt);
@@ -5332,6 +5336,7 @@ export class Boat {
       return;
     }
     rope.len = Math.max(A.out, bowY - A.floor + 0.3);
+    rope.hold = A.phase === 'haul' ? haulHold(m) : 0;
     rope.rode = R;
     b.ropes.push(rope);
     // (How taut it is, for the drawing: lying slack along the bottom … off it altogether.)

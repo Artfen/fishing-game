@@ -283,10 +283,13 @@ thinking that the script had to be taught.
   that passed she came alongside the far side of her own finger, at the console's berth, about
   8 m from her own: the check asks only that she's tied up.
 
-- **The night aboard when the day runs late** (still open): the check asks that they sleep more
-  than two hours, till the dawn they choose. When they turn in goes with how long the day took,
-  from half past nine to past midnight in most runs; in one on #189's script they turned in at
-  2:58 am, the dawn was 4:10, and the night's two checks failed.
+- **The night aboard when the day runs late.** The check asked that they sleep more than two
+  hours, and wake before eight. When they turn in goes with how long the day took, from half past
+  nine to past midnight in most runs; in one on #189's script they turned in at 2:58 am, chose the
+  dawn at 4:10, slept till it, and the night's two checks failed. They now ask what the step says:
+  that Mags slept till the dawn she chose (woken within a quarter of an hour of it, the clock moved
+  on by the time from turning in to it, within the same), and that Bert's clock moved on as far as
+  hers.
 
 ## Harness artefacts (not the game)
 

@@ -1006,3 +1006,33 @@ included). The full table, with each LICENSE file read, is in the two research n
   her bow up at most 12–17° (12–18°) and off the water 0.6–2.4 s of the 25 watched (0.6–2.3). The
   other boats' calm speeds and the Marine Works' trials (run on a flat calm) are unchanged; the
   jet ski isn't in the trials.
+
+- **B6's follow-up: raising the anchor without burying her bow.** Hauled in, a boat came up to her
+  anchor with her bow driven down into the water as it broke out: 16° on the skiff, 21° on the RIB
+  and 25° on the console, in calm water where lying on the anchor she pitched less than a degree.
+  The hauling stopped at what a hauler can heave on the rope (8% of her weight, a quarter of a
+  kilonewton at least), but judged by its level pull alone. Drawn up short over the anchor the rope
+  is steep, and as taut as its stretch makes it, so its pull came down on her bow nearly straight,
+  with more than her whole weight (16 kN on the RIB, 28 kN on the console). Now, while it's
+  hauled, the rope pulls her bow down no harder than the hauler heaves (hydro.js `rodeForce`,
+  `hold`). An anchor pulled up from nearly overhead lets go of the bottom (it holds by its flukes
+  dug in along the pull, not up), so a real one breaks out long before it could drag her bow under.
+  What draws her up to it is as before: the rope's level pull, and the hauling waits while that's
+  more than the hauler can heave, so she comes up as quickly as she did, in a breeze too.
+
+  Hauled in 14 to 18 m of water on sand, after lying on it (`tests/anchoring.test.mjs`; her bow's
+  most downward pitch while she's hauled up, and lying on it the same while before):
+
+  | | Up in | Her bow down | Lying on it | The rope pulling it down, at most |
+  | --- | --- | --- | --- | --- |
+  | Skiff | 19.3 s → 18.0 s | 16.0° → 2.0° | 0.8° | 3,271 N → 250 N |
+  | RIB | 17.9 s → 17.6 s | 21.4° → 1.4° | 0.6° | 16,314 N → 981 N |
+  | Console | 17.6 s → 17.5 s | 25.2° → 2.0° | 0.6° | 27,885 N → 1,884 N |
+  | RIB, blown back on it | 19.7 s → 19.0 s | 16.2° → 1.2° | 0.6° | 15,240 N → 981 N |
+
+  In 16.6 m of water and a real breeze (8 m/s on the bass boat, 10 on the RIB), she comes up as
+  quickly as before (19 s), her bow going down 8.2° and 8.5° at most while the seas pitch her 5.1°
+  and 5.3° lying on it; it was 22.7° and 20.4°. (Held to what the hauler can heave all told, along
+  as well as down, she was never drawn up against a breeze that strong, and the anchor stayed
+  down: so only its downward pull is held.)
+
