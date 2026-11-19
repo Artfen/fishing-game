@@ -184,6 +184,15 @@ export class Journal {
     const now = st.today ? dayPage(st, st.today) : null;
     $('days-today-when').textContent = `day ${st.day}, ${formatClock(st.hour)}`;
     $('days-today').replaceChildren(now ? page(now, true) : el('p', 'j-faint', 'Nothing written yet today. Go out, and it will be.'));
+    // (docs/TEXT.md) What you were told: the whole of each message the screen showed in short,
+    // and every tip, newest first.
+    const told = st.told || [];
+    $('days-told').replaceChildren(...(told.length ? told.map((m) => {
+      const li = el('li', m.tip ? 'tip' : '');
+      const d = Math.floor(m.at / 24), h = m.at - d * 24;
+      li.append(el('span', 'j-told-when', d === st.day ? formatClock(h) : `day ${d}, ${formatClock(h)}`), document.createTextNode(m.text));
+      return li;
+    }) : [el('li', 'j-faint', 'Nothing yet. A message with a small book beside it on the screen has more to it here, and every tip comes here whole.')]));
     const days = st.days.slice().reverse();
     $('days-list').replaceChildren(...(days.length ? days.map((p) => page(p)) : [el('p', 'j-faint', 'Each day you go out is written up here when it ends: when you sleep, or at midnight.')]));
     const C = careerOf(st);

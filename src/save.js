@@ -36,6 +36,7 @@ import { BEHAVIOUR_IDS } from './behaviour.js';
 import { BIRD_KINDS } from './birdData.js';
 import { kindOf, isBoatId } from './boatid.js';
 import { cleanPlay } from './playmode.js';
+import { cleanTold } from './screenwords.js';
 import { readIndex, noteSaved, filled, switchTo, deleteGame, parkedText, SLOTS } from './slots.js';
 
 // Saving your progress in this browser, with nobody to sign in to.
@@ -103,6 +104,7 @@ export const DEFAULT_STATE = {
   yard: null,      // Willowhaven Marine Works: the boats you own, a day's hire, paint, names, fittings (see shipyard.js)
   economy: 'gentle', // 'gentle' | 'authentic': what fuel costs (see economy.js)
   play: 'career',  // 'career' | 'free': Career or Free Roam (see playmode.js); every game from before is a Career
+  told: [],        // what you were told, whole (the screen shows it short): { at (game hours), text, tip }, newest first (see screenwords.js)
   ledger: [],      // the last few payments in and out, as receipts
   goodwillDay: 0,  // the day the harbour last saw you home on its fuel
   gifts: [],       // friend codes used on this game (their fingerprints: see giftcodes.js)
@@ -402,6 +404,7 @@ export function sanitize(raw) {
   s.difficulty = oneOf(raw.difficulty, ['relaxed', 'standard', 'realistic'], 'standard');
   s.economy = oneOf(raw.economy, ECONOMY_IDS, 'gentle');
   s.play = cleanPlay(raw.play);
+  s.told = cleanTold(raw.told);
   s.ledger = cleanLedger(raw.ledger);
   s.goodwillDay = Number.isInteger(raw.goodwillDay) ? raw.goodwillDay : 0;
   s.gifts = (Array.isArray(raw.gifts) ? raw.gifts : []).filter((h) => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h)).slice(0, 20);

@@ -187,7 +187,7 @@ export class Camp {
       return;
     }
     this.food.full = Math.min(100, this.food.full + 22);
-    this.hooks.toast(this.posada ? 'Papas arrugadas: little potatoes boiled in salty water till their skins wrinkle, with a hot red mojo. They keep you going; a fish would be better.' : 'An oatcake from the tin. It keeps you going, but a hot meal would be nicer.');
+    this.hooks.toast(this.posada ? 'Papas arrugadas with red mojo: they keep you going. Little potatoes boiled in salty water till their skins wrinkle; a fish would be better.' : 'An oatcake from the tin. It keeps you going, but a hot meal would be nicer.');
     this.hooks.changed();
     this.render();
   }
@@ -330,7 +330,7 @@ export class Camp {
     }));
     if (this.house && c.rolls < ROLLS) row.append(button('Pack rolls', () => {
       const got = packRolls(c);
-      this.hooks.toast(`${got} ${got > 1 ? 'rolls' : 'roll'} wrapped and into your backpack, for when you’re far from a kitchen.`, 4);
+      this.hooks.toast(`${got} ${got > 1 ? 'rolls' : 'roll'} wrapped and in your backpack. For when you’re far from a kitchen.`, 4);
       this.hooks.changed();
       this.render();
     }));

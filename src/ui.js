@@ -1,3 +1,5 @@
+import { split, TOAST_MAX, HINT_MAX } from './screenwords.js';
+
 const $ = (id) => document.getElementById(id);
 export const kbd = (k) => `<kbd>${k}</kbd>`;
 
@@ -80,8 +82,13 @@ export class HUD {
     el.innerHTML = html;
   }
 
+  // (Less text on the screen, docs/TEXT.md: the hint is one line, its first sentence; the whole
+  // goes to the journal.)
   flash(html, now, secs = 3.2) {
-    this.flashText = html;
+    const { screen, whole } = split(html, HINT_MAX);
+    if (whole && this.flashWhole !== whole) this.onTold?.(whole, false);
+    this.flashWhole = whole;
+    this.flashText = screen;
     this.flashUntil = now + secs;
   }
 
@@ -117,9 +124,13 @@ export class HUD {
   // keep quiet (the title, or a question waiting for an answer: see quiet), and each one up gets a
   // fair look (TOAST_LOOK seconds, or all its time if that's shorter) before the next replaces it.
   // The same words twice just stay up longer. (A few at most wait; the oldest go first.)
-  toast(text, secs = 4.5) {
-    // (Time to read it: about fourteen characters a second, in the hand it's written in.)
-    secs = Math.max(secs, Math.min(20, String(text).replace(/<[^>]+>/g, '').length / 14));
+  // (Less text on the screen, docs/TEXT.md: two lines at most, its first sentence, with a small
+  // book when there's more; the whole goes to the journal's "What you were told", as every tip
+  // does. opts.tip: a tip, with its lamp.)
+  toast(text, secs = 4.5, opts = {}) {
+    const { screen, whole } = split(text, TOAST_MAX), tip = !!opts.tip;
+    // (Time to read what's shown: about fourteen characters a second, in the hand it's written in.)
+    secs = Math.max(secs, Math.min(20, String(screen).replace(/<[^>]+>/g, '').length / 14));
     const now = performance.now() / 1000, up = this.toastUp;
     if (up && up.text === text && now < up.until) {
       up.until = Math.max(up.until, now + secs);
@@ -127,19 +138,24 @@ export class HUD {
       return;
     }
     if (this.toastQ.some((q) => q.text === text)) return;
+    if (whole || tip) this.onTold?.(text, tip);
+    const item = { text, secs, screen, more: !!whole, tip };
     if (this.quiet() || (up && now < Math.min(up.until, up.at + TOAST_LOOK))) {
-      this.toastQ.push({ text, secs });
+      this.toastQ.push(item);
       if (this.toastQ.length > 6) this.toastQ.shift();
       this.toastLater();
       return;
     }
-    this.toastShow(text, secs, now);
+    this.toastShow(item, now);
   }
 
-  toastShow(text, secs, now) {
-    this.el.toast.textContent = text;
+  toastShow(item, now) {
+    const { text, secs, screen = text, more = false, tip = false } = item;
+    this.el.toast.textContent = screen;
+    this.el.toast.classList.toggle('more', more);
+    this.el.toast.classList.toggle('tip', tip);
     this.el.toast.classList.add('show');
-    this.toastUp = { text, at: now, until: now + secs };
+    this.toastUp = { text, at: now, until: now + secs, screen, more, tip };
     this.toastAt(secs);
   }
 
@@ -161,7 +177,7 @@ export class HUD {
     this.el.toast.classList.remove('show');
     this.toastUp = null;
     this.toastQ = this.toastQ.filter((q) => q.text !== up.text);
-    this.toastQ.unshift({ text: up.text, secs: Math.max(3, up.until - performance.now() / 1000) });
+    this.toastQ.unshift({ text: up.text, secs: Math.max(3, up.until - performance.now() / 1000), screen: up.screen, more: up.more, tip: up.tip });
     this.toastLater();
   }
 
@@ -191,7 +207,7 @@ export class HUD {
       const t = performance.now() / 1000, u = this.toastUp;
       if (this.quiet() || (u && t < Math.min(u.until, u.at + TOAST_LOOK) - 0.01)) return this.toastLater();
       const q = this.toastQ.shift();
-      if (q) this.toastShow(q.text, q.secs, t);
+      if (q) this.toastShow(q, t);
       this.toastLater();
     }, free * 1000);
   }

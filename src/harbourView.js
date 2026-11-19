@@ -912,7 +912,7 @@ export class HarbourSheet {
         if (this.shop.creel >= i || !this.pay(c.price)) return;
         this.shop.creel = i;
         this.hooks.chime();
-        this.hooks.toast(`${c.name}, over your shoulder: room for ${c.kg} kg of fish now${c.cool ? ', and they keep cool in it' : ''}. Your old creel goes on the hook behind the door.`, 6);
+        this.hooks.toast(`${c.name} over your shoulder: room for ${c.kg} kg now. ${c.cool ? 'Your catch keeps cool in it. ' : ''}Your old creel goes on the hook behind the door.`, 6);
         this.hooks.changed();
         this.render();
       }));
