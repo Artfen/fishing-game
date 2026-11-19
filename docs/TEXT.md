@@ -52,6 +52,28 @@ small book; nothing else changes shape. (A catalogue for translation is left for
 language and a translator to do it: what T1 and T2 do, short screen lines separate from the
 journal's words, is most of the work it would need.)
 
+*T1 to T4 done.* **Short on the screen, whole in the journal** (`src/screenwords.js`, `ui.js`): a
+toast or a tip shows its first sentence when the whole is over two lines (82 characters), a hint
+its first when over one (90); a first sentence that's still long is shown whole rather than cut
+mid-thought. A small book follows a message with more to it; a tip has a lamp. The whole of each
+(and every tip) goes to **Your days → What you were told** in the journal, the last forty, newest
+first, with the time, kept in the save (`told`). **Every message within the rule**
+(`tests/text.test.mjs`): the test reads every toast, tip, hint, question and card in the source
+(templates read properly: a `${…}` as the longest words it could hold, or a value; a key's name not
+taken for words) and holds what reaches the screen to the rule. The 105 over it were rewritten so
+the first sentence says what matters (the action first: "Snagged: give it slack, or pull from a new
+angle."; "A gale’s an hour or so off: if you’re out past the bay, come in now."), the rest kept for
+the journal; the comfort tips lead with what to do. The first sight of anything has a line of its
+own (`src/seenWords.js`, 52 of them: "Kittiwakes: gentle-faced gulls, wingtips dipped in ink."), its
+whole note after it into the journal, as 42 of the notes' first sentences ran to three lines or
+more. **A cleaner HUD**: a new player starts on the Clean screen (once; Settings has the say after,
+and a new game in another slot keeps your choice). **Played in the browser** as a new player on a
+laptop (1280×720) and a phone (iPhone 13): every toast two lines or fewer (68 px; the one at 91 px,
+the terns' first sight, is what found the sighting lines), the book and the lamp where they should
+be, the journal's list filling; the guide card, a toast and the hint up together without
+overlapping on either (the place name had gone by the time it looked: not checked with them). No
+errors.
+
 ## Done when
 
 - The test passes: no message in the source puts more than the rule on the screen, with a short,

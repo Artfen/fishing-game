@@ -178,3 +178,18 @@ test('every message in the source puts no more on the screen than the rule allow
   }
   assert.deepEqual(over, [], `${over.length} messages over the rule:\n${over.join('\n')}`);
 });
+
+test('the first sight of anything has a line of its own for the screen; what you only hear, the same', async () => {
+  const { SEA_LIFE } = await import('../src/world/sealife.js');
+  const { SEEN, seenLine } = await import('../src/seenWords.js');
+  const over = [];
+  for (const [k, v] of Object.entries(SEA_LIFE)) {
+    assert.ok(SEEN[k], `${k}: a line for the screen`);
+    if (SEEN[k].length > W.TOAST_MAX) over.push(`${k}: ${SEEN[k]}`);
+    // (The line is what's shown: the whole note comes after it, into the journal.)
+    assert.equal(W.split(`${seenLine(k, v.name)} ${v.note}`).screen, SEEN[k], k);
+    if (v.heard && W.split(v.heard).screen.length > W.TOAST_MAX) over.push(`${k} heard: ${v.heard}`);
+  }
+  assert.deepEqual(over, []);
+  assert.equal(seenLine('nothing', 'Sea monsters'), 'New in your notes: sea monsters.');
+});

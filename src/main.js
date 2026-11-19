@@ -13,6 +13,7 @@ import { LAND_WAYS } from './landing.js';
 import { BEHAVIOUR, conditionWords } from './behaviour.js';
 import { HUD, kbd } from './ui.js';
 import { tell } from './screenwords.js';
+import { seenLine } from './seenWords.js';
 import { AudioScape } from './audio.js';
 import { Environment, phaseName, formatClock } from './world/sky.js';
 import { WorldClock, advance as advanceClock, HOUR_SECONDS, rateAt } from './world/clock.js';
@@ -10422,7 +10423,8 @@ function seeSeaLife(kind, x, z) {
     if (now - lastSightingWord > SIGHTING_GAP) {
       lastSightingWord = now;
       const first = Object.keys(S).length === 1;
-      hud.toast(`${SEA_LIFE[kind].note}${first ? ' (The journal’s Notes keep what you’ve seen.)' : ''}`, 8);
+      // (docs/TEXT.md: its line on the screen, the whole note in the journal.)
+      hud.toast(`${seenLine(kind, SEA_LIFE[kind].name)} ${SEA_LIFE[kind].note}${first ? ' (The journal’s Notes keep what you’ve seen.)' : ''}`, 8);
     }
   }
   save();

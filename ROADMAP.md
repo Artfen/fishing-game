@@ -53,7 +53,10 @@ polish rather than new places or boats.
    and let it be discovered.
 6. **Too much text.** Messages and dialogs are long, lovely sentences, and several overlap on
    screen. Short prompts, icons and a cleaner HUD; less text also makes translation affordable,
-   and fishing games sell well in Germany, France and Japan.
+   and fishing games sell well in Germany, France and Japan. *Done* (`docs/TEXT.md`): every
+   message two lines on the screen at most (a test holds the source to it), the whole in the
+   journal; a lamp for tips, a book for more; the Clean screen for new players. Translation itself
+   waits for a language and a translator.
 7. **A story with an ending.** Six adventures and the favours are a thin spine. Two or three
    hours of light story would give a direction and a sense of finishing something (the Kittiwake,
    the lighthouse and Las Brasas are ready-made hooks).
