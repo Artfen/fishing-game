@@ -1,4 +1,5 @@
 import { formatClock } from './sky.js';
+import { $t } from '../i18n.js';
 
 // The tide: the sea rises and falls twice a day, high water coming about fifty minutes later each
 // day; and over a fortnight the tides grow from small neaps to big springs and back. What it
@@ -53,21 +54,21 @@ export function tideWords(abs) {
   // (At the turn, the next turn of the other kind.)
   const next = turns(abs, 2).find((x) => x.kind !== T.phase);
   const when = formatClock(next.at % 24);
-  const now = T.phase === 'high' ? 'high water now' : T.phase === 'low' ? 'low water now' : T.phase === 'flood' ? 'flooding' : 'ebbing';
-  return `${now} · ${next.kind} water ${when}`;
+  const now = T.phase === 'high' ? $t('high water now') : T.phase === 'low' ? $t('low water now') : T.phase === 'flood' ? $t('flooding') : $t('ebbing');
+  return next.kind === 'high' ? $t`${now} · high water ${when}` : $t`${now} · low water ${when}`;
 }
 // Springs or neaps, in words.
 export const sizeWords = (abs) => {
   const s = springs(abs);
-  return s > 0.75 ? 'springs: big tides' : s < 0.25 ? 'neaps: small tides' : s > 0.5 ? 'tides growing towards springs' : 'middling tides';
+  return s > 0.75 ? $t('springs: big tides') : s < 0.25 ? $t('neaps: small tides') : s > 0.5 ? $t('tides growing towards springs') : $t('middling tides');
 };
 // The day's tides, for the notice board: "High water 4:12 am and 4:37 pm; low water 10:25 am and
 // 10:50 pm (springs: big tides)".
 export function dayTides(day) {
   const start = day * 24;
   const all = turns(start - 0.001, 6).filter((t) => t.at < start + 24);
-  const list = (kind) => all.filter((t) => t.kind === kind).map((t) => formatClock(t.at - start)).join(' and ');
-  return `High water ${list('high')}; low water ${list('low')} (${sizeWords(start + 12)}).`;
+  const list = (kind) => all.filter((t) => t.kind === kind).map((t) => formatClock(t.at - start)).join($t(' and '));
+  return $t`High water ${list('high')}; low water ${list('low')} (${sizeWords(start + 12)}).`;
 }
 
 // The fish of the sea, and the tide: a running tide brings the food to them, slack water quietens

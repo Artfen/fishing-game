@@ -109,7 +109,7 @@ test('G8c2: a boat bought now is built and set up as every boat is, and named ap
     ['a boat bought now, built and laid up', /function addBoat\(id\) \{[\s\S]*?for \(const fn of boatSetup\) fn\(b\);[\s\S]*?stow\(b, true\);/],
     ['bought at the yard and built', /const r = buyAnother\(state, kind\);\n    yardDo\(r, \(\) => \{\n      const b = addBoat\(r\.id\);/],
     // (Each laid-up boat by her own name; the bass boat's is "on Longmere", or down by road.)
-    ['named apart in the harbour office', /laid\.flatMap\(\(b\) => \[\n\s+\{ text: homeOf\(b\.kind\) === 'lake' \? `The \$\{boatCall\(b\)\}, on Longmere` : `The \$\{boatCall\(b\)\}`, run: \(\) => launchBoat\(b\) \},\n\s+\.\.\.\(byRoad\(b\) \? \[\{ text: `The \$\{boatCall\(b\)\}, down here by road/],
+    ['named apart in the harbour office', /laid\.flatMap\(\(b\) => \[\n\s+\{ text: homeOf\(b\.kind\) === 'lake' \? \$t`The \$\{boatCall\(b\)\}, on Longmere` : \$t`The \$\{boatCall\(b\)\}`, run: \(\) => launchBoat\(b\) \},\n\s+\.\.\.\(byRoad\(b\) \? \[\{ text: \$t`The \$\{boatCall\(b\)\}, down here by road/],
   ]) assert.match(src, re, what);
   // (Set up only for the ones in the water at the start, as before: none left.)
   assert.doesNotMatch(src, /^for \(const b of boats\) \{\n  b\.on/m);

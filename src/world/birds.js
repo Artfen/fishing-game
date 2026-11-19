@@ -6,6 +6,7 @@ import { VILLAGE, PUERTO, MOLE, FARO_POINT, ARCO, ROJA, ISLE, PLAYA, GAVIOTA, HO
 import { SKARV, RAVEN, SELKIE, BOTHY_BAY, TERN } from './north.js';
 import { BIRDS } from '../birdData.js';
 import { clamp, damp, dampAngle, wrapAngle, mergeParts, mat, seeded } from '../util.js';
+import { $t } from '../i18n.js';
 
 // The birds of the coast (see birdData.js for who they are): each where it really lives, doing
 // what it really does.
@@ -415,7 +416,7 @@ export function buildBirds(scene, { seed = 20261110 } = {}) {
         Object.assign(b, { mode: 'climb', t: 0 });
         if (b.fish) b.fish.visible = true;
         out.onSplash?.(b.x, b.z, 0.5);
-        if (Math.hypot(from.x - b.x, from.z - b.z) < 500) out.onMoment?.('eagleFish', 'A white-tailed eagle comes down in one long glide, low over the water at the last, swings its feet forward and snatches a fish from the surface in a burst of spray, then labours back up into the sky with it.');
+        if (Math.hypot(from.x - b.x, from.z - b.z) < 500) out.onMoment?.('eagleFish', $t('A white-tailed eagle comes down in one long glide, low over the water at the last, swings its feet forward and snatches a fish from the surface in a burst of spray, then labours back up into the sky with it.'));
       }
     } else {
       // Back up: slow, heavy wingbeats, out to its circle and up to its height.
@@ -456,7 +457,7 @@ export function buildBirds(scene, { seed = 20261110 } = {}) {
       if (near && (fromNest < FLUSH.arctictern || alarm)) {
         Object.assign(b, { state: 'mob', mr: 3.5 + Math.random() * 5, my: 3 + Math.random() * 3, t: 1 + Math.random() * 3, a: Math.random() * Math.PI * 2, call: Math.random() * 2 });
         b.body.rotation.x = 0;
-        if (!alarm) out.onMoment?.('ternMob', 'The terns are up all round you, screaming, and one swoops at your head: you’re among their nests. Walk on to the beach and they’ll settle again.');
+        if (!alarm) out.onMoment?.('ternMob', $t('The terns are up all round you, screaming, and one swoops at your head: you’re among their nests. Walk on to the beach and they’ll settle again.'));
       }
     } else if (b.state === 'mob') {
       // Round and over you, each at its own height and distance; now and then a dive at your head.
@@ -532,7 +533,7 @@ export function buildBirds(scene, { seed = 20261110 } = {}) {
       if (b.y <= sea) {
         b.y = sea;
         out.onSplash?.(b.x, b.z, 0.08);
-        if (Math.hypot(from.x - b.x, from.z - b.z) < 90) out.onMoment?.('arcticternDive', 'An Arctic tern hangs over the water off the beach, wings a blur, then folds and drops straight in, and is up again with a sandeel crossways in its bill.');
+        if (Math.hypot(from.x - b.x, from.z - b.z) < 90) out.onMoment?.('arcticternDive', $t('An Arctic tern hangs over the water off the beach, wings a blur, then folds and drops straight in, and is up again with a sandeel crossways in its bill.'));
         Object.assign(b, { mode: 'rise', t: 1.5 });
       }
     } else {

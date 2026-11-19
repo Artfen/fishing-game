@@ -25,10 +25,11 @@
 // A failed start is never the end of a trip: a flat battery has the outboard's emergency rope or
 // the house battery, and every refusal says why.
 
+import { $t } from './i18n.js';
 export const START_MODES = {
-  full: { id: 'full', name: 'Full procedure', desc: 'You do it all: the battery switch, the kill cord, neutral, the key (and the diesels’ glow plugs), then trim the leg as she gets going. The helm panel (the engine key) has every switch; Assisted start on it runs the same steps for you.' },
-  simple: { id: 'simple', name: 'One-button start', desc: 'One press of the engine key runs the start-up for you, step by step (switch on, cord on, neutral, key, start), and another stops her. Trim the leg yourself as she gets going.' },
-  go: { id: 'go', name: 'Get in and go', desc: 'The engine is running as soon as you take the helm, and stops when you leave it. She trims herself.' },
+  full: { id: 'full', name: $t('Full procedure'), desc: $t('You do it all: the battery switch, the kill cord, neutral, the key (and the diesels’ glow plugs), then trim the leg as she gets going. The helm panel (the engine key) has every switch; Assisted start on it runs the same steps for you.') },
+  simple: { id: 'simple', name: $t('One-button start'), desc: $t('One press of the engine key runs the start-up for you, step by step (switch on, cord on, neutral, key, start), and another stops her. Trim the leg yourself as she gets going.') },
+  go: { id: 'go', name: $t('Get in and go'), desc: $t('The engine is running as soon as you take the helm, and stops when you leave it. She trims herself.') },
 };
 export const START_IDS = Object.keys(START_MODES);
 
@@ -59,7 +60,7 @@ export const profileOf = (kind) => PROFILES[kind] || null;
 // (fuel.js elec): flat, it won't go at all. The helm, the dashboard and the words follow.
 export function setElectric(kind, rpm = 0) {
   if (!BASE[kind]) return;
-  PROFILES[kind] = rpm > 0 ? { ...BASE[kind], starter: 'button', battery: false, idle: 0, max: rpm, cooling: null, electric: true, name: 'electric outboard' } : BASE[kind];
+  PROFILES[kind] = rpm > 0 ? { ...BASE[kind], starter: 'button', battery: false, idle: 0, max: rpm, cooling: null, electric: true, name: $t('electric outboard') } : BASE[kind];
 }
 export const isElectricNow = (kind) => !!PROFILES[kind]?.electric;
 export const hasEngine = (kind) => !!PROFILES[kind];
@@ -164,29 +165,29 @@ export function runShare(E) {
 // ctx: { lever (the throttle), fuel (litres in the tank) }
 export function blocker(E, ctx = {}) {
   const P = PROFILES[E.kind];
-  if (P.battery && !E.battery) return { id: 'battery', text: 'The battery switch is off' };
-  if (P.cord && !E.cord) return { id: 'cord', text: 'The kill cord isn’t clipped on' };
-  if (ctx.lever) return { id: 'neutral', text: 'She’s in gear: the starter only turns in neutral' };
-  if (P.starter === 'key' && !E.key) return { id: 'key', text: 'The key is off' };
+  if (P.battery && !E.battery) return { id: 'battery', text: $t('The battery switch is off') };
+  if (P.cord && !E.cord) return { id: 'cord', text: $t('The kill cord isn’t clipped on') };
+  if (ctx.lever) return { id: 'neutral', text: $t('She’s in gear: the starter only turns in neutral') };
+  if (P.starter === 'key' && !E.key) return { id: 'key', text: $t('The key is off') };
   // (Her battery terminal shaken loose: see damage.js. Set by the game each frame, never saved.)
-  if (E.loose && P.battery) return { id: 'loose', text: 'A click, and nothing: the battery terminal’s loose. Do it up (look her over) and try again' };
+  if (E.loose && P.battery) return { id: 'loose', text: $t('A click, and nothing: the battery terminal’s loose. Do it up (look her over) and try again') };
   // (Her engine room flooded, or on Realistic a swamped outboard's powerhead under: see
   // flooding.js. Set by the game each frame, never saved.)
-  if (E.drowned) return { id: 'drowned', text: P.drive === 'inboard' ? 'Her engine room’s flooded: she won’t turn over until it’s pumped out' : 'Her outboard’s powerhead is under water: bail her out below a third and it’ll start' };
-  if (P.electric) return ctx.fuel <= 0 ? { id: 'flat', text: 'Its battery is flat: it charges at a jetty, and overnight' } : null;
-  if (P.starter !== 'pull' && E.charge < 0.12) return { id: 'flat', text: 'The battery is flat: the starter only clicks' };
+  if (E.drowned) return { id: 'drowned', text: P.drive === 'inboard' ? $t('Her engine room’s flooded: she won’t turn over until it’s pumped out') : $t('Her outboard’s powerhead is under water: bail her out below a third and it’ll start') };
+  if (P.electric) return ctx.fuel <= 0 ? { id: 'flat', text: $t('Its battery is flat: it charges at a jetty, and overnight') } : null;
+  if (P.starter !== 'pull' && E.charge < 0.12) return { id: 'flat', text: $t('The battery is flat: the starter only clicks') };
   return null;
 }
 
 // The checklist for the helm panel: each step, whether it's done.
 export function checklist(E, ctx = {}) {
   const P = PROFILES[E.kind], out = [];
-  if (P.battery) out.push({ id: 'battery', text: 'Battery switch on', ok: E.battery });
-  if (P.cord) out.push({ id: 'cord', text: 'Kill cord clipped on', ok: E.cord });
-  out.push({ id: 'neutral', text: 'In neutral', ok: !ctx.lever });
-  if (P.starter === 'key') out.push({ id: 'key', text: 'Key on', ok: E.key });
-  if (P.diesel) out.push({ id: 'glow', text: 'Glow plugs warmed', ok: E.glow >= 1 || E.warm > 0.5 });
-  out.push({ id: 'start', text: P.starter === 'pull' ? 'Pull the cord' : P.engines > 1 ? 'Start both engines' : 'Start', ok: allRunning(E) });
+  if (P.battery) out.push({ id: 'battery', text: $t('Battery switch on'), ok: E.battery });
+  if (P.cord) out.push({ id: 'cord', text: $t('Kill cord clipped on'), ok: E.cord });
+  out.push({ id: 'neutral', text: $t('In neutral'), ok: !ctx.lever });
+  if (P.starter === 'key') out.push({ id: 'key', text: $t('Key on'), ok: E.key });
+  if (P.diesel) out.push({ id: 'glow', text: $t('Glow plugs warmed'), ok: E.glow >= 1 || E.warm > 0.5 });
+  out.push({ id: 'start', text: P.starter === 'pull' ? $t('Pull the cord') : P.engines > 1 ? $t('Start both engines') : $t('Start'), ok: allRunning(E) });
   return out;
 }
 
@@ -199,14 +200,14 @@ export function act(E, action, ctx = {}, which = null, rnd = Math.random) {
   const list = which == null ? E.engines : [E.engines[which]].filter(Boolean);
   switch (action) {
     case 'battery':
-      if (!P.battery) return done(false, 'She has no battery switch');
-      if (E.battery && running(E)) return done(false, 'Not with the engine running: switch off first');
+      if (!P.battery) return done(false, $t('She has no battery switch'));
+      if (E.battery && running(E)) return done(false, $t('Not with the engine running: switch off first'));
       E.battery = !E.battery;
       if (!E.battery) E.key = false;
       ev.push('switch');
       return done(true);
     case 'cord':
-      if (!P.cord) return done(false, 'She has no kill cord');
+      if (!P.cord) return done(false, $t('She has no kill cord'));
       E.cord = !E.cord;
       ev.push('switch');
       if (!E.cord && running(E)) {
@@ -215,8 +216,8 @@ export function act(E, action, ctx = {}, which = null, rnd = Math.random) {
       }
       return done(true);
     case 'key':
-      if (P.starter !== 'key') return done(false, 'She has no key');
-      if (!E.key && P.battery && !E.battery) return done(false, 'The battery switch is off: nothing happens');
+      if (P.starter !== 'key') return done(false, $t('She has no key'));
+      if (!E.key && P.battery && !E.battery) return done(false, $t('The battery switch is off: nothing happens'));
       E.key = !E.key;
       ev.push('switch');
       if (E.key) ev.push('selftest');
@@ -226,8 +227,8 @@ export function act(E, action, ctx = {}, which = null, rnd = Math.random) {
       }
       return done(true);
     case 'glow':
-      if (!P.diesel) return done(false, 'She has no glow plugs');
-      if (!E.key) return done(false, 'The key is off');
+      if (!P.diesel) return done(false, $t('She has no glow plugs'));
+      if (!E.key) return done(false, $t('The key is off'));
       E.glowing = 3;
       ev.push('glow');
       return done(true);
@@ -246,17 +247,17 @@ export function act(E, action, ctx = {}, which = null, rnd = Math.random) {
         any = true;
       }
       if (any) ev.push('crank');
-      return done(any, any ? null : 'Already running');
+      return done(any, any ? null : $t('Already running'));
     }
     case 'pull': {
-      if (P.starter !== 'pull') return done(false, 'She has no pull-start');
+      if (P.starter !== 'pull') return done(false, $t('She has no pull-start'));
       const b = blocker(E, ctx);
       if (b) {
         ev.push('refuse');
         return done(false, b.text);
       }
       const e = list[0];
-      if (e.run) return done(false, 'Already running');
+      if (e.run) return done(false, $t('Already running'));
       ev.push('pull');
       E.pulls++;
       // (Warm, she goes first pull; cold, it can take two or three, never more. Overdue for her
@@ -280,7 +281,7 @@ export function act(E, action, ctx = {}, which = null, rnd = Math.random) {
       return done(was);
     }
     default:
-      return done(false, 'Nothing to do');
+      return done(false, $t('Nothing to do'));
   }
 }
 

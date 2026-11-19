@@ -2,6 +2,7 @@ import { weightOf } from './fish.js';
 import { registerFor } from './register.js';
 import { species, FAMILIES, ORDERS, IUCN } from './taxonomy.js';
 import { studio } from './gearView.js';
+import { $t } from './i18n.js';
 
 // Looking closer at a fish you've just caught (Look closer, on the catch card): the species' own
 // model, big, to turn over in your hands; how big this one is against its kind and against your
@@ -25,14 +26,14 @@ export function inspectFacts(sp, size, { kg = null, best = 0, condition = '' } =
   const reg = registerFor(sp.id);
   const [lo, hi] = sp.size;
   const pos = Math.max(0, Math.min(1, (size - lo) / Math.max(1, hi - lo)));
-  const sizeWords = pos < 0.2 ? 'A small one of its kind' : pos < 0.5 ? 'A middling one of its kind' : pos < 0.8 ? 'A good one of its kind' : pos < 0.97 ? 'One of the biggest the coast holds' : 'As big as they come here';
+  const sizeWords = pos < 0.2 ? $t('A small one of its kind') : pos < 0.5 ? $t('A middling one of its kind') : pos < 0.8 ? $t('A good one of its kind') : pos < 0.97 ? $t('One of the biggest the coast holds') : $t('As big as they come here');
   const w = kg ?? weightOf(sp, size);
-  const bestWords = !best ? 'Your first' : size > best ? `Your biggest yet (your best before: ${best} cm)` : size === best ? 'As big as your best' : `Your best: ${best} cm`;
+  const bestWords = !best ? $t('Your first') : size > best ? $t`Your biggest yet (your best before: ${best} cm)` : size === best ? $t('As big as your best') : $t`Your best: ${best} cm`;
   const F = e?.family ? FAMILIES[e.family] : null;
   return {
     name: sp.name, sci: e?.sci || '', family: e?.family || '', familyName: F?.[1] || '', order: ORDERS[e?.order]?.sci || '', orderName: ORDERS[e?.order]?.name || '', orderOpen: !!ORDERS[e?.order]?.open,
     iucn: e?.iucn || null, iucnWords: e?.iucn ? IUCN[e.iucn] : '',
-    size, unit: sp.creature ? 'cm mantle' : 'cm', kg: w, kgWords: kgWords(w), condition, range: [lo, hi], pos, sizeWords, best, bestWords,
+    size, unit: sp.creature ? $t('cm mantle') : 'cm', kg: w, kgWords: kgWords(w), condition, range: [lo, hi], pos, sizeWords, best, bestWords,
     marks: list(reg?.identification).slice(0, 6), similar: list(reg?.similar).slice(0, 3), note: sp.note,
   };
 }
@@ -99,7 +100,7 @@ export class CatchInspector {
     this.spin = true;
     $('in-name').textContent = F.name;
     $('in-sci').textContent = F.sci;
-    const tax = [F.order && (F.orderOpen ? `${F.order}, the perch-like fishes (their orders still being redrawn)` : `Order ${F.order}`), F.family && `family ${F.family}${F.familyName ? ` (${F.familyName.toLowerCase()})` : ''}`].filter(Boolean).join(' · ');
+    const tax = [F.order && (F.orderOpen ? $t`${F.order}, the perch-like fishes (their orders still being redrawn)` : `Order ${F.order}`), F.family && `family ${F.family}${F.familyName ? ` (${F.familyName.toLowerCase()})` : ''}`].filter(Boolean).join(' · ');
     $('in-tax').textContent = tax + (F.iucn ? ` · IUCN ${F.iucnWords.toLowerCase()}` : '');
     // How big: the fish against its kind's range on the coast, and against your best.
     const box = $('in-size');
@@ -110,7 +111,7 @@ export class CatchInspector {
     mark.style.left = `${Math.round(F.pos * 100)}%`;
     bar.append(fill, mark);
     const ends = el('div', 'in-ends');
-    ends.append(el('span', '', `${F.range[0]} cm`), el('span', '', `${F.range[1]} cm`));
+    ends.append(el('span', '', $t`${F.range[0]} cm`), el('span', '', $t`${F.range[1]} cm`));
     box.replaceChildren(
       el('p', 'in-big', `${F.size} ${F.unit} · ${F.kgWords}${F.condition ? ` · ${F.condition}` : ''}`),
       bar, ends,

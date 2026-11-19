@@ -47,26 +47,27 @@
 //                hold as it goes round the far side (winding then only loads the line).
 
 // The drag settings: the fraction of the line's breaking strain at which the reel gives line.
+import { $t } from './i18n.js';
 export const DRAG_LEVELS = [0.3, 0.42, 0.55, 0.68, 0.82, 1.05]; // "locked" is past the line's breaking strain
-export const DRAG_NAMES = ['very light', 'light', 'medium', 'firm', 'tight', 'locked'];
+export const DRAG_NAMES = [$t('very light'), 'light', 'medium', 'firm', 'tight', 'locked'];
 export const DEFAULT_DRAG = 2;
 
 // How each difficulty changes things.
 export const DIFFICULTY = {
   relaxed: {
-    id: 'relaxed', label: 'Relaxed',
+    id: 'relaxed', label: $t('Relaxed'),
     bite: 1.6, force: 0.8, shock: 0.5, tire: 1.5, snag: 2.2, light: 3.2, warn: 0.75, teeth: 0.5, cast: 0.6, onset: 0.45, strain: 1.6,
-    desc: 'Fish give you longer to strike, pull less hard and tire sooner. The line forgives a lot, fish rarely reach the weed, and casts fly truer.',
+    desc: $t('Fish give you longer to strike, pull less hard and tire sooner. The line forgives a lot, fish rarely reach the weed, and casts fly truer.'),
   },
   standard: {
-    id: 'standard', label: 'Standard',
+    id: 'standard', label: $t('Standard'),
     bite: 1, force: 1, shock: 1, tire: 1, snag: 1, light: 2.2, warn: 0.45, teeth: 1, cast: 1, onset: 0.35, strain: 0.35,
-    desc: 'The way Slow Tide is meant to be played. Suitable tackle and a little care land anything.',
+    desc: $t('The way Slow Tide is meant to be played. Suitable tackle and a little care land anything.'),
   },
   realistic: {
-    id: 'realistic', label: 'Realistic',
+    id: 'realistic', label: $t('Realistic'),
     bite: 0.75, force: 1.15, shock: 1.15, tire: 0.85, snag: 0.75, light: 1.7, warn: 0.3, teeth: 1.3, cast: 1.25, onset: 0.22, strain: 0.25,
-    desc: 'Shorter bites, stronger fish, less warning before a run and less forgiving casts. Light line and a heavy hand lose fish; the right rod and patience still win.',
+    desc: $t('Shorter bites, stronger fish, less warning before a run and less forgiving casts. Light line and a heavy hand lose fish; the right rod and patience still win.'),
   },
 };
 export const DIFFICULTY_IDS = Object.keys(DIFFICULTY);
@@ -75,37 +76,37 @@ export const DIFFICULTY_IDS = Object.keys(DIFFICULTY);
 // it tires, how it moves on the line (sway: side to side; dive: how deep it goes on a run;
 // splash: whether it breaks the surface), and what the game says while it runs.
 export const FIGHT_STYLES = {
-  steady: { run: 1, rest: 1, surge: 1, tire: 1, sway: 2.2, dive: 0.45, splash: true, words: 'It’s pulling.' },
+  steady: { run: 1, rest: 1, surge: 1, tire: 1, sway: 2.2, dive: 0.45, splash: true, words: $t('It’s pulling.') },
   // Carp, tench, wrasse: long, heavy, plodding runs, few surprises.
-  dogged: { run: 1.25, rest: 0.9, surge: 1.03, tire: 1, sway: 2.4, dive: 0.9, splash: false, words: 'It’s plodding off, heavy and steady.' },
+  dogged: { run: 1.25, rest: 0.9, surge: 1.03, tire: 1, sway: 2.4, dive: 0.9, splash: false, words: $t('It’s plodding off, heavy and steady.') },
   // Trout, perch, mackerel, sea bass, mullet: quick dashes this way and that, and splashes.
-  dash: { run: 0.7, rest: 0.75, surge: 1, tire: 1.4, sway: 2.8, dive: 0.3, splash: true, words: 'It’s darting this way and that.' },
+  dash: { run: 0.7, rest: 0.75, surge: 1, tire: 1.4, sway: 2.8, dive: 0.3, splash: true, words: $t('It’s darting this way and that.') },
   // Pike and largemouth bass: short, violent head-shaking surges at the surface.
-  thrash: { run: 0.75, rest: 0.9, surge: 1, tire: 1.1, sway: 1.7, dive: 0.2, splash: true, words: 'It’s shaking its head.' },
+  thrash: { run: 0.75, rest: 0.9, surge: 1, tire: 1.1, sway: 1.7, dive: 0.2, splash: true, words: $t('It’s shaking its head.') },
   // Flatfish: they flatten themselves on the bottom and plane against the pull.
-  flat: { run: 1.2, rest: 1.1, surge: 0.7, tire: 0.9, sway: 1.3, dive: 3, splash: false, words: 'It’s flattened itself against the bottom.' },
+  flat: { run: 1.2, rest: 1.1, surge: 0.7, tire: 0.9, sway: 1.3, dive: 3, splash: false, words: $t('It’s flattened itself against the bottom.') },
   // Squid: short backward jets, one after another.
-  jet: { run: 0.45, rest: 0.55, surge: 0.9, tire: 1.2, sway: 0.7, dive: 0.6, splash: false, words: 'It’s jetting backwards in pulses.' },
+  jet: { run: 0.45, rest: 0.55, surge: 0.9, tire: 1.2, sway: 0.7, dive: 0.6, splash: false, words: $t('It’s jetting backwards in pulses.') },
   // Tuna: long, deep runs, circling below the boat, but they tire.
-  deep: { run: 1.5, rest: 0.9, surge: 1, tire: 1.25, sway: 3.6, dive: 2.5, splash: false, words: 'It’s sounding deep, circling below.' },
+  deep: { run: 1.5, rest: 0.9, surge: 1, tire: 1.25, sway: 3.6, dive: 2.5, splash: false, words: $t('It’s sounding deep, circling below.') },
   // Octopus: it grips the seabed with its arms and lets go only to steady, patient pressure.
-  cling: { run: 1.4, rest: 1.3, surge: 0.75, tire: 0.85, sway: 0.8, dive: 2.6, splash: false, words: 'It’s clinging to the bottom: keep a steady lift.' },
+  cling: { run: 1.4, rest: 1.3, surge: 0.75, tire: 0.85, sway: 0.8, dive: 2.6, splash: false, words: $t('It’s clinging to the bottom: keep a steady lift.') },
   // Conger: twisting and backing down towards its hole in the rocks.
-  twist: { run: 1.15, rest: 0.8, surge: 1.1, tire: 0.9, sway: 1.4, dive: 2.4, splash: false, words: 'It’s twisting and backing down towards the rocks.' },
+  twist: { run: 1.15, rest: 0.8, surge: 1.1, tire: 0.9, sway: 1.4, dive: 2.4, splash: false, words: $t('It’s twisting and backing down towards the rocks.') },
   // Rays: wings spread, they kite off wide across the tide and clamp flat on the bottom (plating),
   // a dead weight you pump up off the sand a little at a time.
-  plate: { run: 1.35, rest: 1.25, surge: 0.8, tire: 0.8, sway: 3.0, dive: 3.2, splash: false, words: 'It’s kiting off with its wings spread, then clamping flat on the sand: pump it up off the bottom.' },
+  plate: { run: 1.35, rest: 1.25, surge: 0.8, tire: 0.8, sway: 3.0, dive: 3.2, splash: false, words: $t('It’s kiting off with its wings spread, then clamping flat on the sand: pump it up off the bottom.') },
   // Catsharks and dogfish: writhing and rolling, wrapping themselves in the line.
-  roll: { run: 0.6, rest: 0.7, surge: 1.15, tire: 1.3, sway: 1.1, dive: 1.4, splash: false, words: 'It’s writhing and rolling, wrapping itself in the line.' },
+  roll: { run: 0.6, rest: 0.7, surge: 1.15, tire: 1.3, sway: 1.1, dive: 1.4, splash: false, words: $t('It’s writhing and rolling, wrapping itself in the line.') },
   // Garfish: skittering, leaping and tail-walking across the top.
-  leap: { run: 0.6, rest: 0.7, surge: 0.9, tire: 1.5, sway: 3.2, dive: 0.1, splash: true, words: 'It’s skittering and leaping across the surface.' },
+  leap: { run: 0.6, rest: 0.7, surge: 0.9, tire: 1.5, sway: 3.2, dive: 0.1, splash: true, words: $t('It’s skittering and leaping across the surface.') },
   // Marlin, sailfish, spearfish: long, fast runs across the top, greyhounding and tail-walking,
   // then sounding deep; a long fight, but they do tire.
-  billfish: { run: 1.75, rest: 0.85, surge: 1.05, tire: 0.6, sway: 4.4, dive: 0.5, splash: true, words: 'It’s greyhounding away across the top, leaping as it goes!' },
+  billfish: { run: 1.75, rest: 0.85, surge: 1.05, tire: 0.6, sway: 4.4, dive: 0.5, splash: true, words: $t('It’s greyhounding away across the top, leaping as it goes!') },
   // Sharks: heavy, relentless runs deep, shaking their heads, and they never quite give up.
-  shark: { run: 1.5, rest: 1.0, surge: 1.1, tire: 0.7, sway: 2.2, dive: 1.6, splash: false, words: 'It’s boring away deep, shaking its head: heavy and relentless.' },
+  shark: { run: 1.5, rest: 1.0, surge: 1.1, tire: 0.7, sway: 2.2, dive: 1.6, splash: false, words: $t('It’s boring away deep, shaking its head: heavy and relentless.') },
   // Wahoo: one blistering first run that strips line off the reel, then shorter ones.
-  blister: { run: 1.7, rest: 1.15, surge: 1.15, tire: 1.45, sway: 2.0, dive: 0.6, splash: false, words: 'It’s off on a blistering run: let the drag work.' },
+  blister: { run: 1.7, rest: 1.15, surge: 1.15, tire: 1.45, sway: 2.0, dive: 0.6, splash: false, words: $t('It’s off on a blistering run: let the drag work.') },
 };
 
 // Each kind's signature moves (see the top of this file), by its fight style, and for a few kinds
@@ -140,13 +141,13 @@ export const signatureOf = (sp) => SIGNATURES[sp.id] ?? STYLE_MOVES[sp.fight] ??
 
 // What each move looks like from the rod, and the answer to it (said in the game as it happens).
 export const MOVES = {
-  charge: { name: 'the charge', tell: 'It turns and comes straight at you: the line falls slack.', answer: 'Wind as fast as you can to keep up with it.' },
-  headshake: { name: 'the headshake', tell: 'At the top, its head up, shaking: the rod tip knocks.', answer: 'Rod low and to one side: keep its head down and the line steady.' },
-  dive: { name: 'the dive', tell: 'It bores straight down for the rocks or the weed: the rod pulls down hard.', answer: 'Side strain: swing the rod low against it to turn its head.' },
-  lastdash: { name: 'the last dash', tell: 'Close in, when you thought it was done, one more dive.', answer: 'Let the drag work: don’t wind into it.' },
-  longrun: { name: 'the long run', tell: 'The reel screams and line pours off, far past where it was hooked.', answer: 'Let it run with the rod up. If the spool runs low, a click more drag (or follow it with the boat).' },
-  sound: { name: 'sounding', tell: 'It goes straight down and hangs there, a dead weight.', answer: 'Pump it up: lift, then wind down as you lower the rod; winding steadily barely moves it.' },
-  circle: { name: 'the circles', tell: 'Tired, it circles below the boat: the rod tip rises and falls.', answer: 'Wind as it comes up on the near side; hold as it goes round the far side.' },
+  charge: { name: $t('the charge'), tell: $t('It turns and comes straight at you: the line falls slack.'), answer: $t('Wind as fast as you can to keep up with it.') },
+  headshake: { name: $t('the headshake'), tell: $t('At the top, its head up, shaking: the rod tip knocks.'), answer: $t('Rod low and to one side: keep its head down and the line steady.') },
+  dive: { name: $t('the dive'), tell: $t('It bores straight down for the rocks or the weed: the rod pulls down hard.'), answer: $t('Side strain: swing the rod low against it to turn its head.') },
+  lastdash: { name: $t('the last dash'), tell: $t('Close in, when you thought it was done, one more dive.'), answer: $t('Let the drag work: don’t wind into it.') },
+  longrun: { name: $t('the long run'), tell: $t('The reel screams and line pours off, far past where it was hooked.'), answer: $t('Let it run with the rod up. If the spool runs low, a click more drag (or follow it with the boat).') },
+  sound: { name: 'sounding', tell: $t('It goes straight down and hangs there, a dead weight.'), answer: $t('Pump it up: lift, then wind down as you lower the rod; winding steadily barely moves it.') },
+  circle: { name: $t('the circles'), tell: $t('Tired, it circles below the boat: the rod tip rises and falls.'), answer: $t('Wind as it comes up on the near side; hold as it goes round the far side.') },
 };
 
 // Line off the reel. When a running fish pulls harder than the drag, the drag slips and the fish
@@ -826,47 +827,47 @@ export function breakReason(cause, sp, rod, extra = {}) {
   const fish = sp.name.toLowerCase();
   switch (cause) {
     case 'thrown':
-      if (extra.by === 'charge') return `The ${fish} came straight at you faster than you wound, and on the slack line it turned and threw the hook. When it charges, wind fast to keep the line tight.`;
-      if (extra.by === 'shake') return `The ${fish} shook its head at the top while the line went slack, and threw the hook. Keep the rod low and to the side and the line steady when it head-shakes.`;
-      return `The ${fish} leapt and shook its head while the line hung slack, and threw the hook. Keep the rod up and the line tight when it jumps: wind down to it.`;
+      if (extra.by === 'charge') return $t`The ${fish} came straight at you faster than you wound, and on the slack line it turned and threw the hook. When it charges, wind fast to keep the line tight.`;
+      if (extra.by === 'shake') return $t`The ${fish} shook its head at the top while the line went slack, and threw the hook. Keep the rod low and to the side and the line steady when it head-shakes.`;
+      return $t`The ${fish} leapt and shook its head while the line hung slack, and threw the hook. Keep the rod up and the line tight when it jumps: wind down to it.`;
     case 'pulled':
-      if (extra.loosened) return `The hook pulled out. It was set well, but the fight wore the hold loose (every head-shake, leap and long heavy pull works at it), and then the pressure stayed too heavy for too long. Keep the rod low to the side through the head-shakes, the line tight when it jumps, and ease off once it's working loose.`;
-      return `The hook pulled out: it only had a light hold in the ${fish}’s lip, and the pressure stayed too heavy for too long. A lighter drag and a softer touch keep a lightly hooked fish on.`;
+      if (extra.loosened) return $t`The hook pulled out. It was set well, but the fight wore the hold loose (every head-shake, leap and long heavy pull works at it), and then the pressure stayed too heavy for too long. Keep the rod low to the side through the head-shakes, the line tight when it jumps, and ease off once it's working loose.`;
+      return $t`The hook pulled out: it only had a light hold in the ${fish}’s lip, and the pressure stayed too heavy for too long. A lighter drag and a softer touch keep a lightly hooked fish on.`;
     case 'spat':
-      return `The ${fish} let go just as you struck, and the hook came back empty. Strike as the float goes under or the line draws tight, not a moment after.`;
+      return $t`The ${fish} let go just as you struck, and the hook came back empty. Strike as the float goes under or the line draws tight, not a moment after.`;
     case 'teeth':
-      return `The ${fish}’s teeth cut straight through the ${rod.line.name}. Pike need a wire trace: rig one on the spinning rod.`;
+      return $t`The ${fish}’s teeth cut straight through the ${rod.line.name}. Pike need a wire trace: rig one on the spinning rod.`;
     case 'drag':
-      return `The line snapped: the drag was locked tight, so it couldn’t give line when the ${fish} ran. Loosen it (${extra.loosen || 'S'} while the fish is on).`;
+      return $t`The line snapped: the drag was locked tight, so it couldn’t give line when the ${fish} ran. Loosen it (${extra.loosen || 'S'} while the fish is on).`;
     case 'spool':
-      return `The ${fish} took every metre of line off the reel and broke it at the knot. With the drag that light it ran too far: a click more drag slows a long run, and following it with the boat keeps line on the spool.`;
+      return $t`The ${fish} took every metre of line off the reel and broke it at the knot. With the drag that light it ran too far: a click more drag slows a long run, and following it with the boat keeps line on the spool.`;
     case 'lifted':
-      if (extra.landBy === 'lift') return `The hook tore out as you lifted the ${fish} up out of the water: its whole weight was on the hook, and the hold wasn’t firm enough for it. A fish played gently keeps a firmer hold (every head-shake and slack leap works at it). Lower down, where you can reach the water, you could take it by the tail; on a sandy shore, slide it up the beach.`;
-      return `You tried to lift the ${fish} out on the line, and the hook tore free: a fish that size needs ${extra.landBy === 'hand' ? 'taking by the tail' : 'the net'}. When it’s beaten and alongside, let go of the reel and tap to ${extra.landBy === 'hand' ? 'grab it as it lies still' : 'net it'}.`;
+      if (extra.landBy === 'lift') return $t`The hook tore out as you lifted the ${fish} up out of the water: its whole weight was on the hook, and the hold wasn’t firm enough for it. A fish played gently keeps a firmer hold (every head-shake and slack leap works at it). Lower down, where you can reach the water, you could take it by the tail; on a sandy shore, slide it up the beach.`;
+      return $t`You tried to lift the ${fish} out on the line, and the hook tore free: a fish that size needs ${extra.landBy === 'hand' ? $t('taking by the tail') : $t('the net')}. When it’s beaten and alongside, let go of the reel and tap to ${extra.landBy === 'hand' ? $t('grab it as it lies still') : $t('net it')}.`;
     case 'hoisted':
-      return `The line broke as you lifted the ${fish} clear: it weighed far more than the ${rod.line.name} will take as a dead weight. A fish that size can’t come up a wall on that line: land it lower down, where you can reach the water, or on a beach.`;
+      return $t`The line broke as you lifted the ${fish} clear: it weighed far more than the ${rod.line.name} will take as a dead weight. A fish that size can’t come up a wall on that line: land it lower down, where you can reach the water, or on a beach.`;
     case 'kicked':
       // (E3d) On the leader, the big game from a boat.
-      if (extra.landBy === 'leader') return `The ${fish} surged as you held the leader, and the hook tore out${extra.loosened ? ': the fight had worn it loose' : ''}. Let go of the leader as it stirs: the rod takes the surge, then take the leader again once it’s spent. A friend aboard can take it for you.`;
-      if (extra.landBy === 'beach' || extra.landBy === 'lift') return `The ${fish} gave a last kick while you were winding it ${extra.landBy === 'beach' ? 'up the beach' : 'up'}, and the hook came out. Let go as it stirs, and wind again when it lies still.`;
-      return `The ${fish} gave a last kick alongside while you were winding hard, and the hook came out. Let go as it kicks, and ${extra.landBy === 'hand' ? 'take it by the tail' : 'net it'} when it rolls over again.`;
+      if (extra.landBy === 'leader') return $t`The ${fish} surged as you held the leader, and the hook tore out${extra.loosened ? $t(': the fight had worn it loose') : ''}. Let go of the leader as it stirs: the rod takes the surge, then take the leader again once it’s spent. A friend aboard can take it for you.`;
+      if (extra.landBy === 'beach' || extra.landBy === 'lift') return $t`The ${fish} gave a last kick while you were winding it ${extra.landBy === 'beach' ? $t('up the beach') : $t('up')}, and the hook came out. Let go as it stirs, and wind again when it lies still.`;
+      return $t`The ${fish} gave a last kick alongside while you were winding hard, and the hook came out. Let go as it kicks, and ${extra.landBy === 'hand' ? $t('take it by the tail') : $t('net it')} when it rolls over again.`;
     case 'knocked':
-      return `You swung the net at the ${fish} as it kicked, and the rim knocked the hook out${extra.loosened ? ': the fight had worn it loose' : ''}. Wait for it to lie still, then net it.`;
+      return $t`You swung the net at the ${fish} as it kicked, and the rim knocked the hook out${extra.loosened ? $t(': the fight had worn it loose') : ''}. Wait for it to lie still, then net it.`;
     case 'slipped':
-      return `You grabbed at the ${fish} as it kicked: it slipped your hand, and the jerk tore the hook out. Wait till it lies still, then take it by the tail.`;
+      return $t`You grabbed at the ${fish} as it kicked: it slipped your hand, and the jerk tore the hook out. Wait till it lies still, then take it by the tail.`;
     case 'snag':
-      if (extra.stuck) return `The ${fish} was fast in the weed, and you kept pulling until the ${rod.line.name} parted on the stems. A weeded fish often swims out by itself if you give it slack, or comes free pulled from a new angle; steady, gentle pressure works it out too. Force cuts the line.`;
-      return `The ${fish} ran into the weed and the ${rod.line.name} parted on the stems. Heavier line or a firmer drag would have turned it sooner.`;
+      if (extra.stuck) return $t`The ${fish} was fast in the weed, and you kept pulling until the ${rod.line.name} parted on the stems. A weeded fish often swims out by itself if you give it slack, or comes free pulled from a new angle; steady, gentle pressure works it out too. Force cuts the line.`;
+      return $t`The ${fish} ran into the weed and the ${rod.line.name} parted on the stems. Heavier line or a firmer drag would have turned it sooner.`;
     case 'weeded':
       return extra.kind === 'rock'
-        ? `The ${fish} stayed wedged under the rocks, and worked the hook free against them: the line came back without it. Give it slack straight away (it often backs out by itself) or pull from a new angle: the longer it stays in, the likelier it sheds the hook.`
-        : `The ${fish} stayed in the weed and worked the hook free against the stems: the line came back with a clump of weed and no fish. Give it slack straight away (it often swims out by itself) or pull from a new angle: the longer it stays in, the likelier it sheds the hook.`;
+        ? $t`The ${fish} stayed wedged under the rocks, and worked the hook free against them: the line came back without it. Give it slack straight away (it often backs out by itself) or pull from a new angle: the longer it stays in, the likelier it sheds the hook.`
+        : $t`The ${fish} stayed in the weed and worked the hook free against the stems: the line came back with a clump of weed and no fish. Give it slack straight away (it often swims out by itself) or pull from a new angle: the longer it stays in, the likelier it sheds the hook.`;
     case 'rock':
-      if (extra.stuck) return `The ${fish} was wedged under the rocks, and pulling on it sawed the ${rod.line.name} through on them. Slack lets it back out by itself, and a new angle (the boat over the top, or along the shore) pulls it free; pressure on rock only cuts the line${(rod.line.abrade ?? 1) < 1 ? ', braid fastest' : ''}.`;
+      if (extra.stuck) return $t`The ${fish} was wedged under the rocks, and pulling on it sawed the ${rod.line.name} through on them. Slack lets it back out by itself, and a new angle (the boat over the top, or along the shore) pulls it free; pressure on rock only cuts the line${(rod.line.abrade ?? 1) < 1 ? $t(', braid fastest') : ''}.`;
       return (rod.line.abrade ?? 1) < 1
-        ? `The ${fish} got down among the rocks and the ${rod.line.name} chafed through on them: braid cuts on rock in a moment. A fluorocarbon leader stands up to it far better, and side strain keeps a fish out of the rocks.`
-        : `The ${fish} got down among the rocks and the line chafed through on them. Turn it sooner (a firmer drag, side strain) before it reaches them.`;
+        ? $t`The ${fish} got down among the rocks and the ${rod.line.name} chafed through on them: braid cuts on rock in a moment. A fluorocarbon leader stands up to it far better, and side strain keeps a fish out of the rocks.`
+        : $t`The ${fish} got down among the rocks and the line chafed through on them. Turn it sooner (a firmer drag, side strain) before it reaches them.`;
     default:
-      return `The line snapped: you kept winding while the ${fish} surged, and it strained past its limit. Watch for the flick on the surface before each run and ease off, or at the latest when the line creaks.`;
+      return $t`The line snapped: you kept winding while the ${fish} surged, and it strained past its limit. Watch for the flick on the surface before each run and ease off, or at the latest when the line creaks.`;
   }
 }

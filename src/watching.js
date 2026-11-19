@@ -6,6 +6,7 @@
 // picture of, marked on the journal's species pages, and a goal.
 
 import { SEASONS, seasonOf } from './world/season.js';
+import { $t } from './i18n.js';
 
 export const AT_KEPT = 6;
 
@@ -37,9 +38,9 @@ export function seasonsWords(R) {
   const order = [0, 1, 2, 3].filter((i) => s[i] > 0).sort((a, b) => s[b] - s[a] || a - b);
   const [top, ...rest] = order;
   const one = (i) => `${SEASONS[i]} (${s[i]})`;
-  if (!rest.length) return `only in ${one(top)} so far`;
+  if (!rest.length) return $t`only in ${one(top)} so far`;
   const tail = rest.map(one);
-  return `mostly in ${one(top)}; in ${tail.length > 1 ? `${tail.slice(0, -1).join(', ')} and ${tail[tail.length - 1]}` : tail[0]} too`;
+  return $t`mostly in ${one(top)}; in ${tail.length > 1 ? $t`${tail.slice(0, -1).join(', ')} and ${tail[tail.length - 1]}` : tail[0]} too`;
 }
 
 // Where it's mostly seen, in words: "mostly off the Kelp Forest, and at Gull Rock", or null.

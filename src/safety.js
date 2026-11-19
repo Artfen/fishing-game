@@ -12,6 +12,7 @@
 //   neither, you wait for a passing boat to see you (WAIT_HOURS).
 // Everyone starts with a kit (and an older save has one); flares are bought.
 
+import { $t } from './i18n.js';
 export const KIT = { plugs: 3, stoppers: 2 };
 export const KIT_PRICE = 18;
 export const SPARE_PRICE = 3;
@@ -64,8 +65,8 @@ export function helpHours(how, hours) {
 }
 // In a few words.
 export const HELP_WORDS = {
-  phone: 'Your phone reaches the harbour office from here.',
-  vhf: 'Her VHF reaches the harbour office.',
-  flare: 'No signal for your phone out on the deep water, and no VHF aboard: a flare brings someone, in time.',
-  wait: 'No signal for your phone out on the deep water, no VHF aboard and no flares: you can only wait for a passing boat to see you.',
+  phone: $t('Your phone reaches the harbour office from here.'),
+  vhf: $t('Her VHF reaches the harbour office.'),
+  flare: $t('No signal for your phone out on the deep water, and no VHF aboard: a flare brings someone, in time.'),
+  wait: $t('No signal for your phone out on the deep water, no VHF aboard and no flares: you can only wait for a passing boat to see you.'),
 };

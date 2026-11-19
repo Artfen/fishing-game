@@ -1,6 +1,7 @@
 import { fishById } from './fish.js';
 import { PLACES, ZONE_NAMES, zoneAt } from './world/terrain.js';
 import { habitsOf } from './guide.js';
+import { $t } from './i18n.js';
 
 // Planning a fishing trip from the field guide: a target species, the stretches of water that
 // suit it (from the map's own habitat data: waters, habitats and depths, never where any fish
@@ -9,14 +10,14 @@ import { habitsOf } from './guide.js';
 // always do.
 
 export const HOME_WORDS = {
-  sand: 'open sand', weed: 'weed beds', rock: 'rocks', deep: 'deep water', open: 'open water', cove: 'sheltered coves',
-  reef: 'reefs and kelp', surf: 'surf off rocky points', tide: 'tide races', channel: 'the channel', flats: 'sand and mud flats',
-  quay: 'the quay wall', reeds: 'reed edges', blue: 'the open ocean', pool: 'stream pools', margin: 'lake margins', pads: 'lily pads',
-  snag: 'snags and fallen trees', dropoff: 'drop-offs', holm: 'island shores', shallows: 'shallows',
-  wall: 'the wall of the drop-off', cave: 'caves in the rock',
+  sand: $t('open sand'), weed: $t('weed beds'), rock: $t('rocks'), deep: $t('deep water'), open: $t('open water'), cove: $t('sheltered coves'),
+  reef: $t('reefs and kelp'), surf: $t('surf off rocky points'), tide: $t('tide races'), channel: $t('the channel'), flats: $t('sand and mud flats'),
+  quay: $t('the quay wall'), reeds: $t('reed edges'), blue: $t('the open ocean'), pool: $t('stream pools'), margin: $t('lake margins'), pads: $t('lily pads'),
+  snag: $t('snags and fallen trees'), dropoff: $t('drop-offs'), holm: $t('island shores'), shallows: $t('shallows'),
+  wall: $t('the wall of the drop-off'), cave: $t('caves in the rock'),
 };
 
-const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+const COMPASS = [$t('north'), $t('north-east'), $t('east'), $t('south-east'), $t('south'), $t('south-west'), $t('west'), $t('north-west')];
 // A bearing in words. (The world's north is -z, as on the map.)
 export const bearing = (dx, dz) => COMPASS[Math.round(((Math.atan2(dx, -dz) / (Math.PI * 2)) * 8 + 8)) % 8];
 
@@ -34,7 +35,7 @@ export function tripPlaces(sp, map, from, state, max = 4) {
       .sort((x, y) => x.d - y.d)[0];
     const zone = zoneAt(p[0], p[1]) || a.zone;
     // (The open ocean past the shelf has a name of its own: E3b.)
-    const name = zone === 'deep' ? 'The Blue Water' : named && named.d < 160 ? `${ZONE_NAMES[zone] || zone}, near ${named.pl.name}` : ZONE_NAMES[zone] || zone;
+    const name = zone === 'deep' ? $t('The Blue Water') : named && named.d < 160 ? `${ZONE_NAMES[zone] || zone}, near ${named.pl.name}` : ZONE_NAMES[zone] || zone;
     const dist = Math.hypot(p[0] - from.x, p[1] - from.z);
     out.push({ x: p[0], z: p[1], r: Math.min(60, Math.max(22, a.r * 0.5)), zone, name, dist, dir: bearing(p[0] - from.x, p[1] - from.z), size: a.cells, homes, depth: H.depth });
   }
@@ -108,6 +109,6 @@ export function summaryText(sp, sum) {
   const others = Object.entries(sum.others).map(([id, n]) => `${n} ${fishById[id]?.name.toLowerCase() || id}`).join(', ');
   const m = Math.max(1, Math.round(sum.hours * 60)), hh = Math.round(sum.hours * 10) / 10;
   const h = sum.hours < 1 ? `${m} minute${m > 1 ? 's' : ''}` : `${hh} hour${hh === 1 ? '' : 's'}`;
-  const got = sum.target ? `${sum.target} ${name}${sum.best ? ` (best ${sum.best.size} cm)` : ''}` : `no ${name} yet`;
+  const got = sum.target ? `${sum.target} ${name}${sum.best ? $t` (best ${sum.best.size} cm)` : ''}` : $t`no ${name} yet`;
   return `${h} out: ${got}${others ? `, and ${others}` : ''}.`;
 }

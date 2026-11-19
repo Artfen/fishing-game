@@ -3,61 +3,62 @@
 // players can rebind them in Settings. Labels show the letter printed on the player's keyboard.
 // A game controller (see gamepad.js) and the touch controls press the same actions; whichever
 // you used last is `method` ('keys', 'pad' or 'touch'), and the hints follow it.
+import { $t } from './i18n.js';
 const BLOCK = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab']);
 const UI_KEYS = new Set(['Space', 'Enter', 'NumpadEnter', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End']);
 
 // The actions, their default keys and how Settings describes them. The first key is the one
 // shown in hints and changed by rebinding; any others are extra ways in (the arrow keys).
 export const ACTIONS = [
-  { id: 'forward', label: 'Row / walk forward · throttle up a notch · bait shallower or reel faster', keys: ['KeyW', 'ArrowUp'], group: 'Moving' },
-  { id: 'back', label: 'Row back / walk back · throttle down a notch · bait deeper or reel slower', keys: ['KeyS', 'ArrowDown'], group: 'Moving' },
-  { id: 'left', label: 'Turn or step left · aim the cast left', keys: ['KeyA', 'ArrowLeft'], group: 'Moving' },
-  { id: 'right', label: 'Turn or step right · aim the cast right', keys: ['KeyD', 'ArrowRight'], group: 'Moving' },
-  { id: 'jog', label: 'Jog (hold, on foot) · with a line out: walk with it, or stand to fish again', keys: ['ShiftLeft', 'ShiftRight'], group: 'Moving' },
-  { id: 'walkline', label: 'Walk with your line out (along the bank, or about the deck), or stand to fish again', keys: ['Backquote'], group: 'Moving' },
-  { id: 'cast', label: 'Cast (hold to aim, let go to cast) · strike · reel', keys: ['Space'], group: 'Fishing' },
-  { id: 'cancel', label: 'Cancel a cast · reel in · back out', keys: ['Escape'], group: 'Fishing', fixed: true },
-  { id: 'tackle', label: 'Next bait, lure or fly', keys: ['KeyQ'], group: 'Fishing' },
-  { id: 'rod1', label: 'First rod', keys: ['Digit1'], group: 'Fishing' },
-  { id: 'rod2', label: 'Second rod', keys: ['Digit2'], group: 'Fishing' },
-  { id: 'feed', label: 'Throw loose bait (bottom fishing)', keys: ['KeyG'], group: 'Fishing' },
-  { id: 'keep', label: 'Keep a fish (on the catch card)', keys: ['KeyK'], group: 'Fishing' },
-  { id: 'advice', label: 'Why aren’t they biting? (what the field guide makes of your rig)', keys: ['KeyY'], group: 'Fishing' },
-  { id: 'interact', label: 'Step ashore · board · camp · look closer', keys: ['KeyE'], group: 'Around' },
-  { id: 'rest', label: 'Let time drift (hold); on passage, speed it up (tap)', keys: ['KeyT'], group: 'Around' },
-  { id: 'anchor', label: 'Mooring: drop or raise the anchor · tie up alongside · cast off · let go a tow (as the prompt says)', keys: ['KeyZ'], group: 'Boats' },
-  { id: 'neutral', label: 'Motor to neutral (stop)', keys: ['KeyX'], group: 'Boats' },
-  { id: 'trolling', label: 'The bow trolling motor: deploy it, or stow it (by hand at the bow, or the self-stowing motor from anywhere)', keys: ['Comma'], group: 'Boats' },
-  { id: 'trollDepth', label: 'The bow trolling motor’s depth: shallow, normal, deep', keys: ['Slash'], group: 'Boats' },
-  { id: 'spotlock', label: 'Spot-Lock: hold her here (creeping along on the trolling motor: hold this heading)', keys: ['Period'], group: 'Boats' },
-  { id: 'throttleUp', label: 'Throttle up a notch (also with a line out)', keys: ['Equal', 'NumpadAdd'], group: 'Boats' },
-  { id: 'throttleDown', label: 'Throttle down a notch (also with a line out)', keys: ['Minus', 'NumpadSubtract'], group: 'Boats' },
-  { id: 'motor', label: 'The engine: start or stop it (or the helm panel, on the full procedure) · kayak motor down or up · sailing boat: sail up or down', keys: ['KeyU'], group: 'Boats' },
-  { id: 'trimUp', label: 'Trim the outboard out (hold; at rest it tilts right up)', keys: ['BracketRight', 'PageUp'], group: 'Boats' },
-  { id: 'trimDown', label: 'Trim the outboard in (hold)', keys: ['BracketLeft', 'PageDown'], group: 'Boats' },
-  { id: 'tilt', label: 'Tilt the outboard right up, or back down (one press)', keys: ['Backslash'], group: 'Boats' },
-  { id: 'levers', label: 'Twin engines: the throttle keys work both levers, the port one or the starboard one (each press, the next)', keys: ['Semicolon'], group: 'Boats' },
-  { id: 'outboard', label: 'Sailing boat: the outboard down or up (when there’s no wind)', keys: ['KeyL'], group: 'Boats' },
-  { id: 'drink', label: 'A drink from your water bottle', keys: ['Digit3'], group: 'Around' },
-  { id: 'call', label: 'Playing together: a quick call to your friends', keys: ['Digit4'], group: 'Around' },
-  { id: 'view', label: 'Next view (first person, underwater, your bait)', keys: ['KeyC'], group: 'Views' },
-  { id: 'eye', label: 'First person on or off', keys: ['KeyV'], group: 'Views' },
-  { id: 'reset', label: 'Reset the camera', keys: ['KeyR'], group: 'Views' },
-  { id: 'photo', label: 'Take a photograph (photo mode; on a catch card, a picture of your fish)', keys: ['KeyP'], group: 'Views' },
-  { id: 'binoculars', label: 'Binoculars: raise them to watch the birds and the sea life far off, and name what you’re looking at', keys: ['Digit5'], group: 'Views' },
-  { id: 'pack', label: 'Backpack', keys: ['KeyB', 'KeyI'], group: 'Panels' },
-  { id: 'finder', label: 'Fish finder (on the head unit: the next page, then away)', keys: ['KeyF'], group: 'Panels' },
-  { id: 'conditions', label: 'Wind, current and sea panel', keys: ['KeyN'], group: 'Panels' },
-  { id: 'map', label: 'Map', keys: ['KeyM'], group: 'Panels' },
-  { id: 'journal', label: 'Journal', keys: ['KeyJ', 'Tab'], group: 'Panels' },
-  { id: 'settings', label: 'Settings', keys: ['KeyO'], group: 'Panels' },
-  { id: 'hide', label: 'Hide the interface', keys: ['KeyH'], group: 'Panels' },
+  { id: 'forward', label: $t('Row / walk forward · throttle up a notch · bait shallower or reel faster'), keys: ['KeyW', 'ArrowUp'], group: 'Moving' },
+  { id: 'back', label: $t('Row back / walk back · throttle down a notch · bait deeper or reel slower'), keys: ['KeyS', 'ArrowDown'], group: 'Moving' },
+  { id: 'left', label: $t('Turn or step left · aim the cast left'), keys: ['KeyA', 'ArrowLeft'], group: 'Moving' },
+  { id: 'right', label: $t('Turn or step right · aim the cast right'), keys: ['KeyD', 'ArrowRight'], group: 'Moving' },
+  { id: 'jog', label: $t('Jog (hold, on foot) · with a line out: walk with it, or stand to fish again'), keys: ['ShiftLeft', 'ShiftRight'], group: 'Moving' },
+  { id: 'walkline', label: $t('Walk with your line out (along the bank, or about the deck), or stand to fish again'), keys: ['Backquote'], group: 'Moving' },
+  { id: 'cast', label: $t('Cast (hold to aim, let go to cast) · strike · reel'), keys: ['Space'], group: 'Fishing' },
+  { id: 'cancel', label: $t('Cancel a cast · reel in · back out'), keys: ['Escape'], group: 'Fishing', fixed: true },
+  { id: 'tackle', label: $t('Next bait, lure or fly'), keys: ['KeyQ'], group: 'Fishing' },
+  { id: 'rod1', label: $t('First rod'), keys: ['Digit1'], group: 'Fishing' },
+  { id: 'rod2', label: $t('Second rod'), keys: ['Digit2'], group: 'Fishing' },
+  { id: 'feed', label: $t('Throw loose bait (bottom fishing)'), keys: ['KeyG'], group: 'Fishing' },
+  { id: 'keep', label: $t('Keep a fish (on the catch card)'), keys: ['KeyK'], group: 'Fishing' },
+  { id: 'advice', label: $t('Why aren’t they biting? (what the field guide makes of your rig)'), keys: ['KeyY'], group: 'Fishing' },
+  { id: 'interact', label: $t('Step ashore · board · camp · look closer'), keys: ['KeyE'], group: 'Around' },
+  { id: 'rest', label: $t('Let time drift (hold); on passage, speed it up (tap)'), keys: ['KeyT'], group: 'Around' },
+  { id: 'anchor', label: $t('Mooring: drop or raise the anchor · tie up alongside · cast off · let go a tow (as the prompt says)'), keys: ['KeyZ'], group: 'Boats' },
+  { id: 'neutral', label: $t('Motor to neutral (stop)'), keys: ['KeyX'], group: 'Boats' },
+  { id: 'trolling', label: $t('The bow trolling motor: deploy it, or stow it (by hand at the bow, or the self-stowing motor from anywhere)'), keys: ['Comma'], group: 'Boats' },
+  { id: 'trollDepth', label: $t('The bow trolling motor’s depth: shallow, normal, deep'), keys: ['Slash'], group: 'Boats' },
+  { id: 'spotlock', label: $t('Spot-Lock: hold her here (creeping along on the trolling motor: hold this heading)'), keys: ['Period'], group: 'Boats' },
+  { id: 'throttleUp', label: $t('Throttle up a notch (also with a line out)'), keys: ['Equal', 'NumpadAdd'], group: 'Boats' },
+  { id: 'throttleDown', label: $t('Throttle down a notch (also with a line out)'), keys: ['Minus', 'NumpadSubtract'], group: 'Boats' },
+  { id: 'motor', label: $t('The engine: start or stop it (or the helm panel, on the full procedure) · kayak motor down or up · sailing boat: sail up or down'), keys: ['KeyU'], group: 'Boats' },
+  { id: 'trimUp', label: $t('Trim the outboard out (hold; at rest it tilts right up)'), keys: ['BracketRight', 'PageUp'], group: 'Boats' },
+  { id: 'trimDown', label: $t('Trim the outboard in (hold)'), keys: ['BracketLeft', 'PageDown'], group: 'Boats' },
+  { id: 'tilt', label: $t('Tilt the outboard right up, or back down (one press)'), keys: ['Backslash'], group: 'Boats' },
+  { id: 'levers', label: $t('Twin engines: the throttle keys work both levers, the port one or the starboard one (each press, the next)'), keys: ['Semicolon'], group: 'Boats' },
+  { id: 'outboard', label: $t('Sailing boat: the outboard down or up (when there’s no wind)'), keys: ['KeyL'], group: 'Boats' },
+  { id: 'drink', label: $t('A drink from your water bottle'), keys: ['Digit3'], group: 'Around' },
+  { id: 'call', label: $t('Playing together: a quick call to your friends'), keys: ['Digit4'], group: 'Around' },
+  { id: 'view', label: $t('Next view (first person, underwater, your bait)'), keys: ['KeyC'], group: 'Views' },
+  { id: 'eye', label: $t('First person on or off'), keys: ['KeyV'], group: 'Views' },
+  { id: 'reset', label: $t('Reset the camera'), keys: ['KeyR'], group: 'Views' },
+  { id: 'photo', label: $t('Take a photograph (photo mode; on a catch card, a picture of your fish)'), keys: ['KeyP'], group: 'Views' },
+  { id: 'binoculars', label: $t('Binoculars: raise them to watch the birds and the sea life far off, and name what you’re looking at'), keys: ['Digit5'], group: 'Views' },
+  { id: 'pack', label: $t('Backpack'), keys: ['KeyB', 'KeyI'], group: 'Panels' },
+  { id: 'finder', label: $t('Fish finder (on the head unit: the next page, then away)'), keys: ['KeyF'], group: 'Panels' },
+  { id: 'conditions', label: $t('Wind, current and sea panel'), keys: ['KeyN'], group: 'Panels' },
+  { id: 'map', label: $t('Map'), keys: ['KeyM'], group: 'Panels' },
+  { id: 'journal', label: $t('Journal'), keys: ['KeyJ', 'Tab'], group: 'Panels' },
+  { id: 'settings', label: $t('Settings'), keys: ['KeyO'], group: 'Panels' },
+  { id: 'hide', label: $t('Hide the interface'), keys: ['KeyH'], group: 'Panels' },
   // Looking down at the dashboard (see dashcontrol.js): Tab moves round it too.
-  { id: 'dashPress', label: 'Dashboard: work the ringed switch (held, for the key, the trim and the horn)', keys: ['Enter'], group: 'Dashboard', fixed: true },
-  { id: 'dashUp', label: 'Dashboard: ring up', keys: [], group: 'Dashboard' },
-  { id: 'dashDown', label: 'Dashboard: ring down', keys: [], group: 'Dashboard' },
-  { id: 'dashLeft', label: 'Dashboard: ring left', keys: [], group: 'Dashboard' },
-  { id: 'dashRight', label: 'Dashboard: ring right', keys: [], group: 'Dashboard' },
+  { id: 'dashPress', label: $t('Dashboard: work the ringed switch (held, for the key, the trim and the horn)'), keys: ['Enter'], group: 'Dashboard', fixed: true },
+  { id: 'dashUp', label: $t('Dashboard: ring up'), keys: [], group: 'Dashboard' },
+  { id: 'dashDown', label: $t('Dashboard: ring down'), keys: [], group: 'Dashboard' },
+  { id: 'dashLeft', label: $t('Dashboard: ring left'), keys: [], group: 'Dashboard' },
+  { id: 'dashRight', label: $t('Dashboard: ring right'), keys: [], group: 'Dashboard' },
 ];
 export const ACTION_BY_ID = Object.fromEntries(ACTIONS.map((a) => [a.id, a]));
 export const defaultBindings = () => Object.fromEntries(ACTIONS.map((a) => [a.id, [...a.keys]]));
@@ -116,7 +117,7 @@ export class Input {
     this.setBindings(defaultBindings());
     // Which controls you're using now, and what to call an action's button on a controller
     // (set by gamepad.js).
-    this.method = matchMedia('(pointer: coarse)').matches ? 'touch' : 'keys';
+    this.method = matchMedia($t('(pointer: coarse)')).matches ? 'touch' : 'keys';
     this.methodFns = [];
     this.padLabel = null;
     // While something else wants the keys (rebinding in Settings), the game ignores them.

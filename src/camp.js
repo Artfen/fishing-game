@@ -6,6 +6,7 @@ import { creelWords, creelGroups, groupWords } from './shop.js';
 import { mealDrink, refill, packRolls, BOTTLE, ROLLS } from './comfort.js';
 import { MEAL } from './stores.js';
 import { COOLBOX, MEALS_MAX, TENTS, DECOR, DECOR_UNLOCK, settleCooking, startCooking, stow, take, packPlan, cleanName } from './campsite.js';
+import { $t } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 const COOK_HOURS = 0.5;       // half an hour on the grill (20 real seconds)
@@ -13,12 +14,12 @@ const DRAIN_AWAKE = 3.8;      // fullness lost per in-game hour awake (a full be
 const DRAIN_ASLEEP = 1.4;
 const WELL_FED_HOURS = 6;
 export const WAKE_TIMES = [
-  { h: 5.5, name: 'Dawn' },
-  { h: 8, name: 'Morning' },
-  { h: 12, name: 'Midday' },
-  { h: 15, name: 'Afternoon' },
-  { h: 18.5, name: 'Golden hour' },
-  { h: 22, name: 'Night' },
+  { h: 5.5, name: $t('Dawn') },
+  { h: 8, name: $t('Morning') },
+  { h: 12, name: $t('Midday') },
+  { h: 15, name: $t('Afternoon') },
+  { h: 18.5, name: $t('Golden hour') },
+  { h: 22, name: $t('Night') },
 ];
 
 // A fish to cook: its own copy of its materials (still, and free to brown without tinting the
@@ -123,7 +124,7 @@ export class Camp {
     c.fireUntil = Math.max(c.fireUntil, this.abs()) + hours;
     c.fireUntil = Math.min(c.fireUntil, this.abs() + 5);
     this.hooks.audio.crackle?.(0.12);
-    this.hooks.toast(was ? 'You add a couple of logs. The fire settles in.' : 'You strike a match. The kindling catches, and the fire takes.');
+    this.hooks.toast(was ? $t('You add a couple of logs. The fire settles in.') : $t('You strike a match. The kindling catches, and the fire takes.'));
     this.render();
   }
 
@@ -135,7 +136,7 @@ export class Camp {
     this.state.keep.splice(i, 1);
     if (this.fireLevel < 0.4) this.lightFire(2.5);
     c.cooking = { id: f.id, size: f.size, logId: f.logId || null, start: this.abs(), dur: COOK_HOURS };
-    this.hooks.toast(`The ${fishById[f.id].name.toLowerCase()} goes on the grill. It will take about half an hour.`);
+    this.hooks.toast($t`The ${fishById[f.id].name.toLowerCase()} goes on the grill. It will take about half an hour.`);
     this.hooks.changed();
     this.render();
   }
@@ -150,7 +151,7 @@ export class Camp {
     // (With a mug of tea.)
     if (this.state.comfort && !this.quiet) mealDrink(this.state.comfort);
     this.hooks.audio.chime();
-    this.hooks.toast(`${sp.meal.name}. Warm, smoky and delicious. You feel well fed: steady hands for a few hours.`, 6);
+    this.hooks.toast($t`${sp.meal.name}. Warm, smoky and delicious. You feel well fed: steady hands for a few hours.`, 6);
     this.state.meals = (this.state.meals || 0) + 1;
     this.hooks.changed();
     this.render();
@@ -163,7 +164,7 @@ export class Camp {
     this.food.wellFedUntil = this.abs() + WELL_FED_HOURS;
     if (this.state.comfort && !this.quiet) mealDrink(this.state.comfort);
     this.hooks.audio.chime();
-    if (!quiet) this.hooks.toast(`${text} You feel well fed: steady hands for a few hours.`, 6);
+    if (!quiet) this.hooks.toast($t`${text} You feel well fed: steady hands for a few hours.`, 6);
     this.state.meals = (this.state.meals || 0) + 1;
     this.hooks.changed();
   }
@@ -183,11 +184,11 @@ export class Camp {
   oatcake() {
     // (F1a) Aboard, out of her stores: with the lockers bare, there's nothing to have.
     if (this.cabin && this.hooks.fromStores && !this.hooks.fromStores(MEAL)) {
-      this.hooks.toast('Her lockers are bare: nothing aboard to eat but what’s in your creel. Stock her up at the chandlery in Willowhaven, or the kitchen of Bar El Muelle.', 6);
+      this.hooks.toast($t('Her lockers are bare: nothing aboard to eat but what’s in your creel. Stock her up at the chandlery in Willowhaven, or the kitchen of Bar El Muelle.'), 6);
       return;
     }
     this.food.full = Math.min(100, this.food.full + 22);
-    this.hooks.toast(this.posada ? 'Papas arrugadas with red mojo: they keep you going. Little potatoes boiled in salty water till their skins wrinkle; a fish would be better.' : 'An oatcake from the tin. It keeps you going, but a hot meal would be nicer.');
+    this.hooks.toast(this.posada ? $t('Papas arrugadas with red mojo: they keep you going. Little potatoes boiled in salty water till their skins wrinkle; a fish would be better.') : $t('An oatcake from the tin. It keeps you going, but a hot meal would be nicer.'));
     this.hooks.changed();
     this.render();
   }
@@ -198,8 +199,8 @@ export class Camp {
     f.full = clamp(f.full - hours * (asleep ? DRAIN_ASLEEP : DRAIN_AWAKE), 0, 100);
     const h = this.hunger;
     if (h !== this.lastHunger && !asleep && !this.quiet) {
-      if (h === 'peckish') this.hooks.toast('You’re getting peckish. A fish from the grill at camp would be lovely.', 5);
-      if (h === 'hungry') this.hooks.toast('Your stomach rumbles, and your legs feel slow. There’s food at camp: grill a fish, or have an oatcake.', 6);
+      if (h === 'peckish') this.hooks.toast($t('You’re getting peckish. A fish from the grill at camp would be lovely.'), 5);
+      if (h === 'hungry') this.hooks.toast($t('Your stomach rumbles, and your legs feel slow. There’s food at camp: grill a fish, or have an oatcake.'), 6);
     }
     this.lastHunger = h;
     const c = this.state.camp;
@@ -207,7 +208,7 @@ export class Camp {
       c.ready.push({ id: c.cooking.id, size: c.cooking.size, logId: c.cooking.logId || null });
       this.hooks.outcome?.(c.cooking.logId, 'cooked');
       c.cooking = null;
-      if (!asleep) this.hooks.toast('Something smells wonderful: your fish is cooked. Eat it at camp.', 5);
+      if (!asleep) this.hooks.toast($t('Something smells wonderful: your fish is cooked. Eat it at camp.'), 5);
       this.hooks.changed();
     }
     // Your camps' stoves: looked at now and then (no timer runs for a camp you're far from).
@@ -218,7 +219,7 @@ export class Camp {
         const meal = settleCooking(camp, this.abs());
         if (!meal) continue;
         this.hooks.outcome?.(meal.logId, 'cooked');
-        if (!asleep && this.hooks.near?.(camp)) this.hooks.toast(`Your ${fishById[meal.id].name.toLowerCase()} is cooked. It’s waiting by the stove.`, 5);
+        if (!asleep && this.hooks.near?.(camp)) this.hooks.toast($t`Your ${fishById[meal.id].name.toLowerCase()} is cooked. It’s waiting by the stove.`, 5);
         this.hooks.changed();
       }
     }
@@ -264,11 +265,11 @@ export class Camp {
     this.site = site;
     this.packing = null;
     this.el.hidden = false;
-    $('camp-title').textContent = this.cabin ? 'The cabin' : this.bothy ? 'The bothy' : this.lochBothy ? 'The Loch Bothy' : this.posada ? 'Bar El Muelle' : this.house ? 'Home' : site ? site.name : 'Camp';
+    $('camp-title').textContent = this.cabin ? $t('The cabin') : this.bothy ? $t('The bothy') : this.lochBothy ? $t('The Loch Bothy') : this.posada ? $t('Bar El Muelle') : this.house ? $t('Home') : site ? site.name : $t('Camp');
     const tabs = this.el.querySelectorAll('[data-tab]');
     for (const b of tabs) {
-      if (b.dataset.tab === 'cook') b.textContent = this.cabin ? 'Galley' : this.bothy || this.lochBothy ? 'Stove & food' : this.house ? 'Kitchen' : site ? 'Stove & food' : 'Fire & food';
-      if (b.dataset.tab === 'sleep') b.textContent = this.cabin || this.bothy ? 'Bunk' : this.lochBothy ? 'Sleeping platform' : this.posada ? 'Your room' : this.house ? 'Bed' : 'Sleep';
+      if (b.dataset.tab === 'cook') b.textContent = this.cabin ? $t('Galley') : this.bothy || this.lochBothy ? $t('Stove & food') : this.house ? $t('Kitchen') : site ? $t('Stove & food') : $t('Fire & food');
+      if (b.dataset.tab === 'sleep') b.textContent = this.cabin || this.bothy ? $t('Bunk') : this.lochBothy ? $t('Sleeping platform') : this.posada ? $t('Your room') : this.house ? $t('Bed') : $t('Sleep');
       if (b.dataset.tab === 'own') b.hidden = !this.own;
       if (b.dataset.tab === 'tackle') b.hidden = this.house && !this.shelf;
     }
@@ -294,7 +295,7 @@ export class Camp {
       this.hooks.close();
       return;
     }
-    $('camp-sub').textContent = `${formatClock(this.state.hour)} · day ${this.state.day}${this.cabin ? ' · aboard' : this.bothy ? ' · up the Coldwater' : this.lochBothy ? ' · Loch Skarn' : this.posada ? ' · Puerto Brasa' : this.house ? ' · home' : this.site ? ' · your camp' : ''}`;
+    $('camp-sub').textContent = $t`${formatClock(this.state.hour)} · day ${this.state.day}${this.cabin ? $t(' · aboard') : this.bothy ? $t(' · up the Coldwater') : this.lochBothy ? $t(' · Loch Skarn') : this.posada ? $t(' · Puerto Brasa') : this.house ? $t(' · home') : this.site ? $t(' · your camp') : ''}`;
     if (this.tab === 'cook') {
       if (this.house) this.renderKitchen();
       else if (this.site) this.renderStove();
@@ -306,12 +307,12 @@ export class Camp {
   belly() {
     const f = this.food;
     const belly = el('div', 'cp-row');
-    const word = f.full > 80 ? 'Full' : f.full >= 40 ? 'Content' : f.full >= 15 ? 'Peckish' : 'Hungry';
+    const word = f.full > 80 ? $t('Full') : f.full >= 40 ? $t('Content') : f.full >= 15 ? $t('Peckish') : $t('Hungry');
     const bar = el('span', 'cp-bar');
     const fill = el('i');
     fill.style.width = `${Math.round(f.full)}%`;
     bar.append(fill);
-    belly.append(el('strong', '', word), bar, el('span', 'cp-soft', this.wellFed ? 'Well fed: steady hands' : ''));
+    belly.append(el('strong', '', word), bar, el('span', 'cp-soft', this.wellFed ? $t('Well fed: steady hands') : ''));
     return [belly, ...this.supplies()];
   }
 
@@ -321,16 +322,16 @@ export class Camp {
     const c = this.state.comfort;
     if (!c || this.quiet) return [];
     const row = el('div', 'cp-row');
-    row.append(el('p', '', `Water bottle: ${c.bottle} of ${BOTTLE}. Rolls in your pack: ${c.rolls} of ${ROLLS}.`));
-    if (c.bottle < BOTTLE) row.append(button('Fill the bottle', () => {
+    row.append(el('p', '', $t`Water bottle: ${c.bottle} of ${BOTTLE}. Rolls in your pack: ${c.rolls} of ${ROLLS}.`));
+    if (c.bottle < BOTTLE) row.append(button($t('Fill the bottle'), () => {
       refill(c);
-      this.hooks.toast('You fill your water bottle, and drink your fill while you’re at it.', 3);
+      this.hooks.toast($t('You fill your water bottle, and drink your fill while you’re at it.'), 3);
       this.hooks.changed();
       this.render();
     }));
-    if (this.house && c.rolls < ROLLS) row.append(button('Pack rolls', () => {
+    if (this.house && c.rolls < ROLLS) row.append(button($t('Pack rolls'), () => {
       const got = packRolls(c);
-      this.hooks.toast(`${got} ${got > 1 ? 'rolls' : 'roll'} wrapped and in your backpack. For when you’re far from a kitchen.`, 4);
+      this.hooks.toast($t`${got} ${got > 1 ? $t('rolls') : $t('roll')} wrapped and in your backpack. For when you’re far from a kitchen.`, 4);
       this.hooks.changed();
       this.render();
     }));
@@ -343,7 +344,7 @@ export class Camp {
     const pf = el('i');
     pf.style.width = `${Math.round(done * 100)}%`;
     pb.append(pf);
-    row.append(el('p', '', text), pb, el('span', 'cp-soft', 'Hold T to wait'));
+    row.append(el('p', '', text), pb, el('span', 'cp-soft', $t('Hold T to wait')));
     return row;
   }
 
@@ -353,39 +354,39 @@ export class Camp {
     const fire = this.fireLevel;
     const left = c.fireUntil - this.abs();
     const fireRow = el('div', 'cp-row');
-    fireRow.append(el('span', `cp-fire ${fire > 0.35 ? 'lit' : fire > 0 ? 'embers' : ''}`), el('p', '', fire > 0.35 ? `The fire is burning: about ${Math.max(1, Math.round(left))} h left.` : fire > 0 ? 'Just embers now, still warm.' : 'The fire ring is cold.'));
-    fireRow.append(button(fire > 0.35 ? 'Add a log' : 'Light the fire', () => this.lightFire(fire > 0.35 ? 1.5 : 3)));
+    fireRow.append(el('span', `cp-fire ${fire > 0.35 ? 'lit' : fire > 0 ? 'embers' : ''}`), el('p', '', fire > 0.35 ? $t`The fire is burning: about ${Math.max(1, Math.round(left))} h left.` : fire > 0 ? $t('Just embers now, still warm.') : $t('The fire ring is cold.')));
+    fireRow.append(button(fire > 0.35 ? $t('Add a log') : $t('Light the fire'), () => this.lightFire(fire > 0.35 ? 1.5 : 3)));
     out.push(fireRow, ...this.belly());
 
-    out.push(el('h3', '', 'On the grill'));
+    out.push(el('h3', '', $t('On the grill')));
     if (c.cooking) out.push(this.progress(`${fishById[c.cooking.id].name}, sizzling.`, clamp((this.abs() - c.cooking.start) / c.cooking.dur, 0, 1)));
     c.ready.forEach((m, i) => {
       const sp = fishById[m.id];
       const row = el('div', 'cp-row');
-      row.append(el('p', '', `${sp.meal.name} (${m.size} cm), ready.`), button('Eat', () => this.eat(i)));
+      row.append(el('p', '', $t`${sp.meal.name} (${m.size} cm), ready.`), button($t('Eat'), () => this.eat(i)));
       out.push(row);
     });
-    if (!c.cooking && !c.ready.length) out.push(el('p', 'cp-soft', 'Nothing cooking.'));
+    if (!c.cooking && !c.ready.length) out.push(el('p', 'cp-soft', $t('Nothing cooking.')));
 
-    out.push(el('h3', '', 'Your creel'));
+    out.push(el('h3', '', $t('Your creel')));
     const keep = this.state.keep || [];
-    if (!keep.length) out.push(el('p', 'cp-soft', 'No fish kept. When you land one you’d like to eat, press K (or tap Keep) on the catch card.'));
+    if (!keep.length) out.push(el('p', 'cp-soft', $t('No fish kept. When you land one you’d like to eat, press K (or tap Keep) on the catch card.')));
     for (const g of creelGroups(keep)) {
       const sp = fishById[g.id], i = g.first;
       const row = el('div', 'cp-row');
       if (g.cooked) {
-        row.append(el('p', '', groupWords(sp.meal.name, g)), el('span', 'cp-soft', 'cooked, wrapped in paper'), button(g.n > 1 ? 'Eat one' : 'Eat', () => this.eatFromCreel(i)));
+        row.append(el('p', '', groupWords(sp.meal.name, g)), el('span', 'cp-soft', $t('cooked, wrapped in paper')), button(g.n > 1 ? $t('Eat one') : $t('Eat'), () => this.eatFromCreel(i)));
       } else {
         row.append(el('p', '', groupWords(sp.name, g)), el('span', 'cp-soft', sp.meal.name));
-        const b = button(g.n > 1 ? 'Grill one' : 'Grill it', () => this.cook(i));
+        const b = button(g.n > 1 ? $t('Grill one') : $t('Grill it'), () => this.cook(i));
         b.disabled = !!c.cooking;
-        if (c.cooking) b.title = 'The grill is busy';
+        if (c.cooking) b.title = $t('The grill is busy');
         row.append(b);
       }
       out.push(row);
     }
     const oat = el('div', 'cp-row');
-    oat.append(el('p', 'cp-soft', 'A tin of oatcakes lives in the tent.'), button('Have an oatcake', () => this.oatcake(), 'quiet'));
+    oat.append(el('p', 'cp-soft', $t('A tin of oatcakes lives in the tent.')), button($t('Have an oatcake'), () => this.oatcake(), 'quiet'));
     out.push(oat);
     $('camp-cook').replaceChildren(...out);
   }
@@ -407,8 +408,8 @@ export class Camp {
   missing(camp, k, what) {
     const row = el('div', 'cp-row');
     const where = this.hooks.kit.where(k);
-    row.append(el('p', 'cp-soft', `No ${what} here: ${where.charAt(0).toLowerCase()}${where.slice(1)}.`));
-    if (this.hooks.kit.at(k) === 'pack') row.append(button('Set it up here', () => this.act(this.hooks.kit.move(k, camp), `The ${what} is set up at ${camp.name}.`), 'quiet'));
+    row.append(el('p', 'cp-soft', $t`No ${what} here: ${where.charAt(0).toLowerCase()}${where.slice(1)}.`));
+    if (this.hooks.kit.at(k) === 'pack') row.append(button($t('Set it up here'), () => this.act(this.hooks.kit.move(k, camp), $t`The ${what} is set up at ${camp.name}.`), 'quiet'));
     return row;
   }
 
@@ -418,61 +419,61 @@ export class Camp {
     const hasStove = this.hooks.kit.has(camp, 'stove'), hasBox = this.hooks.kit.has(camp, 'coolbox');
     if (hasStove || ck) {
       const stove = el('div', 'cp-row');
-      stove.append(el('span', `cp-stove ${ck ? 'lit' : ''}`), el('p', '', ck ? 'The stove hisses under the pan.' : 'The little gas stove. It lights when something goes in the pan.'));
+      stove.append(el('span', `cp-stove ${ck ? 'lit' : ''}`), el('p', '', ck ? $t('The stove hisses under the pan.') : $t('The little gas stove. It lights when something goes in the pan.')));
       out.push(stove);
     } else out.push(this.missing(camp, 'stove', 'stove'));
     out.push(...this.belly());
 
-    out.push(el('h3', '', 'In the pan'));
+    out.push(el('h3', '', $t('In the pan')));
     if (ck) out.push(this.progress(`${fishById[ck.id].name}, sizzling.`, clamp((this.abs() - ck.start) / ck.dur, 0, 1)));
-    else out.push(el('p', 'cp-soft', 'Nothing cooking.'));
+    else out.push(el('p', 'cp-soft', $t('Nothing cooking.')));
     camp.store.meals.forEach((m, i) => {
       const sp = fishById[m.id];
       const row = el('div', 'cp-row');
-      row.append(el('p', '', `${sp.meal.name} (${m.size} cm), ready.`),
-        button('Eat', () => { camp.store.meals.splice(i, 1); this.eatMeal(m); }),
-        button('Wrap it for later', () => this.act(take(this.state, camp, i, true), 'Wrapped in paper and into your creel.'), 'quiet'));
+      row.append(el('p', '', $t`${sp.meal.name} (${m.size} cm), ready.`),
+        button($t('Eat'), () => { camp.store.meals.splice(i, 1); this.eatMeal(m); }),
+        button($t('Wrap it for later'), () => this.act(take(this.state, camp, i, true), $t('Wrapped in paper and into your creel.')), 'quiet'));
       out.push(row);
     });
 
     const cook = (from, i) => {
-      if (!hasStove) return this.act({ ok: false, why: 'There’s no stove at this camp.' });
+      if (!hasStove) return this.act({ ok: false, why: $t('There’s no stove at this camp.') });
       const r = startCooking(this.state, camp, from, i, this.abs());
       if (r.ok) {
         this.hooks.audio.sizzleStart?.();
-        this.act(r, `The ${fishById[r.fish.id].name.toLowerCase()} goes in the pan. About half an hour.`);
+        this.act(r, $t`The ${fishById[r.fish.id].name.toLowerCase()} goes in the pan. About half an hour.`);
       } else this.act(r);
     };
-    out.push(el('h3', '', hasBox ? `Cool box (${camp.store.fish.length} of ${COOLBOX})` : 'Cool box'));
-    if (!hasBox) out.push(this.missing(camp, 'coolbox', 'cool box'));
-    else if (!camp.store.fish.length) out.push(el('p', 'cp-soft', 'Empty. Fish you keep can wait here on ice, beyond what your creel holds.'));
+    out.push(el('h3', '', hasBox ? $t`Cool box (${camp.store.fish.length} of ${COOLBOX})` : $t('Cool box')));
+    if (!hasBox) out.push(this.missing(camp, 'coolbox', $t('cool box')));
+    else if (!camp.store.fish.length) out.push(el('p', 'cp-soft', $t('Empty. Fish you keep can wait here on ice, beyond what your creel holds.')));
     camp.store.fish.forEach((f, i) => {
       const sp = fishById[f.id];
       const row = el('div', 'cp-row');
-      const b = button('Cook', () => cook('cooler', i));
+      const b = button($t('Cook'), () => cook('cooler', i));
       b.disabled = !!ck || !hasStove;
-      row.append(el('p', '', `${sp.name}, ${f.size} cm`), b, button('To your creel', () => this.act(take(this.state, camp, i)), 'quiet'));
+      row.append(el('p', '', $t`${sp.name}, ${f.size} cm`), b, button($t('To your creel'), () => this.act(take(this.state, camp, i)), 'quiet'));
       out.push(row);
     });
 
-    out.push(el('h3', '', `Your creel (${this.state.keep.length} fish, ${creelWords(this.state)})`));
-    if (!this.state.keep.length) out.push(el('p', 'cp-soft', 'Empty.'));
+    out.push(el('h3', '', $t`Your creel (${this.state.keep.length} fish, ${creelWords(this.state)})`));
+    if (!this.state.keep.length) out.push(el('p', 'cp-soft', $t('Empty.')));
     for (const g of creelGroups(this.state.keep)) {
       const sp = fishById[g.id], i = g.first;
       const row = el('div', 'cp-row');
       if (g.cooked) {
-        row.append(el('p', '', groupWords(sp.meal.name, g)), el('span', 'cp-soft', 'cooked'), button(g.n > 1 ? 'Eat one' : 'Eat', () => this.eatFromCreel(i)));
-        if (hasBox || hasStove) row.append(button(g.n > 1 ? 'Leave one here' : 'Leave it here', () => this.act(stow(this.state, camp, i)), 'quiet'));
+        row.append(el('p', '', groupWords(sp.meal.name, g)), el('span', 'cp-soft', 'cooked'), button(g.n > 1 ? $t('Eat one') : $t('Eat'), () => this.eatFromCreel(i)));
+        if (hasBox || hasStove) row.append(button(g.n > 1 ? $t('Leave one here') : $t('Leave it here'), () => this.act(stow(this.state, camp, i)), 'quiet'));
       } else {
-        const b = button(g.n > 1 ? 'Cook one' : 'Cook', () => cook('creel', i));
+        const b = button(g.n > 1 ? $t('Cook one') : $t('Cook'), () => cook('creel', i));
         b.disabled = !!ck || !hasStove;
         row.append(el('p', '', groupWords(sp.name, g)), b);
-        if (hasBox) row.append(button(g.n > 1 ? 'One into the cool box' : 'Into the cool box', () => this.act(stow(this.state, camp, i)), 'quiet'));
+        if (hasBox) row.append(button(g.n > 1 ? $t('One into the cool box') : $t('Into the cool box'), () => this.act(stow(this.state, camp, i)), 'quiet'));
       }
       out.push(row);
     }
     const oat = el('div', 'cp-row');
-    oat.append(el('p', 'cp-soft', 'A tin of oatcakes lives in the tent.'), button('Have an oatcake', () => this.oatcake(), 'quiet'));
+    oat.append(el('p', 'cp-soft', $t('A tin of oatcakes lives in the tent.')), button($t('Have an oatcake'), () => this.oatcake(), 'quiet'));
     out.push(oat);
     $('camp-cook').replaceChildren(...out);
   }
@@ -485,18 +486,18 @@ export class Camp {
     input.type = 'text';
     input.maxLength = 40;
     input.value = camp.name;
-    input.setAttribute('aria-label', 'Your camp’s name');
+    input.setAttribute('aria-label', $t('Your camp’s name'));
     const rename = () => {
       const n = cleanName(input.value);
       if (!n || n === camp.name) return;
       camp.name = n;
       $('camp-title').textContent = n;
       this.hooks.changed();
-      this.hooks.toast(`Your camp is called ${n} now.`, 3);
+      this.hooks.toast($t`Your camp is called ${n} now.`, 3);
     };
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') rename(); });
     input.addEventListener('change', rename);
-    nameRow.append(el('strong', '', 'Name'), input, button('Rename', rename, 'quiet'));
+    nameRow.append(el('strong', '', $t('Name')), input, button($t('Rename'), rename, 'quiet'));
     out.push(nameRow);
 
     const chips = (label, opts, current, pick) => {
@@ -514,10 +515,10 @@ export class Camp {
       row.append(g);
       return row;
     };
-    out.push(chips('Tent', Object.entries(TENTS).map(([id, t]) => [id, t.name]), camp.tent, (id) => { camp.tent = id; }));
-    out.push(chips('Lantern', [['auto', 'After dark'], ['on', 'Always'], ['off', 'Off']], camp.lantern, (id) => { camp.lantern = id; }));
+    out.push(chips($t('Tent'), Object.entries(TENTS).map(([id, t]) => [id, t.name]), camp.tent, (id) => { camp.tent = id; }));
+    out.push(chips($t('Lantern'), [['auto', $t('After dark')], ['on', $t('Always')], ['off', $t('Off')]], camp.lantern, (id) => { camp.lantern = id; }));
     const deco = el('div', 'cp-row cp-chips');
-    deco.append(el('strong', '', 'Put out'));
+    deco.append(el('strong', '', $t('Put out')));
     const dg = el('div', 'cp-choice');
     for (const [k, text] of Object.entries(DECOR)) {
       if (DECOR_UNLOCK[k] && !this.state.unlocks?.[DECOR_UNLOCK[k]]) continue;
@@ -527,34 +528,34 @@ export class Camp {
     }
     deco.append(dg);
     out.push(deco);
-    out.push(chips('On the map', [['yes', 'Marked'], ['no', 'Not marked']], camp.marked ? 'yes' : 'no', (id) => { camp.marked = id === 'yes'; }));
+    out.push(chips($t('On the map'), [['yes', $t('Marked')], ['no', $t('Not marked')]], camp.marked ? 'yes' : 'no', (id) => { camp.marked = id === 'yes'; }));
 
     const p = camp.pitched;
-    out.push(el('p', 'cp-soft', `Pitched on day ${p.day} at ${formatClock(p.hour)}${camp.visits ? `; you’ve been back ${camp.visits} time${camp.visits === 1 ? '' : 's'}` : ''}. In the cool box: ${camp.store.fish.length} fish${camp.store.meals.length ? `, and ${camp.store.meals.length} cooked` : ''}.`));
+    out.push(el('p', 'cp-soft', $t`Pitched on day ${p.day} at ${formatClock(p.hour)}${camp.visits ? (camp.visits === 1 ? $t`; you’ve been back ${camp.visits} time` : $t`; you’ve been back ${camp.visits} times`) : ''}. In the cool box: ${camp.store.fish.length} fish${camp.store.meals.length ? $t`, and ${camp.store.meals.length} cooked` : ''}.`));
     const row = el('div', 'cp-row cp-acts');
-    row.append(button('Open the journal', () => this.hooks.openJournal()), button('Plan a trip', () => this.hooks.planTrip()));
+    row.append(button($t('Open the journal'), () => this.hooks.openJournal()), button($t('Plan a trip'), () => this.hooks.planTrip()));
     out.push(row);
 
     // The camping gear: what's here, and what's in your backpack to set up (or to take away).
-    out.push(el('h3', '', 'Camping gear'));
-    for (const [k, what] of [['tent', 'tent'], ['stove', 'stove'], ['coolbox', 'cool box']]) {
+    out.push(el('h3', '', $t('Camping gear')));
+    for (const [k, what] of [['tent', 'tent'], ['stove', 'stove'], ['coolbox', $t('cool box')]]) {
       const r = el('div', 'cp-row');
       const here = this.hooks.kit.has(camp, k);
       r.append(el('p', '', `${what.charAt(0).toUpperCase()}${what.slice(1)}: ${here ? 'here' : this.hooks.kit.where(k).charAt(0).toLowerCase() + this.hooks.kit.where(k).slice(1)}`));
-      if (here && k !== 'tent') r.append(button('Into your backpack', () => this.act(this.hooks.kit.move(k, 'pack'), `The ${what} is in your backpack.`), 'quiet'));
-      else if (!here && this.hooks.kit.at(k) === 'pack') r.append(button('Set it up here', () => this.act(this.hooks.kit.move(k, camp), `The ${what} is set up at ${camp.name}.`), 'quiet'));
+      if (here && k !== 'tent') r.append(button($t('Into your backpack'), () => this.act(this.hooks.kit.move(k, 'pack'), $t`The ${what} is in your backpack.`), 'quiet'));
+      else if (!here && this.hooks.kit.at(k) === 'pack') r.append(button($t('Set it up here'), () => this.act(this.hooks.kit.move(k, camp), $t`The ${what} is set up at ${camp.name}.`), 'quiet'));
       out.push(r);
     }
 
-    out.push(el('h3', '', 'Moving on'));
+    out.push(el('h3', '', $t('Moving on')));
     if (this.packing) out.push(this.renderPacking(camp));
     else {
       const mv = el('div', 'cp-row cp-acts');
       mv.append(
-        button('Move this camp…', () => this.hooks.moveCamp(camp)),
-        button('Pack it up…', () => this.startPacking(camp), 'quiet'),
+        button($t('Move this camp…'), () => this.hooks.moveCamp(camp)),
+        button($t('Pack it up…'), () => this.startPacking(camp), 'quiet'),
       );
-      out.push(mv, el('p', 'cp-soft', 'Moving keeps everything just as it is (the cool box comes too). Packing up puts the tent and the rest of the camping gear in your backpack, and the cool box’s fish in your creel.'));
+      out.push(mv, el('p', 'cp-soft', $t('Moving keeps everything just as it is (the cool box comes too). Packing up puts the tent and the rest of the camping gear in your backpack, and the cool box’s fish in your creel.')));
     }
     $('camp-own').replaceChildren(...out);
   }
@@ -562,7 +563,7 @@ export class Camp {
   startPacking(camp) {
     const plan = packPlan(this.state, camp);
     if (plan.cooking) {
-      this.hooks.toast('Something is still in the pan: let it finish (hold T), then pack up.', 5);
+      this.hooks.toast($t('Something is still in the pan: let it finish (hold T), then pack up.'), 5);
       return;
     }
     if (plan.fits) {
@@ -578,8 +579,8 @@ export class Camp {
     const box = el('div', 'cp-pack');
     const plan = packPlan(this.state, camp);
     const need = Math.max(0, plan.fish + plan.meals - plan.free - this.packing.size);
-    box.append(el('p', '', `Your creel has room for ${plan.free} more fish, and the cool box holds ${plan.fish}${plan.meals ? ` and ${plan.meals} cooked` : ''}. A full cool box is too heavy to carry with the tent, so the fish travel in your creel.`));
-    box.append(el('p', 'cp-soft', need ? `Choose ${need} more to let go, cook some here first, or keep the camp where it is.` : 'Ready: the rest will fit in your creel.'));
+    box.append(el('p', '', $t`Your creel has room for ${plan.free} more fish, and the cool box holds ${plan.fish}${plan.meals ? $t` and ${plan.meals} cooked` : ''}. A full cool box is too heavy to carry with the tent, so the fish travel in your creel.`));
+    box.append(el('p', 'cp-soft', need ? $t`Choose ${need} more to let go, cook some here first, or keep the camp where it is.` : $t('Ready: the rest will fit in your creel.')));
     camp.store.fish.forEach((f, i) => {
       const lab = el('label', 'cp-check');
       const cb = el('input');
@@ -590,13 +591,13 @@ export class Camp {
         else this.packing.delete(i);
         this.render();
       });
-      lab.append(cb, el('span', '', `Let go: ${fishById[f.id].name}, ${f.size} cm`));
+      lab.append(cb, el('span', '', $t`Let go: ${fishById[f.id].name}, ${f.size} cm`));
       box.append(lab);
     });
     const acts = el('div', 'cp-row cp-acts');
-    const go = button(this.packing.size ? `Let ${this.packing.size} go and pack up` : 'Pack up', () => this.hooks.packUp(camp, [...this.packing]));
+    const go = button(this.packing.size ? $t`Let ${this.packing.size} go and pack up` : $t('Pack up'), () => this.hooks.packUp(camp, [...this.packing]));
     go.disabled = need > 0;
-    acts.append(go, button('Cook some here', () => { this.packing = null; this.show('cook'); }, 'quiet'), button('Keep the camp', () => { this.packing = null; this.render(); }, 'quiet'));
+    acts.append(go, button($t('Cook some here'), () => { this.packing = null; this.show('cook'); }, 'quiet'), button($t('Keep the camp'), () => { this.packing = null; this.render(); }, 'quiet'));
     box.append(acts);
     return box;
   }
@@ -604,14 +605,14 @@ export class Camp {
   // Home's kitchen: cook a fish from your creel and sit down to it, or eat one cooked earlier.
   renderKitchen() {
     const out = [...this.belly()];
-    out.push(el('h3', '', `Your creel (${this.state.keep.length} fish, ${creelWords(this.state)})`));
-    if (!this.state.keep.length) out.push(el('p', 'cp-soft', this.bothy ? 'Empty. The Coldwater’s trout and grayling are just down the slope.' : this.lochBothy ? 'Empty. There are haddock and thornback rays on the loch’s mud below the bay, and cod in the cold months.' : this.posada ? 'Empty. Bring in a parrotfish and the kitchen will show you how they cook them here.' : 'Empty. Fish you keep come home in your creel.'));
+    out.push(el('h3', '', $t`Your creel (${this.state.keep.length} fish, ${creelWords(this.state)})`));
+    if (!this.state.keep.length) out.push(el('p', 'cp-soft', this.bothy ? $t('Empty. The Coldwater’s trout and grayling are just down the slope.') : this.lochBothy ? $t('Empty. There are haddock and thornback rays on the loch’s mud below the bay, and cod in the cold months.') : this.posada ? $t('Empty. Bring in a parrotfish and the kitchen will show you how they cook them here.') : $t('Empty. Fish you keep come home in your creel.')));
     for (const g of creelGroups(this.state.keep)) {
       const sp = fishById[g.id], i = g.first;
       const row = el('div', 'cp-row');
-      if (g.cooked) row.append(el('p', '', groupWords(sp.meal.name, g)), el('span', 'cp-soft', 'cooked earlier'), button(g.n > 1 ? 'Eat one' : 'Eat', () => this.eatFromCreel(i)));
+      if (g.cooked) row.append(el('p', '', groupWords(sp.meal.name, g)), el('span', 'cp-soft', $t('cooked earlier')), button(g.n > 1 ? $t('Eat one') : $t('Eat'), () => this.eatFromCreel(i)));
       else {
-        row.append(el('p', '', groupWords(sp.name, g)), el('span', 'cp-soft', sp.meal.name), button(g.n > 1 ? 'Cook one and eat' : 'Cook and eat', () => {
+        row.append(el('p', '', groupWords(sp.name, g)), el('span', 'cp-soft', sp.meal.name), button(g.n > 1 ? $t('Cook one and eat') : $t('Cook and eat'), () => {
           const k = this.state.keep[i];
           if (!k) return;
           this.state.keep.splice(i, 1);
@@ -623,7 +624,7 @@ export class Camp {
       out.push(row);
     }
     const oat = el('div', 'cp-row');
-    oat.append(el('p', 'cp-soft', this.bothy ? 'Someone has left a tin of oatcakes on the shelf, for whoever comes next.' : this.lochBothy ? 'A tin of oatcakes on the shelf by the stove, and a note: “Take what you need, leave what you can.”' : this.posada ? 'There’s always a bowl of little wrinkled potatoes and a pot of red mojo on the bar.' : this.cabin ? `Her lockers and water tank: ${this.hooks.storesWords?.() || 'stocked'}.` : 'The oatcake tin is on the shelf.'), button(this.posada ? 'Have some potatoes' : 'Have an oatcake', () => this.oatcake(), 'quiet'));
+    oat.append(el('p', 'cp-soft', this.bothy ? $t('Someone has left a tin of oatcakes on the shelf, for whoever comes next.') : this.lochBothy ? $t('A tin of oatcakes on the shelf by the stove, and a note: “Take what you need, leave what you can.”') : this.posada ? $t('There’s always a bowl of little wrinkled potatoes and a pot of red mojo on the bar.') : this.cabin ? $t`Her lockers and water tank: ${this.hooks.storesWords?.() || $t('stocked')}.` : $t('The oatcake tin is on the shelf.')), button(this.posada ? $t('Have some potatoes') : $t('Have an oatcake'), () => this.oatcake(), 'quiet'));
     out.push(oat);
     // (F1a) The bar's kitchen stocks your boat's lockers for the voyage home, and (F2b) ices her
     // fish box.
@@ -638,20 +639,20 @@ export class Camp {
 
   renderSleep() {
     const out = [];
-    out.push(el('p', 'cp-lead', this.cabin ? 'Turn in to the bunk and sleep until…' : this.bothy || this.lochBothy ? 'Unroll your bag on the sleeping platform and sleep until…' : this.posada ? 'Climb the stairs to your room over the harbour and sleep until…' : this.house ? 'Go to bed and sleep until…' : 'Crawl into the tent and sleep until…'));
+    out.push(el('p', 'cp-lead', this.cabin ? $t('Turn in to the bunk and sleep until…') : this.bothy || this.lochBothy ? $t('Unroll your bag on the sleeping platform and sleep until…') : this.posada ? $t('Climb the stairs to your room over the harbour and sleep until…') : this.house ? $t('Go to bed and sleep until…') : $t('Crawl into the tent and sleep until…')));
     const grid = el('div', 'cp-wake');
     const now = this.state.hour;
     for (const w of this.hooks.wakeTimes?.() || WAKE_TIMES) {
       let hrs = w.h - now;
       if (hrs <= 0.5) hrs += 24;
       const b = button(`${w.name}`, () => this.hooks.sleep(w.h), 'wake');
-      b.append(el('small', '', `${formatClock(w.h)} · ${Math.round(hrs)} h`));
+      b.append(el('small', '', $t`${formatClock(w.h)} · ${Math.round(hrs)} h`));
       grid.append(b);
     }
     out.push(grid);
     out.push(el('p', 'cp-soft', this.cabin
-      ? 'While you sleep the world goes on: the light changes, the weather may turn and the fish move to where the new hour suits them. The boat rides at her anchor (or alongside) through the night, and the battery charges.'
-      : `While you sleep the world goes on: the light changes, the weather may turn${this.bothy || this.lochBothy ? ', the stove burns down' : this.house ? '' : ', the fire burns down'} and the fish move to where the new hour suits them. Your boats${this.house ? ', the car and your camp' : ''} stay where you left them.`));
+      ? $t('While you sleep the world goes on: the light changes, the weather may turn and the fish move to where the new hour suits them. The boat rides at her anchor (or alongside) through the night, and the battery charges.')
+      : $t`While you sleep the world goes on: the light changes, the weather may turn${this.bothy || this.lochBothy ? $t(', the stove burns down') : this.house ? '' : $t(', the fire burns down')} and the fish move to where the new hour suits them. Your boats${this.house ? $t(', the car and your camp') : ''} stay where you left them.`));
     $('camp-sleep').replaceChildren(...out);
   }
 }

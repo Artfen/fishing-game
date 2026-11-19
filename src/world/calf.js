@@ -4,6 +4,7 @@ import { waveHeight, currentAt, TIDE } from './conditions.js';
 import { mergeParts, mat, pick, jitterGeo, clamp, smoothstep, lerp, damp, dampAngle } from '../util.js';
 import { withSurface } from './surface.js';
 import { withCaustics } from './caustics.js';
+import { $t } from '../i18n.js';
 
 // The Calf, off Heron Point: a ruined watch tower on its top, a stone landing in its lee with
 // steps up from it, sea pinks in the short turf and boulders under the cliffs; grey seals hauled
@@ -98,8 +99,8 @@ export function buildCalf(scene, rnd) {
   slate.position.set(inX, ty + 1.08, inZ);
   slate.rotation.set(-0.25, DOOR_YAW, 0);
   group.add(slate);
-  obstacles.push({ x: T.x, z: T.z, r: TOWER_R + 0.15, kind: 'building', name: 'the watch tower' });
-  spots.push({ kind: 'tower', name: 'the watch tower', ...TOWER_DOOR });
+  obstacles.push({ x: T.x, z: T.z, r: TOWER_R + 0.15, kind: 'building', name: $t('the watch tower') });
+  spots.push({ kind: 'tower', name: $t('the watch tower'), ...TOWER_DOOR });
 
   /* ---------- the landing, and steps up from it ---------- */
   const L = CALF_LANDING, cz = (L.z0 + L.z1) / 2, w = L.z1 - L.z0;
@@ -115,7 +116,7 @@ export function buildCalf(scene, rnd) {
   const bx = L.x1 - 0.9;
   for (const bz of [L.z0 + 0.35, L.z1 - 0.35]) {
     land.push({ geo: new THREE.CylinderGeometry(0.16, 0.2, 0.5, 8), matrix: mat(bx, L.deck + 0.25, bz), color: '#3e3a36' });
-    obstacles.push({ x: bx, z: bz, r: 0.22, top: L.deck + 0.5, kind: 'harbour', name: 'the bollard' });
+    obstacles.push({ x: bx, z: bz, r: 0.22, top: L.deck + 0.5, kind: 'harbour', name: $t('the bollard') });
   }
   land.push({ geo: new THREE.TorusGeometry(0.16, 0.035, 5, 12), matrix: mat(L.x1 + 0.02, L.deck - 0.3, cz, 0, Math.PI / 2, 0), color: '#6a5a48' });
   // Rough steps up the slope from the landing to the top: level blocks set into the turf, each

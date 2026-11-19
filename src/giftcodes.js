@@ -10,20 +10,21 @@
 // and --reusable), and add the line it prints to GIFTS.
 
 import { earn } from './economy.js';
+import { $t } from './i18n.js';
 
 export const GIFTS = [
   // (The first: for friends and testers, every boat and a little money.)
-  { hash: 'ef00ab7487ac0e64f96524e0ca0b9094cc7398f9d471d34a10b27216811948e5', money: 100, boats: true, name: 'Friends of Slow Tide' },
+  { hash: 'ef00ab7487ac0e64f96524e0ca0b9094cc7398f9d471d34a10b27216811948e5', money: 100, boats: true, name: $t('Friends of Slow Tide') },
   // (The boats on their own, and the money on its own: that one as often as you like.)
-  { hash: 'c128e49628115a3037f9ac587a9c2a9cdb4013077e5ecb8b4aae7524299e4b28', money: 0, boats: true, name: 'The fleet' },
-  { hash: 'aaa5afabc9aeb75044a860ae0eeef3d3e835fef5f774f27b78657f78f7e02456', money: 2000, boats: false, reusable: true, name: 'A full purse' },
+  { hash: 'c128e49628115a3037f9ac587a9c2a9cdb4013077e5ecb8b4aae7524299e4b28', money: 0, boats: true, name: $t('The fleet') },
+  { hash: 'aaa5afabc9aeb75044a860ae0eeef3d3e835fef5f774f27b78657f78f7e02456', money: 2000, boats: false, reusable: true, name: $t('A full purse') },
 ];
 
 // What a code gives, in words: "every boat at the Marine Works, and £100".
 export function giftWords(gift) {
   const money = gift.money ? `£${gift.money.toLocaleString('en-GB')}` : '';
-  if (gift.boats) return `every boat at the Marine Works${money ? `, and ${money}` : ''}`;
-  return money ? `${money} in your purse` : 'nothing at all';
+  if (gift.boats) return $t`every boat at the Marine Works${money ? $t`, and ${money}` : ''}`;
+  return money ? $t`${money} in your purse` : $t('nothing at all');
 }
 
 // A code as typed, made plain: letters and digits only, in capitals ("blue boat 7" and
@@ -40,13 +41,13 @@ export async function giftHash(code) {
 // Redeem a code on this save: { ok, why, gift }. kinds: every boat there is. Each code once,
 // unless it's a reusable one.
 export async function redeemGift(state, code, kinds, gifts = GIFTS) {
-  if (cleanGift(code).length < 4) return { ok: false, why: 'Type the code your friend gave you.' };
+  if (cleanGift(code).length < 4) return { ok: false, why: $t('Type the code your friend gave you.') };
   const hash = await giftHash(code);
   const gift = gifts.find((g) => g.hash === hash);
-  if (!gift) return { ok: false, why: 'That code isn’t one the game knows. Check it with whoever gave it you.' };
+  if (!gift) return { ok: false, why: $t('That code isn’t one the game knows. Check it with whoever gave it you.') };
   state.gifts = Array.isArray(state.gifts) ? state.gifts : [];
   if (!gift.reusable) {
-    if (state.gifts.includes(hash)) return { ok: false, why: 'That code’s been used on this game already.' };
+    if (state.gifts.includes(hash)) return { ok: false, why: $t('That code’s been used on this game already.') };
     state.gifts.push(hash);
   }
   if (gift.boats && state.yard) {

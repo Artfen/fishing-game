@@ -17,6 +17,7 @@
 // where you go.
 
 // The live baits, as tied on (their tackle is in tackle.js: liveprawn and livefish).
+import { $t } from './i18n.js';
 export const LIVE_BAITS = ['liveprawn', 'livefish'];
 
 // What goes in the bucket: which bait it makes, how hardy it is in stale water (0 … 1), and the
@@ -86,8 +87,8 @@ export const capOf = (aerated) => (aerated ? BUCKET.well : BUCKET.cap);
 
 // In it goes. aerated: aboard with a livewell. Returns { ok, why }.
 export function addLive(B, id, size, aerated = false) {
-  if (!isLiveBait(id, size)) return { ok: false, why: LIVE[id] ? 'Too big for a bait: let it go.' : 'That won’t do as live bait.' };
-  if (B.fish.length >= capOf(aerated)) return { ok: false, why: aerated ? 'The livewell is full.' : 'The bait bucket is full (six is plenty: any more and they’d use the water up).' };
+  if (!isLiveBait(id, size)) return { ok: false, why: LIVE[id] ? $t('Too big for a bait: let it go.') : $t('That won’t do as live bait.') };
+  if (B.fish.length >= capOf(aerated)) return { ok: false, why: aerated ? $t('The livewell is full.') : $t('The bait bucket is full (six is plenty: any more and they’d use the water up).') };
   B.fish.push({ id, size: Math.round(size) });
   return { ok: true };
 }
@@ -135,4 +136,4 @@ export function freshen(B) {
 }
 
 // The water in words.
-export const waterWords = (B) => (B.water > 0.7 ? 'fresh' : B.water > STALE ? 'going stale' : 'stale');
+export const waterWords = (B) => (B.water > 0.7 ? 'fresh' : B.water > STALE ? $t('going stale') : 'stale');

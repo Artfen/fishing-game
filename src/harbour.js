@@ -5,6 +5,7 @@ import { PLACES, HAVEN } from './world/terrain.js';
 import { HOME_WORDS, bearing } from './trip.js';
 import { windAt, waveHeightHere, currentAt, compass, windWords, seaWords, conditions } from './world/conditions.js';
 import { ADVENTURES } from './adventures.js';
+import { $t } from './i18n.js';
 
 // Willowhaven's notice board. Everything on it comes from the game as it is right now: the wind
 // and sea (from the shared conditions), which fish are about at this hour in the waters round the
@@ -14,21 +15,21 @@ import { ADVENTURES } from './adventures.js';
 
 // Where a fish's home is, in words a harbour board would use.
 const TAG_WORDS = {
-  wreck: 'round the Kittiwake', strand: 'in the surf off Shell Strand', head: 'under Cove Head', jetty: 'by the Old Jetty',
-  stack: 'round Gull Rock', cove: 'in Driftwood Cove', channel: 'in the cove channel', deep: 'in the deep hole of the bay',
+  wreck: $t('round the Kittiwake'), strand: $t('in the surf off Shell Strand'), head: $t('under Cove Head'), jetty: $t('by the Old Jetty'),
+  stack: $t('round Gull Rock'), cove: $t('in Driftwood Cove'), channel: $t('in the cove channel'), deep: $t('in the deep hole of the bay'),
 };
-const ZONE_WORDS = { bay: 'in Willow Bay', cove: 'in Driftwood Cove', open: 'out past the bay', coast: 'along the cove shore' };
+const ZONE_WORDS = { bay: $t('in Willow Bay'), cove: $t('in Driftwood Cove'), open: $t('out past the bay'), coast: $t('along the cove shore') };
 const SEA = Object.keys(ZONE_WORDS); // (a harbour board talks about the sea, not the lakes behind it)
 // Las Brasas' (see world/brasa.js and habitat.js), for Paco and Chano: the island's own places.
 const TAG_WORDS_S = {
-  puerto: 'in the harbour, along the quay and the breakwater', bajon: 'over El Bajón', arcos: 'round Los Arcos', veril: 'along El Veril',
-  sebadal: 'over the seagrass of El Sebadal', coladas: 'on the lava of Las Coladas', faro: 'off Punta del Faro', roque: 'round the Roque',
-  playa: 'in the surf off Playa Negra', ocean: 'out in the blue water',
+  puerto: $t('in the harbour, along the quay and the breakwater'), bajon: $t('over El Bajón'), arcos: $t('round Los Arcos'), veril: $t('along El Veril'),
+  sebadal: $t('over the seagrass of El Sebadal'), coladas: $t('on the lava of Las Coladas'), faro: $t('off Punta del Faro'), roque: $t('round the Roque'),
+  playa: $t('in the surf off Playa Negra'), ocean: $t('out in the blue water'),
   // (The archipelago: docs/ARCHIPELAGO.md.)
-  estrecho: 'in El Estrecho, where the current runs through', upwell: 'up-current of the islands, where the bait gathers', banco: 'out on El Banco',
-  roquetes: 'round Los Roquetes', gaviota: 'off Isla Gaviota', honda: 'round Isla Honda',
+  estrecho: $t('in El Estrecho, where the current runs through'), upwell: $t('up-current of the islands, where the bait gathers'), banco: $t('out on El Banco'),
+  roquetes: $t('round Los Roquetes'), gaviota: $t('off Isla Gaviota'), honda: $t('round Isla Honda'),
 };
-const ZONE_WORDS_S = { harbor: 'in the harbour', lee: 'in the lee', lava: 'on the lava to windward', sebadal: 'over El Sebadal', veril: 'along the drop-off', ocean: 'out in the blue water' };
+const ZONE_WORDS_S = { harbor: $t('in the harbour'), lee: $t('in the lee'), lava: $t('on the lava to windward'), sebadal: $t('over El Sebadal'), veril: $t('along the drop-off'), ocean: $t('out in the blue water') };
 
 // (south: round Las Brasas, from wherever x, z is there, in its words.)
 export function whatsAbout(eco, { x = HAVEN.x, z = HAVEN.z, reach = 380, max = 5, south = false } = {}) {
@@ -58,7 +59,7 @@ export function whatsAbout(eco, { x = HAVEN.x, z = HAVEN.z, reach = 380, max = 5
     const s = setupsFor(e.sp)[0];
     out.push({
       sp: e.sp, act, n: e.n, where,
-      how: s ? `${TACKLE[s.item].on} on the ${RODS[s.rod].short.toLowerCase()}` : '',
+      how: s ? $t`${TACKLE[s.item].on} on the ${RODS[s.rod].short.toLowerCase()}` : '',
       score: act * Math.min(1, e.n / 4),
     });
   }
@@ -78,8 +79,8 @@ export function birdsWorking(flocks, known) {
     }
     const fromHaven = Math.round(Math.hypot(f.x - HAVEN.x, f.z - HAVEN.z));
     out.push(best && bd < 220
-      ? `Gulls diving ${Math.round(bd / 10) * 10 || 10} m ${bearing(f.x - best.x, f.z - best.z)} of ${best.name}.`
-      : `Gulls diving ${fromHaven} m ${bearing(f.x - HAVEN.x, f.z - HAVEN.z)} of the harbour.`);
+      ? $t`Gulls diving ${Math.round(bd / 10) * 10 || 10} m ${bearing(f.x - best.x, f.z - best.z)} of ${best.name}.`
+      : $t`Gulls diving ${fromHaven} m ${bearing(f.x - HAVEN.x, f.z - HAVEN.z)} of the harbour.`);
   }
   return out;
 }
@@ -89,11 +90,11 @@ export function weatherLines(skyWord, abs = null) {
   const kmh = (v) => Math.round(v * 3.6);
   const lines = [];
   const w = conditions.wind;
-  lines.push(w.speed < 0.6 ? 'Wind: flat calm.' : `Wind: ${windWords(w.speed).toLowerCase()} from the ${compass(w.from, true)}, ${kmh(out.speed)} km/h outside the bay${inside.speed < out.speed * 0.7 ? `, ${kmh(inside.speed)} km/h in its shelter` : ''}.`);
+  lines.push(w.speed < 0.6 ? $t('Wind: flat calm.') : $t`Wind: ${windWords(w.speed).toLowerCase()} from the ${compass(w.from, true)}, ${kmh(out.speed)} km/h outside the bay${inside.speed < out.speed * 0.7 ? $t`, ${kmh(inside.speed)} km/h in its shelter` : ''}.`);
   const seaIn = waveHeightHere(0, -20), seaOut = waveHeightHere(60, 140);
-  lines.push(`Sea: ${seaWords(seaOut).toLowerCase()} outside (about ${seaOut < 0.1 ? 'nothing' : `${seaOut.toFixed(1)} m`}), ${seaWords(seaIn).toLowerCase()} in the bay.`);
+  lines.push($t`Sea: ${seaWords(seaOut).toLowerCase()} outside (about ${seaOut < 0.1 ? $t('nothing') : `${seaOut.toFixed(1)} m`}), ${seaWords(seaIn).toLowerCase()} in the bay.`);
   const c = currentAt(146, 30, 0), cs = Math.hypot(c.x, c.z);
-  lines.push(cs < 0.05 ? 'The cove channel is slack.' : `The cove channel runs ${cs.toFixed(cs < 0.1 ? 2 : 1)} m/s to the ${compass(Math.atan2(c.x, -c.z), true)}.`);
+  lines.push(cs < 0.05 ? $t('The cove channel is slack.') : $t`The cove channel runs ${cs.toFixed(cs < 0.1 ? 2 : 1)} m/s to the ${compass(Math.atan2(c.x, -c.z), true)}.`);
   if (skyWord) lines.push(`Sky: ${skyWord.toLowerCase()}.`);
   if (abs != null) lines.push(`Tide: ${tideWords(abs)}. ${dayTides(Math.floor(abs / 24))}`);
   return lines;
@@ -101,7 +102,7 @@ export function weatherLines(skyWord, abs = null) {
 
 // The notices, from the adventures (the ones that start on the board).
 export function notices(adv) {
-  return ADVENTURES.filter((A) => A.where.includes('notice board')).map((A) => ({ id: A.id, title: A.title, text: A.clue, status: adv.status(A.id) }));
+  return ADVENTURES.filter((A) => A.where === $t('The notice board at Willowhaven')).map((A) => ({ id: A.id, title: A.title, text: A.clue, status: adv.status(A.id) }));
 }
 
 // The board's paper in the world: a header, four pinned notes and (once you've pinned it) your
@@ -114,14 +115,14 @@ export function paintBoard(ctx, w, h, { photo = null, seen = {} } = {}) {
   ctx.fillStyle = '#efe4c9';
   ctx.font = '700 40px Kalam, Caveat, cursive';
   ctx.textAlign = 'center';
-  ctx.fillText('Willowhaven', w / 2, 46);
+  ctx.fillText($t('Willowhaven'), w / 2, 46);
   const notes = [
-    { x: 30, y: 72, r: -0.04, title: 'Wind & sea', c: '#f4ecd6' },
-    { x: 182, y: 70, r: 0.03, title: 'What’s about', c: '#fbf5e3' },
-    { x: 30, y: 196, r: 0.05, title: seen.kittiwake ? 'The Kittiwake ✓' : 'The Kittiwake', c: '#e9dcc0', photo: 'old' },
-    { x: 182, y: 198, r: -0.03, title: 'Gulls diving?', c: '#f4ecd6' },
+    { x: 30, y: 72, r: -0.04, title: $t('Wind & sea'), c: '#f4ecd6' },
+    { x: 182, y: 70, r: 0.03, title: $t('What’s about'), c: '#fbf5e3' },
+    { x: 30, y: 196, r: 0.05, title: seen.kittiwake ? $t('The Kittiwake ✓') : $t('The Kittiwake'), c: '#e9dcc0', photo: 'old' },
+    { x: 182, y: 198, r: -0.03, title: $t('Gulls diving?'), c: '#f4ecd6' },
     // (Tam Leask's card, in faded ink: the watcher on the Calf.)
-    { x: 346, y: 76, r: 0.06, title: seen.watch ? 'The Calf ✓' : 'The Calf', c: '#e6dfcb' },
+    { x: 346, y: 76, r: 0.06, title: seen.watch ? $t('The Calf ✓') : $t('The Calf'), c: '#e6dfcb' },
   ];
   for (const n of notes) {
     ctx.save();

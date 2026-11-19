@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RODS, TACKLE, TERMS, LINE_COLORS } from './tackle.js';
+import { $t } from './i18n.js';
 
 // Showcase models of every piece of tackle, for the backpack: rods with their guides, bindings,
 // handles and the reel their data names; spools of line; floats, rigs and leaders; baits, lures,
@@ -544,7 +545,7 @@ function leader(id) {
     const shock = id === 'shock' || id === 'windon', tip = id === 'tippet';
     const color = tip ? '#e6e0d0' : '#dfe8ee';
     const spool = labelledSpool({
-      big: id === 'windon' ? '200 lb' : shock ? '100 lb' : tip ? 'Tippet' : 'Fluoro', small: id === 'windon' ? 'wind-on' : shock ? 'shock' : tip ? 'tapered' : 'leader',
+      big: id === 'windon' ? '200 lb' : shock ? '100 lb' : tip ? $t('Tippet') : $t('Fluoro'), small: id === 'windon' ? 'wind-on' : shock ? 'shock' : tip ? 'tapered' : 'leader',
       kind: shock ? 'shock' : tip ? 'tippet' : 'leader', lineColor: color, key: `leader|${id}`, R: 0.034, W: 0.018,
     });
     g.add(spool);

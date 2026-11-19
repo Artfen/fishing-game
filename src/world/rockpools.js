@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { heightAt } from './terrain.js';
 import { mergeParts, mat, seeded, clamp } from '../util.js';
 import { fishById, buildFishGeometry, fishMaterial, scaleOf } from '../fish.js';
+import { $t } from '../i18n.js';
 
 // Rockpools: on three stretches of rocky shore between the tide marks (east of Willowhaven, the
 // rocks in Willow Bay, Puffin Cove's), little basins in the rock that the ebb leaves full of sea.
@@ -18,9 +19,9 @@ import { fishById, buildFishGeometry, fishMaterial, scaleOf } from '../fish.js';
 // The sites: on gently sloping shore within the tide's reach, chosen where the shore is rock
 // rather than steep beach (see tests/rockpools.test.mjs: every pool is between the tide marks).
 export const POOL_SITES = [
-  { id: 'havenrocks', name: 'the rocks east of Willowhaven', x: 68, z: -52, r: 22, seed: 1101 },
-  { id: 'bayrocks', name: 'the rocks in Willow Bay', x: 66, z: 33, r: 16, seed: 1202 },
-  { id: 'puffinrocks', name: 'the rocks at Puffin Cove', x: -296, z: 504, r: 24, seed: 1303 },
+  { id: 'havenrocks', name: $t('the rocks east of Willowhaven'), x: 68, z: -52, r: 22, seed: 1101 },
+  { id: 'bayrocks', name: $t('the rocks in Willow Bay'), x: 66, z: 33, r: 16, seed: 1202 },
+  { id: 'puffinrocks', name: $t('the rocks at Puffin Cove'), x: -296, z: 504, r: 24, seed: 1303 },
 ];
 
 // What lives in them. side: on the pool's walls; rim: on the rock round it; floor: on the bottom;

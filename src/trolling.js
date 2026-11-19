@@ -19,6 +19,7 @@
 // positioning on her own engines) and isn't here yet.
 
 import { TrollMech, MOUNT_SPECS, genericMount, DEPLOY } from './trollmount.js';
+import { $t } from './i18n.js';
 
 // The motors (shipyard.js sells them): push in newtons as the game's hulls feel it, what it draws
 // at full push (W), whether it has GPS (heading hold and Spot-Lock), and how it's stowed and
@@ -30,9 +31,9 @@ import { TrollMech, MOUNT_SPECS, genericMount, DEPLOY } from './trollmount.js';
 //    or the dashboard, its depth by power trim (as a Riptide Instinct QUEST); on a 36-volt supply,
 //    and the actuator needs some charge to work (flat, it's stowed by hand at the bow).
 export const TROLL_TIERS = {
-  troll: { name: 'Bow trolling motor', push: 320, watts: 650, gps: false, deploy: 'manual', trim: 'manual', remote: false },
-  trollgps: { name: 'GPS trolling motor', push: 320, watts: 650, gps: true, deploy: 'assist', trim: 'manual', remote: true },
-  trollpro: { name: 'High-thrust GPS trolling motor', push: 700, watts: 1300, gps: true, deploy: 'powered', trim: 'powered', remote: true, volts: 36 },
+  troll: { name: $t('Bow trolling motor'), push: 320, watts: 650, gps: false, deploy: 'manual', trim: 'manual', remote: false },
+  trollgps: { name: $t('GPS trolling motor'), push: 320, watts: 650, gps: true, deploy: 'assist', trim: 'manual', remote: true },
+  trollpro: { name: $t('High-thrust GPS trolling motor'), push: 700, watts: 1300, gps: true, deploy: 'powered', trim: 'powered', remote: true, volts: 36 },
 };
 export const TROLL_IDS = Object.keys(TROLL_TIERS);
 // The boats a bow mount suits, each with an installation of her own (see trollmount.js): the RIB

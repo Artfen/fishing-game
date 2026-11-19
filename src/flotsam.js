@@ -10,25 +10,26 @@
 // kind, note, x, z, at (game hour it came ashore) }], held: [{ kind, day }] }.
 
 import { seeded } from './util.js';
+import { $t } from './i18n.js';
 
 export const BEACHES = [
-  { id: 'strand', name: 'Shell Strand', x: 101, z: 21 },
-  { id: 'cove', name: 'Driftwood Cove', x: 140, z: -16 },
-  { id: 'puffin', name: 'Puffin Cove', x: -252, z: 486 },
+  { id: 'strand', name: $t('Shell Strand'), x: 101, z: 21 },
+  { id: 'cove', name: $t('Driftwood Cove'), x: 140, z: -16 },
+  { id: 'puffin', name: $t('Puffin Cove'), x: -252, z: 486 },
 ];
 
 export const FINDS = {
-  float: { name: 'a glass fishing float', short: 'glass float', price: 8, w: 3, text: 'Green glass the size of a grapefruit, in a net of old tarred twine: off a fishing boat out west, years ago, and adrift ever since.' },
-  timber: { name: 'a length of ship’s timber', short: 'ship’s timber', price: 5, w: 3, text: 'Oak, black with the sea, the holes of its trenails still in it: part of a boat, once.' },
-  rope: { name: 'a coil of good rope', short: 'coil of rope', price: 4, w: 3, text: 'Thirty metres of three-strand, hardly worn, washed off somebody’s deck in the blow.' },
-  bottle: { name: 'a bottle with a note in it', short: 'bottle', price: 0, w: 2, note: true, text: 'Green glass, corked and waxed, with a rolled note inside.' },
+  float: { name: $t('a glass fishing float'), short: $t('glass float'), price: 8, w: 3, text: $t('Green glass the size of a grapefruit, in a net of old tarred twine: off a fishing boat out west, years ago, and adrift ever since.') },
+  timber: { name: $t('a length of ship’s timber'), short: $t('ship’s timber'), price: 5, w: 3, text: $t('Oak, black with the sea, the holes of its trenails still in it: part of a boat, once.') },
+  rope: { name: $t('a coil of good rope'), short: $t('coil of rope'), price: 4, w: 3, text: $t('Thirty metres of three-strand, hardly worn, washed off somebody’s deck in the blow.') },
+  bottle: { name: $t('a bottle with a note in it'), short: 'bottle', price: 0, w: 2, note: true, text: $t('Green glass, corked and waxed, with a rolled note inside.') },
 };
 
 // The notes in the bottles: words, and where they put a mark on your chart (or none).
 export const NOTES = [
-  { title: 'From a bottle: the Nose', note: '“Bass off the Nose at the top of the tide, on a sandeel through the white water. T.”', x: -466, z: 182 },
-  { title: 'From a bottle: the Kittiwake', note: '“The big pollack hang off the north side of the old drifter, up in the water at dusk. Ask Bert.”', x: 92, z: 64 },
-  { title: null, note: '“Whoever finds this: I threw it off the Las Brasas boat in the spring. Write to me at Bar El Muelle, Puerto Brasa. Fair winds. E.”', x: null, z: null },
+  { title: $t('From a bottle: the Nose'), note: $t('“Bass off the Nose at the top of the tide, on a sandeel through the white water. T.”'), x: -466, z: 182 },
+  { title: $t('From a bottle: the Kittiwake'), note: $t('“The big pollack hang off the north side of the old drifter, up in the water at dusk. Ask Bert.”'), x: 92, z: 64 },
+  { title: null, note: $t('“Whoever finds this: I threw it off the Las Brasas boat in the spring. Write to me at Bar El Muelle, Puerto Brasa. Fair winds. E.”'), x: null, z: null },
 ];
 
 export const LIES_DAYS = 3;
@@ -70,7 +71,7 @@ export function tideSpot(beachId, heightAt, seed = 0.5) {
 }
 
 export const stillLying = (f, abs) => abs < f.at + LIES_DAYS * 24;
-export const beachName = (id) => BEACHES.find((b) => b.id === id)?.name || 'the shore';
+export const beachName = (id) => BEACHES.find((b) => b.id === id)?.name || $t('the shore');
 
 // What the chandlery gives for what you're holding: { n, price, words }.
 export function saleOf(held) {

@@ -21,6 +21,7 @@
 // x across (her port side +), z along (bow +), metres, in her own space, on her floor.
 
 import { kindOf, isBoatId } from './boatid.js';
+import { $t } from './i18n.js';
 
 export const G = 9.81;
 // Days of food and water in a full stores crate (see stores.js).
@@ -30,14 +31,14 @@ export const STORES_DAYS = 3;
 // as it's stowed, what it costs, the deck's grip on it (static and sliding; a cylinder's across
 // it is its roll), and the colours it's drawn in.
 export const CARGO = {
-  cylinder: { name: 'Dive cylinder', short: 'cylinder', kg: 17, empty: 14.4, size: [0.2, 0.2, 0.7], price: 60, grip: { s: 0.45, k: 0.35, roll: 0.04 }, colour: '#e6b422', note: 'A full 12-litre cylinder: swap to it at sea for a second dive. The chandlery refills it.', most: 2 },
-  fishbox: { name: 'Fish box', short: 'fish box', kg: 9, size: [0.5, 0.32, 0.78], price: 15, grip: { s: 0.55, k: 0.42 }, colour: '#e9eef0', trim: '#2f6fa8', note: 'An insulated box with ice: 9 kg as it stands.' },
-  case: { name: 'Equipment case', short: 'case', kg: 11, size: [0.42, 0.24, 0.56], price: 35, grip: { s: 0.4, k: 0.3 }, colour: '#2c3136', trim: '#c9a227', note: 'A hard case for the camera, spares and tools.' },
-  battery: { name: 'Spare battery', short: 'battery', kg: 24, size: [0.2, 0.24, 0.34], price: 90, grip: { s: 0.5, k: 0.4 }, colour: '#1f2326', trim: '#c0392b', note: 'A charged deep-cycle battery: swap it in when an electric motor’s is flat. It charges at a jetty or quay.' },
-  stores: { name: 'Stores crate', short: 'stores crate', kg: 22, empty: 6, size: [0.46, 0.34, 0.6], price: 20, grip: { s: 0.6, k: 0.45 }, colour: '#9a7a4f', trim: '#5c4630', note: 'Water and food for three days away, in any boat with room for it (see stores.js). Stocked again where her lockers are.' },
+  cylinder: { name: $t('Dive cylinder'), short: 'cylinder', kg: 17, empty: 14.4, size: [0.2, 0.2, 0.7], price: 60, grip: { s: 0.45, k: 0.35, roll: 0.04 }, colour: '#e6b422', note: $t('A full 12-litre cylinder: swap to it at sea for a second dive. The chandlery refills it.'), most: 2 },
+  fishbox: { name: $t('Fish box'), short: $t('fish box'), kg: 9, size: [0.5, 0.32, 0.78], price: 15, grip: { s: 0.55, k: 0.42 }, colour: '#e9eef0', trim: '#2f6fa8', note: $t('An insulated box with ice: 9 kg as it stands.') },
+  case: { name: $t('Equipment case'), short: 'case', kg: 11, size: [0.42, 0.24, 0.56], price: 35, grip: { s: 0.4, k: 0.3 }, colour: '#2c3136', trim: '#c9a227', note: $t('A hard case for the camera, spares and tools.') },
+  battery: { name: $t('Spare battery'), short: 'battery', kg: 24, size: [0.2, 0.24, 0.34], price: 90, grip: { s: 0.5, k: 0.4 }, colour: '#1f2326', trim: '#c0392b', note: $t('A charged deep-cycle battery: swap it in when an electric motor’s is flat. It charges at a jetty or quay.') },
+  stores: { name: $t('Stores crate'), short: $t('stores crate'), kg: 22, empty: 6, size: [0.46, 0.34, 0.6], price: 20, grip: { s: 0.6, k: 0.45 }, colour: '#9a7a4f', trim: '#5c4630', note: $t('Water and food for three days away, in any boat with room for it (see stores.js). Stocked again where her lockers are.') },
   // (J3) Bedding for a night aboard a boat with no cabin: rolled tight, lying fore-and-aft.
-  bivvy: { name: 'Bivvy roll', short: 'bivvy roll', kg: 7, size: [0.32, 0.32, 0.72], price: 45, grip: { s: 0.55, k: 0.45, roll: 0.06 }, colour: '#4f5b3a', trim: '#2f6fa8', note: 'Two sleeping bags in waterproof bivvy bags, and two foam mats, rolled tight: a night aboard a boat with no cabin, at anchor or tied up, for you and a friend.' },
-  can: { name: 'Jerry can', short: 'jerry can', kg: 1.6, size: [0.16, 0.34, 0.32], price: 0, grip: { s: 0.45, k: 0.35 }, colour: '#b3262a', note: 'Your jerry can, aboard: pour it into her tank from the deck.' },
+  bivvy: { name: $t('Bivvy roll'), short: $t('bivvy roll'), kg: 7, size: [0.32, 0.32, 0.72], price: 45, grip: { s: 0.55, k: 0.45, roll: 0.06 }, colour: '#4f5b3a', trim: '#2f6fa8', note: $t('Two sleeping bags in waterproof bivvy bags, and two foam mats, rolled tight: a night aboard a boat with no cabin, at anchor or tied up, for you and a friend.') },
+  can: { name: $t('Jerry can'), short: $t('jerry can'), kg: 1.6, size: [0.16, 0.34, 0.32], price: 0, grip: { s: 0.45, k: 0.35 }, colour: '#b3262a', note: $t('Your jerry can, aboard: pour it into her tank from the deck.') },
 };
 export const CARGO_IDS = Object.keys(CARGO);
 // (What's bought at the chandlery: the jerry can is the one you already have.)
@@ -87,9 +88,9 @@ export const hasAboard = (c, kind, id) => aboard(c, kind).some((it) => it.id ===
 // Buy one at the chandlery: it waits there, ashore. (The money is the caller's.)
 export function buy(c, id) {
   const C = CARGO[id];
-  if (!C || !SOLD.includes(id)) return { ok: false, why: 'Not sold here.' };
-  if (owned(c, id) >= (C.most || 1)) return { ok: false, why: `You’ve ${C.most > 1 ? `${C.most} already` : 'one already'}.` };
-  if (c.items.length >= CARGO_MAX * 2) return { ok: false, why: 'Bert’s store room is full of your things.' };
+  if (!C || !SOLD.includes(id)) return { ok: false, why: $t('Not sold here.') };
+  if (owned(c, id) >= (C.most || 1)) return { ok: false, why: $t`You’ve ${C.most > 1 ? $t`${C.most} already` : $t('one already')}.` };
+  if (c.items.length >= CARGO_MAX * 2) return { ok: false, why: $t('Bert’s store room is full of your things.') };
   let n = c.items.length + 1;
   while (c.items.some((it) => it.uid === `c${n}`)) n++;
   const it = { uid: `c${n}`, id, at: 'ashore', x: 0, z: 0, secured: true, full: true, ...(id === 'stores' ? { days: STORES_DAYS } : {}) };
@@ -101,15 +102,15 @@ export function buy(c, id) {
 // or ashore again.
 export function putAboard(c, uid, kind, spot) {
   const it = c.items.find((i) => i.uid === uid);
-  if (!it) return { ok: false, why: 'Not yours.' };
-  if (aboard(c, kind).length >= CARGO_MAX) return { ok: false, why: `She has room for ${CARGO_MAX} things on deck.` };
-  if (!spot) return { ok: false, why: 'There’s no clear space on her deck for it.' };
+  if (!it) return { ok: false, why: $t('Not yours.') };
+  if (aboard(c, kind).length >= CARGO_MAX) return { ok: false, why: $t`She has room for ${CARGO_MAX} things on deck.` };
+  if (!spot) return { ok: false, why: $t('There’s no clear space on her deck for it.') };
   Object.assign(it, { at: `boat:${kind}`, x: spot.x, z: spot.z, secured: true });
   return { ok: true };
 }
 export function bringAshore(c, uid) {
   const it = c.items.find((i) => i.uid === uid);
-  if (!it) return { ok: false, why: 'Not yours.' };
+  if (!it) return { ok: false, why: $t('Not yours.') };
   it.at = 'ashore';
   return { ok: true };
 }

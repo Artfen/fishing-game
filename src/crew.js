@@ -15,6 +15,7 @@
 // Nothing here is saved: crewing ends with the session, and a save made while crewing puts you
 // back where you stepped aboard from (main.js).
 import { step as planStep, floorAt, nearestOn } from './deckplan.js';
+import { $t } from './i18n.js';
 
 export const CREW_REACH = 2.5;    // m beyond a boat's half-length you can step aboard from
 export const CREW_SLOW = 1.2;     // m/s: a boat going faster than this can't be stepped onto
@@ -256,8 +257,8 @@ export function fishFromHelm(bx, bz, heading, fx, fz) {
   const d = Math.hypot(fx - bx, fz - bz);
   let rel = Math.atan2(fx - bx, fz - bz) - heading;
   rel = Math.atan2(Math.sin(rel), Math.cos(rel));
-  const a = Math.abs(rel) * (180 / Math.PI), side = rel > 0 ? 'port' : 'starboard';
-  const where = a < 20 ? 'dead ahead' : a < 70 ? `off the ${side} bow` : a < 110 ? `on the ${side} beam` : a < 160 ? `off the ${side} quarter` : 'astern';
+  const a = Math.abs(rel) * (180 / Math.PI), side = rel > 0 ? $t('port') : $t('starboard');
+  const where = a < 20 ? $t('dead ahead') : a < 70 ? $t`off the ${side} bow` : a < 110 ? $t`on the ${side} beam` : a < 160 ? $t`off the ${side} quarter` : $t('astern');
   return { d, rel, where };
 }
 
@@ -269,9 +270,9 @@ export const FOLLOW_AT = 3;  // m of line out past the hook point before it's wo
 export const SPOOL_LOW = 35; // % left on the spool: after it, now
 export function helmWords(name, at, { xl = 0, sl = null, nt = 0 } = {}) {
   const dist = at.d >= 1000 ? `${(at.d / 1000).toFixed(1)} km` : `${Math.round(at.d)} m`;
-  if (nt) return `${name}’s fish is beaten, ${at.where}: stop her and keep her still while it’s landed`;
-  const line = sl != null ? ` · spool ${Math.round(sl)}%` : '';
-  if (xl > FOLLOW_AT && sl != null && sl < SPOOL_LOW) return `${name}’s fish is emptying the spool, ${dist} ${at.where}${line}: after it, now!`;
-  if (xl > FOLLOW_AT) return `${name}’s fish is taking line, ${dist} ${at.where}${line}: follow it at a trolling pace`;
-  return `${name} has a fish on, ${dist} ${at.where}${line}: keep her steady and let ${name} play it`;
+  if (nt) return $t`${name}’s fish is beaten, ${at.where}: stop her and keep her still while it’s landed`;
+  const line = sl != null ? $t` · spool ${Math.round(sl)}%` : '';
+  if (xl > FOLLOW_AT && sl != null && sl < SPOOL_LOW) return $t`${name}’s fish is emptying the spool, ${dist} ${at.where}${line}: after it, now!`;
+  if (xl > FOLLOW_AT) return $t`${name}’s fish is taking line, ${dist} ${at.where}${line}: follow it at a trolling pace`;
+  return $t`${name} has a fish on, ${dist} ${at.where}${line}: keep her steady and let ${name} play it`;
 }

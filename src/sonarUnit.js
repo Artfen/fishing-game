@@ -7,19 +7,20 @@
 // the depth, the water's temperature, your speed. Colour palettes, gain, range and zoom, as on
 // the real thing. (An original design: no maker's name, look or screens copied.)
 
+import { $t } from './i18n.js';
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
 export const PAGES = ['sonar', 'down', 'split'];
-export const PAGE_NAMES = { sonar: '2D sonar', down: 'Down view', split: 'Split' };
-export const ZOOMS = ['Off', '2×', 'Bottom lock'];
+export const PAGE_NAMES = { sonar: '2D sonar', down: $t('Down view'), split: $t('Split') };
+export const ZOOMS = [$t('Off'), '2×', $t('Bottom lock')];
 
 // Palettes: the screen's colour ramp from no return to the strongest (each [r, g, b] stops),
 // the water's background, and the down view's tint.
 export const PALETTES = [
-  { id: 'classic', name: 'Classic blue', bg: ['#0b2a8a', '#06145a'], ramp: [[40, 120, 255], [40, 200, 240], [60, 220, 90], [250, 235, 60], [255, 140, 30], [235, 40, 30]], ink: '#e9f3ff', down: [[8, 6, 4], [255, 196, 120]] },
-  { id: 'amber', name: 'Amber', bg: ['#050505', '#000000'], ramp: [[60, 30, 0], [140, 70, 0], [220, 120, 0], [255, 170, 20], [255, 210, 80], [255, 245, 190]], ink: '#ffd38a', down: [[4, 3, 0], [255, 200, 90]] },
-  { id: 'daylight', name: 'Daylight', bg: ['#f4f7fb', '#dfe7f0'], ramp: [[170, 200, 235], [90, 140, 220], [40, 80, 190], [30, 40, 120], [90, 20, 60], [10, 10, 20]], ink: '#10203a', down: [[236, 241, 246], [20, 34, 60]] },
-  { id: 'night', name: 'Night red', bg: ['#000000', '#000000'], ramp: [[50, 0, 0], [110, 0, 0], [170, 10, 10], [220, 30, 20], [255, 70, 50], [255, 150, 120]], ink: '#ff6a5a', down: [[0, 0, 0], [255, 70, 50]] },
+  { id: 'classic', name: $t('Classic blue'), bg: ['#0b2a8a', '#06145a'], ramp: [[40, 120, 255], [40, 200, 240], [60, 220, 90], [250, 235, 60], [255, 140, 30], [235, 40, 30]], ink: '#e9f3ff', down: [[8, 6, 4], [255, 196, 120]] },
+  { id: 'amber', name: $t('Amber'), bg: ['#050505', '#000000'], ramp: [[60, 30, 0], [140, 70, 0], [220, 120, 0], [255, 170, 20], [255, 210, 80], [255, 245, 190]], ink: '#ffd38a', down: [[4, 3, 0], [255, 200, 90]] },
+  { id: 'daylight', name: $t('Daylight'), bg: ['#f4f7fb', '#dfe7f0'], ramp: [[170, 200, 235], [90, 140, 220], [40, 80, 190], [30, 40, 120], [90, 20, 60], [10, 10, 20]], ink: '#10203a', down: [[236, 241, 246], [20, 34, 60]] },
+  { id: 'night', name: $t('Night red'), bg: ['#000000', '#000000'], ramp: [[50, 0, 0], [110, 0, 0], [170, 10, 10], [220, 30, 20], [255, 70, 50], [255, 150, 120]], ink: '#ff6a5a', down: [[0, 0, 0], [255, 70, 50]] },
 ];
 
 // The palette's colour for a return of strength k (0 … 1), as [r, g, b].

@@ -4,6 +4,7 @@
 // the needle swinging past and settling; and a stamp for what it means: new in your journal, your
 // biggest yet of its kind, or a fish of a lifetime. All plain numbers here, so it can be tested.
 
+import { $t } from './i18n.js';
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
 export const HOLD = 1.0;   // seconds you see it held up before the card comes (seen from outside)
@@ -36,8 +37,8 @@ export function verdictOf(sp, size, { isNew = false, record = false, count = 1, 
   const lifetime = lifetimeOf(sp, size);
   const stamp = lifetime ? 'lifetime' : isNew ? 'new' : record ? 'record' : null;
   const name = sp.name.toLowerCase();
-  const unit = sp.creature ? 'cm mantle' : 'cm';
-  const tally = isNew ? `Your first ${name}` : record ? `Your ${ordinal(count)} ${name}, and your biggest: the best was ${best} ${unit}` : `Your ${ordinal(count)} ${name} · your best is ${best} ${unit}`;
+  const unit = sp.creature ? $t('cm mantle') : 'cm';
+  const tally = isNew ? $t`Your first ${name}` : record ? $t`Your ${ordinal(count)} ${name}, and your biggest: the best was ${best} ${unit}` : $t`Your ${ordinal(count)} ${name} · your best is ${best} ${unit}`;
   return { stamp, lifetime, tally };
 }
 

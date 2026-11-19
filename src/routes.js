@@ -8,6 +8,7 @@
 // state.route: the one you're following, { id, leg } (leg: the mark you're making for), or null.
 
 import { HOUR_SECONDS } from './world/clock.js';
+import { $t } from './i18n.js';
 
 export const ROUTES_MAX = 8;
 export const POINTS_MAX = 16;
@@ -30,7 +31,7 @@ export function cleanRoutes(raw) {
     const pts = (Array.isArray(r.pts) ? r.pts : []).filter(finite).slice(0, POINTS_MAX).map((p) => [Math.round(p[0]), Math.round(p[1])]);
     if (pts.length < 2) continue;
     seen.add(r.id);
-    out.push({ id: r.id, name: typeof r.name === 'string' && r.name.trim() ? r.name.trim().slice(0, 30) : `Route ${out.length + 1}`, pts });
+    out.push({ id: r.id, name: typeof r.name === 'string' && r.name.trim() ? r.name.trim().slice(0, 30) : $t`Route ${out.length + 1}`, pts });
     if (out.length >= ROUTES_MAX) break;
   }
   return out;

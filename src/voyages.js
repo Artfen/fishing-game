@@ -13,6 +13,7 @@
 // (J5) And what they came back with besides the fish: the dives made from her (yours, and a
 // crewmate's), and the photographs taken on the way (yours, and a crewmate's), with what's in them.
 
+import { $t } from './i18n.js';
 export const VOYAGES_KEPT = 40;
 export const LONG_HOURS = 12;   // game hours away from a berth that make a voyage of it
 const LOG_KEPT = 16, PLACES_KEPT = 12, LIFE_KEPT = 16, BOATS_KEPT = 4, JOBS_KEPT = 8, CROSS_KEPT = 6, CREW_KEPT = 4, DIVES_KEPT = 6, SNAPS_KEPT = 8;
@@ -29,7 +30,7 @@ const addOnce = (list, v, max) => {
 // where (a place's name), and the harbour how far out she gets is measured from (x, z).
 export function newVoyage({ day, hour, abs, kind, from, x, z }) {
   return {
-    day, hour: Math.round(hour * 100) / 100, abs, from: plain(from, 40) || 'the water', x: Math.round(x), z: Math.round(z),
+    day, hour: Math.round(hour * 100) / 100, abs, from: plain(from, 40) || $t('the water'), x: Math.round(x), z: Math.round(z),
     boats: [kind], m: 0, far: 0, farAt: '', places: [], fish: 0, kept: 0, best: null, life: [], gales: 0, cross: [], jobs: [], log: [],
     crew: [], crewFish: 0, dives: [], photos: 0, crewPhotos: 0, snaps: [],
   };
@@ -114,11 +115,11 @@ export function worthKeeping(V, { day, abs, offshoreAt }) {
 // Its name: the crossing, if it made one; otherwise where it reached.
 export function voyageTitle(V) {
   const made = (to) => V.cross.some((c) => c.to === to && c.stage === 'in');
-  if (made('south') && made('home')) return 'To Las Brasas and back';
-  if (made('south')) return 'Across to Las Brasas';
-  if (made('home')) return 'Home from Las Brasas';
-  if (V.cross.some((c) => c.stage === 'back')) return 'Out towards Las Brasas, and back';
-  return V.farAt ? `Out to ${V.farAt}` : 'Along the coast';
+  if (made('south') && made('home')) return $t('To Las Brasas and back');
+  if (made('south')) return $t('Across to Las Brasas');
+  if (made('home')) return $t('Home from Las Brasas');
+  if (V.cross.some((c) => c.stage === 'back')) return $t('Out towards Las Brasas, and back');
+  return V.farAt ? $t`Out to ${V.farAt}` : $t('Along the coast');
 }
 
 // Finished: the record kept (when it ended, where, the nights out, the hours, the sea miles).
@@ -144,11 +145,11 @@ export function keepVoyage(list, R) {
 
 // Her papers' line for it.
 export function papersLine(R) {
-  return `${R.title}: ${R.nm} nm${R.nights ? `, ${R.nights} night${R.nights > 1 ? 's' : ''} out` : ''}${R.fish ? `, ${R.fish} fish` : ''}${R.dives?.length ? `, ${R.dives.length} dive${R.dives.length > 1 ? 's' : ''}` : ''}${R.crew?.length ? `, with ${list(R.crew)}` : ''}.`;
+  return `${R.title}: ${R.nm} nm${R.nights ? (R.nights > 1 ? $t`, ${R.nights} nights out` : $t`, ${R.nights} night out`) : ''}${R.fish ? `, ${R.fish} fish` : ''}${R.dives?.length ? `, ${R.dives.length} dive${R.dives.length > 1 ? 's' : ''}` : ''}${R.crew?.length ? `, with ${list(R.crew)}` : ''}.`;
 }
 
 // For the journal, in words: { title, when, lines } (names: kinds -> names, boats and sea life).
-const NUMBER_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+const NUMBER_WORDS = [$t('no'), $t('one'), $t('two'), $t('three'), $t('four'), $t('five'), $t('six'), $t('seven'), $t('eight'), $t('nine'), $t('ten')];
 const count = (n, one, many = `${one}s`) => `${n <= 10 ? NUMBER_WORDS[n] : n} ${n === 1 ? one : many}`;
 const clock = (h) => {
   const H = Math.floor(h) % 24, M = Math.floor((h % 1) * 60);
@@ -156,27 +157,27 @@ const clock = (h) => {
 };
 const list = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 export function voyageWords(R, { boat = (k) => k, life = (k) => k } = {}) {
-  const when = R.end.day === R.day ? `Day ${R.day}, ${clock(R.hour)} to ${clock(R.end.hour)}` : `Day ${R.day}, ${clock(R.hour)} to day ${R.end.day}, ${clock(R.end.hour)}`;
+  const when = R.end.day === R.day ? $t`Day ${R.day}, ${clock(R.hour)} to ${clock(R.end.hour)}` : $t`Day ${R.day}, ${clock(R.hour)} to day ${R.end.day}, ${clock(R.end.hour)}`;
   const lines = [];
-  lines.push(`From ${R.from} to ${R.end.to}, in ${list(R.boats.map((k) => `the ${boat(k)}`))}${R.crew?.length ? ` with ${list(R.crew)}` : ''}: ${R.nm} nm${R.far > 400 ? `, ${(R.far / 1000).toFixed(1)} km out at the furthest${R.farAt ? ` (${R.farAt})` : ''}` : ''}.`);
+  lines.push($t`From ${R.from} to ${R.end.to}, in ${list(R.boats.map((k) => `the ${boat(k)}`))}${R.crew?.length ? $t` with ${list(R.crew)}` : ''}: ${R.nm} nm${R.far > 400 ? $t`, ${(R.far / 1000).toFixed(1)} km out at the furthest${R.farAt ? ` (${R.farAt})` : ''}` : ''}.`);
   if (R.nights) lines.push(`${count(R.nights, 'night').replace(/^./, (c) => c.toUpperCase())} out.`);
   // (J4: the crew's among them, said as theirs.)
-  const crewOnes = R.crewFish ? (R.crewFish === R.fish ? (R.crew?.length === 1 ? ` (all ${R.crew[0]}’s)` : ' (all the crew’s)') : ` (${count(R.crewFish, 'of them', 'of them')} ${R.crew?.length === 1 ? `${R.crew[0]}’s` : 'the crew’s'})`) : '';
-  if (R.fish) lines.push(`${count(R.fish, 'fish', 'fish').replace(/^./, (c) => c.toUpperCase())}${crewOnes}${R.kept && R.kept < R.fish ? ` (${R.kept} kept)` : ''}${R.best ? `, the best ${/^[aeiou]/i.test(R.best.name) ? 'an' : 'a'} ${R.best.name} of ${R.best.kg < 1 ? `${Math.round(R.best.kg * 1000)} g` : `${R.best.kg.toFixed(1)} kg`}${R.best.by ? `, ${R.best.by}’s` : ''}` : ''}.`);
+  const crewOnes = R.crewFish ? (R.crewFish === R.fish ? (R.crew?.length === 1 ? ` (all ${R.crew[0]}’s)` : $t(' (all the crew’s)')) : ` (${count(R.crewFish, $t('of them'), $t('of them'))} ${R.crew?.length === 1 ? `${R.crew[0]}’s` : $t('the crew’s')})`) : '';
+  if (R.fish) lines.push(`${count(R.fish, 'fish', 'fish').replace(/^./, (c) => c.toUpperCase())}${crewOnes}${R.kept && R.kept < R.fish ? ` (${R.kept} kept)` : ''}${R.best ? $t`, the best ${/^[aeiou]/i.test(R.best.name) ? 'an' : 'a'} ${R.best.name} of ${R.best.kg < 1 ? `${Math.round(R.best.kg * 1000)} g` : $t`${R.best.kg.toFixed(1)} kg`}${R.best.by ? `, ${R.best.by}’s` : ''}` : ''}.`);
   // (J5) The dives from her, and the photographs.
   if (R.dives?.length) {
-    const said = R.dives.map((d) => `${d.by ? `${d.by} ` : ''}${d.kit === 'free' ? 'freedived' : 'dived'}${d.at ? ` at ${d.at}` : ''}, to ${d.m.toFixed(1)} m`).join('; ');
+    const said = R.dives.map((d) => $t`${d.by ? `${d.by} ` : ''}${d.kit === 'free' ? $t('freedived') : $t('dived')}${d.at ? $t` at ${d.at}` : ''}, to ${d.m.toFixed(1)} m`).join('; ');
     lines.push(`${said[0].toUpperCase()}${said.slice(1)}.`);
   }
   const shots = (R.photos || 0) + (R.crewPhotos || 0);
   if (shots) {
-    const theirs = R.crewPhotos ? (R.crewPhotos === shots ? (R.crew?.length === 1 ? ` (all ${R.crew[0]}’s)` : ' (all the crew’s)') : ` (${count(R.crewPhotos, 'of them', 'of them')} ${R.crew?.length === 1 ? `${R.crew[0]}’s` : 'the crew’s'})`) : '';
+    const theirs = R.crewPhotos ? (R.crewPhotos === shots ? (R.crew?.length === 1 ? ` (all ${R.crew[0]}’s)` : $t(' (all the crew’s)')) : ` (${count(R.crewPhotos, $t('of them'), $t('of them'))} ${R.crew?.length === 1 ? `${R.crew[0]}’s` : $t('the crew’s')})`) : '';
     lines.push(`${count(shots, 'photograph').replace(/^./, (c) => c.toUpperCase())}${theirs}${R.snaps?.length ? `, of ${list(R.snaps.slice(0, 5))}` : ''}.`);
   }
   if (R.life.length) lines.push(`Saw ${list(R.life.slice(0, 6).map(life))}.`);
-  if (R.gales) lines.push(R.gales === 1 ? 'Weathered a gale.' : `Weathered ${count(R.gales, 'gale')}.`);
+  if (R.gales) lines.push(R.gales === 1 ? $t('Weathered a gale.') : `Weathered ${count(R.gales, 'gale')}.`);
   if (R.places.length) lines.push(`By ${list(R.places.slice(0, 6))}.`);
-  for (const j of R.jobs) lines.push(`Job done: ${j}.`);
+  for (const j of R.jobs) lines.push($t`Job done: ${j}.`);
   return { title: R.title, when, lines, log: R.log.map((e) => `Day ${e.day}: ${e.text}`) };
 }
 
@@ -185,7 +186,7 @@ export function cleanVoyage(v) {
   if (!isObj(v) || !Number.isFinite(v.day) || !Number.isFinite(v.abs) || !Array.isArray(v.boats)) return null;
   const strs = (a, max, n) => (Array.isArray(a) ? a.filter((s) => typeof s === 'string').map((s) => plain(s, n)).filter(Boolean).slice(0, max) : []);
   return {
-    day: Math.floor(num(v.day)), hour: num(v.hour, 0, 24), abs: num(v.abs), from: plain(v.from, 40) || 'the water', x: Math.round(num(v.x, -1e5, 1e5)), z: Math.round(num(v.z, -1e5, 1e5)),
+    day: Math.floor(num(v.day)), hour: num(v.hour, 0, 24), abs: num(v.abs), from: plain(v.from, 40) || $t('the water'), x: Math.round(num(v.x, -1e5, 1e5)), z: Math.round(num(v.z, -1e5, 1e5)),
     boats: strs(v.boats, BOATS_KEPT, 16), m: num(v.m), far: Math.round(num(v.far)), farAt: plain(v.farAt, 40), places: strs(v.places, PLACES_KEPT, 40),
     fish: Math.floor(num(v.fish)), kept: Math.floor(num(v.kept)), best: isObj(v.best) && typeof v.best.sp === 'string' ? { sp: plain(v.best.sp, 24), name: plain(v.best.name, 40), kg: num(v.best.kg), ...(plain(v.best.by, 24) ? { by: plain(v.best.by, 24) } : {}) } : null,
     crew: strs(v.crew, CREW_KEPT, 24), crewFish: Math.min(Math.floor(num(v.crewFish)), Math.floor(num(v.fish))),

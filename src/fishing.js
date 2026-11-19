@@ -14,6 +14,7 @@ import { heroDistance } from './reveal.js';
 import { BEHAVIOUR, prefsFor } from './behaviour.js';
 import { FightShow, bigness } from './fightshow.js';
 import { fitsNet, shoreMethodAt, LAND_WAYS, liftRisk, liftBreakRisk, knockRisk, leaderRisk, LEADER_OFF, LEADER_SLIP } from './landing.js';
+import { $t } from './i18n.js';
 
 // Which kind of drag a rod's reel has, for how it sounds (see audio.js reel()): a fixed-spool
 // reel's fine clicker, a fly reel's click-pawl ratchet (and a centrepin's), a multiplier's lever drag.
@@ -303,7 +304,7 @@ export class Fishing {
       case 'idle': {
         // (Not from a windsurf board or a jet ski: they're for the fun of it.)
         if (this.angler.onBoat && this.angler.hull?.noFish) {
-          this.hooks.flash(`No fishing from the ${this.angler.name}: it's for the sport of it. Step ashore, or take a boat.`, 3);
+          this.hooks.flash($t`No fishing from the ${this.angler.name}: it's for the sport of it. Step ashore, or take a boat.`, 3);
           return;
         }
         // (A boat fished from her decks only, the trawler: not from her wheel, nor indoors.)
@@ -315,14 +316,14 @@ export class Fishing {
         // An impossible setup is explained before the cast, not after.
         const block = this.problems.find((p) => p.level === 'block');
         if (block) {
-          this.hooks.flash(`${block.text} ${this.hooks.key('pack')} opens your backpack.`, 4);
+          this.hooks.flash($t`${block.text} ${this.hooks.key('pack')} opens your backpack.`, 4);
           return;
         }
         // From a moving boat: fine up to about trolling speed. Faster, the game may ease the
         // throttle back for you (and you aim while she slows); otherwise, slow down first.
         const eased = this.angler.onBoat && this.hooks.easeForCast?.();
         if (this.angler.onBoat && this.angler.speed > CAST_SPEED && !eased) {
-          this.hooks.flash('Too fast to cast from here: slow down (or let her drift down) first');
+          this.hooks.flash($t('Too fast to cast from here: slow down (or let her drift down) first'));
           return;
         }
         this.state = 'aiming';
@@ -381,7 +382,7 @@ export class Fishing {
         return this.cancel();
       }
       this.letGoT = 1.6;
-      this.hooks.flash('Press again to let the fish go', 1.6);
+      this.hooks.flash($t('Press again to let the fish go'), 1.6);
       return true;
     }
     return this.cancel();
@@ -393,7 +394,7 @@ export class Fishing {
       case 'aiming':
         this.state = 'idle';
         this.deliver = false;
-        this.hooks.flash('Cast cancelled', 1.6);
+        this.hooks.flash($t('Cast cancelled'), 1.6);
         return true;
       case 'drifting':
       case 'bite':
@@ -401,7 +402,7 @@ export class Fishing {
         return true;
       case 'reeling':
         this.eco.lostHooked(this.fight.agent);
-        this.hooks.flash('You let the line go slack, and the fish swims free');
+        this.hooks.flash($t('You let the line go slack, and the fish swims free'));
         this.fight = null;
         this.agent = null;
         this.reelIn();
@@ -598,14 +599,14 @@ export class Fishing {
     if (this.angler.onBoat && this.angler.speed > CAST_SPEED + 2.4) {
       this.state = 'idle';
       this.deliver = false;
-      this.hooks.flash('Too fast to cast: she’s still slowing down. Try again in a moment.', 2.6);
+      this.hooks.flash($t('Too fast to cast: she’s still slowing down. Try again in a moment.'), 2.6);
       return;
     }
     this.planCast(this.power, this.plan);
     if (!this.plan.ok) {
       this.state = 'idle';
       this.deliver = false;
-      this.hooks.flash(this.angler.onBoat ? 'Too close to the shore to cast that way' : 'Aim out over open water to cast');
+      this.hooks.flash(this.angler.onBoat ? $t('Too close to the shore to cast that way') : $t('Aim out over open water to cast'));
       return;
     }
     const P = this.plan;
@@ -630,23 +631,23 @@ export class Fishing {
     if (!m) return;
     let text = '', good = false;
     const r = (v) => Math.max(1, Math.round(v));
-    if (m.obstruct === 'tree') text = 'It caught a branch and dropped short. Move clear of the trees, or cast lower and shorter.';
-    else if (m.obstruct === 'bank') text = 'The bank was in the way: it dropped short. Cast from higher up, or further out.';
-    else if (m.bank) text = 'That would have landed on the bank, so it dropped into the last good water.';
-    else if (m.tailed) text = 'You let go on the back cast: the line piled up short. Let go as the rod comes forward.';
-    else if (m.collapse > 0.05) text = `Held on too long: the rod overloaded and the cast fell ${r(m.short)} m short and to the right. Let go as the rod is fully loaded.`;
+    if (m.obstruct === 'tree') text = $t('It caught a branch and dropped short. Move clear of the trees, or cast lower and shorter.');
+    else if (m.obstruct === 'bank') text = $t('The bank was in the way: it dropped short. Cast from higher up, or further out.');
+    else if (m.bank) text = $t('That would have landed on the bank, so it dropped into the last good water.');
+    else if (m.tailed) text = $t('You let go on the back cast: the line piled up short. Let go as the rod comes forward.');
+    else if (m.collapse > 0.05) text = $t`Held on too long: the rod overloaded and the cast fell ${r(m.short)} m short and to the right. Let go as the rod is fully loaded.`;
     else if (m.bonus) {
-      text = 'A perfect cast: let go just as the rod was fully loaded.';
+      text = $t('A perfect cast: let go just as the rod was fully loaded.');
       good = true;
     }
-    if (!m.obstruct && !m.bank && m.carry > 1.5) text += `${text ? ' ' : ''}The boat’s way carried it ${Math.round(m.carry)} m on as it flew.`;
+    if (!m.obstruct && !m.bank && m.carry > 1.5) text += $t`${text ? ' ' : ''}The boat’s way carried it ${Math.round(m.carry)} m on as it flew.`;
     if (!m.obstruct && !m.bank && m.wind > 0.8) {
       const side = Math.abs(m.windAlong) > m.wind * 0.7 ? (m.windAlong > 0 ? 'further' : 'shorter') : `${r(m.wind)} m ${m.windSide}`;
-      text += `${text ? ' ' : ''}The wind carried it ${side}: aim a little into it.`;
+      text += $t`${text ? ' ' : ''}The wind carried it ${side}: aim a little into it.`;
     }
     const weight = this.problems.find((p) => p.level === 'warn');
     if (!text && weight && this.castDist > m.max * 0.85) text = weight.text;
-    if (!text && this.assist && m.windAllowed > 1.2) this.hooks.teach?.('assistWind', 'Assisted casting allowed for the wind. (In Settings you can switch to manual casting and judge it yourself.)', 6);
+    if (!text && this.assist && m.windAllowed > 1.2) this.hooks.teach?.('assistWind', $t('Assisted casting allowed for the wind. (In Settings you can switch to manual casting and judge it yourself.)'), 6);
     if (text) this.hooks.castResult?.(text, good);
   }
 
@@ -723,7 +724,7 @@ export class Fishing {
         b.twitch = 1.2;
         if (this.r.fouled && Math.random() < 0.45) {
           this.r.fouled = false;
-          this.hooks.flash('You flick the weed off the lure', 2);
+          this.hooks.flash($t('You flick the weed off the lure'), 2);
         }
         if (act === 'crawl') this.r.hop = 0.45; // a hop off the bottom
         if (act === 'pop' || act === 'walk') {
@@ -832,7 +833,7 @@ export class Fishing {
     this.noteInterest(a, 'follows');
     this.agent = a;
     this.setStatus('follow');
-    this.hooks.teach('follow', 'A fish is following your lure. A twitch or a short pause often makes it strike.');
+    this.hooks.teach('follow', $t('A fish is following your lure. A twitch or a short pause often makes it strike.'));
   }
 
   onNibble(a) {
@@ -901,13 +902,13 @@ export class Fishing {
         this.setStatus('strike');
         if (this.hold && this.reelSpeed > 0.15 && Math.random() < 0.75) {
           this.setHook();
-          this.hooks.flash('It hit the lure and hooked itself! Keep reeling.', 2.4);
+          this.hooks.flash($t('It hit the lure and hooked itself! Keep reeling.'), 2.4);
         } else if (this.towSpeed > 1.2 && Math.random() < 0.85) {
           // A lure trolled behind a moving boat: the fish hooks itself against the boat's way,
           // and the reel screams.
           this.audio.biteAlert?.('fishon');
           this.setHook(true);
-          this.hooks.flash('Fish on! It hit the trolled lure and hooked itself, and the reel’s screaming. Hold to play it.', 4);
+          this.hooks.flash($t('Fish on! It hit the trolled lure and hooked itself, and the reel’s screaming. Hold to play it.'), 4);
         }
         return;
       case 'tap':
@@ -920,8 +921,8 @@ export class Fishing {
         this.setStatus('tap');
         if (this.hold && this.reelSpeed > 0.15 && Math.random() < 0.25) {
           this.setHook();
-          this.hooks.flash('It tapped the lure and hooked itself! Keep reeling.', 2.4);
-        } else this.hooks.teach('tap', 'A tap on the line: a fish nipped at the lure. Strike at once: these are gone in a moment. A slow or twitched lure gets more of them.', 6);
+          this.hooks.flash($t('It tapped the lure and hooked itself! Keep reeling.'), 2.4);
+        } else this.hooks.teach('tap', $t('A tap on the line: a fish nipped at the lure. Strike at once: these are gone in a moment. A slow or twitched lure gets more of them.'), 6);
         return;
       case 'run':
         // A carp rig is self-hooking: the hook is set as the fish bolts with the bait, so this
@@ -973,18 +974,18 @@ export class Fishing {
     this.setStatus('quiet');
     if (wasBite) {
       const k = this.biteKind;
-      this.hooks.flash(k === 'run' ? 'The run stops. It dropped the bait.' : k === 'strike' ? 'It let go of the lure. Too slow!' : k === 'tap' ? 'Gone: a tap is over in a moment. Strike straight away.' : k === 'sip' ? 'Too slow: it spat the fly.' : 'It let go of the bait. Another may come.');
+      this.hooks.flash(k === 'run' ? $t('The run stops. It dropped the bait.') : k === 'strike' ? $t('It let go of the lure. Too slow!') : k === 'tap' ? $t('Gone: a tap is over in a moment. Strike straight away.') : k === 'sip' ? $t('Too slow: it spat the fly.') : $t('It let go of the bait. Another may come.'));
     } else if (why && why[0] !== 'fussy' && (reason !== 'lost' || this.t > this.whyT)) {
       // It says why it turned away (a fish that just drifted off says so less often).
       this.whyT = this.t + 14;
       this.hooks.flash(why[1], 4);
     } else if (reason === 'turned') {
-      this.hooks.flash('It followed all the way in, then turned away. Try a twitch, or a pause.', 3.6);
+      this.hooks.flash($t('It followed all the way in, then turned away. Try a twitch, or a pause.'), 3.6);
     } else if (reason === 'missed') {
-      this.hooks.flash('A swirl behind the lure! Something missed it.', 3);
+      this.hooks.flash($t('A swirl behind the lure! Something missed it.'), 3);
     } else if (reason === 'refused') {
-      this.hooks.flash(this.r.drag ? 'A fish rose, looked, and refused it: the fly was dragging.' : 'A fish rose, looked, and refused the fly.', 3.2);
-    } else if (reason === 'startled' || reason === 'spooked') this.hooks.flash('Something darted away.', 2);
+      this.hooks.flash(this.r.drag ? $t('A fish rose, looked, and refused it: the fly was dragging.') : $t('A fish rose, looked, and refused the fly.'), 3.2);
+    } else if (reason === 'startled' || reason === 'spooked') this.hooks.flash($t('Something darted away.'), 2);
   }
 
   // selfHooked: the fish hooked itself on a self-hooking rig (no strike needed).
@@ -1036,7 +1037,7 @@ export class Fishing {
       this.show.strike(this.fight, this.hook, lv, top && !selfHooked);
     }
     this.setStatus(selfHooked ? 'fishon' : 'hooked');
-    if (selfHooked) this.hooks.flash('Fish on! It hooked itself on the rig. Pick up the rod: hold to play it.', 3.5);
+    if (selfHooked) this.hooks.flash($t('Fish on! It hooked itself on the rig. Pick up the rod: hold to play it.'), 3.5);
     this.hooks.onHook(this.fight);
   }
 
@@ -1134,7 +1135,7 @@ export class Fishing {
     if (!F?.atNet) return;
     const by = F.landBy || 'net';
     if (!LAND_WAYS[by].tap) {
-      F.word = by === 'beach' ? 'hold to wind it up' : by === 'leader' ? (F.leaderBy ? `${F.leaderBy} has the leader` : 'hold to take the leader') : 'hold to lift it';
+      F.word = by === 'beach' ? $t('hold to wind it up') : by === 'leader' ? (F.leaderBy ? $t`${F.leaderBy} has the leader` : $t('hold to take the leader')) : $t('hold to lift it');
       F.wordT = 1.2;
       return;
     }
@@ -1145,13 +1146,13 @@ export class Fishing {
         this.lose(by === 'net' ? 'knocked' : 'slipped');
         return;
       }
-      F.word = by === 'net' ? 'missed: it kicked' : 'it slipped your hand';
+      F.word = by === 'net' ? $t('missed: it kicked') : $t('it slipped your hand');
       F.wordT = 1.4;
       this.audio.splashSmall(0.7);
       this.hooks.feel?.('kick');
       this.hooks.teach('landkick', by === 'net'
-        ? 'Missed! A fish kicking is hard to net, and the rim can knock a loose hook out. Wait till it lies still again, then net it.'
-        : 'It slipped your hand! A fish kicking can’t be held, and the jerk can tear a loose hook out. Wait till it lies still again, then take it by the tail.', 7);
+        ? $t('Missed! A fish kicking is hard to net, and the rim can knock a loose hook out. Wait till it lies still again, then net it.')
+        : $t('It slipped your hand! A fish kicking can’t be held, and the jerk can tear a loose hook out. Wait till it lies still again, then take it by the tail.'), 7);
       return;
     }
     if (by === 'net') this.netFish();
@@ -1180,7 +1181,7 @@ export class Fishing {
     const F = this.fight;
     if (!F?.atNet || F.landBy !== 'leader' || F.leaderBy || this.state !== 'reeling') return false;
     F.leaderBy = name;
-    F.word = `${name} takes the leader`;
+    F.word = $t`${name} takes the leader`;
     F.wordT = 1.6;
     this.hooks.feel?.('netted');
     return true;
@@ -1217,7 +1218,7 @@ export class Fishing {
     if (!F.stirred && F.kickT < 0.7) {
       F.stirred = true;
       this.fx.ripple(this.fishPos.x, this.fishPos.z, 0.5 + 0.4 * bigness(F.size), 0.7, 0.3);
-      F.word = 'it stirs…';
+      F.word = $t('it stirs…');
       F.wordT = 0.7;
     }
     if (F.kickT <= 0) {
@@ -1231,14 +1232,14 @@ export class Fishing {
         this.fx.ripple(this.fishPos.x, this.fishPos.z, 1.0 + 0.5 * S, 1.1, 0.5);
       }
       this.audio.splashSmall(0.9);
-      F.word = 'a last kick';
+      F.word = $t('a last kick');
       F.wordT = 1.2;
       this.hooks.feel?.('kick');
       if (by === 'leader') {
         // (E3d) A surge on the leader: it takes some of the leader back. Held through it, the hook
         // can tear out; a friend with the leader lets it run, as a good deckhand does.
         F.landT = Math.max(0, F.landT - LEADER_SLIP);
-        F.word = F.leaderBy ? `it surges: ${F.leaderBy} lets it run` : 'it surges!';
+        F.word = F.leaderBy ? $t`it surges: ${F.leaderBy} lets it run` : $t('it surges!');
         if (!F.leaderBy && held && L.pull > 0 && Math.random() < leaderRisk(L.pull, F.grip ?? 1)) {
           this.lose('kicked');
           return;
@@ -1282,7 +1283,7 @@ export class Fishing {
       // (On Relaxed nothing's lost: just how it's done.)
       if (L.pull === 0 && F.liftT > 0.4 && !F.toldLift) {
         F.toldLift = true;
-        this.hooks.flash(`Too heavy to lift on the line: let go, and tap ${this.hooks.key('cast')} to ${by === 'net' ? 'net it' : 'take it by the tail'}.`, 2.6);
+        this.hooks.flash($t`Too heavy to lift on the line: let go, and tap ${this.hooks.key('cast')} to ${by === 'net' ? $t('net it') : $t('take it by the tail')}.`, 2.6);
       }
       F.tension = held ? Math.min(0.95, 0.45 + F.liftT * 0.3) : 0.12;
     }
@@ -1294,7 +1295,7 @@ export class Fishing {
     }
     F.wordT -= dt;
     if (F.wordT <= 0) {
-      F.word = by === 'leader' && F.leaderBy ? 'hand over hand' : LAND_WAYS[by].word;
+      F.word = by === 'leader' && F.leaderBy ? $t('hand over hand') : LAND_WAYS[by].word;
       F.wordT = 0.5;
     }
     // Where it lies: at the end of the fight, kicked a little way out now and then; slid in towards
@@ -1400,7 +1401,7 @@ export class Fishing {
     if (this.state !== 'caught' || this.t < 0.4) return false;
     const F = this.fight;
     if (!F.sp.meal) {
-      this.hooks.flash(F.sp.keep || 'Better to let this one go.', 3);
+      this.hooks.flash(F.sp.keep || $t('Better to let this one go.'), 3);
       return false;
     }
     if (!this.hooks.canKeep()) return false;
@@ -1451,7 +1452,7 @@ export class Fishing {
         if (q > 0.25) {
           this.strikeQ = q;
           this.setHook();
-          if (this.fight) this.hooks.flash(q > 0.7 ? 'A firm strike: the hook’s well home!' : q > 0.45 ? 'Struck: fish on!' : 'A soft strike: it’s on, but go gently.', 2);
+          if (this.fight) this.hooks.flash(q > 0.7 ? $t('A firm strike: the hook’s well home!') : q > 0.45 ? $t('Struck: fish on!') : $t('A soft strike: it’s on, but go gently.'), 2);
         }
       }
     }
@@ -2016,7 +2017,7 @@ export class Fishing {
         const s = this.eco.habitat.sample(this.hook.x, this.hook.z);
         if (s.weed > 0.55 && Math.random() < 0.18 && !r.fouled) {
           r.fouled = true;
-          this.hooks.flash('Weed on the lure. Reel it in (or twitch it) to clear it.', 3.2);
+          this.hooks.flash($t('Weed on the lure. Reel it in (or twitch it) to clear it.'), 3.2);
         } else if (s.rock > 0.4) this.eco.bait.twitch = 0.4;
       }
     }
@@ -2099,7 +2100,7 @@ export class Fishing {
       b.twitch = Math.max(b.twitch || 0, m.twitch);
       if (this.r.fouled && m.twitch > 0.9 && Math.random() < 0.45) {
         this.r.fouled = false;
-        this.hooks.flash('You flick the weed off the lure', 2);
+        this.hooks.flash($t('You flick the weed off the lure'), 2);
       }
       if (act === 'crawl') this.r.hop = 0.45;
     }
@@ -2235,7 +2236,7 @@ export class Fishing {
     else if (it.fly === 'dry') this.bob.copy(this.hook);
     else this.surfacePoint(this.bob, t);
     if (r.drag && it.fly === 'dry' && Math.random() < dt * 5) this.fx.ripple(this.hook.x, this.hook.z, 0.3, 0.5, 0.25);
-    if (r.drag && !strip && flowing) this.hooks.teach('drag', 'The fly is dragging across the current, and trout distrust that. Cast upstream of them and let it drift down.');
+    if (r.drag && !strip && flowing) this.hooks.teach('drag', $t('The fly is dragging across the current, and trout distrust that. Cast upstream of them and let it drift down.'));
     this.syncBait();
   }
 
@@ -2313,18 +2314,18 @@ export class Fishing {
       const rock = F.stuck === 'rock', reel = this.hooks.key('cast');
       F.stuckAt = { x: this.fishPos.x, z: this.fishPos.z };
       F.stuckBearing = Math.atan2(F.stuckAt.x - b.x, F.stuckAt.z - b.z);
-      say(rock ? 'fast in the rocks!' : 'weeded!', 2.4);
+      say(rock ? $t('fast in the rocks!') : $t('weeded!'), 2.4);
       this.fx.ripple(this.fishPos.x, this.fishPos.z, 1.2, 1.1, 0.5);
       this.audio.splashSmall(0.6);
       this.hooks.feel?.('turn');
-      const angle = this.angler.onBoat ? 'take the boat round, or over the top of it' : 'walk along the bank';
+      const angle = this.angler.onBoat ? $t('take the boat round, or over the top of it') : $t('walk along the bank');
       this.hooks.flash(rock
-        ? `It’s wedged under the rocks! Let go of ${reel} and give it slack: it may back out. Or pull from a new angle (${angle}). Pulling hard saws the line on the rock.`
-        : `It’s weeded! Let go of ${reel} and give it slack: it may swim out. Or pull from a new angle (${angle}), or keep a steady pressure on it. Pulling hard cuts the line on the stems.`, 4);
-      this.hooks.teach('weeded', 'Snagged: give it slack, or pull from a new angle. A fish that reaches the weed or the rocks with line pouring off gets caught fast in them, but it isn’t lost yet: slack often lets it swim out by itself, and a new angle pulls it free. The longer it stays in, the likelier it works the hook out.', 9);
+        ? $t`It’s wedged under the rocks! Let go of ${reel} and give it slack: it may back out. Or pull from a new angle (${angle}). Pulling hard saws the line on the rock.`
+        : $t`It’s weeded! Let go of ${reel} and give it slack: it may swim out. Or pull from a new angle (${angle}), or keep a steady pressure on it. Pulling hard cuts the line on the stems.`, 4);
+      this.hooks.teach('weeded', $t('Snagged: give it slack, or pull from a new angle. A fish that reaches the weed or the rocks with line pouring off gets caught fast in them, but it isn’t lost yet: slack often lets it swim out by itself, and a new angle pulls it free. The longer it stays in, the likelier it works the hook out.'), 9);
     }
     if (ev === 'unstuck') {
-      say(F.unstuckBy === 'slack' ? 'it’s swum out!' : F.unstuckBy === 'angle' ? 'free: a new angle!' : 'worked it out!', 2);
+      say(F.unstuckBy === 'slack' ? $t('it’s swum out!') : F.unstuckBy === 'angle' ? $t('free: a new angle!') : $t('worked it out!'), 2);
       this.fx.ripple(this.fishPos.x, this.fishPos.z, 1.4, 1.2, 0.55);
       this.hooks.feel?.('turn');
     }
@@ -2342,7 +2343,7 @@ export class Fishing {
       if (F.time > 6 && F.sizeK > 0.35 && !F.toldSide) {
         F.toldSide = true;
         const L = this.hooks.key('left'), R = this.hooks.key('right');
-        this.hooks.teach('side', `A big fish runs hard. Swing the rod low to the side against its run (${L === R ? L : `${L} or ${R}`}): side pressure turns it and tires it sooner.`, 7);
+        this.hooks.teach('side', $t`A big fish runs hard. Swing the rod low to the side against its run (${L === R ? L : $t`${L} or ${R}`}): side pressure turns it and tires it sooner.`, 7);
       }
     }
     // A flick on the surface just before each run, so it can be read in time; the rod tip
@@ -2359,36 +2360,36 @@ export class Fishing {
       F.leapT = 0.75;
       this.show.takeOff(F, this.fishPos, waterLevel(this.fishPos.x, this.fishPos.z));
       this.audio.splashSmall(1.3);
-      say('jumping!', 1.2);
+      say($t('jumping!'), 1.2);
       this.hooks.feel?.('jump');
-      if (this.level.throwHook > 0) this.hooks.flash('It leaps! Keep the line tight: rod up, and wind.', 1.8);
+      if (this.level.throwHook > 0) this.hooks.flash($t('It leaps! Keep the line tight: rod up, and wind.'), 1.8);
     }
     if (ev === 'turn') {
       // It turns on its run: a swirl where it swings round.
       this.fx.ripple(this.fishPos.x, this.fishPos.z, 0.9, 1.0, 0.4);
-      say('it turns', 1);
+      say($t('it turns'), 1);
       this.hooks.feel?.('turn');
     }
     // (E2) The hook-hold worn loose by the fight: from now on a heavy hand pulls it out.
     if (ev === 'loosened') {
-      say('the hook’s working loose', 2.4);
-      this.hooks.flash('The hook’s working loose! Ease the pressure: keep it steady, rod low through the head-shakes.', 3);
-      this.hooks.teach('loosened', 'Every head-shake, leap and long heavy pull works at the hook-hold. Once it’s loose, a lighter drag and a steady line keep the fish on.', 8);
+      say($t('the hook’s working loose'), 2.4);
+      this.hooks.flash($t('The hook’s working loose! Ease the pressure: keep it steady, rod low through the head-shakes.'), 3);
+      this.hooks.teach('loosened', $t('Every head-shake, leap and long heavy pull works at the hook-hold. Once it’s loose, a lighter drag and a steady line keep the fish on.'), 8);
     }
     if (ev === 'tiring') {
       say('tiring', 2.5);
-      this.hooks.flash('It’s tiring: its runs are getting shorter. Keep a steady pressure on it.', 2.6);
+      this.hooks.flash($t('It’s tiring: its runs are getting shorter. Keep a steady pressure on it.'), 2.6);
     }
     if (ev === 'beaten') {
       say('beaten', 3);
-      this.hooks.flash('It’s beaten, rolling on its side. Wind it in gently.', 2.6);
+      this.hooks.flash($t('It’s beaten, rolling on its side. Wind it in gently.'), 2.6);
     }
     this.fightMoves(F, ev, dt, t, held, chargeWas, say);
     // Taking line well past where it was hooked (not on a long run, which is its way): the drag is
     // too light to check it. Said once a fight.
     if (!F.toldLine && F.extra > 8 && F.move !== 'longrun') {
       F.toldLine = true;
-      this.hooks.teach('lineout', `It’s taking line past where it was hooked: the drag’s too light to stop its runs. A click more drag (${this.hooks.key('forward')}) checks it, and winding against a drag that light only slips the spool.`, 7);
+      this.hooks.teach('lineout', $t`It’s taking line past where it was hooked: the drag’s too light to stop its runs. A click more drag (${this.hooks.key('forward')}) checks it, and winding against a drag that light only slips the spool.`, 7);
     }
     if (held) F.pickedUp = true;
     // The line creaks when it's at its limit, and keeps creaking while it strains: easing off
@@ -2398,7 +2399,7 @@ export class Fishing {
       this.audio.strain();
       this.hooks.shake(0.2);
       this.hooks.feel?.('creak');
-      this.hooks.flash('The line creaks! Ease off: it’s at its limit.', 2.4);
+      this.hooks.flash($t('The line creaks! Ease off: it’s at its limit.'), 2.4);
     } else if (F.tension > 0.97) {
       F.strainT = (F.strainT ?? 0) - dt;
       if (F.strainT <= 0) {
@@ -2520,7 +2521,7 @@ export class Fishing {
     if (F.progress >= 1) {
       if (!this.needsNet()) {
         // (From a boat, one too big for the net is drawn alongside: said once.)
-        if (this.bigCatch() && !F.sp.life.big && !this.fitsNet()) this.hooks.teach('alongside', 'Too big for the landing net: drawn alongside instead. The net takes fish up to 110 cm and 16 kg.', 7);
+        if (this.bigCatch() && !F.sp.life.big && !this.fitsNet()) this.hooks.teach('alongside', $t('Too big for the landing net: drawn alongside instead. The net takes fish up to 110 cm and 16 kg.'), 7);
         this.landFish();
         return;
       }
@@ -2528,13 +2529,13 @@ export class Fishing {
       // for it, what the shore allows.
       const by = this.landingBy(), key = this.hooks.key('cast');
       Object.assign(F, { atNet: true, landBy: by, netT: 0, kick: 0, kickT: rand(2.5, 4), stirred: false, liftT: 0, landT: 0, missT: 0, warned: false, surgeT: 0 });
-      if (by === 'net') this.hooks.teach('net', `A fish this size needs the net: tap ${key} when it’s beaten and alongside. Let go of the reel first, and don’t wind hard as it kicks.`, 8);
-      else if (by === 'beach') this.hooks.teach('beach', `Too big for the landing net (it takes fish up to 110 cm and 16 kg). On a shelving shore like this you can beach it: hold ${key} and it slides up into the shallows. Let go as it stirs, or the kick can tear the hook out.`, 9);
+      if (by === 'net') this.hooks.teach('net', $t`A fish this size needs the net: tap ${key} when it’s beaten and alongside. Let go of the reel first, and don’t wind hard as it kicks.`, 8);
+      else if (by === 'beach') this.hooks.teach('beach', $t`Too big for the landing net (it takes fish up to 110 cm and 16 kg). On a shelving shore like this you can beach it: hold ${key} and it slides up into the shallows. Let go as it stirs, or the kick can tear the hook out.`, 9);
       else if (by === 'leader') {
         F.kickT = rand(1.6, 2.6);
-        this.hooks.teach('leader', `Hold ${key} to take the leader, hand over hand. The leader’s at the rod tip, the ${F.sp.name.toLowerCase()} a few metres off with a surge still in it: draw it alongside. Let go as it stirs (the rod takes the surge), then take the leader again. A friend aboard can take it for you.`, 11);
-      } else if (by === 'hand') this.hooks.teach('tail', `Too big for the landing net (it takes fish up to 110 cm and 16 kg). Here you can reach the water: tap ${key} as it lies still to take it by the tail. Grab as it kicks and it slips your hand.`, 9);
-      else this.hooks.teach('hoist', `Too big to net from up here: hold ${key} to lift it on the line. Let go as it stirs. The hook takes all its weight, so a fish played gently, its hook still firm, is the one that comes up.`, 10);
+        this.hooks.teach('leader', $t`Hold ${key} to take the leader, hand over hand. The leader’s at the rod tip, the ${F.sp.name.toLowerCase()} a few metres off with a surge still in it: draw it alongside. Let go as it stirs (the rod takes the surge), then take the leader again. A friend aboard can take it for you.`, 11);
+      } else if (by === 'hand') this.hooks.teach('tail', $t`Too big for the landing net (it takes fish up to 110 cm and 16 kg). Here you can reach the water: tap ${key} as it lies still to take it by the tail. Grab as it kicks and it slips your hand.`, 9);
+      else this.hooks.teach('hoist', $t`Too big to net from up here: hold ${key} to lift it on the line. Let go as it stirs. The hook takes all its weight, so a fish played gently, its hook still firm, is the one that comes up.`, 10);
     }
   }
 
@@ -2544,62 +2545,62 @@ export class Fishing {
     const H = this.hooks, p = this.fishPos, K = (k) => H.key(k);
     // (On a controller one stick does both: say it once.)
     const LR = K('left') === K('right') ? K('left') : `${K('left')} or ${K('right')}`;
-    const reel = this.expert ? 'the reel' : `${K('cast')}`;
+    const reel = this.expert ? $t('the reel') : `${K('cast')}`;
     switch (ev) {
       case 'charge':
-        say('coming at you: wind!', 1.8);
+        say($t('coming at you: wind!'), 1.8);
         H.feel?.('turn');
         this.fx.ripple(p.x, p.z, 1.2, 1.2, 0.5);
-        H.teach('charge', `It’s turned and is coming straight at you! Wind as fast as you can (hold ${reel}) to keep the line tight: on a slack line it can shake the hook.`, 7);
+        H.teach('charge', $t`It’s turned and is coming straight at you! Wind as fast as you can (hold ${reel}) to keep the line tight: on a slack line it can shake the hook.`, 7);
         break;
       case 'shake':
-        say(this.side ? 'head-shaking: hold it' : 'head-shaking: rod low!', F.shakeT);
-        H.teach('headshake', `Head-shaking at the top! Swing the rod low to one side (${LR}) to keep its head down and the line steady. Rod up and winding hard, every shake snatches at the line; ease right off and it falls slack.`, 8);
+        say(this.side ? $t('head-shaking: hold it') : $t('head-shaking: rod low!'), F.shakeT);
+        H.teach('headshake', $t`Head-shaking at the top! Swing the rod low to one side (${LR}) to keep its head down and the line steady. Rod up and winding hard, every shake snatches at the line; ease right off and it falls slack.`, 8);
         break;
       case 'dive':
-        say(F.cover ? `diving for the ${F.coverKind === 'rock' ? 'rocks' : 'weed'}!` : 'diving deep!', 1.8);
-        H.teach('dive', `It’s diving for the bottom${F.cover ? ` and the ${F.coverKind === 'rock' ? 'rocks' : 'weed'}` : ''}. Swing the rod low against it (${LR}): side strain turns its head.`, 7);
+        say(F.cover ? $t`diving for the ${F.coverKind === 'rock' ? $t('rocks') : $t('weed')}!` : $t('diving deep!'), 1.8);
+        H.teach('dive', $t`It’s diving for the bottom${F.cover ? $t` and the ${F.coverKind === 'rock' ? $t('rocks') : $t('weed')}` : ''}. Swing the rod low against it (${LR}): side strain turns its head.`, 7);
         break;
       case 'lastdash':
-        say('one last dive!', 1.8);
-        H.flash('One last dive at your feet! Let the drag work, and turn it with side strain.', 2.4);
+        say($t('one last dive!'), 1.8);
+        H.flash($t('One last dive at your feet! Let the drag work, and turn it with side strain.'), 2.4);
         break;
       case 'edge':
         // Out of water at the far end (a bank, the shallows): it swirls round and turns.
-        say('it turns at the edge', 1.6);
+        say($t('it turns at the edge'), 1.6);
         this.fx.ripple(p.x, p.z, 1.4, 1.2, 0.5);
         if (p.y > -1.2) this.fx.splash(p.x, 0.05, p.z, 8, 1.6, 0.5);
         H.feel?.('turn');
         break;
       case 'turned':
-        say('turned it!', 1.4);
+        say($t('turned it!'), 1.4);
         this.fx.ripple(p.x, p.z, 1.1, 1.1, 0.45);
         H.feel?.('turn');
         break;
       case 'longrun':
-        say('a long run: let it go!', 2.4);
-        H.teach('longrun', `A long run: line pours off the reel, far past where it was hooked. Let it go with the rod up, and don’t wind into it. If the spool runs low, a click more drag slows it${this.angler.onBoat ? `, or follow it with the boat (${K('interact')})` : ''}.`, 9);
+        say($t('a long run: let it go!'), 2.4);
+        H.teach('longrun', $t`A long run: line pours off the reel, far past where it was hooked. Let it go with the rod up, and don’t wind into it. If the spool runs low, a click more drag slows it${this.angler.onBoat ? $t`, or follow it with the boat (${K('interact')})` : ''}.`, 9);
         break;
       case 'spool':
-        H.flash(F.spoolWarn > 1 ? `The spool’s nearly empty! A click more drag${this.angler.onBoat ? `, or follow it with the boat (${K('interact')})` : ''}, now.` : 'Half the line’s gone off the spool.', 2.6);
+        H.flash(F.spoolWarn > 1 ? $t`The spool’s nearly empty! A click more drag${this.angler.onBoat ? $t`, or follow it with the boat (${K('interact')})` : ''}, now.` : $t('Half the line’s gone off the spool.'), 2.6);
         H.feel?.('creak');
         break;
       case 'sound':
-        say('sounding: pump it up', 2.6);
+        say($t('sounding: pump it up'), 2.6);
         H.teach('sound', this.expert
-          ? 'It’s sounded: straight down, and hanging there like a dead weight. Pump it up: lift the rod slowly, then wind down as you lower it. Winding steadily barely moves it, and lets it get its breath back.'
-          : `It’s sounded: straight down, and hanging there like a dead weight. Pump it up in strokes: hold ${reel} for a moment (the rod lifts), let go (it drops as you wind down), and again. Winding steadily barely moves it, and lets it get its breath back.`, 9);
+          ? $t('It’s sounded: straight down, and hanging there like a dead weight. Pump it up: lift the rod slowly, then wind down as you lower it. Winding steadily barely moves it, and lets it get its breath back.')
+          : $t`It’s sounded: straight down, and hanging there like a dead weight. Pump it up in strokes: hold ${reel} for a moment (the rod lifts), let go (it drops as you wind down), and again. Winding steadily barely moves it, and lets it get its breath back.`, 9);
         break;
       case 'lifted':
-        say('it’s coming up', 1.6);
+        say($t('it’s coming up'), 1.6);
         break;
       case 'circle':
-        H.teach('circle', `Tired now, it’s circling below the boat. Wind as it comes up on the near side (the rod tip rises); hold as it goes round the far side.`, 8);
+        H.teach('circle', $t`Tired now, it’s circling below the boat. Wind as it comes up on the near side (the rod tip rises); hold as it goes round the far side.`, 8);
         break;
     }
     // The circles, in turn: up on the near side, round on the far.
     if (F.move === 'circle' && F.coming !== comingWas) {
-      say(F.coming ? 'coming up: wind' : 'going round: hold', 2.2);
+      say(F.coming ? $t('coming up: wind') : $t('going round: hold'), 2.2);
       if (F.coming) H.feel?.({ strong: 0.18, weak: 0.22, ms: 520, shape: 'swell' });
     }
     // A pumping stroke landing: a heave felt in your arms.

@@ -30,6 +30,7 @@
 // how it looks (cowl and band colours: plain, no badges; tall: a V6's taller cowling) and sounds
 // (note: its pitch, against a big four's; smooth: how even its beat, a V6 more than a four), and
 // what the Marine Works charges to fit it (price, with the old one taken in part exchange).
+import { $t } from './i18n.js';
 export const MODELS = {
   // The Eider, electric, for a tiller: a 3 kW motor in the leg (about 3.5 hp at the shaft, turning
   // a big, slow propeller directly) and its own lithium battery aboard (3 kWh, the weight of the
@@ -38,106 +39,106 @@ export const MODELS = {
   // the skiff's tank lasts about a thousand: far longer at the speeds you fish at). Silent until
   // the throttle's opened, a whine as it is.
   e3: {
-    name: 'Eider 3', hp: 3.5, kg: 41, lph: 0, layout: 'electric: a brushless motor in the leg, and its own 3 kWh battery', gear: 1, rpm: 1300,
+    name: $t('Eider 3'), hp: 3.5, kg: 41, lph: 0, layout: $t('electric: a brushless motor in the leg, and its own 3 kWh battery'), gear: 1, rpm: 1300,
     look: { cowl: '#dfe6e8', band: '#2c7c7a', tall: 0.78 }, note: 1, smooth: 1, price: 260,
     electric: true, kw: 3, wh: 3000, endure: 480, cruise: 5, props: ['matched'],
-    desc: 'Electric: silent, no petrol and no fumes, charged free at a jetty. Slower, and its battery runs down quickly flat out; at an easy pace it lasts.',
+    desc: $t('Electric: silent, no petrol and no fumes, charged free at a jetty. Slower, and its battery runs down quickly flat out; at an easy pace it lasts.'),
   },
   // The Petrel portables, for a tiller: light enough to carry.
   p6: {
-    name: 'Petrel 6', hp: 6, kg: 27, lph: 2.3, layout: 'four-stroke, single cylinder, 0.14 litres', gear: 1.92, rpm: 5500,
+    name: $t('Petrel 6'), hp: 6, kg: 27, lph: 2.3, layout: $t('four-stroke, single cylinder, 0.14 litres'), gear: 1.92, rpm: 5500,
     look: { cowl: '#e9e5dc', band: '#2f4f7a', tall: 0.92 }, note: 1.5, smooth: 0, price: 40,
-    desc: 'A single-cylinder portable: light, and it sips fuel; slow with two aboard.',
+    desc: $t('A single-cylinder portable: light, and it sips fuel; slow with two aboard.'),
   },
   p10: {
-    name: 'Petrel 9.9', hp: 9.9, kg: 40, lph: 3.7, layout: 'four-stroke, twin, 0.21 litres', gear: 2.08, rpm: 5500,
+    name: $t('Petrel 9.9'), hp: 9.9, kg: 40, lph: 3.7, layout: $t('four-stroke, twin, 0.21 litres'), gear: 2.08, rpm: 5500,
     look: { cowl: '#e9e5dc', band: '#2f4f7a', tall: 1 }, note: 1.4, smooth: 0, price: 40,
-    desc: 'The classic small-boat twin: enough to get a light skiff up and going.',
+    desc: $t('The classic small-boat twin: enough to get a light skiff up and going.'),
   },
   p15: {
-    name: 'Petrel 15', hp: 15, kg: 45, lph: 5.5, layout: 'four-stroke, twin, 0.35 litres', gear: 2.08, rpm: 5500,
+    name: $t('Petrel 15'), hp: 15, kg: 45, lph: 5.5, layout: $t('four-stroke, twin, 0.35 litres'), gear: 2.08, rpm: 5500,
     look: { cowl: '#e9e5dc', band: '#7a2b2b', tall: 1.04 }, note: 1.33, smooth: 0, price: 120,
-    desc: 'Half as much power again for a few kilos more: quicker up, and a few knots more.',
+    desc: $t('Half as much power again for a few kilos more: quicker up, and a few knots more.'),
   },
   p20: {
-    name: 'Petrel 20', hp: 20, kg: 48, lph: 7.2, layout: 'four-stroke, twin, 0.35 litres', gear: 2.08, rpm: 5700,
+    name: $t('Petrel 20'), hp: 20, kg: 48, lph: 7.2, layout: $t('four-stroke, twin, 0.35 litres'), gear: 2.08, rpm: 5700,
     look: { cowl: '#e9e5dc', band: '#7a2b2b', tall: 1.06 }, note: 1.3, smooth: 0, price: 170,
-    desc: 'As much as a small skiff wants: she fairly leaps along, and drinks for it.',
+    desc: $t('As much as a small skiff wants: she fairly leaps along, and drinks for it.'),
   },
   // The Tern threes (and the Tern 90, a four).
   t30: {
-    name: 'Tern 30', hp: 30, kg: 72, lph: 11, layout: 'four-stroke, three cylinders, 0.75 litres', gear: 1.92, rpm: 6000,
+    name: $t('Tern 30'), hp: 30, kg: 72, lph: 11, layout: $t('four-stroke, three cylinders, 0.75 litres'), gear: 1.92, rpm: 6000,
     look: { cowl: '#2b2e33', band: '#2f7a5a', tall: 0.96 }, note: 1.22, smooth: 0.1, price: 120,
-    desc: 'A light three: gentle on fuel, slower up to speed.',
+    desc: $t('A light three: gentle on fuel, slower up to speed.'),
   },
   t40: {
-    name: 'Tern 40', hp: 40, kg: 95, lph: 15, layout: 'four-stroke, three cylinders, 1.0 litres', gear: 1.83, rpm: 6000,
+    name: $t('Tern 40'), hp: 40, kg: 95, lph: 15, layout: $t('four-stroke, three cylinders, 1.0 litres'), gear: 1.83, rpm: 6000,
     look: { cowl: '#2b2e33', band: '#2f7a5a', tall: 1 }, note: 1.2, smooth: 0.1, price: 150,
-    desc: 'A willing three-cylinder, smooth and easy to live with.',
+    desc: $t('A willing three-cylinder, smooth and easy to live with.'),
   },
   t60: {
-    name: 'Tern 60', hp: 60, kg: 112, lph: 22, layout: 'four-stroke, three cylinders, 1.0 litres', gear: 2.0, rpm: 6000,
+    name: $t('Tern 60'), hp: 60, kg: 112, lph: 22, layout: $t('four-stroke, three cylinders, 1.0 litres'), gear: 2.0, rpm: 6000,
     look: { cowl: '#2b2e33', band: '#b8312f', tall: 1.04 }, note: 1.16, smooth: 0.1, price: 260,
-    desc: 'The bigger three: real punch for its weight.',
+    desc: $t('The bigger three: real punch for its weight.'),
   },
   t90: {
-    name: 'Tern 90', hp: 90, kg: 165, lph: 33, layout: 'four-stroke, inline four, 1.8 litres', gear: 2.08, rpm: 6000,
+    name: $t('Tern 90'), hp: 90, kg: 165, lph: 33, layout: $t('four-stroke, inline four, 1.8 litres'), gear: 2.08, rpm: 6000,
     look: { cowl: '#2b2e33', band: '#b8312f', tall: 1.08 }, note: 1.08, smooth: 0.15, price: 420,
-    desc: 'A four-cylinder in a light case: lively, and thirstier.',
+    desc: $t('A four-cylinder in a light case: lively, and thirstier.'),
   },
   // The Fulmar fours.
   f115: {
-    name: 'Fulmar 115', hp: 115, kg: 172, lph: 42, layout: 'four-stroke, inline four, 2.0 litres', gear: 2.07, rpm: 6000,
+    name: $t('Fulmar 115'), hp: 115, kg: 172, lph: 42, layout: $t('four-stroke, inline four, 2.0 litres'), gear: 2.07, rpm: 6000,
     look: { cowl: '#1d2125', band: '#9aa1a7', tall: 1 }, note: 1.1, smooth: 0.2, price: 90,
-    desc: 'The light four: lighter on the transom and on fuel flat out than the 150, a few knots slower.',
+    desc: $t('The light four: lighter on the transom and on fuel flat out than the 150, a few knots slower.'),
   },
   f150: {
-    name: 'Fulmar 150', hp: 150, kg: 216, lph: 56, layout: 'four-stroke, inline four, 2.8 litres', gear: 2.0, rpm: 6000,
+    name: $t('Fulmar 150'), hp: 150, kg: 216, lph: 56, layout: $t('four-stroke, inline four, 2.8 litres'), gear: 2.0, rpm: 6000,
     look: { cowl: '#1d2125', band: '#9aa1a7', tall: 1.04 }, note: 1, smooth: 0.2, price: 90,
-    desc: 'A big four: a good all-rounder, strong and economical.',
+    desc: $t('A big four: a good all-rounder, strong and economical.'),
   },
   // The Skua V6s.
   s200: {
-    name: 'Skua 200', hp: 200, kg: 240, lph: 74, layout: 'four-stroke, V6, 3.4 litres', gear: 1.85, rpm: 6000,
+    name: $t('Skua 200'), hp: 200, kg: 240, lph: 74, layout: $t('four-stroke, V6, 3.4 litres'), gear: 1.85, rpm: 6000,
     look: { cowl: '#e6e8e5', band: '#29486b', tall: 1.16 }, note: 0.82, smooth: 0.65, price: 520,
-    desc: 'A V6: noticeably quicker out of the hole and a good few knots more flat out, for more fuel at full throttle.',
+    desc: $t('A V6: noticeably quicker out of the hole and a good few knots more flat out, for more fuel at full throttle.'),
   },
   s225: {
-    name: 'Skua 225', hp: 225, kg: 250, lph: 83, layout: 'four-stroke, V6, 3.4 litres', gear: 1.85, rpm: 6000,
+    name: $t('Skua 225'), hp: 225, kg: 250, lph: 83, layout: $t('four-stroke, V6, 3.4 litres'), gear: 1.85, rpm: 6000,
     look: { cowl: '#e6e8e5', band: '#7a2b2b', tall: 1.18 }, note: 0.8, smooth: 0.7, price: 640,
-    desc: 'The biggest V6: the quickest she goes, and the thirstiest.',
+    desc: $t('The biggest V6: the quickest she goes, and the thirstiest.'),
   },
   // The Shearwater diesels, inboard: heavy, long-lived, and far thriftier than petrol for the power.
   // (And the slow-turning fours, for a displacement hull: the trawler's.)
   d120: {
-    name: 'Shearwater 120', hp: 120, kg: 430, lph: 26, layout: 'diesel, inline four, 4.5 litres', gear: 2.5, rpm: 2600,
+    name: $t('Shearwater 120'), hp: 120, kg: 430, lph: 26, layout: $t('diesel, inline four, 4.5 litres'), gear: 2.5, rpm: 2600,
     look: null, note: 1.12, smooth: 0, price: 1600, inboard: true,
-    desc: 'The thrifty four, unblown: a knot short of her best, and a whisper of fuel at eight knots.',
+    desc: $t('The thrifty four, unblown: a knot short of her best, and a whisper of fuel at eight knots.'),
   },
   d160: {
-    name: 'Shearwater 160', hp: 160, kg: 470, lph: 34, layout: 'diesel, inline four, 4.5 litres, turbocharged', gear: 2.5, rpm: 2600,
+    name: $t('Shearwater 160'), hp: 160, kg: 470, lph: 34, layout: $t('diesel, inline four, 4.5 litres, turbocharged'), gear: 2.5, rpm: 2600,
     look: null, note: 1.08, smooth: 0, price: 2200, inboard: true,
-    desc: 'The expedition four: eight knots all day, and fuel for weeks.',
+    desc: $t('The expedition four: eight knots all day, and fuel for weeks.'),
   },
   d260: {
-    name: 'Shearwater 260', hp: 260, kg: 480, lph: 50, layout: 'diesel, inline six, 4.2 litres, turbocharged', gear: 2.0, rpm: 3200,
+    name: $t('Shearwater 260'), hp: 260, kg: 480, lph: 50, layout: $t('diesel, inline six, 4.2 litres, turbocharged'), gear: 2.0, rpm: 3200,
     look: null, note: 1.06, smooth: 0, price: 900, inboard: true,
-    desc: 'The smaller six: lighter in her, gentler on fuel, a couple of knots slower.',
+    desc: $t('The smaller six: lighter in her, gentler on fuel, a couple of knots slower.'),
   },
   d320: {
-    name: 'Shearwater 320', hp: 320, kg: 520, lph: 62, layout: 'diesel, inline six, 5.5 litres, turbocharged', gear: 2.0, rpm: 3200,
+    name: $t('Shearwater 320'), hp: 320, kg: 520, lph: 62, layout: $t('diesel, inline six, 5.5 litres, turbocharged'), gear: 2.0, rpm: 3200,
     look: null, note: 1, smooth: 0, price: 900, inboard: true,
-    desc: 'A big six that will run all day: the yacht’s all-round pair.',
+    desc: $t('A big six that will run all day: the yacht’s all-round pair.'),
   },
   d370: {
-    name: 'Shearwater 370', hp: 370, kg: 545, lph: 72, layout: 'diesel, inline six, 5.5 litres, turbocharged', gear: 2.0, rpm: 3200,
+    name: $t('Shearwater 370'), hp: 370, kg: 545, lph: 72, layout: $t('diesel, inline six, 5.5 litres, turbocharged'), gear: 2.0, rpm: 3200,
     look: null, note: 0.97, smooth: 0, price: 1400, inboard: true,
-    desc: 'The same block turned up: a couple of knots more, for more fuel.',
+    desc: $t('The same block turned up: a couple of knots more, for more fuel.'),
   },
   d440: {
-    name: 'Shearwater 440', hp: 440, kg: 610, lph: 86, layout: 'diesel, inline six, 6.7 litres, turbocharged', gear: 2.0, rpm: 3200,
+    name: $t('Shearwater 440'), hp: 440, kg: 610, lph: 86, layout: $t('diesel, inline six, 6.7 litres, turbocharged'), gear: 2.0, rpm: 3200,
     look: null, note: 0.93, smooth: 0, price: 2100, inboard: true,
-    desc: 'The big six: the fastest passage south, and a thirst to match.',
+    desc: $t('The big six: the fastest passage south, and a thirst to match.'),
   },
 };
 
@@ -149,16 +150,16 @@ export const MODELS = {
 // price: fitted. (An inboard's propellers have four blades whatever their pitch.)
 export const PROPS = {
   matched: {
-    name: 'Three blades, matched pitch', inboard: 'Four blades, matched pitch', k: 1, blades: 3, steel: false, grip: 0, rpmK: 1, price: 45,
-    desc: 'Her engine turns its rated revs at her top speed: the best she does flat out.',
+    name: $t('Three blades, matched pitch'), inboard: $t('Four blades, matched pitch'), k: 1, blades: 3, steel: false, grip: 0, rpmK: 1, price: 45,
+    desc: $t('Her engine turns its rated revs at her top speed: the best she does flat out.'),
   },
   low: {
-    name: 'Three blades, lower pitch', inboard: 'Four blades, lower pitch', k: 0.88, blades: 3, steel: false, grip: 0, rpmK: 1.05, price: 45,
-    desc: 'Up to speed quicker and stronger with a load aboard; the engine reaches its limiter a little short of her best.',
+    name: $t('Three blades, lower pitch'), inboard: $t('Four blades, lower pitch'), k: 0.88, blades: 3, steel: false, grip: 0, rpmK: 1.05, price: 45,
+    desc: $t('Up to speed quicker and stronger with a load aboard; the engine reaches its limiter a little short of her best.'),
   },
   four: {
-    name: 'Four blades, stainless, a little less pitch', k: 0.94, blades: 4, steel: true, grip: 0.35, rpmK: 1.025, price: 160,
-    desc: 'Bites in a sea and when she’s trimmed high: a seaway slows her less. A little quicker away, a little short of her best flat out.',
+    name: $t('Four blades, stainless, a little less pitch'), k: 0.94, blades: 4, steel: true, grip: 0.35, rpmK: 1.025, price: 160,
+    desc: $t('Bites in a sea and when she’s trimmed high: a seaway slows her less. A little quicker away, a little short of her best flat out.'),
   },
 };
 export const PROP_IDS = Object.keys(PROPS);
@@ -177,26 +178,26 @@ export const PROP_IDS = Object.keys(PROPS);
 // (laden kg; crew: the words for it).
 export const CATALOGUE = {
   skiff: { slip: 0.3, stock: 'p10', models: ['e3', 'p6', 'p10', 'p15', 'p20'], plate: 20, props: ['matched', 'low', 'four'], drag: 1.177, tops: { e3: 4.512, p6: 5.763, p10: 7.071, p15: 8.346, p20: 9.33 },
-    legacy: { power: 'p15', economy: 'p6' }, go: 10, cruise: 10, laden: 150, crew: 'two aboard' },
+    legacy: { power: 'p15', economy: 'p6' }, go: 10, cruise: 10, laden: 150, crew: $t('two aboard') },
   bass: { slip: 0.2, stock: 't60', models: ['t40', 't60', 't90'], plate: 90, props: ['matched', 'low', 'four'], drag: 1.087, tops: { t40: 7.852, t60: 9.156, t90: 10.405 },
-    legacy: { power: 't90', economy: 't40' }, go: 12, cruise: 12, laden: 150, crew: 'two aboard' },
+    legacy: { power: 't90', economy: 't40' }, go: 12, cruise: 12, laden: 150, crew: $t('two aboard') },
   cabin: { slip: 0.45, stock: 't40', models: ['t30', 't40', 't60'], plate: 60, props: ['matched', 'low', 'four'], drag: 1.067, tops: { t30: 5.423, t40: 6.023, t60: 7.011 },
-    legacy: { power: 't60', economy: 't30' }, go: 8, cruise: 8, laden: 300, crew: 'four aboard' },
+    legacy: { power: 't60', economy: 't30' }, go: 8, cruise: 8, laden: 300, crew: $t('four aboard') },
   rib: { slip: 0.1, stock: 'f150', models: ['f115', 'f150', 's200', 's225'], plate: 225, props: ['matched', 'low', 'four'], drag: 1.0353, tops: { f115: 17.138, f150: 18.622, s200: 20.481, s225: 21.279 },
-    legacy: { power: 's200', economy: 'f115' }, go: 20, cruise: 25, laden: 300, crew: 'four aboard' },
+    legacy: { power: 's200', economy: 'f115' }, go: 20, cruise: 25, laden: 300, crew: $t('four aboard') },
   // (The tender: a tiller outboard on a little RIB, twenty horsepower as she comes, thirty at most
   // by her plate; nothing smaller than fifteen, which still has her on the plane.)
   tender: { slip: 0.15, stock: 'p20', models: ['p15', 'p20', 't30'], plate: 30, props: ['matched', 'low', 'four'], drag: 1.075, tops: { p15: 10.635, p20: 11.835, t30: 13.182 },
-    legacy: {}, go: 15, cruise: 15, laden: 160, crew: 'two aboard' },
+    legacy: {}, go: 15, cruise: 15, laden: 160, crew: $t('two aboard') },
   // (The trawler: one slow diesel. A bigger one buys her little: her hull won't be driven past the
   // wave it makes. Her propeller is matched to her engine and no other: a lower pitch, quicker away
   // and better laden on a planing hull, does nothing for a displacement one but burn more.)
   trawler: { slip: 0.35, stock: 'd160', models: ['d120', 'd160', 'd260'], plate: null, props: ['matched'], drag: 1.0636, tops: { d120: 4.45, d160: 4.692, d260: 5.093 },
-    legacy: {}, go: 7, cruise: 8, laden: 2500, crew: 'a full load (six aboard, full tanks and stores)' },
+    legacy: {}, go: 7, cruise: 8, laden: 2500, crew: $t('a full load (six aboard, full tanks and stores)') },
   console: { slip: 0.12, stock: 'f115', models: ['t90', 'f115', 'f150', 's200'], count: 2, plate: 200, props: ['matched', 'low', 'four'], drag: 1.0622, tops: { t90: 12.421, f115: 13.599, f150: 14.824, s200: 16.377 },
-    legacy: { power: 'f150', economy: 't90' }, go: 20, cruise: 22, laden: 400, crew: 'five aboard' },
+    legacy: { power: 'f150', economy: 't90' }, go: 20, cruise: 22, laden: 400, crew: $t('five aboard') },
   cruiser: { slip: 0.3, stock: 'd320', models: ['d260', 'd320', 'd370', 'd440'], count: 2, plate: null, props: ['matched', 'low'], drag: 1.065, tops: { d260: 9.221, d320: 9.947, d370: 10.489, d440: 11.14 },
-    legacy: {}, go: 15, cruise: 15, laden: 1600, crew: 'a full load (six aboard, full tanks and gear)' },
+    legacy: {}, go: 15, cruise: 15, laden: 1600, crew: $t('a full load (six aboard, full tanks and gear)') },
 };
 export const hasCatalogue = (kind) => !!CATALOGUE[kind];
 
@@ -239,7 +240,7 @@ const hullResist = (hull) => hull.resist || ((v) => (hull.drag?.[0] ?? 0.26) * v
 // A propeller's name on this boat (an inboard's have four blades).
 export const propName = (kind, id) => (MODELS[CATALOGUE[kind]?.stock]?.inboard ? PROPS[id].inboard || PROPS[id].name : PROPS[id].name);
 // An engine's name as fitted: a pair on a twin-engined boat.
-export const fittedName = (kind, model) => (CATALOGUE[kind]?.count > 1 ? `twin ${MODELS[model].name}s` : MODELS[model].name);
+export const fittedName = (kind, model) => (CATALOGUE[kind]?.count > 1 ? $t`twin ${MODELS[model].name}s` : MODELS[model].name);
 
 // What an engine and propeller do on this hull (her HULLS entry), or null for a boat without a
 // catalogue:

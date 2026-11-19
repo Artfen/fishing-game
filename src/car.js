@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { heightAt, laneInfo } from './world/terrain.js';
 import { mergeParts, mat, clamp, damp, dampAngle, smoothstep, glowTexture } from './util.js';
 import { HITCH, TONGUE } from './trailer.js';
+import { $t } from './i18n.js';
 
 // The car: a modest old estate in faded sage green, with a roof rack, a big boot and the gear
 // you've loaded in it showing through the back window (a tackle bag, a rod tube, the tent bundle,
@@ -336,7 +337,7 @@ export class Car {
         // (Something the car already overlaps doesn't hold it there: moving away is fine.)
         const fs = from ? Math.sin(from.yaw) : 0, fc = from ? Math.cos(from.yaw) : 0;
         const worse = out.filter((o) => !from || Math.hypot(bx - o.x, bz - o.z) < Math.hypot(from.x + u * fs - o.x, from.z + u * fc - o.z));
-        if (worse.length) return { kind: 'thing', name: worse[0].name || 'something' };
+        if (worse.length) return { kind: 'thing', name: worse[0].name || $t('something') };
       }
     }
     const g = this.ground(x, z, yaw), g0 = from ? this.ground(from.x, from.z, from.yaw) : null;

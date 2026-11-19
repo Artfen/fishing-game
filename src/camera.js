@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { heightAt, walkHeight } from './world/terrain.js';
 import { waveHeight } from './world/water.js';
 import { clamp, damp, dampAngle, smoothstep, rand, lerp, wrapAngle } from './util.js';
+import { $t } from './i18n.js';
 
 // Ways to look at the world:
 //  boat  – the familiar view from above and behind the boat
@@ -30,7 +31,7 @@ const LIMITS = {
 };
 // Through the mask you can look all the way up and down.
 const MASK = { pitch: [-1.45, 1.45], dist: [0, 0] };
-export const VIEW_NAMES = { boat: 'Boat view', foot: 'On foot', under: 'Underwater', bait: 'Watching your bait', eye: 'First person', car: 'Driving', cabin: 'The cabin', dive: 'Diving' };
+export const VIEW_NAMES = { boat: $t('Boat view'), foot: $t('On foot'), under: $t('Underwater'), bait: $t('Watching your bait'), eye: $t('First person'), car: $t('Driving'), cabin: $t('The cabin'), dive: $t('Diving') };
 // The camera stays this far clear of the surface on either side of it (never half in, half out).
 const ABOVE = 0.6, BELOW = 0.4;
 const EYE_PITCH = 0.2; // looking a little down at the water when you first raise your eyes

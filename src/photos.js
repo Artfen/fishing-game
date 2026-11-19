@@ -5,6 +5,7 @@
 // web page you can keep. Where the browser has no database (some private windows), photos last
 // until you close the tab, and the album says so.
 
+import { $t } from './i18n.js';
 export const PHOTO_W = 1280;   // pixels along the longer side (the other follows the screen's shape)
 export const THUMB_W = 320;
 
@@ -127,7 +128,7 @@ export async function albumPage(store, photos, describe) {
   for (const p of photos) {
     const r = await store.get(p.id);
     const src = r?.blob ? await blobToDataURL(r.blob) : null;
-    items.push(`<figure>${src ? `<img src="${src}" alt="${esc(p.title || 'A photograph')}">` : '<div class="gone">(taken on another device)</div>'}<figcaption><b>${esc(p.title || 'Untitled')}</b><br>${esc(describe(p))}</figcaption></figure>`);
+    items.push($t`<figure>${src ? $t`<img src="${src}" alt="${esc(p.title || 'A photograph')}">` : $t('<div class="gone">(taken on another device)</div>')}<figcaption><b>${esc(p.title || $t('Untitled'))}</b><br>${esc(describe(p))}</figcaption></figure>`);
   }
   return `<!doctype html><meta charset="utf-8"><title>Slow Tide: my album</title>
 <style>body{margin:0;padding:24px;background:#efe3c6;color:#35291f;font:16px/1.4 Georgia,serif}h1{font-weight:normal}

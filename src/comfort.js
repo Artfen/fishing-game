@@ -1,4 +1,5 @@
 import { clamp, lerp, smoothstep } from './util.js';
+import { $t } from './i18n.js';
 
 // How the angler feels on a long day out: warm or cold, dry or damp, thirsty or not (hunger is
 // the camp's: see camp.js). Light on purpose: it makes the character answer the weather and the
@@ -19,18 +20,18 @@ import { clamp, lerp, smoothstep } from './util.js';
 // gets very low, a slightly slower walk, a little shake in the hands, slower to catch your breath).
 
 export const NEEDS_MODES = {
-  off: { label: 'Off', desc: 'No warmth, wet, thirst or hunger: the angler never feels the weather.' },
-  shown: { label: 'Shown only', desc: 'The angler shivers, sweats, drips and takes a drink, and the hints say what would help, but nothing ever slows you down.' },
-  gentle: { label: 'Gentle', desc: 'As Shown, and only when a need gets very low: a slightly slower walk, a little shake in the hands, slower to get your breath back. It never stops you fishing.' },
+  off: { label: $t('Off'), desc: $t('No warmth, wet, thirst or hunger: the angler never feels the weather.') },
+  shown: { label: $t('Shown only'), desc: $t('The angler shivers, sweats, drips and takes a drink, and the hints say what would help, but nothing ever slows you down.') },
+  gentle: { label: $t('Gentle'), desc: $t('As Shown, and only when a need gets very low: a slightly slower walk, a little shake in the hands, slower to get your breath back. It never stops you fishing.') },
 };
 export const NEEDS_IDS = Object.keys(NEEDS_MODES);
 
 // What you can wear: how much warmer it keeps you (°C), how much rain it keeps off, and how much
 // of the wind (a raincoat is windproof too).
 export const CLOTHES = {
-  coat: { name: 'Raincoat', note: 'A yellow oilskin: keeps the rain and the wind off, but hot in the sun.', warm: 1.5, rain: 0.85, wind: 0.5 },
-  jumper: { name: 'Wool jumper', note: 'Thick and warm, even a little damp. No good in the rain on its own.', warm: 4, rain: 0, wind: 0.15 },
-  hat: { name: 'Woolly hat', note: 'Keeps your head warm on a cold night or up the fell (instead of the sun hat).', warm: 1.5, rain: 0, wind: 0.1 },
+  coat: { name: $t('Raincoat'), note: $t('A yellow oilskin: keeps the rain and the wind off, but hot in the sun.'), warm: 1.5, rain: 0.85, wind: 0.5 },
+  jumper: { name: $t('Wool jumper'), note: $t('Thick and warm, even a little damp. No good in the rain on its own.'), warm: 4, rain: 0, wind: 0.15 },
+  hat: { name: $t('Woolly hat'), note: $t('Keeps your head warm on a cold night or up the fell (instead of the sun hat).'), warm: 1.5, rain: 0, wind: 0.1 },
 };
 export const CLOTHES_IDS = Object.keys(CLOTHES);
 export const BOTTLE = 4; // drinks in a full water bottle
@@ -170,17 +171,17 @@ export function dressFor(c, env) {
 export function needsOf(c, food) {
   const out = [];
   const w = c.warm;
-  if (w < 6) out.push({ id: 'cold', word: 'Cold', low: true });
-  else if (w < 12) out.push({ id: 'chilly', word: 'Chilly', low: false });
-  else if (w > 32) out.push({ id: 'hot', word: 'Hot', low: true });
-  else if (w > 28) out.push({ id: 'warm', word: 'Warm', low: false });
-  if (c.wet > 0.6) out.push({ id: 'soaked', word: 'Soaked', low: false });
-  else if (c.wet > 0.2) out.push({ id: 'damp', word: 'Damp', low: false });
-  if (c.drink < 15) out.push({ id: 'parched', word: 'Parched', low: true });
-  else if (c.drink < 40) out.push({ id: 'thirsty', word: 'Thirsty', low: false });
+  if (w < 6) out.push({ id: 'cold', word: $t('Cold'), low: true });
+  else if (w < 12) out.push({ id: 'chilly', word: $t('Chilly'), low: false });
+  else if (w > 32) out.push({ id: 'hot', word: $t('Hot'), low: true });
+  else if (w > 28) out.push({ id: 'warm', word: $t('Warm'), low: false });
+  if (c.wet > 0.6) out.push({ id: 'soaked', word: $t('Soaked'), low: false });
+  else if (c.wet > 0.2) out.push({ id: 'damp', word: $t('Damp'), low: false });
+  if (c.drink < 15) out.push({ id: 'parched', word: $t('Parched'), low: true });
+  else if (c.drink < 40) out.push({ id: 'thirsty', word: $t('Thirsty'), low: false });
   if (food) {
-    if (food.full < 15) out.push({ id: 'hungry', word: 'Hungry', low: true });
-    else if (food.full < 40) out.push({ id: 'peckish', word: 'Peckish', low: false });
+    if (food.full < 15) out.push({ id: 'hungry', word: $t('Hungry'), low: true });
+    else if (food.full < 40) out.push({ id: 'peckish', word: $t('Peckish'), low: false });
   }
   return out.sort((a, b) => b.low - a.low);
 }

@@ -202,5 +202,5 @@ test('the game: Puerto Brasa’s harbour for the jobs, the boats on the island f
   // The map's mark for the job's harbour, and its words.
   assert.match(src, /at\.base === 'puerto' \? 'puerto' : 'haven'/);
   assert.match(src, /Back to \$\{Con\.paidAt\(a\)\} to be paid\./);
-  assert.match(src, /a\.obj\.base === 'puerto' \? 'Back to Puerto Brasa\.' : 'Home to Willowhaven\.'/);
+  assert.match(src, /a\.obj\.base === 'puerto' \? \$t\('Back to Puerto Brasa\.'\) : \$t\('Home to Willowhaven\.'\)/);
 });

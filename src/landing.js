@@ -10,6 +10,7 @@
 //     up on the line, and the hook takes all its weight.
 
 import { bottomOf } from './sonarRead.js';
+import { $t } from './i18n.js';
 
 export const NET = { cm: 110, kg: 16 };
 
@@ -51,12 +52,12 @@ export function shoreMethodAt(pos, end, { walkHeight, depthAt, waterLevel, habit
 // What each way of landing asks of you: landed by a tap (the net, a hand) or by winding steadily
 // (up the beach, up the wall); how long it takes to wind it out (s).
 export const LAND_WAYS = {
-  net: { tap: true, word: 'net it', act: 'Net it' },
-  hand: { tap: true, word: 'tail it', act: 'Grab it' },
-  beach: { tap: false, word: 'beach it', act: 'Wind', wind: 2.2 },
-  lift: { tap: false, word: 'lift it', act: 'Lift', wind: 1.6 },
+  net: { tap: true, word: $t('net it'), act: $t('Net it') },
+  hand: { tap: true, word: $t('tail it'), act: $t('Grab it') },
+  beach: { tap: false, word: $t('beach it'), act: $t('Wind'), wind: 2.2 },
+  lift: { tap: false, word: $t('lift it'), act: $t('Lift'), wind: 1.6 },
   // (E3d) The big game from a boat: drawn alongside on the leader, hand over hand (see below).
-  leader: { tap: false, word: 'take the leader', act: 'Take the leader', wind: 3.2 },
+  leader: { tap: false, word: $t('take the leader'), act: $t('Take the leader'), wind: 3.2 },
 };
 
 // (E3d) The big game from a boat. Beaten, it comes to the leader: the heavy trace above the hook,

@@ -1,6 +1,7 @@
 import { seasonOf } from './season.js';
 import { formatClock } from './sky.js';
 import { seeded } from '../util.js';
+import { $t } from '../i18n.js';
 
 // Gales: the big storms off the Atlantic don't come out of nowhere any more. Each is known about a
 // day ahead (the notice board's outlook), comes in over hours (the cloud thickening, then rain,
@@ -49,12 +50,12 @@ export function galeSky(abs) {
 // The outlook, for the board: today's and tomorrow's.
 export function outlook(abs) {
   const day = Math.floor(abs / 24), out = [];
-  const at = (g) => `from about ${formatClock(g.start % 24)} until ${formatClock(g.end % 24)}`;
+  const at = (g) => $t`from about ${formatClock(g.start % 24)} until ${formatClock(g.end % 24)}`;
   const today = galeFor(day), tomorrow = galeFor(day + 1), last = galeFor(day - 1);
-  if (last && abs < last.end) out.push(`Storm warning: a gale is blowing until about ${formatClock(last.end % 24)}. Keep to sheltered water.`);
-  if (today && abs < today.end) out.push(abs >= today.start ? `Storm warning: a gale is blowing until about ${formatClock(today.end % 24)}. Keep to sheltered water: the estuary, the coves, the bay, the lakes.` : `Gale warning for today, ${at(today)}. Be within reach of shelter before then.`);
-  else if (!last || abs >= last.end) out.push('Today: no gales expected.');
-  out.push(tomorrow ? `Tomorrow: a gale ${at(tomorrow)}.` : 'Tomorrow: no gales expected.');
+  if (last && abs < last.end) out.push($t`Storm warning: a gale is blowing until about ${formatClock(last.end % 24)}. Keep to sheltered water.`);
+  if (today && abs < today.end) out.push(abs >= today.start ? $t`Storm warning: a gale is blowing until about ${formatClock(today.end % 24)}. Keep to sheltered water: the estuary, the coves, the bay, the lakes.` : $t`Gale warning for today, ${at(today)}. Be within reach of shelter before then.`);
+  else if (!last || abs >= last.end) out.push($t('Today: no gales expected.'));
+  out.push(tomorrow ? $t`Tomorrow: a gale ${at(tomorrow)}.` : $t('Tomorrow: no gales expected.'));
   return out;
 }
 // How long until the next gale arrives (hours), if one's on the way within a day.

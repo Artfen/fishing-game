@@ -10,14 +10,15 @@
 //
 // Figures typical of three-strand line of each size, rounded; the breaking loads are new rope's.
 
+import { $t } from './i18n.js';
 export const G = 9.81;
 
 // mbl: minimum breaking load (N); strain: the stretch at that load, as a share of its length;
 // zeta: its damping, as a share of critical for the mass it's holding; mm: its diameter.
 export const LINES = {
   towline: { name: 'towline', fibre: 'nylon', mm: 12, mbl: 30000, strain: 0.2, zeta: 0.5 },
-  rode: { name: 'anchor rode', fibre: 'nylon', mm: 12, mbl: 32000, strain: 0.2, zeta: 0.6 },
-  mooring: { name: 'mooring line', fibre: 'polyester', mm: 12, mbl: 30000, strain: 0.12, zeta: 0.7 },
+  rode: { name: $t('anchor rode'), fibre: 'nylon', mm: 12, mbl: 32000, strain: 0.2, zeta: 0.6 },
+  mooring: { name: $t('mooring line'), fibre: 'polyester', mm: 12, mbl: 30000, strain: 0.12, zeta: 0.7 },
 };
 
 // Its stiffness (N per metre of stretch) at a length (m).
@@ -60,6 +61,6 @@ export function tendLine(extra, out, spec, tended, dt) {
 // In words for the screen: "2.1 kN, a twentieth of what it holds".
 export function loadWords(T, spec) {
   const kN = T / 1000, share = T / spec.mbl;
-  const how = share >= 0.75 ? 'close to parting' : share >= 0.5 ? 'bar-tight' : share >= 0.2 ? 'working hard' : share > 0.02 ? 'taking the strain' : 'slack';
+  const how = share >= 0.75 ? $t('close to parting') : share >= 0.5 ? $t('bar-tight') : share >= 0.2 ? $t('working hard') : share > 0.02 ? $t('taking the strain') : $t('slack');
   return `${kN < 10 ? kN.toFixed(1) : Math.round(kN)} kN, ${how}`;
 }

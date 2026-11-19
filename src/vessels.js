@@ -16,22 +16,23 @@
 // and a bed, for the price. The sailing boat: no fuel at all, and the seamanship to go with it.
 
 import { kindOf } from './boatid.js';
+import { $t } from './i18n.js';
 
 export const KG_PER_PERSON = 80;
 export const VESSELS = {
-  row: { name: 'rowing boat', seats: 1, cargo: 120, shelter: false, comfort: 0.5, divers: false, purpose: 'Cheap, quiet and simple: sheltered water, close to the fish.' },
-  skiff: { name: 'motor skiff', seats: 2, cargo: 200, shelter: false, comfort: 0.6, divers: false, purpose: 'A little outboard boat for the bay and the estuary: cheap to run, quiet when you want it.' },
-  kayak: { name: 'kayak', seats: 0, cargo: 30, shelter: false, comfort: 0.4, divers: false, purpose: 'Into the shallows and the reeds where nothing else goes, silently.' },
-  bass: { name: 'bass boat', seats: 1, cargo: 180, shelter: false, comfort: 0.6, divers: false, purpose: 'Shallow, stable and precise: electric motors, a casting deck, the lakes and the estuary.' },
-  sail: { name: 'sailing boat', seats: 3, cargo: 300, shelter: false, comfort: 1.0, divers: false, purpose: 'No fuel at all: the wind takes her anywhere, as far as the island, if you can sail her.' },
-  rib: { name: 'RIB', seats: 5, cargo: 400, shelter: false, comfort: 1.1, divers: true, purpose: 'Fast and capable along the coast: a few people, divers, a quick trip out and back.' },
-  console: { name: 'centre-console boat', seats: 5, cargo: 800, shelter: false, comfort: 1.3, divers: true, purpose: 'An offshore fishing boat: a working deck for several anglers, room for gear, twin engines.' },
-  cabin: { name: 'cabin boat', seats: 4, cargo: 600, shelter: true, comfort: 2.0, divers: false, purpose: 'Weather protection and a bunk: longer trips, passengers kept dry, a night aboard.' },
-  cruiser: { name: 'sport-fishing yacht', seats: 8, cargo: 1500, shelter: true, comfort: 2.6, divers: true, purpose: 'Long-range expeditions: passengers, freight, divers and a cabin to live in, across the ocean.' },
-  tender: { name: 'tender', seats: 2, cargo: 150, shelter: false, comfort: 0.6, divers: true, purpose: 'Small, light and quick: ashore from a bigger boat, or nipping about the bay with a friend or two. Divers roll off her tubes.' },
-  trawler: { name: 'expedition trawler', seats: 6, cargo: 2000, shelter: true, comfort: 2.8, divers: true, purpose: 'Built for the long way: eight knots all day on very little fuel, a pilothouse to steer from in any weather, room for people, freight and divers.' },
-  jetski: { name: 'jet ski', seats: 1, cargo: 20, shelter: false, comfort: 0.6, divers: false, purpose: 'For the fun of it.' },
-  windsurf: { name: 'windsurf board', seats: 0, cargo: 0, shelter: false, comfort: 0.6, divers: false, purpose: 'For the fun of it, and the wind.' },
+  row: { name: $t('rowing boat'), seats: 1, cargo: 120, shelter: false, comfort: 0.5, divers: false, purpose: $t('Cheap, quiet and simple: sheltered water, close to the fish.') },
+  skiff: { name: $t('motor skiff'), seats: 2, cargo: 200, shelter: false, comfort: 0.6, divers: false, purpose: $t('A little outboard boat for the bay and the estuary: cheap to run, quiet when you want it.') },
+  kayak: { name: 'kayak', seats: 0, cargo: 30, shelter: false, comfort: 0.4, divers: false, purpose: $t('Into the shallows and the reeds where nothing else goes, silently.') },
+  bass: { name: $t('bass boat'), seats: 1, cargo: 180, shelter: false, comfort: 0.6, divers: false, purpose: $t('Shallow, stable and precise: electric motors, a casting deck, the lakes and the estuary.') },
+  sail: { name: $t('sailing boat'), seats: 3, cargo: 300, shelter: false, comfort: 1.0, divers: false, purpose: $t('No fuel at all: the wind takes her anywhere, as far as the island, if you can sail her.') },
+  rib: { name: $t('RIB'), seats: 5, cargo: 400, shelter: false, comfort: 1.1, divers: true, purpose: $t('Fast and capable along the coast: a few people, divers, a quick trip out and back.') },
+  console: { name: 'centre-console boat', seats: 5, cargo: 800, shelter: false, comfort: 1.3, divers: true, purpose: $t('An offshore fishing boat: a working deck for several anglers, room for gear, twin engines.') },
+  cabin: { name: $t('cabin boat'), seats: 4, cargo: 600, shelter: true, comfort: 2.0, divers: false, purpose: $t('Weather protection and a bunk: longer trips, passengers kept dry, a night aboard.') },
+  cruiser: { name: 'sport-fishing yacht', seats: 8, cargo: 1500, shelter: true, comfort: 2.6, divers: true, purpose: $t('Long-range expeditions: passengers, freight, divers and a cabin to live in, across the ocean.') },
+  tender: { name: 'tender', seats: 2, cargo: 150, shelter: false, comfort: 0.6, divers: true, purpose: $t('Small, light and quick: ashore from a bigger boat, or nipping about the bay with a friend or two. Divers roll off her tubes.') },
+  trawler: { name: $t('expedition trawler'), seats: 6, cargo: 2000, shelter: true, comfort: 2.8, divers: true, purpose: $t('Built for the long way: eight knots all day on very little fuel, a pilothouse to steer from in any weather, room for people, freight and divers.') },
+  jetski: { name: $t('jet ski'), seats: 1, cargo: 20, shelter: false, comfort: 0.6, divers: false, purpose: $t('For the fun of it.') },
+  windsurf: { name: $t('windsurf board'), seats: 0, cargo: 0, shelter: false, comfort: 0.6, divers: false, purpose: $t('For the fun of it, and the wind.') },
 };
 // She as she was built.
 // (By her kind, or her id: a second boat of a kind is the same sort of boat. See boatid.js.)
@@ -53,9 +54,9 @@ export function vesselOf(kind) {
 // Can she take this job's people and freight? Returns why not, or null.
 export function fits(kind, { pax = 0, cargo = 0, divers = false } = {}) {
   const V = vesselOf(kind);
-  if (pax > V.seats) return `room for ${pax}: she seats ${V.seats || 'nobody'} besides you`;
-  if (cargo > V.cargo) return `${cargo} kg of freight: she carries ${V.cargo} kg`;
-  if (divers && !V.divers) return 'divers and their kit: she has no ladder or room for tanks';
+  if (pax > V.seats) return $t`room for ${pax}: she seats ${V.seats || $t('nobody')} besides you`;
+  if (cargo > V.cargo) return $t`${cargo} kg of freight: she carries ${V.cargo} kg`;
+  if (divers && !V.divers) return $t('divers and their kit: she has no ladder or room for tanks');
   return null;
 }
 // The smallest of the boats there are that would do (for an offer's "take").

@@ -39,6 +39,7 @@ import { kindOf, isBoatId } from './boatid.js';
 import { cleanPlay } from './playmode.js';
 import { cleanTold } from './screenwords.js';
 import { readIndex, noteSaved, filled, switchTo, deleteGame, parkedText, SLOTS } from './slots.js';
+import { $t } from './i18n.js';
 
 // Saving your progress in this browser, with nobody to sign in to.
 //
@@ -750,7 +751,7 @@ export const slots = {
   filled: () => filled(store, { KEY, BACKUP }),
   parked: (n) => parkedText(store, n),
   switchTo(n) {
-    if (BENCH) return { ok: false, why: 'Not in the benchmark.' };
+    if (BENCH) return { ok: false, why: $t('Not in the benchmark.') };
     const was = status.canSave;
     status.canSave = false;
     const r = switchTo(store, { KEY, BACKUP }, n);

@@ -13,9 +13,10 @@
 // line, so what an Expert angler catches is decided by the same fish as anyone's. Better technique
 // shows as better presentation and fewer fish lost, never as more bites from nowhere.
 
+import { $t } from './i18n.js';
 export const TECHNIQUES = {
-  assisted: { id: 'assisted', name: 'Assisted', desc: 'Hold to reel at your chosen speed, tap to twitch, let go to pause; press to strike. The rod looks after itself.' },
-  expert: { id: 'expert', name: 'Expert', desc: 'The rod is in your hands (the right stick: up lifts, down drops, across sweeps), the reel is the right trigger. Lift to work a jig, snap down to pop a popper, sweep side to side to walk a stick bait, sweep up hard to set the hook, and pump a big fish in: lift, then wind down as you lower the rod. Readouts show the lure’s depth and speed and the line’s load.' },
+  assisted: { id: 'assisted', name: $t('Assisted'), desc: $t('Hold to reel at your chosen speed, tap to twitch, let go to pause; press to strike. The rod looks after itself.') },
+  expert: { id: 'expert', name: $t('Expert'), desc: $t('The rod is in your hands (the right stick: up lifts, down drops, across sweeps), the reel is the right trigger. Lift to work a jig, snap down to pop a popper, sweep side to side to walk a stick bait, sweep up hard to set the hook, and pump a big fish in: lift, then wind down as you lower the rod. Readouts show the lure’s depth and speed and the line’s load.') },
 };
 export const TECHNIQUE_IDS = Object.keys(TECHNIQUES);
 

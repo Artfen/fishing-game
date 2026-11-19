@@ -182,10 +182,10 @@ test('friends see you at her inside helm: it goes in your boat’s pose, and bac
 
 test('the game: the inside helm offered at her helm, under way and still; no casting from it; the dashboard outside', () => {
   const src = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
-  assert.match(src, /text: 'Steer from inside the wheelhouse', run: \(\) => helmInside\(true\)/);
-  assert.match(src, /'Out to the helm in the cockpit' : 'Back out to the tiller'/);
+  assert.match(src, /text: \$t\('Steer from inside the wheelhouse'\), run: \(\) => helmInside\(true\)/);
+  assert.match(src, /\$t\('Out to the helm in the cockpit'\) : \$t\('Back out to the tiller'\)/);
   assert.match(src, /const helmBound = !onFoot && boat\.helmIn;/);
-  assert.match(src, /if \(!onFoot && boat\.helmIn && !modal && !fishing\.busy\) \{\n\s+hud\.flash\(`From the inside helm you can't cast/);
+  assert.match(src, /if \(!onFoot && boat\.helmIn && !modal && !fishing\.busy\) \{\n\s+hud\.flash\(\$t`From the inside helm you can't cast/);
   assert.match(src, /!cabinIn && !helmBound && !dive/);
   assert.match(src, /cabinIn \|\| boat\.helmIn \|\| !boat\.dash/);
   assert.match(src, /\.\.\.\(boat\.helmIn \? \{ hi: 1 \} : \{\}\)/);

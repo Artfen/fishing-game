@@ -6,6 +6,7 @@ export { waterLevel } from './coldwater.js';
 import { SOUTH_Z, brasaHeight, brasaSDF, brasaZone, SOUTH_ZONES, BRASA_PLACES, PUERTO, ISLE, inSouth, QUAY_S, MOLE, DIQUE, SOUTH_RECT, PONTOON_S, FINGERS_S, PONTOON_STEPS, FUEL_S, inEstrecho } from './brasa.js';
 export { SOUTH_Z, inSouth } from './brasa.js';
 import { northLand, northShape, northGround, northZone, NORTH_ZONES, NORTH_RECT, NORTH_PLACES, inSound, inChurn, lochAt, HALVIG_PIER, HALVIG_FUEL } from './north.js';
+import { $t } from '../i18n.js';
 
 // The whole archipelago is one signed-distance function: negative on land, positive on water.
 // World axes: +x east, -z north. Water level is y = 0.
@@ -151,9 +152,9 @@ export const STREAM = [
 ];
 // Pools along the stream (where trout hold), at the deep nodes.
 export const POOLS = [
-  { name: 'Spring Pool', node: 1 },
-  { name: 'Alder Pool', node: 3 },
-  { name: 'Tail Pool', node: 5 },
+  { name: $t('Spring Pool'), node: 1 },
+  { name: $t('Alder Pool'), node: 3 },
+  { name: $t('Tail Pool'), node: 5 },
 ];
 // The path from the landing, past camp, round the lake and up the stream.
 export const PATH = [
@@ -234,8 +235,8 @@ export const HOME = { x: 123, z: -74 };
 // Willowhaven quay, where the boats come alongside, and on Puerto Brasa's quay far to the south
 // (and Willowhaven's fuel point on its pontoon: see HAVEN_PONTOON). yaw: the way the pump faces.
 export const FUEL_PUMPS = {
-  home: { x: 136.6, z: -68.8, yaw: -Math.PI / 2, name: 'the fuel pump by the garage' },
-  haven: { x: 13.6, z: -96.2, yaw: -Math.PI / 2, name: 'the harbour fuel pump' },
+  home: { x: 136.6, z: -68.8, yaw: -Math.PI / 2, name: $t('the fuel pump by the garage') },
+  haven: { x: 13.6, z: -96.2, yaw: -Math.PI / 2, name: $t('the harbour fuel pump') },
   brasa: FUEL_S,
   // (The north's: Halvig's, at the root of its pier. See north.js.)
   halvig: HALVIG_FUEL,
@@ -1099,7 +1100,7 @@ export const VISITOR_FINGERS = [HAVEN_FINGERS[4], HAVEN_FINGERS[5]];
 // faces); your boats are seen to there.
 export const HARBOUR_OFFICE = { x: 5.4, z: -98.7, yaw: 0, w: 2.3, d: 1.9 };
 export const HAVEN_STEPS = [1.26, 1.02, 0.78].map((deck, i) => ({ x: 11, z: HAVEN_PONTOON.z0 + 0.5 + i, hx: 0.6, hz: 0.5, yaw: 0, deck }));
-FUEL_PUMPS.marina = { x: HAVEN_PONTOON.x0 + 0.35, z: HAVEN_PONTOON.z0 + 5.5, yaw: Math.PI, name: 'the fuel point on the pontoon', deck: HAVEN_PONTOON.deck };
+FUEL_PUMPS.marina = { x: HAVEN_PONTOON.x0 + 0.35, z: HAVEN_PONTOON.z0 + 5.5, yaw: Math.PI, name: $t('the fuel point on the pontoon'), deck: HAVEN_PONTOON.deck };
 // The yacht's place on your finger with the centre console beside her (see fleet.js, ownBerths:
 // where each of your boats lies depends on which are in the water).
 export const CRUISER_BERTH = { x: OWN_FINGER.x0 + 0.6 + 4.6, z: OWN_FINGER.z1 + 1.75, heading: Math.PI / 2 };
@@ -1144,8 +1145,8 @@ export function lakeShore(angle, inset = 0) {
 // Little wooden platforms on the lake shore: one by the lily pads near camp,
 // one on the shallow south-west shelf where the carp feed.
 export const PEGS = [
-  { name: 'Lily Peg', ...lakeShore(1.3, 1.0) },
-  { name: 'Willow Swim', ...lakeShore(Math.PI * 0.72, 1.2) },
+  { name: $t('Lily Peg'), ...lakeShore(1.3, 1.0) },
+  { name: $t('Willow Swim'), ...lakeShore(Math.PI * 0.72, 1.2) },
 ];
 const STREAM_AT = (i, k) => {
   const a = STREAM[i], b = STREAM[i + 1];
@@ -1233,265 +1234,265 @@ export const FRESH_ZONES = ['lake', 'stream', 'mere', 'river', 'tarn'];
 export const waterOf = (zone) => (FRESH_ZONES.includes(zone) ? 'fresh' : zone === 'estuary' || zone === 'tideway' ? 'brackish' : 'salt');
 
 export const ZONE_NAMES = {
-  bay: 'Willow Bay', cove: 'Driftwood Cove', open: 'open water', lake: 'Reedmere', stream: 'Fernbeck',
-  estuary: 'the Wend estuary', mere: 'Longmere', coast: 'the outer coast', deep: 'the deep water',
-  river: 'the Coldwater', tarn: 'Hoar Tarn', tideway: 'the Coldwater’s tideway',
-  harbor: 'Puerto Brasa harbour', lee: 'the lee of Brasa', lava: 'Las Coladas', sebadal: 'El Sebadal', veril: 'El Veril', ocean: 'the open ocean',
-  kelp: 'the kelp', sound: 'Raven Sound', race: 'the Churn', loch: 'Loch Skarn', skerry: 'the Selkie Rocks', outer: 'the Atlantic coast',
+  bay: $t('Willow Bay'), cove: $t('Driftwood Cove'), open: $t('open water'), lake: $t('Reedmere'), stream: $t('Fernbeck'),
+  estuary: $t('the Wend estuary'), mere: $t('Longmere'), coast: $t('the outer coast'), deep: $t('the deep water'),
+  river: $t('the Coldwater'), tarn: $t('Hoar Tarn'), tideway: $t('the Coldwater’s tideway'),
+  harbor: $t('Puerto Brasa harbour'), lee: $t('the lee of Brasa'), lava: $t('Las Coladas'), sebadal: $t('El Sebadal'), veril: $t('El Veril'), ocean: $t('the open ocean'),
+  kelp: $t('the kelp'), sound: $t('Raven Sound'), race: $t('the Churn'), loch: $t('Loch Skarn'), skerry: $t('the Selkie Rocks'), outer: $t('the Atlantic coast'),
 };
 
 export const PLACES = [
   {
-    id: 'bay', name: 'Willow Bay', sub: 'home waters',
-    note: 'Home waters. Calm and sheltered, with sunperch flashing in the shallows.',
+    id: 'bay', name: $t('Willow Bay'), sub: $t('home waters'),
+    note: $t('Home waters. Calm and sheltered, with sunperch flashing in the shallows.'),
     x: -38, z: -30, area: true,
     test: (x, z) => zoneAt(x, z) === 'bay',
   },
   {
-    id: 'jetty', name: 'The Old Jetty', sub: 'someone used to tie up here',
-    note: 'Weathered planks on the little island. One board is missing, and the lamp still comes on at dusk.',
+    id: 'jetty', name: $t('The Old Jetty'), sub: $t('someone used to tie up here'),
+    note: $t('Weathered planks on the little island. One board is missing, and the lamp still comes on at dusk.'),
     x: JETTY.x, z: JETTY.z1,
     test: (x, z) => Math.hypot(x - JETTY.x, z - (JETTY.z0 + JETTY.z1) / 2) < 22,
   },
   {
-    id: 'cove', name: 'Driftwood Cove', sub: 'a quiet place, out of the wind',
-    note: 'Tucked behind the eastern headland. Bleached logs, shells, and a deep hush.',
+    id: 'cove', name: $t('Driftwood Cove'), sub: $t('a quiet place, out of the wind'),
+    note: $t('Tucked behind the eastern headland. Bleached logs, shells, and a deep hush.'),
     x: COVE.x, z: COVE.z,
     test: (x, z) => Math.hypot(x - COVE.x, z - COVE.z) < COVE.r + 2,
   },
   {
-    id: 'landing', name: 'The Landing', sub: 'a mooring post and a few planks', dock: true,
-    note: 'A short pier on the west shore of the bay. Tie up here: camp is just up the path.',
+    id: 'landing', name: $t('The Landing'), sub: $t('a mooring post and a few planks'), dock: true,
+    note: $t('A short pier on the west shore of the bay. Tie up here: camp is just up the path.'),
     x: -86, z: -5.5,
     test: (x, z) => Math.hypot(x - LANDING.x, z - LANDING.z) < 16,
   },
   {
-    id: 'camp', name: 'Camp', sub: 'a tent, a fire ring, and the kettle', labelLeft: true, camp: true,
-    note: 'Your tent on the rise between the bay and the lake. Tackle box, fire and a dry bed.',
+    id: 'camp', name: $t('Camp'), sub: $t('a tent, a fire ring, and the kettle'), labelLeft: true, camp: true,
+    note: $t('Your tent on the rise between the bay and the lake. Tackle box, fire and a dry bed.'),
     x: CAMP.x, z: CAMP.z,
     test: (x, z) => Math.hypot(x - CAMP.x, z - CAMP.z) < 12,
   },
   {
-    id: 'lake', name: 'Reedmere', sub: 'still water behind the hill',
-    note: 'A freshwater lake: lily pads by camp, a fallen alder on the steep north shore, a shallow silty shelf in the south-west.',
+    id: 'lake', name: $t('Reedmere'), sub: $t('still water behind the hill'),
+    note: $t('A freshwater lake: lily pads by camp, a fallen alder on the steep north shore, a shallow silty shelf in the south-west.'),
     x: LAKE.x, z: LAKE.z + 2, area: true, size: 26,
     test: (x, z) => lakeSDF(x, z) < 6,
   },
   {
-    id: 'stream', name: 'Fernbeck', sub: 'a clear stream under the alders',
-    note: 'Runs down from a spring into Reedmere. Three pools, with fast shallow riffles between.',
+    id: 'stream', name: $t('Fernbeck'), sub: $t('a clear stream under the alders'),
+    note: $t('Runs down from a spring into Reedmere. Three pools, with fast shallow riffles between.'),
     x: STREAM[3][0] - 14, z: STREAM[3][1],
     test: (x, z) => streamSDF(x, z) < 7,
   },
   {
-    id: 'haven', name: 'Willowhaven', sub: 'a stone quay, a chandlery, a few cottages', dock: true, harbour: true,
-    note: 'A handful of cottages round a stone quay on the north shore of the bay, with a slipway, a chandlery and a notice board. Boats come and go from here.',
+    id: 'haven', name: $t('Willowhaven'), sub: $t('a stone quay, a chandlery, a few cottages'), dock: true, harbour: true,
+    note: $t('A handful of cottages round a stone quay on the north shore of the bay, with a slipway, a chandlery and a notice board. Boats come and go from here.'),
     x: HAVEN.x, z: HAVEN.z,
     test: (x, z) => Math.hypot(x - HAVEN.x, z - HAVEN.z) < 26,
   },
   {
-    id: 'reach', name: 'The Cove Channel', sub: 'a winding inlet, sheltered from every wind',
-    note: 'The narrow channel into Driftwood Cove. Eelgrass and soft mud along its edges; bream, wrasse and cuttlefish come and go with the light.',
+    id: 'reach', name: $t('The Cove Channel'), sub: $t('a winding inlet, sheltered from every wind'),
+    note: $t('The narrow channel into Driftwood Cove. Eelgrass and soft mud along its edges; bream, wrasse and cuttlefish come and go with the light.'),
     x: CHANNEL[1][0] - 2, z: CHANNEL[1][1] + 14,
     test: (x, z) => CHANNEL.some((c) => sdCapsule(x, z, c[0], c[1], c[2], c[3], c[4] + 6) < 0),
   },
   {
-    id: 'head', name: 'Cove Head', sub: 'a rocky knoll with a white daymark',
-    note: 'A rocky knoll over the mouth of the cove’s channel, with a whitewashed daymark on top. Surf breaks on its ledges; the Kittiwake’s buoy is in sight to the south-west.',
+    id: 'head', name: $t('Cove Head'), sub: $t('a rocky knoll with a white daymark'),
+    note: $t('A rocky knoll over the mouth of the cove’s channel, with a whitewashed daymark on top. Surf breaks on its ledges; the Kittiwake’s buoy is in sight to the south-west.'),
     x: DAYMARK.x, z: DAYMARK.z,
     test: (x, z) => Math.hypot(x - DAYMARK.x, z - DAYMARK.z) < 24,
   },
   {
-    id: 'strand', name: 'Shell Strand', sub: 'a quiet beach facing the sea',
-    note: 'A sandy beach on the seaward side of the east arm, out of the north wind. Bass hunt in the surf at dusk; flatfish lie on the sand beyond. A good place to pitch a tent.',
+    id: 'strand', name: $t('Shell Strand'), sub: $t('a quiet beach facing the sea'),
+    note: $t('A sandy beach on the seaward side of the east arm, out of the north wind. Bass hunt in the surf at dusk; flatfish lie on the sand beyond. A good place to pitch a tent.'),
     x: STRAND.x, z: STRAND.z,
     test: (x, z) => Math.hypot(x - STRAND.x, z - STRAND.z) < 24,
   },
   {
-    id: 'wreck', name: 'The Kittiwake', sub: 'a wreck on the reef, under a black and red buoy', dive: true,
-    note: 'A wooden steam drifter that went down on the reef south of Shell Strand, nine or ten metres down. A conger lives in her hull; pollack and wrasse hang over her, and red porgy and pandora feed round her.',
+    id: 'wreck', name: $t('The Kittiwake'), sub: $t('a wreck on the reef, under a black and red buoy'), dive: true,
+    note: $t('A wooden steam drifter that went down on the reef south of Shell Strand, nine or ten metres down. A conger lives in her hull; pollack and wrasse hang over her, and red porgy and pandora feed round her.'),
     x: WRECK.x, z: WRECK.z,
     test: (x, z) => Math.hypot(x - WRECK.x, z - WRECK.z) < 30,
   },
   {
-    id: 'wend', name: 'The Wend', sub: 'where the river meets the sea', area: true, size: 30,
-    note: 'A wide, shallow estuary: sandbanks, mudflats and reeds, with the tide of salt and fresh water mixing. Mullet, flounder and sea bass come in on the current.',
+    id: 'wend', name: $t('The Wend'), sub: $t('where the river meets the sea'), area: true, size: 30,
+    note: $t('A wide, shallow estuary: sandbanks, mudflats and reeds, with the tide of salt and fresh water mixing. Mullet, flounder and sea bass come in on the current.'),
     x: 572, z: -20, region: 'estuary',
     test: (x, z) => riverSDF(x, z) < 12 && z < 175,
   },
   {
-    id: 'quay', name: 'Wend Quay', sub: 'old stones, a mooring ring, a little camp', camp: true, dock: true,
-    note: 'A stone quay where the estuary narrows, with a tent pitch and a tackle box. The trail to Longmere starts here.',
+    id: 'quay', name: $t('Wend Quay'), sub: $t('old stones, a mooring ring, a little camp'), camp: true, dock: true,
+    note: $t('A stone quay where the estuary narrows, with a tent pitch and a tackle box. The trail to Longmere starts here.'),
     x: WEND_CAMP.x, z: WEND_CAMP.z, region: 'estuary',
     test: (x, z) => Math.hypot(x - WEND_CAMP.x, z - WEND_CAMP.z) < 22,
   },
   {
-    id: 'saltings', name: 'The Saltings', sub: 'reedy channels between the marsh islands',
-    note: 'Narrow, sheltered channels between low marsh islands. Quiet water for a kayak, and mullet nosing along the edges.',
+    id: 'saltings', name: $t('The Saltings'), sub: $t('reedy channels between the marsh islands'),
+    note: $t('Narrow, sheltered channels between low marsh islands. Quiet water for a kayak, and mullet nosing along the edges.'),
     x: MARSH[0].x, z: MARSH[0].z, region: 'estuary',
     test: (x, z) => MARSH.some((m) => Math.hypot(x - m.x, z - m.z) < m.r + 18),
   },
   {
-    id: 'mere', name: 'Longmere', sub: 'a long lake among the hills', area: true, size: 34,
-    note: 'A big inland lake: weedy bays, a steep north shore with drowned oaks, and deep water in the middle. Largemouth bass in the shallows, pike in the weed, perch everywhere.',
+    id: 'mere', name: $t('Longmere'), sub: $t('a long lake among the hills'), area: true, size: 34,
+    note: $t('A big inland lake: weedy bays, a steep north shore with drowned oaks, and deep water in the middle. Largemouth bass in the shallows, pike in the weed, perch everywhere.'),
     x: MERE.x, z: MERE.z, region: 'mere',
     test: (x, z) => mereSDF(x, z) < 8,
   },
   {
-    id: 'boathouse', name: 'Mere Boathouse', sub: 'a jetty, a bass boat and a tackle box', dock: true, camp: true,
-    note: 'A tarred boathouse on the south-east shore of Longmere, with a jetty, a tackle locker and a bunk. The bass boat lives here.',
+    id: 'boathouse', name: $t('Mere Boathouse'), sub: $t('a jetty, a bass boat and a tackle box'), dock: true, camp: true,
+    note: $t('A tarred boathouse on the south-east shore of Longmere, with a jetty, a tackle locker and a bunk. The bass boat lives here.'),
     x: BOATHOUSE.x, z: BOATHOUSE.z, region: 'mere',
     test: (x, z) => Math.hypot(x - BOATHOUSE.x, z - BOATHOUSE.z) < 20,
   },
   {
-    id: 'holm', name: 'Heron Holm', sub: 'a wooded islet in the lake',
-    note: 'A little island of alders in the middle of Longmere. A heron stands guard on the shingle; the deep water drops away all round.',
+    id: 'holm', name: $t('Heron Holm'), sub: $t('a wooded islet in the lake'),
+    note: $t('A little island of alders in the middle of Longmere. A heron stands guard on the shingle; the deep water drops away all round.'),
     x: HOLM.x, z: HOLM.z, region: 'mere',
     test: (x, z) => Math.hypot(x - HOLM.x, z - HOLM.z) < HOLM.r + 26,
   },
   {
-    id: 'oaks', name: 'The Drowned Oaks', sub: 'old trees fallen into deep water',
-    note: 'Along Longmere’s steep north shore, oaks have toppled into the water. Big pike and bass lie among the branches.',
+    id: 'oaks', name: $t('The Drowned Oaks'), sub: $t('old trees fallen into deep water'),
+    note: $t('Along Longmere’s steep north shore, oaks have toppled into the water. Big pike and bass lie among the branches.'),
     x: TIMBER[0].x, z: TIMBER[0].z, region: 'mere',
     test: (x, z) => TIMBER.some((t) => Math.hypot(x - t.x, z - t.z) < 26),
   },
   {
-    id: 'gannet', name: 'Gannet Isle', sub: 'an island out past the Skerries', area: true, size: 26,
-    note: 'A green island with rocky points, kelp and reef all round it. Wrasse on the reef, bass in the surf, mackerel out in the tide.',
+    id: 'gannet', name: $t('Gannet Isle'), sub: $t('an island out past the Skerries'), area: true, size: 26,
+    note: $t('A green island with rocky points, kelp and reef all round it. Wrasse on the reef, bass in the surf, mackerel out in the tide.'),
     x: GANNET.x, z: GANNET.z, region: 'coast',
     test: (x, z) => Math.hypot(x - GANNET.x, z - GANNET.z) < GANNET.r + 40,
   },
   {
-    id: 'puffin', name: 'Puffin Cove', sub: 'a sheltered anchorage and a camp', camp: true, dock: true,
-    note: 'A deep, sheltered cove on Gannet Isle’s north side: a landing stage, a bivouac and a tackle box. Squid come to the lights here after dark.',
+    id: 'puffin', name: $t('Puffin Cove'), sub: $t('a sheltered anchorage and a camp'), camp: true, dock: true,
+    note: $t('A deep, sheltered cove on Gannet Isle’s north side: a landing stage, a bivouac and a tackle box. Squid come to the lights here after dark.'),
     x: PUFFIN_COVE.x, z: PUFFIN_COVE.z, region: 'coast',
     test: (x, z) => Math.hypot(x - PUFFIN_COVE.x, z - PUFFIN_COVE.z) < PUFFIN_COVE.r + 16,
   },
   {
-    id: 'light', name: 'Gannet Light', sub: 'a little white lighthouse',
-    note: 'On the island’s southern point. Its lamp turns all night, and the deep water starts not far beyond.',
+    id: 'light', name: $t('Gannet Light'), sub: $t('a little white lighthouse'),
+    note: $t('On the island’s southern point. Its lamp turns all night, and the deep water starts not far beyond.'),
     x: LIGHT.x, z: LIGHT.z, region: 'coast',
     test: (x, z) => Math.hypot(x - LIGHT.x, z - LIGHT.z) < 55,
   },
   {
-    id: 'skerries', name: 'The Skerries', sub: 'black rocks and white water',
-    note: 'A broken reef halfway out to Gannet Isle. Wrasse among the kelp, mackerel passing over; seals sometimes sleep on the rocks.',
+    id: 'skerries', name: $t('The Skerries'), sub: $t('black rocks and white water'),
+    note: $t('A broken reef halfway out to Gannet Isle. Wrasse among the kelp, mackerel passing over; seals sometimes sleep on the rocks.'),
     x: SKERRIES[0].x, z: SKERRIES[0].z, region: 'coast',
     test: (x, z) => SKERRIES.some((k) => Math.hypot(x - k.x, z - k.z) < 40),
   },
   {
-    id: 'shoal', name: 'Long Shoal', sub: 'a sandbank far out in the open',
-    note: 'Only a few metres deep, far from any shore. Plaice on the sand, and mackerel shoals that birds give away.',
+    id: 'shoal', name: $t('Long Shoal'), sub: $t('a sandbank far out in the open'),
+    note: $t('Only a few metres deep, far from any shore. Plaice on the sand, and mackerel shoals that birds give away.'),
     x: SHOAL.x, z: SHOAL.z, region: 'coast',
     test: (x, z) => Math.hypot((x - SHOAL.x) / SHOAL.rx, (z - SHOAL.z) / SHOAL.rz) < 1.4,
   },
   // The dive sites, each under a yellow buoy (see divesites.js).
   {
-    id: 'reef', name: 'Skerries Reef', sub: 'a shallow reef, an arch to swim through', dive: true,
-    note: 'A shallow reef on the south-west side of the Skerries, three to nine metres down: boulders and gullies, kelp on their tops, and a rock arch you can swim through. Wrasse and pollack over it, black bream on the rocks, an octopus in the cracks; jewel anemones, urchins and starfish everywhere. Under a yellow buoy.',
+    id: 'reef', name: $t('Skerries Reef'), sub: $t('a shallow reef, an arch to swim through'), dive: true,
+    note: $t('A shallow reef on the south-west side of the Skerries, three to nine metres down: boulders and gullies, kelp on their tops, and a rock arch you can swim through. Wrasse and pollack over it, black bream on the rocks, an octopus in the cracks; jewel anemones, urchins and starfish everywhere. Under a yellow buoy.'),
     x: DIVE_MARKS.reef.x, z: DIVE_MARKS.reef.z, region: 'coast',
     test: (x, z) => Math.hypot(x - DIVE_MARKS.reef.x, z - DIVE_MARKS.reef.z) < 24,
   },
   {
-    id: 'kelp', name: 'The Kelp Forest', sub: 'tall kelp off Gannet Isle’s west shore', dive: true,
-    note: 'Off Gannet Isle’s west shore, five to ten metres down, the kelp grows tall enough to swim between its stalks like trees, the light coming down green. Pollack hang among them, cuttlefish and black bream on the floor; a big boulder stands in a clearing, with a lost lobster pot against it. Under a yellow buoy.',
+    id: 'kelp', name: $t('The Kelp Forest'), sub: $t('tall kelp off Gannet Isle’s west shore'), dive: true,
+    note: $t('Off Gannet Isle’s west shore, five to ten metres down, the kelp grows tall enough to swim between its stalks like trees, the light coming down green. Pollack hang among them, cuttlefish and black bream on the floor; a big boulder stands in a clearing, with a lost lobster pot against it. Under a yellow buoy.'),
     x: DIVE_MARKS.kelp.x, z: DIVE_MARKS.kelp.z, region: 'coast',
     test: (x, z) => Math.hypot(x - DIVE_MARKS.kelp.x, z - DIVE_MARKS.kelp.z) < 26,
   },
   {
-    id: 'sands', name: 'Anchor Sands', sub: 'open sand, and an old anchor', dive: true,
-    note: 'Open sand south of Long Shoal, seventeen metres down, rippled by the tide: it looks empty until you look closely. Plaice, turbot and sole lie in it, gurnards walk over it, cuttlefish hunt it; burrowing anemones and sea pens stand up out of it. An old Admiralty anchor lies there with its chain. Under a yellow buoy.',
+    id: 'sands', name: $t('Anchor Sands'), sub: $t('open sand, and an old anchor'), dive: true,
+    note: $t('Open sand south of Long Shoal, seventeen metres down, rippled by the tide: it looks empty until you look closely. Plaice, turbot and sole lie in it, gurnards walk over it, cuttlefish hunt it; burrowing anemones and sea pens stand up out of it. An old Admiralty anchor lies there with its chain. Under a yellow buoy.'),
     x: DIVE_MARKS.sands.x, z: DIVE_MARKS.sands.z, region: 'coast',
     test: (x, z) => Math.hypot(x - DIVE_MARKS.sands.x, z - DIVE_MARKS.sands.z) < 26,
   },
   {
-    id: 'hound', name: 'The Hound', sub: 'a pinnacle in thirty metres, beyond Gannet Light', dive: true,
-    note: 'A rock pinnacle standing from thirty metres up to ten, at the foot of the Gannet Drop, with its little Pup beside it. Pink sea fans and jewel anemones on its walls, dead man’s fingers and plumose anemones on its ledges, kelp on its top. Pollack hang off it right down, conger and red porgy live at its foot, mackerel pass over it. The tide runs hard across it: dive it at slack water, on a tank. Under a yellow buoy.',
+    id: 'hound', name: $t('The Hound'), sub: $t('a pinnacle in thirty metres, beyond Gannet Light'), dive: true,
+    note: $t('A rock pinnacle standing from thirty metres up to ten, at the foot of the Gannet Drop, with its little Pup beside it. Pink sea fans and jewel anemones on its walls, dead man’s fingers and plumose anemones on its ledges, kelp on its top. Pollack hang off it right down, conger and red porgy live at its foot, mackerel pass over it. The tide runs hard across it: dive it at slack water, on a tank. Under a yellow buoy.'),
     x: DIVE_MARKS.hound.x, z: DIVE_MARKS.hound.z, region: 'coast',
     test: (x, z) => Math.hypot(x - DIVE_MARKS.hound.x, z - DIVE_MARKS.hound.z) < 30,
   },
   {
-    id: 'skellig', name: 'Little Skellig', sub: 'a lone rock out in the tide',
-    note: 'A rock with nothing but birds on it, on the way out to the deep water. A good mark to steer by.',
+    id: 'skellig', name: $t('Little Skellig'), sub: $t('a lone rock out in the tide'),
+    note: $t('A rock with nothing but birds on it, on the way out to the deep water. A good mark to steer by.'),
     x: SKELLIG.x, z: SKELLIG.z, region: 'coast',
     test: (x, z) => Math.hypot(x - SKELLIG.x, z - SKELLIG.z) < 45,
   },
   {
-    id: 'canyon', name: 'Gannet Deep', sub: 'a canyon in the edge of the shelf', area: true, size: 24,
-    note: 'A canyon cut into the edge of the shelf, its walls falling to a hundred and fifty metres. Cold water wells up its head, and the bait and the tuna come with it. Only a deep sounder finds its floor.',
+    id: 'canyon', name: $t('Gannet Deep'), sub: $t('a canyon in the edge of the shelf'), area: true, size: 24,
+    note: $t('A canyon cut into the edge of the shelf, its walls falling to a hundred and fifty metres. Cold water wells up its head, and the bait and the tuna come with it. Only a deep sounder finds its floor.'),
     x: Math.round(canyonAxis(1180)), z: 1180, region: 'deep',
     test: (x, z) => canyonAt(x, z) > 0.5,
   },
   {
-    id: 'deep', name: 'The Blue Water', sub: 'deep sea, far from land', area: true, size: 30,
-    note: 'Past the shelf the sea turns dark blue and the bottom drops beyond sixty metres. Watch for birds diving: tuna drive the bait shoals to the top.',
+    id: 'deep', name: $t('The Blue Water'), sub: $t('deep sea, far from land'), area: true, size: 30,
+    note: $t('Past the shelf the sea turns dark blue and the bottom drops beyond sixty metres. Watch for birds diving: tuna drive the bait shoals to the top.'),
     x: 120, z: DEEP_Z + 160, region: 'deep',
     test: (x, z) => z > DEEP_Z + 40,
   },
   {
-    id: 'heron', name: 'Heron Point', sub: 'the western headland',
-    note: 'A rocky point on the west coast, with surf on its ledges. Sea bass hunt in the white water.',
+    id: 'heron', name: $t('Heron Point'), sub: $t('the western headland'),
+    note: $t('A rocky point on the west coast, with surf on its ledges. Sea bass hunt in the white water.'),
     x: -480, z: 110, region: 'coast',
     test: (x, z) => Math.hypot(x + 480, z - 110) < 70,
   },
   {
-    id: 'calf', name: 'The Calf', sub: 'a small island off Heron Point', dock: true,
-    note: 'A green hump of an island, sheer to the west, with a ruined watch tower on its top and a stone landing in its lee. Seals haul out on the skerry off its north-west corner. Room on the top for a tent, if the weather’s kind.',
+    id: 'calf', name: $t('The Calf'), sub: $t('a small island off Heron Point'), dock: true,
+    note: $t('A green hump of an island, sheer to the west, with a ruined watch tower on its top and a stone landing in its lee. Seals haul out on the skerry off its north-west corner. Room on the top for a tent, if the weather’s kind.'),
     x: CALF.x, z: CALF.z, region: 'coast',
     test: (x, z) => Math.hypot((x - CALF.x) / (CALF.rx + 12), (z - CALF.z) / (CALF.rz + 12)) < 1,
   },
   {
-    id: 'sound', name: 'Calf Sound', sub: 'a tide race between the Point and the Calf',
-    note: 'The tide pours through the gut between Heron Point and the Calf, and the water stands up in ridges where it runs. Bass and pollack wait on its edges for what it carries; mackerel and garfish come through on it. Spin a metal or a sandeel across it, from the Calf’s rocks or drifting through.',
+    id: 'sound', name: $t('Calf Sound'), sub: $t('a tide race between the Point and the Calf'),
+    note: $t('The tide pours through the gut between Heron Point and the Calf, and the water stands up in ridges where it runs. Bass and pollack wait on its edges for what it carries; mackerel and garfish come through on it. Spin a metal or a sandeel across it, from the Calf’s rocks or drifting through.'),
     x: (CALF_SOUND.x0 + CALF_SOUND.x1) / 2, z: (CALF_SOUND.z0 + CALF_SOUND.z1) / 2, region: 'coast',
     test: (x, z) => sdCapsule(x, z, CALF_SOUND.x0, CALF_SOUND.z0, CALF_SOUND.x1, CALF_SOUND.z1, 10) < 0,
   },
   {
-    id: 'gull', name: 'Gull Rock', sub: 'where the water turns deep',
-    note: 'Sea stacks past the bay mouth. The water goes dark blue here, and the gulls never stop talking.',
+    id: 'gull', name: $t('Gull Rock'), sub: $t('where the water turns deep'),
+    note: $t('Sea stacks past the bay mouth. The water goes dark blue here, and the gulls never stop talking.'),
     x: STACKS[0].x, z: STACKS[0].z,
     test: (x, z) => Math.hypot(x - STACKS[0].x, z - STACKS[0].z) < 34,
   },
   // Up the Coldwater, from the bay to the top of Hoarfell.
   {
-    id: 'coldfoot', name: 'Coldwater Foot', sub: 'a footbridge over the river’s mouth',
-    note: 'Where the Coldwater comes out into the bay, under a timber footbridge on the coast path. A fingerpost points up the river: the path to Hoarfell starts here. Bass and mullet come in on the tide.',
+    id: 'coldfoot', name: $t('Coldwater Foot'), sub: $t('a footbridge over the river’s mouth'),
+    note: $t('Where the Coldwater comes out into the bay, under a timber footbridge on the coast path. A fingerpost points up the river: the path to Hoarfell starts here. Bass and mullet come in on the tide.'),
     x: FOOTBRIDGE.x, z: FOOTBRIDGE.z,
     test: (x, z) => Math.hypot(x - FOOTBRIDGE.x, z - FOOTBRIDGE.z) < 26,
   },
   {
-    id: 'lowerforce', name: 'The Lower Force', sub: 'the last fall, where the tide stops',
-    note: 'The Coldwater’s last waterfall, a dozen metres down into the Force Pool, where the fresh water meets the tide. Sea bass and eels come up as far as the pool; above the fall it’s trout and grayling.',
+    id: 'lowerforce', name: $t('The Lower Force'), sub: $t('the last fall, where the tide stops'),
+    note: $t('The Coldwater’s last waterfall, a dozen metres down into the Force Pool, where the fresh water meets the tide. Sea bass and eels come up as far as the pool; above the fall it’s trout and grayling.'),
     x: COLDWATER[33].x, z: COLDWATER[33].z,
     test: (x, z) => Math.hypot(x - COLDWATER[32].x, z - COLDWATER[32].z) < 30 || Math.hypot(x - COLDWATER[33].x, z - COLDWATER[33].z) < 24,
   },
   {
-    id: 'dale', name: 'Coldwater Dale', sub: 'a long valley under the fell', area: true, size: 30,
-    note: 'The Coldwater’s valley, wooded along the river with alder and birch: runs and riffles, and a pool at every bend. Trout and grayling all the way up.',
+    id: 'dale', name: $t('Coldwater Dale'), sub: $t('a long valley under the fell'), area: true, size: 30,
+    note: $t('The Coldwater’s valley, wooded along the river with alder and birch: runs and riffles, and a pool at every bend. Trout and grayling all the way up.'),
     x: COLDWATER[22].x - 60, z: COLDWATER[22].z, region: 'fell',
     test: (x, z) => z < -420 && z > -950 && x < -60 && coldInfo(x, z).d < 80,
   },
   {
-    id: 'spout', name: 'Spout Force', sub: 'a high fall into a deep pool', region: 'fell',
-    note: 'The Coldwater drops thirty metres off the lip of the dale into Spout Pool, deep and cold and full of spray. The bothy is just above it.',
+    id: 'spout', name: $t('Spout Force'), sub: $t('a high fall into a deep pool'), region: 'fell',
+    note: $t('The Coldwater drops thirty metres off the lip of the dale into Spout Pool, deep and cold and full of spray. The bothy is just above it.'),
     x: COLDWATER[11].x, z: COLDWATER[11].z,
     test: (x, z) => Math.hypot(x - COLDWATER[11].x, z - COLDWATER[11].z) < 34 || Math.hypot(x - COLDWATER[10].x, z - COLDWATER[10].z) < 22,
   },
   {
-    id: 'bothy', name: 'The Bothy', sub: 'a stone hut kept open for walkers', camp: true, region: 'fell',
-    note: 'An old shepherd’s hut above Spout Pool, kept open for anyone on the fell: a stove, a sleeping platform, a shelf with a few rods and a tin of oatcakes. Halfway to the top.',
+    id: 'bothy', name: $t('The Bothy'), sub: $t('a stone hut kept open for walkers'), camp: true, region: 'fell',
+    note: $t('An old shepherd’s hut above Spout Pool, kept open for anyone on the fell: a stove, a sleeping platform, a shelf with a few rods and a tin of oatcakes. Halfway to the top.'),
     x: BOTHY.x, z: BOTHY.z,
     test: (x, z) => Math.hypot(x - BOTHY.x, z - BOTHY.z) < 16,
   },
   {
-    id: 'tarn', name: 'Hoar Tarn', sub: 'a cold lake in the corrie under the top', region: 'fell',
-    note: 'A deep, dark tarn in a bowl scooped out of the fell, crags all round its back. Small wild trout rise to anything at dusk. The river starts at its lip.',
+    id: 'tarn', name: $t('Hoar Tarn'), sub: $t('a cold lake in the corrie under the top'), region: 'fell',
+    note: $t('A deep, dark tarn in a bowl scooped out of the fell, crags all round its back. Small wild trout rise to anything at dusk. The river starts at its lip.'),
     x: TARN.x, z: TARN.z,
     test: (x, z) => tarnSDF(x, z) < 14,
   },
   {
-    id: 'summit', name: 'Hoarfell', sub: 'the top: 570 metres, the whole coast below', region: 'fell',
-    note: 'The top of Hoarfell, with a cairn of stones that walkers have carried up. On a clear day you can see the whole coast: the bay, the Wend, Longmere, Gannet Isle and the deep water beyond.',
+    id: 'summit', name: $t('Hoarfell'), sub: $t('the top: 570 metres, the whole coast below'), region: 'fell',
+    note: $t('The top of Hoarfell, with a cairn of stones that walkers have carried up. On a clear day you can see the whole coast: the bay, the Wend, Longmere, Gannet Isle and the deep water beyond.'),
     x: SUMMIT_CAIRN.x, z: SUMMIT_CAIRN.z,
     test: (x, z) => Math.hypot(x - SUMMIT_CAIRN.x, z - SUMMIT_CAIRN.z) < 26,
   },

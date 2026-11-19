@@ -4,6 +4,7 @@ import { northAt, heightAt } from './terrain.js';
 import { withCaustics } from './caustics.js';
 import { TERN, RAVEN, inSound, inBothyBay, lochAt, HALVIG_PIER, HALVIG_FUEL, HALVIG_SHOP, CROFTS, PHONE_BOX, RAVEN_LIGHT, BROCH, STONES, NORTH_BOTHY, HERRING, SEAL_CAVE, SULA, NORTH_DOORS } from './north.js';
 import { fuelPumpParts } from '../props.js';
+import { $t } from '../i18n.js';
 
 // The north's look (docs/NORTH.md): the colours of its ground and seabed, and (N2, N3) what
 // stands on it. Cold and northern: grass and heather on the fells, grey crags and scree, cliffs
@@ -171,7 +172,7 @@ export function* northSteps(scene, rnd) {
       if (glen && rnd() < 0.28 && rowans.length < 240) {
         const s = 0.8 + rnd() * 0.5;
         rowans.push({ x, y: h - 0.1, z, s, r: rnd() * 6.28 });
-        obstacles.push({ x, z, r: 0.3 * s, kind: 'tree', name: 'a rowan' });
+        obstacles.push({ x, z, r: 0.3 * s, kind: 'tree', name: $t('a rowan') });
       } else if (h < 220 && rnd() < 0.6 && heather.length < 2600) heather.push({ x, y: h - 0.08, z, s: 0.7 + rnd() * 0.8, sy: 0.6 + rnd() * 0.6, r: rnd() * 6.28 });
     }
     group.add(instanced(boulderGeo, boulders, rockMat, rnd, { tint: 0.18, tilt: 0.8 }));
@@ -181,8 +182,8 @@ export function* northSteps(scene, rnd) {
   }
   const P = buildPlaces(group, obstacles, rnd);
   // (The doors you can go in at: Halvig Stores and the Loch Bothy. See main.js.)
-  spots.push({ kind: 'halvigstores', name: 'Halvig Stores', x: NORTH_DOORS.shop.x, z: NORTH_DOORS.shop.z, r: 2 });
-  spots.push({ kind: 'lochbothy', name: 'the Loch Bothy', x: NORTH_DOORS.bothy.x, z: NORTH_DOORS.bothy.z, r: 2.2 });
+  spots.push({ kind: 'halvigstores', name: $t('Halvig Stores'), x: NORTH_DOORS.shop.x, z: NORTH_DOORS.shop.z, r: 2 });
+  spots.push({ kind: 'lochbothy', name: $t('the Loch Bothy'), x: NORTH_DOORS.bothy.x, z: NORTH_DOORS.bothy.z, r: 2.2 });
   scene.add(group);
   return {
     group, obstacles, spots, boxes,
@@ -261,19 +262,19 @@ export function buildPlaces(group, obstacles, rnd) {
   // The pump at the pier's root, and the shop, the crofts and the phone box on the shelf.
   const F = HALVIG_FUEL;
   dark.push(...fuelPumpParts(F.x, ground(F.x, F.z), F.z, F.yaw));
-  obstacles.push({ x: F.x, z: F.z, r: 0.42, kind: 'harbour', name: 'the fuel pump' });
+  obstacles.push({ x: F.x, z: F.z, r: 0.42, kind: 'harbour', name: $t('the fuel pump') });
   cottage(white, roofs, glass, HALVIG_SHOP, ground, rnd, { shop: true });
   for (const C of CROFTS) cottage(white, roofs, glass, C, ground, rnd, { wall: pickOf(['#ece8de', '#e4dfd2', '#efece4'], rnd) });
   for (const B of [HALVIG_SHOP, ...CROFTS]) {
     const c = Math.cos(B.yaw), sn = Math.sin(B.yaw);
-    for (const u of [-B.w / 4, B.w / 4]) obstacles.push({ x: B.x + u * c, z: B.z - u * sn, r: Math.max(B.w / 4, B.d / 2) + 0.2, kind: 'building', name: B === HALVIG_SHOP ? 'Halvig Stores' : 'a croft' });
+    for (const u of [-B.w / 4, B.w / 4]) obstacles.push({ x: B.x + u * c, z: B.z - u * sn, r: Math.max(B.w / 4, B.d / 2) + 0.2, kind: 'building', name: B === HALVIG_SHOP ? $t('Halvig Stores') : $t('a croft') });
   }
   {
     const B = PHONE_BOX, y = ground(B.x, B.z);
     white.push({ geo: box(0.95, 2.45, 0.95), matrix: placed(B.x, y, B.z, B.yaw, 0, 1.22, 0), color: '#b8231f' });
     white.push({ geo: box(1.05, 0.25, 1.05), matrix: placed(B.x, y, B.z, B.yaw, 0, 2.55, 0), color: '#a51f1b' });
     glass.push({ geo: box(0.7, 1.4, 0.98), matrix: placed(B.x, y, B.z, B.yaw, 0, 1.35, 0), color: '#c9d6d8' });
-    obstacles.push({ x: B.x, z: B.z, r: 0.6, kind: 'building', name: 'the phone box' });
+    obstacles.push({ x: B.x, z: B.z, r: 0.6, kind: 'building', name: $t('the phone box') });
   }
   // The light on Raven Head: a white tower, its gallery and lantern, and the lamp (flashing: see
   // update).
@@ -289,7 +290,7 @@ export function buildPlaces(group, obstacles, rnd) {
     lamp = new THREE.Mesh(new THREE.SphereGeometry(0.75, 12, 10), new THREE.MeshBasicMaterial({ color: '#fff4d6', transparent: true, opacity: 0.2 }));
     lamp.position.set(x, y + 12.2, z);
     group.add(lamp);
-    obstacles.push({ x, z, r: 2.4, kind: 'building', name: 'the lighthouse' }, { x: x - 5.5, z: z + 2, r: 2.6, kind: 'building', name: 'the keeper’s store' });
+    obstacles.push({ x, z, r: 2.4, kind: 'building', name: $t('the lighthouse') }, { x: x - 5.5, z: z + 2, r: 2.6, kind: 'building', name: $t('the keeper’s store') });
   }
   // The broch: a ring of dry stone, its double wall broken off at different heights, a doorway
   // on its seaward side.
@@ -299,7 +300,7 @@ export function buildPlaces(group, obstacles, rnd) {
       const a = (i / N) * Math.PI * 2, door = Math.abs(Math.atan2(Math.sin(a - 0.4), Math.cos(a - 0.4))) < 0.15;
       const h = door ? 0 : 3.2 + 3.4 * (0.5 + 0.5 * fbm(i * 0.4, 7.7, 2)) - (i % 7 === 3 ? 1.6 : 0);
       if (h > 0) stone.push({ geo: box(2.25, h, 3), matrix: mat(x + Math.cos(a) * (r - 1.5), y + h / 2 - 0.3, z + Math.sin(a) * (r - 1.5), 0, -a + Math.PI / 2, 0), color: pickOf(['#8a8376', '#7f7a6e', '#948d80'], rnd), jitter: 0.06 });
-      if (h > 0) obstacles.push({ x: x + Math.cos(a) * (r - 1.5), z: z + Math.sin(a) * (r - 1.5), r: 1.4, kind: 'building', name: 'the broch' });
+      if (h > 0) obstacles.push({ x: x + Math.cos(a) * (r - 1.5), z: z + Math.sin(a) * (r - 1.5), r: 1.4, kind: 'building', name: $t('the broch') });
     }
     // Tumbled stone round its foot.
     for (let i = 0; i < 26; i++) {
@@ -313,7 +314,7 @@ export function buildPlaces(group, obstacles, rnd) {
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2 + rnd() * 0.2, sx = x + Math.cos(a) * r, sz = z + Math.sin(a) * r, h = 2.6 + rnd() * 1.6;
       stone.push({ geo: box(1.1 + rnd() * 0.4, h, 0.45 + rnd() * 0.2), matrix: mat(sx, ground(sx, sz) + h / 2 - 0.3, sz, (rnd() - 0.5) * 0.12, -a, (rnd() - 0.5) * 0.12), color: pickOf(['#8e8c86', '#7d7b75', '#9a978f'], rnd), jitter: 0.08 });
-      obstacles.push({ x: sx, z: sz, r: 0.7, kind: 'stone', name: 'a standing stone' });
+      obstacles.push({ x: sx, z: sz, r: 0.7, kind: 'stone', name: $t('a standing stone') });
     }
   }
   // The bothy above Bothy Bay: rough stone, a slate roof, a door and a little window.
@@ -326,7 +327,7 @@ export function buildPlaces(group, obstacles, rnd) {
     // (Its front faces the bay: +z is the shore's way.)
     dark.push({ geo: box(0.9, 1.9, 0.1), matrix: placed(x, y, z, yaw, -1, 0.95, d / 2 + 0.03), color: '#2c2a27' });
     glass.push({ geo: box(0.7, 0.6, 0.1), matrix: placed(x, y, z, yaw, 1.4, 1.5, d / 2 + 0.03), color: '#8fa3ad' });
-    for (const u of [-1.6, 1.6]) obstacles.push({ x: x + u * Math.cos(yaw), z: z - u * Math.sin(yaw), r: 2.2, kind: 'building', name: 'the bothy' });
+    for (const u of [-1.6, 1.6]) obstacles.push({ x: x + u * Math.cos(yaw), z: z - u * Math.sin(yaw), r: 2.2, kind: 'building', name: $t('the bothy') });
   }
   // The herring station: roofless walls of its curing sheds, and its pier's stumps running out
   // into the loch.
@@ -339,7 +340,7 @@ export function buildPlaces(group, obstacles, rnd) {
           if (rnd() < 0.18) continue;
           const p = along === 'u' ? at(a + k + 1, b) : at(a, b + k + 1), h = 0.8 + rnd() * 2.6;
           stone.push({ geo: box(along === 'u' ? 2 : 0.6, h, along === 'u' ? 0.6 : 2), matrix: mat(p.x, ground(p.x, p.z) + h / 2 - 0.2, p.z, 0, yaw, 0), color: '#857f74', jitter: 0.05 });
-          obstacles.push({ x: p.x, z: p.z, r: 0.9, kind: 'building', name: 'the herring station' });
+          obstacles.push({ x: p.x, z: p.z, r: 0.9, kind: 'building', name: $t('the herring station') });
         }
       }
     }

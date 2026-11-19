@@ -7,6 +7,7 @@
 // store: { get(k), set(k, v) (may throw when storage is full), remove(k) }. keys: { KEY, BACKUP }.
 // Nothing here talks to the page: save.js and main.js do.
 
+import { $t } from './i18n.js';
 export const SLOTS = 3;
 export const INDEX_KEY = 'slow-tide-slots';
 export const slotKey = (n) => `slow-tide-slot-${n}`;
@@ -67,7 +68,7 @@ export function filled(store, keys, I = readIndex(store)) {
 // never fall back to another game. All or nothing: if storage won't take it, everything is put
 // back as it was. Returns { ok, why }.
 export function switchTo(store, keys, n) {
-  if (!okSlot(n)) return { ok: false, why: 'There’s no such slot.' };
+  if (!okSlot(n)) return { ok: false, why: $t('There’s no such slot.') };
   const I = readIndex(store), from = I.active, rawIndex = store.get(INDEX_KEY);
   if (n === from) return { ok: true, same: true };
   // (Putting the index back exactly as it was, if a later step can't be made.)
@@ -78,7 +79,7 @@ export function switchTo(store, keys, n) {
     } catch { /* the index is only lines: the games are whole */ }
   };
   const cur = store.get(keys.KEY), next = store.get(slotKey(n));
-  const full = { ok: false, why: 'This browser’s storage is too full to keep both games. Nothing has been changed: download a copy of one, or delete a game you don’t need, and try again.' };
+  const full = { ok: false, why: $t('This browser’s storage is too full to keep both games. Nothing has been changed: download a copy of one, or delete a game you don’t need, and try again.') };
   // 1. Park the game being played (nothing changed yet if this fails).
   try {
     if (cur) store.set(slotKey(from), cur);
@@ -114,8 +115,8 @@ export const parkedText = (store, n) => (okSlot(n) ? store.get(slotKey(n)) : nul
 // Returns { ok, why, text (what was deleted, to clean up after it) }.
 export function deleteGame(store, n) {
   const I = readIndex(store);
-  if (!okSlot(n)) return { ok: false, why: 'There’s no such slot.' };
-  if (n === I.active) return { ok: false, why: 'That’s the game you’re playing: start it over from the journal instead.' };
+  if (!okSlot(n)) return { ok: false, why: $t('There’s no such slot.') };
+  if (n === I.active) return { ok: false, why: $t('That’s the game you’re playing: start it over from the journal instead.') };
   const text = store.get(slotKey(n));
   store.remove(slotKey(n));
   I.games[n] = null;

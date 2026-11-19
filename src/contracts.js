@@ -24,35 +24,36 @@
 // Pure: the game passes in what's happening (main.js) and does the paying and the showing.
 
 import { fits, smallestFor, misery, vesselOf, VESSELS, KG_PER_PERSON } from './vessels.js';
+import { $t, langNow } from './i18n.js';
 
 export const CONTRACT_MAX = 3;
 
 // What the Trust's field guide wants photographed (specimen): a fish, a rockpool creature, a reef
 // creature or a seabird (ids as the photograph names them: fish.js, grounds.js NATURE, birds).
 const SPECIMENS = [
-  { id: 'snakelocks', name: 'a snakelocks anemone', an: 'a snakelocks anemone', hint: 'in the rockpools at low water, its green arms waving.', at: 'pools' },
-  { id: 'beadlet', name: 'a beadlet anemone', an: 'a beadlet anemone', hint: 'a red blob on the rock of a pool, open under the water.', at: 'pools' },
-  { id: 'ediblecrab', name: 'an edible crab', an: 'an edible crab', hint: 'tucked in at the foot of the boulders on Skerries Reef: a dive.', at: 'reef', hard: true },
-  { id: 'velvetcrab', name: 'a velvet swimming crab', an: 'a velvet swimming crab', hint: 'red eyes and blue legs, among Skerries Reef’s boulders: a dive.', at: 'reef', hard: true },
-  { id: 'corkwing', name: 'a corkwing wrasse', an: 'a corkwing wrasse', hint: 'on the weedy rocks and harbour walls: catch one and photograph it on the catch card, or find one on a dive.', at: null },
-  { id: 'rockgoby', name: 'a rock goby', an: 'a rock goby', hint: 'under the stones of a rockpool, or at the foot of the Willowhaven quay.', at: 'pools' },
-  { id: 'kittiwake', name: 'a kittiwake', an: 'a kittiwake', hint: 'on the cliffs of Gannet Isle in spring and summer.', at: 'light', hard: true },
+  { id: 'snakelocks', name: $t('a snakelocks anemone'), an: $t('a snakelocks anemone'), hint: $t('in the rockpools at low water, its green arms waving.'), at: 'pools' },
+  { id: 'beadlet', name: $t('a beadlet anemone'), an: $t('a beadlet anemone'), hint: $t('a red blob on the rock of a pool, open under the water.'), at: 'pools' },
+  { id: 'ediblecrab', name: $t('an edible crab'), an: $t('an edible crab'), hint: $t('tucked in at the foot of the boulders on Skerries Reef: a dive.'), at: 'reef', hard: true },
+  { id: 'velvetcrab', name: $t('a velvet swimming crab'), an: $t('a velvet swimming crab'), hint: $t('red eyes and blue legs, among Skerries Reef’s boulders: a dive.'), at: 'reef', hard: true },
+  { id: 'corkwing', name: $t('a corkwing wrasse'), an: $t('a corkwing wrasse'), hint: $t('on the weedy rocks and harbour walls: catch one and photograph it on the catch card, or find one on a dive.'), at: null },
+  { id: 'rockgoby', name: $t('a rock goby'), an: $t('a rock goby'), hint: $t('under the stones of a rockpool, or at the foot of the Willowhaven quay.'), at: 'pools' },
+  { id: 'kittiwake', name: $t('a kittiwake'), an: 'a kittiwake', hint: $t('on the cliffs of Gannet Isle in spring and summer.'), at: 'light', hard: true },
 ];
-export const CATEGORIES = { fishing: 'Fishing', wildlife: 'Wildlife', survey: 'Survey', delivery: 'Delivery', handling: 'Boat handling', charter: 'Charter', rescue: 'Assistance', expedition: 'Expedition' };
+export const CATEGORIES = { fishing: $t('Fishing'), wildlife: $t('Wildlife'), survey: $t('Survey'), delivery: $t('Delivery'), handling: $t('Boat handling'), charter: $t('Charter'), rescue: $t('Assistance'), expedition: $t('Expedition') };
 // Who offers work (the harbour's people, and the bodies they speak for).
 export const GIVERS = {
-  ruth: 'Ruth at The Lobster Pot',
-  mags: 'Mags Pennock, fishmonger',
-  bert: 'Old Bert, the chandlery',
-  club: 'Willow Bay Angling Club',
-  trust: 'Willow Bay Marine Trust',
-  wenna: 'Wenna, the harbour office',
-  sailing: 'Willowhaven Sailing Club',
-  paco: 'Paco, Bar El Muelle',
-  cofradia: 'The fishermen of Puerto Brasa',
-  trips: 'Willow Bay Boat Trips',
-  divers: 'Willow Bay Sub-Aqua Club',
-  buceo: 'Buceo Las Brasas, the dive school',
+  ruth: $t('Ruth at The Lobster Pot'),
+  mags: $t('Mags Pennock, fishmonger'),
+  bert: $t('Old Bert, the chandlery'),
+  club: $t('Willow Bay Angling Club'),
+  trust: $t('Willow Bay Marine Trust'),
+  wenna: $t('Wenna, the harbour office'),
+  sailing: $t('Willowhaven Sailing Club'),
+  paco: $t('Paco, Bar El Muelle'),
+  cofradia: $t('The fishermen of Puerto Brasa'),
+  trips: $t('Willow Bay Boat Trips'),
+  divers: $t('Willow Bay Sub-Aqua Club'),
+  buceo: $t('Buceo Las Brasas, the dive school'),
 };
 
 // (G4) Standing with each of them: the jobs done for them add up (each job's rep), and a giver who
@@ -60,10 +61,10 @@ export const GIVERS = {
 // at: the standing it takes; k: what their work pays, over its price.
 export const KEEN_FIRST = 2;
 export const GIVER_STANDING = [
-  { id: 'new', name: 'new to them', at: 0, k: 1 },
-  { id: 'known', name: 'known to them', at: 3, k: 1.1 },
+  { id: 'new', name: $t('new to them'), at: 0, k: 1 },
+  { id: 'known', name: $t('known to them'), at: 3, k: 1.1 },
   { id: 'trusted', name: 'trusted', at: 8, k: 1.2 },
-  { id: 'regular', name: 'a regular', at: 15, k: 1.3 },
+  { id: 'regular', name: $t('a regular'), at: 15, k: 1.3 },
 ];
 // Where you stand with a giver: { id, name, at, k, n (their count), next (or null), toGo }.
 export function standingWith(C, giver) {
@@ -79,10 +80,10 @@ export function standingWith(C, giver) {
 // a heavier load a better one. jobs: finished jobs it takes; pax: the most passengers a charter
 // offered to you carries; kg: the heaviest freight.
 export const CAREER = [
-  { id: 'hand', name: 'Odd-job hand', jobs: 0, pax: 0, kg: 300, says: 'fishing, wildlife, surveys, deliveries and boat handling' },
-  { id: 'boatman', name: 'Boatman', jobs: 3, pax: 3, kg: 500, says: 'a passenger ticket: small charters, up to three aboard' },
-  { id: 'skipper', name: 'Skipper', jobs: 8, pax: 6, kg: 800, says: 'charters of up to six, dive parties, heavier freight' },
-  { id: 'master', name: 'Master', jobs: 15, pax: 8, kg: 1500, says: 'the biggest charters and the heaviest freight' },
+  { id: 'hand', name: $t('Odd-job hand'), jobs: 0, pax: 0, kg: 300, says: $t('fishing, wildlife, surveys, deliveries and boat handling') },
+  { id: 'boatman', name: $t('Boatman'), jobs: 3, pax: 3, kg: 500, says: $t('a passenger ticket: small charters, up to three aboard') },
+  { id: 'skipper', name: $t('Skipper'), jobs: 8, pax: 6, kg: 800, says: $t('charters of up to six, dive parties, heavier freight') },
+  { id: 'master', name: $t('Master'), jobs: 15, pax: 8, kg: 1500, says: $t('the biggest charters and the heaviest freight') },
 ];
 // Where you are in it: { rank, next (or null), toGo (jobs to the next) }.
 export function career(C) {
@@ -102,16 +103,16 @@ const round5 = (v) => Math.max(5, Math.round(v / 5) * 5);
 function boatFor(W, need, what) {
   const mine = smallestFor(need, W.usable || []), any = smallestFor(need, W.kinds || Object.keys(VESSELS));
   if (!any) return null;
-  return mine ? `${what} (your ${vesselOf(mine).name} will do)` : `${what} (the ${vesselOf(any).name}: hire her for the day at the Marine Works)`;
+  return mine ? $t`${what} (your ${vesselOf(mine).name} will do)` : $t`${what} (the ${vesselOf(any).name}: hire her for the day at the Marine Works)`;
 }
 // (G2c) Where a job's people and freight come aboard, and where they're brought back to:
 // Willowhaven's harbour, or Puerto Brasa's for the island's work (obj.base 'puerto'). x.home and
 // x.puerto: afloat and stopped in that harbour (see tick).
-export const BASES = { home: 'Willowhaven', puerto: 'Puerto Brasa' };
+export const BASES = { home: $t('Willowhaven'), puerto: $t('Puerto Brasa') };
 const baseName = (o) => BASES[o?.base] || BASES.home;
 const atBase = (o, x) => (o?.base === 'puerto' ? !!x.puerto : !!x.home);
 // Where a job's paid: the slate at Bar El Muelle for the island's work, the notice board at home.
-export const paidAt = (a) => (TEMPLATES[a?.tpl]?.south ? 'Paco’s slate at Bar El Muelle' : 'the notice board at Willowhaven');
+export const paidAt = (a) => (TEMPLATES[a?.tpl]?.south ? $t('Paco’s slate at Bar El Muelle') : $t('the notice board at Willowhaven'));
 // A day's seed (and the region's): the same board all day, a different one tomorrow.
 export function seeded(n) {
   let s = (n * 2654435761) >>> 0 || 1;
@@ -137,8 +138,8 @@ export const TEMPLATES = {
       if (!busy.length) return null;
       const b = pick(r, busy), min = Math.round(b.min + (b.max - b.min) * rnd(r, 0.35, 0.55));
       return {
-        title: `${b.name} for the specials board`, story: `Ruth wants a fine ${b.name.toLowerCase()} for tonight’s specials: they’re ${b.where}, and she hears they’re feeding well.`,
-        goal: `Catch ${an(b.name)} of ${min} cm or more`, obj: { kind: 'catch', sp: b.id, min, count: 1 },
+        title: $t`${b.name} for the specials board`, story: $t`Ruth wants a fine ${b.name.toLowerCase()} for tonight’s specials: they’re ${b.where}, and she hears they’re feeding well.`,
+        goal: $t`Catch ${an(b.name)} of ${min} cm or more`, obj: { kind: 'catch', sp: b.id, min, count: 1 },
         where: b.at || null, difficulty: 1, minutes: 25, pay: round5(18 + min * 0.35), rep: 1,
       };
     },
@@ -148,8 +149,8 @@ export const TEMPLATES = {
     make(W, r) {
       const n = r() < 0.5 ? 3 : 4;
       return {
-        title: `A mixed bag: ${n} kinds`, story: 'Mags has a customer who wants a bit of everything for a fish stew, and she’d sooner have it from you than the wholesaler.',
-        goal: `Catch ${n} different kinds of sea fish on one trip`, obj: { kind: 'catch', distinct: n, sea: true },
+        title: $t`A mixed bag: ${n} kinds`, story: $t('Mags has a customer who wants a bit of everything for a fish stew, and she’d sooner have it from you than the wholesaler.'),
+        goal: $t`Catch ${n} different kinds of sea fish on one trip`, obj: { kind: 'catch', distinct: n, sea: true },
         difficulty: n === 3 ? 1 : 2, minutes: n * 15, pay: n * 12, rep: 1,
       };
     },
@@ -160,9 +161,9 @@ export const TEMPLATES = {
       if (W.region !== 'home') return null;
       const min = Math.round(rnd(r, 28, 36));
       return {
-        title: 'A trout on the fly', story: 'Bert’s sold a fly rod to a visitor who doesn’t believe the trout here take a fly. Bert would like the proof, and a size to boast about.',
-        goal: `Catch a trout of ${min} cm or more on a fly`, obj: { kind: 'catch', sp: 'trout', min, method: 'fly', count: 1 },
-        where: W.places?.stream || null, gear: 'the fly rod', difficulty: 2, minutes: 30, pay: round5(20 + min * 0.6), rep: 1,
+        title: $t('A trout on the fly'), story: $t('Bert’s sold a fly rod to a visitor who doesn’t believe the trout here take a fly. Bert would like the proof, and a size to boast about.'),
+        goal: $t`Catch a trout of ${min} cm or more on a fly`, obj: { kind: 'catch', sp: 'trout', min, method: 'fly', count: 1 },
+        where: W.places?.stream || null, gear: $t('the fly rod'), difficulty: 2, minutes: 30, pay: round5(20 + min * 0.6), rep: 1,
       };
     },
   },
@@ -173,8 +174,8 @@ export const TEMPLATES = {
       if (!big.length) return null;
       const b = pick(r, big), min = Math.round(b.max * rnd(r, 0.68, 0.78));
       return {
-        title: `Photograph and release: a big ${b.name.toLowerCase()}`, story: 'The Angling Club keeps a book of big fish photographed and let go. They’d pay to see this one in it, and see it swim away.',
-        goal: `Catch ${an(b.name)} of ${min} cm or more, photograph it on the catch card, and let it go`, obj: { kind: 'catch', sp: b.id, min, released: true, photo: true, count: 1 },
+        title: $t`Photograph and release: a big ${b.name.toLowerCase()}`, story: $t('The Angling Club keeps a book of big fish photographed and let go. They’d pay to see this one in it, and see it swim away.'),
+        goal: $t`Catch ${an(b.name)} of ${min} cm or more, photograph it on the catch card, and let it go`, obj: { kind: 'catch', sp: b.id, min, released: true, photo: true, count: 1 },
         where: b.at || null, difficulty: 3, minutes: 45, pay: round5(30 + min * 0.6), rep: 2,
       };
     },
@@ -185,9 +186,9 @@ export const TEMPLATES = {
     make(W) {
       if (!W.dolphins) return null;
       return {
-        title: 'Dolphins on the bow', story: 'The Marine Trust is counting the pods that ride boats’ bow waves this season. They want a photograph of them on yours: going steadily, they’ll come.',
-        goal: 'Photograph dolphins riding your bow wave', obj: { kind: 'photo', life: ['bottlenose', 'commondolphin', 'spotteddolphin'], bow: true },
-        boat: 'something quick (the RIB, the console)', difficulty: 2, minutes: 25, pay: 35, rep: 2, coop: true,
+        title: $t('Dolphins on the bow'), story: $t('The Marine Trust is counting the pods that ride boats’ bow waves this season. They want a photograph of them on yours: going steadily, they’ll come.'),
+        goal: $t('Photograph dolphins riding your bow wave'), obj: { kind: 'photo', life: ['bottlenose', 'commondolphin', 'spotteddolphin'], bow: true },
+        boat: $t('something quick (the RIB, the console)'), difficulty: 2, minutes: 25, pay: 35, rep: 2, coop: true,
       };
     },
   },
@@ -197,9 +198,9 @@ export const TEMPLATES = {
       if (!W.whales?.length) return null;
       const w = W.whales[0];
       return {
-        title: 'A whale’s position', story: `A ${w.name.toLowerCase()} has been reported ${w.where}. The Trust wants it found and its position logged as it surfaces.`,
-        goal: `Be within 200 m of the ${w.name.toLowerCase()} as it surfaces to blow`, obj: { kind: 'observe', what: 'whale', r: 200, life: w.kind },
-        where: w.at || null, boat: 'a seaworthy boat', difficulty: 2, minutes: 40, pay: 45, rep: 2, coop: true,
+        title: $t('A whale’s position'), story: $t`A ${w.name.toLowerCase()} has been reported ${w.where}. The Trust wants it found and its position logged as it surfaces.`,
+        goal: $t`Be within 200 m of the ${w.name.toLowerCase()} as it surfaces to blow`, obj: { kind: 'observe', what: 'whale', r: 200, life: w.kind },
+        where: w.at || null, boat: $t('a seaworthy boat'), difficulty: 2, minutes: 40, pay: 45, rep: 2, coop: true,
       };
     },
   },
@@ -208,8 +209,8 @@ export const TEMPLATES = {
     make(W) {
       if (!W.birds) return null;
       return {
-        title: 'Birds working', story: 'Dougie says the gannets have been diving on the bait every dawn and dusk. Mags wants to know where: go and watch one, close.',
-        goal: 'Get within 80 m of birds diving on a shoal', obj: { kind: 'observe', what: 'frenzy', r: 80 },
+        title: $t('Birds working'), story: $t('Dougie says the gannets have been diving on the bait every dawn and dusk. Mags wants to know where: go and watch one, close.'),
+        goal: $t('Get within 80 m of birds diving on a shoal'), obj: { kind: 'observe', what: 'frenzy', r: 80 },
         difficulty: 1, minutes: 20, pay: 20, rep: 1, coop: true,
       };
     },
@@ -220,8 +221,8 @@ export const TEMPLATES = {
       // (Paco writes once you've been to the island: his letters come up the board at Willowhaven.)
       if (!W.beenSouth) return null;
       return {
-        title: 'Una tortuga', story: 'A letter from Paco: his niece is drawing the island’s animals for school and she has no turtle yet. A photograph of one would do: they come up to breathe off the lee of Las Brasas.',
-        goal: 'Photograph a loggerhead turtle', obj: { kind: 'photo', life: ['turtle'] },
+        title: $t('Una tortuga'), story: $t('A letter from Paco: his niece is drawing the island’s animals for school and she has no turtle yet. A photograph of one would do: they come up to breathe off the lee of Las Brasas.'),
+        goal: $t('Photograph a loggerhead turtle'), obj: { kind: 'photo', life: ['turtle'] },
         difficulty: 1, minutes: 25, pay: 25, rep: 1,
       };
     },
@@ -233,9 +234,9 @@ export const TEMPLATES = {
       const line = W.surveyLines?.length ? pick(r, W.surveyLines) : null;
       if (!line) return null;
       return {
-        title: `Sonar transect: ${line.name}`, story: 'The Trust is mapping the seabed. Run the line of marks with your fish finder on, slowly enough for it to read the bottom.',
-        goal: `Pass each of ${line.marks.length} marks in order with the fish finder on`, obj: { kind: 'visit', marks: line.marks, sonar: true, r: 25 },
-        where: line.marks[0], boat: 'any boat with a fish finder (imaging sonar pays a bonus)', difficulty: 1, minutes: 25, pay: 30, rep: 2,
+        title: $t`Sonar transect: ${line.name}`, story: $t('The Trust is mapping the seabed. Run the line of marks with your fish finder on, slowly enough for it to read the bottom.'),
+        goal: $t`Pass each of ${line.marks.length} marks in order with the fish finder on`, obj: { kind: 'visit', marks: line.marks, sonar: true, r: 25 },
+        where: line.marks[0], boat: $t('any boat with a fish finder (imaging sonar pays a bonus)'), difficulty: 1, minutes: 25, pay: 30, rep: 2,
       };
     },
   },
@@ -246,8 +247,8 @@ export const TEMPLATES = {
       if (!marks?.length) return null;
       const night = W.summer && r() < 0.5;
       return {
-        title: night ? 'A night survey: water temperatures' : 'Water temperatures at the marks', story: night ? 'Summer nights are when the top of the sea cools: the Trust wants readings taken after dark.' : 'The Trust keeps a record of the sea’s temperature through the year. Take readings at each mark with the fish finder on.',
-        goal: `Reach each of ${marks.length} marks with the fish finder on${night ? ', after dark' : ''}`, obj: { kind: 'visit', marks, sonar: true, night, r: 25 },
+        title: night ? $t('A night survey: water temperatures') : $t('Water temperatures at the marks'), story: night ? $t('Summer nights are when the top of the sea cools: the Trust wants readings taken after dark.') : $t('The Trust keeps a record of the sea’s temperature through the year. Take readings at each mark with the fish finder on.'),
+        goal: $t`Reach each of ${marks.length} marks with the fish finder on${night ? $t(', after dark') : ''}`, obj: { kind: 'visit', marks, sonar: true, night, r: 25 },
         where: marks[0], difficulty: night ? 2 : 1, minutes: 30, pay: night ? 40 : 28, rep: 2,
       };
     },
@@ -258,8 +259,8 @@ export const TEMPLATES = {
     make(W) {
       if (W.storm || !W.places?.quay) return null;
       return {
-        title: 'Ice for Wend Quay', story: 'The campers at Wend Quay have run out of ice. Mags has a box packed: take it up the estuary.',
-        goal: 'Take the box of ice to Wend Quay', obj: { kind: 'deliver', to: 'quay', r: 25 }, cargo: 'a box of ice',
+        title: $t('Ice for Wend Quay'), story: $t('The campers at Wend Quay have run out of ice. Mags has a box packed: take it up the estuary.'),
+        goal: $t('Take the box of ice to Wend Quay'), obj: { kind: 'deliver', to: 'quay', r: 25 }, cargo: $t('a box of ice'),
         where: W.places.quay, difficulty: 1, minutes: 15, pay: 15, rep: 1,
       };
     },
@@ -271,8 +272,8 @@ export const TEMPLATES = {
     make(W) {
       if (!W.galeAt || !W.places?.quay || W.galeAt - W.abs < 1.5) return null;
       return {
-        title: 'Before the gale', story: `There’s a gale due at ${W.galeWords}. The campers at Wend Quay need their spare tarpaulins and pegs before it comes: Wenna has them bagged on the quay.`,
-        goal: 'Take the tarpaulins to Wend Quay before the gale arrives', obj: { kind: 'deliver', to: 'quay', r: 25, by: W.galeAt }, cargo: 'tarpaulins and pegs',
+        title: $t('Before the gale'), story: $t`There’s a gale due at ${W.galeWords}. The campers at Wend Quay need their spare tarpaulins and pegs before it comes: Wenna has them bagged on the quay.`,
+        goal: $t('Take the tarpaulins to Wend Quay before the gale arrives'), obj: { kind: 'deliver', to: 'quay', r: 25, by: W.galeAt }, cargo: $t('tarpaulins and pegs'),
         where: W.places.quay, difficulty: 2, minutes: 15, pay: 30, rep: 2,
       };
     },
@@ -284,9 +285,9 @@ export const TEMPLATES = {
       if (W.storm || W.forecastStorm || !W.places?.puerto || !W.canCross || !W.beenSouth) return null;
       if (r() < 0.4) return null;
       return {
-        title: 'Spares for Puerto Brasa', story: 'Paco’s generator has thrown a part and the island’s chandlery has none. Bert has one: carry it across the ocean to the quay at Puerto Brasa, in fair weather.',
-        goal: 'Take the generator part across to Puerto Brasa', obj: { kind: 'deliver', to: 'puerto', r: 40 }, cargo: 'a generator part',
-        where: W.places.puerto, boat: 'a boat that can make the crossing (the yacht or the sailing boat)', difficulty: 3, minutes: 60, pay: 120, rep: 3,
+        title: $t('Spares for Puerto Brasa'), story: $t('Paco’s generator has thrown a part and the island’s chandlery has none. Bert has one: carry it across the ocean to the quay at Puerto Brasa, in fair weather.'),
+        goal: $t('Take the generator part across to Puerto Brasa'), obj: { kind: 'deliver', to: 'puerto', r: 40 }, cargo: $t('a generator part'),
+        where: W.places.puerto, boat: $t('a boat that can make the crossing (the yacht or the sailing boat)'), difficulty: 3, minutes: 60, pay: 120, rep: 3,
       };
     },
   },
@@ -298,11 +299,11 @@ export const TEMPLATES = {
       if (!W.whales?.length || W.storm) return null;
       const can = [3, 4, 6, 8].filter((n) => n <= W.rank.pax);
       if (!can.length) return null;
-      const pax = pick(r, can), boat = boatFor(W, { pax }, `a boat with ${pax} seats`);
+      const pax = pick(r, can), boat = boatFor(W, { pax }, $t`a boat with ${pax} seats`);
       if (!boat) return null;
       return {
-        title: `Whale watching: ${pax} passengers`, story: `${pax} visitors have booked a trip to see the ${W.whales[0].name.toLowerCase()} reported ${W.whales[0].where}. Pick them up at Willowhaven, find it, and bring them home happy (rough water in an open boat and they won’t tip).`,
-        goal: `Take ${pax} passengers out to see a whale surface, and back to Willowhaven`, obj: { kind: 'charter', pax, see: 'whale' },
+        title: $t`Whale watching: ${pax} passengers`, story: $t`${pax} visitors have booked a trip to see the ${W.whales[0].name.toLowerCase()} reported ${W.whales[0].where}. Pick them up at Willowhaven, find it, and bring them home happy (rough water in an open boat and they won’t tip).`,
+        goal: $t`Take ${pax} passengers out to see a whale surface, and back to Willowhaven`, obj: { kind: 'charter', pax, see: 'whale' },
         where: W.whales[0].at, boat, difficulty: 2, minutes: 45, pay: round5(25 + pax * 14), rep: 2, coop: true,
       };
     },
@@ -314,11 +315,11 @@ export const TEMPLATES = {
       if (!W.dolphins || W.storm) return null;
       const can = [2, 3, 5].filter((n) => n <= W.rank.pax);
       if (!can.length) return null;
-      const pax = pick(r, can), boat = boatFor(W, { pax }, `something quick with ${pax} seats`);
+      const pax = pick(r, can), boat = boatFor(W, { pax }, $t`something quick with ${pax} seats`);
       if (!boat) return null;
       return {
-        title: `Dolphins for ${pax}`, story: `A family of ${pax} wants to see the dolphins on the bow. Pick them up at Willowhaven, get the dolphins riding your bow, and bring them home.`,
-        goal: `Take ${pax} passengers out until dolphins ride your bow, and back to Willowhaven`, obj: { kind: 'charter', pax, see: 'dolphins' },
+        title: $t`Dolphins for ${pax}`, story: $t`A family of ${pax} wants to see the dolphins on the bow. Pick them up at Willowhaven, get the dolphins riding your bow, and bring them home.`,
+        goal: $t`Take ${pax} passengers out until dolphins ride your bow, and back to Willowhaven`, obj: { kind: 'charter', pax, see: 'dolphins' },
         boat, difficulty: 1, minutes: 30, pay: round5(20 + pax * 10), rep: 1, coop: true,
       };
     },
@@ -330,12 +331,12 @@ export const TEMPLATES = {
       if (W.storm || !W.diveSites?.length) return null;
       const can = [2, 4, 6].filter((n) => n <= W.rank.pax);
       if (!can.length) return null;
-      const site = pick(r, W.diveSites), pax = pick(r, can), boat = boatFor(W, { pax, divers: true }, `a boat for ${pax} divers and their kit`);
+      const site = pick(r, W.diveSites), pax = pick(r, can), boat = boatFor(W, { pax, divers: true }, $t`a boat for ${pax} divers and their kit`);
       if (!boat) return null;
       return {
-        title: `Divers to ${site.name}`, story: `The Sub-Aqua Club has ${pax} divers booked for ${site.name}${site.noAnchor ? ` (${site.noAnchor}: no anchoring, so hold her on the spot while they’re down)` : ''}. Take them out, stay with them while they dive, and bring them home.`,
-        goal: `Take ${pax} divers to ${site.name}, stay on the site while they’re down, and back to Willowhaven`, obj: { kind: 'charter', pax, divers: true, dive: { x: site.x, z: site.z, r: 45, stay: 90, noAnchor: !!site.noAnchor } },
-        where: site, boat, gear: site.noAnchor ? 'a GPS trolling motor (Spot-Lock), or a steady hand on the helm' : null, difficulty: site.noAnchor ? 3 : 2, minutes: 40, pay: round5(30 + pax * 15 + (site.noAnchor ? 25 : 0)), rep: 2,
+        title: $t`Divers to ${site.name}`, story: $t`The Sub-Aqua Club has ${pax} divers booked for ${site.name}${site.noAnchor ? $t` (${site.noAnchor}: no anchoring, so hold her on the spot while they’re down)` : ''}. Take them out, stay with them while they dive, and bring them home.`,
+        goal: $t`Take ${pax} divers to ${site.name}, stay on the site while they’re down, and back to Willowhaven`, obj: { kind: 'charter', pax, divers: true, dive: { x: site.x, z: site.z, r: 45, stay: 90, noAnchor: !!site.noAnchor } },
+        where: site, boat, gear: site.noAnchor ? $t('a GPS trolling motor (Spot-Lock), or a steady hand on the helm') : null, difficulty: site.noAnchor ? 3 : 2, minutes: 40, pay: round5(30 + pax * 15 + (site.noAnchor ? 25 : 0)), rep: 2,
       };
     },
   },
@@ -346,11 +347,11 @@ export const TEMPLATES = {
       if (W.storm) return null;
       const can = [2, 3, 4].filter((n) => n <= W.rank.pax);
       if (!can.length) return null;
-      const pax = pick(r, can), n = pax + 1, boat = boatFor(W, { pax }, `a boat with a deck for ${pax} anglers`);
+      const pax = pick(r, can), n = pax + 1, boat = boatFor(W, { pax }, $t`a boat with a deck for ${pax} anglers`);
       if (!boat) return null;
       return {
-        title: `A fishing charter for ${pax}`, story: `${pax} club members want a day after the sea fish with someone who knows where they are. Take them out, put them on the fish (${n} between you), and bring them home.`,
-        goal: `Take ${pax} anglers out, land ${n} sea fish with them aboard, and back to Willowhaven`, obj: { kind: 'charter', pax, fish: n },
+        title: $t`A fishing charter for ${pax}`, story: $t`${pax} club members want a day after the sea fish with someone who knows where they are. Take them out, put them on the fish (${n} between you), and bring them home.`,
+        goal: $t`Take ${pax} anglers out, land ${n} sea fish with them aboard, and back to Willowhaven`, obj: { kind: 'charter', pax, fish: n },
         boat, difficulty: 2, minutes: 60, pay: round5(30 + pax * 18), rep: 2, coop: true,
       };
     },
@@ -360,11 +361,11 @@ export const TEMPLATES = {
     make(W, r) {
       if (W.region !== 'home') return null;
       if (W.storm || !W.places?.puffin) return null;
-      const kg = pick(r, [250, 450, 700, 1200].filter((k) => k <= W.rank.kg)), boat = boatFor(W, { cargo: kg }, `a boat that carries ${kg} kg`);
+      const kg = pick(r, [250, 450, 700, 1200].filter((k) => k <= W.rank.kg)), boat = boatFor(W, { cargo: kg }, $t`a boat that carries ${kg} kg`);
       if (!boat) return null;
       return {
-        title: `${kg} kg for Puffin Cove`, story: `The camp at Puffin Cove is rebuilding its jetty: ${kg} kg of timber and fixings are stacked on Willowhaven quay. Load them (it takes a boat that can carry it) and take them out.`,
-        goal: `Load ${kg} kg at Willowhaven and deliver it to Puffin Cove`, obj: { kind: 'deliver', to: 'puffin', r: 40, cargo: kg }, cargo: `${kg} kg of timber`,
+        title: $t`${kg} kg for Puffin Cove`, story: $t`The camp at Puffin Cove is rebuilding its jetty: ${kg} kg of timber and fixings are stacked on Willowhaven quay. Load them (it takes a boat that can carry it) and take them out.`,
+        goal: $t`Load ${kg} kg at Willowhaven and deliver it to Puffin Cove`, obj: { kind: 'deliver', to: 'puffin', r: 40, cargo: kg }, cargo: $t`${kg} kg of timber`,
         where: W.places.puffin, boat, difficulty: kg > 600 ? 2 : 1, minutes: 35, pay: round5(20 + kg * 0.07), rep: 2,
       };
     },
@@ -375,9 +376,9 @@ export const TEMPLATES = {
     make(W) {
       if (W.region !== 'home' || !W.first || !W.places?.landing) return null;
       return {
-        title: 'A parcel for The Landing', story: 'Wenna at the harbour office has a parcel for the cottage by The Landing, a little way west along the shore: an easy first job, by rowing boat or skiff. Stop at the planks and it’s delivered.',
-        goal: 'Take the parcel to The Landing', obj: { kind: 'deliver', to: 'landing', r: 30 },
-        where: W.places.landing, boat: 'any boat (the rowing boat will do)', difficulty: 1, minutes: 5, pay: 12, rep: 1,
+        title: $t('A parcel for The Landing'), story: $t('Wenna at the harbour office has a parcel for the cottage by The Landing, a little way west along the shore: an easy first job, by rowing boat or skiff. Stop at the planks and it’s delivered.'),
+        goal: $t('Take the parcel to The Landing'), obj: { kind: 'deliver', to: 'landing', r: 30 },
+        where: W.places.landing, boat: $t('any boat (the rowing boat will do)'), difficulty: 1, minutes: 5, pay: 12, rep: 1,
       };
     },
   },
@@ -388,9 +389,9 @@ export const TEMPLATES = {
       if (W.region !== 'home') return null;
       const n = 4 + Math.floor(r() * 3);
       return {
-        title: 'A rockpool count', story: 'The Marine Trust counts what lives in the pools on our rocky shores every season. Go down at low water, look in the pools, turn a stone or two, and record what you find there: the anemones, the limpets, the prawns, the crabs, the fish.',
-        goal: `Record ${n} different kinds in the rockpools`, obj: { kind: 'notes', where: 'pool', n },
-        where: W.places?.pools || null, boat: 'none: walk out at low water', difficulty: 1, minutes: 20, pay: round5(10 + n * 4), rep: 2,
+        title: $t('A rockpool count'), story: $t('The Marine Trust counts what lives in the pools on our rocky shores every season. Go down at low water, look in the pools, turn a stone or two, and record what you find there: the anemones, the limpets, the prawns, the crabs, the fish.'),
+        goal: $t`Record ${n} different kinds in the rockpools`, obj: { kind: 'notes', where: 'pool', n },
+        where: W.places?.pools || null, boat: $t('none: walk out at low water'), difficulty: 1, minutes: 20, pay: round5(10 + n * 4), rep: 2,
       };
     },
   },
@@ -400,9 +401,9 @@ export const TEMPLATES = {
       if (W.region !== 'home' || W.storm) return null;
       const n = 3 + Math.floor(r() * 2);
       return {
-        title: 'A seabird count', story: 'The Trust counts the seabirds that nest and feed along this coast. Take your binoculars along the cliffs or out to sea, hold them steady on a bird until you know it, and name each kind you see.',
-        goal: `Name ${n} different seabirds through your binoculars`, obj: { kind: 'notes', where: 'binoculars', n, birds: true },
-        where: W.places?.light || null, boat: 'none needed (Gannet Isle’s cliffs are best)', difficulty: 1, minutes: 25, pay: round5(10 + n * 5), rep: 2,
+        title: $t('A seabird count'), story: $t('The Trust counts the seabirds that nest and feed along this coast. Take your binoculars along the cliffs or out to sea, hold them steady on a bird until you know it, and name each kind you see.'),
+        goal: $t`Name ${n} different seabirds through your binoculars`, obj: { kind: 'notes', where: 'binoculars', n, birds: true },
+        where: W.places?.light || null, boat: $t('none needed (Gannet Isle’s cliffs are best)'), difficulty: 1, minutes: 25, pay: round5(10 + n * 5), rep: 2,
       };
     },
   },
@@ -412,7 +413,7 @@ export const TEMPLATES = {
       if (W.region !== 'home') return null;
       const T = pick(r, SPECIMENS);
       return {
-        title: `A photograph for the guide: ${T.name}`, story: `The Trust’s field guide wants a good photograph of ${T.an} for its page: ${T.hint}`,
+        title: $t`A photograph for the guide: ${T.name}`, story: $t`The Trust’s field guide wants a good photograph of ${T.an} for its page: ${T.hint}`,
         goal: `Photograph ${T.an}`, obj: { kind: 'photo', subjects: [T.id] },
         where: T.at ? W.places?.[T.at] || null : null, difficulty: T.hard ? 2 : 1, minutes: 25, pay: T.hard ? 35 : 25, rep: 2,
       };
@@ -426,9 +427,9 @@ export const TEMPLATES = {
       if (W.region !== 'home' || W.storm || !sites.length) return null;
       const s = pick(r, sites), n = Math.min(3, s.left);
       return {
-        title: `A dive survey of ${s.name}`, story: `The Marine Trust is recording what’s on ${s.name}. Dive it (a mask, or tanks for the deeper sites) and log ${n} things there you haven’t logged before: they go in the Trust’s record, and your journal.`,
-        goal: `Dive ${s.name} and log ${n} new things there`, obj: { kind: 'dive', site: s.id, n },
-        where: { x: s.x, z: s.z, name: s.name }, boat: 'any boat to dive from', gear: s.deep ? 'tanks: it’s deep' : 'a mask and fins', difficulty: s.deep ? 3 : 2, minutes: 25, pay: round5(15 + n * 10 + (s.deep ? 15 : 0)), rep: 2,
+        title: $t`A dive survey of ${s.name}`, story: $t`The Marine Trust is recording what’s on ${s.name}. Dive it (a mask, or tanks for the deeper sites) and log ${n} things there you haven’t logged before: they go in the Trust’s record, and your journal.`,
+        goal: $t`Dive ${s.name} and log ${n} new things there`, obj: { kind: 'dive', site: s.id, n },
+        where: { x: s.x, z: s.z, name: s.name }, boat: $t('any boat to dive from'), gear: s.deep ? $t('tanks: it’s deep') : $t('a mask and fins'), difficulty: s.deep ? 3 : 2, minutes: 25, pay: round5(15 + n * 10 + (s.deep ? 15 : 0)), rep: 2,
       };
     },
   },
@@ -437,20 +438,20 @@ export const TEMPLATES = {
     cat: 'expedition', giver: 'trust',
     make(W) {
       if (W.region !== 'home' || W.storm || W.forecastStorm || W.rank.pax < 6 || !W.places?.puffin || !W.places?.light || !W.places?.hound) return null;
-      const boat = boatFor(W, { cargo: 300 }, 'a boat for 300 kg and a long day out');
+      const boat = boatFor(W, { cargo: 300 }, $t('a boat for 300 kg and a long day out'));
       if (!boat) return null;
       const P = W.places;
       return {
-        title: 'The Gannet Isle season', story: 'The Marine Trust’s wardens start their season on Gannet Isle. Take their kit out to the camp at Puffin Cove, check the light on your way round the island, sound the Hound for their reef count with the finder on, and come home: a long day, in fair weather.',
-        goal: 'Load at Willowhaven, land the kit at Puffin Cove, round Gannet Light, sound the Hound, and home',
+        title: $t('The Gannet Isle season'), story: $t('The Marine Trust’s wardens start their season on Gannet Isle. Take their kit out to the camp at Puffin Cove, check the light on your way round the island, sound the Hound for their reef count with the finder on, and come home: a long day, in fair weather.'),
+        goal: $t('Load at Willowhaven, land the kit at Puffin Cove, round Gannet Light, sound the Hound, and home'),
         obj: { kind: 'stages', stages: [
-          { kind: 'load', cargo: 300, say: 'load 300 kg of the wardens’ kit at Willowhaven' },
-          { kind: 'deliver', to: 'puffin', at: { x: P.puffin.x, z: P.puffin.z }, say: 'land it at the camp in Puffin Cove' },
-          { kind: 'visit', mark: { x: P.light.x, z: P.light.z }, r: 150, say: 'round Gannet Light' },
-          { kind: 'visit', mark: { x: P.hound.x, z: P.hound.z }, r: 45, sonar: true, say: 'sound the Hound with the fish finder on' },
-          { kind: 'home', say: 'home to Willowhaven' },
+          { kind: 'load', cargo: 300, say: $t('load 300 kg of the wardens’ kit at Willowhaven') },
+          { kind: 'deliver', to: 'puffin', at: { x: P.puffin.x, z: P.puffin.z }, say: $t('land it at the camp in Puffin Cove') },
+          { kind: 'visit', mark: { x: P.light.x, z: P.light.z }, r: 150, say: $t('round Gannet Light') },
+          { kind: 'visit', mark: { x: P.hound.x, z: P.hound.z }, r: 45, sonar: true, say: $t('sound the Hound with the fish finder on') },
+          { kind: 'home', say: $t('home to Willowhaven') },
         ] },
-        where: P.puffin, boat, gear: 'a fish finder', difficulty: 3, minutes: 70, pay: 140, rep: 3,
+        where: P.puffin, boat, gear: $t('a fish finder'), difficulty: 3, minutes: 70, pay: 140, rep: 3,
       };
     },
   },
@@ -459,11 +460,11 @@ export const TEMPLATES = {
     cat: 'rescue', giver: 'wenna', call: true,
     make(W, r) {
       if (W.region !== 'home' || W.storm || !W.callSpot) return null;
-      const who = pick(r, ['a paddleboarder', 'a kayaker who’s lost a paddle', 'a swimmer']);
+      const who = pick(r, ['a paddleboarder', $t('a kayaker who’s lost a paddle'), 'a swimmer']);
       return {
-        title: `Pick up ${who}`, story: `Harbour office: “${who[0].toUpperCase()}${who.slice(1)}’s been carried out ${W.callSpot.where} and is hanging on to a pot buoy, tired but fine. You’re nearest: can you pick them up and bring them in?”`,
-        goal: `Get alongside ${who.replace(/ who.*/, '')} ${W.callSpot.where}, slowly, and bring them home to Willowhaven`, obj: { kind: 'pickup', what: 'person', at: { x: W.callSpot.x, z: W.callSpot.z }, r: 9, pax: 1 },
-        where: { x: W.callSpot.x, z: W.callSpot.z, name: 'the call' }, boat: 'any boat with a seat', difficulty: 1, minutes: 15, pay: 20, rep: 2,
+        title: $t`Pick up ${who}`, story: $t`Harbour office: “${who[0].toUpperCase()}${who.slice(1)}’s been carried out ${W.callSpot.where} and is hanging on to a pot buoy, tired but fine. You’re nearest: can you pick them up and bring them in?”`,
+        goal: $t`Get alongside ${who.replace(/ who.*/, '')} ${W.callSpot.where}, slowly, and bring them home to Willowhaven`, obj: { kind: 'pickup', what: 'person', at: { x: W.callSpot.x, z: W.callSpot.z }, r: 9, pax: 1 },
+        where: { x: W.callSpot.x, z: W.callSpot.z, name: $t('the call') }, boat: $t('any boat with a seat'), difficulty: 1, minutes: 15, pay: 20, rep: 2,
       };
     },
   },
@@ -471,11 +472,11 @@ export const TEMPLATES = {
     cat: 'rescue', giver: 'wenna', call: true,
     make(W, r) {
       if (W.region !== 'home' || W.storm || W.wind > 10 || !W.callSpot) return null;
-      const name = pick(r, ['Mary Ann', 'Sea Pink', 'Kestrel', 'Wren', 'Two Brothers']);
+      const name = pick(r, [$t('Mary Ann'), $t('Sea Pink'), $t('Kestrel'), $t('Wren'), $t('Two Brothers')]);
       return {
-        title: `A tow for the ${name}`, story: `Harbour office: “The ${name}, a little skiff, has a dead engine ${W.callSpot.where} and her owner’s drifting. Can you get a line on her and tow her into Willowhaven?”`,
-        goal: `Take the ${name} in tow ${W.callSpot.where} (alongside slowly, then the mooring key) and bring her into Willowhaven`, obj: { kind: 'tow', at: { x: W.callSpot.x, z: W.callSpot.z }, boat: 'skiff', name },
-        where: { x: W.callSpot.x, z: W.callSpot.z, name: `the ${name}` }, boat: 'a boat big enough to tow a skiff (not the kayak)', difficulty: 2, minutes: 20, pay: 25, rep: 2,
+        title: $t`A tow for the ${name}`, story: $t`Harbour office: “The ${name}, a little skiff, has a dead engine ${W.callSpot.where} and her owner’s drifting. Can you get a line on her and tow her into Willowhaven?”`,
+        goal: $t`Take the ${name} in tow ${W.callSpot.where} (alongside slowly, then the mooring key) and bring her into Willowhaven`, obj: { kind: 'tow', at: { x: W.callSpot.x, z: W.callSpot.z }, boat: 'skiff', name },
+        where: { x: W.callSpot.x, z: W.callSpot.z, name: $t`the ${name}` }, boat: $t('a boat big enough to tow a skiff (not the kayak)'), difficulty: 2, minutes: 20, pay: 25, rep: 2,
       };
     },
   },
@@ -483,11 +484,11 @@ export const TEMPLATES = {
     cat: 'rescue', giver: 'wenna', call: true,
     make(W, r) {
       if (W.region !== 'home' || W.storm || !W.callSpot) return null;
-      const what = pick(r, ['a mooring buoy', 'a channel marker', 'a lobster-pot dan']);
+      const what = pick(r, [$t('a mooring buoy'), $t('a channel marker'), $t('a lobster-pot dan')]);
       return {
-        title: `Recover ${what}`, story: `Harbour office: “${what[0].toUpperCase()}${what.slice(1)}’s broken loose and is drifting ${W.callSpot.where}, a danger to anyone coming in. Can you get it aboard and bring it back?”`,
-        goal: `Get alongside ${what} ${W.callSpot.where}, haul it aboard, and bring it to Willowhaven`, obj: { kind: 'pickup', what: 'buoy', at: { x: W.callSpot.x, z: W.callSpot.z }, r: 7, cargo: 40 },
-        where: { x: W.callSpot.x, z: W.callSpot.z, name: 'the drifting buoy' }, boat: 'any boat that can take 40 kg', difficulty: 1, minutes: 15, pay: 15, rep: 1,
+        title: $t`Recover ${what}`, story: $t`Harbour office: “${what[0].toUpperCase()}${what.slice(1)}’s broken loose and is drifting ${W.callSpot.where}, a danger to anyone coming in. Can you get it aboard and bring it back?”`,
+        goal: $t`Get alongside ${what} ${W.callSpot.where}, haul it aboard, and bring it to Willowhaven`, obj: { kind: 'pickup', what: 'buoy', at: { x: W.callSpot.x, z: W.callSpot.z }, r: 7, cargo: 40 },
+        where: { x: W.callSpot.x, z: W.callSpot.z, name: $t('the drifting buoy') }, boat: $t('any boat that can take 40 kg'), difficulty: 1, minutes: 15, pay: 15, rep: 1,
       };
     },
   },
@@ -499,8 +500,8 @@ export const TEMPLATES = {
     make(W, r) {
       const min = pick(r, [30, 32, 35]);
       return {
-        title: 'Una vieja para la plancha', story: 'Paco wants a good parrotfish for the grill tonight, the way the island likes it: split, salted, and straight onto the hot plate. They graze the lava reefs, Las Coladas and El Bajón, by day.',
-        goal: `Catch a parrotfish of ${min} cm or more`, obj: { kind: 'catch', sp: 'parrotfish', min, count: 1 },
+        title: $t('Una vieja para la plancha'), story: $t('Paco wants a good parrotfish for the grill tonight, the way the island likes it: split, salted, and straight onto the hot plate. They graze the lava reefs, Las Coladas and El Bajón, by day.'),
+        goal: $t`Catch a parrotfish of ${min} cm or more`, obj: { kind: 'catch', sp: 'parrotfish', min, count: 1 },
         where: W.places?.coladas || null, difficulty: 1, minutes: 20, pay: 25, rep: 1,
       };
     },
@@ -511,9 +512,9 @@ export const TEMPLATES = {
       if (W.storm) return null;
       const min = pick(r, [70, 80, 90]);
       return {
-        title: 'Amberjack off El Veril', story: 'The fishermen of Puerto Brasa say the amberjack are running along the drop-off at El Veril, big ones, hunting the edge where the shelf falls into the blue. They want to know they’re right: bring one in.',
-        goal: `Catch an amberjack of ${min} cm or more`, obj: { kind: 'catch', sp: 'amberjack', min, count: 1 },
-        where: W.places?.veril || null, gear: 'a stout rod: they fight deep and hard', difficulty: 3, minutes: 35, pay: 55, rep: 2,
+        title: $t('Amberjack off El Veril'), story: $t('The fishermen of Puerto Brasa say the amberjack are running along the drop-off at El Veril, big ones, hunting the edge where the shelf falls into the blue. They want to know they’re right: bring one in.'),
+        goal: $t`Catch an amberjack of ${min} cm or more`, obj: { kind: 'catch', sp: 'amberjack', min, count: 1 },
+        where: W.places?.veril || null, gear: $t('a stout rod: they fight deep and hard'), difficulty: 3, minutes: 35, pay: 55, rep: 2,
       };
     },
   },
@@ -523,9 +524,9 @@ export const TEMPLATES = {
       const V = W.places?.veril;
       if (!V || W.storm) return null;
       return {
-        title: 'Sounding El Veril', story: 'The cofradía keeps a chart of the drop-off, and a winter’s storms have moved the sand at its foot. Run over the edge with your fish finder on, where the bottom falls away, so they can mark it again.',
-        goal: 'Pass over El Veril’s edge with the fish finder on', obj: { kind: 'visit', marks: [{ x: V.x, z: V.z, name: 'El Veril' }], r: 60, sonar: true },
-        where: V, gear: 'a fish finder', difficulty: 1, minutes: 20, pay: 30, rep: 1,
+        title: $t('Sounding El Veril'), story: $t('The cofradía keeps a chart of the drop-off, and a winter’s storms have moved the sand at its foot. Run over the edge with your fish finder on, where the bottom falls away, so they can mark it again.'),
+        goal: $t('Pass over El Veril’s edge with the fish finder on'), obj: { kind: 'visit', marks: [{ x: V.x, z: V.z, name: $t('El Veril') }], r: 60, sonar: true },
+        where: V, gear: $t('a fish finder'), difficulty: 1, minutes: 20, pay: 30, rep: 1,
       };
     },
   },
@@ -534,8 +535,8 @@ export const TEMPLATES = {
     make(W) {
       if (W.storm) return null;
       return {
-        title: 'El cachalote', story: 'A sperm whale has been blowing off the island, out in the deep water: the old men at the bar say it comes every year. Paco would put a photograph of it on the wall behind the bar.',
-        goal: 'Photograph a sperm whale off the island', obj: { kind: 'photo', life: ['spermwhale'], region: 'south' },
+        title: $t('El cachalote'), story: $t('A sperm whale has been blowing off the island, out in the deep water: the old men at the bar say it comes every year. Paco would put a photograph of it on the wall behind the bar.'),
+        goal: $t('Photograph a sperm whale off the island'), obj: { kind: 'photo', life: ['spermwhale'], region: 'south' },
         difficulty: 2, minutes: 40, pay: 40, rep: 2,
       };
     },
@@ -545,8 +546,8 @@ export const TEMPLATES = {
     make(W) {
       if (!W.places?.sebadal) return null;
       return {
-        title: 'The angel sharks of El Sebadal', story: 'The fishermen want the angel sharks left in peace on El Sebadal, and a photograph for the harbour’s notice of one lying in the sand, flat as a doormat, would help. Look, don’t touch: dive it, or look down from a boat on a calm day.',
-        goal: 'Photograph an angel shark', obj: { kind: 'photo', subjects: ['angelshark'] },
+        title: $t('The angel sharks of El Sebadal'), story: $t('The fishermen want the angel sharks left in peace on El Sebadal, and a photograph for the harbour’s notice of one lying in the sand, flat as a doormat, would help. Look, don’t touch: dive it, or look down from a boat on a calm day.'),
+        goal: $t('Photograph an angel shark'), obj: { kind: 'photo', subjects: ['angelshark'] },
         where: W.places.sebadal, difficulty: 2, minutes: 30, pay: 35, rep: 2,
       };
     },
@@ -561,11 +562,11 @@ export const TEMPLATES = {
     make(W, r) {
       const S = W.groundSpot;
       if (W.region !== 'home' || W.storm || W.wind > 12 || !S) return null;
-      const name = pick(r, ['Curlew', 'Sea Holly', 'Lapwing', 'Morwenna', 'Spindrift']);
+      const name = pick(r, [$t('Curlew'), $t('Sea Holly'), $t('Lapwing'), $t('Morwenna'), $t('Spindrift')]);
       return {
-        title: `The ${name}, aground`, story: `Harbour office: “The ${name}, a little cabin boat, has run up on ${S.name}, and the tide’s falling. If she’s not off before it leaves her she’ll sit there till the flood: she’ll be high and dry by about ${S.dryWords}. Come in off her bow from the deep water, gently (it’s shallow there, and you don’t want to join her), and they’ll heave you a line. Then ease her off.”`,
-        goal: `Pull the ${name} off ${S.name} before the tide leaves her, by about ${S.dryWords} (close off her bow, slowly, then the mooring key for her line, then ease her off into deep water)`, obj: { kind: 'tow', at: { x: S.x, z: S.z }, heading: S.heading, boat: 'cabin', name, aground: true, by: S.dryAt },
-        where: { x: S.x, z: S.z, name: `the ${name}` }, boat: 'a boat with the power to pull a cabin boat off the sand (the RIB, or the centre-console boat)', difficulty: 3, minutes: 10, pay: 45, rep: 3,
+        title: $t`The ${name}, aground`, story: $t`Harbour office: “The ${name}, a little cabin boat, has run up on ${S.name}, and the tide’s falling. If she’s not off before it leaves her she’ll sit there till the flood: she’ll be high and dry by about ${S.dryWords}. Come in off her bow from the deep water, gently (it’s shallow there, and you don’t want to join her), and they’ll heave you a line. Then ease her off.”`,
+        goal: $t`Pull the ${name} off ${S.name} before the tide leaves her, by about ${S.dryWords} (close off her bow, slowly, then the mooring key for her line, then ease her off into deep water)`, obj: { kind: 'tow', at: { x: S.x, z: S.z }, heading: S.heading, boat: 'cabin', name, aground: true, by: S.dryAt },
+        where: { x: S.x, z: S.z, name: $t`the ${name}` }, boat: $t('a boat with the power to pull a cabin boat off the sand (the RIB, or the centre-console boat)'), difficulty: 3, minutes: 10, pay: 45, rep: 3,
       };
     },
   },
@@ -579,12 +580,12 @@ export const TEMPLATES = {
       if (W.storm || !W.diveSites?.length) return null;
       const can = [2, 4, 6].filter((n) => n <= W.rank.pax);
       if (!can.length) return null;
-      const site = pick(r, W.diveSites), pax = pick(r, can), boat = boatFor(W, { pax, divers: true }, `a boat for ${pax} divers and their kit`);
+      const site = pick(r, W.diveSites), pax = pick(r, can), boat = boatFor(W, { pax, divers: true }, $t`a boat for ${pax} divers and their kit`);
       if (!boat) return null;
       return {
-        title: `Buceo: ${pax} divers to ${site.name}`, story: `The dive school on the quay has ${pax} divers booked for ${site.name}, and its own boat’s up on the slip with a cracked hull${site.noAnchor ? ` (${site.noAnchor}: no anchoring, so hold her on the spot while they’re down)` : ''}. Take them out from Puerto Brasa, stay with them while they dive, and bring them back.`,
-        goal: `Take ${pax} divers from Puerto Brasa to ${site.name}, stay on the site while they’re down, and back to Puerto Brasa`, obj: { kind: 'charter', base: 'puerto', pax, divers: true, dive: { x: site.x, z: site.z, r: 45, stay: 90, noAnchor: !!site.noAnchor } },
-        where: site, boat, gear: site.noAnchor ? 'a GPS trolling motor (Spot-Lock), or a steady hand on the helm' : null, difficulty: site.noAnchor ? 3 : 2, minutes: 35, pay: round5(30 + pax * 15 + (site.noAnchor ? 25 : 0)), rep: 2,
+        title: $t`Buceo: ${pax} divers to ${site.name}`, story: $t`The dive school on the quay has ${pax} divers booked for ${site.name}, and its own boat’s up on the slip with a cracked hull${site.noAnchor ? $t` (${site.noAnchor}: no anchoring, so hold her on the spot while they’re down)` : ''}. Take them out from Puerto Brasa, stay with them while they dive, and bring them back.`,
+        goal: $t`Take ${pax} divers from Puerto Brasa to ${site.name}, stay on the site while they’re down, and back to Puerto Brasa`, obj: { kind: 'charter', base: 'puerto', pax, divers: true, dive: { x: site.x, z: site.z, r: 45, stay: 90, noAnchor: !!site.noAnchor } },
+        where: site, boat, gear: site.noAnchor ? $t('a GPS trolling motor (Spot-Lock), or a steady hand on the helm') : null, difficulty: site.noAnchor ? 3 : 2, minutes: 35, pay: round5(30 + pax * 15 + (site.noAnchor ? 25 : 0)), rep: 2,
       };
     },
   },
@@ -594,13 +595,13 @@ export const TEMPLATES = {
       if (W.storm) return null;
       const can = [2, 3, 4, 6].filter((n) => n <= W.rank.pax);
       if (!can.length) return null;
-      const whale = r() < 0.5, pax = pick(r, can), boat = boatFor(W, { pax }, `a boat with ${pax} seats`);
+      const whale = r() < 0.5, pax = pick(r, can), boat = boatFor(W, { pax }, $t`a boat with ${pax} seats`);
       if (!boat) return null;
       return {
-        title: whale ? `El cachalote: ${pax} visitors` : `Los delfines: ${pax} visitors`,
-        story: whale ? `${pax} visitors staying above the bar want to see the sperm whale that blows off the island’s south side, out over the deep water past El Veril, and Paco has told them you’ll find it. Pick them up at Puerto Brasa, wait for it to come up (it dives for a long time), and bring them back happy (rough water in an open boat and they won’t tip).`
-          : `${pax} visitors at the bar want to see dolphins ride a bow, and the spotted dolphins are off the harbour most days. Pick them up at Puerto Brasa, run out until they come and play on your bow, and bring them back (rough water in an open boat and they won’t tip).`,
-        goal: `Take ${pax} passengers from Puerto Brasa ${whale ? 'out to see the sperm whale surface' : 'out until dolphins ride your bow'}, and back to Puerto Brasa`, obj: { kind: 'charter', base: 'puerto', pax, see: whale ? 'whale' : 'dolphins' },
+        title: whale ? $t`El cachalote: ${pax} visitors` : $t`Los delfines: ${pax} visitors`,
+        story: whale ? $t`${pax} visitors staying above the bar want to see the sperm whale that blows off the island’s south side, out over the deep water past El Veril, and Paco has told them you’ll find it. Pick them up at Puerto Brasa, wait for it to come up (it dives for a long time), and bring them back happy (rough water in an open boat and they won’t tip).`
+          : $t`${pax} visitors at the bar want to see dolphins ride a bow, and the spotted dolphins are off the harbour most days. Pick them up at Puerto Brasa, run out until they come and play on your bow, and bring them back (rough water in an open boat and they won’t tip).`,
+        goal: $t`Take ${pax} passengers from Puerto Brasa ${whale ? $t('out to see the sperm whale surface') : $t('out until dolphins ride your bow')}, and back to Puerto Brasa`, obj: { kind: 'charter', base: 'puerto', pax, see: whale ? 'whale' : 'dolphins' },
         where: whale ? W.places?.veril || null : null, boat, difficulty: 2, minutes: whale ? 45 : 30, pay: round5((whale ? 30 : 20) + pax * 14), rep: 2, coop: true,
       };
     },
@@ -609,13 +610,13 @@ export const TEMPLATES = {
     cat: 'rescue', giver: 'cofradia', south: true,
     make(W, r) {
       if (W.storm || W.wind > 11) return null;
-      const S = pick(r, [{ x: -540, z: 6420, where: 'off Roque del Arco' }, { x: 330, z: 6340, where: 'off Playa Negra' }, { x: 260, z: 6640, where: 'out over El Veril' }]);
-      const boat = boatFor(W, { cargo: 40 }, 'a boat that can take 40 kg');
+      const S = pick(r, [{ x: -540, z: 6420, where: $t('off Roque del Arco') }, { x: 330, z: 6340, where: $t('off Playa Negra') }, { x: 260, z: 6640, where: $t('out over El Veril') }]);
+      const boat = boatFor(W, { cargo: 40 }, $t('a boat that can take 40 kg'));
       if (!boat) return null;
       return {
-        title: 'La boya', story: `One of the cofradía’s mooring buoys broke away from its chain in the night and is drifting ${S.where}, a danger to anyone coming in after dark. Get alongside it, haul it aboard and bring it in to Puerto Brasa.`,
-        goal: `Get alongside the buoy ${S.where}, haul it aboard, and bring it in to Puerto Brasa`, obj: { kind: 'pickup', base: 'puerto', what: 'buoy', at: { x: S.x, z: S.z }, r: 7, cargo: 40 },
-        where: { x: S.x, z: S.z, name: 'the drifting buoy' }, boat, difficulty: 1, minutes: 15, pay: 20, rep: 1,
+        title: $t('La boya'), story: $t`One of the cofradía’s mooring buoys broke away from its chain in the night and is drifting ${S.where}, a danger to anyone coming in after dark. Get alongside it, haul it aboard and bring it in to Puerto Brasa.`,
+        goal: $t`Get alongside the buoy ${S.where}, haul it aboard, and bring it in to Puerto Brasa`, obj: { kind: 'pickup', base: 'puerto', what: 'buoy', at: { x: S.x, z: S.z }, r: 7, cargo: 40 },
+        where: { x: S.x, z: S.z, name: $t('the drifting buoy') }, boat, difficulty: 1, minutes: 15, pay: 20, rep: 1,
       };
     },
   },
@@ -629,9 +630,9 @@ export const TEMPLATES = {
       const by = kg && ['sail', 'cruiser'].find((k) => (W.usable || []).includes(k) && !fits(k, { cargo: kg }));
       if (!by) return null;
       return {
-        title: 'Salt fish for Mags', story: `The fishermen of Puerto Brasa salt and dry part of their catch the old way, and Mags Pennock will take all they can send her. ${kg} kg of it is boxed on the quay: load it at Puerto Brasa and carry it across the ocean to Willowhaven, in fair weather.`,
-        goal: `Load ${kg} kg of salt fish at Puerto Brasa and carry it across to Willowhaven`, obj: { kind: 'deliver', base: 'puerto', to: 'home', cargo: kg }, cargo: `${kg} kg of salt fish`,
-        where: W.places?.haven || null, boat: `a boat that makes the crossing with ${kg} kg aboard (your ${vesselOf(by).name} will do)`, difficulty: 3, minutes: 60, pay: round5(100 + kg * 0.25), rep: 3,
+        title: $t('Salt fish for Mags'), story: $t`The fishermen of Puerto Brasa salt and dry part of their catch the old way, and Mags Pennock will take all they can send her. ${kg} kg of it is boxed on the quay: load it at Puerto Brasa and carry it across the ocean to Willowhaven, in fair weather.`,
+        goal: $t`Load ${kg} kg of salt fish at Puerto Brasa and carry it across to Willowhaven`, obj: { kind: 'deliver', base: 'puerto', to: 'home', cargo: kg }, cargo: $t`${kg} kg of salt fish`,
+        where: W.places?.haven || null, boat: $t`a boat that makes the crossing with ${kg} kg aboard (your ${vesselOf(by).name} will do)`, difficulty: 3, minutes: 60, pay: round5(100 + kg * 0.25), rep: 3,
       };
     },
   },
@@ -645,11 +646,11 @@ export const TEMPLATES = {
     cat: 'rescue', giver: 'wenna', call: true, harder: true,
     make(W, r) {
       if (W.region !== 'home' || W.storm || W.wind > 12 || !W.callSpot) return null;
-      const name = pick(r, ['Bluebell', 'Seren', 'Pentire', 'Little Auk', 'Dunlin']), S = W.callSpot;
+      const name = pick(r, [$t('Bluebell'), $t('Seren'), $t('Pentire'), $t('Little Auk'), $t('Dunlin')]), S = W.callSpot;
       return {
-        title: `The ${name}, taking water`, story: `Harbour office: “The ${name}, a little skiff, is taking water ${S.where}: a plank’s sprung, and her owner’s bailing and losing. Get a line on her before she’s swamped and tow her in. Pass them your bucket when you’re alongside.”`,
-        goal: `Get the ${name} on your line ${S.where} before she’s swamped (alongside slowly, then the mooring key), and tow her into Willowhaven`, obj: { kind: 'tow', at: { x: S.x, z: S.z }, boat: 'skiff', name, leak: 0.9 },
-        where: { x: S.x, z: S.z, name: `the ${name}` }, boat: 'a boat big enough to tow a skiff (not the kayak)', difficulty: 3, minutes: 15, pay: 40, rep: 3,
+        title: $t`The ${name}, taking water`, story: $t`Harbour office: “The ${name}, a little skiff, is taking water ${S.where}: a plank’s sprung, and her owner’s bailing and losing. Get a line on her before she’s swamped and tow her in. Pass them your bucket when you’re alongside.”`,
+        goal: $t`Get the ${name} on your line ${S.where} before she’s swamped (alongside slowly, then the mooring key), and tow her into Willowhaven`, obj: { kind: 'tow', at: { x: S.x, z: S.z }, boat: 'skiff', name, leak: 0.9 },
+        where: { x: S.x, z: S.z, name: $t`the ${name}` }, boat: $t('a boat big enough to tow a skiff (not the kayak)'), difficulty: 3, minutes: 15, pay: 40, rep: 3,
       };
     },
   },
@@ -660,12 +661,12 @@ export const TEMPLATES = {
     cat: 'rescue', giver: 'wenna', call: true, far: true,
     make(W, r) {
       if (W.region !== 'home' || W.storm || W.wind > 12 || !W.callSpot || !W.offshore) return null;
-      const name = pick(r, ['Curlew', 'Spindrift', 'Sanderling', 'Merlin', 'Fair Isle']), S = W.callSpot, km = W.offshore.km;
-      const why = W.wind < 4 ? 'becalmed, her engine dead' : 'dead in the water, her engine gone and her mainsail split';
+      const name = pick(r, [$t('Curlew'), $t('Spindrift'), $t('Sanderling'), $t('Merlin'), $t('Fair Isle')]), S = W.callSpot, km = W.offshore.km;
+      const why = W.wind < 4 ? $t('becalmed, her engine dead') : $t('dead in the water, her engine gone and her mainsail split');
       return {
-        title: `The ${name}, out on the Blue Water`, story: `The coastguard, relayed by the harbour office on the VHF: “The sailing boat ${name} is ${why}, out on the Blue Water ${km} km from the harbour, with a family aboard. You’re the nearest boat with a radio: can you get a line on her and tow her home?”`,
-        goal: `Take the ${name} in tow out on the Blue Water (alongside slowly, then the mooring key) and bring her all the way into Willowhaven`, obj: { kind: 'tow', at: { x: S.x, z: S.z }, boat: 'sail', name },
-        where: { x: S.x, z: S.z, name: `the ${name}` }, boat: 'a boat that can tow a sailing boat home from the open sea', difficulty: 3, minutes: 30, pay: round5(30 + 12 * km), rep: 3,
+        title: $t`The ${name}, out on the Blue Water`, story: $t`The coastguard, relayed by the harbour office on the VHF: “The sailing boat ${name} is ${why}, out on the Blue Water ${km} km from the harbour, with a family aboard. You’re the nearest boat with a radio: can you get a line on her and tow her home?”`,
+        goal: $t`Take the ${name} in tow out on the Blue Water (alongside slowly, then the mooring key) and bring her all the way into Willowhaven`, obj: { kind: 'tow', at: { x: S.x, z: S.z }, boat: 'sail', name },
+        where: { x: S.x, z: S.z, name: $t`the ${name}` }, boat: $t('a boat that can tow a sailing boat home from the open sea'), difficulty: 3, minutes: 30, pay: round5(30 + 12 * km), rep: 3,
       };
     },
   },
@@ -675,8 +676,8 @@ export const TEMPLATES = {
     make(W) {
       if (W.region !== 'home' || W.wind > 11 || W.storm) return null;
       return {
-        title: 'Berthing, cleanly', story: 'Wenna is short of hands for the visitors’ pontoon and wants to see you can bring a boat alongside without touching anything before she asks you to help.',
-        goal: 'Make fast at the visitors’ pontoon without a bump', obj: { kind: 'dock', pier: 'visitors', bumps: 0 },
+        title: $t('Berthing, cleanly'), story: $t('Wenna is short of hands for the visitors’ pontoon and wants to see you can bring a boat alongside without touching anything before she asks you to help.'),
+        goal: $t('Make fast at the visitors’ pontoon without a bump'), obj: { kind: 'dock', pier: 'visitors', bumps: 0 },
         where: W.places?.visitors || null, difficulty: 1, minutes: 10, pay: 15, rep: 1,
       };
     },
@@ -687,8 +688,8 @@ export const TEMPLATES = {
       if (W.region !== 'home' || W.wind > 13 || W.storm || !W.courses?.length) return null;
       const c = pick(r, W.courses), mins = c.minutes;
       return {
-        title: `Round the marks: ${c.name}`, story: 'The Sailing Club sets a course every week for anyone who fancies it. Round every mark in order, inside the time.',
-        goal: `Round ${c.marks.length} marks in order inside ${mins} minutes`, obj: { kind: 'visit', marks: c.marks, r: 18, limit: mins * 60 },
+        title: $t`Round the marks: ${c.name}`, story: $t('The Sailing Club sets a course every week for anyone who fancies it. Round every mark in order, inside the time.'),
+        goal: $t`Round ${c.marks.length} marks in order inside ${mins} minutes`, obj: { kind: 'visit', marks: c.marks, r: 18, limit: mins * 60 },
         where: c.marks[0], difficulty: 2, minutes: mins + 5, pay: 30, rep: 1,
       };
     },
@@ -699,9 +700,9 @@ export const TEMPLATES = {
       if (W.region !== 'home' || !W.ownsSail || W.wind < 3 || W.wind > 12 || W.storm || !W.courses?.length) return null;
       const c = pick(r, W.courses);
       return {
-        title: `Under sail: ${c.name}`, story: 'The same course the Club sets each week, but sailed: the sail up and the outboard off, all the way round.',
-        goal: `Round ${c.marks.length} marks in order under sail alone`, obj: { kind: 'visit', marks: c.marks, r: 18, sail: true },
-        where: c.marks[0], boat: 'the sailing boat', difficulty: 2, minutes: 30, pay: 40, rep: 2,
+        title: $t`Under sail: ${c.name}`, story: $t('The same course the Club sets each week, but sailed: the sail up and the outboard off, all the way round.'),
+        goal: $t`Round ${c.marks.length} marks in order under sail alone`, obj: { kind: 'visit', marks: c.marks, r: 18, sail: true },
+        where: c.marks[0], boat: $t('the sailing boat'), difficulty: 2, minutes: 30, pay: 40, rep: 2,
       };
     },
   },
@@ -710,7 +711,8 @@ export const TEMPLATE_IDS = Object.keys(TEMPLATES);
 
 function an(name) {
   const w = name.toLowerCase();
-  return `${/^[aeiou]/.test(w) ? 'an' : 'a'} ${w}`;
+  // (In Spanish or French the sentence round it has the article: the word alone.)
+  return langNow() !== 'en' ? w : `${/^[aeiou]/.test(w) ? 'an' : 'a'} ${w}`;
 }
 
 /* ---------------- the record ---------------- */
@@ -780,9 +782,9 @@ export function offers(C, W) {
 // Take a job: onto the active list (three at most), off the board. Returns the contract, or why not.
 export function accept(C, id, now = 0) {
   const o = C.board?.offers.find((x) => x.id === id);
-  if (!o) return { why: 'That job’s gone.' };
-  if (C.active.length >= CONTRACT_MAX) return { why: `You have ${CONTRACT_MAX} jobs on already: finish or give one up first.` };
-  if (id in C.done) return { why: 'You’ve done that one.' };
+  if (!o) return { why: $t('That job’s gone.') };
+  if (C.active.length >= CONTRACT_MAX) return { why: $t`You have ${CONTRACT_MAX} jobs on already: finish or give one up first.` };
+  if (id in C.done) return { why: $t('You’ve done that one.') };
   const a = { ...o, progress: startOf(o.obj, now), accepted: now, ready: false };
   C.active.push(a);
   C.board.offers = C.board.offers.filter((x) => x.id !== id);
@@ -1007,7 +1009,7 @@ export function tick(C, x) {
             boarded.push(a);
           } else if (!P.said) {
             P.said = true;
-            said.push({ a, text: `${a.title}: it won’t go in her, ${why}.` });
+            said.push({ a, text: $t`${a.title}: it won’t go in her, ${why}.` });
           }
         } else if (!atBase(o, x)) P.said = false;
         continue;
@@ -1029,7 +1031,7 @@ export function tick(C, x) {
           const why = fits(x.boat, need);
           if (!P.said) {
             P.said = true;
-            said.push({ a, text: `${a.title}: they can’t all come in her, ${why}.` });
+            said.push({ a, text: $t`${a.title}: they can’t all come in her, ${why}.` });
           }
         } else if (!there) P.said = false;
         continue;
@@ -1044,7 +1046,7 @@ export function tick(C, x) {
           if (o.dive.noAnchor && x.anchored) {
             if (!P.warned) {
               P.warned = true;
-              said.push({ a, text: `${a.title}: no anchoring here, it tears up the reef. Up anchor and hold her on the spot (Spot-Lock, or by hand).` });
+              said.push({ a, text: $t`${a.title}: no anchoring here, it tears up the reef. Up anchor and hold her on the spot (Spot-Lock, or by hand).` });
             }
           } else {
             P.stay += x.dt || 0.5;
@@ -1069,7 +1071,7 @@ export function tick(C, x) {
             boarded.push(a);
           } else if (!P.said) {
             P.said = true;
-            said.push({ a, text: `${a.title}: no room in her, ${why}.` });
+            said.push({ a, text: $t`${a.title}: no room in her, ${why}.` });
           }
         } else if (!near) P.said = false;
         continue;
@@ -1092,7 +1094,7 @@ export function tick(C, x) {
         const q = Math.floor(Math.max(0, Math.min(1, S.sink || 0)) * 4);
         if (q >= 2 && q > (P.q || 0)) {
           P.q = q;
-          said.push({ a, text: q === 2 ? `${a.title}: she’s half way to swamped.` : `${a.title}: she’s nearly swamped. Hurry.` });
+          said.push({ a, text: q === 2 ? $t`${a.title}: she’s half way to swamped.` : $t`${a.title}: she’s nearly swamped. Hurry.` });
         }
       }
       // (G6b: one aground is done once she's off, floating clear in deep water; her owner takes
@@ -1104,7 +1106,7 @@ export function tick(C, x) {
         boarded.push(a);
       } else if (!S.towed && P.towing) {
         P.towing = false;
-        said.push({ a, text: `${a.title}: she’s off the line, drifting. Come back alongside and take her in tow again.` });
+        said.push({ a, text: $t`${a.title}: she’s off the line, drifting. Come back alongside and take her in tow again.` });
       }
     } else if (o.kind === 'stages') {
       // One stage at a time, each done the way its own kind of job is.
@@ -1118,7 +1120,7 @@ export function tick(C, x) {
             ok = true;
           } else if (!P.said) {
             P.said = true;
-            said.push({ a, text: `${a.title}: it won’t go in her, ${why}.` });
+            said.push({ a, text: $t`${a.title}: it won’t go in her, ${why}.` });
           }
         } else if (!x.home) P.said = false;
       } else if (S.kind === 'deliver') ok = x.at === S.to && x.boat === P.boat;
@@ -1154,20 +1156,20 @@ export function target(a) {
   const o = a.obj;
   if (o.kind === 'visit') {
     const m = o.marks[a.progress.next];
-    return m ? { x: m.x, z: m.z, name: `${a.title}: mark ${a.progress.next + 1} of ${o.marks.length}` } : null;
+    return m ? { x: m.x, z: m.z, name: $t`${a.title}: mark ${a.progress.next + 1} of ${o.marks.length}` } : null;
   }
   // (home: the job's harbour, Willowhaven or Puerto Brasa: base.)
-  const base = o.base === 'puerto' ? 'puerto' : 'home', back = base === 'puerto' ? 'back to Puerto Brasa' : 'home to Willowhaven';
+  const base = o.base === 'puerto' ? 'puerto' : 'home', back = base === 'puerto' ? $t('back to Puerto Brasa') : $t('home to Willowhaven');
   if (o.kind === 'charter') {
-    if (!a.progress.aboard || a.progress.seen) return { home: true, base, name: a.progress.aboard ? `${a.title}: ${back}` : `${a.title}: pick them up at ${baseName(o)}` };
+    if (!a.progress.aboard || a.progress.seen) return { home: true, base, name: a.progress.aboard ? `${a.title}: ${back}` : $t`${a.title}: pick them up at ${baseName(o)}` };
     if (o.dive) return { x: o.dive.x, z: o.dive.z, name: a.where?.name || a.title };
   }
-  if (o.kind === 'deliver' && o.cargo && !a.progress.loaded) return { home: true, base, name: `${a.title}: load at ${baseName(o)}` };
-  if (o.kind === 'deliver' && o.to === 'home') return { home: true, base: 'home', name: `${a.title}: into Willowhaven` };
+  if (o.kind === 'deliver' && o.cargo && !a.progress.loaded) return { home: true, base, name: $t`${a.title}: load at ${baseName(o)}` };
+  if (o.kind === 'deliver' && o.to === 'home') return { home: true, base: 'home', name: $t`${a.title}: into Willowhaven` };
   if (o.kind === 'tow') {
     const p = a.progress.at || o.at;
-    if (o.aground) return { x: p.x, z: p.z, name: a.progress.towing ? `${a.title}: ease her off into deep water` : a.title };
-    return a.progress.towing ? { home: true, name: `${a.title}: into Willowhaven` } : { x: p.x, z: p.z, name: a.title };
+    if (o.aground) return { x: p.x, z: p.z, name: a.progress.towing ? $t`${a.title}: ease her off into deep water` : a.title };
+    return a.progress.towing ? { home: true, name: $t`${a.title}: into Willowhaven` } : { x: p.x, z: p.z, name: a.title };
   }
   if (o.kind === 'pickup') return a.progress.picked ? { home: true, base, name: `${a.title}: ${back}` } : { x: o.at.x, z: o.at.z, name: a.title };
   if (o.kind === 'stages') {
@@ -1181,25 +1183,25 @@ export function target(a) {
 
 // Where it stands, in a line, for the journal.
 export function standing(a) {
-  if (a.ready) return a.onSpot ? 'Done and paid.' : `Done: back to ${paidAt(a)} to be paid.`;
+  if (a.ready) return a.onSpot ? $t('Done and paid.') : $t`Done: back to ${paidAt(a)} to be paid.`;
   const o = a.obj, P = a.progress, at = baseName(o);
-  if (o.kind === 'catch' && o.distinct) return `${P.species.length} of ${o.distinct} kinds so far.`;
-  if (o.kind === 'catch' && (o.count || 1) > 1) return `${P.got} of ${o.count} so far.`;
-  if (o.kind === 'visit') return `Mark ${Math.min(P.next + 1, o.marks.length)} of ${o.marks.length}${o.limit && P.started != null ? ' (the clock’s running)' : ''}.`;
+  if (o.kind === 'catch' && o.distinct) return $t`${P.species.length} of ${o.distinct} kinds so far.`;
+  if (o.kind === 'catch' && (o.count || 1) > 1) return $t`${P.got} of ${o.count} so far.`;
+  if (o.kind === 'visit') return $t`Mark ${Math.min(P.next + 1, o.marks.length)} of ${o.marks.length}${o.limit && P.started != null ? $t(' (the clock’s running)') : ''}.`;
   if (o.kind === 'charter') {
-    if (!P.aboard) return `They’re waiting at ${at}: bring a boat with room for ${o.pax}${o.divers ? ' divers' : ''}.`;
-    if (!P.seen) return o.dive ? `Divers down: ${Math.floor(P.stay)} of ${o.dive.stay} s on the site.` : o.fish ? `${P.caught} of ${o.fish} fish so far.` : o.see === 'whale' ? 'Find them a whale.' : 'Find them dolphins to ride your bow.';
-    return `Bring them ${o.base === 'puerto' ? 'back to Puerto Brasa' : 'home to Willowhaven'}${P.rough > 60 ? ' (a rough trip: no tip)' : ''}.`;
+    if (!P.aboard) return $t`They’re waiting at ${at}: bring a boat with room for ${o.pax}${o.divers ? $t(' divers') : ''}.`;
+    if (!P.seen) return o.dive ? $t`Divers down: ${Math.floor(P.stay)} of ${o.dive.stay} s on the site.` : o.fish ? $t`${P.caught} of ${o.fish} fish so far.` : o.see === 'whale' ? $t('Find them a whale.') : $t('Find them dolphins to ride your bow.');
+    return $t`Bring them ${o.base === 'puerto' ? $t('back to Puerto Brasa') : $t('home to Willowhaven')}${P.rough > 60 ? $t(' (a rough trip: no tip)') : ''}.`;
   }
-  if (o.kind === 'deliver' && o.cargo && !P.loaded) return `${o.cargo} kg waiting on ${at} quay: bring a boat that can carry it.`;
-  if (o.kind === 'dive') return `${P.got} of ${o.n} new things logged.`;
-  if (o.kind === 'notes') return `${(P.seen || []).length} of ${o.n} recorded.`;
-  if (o.kind === 'pickup') return P.picked ? (o.base === 'puerto' ? 'Aboard: into Puerto Brasa.' : 'Aboard: home to Willowhaven.') : 'Out there: get alongside, slowly.';
-  if (o.kind === 'tow' && o.aground) return P.towing ? 'On your towline: ease her off into deep water.' : 'Aground, and the tide falling: come in off her bow from the deep water, slowly, and take her line.';
-  if (o.kind === 'tow') return P.towing ? 'On your towline: bring her into Willowhaven.' : 'Out there, engine dead: come alongside slowly and take her in tow.';
+  if (o.kind === 'deliver' && o.cargo && !P.loaded) return $t`${o.cargo} kg waiting on ${at} quay: bring a boat that can carry it.`;
+  if (o.kind === 'dive') return $t`${P.got} of ${o.n} new things logged.`;
+  if (o.kind === 'notes') return $t`${(P.seen || []).length} of ${o.n} recorded.`;
+  if (o.kind === 'pickup') return P.picked ? (o.base === 'puerto' ? $t('Aboard: into Puerto Brasa.') : $t('Aboard: home to Willowhaven.')) : $t('Out there: get alongside, slowly.');
+  if (o.kind === 'tow' && o.aground) return P.towing ? $t('On your towline: ease her off into deep water.') : $t('Aground, and the tide falling: come in off her bow from the deep water, slowly, and take her line.');
+  if (o.kind === 'tow') return P.towing ? $t('On your towline: bring her into Willowhaven.') : $t('Out there, engine dead: come alongside slowly and take her in tow.');
   if (o.kind === 'stages') {
     const S = o.stages[P.stage];
-    return `Stage ${P.stage + 1} of ${o.stages.length}: ${S.say}.`;
+    return $t`Stage ${P.stage + 1} of ${o.stages.length}: ${S.say}.`;
   }
   return a.goal;
 }

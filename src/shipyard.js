@@ -15,6 +15,7 @@ import { pay } from './economy.js';
 import { CATALOGUE, MODELS, PROPS, cleanChoice, propsFor } from './engines.js';
 import { cleanVessels, cleanTrim, newVessel, logLine, flagById, STRIPE_PRICE, TUBES_PRICE } from './papers.js';
 import { kindOf, isBoatId, idFor } from './boatid.js';
+import { $t } from './i18n.js';
 
 export const STARTER = ['row', 'skiff', 'kayak'];
 // What each boat costs (pounds): from a couple of good days' fishing to a summer's.
@@ -24,16 +25,16 @@ export const hirePrice = (kind) => (PRICES[kind] ? Math.max(6, Math.round(PRICES
 
 // Hull colours from a boatyard's chart.
 export const PAINTS = [
-  { id: 'white', name: 'Gelcoat white', hex: '#eeeae2' },
-  { id: 'navy', name: 'Navy', hex: '#24354f' },
-  { id: 'red', name: 'Pillar-box red', hex: '#a8302a' },
-  { id: 'green', name: 'Racing green', hex: '#2f5a43' },
-  { id: 'sky', name: 'Sky blue', hex: '#7fa8c9' },
-  { id: 'teal', name: 'Teal', hex: '#2c7c7a' },
-  { id: 'cream', name: 'Cream', hex: '#e7dcc0' },
-  { id: 'yellow', name: 'Sunflower', hex: '#e2b43c' },
-  { id: 'black', name: 'Black', hex: '#1f2226' },
-  { id: 'grey', name: 'Slate grey', hex: '#6b7279' },
+  { id: 'white', name: $t('Gelcoat white'), hex: '#eeeae2' },
+  { id: 'navy', name: $t('Navy'), hex: '#24354f' },
+  { id: 'red', name: $t('Pillar-box red'), hex: '#a8302a' },
+  { id: 'green', name: $t('Racing green'), hex: '#2f5a43' },
+  { id: 'sky', name: $t('Sky blue'), hex: '#7fa8c9' },
+  { id: 'teal', name: $t('Teal'), hex: '#2c7c7a' },
+  { id: 'cream', name: $t('Cream'), hex: '#e7dcc0' },
+  { id: 'yellow', name: $t('Sunflower'), hex: '#e2b43c' },
+  { id: 'black', name: $t('Black'), hex: '#1f2226' },
+  { id: 'grey', name: $t('Slate grey'), hex: '#6b7279' },
 ];
 export const PAINT_PRICE = 40;
 export const NAME_PRICE = 25;
@@ -46,112 +47,112 @@ export const NAME_MAX = 18;
 // a faster troll, shade, an anchor that holds in a blow. A slot holds one: a new engine choice
 // replaces the old. (Each motorboat's engine and propeller come from the engine catalogue
 // instead: see engines.js and repowerBoat.)
-export const FIT_CATS = { fuel: 'Fuel', electronics: 'Electronics', power: 'Power', trolling: 'Trolling motor', deck: 'Deck', gear: 'Ground tackle' };
+export const FIT_CATS = { fuel: $t('Fuel'), electronics: $t('Electronics'), power: $t('Power'), trolling: $t('Trolling motor'), deck: $t('Deck'), gear: $t('Ground tackle') };
 export const FITS = {
   tank: {
-    name: 'Long-range tank', cat: 'fuel', kg: 8, amps: 0,
+    name: $t('Long-range tank'), cat: 'fuel', kg: 8, amps: 0,
     price: { skiff: 60, bass: 90, cabin: 110, console: 300, rib: 220, jetski: 90, tender: 45 },
-    desc: 'Half as much fuel again: further out, and home again. Heavier when she’s full.',
+    desc: $t('Half as much fuel again: further out, and home again. Heavier when she’s full.'),
     tank: 1.5,
   },
   sonar: {
-    name: 'Imaging sonar', cat: 'electronics', kg: 3, amps: 1.2,
+    name: $t('Imaging sonar'), cat: 'electronics', kg: 3, amps: 1.2,
     price: { skiff: 140, bass: 180, cabin: 200, console: 300, rib: 260, cruiser: 360, tender: 140, trawler: 400 },
-    desc: 'A through-hull imaging transducer for the fish finder’s head unit: the down view and the split screen, ranges down to 40 m, and the smaller echoes picked out. (Without it the head unit shows the 2D sonar to 20 m.)',
+    desc: $t('A through-hull imaging transducer for the fish finder’s head unit: the down view and the split screen, ranges down to 40 m, and the smaller echoes picked out. (Without it the head unit shows the 2D sonar to 20 m.)'),
   },
   // (G7) A deep sounder: the bottom to 200 m, where the shelf falls away and Gannet Deep's floor
   // lies (see sonar.js DEEP_RANGES). Without it the finder loses the bottom past what it reaches.
   deepsonar: {
-    name: 'Deep sounder', cat: 'electronics', kg: 5, amps: 1.5,
+    name: $t('Deep sounder'), cat: 'electronics', kg: 5, amps: 1.5,
     price: { cabin: 360, rib: 380, console: 420, cruiser: 480, trawler: 520 },
-    desc: 'A big low-frequency transducer for the fish finder’s head unit: it reads the bottom to two hundred metres, and the marks over it. The deep water off the shelf, and Gannet Deep’s floor, where nothing else reaches. (Without it the finder loses the bottom past about seventy metres.)',
+    desc: $t('A big low-frequency transducer for the fish finder’s head unit: it reads the bottom to two hundred metres, and the marks over it. The deep water off the shelf, and Gannet Deep’s floor, where nothing else reaches. (Without it the finder loses the bottom past about seventy metres.)'),
   },
   plotter: {
-    name: 'GPS chartplotter', cat: 'electronics', kg: 2, amps: 1,
+    name: $t('GPS chartplotter'), cat: 'electronics', kg: 2, amps: 1,
     price: { skiff: 150, bass: 170, cabin: 190, console: 260, rib: 240, cruiser: 320, sail: 170, jetski: 160, tender: 150, trawler: 360 },
-    desc: 'Your track drawn on the chart wherever she goes, and at the helm the bearing and distance to the nearest of your marks.',
+    desc: $t('Your track drawn on the chart wherever she goes, and at the helm the bearing and distance to the nearest of your marks.'),
   },
   vhf: {
-    name: 'VHF radio', cat: 'electronics', kg: 1, amps: 0.5,
+    name: $t('VHF radio'), cat: 'electronics', kg: 1, amps: 0.5,
     price: { skiff: 70, bass: 70, cabin: 80, console: 90, rib: 90, cruiser: 90, sail: 80, tender: 70, trawler: 100 },
-    desc: 'The harbour’s channel at sea: who’s catching what and where the birds are working, and the forecast, now and then while you’re out.',
+    desc: $t('The harbour’s channel at sea: who’s catching what and where the birds are working, and the forecast, now and then while you’re out.'),
   },
   battery: {
-    name: 'Dual batteries', cat: 'power', kg: 26, amps: 0,
+    name: $t('Dual batteries'), cat: 'power', kg: 26, amps: 0,
     price: { bass: 120, cabin: 110, console: 140, rib: 130, cruiser: 160 },
-    desc: 'A second, house battery for the electronics and the lights, so the starting battery’s always there for the engine; and on the bass boat, the trolling motor runs half as long again.',
+    desc: $t('A second, house battery for the electronics and the lights, so the starting battery’s always there for the engine; and on the bass boat, the trolling motor runs half as long again.'),
     house: true, troll: 1.6,
   },
   lights: {
-    name: 'Deck floodlights', cat: 'deck', kg: 3, amps: 6,
+    name: $t('Deck floodlights'), cat: 'deck', kg: 3, amps: 6,
     price: { skiff: 45, bass: 60, cabin: 70, console: 90, rib: 80, cruiser: 90 },
-    desc: 'Bright LED floods that light the deck and the water round her after dark: fish by night and see what you’re doing. They draw hard on a battery with the engine off.',
+    desc: $t('Bright LED floods that light the deck and the water round her after dark: fish by night and see what you’re doing. They draw hard on a battery with the engine off.'),
   },
   livewell: {
-    name: 'Livewell', cat: 'deck', kg: 22, amps: 0.5,
+    name: $t('Livewell'), cat: 'deck', kg: 22, amps: 0.5,
     price: { skiff: 90, bass: 120, cabin: 140, console: 160, cruiser: 180 },
-    desc: 'A tank of running sea water: fish you keep aboard her stay alive, and fresh for the market, for as long as you’re out.',
+    desc: $t('A tank of running sea water: fish you keep aboard her stay alive, and fresh for the market, for as long as you’re out.'),
   },
   holders: {
-    name: 'Trolling rod holders', cat: 'deck', kg: 4, amps: 0,
+    name: $t('Trolling rod holders'), cat: 'deck', kg: 4, amps: 0,
     price: { skiff: 40, bass: 50, cabin: 60, console: 90, rib: 80, cruiser: 90, tender: 40 },
-    desc: 'Proper holders on the gunwale: with a line out you can run a notch faster, for the lures that want speed (mackerel feathers, tuna plugs), and the rod rides safe while you steer.',
+    desc: $t('Proper holders on the gunwale: with a line out you can run a notch faster, for the lures that want speed (mackerel feathers, tuna plugs), and the rod rides safe while you steer.'),
   },
   bimini: {
-    name: 'Bimini top', cat: 'deck', kg: 9, amps: 0,
+    name: $t('Bimini top'), cat: 'deck', kg: 9, amps: 0,
     price: { skiff: 90, bass: 120, rib: 160 },
-    desc: 'A canvas top on a frame over the helm: shade from the sun and most of the rain off you while you’re aboard.',
+    desc: $t('A canvas top on a frame over the helm: shade from the sun and most of the rain off you while you’re aboard.'),
   },
   // Fit-outs that change the work she can take (G5 of docs/PROGRESSION.md; vessels.js vesselOf):
   // room for more people, divers able to go down from her and climb back, her people happy in a
   // rougher sea. work: { seats (more, by kind), divers, comfort (m more sea her people are happy
   // in: not seaworthiness, which stays her hull's) }.
   seating: {
-    name: 'Extra seating', cat: 'deck', kg: 18, amps: 0,
+    name: $t('Extra seating'), cat: 'deck', kg: 18, amps: 0,
     price: { skiff: 80, rib: 140, console: 160, cabin: 150 },
-    desc: 'A padded bench across her cockpit and a seat or two more: room for more people on a charter or a trip out (two more; on the skiff, one). Each of them weighs what a person weighs, and she feels it.',
+    desc: $t('A padded bench across her cockpit and a seat or two more: room for more people on a charter or a trip out (two more; on the skiff, one). Each of them weighs what a person weighs, and she feels it.'),
     work: { seats: { skiff: 1, rib: 2, console: 2, cabin: 2 } },
   },
   ladder: {
-    name: 'Dive ladder and tank racks', cat: 'deck', kg: 14, amps: 0,
+    name: $t('Dive ladder and tank racks'), cat: 'deck', kg: 14, amps: 0,
     price: { skiff: 90, sail: 140, cabin: 170 },
-    desc: 'A folding ladder over her stern and racks for the tanks: divers can kit up aboard, go down from her and climb back in, so she can take dive work.',
+    desc: $t('A folding ladder over her stern and racks for the tanks: divers can kit up aboard, go down from her and climb back in, so she can take dive work.'),
     work: { divers: true },
   },
   dodger: {
-    name: 'Spray dodger', cat: 'deck', kg: 8, amps: 0,
+    name: $t('Spray dodger'), cat: 'deck', kg: 8, amps: 0,
     price: { skiff: 110, rib: 150, console: 170 },
-    desc: 'A folding canvas hood with clear windows ahead of the helm: it turns the spray and the wind, and her people stay happy in a sea about 40 cm bigger. (She’s no more seaworthy for it: open water still wants a boat built for it.)',
+    desc: $t('A folding canvas hood with clear windows ahead of the helm: it turns the spray and the wind, and her people stay happy in a sea about 40 cm bigger. (She’s no more seaworthy for it: open water still wants a boat built for it.)'),
     work: { comfort: 0.4 },
   },
   // The bow trolling motors (see trolling.js, and trollmount.js for each boat's installation):
   // one at a time, on the boats a bow mount suits. (The RIB's goes on a raised platform over her
   // tube nose, so it costs a little more fitted; the bass boat comes with the basic one.)
   troll: {
-    name: 'Bow trolling motor', cat: 'trolling', slot: 'troll', kg: 22, amps: 0,
+    name: $t('Bow trolling motor'), cat: 'trolling', slot: 'troll', kg: 22, amps: 0,
     price: { skiff: 260, bass: 300, cabin: 320, console: 380, rib: 440 },
     standardOn: ['bass'],
-    desc: 'An electric motor on a bow mount. Stowed, it lies along the foredeck on its mount; to use it, go forward, release the latch and swing it down over the bow by hand until it locks, and set its depth on the collar. Then creep along a reef or round a shoal in silence with the main engine in neutral, steered by turning its head. Its own battery, charged at a jetty and overnight.',
+    desc: $t('An electric motor on a bow mount. Stowed, it lies along the foredeck on its mount; to use it, go forward, release the latch and swing it down over the bow by hand until it locks, and set its depth on the collar. Then creep along a reef or round a shoal in silence with the main engine in neutral, steered by turning its head. Its own battery, charged at a jetty and overnight.'),
   },
   trollgps: {
-    name: 'GPS trolling motor (Spot-Lock)', cat: 'trolling', slot: 'troll', kg: 25, amps: 0,
+    name: $t('GPS trolling motor (Spot-Lock)'), cat: 'trolling', slot: 'troll', kg: 25, amps: 0,
     price: { skiff: 520, bass: 560, cabin: 600, console: 680, rib: 740 },
-    desc: 'A saltwater bow motor with GPS, swung down and stowed by hand with a lift-assist spring that takes most of its weight. From its remote, anywhere aboard: Spot-Lock holds her on a spot in water too deep to anchor in, pushing back against the wind and the tide as she drifts, and heading hold keeps her bow where you set it. Too much wind or tide and she drags off slowly.',
+    desc: $t('A saltwater bow motor with GPS, swung down and stowed by hand with a lift-assist spring that takes most of its weight. From its remote, anywhere aboard: Spot-Lock holds her on a spot in water too deep to anchor in, pushing back against the wind and the tide as she drifts, and heading hold keeps her bow where you set it. Too much wind or tide and she drags off slowly.'),
   },
   trollpro: {
-    name: 'High-thrust GPS trolling motor', cat: 'trolling', slot: 'troll', kg: 32, amps: 0,
+    name: $t('High-thrust GPS trolling motor'), cat: 'trolling', slot: 'troll', kg: 32, amps: 0,
     price: { bass: 860, cabin: 900, console: 980, rib: 1080 },
-    desc: 'A bigger saltwater bow motor that stows and deploys itself at the press of a button, from its remote or the dashboard, its depth set by power trim. Twice the push: Spot-Lock that holds a heavier boat in a fresh breeze and a running tide. Wired for 36 volts; its battery runs down sooner, and flat, the actuator won’t move it: then it’s stowed by hand at the bow.',
+    desc: $t('A bigger saltwater bow motor that stows and deploys itself at the press of a button, from its remote or the dashboard, its depth set by power trim. Twice the push: Spot-Lock that holds a heavier boat in a fresh breeze and a running tide. Wired for 36 volts; its battery runs down sooner, and flat, the actuator won’t move it: then it’s stowed by hand at the bow.'),
   },
   trollbank: {
-    name: 'Lithium trolling battery', cat: 'power', kg: 12, amps: 0,
+    name: $t('Lithium trolling battery'), cat: 'power', kg: 12, amps: 0,
     price: { skiff: 240, bass: 260, cabin: 260, console: 300, rib: 300 },
-    desc: 'A lithium bank for the trolling motor: twice as long on Spot-Lock or creeping about, and lighter than the lead battery it replaces.',
+    desc: $t('A lithium bank for the trolling motor: twice as long on Spot-Lock or creeping about, and lighter than the lead battery it replaces.'),
   },
   anchor: {
-    name: 'Heavier anchor and chain', cat: 'gear', kg: 14, amps: 0,
+    name: $t('Heavier anchor and chain'), cat: 'gear', kg: 14, amps: 0,
     price: { skiff: 35, bass: 45, cabin: 60, console: 80, rib: 70, cruiser: 120, sail: 50, tender: 30, trawler: 160 },
-    desc: 'A bigger anchor on a length of chain: it digs in first time and holds in a blow that would drag the old one across the bottom. The chain’s weight keeps the pull on it low along the seabed, so it holds even where the rope runs short in deep water.',
+    desc: $t('A bigger anchor on a length of chain: it digs in first time and holds in a blow that would drag the old one across the bottom. The chain’s weight keeps the pull on it low along the seabed, so it holds even where the rope runs short in deep water.'),
     // (B6) The anchor itself, twice the weight, holds about twice as hard (holding power goes about
     // with an anchor's weight: Practical Sailor's soft-mud tests); its chain (anchoring.js rodeOf)
     // more, lying along the bottom so it's pulled level, less so in a storm when it's pulled
@@ -240,15 +241,15 @@ export const HIRE_HOURS = 24;
 // Buy her. Returns { ok, why }.
 export function buyBoat(state, kind) {
   const Y = state.yard;
-  if (owns(Y, kind)) return { ok: false, why: 'She’s yours already.' };
-  if (!PRICES[kind]) return { ok: false, why: 'She isn’t for sale.' };
-  const r = pay(state, PRICES[kind], `Bought the ${kind}`);
+  if (owns(Y, kind)) return { ok: false, why: $t('She’s yours already.') };
+  if (!PRICES[kind]) return { ok: false, why: $t('She isn’t for sale.') };
+  const r = pay(state, PRICES[kind], $t`Bought the ${kind}`);
   if (!r.ok) return r;
   Y.owned.push(kind);
   if (Y.hired?.kind === kind) Y.hired = null;
   Y.vessels ??= {};
   Y.vessels[kind] = newVessel(kind, state.day);
-  logLine(Y.vessels[kind], state.day, `Bought at Willowhaven Marine Works for ${PRICES[kind]} pounds.`);
+  logLine(Y.vessels[kind], state.day, $t`Bought at Willowhaven Marine Works for ${PRICES[kind]} pounds.`);
   // (L5) The trawler comes with her tender, if you've none of your own: on her platform's chocks
   // (the game puts her there: tender, her id).
   if (COMES_WITH[kind] && !owns(Y, COMES_WITH[kind])) {
@@ -256,7 +257,7 @@ export function buyBoat(state, kind) {
     Y.owned.push(t);
     if (Y.hired?.kind === t) Y.hired = null;
     Y.vessels[t] = newVessel(t, state.day);
-    logLine(Y.vessels[t], state.day, `Came with the ${kind} from Willowhaven Marine Works, on her swim platform.`);
+    logLine(Y.vessels[t], state.day, $t`Came with the ${kind} from Willowhaven Marine Works, on her swim platform.`);
     return { ok: true, tender: t };
   }
   return { ok: true };
@@ -274,28 +275,28 @@ export const MOST_OF_A_KIND = 2;
 export const ofKind = (yard, kind) => yard.owned.filter((id) => kindOf(id) === kind);
 export function buyAnother(state, kind) {
   const Y = state.yard;
-  if (!SECOND.includes(kind) || !PRICES[kind]) return { ok: false, why: 'The harbour has no berth for another of those.' };
-  if (!owns(Y, kind)) return { ok: false, why: 'She isn’t yours yet: buy her first.' };
-  if (ofKind(Y, kind).length >= MOST_OF_A_KIND) return { ok: false, why: 'Two of a kind is all your finger of the pontoon will take.' };
+  if (!SECOND.includes(kind) || !PRICES[kind]) return { ok: false, why: $t('The harbour has no berth for another of those.') };
+  if (!owns(Y, kind)) return { ok: false, why: $t('She isn’t yours yet: buy her first.') };
+  if (ofKind(Y, kind).length >= MOST_OF_A_KIND) return { ok: false, why: $t('Two of a kind is all your finger of the pontoon will take.') };
   let n = 2;
   while (Y.owned.includes(idFor(kind, n))) n++;
   const id = idFor(kind, n);
-  const r = pay(state, PRICES[kind], `Bought another ${kind}`);
+  const r = pay(state, PRICES[kind], $t`Bought another ${kind}`);
   if (!r.ok) return r;
   Y.owned.push(id);
   Y.vessels[id] = newVessel(id, state.day);
-  logLine(Y.vessels[id], state.day, `Bought at Willowhaven Marine Works for ${PRICES[kind]} pounds: your second.`);
+  logLine(Y.vessels[id], state.day, $t`Bought at Willowhaven Marine Works for ${PRICES[kind]} pounds: your second.`);
   return { ok: true, id };
 }
 
 // Hire her for a day: 24 hours from now (one boat at a time). Returns { ok, why }.
 export function hireBoat(state, kind) {
   const Y = state.yard, abs = nowOf(state);
-  if (owns(Y, kind)) return { ok: false, why: 'She’s yours: no need to hire her.' };
-  if (!PRICES[kind]) return { ok: false, why: 'She isn’t for hire.' };
-  if (Y.hired && Y.hired.kind !== kind && hiredToday(Y, Y.hired.kind, state.day, abs)) return { ok: false, why: `You’ve the ${Y.hired.kind} on hire already.` };
-  if (hiredToday(Y, kind, state.day, abs)) return { ok: false, why: 'She’s on hire to you already.' };
-  const r = pay(state, hirePrice(kind), `A day’s hire of the ${kind}`);
+  if (owns(Y, kind)) return { ok: false, why: $t('She’s yours: no need to hire her.') };
+  if (!PRICES[kind]) return { ok: false, why: $t('She isn’t for hire.') };
+  if (Y.hired && Y.hired.kind !== kind && hiredToday(Y, Y.hired.kind, state.day, abs)) return { ok: false, why: $t`You’ve the ${Y.hired.kind} on hire already.` };
+  if (hiredToday(Y, kind, state.day, abs)) return { ok: false, why: $t('She’s on hire to you already.') };
+  const r = pay(state, hirePrice(kind), $t`A day’s hire of the ${kind}`);
   if (!r.ok) return r;
   Y.hired = { kind, day: state.day, ...(abs != null ? { until: abs + HIRE_HOURS } : {}) };
   return { ok: true };
@@ -304,21 +305,21 @@ export function hireBoat(state, kind) {
 // Paint her (a colour from PAINTS), or have her name sign-written. Returns { ok, why }.
 export function paintBoat(state, kind, paint) {
   const Y = state.yard;
-  if (!owns(Y, kind)) return { ok: false, why: 'Only your own boat.' };
-  if (!PAINTS.some((p) => p.id === paint)) return { ok: false, why: 'Not a colour on the chart.' };
-  if (Y.looks[kind]?.paint === paint) return { ok: false, why: 'She’s that colour already.' };
-  if (Y.looks[kind]?.stripe === paint) return { ok: false, why: 'That’s her stripe’s colour: her paint wants one of its own.' };
-  const r = pay(state, PAINT_PRICE, `Painted the ${kind}`);
+  if (!owns(Y, kind)) return { ok: false, why: $t('Only your own boat.') };
+  if (!PAINTS.some((p) => p.id === paint)) return { ok: false, why: $t('Not a colour on the chart.') };
+  if (Y.looks[kind]?.paint === paint) return { ok: false, why: $t('She’s that colour already.') };
+  if (Y.looks[kind]?.stripe === paint) return { ok: false, why: $t('That’s her stripe’s colour: her paint wants one of its own.') };
+  const r = pay(state, PAINT_PRICE, $t`Painted the ${kind}`);
   if (!r.ok) return r;
   Y.looks[kind] = { ...Y.looks[kind], paint };
   return { ok: true };
 }
 export function nameBoat(state, kind, name) {
   const Y = state.yard, n = cleanBoatName(name);
-  if (!owns(Y, kind)) return { ok: false, why: 'Only your own boat.' };
-  if (!n) return { ok: false, why: 'Give her a name first.' };
-  if (Y.looks[kind]?.name === n) return { ok: false, why: 'That’s her name already.' };
-  const r = pay(state, NAME_PRICE, `Sign-written the ${kind}`);
+  if (!owns(Y, kind)) return { ok: false, why: $t('Only your own boat.') };
+  if (!n) return { ok: false, why: $t('Give her a name first.') };
+  if (Y.looks[kind]?.name === n) return { ok: false, why: $t('That’s her name already.') };
+  const r = pay(state, NAME_PRICE, $t`Sign-written the ${kind}`);
   if (!r.ok) return r;
   Y.looks[kind] = { ...Y.looks[kind], name: n };
   return { ok: true };
@@ -328,28 +329,28 @@ export function nameBoat(state, kind, name) {
 // Returns { ok, why }.
 export function trimBoat(state, kind, what, id, { stripes = true, tubes = false } = {}) {
   const Y = state.yard;
-  if (!owns(Y, kind)) return { ok: false, why: 'Only your own boat.' };
+  if (!owns(Y, kind)) return { ok: false, why: $t('Only your own boat.') };
   const L = Y.looks[kind] || {};
   if (what === 'flag') {
     if (id === null) {
-      if (!L.flag) return { ok: false, why: 'She flies none.' };
+      if (!L.flag) return { ok: false, why: $t('She flies none.') };
       Y.looks[kind] = { ...L };
       delete Y.looks[kind].flag;
       return { ok: true };
     }
     const F = flagById[id];
-    if (!F) return { ok: false, why: 'Not a flag the chandlery has.' };
-    if (L.flag === id) return { ok: false, why: 'She flies that one already.' };
-    const r = pay(state, F.price, `A flag for the ${kind}`);
+    if (!F) return { ok: false, why: $t('Not a flag the chandlery has.') };
+    if (L.flag === id) return { ok: false, why: $t('She flies that one already.') };
+    const r = pay(state, F.price, $t`A flag for the ${kind}`);
     if (!r.ok) return r;
     Y.looks[kind] = { ...L, flag: id };
     return { ok: true };
   }
-  if ((what === 'stripe' && !stripes) || (what === 'tubes' && !tubes) || !['stripe', 'tubes'].includes(what)) return { ok: false, why: 'Not on her.' };
-  if (!PAINTS.some((p) => p.id === id)) return { ok: false, why: 'Not a colour on the chart.' };
-  if (L[what] === id) return { ok: false, why: 'She’s that colour already.' };
-  if (what === 'stripe' && L.paint === id) return { ok: false, why: 'That’s her paint: a stripe wants a colour of its own.' };
-  const r = pay(state, what === 'tubes' ? TUBES_PRICE : STRIPE_PRICE, `${what === 'tubes' ? 'New tube covers' : 'A new stripe'} for the ${kind}`);
+  if ((what === 'stripe' && !stripes) || (what === 'tubes' && !tubes) || !['stripe', 'tubes'].includes(what)) return { ok: false, why: $t('Not on her.') };
+  if (!PAINTS.some((p) => p.id === id)) return { ok: false, why: $t('Not a colour on the chart.') };
+  if (L[what] === id) return { ok: false, why: $t('She’s that colour already.') };
+  if (what === 'stripe' && L.paint === id) return { ok: false, why: $t('That’s her paint: a stripe wants a colour of its own.') };
+  const r = pay(state, what === 'tubes' ? TUBES_PRICE : STRIPE_PRICE, $t`${what === 'tubes' ? $t('New tube covers') : $t('A new stripe')} for the ${kind}`);
   if (!r.ok) return r;
   Y.looks[kind] = { ...L, [what]: id };
   return { ok: true };
@@ -358,10 +359,10 @@ export function trimBoat(state, kind, what, id, { stripes = true, tubes = false 
 // Fit her out (a fitting in a slot already taken replaces what's there). Returns { ok, why, swapped }.
 export function fitBoat(state, kind, id) {
   const Y = state.yard, F = FITS[id];
-  if (!owns(Y, kind)) return { ok: false, why: 'Only your own boat.' };
-  if (!F?.price[kindOf(kind)]) return { ok: false, why: 'That doesn’t fit her.' };
-  if (Y.fits[kind]?.includes(id)) return { ok: false, why: 'She has one already.' };
-  const r = pay(state, F.price[kindOf(kind)], `${F.name} for the ${kindOf(kind)}`);
+  if (!owns(Y, kind)) return { ok: false, why: $t('Only your own boat.') };
+  if (!F?.price[kindOf(kind)]) return { ok: false, why: $t('That doesn’t fit her.') };
+  if (Y.fits[kind]?.includes(id)) return { ok: false, why: $t('She has one already.') };
+  const r = pay(state, F.price[kindOf(kind)], $t`${F.name} for the ${kindOf(kind)}`);
   if (!r.ok) return r;
   const was = (Y.fits[kind] || []).filter((x) => !(F.slot && FITS[x].slot === F.slot));
   const swapped = (Y.fits[kind] || []).find((x) => F.slot && FITS[x].slot === F.slot) || null;
@@ -380,11 +381,11 @@ function setEngine(Y, kind, c) {
 }
 export function repowerBoat(state, kind, model) {
   const Y = state.yard, C = CATALOGUE[kindOf(kind)];
-  if (!owns(Y, kind)) return { ok: false, why: 'Only your own boat.' };
-  if (!C?.models.includes(model)) return { ok: false, why: 'That engine doesn’t go on her.' };
+  if (!owns(Y, kind)) return { ok: false, why: $t('Only your own boat.') };
+  if (!C?.models.includes(model)) return { ok: false, why: $t('That engine doesn’t go on her.') };
   const now = engineOf(Y, kind);
-  if (now.model === model) return { ok: false, why: 'She has that engine already.' };
-  const r = pay(state, MODELS[model].price * (C.count || 1), `${MODELS[model].name} for the ${kindOf(kind)}`);
+  if (now.model === model) return { ok: false, why: $t('She has that engine already.') };
+  const r = pay(state, MODELS[model].price * (C.count || 1), $t`${MODELS[model].name} for the ${kindOf(kind)}`);
   if (!r.ok) return r;
   // (An electric comes with its own propeller; back to petrol, the one she had if it fits.)
   setEngine(Y, kind, { model, prop: propsFor(kindOf(kind), model).includes(now.prop) ? now.prop : 'matched' });
@@ -392,12 +393,12 @@ export function repowerBoat(state, kind, model) {
 }
 export function repropBoat(state, kind, prop) {
   const Y = state.yard;
-  if (!owns(Y, kind)) return { ok: false, why: 'Only your own boat.' };
-  if (!CATALOGUE[kindOf(kind)]?.props.includes(prop)) return { ok: false, why: 'That propeller doesn’t fit her.' };
+  if (!owns(Y, kind)) return { ok: false, why: $t('Only your own boat.') };
+  if (!CATALOGUE[kindOf(kind)]?.props.includes(prop)) return { ok: false, why: $t('That propeller doesn’t fit her.') };
   const now = engineOf(Y, kind);
-  if (!propsFor(kindOf(kind), now.model).includes(prop)) return { ok: false, why: `The ${MODELS[now.model].name} takes only its own propeller.` };
-  if (now.prop === prop) return { ok: false, why: 'She has that propeller already.' };
-  const r = pay(state, PROPS[prop].price * (CATALOGUE[kindOf(kind)].count || 1), `A propeller for the ${kindOf(kind)}`);
+  if (!propsFor(kindOf(kind), now.model).includes(prop)) return { ok: false, why: $t`The ${MODELS[now.model].name} takes only its own propeller.` };
+  if (now.prop === prop) return { ok: false, why: $t('She has that propeller already.') };
+  const r = pay(state, PROPS[prop].price * (CATALOGUE[kindOf(kind)].count || 1), $t`A propeller for the ${kindOf(kind)}`);
   if (!r.ok) return r;
   setEngine(Y, kind, { ...now, prop });
   return { ok: true };
@@ -406,7 +407,7 @@ export function repropBoat(state, kind, prop) {
 // Take a fitting off (to save her the weight, or the power): no charge, and no money back.
 export function unfitBoat(state, kind, id) {
   const Y = state.yard;
-  if (!Y.fits[kind]?.includes(id)) return { ok: false, why: 'She hasn’t one.' };
+  if (!Y.fits[kind]?.includes(id)) return { ok: false, why: $t('She hasn’t one.') };
   Y.fits[kind] = Y.fits[kind].filter((x) => x !== id);
   if (!Y.fits[kind].length) delete Y.fits[kind];
   return { ok: true };

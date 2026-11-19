@@ -3,6 +3,7 @@ import { Figure, chatPairs } from './folk.js';
 import { SPOTS, along } from '../townsfolk.js';
 import { HAVEN_MARKET, walkHeight } from './terrain.js';
 import { seeded, damp, dampAngle, clamp, smoothstep, wrapAngle } from '../util.js';
+import { $t } from '../i18n.js';
 
 // Willowhaven's other people: nobody you'll get to know, but the harbour's never empty of a fine
 // day. A man and his dog out along the quay and round by the slipway, morning and afternoon; a
@@ -17,15 +18,15 @@ import { seeded, damp, dampAngle, clamp, smoothstep, wrapAngle } from '../util.j
 // Where they stop: places on the harbour with something to look at, and which way they look.
 const M = HAVEN_MARKET;
 export const STOPS = {
-  view: { x: SPOTS.quayEnd.x - 1.6, z: SPOTS.quayEnd.z - 0.4, yaw: 0, why: 'looking out over the bay' },
-  view2: { x: SPOTS.quayEnd.x + 0.4, z: SPOTS.quayEnd.z - 3.2, yaw: 0.6, why: 'watching the boats' },
-  bench: { x: SPOTS.bench.x + 0.9, z: SPOTS.bench.z + 0.5, yaw: 0, why: 'by the bench' },
-  slab: { x: M.x + 0.2, z: M.z + 1.2, yaw: Math.PI, why: 'looking at the fish on the slab' },
-  slipway: { x: SPOTS.slipway.x - 0.8, z: SPOTS.slipway.z - 1.2, yaw: 0, why: 'at the top of the slipway' },
-  gangway: { x: SPOTS.gangway.x - 1.2, z: SPOTS.gangway.z - 0.4, yaw: 0.2, why: 'looking over the pontoon' },
-  innFront: { x: SPOTS.innFront.x - 1.4, z: SPOTS.innFront.z + 0.8, yaw: 0.6, why: 'outside the inn' },
-  chandlery: { x: SPOTS.chandlery.x + 0.8, z: SPOTS.chandlery.z + 0.9, yaw: SPOTS.chandlery.yaw, why: 'at the chandlery door' },
-  east: { x: SPOTS.east.x - 1.5, z: SPOTS.east.z - 0.5, yaw: Math.PI / 2, why: 'along the east side' },
+  view: { x: SPOTS.quayEnd.x - 1.6, z: SPOTS.quayEnd.z - 0.4, yaw: 0, why: $t('looking out over the bay') },
+  view2: { x: SPOTS.quayEnd.x + 0.4, z: SPOTS.quayEnd.z - 3.2, yaw: 0.6, why: $t('watching the boats') },
+  bench: { x: SPOTS.bench.x + 0.9, z: SPOTS.bench.z + 0.5, yaw: 0, why: $t('by the bench') },
+  slab: { x: M.x + 0.2, z: M.z + 1.2, yaw: Math.PI, why: $t('looking at the fish on the slab') },
+  slipway: { x: SPOTS.slipway.x - 0.8, z: SPOTS.slipway.z - 1.2, yaw: 0, why: $t('at the top of the slipway') },
+  gangway: { x: SPOTS.gangway.x - 1.2, z: SPOTS.gangway.z - 0.4, yaw: 0.2, why: $t('looking over the pontoon') },
+  innFront: { x: SPOTS.innFront.x - 1.4, z: SPOTS.innFront.z + 0.8, yaw: 0.6, why: $t('outside the inn') },
+  chandlery: { x: SPOTS.chandlery.x + 0.8, z: SPOTS.chandlery.z + 0.9, yaw: SPOTS.chandlery.yaw, why: $t('at the chandlery door') },
+  east: { x: SPOTS.east.x - 1.5, z: SPOTS.east.z - 0.5, yaw: Math.PI / 2, why: $t('along the east side') },
 };
 // Who: how they look (see world/folk.js's LOOKS), their door, the hours they're out, how likely on
 // a given day (by season), how fast they walk (m/s), where they go, how long they stop (seconds),

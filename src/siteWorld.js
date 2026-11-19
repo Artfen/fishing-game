@@ -3,6 +3,7 @@ import {
   HAVEN_HOUSES, PUNT, SHELTER, DAYMARK, WEND_CAMP, BOATHOUSE, GANNET_CAMP, LIGHT, ZONE_NAMES, STRAND,
 } from './world/terrain.js';
 import { shelterAt } from './world/conditions.js';
+import { $t } from './i18n.js';
 
 // The ground, as the camp's rules see it (see campsite.js): its height, the decks on it, the
 // paths across it, the places to keep clear, and how open it is to the sea. The game adds the
@@ -10,21 +11,21 @@ import { shelterAt } from './world/conditions.js';
 
 // Places a tent mustn't go: doorways, the quay and slipway, other camps, landings, bridges.
 export const KEEP_OUT = [
-  { x: CAMP.x, z: CAMP.z, r: CAMP.r + 5, why: 'That’s the old camp’s clearing: it has its own tent and fire already.' },
-  { x: LANDING.x - 3, z: LANDING.z, r: 5, why: 'Keep the landing clear: boats tie up here.' },
-  { x: WEND_CAMP.x, z: WEND_CAMP.z, r: WEND_CAMP.r + 6, why: 'Wend Quay’s pitch is here already, and the quay needs to stay clear.' },
-  { x: BOATHOUSE.x, z: BOATHOUSE.z, r: 15, why: 'The boathouse needs its doors and jetty clear.' },
-  { x: GANNET_CAMP.x, z: GANNET_CAMP.z, r: GANNET_CAMP.r + 5, why: 'Puffin Cove’s bivouac is here already.' },
-  { x: LIGHT.x, z: LIGHT.z, r: 12, why: 'Too close to the lighthouse.' },
-  { x: BRIDGE.x, z: BRIDGE.z, r: 4.5, why: 'That would block the bridge over Fernbeck.' },
-  ...PEGS.map((p) => ({ x: p.x, z: p.z, r: 3.5, why: `Keep ${p.name} clear for fishing from.` })),
-  { x: PUNT.x, z: PUNT.z, r: 3.6, why: 'That would be on top of the old punt.' },
-  { x: SHELTER.x, z: SHELTER.z, r: 4, why: 'That would block the driftwood shelter.' },
-  { x: DAYMARK.x, z: DAYMARK.z, r: 4.5, why: 'The daymark needs walking room round it.' },
+  { x: CAMP.x, z: CAMP.z, r: CAMP.r + 5, why: $t('That’s the old camp’s clearing: it has its own tent and fire already.') },
+  { x: LANDING.x - 3, z: LANDING.z, r: 5, why: $t('Keep the landing clear: boats tie up here.') },
+  { x: WEND_CAMP.x, z: WEND_CAMP.z, r: WEND_CAMP.r + 6, why: $t('Wend Quay’s pitch is here already, and the quay needs to stay clear.') },
+  { x: BOATHOUSE.x, z: BOATHOUSE.z, r: 15, why: $t('The boathouse needs its doors and jetty clear.') },
+  { x: GANNET_CAMP.x, z: GANNET_CAMP.z, r: GANNET_CAMP.r + 5, why: $t('Puffin Cove’s bivouac is here already.') },
+  { x: LIGHT.x, z: LIGHT.z, r: 12, why: $t('Too close to the lighthouse.') },
+  { x: BRIDGE.x, z: BRIDGE.z, r: 4.5, why: $t('That would block the bridge over Fernbeck.') },
+  ...PEGS.map((p) => ({ x: p.x, z: p.z, r: 3.5, why: $t`Keep ${p.name} clear for fishing from.` })),
+  { x: PUNT.x, z: PUNT.z, r: 3.6, why: $t('That would be on top of the old punt.') },
+  { x: SHELTER.x, z: SHELTER.z, r: 4, why: $t('That would block the driftwood shelter.') },
+  { x: DAYMARK.x, z: DAYMARK.z, r: 4.5, why: $t('The daymark needs walking room round it.') },
 ];
 // Willowhaven: the quay, the slipway and every doorway need the room.
 const HAVEN_ZONE = { x0: -42, x1: 48, z0: -124, z1: -88 };
-const HAVEN_WHY = 'Not in Willowhaven: the quay, the slipway and the doorways need the room. There’s open grass a little way along the shore.';
+const HAVEN_WHY = $t('Not in Willowhaven: the quay, the slipway and the doorways need the room. There’s open grass a little way along the shore.');
 
 export function keepOutAt(x, z, extra = []) {
   if (x > HAVEN_ZONE.x0 && x < HAVEN_ZONE.x1 && z > HAVEN_ZONE.z0 && z < HAVEN_ZONE.z1) {
@@ -50,14 +51,14 @@ export function exposureAt(x, z) {
   return e;
 }
 
-const SEA_WORDS = { open: 'the open sea', coast: 'the sea', deep: 'the open sea' };
+const SEA_WORDS = { open: $t('the open sea'), coast: $t('the sea'), deep: $t('the open sea') };
 export function waterNear(x, z) {
   for (const r of [8, 16, 26]) {
     for (let k = 0; k < 12; k++) {
       const a = (k / 12) * Math.PI * 2, px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r;
       if (heightAt(px, pz) < -0.3) {
         const zone = zoneAt(px, pz);
-        return SEA_WORDS[zone] || ZONE_NAMES[zone] || 'the water';
+        return SEA_WORDS[zone] || ZONE_NAMES[zone] || $t('the water');
       }
     }
   }

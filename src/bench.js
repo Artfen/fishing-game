@@ -10,37 +10,38 @@
 // game once it has started (the global slowTide, the game's own handle), and anything after it.
 // (The setups are self-contained functions, no closures: tools/perf.mjs hands them to the page.)
 
+import { $t } from './i18n.js';
 const TIPS = { rowed: true, cast: true, caught: true, journal: true, ashore: true, style: true, pack: true, walked: true, board: true, havenTip: true };
 
 // A save to start a scenario from, at a graphics preset.
 export function benchSave(over = {}, preset = 'low') {
-  const settings = { player: { name: 'Bench' }, graphics: { preset }, ...(over.settings || {}) };
+  const settings = { player: { name: $t('Bench') }, graphics: { preset }, ...(over.settings || {}) };
   return { quality: preset, vessel: 'row', mode: 'boat', day: 13, tips: TIPS, places: { camp: { day: 1, hour: 10 } }, ...over, settings };
 }
 
 export const BENCH_SCENARIOS = {
   harbour: {
-    label: 'Willowhaven harbour, on foot',
+    label: $t('Willowhaven harbour, on foot'),
     save: { mode: 'foot', walker: { x: 6, z: -96, heading: Math.PI } },
     setup: () => { slowTide.setHour(10.5); slowTide.walkTo(6, -96, Math.PI); },
   },
   harbour_off: {
-    label: 'Off Willowhaven, its boats a hundred metres away',
+    label: $t('Off Willowhaven, its boats a hundred metres away'),
     save: {},
     setup: () => { slowTide.setHour(10.5); slowTide.useSkiffAt(30, 20, Math.PI, 'skiff'); },
   },
   rib_rough: {
-    label: 'The RIB flat out in a lively sea',
+    label: $t('The RIB flat out in a lively sea'),
     save: { settings: { weather: { sea: 'lively', windMode: 'manual', windSpeed: 11, windFrom: 225 } } },
     setup: () => { slowTide.state.yard.owned.push('rib'); slowTide.setHour(12); slowTide.useSkiffAt(150, 420, 0.3, 'rib'); slowTide.boat.lever = 1; },
   },
   storm: {
-    label: 'A storm: the RIB in the gale off the Calf',
+    label: $t('A storm: the RIB in the gale off the Calf'),
     save: { settings: { weather: { sea: 'rough', windMode: 'manual', windSpeed: 20, windFrom: 225 } } },
     setup: () => { slowTide.state.yard.owned.push('rib'); slowTide.setWeather('storm'); slowTide.setHour(15); slowTide.useSkiffAt(-60, 120, 0.4, 'rib'); slowTide.boat.lever = 0.6; },
   },
   shoal: {
-    label: 'Beside the biggest school of fish',
+    label: $t('Beside the biggest school of fish'),
     save: {},
     setup: () => {
       slowTide.setHour(9);
@@ -49,7 +50,7 @@ export const BENCH_SCENARIOS = {
     },
   },
   wildlife: {
-    label: 'Near a dolphin pod, in the RIB',
+    label: $t('Near a dolphin pod, in the RIB'),
     save: {},
     setup: () => {
       slowTide.state.yard.owned.push('rib');
@@ -59,24 +60,24 @@ export const BENCH_SCENARIOS = {
     },
   },
   sonar: {
-    label: 'Fishing with the sonar: the RIB’s electronics in first person',
+    label: $t('Fishing with the sonar: the RIB’s electronics in first person'),
     save: {},
     setup: () => { slowTide.state.yard.owned.push('rib'); slowTide.setHour(11); slowTide.useSkiffAt(60, 160, 0, 'rib'); slowTide.firstPerson(true); if (slowTide.finder && !slowTide.finder.visible) slowTide.finder.toggle?.(); },
   },
   underwater: {
-    label: 'Diving the wreck',
+    label: $t('Diving the wreck'),
     save: {},
     setup: () => { slowTide.setHour(12); slowTide.useSkiffAt(98, 82, 0, 'skiff'); slowTide.boat.setAnchor(true); },
     after: () => slowTide.diving.start('scuba'),
   },
   dive_reef: {
-    label: 'Diving Skerries Reef',
+    label: $t('Diving Skerries Reef'),
     save: {},
     setup: () => { slowTide.setHour(12); slowTide.useSkiffAt(-122, 371, 0, 'skiff'); slowTide.boat.setAnchor(true); },
     after: () => slowTide.diving.start('scuba'),
   },
   dive_brasas: {
-    label: 'Diving the arches at Las Brasas',
+    label: $t('Diving the arches at Las Brasas'),
     save: {},
     setup: () => { slowTide.setHour(12); slowTide.useSkiffAt(-446, 6522, 0, 'skiff'); slowTide.boat.setAnchor(true); },
     after: () => slowTide.diving.start('scuba'),
@@ -85,7 +86,7 @@ export const BENCH_SCENARIOS = {
   // Gannet Isle, her lamps lit and her tender on its chocks (her interior built, as it is once
   // you've walked her decks).
   liveaboard: {
-    label: 'In the trawler’s saloon at dusk, at anchor off Gannet Isle',
+    label: $t('In the trawler’s saloon at dusk, at anchor off Gannet Isle'),
     save: { yard: { owned: ['row', 'skiff', 'kayak', 'trawler', 'tender'] }, carried: { tender: 'trawler' } },
     setup: () => {
       slowTide.setHour(20.4);
@@ -99,7 +100,7 @@ export const BENCH_SCENARIOS = {
   },
   // The tender off her platform, running in to the island's beach (her mother at anchor behind).
   tender: {
-    label: 'The tender running in to the beach at Gannet Isle',
+    label: $t('The tender running in to the beach at Gannet Isle'),
     save: { yard: { owned: ['row', 'skiff', 'kayak', 'trawler', 'tender'] } },
     setup: () => {
       slowTide.setHour(11);
@@ -112,25 +113,25 @@ export const BENCH_SCENARIOS = {
   // (docs/ARCHIPELAGO.md) The archipelago: anchored in Bahía Escondida, Isla Honda's sand and salt
   // pans ashore, Brasa across the water.
   archipelago: {
-    label: 'At anchor in Bahía Escondida, in the archipelago',
+    label: $t('At anchor in Bahía Escondida, in the archipelago'),
     save: { yard: { owned: ['row', 'skiff', 'kayak', 'trawler', 'tender'] }, carried: { tender: 'trawler' } },
     setup: () => { slowTide.setHour(16); slowTide.useSkiffAt(818, 6945, 0.9, 'trawler'); slowTide.boat.setAnchor(true); },
   },
   // (docs/NORTH.md) Up the coast in the Selkie Isles: the trawler at anchor in Raven Sound off
   // Halvig, mid-afternoon, the north's tiles, isles and life built round her; and diving the Sula.
   north: {
-    label: 'At anchor in Raven Sound off Halvig, up the coast in the Selkie Isles',
+    label: $t('At anchor in Raven Sound off Halvig, up the coast in the Selkie Isles'),
     save: { yard: { owned: ['row', 'skiff', 'kayak', 'trawler', 'tender'] }, carried: { tender: 'trawler' } },
     setup: () => { slowTide.setHour(15); slowTide.useSkiffAt(-2760, -6200, -1.2, 'trawler'); slowTide.boat.setAnchor(true); for (let i = 0; i < 20; i++) slowTide.advance(0.5, 30, false); },
   },
   dive_north: {
-    label: 'Diving the Sula in the kelp off Tern Isle',
+    label: $t('Diving the Sula in the kelp off Tern Isle'),
     save: {},
     setup: () => { slowTide.setHour(12); slowTide.useSkiffAt(-3441, -5108, 0, 'skiff'); slowTide.boat.setAnchor(true); for (let i = 0; i < 20; i++) slowTide.advance(0.5, 30, false); },
     after: () => slowTide.diving.start('scuba'),
   },
   voyage: {
-    label: 'The crossing south, under way at the helm',
+    label: $t('The crossing south, under way at the helm'),
     save: {},
     setup: () => { slowTide.state.yard.owned.push('cruiser'); slowTide.setHour(9); slowTide.useSkiffAt(150, 420, 0.4, 'cruiser'); slowTide.cross('south'); slowTide.boat.lever = 1; },
   },

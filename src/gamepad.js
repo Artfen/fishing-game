@@ -14,6 +14,7 @@
 // whatever is printed on it. The hints name them as they're printed on the controller in your
 // hands (PAD_NAMES: ✕ on a PlayStation controller, B on a Nintendo one).
 
+import { $t } from './i18n.js';
 export const BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, MENU: 9, L3: 10, R3: 11, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
 const NAMES = Object.keys(BTN);
 export const GLYPH = {
@@ -136,12 +137,12 @@ const trigger = (b) => (b ? (typeof b.value === 'number' ? b.value : b.pressed ?
 // rests: a trigger, or anything reported as an axis), or ['h', i, dir] (a hat switch on axis i, the
 // way many report a D-pad: one axis, eight directions). A stick's is ['a', i, sign].
 export const LEARN = [
-  ['A', 'Press {}, the bottom face button'], ['B', 'Press {}, the right face button'], ['X', 'Press {}, the left face button'], ['Y', 'Press {}, the top face button'],
-  ['UP', 'Press up on the D-pad'], ['DOWN', 'Press down on the D-pad'], ['LEFT', 'Press left on the D-pad'], ['RIGHT', 'Press right on the D-pad'],
-  ['LB', 'Press {}, the left bumper'], ['RB', 'Press {}, the right bumper'], ['LT', 'Press {}, the left trigger'], ['RT', 'Press {}, the right trigger'],
-  ['VIEW', 'Press {}, the small button left of the middle'], ['MENU', 'Press {}, the small button right of the middle'],
-  ['L3', 'Press the left stick in ({})'], ['R3', 'Press the right stick in ({})'],
-  ['LX', 'Push the left stick right'], ['LY', 'Push the left stick up'], ['RX', 'Push the right stick right'], ['RY', 'Push the right stick up'],
+  ['A', $t('Press {}, the bottom face button')], ['B', $t('Press {}, the right face button')], ['X', $t('Press {}, the left face button')], ['Y', $t('Press {}, the top face button')],
+  ['UP', $t('Press up on the D-pad')], ['DOWN', $t('Press down on the D-pad')], ['LEFT', $t('Press left on the D-pad')], ['RIGHT', $t('Press right on the D-pad')],
+  ['LB', $t('Press {}, the left bumper')], ['RB', $t('Press {}, the right bumper')], ['LT', $t('Press {}, the left trigger')], ['RT', $t('Press {}, the right trigger')],
+  ['VIEW', $t('Press {}, the small button left of the middle')], ['MENU', $t('Press {}, the small button right of the middle')],
+  ['L3', $t('Press the left stick in ({})')], ['R3', $t('Press the right stick in ({})')],
+  ['LX', $t('Push the left stick right')], ['LY', $t('Push the left stick up')], ['RX', $t('Push the right stick right')], ['RY', $t('Push the right stick up')],
 ];
 const STICKS = ['LX', 'LY', 'RX', 'RY'];
 // (The words for a step, with the button's name as printed on the controller.)

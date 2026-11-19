@@ -232,8 +232,8 @@ test('the game: the bank for the call, the stray put down on it, off read from h
   assert.match(src, /b\.place\(p\.x, p\.z, p\.h \?\? a\.obj\.heading \?\? b\.heading \?\? 0\);/);
   assert.match(src, /const clear = !\(b\.grounded > 0\) && waterUnder\(b\.pos\.x, b\.pos\.z, TIDE\.level\) > AGROUND\.draft \+ AGROUND_OFF\.clear;/);
   assert.match(src, /off = b\._offT >= AGROUND_OFF\.secs;/);
-  assert.match(src, /a\.why === 'dry' \? `\$\{a\.title\}: the tide’s left her, high and dry/);
-  assert.match(src, /r\.contract\.obj\.aground \? 'off and afloat/);
+  assert.match(src, /a\.why === 'dry' \? \$t`\$\{a\.title\}: the tide’s left her, high and dry/);
+  assert.match(src, /r\.contract\.obj\.aground \? \$t\('off and afloat/);
   // (Her people heave you a line: within its throw of her will do, not alongside.)
   assert.match(src, /if \(d < \(b\.aground \? Math\.max\(reach, HEAVE\) : reach\) && d < near && b\.speed < 1\.2\)/);
   assert.match(src, /b\.aground = !!a\.obj\.aground;/);

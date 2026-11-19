@@ -2,6 +2,7 @@ import { RODS, TACKLE, PACK, SETUPS, KIND_NAMES, fits, checkSetup, lineOf, termO
 import { fishById } from './fish.js';
 import { setupsFor } from './guide.js';
 import { CAR_PARKS, CALF } from './world/terrain.js';
+import { $t } from './i18n.js';
 
 // Going out: home, the garage and the car. Where every piece of your outing gear is, kept in one
 // place (state.equip) so nothing can be in two places at once or quietly vanish:
@@ -19,9 +20,9 @@ import { CAR_PARKS, CALF } from './world/terrain.js';
 // game, the workbench and the tests share them).
 
 export const KIT = {
-  tent: { name: 'Tent & bedroll', short: 'tent', note: 'The tent and bedroll, with the lantern, the camp chair and the camp’s bits and pieces. You need it to pitch a camp.' },
-  stove: { name: 'Stove & pans', short: 'stove', note: 'A little gas stove, a pan and a kettle: for cooking at camp.' },
-  coolbox: { name: 'Cool box', short: 'cool box', note: 'Keeps six fish on ice at camp.' },
+  tent: { name: $t('Tent & bedroll'), short: 'tent', note: $t('The tent and bedroll, with the lantern, the camp chair and the camp’s bits and pieces. You need it to pitch a camp.') },
+  stove: { name: $t('Stove & pans'), short: 'stove', note: $t('A little gas stove, a pan and a kettle: for cooking at camp.') },
+  coolbox: { name: $t('Cool box'), short: $t('cool box'), note: $t('Keeps six fish on ice at camp.') },
 };
 export const KIT_IDS = Object.keys(KIT);
 // The boot: a rod tube and a tackle bag beside the camping gear (which always fits).
@@ -42,58 +43,58 @@ const listWords = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join
 // boat: no road goes there at all: you drive to its launch (a harbour) and go on by boat.
 export const DESTS = {
   haven: {
-    id: 'haven', place: 'haven', name: 'Willowhaven', kind: 'A harbour', drive: true, mins: 6, water: 'salt',
+    id: 'haven', place: 'haven', name: $t('Willowhaven'), kind: 'A harbour', drive: true, mins: 6, water: 'salt',
     at: { x: 10, z: -84, r: 130 },
-    terrain: 'A cobbled apron behind a stone quay, a slipway and a few cottages up the slope. Level walking from the car park.',
-    access: 'Park at the top of the harbour; the quay, the slipway, the chandlery and the notice board are a minute’s walk.',
-    boats: 'At the head of the quay you can have any of your boats brought round and made fast.',
-    camp: 'No camping in the village itself: there’s open grass along the shore east of it.',
-    explore: 'The notice board (what’s about today, and notices), the chandlery with all your tackle, and the bench under the lamp.',
+    terrain: $t('A cobbled apron behind a stone quay, a slipway and a few cottages up the slope. Level walking from the car park.'),
+    access: $t('Park at the top of the harbour; the quay, the slipway, the chandlery and the notice board are a minute’s walk.'),
+    boats: $t('At the head of the quay you can have any of your boats brought round and made fast.'),
+    camp: $t('No camping in the village itself: there’s open grass along the shore east of it.'),
+    explore: $t('The notice board (what’s about today, and notices), the chandlery with all your tackle, and the bench under the lamp.'),
   },
   strand: {
-    id: 'strand', place: 'strand', name: 'Shell Strand', kind: 'A sandy beach', drive: true, mins: 4, water: 'salt',
+    id: 'strand', place: 'strand', name: $t('Shell Strand'), kind: 'A sandy beach', drive: true, mins: 4, water: 'salt',
     at: { x: 100, z: 45, r: 95 },
-    terrain: 'A sandy beach facing the sea, with a dry shelf of sand above it and a driftwood shelter. A short walk down from the car park.',
-    access: 'The lane ends at a car park at the top of the beach.',
-    boats: 'No moorings here: bring a boat round by sea, or have one brought to Willowhaven’s quay.',
-    camp: 'The shelf above the beach is the driest ground on the coast for a tent.',
-    explore: 'The driftwood shelter, the surf, and the Kittiwake’s buoy offshore.',
+    terrain: $t('A sandy beach facing the sea, with a dry shelf of sand above it and a driftwood shelter. A short walk down from the car park.'),
+    access: $t('The lane ends at a car park at the top of the beach.'),
+    boats: $t('No moorings here: bring a boat round by sea, or have one brought to Willowhaven’s quay.'),
+    camp: $t('The shelf above the beach is the driest ground on the coast for a tent.'),
+    explore: $t('The driftwood shelter, the surf, and the Kittiwake’s buoy offshore.'),
   },
   head: {
-    id: 'head', place: 'head', name: 'Cove Head', kind: 'A rocky headland', drive: true, mins: 7, water: 'salt',
+    id: 'head', place: 'head', name: $t('Cove Head'), kind: 'A rocky headland', drive: true, mins: 7, water: 'salt',
     at: { x: 178, z: 8, r: 85 },
-    terrain: 'A rocky knoll with a white daymark, ledges stepping down into the surf. Rough ground at the end: watch your step.',
-    access: 'The lane ends at a car park above the cove; the path goes on round to the headland on foot.',
-    boats: 'No moorings: the cove channel is calm water for a boat that comes round by sea.',
-    camp: 'Grass along the cove path; the headland itself is rock.',
-    explore: 'The daymark (with a view of the Kittiwake’s buoy), the cove channel, and an old punt at the head of the cove.',
+    terrain: $t('A rocky knoll with a white daymark, ledges stepping down into the surf. Rough ground at the end: watch your step.'),
+    access: $t('The lane ends at a car park above the cove; the path goes on round to the headland on foot.'),
+    boats: $t('No moorings: the cove channel is calm water for a boat that comes round by sea.'),
+    camp: $t('Grass along the cove path; the headland itself is rock.'),
+    explore: $t('The daymark (with a view of the Kittiwake’s buoy), the cove channel, and an old punt at the head of the cove.'),
   },
   quay: {
-    id: 'quay', place: 'quay', name: 'Wend Quay', kind: 'An estuary quay', drive: true, mins: 35, water: 'brackish',
+    id: 'quay', place: 'quay', name: $t('Wend Quay'), kind: 'An estuary quay', drive: true, mins: 35, water: 'brackish',
     at: { x: 540, z: -150, r: 150 },
-    terrain: 'Old stones where the estuary narrows, reeds and mudflats either side.',
-    access: 'The road round the bay, past the Mere Boathouse and down beside the Wend: you park by the quay and its little camp.',
-    boats: 'A mooring ring on the quay; your boats stay where you left them.',
-    camp: 'A fixed camp with a tent and a tackle box, and room for your own.',
-    explore: 'The Saltings’ reedy channels, and the trail inland to Longmere.',
+    terrain: $t('Old stones where the estuary narrows, reeds and mudflats either side.'),
+    access: $t('The road round the bay, past the Mere Boathouse and down beside the Wend: you park by the quay and its little camp.'),
+    boats: $t('A mooring ring on the quay; your boats stay where you left them.'),
+    camp: $t('A fixed camp with a tent and a tackle box, and room for your own.'),
+    explore: $t('The Saltings’ reedy channels, and the trail inland to Longmere.'),
   },
   boathouse: {
-    id: 'boathouse', place: 'boathouse', name: 'Mere Boathouse', kind: 'A lake boathouse', drive: true, mins: 28, water: 'fresh',
+    id: 'boathouse', place: 'boathouse', name: $t('Mere Boathouse'), kind: 'A lake boathouse', drive: true, mins: 28, water: 'fresh',
     at: { x: 380, z: -440, r: 170 },
-    terrain: 'A tarred boathouse and jetty on the south-east shore of Longmere, a big lake among the hills.',
-    access: 'The road round the bay, over the hill and along the neck of land below Longmere: you park beside the boathouse.',
-    boats: 'The bass boat lives at the jetty (with a tackle locker).',
-    camp: 'The boathouse has a bunk and a tackle box; grass along the shore for a tent.',
-    explore: 'Heron Holm, the drowned oaks under the north shore, and the weedy bays.',
+    terrain: $t('A tarred boathouse and jetty on the south-east shore of Longmere, a big lake among the hills.'),
+    access: $t('The road round the bay, over the hill and along the neck of land below Longmere: you park beside the boathouse.'),
+    boats: $t('The bass boat lives at the jetty (with a tackle locker).'),
+    camp: $t('The boathouse has a bunk and a tackle box; grass along the shore for a tent.'),
+    explore: $t('Heron Holm, the drowned oaks under the north shore, and the weedy bays.'),
   },
   calf: {
-    id: 'calf', place: 'calf', name: 'The Calf', kind: 'A small island', boat: true, launch: 'haven', mins: 6, water: 'salt',
+    id: 'calf', place: 'calf', name: $t('The Calf'), kind: 'A small island', boat: true, launch: 'haven', mins: 6, water: 'salt',
     at: { x: CALF.x, z: CALF.z - 8, r: 70 },
-    terrain: 'A green hump of an island off Heron Point: cliffs to the west, a ruined watch tower on the top, sea pinks in the short turf, and low rocks at its south-east corner (the Nose) looking straight into the race. Steps go up from a stone landing in its lee.',
-    access: 'By boat only, from Willowhaven quay: out of the bay and west along the coast to the island just off Heron Point. Tie up at the landing on the Calf’s east side, out of the tide.',
-    boats: 'Any of your sea boats will do. The race in Calf Sound sets a boat east as it drifts through: the rowing boat and the kayak feel it most. Make fast at the landing, or anchor in the lee, where the cabin boat makes a floating camp.',
-    camp: 'Room for a tent on the top beside the tower, the most exposed pitch on the coast (the tent has to be in your backpack: the car stays at Willowhaven), or sleep aboard the cabin boat in the lee.',
-    explore: 'The watch tower, grey seals hauled out on the skerry, and the race itself: Calf Sound, where the tide stands up in white ridges.',
+    terrain: $t('A green hump of an island off Heron Point: cliffs to the west, a ruined watch tower on the top, sea pinks in the short turf, and low rocks at its south-east corner (the Nose) looking straight into the race. Steps go up from a stone landing in its lee.'),
+    access: $t('By boat only, from Willowhaven quay: out of the bay and west along the coast to the island just off Heron Point. Tie up at the landing on the Calf’s east side, out of the tide.'),
+    boats: $t('Any of your sea boats will do. The race in Calf Sound sets a boat east as it drifts through: the rowing boat and the kayak feel it most. Make fast at the landing, or anchor in the lee, where the cabin boat makes a floating camp.'),
+    camp: $t('Room for a tent on the top beside the tower, the most exposed pitch on the coast (the tent has to be in your backpack: the car stays at Willowhaven), or sleep aboard the cabin boat in the lee.'),
+    explore: $t('The watch tower, grey seals hauled out on the skerry, and the race itself: Calf Sound, where the tide stands up in white ridges.'),
   },
 };
 export const DEST_IDS = Object.keys(DESTS);
@@ -176,16 +177,16 @@ export const campHas = (s, camp, k) => s.equip?.kit[k] === `camp:${camp.id}`;
 export function statusOf(s, type, id) {
   if (type === 'kit') {
     const at = s.equip.kit[id];
-    if (at === 'pack') return { state: 'carried', words: 'In your backpack' };
-    if (at === 'car') return { state: 'loaded', words: 'In the car' };
-    if (at === 'home') return { state: 'stored', words: 'In the garage' };
+    if (at === 'pack') return { state: 'carried', words: $t('In your backpack') };
+    if (at === 'car') return { state: 'loaded', words: $t('In the car') };
+    if (at === 'home') return { state: 'stored', words: $t('In the garage') };
     const c = campOfKit(s, id);
-    return { state: 'pitched', words: c ? `At ${c.name}` : 'At your camp' };
+    return { state: 'pitched', words: c ? $t`At ${c.name}` : $t('At your camp') };
   }
   const list = type === 'rod' ? 'rods' : 'items';
-  if (s.gear.pack[list].includes(id)) return { state: 'carried', words: 'In your backpack' };
-  if (s.equip.car[list].includes(id)) return { state: 'loaded', words: 'In the car' };
-  return { state: 'stored', words: 'In the garage (and the tackle boxes)' };
+  if (s.gear.pack[list].includes(id)) return { state: 'carried', words: $t('In your backpack') };
+  if (s.equip.car[list].includes(id)) return { state: 'loaded', words: $t('In the car') };
+  return { state: 'stored', words: $t('In the garage (and the tackle boxes)') };
 }
 
 // What a tackle box holds for you: the store (everything not carried and not in the car), or the
@@ -199,18 +200,18 @@ export function boxHas(s, box, type, id) {
 // Moving camping gear between home, the car and your backpack (your camp's own sheet moves it on
 // and off a camp). Never duplicates, never drops: a refusal says why.
 export function moveKit(s, k, to, { campId = null } = {}) {
-  if (!KIT[k]) return { ok: false, why: 'Nothing like that.' };
+  if (!KIT[k]) return { ok: false, why: $t('Nothing like that.') };
   const from = s.equip.kit[k];
   const dest = to === 'camp' ? `camp:${campId}` : to;
-  if (!LOC.test(dest)) return { ok: false, why: 'Nowhere to put it.' };
+  if (!LOC.test(dest)) return { ok: false, why: $t('Nowhere to put it.') };
   if (from === dest) return { ok: true, same: true };
-  if (k === 'tent' && from.startsWith('camp:')) return { ok: false, why: 'The tent is pitched: pack the camp up to take it.' };
-  if (to === 'camp' && !(s.camps || []).some((c) => c.id === campId)) return { ok: false, why: 'That camp isn’t there.' };
+  if (k === 'tent' && from.startsWith('camp:')) return { ok: false, why: $t('The tent is pitched: pack the camp up to take it.') };
+  if (to === 'camp' && !(s.camps || []).some((c) => c.id === campId)) return { ok: false, why: $t('That camp isn’t there.') };
   if (k === 'coolbox' && from.startsWith('camp:')) {
     const c = campOfKit(s, k);
-    if (c && (c.store.fish.length || c.store.meals.length)) return { ok: false, why: 'Empty the cool box into your creel first.' };
+    if (c && (c.store.fish.length || c.store.meals.length)) return { ok: false, why: $t('Empty the cool box into your creel first.') };
   }
-  if (k === 'stove' && from.startsWith('camp:') && campOfKit(s, k)?.cooking) return { ok: false, why: 'Something is still cooking on it.' };
+  if (k === 'stove' && from.startsWith('camp:') && campOfKit(s, k)?.cooking) return { ok: false, why: $t('Something is still cooking on it.') };
   s.equip.kit[k] = dest;
   return { ok: true, from, to: dest };
 }
@@ -220,21 +221,21 @@ export function moveKit(s, k, to, { campId = null } = {}) {
 export function moveToCar(s, type, id, toCar) {
   const list = type === 'rod' ? 'rods' : 'items', car = s.equip.car[list], pack = s.gear.pack[list];
   const name = type === 'rod' ? RODS[id]?.short.toLowerCase() : TACKLE[id]?.name;
-  if (!name) return { ok: false, why: 'Nothing like that.' };
+  if (!name) return { ok: false, why: $t('Nothing like that.') };
   if (toCar) {
     if (car.includes(id)) return { ok: true, same: true };
-    if (car.length >= CAR_HOLD[list]) return { ok: false, why: `The boot holds ${CAR_HOLD[list]} ${type === 'rod' ? 'rods (in the rod tube)' : 'boxes of tackle (in the tackle bag)'}: take one out first.` };
+    if (car.length >= CAR_HOLD[list]) return { ok: false, why: $t`The boot holds ${CAR_HOLD[list]} ${type === 'rod' ? $t('rods (in the rod tube)') : $t('boxes of tackle (in the tackle bag)')}: take one out first.` };
     if (pack.includes(id)) {
-      if (type === 'rod' && pack.length <= 1) return { ok: false, why: 'You always carry one rod: pack another first.' };
+      if (type === 'rod' && pack.length <= 1) return { ok: false, why: $t('You always carry one rod: pack another first.') };
       pack.splice(pack.indexOf(id), 1);
       if (type === 'rod' && s.gear.rod === id) s.gear.rod = pack[0];
     }
     car.push(id);
-    return { ok: true, words: `Loaded the ${name} into the car` };
+    return { ok: true, words: $t`Loaded the ${name} into the car` };
   }
   if (!car.includes(id)) return { ok: true, same: true };
   car.splice(car.indexOf(id), 1);
-  return { ok: true, words: `Took the ${name} back to the garage` };
+  return { ok: true, words: $t`Took the ${name} back to the garage` };
 }
 
 // Everything out of the car and back in the garage (the tackle on the wall, the camping gear on
@@ -274,7 +275,7 @@ export function packSetup(s, setup) {
       if (first) g.rig[r] = first;
     }
   }
-  return { ok: true, words: `Packed ${setup.name}` };
+  return { ok: true, words: $t`Packed ${setup.name}` };
 }
 
 // Load a setup into the car as spare tackle (anything already in your backpack stays there).
@@ -290,14 +291,14 @@ export function loadSetup(s, setup) {
     if (s.equip.car.items.length >= CAR_HOLD.items) full.push(TACKLE[i].short.toLowerCase());
     else { s.equip.car.items.push(i); loaded.push(TACKLE[i].short.toLowerCase()); }
   }
-  return { ok: !full.length, loaded, full, words: full.length ? `The boot is full: ${listWords(full)} stayed in the garage.` : `Loaded ${setup.name} into the car.` };
+  return { ok: !full.length, loaded, full, words: full.length ? $t`The boot is full: ${listWords(full)} stayed in the garage.` : $t`Loaded ${setup.name} into the car.` };
 }
 
 /* ---------------- loadouts: saved packing lists ---------------- */
 
 // A loadout names things; it never holds them. Applying one moves what it can, and says what it
 // couldn't (a tent still pitched at a camp, a car that's somewhere else).
-export function snapshot(s, name = 'Last time') {
+export function snapshot(s, name = $t('Last time')) {
   const g = s.gear, lo = {
     name: String(name).slice(0, 30),
     pack: { rods: [...g.pack.rods], items: [...g.pack.items], rod: g.rod, rig: {}, line: {}, term: {} },
@@ -321,7 +322,7 @@ export function cleanLoadout(lo) {
   const rods = [...new Set((Array.isArray(lo.pack.rods) ? lo.pack.rods : []).filter((r) => RODS[r]))].slice(0, PACK.rods);
   if (!rods.length) return null;
   const out = {
-    name: typeof lo.name === 'string' ? lo.name.replace(/[\u0000-\u001f<>]/g, '').slice(0, 30) || 'A loadout' : 'A loadout',
+    name: typeof lo.name === 'string' ? lo.name.replace(/[\u0000-\u001f<>]/g, '').slice(0, 30) || $t('A loadout') : $t('A loadout'),
     pack: { rods, items: [...new Set((Array.isArray(lo.pack.items) ? lo.pack.items : []).filter((i) => TACKLE[i]))].slice(0, PACK.items), rod: rods.includes(lo.pack.rod) ? lo.pack.rod : rods[0], rig: {}, line: {}, term: {} },
     car: { rods: [], items: [] },
     kit: {},
@@ -347,20 +348,20 @@ export function applyLoadout(s, lo, { carHome = true } = {}) {
     // The car's tackle as the loadout had it (what's now in the backpack stays there).
     s.equip.car.rods = lo.car.rods.filter((r) => !s.gear.pack.rods.includes(r)).slice(0, CAR_HOLD.rods);
     s.equip.car.items = lo.car.items.filter((i) => !s.gear.pack.items.includes(i)).slice(0, CAR_HOLD.items);
-  } else if (lo.car.rods.length || lo.car.items.length) notes.push('The car isn’t here, so its share of the tackle waits.');
+  } else if (lo.car.rods.length || lo.car.items.length) notes.push($t('The car isn’t here, so its share of the tackle waits.'));
   for (const k of KIT_IDS) {
     const want = lo.kit[k], at = s.equip.kit[k];
     if (at === want) continue;
     if (at.startsWith('camp:')) {
-      notes.push(`The ${KIT[k].short} is at ${campOfKit(s, k)?.name || 'your camp'}, so it stays there.`);
+      notes.push($t`The ${KIT[k].short} is at ${campOfKit(s, k)?.name || $t('your camp')}, so it stays there.`);
       continue;
     }
     if (want === 'car' && !carHome) {
-      notes.push(`The ${KIT[k].short} can’t go in the car: the car isn’t here.`);
+      notes.push($t`The ${KIT[k].short} can’t go in the car: the car isn’t here.`);
       continue;
     }
     if (at === 'car' && !carHome) {
-      notes.push(`The ${KIT[k].short} is in the car, which isn’t here.`);
+      notes.push($t`The ${KIT[k].short} is in the car, which isn’t here.`);
       continue;
     }
     s.equip.kit[k] = want;
@@ -466,36 +467,36 @@ export function departureCheck(s, plan, ctx = {}) {
     }
     if (dest) {
       const wrong = items.filter((i) => !waterOk(TACKLE[i], dest.water)).map((i) => TACKLE[i].short.toLowerCase());
-      if (wrong.length && wrong.length === items.length) warn(`Everything you’re taking is for ${dest.water === 'fresh' ? 'the sea' : 'fresh water'}, and ${dest.name} is ${dest.water === 'fresh' ? 'a lake' : 'salt water'}.`);
-      else if (wrong.length) info(`${cap(listWords(wrong))} ${wrong.length === 1 ? 'is' : 'are'} for ${dest.water === 'fresh' ? 'the sea' : 'fresh water'}: ${wrong.length === 1 ? 'it won’t' : 'they won’t'} do much at ${dest.name}.`);
+      if (wrong.length && wrong.length === items.length) warn(`Everything you’re taking is for ${dest.water === 'fresh' ? $t('the sea') : $t('fresh water')}, and ${dest.name} is ${dest.water === 'fresh' ? 'a lake' : $t('salt water')}.`);
+      else if (wrong.length) info(`${cap(listWords(wrong))} ${wrong.length === 1 ? 'is' : 'are'} for ${dest.water === 'fresh' ? $t('the sea') : $t('fresh water')}: ${wrong.length === 1 ? $t('it won’t') : $t('they won’t')} do much at ${dest.name}.`);
     }
     const sp = plan.target?.sp ? fishById[plan.target.sp] : null;
     if (sp) {
       const m = takenMatch(s, sp);
-      if (m) ok(`For ${sp.name.toLowerCase()}: ${TACKLE[m.item].on} on the ${RODS[m.rod].short.toLowerCase()} is what the field guide suggests${g.pack.rods.includes(m.rod) && g.pack.items.includes(m.item) ? '' : ' (part of it is in the car)'}.`);
+      if (m) ok($t`For ${sp.name.toLowerCase()}: ${TACKLE[m.item].on} on the ${RODS[m.rod].short.toLowerCase()} is what the field guide suggests${g.pack.rods.includes(m.rod) && g.pack.items.includes(m.item) ? '' : $t(' (part of it is in the car)')}.`);
       else {
         const rec = setupsFor(sp)[0];
-        warn(rec ? `Nothing you’re taking is what the field guide suggests for ${sp.name.toLowerCase()} (${TACKLE[rec.item].on} on the ${RODS[rec.rod].short.toLowerCase()}).` : `The field guide has no setup for ${sp.name.toLowerCase()}.`);
+        warn(rec ? $t`Nothing you’re taking is what the field guide suggests for ${sp.name.toLowerCase()} (${TACKLE[rec.item].on} on the ${RODS[rec.rod].short.toLowerCase()}).` : $t`The field guide has no setup for ${sp.name.toLowerCase()}.`);
       }
     } else if (plan.target?.kind) {
       if (!rods.some((r) => RODS[r].kind === plan.target.kind)) warn(`No rod for ${KIND_NAMES[plan.target.kind].toLowerCase()} in your backpack or the car.`);
     }
     if (!items.length) warn('No bait, lures or flies at all: you’d only be able to look.');
-    else if (!out.some((l) => l.level === 'warn')) ok(`Fishing: ${rods.map((r) => RODS[r].short.toLowerCase()).join(' and ')}, with ${items.length} kinds of tackle.`);
+    else if (!out.some((l) => l.level === 'warn')) ok($t`Fishing: ${rods.map((r) => RODS[r].short.toLowerCase()).join($t(' and '))}, with ${items.length} kinds of tackle.`);
   } else if (!items.length) info('No fishing tackle packed: fine for a walk, and the rod you always carry comes along.');
   if (plan.camp) {
     const tent = s.equip.kit.tent, camp = campOfKit(s, 'tent');
     if (camp) {
       const where = ctx.campDest?.(camp);
-      if (where && where === plan.dest) ok(`Your tent is already pitched at ${camp.name}${dest ? `, ${dest.name}` : ''}: no need to take it.`);
+      if (where && where === plan.dest) ok($t`Your tent is already pitched at ${camp.name}${dest ? `, ${dest.name}` : ''}: no need to take it.`);
       else warn(`Your tent is pitched at ${camp.name}${where && DESTS[where] ? ` (${DESTS[where].name})` : ''}: pack that camp up to take it somewhere new, or go there instead.`);
     } else if (tent === 'home') warn('You’re camping, but the tent is still in the garage.');
-    else ok(`Tent: ${tent === 'pack' ? 'in your backpack' : 'in the car'}.`);
+    else ok(`Tent: ${tent === 'pack' ? $t('in your backpack') : $t('in the car')}.`);
     if (!camp || ctx.campDest?.(camp) !== plan.dest) {
       for (const k of ['stove', 'coolbox']) {
         const at = s.equip.kit[k];
-        if (at === 'home') info(k === 'stove' ? 'The stove is at home: you can camp, but not cook there.' : 'The cool box is at home: kept fish stay in your creel.');
-        else if (at.startsWith('camp:')) info(`The ${KIT[k].short} is at ${campOfKit(s, k)?.name || 'your camp'}.`);
+        if (at === 'home') info(k === 'stove' ? $t('The stove is at home: you can camp, but not cook there.') : $t('The cool box is at home: kept fish stay in your creel.'));
+        else if (at.startsWith('camp:')) info(`The ${KIT[k].short} is at ${campOfKit(s, k)?.name || $t('your camp')}.`);
       }
     }
   } else {
@@ -508,7 +509,7 @@ export function departureCheck(s, plan, ctx = {}) {
     if (plan.camp && s.equip.kit.tent === 'car') warn(`The tent is in the car, and the car stays at ${launch.name}: put it in your backpack to camp on ${dest.name} (or sleep aboard the cabin boat).`);
     if (s.equip.car.rods.length || s.equip.car.items.length) info(`${dest.name} is by boat from ${launch.name}: what’s in the boot stays with the car there, and only your backpack goes across.`);
   }
-  if (plan.explore) ok('Your camera is always in your pocket.');
+  if (plan.explore) ok($t('Your camera is always in your pocket.'));
   if (ctx.carHome === false) warn('The car isn’t at home: the boot can’t be loaded until it is.');
   return out;
 }
@@ -535,7 +536,7 @@ export function essentials(s, plan, ctx = {}) {
             s.gear.term[rec.rod] = rec.term;
           }
         }
-        changes.push(`Packed ${best.name} in your backpack`);
+        changes.push($t`Packed ${best.name} in your backpack`);
       }
     }
   }
@@ -546,7 +547,7 @@ export function essentials(s, plan, ctx = {}) {
       for (const k of KIT_IDS) {
         if (s.equip.kit[k] !== 'home') continue;
         s.equip.kit[k] = 'car';
-        changes.push(`Loaded the ${KIT[k].short} into the car`);
+        changes.push($t`Loaded the ${KIT[k].short} into the car`);
       }
     }
   }

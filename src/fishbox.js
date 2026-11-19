@@ -10,14 +10,15 @@
 // state.fishbox: { boat kind: game hour her ice lasts until }.
 
 import { kindOf, isBoatId } from './boatid.js';
+import { $t } from './i18n.js';
 
 export const FISHBOX = {
-  cabin: 'fish box',
-  cruiser: 'fish hold',
-  sail: 'cool box',
-  console: 'fish box',
-  rib: 'cool box',
-  trawler: 'fish box',
+  cabin: $t('fish box'),
+  cruiser: $t('fish hold'),
+  sail: $t('cool box'),
+  console: $t('fish box'),
+  rib: $t('cool box'),
+  trawler: $t('fish box'),
 };
 export const BOX_HOURS = 72;
 export const BOX_PRICE = 6;
@@ -45,9 +46,9 @@ export const boxHoursLeft = (state, kind, now) => Math.max(0, boxIceUntil(state,
 export function boxWords(state, kind, now) {
   if (!hasBox(kind)) return '';
   const h = boxHoursLeft(state, kind, now), box = FISHBOX[kindOf(kind)];
-  if (h <= 0) return `no ice in her ${box}`;
+  if (h <= 0) return $t`no ice in her ${box}`;
   const n = Math.max(1, Math.round(h));
-  return `her ${box} iced for ${h >= 36 ? `${Math.round(h / 24)} days` : h >= 20 ? 'a day' : `${n} hour${n === 1 ? '' : 's'}`} more`;
+  return $t`her ${box} iced for ${h >= 36 ? $t`${Math.round(h / 24)} days` : h >= 20 ? $t('a day') : (n === 1 ? $t`${n} hour` : $t`${n} hours`)} more`;
 }
 
 // From a save: known boats, finite hours.

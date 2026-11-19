@@ -1,6 +1,7 @@
 import { solidHeight, PIERS, inSeas } from './world/terrain.js';
 import { clamp, dampAngle } from './util.js';
 import { LINES, tension, stiffness } from './lines.js';
+import { $t } from './i18n.js';
 
 // Holding a boat still, three ways (the rules here; the boat does the rest, see boat.js):
 //
@@ -34,11 +35,11 @@ export const bowOf = (b, out = { x: 0, z: 0 }) => {
 
 // Can she anchor here? { ok, depth, x, z } (where the anchor goes down) or { ok: false, why }.
 export function anchorCheck(b) {
-  if (b.hull.rig) return { ok: false, why: 'A windsurf board has no anchor: tie up at a pontoon or a jetty, or step ashore.' };
+  if (b.hull.rig) return { ok: false, why: $t('A windsurf board has no anchor: tie up at a pontoon or a jetty, or step ashore.') };
   const bow = bowOf(b), depth = -solidHeight(bow.x, bow.z);
-  if (b.speed > 1) return { ok: false, why: 'Slow down before dropping the anchor' };
-  if (depth < b.hull.draft + 0.6) return { ok: false, why: `Too shallow to anchor here (${depth < 0.1 ? 'barely any water' : `${depth.toFixed(1)} m`}): she’d swing onto the bottom. Find a little more water, or tie up or step ashore instead.` };
-  if (depth > ANCHOR.maxDepth) return { ok: false, why: `Too deep to anchor here (${Math.round(depth)} m): the anchor rope is ${ANCHOR.rope} m long. Find water under ${ANCHOR.maxDepth} m deep, nearer the shore or over a shoal.` };
+  if (b.speed > 1) return { ok: false, why: $t('Slow down before dropping the anchor') };
+  if (depth < b.hull.draft + 0.6) return { ok: false, why: $t`Too shallow to anchor here (${depth < 0.1 ? $t('barely any water') : `${depth.toFixed(1)} m`}): she’d swing onto the bottom. Find a little more water, or tie up or step ashore instead.` };
+  if (depth > ANCHOR.maxDepth) return { ok: false, why: $t`Too deep to anchor here (${Math.round(depth)} m): the anchor rope is ${ANCHOR.rope} m long. Find water under ${ANCHOR.maxDepth} m deep, nearer the shore or over a shoal.` };
   return { ok: true, depth, x: bow.x, z: bow.z };
 }
 
@@ -151,8 +152,8 @@ export function castOffCheck(b, others = []) {
     if (clear(run)) return { ok: true, nx: fx * s, nz: fz * s };
   }
   return blocker
-    ? { ok: false, why: `No room to cast off: the ${blocker.name} is lying right alongside. Move her first.` }
-    : { ok: false, why: 'No room to cast off here: it’s too shallow beside her and ahead and astern. Step across into another boat, or have her brought round.' };
+    ? { ok: false, why: $t`No room to cast off: the ${blocker.name} is lying right alongside. Move her first.` }
+    : { ok: false, why: $t('No room to cast off here: it’s too shallow beside her and ahead and astern. Step across into another boat, or have her brought round.') };
 }
 
 /* ---------------- towing ---------------- */
@@ -163,10 +164,10 @@ export const TOW = { len: 5.5, reach: 5 };
 export const heft = (b) => b.hull.L * b.hull.B;
 export function canTow(lead, towed) {
   if (!lead || !towed || lead === towed) return { ok: false, why: '' };
-  if (heft(lead) < heft(towed) * 0.5) return { ok: false, why: `The ${lead.name} is too small to tow the ${towed.name}.` };
-  if (towed.tie) return { ok: false, why: `The ${towed.name} is tied up: step across and cast her off first.` };
-  if (towed.anchored) return { ok: false, why: `The ${towed.name}’s anchor is down: step across and raise it first.` };
-  if (lead.speed > 1.2 || towed.speed > 1.2) return { ok: false, why: 'Slow down alongside her first.' };
+  if (heft(lead) < heft(towed) * 0.5) return { ok: false, why: $t`The ${lead.name} is too small to tow the ${towed.name}.` };
+  if (towed.tie) return { ok: false, why: $t`The ${towed.name} is tied up: step across and cast her off first.` };
+  if (towed.anchored) return { ok: false, why: $t`The ${towed.name}’s anchor is down: step across and raise it first.` };
+  if (lead.speed > 1.2 || towed.speed > 1.2) return { ok: false, why: $t('Slow down alongside her first.') };
   return { ok: true };
 }
 

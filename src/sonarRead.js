@@ -8,6 +8,7 @@
 // grows on, hard: 0 … 1 (how strongly it sends the ping back) }.
 // (The same split the divers' seabed uses, world/seabed.js: rock from 0.35, weed from 0.4, sand
 // elsewhere in the sea; and what fresh water lies on.)
+import { $t } from './i18n.js';
 const RUNNING = new Set(['stream', 'river']);
 const STILL = new Set(['lake', 'mere']);
 const BRACKISH = new Set(['estuary', 'tideway']);
@@ -35,7 +36,7 @@ export function bottomOf(s, zone, south = false) {
 }
 
 // In words, for the readout and a mark: "rock", "gravel", "sand", "mud", "weed over sand".
-export const bottomWords = (b) => (b.kind === 'weed' ? `weed over ${b.under}` : b.kind);
+export const bottomWords = (b) => (b.kind === 'weed' ? $t`weed over ${b.under}` : b.kind);
 
 // The water column's temperature layers, from tempAt(depth) (°C) down to the bottom (m):
 // { top, bottom, cline } where cline is the depth (m) where it cools fastest, if it cools by at

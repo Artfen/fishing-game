@@ -1,5 +1,6 @@
 import { fishById } from './fish.js';
 import { creelFits, creelKg, keptKg, creelLoad, CREEL_MAX } from './shop.js';
+import { $t } from './i18n.js';
 
 // Your own camp, pitched wherever the ground allows: a tent, a lantern, a bedroll, a little
 // stove, a camp chair, a tackle box and a cool box. The rules for where it can go look at the
@@ -13,12 +14,12 @@ export const COOLBOX = 6;     // fish the cool box holds (on ice)
 export const MEALS_MAX = 4;   // cooked fish waiting at camp
 export const COOK_HOURS = 0.5;
 export const TENTS = {
-  green: { name: 'Moss green', fly: '#7f9a6a', canvas: '#d9c39a', dark: '#c4ab80' },
-  sand: { name: 'Sand', fly: '#cdb88f', canvas: '#e6d6b2', dark: '#c9b48c' },
-  rust: { name: 'Rust', fly: '#b0663f', canvas: '#ead8b8', dark: '#cbb38d' },
-  blue: { name: 'Harbour blue', fly: '#4f7486', canvas: '#dfd6c2', dark: '#c4b89c' },
+  green: { name: $t('Moss green'), fly: '#7f9a6a', canvas: '#d9c39a', dark: '#c4ab80' },
+  sand: { name: $t('Sand'), fly: '#cdb88f', canvas: '#e6d6b2', dark: '#c9b48c' },
+  rust: { name: $t('Rust'), fly: '#b0663f', canvas: '#ead8b8', dark: '#cbb38d' },
+  blue: { name: $t('Harbour blue'), fly: '#4f7486', canvas: '#dfd6c2', dark: '#c4b89c' },
 };
-export const DECOR = { bunting: 'Bunting', rug: 'Rag rug', chimes: 'Wind chimes', deckchair: 'Striped deckchair' };
+export const DECOR = { bunting: $t('Bunting'), rug: $t('Rag rug'), chimes: $t('Wind chimes'), deckchair: $t('Striped deckchair') };
 // Decorations you have to earn first (see adventures.js): the key in state.unlocks.
 export const DECOR_UNLOCK = { deckchair: 'deckchair' };
 export const LANTERN_MODES = ['auto', 'on', 'off'];
@@ -77,7 +78,7 @@ export function checkSite(x, z, yaw, world, { others = [], ignore = null } = {})
     res.reason = reason;
     return res;
   };
-  if (!world.inBounds(x, z)) return fail('bounds', 'That’s beyond where you can go.');
+  if (!world.inBounds(x, z)) return fail('bounds', $t('That’s beyond where you can go.'));
   const hs = new Float32Array(SAMPLES.length);
   let lo = Infinity, hi = -Infinity, tlo = Infinity, thi = -Infinity, wet = 0, deck = false, obstacle = null, keep = null, path = false;
   for (let i = 0; i < SAMPLES.length; i++) {
@@ -103,45 +104,45 @@ export function checkSite(x, z, yaw, world, { others = [], ignore = null } = {})
   }
   res.rise = Math.round((thi - tlo) * 100) / 100;
   const h0 = world.height(x, z);
-  if (h0 < 0.05) return fail('water', 'That’s in the water.');
-  if (wet) return fail('wet', wet > SAMPLES.length / 3 ? 'Too wet: that’s where the water reaches.' : 'Part of it would be at the water’s edge, where the waves wash up. Try a little higher up.');
-  if (deck) return fail('deck', 'That’s on a pier or jetty: a tent needs ground under it.');
-  if (!res.bad.every((p) => world.inBounds(p.x, p.z))) return fail('bounds', 'That’s beyond where you can go.');
+  if (h0 < 0.05) return fail('water', $t('That’s in the water.'));
+  if (wet) return fail('wet', wet > SAMPLES.length / 3 ? $t('Too wet: that’s where the water reaches.') : $t('Part of it would be at the water’s edge, where the waves wash up. Try a little higher up.'));
+  if (deck) return fail('deck', $t('That’s on a pier or jetty: a tent needs ground under it.'));
+  if (!res.bad.every((p) => world.inBounds(p.x, p.z))) return fail('bounds', $t('That’s beyond where you can go.'));
   if (keep) return fail('keep', keep.why);
-  if (path) return fail('path', 'That’s across a path: keep the way clear for walking.');
+  if (path) return fail('path', $t('That’s across a path: keep the way clear for walking.'));
   if (obstacle) {
     const what = obstacle.name || ({ tree: 'a tree', rock: 'rocks', building: 'a building', reeds: 'reeds' }[obstacle.kind] || 'something');
-    return fail('blocked', obstacle.kind === 'building' ? `Too close to ${what}.` : obstacle.kind === 'rock' ? 'Rocks in the way: the tent needs clear ground.' : `${cap(what)} ${what.endsWith('s') && !what.startsWith('a ') ? 'are' : 'is'} in the way.`);
+    return fail('blocked', obstacle.kind === 'building' ? $t`Too close to ${what}.` : obstacle.kind === 'rock' ? $t('Rocks in the way: the tent needs clear ground.') : (what.endsWith('s') && !what.startsWith('a ') ? $t`${cap(what)} are in the way.` : $t`${cap(what)} is in the way.`));
   }
   // Level enough to sleep on: a gentle slope is fine (the tent takes up a little).
-  if (thi - tlo > 0.75) return fail('steep', `Too steep to sleep on: the ground falls ${Math.round((thi - tlo) * 100)} cm across the tent. Find flatter ground.`);
-  if (hi - lo > 1.6) return fail('steep', 'Too steep here: the stove and chair wouldn’t stand. Find flatter ground.');
+  if (thi - tlo > 0.75) return fail('steep', $t`Too steep to sleep on: the ground falls ${Math.round((thi - tlo) * 100)} cm across the tent. Find flatter ground.`);
+  if (hi - lo > 1.6) return fail('steep', $t('Too steep here: the stove and chair wouldn’t stand. Find flatter ground.'));
   // A step or a drop across it (a bank's edge, a ledge): the ground isn't one piece.
   for (let i = 0; i < SAMPLES.length; i++) {
     const right = (i % COLS) < COLS - 1 ? i + 1 : -1, down = i + COLS < SAMPLES.length ? i + COLS : -1;
     for (const j of [right, down]) {
-      if (j >= 0 && Math.abs(hs[i] - hs[j]) > 0.42) return fail('ledge', 'There’s a drop across it, like a bank’s edge. Find unbroken ground.');
+      if (j >= 0 && Math.abs(hs[i] - hs[j]) > 0.42) return fail('ledge', $t('There’s a drop across it, like a bank’s edge. Find unbroken ground.'));
     }
   }
   for (const o of others) {
-    if (o.id !== ignore && Math.hypot(o.x - x, o.z - z) < 10) return fail('camp', `Too close to your camp, ${o.name}.`);
+    if (o.id !== ignore && Math.hypot(o.x - x, o.z - z) < 10) return fail('camp', $t`Too close to your camp, ${o.name}.`);
   }
   res.ok = true;
   // Low ground facing the open sea: fine on a calm night, but the spray reaches it in a swell.
   const exposure = world.exposure ? world.exposure(x, z) : 0;
-  if (lo < 0.95 && exposure > 0.4) res.warn = 'Low ground facing the open sea: in a big swell the spray reaches about here.';
-  else if (lo < 0.7) res.warn = 'Low ground, close to the water: fine in calm weather.';
+  if (lo < 0.95 && exposure > 0.4) res.warn = $t('Low ground facing the open sea: in a big swell the spray reaches about here.');
+  else if (lo < 0.7) res.warn = $t('Low ground, close to the water: fine in calm weather.');
   res.words = describe(x, z, h0, hi - lo, world);
   return res;
 }
 
 function describe(x, z, h, rise, world) {
   const ground = world.ground?.(x, z, h) || (h < 1.7 ? 'sand' : 'grass');
-  const level = rise < 0.25 ? 'Level' : 'Gently sloping';
+  const level = rise < 0.25 ? $t('Level') : $t('Gently sloping');
   const parts = [`${level} ${ground}`];
-  if (world.treesNear?.(x, z)) parts.push('among the trees');
+  if (world.treesNear?.(x, z)) parts.push($t('among the trees'));
   const water = world.waterNear?.(x, z);
-  if (water) parts.push(`looking out over ${water}`);
+  if (water) parts.push($t`looking out over ${water}`);
   return `${parts.join(', ')}.`;
 }
 
@@ -191,7 +192,7 @@ const num = (v, d, lo = -Infinity, hi = Infinity) => (typeof v === 'number' && N
 export function newCamp({ x, z, yaw, name, day = 1, hour = 12 }) {
   return {
     id: `camp-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
-    name: cleanName(name) || 'My camp',
+    name: cleanName(name) || $t('My camp'),
     x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100, yaw: Math.round(yaw * 1000) / 1000,
     tent: 'green', deco: { bunting: false, rug: false, chimes: false, deckchair: false }, lantern: 'auto',
     store: { fish: [], meals: [] }, cooking: null,
@@ -220,7 +221,7 @@ export function cleanCamp(c) {
   const cook = isObj(c.cooking) ? fishEntry(c.cooking) : null;
   if (cook) Object.assign(cook, { start: num(c.cooking.start, 0, 0), dur: num(c.cooking.dur, COOK_HOURS, 0.05, 2) });
   return {
-    id, name: cleanName(c.name) || 'My camp',
+    id, name: cleanName(c.name) || $t('My camp'),
     x, z, yaw: num(c.yaw, 0, -100, 100),
     tent: TENTS[c.tent] ? c.tent : 'green',
     deco: Object.fromEntries(Object.keys(DECOR).map((k) => [k, !!c.deco?.[k]])),
@@ -260,14 +261,14 @@ export const kitsFree = (state) => (state.equip ? (state.equip.kit.tent === 'pac
 // From your creel into the cool box.
 export function stow(state, camp, i) {
   const f = state.keep[i];
-  if (!f) return { ok: false, why: 'Nothing there.' };
+  if (!f) return { ok: false, why: $t('Nothing there.') };
   if (f.cooked) {
-    if (camp.store.meals.length >= MEALS_MAX) return { ok: false, why: `There’s no more room for cooked fish here (${MEALS_MAX}).` };
+    if (camp.store.meals.length >= MEALS_MAX) return { ok: false, why: $t`There’s no more room for cooked fish here (${MEALS_MAX}).` };
     state.keep.splice(i, 1);
     camp.store.meals.push({ id: f.id, size: f.size, logId: f.logId || null, ...withKg(f) });
     return { ok: true };
   }
-  if (camp.store.fish.length >= COOLBOX) return { ok: false, why: `The cool box is full (${COOLBOX} fish). Cook some, or keep them in your creel.` };
+  if (camp.store.fish.length >= COOLBOX) return { ok: false, why: $t`The cool box is full (${COOLBOX} fish). Cook some, or keep them in your creel.` };
   state.keep.splice(i, 1);
   camp.store.fish.push({ id: f.id, size: f.size, logId: f.logId || null, ...withKg(f) });
   return { ok: true };
@@ -277,8 +278,8 @@ export function stow(state, camp, i) {
 export function take(state, camp, i, meal = false) {
   const list = meal ? camp.store.meals : camp.store.fish;
   const f = list[i];
-  if (!f) return { ok: false, why: 'Nothing there.' };
-  if (!creelFits(state, keptKg(f))) return { ok: false, why: `No room in your creel for it (it holds ${creelKg(state)} kg).` };
+  if (!f) return { ok: false, why: $t('Nothing there.') };
+  if (!creelFits(state, keptKg(f))) return { ok: false, why: $t`No room in your creel for it (it holds ${creelKg(state)} kg).` };
   list.splice(i, 1);
   state.keep.push({ id: f.id, size: f.size, logId: f.logId || null, ...withKg(f), ...(meal ? { cooked: true } : {}) });
   return { ok: true };
@@ -310,11 +311,11 @@ export function packPlan(state, camp) {
 // Pack it up. `release`: indices into the cool box of fish to let go first (chosen by you).
 // Never drops anything you didn't choose to release: returns { ok: false, why } if it won't fit.
 export function packUp(state, camp, { release = [] } = {}) {
-  if (camp.cooking) return { ok: false, why: 'Something is still on the stove: let it finish, or take it off first.' };
+  if (camp.cooking) return { ok: false, why: $t('Something is still on the stove: let it finish, or take it off first.') };
   const keepFish = camp.store.fish.filter((f, i) => !release.includes(i));
   const released = camp.store.fish.filter((f, i) => release.includes(i));
   if (overBy(state, [...keepFish, ...camp.store.meals])) {
-    return { ok: false, why: `Your creel holds ${creelKg(state)} kg: not room for everything in the cool box.` };
+    return { ok: false, why: $t`Your creel holds ${creelKg(state)} kg: not room for everything in the cool box.` };
   }
   for (const f of keepFish) state.keep.push({ id: f.id, size: f.size, logId: f.logId || null, ...withKg(f) });
   for (const f of camp.store.meals) state.keep.push({ id: f.id, size: f.size, logId: f.logId || null, ...withKg(f), cooked: true });
@@ -345,10 +346,10 @@ export function settleCooking(camp, abs) {
 }
 
 export function startCooking(state, camp, from, i, abs) {
-  if (camp.cooking) return { ok: false, why: 'The pan is busy.' };
+  if (camp.cooking) return { ok: false, why: $t('The pan is busy.') };
   const list = from === 'cooler' ? camp.store.fish : state.keep;
   const f = list[i];
-  if (!f || f.cooked) return { ok: false, why: 'Nothing to cook there.' };
+  if (!f || f.cooked) return { ok: false, why: $t('Nothing to cook there.') };
   list.splice(i, 1);
   camp.cooking = { id: f.id, size: f.size, logId: f.logId || null, start: abs, dur: COOK_HOURS };
   return { ok: true, fish: f };
@@ -362,7 +363,7 @@ export function defaultName(x, z, places, known) {
     const d = Math.hypot(p.x - x, p.z - z);
     if (d < bd) { bd = d; best = p; }
   }
-  if (!best || bd > 160) return 'My camp';
+  if (!best || bd > 160) return $t('My camp');
   const on = { strand: 'on', head: 'on', haven: 'above', landing: 'by', camp: 'near', cove: 'by', reach: 'by', jetty: 'facing', gull: 'facing' }[best.id] || (bd < 40 ? 'at' : 'near');
   return `Camp ${on} ${best.name}`;
 }

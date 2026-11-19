@@ -1,5 +1,6 @@
 import { DESTS, driveMinutes } from './outing.js';
 import { kindOf, isBoatId } from './boatid.js';
+import { $t } from './i18n.js';
 
 // Fuel: light, and only for what has an engine. The car and the motorboats (the motor skiff,
 // the bass boat's outboard, the cabin boat, the sailing boat's little outboard, the centre
@@ -207,7 +208,7 @@ export function pour(f, into) {
 }
 
 export function moveCan(f, to) {
-  if (!canPlace(to)) return { ok: false, why: 'Nowhere to put it.' };
+  if (!canPlace(to)) return { ok: false, why: $t('Nowhere to put it.') };
   f.can.at = to;
   return { ok: true };
 }
@@ -221,9 +222,9 @@ export function rescue(f, what) {
 // In words, for the hints and the sheets: "31 of 45 L", "battery 80%".
 const amount = (v) => (v < 10 ? r1(v) : Math.round(v));
 export const litres = (v) => `${amount(v)} L`;
-export const tankWords = (f, what) => `${amount(level(f, what))} of ${tankOf(what)} L`;
+export const tankWords = (f, what) => $t`${amount(level(f, what))} of ${tankOf(what)} L`;
 export const batteryWords = (f, which = 'battery') => `battery ${Math.round(f[which] * 100)}%`;
-export const canWords = (f) => `${amount(f.can.litres)} of ${CAN} L`;
+export const canWords = (f) => $t`${amount(f.can.litres)} of ${CAN} L`;
 export const low = (f, what) => level(f, what) < tankOf(what) * LOW;
 
 // For the workbench's packing list and the car's "Where to?": will the tank get you there and
@@ -237,16 +238,16 @@ export function fuelCheck(f, from, to) {
   const have = f.car;
   const out = [];
   const canWith = (f.can.at === 'pack' || f.can.at === 'car') && f.can.litres >= 1;
-  if (have >= there + back) out.push({ level: 'ok', text: `Fuel: ${tankWords(f, 'car')}, plenty for ${D.name} and back (about ${litres(there + back)}).` });
-  else if (have + (canWith ? f.can.litres : 0) >= there + back) out.push({ level: 'info', text: `Fuel: ${tankWords(f, 'car')} gets you to ${D.name} (about ${litres(there)}); the jerry can with you gets you home again.` });
-  else if (have >= there) out.push({ level: 'info', text: `Fuel: ${tankWords(f, 'car')} gets you to ${D.name} (about ${litres(there)}), but not home again: fill up at the pump by the garage, or take the jerry can.` });
-  else out.push({ level: 'warn', text: `Fuel: ${tankWords(f, 'car')} isn’t enough for ${D.name} (about ${litres(there)}): fill up at the pump by the garage first.` });
+  if (have >= there + back) out.push({ level: 'ok', text: $t`Fuel: ${tankWords(f, 'car')}, plenty for ${D.name} and back (about ${litres(there + back)}).` });
+  else if (have + (canWith ? f.can.litres : 0) >= there + back) out.push({ level: 'info', text: $t`Fuel: ${tankWords(f, 'car')} gets you to ${D.name} (about ${litres(there)}); the jerry can with you gets you home again.` });
+  else if (have >= there) out.push({ level: 'info', text: $t`Fuel: ${tankWords(f, 'car')} gets you to ${D.name} (about ${litres(there)}), but not home again: fill up at the pump by the garage, or take the jerry can.` });
+  else out.push({ level: 'warn', text: $t`Fuel: ${tankWords(f, 'car')} isn’t enough for ${D.name} (about ${litres(there)}): fill up at the pump by the garage first.` });
   // The motor boats brought round to the quay (the bass boat stays on Longmere).
   if (T.boat) {
     const thin = ['skiff', 'cabin'].filter((k) => f.boats[k] < BOAT_TRIP);
-    const names = { skiff: 'motor skiff', cabin: 'cabin boat' };
-    if (thin.length) out.push({ level: 'info', text: `Boat fuel: the ${thin.map((k) => `${names[k]} has ${litres(f.boats[k])}`).join(' and the ')}. Fill up at the harbour pump on ${D.name} quay before you cross to ${T.name} (the oars and the paddle need none).` });
-    else out.push({ level: 'ok', text: `Boat fuel: plenty in the motor skiff and the cabin boat for ${T.name} and back.` });
+    const names = { skiff: $t('motor skiff'), cabin: $t('cabin boat') };
+    if (thin.length) out.push({ level: 'info', text: $t`Boat fuel: the ${thin.map((k) => `${names[k]} has ${litres(f.boats[k])}`).join($t(' and the '))}. Fill up at the harbour pump on ${D.name} quay before you cross to ${T.name} (the oars and the paddle need none).` });
+    else out.push({ level: 'ok', text: $t`Boat fuel: plenty in the motor skiff and the cabin boat for ${T.name} and back.` });
   }
   return out;
 }

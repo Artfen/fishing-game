@@ -45,6 +45,9 @@ export const windAtHeight = (z) => Math.pow(Math.max(0.2, Math.min(10, z)) / 10,
 // wind is on her bow (a flat plate's quarter-chord, 0.18 of her length for each radian before the
 // beam), so at anchor she sheers about as boats do.
 export const WIND_CDT = 0.9, WIND_CDL = [0.55, 0.6], WIND_DELTA = 0.6, WIND_SHIFT = 0.18;
+// (A hull given by its English name alone, as the tests and tools may: its kind.)
+const KIND_OF_NAME = { 'rowing boat': 'row', 'motor skiff': 'skiff', kayak: 'kayak', 'bass boat': 'bass', 'cabin boat': 'cabin', 'sport-fishing yacht': 'cruiser', 'centre-console boat': 'console', 'jet ski': 'jetski', 'expedition trawler': 'trawler' };
+
 export function windLoad(along, across, A, end, out = [0, 0, 0]) {
   const U = Math.hypot(along, across);
   if (U < 1e-6) {
@@ -698,18 +701,19 @@ function foilsFor(H, bMax) {
     const tm = (t0 + t1) / 2, len = H.L * (t1 - t0);
     foil({ p: [0, keelAt(tm) - depth / 2, zAt(H, tm)], area: len * depth, ar, span: depth, stall: 0.6 });
   };
-  switch (H.name) {
-    case 'rowing boat': keel(0.08, 0.85, 0.07); break;
-    case 'motor skiff': keel(0.08, 0.85, 0.07); break;
+  // (By her kind, not her name: a name is words, in whatever language the game is played in.)
+  switch (H.kindId ?? KIND_OF_NAME[H.name]) {
+    case 'row': keel(0.08, 0.85, 0.07); break;
+    case 'skiff': keel(0.08, 0.85, 0.07); break;
     case 'kayak': keel(0.05, 0.3, 0.05); break;
-    case 'bass boat': keel(0.1, 0.8, 0.05); break;
-    case 'cabin boat': keel(0.05, 0.85, 0.12); break;
-    case 'sport-fishing yacht': keel(0.1, 0.75, 0.25); break;
-    case 'centre-console boat': keel(0.1, 0.8, 0.08); break;
-    case 'jet ski': keel(0.1, 0.7, 0.06); break;
+    case 'bass': keel(0.1, 0.8, 0.05); break;
+    case 'cabin': keel(0.05, 0.85, 0.12); break;
+    case 'cruiser': keel(0.1, 0.75, 0.25); break;
+    case 'console': keel(0.1, 0.8, 0.08); break;
+    case 'jetski': keel(0.1, 0.7, 0.06); break;
     // (The trawler's full keel, from her forefoot to the aperture: a big grip on the water, so she
     // holds a course and drifts off slowly.)
-    case 'expedition trawler': keel(0.12, 0.8, 0.45); break;
+    case 'trawler': keel(0.12, 0.8, 0.45); break;
     default:
   }
   if (H.sail) {

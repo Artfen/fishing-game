@@ -1311,6 +1311,8 @@ p.cp-soft { margin: 6px 0; }
 .t-update .t-quality { margin-left: 0; }
 .t-update-note:not(:empty) { margin-left: 8px; }
 .t-quality:disabled, #update-now:disabled { opacity: 0.6; cursor: default; }
+.t-lang { margin: 6px 0 0; font: 500 12px/1.4 var(--font-ui); color: rgba(255, 249, 239, 0.75); animation: rise 1.6s 1s ease both; }
+.t-lang select { margin-left: 6px; font: 600 12px var(--font-ui); color: #33261b; background: rgba(255, 249, 239, 0.9); border: 0; border-radius: 6px; padding: 3px 6px; }
 .t-download { margin: 4px 0 0; font: 500 11px/1.4 var(--font-ui); animation: rise 1.6s 1s ease both; }
 .t-download a { color: rgba(255, 249, 239, 0.6); text-underline-offset: 2px; }
 .t-download a:hover, .t-download a:focus-visible { color: rgba(255, 249, 239, 0.9); }

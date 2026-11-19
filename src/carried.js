@@ -7,6 +7,7 @@
 // Pure: the game (main.js) places a carried tender on her mother's chocks each frame, as a boat on
 // the trailer is placed behind the car, and puts her weight on her mother (loadsOf).
 import { isBoatId } from './boatid.js';
+import { $t } from './i18n.js';
 
 // The kinds that ride on a platform, and the kinds with a platform to carry one.
 export const TENDERS = ['tender'];
@@ -49,21 +50,21 @@ export function settle(S, dropped = []) {
   for (const t of Object.keys(S.carried || {})) {
     if (S.trailer?.boat === t) {
       S.trailer.boat = null;
-      said.push(`${t}: on her mother’s platform, not the trailer`);
+      said.push($t`${t}: on her mother’s platform, not the trailer`);
     }
     if ((S.shipping || []).some((x) => x.kind === t)) {
       S.shipping = S.shipping.filter((x) => x.kind !== t);
-      said.push(`${t}: on her mother’s platform, not the supply ship`);
+      said.push($t`${t}: on her mother’s platform, not the supply ship`);
     }
     if (Array.isArray(S.stored) && S.stored.includes(t)) {
       S.stored = S.stored.filter((x) => x !== t);
-      said.push(`${t}: on her mother’s platform, not laid up`);
+      said.push($t`${t}: on her mother’s platform, not laid up`);
     }
   }
   for (const t of dropped) {
     if (!Array.isArray(S.stored) || S.stored.includes(t) || S.trailer?.boat === t) continue;
     S.stored.push(t);
-    said.push(`${t}: her mother gone, laid up at Willowhaven`);
+    said.push($t`${t}: her mother gone, laid up at Willowhaven`);
   }
   return said;
 }

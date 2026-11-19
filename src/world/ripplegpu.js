@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { SIM, ringBump } from './ripplesim.js';
 import { MAP_GLSL } from './water.js';
 import { PIERS } from './terrain.js';
+import { $t } from '../i18n.js';
 
 // (W7) The rings simulated round you, on the graphics card: the steps of ripplesim.js (the
 // reference they're tested against), on a square of SIM.N cells, SIM.SPAN metres across, that
@@ -29,8 +30,8 @@ const HULL_AT = [0.02, 0.2, 0.4, 0.6, 0.8, 0.98];
 const HULL_GLSL = (() => {
   const T = HULL_AT, W = ['b.y', 'b.z', 'b.w', 'c.x', 'c.y', 'c.z'], f = (v) => v.toFixed(2);
   let g = `float hullHalf(vec4 b, vec4 c, float t) {\n  if (t < ${f(T[0])}) return b.y * t / ${f(T[0])};\n`;
-  for (let k = 1; k < T.length; k++) g += `  if (t < ${f(T[k])}) return mix(${W[k - 1]}, ${W[k]}, (t - ${f(T[k - 1])}) / ${f(T[k] - T[k - 1])});\n`;
-  return g + `  return c.z * (1.0 - t) / ${f(1 - T[T.length - 1])};\n}`;
+  for (let k = 1; k < T.length; k++) g += $t`  if (t < ${f(T[k])}) return mix(${W[k - 1]}, ${W[k]}, (t - ${f(T[k - 1])}) / ${f(T[k] - T[k - 1])});\n`;
+  return g + $t`  return c.z * (1.0 - t) / ${f(1 - T[T.length - 1])};\n}`;
 })();
 
 const passVert = /* glsl */ `

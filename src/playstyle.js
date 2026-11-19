@@ -3,20 +3,21 @@
 // the economy together (each can still be changed on its own in Settings, which then calls it
 // your own mix).
 
+import { $t } from './i18n.js';
 export const STYLES = {
   easy: {
-    name: 'Easy-going',
-    desc: 'Forgiving fish, casts land where you aim, the engine starts itself, the sail trims itself, cheap fuel. Just fishing.',
+    name: $t('Easy-going'),
+    desc: $t('Forgiving fish, casts land where you aim, the engine starts itself, the sail trims itself, cheap fuel. Just fishing.'),
     set: { difficulty: 'relaxed', behaviour: 'relaxed', cast: 'assisted', technique: 'assisted', start: 'go', throttle: 'notches', sailTrim: 'helped', economy: 'gentle' },
   },
   angler: {
-    name: 'Angler',
-    desc: 'Slow Tide as it’s meant to be: fish as they are, one button to start, trim the leg yourself.',
+    name: $t('Angler'),
+    desc: $t('Slow Tide as it’s meant to be: fish as they are, one button to start, trim the leg yourself.'),
     set: { difficulty: 'standard', behaviour: 'natural', cast: 'assisted', technique: 'assisted', start: 'simple', throttle: 'notches', sailTrim: 'hand', economy: 'gentle' },
   },
   salt: {
-    name: 'Old salt',
-    desc: 'Everything real: demanding fish, timed casts, the rod in your hands, the full start-up, a throttle lever, real fuel prices.',
+    name: $t('Old salt'),
+    desc: $t('Everything real: demanding fish, timed casts, the rod in your hands, the full start-up, a throttle lever, real fuel prices.'),
     set: { difficulty: 'realistic', behaviour: 'demanding', cast: 'manual', technique: 'expert', start: 'full', throttle: 'lever', sailTrim: 'hand', economy: 'authentic' },
   },
 };

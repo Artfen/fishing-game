@@ -2,6 +2,7 @@ import { heightAt, WRECK, WRECK_BELL, DIVE_MARKS, PLACES } from './terrain.js';
 import { BAJON, VAPOR, BANCO } from './brasa.js';
 import { SULA, SKARV } from './north.js';
 import { fbm, seeded, clamp } from '../util.js';
+import { $t } from '../i18n.js';
 
 // The dive sites of the home coast: five places worth going down at, each different, each with a
 // landmark you can find and life at the depths you can reach (what they look like is built in
@@ -55,62 +56,62 @@ const place = (id) => PLACES.find((p) => p.id === id);
 export const DIVE_SITES = [
   {
     id: 'reef', x: M.reef.x, z: M.reef.z, r: 26, buoy: M.reef.buoy, depth: [3, 9],
-    first: 'Skerries Reef: boulders and gullies under the black rocks, kelp on their tops, and somewhere among them a rock arch to swim through. Look in the cracks: there’s an octopus about.',
+    first: $t('Skerries Reef: boulders and gullies under the black rocks, kelp on their tops, and somewhere among them a rock arch to swim through. Look in the cracks: there’s an octopus about.'),
   },
   {
     id: 'kelp', x: M.kelp.x, z: M.kelp.z, r: 30, buoy: M.kelp.buoy, depth: [4, 10],
-    first: 'The Kelp Forest: the stalks stand round you like trees, the light coming down green between them, pollack hanging among them. Somewhere in here there’s a clearing with a big boulder in it.',
+    first: $t('The Kelp Forest: the stalks stand round you like trees, the light coming down green between them, pollack hanging among them. Somewhere in here there’s a clearing with a big boulder in it.'),
   },
   {
     id: 'wreck', x: WRECK.x, z: WRECK.z, r: 22, buoy: null, depth: [8, 10],
-    first: 'The Kittiwake: her ribs and boiler grown over with anemones, a conger in her hull, pollack and bogue hanging over her. Her bell lies in the sand by her bow.',
+    first: $t('The Kittiwake: her ribs and boiler grown over with anemones, a conger in her hull, pollack and bogue hanging over her. Her bell lies in the sand by her bow.'),
   },
   {
     id: 'sands', x: M.sands.x, z: M.sands.z, r: 28, buoy: M.sands.buoy, depth: [16, 18],
-    first: 'Anchor Sands: open sand, rippled by the tide, and it looks empty until you look closely. The flatfish lie half buried, only their eyes showing. The old anchor is here somewhere.',
+    first: $t('Anchor Sands: open sand, rippled by the tide, and it looks empty until you look closely. The flatfish lie half buried, only their eyes showing. The old anchor is here somewhere.'),
   },
   {
     id: 'hound', x: M.hound.x, z: M.hound.z, r: 40, buoy: M.hound.buoy, depth: [10, 30],
-    first: 'The Hound: the pinnacle rises out of the blue, its walls covered in pink sea fans and jewel anemones, pollack hanging off it all the way down. Watch your air: it’s thirty metres at its foot.',
+    first: $t('The Hound: the pinnacle rises out of the blue, its walls covered in pink sea fans and jewel anemones, pollack hanging off it all the way down. Watch your air: it’s thirty metres at its foot.'),
   },
   // Las Brasas (see world/brasa.js): El Bajón's yellow buoy is the island's own (brasaWorld.js).
   {
     id: 'bajon', south: true, x: BAJON.x, z: BAJON.z, r: 40, buoy: null, depth: [3, 20],
-    first: 'El Bajón: the pinnacles rise out of the blue under you, sea fans and sponges up their sides, a cloud of chromis over every top. Combers watch from the ledges, a moray from a crack. Look in the cave at the foot of the biggest for the grouper.',
+    first: $t('El Bajón: the pinnacles rise out of the blue under you, sea fans and sponges up their sides, a cloud of chromis over every top. Combers watch from the ledges, a moray from a crack. Look in the cave at the foot of the biggest for the grouper.'),
   },
   {
     id: 'arcos', south: true, x: -440, z: 6537, r: 32, buoy: { x: -446, z: 6522 }, depth: [4, 16],
-    first: 'Los Arcos: arches of old lava standing off the Roque, the light coming through them in shafts. Swim through, slowly. Groupers and morays live in the caves round their feet, and barracuda hang off the outer one.',
+    first: $t('Los Arcos: arches of old lava standing off the Roque, the light coming through them in shafts. Swim through, slowly. Groupers and morays live in the caves round their feet, and barracuda hang off the outer one.'),
   },
   {
     id: 'veril', south: true, x: 120, z: 6578, r: 32, buoy: { x: 120, z: 6556 }, depth: [20, 40],
-    first: 'El Veril: the shelf ends and the wall drops away beneath you into the blue. Groupers in the caves of the wall, red porgy and dentex on its ledges, amberjack cruising along it. Watch your depth and your air: it never stops going down.',
+    first: $t('El Veril: the shelf ends and the wall drops away beneath you into the blue. Groupers in the caves of the wall, red porgy and dentex on its ledges, amberjack cruising along it. Watch your depth and your air: it never stops going down.'),
   },
   {
     id: 'sebadal', south: true, x: 430, z: 6490, r: 60, buoy: { x: 430, z: 6490 }, depth: [8, 14],
-    first: 'El Sebadal: a meadow of seagrass under clear water, bending with the swell. Striped bream and salema graze it, cuttlefish hover over it, and somewhere in the sand between lies an angel shark, buried to its eyes. Leave it be.',
+    first: $t('El Sebadal: a meadow of seagrass under clear water, bending with the swell. Striped bream and salema graze it, cuttlefish hover over it, and somewhere in the sand between lies an angel shark, buried to its eyes. Leave it be.'),
   },
   {
     id: 'coladas', south: true, x: -500, z: 5620, r: 36, buoy: { x: -505, z: 5612 }, depth: [4, 14],
-    first: 'Las Coladas: the old lava broken into a reef of black blocks and gullies, the swell surging through them. Parrotfish grazing, triggerfish cruising over, a moray in every other hole. Keep off the rocks when a big one comes through.',
+    first: $t('Las Coladas: the old lava broken into a reef of black blocks and gullies, the swell surging through them. Parrotfish grazing, triggerfish cruising over, a moray in every other hole. Keep off the rocks when a big one comes through.'),
   },
   {
     id: 'vapor', south: true, arch: true, x: VAPOR.x, z: VAPOR.z, r: 34, buoy: { x: VAPOR.x + 6, z: VAPOR.z - 9 }, depth: [6, 14],
-    first: 'El Vapor: out of the blue her bow comes up at you, still standing, her plates gone orange and purple with sponge. Aft of it she’s broken open: her ribs, her boiler on its side, a grouper watching from inside her hull. Mind the edges of her plates.',
+    first: $t('El Vapor: out of the blue her bow comes up at you, still standing, her plates gone orange and purple with sponge. Aft of it she’s broken open: her ribs, her boiler on its side, a grouper watching from inside her hull. Mind the edges of her plates.'),
   },
   {
     id: 'banco', south: true, arch: true, x: BANCO.x, z: BANCO.z, r: 70, buoy: null, depth: [20, 40],
-    first: 'El Banco: the top of a mountain under the sea, cragged rock coming up out of the deep blue all round. Groupers in its cracks, red porgy on its ledges, and a school of amberjack circling you to look. Watch your depth and your air: its walls go down into the dark.',
+    first: $t('El Banco: the top of a mountain under the sea, cragged rock coming up out of the deep blue all round. Groupers in its cracks, red porgy on its ledges, and a school of amberjack circling you to look. Watch your depth and your air: its walls go down into the dark.'),
   },
   // The north, up the coast (docs/NORTH.md): the Sula in the kelp off Tern Isle, and the foot of
   // Skarv Stack, its walls going down into deep water.
   {
     id: 'sula', north: true, x: SULA.x, z: SULA.z, r: 34, buoy: { x: SULA.x + 9, z: SULA.z - 8 }, depth: [10, 18],
-    first: 'The Sula: her bow looms out of the kelp, still upright, her wheelhouse standing with its windows gone. The kelp waves over her rails; a conger watches from a hole in her side, pollack hang above her. Cold, clear and green.',
+    first: $t('The Sula: her bow looms out of the kelp, still upright, her wheelhouse standing with its windows gone. The kelp waves over her rails; a conger watches from a hole in her side, pollack hang above her. Cold, clear and green.'),
   },
   {
     id: 'skarv', north: true, x: SKARV.x, z: SKARV.z, r: 70, buoy: null, depth: [8, 34],
-    first: 'Skarv Stack from below: a wall of rock going down out of the kelp into the green dark, every ledge crowded with anemones and dead men’s fingers. Guillemots fly past you underwater, and something big moves at the edge of what you can see.',
+    first: $t('Skarv Stack from below: a wall of rock going down out of the kelp into the green dark, every ledge crowded with anemones and dead men’s fingers. Guillemots fly past you underwater, and something big moves at the edge of what you can see.'),
   },
 ].map((S) => ({ ...S, name: place(S.id).name, sub: place(S.id).sub, note: place(S.id).note }));
 // The home coast's five (the challenge on the board is for these), and Las Brasas'.
@@ -314,36 +315,36 @@ prop.y = Math.max(prop.y, heightAt(prop.x, prop.z) + 0.8);
 const reef = siteById.reef, kelp = siteById.kelp, sands = siteById.sands;
 export const SITE_DETAILS = {
   wreck: [
-    { id: 'bell', name: 'her bell', r: 2.6, ...onBed(WRECK_BELL.x, WRECK_BELL.z),
-      note: 'Her bell, on its side in the sand by her bow: bronze gone green, KITTIWAKE raised round the rim. Leave it where it lies.' },
-    { id: 'boiler', name: 'her boiler', r: 3.4, ...onWreck(0.2, 1.0, -2.5),
-      note: 'Her boiler: a drum of riveted iron as long as you are tall, white and orange with plumose anemones and dead man’s fingers, and a lobster in the mouth of the firebox, claws out.' },
-    { id: 'propeller', name: 'her propeller', r: 2.8, ...prop,
-      note: 'Her propeller, still on its shaft under the stern post: three iron blades, one snapped off short, dead man’s fingers growing on the hub.' },
-    { id: 'capstan', name: 'her steam capstan', r: 2.8, ...onWreck(-0.4, 0.9, 7.0),
-      note: 'The steam capstan on her foredeck, that hauled in a mile of drift net every night she fished: an iron barrel on its side now, the groove the warp wore in it still bright.' },
-    { id: 'name', name: 'her name', r: 2.4, ...onWreck(2.5, 0.8, 8.3),
-      note: 'Her name, on a board on her bow, the paint long gone and the letters cut deep: KITTIWAKE, and under it her number, WH 27.' },
-    { id: 'bottles', name: 'the bottles from her galley', r: 2.4, ...onBed(galley.x, galley.z, 0.15),
-      note: 'Stoneware bottles from her galley, half buried in the sand where they spilled: ginger beer, the potter’s stamp still sharp on them. Leave them where they lie.' },
+    { id: 'bell', name: $t('her bell'), r: 2.6, ...onBed(WRECK_BELL.x, WRECK_BELL.z),
+      note: $t('Her bell, on its side in the sand by her bow: bronze gone green, KITTIWAKE raised round the rim. Leave it where it lies.') },
+    { id: 'boiler', name: $t('her boiler'), r: 3.4, ...onWreck(0.2, 1.0, -2.5),
+      note: $t('Her boiler: a drum of riveted iron as long as you are tall, white and orange with plumose anemones and dead man’s fingers, and a lobster in the mouth of the firebox, claws out.') },
+    { id: 'propeller', name: $t('her propeller'), r: 2.8, ...prop,
+      note: $t('Her propeller, still on its shaft under the stern post: three iron blades, one snapped off short, dead man’s fingers growing on the hub.') },
+    { id: 'capstan', name: $t('her steam capstan'), r: 2.8, ...onWreck(-0.4, 0.9, 7.0),
+      note: $t('The steam capstan on her foredeck, that hauled in a mile of drift net every night she fished: an iron barrel on its side now, the groove the warp wore in it still bright.') },
+    { id: 'name', name: $t('her name'), r: 2.4, ...onWreck(2.5, 0.8, 8.3),
+      note: $t('Her name, on a board on her bow, the paint long gone and the letters cut deep: KITTIWAKE, and under it her number, WH 27.') },
+    { id: 'bottles', name: $t('the bottles from her galley'), r: 2.4, ...onBed(galley.x, galley.z, 0.15),
+      note: $t('Stoneware bottles from her galley, half buried in the sand where they spilled: ginger beer, the potter’s stamp still sharp on them. Leave them where they lie.') },
   ],
   reef: [
-    { id: 'arch', name: 'the arch', r: 4.5, ...onBed(reef.x, reef.z, 2.0),
-      note: 'The arch: two piers of piled rock and a slab laid over them, a gap three metres wide to swim through, the light green on the far side.' },
+    { id: 'arch', name: $t('the arch'), r: 4.5, ...onBed(reef.x, reef.z, 2.0),
+      note: $t('The arch: two piers of piled rock and a slab laid over them, a gap three metres wide to swim through, the light green on the far side.') },
   ],
   kelp: [
-    { id: 'boulder', name: 'the clearing’s boulder', r: 5, ...onBed(kelp.x + 4, kelp.z + 6, 2.2),
-      note: 'The clearing in the kelp, and its boulder, as big as a cottage, the stalks standing round it like a hedge. Pollack hang in its shadow.' },
+    { id: 'boulder', name: $t('the clearing’s boulder'), r: 5, ...onBed(kelp.x + 4, kelp.z + 6, 2.2),
+      note: $t('The clearing in the kelp, and its boulder, as big as a cottage, the stalks standing round it like a hedge. Pollack hang in its shadow.') },
   ],
   sands: [
-    { id: 'anchor', name: 'the old anchor', r: 3.2, ...onBed(sands.x - 2, sands.z + 1, 0.3),
-      note: 'The old anchor, on its own in the sand: longer than you are, its stock grown over with anemones and its chain running off under the ripples. Whose it was, nobody knows.' },
+    { id: 'anchor', name: $t('the old anchor'), r: 3.2, ...onBed(sands.x - 2, sands.z + 1, 0.3),
+      note: $t('The old anchor, on its own in the sand: longer than you are, its stock grown over with anemones and its chain running off under the ripples. Whose it was, nobody knows.') },
   ],
   hound: [
-    { id: 'crown', name: 'the crown of the Hound', r: 6, x: PINNACLES[0].x, y: PINNACLES[0].bed + PINNACLES[0].top, z: PINNACLES[0].z,
-      note: 'The crown of the Hound, ten metres down: the top of the pinnacle, pink sea fans standing out into the tide, and the blue falling away on every side.' },
-    { id: 'pup', name: 'the Pup', r: 5, x: PINNACLES[1].x, y: PINNACLES[1].bed + PINNACLES[1].top, z: PINNACLES[1].z,
-      note: 'The Pup, the Hound’s little tower a stone’s throw to the south-east, its top twenty metres down, with a shoal of bib round it and a conger’s head out of a crack.' },
+    { id: 'crown', name: $t('the crown of the Hound'), r: 6, x: PINNACLES[0].x, y: PINNACLES[0].bed + PINNACLES[0].top, z: PINNACLES[0].z,
+      note: $t('The crown of the Hound, ten metres down: the top of the pinnacle, pink sea fans standing out into the tide, and the blue falling away on every side.') },
+    { id: 'pup', name: $t('the Pup'), r: 5, x: PINNACLES[1].x, y: PINNACLES[1].bed + PINNACLES[1].top, z: PINNACLES[1].z,
+      note: $t('The Pup, the Hound’s little tower a stone’s throw to the south-east, its top twenty metres down, with a shoal of bib round it and a conger’s head out of a crack.') },
   ],
 };
 // What's within reach of a diver at p ({ x, y, z }) at a site, not yet found (found: ids).

@@ -1,4 +1,5 @@
 import { fishById, weightOf } from './fish.js';
+import { $t } from './i18n.js';
 
 // The chandlery's counter (Old Bert Hale behind it): the tackle itself stays free, as ever, and
 // the counter sells the few things that make a trip go better, and mends what wears out.
@@ -17,9 +18,9 @@ import { fishById, weightOf } from './fish.js';
 // state.shop: { creel (index into CREELS), iceUntil (game hours), baitDay, wear: { rod id: 0 … 1 } }.
 
 export const CREELS = [
-  { id: 'creel', name: 'Your old creel', kg: 15, price: 0 },
-  { id: 'bigger', name: 'A bigger creel', kg: 25, price: 30, note: 'Canvas and leather: 25 kg of fish.' },
-  { id: 'wicker', name: 'A cool-lined wicker creel', kg: 40, price: 80, cool: true, note: '40 kg of fish, and a lining that keeps them cool: they stay fresh twice as long.' },
+  { id: 'creel', name: $t('Your old creel'), kg: 15, price: 0 },
+  { id: 'bigger', name: $t('A bigger creel'), kg: 25, price: 30, note: $t('Canvas and leather: 25 kg of fish.') },
+  { id: 'wicker', name: $t('A cool-lined wicker creel'), kg: 40, price: 80, cool: true, note: $t('40 kg of fish, and a lining that keeps them cool: they stay fresh twice as long.') },
 ];
 // (However light they are, no more than this many fish at once: a limit you'd hardly meet.)
 export const CREEL_MAX = 80;
@@ -56,7 +57,7 @@ export function creelFits(state, kg) {
   return !keep.length || creelLoad(state) + kg <= creelKg(state) + 1e-6;
 }
 export const kgWords = (kg) => (kg < 1 ? `${Math.round(kg * 100) / 100} kg` : `${kg.toFixed(kg < 10 ? 1 : 0)} kg`);
-export const creelWords = (state) => `${kgWords(creelLoad(state))} of ${creelKg(state)} kg`;
+export const creelWords = (state) => $t`${kgWords(creelLoad(state))} of ${creelKg(state)} kg`;
 // The creel's fish, kind by kind (thirty mackerel are one line, not thirty): [{ id, cooked, n,
 // first (the index of the biggest, the one an action takes), idx (all their indices), min, max (cm),
 // kg }].
@@ -113,6 +114,6 @@ export function wornLine(line, wear) {
   if (!wear) return line;
   return { ...line, kg: line.kg * (1 - WEAR_MAX_LOSS * Math.min(1, wear)) };
 }
-export const wearWords = (w) => (w < 0.25 ? 'good as new' : w < 0.6 ? 'a bit worn' : 'frayed');
+export const wearWords = (w) => (w < 0.25 ? $t('good as new') : w < 0.6 ? $t('a bit worn') : 'frayed');
 // Fresh line for a rod: more for the heavy lines.
 export const respoolPrice = (line) => (line.kg >= 20 ? 8 : line.kg >= 6 ? 5 : 3);

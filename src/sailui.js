@@ -8,6 +8,7 @@
 // Like the lever, it never takes the keyboard's focus and its presses stay on it. The keys, the
 // controller and the touch stick work the same sheet (see main.js): this shows it, and asks.
 
+import { $t } from './i18n.js';
 const el = (tag, cls, text) => {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -24,9 +25,9 @@ export class SailUI {
     this.h = hooks;
     this.hold = 0;
     root.setAttribute('role', 'group');
-    root.setAttribute('aria-label', 'Sail');
+    root.setAttribute('aria-label', $t('Sail'));
     const head = el('div', 'lv-head');
-    this.title = el('span', 'lv-title', 'Sail');
+    this.title = el('span', 'lv-title', $t('Sail'));
     this.now = el('b', 'lv-now', '');
     head.append(this.title, this.now);
     this.canvas = el('canvas', 'sl-chart');
@@ -39,10 +40,10 @@ export class SailUI {
     this.sheetRow.append(el('span', 'sl-end', 'in'), this.track, el('span', 'sl-end', 'out'));
     this.speed = el('div', 'sl-speed');
     const btns = el('div', 'sl-btns');
-    this.inBtn = el('button', 'lv-motor', 'Haul in');
-    this.outBtn = el('button', 'lv-motor', 'Ease');
-    this.upBtn = el('button', 'lv-motor sl-up', 'Raise sail');
-    this.motorBtn = el('button', 'lv-motor sl-up', 'Outboard down');
+    this.inBtn = el('button', 'lv-motor', $t('Haul in'));
+    this.outBtn = el('button', 'lv-motor', $t('Ease'));
+    this.upBtn = el('button', 'lv-motor sl-up', $t('Raise sail'));
+    this.motorBtn = el('button', 'lv-motor sl-up', $t('Outboard down'));
     for (const b of [this.inBtn, this.outBtn, this.upBtn, this.motorBtn]) b.type = 'button';
     btns.append(this.inBtn, this.outBtn);
     this.keys = el('div', 'lv-keys');
@@ -82,7 +83,7 @@ export class SailUI {
       return;
     }
     this.now.textContent = s.words;
-    this.upBtn.textContent = s.up ? 'Lower sail' : 'Raise sail';
+    this.upBtn.textContent = s.up ? $t('Lower sail') : $t('Raise sail');
     // (A windsurf board's rig is always up, and it has no outboard.)
     this.upBtn.hidden = this.motorBtn.hidden = !!s.board;
     this.inBtn.hidden = this.outBtn.hidden = !s.up;
@@ -90,7 +91,7 @@ export class SailUI {
     this.mark.style.left = `${(s.sheet * 100).toFixed(1)}%`;
     this.best.style.left = `${(s.best * 100).toFixed(1)}%`;
     this.best.hidden = s.best == null;
-    this.speed.textContent = `${s.knots.toFixed(1)} knots`;
+    this.speed.textContent = $t`${s.knots.toFixed(1)} knots`;
     this.keys.innerHTML = s.keys || '';
     this.draw(s);
   }

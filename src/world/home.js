@@ -5,6 +5,7 @@ import { RODS, ROD_IDS } from '../tackle.js';
 import { mergeParts, mat, pick, clamp, smoothstep, glowTexture, seeded } from '../util.js';
 import { withSurface } from './surface.js';
 import { fuelPumpParts } from '../props.js';
+import { $t } from '../i18n.js';
 
 // Home: a small whitewashed cottage and its garage on a level shoulder of the east arm, looking
 // south over Shell Strand to the sea. You can walk in: the cottage is one room (a bed, a desk with
@@ -46,7 +47,7 @@ function paintBadges(ctx, w, h, list) {
   ctx.fillStyle = '#3a2a1c';
   ctx.textAlign = 'center';
   ctx.font = '700 30px Kalam, Caveat, cursive';
-  ctx.fillText('Badges', w / 2, 36);
+  ctx.fillText($t('Badges'), w / 2, 36);
   const cols = 4, r = 38, gx = w / cols, gy = 106;
   list.forEach((b, i) => {
     const x = gx * (i % cols) + gx / 2, y = 92 + gy * Math.floor(i / cols);
@@ -257,14 +258,14 @@ function gableEndGeo(axis, at, u0, u1, eave, rise) {
 
 // The things in the house and the garage you can use: where you stand to use them, and a word.
 export const HOME_SPOTS = [
-  { id: 'bed', x: 113.6, z: -79.2, r: 1.5, name: 'the bed' },
-  { id: 'desk', x: 116.9, z: -79.3, r: 1.3, name: 'the desk' },
-  { id: 'display', x: 121, z: -79.3, r: 1.6, name: 'the wall of photographs' },
-  { id: 'kitchen', x: 124.3, z: -73.9, r: 1.5, name: 'the kitchen' },
-  { id: 'bench', x: 130.9, z: -79.1, r: 1.6, name: 'the workbench' },
-  { id: 'tackle', x: 127.4, z: -79.2, r: 1.3, name: 'the tackle wall' },
-  { id: 'rack', x: 134.2, z: -77.6, r: 1.4, name: 'the rod rack' },
-  { id: 'shelf', x: 134.1, z: -73, r: 1.4, name: 'the camping shelf' },
+  { id: 'bed', x: 113.6, z: -79.2, r: 1.5, name: $t('the bed') },
+  { id: 'desk', x: 116.9, z: -79.3, r: 1.3, name: $t('the desk') },
+  { id: 'display', x: 121, z: -79.3, r: 1.6, name: $t('the wall of photographs') },
+  { id: 'kitchen', x: 124.3, z: -73.9, r: 1.5, name: $t('the kitchen') },
+  { id: 'bench', x: 130.9, z: -79.1, r: 1.6, name: $t('the workbench') },
+  { id: 'tackle', x: 127.4, z: -79.2, r: 1.3, name: $t('the tackle wall') },
+  { id: 'rack', x: 134.2, z: -77.6, r: 1.4, name: $t('the rod rack') },
+  { id: 'shelf', x: 134.1, z: -73, r: 1.4, name: $t('the camping shelf') },
 ];
 
 export const insideHome = (x, z) => (x > HOUSE.x0 && x < HOUSE.x1 && z > HOUSE.z0 && z < HOUSE.z1 ? 'house'
@@ -281,7 +282,7 @@ export function buildHome(scene, rnd) {
     for (let i = 0; i <= n; i++) {
       const k = i / n, x = x0 + (x1 - x0) * k, z = z0 + (z1 - z0) * k, u = x0 === x1 ? z : x;
       if (gaps.some(([a, b]) => u > a && u < b)) continue;
-      obstacles.push({ x, z, r: 0.2, kind: 'building', name: 'the house' });
+      obstacles.push({ x, z, r: 0.2, kind: 'building', name: $t('the house') });
     }
   };
   const solid = (x, z, r, name = 'furniture', top = 2) => obstacles.push({ x, z, r, top: Y + top, kind: 'building', name });
@@ -398,9 +399,9 @@ export function buildHome(scene, rnd) {
   put(box(1.45, 0.75, 0.08), 112.05, 0.55, -80.82, '#6b4e34');
   put(box(0.45, 0.55, 0.42), 113.2, 0.28, -80.6, '#7a5a3c');
   put(cyl(0.05, 0.09, 0.28, 8), 113.2, 0.7, -80.6, '#d8cfb8');
-  solid(112.05, -79.4, 0.75, 'the bed');
-  solid(112.05, -80.2, 0.75, 'the bed');
-  solid(113.2, -80.6, 0.3, 'the bedside table');
+  solid(112.05, -79.4, 0.75, $t('the bed'));
+  solid(112.05, -80.2, 0.75, $t('the bed'));
+  solid(113.2, -80.6, 0.3, $t('the bedside table'));
   // The desk under the north window, a chair, the journal open on it and a lamp.
   put(box(1.5, 0.05, 0.6), 117.2, 0.76, -80.55, '#8a6a48');
   for (const [dx, dz] of [[-0.68, -0.25], [0.68, -0.25], [-0.68, 0.25], [0.68, 0.25]]) put(box(0.05, 0.74, 0.05), 117.2 + dx, 0.37, -80.55 + dz, '#6b4e34');
@@ -410,7 +411,7 @@ export function buildHome(scene, rnd) {
   put(cyl(0.05, 0.12, 0.14, 10), 117.75, 1.2, -80.6, '#c9b27a');
   put(box(0.45, 0.04, 0.45), 117.2, 0.46, -79.95, '#7a5a3c');
   put(box(0.45, 0.5, 0.04), 117.2, 0.72, -79.73, '#7a5a3c');
-  solid(117.2, -80.55, 0.5, 'the desk');
+  solid(117.2, -80.55, 0.5, $t('the desk'));
   // The display wall: a shelf under three frames (the frames' pictures are their own meshes).
   put(box(2.4, 0.05, 0.24), 121, 1.12, -80.75, '#7a5a3c');
   for (const dx of [-0.95, 0, 0.95]) put(box(0.78, 0.6, 0.03), 121 + dx, 1.72, -80.86, '#3d2f22');
@@ -419,7 +420,7 @@ export function buildHome(scene, rnd) {
   put(box(1.0, 0.06, 0.9), 124.6, 0.03, -80.2, '#8d8579');
   put(box(0.6, 0.62, 0.5), 124.6, 0.38, -80.25, '#2c2d2f');
   put(cyl(0.08, 0.08, 1.7, 8), 124.6, 1.55, -80.35, '#2c2d2f');
-  solid(124.6, -80.2, 0.55, 'the stove');
+  solid(124.6, -80.2, 0.55, $t('the stove'));
   // The kitchen along the shared wall: a counter, a sink, a little cooker, a shelf of jars.
   put(box(0.62, 0.9, 3.4), 125.5, 0.45, -73.9, '#d9d2c4');
   put(box(0.66, 0.04, 3.44), 125.5, 0.92, -73.9, '#7a5a3c');
@@ -427,9 +428,9 @@ export function buildHome(scene, rnd) {
   put(box(0.5, 0.05, 0.6), 125.45, 0.95, -74.9, '#2c2d2f');
   put(box(0.24, 0.04, 1.4), 125.75, 1.6, -73.9, '#7a5a3c');
   for (let i = 0; i < 4; i++) put(cyl(0.05, 0.05, 0.14, 8), 125.75, 1.69, -74.4 + i * 0.32, pick(['#c87c3c', '#e3c25a', '#9cb07a', '#d7d0c0'], rnd));
-  solid(125.5, -72.8, 0.45, 'the kitchen');
-  solid(125.5, -73.9, 0.45, 'the kitchen');
-  solid(125.5, -75.0, 0.45, 'the kitchen');
+  solid(125.5, -72.8, 0.45, $t('the kitchen'));
+  solid(125.5, -73.9, 0.45, $t('the kitchen'));
+  solid(125.5, -75.0, 0.45, $t('the kitchen'));
   // An armchair on a rug by the stove, a little table, and coats and boots by the door.
   put(box(2.4, 0.015, 1.7), 120.2, 0.07, -76.4, '#b0573f');
   put(box(0.85, 0.4, 0.8), 121.8, 0.3, -77.8, '#5f7a5a');
@@ -438,8 +439,8 @@ export function buildHome(scene, rnd) {
   put(box(0.15, 0.25, 0.8), 122.18, 0.62, -77.8, '#5f7a5a');
   put(cyl(0.3, 0.3, 0.04, 14), 120.4, 0.55, -77.3, '#7a5a3c');
   put(cyl(0.04, 0.04, 0.5, 6), 120.4, 0.28, -77.3, '#6b4e34');
-  solid(121.8, -77.8, 0.55, 'the armchair');
-  solid(120.4, -77.3, 0.35, 'the table');
+  solid(121.8, -77.8, 0.55, $t('the armchair'));
+  solid(120.4, -77.3, 0.35, $t('the table'));
   put(box(0.8, 0.06, 0.06), 114.7, 1.7, -71.65, '#6b4e34');
   put(box(0.42, 0.75, 0.18), 114.55, 1.3, -71.72, '#c8a44a');
   put(box(0.26, 0.2, 0.32), 115.05, 0.12, -71.9, '#2f3d34');
@@ -471,9 +472,9 @@ export function buildHome(scene, rnd) {
     ctx.fillStyle = '#3a2a1c';
     ctx.textAlign = 'center';
     ctx.font = '700 26px Kalam, Caveat, cursive';
-    ctx.fillText(lines?.[0] || 'Best catch', w / 2, 38);
+    ctx.fillText(lines?.[0] || $t('Best catch'), w / 2, 38);
     ctx.font = '22px Kalam, Caveat, cursive';
-    (lines?.slice(1) || ['Nothing yet: room for one.']).forEach((t, i) => ctx.fillText(t, w / 2, 78 + i * 32));
+    (lines?.slice(1) || [$t('Nothing yet: room for one.')]).forEach((t, i) => ctx.fillText(t, w / 2, 78 + i * 32));
   });
   card.paint(null);
   const cardMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.33), new THREE.MeshLambertMaterial({ map: card.tex }));
@@ -530,9 +531,9 @@ export function buildHome(scene, rnd) {
   // A pegboard over the bench, with a few tools.
   gput(box(4.0, 1.0, 0.03), 130.9, 1.75, -80.86, '#c8b58e');
   for (let i = 0; i < 7; i++) gput(box(0.04, 0.3 + rnd() * 0.2, 0.03), 129.1 + i * 0.22, 1.7, -80.82, pick(['#5a5f66', '#7a5a3c', '#c64a2e'], rnd));
-  solid(129.6, -80.45, 0.6, 'the workbench');
-  solid(130.9, -80.45, 0.6, 'the workbench');
-  solid(132.2, -80.45, 0.6, 'the workbench');
+  solid(129.6, -80.45, 0.6, $t('the workbench'));
+  solid(130.9, -80.45, 0.6, $t('the workbench'));
+  solid(132.2, -80.45, 0.6, $t('the workbench'));
   // The tackle wall: a cabinet of shallow drawers, lure cards on a board, tackle boxes on top.
   gput(box(0.55, 1.05, 2.0), 126.45, 0.52, -79.5, '#6f5a44');
   for (let i = 0; i < 6; i++) for (let j = 0; j < 2; j++) gput(box(0.02, 0.13, 0.85), 126.74, 0.15 + i * 0.16, -80.0 + j * 0.95, '#8a7258');
@@ -540,18 +541,18 @@ export function buildHome(scene, rnd) {
   for (let i = 0; i < 18; i++) gput(box(0.03, 0.1, 0.07), 126.17, 1.35 + Math.floor(i / 6) * 0.28, -80.35 + (i % 6) * 0.34, pick(['#d64933', '#f0c040', '#3f8fc4', '#7ab35a', '#e8e3d6', '#c47ad0'], rnd));
   gput(box(0.45, 0.16, 0.7), 126.45, 1.13, -80.0, '#3c6b4c');
   gput(box(0.4, 0.12, 0.55), 126.45, 1.12, -79.1, '#b3402e');
-  solid(126.5, -80.1, 0.45, 'the tackle wall');
-  solid(126.5, -79.0, 0.45, 'the tackle wall');
+  solid(126.5, -80.1, 0.45, $t('the tackle wall'));
+  solid(126.5, -79.0, 0.45, $t('the tackle wall'));
   // The rod rack on the east wall (the rods themselves are below, one mesh each).
   gput(box(0.1, 0.1, 4.6), 135.25, 0.25, -77.7, '#7a5a3c');
   gput(box(0.1, 0.1, 4.6), 135.25, 1.65, -77.7, '#7a5a3c');
-  solid(135.0, -79.0, 0.35, 'the rod rack');
-  solid(135.0, -76.4, 0.35, 'the rod rack');
+  solid(135.0, -79.0, 0.35, $t('the rod rack'));
+  solid(135.0, -76.4, 0.35, $t('the rod rack'));
   // The camping shelf: two deep shelves for the tent, the stove and the cool box.
   for (const y of [0.1, 0.95]) gput(box(0.75, 0.05, 3.0), 135.0, y, -73.0, '#8a6a48');
   for (const dz of [-1.45, 1.45]) gput(box(0.75, 1.0, 0.05), 135.0, 0.5, -73.0 + dz, '#7a5a3c');
-  solid(135.0, -72.4, 0.45, 'the shelf');
-  solid(135.0, -73.6, 0.45, 'the shelf');
+  solid(135.0, -72.4, 0.45, $t('the shelf'));
+  solid(135.0, -73.6, 0.45, $t('the shelf'));
   // Boots, waders, a rucksack, a coil of rope and a net by the inner door.
   gput(box(0.26, 0.3, 0.34), 126.5, 0.15, -72.6, '#2f3d34');
   gput(box(0.26, 0.3, 0.34), 126.5, 0.15, -72.25, '#2f3d34');
@@ -560,7 +561,7 @@ export function buildHome(scene, rnd) {
   gput(new THREE.TorusGeometry(0.22, 0.05, 6, 14), 126.25, 1.55, -73.5, '#c9b27a', 0, Math.PI / 2, 0);
   gput(cyl(0.015, 0.015, 1.5, 5), 126.3, 1.0, -74.1, '#7a5a3c', 0.25, 0, 0);
   gput(new THREE.TorusGeometry(0.22, 0.015, 4, 12), 126.32, 1.78, -74.3, '#4a4f54', 0, Math.PI / 2, 0);
-  solid(126.45, -72.4, 0.35, 'the boots');
+  solid(126.45, -72.4, 0.35, $t('the boots'));
   // The storm lantern on its hook by the door (it goes camping with you only in spirit).
   gput(box(0.04, 0.04, 0.12), 126.2, 1.9, -71.3, '#2f2f2f');
   gput(cyl(0.08, 0.1, 0.22, 8), 126.3, 1.66, -71.3, '#3a3f44');
@@ -655,7 +656,7 @@ export function buildHome(scene, rnd) {
   const FP = FUEL_PUMPS.home;
   O.push(...fuelPumpParts(FP.x, Y, FP.z, FP.yaw));
   group.add(mesh(mergeParts(O, rnd), plain()));
-  obstacles.push({ x: FP.x, z: FP.z, r: 0.42, kind: 'building', name: 'the fuel pump' });
+  obstacles.push({ x: FP.x, z: FP.z, r: 0.42, kind: 'building', name: $t('the fuel pump') });
   const porchGlass = new THREE.Mesh(box(0.12, 0.2, 0.12), new THREE.MeshLambertMaterial({ color: '#d9cfae', emissive: '#ffbf6a', emissiveIntensity: 0 }));
   porchGlass.position.set(H.door + 1.02, Y + 1.89, H.z1 + 0.32);
   group.add(porchGlass);
@@ -674,9 +675,9 @@ export function buildHome(scene, rnd) {
     ctx.fillStyle = 'rgba(244,242,232,0.92)';
     ctx.textAlign = 'center';
     ctx.font = '700 30px Kalam, Caveat, cursive';
-    ctx.fillText(lines ? 'The tally' : 'Gone fishing', w / 2, 44);
+    ctx.fillText(lines ? $t('The tally') : $t('Gone fishing'), w / 2, 44);
     ctx.font = '23px Kalam, Caveat, cursive';
-    (lines || ['(back soon)']).forEach((t, i) => ctx.fillText(t, w / 2, 86 + i * 34));
+    (lines || [$t('(back soon)')]).forEach((t, i) => ctx.fillText(t, w / 2, 86 + i * 34));
   });
   tally.paint(null);
   const tallyMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.46), new THREE.MeshLambertMaterial({ map: tally.tex }));
@@ -688,12 +689,12 @@ export function buildHome(scene, rnd) {
   ring.rotation.x = -Math.PI / 2;
   ring.visible = false;
   group.add(ring);
-  obstacles.push({ x: 120, z: -66.5, r: 0.8, kind: 'building', name: 'the garden bench' });
-  obstacles.push({ x: 110.6, z: -78.7, r: 0.6, kind: 'building', name: 'the woodpile' });
-  obstacles.push({ x: 129.6, z: -57.2, r: 0.25, kind: 'building', name: 'the letterbox' });
+  obstacles.push({ x: 120, z: -66.5, r: 0.8, kind: 'building', name: $t('the garden bench') });
+  obstacles.push({ x: 110.6, z: -78.7, r: 0.6, kind: 'building', name: $t('the woodpile') });
+  obstacles.push({ x: 129.6, z: -57.2, r: 0.25, kind: 'building', name: $t('the letterbox') });
   for (let x = HOME_PAD.x0 + 1; x < HOME_PAD.x1 - 1; x += 1.1) {
     if (x > 129.4 || (x > 115.5 && x < 117.6)) continue;
-    obstacles.push({ x, z: HOME_PAD.z1 - 0.6, r: 0.45, top: heightAt(x, HOME_PAD.z1 - 0.6) + 0.7, kind: 'building', name: 'the garden wall' });
+    obstacles.push({ x, z: HOME_PAD.z1 - 0.6, r: 0.45, top: heightAt(x, HOME_PAD.z1 - 0.6) + 0.7, kind: 'building', name: $t('the garden wall') });
   }
 
   // ---- light ----
@@ -857,7 +858,7 @@ function drawCoastMap(ctx, w, h) {
     if (p) label(p.x, p.z + (id === 'strand' ? 18 : 14), p.name, 0);
   }
   ctx.font = '13px Kalam, Caveat, cursive';
-  ctx.fillText('Wend Quay & Longmere: the road round ↑', w - 120, 22);
+  ctx.fillText($t('Wend Quay & Longmere: the road round ↑'), w - 120, 22);
   ctx.strokeStyle = 'rgba(58,42,28,0.5)';
   ctx.lineWidth = 3;
   ctx.strokeRect(1.5, 1.5, w - 3, h - 3);

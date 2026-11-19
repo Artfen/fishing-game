@@ -3,6 +3,7 @@ import { rockTopAt } from './world/divesites.js';
 import { drawUnit, labelFish, PAGES, PAGE_NAMES, PALETTES, ZOOMS } from './sonarUnit.js';
 import { bottomOf, bottomWords, layers } from './sonarRead.js';
 import { zoneAt, SOUTH_Z } from './world/terrain.js';
+import { $t } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -129,7 +130,7 @@ export class FishFinder {
   key(k) {
     const F = this.state.finder, R = this.ranges;
     if (k === 'page') {
-      if (!this.imaging) this.hooks.say?.('The down view and the split screen need an imaging sonar on the boat: the Marine Works fits one.');
+      if (!this.imaging) this.hooks.say?.($t('The down view and the split screen need an imaging sonar on the boat: the Marine Works fits one.'));
       const P = this.pages;
       F.page = P[(P.indexOf(this.page) + 1) % P.length];
     } else if (k === 'deeper' || k === 'shallower') {
@@ -137,7 +138,7 @@ export class FishFinder {
       const i = F.range === 'auto' || !R.includes(F.range) ? -1 : R.indexOf(F.range);
       const j = k === 'deeper' ? (i < 0 ? R.findIndex((r) => r > this.range) : i + 1) : (i < 0 ? R.findIndex((r) => r >= this.range) - 1 : i - 1);
       F.range = j < 0 || j >= R.length ? 'auto' : R[j];
-      if (k === 'deeper' && F.range === 'auto' && !this.imaging && i === R.length - 1) this.hooks.say?.('Deeper than 20 m wants an imaging sonar on the boat: the Marine Works fits one.');
+      if (k === 'deeper' && F.range === 'auto' && !this.imaging && i === R.length - 1) this.hooks.say?.($t('Deeper than 20 m wants an imaging sonar on the boat: the Marine Works fits one.'));
     } else if (k === 'zoom') F.zoom = (F.zoom + 1) % ZOOMS.length;
     else if (k === 'gainUp') F.gain = Math.min(10, F.gain + 1);
     else if (k === 'gainDown') F.gain = Math.max(0, F.gain - 1);
@@ -157,17 +158,17 @@ export class FishFinder {
     const F = this.state.finder, set = (k, t) => { const e = document.querySelector(`#sonar-keys [data-k="${k}"] b`); if (e) e.textContent = t; };
     set('page', PAGE_NAMES[this.page]);
     set('shallower', 'shallower');
-    set('deeper', F.range === 'auto' ? 'Auto' : `${F.range} m`);
+    set('deeper', F.range === 'auto' ? $t('Auto') : `${F.range} m`);
     set('gainDown', 'less');
     set('zoom', ZOOMS[F.zoom]);
     set('gainUp', `${F.gain}`);
     set('colour', PALETTES[F.pal].name);
-    set('fish', F.symbols ? 'Symbols' : 'Arches');
+    set('fish', F.symbols ? $t('Symbols') : $t('Arches'));
     const u = $('sonar-unit');
     if (u) {
-      u.textContent = F.unit ? 'Simple' : 'Unit';
+      u.textContent = F.unit ? $t('Simple') : $t('Unit');
       u.setAttribute('aria-pressed', String(!!F.unit));
-      u.setAttribute('aria-label', F.unit ? 'Back to the simple fish finder' : 'Switch to the head unit');
+      u.setAttribute('aria-label', F.unit ? $t('Back to the simple fish finder') : $t('Switch to the head unit'));
     }
     this.el.classList.toggle('unit', !!F.unit);
     $('sonar-keys').hidden = !F.unit;
@@ -336,8 +337,8 @@ export class FishFinder {
     if (src.mode !== this.mode) {
       this.mode = src.mode;
       this.pings = [];
-      this.titleEl.textContent = src.mode === 'boat' ? 'Fish finder' : 'Castable sonar';
-      this.whereEl.textContent = src.mode === 'boat' ? 'below you' : 'at your rig';
+      this.titleEl.textContent = src.mode === 'boat' ? $t('Fish finder') : $t('Castable sonar');
+      this.whereEl.textContent = src.mode === 'boat' ? $t('below you') : $t('at your rig');
       this.timer = 0;
     }
     this.timer -= dt;
@@ -346,7 +347,7 @@ export class FishFinder {
     if (src.mode === 'none') {
       this.depthEl.textContent = '–';
       this.read = null;
-      this.draw('Cast your rig: from the shore, the sonar reads the water around it.');
+      this.draw($t('Cast your rig: from the shore, the sonar reads the water around it.'));
       return;
     }
     const x = src.x, z = src.z;
@@ -423,9 +424,9 @@ export class FishFinder {
     // (And the water's temperature at the surface, when the game gives it: see seatemp.js; and
     // the cold below the summer's warm layer.)
     const temp = src.temp != null ? ` · ${Math.round(src.temp)}°C` : '';
-    const cold = cline != null ? ` · ${Math.round(L.bottom)}°C below ${Math.round(cline)} m` : '';
-    this.depthEl.textContent = lost ? `no bottom: deeper than ${this.reach} m${this.deep ? '' : ' (a deep sounder reads it)'}${temp}${baitBall ? ' · bait below' : ''}`
-      : `${s.depth.toFixed(1)} m · ${type}${temp}${cold}${baitBall ? ' · bait below' : ''}`;
+    const cold = cline != null ? $t` · ${Math.round(L.bottom)}°C below ${Math.round(cline)} m` : '';
+    this.depthEl.textContent = lost ? $t`no bottom: deeper than ${this.reach} m${this.deep ? '' : $t(' (a deep sounder reads it)')}${temp}${baitBall ? $t(' · bait below') : ''}`
+      : `${s.depth.toFixed(1)} m · ${type}${temp}${cold}${baitBall ? $t(' · bait below') : ''}`;
     this.tell(src, s, B, prev, cline, ballTop);
     this.draw();
   }

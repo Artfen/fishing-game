@@ -1,7 +1,8 @@
 import { split, TOAST_MAX, HINT_MAX } from './screenwords.js';
+import { $t } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
-export const kbd = (k) => `<kbd>${k}</kbd>`;
+export const kbd = (k) => $t`<kbd>${k}</kbd>`;
 
 // How long a message stays up, at least, before another may replace it (s).
 export const TOAST_LOOK = 2.5;
@@ -275,7 +276,7 @@ export class HUD {
       this.cache.biteText = text;
       $('bite-text').textContent = text;
     }
-    if (show) this.el.bite.style.transform = `translate(${x}px, ${y}px)`;
+    if (show) this.el.bite.style.transform = $t`translate(${x}px, ${y}px)`;
   }
 
   // The bait panel only appears while the bait is in the water: how deep it hangs,
@@ -311,7 +312,7 @@ export class HUD {
   // (note: after the bait's name, as how many live ones are left in the bucket.)
   gear(rod, item, note = '') {
     this.setHTML('gearRod', this.el.gearRod, rod.short);
-    this.setHTML('gearItem', this.el.gearItem, item ? item.short + note : 'nothing tied on');
+    this.setHTML('gearItem', this.el.gearItem, item ? item.short + note : $t('nothing tied on'));
     const b = this.el.gear;
     b.classList.remove('flash');
     void b.offsetWidth;
@@ -331,11 +332,11 @@ export class HUD {
     if (!el._label) el._label = el.querySelector('b');
     // (Only what's changed is written: each write has the browser work out the page's style again.)
     if (el.hidden) el.hidden = false;
-    const tf = `translate(${sx.toFixed(0)}px, ${sy.toFixed(0)}px) translate(-50%, -50%)`;
+    const tf = $t`translate(${sx.toFixed(0)}px, ${sy.toFixed(0)}px) translate(-50%, -50%)`;
     if (el._tf !== tf) el.style.transform = el._tf = tf;
     el.classList.toggle('near', near);
     const arrow = el.firstElementChild;
-    const at = onScreen ? 'rotate(180deg)' : `rotate(${angle.toFixed(2)}rad)`;
+    const at = onScreen ? 'rotate(180deg)' : $t`rotate(${angle.toFixed(2)}rad)`;
     if (arrow._tf !== at) arrow.style.transform = arrow._tf = at;
     // (A marker for somewhere far off, the crossing's, says how far in kilometres once it's that far;
     // a friend's, to the metre until then.)
