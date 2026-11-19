@@ -1,7 +1,7 @@
 // A wheel faces the one steering her: its face raked back to look up at your eyes, its top leaning
 // away towards the dash (as a helm's wheel is set on a console), so from where you stand or sit you
-// see its rim round, not edge on; your hands on it; its rim clear of you. (The yacht's and the bass
-// boat's. The RIB's and the console boat's are kept low and back, clear of their dashboards'
+// see its rim round, not edge on; your hands on it; its rim clear of you. (The yacht's, the bass
+// boat's and the trawler's, in her pilothouse. The RIB's and the console boat's are kept low and back, clear of their dashboards'
 // switches, which a wheel raked back on those consoles would hide: see buildWheel.)
 // Run with `node --import ./tests/setup.mjs --test tests/`.
 import { test } from 'node:test';
@@ -21,11 +21,11 @@ const settle = (b, n = 30, t0 = 0) => {
   return b;
 };
 
-test('the yacht’s and the bass boat’s wheels face your eyes at her helm, their tops leaning away from you; your hands on them', () => {
+test('the yacht’s, the bass boat’s and the trawler’s wheels face your eyes at her helm, their tops leaning away from you; your hands on them', () => {
   // (Every boat steered by a wheel, but the jet ski, whose handlebars are hers.)
   const kinds = Object.keys(HULLS).filter((k) => k !== 'jetski' && new Boat(scene, { kind: k }).wheel);
-  assert.deepEqual(kinds.sort(), ['bass', 'console', 'cruiser', 'rib']);
-  for (const kind of ['cruiser', 'bass']) {
+  assert.deepEqual(kinds.sort(), ['bass', 'console', 'cruiser', 'rib', 'trawler']);
+  for (const kind of ['cruiser', 'bass', 'trawler']) {
     const b = new Boat(scene, { kind });
     b.place(150, 330, 0);
     settle(b);

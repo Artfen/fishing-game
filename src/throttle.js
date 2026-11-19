@@ -84,7 +84,7 @@ export const LEVERS = {
     { v: 0.026, id: '1', name: 'dead slow' },
     { v: 0.063, id: '2', name: 'slow ahead' },
     { v: 0.24, id: '3', name: 'half ahead' },
-    { v: 0.53, id: 'C', name: 'cruising' },
+    { v: 0.54, id: 'C', name: 'cruising' },
     { v: 1, id: 'F', name: 'full ahead' },
   ],
   // The jet ski: a light touch goes a long way.

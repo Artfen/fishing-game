@@ -6014,7 +6014,7 @@ function helmInside(on) {
   if (!boat.setHelmInside(on)) return;
   audio.step?.(false, 0, 'wood');
   const where = boat.hull.standing ? 'her wheel under the hardtop' : 'her tiller';
-  if (on) teach('helmInside', `At her inside helm, in the wheelhouse: the sea ahead through the windscreen, out of the wind and the rain. She steers as ever. To fish, or to see all round, ${scheme() === 'touch' ? 'the prompt' : K('interact')} takes you back out to ${where}.`, 8);
+  if (on) teach('helmInside', `At her inside helm, out of the weather: the sea ahead through the windscreen. She steers as ever. To fish, or to see all round, ${scheme() === 'touch' ? 'the prompt' : K('interact')} takes you back out to ${where}.`, 8);
   else hud.flash(`Back out at ${where}.`, t, 2);
 }
 
@@ -6205,7 +6205,7 @@ const needSaid = {}; // need id -> when it was last mentioned (game hours)
 // and spray, how hard you're working, and a roof over you or a fire beside you.
 function comfortEnv() {
   const P = player().pos, w = windAt(P.x, P.z);
-  const indoors = driving || !!cabinIn || (!onFoot && (!!boat.indoors || !!boat.helmIn)) || (modal === 'camp' && camp.house) || modal === 'bench' || sitting?.kind === 'home' || (onFoot && !!insideHaven(P.x, P.z));
+  const indoors = driving || !!cabinIn || (!onFoot && boat.helmIn) || (!onFoot && !!boat.indoors) || (modal === 'camp' && camp.house) || modal === 'bench' || sitting?.kind === 'home' || (onFoot && !!insideHaven(P.x, P.z));
   const F = world.camp.firePos;
   let fire = onFoot ? camp.fireLevel * smoothstep(5, 1.5, Math.hypot(P.x - F.x, P.z - F.z)) : 0;
   if (modal === 'camp' && camp.own) fire = Math.max(fire, 0.5);
@@ -9071,8 +9071,8 @@ function haulByRoad(b, to) {
   save();
   const pontoon = B && PIERS[B.pier] !== HAVEN_QUAY;
   hud.toast(to === 'sea'
-    ? `The yard’s trailer brings the ${b.name} down the road from Longmere, an hour and a half, ${money(ROAD_HAUL.fee)}: she’s ${pontoon ? 'tied up at the visitors’ pontoon' : B ? 'tied up alongside the quay' : 'lying off the quay head'}. At sea now: the quay pumps fill her.`
-    : `The yard’s trailer takes the ${b.name} up the road to Longmere, an hour and a half, ${money(ROAD_HAUL.fee)}: she’s ${B ? 'tied up' : 'lying'} at the boathouse jetty.`, 8);
+    ? `Down from Longmere by road: the ${b.name} is ${pontoon ? 'tied up at the visitors’ pontoon' : B ? 'tied up alongside the quay' : 'lying off the quay head'}. The yard’s trailer, an hour and a half, ${money(ROAD_HAUL.fee)}. At sea now: the quay pumps fill her.`
+    : `Up to Longmere by road: the ${b.name} is ${B ? 'tied up' : 'lying'} at the boathouse jetty. The yard’s trailer, an hour and a half, ${money(ROAD_HAUL.fee)}.`, 8);
   return true;
 }
 function boatsRound(here = regionOf(player())) {

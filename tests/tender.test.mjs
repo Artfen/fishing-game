@@ -35,10 +35,12 @@ const run = (b, secs, lever = 0, steer = 0, each = null) => {
   }
   return b;
 };
+// (A calm sea: long enough for a swell left from a rough one before to die away, as it does
+// slowly. A hundred seconds left a fifth of a metre of it, which a boat this short feels.)
 const calm = () => {
   conditions.manual = { speed: 0, from: 0 };
   conditions.wind.speed = conditions.wind.target = 0;
-  for (let i = 0; i < 400; i++) updateConditions(0.25, { rain: 0, cloud: 0 });
+  for (let i = 0; i < 2000; i++) updateConditions(0.25, { rain: 0, cloud: 0 });
 };
 
 test('built as a little RIB: about eleven feet over her tubes, a metre and two-thirds across, a 17° V, tubes in the water aft, a tiller outboard and a bench to steer from', () => {
