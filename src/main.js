@@ -6556,7 +6556,7 @@ function updatePassage(dt) {
       hud.toast(first
         ? `Las Brasas. Puerto Brasa lies ahead behind its breakwater: ${how} and tie up at the quay or the pontoon (${input.keyLabel('anchor')}). Bar El Muelle on the waterfront has a room, a stove and a shelf of tackle, and the fuel pump is on the quay. The water here is clear and warm: just west of the harbour mouth a yellow buoy marks El Bajón, a reef of lava pinnacles with sea fans and sponges, parrotfish, wrasse and morays (dive it, or look down from a boat over it); groupers live down the drop-off.`
         : `Las Brasas, and Puerto Brasa ahead behind its breakwater${motor ? ` (the fuel pump is on the quay: ${tankWords(tanks(), P.kind)} left)` : ''}.`, first ? 14 : 6);
-    } else hud.toast(motor ? `Home: Willow Bay, and the yacht at her berth on the pontoon (${tankWords(tanks(), P.kind)} left: the fuel point is on the pontoon).` : 'Home: Willow Bay, and the sailing boat alongside Willowhaven quay.', 6);
+    } else hud.toast(motor ? `Home: Willow Bay, and the ${BOATS[P.kind]?.name || 'yacht'} at her berth on the pontoon (${tankWords(tanks(), P.kind)} left: the fuel point is on the pontoon).` : 'Home: Willow Bay, and the sailing boat alongside Willowhaven quay.', 6);
     // (F1a) Her stores ran out on the way.
     if (P.short) hud.toast(`The stores ran out ${P.short} short of the far side: you come in hungry and thirsty. Eat and drink ashore, and stock her up before the next passage (${P.to === 'south' ? 'the kitchen at Bar El Muelle' : 'the chandlery'}).`, 8);
     save();

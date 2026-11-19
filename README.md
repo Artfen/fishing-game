@@ -207,6 +207,22 @@ Across the open Atlantic to the south lies **Las Brasas**, a volcanic island in 
 
 The island has its own chart: open the map (**M**) there and it shows Las Brasas, filling in as you explore, as the home chart does at home. (Your camps, home, the car and the far camps are across the open sea: only the crossing takes you there.)
 
+### Up the coast: the Selkie Isles
+
+Nine kilometres up the coast from Willow Bay, out past Heron Point and the Calf, round **the Ness** and north under the fells, lie the **Selkie Isles** (`docs/NORTH.md`): cold, clear water, kelp on every rock, cliffs white with seabirds, seals on the skerries, and a sea loch running into the hills. Sail there the whole way (about forty minutes in the trawler at the helm, two and a half days by the game's clock), or take **the fast passage**: in a boat fit for it (the trawler, the yacht or the sailing boat), out of the bay west of the Calf or anywhere up the coast, at the helm under way or at the trawler's chart table.
+
+- **Raven Isle**: the big island, grey cliffs on its Atlantic side and its colony, **Raven Head**'s light (three flashes every fifteen seconds after dark), and the **Seal Cave** at the foot of its cliffs. On its sheltered side, **Halvig**: four houses and a shop above a little bay, a **stone pier** with eight to ten metres alongside its head, and a **fuel pump** at its root.
+- **Raven Sound** between the island and the mainland, sheltered, sand and kelp; **the Churn** at its north end, where the tide pours over a rock sill.
+- **Tern Isle**: low, green machair and white shell sand; **the Broch**, an iron-age tower, and a ring of **standing stones**.
+- **The Selkie Rocks**, where the grey seals haul out; **Skarv Stack**, sixty metres of rock in deep water, its ledges crowded with guillemots and kittiwakes.
+- **Loch Skarn**: a sea loch a mile and a half into the hills, steep-sided, ninety metres deep over a sill at its mouth; **Bothy Bay** on its north shore (sand and mud, the best anchorage in the isles) with a bothy above the beach; the ruins of **the herring station** on its south shore; otters along its shore.
+- **Two dives**: **the Sula**, a trawler wrecked in the kelp off Tern Isle (10–18 m, a yellow buoy over her), and **the foot of Skarv Stack** (8–34 m). *Under the Selkie Isles* on the board is for the two.
+- **The fish**: the north's own, the **Atlantic cod**, **saithe** (shoals in the race), **ling** (deep rock and wrecks), **haddock** and the **flapper skate** (huge, on the loch's mud ninety metres down: critically endangered, it goes back); and the home coast's cold-water fish (pollack, Ballan wrasse, conger, catshark, mackerel, thornback, plaice, turbot, gurnard). The sea runs about 8°C to 13°C through the year.
+- **Its life**: a minke whale round the isles, common dolphins along the west coast, puffins, razorbills, fulmars, shags, a peregrine and ravens, eiders in the sound.
+- **The weather**: the westerlies off the Atlantic, a little fresher than at home: the islands' west sides are the weather side, the sound and the loch the lee.
+
+The isles have their own chart, filling in as you explore, and the coast up to them has a printed one. Up there you're a long way from Willowhaven: the offshore warnings count the way back to Halvig, a tow takes you into Halvig pier, no rescue calls come, and home's camps and the car are only reached by the passage home.
+
 ### Life on the coast
 
 A path runs from the landing to **Willowhaven** and on round the shore. Each place has its own landmark, sound and fish, and something to find.

@@ -247,11 +247,13 @@ colder water; seals, otters, the minke; the seabird colonies and the eagle.
   shown on the isles' chart.
 - Every new fish bites on the field guide's first choice in the headless sea (`tests/guide.test.mjs`
   tries every catchable kind), and is accounted for there as Las Brasas' own are.
-- Tests: in `tests/north.test.mjs`. Three older tests changed, each for the north's life: the birds
+- Tests: in `tests/north.test.mjs`. Four older tests changed, each for the north's life: the birds
   test now allows (and wants) guillemots on Skarv Stack and puffins on Raven Isle as well as Gannet
   Isle's and Puffin Cove's; the wildlife test lists Loch Skarn's otters with the other three beats;
   the guide test accounts for the north's fish (outside the register, as Las Brasas' are) with
-  their scientific names, as it does Las Brasas'.
+  their scientific names, as it does Las Brasas'; the depth release's test, which held that only
+  the small fish came after its five, now allows the north's five after those (last of all, for the
+  same reason: so no fish moves).
   (The sea life's fingerprint needed no change: the north's seals, dolphins and minke roll dice of
   their own, as the canyon's whale does, and it stays last.)
 
@@ -259,6 +261,38 @@ colder water; seals, otters, the minke; the seabird colonies and the eagle.
 "near Willowhaven" made "near the nearest harbour" (offshore warnings, tows, rescues only at
 home, fuel words, fast travel, boats brought round); the north's weather (westerlies, low cloud,
 cooler); played through in the browser in the trawler, measured (`docs/PERFORMANCE.md`).
+
+*N5 done.* What was built, and played through:
+
+- **The passage** north and home (`main.js`): the passage machinery's third end. Offered at the
+  helm (under way, in a boat fit for it: the trawler, the yacht, the sailing boat) out of the bay
+  west of the Calf or anywhere up the coast, and at the trawler's chart table. The card gives the
+  way, the time at the helm (about forty minutes in the trawler) and the fast passage (the hours,
+  about two and a half days, and the fuel it would take, then in off Halvig's pier), with a log of
+  its own each way. It's not counted as a crossing of the open sea.
+- **"Near Willowhaven" made the nearest harbour:** the offshore warnings count the way back to the
+  nearest harbour, Willowhaven, Halvig or Puerto Brasa (they had counted Willowhaven at Las
+  Brasas too); no rescue calls come in the north; a tow takes you into Halvig pier there; the fuel
+  words name Halvig's pump; you can't fast-travel home from up the coast (only the passage takes
+  you); a boat left up the coast isn't brought round or shipped (it's sailed home). (On the way: a
+  tow at home put a boat at a mooring for no boat, `mooring(boat.iind)`; it now finds her own.)
+- **The north's weather:** the westerlies off the Atlantic, west-south-west and a little fresher
+  than home's, its sea breeze from the west; an overcast sky when the passage brings you in.
+- **Bothy Bay's bottom** reads sand by the beach and mud further out to the anchor, good holding,
+  and the loch's deep is mud (`sonarRead.js` `sediment`).
+- **Played through in the browser** in the trawler: west of the Calf, the passage north offered
+  and taken; in off Halvig at night, its windows lit, the water 12°C, the wind south-westerly; at
+  anchor in Bothy Bay on mud; ashore to the Loch Bothy; on Halvig pier at the pump ("The fuel pump:
+  fill up"); a dive on the Sula (found, her hull in the green water); back aboard in the sound, the
+  passage home offered and taken, and in at her berth at Willowhaven. No errors.
+- **Measured** (`docs/PERFORMANCE.md`): at anchor off Halvig, 131 draw calls and 509,000 triangles,
+  3.2 ms of simulation; diving the Sula, 87 and 283,000; home's harbour and the liveaboard
+  unchanged. About 33 MB more heap once you're up there.
+- Tests: in `tests/north.test.mjs`.
+
+**Not done:** the white-tailed eagle and the terns on Tern Isle (a new bird each); Halvig's shop
+selling stores and a bed in the bothy (the stores and the nights work as they do anywhere else:
+aboard); the clock's speed-up at the helm on passage (step 4).
 
 ## Done when
 

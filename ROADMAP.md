@@ -441,8 +441,19 @@ careers, contracts, story, boat ownership and co-op are here already; see the se
    A4, played through (the trawler to Bahía Escondida, the tender ashore, a dive on El Vapor)
    and measured: done.
 4. The world extended: building and dropping regions as you come and go, checking the far
-   coordinates in the shaders, the chart and the passage speed-up; the downloadable build.
-5. The Northern Archipelago and the voyage north.
+   coordinates in the shaders, the chart and the passage speed-up; the downloadable build. (Done
+   with the north, for the north: its terrain in tiles built and dropped by distance, its water map
+   and sea baked a slice at a time ahead of need, its charts; the far coordinates checked, the north
+   kept within twelve kilometres, the same range of the shaders' numbers as Las Brasas'. Still to
+   do: the clock's speed-up at the helm on passage, and the downloadable build.)
+5. The Northern Archipelago and the voyage north (`docs/NORTH.md`, N1 to N5), with the parts of
+   step 4 it needed: N1, the way up the coast as a region of the world (the Ness and the west
+   coast, its own water map and sea baked a slice at a time, its terrain in tiles built as you come
+   and dropped as you go, its charts, saves and edges): done. N2, the isles in detail: done. N3,
+   Halvig and things to find: done. N4, life (cod, saithe, ling, haddock and the flapper skate, the
+   home coast's cold-water fish, seals, a minke, the seabird colony, otters): done. N5, the voyage
+   (the passage north and home, the nearest harbour where it was Willowhaven, the westerlies),
+   played through and measured: done.
 
 ## Open-source projects that could help
 

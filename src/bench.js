@@ -116,6 +116,19 @@ export const BENCH_SCENARIOS = {
     save: { yard: { owned: ['row', 'skiff', 'kayak', 'trawler', 'tender'] }, carried: { tender: 'trawler' } },
     setup: () => { slowTide.setHour(16); slowTide.useSkiffAt(818, 6945, 0.9, 'trawler'); slowTide.boat.setAnchor(true); },
   },
+  // (docs/NORTH.md) Up the coast in the Selkie Isles: the trawler at anchor in Raven Sound off
+  // Halvig, mid-afternoon, the north's tiles, isles and life built round her; and diving the Sula.
+  north: {
+    label: 'At anchor in Raven Sound off Halvig, up the coast in the Selkie Isles',
+    save: { yard: { owned: ['row', 'skiff', 'kayak', 'trawler', 'tender'] }, carried: { tender: 'trawler' } },
+    setup: () => { slowTide.setHour(15); slowTide.useSkiffAt(-2760, -6200, -1.2, 'trawler'); slowTide.boat.setAnchor(true); for (let i = 0; i < 20; i++) slowTide.advance(0.5, 30, false); },
+  },
+  dive_north: {
+    label: 'Diving the Sula in the kelp off Tern Isle',
+    save: {},
+    setup: () => { slowTide.setHour(12); slowTide.useSkiffAt(-3441, -5108, 0, 'skiff'); slowTide.boat.setAnchor(true); for (let i = 0; i < 20; i++) slowTide.advance(0.5, 30, false); },
+    after: () => slowTide.diving.start('scuba'),
+  },
   voyage: {
     label: 'The crossing south, under way at the helm',
     save: {},

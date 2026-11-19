@@ -353,3 +353,36 @@ test('its sea colder, its seals on the Selkie Rocks, its minke whale and dolphin
   const onSkarv = B.colonies.filter((c) => c.cx && Math.hypot(c.cx - N.SKARV.x, c.cz - N.SKARV.z) < 120);
   assert.ok(new Set(onSkarv.map((c) => c.kind)).size >= 3, 'a seabird colony on Skarv Stack');
 });
+
+// N5: the voyage.
+test('the voyage: offered west of the Calf and up the coast; the nearest harbour named; the bay\'s mud for the anchor; the westerlies', async () => {
+  // Where the passage is offered (at the helm, or the trawler's chart table): out of the bay west of
+  // the Calf, or anywhere up the coast; not in Willow Bay, not at Las Brasas.
+  assert.ok(N.northWaters(-700, 450) && N.northWaters(-2600, -6170) && N.northWaters(-2500, -3000));
+  assert.ok(!N.northWaters(0, 300) && !N.northWaters(-300, 400) && !N.northWaters(0, 6000));
+  assert.ok(N.NORTH_M > 8500 && N.NORTH_M < 10500);
+  assert.ok(-heightAt(N.NORTH_LANDFALL.x, N.NORTH_LANDFALL.z) > 6, 'the landfall in water deep enough for the trawler');
+  // Turning for home: the way back is to the nearest harbour.
+  const { turnForHome } = await import('../src/offshore.js');
+  const r = turnForHome({ kind: 'skiff', distHome: 2500, litres: 1, harbour: 'Halvig' });
+  assert.match(r.words, /back to Halvig/);
+  // Bothy Bay: sand by its beach, mud further out (good holding); rock under Raven Isle's shores.
+  const { createHabitat } = await import('../src/world/habitat.js');
+  const { bottomOf } = await import('../src/sonarRead.js');
+  const H = createHabitat();
+  const bed = (x, z) => bottomOf(H.sample(x, z, {}), zoneAt(x, z)).kind;
+  assert.equal(bed(N.BOTHY_BAY.x, N.BOTHY_BAY.z + 15), 'mud', 'mud in Bothy Bay');
+  assert.equal(bed(N.BOTHY_BAY.x, N.BOTHY_BAY.z - 25), 'sand', 'sand by its beach');
+  assert.equal(bed(-1500, -5600), 'mud', 'mud in the loch\'s deep');
+  // The north's wind: the westerlies, off the open Atlantic (west-south-west, give or take).
+  const C = await import('../src/world/conditions.js');
+  const was = { region: C.conditions.region, from: C.conditions.wind.from, hour: C.conditions.hour };
+  C.conditions.region = 'north';
+  C.conditions.hour = null;
+  C.conditions.wind.from = 0.5;
+  for (let i = 0; i < 4000; i++) C.updateConditions(0.5, { rain: 0, cloud: 0.3, storm: 0 });
+  const off = Math.abs(((C.conditions.wind.from - 4.32 + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+  assert.ok(off < 0.8, `from the west-south-west (${C.conditions.wind.from.toFixed(2)})`);
+  Object.assign(C.conditions, { region: was.region, hour: was.hour });
+  C.conditions.wind.from = was.from;
+});

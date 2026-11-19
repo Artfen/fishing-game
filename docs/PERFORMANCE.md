@@ -24,6 +24,8 @@ what boat, at what hour, in what weather.
 | `liveaboard` | In the trawler's saloon at dusk, at anchor off Gannet Isle, her lamps lit, her interior built and her tender on its chocks |
 | `tender` | The tender running in to the beach at Gannet Isle, the trawler at anchor behind her |
 | `archipelago` | At anchor in Bahía Escondida, in the Las Brasas archipelago, mid-afternoon: Isla Honda and its salt works close by, the other islands in view |
+| `north` | The trawler at anchor in Raven Sound off Halvig, up the coast in the Selkie Isles, mid-afternoon: the north's tiles, isles, life and water built round her |
+| `dive_north` | Diving the Sula, the trawler wrecked in the kelp off Tern Isle |
 
 Each is measured the same way: the **simulation alone** (240 steps at 30 Hz, nothing drawn: mean
 and worst 1%), a frame's **draw calls and triangles**, **real frames** running free for at least
@@ -123,6 +125,24 @@ What stands out already, to be confirmed on real hardware before anything is cha
 draw calls are highest looking at many boats or the harbour (`harbour_off` 534 after the fleet's
 distance culling took it from 719, `sonar` 363 with the dashboard's controls), triangles highest in
 the harbour and at Las Brasas (over a million), and the storm's simulation the dearest.
+
+The north (`docs/NORTH.md`), measured the same way, November 2026, on a quiet machine, with two of
+home's scenarios alongside to show home unchanged by it:
+
+| Scenario | Sim ms (mean · worst 1%) | Draw calls | Triangles | Heap |
+| --- | --- | --- | --- | --- |
+| north | 3.2 · 7.7 | 131 | 509,040 | 290 MB |
+| dive_north | 4.6 · 13.9 | 87 | 283,083 | 273 MB |
+| harbour (home, unchanged) | 4.6 · 8.9 | 351 | 1,275,233 | 257 MB |
+| liveaboard (home, unchanged) | 6.5 · 21.1 | 197 | 721,368 | 242 MB |
+
+The north costs less to draw than Las Brasas: its terrain is tiles of coarse sheet (about forty
+built round you at once, each about 2,600 triangles) with the isles in detail only near, and its
+things are a few meshes an area. The heap is about 33 MB more once you're there (its water maps,
+its tiles, its isles' things and kelp). What it costs to get there is spread out: its water map and
+sea field (about 2 s of work), its kelp (0.6 s) and its things (0.3 s) are each made a few
+milliseconds a frame as you come up the coast, and its tiles one at a time; only a passage that
+lands you there before they're done makes them at once, behind the passage's own screen.
 
 ## A long session: the soak (`tools/soak.mjs`)
 
