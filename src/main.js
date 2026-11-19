@@ -3023,6 +3023,7 @@ const nearBoat = () => onFoot && !!boatNear();
 function switchBoat(b) {
   if (b === boat) return;
   if (cabinIn) leaveCabin(true);
+  boat.setHelmInside?.(false);
   boat.setRower(false);
   boat.pose.fishing = 0;
   boat.lever = 0;
@@ -3259,6 +3260,7 @@ function mooringAction() {
 function setFoot(foot, silent = false) {
   // (Anything that puts you ashore, or in another boat, takes you out of the cabin first.)
   if (cabinIn) leaveCabin(true);
+  if (foot) boat.setHelmInside?.(false);
   onFoot = foot;
   walker.setVisible(foot);
   boat.setRower(!foot);
@@ -4378,7 +4380,7 @@ let dashTrim = 0, dashHorn = 0, dashKeyWas = false, keySelftest = 0, trimDirNow 
 const _dashAt = new THREE.Vector3();
 const DASH_PITCH = 0.95;
 function dashHere() {
-  if (!started || modal || onFoot || cabinIn || !boat.dash || rig.mode !== 'eye' || settings.controls.helm === 'panel') return null;
+  if (!started || modal || onFoot || cabinIn || boat.helmIn || !boat.dash || rig.mode !== 'eye' || settings.controls.helm === 'panel') return null;
   if (boat.deck && !boat.atHelm) return null;
   return boat.dash;
 }
@@ -5671,6 +5673,17 @@ function takeHelm(on) {
   if (!on) teach('deck', `Walking the deck: ${scheme() === 'pad' ? kbd('L-stick') : MOVE()} walks you about her. She keeps on as she was (the throttle stays where you left it). Back at the wheel, ${scheme() === 'touch' ? 'the prompt' : K('interact')} takes the helm again.`, 8);
 }
 
+// A boat with a wheelhouse (the cabin boat, the yacht): to her inside helm (on), out of the weather
+// with the sea ahead through the windscreen, or back out to her helm in the cockpit. Steering and
+// the throttle are as at any helm; you can't cast from in there.
+function helmInside(on) {
+  if (!boat.setHelmInside(on)) return;
+  audio.step?.(false, 0, 'wood');
+  const where = boat.hull.standing ? 'her wheel under the hardtop' : 'her tiller';
+  if (on) teach('helmInside', `At her inside helm, in the wheelhouse: the sea ahead through the windscreen, out of the wind and the rain. She steers as ever. To fish, or to see all round, ${scheme() === 'touch' ? 'the prompt' : K('interact')} takes you back out to ${where}.`, 8);
+  else hud.flash(`Back out at ${where}.`, t, 2);
+}
+
 // A step on foot, or about the deck, the way the stick points from where the camera looks.
 function walkWith(ti, si, dt) {
   const yaw = rig.yaw, fx_ = Math.sin(yaw), fz_ = Math.cos(yaw);
@@ -5711,6 +5724,7 @@ function enterCabin(b = boat) {
     return;
   }
   if (fishing.lineOut || fishing.aiming) fishing.cancel();
+  b.setHelmInside?.(false);
   // From the quay: aboard first (into the cockpit), and straight on in.
   if (onFoot || boat !== b) board(b);
   changeLever(0);
@@ -5802,7 +5816,7 @@ const needSaid = {}; // need id -> when it was last mentioned (game hours)
 // and spray, how hard you're working, and a roof over you or a fire beside you.
 function comfortEnv() {
   const P = player().pos, w = windAt(P.x, P.z);
-  const indoors = driving || !!cabinIn || (modal === 'camp' && camp.house) || modal === 'bench' || sitting?.kind === 'home' || (onFoot && !!insideHaven(P.x, P.z));
+  const indoors = driving || !!cabinIn || (!onFoot && boat.helmIn) || (modal === 'camp' && camp.house) || modal === 'bench' || sitting?.kind === 'home' || (onFoot && !!insideHaven(P.x, P.z));
   const F = world.camp.firePos;
   let fire = onFoot ? camp.fireLevel * smoothstep(5, 1.5, Math.hypot(P.x - F.x, P.z - F.z)) : 0;
   if (modal === 'camp' && camp.own) fire = Math.max(fire, 0.5);
@@ -7512,22 +7526,48 @@ function interaction() {
       return { text: P.starter === 'pull' ? 'Pull the starter cord' : 'Start the engine', run: () => engineKey() };
     }
   }
+  // At her inside helm (a boat with a wheelhouse): back out to her helm in the cockpit (still, or
+  // into the cabin). See helmInside.
+  if (boat.helmIn && !fishing.busy) {
+    const out = boat.hull.standing ? 'Out to the helm in the cockpit' : 'Back out to the tiller';
+    if (!canEnterCabin(boat)) return { text: out, run: () => helmInside(false) };
+    return { text: `${out}, or the cabin`, run: () => ask(boatTitle(boat), 'Back out to her helm in the cockpit, or into the cabin (the galley and the bunk)?', [
+      { text: 'Into the cabin', cls: 'quiet', run: () => enterCabin() },
+      { text: out, run: () => helmInside(false) },
+    ]) };
+  }
   // A boat you stand in: off the helm to walk her deck (slow, or held still).
-  if (boat.hull.standing && !fishing.busy && !boat.deck && (boat.speed < 2.5 || boat.anchored || boat.tie)) return { text: 'Leave the helm: walk the deck', run: () => takeHelm(false) };
+  if (boat.hull.standing && !fishing.busy && !boat.deck && (boat.speed < 2.5 || boat.anchored || boat.tie)) {
+    if (!boat.hull.helmInside || fishing.lineOut) return { text: 'Leave the helm: walk the deck', run: () => takeHelm(false) };
+    return { text: 'Leave the helm: the deck, or the helm inside…', run: () => ask(boatTitle(boat), 'Off the helm to walk her deck, or into the wheelhouse to steer from her inside helm?', [
+      { text: 'Walk the deck', cls: 'quiet', run: () => takeHelm(false) },
+      { text: 'Steer from inside the wheelhouse', run: () => helmInside(true) },
+    ]) };
+  }
   // Water in her, sitting in a boat you don't walk about: bailing comes before anything else.
   if (!boat.hull.standing && (boat.flooding?.litres || 0) > 5) {
     const da = damageAction();
     if (da) return da;
   }
+  // Under way in a boat with a wheelhouse: to her inside helm. (Still, it's among the cabin's
+  // choices just below.)
+  if (boat.hull.helmInside && !fishing.busy && !fishing.lineOut && !boat.deck && !canEnterCabin(boat)) return { text: 'Steer from inside the wheelhouse', run: () => helmInside(true) };
   // The cabin boat, stopped: its galley and bunk (or over the side for a dive).
   const entry = !fishing.lineOut ? diveEntry() : null;
   if (boat.hull.cabin && !fishing.lineOut && canEnterCabin(boat)) {
+    // (With a wheelhouse, her inside helm among them.)
+    const helm = boat.hull.helmInside && !fishing.busy ? [{ text: 'Steer from inside the wheelhouse', cls: 'quiet', run: () => helmInside(true) }] : [];
     if (entry) {
-      return { text: 'The cabin, or go diving', run: () => ask(boatTitle(boat), 'Into the cabin (the galley and the bunk), or over the side for a dive?', [
+      return { text: 'The cabin, or go diving', run: () => ask(boatTitle(boat), `Into the cabin (the galley and the bunk), or over the side for a dive?${helm.length ? ' Or to her inside helm.' : ''}`, [
         { text: 'Go diving', cls: 'quiet', run: () => chooseDive(entry) },
+        ...helm,
         { text: 'Into the cabin', run: () => enterCabin() },
       ]) };
     }
+    if (helm.length) return { text: 'The cabin, or the helm inside', run: () => ask(boatTitle(boat), 'Into the cabin (the galley and the bunk), or to her inside helm in the wheelhouse?', [
+      ...helm,
+      { text: 'Into the cabin', run: () => enterCabin() },
+    ]) };
     return { text: 'Into the cabin: galley and bunk', run: () => enterCabin() };
   }
   // At anchor or made fast, and still: sit back a while (or over the side, over deep water). (J3:
@@ -11702,7 +11742,7 @@ function whereIAm() {
   // friends see her come along behind you, and a crewmate tending it knows the strain.
   const W = tow?.lead === boat ? tow.towed : null;
   const tw = W ? { k: W.kind, ...(W.id !== W.kind && BOATS[W.id] === W ? { i: W.id } : {}), x: W.pos.x, z: W.pos.z, h: W.heading, t: (tow.T || 0) / 1000, l: tow.extra || 0, ...(tow.tender ? { e: tow.tender.id } : {}) } : undefined;
-  return { m: 'boat', k: boat.kind, ...(boat.id !== boat.kind ? { i: boat.id } : {}), x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), ...(sleeping ? { zz: 1 } : {}), o: on, ...(tr ? { tr } : {}), ...(tw ? { tw } : {}), ...gear };
+  return { m: 'boat', k: boat.kind, ...(boat.id !== boat.kind ? { i: boat.id } : {}), x: boat.pos.x, z: boat.pos.z, h: boat.heading, f: fishing.lineOut, s: !!boat.sailUp, n: !!(boat.anchored || boat.tie), ...(sleeping ? { zz: 1 } : {}), ...(boat.helmIn ? { hi: 1 } : {}), o: on, ...(tr ? { tr } : {}), ...(tw ? { tw } : {}), ...gear };
 }
 // A friend's fish, as it fights at the end of their line.
 const FISH_MOVE_WORDS = { run: 'fish on! it’s running', jump: 'fish on! it’s leaping', shake: 'fish on! head-shaking', charge: 'fish on! it’s charging', dive: 'fish on! it’s diving', longrun: 'fish on! a long run', sound: 'fish on! it’s sounding', circle: 'fish on! it’s circling' };
@@ -13229,6 +13269,11 @@ input.on('press', (code, acts) => {
     return;
   }
   if (is('cast')) {
+    // (Not from a boat's inside helm: see helmInside.)
+    if (!onFoot && boat.helmIn && !modal && !fishing.busy) {
+      hud.flash(`From the inside helm you can't cast: ${scheme() === 'touch' ? 'the prompt' : K('interact')} takes you back out to fish.`, t, 2);
+      return;
+    }
     fishing.onDown();
     return;
   }
@@ -13894,7 +13939,9 @@ function tick(now, manual = false) {
     } else audio.car?.(0, 0, false);
   }
   // (No casting indoors: not through the chandlery's window, nor across the inn.)
-  fishing.update(dt, t, rig.yaw, started && !modal && !placement.isOn && !driving && !cabinIn && !dive && !(onFoot && insideHaven(walker.pos.x, walker.pos.z)) && input.action);
+  // (Nor from a boat's inside helm: out to the cockpit to fish.)
+  const helmBound = !onFoot && boat.helmIn;
+  fishing.update(dt, t, rig.yaw, started && !modal && !placement.isOn && !driving && !cabinIn && !helmBound && !dive && !(onFoot && insideHaven(walker.pos.x, walker.pos.z)) && input.action);
   // (On the open map, you move across it as you go.)
   if (modal === 'map') mapSheet.follow(player());
 
