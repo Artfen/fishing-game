@@ -74,6 +74,15 @@ its charts lie within the range where the shaders keep home's precision; and a c
 world (home, the crossing, Las Brasas, the coast north and the isles) to see where everything is,
 from the map.
 
+*W3 done.* `tests/worldextended.test.mjs` holds every sea's bounds, the north's tiles and every chart
+within 12.4 km of the middle, where the water's finest noise (about 5.3 times the absolute
+position, in 32-bit floats) keeps home's precision, and a vertex out there still resolves to a
+millimetre; the furthest corner of anything is the whole chart's, at 9.4 km. **The whole chart**
+(`map.js` `WORLD_SHEET`): Willow Bay, the crossing and Las Brasas, the coast north and the isles on
+one sheet, all charted, drawn from the land itself (30 m a pixel), the crossing and the way up the
+coast dashed on it; the ◫ button by the zoom opens it whole, and again goes back to the sheet
+you're on.
+
 **W4, the downloadable build.** The desktop app made into something to download from the site:
 - **Installers** for Windows (an NSIS installer), macOS (a DMG, Intel and Apple silicon) and Linux
   (an AppImage), made by `electron-builder` from the same game files (`desktop/pack.cjs`).

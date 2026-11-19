@@ -149,7 +149,7 @@ import { demandFor, money, ordersFor, ORDERS_BY } from './market.js';
 import { creelFits, creelKg, creelLoad, creelWords, kgWords, chill, wearFrom, addWear, wearOf, wornLine, freshBaitToday, onIce, BAIT, ICE } from './shop.js';
 import { PHOTO_MAX, SEA_LIFE_KINDS } from './save.js';
 import { Journal } from './journal.js';
-import { MapSheet, Explored, OCEAN_SHEET } from './map.js';
+import { MapSheet, Explored, OCEAN_SHEET, WORLD_SHEET } from './map.js';
 import { FieldGuide } from './guide.js';
 import { startTrip, endTrip, summaryText, backHome } from './trip.js';
 import { diagnose } from './advice.js';
@@ -13414,6 +13414,12 @@ mapSheet.addSheet('north', ISLES_MAP, exploredNorth, () => {
   const all = new Explored('', COAST_SHEET);
   all.bits.fill(255);
   mapSheet.addSheet('coast', COAST_SHEET, all, () => ({ data: new Uint16Array(16), width: 2, height: 2, rect: { x: 1e9, z: 1e9, w: 1, h: 1 } }));
+}
+// (W3) And the whole chart, all of it on one sheet (from the button by the zoom).
+{
+  const all = new Explored('', WORLD_SHEET);
+  all.bits.fill(255);
+  mapSheet.addSheet('world', WORLD_SHEET, all, () => ({ data: new Uint16Array(16), width: 2, height: 2, rect: { x: 1e9, z: 1e9, w: 1, h: 1 } }));
 }
 
 // Open the map on a spot (a mark, a photograph's place).

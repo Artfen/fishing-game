@@ -50,3 +50,27 @@ test('their obstacles taken back out: none left behind, none doubled when they c
   G.remove(home);
   assert.equal(G.cells.size, 0, 'nothing left in the grid');
 });
+
+// W3: far coordinates kept in range.
+test('every sea, its tiles and its charts lie where the shaders keep home\'s precision', async () => {
+  const T = await import('../src/world/terrain.js');
+  const { SOUTH_RECT, SOUTH_MAP } = await import('../src/world/brasa.js');
+  const N = await import('../src/world/north.js');
+  const { NORTH_TILES } = await import('../src/world/world.js');
+  const { SHEET, OCEAN_SHEET, WORLD_SHEET } = await import('../src/map.js');
+  // (The water's finest noise works on about 5.3 times the absolute position, in 32-bit floats: below
+  // 65,536 it keeps the same steps it has at home, which is within about 12.4 km of the middle.)
+  const LIMIT = 65536 / 5.3;
+  const corners = (R) => (R.x0 != null ? [[R.x0, R.z0], [R.x1, R.z0], [R.x0, R.z1], [R.x1, R.z1]] : [[R.x, R.z], [R.x + R.w, R.z], [R.x, R.z + R.h], [R.x + R.w, R.z + R.h]]);
+  const all = { WORLD: T.WORLD, SEA: T.SEA, CROSSING: T.CROSSING, SOUTH_RECT, SOUTH_MAP, NORTH_RECT: N.NORTH_RECT, NORTH_WATER: N.NORTH_WATER, COAST_SHEET: N.COAST_SHEET, ISLES_MAP: N.ISLES_MAP, SHEET, OCEAN_SHEET, WORLD_SHEET };
+  NORTH_TILES.forEach((R, i) => { all[`tile ${i}`] = R; });
+  for (const [name, R] of Object.entries(all)) {
+    for (const [x, z] of corners(R)) assert.ok(Math.abs(x) < LIMIT && Math.abs(z) < LIMIT, `${name}: (${x}, ${z}) in range`);
+  }
+  // A vertex out there still resolves to a millimetre.
+  for (const v of [-8160, 7680, -4800]) assert.notEqual(Math.fround(v + 0.001), Math.fround(v), `${v}`);
+  // And the whole chart takes in every other sheet.
+  const inWorld = (R) => corners(R).every(([x, z]) => x >= WORLD_SHEET.x && x <= WORLD_SHEET.x + WORLD_SHEET.w && z >= WORLD_SHEET.z && z <= WORLD_SHEET.z + WORLD_SHEET.h);
+  for (const R of [SHEET, OCEAN_SHEET, SOUTH_MAP, N.COAST_SHEET, N.ISLES_MAP]) assert.ok(inWorld(R), 'on the whole chart');
+  for (const k of ['w', 'h']) assert.equal(WORLD_SHEET[k] % WORLD_SHEET.grid, 0, 'a whole number of its grid');
+});
