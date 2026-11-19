@@ -1,0 +1,142 @@
+# Builds the desktop installers (desktop/, electron-builder) on each platform's own runner when a
+# version is tagged (v0.2.0, v1.0.0…), and puts them on a GitHub release under that tag with the
+# update feed the installed apps read (latest.yml, latest-mac.yml, latest-linux.yml): what the
+# download page (download.html) links to. Run it by hand (Actions → Desktop → Run workflow) to
+# build the installers without releasing them: they're kept as the run's artifacts for a week.
+#
+# Signing, when the repository has the secrets (Settings → Secrets and variables → Actions):
+#   Windows   WIN_CSC_LINK (the .pfx certificate, base64) and WIN_CSC_KEY_PASSWORD
+#   macOS     MAC_CSC_LINK (the Developer ID Application .p12, base64) and MAC_CSC_KEY_PASSWORD,
+#             and for notarisation APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID
+# Without them the installers are built unsigned (the Mac app signed ad hoc, so it opens on Apple
+# silicon at all), and the release notes say so. An unsigned Mac app can't update itself: it
+# offers the download page instead (desktop/updates.cjs).
+name: Desktop
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            args: --win nsis --x64
+          - name: macOS
+            os: macos-latest
+            args: --mac dmg zip --arm64 --x64
+          - name: Linux
+            os: ubuntu-latest
+            args: --linux AppImage --x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: The game's files and their version
+        run: node tools/build-sw.mjs
+      - name: The version, from the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        working-directory: desktop
+        run: npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
+      - name: Install
+        working-directory: desktop
+        run: npm ci
+      - name: Copy the game into the app
+        working-directory: desktop
+        run: npm run pack
+      - name: Build the installers
+        shell: bash
+        working-directory: desktop
+        env:
+          WIN_CERT: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CERT_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          MAC_CERT: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CERT_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          NOTARY_ID: ${{ secrets.APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          NOTARY_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          signed=no
+          if [ "$RUNNER_OS" = "Windows" ] && [ -n "$WIN_CERT" ]; then
+            export WIN_CSC_LINK="$WIN_CERT" WIN_CSC_KEY_PASSWORD="$WIN_CERT_PASSWORD"
+            signed=yes
+          fi
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            if [ -n "$MAC_CERT" ]; then
+              export CSC_LINK="$MAC_CERT" CSC_KEY_PASSWORD="$MAC_CERT_PASSWORD"
+              signed=yes
+              if [ -n "$NOTARY_ID" ] && [ -n "$NOTARY_PASSWORD" ] && [ -n "$NOTARY_TEAM" ]; then
+                export APPLE_ID="$NOTARY_ID" APPLE_APP_SPECIFIC_PASSWORD="$NOTARY_PASSWORD" APPLE_TEAM_ID="$NOTARY_TEAM"
+                signed="yes, notarised"
+              fi
+            else
+              # Ad hoc: no Developer ID, but Apple silicon won't open an app with no signature at all.
+              # (And the app is told, so it offers the download page rather than an update it
+              # can't install.)
+              export CSC_IDENTITY_AUTO_DISCOVERY=false
+              node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.unsigned=true;Object.assign(p.build.mac,{identity:'-',hardenedRuntime:false});fs.writeFileSync('package.json',JSON.stringify(p,null,2))"
+            fi
+          fi
+          [ "$RUNNER_OS" = "Linux" ] && signed="n/a"
+          echo "Signed: $signed"
+          echo "$RUNNER_OS: signed $signed" > "dist-signing-$RUNNER_OS.txt"
+          npx electron-builder ${{ matrix.args }} --publish never
+          mv "dist-signing-$RUNNER_OS.txt" dist/
+      - name: Keep the installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ runner.os }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.dmg
+            desktop/dist/*.zip
+            desktop/dist/*.AppImage
+            desktop/dist/*.blockmap
+            desktop/dist/latest*.yml
+            desktop/dist/dist-signing-*.txt
+
+  release:
+    name: Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Put them on the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          signing="$(cat out/dist-signing-*.txt | sed 's/^/- /')"
+          rm -f out/dist-signing-*.txt
+          notes="Slow Tide ${GITHUB_REF_NAME#v} for Windows, Mac and Linux. Which file for which computer, and what the first launch asks: download.html on the game's site.
+
+          Signing:
+          ${signing}"
+          gh release create "$GITHUB_REF_NAME" out/* --repo "$GITHUB_REPOSITORY" --title "Slow Tide ${GITHUB_REF_NAME#v}" --notes "$notes" --verify-tag

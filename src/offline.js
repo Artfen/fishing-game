@@ -4,6 +4,10 @@
 //
 // Saved games live in local storage, which the service worker never touches, so updating
 // the game can't lose progress.
+//
+// In the desktop app the game's files are on the computer already, so there's no offline copy to
+// keep and no service worker: a new version is a new app, which the app looks for, downloads and
+// installs (desktop/updates.cjs). Its news comes in here and shows on the same Update button.
 
 const READY_KEY = 'slow-tide-offline-ready';
 
@@ -18,7 +22,24 @@ export const offline = {
   updateReady: false,   // a new version is downloaded and waiting
   downloading: null,    // a new version coming down: { cached, total } (total 0 until it says)
   error: '',
+  desktop: false,       // the desktop app, which updates itself
+  app: null,            // and what its updater says: { state, version, percent }
 };
+
+// The desktop app's updates (desktop/preload.cjs), or null in a browser.
+const appUpdates = () => globalThis.slowTideDesktop?.updates || null;
+const APP_STATES = new Set(['idle', 'off', 'checking', 'latest', 'downloading', 'ready', 'out', 'offline', 'error']);
+
+// Word from the app's updater: downloading shows as a version coming down; downloaded (or, where
+// the app can't install itself, out) as one ready to take.
+function appStatus(s) {
+  if (!s || typeof s !== 'object' || !APP_STATES.has(s.state)) return;
+  const was = offline.updateReady;
+  offline.app = { state: s.state, version: typeof s.version === 'string' ? s.version.slice(0, 40) : '', percent: Number(s.percent) || 0 };
+  offline.downloading = s.state === 'downloading' ? { cached: Math.max(0, Math.min(100, offline.app.percent)), total: 100 } : null;
+  offline.updateReady = s.state === 'ready' || s.state === 'out';
+  changed(offline.updateReady && !was ? 'update' : s.state === 'downloading' ? 'progress' : 'status');
+}
 
 let listeners = [];
 let registration = null;
@@ -75,6 +96,15 @@ export function setupOffline(onChange) {
   listeners.push(onChange);
   addEventListener('online', () => { offline.online = true; changed('online'); });
   addEventListener('offline', () => { offline.online = false; changed('offline'); });
+  const A = appUpdates();
+  if (A) {
+    offline.desktop = true;
+    try {
+      A.watch(appStatus);
+      appStatus(A.status());
+    } catch { /* an app without updates */ }
+    return;
+  }
   if (!offline.supported || !allowedHere()) return;
   offline.enabled = true;
 
@@ -128,8 +158,21 @@ export function setupOffline(onChange) {
   });
 }
 
-// Switch to the waiting version: the page reloads once it has taken over.
+// Switch to the waiting version: the page reloads once it has taken over. (In the desktop app: the
+// app restarts into the downloaded one, or opens the download page where it can't.)
 export function applyUpdate() {
+  const A = appUpdates();
+  if (A && offline.desktop) {
+    if (!offline.updateReady) return false;
+    if (offline.app?.state === 'ready') offline.updating = true;
+    try {
+      A.install();
+    } catch {
+      offline.updating = false;
+      return false;
+    }
+    return true;
+  }
   if (!registration?.waiting) return false;
   offline.updating = true;
   registration.waiting.postMessage({ type: 'update' });
@@ -140,8 +183,20 @@ export function applyUpdate() {
 // take it as soon as it's all down, or say this is the newest. Resolves with what it found:
 // 'latest', 'offline', 'updating' (about to reload into the new version) or 'fresh' (fetching a
 // clean copy of the game from the site). Saved games are never touched: they're in local
-// storage and the photo album, not the offline copy.
+// storage and the photo album, not the offline copy. (In the desktop app, what its updater says:
+// 'latest', 'downloading', 'ready', 'out' (a new version to download from the site), 'offline',
+// 'error', or 'off' for a copy that doesn't update itself.)
 export async function checkForUpdate() {
+  const A = appUpdates();
+  if (A && offline.desktop) {
+    if (navigator.onLine === false) return 'offline';
+    try {
+      const r = await within(Promise.resolve(A.check()), 60000);
+      return typeof r === 'string' && APP_STATES.has(r) ? r : 'error';
+    } catch {
+      return 'error';
+    }
+  }
   // (No offline copy here: an ordinary reload is the newest there is.)
   if (!offline.enabled) {
     location.reload();

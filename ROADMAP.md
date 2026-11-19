@@ -444,8 +444,13 @@ careers, contracts, story, boat ownership and co-op are here already; see the se
    coordinates in the shaders, the chart and the passage speed-up; the downloadable build. (Done
    with the north, for the north: its terrain in tiles built and dropped by distance, its water map
    and sea baked a slice at a time ahead of need, its charts; the far coordinates checked, the north
-   kept within twelve kilometres, the same range of the shaders' numbers as Las Brasas'. Still to
-   do: the clock's speed-up at the helm on passage, and the downloadable build.)
+   kept within twelve kilometres, the same range of the shaders' numbers as Las Brasas'.) Then
+   for the whole world (`docs/WORLD.md`, W1 to W4): W1, a far sea let go four kilometres out and
+   made again the same when you come back: done. W2, the passage four times as fast at a tap of
+   T, stopping by itself for anything that matters: done. W3, the far-coordinates test and the
+   whole chart: done. W4, the downloadable build (installers for Windows, Mac and Linux built by
+   CI on a version's tag, the app updating itself, the download page): done, the Linux AppImage
+   built and started here, its update taken from a stand-in feed.
 5. The Northern Archipelago and the voyage north (`docs/NORTH.md`, N1 to N5), with the parts of
    step 4 it needed: N1, the way up the coast as a region of the world (the Ness and the west
    coast, its own water map and sea baked a slice at a time, its terrain in tiles built as you come

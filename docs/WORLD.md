@@ -99,6 +99,39 @@ you're on.
 - Verified here as far as a container can: the Linux AppImage built and started headless; the
   others by the CI on their own runners.
 
+*W4 done.* **Installers** (`desktop/package.json`, electron-builder 26.18): an NSIS installer for
+Windows (x64, choose where it goes), a DMG for each Mac (Apple silicon and Intel, with the zips a
+Mac updates from), an AppImage for Linux, all from the same game files `pack.cjs` copies in, named
+as the download page links them. Electron moves from 33 (no longer supported) to 44.10. **CI**
+(`.github/workflows/desktop.yml`): on a `v…` tag, each platform on its own runner, the version
+taken from the tag, then one release with every installer, blockmap and `latest*.yml`; by hand, the
+installers kept as artifacts. Signing and notarisation from the repository's secrets when they're
+there; without, unsigned (the Mac app ad hoc, so Apple silicon opens it), and the release notes say
+which. **Updates** (`desktop/updates.cjs`): twenty seconds after the installed app starts it reads
+the newest release's feed, brings a newer version down and checks it, and says so on the same
+Update button as the web version's (`src/offline.js`): "Restart into the new version", never
+restarting by itself, installing on quit if not taken. Off with a switch in the journal (and the
+Mac menu), kept in `settings.json`. An unsigned Mac copy can't replace itself (macOS checks the new
+app's signature against the old), so there it only says a new version is out and Update opens the
+download page. **The download page** (`download.html`): the installer for the computer it's opened
+on put first (a Mac's chip from what the browser says), all four below, what the first launch
+asks of an unsigned copy, where saves go, updates, and the browser version; the game's title
+screen links to it (not in the app). **Saves**: the folder is now named for the game ("Slow Tide",
+the app's product name; nothing had been installed under the old name), and the journal's *Open the
+saves folder* opens it. Two changes from the plan: Windows and Linux get no menu bar at all (Alt
+would bring one up mid-game, and Electron's default one reloads the page on Ctrl+R), so the saves
+folder and the updates switch are in the journal on every system and in the menu on a Mac; and the
+app no longer registers the web version's service worker, there being no offline copy to keep.
+Tested (`tests/desktopbuild.test.mjs`): the updater against a stand-in feed (looks only once
+started and switched on, downloads and waits, installs only when told, says offline or error as
+they are, an unsigned Mac sent to the page, never a feed from elsewhere), the page's side of it, the
+saves folder, and the installers' names, the workflow and the download page agreeing. **Built and
+run here**: the Linux AppImage (128 MB) started headless under Xvfb, the game came up in it from
+its own files, began, and wrote its save file; then, with a 0.1.1 build served as a stand-in feed,
+0.1.0 found it, downloaded and checked it, showed "Restart to update" on the title screen, and on
+Update replaced its own AppImage with 0.1.1 and started again. (Against the real feed it reached
+GitHub but this container's proxy certificate stopped it, as it would any app here.)
+
 ## Done when
 
 - A lap of all three seas ends with the heap where a visit to one leaves it, and every sea comes

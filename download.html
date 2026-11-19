@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Download Slow Tide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Slow Tide for Windows, Mac and Linux: the same quiet fishing game as in the browser, in a window of its own.">
+<meta name="theme-color" content="#0f1b2b">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<!--
+  The download page: which installer for which computer, what the first launch asks when an
+  installer isn't signed, where saves go, how updates work, and the browser version beside it.
+  The installers are built by .github/workflows/desktop.yml for each tagged version and attached to
+  the GitHub release; the links below always point at the newest release. Nothing here is fetched
+  from another site: the page only guesses your computer from what the browser says, to put the
+  right download first.
+-->
+<style>
+@font-face { font-family: 'Caveat'; src: url('assets/fonts/caveat-latin.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: 'Kalam'; src: url('assets/fonts/kalam-400-latin.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Nunito'; src: url('assets/fonts/nunito-latin.woff2') format('woff2'); font-weight: 200 1000; font-display: swap; }
+:root {
+  --sea-night: #0f1b2b;
+  --sea-deep: #1b4f78;
+  --hud-ink: #fff9ef;
+  --lantern: #ffc977;
+  --seaglass: #93dccd;
+  --paper: #f3e8cf;
+  --paper-shade: #e6d4ae;
+  --ink: #35291f;
+  --ink-soft: #6e5c49;
+  --ink-faint: rgba(53, 41, 31, 0.32);
+  --stamp: #b5532f;
+  --font-display: 'Caveat', 'Bradley Hand', 'Segoe Print', cursive;
+  --font-hand: 'Kalam', 'Bradley Hand', 'Segoe Print', cursive;
+  --font-ui: 'Nunito', ui-rounded, 'SF Pro Rounded', system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--sea-night) linear-gradient(to bottom, #20476a 0, #163450 280px, var(--sea-night) 760px) no-repeat;
+  color: var(--hud-ink);
+  font: 16px/1.55 var(--font-ui);
+}
+a { color: var(--seaglass); text-underline-offset: 2px; }
+a:hover { color: var(--hud-ink); }
+:focus-visible { outline: 2px solid var(--lantern); outline-offset: 3px; }
+.wrap { max-width: 880px; margin: 0 auto; padding: 40px max(16px, env(safe-area-inset-right, 0px)) 56px max(16px, env(safe-area-inset-left, 0px)); }
+header { text-align: center; margin-bottom: 28px; }
+header img { width: 72px; height: 72px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); }
+h1 { margin: 10px 0 4px; font: 700 clamp(44px, 9vw, 64px)/1 var(--font-display); letter-spacing: 0.01em; }
+.sub { margin: 0 auto; max-width: 560px; color: rgba(255, 249, 239, 0.8); }
+.best { margin: 26px auto 6px; text-align: center; }
+.best[hidden] { display: none; }
+.big {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 14px 28px; border-radius: 14px; text-decoration: none;
+  background: var(--lantern); color: #2b1d0e; font: 800 19px/1.2 var(--font-ui);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+}
+.big small { font: 600 13px/1.3 var(--font-ui); opacity: 0.75; }
+.big:hover { background: #ffd795; color: #2b1d0e; }
+.best p { margin: 10px 0 0; font-size: 14px; color: rgba(255, 249, 239, 0.7); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin: 28px 0 10px; }
+.card {
+  display: flex; flex-direction: column; gap: 6px; min-width: 0;
+  padding: 16px; border-radius: 12px; background: var(--paper); color: var(--ink);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+.card.mine { outline: 3px solid var(--lantern); outline-offset: 2px; }
+.card h2 { margin: 0; font: 700 26px/1.1 var(--font-display); }
+.card p { margin: 0; font-size: 14px; color: var(--ink-soft); }
+.card .get {
+  margin-top: auto; align-self: flex-start; padding: 8px 14px; border-radius: 9px;
+  background: var(--ink); color: var(--paper); font-weight: 800; font-size: 14px; text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.card .get:hover { background: #4a3a2c; color: var(--paper); }
+.card code { font-size: 12px; overflow-wrap: anywhere; }
+.all { text-align: center; font-size: 14px; color: rgba(255, 249, 239, 0.7); margin: 0 0 30px; }
+section.page {
+  margin: 22px 0; padding: 20px 22px; border-radius: 12px;
+  background: var(--paper); color: var(--ink);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+section.page h2 { margin: 0 0 6px; font: 700 30px/1.1 var(--font-display); }
+section.page h3 { margin: 16px 0 4px; font: 700 15px/1.3 var(--font-ui); }
+section.page p, section.page li { font-size: 15px; }
+section.page p { margin: 6px 0; }
+section.page ul { margin: 6px 0; padding-left: 20px; }
+section.page a { color: var(--stamp); }
+section.page a:hover { color: var(--ink); }
+section.page code { font-size: 13px; background: rgba(53, 41, 31, 0.08); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+.hand { font-family: var(--font-hand); }
+.browser { text-align: center; }
+.browser .big { background: var(--seaglass); color: #0d2a2a; }
+.browser .big:hover { background: #b2e8dc; color: #0d2a2a; }
+footer { margin-top: 30px; text-align: center; font-size: 13px; color: rgba(255, 249, 239, 0.55); }
+@media (max-width: 520px) {
+  .wrap { padding-top: 28px; }
+  section.page { padding: 16px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="assets/icons/icon-192.png" alt="" width="72" height="72">
+    <h1>Slow Tide</h1>
+    <p class="sub">The same quiet fishing game as in the browser, in a window of its own: it plays from its own files with no connection needed, keeps going at full speed behind other windows, and goes full screen with F11.</p>
+  </header>
+
+  <div class="best" id="best" hidden>
+    <a class="big" id="best-link" href="#"><span id="best-name">Download</span><small id="best-file"></small></a>
+    <p id="best-note"></p>
+  </div>
+
+  <div class="cards">
+    <article class="card" data-os="windows">
+      <h2>Windows</h2>
+      <p>Windows 10 or 11, 64-bit. An installer: choose where it goes; it adds a Start menu entry and a desktop shortcut.</p>
+      <a class="get" href="https://github.com/Artfen/fishing-game/releases/latest/download/Slow-Tide-Setup-x64.exe">Download the installer</a>
+      <code>Slow-Tide-Setup-x64.exe</code>
+    </article>
+    <article class="card" data-os="mac-arm">
+      <h2>Mac, Apple silicon</h2>
+      <p>A Mac with an M1 chip or later (macOS 12 or newer). Open the disk image and drag Slow Tide to Applications.</p>
+      <a class="get" href="https://github.com/Artfen/fishing-game/releases/latest/download/Slow-Tide-arm64.dmg">Download for Apple silicon</a>
+      <code>Slow-Tide-arm64.dmg</code>
+    </article>
+    <article class="card" data-os="mac-intel">
+      <h2>Mac, Intel</h2>
+      <p>A Mac with an Intel processor (macOS 12 or newer). Open the disk image and drag Slow Tide to Applications.</p>
+      <a class="get" href="https://github.com/Artfen/fishing-game/releases/latest/download/Slow-Tide-x64.dmg">Download for Intel</a>
+      <code>Slow-Tide-x64.dmg</code>
+    </article>
+    <article class="card" data-os="linux">
+      <h2>Linux</h2>
+      <p>64-bit, as an AppImage: one file that runs as it is (Steam Deck too, in desktop mode). Make it executable and open it.</p>
+      <a class="get" href="https://github.com/Artfen/fishing-game/releases/latest/download/Slow-Tide-x86_64.AppImage">Download the AppImage</a>
+      <code>Slow-Tide-x86_64.AppImage</code>
+    </article>
+  </div>
+  <p class="all">Not sure which Mac? Apple menu → About This Mac: it says <b>Chip: Apple M…</b> or <b>Processor: Intel</b>. Every version, with its notes: <a href="https://github.com/Artfen/fishing-game/releases">all releases</a>.</p>
+
+  <section class="page" id="first">
+    <h2>The first time you open it</h2>
+    <p>A copy that's signed opens like any other app. Until the installers carry a publisher's signature (each release says whether it does), your computer will ask once whether you trust it:</p>
+    <h3>Windows</h3>
+    <p>“Windows protected your PC”: choose <b>More info</b>, then <b>Run anyway</b>. After that it starts like any other program.</p>
+    <h3>Mac</h3>
+    <p>“Apple could not verify Slow Tide…”: choose <b>Done</b>, then open <b>System Settings → Privacy &amp; Security</b>, scroll down to Slow Tide and choose <b>Open Anyway</b>. (On macOS 14 and earlier, Control-click the app in Applications and choose <b>Open</b> instead.) You're asked only the first time.</p>
+    <h3>Linux</h3>
+    <p>Make the file executable (its Properties → Permissions, or <code>chmod +x Slow-Tide-x86_64.AppImage</code>) and open it. If it doesn't start, your system may need FUSE 2 for AppImages (on Ubuntu: <code>sudo apt install libfuse2t64</code>, or <code>libfuse2</code> before 24.04).</p>
+  </section>
+
+  <section class="page" id="saves">
+    <h2>Your progress</h2>
+    <p>The app saves as it goes, like the browser version, and keeps a copy of your save as a file:</p>
+    <ul>
+      <li><b>Windows:</b> <code>%APPDATA%\Slow Tide\saves\slow-tide-save.json</code></li>
+      <li><b>Mac:</b> <code>~/Library/Application Support/Slow Tide/saves/slow-tide-save.json</code></li>
+      <li><b>Linux:</b> <code>~/.config/Slow Tide/saves/slow-tide-save.json</code></li>
+    </ul>
+    <p>The journal opens that folder for you: <span class="hand">Your progress → Open the saves folder</span> (on a Mac, also in the Slow Tide menu). Copy the file to keep a backup, or to carry your game to another computer: a computer with no game of its own starts from it.</p>
+    <p><b>Coming from the browser?</b> In the browser's journal, choose <span class="hand">Download a copy</span>; then in the app's journal, <span class="hand">Load a saved copy…</span> and pick that file. Your photographs live with the browser, so download the album from there too if you'd like them.</p>
+  </section>
+
+  <section class="page" id="updates">
+    <h2>Updates</h2>
+    <p>When it starts, the app looks for a new version (on this game's releases, and nowhere else). If there is one, it downloads it in the background and says so; it never restarts on you. Choose <span class="hand">Update</span> on the title screen or in the journal to restart into it, or just carry on: it's installed the next time you quit. Your progress is kept either way.</p>
+    <p>To stop it looking, untick <span class="hand">Look for a new version when the game starts</span> in the journal (on a Mac, also in the Slow Tide menu); <span class="hand">Check for updates</span> still looks whenever you ask. A Mac copy that isn't signed can't replace itself: there, Update brings you back to this page for the new one.</p>
+  </section>
+
+  <section class="page browser" id="browser">
+    <h2>Or play in the browser</h2>
+    <p>Nothing to install: the game runs in any up-to-date browser, saves in it, and can be added to your home screen or kept for playing offline.</p>
+    <p><a class="big" href="./">Play in the browser</a></p>
+  </section>
+
+  <footer>Slow Tide. The download page and the app send nothing about you anywhere; the app's only call out is to look for a new version, and you can switch that off.</footer>
+</div>
+<script>
+// Which computer this is, as well as the browser can tell, to put its download first. (A Mac's
+// chip: Chromium browsers say so when asked; otherwise the graphics name says "Apple" on Apple
+// silicon. Safari always says Intel, so a Mac that can't be told apart gets both, unhighlighted.)
+(async () => {
+  const ua = navigator.userAgent || '';
+  const plat = navigator.userAgentData?.platform || navigator.platform || '';
+  let os = null;
+  if (/Win/i.test(plat) || /Windows/i.test(ua)) os = 'windows';
+  else if (/Mac/i.test(plat) || /Mac OS X/i.test(ua)) {
+    if (/iPhone|iPad/i.test(ua) || navigator.maxTouchPoints > 1) os = 'ios';
+    else {
+      os = 'mac';
+      try {
+        const hi = await navigator.userAgentData?.getHighEntropyValues?.(['architecture']);
+        if (hi?.architecture === 'arm') os = 'mac-arm';
+        else if (hi?.architecture === 'x86') os = 'mac-intel';
+      } catch { /* not told */ }
+      if (os === 'mac') {
+        try {
+          const gl = document.createElement('canvas').getContext('webgl');
+          const ext = gl && gl.getExtension('WEBGL_debug_renderer_info');
+          const name = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : '';
+          if (/Apple (M\d|GPU)/i.test(name)) os = 'mac-arm';
+          else if (/Intel|AMD|Radeon/i.test(name)) os = 'mac-intel';
+        } catch { /* can't tell */ }
+      }
+    }
+  } else if (/Android/i.test(ua)) os = 'android';
+  else if (/CrOS/i.test(ua)) os = 'chromeos';
+  else if (/Linux|X11/i.test(plat + ua)) os = 'linux';
+
+  const best = document.getElementById('best');
+  const card = os && document.querySelector(`.card[data-os="${os}"]`);
+  if (card) {
+    card.classList.add('mine');
+    const link = card.querySelector('.get');
+    document.getElementById('best-link').href = link.href;
+    document.getElementById('best-name').textContent = `Download for ${card.querySelector('h2').textContent}`;
+    document.getElementById('best-file').textContent = card.querySelector('code').textContent;
+    document.getElementById('best-note').textContent = 'Not your computer? All four are below.';
+    best.hidden = false;
+  } else if (os === 'ios' || os === 'android' || os === 'chromeos') {
+    document.getElementById('best-link').href = './';
+    document.getElementById('best-name').textContent = 'Play in the browser';
+    document.getElementById('best-file').textContent = 'Nothing to install on this device';
+    document.getElementById('best-note').textContent = 'The downloads below are for Windows, Mac and Linux computers.';
+    best.hidden = false;
+  }
+})();
+</script>
+</body>
+</html>

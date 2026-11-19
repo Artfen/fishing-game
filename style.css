@@ -1122,6 +1122,9 @@ p.cp-soft { margin: 6px 0; }
 #j-close:hover { background: rgba(53, 41, 31, 0.08); }
 .j-settings { display: flex; flex-wrap: wrap; gap: 8px; }
 .j-save-status { flex: 1 1 100%; margin: 0; font: 600 12px/1.4 var(--font-ui); color: var(--ink-soft); }
+.j-desktop { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.j-desktop[hidden] { display: none; }
+.j-desktop label { display: inline-flex; align-items: center; gap: 6px; font: 600 12px/1.4 var(--font-ui); color: var(--ink-soft); }
 .j-settings button.danger { border-color: rgba(181, 83, 47, 0.55); color: var(--stamp); }
 .j-cloud p { flex: 1 1 100%; margin: 0; font: 14px/1.4 var(--font-hand); }
 .j-cloud { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--ink-faint); }
@@ -1283,6 +1286,9 @@ p.cp-soft { margin: 6px 0; }
 .t-update .t-quality { margin-left: 0; }
 .t-update-note:not(:empty) { margin-left: 8px; }
 .t-quality:disabled, #update-now:disabled { opacity: 0.6; cursor: default; }
+.t-download { margin: 4px 0 0; font: 500 11px/1.4 var(--font-ui); animation: rise 1.6s 1s ease both; }
+.t-download a { color: rgba(255, 249, 239, 0.6); text-underline-offset: 2px; }
+.t-download a:hover, .t-download a:focus-visible { color: rgba(255, 249, 239, 0.9); }
 .t-version { margin: 6px 0 0; font: 500 11px/1.4 var(--font-ui); letter-spacing: 0.02em; color: rgba(255, 249, 239, 0.5); animation: rise 1.6s 1s ease both; user-select: all; }
 #clock-net { color: #ffd59a; opacity: 1; }
 .t-note { margin-top: 14px; font-size: 13px; animation: rise 1.6s 0.7s ease both; color: rgba(255, 249, 239, 0.75); }

@@ -140,7 +140,7 @@ import { trollWire, deckY } from './trollmount.js';
 import * as Con from './contracts.js';
 import { Passengers } from './passengers.js';
 import * as Story from './story.js';
-import { onDesktop, seedSave, mirrorSave, reportAchievements } from './desktop.js';
+import { onDesktop, seedSave, mirrorSave, reportAchievements, openSavesFolder, updatesWhenStarting } from './desktop.js';
 import { vesselOf, setFitOut } from './vessels.js';
 import { wearOf as engineWearOf, wearFx, serviceWords, serviceDone, serviceRow, sinceService, SERVICE_HOURS } from './service.js';
 import { PickupView } from './world/pickups.js';
@@ -12675,7 +12675,8 @@ function renderSaveStatus() {
   }
   const ago = saveStatus.lastSaved ? Math.round((Date.now() - saveStatus.lastSaved) / 1000) : null;
   const when = ago == null ? 'not yet' : ago < 10 ? 'just now' : ago < 90 ? `${ago} seconds ago` : `${Math.round(ago / 60)} minutes ago`;
-  el.textContent = `Saved automatically in this browser (last saved ${when}): no account needed. ${state.log.length} catches in your log.`;
+  const where = onDesktop() ? 'on this computer, and to a file in the saves folder' : 'in this browser';
+  el.textContent = `Saved automatically ${where} (last saved ${when}): no account needed. ${state.log.length} catches in your log.`;
 }
 
 // The optional account box under "Your progress". Only shown when a backend is configured.
@@ -12764,7 +12765,8 @@ function renderOffline() {
   const net = offline.online ? 'Online.' : 'Offline: everything keeps working and saving on this device.';
   const sync = cloud.signedIn && !offline.online ? ' Cloud sync is paused and will catch up when you’re back online.' : '';
   let store;
-  if (!offline.supported) store = 'This browser can’t store the game for offline play.';
+  if (offline.desktop) store = 'The game plays from the app’s own files: no connection needed.';
+  else if (!offline.supported) store = 'This browser can’t store the game for offline play.';
   else if (!offline.enabled) store = 'Offline play is switched off on this test server (add ?sw to the address to try it).';
   else if (offline.ready) store = 'Ready to play offline: the whole game is stored on this device.';
   else if (offline.error) store = offline.error;
@@ -12788,23 +12790,30 @@ function renderOffline() {
 
 function updateNow() {
   save();
-  if (!applyUpdate()) location.reload();
+  if (!applyUpdate() && !offline.desktop) location.reload();
 }
 
 // The Update button, on the title screen and in the journal: looks for a new version there and
 // then, shows it coming down and switches over by itself when it's all here (or says this is the
 // newest), so nobody needs to refresh again and again. What it's doing is said beside it.
 let updateNote = '', checkingUpdate = false;
+// (The desktop app: its new version comes down by itself and waits to be taken, or, where the app
+// can't install itself, is there to download from the site.)
 function renderUpdate() {
   const dl = offline.downloading;
   const busy = checkingUpdate || !!dl || !!offline.updating;
   const pct = dl?.total ? Math.min(100, Math.round((100 * dl.cached) / dl.total)) : null;
-  const note = offline.updating ? 'Switching to the new version…'
-    : dl ? `Downloading the new version${pct != null ? ` (${pct}%)` : '…'} It switches over by itself.`
+  const app = offline.desktop ? offline.app : null;
+  const ver = app?.version ? ` ${app.version}` : '';
+  const note = offline.updating ? (app ? 'Restarting into the new version…' : 'Switching to the new version…')
+    : dl ? `Downloading the new version${pct != null ? ` (${pct}%)` : '…'} ${app ? 'Nothing restarts until you say.' : 'It switches over by itself.'}`
+    : app?.state === 'ready' ? `Version${ver} is downloaded: Update restarts the game into it (your progress is kept), or it installs when you quit.`
+    : app?.state === 'out' ? `Version${ver} is out: Update opens the download page.`
     : updateNote;
   $('title-update').disabled = $('update-now').disabled = busy;
-  $('title-update').textContent = busy ? 'Updating…' : 'Update';
-  $('update-now').textContent = offline.updateReady && !busy ? 'Update to the new version' : busy ? 'Updating…' : 'Check for updates';
+  $('title-update').textContent = busy ? 'Updating…' : app?.state === 'ready' ? 'Restart to update' : app?.state === 'out' ? 'Get the new version' : 'Update';
+  $('update-now').textContent = busy ? 'Updating…' : !offline.updateReady ? 'Check for updates'
+    : app?.state === 'ready' ? 'Restart into the new version' : app?.state === 'out' ? 'Get the new version' : 'Update to the new version';
   $('title-update-note').textContent = note;
   $('update-note').textContent = note;
   $('update-note').hidden = !note;
@@ -12826,7 +12835,12 @@ async function runUpdate() {
     offline: 'You’re offline: connect to the internet to update.',
     updating: 'Switching to the new version…',
     fresh: 'Fetching a fresh copy of the game…',
-  }[found] || 'Couldn’t check just now. Try again in a moment.';
+    // (The desktop app's answers.)
+    downloading: 'There’s a new version: downloading it…',
+    ready: '',
+    out: '',
+    off: 'This copy doesn’t update itself (it isn’t installed from the download page).',
+  }[found] ?? 'Couldn’t check just now. Try again in a moment.';
   renderUpdate();
 }
 
@@ -12836,7 +12850,14 @@ setupOffline((event) => {
   if (event === 'update') {
     // On the title screen, take the new version straight away; mid-game, ask first.
     // (Not when it was the Update button that asked for it: that switches over by itself.)
-    if (!started) updateNow();
+    // (The desktop app never restarts by itself: it says so, and waits.)
+    if (offline.desktop) {
+      if (started && !checkingUpdate) {
+        hud.toast(offline.app?.state === 'out'
+          ? 'A new version of Slow Tide is out. The journal (J) has the link to download it.'
+          : 'A new version of Slow Tide is downloaded. It installs when you quit, or choose Update in the journal (J) to restart into it now; your progress is kept.', 9);
+      }
+    } else if (!started) updateNow();
     else if (!checkingUpdate) hud.toast('A new version of Slow Tide is ready. Open the journal (J) and choose Update; your progress is kept.', 8);
   }
   if (event === 'offline') hud.toast(`You’re offline. Everything keeps working and saving on this device.${cloud.signedIn ? ' Cloud sync is paused until you’re back online.' : ''}`, 6);
@@ -12851,8 +12872,23 @@ renderOffline();
 $('update-now').addEventListener('click', () => (offline.updateReady ? updateNow() : runUpdate()));
 $('title-update').addEventListener('click', (e) => {
   e.stopPropagation();
-  runUpdate();
+  if (offline.updateReady) updateNow();
+  else runUpdate();
 });
+// The desktop app's own: its saves folder, and whether it looks for a new version when it starts.
+// In a browser, the link to it instead.
+if (onDesktop()) {
+  $('title-download').parentElement.hidden = true;
+  const auto = updatesWhenStarting();
+  $('desktop-opts').hidden = false;
+  $('desktop-auto').parentElement.hidden = auto == null;
+  $('desktop-auto').checked = !!auto;
+  $('desktop-auto').addEventListener('change', (e) => { e.target.checked = !!updatesWhenStarting(e.target.checked); });
+  $('desktop-saves').addEventListener('click', () => {
+    if (!openSavesFolder()) hud.toast('Couldn’t open the saves folder here.', 4);
+  });
+}
+$('title-download').addEventListener('click', (e) => e.stopPropagation());
 
 // A small "are you sure?" with any buttons we need.
 // A question with buttons; { input } adds a text box (its value goes to the button's run).

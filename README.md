@@ -36,7 +36,7 @@ Any other static host works too. Run `node tools/build-sw.mjs` first (so offline
 index.html  style.css  manifest.webmanifest  sw.js  src/  vendor/  assets/
 ```
 
-`serve.py`, `README.md`, `tools/`, `research/`, `supabase/` and `.claude/` are for working locally and don't need to go up. `api/` only works on Vercel; elsewhere the game simply stays guest-only. Some other easy hosts:
+`download.html` (the page offering the desktop app) can go up beside them; the game links to it from the title screen. `serve.py`, `README.md`, `tools/`, `research/`, `supabase/`, `desktop/` and `.claude/` are for working locally and don't need to go up. `api/` only works on Vercel; elsewhere the game simply stays guest-only. Some other easy hosts:
 
 - **Netlify Drop** (app.netlify.com/drop) or **Cloudflare Pages**: drag the folder in and you get a web address within a minute.
 - **GitHub Pages**: set Pages to deploy from the `main` branch, root folder.
@@ -980,6 +980,8 @@ While you're offline, *Offline* appears next to the clock, and the journal expla
 
 New versions arrive safely. When a new version is deployed, the game downloads it in the background and keeps running the old one. On the title screen it switches straight away once it's all down; during play it offers *Update to the new version* in the journal (it never reloads under you mid-game), and keeps your progress either way. Saves live in the browser's local storage, which updates never touch.
 
+**On your computer** ([download.html](download.html): Windows, Mac or Linux): the desktop app plays from its own files, with no offline copy to keep. When it starts it looks for a new version on the game's releases, downloads it in the background and says so; it never restarts on you. *Update* (on the title screen or in the journal) restarts into it, or it's installed the next time you quit. The journal's *Your progress* has *Open the saves folder* (the app keeps a copy of the save there as a file) and the switch to stop it looking. A Mac copy that isn't signed can't replace itself: there, Update opens the download page.
+
 ### Saving your progress
 
 No account is needed. The game saves by itself in your browser: after every catch, release or kept fish, when you change rods or tackle, cook, eat, sleep, travel back to camp or the boat, every ten seconds while you play, and when you close or hide the page. Refresh or come back next week and you carry on where you were: the time of day and the weather, where you and each boat are, your gear, backpack, saved setups and creel, the camp fire and grill, your journal, catch log, the places you've found and the parts of the map you've explored, and your settings.
@@ -1394,7 +1396,9 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 | `src/world/skipper.js` | The harbour's boats at the helm: following the clock's route while keeping clear of every other boat, waiting when there's no way through, berthing, being shoved and coming back |
 | `src/adventures.js` | The adventures, Ada's pages and the keepsakes, and how steps are recognised in any order |
 | `src/achievements.js` | The desktop build's achievements: the game's milestones under stable Steamworks names, counted from the save |
-| `src/desktop.js` | The desktop build's bridge from the game's side: the save mirrored to a file for Steam Cloud (and started from it on a new computer), achievements handed over; nothing at all in a browser |
+| `src/desktop.js` | The desktop build's bridge from the game's side: the save mirrored to a file (and started from it on a new computer), the saves folder and the updates switch in the journal, achievements handed over; nothing at all in a browser |
+| `desktop/` | The desktop app (Electron): `main.cjs` the window and the game's files, `preload.cjs` the few calls the page may make, `updates.cjs` its updates, `pack.cjs` copying the game in; the installers' configuration in `package.json` |
+| `download.html` | The download page: which installer for which computer, the first launch, where saves go, updates, and the browser version beside it |
 | `src/story.js` | The Fifth Name: the story's chapters, each finished by something the game already knows, paced a card at a time, the last scene with Wenna aboard at dusk, and its record in the save |
 | `src/photos.js` | Taking photographs, the album's picture store (IndexedDB), and downloads |
 | `src/memories.js` | The journal's Memories pages |
@@ -1485,7 +1489,7 @@ slowTide.eco.agents           // every fish in the world, with its species, size
 
 ## Ideas for next steps
 
-**On the desktop, for Steam**: `desktop/` holds an Electron wrapper that runs these same files in a window of its own (served from a private `app://` address, full speed in the background, F11 for full screen), with what Steam still needs listed in [desktop/README.md](desktop/README.md). It hasn't been signed up for Steam or run on real machines yet.
+**On the desktop**: `desktop/` holds an Electron app that runs these same files in a window of its own (served from a private `app://` address, full speed in the background, F11 for full screen), with installers for Windows, Mac and Linux built by CI when a version is tagged, updates it takes itself (asking first), and a download page on the site (`download.html`). How to build and release it, and how signing works: [desktop/README.md](desktop/README.md). The Linux build has been made and run (headless); the Windows and Mac installers are built by the workflow on their own runners and haven't been tried on real machines yet.
 
 **The road to 1.0** (what the game still needs to be worth €9.99, the agreed plan and its order, and open-source projects that could help) is in [ROADMAP.md](ROADMAP.md).
 

@@ -1,10 +1,11 @@
-// The desktop (Steam) build's bridge, from the game's side: window.slowTideDesktop, put there by
-// the desktop app's preload (desktop/preload.cjs). In a browser it isn't there and all of this
-// does nothing.
+// The desktop build's bridge, from the game's side: window.slowTideDesktop, put there by the
+// desktop app's preload (desktop/preload.cjs). In a browser it isn't there and all of this does
+// nothing.
 //
-//  · The save, mirrored to a file in the app's data folder on every save, so Steam Auto-Cloud can
-//    carry it between computers (configured in Steamworks; nothing in the game). Starting on a
-//    computer with no save in its storage, the mirrored file is used.
+//  · The save, mirrored to a file in the app's data folder on every save (the journal opens that
+//    folder). Starting on a computer with no save in its storage, the mirrored file is used.
+//  · Its updates (desktop/updates.cjs): the switch for looking when it starts. (Looking, and taking
+//    a new version, go through the Update button: src/offline.js.)
 //  · Achievements (achievements.js), handed over as they're earned; the app passes them to
 //    Steamworks only if it has it and an app id.
 
@@ -57,3 +58,28 @@ export function reportAchievements(state, extra = {}) {
   return fresh;
 }
 export const _resetTold = () => told.clear();
+
+// The saves folder, opened on the computer (the journal's button). False where there's none.
+export function openSavesFolder() {
+  const D = bridge();
+  if (!D?.openSaves) return false;
+  try {
+    D.openSaves();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Whether the app looks for a new version when it starts; with true or false, sets it first.
+// Null in a browser (or an app without updates).
+export function updatesWhenStarting(on) {
+  const D = bridge();
+  if (typeof D?.updates?.auto !== 'function') return null;
+  try {
+    const r = D.updates.auto(typeof on === 'boolean' ? on : null);
+    return typeof r === 'boolean' ? r : null;
+  } catch {
+    return null;
+  }
+}

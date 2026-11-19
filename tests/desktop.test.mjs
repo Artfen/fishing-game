@@ -93,7 +93,9 @@ test('the desktop app keeps the save’s file whole, reads it back, refuses junk
   const fake = {
     app: { getPath: (k) => (k === 'exe' ? path.join(dir, 'Slow Tide') : dir), whenReady: () => new Promise(() => {}), on() {} },
     BrowserWindow: class {}, protocol: { registerSchemesAsPrivileged() {}, handle() {} }, net: {},
-    ipcMain: { on: (ch, fn) => { handlers[ch] = fn; } },
+    // (The app also answers the page's updates and opens the saves folder: tests/desktopbuild.test.mjs.)
+    ipcMain: { on: (ch, fn) => { handlers[ch] = fn; }, handle: (ch, fn) => { handlers[ch] = fn; } },
+    shell: { openPath() {}, openExternal() {} },
   };
   fake.app.commandLine = { appendSwitch() {} };
   const load = Module._load;

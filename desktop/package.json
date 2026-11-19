@@ -1,14 +1,108 @@
 {
   "name": "slow-tide-desktop",
+  "productName": "Slow Tide",
+  "desktopName": "slow-tide.desktop",
   "private": true,
   "version": "0.1.0",
-  "description": "Slow Tide as a desktop app (for Steam): the same game files, in a window of its own.",
+  "description": "Slow Tide as a desktop app: the same game files as the web version, in a window of its own.",
+  "author": "Slow Tide",
+  "homepage": "https://github.com/Artfen/fishing-game",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
-    "pack": "node pack.cjs"
+    "pack": "node pack.cjs",
+    "dist": "node pack.cjs && electron-builder --publish never"
+  },
+  "dependencies": {
+    "electron-updater": "6.8.11"
   },
   "devDependencies": {
-    "electron": "33.2.1"
+    "electron": "44.10.2",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "io.github.artfen.slowtide",
+    "productName": "Slow Tide",
+    "copyright": "Slow Tide",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "updates.cjs",
+      "package.json",
+      "game/**/*"
+    ],
+    "asar": true,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Artfen",
+        "repo": "fishing-game",
+        "releaseType": "release"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "game/assets/icons/icon-512.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Slow Tide",
+      "artifactName": "Slow-Tide-Setup-${arch}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.simulation-games",
+      "icon": "game/assets/icons/icon-512.png",
+      "hardenedRuntime": true,
+      "artifactName": "Slow-Tide-mac-${arch}.${ext}"
+    },
+    "dmg": {
+      "artifactName": "Slow-Tide-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Game",
+      "icon": "game/assets/icons/icon-512.png",
+      "synopsis": "A slow, quiet fishing game.",
+      "artifactName": "Slow-Tide-${arch}.${ext}",
+      "executableName": "slow-tide",
+      "syncDesktopName": true
+    }
   }
 }
