@@ -167,7 +167,7 @@ import { bendRod } from './props.js';
 import { FishFinder } from './sonar.js';
 import { bottomOf } from './sonarRead.js';
 import { setupTouch } from './touch.js';
-import { Gamepads, buttonFor, topDialog, focusables } from './gamepad.js';
+import { Gamepads, buttonFor, topDialog, focusables, padName, setPadStyle, styleFor } from './gamepad.js';
 import { levers, nearest, step, setIndex, within, capIndex, leverWords, slide, valueAt, positionOf, displayIndex, positionAtIndex, leverPositionWords, GEAR_IN } from './throttle.js';
 import { LeverUI } from './lever.js';
 import { anchorCheck, berthFor, berthAt, castOffCheck, canTow, towStep, towLineFor, TOW } from './mooring.js';
@@ -940,10 +940,13 @@ const touch = setupTouch(input);
 const pads = new Gamepads(input, {
   context: padContext,
   resolve: () => (state.gear.pack.rods[0] === state.gear.rod ? 'rod2' : 'rod1'),
-  connected: (id, standard) => {
-    if (!standard) hud.toast('Controller connected, layout unknown: some buttons may differ. The browser doesn’t know this controller’s layout, so some buttons may not be where the hints say.', 7);
-    else if (started) hud.toast('Controller connected: the hints show its buttons now.', 4);
+  // (Its buttons named as printed on it; one the browser doesn't know: set up in Settings.)
+  connected: (id, standard, family) => {
+    padNamesNow();
+    if (!standard && !pads.layout) hud.toast('Controller connected, but its layout is unknown: some buttons may be mixed up. Settings, Controls & comfort: Set up the buttons, and the game learns which is which.', 8);
+    else if (started) hud.toast(`${{ playstation: 'PlayStation controller', ps4: 'PlayStation controller', nintendo: 'Nintendo controller' }[family] || 'Controller'} connected: the hints name its buttons now.`, 4);
   },
+  layoutFor: (id) => settings.controls.padLayouts?.[id],
   disconnected: () => {
     if (input.method === 'pad') input.use(touch.active ? 'touch' : 'keys');
     if (started) hud.toast(`Controller disconnected: ${touch.active ? 'the touch controls are back' : 'the keyboard and mouse carry on'}.`, 4);
@@ -952,6 +955,13 @@ const pads = new Gamepads(input, {
   rodStick: () => fishing.expert && fishing.lineOut && !modal,
 });
 input.padLabel = (a) => pads.label(a);
+// The controller's buttons named as printed on it (✕ on a PlayStation one), or as chosen in Settings.
+function padNamesNow() {
+  setPadStyle(styleFor(settings.controls.padNames, pads.family));
+  hud.cache = {};
+  labelKeys();
+  showControls();
+}
 // The mouse pointer: gone while you play on a controller, so there's nothing on the screen but
 // the game; back the moment the mouse moves (a nudge of the desk doesn't count), the controller's
 // hints staying until you click or type. (style.css: body.no-pointer.)
@@ -1000,6 +1010,8 @@ function labelKeys() {
   for (const k of document.querySelectorAll('kbd[data-key]')) {
     k.textContent = scheme() === 'pad' ? buttonFor(k.dataset.ctx || 'play', k.dataset.key) : input.keyName(k.dataset.key);
   }
+  // (A controller's own buttons, in a line only shown on one: as printed on it.)
+  for (const k of document.querySelectorAll('kbd[data-pad]')) k.textContent = padName(k.dataset.pad);
 }
 
 // The title's few essential controls, for whichever you're using (the full list is in Settings).
@@ -1507,7 +1519,7 @@ const fishing = new Fishing(scene, boat, fx, audio, eco, {
   // A fish thrown or pulled free has the line whole: it says so.
   onSnap: (why, sp, rod, F = null) => {
     hud.flash(why === 'teeth' ? 'Snip! The line is cut.' : why === 'snag' ? 'Snagged! The line parted in the weed.' : why === 'rock' ? 'Cut on the rocks!' : why === 'thrown' ? 'It threw the hook!' : why === 'pulled' || why === 'lifted' ? 'The hook pulled free.' : why === 'kicked' ? `It kicked free${{ beach: ' in the shallows', lift: ' as it came up', hand: '', leader: ' on the leader' }[F?.landBy] ?? ' at the net'}!` : why === 'knocked' ? 'The net knocked the hook out!' : why === 'slipped' ? 'It slipped your hand!' : why === 'weeded' ? `It shed the hook in the ${F?.stuck === 'rock' ? 'rocks' : 'weed'}!` : why === 'spat' ? 'It let go!' : 'Snap! The line broke.', t, 3);
-    hud.toast(breakReason(why, sp, rod, { by: F?.thrownBy, loosened: !!F?.loosened, landBy: F?.landBy, stuck: !!F?.stuck, kind: F?.stuck, loosen: pads.active ? 'LT' : scheme() === 'touch' ? 'the stick down' : 'S' }), 9);
+    hud.toast(breakReason(why, sp, rod, { by: F?.thrownBy, loosened: !!F?.loosened, landBy: F?.landBy, stuck: !!F?.stuck, kind: F?.stuck, loosen: pads.active ? padName('LT') : scheme() === 'touch' ? 'the stick down' : 'S' }), 9);
   },
   // The line as it is (worn by hard fights, see shop.js); and the wear a fight just ended leaves.
   line: (rod) => wornLine(rod.line, wearOf(state, rod.id)),
@@ -3682,7 +3694,7 @@ function startDive(kit, entry) {
   const T = scheme() === 'touch', P = scheme() === 'pad';
   hud.chip(T
     ? '<b>Diving</b> · the stick swims where you look · drag to look · ▲ ▼ up and down'
-    : P ? `<b>Diving</b> · ${kbd('L-stick')} swim where you look · ${kbd('R-stick')} look · hold ${kbd('LT')} to look about · ${K('interact')} up · ${K('tackle')} down`
+    : P ? `<b>Diving</b> · ${kbd('L-stick')} swim where you look · ${kbd('R-stick')} look · hold ${kbd(padName('LT'))} to look about · ${K('interact')} up · ${K('tackle')} down`
       : `<b>Diving</b> · ${K('forward')}${K('back')} swim where you look · ${K('left')}${K('right')} turn · drag to look · hold the right mouse button to look about · ${K('interact')} up · ${K('tackle')} down`, 7);
   if (kit === 'free') {
     teach('freedive', `Freediving: one breath. Turn for the surface at the mark on the gauge, and swim slowly to make it last. ${T ? 'The action button' : K('cast')} fires the speargun: aim just behind the head.`, 10);
@@ -4475,7 +4487,7 @@ function engineEvent(e, E, kind) {
       audio.knock?.(diesel ? 0.5 : 0.35);
       haptics.pulse('catch');
       if (startMode() !== 'go') helmSay(P.engines > 1 && !E.engines.every((x) => x.run) ? 'One running…' : 'She’s running.', 1.6, false);
-      if (startMode() === 'full') teach('engineRunning', `She’s running: water from the telltale says the cooling’s working. Into gear gently, then trim the leg out a little (${scheme() === 'pad' ? 'RB' : K('trimUp')}) once she’s up and flying.`, 7);
+      if (startMode() === 'full') teach('engineRunning', `She’s running: water from the telltale says the cooling’s working. Into gear gently, then trim the leg out a little (${scheme() === 'pad' ? padName('RB') : K('trimUp')}) once she’s up and flying.`, 7);
       break;
     case 'stop':
       audio.knock?.(0.2);
@@ -4613,7 +4625,7 @@ function openHelm() {
   helmUI.open(k, boat.hull.name || cap(k));
   modal = 'helm';
   audio.page?.();
-  teach('helmPanel', 'The helm: battery on, kill cord on, neutral, then the key. Assisted start does it all for you. B or Esc closes it.', 9);
+  teach('helmPanel', `The helm: battery on, kill cord on, neutral, then the key. Assisted start does it all for you. ${padName('B')} or Esc closes it.`, 9);
 }
 function closeHelm() {
   if (!helmUI.isOpen) return;
@@ -5454,7 +5466,7 @@ function toggleDashFocus() {
   const on = !dashCtl.focused && dashCtl.focus(true);
   if (!on) dashCtl.focus(false);
   dashEase = on ? 0.7 : 0;
-  if (on) teach('dash', `The dashboard: ${scheme() === 'pad' ? 'the D-pad moves round it, A works a switch, B looks up again. Hold A for the key, the trim and the horn.' : 'point and click; drag or scroll the throttle. Hold for the key, the trim rocker and the horn; Tab moves round it, Enter works it, Esc looks up again.'}`, 9);
+  if (on) teach('dash', `The dashboard: ${scheme() === 'pad' ? `the D-pad moves round it, ${padName('A')} works a switch, ${padName('B')} looks up again. Hold ${padName('A')} for the key, the trim and the horn.` : 'point and click; drag or scroll the throttle. Hold for the key, the trim rocker and the horn; Tab moves round it, Enter works it, Esc looks up again.'}`, 9);
   return on;
 }
 
@@ -5555,7 +5567,7 @@ function updateEngine(dt) {
     }
     if (on) {
       haptics.hold('thruster', 0, 0.08);
-      teach('thruster', `The bow thruster: ${scheme() === 'pad' ? 'LB and RB' : `${K('trimDown')} and ${K('trimUp')}`} push her bow to port or starboard. For coming alongside and turning in a tight spot; it does little once she's moving.`, 9);
+      teach('thruster', `The bow thruster: ${scheme() === 'pad' ? `${padName('LB')} and ${padName('RB')}` : `${K('trimDown')} and ${K('trimUp')}`} push her bow to port or starboard. For coming alongside and turning in a tight spot; it does little once she's moving.`, 9);
     }
   }
   if ((P.trim || TH) && !!(dir || tilting) !== trimming) audio.trimWhine?.(!!(dir || tilting));
@@ -5564,7 +5576,7 @@ function updateEngine(dt) {
   // said once in a while, with how to put it right.
   if (P.trim && engineRunning(E) && boat.lever && (boat.legAngle || 0) >= TRIM.out && t > legWordT) {
     legWordT = t + 6;
-    hud.flash(`The leg’s tilted right up: the propeller’s out of the water. Trim it down (${scheme() === 'pad' ? 'LB' : K('trimDown')}, or the rocker on the throttle) to get going.`, t, 3.2);
+    hud.flash(`The leg’s tilted right up: the propeller’s out of the water. Trim it down (${scheme() === 'pad' ? padName('LB') : K('trimDown')}, or the rocker on the throttle) to get going.`, t, 3.2);
   }
   // A word when the throttle's pushed with the engine off.
   // (Not when she's stopped for want of fuel or charge: that's said where it runs out.)
@@ -6923,7 +6935,7 @@ function enterCar() {
   teach('driving', scheme() === 'touch'
     ? 'Driving: the stick drives and steers, the button brakes. Stop, then tap the prompt to get out or go somewhere.'
     : scheme() === 'pad'
-      ? `Driving: ${kbd('RT')} to go, ${kbd('LT')} to brake, ${kbd('L-stick')} to steer. Hold ${kbd('LT')} to reverse. Stop, then ${K('interact')} to get out or go somewhere (or ${K('tackle')}: where to?).`
+      ? `Driving: ${kbd(padName('RT'))} to go, ${kbd(padName('LT'))} to brake, ${kbd('L-stick')} to steer. Hold ${kbd(padName('LT'))} to reverse. Stop, then ${K('interact')} to get out or go somewhere (or ${K('tackle')}: where to?).`
       : `Driving: ${K('forward')}${K('back')} go, ${K('left')}${K('right')} steer, ${K('cast')} brakes. ${K('view')} changes the view. Stop, then ${K('interact')} to get out or go somewhere (or ${K('tackle')}: where to?).`, 11);
   save();
 }
@@ -6932,7 +6944,7 @@ function enterCar() {
 function exitCar(force = false) {
   if (!driving) return;
   if (Math.abs(car.speed) > 0.6 && !force) {
-    hud.flash(`Stop first (${{ touch: 'the button brakes', pad: `${kbd('LT')} brakes` }[scheme()] || `${K('cast')} brakes`}).`, t, 2);
+    hud.flash(`Stop first (${{ touch: 'the button brakes', pad: `${kbd(padName('LT'))} brakes` }[scheme()] || `${K('cast')} brakes`}).`, t, 2);
     return;
   }
   car.speed = 0;
@@ -9762,7 +9774,7 @@ function openPhoto() {
   photoFov = camera.fov;
   hud.hidden(true);
   $('photo-frame').hidden = false;
-  $('pf-hint').textContent = { touch: 'Drag to look, pinch to zoom', pad: 'R-stick to look · D-pad ↑ ↓ to zoom · A takes it · Y binoculars · B puts the camera away' }[scheme()]
+  $('pf-hint').textContent = { touch: 'Drag to look, pinch to zoom', pad: `R-stick to look · D-pad ↑ ↓ to zoom · ${padName('A')} takes it · ${padName('Y')} binoculars · ${padName('B')} puts the camera away` }[scheme()]
     || `Drag to look · mouse wheel to zoom · ${input.keyLabel('cast')} or ${input.keyLabel('photo')} takes it · ${input.keyLabel('binoculars')} binoculars · Esc puts the camera away`;
   teach('photoMode', `Photo mode: frame your picture and take it. Under the water (${scheme() === 'touch' ? 'the eye button, from a boat' : input.keyLabel('view')}) you can photograph the fish themselves. Your album is in the journal, under Memories.`, 8);
 }
@@ -9789,7 +9801,7 @@ function openBinoculars() {
   $('binocs').hidden = false;
   $('bn-name').textContent = $('bn-sci').textContent = $('bn-new').textContent = '';
   $('binocs').classList.remove('named');
-  $('bn-hint').textContent = { touch: 'Drag to look · pinch to focus further · hold something steady in the middle to name it', pad: 'R-stick to look · Y or B to lower them · hold a bird steady in the middle to name it' }[scheme()]
+  $('bn-hint').textContent = { touch: 'Drag to look · pinch to focus further · hold something steady in the middle to name it', pad: `R-stick to look · ${padName('Y')} or ${padName('B')} to lower them · hold a bird steady in the middle to name it` }[scheme()]
     || `Drag or ${input.keyLabel('forward')}${input.keyLabel('left')}${input.keyLabel('back')}${input.keyLabel('right')} to look · mouse wheel to focus further · hold a bird steady in the middle to name it · ${input.keyLabel('binoculars')} or Esc to lower them`;
   teach('binoculars', 'Binoculars: hold a bird steady in the middle and it’s named. A whale, a dolphin or a seal too; each goes in the journal’s Species pages.', 7);
 }
@@ -11258,6 +11270,7 @@ function applyControls() {
   fishing.expert = C.technique === 'expert';
   haptics.setStrength(C.vibration);
   input.setBindings(C.keys || defaultBindings());
+  setPadStyle(styleFor(C.padNames, pads.family));
   labelKeys();
   showControls();
   hud.cache = {};
@@ -11336,6 +11349,30 @@ const settingsUI = new SettingsUI(state, {
   setEconomy: (id) => {
     state.economy = id;
     save();
+  },
+  // Setting up a controller's buttons (see gamepad.js, learn): the one in use, and the step it's on.
+  pad: () => (pads.index === null ? null : { name: pads.id, standard: pads.standard, learned: !!pads.layout, step: pads.learning ? pads.learning.i : null }),
+  padLearn: () => {
+    pads.learn((i, L) => {
+      if (L) {
+        settingsUI.set('controls', 'padLayouts', { ...settings.controls.padLayouts, [pads.id]: L });
+        hud.toast('Controller set up: the game knows which button is which now.', 4);
+      }
+      settingsUI.render();
+    });
+    settingsUI.render();
+  },
+  padSkip: () => pads.skipLearning(),
+  padStop: () => {
+    pads.stopLearning();
+    settingsUI.render();
+  },
+  padForget: () => {
+    const L = { ...settings.controls.padLayouts };
+    delete L[pads.id];
+    pads.layout = null;
+    settingsUI.set('controls', 'padLayouts', L);
+    settingsUI.render();
   },
   // (A taste of the new strength, straight away.)
   feltVibration: (id) => {
@@ -11430,6 +11467,7 @@ function openSettings(tab) {
 }
 
 function closeSettings() {
+  pads.stopLearning();
   settingsUI.close();
   if (modal === 'settings') modal = null;
   if (modalBeforeSettings === 'journal') openJournal();
@@ -11706,13 +11744,13 @@ function currentHint() {
     if (car.stuckT > 1.5) return T ? 'Stuck? Tap Back on the lane' : `Stuck? ${K('interact')} puts the car back on the lane`;
     if (tanks().car <= 0) return `Out of fuel · ${T ? 'tap the prompt' : K('interact')} for what next (the jerry can, or a can from the farm up the lane)`;
     if (T) return `The stick drives and steers · the button brakes · stop to get out · ${fuelHint('car')}`;
-    if (P) return `${kbd('RT')} drive · ${kbd('LT')} brake, hold to reverse · ${LR} steer · stop, then ${K('interact')} to get out · ${fuelHint('car')}`;
+    if (P) return `${kbd(padName('RT'))} drive · ${kbd(padName('LT'))} brake, hold to reverse · ${LR} steer · stop, then ${K('interact')} to get out · ${fuelHint('car')}`;
     return `${K('forward')}${K('back')} drive and reverse · ${K('left')}${K('right')} steer · hold ${K('cast')} to brake · ${K('view')} view · stop, then ${K('interact')} to get out · ${fuelHint('car')}`;
   }
   if (dive) {
     const tool = dive.kit === 'free' ? 'shoot' : 'photograph';
     if (T) return `The stick swims where you look · drag to look · ▲ ▼ up and down · the button to ${tool}`;
-    if (P) return `${kbd('L-stick')} swim where you look · ${kbd('R-stick')} look · hold ${kbd('LT')} look about · ${K('interact')} up · ${K('tackle')} down · ${K('jog')} kick hard · ${K('cast')} ${tool}`;
+    if (P) return `${kbd('L-stick')} swim where you look · ${kbd('R-stick')} look · hold ${kbd(padName('LT'))} look about · ${K('interact')} up · ${K('tackle')} down · ${K('jog')} kick hard · ${K('cast')} ${tool}`;
     return `${UD} swim where you look · ${LR} turn · drag to look · hold right mouse to look about · ${K('interact')} up · ${K('tackle')} down · hold ${K('jog')} to kick hard · ${K('cast')} ${tool} · ${K('view')} view`;
   }
   if (cabinIn) {
@@ -11752,7 +11790,7 @@ function currentHint() {
       if (fishing.expert && (fishing.kind === 'lure' || fishing.kind === 'jig')) {
         const d = fishing.baitDepth, v = fishing.relSpeed || 0;
         const read = `Lure ${d < 0.1 ? 'on the top' : `${d.toFixed(1)} m down`} · ${v.toFixed(1)} m/s${fishing.r?.rhythm > 0.3 ? ` · walking the dog ${'●'.repeat(Math.round(fishing.r.rhythm * 6))}` : ''}`;
-        const how = P ? `${kbd('R-stick')} the rod (up lifts, down drops, across sweeps) · ${kbd('RT')} reel` : `${UD} the rod · hold ${space} to reel`;
+        const how = P ? `${kbd('R-stick')} the rod (up lifts, down drops, across sweeps) · ${kbd(padName('RT'))} reel` : `${UD} the rod · hold ${space} to reel`;
         return `${read} · ${how}`;
       }
       if (fishing.status === 'curious') return 'Something is curious about your bait. Keep still…';
@@ -11791,7 +11829,7 @@ function currentHint() {
     }
     case 'reeling': {
       const F = fishing.fight;
-      const drag = `${T ? 'stick up/down' : UD} drag: ${DRAG_NAMES[F?.drag ?? 2]}${P ? ` (${kbd('LT')} eases it)` : ''}`;
+      const drag = `${T ? 'stick up/down' : UD} drag: ${DRAG_NAMES[F?.drag ?? 2]}${P ? ` (${kbd(padName('LT'))} eases it)` : ''}`;
       if (F?.selfHooked && !F.pickedUp) return T ? 'Fish on! It hooked itself on the rig. Hold the button to pick up the rod and play it' : `Fish on! It hooked itself on the rig. Hold ${space} to pick up the rod and play it`;
       // (Beaten and alongside: winding now tears the hook out. The one thing to do is net it; or, too
       // big for the net, land it as the shore allows: see landing.js.)
@@ -11865,7 +11903,7 @@ function currentHint() {
     const motor = kind === 'kayak' ? ` · ${T ? 'Raise motor to paddle' : `${K('motor')} raise it and paddle`}` : kind === 'sail' ? ` · ${T ? 'Raise the outboard on the lever' : `${K('outboard')} outboard up`}` : '';
     if (T) return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · the stick: up or down ${smooth ? 'for the throttle' : 'a notch'}, across to steer · Stop on the lever · ${fuel}`;
     // (The trawler: her autopilot and bow thruster.)
-    const aids = boat.hull.autopilot ? ` · ${K('spotlock')} autopilot${pilot.on ? ` (${degrees(pilot.set)}°)` : ''} · ${P ? 'LB RB' : `${K('trimDown')}${K('trimUp')}`} thruster` : '';
+    const aids = boat.hull.autopilot ? ` · ${K('spotlock')} autopilot${pilot.on ? ` (${degrees(pilot.set)}°)` : ''} · ${P ? `${padName('LB')} ${padName('RB')}` : `${K('trimDown')}${K('trimUp')}`} thruster` : '';
     if (P) return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · ${kbd('L-stick')} ↕ ${notch}, ↔ ${pilot.on ? 'its course' : 'steer'} · ${K('neutral')} stop · ${K('anchor')} anchor${motor}${aids} · ${fuel}`;
     return `${kind === 'kayak' ? 'Motor' : 'Throttle'}: ${word} · ${UD} ${notch} · ${LR} ${pilot.on ? 'its course' : 'steer'} · ${K('neutral')} stop · ${K('anchor')} anchor${motor}${aids} · ${fuel}`;
   }

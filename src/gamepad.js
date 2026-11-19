@@ -1,5 +1,6 @@
-// Game controllers (an Xbox controller, or any the browser reports in the standard layout),
-// through the browser's Gamepad API. Nothing here plays the game itself: buttons press the same
+// Game controllers (an Xbox, PlayStation or Nintendo controller, or any the browser reports in the
+// standard layout; any other once its buttons are set up in Settings), through the browser's
+// Gamepad API. Nothing here plays the game itself: buttons press the same
 // actions the keyboard does (see input.js), the left stick writes the same stick the touch
 // controls do, and the right stick looks around like dragging the mouse. Which action a button
 // presses depends on what you're doing (walking or rowing, a line in the water, a fish on, the
@@ -8,6 +9,10 @@
 // In menus the D-pad (or the left stick) moves between buttons, A presses, B goes back, the
 // bumpers change tabs, and the right stick scrolls. A controller is never needed: keyboard and
 // mouse and touch carry on as ever, and whichever you used last is the one the hints show.
+//
+// The buttons are known by where they are (the standard layout's): A is the bottom face button
+// whatever is printed on it. The hints name them as they're printed on the controller in your
+// hands (PAD_NAMES: ✕ on a PlayStation controller, B on a Nintendo one).
 
 export const BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, MENU: 9, L3: 10, R3: 11, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
 const NAMES = Object.keys(BTN);
@@ -15,6 +20,43 @@ export const GLYPH = {
   A: 'A', B: 'B', X: 'X', Y: 'Y', LB: 'LB', RB: 'RB', LT: 'LT', RT: 'RT', VIEW: 'View', MENU: 'Menu',
   L3: 'L3', R3: 'R3', UP: 'D-pad ↑', DOWN: 'D-pad ↓', LEFT: 'D-pad ←', RIGHT: 'D-pad →',
 };
+
+// The names printed on each kind of controller, button by button (by where it is: A is the bottom
+// face button). The game's own names for them are an Xbox controller's (GLYPH).
+const DPAD = { UP: 'D-pad ↑', DOWN: 'D-pad ↓', LEFT: 'D-pad ←', RIGHT: 'D-pad →' };
+export const PAD_NAMES = {
+  xbox: GLYPH,
+  playstation: { A: '✕', B: '○', X: '□', Y: '△', LB: 'L1', RB: 'R1', LT: 'L2', RT: 'R2', VIEW: 'Create', MENU: 'Options', L3: 'L3', R3: 'R3', ...DPAD },
+  // (The PS4's DualShock: its Share button where the PS5's Create is.)
+  ps4: { A: '✕', B: '○', X: '□', Y: '△', LB: 'L1', RB: 'R1', LT: 'L2', RT: 'R2', VIEW: 'Share', MENU: 'Options', L3: 'L3', R3: 'R3', ...DPAD },
+  // (A Nintendo controller has A and B, X and Y the other way round: its B is at the bottom.)
+  nintendo: { A: 'B', B: 'A', X: 'Y', Y: 'X', LB: 'L', RB: 'R', LT: 'ZL', RT: 'ZR', VIEW: '−', MENU: '+', L3: 'L3', R3: 'R3', ...DPAD },
+};
+export const PAD_STYLES = ['auto', 'xbox', 'playstation', 'nintendo'];
+
+// What kind of controller it is, from the name the browser gives it (its maker's USB id among it:
+// 054c Sony, 057e Nintendo). Anything else is named as an Xbox controller, as most are laid out.
+export function familyOf(id = '') {
+  const s = String(id).toLowerCase();
+  if (/054c|dualsense|dualshock|playstation|\bps[345]\b/.test(s) || (/^wireless controller/.test(s))) return /05c4|09cc|0ba0|dualshock|\bps4\b/.test(s) ? 'ps4' : 'playstation';
+  if (/057e|nintendo|switch|joy-con|pro controller/.test(s)) return 'nintendo';
+  return 'xbox';
+}
+// The names to show: the controller's own (auto), or the kind chosen in Settings.
+export function styleFor(setting, family) {
+  if (setting === 'playstation') return family === 'ps4' ? 'ps4' : 'playstation';
+  return PAD_NAMES[setting] ? setting : PAD_NAMES[family] ? family : 'xbox';
+}
+let style = 'xbox';
+export function setPadStyle(s) { style = PAD_NAMES[s] ? s : 'xbox'; }
+export const padStyle = () => style;
+// A button's name (as the game calls it, an Xbox controller's: 'LT', 'A', 'D-pad →'), as it's
+// printed on the controller in use. Anything else (the sticks) as it is.
+const BY_GLYPH = Object.fromEntries(Object.entries(GLYPH).map(([k, v]) => [v, k]));
+export function padName(n) {
+  const k = BY_GLYPH[n];
+  return k ? PAD_NAMES[style][k] : n;
+}
 
 // What each button does, by context. 'rodswap' is the other rod (the game says which); a
 // button that isn't listed does nothing there.
@@ -85,13 +127,92 @@ export function deadzone(x, y, dead = 0.2) {
 }
 const trigger = (b) => (b ? (typeof b.value === 'number' ? b.value : b.pressed ? 1 : 0) : 0);
 
+/* ---------------- a controller the browser doesn't know ---------------- */
+
+// A controller the browser reports in a layout of its own (not 'standard': a DualSense in some
+// browsers, an older or unusual pad): which of its buttons and axes is which, learned in Settings
+// (Set up the buttons: press each as it's asked for), and kept for it by its name. Each button's
+// source is ['b', i] (its button i), ['a', i, sign, rest] (its axis i pushed that way from where it
+// rests: a trigger, or anything reported as an axis), or ['h', i, dir] (a hat switch on axis i, the
+// way many report a D-pad: one axis, eight directions). A stick's is ['a', i, sign].
+export const LEARN = [
+  ['A', 'Press {}, the bottom face button'], ['B', 'Press {}, the right face button'], ['X', 'Press {}, the left face button'], ['Y', 'Press {}, the top face button'],
+  ['UP', 'Press up on the D-pad'], ['DOWN', 'Press down on the D-pad'], ['LEFT', 'Press left on the D-pad'], ['RIGHT', 'Press right on the D-pad'],
+  ['LB', 'Press {}, the left bumper'], ['RB', 'Press {}, the right bumper'], ['LT', 'Press {}, the left trigger'], ['RT', 'Press {}, the right trigger'],
+  ['VIEW', 'Press {}, the small button left of the middle'], ['MENU', 'Press {}, the small button right of the middle'],
+  ['L3', 'Press the left stick in ({})'], ['R3', 'Press the right stick in ({})'],
+  ['LX', 'Push the left stick right'], ['LY', 'Push the left stick up'], ['RX', 'Push the right stick right'], ['RY', 'Push the right stick up'],
+];
+const STICKS = ['LX', 'LY', 'RX', 'RY'];
+// (The words for a step, with the button's name as printed on the controller.)
+export const learnWords = (i) => (LEARN[i] ? LEARN[i][1].replace('{}', padName(GLYPH[LEARN[i][0]] || '')) : '');
+
+// A hat switch's reading: -1 up, then round clockwise in steps of 2/7 to 1 (up and left); at rest,
+// outside that (about 1.29). Its direction, 0 to 7 (0 up, 2 right, 4 down, 6 left), or -1.
+export function hatDir(v) {
+  if (typeof v !== 'number' || !(Math.abs(v) <= 1.05)) return -1;
+  return Math.round(((v + 1) * 7) / 2) & 7;
+}
+
+const isSrc = (s) => Array.isArray(s) && Number.isInteger(s[1]) && s[1] >= 0 && s[1] < 64 && (
+  s[0] === 'b' ? s.length === 2
+    : s[0] === 'h' ? s.length === 3 && Number.isInteger(s[2]) && s[2] >= 0 && s[2] < 8
+      : s[0] === 'a' && (s[2] === 1 || s[2] === -1) && (s.length === 3 || (s.length === 4 && [-1, 0, 1].includes(s[3]))));
+// A learned layout as kept in the settings, checked (anything odd left out; nothing usable: null).
+export function cleanLayout(L) {
+  if (!L || typeof L !== 'object') return null;
+  const buttons = {}, sticks = {};
+  for (const n of NAMES) if (isSrc(L.buttons?.[n])) buttons[n] = L.buttons[n].slice();
+  for (const n of STICKS) if (isSrc(L.sticks?.[n]) && L.sticks[n][0] === 'a') sticks[n] = L.sticks[n].slice(0, 3);
+  return Object.keys(buttons).length || Object.keys(sticks).length ? { buttons, sticks } : null;
+}
+
+// How far one source is pressed, 0 to 1.
+function sourceValue(gp, s) {
+  if (!s) return 0;
+  if (s[0] === 'b') return trigger(gp.buttons[s[1]]);
+  const v = gp.axes[s[1]];
+  if (typeof v !== 'number') return 0;
+  if (s[0] === 'h') {
+    const d = hatDir(v);
+    // (Its own direction, or either side of it: up counts with up-and-left and up-and-right.)
+    return d >= 0 && Math.min((d - s[2] + 8) % 8, (s[2] - d + 8) % 8) <= 1 ? 1 : 0;
+  }
+  const rest = s[3] || 0;
+  return Math.max(0, Math.min(1, (s[2] * (v - rest)) / (1 + Math.abs(rest))));
+}
+
+// A controller's state read as the standard layout: its buttons ({ pressed, value } each, in
+// BTN's order) and its four stick axes. family: a PlayStation controller's touchpad, pressed,
+// counts as its Create (Share) button: the map, as in its own games.
+export function readPad(gp, layout = null, family = 'xbox') {
+  if (!layout) {
+    const sony = family === 'playstation' || family === 'ps4';
+    if (sony && gp.buttons[17]?.pressed && !gp.buttons[BTN.VIEW]?.pressed) {
+      const b = [...gp.buttons];
+      b[BTN.VIEW] = gp.buttons[17];
+      return { b, ax: gp.axes };
+    }
+    return { b: gp.buttons, ax: gp.axes };
+  }
+  const b = NAMES.map((n) => {
+    const v = sourceValue(gp, layout.buttons[n]);
+    return { pressed: v > 0.5, value: v };
+  });
+  const ax = STICKS.map((n) => {
+    const s = layout.sticks[n], v = s ? gp.axes[s[1]] : 0;
+    return typeof v === 'number' ? v * (s ? s[2] : 0) : 0;
+  });
+  return { b, ax };
+}
+
 // The button an action is on in a context ('' if none there). 'rod1'/'rod2' are the swap.
 export function buttonFor(ctx, action) {
-  if (AXES[action]) return AXES[action];
+  if (AXES[action]) return padName(AXES[action]);
   const find = (map) => NAMES.find((k) => map[k] === action || (map[k] === 'rodswap' && (action === 'rod1' || action === 'rod2')));
   // (Not on a button just here: where it is when you're walking about, or fishing.)
   const n = find(MAPS[ctx] || PLAY) || find(PLAY) || find(MAPS.fish) || find(MAPS.catch);
-  return n ? GLYPH[n] : '';
+  return n ? padName(GLYPH[n]) : '';
 }
 
 export class Gamepads {
@@ -101,6 +222,10 @@ export class Gamepads {
     this.input = input;
     this.h = hooks;
     this.index = null;      // the controller in use
+    this.id = '';           // (its name, as the browser gives it)
+    this.family = 'xbox';   // what kind it is (see familyOf)
+    this.layout = null;     // its buttons learned in Settings, if the browser doesn't know them
+    this.learning = null;   // (setting up its buttons: see learn)
     this.standard = true;
     this.was = [];          // which buttons were down last time
     this.held = new Map();  // button → the action it pressed (to release the same one)
@@ -127,10 +252,74 @@ export class Gamepads {
   connect(gp) {
     if (!gp || this.index !== null) return;
     this.index = gp.index;
+    this.id = gp.id || '';
+    this.family = familyOf(this.id);
+    this.layout = cleanLayout(this.h.layoutFor?.(this.id));
     this.standard = gp.mapping === 'standard';
     // (Whatever is held as it connects doesn't count until it's let go.)
-    this.was = NAMES.map((n, i) => !!gp.buttons[i]?.pressed);
-    this.h.connected?.(gp.id, this.standard);
+    const { b } = readPad(gp, this.layout, this.family);
+    this.was = NAMES.map((n, i) => !!b[i]?.pressed);
+    this.h.connected?.(this.id, this.standard, this.family);
+  }
+
+  // Setting up its buttons (Settings): each asked for in turn (LEARN), the first button pressed or
+  // axis pushed well over taken for it, and let go of before the next. Nothing in the game is
+  // pressed meanwhile. onStep(i, layout): the step it's on now; at the end, the layout learned.
+  learn(onStep) {
+    this.releaseAll();
+    this.learning = { i: 0, rest: null, wait: true, got: { buttons: {}, sticks: {} }, onStep };
+  }
+
+  stopLearning() {
+    this.learning = null;
+  }
+
+  // (Not this one: on to the next.)
+  skipLearning() {
+    const S = this.learning;
+    if (!S) return;
+    S.i++;
+    S.wait = true;
+    this.learnNext();
+  }
+
+  learnNext() {
+    const S = this.learning;
+    if (S.i < LEARN.length) return S.onStep?.(S.i, null);
+    this.learning = null;
+    this.layout = cleanLayout(S.got);
+    S.onStep?.(S.i, this.layout);
+  }
+
+  learnTick(gp) {
+    const S = this.learning, ax = [...gp.axes];
+    // (Where its axes rest when it starts: a trigger's at -1 on some, a hat's outside ±1.)
+    if (!S.rest) S.rest = ax.slice();
+    const down = gp.buttons.findIndex((x) => x?.pressed || trigger(x) > 0.5);
+    // (An axis pushed well over; a hat switch, any direction at all: left, from rest, is only 4/7.)
+    const moved = ax.findIndex((v, i) => typeof v === 'number' && (Math.abs(S.rest[i] ?? 0) > 1.05 ? hatDir(v) >= 0 : Math.abs(v - (S.rest[i] ?? 0)) > 0.6));
+    if (S.wait) {
+      if (down < 0 && moved < 0) S.wait = false;
+      return;
+    }
+    const name = LEARN[S.i][0], stick = STICKS.includes(name);
+    let src = null;
+    if (!stick && down >= 0) src = ['b', down];
+    else if (moved >= 0) {
+      const v = ax[moved], r = S.rest[moved] ?? 0, sign = Math.sign(v - r);
+      if (Math.abs(r) > 1.05) src = stick || hatDir(v) < 0 ? null : ['h', moved, hatDir(v)];
+      // (A stick: its axis, the way that reads right, or down, as the standard layout does.)
+      else if (stick) src = ['a', moved, name.endsWith('Y') ? -sign : sign];
+      else src = ['a', moved, sign, Math.max(-1, Math.min(1, Math.round(r)))];
+    }
+    if (!src) return;
+    // (One already taken for another button or stick isn't taken again.)
+    const key = (s) => s.slice(0, 3).join();
+    if (stick ? Object.values(S.got.sticks).some((s) => s[1] === src[1]) : Object.values(S.got.buttons).some((s) => key(s) === key(src))) return;
+    (stick ? S.got.sticks : S.got.buttons)[name] = src;
+    S.i++;
+    S.wait = true;
+    this.learnNext();
   }
 
   pad() {
@@ -173,7 +362,14 @@ export class Gamepads {
   poll(dt) {
     const gp = this.pad();
     if (!gp) return;
-    const b = gp.buttons, ax = gp.axes;
+    if (this.learning) {
+      this.learnTick(gp);
+      // (Every button counts as held until it's let go, so the last one pressed for the set-up
+      // doesn't press anything as it ends.)
+      this.was = NAMES.map(() => true);
+      return;
+    }
+    const { b, ax } = readPad(gp, this.layout, this.family);
     const ctx = this.h.context();
     if (ctx !== this.ctx) {
       // Changing what you're doing lets go of whatever was held for the old one, unless the
