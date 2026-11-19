@@ -957,4 +957,52 @@ included). The full table, with each LICENSE file read, is in the two research n
   wind, heading into it), the jet ski stands on her tail at about 6 m/s, 38° bow-up on main (40°
   now), and never gets onto the plane; the watersports test counts those hops as her leaving the
   crests. Her jet pushes on its full turning arm, where the outboards' is scaled to a real
-  propeller's (PROP_LEVER).
+  propeller's (PROP_LEVER). (Done since: see B3's follow-up, below.)
+
+- **B3's follow-up: the jet ski onto the plane in a sea.** Launched flat out from rest into a
+  lively sea she stood on her tail and never got onto the plane: her bow up to 38–41°, hopping
+  along at 6 to 7 m/s in short leaps off the water up to 39° bow-up, which the water-sports test
+  counted as her jumping off the crests at speed. On a calm sea she reared to 26–29° from rest
+  before levelling out on the plane. (As B3's hump region, above, found.) Two things held her back:
+
+  - **Her jet's push on its full arm.** The outboards' push turns her bow up on a real
+    propeller's arm (PROP_LEVER, B3), since the game's push is bigger than a real one's; the jet's
+    had no such scaling, so it twisted her bow up far harder than a real jet does, and B3's
+    balance of her resistance against her push on the plane (hydro.js, `down`) didn't apply to
+    her either. Now her jet's push is on PROP_LEVER's arm, as an outboard's is. That alone stops
+    the rearing (from rest on a calm sea, 7.7–8.5°), but in the lively sea she still made only
+    7.1–7.9 m/s, her jumps at 7.2–7.6 m/s (the median).
+  - **A seaway's resistance, as the rule for the fleet put it on her.** It grows with the square
+    of the waves' height, over her length, and with her speed (SEAWAY): set for the RIB, at 3.1 m
+    she's the shortest motorboat. With the lever alone, in the lively sea at 7 m/s, it came to
+    7.9 m/s² against her own hull resistance's 3.3 (her jet's push, its intake in the water
+    two-thirds of the time, 11.4; in one sea, averaged over 10 s); for the RIB in the same sea
+    it's 0.6 of her hull's, the console's 0.8. Two changes: it no longer acts while a boat is
+    clear of the water, off a crest (it braked a jumping boat in mid-air as hard as in the
+    water); and a hull can take a share of it (`seaway`), the jet ski 0.3, set so a lively sea
+    costs her about the share of her calm speed it costs the RIB. That figure is a calibration,
+    not a measurement.
+
+  Measured flat out from rest for 20 s, heading south-west into the sea (the wind 10 m/s from
+  225°, the lively preset), from (0, 400) as the tests had her, in five different seas (five
+  starting times); her speed over the last 10 s; "running", her bow-up angle on the water more
+  than a third of a second from leaving it or landing:
+
+  | | Before | The lever alone | Now |
+  | --- | --- | --- | --- |
+  | Her speed | 5.7–6.6 m/s | 7.1–7.9 m/s | 11.0–11.7 m/s |
+  | Her jumps | 10 to 13, at 5.2–6.8 m/s (median 6.2–6.4) | 6 to 13, at 6.3–7.7 m/s (median 7.2–7.6) | 13 to 15, at 7.0–12.7 m/s (median 11.1–11.8) |
+  | Bow-up at most | 38–41° | 21–24° | 24–35°, only leaving the water or landing |
+  | Bow-up running | up to 30–36° | up to 17–18° | up to 11–14° |
+  | Over 20° on the water | 4.7–7.5 s | 0.1–0.6 s | 0.3–1.9 s, all within a third of a second of a crest |
+  | Launched on a calm sea | 26–29° bow-up, then 16.0 m/s | 7.7–8.5°, then 16.1 m/s | 7.7–8.5°, then 16.3 m/s |
+
+  Fully on the plane (a speed coefficient of 3 on her planing beam) is 9.3 m/s for her. The rest
+  of the fleet, flat out for 30 s in the same lively sea (their speed over the last 20 s): the
+  skiff, the bass boat and the centre console never leave the water and are as they were (71, 68
+  and 71% of their calm speeds); the RIB, off the water for about 3 s of it, 13.5 m/s where she
+  made 13.2 (75% of her calm speed, was 73%); the jet ski 11.7 m/s, 72% (it was 6.8, 42%). In the
+  sportboats test's rough sea the RIB makes 15.5–16.2 m/s in four seas, where she made 15.4–15.5,
+  her bow up at most 12–17° (12–18°) and off the water 0.6–2.4 s of the 25 watched (0.6–2.3). The
+  other boats' calm speeds and the Marine Works' trials (run on a flat calm) are unchanged; the
+  jet ski isn't in the trials.

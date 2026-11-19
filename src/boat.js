@@ -275,6 +275,11 @@ const HULLS = {
     // steers by turning its nozzle, so only under power.
     motor: { thrust: 18, astern: 2.2, tilt: 0.25, scale: 1, jet: true, cowl: '#20262c', band: '#e8b820' },
     drag: [0.2, 0.05], helm: 1.7, jumps: true, surge: 0.6, carve: 0.6,
+    // (What a seaway costs her, as a share of the rule the rest of the fleet goes by (see SEAWAY):
+    // set so a lively sea slows her about as much as it does the RIB. The rule's 1/length, set
+    // for the RIB, put it on her at 3.1 m at more than twice her own hull resistance, and held
+    // her to 7 m/s, off the plane. A calibration, not a measured figure.)
+    seaway: 0.3,
     lantern: [0, -1.2], stow: [0, 0.6, -1],
     noise: 1.2, steady: 0.7, windage: 0.002, ride: 6,
     wind: [1.5, 0.5, 0.6], // (B3) side above the water m², end-on share, its middle's height m
@@ -695,10 +700,10 @@ function paint(geo, color) {
 }
 // A direction in her own frame, turned by an angle (rad) from straight ahead towards port.
 const dirAt = (a) => [Math.sin(a), 0, Math.cos(a)];
-// How much of an outboard's depth below her centre of gravity turns her bow up as it pushes (see
-// HydroBody.thrusters' lever): the game's push is bigger than a real propeller's (it makes up for
-// the hull resistance the game gives her), so its turning arm is scaled to a real one's. At full
-// lever a fast boat stood on her tail in a sea; at this she runs as a real one does.
+// How much of an outboard's (or a jet's) depth below her centre of gravity turns her bow up as it
+// pushes (see HydroBody.thrusters' lever): the game's push is bigger than a real propeller's (it
+// makes up for the hull resistance the game gives her), so its turning arm is scaled to a real
+// one's. At full lever a fast boat stood on her tail in a sea; at this she runs as a real one does.
 const PROP_LEVER = 0.3;
 // (B4) Prop walk: a propeller pushes sideways as well as ahead, its blades at the bottom of their
 // sweep biting deeper water than at the top, so a right-handed one (turning clockwise seen from
@@ -4811,12 +4816,15 @@ export class Boat {
       }
       // A seaway slows her: meeting the seas, slamming and the propeller breaking out on the
       // crests all cost speed, the more the bigger the waves where she is (the bays' shelter
-      // counts). Without it a fast boat would go quicker in a sea than in a calm.
-      if (!dead && !troll && !E && Math.abs(vf) > 3) {
+      // counts). Without it a fast boat would go quicker in a sea than in a calm. (Not while she's
+      // clear of the water, off a crest: there's no sea to meet in the air. It braked a jumping
+      // boat in mid-air as hard as in the water.)
+      if (!dead && !troll && !E && Math.abs(vf) > 3 && !(b.dryT > 0)) {
         const sh = shelterAt(this.pos.x, this.pos.z), Hs = conditions.sea.swell * sh[0] + conditions.sea.chop * sh[1];
         // (Only once she's going fast enough to slam: trolling and creeping along, waves cost little.)
         // (A four-bladed propeller grips better as she pitches through it: see engines.js.)
-        const seaway = SEAWAY * ((Hs * Hs) / H.L) * vf * m * smoothstep(3, 9, Math.abs(vf)) * (1 - (this.motorSpec?.grip || 0));
+        // (H.seaway: a share of it, where the rule above, set for the RIB, overstates it: see the jet ski.)
+        const seaway = SEAWAY * (H.seaway ?? 1) * ((Hs * Hs) / H.L) * vf * m * smoothstep(3, 9, Math.abs(vf)) * (1 - (this.motorSpec?.grip || 0));
         if (seaway) b.forces.push({ f: [-this.fwd.x * seaway, 0, -this.fwd.z * seaway], p: b.toWorld(b.model.cg, [0, 0, 0]) });
       }
       const keel0 = H.keel(0), stern = zAt(H, 0);
@@ -4836,8 +4844,11 @@ export class Boat {
         // The kayak's: a fixed push from its stern; its little rudder steers (once she has way on).
         b.thrusters.push({ p: [0, H.keel(0.02) - 0.18, zAt(H, 0.02)], d: [0, 0, 1], f, vent: 0.05 });
       } else if (M.jet) {
-        // A jet: it steers by turning its nozzle, so it only turns while it's pushing.
-        b.thrusters.push({ p: [0, keel0 - 0.03, stern + 0.3], d: dirAt(b.rudder * 0.55), f, vent: 0.04 });
+        // A jet: it steers by turning its nozzle, so it only turns while it's pushing. (Its push
+        // is the game's, bigger than a real jet's, so its turning arm is scaled as an outboard's:
+        // see PROP_LEVER. On its full arm, launched flat out from rest, she reared to 27° in a calm
+        // and stood on her tail at 38° in a lively sea, hopping along at 6 m/s.)
+        b.thrusters.push({ p: [0, keel0 - 0.03, stern + 0.3], d: dirAt(b.rudder * 0.55), f, vent: 0.04, lever: PROP_LEVER });
       } else if (M.inboard) {
         // Twin screws under her stern, rudders behind them; slow, one ahead and one astern bring
         // her round on the spot (the skipper easing the inside one back as far as it balances the
