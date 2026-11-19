@@ -15,6 +15,7 @@ const { bestSheet } = await import('../src/sailing.js');
 const M = await import('../src/mooring.js');
 const F = await import('../src/fuel.js');
 const { LEVERS } = await import('../src/throttle.js');
+const { PLANE_CV, G } = await import('../src/hydro.js');
 
 const scene = new THREE.Scene();
 let clock = 0;
@@ -107,21 +108,37 @@ test('the jet ski: quick, steered by its jet, a light touch on the lever', () =>
 test('the jet ski leaves the crests at speed in a lively sea, and stays on a calm one', () => {
   // (Heading into the sea, as you would to jump it: the wind from the south-west, she runs
   // south-west into the waves it raises. Across them, she'd ride along their crests.)
+  // Flat out from rest for 20 s: her speed each time she leaves the water, her bow-up angle on
+  // the water. (From 150 m back along the line from the other tests' spot, so that on the plane
+  // she stays in open, deep water: from there the shallows begin 175 m on.)
   const ride = (preset, speed) => {
     wind(speed, preset, 225);
-    const j = at('jetski', -Math.PI * 0.25);
-    let jumps = 0, was = false;
+    const j = new Boat(scene, { kind: 'jetski' });
+    j.place(106, 294, -Math.PI * 0.25);
+    const rec = [];
     for (let i = 0; i < 30 * 20; i++) {
       clock += 1 / 30;
       conditions.time = clock;
       j.update(1 / 30, clock, 1, 0, 0);
-      if (j.air && !was) jumps++;
-      was = j.air;
+      rec.push({ air: j.air, v: j.forwardSpeed, up: (-j.pitch * 180) / Math.PI });
     }
-    return jumps;
+    const jumps = rec.filter((r, i) => r.air && !rec[i - 1]?.air).map((r) => r.v).sort((a, b) => a - b);
+    // (Running: on the water and more than a third of a second from leaving it or landing.)
+    const running = rec.filter((r, i) => !rec.slice(Math.max(0, i - 10), i + 11).some((q) => q.air));
+    return { jumps, up: Math.max(...rec.map((r) => r.up)), running: Math.max(...running.map((r) => r.up)) };
   };
-  assert.ok(ride('lively', 10) >= 3, 'off the crests');
-  assert.equal(ride('calm', 2), 0, 'a calm sea: no jumps');
+  // Fully on the plane: her speed coefficient on her planing beam at least 3 (see hydro.js PLANE_CV).
+  const planing = PLANE_CV[1] * Math.sqrt(G * new Boat(scene, { kind: 'jetski' }).phys.model.planeBeam);
+  const lively = ride('lively', 10);
+  const say = `${lively.jumps.length} jumps at ${lively.jumps.map((v) => v.toFixed(1)).join(', ')} m/s`;
+  assert.ok(lively.jumps.length >= 3, `off the crests: ${say}`);
+  // (Her jet's push turned her bow up on its full arm: she stood on her tail, 30 to 38° up, and
+  // hopped along at 6 m/s.)
+  assert.ok(lively.jumps[lively.jumps.length >> 1] > planing, `at planing speed (${planing.toFixed(1)} m/s): ${say}`);
+  assert.ok(lively.running < 20, `running between the crests, bow up at most ${lively.running.toFixed(0)}°`);
+  const calm = ride('calm', 2);
+  assert.equal(calm.jumps.length, 0, 'a calm sea: no jumps');
+  assert.ok(calm.up < 15, `launched from rest on a calm sea, bow up at most ${calm.up.toFixed(0)}° (it was 27 to 30°)`);
 });
 
 test('both are kept in the save, where you left them', async () => {
