@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Lamp } from './lamps.js';
 import { heightAt } from './world/terrain.js';
 import { mergeParts, mat, clamp, smoothstep, glowTexture } from './util.js';
 import { buildLanternModel } from './props.js';
@@ -366,7 +367,7 @@ export class CampView {
     this.models = new Map();
     this.preview = new Preview(scene);
     // One light for the camp you're nearest (the lantern after dark).
-    this.light = new THREE.PointLight('#ffb866', 0, 14, 1.6);
+    this.light = new Lamp('#ffb866', 0, 14, 1.6);
     scene.add(this.light);
   }
 

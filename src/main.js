@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { LampPool } from './lamps.js';
 import { Input, defaultBindings } from './input.js';
 import { SettingsUI, WEATHER_MODES } from './settings.js';
 import { loadGame, saveGame, newGame, saveStatus, parseSave, importSave, exportText, stopSaving, SAVE_KEY, adoptJournal, slots } from './save.js';
@@ -172,7 +173,7 @@ import { anchorCheck, berthFor, berthAt, castOffCheck, canTow, towStep, towLineF
 import { Rope } from './rope.js';
 import { BOAT_PER_S, TANKS, addFuel, isPetrol, PASSAGE_FUEL, passageFuel, level as fuelLevel, room as fuelRoom, burnCar, burnBoat, burnKayak, burnElec, chargeElec, elecLevel, elecWords, chargeBattery, BATTERY_PER_HOUR, driveBy, fill, pour, rescue, moveCan, tankWords, batteryWords, canWords, litres, low as fuelLow } from './fuel.js';
 import { STEPS as TRIP_STEPS, stepOf, stepNumber, complete as completeStep, start as startGuide, words as guideWords, isNewGame, placeAt, FISH_SPOTS } from './firstTrip.js';
-import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality } from './quality.js';
+import { PRESETS, CHOICES, FrameWatch, lowerLevel, startingLevel, resolveQuality, budgetRatio } from './quality.js';
 import { Post } from './post.js';
 import { Diver, Shot, buildGun } from './diver.js';
 import { stepComfort, effectsOf, needsOf, dressFor, drink as drinkFrom, refill, eatRoll, packRolls, mealDrink, CLOTHES, CLOTHES_IDS, BOTTLE, ROLLS, feelsLike } from './comfort.js';
@@ -263,6 +264,9 @@ const post = new Post(renderer);
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0xd5ebf1, 0.0021);
+// (The few real lights every lamp is lit by, a fixed number so no shader is ever rebuilt for a
+// lamp coming into view: see lamps.js.)
+const lampPool = new LampPool(scene);
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 2500);
 
 // One shared underwater world: habitat → plants, rocks and fish homes → the fish themselves.
@@ -423,6 +427,7 @@ function watchRegion() {
   if (r !== region) setRegion(r);
 }
 const world = buildWorld(scene, renderer, habitat);
+world.onBuilt = (o) => warmShaders(o); // (built later: its shaders warmed as it's made)
 // Your own camps (see campsite.js): drawn by CampView, and solid underfoot like everything else.
 state.camps = Array.isArray(state.camps) ? state.camps : [];
 // Where your outing gear is (see outing.js): one record, made to agree with your camps and pack.
@@ -4803,7 +4808,9 @@ function syncStrays() {
   for (const [id, a] of want) {
     if (strays.has(id)) continue;
     const k = `${a.obj.boat}:${a.obj.name}`;
+    const fresh = !strayCache[k];
     const b = (strayCache[k] ||= new Boat(scene, { kind: a.obj.boat, look: { name: a.obj.name, paint: '#efe9dc', stripe: '#7a2430', bottom: '#3a4a5a' } }));
+    if (fresh) warmShaders(b.group); // (her shaders built now, before she's in sight)
     b.setRower(false);
     // (G6) Taking water: a plank sprung below her waterline, and the water in her as the job last
     // saw it; once she's on your line, a rag in the plank and your bucket going (see leakHelp).
@@ -11115,15 +11122,30 @@ const oceanText = () => {
   if (G.ocean === 'full') return 'This browser can’t work the short waves out on its graphics card, so it’s Simple.';
   return auto ? 'Auto: Simple on this device.' : 'Simple.';
 };
+// How many pixels to draw for the window as it is now (the preset's, within a 4K screen's worth:
+// see budgetRatio), for the last preset applied; again whenever the window changes size.
+let pixelsFor = null;
+function fitPixels() {
+  const q = pixelsFor, was = renderer.getPixelRatio();
+  if (q) renderer.setPixelRatio(Math.max(0.5, budgetRatio(Math.max(q.minRatio, Math.min(window.devicePixelRatio, q.pixelRatio)), innerWidth, innerHeight) * q.scale));
+  renderer.setSize(innerWidth, innerHeight, false);
+  // (A new size can mean a new ratio: what's drawn to it follows.)
+  const pr = renderer.getPixelRatio();
+  if (pr !== was) {
+    world.setPixelRatio(pr);
+    glow.setPixelRatio(pr);
+    underwater.setPixelRatio(pr);
+  }
+}
 function applyQuality() {
   const G = settings.graphics;
   quality.choice = G.preset;
   state.quality = G.preset;
   const q = resolveQuality(qualityLevel(), G);
   // (Ultra and Cinematic draw more pixels than an ordinary screen has, and smooth them down.)
-  const pr = Math.max(0.5, Math.max(q.minRatio, Math.min(window.devicePixelRatio, q.pixelRatio)) * q.scale);
-  renderer.setPixelRatio(pr);
-  renderer.setSize(innerWidth, innerHeight, false);
+  pixelsFor = q;
+  fitPixels();
+  const pr = renderer.getPixelRatio();
   env.setShadows(q.shadows, q.shadowSize);
   quality.shadowSpan = q.shadowSpan;
   env.air = q.air;
@@ -11456,6 +11478,31 @@ function resetView() {
 // choice: casting, a bite or a hooked fish never change the view.
 const _eye = new THREE.Vector3();
 let shotCam = null; // (see slowTide.shotCam)
+// Build the shaders for root (the whole scene, or something new in it) now, lit as the scene is,
+// in the background where the browser can. Resolves when they're ready, or after max seconds.
+// (warmShaders.built: how many programs it has built, for tests and the soak.)
+// (renderer.compileAsync, but a material freed while it waits (a far sea let go) is let go too,
+// not an error: three.js's own looked for a program it no longer had.)
+function warmShaders(root = scene, max = 25) {
+  try {
+    const before = renderer.info.programs?.length || 0, t0 = performance.now();
+    const mats = renderer.compile(root, camera, scene);
+    return new Promise((resolve) => {
+      const check = () => {
+        for (const m of mats) {
+          const p = renderer.properties.get(m)?.currentProgram;
+          if (!p || p.isReady()) mats.delete(m);
+        }
+        if (mats.size && performance.now() - t0 < max * 1000) return setTimeout(check, 10);
+        warmShaders.built = (warmShaders.built || 0) + (renderer.info.programs?.length || 0) - before;
+        resolve();
+      };
+      check();
+    }).catch(() => {});
+  } catch {
+    return Promise.resolve();
+  }
+}
 let eyeY = 0; // (the steady camera's eye height)
 const _hold = new THREE.Vector3();
 const _shadowAt = new THREE.Vector3();
@@ -14423,7 +14470,7 @@ if (Object.keys(state.fish).length || state.places.jetty || state.places.cove ||
 
 addEventListener('resize', () => {
   measureGuide();
-  renderer.setSize(innerWidth, innerHeight, false);
+  fitPixels();
   fitCamera();
   finder.fit();
 });
@@ -15106,6 +15153,7 @@ function tick(now, manual = false) {
   // (The catch card beside the fish on a wide screen: the camera keeps the fish clear of it.)
   rig.heroShift = modal === 'catch' && innerWidth >= 900 ? 1 : 0;
   rig.update(dt, t, { boat, walker, started, fishing, baitFocus: fishing.watchPoint, eye: _eye, roll: onFoot || steadyCam || cabinIn ? 0 : boat.roll * 0.45 });
+  lampPool.update(camera);
   if (modal === 'binocs') binocularsStep(dt);
   updateSitting(dt);
   if (sitting && !modal) sitCamera(dt);
@@ -15470,10 +15518,18 @@ const frame = frameLoop(requestAnimationFrame, (now) => {
   tick(now + ahead);
 });
 
-$('loading')?.remove();
-requestAnimationFrame((now) => {
-  last = now;
-  frame(now);
+// (Stutter, docs/PERFORMANCE.md) Every shader the game draws with, built while the loading screen
+// is up rather than the first moment its thing comes into view (a freeze each on a PC, worst on
+// Windows): in parallel where the browser can, and never longer than 25 seconds (whatever
+// isn't ready by then is built as it always was). What's made later (a region come back into
+// reach, a boat built when she's first needed) is warmed as it's made: see warmShaders.
+if ($('loading')) $('loading').textContent = 'Getting the sea ready…';
+warmShaders().finally(() => {
+  $('loading')?.remove();
+  requestAnimationFrame((now) => {
+    last = now;
+    frame(now);
+  });
 });
 
 // A small handle for tinkering from the browser console, e.g. slowTide.setHour(19).

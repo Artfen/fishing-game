@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Lamp } from '../lamps.js';
 import {
   heightAt, lakeSDF, streamSDF, pathInfo,
   CAMP, LAKE, STREAM, LANDING, SNAG, LILIES, PEGS, BRIDGE, STONES,
@@ -234,7 +235,7 @@ function buildFire(cx, cy, cz, rnd) {
   glow.scale.setScalar(2.4);
   group.add(glow);
 
-  const light = new THREE.PointLight('#ff9b52', 0, 16, 1.7);
+  const light = new Lamp('#ff9b52', 0, 16, 1.7);
   light.position.set(0, 0.9, 0);
   group.add(light);
 

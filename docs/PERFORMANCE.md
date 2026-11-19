@@ -179,6 +179,46 @@ nothing was made and left behind (none outside the scene and not freed), and alm
 made at all during play (four or five). The climb is the world being drawn for the first time,
 bounded by what it has: **no leak found**. The heap is steady too.
 
+## Stutter: shaders built mid-game
+
+A player on an RTX 3070 and a 16-core processor reported large stutters when panning the camera
+or moving about, with the CPU and GPU both mostly idle. That's the renderer building shaders in
+the middle of play: each new shader program is a freeze while the browser compiles it, and on
+Windows each is first translated for DirectX, so every one costs from tens to hundreds of
+milliseconds. The CPU looks idle because the freeze is on one core of sixteen.
+
+**Two causes, measured** (`renderer.info.programs` as you go about the game):
+- **The light count.** three.js builds each lit material's shader for the number of point lights
+  it counts, and counts only the lights in visible parts of the scene. The game had 39 lamps, of
+  which 10 or 11 were counted at a time. The moment a lamp's boat, house or cabin was shown or
+  hidden, the count changed, and every lit material in view was rebuilt at once. When the cabin
+  boat came into play the count went from 10 to 11 and the programs from 94 to 159: **65 shaders
+  in one frame**.
+- **The first sight of anything.** A material's shader was built the first time its object was
+  drawn, so turning the camera or travelling brought new ones every few seconds (163, 179, 182 …).
+
+**What's done.**
+- **A fixed set of lights** (`src/lamps.js`). A lamp is a `Lamp`, set just as a light was (colour,
+  intensity, distance, decay, where it hangs). The scene has 12 real point lights, lent each frame
+  to the lamps that are lit and shown, nearest first. The count never changes, so nothing is
+  rebuilt for a lamp. No more than 11 were ever counted before, so it looks as it did.
+- **Every shader built while the game loads** (`warmShaders` in `main.js`). The loading screen says
+  "Getting the sea ready…" while `renderer.compileAsync` builds the whole scene's shaders, in
+  parallel where the browser can (`KHR_parallel_shader_compile`), for 25 seconds at most.
+- **What's built later is warmed as it's made:** Las Brasas, the north, the fell's detail
+  (`world.onBuilt`), a stray boat. Its shaders are built in the background before it's in sight.
+- **A pixel budget** (`budgetRatio` in `src/quality.js`). Ultra and Cinematic draw more pixels than
+  the screen has, then smooth them down, but now only up to a 4K screen's worth (8.3 million).
+  On a 3440 × 1440 ultrawide, Cinematic drew 11.1 million pixels a frame; it now draws 1.29 a side.
+  This is worked out again whenever the window changes size.
+
+`tests/stutter.test.mjs` covers it:
+- the light count holds whatever is shown or hidden;
+- the nearest lit lamps get the lights;
+- no point light outside the set;
+- the warm-up at load and as things are built;
+- the budget.
+
 ## Not yet covered
 
 - **Two players**: the render and simulation cost of a friend's boat and figure is in every

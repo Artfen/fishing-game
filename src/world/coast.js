@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Lamp } from '../lamps.js';
 import {
   heightAt, HAVEN, HAVEN_APRON, HAVEN_HOUSES, HAVEN_MARKET, HAVEN_QUAY, SLIPWAY, HAVEN_BOARD, HAVEN_BENCH, HAVEN_LAMP, FUEL_PUMPS,
   HAVEN_PONTOON, HAVEN_FINGERS, HAVEN_STEPS, OWN_FINGER, VISITOR_FINGERS, HARBOUR_OFFICE,
@@ -360,7 +361,7 @@ function buildHaven(rnd, group, obstacles, spots) {
   lampGlow.position.copy(lampHead.position);
   lampGlow.scale.setScalar(2.4);
   group.add(lampGlow);
-  const lampLight = new THREE.PointLight('#ffc98a', 0, 18, 1.6);
+  const lampLight = new Lamp('#ffc98a', 0, 18, 1.6);
   lampLight.position.set(L.x, ly + 3.1, L.z);
   group.add(lampLight);
 

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Lamp } from '../lamps.js';
 import { heightAt, HAVEN_HOUSES } from './terrain.js';
 import { mergeParts, mat, pick, glowTexture, clamp, smoothstep } from '../util.js';
 import { withSurface } from './surface.js';
@@ -800,7 +801,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
   group.add(glassMesh);
 
   // Inside: one warm light for whichever room you're in or nearest, and the fire's glow.
-  const light = new THREE.PointLight('#ffc98a', 0, 9, 1.6);
+  const light = new Lamp('#ffc98a', 0, 9, 1.6);
   group.add(light);
   const fireGlow = addGlow(INN.x0 + 0.5, rooms.inn.y + 0.5, INN.z0 + 1.4, 1.1);
 

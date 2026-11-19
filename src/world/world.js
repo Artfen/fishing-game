@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Lamp } from '../lamps.js';
 import {
   heightAt, JETTY, COVE, ISLAND, STACKS, CHANNEL, CAMP, LANDING, findShore, lakeSDF, streamSDF, pathInfo,
   WORLD, riverSDF, mereSDF, trailInfo, MERE, GANNET, coastPathInfo, HAVEN_APRON, HAVEN_HOUSES, DAYMARK, SHELTER, PUNT, STRAND,
@@ -716,7 +717,7 @@ function buildJetty(rnd) {
   const lamp = buildLanternModel();
   lamp.group.position.set(lx, deck + 2.42, lz + 0.46);
   lamp.group.scale.setScalar(1.35);
-  const light = new THREE.PointLight('#ffb35c', 0, 26, 1.6);
+  const light = new Lamp('#ffb35c', 0, 26, 1.6);
   light.position.set(lx, deck + 2.12, lz + 0.46);
   return { mesh, lamp, light, lampPos: light.position.clone(), bench: { x: bx, z: bz } };
 }
@@ -1084,6 +1085,9 @@ export function buildWorld(scene, renderer, habitat) {
   // is out of range.
   const later = laterPatches(habitat).map((L) => ({ ...L, gen: null, mesh: null, stand: terrain.find((m) => m.userData.standIn === L.P.id) }));
   const nearRect = (R, p, d) => p.x > R.x0 - d && p.x < R.x1 + d && p.z > R.z0 - d && p.z < R.z1 + d;
+  // (Something built after the start, handed to whoever wants it: the game warms its shaders in the
+  // background, so its first sight isn't a freeze. See main.js warmShaders.)
+  let built = null;
   // (budget: milliseconds a frame; more while the screen is dark, travelling or asleep.)
   function buildLater(cp, budget = 5) {
     const t0 = performance.now();
@@ -1095,6 +1099,7 @@ export function buildWorld(scene, renderer, habitat) {
         if (r.done) {
           L.mesh = r.value;
           scene.add(L.mesh);
+          built?.(L.mesh);
           L.gen = null;
           break;
         }
@@ -1444,6 +1449,8 @@ export function buildWorld(scene, renderer, habitat) {
       north?.setQuality(q);
     },
     set drawDistance(d) { drawDistance = d; },
+    // (f(object): called with each thing built after the start: see `built`.)
+    set onBuilt(f) { built = f; },
     get drawDistance() { return drawDistance; },
     // Las Brasas' buildings, plants and rocks (see brasaWorld.js), once you've come near.
     get brasa() { return brasa; },
@@ -1460,6 +1467,7 @@ export function buildWorld(scene, renderer, habitat) {
       } else north = buildNorth(scene, seeded(20261118));
       if (quality) north.setQuality(quality);
       takeIn(north);
+      built?.(north.group);
       for (const o of north.group.children) if (o.isInstancedMesh) watchDistance(o);
       return north;
     },
@@ -1470,6 +1478,7 @@ export function buildWorld(scene, renderer, habitat) {
       brasa = buildBrasa(scene, seeded(20261025));
       if (quality) brasa.setQuality(quality);
       takeIn(brasa);
+      built?.(brasa.group);
       return brasa;
     },
     // (W1, docs/WORLD.md) A sea far behind you: its things out of the scene and freed, its
