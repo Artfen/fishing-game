@@ -7,30 +7,31 @@
 //    working a shoal, dolphins about, a whale blowing out in the deep, the tuna up, a storm coming,
 //    the sea set to glow tonight, a good fish landed. (Nothing is made up to sound fishy.)
 
+import { $t } from './i18n.js';
 export const STORIES = {
   haven: [
-    { id: 'kittiwake', text: 'The Kittiwake? A steam drifter out of here, built in 1907, wooden. Lost on the reef off Shell Strand in a winter gale, every man of her crew got ashore. Her bell’s still down there in the sand by her bow, they say. And the conger in her hull are the size of a man’s leg.' },
-    { id: 'tam', text: 'Tam Leask kept the watch on the Calf for forty years. Counted the seals every morning on a slate, and never missed a day, not even the day his daughter was married. He reckoned the bass off the Nose came on the third hour of the flood, and he was never wrong.' },
-    { id: 'pike', text: 'There’s a pike in Longmere older than me. My father hooked it off the boathouse in ’79 and it towed his boat clean round the Holm before the line went. Folk have seen it since, lying under the lily pads like a log. Nobody’s landed it.' },
-    { id: 'tuna', text: 'When I was a girl the tuna came into the Blue Water every September like clockwork, and the whole harbour went out after them. Then they stopped coming, for thirty years. Now they’re back. Watch for the birds piling in, out past the shoal: that’s them, driving the sprats up.' },
-    { id: 'mags', text: 'Mags’s mother ran the fish market before her, and her grandmother before that. There’s been a Pennock on that slab since before the quay was built in stone. She can tell you the weight of a bass to the ounce just by looking at it.' },
-    { id: 'lantern', text: 'There used to be a lantern hung in Driftwood Cove for the boats coming in after dark, before the light went up on the quay. The cove’s still the calmest water on the coast in a blow. Squid come in there under the lamp on still nights.' },
-    { id: 'gannets', text: 'Gannet Isle’s named for the birds, not the other way round. When they’re diving, you’ll know: like snowballs thrown into the sea from on high. Where they’re diving there’s fish under them, every time.' },
-    { id: 'brasas', text: 'Dougie’s brother sailed down to Las Brasas one winter in a boat not much bigger than yours, and stayed eleven years. Came back brown as a nut with stories of fish the colour of parrots, and a bar on the quay where they cook them with little wrinkled potatoes.' },
-    { id: 'storm', text: 'The bay’s a friend in a storm. Out past the Calf it’s white water and the race standing up like a wall, but in here, under the hill, you can sit in a rowing boat and fish for flounder while the gale goes over.' },
-    { id: 'glow', text: 'Some summer nights the whole bay lights up. Row out and every stroke of the oars leaves a puddle of green fire, and the fish going off under the boat are like shooting stars. My grandfather called it “the burning”.' },
-    { id: 'fell', text: 'They say the Coldwater runs out of Hoar Tarn up on the fell, and that the trout up there are as dark as peat and wild as hares. It’s a long walk. Take a coat: the weather comes over the top of Hoarfell faster than you can get down.' },
-    { id: 'dolphins', text: 'Kit swears a dolphin looked him in the eye from under the bow, last summer, all the way from the Skerries to the quay. Dolphins love a boat going along at a fair lick. Slow down and they’re off, like children when the game stops.' },
-    { id: 'hound', text: 'The Hound’s a rock out past Gannet Light that never shows, not even at the bottom of a spring tide: ten metres under at its top, thirty at its foot. The old men set their pots round it and lost half of them to the tide. The divers say its walls are pink with sea fans. Go at slack water, or it’ll have you off it like a leaf.' },
-    { id: 'anchor', text: 'There’s an anchor on the sand south of Long Shoal, an old Admiralty one taller than a man, and nobody knows whose. A ship rode out a gale there, the story goes, and cut her cable to run for it. The flatfish like it: there’s always a turbot lying in the lee of its chain.' },
+    { id: 'kittiwake', text: $t('The Kittiwake? A steam drifter out of here, built in 1907, wooden. Lost on the reef off Shell Strand in a winter gale, every man of her crew got ashore. Her bell’s still down there in the sand by her bow, they say. And the conger in her hull are the size of a man’s leg.') },
+    { id: 'tam', text: $t('Tam Leask kept the watch on the Calf for forty years. Counted the seals every morning on a slate, and never missed a day, not even the day his daughter was married. He reckoned the bass off the Nose came on the third hour of the flood, and he was never wrong.') },
+    { id: 'pike', text: $t('There’s a pike in Longmere older than me. My father hooked it off the boathouse in ’79 and it towed his boat clean round the Holm before the line went. Folk have seen it since, lying under the lily pads like a log. Nobody’s landed it.') },
+    { id: 'tuna', text: $t('When I was a girl the tuna came into the Blue Water every September like clockwork, and the whole harbour went out after them. Then they stopped coming, for thirty years. Now they’re back. Watch for the birds piling in, out past the shoal: that’s them, driving the sprats up.') },
+    { id: 'mags', text: $t('Mags’s mother ran the fish market before her, and her grandmother before that. There’s been a Pennock on that slab since before the quay was built in stone. She can tell you the weight of a bass to the ounce just by looking at it.') },
+    { id: 'lantern', text: $t('There used to be a lantern hung in Driftwood Cove for the boats coming in after dark, before the light went up on the quay. The cove’s still the calmest water on the coast in a blow. Squid come in there under the lamp on still nights.') },
+    { id: 'gannets', text: $t('Gannet Isle’s named for the birds, not the other way round. When they’re diving, you’ll know: like snowballs thrown into the sea from on high. Where they’re diving there’s fish under them, every time.') },
+    { id: 'brasas', text: $t('Dougie’s brother sailed down to Las Brasas one winter in a boat not much bigger than yours, and stayed eleven years. Came back brown as a nut with stories of fish the colour of parrots, and a bar on the quay where they cook them with little wrinkled potatoes.') },
+    { id: 'storm', text: $t('The bay’s a friend in a storm. Out past the Calf it’s white water and the race standing up like a wall, but in here, under the hill, you can sit in a rowing boat and fish for flounder while the gale goes over.') },
+    { id: 'glow', text: $t('Some summer nights the whole bay lights up. Row out and every stroke of the oars leaves a puddle of green fire, and the fish going off under the boat are like shooting stars. My grandfather called it “the burning”.') },
+    { id: 'fell', text: $t('They say the Coldwater runs out of Hoar Tarn up on the fell, and that the trout up there are as dark as peat and wild as hares. It’s a long walk. Take a coat: the weather comes over the top of Hoarfell faster than you can get down.') },
+    { id: 'dolphins', text: $t('Kit swears a dolphin looked him in the eye from under the bow, last summer, all the way from the Skerries to the quay. Dolphins love a boat going along at a fair lick. Slow down and they’re off, like children when the game stops.') },
+    { id: 'hound', text: $t('The Hound’s a rock out past Gannet Light that never shows, not even at the bottom of a spring tide: ten metres under at its top, thirty at its foot. The old men set their pots round it and lost half of them to the tide. The divers say its walls are pink with sea fans. Go at slack water, or it’ll have you off it like a leaf.') },
+    { id: 'anchor', text: $t('There’s an anchor on the sand south of Long Shoal, an old Admiralty one taller than a man, and nobody knows whose. A ship rode out a gale there, the story goes, and cut her cable to run for it. The flatfish like it: there’s always a turbot lying in the lee of its chain.') },
   ],
   muelle: [
-    { id: 'vieja', text: 'The vieja, the parrotfish, is the queen of fish here. Every grandmother on the island has her way with it: boiled with potatoes and mojo, that’s the only right way, and every other grandmother’s way is wrong.' },
-    { id: 'bajon', text: 'El Bajón has fed this village for three hundred years. My grandfather said the old men would row out at dawn, drop a line over the pinnacles, and be home for breakfast with a basket full.' },
-    { id: 'marlin', text: 'In the summer the big marlin come past, far out where the water is like ink. The Germans with the big boats come for them. They take a photo and let it go. Very good. A marlin is too beautiful for the plate.' },
-    { id: 'volcano', text: 'Pico Brasa has not woken in two hundred years. The black rock you walk on in the village came down from it, red and hot like soup. When it rains on the mountain, the whole island smells of iron.' },
-    { id: 'shearwaters', text: 'At night you hear the pardelas, the shearwaters, crying like babies over the cliffs. They come home to their burrows in the dark. The old people said they were the souls of drowned sailors.' },
-    { id: 'whales', text: 'The calderones, the pilot whales, live off the south-west all year. A family. You can see the same ones every week, the old male with the bent fin. Go slow near them and they will come and look at you.' },
+    { id: 'vieja', text: $t('The vieja, the parrotfish, is the queen of fish here. Every grandmother on the island has her way with it: boiled with potatoes and mojo, that’s the only right way, and every other grandmother’s way is wrong.') },
+    { id: 'bajon', text: $t('El Bajón has fed this village for three hundred years. My grandfather said the old men would row out at dawn, drop a line over the pinnacles, and be home for breakfast with a basket full.') },
+    { id: 'marlin', text: $t('In the summer the big marlin come past, far out where the water is like ink. The Germans with the big boats come for them. They take a photo and let it go. Very good. A marlin is too beautiful for the plate.') },
+    { id: 'volcano', text: $t('Pico Brasa has not woken in two hundred years. The black rock you walk on in the village came down from it, red and hot like soup. When it rains on the mountain, the whole island smells of iron.') },
+    { id: 'shearwaters', text: $t('At night you hear the pardelas, the shearwaters, crying like babies over the cliffs. They come home to their burrows in the dark. The old people said they were the souls of drowned sailors.') },
+    { id: 'whales', text: $t('The calderones, the pilot whales, live off the south-west all year. A family. You can see the same ones every week, the old male with the bent fin. Go slow near them and they will come and look at you.') },
   ],
 };
 
@@ -55,39 +56,39 @@ export function adviceFor(ctx) {
   const dawnDusk = (ctx.hour >= 4.5 && ctx.hour < 7.5) || (ctx.hour >= 18.5 && ctx.hour < 21.5);
   const night = ctx.hour >= 22 || ctx.hour < 4.5;
   if (ctx.place === 'muelle') {
-    if (ctx.storm > 0.4) out.push('Nobody goes out past the point in this. Fish inside the harbour: the little fish come right in under the boats, and a small bait under a float will keep you busy.');
+    if (ctx.storm > 0.4) out.push($t('Nobody goes out past the point in this. Fish inside the harbour: the little fish come right in under the boats, and a small bait under a float will keep you busy.'));
     // What Chano and the boats have seen today: the island's fish as they are this hour.
     for (const a of ctx.about || []) {
       const fresh = ctx.caught && !ctx.caught.has(a.sp.id);
-      out.push(`${fresh ? `Have you had ${an(lower(a.sp.name))} yet? ` : ''}The ${lower(a.sp.name)} are ${a.act > 0.85 ? 'feeding hard' : 'about'} ${a.where} just now.${a.how ? ` ${a.how[0].toUpperCase()}${a.how.slice(1)}, that’s what Chano uses.` : ''}`);
+      out.push($t`${fresh ? $t`Have you had ${an(lower(a.sp.name))} yet? ` : ''}The ${lower(a.sp.name)} are ${a.act > 0.85 ? $t('feeding hard') : 'about'} ${a.where} just now.${a.how ? $t` ${a.how[0].toUpperCase()}${a.how.slice(1)}, that’s what Chano uses.` : ''}`);
     }
-    if (dawnDusk) out.push('Go to Punta del Faro at first light or at sunset. The current runs past the point a little faster, and the bluefish and the little tunny hunt there.');
-    if (night) out.push('At night the squid come to the lights on the quay. And on the reef the morays come out of their holes to hunt.');
-    if (ctx.wind > 9) out.push('With the trade wind blowing like this the north side is all white water. Stay in the lee, along the south shore, where the sea is flat.');
-    else if (!night) out.push('Las Coladas, the old lava: parrotfish graze the rocks there, the triggerfish cruise over them, and the morays watch from the holes. Fish the edges of the lava.');
-    out.push('On the black sand at Playa Negra the surf brings in the white bream and the palometa. Cast just behind the waves.');
-    out.push('Out at El Veril the bottom falls away into the deep. Amberjack and barracuda patrol the edge, and the groupers live in the caves in the wall.');
-    out.push('The blue water starts not far past the shelf. Trolling out there, a lure skipping in the wake, you can meet a wahoo, a dorado, even a marlin.');
+    if (dawnDusk) out.push($t('Go to Punta del Faro at first light or at sunset. The current runs past the point a little faster, and the bluefish and the little tunny hunt there.'));
+    if (night) out.push($t('At night the squid come to the lights on the quay. And on the reef the morays come out of their holes to hunt.'));
+    if (ctx.wind > 9) out.push($t('With the trade wind blowing like this the north side is all white water. Stay in the lee, along the south shore, where the sea is flat.'));
+    else if (!night) out.push($t('Las Coladas, the old lava: parrotfish graze the rocks there, the triggerfish cruise over them, and the morays watch from the holes. Fish the edges of the lava.'));
+    out.push($t('On the black sand at Playa Negra the surf brings in the white bream and the palometa. Cast just behind the waves.'));
+    out.push($t('Out at El Veril the bottom falls away into the deep. Amberjack and barracuda patrol the edge, and the groupers live in the caves in the wall.'));
+    out.push($t('The blue water starts not far past the shelf. Trolling out there, a lure skipping in the wake, you can meet a wahoo, a dorado, even a marlin.'));
     return pick(out.slice(0, 3));
   }
-  if (ctx.storm > 0.4) out.push('Stay in the bay today. Out past the Calf it’s no place for a small boat. The flounder don’t mind a blow: a worm on the bottom in the lee of the quay, and you’ll do fine.');
+  if (ctx.storm > 0.4) out.push($t('Stay in the bay today. Out past the Calf it’s no place for a small boat. The flounder don’t mind a blow: a worm on the bottom in the lee of the quay, and you’ll do fine.'));
   // The tide (see world/tide.js): the fish of the sea feed on a running tide, some on the flood.
   const T = ctx.tide;
-  if (T?.phase === 'flood') out.push('The tide’s making. Bass, mullet and the flatfish feed hardest on the flood: the Wend, the cove channel and the strand are the places to be while it runs.');
-  else if (T?.phase === 'ebb') out.push('It’s ebbing. Fish the mouths of things on an ebb: where the channel pours out of the cove, where the Wend runs out over the sand. The tide brings the food to them.');
-  else if (T) out.push(`Slack water just now, ${T.phase === 'high' ? 'top of the tide' : 'bottom of the tide'}: the fish go quiet. Wait for it to turn and start running again.`);
+  if (T?.phase === 'flood') out.push($t('The tide’s making. Bass, mullet and the flatfish feed hardest on the flood: the Wend, the cove channel and the strand are the places to be while it runs.'));
+  else if (T?.phase === 'ebb') out.push($t('It’s ebbing. Fish the mouths of things on an ebb: where the channel pours out of the cove, where the Wend runs out over the sand. The tide brings the food to them.'));
+  else if (T) out.push($t`Slack water just now, ${T.phase === 'high' ? $t('top of the tide') : $t('bottom of the tide')}: the fish go quiet. Wait for it to turn and start running again.`);
   for (const a of ctx.about || []) {
     const fresh = ctx.caught && !ctx.caught.has(a.sp.id);
-    out.push(`${fresh ? `You’ve not had ${an(lower(a.sp.name))} yet, have you? ` : ''}The ${lower(a.sp.name)} are ${a.act > 0.85 ? 'on' : 'about'} ${a.where} just now.${a.how ? ` ${a.how[0].toUpperCase()}${a.how.slice(1)}, that’s what I’d use.` : ''}`);
+    out.push($t`${fresh ? $t`You’ve not had ${an(lower(a.sp.name))} yet, have you? ` : ''}The ${lower(a.sp.name)} are ${a.act > 0.85 ? 'on' : 'about'} ${a.where} just now.${a.how ? $t` ${a.how[0].toUpperCase()}${a.how.slice(1)}, that’s what I’d use.` : ''}`);
   }
-  if (dawnDusk) out.push('This is the hour. Dawn and dusk the bass come up into the shallows and the pollack rise off the rocks. Don’t waste it in here.');
-  if (night) out.push('After dark, the squid come in under the lamps: the quay’s, and the Old Jetty’s. A little jig, sunk, darted up and let glide down. And the soles come out on the sand.');
-  if (ctx.rain > 0.3) out.push('A bit of rain’s no bad thing. Up the Fernbeck the trout come on when the water colours up after rain, and the light’s down so they’re bolder.');
-  if (ctx.wind > 9) out.push('With this wind the surf’ll be up on Shell Strand. Bass love a bit of white water: a soft sandeel worked through the surf, or a peeler crab on the bottom.');
-  else if (ctx.wind < 3 && !night) out.push('Flat calm. Fish fine and far off: a light line and a long cast. On days like this the mullet cruise the quay wall: bread flake under a little float, and patience.');
+  if (dawnDusk) out.push($t('This is the hour. Dawn and dusk the bass come up into the shallows and the pollack rise off the rocks. Don’t waste it in here.'));
+  if (night) out.push($t('After dark, the squid come in under the lamps: the quay’s, and the Old Jetty’s. A little jig, sunk, darted up and let glide down. And the soles come out on the sand.'));
+  if (ctx.rain > 0.3) out.push($t('A bit of rain’s no bad thing. Up the Fernbeck the trout come on when the water colours up after rain, and the light’s down so they’re bolder.'));
+  if (ctx.wind > 9) out.push($t('With this wind the surf’ll be up on Shell Strand. Bass love a bit of white water: a soft sandeel worked through the surf, or a peeler crab on the bottom.'));
+  else if (ctx.wind < 3 && !night) out.push($t('Flat calm. Fish fine and far off: a light line and a long cast. On days like this the mullet cruise the quay wall: bread flake under a little float, and patience.'));
   // A calm, clear day: the water's at its clearest for going down (see world/divesites.js).
-  if (!night && (ctx.storm || 0) < 0.2 && ctx.wind < 7 && (ctx.rain || 0) < 0.3) out.push('A day like this the water clears: it’s a day for going down, if you dive. Skerries Reef is shallow and easy, there’s an arch to swim through; the kelp off Gannet’s west shore grows like a forest. The Hound off the Light is deep: a full tank, and go at slack water.');
-  if (!out.length) out.push('Talk to the water, my mother used to say. Watch for birds, for rings and swirls, for the bait jumping. The fish tell you where they are if you look.');
+  if (!night && (ctx.storm || 0) < 0.2 && ctx.wind < 7 && (ctx.rain || 0) < 0.3) out.push($t('A day like this the water clears: it’s a day for going down, if you dive. Skerries Reef is shallow and easy, there’s an arch to swim through; the kelp off Gannet’s west shore grows like a forest. The Hound off the Light is deep: a full tank, and go at slack water.'));
+  if (!out.length) out.push($t('Talk to the water, my mother used to say. Watch for birds, for rings and swirls, for the bait jumping. The fish tell you where they are if you look.'));
   return pick(out.slice(0, 3));
 }
 
@@ -98,20 +99,20 @@ export function adviceFor(ctx) {
 // ({ name, size } or null) }.
 export function rumoursNow(ctx) {
   const out = [];
-  const name = (x, z) => ctx.nameOf?.(x, z) || 'out there';
+  const name = (x, z) => ctx.nameOf?.(x, z) || $t('out there');
   const home = ctx.place !== 'muelle';
-  if (ctx.storm > 0.5) out.push(home ? 'Everyone’s staying in today. Dougie says he’s never seen the race off the Calf so wild, and he’s not taking his boat out till it blows through.' : 'Nobody is going out today. The boats are all tied up two deep in the harbour, and the old men are playing dominoes.');
-  if (ctx.gannets) out.push(`The gannets are diving ${name(ctx.gannets.x, ctx.gannets.z)}. There’s a shoal up there, sprats or mackerel, and something chasing them.`);
-  for (const l of ctx.birds || []) out.push(`Mags says ${l.charAt(0).toLowerCase()}${l.slice(1)}`);
-  if (ctx.boil) out.push(`The tuna are up! Birds going mad and the sea boiling, ${name(ctx.boil.x, ctx.boil.z)}. A big stickbait thrown into the middle of it, if you can get there in time.`);
-  for (const p of ctx.pods || []) out.push(`There’s a pod of ${p.kind === 'commondolphin' ? 'common dolphins' : p.kind === 'spotteddolphin' ? 'spotted dolphins' : 'bottlenose dolphins'} ${name(p.x, p.z)}. Give your boat a bit of throttle out there and they’ll come and ride the bow.`);
+  if (ctx.storm > 0.5) out.push(home ? $t('Everyone’s staying in today. Dougie says he’s never seen the race off the Calf so wild, and he’s not taking his boat out till it blows through.') : $t('Nobody is going out today. The boats are all tied up two deep in the harbour, and the old men are playing dominoes.'));
+  if (ctx.gannets) out.push($t`The gannets are diving ${name(ctx.gannets.x, ctx.gannets.z)}. There’s a shoal up there, sprats or mackerel, and something chasing them.`);
+  for (const l of ctx.birds || []) out.push($t`Mags says ${l.charAt(0).toLowerCase()}${l.slice(1)}`);
+  if (ctx.boil) out.push($t`The tuna are up! Birds going mad and the sea boiling, ${name(ctx.boil.x, ctx.boil.z)}. A big stickbait thrown into the middle of it, if you can get there in time.`);
+  for (const p of ctx.pods || []) out.push($t`There’s a pod of ${p.kind === 'commondolphin' ? $t('common dolphins') : p.kind === 'spotteddolphin' ? $t('spotted dolphins') : $t('bottlenose dolphins')} ${name(p.x, p.z)}. Give your boat a bit of throttle out there and they’ll come and ride the bow.`);
   for (const w of ctx.whales || []) {
-    const what = { finwhale: 'a fin whale', minkewhale: 'a minke whale', spermwhale: 'the sperm whale', pilotwhale: 'the pilot whales' }[w.kind] || 'a whale';
-    out.push(`Somebody saw ${what} blowing ${name(w.x, w.z)} ${w.up ? 'not an hour ago' : 'earlier today'}. Watch for the spout: you see it a long way off.`);
+    const what = { finwhale: $t('a fin whale'), minkewhale: $t('a minke whale'), spermwhale: $t('the sperm whale'), pilotwhale: $t('the pilot whales') }[w.kind] || 'a whale';
+    out.push($t`Somebody saw ${what} blowing ${name(w.x, w.z)} ${w.up ? $t('not an hour ago') : $t('earlier today')}. Watch for the spout: you see it a long way off.`);
   }
   for (const l of ctx.news || []) out.push(l);
-  if (ctx.yours) out.push(`They’re talking about that ${lower(ctx.yours.name)} of yours, ${ctx.yours.size} cm. Word gets round.`);
-  if (ctx.glow > 0.7 && ctx.hour > 14) out.push('Mark my words, the sea’ll be burning tonight: the water’s full of the stuff. Take the boat out after dark and watch your wake.');
-  if (ctx.rain > 0.5 && home) out.push('Rain’s set in for a while. The trout up the Fernbeck will like it, mind.');
+  if (ctx.yours) out.push($t`They’re talking about that ${lower(ctx.yours.name)} of yours, ${ctx.yours.size} cm. Word gets round.`);
+  if (ctx.glow > 0.7 && ctx.hour > 14) out.push($t('Mark my words, the sea’ll be burning tonight: the water’s full of the stuff. Take the boat out after dark and watch your wake.'));
+  if (ctx.rain > 0.5 && home) out.push($t('Rain’s set in for a while. The trout up the Fernbeck will like it, mind.'));
   return out;
 }

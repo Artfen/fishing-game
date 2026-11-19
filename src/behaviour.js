@@ -1,6 +1,7 @@
 import { clamp, smoothstep, lerp } from './util.js';
 import { weightOf, girthOf, tempoOf } from './fish.js';
 import { lookOf } from './fishlook.js';
+import { $t } from './i18n.js';
 
 // Fish as individuals, and how each kind answers the water it's in.
 //
@@ -21,16 +22,16 @@ import { lookOf } from './fishlook.js';
 
 export const BEHAVIOUR = {
   relaxed: {
-    id: 'relaxed', label: 'Relaxed', mood: 0.35, fussy: 0.5, disturb: 0.4, current: 0.5, throwHook: 0, pull: 0, shy: 0.6,
-    desc: 'Fish come readily and forgive a lot: the wrong depth or a hasty retrieve rarely puts them off, and a hooked fish stays on. The way to enjoy the water.',
+    id: 'relaxed', label: $t('Relaxed'), mood: 0.35, fussy: 0.5, disturb: 0.4, current: 0.5, throwHook: 0, pull: 0, shy: 0.6,
+    desc: $t('Fish come readily and forgive a lot: the wrong depth or a hasty retrieve rarely puts them off, and a hooked fish stays on. The way to enjoy the water.'),
   },
   natural: {
-    id: 'natural', label: 'Natural', mood: 1, fussy: 1, disturb: 1, current: 1, throwHook: 0.12, pull: 0.5, shy: 1,
-    desc: 'Each kind as fussy as in life: the light, the current, the weather and a careless approach all count, and they tell you why they turn away. A jumping fish can throw the hook on a slack line.',
+    id: 'natural', label: $t('Natural'), mood: 1, fussy: 1, disturb: 1, current: 1, throwHook: 0.12, pull: 0.5, shy: 1,
+    desc: $t('Each kind as fussy as in life: the light, the current, the weather and a careless approach all count, and they tell you why they turn away. A jumping fish can throw the hook on a slack line.'),
   },
   demanding: {
-    id: 'demanding', label: 'Demanding', mood: 1.25, fussy: 1.35, disturb: 1.4, current: 1.3, throwHook: 0.3, pull: 1, shy: 1.3,
-    desc: 'Wary fish: they spook at splashes and boats, see a thick line, and refuse anything not quite right. A hooked fish throws the hook on a slack line and can tear free of a light hold under too much pressure.',
+    id: 'demanding', label: $t('Demanding'), mood: 1.25, fussy: 1.35, disturb: 1.4, current: 1.3, throwHook: 0.3, pull: 1, shy: 1.3,
+    desc: $t('Wary fish: they spook at splashes and boats, see a thick line, and refuse anything not quite right. A hooked fish throws the hook on a slack line and can tear free of a light hold under too much pressure.'),
   },
 };
 export const BEHAVIOUR_IDS = Object.keys(BEHAVIOUR);
@@ -64,10 +65,10 @@ export function traits(sp, size, id) {
 
 // In words, for the catch card: how it's built.
 export function conditionWords(c) {
-  if (c >= 1.12) return 'fat and deep-bodied';
-  if (c >= 1.04) return 'in fine condition';
-  if (c > 0.95) return 'in good condition';
-  if (c > 0.88) return 'a little lean';
+  if (c >= 1.12) return $t('fat and deep-bodied');
+  if (c >= 1.04) return $t('in fine condition');
+  if (c > 0.95) return $t('in good condition');
+  if (c > 0.88) return $t('a little lean');
   return 'thin';
 }
 
@@ -195,17 +196,17 @@ export function mood(a, env, level = BEHAVIOUR.relaxed) {
 // The reason a fish gave up on the rig, as a code and a sentence to act on. f: what the fish made
 // of it (from the ecosystem: appeal's parts); the mood's worst; the way it left.
 export function whyRejected(f, reason) {
-  if (reason === 'startled' || reason === 'spooked') return f.fast ? ['fast', 'It shied away from a lure coming through that fast. Slower, near it.'] : ['spooked', 'Something spooked it. Go quietly: fewer splashes, the motor off, a softer cast.'];
-  if (f.size) return ['size', f.lure ? 'It looked and turned away: the lure’s too big for this one. Try something smaller.' : 'It mouthed the bait and left it: too big a mouthful for this one.'];
-  if (f.drag) return ['drag', 'It came up, looked, and refused it: the fly was dragging across the current. Mend the line, or cast straight upstream.'];
-  if (f.line) return ['line', 'It came close, then sheered off: it saw the line. A lighter line (or a longer leader) fools a shy fish.'];
-  if (f.depth) return ['depth', f.above ? 'It looked up at it but wouldn’t come: the bait’s too far above it. Fish it deeper.' : 'It was too deep for it: the fish are higher in the water. Fish it shallower.'];
-  if (f.motion) return ['motion', f.motion === 'fast' ? 'It followed but wouldn’t take: too fast for it. Slow the retrieve.' : f.motion === 'still' ? 'It lost interest in something so still. Give it a twitch, or reel steadily.' : 'It followed but wouldn’t commit. A twitch or a pause often makes them strike.'];
-  if (f.mood === 'disturbed') return ['spooked', 'It hung back, wary: this water’s been disturbed lately. Rest it, or move along a little.'];
-  if (f.mood === 'bright') return ['bright', 'It hung back in the bright light. Shy fish feed better at dawn, dusk or under cloud, or deeper down.'];
-  if (f.mood === 'warm') return ['warm', 'It’s sluggish in water this warm. Its kind keeps to the cooler water deeper down in summer: fish deeper, or at dawn.'];
-  if (f.mood === 'current') return ['current', 'It wouldn’t hold in water running this hard. Look for the slacker water beside it.'];
-  if (f.mood === 'still') return ['still', 'It’s a fish of moving water: try where the current runs.'];
-  if (f.mood === 'storm' || f.mood === 'rough') return ['weather', 'It’s keeping its head down in this weather. Sheltered water, or the fish that love the surf.'];
-  return ['fussy', reason === 'turned' ? 'It followed all the way in, then turned away. Try a twitch, or a pause.' : 'It looked, and swam off. Another may come.'];
+  if (reason === 'startled' || reason === 'spooked') return f.fast ? ['fast', $t('It shied away from a lure coming through that fast. Slower, near it.')] : ['spooked', $t('Something spooked it. Go quietly: fewer splashes, the motor off, a softer cast.')];
+  if (f.size) return ['size', f.lure ? $t('It looked and turned away: the lure’s too big for this one. Try something smaller.') : $t('It mouthed the bait and left it: too big a mouthful for this one.')];
+  if (f.drag) return ['drag', $t('It came up, looked, and refused it: the fly was dragging across the current. Mend the line, or cast straight upstream.')];
+  if (f.line) return ['line', $t('It came close, then sheered off: it saw the line. A lighter line (or a longer leader) fools a shy fish.')];
+  if (f.depth) return ['depth', f.above ? $t('It looked up at it but wouldn’t come: the bait’s too far above it. Fish it deeper.') : $t('It was too deep for it: the fish are higher in the water. Fish it shallower.')];
+  if (f.motion) return ['motion', f.motion === 'fast' ? $t('It followed but wouldn’t take: too fast for it. Slow the retrieve.') : f.motion === 'still' ? $t('It lost interest in something so still. Give it a twitch, or reel steadily.') : $t('It followed but wouldn’t commit. A twitch or a pause often makes them strike.')];
+  if (f.mood === 'disturbed') return ['spooked', $t('It hung back, wary: this water’s been disturbed lately. Rest it, or move along a little.')];
+  if (f.mood === 'bright') return ['bright', $t('It hung back in the bright light. Shy fish feed better at dawn, dusk or under cloud, or deeper down.')];
+  if (f.mood === 'warm') return ['warm', $t('It’s sluggish in water this warm. Its kind keeps to the cooler water deeper down in summer: fish deeper, or at dawn.')];
+  if (f.mood === 'current') return ['current', $t('It wouldn’t hold in water running this hard. Look for the slacker water beside it.')];
+  if (f.mood === 'still') return ['still', $t('It’s a fish of moving water: try where the current runs.')];
+  if (f.mood === 'storm' || f.mood === 'rough') return ['weather', $t('It’s keeping its head down in this weather. Sheltered water, or the fish that love the surf.')];
+  return ['fussy', reason === 'turned' ? $t('It followed all the way in, then turned away. Try a twitch, or a pause.') : $t('It looked, and swam off. Another may come.')];
 }

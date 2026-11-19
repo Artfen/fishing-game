@@ -12,6 +12,7 @@
 
 import { STORES_DAYS } from './cargo.js';
 import { kindOf, isBoatId } from './boatid.js';
+import { $t } from './i18n.js';
 
 export const GALLEY = { cabin: 3, cruiser: 6, sail: 3, trawler: 12 };
 export const CRATE_DAYS = STORES_DAYS;
@@ -95,12 +96,12 @@ export function daysWords(d) {
 // A voyage of `hours` (game hours) against what's aboard: { ok, text }. A margin of half a day.
 export function storesFor(state, kind, hours, name = 'she') {
   const A = storesAboard(state, kind), need = hours / 24;
-  if (!A.most) return { ok: true, text: `No lockers aboard the ${name}: what you carry is in your backpack.` };
+  if (!A.most) return { ok: true, text: $t`No lockers aboard the ${name}: what you carry is in your backpack.` };
   const enough = A.days >= need + 0.5;
   return {
     ok: enough,
     text: enough
-      ? `Stores: food and water for ${daysWords(A.days)} aboard, and the passage takes about ${daysWords(need)}.`
-      : `Stores: food and water for ${daysWords(A.days)} aboard, and the passage takes about ${daysWords(need)}. Short: stock her up (the chandlery in Willowhaven, or the kitchen at Bar El Muelle), or you'll go hungry and thirsty before the end.`,
+      ? $t`Stores: food and water for ${daysWords(A.days)} aboard, and the passage takes about ${daysWords(need)}.`
+      : $t`Stores: food and water for ${daysWords(A.days)} aboard, and the passage takes about ${daysWords(need)}. Short: stock her up (the chandlery in Willowhaven, or the kitchen at Bar El Muelle), or you'll go hungry and thirsty before the end.`,
   };
 }

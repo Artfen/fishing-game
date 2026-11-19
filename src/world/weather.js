@@ -1,6 +1,7 @@
 import { damp, rand, pick } from '../util.js';
 import { galeSky } from './forecast.js';
 import { seasonOf } from './season.js';
+import { $t } from '../i18n.js';
 
 // The sky: which weather it is (clear, partly, overcast, light rain, heavy rain, storm), and how
 // cloudy, wet and stormy it is just now (each easing towards the weather's own, 0 … 1).
@@ -11,12 +12,12 @@ import { seasonOf } from './season.js';
 
 export const SKIES = {
   clear: { cloud: 0.06, rain: 0, word: '' },
-  partly: { cloud: 0.4, rain: 0, word: 'Partly cloudy' },
-  overcast: { cloud: 0.86, rain: 0, word: 'Overcast' },
-  light: { cloud: 0.82, rain: 0.36, word: 'Light rain' },
-  heavy: { cloud: 1, rain: 0.92, word: 'Heavy rain' },
+  partly: { cloud: 0.4, rain: 0, word: $t('Partly cloudy') },
+  overcast: { cloud: 0.86, rain: 0, word: $t('Overcast') },
+  light: { cloud: 0.82, rain: 0.36, word: $t('Light rain') },
+  heavy: { cloud: 1, rain: 0.92, word: $t('Heavy rain') },
   // A gale off the Atlantic: the wind gets up, the big seas roll in, thunder and lightning.
-  storm: { cloud: 1, rain: 1, storm: 1, word: 'Storm' },
+  storm: { cloud: 1, rain: 1, storm: 1, word: $t('Storm') },
 };
 export const SKY_IDS = Object.keys(SKIES);
 // When it changes by itself: what can come next (a list may repeat an entry to make it likelier).

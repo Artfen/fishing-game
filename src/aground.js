@@ -19,14 +19,15 @@
 
 import { solidHeight, freshness, zoneAt, FRESH_ZONES, stackHeight, heightAt } from './world/terrain.js';
 import { tideAt } from './world/tide.js';
+import { $t } from './i18n.js';
 
 // The bay's banks: sand that covers and uncovers with the tide, each with deep water near.
 // (The river's sand, where boats go aground: the bay's beaches shelve too steeply, or too
 // unevenly, for a boat to sit on as the water leaves her. She'd slide off on her own, or lie on
 // her side.)
 export const BANKS = [
-  { id: 'wendbar', name: 'the bar at the mouth of the Wend', x: 600, z: 80 },
-  { id: 'saltings', name: 'the Saltings bank', x: 532, z: -108 },
+  { id: 'wendbar', name: $t('the bar at the mouth of the Wend'), x: 600, z: 80 },
+  { id: 'saltings', name: $t('the Saltings bank'), x: 532, z: -108 },
 ];
 // Her: the little cabin boat (boat.js HULLS.cabin: she draws 0.38 m).
 export const AGROUND = { boat: 'cabin', draft: 0.38, length: 6.2 };

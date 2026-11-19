@@ -8,6 +8,7 @@ import {
   beachPale, SALINAS, VAPOR, BANCO, ROQUETES, GAVIOTA, islandOf,
 } from './brasa.js';
 import { fuelPumpParts, pontoonParts } from '../props.js';
+import { $t } from '../i18n.js';
 
 // What Las Brasas looks like (its shape is in brasa.js): the colours of its ground and seabed,
 // and everything built on it or grown on it. Built the first time you come near (see world.js),
@@ -374,8 +375,8 @@ export function buildBrasa(scene, rnd) {
     plainParts.push({ geo: new THREE.BoxGeometry(O.w + 0.3, 0.14, O.d + 0.3), matrix: mat(O.x, y + 2.55, O.z), color: '#3a6fa0' });
     plainParts.push({ geo: new THREE.BoxGeometry(0.85, 1.9, 0.05), matrix: mat(O.x - 0.6, y + 0.95, O.z + O.d / 2 + 0.01), color: '#2c5d8a' });
     plainParts.push({ geo: new THREE.BoxGeometry(0.9, 0.7, 0.05), matrix: mat(O.x + 0.65, y + 1.45, O.z + O.d / 2 + 0.01), color: '#30434d' });
-    obstacles.push({ x: O.x, z: O.z, r: 1.5, kind: 'harbour', name: 'the harbour office' });
-    spots.push({ kind: 'office', name: 'the harbour office', x: O.x - 0.6, z: O.z + O.d / 2 + 0.9, r: 1.8 });
+    obstacles.push({ x: O.x, z: O.z, r: 1.5, kind: 'harbour', name: $t('the harbour office') });
+    spots.push({ kind: 'office', name: $t('the harbour office'), x: O.x - 0.6, z: O.z + O.d / 2 + 0.9, r: 1.8 });
   }
   // The pontoon (see props.js), its fingers and the gangway down from the quay; the fuel pump on
   // the quay at its root.
@@ -387,10 +388,10 @@ export function buildBrasa(scene, rnd) {
     // The fuel pump, and a lifebuoy on a post beside it.
     const F = FUEL_S;
     plainParts.push(...fuelPumpParts(F.x, QUAY_S.deck, F.z, F.yaw));
-    obstacles.push({ x: F.x, z: F.z, r: 0.42, kind: 'harbour', name: 'the fuel pump' });
+    obstacles.push({ x: F.x, z: F.z, r: 0.42, kind: 'harbour', name: $t('the fuel pump') });
     plainParts.push({ geo: new THREE.CylinderGeometry(0.05, 0.05, 1.3, 6), matrix: mat(F.x + 2.2, QUAY_S.deck + 0.65, F.z + 0.4), color: '#d8d4ca' });
     plainParts.push({ geo: new THREE.TorusGeometry(0.3, 0.07, 6, 14), matrix: mat(F.x + 2.2, QUAY_S.deck + 1.05, F.z + 0.5), color: '#e2552f' });
-    obstacles.push({ x: F.x + 2.2, z: F.z + 0.4, r: 0.15, kind: 'harbour', name: 'the lifebuoy' });
+    obstacles.push({ x: F.x + 2.2, z: F.z + 0.4, r: 0.15, kind: 'harbour', name: $t('the lifebuoy') });
   }
   // The harbour light: a little green tower on the end of the mole.
   const harbourLight = new THREE.Group();
@@ -430,7 +431,7 @@ export function buildBrasa(scene, rnd) {
         for (const sx of [-0.55, 0.55]) plainParts.push({ geo: new THREE.BoxGeometry(0.3, 1.05, 0.06), matrix: mat(...at(wx + sx, 1.7 + k * 3.1, d / 2 + 0.05), 0, yaw, 0), color: door });
       }
     }
-    obstacles.push({ x, z, r: Math.max(w, d) * 0.55, kind: 'building', name: 'a house' });
+    obstacles.push({ x, z, r: Math.max(w, d) * 0.55, kind: 'building', name: $t('a house') });
     houses.push({ x, z, w, d });
   };
   // The church, on the little square at the west end of the waterfront: a white nave, a bell
@@ -446,7 +447,7 @@ export function buildBrasa(scene, rnd) {
     plainParts.push({ geo: new THREE.BoxGeometry(1.6, 2.8, 0.1), matrix: mat(CH.x, y + 1.4, CH.z + 7.05), color: '#5a3b26' });
     for (const [dx, dz] of [[-4, -7], [4, -7], [-4, 7], [4, 7]]) stone.push({ geo: new THREE.BoxGeometry(0.5, 6.2, 0.5), matrix: mat(CH.x + dx, y + 3.1, CH.z + dz), color: '#3c3a3a' });
     stone.push({ geo: new THREE.BoxGeometry(2.6, 3.4, 0.25), matrix: mat(CH.x, y + 1.7, CH.z + 7.02), color: '#3c3a3a' });
-    obstacles.push({ x: CH.x, z: CH.z, r: 5.5, kind: 'building', name: 'the church' });
+    obstacles.push({ x: CH.x, z: CH.z, r: 5.5, kind: 'building', name: $t('the church') });
   }
   // Bar El Muelle: on the waterfront, two storeys, blue shutters, an awning and tables.
   {
@@ -469,9 +470,9 @@ export function buildBrasa(scene, rnd) {
       for (const cx of [-0.7, 0.7]) wood.push({ geo: new THREE.BoxGeometry(0.4, 0.45, 0.4), matrix: mat(x + cx, y + 0.23, z), color: '#6a5038' });
       obstacles.push({ x, z, r: 0.75, top: 0.8 });
     }
-    obstacles.push({ x: P.x, z: P.z, r: 4.6, kind: 'building', name: 'Bar El Muelle' });
+    obstacles.push({ x: P.x, z: P.z, r: 4.6, kind: 'building', name: $t('Bar El Muelle') });
     // (Where you stand at its door: the room upstairs, its kitchen, and a shelf of tackle.)
-    spots.push({ kind: 'posada', name: 'Bar El Muelle', x: P.x - 2, z: P.z + 4.6, r: 2.2 });
+    spots.push({ kind: 'posada', name: $t('Bar El Muelle'), x: P.x - 2, z: P.z + 4.6, r: 2.2 });
     boxes.push({ place: 'puerto', x: P.x - 2, z: P.z + 4.6 });
   }
   // The houses: rows along the terraces above the waterfront, gaps for the lanes.
@@ -507,7 +508,7 @@ export function buildBrasa(scene, rnd) {
     plainParts.push({ geo: new THREE.ConeGeometry(1.0, 1.0, 10), matrix: mat(x, gy + 15.9, z), color: '#b8423a' });
     // The keeper's house beside it.
     white.push({ geo: new THREE.BoxGeometry(7, 3.2, 5), matrix: mat(x - 7.5, H(x - 7.5, z) + 1.5, z), color: '#f1ede4' });
-    obstacles.push({ x, z, r: 2.4, kind: 'building', name: 'the lighthouse' }, { x: x - 7.5, z, r: 4, kind: 'building', name: 'the keeper’s house' });
+    obstacles.push({ x, z, r: 2.4, kind: 'building', name: $t('the lighthouse') }, { x: x - 7.5, z, r: 4, kind: 'building', name: $t('the keeper’s house') });
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture('rgba(255,236,190,1)'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
     glow.scale.setScalar(7);
     lightBeam.position.set(x, gy + 14.8, z);
@@ -758,7 +759,7 @@ export function buildBrasa(scene, rnd) {
       stone.push({ geo: new THREE.BoxGeometry(w, h, d), matrix: mat(hx + ox * c + oz * s, hy + h / 2, hz - ox * s + oz * c, 0, S.yaw, 0), color: pick(['#8f877a', '#827a6e'], rnd), jitter: 0.05 });
     }
     wood.push({ geo: new THREE.BoxGeometry(0.15, 0.15, hd * 2.2), matrix: mat(hx, hy + ht + 0.1, hz, 0.2, S.yaw, 0.1), color: '#5a4836' });
-    obstacles.push({ x: hx, z: hz, r: Math.max(hw, hd), kind: 'building', name: 'the salt hut' });
+    obstacles.push({ x: hx, z: hz, r: Math.max(hw, hd), kind: 'building', name: $t('the salt hut') });
   }
   // A beacon on Isla Gaviota's highest ground: a white tower with a light that flashes after dark.
   let beacon = null;
@@ -777,7 +778,7 @@ export function buildBrasa(scene, rnd) {
     beacon = new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 8), new THREE.MeshBasicMaterial({ color: '#fff6dd', transparent: true, opacity: 0.25 }));
     beacon.position.set(bx, bh + 6.6, bz);
     group.add(beacon);
-    obstacles.push({ x: bx, z: bz, r: 1.1, kind: 'building', name: 'the beacon' });
+    obstacles.push({ x: bx, z: bz, r: 1.1, kind: 'building', name: $t('the beacon') });
   }
 
   const sway = plain();
@@ -802,9 +803,9 @@ export function buildBrasa(scene, rnd) {
     m.userData.total = m.count;
     group.add(m);
   }
-  for (const p of palms) obstacles.push({ x: p.x, z: p.z, r: 0.45 * p.s, kind: 'tree', name: 'a palm' });
-  for (const c of cardon) obstacles.push({ x: c.x, z: c.z, r: 0.85 * c.s, kind: 'tree', name: 'a cardón' });
-  for (const p of pines) obstacles.push({ x: p.x, z: p.z, r: 0.3 * p.s, kind: 'tree', name: 'a pine' });
+  for (const p of palms) obstacles.push({ x: p.x, z: p.z, r: 0.45 * p.s, kind: 'tree', name: $t('a palm') });
+  for (const c of cardon) obstacles.push({ x: c.x, z: c.z, r: 0.85 * c.s, kind: 'tree', name: $t('a cardón') });
+  for (const p of pines) obstacles.push({ x: p.x, z: p.z, r: 0.3 * p.s, kind: 'tree', name: $t('a pine') });
 
   group.add(mesh(mergeParts(white, rnd), plain()));
   group.add(mesh(mergeParts(stone, rnd), withCaustics(withSurface(plain(), 'ground'))));

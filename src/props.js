@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeParts, mat, pick, lerp } from './util.js';
 import { withSurface } from './world/surface.js';
+import { $t } from './i18n.js';
 
 // A fuel pump (at home, and on Willowhaven quay): a red cabinet on a plinth with a dial window,
 // a hose looped to the nozzle in its holster, and a sign on top. Parts for mergeParts, placed at
@@ -53,7 +54,7 @@ export function pontoonParts({ walk, fingers, steps, from }, ground, rnd) {
     const bottom = Math.min(ground(p.x, p.z), 0) - 0.5;
     metal.push({ geo: new THREE.CylinderGeometry(0.17, 0.17, 2.6 - bottom, 10), matrix: mat(p.x, (2.6 + bottom) / 2, p.z), color: '#3a3f44' });
     metal.push({ geo: new THREE.CylinderGeometry(0.2, 0.2, 0.1, 10), matrix: mat(p.x, 2.62, p.z), color: '#d8d4ca' });
-    obstacles.push({ x: p.x, z: p.z, r: 0.22, top: 2.6, name: 'a pile' });
+    obstacles.push({ x: p.x, z: p.z, r: 0.22, top: 2.6, name: $t('a pile') });
   }
   // The gangway: aluminium treads down from the quay, with a rail each side.
   for (const S of steps) metal.push({ geo: new THREE.BoxGeometry(S.hx * 2, 0.08, S.hz * 2 + 0.04), matrix: mat(S.x, S.deck - 0.04, S.z), color: '#a9aeb2' });

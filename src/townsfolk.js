@@ -4,6 +4,7 @@ import { fishById } from './fish.js';
 import { seeded } from './util.js';
 import { ROOM_PLACES, ROOM_WAY, insideHaven } from './world/havenHouses.js';
 import { lower } from './innTalk.js';
+import { $t } from './i18n.js';
 
 // The people of Willowhaven (and Paco at Las Brasas), going about their days: what they do hour by
 // hour, worked out from the clock and the weather and what the fish are up to, and where that puts
@@ -54,21 +55,21 @@ const BOAT = 5 * HOUR_SECONDS;    // the Morning Star at a steady cruise
 const SLOW = 1.8 * HOUR_SECONDS;  // round the harbour, and between pots
 
 export const FOLK = {
-  mags: { name: 'Mags Pennock', short: 'Mags', role: 'the fishmonger', home: 'gull' },
-  bert: { name: 'Old Bert Hale', short: 'Bert', role: 'the chandler', home: 'shopUp' },
-  ruth: { name: 'Ruth Alder', short: 'Ruth', role: 'keeps The Lobster Pot', home: 'innUp' },
-  dougie: { name: 'Dougie Ferris', short: 'Dougie', role: 'the lobsterman', home: 'rose' },
-  hettie: { name: 'Hettie Moss', short: 'Hettie', role: 'an angler', home: 'east' },
-  kit: { name: 'Kit', short: 'Kit', role: 'a boy who fishes off the quay', home: 'net' },
-  ian: { name: 'Ian Rennie', short: 'Ian', role: 'a retired schoolmaster with a skiff', home: 'east' },
-  wenna: { name: 'Morwenna Penhallow', short: 'Wenna', role: 'the harbourmaster', home: 'innUp' },
-  paco: { name: 'Paco', short: 'Paco', role: 'Bar El Muelle', home: 'paco', south: true },
-  chano: { name: 'Chano', short: 'Chano', role: 'a fisherman of Puerto Brasa', home: 'chanoHome', south: true },
-  nayra: { name: 'Nayra Cabrera', short: 'Nayra', role: 'runs Buceo Las Brasas, the dive school', home: 'nayraHome', south: true },
-  agustin: { name: 'Agustín', short: 'Agustín', role: 'the oldest of the cofradía’s fishermen', home: 'agustinHome', south: true },
+  mags: { name: $t('Mags Pennock'), short: $t('Mags'), role: $t('the fishmonger'), home: 'gull' },
+  bert: { name: $t('Old Bert Hale'), short: $t('Bert'), role: $t('the chandler'), home: 'shopUp' },
+  ruth: { name: $t('Ruth Alder'), short: $t('Ruth'), role: $t('keeps The Lobster Pot'), home: 'innUp' },
+  dougie: { name: $t('Dougie Ferris'), short: $t('Dougie'), role: $t('the lobsterman'), home: 'rose' },
+  hettie: { name: $t('Hettie Moss'), short: $t('Hettie'), role: $t('an angler'), home: 'east' },
+  kit: { name: $t('Kit'), short: $t('Kit'), role: $t('a boy who fishes off the quay'), home: 'net' },
+  ian: { name: $t('Ian Rennie'), short: $t('Ian'), role: $t('a retired schoolmaster with a skiff'), home: 'east' },
+  wenna: { name: $t('Morwenna Penhallow'), short: $t('Wenna'), role: $t('the harbourmaster'), home: 'innUp' },
+  paco: { name: $t('Paco'), short: $t('Paco'), role: $t('Bar El Muelle'), home: 'paco', south: true },
+  chano: { name: $t('Chano'), short: $t('Chano'), role: $t('a fisherman of Puerto Brasa'), home: 'chanoHome', south: true },
+  nayra: { name: $t('Nayra Cabrera'), short: $t('Nayra'), role: $t('runs Buceo Las Brasas, the dive school'), home: 'nayraHome', south: true },
+  agustin: { name: $t('Agustín'), short: $t('Agustín'), role: $t('the oldest of the cofradía’s fishermen'), home: 'agustinHome', south: true },
   // (G9b) The small harbours': walked straight to their places (remote), as the island's are.
-  bryn: { name: 'Bryn Tregear', short: 'Bryn', role: 'keeps Wend Quay and its camp', home: 'brynHut', remote: true },
-  fen: { name: 'Fen Hollis', short: 'Fen', role: 'the Marine Trust’s seabird warden on Gannet Isle', home: 'bivouac', remote: true },
+  bryn: { name: $t('Bryn Tregear'), short: $t('Bryn'), role: $t('keeps Wend Quay and its camp'), home: 'brynHut', remote: true },
+  fen: { name: $t('Fen Hollis'), short: $t('Fen'), role: $t('the Marine Trust’s seabird warden on Gannet Isle'), home: 'bivouac', remote: true },
 };
 export const FOLK_IDS = Object.keys(FOLK);
 
@@ -158,7 +159,7 @@ const ASHORE = { dougie: 'slipway', ian: 'slipway', chano: 'steps' };
 // Places reached by bike (out of sight on the way), not on foot.
 const FAR = new Set(['strand']);
 // Where someone fishes, in words.
-const WHERE = { strand: 'on Shell Strand', quayEnd: 'off the end of the quay', slipway: 'by the slipway', lee: 'in the lee of the quay', mulletEnd: 'off Wend Quay' };
+const WHERE = { strand: $t('on Shell Strand'), quayEnd: $t('off the end of the quay'), slipway: $t('by the slipway'), lee: $t('in the lee of the quay'), mulletEnd: $t('off Wend Quay') };
 
 // Dougie's boat: her mooring off the quay, where she lands at the quay's end, and the pots.
 export const MOORING = { x: 17, z: -79.6, heading: Math.PI };
@@ -173,12 +174,12 @@ const pts = (a) => a.map(([x, z]) => ({ x, z }));
 // harbour mouth to El Bajón, back to land his catch at the quay steps.
 export const OUTINGS = {
   jean: {
-    owner: 'ian', name: 'Bonny Jean', kind: 'skiff', start: 14.1, target: 'mackerel', where: 'from the Bonny Jean, out past the Calf', south: false,
+    owner: 'ian', name: $t('Bonny Jean'), kind: 'skiff', start: 14.1, target: 'mackerel', where: $t('from the Bonny Jean, out past the Calf'), south: false,
     mooring: { x: 25, z: -80.5, heading: Math.PI },
     route: pts([[25, -80.5], [32.5, -77.5], [36, -60], [35.5, -38], [33, -25], [32, 12], [36, 26]]), drift: pts([[36, 26], [46, 34]]), fishHours: 2.4,
   },
   carmen: {
-    owner: 'chano', name: 'Virgen del Carmen', kind: 'skiff', start: 6.9, target: 'parrotfish', where: 'over El Bajón', south: true,
+    owner: 'chano', name: $t('Virgen del Carmen'), kind: 'skiff', start: 6.9, target: 'parrotfish', where: $t('over El Bajón'), south: true,
     mooring: { x: 34, z: 6318, heading: Math.PI },
     route: pts([[34, 6318], [37, 6372], [25, 6408], [-60, 6432], [-108, 6437]]), drift: pts([[-108, 6437], [-100, 6431]]), fishHours: 3,
     landing: { x: 30, z: QUAY_S.z1 + 1.35, heading: Math.PI / 2 },
@@ -204,7 +205,7 @@ export const LOCAL_BOATS = {
 // lies bow in, having come home that way: see charterLegs.)
 const WREN_BERTH = { ...fingerBerth(0, -1, 'console'), heading: -Math.PI / 2 };
 export const CHARTER = {
-  name: 'Sea Wren', kind: 'console', start: 9, chance: 0.7, mooring: WREN_BERTH,
+  name: $t('Sea Wren'), kind: 'console', start: 9, chance: 0.7, mooring: WREN_BERTH,
   route: [[WREN_BERTH.x, WREN_BERTH.z], [32.5, -74.5], [36, -60], [35.5, -38], [30, 10], [5, 55], [G.x - 40, G.z - 4]].map(([x, z]) => ({ x, z })),
   drift: [[G.x - 40, G.z - 4], [G.x - 46, G.z + 2]].map(([x, z]) => ({ x, z })), fishHours: 2.6,
 };
@@ -212,7 +213,7 @@ export const CHARTER = {
 // away again next morning.
 const V0 = VISITOR_FINGERS[0];
 export const CALLER = {
-  name: 'Halcyon', kind: 'cruiser', arrive: 15.6, leave: 9.4, chance: 0.35,
+  name: $t('Halcyon'), kind: 'cruiser', arrive: 15.6, leave: 9.4, chance: 0.35,
   berth: { x: V0.x0 + 0.6 + 4.6, z: V0.z1 + 1.5 + 0.25, heading: -Math.PI / 2 },
   // (In round the north of the shoals off Shell Strand, then down the deep water into the bay.)
   route: [[300, 240], [150, 110], [100, 63], [46, 61], [43, 10], [40, -30], [33, -42.55], [V0.x0 + 5.2, V0.z1 + 1.75]].map(([x, z]) => ({ x, z })),
@@ -226,7 +227,7 @@ export const PADDLE = {
 
 // The Puffin: in from the open sea of an afternoon to anchor in the bay; out again next morning.
 export const PUFFIN = {
-  name: 'Puffin', kind: 'sail', arrive: 14.5, leave: 9, chance: 0.4,
+  name: $t('Puffin'), kind: 'sail', arrive: 14.5, leave: 9, chance: 0.4,
   route: pts([[260, 330], [150, 170], [60, 80], [0, 45], [-25, 10], [-32, -30], [-27, -52]]),
 };
 const SAIL = 4 * HOUR_SECONDS;
@@ -411,13 +412,13 @@ export const puffinChance = (season) => PUFFIN.chance * ({ spring: 0.75, summer:
 export function hettieMark(hour, ctx) {
   const about = ctx.about || [];
   if (hour >= 1 && hour < 4.5) return null;
-  if ((ctx.storm ?? 0) >= 0.35) return { spot: 'lee', target: 'flounder', why: 'in the lee of the quay, out of the wind' };
+  if ((ctx.storm ?? 0) >= 0.35) return { spot: 'lee', target: 'flounder', why: $t('in the lee of the quay, out of the wind') };
   if ((ctx.rain ?? 0) > 0.75) return null;
-  if ((hour >= 4.5 && hour < 8) || (hour >= 18 && hour < 21.5)) return { spot: 'strand', target: 'seabass', why: 'on Shell Strand after the bass' };
-  if (hour >= 21.5 || hour < 1) return { spot: 'quayEnd', target: 'squid', why: 'under the quay light, jigging for squid' };
+  if ((hour >= 4.5 && hour < 8) || (hour >= 18 && hour < 21.5)) return { spot: 'strand', target: 'seabass', why: $t('on Shell Strand after the bass') };
+  if (hour >= 21.5 || hour < 1) return { spot: 'quayEnd', target: 'squid', why: $t('under the quay light, jigging for squid') };
   const top = about.find((a) => ['mackerel', 'garfish', 'bonito', 'horsemackerel', 'bluefish'].includes(a.id));
-  if (top) return { spot: 'quayEnd', target: top.id, why: `on the end of the quay: the ${lower(top.name)} are in` };
-  return { spot: 'slipway', target: 'flounder', why: 'down by the slipway, a worm out on the sand for flounder' };
+  if (top) return { spot: 'quayEnd', target: top.id, why: $t`on the end of the quay: the ${lower(top.name)} are in` };
+  return { spot: 'slipway', target: 'flounder', why: $t('down by the slipway, a worm out on the sand for flounder') };
 }
 
 // In (at home, or the bivouac) until the next of the day's times, as each could take them out again.
@@ -1009,7 +1010,7 @@ export class Townsfolk {
         const lobsters = Math.max(1, Math.round(pots * (1.2 + 1.6 * dayDice(day, 9))));
         const crab = Math.round(pots * (1 + 2 * dayDice(day, 11)));
         const conger = dayDice(day, 13) < 0.25;
-        this.haul = { day, hour: abs - day * 24, text: `Dougie landed his pots this morning: ${lobsters} lobster${lobsters > 1 ? 's' : ''}${crab ? ` and ${crab} brown crab` : ''}${conger ? ', and a conger as long as his arm that had got into one of them' : ''}.${T.cut ? ' He came in early, before the blow.' : ''}` };
+        this.haul = { day, hour: abs - day * 24, text: (lobsters > 1 ? $t`Dougie landed his pots this morning: ${lobsters} lobsters${crab ? $t` and ${crab} brown crab` : ''}${conger ? $t(', and a conger as long as his arm that had got into one of them') : ''}.${T.cut ? $t(' He came in early, before the blow.') : ''}` : $t`Dougie landed his pots this morning: ${lobsters} lobster${crab ? $t` and ${crab} brown crab` : ''}${conger ? $t(', and a conger as long as his arm that had got into one of them') : ''}.${T.cut ? $t(' He came in early, before the blow.') : ''}`) };
       }
     }
   }
@@ -1052,8 +1053,8 @@ export class Townsfolk {
     if (at.leg.kind === 'land' && !T.landed) {
       T.landed = true;
       const n = Math.max(2, (T.n || 0) + Math.round(3 * dayDice(day, 31)));
-      const extra = dayDice(day, 33) < 0.3 ? ', and a big moray he says nearly had his fingers' : dayDice(day, 35) < 0.3 ? ' and a couple of triggerfish' : '';
-      this.chanoHaul = { day, hour: abs - day * 24, text: `Chano came in from El Bajón with ${n} viejas${extra}. Paco’s mother will have them on the menu tonight.` };
+      const extra = dayDice(day, 33) < 0.3 ? $t(', and a big moray he says nearly had his fingers') : dayDice(day, 35) < 0.3 ? $t(' and a couple of triggerfish') : '';
+      this.chanoHaul = { day, hour: abs - day * 24, text: $t`Chano came in from El Bajón with ${n} viejas${extra}. Paco’s mother will have them on the menu tonight.` };
     }
   }
 
@@ -1101,28 +1102,28 @@ export class Townsfolk {
     const day = Math.floor((this.abs ?? 0) / 24);
     if (this.haul?.day === day) out.push(this.haul.text);
     const best = this.landed.filter((l) => l.day === day).sort((a, b) => b.k - a.k)[0];
-    if (best && best.k > 0.35) out.push(`${best.who} had a good ${lower(best.name)} ${best.where} ${best.hour < 12 ? 'this morning' : best.hour < 18 ? 'this afternoon' : 'this evening'}: ${best.size} cm.`);
+    if (best && best.k > 0.35) out.push($t`${best.who} had a good ${lower(best.name)} ${best.where} ${best.hour < 12 ? $t('this morning') : best.hour < 18 ? $t('this afternoon') : $t('this evening')}: ${best.size} cm.`);
     const D = this.people.dougie, H = this.people.hettie, K = this.people.kit;
-    if (this.boat.aboard && this.boat.leg && this.boat.leg !== 'land') out.push(this.trip?.cut ? 'Dougie’s on his way in: he left the rest of his pots when the wind got up.' : 'Dougie’s out at his pots off Gull Rock. He’ll be in about noon to land them.');
-    else if (D.block?.spot === 'pots' && D.act !== 'walk') out.push('Dougie’s not going out today: he’s on the quay mending pots.');
-    else if (D.block?.spot === 'lee') out.push('Dougie’s fishing in the lee of the quay: no going out to the pots in this.');
+    if (this.boat.aboard && this.boat.leg && this.boat.leg !== 'land') out.push(this.trip?.cut ? $t('Dougie’s on his way in: he left the rest of his pots when the wind got up.') : $t('Dougie’s out at his pots off Gull Rock. He’ll be in about noon to land them.'));
+    else if (D.block?.spot === 'pots' && D.act !== 'walk') out.push($t('Dougie’s not going out today: he’s on the quay mending pots.'));
+    else if (D.block?.spot === 'lee') out.push($t('Dougie’s fishing in the lee of the quay: no going out to the pots in this.'));
     if (H.block?.why && (H.act === 'fish' || H.act === 'lift' || H.act === 'walk' || H.act === 'away')) out.push(`Hettie’s ${H.block.why}.`);
-    if (K.act === 'crab') out.push(hour < 12.5 ? 'Kit’s been crabbing off the quay all morning.' : 'Kit’s back on the quay with his crab line.');
+    if (K.act === 'crab') out.push(hour < 12.5 ? $t('Kit’s been crabbing off the quay all morning.') : $t('Kit’s back on the quay with his crab line.'));
     const J = this.boats.jean;
-    if (J.aboard && J.leg !== 'prep') out.push(J.fishing ? 'Ian Rennie’s out in the Bonny Jean past the Calf, feathering for mackerel.' : 'That’s Ian Rennie in the Bonny Jean: off after the mackerel, now the wind’s dropped.');
-    if (this.boats.wren.aboard && this.boats.wren.leg !== 'prep') out.push(this.boats.wren.fishing ? 'The Sea Wren’s out off Gull Rock with a party, drifting for pollack.' : 'That’s the Sea Wren going out: a charter, with a party aboard after the pollack off Gull Rock.');
+    if (J.aboard && J.leg !== 'prep') out.push(J.fishing ? $t('Ian Rennie’s out in the Bonny Jean past the Calf, feathering for mackerel.') : $t('That’s Ian Rennie in the Bonny Jean: off after the mackerel, now the wind’s dropped.'));
+    if (this.boats.wren.aboard && this.boats.wren.leg !== 'prep') out.push(this.boats.wren.fishing ? $t('The Sea Wren’s out off Gull Rock with a party, drifting for pollack.') : $t('That’s the Sea Wren going out: a charter, with a party aboard after the pollack off Gull Rock.'));
     const HB = this.boats.halcyon;
-    if (HB.present) out.push(HB.leg === 'in' ? 'There’s a motor yacht coming in: the Halcyon, cruising the coast. She’ll lie at the visitors’ pontoon tonight.' : HB.leg === 'out' ? 'The Halcyon’s off again, on round the coast.' : 'The Halcyon’s in at the visitors’ pontoon for the night, a motor yacht cruising the coast.');
-    if (this.boats.kay1.present) out.push('A couple of kayaks are out round the west of the bay.');
+    if (HB.present) out.push(HB.leg === 'in' ? $t('There’s a motor yacht coming in: the Halcyon, cruising the coast. She’ll lie at the visitors’ pontoon tonight.') : HB.leg === 'out' ? $t('The Halcyon’s off again, on round the coast.') : $t('The Halcyon’s in at the visitors’ pontoon for the night, a motor yacht cruising the coast.'));
+    if (this.boats.kay1.present) out.push($t('A couple of kayaks are out round the west of the bay.'));
     const P = this.boats.puffin, V = this.visit;
     if (P.present) {
-      if (P.leg === 'in') out.push('There’s a little cruising boat coming in under sail: the Puffin, by the look of her. She’ll anchor in the bay for the night.');
-      else if (P.leg === 'out') out.push('The Puffin’s off, under sail, out of the bay and on round the coast.');
-      else out.push(V.stay ? 'The Puffin’s still at anchor in the bay, waiting for the weather to let her go on.' : 'The Puffin’s at anchor in the bay for the night: a little cruising boat, going round the coast.');
+      if (P.leg === 'in') out.push($t('There’s a little cruising boat coming in under sail: the Puffin, by the look of her. She’ll anchor in the bay for the night.'));
+      else if (P.leg === 'out') out.push($t('The Puffin’s off, under sail, out of the bay and on round the coast.'));
+      else out.push(V.stay ? $t('The Puffin’s still at anchor in the bay, waiting for the weather to let her go on.') : $t('The Puffin’s at anchor in the bay for the night: a little cruising boat, going round the coast.'));
     }
     // (G9b) The Trust's warden, out on Gannet Isle for the season.
     const Fn = this.people.fen;
-    if (Fn && !Fn.block?.away) out.push('Fen Hollis is out on Gannet Isle for the Trust, counting the seabirds. She’d be glad of a visitor, and of the post.');
+    if (Fn && !Fn.block?.away) out.push($t('Fen Hollis is out on Gannet Isle for the Trust, counting the seabirds. She’d be glad of a visitor, and of the post.'));
     return out;
   }
 
@@ -1132,10 +1133,10 @@ export class Townsfolk {
     const day = Math.floor((this.abs ?? 0) / 24);
     if (this.chanoHaul?.day === day) out.push(this.chanoHaul.text);
     const C = this.boats.carmen, ch = this.people.chano;
-    if (C.aboard && C.leg !== 'land') out.push(C.fishing ? 'Chano is out over El Bajón with his handlines, since sunrise.' : 'That’s Chano’s boat, the Virgen del Carmen, going out to El Bajón.');
-    else if (ch.block?.spot === 'steps' && ch.act === 'work' && !C.aboard) out.push('Chano didn’t go out this morning: too much wind. He’s mending his nets on the quay.');
+    if (C.aboard && C.leg !== 'land') out.push(C.fishing ? $t('Chano is out over El Bajón with his handlines, since sunrise.') : $t('That’s Chano’s boat, the Virgen del Carmen, going out to El Bajón.'));
+    else if (ch.block?.spot === 'steps' && ch.act === 'work' && !C.aboard) out.push($t('Chano didn’t go out this morning: too much wind. He’s mending his nets on the quay.'));
     // (G9) The dive school's boat, up at the end of the waterfront.
-    if (this.people.nayra?.block?.spot === 'hull') out.push('The dive school’s boat is still up at the end of the waterfront with a cracked keel. Nayra’s at it with a sanding block.');
+    if (this.people.nayra?.block?.spot === 'hull') out.push($t('The dive school’s boat is still up at the end of the waterfront with a cracked keel. Nayra’s at it with a sanding block.'));
     return out;
   }
 
@@ -1156,65 +1157,65 @@ export function sayTo(p, { hour = 12, storm = 0, wanted = [], caught = 0, landed
   const act = p.act, b = p.block || {};
   switch (p.id) {
     case 'mags':
-      if (act === 'walk') return 'Can’t stop, love: the boats’ll be in.';
-      return wanted.length ? `“Morning! I’m after ${wanted.map((n) => lower(n)).join(' and ')} today: bring me some and I’ll pay you half as much again.”` : '“What have you got for me, then?”';
+      if (act === 'walk') return $t('Can’t stop, love: the boats’ll be in.');
+      return wanted.length ? $t`“Morning! I’m after ${wanted.map((n) => lower(n)).join($t(' and '))} today: bring me some and I’ll pay you half as much again.”` : $t('“What have you got for me, then?”');
     case 'bert':
-      return act === 'sit' ? '“Sit down a minute? No? Well, mind you keep your line fresh. A frayed line loses you the fish of the day, and you never forget that one.”' : '“The tackle’s through there, same as always. Help yourself.”';
+      return act === 'sit' ? $t('“Sit down a minute? No? Well, mind you keep your line fresh. A frayed line loses you the fish of the day, and you never forget that one.”') : $t('“The tackle’s through there, same as always. Help yourself.”');
     case 'ruth':
-      return act === 'sit' ? '“Five minutes’ peace. Don’t tell anyone I’m out here.”' : act === 'work' ? '“Morning! Fish pie tonight, if you’re hungry. And I’m always after a good fish for the kitchen.”' : '“Last orders! Come on, haven’t you got homes to go to?”';
+      return act === 'sit' ? $t('“Five minutes’ peace. Don’t tell anyone I’m out here.”') : act === 'work' ? $t('“Morning! Fish pie tonight, if you’re hungry. And I’m always after a good fish for the kitchen.”') : $t('“Last orders! Come on, haven’t you got homes to go to?”');
     case 'dougie': {
-      if (b.spot === 'lee') return '“Nothing doing out there in this. In here, out of the wind, there’s always a flounder or two on the bottom.”';
-      if (b.spot === 'pots') return storm > 0.3 ? '“No going out in this. I’ll have these mended by the time it blows through.”' : '“Pots don’t mend themselves. Off Gull Rock tomorrow, first light.”';
-      return '“Been out since first light. Lobsters were walking this morning.”';
+      if (b.spot === 'lee') return $t('“Nothing doing out there in this. In here, out of the wind, there’s always a flounder or two on the bottom.”');
+      if (b.spot === 'pots') return storm > 0.3 ? $t('“No going out in this. I’ll have these mended by the time it blows through.”') : $t('“Pots don’t mend themselves. Off Gull Rock tomorrow, first light.”');
+      return $t('“Been out since first light. Lobsters were walking this morning.”');
     }
     case 'hettie': {
       const mine = landed.filter((l) => l.who === 'Hettie');
       const last = mine[mine.length - 1];
       const tgt = fishById[b.target] ? lower(fishById[b.target].name) : null;
-      if (last) return `“Had ${mine.length > 1 ? `${mine.length} so far` : 'one'}: the best a ${last.size} cm ${lower(last.name)}. ${b.spot === 'strand' ? 'Fish the white water, where the waves break.' : b.spot === 'quayEnd' ? 'Straight out off the end, let it sink a bit.' : 'Patience. Let the bait sit.'}”`;
-      return tgt ? `“I’m after ${tgt}. Nothing yet, but they’ll come.”` : '“Lovely day for it.”';
+      if (last) return $t`“Had ${mine.length > 1 ? $t`${mine.length} so far` : 'one'}: the best a ${last.size} cm ${lower(last.name)}. ${b.spot === 'strand' ? $t('Fish the white water, where the waves break.') : b.spot === 'quayEnd' ? $t('Straight out off the end, let it sink a bit.') : $t('Patience. Let the bait sit.')}”`;
+      return tgt ? $t`“I’m after ${tgt}. Nothing yet, but they’ll come.”` : $t('“Lovely day for it.”');
     }
     case 'kit':
-      return caught > 0 ? '“I’ve caught loads of crabs! Gran says I’ve to put them all back.”' : '“Bacon’s the best bait for crabs. Everybody knows that.”';
+      return caught > 0 ? $t('“I’ve caught loads of crabs! Gran says I’ve to put them all back.”') : $t('“Bacon’s the best bait for crabs. Everybody knows that.”');
     case 'ian':
-      return act === 'sit' ? '“Forty years I taught Latin up at the school. Now I fish. Calm afternoons, the mackerel come in past the Calf: a string of feathers, and you can’t go wrong.”' : '“Off out in the Bonny Jean later, if the wind stays down.”';
+      return act === 'sit' ? $t('“Forty years I taught Latin up at the school. Now I fish. Calm afternoons, the mackerel come in past the Calf: a string of feathers, and you can’t go wrong.”') : $t('“Off out in the Bonny Jean later, if the wind stays down.”');
     case 'wenna':
-      if (b.spot === 'gangway') return '“Just looking over the lines. That finger with your name on it is yours, mind: nobody else ties up there. Visitors go on the end row.”';
-      if (b.spot === 'bench') return '“I like to see them all in before I turn in. Quiet night for it.”';
-      return '“Your boats are in good hands: three in the water at a time, and the rest snug in the store. Ask at the hatch whenever you want one.”';
+      if (b.spot === 'gangway') return $t('“Just looking over the lines. That finger with your name on it is yours, mind: nobody else ties up there. Visitors go on the end row.”');
+      if (b.spot === 'bench') return $t('“I like to see them all in before I turn in. Quiet night for it.”');
+      return $t('“Your boats are in good hands: three in the water at a time, and the rest snug in the store. Ask at the hatch whenever you want one.”');
     case 'paco':
-      return hour < 12 ? '“¡Buenos días! Coffee? The boats are out at El Bajón.”' : '“¡Hola! A cold caña? Sit, sit.”';
+      return hour < 12 ? $t('“¡Buenos días! Coffee? The boats are out at El Bajón.”') : $t('“¡Hola! A cold caña? Sit, sit.”');
     case 'chano':
-      if (act === 'work') return '“Too much wind for my little boat today. So, the nets.” He holds up a tangle. “Always the nets.”';
-      return '“El Bajón, every morning since I was a boy. The viejas like a piece of crab, on the bottom, right by the rock. Paco’s mother cooks them better than anyone.”';
+      if (act === 'work') return $t('“Too much wind for my little boat today. So, the nets.” He holds up a tangle. “Always the nets.”');
+      return $t('“El Bajón, every morning since I was a boy. The viejas like a piece of crab, on the bottom, right by the rock. Paco’s mother cooks them better than anyone.”');
     // (G9) Nayra and Agustín: what they're at, and a word for someone who's worked for them (your
     // standing with the dive school and the cofradía: contracts.js rep).
     case 'nayra':
-      if (rep.buceo > 0 && act !== 'work') return '“My divers still talk about you holding the boat over the reef while they were down. ¡Gracias! Come and dive with us one day, as a guest.”';
-      if (act === 'work') return `“A crack in her keel, from a bad landing on Las Coladas.” She runs a hand along it.${rep.buceo > 0 ? ' “You’ve kept my divers going while she’s up here. I won’t forget it.”' : ' “Two more days of sanding and filling, and she’s back in the water. Till then, the school needs a boat.”'}`;
-      if (b.spot === 'tanks') return '“El Bajón is a marine reserve: no anchoring, no fishing over the pinnacles. Ten metres down it’s full of life. Barracuda, groupers, and the black coral down the walls.”';
-      return '“If you want to see angel sharks, go to El Sebadal early, before the boats. They lie in the sand like doormats, and the sand is their colour.”';
+      if (rep.buceo > 0 && act !== 'work') return $t('“My divers still talk about you holding the boat over the reef while they were down. ¡Gracias! Come and dive with us one day, as a guest.”');
+      if (act === 'work') return $t`“A crack in her keel, from a bad landing on Las Coladas.” She runs a hand along it.${rep.buceo > 0 ? $t(' “You’ve kept my divers going while she’s up here. I won’t forget it.”') : $t(' “Two more days of sanding and filling, and she’s back in the water. Till then, the school needs a boat.”')}`;
+      if (b.spot === 'tanks') return $t('“El Bajón is a marine reserve: no anchoring, no fishing over the pinnacles. Ten metres down it’s full of life. Barracuda, groupers, and the black coral down the walls.”');
+      return $t('“If you want to see angel sharks, go to El Sebadal early, before the boats. They lie in the sand like doormats, and the sand is their colour.”');
     case 'agustin':
-      if (act === 'work') return `“Sixty years I’ve mended nets on this quay.” His needle doesn’t stop.${rep.cofradia > 0 ? ' “You carried our salt fish, our buoys. The cofradía doesn’t forget.”' : ' “The young ones buy new. A good net, you mend.”'}`;
-      if (b.spot === 'dique') return storm > 0.3 ? '“Look at it. The sea’s the sea’s today. Tomorrow, maybe.”' : '“The trade wind’s backing. When the cloud sits on the Pico like a hat, it’ll blow by morning.”';
-      return rep.cofradia > 0 ? '“¡Siéntate! The one who carried our fish to the English. Paco, another for my friend.”' : '“The salt fish, the way my father did it: split, salted, dried in the wind on the roofs. Your Mags pays well for it, they tell me.”';
+      if (act === 'work') return $t`“Sixty years I’ve mended nets on this quay.” His needle doesn’t stop.${rep.cofradia > 0 ? $t(' “You carried our salt fish, our buoys. The cofradía doesn’t forget.”') : $t(' “The young ones buy new. A good net, you mend.”')}`;
+      if (b.spot === 'dique') return storm > 0.3 ? $t('“Look at it. The sea’s the sea’s today. Tomorrow, maybe.”') : $t('“The trade wind’s backing. When the cloud sits on the Pico like a hat, it’ll blow by morning.”');
+      return rep.cofradia > 0 ? $t('“¡Siéntate! The one who carried our fish to the English. Paco, another for my friend.”') : $t('“The salt fish, the way my father did it: split, salted, dried in the wind on the roofs. Your Mags pays well for it, they tell me.”');
     // (G9b) Bryn at Wend Quay and Fen on Gannet Isle: what they're at, and a word for someone who's
     // worked for the harbour office or the Trust.
     case 'bryn': {
       const mine = landed.filter((l) => l.who === 'Bryn'), last = mine[mine.length - 1];
-      if (act === 'walk') return '“Can’t stop: the tide won’t wait for me.”';
-      if (b.spot === 'quayTop') return `“Somebody has to keep the old quay. Three hundred years these stones have stood: I’d like them to see another three hundred.”${rep.wenna > 0 ? ' “Wenna speaks well of you, and she doesn’t speak well of many.”' : ''}`;
-      if (b.spot === 'mulletEnd') return last ? `“Had one! ${last.size} centimetres, on bread flake. Don’t tell Hettie: she says they can’t be caught off here.”` : '“Mullet. Look: grey backs, nosing at the weed on the stones. I can see them, they can see me, and thirty years they’ve laughed at me.”';
-      if (b.spot === 'pitch') return '“Campers leave their tent pegs everywhere. I’ve a jar of them in the hut: forty years of pegs.”';
-      if (hour >= 19.5) return '“Listen: the curlews, out on the flats. They’ll be calling all night, and the tide coming up under them.”';
-      return `“The tide comes up the Wend a good hour after it’s high at Willowhaven, and the mullet come up with it. Bread flake, a little float, and keep still: they see you long before you see them.”${rep.wenna > 0 ? ' “Sit down a minute. Wenna’s friends are mine.”' : ''}`;
+      if (act === 'walk') return $t('“Can’t stop: the tide won’t wait for me.”');
+      if (b.spot === 'quayTop') return $t`“Somebody has to keep the old quay. Three hundred years these stones have stood: I’d like them to see another three hundred.”${rep.wenna > 0 ? $t(' “Wenna speaks well of you, and she doesn’t speak well of many.”') : ''}`;
+      if (b.spot === 'mulletEnd') return last ? $t`“Had one! ${last.size} centimetres, on bread flake. Don’t tell Hettie: she says they can’t be caught off here.”` : $t('“Mullet. Look: grey backs, nosing at the weed on the stones. I can see them, they can see me, and thirty years they’ve laughed at me.”');
+      if (b.spot === 'pitch') return $t('“Campers leave their tent pegs everywhere. I’ve a jar of them in the hut: forty years of pegs.”');
+      if (hour >= 19.5) return $t('“Listen: the curlews, out on the flats. They’ll be calling all night, and the tide coming up under them.”');
+      return $t`“The tide comes up the Wend a good hour after it’s high at Willowhaven, and the mullet come up with it. Bread flake, a little float, and keep still: they see you long before you see them.”${rep.wenna > 0 ? $t(' “Sit down a minute. Wenna’s friends are mine.”') : ''}`;
     }
     case 'fen':
-      if (act === 'walk') return '“Sorry, can’t stop: I mustn’t miss the light.”';
-      if (b.spot === 'cliff') return `“Three hundred and twelve… Sorry. Puffins. They all look the same from up here, so I count the ones coming in with a beak full of sandeels: each of those is a chick being fed.”${rep.trust > 0 ? ' “Your counts are in the Trust’s records with mine, you know.”' : ''}`;
-      if (b.spot === 'headland') return '“They gather out there at dusk, the shearwaters, thousands of them, and come in to their burrows after dark. You’ll hear them before you see them: they wail like lost souls.”';
-      if (b.spot === 'stage') return rep.trust > 0 ? '“The Trust tells me you’ve done counts for us. Come up to the cliff one dawn and I’ll show you how it’s done on a colony.”' : '“The Trust’s boat comes out once a week, with water and the post. Anything sooner is a kindness.”';
-      return '“Porridge on a little stove, three months running. I dream about Ruth’s fish pie.”';
+      if (act === 'walk') return $t('“Sorry, can’t stop: I mustn’t miss the light.”');
+      if (b.spot === 'cliff') return $t`“Three hundred and twelve… Sorry. Puffins. They all look the same from up here, so I count the ones coming in with a beak full of sandeels: each of those is a chick being fed.”${rep.trust > 0 ? $t(' “Your counts are in the Trust’s records with mine, you know.”') : ''}`;
+      if (b.spot === 'headland') return $t('“They gather out there at dusk, the shearwaters, thousands of them, and come in to their burrows after dark. You’ll hear them before you see them: they wail like lost souls.”');
+      if (b.spot === 'stage') return rep.trust > 0 ? $t('“The Trust tells me you’ve done counts for us. Come up to the cliff one dawn and I’ll show you how it’s done on a colony.”') : $t('“The Trust’s boat comes out once a week, with water and the post. Anything sooner is a kindness.”');
+      return $t('“Porridge on a little stove, three months running. I dream about Ruth’s fish pie.”');
   }
   return '';
 }

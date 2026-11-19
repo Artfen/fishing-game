@@ -49,6 +49,7 @@ export const MODES = {
 export const SWAMPED = 0.5;
 export const modeOf = (difficulty) => MODES[difficulty] || MODES.standard;
 import { section } from './hydro.js';
+import { $t } from './i18n.js';
 
 const RHO = 1025;   // kg/m³
 const G = 9.81;
@@ -60,12 +61,12 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 // the stern), open (green water and rain get in), engine (her engines are in it) }].
 function layoutOf(kind) {
   if (SEALED.has(kind)) return [];
-  if (kind === 'kayak') return [{ id: 'cockpit', name: 'the cockpit', t0: 0.3, t1: 0.6, open: true }];
-  if (kind === 'cabin') return [{ id: 'cockpit', name: 'the cockpit', t0: 0.02, t1: 0.5, open: true }, { id: 'cabin', name: 'the cabin', t0: 0.5, t1: 0.95 }];
-  if (kind === 'cruiser') return [{ id: 'engine', name: 'the engine room', t0: 0.02, t1: 0.3, engine: true }, { id: 'saloon', name: 'the saloon', t0: 0.3, t1: 0.72 }, { id: 'fore', name: 'the forecabin', t0: 0.72, t1: 0.95 }];
-  if (kind === 'trawler') return [{ id: 'engine', name: 'the engine room', t0: 0.02, t1: 0.3, engine: true }, { id: 'saloon', name: 'the saloon', t0: 0.3, t1: 0.72 }, { id: 'fore', name: 'the forecabin', t0: 0.72, t1: 0.95 }];
-  if (SELF_DRAINING.has(kind)) return [{ id: 'bilge', name: 'her bilge', t0: 0.03, t1: 0.9 }];
-  return [{ id: 'bilge', name: 'her bilge', t0: 0.03, t1: 0.95, open: true }];
+  if (kind === 'kayak') return [{ id: 'cockpit', name: $t('the cockpit'), t0: 0.3, t1: 0.6, open: true }];
+  if (kind === 'cabin') return [{ id: 'cockpit', name: $t('the cockpit'), t0: 0.02, t1: 0.5, open: true }, { id: 'cabin', name: $t('the cabin'), t0: 0.5, t1: 0.95 }];
+  if (kind === 'cruiser') return [{ id: 'engine', name: $t('the engine room'), t0: 0.02, t1: 0.3, engine: true }, { id: 'saloon', name: $t('the saloon'), t0: 0.3, t1: 0.72 }, { id: 'fore', name: $t('the forecabin'), t0: 0.72, t1: 0.95 }];
+  if (kind === 'trawler') return [{ id: 'engine', name: $t('the engine room'), t0: 0.02, t1: 0.3, engine: true }, { id: 'saloon', name: $t('the saloon'), t0: 0.3, t1: 0.72 }, { id: 'fore', name: $t('the forecabin'), t0: 0.72, t1: 0.95 }];
+  if (SELF_DRAINING.has(kind)) return [{ id: 'bilge', name: $t('her bilge'), t0: 0.03, t1: 0.9 }];
+  return [{ id: 'bilge', name: $t('her bilge'), t0: 0.03, t1: 0.95, open: true }];
 }
 
 // Her compartments with their sizes, for a hull H (boat.js HULLS): each one's capacity (litres: her
@@ -195,4 +196,4 @@ export function waterAt(c, litres, px, bz, out = [0, 0, 0]) {
 }
 
 // In words for the throttle panel: "water aboard 120 L".
-export const waterWords = (litres) => `water aboard ${litres < 10 ? litres.toFixed(1) : Math.round(litres)} L`;
+export const waterWords = (litres) => $t`water aboard ${litres < 10 ? litres.toFixed(1) : Math.round(litres)} L`;

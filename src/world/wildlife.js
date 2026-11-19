@@ -4,6 +4,7 @@ import { COLDWATER } from './coldwater.js';
 import { lochAt } from './north.js';
 import { waveHeight } from './water.js';
 import { clamp, lerp, damp, dampAngle, smoothstep, wrapAngle, mergeParts, mat, seeded } from '../util.js';
+import { $t } from '../i18n.js';
 
 // The quieter wildlife of the home coast, there to be watched (see sealife.js for the whales,
 // dolphins, seals and gannets):
@@ -268,11 +269,11 @@ export const OTTER_BEATS = (() => {
   const cold = COLDWATER.slice(34, 42).map((n) => ({ x: n.x, z: n.z, hw: n.w * 0.5 }));
   const wend = RIVER.slice(0, 4).map(([x, z, hw]) => ({ x, z, hw }));
   return [
-    { id: 'coldwater', name: 'the Coldwater', path: bankPath(cold, 1) },
-    { id: 'wend', name: 'the upper Wend', path: bankPath(wend, -1) },
-    { id: 'saltings', name: 'the Saltings', path: [...ringPath(MARSH[0]), ...ringPath(MARSH[1])] },
+    { id: 'coldwater', name: $t('the Coldwater'), path: bankPath(cold, 1) },
+    { id: 'wend', name: $t('the upper Wend'), path: bankPath(wend, -1) },
+    { id: 'saltings', name: $t('the Saltings'), path: [...ringPath(MARSH[0]), ...ringPath(MARSH[1])] },
     // (The north: docs/NORTH.md.)
-    { id: 'loch', name: 'Loch Skarn', path: lochShore(-1760, -1240) },
+    { id: 'loch', name: $t('Loch Skarn'), path: lochShore(-1760, -1240) },
   ].filter((B) => B.path.length > 6);
 })();
 export const HERON_SPOTS = [
@@ -315,7 +316,7 @@ export function buildWildlife(scene) {
       if (spook) {
         if (o.state === 'swim' || o.state === 'eat') {
           events.onSplash?.(o.x, o.z, 0.3);
-          if (d < 60) moment('otterGone', 'A swirl and a flip of a tail, and the otter’s gone. They don’t let you get close if they hear you coming.');
+          if (d < 60) moment('otterGone', $t('A swirl and a flip of a tail, and the otter’s gone. They don’t let you get close if they hear you coming.'));
         }
         o.state = 'gone';
         o.t = rand(150, 320);
@@ -361,7 +362,7 @@ export function buildWildlife(scene) {
         const dx = o.tx - o.x, dz = o.tz - o.z, l = Math.hypot(dx, dz);
         if (l < 0.3 || o.t <= 0) {
           Object.assign(o, { state: 'eat', t: rand(18, 35) });
-          if (d < 70 && ctx.daylight > 0.08) moment('otterEat', 'An otter has hauled out on the bank with a fish, and is eating it, crunching, head on one side. Keep still and you can watch.');
+          if (d < 70 && ctx.daylight > 0.08) moment('otterEat', $t('An otter has hauled out on the bank with a fish, and is eating it, crunching, head on one side. Keep still and you can watch.'));
         } else {
           o.x += (dx / l) * 0.9 * dt;
           o.z += (dz / l) * 0.9 * dt;
@@ -401,7 +402,7 @@ export function buildWildlife(scene) {
         sight('otter', o.x, o.z);
         if (!o.seen) {
           o.seen = true;
-          if (d < 90) moment('otter', `An otter, along the bank of ${o.B.name}: a long brown back, a flat head, a thick tail. It hasn’t seen you. Keep still.`);
+          if (d < 90) moment('otter', $t`An otter, along the bank of ${o.B.name}: a long brown back, a flat head, a thick tail. It hasn’t seen you. Keep still.`);
         }
       }
       if (Math.random() < dt * 0.01 && d < 60) call('otter', o.x, o.z);
@@ -466,7 +467,7 @@ export function buildWildlife(scene) {
             H.state = r < 0.4 ? 'stalk' : 'strike';
             H.t = H.state === 'stalk' ? rand(3, 7) : 1.2;
           } else {
-            if (H.state === 'strike' && Math.random() < 0.3 && d < 70 && ctx.daylight > 0.2) moment('heronFish', 'A heron, motionless all this time, jabs into the water and comes up with a little fish crosswise in its bill. A toss of the head, and it’s gone down.');
+            if (H.state === 'strike' && Math.random() < 0.3 && d < 70 && ctx.daylight > 0.2) moment('heronFish', $t('A heron, motionless all this time, jabs into the water and comes up with a little fish crosswise in its bill. A toss of the head, and it’s gone down.'));
             H.state = 'stand';
             H.t = rand(6, 18);
           }
@@ -538,7 +539,7 @@ export function buildWildlife(scene) {
         }
         if (C.dry && !C.fly && d < 90 && !C.said && ctx.daylight > 0.3) {
           C.said = true;
-          moment('cormorantDry', 'A cormorant stands on the rock with its wings held wide open, hung out to dry like washing: their feathers soak through, which is how they dive so well.');
+          moment('cormorantDry', $t('A cormorant stands on the rock with its wings held wide open, hung out to dry like washing: their feathers soak through, which is how they dive so well.'));
         }
       } else {
         // Fishing: low in the water, under for half a minute, up again a long way off.
@@ -621,7 +622,7 @@ export function buildWildlife(scene) {
         const s = waveHeight(T.x, T.z, t);
         if (T.y <= s) {
           events.onSplash?.(T.x, T.z, 0.1);
-          if (d < 90) moment('ternDive', 'A tern hangs in the air over the shallows, flickering, and then drops like a stone into the water and is up again with a sand smelt.');
+          if (d < 90) moment('ternDive', $t('A tern hangs in the air over the shallows, flickering, and then drops like a stone into the water and is up again with a sand smelt.'));
           T.state = 'rise';
           T.y = s;
           T.t = 1.5;
@@ -668,7 +669,7 @@ export function buildWildlife(scene) {
           F.fly = { fx: F.x, fz: F.z, tx: to.p.x, tz: to.p.z, i: to.i, k: 0, len: Math.hypot(to.p.x - F.x, to.p.z - F.z) };
           if (d < 120) {
             call('oystercatcher', F.x, F.z);
-            if (!awash) moment('oysterFly', 'The oystercatchers go up all at once and away low along the shore, piping, black and white wings flashing.');
+            if (!awash) moment('oysterFly', $t('The oystercatchers go up all at once and away low along the shore, piping, black and white wings flashing.'));
           }
         }
       }

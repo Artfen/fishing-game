@@ -14,6 +14,7 @@
 import * as THREE from 'three';
 import { PROFILES, TRIM } from './engine.js';
 import { canTroll } from './trolling.js';
+import { $t } from './i18n.js';
 
 const KNOTS = 1.9438;
 // (Controls a little larger to hit than they look.)
@@ -81,18 +82,18 @@ export const DASHES = {
 
 // The kinds of control: tap (once), hold (while pressed), lever (moved up and down).
 const CONTROLS = {
-  battery: { name: 'Battery switch', kind: 'tap' },
-  key: { name: 'Ignition key', kind: 'hold' },
-  cord: { name: 'Kill cord', kind: 'tap' },
-  glow: { name: 'Glow plugs', kind: 'hold' },
-  lights: { name: 'Navigation lights', kind: 'tap' },
-  horn: { name: 'Horn', kind: 'hold' },
-  screen: { name: 'Chartplotter', kind: 'tap' },
-  throttle: { name: 'Throttle and gear', kind: 'lever' },
-  trimUp: { name: 'Trim up', kind: 'hold' },
-  trimDown: { name: 'Trim down', kind: 'hold' },
-  troll: { name: 'Trolling motor', kind: 'tap' },
-  lock: { name: 'Spot-Lock', kind: 'tap' },
+  battery: { name: $t('Battery switch'), kind: 'tap' },
+  key: { name: $t('Ignition key'), kind: 'hold' },
+  cord: { name: $t('Kill cord'), kind: 'tap' },
+  glow: { name: $t('Glow plugs'), kind: 'hold' },
+  lights: { name: $t('Navigation lights'), kind: 'tap' },
+  horn: { name: $t('Horn'), kind: 'hold' },
+  screen: { name: $t('Chartplotter'), kind: 'tap' },
+  throttle: { name: $t('Throttle and gear'), kind: 'lever' },
+  trimUp: { name: $t('Trim up'), kind: 'hold' },
+  trimDown: { name: $t('Trim down'), kind: 'hold' },
+  troll: { name: $t('Trolling motor'), kind: 'tap' },
+  lock: { name: $t('Spot-Lock'), kind: 'tap' },
 };
 export const CONTROL_NAMES = Object.fromEntries(Object.entries(CONTROLS).map(([k, v]) => [k, v.name]));
 
@@ -219,7 +220,7 @@ export class Dashboard {
     hit.userData.control = id;
     group.add(hit);
     const base = baseOf(id), C = CONTROLS[base];
-    const c = { id, base, which: whichOf(id), name: C.name + (whichOf(id) != null ? (whichOf(id) ? ' (starboard engine)' : ' (port engine)') : ''), kind: C.kind, group, hit, nav };
+    const c = { id, base, which: whichOf(id), name: C.name + (whichOf(id) != null ? (whichOf(id) ? $t(' (starboard engine)') : $t(' (port engine)')) : ''), kind: C.kind, group, hit, nav };
     this.controls.set(id, c);
     return c;
   }

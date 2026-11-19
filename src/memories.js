@@ -10,6 +10,7 @@ import { requestById, standing } from './requests.js';
 import { FOLK } from './townsfolk.js';
 import { TENTS } from './campsite.js';
 import { SEA_LIFE } from './world/sealife.js';
+import { $t } from './i18n.js';
 
 // The journal's Memories pages: your photographs, the adventures you've come across and what
 // they left you, your marks on the map (favourite spots with what they've given you), your camp,
@@ -44,10 +45,10 @@ export function catchesNear(log, x, z, r = 40, placeName = null) {
 }
 
 export function linkText(c) {
-  if (!c.n) return 'Nothing caught here yet.';
-  const best = c.best ? `best: ${fishById[c.best.sp]?.name.toLowerCase() || c.best.sp}, ${c.best.size} cm` : '';
+  if (!c.n) return $t('Nothing caught here yet.');
+  const best = c.best ? $t`best: ${fishById[c.best.sp]?.name.toLowerCase() || c.best.sp}, ${c.best.size} cm` : '';
   const tk = c.tackle && TACKLE[c.tackle.id] ? `; ${c.tackle.n} on ${TACKLE[c.tackle.id].on}` : '';
-  return `${c.n} caught here (${best}${tk}).`;
+  return $t`${c.n} caught here (${best}${tk}).`;
 }
 
 export class Memories {
@@ -76,20 +77,20 @@ export class Memories {
 
   renderPhotos() {
     const st = this.state, list = [...st.photos].reverse();
-    $('mem-photo-count').textContent = `${st.photos.length} of ${PHOTO_MAX}`;
+    $('mem-photo-count').textContent = $t`${st.photos.length} of ${PHOTO_MAX}`;
     $('mem-photo-note').textContent = !this.h.photos.persistent
-      ? 'This browser isn’t keeping pictures between visits (a private window?): download the ones you want before you go.'
-      : st.photos.length >= PHOTO_MAX ? 'The album is full: download or delete some to make room.' : this.h.photoHint();
+      ? $t('This browser isn’t keeping pictures between visits (a private window?): download the ones you want before you go.')
+      : st.photos.length >= PHOTO_MAX ? $t('The album is full: download or delete some to make room.') : this.h.photoHint();
     $('mem-album-dl').disabled = !st.photos.length;
     const grid = $('mem-photos');
     if (!list.length) {
-      grid.replaceChildren(el('p', 'j-empty', 'No photographs yet.'));
+      grid.replaceChildren(el('p', 'j-empty', $t('No photographs yet.')));
       return;
     }
     grid.replaceChildren(...list.map((p) => {
       const f = el('button', 'mem-photo');
       f.type = 'button';
-      f.setAttribute('aria-label', `Photograph: ${p.title || 'untitled'}`);
+      f.setAttribute('aria-label', $t`Photograph: ${p.title || 'untitled'}`);
       const img = el('img');
       img.alt = '';
       img.loading = 'lazy';
@@ -106,8 +107,8 @@ export class Memories {
   describe(p) {
     const sp = p.subjects.species.map((id) => fishById[id]?.name).filter(Boolean);
     const pl = p.subjects.places.map((id) => PLACES.find((q) => q.id === id)?.name).filter(Boolean);
-    const what = [...sp, ...pl, ...(p.subjects.birds ? ['gulls diving'] : [])];
-    return `Day ${p.day}, ${formatClock(p.hour)}${p.place ? `, ${p.place}` : ''}${what.length ? `. In the picture: ${what.join(', ')}` : ''}.`;
+    const what = [...sp, ...pl, ...(p.subjects.birds ? [$t('gulls diving')] : [])];
+    return `Day ${p.day}, ${formatClock(p.hour)}${p.place ? `, ${p.place}` : ''}${what.length ? $t`. In the picture: ${what.join(', ')}` : ''}.`;
   }
 
   async openViewer(p) {
@@ -122,8 +123,8 @@ export class Memories {
       this.renderPhotos();
     };
     $('mem-viewer-text').textContent = this.describe(p);
-    const acts = [btn('Download', () => this.h.downloadPhoto(p.id)), btn('Show where on the map', () => { this.closeViewer(); this.h.showOnMap(p.x, p.z); })];
-    if (this.h.canPinWall(p)) acts.push(btn('Pin it up on the chandlery wall', () => { this.h.pinWall(p.id); this.closeViewer(); }, 'pk-btn'));
+    const acts = [btn('Download', () => this.h.downloadPhoto(p.id)), btn($t('Show where on the map'), () => { this.closeViewer(); this.h.showOnMap(p.x, p.z); })];
+    if (this.h.canPinWall(p)) acts.push(btn($t('Pin it up on the chandlery wall'), () => { this.h.pinWall(p.id); this.closeViewer(); }, 'pk-btn'));
     acts.push(btn('Delete…', () => {
       const yes = $('mem-viewer-acts').querySelector('.mem-really');
       if (yes) {
@@ -131,7 +132,7 @@ export class Memories {
         this.closeViewer();
         this.renderPhotos();
       } else {
-        const b = btn('Yes, delete it', () => {
+        const b = btn($t('Yes, delete it'), () => {
           this.h.removePhoto(p.id);
           this.closeViewer();
           this.renderPhotos();
@@ -157,14 +158,14 @@ export class Memories {
       const ul = el('ul', 'mem-steps');
       for (const { C, done: d, at } of storyChapters(S)) ul.append(el('li', d ? 'on' : '', `${d ? '✓' : '○'} ${C.title}${d && at ? ` (${whenText(at)})` : ''}`));
       box.append(ul);
-      box.append(el('p', done ? 'mem-end' : 'mem-clue', done ? 'The fifth name is on the stone. The story’s told.' : storyTodo(S)));
+      box.append(el('p', done ? 'mem-end' : 'mem-clue', done ? $t('The fifth name is on the stone. The story’s told.') : storyTodo(S)));
       out.push(box);
     }
     for (const { A, r } of adv.list()) {
       const box = el('div', `mem-adv ${r.done ? 'done' : ''}`);
       box.append(el('h4', '', `${A.title}${r.done ? ' ✓' : ''}`));
       if (r.clue) box.append(el('p', 'mem-clue', A.clue));
-      else box.append(el('p', 'mem-clue', 'Something you’ve come across, though you don’t yet know its story.'));
+      else box.append(el('p', 'mem-clue', $t('Something you’ve come across, though you don’t yet know its story.')));
       const ul = el('ul', 'mem-steps');
       for (const S of A.steps) {
         const done = r.steps[S.id];
@@ -180,11 +181,11 @@ export class Memories {
       out.push(box);
     }
     const left = ADVENTURES.length - adv.list().length;
-    if (!out.length) out.push(el('p', 'j-empty', 'Nothing yet. The notice board at Willowhaven is a good place to start, and there’s more to find round the cove.'));
-    else if (left) out.push(el('p', 'j-faint', `${left} more to come across.`));
+    if (!out.length) out.push(el('p', 'j-empty', $t('Nothing yet. The notice board at Willowhaven is a good place to start, and there’s more to find round the cove.')));
+    else if (left) out.push(el('p', 'j-faint', $t`${left} more to come across.`));
     const keeps = Object.entries(st.keepsakes || {}).filter(([k]) => KEEPSAKES[k]);
     if (keeps.length) {
-      out.push(el('h3', '', 'Keepsakes'));
+      out.push(el('h3', '', $t('Keepsakes')));
       for (const [k, r] of keeps) {
         const d = el('div', 'mem-keep');
         d.append(el('b', '', KEEPSAKES[k].name), el('span', '', ` · ${whenText(r)}`), el('p', '', KEEPSAKES[k].text));
@@ -197,15 +198,15 @@ export class Memories {
   renderMarks() {
     const st = this.state, out = [];
     const pins = [...st.pins].sort((a, b) => b.fav - a.fav);
-    if (!pins.length) out.push(el('p', 'j-empty', 'No marks yet. Open the map and choose “Mark a spot”, or mark where you’re standing.'));
+    if (!pins.length) out.push(el('p', 'j-empty', $t('No marks yet. Open the map and choose “Mark a spot”, or mark where you’re standing.')));
     for (const p of pins) {
       const d = el('div', 'mem-mark');
       d.append(el('b', '', `${p.fav ? '★ ' : '⚑ '}${p.title || 'A mark'}`));
       if (p.note) d.append(el('p', '', p.note));
-      if (p.from) d.append(el('p', 'mem-link', `From ${p.from}, while you played together.`));
+      if (p.from) d.append(el('p', 'mem-link', $t`From ${p.from}, while you played together.`));
       d.append(el('p', 'mem-link', linkText(catchesNear(st.log, p.x, p.z, 40))));
       const acts = el('div', 'mem-acts');
-      acts.append(btn('On the map', () => this.h.showOnMap(p.x, p.z)), btn('Edit', () => this.h.editPin(p)));
+      acts.append(btn($t('On the map'), () => this.h.showOnMap(p.x, p.z)), btn('Edit', () => this.h.editPin(p)));
       d.append(acts);
       out.push(d);
     }
@@ -214,13 +215,13 @@ export class Memories {
 
   renderCamp() {
     const st = this.state, out = [];
-    if (!st.camps.length) out.push(el('p', 'j-empty', 'Your camping kit is rolled up in your backpack.'));
+    if (!st.camps.length) out.push(el('p', 'j-empty', $t('Your camping kit is rolled up in your backpack.')));
     for (const c of st.camps) {
       const d = el('div', 'mem-mark');
-      d.append(el('b', '', `⛺ ${c.name}`), el('p', '', `${TENTS[c.tent]?.name || ''} tent, pitched day ${c.pitched.day} at ${formatClock(c.pitched.hour)}. ${c.visits ? `Back ${c.visits} time${c.visits === 1 ? '' : 's'}. ` : ''}${c.store.fish.length} fish in the cool box.`));
+      d.append(el('b', '', `⛺ ${c.name}`), el('p', '', $t`${TENTS[c.tent]?.name || ''} tent, pitched day ${c.pitched.day} at ${formatClock(c.pitched.hour)}. ${c.visits ? (c.visits === 1 ? $t`Back ${c.visits} time. ` : $t`Back ${c.visits} times. `) : ''}${c.store.fish.length} fish in the cool box.`));
       d.append(el('p', 'mem-link', linkText(catchesNear(st.log, c.x, c.z, 60))));
       const acts = el('div', 'mem-acts');
-      acts.append(btn('On the map', () => this.h.showOnMap(c.x, c.z)));
+      acts.append(btn($t('On the map'), () => this.h.showOnMap(c.x, c.z)));
       d.append(acts);
       out.push(d);
     }
@@ -232,12 +233,12 @@ export class Memories {
     const found = PLACES.filter((p) => st.places[p.id]).sort((a, b) => (st.places[b.id].day - st.places[a.id].day) || (st.places[b.id].hour - st.places[a.id].hour));
     for (const p of found) {
       const d = el('div', 'mem-place');
-      d.append(el('b', '', p.name), el('span', 'j-faint', ` · found ${whenText(st.places[p.id])}`));
+      d.append(el('b', '', p.name), el('span', 'j-faint', $t` · found ${whenText(st.places[p.id])}`));
       const c = catchesNear(st.log, p.x, p.z, p.area ? 0 : 45, p.name);
       d.append(el('p', 'mem-link', linkText(c)));
       out.push(d);
     }
-    if (!out.length) out.push(el('p', 'j-empty', 'Nowhere yet.'));
+    if (!out.length) out.push(el('p', 'j-empty', $t('Nowhere yet.')));
     $('mem-places').replaceChildren(...out);
   }
 
@@ -248,11 +249,11 @@ export class Memories {
       const r = S[id];
       if (!r) continue;
       const d = el('div', 'mem-place');
-      d.append(el('b', '', info.name), el('span', 'j-faint', ` · ${r.heard ? 'heard' : 'first seen'} ${whenText(r)}${r.where ? `, ${r.where}` : ''}${r.n > 1 ? ` · ${r.n} times` : ''}`));
+      d.append(el('b', '', info.name), el('span', 'j-faint', ` · ${r.heard ? 'heard' : $t('first seen')} ${whenText(r)}${r.where ? `, ${r.where}` : ''}${r.n > 1 ? ` · ${r.n} times` : ''}`));
       d.append(el('p', '', info.note));
       out.push(d);
     }
-    if (!out.length) out.push(el('p', 'j-empty', 'Nothing yet. Keep an eye out at sea: dolphins come to a boat going along at a good clip, seals haul out on the rocks, gannets dive where small fish come up, whales blow far offshore, and some nights the sea glows.'));
+    if (!out.length) out.push(el('p', 'j-empty', $t('Nothing yet. Keep an eye out at sea: dolphins come to a boat going along at a good clip, seals haul out on the rocks, gannets dive where small fish come up, whales blow far offshore, and some nights the sea glows.')));
     $('mem-sealife').replaceChildren(...out);
   }
 
@@ -262,7 +263,7 @@ export class Memories {
     // The jobs from the notice board you're doing (see contracts.js).
     for (const a of this.state.contracts?.active || []) {
       const d = el('div', `mem-place${a.ready ? ' done' : ''}`);
-      d.append(el('b', '', `${a.title}${a.ready ? ' ✓' : ''}`), el('span', 'j-faint', ` · a job for ${GIVERS[a.giver]}`));
+      d.append(el('b', '', `${a.title}${a.ready ? ' ✓' : ''}`), el('span', 'j-faint', $t` · a job for ${GIVERS[a.giver]}`));
       d.append(el('p', '', jobStanding(a)));
       out.push(d);
     }
@@ -270,7 +271,7 @@ export class Memories {
     for (const a of F.active) {
       const R = requestById[a.id];
       const d = el('div', 'mem-place');
-      d.append(el('b', '', R.short), el('span', 'j-faint', ` · asked by ${names[R.who]} on day ${a.day}`));
+      d.append(el('b', '', R.short), el('span', 'j-faint', $t` · asked by ${names[R.who]} on day ${a.day}`));
       d.append(el('p', '', standing(a, names)));
       out.push(d);
     }
@@ -280,10 +281,10 @@ export class Memories {
       // (One that comes round again: how many times, and the last.)
       const n = F.times?.[id] || 1;
       const d = el('div', 'mem-place done');
-      d.append(el('b', '', `${R.short} ✓${n > 1 ? ` ×${n}` : ''}`), el('span', 'j-faint', ` · ${n > 1 ? 'last on ' : ''}day ${day}`));
+      d.append(el('b', '', `${R.short} ✓${n > 1 ? ` ×${n}` : ''}`), el('span', 'j-faint', $t` · ${n > 1 ? $t('last on ') : ''}day ${day}`));
       out.push(d);
     }
-    if (!out.length) out.push(el('p', 'j-empty', 'Nobody has asked you anything yet. Stop for a word with the harbour’s people (E): now and then they’ll ask a small favour.'));
+    if (!out.length) out.push(el('p', 'j-empty', $t('Nobody has asked you anything yet. Stop for a word with the harbour’s people (E): now and then they’ll ask a small favour.')));
     $('mem-favours').replaceChildren(...out);
   }
 }

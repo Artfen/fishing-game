@@ -8,6 +8,7 @@ import { NORTH_WATER, inNorth, northLand, northCurrent } from './north.js';
 import { coldwaterFlow } from './coldwater.js';
 import { SOUTH_WATER, brasaCurrent } from './brasa.js';
 import { longSea, tmaAt, PATCH } from './ocean.js';
+import { $t } from '../i18n.js';
 
 // Wind, waves and currents: one shared state for the whole game, so the water you see, the
 // boats on it, a float, a cast, the trees and the sound of the wind all answer to the same
@@ -209,9 +210,9 @@ export const SHELTER_RECT = WATER_RECT; // (home's; the far south's is shelterRe
 // Sea states for the setting, and what the weather brings when it's left to the weather.
 // wind: [low, high] sustained m/s; swell: crest amplitude in m.
 export const SEA_PRESETS = {
-  calm: { name: 'Calm', wind: [0.5, 3.5], swell: 0.08, note: 'Light airs and a gentle swell. Easy casting and still water in the bays.' },
-  moderate: { name: 'Moderate', wind: [4, 8.5], swell: 0.3, note: 'A good breeze, a few whitecaps and a swell outside; the bays stay sheltered.' },
-  lively: { name: 'Lively', wind: [8, 13], swell: 0.55, note: 'A fresh to strong wind, whitecaps everywhere in the open, a long swell breaking on the outer coast. Shelter in the bays and coves.' },
+  calm: { name: $t('Calm'), wind: [0.5, 3.5], swell: 0.08, note: $t('Light airs and a gentle swell. Easy casting and still water in the bays.') },
+  moderate: { name: $t('Moderate'), wind: [4, 8.5], swell: 0.3, note: $t('A good breeze, a few whitecaps and a swell outside; the bays stay sheltered.') },
+  lively: { name: $t('Lively'), wind: [8, 13], swell: 0.55, note: $t('A fresh to strong wind, whitecaps everywhere in the open, a long swell breaking on the outer coast. Shelter in the bays and coves.') },
 };
 export const SEA_IDS = Object.keys(SEA_PRESETS);
 
@@ -690,10 +691,10 @@ export const compass = (rad, words = false) => (words ? COMPASS_WORDS : COMPASS)
 // The way a world vector points, as a compass bearing in radians.
 export const bearingOf = (x, z) => (Math.atan2(x, -z) + TAU) % TAU;
 
-const BEAUFORT = [[0.5, 'calm'], [1.6, 'light air'], [3.4, 'light breeze'], [5.5, 'gentle breeze'], [8, 'moderate breeze'], [10.8, 'fresh breeze'], [13.9, 'strong breeze'], [17.2, 'near gale'], [99, 'gale']];
+const BEAUFORT = [[0.5, 'calm'], [1.6, $t('light air')], [3.4, $t('light breeze')], [5.5, $t('gentle breeze')], [8, $t('moderate breeze')], [10.8, $t('fresh breeze')], [13.9, $t('strong breeze')], [17.2, $t('near gale')], [99, 'gale']];
 export const windWords = (ms) => BEAUFORT.find(([v]) => ms < v)[1];
 // Sea state from the significant wave height (m), after the Douglas scale.
-const SEA = [[0.05, 'glassy'], [0.15, 'rippled'], [0.5, 'smooth'], [1.25, 'slight'], [2.5, 'moderate'], [4, 'rough'], [99, 'very rough']];
+const SEA = [[0.05, 'glassy'], [0.15, 'rippled'], [0.5, 'smooth'], [1.25, 'slight'], [2.5, 'moderate'], [4, 'rough'], [99, $t('very rough')]];
 export const seaWords = (h) => SEA.find(([v]) => h < v)[1];
 // The wave height (m, crest to trough) you'd see at a point.
 export function waveHeightHere(x, z) {

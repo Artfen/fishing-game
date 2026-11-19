@@ -6,6 +6,7 @@ import { buildLanternModel } from './props.js';
 import { fishById, buildFishGeometry, scaleOf } from './fish.js';
 import { cookedMaterial, browned } from './camp.js';
 import { LAYOUT, FOOTPRINT, TENTS, toWorld } from './campsite.js';
+import { $t } from './i18n.js';
 
 // Your camp as you see it: the tent (its fly sheet stirring in the wind), the bedroll inside,
 // the lantern on its pole, the stove and pan, the cool box, the tackle box and a camp chair, with
@@ -163,7 +164,7 @@ export function campObstacles(camp) {
   const out = [];
   const add = (k, r, top = 2) => {
     const L = LAYOUT[k], p = toWorld(camp.x, camp.z, camp.yaw, L.x, L.z);
-    out.push({ x: p.x, z: p.z, r, top: heightAt(p.x, p.z) + top, kind: 'camp', name: 'your camp', camp: camp.id });
+    out.push({ x: p.x, z: p.z, r, top: heightAt(p.x, p.z) + top, kind: 'camp', name: $t('your camp'), camp: camp.id });
   };
   add('tent', 1.3, 1.4);
   if (camp.has?.stove !== false) add('stove', 0.3, 0.5);

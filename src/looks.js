@@ -11,6 +11,7 @@
 // state.look: { skin, coat, jumper, shirt, legs, boots, hat, hatColor, hair, beard, glasses }.
 
 // The choices (colours as hex; a broad, even range of skin tones).
+import { $t } from './i18n.js';
 export const LOOK_OPTIONS = {
   skin: ['#f6d9c2', '#f1c7a1', '#e3b48e', '#d2a07a', '#b98863', '#a0704b', '#7d5236', '#5c3a24'],
   coat: ['#e8b440', '#c8452f', '#24354f', '#2f5a43', '#e2662a', '#5f6b74', '#6f3a5a', '#2c7c7a'],
@@ -31,9 +32,9 @@ export const DEFAULT_LOOK = {
 };
 // The words for the choices that aren't colours.
 export const LOOK_WORDS = {
-  hat: { sun: 'Sun hat', cap: 'Cap', beanie: 'Beanie', bucket: 'Bucket hat', flatcap: 'Flat cap', hair: 'No hat', bun: 'No hat, hair up' },
-  beard: { none: 'Clean-shaven', short: 'Short beard', full: 'Full beard' },
-  glasses: { none: 'No glasses', glasses: 'Glasses', shades: 'Sunglasses' },
+  hat: { sun: $t('Sun hat'), cap: 'Cap', beanie: 'Beanie', bucket: $t('Bucket hat'), flatcap: $t('Flat cap'), hair: $t('No hat'), bun: $t('No hat, hair up') },
+  beard: { none: 'Clean-shaven', short: $t('Short beard'), full: $t('Full beard') },
+  glasses: { none: $t('No glasses'), glasses: 'Glasses', shades: 'Sunglasses' },
 };
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);

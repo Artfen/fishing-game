@@ -7,6 +7,7 @@
 // gear. The tender floats off once it's down past float, held by her painter (painter m) to her
 // mother's quarter until she's put in gear. Coming back, she's hauled on from within the window:
 // near the platform's aft edge, lying across it (her bow to starboard), slowly.
+import { $t } from './i18n.js';
 export const PLATFORM = {
   travel: 0.85,   // m it goes down: 0.3 m above the water to 0.55 under
   secs: 15,       // each way
@@ -29,9 +30,9 @@ export function stepPlatform(drop, want, dt, speed = 0) {
 // Whether the tender can be launched off her now: { ok, why }. M: her mother ({ anchored, tie,
 // speed, lever }); depth: the water under the platform (m); sea: crest to trough here (m).
 export function canLaunch(M, depth, sea) {
-  if (!(M.anchored || M.tie || (M.speed < 0.3 && !M.lever))) return { ok: false, why: 'She has to be still: at anchor, tied up, or stopped with her lever in neutral.' };
-  if (!(depth > 1.4)) return { ok: false, why: 'Not enough water under her platform to float the tender off.' };
-  if (sea > PLATFORM.sea) return { ok: false, why: 'Too much sea running to launch the tender: she’d be thrown against the platform.' };
+  if (!(M.anchored || M.tie || (M.speed < 0.3 && !M.lever))) return { ok: false, why: $t('She has to be still: at anchor, tied up, or stopped with her lever in neutral.') };
+  if (!(depth > 1.4)) return { ok: false, why: $t('Not enough water under her platform to float the tender off.') };
+  if (sea > PLATFORM.sea) return { ok: false, why: $t('Too much sea running to launch the tender: she’d be thrown against the platform.') };
   return { ok: true };
 }
 
@@ -43,8 +44,8 @@ export function inWindow(edge, mh, T) {
   const want = mh - Math.PI / 2, off = Math.abs(Math.atan2(Math.sin(T.heading - want), Math.cos(T.heading - want)));
   // (Either way across will do: the game turns her as she's hauled.)
   const square = Math.min(off, Math.PI - off);
-  if (d > PLATFORM.window.d) return { ok: false, d, why: 'closer in to the platform' };
-  if (square > PLATFORM.window.ang) return { ok: false, d, why: 'lie her across the platform, square to it' };
+  if (d > PLATFORM.window.d) return { ok: false, d, why: $t('closer in to the platform') };
+  if (square > PLATFORM.window.ang) return { ok: false, d, why: $t('lie her across the platform, square to it') };
   if (T.speed > PLATFORM.window.v) return { ok: false, d, why: 'slower' };
   return { ok: true, d };
 }

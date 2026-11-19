@@ -1,4 +1,5 @@
 import { clamp, lerp, smoothstep, fbm } from '../util.js';
+import { $t } from '../i18n.js';
 
 // Hoarfell and the Coldwater: a snow-capped fell to the north-west, and the river that runs off it
 // down to Willow Bay. From the summit's corrie a tarn spills into a steep beck; the beck drops over
@@ -68,8 +69,8 @@ export const COLDWATER = [
 ];
 // The named falls (where the water drops), for the scenery, the sound and the map.
 export const FALLS = [
-  { id: 'spout', name: 'Spout Force', top: 10, foot: 11 },
-  { id: 'lower', name: 'the Lower Force', top: 32, foot: 33 },
+  { id: 'spout', name: $t('Spout Force'), top: 10, foot: 11 },
+  { id: 'lower', name: $t('the Lower Force'), top: 32, foot: 33 },
 ];
 // Where the old strait is closed: the river runs out across this neck of land.
 export const NECK = { x0: -64, z0: -228, x1: -78, z1: -350, r: 52 };

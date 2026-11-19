@@ -8,6 +8,7 @@
 // An electric outboard has nothing to service (see engine.js setElectric), and a boat without an
 // engine has none.
 
+import { $t } from './i18n.js';
 export const SERVICE_HOURS = 100;
 // What a service costs at the Marine Works (pounds): by her engine room, the twin-engined boats
 // at twice.
@@ -29,12 +30,12 @@ export const wearFx = (wear) => {
 // Her service, in words, for her papers: due in so many hours, due now, or overdue.
 export function serviceWords(V, { electric = false } = {}) {
   if (!V) return null;
-  if (electric) return 'An electric outboard: nothing to service.';
+  if (electric) return $t('An electric outboard: nothing to service.');
   const h = sinceService(V), left = SERVICE_HOURS - h;
-  if (left > 10) return `Serviced ${Math.round(h)} engine hours ago: the next is due in ${Math.round(left)}.`;
-  if (left > 0) return `Due a service in ${Math.round(left)} engine hours.`;
+  if (left > 10) return $t`Serviced ${Math.round(h)} engine hours ago: the next is due in ${Math.round(left)}.`;
+  if (left > 0) return $t`Due a service in ${Math.round(left)} engine hours.`;
   const over = Math.round(-left);
-  return over < 5 ? 'Due a service now.' : `${over} engine hours overdue for a service: she’s ${wearOf(V) >= 0.5 ? 'down on power and thirsty' : 'running a little rough'}.`;
+  return over < 5 ? $t('Due a service now.') : $t`${over} engine hours overdue for a service: she’s ${wearOf(V) >= 0.5 ? $t('down on power and thirsty') : $t('running a little rough')}.`;
 }
 
 // A service done: the hours start again from here.
@@ -50,5 +51,5 @@ export function serviceRow(V, kind, { electric = false } = {}) {
   if (!V || electric || !SERVICE_PRICE[kind]) return null;
   const h = sinceService(V);
   if (h < SERVICE_HOURS - 10) return null;
-  return { id: 'service', what: `Her engine’s service: oil and filters, plugs and the impeller (${Math.round(h)} engine hours since the last)`, price: SERVICE_PRICE[kind] };
+  return { id: 'service', what: $t`Her engine’s service: oil and filters, plugs and the impeller (${Math.round(h)} engine hours since the last)`, price: SERVICE_PRICE[kind] };
 }

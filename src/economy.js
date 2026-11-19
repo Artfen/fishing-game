@@ -10,9 +10,10 @@
 // The Economy setting (ECONOMY): gentle (the default: fuel is cheap) or authentic (fuel at
 // something like real prices, so a long run at full throttle wants a good catch to pay for it).
 
+import { $t } from './i18n.js';
 export const ECONOMY = {
-  gentle: { id: 'gentle', name: 'Gentle', fuel: 0.4, desc: 'Fuel is cheap, and the harbour helps you home when your purse is empty. A day’s fishing pays for a day’s running and more.' },
-  authentic: { id: 'authentic', name: 'Authentic', fuel: 1.45, desc: 'Fuel at about real prices: a long run at full throttle wants a good catch to pay for it. Slow down, plan the trip, take the small boat. The harbour still helps you home when you’re broke.' },
+  gentle: { id: 'gentle', name: $t('Gentle'), fuel: 0.4, desc: $t('Fuel is cheap, and the harbour helps you home when your purse is empty. A day’s fishing pays for a day’s running and more.') },
+  authentic: { id: 'authentic', name: $t('Authentic'), fuel: 1.45, desc: $t('Fuel at about real prices: a long run at full throttle wants a good catch to pay for it. Slow down, plan the trip, take the small boat. The harbour still helps you home when you’re broke.') },
 };
 export const ECONOMY_IDS = Object.keys(ECONOMY);
 export const LEDGER_MAX = 40;
@@ -26,8 +27,8 @@ export const canAfford = (state, v) => (state.money ?? 0) >= v - 1e-6;
 // Pay v for what (a few words): all of it or none of it. Returns { ok, why }.
 export function pay(state, v, what) {
   const p = r2(v);
-  if (!(p >= 0)) return { ok: false, why: 'That isn’t a price.' };
-  if (!canAfford(state, p)) return { ok: false, why: `That’s £${p.toFixed(2)}, and you’ve £${(state.money ?? 0).toFixed(2)} in your purse.` };
+  if (!(p >= 0)) return { ok: false, why: $t('That isn’t a price.') };
+  if (!canAfford(state, p)) return { ok: false, why: $t`That’s £${p.toFixed(2)}, and you’ve £${(state.money ?? 0).toFixed(2)} in your purse.` };
   state.money = r2((state.money ?? 0) - p);
   note(state, what, -p);
   return { ok: true };

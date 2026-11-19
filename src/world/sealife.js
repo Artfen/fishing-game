@@ -7,6 +7,7 @@ import { SELKIE } from './north.js';
 import { sealParts } from './calf.js';
 import { clamp, lerp, damp, dampAngle, smoothstep, wrapAngle, glowTexture, mergeParts, mat, seeded } from '../util.js';
 import { BIRDS } from '../birdData.js';
+import { $t } from '../i18n.js';
 
 // Sea life you don't catch: the whales, dolphins, seals and seabirds of both seas, there to be
 // watched (and listened to), never fished for.
@@ -55,30 +56,30 @@ const SEAL_MODES = ['idle', 'visit', 'follow'];
 
 // What each is called, for the record and the words when you first see one.
 export const SEA_LIFE = {
-  bottlenose: { name: 'Bottlenose dolphins', note: 'A pod of bottlenose dolphins: big, grey and powerful, with short stubby beaks. They love to ride a boat’s bow wave.' },
-  commondolphin: { name: 'Common dolphins', note: 'Common dolphins: slim and fast, with a yellow and grey hourglass down each flank. They travel in big, splashing pods over the deep water.' },
-  spotteddolphin: { name: 'Atlantic spotted dolphins', note: 'Atlantic spotted dolphins: the older ones dappled all over with spots. Acrobatic, and always ready to ride a bow wave.' },
-  seal: { name: 'Grey seals', note: 'Grey seals: hauled out on the rocks to rest, or bobbing upright in the water with only their heads showing, watching you back.' },
-  gannet: { name: 'Northern gannets', note: 'Gannets: big white seabirds with black wingtips and a yellow head. They fold their wings and plunge into a shoal from high up, hitting the water like darts.' },
-  finwhale: { name: 'A fin whale', note: 'A fin whale: the second-largest animal on Earth, long and sleek, its tall, narrow blow visible from far off. It travels fast, and dives for minutes at a time.' },
-  minkewhale: { name: 'A minke whale', note: 'A minke whale: the smallest of the great whales, its blow faint and low. A dark back and a curved fin roll briefly through the surface, and it’s gone.' },
-  pilotwhale: { name: 'Short-finned pilot whales', note: 'Short-finned pilot whales: black, round-headed and sociable. A family group lives off Las Brasas’ south-west, resting at the surface for long spells.' },
-  spermwhale: { name: 'A sperm whale', note: 'A sperm whale: the great square head, the wrinkled skin, and a bushy blow slanting forward and to the left. As it dives, it lifts its flukes high.' },
-  otter: { name: 'Otters', note: 'Eurasian otters: a long brown back and a thick tail along the bank, a flat head, a pale chin. They fish the quiet rivers and the salt channels, busiest at dawn and dusk, and take what they catch onto the bank to eat. Shy: they hear you coming.' },
-  heron: { name: 'Grey herons', note: 'Grey herons: tall, grey and still as posts in the shallows, then a lightning jab of the bill. They fly with the neck folded back and slow, deep wingbeats, and a harsh “fraank” when you put them up.' },
-  cormorant: { name: 'Cormorants', note: 'Cormorants: black seabirds with a hooked bill, swimming low and diving for half a minute at a time. Their feathers soak through, which is why you see them on the rocks with their wings spread out to dry.' },
-  tern: { name: 'Terns', note: 'Terns: slim white seabirds with black caps and forked tails, here for the summer from Africa. They hover over the shallows and plunge in after little fish, with a grating “kee-arr”.' },
-  oystercatcher: { name: 'Oystercatchers', note: 'Oystercatchers: black and white waders with long orange bills, probing the sand and mud at low water. Disturb them and they go off low along the shore, piping loudly.' },
-  glow: { name: 'The sea glowing at night', note: 'The sea is glowing: tiny plankton flash blue-green wherever the water is disturbed, in the wake, under an oar, where a fish darts. Brighter some nights than others.' },
-  shearwater: { name: 'Cory’s shearwaters', note: 'Cory’s shearwaters: big brown-and-white seabirds that sweep low over the waves on long stiff wings, hardly flapping. They come down on a bait shoal the tuna drive up and dive after it from the surface; in the evening they raft up on the sea off their cliffs, and after dark fly in to their burrows wailing like babies.' },
-  flyingfish: { name: 'Flying fish', note: 'Flying fish: little blue-backed fish that burst out of the sea ahead of a boat, spread their long, clear pectoral fins like wings, and glide low over the waves for twenty or thirty metres before dropping back in. A fish of the warm blue water.' },
-  turtle: { name: 'A loggerhead turtle', note: 'A loggerhead turtle: a big reddish-brown shell, a heavy head and slow strokes of its long front flippers. Young ones grow up in the warm Atlantic round the islands, drifting near the surface and coming up for a breath now and then. Protected: watch it, and keep your boat slow near it.' },
+  bottlenose: { name: $t('Bottlenose dolphins'), note: $t('A pod of bottlenose dolphins: big, grey and powerful, with short stubby beaks. They love to ride a boat’s bow wave.') },
+  commondolphin: { name: $t('Common dolphins'), note: $t('Common dolphins: slim and fast, with a yellow and grey hourglass down each flank. They travel in big, splashing pods over the deep water.') },
+  spotteddolphin: { name: $t('Atlantic spotted dolphins'), note: $t('Atlantic spotted dolphins: the older ones dappled all over with spots. Acrobatic, and always ready to ride a bow wave.') },
+  seal: { name: $t('Grey seals'), note: $t('Grey seals: hauled out on the rocks to rest, or bobbing upright in the water with only their heads showing, watching you back.') },
+  gannet: { name: $t('Northern gannets'), note: $t('Gannets: big white seabirds with black wingtips and a yellow head. They fold their wings and plunge into a shoal from high up, hitting the water like darts.') },
+  finwhale: { name: $t('A fin whale'), note: $t('A fin whale: the second-largest animal on Earth, long and sleek, its tall, narrow blow visible from far off. It travels fast, and dives for minutes at a time.') },
+  minkewhale: { name: $t('A minke whale'), note: $t('A minke whale: the smallest of the great whales, its blow faint and low. A dark back and a curved fin roll briefly through the surface, and it’s gone.') },
+  pilotwhale: { name: $t('Short-finned pilot whales'), note: $t('Short-finned pilot whales: black, round-headed and sociable. A family group lives off Las Brasas’ south-west, resting at the surface for long spells.') },
+  spermwhale: { name: $t('A sperm whale'), note: $t('A sperm whale: the great square head, the wrinkled skin, and a bushy blow slanting forward and to the left. As it dives, it lifts its flukes high.') },
+  otter: { name: $t('Otters'), note: $t('Eurasian otters: a long brown back and a thick tail along the bank, a flat head, a pale chin. They fish the quiet rivers and the salt channels, busiest at dawn and dusk, and take what they catch onto the bank to eat. Shy: they hear you coming.') },
+  heron: { name: $t('Grey herons'), note: $t('Grey herons: tall, grey and still as posts in the shallows, then a lightning jab of the bill. They fly with the neck folded back and slow, deep wingbeats, and a harsh “fraank” when you put them up.') },
+  cormorant: { name: $t('Cormorants'), note: $t('Cormorants: black seabirds with a hooked bill, swimming low and diving for half a minute at a time. Their feathers soak through, which is why you see them on the rocks with their wings spread out to dry.') },
+  tern: { name: $t('Terns'), note: $t('Terns: slim white seabirds with black caps and forked tails, here for the summer from Africa. They hover over the shallows and plunge in after little fish, with a grating “kee-arr”.') },
+  oystercatcher: { name: $t('Oystercatchers'), note: $t('Oystercatchers: black and white waders with long orange bills, probing the sand and mud at low water. Disturb them and they go off low along the shore, piping loudly.') },
+  glow: { name: $t('The sea glowing at night'), note: $t('The sea is glowing: tiny plankton flash blue-green wherever the water is disturbed, in the wake, under an oar, where a fish darts. Brighter some nights than others.') },
+  shearwater: { name: $t('Cory’s shearwaters'), note: $t('Cory’s shearwaters: big brown-and-white seabirds that sweep low over the waves on long stiff wings, hardly flapping. They come down on a bait shoal the tuna drive up and dive after it from the surface; in the evening they raft up on the sea off their cliffs, and after dark fly in to their burrows wailing like babies.') },
+  flyingfish: { name: $t('Flying fish'), note: $t('Flying fish: little blue-backed fish that burst out of the sea ahead of a boat, spread their long, clear pectoral fins like wings, and glide low over the waves for twenty or thirty metres before dropping back in. A fish of the warm blue water.') },
+  turtle: { name: $t('A loggerhead turtle'), note: $t('A loggerhead turtle: a big reddish-brown shell, a heavy head and slow strokes of its long front flippers. Young ones grow up in the warm Atlantic round the islands, drifting near the surface and coming up for a breath now and then. Protected: watch it, and keep your boat slow near it.') },
   // (Seen over the bay and heard ashore: see world.js for the gulls, audio.js for the calls. heard:
   // the words when you only hear one.)
-  herringgull: { name: 'Herring gulls', note: 'Herring gulls: big gulls with a pale grey back, pink legs and a yellow bill with a red spot near its tip, which the chicks peck to be fed. The laughing “kyow-kyow-kyow” of every harbour. A young one takes four years to go from speckled brown to clean grey and white.' },
-  curlew: { name: 'Eurasian curlews', note: 'Eurasian curlews: Europe’s biggest wader, streaked brown, with a long down-curved bill for probing deep in the mud for worms and crabs. Near Threatened: there are far fewer than there were.', heard: 'You hear a curlew: a rising, bubbling “cur-lee” across the water. The loneliest sound on the coast. Europe’s biggest wader, probing the mud with a long down-curved bill.' },
-  tawnyowl: { name: 'Tawny owls', note: 'Tawny owls: round brown owls with dark eyes that hunt mice and voles by ear in the dark. A pair keeps the same patch of wood for life; the female’s sharp “ke-wick” and the male’s quavering hoot together make the “twit-twoo” of the stories.', heard: 'You hear a tawny owl hooting in the dark: a long, quavering “hoo… hoo”. Somewhere in the trees it’s listening for mice.' },
-  commonfrog: { name: 'Common frogs', note: 'Common frogs: olive to brown, a dark patch behind each eye. They breathe through their skin as well as their lungs, and spend the winter under logs or in the mud at the bottom of the pond.', heard: 'You hear frogs croaking softly at the water’s edge. Common frogs, out on a damp night.' },
+  herringgull: { name: $t('Herring gulls'), note: $t('Herring gulls: big gulls with a pale grey back, pink legs and a yellow bill with a red spot near its tip, which the chicks peck to be fed. The laughing “kyow-kyow-kyow” of every harbour. A young one takes four years to go from speckled brown to clean grey and white.') },
+  curlew: { name: $t('Eurasian curlews'), note: $t('Eurasian curlews: Europe’s biggest wader, streaked brown, with a long down-curved bill for probing deep in the mud for worms and crabs. Near Threatened: there are far fewer than there were.'), heard: $t('You hear a curlew: a rising, bubbling “cur-lee” across the water. The loneliest sound on the coast. Europe’s biggest wader, probing the mud with a long down-curved bill.') },
+  tawnyowl: { name: $t('Tawny owls'), note: $t('Tawny owls: round brown owls with dark eyes that hunt mice and voles by ear in the dark. A pair keeps the same patch of wood for life; the female’s sharp “ke-wick” and the male’s quavering hoot together make the “twit-twoo” of the stories.'), heard: $t('You hear a tawny owl hooting in the dark: a long, quavering “hoo… hoo”. Somewhere in the trees it’s listening for mice.') },
+  commonfrog: { name: $t('Common frogs'), note: $t('Common frogs: olive to brown, a dark patch behind each eye. They breathe through their skin as well as their lungs, and spend the winter under logs or in the mud at the bottom of the pond.'), heard: $t('You hear frogs croaking softly at the water’s edge. Common frogs, out on a damp night.') },
 };
 // (And the birds of the coast, watched from the shore or the boat, or through the binoculars:
 // see birdData.js and birds.js.)
@@ -781,7 +782,7 @@ export function buildSeaLife(scene, { glow = null, seed = 20261106 } = {}) {
         events.onSnort?.(s.x, s.z);
         if (!s.fx && s.owner === V[0].id) {
           s.fx = 1;
-          events.onMoment?.('sealFollow', 'A grey seal has come up in your wake, a few lengths astern, and it’s following you: up for a look, a snort, under, and up again behind you. Fishing boats are worth following, to a seal.');
+          events.onMoment?.('sealFollow', $t('A grey seal has come up in your wake, a few lengths astern, and it’s following you: up for a look, a snort, under, and up again behind you. Fishing boats are worth following, to a seal.'));
         }
       }
       s.wasDown = s.down;

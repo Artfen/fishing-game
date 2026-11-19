@@ -23,6 +23,7 @@
 // as a 4K screen's worth: a big or ultrawide screen (3440 × 1440 on Cinematic was 11 million
 // pixels a frame) is already sharp, and drawing past that costs frames for nothing you'd see.
 // Never fewer pixels than the screen has.
+import { $t } from './i18n.js';
 export const PIXEL_BUDGET = 3840 * 2160;
 export function budgetRatio(pr, w, h) {
   const screen = Math.max(1, w * h);
@@ -31,31 +32,31 @@ export function budgetRatio(pr, w, h) {
 }
 export const PRESETS = {
   cinematic: {
-    label: 'Cinematic', pixelRatio: 2.5, minRatio: 1.5, shadows: true, shadowSize: 4096, shadowSpan: 70, waterSegments: 440, rain: 2400,
+    label: $t('Cinematic'), pixelRatio: 2.5, minRatio: 1.5, shadows: true, shadowSize: 4096, shadowSpan: 70, waterSegments: 440, rain: 2400,
     fishDensity: 1, fishNear: 40, plants: 1, particles: 1400, rays: 10, caustics: 1.7, simRadius: 150,
     reflection: 1, reflectEvery: 1, ripples: 2048, rippleSpan: 140, waterDetail: 2, mist: 5, surfaceDetail: 1,
     drawDistance: 1100, air: 0.8, post: 'cinematic',
   },
   ultra: {
-    label: 'Ultra', pixelRatio: 2, minRatio: 1.25, shadows: true, shadowSize: 4096, shadowSpan: 70, waterSegments: 360, rain: 1800,
+    label: $t('Ultra'), pixelRatio: 2, minRatio: 1.25, shadows: true, shadowSize: 4096, shadowSpan: 70, waterSegments: 360, rain: 1800,
     fishDensity: 1, fishNear: 32, plants: 0.85, particles: 1000, rays: 8, caustics: 1.5, simRadius: 130,
     reflection: 0.75, reflectEvery: 1, ripples: 2048, rippleSpan: 120, waterDetail: 2, mist: 4, surfaceDetail: 1,
     drawDistance: 850, air: 0.9, post: 'ultra',
   },
   high: {
-    label: 'High', pixelRatio: 1.75, minRatio: 0, shadows: true, shadowSize: 2048, shadowSpan: 55, waterSegments: 300, rain: 1400,
+    label: $t('High'), pixelRatio: 1.75, minRatio: 0, shadows: true, shadowSize: 2048, shadowSpan: 55, waterSegments: 300, rain: 1400,
     fishDensity: 1, fishNear: 22, plants: 0.67, particles: 700, rays: 6, caustics: 1.35, simRadius: 110,
     reflection: 0.5, reflectEvery: 1, ripples: 1024, rippleSpan: 96, waterDetail: 2, mist: 3, surfaceDetail: 1,
     drawDistance: 650, air: 1, post: null,
   },
   medium: {
-    label: 'Medium', pixelRatio: 1.25, minRatio: 0, shadows: true, shadowSize: 1024, shadowSpan: 55, waterSegments: 200, rain: 900,
+    label: $t('Medium'), pixelRatio: 1.25, minRatio: 0, shadows: true, shadowSize: 1024, shadowSpan: 55, waterSegments: 200, rain: 900,
     fishDensity: 0.75, fishNear: 18.5, plants: 0.43, particles: 400, rays: 3, caustics: 1, simRadius: 90,
     reflection: 0.33, reflectEvery: 2, ripples: 512, rippleSpan: 72, waterDetail: 1, mist: 2, surfaceDetail: 1,
     drawDistance: 650, air: 1, post: null,
   },
   low: {
-    label: 'Low', pixelRatio: 1, minRatio: 0, shadows: false, shadowSize: 1024, shadowSpan: 55, waterSegments: 120, rain: 500,
+    label: $t('Low'), pixelRatio: 1, minRatio: 0, shadows: false, shadowSize: 1024, shadowSpan: 55, waterSegments: 120, rain: 500,
     fishDensity: 0.5, fishNear: 15, plants: 0.23, particles: 150, rays: 0, caustics: 0, simRadius: 70,
     reflection: 0, reflectEvery: 1, ripples: 0, rippleSpan: 72, waterDetail: 0, mist: 1, surfaceDetail: 0,
     drawDistance: 650, air: 1, post: null,
@@ -74,16 +75,16 @@ export const AUTO_LEVELS = ['low', 'medium', 'high'];
 // The parts of a preset that Settings lets you choose on their own. Each one can follow the
 // preset ('auto') or be set to low, medium, high or ultra; shadows are simply on or off.
 export const GROUPS = {
-  water: { label: 'Water and reflections', keys: ['waterSegments', 'reflection', 'reflectEvery', 'ripples', 'rippleSpan', 'waterDetail'],
-    desc: 'How finely the water moves, and how clearly it mirrors the sky and shore. The biggest cost on most devices.' },
-  plants: { label: 'Vegetation', keys: ['plants'],
-    desc: 'How dense the grass, reeds and underwater weed beds are drawn. Fish still find the same weed beds.' },
-  particles: { label: 'Particles and rain drops', keys: ['rain', 'particles', 'mist'],
-    desc: 'Raindrops, drifting specks underwater and layers of morning mist.' },
-  underwater: { label: 'Underwater effects', keys: ['rays', 'caustics'],
-    desc: 'Light shafts and dancing light on the seabed.' },
-  life: { label: 'Visible fish', keys: ['fishDensity', 'fishNear', 'simRadius'],
-    desc: 'How many distant fish are drawn, and how far away fish move every frame. Fish near you, bites, catches and the fish finder are the same at every level.' },
+  water: { label: $t('Water and reflections'), keys: ['waterSegments', 'reflection', 'reflectEvery', 'ripples', 'rippleSpan', 'waterDetail'],
+    desc: $t('How finely the water moves, and how clearly it mirrors the sky and shore. The biggest cost on most devices.') },
+  plants: { label: $t('Vegetation'), keys: ['plants'],
+    desc: $t('How dense the grass, reeds and underwater weed beds are drawn. Fish still find the same weed beds.') },
+  particles: { label: $t('Particles and rain drops'), keys: ['rain', 'particles', 'mist'],
+    desc: $t('Raindrops, drifting specks underwater and layers of morning mist.') },
+  underwater: { label: $t('Underwater effects'), keys: ['rays', 'caustics'],
+    desc: $t('Light shafts and dancing light on the seabed.') },
+  life: { label: $t('Visible fish'), keys: ['fishDensity', 'fishNear', 'simRadius'],
+    desc: $t('How many distant fish are drawn, and how far away fish move every frame. Fish near you, bites, catches and the fish finder are the same at every level.') },
 };
 
 // The final graphics settings: a preset level, with any parts chosen separately.

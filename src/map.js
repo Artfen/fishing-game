@@ -8,6 +8,7 @@ import { TENTS } from './campsite.js';
 import { ENDS, CROSS_M } from './crossing.js';
 import { MARKS } from './chartMarks.js';
 import { legsOf, passage, rangeWords, courseWords, timeWords, ROUTES_MAX, POINTS_MAX } from './routes.js';
+import { $t } from './i18n.js';
 
 // The map (M): the whole coast, every shore, path and place from the start (places you haven't
 // been yet in fainter ink), or, if you'd rather explore it (Settings), as you've seen it: water
@@ -969,7 +970,7 @@ export class MapSheet {
         ctx.fill();
         ctx.stroke();
         ctx.restore();
-        this.label(ctx, 'Your car', cx + 11 * s, cy + 4 * s, 16, INK, 0.9);
+        this.label(ctx, $t('Your car'), cx + 11 * s, cy + 4 * s, 16, INK, 0.9);
       }
     }
     // Your camp: a tent in its own colour, with its name.
@@ -1200,7 +1201,7 @@ export class MapSheet {
       ctx.fill();
       ctx.stroke();
       ctx.restore();
-      const what = f.on ? ', a fish on!' : f.boat ? `, in the ${f.boat}` : f.mode === 'dive' ? ', diving' : f.mode === 'car' ? ', driving' : '';
+      const what = f.on ? $t(', a fish on!') : f.boat ? $t`, in the ${f.boat}` : f.mode === 'dive' ? ', diving' : f.mode === 'car' ? ', driving' : '';
       this.label(ctx, `${f.name}${what}`, x + 13 * s, y - 9 * s, 16, f.colour || INK, 0.95);
     }
     // On the open sea's chart: the crossing, Gannet Light to the island, with its length.
@@ -1216,9 +1217,9 @@ export class MapSheet {
       ctx.lineTo(bx, by);
       ctx.stroke();
       ctx.restore();
-      this.label(ctx, 'Gannet Light', ax + 10 * s, ay - 10 * s, 16, INK, 0.9);
-      this.label(ctx, 'Las Brasas', bx + 10 * s, by + 14 * s, 18, INK, 0.9);
-      this.label(ctx, `${(CROSS_M / 1000).toFixed(1)} km of open sea`, (ax + bx) / 2 + 12 * s, (ay + by) / 2, 16, '#2f6f74', 0.9);
+      this.label(ctx, $t('Gannet Light'), ax + 10 * s, ay - 10 * s, 16, INK, 0.9);
+      this.label(ctx, $t('Las Brasas'), bx + 10 * s, by + 14 * s, 18, INK, 0.9);
+      this.label(ctx, $t`${(CROSS_M / 1000).toFixed(1)} km of open sea`, (ax + bx) / 2 + 12 * s, (ay + by) / 2, 16, '#2f6f74', 0.9);
     }
     // On the whole chart: the crossing south and the way up the coast, dashed.
     if (this.key === 'world') {
@@ -1339,7 +1340,7 @@ export class MapSheet {
       if (B?.at) this.plan.push([Math.round(B.at.x), Math.round(B.at.z)]);
     }
     $('map-route').setAttribute('aria-pressed', String(on));
-    $('map-route').textContent = on ? 'Planning: click the chart for each mark' : 'Plan a route';
+    $('map-route').textContent = on ? $t('Planning: click the chart for each mark') : $t('Plan a route');
     this.renderPlan();
     this.draw();
   }
@@ -1353,14 +1354,14 @@ export class MapSheet {
     const { legs } = legsOf(this.plan);
     const p = document.createElement('p');
     p.className = 'map-note';
-    p.textContent = this.plan.length < 2 ? 'Click the chart for each mark of your route, in order (it starts where you are).' : `${legs.length} leg${legs.length > 1 ? 's' : ''}:`;
+    p.textContent = this.plan.length < 2 ? $t('Click the chart for each mark of your route, in order (it starts where you are).') : `${legs.length} leg${legs.length > 1 ? 's' : ''}:`;
     out.push(p);
     if (legs.length) {
       const ol = document.createElement('ol');
       ol.className = 'map-legs';
       for (const L of legs) {
         const li = document.createElement('li');
-        li.textContent = `${courseWords(L.course)} for ${rangeWords(L.m)}`;
+        li.textContent = $t`${courseWords(L.course)} for ${rangeWords(L.m)}`;
         ol.append(li);
       }
       out.push(ol);
@@ -1368,7 +1369,7 @@ export class MapSheet {
         const P = passage(this.plan, B);
         const t = document.createElement('p');
         t.className = 'map-note';
-        t.textContent = `${P.nm.toFixed(1)} nm: about ${timeWords(P.hours)} at the helm, at the ${B.name}'s ${B.knots} knots${B.lph ? `, ${B.battery ? `about ${Math.max(1, Math.round(P.litres))}% of her battery` : `some ${Math.max(1, Math.round(P.litres))} litre${Math.max(1, Math.round(P.litres)) === 1 ? '' : 's'} of her ${Math.round(B.tank)}`}${P.spare < 0 ? (B.battery ? ': more than it holds' : ': more than she carries') : P.fine ? ': cutting it fine' : ''}` : ''}.`;
+        t.textContent = $t`${P.nm.toFixed(1)} nm: about ${timeWords(P.hours)} at the helm, at the ${B.name}'s ${B.knots} knots${B.lph ? `, ${B.battery ? $t`about ${Math.max(1, Math.round(P.litres))}% of her battery` : (Math.max(1, Math.round(P.litres)) === 1 ? $t`some ${Math.max(1, Math.round(P.litres))} litre of her ${Math.round(B.tank)}` : $t`some ${Math.max(1, Math.round(P.litres))} litres of her ${Math.round(B.tank)}`)}${P.spare < 0 ? (B.battery ? $t(': more than it holds') : $t(': more than she carries')) : P.fine ? $t(': cutting it fine') : ''}` : ''}.`;
         out.push(t);
         out.push(...this.dayNotes(this.plan));
       }
@@ -1384,9 +1385,9 @@ export class MapSheet {
       acts.append(b);
       return b;
     };
-    const save = btn('Save it', () => this.saveRoute(), false);
+    const save = btn($t('Save it'), () => this.saveRoute(), false);
     save.disabled = this.plan.length < 2 || (this.state.routes || []).length >= ROUTES_MAX;
-    btn('Back a mark', () => { this.plan.pop(); this.renderPlan(); this.draw(); }).disabled = !this.plan.length;
+    btn($t('Back a mark'), () => { this.plan.pop(); this.renderPlan(); this.draw(); }).disabled = !this.plan.length;
     btn('Cancel', () => this.setPlanning(false));
     out.push(acts);
     el.replaceChildren(...out);
@@ -1396,7 +1397,7 @@ export class MapSheet {
     st.routes ??= [];
     if (this.plan.length < 2 || st.routes.length >= ROUTES_MAX) return;
     const id = `r${Date.now().toString(36).slice(-6)}`;
-    st.routes.push({ id, name: `Route ${st.routes.length + 1}`, pts: this.plan.map((p) => [...p]) });
+    st.routes.push({ id, name: $t`Route ${st.routes.length + 1}`, pts: this.plan.map((p) => [...p]) });
     this.showRoute = id;
     this.setPlanning(false);
     this.hooks.changed?.();
@@ -1425,12 +1426,12 @@ export class MapSheet {
       name.addEventListener('click', () => { this.showRoute = r.id; this.centre({ x: r.pts[0][0], z: r.pts[0][1] }); this.draw(); });
       const sub = document.createElement('span');
       const P = B ? passage(r.pts, B) : null;
-      sub.textContent = `${r.pts.length} marks · ${(legsOf(r.pts).m / 1852).toFixed(1)} nm${P ? ` · ${timeWords(P.hours)} in the ${B.name}` : ''}`;
+      sub.textContent = $t`${r.pts.length} marks · ${(legsOf(r.pts).m / 1852).toFixed(1)} nm${P ? $t` · ${timeWords(P.hours)} in the ${B.name}` : ''}`;
       const following = st.route?.id === r.id;
       const go = document.createElement('button');
       go.type = 'button';
       go.className = 'pk-btn';
-      go.textContent = following ? 'Stop following' : 'Follow';
+      go.textContent = following ? $t('Stop following') : 'Follow';
       go.addEventListener('click', () => {
         if (following) this.hooks.stopRoute?.();
         else this.hooks.followRoute?.(r.id);
@@ -1440,7 +1441,7 @@ export class MapSheet {
       const del = document.createElement('button');
       del.type = 'button';
       del.className = 'pk-btn quiet';
-      del.textContent = 'Delete';
+      del.textContent = $t('Delete');
       del.addEventListener('click', () => {
         if (st.route?.id === r.id) this.hooks.stopRoute?.();
         st.routes = st.routes.filter((x) => x.id !== r.id);
@@ -1456,7 +1457,7 @@ export class MapSheet {
         nav = document.createElement('button');
         nav.type = 'button';
         nav.className = 'pk-btn';
-        nav.textContent = navving ? 'Stop navigating' : `Navigate for ${skipper}`;
+        nav.textContent = navving ? $t('Stop navigating') : $t`Navigate for ${skipper}`;
         nav.addEventListener('click', () => {
           if (navving) this.hooks.stopNavigating?.();
           else this.hooks.navigateFor?.(r.id);
@@ -1471,7 +1472,7 @@ export class MapSheet {
     if (!rows.length) {
       const li = document.createElement('li');
       li.className = 'faint';
-      li.textContent = 'None yet: plan one mark by mark, and a chartplotter steers you round it.';
+      li.textContent = $t('None yet: plan one mark by mark, and a chartplotter steers you round it.');
       rows.push(li);
     }
     $('map-routes').replaceChildren(...rows);
@@ -1481,14 +1482,14 @@ export class MapSheet {
     this.marking = on;
     $('map-mark').setAttribute('aria-pressed', on);
     $('map-mark').classList.toggle('on', on);
-    $('map-mark').textContent = on ? 'Click the map to mark it…' : 'Mark a spot';
+    $('map-mark').textContent = on ? $t('Click the map to mark it…') : $t('Mark a spot');
     this.canvas.classList.toggle('marking', on);
   }
 
   addPin(x, z) {
     const st = this.state;
     if (st.pins.length >= 60) {
-      $('map-note').textContent = 'You have sixty marks already: delete one to make room.';
+      $('map-note').textContent = $t('You have sixty marks already: delete one to make room.');
       return;
     }
     const p = { id: `pin-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, x: Math.round(x), z: Math.round(z), title: '', note: '', fav: false, day: st.day, hour: Math.round(st.hour * 100) / 100 };
@@ -1535,7 +1536,7 @@ export class MapSheet {
       const edit = document.createElement('button');
       edit.type = 'button';
       edit.className = 'pk-btn quiet';
-      edit.textContent = 'Edit';
+      edit.textContent = $t('Edit');
       edit.addEventListener('click', () => this.editPin(p));
       const sub = document.createElement('span');
       sub.textContent = p.note ? p.note.slice(0, 50) : '';
@@ -1550,11 +1551,11 @@ export class MapSheet {
     const st = this.state, info = this.hooks.travelInfo();
     const found = PLACES.filter((p) => st.places[p.id]);
     $('map-sub').textContent = this.highlight
-      ? `Shaded: water that suits ${fishById[this.highlight].name.toLowerCase()} (${[...new Set(fishById[this.highlight].life.zones.map((z) => ZONE_NAMES[z] || z))].join(', ')}). It shows where to look, not where each fish is.`
-      : this.key === 'ocean' ? `The open Atlantic between Willow Bay and Las Brasas: ${(CROSS_M / 1000).toFixed(1)} km of open sea from Gannet Light to the island.`
-        : this.key === 'coast' ? 'The coast north from Willow Bay: west past Heron Point and the Calf, round the Ness, and up under the fells to the Selkie Isles, about nine kilometres by sea.'
-          : this.key === 'world' ? 'The whole chart: Willow Bay, the crossing south to Las Brasas, and the coast north to the Selkie Isles. (◫ again for the sheet you’re on.)'
-          : `${found.length} of ${PLACES.length} places found · ${Math.round(this.explored.fraction * 100)}% of ${this.key === 'south' ? 'Las Brasas' : this.key === 'north' ? 'the Selkie Isles' : 'the coast'} explored`;
+      ? $t`Shaded: water that suits ${fishById[this.highlight].name.toLowerCase()} (${[...new Set(fishById[this.highlight].life.zones.map((z) => ZONE_NAMES[z] || z))].join(', ')}). It shows where to look, not where each fish is.`
+      : this.key === 'ocean' ? $t`The open Atlantic between Willow Bay and Las Brasas: ${(CROSS_M / 1000).toFixed(1)} km of open sea from Gannet Light to the island.`
+        : this.key === 'coast' ? $t('The coast north from Willow Bay: west past Heron Point and the Calf, round the Ness, and up under the fells to the Selkie Isles, about nine kilometres by sea.')
+          : this.key === 'world' ? $t('The whole chart: Willow Bay, the crossing south to Las Brasas, and the coast north to the Selkie Isles. (◫ again for the sheet you’re on.)')
+          : $t`${found.length} of ${PLACES.length} places found · ${Math.round(this.explored.fraction * 100)}% of ${this.key === 'south' ? $t('Las Brasas') : this.key === 'north' ? $t('the Selkie Isles') : $t('the coast')} explored`;
 
     // Camps you can head to (the walk or sail there happens in a short fade; time passes).
     const camps = found.filter((p) => p.camp);
@@ -1570,7 +1571,7 @@ export class MapSheet {
       const go = document.createElement('button');
       go.type = 'button';
       go.className = 'pk-btn';
-      go.textContent = info.here === p.id ? 'You’re here' : 'Go there';
+      go.textContent = info.here === p.id ? $t('You’re here') : $t('Go there');
       // (Home's camps from Las Brasas, or its harbour from home: only the long passage.)
       go.disabled = !info.camps || info.here === p.id || !!p.south !== (this.key === 'south');
       go.addEventListener('click', () => this.hooks.travel(p.id === 'camp' ? 'camp' : p.id));
@@ -1581,14 +1582,14 @@ export class MapSheet {
     const bname = document.createElement('button');
     bname.type = 'button';
     bname.className = 'map-name';
-    bname.textContent = `The ${this.where?.boat?.name || 'boat'}`;
+    bname.textContent = $t`The ${this.where?.boat?.name || 'boat'}`;
     bname.addEventListener('click', () => this.centre(this.where?.boat?.pos));
     const bsub = document.createElement('span');
-    bsub.textContent = this.where?.onFoot ? 'where you left it' : 'you’re aboard';
+    bsub.textContent = this.where?.onFoot ? $t('where you left it') : $t('you’re aboard');
     const bgo = document.createElement('button');
     bgo.type = 'button';
     bgo.className = 'pk-btn';
-    bgo.textContent = this.where?.onFoot ? 'Go there' : 'Aboard';
+    bgo.textContent = this.where?.onFoot ? $t('Go there') : 'Aboard';
     bgo.disabled = !info.boat;
     bgo.addEventListener('click', () => this.hooks.travel('boat'));
     boatRow.append(bname, bsub, bgo);
@@ -1612,11 +1613,11 @@ export class MapSheet {
       return li;
     };
     const extra = [];
-    extra.push(row('Home', 'your house and garage', info.here === 'home' ? 'You’re here' : 'Go there', info.home, 'home', HOME));
-    if (st.car && info.carAway) extra.push(row('Your car', info.carWords || 'parked', 'Go there', info.car, 'car', st.car));
-    for (const c of st.camps || []) extra.push(row(c.name, 'your camp', info.here === 'own' ? 'You’re here' : 'Go there', info.own, 'own', c));
+    extra.push(row($t('Home'), $t('your house and garage'), info.here === 'home' ? $t('You’re here') : $t('Go there'), info.home, 'home', HOME));
+    if (st.car && info.carAway) extra.push(row($t('Your car'), info.carWords || 'parked', $t('Go there'), info.car, 'car', st.car));
+    for (const c of st.camps || []) extra.push(row(c.name, $t('your camp'), info.here === 'own' ? $t('You’re here') : $t('Go there'), info.own, 'own', c));
     const haven = PLACES.find((p) => p.id === 'haven');
-    if (st.places.haven) extra.push(row(haven.name, 'the harbour', info.here === 'haven' ? 'You’re here' : 'Go there', info.haven, 'haven', haven));
+    if (st.places.haven) extra.push(row(haven.name, $t('the harbour'), info.here === 'haven' ? $t('You’re here') : $t('Go there'), info.haven, 'haven', haven));
     $('map-camps').replaceChildren(...extra, ...rows, boatRow);
     $('map-note').textContent = info.note || '';
     this.renderPins();
@@ -1641,7 +1642,7 @@ export class MapSheet {
       if (g) {
         const k = document.createElement('span');
         k.className = 'map-had';
-        k.textContent = `Yours here: ${g.kinds.slice(0, 3).map((K) => `${fishById[K.sp]?.name.toLowerCase() || K.sp} ${K.n}`).join(' · ')}${g.kinds.length > 3 ? ' …' : ''}`;
+        k.textContent = $t`Yours here: ${g.kinds.slice(0, 3).map((K) => `${fishById[K.sp]?.name.toLowerCase() || K.sp} ${K.n}`).join(' · ')}${g.kinds.length > 3 ? ' …' : ''}`;
         li.append(k);
       }
       return li;
@@ -1650,7 +1651,7 @@ export class MapSheet {
     if (left) {
       const li = document.createElement('li');
       li.className = 'faint';
-      li.textContent = `${left} more to find${found.length < 8 ? ': follow the coast, the rivers and the trails' : ''}.`;
+      li.textContent = $t`${left} more to find${found.length < 8 ? $t(': follow the coast, the rivers and the trails') : ''}.`;
       items.push(li);
     }
     $('map-places').replaceChildren(...items);

@@ -3,6 +3,7 @@ import { Lamp } from '../lamps.js';
 import { heightAt, HAVEN_HOUSES } from './terrain.js';
 import { mergeParts, mat, pick, glowTexture, clamp, smoothstep } from '../util.js';
 import { withSurface } from './surface.js';
+import { $t } from '../i18n.js';
 
 // Willowhaven's buildings, one by one and each its own: the chandlery (green weatherboard, a shop
 // window, buoys on the wall), The Lobster Pot (whitewashed, a black plinth, sash windows, its sign,
@@ -83,14 +84,14 @@ export function insideHaven(x, z) {
 const CH = HAVEN_ROOMS.chandlery, INN = HAVEN_ROOMS.inn;
 // The things inside you use (where you stand for each, and a word).
 export const ROOM_SPOTS = [
-  { id: 'counter', room: 'chandlery', x: CH.x0 + 4.6, z: CH.z0 + 2.75, r: 1.0, name: 'Bert’s counter' },
-  { id: 'tackle', room: 'chandlery', x: CH.x0 + 0.95, z: CH.z0 + 2.2, r: 1.0, name: 'the tackle' },
-  { id: 'air', room: 'chandlery', x: CH.x1 - 0.95, z: CH.z1 - 1.05, r: 0.9, name: 'the dive compressor' },
-  { id: 'bar', room: 'inn', x: INN.x0 + 3.85, z: INN.z0 + 2.15, r: 1.0, name: 'the bar' },
-  { id: 'pass', room: 'inn', x: INN.x1 - 2.6, z: INN.z0 + 2.75, r: 0.9, name: 'the kitchen pass' },
+  { id: 'counter', room: 'chandlery', x: CH.x0 + 4.6, z: CH.z0 + 2.75, r: 1.0, name: $t('Bert’s counter') },
+  { id: 'tackle', room: 'chandlery', x: CH.x0 + 0.95, z: CH.z0 + 2.2, r: 1.0, name: $t('the tackle') },
+  { id: 'air', room: 'chandlery', x: CH.x1 - 0.95, z: CH.z1 - 1.05, r: 0.9, name: $t('the dive compressor') },
+  { id: 'bar', room: 'inn', x: INN.x0 + 3.85, z: INN.z0 + 2.15, r: 1.0, name: $t('the bar') },
+  { id: 'pass', room: 'inn', x: INN.x1 - 2.6, z: INN.z0 + 2.75, r: 0.9, name: $t('the kitchen pass') },
   // (The east chair at the west table, facing across it to the window; the fire end of the settle.)
-  { id: 'tableW', room: 'inn', x: INN.x0 + 2.55, z: INN.z1 - 1.2, r: 0.8, name: 'a table by the window', seat: { x: INN.x0 + 2.3, z: INN.z1 - 0.8, heading: -Math.PI / 2 } },
-  { id: 'fire', room: 'inn', x: INN.x0 + 1.15, z: INN.z0 + 1.6, r: 0.8, name: 'the settle by the fire', seat: { x: INN.x0 + 1.62, z: INN.z0 + 1.75, heading: -Math.PI / 2 } },
+  { id: 'tableW', room: 'inn', x: INN.x0 + 2.55, z: INN.z1 - 1.2, r: 0.8, name: $t('a table by the window'), seat: { x: INN.x0 + 2.3, z: INN.z1 - 0.8, heading: -Math.PI / 2 } },
+  { id: 'fire', room: 'inn', x: INN.x0 + 1.15, z: INN.z0 + 1.6, r: 0.8, name: $t('the settle by the fire'), seat: { x: INN.x0 + 1.62, z: INN.z0 + 1.75, heading: -Math.PI / 2 } },
 ];
 // Where the harbour's people stand or sit inside (see townsfolk.js), and the way in from the
 // door: via [outside the door, just inside it].
@@ -291,7 +292,7 @@ function retainingWalls(b, y, rnd, obstacles) {
       cg.computeVertexNormals();
       P.push({ geo: cg, color: '#b9b2a4', jitter: 0.03 });
       const mid = F.world((a[0] + c[0]) / 2, (a[1] + c[1]) / 2);
-      obstacles.push({ x: mid.x, z: mid.z, r: 0.55, top: Math.max(t0, t1) + 0.1, kind: 'building', name: 'a stone wall' });
+      obstacles.push({ x: mid.x, z: mid.z, r: 0.55, top: Math.max(t0, t1) + 0.1, kind: 'building', name: $t('a stone wall') });
     }
   };
   run(-b.w / 2 - m, -b.d / 2 - m, b.w / 2 + m, -b.d / 2 - m, 0, -1);
@@ -433,8 +434,8 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
       }
       const door = F.world(0, b.d / 2 + 1.2);
       // (Kaigan's door: Kenji buys from the boats there. A cottage's door is only a door.)
-      if (b.kind === 'store') spots.push({ kind: 'kaigan', name: 'Kaigan', x: door.x, z: door.z, r: 2.4, id: b.id });
-      else spots.push({ kind: 'door', name: 'a cottage door', x: door.x, z: door.z, r: 2.4, id: b.id });
+      if (b.kind === 'store') spots.push({ kind: 'kaigan', name: $t('Kaigan'), x: door.x, z: door.z, r: 2.4, id: b.id });
+      else spots.push({ kind: 'door', name: $t('a cottage door'), x: door.x, z: door.z, r: 2.4, id: b.id });
     } else {
       // Each side a mesh of its own; the upper storey, the gables, the roof and the chimneys
       // together (they all lift away while you're inside).
@@ -459,7 +460,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
     if (b.kind === 'inn') {
       // The sign over the door, a lantern either side of it, hanging baskets of flowers, and a
       // pair of benches and tables out on the setts.
-      const t = textTexture(512, 112, signPainter('#5a2620', '#d8b46a', '#f3e6c4', 'The Lobster Pot', 'inn · fresh fish · ale', 52));
+      const t = textTexture(512, 112, signPainter('#5a2620', '#d8b46a', '#f3e6c4', $t('The Lobster Pot'), $t('inn · fresh fish · ale'), 52));
       const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.79), new THREE.MeshLambertMaterial({ map: t.tex }));
       const sp = F.world(0, front + 0.06);
       sign.position.set(sp.x, y + 2.78, sp.z);
@@ -486,7 +487,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
       for (const lx of [-3.0, 3.1]) {
         const p = F.world(lx, front + 2.2);
         woodParts.push(...picnicBench(p.x, y, p.z, b.yaw, rnd));
-        obstacles.push({ x: p.x, z: p.z, r: 0.95, top: y + 0.8, kind: 'harbour', name: 'a bench' });
+        obstacles.push({ x: p.x, z: p.z, r: 0.95, top: y + 0.8, kind: 'harbour', name: $t('a bench') });
       }
       // A chalkboard by the door.
       const cb = F.world(1.2, front + 0.35);
@@ -494,7 +495,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
       woodParts.push({ geo: box(0.6, 0.9, 0.03), matrix: mat(cb.x, y + 0.5, cb.z - 0.03, -0.18, b.yaw, 0), color: '#6a503b' });
       signs.inn = sign;
     } else if (b.kind === 'chandlery') {
-      const t = textTexture(512, 128, signPainter('#26383b', '#d8c48f', '#efe2bd', 'Chandlery', 'tackle · bait · charts · advice'));
+      const t = textTexture(512, 128, signPainter('#26383b', '#d8c48f', '#efe2bd', 'Chandlery', $t('tackle · bait · charts · advice')));
       const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.8), new THREE.MeshLambertMaterial({ map: t.tex }));
       const sp = F.world(1.3, front + 0.05);
       sign.position.set(sp.x, y + 2.55, sp.z);
@@ -508,14 +509,14 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
       for (const k of [0, 1]) onFront.push({ geo: cyl(0.03, 0.03, 2.4, 6), matrix: F.at(-3.3 + k * 0.18, 1.15, front + 0.25, -0.12, 0, 0.05 * (k ? 1 : -1)), color: '#a07a4a' });
       const sb = F.world(3.3, front + 0.9);
       for (const s of [-1, 1]) woodParts.push({ geo: box(0.6, 0.9, 0.04), matrix: mat(sb.x, y + 0.45, sb.z, s * 0.22, b.yaw, 0), color: '#2b2f2e' });
-      obstacles.push({ x: sb.x, z: sb.z, r: 0.35, kind: 'harbour', name: 'the sandwich board' });
+      obstacles.push({ x: sb.x, z: sb.z, r: 0.35, kind: 'harbour', name: $t('the sandwich board') });
     } else if (b.kind === 'store') {
       // Nets hung to dry on poles beside it (on the level ground by its west end), floats along the
       // top line: the old net store's, kept for the look of the place.
       for (const lx of [-b.w / 2 - 0.8, -b.w / 2 - 3.0]) {
         const p = F.world(lx, 1.2);
         woodParts.push({ geo: cyl(0.05, 0.06, 2.4, 6), matrix: mat(p.x, y + 1.2, p.z), color: '#6a503b' });
-        obstacles.push({ x: p.x, z: p.z, r: 0.2, kind: 'harbour', name: 'the net poles' });
+        obstacles.push({ x: p.x, z: p.z, r: 0.2, kind: 'harbour', name: $t('the net poles') });
       }
       const p = F.world(-b.w / 2 - 1.9, 1.2), py = y;
       darkParts.push({ geo: new THREE.PlaneGeometry(2.2, 1.6, 6, 4), matrix: mat(p.x, py + 1.3, p.z, 0, b.yaw, 0), color: '#4f6a5a', jitter: 0.15 });
@@ -531,7 +532,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.font = '700 25px Kalam, Caveat, cursive';
-        ctx.fillText('Nikkei kitchen · sushi · sashimi · ceviche', w / 2, h * 0.54);
+        ctx.fillText($t('Nikkei kitchen · sushi · sashimi · ceviche'), w / 2, h * 0.54);
       });
       const sm = new THREE.Mesh(new THREE.PlaneGeometry(1.92, 0.24), new THREE.MeshLambertMaterial({ map: sign.tex }));
       const q = F.world(0, front + 0.04);
@@ -590,7 +591,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
       const mb = F.world(1.75, front + 0.55);
       woodParts.push({ geo: box(0.55, 0.85, 0.04), matrix: mat(mb.x, y + 0.5, mb.z, -0.18, b.yaw - 0.25, 0), color: '#2b2f2e' });
       woodParts.push({ geo: box(0.6, 0.9, 0.03), matrix: mat(mb.x, y + 0.5, mb.z, -0.18, b.yaw - 0.25, 0), color: '#b89a70' });
-      obstacles.push({ x: mb.x, z: mb.z, r: 0.35, kind: 'harbour', name: 'Kaigan’s menu board' });
+      obstacles.push({ x: mb.x, z: mb.z, r: 0.35, kind: 'harbour', name: $t('Kaigan’s menu board') });
     } else {
       // A cottage: a porch hood over the door on brackets, window boxes of flowers, a pot by
       // the step.
@@ -623,7 +624,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
     put(box(0.38, 0.22, 0.3), cx + 0.8, 1.17, cz - 0.05, '#3a3d40');
     put(cyl(0.05, 0.07, 0.06, 10), cx - 0.9, 1.09, cz + 0.1, '#c9a65a');
     put(cyl(0.09, 0.09, 0.24, 10), cx - 0.3, 1.18, cz + 0.05, '#cfe3e6');
-    for (let x = cx - 1.2; x <= cx + 1.21; x += 0.8) solid(x, cz, 0.42, 'the counter');
+    for (let x = cx - 1.2; x <= cx + 1.21; x += 0.8) solid(x, cz, 0.42, $t('the counter'));
     // The shelves behind him: boxes of hooks and swivels, spools of line, reels.
     for (const sy of [1.05, 1.55, 2.05]) {
       put(box(3.2, 0.04, 0.38), cx, sy, R.z0 + 0.2, '#6a503b');
@@ -640,12 +641,12 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
     for (let z = R.z0 + 1.05; z < R.z0 + 3.85; z += 0.3) put(cyl(0.012, 0.025, 2.3, 5), R.x0 + 0.22, 1.2, z, pick(['#2f3640', '#5a3a2a', '#2a4a3a', '#c9a65a'], rnd), 0, 0, 0.05);
     put(box(0.04, 0.9, 1.6), R.x0 + 0.03, 2.05, R.z0 + 1.3, '#c9b48a');
     for (let k = 0; k < 18; k++) put(box(0.03, 0.12, 0.05), R.x0 + 0.07, 1.7 + (k % 3) * 0.25, R.z0 + 0.65 + Math.floor(k / 3) * 0.24, pick(['#c23b2e', '#e8c234', '#9fb6c2', '#e8742a', '#7f9a5a', '#e8e2d6'], rnd));
-    solid(R.x0 + 0.3, R.z0 + 1.6, 0.35, 'the rod rack');
-    solid(R.x0 + 0.3, R.z0 + 3.0, 0.35, 'the rod rack');
+    solid(R.x0 + 0.3, R.z0 + 1.6, 0.35, $t('the rod rack'));
+    solid(R.x0 + 0.3, R.z0 + 3.0, 0.35, $t('the rod rack'));
     // Bait and ice: a white chest freezer by the back wall.
     put(box(1.0, 0.85, 0.62), R.x0 + 1.1, 0.43, R.z0 + 0.4, '#e8e6e0');
     put(box(1.02, 0.05, 0.64), R.x0 + 1.1, 0.87, R.z0 + 0.4, '#c9ccc8');
-    solid(R.x0 + 1.1, R.z0 + 0.45, 0.5, 'the bait freezer');
+    solid(R.x0 + 1.1, R.z0 + 0.45, 0.5, $t('the bait freezer'));
     // In the shop window: a display shelf with reels and a model boat.
     put(box(2.4, 0.08, 0.45), R.x1 - 1.6, 0.66, R.z1 - 0.25, '#6a503b');
     put(box(0.6, 0.18, 0.16), R.x1 - 2.2, 0.82, R.z1 - 0.25, '#b5532f');
@@ -653,7 +654,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
     for (const dx of [-0.8, -0.3, 0.2]) put(cyl(0.09, 0.09, 0.07, 12), R.x1 - 1.2 + dx, 0.78, R.z1 - 0.25, '#c9cdd0', Math.PI / 2, 0, 0);
     // Creels stacked by the door; a coil of rope; floats hung from the beams.
     for (let k = 0; k < 3; k++) put(cyl(0.24, 0.2, 0.32, 10), R.x0 + 0.45, 0.17 + k * 0.33, R.z1 - 0.55, '#b08a54');
-    solid(R.x0 + 0.45, R.z1 - 0.55, 0.32, 'the creels');
+    solid(R.x0 + 0.45, R.z1 - 0.55, 0.32, $t('the creels'));
     put(new THREE.TorusGeometry(0.22, 0.06, 6, 14), R.x0 + 0.5, 0.06, R.z1 - 1.3, '#c9b48a', Math.PI / 2, 0, 0);
     for (let k = 0; k < 6; k++) put(new THREE.SphereGeometry(0.12, 8, 6), R.x0 + 1.4 + k * 0.85, 2.35 - (k % 2) * 0.12, R.z0 + 2.9 + Math.sin(k) * 0.4, pick(['#e8742a', '#e8c234', '#e7e2d6', '#c23b2e'], rnd));
     for (let x = R.x0 + 0.8; x < R.x1; x += 1.6) beams.chandlery.push({ geo: box(0.12, 0.14, R.z1 - R.z0), matrix: mat(x, y + ROOM_H - 0.1, (R.z0 + R.z1) / 2), color: '#5a4030' });
@@ -661,7 +662,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
     put(box(0.6, 0.55, 0.45), R.x1 - 0.42, 0.28, R.z1 - 0.45, '#c23b2e');
     put(cyl(0.12, 0.12, 0.5, 10), R.x1 - 0.42, 0.6, R.z1 - 0.45, '#3a3d40', 0, 0, Math.PI / 2);
     for (const k of [0, 1]) put(cyl(0.09, 0.09, 0.7, 10), R.x1 - 0.2 - k * 0.22, 0.35, R.z1 - 1.0, '#e8c234');
-    solid(R.x1 - 0.42, R.z1 - 0.6, 0.45, 'the compressor');
+    solid(R.x1 - 0.42, R.z1 - 0.6, 0.45, $t('the compressor'));
     // A chart of the coast on the back wall, left of the shelves.
     put(box(1.1, 0.75, 0.02), R.x0 + 2.35, 1.75, R.z0 + 0.02, '#e9dcbc');
     put(box(0.6, 0.35, 0.025), R.x0 + 2.25, 1.8, R.z0 + 0.03, '#9fbfc8');
@@ -686,7 +687,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
       put(cyl(0.035, 0.04, 0.26, 8), bx + dx, 1.25, bz - 0.05, '#c9a65a');
       put(box(0.05, 0.22, 0.05), bx + dx, 1.48, bz - 0.05, pick(['#2a2d30', '#6a3a2a', '#e8e2d6'], rnd));
     }
-    for (let x = bx - 1.2; x <= bx + 1.21; x += 0.8) solid(x, bz, 0.42, 'the bar');
+    for (let x = bx - 1.2; x <= bx + 1.21; x += 0.8) solid(x, bz, 0.42, $t('the bar'));
     for (const sy of [1.25, 1.75]) {
       put(box(3.0, 0.04, 0.3), bx, sy, R.z0 + 0.16, '#5a4030');
       for (let x = bx - 1.35; x < bx + 1.4; x += 0.16) put(cyl(0.035, 0.04, 0.26, 6), x, sy + 0.15, R.z0 + 0.17, pick(['#3a5a3a', '#6a2a2a', '#c9a65a', '#e7e2d6', '#2a3a5a', '#7a5a2a'], rnd));
@@ -707,11 +708,11 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
     for (const dz of [-0.15, 0.12]) put(cyl(0.06, 0.06, 0.5, 6), R.x0 + 0.36, 0.14, fz + dz, '#4a3426', 0, 0.4, Math.PI / 2);
     put(box(0.12, 0.2, 0.12), R.x0 + 0.3, 1.66, fz - 0.6, '#c9a65a');
     put(box(0.3, 0.16, 0.08), R.x0 + 0.3, 1.66, fz + 0.4, '#3a5a7a');
-    for (const dz of [-0.55, 0, 0.55]) solid(R.x0 + 0.25, fz + dz, 0.32, 'the fireplace', 1.6);
+    for (const dz of [-0.55, 0, 0.55]) solid(R.x0 + 0.25, fz + dz, 0.32, $t('the fireplace'), 1.6);
     // The settle: a high-backed bench facing the fire (solid along its back).
     put(box(0.4, 0.07, 1.3), R.x0 + 1.64, 0.45, R.z0 + 2.05, '#5a4030');
     put(box(0.08, 1.15, 1.3), R.x0 + 1.88, 0.62, R.z0 + 2.05, '#5a4030');
-    for (let z = R.z0 + 1.5; z <= R.z0 + 2.61; z += 0.275) solid(R.x0 + 1.9, z, 0.2, 'the settle');
+    for (let z = R.z0 + 1.5; z <= R.z0 + 2.61; z += 0.275) solid(R.x0 + 1.9, z, 0.2, $t('the settle'));
     // Two tables by the front windows, with chairs; a candle on each.
     for (const [tx, tz] of [[R.x0 + 1.55, R.z1 - 0.8], [R.x1 - 1.6, R.z1 - 0.8]]) {
       put(box(1.0, 0.05, 0.75), tx, 0.74, tz, '#6a4a32');
@@ -730,7 +731,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
     const kx = R.x1 - 1.95;
     put(box(0.12, 1.1, 2.3), kx, 0.55, R.z0 + 1.15, '#d8cfbf');
     put(box(0.5, 0.06, 2.35), kx, 1.12, R.z0 + 1.15, '#6a4a32');
-    for (let z = R.z0 + 0.3; z < R.z0 + 2.3; z += 0.4) obstacles.push({ x: kx, z, r: 0.22, top: y + 1.2, kind: 'building', name: 'the pass' });
+    for (let z = R.z0 + 0.3; z < R.z0 + 2.3; z += 0.4) obstacles.push({ x: kx, z, r: 0.22, top: y + 1.2, kind: 'building', name: $t('the pass') });
     put(box(0.7, 0.9, 1.1), R.x1 - 0.38, 0.45, R.z0 + 0.95, '#2a2d30');
     put(box(0.72, 0.04, 1.12), R.x1 - 0.38, 0.92, R.z0 + 0.95, '#4a4d50');
     put(cyl(0.12, 0.14, 0.2, 10), R.x1 - 0.4, 1.04, R.z0 + 0.7, '#c9cdd0');
@@ -738,7 +739,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
     put(box(1.2, 0.04, 0.26), R.x1 - 0.14, 1.7, R.z0 + 1.0, '#6a503b', 0, Math.PI / 2, 0);
     for (let k = 0; k < 4; k++) put(cyl(0.1, 0.1, 0.03, 10), R.x1 - 0.08, 1.45, R.z0 + 0.55 + k * 0.3, '#4a4d50', 0, 0, Math.PI / 2);
     put(box(0.6, 0.85, 0.5), R.x1 - 1.2, 0.43, R.z0 + 0.3, '#d8d4cc');
-    obstacles.push({ x: R.x1 - 0.5, z: R.z0 + 0.95, r: 0.55, top: y + 1, kind: 'building', name: 'the range' });
+    obstacles.push({ x: R.x1 - 0.5, z: R.z0 + 0.95, r: 0.55, top: y + 1, kind: 'building', name: $t('the range') });
     kitchenTex = textTexture(256, 192, (ctx, w, h) => {
       ctx.fillStyle = '#2b2f2e';
       ctx.fillRect(0, 0, w, h);
@@ -774,7 +775,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
       for (let i = 0; i <= n; i++) {
         const k = i / n, x = x0 + (x1 - x0) * k, z = z0 + (z1 - z0) * k;
         if (gap && Math.abs(x - gap) < DOOR_W / 2 - 0.05) continue;
-        obstacles.push({ x, z, r: 0.2, kind: 'building', name: id === 'inn' ? 'The Lobster Pot' : 'the chandlery' });
+        obstacles.push({ x, z, r: 0.2, kind: 'building', name: id === 'inn' ? $t('The Lobster Pot') : $t('the chandlery') });
       }
     };
     const X0 = b.x - b.w / 2 + 0.12, X1 = b.x + b.w / 2 - 0.12, Z0 = b.z - b.d / 2 + 0.12, Z1 = b.z + b.d / 2 - 0.12;
@@ -783,7 +784,7 @@ export function buildHavenHouses(rnd, group, obstacles, spots) {
     line(X0, Z0, X0, Z1);
     line(X1, Z0, X1, Z1);
     // (A spot by the door outside, for the harbour's people and the old prompts.)
-    spots.push({ kind: 'door', name: id === 'inn' ? 'The Lobster Pot' : 'the chandlery door', x: R.doorX, z: R.front + 1.2, r: 1.6, id });
+    spots.push({ kind: 'door', name: id === 'inn' ? $t('The Lobster Pot') : $t('the chandlery door'), x: R.doorX, z: R.front + 1.2, r: 1.6, id });
   }
   for (const id of ['chandlery', 'inn']) {
     const m = mesh(mergeParts(inside[id], rnd), plain());

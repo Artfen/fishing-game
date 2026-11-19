@@ -1,5 +1,6 @@
 import { fishById, weightOf } from './fish.js';
 import { sizePrice } from './market.js';
+import { $t } from './i18n.js';
 
 // Kaigan ("the shore"): a Nikkei kitchen, Japanese and Peruvian (sushi, sashimi, ceviche and
 // tiradito), in the old net store on Willowhaven quay. Kenji Higa, its chef (a Lima kitchen, an
@@ -27,46 +28,46 @@ export const CAP = 90;
 // What each kind becomes, and what he pays (£ a kilo, as fresh as it comes); cap: the most he'll
 // give for one, if not CAP.
 export const DISHES = {
-  tuna: { dish: 'the whole fish broken down at the counter: ōtoro, chūtoro and akami', k: 12, cap: 500 },
-  yellowfin: { dish: 'kihada sashimi', k: 9, cap: 200 },
-  albacore: { dish: 'bincho tataki, seared and sliced', k: 8, cap: 160 },
-  bonito: { dish: 'katsuo tataki, seared over a straw fire', k: 9 },
-  littletunny: { dish: 'little tunny tataki', k: 7 },
-  bullet: { dish: 'bullet tuna tataki', k: 6 },
-  bluemarlin: { dish: 'kajiki sashimi', k: 5, cap: 200 },
-  sailfish: { dish: 'sailfish sashimi', k: 5, cap: 160 },
-  spearfish: { dish: 'spearfish sashimi', k: 5, cap: 160 },
-  amberjack: { dish: 'kanpachi sashimi', k: 12, cap: 200 },
-  wahoo: { dish: 'ono sashimi with ponzu', k: 14, cap: 200 },
-  dorado: { dish: 'ceviche of dorado in leche de tigre', k: 13, cap: 180 },
-  grouper: { dish: 'tiradito de mero with ají amarillo', k: 20, cap: 200 },
-  meagre: { dish: 'ceviche de corvina, the classic of Lima', k: 18 },
-  seabass: { dish: 'suzuki usuzukuri, sliced paper-thin', k: 24 },
-  baila: { dish: 'usuzukuri of spotted bass', k: 16 },
-  gilthead: { dish: 'tai nigiri', k: 20 },
-  redporgy: { dish: 'madai sashimi', k: 18 },
-  dentex: { dish: 'dentex sashimi', k: 18 },
-  urta: { dish: 'tiradito of red-banded bream', k: 16 },
-  pandora: { dish: 'pandora nigiri', k: 12 },
-  blackbream: { dish: 'black bream nigiri', k: 12 },
-  whitebream: { dish: 'white bream nigiri', k: 12 },
-  turbot: { dish: 'hirame nigiri, and the engawa seared', k: 28 },
-  sole: { dish: 'tiradito de lenguado', k: 24 },
-  senegalsole: { dish: 'tiradito de lenguado', k: 22 },
-  sandsole: { dish: 'tiradito de lenguado', k: 20 },
-  flounder: { dish: 'ceviche of flounder', k: 10 },
-  plaice: { dish: 'plaice usuzukuri', k: 12 },
-  johndory: { dish: 'matōdai usuzukuri', k: 28 },
-  mackerel: { dish: 'shime saba, cured in salt and rice vinegar', k: 9 },
-  chubmackerel: { dish: 'saba nigiri', k: 6 },
-  horsemackerel: { dish: 'aji tataki with ginger and spring onion', k: 8 },
-  sardine: { dish: 'iwashi nigiri', k: 8 },
-  garfish: { dish: 'sayori nigiri', k: 7 },
-  mullet: { dish: 'bora tiradito', k: 6 },
-  squid: { dish: 'ika sōmen, cut as fine as noodles', k: 15 },
-  cuttlefish: { dish: 'kōika nigiri', k: 12 },
-  octopus: { dish: 'tako, and pulpo al olivo', k: 16 },
-  conger: { dish: 'anago, simmered and brushed with sweet sauce', k: 9 },
+  tuna: { dish: $t('the whole fish broken down at the counter: ōtoro, chūtoro and akami'), k: 12, cap: 500 },
+  yellowfin: { dish: $t('kihada sashimi'), k: 9, cap: 200 },
+  albacore: { dish: $t('bincho tataki, seared and sliced'), k: 8, cap: 160 },
+  bonito: { dish: $t('katsuo tataki, seared over a straw fire'), k: 9 },
+  littletunny: { dish: $t('little tunny tataki'), k: 7 },
+  bullet: { dish: $t('bullet tuna tataki'), k: 6 },
+  bluemarlin: { dish: $t('kajiki sashimi'), k: 5, cap: 200 },
+  sailfish: { dish: $t('sailfish sashimi'), k: 5, cap: 160 },
+  spearfish: { dish: $t('spearfish sashimi'), k: 5, cap: 160 },
+  amberjack: { dish: $t('kanpachi sashimi'), k: 12, cap: 200 },
+  wahoo: { dish: $t('ono sashimi with ponzu'), k: 14, cap: 200 },
+  dorado: { dish: $t('ceviche of dorado in leche de tigre'), k: 13, cap: 180 },
+  grouper: { dish: $t('tiradito de mero with ají amarillo'), k: 20, cap: 200 },
+  meagre: { dish: $t('ceviche de corvina, the classic of Lima'), k: 18 },
+  seabass: { dish: $t('suzuki usuzukuri, sliced paper-thin'), k: 24 },
+  baila: { dish: $t('usuzukuri of spotted bass'), k: 16 },
+  gilthead: { dish: $t('tai nigiri'), k: 20 },
+  redporgy: { dish: $t('madai sashimi'), k: 18 },
+  dentex: { dish: $t('dentex sashimi'), k: 18 },
+  urta: { dish: $t('tiradito of red-banded bream'), k: 16 },
+  pandora: { dish: $t('pandora nigiri'), k: 12 },
+  blackbream: { dish: $t('black bream nigiri'), k: 12 },
+  whitebream: { dish: $t('white bream nigiri'), k: 12 },
+  turbot: { dish: $t('hirame nigiri, and the engawa seared'), k: 28 },
+  sole: { dish: $t('tiradito de lenguado'), k: 24 },
+  senegalsole: { dish: $t('tiradito de lenguado'), k: 22 },
+  sandsole: { dish: $t('tiradito de lenguado'), k: 20 },
+  flounder: { dish: $t('ceviche of flounder'), k: 10 },
+  plaice: { dish: $t('plaice usuzukuri'), k: 12 },
+  johndory: { dish: $t('matōdai usuzukuri'), k: 28 },
+  mackerel: { dish: $t('shime saba, cured in salt and rice vinegar'), k: 9 },
+  chubmackerel: { dish: $t('saba nigiri'), k: 6 },
+  horsemackerel: { dish: $t('aji tataki with ginger and spring onion'), k: 8 },
+  sardine: { dish: $t('iwashi nigiri'), k: 8 },
+  garfish: { dish: $t('sayori nigiri'), k: 7 },
+  mullet: { dish: $t('bora tiradito'), k: 6 },
+  squid: { dish: $t('ika sōmen, cut as fine as noodles'), k: 15 },
+  cuttlefish: { dish: $t('kōika nigiri'), k: 12 },
+  octopus: { dish: $t('tako, and pulpo al olivo'), k: 16 },
+  conger: { dish: $t('anago, simmered and brushed with sweet sauce'), k: 9 },
 };
 export const takes = (sp) => !!sp && !!DISHES[sp.id] && !!sp.meal && sp.water !== 'fresh';
 
@@ -125,9 +126,9 @@ export function kaiganValue(f, { day, now } = {}) {
 // A line of the receipt: what it was, what it'll be, its weight and price.
 export function kaiganLine(f, v) {
   const sp = fishById[f.id];
-  const why = [v.grade === 'kitchen' ? 'for the hot kitchen' : v.dish, v.special && sp.id !== 'tuna' ? 'tonight’s special' : '', v.prime ? 'a prime fish' : ''].filter(Boolean);
+  const why = [v.grade === 'kitchen' ? $t('for the hot kitchen') : v.dish, v.special && sp.id !== 'tuna' ? $t('tonight’s special') : '', v.prime ? $t('a prime fish') : ''].filter(Boolean);
   return { id: f.id, name: sp.name, size: f.size, kg: Math.round(v.kg * 100) / 100, each: v.each, why, price: v.price };
 }
 
 // The words for a fish's grade, at the kitchen door.
-export const gradeWords = (g) => (g === 'raw' ? 'fit to eat raw' : g === 'kitchen' ? 'caught over twelve hours ago: for the hot kitchen' : 'too old for his kitchen');
+export const gradeWords = (g) => (g === 'raw' ? $t('fit to eat raw') : g === 'kitchen' ? $t('caught over twelve hours ago: for the hot kitchen') : $t('too old for his kitchen'));

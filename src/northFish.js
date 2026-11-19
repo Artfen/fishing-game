@@ -1,4 +1,5 @@
 import { isDay, isEvening, isTwilight } from './habits.js';
+import { $t } from './i18n.js';
 
 // The north's fish (docs/NORTH.md): up the coast in the Selkie Isles, in cold water.
 //
@@ -14,20 +15,20 @@ import { isDay, isEvening, isTwilight } from './habits.js';
 // homes. (fish.js adds them to each species, as it does Las Brasas'.) groups: how many groups (or
 // schools) of it the north has; where: what the journal says of it there.
 export const AT_NORTH = {
-  pollack: { zones: ['kelp', 'sound', 'race', 'outer', 'skerry'], groups: 8, where: 'Up the coast in the Selkie Isles, over the kelp and in the Churn’s race, big and bronze.' },
-  wrasse: { zones: ['kelp', 'skerry'], groups: 10, where: 'In the Selkie Isles’ kelp, round every rock.' },
-  conger: { zones: ['kelp', 'loch', 'outer'], groups: 4, where: 'In the Selkie Isles: in wrecks, and in the walls of Loch Skarn.' },
-  catshark: { zones: ['kelp', 'sound', 'loch', 'outer'], groups: 6, where: 'On the sand and mud of Raven Sound and Loch Skarn.' },
-  mackerel: { zones: ['sound', 'race', 'outer'], groups: 3, where: 'Round the Selkie Isles in summer, in the sound and the race.' },
-  horsemackerel: { zones: ['sound', 'outer'], groups: 2, where: 'In shoals round the Selkie Isles.' },
-  thornback: { zones: ['sound', 'loch'], groups: 3, where: 'On the sand of Raven Sound and the mud of Loch Skarn.' },
-  plaice: { zones: ['sound'], groups: 4, where: 'On the sand of Raven Sound.' },
-  turbot: { zones: ['sound'], groups: 2, where: 'On the sand of Raven Sound.' },
-  gurnard: { zones: ['sound'], groups: 3, where: 'On the sand of Raven Sound.' },
-  sprat: { zones: ['sound', 'loch', 'outer', 'race'], groups: 3, where: 'In shoals in the sound and the loch, for everything else to eat.' },
-  corkwing: { zones: ['kelp', 'skerry'], where: 'Among the kelp round the Selkie Isles, and off Halvig pier.' },
-  rockgoby: { zones: ['kelp', 'skerry'], where: 'In the rocks round the Selkie Isles, and off Halvig pier.' },
-  shanny: { zones: ['kelp', 'skerry'], where: 'In the rocks round the Selkie Isles, and off Halvig pier.' },
+  pollack: { zones: ['kelp', 'sound', 'race', 'outer', 'skerry'], groups: 8, where: $t('Up the coast in the Selkie Isles, over the kelp and in the Churn’s race, big and bronze.') },
+  wrasse: { zones: ['kelp', 'skerry'], groups: 10, where: $t('In the Selkie Isles’ kelp, round every rock.') },
+  conger: { zones: ['kelp', 'loch', 'outer'], groups: 4, where: $t('In the Selkie Isles: in wrecks, and in the walls of Loch Skarn.') },
+  catshark: { zones: ['kelp', 'sound', 'loch', 'outer'], groups: 6, where: $t('On the sand and mud of Raven Sound and Loch Skarn.') },
+  mackerel: { zones: ['sound', 'race', 'outer'], groups: 3, where: $t('Round the Selkie Isles in summer, in the sound and the race.') },
+  horsemackerel: { zones: ['sound', 'outer'], groups: 2, where: $t('In shoals round the Selkie Isles.') },
+  thornback: { zones: ['sound', 'loch'], groups: 3, where: $t('On the sand of Raven Sound and the mud of Loch Skarn.') },
+  plaice: { zones: ['sound'], groups: 4, where: $t('On the sand of Raven Sound.') },
+  turbot: { zones: ['sound'], groups: 2, where: $t('On the sand of Raven Sound.') },
+  gurnard: { zones: ['sound'], groups: 3, where: $t('On the sand of Raven Sound.') },
+  sprat: { zones: ['sound', 'loch', 'outer', 'race'], groups: 3, where: $t('In shoals in the sound and the loch, for everything else to eat.') },
+  corkwing: { zones: ['kelp', 'skerry'], where: $t('Among the kelp round the Selkie Isles, and off Halvig pier.') },
+  rockgoby: { zones: ['kelp', 'skerry'], where: $t('In the rocks round the Selkie Isles, and off Halvig pier.') },
+  shanny: { zones: ['kelp', 'skerry'], where: $t('In the rocks round the Selkie Isles, and off Halvig pier.') },
 };
 
 // The north's own: the cold-water fish of the gadoid kind the place is known for, and the big skate
@@ -36,7 +37,7 @@ export const NORTH = [
   {
     id: 'cod',
     fight: 'dogged',
-    name: 'Atlantic Cod',
+    name: $t('Atlantic Cod'),
     scientific: 'Gadus morhua',
     water: 'salt',
     wt: 0.0095,
@@ -47,10 +48,10 @@ export const NORTH = [
     mouth: 4,
     colors: { back: '#6e6a44', body: '#b4ae80', belly: '#ece8d8', fin: '#8a8458', mark: '#4a4630' },
     sketch: { h: 0.27, tail: 0.5, pattern: 'specks' },
-    where: 'Up the coast in the Selkie Isles: the edges of the kelp, the deep rock outside, and Loch Skarn in winter',
-    hint: 'A big-headed, pot-bellied fish with a barbel on its chin, mottled brown-green with a pale line along its side. It hangs near the bottom by the rocks and the kelp edges and eats anything it can swallow: a crab, a strip of mackerel, a big lure worked slowly along the bottom. Best in the cold months.',
-    note: 'The cod: three dorsal fins and two anal, a single barbel under its chin, its upper jaw overhanging the lower, a curved pale lateral line, and a heavy, mottled body, greenish-brown to sandy. It eats crabs, worms, sandeels and other fish, and grows big and old where it is let. Hooked, it comes up heavy and shaking its head, and dives for the bottom.',
-    meal: { name: 'Cod fried in batter, with chips', fill: 60 },
+    where: $t('Up the coast in the Selkie Isles: the edges of the kelp, the deep rock outside, and Loch Skarn in winter'),
+    hint: $t('A big-headed, pot-bellied fish with a barbel on its chin, mottled brown-green with a pale line along its side. It hangs near the bottom by the rocks and the kelp edges and eats anything it can swallow: a crab, a strip of mackerel, a big lure worked slowly along the bottom. Best in the cold months.'),
+    note: $t('The cod: three dorsal fins and two anal, a single barbel under its chin, its upper jaw overhanging the lower, a curved pale lateral line, and a heavy, mottled body, greenish-brown to sandy. It eats crabs, worms, sandeels and other fish, and grows big and old where it is let. Hooked, it comes up heavy and shaking its head, and dives for the bottom.'),
+    meal: { name: $t('Cod fried in batter, with chips'), fill: 60 },
     food: { crab: 1.5, strip: 1.4, lug: 1.2, rag: 1.0, sandeel: 1.1, shad: 1.0, metal: 0.7, prawn: 0.6 },
     life: {
       group: [1, 3], northGroups: 9, spacing: 30,
@@ -66,7 +67,7 @@ export const NORTH = [
   {
     id: 'saithe',
     fight: 'dash',
-    name: 'Saithe',
+    name: $t('Saithe'),
     scientific: 'Pollachius virens',
     water: 'salt',
     wt: 0.0094,
@@ -77,10 +78,10 @@ export const NORTH = [
     mouth: 3,
     colors: { back: '#2c3a3c', body: '#7c8a8a', belly: '#dcdcd6', fin: '#3c4848', mark: '#c8ccc6' },
     sketch: { h: 0.25, tail: 0.6, pattern: 'plain' },
-    where: 'In shoals round the Selkie Isles: the Churn’s race, along the cliffs, and off the stack',
-    hint: 'Dark green-grey above with a straight pale line down its side: a pollack’s cousin, but it travels in shoals and hunts in the open, hard and fast. Feathers or a shad dropped into the race, or a metal lure wound back quickly through the tide off the rocks. Where there’s one there are dozens.',
-    note: 'Saithe, or coley: a cod of the open water, dark olive-green to nearly black on the back, silver-grey below, its lateral line straight and pale, its lower jaw a little longer than the upper and no more than a tiny barbel. It shoals in its hundreds round headlands and in tide races, chasing sandeels and young herring, and fights harder for its size than any of its family.',
-    meal: { name: 'Coley in a fish pie', fill: 50 },
+    where: $t('In shoals round the Selkie Isles: the Churn’s race, along the cliffs, and off the stack'),
+    hint: $t('Dark green-grey above with a straight pale line down its side: a pollack’s cousin, but it travels in shoals and hunts in the open, hard and fast. Feathers or a shad dropped into the race, or a metal lure wound back quickly through the tide off the rocks. Where there’s one there are dozens.'),
+    note: $t('Saithe, or coley: a cod of the open water, dark olive-green to nearly black on the back, silver-grey below, its lateral line straight and pale, its lower jaw a little longer than the upper and no more than a tiny barbel. It shoals in its hundreds round headlands and in tide races, chasing sandeels and young herring, and fights harder for its size than any of its family.'),
+    meal: { name: $t('Coley in a fish pie'), fill: 50 },
     food: { sandeel: 1.6, shad: 1.5, metal: 1.4, strip: 1.0, prawn: 0.5 },
     life: {
       group: [3, 6], northGroups: 7, spacing: 40,
@@ -96,7 +97,7 @@ export const NORTH = [
   {
     id: 'ling',
     fight: 'twist',
-    name: 'Ling',
+    name: $t('Ling'),
     scientific: 'Molva molva',
     water: 'salt',
     wt: 0.0042,
@@ -107,10 +108,10 @@ export const NORTH = [
     mouth: 4,
     colors: { back: '#5c5638', body: '#8c8462', belly: '#e0dccc', fin: '#5a5440', mark: '#2e2a1c' },
     sketch: { h: 0.16, tail: 0.3, pattern: 'mottle' },
-    where: 'Deep rock in the Selkie Isles: the walls of Loch Skarn, the Sula, the foot of Skarv Stack',
-    hint: 'Long and eel-like, mottled bronze and olive, with a barbel on its chin and a mouth full of teeth: it lives in holes in deep rock and wrecks and comes out for a whole fish or a big strip of mackerel on the bottom. Get it up quick or it’s back in its hole.',
-    note: 'The ling: the longest of the cod family, its body long and round like an eel’s, two long dorsal fins (the second running nearly to its tail) and a long anal fin, a single barbel, large teeth, and a dark spot at the back of each dorsal fin. It lives in deep water among rocks and wrecks and eats fish, squid and crabs.',
-    meal: { name: 'Salted ling, soaked and baked', fill: 55 },
+    where: $t('Deep rock in the Selkie Isles: the walls of Loch Skarn, the Sula, the foot of Skarv Stack'),
+    hint: $t('Long and eel-like, mottled bronze and olive, with a barbel on its chin and a mouth full of teeth: it lives in holes in deep rock and wrecks and comes out for a whole fish or a big strip of mackerel on the bottom. Get it up quick or it’s back in its hole.'),
+    note: $t('The ling: the longest of the cod family, its body long and round like an eel’s, two long dorsal fins (the second running nearly to its tail) and a long anal fin, a single barbel, large teeth, and a dark spot at the back of each dorsal fin. It lives in deep water among rocks and wrecks and eats fish, squid and crabs.'),
+    meal: { name: $t('Salted ling, soaked and baked'), fill: 55 },
     food: { strip: 1.7, shad: 1.0, crab: 0.8, sandeel: 0.7, prawn: 0.4 },
     life: {
       group: [1, 1], northGroups: 5, spacing: 40,
@@ -126,7 +127,7 @@ export const NORTH = [
   {
     id: 'skate',
     fight: 'plate',
-    name: 'Flapper Skate',
+    name: $t('Flapper Skate'),
     scientific: 'Dipturus intermedius',
     water: 'salt',
     wt: 0.0105,
@@ -137,10 +138,10 @@ export const NORTH = [
     mouth: 4,
     colors: { back: '#5a564c', body: '#6e6a5e', belly: '#c8ccd0', fin: '#4e4a42', mark: '#8a867a' },
     sketch: { h: 0.95, tail: 0.15, pattern: 'specks', flat: true },
-    where: 'On the mud of Loch Skarn’s deep basin, sixty to ninety metres down',
-    hint: 'The biggest fish in the north: a skate as wide as a door lying on the mud at the bottom of the loch. A whole mackerel or a big strip of fish on a heavy bottom rig, left still on the mud, and patience. It is critically endangered: every one goes back, quickly, in the water.',
-    note: 'The flapper skate, the larger of the two common skates: a huge diamond of a fish, its snout long and pointed, its back grey-brown with pale spots, its underside grey, the largest skate in the world’s seas. It lives long and grows slowly on the mud of deep sea lochs and the shelf, and was fished almost to nothing; now it is caught and released, and tagged, by the anglers who come for it.',
-    meal: { name: 'Skate wing (if it could be kept: it can’t)', fill: 40 },
+    where: $t('On the mud of Loch Skarn’s deep basin, sixty to ninety metres down'),
+    hint: $t('The biggest fish in the north: a skate as wide as a door lying on the mud at the bottom of the loch. A whole mackerel or a big strip of fish on a heavy bottom rig, left still on the mud, and patience. It is critically endangered: every one goes back, quickly, in the water.'),
+    note: $t('The flapper skate, the larger of the two common skates: a huge diamond of a fish, its snout long and pointed, its back grey-brown with pale spots, its underside grey, the largest skate in the world’s seas. It lives long and grows slowly on the mud of deep sea lochs and the shelf, and was fished almost to nothing; now it is caught and released, and tagged, by the anglers who come for it.'),
+    meal: { name: $t('Skate wing (if it could be kept: it can’t)'), fill: 40 },
     food: { strip: 1.8, shad: 0.9, crab: 0.6, sandeel: 0.5 },
     life: {
       group: [1, 1], northGroups: 3, spacing: 120, flat: true,
@@ -156,7 +157,7 @@ export const NORTH = [
   {
     id: 'haddock',
     fight: 'dogged',
-    name: 'Haddock',
+    name: $t('Haddock'),
     scientific: 'Melanogrammus aeglefinus',
     water: 'salt',
     wt: 0.0098,
@@ -167,10 +168,10 @@ export const NORTH = [
     mouth: 2,
     colors: { back: '#4c4a48', body: '#a8a8a4', belly: '#ecece6', fin: '#5c5a58', mark: '#1e1e1e' },
     sketch: { h: 0.26, tail: 0.55, pattern: 'plain' },
-    where: 'On the sand of Raven Sound and the mud at the edge of Loch Skarn’s basin',
-    hint: 'Grey above and silver below, with a black lateral line and a dark thumbprint on its shoulder. It feeds on the bottom on worms, shellfish and small crabs: a ragworm, a lugworm or a strip of squid on a bottom rig, on the sand.',
-    note: 'The haddock: a cod of the sand and mud, dark purplish-grey above and silver-white below, its lateral line black, a dark blotch (the “devil’s thumbprint”) above its pectoral fin, a small barbel and a small mouth under a pointed snout. It roots for worms, shellfish and brittlestars on soft bottoms, in shoals.',
-    meal: { name: 'Smoked haddock and poached eggs', fill: 45 },
+    where: $t('On the sand of Raven Sound and the mud at the edge of Loch Skarn’s basin'),
+    hint: $t('Grey above and silver below, with a black lateral line and a dark thumbprint on its shoulder. It feeds on the bottom on worms, shellfish and small crabs: a ragworm, a lugworm or a strip of squid on a bottom rig, on the sand.'),
+    note: $t('The haddock: a cod of the sand and mud, dark purplish-grey above and silver-white below, its lateral line black, a dark blotch (the “devil’s thumbprint”) above its pectoral fin, a small barbel and a small mouth under a pointed snout. It roots for worms, shellfish and brittlestars on soft bottoms, in shoals.'),
+    meal: { name: $t('Smoked haddock and poached eggs'), fill: 45 },
     food: { lug: 1.5, rag: 1.4, worm: 1.2, prawn: 1.0, strip: 0.8, crab: 0.6 },
     life: {
       group: [2, 5], northGroups: 6, spacing: 34,

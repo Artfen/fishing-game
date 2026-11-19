@@ -1,5 +1,6 @@
 import { findSite } from './campsite.js';
 import { clamp, wrapAngle } from './util.js';
+import { $t } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -32,7 +33,7 @@ export class Placement {
     this.active = { mode, camp, dist: 4.2, turn: Math.PI, x: w.pos.x, z: w.pos.z, yaw: 0, spot: null, t: 0, key: '', holdT: 0 };
     $('place-panel').hidden = false;
     document.body.classList.add('placing');
-    $('pl-title').textContent = mode === 'move' ? `Move ${camp.name}` : 'Pitch your camp';
+    $('pl-title').textContent = mode === 'move' ? `Move ${camp.name}` : $t('Pitch your camp');
     this.h.preview.show(true);
     this.refresh(true);
   }
@@ -53,7 +54,7 @@ export class Placement {
   confirm() {
     const a = this.active;
     if (!a?.spot?.check.ok) {
-      this.h.nope?.(a?.spot?.check.reason || 'Not here.');
+      this.h.nope?.(a?.spot?.check.reason || $t('Not here.'));
       return;
     }
     const spot = { x: a.spot.x, z: a.spot.z, yaw: a.spot.yaw, check: a.spot.check };
@@ -108,13 +109,13 @@ export class Placement {
   panel(state, c, moved) {
     const s = $('pl-status');
     s.className = `pl-status ${state}`;
-    s.textContent = state === 'bad' ? `Can’t pitch here. ${c.reason}` : `${c.warn ? '' : 'A good spot. '}${c.words}${moved ? ' (Settled a step from where you’re pointing, where it fits.)' : ''}`;
+    s.textContent = state === 'bad' ? $t`Can’t pitch here. ${c.reason}` : `${c.warn ? '' : $t('A good spot. ')}${c.words}${moved ? $t(' (Settled a step from where you’re pointing, where it fits.)') : ''}`;
     $('pl-warn').textContent = c.ok ? c.warn : '';
     $('pl-ok').disabled = !c.ok;
     const K = this.h.keyLabel;
     $('pl-keys').textContent = {
-      touch: 'Walk to choose the spot · the buttons turn it and bring it nearer or further',
-      pad: `Walk and look to choose the spot · ${K('tackle')} ${K('interact')} turn it · ${K('cast')} pitch · ${K('cancel')} cancel`,
-    }[this.h.controls()] || `Walk and look to choose the spot · ${K('tackle')} ${K('interact')} turn it · mouse wheel nearer or further · ${K('cast')} pitch · Esc cancel`;
+      touch: $t('Walk to choose the spot · the buttons turn it and bring it nearer or further'),
+      pad: $t`Walk and look to choose the spot · ${K('tackle')} ${K('interact')} turn it · ${K('cast')} pitch · ${K('cancel')} cancel`,
+    }[this.h.controls()] || $t`Walk and look to choose the spot · ${K('tackle')} ${K('interact')} turn it · mouse wheel nearer or further · ${K('cast')} pitch · Esc cancel`;
   }
 }

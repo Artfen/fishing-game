@@ -2,6 +2,7 @@ import { fishById } from './fish.js';
 import { TACKLE } from './tackle.js';
 import { lower, an } from './innTalk.js';
 import { clamp } from './util.js';
+import { $t } from './i18n.js';
 
 // Learning the grounds: what the water tells you, and what you've learned from it.
 //
@@ -23,20 +24,20 @@ const whatWas = (sp) => {
   const f = fishById[sp];
   if (!f) return 'fish';
   const name = lower(f.name);
-  return f.life.school ? `a shoal of ${name}` : an(name);
+  return f.life.school ? $t`a shoal of ${name}` : an(name);
 };
 export const SIGNS = {
-  birds: { name: 'Birds working', note: 'Gulls and gannets wheeling and diving over one patch of water.', lesson: (sp) => `The birds were right: ${whatWas(sp)} under them. Where gulls and gannets dive, bait has been driven to the top, and something is driving it.` },
-  boil: { name: 'The sea boiling', note: 'White water out in the open, as if it were boiling.', lesson: (sp) => `That boil was ${whatWas(sp)}, crashing through the bait at the top.` },
-  nervous: { name: 'Nervous water', note: 'A patch of tiny dimples on calm water, as if a breeze touched only there.', lesson: (sp) => `That nervous water was ${whatWas(sp)}, right under the surface.` },
-  rise: { name: 'Rings', note: 'Rings spreading on calm water.', lesson: (sp) => `Those rings were ${whatWas(sp)} rising to feed.` },
-  jump: { name: 'A fish jumping', note: 'A fish clean out of the water, and the splash.', lesson: (sp) => `The fish you saw jump was ${whatWas(sp)}.` },
-  splash: { name: 'A splash', note: 'Something swirling at the top.', lesson: (sp) => `That splash was ${whatWas(sp)} taking something at the top.` },
-  flash: { name: 'A flash', note: 'A wink of silver under the surface.', lesson: (sp) => `The flash was ${whatWas(sp)} turning under the surface, catching the light.` },
-  fizz: { name: 'Fizzing bubbles', note: 'Patches of tiny bubbles on still water.', lesson: (sp) => `The fizzing was ${whatWas(sp)} grazing the bottom, stirring up the mud.` },
+  birds: { name: $t('Birds working'), note: $t('Gulls and gannets wheeling and diving over one patch of water.'), lesson: (sp) => $t`The birds were right: ${whatWas(sp)} under them. Where gulls and gannets dive, bait has been driven to the top, and something is driving it.` },
+  boil: { name: $t('The sea boiling'), note: $t('White water out in the open, as if it were boiling.'), lesson: (sp) => $t`That boil was ${whatWas(sp)}, crashing through the bait at the top.` },
+  nervous: { name: $t('Nervous water'), note: $t('A patch of tiny dimples on calm water, as if a breeze touched only there.'), lesson: (sp) => $t`That nervous water was ${whatWas(sp)}, right under the surface.` },
+  rise: { name: $t('Rings'), note: $t('Rings spreading on calm water.'), lesson: (sp) => $t`Those rings were ${whatWas(sp)} rising to feed.` },
+  jump: { name: $t('A fish jumping'), note: $t('A fish clean out of the water, and the splash.'), lesson: (sp) => $t`The fish you saw jump was ${whatWas(sp)}.` },
+  splash: { name: $t('A splash'), note: $t('Something swirling at the top.'), lesson: (sp) => $t`That splash was ${whatWas(sp)} taking something at the top.` },
+  flash: { name: $t('A flash'), note: $t('A wink of silver under the surface.'), lesson: (sp) => $t`The flash was ${whatWas(sp)} turning under the surface, catching the light.` },
+  fizz: { name: $t('Fizzing bubbles'), note: $t('Patches of tiny bubbles on still water.'), lesson: (sp) => $t`The fizzing was ${whatWas(sp)} grazing the bottom, stirring up the mud.` },
   // (E1: the fish finder's marks. It never names a fish; a catch soon after, near where it showed
   // one, tells you what that arch was: its depth, its size and the water are the clues to learn.)
-  arch: { name: 'An arch on the sonar', note: 'A fish crossing the sonar’s beam: an arch, thicker for a bigger fish.', lesson: (sp) => `That arch on the sonar was ${whatWas(sp)}. Remember its depth and its size: next time you’ll know it before you catch it.` },
+  arch: { name: $t('An arch on the sonar'), note: $t('A fish crossing the sonar’s beam: an arch, thicker for a bigger fish.'), lesson: (sp) => $t`That arch on the sonar was ${whatWas(sp)}. Remember its depth and its size: next time you’ll know it before you catch it.` },
 };
 // How near you have to be to see one, and how near a catch has to be to it to tell you what it was.
 // (An arch is seen on the sonar under you: its distance is the beam's, a few boat lengths at most.)
@@ -110,26 +111,26 @@ function standsOut(counts, n, share = 0.6) {
   const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
   return n >= 3 && top && top[1] / n >= share ? top[0] : null;
 }
-const TIDE_WORDS = { flood: 'on the flood', ebb: 'on the ebb', high: 'around high water', low: 'around low water' };
-const TIME_WORDS = { dawn: 'at dawn', day: 'in the day', dusk: 'at dusk', night: 'after dark' };
+const TIDE_WORDS = { flood: $t('on the flood'), ebb: $t('on the ebb'), high: $t('around high water'), low: $t('around low water') };
+const TIME_WORDS = { dawn: $t('at dawn'), day: $t('in the day'), dusk: $t('at dusk'), night: $t('after dark') };
 // One kind at one place, in words: "Atlantic mackerel: 14 (best 38 cm), mostly on the flood, at
 // dawn, in summer; most on a string of feathers."
 export function groundWords(K) {
   const name = fishById[K.sp] ? lower(fishById[K.sp].name) : K.sp;
-  const head = `${name[0].toUpperCase()}${name.slice(1)}: ${K.n}${K.best ? ` (best ${K.best} cm)` : ''}`;
+  const head = `${name[0].toUpperCase()}${name.slice(1)}: ${K.n}${K.best ? $t` (best ${K.best} cm)` : ''}`;
   const when = [];
   const tide = standsOut(K.tide, K.n);
   if (tide) when.push(TIDE_WORDS[tide]);
   const twilight = (K.time.dawn || 0) + (K.time.dusk || 0);
   const time = standsOut(K.time, K.n);
   if (time) when.push(TIME_WORDS[time]);
-  else if (K.n >= 3 && twilight / K.n >= 0.6) when.push('at dawn and dusk');
+  else if (K.n >= 3 && twilight / K.n >= 0.6) when.push($t('at dawn and dusk'));
   const season = standsOut(K.season, K.n, 0.7);
   if (season) when.push(`in ${season}`);
   const colour = standsOut(K.colour, K.n, 0.6);
-  if (colour === 'coloured' || colour === 'tinged') when.push('in coloured water');
+  if (colour === 'coloured' || colour === 'tinged') when.push($t('in coloured water'));
   const item = standsOut(K.item, K.n, 0.45);
-  const on = item && TACKLE[item] ? `most on ${TACKLE[item].on}` : '';
+  const on = item && TACKLE[item] ? $t`most on ${TACKLE[item].on}` : '';
   return `${head}${when.length ? `, mostly ${when.join(', ')}` : ''}${on ? `; ${on}` : ''}.`;
 }
 
@@ -144,7 +145,7 @@ export function stepColour(c, { rain = 0, storm = 0 }, hours) {
   return Math.max(target, c * Math.exp(-hours / 8));
 }
 export const colourKey = (c) => (c < 0.15 ? 'clear' : c < 0.45 ? 'tinged' : 'coloured');
-export const colourWords = (c) => ({ clear: 'clear', tinged: 'a little colour in it', coloured: 'coloured, after the weather' })[colourKey(c)];
+export const colourWords = (c) => ({ clear: 'clear', tinged: $t('a little colour in it'), coloured: $t('coloured, after the weather') })[colourKey(c)];
 const BY_FEEL = new Set(['seabass', 'conger', 'flounder', 'plaice', 'sole', 'sandsole', 'turbot', 'gurnard', 'meagre', 'senegalsole', 'eel', 'cod', 'ling', 'skate', 'haddock']);
 const BY_SIGHT = new Set(['mackerel', 'garfish', 'wrasse', 'pollack', 'blackbream', 'whitebream', 'bluefish', 'bonito', 'horsemackerel', 'sardine', 'squid', 'cuttlefish', 'bogue', 'salema', 'saithe']);
 export function colourFactor(sp, c) {
@@ -159,46 +160,46 @@ export function colourFactor(sp, c) {
 // The life you meet under the water (besides the fish, which have the field guide): what it is,
 // and a line on it. Seen up close (a couple of metres off) while you're diving.
 export const NATURE = {
-  star: { name: 'Common starfish', latin: 'Asterias rubens', note: 'Five arms, orange to purple, rough with pale spines. It pulls a mussel open with its tube feet and turns its stomach out into it.' },
-  brittle: { name: 'Brittlestar', latin: 'Ophiura', note: 'A little disc and five thin, snaking arms. On soft sand they lie in their thousands, arms up to catch what drifts by.' },
-  urchin: { name: 'Edible sea urchin', latin: 'Echinus esculentus', note: 'A round test the size of a fist, pink to purple, its spines short. It grazes the rock bare of weed and the tiny animals on it.' },
-  scallop: { name: 'King scallop', latin: 'Pecten maximus', note: 'It lies in a hollow in the sand, flat shell up, a row of tiny blue eyes along its edge; it swims away by clapping its shells.' },
-  hermit: { name: 'Hermit crab', latin: 'Pagurus bernhardus', note: 'It lives in an empty whelk shell and moves house as it grows. The bigger ones often carry an anemone on the shell.' },
-  ceri: { name: 'Burrowing anemone', latin: 'Cerianthus lloydii', note: 'It lives in a slimy tube in the sand, a crown of long fine tentacles spread to catch food; touch it and it whips down out of sight.' },
-  pen: { name: 'Phosphorescent sea pen', latin: 'Pennatula phosphorea', note: 'A feathery colony on a stalk, standing out of the soft sand in deeper water. Touched at night it glows green.' },
-  cast: { name: 'Lugworm casts', latin: 'Arenicola marina', note: 'The coiled casts of lugworms, each living in a U-shaped burrow under the sand. Anglers dig them for bait.' },
-  dahlia: { name: 'Dahlia anemone', latin: 'Urticina felina', note: 'A thick, warty column and a crown of stubby banded tentacles, red, cream and green. It catches shrimps and little fish.' },
-  jewel: { name: 'Jewel anemone', latin: 'Corynactis viridis', note: 'Tiny anemones with knobbed tentacle tips, in sheets of one bright colour: pink, green, orange, violet. Each sheet is one anemone, split again and again.' },
-  fingers: { name: 'Dead man’s fingers', latin: 'Alcyonium digitatum', note: 'A soft coral: fleshy lobes, white or orange, that put out fluffy feeding polyps when the tide runs. On rock and wrecks.' },
-  plumose: { name: 'Plumose anemone', latin: 'Metridium dianthus', note: 'Tall, white or orange, with a feathery crown of fine tentacles; thickest on wrecks and pinnacles where the tide runs hard.' },
-  fan: { name: 'Pink sea fan', latin: 'Eunicella verrucosa', note: 'A gorgonian coral, a fan of branches standing across the current to sieve it. Slow-growing: a fan as tall as your hand can be decades old. Protected.' },
-  sponge: { name: 'Sponges', latin: 'Porifera', note: 'Yellow and orange cushions on the rock, pumping the water through themselves to filter it.' },
-  kelp: { name: 'Kelp', latin: 'Laminaria hyperborea', note: 'A stiff stalk and a broad blade split into fingers. A kelp forest shelters fish, crabs and a crust of life on every stalk.' },
-  red: { name: 'Red seaweeds', latin: 'Rhodophyta', note: 'Delicate red weeds under the kelp, where the light is dim: their red pigment uses the blue-green light that reaches down.' },
-  lobster: { name: 'European lobster', latin: 'Homarus gammarus', note: 'Blue-black, with two great unequal claws, one for crushing and one for cutting. It lives in a hole under a ledge and comes out at night.' },
+  star: { name: $t('Common starfish'), latin: 'Asterias rubens', note: $t('Five arms, orange to purple, rough with pale spines. It pulls a mussel open with its tube feet and turns its stomach out into it.') },
+  brittle: { name: $t('Brittlestar'), latin: 'Ophiura', note: $t('A little disc and five thin, snaking arms. On soft sand they lie in their thousands, arms up to catch what drifts by.') },
+  urchin: { name: $t('Edible sea urchin'), latin: 'Echinus esculentus', note: $t('A round test the size of a fist, pink to purple, its spines short. It grazes the rock bare of weed and the tiny animals on it.') },
+  scallop: { name: $t('King scallop'), latin: 'Pecten maximus', note: $t('It lies in a hollow in the sand, flat shell up, a row of tiny blue eyes along its edge; it swims away by clapping its shells.') },
+  hermit: { name: $t('Hermit crab'), latin: 'Pagurus bernhardus', note: $t('It lives in an empty whelk shell and moves house as it grows. The bigger ones often carry an anemone on the shell.') },
+  ceri: { name: $t('Burrowing anemone'), latin: 'Cerianthus lloydii', note: $t('It lives in a slimy tube in the sand, a crown of long fine tentacles spread to catch food; touch it and it whips down out of sight.') },
+  pen: { name: $t('Phosphorescent sea pen'), latin: 'Pennatula phosphorea', note: $t('A feathery colony on a stalk, standing out of the soft sand in deeper water. Touched at night it glows green.') },
+  cast: { name: $t('Lugworm casts'), latin: 'Arenicola marina', note: $t('The coiled casts of lugworms, each living in a U-shaped burrow under the sand. Anglers dig them for bait.') },
+  dahlia: { name: $t('Dahlia anemone'), latin: 'Urticina felina', note: $t('A thick, warty column and a crown of stubby banded tentacles, red, cream and green. It catches shrimps and little fish.') },
+  jewel: { name: $t('Jewel anemone'), latin: 'Corynactis viridis', note: $t('Tiny anemones with knobbed tentacle tips, in sheets of one bright colour: pink, green, orange, violet. Each sheet is one anemone, split again and again.') },
+  fingers: { name: $t('Dead man’s fingers'), latin: 'Alcyonium digitatum', note: $t('A soft coral: fleshy lobes, white or orange, that put out fluffy feeding polyps when the tide runs. On rock and wrecks.') },
+  plumose: { name: $t('Plumose anemone'), latin: 'Metridium dianthus', note: $t('Tall, white or orange, with a feathery crown of fine tentacles; thickest on wrecks and pinnacles where the tide runs hard.') },
+  fan: { name: $t('Pink sea fan'), latin: 'Eunicella verrucosa', note: $t('A gorgonian coral, a fan of branches standing across the current to sieve it. Slow-growing: a fan as tall as your hand can be decades old. Protected.') },
+  sponge: { name: $t('Sponges'), latin: 'Porifera', note: $t('Yellow and orange cushions on the rock, pumping the water through themselves to filter it.') },
+  kelp: { name: $t('Kelp'), latin: 'Laminaria hyperborea', note: $t('A stiff stalk and a broad blade split into fingers. A kelp forest shelters fish, crabs and a crust of life on every stalk.') },
+  red: { name: $t('Red seaweeds'), latin: 'Rhodophyta', note: $t('Delicate red weeds under the kelp, where the light is dim: their red pigment uses the blue-green light that reaches down.') },
+  lobster: { name: $t('European lobster'), latin: 'Homarus gammarus', note: $t('Blue-black, with two great unequal claws, one for crushing and one for cutting. It lives in a hole under a ledge and comes out at night.') },
   // (Las Brasas' seabed, and the life of the open water: see seabed.js and drifters.js.)
-  diadema: { name: 'Long-spined sea urchin', latin: 'Diadema africanum', note: 'Black, with needle spines as long as your hand that track your shadow as you pass. They graze the island’s rock bare in great herds: keep your knees off it.' },
-  redstar: { name: 'Red sea star', latin: 'Echinaster sepositus', note: 'A slim, bright red starfish with smooth rounded arms, on the island’s rock and in the weed. It feeds on sponges and the film of life on the stone.' },
-  cucumber: { name: 'Sea cucumber', latin: 'Holothuria sanctori', note: 'A soft brown sausage lying on the sand, slowly swallowing it and passing it out clean. Bothered, it can throw out sticky white threads.' },
-  gardeneel: { name: 'Garden eels', latin: 'Heteroconger longissimus', note: 'A field of thin eels standing out of burrows in the sand, leaning into the current to pick plankton; come close and they sink back down out of sight.' },
-  moonjelly: { name: 'Moon jellyfish', latin: 'Aurelia aurita', note: 'A clear saucer with four pale rings in it, pulsing slowly along. Summer and autumn bring them in, some years in thousands. A mild sting, if any.' },
-  compass: { name: 'Compass jellyfish', latin: 'Chrysaora hysoscella', note: 'A white bell marked with brown Vs like the points of a compass, and long trailing tentacles that do sting. Late summer, in the warmer water.' },
-  stinger: { name: 'Mauve stinger', latin: 'Pelagia noctiluca', note: 'A small pinkish-mauve jellyfish of the open ocean, warty and stinging, that glows when disturbed at night. Swept in by the trade wind now and then.' },
-  fry: { name: 'Sand smelt', latin: 'Atherina presbyter', note: 'Shoals of small silver fish with a bright stripe along the side, hanging over sand and weed in the shallows: food for bass, mackerel and terns.' },
+  diadema: { name: $t('Long-spined sea urchin'), latin: 'Diadema africanum', note: $t('Black, with needle spines as long as your hand that track your shadow as you pass. They graze the island’s rock bare in great herds: keep your knees off it.') },
+  redstar: { name: $t('Red sea star'), latin: 'Echinaster sepositus', note: $t('A slim, bright red starfish with smooth rounded arms, on the island’s rock and in the weed. It feeds on sponges and the film of life on the stone.') },
+  cucumber: { name: $t('Sea cucumber'), latin: 'Holothuria sanctori', note: $t('A soft brown sausage lying on the sand, slowly swallowing it and passing it out clean. Bothered, it can throw out sticky white threads.') },
+  gardeneel: { name: $t('Garden eels'), latin: 'Heteroconger longissimus', note: $t('A field of thin eels standing out of burrows in the sand, leaning into the current to pick plankton; come close and they sink back down out of sight.') },
+  moonjelly: { name: $t('Moon jellyfish'), latin: 'Aurelia aurita', note: $t('A clear saucer with four pale rings in it, pulsing slowly along. Summer and autumn bring them in, some years in thousands. A mild sting, if any.') },
+  compass: { name: $t('Compass jellyfish'), latin: 'Chrysaora hysoscella', note: $t('A white bell marked with brown Vs like the points of a compass, and long trailing tentacles that do sting. Late summer, in the warmer water.') },
+  stinger: { name: $t('Mauve stinger'), latin: 'Pelagia noctiluca', note: $t('A small pinkish-mauve jellyfish of the open ocean, warty and stinging, that glows when disturbed at night. Swept in by the trade wind now and then.') },
+  fry: { name: $t('Sand smelt'), latin: 'Atherina presbyter', note: $t('Shoals of small silver fish with a bright stripe along the side, hanging over sand and weed in the shallows: food for bass, mackerel and terns.') },
   // The crevices and rock tops of Skerries Reef (see world/divesiteWorld.js).
-  ediblecrab: { name: 'Edible crab', latin: 'Cancer pagurus', note: 'A broad oval shell edged like a pie crust, red-brown, and heavy claws tipped with black. It wedges itself into a crevice by day and comes out at night to crack open mussels and other shellfish.' },
-  velvetcrab: { name: 'Velvet swimming crab', latin: 'Necora puber', note: 'Velvety brown, its legs lined with electric blue, its eyes red, and its back legs flattened into paddles for swimming. Fierce: it rears up with its claws wide when you come close.' },
-  barnacle: { name: 'Acorn barnacles', latin: 'Semibalanus balanoides', note: 'Crusts of little white volcanoes on the rock: shrimp-like animals glued head-down inside their shells, kicking food into their mouths with feathery legs when the water covers them.' },
-  bluemussel: { name: 'Blue mussel', latin: 'Mytilus edulis', note: 'Blue-black shells packed into clumps on the rock, each held on by tough threads it spins. They filter the water for plankton; starfish, crabs and oystercatchers feed on them.' },
+  ediblecrab: { name: $t('Edible crab'), latin: 'Cancer pagurus', note: $t('A broad oval shell edged like a pie crust, red-brown, and heavy claws tipped with black. It wedges itself into a crevice by day and comes out at night to crack open mussels and other shellfish.') },
+  velvetcrab: { name: $t('Velvet swimming crab'), latin: 'Necora puber', note: $t('Velvety brown, its legs lined with electric blue, its eyes red, and its back legs flattened into paddles for swimming. Fierce: it rears up with its claws wide when you come close.') },
+  barnacle: { name: $t('Acorn barnacles'), latin: 'Semibalanus balanoides', note: $t('Crusts of little white volcanoes on the rock: shrimp-like animals glued head-down inside their shells, kicking food into their mouths with feathery legs when the water covers them.') },
+  bluemussel: { name: $t('Blue mussel'), latin: 'Mytilus edulis', note: $t('Blue-black shells packed into clumps on the rock, each held on by tough threads it spins. They filter the water for plankton; starfish, crabs and oystercatchers feed on them.') },
   // The rockpools at low water (see world/rockpools.js).
-  beadlet: { name: 'Beadlet anemone', latin: 'Actinia equina', note: 'A glossy red (sometimes green) anemone with a ring of bright blue beads round the top of its column. Out of the water at low tide it pulls its tentacles in and sits like a blob of red jelly, holding water inside.' },
-  snakelocks: { name: 'Snakelocks anemone', latin: 'Anemonia viridis', note: 'A tangle of long green tentacles tipped with purple, which it can’t pull in. Its green comes from algae living in its tissues, so it likes sunny, shallow pools.' },
-  limpet: { name: 'Common limpet', latin: 'Patella vulgata', note: 'A ribbed cone of shell clamped to the rock. At high tide it wanders off grazing the film of algae, and comes back to the same spot, its home scar, where its shell fits the rock exactly.' },
-  periwinkle: { name: 'Common periwinkle', latin: 'Littorina littorea', note: 'A dark, rounded sea snail grazing the weed and the rock. It closes its shell with a little horny door when the tide leaves it.' },
-  cushionstar: { name: 'Cushion star', latin: 'Asterina gibbosa', note: 'A small, plump, five-sided starfish, olive or orange, hiding under stones in the lower pools. It starts life male and becomes female as it grows.' },
-  prawn: { name: 'Rock pool prawn', latin: 'Palaemon elegans', note: 'Almost see-through, banded with fine dark lines and flecked with yellow and blue, with long feelers. It picks over the weed and flicks backwards in a blink when your shadow falls on the pool.' },
-  shorecrab: { name: 'Green shore crab', latin: 'Carcinus maenas', note: 'The commonest crab of the shore: green to brown, five teeth on each side of its shell. It hides under a stone or in the weed at low tide and runs sideways for cover, claws up, when you turn its stone.' },
-  mussel: { name: 'Swan mussel', latin: 'Anodonta cygnea', note: 'A big thin-shelled mussel half buried in the lake mud, filtering the water. Its young ride on the gills of fish.' },
+  beadlet: { name: $t('Beadlet anemone'), latin: 'Actinia equina', note: $t('A glossy red (sometimes green) anemone with a ring of bright blue beads round the top of its column. Out of the water at low tide it pulls its tentacles in and sits like a blob of red jelly, holding water inside.') },
+  snakelocks: { name: $t('Snakelocks anemone'), latin: 'Anemonia viridis', note: $t('A tangle of long green tentacles tipped with purple, which it can’t pull in. Its green comes from algae living in its tissues, so it likes sunny, shallow pools.') },
+  limpet: { name: $t('Common limpet'), latin: 'Patella vulgata', note: $t('A ribbed cone of shell clamped to the rock. At high tide it wanders off grazing the film of algae, and comes back to the same spot, its home scar, where its shell fits the rock exactly.') },
+  periwinkle: { name: $t('Common periwinkle'), latin: 'Littorina littorea', note: $t('A dark, rounded sea snail grazing the weed and the rock. It closes its shell with a little horny door when the tide leaves it.') },
+  cushionstar: { name: $t('Cushion star'), latin: 'Asterina gibbosa', note: $t('A small, plump, five-sided starfish, olive or orange, hiding under stones in the lower pools. It starts life male and becomes female as it grows.') },
+  prawn: { name: $t('Rock pool prawn'), latin: 'Palaemon elegans', note: $t('Almost see-through, banded with fine dark lines and flecked with yellow and blue, with long feelers. It picks over the weed and flicks backwards in a blink when your shadow falls on the pool.') },
+  shorecrab: { name: $t('Green shore crab'), latin: 'Carcinus maenas', note: $t('The commonest crab of the shore: green to brown, five teeth on each side of its shell. It hides under a stone or in the weed at low tide and runs sideways for cover, claws up, when you turn its stone.') },
+  mussel: { name: $t('Swan mussel'), latin: 'Anodonta cygnea', note: $t('A big thin-shelled mussel half buried in the lake mud, filtering the water. Its young ride on the gills of fish.') },
 };
 export const NATURE_IDS = Object.keys(NATURE);
 // Met one: into the notes ({ n, day, hour, where }). Returns true the first time.

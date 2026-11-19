@@ -13,6 +13,7 @@
 
 // (A small, steady hash, as behaviour.js's: the same fish, the same numbers. Its own copy, so this
 // module stands apart from the fish and their behaviour.)
+import { $t } from './i18n.js';
 function hashRnd(seed) {
   let s = (seed * 2654435761) >>> 0;
   return () => {
@@ -27,11 +28,11 @@ function hashRnd(seed) {
 export const MORPHS = ['', 'leucistic', 'melanistic', 'xanthic', 'albino', 'piebald'];
 // In plain words, for the catch card and the journal.
 export const MORPH_WORDS = {
-  leucistic: { name: 'pale (leucistic)', card: (n) => `Washed pale all over, its eyes still dark: a leucistic ${n}. Few anglers ever see one.` },
-  melanistic: { name: 'dark (melanistic)', card: (n) => `Nearly black from nose to tail: a melanistic ${n}. A rare thing.` },
-  xanthic: { name: 'golden (xanthic)', card: (n) => `Golden from nose to tail: a xanthic ${n}. You may never see another.` },
-  albino: { name: 'albino', card: (n) => `White, with pink eyes: an albino ${n}. One in many thousands.` },
-  piebald: { name: 'piebald', card: (n) => `Patched with white where its colour never came: a piebald ${n}.` },
+  leucistic: { name: $t('pale (leucistic)'), card: (n) => $t`Washed pale all over, its eyes still dark: a leucistic ${n}. Few anglers ever see one.` },
+  melanistic: { name: $t('dark (melanistic)'), card: (n) => $t`Nearly black from nose to tail: a melanistic ${n}. A rare thing.` },
+  xanthic: { name: $t('golden (xanthic)'), card: (n) => $t`Golden from nose to tail: a xanthic ${n}. You may never see another.` },
+  albino: { name: 'albino', card: (n) => $t`White, with pink eyes: an albino ${n}. One in many thousands.` },
+  piebald: { name: 'piebald', card: (n) => $t`Patched with white where its colour never came: a piebald ${n}.` },
 };
 
 // How often each morph turns up, a fish in so many (a game's rates, not nature's, which are far
@@ -114,7 +115,7 @@ export const morphOf = (look) => MORPHS[Math.round(look?.[2] || 0)] || '';
 export const lookVertexHead = (instanced) => `${instanced ? 'attribute vec4 aLook;' : 'uniform vec4 uLook;'}
   varying vec4 vLook;
   varying vec3 vObj;`;
-export const lookVertexBody = (instanced) => `vLook = ${instanced ? 'aLook' : 'uLook'};
+export const lookVertexBody = (instanced) => $t`vLook = ${instanced ? 'aLook' : 'uLook'};
   vObj = position;`;
 // The fragment shader's declarations: its kind's rules (see LOOKS, setLookRules) and which part of
 // it this is (0 its body, 1 its fins, 2 its eyes).

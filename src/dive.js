@@ -1,4 +1,5 @@
 import { clamp } from './util.js';
+import { $t } from './i18n.js';
 
 // Diving, the rules (diver.js swims you about; main.js plays it). Two ways in:
 //
@@ -97,18 +98,18 @@ export const SPEAR = { range: 4.6, sure: 3.2, speed: 16, retrieve: 1.1, load: 1.
 // range; the trumpetfish, one to watch), never a protected fish (the eel, the angelshark), never bluefin tuna (strict quotas),
 // and a fish too small is let grow.
 export function canSpear(sp, size, water) {
-  if (water === 'fresh') return { ok: false, why: 'Spearfishing isn’t allowed in fresh water.' };
+  if (water === 'fresh') return { ok: false, why: $t('Spearfishing isn’t allowed in fresh water.') };
   if (sp.noSpear) return { ok: false, why: sp.noSpear };
-  if (sp.life.observe) return { ok: false, why: `The ${sp.name.toLowerCase()} is protected: watch it, never take it.` };
-  if (sp.id === 'tuna') return { ok: false, why: 'Bluefin tuna are under strict quotas: never with a speargun here.' };
-  if (smallFor(sp, size)) return { ok: false, small: true, why: 'Too small: let it grow.' };
+  if (sp.life.observe) return { ok: false, why: $t`The ${sp.name.toLowerCase()} is protected: watch it, never take it.` };
+  if (sp.id === 'tuna') return { ok: false, why: $t('Bluefin tuna are under strict quotas: never with a speargun here.') };
+  if (smallFor(sp, size)) return { ok: false, small: true, why: $t('Too small: let it grow.') };
   return { ok: true };
 }
 // Small for its kind: in the bottom fifth of the sizes it grows to here (about a third of the
 // fish you'll meet, since young fish outnumber old ones).
 export const smallFor = (sp, size) => size < sp.size[0] + (sp.size[1] - sp.size[0]) * 0.2;
 // What a diver would say of its size, at a glance.
-export const sizeGuess = (size) => `about ${Math.max(5, Math.round(size / 5) * 5)} cm`;
+export const sizeGuess = (size) => $t`about ${Math.max(5, Math.round(size / 5) * 5)} cm`;
 
 // The fish a shot meets first: the shaft runs from `from` along `dir` (a unit vector) for `range`
 // metres; each fish is a body along its heading, as long as the fish, tapering to the tail.

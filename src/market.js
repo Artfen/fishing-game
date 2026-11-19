@@ -1,6 +1,7 @@
 import { FISH, fishById, weightOf } from './fish.js';
 import { BIG_GAME } from './bigGame.js';
 import { seasonBoost } from './world/season.js';
+import { $t } from './i18n.js';
 
 // The harbour's trade in fish, kept gentle: a catch you keep can go to the pot (as ever), to the
 // fish market on Willowhaven quay, or to the kitchen at The Lobster Pot when it's asked for one
@@ -120,7 +121,7 @@ export function seasonPrice(sp, abs) {
   if (!Number.isFinite(abs)) return 1;
   return Math.round(Math.min(1.2, Math.max(0.85, 1.25 - 0.25 * seasonBoost(sp, abs))) * 100) / 100;
 }
-export const seasonWord = (k) => (k <= 0.94 ? 'in season, plenty coming in' : k >= 1.1 ? 'out of season, scarce' : '');
+export const seasonWord = (k) => (k <= 0.94 ? $t('in season, plenty coming in') : k >= 1.1 ? $t('out of season, scarce') : '');
 
 // A prime fish of its kind (the top quarter of its sizes) fetches more by the kilo; a small one less.
 export function sizePrice(sp, size) {
@@ -146,7 +147,7 @@ export function fishValue(f, { day, now, place = 'haven' } = {}) {
 // A line of a sale's receipt: what it was, its weight, the price by the kilo and why, the total.
 export function receiptLine(f, v) {
   const sp = fishById[f.id];
-  const why = [v.imported ? 'brought over the sea: dear here' : '', v.demand === 'wanted' ? 'wanted today' : v.demand === 'plenty' ? 'plenty about' : '', seasonWord(v.season), v.prime ? 'a prime fish' : '', v.fresh < 0.99 ? `${Math.round(v.fresh * 100)}% fresh` : ''].filter(Boolean);
+  const why = [v.imported ? $t('brought over the sea: dear here') : '', v.demand === 'wanted' ? $t('wanted today') : v.demand === 'plenty' ? $t('plenty about') : '', seasonWord(v.season), v.prime ? $t('a prime fish') : '', v.fresh < 0.99 ? `${Math.round(v.fresh * 100)}% fresh` : ''].filter(Boolean);
   return { id: f.id, name: sp.name, size: f.size, kg: Math.round(v.kg * 100) / 100, each: v.each, why, price: v.price };
 }
 
@@ -174,9 +175,9 @@ export function ordersFor(day, place = 'haven') {
 // How well the kitchen knows you, by the orders you've filled: a newcomer, then a regular supplier
 // (paid a tenth more), then the kitchen's own (a fifth more, and your name on the board).
 export const STANDING = [
-  { at: 0, name: 'a newcomer', bonus: 0 },
-  { at: 3, name: 'a regular supplier', bonus: 0.1 },
-  { at: 8, name: 'the kitchen’s own supplier', bonus: 0.2 },
+  { at: 0, name: $t('a newcomer'), bonus: 0 },
+  { at: 3, name: $t('a regular supplier'), bonus: 0.1 },
+  { at: 8, name: $t('the kitchen’s own supplier'), bonus: 0.2 },
 ];
 export function standingOf(served = 0) {
   let i = 0;

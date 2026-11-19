@@ -6,6 +6,7 @@ import { SEA_LIFE } from './world/sealife.js';
 import { DIVE_SITES, HOME_SITES, SOUTH_SITES, siteById, ISLAND_SITES, ARCH_SITES, NORTH_SITES } from './world/divesites.js';
 import { lower, an } from './innTalk.js';
 import { VESSELS } from './vessels.js';
+import { $t } from './i18n.js';
 
 // The day book: every day out becomes a page in your journal, written up when the day ends (you
 // sleep, or midnight passes): the weather and the tides, where you went and how, what you caught
@@ -40,7 +41,7 @@ export function noteCrossing(today, { to, stage, how = 'helm', boat = '', mins =
 }
 // A while sat somewhere (the first of the day): by the fire, in your camp chair, at home, on the
 // bench, or back in the boat.
-export const SATS = { fire: 'by the camp fire', chair: 'in your camp chair', home: 'in the armchair by the stove', bench: 'on the bench on the quay', boat: 'in the boat at anchor', inn: 'in The Lobster Pot' };
+export const SATS = { fire: $t('by the camp fire'), chair: $t('in your camp chair'), home: $t('in the armchair by the stove'), bench: $t('on the bench on the quay'), boat: $t('in the boat at anchor'), inn: $t('in The Lobster Pot') };
 export function noteSat(today, kind, hour) {
   if (!today.sat && SATS[kind]) today.sat = { kind, hour };
 }
@@ -129,7 +130,7 @@ export function rel(e) {
   return sp ? (e.size - sp.size[0]) / Math.max(1, sp.size[1] - sp.size[0]) : 0;
 }
 
-const SKY_WORDS = { clear: 'clear', partly: 'some cloud', overcast: 'grey', light: 'showers', heavy: 'heavy rain', storm: 'a storm' };
+const SKY_WORDS = { clear: 'clear', partly: $t('some cloud'), overcast: 'grey', light: 'showers', heavy: $t('heavy rain'), storm: 'a storm' };
 const listWords = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 const placeName = (id) => {
   const p = PLACES.find((q) => q.id === id);
@@ -150,61 +151,61 @@ export function dayText(p) {
   const ids = p.places.slice(), from = ids.length > 1 && base(ids[0]) ? ids.shift() : null;
   const back = from && ids[ids.length - 1] === from && ids.pop() && true;
   const where = [...new Set(ids.map(placeName).filter(Boolean))].filter((n) => n !== placeName(from));
-  const by = p.boats.length ? ` by the ${listWords(p.boats)}` : '';
-  const legs = [['boat', 'on the water'], ['foot', 'on foot'], ['car', 'by car'], ['swim', 'in the water']].filter(([k]) => p.dist[k] >= 100).map(([k, w]) => `${km(p.dist[k])} ${w}`);
-  const start = from ? `Out from ${placeName(from)}${by}` : `Out${by}`;
-  if (where.length) out.push(`${start} to ${listWords(where.slice(0, 7))}${where.length > 7 ? ' and more' : ''}${back ? ', and back' : ''}${legs.length ? ` (${listWords(legs)})` : ''}.`);
-  else if (legs.length) out.push(`Out and about: ${listWords(legs)}.`);
+  const by = p.boats.length ? $t` by the ${listWords(p.boats)}` : '';
+  const legs = [['boat', $t('on the water')], ['foot', $t('on foot')], ['car', $t('by car')], ['swim', $t('in the water')]].filter(([k]) => p.dist[k] >= 100).map(([k, w]) => `${km(p.dist[k])} ${w}`);
+  const start = from ? $t`Out from ${placeName(from)}${by}` : `Out${by}`;
+  if (where.length) out.push(`${start} to ${listWords(where.slice(0, 7))}${where.length > 7 ? $t(' and more') : ''}${back ? $t(', and back') : ''}${legs.length ? ` (${listWords(legs)})` : ''}.`);
+  else if (legs.length) out.push($t`Out and about: ${listWords(legs)}.`);
   // What you caught.
   if (p.caught) {
     const kinds = Object.entries(p.kinds).sort((a, b) => b[1] - a[1]).map(([id, n]) => (n === 1 ? an(fishName(id)) : `${n} ${fishName(id)}`));
     const freed = p.caught - p.kept;
-    out.push(`Caught ${p.caught}: ${listWords(kinds.slice(0, 6))}${kinds.length > 6 ? ' and more' : ''}. ${p.kept ? `Kept ${p.kept}${freed ? `, let ${freed} go` : ''}.` : `Let ${p.caught === 1 ? 'it' : 'them all'} go.`}`);
-  } else if (where.length || legs.length) out.push('Nothing caught.');
-  for (const id of p.firsts.fish) out.push(`Your first ${fishName(id)}.`);
-  for (const r of p.records) out.push(`Your biggest ${fishName(r.sp)} yet: ${r.size} cm.`);
+    out.push(`Caught ${p.caught}: ${listWords(kinds.slice(0, 6))}${kinds.length > 6 ? $t(' and more') : ''}. ${p.kept ? `Kept ${p.kept}${freed ? $t`, let ${freed} go` : ''}.` : $t`Let ${p.caught === 1 ? 'it' : $t('them all')} go.`}`);
+  } else if (where.length || legs.length) out.push($t('Nothing caught.'));
+  for (const id of p.firsts.fish) out.push($t`Your first ${fishName(id)}.`);
+  for (const r of p.records) out.push($t`Your biggest ${fishName(r.sp)} yet: ${r.size} cm.`);
   // Down below.
   if (p.dives.length) {
-    const at = p.dives.map((d) => (d.site && siteById[d.site] ? `${siteById[d.site].name.replace(/^The /, 'the ')} (down to ${Math.round(d.deepest)} m)` : `off the boat (down to ${Math.round(d.deepest)} m)`));
+    const at = p.dives.map((d) => (d.site && siteById[d.site] ? $t`${siteById[d.site].name.replace(/^The /, 'the ')} (down to ${Math.round(d.deepest)} m)` : $t`off the boat (down to ${Math.round(d.deepest)} m)`));
     out.push(`Dived ${listWords(at)}.`);
   }
   if (p.seen.length) out.push(`Saw ${listWords(p.seen.map((k) => (SEA_LIFE[k]?.name || k).toLowerCase()))}.`);
   const found = [...p.firsts.places.map(placeName)].filter(Boolean);
   if (found.length) out.push(`Found ${listWords(found)}.`);
   if (p.sat && SATS[p.sat.kind]) {
-    const h = p.sat.hour, when = h >= 18 && h < 22 ? ' as the evening came on' : h >= 22 || h < 5 ? ' late into the night' : h < 8 ? ' in the early morning' : '';
-    out.push(`You sat a while ${SATS[p.sat.kind]}${when}.`);
+    const h = p.sat.hour, when = h >= 18 && h < 22 ? $t(' as the evening came on') : h >= 22 || h < 5 ? $t(' late into the night') : h < 8 ? $t(' in the early morning') : '';
+    out.push($t`You sat a while ${SATS[p.sat.kind]}${when}.`);
   }
   // (E3c) The trips, as they ended.
   for (const r of p.trips || []) {
-    const fish = fishById[r.sp]?.name.toLowerCase() || 'fish', boat = r.boat && VESSELS[r.boat] ? ` in the ${VESSELS[r.boat].name}` : '';
+    const fish = fishById[r.sp]?.name.toLowerCase() || 'fish', boat = r.boat && VESSELS[r.boat] ? $t` in the ${VESSELS[r.boat].name}` : '';
     const m = Math.max(1, Math.round(r.hours * 60)), hh = Math.round(r.hours * 10) / 10; // (as trip.js's summary says it)
     const h = r.hours < 1 ? `${m} minute${m > 1 ? 's' : ''}` : `${hh} hour${hh === 1 ? '' : 's'}`;
     const others = r.total - r.target;
-    out.push(`A trip to ${r.name}${boat} for ${fish}: ${r.target ? `${r.target} caught` : 'none this time'}${others > 0 ? ` (and ${others} other fish)` : ''}, ${h} out.`);
+    out.push($t`A trip to ${r.name}${boat} for ${fish}: ${r.target ? `${r.target} caught` : $t('none this time')}${others > 0 ? $t` (and ${others} other fish)` : ''}, ${h} out.`);
   }
   // The crossing.
   for (const c of p.cross || []) {
-    const isle = c.to === 'south' ? 'Las Brasas' : 'Willow Bay', boat = c.boat ? ` in the ${c.boat}` : '';
+    const isle = c.to === 'south' ? $t('Las Brasas') : $t('Willow Bay'), boat = c.boat ? $t` in the ${c.boat}` : '';
     if (c.how === 'fast') {
-      if (c.stage === 'in') out.push(`Made the passage ${c.to === 'south' ? 'south to Las Brasas' : 'home to Willow Bay'}${boat}.`);
-    } else if (c.stage === 'out') out.push(`Set out across the open Atlantic for ${isle}${boat}.`);
-    else if (c.stage === 'in') out.push(c.to === 'south' ? `Made landfall at Las Brasas after the crossing: ${c.mins} minutes at the helm.` : `Home across the open sea to Willow Bay: ${c.mins} minutes at the helm.`);
-    else out.push(`Turned back from the crossing to ${isle} when the weather turned.`);
+      if (c.stage === 'in') out.push($t`Made the passage ${c.to === 'south' ? $t('south to Las Brasas') : $t('home to Willow Bay')}${boat}.`);
+    } else if (c.stage === 'out') out.push($t`Set out across the open Atlantic for ${isle}${boat}.`);
+    else if (c.stage === 'in') out.push(c.to === 'south' ? $t`Made landfall at Las Brasas after the crossing: ${c.mins} minutes at the helm.` : $t`Home across the open sea to Willow Bay: ${c.mins} minutes at the helm.`);
+    else out.push($t`Turned back from the crossing to ${isle} when the weather turned.`);
   }
-  if (p.gale === 'out') out.push('A gale caught you out on open water.');
-  else if (p.gale === 'shelter') out.push('When the gale blew, you kept to sheltered water.');
-  else if (p.gale === 'ashore') out.push('You sat the gale out ashore.');
+  if (p.gale === 'out') out.push($t('A gale caught you out on open water.'));
+  else if (p.gale === 'shelter') out.push($t('When the gale blew, you kept to sheltered water.'));
+  else if (p.gale === 'ashore') out.push($t('You sat the gale out ashore.'));
   return out.join(' ');
 }
 // A line for the morning after: the day in a sentence or two.
 export function dayLine(p) {
   const bits = [];
-  if (p.caught) bits.push(`${p.caught} fish${p.firsts.fish.length ? `, ${p.firsts.fish.length === 1 ? 'a new kind' : `${p.firsts.fish.length} new kinds`}` : ''}`);
+  if (p.caught) bits.push(`${p.caught} fish${p.firsts.fish.length ? `, ${p.firsts.fish.length === 1 ? $t('a new kind') : $t`${p.firsts.fish.length} new kinds`}` : ''}`);
   if (p.dives.length) bits.push(`${p.dives.length === 1 ? 'a dive' : `${p.dives.length} dives`}`);
-  if (p.firsts.places.length) bits.push(`${p.firsts.places.length === 1 ? 'a new place' : `${p.firsts.places.length} new places`}`);
+  if (p.firsts.places.length) bits.push(`${p.firsts.places.length === 1 ? $t('a new place') : $t`${p.firsts.places.length} new places`}`);
   if (p.seen.length) bits.push(listWords(p.seen.slice(0, 2).map((k) => (SEA_LIFE[k]?.name || k).toLowerCase())));
-  return `Day ${p.day} is written up in your journal${bits.length ? `: ${listWords(bits)}` : ''}.`;
+  return $t`Day ${p.day} is written up in your journal${bits.length ? `: ${listWords(bits)}` : ''}.`;
 }
 
 /* ---------------- your record ---------------- */
@@ -242,13 +243,13 @@ const logOf = (s) => s.log || [];
 const WATERS = { sea: (z) => ['bay', 'cove', 'open', 'coast', 'deep'].includes(z), estuary: (z) => z === 'estuary' || z === 'tideway', lake: (z) => ['lake', 'mere', 'tarn'].includes(z), river: (z) => z === 'stream' || z === 'river' };
 export const CHALLENGES = [
   {
-    id: 'bayten', name: 'Ten from the bay', color: '#2f6f8a', mark: 'ten',
-    text: 'Ten different kinds of fish from Willow Bay and its coves.',
+    id: 'bayten', name: $t('Ten from the bay'), color: '#2f6f8a', mark: 'ten',
+    text: $t('Ten different kinds of fish from Willow Bay and its coves.'),
     check: (s) => ({ n: kindsWhere(logOf(s), (e) => e.zone === 'bay' || e.zone === 'cove'), of: 10 }),
   },
   {
-    id: 'slam', name: 'The coast slam', color: '#3c7a52', mark: 'three',
-    text: 'A bass, a pollack and a mackerel, all on the same day.',
+    id: 'slam', name: $t('The coast slam'), color: '#3c7a52', mark: 'three',
+    text: $t('A bass, a pollack and a mackerel, all on the same day.'),
     check: (s) => {
       let n = 0;
       const days = new Set(logOf(s).map((e) => e.day));
@@ -257,68 +258,68 @@ export const CHALLENGES = [
     },
   },
   {
-    id: 'waters', name: 'Every water', color: '#7a5a2f', mark: 'drop',
-    text: 'A fish from the sea, the estuary, a lake and a river.',
+    id: 'waters', name: $t('Every water'), color: '#7a5a2f', mark: 'drop',
+    text: $t('A fish from the sea, the estuary, a lake and a river.'),
     check: (s) => ({ n: Object.values(WATERS).filter((t) => logOf(s).some((e) => t(e.zone))).length, of: 4 }),
   },
   {
-    id: 'kinds', name: 'Twenty-five kinds', color: '#8a3a3a', mark: 'fish',
-    text: 'Twenty-five different kinds of fish caught.',
+    id: 'kinds', name: $t('Twenty-five kinds'), color: '#8a3a3a', mark: 'fish',
+    text: $t('Twenty-five different kinds of fish caught.'),
     check: (s) => ({ n: Object.keys(s.fish || {}).filter((id) => fishById[id]).length, of: 25 }),
   },
   {
-    id: 'specimen', name: 'A specimen', color: '#b08a2a', mark: 'star',
-    text: 'A fish in the top tenth of the sizes its kind grows to here.',
+    id: 'specimen', name: $t('A specimen'), color: '#b08a2a', mark: 'star',
+    text: $t('A fish in the top tenth of the sizes its kind grows to here.'),
     check: (s) => ({ n: logOf(s).some((e) => rel(e) >= 0.9) ? 1 : 0, of: 1 }),
   },
   {
-    id: 'release', name: 'Fifty let go', color: '#4a7a7a', mark: 'wave',
-    text: 'Fifty fish put back alive.',
+    id: 'release', name: $t('Fifty let go'), color: '#4a7a7a', mark: 'wave',
+    text: $t('Fifty fish put back alive.'),
     check: (s) => ({ n: logOf(s).filter((e) => e.outcome === 'released').length, of: 50 }),
   },
   {
-    id: 'night', name: 'After midnight', color: '#2a3550', mark: 'moon',
-    text: 'A fish caught between midnight and four in the morning.',
+    id: 'night', name: $t('After midnight'), color: '#2a3550', mark: 'moon',
+    text: $t('A fish caught between midnight and four in the morning.'),
     check: (s) => ({ n: logOf(s).some((e) => e.hour < 4) ? 1 : 0, of: 1 }),
   },
   {
-    id: 'gale', name: 'Fished through a gale', color: '#5a5f6a', mark: 'storm',
-    text: 'A fish from sheltered water while a gale was blowing.',
+    id: 'gale', name: $t('Fished through a gale'), color: '#5a5f6a', mark: 'storm',
+    text: $t('A fish from sheltered water while a gale was blowing.'),
     check: (s) => ({ n: logOf(s).some((e) => e.sky === 'storm' && isSheltered(e.zone)) ? 1 : 0, of: 1 }),
   },
   {
-    id: 'sites', name: 'Five dives', color: '#c23b2e', mark: 'flag',
-    text: 'All five dive sites dived: Skerries Reef, the Kelp Forest, the Kittiwake, Anchor Sands and the Hound.',
+    id: 'sites', name: $t('Five dives'), color: '#c23b2e', mark: 'flag',
+    text: $t('All five dive sites dived: Skerries Reef, the Kelp Forest, the Kittiwake, Anchor Sands and the Hound.'),
     check: (s) => ({ n: HOME_SITES.filter((x) => s.dive?.sites?.[x.id]?.dives).length, of: HOME_SITES.length }),
   },
   {
-    id: 'brasadives', name: 'Under the island', color: '#1c87b6', mark: 'flag',
-    text: 'All five of Las Brasas’ dive sites dived: El Bajón, Los Arcos, El Veril, El Sebadal and Las Coladas.',
+    id: 'brasadives', name: $t('Under the island'), color: '#1c87b6', mark: 'flag',
+    text: $t('All five of Las Brasas’ dive sites dived: El Bajón, Los Arcos, El Veril, El Sebadal and Las Coladas.'),
     check: (s) => ({ n: ISLAND_SITES.filter((x) => s.dive?.sites?.[x.id]?.dives).length, of: ISLAND_SITES.length }),
   },
   {
-    id: 'archdives', name: 'Round the islands', color: '#2a9d8f', mark: 'flag',
-    text: 'The archipelago’s two dives: El Vapor, the steamer wrecked on Los Roquetes, and El Banco, the seamount out in the north-west.',
+    id: 'archdives', name: $t('Round the islands'), color: '#2a9d8f', mark: 'flag',
+    text: $t('The archipelago’s two dives: El Vapor, the steamer wrecked on Los Roquetes, and El Banco, the seamount out in the north-west.'),
     check: (s) => ({ n: ARCH_SITES.filter((x) => s.dive?.sites?.[x.id]?.dives).length, of: ARCH_SITES.length }),
   },
   {
-    id: 'northdives', name: 'Under the Selkie Isles', color: '#3d6b5f', mark: 'flag',
-    text: 'The north’s two dives: the Sula, the trawler in the kelp off Tern Isle, and the foot of Skarv Stack.',
+    id: 'northdives', name: $t('Under the Selkie Isles'), color: '#3d6b5f', mark: 'flag',
+    text: $t('The north’s two dives: the Sula, the trawler in the kelp off Tern Isle, and the foot of Skarv Stack.'),
     check: (s) => ({ n: NORTH_SITES.filter((x) => s.dive?.sites?.[x.id]?.dives).length, of: NORTH_SITES.length }),
   },
   {
-    id: 'thirty', name: 'Thirty metres', color: '#1f4e6f', mark: 'down',
-    text: 'Down to thirty metres on a tank (the Hound’s foot is the place).',
+    id: 'thirty', name: $t('Thirty metres'), color: '#1f4e6f', mark: 'down',
+    text: $t('Down to thirty metres on a tank (the Hound’s foot is the place).'),
     check: (s) => ({ n: (s.dive?.deepest || 0) >= 28 ? 1 : 0, of: 1 }),
   },
   {
-    id: 'south', name: 'Las Brasas', color: '#d9822b', mark: 'sun',
-    text: 'A fish from Las Brasas, the island far to the south.',
+    id: 'south', name: $t('Las Brasas'), color: '#d9822b', mark: 'sun',
+    text: $t('A fish from Las Brasas, the island far to the south.'),
     check: (s) => ({ n: logOf(s).some((e) => SOUTH_ZONES.includes(e.zone)) ? 1 : 0, of: 1 }),
   },
   {
-    id: 'week', name: 'A week on the water', color: '#6a4a7a', mark: 'seven',
-    text: 'Seven days out fishing (a day you caught something).',
+    id: 'week', name: $t('A week on the water'), color: '#6a4a7a', mark: 'seven',
+    text: $t('Seven days out fishing (a day you caught something).'),
     check: (s) => ({ n: new Set(logOf(s).map((e) => e.day)).size, of: 7 }),
   },
 ];
@@ -327,13 +328,13 @@ export const CHALLENGES = [
 const BLUE = new Set(['blueshark', 'mako', 'albacore', 'tuna']);
 CHALLENGES.push(
   {
-    id: 'bluewater', name: 'Blue water', color: '#1f4f8a', mark: 'drop',
-    text: 'A big fish from the Blue Water, a kilometre out: a blue shark, a mako, an albacore or a tuna.',
+    id: 'bluewater', name: $t('Blue water'), color: '#1f4f8a', mark: 'drop',
+    text: $t('A big fish from the Blue Water, a kilometre out: a blue shark, a mako, an albacore or a tuna.'),
     check: (s) => ({ n: logOf(s).some((e) => e.zone === 'deep' && BLUE.has(e.sp)) ? 1 : 0, of: 1 }),
   },
   {
-    id: 'crewed', name: 'A crew of two', color: '#6a4a8a', mark: 'three',
-    text: 'A fish landed with a friend at your helm, chasing it for you.',
+    id: 'crewed', name: $t('A crew of two'), color: '#6a4a8a', mark: 'three',
+    text: $t('A fish landed with a friend at your helm, chasing it for you.'),
     check: (s) => ({ n: logOf(s).some((e) => e.helped === 'helm') ? 1 : 0, of: 1 }),
   },
 );

@@ -11,6 +11,7 @@
 
 // Her registration: the harbour's letters and a number of her own.
 import { kindOf, nthOf } from './boatid.js';
+import { $t } from './i18n.js';
 
 export const PORT = 'WH';
 const NUMBERS = { row: 101, skiff: 104, kayak: 109, bass: 132, sail: 147, cabin: 158, rib: 171, console: 186, cruiser: 203, jetski: 219, windsurf: 224, tender: 232, trawler: 241 };
@@ -20,11 +21,11 @@ export const regOf = (id) => `${PORT} ${NUMBERS[kindOf(id)] ?? 300}${nthOf(id) >
 // The flags she can fly from her stern: a club's, the harbour's, a working flag; none a country's
 // ensign or anyone's mark.
 export const FLAGS = [
-  { id: 'burgee', name: 'Willowhaven Sailing Club burgee', colors: ['#1f3f63', '#f1ece0'], shape: 'pennant', price: 12 },
-  { id: 'trust', name: 'Marine Trust pennant', colors: ['#2f6d5a', '#e9e2c8'], shape: 'pennant', price: 12 },
-  { id: 'brasa', name: 'Puerto Brasa fishermen’s pennant', colors: ['#c8562a', '#f2d36b'], shape: 'swallow', price: 12 },
-  { id: 'alpha', name: 'Code flag A (diver below: keep clear)', colors: ['#f4f2ec', '#1f4ea0'], shape: 'swallow', price: 12 },
-  { id: 'own', name: 'A plain swallowtail in her colours', colors: null, shape: 'swallow', price: 8 },
+  { id: 'burgee', name: $t('Willowhaven Sailing Club burgee'), colors: ['#1f3f63', '#f1ece0'], shape: 'pennant', price: 12 },
+  { id: 'trust', name: $t('Marine Trust pennant'), colors: ['#2f6d5a', '#e9e2c8'], shape: 'pennant', price: 12 },
+  { id: 'brasa', name: $t('Puerto Brasa fishermen’s pennant'), colors: ['#c8562a', '#f2d36b'], shape: 'swallow', price: 12 },
+  { id: 'alpha', name: $t('Code flag A (diver below: keep clear)'), colors: ['#f4f2ec', '#1f4ea0'], shape: 'swallow', price: 12 },
+  { id: 'own', name: $t('A plain swallowtail in her colours'), colors: null, shape: 'swallow', price: 8 },
 ];
 export const flagById = Object.fromEntries(FLAGS.map((f) => [f.id, f]));
 export const STRIPE_PRICE = 30;
@@ -46,7 +47,7 @@ export function cleanVessels(raw, owned, day) {
   for (const k of owned) {
     const v = isObj(r[k]) ? r[k] : null;
     if (!v) {
-      out[k] = { ...newVessel(k, day), log: [{ day, text: 'Her papers made out at the Marine Works: records begin.' }] };
+      out[k] = { ...newVessel(k, day), log: [{ day, text: $t('Her papers made out at the Marine Works: records begin.') }] };
       continue;
     }
     const best = isObj(v.best) && typeof v.best.id === 'string' && Number.isFinite(v.best.kg) && v.best.kg > 0

@@ -8,6 +8,7 @@
 // boats go back to where they always lie. The supply ship and bringing a boat round (see main.js)
 // only ever move the boats that are afloat.
 
+import { $t } from './i18n.js';
 export const MAX_AFLOAT = 3;
 
 // Where each kind of boat lives.
@@ -18,14 +19,14 @@ export const HOMES = {
 };
 export const homeOf = (kind) => HOMES[kind] || 'harbour';
 export const STORE_WORDS = {
-  harbour: 'in the boat store behind the harbour office',
-  camp: 'pulled up above the tide at the camp',
-  lake: 'in the boathouse on Longmere',
+  harbour: $t('in the boat store behind the harbour office'),
+  camp: $t('pulled up above the tide at the camp'),
+  lake: $t('in the boathouse on Longmere'),
 };
 export const LAUNCH_WORDS = {
-  harbour: 'on your finger of the pontoon',
-  camp: 'at the landing by the camp',
-  lake: 'alongside the boathouse jetty on Longmere',
+  harbour: $t('on your finger of the pontoon'),
+  camp: $t('at the landing by the camp'),
+  lake: $t('alongside the boathouse jetty on Longmere'),
 };
 
 // A new game: the camp's three boats in the water, everything else in store.

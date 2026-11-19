@@ -6,6 +6,7 @@
 // It only shows the engine room and asks for changes: the game does them (see main.js).
 
 import { PROFILES, checklist, running, cranking, rpmOf, TRIM } from './engine.js';
+import { $t } from './i18n.js';
 
 const el = (tag, cls, text) => {
   const e = document.createElement(tag);
@@ -24,7 +25,7 @@ export class HelmUI {
     this.h = hooks;
     this.kind = null;
     root.setAttribute('role', 'dialog');
-    root.setAttribute('aria-label', 'The helm');
+    root.setAttribute('aria-label', $t('The helm'));
     root.hidden = true;
   }
 
@@ -42,8 +43,8 @@ export class HelmUI {
     const P = PROFILES[kind], R = this.root;
     R.replaceChildren();
     const head = el('div', 'hm-head');
-    head.append(el('h2', null, `${name} · the helm`));
-    const x = el('button', 'hm-close', 'Close');
+    head.append(el('h2', null, $t`${name} · the helm`));
+    const x = el('button', 'hm-close', $t('Close'));
     x.type = 'button';
     x.addEventListener('click', () => this.h.close());
     head.append(x);
@@ -77,23 +78,23 @@ export class HelmUI {
       this.b[id] = { b, s };
       return b;
     };
-    if (P.battery) button('battery', 'Battery switch', () => this.h.act('battery'));
-    if (P.cord) button('cord', 'Kill cord', () => this.h.act('cord'));
+    if (P.battery) button('battery', $t('Battery switch'), () => this.h.act('battery'));
+    if (P.cord) button('cord', $t('Kill cord'), () => this.h.act('cord'));
     if (P.starter === 'key') button('key', P.engines > 1 ? 'Keys' : 'Key', () => this.h.act('key'));
-    if (P.diesel) button('glow', 'Glow plugs', () => this.h.act('glow'));
-    if (P.starter === 'pull') button('start', 'Pull the cord', () => this.h.act('pull'), 'go');
+    if (P.diesel) button('glow', $t('Glow plugs'), () => this.h.act('glow'));
+    if (P.starter === 'pull') button('start', $t('Pull the cord'), () => this.h.act('pull'), 'go');
     else if (P.engines > 1) {
-      button('start0', 'Start port', () => this.h.act('start', 0), 'go');
-      button('start1', 'Start starboard', () => this.h.act('start', 1), 'go');
-    } else button('start', P.starter === 'button' ? 'Start button' : 'Start', () => this.h.act('start'), 'go');
+      button('start0', $t('Start port'), () => this.h.act('start', 0), 'go');
+      button('start1', $t('Start starboard'), () => this.h.act('start', 1), 'go');
+    } else button('start', P.starter === 'button' ? $t('Start button') : 'Start', () => this.h.act('start'), 'go');
     button('stop', 'Stop', () => this.h.act('stop'), 'stop');
     // (F2c) Her navigation lights, where she has them on her dash.
-    if (this.h.navLights?.has(kind)) button('lights', 'Navigation lights', () => this.h.navLights.toggle());
+    if (this.h.navLights?.has(kind)) button('lights', $t('Navigation lights'), () => this.h.navLights.toggle());
     if (P.trim) {
-      button('trimDown', P.trim === 'tilt' ? 'Tilt down' : 'Trim in', () => this.h.trim(-1));
-      button('trimUp', P.trim === 'tilt' ? 'Tilt up' : 'Trim out', () => this.h.trim(1));
+      button('trimDown', P.trim === 'tilt' ? $t('Tilt down') : $t('Trim in'), () => this.h.trim(-1));
+      button('trimUp', P.trim === 'tilt' ? $t('Tilt up') : $t('Trim out'), () => this.h.trim(1));
     }
-    const assist = el('button', 'hm-assist', 'Assisted start: do it all for me');
+    const assist = el('button', 'hm-assist', $t('Assisted start: do it all for me'));
     assist.type = 'button';
     assist.addEventListener('click', () => this.h.assist());
     this.assistBtn = assist;
@@ -131,7 +132,7 @@ export class HelmUI {
     };
     state('battery', E.battery ? 'ON' : 'OFF', E.battery);
     state('lights', ctx.lights ? 'ON' : 'OFF', ctx.lights);
-    state('cord', E.cord ? 'clipped on' : 'off', E.cord);
+    state('cord', E.cord ? $t('clipped on') : 'off', E.cord);
     state('key', E.key ? 'ON' : 'OFF', E.key);
     state('glow', E.glowing > 0 ? `${Math.ceil(E.glowing)} s` : E.glow >= 1 ? 'ready' : '', E.glow >= 1);
     if (P.engines > 1) {

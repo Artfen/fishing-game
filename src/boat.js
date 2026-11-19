@@ -26,6 +26,7 @@ import { trawlerPlan, trawlerPlaces, pilotSole, step as planStep, spotAt as plan
 import { PLATFORM } from './platform.js';
 import { MODES, materialOf, sectionAt, knock, scrape as scrapeHull, firmness, roughness, chamberAt, CHAMBER_SPLIT, surfaceAt, legStrike, rudderStrike, shake, steered, mountPush, plugLets } from './damage.js';
 import { sailForce, hullDrag, boardGrip, heelFor, SAIL, boardDrag, finGrip } from './sailing.js';
+import { $t } from './i18n.js';
 
 // The boats. Each has its own hull (metres; the bow points along local +z), its own
 // way of moving and its own place to sit:
@@ -76,7 +77,7 @@ export const trawlerDrag = (v) => 0.1 * v + 0.05 * v * v + 1.2 * Math.max(0, v -
 // as deep as that weighs, and it's what the helm, the waves and a knock have to move.
 const HULLS = {
   row: {
-    name: 'rowing boat', mass: 230, L: 3.8, B: 0.8, D: 0.6, draft: 0.2, shallow: 0.35, seatZ: 0, seatY: 0.47, floorY: 0.08, planked: true,
+    name: $t('rowing boat'), mass: 230, L: 3.8, B: 0.8, D: 0.6, draft: 0.2, shallow: 0.35, seatZ: 0, seatY: 0.47, floorY: 0.08, planked: true,
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.17 + 0.83 * t)), 0.75),
     sheer: (t) => 0.26 * Math.pow(t, 2.4) + 0.05 * Math.pow(1 - t, 3),
     keel: (t) => 0.2 * Math.pow(t, 3),
@@ -88,7 +89,7 @@ const HULLS = {
   },
   skiff: {
     planing: { deadrise: 10 }, // (B3) a planing hull; her real bottom's deadrise, degrees (hydro.js savitskyTrim)
-    name: 'motor skiff', mass: 290, L: 3.8, B: 0.8, D: 0.6, draft: 0.2, shallow: 0.35, seatZ: -1.25, seatY: 0.47, floorY: 0.08, planked: true,
+    name: $t('motor skiff'), mass: 290, L: 3.8, B: 0.8, D: 0.6, draft: 0.2, shallow: 0.35, seatZ: -1.25, seatY: 0.47, floorY: 0.08, planked: true,
     paint: '#ece6d8', stripe: '#2f4f7a', bottom: '#7c3a2e', inside: 'wood',
     motor: { thrust: 5.4, astern: 2.4, tilt: 0.75, scale: 1, cowl: '#e9e5dc', band: '#2f4f7a' },
     surge: 0.5,
@@ -117,7 +118,7 @@ const HULLS = {
   // two bucket seats; a jack-plated outboard. You sit at the wheel (seatX: to starboard).
   bass: {
     planing: { deadrise: 18 }, // (B3) a planing hull; her real bottom's deadrise, degrees (hydro.js savitskyTrim)
-    name: 'bass boat', mass: 700, L: 4.7, B: 1.05, D: 0.55, draft: 0.22, shallow: 0.4, seatX: -0.44, seatZ: -0.66, seatY: 0.69, floorY: 0.27,
+    name: $t('bass boat'), mass: 700, L: 4.7, B: 1.05, D: 0.55, draft: 0.22, shallow: 0.4, seatX: -0.44, seatZ: -0.66, seatY: 0.69, floorY: 0.27,
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.32 + 0.68 * t)), 0.42),
     sheer: (t) => 0.14 * Math.pow(t, 2),
     keel: (t) => 0.16 * Math.pow(t, 3),
@@ -146,7 +147,7 @@ const HULLS = {
     wind: [2.9, 0.45, 0.5], // (B3) side above the water m², end-on share, its middle's height m
   },
   sail: {
-    name: 'sailing boat', mass: SAIL.mass, L: 4.9, B: 0.84, D: 0.66, draft: 0.24, shallow: 0.55, seatZ: -1.45, seatY: 0.45, floorY: 0.09,
+    name: $t('sailing boat'), mass: SAIL.mass, L: 4.9, B: 0.84, D: 0.66, draft: 0.24, shallow: 0.55, seatZ: -1.45, seatY: 0.45, floorY: 0.09,
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.2 + 0.8 * t)), 0.6),
     sheer: (t) => 0.2 * Math.pow(t, 2.2) + 0.07 * Math.pow(1 - t, 3),
     keel: (t) => 0.16 * Math.pow(t, 3),
@@ -166,7 +167,7 @@ const HULLS = {
     wind: [2.0, 0.4, 0.7], // (B3) side above the water m², end-on share, its middle's height m
   },
   cabin: {
-    name: 'cabin boat', mass: 1500, L: 6.2, B: 1.0, D: 0.9, draft: 0.38, shallow: 0.75, seatZ: -2.3, seatY: 0.55, floorY: 0.12,
+    name: $t('cabin boat'), mass: 1500, L: 6.2, B: 1.0, D: 0.9, draft: 0.38, shallow: 0.75, seatZ: -2.3, seatY: 0.55, floorY: 0.12,
     paint: '#f0ece2', stripe: '#1f4e5f', bottom: '#7c3a2e', inside: 'wood',
     motor: { thrust: 3.8, astern: 2.0, tilt: 1.0, scale: 1.25, cowl: '#2b2e33', band: '#1f4e5f' },
     surge: 0.22,
@@ -253,7 +254,7 @@ const HULLS = {
   // her up as she heels, bank her into a turn and soften her landings: see hydro.js.)
   rib: {
     planing: { deadrise: 24 }, // (B3) a planing hull; her real bottom's deadrise, degrees (hydro.js savitskyTrim)
-    name: 'RIB', mass: 1250, L: 6.5, B: 0.95, D: 0.5, draft: 0.34, shallow: 0.6, seatZ: -0.3, seatY: 1.25, floorY: 0.4,
+    name: $t('RIB'), mass: 1250, L: 6.5, B: 0.95, D: 0.5, draft: 0.34, shallow: 0.6, seatZ: -0.3, seatY: 1.25, floorY: 0.4,
     carve: 0.45, // (a deep V: she banks into a hard turn at speed, on the inside of her V: see carve in update)
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.3 + 0.7 * t)), 0.5),
     sheer: (t) => 0.5 * Math.pow(t, 2.3),
@@ -308,7 +309,7 @@ const HULLS = {
   // be driven past the wave it makes). You stand at her wheel in the pilothouse. (Her aft deck,
   // where she's fished from, is reached on foot: walking her comes in L3.)
   trawler: {
-    name: 'expedition trawler', mass: 17000, L: 13.4, B: 2.2, D: 2.35, draft: 0.72, shallow: 1.6, seatX: -0.7, seatZ: 1.15, seatY: 3.18, floorY: 1.7,
+    name: $t('expedition trawler'), mass: 17000, L: 13.4, B: 2.2, D: 2.35, draft: 0.72, shallow: 1.6, seatX: -0.7, seatZ: 1.15, seatY: 3.18, floorY: 1.7,
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.22 + 0.78 * t)), 0.42),
     sheer: (t) => 0.62 * Math.pow(t, 2.4) + 0.05 * Math.pow(1 - t, 2),
     keel: (t) => 0.42 * Math.pow(1 - t, 2.5) + 0.3 * Math.pow(t, 5),
@@ -340,7 +341,7 @@ const HULLS = {
     wind: [45, 0.45, 2.4], // (B3) side above the water m², end-on share, its middle's height m
   },
   windsurf: {
-    name: 'windsurf board', L: 2.6, B: 0.34, D: 0.13, draft: 0.05, shallow: 0.35, seatZ: -0.45, seatY: 1.02, floorY: 0.14,
+    name: $t('windsurf board'), L: 2.6, B: 0.34, D: 0.13, draft: 0.05, shallow: 0.35, seatZ: -0.45, seatY: 1.02, floorY: 0.14,
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.1 + 0.9 * t)), 0.4),
     sheer: (t) => 0.05 * Math.pow(t, 4),
     keel: (t) => 0.12 * Math.pow(t, 5),
@@ -358,7 +359,7 @@ const HULLS = {
   },
   jetski: {
     planing: { deadrise: 22 }, // (B3) a planing hull; her real bottom's deadrise, degrees (hydro.js savitskyTrim)
-    name: 'jet ski', L: 3.1, B: 0.58, D: 0.62, draft: 0.22, shallow: 0.3, seatZ: -0.35, seatY: 0.95, floorY: 0.5,
+    name: $t('jet ski'), L: 3.1, B: 0.58, D: 0.62, draft: 0.22, shallow: 0.3, seatZ: -0.35, seatY: 0.95, floorY: 0.5,
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.28 + 0.72 * t)), 0.55),
     sheer: (t) => 0.18 * Math.pow(t, 2) + 0.04,
     keel: (t) => 0.22 * Math.pow(t, 3),
@@ -396,6 +397,8 @@ const CLASSIC = {
 };
 for (const k of (globalThis.location?.search?.match(/[?&]classic=([a-z,]+)/)?.[1] || '').split(',')) if (CLASSIC[k]) Object.assign(HULLS[k], CLASSIC[k]);
 export const BOAT_KINDS = Object.keys(HULLS);
+// (Each hull knows its kind: what the physics goes by, her name being words in the language played.)
+for (const k of BOAT_KINDS) HULLS[k].kindId = k;
 export { HULLS, formHalf, formRows };
 const OAR_T = 0.56;
 
@@ -6419,8 +6422,8 @@ export class Boat {
   // her decks, never from her wheel or indoors.
   fishBlock() {
     if (!this.plan) return null;
-    if (!this.deck) return 'Not from her wheel: she’s fished from her decks. Leave the wheel and go aft.';
-    if (this.indoors) return 'Not from inside: out on deck first.';
+    if (!this.deck) return $t('Not from her wheel: she’s fished from her decks. Leave the wheel and go aft.');
+    if (this.indoors) return $t('Not from inside: out on deck first.');
     return null;
   }
   // (L5) Where a carried tender sits on her platform's chocks, in her own space, lift m above

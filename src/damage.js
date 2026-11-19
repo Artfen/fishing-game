@@ -30,12 +30,13 @@
 // little more, and a punctured tube goes soft sooner.
 
 import { kindOf } from './boatid.js';
+import { $t } from './i18n.js';
 
 export const SECTIONS = ['bow', 'port', 'stbd', 'stern', 'bottom'];
-export const SECTION_NAMES = { bow: 'her bow', port: 'her port side', stbd: 'her starboard side', stern: 'her stern', bottom: 'her bottom' };
+export const SECTION_NAMES = { bow: $t('her bow'), port: $t('her port side'), stbd: $t('her starboard side'), stern: $t('her stern'), bottom: $t('her bottom') };
 // A RIB's tube chambers (port is her local +x): 0 port aft, 1 port fore, 2 starboard aft, 3
 // starboard fore.
-export const CHAMBERS = ['port aft', 'port fore', 'starboard aft', 'starboard fore'];
+export const CHAMBERS = [$t('port aft'), $t('port fore'), $t('starboard aft'), $t('starboard fore')];
 // (Where along her the fore chambers begin: share of her length from the stern.)
 export const CHAMBER_SPLIT = 0.46;
 
@@ -44,26 +45,26 @@ export const CHAMBER_SPLIT = 0.46;
 // for each metre slid along rock; words: what a knock does to it, worst last; touch: what the
 // yard does for a scuff or a score; mend: for worse.
 export const MATERIALS = {
-  grp: { name: 'glassfibre', v0: 1.5, per: 0.16, scrape: 0.012, words: ['scuffed', 'gouged through the gelcoat', 'cracked', 'cracked right through'], touch: 'filled and the gelcoat made good', mend: 'ground out, glassed and faired' },
-  aluminium: { name: 'aluminium', v0: 2.1, per: 0.12, scrape: 0.006, words: ['scuffed', 'scored', 'dented', 'split at a weld'], touch: 'faired and painted', mend: 'beaten out and welded' },
-  wood: { name: 'planking', v0: 1.2, per: 0.2, scrape: 0.016, words: ['scuffed', 'scored', 'a plank sprung', 'a plank stove in'], touch: 'planed, filled and painted', mend: 'a new length of plank let in' },
-  pe: { name: 'polyethylene', v0: 3, per: 0.08, scrape: 0.004, words: ['scuffed', 'scored', 'dented', 'split'], touch: 'faired smooth', mend: 'welded with a hot-air gun' },
-  epoxy: { name: 'epoxy sandwich', v0: 1.2, per: 0.2, scrape: 0.02, words: ['scuffed', 'dinged', 'cracked', 'crushed'], touch: 'filled and sealed', mend: 'cut out, filled and glassed over' },
+  grp: { name: 'glassfibre', v0: 1.5, per: 0.16, scrape: 0.012, words: ['scuffed', $t('gouged through the gelcoat'), 'cracked', $t('cracked right through')], touch: $t('filled and the gelcoat made good'), mend: $t('ground out, glassed and faired') },
+  aluminium: { name: 'aluminium', v0: 2.1, per: 0.12, scrape: 0.006, words: ['scuffed', 'scored', 'dented', $t('split at a weld')], touch: $t('faired and painted'), mend: $t('beaten out and welded') },
+  wood: { name: 'planking', v0: 1.2, per: 0.2, scrape: 0.016, words: ['scuffed', 'scored', $t('a plank sprung'), $t('a plank stove in')], touch: $t('planed, filled and painted'), mend: $t('a new length of plank let in') },
+  pe: { name: 'polyethylene', v0: 3, per: 0.08, scrape: 0.004, words: ['scuffed', 'scored', 'dented', 'split'], touch: $t('faired smooth'), mend: $t('welded with a hot-air gun') },
+  epoxy: { name: $t('epoxy sandwich'), v0: 1.2, per: 0.2, scrape: 0.02, words: ['scuffed', 'dinged', 'cracked', 'crushed'], touch: $t('filled and sealed'), mend: $t('cut out, filled and glassed over') },
 };
 export const MATERIAL_OF = { row: 'wood', skiff: 'wood', kayak: 'pe', bass: 'grp', sail: 'grp', cabin: 'grp', cruiser: 'grp', console: 'grp', rib: 'aluminium', tender: 'aluminium', trawler: 'grp', windsurf: 'epoxy', jetski: 'grp' };
 export const materialOf = (kind) => MATERIALS[MATERIAL_OF[kind]] || MATERIALS.grp;
 // The tubes: Hypalon over a woven base. Punctured by `sharp` contact past `v0` (m/s), torn past
 // `tear`; scored along rock. leak: how fast the air goes from a small hole (the chamber's soft, at
 // 55 % of its working pressure, in about four minutes: see stepTubes); torn, in about thirty seconds.
-export const TUBE = { name: 'Hypalon', v0: 2.6, tear: 5.5, scrape: 3.2, leak: 0.0022, torn: 0.018 };
+export const TUBE = { name: $t('Hypalon'), v0: 2.6, tear: 5.5, scrape: 3.2, leak: 0.0022, torn: 0.018 };
 
 // What she hits: how hard it is, and how sharp (for a tube).
 export const SURFACES = {
   rock: { name: 'rock', hard: 1, sharp: 1 },
-  pier: { name: 'the quay', hard: 0.8, sharp: 0.55 },
-  boat: { name: 'another boat', hard: 0.6, sharp: 0.2 },
-  fender: { name: 'her fenders', hard: 0.15, sharp: 0 },
-  sand: { name: 'the bottom', hard: 0.3, sharp: 0 },
+  pier: { name: $t('the quay'), hard: 0.8, sharp: 0.55 },
+  boat: { name: $t('another boat'), hard: 0.6, sharp: 0.2 },
+  fender: { name: $t('her fenders'), hard: 0.15, sharp: 0 },
+  sand: { name: $t('the bottom'), hard: 0.3, sharp: 0 },
 };
 export const surfaceAt = (rock) => (rock > 0.45 ? 'rock' : 'sand');
 
@@ -348,25 +349,25 @@ export function hullWords(mat, v) {
 }
 export function tubeWords(c) {
   const f = c.air;
-  const state = f > 0.9 ? 'firm' : f > 0.55 ? 'a little soft' : f > 0.2 ? 'soft' : 'flat';
-  return c.leak ? `${state}, ${c.leak >= TUBE.torn * 0.9 ? 'torn open' : 'punctured: a slow hiss'}` : state;
+  const state = f > 0.9 ? 'firm' : f > 0.55 ? $t('a little soft') : f > 0.2 ? 'soft' : 'flat';
+  return c.leak ? `${state}, ${c.leak >= TUBE.torn * 0.9 ? $t('torn open') : $t('punctured: a slow hiss')}` : state;
 }
 
 // What looking her over finds: [{ what, words, bad }], worst first.
 export function survey(D, kind) {
   const mat = materialOf(kind), out = [];
   for (const s of SECTIONS) out.push({ what: SECTION_NAMES[s].replace(/^her /, ''), words: hullWords(mat, D.hull[s]), bad: D.hull[s] });
-  (D.tubes || []).forEach((c, i) => out.push({ what: `${CHAMBERS[i]} tube`, words: tubeWords(c), bad: Math.max(1 - c.air, c.leak ? 0.5 : 0) }));
+  (D.tubes || []).forEach((c, i) => out.push({ what: $t`${CHAMBERS[i]} tube`, words: tubeWords(c), bad: Math.max(1 - c.air, c.leak ? 0.5 : 0) }));
   if (D.steer) out.push({ what: 'steering', words: steerWords(D), bad: Math.abs(D.steer.bend) * 8 + D.steer.loss });
-  if (D.mount > 0.03) out.push({ what: 'the engine’s bracket', words: D.tightened ? 'its bolts done up at sea: holding, but not right' : D.mount > 0.6 ? 'badly loose: the engine shifts on the transom' : 'its bolts working loose', bad: D.mount });
-  if (D.wiring?.loose) out.push({ what: 'the battery terminal', words: 'shaken loose', bad: 0.6 });
+  if (D.mount > 0.03) out.push({ what: $t('the engine’s bracket'), words: D.tightened ? $t('its bolts done up at sea: holding, but not right') : D.mount > 0.6 ? $t('badly loose: the engine shifts on the transom') : $t('its bolts working loose'), bad: D.mount });
+  if (D.wiring?.loose) out.push({ what: $t('the battery terminal'), words: $t('shaken loose'), bad: 0.6 });
   return out.sort((a, b) => b.bad - a.bad);
 }
 export function steerWords(D) {
   const S = D.steer, b = Math.abs(S.bend);
   if (b < 0.003 && S.loss < 0.02) return 'sound';
-  const pull = b >= 0.003 ? `bent (she pulls to ${S.bend > 0 ? 'starboard' : 'port'})` : 'stiff';
-  return `${pull}${b >= 0.003 && S.loss >= 0.15 ? ' and stiff' : ''}`;
+  const pull = b >= 0.003 ? $t`bent (she pulls to ${S.bend > 0 ? 'starboard' : 'port'})` : 'stiff';
+  return `${pull}${b >= 0.003 && S.loss >= 0.15 ? $t(' and stiff') : ''}`;
 }
 
 // The yard's bill for each repair: [{ id, what, price }]. base: what she cost new (the yard's
@@ -382,15 +383,15 @@ export function repairs(D, kind, base) {
   }
   (D.tubes || []).forEach((c, i) => {
     if (!c.leak && c.air >= 0.995) return;
-    out.push({ id: `tube:${i}`, what: c.leak ? `The ${CHAMBERS[i]} tube: ${c.leak >= TUBE.torn * 0.9 ? 'torn' : 'punctured'}. Patched, the glue left to cure, and pumped up.` : `The ${CHAMBERS[i]} tube: soft. Pumped up.`, price: c.leak ? Math.max(20, Math.round((b * (c.leak >= TUBE.torn * 0.9 ? 0.09 : 0.04)) / 5) * 5) : 0 });
+    out.push({ id: `tube:${i}`, what: c.leak ? $t`The ${CHAMBERS[i]} tube: ${c.leak >= TUBE.torn * 0.9 ? 'torn' : 'punctured'}. Patched, the glue left to cure, and pumped up.` : $t`The ${CHAMBERS[i]} tube: soft. Pumped up.`, price: c.leak ? Math.max(20, Math.round((b * (c.leak >= TUBE.torn * 0.9 ? 0.09 : 0.04)) / 5) * 5) : 0 });
   });
   const price = (share) => Math.max(10, Math.round((b * share) / 5) * 5);
-  if (D.steer && (Math.abs(D.steer.bend) > 0.003 || D.steer.loss > 0.02)) out.push({ id: 'steer', what: `Her steering: ${steerWords(D)}. ${MATERIAL_OF[kind] === 'wood' || kind === 'sail' ? 'The rudder straightened and rehung' : 'The leg lined up again, a new steering cable'}.`, price: price(0.03 + 0.08 * Math.min(1, Math.abs(D.steer.bend) / PARTS.steer.most + D.steer.loss)) });
-  if (D.mount > 0.03) out.push({ id: 'mount', what: `The engine’s bracket: ${D.tightened ? 'done up at sea' : 'loose'}. Lifted, the bolts and the transom checked, new bolts and backing plates.`, price: price(0.03 + 0.05 * D.mount) });
-  if (D.wiring?.loose) out.push({ id: 'wiring', what: 'The battery terminal: loose. Cleaned and done up.', price: 5 });
+  if (D.steer && (Math.abs(D.steer.bend) > 0.003 || D.steer.loss > 0.02)) out.push({ id: 'steer', what: $t`Her steering: ${steerWords(D)}. ${MATERIAL_OF[kind] === 'wood' || kind === 'sail' ? $t('The rudder straightened and rehung') : $t('The leg lined up again, a new steering cable')}.`, price: price(0.03 + 0.08 * Math.min(1, Math.abs(D.steer.bend) / PARTS.steer.most + D.steer.loss)) });
+  if (D.mount > 0.03) out.push({ id: 'mount', what: $t`The engine’s bracket: ${D.tightened ? $t('done up at sea') : 'loose'}. Lifted, the bolts and the transom checked, new bolts and backing plates.`, price: price(0.03 + 0.05 * D.mount) });
+  if (D.wiring?.loose) out.push({ id: 'wiring', what: $t('The battery terminal: loose. Cleaned and done up.'), price: 5 });
   // (Water in her: hauled out, it drains; done with any job on her hull, free.)
   const litres = (D.water || []).reduce((n, l) => n + l, 0);
-  if (litres > 5 && !out.some((r) => r.id.startsWith('hull:'))) out.push({ id: 'water', what: `Her bilge: ${Math.round(litres)} litres of water. Pumped out and left to dry.`, price: 5 });
+  if (litres > 5 && !out.some((r) => r.id.startsWith('hull:'))) out.push({ id: 'water', what: $t`Her bilge: ${Math.round(litres)} litres of water. Pumped out and left to dry.`, price: 5 });
   return out;
 }
 // The yard's work done (an id from repairs; 'all': everything).

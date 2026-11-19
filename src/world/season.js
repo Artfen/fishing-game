@@ -1,4 +1,5 @@
 import { formatClock } from './sky.js';
+import { $t } from '../i18n.js';
 
 // The year: spring, summer, autumn and winter, a week of days each (a short year, so a season
 // comes round while you're still playing). A new game starts in the middle of spring. What turns
@@ -109,5 +110,5 @@ export function seasonBoost(sp, abs) {
 // For the notice board: "Late spring: sunrise 5:10, sunset 8:30 pm."
 export function seasonLine(abs) {
   const t = sunTimes(abs);
-  return `${seasonWords(Math.floor(abs / 24))}: sunrise ${formatClock(t.rise)}, sunset ${formatClock(t.set)}.`;
+  return $t`${seasonWords(Math.floor(abs / 24))}: sunrise ${formatClock(t.rise)}, sunset ${formatClock(t.set)}.`;
 }

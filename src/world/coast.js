@@ -15,6 +15,7 @@ import { buildHavenHouses } from './havenHouses.js';
 const LAMPS = ['#ffffff', '#ffe0b8', '#fff0d8'];
 import { withCaustics } from './caustics.js';
 import { SITE_DETAILS } from './divesites.js';
+import { $t } from '../i18n.js';
 
 // The cove shore, built from the map in terrain.js: Willowhaven (a stone quay and sea wall, a
 // slipway, the chandlery, The Lobster Pot inn, the fish market, a net store and three cottages, a
@@ -131,7 +132,7 @@ function buildHaven(rnd, group, obstacles, spots) {
     for (let z = Q.z0 + 3; z < Q.z1 - 0.5; z += 3.5) {
       for (const s of [-1, 1]) {
         dark.push({ geo: new THREE.CylinderGeometry(0.13, 0.17, 0.5, 8), matrix: mat(cx + s * (w / 2 - 0.3), Q.deck + 0.25, z), color: '#2f3236' });
-        obstacles.push({ x: cx + s * (w / 2 - 0.3), z, r: 0.2, top: Q.deck + 0.55, kind: 'quay', name: 'a bollard' });
+        obstacles.push({ x: cx + s * (w / 2 - 0.3), z, r: 0.2, top: Q.deck + 0.55, kind: 'quay', name: $t('a bollard') });
       }
     }
     // Ladders down to the water.
@@ -140,7 +141,7 @@ function buildHaven(rnd, group, obstacles, spots) {
     }
     // The light at the end (green, lit after dark).
     stone.push({ geo: new THREE.CylinderGeometry(0.3, 0.38, 1.4, 8), matrix: mat(cx, Q.deck + 0.7, Q.z1 - 0.6), color: '#e7e1d4', jitter: 0.02 });
-    obstacles.push({ x: cx, z: Q.z1 - 0.6, r: 0.45, top: Q.deck + 1.5, kind: 'quay', name: 'the quay light' });
+    obstacles.push({ x: cx, z: Q.z1 - 0.6, r: 0.45, top: Q.deck + 1.5, kind: 'quay', name: $t('the quay light') });
   }
   // The pontoon on out from the end of the quay (see props.js), with its fingers, the gangway
   // down beside the quay light, and the fuel point on it.
@@ -151,7 +152,7 @@ function buildHaven(rnd, group, obstacles, spots) {
     obstacles.push(...P.obstacles.map((o) => ({ ...o, kind: 'quay' })));
     const F = FUEL_PUMPS.marina;
     dark.push(...fuelPumpParts(F.x, F.deck, F.z, F.yaw));
-    obstacles.push({ x: F.x, z: F.z, r: 0.42, kind: 'harbour', name: 'the fuel point' });
+    obstacles.push({ x: F.x, z: F.z, r: 0.42, kind: 'harbour', name: $t('the fuel point') });
   }
   // The harbour office: a little timber hut at the head of the quay, a hatch in its front under a
   // board with its name, a door in its side, and a lifebuoy on the wall.
@@ -187,7 +188,7 @@ function buildHaven(rnd, group, obstacles, spots) {
     group.add(sign);
     for (const sx of [-0.6, 0.6]) {
       const q = local(O.x, O.z, O.yaw, sx, 0);
-      obstacles.push({ x: q.x, z: q.z, r: 1.1, top: oy + H + 0.7, kind: 'building', name: 'the harbour office' });
+      obstacles.push({ x: q.x, z: q.z, r: 1.1, top: oy + H + 0.7, kind: 'building', name: $t('the harbour office') });
     }
   }
   // Signs on the pontoon: your own finger (a plate with your name, painted by the game: see
@@ -199,7 +200,7 @@ function buildHaven(rnd, group, obstacles, spots) {
     m.position.set(x, HAVEN_PONTOON.deck + 1.3 + h / 2 - 0.1, z);
     m.rotation.y = yaw;
     group.add(m);
-    obstacles.push({ x, z, r: 0.12, kind: 'quay', name: 'a sign' });
+    obstacles.push({ x, z, r: 0.12, kind: 'quay', name: $t('a sign') });
     return T;
   };
   const plate = (title, sub) => (ctx, w, h) => {
@@ -217,9 +218,9 @@ function buildHaven(rnd, group, obstacles, spots) {
     ctx.fillText(sub, w / 2, h * 0.75, w - 20);
   };
   let ownerName = '';
-  const ownerTex = signPost(OWN_FINGER.x0 + 0.35, OWN_FINGER.z1 - 0.2, Math.PI / 2, 0.9, 0.45, (ctx, w, h) => plate(ownerName ? `${ownerName}` : 'Private', 'Berths reserved')(ctx, w, h));
+  const ownerTex = signPost(OWN_FINGER.x0 + 0.35, OWN_FINGER.z1 - 0.2, Math.PI / 2, 0.9, 0.45, (ctx, w, h) => plate(ownerName ? `${ownerName}` : 'Private', $t('Berths reserved'))(ctx, w, h));
   const V = VISITOR_FINGERS[0];
-  signPost((HAVEN_PONTOON.x0 + HAVEN_PONTOON.x1) / 2 + 0.9, V.z0 - 0.3, 0, 1.0, 0.5, plate('VISITORS', 'Welcome to Willowhaven'));
+  signPost((HAVEN_PONTOON.x0 + HAVEN_PONTOON.x1) / 2 + 0.9, V.z0 - 0.3, 0, 1.0, 0.5, plate('VISITORS', $t('Welcome to Willowhaven')));
   const ownerSign = (name) => {
     ownerName = String(name || '').slice(0, 16);
     ownerTex.repaint();
@@ -234,7 +235,7 @@ function buildHaven(rnd, group, obstacles, spots) {
     }
     woodParts.push({ geo: new THREE.CylinderGeometry(0.12, 0.14, 1.1, 8), matrix: mat(S2.x + S2.w / 2 + 0.6, ay + 0.55, A.z1 - 1.4), color: '#6a503b' });
     dark.push({ geo: new THREE.CylinderGeometry(0.16, 0.16, 0.5, 10), matrix: mat(S2.x + S2.w / 2 + 0.6, ay + 0.95, A.z1 - 1.4, 0, 0, Math.PI / 2), color: '#3a3d40' });
-    obstacles.push({ x: S2.x + S2.w / 2 + 0.6, z: A.z1 - 1.4, r: 0.3, kind: 'harbour', name: 'the winch' });
+    obstacles.push({ x: S2.x + S2.w / 2 + 0.6, z: A.z1 - 1.4, r: 0.3, kind: 'harbour', name: $t('the winch') });
   }
 
   // The buildings: the chandlery and The Lobster Pot (both of which you can walk into), the net
@@ -246,7 +247,7 @@ function buildHaven(rnd, group, obstacles, spots) {
   for (const s of [-1, 1]) woodParts.push({ geo: new THREE.BoxGeometry(0.12, 2.3, 0.12), matrix: placed(B.x, by, B.z, B.yaw, s * 0.95, 1.15, 0), color: '#5a4030' });
   woodParts.push({ geo: new THREE.BoxGeometry(2.1, 1.35, 0.08), matrix: placed(B.x, by, B.z, B.yaw, 0, 1.45, -0.02), color: '#7a5a3e' });
   roofs.push({ geo: new THREE.BoxGeometry(2.4, 0.06, 0.55), matrix: placed(B.x, by, B.z, B.yaw, 0, 2.28, 0.05, -0.25, 0, 0), color: '#4d5157' });
-  obstacles.push({ x: B.x, z: B.z, r: 0.75, kind: 'harbour', name: 'the notice board' });
+  obstacles.push({ x: B.x, z: B.z, r: 0.75, kind: 'harbour', name: $t('the notice board') });
   const boardTex = textTexture(512, 320, () => {});
   const board = new THREE.Mesh(new THREE.PlaneGeometry(1.95, 1.22), new THREE.MeshLambertMaterial({ map: boardTex.tex }));
   {
@@ -255,7 +256,7 @@ function buildHaven(rnd, group, obstacles, spots) {
     board.rotation.y = B.yaw;
     group.add(board);
   }
-  spots.push({ kind: 'board', name: 'the notice board', x: local(B.x, B.z, B.yaw, 0, 1.4).x, z: local(B.x, B.z, B.yaw, 0, 1.4).z, r: 2.6 });
+  spots.push({ kind: 'board', name: $t('the notice board'), x: local(B.x, B.z, B.yaw, 0, 1.4).x, z: local(B.x, B.z, B.yaw, 0, 1.4).z, r: 2.6 });
 
   // The fish market: an open shed by the head of the quay, a marble slab across its front with fish
   // boxes on crushed ice, the scales hanging from the beam, a sign under the eaves, and a slate on
@@ -270,7 +271,7 @@ function buildHaven(rnd, group, obstacles, spots) {
         const ph = sz > 0 ? hi : lo;
         woodParts.push({ geo: new THREE.BoxGeometry(0.16, ph, 0.16), matrix: at(sx * (hw - 0.1), ph / 2, sz * (hd - 0.1)), color: '#5a4030' });
         const p = local(M.x, M.z, M.yaw, sx * (hw - 0.1), sz * (hd - 0.1));
-        obstacles.push({ x: p.x, z: p.z, r: 0.18, kind: 'harbour', name: 'the fish market' });
+        obstacles.push({ x: p.x, z: p.z, r: 0.18, kind: 'harbour', name: $t('the fish market') });
       }
       // The west side boarded waist high; the east side open, for Mags to come and go.
       if (sx < 0) woodParts.push({ geo: new THREE.BoxGeometry(0.06, 1.1, M.d - 0.2), matrix: at(sx * (hw - 0.1), 0.55, 0), color: '#6f8f96', jitter: 0.04 });
@@ -293,7 +294,7 @@ function buildHaven(rnd, group, obstacles, spots) {
     }
     for (const lx of [-1.6, 0, 1.6]) {
       const p = local(M.x, M.z, M.yaw, lx, hd - 0.6);
-      obstacles.push({ x: p.x, z: p.z, r: 0.55, top: ay + 0.95, kind: 'harbour', name: 'the fish slab' });
+      obstacles.push({ x: p.x, z: p.z, r: 0.55, top: ay + 0.95, kind: 'harbour', name: $t('the fish slab') });
     }
     // The scales, hanging from the beam.
     dark.push({ geo: new THREE.CylinderGeometry(0.01, 0.01, 0.5, 4), matrix: at(hw - 0.55, hi - 0.4, hd - 0.12), color: '#2a2d30' });
@@ -307,9 +308,9 @@ function buildHaven(rnd, group, obstacles, spots) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.font = '700 50px Kalam, Caveat, cursive';
-      ctx.fillText('Fresh Fish', w / 2, h * 0.4);
+      ctx.fillText($t('Fresh Fish'), w / 2, h * 0.4);
       ctx.font = '600 22px Kalam, Caveat, cursive';
-      ctx.fillText('M. Pennock · fishmonger · fish bought from the boats', w / 2, h * 0.8);
+      ctx.fillText($t('M. Pennock · fishmonger · fish bought from the boats'), w / 2, h * 0.8);
     });
     const ms = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 0.66), new THREE.MeshLambertMaterial({ map: t.tex }));
     const p = local(M.x, M.z, M.yaw, 0, hd + 0.01);
@@ -328,16 +329,16 @@ function buildHaven(rnd, group, obstacles, spots) {
     slate.position.set(e.x + Math.sin(M.yaw - 0.5) * 0.12, ay + 0.86, e.z + Math.cos(M.yaw - 0.5) * 0.12);
     slate.rotation.set(-0.14, M.yaw - 0.5, 0, 'YXZ');
     group.add(slate);
-    obstacles.push({ x: e.x, z: e.z, r: 0.4, kind: 'harbour', name: 'the slate' });
+    obstacles.push({ x: e.x, z: e.z, r: 0.4, kind: 'harbour', name: $t('the slate') });
     const f = local(M.x, M.z, M.yaw, 0, hd + 1.15);
-    spots.push({ kind: 'market', name: 'the fish market', x: f.x, z: f.z, r: 2.6 });
+    spots.push({ kind: 'market', name: $t('the fish market'), x: f.x, z: f.z, r: 2.6 });
   }
 
   // The harbour's fuel pump at the root of the quay, for the boats alongside (and a can for the car).
   {
     const F = FUEL_PUMPS.haven, fy = heightAt(F.x, F.z);
     dark.push(...fuelPumpParts(F.x, fy, F.z, F.yaw));
-    obstacles.push({ x: F.x, z: F.z, r: 0.42, kind: 'harbour', name: 'the fuel pump' });
+    obstacles.push({ x: F.x, z: F.z, r: 0.42, kind: 'harbour', name: $t('the fuel pump') });
   }
 
   // The bench under the lamp, looking out over the bay.
@@ -345,14 +346,14 @@ function buildHaven(rnd, group, obstacles, spots) {
   woodParts.push({ geo: new THREE.BoxGeometry(1.8, 0.07, 0.45), matrix: placed(N.x, ny, N.z, N.yaw, 0, 0.46, 0), color: '#8a6a4a' });
   woodParts.push({ geo: new THREE.BoxGeometry(1.8, 0.4, 0.06), matrix: placed(N.x, ny, N.z, N.yaw, 0, 0.75, -0.24, -0.15, 0, 0), color: '#8a6a4a' });
   for (const s of [-1, 1]) dark.push({ geo: new THREE.BoxGeometry(0.06, 0.48, 0.45), matrix: placed(N.x, ny, N.z, N.yaw, s * 0.8, 0.24, 0), color: '#2f3236' });
-  obstacles.push({ x: N.x - 0.5, z: N.z, r: 0.35, top: ny + 0.5, kind: 'harbour', name: 'the bench' }, { x: N.x + 0.5, z: N.z, r: 0.35, top: ny + 0.5, kind: 'harbour', name: 'the bench' });
-  spots.push({ kind: 'bench', name: 'the bench', x: N.x, z: N.z + 1.2, r: 2.2 });
+  obstacles.push({ x: N.x - 0.5, z: N.z, r: 0.35, top: ny + 0.5, kind: 'harbour', name: $t('the bench') }, { x: N.x + 0.5, z: N.z, r: 0.35, top: ny + 0.5, kind: 'harbour', name: $t('the bench') });
+  spots.push({ kind: 'bench', name: $t('the bench'), x: N.x, z: N.z + 1.2, r: 2.2 });
 
   // The lamp post.
   const L = HAVEN_LAMP, ly = heightAt(L.x, L.z);
   dark.push({ geo: new THREE.CylinderGeometry(0.06, 0.09, 3.2, 8), matrix: mat(L.x, ly + 1.6, L.z), color: '#2a2d30' });
   dark.push({ geo: new THREE.ConeGeometry(0.28, 0.25, 4), matrix: mat(L.x, ly + 3.55, L.z, 0, Math.PI / 4, 0), color: '#2a2d30' });
-  obstacles.push({ x: L.x, z: L.z, r: 0.2, kind: 'harbour', name: 'the lamp post' });
+  obstacles.push({ x: L.x, z: L.z, r: 0.2, kind: 'harbour', name: $t('the lamp post') });
   const lampGlass = new THREE.MeshBasicMaterial({ color: '#ffe2a8' });
   const lampHead = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.32, 0.26), lampGlass);
   lampHead.position.set(L.x, ly + 3.28, L.z);
@@ -375,16 +376,16 @@ function buildHaven(rnd, group, obstacles, spots) {
       for (let i = 0; i < 3; i++) {
         dark.push({ geo: new THREE.BoxGeometry(0.7, 0.45, 0.5), matrix: mat(p.x + (i % 2) * 0.1, ay + 0.23 + i * 0.46, p.z + (i % 2) * 0.08, 0, rnd() * 0.3, 0), color: pick(['#3f4f54', '#4a3c33', '#5a5f3a'], rnd), jitter: 0.08 });
       }
-      obstacles.push({ x: p.x, z: p.z, r: 0.5, kind: 'harbour', name: 'the lobster pots' });
+      obstacles.push({ x: p.x, z: p.z, r: 0.5, kind: 'harbour', name: $t('the lobster pots') });
     } else if (p.k === 'boxes') {
       for (let i = 0; i < 2; i++) woodParts.push({ geo: new THREE.BoxGeometry(0.8, 0.3, 0.5), matrix: mat(p.x, ay + 0.15 + i * 0.31, p.z, 0, (rnd() - 0.5) * 0.2, 0), color: pick(['#a5482f', '#3f6f74', '#c9a65a'], rnd), jitter: 0.04 });
-      obstacles.push({ x: p.x, z: p.z, r: 0.5, kind: 'harbour', name: 'the fish boxes' });
+      obstacles.push({ x: p.x, z: p.z, r: 0.5, kind: 'harbour', name: $t('the fish boxes') });
     } else if (p.k === 'barrels') {
       for (const dx of [-0.35, 0.35]) woodParts.push({ geo: new THREE.CylinderGeometry(0.3, 0.3, 0.8, 10), matrix: mat(p.x + dx, ay + 0.4, p.z), color: '#7a5636' });
-      obstacles.push({ x: p.x, z: p.z, r: 0.7, kind: 'harbour', name: 'the barrels' });
+      obstacles.push({ x: p.x, z: p.z, r: 0.7, kind: 'harbour', name: $t('the barrels') });
     } else if (p.k === 'dinghy') {
       woodParts.push({ geo: new THREE.SphereGeometry(1, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), matrix: mat(p.x, ay + 0.02, p.z, Math.PI, 0.2, 0, 0.75, 0.42, 1.6), color: '#3f6f74', jitter: 0.03 });
-      obstacles.push({ x: p.x, z: p.z - 0.6, r: 0.75, kind: 'harbour', name: 'an upturned dinghy' }, { x: p.x, z: p.z + 0.6, r: 0.75, kind: 'harbour', name: 'an upturned dinghy' });
+      obstacles.push({ x: p.x, z: p.z - 0.6, r: 0.75, kind: 'harbour', name: $t('an upturned dinghy') }, { x: p.x, z: p.z + 0.6, r: 0.75, kind: 'harbour', name: $t('an upturned dinghy') });
     }
   }
   // Two mooring floats off the quay.
@@ -457,8 +458,8 @@ function buildShoreSide(rnd, group, obstacles, spots) {
 
   // The punt, with a page of a notebook tucked under its seat (see the adventures).
   puntParts(woodParts, rnd);
-  obstacles.push({ x: PUNT.x, z: PUNT.z, r: 1.3, top: heightAt(PUNT.x, PUNT.z) + 0.6, kind: 'thing', name: 'the old punt' });
-  spots.push({ kind: 'punt', name: 'the old punt', x: PUNT.x, z: PUNT.z, r: 2.6 });
+  obstacles.push({ x: PUNT.x, z: PUNT.z, r: 1.3, top: heightAt(PUNT.x, PUNT.z) + 0.6, kind: 'thing', name: $t('the old punt') });
+  spots.push({ kind: 'punt', name: $t('the old punt'), x: PUNT.x, z: PUNT.z, r: 2.6 });
   // Reeds and eelgrass round the head of the cove.
   const reedGeo = reedClump(rnd, true);
   const reeds = [];
@@ -503,8 +504,8 @@ function buildShoreSide(rnd, group, obstacles, spots) {
   plainParts.push({ geo: new THREE.CylinderGeometry(0.75, 1.25, 5.2, 10), matrix: mat(D.x, dy + 2.5, D.z), color: '#f2efe6', jitter: 0.02 });
   plainParts.push({ geo: new THREE.ConeGeometry(0.85, 1.4, 10), matrix: mat(D.x, dy + 5.7, D.z), color: '#26292c' });
   plainParts.push({ geo: new THREE.CylinderGeometry(1.35, 1.45, 0.25, 10), matrix: mat(D.x, dy + 0.05, D.z), color: '#9a9286' });
-  obstacles.push({ x: D.x, z: D.z, r: 1.45, kind: 'building', name: 'the daymark' });
-  spots.push({ kind: 'daymark', name: 'the daymark', x: D.x - 0.4, z: D.z + 2.1, r: 2.4 });
+  obstacles.push({ x: D.x, z: D.z, r: 1.45, kind: 'building', name: $t('the daymark') });
+  spots.push({ kind: 'daymark', name: $t('the daymark'), x: D.x - 0.4, z: D.z + 2.1, r: 2.4 });
 
   // Shell Strand: the driftwood shelter, logs and shells on the sand.
   const S = SHELTER, sy = heightAt(S.x, S.z);
@@ -513,8 +514,8 @@ function buildShoreSide(rnd, group, obstacles, spots) {
     woodParts.push({ geo: new THREE.CylinderGeometry(0.05, 0.07, 2.4, 5), matrix: placed(S.x, sy, S.z, S.yaw, lx, 0.95, -0.35, -0.55 + (rnd() - 0.5) * 0.1, 0, (rnd() - 0.5) * 0.1), color: pick(['#cfc3ad', '#bfb39c', '#d8cdb9'], rnd) });
   }
   woodParts.push({ geo: new THREE.CylinderGeometry(0.08, 0.08, 3, 6), matrix: placed(S.x, sy, S.z, S.yaw, 0, 1.75, -0.95, 0, 0, Math.PI / 2), color: '#c6baa3' });
-  obstacles.push({ x: S.x, z: S.z, r: 1.4, top: sy + 2, kind: 'thing', name: 'the driftwood shelter' });
-  spots.push({ kind: 'shelter', name: 'the driftwood shelter', x: local(S.x, S.z, S.yaw, 0, 1.4).x, z: local(S.x, S.z, S.yaw, 0, 1.4).z, r: 2.4 });
+  obstacles.push({ x: S.x, z: S.z, r: 1.4, top: sy + 2, kind: 'thing', name: $t('the driftwood shelter') });
+  spots.push({ kind: 'shelter', name: $t('the driftwood shelter'), x: local(S.x, S.z, S.yaw, 0, 1.4).x, z: local(S.x, S.z, S.yaw, 0, 1.4).z, r: 2.4 });
   for (let i = 0; i < 6; i++) {
     const x = STRAND.x - 18 + rnd() * 34, z = STRAND.z + 4 + rnd() * 9, h = heightAt(x, z);
     if (h < 0.2) continue;

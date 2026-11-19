@@ -1,4 +1,5 @@
 import { REGISTER_DATA } from './registerData.js';
+import { $t } from './i18n.js';
 
 // The Atlantic species register: a sourced checklist of fish and cephalopods of the European
 // Atlantic coast from Royan and the Gironde estuary to Cádiz, the long-term goal of Slow
@@ -16,20 +17,20 @@ import { REGISTER_DATA } from './registerData.js';
 //  · verify      – a record that needs checking before it can be planned.
 
 export const REGIONS = [
-  { id: 'gironde', name: 'Royan and the Gironde estuary' },
-  { id: 'biscay', name: 'French Bay of Biscay coast' },
-  { id: 'cantabria', name: 'Cantabrian coast' },
-  { id: 'galicia', name: 'Galicia and its rías' },
-  { id: 'portugal', name: 'Portuguese Atlantic coast' },
-  { id: 'cadiz', name: 'Algarve and the Gulf of Cádiz' },
+  { id: 'gironde', name: $t('Royan and the Gironde estuary') },
+  { id: 'biscay', name: $t('French Bay of Biscay coast') },
+  { id: 'cantabria', name: $t('Cantabrian coast') },
+  { id: 'galicia', name: $t('Galicia and its rías') },
+  { id: 'portugal', name: $t('Portuguese Atlantic coast') },
+  { id: 'cadiz', name: $t('Algarve and the Gulf of Cádiz') },
 ];
 
 export const STATUS_WORDS = {
-  catchable: 'In the game · catchable now',
-  observation: 'In the game · to be seen, not caught',
-  planned: 'Planned · not in the game yet',
-  verify: 'Needs verification · not in the game',
-  retired: 'Retired · fictional, no longer in the water',
+  catchable: $t('In the game · catchable now'),
+  observation: $t('In the game · to be seen, not caught'),
+  planned: $t('Planned · not in the game yet'),
+  verify: $t('Needs verification · not in the game'),
+  retired: $t('Retired · fictional, no longer in the water'),
 };
 
 // Game species → register entries. Most share an id; the squid of the coves is the European
@@ -83,12 +84,12 @@ const BATCH = {
 // vulnerable, slow-growing and protected in parts of its range; it may be kept on a line now,
 // and is still never speared.)
 export const PLAN_AS = {
-  sturgeon: { as: 'observation', why: 'Fully protected (fishing banned in France since 1982; critically endangered).' },
-  allisshad: { as: 'observation', why: 'All fishing for it in the Gironde basin has been under a moratorium since 2008.' },
-  lamprey: { as: 'observation', why: 'All fishing for it in the Gironde estuary has been banned since 2023.' },
-  stingray: { as: 'release', why: 'Vulnerable, and its tail spine is venomous.' },
-  thornback: { as: 'release', why: 'Near threatened.' },
-  skate: { as: 'release', why: 'Critically endangered, and protected: never landed.' },
+  sturgeon: { as: 'observation', why: $t('Fully protected (fishing banned in France since 1982; critically endangered).') },
+  allisshad: { as: 'observation', why: $t('All fishing for it in the Gironde basin has been under a moratorium since 2008.') },
+  lamprey: { as: 'observation', why: $t('All fishing for it in the Gironde estuary has been banned since 2023.') },
+  stingray: { as: 'release', why: $t('Vulnerable, and its tail spine is venomous.') },
+  thornback: { as: 'release', why: $t('Near threatened.') },
+  skate: { as: 'release', why: $t('Critically endangered, and protected: never landed.') },
 };
 
 // Records to settle before the species can be planned in detail (none open at the moment).
@@ -96,16 +97,16 @@ export const VERIFY = {};
 
 // Species whose scientific name is unsettled, though the fish itself is not in doubt.
 export const NAME_NOTES = {
-  whitebream: 'Its scientific name on this coast is unsettled. WoRMS and the Catalog of Fishes give the Atlantic fish as Diplodus cadenati (D. sargus being Mediterranean); FishBase, the French checklist and most regional surveys and rules still call it D. sargus.',
-  bullet: 'Identified as Auxis rochei, the commoner of the two bullet tunas here; the very similar frigate tuna (A. thazard) also turns up in Iberian catches, and the Spanish “melva” and Portuguese “judeu” cover both.',
-  squid: 'The usual inshore night-jigging squid of this coast is Loligo vulgaris; the veined squid (L. forbesii) lives deeper and further north and may also be caught in Galicia.',
-  pompano: 'Several other fish share its Spanish names (palometa, pámpano): the leerfish, the blue butterfish and Ray’s bream.',
+  whitebream: $t('Its scientific name on this coast is unsettled. WoRMS and the Catalog of Fishes give the Atlantic fish as Diplodus cadenati (D. sargus being Mediterranean); FishBase, the French checklist and most regional surveys and rules still call it D. sargus.'),
+  bullet: $t('Identified as Auxis rochei, the commoner of the two bullet tunas here; the very similar frigate tuna (A. thazard) also turns up in Iberian catches, and the Spanish “melva” and Portuguese “judeu” cover both.'),
+  squid: $t('The usual inshore night-jigging squid of this coast is Loligo vulgaris; the veined squid (L. forbesii) lives deeper and further north and may also be caught in Galicia.'),
+  pompano: $t('Several other fish share its Spanish names (palometa, pámpano): the leerfish, the blue butterfish and Ray’s bream.'),
 };
 
 // Common names for display, where the register's English name is one few anglers would know.
 const DISPLAY_EN = {
-  whitebream: 'white seabream', // FishBase: "Moroccan white seabream" for D. cadenati
-  sardine: 'European sardine', // FishBase: "European pilchard"
+  whitebream: $t('white seabream'), // FishBase: "Moroccan white seabream" for D. cadenati
+  sardine: $t('European sardine'), // FishBase: "European pilchard"
 };
 
 export const REGISTER = REGISTER_DATA.map((r) => {
@@ -131,26 +132,26 @@ export const registerFor = (gameId) => registerById[GAME_TO_REGISTER[gameId] || 
 // of this coast in the same role, and no longer lives in the water. Catches of them stay in the
 // journal under their own names: they are never renamed into a different species.
 export const LEGACY = {
-  glassminnow: { replacement: 'sandsmelt', replacementName: 'sand smelt, Atherina presbyter', why: 'Small, translucent, with a silver stripe, schooling over shallow sand and weed: the same role.' },
-  sunperch: { replacement: 'twobanded', replacementName: 'two-banded seabream, Diplodus vulgaris', why: 'A small, bold, day-active fish of weed and rocks in sheltered bays that takes worms, prawns and little lures.' },
-  drizzlefin: { replacement: 'pollack', replacementName: 'pollack, Pollachius pollachius', why: 'A lure-hitting predator of open water off rocks, deeper by day and higher in dull weather.' },
-  duskfin: { replacement: 'horsemackerel', replacementName: 'Atlantic horse mackerel, Trachurus trachurus', why: 'Comes up at night and gathers under lights in coves and harbours.' },
-  mossback: { replacement: 'conger', replacementName: 'European conger, Conger conger', why: 'A large, slow fish of the deepest rocks that takes a bait lying on the bottom.' },
+  glassminnow: { replacement: 'sandsmelt', replacementName: $t('sand smelt, Atherina presbyter'), why: $t('Small, translucent, with a silver stripe, schooling over shallow sand and weed: the same role.') },
+  sunperch: { replacement: 'twobanded', replacementName: $t('two-banded seabream, Diplodus vulgaris'), why: $t('A small, bold, day-active fish of weed and rocks in sheltered bays that takes worms, prawns and little lures.') },
+  drizzlefin: { replacement: 'pollack', replacementName: $t('pollack, Pollachius pollachius'), why: $t('A lure-hitting predator of open water off rocks, deeper by day and higher in dull weather.') },
+  duskfin: { replacement: 'horsemackerel', replacementName: $t('Atlantic horse mackerel, Trachurus trachurus'), why: $t('Comes up at night and gathers under lights in coves and harbours.') },
+  mossback: { replacement: 'conger', replacementName: $t('European conger, Conger conger'), why: $t('A large, slow fish of the deepest rocks that takes a bait lying on the bottom.') },
 };
 
 // Freshwater species stay outside the Atlantic catalogue. (Their names are standard; their
 // ranges and status in Iberia are noted, not researched in depth yet.)
 export const FRESHWATER = {
-  perch: { scientific: 'Perca fluviatilis', note: 'Native to France; introduced in Iberia.' },
-  pike: { scientific: 'Esox lucius', note: 'Native to France; introduced in Iberia.' },
-  carp: { scientific: 'Cyprinus carpio (mirror form)', note: 'An introduced, domesticated form of the common carp.' },
-  rudd: { scientific: 'Scardinius erythrophthalmus', note: 'Native to France; introduced in parts of Iberia.' },
-  trout: { scientific: 'Salmo trutta', note: 'Native along the whole coast’s rivers.' },
-  grayling: { scientific: 'Thymallus thymallus', note: 'Native in parts of France; not native to Iberia.' },
-  tench: { scientific: 'Tinca tinca', note: 'Native to France and Iberia.' },
-  roach: { scientific: 'Rutilus rutilus', note: 'Native to France; introduced in Iberia.' },
-  lmbass: { scientific: 'Micropterus salmoides', note: 'A North American fish, introduced and invasive in France and Iberia.' },
-  minnow: { scientific: 'Phoxinus phoxinus', note: 'Native to France from the Garonne north and east; the minnows of Iberia are other, closely related species.' },
+  perch: { scientific: 'Perca fluviatilis', note: $t('Native to France; introduced in Iberia.') },
+  pike: { scientific: 'Esox lucius', note: $t('Native to France; introduced in Iberia.') },
+  carp: { scientific: 'Cyprinus carpio (mirror form)', note: $t('An introduced, domesticated form of the common carp.') },
+  rudd: { scientific: 'Scardinius erythrophthalmus', note: $t('Native to France; introduced in parts of Iberia.') },
+  trout: { scientific: 'Salmo trutta', note: $t('Native along the whole coast’s rivers.') },
+  grayling: { scientific: 'Thymallus thymallus', note: $t('Native in parts of France; not native to Iberia.') },
+  tench: { scientific: 'Tinca tinca', note: $t('Native to France and Iberia.') },
+  roach: { scientific: 'Rutilus rutilus', note: $t('Native to France; introduced in Iberia.') },
+  lmbass: { scientific: 'Micropterus salmoides', note: $t('A North American fish, introduced and invasive in France and Iberia.') },
+  minnow: { scientific: 'Phoxinus phoxinus', note: $t('Native to France from the Garonne north and east; the minnows of Iberia are other, closely related species.') },
 };
 
 // Fish of Las Brasas, the invented island far to the south, that live outside the Atlantic
@@ -161,30 +162,30 @@ export const FRESHWATER = {
 // The north's own fish (northFish.js): cold-water fish of the north-east Atlantic, outside the
 // register's Biscay-to-Cádiz range, with their names and ranges here (as Las Brasas' have theirs).
 export const NORTHERN = {
-  cod: { scientific: 'Gadus morhua', note: 'The North Atlantic, in the east from the Bay of Biscay to the Barents Sea; common round Scotland and Norway, in the sea lochs in winter. IUCN global: Vulnerable (VU), assessed 1996.' },
-  saithe: { scientific: 'Pollachius virens', note: 'The North Atlantic, in the east from the Bay of Biscay to Svalbard and the Barents Sea; abundant round the Scottish isles and Norway, young fish inshore in shoals.' },
-  ling: { scientific: 'Molva molva', note: 'The north-east Atlantic from the Bay of Biscay to Iceland and northern Norway, on rocky ground and wrecks from about 100 to 400 m, shallower in the sea lochs.' },
-  haddock: { scientific: 'Melanogrammus aeglefinus', note: 'Both sides of the North Atlantic, in the east from the Bay of Biscay to Spitsbergen, on sand and mud. IUCN global: Vulnerable (VU), assessed 1996.' },
-  skate: { scientific: 'Dipturus intermedius', note: 'The north-east Atlantic, now mostly off western Scotland, round Orkney and in the deep sea lochs; once widespread. IUCN: Critically Endangered (CR), as part of the common skate complex; protected in the UK and the EU, never to be landed.' },
+  cod: { scientific: 'Gadus morhua', note: $t('The North Atlantic, in the east from the Bay of Biscay to the Barents Sea; common round Scotland and Norway, in the sea lochs in winter. IUCN global: Vulnerable (VU), assessed 1996.') },
+  saithe: { scientific: 'Pollachius virens', note: $t('The North Atlantic, in the east from the Bay of Biscay to Svalbard and the Barents Sea; abundant round the Scottish isles and Norway, young fish inshore in shoals.') },
+  ling: { scientific: 'Molva molva', note: $t('The north-east Atlantic from the Bay of Biscay to Iceland and northern Norway, on rocky ground and wrecks from about 100 to 400 m, shallower in the sea lochs.') },
+  haddock: { scientific: 'Melanogrammus aeglefinus', note: $t('Both sides of the North Atlantic, in the east from the Bay of Biscay to Spitsbergen, on sand and mud. IUCN global: Vulnerable (VU), assessed 1996.') },
+  skate: { scientific: 'Dipturus intermedius', note: $t('The north-east Atlantic, now mostly off western Scotland, round Orkney and in the deep sea lochs; once widespread. IUCN: Critically Endangered (CR), as part of the common skate complex; protected in the UK and the EU, never to be landed.') },
 };
 
 export const MACARONESIA = {
-  parrotfish: { scientific: 'Sparisoma cretense', note: 'Eastern Atlantic islands and the warm coasts from Portugal to Senegal, and the Mediterranean; very common on Canary reefs, where it is the prized “vieja”.' },
-  ornatewrasse: { scientific: 'Thalassoma pavo', note: 'Shallow rocky reefs of the Mediterranean and the eastern Atlantic, from Portugal south to the Gulf of Guinea, the Atlantic islands included; abundant in the Canaries.' },
-  triggerfish: { scientific: 'Balistes capriscus', note: 'Both sides of the Atlantic, in the east from the Mediterranean to Angola, the Canaries included.' },
-  moray: { scientific: 'Muraena helena', note: 'Rocky coasts of the Mediterranean and the eastern Atlantic, the Atlantic islands included; common in the Canaries.' },
-  barracuda: { scientific: 'Sphyraena viridensis', note: 'The Mediterranean and the eastern Atlantic islands (the Azores, Madeira, the Canaries, Cape Verde).' },
-  amberjack: { scientific: 'Seriola dumerili', note: 'Warm seas worldwide, the Canaries included. Large amberjack from warm waters have been linked to ciguatera there.' },
-  angelshark: { scientific: 'Squatina squatina', note: 'Once from Scandinavia to north-west Africa and the Mediterranean; critically endangered (IUCN), protected in Spain, and the Canaries are one of its last strongholds. Observation only.' },
-  trumpetfish: { scientific: 'Aulostomus strigosus', note: 'Reefs of the eastern Atlantic islands (Madeira, the Canaries, Cape Verde) and the tropical coast of West Africa. Not fished: observation only.' },
-  chromis: { scientific: 'Chromis limbata', note: 'The Atlantic islands (the Azores, Madeira, the Canaries, Cape Verde) and the West African coast; one of the most abundant fish over Canary reefs, in loose aggregations from a few metres down to about 50 m. Too small to be fished: observation only.' },
-  comber: { scientific: 'Serranus atricauda', note: 'The eastern Atlantic from the Bay of Biscay to Morocco and the Atlantic islands, rare in the Mediterranean; very common on Canary rocky bottoms (the “cabrilla negra”), from the shallows to over 100 m. Territorial; a hermaphrodite with both sexes at once.' },
+  parrotfish: { scientific: 'Sparisoma cretense', note: $t('Eastern Atlantic islands and the warm coasts from Portugal to Senegal, and the Mediterranean; very common on Canary reefs, where it is the prized “vieja”.') },
+  ornatewrasse: { scientific: 'Thalassoma pavo', note: $t('Shallow rocky reefs of the Mediterranean and the eastern Atlantic, from Portugal south to the Gulf of Guinea, the Atlantic islands included; abundant in the Canaries.') },
+  triggerfish: { scientific: 'Balistes capriscus', note: $t('Both sides of the Atlantic, in the east from the Mediterranean to Angola, the Canaries included.') },
+  moray: { scientific: 'Muraena helena', note: $t('Rocky coasts of the Mediterranean and the eastern Atlantic, the Atlantic islands included; common in the Canaries.') },
+  barracuda: { scientific: 'Sphyraena viridensis', note: $t('The Mediterranean and the eastern Atlantic islands (the Azores, Madeira, the Canaries, Cape Verde).') },
+  amberjack: { scientific: 'Seriola dumerili', note: $t('Warm seas worldwide, the Canaries included. Large amberjack from warm waters have been linked to ciguatera there.') },
+  angelshark: { scientific: 'Squatina squatina', note: $t('Once from Scandinavia to north-west Africa and the Mediterranean; critically endangered (IUCN), protected in Spain, and the Canaries are one of its last strongholds. Observation only.') },
+  trumpetfish: { scientific: 'Aulostomus strigosus', note: $t('Reefs of the eastern Atlantic islands (Madeira, the Canaries, Cape Verde) and the tropical coast of West Africa. Not fished: observation only.') },
+  chromis: { scientific: 'Chromis limbata', note: $t('The Atlantic islands (the Azores, Madeira, the Canaries, Cape Verde) and the West African coast; one of the most abundant fish over Canary reefs, in loose aggregations from a few metres down to about 50 m. Too small to be fished: observation only.') },
+  comber: { scientific: 'Serranus atricauda', note: $t('The eastern Atlantic from the Bay of Biscay to Morocco and the Atlantic islands, rare in the Mediterranean; very common on Canary rocky bottoms (the “cabrilla negra”), from the shallows to over 100 m. Territorial; a hermaphrodite with both sexes at once.') },
   // The big game of the blue water (bigGame.js): the billfish and the hammerhead are released.
-  bluemarlin: { scientific: 'Makaira nigricans', note: 'Tropical and warm-temperate Atlantic; off the Canaries and Madeira mostly in summer, when the islands are a noted big-game ground. Released by anglers; the Atlantic stock is managed by ICCAT.' },
-  sailfish: { scientific: 'Istiophorus platypterus', note: 'Warm seas worldwide (the Atlantic fish was once named Istiophorus albicans). Commonest off West Africa (Senegal, Cape Verde); a summer visitor round the Canaries. Released by anglers.' },
-  spearfish: { scientific: 'Tetrapturus pfluegeri', note: 'Open ocean of the tropical and warm Atlantic; rarely caught anywhere, though the Canaries and Madeira are among the places it turns up most. Released by anglers.' },
-  wahoo: { scientific: 'Acanthocybium solandri', note: 'Tropical and subtropical oceans worldwide, the Canaries included (the “peto”), mostly in the warmer months. A prized food fish.' },
-  dorado: { scientific: 'Coryphaena hippurus', note: 'Warm oceans worldwide; common round the Canaries in summer and autumn, often under floating weed and debris. Fast-growing and short-lived; a prized food fish (mahi-mahi).' },
-  yellowfin: { scientific: 'Thunnus albacares', note: 'Tropical and subtropical oceans worldwide; the Canaries’ “rabil”, fished in the warmer months. Managed by ICCAT.' },
-  hammerhead: { scientific: 'Sphyrna zygaena', note: 'Warm-temperate seas worldwide, the Canaries included, often near the surface; listed as Vulnerable (IUCN) and on CITES Appendix II. Released by anglers.' },
+  bluemarlin: { scientific: 'Makaira nigricans', note: $t('Tropical and warm-temperate Atlantic; off the Canaries and Madeira mostly in summer, when the islands are a noted big-game ground. Released by anglers; the Atlantic stock is managed by ICCAT.') },
+  sailfish: { scientific: 'Istiophorus platypterus', note: $t('Warm seas worldwide (the Atlantic fish was once named Istiophorus albicans). Commonest off West Africa (Senegal, Cape Verde); a summer visitor round the Canaries. Released by anglers.') },
+  spearfish: { scientific: 'Tetrapturus pfluegeri', note: $t('Open ocean of the tropical and warm Atlantic; rarely caught anywhere, though the Canaries and Madeira are among the places it turns up most. Released by anglers.') },
+  wahoo: { scientific: 'Acanthocybium solandri', note: $t('Tropical and subtropical oceans worldwide, the Canaries included (the “peto”), mostly in the warmer months. A prized food fish.') },
+  dorado: { scientific: 'Coryphaena hippurus', note: $t('Warm oceans worldwide; common round the Canaries in summer and autumn, often under floating weed and debris. Fast-growing and short-lived; a prized food fish (mahi-mahi).') },
+  yellowfin: { scientific: 'Thunnus albacares', note: $t('Tropical and subtropical oceans worldwide; the Canaries’ “rabil”, fished in the warmer months. Managed by ICCAT.') },
+  hammerhead: { scientific: 'Sphyrna zygaena', note: $t('Warm-temperate seas worldwide, the Canaries included, often near the surface; listed as Vulnerable (IUCN) and on CITES Appendix II. Released by anglers.') },
 };

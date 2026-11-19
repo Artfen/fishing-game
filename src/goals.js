@@ -5,6 +5,7 @@
 import { FISH, fishById } from './fish.js';
 import { wildPhotographed, WILD_GOAL } from './watching.js';
 import { STARTER, PRICES } from './shipyard.js';
+import { $t } from './i18n.js';
 
 const LIVE = FISH.filter((f) => !f.retired);
 
@@ -21,15 +22,15 @@ export function goalsOf(state, extra = {}) {
   const owned = state.yard?.owned?.length ?? 0;
   const [pf, po] = extra.places || [0, 0];
   const list = [
-    { id: 'kinds', text: 'Every kind of fish', n: caught.length, of: LIVE.length },
-    { id: 'fresh', text: 'Every fresh-water fish', n: got('fresh'), of: of('fresh').length },
-    { id: 'salt', text: 'Every sea fish', n: got('salt'), of: of('salt').length },
-    { id: 'lifetime', text: 'A fish of a lifetime (as big as its kind grows, near enough)', n: lifetime ? 1 : 0, of: 1 },
-    { id: 'boats', text: 'Boats of your own', n: owned, of: extra.boats || STARTER.length + Object.keys(PRICES).length },
-    { id: 'places', text: 'Every place on the coast found', n: pf, of: po },
-    { id: 'brasas', text: 'Across the ocean to Las Brasas', n: state.tips?.brasa ? 1 : 0, of: 1 },
+    { id: 'kinds', text: $t('Every kind of fish'), n: caught.length, of: LIVE.length },
+    { id: 'fresh', text: $t('Every fresh-water fish'), n: got('fresh'), of: of('fresh').length },
+    { id: 'salt', text: $t('Every sea fish'), n: got('salt'), of: of('salt').length },
+    { id: 'lifetime', text: $t('A fish of a lifetime (as big as its kind grows, near enough)'), n: lifetime ? 1 : 0, of: 1 },
+    { id: 'boats', text: $t('Boats of your own'), n: owned, of: extra.boats || STARTER.length + Object.keys(PRICES).length },
+    { id: 'places', text: $t('Every place on the coast found'), n: pf, of: po },
+    { id: 'brasas', text: $t('Across the ocean to Las Brasas'), n: state.tips?.brasa ? 1 : 0, of: 1 },
     // (G3) A collection of your own: kinds of wildlife with a photograph of each.
-    { id: 'photos', text: 'Wildlife photographed: twenty kinds, a picture of each', n: Math.min(WILD_GOAL, wildPhotographed(state.photos || [])), of: WILD_GOAL },
+    { id: 'photos', text: $t('Wildlife photographed: twenty kinds, a picture of each'), n: Math.min(WILD_GOAL, wildPhotographed(state.photos || [])), of: WILD_GOAL },
   ];
   return list.filter((g) => g.of > 0).map((g) => ({ ...g, done: g.n >= g.of }));
 }

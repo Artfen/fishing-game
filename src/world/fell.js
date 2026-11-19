@@ -3,6 +3,7 @@ import { heightAt, fellPathInfo, coastPathInfo } from './terrain.js';
 import { BOTHY, SUMMIT_CAIRN, FOOTBRIDGE, FELL_PATH, FELL_PATH_SEGS, FELL_PATH_LENGTH, COLDWATER, inColdwater } from './coldwater.js';
 import { mergeParts, mat, pick, jitterGeo, smoothstep, glowTexture } from '../util.js';
 import { withSurface } from './surface.js';
+import { $t } from '../i18n.js';
 
 // Up the Coldwater: the footbridge that carries the coast path over the river's mouth, the
 // fingerpost where the fell path leaves it, the bothy above Spout Pool (an old stone hut kept
@@ -131,12 +132,12 @@ function buildBothy(rnd, obstacles, spots) {
   group.add(walled, slates, timbers, panes);
   for (const lx of [-2, 0, 2]) {
     const p = toWorld(lx, 0);
-    obstacles.push({ x: p.x, z: p.z, r: 2.45, kind: 'building', name: 'the bothy' });
+    obstacles.push({ x: p.x, z: p.z, r: 2.45, kind: 'building', name: $t('the bothy') });
   }
   const pile = toWorld(-2, D / 2 + 0.35), bench = toWorld(1.75, D / 2 + 0.45);
-  obstacles.push({ x: pile.x, z: pile.z, r: 0.5, top: B.level + 0.5, kind: 'thing', name: 'the woodpile' });
-  obstacles.push({ x: bench.x, z: bench.z, r: 0.55, top: B.level + 0.5, kind: 'thing', name: 'the bench' });
-  spots.push({ kind: 'bothy', name: 'the bothy', ...BOTHY_DOOR });
+  obstacles.push({ x: pile.x, z: pile.z, r: 0.5, top: B.level + 0.5, kind: 'thing', name: $t('the woodpile') });
+  obstacles.push({ x: bench.x, z: bench.z, r: 0.55, top: B.level + 0.5, kind: 'thing', name: $t('the bench') });
+  spots.push({ kind: 'bothy', name: $t('the bothy'), ...BOTHY_DOOR });
 
   // Peat smoke from the chimney, drifting off.
   const smoke = [];
@@ -192,7 +193,7 @@ function buildFootbridge(rnd, obstacles) {
       const x = F.x + ux * u + vx * v, z = F.z + uz * u + vz * v, bed = heightAt(x, z) - 0.3, top = deckAt(u) - 0.25;
       if (top - bed < 0.3) continue;
       parts.push({ geo: new THREE.CylinderGeometry(0.11, 0.13, top - bed, 6), matrix: mat(x, (top + bed) / 2, z), color: '#5a4430' });
-      obstacles.push({ x, z, r: 0.2, kind: 'thing', name: 'the footbridge' });
+      obstacles.push({ x, z, r: 0.2, kind: 'thing', name: $t('the footbridge') });
     }
     parts.push({ geo: new THREE.BoxGeometry(0.16, 0.16, F.w + 0.5), matrix: P(u, deckAt(u) - 0.33, 0), color: '#5f4834' });
   }
@@ -243,8 +244,8 @@ function buildFingerpost(rnd, obstacles, spots) {
   arm(up, 1.85);
   arm(FOOTBRIDGE.yaw - Math.PI / 2, 1.6);
   arm(FOOTBRIDGE.yaw + Math.PI / 2, 1.38);
-  obstacles.push({ x: F.x, z: F.z, r: 0.2, kind: 'thing', name: 'the fingerpost' });
-  spots.push({ kind: 'fingerpost', name: 'the fingerpost', ...F });
+  obstacles.push({ x: F.x, z: F.z, r: 0.2, kind: 'thing', name: $t('the fingerpost') });
+  spots.push({ kind: 'fingerpost', name: $t('the fingerpost'), ...F });
   return mesh(mergeParts(parts, rnd), wood());
 }
 
@@ -262,8 +263,8 @@ function buildCairn(rnd, obstacles, spots) {
       parts.push({ geo: rock, matrix: mat(C.x + Math.sin(a) * r * 0.85, g + y + s * 0.5, C.z + Math.cos(a) * r * 0.85, rnd() * 3, rnd() * 3, rnd() * 3, s * 1.2, s * 0.8, s), color: pick(['#8f8b83', '#9d988e', '#7c7871', '#a9a49a'], rnd), jitter: 0.06 });
     }
   }
-  obstacles.push({ x: C.x, z: C.z, r: 1.5, top: g + 2, kind: 'thing', name: 'the cairn' });
-  spots.push({ kind: 'cairn', name: 'the cairn on Hoarfell', x: C.x, z: C.z, r: 3 });
+  obstacles.push({ x: C.x, z: C.z, r: 1.5, top: g + 2, kind: 'thing', name: $t('the cairn') });
+  spots.push({ kind: 'cairn', name: $t('the cairn on Hoarfell'), x: C.x, z: C.z, r: 3 });
   return mesh(mergeParts(parts, rnd), plain());
 }
 

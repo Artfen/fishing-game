@@ -9,6 +9,7 @@
 // keep and no service worker: a new version is a new app, which the app looks for, downloads and
 // installs (desktop/updates.cjs). Its news comes in here and shows on the same Update button.
 
+import { $t } from './i18n.js';
 const READY_KEY = 'slow-tide-offline-ready';
 
 export const offline = {
@@ -79,7 +80,7 @@ function watchInstalling(worker) {
     }
     if (worker.state === 'activated') ask(worker);
     if (worker.state === 'redundant' && !offline.ready) {
-      offline.error = 'Couldn’t store the game for offline play (the connection may have dropped). It will try again next time.';
+      offline.error = $t('Couldn’t store the game for offline play (the connection may have dropped). It will try again next time.');
       changed('error');
     } else if (worker.state === 'redundant' && !offline.updating) changed('status');
   });
@@ -153,7 +154,7 @@ export function setupOffline(onChange) {
     // Look for a new version now and then while playing (only does anything when online).
     setInterval(() => { if (navigator.onLine) reg.update().catch(() => {}); }, 30 * 60 * 1000);
   }).catch((err) => {
-    offline.error = `Offline play isn’t available here (${err.message}).`;
+    offline.error = $t`Offline play isn’t available here (${err.message}).`;
     changed('error');
   });
 }

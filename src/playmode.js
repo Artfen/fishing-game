@@ -10,15 +10,16 @@
 
 import { STARTER, PRICES } from './shipyard.js';
 import { newContracts } from './contracts.js';
+import { $t } from './i18n.js';
 
 export const PLAYS = {
   career: {
-    name: 'Career',
-    desc: 'Start at the camp with its three boats and £20. Sell what you catch, take work from the notice board and be trusted with more, buy the boats (or hire them by the day), and work your way up to the liveaboard trawler.',
+    name: $t('Career'),
+    desc: $t('Start at the camp with its three boats and £20. Sell what you catch, take work from the notice board and be trusted with more, buy the boats (or hire them by the day), and work your way up to the liveaboard trawler.'),
   },
   free: {
-    name: 'Free Roam',
-    desc: 'The whole coast from the first morning: every boat in the fleet yours, the liveaboard trawler and her tender waiting at your berth, all the work on the board open to you, and £2,000 in your purse.',
+    name: $t('Free Roam'),
+    desc: $t('The whole coast from the first morning: every boat in the fleet yours, the liveaboard trawler and her tender waiting at your berth, all the work on the board open to you, and £2,000 in your purse.'),
   },
 };
 export const PLAY_IDS = Object.keys(PLAYS);
@@ -41,7 +42,7 @@ export function giveFree(state, earn) {
   state.contracts.free = true;
   state.contracts.board = null;
   const purse = Math.max(0, FREE_PURSE - (state.money ?? 0));
-  if (purse > 0) earn(state, purse, 'Free Roam: a purse to begin with');
+  if (purse > 0) earn(state, purse, $t('Free Roam: a purse to begin with'));
   return { boats, purse };
 }
 

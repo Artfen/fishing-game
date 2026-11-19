@@ -1,5 +1,6 @@
 import { CLOUD_CONFIG } from './cloud-config.js';
 import { SAVE_VERSION, envelope, parseSave, mergeStates, adoptJournal, hasProgress } from './save.js';
+import { $t } from './i18n.js';
 
 // Optional cloud saves through Supabase, talking to its REST API directly (no SDK).
 //
@@ -43,10 +44,10 @@ function validConfig(c) {
 // reached, too many requests, or the service's own words.
 export function explainCloud(err) {
   const s = err?.status || 0, why = String(err?.message || '');
-  if (s === 0 || /no connection/.test(why)) return 'no connection';
-  if (s === 540 || s === 503 || (s >= 520 && s <= 530)) return 'the cloud service isn’t answering: it may be paused, and whoever runs this copy of the game can restore it';
-  if (s === 402 || /quota|exceed|limit/i.test(why)) return 'the cloud service has reached its plan’s limits for now';
-  if (s === 429) return 'too many requests just now: it will try again shortly';
+  if (s === 0 || /no connection/.test(why)) return $t('no connection');
+  if (s === 540 || s === 503 || (s >= 520 && s <= 530)) return $t('the cloud service isn’t answering: it may be paused, and whoever runs this copy of the game can restore it');
+  if (s === 402 || /quota|exceed|limit/i.test(why)) return $t('the cloud service has reached its plan’s limits for now');
+  if (s === 429) return $t('too many requests just now: it will try again shortly');
   return why || `error ${s}`;
 }
 
@@ -137,7 +138,7 @@ export class Cloud {
     }
     this.state = 'signedOut';
     if (hash.has('error_description')) {
-      this.message = `That sign-in link didn’t work (${hash.get('error_description')}). Links expire after a while and work once: ask for a new one.`;
+      this.message = $t`That sign-in link didn’t work (${hash.get('error_description')}). Links expire after a while and work once: ask for a new one.`;
     }
     if (hash.has('access_token')) {
       this.session = {
@@ -155,7 +156,7 @@ export class Cloud {
         this.message = '';
       } catch (err) {
         this.session = null;
-        this.message = `Signing in didn’t finish: ${err.message}`;
+        this.message = $t`Signing in didn’t finish: ${err.message}`;
       }
       return;
     }
@@ -168,11 +169,11 @@ export class Cloud {
         if (err.status === 400 || err.status === 401 || err.status === 403) {
           this.session = null;
           this.writeSession();
-          this.message = 'You’ve been signed out. Your progress in this browser is safe: sign in again to sync it.';
+          this.message = $t('You’ve been signed out. Your progress in this browser is safe: sign in again to sync it.');
         } else {
           // Offline, probably: stay signed in and try again later.
           this.state = 'signedIn';
-          this.message = 'Couldn’t reach the cloud just now. Your progress is saved in this browser and will sync later.';
+          this.message = $t('Couldn’t reach the cloud just now. Your progress is saved in this browser and will sync later.');
         }
       }
     }
@@ -189,7 +190,7 @@ export class Cloud {
     try {
       r = await fetch(this.cfg.url + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), keepalive });
     } catch {
-      throw new CloudError('no connection', 0);
+      throw new CloudError($t('no connection'), 0);
     }
     const text = await r.text();
     let json = null;
@@ -203,7 +204,7 @@ export class Cloud {
 
   async freshToken() {
     const s = this.session;
-    if (!s) throw new CloudError('not signed in', 401);
+    if (!s) throw new CloudError($t('not signed in'), 401);
     if (s.expires_at - 60 > Date.now() / 1000) return;
     const t = await this.api('POST', '/auth/v1/token?grant_type=refresh_token', { body: { refresh_token: s.refresh_token }, auth: false });
     s.access_token = t.access_token;
@@ -218,7 +219,7 @@ export class Cloud {
   async sendLink(email) {
     email = String(email || '').trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      this.changed('That doesn’t look like an email address.');
+      this.changed($t('That doesn’t look like an email address.'));
       return false;
     }
     this.state = 'sending';
@@ -227,11 +228,11 @@ export class Cloud {
     try {
       await this.api('POST', `/auth/v1/otp?redirect_to=${encodeURIComponent(back)}`, { body: { email, create_user: true }, auth: false });
       this.state = 'sent';
-      this.changed(`A sign-in link is on its way to ${email}. Open it on this device; your progress here will come with you.`);
+      this.changed($t`A sign-in link is on its way to ${email}. Open it on this device; your progress here will come with you.`);
       return true;
     } catch (err) {
       this.state = 'signedOut';
-      this.changed(err.status === 429 ? 'Too many sign-in emails just now. Please wait a minute and try again.' : `Couldn’t send the email: ${explainCloud(err)}.`);
+      this.changed(err.status === 429 ? $t('Too many sign-in emails just now. Please wait a minute and try again.') : $t`Couldn’t send the email: ${explainCloud(err)}.`);
       return false;
     }
   }
@@ -242,14 +243,14 @@ export class Cloud {
     this.session = null;
     this.writeSession();
     this.state = 'signedOut';
-    this.changed('Signed out. You’re playing as a guest; your progress stays in this browser.');
+    this.changed($t('Signed out. You’re playing as a guest; your progress stays in this browser.'));
   }
 
   /* ---------------- syncing ---------------- */
 
   async pull() {
     await this.freshToken();
-    const rows = await this.api('GET', `/rest/v1/${TABLE}?select=version,rev,saved_at,data&user_id=eq.${this.session.user.id}`);
+    const rows = await this.api('GET', $t`/rest/v1/${TABLE}?select=version,rev,saved_at,data&user_id=eq.${this.session.user.id}`);
     const row = Array.isArray(rows) ? rows[0] : null;
     if (!row) return null;
     const savedAt = Date.parse(row.saved_at) || 0;
@@ -276,7 +277,7 @@ export class Cloud {
         throw err;
       }
     }
-    const rows = await this.api('PATCH', `/rest/v1/${TABLE}?user_id=eq.${s.user.id}&rev=eq.${s.rev}`, { body: { ...body, rev: s.rev + 1 }, prefer: 'return=representation', keepalive });
+    const rows = await this.api('PATCH', $t`/rest/v1/${TABLE}?user_id=eq.${s.user.id}&rev=eq.${s.rev}`, { body: { ...body, rev: s.rev + 1 }, prefer: 'return=representation', keepalive });
     if (!Array.isArray(rows) || !rows.length) return false;
     s.rev = rows[0].rev;
     this.writeSession();
@@ -296,28 +297,28 @@ export class Cloud {
         this.paused = false;
         delete this.session.replace;
         await this.pushNow(local, Date.now());
-        this.message = 'Your account now holds this game.';
+        this.message = $t('Your account now holds this game.');
         return { state: local, note: '' };
       }
       if (remote?.newer) {
         this.paused = true;
-        this.changed('Your cloud save is from a newer version of Slow Tide. Reload the page to update; until then it won’t be touched.');
+        this.changed($t('Your cloud save is from a newer version of Slow Tide. Reload the page to update; until then it won’t be touched.'));
         return null;
       }
       let state = local, note = '';
       if (!remote) {
         this.session.rev = 0;
-        note = hasProgress(local) ? 'Signed in. Your progress from this browser is now saved to your account.' : 'Signed in. Your progress will be saved to your account.';
+        note = hasProgress(local) ? $t('Signed in. Your progress from this browser is now saved to your account.') : $t('Signed in. Your progress will be saved to your account.');
       } else {
         this.session.rev = remote.rev;
         if (!hasProgress(local)) {
           state = mergeStates(local, remote.state, 'b');
-          note = 'Signed in. Your cloud save is loaded.';
+          note = $t('Signed in. Your cloud save is loaded.');
         } else {
           state = mergeStates(local, remote.state, remote.savedAt > localSavedAt ? 'b' : 'a');
           note = hasProgress(remote.state)
-            ? 'Signed in. Your progress in this browser and your cloud save have been combined: every catch and place from both is kept.'
-            : 'Signed in. Your progress from this browser is now saved to your account.';
+            ? $t('Signed in. Your progress in this browser and your cloud save have been combined: every catch and place from both is kept.')
+            : $t('Signed in. Your progress from this browser is now saved to your account.');
         }
       }
       if (await this.pushNow(state, Date.now())) this.waiting = false;
@@ -325,7 +326,7 @@ export class Cloud {
       return { state, note };
     } catch (err) {
       this.waiting = true;
-      this.changed(navigator.onLine === false ? '' : `Couldn’t sync just now (${explainCloud(err)}). Your progress is saved in this browser and will sync later.`);
+      this.changed(navigator.onLine === false ? '' : $t`Couldn’t sync just now (${explainCloud(err)}). Your progress is saved in this browser and will sync later.`);
       return null;
     } finally {
       this.syncing = false;
@@ -349,7 +350,7 @@ export class Cloud {
       }
       if (remote.newer) {
         this.paused = true;
-        this.changed('Your cloud save is from a newer version of Slow Tide. Reload to update.');
+        this.changed($t('Your cloud save is from a newer version of Slow Tide. Reload to update.'));
         return false;
       }
       this.session.rev = remote.rev;
@@ -393,8 +394,8 @@ export class Cloud {
         this.session = null;
         this.writeSession();
         this.state = 'signedOut';
-        this.changed('You’ve been signed out. Your progress in this browser is safe: sign in again to sync it.');
-      } else this.changed(`Not synced yet (${err.message}). Your progress is saved in this browser; it will try again.`);
+        this.changed($t('You’ve been signed out. Your progress in this browser is safe: sign in again to sync it.'));
+      } else this.changed($t`Not synced yet (${err.message}). Your progress is saved in this browser; it will try again.`);
     } finally {
       this.syncing = false;
     }
@@ -409,7 +410,7 @@ export class Cloud {
   async exportCloud() {
     if (!this.signedIn) return null;
     await this.freshToken();
-    const rows = await this.api('GET', `/rest/v1/${TABLE}?select=version,saved_at,data&user_id=eq.${this.session.user.id}`);
+    const rows = await this.api('GET', $t`/rest/v1/${TABLE}?select=version,saved_at,data&user_id=eq.${this.session.user.id}`);
     const row = Array.isArray(rows) ? rows[0] : null;
     if (!row) return null;
     return JSON.stringify({ game: 'slow-tide', version: row.version, savedAt: Date.parse(row.saved_at) || 0, data: row.data }, null, 1);
@@ -432,12 +433,12 @@ export class Cloud {
     } catch (err) {
       if (err.status !== 404 && !/delete_my_account|function/i.test(err.message)) throw err;
       account = false;
-      await this.api('DELETE', `/rest/v1/${TABLE}?user_id=eq.${this.session.user.id}`);
+      await this.api('DELETE', $t`/rest/v1/${TABLE}?user_id=eq.${this.session.user.id}`);
     }
     this.session = null;
     this.writeSession();
     this.state = 'signedOut';
-    this.changed(account ? 'Your cloud save and your account are deleted. Your game in this browser is as it was: you’re playing as a guest.' : 'Your cloud save is deleted. Your sign-in record (your email address) is still held: ask whoever runs this copy of the game to remove it (see the privacy page).');
+    this.changed(account ? $t('Your cloud save and your account are deleted. Your game in this browser is as it was: you’re playing as a guest.') : $t('Your cloud save is deleted. Your sign-in record (your email address) is still held: ask whoever runs this copy of the game to remove it (see the privacy page).'));
     return { ok: true, account };
   }
 

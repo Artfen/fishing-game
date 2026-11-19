@@ -17,6 +17,7 @@
 
 import { cleanLook } from './looks.js';
 import { kindOf, isBoatId } from './boatid.js';
+import { $t } from './i18n.js';
 
 export const NAME_MAX = 16;
 export const MAX_PLAYERS = 8;
@@ -43,7 +44,7 @@ const HOST_GRACE = 60;      // seconds the others wait for a host who's gone (a 
 const RESUME_FOR = 10 * 60; // seconds a session can be picked up again after a reload
 const SESSION_KEY = 'slow-tide-session';
 // Quick calls: a few words to the others, one at a time (no typing, nothing to moderate).
-export const CALLS = ['Over here!', 'Fish on!', 'Come and look at this', 'Good spot here', 'Wait for me', 'Heading in'];
+export const CALLS = [$t('Over here!'), $t('Fish on!'), $t('Come and look at this'), $t('Good spot here'), $t('Wait for me'), $t('Heading in')];
 const CALL_GAP = 1.5;       // seconds between calls, each way
 // Discoveries shared with friends, if you choose to share them (Settings → Play together): a place
 // or dive site found, something found on a wreck, a first fish with how it was caught, or a mark
@@ -96,7 +97,7 @@ export function cleanSeen(d) {
     const x = finite(d.x, -3000, 3000), z = finite(d.z, -3000, 8000), dep = finite(d.d, 0, 400);
     if (x == null || z == null || dep == null) return null;
     const f = Array.isArray(d.f) ? d.f.map((v) => finite(v, 0, 400)).filter((v) => v != null).slice(0, 3).map((v) => Math.round(v * 10) / 10) : [];
-    const t = typeof d.t === 'string' && /^[a-z ]{1,16}$/.test(d.t) ? d.t : 'the bottom';
+    const t = typeof d.t === 'string' && /^[a-z ]{1,16}$/.test(d.t) ? d.t : $t('the bottom');
     return { w: 'mark', x: Math.round(x * 10) / 10, z: Math.round(z * 10) / 10, d: Math.round(dep * 10) / 10, f, t };
   }
   if (d.w === 'fish') {
@@ -125,7 +126,7 @@ export function cleanNav(d) {
   }
   if (pts.length < 2) return null;
   const leg = Number.isInteger(d.leg) && d.leg >= 1 && d.leg < pts.length ? d.leg : 1;
-  return { name: plain(d.name, 30) || 'their route', pts, leg };
+  return { name: plain(d.name, 30) || $t('their route'), pts, leg };
 }
 export function cleanFind(f) {
   if (!f || typeof f !== 'object' || !FIND_KINDS.includes(f.k)) return null;
@@ -316,21 +317,21 @@ export function cleanWorld(w, skies = null) {
 export function explain(err) {
   const why = String(err?.message || err || '');
   if (/couldn’t connect|timed out|no answer|closed/.test(why)) {
-    return 'Couldn’t reach the game’s online service. If nobody has played together for a while, the Supabase project may be paused: whoever runs this copy of the game can restore it from the Supabase dashboard. Then try again.';
+    return $t('Couldn’t reach the game’s online service. If nobody has played together for a while, the Supabase project may be paused: whoever runs this copy of the game can restore it from the Supabase dashboard. Then try again.');
   }
-  const quota = /limit|quota|exceed|too many/i.test(why) ? ' The Supabase plan’s Realtime allowance may be used up (see Usage in the Supabase dashboard).' : '';
-  return `The online service said no (${why || 'no reason given'}).${quota}`;
+  const quota = /limit|quota|exceed|too many/i.test(why) ? $t(' The Supabase plan’s Realtime allowance may be used up (see Usage in the Supabase dashboard).') : '';
+  return $t`The online service said no (${why || $t('no reason given')}).${quota}`;
 }
 
 // The one-line description of where someone is, for the list in Settings.
 // gearName(pose): what they're fishing with, in a few words, or ''.
 export function poseWords(pose, boatName = (k) => k, gearName = () => '') {
-  if (!pose) return 'on their way';
+  if (!pose) return $t('on their way');
   const gear = gearName(pose), w = gear ? ` (${gear})` : '';
-  if (pose.m === 'boat') return `in the ${boatName(pose.k)}${pose.o ? ', playing a fish' : pose.f ? ', fishing' : ''}${pose.f || pose.o ? w : ''}`;
+  if (pose.m === 'boat') return $t`in the ${boatName(pose.k)}${pose.o ? $t(', playing a fish') : pose.f ? ', fishing' : ''}${pose.f || pose.o ? w : ''}`;
   if (pose.m === 'dive') return 'diving';
   if (pose.m === 'car') return 'driving';
-  return pose.o ? `playing a fish from the shore${w}` : pose.a === 'fish' ? `fishing from the shore${w}` : pose.a === 'sit' ? 'sitting a while' : 'on foot';
+  return pose.o ? $t`playing a fish from the shore${w}` : pose.a === 'fish' ? $t`fishing from the shore${w}` : pose.a === 'sit' ? $t('sitting a while') : $t('on foot');
 }
 
 /* ---------------- a small Supabase Realtime client ---------------- */
@@ -340,7 +341,7 @@ export function poseWords(pose, boatName = (k) => k, gearName = () => '') {
 export class Realtime {
   constructor({ url, key, WS = globalThis.WebSocket }) {
     const base = url.replace(/^http/, 'ws').replace(/\/+$/, '');
-    this.endpoint = `${base}/realtime/v1/websocket?apikey=${encodeURIComponent(key)}&vsn=1.0.0`;
+    this.endpoint = $t`${base}/realtime/v1/websocket?apikey=${encodeURIComponent(key)}&vsn=1.0.0`;
     this.key = key;
     this.WS = WS;
     this.ws = null;
@@ -642,9 +643,9 @@ export class Together {
   }
 
   why() {
-    if (!this.config()) return 'Playing together needs the game’s online service, and it isn’t set up on this copy of Slow Tide.';
-    if (!this.WS) return 'This browser can’t open the live connection playing together needs.';
-    if (!this.online()) return 'You’re offline. Playing together needs a connection.';
+    if (!this.config()) return $t('Playing together needs the game’s online service, and it isn’t set up on this copy of Slow Tide.');
+    if (!this.WS) return $t('This browser can’t open the live connection playing together needs.');
+    if (!this.online()) return $t('You’re offline. Playing together needs a connection.');
     return '';
   }
 
@@ -664,7 +665,7 @@ export class Together {
     const attempt = ++this.attempt;
     this.status = 'connecting';
     this.stats = Together.freshStats();
-    this.changed('Starting a session…');
+    this.changed($t('Starting a session…'));
     try {
       for (let i = 0; i < 6; i++) {
         const code = resume && validCode(resume) ? resume : this.newCode();
@@ -677,7 +678,7 @@ export class Together {
           // from now on is a fresh account of it; see sharedworld.js.)
           this.epoch = newId().replace(/-/g, '').slice(0, 12);
           this.rt.track(this.meta());
-          this.changed(resume ? `Back in your session, ${code}.` : `Your session is open. Give your friend the code ${code}.`);
+          this.changed(resume ? $t`Back in your session, ${code}.` : $t`Your session is open. Give your friend the code ${code}.`);
           this.sendWorld();
           return true;
         }
@@ -688,7 +689,7 @@ export class Together {
       if (attempt !== this.attempt) return false;
       this.drop();
       this.status = 'off';
-      this.changed(`Couldn’t start a session. ${explain(err)}`);
+      this.changed($t`Couldn’t start a session. ${explain(err)}`);
       return false;
     }
   }
@@ -698,7 +699,7 @@ export class Together {
     if (this.active || this.status === 'connecting') return false;
     const code = cleanCode(raw);
     if (!validCode(code)) {
-      this.changed('A session code is four digits, like 4821.');
+      this.changed($t('A session code is four digits, like 4821.'));
       return false;
     }
     const why = this.why();
@@ -709,33 +710,33 @@ export class Together {
     const attempt = ++this.attempt;
     this.status = 'connecting';
     this.stats = Together.freshStats();
-    this.changed(`Looking for session ${code}…`);
+    this.changed($t`Looking for session ${code}…`);
     try {
       const alone = await this.open(code, attempt, true);
       if (attempt !== this.attempt) return false;
       if (alone) {
         this.drop();
         this.status = 'off';
-        this.changed(`No one is in a session with the code ${code}. Check the code with whoever started it (it lasts while they’re in the game).`);
+        this.changed($t`No one is in a session with the code ${code}. Check the code with whoever started it (it lasts while they’re in the game).`);
         return false;
       }
       if (this.peers.size >= MAX_PLAYERS) {
         this.drop();
         this.status = 'off';
-        this.changed(`That session is full: up to ${MAX_PLAYERS} can play together.`);
+        this.changed($t`That session is full: up to ${MAX_PLAYERS} can play together.`);
         return false;
       }
       this.status = 'joined';
       this.rt.track(this.meta());
       const host = this.peers.get(this.hostId);
-      this.changed(`You’ve joined ${host?.name ? `${host.name}’s` : 'the'} session.`);
+      this.changed($t`You’ve joined ${host?.name ? `${host.name}’s` : 'the'} session.`);
       this.onEvent('joined', host || null);
       return true;
     } catch (err) {
       if (attempt !== this.attempt) return false;
       this.drop();
       this.status = 'off';
-      this.changed(`Couldn’t join. ${explain(err)}`);
+      this.changed($t`Couldn’t join. ${explain(err)}`);
       return false;
     }
   }
@@ -769,7 +770,7 @@ export class Together {
     if (this.hosting && this.rt?.open) this.rt.send('end', { id: this.id });
     this.drop();
     this.status = 'off';
-    if (!quiet) this.changed('You’ve left the session.');
+    if (!quiet) this.changed($t('You’ve left the session.'));
   }
 
   // The page is going (a reload, the Update button, the tab closing): leave quietly, and keep the
@@ -819,14 +820,14 @@ export class Together {
     if (!this.active) return;
     if (!this.reconnecting) this.onEvent('lost', null);
     this.reconnecting = true;
-    this.changed('Lost the connection. Trying again…');
+    this.changed($t('Lost the connection. Trying again…'));
     const wait = RECONNECT[this.retry++];
     if (wait == null) {
       const code = this.code;
       this.forget();
       this.drop();
       this.status = 'off';
-      this.changed(`The connection was lost and couldn’t be got back, so you’ve left session ${code}.`);
+      this.changed($t`The connection was lost and couldn’t be got back, so you’ve left session ${code}.`);
       this.onEvent('ended', null, { lost: true });
       return;
     }
@@ -859,7 +860,7 @@ export class Together {
         this.reconnecting = false;
         this.retry = 0;
         this.stats.reconnects++;
-        this.changed('Connected again.');
+        this.changed($t('Connected again.'));
         this.onEvent('back', null);
       } catch {
         if (attempt !== this.attempt) return;
@@ -964,7 +965,7 @@ export class Together {
       return;
     }
     if (event === 'system' && payload?.status === 'error') {
-      this.changed(`The online service reported a problem: ${String(payload.message || 'unknown').slice(0, 120)}.`);
+      this.changed($t`The online service reported a problem: ${String(payload.message || 'unknown').slice(0, 120)}.`);
       return;
     }
     if (event !== 'broadcast' || !payload) return;
@@ -1002,8 +1003,8 @@ export class Together {
         p.toldVersion = true;
         if (v > POSE_V) {
           this.newer = true;
-          this.changed(`${p.name || 'A friend'} is playing a newer version of Slow Tide. Reload the page to update, so you see their boats as they are.`);
-        } else this.changed(`${p.name || 'A friend'} is playing an older version of Slow Tide: they’ll need to reload the page to see your boats as they are.`);
+          this.changed($t`${p.name || 'A friend'} is playing a newer version of Slow Tide. Reload the page to update, so you see their boats as they are.`);
+        } else this.changed($t`${p.name || 'A friend'} is playing an older version of Slow Tide: they’ll need to reload the page to see your boats as they are.`);
       }
       if (!pose) return;
       // When they sent it, by their clock; and how far their clock is behind ours, plus the
@@ -1130,7 +1131,7 @@ export class Together {
       if (!w) {
         if (typeof data.w?.v === 'number' && data.w.v > WORLD_V && !this.newer) {
           this.newer = true;
-          this.changed(`${p.name || 'The host'} is playing a newer version of Slow Tide. Reload the page to update, so you share the same sky.`);
+          this.changed($t`${p.name || $t('The host')} is playing a newer version of Slow Tide. Reload the page to update, so you share the same sky.`);
         }
         return;
       }
@@ -1143,11 +1144,11 @@ export class Together {
     } else if (kind === 'end') {
       if (!this.active || (this.hostId && p.id !== this.hostId)) return;
       this.forget();
-      const name = p.name || 'The host';
+      const name = p.name || $t('The host');
       this.attempt++;
       this.drop();
       this.status = 'off';
-      this.changed(`${name} ended the session.`);
+      this.changed($t`${name} ended the session.`);
       this.onEvent('ended', p);
     }
   }
@@ -1287,7 +1288,7 @@ export class Together {
     return this.now() - W.heard < WORLD_STALE ? W : null;
   }
 
-  get hostLabel() { return this.hostName || 'the host'; }
+  get hostLabel() { return this.hostName || $t('the host'); }
 
   // A quick call to the others (index into CALLS). Returns whether it went.
   call(i) {
@@ -1337,7 +1338,7 @@ export class Together {
   // x, z }), or a photograph's subjects ({ w: 'snap', sea, life, nature, species, bow }).
   seen(to, what) {
     if (!this.active || !this.rt?.open || this.reconnecting || !this.peers.has(to)) return false;
-    const S = cleanSeen(what), key = `seen_${S?.w}_Sent`;
+    const S = cleanSeen(what), key = $t`seen_${S?.w}_Sent`;
     if (!S || this.clock - (this[key] ?? -99) < SEEN_GAP) return false;
     this[key] = this.clock;
     this.rt.send('seen', { id: this.id, to, ...S });
@@ -1419,7 +1420,7 @@ export class Together {
         this.attempt++;
         this.drop();
         this.status = 'off';
-        this.changed(`${name[0].toUpperCase()}${name.slice(1)} has gone, so the session has ended.`);
+        this.changed($t`${name[0].toUpperCase()}${name.slice(1)} has gone, so the session has ended.`);
         this.onEvent('ended', null, { hostGone: true, name });
       }
     }

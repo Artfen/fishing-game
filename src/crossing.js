@@ -4,6 +4,7 @@ import { SOUTH_Z, ISLE, FARO, PUERTO, brasaIsleSDF } from './world/brasa.js';
 const brasaSDF = brasaIsleSDF;
 import { clamp, lerp, smoothstep, seeded } from './util.js';
 import { kindOf, isBoatId } from './boatid.js';
+import { $t } from './i18n.js';
 
 // The crossing: Las Brasas lies across the open Atlantic to the south of Willow Bay, in the same
 // world, and you can sail there (or motor, in the yacht) the whole way, at the helm: out past
@@ -32,8 +33,8 @@ import { kindOf, isBoatId } from './boatid.js';
 // The two ends: the home coast's open water off Gannet Light, and the island's north-east corner,
 // off the coast before you round Punta del Faro.
 export const ENDS = {
-  home: { x: LIGHT.x + 180, z: LIGHT.z + 300, name: 'Gannet Light' },
-  south: { x: 420, z: 5420, name: 'Las Brasas' },
+  home: { x: LIGHT.x + 180, z: LIGHT.z + 300, name: $t('Gannet Light') },
+  south: { x: 420, z: 5420, name: $t('Las Brasas') },
 };
 // (Then round the point to the harbour.)
 export const ROUND = { x: FARO.x + 160, z: FARO.z + 60 };
@@ -90,7 +91,7 @@ export const CROSS_FUEL = (perSecond, kind = 'cruiser') => Math.round(crossSecon
 export const NEED_FUEL = (perSecond, kind = 'cruiser') => Math.round(CROSS_FUEL(perSecond, kind) * 1.4 + 10);
 
 // Words for a bearing (compass radians: 0 north, -z; π south, +z).
-const POINTS = ['north', 'north by east', 'north-north-east', 'north-east by north', 'north-east', 'north-east by east', 'east-north-east', 'east by north', 'east', 'east by south', 'east-south-east', 'south-east by east', 'south-east', 'south-east by south', 'south-south-east', 'south by east', 'south', 'south by west', 'south-south-west', 'south-west by south', 'south-west', 'south-west by west', 'west-south-west', 'west by south', 'west', 'west by north', 'west-north-west', 'north-west by west', 'north-west', 'north-west by north', 'north-north-west', 'north by west'];
+const POINTS = ['north', $t('north by east'), 'north-north-east', 'north-east by north', 'north-east', 'north-east by east', 'east-north-east', $t('east by north'), 'east', $t('east by south'), 'east-south-east', 'south-east by east', 'south-east', 'south-east by south', 'south-south-east', $t('south by east'), 'south', $t('south by west'), 'south-south-west', 'south-west by south', 'south-west', 'south-west by west', 'west-south-west', $t('west by south'), 'west', $t('west by north'), 'west-north-west', 'north-west by west', 'north-west', 'north-west by north', 'north-north-west', $t('north by west')];
 export function bearingTo(fx, fz, tx, tz) {
   const b = Math.atan2(tx - fx, -(tz - fz));
   return (b + Math.PI * 2) % (Math.PI * 2);
@@ -98,10 +99,10 @@ export function bearingTo(fx, fz, tx, tz) {
 export const pointWords = (b) => POINTS[Math.round((b / (Math.PI * 2)) * 32) % 32];
 // Where to steer for now: across to the far end, then (going south) round the point to the harbour.
 export function steerFor(to, x, z) {
-  if (to === 'home') return { x: ENDS.home.x, z: ENDS.home.z - 200, name: 'Gannet Light' };
-  if (z < ENDS.south.z - 150 && brasaSDF(x, z) > 650) return { x: ENDS.south.x, z: ENDS.south.z, name: 'Las Brasas' };
-  if (z < ROUND.z - 40) return { x: ROUND.x, z: ROUND.z, name: 'Punta del Faro' };
-  return { x: HARBOUR.x, z: HARBOUR.z, name: 'Puerto Brasa' };
+  if (to === 'home') return { x: ENDS.home.x, z: ENDS.home.z - 200, name: $t('Gannet Light') };
+  if (z < ENDS.south.z - 150 && brasaSDF(x, z) > 650) return { x: ENDS.south.x, z: ENDS.south.z, name: $t('Las Brasas') };
+  if (z < ROUND.z - 40) return { x: ROUND.x, z: ROUND.z, name: $t('Punta del Faro') };
+  return { x: HARBOUR.x, z: HARBOUR.z, name: $t('Puerto Brasa') };
 }
 
 // What happens along the way: seeded by the day you set out and the way you're going, so the
@@ -109,12 +110,12 @@ export function steerFor(to, x, z) {
 // across (z), with quiet water between.
 export const ENCOUNTERS = {
   dolphins: { warm: false, words: 'dolphins' },
-  whale: { warm: false, words: 'a whale' },
-  boil: { warm: false, words: 'birds working over tuna' },
-  flyingfish: { warm: true, words: 'flying fish' },
-  turtle: { warm: true, words: 'a loggerhead turtle' },
-  squall: { warm: false, words: 'a squall' },
-  ship: { warm: false, words: 'a ship' },
+  whale: { warm: false, words: $t('a whale') },
+  boil: { warm: false, words: $t('birds working over tuna') },
+  flyingfish: { warm: true, words: $t('flying fish') },
+  turtle: { warm: true, words: $t('a loggerhead turtle') },
+  squall: { warm: false, words: $t('a squall') },
+  ship: { warm: false, words: $t('a ship') },
 };
 export function planCrossing(day, to) {
   const r = seeded(Math.imul(day + 11, 0x9e3779b1) ^ (to === 'south' ? 0x1234567 : 0x7654321));

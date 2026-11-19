@@ -1,4 +1,5 @@
 import { levers } from './throttle.js';
+import { $t } from './i18n.js';
 
 // The throttle lever on screen (bottom right; above the cast button on a touch screen), shown
 // while you're at the helm of a motorboat or have the kayak's motor down. Its notches run from
@@ -26,10 +27,10 @@ export class LeverUI {
     this.kind = null;
     this.drag = null;
     root.setAttribute('role', 'group');
-    root.setAttribute('aria-label', 'Throttle lever');
+    root.setAttribute('aria-label', $t('Throttle lever'));
     const head = el('div', 'lv-head');
-    this.title = el('span', 'lv-title', 'Throttle');
-    this.now = el('b', 'lv-now', 'Neutral');
+    this.title = el('span', 'lv-title', $t('Throttle'));
+    this.now = el('b', 'lv-now', $t('Neutral'));
     head.append(this.title, this.now);
     // (The engine's gauges, in a line: the revs, the trim, anything wrong. See helmGauges.)
     this.gauges = el('div', 'lv-gauges');
@@ -42,12 +43,12 @@ export class LeverUI {
     this.track.setAttribute('aria-orientation', 'vertical');
     this.list = el('ol', 'lv-notches');
     this.body.append(this.list, this.track);
-    this.stopBtn = el('button', 'lv-stop', 'Stop');
+    this.stopBtn = el('button', 'lv-stop', $t('Stop'));
     this.stopBtn.type = 'button';
-    this.motorBtn = el('button', 'lv-motor', 'Motor');
+    this.motorBtn = el('button', 'lv-motor', $t('Motor'));
     this.motorBtn.type = 'button';
     // (The outboard's leg right up out of the water, or back down: one press.)
-    this.tiltBtn = el('button', 'lv-motor lv-tilt', 'Tilt up');
+    this.tiltBtn = el('button', 'lv-motor lv-tilt', $t('Tilt up'));
     this.tiltBtn.type = 'button';
     this.tiltBtn.hidden = true;
     this.keys = el('div', 'lv-keys');
@@ -57,11 +58,11 @@ export class LeverUI {
     this.track.append(this.handle2);
     this.twins = el('div', 'lv-twins');
     this.twins.hidden = true;
-    this.twinBtns = [['both', 'Both'], ['port', 'Port'], ['stbd', 'Stbd']].map(([id, text]) => {
+    this.twinBtns = [['both', $t('Both')], ['port', $t('Port')], ['stbd', $t('Stbd')]].map(([id, text]) => {
       const b = el('button', 'lv-twin', text);
       b.type = 'button';
       b.dataset.sel = id;
-      b.setAttribute('aria-label', id === 'both' ? 'Both levers' : id === 'port' ? 'The port lever' : 'The starboard lever');
+      b.setAttribute('aria-label', id === 'both' ? $t('Both levers') : id === 'port' ? $t('The port lever') : $t('The starboard lever'));
       this.twins.append(b);
       return b;
     });
@@ -164,11 +165,11 @@ export class LeverUI {
     this.title.textContent = s.title || 'Throttle';
     this.now.textContent = s.words;
     this.motorBtn.hidden = !s.motor;
-    this.motorBtn.textContent = s.motor === 'outboard' ? 'Outboard up · sail or row' : s.motor === 'down' ? 'Raise motor · paddle' : 'Lower motor';
+    this.motorBtn.textContent = s.motor === 'outboard' ? $t('Outboard up · sail or row') : s.motor === 'down' ? $t('Raise motor · paddle') : $t('Lower motor');
     this.motorBtn.setAttribute('aria-pressed', s.motor === 'down' || s.motor === 'outboard');
     this.stopBtn.hidden = !s.kind;
     if (this.tiltBtn.hidden !== !s.tilt) this.tiltBtn.hidden = !s.tilt;
-    const tw = s.tilt === 'up' ? (s.twin ? 'Tilt the outboards down' : 'Tilt the outboard down') : s.twin ? 'Tilt the outboards up' : 'Tilt the outboard up';
+    const tw = s.tilt === 'up' ? (s.twin ? $t('Tilt the outboards down') : $t('Tilt the outboard down')) : s.twin ? $t('Tilt the outboards up') : $t('Tilt the outboard up');
     if (s.tilt && this.tiltBtn.textContent !== tw) this.tiltBtn.textContent = tw;
     this.tiltBtn.setAttribute('aria-pressed', s.tilt === 'up');
     this.body.hidden = !s.kind;

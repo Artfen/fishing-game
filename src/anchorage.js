@@ -17,6 +17,7 @@
 
 import { galeFor } from './world/forecast.js';
 import { ANCHOR_HOLD, SCOPE_REF, UPLIFT_REF, uplift, liftAngle, rodeOf } from './anchoring.js';
+import { $t } from './i18n.js';
 
 export const DRAG_PER_H = 22;
 export const DRAG_MOST = 150;
@@ -89,10 +90,10 @@ export function dragTo(x, z, dx, dz, m, depthAt, need) {
 // In words, on waking.
 export function nightWords(N, name, short = false) {
   if (!N.rough) return null;
-  if (!N.dragged) return `A gale blew through in the night. ${name[0].toUpperCase() + name.slice(1)} snubbed at her rope and held, and you slept through most of it.`;
-  const up = `you were up at three letting out all the rope there was and setting it again. She's ${N.dragged} m downwind of where you left her${short ? ', brought up short of the shallows' : ''}.`;
-  const bed = N.kind === 'mud' ? 'soft mud, that holds less than sand' : N.kind === 'sand' ? 'sand, but not dug in well' : `${N.kind}, poor holding for an anchor`;
-  if (N.why === 'bottom') return `A gale blew through in the night, and she dragged her anchor: it was in ${bed}, and ${up} Sand holds far better (the fish finder reads the bottom), and the heavier anchor on chain from the Marine Works better still.`;
-  if (N.why === 'scope') return `A gale blew through in the night, and she dragged her anchor: in ${Math.round(N.depth)} m of water there wasn't rope enough to give it a good scope, and the pull lifted it off the bottom. ${up[0].toUpperCase() + up.slice(1)} Shallower water, or the heavier anchor on chain from the Marine Works, and she'd have held.`;
-  return `A gale blew through in the night, and out here in the open she dragged her anchor: ${up} Sheltered water (the bay, a cove, the estuary), or the heavier anchor on chain from the Marine Works, and she'd have held.`;
+  if (!N.dragged) return $t`A gale blew through in the night. ${name[0].toUpperCase() + name.slice(1)} snubbed at her rope and held, and you slept through most of it.`;
+  const up = $t`you were up at three letting out all the rope there was and setting it again. She's ${N.dragged} m downwind of where you left her${short ? $t(', brought up short of the shallows') : ''}.`;
+  const bed = N.kind === 'mud' ? $t('soft mud, that holds less than sand') : N.kind === 'sand' ? $t('sand, but not dug in well') : $t`${N.kind}, poor holding for an anchor`;
+  if (N.why === 'bottom') return $t`A gale blew through in the night, and she dragged her anchor: it was in ${bed}, and ${up} Sand holds far better (the fish finder reads the bottom), and the heavier anchor on chain from the Marine Works better still.`;
+  if (N.why === 'scope') return $t`A gale blew through in the night, and she dragged her anchor: in ${Math.round(N.depth)} m of water there wasn't rope enough to give it a good scope, and the pull lifted it off the bottom. ${up[0].toUpperCase() + up.slice(1)} Shallower water, or the heavier anchor on chain from the Marine Works, and she'd have held.`;
+  return $t`A gale blew through in the night, and out here in the open she dragged her anchor: ${up} Sheltered water (the bay, a cove, the estuary), or the heavier anchor on chain from the Marine Works, and she'd have held.`;
 }

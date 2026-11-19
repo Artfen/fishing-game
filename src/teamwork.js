@@ -12,6 +12,7 @@
 //
 // Nothing here is saved: a mark is for now, and a catch goes into the angler's own game as ever.
 
+import { $t } from './i18n.js';
 export const NET_REACH = 3.2;    // m from you to a friend's fish lying alongside
 export const NET_SLACK = 10;     // m: how far the angler's game lets a helper be (they're shown a moment behind, and a boat's long)
 export const MARK_REACH = 70;    // m: shoals you can mark are this near you
@@ -101,7 +102,7 @@ export class Teamwork {
   // Mark it for your friends (and for you). Returns whether it went.
   mark(s) {
     if (!this.together.markShoal(s.id, s.x, s.z)) return false;
-    this.marks.set('me', { sid: s.id, name: 'Your', at: this.together.clock });
+    this.marks.set('me', { sid: s.id, name: $t('Your'), at: this.together.clock });
     return true;
   }
 
@@ -109,7 +110,7 @@ export class Teamwork {
   heard(p, d) {
     const s = this.eco.schools[d.s];
     if (!s || !p?.name) return null;
-    this.marks.set(p.id, { sid: d.s, name: `${p.name}’s`, at: this.together.clock });
+    this.marks.set(p.id, { sid: d.s, name: $t`${p.name}’s`, at: this.together.clock });
     return s;
   }
 

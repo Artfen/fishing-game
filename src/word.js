@@ -7,15 +7,16 @@
 //
 // state.word: { day, n (words passed today) }.
 
+import { $t } from './i18n.js';
 export const WORD_PER_DAY = 2;
 export const NEAR = 300;      // closer than this you can see it for yourself
 export const FAR = 2500;      // further than this isn't worth the run
 export const MIN_HUNTERS = 3; // (as many as it takes to drive the ball up and break the top: world/feeding.js FEED.drive)
 // Who passes word: out on the water by day, with a rod or among their pots.
 export const VOICES = [
-  { id: 'hettie', name: 'Hettie', from: 'out in her boat' },
-  { id: 'dougie', name: 'Dougie', from: 'hauling his pots' },
-  { id: 'ian', name: 'Ian', from: 'out in his skiff' },
+  { id: 'hettie', name: $t('Hettie'), from: $t('out in her boat') },
+  { id: 'dougie', name: $t('Dougie'), from: $t('hauling his pots') },
+  { id: 'ian', name: $t('Ian'), from: $t('out in his skiff') },
 ];
 
 // A feed worth passing word of: broken at the top (phase 1, world/feeding.js UP), big, out of
@@ -42,8 +43,8 @@ export function wordPassed(W, day) {
 // The words: who, how, where, and what's under the birds (a fish's name, or null).
 export function wordFor({ voice, how, where, fish }) {
   const V = voice || VOICES[0];
-  const what = fish ? `${fish} crashing through the bait under them` : 'something big crashing through the bait under them';
-  return `${V.name}, ${V.from}, ${how === 'vhf' ? 'on the VHF' : 'on your phone'}: “Birds working ${where}, and ${what}. Worth a look if you’ve a rod with you.”`;
+  const what = fish ? $t`${fish} crashing through the bait under them` : $t('something big crashing through the bait under them');
+  return $t`${V.name}, ${V.from}, ${how === 'vhf' ? $t('on the VHF') : $t('on your phone')}: “Birds working ${where}, and ${what}. Worth a look if you’ve a rod with you.”`;
 }
 
 export const newWord = () => ({ day: 0, n: 0 });

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { clamp, lerp, smoothstep, seeded, mergeParts, mat } from '../util.js';
+import { $t } from '../i18n.js';
 
 // The haze lies low: thick over the sea and the low ground, thinner higher up, so the snow on
 // Hoarfell shows from the bay while the far edges of the land stay lost in it. (The fog's
@@ -155,7 +156,7 @@ export function phaseName(h) {
   if (h < 11.5) return 'Morning';
   if (h < 14) return 'Midday';
   if (h < 17.4) return 'Afternoon';
-  if (h < 19.5) return 'Golden hour';
+  if (h < 19.5) return $t('Golden hour');
   if (h < 21) return 'Dusk';
   return 'Night';
 }

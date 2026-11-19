@@ -8,6 +8,7 @@ import { mergeParts, mat, fbm, clamp, lerp, smoothstep, jitterGeo, pick, glowTex
 import { buildLanternModel } from '../props.js';
 import { withCaustics } from './caustics.js';
 import { withSurface } from './surface.js';
+import { $t } from '../i18n.js';
 
 // The west shore, built on the map in terrain.js: the landing pier, camp (tent, fire,
 // tackle chest and rod rack), the lake's reeds, lily pads and fallen alder, the stream's
@@ -106,7 +107,7 @@ function signTexture() {
     ctx.textBaseline = 'middle';
     ctx.fillText('← Camp', 128, 40);
     ctx.font = '700 26px Kalam, Caveat, cursive';
-    ctx.fillText('Reedmere · Fernbeck', 128, 92);
+    ctx.fillText($t('Reedmere · Fernbeck'), 128, 92);
     tex.needsUpdate = true;
   };
   const tex = new THREE.CanvasTexture(c);

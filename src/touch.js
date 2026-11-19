@@ -1,3 +1,4 @@
+import { $t } from './i18n.js';
 const $ = (id) => document.getElementById(id);
 const STICK_RADIUS = 56;
 
@@ -23,7 +24,7 @@ export function setupTouch(input) {
     body.classList.add('touch');
     if (onChange) onChange();
   };
-  if (matchMedia('(pointer: coarse)').matches) enable();
+  if (matchMedia($t('(pointer: coarse)')).matches) enable();
   addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') enable(); }, { capture: true, passive: true });
 
   let stickId = null, cx = 0, cy = 0;
@@ -35,7 +36,7 @@ export function setupTouch(input) {
       dx *= STICK_RADIUS / len;
       dy *= STICK_RADIUS / len;
     }
-    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    knob.style.transform = $t`translate(${dx}px, ${dy}px)`;
     input.virtual.throttle = shape(-dy / STICK_RADIUS, 0.25);
     input.virtual.steer = shape(-dx / STICK_RADIUS, 0.22);
   };
