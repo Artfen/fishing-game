@@ -81,7 +81,9 @@ export function adviceFor(ctx) {
   else if (T) out.push($t`Slack water just now, ${T.phase === 'high' ? $t('top of the tide') : $t('bottom of the tide')}: the fish go quiet. Wait for it to turn and start running again.`);
   for (const a of ctx.about || []) {
     const fresh = ctx.caught && !ctx.caught.has(a.sp.id);
-    out.push($t`${fresh ? $t`You’ve not had ${an(lower(a.sp.name))} yet, have you? ` : ''}The ${lower(a.sp.name)} are ${a.act > 0.85 ? $t('feeding on') : $t('about')} ${a.where} just now.${a.how ? $t` ${a.how[0].toUpperCase()}${a.how.slice(1)}, that’s what I’d use.` : ''}`);
+    // (Each said whole: "are on" and "are about" go their own ways in Spanish and French.)
+    const sp = lower(a.sp.name), now = a.act > 0.85 ? $t`The ${sp} are on ${a.where} just now.` : $t`The ${sp} are about ${a.where} just now.`;
+    out.push(`${fresh ? $t`You’ve not had ${an(sp)} yet, have you? ` : ''}${now}${a.how ? $t` ${a.how[0].toUpperCase()}${a.how.slice(1)}, that’s what I’d use.` : ''}`);
   }
   if (dawnDusk) out.push($t('This is the hour. Dawn and dusk the bass come up into the shallows and the pollack rise off the rocks. Don’t waste it in here.'));
   if (night) out.push($t('After dark, the squid come in under the lamps: the quay’s, and the Old Jetty’s. A little jig, sunk, darted up and let glide down. And the soles come out on the sand.'));
