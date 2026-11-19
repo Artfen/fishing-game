@@ -231,22 +231,34 @@ const zAt = (H, t) => -H.L / 2 + H.L * t;
 // (starboard gunwale), exactly as boat.js hullSurface.
 function hullPoint(H, t, j, NP) {
   const w = hw(H, t), s = sheer(H, t), k = H.keel(t);
-  const [x, y] = section(H, w, s, k, -Math.PI / 2 + Math.PI * (j / NP));
+  const [x, y] = section(H, w, s, k, -Math.PI / 2 + Math.PI * (j / NP), t);
   return [x, y, zAt(H, t)];
 }
+// A V bottom at t along her, half-beam w: { wc (the chine's half-width), rise (tan of the deadrise),
+// pad (a flat either side of the keel) }. H.vee: { chine, wc, rise, pad }: rise one figure, or [aft,
+// at the bow], and the pad tapering away forward, as boat.js formRows draws a formed hull's bottom
+// (the bass boat's), so the hull she floats on is the one you see.
+const smooth = (a, b, x) => { const u = Math.min(1, Math.max(0, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
+export function veeAt(V, t, w) {
+  const rise = Array.isArray(V.rise) ? V.rise[0] + (V.rise[1] - V.rise[0]) * smooth(0.45, 1, t) : V.rise;
+  const pad = V.pad ? V.pad * (1 - smooth(0.45, 0.85, t)) * Math.min(1, w / 0.45) : 0;
+  return { wc: w * V.wc, rise, pad };
+}
 // A point round a hull's section, at angle a from the keel (−π/2 the port gunwale, π/2 the
-// starboard): half-beam w, gunwale height s, keel height k. Most hulls are a soft round-bilged
-// curve; a deep-V (H.vee: { chine, wc, rise }) runs straight up from the keel at its deadrise to a
-// hard chine (at `chine` of the way round, `wc` of the half-beam out), then up the topside.
-export function section(H, w, s, k, a) {
+// starboard): half-beam w, gunwale height s, keel height k, t along her (0 stern … 1 bow). Most
+// hulls are a soft round-bilged curve; a deep-V (H.vee, see veeAt) runs flat from the keel across
+// its pad, then straight up at its deadrise to a hard chine (at `chine` of the way round, `wc` of
+// the half-beam out), then up the topside.
+export function section(H, w, s, k, a, t = 0) {
   const V = H.vee;
   if (!V) {
     const sn = Math.sin(a), cs = Math.max(Math.cos(a), 0);
     return [w * Math.sign(sn) * Math.pow(Math.abs(sn), 0.65), k + (s - k) * (1 - Math.pow(cs, 0.55))];
   }
-  const u = Math.min(1, Math.abs(a) / (Math.PI / 2)), c = V.chine, wc = w * V.wc, yc = k + Math.min(V.rise * wc, 0.8 * (s - k));
+  const { wc, rise, pad } = veeAt(V, t, w);
+  const u = Math.min(1, Math.abs(a) / (Math.PI / 2)), c = V.chine, yc = k + Math.min(rise * Math.max(0, wc - pad), 0.8 * (s - k));
   const x = u < c ? wc * (u / c) : wc + (w - wc) * ((u - c) / (1 - c));
-  const y = u < c ? k + (yc - k) * (u / c) : yc + (s - yc) * ((u - c) / (1 - c));
+  const y = u < c ? (x <= pad ? k : k + (yc - k) * ((x - pad) / Math.max(1e-6, wc - pad))) : yc + (s - yc) * ((u - c) / (1 - c));
   return [Math.sign(a) * x, y];
 }
 
@@ -267,8 +279,8 @@ export function sheetEdge(H, z) {
   const t = Math.min(1, Math.max(0, (z + H.L / 2) / H.L));
   let out = null;
   if (H.vee) {
-    const w = hw(H, t), s = sheer(H, t), k = H.keel(t), wc = w * H.vee.wc;
-    out = [wc, k + Math.min(H.vee.rise * wc, 0.8 * (s - k))];
+    const w = hw(H, t), s = sheer(H, t), k = H.keel(t), { wc, rise, pad } = veeAt(H.vee, t, w);
+    out = [wc, k + Math.min(rise * Math.max(0, wc - pad), 0.8 * (s - k))];
   }
   if (H.tubes && t <= H.tubes.t1) {
     const c = tubeCentre(H, t, 1), r = H.tubes.r;

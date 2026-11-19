@@ -85,7 +85,7 @@ export function compartmentsFor(kind, H, reserve = Infinity) {
     for (let i = 0; i < NS; i++) {
       const t = L.t0 + ((i + 0.5) / NS) * (L.t1 - L.t0), w = hw(t), sh = sheer(t), k = keel(t);
       const pts = [];
-      for (let a = 0; a <= NA; a++) pts.push(section(H, w, sh, k, (a / NA) * (Math.PI / 2)));
+      for (let a = 0; a <= NA; a++) pts.push(section(H, w, sh, k, (a / NA) * (Math.PI / 2), t));
       for (let j = 1; j <= NY; j++) {
         const y = Math.min(floor + ((top - floor) * j) / NY, deck != null ? Math.min(deck, sh) : sh);
         // (Area of the section below y: twice the half-width, up from her keel.)

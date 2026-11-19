@@ -1063,3 +1063,70 @@ included). The full table, with each LICENSE file read, is in the two research n
   sooner than it did, before she's drawn right over it (it lifts at a short scope, as a real one
   does); one hooked under a rock now holds her over it a few seconds longer than before.
 
+
+- **B3's follow-up: the bass boat on her own V, and the hump in a head sea.** Two things, both
+  found on the bass boat.
+
+  **She floated on the wrong bottom.** She's drawn (boat.js `form`, A1) with a planing V: flat
+  across a pad either side of her keel aft, then her deadrise up to a hard chine at 0.92 of her
+  half-beam. Her physics hull, though, had the soft rounded section the other hulls float on, flat
+  at the keel and full low down, so it held her up by more water than her V does: she floated at
+  0.16 m at her keel, where her own figures say 0.22, and getting onto the plane she ran up to 1.9°
+  flatter than Savitsky's equations (1.5° root mean square). Now her physics hull's bottom is her
+  drawn one (hydro.js `veeAt`, `section`): `H.vee` takes the pad, and a deadrise that sharpens
+  towards her bow, as `formRows` draws them, and along her, to 0.75 of her length, the keel, the pad
+  and the chine are where she's drawn with them, to the millimetre. (Her chine's flat and her
+  running strake, a few centimetres of ledge, are drawn only.)
+
+  On a V of the 13.5° deadrise she was drawn with, she'd float with her chine 2 cm under the water
+  at her transom, where her drawing (and its test) has it just clear. Bass boats are built with a
+  transom deadrise from the low teens to over 20°; she's now drawn and floated at 18° (tan 0.33),
+  with her chine 2.5 cm clear of the water aft at rest. That's a slightly deeper V to look at, and
+  she floats deeper: 0.25 m at her keel (her floor is at 0.27 m), her freeboard aft 0.30 m where it
+  was 0.39. Her metacentric height at rest is 1.28 m (1.86 m on the rounded section):
+  she's a little less stiff, as a V is.
+
+  Measured in calm water, steady over ten seconds at each lever, against Savitsky for her bottom as
+  it is each time (the beam at her chine 1.93 m where the rounded section's figure was 1.78 m, her
+  deadrise 18° where it was taken as 14°):
+
+  | Lever | Before | Now |
+  | --- | --- | --- |
+  | 0.4 | 3.80° (Savitsky 5.58°, Cv 1.18) | 4.87° (6.16°, Cv 1.11) |
+  | 0.55 | 4.01° (5.31°, Cv 1.45) | 5.50° (5.76°, Cv 1.35) |
+  | 0.7 | 3.30° (4.70°, Cv 1.71) | 4.32° (5.02°, Cv 1.62) |
+  | 0.85 | 2.18° (4.12°, Cv 1.96) | 2.86° (4.33°, Cv 1.87) |
+  | 1 | 2.86° (3.69°, Cv 2.16) | 3.40° (3.90°, Cv 2.06) |
+
+  Root mean square from Savitsky 1.50° → 0.96°, at most 1.94° → 1.47°. (On a 13.5° V, as drawn,
+  it was 1.08°.) Her drag factor and top speeds measured again (`--calibrate`): flat out on her
+  stock 60 hp 9.16 m/s where it was 9.21, and the Marine Works' trials with them.
+
+  **Held at the hump in a head sea, she stood on her tail.** Flat out from rest into a lively sea
+  (the wind 10 m/s from the south-west, a metre's significant height), a seaway's resistance holds a
+  slower planing boat at about 6 m/s: for the bass boat, the skiff and the console, the hump. There
+  the hump's rearing (boat.js `H.hump`) is at its most: a couple of a fifth of her weight or so,
+  tuned to rear her a few degrees through it in a calm. Nothing in it knew how far her bow was up
+  already, so on a wave's face it kept lifting: the bass boat's bow went 21° to 41° beyond the sea's
+  own slope along her (which was at most 9°), the skiff's to 46°, the console's to 42°. (Noted in
+  B3's follow-up for the jet ski: "the skiff's and the bass boat's bows reach 32–33° up at most…
+  not looked into".) On her V the bass boat's went to 45°. With the couple taken off, hers went
+  no more than 15° beyond it. The hump's rearing is her trim on her own wave, so it now eases off once
+  her bow is 12° up on the water about her, and is gone by 18° (`HUMP_EASE`: about as far as a
+  planing hull rears on her own wave; the RIB, driven hard from rest on a calm sea, rears about 11°;
+  a calibration, not a measurement). In a calm nothing reaches it: the trims above, the RIB's
+  rearing in the sport boats' test and the Marine Works' trials are unchanged.
+
+  In the same seas (five of them, each 30 s flat out; her bow-up beyond the sea's own slope along
+  her, at most):
+
+  | | Before | Now |
+  | --- | --- | --- |
+  | Bass boat | 21–41° (on her V, before the easing: 30–45°) | 18–23° |
+  | Skiff | 27–46° | 18–21° |
+  | Console | 18–42° | 15–22° |
+  | RIB | 16–19° | 15–16° |
+
+  Bow-up past 25° (of the 25 s watched): the skiff 0.3 to 1.6 s, the console up to 1.3 s, the bass
+  boat up to 1.0 s; now none of them. The bass boat makes the same speed in it (5.9–6.0 m/s), rolls
+  up to 17° (15° before) and now hops off a crest for up to 0.6 s.

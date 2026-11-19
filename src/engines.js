@@ -167,7 +167,7 @@ export const PROP_IDS = Object.keys(PROPS);
 export const CATALOGUE = {
   skiff: { slip: 0.3, stock: 'p10', models: ['e3', 'p6', 'p10', 'p15', 'p20'], plate: 20, props: ['matched', 'low', 'four'], drag: 1.177, tops: { e3: 4.512, p6: 5.763, p10: 7.071, p15: 8.346, p20: 9.33 },
     legacy: { power: 'p15', economy: 'p6' }, go: 10, cruise: 10, laden: 150, crew: 'two aboard' },
-  bass: { slip: 0.2, stock: 't60', models: ['t40', 't60', 't90'], plate: 90, props: ['matched', 'low', 'four'], drag: 1.0766, tops: { t40: 7.928, t60: 9.21, t90: 10.468 },
+  bass: { slip: 0.2, stock: 't60', models: ['t40', 't60', 't90'], plate: 90, props: ['matched', 'low', 'four'], drag: 1.087, tops: { t40: 7.852, t60: 9.156, t90: 10.405 },
     legacy: { power: 't90', economy: 't40' }, go: 12, cruise: 12, laden: 150, crew: 'two aboard' },
   cabin: { slip: 0.45, stock: 't40', models: ['t30', 't40', 't60'], plate: 60, props: ['matched', 'low', 'four'], drag: 1.067, tops: { t30: 5.423, t40: 6.023, t60: 7.011 },
     legacy: { power: 't60', economy: 't30' }, go: 8, cruise: 8, laden: 300, crew: 'four aboard' },
