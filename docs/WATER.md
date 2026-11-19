@@ -1034,5 +1034,32 @@ included). The full table, with each LICENSE file read, is in the two research n
   quickly as before (19 s), her bow going down 8.2° and 8.5° at most while the seas pitch her 5.1°
   and 5.3° lying on it; it was 22.7° and 20.4°. (Held to what the hauler can heave all told, along
   as well as down, she was never drawn up against a breeze that strong, and the anchor stayed
-  down: so only its downward pull is held.)
+  down: so only its downward pull is held.) (It came out wherever the rope was up and down: done since, see the next entry.)
+
+- **B6's follow-up: an anchor comes out of the bottom by what it holds.** Hauled in, it came out
+  wherever the rope was straight up and down, dug in or not, hooked under a rock or not. Now it
+  comes out when the pull on it beats what it holds there (`anchoring.js` `breakoutHold`): as she's
+  drawn up the rope steepens at its shank, and what it holds by the angle falls (B6's `uplift`), but
+  never below what the bottom keeps of it pulled from overhead, as dug in as it is (`out` in
+  `BOTTOMS`: sand 0.3, mud 0.5, gravel 0.2, weed 0.15, rock 0.05 of what it holds pulled level:
+  the numbers ours, in that order, as B6's are). Hooked under a rock it holds as hard whichever way
+  it's pulled. The pull on it is the rope's there, no more than the hauler heaves (8% of her
+  weight); straight up and down, the hauler's heave less the rope's weight. It comes out only once
+  the rope's lifting it (past 24.5° at its shank, `liftedOut`): pulled harder at a lower angle it
+  drags, as before. More than the hauler can heave, the rope's made fast short and she lifts on the
+  swell to snatch it out (4 s; 8 s hooked under a rock), and the game says so. Out of the bottom,
+  it's hauled in along its rope to her bow, wherever she is; before, it rose straight up from where
+  it lay.
+
+  Hauled in on the RIB in 14 to 18 m (`tests/anchoring.test.mjs`):
+
+  | The anchor | What it held when it came out | How it came out |
+  | --- | --- | --- |
+  | In sand, barely set (lying on it in a calm) | 66 N | heaved out by hand |
+  | In sand, dug in (blown back on it) | 192 N | heaved out by hand |
+  | Hooked under a rock | 1,902 N (her hauler heaves 981) | the rope made fast, snatched out on the swell 8 s later |
+
+  Each came in along its rope to her bow, never through the bottom. An anchor barely set comes out
+  sooner than it did, before she's drawn right over it (it lifts at a short scope, as a real one
+  does); one hooked under a rock now holds her over it a few seconds longer than before.
 
