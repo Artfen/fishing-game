@@ -114,13 +114,74 @@ before and after: the sardines were drawn as big as the diver's body, and now th
 of small fish; a 175 cm bluefin rides below and apart from its school of 120 cm fish, visibly
 longer and deeper.
 
+## Looks
+
+No two fish of a kind quite alike, and now and then one you'd remember (`src/fishlook.js`).
+
+**What a fish's look is.** Four numbers, from who it is: its id, hashed as its build is, and its
+generation for a newcomer. So the same fish looks the same swimming, on the line, landed, in a
+photograph, on a friend's screen and on every visit.
+- **Its shade:** darker or paler than its kind's usual, most on its back. Each kind has its own
+  range: wide for a wrasse or a trout, narrow for a tuna.
+- **Where its spots fall:** for a kind with spots, its own pattern. Spotted kinds:
+  - brown trout (dark and red spots, a pattern each);
+  - pike (pale spots);
+  - cod (speckles);
+  - dusky grouper (pale blotches);
+  - plaice (a few orange spots more than its kind's);
+  - thornback (pale spots);
+  - small-spotted catshark.
+- **Its scars:** pale, ragged streaks. Likelier the bigger it is, and on the kinds that carry them:
+  the tunas, billfish and sharks.
+- **A rare colour morph,** if it has one:
+  - **leucistic:** washed pale, its eyes still dark;
+  - **melanistic:** nearly black;
+  - **xanthic:** golden;
+  - **albino:** white, with pink eyes;
+  - **piebald:** patched with white.
+
+**Which kinds have which morphs.** A bony fish can have the first four, about one fish in 200 any
+of them and an albino one in 5,000. Those are a game's rates, not nature's: rare enough to
+remember, common enough that a keen angler or diver meets one.
+- **Likelier where documented:** golden trout, pike, carp and tench; piebald (ambicoloured)
+  flatfish.
+- **Sharks:** only the pale one.
+- **The tunas, billfish, mackerels and dorado:** none (their colour is their colour).
+- **Cephalopods:** none (they change colour as they please).
+
+In the sea now, 27 of the 5,403 fish are a morph and 173 carry scars.
+
+**A morph is only a look.** No faster, stronger, bigger or dearer. No label is shown on a fish
+you haven't caught.
+
+**How it's drawn.** One instanced attribute a fish, read by each kind's existing shader: its
+shade, its spots (a cell pattern on its flanks, or on top for a flatfish), its scars, its morph.
+- An albino's eyes go pink.
+- No new models, textures or draws.
+- A single fish drawn alone (landed, a friend's on the line) takes the same four numbers.
+- A school's drawn companions vary in shade and spots, but are never a morph: the rare one is the
+  fish that's followed.
+
+**Caught.**
+- The card says it in plain words: *"Golden from nose to tail: a xanthic brown trout. You may
+  never see another."*
+- The catch log keeps the morph, and the journal lists the unusual ones you've had of each kind.
+
+**Checked.** `tests/fishlook.test.mjs`, five tests:
+- the same fish, the same look;
+- every kind's morph rates, and none for the tunas;
+- scars by size and kind;
+- every material taking the look, and the renderer passing each fish's own;
+- a morph through the log, the record and the save.
+
+`tools/fishstudio.html` lines up a kind: several fish, each its own, then each morph (for example
+`?sp=trout&n=4&morphs=1`, or `?sp=tuna&n=4&scars=1`).
+
 ## Not done
 
-- **Individual looks:** each fish's own shade, markings and scars, and rare colour morphs
-  (leucism, melanism, xanthism). The smallest way in is a few numbers per fish in the existing
-  shader, seeded by the fish's id (already the same on every screen). That's its own step.
 - **Remembered notable fish** (a big released bass met again): the same fish already lives in the
-  same place every session, so what's missing is only a memory of what happened to it. It needs a
-  version stamp on the fish's id, which changes when the population does.
+  same place, with the same looks, every session, so what's missing is only a memory of what
+  happened to it. It needs a version stamp on the fish's id, which changes when the population
+  does.
 - **Fish held up in the hands of townsfolk and friends** are still a stand-in shape sized by weight.
 - **A guest's speared fish** in co-op isn't confirmed by the host (found on the way; a fix of its own).

@@ -25,6 +25,7 @@ export function companionsFor(sp) {
   return clamp(Math.round(0.6 / len) - 1, 0, 6);
 }
 const PATTERNS = 8;
+const NO_LOOK = [0, 0, 0, 0];
 
 
 // How each kind swims (the look of it: where it goes is the ecosystem's):
@@ -105,13 +106,17 @@ export class FishRenderer {
       const swim = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
       swim.setUsage(THREE.DynamicDrawUsage);
       geo.setAttribute('aSwim', swim);
+      // (Its own look: shade, spots, scars, any morph. See fishlook.js.)
+      const look = new THREE.InstancedBufferAttribute(new Float32Array(n * 4), 4);
+      look.setUsage(THREE.DynamicDrawUsage);
+      geo.setAttribute('aLook', look);
       const mat = fishMaterial(sp, true);
       const mesh = new THREE.InstancedMesh(geo, mat, n);
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.frustumCulled = false;
       mesh.count = 0;
       scene.add(mesh);
-      return { mesh, swim, mat };
+      return { mesh, swim, look, mat };
     };
     this.sets = FISH.filter((sp) => !sp.retired).map((sp) => {
       const list = this.eco.bySpecies[sp.id], extra = companionsFor(sp);
@@ -172,6 +177,8 @@ export class FishRenderer {
         let i = into === set ? k++ : kf++;
         into.mesh.setMatrixAt(i, _m);
         into.swim.setXYZ(i, f.phase, S.beat, S.bend);
+        const L = f.look || NO_LOOK;
+        into.look.setXYZW(i, L[0], L[1], L[2], L[3]);
         // Its companions, while it's with its school.
         if (E && f.state === 'school') {
           const base = ((f.id * 2654435761) >>> 0) % PATTERNS * set.extra * 5;
@@ -183,6 +190,8 @@ export class FishRenderer {
             i = into === set ? k++ : kf++;
             into.mesh.setMatrixAt(i, _m);
             into.swim.setXYZ(i, f.phase + o[b + 4], S.beat, S.bend);
+            // (Its own shade and spots, never a morph: the rare one is the fish that's followed.)
+            into.look.setXYZW(i, clamp(L[0] + o[b + 3] * 3 - 3, -1, 1), (L[1] + j * 0.137) % 1, 0, 0);
           }
         }
       }
@@ -191,6 +200,7 @@ export class FishRenderer {
         s.mesh.visible = n > 0; // (no draw at all for a species with none in view)
         s.mesh.instanceMatrix.needsUpdate = true;
         s.swim.needsUpdate = true;
+        s.look.needsUpdate = true;
       }
     }
   }

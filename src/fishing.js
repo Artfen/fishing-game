@@ -1,6 +1,6 @@
 import { newRod, rodStep, lureFromRod, strikeFrom, holdAfterStrike, fightFromRod } from './technique.js';
 import * as THREE from 'three';
-import { FISH, buildFishMesh, weightOf } from './fish.js';
+import { FISH, buildFishMesh, weightOf, setLook } from './fish.js';
 import { waveHeight } from './world/water.js';
 import { currentAt, windAt, currentScale } from './world/conditions.js';
 import { solidHeight, depthAt, waterLevel, walkHeight, zoneAt, SOUTH_Z } from './world/terrain.js';
@@ -1370,6 +1370,7 @@ export class Fishing {
     mesh.visible = true;
     // (The fish that was swimming: its own length and build. See girthOf.)
     mesh.scale.set(F.agent.scale * (F.agent.girth ?? 1), F.agent.scale * (F.agent.girth ?? 1), F.agent.scale);
+    setLook(mesh, F.agent.look);
     // Out with a splash, the water pouring off the net (or off the fish, lifted out on the line).
     {
       const lv = waterLevel(this.fishPos.x, this.fishPos.z), net = this.net;

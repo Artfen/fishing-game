@@ -73,7 +73,7 @@ test('as deep and thick as its weight: its condition in its girth, a species tha
   assert.ok(girthOf(fishById.eel, 85) > girthOf(fishById.eel, 45) * 1.05);
   // A big fish sweeps its tail slowly, a small one flickers.
   assert.ok(tempoOf(175) < 0.6 && tempoOf(45) === 1 && tempoOf(12) > 1.4);
-  assert.deepEqual(Object.keys(traits(bass, 60, 1)).sort(), ['condition', 'girth', 'temper', 'tempo', 'vigour', 'weight']);
+  assert.deepEqual(Object.keys(traits(bass, 60, 1)).sort(), ['condition', 'girth', 'look', 'temper', 'tempo', 'vigour', 'weight']);
 });
 
 test('a school keeps fish of about one size, and one school in three or so has a much bigger fish with it, at its edge and below', () => {
