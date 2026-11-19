@@ -288,7 +288,18 @@ cooler); played through in the browser in the trawler, measured (`docs/PERFORMAN
 - **Measured** (`docs/PERFORMANCE.md`): at anchor off Halvig, 131 draw calls and 509,000 triangles,
   3.2 ms of simulation; diving the Sula, 87 and 283,000; home's harbour and the liveaboard
   unchanged. About 33 MB more heap once you're up there.
-- Tests: in `tests/north.test.mjs`.
+- **Halvig's pier, a berth all along it:** the full suite found the cabin boat couldn't lie at its
+  root (the pier's first metres ran over the shelf, so a long boat's stern lay against it). Halvig's
+  bay is cut a few metres wider, the shelf's edge, the pump and the phone box moved back with it,
+  and the water alongside the pier dredged to three and a half metres at its root.
+- Tests: in `tests/north.test.mjs`. Older tests changed, each for the north's fish, which have
+  homes of their own after everyone else's (checked in `tests/north.test.mjs`): the mountain and
+  paradise tests' fingerprint and count of home's fish leave the north's out, as they do Las
+  Brasas', the crossing's and the small fish's; the micro-fishing test's "the small fish last of
+  all" allows the north's after them. And the guide test's squid-at-night and tuna-boil scenarios
+  get dice of their own, as each kind in the loop before them has: they'd been fished with
+  whatever dice that loop left, so adding five kinds to it changed their outcome (the tuna boil
+  hooked an albacore instead).
 
 **Not done:** the white-tailed eagle and the terns on Tern Isle (a new bird each); Halvig's shop
 selling stores and a bed in the bothy (the stores and the nights work as they do anywhere else:

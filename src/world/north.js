@@ -72,7 +72,7 @@ export const LOCH = [[-2330, -5520, 92], [-1950, -5600, 135], [-1480, -5570, 150
 export const LOCH_SILL = { x: -2250, z: -5536, top: -15 };
 export const BOTHY_BAY = { x: -1500, z: -5735, r: 85 };
 // Halvig's bay on Raven Isle's east shore (the hamlet and its pier: N3).
-export const HALVIG = { x: -2795, z: -6170, r: 70 };
+export const HALVIG = { x: -2795, z: -6170, r: 79 };
 
 /* ---------------- the way there (N5) ---------------- */
 
@@ -90,16 +90,16 @@ export const northWaters = (x, z) => inNorth(x, z) || (x < -600 && z > -40 && z 
 // Halvig: a hamlet on Raven Isle's east shore, on a shelf of level ground above its bay, a stone
 // pier running out into the bay (eight to ten metres alongside its head), the fuel pump at its
 // root, the shop, three crofts and a red phone box. (yaw: the way a front faces; 0 = +z.)
-export const HALVIG_SHELF = { x0: -2904, x1: -2866, z0: -6240, z1: -6100, level: 2.6 };
-export const HALVIG_PIER = { x0: -2870, x1: -2830, z0: -6176, z1: -6167, deck: 2.4, land: { x: -2876, z: -6171.5 } };
-export const HALVIG_FUEL = { x: -2867, z: -6168.2, yaw: Math.PI, name: 'the fuel pump on Halvig pier', deck: 2.4 };
+export const HALVIG_SHELF = { x0: -2904, x1: -2873, z0: -6240, z1: -6100, level: 2.6 };
+export const HALVIG_PIER = { x0: -2876, x1: -2832, z0: -6176, z1: -6167, deck: 2.4, land: { x: -2882, z: -6171.5 } };
+export const HALVIG_FUEL = { x: -2875.5, z: -6168.2, yaw: Math.PI, name: 'the fuel pump on Halvig pier', deck: 2.4 };
 export const HALVIG_SHOP = { x: -2890, z: -6150, yaw: Math.PI / 2, w: 9, d: 6 };
 export const CROFTS = [
   { x: -2891, z: -6204, yaw: Math.PI / 2, w: 8, d: 5.5 },
   { x: -2893, z: -6124, yaw: Math.PI / 2, w: 7.5, d: 5.5 },
   { x: -2890, z: -6229, yaw: Math.PI / 2, w: 7, d: 5 },
 ];
-export const PHONE_BOX = { x: -2874, z: -6188, yaw: Math.PI / 2 };
+export const PHONE_BOX = { x: -2880, z: -6188, yaw: Math.PI / 2 };
 // The light on Raven Head, the island's north end; the broch and the standing stones on Tern Isle;
 // the bothy above Bothy Bay; the herring station's ruins on Loch Skarn's south shore; the Seal
 // Cave in Raven Isle's west cliffs; the Sula, a trawler wrecked in the kelp off Tern Isle.
@@ -258,6 +258,9 @@ export function northGround(x, z, S, base) {
     if (bay < BOTHY_BAY.r + 70) h = lerp(h, Math.max(h, lerp(-2, -12, smoothstep(BOTHY_BAY.z - 75, BOTHY_BAY.z + 85, z)) + fbm(x * 0.03, z * 0.03, 2)), smoothstep(BOTHY_BAY.r + 70, BOTHY_BAY.r, bay) * smoothstep(-50, 0, S.loch));
     const c = inChurn(x, z);
     if (c > 0) h = lerp(h, Math.max(h, -10 + fbm(x * 0.05, z * 0.05, 2) * 3), c);
+    // (Alongside Halvig's pier, dredged to a working depth: a boat lies there to the pier's root.)
+    const Q = HALVIG_PIER;
+    if (x > Q.x0 - 4 && x < Q.x1 + 8 && z > Q.z0 - 14 && z < Q.z1 + 14) h = Math.min(h, lerp(h, -3.6, smoothstep(14, 6, Math.max(Q.z0 - z, z - Q.z1, 0)) * smoothstep(Q.x1 + 8, Q.x1, x)));
     // Skarv Stack stands in deep water: its foot drops away all round to thirty-odd metres.
     const ds = hyp(x - SKARV.x, z - SKARV.z);
     if (ds < 320) h = Math.min(h, lerp(h, -34 + fbm(x * 0.03, z * 0.03, 2) * 4, smoothstep(320, 70, ds)) - 4 * smoothstep(SKARV.r + 30, SKARV.r + 4, ds));

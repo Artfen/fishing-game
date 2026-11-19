@@ -78,6 +78,8 @@ test('every other catchable species bites on the guide’s first choice, rigged 
   assert.deepEqual(failed, []);
   // The squid at night under a light, and the tuna in a boil, have their own scenarios.
   for (const [id, sc] of [['squid', 'squidNight'], ['tuna', 'tuna']]) {
+    // (Each with dice of its own, as each kind above: not whatever the kinds before it left.)
+    Math.random = seeded(20261025 ^ hash(id));
     const scenario = SCENARIOS[sc]();
     assert.equal(setupsFor(fishById[id])[0].item, scenario.item, id);
     const results = fish(scenario, { tries: 3, limit: 200 });
