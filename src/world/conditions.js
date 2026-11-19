@@ -7,7 +7,7 @@ import {
 import { NORTH_WATER, inNorth, northLand, northCurrent } from './north.js';
 import { coldwaterFlow } from './coldwater.js';
 import { SOUTH_WATER, brasaCurrent } from './brasa.js';
-import { longSea, tmaAt } from './ocean.js';
+import { longSea, tmaAt, PATCH } from './ocean.js';
 
 // Wind, waves and currents: one shared state for the whole game, so the water you see, the
 // boats on it, a float, a cast, the trees and the sound of the wind all answer to the same
@@ -424,6 +424,34 @@ export function waveHeight(x, z, t = conditions.time) {
   _wh.h = 0;
   hc = longSea.add(x, z, t, (0.15 + 0.85 * sh[1]) * fade * seaDepth(ground, fresh), _wh).h;
   return TIDE.level * (1 - fresh) + hs * fade + hc;
+}
+// (W3b) The waves at a point that the water's sheets don't draw from a camera dist metres away:
+// as water.js fades them (seaLayout), each in full while the sheet's cells there are about a
+// quarter of its length, gone by a third, lod metres out per metre of wavelength; the wind sea's
+// patch by its longest. Term for term as waveHeight, so waveHeight less this is the sea as drawn
+// there. A boat that far off is drawn on the sea as drawn (boat.js seatOnDrawnSea), not riding
+// waves that aren't there; past the far sheet (seaLayout's flatR), the flat sea at the tide.
+const SWELL_SHORTEST = Math.min(...SWELL.map((w) => (2 * Math.PI) / w.k));
+export function undrawnWave(x, z, t, dist, lod) {
+  if (!(lod > 0) || dist <= 0.7 * SWELL_SHORTEST * lod) return 0;
+  if (waterLevel(x, z) > 0.05) return 0;
+  const ground = solidHeight(x, z), fresh = freshness(x, z);
+  const C = conditions, sh = shelterAt(x, z), depth = Math.max(0, -ground);
+  const peak = Math.min(C.sea.peak + shoalPeak(depth), MAX_PEAK), grow = shoalGrow(depth);
+  let hs = 0;
+  for (let i = 0; i < SWELL.length; i++) {
+    const w = SWELL[i], a = C.swellAmps[i] * sh[0] * grow, len = (2 * Math.PI) / w.k;
+    const gone = 1 - smoothstep(len * lod, 0.7 * len * lod, dist);
+    if (a < 1e-5 || gone <= 0) continue;
+    hs += gone * swellShape(a, w.k, w.k * (w.dx * x + w.dz * z - w.c * t), peak);
+  }
+  const fade = shoreFadeOf(ground, fresh), seaGone = 1 - smoothstep(PATCH.L * lod, 0.7 * PATCH.L * lod, dist);
+  let hc = 0;
+  if (seaGone > 0) {
+    _wh.h = 0;
+    hc = seaGone * longSea.add(x, z, t, (0.15 + 0.85 * sh[1]) * fade * seaDepth(ground, fresh), _wh).h;
+  }
+  return hs * fade + hc;
 }
 // (W6) The wind sea's share of itself at a point (its shelter, the shore's fade, the depth), as
 // waveHeight scales it there; none on the river and the tarn.

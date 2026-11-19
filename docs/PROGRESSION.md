@@ -170,3 +170,29 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
 17. **B3 (second part, done):** the planing trim against Savitsky: a fast boat runs at her real
    angle, the RIB about 2.5° bow-up cruising and the jet ski 3 to 4°, where they ran a degree or two
    flatter, riding high on half their real wetted length.
+18. **W3 (second part, done):** the big seas carried on past 444 m: a far sheet draws their rise
+   and fall out to where its cells can (1.5 km on High and up), meeting the near one without a
+   step, and the swell's long crests carry on in the shading to the horizon, and in the roughness
+   once a pixel's too coarse for them.
+19. **Boats far off on the sea as drawn (done):** a boat a long way off sits on the water you see
+   there, not bobbing on waves too far off to be drawn.
+20. **B3 (the hump region, done):** getting onto the plane: the console and the bass boat climb on
+   nearer their real trim, bow-up through the hump within a degree or two of Savitsky's equations,
+   where they ran 2° to 3° flatter; on the plane a hull's bottom holds her up by about half the water
+   it pushes aside.
+21. **Raising the anchor (B6's follow-up, done):** her bow dips a degree or two as the anchor comes
+   up, where the rope drawn up short over it dragged it down 16° to 25° with more than her weight.
+22. **An anchor comes out by what it holds (B6's follow-up, done):** dug in, it takes a firmer pull;
+   hooked under a rock, more than you can heave, so the rope's made fast and the swell snatches it
+   out; and it comes in along its rope to her bow.
+23. **The bass boat on her own V (B3's follow-up, done):** she floats on the planing V she's drawn
+   with, and climbs onto the plane within a degree and a half of Savitsky's trim; and held at the
+   hump in a head sea, no planing boat stands on her tail any more.
+24. **The bass boat out on the sea (done):** the yard's trailer takes her between Longmere and
+   Willowhaven by road, and at sea she's towed in, fuelled, brought round and spoken of where she
+   is, not sent back to the boathouse from anywhere.
+25. **An inside helm (done):** the cabin boat and the yacht steered from inside their wheelhouse as
+   well as from outside, in first person looking out through the windscreen.
+26. **The wheels face you (done for the yacht and the bass boat):** raked back to look up at the one
+   steering, so in first person you see a wheel, not a bar. The RIB's and the console boat's want
+   their helms laid out again first, so a wheel facing you doesn't hide their switches.

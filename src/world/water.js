@@ -9,10 +9,40 @@ import { HAZE } from './sky.js';
 // function moves these vertices and lifts the boats and floats (waveHeight below), so a hull
 // always sits on the water you see.
 export const waveHeight = conditionsWaveHeight;
-const NEAR_R = 444; // the fine water sheet is round, this far around the camera
+const NEAR_R = 444; // the fine water sheet is drawn this far round the camera (W3b: a square, this far each way)
 
 const f = (n) => n.toFixed(5);
+const TAU = Math.PI * 2;
 const { SWELL } = WAVE_PARTS;
+// (W3, second part) How far out each sheet draws the waves, for the quality setting's resolution
+// (seg: about how many cells across the old 900 m sheet), worked out once here for the shader and
+// the tests. The near sheet: a square of n × n cells of `cell` metres round the middle, then rings
+// round it, each twice as coarse and twice as wide (see clipmap), out past NEAR_R, snapped to its
+// coarsest cell as it follows. A wave of length len is drawn in full while the sheet's cells there
+// are at most a quarter of it or so, and gone by a third: `lod` metres out per metre of wavelength,
+// the cells being at most 4/n of the distance out (lod = n/12: gone by len × n/12, all of it inside
+// 0.7 of that). So the longest of them, the wind sea's patch (PATCH.L), is gone by `flatR`.
+// Past the near sheet (a square NEAR_R each way round the camera, always within its coarsest ring,
+// so the far one's first ring is the same triangles there), the far one: the same cells as the
+// near one's coarsest ring, then twice as coarse ring by ring, until it reaches past flatR
+// wherever the camera is; snapped to its own coarsest cell, its middle left out (inside NEAR_R,
+// wherever it's snapped to). Beyond flatR, a flat ring out to the horizon, cheap, the waves there
+// only in its shading (and its roughness).
+export function seaLayout(seg) {
+  const n = seg <= 150 ? 64 : seg <= 220 ? 96 : 128;
+  const cell = 180 / seg;
+  const levels = 1 + Math.ceil(Math.log2(NEAR_R / ((n * cell) / 2)));
+  const nearCell = cell * 2 ** (levels - 1);
+  const lod = n / 12;
+  const flatR = PATCH.L * lod;
+  let farLevels = 1;
+  while ((n * nearCell * 2 ** (farLevels - 1)) / 2 - (nearCell * 2 ** (farLevels - 1)) / 2 < flatR * 1.04) farLevels++;
+  const farSnap = nearCell * 2 ** (farLevels - 1);
+  // (The far sheet's hole, in cells from its middle: inside NEAR_R wherever it's snapped, less 8 m,
+  // more than the wind sea's to-and-fro carries any of its vertices across.)
+  const hole = Math.floor((NEAR_R - 8 - farSnap / 2) / nearCell);
+  return { nearR: NEAR_R, n, cell, levels, snap: nearCell, nearCell, lod, flatR, farR: flatR * 1.02, farLevels, farSnap, hole };
+}
 // The waves at a point: the swell (a few long waves, each scaled by how exposed the water is to
 // it: shelter.r) and the wind sea (the long-wave patch from ocean.js, sent up each frame, scaled
 // by shelter.g), faded in the last shallows and on fresh water. Mirrors conditions.js waveHeight
@@ -95,10 +125,14 @@ vec3 seaAt(vec2 p, float dist) {
     b = mix(b, textureLod(uSea0, q2 / uSeaPatch.x + o, lod), far);
   }
   vec2 bd = vec2(b.y * uSeaCopy.x - b.z * uSeaCopy.y, b.y * uSeaCopy.y + b.z * uSeaCopy.x);
-  return vec3(a.x + b.x, a.yz + bd) * 0.70710678;
+  // (W3b: and gone, its longest waves too, where the sheet's cells are too coarse to draw them:
+  // from 0.7 of seaLayout's flatR to all of it. Their slopes carry on in the shading.)
+  float keep = smoothstep(uSeaPatch.x * uWaveLod.y, 0.7 * uSeaPatch.x * uWaveLod.y, dist);
+  return vec3(a.x + b.x, a.yz + bd) * (0.70710678 * keep);
 }
-// Height and the swell's slopes (x, z) at p, and (shift) how far the wind sea carries the point.
-vec3 waves(vec2 p, float t, float ground, float fresh, float dist, out vec2 shift) {
+// Height and the swell's slopes (x, z) at p, and (shift) how far the wind sea carries the point;
+// (swellH) how much of the height is the swell's.
+vec3 waves(vec2 p, float t, float ground, float fresh, float dist, out vec2 shift, out float swellH) {
   vec4 sh = texture2D(uShelter, (p - uShelterRect.xy) / uShelterRect.zw);
   float depth = max(uTideLevel * (1.0 - fresh) - ground, 0.0);
   // (Running into shallow water the swell grows and steepens: conditions.js shoalGrow, shoalPeak.)
@@ -107,9 +141,10 @@ vec3 waves(vec2 p, float t, float ground, float fresh, float dist, out vec2 shif
   vec3 r = vec3(0.0);
   float a, s;
   // (Every swell wave has a Stokes crest, as conditions.js swellShape: sharpened in a storm and
-  // in the shallows.)
+  // in the shallows. W3b: each drawn while the sheet's cells are fine enough for it, faded out as
+  // they grow too coarse, as the wind sea's patch is; its slope carries on in the shading.)
   ${SWELL.map((w, i) => `a = ${f(w.k)} * (${f(w.dx)} * p.x + ${f(w.dz)} * p.y - ${f(w.c)} * t);
-  s = uSwellA[${i}] * ks;
+  s = uSwellA[${i}] * ks * smoothstep(${f(TAU / w.k)} * uWaveLod.y, ${f(0.7 * TAU / w.k)} * uWaveLod.y, dist);
   r += vec3(s * sin(a) - ${f(0.5 * w.k)} * s * s * pk * cos(2.0 * a), vec2(${f(w.k * w.dx)}, ${f(w.k * w.dz)}) * (s * cos(a) + ${f(w.k)} * s * s * pk * sin(2.0 * a)));`).join('\n  ')}
   float fade = smoothstep(0.05, 0.9 + 3.5 * uStorm, -ground) * (1.0 - 0.85 * fresh);
   // (W5: each band's height left in water this deep.)
@@ -132,6 +167,7 @@ vec3 waves(vec2 p, float t, float ground, float fresh, float dist, out vec2 shif
     float run = uSwellA[0] * sh.r * 1.4 + 0.05 * (0.15 + 0.85 * sh.g);
     swash = run * pow(0.5 + 0.5 * sin(th), 1.6) * onBeach;
   }
+  swellH = r.x * fade;
   return r * fade + vec3(sea.x + swash, 0.0, 0.0);
 }
 `;
@@ -159,10 +195,10 @@ uniform vec4 uRippleRect;
 uniform float uRippleOn;
 attribute vec3 aEdge; // on a ring's outer edge, between two of the coarser ring's vertices: 1, and the offset to them
 varying vec3 vWorld;
-varying vec3 vN;
 varying vec4 vRefl;
 varying vec2 vRest; // where this bit of surface lies when the water's still (for the patch's slopes)
 varying float vWave; // how high the waves have lifted it here (m)
+varying float vSwell; // how much of that is the swell's (m)
 #include <fog_pars_vertex>
 // The wakes and the ripples (the ripple field: see waterfx.js and wakes.js): heights, metres.
 uniform sampler2D uFarRipple; // the wakes again, coarser, over a much wider square (Ocean: Full)
@@ -192,8 +228,10 @@ void main() {
   vec4 mapV = worldMap(wp.xz);
   vRest = wp.xz;
   #ifdef RING
-  // The far ocean, out to the horizon: too far off to see the waves move.
+  // The far ocean, out to the horizon: too far off for the sheet to draw the waves' rise and fall
+  // (seaLayout's flatR); they're in its shading.
   vec3 w = vec3(0.0);
+  vSwell = 0.0;
   #else
   float dist = length(wp.xz - cameraPosition.xz);
   vec3 w;
@@ -202,12 +240,14 @@ void main() {
     // (Where a finer ring meets a coarser one, its in-between vertices sit on the coarser ring's
     // straight edge, so the two meet without a crack.)
     vec2 e = aEdge.yz, s0, s1;
+    float h0, h1;
     vec4 m0 = worldMap(wp.xz - e), m1 = worldMap(wp.xz + e);
-    w = 0.5 * (waves(wp.xz - e, uTime, m0.r, m0.g, dist, s0) + waves(wp.xz + e, uTime, m1.r, m1.g, dist, s1));
+    w = 0.5 * (waves(wp.xz - e, uTime, m0.r, m0.g, dist, s0, h0) + waves(wp.xz + e, uTime, m1.r, m1.g, dist, s1, h1));
     shift = 0.5 * (s0 + s1);
+    vSwell = 0.5 * (h0 + h1);
     w.x += 0.5 * (rippleHeight(wp.xz - e) + rippleHeight(wp.xz + e)) * waveLod(3.0, dist);
   } else {
-    w = waves(wp.xz, uTime, mapV.r, mapV.g, dist, shift);
+    w = waves(wp.xz, uTime, mapV.r, mapV.g, dist, shift, vSwell);
     // (The wakes lift the sheet close by, where its cells are fine enough for their short waves;
     // further off they show in its shading alone.)
     w.x += rippleHeight(wp.xz) * waveLod(3.0, dist);
@@ -216,11 +256,40 @@ void main() {
   #endif
   wp.y += w.x + uTideLevel * (1.0 - mapV.g);
   vWave = w.x;
-  vN = vec3(-w.y, 1.0, -w.z);
   vWorld = wp.xyz;
   vec4 mvPosition = viewMatrix * wp;
   gl_Position = projectionMatrix * mvPosition;
   #include <fog_vertex>
+}
+`;
+
+// (W3b) The swell at p, pixel by pixel, for the shading: its height and its slopes x, z, each of its
+// waves as much as this pixel can show: in full while the pixel's footprint along the wave (dp: how
+// far the still surface moves from this pixel to the next, across the screen and up it) is at most
+// a quarter of its length, gone by half. So it carries on out to the horizon in the shading, past
+// where the sheet can draw its rise and fall, until the pixels are too coarse for it: far off and
+// low, first the waves coming towards you (a pixel there is long along the view), last those
+// running across it. What a pixel can't show goes into the roughness: (var) its slopes' mean
+// square, up the wind wd and across it; and (res) the share of the swell's height it shows.
+const SWELL_PIX_GLSL = /* glsl */ `
+uniform float uSwellA[${SWELL.length}];
+uniform float uPeak;
+vec3 swellPix(vec2 p, float t, float ks, float pk, vec4 dp, vec2 wd, out vec2 var, out float res) {
+  vec3 r = vec3(0.0);
+  var = vec2(0.0);
+  float a, s, keep, sn, cs, cw, tot = 1e-6, shown = 0.0;
+  ${SWELL.map((w, i) => `a = ${f(w.k)} * (${f(w.dx)} * p.x + ${f(w.dz)} * p.y - ${f(w.c)} * t);
+  s = uSwellA[${i}] * ks;
+  keep = smoothstep(${f(0.5 * TAU / w.k)}, ${f(0.25 * TAU / w.k)}, max(abs(dp.x * ${f(w.dx)} + dp.y * ${f(w.dz)}), abs(dp.z * ${f(w.dx)} + dp.w * ${f(w.dz)})));
+  sn = sin(a);
+  cs = cos(a);
+  r += keep * vec3(s * sn - ${f(0.5 * w.k)} * s * s * pk * (cs * cs - sn * sn), vec2(${f(w.k * w.dx)}, ${f(w.k * w.dz)}) * (s * cs + ${f(2 * w.k)} * s * s * pk * sn * cs));
+  cw = ${f(w.dx)} * wd.x + ${f(w.dz)} * wd.y;
+  var += (1.0 - keep) * ${f(0.5 * w.k * w.k)} * s * s * vec2(cw * cw, 1.0 - cw * cw);
+  tot += s * s;
+  shown += keep * s * s;`).join('\n  ')}
+  res = shown / tot;
+  return r;
 }
 `;
 
@@ -281,10 +350,12 @@ vec2 bottomShift(float d, vec3 N, vec3 V) {
   return T.xz * (d / max(-T.y, 0.2)) - T0.xz * (d / max(-T0.y, 0.2));
 }
 varying vec3 vWorld;
-varying vec3 vN;
 varying vec4 vRefl;
 varying vec2 vRest;
 varying float vWave;
+varying float vSwell;
+${SWELL_PIX_GLSL}
+uniform float uFarR; // (W3b) where the far sheet hands over to the flat ring (seaLayout's farR)
 uniform sampler2D uShortSlope; // the short waves (Ocean: Full): slopes x, z, and how pinched (J)
 uniform float uShortOn;
 uniform float uShortL;
@@ -435,9 +506,16 @@ vec3 skyAt(vec3 d) {
 }
 
 void main() {
-  // The near sheet is round, and the far ring starts where it ends.
-  #ifndef RING
-  if (length(vWorld.xz - cameraPosition.xz) > ${NEAR_R.toFixed(1)}) discard;
+  // The near sheet is a square round you, the far sheet starts where it ends (W3b), and the flat
+  // ring, round, where the far sheet ends.
+  vec2 off = abs(vWorld.xz - cameraPosition.xz);
+  float around = length(off), square = max(off.x, off.y);
+  #if defined(RING)
+  if (around < uFarR) discard;
+  #elif defined(FAR)
+  if (square <= ${NEAR_R.toFixed(1)} || around > uFarR) discard;
+  #else
+  if (square > ${NEAR_R.toFixed(1)}) discard;
   #endif
   vec4 rips = rippleSlopes(vWorld.xz);
   vec2 rip = rips.xy + rips.zw;
@@ -482,9 +560,17 @@ void main() {
   vec2 p = vWorld.xz;
   // The wind sea's long waves (ocean.js): their slope here, smooth from pixel to pixel, and the
   // foam where their crests have broken; with the swell's slope (from the sheet), the waves' own.
-  float kcS = (0.15 + 0.85 * shel.g) * smoothstep(0.05, 0.9 + 3.5 * uStorm, -ground) * (1.0 - 0.85 * fresh);
+  float fadeS = smoothstep(0.05, 0.9 + 3.5 * uStorm, -ground) * (1.0 - 0.85 * fresh);
+  float kcS = (0.15 + 0.85 * shel.g) * fadeS;
   vec3 seaS = seaSlope(vRest) * kcS * tmaL(depth);
-  vec3 Nw = vec3(vN.x - seaS.x, 1.0, vN.z - seaS.y);
+  // (W3b) The swell's slope pixel by pixel, as the sheet lifts it (WAVE_GLSL waves: grown and
+  // steepened in the shallows), out to the horizon; what's too fine for the pixel, as roughness.
+  vec2 swVar;
+  float swRes;
+  float ksS = shel.r * (1.0 + 0.8 * smoothstep(8.0, 2.5, depth) * smoothstep(0.8, 2.2, depth));
+  float pkS = min(uPeak + 1.4 * smoothstep(5.0, 1.5, depth), 3.6);
+  vec3 sw = swellPix(vRest, uTime, ksS, pkS, vec4(dFdx(vRest), dFdy(vRest)), normalize(uWindV + vec2(1e-6, 0.0)), swVar, swRes) * fadeS;
+  vec3 Nw = vec3(-sw.y - seaS.x, 1.0, -sw.z - seaS.y);
   // And the short waves (Ocean: Full), pixel by pixel: two readings of their patch, one turned and
   // larger, so its tiling never shows; their pinched crests lace the foam.
   vec3 shortS = vec3(0.0, 0.0, 1.0);
@@ -599,7 +685,7 @@ void main() {
   float drawn = uSlopeShare.x + uSlopeShare.y + uFineOn * fineNear * uSlopeShare.z;
   float unres = mix(uShortOn > 0.5 ? clamp(1.0 - drawn, 0.1, 1.0) : 0.7, 1.0, smoothstep(0.04, 1.6, foot));
   float calm = (0.12 + 0.88 * shel.g) * (1.0 - 0.75 * fresh) * mix(0.6, 1.3, gust);
-  vec2 msq = max(uSlopeVar * unres * calm + uRain * 0.01, vec2(0.0012));
+  vec2 msq = max(uSlopeVar * unres * calm + uRain * 0.01, vec2(0.0012)) + swVar * fadeS * fadeS;
   // How much the water reflects (Fresnel, from water's own 2% looking straight down to all of it at
   // a glancing angle); a rough sea, its facets tilted every way, never quite turns to a mirror.
   float cosV = clamp(dot(N, V), 0.0, 1.0);
@@ -702,7 +788,12 @@ void main() {
   }
   // (Breaking only at the very tops of the big seas, where their faces are steepest.)
   float steepSea = smoothstep(0.08, 0.26, length(Nw.xz));
-  float crest = smoothstep(uSwellH * 0.62, uSwellH * 1.1, vWorld.y) * mix(0.35, 1.0, steepSea) * smoothstep(0.3, 0.62, vnoise(p * 0.42 - drift * 0.6)) * shel.r * stormy;
+  // (W3b: by the swell's height pixel by pixel, out past where the sheet draws it, and the sea's own
+  // drawn, above the tide (before, the tide's height counted too: more of them white at high water).
+  // Where the pixels are too coarse for the swell, as much of the sea white as it is on average:
+  // its crests sharpen as the storm builds, from about one part in forty to one in twelve.)
+  float hCrest = vWave - vSwell + sw.x, stC = clamp((uStorm - 0.4) / 0.6, 0.0, 1.0);
+  float crest = mix(0.026 + 0.06 * stC * stC, smoothstep(uSwellH * 0.62, uSwellH * 1.1, hCrest), swRes) * mix(0.35, 1.0, steepSea) * smoothstep(0.3, 0.62, vnoise(p * 0.42 - drift * 0.6)) * shel.r * stormy;
   // The boats' white water: the churn behind a propeller, settling into bubbly lace as it spreads,
   // and the foam at the foot of a fast boat's bow wave.
   float washed = rippleWash(vRest);
@@ -883,6 +974,7 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       uRippleOn: { value: 0 },
       uRippleTexel: { value: 1 / 512 },
       uWaveLod: { value: new THREE.Vector2(0.6, 128 / 12) },
+      uFarR: { value: 1500 },
       uReflTexel: { value: new THREE.Vector2(1 / 512, 1 / 512) },
     },
   ]);
@@ -937,18 +1029,26 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
   // coarser ring by ring further out (each ring's cells twice the last's), out past where the
   // near sheet ends. Snapped to the coarsest ring's grid as it follows, so no vertex ever swims.
   // Fewer, coarser cells on lower quality settings.
-  let cell = 0, snap = 1, segs = 0;
+  let snap = 1, farSnap = 1, segs = 0;
   const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
   mesh.frustumCulled = false;
   mesh.renderOrder = 1;
 
-  // Beyond it, a plain ring of sea out to the horizon (the same water, without moving waves),
-  // so a long way out from the bay there is still ocean all round.
-  const ringMat = new THREE.ShaderMaterial({
-    uniforms, vertexShader, fragmentShader, defines: { DETAIL: 0, RING: 1, NO_WATER_TINT: 1 }, transparent: true, premultipliedAlpha: true, fog: true, side: THREE.DoubleSide,
+  // (W3b) Past it, the far sheet: the same waves, drawn on cells as coarse as the near sheet's
+  // coarsest and coarser ring by ring, out to where the sheets can't draw any of them (seaLayout's
+  // flatR). Where it lies under the near sheet's coarsest ring its vertices are that ring's own, so
+  // the two meet without a step; each draws its own side of NEAR_R. Then the flat ring out to the
+  // horizon, so a long way out from the bay there is still ocean all round; its waves, too far off
+  // for the sheet to draw, in its shading. Both the plainest shading (as far off as they are, the
+  // finer touches are gone anyway).
+  const farMaterial = (defines) => new THREE.ShaderMaterial({
+    uniforms, vertexShader, fragmentShader, defines: { DETAIL: 0, NO_WATER_TINT: 1, ...defines }, transparent: true, premultipliedAlpha: true, fog: true, side: THREE.DoubleSide,
   });
-  const ringGeo = new THREE.RingGeometry(NEAR_R - 2, 6000, 96, 6).rotateX(-Math.PI / 2);
-  const ring = new THREE.Mesh(ringGeo, ringMat);
+  const far = new THREE.Mesh(new THREE.BufferGeometry(), farMaterial({ FAR: 1 }));
+  far.frustumCulled = false;
+  far.renderOrder = 1;
+  mesh.add(far);
+  const ring = new THREE.Mesh(new THREE.BufferGeometry(), farMaterial({ RING: 1 }));
   ring.frustumCulled = false;
   ring.renderOrder = 1;
   mesh.add(ring);
@@ -985,6 +1085,7 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
 
   const api = {
     mesh,
+    far,
     ring,
     uniforms,
     // (W4) The sea's water, each frame, for everything seen through it from above (sky.js HAZE):
@@ -1035,6 +1136,7 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       below.done = false;
       mesh.position.x = Math.round(pos.x / snap) * snap;
       mesh.position.z = Math.round(pos.z / snap) * snap;
+      far.position.set(Math.round(pos.x / farSnap) * farSnap - mesh.position.x, 0, Math.round(pos.z / farSnap) * farSnap - mesh.position.z);
       ring.position.set(pos.x - mesh.position.x, 0, pos.z - mesh.position.z);
     },
     // 0: two wave layers (low), 1: plus fine wavelets and glints, 2: plus the finest layer.
@@ -1073,13 +1175,17 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
       if (segs === seg) return;
       segs = seg;
       // (Fewer cells across each ring on the lower settings, for slower machines.)
-      const N = seg <= 150 ? 64 : seg <= 220 ? 96 : 128;
-      cell = 180 / seg;
-      const R0 = (N * cell) / 2, levels = 1 + Math.ceil(Math.log2(NEAR_R / R0));
+      const L = seaLayout(seg);
       mesh.geometry.dispose();
-      mesh.geometry = clipmap(cell, N, levels);
-      snap = cell * 2 ** (levels - 1);
-      uniforms.uWaveLod.value.set(cell, N / 12);
+      mesh.geometry = clipmap(L.cell, L.n, L.levels);
+      snap = L.snap;
+      far.geometry.dispose();
+      far.geometry = clipmap(L.nearCell, L.n, L.farLevels, L.hole);
+      farSnap = L.farSnap;
+      ring.geometry.dispose();
+      ring.geometry = new THREE.RingGeometry(L.farR - 2, 6000, 96, 6).rotateX(-Math.PI / 2);
+      uniforms.uWaveLod.value.set(L.cell, L.lod);
+      uniforms.uFarR.value = L.farR;
     },
   };
   api.setSegments(300);
@@ -1089,7 +1195,9 @@ export function createWater(heightTex, rect, detailTex, detailRect) {
 // The near sheet: a square of n × n cells of `cell` metres round the middle, then rings round it,
 // each twice as coarse and twice as wide as the one inside, `levels` in all. aEdge marks the
 // vertices on each ring's outer edge that fall between two of the next ring's (see the shader).
-function clipmap(cell, n, levels) {
+// (W3b: the far sheet the same, its middle square, `hole` cells out from the middle each way, left
+// out.)
+export function clipmap(cell, n, levels, hole = 0) {
   const pos = [], edge = [], idx = [];
   let base = 0;
   for (let L = 0; L < levels; L++) {
@@ -1110,6 +1218,7 @@ function clipmap(cell, n, levels) {
       for (let j = 0; j < n; j++) {
         // (A ring leaves out the middle, where the finer one lies.)
         if (L && i >= inner && i < n - inner && j >= inner && j < n - inner) continue;
+        if (!L && hole && i >= n / 2 - hole && i < n / 2 + hole && j >= n / 2 - hole && j < n / 2 + hole) continue;
         const a = at(i, j), b = at(i, j + 1), d = at(i + 1, j), e = at(i + 1, j + 1);
         idx.push(a, d, b, b, d, e);
       }

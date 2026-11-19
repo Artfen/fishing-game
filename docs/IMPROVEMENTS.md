@@ -1755,3 +1755,128 @@ Ranked by player impact, then risk and effort. ✅ done, ⏳ in progress.
 | After | RIB 2.5° at 16 m/s (Savitsky 2.9°), jet ski 3.1° at 14 m/s (3.6°); within 1° from a speed coefficient of 3.4, steady; speeds as before to a percent or two |
 | Validation | New `tests/planing.test.mjs` (2): Savitsky's equations solved (the lift carries her weight and acts at her centre of gravity, within 0.5%; trim falling with speed, rising with weight and with her weight aft); the RIB and the jet ski on the plane within 1° of Savitsky at three speeds each, pitch steady to under 0.5°. The RIB's wheelie guard (`tests/sportboats.test.mjs`) and the flat-water smoothness (`tests/hydro.test.mjs`) pass as they stand |
 | Remaining risks | The console and the bass boat, getting onto the plane rather than fully on it (Cv under 3), still 1.4 to 2.8° under Savitsky; the RIB 1.4° under at 12 m/s; in the tests' rough sea the RIB's bow lifts to 14° at most (was 9°) and she's off the water 1.3 s of 25 (was 0.7) |
+
+### The sea, close up: W3 (second part), the big seas carried past 444 m
+
+| Field | |
+| --- | --- |
+| System | `src/world/water.js` (`seaLayout`: how far each sheet draws the waves, for each setting; the far sheet, `clipmap` with its middle left out; each swell wave and the wind sea's patch faded as the cells grow too coarse for them; `swellPix`: the swell's slope and height pixel by pixel in the shading, what a pixel can't show added to the roughness; the near sheet a square, the far sheet and the flat ring each drawing their own side; the crest foam by the waves' own height); `src/main.js` (the far sheet left out of the reflection); `tools/watershots.mjs` (two views of the far sea) |
+| Previous issue | Past 444 m the sea was a flat ring: its rise and fall stopped, and the swell's long crests with it, at a line; through the binoculars a storm's sea went flat short of the horizon; a boat out there rode up and down on a sea that wasn't moving |
+| Change | A far sheet draws the same waves, on coarser cells ring by ring, out to where the cells can't draw any of them (1.5 km on High and up); each wave fades out as the cells grow too coarse for it; past that, and wherever the sheet can't draw it, the swell carries on in the shading pixel by pixel, and as roughness once the pixels are too coarse for it |
+| Player benefit | A storm's swell rolls on out to the horizon, through the binoculars and from high up; no line where the waves stop |
+| Before | The swell's crests and its rise and fall ending 444 m off |
+| After | The waves drawn out to the far sheet's edge and the swell's crests on to the horizon; the two sheets meeting on the same triangles |
+| Validation | New `tests/farsea.test.mjs` (5): every setting's sheets cover the sea with no gap wherever the camera is; each wave drawn only on cells at most a third of its length, every one gone where the flat ring starts; the far sheet the near sheet's own triangles where they meet; a swell wave's slope, unshown, as roughness; the crest foam's average where a pixel's too coarse, against the swell's own. Pictures before and after (`tools/watershots.mjs`, `far-`) |
+| Remaining risks | Up to 75,000 more triangles on High and up: vertex work (the same sea is shaded, each bit of it once; where the far sheet lies under the near one its pixels are dropped at the shader's first line); not measured on real hardware; a boat further off than about 300 m still rides the shortest swell the sheet no longer draws there |
+
+### The sea, close up: boats far off on the sea as drawn
+
+| Field | |
+| --- | --- |
+| System | `src/world/conditions.js` (`undrawnWave`: the waves the sheets leave out at a point from a camera so far off, faded as the shader fades them); `src/boat.js` (`seatOnDrawnSea`, `unseatFromDrawnSea`: each boat lowered by them for the frame, then put back); `src/main.js` (around the frame's drawing, before the reflection) |
+| Previous issue | A boat far off rode every wave the physics has while the sheets draw fewer the further off, none past the far sheet: she bobbed over a sea that wasn't moving there |
+| Change | For each frame drawn, a boat is lowered by the waves left out under her, and put back after: her place on the water, her physics and what a friend is sent are unchanged |
+| Player benefit | A friend's boat, or a townsperson's, seen from a long way off sits on the water you see |
+| Before | Her height above the sea as drawn spread 0.097 m at 700 m, 0.361 m at 1.6 km (a 14 m/s breeze) |
+| After | 0.047 m at both, as she sits on the water close by |
+| Validation | `tests/farsea.test.mjs` (a sixth test): none left out close in; past the far sheet, all of it, the sea as drawn flat at the tide; more left out the further off, from none to all; a far boat lowered for the frame and put back exactly, one close by untouched; wired round the frame's drawing. Measured in the game at four distances |
+| Remaining risks | Her pitch and roll still follow the short waves the sheets leave out (a degree or two, about ten centimetres at the RIB's bow); the wind sea's patch is drawn blurred far off (its mipmaps), which the correction doesn't take off |
+
+### Boats: B3 (the hump region), getting onto the plane
+
+| Field | |
+| --- | --- |
+| System | `src/hydro.js` (`PLANE_CV`: her lift moved to Savitsky's place from a speed coefficient of 1.2, all of it by 2.4, was 1.5 to 3; `PLANE_BUOY`: on the plane her bottom's steady buoyancy halved, where it acts, its changes through a sea as the panels have them; `PLANE_LIFT_CV`: the dynamic pressure's halving keeps its 1.5 to 3); `src/engines.js` (the drag factors and top speeds measured again, `--calibrate`); `src/engineTrials.js` (measured again) |
+| Previous issue | Getting onto the plane, the console and the bass boat ran 2° to 3° flatter than Savitsky's equations have them: the hump's own rearing had faded and Savitsky's lift couple had barely come in, and her bottom held her up by all the water it pushed aside, where on the plane it's about half |
+| Change | Her lift moved to Savitsky's place earlier, within the range his equations hold; on the plane her steady buoyancy is halved, as his buoyant lift against a wedge's own displacement has it (0.43 to 0.65 over the wetted lengths and trims a planing hull runs at), while she meets each sea as stiffly as before |
+| Player benefit | The console and the bass boat climb onto the plane bow-up, nearer real ones; every planing boat runs closer to her real angle |
+| Before | Root mean square from Savitsky over five levers: console 2.09°, bass boat 2.08°, RIB 1.03°, jet ski 0.61°, skiff 0.52° |
+| After | Console 0.91°, bass boat 1.50°, RIB 0.70°, jet ski 0.34°; skiff 0.81° (her top speed is on the hump: up to 1.2° more bow-up than his equations); pitch steady to 0.5° at most |
+| Validation | New `tests/hump.test.mjs` (2): Savitsky's buoyant lift against a flat wedge's, about `PLANE_BUOY`; the console, the bass boat and the skiff at five levers each, from below the hump to flat out, each within 2.25° of Savitsky and 1.65° root mean square, steady (main fails it: the console 2.7° under at Cv 2.38). `tests/planing.test.mjs`, `tests/sportboats.test.mjs` (the RIB's rearing, wheelie and rough-sea guards), `tests/watersports.test.mjs` (the jet ski on a calm sea), `tests/engines.test.mjs` pass |
+| Remaining risks | The skiff up to 1.2° more bow-up than Savitsky at the top of her range; the bass boat still 1.9° under at a coefficient of 2; driven hard from rest the RIB rears 10.7° in the sport boats' test (8.5° on main; it allows 11.5°), and in its rough sea is off the water 1.5 s of 25 (1.3 s); top speeds down 1% to 3% on the skiff, the bass boat and the console, the console burning 3.5% more at her cruise; the jet ski's tail-standing in a lively sea (on main too) not touched (done since: see the jet ski onto the plane in a sea, below) |
+### Boats: the jet ski onto the plane in a sea (B3's follow-up)
+
+| Field | |
+| --- | --- |
+| System | `src/boat.js` (the jet's push on `PROP_LEVER`'s scaled turning arm, as the outboards' is, so `hydro.js`'s balance of her resistance and push on the plane applies to her too; a seaway's resistance not while a boat is clear of the water; `seaway` on a hull, a share of that resistance: 0.3 on the jet ski) |
+| Previous issue | Launched flat out from rest into a lively sea, the jet ski stood on her tail (38–41°) and hopped along at 6–7 m/s, never on the plane; the water-sports test counted the hops as her jumping off crests at speed. On a calm sea she reared to 26–29° from rest. Her jet pushed on its full arm, unlike the outboards; and a seaway's resistance, set for the RIB and growing as her length gets shorter, came to more than twice her own hull resistance |
+| Change | Her jet's push on a real propeller's arm; the seaway's resistance lifted while she's in the air off a crest (any boat); her share of it set so a lively sea costs her about the share of her calm speed it costs the RIB (a calibration, not a measured figure) |
+| Player benefit | Flat out into a lively sea she gets onto the plane and flies off the crests at 11–12 m/s; from rest she launches without rearing |
+| Before | Lively sea (five seas, 20 s from rest): 5.7–6.6 m/s, jumps at a median 6.2–6.4 m/s, up to 30–36° bow-up running, 4.7–7.5 s over 20° on the water; calm launch 26–29° |
+| After | 11.0–11.7 m/s, jumps at a median 11.1–11.8 m/s, up to 11–14° running, over 20° only within a third of a second of leaving the water or landing (0.3–1.9 s); calm launch 7.7–8.5°, then 16.3 m/s (was 16.0). With the lever alone: 7.1–7.9 m/s, jumps at a median 7.2–7.6 |
+| Validation | `tests/watersports.test.mjs`: the jet ski test now checks the median speed of her jumps against fully planing (a speed coefficient of 3 on her planing beam: 9.3 m/s), her bow-up running between the crests under 20°, and her launch on a calm sea under 15°; it fails on the old code (ten jumps at 6.0–6.6 m/s). It starts her 150 m back on the same line, so that on the plane she stays in open, deep water (the shallows begin 175 m on from the old spot). `tests/planing.test.mjs`, `tests/hump.test.mjs` and the rest of the suite pass |
+| Remaining risks | Her share of the seaway is tuned, not measured; off a crest her bow still goes up to 24–35° for a moment, leaving the water or landing; the RIB in a sea is up to 0.8 m/s quicker for not being braked in the air (15.5–16.2 m/s in the sport boats' rough sea, was 15.4–15.5); the skiff's and the bass boat's bows reach 32–33° up at most, flat out in the same lively sea, as before (not looked into: they don't leave the water, and it may be the waves' faces) |
+
+### Boats: raising the anchor without burying her bow (B6's follow-up)
+
+| Field | |
+| --- | --- |
+| System | `src/hydro.js` (`rodeForce`: a rode being hauled in pulls her bow down no harder than `hold`); `src/boat.js` (`holdAnchor`: `hold` set while it's hauled, at what a hauler can heave, `haulHold`) |
+| Previous issue | Hauled in, the rode drawn up short over the anchor pulled her bow down with more than her whole weight, and it went down 16° to 25° as the anchor broke out; the hauling only minded the rope's level pull |
+| Change | While it's hauled, the rope's downward pull on her bow is held to what the hauler heaves (8% of her weight, 250 N at least): an anchor pulled from nearly overhead breaks out, it doesn't drag a boat's bow under. The level pull that draws her up to it, and when the hauling waits, are as before |
+| Player benefit | Raising the anchor, her bow dips a degree or two, not into the water |
+| Before | Bow down 16.0° (skiff), 21.4° (RIB), 25.2° (console) as the anchor came up in calm water; the rope pulling it down 3.3, 16.3 and 27.9 kN |
+| After | 2.0°, 1.4° and 2.0° (lying on it, 0.6° to 0.8°); 250, 981 and 1,884 N; up as quickly as before, in a breeze too |
+| Validation | New test in `tests/anchoring.test.mjs`: the skiff, the RIB and the console hauled up in 14–18 m, and the RIB blown back on it: up within 35 s, the rope's downward pull no more than a hauler's, her bow down less than 3.5° more than lying on it (main fails it: the skiff's bow 16.0°, 3,271 N on it) |
+| Remaining risks | The anchor still breaks out where the rope's straight up and down (the geometry, as before), not by what it holds pulled upward; in a real breeze her bow goes down 3° more than the seas pitch her lying on it, as she's drawn up into them |
+
+### Boats: an anchor comes out of the bottom by what it holds (B6's follow-up)
+
+| Field | |
+| --- | --- |
+| System | `src/anchoring.js` (`breakoutHold`: what it holds pulled out, by the angle, never below what the bottom keeps overhead, `BOTTOMS.out`; hooked, whichever way; `liftedOut`); `src/boat.js` (`holdAnchor`: out when the pull on it, no more than a hauler heaves, beats that; made fast and snatched out on the swell when it's more; hauled in along its rope); `src/main.js` (what the game says when it won't come) |
+| Previous issue | Hauled in, the anchor came out wherever the rope was straight up and down, dug in or not, hooked under a rock or not, and rose straight up from where it lay |
+| Change | Out of the bottom when the pull on it beats what it holds at the angle the rope lifts it, as dug in as it is; more than a hauler heaves, made fast short and snatched out as she lifts on the swell; then hauled in along its rope to her bow |
+| Player benefit | A well dug-in or fouled anchor takes more to free, and the game says how you're freeing it |
+| Before | Every anchor out when straight up and down |
+| After | RIB in 14–18 m: barely set, out at 66 N by hand; dug in, 192 N by hand; hooked under a rock, 1,902 N, more than a hauler heaves: made fast, out on the swell after 8 s |
+| Validation | New tests in `tests/anchoring.test.mjs`: what an anchor holds pulled out (by the angle, never below the bottom's share overhead, mud's most; hooked, the same every way; lifted past 24.5°); live, hauled in barely set, dug in and hooked: out by the heave for the first two, the dug-in one at a firmer pull; made fast and out on the swell for the hooked one; each in along its rope to her bow, never through the bottom |
+| Remaining risks | The shares of what the bottom keeps are the game's numbers, in a plausible order, not measured; a barely set anchor now comes out before she's drawn right over it |
+
+### Boats: the bass boat on her own V, and the hump in a head sea (B3's follow-up)
+
+| Field | |
+| --- | --- |
+| System | `src/hydro.js` (`veeAt`, `section`: a V bottom takes a pad and a deadrise that sharpens towards the bow, along her); `src/boat.js` (the bass boat's `vee`, her drawn and floated deadrise 18°, `planing.deadrise` 18; `HUMP_EASE`: the hump's rearing eases off from her bow 12° up on the water about her, gone by 18°); `src/flooding.js` (her compartments on the same section); `src/engines.js`, `src/engineTrials.js` (her drag and top speeds, and the Marine Works' figures, measured again) |
+| Previous issue | The bass boat floated on the rounded section the other hulls have, not the V she's drawn with: held up by more water, 0.16 m deep where her figures say 0.22, and up to 1.9° flatter than Savitsky getting onto the plane. And in a head sea a seaway held the slower planing boats at the hump, where its rearing, which didn't know how far her bow was up already, stood them on their tails: bows up to 41° (bass boat), 42° (console) and 46° (skiff) beyond the sea's own slope |
+| Change | Her physics hull's bottom is her drawn one, to the millimetre along her to 0.75 of her length; drawn and floated at 18° deadrise, so her chine aft stays clear of the water at rest. The hump's rearing is her trim on her own wave: it eases off once her bow is well up on the water |
+| Player benefit | The bass boat climbs onto the plane bow-up, nearer a real one; the bass boat, the skiff and the console in a head sea pitch and pound, but never stand on their tails |
+| Before | The bass boat 1.50° root mean square from Savitsky, at most 1.94°; in a lively head sea, bows 21–41°, 27–46° and 18–42° beyond the sea's slope (bass boat, skiff, console) |
+| After | 0.96°, at most 1.47°; 18–23°, 18–21° and 15–22°, none past 25° bow-up; her top speed 9.16 m/s on her stock engine (9.21); in a calm the trims of the other boats, the RIB's rearing and the trials unchanged |
+| Validation | New in `tests/bassboat.test.mjs`: her physics bottom's keel, pad, V and chine where she's drawn with them, along her (fails on main: no V); `tests/hump.test.mjs` tightened to within 1.75° of Savitsky and 1.2° root mean square (main's bass boat fails it: 1.94°, 1.50°), and a new test: the bass boat, the skiff and the console flat out into a lively sea from rest, in three seas, their bows less than 27° beyond the sea's slope and 28° up (main fails: the bass boat 33.2° beyond it). `tests/sportboats.test.mjs`, `tests/planing.test.mjs`, `tests/watersports.test.mjs`, `tests/engines.test.mjs`, `tests/flooding.test.mjs` pass |
+| Remaining risks | She floats 9 cm deeper at her keel, her freeboard aft 0.30 m (0.39), and is a little less stiff (metacentric height 1.28 m, 1.86); she looks a slightly deeper V; in a head sea she rolls up to 17° (15°) and hops off a crest now and then; `HUMP_EASE` is a calibration |
+
+### Boats: the bass boat out on the sea
+
+| Field | |
+| --- | --- |
+| System | `src/trailer.js` (`ROAD_HAUL`: the yard's trailer, £20 and an hour and a half); `src/main.js` (`onMere`: on Longmere by where she is, not what she is; `boathouseMooring`, `havenMooring`; `haulByRoad`, from the harbour office's *Bring a boat round…* and *Put a boat in the water…*; the out-of-fuel tow, the harbour launch, the supply ship, the office's words and the fuel words by the water she's on) |
+| Previous issue | The trailer could take her down to the sea, but then much of the game still had her on Longmere: run dry or holed anywhere, she was towed back to the boathouse jetty (across the land); the harbour office said she was on Longmere, and wouldn't bring her round or ship her; the fuel words said Longmere has no pump. A skiff or kayak trailered up to the mere was towed to Willowhaven quay from it. And the out-of-fuel tow, with the quay full, looked up a berth for no boat at all (`boat.iind`, a typo) |
+| Change | Where she is decides: on the mere, the boathouse; at sea, Willowhaven (the quay, the visitors' pontoon, or off the quay head) or Puerto Brasa. The yard's trailer brings her down or takes her up from the harbour office, and laid up she can go in at Willowhaven straight away |
+| Player benefit | The bass boat at sea without the car and trailer, and once there, at home on it |
+| Validation | New `tests/bassatsea.test.mjs` (2): the boathouse jetty on the mere and Willowhaven's quay on salt water, the yard's trailer's fee and time; and in the game's source, every one of those by the water she's on. A browser check (one client): down by road, at Willowhaven and tied up, £20 and an hour and a half; the office's words; the quay pump; dry at sea and towed in to Willowhaven quay; back up by road to the boathouse; dry on the mere and towed to the jetty; laid up and in at Willowhaven |
+| Remaining risks | She's still a lake boat at sea: low freeboard, the planning card's open-sea warnings stand, as they should |
+
+### Boats: an inside helm in the wheelhouse (the cabin boat and the yacht)
+
+| Field | |
+| --- | --- |
+| System | `src/boat.js` (`H.helmInside`; `buildInsideHelm`: a shelf under the windscreen, its wheel, compass and throttle, the yacht's screen, the cabin boat's stool; `setHelmInside`, `moveSeat`, `helmXZ`: you, your eyes and your hands there, sitting or standing); `src/main.js` (`helmInside`; the prompts at her helm, under way and still; no casting from in there; her dashboard outside; indoors for the weather; out again leaving her or into the cabin); `src/together.js`, `src/world/visitors.js` (`hi` in her pose: friends see you there) |
+| Previous issue | The two boats with a wheelhouse could only be steered from outside it: the cabin boat by her tiller at her stern, the yacht from under her hardtop aft of it. The wheelhouse was for the galley and the bunk, at anchor or tied up |
+| Change | An inside helm in each: under way or still, into the wheelhouse to steer from it; in first person your eyes are there, out through the windscreen, the house round you. She steers as from outside; you can't fish from in there |
+| Player benefit | Steering from inside a cabin boat, as you would: out of the wind and the rain, the bow and the sea ahead through the glass |
+| Validation | New `tests/insidehelm.test.mjs` (7): only these two have one; your eyes in the wheelhouse (forward of its back, under its roof) and a fan of lines of sight ahead and down through the windscreen unblocked; the wheel under the glass, within reach, its face turned up to your eyes (0.96 and 0.97 face on; main's outside wheels are seen nearly edge on, 0.04 to 0.22), the cabin boat's stool clear of her galley; your hands on its wheel and the same turn from either helm (to the last digit, on a sea without the other run's wake), and back out your eyes where they were and your hand on her tiller; walking the yacht's deck takes you out of it, her helm's fittings weighing where they always did; the pose carries it; the game's prompts, no casting, the dashboard and the weather. `tests/cabinboat.test.mjs`, `tests/yacht.test.mjs` (the sight lines from her tiller and her helm outside, within budget) pass as they stand |
+| Remaining risks | Your weight doesn't move with you (as it doesn't going into the cabin); the yacht's interactive dashboard is the one outside |
+
+### Boats: the yacht's and the bass boat's wheels face the one steering her
+
+| Field | |
+| --- | --- |
+| System | `src/boat.js` (`makeWheel`, `buildWheel`: a wheel's rake; the yacht's and the bass boat's wheels) |
+| Previous issue | Every wheel leant its top towards the helmsman, its face looking down at the floor: from your eyes at her helm, in first person, you saw it almost edge on, a dark bar or a stub (0.04 to 0.24 face on, where 1 is square on) |
+| Change | The yacht's and the bass boat's wheels raked back to look up at you, their tops leaning away towards the dash and their bosses going into it, as a helm's wheel is set (0.55 and 0.62 rad, the same rakes as before the other way). Your hands go on the rim as before (they follow the wheel). The RIB's and the console boat's are left low and back as they were: on those consoles a wheel raked back to face you hides the dashboard's switches behind it (40% to 70% of the worst), and lowered clear of them it runs into the console's front |
+| Player benefit | At the yacht's and the bass boat's wheels in first person you see a wheel, its rim round, turning as she turns |
+| Before | Face on to your eyes: the yacht 0.08, the bass boat 0.04 |
+| After | 0.85 and 0.93; the yacht's wheel covers less of her dashboard than before (from your eyes, 1.6 controls' worth of her switches, throttle and screen behind it, where it was 2.7; her horn button by the wheel's boss 77% behind it, 88% before); the RIB's and the console boat's dashboards with nothing behind their wheels, as before |
+| Validation | New `tests/wheels.test.mjs` (2): the yacht's and the bass boat's wheels on to your eyes more than 0.8, their tops leaning away from you, your hands on the rim and its foot ahead of you (main fails it: the bass boat's 0.04); from your eyes at the RIB's and the console boat's helms, no switch of their dashboards behind the wheel. `tests/dashboard.test.mjs`, `tests/bassboat.test.mjs`, `tests/yacht.test.mjs` pass as they stand. A browser check: first person at each helm and from beside it, before and after |
+| Remaining risks | The RIB's and the console boat's wheels are still seen nearly edge on: they want their helms laid out again, the wheel and the switch panel together |

@@ -163,6 +163,7 @@ included). The full table, with each LICENSE file read, is in the two research n
 
   Still to do from W3's line in the plan: the big seas carried out past the fine sheet (444 m) as
   roughness. In a storm the waves still end at a line there, now against a haze the sky's colour.
+  (Done since: see W3's second part, below.)
 
 - **B1:** added mass in heave, pitch and roll. Each hull now carries the water she has to move as
   she bobs and pitches: from her waterline beam and waterplane, about one to two times her own
@@ -790,10 +791,342 @@ included). The full table, with each LICENSE file read, is in the two research n
   before were the same to 0.3 m/s.) Slower, at 12 m/s, the RIB is still 1.4° under Savitsky's
   3.8°; and the console and the bass boat, which run below a speed coefficient of 3, getting onto
   the plane rather than fully on it, where his equations are at their edge, came up less (the
-  console 0.6 to 2°, the bass boat 0 to 0.7°) and are still 1.4 to 2.8° under them. Their speeds are as before to a percent or two
+  console 0.6 to 2°, the bass boat 0 to 0.7°) and are still 1.4 to 2.8° under them. (Done
+  since: see B3's hump region, below.) Their speeds are as before to a percent or two
   (tools/engine-trials.mjs measured them again: the figures the Marine Works shows).
 
   In the tests' rough sea, flat out, the RIB's bow now lifts to 14° at most (it was 9°), against
   the test's limit of 23° (she stood on her tail at 54°, once), and she's off the water for 1.3 s
   of the 25 (it was 0.7): she comes off a crest a little more freely, as a planing hull at her real
   trim does.
+
+- **W3 (second part):** the big seas carried on past the fine sheet. The sheet that draws the
+  waves' rise and fall stopped 444 m round you; past it, a flat ring out to the horizon, shaded
+  with the wind sea's slopes and its whitecaps but not the swell's, and lifted by none of it. So
+  the swell's long crests ended at a line, a boat out there rode up and down on a sea that wasn't
+  drawn moving, and through the binoculars the far sea was flat.
+
+  - **The far sheet.** Past the near sheet, a second one draws the same waves, on cells as coarse
+    as the near sheet's coarsest and twice as coarse ring by ring, out to where the sheets can't
+    draw any of them (`seaLayout`'s flatR: 1.5 km on High and up, 1.1 km on Medium, 750 m on
+    Low); then the flat ring. Where it lies under the near sheet's coarsest ring its vertices are
+    that ring's own, worked out the same way, so the two are the same triangles and meet without a
+    step; the near sheet is now a square 444 m each way round you (always on its coarsest ring,
+    which a circle wasn't on Low, Medium and Cinematic), and each draws its own side of it. It
+    adds 13,000 triangles on Low, 29,000 on Medium and 53,000 to 75,000 on High and up (the near
+    sheet has 33,000 to 156,000), with the plainest shading the far ring had.
+  - **Each wave as far as the cells can draw it.** The sheets' cells grow with distance, so each
+    wave is drawn in full while they're at most about a quarter of its length and faded out by a
+    third, as the wind sea's long waves already were. Before, the swell was drawn on whatever cells
+    it fell on, out to the edge: on Low, its 38 m waves on 24 m cells, a scatter of facets.
+  - **The swell's slope pixel by pixel.** Past where the sheet can draw it, the swell carries on in
+    the shading: each of its waves worked out at each pixel (they're a handful of sines), shown as
+    long as the pixel is less than a quarter of its length along it, gone by half. Far off and low,
+    a pixel is long along your line of sight: there the waves coming at you go first, those running
+    across it last. What a pixel can't show goes into the roughness that spreads the sun's glitter
+    and the sky's reflection (½(sk)² for each, up the wind and across it, after Bruneton, Neyret and
+    Holzschuch 2010), as the wind sea's own fine waves already did.
+  - **A storm's crests breaking white out there too:** by the swell's height pixel by pixel, out
+    past where the sheet lifts it; and where a pixel is too coarse for them, as much of the sea
+    white as on average (worked out over the swell: one part in forty in fair weather to one in
+    twelve in a full storm). Found on the way: the test had the tide's height in it, so more of
+    the crests broke white at high water than at low; now it's the waves' height alone.
+
+  The storm's sea, before and after (`tools/watershots.mjs`, `far-`): from 260 m up, looking out
+  over a kilometre or two of it (the haze off, to show it), and through the binoculars from 4 m up,
+  out to the horizon (a third of the haze):
+
+  | | Before | After |
+  | --- | --- | --- |
+  | From 260 m up | ![](water/far-above-before.jpg) | ![](water/far-above-after.jpg) |
+  | Through the binoculars | ![](water/far-binoculars-before.jpg) | ![](water/far-binoculars-after.jpg) |
+
+  The haze hides most of the sea past a kilometre or so on an ordinary day (and more of it in a
+  storm), so from a boat the change is at the horizon; it shows most from high up and through the
+  binoculars. A boat further off than about 300 m still rides the waves the sheet no longer draws
+  there (a few tens of centimetres of the shortest swell at 300 to 550 m on High): less than before,
+  when past 444 m she rode all of them over a flat sea. (Done since: see the next entry.)
+
+- **Boats far off on the sea as drawn (W3's follow-up):** a boat out there, a friend's, a
+  townsperson's, one of your own lying off, still rode every wave the physics has, while the sheets
+  draw fewer of them the further off they are, and none past the far sheet; so she bobbed over a sea
+  that wasn't moving there. Now, for each frame drawn, a boat is lowered by the waves the sheets
+  leave out under her middle (`conditions.js` `undrawnWave`: each swell wave and the wind sea's patch
+  faded by distance exactly as the shader fades them, so the physics' sea less this is the sea as
+  drawn), and put back as soon as the frame is drawn (`boat.js` `seatOnDrawnSea`): her place on the
+  water, her physics and what's sent to a friend are as before. Measured in the game (the RIB lying
+  offshore in a 14 m/s breeze, watched from each distance; the spread, standard deviation over
+  thirty frames, of her height above the sea as drawn under her):
+
+  | Watched from | Before | Now | Above the sea itself, as close by |
+  | --- | --- | --- | --- |
+  | 420 m | 0.038 m | 0.033 m | 0.032 m |
+  | 700 m | 0.097 m | 0.047 m | 0.047 m |
+  | 1 km | 0.085 m | 0.036 m | 0.036 m |
+  | 1.6 km | 0.361 m | 0.047 m | 0.047 m |
+
+  So she sits on the sea as drawn as she sits on the water close by. Her pitch and roll still follow
+  the waves under her, the short ones the sheets leave out too: a degree or two either way, about
+  ten centimetres at the RIB's bow.
+
+- **B3 (the hump region):** getting onto the plane. The console and the bass boat, which run below a
+  speed coefficient (V/√(g·b), b her beam at the chine) of about 3, still ran 2° to 3° flatter than
+  Savitsky's equations have them; the RIB 1.7° under them at 11 m/s. Taking the pitching moments on
+  the bass boat apart, stage by stage, showed why: her bottom's lift sat aft of her centre of
+  gravity, holding her bow down, and only two things lifted it, her propeller (low under her stern)
+  and the couple that moves her lift forward to where Savitsky puts it. Below a coefficient of
+  about 2, the hump's own rearing (boat.js, `H.hump`) does it, and on the console it's mostly gone
+  by 2.4; Savitsky's couple came in only from 1.5, and fully at 3. Between the two she ran flat.
+  Two changes, each from Savitsky's own equations:
+
+  - **Her lift moved to where Savitsky puts it from a coefficient of 1.2, all of it by 2.4**
+    (`PLANE_CV`; it was 1.5 to 3). His equations hold from about 0.6.
+  - **On the plane her bottom holds her up by half the water it pushes aside** (`PLANE_BUOY`, over
+    the same ramp). Running fast, the water leaves her bottom clean at the transom and the pressure
+    there falls to the air's. Savitsky's buoyant lift, 0.0055·λ^2.5·τ^1.1/Cv² (τ in degrees),
+    against a flat wedge's own displacement, λ²·τ/Cv² (τ in radians), is 0.32·λ^0.5·τ^0.1 of it:
+    0.43 to 0.65 over the wetted lengths (1.5 to 3 beams) and trims (3° to 6°) a planing hull runs
+    at. The panels gave all of it, so she was held up too well and ran flat, most of all getting
+    onto the plane, where her buoyancy is most of what holds her up. It's her steady buoyancy
+    that's halved, as B3 moved only her lift's steady place: what her bottom's buoyancy holds her
+    up with, smoothed over half a second, less half of it where it acts, and gone as she leaves the
+    water. How it grows and shrinks as she heaves and pitches through a sea is as the panels have
+    it. (Halved in each panel's pressure, she lost half her stiffness against each sea and flew off
+    the crests: in the tests' rough sea the RIB was off the water 2.2 s of the 25 watched, where
+    she's off it 1.3 s on main.)
+
+  The bottom's dynamic pressure halving (`PLANE_LIFT`) keeps its own ramp, 1.5 to 3
+  (`PLANE_LIFT_CV`). Brought in with the rest (in an earlier form of this change), it brought the
+  console and the bass boat closer still (0.56° and 1.29° root mean square), but with less to hold
+  her stern up as she launched from rest the jet ski reared 34° on a calm sea where she rears about
+  30°, and in the watersports test she left the water there. Two other things tried first didn't
+  hold up: moving her lift from where the panels actually put it (rather than from the middle of
+  her wetted length) to Savitsky's place ran the RIB bow-down on the plane (her tubes carry lift
+  well forward), and bringing her resistance up to her propeller's height earlier changed the
+  trims by half a degree at most.
+
+  Measured in calm water, steady over ten seconds at each lever (her bottom's angle to the water,
+  and Savitsky's for her speed then; hydro.js savitskyTrim):
+
+  | | Lever | Before | Now |
+  | --- | --- | --- | --- |
+  | Console | 0.4 | 3.95° (Savitsky 5.50°, Cv 1.68) | 5.08° (5.49°, Cv 1.64) |
+  | Console | 0.55 | 2.68° (5.21°, Cv 2.08) | 4.50° (5.29°, Cv 2.01) |
+  | Console | 0.7 | 2.01° (4.75°, Cv 2.38) | 3.49° (4.81°, Cv 2.34) |
+  | Console | 0.85 | 2.53° (4.31°, Cv 2.65) | 3.64° (4.36°, Cv 2.62) |
+  | Console | 1 | 2.45° (3.98°, Cv 2.88) | 2.95° (4.00°, Cv 2.87) |
+  | Bass boat | 0.4 | 3.80° (5.58°, Cv 1.18) | 3.80° (5.58°, Cv 1.18) |
+  | Bass boat | 0.55 | 3.60° (5.28°, Cv 1.46) | 4.01° (5.31°, Cv 1.45) |
+  | Bass boat | 0.7 | 2.47° (4.63°, Cv 1.74) | 3.30° (4.70°, Cv 1.71) |
+  | Bass boat | 0.85 | 1.31° (4.07°, Cv 1.98) | 2.18° (4.12°, Cv 1.96) |
+  | Bass boat | 1 | 1.77° (3.61°, Cv 2.20) | 2.86° (3.69°, Cv 2.16) |
+  | Skiff | 0.4 | 4.23° (4.72°, Cv 1.05) | 4.23° (4.72°, Cv 1.05) |
+  | Skiff | 0.55 | 5.43° (4.85°, Cv 1.26) | 5.45° (4.86°, Cv 1.26) |
+  | Skiff | 0.7 | 5.28° (4.56°, Cv 1.49) | 5.82° (4.59°, Cv 1.47) |
+  | Skiff | 0.85 | 3.71° (4.04°, Cv 1.73) | 4.90° (4.12°, Cv 1.70) |
+  | Skiff | 1 | 3.20° (3.60°, Cv 1.94) | 4.45° (3.71°, Cv 1.89) |
+  | RIB | 0.4 | 2.45° (4.19°, Cv 2.64) | 3.08° (4.22°, Cv 2.61) |
+  | RIB | 0.7 | 2.34° (3.22°, Cv 3.52) | 2.64° (3.23°, Cv 3.51) |
+  | RIB | 1 | 2.38° (2.65°, Cv 4.24) | 2.63° (2.65°, Cv 4.24) |
+  | Jet ski | 0.4 | 4.75° (6.04°, Cv 2.97) | 6.23° (6.23°, Cv 2.90) |
+  | Jet ski | 0.85 | 3.10° (3.55°, Cv 4.54) | 3.33° (3.55°, Cv 4.53) |
+  | Jet ski | 1 | 3.32° (3.24°, Cv 4.87) | 3.57° (3.25°, Cv 4.86) |
+
+  Over the five levers each, how far she is from Savitsky (root mean square): the console 2.09° to
+  0.91°, the bass boat 2.08° to 1.50°, the RIB 1.03° to 0.70°, the jet ski 0.61° to 0.34°. The
+  skiff went the other way, 0.52° to 0.81°: her top speed is on the hump (a coefficient of 1.9), so
+  she never climbs over it, and she now runs at it up to 1.2° more bow-up than his equations have.
+  Her pitch wanders by at most 0.5° (standard deviation; the console flat out, 0.45° before).
+
+  Her trim costs her a little speed, as a real hull's does: the Marine Works' figures were measured
+  again (the drag factors and top speeds in engines.js by `tools/engine-trials.mjs --calibrate`, the
+  table by the tool itself). On their own engines the skiff makes 13.7 knots (was 14.1), the bass
+  boat 17.9 (18.1), the console 26.4 (26.6) and the RIB 36.2 (36.3); the most any figure moved is
+  4.5% (the skiff's laden speed on the 15 hp with the four-bladed propeller), and the console burns
+  3.5% more at her cruise.
+
+  In the sport boats' test (its seas as that file's earlier tests leave them): driven hard from
+  rest on a calm sea, the RIB now rears 10.7° as she climbs onto the plane (8.5° on main; the test
+  allows 11.5°) and levels out at 2.2° bow-up; flat out in its rough sea her bow lifts to 15.3° at
+  most (14.4°) and she's off the water 1.5 s of the 25 watched (1.3 s). Steady at the hump's speeds
+  (a coefficient of 1.5 to 2.2) she's still under Savitsky, 2.4° to 4.1° against his 4.5° to 4.8°
+  (she was at 2.3° to 3.2°). Launched flat out from rest on a calm sea, the jet ski rears 28.5° (29.8°
+  on main).
+
+  Found on the way, and not this change's: launched from rest flat out into a lively sea (10 m/s of
+  wind, heading into it), the jet ski stands on her tail at about 6 m/s, 38° bow-up on main (40°
+  now), and never gets onto the plane; the watersports test counts those hops as her leaving the
+  crests. Her jet pushes on its full turning arm, where the outboards' is scaled to a real
+  propeller's (PROP_LEVER). (Done since: see B3's follow-up, below.)
+
+- **B3's follow-up: the jet ski onto the plane in a sea.** Launched flat out from rest into a
+  lively sea she stood on her tail and never got onto the plane: her bow up to 38–41°, hopping
+  along at 6 to 7 m/s in short leaps off the water up to 39° bow-up, which the water-sports test
+  counted as her jumping off the crests at speed. On a calm sea she reared to 26–29° from rest
+  before levelling out on the plane. (As B3's hump region, above, found.) Two things held her back:
+
+  - **Her jet's push on its full arm.** The outboards' push turns her bow up on a real
+    propeller's arm (PROP_LEVER, B3), since the game's push is bigger than a real one's; the jet's
+    had no such scaling, so it twisted her bow up far harder than a real jet does, and B3's
+    balance of her resistance against her push on the plane (hydro.js, `down`) didn't apply to
+    her either. Now her jet's push is on PROP_LEVER's arm, as an outboard's is. That alone stops
+    the rearing (from rest on a calm sea, 7.7–8.5°), but in the lively sea she still made only
+    7.1–7.9 m/s, her jumps at 7.2–7.6 m/s (the median).
+  - **A seaway's resistance, as the rule for the fleet put it on her.** It grows with the square
+    of the waves' height, over her length, and with her speed (SEAWAY): set for the RIB, at 3.1 m
+    she's the shortest motorboat. With the lever alone, in the lively sea at 7 m/s, it came to
+    7.9 m/s² against her own hull resistance's 3.3 (her jet's push, its intake in the water
+    two-thirds of the time, 11.4; in one sea, averaged over 10 s); for the RIB in the same sea
+    it's 0.6 of her hull's, the console's 0.8. Two changes: it no longer acts while a boat is
+    clear of the water, off a crest (it braked a jumping boat in mid-air as hard as in the
+    water); and a hull can take a share of it (`seaway`), the jet ski 0.3, set so a lively sea
+    costs her about the share of her calm speed it costs the RIB. That figure is a calibration,
+    not a measurement.
+
+  Measured flat out from rest for 20 s, heading south-west into the sea (the wind 10 m/s from
+  225°, the lively preset), from (0, 400) as the tests had her, in five different seas (five
+  starting times); her speed over the last 10 s; "running", her bow-up angle on the water more
+  than a third of a second from leaving it or landing:
+
+  | | Before | The lever alone | Now |
+  | --- | --- | --- | --- |
+  | Her speed | 5.7–6.6 m/s | 7.1–7.9 m/s | 11.0–11.7 m/s |
+  | Her jumps | 10 to 13, at 5.2–6.8 m/s (median 6.2–6.4) | 6 to 13, at 6.3–7.7 m/s (median 7.2–7.6) | 13 to 15, at 7.0–12.7 m/s (median 11.1–11.8) |
+  | Bow-up at most | 38–41° | 21–24° | 24–35°, only leaving the water or landing |
+  | Bow-up running | up to 30–36° | up to 17–18° | up to 11–14° |
+  | Over 20° on the water | 4.7–7.5 s | 0.1–0.6 s | 0.3–1.9 s, all within a third of a second of a crest |
+  | Launched on a calm sea | 26–29° bow-up, then 16.0 m/s | 7.7–8.5°, then 16.1 m/s | 7.7–8.5°, then 16.3 m/s |
+
+  Fully on the plane (a speed coefficient of 3 on her planing beam) is 9.3 m/s for her. The rest
+  of the fleet, flat out for 30 s in the same lively sea (their speed over the last 20 s): the
+  skiff, the bass boat and the centre console never leave the water and are as they were (71, 68
+  and 71% of their calm speeds); the RIB, off the water for about 3 s of it, 13.5 m/s where she
+  made 13.2 (75% of her calm speed, was 73%); the jet ski 11.7 m/s, 72% (it was 6.8, 42%). In the
+  sportboats test's rough sea the RIB makes 15.5–16.2 m/s in four seas, where she made 15.4–15.5,
+  her bow up at most 12–17° (12–18°) and off the water 0.6–2.4 s of the 25 watched (0.6–2.3). The
+  other boats' calm speeds and the Marine Works' trials (run on a flat calm) are unchanged; the
+  jet ski isn't in the trials.
+
+- **B6's follow-up: raising the anchor without burying her bow.** Hauled in, a boat came up to her
+  anchor with her bow driven down into the water as it broke out: 16° on the skiff, 21° on the RIB
+  and 25° on the console, in calm water where lying on the anchor she pitched less than a degree.
+  The hauling stopped at what a hauler can heave on the rope (8% of her weight, a quarter of a
+  kilonewton at least), but judged by its level pull alone. Drawn up short over the anchor the rope
+  is steep, and as taut as its stretch makes it, so its pull came down on her bow nearly straight,
+  with more than her whole weight (16 kN on the RIB, 28 kN on the console). Now, while it's
+  hauled, the rope pulls her bow down no harder than the hauler heaves (hydro.js `rodeForce`,
+  `hold`). An anchor pulled up from nearly overhead lets go of the bottom (it holds by its flukes
+  dug in along the pull, not up), so a real one breaks out long before it could drag her bow under.
+  What draws her up to it is as before: the rope's level pull, and the hauling waits while that's
+  more than the hauler can heave, so she comes up as quickly as she did, in a breeze too.
+
+  Hauled in 14 to 18 m of water on sand, after lying on it (`tests/anchoring.test.mjs`; her bow's
+  most downward pitch while she's hauled up, and lying on it the same while before):
+
+  | | Up in | Her bow down | Lying on it | The rope pulling it down, at most |
+  | --- | --- | --- | --- | --- |
+  | Skiff | 19.3 s → 18.0 s | 16.0° → 2.0° | 0.8° | 3,271 N → 250 N |
+  | RIB | 17.9 s → 17.6 s | 21.4° → 1.4° | 0.6° | 16,314 N → 981 N |
+  | Console | 17.6 s → 17.5 s | 25.2° → 2.0° | 0.6° | 27,885 N → 1,884 N |
+  | RIB, blown back on it | 19.7 s → 19.0 s | 16.2° → 1.2° | 0.6° | 15,240 N → 981 N |
+
+  In 16.6 m of water and a real breeze (8 m/s on the bass boat, 10 on the RIB), she comes up as
+  quickly as before (19 s), her bow going down 8.2° and 8.5° at most while the seas pitch her 5.1°
+  and 5.3° lying on it; it was 22.7° and 20.4°. (Held to what the hauler can heave all told, along
+  as well as down, she was never drawn up against a breeze that strong, and the anchor stayed
+  down: so only its downward pull is held.) (It came out wherever the rope was up and down: done since, see the next entry.)
+
+- **B6's follow-up: an anchor comes out of the bottom by what it holds.** Hauled in, it came out
+  wherever the rope was straight up and down, dug in or not, hooked under a rock or not. Now it
+  comes out when the pull on it beats what it holds there (`anchoring.js` `breakoutHold`): as she's
+  drawn up the rope steepens at its shank, and what it holds by the angle falls (B6's `uplift`), but
+  never below what the bottom keeps of it pulled from overhead, as dug in as it is (`out` in
+  `BOTTOMS`: sand 0.3, mud 0.5, gravel 0.2, weed 0.15, rock 0.05 of what it holds pulled level:
+  the numbers ours, in that order, as B6's are). Hooked under a rock it holds as hard whichever way
+  it's pulled. The pull on it is the rope's there, no more than the hauler heaves (8% of her
+  weight); straight up and down, the hauler's heave less the rope's weight. It comes out only once
+  the rope's lifting it (past 24.5° at its shank, `liftedOut`): pulled harder at a lower angle it
+  drags, as before. More than the hauler can heave, the rope's made fast short and she lifts on the
+  swell to snatch it out (4 s; 8 s hooked under a rock), and the game says so. Out of the bottom,
+  it's hauled in along its rope to her bow, wherever she is; before, it rose straight up from where
+  it lay.
+
+  Hauled in on the RIB in 14 to 18 m (`tests/anchoring.test.mjs`):
+
+  | The anchor | What it held when it came out | How it came out |
+  | --- | --- | --- |
+  | In sand, barely set (lying on it in a calm) | 66 N | heaved out by hand |
+  | In sand, dug in (blown back on it) | 192 N | heaved out by hand |
+  | Hooked under a rock | 1,902 N (her hauler heaves 981) | the rope made fast, snatched out on the swell 8 s later |
+
+  Each came in along its rope to her bow, never through the bottom. An anchor barely set comes out
+  sooner than it did, before she's drawn right over it (it lifts at a short scope, as a real one
+  does); one hooked under a rock now holds her over it a few seconds longer than before.
+
+
+- **B3's follow-up: the bass boat on her own V, and the hump in a head sea.** Two things, both
+  found on the bass boat.
+
+  **She floated on the wrong bottom.** She's drawn (boat.js `form`, A1) with a planing V: flat
+  across a pad either side of her keel aft, then her deadrise up to a hard chine at 0.92 of her
+  half-beam. Her physics hull, though, had the soft rounded section the other hulls float on, flat
+  at the keel and full low down, so it held her up by more water than her V does: she floated at
+  0.16 m at her keel, where her own figures say 0.22, and getting onto the plane she ran up to 1.9°
+  flatter than Savitsky's equations (1.5° root mean square). Now her physics hull's bottom is her
+  drawn one (hydro.js `veeAt`, `section`): `H.vee` takes the pad, and a deadrise that sharpens
+  towards her bow, as `formRows` draws them, and along her, to 0.75 of her length, the keel, the pad
+  and the chine are where she's drawn with them, to the millimetre. (Her chine's flat and her
+  running strake, a few centimetres of ledge, are drawn only.)
+
+  On a V of the 13.5° deadrise she was drawn with, she'd float with her chine 2 cm under the water
+  at her transom, where her drawing (and its test) has it just clear. Bass boats are built with a
+  transom deadrise from the low teens to over 20°; she's now drawn and floated at 18° (tan 0.33),
+  with her chine 2.5 cm clear of the water aft at rest. That's a slightly deeper V to look at, and
+  she floats deeper: 0.25 m at her keel (her floor is at 0.27 m), her freeboard aft 0.30 m where it
+  was 0.39. Her metacentric height at rest is 1.28 m (1.86 m on the rounded section):
+  she's a little less stiff, as a V is.
+
+  Measured in calm water, steady over ten seconds at each lever, against Savitsky for her bottom as
+  it is each time (the beam at her chine 1.93 m where the rounded section's figure was 1.78 m, her
+  deadrise 18° where it was taken as 14°):
+
+  | Lever | Before | Now |
+  | --- | --- | --- |
+  | 0.4 | 3.80° (Savitsky 5.58°, Cv 1.18) | 4.87° (6.16°, Cv 1.11) |
+  | 0.55 | 4.01° (5.31°, Cv 1.45) | 5.50° (5.76°, Cv 1.35) |
+  | 0.7 | 3.30° (4.70°, Cv 1.71) | 4.32° (5.02°, Cv 1.62) |
+  | 0.85 | 2.18° (4.12°, Cv 1.96) | 2.86° (4.33°, Cv 1.87) |
+  | 1 | 2.86° (3.69°, Cv 2.16) | 3.40° (3.90°, Cv 2.06) |
+
+  Root mean square from Savitsky 1.50° → 0.96°, at most 1.94° → 1.47°. (On a 13.5° V, as drawn,
+  it was 1.08°.) Her drag factor and top speeds measured again (`--calibrate`): flat out on her
+  stock 60 hp 9.16 m/s where it was 9.21, and the Marine Works' trials with them.
+
+  **Held at the hump in a head sea, she stood on her tail.** Flat out from rest into a lively sea
+  (the wind 10 m/s from the south-west, a metre's significant height), a seaway's resistance holds a
+  slower planing boat at about 6 m/s: for the bass boat, the skiff and the console, the hump. There
+  the hump's rearing (boat.js `H.hump`) is at its most: a couple of a fifth of her weight or so,
+  tuned to rear her a few degrees through it in a calm. Nothing in it knew how far her bow was up
+  already, so on a wave's face it kept lifting: the bass boat's bow went 21° to 41° beyond the sea's
+  own slope along her (which was at most 9°), the skiff's to 46°, the console's to 42°. (Noted in
+  B3's follow-up for the jet ski: "the skiff's and the bass boat's bows reach 32–33° up at most…
+  not looked into".) On her V the bass boat's went to 45°. With the couple taken off, hers went
+  no more than 15° beyond it. The hump's rearing is her trim on her own wave, so it now eases off once
+  her bow is 12° up on the water about her, and is gone by 18° (`HUMP_EASE`: about as far as a
+  planing hull rears on her own wave; the RIB, driven hard from rest on a calm sea, rears about 11°;
+  a calibration, not a measurement). In a calm nothing reaches it: the trims above, the RIB's
+  rearing in the sport boats' test and the Marine Works' trials are unchanged.
+
+  In the same seas (five of them, each 30 s flat out; her bow-up beyond the sea's own slope along
+  her, at most):
+
+  | | Before | Now |
+  | --- | --- | --- |
+  | Bass boat | 21–41° (on her V, before the easing: 30–45°) | 18–23° |
+  | Skiff | 27–46° | 18–21° |
+  | Console | 18–42° | 15–22° |
+  | RIB | 16–19° | 15–16° |
+
+  Bow-up past 25° (of the 25 s watched): the skiff 0.3 to 1.6 s, the console up to 1.3 s, the bass
+  boat up to 1.0 s; now none of them. The bass boat makes the same speed in it (5.9–6.0 m/s), rolls
+  up to 17° (15° before) and now hops off a crest for up to 0.6 s.

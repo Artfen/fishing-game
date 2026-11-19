@@ -5,7 +5,7 @@ import { canMount, mountFor, rigPose, propAt } from './trollmount.js';
 import * as THREE from 'three';
 import { clamp, lerp, damp, dampAngle, smoothstep, mergeParts, mat, wrapAngle } from './util.js';
 import { waveHeight } from './world/water.js';
-import { windAt, currentAt, currentScale, conditions, waveSampler, sampleWaves, shelterAt } from './world/conditions.js';
+import { windAt, currentAt, currentScale, conditions, waveSampler, sampleWaves, shelterAt, undrawnWave } from './world/conditions.js';
 import { buildHullModel, HydroBody, G, RHO, tubeCentre, section, hydrostatics } from './hydro.js';
 import { compartmentsFor, reserveOf, breachFlow, overFlow, rainFlow, holeArea, stepWater, waterAt, waterKg, depthOf, PUMPS, BAIL, SWAMPED, MODES as FLOOD_MODES } from './flooding.js';
 import { wakes } from './world/wakes.js';
@@ -17,7 +17,7 @@ import { withSurface } from './world/surface.js';
 import { RODS } from './tackle.js';
 import { Rope } from './rope.js';
 import { rodeFor, berthAt } from './mooring.js';
-import { anchorBottom, setBy, uplift, UPLIFT_REF, rodeOf, rodePoints, ANCHOR_HOLD } from './anchoring.js';
+import { anchorBottom, setBy, uplift, UPLIFT_REF, rodeOf, rodePoints, ANCHOR_HOLD, breakoutHold, liftedOut } from './anchoring.js';
 import { CLEAR_K } from './apart.js';
 import { Dress } from './dress.js';
 import { CARGO, slide as slidePiece } from './cargo.js';
@@ -115,7 +115,7 @@ const HULLS = {
   // driver's console to starboard (the wheel, a graph, a windscreen), a passenger's to port and
   // two bucket seats; a jack-plated outboard. You sit at the wheel (seatX: to starboard).
   bass: {
-    planing: { deadrise: 14 }, // (B3) a planing hull; her real bottom's deadrise, degrees (hydro.js savitskyTrim)
+    planing: { deadrise: 18 }, // (B3) a planing hull; her real bottom's deadrise, degrees (hydro.js savitskyTrim)
     name: 'bass boat', mass: 700, L: 4.7, B: 1.05, D: 0.55, draft: 0.22, shallow: 0.4, seatX: -0.44, seatZ: -0.66, seatY: 0.69, floorY: 0.27,
     hw: (t) => Math.pow(Math.sin(Math.PI * (0.32 + 0.68 * t)), 0.42),
     sheer: (t) => 0.14 * Math.pow(t, 2),
@@ -124,7 +124,15 @@ const HULLS = {
     // (Her hull as drawn: chine as a share of her half-beam, the chine's flat, the pad's
     // half-width aft, the bottom's rise (tan of the deadrise) aft and at the bow, the stem's rake,
     // stations; where the decks end (z), the jack plate's setback.)
-    form: { kind: 'bass', chine: 0.92, flat: 0.03, pad: 0.1, rise: [0.24, 0.85], rake: 0.38, stations: 30, rear: -1.45, front: 0.33, jack: 0.12, wheel: true },
+    form: { kind: 'bass', chine: 0.92, flat: 0.03, pad: 0.1, rise: [0.33, 0.85], rake: 0.38, stations: 30, rear: -1.45, front: 0.33, jack: 0.12, wheel: true },
+    // (She floats on her bottom as she's drawn (form): flat across a pad either side of the keel
+    // aft, then a V to a hard chine at 0.92 of her half-beam, rising at her deadrise (tan 0.33, 18°,
+    // aft, sharpening to 0.85 at the bow), and her topsides from there up (hydro.js veeAt). On the
+    // rounded section the other hulls float on, flat at the keel, she was held up by more than a
+    // planing V of her deadrise is, and ran up to 1.9° flatter than Savitsky's equations; and on
+    // a V of the 13.5° she was drawn with, she'd float with her chine 2 cm under the water aft. See
+    // docs/WATER.md, the bass boat's planing bottom.)
+    vee: { chine: 0.75, wc: 0.92, rise: [0.33, 0.85], pad: 0.1 },
     // (Her casting decks fore and aft, as t along her and how far below her sheer: where you
     // stand on them; see trollmount.js deckY.)
     decks: [[0.57, 1, 0.045], [0, 0.19, 0.045]], floor: true, pedestals: true, locker: true,
@@ -162,6 +170,11 @@ const HULLS = {
     motor: { thrust: 3.8, astern: 2.0, tilt: 1.0, scale: 1.25, cowl: '#2b2e33', band: '#1f4e5f' },
     surge: 0.22,
     cabin: [0.44, 0.88], lantern: [0.55, -1.7], stow: [-0.7, 0.62, -1.3], noise: 1, steady: 0.55,
+    // (Her inside helm, in the wheelhouse forward of the galley to starboard: a wheel on a varnished
+    // shelf under the windscreen, a compass, the throttle, a stool; you sit to it, your eyes in the
+    // middle of the windscreen's starboard pane. Where you sit (x, z) and your hips' height (y); see
+    // buildInsideHelm.)
+    helmInside: { x: -0.32, z: 0.8, y: 0.66, sit: true },
     windage: 0.0042, ride: 2.6, // long and heavy: it bridges the chop, and the cabin catches the wind
     wind: [7.5, 0.4, 0.9], // (B3) side above the water m², end-on share, its middle's height m
     // (Her wheelhouse as drawn, see buildWheelhouse: where it ends and the forepeak's low trunk
@@ -199,6 +212,11 @@ const HULLS = {
     // of where you fish from, how far you go out to the side as you turn, and back to the transom;
     // side: which way round the fighting chair you go between the two.
     standing: { helm: [-0.62, -2.28], aft: [0, -3.6, 0.7, 0.45], side: -1, round: 0.55, chair: [0, -3.0, 0.52] },
+    // (Her inside helm, her lower station in the wheelhouse forward of the galley to starboard: the
+    // wheel, the throttles, a compass and a screen on a dash under the windscreen; you stand to it.
+    // Where you stand (x, z), your eyes in the middle of the windscreen's starboard pane; see
+    // buildInsideHelm.)
+    helmInside: { x: -0.5, z: 0.95 },
     lantern: [1.05, -4.05], stow: null, noise: 1, steady: 0.3,
     windage: 0.005, ride: 1.8, // big and heavy: she shoulders the chop aside, but the wind gets a grip on the hardtop
     wind: [22, 0.4, 1.8], // (B3) side above the water m², end-on share, its middle's height m
@@ -352,6 +370,11 @@ const HULLS = {
     // steers by turning its nozzle, so only under power.
     motor: { thrust: 18, astern: 2.2, tilt: 0.25, scale: 1, jet: true, cowl: '#20262c', band: '#e8b820' },
     drag: [0.2, 0.05], helm: 1.7, jumps: true, surge: 0.6, carve: 0.6,
+    // (What a seaway costs her, as a share of the rule the rest of the fleet goes by (see SEAWAY):
+    // set so a lively sea slows her about as much as it does the RIB. The rule's 1/length, set
+    // for the RIB, put it on her at 3.1 m at more than twice her own hull resistance, and held
+    // her to 7 m/s, off the plane. A calibration, not a measured figure.)
+    seaway: 0.3,
     lantern: [0, -1.2], stow: [0, 0.6, -1],
     noise: 1.2, steady: 0.7, windage: 0.002, ride: 6,
     wind: [1.5, 0.5, 0.6], // (B3) side above the water m², end-on share, its middle's height m
@@ -389,7 +412,7 @@ function hullSurface(H, inset, colorFor, split = null) {
     const t = i / NZ, w = Math.max(hw(H, t) - inset, 0), s = sheer(H, t), k = H.keel(t) + inset;
     const row = [];
     for (let j = 0; j <= NP; j++) {
-      const [x, y] = section(H, w, s, k, -Math.PI / 2 + Math.PI * (j / NP));
+      const [x, y] = section(H, w, s, k, -Math.PI / 2 + Math.PI * (j / NP), t);
       row.push([x, y, zAt(H, t)]);
     }
     rows.push(row);
@@ -706,11 +729,43 @@ export const DETAIL = { near: 70, far: 160, small: 0.25, mid: 0.6, slack: 6 };
 export function boatDetail(camPos, scene = null) {
   for (const b of ALL) if (!scene || b.group.parent === scene) b.detailFor(camPos);
 }
+// (W3b) Boats far off drawn on the sea as it's drawn there. Past a few hundred metres the water's
+// sheets leave out the waves too short for their cells (water.js seaLayout), and past the far sheet
+// all of them; a boat out there still rides them all (her physics, and a friend's, are untouched),
+// so she'd bob over a sea that isn't moving. For the frame, each is lowered by the waves not drawn
+// under her middle (conditions.js undrawnWave), and put back after it (unseatFromDrawnSea): her
+// own place on the water is never changed. lod: the sheets' (water.js uWaveLod.y).
+const _seated = [];
+export function seatOnDrawnSea(camPos, lod, t, scene = null) {
+  _seated.length = 0;
+  for (const b of ALL) {
+    const g = b.group;
+    if ((scene && g.parent !== scene) || !g.visible) continue;
+    const off = undrawnWave(g.position.x, g.position.z, t, Math.hypot(g.position.x - camPos.x, g.position.z - camPos.z), lod);
+    if (Math.abs(off) < 0.005) continue;
+    g.position.y -= off;
+    g.updateMatrixWorld(true);
+    _seated.push(b, off);
+  }
+  return _seated.length / 2;
+}
+export function unseatFromDrawnSea() {
+  for (let i = 0; i < _seated.length; i += 2) {
+    const g = _seated[i].group;
+    g.position.y += _seated[i + 1];
+    g.updateMatrixWorld(true);
+  }
+  _seated.length = 0;
+}
 const SEQ = { n: 0 }; // every boat's update, counted: which ones are out on the water now
 // How much further out her middle must be past another face of a hull or a quay she's touching
 // than past the one she's leaving by, as a share of its half-size, before she leaves by that one
 // instead (see exitFrom).
 export const EXIT_HYST = 0.15;
+// The hump's rearing (H.hump, in update) eases off from her bow 12° up on the water about her, and
+// is gone by 18°: about as far as a planing hull rears on her own wave (the RIB, driven hard from
+// rest on a calm sea, rears about 11°). A calibration, not a measurement.
+export const HUMP_EASE = [12 * (Math.PI / 180), 18 * (Math.PI / 180)];
 const ORIGIN = [0, 0, 0];
 const CREW = 80; // kg, you
 // The sailing boat's sail pushes about here: well up the mast, and (her rig balanced over the
@@ -719,13 +774,15 @@ const CREW = 80; // kg, you
 const SAIL_CE_Y = 2.1, SAIL_CE_AFT = 1.55;
 // (B6) The heavier anchor digs in in this share of the distance an ordinary one takes.
 const HEAVY_SETS = 0.5;
-// (B6) The most hauling the anchor in pulls, as a share of her weight.
+// (B6) The most hauling the anchor in pulls, as a share of her weight (a quarter of a kilonewton at
+// least): what a hauler can heave on the rope.
 const HAUL = 0.08;
+const haulHold = (m) => Math.max(250, HAUL * m * G);
 // (How hard a sailing boat laid over in a gust gripes up into the wind: N·m per kg of her for each
 // (m/s)² of her speed. See the sail's overpowered.)
 const ROUND_UP = 0.35;
 const _rp = [];
-const _w3 = [0, 0, 0], _w4 = [0, 0, 0];
+const _w3 = [0, 0, 0], _w4 = [0, 0, 0], _anw = [0, 0, 0];
 const _qt = new THREE.Quaternion(), _eu = new THREE.Euler(0, 0, 0, 'YXZ'), _v3 = new THREE.Vector3(), _v4 = new THREE.Vector3();
 const _tx = new THREE.Vector3(), _ty = new THREE.Vector3(), _tz = new THREE.Vector3(), _m4 = new THREE.Matrix4();
 const _ta = new THREE.Vector3(), _tb = new THREE.Vector3(), _tc = new THREE.Vector3();
@@ -746,10 +803,10 @@ function paint(geo, color) {
 }
 // A direction in her own frame, turned by an angle (rad) from straight ahead towards port.
 const dirAt = (a) => [Math.sin(a), 0, Math.cos(a)];
-// How much of an outboard's depth below her centre of gravity turns her bow up as it pushes (see
-// HydroBody.thrusters' lever): the game's push is bigger than a real propeller's (it makes up for
-// the hull resistance the game gives her), so its turning arm is scaled to a real one's. At full
-// lever a fast boat stood on her tail in a sea; at this she runs as a real one does.
+// How much of an outboard's (or a jet's) depth below her centre of gravity turns her bow up as it
+// pushes (see HydroBody.thrusters' lever): the game's push is bigger than a real propeller's (it
+// makes up for the hull resistance the game gives her), so its turning arm is scaled to a real
+// one's. At full lever a fast boat stood on her tail in a sea; at this she runs as a real one does.
 const PROP_LEVER = 0.3;
 // (B4) Prop walk: a propeller pushes sideways as well as ahead, its blades at the bottom of their
 // sweep biting deeper water than at the top, so a right-handed one (turning clockwise seen from
@@ -931,6 +988,7 @@ export class Boat {
     this.turns = !!H.standing;
     this.spot = null;
     this.standAt = null;
+    this.helmIn = false; // at her inside helm, in the wheelhouse (H.helmInside: see setHelmInside)
     this.chairT = 0; // in the fighting chair (0 … 1), fighting a big fish on the yacht
 
     this.buildHull();
@@ -999,7 +1057,9 @@ export class Boat {
   // Where a weight goes aboard her, in her own space: a fitting from the Marine Works (by its id),
   // or 'engine', 'fuel', 'cockpit', 'bow', 'helm'.
   loadPlace(id) {
-    const H = this.hull, y0 = H.floorY ?? 0.1, helm = H.standing?.helm, hx = helm ? helm[0] : this.seatX || 0, hz = helm ? helm[1] : this.seatZ ?? -H.L * 0.25;
+    // (Her helm's fittings are at her helm outside, whichever helm you're at: see setHelmInside.)
+    const seat = this.outsideSeat, sx = seat ? seat[0] : this.seatX, sz = seat ? seat[2] : this.seatZ;
+    const H = this.hull, y0 = H.floorY ?? 0.1, helm = H.standing?.helm, hx = helm ? helm[0] : sx || 0, hz = helm ? helm[1] : sz ?? -H.L * 0.25;
     const at = {
       engine: [0, sheer(H, 0) - 0.3, zAt(H, 0) - 0.15],
       fuel: [0, y0 + 0.15, zAt(H, 0.28)],
@@ -2361,7 +2421,7 @@ export class Boat {
       fit.push(strut(V(P.cx + 0.18, y - 0.02, zc0 + 0.12), V(P.cx + 0.18, y + 0.1, zc0 + 0.12), 0.012, 0.012, STEEL));
       fit.push(strut(V(P.cx - 0.18, y + 0.1, zc0 + 0.12), V(P.cx + 0.18, y + 0.1, zc0 + 0.12), 0.012, 0.012, STEEL));
     }
-    this.wheelAt = [0.84, zc0 - 0.06, -0.62];
+    this.wheelAt = [0.84, zc0 - 0.06, 0.62];
 
     // The casting deck: the rod locker down the middle, a storage hatch either side, the pedestal
     // seat forward, the trolling motor's foot pedal, a graph at the bow, two rods strapped down.
@@ -2475,6 +2535,7 @@ export class Boat {
       if (H.paddle) b.rotation.x = -0.9;
       this.body.add(thigh, shin, b);
       this.rowerParts.push(thigh, shin, b);
+      (this.seatLegs ||= []).push(thigh, shin, b);
       this.legs.push({ s, thigh, shin, boot: b });
     };
     this.legs = [];
@@ -3288,6 +3349,12 @@ export class Boat {
       { geo: new THREE.CylinderGeometry(0.006, 0.006, 0.09, 4), matrix: mat(side(0.63) * 0.5, yTop - 0.045, zAt(H, 0.63)), color: '#3a3d42' },
     );
 
+    // Her inside helm (H.helmInside): just aft of the windscreen's foot, below its glass.
+    if (H.helmInside) {
+      const v = 0.12, foot = [yTrunk + v * (yTop - yTrunk), zAt(H, tf - v * (tf - tw))];
+      const room = (z, y) => wallX(clamp((z + L / 2) / L, 0, 1), y) - wall;
+      this.buildInsideHelm(inside, { foot, sill: yTrunk, floor: cabinFloor, room, wood: launch ? VARNISH : W.walls || '#f3f1ea', trim: launch ? BRONZE : STEEL, launch });
+    }
     const mesh = (this.cabinMesh = new THREE.Mesh(mergeParts([...parts, ...inside]), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
@@ -3344,6 +3411,8 @@ export class Boat {
     ];
     this.cabinFloor = cabinFloor;
     this.cabinRoofY = yTop;
+    // (Its galley's footprint, x and z: see the inside helm.)
+    this.galleyBox = { x0: gxx - 0.17, x1: gxx + 0.17, z0: zAt(H, 0.54) - 0.31, z1: zAt(H, 0.54) + 0.31 };
     this.cabinMid = new THREE.Vector3(0, base, (zb + zt) / 2);
     // (For the Marine Works' fittings: the back of the house, where her screens and floodlights go.)
     this.houseBack = { z: zb, top: yTop, door, window: [door + 0.08, wallX(t0, w1) - 0.08, w0] };
@@ -3395,9 +3464,15 @@ export class Boat {
     );
   }
 
-  // The wheel: its rim, three spokes and a hub, tilted towards you, turning with the helm.
-  buildWheel(x, y, z, tilt = -0.55) {
-    const w = (this.wheel = new THREE.Group());
+  // The wheel: its rim, three spokes and a hub, turning with the helm. Its face raked back (tilt > 0)
+  // to look up at you, its top leaning away towards the dash, as a helm's wheel is set; or (tilt < 0,
+  // the RIB's and the console boat's) its top towards you, low and back, clear of the dash's
+  // switches above it, which a wheel raked back on those consoles would hide.
+  buildWheel(x, y, z, tilt = 0.55) {
+    this.wheel = this.makeWheel(x, y, z, tilt);
+  }
+  makeWheel(x, y, z, tilt = 0.55) {
+    const w = new THREE.Group();
     w.position.set(x, y, z);
     w.rotation.x = tilt;
     w.add(new THREE.Mesh(mergeParts([
@@ -3406,6 +3481,52 @@ export class Boat {
       ...[0, 1, 2].map((k) => ({ geo: new THREE.BoxGeometry(0.018, 0.17, 0.012), matrix: mat(Math.sin((k / 3) * Math.PI * 2) * 0.09, Math.cos((k / 3) * Math.PI * 2) * 0.09, 0, 0, 0, -(k / 3) * Math.PI * 2), color: '#c9cdd0' })),
     ]), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3 })));
     this.body.add(w);
+    return w;
+  }
+
+  // The inside helm (H.helmInside), into the wheelhouse's own parts (to): a shelf across under the
+  // windscreen (its top just below the glass, so you see out over it), its fascia down towards the
+  // bunk; the wheel on it, tilted to you and turning as she does; a compass, the throttle beside the
+  // wheel; on the yacht a screen too; on the cabin boat a stool on a pedestal to sit to it.
+  // (where: foot, the windscreen glass's lower edge [y, z]; sill, the windscreen's foot; floor, the
+  // wheelhouse's floor; room(z, y), the house's inner half-width; wood and trim, its colours.)
+  buildInsideHelm(to, { foot, sill, floor, room, wood, trim, launch }) {
+    const H = this.hull, G = H.helmInside, DARK = '#2b2e33';
+    // (A shallow shelf where you sit, so the wheel's in front of you; deeper where you stand. Its
+    // outboard end at the house's side, inside it, where the house is narrowest: forward, and up at
+    // the throttle's head.)
+    const top = sill - 0.03, z1 = foot[1] - 0.04, z0 = z1 - (G.sit ? 0.2 : 0.3), zm = (z0 + z1) / 2;
+    const x0 = Math.max(G.x - 0.3, -(room(z1, top + 0.22) - 0.02)), x1 = G.x + 0.3;
+    const box = (sx, sy, sz, x, y, z, color, rx = 0, ry = 0, rz = 0) => to.push({ geo: new THREE.BoxGeometry(sx, sy, sz), matrix: mat(x, y, z, rx, ry, rz), color, jitter: 0.02 });
+    const cyl = (r0, r1, h, x, y, z, color, rx = 0) => to.push({ geo: new THREE.CylinderGeometry(r0, r1, h, 10), matrix: mat(x, y, z, rx, 0, 0), color, jitter: 0.02 });
+    // The shelf and its fascia.
+    const xm = (x0 + x1) / 2;
+    box(x1 - x0, 0.03, z1 - z0, xm, top - 0.015, zm, wood);
+    box(x1 - x0, 0.26, 0.025, xm, top - 0.15, z0 + 0.012, wood);
+    box(0.025, 0.26, z1 - z0, x0 + 0.012, top - 0.15, zm, wood);
+    box(0.025, 0.26, z1 - z0, x1 - 0.012, top - 0.15, zm, wood);
+    // The compass in its bowl, to the inboard side; the throttle to the outboard side.
+    cyl(0.06, 0.07, 0.05, x1 - 0.1, top + 0.025, zm, DARK);
+    cyl(0.05, 0.05, 0.012, x1 - 0.1, top + 0.056, zm, '#e8e3d4');
+    box(0.06, 0.06, 0.12, x0 + 0.08, top + 0.03, z0 + 0.1, DARK);
+    box(0.016, 0.14, 0.016, x0 + 0.08, top + 0.1, z0 + 0.08, trim, 0.5);
+    cyl(0.022, 0.022, 0.05, x0 + 0.08, top + 0.17, z0 + 0.045, '#b8312f', Math.PI / 2);
+    // (The yacht's: a screen set into the shelf, leaning back, by the compass.)
+    if (!launch) box(0.28, 0.18, 0.02, G.x + 0.02, top + 0.09, z1 - 0.05, '#15181b', -0.45);
+    // Its stool: a pedestal from the floor, a round seat, a low back.
+    if (G.sit) {
+      const seatTop = G.y - 0.07;
+      cyl(0.035, 0.05, seatTop - floor - 0.05, G.x, (seatTop + floor) / 2 - 0.02, G.z - 0.02, trim);
+      cyl(0.18, 0.18, 0.06, G.x, seatTop - 0.03, G.z - 0.02, launch ? '#1f3b56' : DARK);
+      box(0.3, 0.16, 0.04, G.x, seatTop + 0.12, G.z - 0.2, launch ? '#1f3b56' : DARK, -0.15);
+    }
+    // The wheel on its boss at the shelf's edge, its face raked back to look up at you (its top
+    // leaning away, over the shelf, as a helm's wheel is set on its dash), its rim's top in the foot
+    // of your view out through the glass.
+    this.innerWheel = this.makeWheel(G.x, top + 0.04, z0 - 0.04, 0.6);
+    this.innerWheel.scale.setScalar(0.9);
+    this.insideHelmTop = top;
+    this.insideHelmBox = { x0, x1, z0, z1, y0: top - 0.28, y1: top + 0.22, room };
   }
 
   // The yacht, aft of her cabin: the helm to starboard (a console with the wheel, a throttle for
@@ -4962,8 +5083,21 @@ export class Boat {
     this.lever = 0;
     this.anchored = true;
     if (this.anchor && this.anchor.phase === 'haul') {
-      this.anchor.phase = 'set';
-      this.anchor.out = rodeFor(this.anchor.depth);
+      // (Let go again while it was being hauled: back to the bottom, where it is now if it had
+      // come out of it and was on its way up.)
+      const An = this.anchor;
+      if (An.free) {
+        An.floor = solidHeight(An.x, An.z);
+        An.depth = Math.max(0.3, -An.floor);
+        An.bed = anchorBottom(An.bottom, An.x, An.z);
+        An.dug = 0;
+        An.wasSet = false;
+        An.phase = 'drop';
+      } else An.phase = 'set';
+      An.free = null;
+      An.fast = 0;
+      An.out = rodeFor(An.depth);
+      this.anchorPt.set(An.x, An.floor, An.z);
       return;
     }
     const x = at ? at.x : this.pos.x + this.fwd.x * this.hull.L * 0.45, z = at ? at.z : this.pos.z + this.fwd.z * this.hull.L * 0.45;
@@ -5372,8 +5506,18 @@ export class Boat {
       // number near one) her stern settles into the trough behind it and her bow rears up, then
       // she climbs over it and levels out on the plane. (H.hump: how far she rears, as a share of
       // her weight acting at her length; driven hard through it she rears more.)
+      // (It's her trim on her own wave: once her bow is up on the water about her more than about
+      // the hump's own trim, it eases off, HUMP_EASE. Held at the hump in a head sea, where a seaway
+      // keeps her, without that it stood her on her tail: the bass boat's bow up to 41° beyond the
+      // sea's own slope along her, which was at most 9°, the console's 42°, the skiff's 46°.)
       if (H.hump && !dead && !troll && !E && vf > 0.5) {
-        const fn = vf / Math.sqrt(G * H.L), k = Math.exp(-(((fn - 0.85) / 0.32) ** 2)) * clamp(Math.abs(pw) * 3, 0, 1);
+        const fn = vf / Math.sqrt(G * H.L);
+        let k = Math.exp(-(((fn - 0.85) / 0.32) ** 2)) * clamp(Math.abs(pw) * 3, 0, 1);
+        if (k > 0.01) {
+          const r = 0.35 * H.L, fx = this.fwd.x * r, fz = this.fwd.z * r, x = this.pos.x, z = this.pos.z;
+          const sea = Math.atan2(waveHeight(x + fx, z + fz) - waveHeight(x - fx, z - fz), 2 * r);
+          k *= 1 - smoothstep(HUMP_EASE[0], HUMP_EASE[1], -this.pitch - sea);
+        }
         if (k > 0.01) {
           const F = H.hump * m * G * k, cg = b.model.cg;
           b.forces.push({ f: [0, F, 0], p: b.toWorld([0, cg[1], zAt(H, 0.85)], [0, 0, 0]) }, { f: [0, -F, 0], p: b.toWorld([0, cg[1], zAt(H, 0.15)], [0, 0, 0]) });
@@ -5381,12 +5525,15 @@ export class Boat {
       }
       // A seaway slows her: meeting the seas, slamming and the propeller breaking out on the
       // crests all cost speed, the more the bigger the waves where she is (the bays' shelter
-      // counts). Without it a fast boat would go quicker in a sea than in a calm.
-      if (!dead && !troll && !E && Math.abs(vf) > 3) {
+      // counts). Without it a fast boat would go quicker in a sea than in a calm. (Not while she's
+      // clear of the water, off a crest: there's no sea to meet in the air. It braked a jumping
+      // boat in mid-air as hard as in the water.)
+      if (!dead && !troll && !E && Math.abs(vf) > 3 && !(b.dryT > 0)) {
         const sh = shelterAt(this.pos.x, this.pos.z), Hs = conditions.sea.swell * sh[0] + conditions.sea.chop * sh[1];
         // (Only once she's going fast enough to slam: trolling and creeping along, waves cost little.)
         // (A four-bladed propeller grips better as she pitches through it: see engines.js.)
-        const seaway = SEAWAY * ((Hs * Hs) / H.L) * vf * m * smoothstep(3, 9, Math.abs(vf)) * (1 - (this.motorSpec?.grip || 0));
+        // (H.seaway: a share of it, where the rule above, set for the RIB, overstates it: see the jet ski.)
+        const seaway = SEAWAY * (H.seaway ?? 1) * ((Hs * Hs) / H.L) * vf * m * smoothstep(3, 9, Math.abs(vf)) * (1 - (this.motorSpec?.grip || 0));
         if (seaway) b.forces.push({ f: [-this.fwd.x * seaway, 0, -this.fwd.z * seaway], p: b.toWorld(b.model.cg, [0, 0, 0]) });
       }
       const keel0 = H.keel(0), stern = zAt(H, 0);
@@ -5406,8 +5553,11 @@ export class Boat {
         // The kayak's: a fixed push from its stern; its little rudder steers (once she has way on).
         b.thrusters.push({ p: [0, H.keel(0.02) - 0.18, zAt(H, 0.02)], d: [0, 0, 1], f, vent: 0.05 });
       } else if (M.jet) {
-        // A jet: it steers by turning its nozzle, so it only turns while it's pushing.
-        b.thrusters.push({ p: [0, keel0 - 0.03, stern + 0.3], d: dirAt(b.rudder * 0.55), f, vent: 0.04 });
+        // A jet: it steers by turning its nozzle, so it only turns while it's pushing. (Its push
+        // is the game's, bigger than a real jet's, so its turning arm is scaled as an outboard's:
+        // see PROP_LEVER. On its full arm, launched flat out from rest, she reared to 27° in a calm
+        // and stood on her tail at 38° in a lively sea, hopping along at 6 m/s.)
+        b.thrusters.push({ p: [0, keel0 - 0.03, stern + 0.3], d: dirAt(b.rudder * 0.55), f, vent: 0.04, lever: PROP_LEVER });
       } else if (M.inboard && !M.twin) {
         // One screw on her centreline, the rudder in its wash: slow, her helm bites with the
         // propeller turning (a kick ahead swings her stern), and going astern it walks her stern to
@@ -5833,12 +5983,46 @@ export class Boat {
       // (B6) Hauled in hand over hand (a windlass on a big boat): no faster than she comes up to
       // it, and not against more than a hauler can pull (HAUL of her weight; a quarter of a
       // kilonewton at least). In a blow it waits for a lull.
-      const pull = A.rope?.out?.pull || 0;
-      if (pull < Math.max(250, HAUL * b.m * G)) A.out = Math.max(0, A.out - 2.4 * dt);
-      // (Hauled in till it's straight up and down: it breaks out and comes up to the bow.)
-      if (A.out < bowY - A.floor + 0.8) {
-        A.y = Math.min(bowY, A.y + Math.max(2.4, A.depth / 3) * dt);
-        if (A.y >= bowY - 0.05) {
+      // (And while it's hauled, the rope pulls her bow down no harder than that: see rope.hold
+      // below, and hydro.js rodeForce.)
+      const o = A.rope?.out, pull = o?.pull || 0, heave = haulHold(b.m);
+      if (pull < heave) A.out = Math.max(0, A.out - 2.4 * dt);
+      // It comes out of the bottom when the pull on it beats what it holds, pulled at the angle the
+      // rope lifts it (anchoring.js breakoutHold): as she's drawn up over it the rope steepens, and
+      // past 35° at its shank it holds only what the bottom keeps of it. The pull on it is the rope's
+      // there, no more than the hauler heaves; straight up and down, the hauler's heave less the
+      // rope's weight. (Before, it came out wherever the rope was up and down, dug in or not.)
+      const upDown = A.out < bowY - A.floor + 0.8;
+      if (!A.free && A.y <= A.floor + 0.01) {
+        const R0 = A.R || rodeOf(this.anchorRode, b.m), bed = (A.bed ||= anchorBottom(A.bottom, A.x, A.z));
+        let on = o ? Math.min(heave, Math.hypot(o.H || 0, o.Va || 0)) : 0;
+        if (upDown) on = Math.max(on, heave - R0.w * Math.max(0, bowY - A.floor));
+        const holds = breakoutHold(ANCHOR_HOLD * (this.anchorHold || 1) * b.m * G, bed, bed.hooked ? 1 : A.set ?? 1, upDown ? Math.PI / 2 : o?.theta || 0);
+        A.breakout = holds;
+        // (Only once the rope's lifting it: at a lower angle a pull beyond its hold drags it, or
+        // draws her up to it.)
+        if (on > holds && (upDown || liftedOut(bed, o?.theta || 0))) A.free = 'heave';
+        else if (upDown) {
+          // (More than the hauler can heave: the rope made fast short, and she lifts on the swell
+          // to snatch it out, a few seconds, longer hooked under a rock. As skippers do.)
+          if (!A.fast) this.onAnchor?.('fast', this);
+          A.fast = (A.fast || 0) + dt;
+          if (A.fast > (bed.hooked ? 8 : 4)) A.free = 'swell';
+        }
+      }
+      // Out of the bottom: hauled in along its rope (nothing on it now but its own weight, quickly),
+      // along the bottom and up to her bow, wherever she is when it came out.
+      if (A.free) {
+        A.out = Math.max(0, A.out - Math.max(0, Math.max(2.4, A.depth / 3) - 2.4) * dt);
+        const fl = b.toWorld([this.fairlead.x, this.fairlead.y, this.fairlead.z], _anw);
+        const dx = A.x - fl[0], dy = A.y - fl[1], dz = A.z - fl[2], d = Math.hypot(dx, dy, dz);
+        if (d > A.out && d > 1e-3) {
+          const k = A.out / d;
+          A.x = fl[0] + dx * k;
+          A.z = fl[2] + dz * k;
+          A.y = Math.max(solidHeight(A.x, A.z) + 0.02, fl[1] + dy * k);
+        }
+        if (A.out <= 0.3) {
           this.anchor = null;
           this.anchored = false;
           this.onAnchor?.('up', this);
@@ -5909,6 +6093,7 @@ export class Boat {
       return;
     }
     rope.len = Math.max(A.out, bowY - A.floor + 0.3);
+    rope.hold = A.phase === 'haul' ? haulHold(m) : 0;
     rope.rode = R;
     b.ropes.push(rope);
     // (How taut it is, for the drawing: lying slack along the bottom … off it altogether.)
@@ -6115,6 +6300,46 @@ export class Boat {
   // big fish on the big-game rod is fought from the fighting chair: you sit, facing aft, the rod
   // butt in the gimbal between your knees and your feet on the footrest, and the chair swings
   // round to follow the fish.
+  // To her inside helm in the wheelhouse (on), or back out to her helm in the cockpit (the cabin
+  // boat's tiller, the yacht's wheel under her hardtop). Seated (the cabin boat), you and your rod
+  // move to its stool; standing (the yacht), you stand to its wheel (see standUp). Your eyes are
+  // where you are (eyePoint), so in first person you look out through the windscreen. False if
+  // she has none.
+  setHelmInside(on) {
+    const G = this.hull.helmInside;
+    if (!G) return false;
+    if (!!on === this.helmIn) return true;
+    this.helmIn = !!on;
+    if (on) this.deck = null;
+    if (G.sit) {
+      if (on) this.outsideSeat ||= [this.seatX, this.seatY, this.seatZ];
+      const [x, y, z] = on ? [G.x, G.y, G.z] : this.outsideSeat;
+      this.moveSeat(x, y, z);
+    }
+    return true;
+  }
+
+  // Where you sit, all three ways: you, your legs and your rod with you.
+  moveSeat(x, y, z) {
+    const dx = x - this.seatX, dy = y - this.seatY, dz = z - this.seatZ;
+    if (!dx && !dy && !dz) return;
+    this.seatX = x;
+    this.seatY = y;
+    this.seatZ = z;
+    if (this.torso) this.torso.position.set(x, y, 0.02 + z);
+    for (const m of this.seatLegs || []) m.position.set(m.position.x + dx, m.position.y + dy, m.position.z + dz);
+    for (const rod of Object.values(this.rods || {})) {
+      rod.group.position.set(rod.group.position.x + dx, rod.group.position.y + dy, rod.group.position.z + dz);
+      rod.hold.set(rod.hold.x + dx, rod.hold.y + dy, rod.hold.z + dz);
+    }
+  }
+
+  // Standing, which wheel you're at: her inside helm's, or her cockpit's (H.standing.helm).
+  get helmXZ() {
+    const G = this.hull.helmInside;
+    return this.helmIn && G ? [G.x, G.z] : this.hull.standing.helm;
+  }
+
   standUp(fishing, dt) {
     // Walking the deck (see walkDeck): you're where your feet have taken you, facing your line if
     // it's out, the way you're walking if not.
@@ -6131,18 +6356,21 @@ export class Boat {
     const fx = F[0] + sn * F[2], fz = F[1] + (F === S.bow ? Math.max(0, c) : Math.min(0, c)) * F[3];
     const side = S.side ?? (Math.sign(sn) || 1);
     if (this.chair) this.chair.rotation.y = lerp(Math.PI, swing, k);
-    const A = (this.standAt ||= { x: 0, z: 0, y: this.seatY, yaw: 0 });
-    A.x = lerp(lerp(S.helm[0], fx, u) + Math.sin(Math.PI * u) * S.round * side, S.chair?.[0] ?? 0, k);
-    A.z = lerp(lerp(S.helm[1], fz, u), S.chair?.[1] ?? 0, k);
-    A.y = lerp(this.seatY, this.hull.floorY + (S.chair?.[2] ?? 0) + 0.02, k);
+    const A = (this.standAt ||= { x: 0, z: 0, y: this.seatY, yaw: 0 }), [hx, hz] = this.helmXZ;
+    // (Inside, on the wheelhouse's floor; out in her cockpit, on her sole.)
+    const y0 = this.helmIn && this.cabinFloor != null ? this.seatY + this.cabinFloor - this.hull.floorY : this.seatY;
+    A.x = lerp(lerp(hx, fx, u) + Math.sin(Math.PI * u) * S.round * side, S.chair?.[0] ?? 0, k);
+    A.z = lerp(lerp(hz, fz, u), S.chair?.[1] ?? 0, k);
+    A.y = lerp(y0, this.hull.floorY + (S.chair?.[2] ?? 0) + 0.02, k);
     A.yaw = yaw;
     const T = this.torso;
     T.rotation.order = 'YXZ';
     T.position.set(A.x, A.y, A.z);
     T.rotation.y = yaw;
     // Standing: feet a little apart under the hips, knees soft. Seated: knees up, feet out on the
-    // footrest. (S.floor: where she has a raised helm, the trawler's pilothouse sole.)
-    const deck = (S.floor ?? this.hull.floorY) + 0.04 - A.y;
+    // footrest. (At her inside helm, the wheelhouse's floor; S.floor: where she has a raised helm,
+    // the trawler's pilothouse sole.)
+    const deck = (this.helmIn && this.cabinFloor != null ? this.cabinFloor : S.floor ?? this.hull.floorY) + 0.04 - A.y;
     for (const L of this.legs) {
       this.fromYou(_a, L.s * 0.1, -0.02, lerp(0.02, 0.06, k));
       this.fromYou(_b, L.s * lerp(0.12, 0.15, k), lerp(deck / 2 + 0.02, 0.06, k), lerp(0.09, 0.44, k));
@@ -6158,6 +6386,7 @@ export class Boat {
   // (true) at the wheel, or off. Where you are is in her own space, so you go where she goes.
   setDeck(on) {
     if (!this.hull.standing) return false;
+    if (on) this.setHelmInside(false);
     if (on && !this.deck) {
       // (From where you stand: at the wheel, or at the rail you've been fishing from.)
       const [hx, hz] = this.hull.standing.helm, A = this.standAt;
@@ -6297,7 +6526,7 @@ export class Boat {
   // Back at the wheel? (Near enough to take her again.)
   get atHelm() {
     const D = this.deck, S = this.hull.standing;
-    return !D || Math.hypot(D.x - S.helm[0], D.z - S.helm[1]) < 0.5;
+    return this.helmIn || !D || Math.hypot(D.x - S.helm[0], D.z - S.helm[1]) < 0.5;
   }
 
   placeOnDeck(fishing, dt) {
@@ -6390,6 +6619,7 @@ export class Boat {
     // The outboard: propeller spinning, the leg turning with the tiller. (The sailing boat's,
     // when it's up, tilts right out of the water on its bracket.)
     if (this.wheel && !this.hull.bars) this.wheel.rotation.z = damp(this.wheel.rotation.z, -this.omega * 2.2, 6, dt);
+    if (this.innerWheel) this.innerWheel.rotation.z = damp(this.innerWheel.rotation.z, -this.omega * 2.2, 6, dt);
     if (this.rudders) {
       // (The yacht's inboards: the propellers turning opposite ways, the rudders with the helm.)
       this.props.forEach((p, i) => (p.rotation.z = i ? -this.propSpin : this.propSpin));
@@ -6506,6 +6736,11 @@ export class Boat {
         // Away from the wheel, walking the deck: arms at your sides, swinging as you walk.
         const sw = Math.sin(this.deck.step + (a.s > 0 ? Math.PI : 0)) * 0.12 * this.deck.moving;
         onOar = this.fromYou(_b, a.s * 0.24, 0.28, 0.04 + sw);
+      } else if (this.helmIn && this.innerWheel) {
+        // At her inside helm: both hands on its wheel.
+        this.innerWheel.updateMatrix();
+        const G = this.hull.grip || [0.15, 0.05];
+        onOar = _b.set(a.s > 0 ? G[0] : -G[0], G[1], 0).applyMatrix4(this.innerWheel.matrix);
       } else if (this.wheel && this.motor) {
         // Both hands on the wheel.
         this.wheel.updateMatrix();

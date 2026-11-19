@@ -213,6 +213,7 @@ export function cleanPose(p, kinds = null, gear = null) {
     out.s = !!p.s;   // under sail
     out.n = !!p.n;   // at anchor or tied up
     if (p.zz) out.zz = true; // (J3) asleep aboard (turned in on her deck, or her bunk)
+    if (p.hi) out.hi = true; // at her inside helm, in the wheelhouse (boat.js setHelmInside)
     // Their bow trolling motor's state (see trollmount.js: ten small numbers), if they have one.
     if (Array.isArray(p.tr) && p.tr.length === 10 && p.tr.every((v) => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) < 20)) out.tr = p.tr.map(r2);
     // (F4b) Towing one of their boats: which, where she is and which way she's heading (never

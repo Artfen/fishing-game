@@ -234,10 +234,56 @@ await A.keyboard.press('Escape');
 // way each key turns her is found by trying it, as anyone new to a boat does).
 let leftUp = true;
 const where = () => A.evaluate(() => [Math.round(slowTide.boat.pos.x), Math.round(slowTide.boat.pos.z)]);
-// What comes up at sea that a skipper deals with as it comes: the cooling intake fouled (weed or a
-// bag, now and then under way: engine.js foul), the alarm sounding. Stop, off the helm, look her
-// over, clear it, back to the helm.
+// Back to the wheel from her deck, and the helm: as a player walks aft and takes it, a few tries
+// (rolling in a sea she can be thrown off the spot). What it was offered each time, to say why if
+// it couldn't.
+const backToHelm = () => A.evaluate(() => {
+  const B = slowTide.boat, S = B.hull.standing, offered = [];
+  for (let i = 0; i < 8 && B.deck; i++) {
+    // (Her look-over left open: closed as it is. Anything else open is noted, not answered.)
+    const open = document.getElementById('confirm');
+    if (open && !open.hidden) {
+      const leave = [...document.querySelectorAll('#confirm-acts button')].find((x) => x.textContent.trim() === 'Leave it');
+      if (leave) leave.click();
+      else offered.push('dialog: ' + (document.getElementById('confirm-title')?.textContent || ''));
+    }
+    B.deck.x = S.helm[0]; B.deck.z = S.helm[1];
+    slowTide.advance(0.1, 30, false);
+    const H = slowTide.interaction();
+    offered.push(H?.text || null);
+    if (H?.text === 'Take the helm') H.run();
+    slowTide.advance(0.3, 30, false);
+  }
+  return { atHelm: !B.deck, offered };
+});
+// What comes up at sea that a skipper deals with as it comes:
+// - the cooling intake fouled (weed or a bag, now and then under way: engine.js foul), the alarm
+//   sounding: stop, off the helm, look her over, clear it, back to the helm;
+// - her battery terminal shaken loose by a hard landing (damage.js), so she won't start or the
+//   engine's cut: stop, look her over from the helm, do it up, and she starts again.
 const tendHer = async () => {
+  const loose = await A.evaluate(() => {
+    const B = slowTide.boat, E = B.engine;
+    if (!(B.damage?.wiring?.loose && E && !E.engines?.some((e) => e.run))) return false;
+    B.lever = 0;
+    return true;
+  });
+  if (loose) {
+    for (let i = 0; i < 20 && (await A.evaluate(() => slowTide.boat.speed)) > 1; i++) await step(1);
+    const done = await A.evaluate(() => {
+      const B = slowTide.boat, I = slowTide.interaction(), text = I?.text || null;
+      if (/^(She won’t start|Look her over)/.test(text || '')) I.run();
+      slowTide.advance(0.2, 30, false);
+      const b = [...document.querySelectorAll('#confirm-acts button')].find((x) => /^Do up the battery terminal/.test(x.textContent));
+      b?.click();
+      slowTide.advance(0.5, 30, false);
+      return { text, done: !!b && !B.damage?.wiring?.loose, said: window.__said.filter((m) => /terminal/.test(m)).slice(-1) };
+    });
+    const helm = await backToHelm();
+    note('her battery terminal loose', JSON.stringify({ ...done, ...helm }));
+    events.push({ what: 'terminal', ...done, ...helm });
+    return true;
+  }
   const hot = await A.evaluate(() => {
     const E = slowTide.boat.engine;
     if (!(E?.blocked > 0 && E.temp >= 0.6)) return false;
@@ -258,16 +304,11 @@ const tendHer = async () => {
     const b = [...document.querySelectorAll('#confirm-acts button')].find((x) => /^Clear the (cooling intake|raw-water strainer)/.test(x.textContent));
     b?.click();
     slowTide.advance(0.5, 30, false);
-    const B = slowTide.boat, S = B.hull.standing;
-    if (B.deck) { B.deck.x = S.helm[0]; B.deck.z = S.helm[1]; }
-    slowTide.advance(0.3, 30, false);
-    const H = slowTide.interaction();
-    if (H?.text === 'Take the helm') H.run();
-    slowTide.advance(0.5, 30, false);
-    return { text, cleared: !!b && !(B.engine?.blocked > 0), atHelm: !B.deck, said: window.__said.filter((m) => /intake|telltale|strainer/.test(m)).slice(-1) };
+    return { text, cleared: !!b && !(slowTide.boat.engine?.blocked > 0), said: window.__said.filter((m) => /intake|telltale|strainer/.test(m)).slice(-1) };
   });
-  note('the alarm: her intake fouled', JSON.stringify({ off, ...cleared }));
-  events.push({ what: 'intake', ...cleared });
+  const helm = await backToHelm();
+  note('the alarm: her intake fouled', JSON.stringify({ off, ...cleared, ...helm }));
+  events.push({ what: 'intake', ...cleared, ...helm });
   return true;
 };
 const events = [];
@@ -359,15 +400,29 @@ await shot(B, 'j1-at-sea-bert');
 // (The birds as each game shows them: world.birdsAt, called where a feed's birds come down.)
 for (const P of both) await P.evaluate(() => { const w = slowTide.world, f = w.birdsAt.bind(w); window.__birdsAt = []; w.birdsAt = (x, z, n) => { window.__birdsAt.push([x, z, n]); return f(x, z, n); }; });
 const birdsNear = (P, x, z) => P.evaluate(([x, z]) => window.__birdsAt.filter(([bx, bz]) => Math.hypot(bx - x, bz - z) < 60).length, [x, z]);
-const findFeed = () => A.evaluate(() => {
+const findFeed = () => A.evaluate(async () => {
   const b = slowTide.boat, F = slowTide.eco.feeding;
+  // (Her run down to it is a straight line, so only a feed she can reach over open water: 2 m
+  // under her at least, every 5 m of the way to where she stops short of it, not one past a reef
+  // or a bank she'd run aground on. The game's own depths: terrain.js, the module it loaded.)
+  const { depthAt } = await import('/src/world/terrain.js');
+  const clear = (x, z) => {
+    const d = Math.hypot(x - b.pos.x, z - b.pos.z), n = Math.ceil(d / 5), end = Math.max(0, 1 - 24 / Math.max(d, 1));
+    for (let i = 1; i <= n; i++) {
+      const t = (i / n) * end;
+      if (depthAt(b.pos.x + (x - b.pos.x) * t, b.pos.z + (z - b.pos.z) * t) < 2) return false;
+    }
+    return true;
+  };
   // (Offshore: well out of Willowhaven's harbour and the bay's shallows.)
-  const live = (F?.events || []).filter((e) => e.phase !== 2 && !e.done && Math.hypot(e.x - 4, e.z + 97) > 400).map((e) => ({ id: e.id, x: e.x, z: e.z, phase: e.phase, hunters: e.hunters, d: Math.hypot(e.x - b.pos.x, e.z - b.pos.z), bait: e.s?.sp?.name, alive: e.s?.members?.filter((m) => m.active && m.state === 'school').length ?? 0, hunter: e.sp >= 0 ? slowTide.species?.[e.sp]?.name ?? e.sp : null }));
+  const live = (F?.events || []).filter((e) => e.phase !== 2 && !e.done && Math.hypot(e.x - 4, e.z + 97) > 400 && clear(e.x, e.z)).map((e) => ({ id: e.id, x: e.x, z: e.z, phase: e.phase, hunters: e.hunters, d: Math.hypot(e.x - b.pos.x, e.z - b.pos.z), bait: e.s?.sp?.name, alive: e.s?.members?.filter((m) => m.active && m.state === 'school').length ?? 0, hunter: e.sp >= 0 ? slowTide.species?.[e.sp]?.name ?? e.sp : null }));
   live.sort((p, q) => p.d - q.d);
   return live[0] || null;
 });
 let feed = await findFeed();
-for (let leg = 0; leg < 30 && !(feed && feed.phase === 1 && feed.d < 900); leg++) {
+// (Out to the first mark and about it, then lying stopped and watching for one: up to ten minutes
+// of the game's time. A feed comes up offshore every few minutes, but not always within five.)
+for (let leg = 0; leg < 60 && !(feed && feed.phase === 1 && feed.d < 900); leg++) {
   if (leg < 12) await helmsman(MARKS[1], 10);
   else { await A.evaluate(() => { slowTide.boat.lever = 0; }); await step(10); }
   feed = await findFeed();
@@ -389,14 +444,25 @@ const short = (m) => A.evaluate(([x, z, m]) => {
   const b = slowTide.boat, d = Math.hypot(x - b.pos.x, z - b.pos.z);
   return [x - ((x - b.pos.x) / d) * m, z - ((z - b.pos.z) / d) * m];
 }, [feed.x, feed.z, m]);
+// (Where she is and the water under her, written out at each stage of the run down: once she
+// ended up aground well off her line to a feed 743 m away, and the log couldn't say how.)
+const runDown = async (stage) => note('run down to the feed', stage, JSON.stringify(await A.evaluate(async () => {
+  const { depthAt } = await import('/src/world/terrain.js');
+  const b = slowTide.boat;
+  return { at: [Math.round(b.pos.x), Math.round(b.pos.z)], depth: +depthAt(b.pos.x, b.pos.z).toFixed(1), v: +b.speed.toFixed(1) };
+})));
 if (feed) {
-  await helmsman(await short(80), 60, 0.45, 12);
+  await runDown('from');
+  // (Time for the distance: at half throttle she makes about ten metres a second.)
+  await helmsman(await short(80), Math.max(60, feed.d / 8), 0.45, 12);
+  await runDown('80 m short');
   // (Off the throttle, and let her come down off the plane before creeping in.)
   await A.evaluate(() => { slowTide.boat.lever = 0; });
   for (let i = 0; i < 20 && (await A.evaluate(() => slowTide.boat.speed)) > 1.5; i++) await step(1);
   await helmsman(await short(24), 40, 0.12, 4);
   await A.evaluate(() => { slowTide.boat.lever = 0; });
   for (let i = 0; i < 12 && (await A.evaluate(() => slowTide.boat.speed)) > 0.5; i++) await step(2);
+  await runDown('24 m short');
 }
 await B.keyboard.press('KeyF');
 await step(1);
@@ -813,9 +879,17 @@ for (let i = 0; i < 40; i++) {
 const morning = { mags: await clockOf(A), bert: await clockOf(B), hour: await A.evaluate(() => +slowTide.state.hour.toFixed(2)), anchored: await A.evaluate(() => !!slowTide.boat.anchored), saidA: await said(A), saidB: await said(B), crew: await B.evaluate(() => !!slowTide.crew.on) };
 note('the night', JSON.stringify({ night0, morning, bertNight }));
 // (However late she turns in, she sleeps till the dawn she chose: the clock on to it.)
-check('11 · Mags turns in on her deck in the bivvy roll, till dawn', turned.bed && turned.dawn && morning.mags - night0.mags > 2 && morning.hour < 8, JSON.stringify({ seen: turned.seen, from: night0.hour, to: morning.hour }));
+// (Till the dawn she chose, whenever she turned in: the clock on to it, and no further. It asked for
+// more than two hours' sleep, but how late they turn in goes with how long the day took (half past
+// nine to past midnight, mostly), and turning in at three the dawn at ten past four is an hour
+// off: she slept till it, as she should.)
+const dawnAt = (() => { const m = /(\d+):(\d+)\s*(am|pm)/i.exec(turned.seen.find((x) => /^Dawn/.test(x || '')) || ''); return m ? (+m[1] % 12) + +m[2] / 60 + (/pm/i.test(m[3]) ? 12 : 0) : null; })();
+const slept = morning.mags - night0.mags, toDawn = dawnAt == null ? null : (dawnAt - night0.hour + 24) % 24;
+note('the night: turned in at', night0.hour, 'dawn at', dawnAt, 'slept', +slept.toFixed(2), 'hours, to dawn', toDawn == null ? null : +toDawn.toFixed(2));
+check('11 · Mags turns in on her deck in the bivvy roll, till dawn', turned.bed && turned.dawn && dawnAt != null && Math.abs(morning.hour - dawnAt) < 0.3 && Math.abs(slept - toDawn) < 0.3, JSON.stringify({ seen: turned.seen, from: night0.hour, to: morning.hour, dawn: dawnAt, slept: +slept.toFixed(2) }));
 check('11 · she wakes aboard, at anchor still, Bert in the other bag', morning.anchored && morning.saidA.some((t) => /^You wake/.test(t) && /Bert is stirring in the other bag/.test(t)), JSON.stringify(morning.saidA));
-check('11 · Bert sleeps the night through with her, and wakes aboard beside her', /^Mags turns in/.test(bertNight.saw || '') && morning.crew && morning.bert - night0.bert > 2 && morning.saidB.some((t) => /^You wake/.test(t) && /Mags is stirring/.test(t)), JSON.stringify({ saw: bertNight.saw, bert: [night0.bert, morning.bert], said: morning.saidB, crew: morning.crew }));
+// (His clock on as far as hers: the night through with her.)
+check('11 · Bert sleeps the night through with her, and wakes aboard beside her', /^Mags turns in/.test(bertNight.saw || '') && morning.crew && Math.abs(morning.bert - night0.bert - slept) < 0.3 && morning.saidB.some((t) => /^You wake/.test(t) && /Mags is stirring/.test(t)), JSON.stringify({ saw: bertNight.saw, bert: [night0.bert, morning.bert], slept: +slept.toFixed(2), said: morning.saidB, crew: morning.crew }));
 await shot(A, 'j3-morning');
 // Aft to the wheel again, and the helm.
 await A.evaluate(() => {
