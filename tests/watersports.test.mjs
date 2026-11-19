@@ -132,8 +132,9 @@ test('the jet ski leaves the crests at speed in a lively sea, and stays on a cal
   const lively = ride('lively', 10);
   const say = `${lively.jumps.length} jumps at ${lively.jumps.map((v) => v.toFixed(1)).join(', ')} m/s`;
   assert.ok(lively.jumps.length >= 3, `off the crests: ${say}`);
-  // (Her jet's push turned her bow up on its full arm: she stood on her tail, 30 to 38° up, and
-  // hopped along at 6 m/s.)
+  // (Her jet's push turned her bow up on its full arm, and a seaway's resistance, as the fleet's
+  // rule put it on her, came to more than twice her own hull resistance: she stood on her tail,
+  // 30 to 38° up, and hopped along at 6 m/s.)
   assert.ok(lively.jumps[lively.jumps.length >> 1] > planing, `at planing speed (${planing.toFixed(1)} m/s): ${say}`);
   assert.ok(lively.running < 20, `running between the crests, bow up at most ${lively.running.toFixed(0)}°`);
   const calm = ride('calm', 2);

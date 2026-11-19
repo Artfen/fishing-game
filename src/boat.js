@@ -700,10 +700,10 @@ function paint(geo, color) {
 }
 // A direction in her own frame, turned by an angle (rad) from straight ahead towards port.
 const dirAt = (a) => [Math.sin(a), 0, Math.cos(a)];
-// How much of an outboard's depth below her centre of gravity turns her bow up as it pushes (see
-// HydroBody.thrusters' lever): the game's push is bigger than a real propeller's (it makes up for
-// the hull resistance the game gives her), so its turning arm is scaled to a real one's. At full
-// lever a fast boat stood on her tail in a sea; at this she runs as a real one does.
+// How much of an outboard's (or a jet's) depth below her centre of gravity turns her bow up as it
+// pushes (see HydroBody.thrusters' lever): the game's push is bigger than a real propeller's (it
+// makes up for the hull resistance the game gives her), so its turning arm is scaled to a real
+// one's. At full lever a fast boat stood on her tail in a sea; at this she runs as a real one does.
 const PROP_LEVER = 0.3;
 // (B4) Prop walk: a propeller pushes sideways as well as ahead, its blades at the bottom of their
 // sweep biting deeper water than at the top, so a right-handed one (turning clockwise seen from
