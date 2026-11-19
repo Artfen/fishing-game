@@ -212,6 +212,49 @@ Sula (a dive site with its buoy) and the stack's foot (a dive); a challenge on t
 **N4, life.** The new fish; home's cold-water fish in the north; the north's fish homes; the
 colder water; seals, otters, the minke; the seabird colonies and the eagle.
 
+*N4 done.* What was built:
+
+- **Five new fish** (`northFish.js` `NORTH`, after every other fish so none of them moves): the
+  **Atlantic cod** (the kelp edges, the deep rock outside and the loch), **saithe** (shoals in the
+  Churn and along the cliffs, hard and fast), **ling** (deep rock and wrecks: the loch's walls, the
+  stack's foot), **haddock** (the sound's sand and the loch's mud) and the **flapper skate** (on the
+  mud of Loch Skarn's basin, sixty to ninety metres down: critically endangered, to be released, and
+  nobody buys one). Each with its look in the water (`anatomyNorth.js`: the cod family's three
+  dorsals and two anals, the haddock's thumbprint, the ling's long fins, the skate's great disc), its
+  fight, its baits and its moods, its season (cod and ling best in the cold months), its price at
+  Willowhaven's market (brought home iced), and its name, family and status in the journal's tree
+  (from `register.js` `NORTHERN`: cod and haddock Vulnerable, the skate Critically Endangered; a new
+  family, the lings).
+- **The home coast's cold-water fish there too** (`AT_NORTH`, with how many groups each): pollack,
+  Ballan wrasse, conger, catshark, mackerel, horse mackerel, thornback, plaice, turbot, gurnard and
+  sprat.
+- **The north's fish homes** (`habitat.js` `northSpots`: reef and rock under the shores, sand in the
+  sound, the deep in the loch and outside, the tide in the Churn), built cheaply at the start, after
+  every other home; each species' groups there placed in a pass of its own after every other fish,
+  with its own seed (`ecosystem.js`). About 210 fish in the north, and **every other fish where it
+  was** (the fingerprint of all 5,031 unchanged).
+- **The colder sea:** about 8°C at the end of winter to 13°C at the end of summer (`seatemp.js`),
+  so the cold-water fish keep shallower there than they would at home in summer.
+- **Its life:** grey seals hauled out on the Selkie Rocks and two in the water off them; a minke
+  whale feeding round the isles and a pod of common dolphins along the west coast (each its own
+  dice, so nothing else moves); otters on Loch Skarn's north shore; a seabird colony on Skarv Stack
+  (guillemots and kittiwakes on its ledges, fulmars round it, shags at its foot), puffins and
+  razorbills on Raven Isle's north-west side, a peregrine and ravens over its cliffs, eiders in the
+  sound and in Bothy Bay. (Not done: the white-tailed eagle, which needs a new bird made; the
+  terns on Tern Isle.)
+- **Words:** the journal's catches "in Raven Sound", "in the Churn", "in Loch Skarn"; a page of the
+  north's fish; the field guide's "Up the coast" for each fish that lives there; a north-only fish
+  shown on the isles' chart.
+- Every new fish bites on the field guide's first choice in the headless sea (`tests/guide.test.mjs`
+  tries every catchable kind), and is accounted for there as Las Brasas' own are.
+- Tests: in `tests/north.test.mjs`. Three older tests changed, each for the north's life: the birds
+  test now allows (and wants) guillemots on Skarv Stack and puffins on Raven Isle as well as Gannet
+  Isle's and Puffin Cove's; the wildlife test lists Loch Skarn's otters with the other three beats;
+  the guide test accounts for the north's fish (outside the register, as Las Brasas' are) with
+  their scientific names, as it does Las Brasas'.
+  (The sea life's fingerprint needed no change: the north's seals, dolphins and minke roll dice of
+  their own, as the canyon's whale does, and it stays last.)
+
 **N5, the voyage.** The fast passage north and home (the passage machinery learns a third end);
 "near Willowhaven" made "near the nearest harbour" (offshore warnings, tows, rescues only at
 home, fuel words, fast travel, boats brought round); the north's weather (westerlies, low cloud,

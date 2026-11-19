@@ -36,7 +36,8 @@ function watch(w, seconds, ctx, dt = 0.1) {
 }
 
 test('where they live: otters along the quiet waters, herons in the shallows, birds on dry perches', () => {
-  assert.deepEqual(W.OTTER_BEATS.map((b) => b.id), ['coldwater', 'wend', 'saltings']);
+  // (And Loch Skarn's, up the coast in the north: docs/NORTH.md.)
+  assert.deepEqual(W.OTTER_BEATS.map((b) => b.id), ['coldwater', 'wend', 'saltings', 'loch']);
   for (const B of W.OTTER_BEATS) {
     assert.ok(B.path.length > 10, `${B.id}: ${B.path.length} points`);
     for (const p of B.path) assert.ok(T.depthAt(p.x, p.z) > 0.3, `${B.id} in the water`);

@@ -113,8 +113,13 @@ const INK = '#3a2e26';
 const HOME_ZONES = new Set(['bay', 'cove', 'open', 'coast', 'deep', 'estuary', 'lake', 'stream', 'mere', 'river', 'tarn', 'tideway']);
 // The sheet a species lives on: 'south' if only round Las Brasas, 'home' if only at home, or null
 // for both.
+// (And the north's, up the coast: a species living only there is on the isles' chart; the home
+// coast's fish that live there too are still home's.)
+const NORTH_WATERS = new Set(['kelp', 'sound', 'race', 'loch', 'skerry', 'outer']);
 const sheetOf = (id) => {
-  const z = fishById[id]?.life.zones || [];
+  const all = fishById[id]?.life.zones || [];
+  if (all.length && all.every((k) => NORTH_WATERS.has(k))) return 'north';
+  const z = all.filter((k) => !NORTH_WATERS.has(k));
   return z.every((k) => !HOME_ZONES.has(k)) ? 'south' : z.every((k) => HOME_ZONES.has(k)) ? 'home' : null;
 };
 const half = THREE.DataUtils.fromHalfFloat;

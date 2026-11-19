@@ -19,7 +19,7 @@ import { SKIES, createWeather, stepWeather, skyOf } from './world/weather.js';
 import { createWater } from './world/water.js';
 import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeight, waveHeightHere, compass, bearingOf, windWords, seaWords, shelterAt, bakeShelter, shelterRect, TIDE, tidalTexture, shelterSteps } from './world/conditions.js';
 import { SOUTH_WATER, SOUTH_MAP, LANDFALL, POSADA, PUERTO as PUERTO_AT, PONTOON_S, FINGERS_S, ISLANDS } from './world/brasa.js';
-import { NORTH_WATER, ISLES_WATER, ISLES_MAP, COAST_SHEET, NORTH_BEDS, regionOf as seaAt, inNorth } from './world/north.js';
+import { NORTH_WATER, ISLES_WATER, ISLES_MAP, COAST_SHEET, NORTH_BEDS, NORTH_M, NORTH_LANDFALL, HALVIG_PIER, northWaters, regionOf as seaAt, inNorth } from './world/north.js';
 import { buildWorld } from './world/world.js';
 import { createHabitat } from './world/habitat.js';
 import { HEAVY as PRESSURE_HEAVY, CELL as PRESSURE_CELL } from './world/pressure.js';
@@ -4727,6 +4727,8 @@ function updateCalls(dt) {
   // (Not while the first trip's guide is running: one thing at a time for someone new; nor with
   // Wenna aboard for the story's last scene.)
   if (onFoot || driving || dive || modal || state.guide?.on || state.story?.wenna || together.guestSlot >= 0 || clock.hour < 7.5 || clock.hour > 19) return;
+  // (Nor up the coast in the north: out of the harbour's reach.)
+  if (region === 'north') return;
   // (Nor with a line out or a fish on, another question open, a placement or the dashboard in
   // hand, or under way: it waits for a quiet moment.)
   if (fishing.busy || !$('confirm').hidden || placement.isOn || dashCtl.focused || boat.speed > 2.5) return;
@@ -4763,7 +4765,9 @@ function callSpot(blue = false) {
   for (let i = 0; i < 24; i++) {
     const a = Math.random() * Math.PI * 2, d = 220 + Math.random() * 480;
     const x = P.x + Math.sin(a) * d, z = P.z + Math.cos(a) * d;
-    if (z > 2600 || (blue && z <= DEEP_Z + 40) || solidHeight(x, z) > -2.5 || solidHeight(x + 8, z) > -2 || solidHeight(x, z + 8) > -2) continue;
+    // (Home's coast only: the coastguard's calls are for Willowhaven's boats, not up the coast in the
+    // north, nor at Las Brasas.)
+    if (z > 2600 || inNorth(x, z) || (blue && z <= DEEP_Z + 40) || solidHeight(x, z) > -2.5 || solidHeight(x + 8, z) > -2 || solidHeight(x, z + 8) > -2) continue;
     const near = placeName(x, z) || PLACES.find((p) => !p.area && Math.hypot(p.x - x, p.z - z) < 160)?.name;
     const H = HARBOUR_OFFICE, km = Math.round(Math.hypot(x - H.x, z - H.z) / 100) / 10;
     return { x, z, where: near ? `off ${near}` : `${km} km ${compass(bearingOf(x - H.x, z - H.z))} of the harbour` };
@@ -5660,17 +5664,20 @@ let stormWas = 0, stormWarnT = 0, lastPitch = 0, slamT = 0;
 // offshore.js turnForHome), each said once an outing; and anywhere afloat, a sea too rough for
 // the boat you're in (the storm's own word covers the little boats in a blow: see below).
 let offshoreT = 0, offshoreSaid = {}, roughSaidT = -1e9;
+const HARBOURS = [{ x: HAVEN.x, z: HAVEN.z, name: 'Willowhaven' }, { x: HALVIG_PIER.land.x, z: HALVIG_PIER.land.z, name: 'Halvig' }, { x: PUERTO_AT.x, z: PUERTO_AT.z, name: 'Puerto Brasa' }];
 function watchOffshore(dt) {
   offshoreT -= dt;
   if (offshoreT > 0 || !started || onFoot || dive || driving || !boat) return;
   offshoreT = 3;
-  const P = boat.pos, kind = boat.kind, distHome = Math.hypot(P.x - HAVEN.x, P.z - HAVEN.z);
+  // (The way back is to the nearest harbour: Willowhaven, Halvig up the coast, or Puerto Brasa.)
+  const P = boat.pos, kind = boat.kind, port = HARBOURS.reduce((a, b) => (Math.hypot(P.x - b.x, P.z - b.z) < Math.hypot(P.x - a.x, P.z - a.z) ? b : a));
+  const distHome = Math.hypot(P.x - port.x, P.z - port.z);
   if (distHome < 300) offshoreSaid = {};
   // (L8) A tender out from her mother is out from home: her mother's the way back, not Willowhaven.
   const mother = TENDERS.includes(kind) && boats.some((m) => m.hull.platform && !m.stowed && Math.hypot(m.pos.x - P.x, m.pos.z - P.z) < 3000);
   if (distHome > OFFSHORE_AT && !mother) {
     const sun = sunTimes(clock.abs), toDark = state.hour < sun.set ? sun.set - state.hour : null;
-    const r = turnForHome({ kind, distHome, litres: isPetrol(kind) ? fuelLevel(tanks(), boat.id) : null, toGale: hoursToGale(clock.abs), toDark });
+    const r = turnForHome({ kind, distHome, litres: isPetrol(kind) ? fuelLevel(tanks(), boat.id) : null, toGale: hoursToGale(clock.abs), toDark, harbour: port.name });
     if (r && !offshoreSaid[r.why]) {
       offshoreSaid[r.why] = true;
       hud.toast(r.words, 8);
@@ -5977,6 +5984,16 @@ function roomAction(id) {
 // The chart table: the forecast read off her radio (the board's outlook), and the chart.
 function chartTable() {
   hud.toast([seasonLine(clock.abs), ...outlook(clock.abs)].join(' '), 9);
+  // (And the passage up the coast planned here, or home down it, out of the bay or among the isles:
+  // docs/NORTH.md.)
+  if (!state.crossing && northWaters(boat.pos.x, boat.pos.z)) {
+    const to = region === 'north' ? 'home' : 'north';
+    ask('The chart table', to === 'north' ? 'The chart, or the passage north up the coast to the Selkie Isles?' : 'The chart, or the passage home down the coast to Willow Bay?', [
+      { text: 'The chart', cls: 'quiet', run: () => openMap() },
+      { text: to === 'north' ? 'The passage north' : 'The passage home', run: () => offerNorth(to) },
+    ]);
+    return;
+  }
   openMap();
 }
 // The heads: a wash, and you feel the better for it (no more than that).
@@ -6262,8 +6279,9 @@ function travelInfo() {
   if (state.crossing || inOcean(player().pos.x, player().pos.z)) return { camp: false, boat: false, camps: false, own: false, haven: false, note: 'Out on the open sea: the only way from here is on across, or back.' };
   const atCamp = onFoot && nearCampSpot();
   const box = regionBox(10);
-  // (At Las Brasas, home's places are across the open sea: only the crossing takes you there.)
-  const south = player().pos.z > SOUTH_Z;
+  // (At Las Brasas, home's places are across the open sea: only the crossing takes you there. Up
+  // the coast in the north, nine kilometres off by sea: only the passage does.)
+  const south = player().pos.z > SOUTH_Z || inNorth(player().pos.x, player().pos.z);
   const camp = !atCamp && !south;
   const boat = onFoot;
   const P = player().pos;
@@ -6396,6 +6414,33 @@ const PASSAGE_LOG = {
     'Landfall · Gannet Light ahead, then the hills behind Willow Bay. You lower the sail off Willowhaven and bring her in alongside.',
   ],
 };
+// (The north's, up the coast: docs/NORTH.md. 'north' going, 'fromnorth' coming home.)
+PASSAGE_LOG_MOTOR.north = [
+  'Morning · Out of Willow Bay and west past Heron Point and the Calf, the low cliffs of the south coast sliding by, Hoarfell above them.',
+  'Afternoon · Round the Ness into the Atlantic swell, and north along the west coast under the fells: cliffs, waterfalls, not a house for miles. Gannets diving off the headlands.',
+  'Evening · The light goes on and on. Skerries in the approaches, a seal’s head watching you by, and the isles ahead: Tern Isle low and white, Raven Isle high and dark.',
+  'Landfall · Into Raven Sound, the water suddenly calm, and Halvig’s white houses above their little bay. You bring her in off the stone pier.',
+];
+PASSAGE_LOG_MOTOR.fromnorth = [
+  'Morning · Out of Raven Sound past the Selkie Rocks, the seals sliding off them, and south along the coast under the fells.',
+  'Afternoon · The west coast goes by headland after headland, the swell on the beam, fulmars stiff-winged round her.',
+  'Evening · Round the Ness, and the south coast and Hoarfell ahead, the evening sun on it.',
+  'Landfall · Past the Calf and Heron Point into Willow Bay, and in to her berth on the pontoon.',
+];
+PASSAGE_LOG.north = [
+  'Morning · Out of Willow Bay and west past Heron Point and the Calf, close-hauled along the south coast, Hoarfell above.',
+  'Afternoon · Round the Ness into the Atlantic swell, eased sheets and north along the west coast under the fells, gannets diving off the headlands.',
+  'Evening · The light goes on and on. Skerries in the approaches, a seal’s head watching you by, and the isles ahead: Tern Isle low and white, Raven Isle high and dark.',
+  'Landfall · Into Raven Sound, the wind dropping in its lee, and Halvig’s white houses above their bay. You lower the sail off the stone pier.',
+];
+PASSAGE_LOG.fromnorth = [
+  'Morning · Out of Raven Sound past the Selkie Rocks, and south along the coast under the fells, the wind on the quarter.',
+  'Afternoon · Headland after headland, the swell on the beam, fulmars stiff-winged round her.',
+  'Evening · Round the Ness, and the south coast and Hoarfell ahead, the evening sun on it.',
+  'Landfall · Past the Calf and Heron Point into Willow Bay, and in alongside.',
+];
+// (How much further the run up the coast is than the crossing: its hours and its fuel.)
+const NORTH_PART = NORTH_M / CROSS_M;
 let passage = null; // { to, kind, t, line, moved }
 const LINE_T = 3.4; // seconds each line of the log stays up
 
@@ -6411,7 +6456,7 @@ function passageWhy(S = BOATS.sail, part = 1) {
   if (S.hull.platform && (S.platformWant || S.platformDrop > 0.01)) return 'Raise her swim platform first (the control box on her aft deck): her engine won’t go into gear while it’s down.';
   const need = Math.round(passageFuel(S.id) * part);
   if (S.hull.passage && fuelLevel(tanks(), S.id) < need) {
-    return `She needs ${litres(need)} aboard for the crossing, and has ${litres(fuelLevel(tanks(), S.id))}. Fill up first (${S.pos.z > SOUTH_Z ? 'the pump on Puerto Brasa quay' : 'the fuel point on Willowhaven’s pontoon'}).`;
+    return `She needs ${litres(need)} aboard for the passage, and has ${litres(fuelLevel(tanks(), S.id))}. Fill up first (${S.pos.z > SOUTH_Z ? 'the pump on Puerto Brasa quay' : inNorth(S.pos.x, S.pos.z) ? 'the pump on Halvig pier' : 'the fuel point on Willowhaven’s pontoon'}).`;
   }
   return null;
 }
@@ -6436,7 +6481,21 @@ function restOfTheWay(to) {
   ]);
 }
 
-function startPassage(to, S = boat, part = 1) {
+// The passage up the coast, or home down it (docs/NORTH.md): at the helm the whole way, or the fast
+// passage (the hours and the fuel it would take, and you're there).
+function offerNorth(to, S = boat) {
+  const why = passageWhy(S, NORTH_PART);
+  const mins = Math.round((crossSeconds(S.kind) * NORTH_PART) / 60), hours = Math.round(crossHours(S.kind) * NORTH_PART + 2.5);
+  const text = to === 'north'
+    ? `Up the coast to the Selkie Isles: west past the Calf, round the Ness, and north under the fells to Raven Sound, about ${(NORTH_M / 1000).toFixed(0)} km. At the helm it’s about ${mins} minutes; by the fast passage, ${hours} hours go by and you come in off Halvig’s pier.`
+    : `Home down the coast to Willow Bay: south out of the isles, round the Ness and east past the Calf, about ${(NORTH_M / 1000).toFixed(0)} km. At the helm it’s about ${mins} minutes; by the fast passage, ${hours} hours go by and you’re in at Willowhaven.`;
+  ask(to === 'north' ? 'The passage north' : 'The passage home', why ? `${text} ${why}` : text, [
+    { text: 'At the helm', cls: 'quiet', run: () => hud.toast(to === 'north' ? 'West past the Calf, round the Ness (give it a wide berth: the swell), then north up the coast with the land on your right. The isles are about seven kilometres up it.' : 'South out of the sound past the Selkie Rocks, down the coast with the land on your left, round the Ness and east past the Calf.', 8) },
+    ...(why ? [] : [{ text: 'The fast passage', run: () => startPassage(to, S, NORTH_PART) }]),
+  ]);
+}
+
+function startPassage(to, S = boat, part = to === 'north' || region === 'north' ? NORTH_PART : 1) {
   if (passageWhy(S, part) || modal) return;
   if (placement.isOn) placement.stop();
   if (fishing.lineOut) fishing.cancel();
@@ -6444,15 +6503,20 @@ function startPassage(to, S = boat, part = 1) {
   modal = 'travel';
   // (The cruiser takes the jet ski and the windsurf board along, lashed on deck, if they're by her.)
   const carry = S.hull.passage ? ['jetski', 'windsurf'].filter((k) => !BOATS[k].stowed && Math.hypot(BOATS[k].pos.x - S.pos.x, BOATS[k].pos.z - S.pos.z) < 45 && !(tow && (tow.lead === BOATS[k] || tow.towed === BOATS[k]))) : [];
-  passage = { to, kind: S.id, t: 0, line: -1, moved: false, carry, part };
-  hud.sleep(true, to === 'south' ? `You stow the gear, check her stores (${storesWordsOf(S.id)})${S.hull.passage ? ' and the oil' : ''}, and cast off…` : `You stow the gear, check her stores (${storesWordsOf(S.id)}), and cast off for the long run north…`);
+  // (from: where it's made from, for its log: home from the north is a run down the coast.)
+  const from = region === 'north' ? 'north' : region;
+  passage = { to, kind: S.id, t: 0, line: -1, moved: false, carry, part, from };
+  hud.sleep(true, to === 'south' ? `You stow the gear, check her stores (${storesWordsOf(S.id)})${S.hull.passage ? ' and the oil' : ''}, and cast off…`
+    : to === 'north' ? `You stow the gear, check her stores (${storesWordsOf(S.id)}) and the chart, and cast off for the run up the coast…`
+      : from === 'north' ? `You stow the gear, check her stores (${storesWordsOf(S.id)}), and cast off for home, down the coast…`
+        : `You stow the gear, check her stores (${storesWordsOf(S.id)}), and cast off for the long run north…`);
 }
 
 function updatePassage(dt) {
   const P = passage;
   if (!P) return;
   const motor = !!BOATS[P.kind]?.hull.passage;
-  const log = (motor ? PASSAGE_LOG_MOTOR : PASSAGE_LOG)[P.to];
+  const log = (motor ? PASSAGE_LOG_MOTOR : PASSAGE_LOG)[P.from === 'north' && P.to === 'home' ? 'fromnorth' : P.to];
   P.t += dt;
   const line = Math.min(log.length - 1, Math.floor((P.t - 1.6) / LINE_T));
   if (line >= 0 && line !== P.line) {
@@ -6468,12 +6532,22 @@ function updatePassage(dt) {
     hud.sleep(false);
     modal = null;
     passage = null;
-    // (In the day book: the passage made, on the day you arrive.)
-    voy({ k: 'cross', to: P.to, stage: 'in' });
-    noteCrossing(state.today, { to: P.to, stage: 'in', how: 'fast', boat: boatCall(BOATS[P.kind]) || '' });
-    state.passages = cleanPassages(state.passages);
-    state.passages.fast++;
-    if (P.to === 'south') {
+    // (In the day book: the passage made, on the day you arrive. The run up the coast and back
+    // isn't a crossing of the open sea: it has its own word.)
+    const coastal = P.to === 'north' || P.from === 'north';
+    if (!coastal) {
+      voy({ k: 'cross', to: P.to, stage: 'in' });
+      noteCrossing(state.today, { to: P.to, stage: 'in', how: 'fast', boat: boatCall(BOATS[P.kind]) || '' });
+      state.passages = cleanPassages(state.passages);
+      state.passages.fast++;
+    }
+    if (P.to === 'north') {
+      const first = !state.tips.north;
+      state.tips.north = true;
+      hud.toast(first
+        ? `The Selkie Isles. Halvig lies ahead on Raven Isle: bring her in alongside the stone pier (eight to ten metres at its head), or anchor in the sound. The fuel pump is at the pier’s root and the shop sells stores and ice. The water’s cold and clear: kelp on every rock, seals on the Selkie Rocks to the south, the seabirds on Skarv Stack round the island’s north end, and Loch Skarn running into the hills across the sound, with the best anchorage in Bothy Bay.`
+        : `The Selkie Isles, and Halvig’s pier ahead${motor ? ` (the pump is at its root: ${tankWords(tanks(), P.kind)} left)` : ''}.`, first ? 14 : 6);
+    } else if (P.to === 'south') {
       const first = !state.tips.brasa;
       state.tips.brasa = true;
       // (The first arrival's word mentions El Bajón already.)
@@ -6504,9 +6578,9 @@ function arrivePassage(to) {
   // the harbours each end.)
   const part = passage?.part ?? 1;
   if (S.hull.passage) tanks().boats[S.id] = Math.max(0, fuelLevel(tanks(), S.id) - CROSS_FUEL(BOAT_PER_S[S.id] ?? BOAT_PER_S[S.kind], S.kind) * part - 6);
-  const at = to === 'south' ? LANDFALL : mooring(S.id);
-  // (Off Puerto Brasa, clear of a boat you left lying there.)
-  const busy = to === 'south' && boats.some((o) => o !== S && Math.hypot(o.pos.x - at.x, o.pos.z - at.z) < 12);
+  const at = to === 'south' ? LANDFALL : to === 'north' ? NORTH_LANDFALL : mooring(S.id);
+  // (Off Puerto Brasa, or Halvig, clear of a boat you left lying there.)
+  const busy = (to === 'south' || to === 'north') && boats.some((o) => o !== S && Math.hypot(o.pos.x - at.x, o.pos.z - at.z) < 12);
   S.place(at.x + (busy ? -18 : 0), at.z, at.heading);
   // (The jet ski and the board come off her deck beside her, or back to their berths at home.)
   (passage?.carry || []).forEach((k, i) => {
@@ -6516,7 +6590,7 @@ function arrivePassage(to) {
     c.anchored = false;
     c.lever = 0;
     c.power = 0;
-    const p = to === 'south' ? { x: S.pos.x + 7 + i * 5, z: S.pos.z + 3, heading: at.heading } : mooring(k);
+    const p = to === 'south' || to === 'north' ? { x: S.pos.x + 7 + i * 5, z: S.pos.z + 3, heading: at.heading } : mooring(k);
     c.place(p.x, p.z, p.heading);
     const B = to === 'home' ? berthFor(c, boats, { reach: 3 }) : null;
     if (B) {
@@ -6553,10 +6627,10 @@ function arrivePassage(to) {
   // The weather where you land: fine, in the trade wind down south (your own sky: playing
   // together, the sky is the host's).
   if (skyMode() === 'auto' && !clock.following) {
-    weather.state = to === 'south' ? 'clear' : 'partly';
+    weather.state = to === 'south' ? 'clear' : to === 'north' ? 'overcast' : 'partly';
     weather.timer = rand(200, 320);
   }
-  conditions.region = to === 'south' ? 'south' : 'home';
+  conditions.region = to === 'south' ? 'south' : to === 'north' ? 'north' : 'home';
   if (to === 'south') {
     conditions.wind.from = 0.8;
     conditions.wind.target = 7;
@@ -6999,7 +7073,7 @@ function boatChoices() {
   const acts = [{ text: 'Paddle on with the oar', cls: 'quiet', run: () => {} }];
   // (An electric outboard's battery flat: no can will help, a tow will.)
   if (ELEC[boat.id]) {
-    const how = helpHere(), into = boat.pos.z > SOUTH_Z ? 'Puerto Brasa' : 'Willowhaven quay';
+    const how = helpHere(), into = boat.pos.z > SOUTH_Z ? 'Puerto Brasa' : inNorth(boat.pos.x, boat.pos.z) ? 'Halvig pier' : 'Willowhaven quay';
     acts.push({ text: how === 'flare' ? `Fire a flare for a tow (${state.safety.flares} left: a couple of hours)` : how === 'wait' ? `Wait for a passing boat to tow you to ${into} (hours)` : `${how === 'vhf' ? 'Radio' : 'Ring'} for a tow to ${into} (about an hour)`, run: () => towBoat(how) });
     ask(`The ${boat.name}: battery flat`, 'The motor’s battery is flat. An oar moves her along, slowly; tied up at a jetty or a quay it charges again (half an hour’s worth an hour), and overnight.', acts);
     return;
@@ -7008,7 +7082,7 @@ function boatChoices() {
   const canWith = f.can.at === 'pack' || f.can.at === `boat:${boat.id}`;
   if (canWith && f.can.litres >= 0.5) acts.push({ text: `Pour in the jerry can (${litres(f.can.litres)})`, cls: 'quiet', run: () => { pourCan(boat.id); if (f.can.at !== 'pack') syncCargo(boat.id); } });
   // (F1b) A tow as help can be called from here.
-  const how = helpHere(), into = kind === 'bass' ? 'the boathouse' : boat.pos.z > SOUTH_Z ? 'Puerto Brasa' : 'Willowhaven quay';
+  const how = helpHere(), into = kind === 'bass' ? 'the boathouse' : boat.pos.z > SOUTH_Z ? 'Puerto Brasa' : inNorth(boat.pos.x, boat.pos.z) ? 'Halvig pier' : 'Willowhaven quay';
   acts.push({ text: how === 'flare' ? `Fire a flare for a tow (${state.safety.flares} left: a couple of hours)` : how === 'wait' ? `Wait for a passing boat to tow you to ${into} (hours)` : `${how === 'vhf' ? 'Radio' : 'Ring'} for a tow to ${into} (about an hour)`, run: () => towBoat(how) });
   ask(`The ${boat.name}: out of fuel`, `The tank is dry. An oar moves her along, slowly${kind === 'bass' && f.battery > 0 ? ', and the electric motor still runs on its battery' : ''}.${canWith ? '' : ' (The jerry can isn’t with you.)'}${how === 'phone' || how === 'vhf' ? '' : ` ${HELP_WORDS[how]}`}`, acts);
 }
@@ -7018,8 +7092,9 @@ function towBoat(how = 'vhf') {
   // (F1b) A flare used; help as long as it takes to find you.
   if (how === 'flare') state.safety.flares = Math.max(0, state.safety.flares - 1);
   // (Down south, into Puerto Brasa: a berth on the pontoon.)
-  const south = boat.pos.z > SOUTH_Z, berth = south ? pontoonBerth(boat, true) : null;
-  const p = berth || (south ? { x: PONTOON_S.x1 + 6, z: PONTOON_S.z1 + 6, heading: 0 } : boat.kind === 'bass' ? mooring('bass') : quayMooring(boat) || mooring(boat.iind));
+  // (Up the coast in the north, into Halvig: lying off the head of its pier.)
+  const south = boat.pos.z > SOUTH_Z, north = !south && inNorth(boat.pos.x, boat.pos.z), berth = south ? pontoonBerth(boat, true) : null;
+  const p = berth || (south ? { x: PONTOON_S.x1 + 6, z: PONTOON_S.z1 + 6, heading: 0 } : north ? { x: HALVIG_PIER.x1 - 8, z: HALVIG_PIER.z1 + 4.5, heading: -Math.PI / 2 } : boat.kind === 'bass' ? mooring('bass') : quayMooring(boat) || mooring(boat.id));
   boat.place(p.x, p.z, p.heading);
   if (berth) boat.tieTo({ ...berth, t: 9 });
   else boat.setAnchor(true);
@@ -7032,13 +7107,14 @@ function towBoat(how = 'vhf') {
   // (An electric: tied up the while, its battery's had an hour's charge.)
   if (ELEC[boat.id]) {
     chargeElec(tanks(), boat.id, 1);
-    hud.toast(`${south ? 'A fishing boat tows you in to Puerto Brasa' : 'A boat from the harbour tows you in to Willowhaven quay'}, ${gone}, and the motor’s battery has had an hour on charge: ${elecWords(tanks(), boat.kind)}.`, 8);
+    hud.toast(`${south ? 'A fishing boat tows you in to Puerto Brasa' : north ? 'A creel boat tows you in to Halvig pier' : 'A boat from the harbour tows you in to Willowhaven quay'}, ${gone}, and the motor’s battery has had an hour on charge: ${elecWords(tanks(), boat.kind)}.`, 8);
     save();
     return;
   }
   hud.toast(boat.kind === 'bass'
     ? `The boathouse keeper tows you back to the jetty, ${gone}, and leaves you ${litres(fuelLevel(tanks(), 'bass'))} to potter with. The jerry can fills at home or at Willowhaven.`
     : south ? `A fishing boat tows you in to Puerto Brasa, ${gone}, and they leave you ${litres(fuelLevel(tanks(), boat.id))}. The pump is on the quay.`
+      : north ? `A creel boat tows you in to Halvig, ${gone}, and they leave you ${litres(fuelLevel(tanks(), boat.id))}. The pump is at the pier’s root.`
       : `A boat from the harbour tows you in to Willowhaven quay, ${gone}, and they leave you ${litres(fuelLevel(tanks(), boat.id))}. The pump is at the root of the quay.`, 8);
   save();
 }
@@ -7780,6 +7856,12 @@ function interaction() {
   if (settled) return { text: 'Sit back a while', run: sitBoat };
   // Stopped over deep water: over the side.
   if (entry) return { text: 'Go diving', run: () => chooseDive(entry) };
+  // (The north, up the coast: docs/NORTH.md) In a boat fit for it, west of the Calf or anywhere up
+  // the coast: the passage north, or home from there.
+  if ((boat.hull.sail || boat.hull.passage) && !fishing.lineOut && !state.crossing && northWaters(boat.pos.x, boat.pos.z) && zoneAt(boat.pos.x, boat.pos.z) !== 'loch') {
+    const to = region === 'north' ? 'home' : 'north';
+    return { text: to === 'north' ? 'The passage north to the Selkie Isles' : 'The passage home to Willow Bay', run: () => offerNorth(to) };
+  }
   // In the sailing boat or the cruiser, out on open water: the crossing (at the helm, or fast).
   if ((boat.hull.sail || boat.hull.passage) && !fishing.lineOut && passageWaters()) {
     const C = state.crossing;
@@ -8737,14 +8819,16 @@ function quayMooring(b) {
 // office): one in this sea is brought round for you now; one in the other goes on the supply
 // ship overnight and is at the pontoon here the next morning at eight. (The bass boat lives on
 // Longmere.)
-const regionOf = (b) => (b.pos.z > SOUTH_Z ? 'south' : 'home');
+// (Up the coast in the north counts as its own: a boat left there is sailed home, not brought
+// round or shipped.)
+const regionOf = (b) => (b.pos.z > SOUTH_Z ? 'south' : inNorth(b.pos.x, b.pos.z) ? 'north' : 'home');
 function boatsRound(here = regionOf(player())) {
   const south = here === 'south';
   const atHand = (b) => (south ? Math.hypot(b.pos.x - PONTOON_S.x0, b.pos.z - 6320) < 45
     : Math.hypot(b.pos.x - QUAY_HEAD.x, b.pos.z - HAVEN_QUAY.z1) < 14 || (homeOf(b.kind) === 'harbour' && inMarina(b.pos)));
   const coming = new Set((state.shipping || []).filter((s) => s.to === here).map((s) => s.kind)); // (her id, under its old name)
   const near = boats.filter((b) => b.kind !== 'bass' && regionOf(b) === here && !atHand(b) && !coming.has(b.id));
-  const far = boats.filter((b) => b.kind !== 'bass' && regionOf(b) !== here && !coming.has(b.id) && b !== boat);
+  const far = boats.filter((b) => b.kind !== 'bass' && regionOf(b) !== here && regionOf(b) !== 'north' && here !== 'north' && !coming.has(b.id) && b !== boat);
   const otherName = south ? 'Willowhaven' : 'Puerto Brasa';
   const onShip = [...coming].map((k) => BOATS[k].name);
   const shipNote = onShip.length ? ` On the supply ship already: the ${onShip.join(' and the ')}, here tomorrow morning.` : '';
@@ -8763,6 +8847,7 @@ function boatsRound(here = regionOf(player())) {
 // laid up (see fleet.js); one put in the water, or laid up, or brought round.
 function whereWords(b) {
   if (regionOf(b) === 'south') return 'at Las Brasas';
+  if (regionOf(b) === 'north') return 'up the coast in the Selkie Isles';
   if (b.tie && PIERS[b.tie.pier] === OWN_FINGER) return 'on your finger';
   if (b.tie && VISITOR_FINGERS.includes(PIERS[b.tie.pier])) return 'at the visitors’ pontoon';
   if (inMarina(b.pos)) return 'in the harbour';

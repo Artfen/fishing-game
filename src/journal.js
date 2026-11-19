@@ -19,13 +19,17 @@ const $ = (id) => document.getElementById(id);
 const ZONE_WORDS = {
   bay: 'in Willow Bay', cove: 'in Driftwood Cove', open: 'out on open water', lake: 'in Reedmere', stream: 'in Fernbeck',
   estuary: 'in the Wend estuary', mere: 'on Longmere', coast: 'off the outer coast', deep: 'out on the Blue Water',
+  // (Up the coast, in the north.)
+  kelp: 'over the kelp in the Selkie Isles', sound: 'in Raven Sound', race: 'in the Churn', loch: 'in Loch Skarn', skerry: 'off the Selkie Rocks', outer: 'off the Atlantic coast to the north',
 };
+const NORTHERN = new Set(['kelp', 'sound', 'race', 'loch', 'skerry', 'outer']);
 const SKY_WORDS = { clear: 'clear sky', partly: 'some cloud', overcast: 'overcast', light: 'light rain', heavy: 'heavy rain' };
 // The journal's pages of fish, by where they live (squid get a page of their own: not fish).
 const GROUPS = [
-  { name: 'Willow Bay and the coves', test: (f) => !f.creature && f.water !== 'fresh' && !f.life.zones.some((z) => ['estuary', 'coast', 'deep'].includes(z)) },
+  { name: 'Willow Bay and the coves', test: (f) => !f.creature && f.water !== 'fresh' && !f.life.zones.some((z) => ['estuary', 'coast', 'deep'].includes(z)) && !f.life.zones.every((z) => NORTHERN.has(z)) },
   { name: 'The Wend estuary (brackish water)', test: (f) => !f.creature && f.water !== 'fresh' && f.life.zones.includes('estuary') },
   { name: 'The outer coast and the open sea', test: (f) => !f.creature && f.water !== 'fresh' && !f.life.zones.includes('estuary') && f.life.zones.some((z) => z === 'coast' || z === 'deep') },
+  { name: 'Up the coast: the Selkie Isles', test: (f) => !f.creature && f.water !== 'fresh' && f.life.zones.every((z) => NORTHERN.has(z)) },
   { name: 'Fresh water: the meres and the stream', test: (f) => !f.creature && f.water === 'fresh' },
   { name: 'Not fish', test: (f) => !!f.creature },
 ];

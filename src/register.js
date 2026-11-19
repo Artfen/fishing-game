@@ -57,6 +57,9 @@ const CATCHABLE = [
   'thornback', 'catshark', 'weever', 'hake', 'johndory',
   // The small fish of the rocks and the estuary, for micro-fishing (smallFish.js), every one released
   'rockgoby', 'shanny', 'corkwing', 'blackgoby',
+  // The north, up the coast (northFish.js): the cod, saithe, ling and haddock, and the flapper
+  // skate, critically endangered, to be released
+  'cod', 'saithe', 'ling', 'haddock', 'skate',
 ];
 const GAME = {
   ...Object.fromEntries(CATCHABLE.map((id) => [id, { status: 'catchable', model: 'anatomical' }])),
@@ -85,6 +88,7 @@ export const PLAN_AS = {
   lamprey: { as: 'observation', why: 'All fishing for it in the Gironde estuary has been banned since 2023.' },
   stingray: { as: 'release', why: 'Vulnerable, and its tail spine is venomous.' },
   thornback: { as: 'release', why: 'Near threatened.' },
+  skate: { as: 'release', why: 'Critically endangered, and protected: never landed.' },
 };
 
 // Records to settle before the species can be planned in detail (none open at the moment).
@@ -154,6 +158,16 @@ export const FRESHWATER = {
 // (Macaronesia: the Azores, Madeira, the Canaries, Cape Verde) and the coasts near them. Like the
 // freshwater species, their names are standard and their ranges and status are noted here, not
 // researched in depth. (The dusky grouper and the chub mackerel are in the register.)
+// The north's own fish (northFish.js): cold-water fish of the north-east Atlantic, outside the
+// register's Biscay-to-Cádiz range, with their names and ranges here (as Las Brasas' have theirs).
+export const NORTHERN = {
+  cod: { scientific: 'Gadus morhua', note: 'The North Atlantic, in the east from the Bay of Biscay to the Barents Sea; common round Scotland and Norway, in the sea lochs in winter. IUCN global: Vulnerable (VU), assessed 1996.' },
+  saithe: { scientific: 'Pollachius virens', note: 'The North Atlantic, in the east from the Bay of Biscay to Svalbard and the Barents Sea; abundant round the Scottish isles and Norway, young fish inshore in shoals.' },
+  ling: { scientific: 'Molva molva', note: 'The north-east Atlantic from the Bay of Biscay to Iceland and northern Norway, on rocky ground and wrecks from about 100 to 400 m, shallower in the sea lochs.' },
+  haddock: { scientific: 'Melanogrammus aeglefinus', note: 'Both sides of the North Atlantic, in the east from the Bay of Biscay to Spitsbergen, on sand and mud. IUCN global: Vulnerable (VU), assessed 1996.' },
+  skate: { scientific: 'Dipturus intermedius', note: 'The north-east Atlantic, now mostly off western Scotland, round Orkney and in the deep sea lochs; once widespread. IUCN: Critically Endangered (CR), as part of the common skate complex; protected in the UK and the EU, never to be landed.' },
+};
+
 export const MACARONESIA = {
   parrotfish: { scientific: 'Sparisoma cretense', note: 'Eastern Atlantic islands and the warm coasts from Portugal to Senegal, and the Mediterranean; very common on Canary reefs, where it is the prized “vieja”.' },
   ornatewrasse: { scientific: 'Thalassoma pavo', note: 'Shallow rocky reefs of the Mediterranean and the eastern Atlantic, from Portugal south to the Gulf of Guinea, the Atlantic islands included; abundant in the Canaries.' },

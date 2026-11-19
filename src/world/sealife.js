@@ -3,6 +3,7 @@ import { anatomyGeometry, anatomyMaterials } from '../anatomy.js';
 import { waveHeight } from './water.js';
 import { depthAt, heightAt, GANNET, SKERRIES } from './terrain.js';
 import { ARCO, PICO } from './brasa.js';
+import { SELKIE } from './north.js';
 import { sealParts } from './calf.js';
 import { clamp, lerp, damp, dampAngle, smoothstep, wrapAngle, glowTexture, mergeParts, mat, seeded } from '../util.js';
 import { BIRDS } from '../birdData.js';
@@ -101,6 +102,9 @@ export const PODS = [
   // (The archipelago, docs/ARCHIPELAGO.md) Common dolphins working the bait over El Banco, out in
   // the north-west. (Its own dice, as the canyon's whale has: the life made after it doesn't move.)
   { kind: 'commondolphin', sea: 'south', n: 8, len: [1.8, 2.3], area: [-1100, -540, 4900, 5400], minDepth: 25, speed: 3, period: [5, 9], bow: true, reach: 360, seen: 280, ownDice: 5151 },
+  // (The north, up the coast, docs/NORTH.md) Common dolphins along the west coast on the way, out
+  // in the Atlantic swell. (Its own dice too.)
+  { kind: 'commondolphin', sea: 'north', n: 7, len: [1.8, 2.3], area: [-3600, -2400, -4600, -1200], minDepth: 25, speed: 3, period: [5, 9], bow: true, reach: 360, seen: 280, ownDice: 6262 },
 ];
 
 // The great whales: where they range, their size, their blow (height, width, a forward lean), how
@@ -112,6 +116,8 @@ const WHALES = [
   // (And out on the crossing: a fin whale in the cooler northern half, a sperm whale in the warm.)
   { kind: 'finwhale', sea: 'crossing', len: 18, area: [-1200, 1400, 1500, 3200], minDepth: 40, speed: 2.2, blow: [7, 1.3, 0], breaths: [3, 5], down: [110, 170], gap: [12, 18] },
   { kind: 'spermwhale', sea: 'crossing', len: 14, area: [-1200, 1400, 3000, 5000], minDepth: 80, speed: 0.7, blow: [4, 2.2, 0.8], breaths: [7, 10], down: [160, 240], gap: [10, 15], rests: true, flukes: true },
+  // (The north) A minke whale feeding round the Selkie Isles, in the sound and outside. (Its own dice; the canyon's whale stays last.)
+  { kind: 'minkewhale', sea: 'north', len: 8, area: [-4300, -2300, -7300, -4700], minDepth: 20, speed: 2, blow: [2.4, 0.9, 0], breaths: [3, 4], down: [70, 110], gap: [8, 14], ownDice: 6161 },
   // (G7b) And at home, a sperm whale hunting Gannet Deep (terrain.js CANYON): squid in the dark
   // of its floor, a hundred and fifty metres down, and up to breathe and lie at the surface over
   // it. Kept to water a hundred metres deep, which at home is the canyon alone. (Its own dice:
@@ -646,6 +652,28 @@ export function buildSeaLife(scene, { glow = null, seed = 20261106 } = {}) {
       s.neck.position.set(0, 0, 0);
       s.head.rotation.x = -0.35;
       visitors.push({ ...s, id: visitors.length, H, x: H.x, z: H.z, a: B() * 6.28, r: brand(14, 30), depth: 1, down: true, t: brand(5, 30), look: 0, mode: 'idle', visits: 0, cool: brand(20, 60), followCool: brand(60, 200), owner: null, net: null });
+    }
+  }
+  // (The north, up the coast) The Selkie Rocks' grey seals: hauled out on the dry tops of the rocks,
+  // and two in the water off them. (Their own dice, after the rest, so nothing else moves.)
+  {
+    const R = seeded(seed + 7171), rb = (a, b) => a + R() * (b - a);
+    const spots = SELKIE.flatMap((K) => [0, 2.1, 4.2].map((a) => ({ x: K.x + Math.sin(a) * K.r * 0.45, z: K.z + Math.cos(a) * K.r * 0.45 }))).filter((p) => heightAt(p.x, p.z) > 0.3);
+    const H = { id: 'selkie', x: SELKIE[0].x, z: SELKIE[0].z, spots, ownDice: true };
+    haulouts.push(H);
+    for (const p of spots) {
+      const s = makeSeal();
+      s.g.scale.setScalar(rb(0.8, 1.15));
+      s.g.position.set(p.x, Math.max(0.1, heightAt(p.x, p.z)) + 0.02, p.z);
+      s.g.rotation.y = R() * Math.PI * 2;
+      ashore.push({ ...s, H, ph: R() * 20, lift: 0, look: 0, ownDice: true });
+    }
+    for (let i = 0; i < 2; i++) {
+      const s = makeSeal();
+      s.body.visible = false;
+      s.neck.position.set(0, 0, 0);
+      s.head.rotation.x = -0.35;
+      visitors.push({ ...s, id: visitors.length, H, x: H.x, z: H.z, a: R() * 6.28, r: rb(14, 30), depth: 1, down: true, t: rb(5, 30), look: 0, mode: 'idle', visits: 0, cool: rb(20, 60), followCool: rb(60, 200), owner: null, net: null, ownDice: true });
     }
   }
   const stepSeals = (dt, t, ctx, near) => {
@@ -1339,8 +1367,11 @@ export function buildSeaLife(scene, { glow = null, seed = 20261106 } = {}) {
       const home = ctx.region !== 'south';
       // (Each sea's own where you are; the crossing's only while you're out on it. What's seen is
       // yours; what's alive is wherever anyone in the session is.)
-      const here = (sea) => (sea === 'crossing' ? !!ctx.crossing : (sea === 'home') === home);
-      const someone = (sea) => V.some((v) => (sea === 'crossing' ? !!v.crossing : (sea === 'home') === (v.region !== 'south')));
+      // (The north's, up the coast, only there; home's wherever's not the south, as they always were:
+      // they're too far off to wake from the north.)
+      const inSea = (sea, region, crossing) => (sea === 'crossing' ? !!crossing : sea === 'north' ? region === 'north' : (sea === 'home') === (region !== 'south'));
+      const here = (sea) => inSea(sea, ctx.region, ctx.crossing);
+      const someone = (sea) => V.some((v) => inSea(sea, v.region, v.crossing));
       for (const p of pods) stepPod(p, dt, t, ctx, here(p.sea) && Math.hypot(p.x - ctx.from.x, p.z - ctx.from.z) < 1200);
       for (const w of whales) {
         // (The crossing's lie dormant till someone's out there: no blows from the open sea at home.)

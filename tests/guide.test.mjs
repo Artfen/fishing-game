@@ -20,7 +20,7 @@ const { FISH, fishById } = await import('../src/fish.js');
 const { RODS, TACKLE, TERMS, fits, checkSetup } = await import('../src/tackle.js');
 const { setupsFor, habitsOf } = await import('../src/guide.js');
 const { ANATOMY, anatomyGeometry } = await import('../src/anatomy.js');
-const { REGISTER, registerFor, LEGACY, FRESHWATER, MACARONESIA, REGIONS, PLAN_AS } = await import('../src/register.js');
+const { REGISTER, registerFor, LEGACY, FRESHWATER, MACARONESIA, NORTHERN, REGIONS, PLAN_AS } = await import('../src/register.js');
 const { execFileSync } = await import('node:child_process');
 const { fileURLToPath } = await import('node:url');
 const { fish, fishWithGuide, SCENARIOS } = await import('../tools/ecosim.mjs?nomain');
@@ -114,13 +114,14 @@ test('the reference models carry their distinguishing anatomy', () => {
   assert.equal(new Set(shapes).size, REFERENCE.length);
 });
 
-test('every game species is accounted for: in the register, a fictional original, fresh water, or Las Brasas', () => {
+test('every game species is accounted for: in the register, a fictional original, fresh water, Las Brasas, or the north', () => {
   for (const sp of FISH) {
-    const ok = registerFor(sp.id) || LEGACY[sp.id] || FRESHWATER[sp.id] || MACARONESIA[sp.id];
+    // (The north's, up the coast, are outside the register's range too: docs/NORTH.md.)
+    const ok = registerFor(sp.id) || LEGACY[sp.id] || FRESHWATER[sp.id] || MACARONESIA[sp.id] || NORTHERN[sp.id];
     assert.ok(ok, `${sp.id} has no register entry`);
   }
   // Las Brasas' own fish outside the register carry their scientific name, the same in the game.
-  for (const [id, m] of Object.entries(MACARONESIA)) {
+  for (const [id, m] of [...Object.entries(MACARONESIA), ...Object.entries(NORTHERN)]) {
     assert.ok(fishById[id] && !registerFor(id), `${id}: in the game, and not in the register`);
     assert.match(m.scientific, /^[A-Z][a-z]+ [a-z]+$/, `${id}: scientific name`);
     assert.equal(fishById[id].scientific, m.scientific, id);

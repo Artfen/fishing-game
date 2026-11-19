@@ -10,8 +10,8 @@ import { clamp, smoothstep } from '../util.js';
 // Fresh water swings further: the lakes from about 3°C to 21°C, the running rivers and streams
 // cooler in summer, the tarn on the fell colder still; the estuary and the tideway between sea and
 // river. At Las Brasas, in the trade wind far to the south, the sea runs from about 18.5°C to
-// 23.5°C, and out on the crossing it changes from one to the other. On a still afternoon the
-// shallows warm a little more.
+// 23.5°C, and out on the crossing it changes from one to the other; up the coast in the north, from
+// about 8°C to 13°C. On a still afternoon the shallows warm a little more.
 //
 // The season's effect on each kind of fish (season.js) already follows the water's warmth; this
 // lets you read it.
@@ -22,6 +22,10 @@ const FRESH_RUNNING = new Set(['stream', 'river']);
 const BRACKISH = new Set(['estuary', 'tideway']);
 
 const homeSea = (p) => 16.5 + 4.5 * Math.cos(TAU * (p - 0.5));
+// (The north, up the coast in the Selkie Isles: colder, about 8°C at the end of winter to 13°C at
+// the end of summer; its waters are told apart by their zones: see north.js.)
+const northSea = (p) => 10.5 + 2.5 * Math.cos(TAU * (p - 0.55));
+const NORTH = new Set(['kelp', 'sound', 'race', 'loch', 'skerry', 'outer']);
 const southSea = (p) => 21 + 2.5 * Math.cos(TAU * (p - 0.55));
 const lake = (p) => 12 + 9 * Math.cos(TAU * (p - 0.45));
 const running = (p) => 10 + 6 * Math.cos(TAU * (p - 0.45));
@@ -37,10 +41,10 @@ export function seaTemp({ abs, zone = 'open', depth = 0, south = 0, hour = 12 })
   else if (FRESH_STILL.has(zone)) t = lake(p);
   else if (FRESH_RUNNING.has(zone)) t = running(p);
   else {
-    const sea = homeSea(p) * (1 - south) + southSea(p) * south;
+    const sea = NORTH.has(zone) ? northSea(p) : homeSea(p) * (1 - south) + southSea(p) * south;
     t = BRACKISH.has(zone) ? (sea + running(p)) / 2 : sea;
     // Below the summer's warm layer, colder (at Las Brasas the warm layer runs much deeper).
-    const deep = south > 0.5 ? smoothstep(40, 140, depth) * 3 : smoothstep(8, 25, depth) * layered(p) * (t - 12.5);
+    const deep = south > 0.5 ? smoothstep(40, 140, depth) * 3 : smoothstep(8, 25, depth) * layered(p) * Math.max(0, t - (NORTH.has(zone) ? 9 : 12.5));
     t -= deep;
   }
   // A still afternoon warms the shallows (the top few metres) a little.

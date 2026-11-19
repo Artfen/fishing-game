@@ -23,7 +23,7 @@ const run = (B, secs, ctx, dt = 1 / 20) => {
   for (let i = 0; i < secs / dt; i++) B.update(dt, i * dt, ctx);
 };
 
-test('every bird of the coast has a body, a place to live, a name, a note and a status', () => {
+test('every bird of the coast has a body, a place to live, a name, a note and a status', async () => {
   assert.ok(BIRD_KINDS.length >= 28, `${BIRD_KINDS.length}`);
   const B = buildBirds(new THREE.Scene());
   const placed = new Set(B.colonies.map((c) => c.kind));
@@ -39,8 +39,14 @@ test('every bird of the coast has a body, a place to live, a name, a note and a 
   // Each in its own place: the auks on Gannet Isle, the puffins by Puffin Cove, the waders on the
   // Saltings, swans on the lakes, the yellow-legged gulls at Puerto Brasa.
   const near = (kind, how, P, r) => B.colonies.filter((c) => c.kind === kind && c.how === how).every((c) => c.at.every((p) => Math.hypot(p.x - P.x, p.z - P.z) < r));
-  assert.ok(near('guillemot', 'perch', GANNET, GANNET.r * 1.05));
-  assert.ok(near('puffin', 'perch', PUFFIN_COVE, 75));
+  // (And, up the coast in the north, on Skarv Stack's ledges: docs/NORTH.md.)
+  const { SKARV } = await import('../src/world/north.js');
+  const nearEither = (kind, how) => B.colonies.filter((c) => c.kind === kind && c.how === how).every((c) => c.at.every((p) => Math.hypot(p.x - GANNET.x, p.z - GANNET.z) < GANNET.r * 1.05 || Math.hypot(p.x - SKARV.x, p.z - SKARV.z) < SKARV.r + 4));
+  assert.ok(nearEither('guillemot', 'perch'));
+  assert.ok(B.colonies.some((c) => c.kind === 'guillemot' && c.how === 'perch' && c.at.every((p) => Math.hypot(p.x - SKARV.x, p.z - SKARV.z) < SKARV.r + 4)), 'guillemots on Skarv Stack');
+  // (Puffin Cove's, and Raven Isle's on its north-west slopes, up the coast.)
+  const { RAVEN } = await import('../src/world/north.js');
+  assert.ok(B.colonies.filter((c) => c.kind === 'puffin' && c.how === 'perch').every((c) => c.at.every((p) => Math.hypot(p.x - PUFFIN_COVE.x, p.z - PUFFIN_COVE.z) < 75 || Math.hypot(p.x - (RAVEN.x - 300), p.z - (RAVEN.z - 520)) < 150)));
   assert.ok(B.colonies.filter((c) => c.kind === 'redshank').some((c) => c.at.some((p) => MARSH.some((M) => Math.hypot(p.x - M.x, p.z - M.z) < M.r + 15))));
   assert.ok(B.colonies.some((c) => c.kind === 'muteswan' && c.at.every((p) => Math.hypot(p.x - LAKE.x, p.z - LAKE.z) < LAKE.rx) || c.kind === 'muteswan'));
   // (The yellow-legged gulls wheel over Puerto Brasa, and over their colony on Isla Gaviota in the

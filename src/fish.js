@@ -5,7 +5,7 @@ import { registerFor, titleName } from './register.js';
 import { isDay, isEvening, isTwilight, clamp01 } from './habits.js';
 import { ATLANTIC, DEPTHS } from './atlantic.js';
 import { SOUTH, AT_BRASAS, SOUTH_REEF } from './southFish.js';
-import { AT_NORTH } from './northFish.js';
+import { AT_NORTH, NORTH } from './northFish.js';
 import { BIG_GAME } from './bigGame.js';
 import { SMALL } from './smallFish.js';
 
@@ -851,6 +851,8 @@ FISH.push(...SOUTH_REEF);
 FISH.push(...DEPTHS);
 // The coast's small fish, for micro-fishing (smallFish.js): last of all, the same way.
 FISH.push(...SMALL);
+// The north's own fish, up the coast (northFish.js): after even them, so no fish anywhere moves.
+FISH.push(...NORTH);
 // Fish of the home coast that live round Las Brasas too, in its waters and on its homes.
 for (const [id, R] of Object.entries(AT_BRASAS)) {
   const f = FISH.find((x) => x.id === id);

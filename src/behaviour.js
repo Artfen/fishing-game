@@ -90,6 +90,13 @@ const PREFS = {
   mullet: { current: [0.1, 0.4], rough: -0.6, bright: 0, disturb: 1.8, jumpy: 0.4 },
   mackerel: { current: [0.45, 0.6], rough: 0.3, bright: 0, disturb: 0.4, jumpy: 0.3 },
   pollack: { current: [0.35, 0.6], rough: 0.4, bright: 0.6, disturb: 0.7, jumpy: 0 },
+  // (The north's: cod and saithe like a run of tide; ling and the skate lie still in the deep;
+  // haddock root on the sand whatever the water does.)
+  cod: { current: [0.2, 0.6], rough: 0.3, bright: 0.5, disturb: 0.6, jumpy: 0 },
+  saithe: { current: [0.5, 0.9], rough: 0.5, bright: 0.4, disturb: 0.5, jumpy: 0.2 },
+  ling: { current: [0.05, 0.3], rough: 0, bright: 0.3, disturb: 0.8, jumpy: 0 },
+  skate: { current: [0.05, 0.3], rough: 0, bright: 0.2, disturb: 0.6, jumpy: 0 },
+  haddock: { current: [0.1, 0.4], rough: 0, bright: 0.4, disturb: 0.7, jumpy: 0 },
   wrasse: { current: [0.15, 0.5], rough: 0.2, bright: -0.1, disturb: 0.6, jumpy: 0 },
   garfish: { current: [0.4, 0.5], rough: 0.2, bright: 0, disturb: 0.6, jumpy: 1 },
   bluefish: { current: [0.5, 0.6], rough: 0.5, bright: 0.1, disturb: 0.6, jumpy: 0.7 },

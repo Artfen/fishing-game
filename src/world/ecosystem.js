@@ -126,7 +126,7 @@ export class Ecosystem {
   populate() {
     let rnd = seeded(77);
     const pickHomes = (L, n, gap, nearJetty, zones = L.zones) => {
-      const cands = this.habitat.spots.filter((s) => !s.hosts && !s.south && L.homes.includes(s.type) && zones.includes(s.zone));
+      const cands = this.habitat.spots.filter((s) => !s.hosts && !s.south && !s.north && L.homes.includes(s.type) && zones.includes(s.zone));
       for (let i = cands.length - 1; i > 0; i--) {
         const j = Math.floor(rnd() * (i + 1));
         [cands[i], cands[j]] = [cands[j], cands[i]];
@@ -298,6 +298,32 @@ export class Ecosystem {
         else {
           const n = L.group[0] + Math.floor(rnd() * (L.group[1] - L.group[0] + 1));
           for (let k = 0; k < n; k++) this.addAgent(sp, home, rnd);
+        }
+      }
+    });
+    // ...and the north's groups and schools of each kind that lives there (life.northGroups), on the
+    // homes its rules allow, each species with a seed of its own.
+    const north = this.habitat.spots.filter((s) => s.north && !s.site);
+    FISH.forEach((sp, i) => {
+      const L = sp.life, n = L.northGroups;
+      if (!n || sp.retired) return;
+      rnd = seeded(40404 + i * 1013);
+      const cands = north.filter((s) => L.homes.includes(s.type) && L.zones.includes(s.zone));
+      for (let k = cands.length - 1; k > 0; k--) {
+        const j = Math.floor(rnd() * (k + 1));
+        [cands[k], cands[j]] = [cands[j], cands[k]];
+      }
+      const gap = L.spacing ?? (L.school ? 40 : 22), taken = [];
+      let added = 0;
+      for (const s of cands) {
+        if (added >= n) break;
+        if (taken.some((o) => Math.hypot(o.x - s.x, o.z - s.z) < gap)) continue;
+        taken.push(s);
+        added++;
+        if (L.school) this.addSchool(sp, s, rnd);
+        else {
+          const m = L.group[0] + Math.floor(rnd() * (L.group[1] - L.group[0] + 1));
+          for (let k = 0; k < m; k++) this.addAgent(sp, s, rnd);
         }
       }
     });

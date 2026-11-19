@@ -295,3 +295,61 @@ test('what\'s built: the light flashing after dark, Halvig\'s houses solid, the 
   });
   assert.ok(iron >= 1, 'her hull on the bottom');
 });
+
+// N4: life in the north.
+test('the north\'s own fish: cod, saithe, ling, haddock and the flapper skate, each modelled, named, priced, and living only up the coast', async () => {
+  const { FISH, fishById } = await import('../src/fish.js');
+  const { hasAnatomy } = await import('../src/anatomy.js');
+  const { PRICES } = await import('../src/market.js');
+  const Tx = await import('../src/taxonomy.js');
+  const ids = ['cod', 'saithe', 'ling', 'haddock', 'skate'];
+  for (const id of ids) {
+    const f = fishById[id];
+    assert.ok(f && FISH.indexOf(f) >= FISH.length - ids.length, `${id}, after every other fish`);
+    assert.ok(hasAnatomy(id), `${id}: a body`);
+    assert.ok(id in PRICES, `${id}: a price`);
+    assert.ok(f.life.zones.every((z) => N.NORTH_ZONES.includes(z)), `${id}: the north's waters only`);
+    const e = Tx.species().find((x) => x.key === `fish:${id}`);
+    assert.ok(e?.sci && e.family, `${id}: in the tree`);
+  }
+  assert.equal(PRICES.skate, 0, 'nobody buys the protected skate');
+  const at = (k) => Tx.species().find((x) => x.key === `fish:${k}`);
+  assert.deepEqual([at('cod').sci, at('cod').family, at('ling').family, at('skate').order, at('skate').iucn], ['Gadus morhua', 'Gadidae', 'Lotidae', 'rajiformes', 'CR']);
+});
+
+test('life in the north: its own fish and the home coast\'s cold-water ones on its homes, and every other fish where it was', async () => {
+  const { Ecosystem } = await import('../src/world/ecosystem.js');
+  const { createHabitat } = await import('../src/world/habitat.js');
+  const eco = new Ecosystem(createHabitat());
+  const north = eco.agents.filter((a) => a.home.north && !a.home.site);
+  const count = (id) => north.filter((a) => a.sp.id === id).length;
+  for (const id of ['cod', 'saithe', 'ling', 'haddock', 'skate', 'pollack', 'wrasse', 'mackerel']) assert.ok(count(id) > 0, `${id} in the north (${count(id)})`);
+  for (const a of north) assert.ok(N.inNorth(a.home.x, a.home.z) && a.sp.life.zones.includes(a.home.zone), `${a.sp.id} at home in the north`);
+  // The skate on the loch's mud, deep; the haddock on the sand; the saithe in shoals in the race and along the cliffs.
+  for (const a of north.filter((x) => x.sp.id === 'skate')) assert.ok(a.home.zone === 'loch' && a.home.depth > 40, 'the skate deep in the loch');
+  // No north-only fish anywhere else.
+  for (const a of eco.agents) if (['cod', 'saithe', 'ling', 'haddock', 'skate'].includes(a.sp.id)) assert.ok(a.home.north, `${a.sp.id} only in the north`);
+  let h = 2166136261;
+  const mix = (s) => { for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } };
+  const rest = eco.agents.filter((a) => !a.home.north);
+  for (const a of rest) mix(`${a.sp.id},${a.x.toFixed(2)},${a.z.toFixed(2)},${a.y.toFixed(2)};`);
+  assert.deepEqual([rest.length, h], [5031, 409352983]);
+});
+
+test('its sea colder, its seals on the Selkie Rocks, its minke whale and dolphins, its seabirds on Skarv Stack', async () => {
+  const { seaTemp } = await import('../src/world/seatemp.js');
+  for (const abs of [0, 24 * 90, 24 * 180, 24 * 270]) {
+    const home = seaTemp({ abs, zone: 'coast' }), north = seaTemp({ abs, zone: 'sound' });
+    assert.ok(north < home - 2 && north > 6 && north < 14.5, `the north colder (${north} against ${home})`);
+  }
+  const THREE = await import('three');
+  const { buildSeaLife, PODS } = await import('../src/world/sealife.js');
+  const life = buildSeaLife(new THREE.Scene());
+  assert.ok(life.ashore.some((s) => N.SELKIE.some((R) => Math.hypot(s.g.position.x - R.x, s.g.position.z - R.z) < R.r)), 'seals hauled out on the Selkie Rocks');
+  assert.ok(life.whales.some((w) => w.sea === 'north' && w.kind === 'minkewhale'), 'a minke in the north');
+  assert.ok(PODS.some((p) => p.sea === 'north' && p.ownDice), 'dolphins in the north, with their own dice');
+  const { buildBirds } = await import('../src/world/birds.js');
+  const B = buildBirds(new THREE.Scene());
+  const onSkarv = B.colonies.filter((c) => c.cx && Math.hypot(c.cx - N.SKARV.x, c.cz - N.SKARV.z) < 120);
+  assert.ok(new Set(onSkarv.map((c) => c.kind)).size >= 3, 'a seabird colony on Skarv Stack');
+});

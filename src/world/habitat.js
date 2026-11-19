@@ -9,7 +9,7 @@ import {
   SOUTH_Z, SOUTH_MAP, brasaHeight, brasaZone, brasaHabitat, brasaSDF, upCurrent, inEstrecho, onBanco, GAVIOTA, HONDA, ROQUETES, VAPOR, BANCO, PUERTO, QUAY_S, MOLE, DIQUE, PLAYA, ARCO, ARCHES, FARO, COLADAS, SEBADAL, BAJON, onBajon,
 } from './brasa.js';
 import { siteById, PINNACLES } from './divesites.js';
-import { northLand, northHabitat, SULA, SKARV } from './north.js';
+import { northLand, northHabitat, SULA, SKARV, ISLES_MAP } from './north.js';
 import { ENDS } from '../crossing.js';
 import { fbm, seeded, smoothstep, clamp } from '../util.js';
 
@@ -273,7 +273,45 @@ export function createHabitat() {
   spots.push({ type: 'blue', x: cx, z: cz, depth: habitat.depth(cx, cz), zone: zoneAt(cx, cz), r: 60, tag: 'canyon', hosts: ['tuna', 'bonito'] });
   // The north, up the coast (docs/NORTH.md): after everything, so no home anywhere else moves.
   northDiveSpots(habitat, spots);
+  northSpots(habitat, spots);
   return habitat;
+}
+
+// The north's fish homes, over the isles and Loch Skarn (a 24 m grid, kept cheap: it's built at
+// the start): reef and rock under the rocky shores (the kelp, the skerries, the loch's walls),
+// sand in the sound, the deep in the loch's basin and out in the Atlantic, the tide in the Churn.
+// Marked north (each species' groups there come in a pass of their own, after every other fish:
+// see ecosystem.js), with their own dice.
+function northSpots(habitat, spots) {
+  const rnd = seeded(7007), G = 24, R = ISLES_MAP, out = [];
+  const grid = new Map(), key = (x, z) => `${Math.floor(x / 30)},${Math.floor(z / 30)}`;
+  const clear = (x, z) => {
+    const i = Math.floor(x / 30), j = Math.floor(z / 30);
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (const p of grid.get(`${i + a},${j + b}`) || []) if (Math.hypot(p.x - x, p.z - z) < 30) return false;
+    return true;
+  };
+  for (let z = R.z + G / 2; z < R.z + R.h; z += G) {
+    for (let x = R.x + G / 2; x < R.x + R.w; x += G) {
+      const jx = x + (rnd() - 0.5) * G * 0.8, jz = z + (rnd() - 0.5) * G * 0.8;
+      const h = heightAt(jx, jz), depth = -h;
+      if (depth < 2) continue;
+      const zone = zoneAt(jx, jz), S = northAt(jx, jz), d = S.d;
+      const shore = d < 70, deepLoch = zone === 'loch' && depth > 40;
+      let type;
+      if (zone === 'race') type = 'tide';
+      else if (zone === 'sound') type = depth > 12 ? 'sand' : 'reef';
+      else if (zone === 'loch') type = deepLoch ? (rnd() < 0.5 ? 'deep' : 'sand') : depth > 12 && d < 50 ? 'rock' : 'sand';
+      else if (zone === 'kelp' || zone === 'skerry') type = rnd() < 0.6 ? 'reef' : 'rock';
+      else type = depth > 25 ? 'deep' : shore ? 'rock' : 'open';
+      if (rnd() > (type === 'deep' || type === 'open' ? 0.25 : 0.6) || !clear(jx, jz)) continue;
+      const s = { type, x: jx, z: jz, depth, zone, r: type === 'deep' ? 14 : 9, tag: zone, north: true };
+      out.push(s);
+      const k = key(jx, jz);
+      if (!grid.has(k)) grid.set(k, []);
+      grid.get(k).push(s);
+    }
+  }
+  spots.push(...out);
 }
 
 // The north's dive sites' fish (see divesites.js), the home coast's cold-water fish there:

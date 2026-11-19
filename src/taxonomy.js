@@ -1,5 +1,5 @@
 import { FISH, fishById } from './fish.js';
-import { registerFor, MACARONESIA, FRESHWATER, LEGACY } from './register.js';
+import { registerFor, MACARONESIA, FRESHWATER, LEGACY, NORTHERN } from './register.js';
 import { NATURE } from './grounds.js';
 import { SEA_LIFE } from './world/sealife.js';
 import { BIRDS } from './birdData.js';
@@ -157,7 +157,7 @@ export const FAMILIES = {
   Percidae: ['perciformes', 'Perches'], Scombridae: ['scombriformes', 'Mackerels and tunas'], Istiophoridae: ['istiophoriformes', 'Marlins and sailfishes'],
   Mugilidae: ['mugiliformes', 'Grey mullets'], Gobiidae: ['gobiiformes', 'Gobies'], Blenniidae: ['blenniiformes', 'Combtooth blennies'], Atherinidae: ['atheriniformes', 'Silversides'], Belonidae: ['beloniformes', 'Needlefishes'], Exocoetidae: ['beloniformes', 'Flying fishes'],
   Aulostomidae: ['syngnathiformes', 'Trumpetfishes'], Balistidae: ['tetraodontiformes', 'Triggerfishes'], Zeidae: ['zeiformes', 'Dories'],
-  Gadidae: ['gadiformes', 'Cods'], Merlucciidae: ['gadiformes', 'Hakes'],
+  Gadidae: ['gadiformes', 'Cods'], Merlucciidae: ['gadiformes', 'Hakes'], Lotidae: ['gadiformes', 'Lings and burbots'],
   Pleuronectidae: ['pleuronectiformes', 'Righteye flounders'], Soleidae: ['pleuronectiformes', 'True soles'], Scophthalmidae: ['pleuronectiformes', 'Turbots'],
   Clupeidae: ['clupeiformes', 'Herrings and sprats'], Alosidae: ['clupeiformes', 'Shads and sardines'], Engraulidae: ['clupeiformes', 'Anchovies'],
   Anguillidae: ['anguilliformes', 'Freshwater eels'], Congridae: ['anguilliformes', 'Conger and garden eels'], Muraenidae: ['anguilliformes', 'Morays'],
@@ -195,12 +195,15 @@ const FISH_FAMILY = {
   angelshark: 'Squatinidae', trumpetfish: 'Aulostomidae', bluemarlin: 'Istiophoridae', sailfish: 'Istiophoridae', spearfish: 'Istiophoridae', wahoo: 'Scombridae',
   dorado: 'Coryphaenidae', yellowfin: 'Scombridae', hammerhead: 'Sphyrnidae', chromis: 'Pomacentridae', comber: 'Serranidae',
   minnow: 'Leuciscidae',
+  // The north's (northFish.js).
+  cod: 'Gadidae', saithe: 'Gadidae', haddock: 'Gadidae', ling: 'Lotidae', skate: 'Rajidae',
 };
 // Their statuses (IUCN, worldwide), where the register doesn't give one and the listing is clear.
 const FISH_IUCN = {
   perch: 'LC', pike: 'LC', carp: 'VU', rudd: 'LC', trout: 'LC', grayling: 'LC', tench: 'LC', roach: 'LC', lmbass: 'LC',
   angelshark: 'CR', bluemarlin: 'VU', hammerhead: 'VU', yellowfin: 'LC', dorado: 'LC', wahoo: 'LC', amberjack: 'LC', moray: 'LC', ornatewrasse: 'LC',
   minnow: 'LC',
+  cod: 'VU', haddock: 'VU', skate: 'CR',
 };
 
 export const IUCN = {
@@ -295,7 +298,7 @@ for (const [id, B] of Object.entries(BIRDS)) LIFE[id] = { src: 'sea', name: B.on
 const SAME = { fry: 'sandsmelt' };
 
 const familyOf = (sp) => registerFor(sp.id)?.family || FISH_FAMILY[sp.id] || null;
-const sciOf = (sp) => registerFor(sp.id)?.scientific || MACARONESIA[sp.id]?.scientific || FRESHWATER[sp.id]?.scientific || null;
+const sciOf = (sp) => registerFor(sp.id)?.scientific || MACARONESIA[sp.id]?.scientific || FRESHWATER[sp.id]?.scientific || NORTHERN[sp.id]?.scientific || null;
 
 // Every entry in the tree, in one list: { key, kind ('fish' | 'sea' | 'nature'), id, name, sci,
 // rank, kingdom, phylum, cls, order, family, iucn, note, look }.

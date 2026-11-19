@@ -3,6 +3,7 @@ import { heightAt, waterLevel, STACKS, SKERRIES, CALF, CALF_SKERRY, GANNET, PUFF
 import { COLDWATER } from './coldwater.js';
 import { waveHeight } from './water.js';
 import { VILLAGE, PUERTO, MOLE, FARO_POINT, ARCO, ROJA, ISLE, PLAYA, GAVIOTA, HONDA } from './brasa.js';
+import { SKARV, RAVEN, SELKIE, BOTHY_BAY } from './north.js';
 import { BIRDS } from '../birdData.js';
 import { clamp, damp, dampAngle, wrapAngle, mergeParts, mat, seeded } from '../util.js';
 
@@ -259,6 +260,28 @@ function colonies(rnd) {
   add('turnstone', 'wade', spots(rnd, HONDA.cove.x, HONDA.cove.z, HONDA.cove.r, HONDA.cove.r + 40, 3, rock(0.2, 1.6)));
   add('whimbrel', 'wade', spots(rnd, HONDA.x, HONDA.z, 80, 220, 2, rock(0.2, 2)));
   add('bulwer', 'skim', Array.from({ length: 5 }, (_, i) => ({ x: ISLE.x + (rnd() - 0.5) * 200, y: 1.2, z: ISLE.z + ISLE.rz + 120 + i * 30, r: 260 + i * 40 })));
+  // (The north, up the coast: docs/NORTH.md) Skarv Stack's colony, guillemots and kittiwakes packed on
+  // its ledges, fulmars round it, shags at its foot; puffins on Raven Isle's north-west slopes and
+  // rafting off them, razorbills; a peregrine and the ravens the island's named for over its
+  // cliffs; eiders in the sound and off the Selkie Rocks.
+  // (Skarv's ledges: on its sheer face, from a few metres up to near its top, facing out.)
+  const skarvLedges = (n) => Array.from({ length: n }, () => {
+    const a = rnd() * Math.PI * 2, y = 8 + rnd() * (SKARV.h - 14), r = SKARV.r + 0.8;
+    return { x: SKARV.x + Math.cos(a) * r, y, z: SKARV.z + Math.sin(a) * r, face: Math.atan2(Math.cos(a), Math.sin(a)) };
+  });
+  add('guillemot', 'perch', skarvLedges(22));
+  add('kittiwake', 'perch', skarvLedges(14));
+  add('guillemot', 'swim', spots(rnd, SKARV.x, SKARV.z, SKARV.r + 8, SKARV.r + 70, 10, water(4)));
+  add('fulmar', 'glide', [{ x: SKARV.x, y: 50, z: SKARV.z, r: 45 }, { x: SKARV.x + 20, y: 40, z: SKARV.z + 15, r: 60 }, { x: RAVEN.x - RAVEN.rx, y: 60, z: RAVEN.z - 300, r: 90 }]);
+  add('kittiwake', 'glide', [{ x: SKARV.x, y: 30, z: SKARV.z, r: 40 }, { x: SKARV.x - 15, y: 22, z: SKARV.z + 10, r: 55 }]);
+  add('shag', 'perch', spots(rnd, SKARV.x, SKARV.z, SKARV.r, SKARV.r + 12, 4, rock(0.2, 4)));
+  add('puffin', 'perch', spots(rnd, RAVEN.x - 300, RAVEN.z - 520, 20, 140, 12, ground(10, 70)));
+  add('puffin', 'swim', spots(rnd, RAVEN.x - 380, RAVEN.z - 600, 0, 120, 12, water(3)));
+  add('razorbill', 'swim', spots(rnd, RAVEN.x - 420, RAVEN.z - 520, 0, 140, 6, water(3)));
+  add('peregrine', 'glide', [{ x: RAVEN.x - 380, y: 110, z: RAVEN.z - 200, r: 80 }]);
+  add('raven', 'glide', [{ x: RAVEN.x - 250, y: 120, z: RAVEN.z, r: 90 }, { x: RAVEN.x - 240, y: 128, z: RAVEN.z + 12, r: 84 }]);
+  add('eider', 'swim', spots(rnd, SELKIE[0].x, SELKIE[0].z, 30, 120, 10, water(1.5)));
+  add('eider', 'swim', spots(rnd, BOTHY_BAY.x, BOTHY_BAY.z, 0, BOTHY_BAY.r, 6, water(1.2)));
   // (Each colony's middle, for drawing only those near you.)
   for (const c of C) {
     c.cx = c.at.reduce((s, p) => s + p.x, 0) / c.at.length;

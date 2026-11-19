@@ -62,13 +62,15 @@ export function seaFor(kind, sea) {
 // The margins: fuel for the way home and half as much again; home an hour before the gale; an
 // open boat home half an hour before dark. Returns { why: 'fuel' | 'gale' | 'dark', home (the run
 // home), words } or null.
-export function turnForHome({ kind, distHome, litres = null, toGale = null, toDark = null }) {
+// harbour: the nearest harbour's name, the way back (Willowhaven, unless you're up the coast or at
+// Las Brasas).
+export function turnForHome({ kind, distHome, litres = null, toGale = null, toDark = null, harbour = 'Willowhaven' }) {
   const home = runOf(kind, distHome), V = vesselOf(kind), name = V.name;
   const hrs = (h) => (h < 1 ? `${Math.max(5, Math.round((h * 60) / 5) * 5)} minutes` : `${Math.round(h * 2) / 2} hours`);
   if (litres != null && isPetrol(kind) && litres < home.litres * 1.5 + 0.5)
-    return { why: 'fuel', home, words: `Time to turn for home: it’s about ${Math.max(1, Math.round(home.litres))} L back to Willowhaven in the ${name}, and you have ${Math.max(0, Math.round(litres))} L: too little to spare out here.` };
+    return { why: 'fuel', home, words: `Time to turn for home: it’s about ${Math.max(1, Math.round(home.litres))} L back to ${harbour} in the ${name}, and you have ${Math.max(0, Math.round(litres))} L: too little to spare out here.` };
   if (toGale != null && toGale < home.hours + 1)
-    return { why: 'gale', home, words: `Time to turn for home: a gale’s due in ${hrs(toGale)}, and it’s ${hrs(home.hours)} back to Willowhaven in the ${name}.` };
+    return { why: 'gale', home, words: `Time to turn for home: a gale’s due in ${hrs(toGale)}, and it’s ${hrs(home.hours)} back to ${harbour} in the ${name}.` };
   if (toDark != null && !V.shelter && toDark < home.hours + 0.5)
     return { why: 'dark', home, words: `Time to turn for home: the sun sets in ${hrs(toDark)}, and it’s ${hrs(home.hours)} back in the open ${name}.` };
   return null;

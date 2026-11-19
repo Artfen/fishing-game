@@ -74,6 +74,17 @@ export const BOTHY_BAY = { x: -1500, z: -5735, r: 85 };
 // Halvig's bay on Raven Isle's east shore (the hamlet and its pier: N3).
 export const HALVIG = { x: -2795, z: -6170, r: 70 };
 
+/* ---------------- the way there (N5) ---------------- */
+
+// The passage up the coast: from the bay's mouth west past the Calf, round the Ness and north to
+// Raven Sound, about nine kilometres (the route in tests/north.test.mjs); and where a boat comes in,
+// in the sound off Halvig's pier, her bow to it.
+export const NORTH_M = 9400;
+export const NORTH_LANDFALL = { x: -2790, z: -6150, heading: -Math.PI / 2 };
+// Water to set out on the passage from: up the coast (anywhere in the north's sea), or out of
+// Willow Bay west of the Calf, where the way north begins.
+export const northWaters = (x, z) => inNorth(x, z) || (x < -600 && z > -40 && z < 1400);
+
 /* ---------------- what's on them (N3) ---------------- */
 
 // Halvig: a hamlet on Raven Isle's east shore, on a shelf of level ground above its bay, a stone
@@ -328,8 +339,10 @@ export function northHabitat(x, z, S, h, out, H) {
   // (S is shared: what's needed of it first, before H moves it elsewhere.)
   const depth = Math.max(0, -h), d = Math.max(0, S.d), tern = S.I === TERN && S.isle < 260, loch = S.loch;
   const slope = (Math.abs(H(x + 3, z) - H(x - 3, z)) + Math.abs(H(x, z + 3) - H(x, z - 3))) / 6;
-  const sandy = Math.max(inSound(x, z) * smoothstep(8, 14, depth), tern ? smoothstep(0.2, -0.6, Math.cos(Math.atan2(z - TERN.z, x - TERN.x) + Math.PI)) : 0);
-  const mud = loch < 0 ? smoothstep(25, 45, depth) : 0;
+  // (Bothy Bay: sand by its beach, mud further out, the best holding in the isles.)
+  const bay = inBothyBay(x, z);
+  const sandy = Math.max(inSound(x, z) * smoothstep(8, 14, depth), tern ? smoothstep(0.2, -0.6, Math.cos(Math.atan2(z - TERN.z, x - TERN.x) + Math.PI)) : 0, bay ? 1 : 0);
+  const mud = bay ? 0.7 * smoothstep(4, 9, depth) : loch < 0 ? smoothstep(25, 45, depth) : 0;
   const rock = clamp(Math.max((1 - sandy) * (1 - mud) * (1 - smoothstep(60, 160, d)), inChurn(x, z), mud > 0 ? 0 : smoothstep(0.6, 1.4, slope)), 0, 1);
   out.depth = depth;
   out.weed = clamp(rock * smoothstep(0.6, 2, depth) * (1 - smoothstep(13, 18, depth)) * smoothstep(-0.4, 0.1, fbm(x * 0.04 - 2, z * 0.04 + 7, 2) + 0.2), 0, 1);

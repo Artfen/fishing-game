@@ -254,6 +254,8 @@ export const WAVE_COUNTS = { swell: SWELL.length };
 // the mean. (Left to itself, as in the tests, a steady ebb at mean level.)
 export const TIDE = { flow: 1, level: 0 };
 const TRADES_FROM = 0.8; // the trade wind's bearing: from the north-east
+// (The north's prevailing wind: west-south-west, off the open Atlantic.)
+const NORTH_FROM = 4.32;
 const HOME_FROM = 3.9;    // home's usual wind: from the south-west
 
 export const conditions = {
@@ -306,7 +308,7 @@ export function updateConditions(dt, weather) {
       // (At Las Brasas, the trade wind: a steady fresh breeze from the north-east, seldom calm.
       // At home, the weather's own wind: a breeze most days, fresher under cloud and in rain.)
       const [lo, hi] = P && storm < 0.3 ? P.wind : trades ? [7, 11.5] : [lerp(3 + weather.cloud * 1.5, 13, storm), lerp(8.5 + weather.rain * 4, 18.5, storm)];
-      W.target = clamp(lerp(lo, hi, Math.random()) + weather.rain * 2 * (1 - storm), 0, 20);
+      W.target = clamp(lerp(lo, hi, Math.random()) + weather.rain * 2 * (1 - storm) + (C.region === 'north' && !P ? 1.5 : 0), 0, 20);
       W.turn = (Math.random() - 0.5) * 0.004 * (1 + storm * 2);
     }
     W.from = (W.from + W.turn * dt + TAU) % TAU;
@@ -317,13 +319,17 @@ export function updateConditions(dt, weather) {
       const toward = C.trade != null && C.trade < 0.97 ? (HOME_FROM + C.trade * (TRADES_FROM + TAU - HOME_FROM)) % TAU : TRADES_FROM + Math.sin(C.time * 0.0021) * 0.25;
       W.from = dampAngleTo(W.from, toward, 0.01 * Math.max(trade, 0.4), dt);
     }
+    // (Up the coast in the north, the Atlantic's westerlies: the wind comes in off the sea from the
+    // west and south-west, and a little fresher than at home. See north.js.)
+    if (C.region === 'north' && storm < 0.5) W.from = dampAngleTo(W.from, NORTH_FROM + Math.sin(C.time * 0.0017) * 0.35, 0.006, dt);
     // The day's own wind, on a fair day: at home a sea breeze sets in towards midday, blowing in
     // from the sea (the south) and freshening through the afternoon, and a lighter land breeze at
     // night; at Las Brasas the trade wind freshens in the afternoon.
     // (A sea breeze is the coast's: out on the open sea it fades away.)
     const day = dayWind(C.hour) * (1 - storm) * (P ? 0 : 1) * (1 - 0.6 * (weather.cloud || 0)) * (1 - (C.ocean || 0));
     W.daily = trades ? Math.max(0, day) * 0.6 : day;
-    if (!trades && day > 0.2) W.from = dampAngleTo(W.from, Math.PI, 0.004 * day, dt);
+    // (Up the coast in the north the sea is to the west: its breeze comes in from there.)
+    if (!trades && day > 0.2) W.from = dampAngleTo(W.from, C.region === 'north' ? NORTH_FROM : Math.PI, 0.004 * day, dt);
   }
   W.speed = damp(W.speed, Math.max(0, W.target + (C.manual || C.follow ? 0 : W.daily || 0)), C.follow ? 0.3 : 0.05, dt);
   // The sea follows: chop within half a minute or so, the swell over a few minutes; a storm's big

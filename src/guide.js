@@ -1,6 +1,6 @@
 import { FISH, fishById, weightOf } from './fish.js';
 import { RODS, TACKLE, TERMS, ROD_IDS, ITEM_IDS, SETUPS, TYPE_NAMES, KIND_NAMES, PACK, fits, checkSetup, castRange, lineOf, termOf } from './tackle.js';
-import { REGISTER, REGIONS, registerFor, titleName, LEGACY, FRESHWATER, MACARONESIA, STATUS_WORDS } from './register.js';
+import { REGISTER, REGIONS, registerFor, titleName, LEGACY, FRESHWATER, MACARONESIA, NORTHERN, STATUS_WORDS } from './register.js';
 import { ZONE_NAMES } from './world/terrain.js';
 import { studio } from './gearView.js';
 import { HOME_WORDS, tripPlaces, tripSummary, summaryText } from './trip.js';
@@ -166,7 +166,7 @@ export class FieldGuide {
       const legacy = LEGACY[f.id];
       const fresh = FRESHWATER[f.id];
       // (Las Brasas' own fish, outside the register: their names and ranges.)
-      const south = MACARONESIA[f.id];
+      const south = MACARONESIA[f.id] || NORTHERN[f.id];
       // The fictional originals are retired: they only appear if they're in your journal.
       if (legacy && !st.fish[f.id] && !st.observed?.[f.id]) continue;
       const L = f.life;
@@ -488,6 +488,7 @@ export class FieldGuide {
       add('In the game', [...new Set(L.zones.map((z) => ZONE_NAMES[z] || z))].join(', '));
       // (A home fish that lives round Las Brasas too: where to look there.)
       if (e.sp.whereSouth) add('At Las Brasas', e.sp.whereSouth);
+      if (e.sp.whereNorth) add('Up the coast', e.sp.whereNorth);
       add('Habitat', [...new Set(L.homes.map((h) => HOME_WORDS[h] || h))].join(', '));
       add('Depth', L.bottom || L.flat ? `on the bottom, in ${H.depth[0]}–${Math.round(H.depth[1])} m of water` : `about ${H.depth[0]}–${Math.round(H.depth[1])} m down`);
       add('Most active', H.allDay ? 'all day' : H.active);
@@ -837,7 +838,7 @@ export class FieldGuide {
     const r = e.reg;
     if (!r?.sources?.length) {
       if (e.legacy || e.fresh) return [el('p', 'g-note', e.fresh ? `Freshwater species: kept apart from the Atlantic register. ${e.fresh.note}` : '')];
-      if (e.south) return [el('p', 'g-note', `A fish of Las Brasas, outside the Atlantic register (Royan to Cádiz). In reality: ${e.south.note}`)];
+      if (e.south) return [el('p', 'g-note', `A fish of ${NORTHERN[e.id] ? 'the north, up the coast in the Selkie Isles' : 'Las Brasas'}, outside the Atlantic register (Royan to Cádiz). In reality: ${e.south.note}`)];
       return [];
     }
     const d = el('details', 'g-sources');

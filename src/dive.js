@@ -78,6 +78,8 @@ const CURIOUS = {
   // Las Brasas: the ornate wrasse follows a diver everywhere; groupers and amberjack come to look,
   // triggerfish and barracuda a little; a moray stays in its hole.
   ornatewrasse: 0.9, grouper: 0.6, amberjack: 0.6, triggerfish: 0.5, barracuda: 0.45, parrotfish: 0.4, moray: 0.15,
+  // The north: a cod comes to look; saithe pass in shoals; a ling stays in its hole.
+  cod: 0.55, saithe: 0.35, haddock: 0.3, ling: 0.15, skate: 0.1,
 };
 export function curiosity(sp) {
   if (sp.life.flat || sp.life.benthic || sp.life.observe) return 0;
