@@ -288,7 +288,7 @@ export function sanitizeLogEntry(e) {
     id: str(e.id, `c${Math.random().toString(36).slice(2, 10)}`, 24),
     at: num(e.at, 0, 0),
     sp: e.sp,
-    size: int(e.size, sp.size[0], 1, 300),
+    size: int(e.size, sp.size[0], 1, 700),
     day: int(e.day, 1, 1, 1e6),
     hour: num(e.hour, 12, 0, 24),
     zone: oneOf(e.zone, ZONES, 'bay'),
@@ -334,7 +334,7 @@ export function sanitize(raw) {
     for (const [id, r] of Object.entries(raw.fish)) {
       if (!fishById[id] || !isObj(r)) continue;
       s.fish[id] = {
-        count: int(r.count, 1, 0, 1e6), best: num(r.best, 0, 0, 300),
+        count: int(r.count, 1, 0, 1e6), best: num(r.best, 0, 0, 700),
         firstDay: int(r.firstDay, 1, 1, 1e6), firstHour: num(r.firstHour, 12, 0, 24),
         firstZone: oneOf(r.firstZone, ZONES, 'bay'), firstRain: !!r.firstRain,
       };
@@ -368,11 +368,11 @@ export function sanitize(raw) {
   s.keep = (Array.isArray(raw.keep) ? raw.keep : [])
     .filter((f) => isObj(f) && fishById[f.id]?.meal)
     .slice(0, CREEL_MAX)
-    .map((f) => ({ id: f.id, size: int(f.size, fishById[f.id].size[0], 1, 300), logId: str(f.logId, null, 24), ...(Number.isFinite(f.at) ? { at: num(f.at, 0, 0) } : {}), ...(f.cooked ? { cooked: true } : {}) }));
+    .map((f) => ({ id: f.id, size: int(f.size, fishById[f.id].size[0], 1, 700), logId: str(f.logId, null, 24), ...(Number.isFinite(f.at) ? { at: num(f.at, 0, 0) } : {}), ...(f.cooked ? { cooked: true } : {}) }));
   s.food = isObj(raw.food) ? { full: num(raw.food.full, 80, 0, 100), wellFedUntil: num(raw.food.wellFedUntil, 0, 0) } : null;
   if (isObj(raw.camp)) {
     const c = raw.camp;
-    const meal = (m) => (isObj(m) && fishById[m.id]?.meal ? { id: m.id, size: int(m.size, 20, 1, 300), logId: str(m.logId, null, 24) } : null);
+    const meal = (m) => (isObj(m) && fishById[m.id]?.meal ? { id: m.id, size: int(m.size, 20, 1, 700), logId: str(m.logId, null, 24) } : null);
     const cooking = meal(c.cooking);
     if (cooking) Object.assign(cooking, { start: num(c.cooking.start, 0, 0), dur: num(c.cooking.dur, 0.5, 0.05, 2) });
     s.camp = {

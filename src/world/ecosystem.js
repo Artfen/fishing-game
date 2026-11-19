@@ -1,8 +1,8 @@
 import { liveAppeal } from '../livebait.js';
-import { FISH } from '../fish.js';
+import { FISH, sizeAt, scaleOf } from '../fish.js';
 import { Pressure, restockFactor, pressureWariness } from './pressure.js';
 import { currentFast, currentAt, waveHeightHere } from './conditions.js';
-import { traits, mood, whyRejected, BEHAVIOUR, prefsFor } from '../behaviour.js';
+import { traits, mood, whyRejected, BEHAVIOUR, prefsFor, hashRnd } from '../behaviour.js';
 import { zoneAt } from './terrain.js';
 import { pushOut } from './divesites.js';
 import { tideBoost, FLOOD_FEEDERS } from './tide.js';
@@ -47,6 +47,28 @@ const _s = {};
 const _rp = { x: 0, y: 0, z: 0 }, _tp = { x: 0, y: 0, z: 0 };
 const _g = { x: 0, z: 0 };
 const _cur = { x: 0, z: 0 };
+
+// (F1, docs/FISH.md) A school's sizes, from who it is (its id): the size its fish are about
+// (they keep together within a tenth of it either way, as real schools sort themselves by size),
+// how far apart they swim for it (body: against a fish of 45 cm), and, one school in three that
+// isn't already of the biggest, a much bigger fish of its kind with it (big, at place bigK).
+export function schoolSizes(sp, id, n) {
+  const r = hashRnd(id * 104729 + 17), [lo, hi] = sp.size;
+  const size = sizeAt(sp, r()), out = { size, body: clamp(size / 45, 0.4, 3), big: 0, bigK: -1 };
+  const roll = r(), at = r(), up = r();
+  if (n > 2 && roll < 0.34 && size < lo + (hi - lo) * 0.62) {
+    out.big = Math.min(hi, Math.max(Math.round(size * 1.5), sizeAt(sp, 0.86 + 0.14 * up)));
+    out.bigK = Math.floor(at * n);
+  }
+  return out;
+}
+// One fish's size: a fish on its own from its species' sizes (sizeAt); one of a school's, its
+// school's big one, or within a tenth of the school's size. u: one draw of the dice.
+export function memberSize(sp, school, k, u) {
+  if (!school) return sizeAt(sp, u);
+  if (k >= 0 && k === school.bigK) return school.big;
+  return clamp(Math.round(school.size * (0.9 + 0.2 * u)), sp.size[0], sp.size[1]);
+}
 
 export class Ecosystem {
   constructor(habitat) {
@@ -347,11 +369,13 @@ export class Ecosystem {
     p.z = _rp.z;
   }
 
-  addAgent(sp, home, rnd, school = null) {
+  // (k: its place in its school, if it's in one.)
+  addAgent(sp, home, rnd, school = null, k = -1) {
     const L = sp.life;
-    const size = Math.round(lerp(sp.size[0], sp.size[1], Math.pow(rnd(), 1.7)));
+    // (Its size from the one draw it always had, so no fish moves: see sizeAt, memberSize.)
+    const size = memberSize(sp, school, k, rnd());
     const a = {
-      id: this.agents.length, sp, L, size, scale: (size / 100) * sp.visual, home, school, slot: null,
+      id: this.agents.length, sp, L, size, scale: scaleOf(sp, size), home, school, slot: null,
       // The level of its water's surface (0 for the sea and the lakes; a pool up the Coldwater or
       // Hoar Tarn sits higher). Every height here is reckoned from that surface.
       lvl: home.level || 0,
@@ -410,8 +434,12 @@ export class Ecosystem {
       feed: null, pressN: 0, eaterKinds: null,
     };
     const n = L.members[0] + Math.floor(rnd() * (L.members[1] - L.members[0] + 1));
+    // (F1) Its size: a school keeps together fish of about one size, as real ones do, and now and
+    // then a much bigger fish of the same kind rides along with it, at its edge and a little
+    // below: the one to look for. From who the school is, not the dice, so no fish moves.
+    Object.assign(s, schoolSizes(sp, s.id, n));
     for (let k = 0; k < n; k++) {
-      const a = this.addAgent(sp, home, rnd, s);
+      const a = this.addAgent(sp, home, rnd, s, k);
       a.state = 'school';
       a.slot = { x: (rnd() - 0.5) * 2, y: (rnd() - 0.5) * 0.8, z: (rnd() - 0.5) * 2.6, seed: rnd() * 10, idx: k };
       a.x = s.x + a.slot.x;
@@ -420,6 +448,8 @@ export class Ecosystem {
       a.px = a.x;
       a.pz = a.z;
       a.py = a.y;
+      // (The school's big one keeps to its edge, a little below: it swims there from where it starts.)
+      if (k === s.bigK) Object.assign(a.slot, { x: a.slot.x * 0.6 + Math.sign(a.slot.x || 1) * 1.1, y: -0.75 });
       s.members.push(a);
     }
     this.schools.push(s);
@@ -1484,10 +1514,12 @@ export class Ecosystem {
       return;
     }
     const w = this.time * 0.35 + o.seed;
-    const ox = (o.x + Math.sin(w) * 0.3) * s.spread, oz = (o.z + Math.cos(w * 0.8) * 0.3) * s.spread;
+    // (Spaced by their length: a school of sprats is tight, of tunas a good way apart. See schoolSizes.)
+    const spr = s.spread * (s.body ?? 1);
+    const ox = (o.x + Math.sin(w) * 0.3) * spr, oz = (o.z + Math.cos(w * 0.8) * 0.3) * spr;
     const cy = Math.cos(s.yaw), sy = Math.sin(s.yaw);
     const sx = s.x + ox * cy + oz * sy, sz = s.z - ox * sy + oz * cy;
-    a.ty = s.y + o.y * s.spread * 0.4;
+    a.ty = s.y + o.y * s.spread * 0.4 * (s.body ?? 1);
     const ex = a.x - sx, ez = a.z - sz, d = Math.hypot(ex, ez);
     if (d < 3) {
       // Near its place: swim with the school, aimed well ahead along its heading (a point it can
@@ -1508,8 +1540,9 @@ export class Ecosystem {
     for (let k = 1; k <= 3; k++) {
       const n = m[(o.idx + k * 5) % m.length];
       if (n === a) continue;
-      const dx = a.x - n.x, dy = a.y - n.y, dz = a.z - n.z;
-      if (dx * dx + dy * dy + dz * dz < 0.09) {
+      // (Not closer than about half a length of the bigger of the two.)
+      const dx = a.x - n.x, dy = a.y - n.y, dz = a.z - n.z, gap = Math.max(0.06, Math.max(a.size, n.size) * 0.0055);
+      if (dx * dx + dy * dy + dz * dz < gap * gap) {
         a.tx += dx * 2;
         a.tz += dz * 2;
       }
@@ -2121,8 +2154,9 @@ export class Ecosystem {
   // (size and gen: the host's newcomer, the same one here.)
   restock(a, size = null, gen = null) {
     const sp = a.sp;
-    a.size = size ?? Math.round(lerp(sp.size[0], sp.size[1], Math.pow(Math.random(), 1.7)));
-    a.scale = (a.size / 100) * sp.visual;
+    // (One of a school's: about its size, or its big one again. See memberSize.)
+    a.size = size ?? memberSize(sp, a.school, a.school ? a.school.members.indexOf(a) : -1, Math.random());
+    a.scale = scaleOf(sp, a.size);
     // (A newcomer: a build of its own.)
     a.gen = gen ?? (a.gen || 0) + 1;
     a.hookedBy = null;

@@ -581,6 +581,7 @@ const passersby = new Passersby(scene, town.paths);
 const together = new Together({ config: () => cloud.cfg, name: () => settings.player.name, look: () => state.look || null, kinds: BOAT_KINDS, skies: Object.keys(SKIES), rods: Object.keys(RODS), items: Object.keys(TACKLE) });
 const visitors = new VisitorView(scene);
 visitors.audio = audio; // (a friend's fish splashing near you: see fishAtEnd)
+visitors.agentOf = (id) => eco.agents[id] || null; // (a friend's hooked fish: the same fish here)
 // One sea for everyone in a session: the host's sea life and shoals go across, everyone else's
 // follow (see sharedworld.js). Alone, nothing changes.
 const shared = new SharedWorld({ together, sealife, eco });
@@ -11136,6 +11137,7 @@ function applyQuality() {
   // Fewer distant fish are drawn on lower settings, but every one of them is still there:
   // simulated, able to bite, and on the fish finder.
   fishRenderer.density = q.fishDensity;
+  fishRenderer.companions = q.fishDensity; // (a bait ball's drawn companions: fewer on lower settings)
   // (The reef's small fish are cheap, one draw a kind, so lower settings thin them less; laid out
   // again at once.)
   drifters.density = 0.4 + 0.6 * q.fishDensity;
@@ -11440,6 +11442,7 @@ function resetView() {
 // Through your own eyes: V switches in and out, and C cycles through it. It is always your
 // choice: casting, a bite or a hooked fish never change the view.
 const _eye = new THREE.Vector3();
+let shotCam = null; // (see slowTide.shotCam)
 let eyeY = 0; // (the steady camera's eye height)
 const _hold = new THREE.Vector3();
 const _shadowAt = new THREE.Vector3();
@@ -15094,6 +15097,11 @@ function tick(now, manual = false) {
   updateSitting(dt);
   if (sitting && !modal) sitCamera(dt);
   if (modal === 'rockpool' || (modal === 'inspect' && inspectFrom === 'rockpool') || (modal === 'photocard' && photoReturn === 'rockpool')) poolCamera(dt);
+  // (Tools' pictures: the camera put exactly where they ask. See slowTide.shotCam.)
+  if (shotCam) {
+    camera.position.set(shotCam[0], shotCam[1], shotCam[2]);
+    camera.lookAt(shotCam[3], shotCam[4], shotCam[5]);
+  }
   // The first time the view dips under the water by itself: a word on how it works.
   if (rig.below && started && !state.tips.under) {
     state.tips.under = true;
@@ -15483,6 +15491,8 @@ window.slowTide = {
   // Graphics preset: 'auto', 'high', 'medium' or 'low'.
   setGraphics: (preset) => { settings.graphics.preset = preset; applyQuality(); },
   teleport: (x, z, heading = boat.heading) => boat.place(x, z, heading),
+  // For tools taking pictures: the camera at (x, y, z) looking at (lx, ly, lz), until shotCam(null).
+  shotCam: (...at) => { shotCam = at.length === 6 ? at : null; },
   // The fast passage: slowTide.passage('south') to Las Brasas, ('home') back; which sea you're in.
   // The crossing at the helm: slowTide.cross('south'), and where it's at (slowTide.crossing()).
   passage: (to = 'south') => startPassage(to),

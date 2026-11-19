@@ -1,5 +1,5 @@
 import { clamp, smoothstep, lerp } from './util.js';
-import { weightOf } from './fish.js';
+import { weightOf, girthOf, tempoOf } from './fish.js';
 
 // Fish as individuals, and how each kind answers the water it's in.
 //
@@ -37,7 +37,7 @@ export const BEHAVIOUR_IDS = Object.keys(BEHAVIOUR);
 /* ---------------- individuals ---------------- */
 
 // A small, steady hash: the same fish always gets the same build.
-function hashRnd(seed) {
+export function hashRnd(seed) {
   let s = (seed * 2654435761) >>> 0;
   return () => {
     s ^= s << 13; s >>>= 0;
@@ -48,7 +48,8 @@ function hashRnd(seed) {
 }
 
 // A fish's build: condition (≈ 0.82 … 1.18), vigour (≈ 0.8 … 1.25), temper (shy 0.6 … bold 1.5),
-// and its weight in kg. id: a number unique to the fish; sp, size (cm).
+// its weight in kg, and its girth (how deep and thick it's drawn for its length: see girthOf) and
+// tempo (its tail's pace for its size: tempoOf). id: a number unique to the fish; sp, size (cm).
 export function traits(sp, size, id) {
   const r = hashRnd(id * 31 + 7);
   // (A sum of three for a hump in the middle: most fish are about average.)
@@ -56,7 +57,7 @@ export function traits(sp, size, id) {
   const condition = clamp(1 + n * 0.5, 0.8, 1.2);
   const vigour = clamp(0.62 + condition * 0.38 + (r() - 0.5) * 0.3, 0.78, 1.28);
   const temper = clamp(0.6 + r() * 0.9, 0.6, 1.5);
-  return { condition, vigour, temper, weight: Math.max(0.01, weightOf(sp, size) * condition) };
+  return { condition, vigour, temper, weight: Math.max(0.01, weightOf(sp, size) * condition), girth: girthOf(sp, size, condition), tempo: tempoOf(size) };
 }
 
 // In words, for the catch card: how it's built.

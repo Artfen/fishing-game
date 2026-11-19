@@ -188,7 +188,10 @@ test('every fish already in the world is where it was, the same size, the same k
   const eco = new Ecosystem(createHabitat());
   const COLD = new Set(['beck', 'gill', 'spout', 'dale', 'tarn', 'forcepool', 'tideway', 'flats']);
   const BIG = new Set([...BIG_GAME, ...DEPTHS].map((f) => f.id));
-  let h = 0x811c9dc5, n = 0;
+  // (Two fingerprints: kinds and places, unchanged since the river; and sizes, taken again when
+  // the sizes were reshaped (docs/FISH.md: schools of one size, rarer trophies), which moved no
+  // fish: the first was the same before that change and after it.)
+  let h = 0x811c9dc5, hs = 0x811c9dc5, n = 0;
   for (const a of eco.agents) {
     // (The crossing to Las Brasas, out past the bottom of the home chart, has homes of its own too.)
     // (And the small fish for micro-fishing, on homes of their own after everyone else's.)
@@ -196,11 +199,14 @@ test('every fish already in the world is where it was, the same size, the same k
     // (And the north's, up the coast, after even those: docs/NORTH.md.)
     if (COLD.has(a.home.tag) || a.home.tag === 'canyon' || a.home.level || a.home.south || a.home.site || a.home.crossing || a.home.small || a.home.north || BIG.has(a.sp.id)) continue;
     n++;
-    const s = `${a.sp.id}|${a.home.type}@${a.home.x.toFixed(1)},${a.home.z.toFixed(1)}:${a.size}`;
+    const s = `${a.sp.id}|${a.home.type}@${a.home.x.toFixed(1)},${a.home.z.toFixed(1)}`;
     for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0;
+    const z = `${a.size};`;
+    for (let i = 0; i < z.length; i++) hs = Math.imul(hs ^ z.charCodeAt(i), 0x01000193) >>> 0;
   }
   assert.equal(n, 2349);
-  assert.equal(h, 2827814919);
+  assert.equal(h, 959687524, 'every fish where it was, the same kind');
+  assert.equal(hs, 1451634096, 'and the same size');
 });
 
 test('the Coldwater’s own fish live in water that suits them', () => {

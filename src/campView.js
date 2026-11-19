@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { heightAt } from './world/terrain.js';
 import { mergeParts, mat, clamp, smoothstep, glowTexture } from './util.js';
 import { buildLanternModel } from './props.js';
-import { fishById, buildFishGeometry } from './fish.js';
+import { fishById, buildFishGeometry, scaleOf } from './fish.js';
 import { cookedMaterial, browned } from './camp.js';
 import { LAYOUT, FOOTPRINT, TENTS, toWorld } from './campsite.js';
 
@@ -252,7 +252,7 @@ class CampModel {
         const sp = fishById[id];
         this.pan = new THREE.Mesh(buildFishGeometry(sp), cookedMaterial(sp));
         this.pan.rotation.set(0, Math.PI / 2, Math.PI / 2);
-        this.pan.scale.setScalar(Math.min((fish.size / 100) * sp.visual, 0.32));
+        this.pan.scale.setScalar(Math.min(scaleOf(sp, fish.size), 0.32));
         const S = LAYOUT.stove;
         this.pan.position.set(S.x, 0.41, S.z);
         this.group.add(this.pan);

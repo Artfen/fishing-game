@@ -1,13 +1,30 @@
 import * as THREE from 'three';
-import { FISH, buildFishGeometry, fishMaterial } from '../fish.js';
+import { FISH, buildFishGeometry, fishMaterial, drawnLength } from '../fish.js';
 import { hasAnatomy } from '../anatomy.js';
-import { wrapAngle, clamp, damp } from '../util.js';
+import { wrapAngle, clamp, damp, seeded } from '../util.js';
 
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
 const _e = new THREE.Euler(0, 0, 0, 'YXZ');
 const _p = new THREE.Vector3();
 const _s = new THREE.Vector3();
+const _o = new THREE.Vector3();
+
+// (F4, docs/FISH.md) Fish are drawn at their true length, so how big one looks is its length over
+// its distance. Detail follows that: the detailed model while a fish looks as big as a 45 cm one
+// within `near`, so a big tuna keeps it a long way off and a sprat only close by. A fish that
+// looks smaller than SEEN (radians: two or three pixels) isn't drawn at all, unless it's busy
+// with you.
+export const NEAR_LEN = 0.45, SEEN = 0.0035;
+// A school of small fish is thousands of fish, not the few dozen the ecosystem follows: each one
+// it follows is drawn with a few companions about it (none simulated: they swim with it, as part
+// of its school), more the smaller the fish, so a bait ball at its true size is a dense one.
+export function companionsFor(sp) {
+  if (!sp.life?.school || sp.creature) return 0;
+  const len = (sp.size[0] + sp.size[1]) / 200;
+  return clamp(Math.round(0.6 / len) - 1, 0, 6);
+}
+const PATTERNS = 8;
 
 
 // How each kind swims (the look of it: where it goes is the ecosystem's):
@@ -27,9 +44,10 @@ export function swimStyle(sp) {
 }
 const RELAXED = new Set(['cruise', 'rest', 'feed', 'school', 'approach', 'investigate', 'inspect', 'follow', 'escort', 'sip', 'nibble']);
 // One fish's swim for this frame: moves its phase on, and gives { beat, bend } to draw it with.
+// (Its tempo: a big fish sweeps its tail slowly, a small one flickers. See tempoOf.)
 export function swimStep(f, style, dt, rnd = Math.random) {
   let bend = style === 'ripple' ? 0 : clamp((f.turnRate || 0) * 0.14, -0.45, 0.45);
-  let beat = f.beat ?? 0.3, rate = 3 + beat * 11;
+  let beat = f.beat ?? 0.3, rate = (3 + beat * 11) * (f.tempo ?? 1);
   // (A fright: the moment it turns to flee, a sharp C-bend away, beating flat out.)
   if (f.state !== f.rs) {
     if (f.state === 'flee' && style !== 'ripple') {
@@ -79,8 +97,8 @@ export class FishRenderer {
     // Fish drawn in full detail out to this distance; beyond it, the simpler model of the same
     // species (for species with an anatomical model). Lower graphics settings bring it closer.
     this.near = 22;
-    const instanced = (sp, list, detail) => {
-      const n = Math.max(1, list.length);
+    const instanced = (sp, list, detail, per = 1) => {
+      const n = Math.max(1, list.length * per);
       // (Each draw has its own copy: the per-fish swim attribute can't be shared.)
       const geo = buildFishGeometry(sp, detail).clone();
       // (Phase, effort and bend: see swimStep.)
@@ -96,11 +114,25 @@ export class FishRenderer {
       return { mesh, swim, mat };
     };
     this.sets = FISH.filter((sp) => !sp.retired).map((sp) => {
-      const list = this.eco.bySpecies[sp.id];
-      const near = instanced(sp, list, true);
-      const far = hasAnatomy(sp.id) ? instanced(sp, list, false) : null;
-      return { sp, list, ...near, far, style: swimStyle(sp) };
+      const list = this.eco.bySpecies[sp.id], extra = companionsFor(sp);
+      const near = instanced(sp, list, true, 1 + extra);
+      const far = hasAnatomy(sp.id) ? instanced(sp, list, false, 1 + extra) : null;
+      // (The companions' places about their fish, in body lengths (x across, y up, z ahead), a
+      // little bigger or smaller, and their tails out of step: a few patterns, one per fish.)
+      const off = new Float32Array(PATTERNS * extra * 5), r = seeded(sp.id.length * 7717 + 31);
+      for (let i = 0; i < PATTERNS * extra; i++) {
+        let x, y, z;
+        do {
+          x = (r() - 0.5) * 2.6;
+          y = (r() - 0.5) * 1.1;
+          z = (r() - 0.5) * 3.4;
+        } while (x * x + y * y * 4 + z * z * 0.5 < 0.5);
+        off.set([x, y, z, 0.9 + r() * 0.2, r() * 6.28], i * 5);
+      }
+      return { sp, list, ...near, far, style: swimStyle(sp), extra, off, len: drawnLength(sp) };
     });
+    // (On lower graphics settings, fewer companions: see density.)
+    this.companions = 1;
   }
 
   // Every mesh drawn (for the reflection to leave out).
@@ -119,20 +151,40 @@ export class FishRenderer {
     for (const set of this.sets) {
       if (set.mat.userData?.glow) set.mat.userData.glow.value = set.sp.sketch.glow ? 0.25 + night * 1.3 : 0;
       let k = 0, kf = 0;
+      const E = Math.round(set.extra * this.companions);
       for (const f of set.list) {
         if (!f.active || f.state === 'caught' || f.state === 'gone') continue;
         const x = f.px + (f.x - f.px) * alpha, y = f.py + (f.y - f.py) * alpha + (f.lvl || 0), z = f.pz + (f.z - f.pz) * alpha;
         const d2 = (x - cx) ** 2 + (y - cy) ** 2 + (z - cz) ** 2;
         if (d2 > maxD2) continue;
-        if (f.rank >= this.density && d2 > 324 && !busy.has(f.state)) continue;
+        // (Its true length, m. A fish of a metre or more is always drawn, whatever the setting.)
+        const len = f.scale * set.len, busyNow = busy.has(f.state);
+        if (f.rank >= this.density && d2 > 324 && len < 1 && !busyNow) continue;
+        if (!busyNow && len * len < SEEN * SEEN * d2) continue;
         const S = swimStep(f, set.style, dt);
         _e.set(-f.pitch, f.pyaw + wrapAngle(f.yaw - f.pyaw) * alpha, f.bank);
         _q.setFromEuler(_e);
-        _m.compose(_p.set(x, y, z), _q, _s.setScalar(f.scale));
-        const into = set.far && d2 > this.near * this.near ? set.far : set;
-        const i = into === set ? k++ : kf++;
+        // (Its true length, and as deep and thick as its build: see girthOf.)
+        const g = f.girth ?? 1;
+        _m.compose(_p.set(x, y, z), _q, _s.set(f.scale * g, f.scale * g, f.scale));
+        const nearD = this.near * clamp(len / NEAR_LEN, 0.3, 4);
+        const into = set.far && d2 > nearD * nearD ? set.far : set;
+        let i = into === set ? k++ : kf++;
         into.mesh.setMatrixAt(i, _m);
         into.swim.setXYZ(i, f.phase, S.beat, S.bend);
+        // Its companions, while it's with its school.
+        if (E && f.state === 'school') {
+          const base = ((f.id * 2654435761) >>> 0) % PATTERNS * set.extra * 5;
+          for (let j = 0; j < E; j++) {
+            const o = set.off, b = base + j * 5;
+            _o.set(o[b] * len, o[b + 1] * len, o[b + 2] * len).applyQuaternion(_q);
+            const sc = f.scale * o[b + 3];
+            _m.compose(_p.set(x + _o.x, y + _o.y, z + _o.z), _q, _s.set(sc * g, sc * g, sc));
+            i = into === set ? k++ : kf++;
+            into.mesh.setMatrixAt(i, _m);
+            into.swim.setXYZ(i, f.phase + o[b + 4], S.beat, S.bend);
+          }
+        }
       }
       for (const [s, n] of set.far ? [[set, k], [set.far, kf]] : [[set, k]]) {
         s.mesh.count = n;

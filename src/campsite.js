@@ -204,7 +204,7 @@ export function cleanName(v) {
 }
 
 const fishEntry = (f) => (isObj(f) && fishById[f.id]?.meal
-  ? { id: f.id, size: Math.round(num(f.size, fishById[f.id].size[0], 1, 300)), logId: typeof f.logId === 'string' ? f.logId.slice(0, 24) : null }
+  ? { id: f.id, size: Math.round(num(f.size, fishById[f.id].size[0], 1, 700)), logId: typeof f.logId === 'string' ? f.logId.slice(0, 24) : null }
   : null);
 
 // A saved camp, made safe: anything odd is put right, and a camp that can't be read is dropped

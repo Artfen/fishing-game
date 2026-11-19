@@ -1368,7 +1368,8 @@ export class Fishing {
     this.t = 0;
     this.from.copy(this.fishPos);
     mesh.visible = true;
-    mesh.scale.setScalar(F.agent.scale);
+    // (The fish that was swimming: its own length and build. See girthOf.)
+    mesh.scale.set(F.agent.scale * (F.agent.girth ?? 1), F.agent.scale * (F.agent.girth ?? 1), F.agent.scale);
     // Out with a splash, the water pouring off the net (or off the fish, lifted out on the line).
     {
       const lv = waterLevel(this.fishPos.x, this.fishPos.z), net = this.net;
@@ -1691,7 +1692,7 @@ export class Fishing {
         _w.x -= Math.sin(face) * 0.6;
         _w.z -= Math.cos(face) * 0.6;
         fishMesh.position.lerpVectors(this.from, _w, smoothstep(0, 1, u));
-        fishMesh.scale.setScalar(this.fight.agent.scale * (1 - u * 0.9));
+        fishMesh.scale.set(this.fight.agent.scale * (this.fight.agent.girth ?? 1), this.fight.agent.scale * (this.fight.agent.girth ?? 1), this.fight.agent.scale).multiplyScalar(1 - u * 0.9);
         rodPitch = 0.9;
         if (u >= 1) {
           fishMesh.visible = false;

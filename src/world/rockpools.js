@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { heightAt } from './terrain.js';
 import { mergeParts, mat, seeded, clamp } from '../util.js';
-import { fishById, buildFishGeometry, fishMaterial } from '../fish.js';
+import { fishById, buildFishGeometry, fishMaterial, scaleOf } from '../fish.js';
 
 // Rockpools: on three stretches of rocky shore between the tide marks (east of Willowhaven, the
 // rocks in Willow Bay, Puffin Cove's), little basins in the rock that the ebb leaves full of sea.
@@ -331,7 +331,7 @@ export class Rockpools {
           z = p.z + Math.sin(a0 + (a1 - a0) * k2) * ra;
           y = p.ground + 0.025;
           yaw = Math.atan2(Math.cos(a1) - Math.cos(a0), Math.sin(a1) - Math.sin(a0)) + Math.PI / 2;
-          s = (c.size / 100) * fishById[c.kind].visual;
+          s = scaleOf(fishById[c.kind], c.size);
           m.userData.swim.setXYZ(k, t * 6 + c.phase, k2 < 1 ? 0.8 : 0.15, 0);
         } else if (c.kind === 'beadlet' || c.kind === 'snakelocks') {
           // Turned to face into the pool, swaying a little in the slop.

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { heightAt, zoneAt, waterOf, SOUTH_Z } from './terrain.js';
 import { yearPhase } from './season.js';
 import { mergeParts, mat, hash2, seeded, clamp, dampAngle, wrapAngle, damp } from '../util.js';
-import { FISH, buildFishGeometry, fishMaterial } from '../fish.js';
+import { FISH, buildFishGeometry, fishMaterial, scaleOf } from '../fish.js';
 import { siteById, PINNACLES, pinnacleRadius, pushOut } from './divesites.js';
 
 // The life of the open water between the fish's haunts, so the water's never empty when you're
@@ -320,7 +320,7 @@ export class Drifters {
         wander: wall ? 0.6 : 1.5 + r() * (R.mode === 'mid' ? 5 : 2.5), w1: 0.04 + r() * 0.05, w2: 0.03 + r() * 0.05, p1: r() * 6.3, p2: r() * 6.3,
         fish: Array.from({ length: n }, () => ({
           a: r() * Math.PI * 2, rr: (R.mode === 'hover' ? 0.8 : 0.5) + r() * (R.mode === 'hover' ? 2.2 : 1.6), h: (r() - 0.5) * (R.mode === 'hover' ? 0.6 : 1.2),
-          sp: (0.15 + r() * 0.25) * (r() < 0.5 ? -1 : 1), phase: r() * 20, beat: 0.25 + r() * 0.3, scale: (range(r()) / 100) * (sp.visual ?? 1),
+          sp: (0.15 + r() * 0.25) * (r() < 0.5 ? -1 : 1), phase: r() * 20, beat: 0.25 + r() * 0.3, scale: scaleOf(sp, range(r())),
           wob: r() * 6.3,
         })),
       };
