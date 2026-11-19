@@ -215,7 +215,10 @@ thinking that the script had to be taught.
   off a beach. (Every knock in a run is now written out: what it was against, and every boat
   within fifteen metres, whose, how far and how fast.)
 - **The nearest feed was in the harbour mouth** (mackerel on sprats can be): the script looks for
-  one offshore, past the first mark, as the brief has it.
+  one offshore, past the first mark, as the brief has it. It looked for five minutes of the game's
+  time, and in one run on #187's code no offshore feed came up in that while (in another, it came up
+  at the twelfth look); now it waits up to ten, lying stopped once it's been out and about
+  the first mark.
 - **Running up on a feed.** At speed she coasted into it and the feed broke up (a boat run through
   a feed scatters it, `src/world/feeding.js`), or the fish went quiet; the game's own hint is
   "Motor up gently, stop well short, and cast into it". The script now runs to 80 m short, comes
@@ -239,7 +242,19 @@ thinking that the script had to be taught.
   `src/engine.js` `foul`) opens a question; while it's open the keys don't steer. The script
   answers it as a skipper would: *Stop and clear it*, off the helm, a stride along her deck, *Look
   her over*, *Clear the cooling intake*, back to the wheel. It came up in about half the runs, once
-  twice in one day.
+  twice in one day. Once, on #188's code, it came up on the way home in the stiffer blow, and the
+  script didn't get her skipper back to the helm: it set him down at the wheel once and *Take the
+  helm* wasn't offered there (what was, it didn't say), so she couldn't be steered home and the
+  last four steps failed. Now it walks back to the wheel up to eight times, closing her look-over if
+  it's still open, and writes out what it was offered each time.
+- **Her battery terminal shaken loose** (a hard landing off a wave: `src/damage.js` `shake`), so
+  she won't start, or the engine cuts out on the next jolt: in one run on #187's code she wouldn't
+  start for home ("a click, and nothing. The battery terminal's loose") and never tied up. The
+  script now sees to it as it does the intake: stopped, *She won’t start: look her over* at the
+  helm, *Do up the battery terminal*, and she starts again. Checked in a run with it forced (the
+  terminal loose and the engine cut as she set off home, and weed on the intake with it): done up
+  and away, the weed cleared, and a bag over the intake cleared again in the marina's approach, back
+  at the helm each time on the first try; all 39 steps passed.
 - **Diving from the helm:** *Leave the helm: walk the deck* first, then a stride away from the wheel
   (at it, the prompt is *Take the helm*), then *Sit back a while, or go diving*. Underwater the
   camera is **Space** and the card that follows is kept with **Enter**. After a dive below ten
@@ -267,6 +282,11 @@ thinking that the script had to be taught.
   a little more way on in the marina (0.25 and 0.18 of the lever, not 0.2 and 0.1). In the run
   that passed she came alongside the far side of her own finger, at the console's berth, about
   8 m from her own: the check asks only that she's tied up.
+
+- **The night aboard when the day runs late** (still open): the check asks that they sleep more
+  than two hours, till the dawn they choose. When they turn in goes with how long the day took,
+  from half past nine to past midnight in most runs; in one on #189's script they turned in at
+  2:58 am, the dawn was 4:10, and the night's two checks failed.
 
 ## Harness artefacts (not the game)
 

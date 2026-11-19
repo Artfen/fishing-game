@@ -234,10 +234,56 @@ await A.keyboard.press('Escape');
 // way each key turns her is found by trying it, as anyone new to a boat does).
 let leftUp = true;
 const where = () => A.evaluate(() => [Math.round(slowTide.boat.pos.x), Math.round(slowTide.boat.pos.z)]);
-// What comes up at sea that a skipper deals with as it comes: the cooling intake fouled (weed or a
-// bag, now and then under way: engine.js foul), the alarm sounding. Stop, off the helm, look her
-// over, clear it, back to the helm.
+// Back to the wheel from her deck, and the helm: as a player walks aft and takes it, a few tries
+// (rolling in a sea she can be thrown off the spot). What it was offered each time, to say why if
+// it couldn't.
+const backToHelm = () => A.evaluate(() => {
+  const B = slowTide.boat, S = B.hull.standing, offered = [];
+  for (let i = 0; i < 8 && B.deck; i++) {
+    // (Her look-over left open: closed as it is. Anything else open is noted, not answered.)
+    const open = document.getElementById('confirm');
+    if (open && !open.hidden) {
+      const leave = [...document.querySelectorAll('#confirm-acts button')].find((x) => x.textContent.trim() === 'Leave it');
+      if (leave) leave.click();
+      else offered.push('dialog: ' + (document.getElementById('confirm-title')?.textContent || ''));
+    }
+    B.deck.x = S.helm[0]; B.deck.z = S.helm[1];
+    slowTide.advance(0.1, 30, false);
+    const H = slowTide.interaction();
+    offered.push(H?.text || null);
+    if (H?.text === 'Take the helm') H.run();
+    slowTide.advance(0.3, 30, false);
+  }
+  return { atHelm: !B.deck, offered };
+});
+// What comes up at sea that a skipper deals with as it comes:
+// - the cooling intake fouled (weed or a bag, now and then under way: engine.js foul), the alarm
+//   sounding: stop, off the helm, look her over, clear it, back to the helm;
+// - her battery terminal shaken loose by a hard landing (damage.js), so she won't start or the
+//   engine's cut: stop, look her over from the helm, do it up, and she starts again.
 const tendHer = async () => {
+  const loose = await A.evaluate(() => {
+    const B = slowTide.boat, E = B.engine;
+    if (!(B.damage?.wiring?.loose && E && !E.engines?.some((e) => e.run))) return false;
+    B.lever = 0;
+    return true;
+  });
+  if (loose) {
+    for (let i = 0; i < 20 && (await A.evaluate(() => slowTide.boat.speed)) > 1; i++) await step(1);
+    const done = await A.evaluate(() => {
+      const B = slowTide.boat, I = slowTide.interaction(), text = I?.text || null;
+      if (/^(She won’t start|Look her over)/.test(text || '')) I.run();
+      slowTide.advance(0.2, 30, false);
+      const b = [...document.querySelectorAll('#confirm-acts button')].find((x) => /^Do up the battery terminal/.test(x.textContent));
+      b?.click();
+      slowTide.advance(0.5, 30, false);
+      return { text, done: !!b && !B.damage?.wiring?.loose, said: window.__said.filter((m) => /terminal/.test(m)).slice(-1) };
+    });
+    const helm = await backToHelm();
+    note('her battery terminal loose', JSON.stringify({ ...done, ...helm }));
+    events.push({ what: 'terminal', ...done, ...helm });
+    return true;
+  }
   const hot = await A.evaluate(() => {
     const E = slowTide.boat.engine;
     if (!(E?.blocked > 0 && E.temp >= 0.6)) return false;
@@ -258,16 +304,11 @@ const tendHer = async () => {
     const b = [...document.querySelectorAll('#confirm-acts button')].find((x) => /^Clear the (cooling intake|raw-water strainer)/.test(x.textContent));
     b?.click();
     slowTide.advance(0.5, 30, false);
-    const B = slowTide.boat, S = B.hull.standing;
-    if (B.deck) { B.deck.x = S.helm[0]; B.deck.z = S.helm[1]; }
-    slowTide.advance(0.3, 30, false);
-    const H = slowTide.interaction();
-    if (H?.text === 'Take the helm') H.run();
-    slowTide.advance(0.5, 30, false);
-    return { text, cleared: !!b && !(B.engine?.blocked > 0), atHelm: !B.deck, said: window.__said.filter((m) => /intake|telltale|strainer/.test(m)).slice(-1) };
+    return { text, cleared: !!b && !(slowTide.boat.engine?.blocked > 0), said: window.__said.filter((m) => /intake|telltale|strainer/.test(m)).slice(-1) };
   });
-  note('the alarm: her intake fouled', JSON.stringify({ off, ...cleared }));
-  events.push({ what: 'intake', ...cleared });
+  const helm = await backToHelm();
+  note('the alarm: her intake fouled', JSON.stringify({ off, ...cleared, ...helm }));
+  events.push({ what: 'intake', ...cleared, ...helm });
   return true;
 };
 const events = [];
@@ -379,7 +420,9 @@ const findFeed = () => A.evaluate(async () => {
   return live[0] || null;
 });
 let feed = await findFeed();
-for (let leg = 0; leg < 30 && !(feed && feed.phase === 1 && feed.d < 900); leg++) {
+// (Out to the first mark and about it, then lying stopped and watching for one: up to ten minutes
+// of the game's time. A feed comes up offshore every few minutes, but not always within five.)
+for (let leg = 0; leg < 60 && !(feed && feed.phase === 1 && feed.d < 900); leg++) {
   if (leg < 12) await helmsman(MARKS[1], 10);
   else { await A.evaluate(() => { slowTide.boat.lever = 0; }); await step(10); }
   feed = await findFeed();
