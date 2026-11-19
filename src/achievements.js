@@ -6,6 +6,7 @@
 // Nothing here talks to anything: desktop.js hands the list to the desktop app, which hands it to
 // Steamworks if (and only if) the app was built with it and an app id.
 
+import { GIVEN_IN_FREE } from './playmode.js';
 import { goalsOf } from './goals.js';
 import { career } from './contracts.js';
 import { finished as storyFinished } from './story.js';
@@ -29,5 +30,7 @@ export const ACHIEVEMENT_IDS = ACHIEVEMENTS.map((a) => a.id);
 // The ones earned in save `state` (extra: what goalsOf needs: { places: [found, of], boats }).
 export function earned(state, extra = {}) {
   const goals = Object.fromEntries(goalsOf(state, extra).map((g) => [g.id, g.done]));
-  return ACHIEVEMENTS.filter((a) => (a.goal ? !!goals[a.goal] : !!a.got(state))).map((a) => a.id);
+  // (What Free Roam hands you from the start is only earned in a Career: see playmode.js.)
+  const given = state?.play === 'free' ? GIVEN_IN_FREE : [];
+  return ACHIEVEMENTS.filter((a) => !given.includes(a.id) && (a.goal ? !!goals[a.goal] : !!a.got(state))).map((a) => a.id);
 }

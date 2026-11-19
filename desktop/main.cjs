@@ -69,15 +69,19 @@ function createWindow() {
 // The save's file: written whole to a temporary file and then put in place, so a crash mid-write
 // never leaves half a save; only text that reads as a save, and never anything huge.
 const SAVE_DIR = () => path.join(app.getPath('userData'), 'saves');
-const SAVE_FILE = () => path.join(SAVE_DIR(), 'slow-tide-save.json');
-ipcMain.on('save:mirror', (e, text) => {
+// (Each of the game's save slots to its own file: Game 1's is slow-tide-save.json, the others
+// slow-tide-save-2.json and -3.json. Only Game 1's starts a computer with no save of its own.)
+const SAVE_FILE = (slot = 1) => path.join(SAVE_DIR(), slot > 1 ? `slow-tide-save-${slot}.json` : 'slow-tide-save.json');
+ipcMain.on('save:mirror', (e, text, slot = 1) => {
   try {
     if (typeof text !== 'string' || text.length > 20e6 || !text.startsWith('{')) return;
+    if (![1, 2, 3].includes(slot)) return;
+    const n = slot;
     JSON.parse(text);
     fs.mkdirSync(SAVE_DIR(), { recursive: true });
-    const tmp = `${SAVE_FILE()}.tmp`;
+    const tmp = `${SAVE_FILE(n)}.tmp`;
     fs.writeFileSync(tmp, text);
-    fs.renameSync(tmp, SAVE_FILE());
+    fs.renameSync(tmp, SAVE_FILE(n));
   } catch { /* the next save tries again */ }
 });
 ipcMain.on('save:read', (e) => {

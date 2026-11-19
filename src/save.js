@@ -35,6 +35,8 @@ import { cleanSafety } from './safety.js';
 import { BEHAVIOUR_IDS } from './behaviour.js';
 import { BIRD_KINDS } from './birdData.js';
 import { kindOf, isBoatId } from './boatid.js';
+import { cleanPlay } from './playmode.js';
+import { readIndex, noteSaved, filled, switchTo, deleteGame, parkedText, SLOTS } from './slots.js';
 
 // Saving your progress in this browser, with nobody to sign in to.
 //
@@ -100,6 +102,7 @@ export const DEFAULT_STATE = {
   damage: {},      // what knocks have done to each boat: her hull, a RIB's tubes (see damage.js)
   yard: null,      // Willowhaven Marine Works: the boats you own, a day's hire, paint, names, fittings (see shipyard.js)
   economy: 'gentle', // 'gentle' | 'authentic': what fuel costs (see economy.js)
+  play: 'career',  // 'career' | 'free': Career or Free Roam (see playmode.js); every game from before is a Career
   ledger: [],      // the last few payments in and out, as receipts
   goodwillDay: 0,  // the day the harbour last saw you home on its fuel
   gifts: [],       // friend codes used on this game (their fingerprints: see giftcodes.js)
@@ -398,6 +401,7 @@ export function sanitize(raw) {
   s.quality = oneOf(raw.quality, CHOICES, 'auto');
   s.difficulty = oneOf(raw.difficulty, ['relaxed', 'standard', 'realistic'], 'standard');
   s.economy = oneOf(raw.economy, ECONOMY_IDS, 'gentle');
+  s.play = cleanPlay(raw.play);
   s.ledger = cleanLedger(raw.ledger);
   s.goodwillDay = Number.isInteger(raw.goodwillDay) ? raw.goodwillDay : 0;
   s.gifts = (Array.isArray(raw.gifts) ? raw.gifts : []).filter((h) => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h)).slice(0, 20);
@@ -698,6 +702,8 @@ export function saveGame(state) {
     }
     store.set(KEY, JSON.stringify(envelope(state)));
     status.lastSaved = now;
+    // (Its line on the title screen's list of games: see slots.js.)
+    if (!BENCH) noteSaved(store, state, now);
     return true;
   } catch {
     // Full or blocked storage: try again next time.
@@ -727,6 +733,25 @@ export function stopSaving() {
   status.otherTab = true;
 }
 export const SAVE_KEY = KEY;
+
+// The save slots (docs/MODES.md, M2: see slots.js), on this browser's storage. Switching stops this
+// page saving first (the game it's showing is about to be parked: a save on leaving would write it
+// over the next one); if the switch can't be made, saving carries on.
+export const slots = {
+  SLOTS,
+  index: () => readIndex(store),
+  filled: () => filled(store, { KEY, BACKUP }),
+  parked: (n) => parkedText(store, n),
+  switchTo(n) {
+    if (BENCH) return { ok: false, why: 'Not in the benchmark.' };
+    const was = status.canSave;
+    status.canSave = false;
+    const r = switchTo(store, { KEY, BACKUP }, n);
+    if (!r.ok || r.same) status.canSave = was;
+    return r;
+  },
+  remove: (n) => deleteGame(store, n),
+};
 
 // Replace the save with one loaded from a file (already checked with parseSave).
 export function importSave(state) {

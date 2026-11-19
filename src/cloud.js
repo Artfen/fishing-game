@@ -54,6 +54,7 @@ export class Cloud {
     this.lastSync = 0;
     this.syncing = false;
     this.paused = false;   // the cloud save is from a newer game version: leave it alone
+    this.elsewhere = false; // another of this browser's games is being played: the account keeps Game 1 (docs/MODES.md)
     this.timer = null;
     this.waiting = false;  // changes made while offline (or while the cloud couldn't be reached)
     this.onChange = () => {};
@@ -273,7 +274,7 @@ export class Cloud {
   // On sign-in or at startup: combine the cloud save with this browser's. Returns
   // { state, note } with the state to play, or null to keep the local one untouched.
   async syncAtStart(local, localSavedAt) {
-    if (!this.signedIn) return null;
+    if (!this.signedIn || this.elsewhere) return null;
     this.syncing = true;
     try {
       const remote = await this.pull();
@@ -347,7 +348,7 @@ export class Cloud {
 
   // After each local save: send it to the cloud once things are quiet for a moment.
   queue(state, savedAt) {
-    if (!this.signedIn || this.paused) return;
+    if (!this.signedIn || this.paused || this.elsewhere) return;
     clearTimeout(this.timer);
     this.timer = null;
     // Offline: the save in this browser is the queue; it goes up when the connection is back.
@@ -360,13 +361,13 @@ export class Cloud {
 
   // The connection is back: send whatever was saved meanwhile (combining with anything newer).
   reconnected(state, savedAt) {
-    if (this.signedIn && !this.paused && this.waiting) this.flush(state, savedAt);
+    if (this.signedIn && !this.paused && !this.elsewhere && this.waiting) this.flush(state, savedAt);
   }
 
   async flush(state, savedAt, keepalive = false) {
     clearTimeout(this.timer);
     this.timer = null;
-    if (!this.signedIn || this.paused || (this.syncing && !keepalive)) return;
+    if (!this.signedIn || this.paused || this.elsewhere || (this.syncing && !keepalive)) return;
     if (navigator.onLine === false) {
       this.waiting = true;
       return;
@@ -391,7 +392,7 @@ export class Cloud {
 
   // Starting a new game or loading a copy: the next sync replaces the cloud save with it.
   replaceNextSync() {
-    if (!this.session) return;
+    if (!this.session || this.elsewhere) return;
     this.session.replace = true;
     this.writeSession();
   }

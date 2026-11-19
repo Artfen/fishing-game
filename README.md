@@ -135,6 +135,13 @@ Settings → Controls & comfort lists them all, and sets how strongly the contro
 
 It's the same lure and the same fish as Assisted: the rod only moves the lure, sets the hook and loads the line, so better technique shows as better presentation and fewer fish lost, never as bites from nowhere. *Old salt* turns it on.
 
+**Career or Free Roam?** Asked once, the first time you play (`src/playmode.js`, `docs/MODES.md`). That's what you *have*; the play style below is how it *feels*.
+
+- **Career**: you start at the camp with its three boats (the rowing boat, the skiff, the kayak) and £20. Sell what you catch, take work from the notice board and be trusted with more (Odd-job hand, Boatman, Skipper, Master), buy the rest of the fleet at Willowhaven Marine Works or hire it by the day, and work your way up to the liveaboard trawler (£9,500, her tender with her). Every game from before there was a choice is a Career, exactly as it was.
+- **Free Roam**: the whole coast from the first morning. Every boat in the fleet is yours; the trawler is in the water at your berth in Willowhaven with her tender on her platform (the kayak laid up to make room for her), and the harbour office puts any of the others in the water. All the work on the board is open to you, as to a Master, and there's £2,000 in your purse for fuel, paint, fittings and ice. Money still comes from the market and the work; the story, the adventures and the journal are the same. (The achievements Free Roam simply hands you, every boat and the board's top ranks, only count in a Career.)
+
+The game you're in says which it is, on the title screen and in the journal. Start over from the journal (**New game…**) as either, or keep both: see *Your games* below.
+
 **How do you like to play?** Asked once when you begin (`src/playstyle.js`), and in Settings → Controls & comfort → *Play style*. One choice sets the fight's difficulty, how the fish behave, casting, starting the engine, the throttle and the economy together:
 
 | Style | Fight | Fish | Casting | Engine start-up | Throttle | Economy |
@@ -990,7 +997,9 @@ The journal's **Your progress** section shows when the game last saved and has t
 
 - **Download a copy**: saves your whole game as a small `.json` file.
 - **Load a saved copy…**: loads one of those files (it asks first, and keeps your current game as a backup).
-- **New game…**: starts over after asking you to confirm, with an offer to download a copy first. Your sound and graphics settings stay. The old save is kept aside in the browser rather than deleted.
+- **New game…**: starts over (as a Career or in Free Roam) after asking you to confirm, with an offer to download a copy first. Your sound, graphics and play settings stay. The old save is kept aside in the browser rather than deleted.
+
+**Your games: three side by side.** The title screen says which game *Begin* (or *Continue*) plays: *Game 1 · Free Roam · day 12*. **Your games** beside it lists all three slots, each with its way of playing, day, fish, places, purse and when it was last played: **Play it** to switch to another (this one is saved and kept, that one loaded), **New: Career** or **New: Free Roam** in an empty one, or **Delete…** one you're not playing (it asks, and offers a download first; its photographs go with it). Switching never loses a game: if the browser's storage is too full to keep both, nothing changes and it says so. Optional cloud saves keep **Game 1** (as they always kept your one game); the other two are this browser's only, and the journal says so when you're in one. In the desktop app each game is mirrored to its own file in the saves folder (`slow-tide-save.json`, `slow-tide-save-2.json`, `slow-tide-save-3.json`).
 
 Your camp, map marks, the list of your photographs, adventures and keepsakes are saved too, and (from save version 6) where each piece of your outing gear is, the car, your plan, loadouts and last trip, and what's on the wall at home. Older saves load as they were: your camping gear stays where it was (at your camp, or rolled up in your backpack), the car waits on the drive at home, and you carry on wherever you were. A drive under way when the game closes finishes when you next load, with you and the car at the car park and nothing packed lost or doubled.
 
@@ -1326,6 +1335,8 @@ Alongside: seasons (spawning runs, the tuna's summer in Biscay, the meagre's spr
 | `src/dashcontrol.js` | Working the dashboard in first person: mouse hover, click, hold and drag, touch, and a controller or the keyboard moving a ring round it |
 | `src/technique.js` | Expert technique: the rod following the stick, what its lift, drop, snap and sweep do to a lure (pull, slack, twitch, a popper's pop, a stick bait's walk and its rhythm), the strike and the hold it sets, and playing a fish (pumping, cushioning, high-sticking) |
 | `src/playstyle.js` | One question instead of six: the Easy-going, Angler and Old salt play styles, each a whole set of choices |
+| `src/playmode.js` | Career or Free Roam: what a game starts with (Free Roam's fleet, open board and purse), and the achievements it doesn't count |
+| `src/slots.js` | The save slots: three games side by side, the one being played where the save always was and the others parked beside it, switched whole or not at all |
 | `src/goals.js` | What there is to aim for (every kind of fish, a fish of a lifetime, boats of your own, every place, Las Brasas), counted from what the game keeps, for the journal |
 | `src/economy.js` | Money: one purse, never overdrawn, every payment a receipt in the ledger; fuel prices (the Economy setting), the pump's quote, and the harbour's goodwill when you're broke |
 | `src/shipyard.js` | Willowhaven Marine Works: the boats you own (the camp's three to start; an older game keeps all it had), a day's hire, prices, paint, names, the engine and propeller each motorboat has from the catalogue (see `src/engines.js`) and fittings (fuel, electronics, batteries, deck gear and ground tackle, each with its weight, its draw on the batteries and what it does) |

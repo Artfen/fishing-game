@@ -4,7 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('slowTideDesktop', {
   // The save, mirrored to a file in the app's data folder.
-  mirror: (text) => ipcRenderer.send('save:mirror', String(text)),
+  mirror: (text, slot = 1) => ipcRenderer.send('save:mirror', String(text), Number(slot) || 1),
   // The mirrored save, when this computer's storage has none (or null).
   mirrored: () => ipcRenderer.sendSync('save:read'),
   // An achievement earned (achievements.js): passed to Steamworks if the app has it.

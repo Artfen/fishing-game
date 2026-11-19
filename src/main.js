@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Input, defaultBindings } from './input.js';
 import { SettingsUI, WEATHER_MODES } from './settings.js';
-import { loadGame, saveGame, newGame, saveStatus, parseSave, importSave, exportText, stopSaving, SAVE_KEY, adoptJournal } from './save.js';
+import { loadGame, saveGame, newGame, saveStatus, parseSave, importSave, exportText, stopSaving, SAVE_KEY, adoptJournal, slots } from './save.js';
 import { Cloud } from './cloud.js';
 import { Together, cleanName, suggestName, NAME_MAX, CALLS, PAID_MAX } from './together.js';
 import { setupOffline, offline, applyUpdate, checkForUpdate } from './offline.js';
@@ -91,6 +91,8 @@ import { Haptics, STRENGTHS, engineFeel, lineFeel, slamFeel, knockFeel } from '.
 import { PROFILES as ENGINES, WOT, setElectric, isElectricNow, START_MODES, hasEngine, cleanEngine, engineSave, act as engineDo, assist as engineAssist, stepEngine, running as engineRunning, cranking as engineCranking, revs as engineRevs, rpmOf, trimBy, TRIM, tiltToggle, tiltedUp, stepTilt, HOLE, cutOut, foul, foulChance, clearIntake } from './engine.js';
 import { HelmUI } from './helm.js';
 import { STYLES, STYLE_IDS, styleOf } from './playstyle.js';
+import { PLAYS, PLAY_IDS, giveFree } from './playmode.js';
+import { summaryOf as gameSummary } from './slots.js';
 import { pay as payOut, earn as earnIn, fuelPrice, fuelQuote, goodwillDue, GOODWILL_L, ECONOMY } from './economy.js';
 import { takePlug, restock as restockKit, fillKit, helpBy, helpHours, HELP_WORDS, KIT as REPAIR_KIT, FLARES, FLARE_PRICE, NO_SIGNAL } from './safety.js';
 import { worthWord, heardBy, wordLeft, wordPassed, wordFor, VOICES, newWord } from './word.js';
@@ -190,12 +192,16 @@ const $ = (id) => document.getElementById(id);
 // signed in, never mirrored.
 const BENCH_RUN = new URLSearchParams(location.search).get('bench');
 // (The desktop build: on a computer with no save of its own, the one Steam Cloud brought.)
-if (!BENCH_RUN) seedSave({ get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => localStorage.setItem(k, v) }, 'slow-tide-save');
+// (Only for Game 1: another slot's new game isn't a computer with no save. docs/MODES.md, M2.)
+if (!BENCH_RUN && slots.index().active === 1) seedSave({ get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => localStorage.setItem(k, v) }, 'slow-tide-save');
 const loaded = loadGame();
 // Optional cloud saves: only when a backend is configured and you've signed in. Startup waits
 // a moment for the cloud (just when signed in, or arriving from a sign-in link), so the game
 // begins from the combined save rather than jumping later. Offline, it simply carries on.
 const cloud = new Cloud();
+// (The game being played, of this browser's three: docs/MODES.md, M2. The account keeps Game 1.)
+const SLOT = BENCH_RUN ? 1 : slots.index().active;
+cloud.elsewhere = SLOT !== 1;
 const cloudReady = BENCH_RUN ? Promise.resolve() : cloud.init();
 let cloudStart = null;
 if (Cloud.expected() && saveStatus.canSave) {
@@ -12709,7 +12715,7 @@ function save() {
   if (ok) cloud.queue(state, saveStatus.lastSaved);
   // (The desktop build: the same save to a file, for Steam Cloud; and achievements earned.)
   if (ok && onDesktop()) {
-    if (!BENCH_RUN) try { mirrorSave(localStorage.getItem('slow-tide-save')); } catch { /* next time */ }
+    if (!BENCH_RUN) try { mirrorSave(localStorage.getItem('slow-tide-save'), SLOT); } catch { /* next time */ }
     const C = careerOf(state);
     reportAchievements(state, { places: [C.places, C.placesOf] });
   }
@@ -12749,7 +12755,7 @@ function renderSaveStatus() {
   const ago = saveStatus.lastSaved ? Math.round((Date.now() - saveStatus.lastSaved) / 1000) : null;
   const when = ago == null ? 'not yet' : ago < 10 ? 'just now' : ago < 90 ? `${ago} seconds ago` : `${Math.round(ago / 60)} minutes ago`;
   const where = onDesktop() ? 'on this computer, and to a file in the saves folder' : 'in this browser';
-  el.textContent = `Saved automatically ${where} (last saved ${when}): no account needed. ${state.log.length} catches in your log.`;
+  el.textContent = `${state.play === 'free' ? 'A Free Roam game' : 'A Career'}, saved automatically ${where} (last saved ${when}): no account needed. ${state.log.length} catches in your log.`;
 }
 
 // The optional account box under "Your progress". Only shown when a backend is configured.
@@ -12770,6 +12776,12 @@ function renderCloud() {
     return b;
   };
   const kids = [make('h4', 'Cloud save (optional)')];
+  // (docs/MODES.md, M2: the account keeps Game 1; the others are this browser's.)
+  if (cloud.elsewhere) {
+    kids.push(make('p', `Your account keeps Game 1. This is Game ${SLOT}, saved in this browser only: download a copy (above) to keep it anywhere else.`));
+    box.replaceChildren(...kids);
+    return;
+  }
   if (cloud.signedIn) {
     const when = cloud.lastSync ? Math.round((Date.now() - cloud.lastSync) / 60000) : null;
     const sync = !offline.online ? 'offline, so syncing is paused until the connection is back'
@@ -13050,18 +13062,137 @@ function downloadSave() {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
+/* ---------------- your games: the save slots (docs/MODES.md, M2) ---------------- */
+
+// A game's line: "Free Roam · day 12 · 34 fish of 9 kinds · 6 places · £120".
+function gameLine(g) {
+  if (!g) return '';
+  const fish = g.caught ? `${g.caught} fish of ${g.kinds} ${g.kinds === 1 ? 'kind' : 'kinds'}` : 'no fish yet';
+  return `${PLAYS[g.play]?.name || 'Career'} · day ${g.day} · ${fish} · ${g.places} ${g.places === 1 ? 'place' : 'places'} · £${g.money}`;
+}
+function lastPlayed(ms) {
+  if (!ms) return '';
+  const d = (Date.now() - ms) / 60000;
+  return d < 2 ? 'played just now' : d < 90 ? `played ${Math.round(d)} minutes ago` : d < 36 * 60 ? `played ${Math.round(d / 60)} hours ago` : `played ${new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+}
+// The title screen's line: which game Begin (or Continue) plays.
+function renderTitleGame() {
+  const fresh = !state.log.length && !Object.keys(state.places).length;
+  $('title-game').textContent = `Game ${SLOT} · ${PLAYS[state.play].name}${fresh ? ' · a new game' : ` · day ${state.day}`}`;
+}
+function openGames() {
+  if (started || modal) return;
+  modal = 'games';
+  $('games').hidden = false;
+  renderGames();
+  audio.page?.();
+}
+function closeGames() {
+  $('games').hidden = true;
+  if (modal === 'games') modal = null;
+}
+function renderGames() {
+  const I = slots.index(), has = slots.filled();
+  const pkBtn = (text, run, cls = '') => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `pk-btn ${cls}`;
+    b.textContent = text;
+    b.addEventListener('click', (e) => { e.stopPropagation(); run(); });
+    return b;
+  };
+  const rows = [];
+  for (let n = 1; n <= slots.SLOTS; n++) {
+    const row = document.createElement('div'), acts = document.createElement('div'), info = document.createElement('div');
+    row.className = `gm-row${n === SLOT ? ' on' : ''}`;
+    acts.className = 'gm-acts';
+    const h = document.createElement('h4'), p = document.createElement('p');
+    h.textContent = `Game ${n}`;
+    if (n === SLOT) {
+      const tag = document.createElement('small');
+      tag.textContent = 'this one';
+      h.append(tag);
+      p.textContent = `${gameLine(gameSummary(state, saveStatus.lastSaved))}${n === 1 && cloud.signedIn ? ' · kept in your account' : ''}`;
+      acts.append(pkBtn('Back to it', closeGames));
+    } else if (has[n]) {
+      const g = I.games[n];
+      p.textContent = g ? `${gameLine(g)}${g.savedAt ? ` · ${lastPlayed(g.savedAt)}` : ''}` : 'A game (its details show once it’s played again).';
+      acts.append(pkBtn('Play it', () => playGame(n)), pkBtn('Delete…', () => deleteGame(n), 'quiet'));
+    } else {
+      p.textContent = 'Empty.';
+      acts.append(pkBtn('New: Career', () => newGameIn(n, 'career'), 'quiet'), pkBtn('New: Free Roam', () => newGameIn(n, 'free'), 'quiet'));
+    }
+    info.append(h, p);
+    row.append(info, acts);
+    rows.push(row);
+  }
+  $('games-list').replaceChildren(...rows);
+  $('games-note').textContent = `Career: the camp’s three boats and £20, the rest earned. Free Roam: every boat yours (the trawler too), all the work open, £2,000. ${Cloud.expected() || cloud.enabled ? 'Your account keeps Game 1; the others are this browser’s only. ' : ''}Each game is saved in this browser: download a copy from its journal to keep it anywhere else.`;
+}
+// Over to another game: this one saved and parked, that one put in its place, the page loaded
+// afresh with it. (Nothing changes if storage won't take it.)
+function playGame(n) {
+  save();
+  const r = slots.switchTo(n);
+  if (!r.ok) {
+    ask('Couldn’t switch games', r.why, [{ text: 'OK' }]);
+    return;
+  }
+  location.reload();
+}
+function newGameIn(n, play) {
+  save();
+  const r = slots.switchTo(n);
+  if (!r.ok) {
+    ask('Couldn’t start a new game', r.why, [{ text: 'OK' }]);
+    return;
+  }
+  // (Your settings and your name come with you; the opening questions are answered.)
+  newGame({ quality: state.quality, volumes: state.volumes, music: state.music, difficulty: state.difficulty, behaviour: state.behaviour, settings: state.settings, economy: state.economy, play, tips: { play: true, style: true } });
+  location.reload();
+}
+function deleteGame(n) {
+  const g = slots.index().games[n];
+  const text = slots.parked(n);
+  ask(`Delete Game ${n}?`, `${g ? `${gameLine(g)}. ` : ''}Its journal, catches, places, boats and photographs go for good. Download a copy first if you might want it back.`, [
+    { text: 'Download a copy first', cls: 'quiet', keepOpen: true, run: () => {
+      if (!text) return;
+      const blob = new Blob([text], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `slow-tide-game-${n}-day-${g?.day ?? 1}-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    } },
+    { text: 'Keep it', cls: 'quiet' },
+    { text: 'Delete it', cls: 'danger', run: () => {
+      const r = slots.remove(n);
+      if (r.ok && r.text) {
+        // (Its photographs out of the photo store: those this game doesn't share.)
+        try {
+          const gone = parseSave(r.text).state.photos.map((p) => p.id).filter((id) => !state.photos.some((q) => q.id === id));
+          for (const id of gone) photos.remove(id).catch(() => {});
+        } catch { /* nothing readable to clean up after */ }
+      }
+      renderGames();
+    } },
+  ]);
+}
+
 function startNewGame() {
   const acct = cloud.signedIn ? ' This also starts over the game saved to your account.' : '';
-  ask('Start a new game?', `Your journal, catches, places, gear and camp will be cleared, and you’ll begin again in Willow Bay. Your sound and graphics settings stay.${acct} If you might want this game back, download a copy first.`, [
+  const over = (play) => {
+    cloud.replaceNextSync();
+    newGame({ quality: state.quality, volumes: state.volumes, music: state.music, difficulty: state.difficulty, behaviour: state.behaviour, settings: state.settings, economy: state.economy, play, tips: { play: true, style: true } });
+    location.reload();
+  };
+  ask('Start a new game?', `Your journal, catches, places, gear and camp will be cleared, and you’ll begin again in Willow Bay: as a Career (the camp’s three boats and £20, the rest earned) or in Free Roam (every boat yours, the trawler too, the board open). Your sound, graphics and play settings stay.${acct} If you might want this game back, download a copy first (or start another alongside it, from the title screen under Your games).`, [
     { text: 'Download a copy first', cls: 'quiet', keepOpen: true, run: downloadSave },
     { text: 'Keep playing', cls: 'quiet' },
-    {
-      text: 'Start a new game', cls: 'danger', run: () => {
-        cloud.replaceNextSync();
-        newGame({ quality: state.quality, volumes: state.volumes, music: state.music, difficulty: state.difficulty, behaviour: state.behaviour, settings: state.settings });
-        location.reload();
-      },
-    },
+    { text: 'Start over: Free Roam', cls: 'danger', run: () => over('free') },
+    { text: 'Start over: Career', cls: 'danger', run: () => over('career') },
   ]);
 }
 
@@ -13091,7 +13222,7 @@ function loadSaveFile(file) {
 }
 
 function begin() {
-  if (started) return;
+  if (started || !$('games').hidden) return;
   // (A name first, the very first time: see askName. Any key or click while it's asked waits.)
   if (!settings.player.name) {
     if ($('confirm').hidden) askName(begin);
@@ -13115,9 +13246,15 @@ function begin() {
   // (At Las Brasas: the island, or its harbour.)
   const south = player().pos.z > SOUTH_Z, puerto = south && Math.hypot(player().pos.x - PUERTO_AT.x, player().pos.z - PUERTO_AT.z) < 160;
   setTimeout(() => hud.place(south ? (puerto ? 'Puerto Brasa' : 'Las Brasas') : home ? 'Home' : onFoot ? (names[zone] || 'The west shore') : 'Willow Bay', returning ? 'welcome back' : home ? 'the cottage and the garage' : onFoot ? 'by the camp' : 'home waters'), 900);
-  // How do you like to play? Asked once (a new player first, then the guide).
-  if (!state.tips.style) askStyle(newPlayer ? () => offerGuide() : null, !newPlayer);
+  // Career or Free Roam, then how do you like to play? Asked once (a new player first, then the
+  // guide). A new Free Roam game started from the title screen or the journal says what it has.
+  if (newPlayer && !state.tips.play) askPlay(() => (state.tips.style ? offerGuide() : askStyle(() => offerGuide())));
+  else if (!state.tips.style) askStyle(newPlayer ? () => offerGuide() : null, !newPlayer);
   else if (newPlayer) offerGuide();
+  if (state.play === 'free' && newPlayer && state.tips.play && !state.tips.freeSaid) {
+    state.tips.freeSaid = true;
+    setTimeout(() => hud.toast(FREE_WORDS, 10), 2500);
+  }
   rig.settleUntil = t + 2.5;
   if (state.sonar) toggleFinder(true);
   if (cloudStart?.note) setTimeout(() => hud.toast(cloudStart.note, 8), 2600);
@@ -13755,6 +13892,11 @@ input.on('press', (code, acts) => {
       if (code === 'Escape') cancelConfirm();
       return;
     }
+    // (Your games open: Esc closes them; nothing else starts the game.)
+    if (!$('games').hidden) {
+      if (code === 'Escape') closeGames();
+      return;
+    }
     if (settingsUI.isOpen) {
       if (code === 'Escape' || is('settings')) closeSettings();
     } else if (is('settings')) openSettings();
@@ -14027,6 +14169,9 @@ input.on('cancel', () => {
 });
 
 $('start-btn').addEventListener('click', begin);
+$('title-games').addEventListener('click', (e) => { e.stopPropagation(); openGames(); });
+$('games-close').addEventListener('click', closeGames);
+renderTitleGame();
 $('journal-btn').addEventListener('click', () => {
   if (modal === 'journal') closeJournal();
   else if (!modal) openJournal();
@@ -14171,6 +14316,37 @@ if (newPlayer) {
   state.mode = 'foot';
   state.walker = { ...HOME_START };
   state.outing.intro = true;
+}
+
+// (docs/MODES.md, M1) A Free Roam game's start, the first time it's played (or when it's chosen):
+// every boat in the fleet yours, the trawler in the water at your berth with her tender on her
+// platform (the kayak laid up to make room for her), the board open, a purse.
+function startFreeRoam() {
+  const r = giveFree(state, earnIn);
+  const T = BOATS.trawler;
+  if (T?.stowed) {
+    if (afloatCount() >= MAX_AFLOAT && BOATS.kayak && !BOATS.kayak.stowed && boat !== BOATS.kayak) storeBoat(BOATS.kayak, { quiet: true });
+    launchBoat(T, { quiet: true });
+  }
+  if (T && !T.stowed && !carriedOn(state, 'trawler')) withTender('trawler');
+  state.tips.freeRoam = true;
+  save();
+  return r;
+}
+if (state.play === 'free' && !state.tips.freeRoam) startFreeRoam();
+const FREE_WORDS = 'Free Roam: every boat in the fleet is yours. The trawler is in the water at your berth in Willowhaven, her tender on her platform; the rest are laid up, and the harbour office puts any of them in the water. All the work on the board is open to you, and there’s £2,000 in your purse.';
+
+// Career or Free Roam? Asked once, of a new player (see playmode.js); a game from before is a
+// Career, as it always was.
+function askPlay(then = null) {
+  state.tips.play = true;
+  save();
+  setTimeout(() => {
+    ask('Career or Free Roam?', `${PLAY_IDS.map((id) => `${PLAYS[id].name}: ${PLAYS[id].desc}`).join('\n\n')}\n\nIt stays with this game: start another from the title screen, under Your games.`, [
+      { text: 'Free Roam', cls: 'quiet', run: () => { startFreeRoam(); state.tips.freeSaid = true; hud.toast(FREE_WORDS, 10); then?.(); } },
+      { text: 'Career', cancel: true, run: () => { state.play = 'career'; save(); then?.(); } },
+    ]);
+  }, 1800);
 }
 
 // Back where you left off: on foot if that's where you were (and somewhere you can stand:

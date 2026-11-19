@@ -86,6 +86,8 @@ export const CAREER = [
 ];
 // Where you are in it: { rank, next (or null), toGo (jobs to the next) }.
 export function career(C) {
+  // (Free Roam: trusted with everything from the start.)
+  if (C?.free) return { rank: CAREER[CAREER.length - 1], next: null, toGo: 0, free: true };
   let i = 0;
   while (i + 1 < CAREER.length && C.count >= CAREER[i + 1].jobs) i++;
   const next = CAREER[i + 1] || null;
@@ -713,7 +715,7 @@ function an(name) {
 
 /* ---------------- the record ---------------- */
 
-export const newContracts = () => ({ board: null, active: [], done: {}, rep: {}, earned: 0, count: 0, callAt: null });
+export const newContracts = () => ({ board: null, active: [], done: {}, rep: {}, earned: 0, count: 0, callAt: null, free: false });
 export function cleanContracts(raw) {
   const C = newContracts();
   if (!raw || typeof raw !== 'object') return C;
@@ -724,6 +726,8 @@ export function cleanContracts(raw) {
   C.earned = Number.isFinite(raw.earned) ? Math.max(0, raw.earned) : 0;
   C.count = Number.isFinite(raw.count) ? Math.max(0, Math.round(raw.count)) : 0;
   C.callAt = Number.isFinite(raw.callAt) ? raw.callAt : null;
+  // (Free Roam: all the work open, as to a Master. See playmode.js.)
+  C.free = raw.free === true;
   return C;
 }
 function okOffer(o) {

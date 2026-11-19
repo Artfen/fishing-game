@@ -424,7 +424,10 @@ careers, contracts, story, boat ownership and co-op are here already; see the se
 **Order**
 
 1. Career and Free Roam, and save slots (small, and they decide how the liveaboard is earned;
-   Free Roam has her from the start).
+   Free Roam has her from the start). Done (`docs/MODES.md`): a Career earns her (£9,500, or hired
+   by the day), as every game did; Free Roam has her afloat at the berth from the first morning
+   with her tender, every other boat, the whole board and a purse; three games side by side, chosen
+   from the title screen, the cloud keeping Game 1.
 2. The liveaboard and her tender, tested in home waters (`docs/LIVEABOARD.md`, L1 to L8). L1, the
    tender as a boat of her own: done. L2, the trawler's hull, helm and handling: done (with a fix
    for every boat: none spins at rest any more). L3, walking aboard her (decks, pilothouse,

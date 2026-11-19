@@ -31,12 +31,13 @@ export function seedSave(store, key) {
   }
 }
 
-// After a save: the same text to the file.
-export function mirrorSave(text) {
+// After a save: the same text to the file (each of the browser's games to its own: slot 1's is
+// slow-tide-save.json, the others slow-tide-save-2.json and -3.json; docs/MODES.md).
+export function mirrorSave(text, slot = 1) {
   const D = bridge();
   if (!D?.mirror || typeof text !== 'string') return false;
   try {
-    D.mirror(text);
+    D.mirror(text, slot);
     return true;
   } catch {
     return false;
