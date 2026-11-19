@@ -15,7 +15,7 @@ const { bestSheet } = await import('../src/sailing.js');
 const M = await import('../src/mooring.js');
 const F = await import('../src/fuel.js');
 const { LEVERS } = await import('../src/throttle.js');
-const { PLANE_CV, G } = await import('../src/hydro.js');
+const { G } = await import('../src/hydro.js');
 
 const scene = new THREE.Scene();
 let clock = 0;
@@ -127,8 +127,9 @@ test('the jet ski leaves the crests at speed in a lively sea, and stays on a cal
     const running = rec.filter((r, i) => !rec.slice(Math.max(0, i - 10), i + 11).some((q) => q.air));
     return { jumps, up: Math.max(...rec.map((r) => r.up)), running: Math.max(...running.map((r) => r.up)) };
   };
-  // Fully on the plane: her speed coefficient on her planing beam at least 3 (see hydro.js PLANE_CV).
-  const planing = PLANE_CV[1] * Math.sqrt(G * new Boat(scene, { kind: 'jetski' }).phys.model.planeBeam);
+  // Fully on the plane: her speed coefficient on her planing beam, V/√(g·b), at least 3 (where B3
+  // has her lift fully at Savitsky's place: hydro.js PLANE_CV; 9.3 m/s for her).
+  const planing = 3 * Math.sqrt(G * new Boat(scene, { kind: 'jetski' }).phys.model.planeBeam);
   const lively = ride('lively', 10);
   const say = `${lively.jumps.length} jumps at ${lively.jumps.map((v) => v.toFixed(1)).join(', ')} m/s`;
   assert.ok(lively.jumps.length >= 3, `off the crests: ${say}`);
