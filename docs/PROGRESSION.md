@@ -193,3 +193,6 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
    is, not sent back to the boathouse from anywhere.
 25. **An inside helm (done):** the cabin boat and the yacht steered from inside their wheelhouse as
    well as from outside, in first person looking out through the windscreen.
+26. **The wheels face you (done for the yacht and the bass boat):** raked back to look up at the one
+   steering, so in first person you see a wheel, not a bar. The RIB's and the console boat's want
+   their helms laid out again first, so a wheel facing you doesn't hide their switches.

@@ -2334,7 +2334,7 @@ export class Boat {
       fit.push(strut(V(P.cx + 0.18, y - 0.02, zc0 + 0.12), V(P.cx + 0.18, y + 0.1, zc0 + 0.12), 0.012, 0.012, STEEL));
       fit.push(strut(V(P.cx - 0.18, y + 0.1, zc0 + 0.12), V(P.cx + 0.18, y + 0.1, zc0 + 0.12), 0.012, 0.012, STEEL));
     }
-    this.wheelAt = [0.84, zc0 - 0.06, -0.62];
+    this.wheelAt = [0.84, zc0 - 0.06, 0.62];
 
     // The casting deck: the rod locker down the middle, a storage hatch either side, the pedestal
     // seat forward, the trolling motor's foot pedal, a graph at the bow, two rods strapped down.
@@ -3328,11 +3328,14 @@ export class Boat {
     );
   }
 
-  // The wheel: its rim, three spokes and a hub, tilted towards you, turning with the helm.
-  buildWheel(x, y, z, tilt = -0.55) {
+  // The wheel: its rim, three spokes and a hub, turning with the helm. Its face raked back (tilt > 0)
+  // to look up at you, its top leaning away towards the dash, as a helm's wheel is set; or (tilt < 0,
+  // the RIB's and the console boat's) its top towards you, low and back, clear of the dash's
+  // switches above it, which a wheel raked back on those consoles would hide.
+  buildWheel(x, y, z, tilt = 0.55) {
     this.wheel = this.makeWheel(x, y, z, tilt);
   }
-  makeWheel(x, y, z, tilt = -0.55) {
+  makeWheel(x, y, z, tilt = 0.55) {
     const w = new THREE.Group();
     w.position.set(x, y, z);
     w.rotation.x = tilt;
