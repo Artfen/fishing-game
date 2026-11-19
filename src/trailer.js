@@ -16,6 +16,10 @@ export const HITCH = 2.45, TONGUE = 3.0, BED = 4.4;
 // A boat comes onto it from within this far of the trailer (she's brought in to the bank and
 // winched up), and goes in off it where there's water this deep within LAUNCH_REACH of it.
 export const LOAD_REACH = 40, LAUNCH_REACH = 28, LAUNCH_DEPTH = 0.7;
+// The Marine Works' own trailer, for your boat without the car: one of yours on Longmere brought
+// down by road to Willowhaven (the bass boat to the sea), or taken back up to the boathouse. What
+// it costs, and how long it takes, there and the boat in the water at the other end.
+export const ROAD_HAUL = { fee: 20, hours: 1.5 };
 
 // In the save: { hitched, boat (a kind, or null) }. A boat on it isn't in the water, nor laid up.
 export function cleanTrailer(raw, kinds = TRAILABLE) {

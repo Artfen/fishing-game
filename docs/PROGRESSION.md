@@ -188,3 +188,6 @@ models; the findings and the plan, W1–W7 for the water and B1–B6 for the boa
 23. **The bass boat on her own V (B3's follow-up, done):** she floats on the planing V she's drawn
    with, and climbs onto the plane within a degree and a half of Savitsky's trim; and held at the
    hump in a head sea, no planing boat stands on her tail any more.
+24. **The bass boat out on the sea (done):** the yard's trailer takes her between Longmere and
+   Willowhaven by road, and at sea she's towed in, fuelled, brought round and spoken of where she
+   is, not sent back to the boathouse from anywhere.

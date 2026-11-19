@@ -43,7 +43,7 @@ import {
   CALF, CALF_TOWER, CALF_SKERRY, CALF_SOUND, CALF_LANDING,
 } from './world/terrain.js';
 import { Car } from './car.js';
-import { TRAILABLE, TRAILER_HOME, launchSpot, loadable } from './trailer.js';
+import { TRAILABLE, TRAILER_HOME, ROAD_HAUL, launchSpot, loadable } from './trailer.js';
 import { MAX_AFLOAT, homeOf, STORE_WORDS, LAUNCH_WORDS, NEW_AFLOAT, chooseAfloat, ownBerths, cleanStored } from './fleet.js';
 import { Workbench, OutingSheet } from './workbench.js';
 import { KIT, KIT_IDS, DESTS, launchOf, parkNear, driveMinutes, moveKit, reconcile, campOfKit, campHas, statusOf, snapshot } from './outing.js';
@@ -955,17 +955,21 @@ function mooring(id) {
   // The boats that live at Willowhaven: alongside your own finger of the pontoon (where, depends
   // on which of them are in the water: see fleet.js).
   if (homeOf(kind) === 'harbour') return ownBerth(id);
-  if (kind === 'bass') {
-    const P = BOATHOUSE_PIER, d = P.dir, side = { x: -d.z, z: d.x };
-    for (const off of [2.1, -2.1, 2.8, -2.8]) {
-      for (let k = 2; k < 12; k += 0.5) {
-        const x = P.end.x - d.x * k + side.x * off, z = P.end.z - d.z * k + side.z * off;
-        if (solidHeight(x, z) < -1 && solidHeight(x + d.x * 2.4, z + d.z * 2.4) < -1 && solidHeight(x - d.x * 2.4, z - d.z * 2.4) < -0.8) return { x, z, heading: Math.atan2(d.x, d.z) };
-      }
-    }
-    return { x: P.end.x + d.x * 4, z: P.end.z + d.z * 4, heading: Math.atan2(d.x, d.z) };
-  }
+  if (kind === 'bass') return boathouseMooring();
   return { x: START.x, z: START.z, heading: START.heading };
+}
+// Alongside the boathouse jetty on Longmere: deep enough for an outboard, and (for boat b) clear
+// of your other boats lying there.
+function boathouseMooring(b = null) {
+  const P = BOATHOUSE_PIER, d = P.dir, side = { x: -d.z, z: d.x };
+  const taken = (x, z) => b && boats.some((o) => o !== b && !o.stowed && Math.hypot(o.pos.x - x, o.pos.z - z) < (o.hull.L + b.hull.L) / 2 + 0.3);
+  for (const off of [2.1, -2.1, 2.8, -2.8]) {
+    for (let k = 2; k < 12; k += 0.5) {
+      const x = P.end.x - d.x * k + side.x * off, z = P.end.z - d.z * k + side.z * off;
+      if (solidHeight(x, z) < -1 && solidHeight(x + d.x * 2.4, z + d.z * 2.4) < -1 && solidHeight(x - d.x * 2.4, z - d.z * 2.4) < -0.8 && !taken(x, z)) return { x, z, heading: Math.atan2(d.x, d.z) };
+    }
+  }
+  return { x: P.end.x + d.x * 4, z: P.end.z + d.z * 4, heading: Math.atan2(d.x, d.z) };
 }
 
 // Which of your boats are laid up ashore (see fleet.js). A game from before there was a boat
@@ -3055,7 +3059,7 @@ function teachBoat() {
   const text = {
     skiff: `The motor skiff, for the open coast: ${lever} Near a shore, slow down and ${use} to step off.`,
     kayak: `The kayak: slow, silent, and it floats in a hand’s depth, so you can creep up on fish in the shallows and reeds. ${S ? `${T ? 'The stick' : 'The left stick'} paddles and steers.` : `${key('forward')}${key('left')}${key('back')}${key('right')} paddle and steer.`} Its little electric motor: ${T ? 'the Lower motor button' : key('motor')}.`,
-    bass: `The bass boat: ${lever} The first notches run the quiet electric motor at the bow, for creeping along the weed; push on for the outboard. Longmere has no pump: bring the jerry can.`,
+    bass: `The bass boat: ${lever} The first notches run the quiet electric motor at the bow, for creeping along the weed; push on for the outboard. Longmere has no pump: bring the jerry can (down at the sea, the quay pumps fill her). The yard’s trailer takes her down to the sea by road, or yours behind the car: ask at the harbour office.`,
     windsurf: `The windsurf board: ${T ? 'the stick up sheets in, down eases out, across steers' : S ? `${stick} up and down sheets in and out, across steers` : `${key('forward')} sheets in, ${key('back')} eases out, ${key('left')} and ${key('right')} steer`}. In a good breeze it planes and flies; ease out in the gusts or you’re catapulted in. No fishing, no anchor.`,
     console: `The centre console: twin outboards, about twenty-six knots on the pair she came with (the Marine Works has others). ${lever} To fish, just cast: you step back into the cockpit to face your line.`,
     rib: `The RIB: a deep-V hull with tubes for sides, one big outboard, about thirty-five knots on the engine she came with (the Marine Works has others). ${lever} Her tubes keep her steady and dry in a sea. To fish, just cast: you step back to face your line.`,
@@ -6522,7 +6526,7 @@ function watchTank(what) {
   }
   const lowNow = fuelLow(tanks(), what) && fuelLevel(tanks(), what) > 0;
   if (lowNow && !fuelWarned[what]) {
-    hud.toast(`${cap(fuelName(what))} is low on fuel: ${tankWords(tanks(), what)}. ${what === 'car' ? 'The pump by the garage fills it (or the jerry can).' : kindOf(what) === 'bass' ? 'Longmere has no pump: the jerry can fills it.' : player().pos.z > SOUTH_Z ? 'The pump on Puerto Brasa quay fills it.' : 'The harbour pump on Willowhaven quay fills it.'}`, 6);
+    hud.toast(`${cap(fuelName(what))} is low on fuel: ${tankWords(tanks(), what)}. ${what === 'car' ? 'The pump by the garage fills it (or the jerry can).' : BOATS[what] && onMere(BOATS[what]) ? 'Longmere has no pump: the jerry can fills it.' : player().pos.z > SOUTH_Z ? 'The pump on Puerto Brasa quay fills it.' : 'The harbour pump on Willowhaven quay fills it.'}`, 6);
   }
   fuelWarned[what] = lowNow || fuelLevel(tanks(), what) <= 0;
 }
@@ -6784,7 +6788,7 @@ function boatChoices() {
   const acts = [{ text: 'Paddle on with the oar', cls: 'quiet', run: () => {} }];
   // (An electric outboard's battery flat: no can will help, a tow will.)
   if (ELEC[boat.id]) {
-    const how = helpHere(), into = boat.pos.z > SOUTH_Z ? 'Puerto Brasa' : 'Willowhaven quay';
+    const how = helpHere(), into = onMere(boat) ? 'the boathouse' : boat.pos.z > SOUTH_Z ? 'Puerto Brasa' : 'Willowhaven quay';
     acts.push({ text: how === 'flare' ? `Fire a flare for a tow (${state.safety.flares} left: a couple of hours)` : how === 'wait' ? `Wait for a passing boat to tow you to ${into} (hours)` : `${how === 'vhf' ? 'Radio' : 'Ring'} for a tow to ${into} (about an hour)`, run: () => towBoat(how) });
     ask(`The ${boat.name}: battery flat`, 'The motor’s battery is flat. An oar moves her along, slowly; tied up at a jetty or a quay it charges again (half an hour’s worth an hour), and overnight.', acts);
     return;
@@ -6793,7 +6797,7 @@ function boatChoices() {
   const canWith = f.can.at === 'pack' || f.can.at === `boat:${boat.id}`;
   if (canWith && f.can.litres >= 0.5) acts.push({ text: `Pour in the jerry can (${litres(f.can.litres)})`, cls: 'quiet', run: () => { pourCan(boat.id); if (f.can.at !== 'pack') syncCargo(boat.id); } });
   // (F1b) A tow as help can be called from here.
-  const how = helpHere(), into = kind === 'bass' ? 'the boathouse' : boat.pos.z > SOUTH_Z ? 'Puerto Brasa' : 'Willowhaven quay';
+  const how = helpHere(), into = onMere(boat) ? 'the boathouse' : boat.pos.z > SOUTH_Z ? 'Puerto Brasa' : 'Willowhaven quay';
   acts.push({ text: how === 'flare' ? `Fire a flare for a tow (${state.safety.flares} left: a couple of hours)` : how === 'wait' ? `Wait for a passing boat to tow you to ${into} (hours)` : `${how === 'vhf' ? 'Radio' : 'Ring'} for a tow to ${into} (about an hour)`, run: () => towBoat(how) });
   ask(`The ${boat.name}: out of fuel`, `The tank is dry. An oar moves her along, slowly${kind === 'bass' && f.battery > 0 ? ', and the electric motor still runs on its battery' : ''}.${canWith ? '' : ' (The jerry can isn’t with you.)'}${how === 'phone' || how === 'vhf' ? '' : ` ${HELP_WORDS[how]}`}`, acts);
 }
@@ -6802,9 +6806,9 @@ function towBoat(how = 'vhf') {
   if (fishing.lineOut || fishing.aiming) fishing.cancel();
   // (F1b) A flare used; help as long as it takes to find you.
   if (how === 'flare') state.safety.flares = Math.max(0, state.safety.flares - 1);
-  // (Down south, into Puerto Brasa: a berth on the pontoon.)
-  const south = boat.pos.z > SOUTH_Z, berth = south ? pontoonBerth(boat, true) : null;
-  const p = berth || (south ? { x: PONTOON_S.x1 + 6, z: PONTOON_S.z1 + 6, heading: 0 } : boat.kind === 'bass' ? mooring('bass') : quayMooring(boat) || mooring(boat.iind));
+  // (Down south, into Puerto Brasa: a berth on the pontoon. On Longmere, the boathouse jetty.)
+  const south = boat.pos.z > SOUTH_Z, mere = onMere(boat), berth = south ? pontoonBerth(boat, true) : null;
+  const p = berth || (south ? { x: PONTOON_S.x1 + 6, z: PONTOON_S.z1 + 6, heading: 0 } : mere ? boathouseMooring(boat) : havenMooring(boat));
   boat.place(p.x, p.z, p.heading);
   if (berth) boat.tieTo({ ...berth, t: 9 });
   else boat.setAnchor(true);
@@ -6817,12 +6821,12 @@ function towBoat(how = 'vhf') {
   // (An electric: tied up the while, its battery's had an hour's charge.)
   if (ELEC[boat.id]) {
     chargeElec(tanks(), boat.id, 1);
-    hud.toast(`${south ? 'A fishing boat tows you in to Puerto Brasa' : 'A boat from the harbour tows you in to Willowhaven quay'}, ${gone}, and the motor’s battery has had an hour on charge: ${elecWords(tanks(), boat.kind)}.`, 8);
+    hud.toast(`${south ? 'A fishing boat tows you in to Puerto Brasa' : mere ? 'The boathouse keeper tows you back to the jetty' : 'A boat from the harbour tows you in to Willowhaven quay'}, ${gone}, and the motor’s battery has had an hour on charge: ${elecWords(tanks(), boat.kind)}.`, 8);
     save();
     return;
   }
-  hud.toast(boat.kind === 'bass'
-    ? `The boathouse keeper tows you back to the jetty, ${gone}, and leaves you ${litres(fuelLevel(tanks(), 'bass'))} to potter with. The jerry can fills at home or at Willowhaven.`
+  hud.toast(mere
+    ? `The boathouse keeper tows you back to the jetty, ${gone}, and leaves you ${litres(fuelLevel(tanks(), boat.id))} to potter with. The jerry can fills at home or at Willowhaven.`
     : south ? `A fishing boat tows you in to Puerto Brasa, ${gone}, and they leave you ${litres(fuelLevel(tanks(), boat.id))}. The pump is on the quay.`
       : `A boat from the harbour tows you in to Willowhaven quay, ${gone}, and they leave you ${litres(fuelLevel(tanks(), boat.id))}. The pump is at the root of the quay.`, 8);
   save();
@@ -8506,26 +8510,77 @@ function quayMooring(b) {
 }
 // Your boats, from either harbour's quay (Willowhaven's quay head, Puerto Brasa's harbour
 // office): one in this sea is brought round for you now; one in the other goes on the supply
-// ship overnight and is at the pontoon here the next morning at eight. (The bass boat lives on
-// Longmere.)
+// ship overnight and is at the pontoon here the next morning at eight. One up on Longmere (the bass
+// boat's home water) comes down by road on the yard's trailer, and the bass boat goes back up the
+// same way (ROAD_HAUL).
 const regionOf = (b) => (b.pos.z > SOUTH_Z ? 'south' : 'home');
+// (Up on Longmere: fresh water, cut off from the sea but by road. See terrain.js zoneAt.)
+const onMere = (b) => zoneAt(b.pos.x, b.pos.z) === 'mere';
+// Into Willowhaven, for a boat brought in from the sea: alongside the quay; else, as ever, her own
+// place (her finger, the camp's landing). Else, the bass boat (whose own place is up on Longmere),
+// at the visitors' pontoon, or lying just off the quay head.
+function havenMooring(b) {
+  const p = quayMooring(b);
+  if (p) return p;
+  if (homeOf(b.kind) !== 'lake') return mooring(b.id);
+  const v = pontoonBerth(b, false);
+  if (v) return v;
+  for (const dz of [10, 16, 22]) {
+    const q = { x: QUAY_HEAD.x, z: HAVEN_QUAY.z1 + dz, heading: 0 };
+    if (floats(b, q)) return q;
+  }
+  return { x: QUAY_HEAD.x, z: HAVEN_QUAY.z1 + 16, heading: 0 };
+}
+// The yard's trailer (ROAD_HAUL): a small boat of yours on Longmere down to Willowhaven, or the
+// bass boat back up to the boathouse, in the water and tied up at the other end.
+const roadable = (b) => TRAILABLE.includes(b.kind) && !b.stowed && !(b === boat && !onFoot) && !(tow && (tow.lead === b || tow.towed === b)) && !(state.shipping || []).some((s) => s.kind === b.id);
+function haulByRoad(b, to) {
+  if ((state.money || 0) < ROAD_HAUL.fee) {
+    hud.toast(`The yard’s trailer is ${money(ROAD_HAUL.fee)}, and you’ve ${money(state.money || 0)}.`, 4);
+    return false;
+  }
+  const p = to === 'sea' ? havenMooring(b) : boathouseMooring(b);
+  Object.assign(b, { tie: null, shove: null, anchor: null, anchored: false, lever: 0, power: 0 });
+  b.place(p.x, p.z, p.heading);
+  const B = berthFor(b, boats, { reach: 4 });
+  if (B) {
+    b.place(B.x, B.z, B.heading);
+    b.tieTo({ ...B, t: 9 });
+  }
+  payOut(state, ROAD_HAUL.fee, `The yard’s trailer: the ${b.name} ${to === 'sea' ? 'down to Willowhaven' : 'up to Longmere'}`);
+  passTime(ROAD_HAUL.hours);
+  audio.knock?.(0.4);
+  vesselLog(b.id, to === 'sea' ? 'Down to Willowhaven by road.' : 'Back up to Longmere by road.');
+  save();
+  const pontoon = B && PIERS[B.pier] !== HAVEN_QUAY;
+  hud.toast(to === 'sea'
+    ? `The yard’s trailer brings the ${b.name} down the road from Longmere, an hour and a half, ${money(ROAD_HAUL.fee)}: she’s ${pontoon ? 'tied up at the visitors’ pontoon' : B ? 'tied up alongside the quay' : 'lying off the quay head'}. At sea now: the quay pumps fill her.`
+    : `The yard’s trailer takes the ${b.name} up the road to Longmere, an hour and a half, ${money(ROAD_HAUL.fee)}: she’s ${B ? 'tied up' : 'lying'} at the boathouse jetty.`, 8);
+  return true;
+}
 function boatsRound(here = regionOf(player())) {
   const south = here === 'south';
   const atHand = (b) => (south ? Math.hypot(b.pos.x - PONTOON_S.x0, b.pos.z - 6320) < 45
     : Math.hypot(b.pos.x - QUAY_HEAD.x, b.pos.z - HAVEN_QUAY.z1) < 14 || (homeOf(b.kind) === 'harbour' && inMarina(b.pos)));
   const coming = new Set((state.shipping || []).filter((s) => s.to === here).map((s) => s.kind)); // (her id, under its old name)
-  const near = boats.filter((b) => b.kind !== 'bass' && regionOf(b) === here && !atHand(b) && !coming.has(b.id));
-  const far = boats.filter((b) => b.kind !== 'bass' && regionOf(b) !== here && !coming.has(b.id) && b !== boat);
+  const near = boats.filter((b) => !onMere(b) && regionOf(b) === here && !atHand(b) && !coming.has(b.id));
+  const far = boats.filter((b) => !onMere(b) && regionOf(b) !== here && !coming.has(b.id) && b !== boat);
+  // (By road, at Willowhaven: down from Longmere, or the bass boat back up to it.)
+  const down = south ? [] : boats.filter((b) => onMere(b) && roadable(b));
+  const up = south ? [] : boats.filter((b) => !onMere(b) && regionOf(b) === 'home' && homeOf(b.kind) === 'lake' && roadable(b));
   const otherName = south ? 'Willowhaven' : 'Puerto Brasa';
   const onShip = [...coming].map((k) => BOATS[k].name);
   const shipNote = onShip.length ? ` On the supply ship already: the ${onShip.join(' and the ')}, here tomorrow morning.` : '';
-  if (!near.length && !far.length) {
-    hud.toast(`Your boats are all here already.${shipNote} (The bass boat lives on Longmere.)`, 5);
+  if (!near.length && !far.length && !down.length && !up.length) {
+    hud.toast(`Your boats are all here already.${shipNote}`, 5);
     return;
   }
-  ask(south ? 'The harbour office' : 'Bring a boat round?', `${near.length ? 'A boat in this sea is brought round to the pontoon or the quay for you now.' : ''}${far.length ? ` A boat at ${otherName} goes on the supply ship tonight, and is at the pontoon here at eight tomorrow morning.` : ''}${shipNote}`.trim(), [
+  const road = down.length || up.length ? ` The yard’s trailer takes a small boat between here and Longmere by road: an hour and a half, ${money(ROAD_HAUL.fee)}.` : '';
+  ask(south ? 'The harbour office' : 'Bring a boat round?', `${near.length ? 'A boat in this sea is brought round to the pontoon or the quay for you now.' : ''}${far.length ? ` A boat at ${otherName} goes on the supply ship tonight, and is at the pontoon here at eight tomorrow morning.` : ''}${road}${shipNote}`.trim(), [
     { text: 'Never mind', cls: 'quiet' },
     ...near.map((b) => ({ text: `The ${b.name}`, run: () => bringRound(b, here) })),
+    ...down.map((b) => ({ text: `The ${b.name}, down from Longmere by road (${money(ROAD_HAUL.fee)})`, run: () => haulByRoad(b, 'sea') })),
+    ...up.map((b) => ({ text: `The ${b.name}, back up to Longmere by road (${money(ROAD_HAUL.fee)})`, cls: 'quiet', run: () => haulByRoad(b, 'mere') })),
     ...far.map((b) => ({ text: `Ship the ${b.name} from ${otherName}`, cls: 'quiet', run: () => shipBoat(b, here) })),
   ]);
 }
@@ -8538,13 +8593,13 @@ function whereWords(b) {
   if (b.tie && VISITOR_FINGERS.includes(PIERS[b.tie.pier])) return 'at the visitors’ pontoon';
   if (inMarina(b.pos)) return 'in the harbour';
   if (Math.hypot(b.pos.x - LANDING.x, b.pos.z - LANDING.z) < 40) return 'at the camp';
-  if (b.kind === 'bass') return 'on Longmere';
+  if (onMere(b)) return 'on Longmere';
   return 'out on the water';
 }
 const canStore = (b) => !(b === boat && !onFoot) && regionOf(b) === 'home' && !(tow && (tow.lead === b || tow.towed === b)) && !(state.shipping || []).some((s) => s.kind === b.id);
 function harbourOffice() {
   const laid = IDS.filter(isStored).filter((id) => usableBoat(state.yard, id, state.day, ownAbs())).map((id) => BOATS[id]);
-  const south = boats.some((b) => b.kind !== 'bass' && regionOf(b) === 'south');
+  const south = boats.some((b) => regionOf(b) === 'south');
   // (Wenna at the hatch in office hours; out of them, the yard's board beside it does as well.)
   const W = town.people.wenna, inOffice = W?.block?.spot === 'office' && W.act === 'inside';
   const greet = inOffice ? 'Wenna Penhallow, the harbourmaster, looks up from her ledger. ' : W?.block?.spot === 'gangway' ? 'Wenna’s down at the gangway looking over the pontoon; the board by the hatch does as well. ' : 'The hatch is shut for the night, but the yard’s board beside it sees to your boats all the same. ';
@@ -8569,9 +8624,14 @@ function chooseStore() {
 }
 function chooseLaunch() {
   const laid = IDS.filter(isStored).filter((id) => usableBoat(state.yard, id, state.day, ownAbs())).map((id) => BOATS[id]);
+  // (The bass boat, laid up in the boathouse on Longmere, can come down by road and go in here.)
+  const byRoad = (b) => homeOf(b.kind) === 'lake' && TRAILABLE.includes(b.kind) && (state.money || 0) >= ROAD_HAUL.fee;
   ask('Put a boat in the water', boats.length >= MAX_AFLOAT ? `Three of your boats are in the water already, so one of them is laid up in her place.` : 'Which one?', [
     { text: 'Never mind', cls: 'quiet' },
-    ...laid.map((b) => ({ text: `The ${boatCall(b)}`, run: () => launchBoat(b) })),
+    ...laid.flatMap((b) => [
+      { text: homeOf(b.kind) === 'lake' ? `The ${boatCall(b)}, on Longmere` : `The ${boatCall(b)}`, run: () => launchBoat(b) },
+      ...(byRoad(b) ? [{ text: `The ${boatCall(b)}, down here by road (${money(ROAD_HAUL.fee)})`, cls: 'quiet', run: () => (launchBoat(b, { quiet: true }) ? haulByRoad(b, 'sea') : launchBoat(b)) }] : []),
+    ]),
   ]);
 }
 // What the Marine Works has done to your boats (see shipyard.js): fittings (a long-range tank, a
@@ -8850,7 +8910,7 @@ function deliverShipping() {
       b.place(B.x, B.z, B.heading);
       b.tieTo({ ...B, t: 9 });
     } else {
-      const p = south ? { x: PONTOON_S.x1 + 9, z: PONTOON_S.z1 + 6, heading: 0 } : mooring(b.id);
+      const p = south ? { x: PONTOON_S.x1 + 9, z: PONTOON_S.z1 + 6, heading: 0 } : homeOf(b.kind) === 'lake' ? havenMooring(b) : mooring(b.id);
       b.place(p.x, p.z, p.heading);
       b.setAnchor(true, { instant: true });
     }
@@ -10121,8 +10181,8 @@ function harbourTow(how = 'vhf') {
   if (fishing.lineOut || fishing.aiming) fishing.cancel();
   if (bailing) { bailing.b.bailing = false; bailing = null; }
   pumping = null;
-  const south = boat.pos.z > SOUTH_Z, berth = south ? pontoonBerth(boat, true) : null;
-  const p = berth || (south ? { x: PONTOON_S.x1 + 6, z: PONTOON_S.z1 + 6, heading: 0 } : kind === 'bass' ? mooring('bass') : quayMooring(boat) || mooring(boat.id));
+  const south = boat.pos.z > SOUTH_Z, mere = onMere(boat), berth = south ? pontoonBerth(boat, true) : null;
+  const p = berth || (south ? { x: PONTOON_S.x1 + 6, z: PONTOON_S.z1 + 6, heading: 0 } : mere ? boathouseMooring(boat) : havenMooring(boat));
   boat.place(p.x, p.z, p.heading);
   if (berth) boat.tieTo({ ...berth, t: 9 });
   else boat.setAnchor(true);
@@ -10138,8 +10198,8 @@ function harbourTow(how = 'vhf') {
   if (fee > 0) payOut(state, fee, 'The harbour launch: a tow in');
   audio.knock?.(0.4);
   const gone = hrs < 1 ? 'half an hour' : hrs > 1.5 ? `${Math.round(hrs)} hours` : 'an hour';
-  hud.toast(`${how === 'flare' ? 'Your flare goes up red over the water. In time a fishing boat comes, and the harbour launch behind her: they put' : how === 'wait' ? `Nobody hears you out here. ${gone[0].toUpperCase() + gone.slice(1)} go by before a passing boat sees you and calls the harbour launch: they put` : 'The harbour launch comes out, puts'} a pump and a plug in her and tow${how === 'flare' || how === 'wait' ? '' : 's'} you in to ${south ? 'Puerto Brasa' : kind === 'bass' ? 'the boathouse' : 'Willowhaven quay'}${how === 'wait' ? '' : `: ${gone} gone`}${fee ? `, £${fee} for their trouble` : T.fee ? ', and they’ll not take your last penny' : ''}. The Marine Works can put her right.${how === 'wait' ? ' (A VHF, or flares from the chandlery, and they’d have come sooner.)' : ''}`, 9);
-  vesselLog(kind, 'Towed in by the harbour launch.');
+  hud.toast(`${how === 'flare' ? 'Your flare goes up red over the water. In time a fishing boat comes, and the harbour launch behind her: they put' : how === 'wait' ? `Nobody hears you out here. ${gone[0].toUpperCase() + gone.slice(1)} go by before a passing boat sees you and calls the harbour launch: they put` : 'The harbour launch comes out, puts'} a pump and a plug in her and tow${how === 'flare' || how === 'wait' ? '' : 's'} you in to ${south ? 'Puerto Brasa' : mere ? 'the boathouse' : 'Willowhaven quay'}${how === 'wait' ? '' : `: ${gone} gone`}${fee ? `, £${fee} for their trouble` : T.fee ? ', and they’ll not take your last penny' : ''}. The Marine Works can put her right.${how === 'wait' ? ' (A VHF, or flares from the chandlery, and they’d have come sooner.)' : ''}`, 9);
+  vesselLog(boat.id, 'Towed in by the harbour launch.');
   save();
 }
 function startBailing() {
@@ -14355,6 +14415,10 @@ window.slowTide = {
   // The harbour's sheets: slowTide.harbour('market'), ('inn', 'kitchen'), ('chandlery').
   harbour: (where, tab) => openHarbour(where, tab),
   harbourOffice: () => harbourOffice(),
+  // Bring a boat round, ship one, or (a small boat) by road between here and Longmere; a tow in
+  // for the boat you're in, as when she's out of fuel ('vhf', 'phone', 'flare' or 'wait').
+  boatsRound: () => boatsRound('home'),
+  towIn: (how = 'vhf') => towBoat(how),
   whereIAm: () => whereIAm(),
   pump: (id = 'haven') => openPump(id),
   get yard() { return state.yard; },
