@@ -93,6 +93,7 @@ export const DEFAULT_STATE = {
   sky: null,       // the weather right now: { cloud, rain, state, timer }
   seen: '',        // the parts of the map you've explored (see map.js), as base64
   seenSouth: '',   // the same for Las Brasas' chart, far to the south
+  seenNorth: '',   // and for the Selkie Isles' chart, up the coast (docs/NORTH.md)
   shipping: [],    // boats on the supply ship between the harbours: { kind (her id), to ('south' or 'home'), due (game hours) }
   stored: null,    // your boats laid up ashore (ids; see fleet.js): null until it's been decided
   engines: {},     // each motorboat's engine room: switches, battery and trim (see engine.js)
@@ -235,15 +236,18 @@ const num = (v, d, lo = -Infinity, hi = Infinity) => (typeof v === 'number' && N
 const int = (v, d, lo, hi) => Math.round(num(v, d, lo, hi));
 const str = (v, d, max = 60) => (typeof v === 'string' ? v.slice(0, max) : d);
 const oneOf = (v, list, d) => (list.includes(v) ? v : d);
-const ZONES = ['bay', 'cove', 'open', 'lake', 'stream', 'estuary', 'mere', 'coast', 'deep', 'river', 'tarn', 'tideway'];
+// (With Las Brasas' and the north's: a catch there was coming back from a save as 'bay'.)
+const ZONES = ['bay', 'cove', 'open', 'lake', 'stream', 'estuary', 'mere', 'coast', 'deep', 'river', 'tarn', 'tideway',
+  'harbor', 'lee', 'lava', 'sebadal', 'veril', 'ocean', 'kelp', 'sound', 'race', 'loch', 'skerry', 'outer'];
 const SKY_STATES = ['clear', 'partly', 'overcast', 'light', 'heavy', 'storm'];
 const KINDS = ['float', 'lure', 'ledger', 'bottom', 'fly', 'jig', 'spear'];
 export const OUTCOMES = ['released', 'kept', 'cooked', 'eaten', 'sold'];
 export const PIN_MAX = 60;
 export const PHOTO_MAX = 48;
 const ID = /^[a-z0-9-]{3,40}$/;
-// Where things in the world can be: home's coast, and Las Brasas far to the south (z about 6000).
-const X_LO = -3000, X_HI = 3000, Z_LO = -3000, Z_HI = 8000;
+// Where things in the world can be: home's coast, Las Brasas far to the south (z about 6000), and
+// the north up the coast to the west (to x -4700, z -8000).
+const X_LO = -5000, X_HI = 3000, Z_LO = -8200, Z_HI = 8000;
 const when = (v) => (isObj(v) ? { day: int(v.day, 1, 1, 1e6), hour: num(v.hour, 12, 0, 24) } : null);
 
 // (Your boats' ids: G8, for now one of each kind, her id her kind.)
@@ -254,7 +258,9 @@ function pos(v) {
   const x = num(v.x, NaN), z = num(v.z, NaN);
   // (Home lies within about two kilometres of the bay; Las Brasas far to the south, round z 6000;
   // and the open sea between, where a boat can be left mid-crossing.)
-  if (!Number.isFinite(x) || !Number.isFinite(z) || Math.abs(x) > 2000 || z < -2600 || z > 7600) return null;
+  // (And the north: the coast up to the Selkie Isles, west and north of home.)
+  const north = x > -4700 && x < -300 && z > -8000 && z < 1400;
+  if (!Number.isFinite(x) || !Number.isFinite(z) || ((Math.abs(x) > 2000 || z < -2600 || z > 7600) && !north)) return null;
   // (motor: the kayak's electric motor left lowered; older saves have it raised.)
   // (sail: the sailing boat's sail left up, and how far her sheet was eased.)
   const out = { x, z, heading: num(v.heading, 0), anchored: !!v.anchored, ...(v.motor === true ? { motor: true } : {}), ...(typeof v.sail === 'number' && Number.isFinite(v.sail) ? { sail: num(v.sail, 0.5, 0, 1) } : {}) };
@@ -421,9 +427,9 @@ export function sanitize(raw) {
   if (isObj(t) && fishById[t.sp] && setupOf(t.setup)) {
     s.trip = {
       id: String(t.id || 't').slice(0, 24), sp: t.sp, start: num(t.start, Date.now(), 0, 1e15), day: int(t.day, 1, 1, 1e6), hour: num(t.hour, 12, 0, 24),
-      x: num(t.x, 0, -5000, 5000), z: num(t.z, 0, -5000, 5000), r: num(t.r, 30, 5, 200), name: String(t.name || '').slice(0, 80), setup: setupOf(t.setup), arrived: !!t.arrived,
+      x: num(t.x, 0, X_LO, X_HI), z: num(t.z, 0, Z_LO, Z_HI), r: num(t.r, 30, 5, 200), name: String(t.name || '').slice(0, 80), setup: setupOf(t.setup), arrived: !!t.arrived,
       // (E3c: where it set off from, and in what.)
-      ...(isObj(t.from) && Number.isFinite(t.from.x) && Number.isFinite(t.from.z) ? { from: { x: num(t.from.x, 0, -5000, 5000), z: num(t.from.z, 0, -5000, 5000) } } : {}),
+      ...(isObj(t.from) && Number.isFinite(t.from.x) && Number.isFinite(t.from.z) ? { from: { x: num(t.from.x, 0, X_LO, X_HI), z: num(t.from.z, 0, Z_LO, Z_HI) } } : {}),
       ...(typeof t.boat === 'string' && /^[a-z]{2,12}$/.test(t.boat) ? { boat: t.boat } : {}),
       ...(t.left ? { left: true } : {}),
     };
@@ -460,6 +466,7 @@ export function sanitize(raw) {
   // (A tender the save had carried whose mother is gone: laid up at Willowhaven, never lost.)
   if (s.stored) settleCarried({ carried: {}, stored: s.stored, trailer: s.trailer }, dropped.filter((t) => fleet.includes(t) && fleet.filter((k) => !s.stored.includes(k)).length > 1));
   s.seenSouth = typeof raw.seenSouth === 'string' && raw.seenSouth.length <= 4000 && /^[A-Za-z0-9+/=]*$/.test(raw.seenSouth) ? raw.seenSouth : '';
+  s.seenNorth = typeof raw.seenNorth === 'string' && raw.seenNorth.length <= 6000 && /^[A-Za-z0-9+/=]*$/.test(raw.seenNorth) ? raw.seenNorth : '';
   // A crossing under way (an older save has none: nothing to resume), and your crossings so far.
   s.crossing = cleanCrossing(raw.crossing);
   s.passages = cleanPassages(raw.passages);

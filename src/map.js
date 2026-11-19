@@ -217,9 +217,14 @@ export class MapSheet {
   sheetFor(x, z) {
     // (Las Brasas' own chart first; then, between the bottom of home's and the top of the island's,
     // the open sea's.)
-    const S = this.sheets.south?.S, O = this.sheets.ocean?.S;
-    if (S && x > S.x && x < S.x + S.w && z > S.z && z < S.z + S.h) return 'south';
+    const S = this.sheets.south?.S, O = this.sheets.ocean?.S, N = this.sheets.north?.S, C = this.sheets.coast?.S;
+    const inside = (R) => R && x > R.x && x < R.x + R.w && z > R.z && z < R.z + R.h;
+    if (inside(S)) return 'south';
     if (O && x > O.x && x < O.x + O.w && z > SHEET.z + SHEET.h && z < (S ? S.z : O.z + O.h)) return 'ocean';
+    // (The north, up the coast: the isles' own chart, and the printed chart of the coast up to
+    // them wherever home's doesn't reach.)
+    if (inside(N)) return 'north';
+    if (inside(C) && !inside(SHEET)) return 'coast';
     return 'home';
   }
 
@@ -1503,7 +1508,8 @@ export class MapSheet {
     $('map-sub').textContent = this.highlight
       ? `Shaded: water that suits ${fishById[this.highlight].name.toLowerCase()} (${[...new Set(fishById[this.highlight].life.zones.map((z) => ZONE_NAMES[z] || z))].join(', ')}). It shows where to look, not where each fish is.`
       : this.key === 'ocean' ? `The open Atlantic between Willow Bay and Las Brasas: ${(CROSS_M / 1000).toFixed(1)} km of open sea from Gannet Light to the island.`
-        : `${found.length} of ${PLACES.length} places found · ${Math.round(this.explored.fraction * 100)}% of ${this.key === 'south' ? 'Las Brasas' : 'the coast'} explored`;
+        : this.key === 'coast' ? 'The coast north from Willow Bay: west past Heron Point and the Calf, round the Ness, and up under the fells to the Selkie Isles, about nine kilometres by sea.'
+          : `${found.length} of ${PLACES.length} places found · ${Math.round(this.explored.fraction * 100)}% of ${this.key === 'south' ? 'Las Brasas' : this.key === 'north' ? 'the Selkie Isles' : 'the coast'} explored`;
 
     // Camps you can head to (the walk or sail there happens in a short fade; time passes).
     const camps = found.filter((p) => p.camp);

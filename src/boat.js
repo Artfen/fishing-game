@@ -11,6 +11,7 @@ import { compartmentsFor, reserveOf, breachFlow, overFlow, rainFlow, holeArea, s
 import { wakes } from './world/wakes.js';
 import { solidHeight, heightAt, stackHeight, PIERS, SEA, SOUTH_Z, CROSSING } from './world/terrain.js';
 import { SOUTH_RECT } from './world/brasa.js';
+import { NORTH_RECT } from './world/north.js';
 import { buildLanternModel, buildRod, bendRod } from './props.js';
 import { withSurface } from './world/surface.js';
 import { RODS } from './tackle.js';
@@ -780,9 +781,13 @@ function yawCouple(b, tq) {
 // be (Las Brasas, far to the south, has its own edges; and between the two, the open sea of the
 // crossing joins them, with edges only to either side).
 const _edge = { x: 0, z: 0 };
-function edgePush(p) {
-  const W = p.z > SOUTH_Z ? SOUTH_RECT : SEA, m = 80;
+// (The north, up the coast, is a rect of its own that home's sea runs into west of the Calf: there,
+// whichever of the two she's deeper into.)
+const insetOf = (R, p) => Math.min(p.x - R.x0, R.x1 - p.x, p.z - R.z0, R.z1 - p.z);
+export function edgePush(p) {
+  const m = 80;
   const across = p.x > CROSSING.x0 && p.x < CROSSING.x1 && p.z > SEA.z1 - m - 20 && p.z < SOUTH_RECT.z0 + m + 20;
+  const W = p.z > SOUTH_Z ? SOUTH_RECT : !across && p.x < SEA.x0 + m + 40 && insetOf(NORTH_RECT, p) > insetOf(SEA, p) ? NORTH_RECT : SEA;
   const X0 = across ? CROSSING.x0 : W.x0, X1 = across ? CROSSING.x1 : W.x1;
   _edge.x = p.x < X0 + m ? X0 + m - p.x : p.x > X1 - m ? X1 - m - p.x : 0;
   _edge.z = across ? 0 : p.z < W.z0 + m ? W.z0 + m - p.z : p.z > W.z1 - m ? W.z1 - m - p.z : 0;

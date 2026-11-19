@@ -17,8 +17,9 @@ import { Environment, phaseName, formatClock } from './world/sky.js';
 import { WorldClock, advance as advanceClock, HOUR_SECONDS, rateAt } from './world/clock.js';
 import { SKIES, createWeather, stepWeather, skyOf } from './world/weather.js';
 import { createWater } from './world/water.js';
-import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeight, waveHeightHere, compass, bearingOf, windWords, seaWords, shelterAt, bakeShelter, shelterRect, TIDE, tidalTexture } from './world/conditions.js';
+import { conditions, updateConditions, windAt, currentAt, currentScale, waveHeight, waveHeightHere, compass, bearingOf, windWords, seaWords, shelterAt, bakeShelter, shelterRect, TIDE, tidalTexture, shelterSteps } from './world/conditions.js';
 import { SOUTH_WATER, SOUTH_MAP, LANDFALL, POSADA, PUERTO as PUERTO_AT, PONTOON_S, FINGERS_S, ISLANDS } from './world/brasa.js';
+import { NORTH_WATER, ISLES_WATER, ISLES_MAP, COAST_SHEET, regionOf as seaAt, inNorth } from './world/north.js';
 import { buildWorld } from './world/world.js';
 import { createHabitat } from './world/habitat.js';
 import { HEAVY as PRESSURE_HEAVY, CELL as PRESSURE_CELL } from './world/pressure.js';
@@ -35,7 +36,7 @@ import { createMist } from './world/mist.js';
 import { surfaceUniforms } from './world/surface.js';
 import { causticUniforms } from './world/caustics.js';
 import {
-  bakeHeightTexture, heightAt, walkHeight, solidHeight, landSDF, lakeSDF, streamSDF, zoneAt, waterOf, riverSDF, mereSDF, waterLevel, depthAt,
+  bakeHeightTexture, heightTextureSteps, heightAt, walkHeight, solidHeight, landSDF, lakeSDF, streamSDF, zoneAt, waterOf, riverSDF, mereSDF, waterLevel, depthAt,
   PLACES, START, WATER_RECT, SHORE_RECT, STACKS, COVE, LANDING, PIERS, BOATHOUSE_PIER, WORLD, SEA, inSeas, inWorld, SOUTH_Z, CROSSING, ZONE_NAMES, FRESH_ZONES,
   PEGS, POOLS, STREAM, SNAG, LILIES, JETTY, ISLAND, GANNET_CAMP, SKERRIES, SKELLIG, DEEP_Z,
   HAVEN, HAVEN_QUAY, HAVEN_BENCH, DAYMARK, STRAND, WRECK, WRECK_BUOY, WRECK_BELL, CHANNEL,
@@ -278,15 +279,48 @@ function southWater() {
   if (!SOUTH_TEX) SOUTH_TEX = { tex: bakeHeightTexture(560, SOUTH_WATER, 560), rect: SOUTH_WATER, detail: bakeHeightTexture(320, HARBOUR_RECT, 282), detailRect: HARBOUR_RECT, shelter: bakeShelter('south') };
   return SOUTH_TEX;
 }
-// The colours of each sea, from the shallows to the deep.
+// The north, up the coast (see world/north.js): its own water map too, coarse over the whole coast
+// north and finer over the isles, and its own sea's field: too much to bake all at once, so baked a
+// slice at a time as you head west past the Calf (or all at once, if you're there before it's done).
+let NORTH_TEX = null, northBake = null;
+function* northWaterSteps() {
+  const tex = yield* heightTextureSteps(432, NORTH_WATER, 936, 2);
+  const detail = yield* heightTextureSteps(540, ISLES_WATER, 580, 4);
+  yield* shelterSteps('north');
+  NORTH_TEX = { tex, rect: NORTH_WATER, detail, detailRect: ISLES_WATER, shelter: bakeShelter('north') };
+}
+function northWater() {
+  if (!NORTH_TEX) {
+    const g = northBake || northWaterSteps();
+    while (!g.next().done);
+    northBake = null;
+  }
+  return NORTH_TEX;
+}
+// (A few milliseconds a frame, once you're heading that way.)
+function bakeNorthAhead(budget = 4) {
+  if (NORTH_TEX) return;
+  const P = player().pos;
+  if (P.x > -300 && P.z > -1900 && camera.position.x > -300) return;
+  northBake = northBake || northWaterSteps();
+  const t0 = performance.now();
+  while (performance.now() - t0 < budget) {
+    if (northBake.next().done) {
+      northBake = null;
+      break;
+    }
+  }
+}
+// The colours of each sea, from the shallows to the deep. (The north's colder and greener.)
 const SEA_COLOURS = {
   home: { uShallow: '#7fd8c6', uMid: '#38a0ad', uDeep: '#1b5c85' },
   south: { uShallow: '#6fe3d8', uMid: '#1f97c9', uDeep: '#0d3e86' },
+  north: { uShallow: '#6cc9b6', uMid: '#2b8790', uDeep: '#14445e' },
 };
 function setRegion(r) {
   region = r;
   conditions.region = r;
-  const W = r === 'south' ? southWater() : HOME_WATER;
+  const W = r === 'south' ? southWater() : r === 'north' ? northWater() : HOME_WATER;
   for (const U of [water.uniforms, mist.uniforms]) {
     U.uHeight.value = W.tex;
     U.uRect.value.set(W.rect.x, W.rect.z, W.rect.w, W.rect.h);
@@ -294,8 +328,8 @@ function setRegion(r) {
     U.uRect2.value.set(W.detailRect.x, W.detailRect.z, W.detailRect.w, W.detailRect.h);
   }
   const SR = shelterRect(r);
-  water.uniforms.uShelter.value = r === 'south' ? W.shelter : bakeShelter();
-  water.uniforms.uTidal.value = tidalTexture(r === 'south' ? 'south' : 'home');
+  water.uniforms.uShelter.value = r === 'home' ? bakeShelter() : W.shelter;
+  water.uniforms.uTidal.value = tidalTexture(r);
   water.uniforms.uShelterRect.value.set(SR.x, SR.z, SR.w, SR.h);
   for (const [k, c] of Object.entries(SEA_COLOURS[r])) water.uniforms[k].value.set(c);
   underwater.clear = r === 'south' ? 1 : 0;
@@ -315,7 +349,12 @@ function setRegion(r) {
 }
 let southBeds = false;
 function watchRegion() {
-  const r = player().pos.z > SOUTH_Z || camera.position.z > SOUTH_Z ? 'south' : 'home';
+  const P = player().pos, C = camera.position;
+  const at = seaAt(P.x, P.z, SOUTH_Z), seen = seaAt(C.x, C.z, SOUTH_Z);
+  let r = at === 'south' || seen === 'south' ? 'south' : at === 'north' || seen === 'north' ? 'north' : 'home';
+  bakeNorthAhead();
+  // (Where home's water map still reaches, home's until the north's is ready: no waiting for it.)
+  if (r === 'north' && !NORTH_TEX && P.x > WATER_RECT.x + 20 && C.x > WATER_RECT.x + 20 && P.z > WATER_RECT.z) r = 'home';
   if (r !== region) setRegion(r);
 }
 const world = buildWorld(scene, renderer, habitat);
@@ -807,10 +846,13 @@ const journal = new Journal(state);
 const explored = new Explored(state.seen);
 // (Las Brasas' chart, far to the south, remembers its own.)
 const exploredSouth = new Explored(state.seenSouth, SOUTH_MAP);
-const exploredAt = (z) => (z > SOUTH_Z ? exploredSouth : explored);
+// (And the Selkie Isles' chart, up the coast: see world/north.js.)
+const exploredNorth = new Explored(state.seenNorth, ISLES_MAP);
+const inIsles = (x, z) => x > ISLES_MAP.x && x < ISLES_MAP.x + ISLES_MAP.w && z > ISLES_MAP.z && z < ISLES_MAP.z + ISLES_MAP.h;
+const exploredAt = (x, z) => (z > SOUTH_Z ? exploredSouth : inIsles(x, z) ? exploredNorth : explored);
 if (!state.seen) {
   explored.reveal(START.x, START.z, 160);
-  for (const p of PLACES) if (state.places[p.id]) exploredAt(p.z).reveal(p.x, p.z, p.area ? 160 : 110);
+  for (const p of PLACES) if (state.places[p.id]) exploredAt(p.x, p.z).reveal(p.x, p.z, p.area ? 160 : 110);
 }
 const input = new Input(canvas);
 input.setBindings(settings.controls.keys || defaultBindings());
@@ -8448,7 +8490,7 @@ function readFingerpost() {
 
 function addToCairn() {
   audio.rustle?.();
-  exploredAt(player().pos.z).reveal(player().pos.x, player().pos.z, 900);
+  exploredAt(player().pos.x, player().pos.z).reveal(player().pos.x, player().pos.z, 900);
   const first = !state.tips.cairn;
   state.tips.cairn = true;
   const sky = weather.rain > 0.15 ? 'Cloud drags across the top, and the coast comes and goes through it.' : clock.hour < 6 || clock.hour > 21 ? 'Below, the lights: Willowhaven’s quay, the lighthouse turning out on Gannet Isle.' : 'The whole coast is laid out below: Willow Bay and the Coldwater winding down to it, the Wend estuary, Longmere among its hills, Gannet Isle and the deep water beyond.';
@@ -9873,7 +9915,7 @@ function checkPlaces(dt) {
   placeTimer = 0.4;
   const p = player().pos;
   // The map fills in around you: further out on the water than among the trees.
-  exploredAt(p.z).reveal(p.x, p.z, onFoot ? 90 : 150);
+  exploredAt(p.x, p.z).reveal(p.x, p.z, onFoot ? 90 : 150);
   for (const pl of PLACES) {
     if (state.places[pl.id] || !pl.test(p.x, p.z)) continue;
     state.places[pl.id] = { day: state.day, hour: state.hour };
@@ -12399,6 +12441,7 @@ function save() {
   state.sky = ownSky || skyOf(weather);
   state.seen = explored.toString();
   state.seenSouth = exploredSouth.toString();
+  state.seenNorth = exploredNorth.toString();
   const ok = saveGame(state);
   if (ok) cloud.queue(state, saveStatus.lastSaved);
   // (The desktop build: the same save to a file, for Steam Cloud; and achievements earned.)
@@ -13170,6 +13213,17 @@ mapSheet.addSheet('south', SOUTH_MAP, exploredSouth, () => {
   const all = new Explored('', OCEAN_SHEET);
   all.bits.fill(255);
   mapSheet.addSheet('ocean', OCEAN_SHEET, all, () => ({ data: new Uint16Array(16), width: 2, height: 2, rect: { x: 1e9, z: 1e9, w: 1, h: 1 } }));
+}
+// The north's (see world/north.js): the Selkie Isles' chart, explored as you go, its heights from the
+// north's water map; and the printed chart of the coast up to them, all charted, worked out as needed.
+mapSheet.addSheet('north', ISLES_MAP, exploredNorth, () => {
+  const W = northWater();
+  return { data: W.tex.image.data, width: 432, height: 936, rect: NORTH_WATER };
+});
+{
+  const all = new Explored('', COAST_SHEET);
+  all.bits.fill(255);
+  mapSheet.addSheet('coast', COAST_SHEET, all, () => ({ data: new Uint16Array(16), width: 2, height: 2, rect: { x: 1e9, z: 1e9, w: 1, h: 1 } }));
 }
 
 // Open the map on a spot (a mark, a photograph's place).

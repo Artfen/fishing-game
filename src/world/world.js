@@ -19,6 +19,8 @@ import { buildHome, buildGravel } from './home.js';
 import { buildCalf } from './calf.js';
 import { SOUTH_Z, SOUTH_RECT } from './brasa.js';
 import { brasaColor, buildBrasa } from './brasaWorld.js';
+import { northLand, NORTH_RECT, NORTH_EDGE, NORTH_EAST, farHills } from './north.js';
+import { northColor } from './northWorld.js';
 
 const shared = { uTime: { value: 0 }, uWind: { value: 1 }, uLeaf: { value: new THREE.Vector3(1, 1, 1) } };
 const UP = new THREE.Vector3(0, 1, 0);
@@ -227,6 +229,11 @@ function terrainColor(c, h, ny, x, z, r, weed, shore) {
     brasaColor(c, h, ny, x, z, r);
     return;
   }
+  // (And the north, up the coast: see northWorld.js.)
+  if (northLand(x, z)) {
+    northColor(c, h, ny, x, z, r);
+    return;
+  }
   if (x < COLD_BOX.x1 && z < -330 && fellColor(c, h, ny, x, z, r)) return;
   const n = fbm(x * 0.05, z * 0.05, 2);
   if (shore && h < 5 && shoreColor(c, h, x, z, r, weed)) return;
@@ -345,14 +352,55 @@ function coarseMesh(habitat, rect, rnd, skipPatches, cell = FAR, hf = farH) {
 // Beyond the land drawn in full, to the north and west: rough country rising into far hills, in
 // big cells. Only ever seen from high up (from Hoarfell, say), and through the haze; it keeps the
 // land from simply stopping. (Its inner edge tucks under the sheet's edge, a little lower.)
+// (Only to the north now, east of the north's own land: the north, up the coast to the west, is
+// drawn in tiles of its own, below.)
 const OUTER = [
-  { x0: -3400, x1: FAR_RECT.x0 + 40, z0: -3600, z1: 260 },
-  { x0: FAR_RECT.x0 + 40, x1: FAR_RECT.x1 + 40, z0: -3600, z1: FAR_RECT.z0 + 40 },
+  { x0: NORTH_EAST, x1: FAR_RECT.x1 + 40, z0: -3640, z1: FAR_RECT.z0 + 40 },
 ];
 function outerHeight(x, z) {
   const out = Math.max(FAR_RECT.x0 - x, FAR_RECT.z0 - z, 0);
-  const hills = 240 * smoothstep(0, 1300, out) * clamp(0.45 + fbm(x * 0.0011 + 7, z * 0.0011 - 3, 3) * 0.9, 0.1, 1.2);
-  return heightAt(x, z) + hills + fbm(x * 0.004, z * 0.004, 2) * 25 * smoothstep(0, 500, out) - (out <= 0 ? 2.5 : 0);
+  return heightAt(x, z) + farHills(x, z) - (out <= 0 ? 2.5 : 0);
+}
+
+// The north (docs/NORTH.md): the coast up to the Selkie Isles and the isles themselves, drawn as
+// tiles of coarse sheet built as you come near and dropped as you go (there's too much of it to
+// keep: nine kilometres of coast), on the same 20 m grid as the sheet beside them. The far hills
+// north of home go on in tiles too beyond the loch's head. (Their heights: the north's own land,
+// or the far hills as drawn above.)
+const TILE = 720;
+export const NORTH_TILES = (() => {
+  const out = [];
+  for (let x0 = NORTH_EDGE.x - 4 * TILE; x0 < 1080; x0 += TILE) {
+    for (let z0 = NORTH_RECT.z0; z0 < NORTH_RECT.z1; z0 += TILE) {
+      const x1 = x0 + TILE, z1 = z0 + TILE;
+      if (x1 <= NORTH_EDGE.x || (z1 <= NORTH_EDGE.z && x1 <= NORTH_EAST) || (z1 <= -3640 && x0 >= NORTH_EAST)) out.push({ x0, x1, z0, z1 });
+    }
+  }
+  return out;
+})();
+const tileH = (x, z) => (northLand(x, z) ? heightAt(x, z) : outerHeight(x, z));
+function* tileBuilder(habitat, R, rnd) {
+  const cell = FAR, nx = Math.round((R.x1 - R.x0) / cell), nz = Math.round((R.z1 - R.z0) / cell);
+  const H = new Float32Array((nx + 1) * (nz + 1));
+  for (let j = 0; j <= nz; j++) {
+    for (let i = 0; i <= nx; i++) H[j * (nx + 1) + i] = tileH(R.x0 + i * cell, R.z0 + j * cell);
+    if (j % 6 === 5) yield;
+  }
+  const pos = [], col = [];
+  const tri = makeTri(habitat, pos, col, false, rnd);
+  const v = (i, j) => [R.x0 + i * cell, H[j * (nx + 1) + i], R.z0 + j * cell];
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) {
+      // (Holes where a detailed patch lies: its stand-in, or the patch, fills them.)
+      if (inPatch(R.x0 + (i + 0.5) * cell, R.z0 + (j + 0.5) * cell)) continue;
+      quad(tri, i, j, v(i, j), v(i + 1, j), v(i, j + 1), v(i + 1, j + 1), false);
+    }
+    if (j % 6 === 5) yield;
+  }
+  const mesh = terrainMesh(pos, col, false);
+  mesh.userData.far = true;
+  mesh.userData.tile = true;
+  return mesh;
 }
 
 // One detailed patch, built a few rows at a time (a generator: each yield is a slice of work;
@@ -1024,6 +1072,52 @@ export function buildWorld(scene, renderer, habitat) {
     }
   }
 
+  // The north's tiles (see NORTH_TILES): the nearest one missing built a slice at a time, those far
+  // off dropped. (Each its own dice, so building them in any order changes nothing.)
+  const northTiles = NORTH_TILES.map((R, i) => ({ R, i, mesh: null, gen: null }));
+  const rectDist = (R, p) => Math.hypot(Math.max(R.x0 - p.x, 0, p.x - R.x1), Math.max(R.z0 - p.z, 0, p.z - R.z1));
+  const TILE_NEAR = 1900, TILE_FAR = 2700;
+  let tileBuilding = null;
+  function updateTiles(cp, budget) {
+    for (const T of northTiles) {
+      if (!T.mesh || rectDist(T.R, cp) < TILE_FAR) continue;
+      scene.remove(T.mesh);
+      T.mesh.geometry.dispose();
+      T.mesh.material.dispose();
+      T.mesh = null;
+    }
+    if (tileBuilding && rectDist(tileBuilding.R, cp) > TILE_FAR) {
+      tileBuilding.gen = null;
+      tileBuilding = null;
+    }
+    if (!tileBuilding) {
+      let bd = TILE_NEAR;
+      for (const T of northTiles) {
+        if (T.mesh) continue;
+        const d = rectDist(T.R, cp);
+        if (d < bd) {
+          bd = d;
+          tileBuilding = T;
+        }
+      }
+      if (!tileBuilding) return;
+      tileBuilding.gen = tileBuilder(habitat, tileBuilding.R, seeded(4401 + tileBuilding.i));
+    }
+    // (A hole close by is built at once: you'd see it.)
+    if (rectDist(tileBuilding.R, cp) < 700) budget = Math.max(budget, 80);
+    const t0 = performance.now();
+    while (performance.now() - t0 < budget) {
+      const r = tileBuilding.gen.next();
+      if (r.done) {
+        tileBuilding.mesh = r.value;
+        scene.add(r.value);
+        tileBuilding.gen = null;
+        tileBuilding = null;
+        break;
+      }
+    }
+  }
+
   const jetty = buildJetty(rnd);
   scene.add(jetty.mesh, jetty.lamp.group, jetty.light);
 
@@ -1300,6 +1394,8 @@ export function buildWorld(scene, renderer, habitat) {
     get drawDistance() { return drawDistance; },
     // Las Brasas' buildings, plants and rocks (see brasaWorld.js), once you've come near.
     get brasa() { return brasa; },
+    // (The north's tiles built just now: see NORTH_TILES.)
+    get northTiles() { return northTiles.filter((T) => T.mesh).map((T) => T.R); },
     buildBrasa() {
       if (brasa) return brasa;
       brasa = buildBrasa(scene, seeded(20261025));
@@ -1323,6 +1419,7 @@ export function buildWorld(scene, renderer, habitat) {
         for (const E of eager) E.stand.visible = !E.mesh.visible;
         // The fell: detail near, the stand-in far (and until the detail is built).
         buildLater(cp, extra.hurry ? 40 : 5);
+        updateTiles(cp, extra.hurry ? 40 : 4);
         for (const L of later) {
           const near = !!L.mesh && nearRect(L.P, cp, drawDistance);
           if (L.mesh) L.mesh.visible = near;
@@ -1331,8 +1428,11 @@ export function buildWorld(scene, renderer, habitat) {
         coldwater.update(t, env, extra.camera);
         fell.update(dt, t, env, cp);
         mountains.position.set(extra.camera.position.x, 0, extra.camera.position.z);
-        // (Out at Las Brasas there's only the ocean all round: no far hills.)
-        mountains.visible = cp.z < SOUTH_Z;
+        // (Out at Las Brasas there's only the ocean all round: no far hills. Up the coast to the
+        // north, the real land: they fade as you go west past the Calf.)
+        const fade = smoothstep(-1500, -900, cp.x) * smoothstep(-2600, -1900, cp.z);
+        mountains.visible = cp.z < SOUTH_Z && fade > 0.01;
+        mountains.material.opacity = 0.85 * fade;
         if (extra.fog) mountains.material.emissive.copy(extra.fog).multiplyScalar(0.55);
       }
       shared.uWind.value = 1 + env.rain * 1.4;

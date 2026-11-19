@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { clamp, smoothstep, damp, lerp } from '../util.js';
 import {
   WATER_RECT, BAY, COVE, CHANNEL, GANNET, SHOAL, SKERRIES, RIVER, DEEP_Z,
-  zoneAt, solidHeight, streamFlow, riverInfo, freshness, CALF_SOUND, waterLevel, SOUTH_Z, DIVE_MARKS,
+  zoneAt, solidHeight, streamFlow, riverInfo, freshness, CALF_SOUND, waterLevel, SOUTH_Z, DIVE_MARKS, northAt,
 } from './terrain.js';
+import { NORTH_WATER, inNorth, northLand, northCurrent } from './north.js';
 import { coldwaterFlow } from './coldwater.js';
 import { SOUTH_WATER, brasaCurrent } from './brasa.js';
 import { longSea, tmaAt } from './ocean.js';
@@ -48,24 +49,43 @@ const TAU = Math.PI * 2;
 const SWELL_BY_ZONE = {
   deep: 1, coast: 0.9, open: 0.75, bay: 0.28, cove: 0.18, estuary: 0.16, lake: 0, stream: 0, mere: 0.02,
   harbor: 0.04, lee: 0.3, lava: 1, sebadal: 0.42, veril: 0.75, ocean: 1,
+  // (The north: the open Atlantic on the west coast and outside the isles; the sound and the loch
+  // sheltered, the loch almost still.)
+  outer: 1, kelp: 0.75, skerry: 0.85, race: 0.6, sound: 0.32, loch: 0.04,
 };
 const WIND_BY_ZONE = {
   deep: 1, coast: 0.95, open: 0.9, bay: 0.6, cove: 0.45, estuary: 0.7, lake: 0.35, stream: 0.2, mere: 0.55,
   harbor: 0.35, lee: 0.62, lava: 1, sebadal: 0.85, veril: 0.95, ocean: 1,
+  outer: 1, kelp: 0.9, skerry: 0.95, race: 0.85, sound: 0.7, loch: 0.45,
 };
-// One baked field per sea: home (the whole water rect, 8 m cells) and the far south.
+// One baked field per sea: home (the whole water rect, 8 m cells), the far south, and the north up
+// the coast (20 m cells: nine kilometres of it).
 // data: Float32 [swell, wind] per cell (as the texture holds them); cur: Float32 [x, z] per cell,
 // the sea's surface current, for quick lookups.
 const FIELDS = {
   home: { rect: WATER_RECT, w: 250, h: 312, data: null, cur: null, tex: null },
   south: { rect: SOUTH_WATER, w: 280, h: 280, data: null, cur: null, tex: null },
+  north: { rect: NORTH_WATER, w: 216, h: 468, data: null, cur: null, tex: null },
 };
-const fieldAt = (z) => (z > SOUTH_Z ? FIELDS.south : FIELDS.home);
+// (Home's wherever home's reaches, the north's only beyond it: the two overlap west of the Calf.)
+const inHomeField = (x, z) => x > WATER_RECT.x && x < WATER_RECT.x + WATER_RECT.w && z > WATER_RECT.z && z < WATER_RECT.z + WATER_RECT.h;
+const fieldAt = (x, z) => (z > SOUTH_Z ? FIELDS.south : inNorth(x, z) && !inHomeField(x, z) ? FIELDS.north : FIELDS.home);
+const nameOf = (F) => Object.keys(FIELDS).find((k) => FIELDS[k] === F);
 export const shelterRect = (region = 'home') => FIELDS[region].rect;
+// (Whether a sea's field is baked yet: the north's is baked a slice at a time ahead of need.)
+export const shelterReady = (region) => !!FIELDS[region].tex;
 
 export function bakeShelter(region = 'home') {
   const F = FIELDS[region];
   if (F.tex) return F.tex;
+  const g = shelterSteps(region);
+  while (!g.next().done);
+  return F.tex;
+}
+// The same, a slice at a time (a generator: each yield a slice of the work).
+export function* shelterSteps(region = 'home') {
+  const F = FIELDS[region];
+  if (F.tex) return;
   const { w, h } = F, R = F.rect;
   const a = new Float32Array(w * h * 2);
   for (let j = 0; j < h; j++) {
@@ -78,6 +98,8 @@ export function bakeShelter(region = 'home') {
       a[o] = SWELL_BY_ZONE[zone] ?? 0.6;
       a[o + 1] = WIND_BY_ZONE[zone] ?? 0.8;
     }
+    if (j % 2 === 1) yield;
+    if (F.tex) return; // (finished meanwhile by another)
   }
   // Blur a few times: exposure eases off towards the shore and across zone boundaries.
   const tmp = new Float32Array(a.length);
@@ -96,6 +118,8 @@ export function bakeShelter(region = 'home') {
           tmp[(j * w + i) * 2 + c] = s / n;
         }
       }
+      if (j % 16 === 15) yield;
+    if (F.tex) return; // (finished meanwhile by another)
     }
     a.set(tmp);
   }
@@ -134,24 +158,30 @@ export function bakeShelter(region = 'home') {
       tdata[k * 4] = toHalf(full.x - cur.x);
       tdata[k * 4 + 1] = toHalf(full.z - cur.z);
     }
+    if (j % 2 === 1) {
+      TIDE.flow = flow;
+      yield;
+    if (F.tex) return; // (finished meanwhile by another)
+    }
   }
   TIDE.flow = flow;
   const tt = (F.tidTex = new THREE.DataTexture(tdata, w, h, THREE.RGBAFormat, THREE.HalfFloatType));
   tt.magFilter = tt.minFilter = THREE.LinearFilter;
   tt.wrapS = tt.wrapT = THREE.ClampToEdgeWrapping;
   tt.needsUpdate = true;
-  const tex = (F.tex = new THREE.DataTexture(data, w, h, THREE.RGBAFormat, THREE.HalfFloatType));
+  const tex = new THREE.DataTexture(data, w, h, THREE.RGBAFormat, THREE.HalfFloatType);
   tex.magFilter = tex.minFilter = THREE.LinearFilter;
   tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.needsUpdate = true;
-  return tex;
+  // (Last, so a sea's field is only ever seen whole: another bake of it meanwhile would finish first.)
+  if (!F.tex) F.tex = tex;
 }
 
 // Bilinear, at texel centres, exactly as the GPU filters the texture. out = [swell, wind].
 const _sh = [0, 0];
 export function shelterAt(x, z, out = _sh) {
-  const F = fieldAt(z);
-  if (!F.data) bakeShelter(F === FIELDS.south ? 'south' : 'home');
+  const F = fieldAt(x, z);
+  if (!F.data) bakeShelter(nameOf(F));
   const R = F.rect, { w, h } = F, shelterData = F.data;
   const u = ((x - R.x) / R.w) * w - 0.5, v = ((z - R.z) / R.h) * h - 0.5;
   const i = clamp(Math.floor(u), 0, w - 2), j = clamp(Math.floor(v), 0, h - 2);
@@ -536,8 +566,9 @@ export function currentAt(x, z, depth = 0, out = _c) {
 
 // The sea's current at the surface (everything but the stream).
 function seaCurrent(x, z, out) {
-  // (Las Brasas: the Canary current, see brasa.js.)
+  // (Las Brasas: the Canary current, see brasa.js. The north: its own, see north.js.)
   if (z > SOUTH_Z) return brasaCurrent(x, z, out);
+  if (northLand(x, z)) return northCurrent(x, z, northAt(x, z), TIDE.flow, out);
   let cx = 0, cz = 0;
   const sh = shelterAt(x, z);
   const exposed = sh[0];
@@ -588,8 +619,8 @@ function seaCurrent(x, z, out) {
 }
 // The sea's surface current from the baked grid (8 m): cheap enough for every fish, every step.
 export function currentFast(x, z, out = _c) {
-  const F = fieldAt(z);
-  if (!F.cur) bakeShelter(F === FIELDS.south ? 'south' : 'home');
+  const F = fieldAt(x, z);
+  if (!F.tex) bakeShelter(nameOf(F));
   const R = F.rect, { w, h } = F, currentData = F.cur, tidal = F.tid, flow = TIDE.flow;
   const u = ((x - R.x) / R.w) * w - 0.5, v = ((z - R.z) / R.h) * h - 0.5;
   const i = clamp(Math.floor(u), 0, w - 2), j = clamp(Math.floor(v), 0, h - 2);
